@@ -1,48 +1,59 @@
-# Proposal: operations owned by fragments
+# Proposal: operations owned by fragments (revision 2)
 
-**Status: proposal. Nothing here is decided or accepted.** Written 2026-10-30 for the owner's idea: a trait or a
-subroutine owns its operations completely, and exposes only what it chooses through its existing ports. It is
-optional, it starts with traits, and it pays off when one feature is reused (a feed on five screens). This file
-edits no plan and no other proposal. No type spike was built; every code sample is a working draft and was not
-type-checked.
+**Status: proposal.** F1–F7 are decided by the owner ([decisions.md](decisions.md), 2026-10-30) and marked
+*decided (Fn)* where they appear. Everything else is **proposed**, including every refinement of a decided rule that
+revision 2 makes; section 9 lists what still needs the owner. Revision 1 (commit `00678be6`) is prior art; this
+revision keeps what worked and fixes [reviews/review-1.md](reviews/review-1.md)'s findings at their root. No other
+file is edited. No type spike was built; every code sample is a working draft and was not type-checked.
 
-It builds on [../machine-design.md](../machine-design.md) as it stands after merges 1, 2, 4, 5 and operations in the
-definition (short name **MD**; decisions OD1–OD26 in [../merged/operations/decisions.md](../merged/operations/decisions.md)).
-[exploration.md](exploration.md) (short name **EX**) is prior art: it was written before Runtime-owned lanes, lane
-identity, parked endings and the delivery rules, and this proposal re-derives each of its problems instead of
-revising it (section 6 says which ones OD19–OD22 removed). Streams use merge 6's syntax
-([../merge-6-streams/proposal.md](../merge-6-streams/proposal.md), **M6**, accepted, not yet merged).
+It builds on [../machine-design.md](../machine-design.md) as merged (short name **MD**; decisions OD1–OD26 in
+[../merged/operations/decisions.md](../merged/operations/decisions.md)). [exploration.md](exploration.md) (**EX**) is
+older prior art. Streams use merge 6's syntax ([../merge-6-streams/proposal.md](../merge-6-streams/proposal.md),
+**M6**, accepted, not merged). Review 1 is **RV1**; its findings are cited as H1, M3, L2, and its root causes as
+RV1-R1 to RV1-R4.
 
 Marks in code: `// NEW` (a word that does not exist), `// NEW MEANING` (an existing word in a new place),
-`// RENAMED`, `// existing`, `// user-defined`. **This proposal adds no new word**; it gives six existing words a new
-place (3.6). A line with no mark uses only words marked earlier in the same block, or user-defined names.
+`// RENAMED`, `// existing`, `// user-defined`. **Revision 2 adds no new word.** One existing word gains a new
+place only if the owner accepts Q12 (`cancel` in `whenAbandoned`). A line with no mark uses only words marked earlier
+in the same block, or user-defined names.
 
-Rules proposed here are numbered **FO0–FO10** ("fragment operations"), to keep them apart from EX's F1–F10.
+Rules are **FO0–FO11** ("fragment operations").
 
 ## 0. In short
 
-- **The design in one sentence.** A fragment declares `operations` exactly as a definition does and is the only
-  thing that may act on them; its write lanes stay the Runtime's lanes, identified as today by (actor identity,
-  contract id, key), and their endings are delivered to whichever incarnation is alive at the operation's placement,
-  or parked on the lane record until one is (OD19–OD22, one level down).
-- **New words: none.** Six existing words get a new place: `operations` and `O` in a fragment, `activities` in a
-  trait body, `Fragment.O` read from outside (only `get`, `idle`, `retryable`), `s.operations.<instance>.<name>`,
-  and `fixtures`, `.enter`, `.leave` on fragment Stories.
-- **What it drops from EX:** the orphan route (`whenOrphaned`, the widened contract `orphaned`, `UnreconciledOrphan`),
-  `.public()`, the `.resumable()` ban, the subroutine `start` hook, placement-owned lane identity, incarnation
-  counters for every placement, and EX's rule-15 clause.
-- **v1 scope (recommended, Q4):** a fragment may own writes that map endings only where its incarnations are about
-  one thing: a root trait, an `.each` copy, or a `.resumable()` trait, without `resetOn`. Reads, streams and bare
-  writes may be owned anywhere. Subroutines that own writes (the checkout in 4.3) are phase 2.
-- **Honest judgement.** A first use is not smaller than the host-only form; every further host is about 50–75 % smaller
-  (4.5). The gain is that the reconcile policy is written and tested once, and a host cannot misroute an `unknown`.
-  The cost is that a write which outlives its fragment is handled only when the fragment comes back (4.3, 7).
+- **The design in one sentence.** A fragment declares `operations` as a definition does and is the only thing that
+  may act on them; its write lanes stay the Runtime's lanes, identified by (actor identity, contract id, key); each
+  lane records the **subject** of the incarnation that created it (an `.each` copy's key, or nothing for a root or
+  resumable trait), and its endings go to the live incarnation with that subject, or are parked until one starts
+  (OD19–OD22 one level down).
+- **Decided:** F1 opt-in, traits first; F2 identity unchanged, `SharedContract` per actor; F3 parked endings go to
+  the next incarnation; F4 v1 scope; F5 hosts read lanes; F6 a removed copy's hold is a stated limit; F7 subroutine
+  writes in phase 2, fragment Stories, no entry hook, `cancel` in `whenAbandoned` deferred.
+- **New words: none.** The subject is a concept, recorded by the Runtime.
+- **Owner questions (section 9):** Q11 allow `resetOn` on a writing root trait, now that the reset value can be the
+  subject (amends F4); Q12 allow `cancel` in `whenAbandoned` as "release when this incarnation ends" (amends F6 and
+  reverses F7's deferral); Q13 whether `Flow.entry` fires on a thaw (recommended: no).
+- **Honest judgement.** A first use is larger by lines in every case, and by characters in all but the autosave
+  (4.5). Every further host is 57–83 % smaller by characters. The gain is a reconcile policy written and tested once;
+  the cost is a write that outlives its fragment is handled only when its subject comes back, unless Q12 lets the
+  fragment release it.
+
+## Revision 2: what changed, by root cause
+
+| Root cause | Findings | Change |
+| --- | --- | --- |
+| **The incarnation's subject was implicit and recorded per Attempt** (RV1-R1) | H1, M4, M8, M1 at runtime | FO3 names the **subject** and records it **on the lane** when the lane is created. Members from an incarnation of another subject are declined, with existing endings and evidence. Delivery is by the lane's subject. FO5's per-Attempt copy key is gone. A subjectless lane from a host-only version is adopted by key equality (2.5, M4) |
+| **Lifecycle verbs defined "one level down" by analogy** (RV1-R2) | H2, M3, L3, M6 | FO4 states what freeze releases and what thaw re-places. FO6 states that the creating turn's own raises come before adopted endings, with a documented `idle` default. FO8 is said to be vacuous for `.each` and gains a structural warning |
+| **The summary did not carry what the host's environment needs** (RV1-R3) | M2, M5, L4 | `Fragment.O` exposes write lanes only; reads go through the instance path. FO9 carries the contracts' Effect requirements. A fragment's `keys` read its own rows |
+| **FO0 checked one placement, not the chain** | M1 | FO0 reads every placement from the actor's root, and no subroutine on the path |
+| **The worst friction: a thing that changes in the actor's life** (M7 with F6) | M7, M8, RV1-R4 | The cause is **F6 together with F7's deferral**: an ending incarnation has no way to say "my writes end with me", so every host keeps busy predecessors in membership and stops them by raising events. F4's `resetOn` ban is a second, smaller cause, needed only while subjects were not recorded. Both go to the owner as Q12 and Q11, not worked around |
+| **Wiring every author repeats** (RV1-R4; open-items item 15) | friction table | 2.8 audits each piece: absorb, keep, or owner question |
+| **Example errors** | M9, L1, L2, L5, L6 | 4.1 keeps the user's text through an adopted `Conflict`; 4.2 takes `Reconnect` only when offline, and the ticket's feed is `.resumable()`; comments name the released-landing limit; FO2 says a host may ask through public events |
+| **Two 4.5 readings** | RV1 section 4 | "A first use is larger" holds by lines, not by characters for 4.1; the like's further host is measured against a written host-only page (4.4), saving 35 % of lines, not 63 % |
 
 ## 1. The problem and the requirements
 
 ### 1.1 Where the data comes from
-
-Start at the wire. Nothing in the first five rows changes; the rest says who now holds what.
 
 | Value | Real source | Written in | Changes here |
 | --- | --- | --- | --- |
@@ -53,262 +64,280 @@ Start at the wire. Nothing in the first five rows changes; the rest says who now
 | Which server thing | the contract's `key`, a list of `input` fields (OD4, OD15) | the contract | no |
 | Which event an ending becomes | the operation's `outcomes` | **the fragment's declaration** | moved from the host |
 | The input of one commit | the commit's select over the after memory and event (rule 22) | **the fragment's transition** | moved from the host |
-| The write lane (`pending`, `uncertain`, `waiting`, `retryCount`) | the Runtime, per (actor identity, contract id, key) | unchanged; read with `Fragment.O.x.get(s, k)` | **identity unchanged**; binding moves from the actor to the incarnation (2.4) |
+| The write lane (`pending`, `uncertain`, `waiting`, `retryCount`) | the Runtime, per (actor identity, contract id, key) | read with `Fragment.O.x.get(s, k)` | identity unchanged (F2); the lane also records its **subject** (FO3) |
+| The subject | the copy's key under `.each` (host data); nothing for a root or resumable trait | the placement | **new concept**, persisted on the lane record |
 | A read's or a stream's lane | the incarnation that placed or looked it up | `s.operations.<instance>.<name>` | scoped to the incarnation (FO4) |
+| The services the contracts need | Effect's `R` of each contract's function | the fragment's type and summary | carried to the host (FO9, M5) |
 | Shared record data | the store (merge 4) | `Issue.get(s, key, shape)` | no |
-| What the host learns | the fragment's callbacks and exits, payloads it shapes | the host's filling | as today |
+| What the host learns | the fragment's callbacks, exits and public memory | the host's filling | as today |
 
 ### 1.2 When a fragment should own I/O
 
 A fragment should own an operation when **all** of these hold:
 
 1. **The policy is the feature.** What the fragment does with endings (coalesce edits, re-send an unknown with a
-   budget, catch up after a gap, roll a like back) is the reusable thing, and it is used in two or more hosts.
-2. **The facts are its own.** The workflow facts the endings produce (a doc's etag, a feed's watermark) live and die
-   with the fragment, and the host needs only a few of them, as callbacks, exits or public memory.
-3. **Its incarnations are about one thing** (FO0): the actor, a copy's key, or one resumable life. Then a write that
-   outlives an incarnation reaches the right next one.
-4. **The host does not need a late result at once.** If the host must react to an ending wherever the user has gone
-   (a payment that lands after Back must move the user to the receipt), the host owns that operation.
+   budget, catch up after a gap, roll a like back) is the reusable thing, used in two or more hosts.
+2. **The facts are its own.** The workflow facts the endings produce live and die with the fragment, and the host
+   needs only a few of them.
+3. **Each write's key is decided by the incarnation's subject** (FO3): the actor for a root trait, the copy's key
+   under `.each`. A follow-author button on each post is wrong (two posts, one author, one lane); a follow button over
+   distinct authors is right.
+4. **The host does not need a late result at once.** If the host must react wherever the user has gone (a payment
+   that lands after Back moves the user to the receipt), the host owns that operation.
 
-It should not when any fails: a screen used once (the host form is smaller, 4.5); a saga that decides across steps;
-membership driven by bulk work (MD 2.7.13's per-key fan-out limit); host data that many writes share.
+It should not when any fails: a screen used once; a saga across steps; bulk work over a membership (MD 2.7.13's
+per-key fan-out limit); host data many writes share.
 
 ### 1.3 What must hold
 
 | # | Requirement | Source | Answered by |
 | --- | --- | --- | --- |
-| Q-a | **One write in flight per server thing per actor identity**, whichever fragment writes it | D9, rule 21 | FO3 |
-| Q-b | **A sent Attempt's ending is always delivered**, to something that can act on it | OD5 principle 2, rule 17 | FO5, FO6 |
-| Q-c | **Every hold has an owner**, checkable from the fragment and the host's summaries | OD6, rule 45 | FO7, FO8 |
-| Q-d | **The host cannot reach inside**, and no operation has two owners | rule 4; EX R5 ("the split") | FO2 |
-| Q-e | **A lane survives its fragment and its actor**, with no orphan route | OD19 | FO5 |
-| Q-f | **Lane records decode without the machine**, so a version change cannot lose them | rule 46, OD22 | FO3 (no instance path in identity) |
-| Q-g | **A host is checked against its fragments' summaries only** | rule 10 | FO9 |
-| Q-h | **One graph, one Runtime, one lane space**: no hidden second machine, no second lane store | MD 1, T1 | FO3, FO5 |
-| Q-i | **A fragment's I/O is tested alone**, against a fixture | rule 11, principle 10 | FO10 |
-| Q-j | **Optional**: a fragment without `operations` costs nothing | owner | FO1 |
-
-The rest of section 1 states each area's question; section 2 answers it.
-
-- **Lane identity per fragment instance.** A trait on a state node is a new incarnation on every entry; `.each`
-  copies are one incarnation per key; a subroutine is fresh on every entry. Is the lane per instance, per
-  incarnation, or per thing? If per instance or incarnation, two placements of one autosave over one document send
-  two saves at once (Q-a fails), and a reload cannot find the lane without the machine's shape (Q-f fails).
-- **Lifecycle.** The incarnation that committed can end while its write is on the wire or held: its node is left,
-  its copy removed, the subroutine exits or is abandoned, the trait is frozen or reset, the actor is disposed. Where
-  does the ending go, and who owns the hold?
-- **Persistence and rebind.** What does a lane record need to name so that a restored actor, or a fresh one of the
-  same identity, delivers each parked ending to the right fragment?
-- **Delivery to the fragment or the host.** The host cannot handle a fragment's events (rule 4). Does a late ending
-  go to the host, the fragment, or nowhere?
-- **Static analysis and the single graph.** What does a fragment's summary record so that `flow check` can verify
-  a host without the fragment's body, and `flow graph` can draw the I/O?
-- **Stories.** A fragment Story has no services today (merge 3 says "because fragments have no I/O").
-- **`flow check`.** `UnresolvedHold` (rule 45) and rule 20's adopted endings (OD22) are computed over an
-  operation's arrival set; what is the arrival set of a fragment's operation, and what does the host add?
+| Q-a | One write in flight per server thing per actor identity, whichever fragment writes it | D9, rule 21 | FO3 (decided, F2) |
+| Q-b | A sent Attempt's ending is always delivered, **to something that can act on it, about the same thing** | OD5 principle 2, rule 17 | FO3 subject, FO5, FO6 |
+| Q-c | Every hold has an owner, checkable from the fragment and the host's summaries | OD6, rule 45 | FO7, FO8 |
+| Q-d | The host cannot reach inside, and no operation has two owners | rule 4 | FO2 (decided, F5) |
+| Q-e | A lane survives its fragment and its actor, with no orphan route | OD19 | FO5 (decided, F3) |
+| Q-f | Lane records decode without the machine | rule 46, OD22 | FO3: no instance path; the subject is a string |
+| Q-g | A host is checked against its fragments' summaries only, **types included** | rule 10 | FO9 |
+| Q-h | One graph, one Runtime, one lane space | MD 1 | FO3, FO5 |
+| Q-i | A fragment's I/O is tested alone, against a fixture | rule 11 | FO10 (decided, F7) |
+| Q-j | Optional: a fragment without `operations` costs nothing | owner | FO1 (decided, F1) |
+| Q-k | **Freeze and thaw leave no read silently dead** | RV1 H2 | FO4 |
+| Q-l | **Upgrading a host-only write to a fragment loses no persisted lane** | RV1 M4 | 2.5 |
 
 ## 2. The design
 
 ### 2.1 Thinking about the whole system first
 
-Before any rule, what each choice does to the rest of Flow:
+1. **One lane space** (decided, F2). The Runtime's write lanes, their table (2.7.13), persistence (rule 46), parked
+   endings (OD22), `runtime.unsettledWrites()`, Inspection and SSR keep keying by (actor identity, contract id, key).
+2. **Binding moves one level down, identity does not.** "Binding actor" becomes "binding incarnation" (2.4).
+3. **"Which thing is this incarnation about" must be a recorded fact, not a claim about placement kinds** (RV1-R1).
+   Revision 1 inferred it from the placement and wrote the copy key on each Attempt, so two copies could share one
+   lane while each Attempt named a different copy (H1). A lane is the server thing; the subject is "whose workflow
+   handles it". Recording the subject on the lane makes one owner per lane true by construction, enforces F4 at
+   runtime, and gives phase 2 a direct admission rule for `resetOn` and node traits (a reset value is a subject).
+4. **Every lifecycle verb a fragment has must be stated, not inherited.** An actor has no freeze, no same-turn
+   raise into a newborn, and no `when`; a fragment has all three (RV1-R2). Each gets a row (2.4).
+5. **What ends a write's workflow is the author's decision, and today it has no place to be written** (M7). For a
+   document, a closed doc's save should wait for the doc to return; for an avatar pick or a comment draft, the
+   subject never returns. The merged design deliberately has no quiet release (OD6). So the release must be
+   *declared* by the fragment, at the moment its incarnation ends. That is Q12, the root fix for F6's friction.
+6. **The host's environment is part of the contract** (RV1-R3). A fragment that needs `DocsApi` must make every host
+   need it, in types, or a host Story compiles and dies at its first commit.
+7. **The host graph hides I/O** (stated, revision 1). `flow graph`, `flow explain` and Inspection draw it from the
+   summary.
 
-1. **Keep one lane space.** The Runtime's write lanes, their table (2.7.13), persistence (rule 46), parked endings
-   (OD22), `runtime.unsettledWrites()`, Inspection and SSR all key by (actor identity, contract id, key). Adding the
-   instance path or an incarnation to that identity would change every one of them, would let two placements write
-   one thing at once, and would make a lane record depend on the machine's shape. So identity does not change (FO3).
-2. **Generalize binding, not identity.** Today a lane is bound to an actor; disposal unbinds it and the next
-   incarnation of the identity rebinds it (OD19–OD21). A fragment's incarnation ending is the same event one level
-   down. So "binding actor" becomes "binding incarnation", and every row of the table that mentions binding reads
-   the same (2.4). This is the whole Runtime change.
-3. **Keep one owner per operation.** The host never maps, starts, re-sends or cancels a fragment's operation, and
-   the fragment never touches the host's. So the split EX's R5 warned about cannot be written, and the
-   `unknown`-misrouting bug (MD 1: "a host handler can still start a new write from an `uncertain` event") cannot be
-   written in a host that uses the fragment.
-4. **Reads are not writes.** Reads change nothing on the server, are not persisted (rule 42) and are released by
-   leaving (M6 rule 44). So a fragment's reads simply live and die with its incarnation (FO4). Only writes need the
-   lifecycle machinery.
-5. **The cost lands on readability of the host.** A host that places an autosave no longer shows its I/O states.
-   `flow graph`, `flow explain` and Inspection must draw them from the summary (FO9). This is the price of reuse,
-   stated, not hidden.
-6. **Types.** A fragment's `operations: ({ E }) => …` has the definition's typing risk (MD 2.7.16: `E` first). A
-   fragment's handles must be branded with their declaring fragment, so a host's `actions` reject them. Not spiked.
+### 2.2 The rules
 
-### 2.2 The rules (proposed)
+**FO0. Scope in v1** (decided, F4; refined, M1). A fragment may own a write operation that maps anything only if
+**every placement from the actor's root to it** is a root trait (a trait at the root of the definition, or at the root
+of such a trait), an `.each` copy, or a `.resumable()` trait without `resetOn`, and **no subroutine is on the path**.
+Elsewhere a fragment may own reads, streams and bare writes. A violation is a construction error (rule 12). Q11 would
+admit `resetOn` on a root or resumable trait whose reset value is a string.
 
-**FO0. Scope in v1** (owner question Q4). A fragment may own a write operation that maps anything only if its
-placement's incarnations are about one thing: a trait at the root of its definition (or at the root of such a
-trait), an `.each` copy (the thing is the copy's key), or a `.resumable()` trait; and the placement has no
-`resetOn`. Elsewhere (a non-resumable trait on a state node, a subroutine) a fragment may own reads, streams and
-bare writes (a bare write delivers nothing, rule 40). A violation is a construction error (rule 12). Phase 2 lifts
-the restriction under FO5–FO8 unchanged (Q7).
+**FO1. A fragment may declare `operations`** (decided, F1). Same shape and meaning as a definition's (rules 13,
+39–43, 47), after `memory` and `traits`. Its endings map onto its own `internalEvents`, which now come from its
+schedules or its operations' endings (amends rule 2). It reads no context and sends to no actor. A fragment's domain
+write registers the domain for its actor. A fragment without `operations` is unchanged (amends rule 3).
 
-**FO1. A fragment may declare `operations`.** Same shape and meaning as a definition's (rules 13, 39–43, 47), in the
-declaration after `memory` and `traits` (MD 2.6's key order already lists it). Its endings map onto the fragment's own
-`internalEvents`, which now come from its schedules or its operations' endings (amends rule 2). It still reads no
-context and sends to no actor. A fragment that registers a domain write registers the domain for its actor, so
-`Entity.get` reads its records. A fragment without `operations` is unchanged (amends rule 3 and 2.2.2's last sentence).
+**FO2. Only the fragment acts; the host reads and asks** (decided, F5; refined, M2, L6). Acting members (`commit`,
+`lookup`, `subscribe`, `retry`, `cancel`, `refetch`) are typed only in the declaring fragment's body. `Fragment.O`
+exposes **only its write operations' reads**: `get(s, k?)` in views, and `get`, `idle`, `retryable` in a host's guards
+and `updateMemory`. They are unambiguous because a write operation is unique per actor (FO3). A fragment's reads and
+streams, which may be placed twice (they are exempt from `SharedContract`), are read only through the instance path,
+`s.operations.<instance>.<name>`. A host that wants a fragment to stop or retry asks through the fragment's public
+`events` or `hostEvents` (a `Cancel`); that is intended, and the fragment decides.
 
-**FO2. Only the fragment acts; anyone may read.** Members that start, re-send, stop or re-request work (`commit`,
-`lookup`, `subscribe`, `retry`, `cancel`, `refetch`) exist only in the declaring fragment's body; written anywhere
-else they are a type error and a construction error. The fragment exports its handles as `Fragment.O`, as a
-definition exports `O`. Outside it, only reads exist: `Fragment.O.x.get(s, k?)` in views, and `get`, `idle` and
-`retryable` in the host's guards and `updateMemory`. Its rows appear under its instance, as its schedules do:
-`s.operations.<instance>.<name>`, `undefined` while the incarnation is inactive, a keyed list of copies under `.each`
-(rule N1). A write row listed there shows the lanes this incarnation has an Attempt or a parked ending in; `get` is
-total and Runtime-wide for the actor, so a lane is readable even when no incarnation lists it (amends rule 4).
+**FO3. Lane identity is unchanged; each lane records its subject** (identity decided, F2; subject proposed,
+RV1-R1).
 
-**FO3. Lane identity is unchanged; one write operation per write contract per actor.** A write lane is (actor
-identity, contract id, key), as rule 21 says. `SharedContract` (rule 40) now counts every write operation of the
-definition **and of every fragment placement in its tree**; a fragment placed once counts once, with or without
-`.each`. So every lane has exactly one operation, one mapping and one placement, all found by contract id after a
-rebind or a reload, as `writes` is (OD26). An Attempt committed in an `.each` copy also records that copy's key.
-Reads and streams stay exempt. A trait that owns a write is placed once per actor: on a node that covers every place
-it is needed, or with `.each`.
+- A write lane is (actor identity, contract id, key). `SharedContract` counts every write operation of the
+  definition and of every fragment placement in its tree.
+- An incarnation's **subject** is the copy's key under `.each`, and nothing for a root or `.resumable()` trait (and,
+  under Q11, the reset value). When a commit creates a lane (`Idle` → `InFlight`), the lane records the committing
+  incarnation's subject. The subject stays until the lane is `Idle` again, and is persisted with the lane record.
+- A member from an incarnation whose subject differs from the lane's is **declined**, with existing words: a
+  `commit` ends `NotSent { why: "Rejected" }` (so under `.each`, rule 20 requires `NotSent` mapped on every mapped
+  write); a `retry` is evidence `NothingToResend` (this incarnation has nothing on that lane); a `cancel` does
+  nothing, with evidence, as in `Idle`. `idle` denies by the lane's real state (`InFlight` or `Uncertain`), so a
+  button that `check()`s shows the truth. `get` reads the real row: the thing is busy, whoever owns it.
+- **Authoring rule.** Under `.each`, the write's key should be decided by the copy's key. `flow check` cannot see it
+  (the key comes from a closure); a Story sees the decline, and Inspection lists it.
+- **Two placements of one writing fragment** are a `SharedContract` error. The pattern (M8): fold the extra
+  placement into the `.each` membership and render it from its copy (`E.follow.key(userId)`), or split the screen
+  into two actors (two plain writes to one thing are then unordered; domain writes stay ordered by the record queue).
+  Phase 2 may let one fragment's placements share an operation when their subjects differ.
 
-**FO4. Reads live and die with the incarnation.** A fragment's one-off read lane is (actor, operation, incarnation);
-its live placements are the incarnation's, and an `activities` list in a trait body is placed for the incarnation's
-life, switched by `when`. Ending the incarnation releases them, exactly as leaving a state releases a state's
-(rule 42, M6 rule 44): nothing is delivered afterwards.
+**FO4. Reads live and die with the incarnation; freeze releases them, thaw places them again** (refined, H2). A
+fragment's one-off read lane is (actor, operation, incarnation); its live placements are the incarnation's, and an
+`activities` list in a trait body is placed for the incarnation's life, switched by `when`. Ending the incarnation
+releases them (rule 42, M6 rule 44). **Freezing** a `.resumable()` trait releases its placements and its one-off
+reads; a released lookup's settlement is `Superseded` evidence. **Thawing** places its `activities` again from the
+thawed memory, as entering a state does, so a stream resumes from the fragment's own position. A fragment has no thaw
+event (Q13 keeps `Flow.entry`'s meaning): a fragment that waits on a lookup arms a schedule for it, and a frozen
+schedule that is overdue fires once on return (rule 1). 4.2's `resync` is that schedule.
 
-**FO5. Writes outlive the incarnation; their endings go to the placement.** A write lane's **binding incarnation**
-is the live incarnation at its operation's placement (with the Attempt's copy key under `.each`); for a host
-operation it is the actor, as before. At admission, rule 14's one owner test runs inside the binding incarnation:
-the owner activation alive → current; an ended activation of this incarnation → late, from its nearest surviving
-ancestor inside the fragment (rule 15 applies inside); never an activation of this incarnation (a reset, a re-entry,
-a re-added copy, a rebind) → current, from the incarnation's active leaf. With no binding incarnation (its node was
-left, its copy removed, the subroutine ended, the trait frozen), the ending's lane effects and store effects apply
-as today (rule 27), and the ending is **parked raw on its lane record** (OD22) for that placement and copy key.
+**FO5. Writes outlive the incarnation; their endings go to the subject** (decided, F3; restated with the subject).
+A lane's **binding incarnation** is the live incarnation at its operation's placement **whose subject is the lane's**;
+for a host operation it is the actor. At admission, rule 14's owner test runs inside the binding incarnation (owner
+alive → current; an ended activation of it → late inside the fragment; never an activation of it → current from its
+active leaf). With no binding incarnation (the node left, the copy removed, the trait frozen), the ending's lane and
+store effects apply as today (rule 27), and the ending is parked raw on the lane record (OD22) for that subject.
 
-**FO6. A starting incarnation adopts its placement's lanes.** When an incarnation starts at a placement (an entry, a
-re-added copy key, a thaw, or the actor's own rebind or restore), it receives, as follow-up turns at the head of the
-mailbox right after the turn that started it (after any pending reset, rule 1) and before any other event addressed
-to it: the placement's parked endings in saved order, mapped through the current `outcomes`; then, per lane in
-creation order, a held head's `unknown { Restored }` exactly once; then an in-flight Attempt's ending when it lands.
-A thaw is the same incarnation, which saw its holds: it receives its parked endings only. This is rule 44 one level
-down.
+**FO6. A starting incarnation adopts its subject's lanes** (decided, F3; order refined, M3). When an incarnation
+starts at a placement (an entry, a copy added for a key, a thaw, the actor's rebind or restore), it receives, per lane
+whose subject is its own: the parked endings in saved order, then a held head's `unknown { Restored }` once, then an
+in-flight Attempt's ending when it lands. A thaw is the same incarnation and receives its parked endings only. **These
+run as follow-up turns at the head of the mailbox after the starting turn commits, after any pending reset (rule 1),
+and before any later event addressed to the incarnation.** The starting turn's own raises into the new incarnation
+(rule 9: a source may add a key and raise into it) run before them, in the starting turn. **Documented default:** a
+fragment that commits on its creation guards that commit with `O.x.idle(own)`, so a creating raise that meets an
+adopted hold is a denied transition, not a `NotSent` the user sees.
 
 **FO7. Adopted endings are handled inside the fragment.** Rule 20's adopted endings (OD22) and rule 45's
-`UnresolvedHold` (2.7.14) run on the fragment's body alone, over the fragment's **new-incarnation arrival set**: for a
-trait, its own `on`; for a subroutine, its default leaf and every leaf reachable from it, with 2.7.14's stopping rules.
-So a fragment that owns a holding write handles its endings at its root and reads what it needs from the event,
-which rule 44 already asks of a definition. A fragment exit taken on a branch that keeps a hold is a branch with no
-reachable owner, reported by the same check.
+`UnresolvedHold` run on the fragment's body alone, over its new-incarnation arrival set (a trait: its own `on`; a
+subroutine: its default leaf and every leaf reachable from it). A handler reads what it needs from the event, which
+matters more here than for an actor, because a fragment incarnation ends far more often (M9: 4.1 carries the user's
+text in `Conflict`). A fragment exit on a branch that keeps a hold is reported by the same check.
 
-**FO8. A host that ends a holding placement must be able to start it again.** At the host, `UnresolvedHold` gains
-one kind of arrival: every host transition that can end the incarnation at a placement whose summary lists a holding
-write (it exits the placement's node or a frozen trait's node, abandons the subroutine, or writes the `.each` field).
-The owner is the next incarnation there. Pass if a transition that starts one is reachable from the target; warning
-otherwise, as for any owner that exists but cannot be reached (rule 45). Closures over-approximate, so a host that
-writes an `.each` field anywhere passes; that gap is stated (Q6).
+**FO8. A host that ends a holding placement must be able to start it again** (refined, L3, M6).
 
-**FO9. Summaries carry operations.** A fragment's summary (rule 10) records, per operation: contract id, kind, the
-verb used, concurrency, key fields, the events it maps, and whether it holds (a mapped write on `reject`, `latest` or
-`serialize`). A host is checked against summaries only (FO3, FO8). Swapping a fragment for one with the same summary
-still cannot break its host; a summary with a different operation is a different contract.
+- For a node or `.resumable()` placement: every host transition that can end or freeze the incarnation of a
+  placement whose summary lists a holding write is an `UnresolvedHold` arrival; the owner is the next incarnation
+  there; pass if a transition that starts one is reachable from the target, warning otherwise.
+- For `.each` that reachability check is vacuous (any write of the field may re-add the key), so it is replaced by a
+  **structural** warning, by analogy with rule 16's `idle` warning: a host transition that writes an `.each` field
+  whose fragment holds (and, under Q12, does not release on leave), with no `Fragment.O.x.idle` token in its guard, is
+  an `UnresolvedHold` warning. A host that reads lanes in `updateMemory` (4.4's keep-busy line) is not a token, so
+  it still gets the warning, and accepts it or guards with `idle`.
+- At runtime, removing a copy whose subject has a non-`Idle` lane is listed by Inspection as an **unplaced** lane.
 
-**FO10. Stories.** `story.machine(fragment, { id, fixtures })` provides services as it does for a machine (merge 3
-names it `story.trait` / `story.subroutine`); `.leave()` and `.enter(input)` apply to traits as well as subroutines,
-so a Story walks the gap and the adoption; `Story.ending(Autosave.O.save, …)` drives an ending (*Story reads:
-merge 3*). The 33 lane cells stay in Flow's policy suite (2.7.13); the binding rows of 2.4 join it.
+**FO9. Summaries carry operations and requirements** (refined, M5). A fragment's summary records, per operation:
+contract id, kind, verb, concurrency, key fields, mapped events, whether it holds, and (under Q12) whether it releases
+on leave. The fragment's type carries the union of its contracts' Effect requirements (`R`), so a host machine's `R`
+includes it and `story.machine(host, { fixtures })` or the app's Layer that misses `DocsApi` is a type error, as
+Effect does everywhere. Hosts are checked against summaries only.
+
+**FO10. Stories** (decided, F7). `story.machine(fragment, { id, fixtures })`; `.leave()` and `.enter(input)` on
+traits; `Story.ending(Autosave.O.save, …)` (*Story reads: merge 3*). The walks to keep as Stories: two copies on one
+lane, the second declined (H1); freeze during a catch-up, thaw, the overdue `resync` re-looks-up (H2); a creating raise
+meeting an adopted hold (M3); a copy removed during a save that gets a 412, re-added, the adopted `Conflict` keeps the
+user's text (M9); an upgrade from a host-only lane (M4).
+
+**FO11. A fragment's rows** (refined, L4). `s.operations.<instance>.<name>` is `undefined` while the incarnation is
+inactive, a keyed list of copies under `.each` (rule N1). A write row there lists the lanes whose subject is the
+incarnation's. Inside the fragment, `operations` (in guards, `updateMemory`, and a keyed schedule's `keys`) is the
+fragment's own rows, keyed as the host's are.
 
 ### 2.3 Lifecycle: where every piece goes
 
-| What happens | Reads and streams | A write on the wire or waiting | A held unknown | Its ending, or the hold, is delivered to |
+| What happens | Reads and streams | A write on the wire or waiting | A held unknown | Delivered to |
 | --- | --- | --- | --- | --- |
-| Root trait, actor alive | live | runs | held | the trait (current); never a gap |
-| `resetOn` reset (phase 2 only, FO0) | released, re-placed for the new incarnation | runs | held | the new incarnation (FO5, "never an activation of this incarnation") and `unknown { Restored }` for each hold (FO6) |
-| `.each` copy removed | released | runs (Runtime-owned) | held, unplaced | parked for the key; the next copy of that key adopts (FO6); never one: stays until the actor ends (7, Q6) |
-| `.resumable()` trait frozen | released | runs | held | parked; delivered at thaw to the same incarnation, no `unknown { Restored }` (FO6) |
-| Node-placed trait left (phase 2) | released | runs | held, unplaced | the node's next incarnation (FO6); `UnresolvedHold` warning at the host if the node cannot be re-entered (FO8) |
-| Subroutine takes an exit (phase 2) | released | the fragment's own check: an exit on a hold-keeping branch is reported (FO7) | as left | as left |
-| Subroutine abandoned (phase 2) | released | runs | held, unplaced | the next entry (FO6), checked by FO8 |
-| Actor disposed | released | unchanged (OD19): the Runtime keeps it | unchanged | the identity's next incarnation's placement; parked for a persisted identity, evidence otherwise (OD21) |
-| Rebind or restore | re-placed per state | the restored incarnation's placement receives it when it lands | `unknown { Restored }` once (2.7.13) | the placement's incarnation if it is active in the restored state, else parked there (FO5) |
-| Runtime disposal, SSR | as MD | as MD (2.7.13's rows) | as MD | as MD; nothing new |
+| Root trait, actor alive | live | runs | held | the trait; never a gap |
+| `.each` copy removed | released | runs (Runtime-owned) | held, unplaced | parked for the subject; a new copy for the key adopts (FO6); never: stays until the actor ends (decided, F6), or released at once under Q12 |
+| `.each` copy added in a turn that also raises into it | the raise runs in the starting turn | — | — | the raise first, then adopted endings (FO6) |
+| Two copies, one lane (H1) | own | the first subject's; the second's commit ends `NotSent { Rejected }` (FO3) | the first subject's | the first subject's copy only |
+| `.resumable()` frozen | released (lookups `Superseded`) | runs | held | parked; at thaw, the same incarnation; `activities` placed again from its memory (FO4) |
+| `resetOn` reset (Q11) | released, re-placed | runs | held | the incarnation whose reset value is the lane's subject; a return to that value adopts |
+| Node trait left, subroutine left (phase 2) | released | runs | held, unplaced | the next incarnation with the same subject; FO8 at the host |
+| Actor disposed | released | unchanged (OD19) | unchanged | the identity's next incarnation, then its subject's placement; parked for a persisted identity, evidence otherwise (OD21) |
+| Rebind or restore | re-placed per state | delivered when it lands | `unknown { Restored }` once | the placement's incarnation with the lane's subject, if active; else parked |
+| Runtime disposal, SSR | as MD | as MD | as MD | as MD |
 
-**Store and cache effects never wait.** A domain write's prediction, confirmation, rollback and marks apply at
-settlement (rule 27), and a plain write's `writes` invalidations are on the operation (OD26), found by contract id. So
-a like confirms or rolls back in every view even while its copy is gone; only the fragment's own reaction waits.
+Store and cache effects never wait: a domain write's prediction, confirmation, rollback and marks apply at settlement
+(rule 27), and `writes` is on the operation (OD26).
 
-### 2.4 The write lane: the table applies unchanged
+### 2.4 The write lane: the table applies unchanged; binding, subject and freeze rows change
 
-The lane's states (`Idle`, `InFlight`, `Held`, `W`), its 16 rows and both policy tables (2.7.13) apply unchanged:
-nothing about what a member, an ending or a Runtime step does to a lane depends on who is bound. What changes is what
-"bound" means. Delta, in the table's terms:
+The lane's states (`Idle`, `InFlight`, `Held`, `W`), its 16 rows and both policy tables (2.7.13) are unchanged.
+Delta:
 
 | Row | Before (MD 2.7.13) | After (proposed) |
 | --- | --- | --- |
-| **dispose** | the binding actor ends | the binding **incarnation** ends: the actor is disposed, or the fragment incarnation at the operation's placement ends (its node left, its copy removed, the subroutine ended). Cells unchanged: `InFlight` keeps running, `Held` keeps its hold and `W` |
-| **freeze** (new row, an instance of dispose) | — | a `.resumable()` trait is frozen: as dispose |
-| **rebind** | an incarnation of the same identity starts | an incarnation starts **at the same placement and copy key** of the same identity (an entry, a re-added key, a reset, or the actor's own rebind). Cells unchanged: parked endings first, then the hold as `unknown { Restored }` once, `W` stays |
-| **thaw** (new row) | — | the frozen incarnation resumes: parked endings are delivered; no `unknown { Restored }` (it saw the hold); `W` stays |
-| **parking condition** | parked "if the identity has a saved record"; else evidence | also parked while the **actor is alive** and the placement has no incarnation. When the actor is disposed, the existing rule decides: kept for a persisted identity, evidence otherwise (OD21) |
-| **delivery order** | before any external event of a new actor incarnation | before any event addressed to the new fragment incarnation, as follow-up turns after its starting turn (FO6) |
+| **lane created** (`commit` in `Idle`) | mint an Attempt → `InFlight` | as before, and the lane records the committing incarnation's subject |
+| **member from another subject** (new) | — | `commit`: ends `NotSent { Rejected }`, delivered to the asking incarnation, lane unchanged; `retry`: evidence `NothingToResend`; `cancel`: nothing, with evidence; `idle`: denies by the lane's state; `get`: the real row |
+| **lane becomes `Idle`** | the lane is removed | as before; the subject goes with it |
+| **dispose** | the binding actor ends | the binding incarnation ends: the actor is disposed, or the incarnation with the lane's subject ends. Cells unchanged |
+| **freeze** (new) | — | as dispose for writes; the incarnation's placements and lookups are released (FO4) |
+| **rebind** | an incarnation of the same identity starts | an incarnation starts at the placement **with the lane's subject**. Cells unchanged |
+| **thaw** (new) | — | the frozen incarnation resumes: its `activities` are placed again; parked endings delivered; no `unknown { Restored }`; `W` stays |
+| **parking condition** | parked if the identity has a saved record, else evidence | also parked while the actor is alive and no incarnation has the lane's subject; when the actor is disposed, the existing rule decides (OD21) |
+| **delivery order** | before any external event of a new actor incarnation | follow-up turns after the starting turn (whose own raises come first), after pending resets, before any later event addressed to the incarnation (FO6) |
+| **release on leave** (Q12 only) | — | the incarnation ends with `O.x.cancel(own)` in `whenAbandoned`: in `Held`, released now (`Released`); waiting, never sent: `NotSent { Cancelled }`, evidence; on the wire: interrupted, and the ending that lands with no incarnation of that subject is applied and then released instead of parked (an unknown is `Released` evidence). Every queued commit (`W`, all of that subject, FO3) ends `NotSent { Cancelled }`, evidence, so the lane becomes `Idle` instead of promoting work nobody owns |
 
-Every other row (commit, retry, cancel, idle, retryable, invoked, storage refused, success, failure, unknown,
-interrupt, restore, Runtime disposal, SSR hydration) is unchanged. The `cancel`/`allow` table's `HeldThisTurn` and
-the parked `Held` state (OD25) apply to a fragment's lane as they are: "no live actor" reads "no binding incarnation".
+Every other row is unchanged. OD25's parked `Held` row reads "no binding incarnation" for "no live actor".
 
 ### 2.5 Persistence and rebind
 
-- **A lane record names no instance path.** Identity is (actor identity, contract id, key) and the operation is found
-  by contract id (FO3), so renaming an instance, moving a trait to another node or into another fragment changes
-  nothing persisted, as renaming an operation already does (2.7.15).
-- **An Attempt committed in an `.each` copy carries the copy's key** (a string, host data, decodable without the
-  machine). This brings back, for fragment-owned commits only, the copy key that C20 deleted for host operations.
-- **Parked endings of an unplaced placement** are already on the lane record (OD22); a lane holding only a parked
-  ending is non-`Idle`, so it is captured, listed by `runtime.unsettledWrites()` and by Inspection.
-- **A version that removes the fragment's operation** sends the lane to `orphaned` (P19), as for a removed host
-  operation. A version that changes a placement between single and `.each`, so the Attempt's copy key no longer fits,
-  does the same (stated).
+- **A lane record names no instance path** (decided by F2's consequence). The operation is found by contract id.
+- **The lane record carries its subject** (a string: a copy's key; under Q11, a reset value that must be a string).
+  The per-Attempt copy key of revision 1 is gone.
+- **Upgrading a host-only write to an `.each` fragment** (M4). A lane written before the fragment existed has no
+  subject. When an `.each` placement adopts it, its subject is the lane's key value if the contract's key is one field
+  (4.1: `key: ["docId"]`, so a held save of `d1` goes to copy `d1`); otherwise it goes to `orphaned` (P19), stated. A
+  subjectless lane adopted by a root trait needs nothing: the root has no subject.
+- Parked endings of an unplaced subject are on the lane record (OD22), captured, and listed by Inspection and
+  `runtime.unsettledWrites()`.
+- A version that removes the fragment's operation sends the lane to `orphaned` (P19).
 
 ### 2.6 Static analysis, the single graph, `flow check`
 
-- **One graph.** A fragment's operations are nodes under its placement in the actor's graph. `flow graph` draws them
-  from the summary; `flow explain` prints `docs  SaveDue → commits save (docs/save, reject, one lane per docId)`.
-  Inspection lists every lane by identity with its operation path, and marks a lane with no binding incarnation
-  **unplaced** (a concept beside "unbound", not a word in the API).
-- **`flow check` adds no finding name.** `SharedContract` widens (FO3). `UnresolvedHold` and rule 20's adopted-ending
-  check run inside each fragment (FO7) and gain the placement arrival at the host (FO8). `VerbMismatch`,
-  `DuplicatePlacement`, `KeyRequired`, `KeyOmitsInput` and rule 20's `NotSent` list apply inside fragments unchanged.
-  An acting member of a fragment used outside it, and an FO0 violation, are construction errors (rule 12).
-- **Typing.** `Fragment.O` is typed from the declaration, like a definition's `O`. Key-less members in an ending's
-  handler (OD8) are typed per fragment. A fragment's members are branded with the fragment, so a host's `actions`
-  list rejects them.
+- **One graph.** A fragment's operations are nodes under its placement. `flow graph` and `flow explain` draw them from
+  the summary (`docs  SaveDue → commits save (docs/save, reject, one lane per docId, subject = copy key)`). Inspection
+  lists every lane with its operation path and subject, and marks a lane with no binding incarnation **unplaced**.
+- **`flow check` adds no finding name.** `SharedContract` widens (F2). `UnresolvedHold` and rule 20's adopted-ending
+  check run inside each fragment (FO7) and gain FO8's arrivals and structural warning at the host. Rule 20's `NotSent`
+  list gains "an `.each` fragment's mapped write (`Rejected`, another subject)". An acting member of a fragment used
+  outside it, and an FO0 violation, are construction errors (rule 12).
+- **Typing.** `Fragment.O` is typed from the declaration and has only write operations' reads. Members are branded
+  with their fragment. The fragment's `R` reaches the host (FO9).
 
 ### 2.7 Keywords
 
 | Word | Status |
 | --- | --- |
-| `operations` in a trait or subroutine declaration | existing key, **NEW MEANING** (FO1) |
-| `O` in a fragment body | existing, **NEW MEANING**: this fragment's handles |
-| `Fragment.O` (`Autosave.O.save.get`, `.idle`, `.retryable`) outside the fragment | existing, **NEW MEANING**: reads only (FO2) |
-| `activities` in a trait body | existing, **NEW MEANING**: placed for the incarnation's life (FO4) |
-| `s.operations.<instance>.<name>` | existing path pattern (`s.schedules.<instance>.<name>`), **NEW MEANING** |
-| `fixtures`, `.enter`, `.leave` on a fragment Story | existing, **NEW MEANING** (FO10) |
-| `internalEvents` | existing; also an operation's endings in a fragment (FO1) |
-| `outcomes`, `commit`, `lookup`, `subscribe`, `retry`, `cancel`, `idle`, `retryable`, `get`, `refetch`, `Flow.uncertain`, `.each`, `.resumable()`, `whenAbandoned`, `SharedContract`, `UnresolvedHold` | existing, unchanged |
-| binding incarnation, unplaced lane, placement adoption | concepts, not words |
+| `operations` in a trait or subroutine declaration | existing key, NEW MEANING (decided, F1) |
+| `O` in a fragment body | existing, NEW MEANING |
+| `Fragment.O.<write>.get`, `.idle`, `.retryable` outside the fragment | existing, NEW MEANING (decided, F5); write operations only (FO2) |
+| `activities` in a trait body | existing, NEW MEANING (FO4) |
+| `s.operations.<instance>.<name>` | existing path pattern, NEW MEANING (decided, F5) |
+| `fixtures`, `.enter`, `.leave` on a fragment Story | existing, NEW MEANING (decided, F7) |
+| `resetOn` on a trait that owns a mapped write | existing; allowed only under **Q11** |
+| `O.x.cancel` in `whenAbandoned` | existing, NEW MEANING only under **Q12** |
+| subject, binding incarnation, unplaced lane | concepts, not words |
 
-**Added:** FO0–FO10; the copy key on an `.each` copy's Attempt; the dispose, freeze, rebind and thaw readings of
-2.4. **Dropped (from EX):** `whenOrphaned`, the `orphaned({ attempt, ending })` widening, `UnreconciledOrphan`,
-`ExitWithCallInFlight`, `NoCancelPath`, `SharedRecord`, `.public()`, the `.resumable()` ban (EX F8), `start` on
-subroutines (EX F10), lanes identified by placement (EX F3), incarnation counters for every placement, EX's
-rule-15 clause; **from MD:** rule 3's blanket ban, 2.2.2's "Fragments may not declare operations, activities",
-section 6's "Fragment I/O" bullet.
+### 2.8 Wiring every author repeats (open-items item 15)
+
+Each piece from RV1's friction table, judged: **absorb** when every app writes it the same way, **keep** when it is a
+real app decision, **owner** when absorbing it changes a decision.
+
+| Wiring | Where it appears | Same in every app? | Decision |
+| --- | --- | --- | --- |
+| Keep busy keys in `.each` membership (4.4's `Listed` line) | like, follow, avatar | yes, word for word | **owner (Q12)**: with release on leave, a fragment whose subject may not return releases instead, and the line goes. Returning subjects keep F6's line only when they must keep reconciling while gone |
+| Stop a predecessor by raising its `Cancel` (avatar) | upload | yes | **owner (Q12)**: `whenAbandoned: [O.put.cancel(own)]` in the fragment replaces it in every host |
+| A list of one so a root trait can change its thing | editor switching documents, avatar | yes | **owner (Q11)**: `resetOn`, with the reset value as the subject |
+| The retry-budget triplet (`retryable` else `cancel` and notify; a schedule that `retry`s) | every write | the shape, not the budget, delay or give-up reaction | **keep**: it is exactly what a fragment is for; written once per fragment, not per host. A generic reconcile fragment cannot be written (rule 13's exhaustive `failure`) |
+| A second `cancel` after `unknown { Cancelled }` to release a user's stop | upload | no: a tombstone clean-up needs the hold (MD 2.7.7) | **keep** (merged design's decision); "release on user cancel" stays in `revisit.md` |
+| A 0 ms `Flow.entry` schedule to commit on creation | upload | yes, but once per fragment | **keep** (F7: no entry hook); FO6's `idle` default makes it safe |
+| Mirroring status from endings into memory for a row | upload, autosave | partly: `pending`, `uncertain`, `progress` are rows already; reasons are app data | **keep**; the row covers the shared part |
+| Drafts pruned against the list's ids (rule 33) | comments | the shape; what a draft is differs | **keep** |
+| View-minted client ids (`crypto.randomUUID()`) | comments | yes | **keep for now**: a key must exist before the commit (rule 39), and a turn has no randomness source (MD 7 item 12) |
+| `writes` invalidation of a thread's list on each post | comments | no: which list is app data | **keep** |
+| Toast callbacks with fixed text | like, follow | no | **keep** |
 
 ## 3. Why these and not the alternatives
 
 | Choice | Taken | Rejected, and why |
 | --- | --- | --- |
-| Lane identity | unchanged (FO3) | **placement in the identity** (EX F3): two placements of one thing send two writes at once (D9 broken); lane records depend on the machine's shape (rule 46); a moved trait orphans its lanes |
-| Late endings | the placement's next incarnation (FO5, FO6) | **a host port** (EX `whenOrphaned`, IM's `onOrphaned`): the host gets an ending it cannot act on (no `O`), wiring returns, and ownership splits. **Evidence** (TanStack Query's component callbacks after unmount): loses a success the next incarnation needs (a payment, an etag); OD21 already chose parking for the actor. **A lingering tail incarnation** (EX option C): a hidden second machine with no timers |
-| Holds after the fragment ends | stay held, owned by the next incarnation (FO6), checked (FO8) | **release on leave**: a quiet release (OD6 forbids). **Keep the copy alive while it holds**: hidden membership, the draining the operations merge rejected (Q6) |
-| Row visibility | readable, like schedules (FO2) | **private unless `.public()`**: a new word; rows are status, never wiring, and the host still cannot act |
-| Entry work in a subroutine | a `Flow.entry` schedule or a user event | **`start`** (EX F10): a new word; none of the four cases needs it |
-| Frozen traits | parked, delivered at thaw (2.4) | **banned** (EX F8): was needed only because nothing could hold an ending; OD22's parked endings do |
+| Lane identity | unchanged (decided, F2) | the placement in the identity: two writes to one thing at once (D9), records tied to the machine's shape |
+| Who handles a lane | its subject, recorded on the lane (FO3) | **the committing copy on each Attempt** (revision 1): two copies share a lane and deadlock (H1). **Lanes per subject**: two writes to one thing at once, against F2 |
+| A member from another subject | declined with `Rejected`, `NothingToResend`, evidence | **allowed** (revision 1): a copy re-sends another copy's write and sees none of its endings (H1 step 5). **A new reason or finding**: a new word for a case the existing ones describe |
+| Late endings | parked, delivered to the next incarnation with the subject (decided, F3) | a host port (EX), evidence, a lingering tail incarnation |
+| Holds after the subject ends | held (decided, F6); released only if the fragment declares it (Q12) | **quiet release**: OD6 forbids. **Flow keeps the copy alive**: hidden membership, rejected in F6 |
+| Freeze and reads | release at freeze, place again at thaw (FO4) | **keep reads placed while frozen**: a stream's deliveries would need a buffer for a trait that cannot react |
+| `Flow.entry` on thaw | not fired (Q13) | **fire it**: changes a decided word's meaning for one case that a frozen schedule already covers |
+| `Fragment.O` for reads | not offered (FO2) | **offered**: ambiguous when a read is placed twice (M2) |
 
 ## 4. Before and after
 
@@ -386,7 +415,7 @@ export const Workspace = definition({                                           
   internalEvents: {                                                                   // existing
     SaveDue: { docId: Schema.String }, ResendDue: { docId: Schema.String },
     Saved: { docId: Schema.String, etag: Schema.String },
-    Conflict: { docId: Schema.String, serverEtag: Schema.String },
+    Conflict: { docId: Schema.String, serverEtag: Schema.String, mine: Schema.String },   // mine: the body the refused save carried (M9)
     Refused: { docId: Schema.String },
     SaveUnsure: Flow.uncertain({ docId: Schema.String }),                             // existing: Flow.uncertain
   },
@@ -395,7 +424,7 @@ export const Workspace = definition({                                           
     save: saveDoc.outcomes({                                                          // existing: outcomes
       success: E.Saved.from((v, { key }) => ({ docId: key.docId, etag: v.etag })),   // existing: the mapper's key
       failure: {
-        Conflict: E.Conflict.from((r, { key }) => ({ docId: key.docId, serverEtag: r.serverEtag })),
+        Conflict: E.Conflict.from((r, { key, input }) => ({ docId: key.docId, serverEtag: r.serverEtag, mine: input.body })),
         Refused: E.Refused.from((_r, { key }) => ({ docId: key.docId })),
         NotSent: E.Refused.from((_r, { key }) => ({ docId: key.docId })),
       },
@@ -445,7 +474,7 @@ export const WorkspaceMachine = machine(Workspace, ({ S, E, O }) => {           
         { target: "self", guard: ({ memory, event }) => { const d = doc(memory, event.docId); return (d !== undefined && d.rev > d.sentRev) || deny("NoNewEdits") }, updateMemory: ({ memory, event }) => edit(memory, event.docId, (d) => ({ etag: event.etag, sentRev: d.rev })), actions: [send] },
         { target: "self", updateMemory: ({ memory, event }) => edit(memory, event.docId, () => ({ etag: event.etag, status: "clean" })) },   // a closed document: nothing to edit
       ],
-      Conflict: { target: "self", updateMemory: ({ memory, event }) => edit(memory, event.docId, () => ({ status: "conflict", serverEtag: event.serverEtag })) },
+      Conflict: { target: "self", updateMemory: ({ memory, event }) => edit(memory, event.docId, (d) => ({ status: "conflict", serverEtag: event.serverEtag, body: d.rev > d.sentRev ? d.body : event.mine })) },
       Refused: { target: "self", updateMemory: ({ memory, event }) => edit(memory, event.docId, () => ({ status: "stalled" })) },
       SaveUnsure: { target: "self", updateMemory: ({ memory, event }) => edit(memory, event.docId, () => ({ status: "unsure" })) },
       ResendDue: [
@@ -478,7 +507,7 @@ export const Autosave = trait(                                                  
     hostEvents: { Overwrite: {} },                                                   // existing: hostEvents; the host keeps this version after a conflict
     internalEvents: {                                                                // existing; NEW MEANING: also this fragment's operations' endings (FO1)
       SaveDue: {}, ResendDue: {},
-      Saved: { etag: Schema.String }, Conflict: { serverEtag: Schema.String }, Refused: {},
+      Saved: { etag: Schema.String }, Conflict: { serverEtag: Schema.String, mine: Schema.String }, Refused: {},   // mine: the body the refused save carried (M9)
       SaveUnsure: Flow.uncertain({}),                                                // existing: Flow.uncertain
     },
     callbacks: { onStalled: Flow.optional(Flow.Callback({})) },                     // existing: callbacks, Flow.optional, Flow.Callback
@@ -492,12 +521,12 @@ export const Autosave = trait(                                                  
     operations: ({ E }) => ({                                                        // existing key; NEW MEANING: in a fragment (FO1)
       save: saveDoc.outcomes({                                                       // existing: outcomes; user-defined: save
         success: E.Saved.from((v) => ({ etag: v.etag })),
-        failure: { Conflict: E.Conflict.from((r) => ({ serverEtag: r.serverEtag })), Refused: E.Refused, NotSent: E.Refused },
+        failure: { Conflict: E.Conflict.from((r, { input }) => ({ serverEtag: r.serverEtag, mine: input.body })), Refused: E.Refused, NotSent: E.Refused },   // existing: the mapper's input
         unknown: E.SaveUnsure,
       }),
     }),
   },
-  ({ E, O, callbacks }) => {                                                         // NEW MEANING: O, this fragment's own handles (FO2)
+  ({ E, O, callbacks }) => {                                                         // NEW MEANING: O, this fragment's own handles (FO2); no whenAbandoned: a closed document's save is kept for its return (FO6)
     const own = ({ memory }: { memory: { docId: string } }) => ({ docId: memory.docId })   // user-defined: this document's lane
     const send = O.save.commit(({ memory }) => ({ docId: memory.docId, body: memory.body, etag: memory.etag }))   // existing: commit; after memory (rule 22)
     return {
@@ -515,12 +544,12 @@ export const Autosave = trait(                                                  
           { target: "self", guard: ({ memory }) => memory.rev > memory.sentRev || deny("NoNewEdits"), updateMemory: ({ memory, event }) => ({ etag: event.etag, sentRev: memory.rev }), actions: [send] },
           { target: "self", updateMemory: ({ event }) => ({ etag: event.etag, status: "clean" }) },
         ],
-        Conflict: { target: "self", updateMemory: ({ event }) => ({ status: "conflict", serverEtag: event.serverEtag }) },
+        Conflict: { target: "self", updateMemory: ({ memory, event }) => ({ status: "conflict", serverEtag: event.serverEtag, body: memory.rev > memory.sentRev ? memory.body : event.mine }) },   // adopted by a fresh copy: keeps the user's text from the event (M9)
         Refused: { target: "self", updateMemory: () => ({ status: "stalled" }), notify: [callbacks.onStalled] },
         SaveUnsure: { target: "self", updateMemory: () => ({ status: "unsure" }) },  // Held; `resend` arms
         ResendDue: [
           { target: "self", guard: [O.save.retryable(own, { times: MAX_RESENDS })], updateMemory: () => ({ status: "saving" }), actions: [O.save.retry(own)] },   // existing: retryable, retry; the same Attempt
-          { target: "self", updateMemory: () => ({ status: "stalled" }), actions: [O.save.cancel(own)], notify: [callbacks.onStalled] },   // existing: cancel; give up, release (OD7)
+          { target: "self", updateMemory: () => ({ status: "stalled" }), actions: [O.save.cancel(own)], notify: [callbacks.onStalled] },   // existing: cancel; give up, release (OD7); the released save may still land, and If-Match turns that into a Conflict (L5)
         ],
         Overwrite: { target: "self", updateMemory: ({ memory }) => ({ etag: memory.serverEtag ?? memory.etag, serverEtag: null, status: "dirty" }) },
       },
@@ -586,9 +615,12 @@ export const WorkspaceMachine = machine(Workspace, ({ S, E }) => ({
 **Added for the host:** nothing it must write about I/O; it may read `Autosave.O.save` (`idle`, `get`).
 **Dropped from the host:** six internal events, the save operation, `status`/`rev`/`sentRev`/`serverEtag` per
 document, both keyed schedules, eight handlers and the `doc`/`edit` helpers. **Changed behaviour:** in the host-only
-form, a document closed after the user forced it (not possible here: `Close` is guarded) would keep being reconciled
-by the `resend` keys over every lane; in the fragment form a closed document's held save waits for the copy to come
-back (FO6). `Close` is guarded in both forms, so neither strands a save.
+form, a held save of a closed document keeps being reconciled by the `resend` keys over every lane; in the fragment
+form it waits for a copy with its subject (`d1`) to come back (FO6), since Autosave deliberately has no
+`whenAbandoned` release. `Close` is guarded in both forms, so a user cannot strand a save; a disposed workspace can,
+and the reopened copy then adopts the save, including a `Conflict` that still carries the user's text (M9, FO10's
+walk). **Subject:** the copy's key is the document id and the contract's key is `["docId"]`, so each lane's subject
+is its own document (FO3), and a lane left by the host-only form above is adopted by key after the upgrade (2.5).
 
 ### 4.2 A live feed, placed on several screens
 
@@ -778,7 +810,7 @@ export const LiveFeed = trait(                                                  
           { target: "self", updateMemory: () => ({ status: "offline" }), notify: [callbacks.onOffline] },
         ],
         RetryFeed: [{ target: "self", guard: ({ memory }) => memory.status === "lost" || deny("NotLost"), updateMemory: () => ({ status: "synced" }) }, { target: "self" }],
-        Reconnect: { target: "self", updateMemory: () => ({ status: "synced", tries: 0 }) },
+        Reconnect: [{ target: "self", guard: ({ memory }) => memory.status === "offline" || deny("NotOffline"), updateMemory: () => ({ status: "synced", tries: 0 }) }, { target: "self" }],   // only from offline, as the before's OFFLINE (L1)
         SignedOut: { target: "self", updateMemory: () => ({ status: "signedOut" }), notify: [callbacks.onSignedOut] },
       },
     }
@@ -817,8 +849,10 @@ export const RoomMachine = machine(Room, ({ S, E }) => ({
 // view: useView(room, (s) => s.memory.chat.messages)  and  useView(room, (s) => s.operations.chat.feed?._tag === "Live")   // NEW MEANING: rows under the instance
 ```
 
-**After: a second host** (a support ticket whose discussion tab is the same feed, on a node: leaving the tab
-releases the session and the catch-up, FO4).
+**After: a second host** (a support ticket whose discussion tab is the same feed, on a node, `.resumable()`:
+leaving the tab freezes it, releasing the session and any catch-up; coming back re-places the session from the frozen
+`at`, and an overdue `resync` fires once, FO4. Without `.resumable()`, every visit would start again from
+`{ epoch: "", after: 0 }` and fetch the whole history, which `merge` dedupes but does not avoid: L2).
 
 ```ts
 // ticket.definition.ts
@@ -828,7 +862,7 @@ import { LiveFeed } from "./livefeed.trait"
 
 export const Ticket = definition({
   id: "Support/Ticket",
-  states: ["DETAILS", { DISCUSSION: Flow.state({ traits: { chat: LiveFeed } }) }],   // existing: Flow.state, a leaf with traits
+  states: ["DETAILS", { DISCUSSION: Flow.state({ traits: { chat: LiveFeed.resumable() } }) }],   // existing: Flow.state, .resumable(); thaw re-places the feed from `at` (FO4)
   events: { ShowDetails: {}, ShowDiscussion: {}, Reconnect: {} },
   memory: { roomId: Flow.input(Schema.String), signedOut: Flow.initial(Schema.Boolean, false) },
 })
@@ -1141,7 +1175,8 @@ released with a toast; a missing issue refetches the list.
 
 Where the data comes from: `Issues.setLike` and `Issues.list` are MD 2.8.2's domain entries over `issues.contracts.ts`
 (`IssuesApi.send("PUT", "/issues/:id/like", …, { idempotencyKey: attempt.id, signal })` and the project list read),
-unchanged; `key: ["id"]`, `latest`. The copy's key is the issue id, so a copy and its lane are about the same issue.
+unchanged; `key: ["id"]`, `latest`. The copy's key is the issue id, so each lane's subject is its own issue (FO3).
+A follow-author button per post would not be: RV1's H1, declined at runtime (section 5).
 
 **Before: the host owns the like.**
 
@@ -1292,7 +1327,7 @@ export const BoardMachine = machine(Board, ({ S, O }) => ({
     READY: {
       activities: [O.issues.subscribe(({ memory }) => ({ projectId: memory.projectId }))],
       on: {
-        Listed: { target: "self", updateMemory: ({ memory, operations, event }) => ({ issueIds: [...event.ids, ...memory.issueIds.filter((id) => !event.ids.includes(id) && busy(LikeButton.O.set.get(operations, { id })))] }) },   // NEW MEANING: a host read (FO2); keeps a copy whose like is unresolved (Q6)
+        Listed: { target: "self", updateMemory: ({ memory, operations, event }) => ({ issueIds: [...event.ids, ...memory.issueIds.filter((id) => !event.ids.includes(id) && busy(LikeButton.O.set.get(operations, { id })))] }) },   // NEW MEANING: a host read (FO2); keeps a copy whose like is unresolved (F6; Q12 would remove this line)
         Dismiss: { target: "self", updateMemory: () => ({ toast: null }) },
       },
     },
@@ -1329,285 +1364,268 @@ export const IssuePageMachine = machine(IssuePage, ({ S }) => ({
 }))
 ```
 
+**Before, the second host** (the same page written host-only, so its saving is measured, not assumed; review 1's 4.5
+correction).
+
+```ts
+// issuepage.definition.ts (before)
+import { definition, Flow } from "flow-state"
+import { Schema } from "effect"
+import { Issues } from "./issues.domain"
+
+export const MAX_LIKE_RESENDS = 3
+
+export const IssuePage = definition({
+  id: "Issues/IssuePage",
+  states: ["SHOWING", "GONE"],
+  events: { Toggle: { liked: Schema.Boolean } },
+  internalEvents: { Settled: {}, Gone: {}, Failed: {}, LikeUnsure: Flow.uncertain({}), ReconcileDue: {} },
+  memory: { issueId: Flow.input(Schema.String) },
+  operations: ({ E }) => ({ like: Issues.setLike.outcomes({ success: E.Settled, failure: { Gone: E.Gone, Refused: E.Failed, NotSent: E.Failed }, unknown: E.LikeUnsure }) }),
+})
+```
+
+```ts
+// issuepage.machine.ts (before)
+import { machine } from "flow-state"
+import { IssuePage, MAX_LIKE_RESENDS } from "./issuepage.definition"
+
+export const IssuePageMachine = machine(IssuePage, ({ S, E, O }) => ({
+  default: S.SHOWING,
+  schedules: { reconcile: { schedule: "3 seconds", armOn: [E.LikeUnsure], send: E.ReconcileDue } },
+  on: {
+    Toggle: { target: "self", actions: [O.like.commit(({ memory, event }) => ({ id: memory.issueId, liked: event.liked }))] },
+    Settled: { target: "self" }, Failed: { target: "self" },
+    Gone: S.GONE,
+    LikeUnsure: [{ target: "self", guard: [O.like.retryable({ times: MAX_LIKE_RESENDS })] }, { target: "self", actions: [O.like.cancel] }],
+    ReconcileDue: { target: "self", actions: [O.like.retry(({ memory }) => ({ id: memory.issueId }))] },
+  },
+  states: { SHOWING: {}, GONE: {} },
+}))
+```
+
 **Dropped from each host:** `Toggle` with its id, five internal events, the like operation, the keyed reconcile
 schedule and six handlers. **Added to the board:** `issueIds` and `Listed` (membership must be memory for `.each`),
 and the one line that keeps a copy alive while its like is unresolved. **What does not change:** store effects
 (predictions, rollback, `uncertain` marks, the record queue) apply at settlement whether a copy exists or not
 (rule 27); two screens liking one issue are two actor identities, ordered by the record queue (rule 29).
 
-### 4.5 Line totals
+### 4.5 Line and character totals
 
-Measured by script over the blocks above: every line of each definition, machine and fragment block, comments
-included; contracts and view comments excluded.
+Measured by script over the blocks above: lines are every line of each definition, machine and fragment block,
+comments included; characters are code only, without comment lines and trailing comments. Contracts and view comments
+are excluded.
 
-| Case | Before: host only | After: fragment | After: first host | First use | Further host, after | Further host, before | Saved per further host |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| 4.1 Autosave (`.each`) | 93 | 63 | 44 | 107 (+14) | 44 | 93 | 49 (53 %) |
-| 4.2 Live feed (root, node) | 94 | 77 | 22 | 99 (+5) | 26 (ticket) | 94 | 68 (72 %) |
-| 4.3 Checkout (subroutine, phase 2) | 108 | 95 | 27 | 122 (+14) | 27 | 108 | 81 (75 %) |
-| 4.4 Like (`.each`, root) | 54 | 37 | 44 | 81 (+27) | 20 (issue page) | 54 | at most 34 (63 %) |
+| Case | Before (lines / chars) | After: fragment + first host (lines / chars) | First use | Further host, after vs before (lines / chars) | Saved per further host (chars) |
+| --- | --- | --- | --- | --- | --- |
+| 4.1 Autosave (`.each`) | 93 / 5,769 | 63 + 44 = 107 / 5,273 | +14 lines, **−9 % chars** | 44 / 1,847 vs 93 / 5,769 | 68 % |
+| 4.2 Live feed (root; node, resumable) | 94 / 4,353 | 77 + 22 = 99 / 5,673 | +5 lines, +30 % chars | ticket 26 / 940 vs 94 / 4,353 | 78 % |
+| 4.3 Checkout (subroutine, phase 2) | 108 / 5,208 | 95 + 27 = 122 / 5,597 | +14 lines, +7 % chars | 27 / 897 vs 108 / 5,208 | 83 % |
+| 4.4 Like (`.each`; root) | 54 / 2,305 | 37 + 44 = 81 / 3,317 | +27 lines, +44 % chars | issue page 20 / 610 vs 31 / 1,409 (written, 4.4) | 57 % (35 % of lines) |
 
-"Further host, before" assumes each further host-only screen repeats its first host's block; for the feed's ticket
-and the like's issue page that is an upper bound (a single-like page writes the like without the keyed schedule).
+Reading it (corrected from revision 1, RV1 section 4):
 
-Reading it:
-
-- **A first use is larger** in every case (fragment plus host against the host-only form), as EX and every earlier
-  comparison found ("extract a fragment on the second use", principles section 1).
-- **Every further host is much smaller.** The feed on five screens is one trait and five short hosts.
-- **`.each` hosts save less.** The board saves only 10 lines (54 → 44), because `.each` needs membership in memory
-  (`issueIds`, `Listed`) that the host-only form read from the list's lane, plus 4.4's keep-busy line. The like pays
-  off on the pages that place it once (54 → 20).
-- **What the lines hide:** in the before, each host writes its own `unknown` handling and its own late handlers, and
-  `flow check` must catch each one; in the after, they are written and tested once (FO10).
+- **A first use is larger by lines in every case, and by characters in every case but the autosave**, whose before
+  writes long one-line handlers that look short by lines.
+- **A further host is much smaller** where the fragment carries real policy (feed, checkout, autosave). Where it
+  carries little (a single like button), the saving is about a third of the lines, not the 63 % revision 1 implied.
+- **`.each` hosts save least** (the board: 54 → 44 lines), because `.each` needs membership in memory and, under F6,
+  the keep-busy line. Q12 would remove that line.
+- **What the lines hide:** in the before, each host writes its own `unknown` handling and late handlers; in the after,
+  they are written and tested once (FO10).
 
 ## 5. Tested against very different cases
 
 | Case | Shape | Verdict under v1 (FO0) | Strain |
 | --- | --- | --- | --- |
-| Search as you type | trait: debounce + `lookup` | fits anywhere (a read) | none; leaving releases the lookup |
+| Search as you type | trait: debounce + `lookup` | fits anywhere (a read) | leaving releases the lookup |
 | Infinite pager | trait: `subscribe.each` over loaded pages | fits anywhere | page cache is the resource's |
-| Presence heartbeat | trait: stream + a bare `ping` write | fits anywhere (bare write delivers nothing) | none |
-| Notification bell on every screen | root trait: stream, a `markSeen` write (`latest`, key `[]`) | fits (root) | one write lane per screen actor; two screens are two identities, unordered for a plain write (MD 2.7.13 limit) |
-| Comment composer per thread | trait `.each` by thread id: `post` (`reject`, key `["clientId"]`) | fits | the copy key (thread) is not the lane key (client message): copies have several lanes each; delivery by the Attempt's copy key is exact |
-| Cart quantity stepper per line | trait `.each`: a domain write | fits (the like again) | bulk "clear cart" is MD 2.7.13's per-key fan-out limit |
-| Upload a file (step) | subroutine: `put` with `progress`, `cancel`, a clean-up write | **phase 2** | re-entry for another file adopts the first file's lane (`key: ["ref"]` keeps lane handling right; memory reactions must compare `event.ref`, FO7); an `.each` trait keyed by ref is exact in v1 |
-| Two-factor verify (step) | subroutine: `verify`, `resend` | **phase 2** | a late `WrongCode` after Back is a strike only on re-entry; the sign-in's strikes must survive, so the host keeps them (MD 3.1) |
-| Editor that switches documents | root trait with `resetOn: docId` | **not in v1** (FO0 bans `resetOn`) | doc A's save would reach doc B's incarnation; write it as `.each` over a one-element list |
-| Booking saga (hold, charge, refund) | host | stays in the host | decides across steps and must refund a late charge at once (1.2 item 4) |
-| Generic "submit with retry" over any contract | would be EX's `CommitWithRetry` | rejected | `failure` is exhaustive per contract (rule 13); fragments are contract-specific |
+| Presence heartbeat | trait: stream + a bare `ping` write | fits anywhere | none |
+| Notification bell on every screen | root trait: stream + `markSeen` (`latest`, key `[]`) | fits | two screens are two identities, unordered for a plain write (MD 2.7.13) |
+| Comment composer per thread | `.each` by thread id: `post` keyed `["clientId"]` | fits | one subject, many lanes: each lane records the thread as its subject, exact |
+| Follow author on each post | `.each` by post id, key `["userId"]` | **declined at runtime** (FO3, H1) | two posts by one author share a lane; the second copy's commit ends `NotSent { Rejected }`. Write it over distinct authors |
+| Follow in a header plus a suggestions list | two placements of one writing trait | `SharedContract` | fold the header into the list's membership (FO3, M8) |
+| Comments panel on a tab | node trait with two mapped writes | fits as `.resumable()` (FO4) | thaw re-places its list subscription |
+| Avatar upload (input arrives later) | root trait whose thing changes | fits as `.each` of one or two | **worst friction** (M7): the host keeps a busy predecessor and raises its `Cancel`; Q12 (and Q11) remove both |
+| Editor that switches documents | root trait with `resetOn: docId` | **not in v1** (F4) | `.each` over a one-element list; Q11 admits `resetOn`, with the reset value as the subject |
+| Cart quantity stepper per line | `.each`: a domain write | fits (the like again) | bulk "clear cart" is MD's per-key fan-out limit |
+| Upload a file (step), two-factor verify (step) | subroutines | **phase 2** (decided, F7) | cross-thing adoption is closed by the subject (a reset value or an entry's input as subject is phase 2's rule) |
+| Booking saga | host | stays in the host | must refund a late charge at once (1.2 item 4) |
+| "Submit with retry" over any contract | EX's `CommitWithRetry` | rejected | `failure` is exhaustive per contract (rule 13) |
 
 ## 6. What OD19–OD22 solved from EX's list
 
 | EX item | Status now | Why |
 | --- | --- | --- |
-| R4, R8, F5, Q2: the orphaned ending, `whenOrphaned`, the contract's `orphaned({ ending })`, `UnreconciledOrphan` | **solved, removed** | OD19: the lane is the Runtime's and outlives its binder; OD21: endings with no binder are parked and delivered to the next incarnation from its active leaf; OD22: parked raw and mapped at delivery. One level down, that is FO5 and FO6. No host port, no off-actor handler |
-| F3: lanes identified by (instance path, site, key) | **changed** | OD20 fixed identity as (actor identity, contract id, key); the placement is where delivery goes, not part of identity (FO3, FO5). EX's L7 (a re-entered fragment writing beside its predecessor's unknown) cannot happen: same thing, same lane |
-| F8, Q4: no `.resumable()` beside a write | **solved, removed** | OD22's parked endings hold an ending until the thaw (2.4) |
-| EX 2.4 "Restore / version change" and persistence by placement path | **solved** | OD20's lane records decode by contract `input` pick; the operation is found by contract id (FO3); only the `.each` copy key is added |
-| Incarnation counters for every placement (EX 5) | **not needed** | the owner test uses activation identity, which Machines O5 already has; delivery uses the placement and copy key |
-| EX's rule-15 clause (late host turns for orphans) | **not needed** | no host turn ever runs for a fragment's ending |
-| F6 "ending a life never cancels a write" | **solved** for writes by OD19 (disposal drops and cancels nothing), generalized in 2.4; the read half is FO4 |
-| Issue 8, `ExitWithCallInFlight` | **replaced** by FO7: an exit on a branch that keeps a hold is an `UnresolvedHold` inside the fragment |
-| Rule 20 over the late set (EX 2.4) | **replaced** by OD22's adopted-ending rule over the fragment's arrival set (FO7) |
-| Q3 `.public()` | not solved by OD19–OD22; answered by the schedules precedent (FO2, Q5) |
-| Q5 `start` | dropped: none of the cases needs it (Q9) |
-| R6 summaries, R7 Stories fixtures | still needed: FO9, FO10 |
-| Q1 allow at all | still the owner's (Q1) |
+| The orphaned ending, `whenOrphaned`, the widened `orphaned`, `UnreconciledOrphan` | **solved, removed** | OD19 (Runtime-owned lanes), OD21 (parked, delivered to the next incarnation), OD22 (parked raw, mapped at delivery); one level down, FO5 and FO6 (decided, F3) |
+| Lanes identified by placement | **changed** | OD20's identity; the placement and the subject say where delivery goes (FO3, FO5) |
+| No `.resumable()` beside a write | **solved** | parked endings wait for the thaw; FO4 states what the thaw re-places |
+| Persistence by placement path | **solved** | OD20's records decode by contract `input` pick; the lane adds only its subject (2.5) |
+| Incarnation counters for every placement | **not needed** | activation identity for the owner test; the subject for delivery |
+| EX's rule-15 clause | **not needed** | no host turn runs for a fragment's ending |
+| "Ending a life never cancels a write" | **solved** for writes by OD19; reads by FO4 |
+| `ExitWithCallInFlight` | **replaced** by FO7 |
+| Rule 20 over the late set | **replaced** by OD22's adopted-ending rule over the fragment's arrival set (FO7) |
+| `.public()` | answered by the schedules precedent (decided, F5) |
+| `start` | dropped (decided, F7) |
+| Summaries, Stories fixtures | FO9, FO10 |
 
 ## 7. What breaks or changes in the merged design
 
-Exact amendments to MD if accepted (none is applied; each waits for the owner's yes):
+Exact amendments to MD if accepted. None is applied; each waits for the owner's yes.
 
 1. **Section 1**, fourth bullet: "Fragments are locked islands of logic with no I/O" → "…with no I/O of their own,
-   unless they declare `operations` (FO1)"; and "the host runs every operation" → "the host runs every operation it
-   declares".
-2. **2.1 Reading**: add "a fragment's operations: `s.operations.<instance>.<name>`, a keyed list of copies under
-   `.each`; write lanes by key with `Fragment.O.x.get(s, k)` (FO2)".
-3. **2.2.2**, last sentence: "Fragments may not declare `operations`, `activities`, `context`, `onContext`, `send` or
-   persistence" → "Fragments may not declare `context`, `onContext`, `send` or persistence; a trait body may hold
-   `activities` (FO1, FO4)".
-4. **2.3**, row "Running I/O and mapping endings": add "or a fragment's declaration and body, for its own
-   operations (FO1)".
-5. **2.6 key order**: machine or fragment body gains `activities` before `schedules`.
-6. **Rule 1**, `.resumable()`: add "A call ending for a frozen trait is parked and delivered at the thaw (2.4)".
-7. **Rule 2**: "`internalEvents` come only from the fragment's own schedules" → "…own schedules or its operations'
-   endings"; "The host maps call endings onto its own events" → "Each operation maps its endings onto the events of
-   the definition or fragment that declares it".
-8. **Rule 3**: replaced by FO1 (and FO0 for v1).
-9. **Rule 4**: add FO2's sentence: the host reads a fragment's lanes and cannot act on them.
-10. **Rule 8**: the call-endings bullet adds "to the binding incarnation, or parked at its placement (FO5)".
-11. **Rule 9**: "The Attempt carries no copy key" → "…for a host operation; an Attempt committed in a copy of a
-    fragment that owns the operation carries the copy's key (FO3)".
-12. **Rule 10**: summaries record operations (FO9).
+   unless they declare `operations` (FO1)".
+2. **2.1 Reading**: add "a fragment's operations: `s.operations.<instance>.<name>` (FO11); write lanes by key with
+   `Fragment.O.x.get(s, k)` (FO2)".
+3. **2.2.2**, last sentence: "Fragments may not declare `operations`, `activities`, …" → "Fragments may not declare
+   `context`, `onContext`, `send` or persistence; a trait body may hold `activities` (FO1, FO4)".
+4. **2.3**, row "Running I/O and mapping endings": add "or a fragment's declaration and body (FO1)".
+5. **2.6 key order**: a machine or fragment body gains `activities` before `schedules`.
+6. **Rule 1**, `.resumable()`: add "Freezing releases the trait's placements and lookups; thawing places its
+   `activities` again from its memory; a call ending for a frozen trait is parked and delivered at the thaw (FO4)".
+7. **Rule 2**: `internalEvents` of a fragment also come from its operations' endings.
+8. **Rule 3**: replaced by FO1 and FO0.
+9. **Rule 4**: the host reads a fragment's write lanes and asks through its public events; it cannot act (FO2).
+10. **Rule 8**: call endings go "to the binding incarnation, or parked for the lane's subject (FO5)".
+11. **Rule 9**: add "a lane created by a copy's commit records the copy's key as its subject (FO3)". "The Attempt
+    carries no copy key" stays true.
+12. **Rule 10**: summaries record operations and the contracts' requirements (FO9).
 13. **Rule 11**: `story.machine(fragment, { id, fixtures })`; `.enter` and `.leave` on traits (FO10).
-14. **Rule 12**: construction errors add "an acting member of a fragment's operation used outside it" and "a
-    fragment that owns a mapped write placed outside FO0".
-15. **Rule 14**: "One owner test" runs inside the binding incarnation (FO5); add the parked case.
-16. **Rule 17**: "to a live incarnation of its identity or to its saved record" → "…of its identity at its
-    operation's placement, or parked there (FO5)".
-17. **Rule 20**, adopted endings: "the operation's new-incarnation arrival set" is computed in the declaring
-    fragment for a fragment's operation (FO7).
-18. **Rule 21**: "the actor that commits is its binding actor" → "its binding incarnation is the actor, or the live
-    incarnation at the operation's placement (FO5)".
-19. **Rule 40**: `SharedContract` counts every write operation in the actor's placement tree (FO3).
-20. **Rule 42**: a fragment's one-off read lane is (actor, operation, incarnation) and is released with it (FO4).
-21. **Rule 44**: add FO6 (placement adoption, follow-up turns, thaw).
-22. **Rule 45**: add FO8's host arrival.
-23. **Rule 46**: "A lane record names no instance path; an `.each` copy's Attempt carries the copy key" (2.5).
-24. **2.5 step 1**: the owner test runs in the binding incarnation; an ending with none is parked. Step 6: after
-    pending resets, queue FO6's deliveries for each incarnation the turn started.
-25. **2.7.13**: "Owner" paragraph reads "binding incarnation"; the dispose, rebind, freeze, thaw and parking rows of
-    2.4 above.
-26. **2.7.14** item 2: arrivals inside a fragment (FO7); new item 5: placement arrivals at the host (FO8).
-27. **2.7.16**: `SharedContract` and `UnresolvedHold` widened; `flow explain` prints fragment operations; no new
-    finding names.
-28. **3.6 Keywords**: the six new meanings of 2.7.
-29. **Section 5**: Machines O1 (fragments may declare operations; `Fragment.O`), Runtime O3/V4 (binding
-    incarnation; adoption by placement), Persistence O2/O6 (the copy key; parking in a live actor), Testing O1
-    (fragment Stories with fixtures), Inspection O1 (unplaced lanes), CommandLine O5 (amendments 14, 26, 27),
-    React O4 (views read `Fragment.O.x.get`), EntityDomains O1 (a fragment's domain operation registers its domain
-    for the actor).
-30. **Section 6**: delete "Fragment I/O" and "Nested request relays"; "Operations in fragments (OD17 Q19)" points
-    here.
-31. **Merge 3** (not merged): "fragments have no I/O, so no `services` or `fixtures`" is replaced by FO10.
-32. **Merge 6** (not merged): a trait body's `activities` places a stream for the incarnation's life; its sessions
-    are the incarnation's (M6 4.4 already says sessions are not Runtime records).
+14. **Rule 12**: construction errors add an acting member used outside its fragment, and FO0's chain rule.
+15. **Rule 14**: the owner test runs inside the binding incarnation; the parked case (FO5).
+16. **Rule 17**: "to a live incarnation of its identity or to its saved record" → "…of its identity with the lane's
+    subject, or parked for it (FO5)".
+17. **Rule 20**: adopted endings over the declaring fragment's arrival set (FO7); the `NotSent` list adds an `.each`
+    fragment's mapped write (`Rejected`, FO3).
+18. **Rule 21**: "binding actor" → "binding incarnation"; the lane records a subject; members from another subject
+    are declined (FO3, 2.4).
+19. **Rule 40**: `SharedContract` counts every write operation in the actor's placement tree (decided, F2).
+20. **Rule 42**: a fragment's one-off read lane is (actor, operation, incarnation), released with it and at freeze
+    (FO4).
+21. **Rule 44**: add FO6 (adoption by subject, follow-up turns after the starting turn's raises, thaw).
+22. **Rule 45**: add FO8's arrivals and its structural `.each` warning.
+23. **Rule 46**: "A lane record names no instance path and carries its subject; a subjectless lane adopted by an
+    `.each` placement takes its one-field key value as subject, else goes to `orphaned` (2.5)".
+24. **2.5 step 1**: the owner test runs in the binding incarnation; an ending with none is parked. **Step 5**: a
+    member from another subject is declined (2.4). **Step 6**: after pending resets, queue FO6's deliveries.
+25. **2.7.13**: the "Owner" paragraph reads "binding incarnation"; the rows of 2.4 above.
+26. **2.7.14** item 2: arrivals inside a fragment (FO7); new item 5: FO8.
+27. **2.7.16**: `SharedContract` and `UnresolvedHold` widened; `flow explain` prints fragment operations and their
+    subject; no new finding names.
+28. **3.6 Keywords**: the new meanings of 2.7.
+29. **Section 5**: Machines O1 (fragments declare operations; `Fragment.O`), Runtime O3/V4 (binding incarnation;
+    subjects), Persistence O2/O6 (the subject on the lane record; parking in a live actor), Testing O1 (fragment
+    Stories), Inspection O1 (subjects, unplaced lanes), CommandLine O5 (amendments 14, 17, 22, 27), React O4 (views
+    read `Fragment.O.x.get`), EntityDomains O1 (a fragment's domain write registers its domain).
+30. **Section 6**: delete "Fragment I/O" and "Nested request relays"; "Operations in fragments" points here.
+31. **Merge 3** (not merged): fragment Stories have `fixtures` (FO10).
+32. **Merge 6** (not merged): a trait body's `activities` places a stream for the incarnation's life; freeze releases
+    it and thaw re-places it (FO4).
+33. **Under Q11 only:** rule 1's `resetOn` and FO0 admit a writing root or resumable trait whose reset value is a
+    string, recorded as the subject. **Under Q12 only:** rule 6's `whenAbandoned` may list `O.x.cancel(k)`, with
+    2.4's "release on leave" row; MD section 6 "deliberately left out" loses nothing (it never listed it).
 
 ## 8. Risks
 
-1. **Late results reach the user late (phase 2).** A subroutine or node trait that is left holds its result until
-   it comes back (4.3). The host cannot react sooner without owning the operation. FO0 keeps this out of v1.
-2. **A copy that never returns strands its hold.** Under `.each`, FO8 cannot see membership (closures), so a held
-   write whose copy is gone waits until the key is added again or the actor ends. Meanwhile a domain write's record
-   queue blocks other actors' writes to that record (MD 2.7.13's cross-actor limit, now reachable without disposal).
-   The board's one-line pattern (4.4) prevents it; nothing checks that a host wrote it (Q6).
-3. **Cross-thing adoption (phase 2).** A subroutine or node trait whose entries are about different things receives
-   a previous thing's ending. Lane handling stays right (keys and OD8's key-less members name the ending's Attempt);
-   memory and payload reactions must compare the event's key. This is rule 44's discipline, unchecked.
-4. **The host graph hides I/O.** Reading the host no longer shows the feed's LOST or the checkout's UNSURE.
-   `flow graph`, `flow explain` and Inspection must show summaries well, or agents and readers lose the picture.
-5. **Parked endings in a live actor accumulate** for placements that never return (bounded by distinct keys). Shown
-   by Inspection and `runtime.unsettledWrites()`.
-6. **Typing.** `Fragment.O` read in a host, branded members rejected in a host's `actions`, rows under `.each`
-   copies, and the `operations: ({ E })` ordering are untested; a type spike is the next step.
-7. **`SharedContract` per actor is stricter.** A write-owning trait cannot be placed twice by name in one actor;
-   authors place it higher or use `.each`. A false error is possible where two placements are never active together.
+1. **Late results reach the user late (phase 2).** A subroutine or node trait that is left holds its result until a
+   new incarnation with the same subject starts (4.3). F4 keeps this out of v1.
+2. **A subject that never returns strands its hold** (decided as a stated limit, F6). The `.each` warning (FO8) and
+   Inspection make it visible; Q12 lets the fragment release instead. Until then, a domain write's record queue
+   blocks other actors' writes to that record (MD 2.7.13).
+3. **The subject rule is not static.** Whether a write's key is decided by the copy's key is a closure, so `flow
+   check` cannot see a follow-author-per-post mistake; the runtime decline and Stories do.
+4. **`.each` now requires `NotSent` mapped on every mapped write** (the subject decline). That is honest (the decline
+   is an ending) but adds a mapping some authors did not need under `latest`.
+5. **The host graph hides I/O.** `flow graph`, `flow explain` and Inspection must show summaries well.
+6. **Parked endings in a live actor accumulate** for subjects that never return (bounded by distinct keys).
+7. **Typing** is unspiked: `Fragment.O`, branded members, rows under `.each`, the fragment's `R` reaching the host,
+   `operations: ({ E })` ordering.
+8. **`SharedContract` per actor is stricter** (decided, F2): two placements of one writing trait need folding (FO3).
 
 ## 9. Open questions for the owner
 
-Answer as `Q1 A`. Every item is proposed; nothing is decided until answered.
+Q1–Q10 are answered (F1–F7) and removed. Answer as `Q11 A`. Each is proposed.
 
-### Round 1: direction
+### Round 4: the friction at its root
 
-**Q1. Allow fragments to own operations?**
+**Q11. A root trait whose thing changes during the actor's life** (amends F4). F4 bans `resetOn` on a writing trait
+because a reset's new incarnation would receive the old thing's endings. With the subject recorded on the lane (FO3),
+that can no longer happen: the reset value is the subject, and the old thing's lanes wait for an incarnation with that
+value.
 
-- A. Yes, opt-in, traits first (this proposal).
-- B. No: keep rule 3 and MD section 6.
+- A. Allow `resetOn` on a root or `.resumable()` trait that owns mapped writes, when the reset value is a string; it
+  is the incarnation's subject.
+- B. Keep F4: such a trait is written as `.each` over a one-element list.
 
 ```ts
-// before (MD; 4.1 in full): Workspace declares the save, and its machine holds two keyed schedules and eight handlers
-operations: ({ E }) => ({ save: saveDoc.outcomes({ success: E.Saved.from((v, { key }) => ({ docId: key.docId, etag: v.etag })), failure: { Conflict: E.Conflict.from((r, { key }) => ({ docId: key.docId, serverEtag: r.serverEtag })), Refused: E.Refused.from((_r, { key }) => ({ docId: key.docId })), NotSent: E.Refused.from((_r, { key }) => ({ docId: key.docId })) }, unknown: E.SaveUnsure.from((_r, { key }) => ({ docId: key.docId })) }) }),
-// after (A; 4.1 in full): Workspace places the trait, which declares the save
-traits: { docs: Autosave.each({ of: "open", by: "docId", max: 20 }) },   // existing: .each
+// before (F4): an editor that switches documents keeps a list of one
+memory: { current: Flow.initial(Schema.Array(OpenDoc), []) },                         // user-defined: a list of one
+traits: { draft: Autosave.each({ of: "current", by: "docId", max: 1 }) },            // existing: .each
+Switch: { target: "self", guard: [Autosave.O.save.idle(({ memory }) => ({ docId: memory.current[0]?.docId ?? "" }))], updateMemory: ({ event }) => ({ current: [event] }) },
+
+// after (A): one document, reset when it changes
+memory: { doc: Flow.initial(Schema.NullOr(OpenDoc), null) },                         // user-defined
+traits: { draft: Autosave },                                                           // existing: a root trait
+// machine: the filling, at the root
+traits: { draft: { resetOn: ({ memory }) => memory.doc?.docId ?? "", input: ({ memory }) => ({ docId: memory.doc?.docId ?? "", body: memory.doc?.body ?? "", etag: memory.doc?.etag ?? "" }) } },   // existing: resetOn; NEW MEANING: its value is the subject (FO3)
+Switch: { target: "self", guard: [Autosave.O.save.idle(({ memory }) => ({ docId: memory.doc?.docId ?? "" }))], updateMemory: ({ event }) => ({ doc: event }) },
 ```
 
-Recommendation: **A**, because the feed and autosave recur on many screens and every further host is about 50–75 %
-smaller (4.5); B is right if most screens are used once.
+Added: nothing but the rule. Dropped: the list of one and its `[0]` reads. A return to document A adopts A's parked
+save. Recommendation: **A**. It is safe because of FO3, removes an artifice every such host repeats, and is phase 2's
+rule for node traits too. B is right if you prefer F4's scope until a type spike.
 
-**Q2. Lane identity for a fragment's write.**
+**Q12. What ends a write's workflow when its incarnation ends** (the root of M7 with F6; amends F6, reverses F7's
+deferral of `cancel` in `whenAbandoned`). Today an ending incarnation cannot say "my writes end with me", so every
+host whose subjects do not return keeps busy predecessors in membership and stops them by raising events.
 
-- A. Unchanged, (actor identity, contract id, key); `SharedContract` widened to one write operation per contract per
-  actor (FO3).
-- B. Add the placement: (actor identity, placement path, contract id, key).
-
-```ts
-// A: two autosave placements over one document share one lane: one save in flight (D9)
-// B: they get two lanes: two saves of one document at once, and lane records name an instance path
-```
-
-Recommendation: **A**: it keeps one lane space, D9, and records that decode without the machine.
-
-**Q3. Where a write's ending goes after its fragment incarnation ends.**
-
-- A. Parked on the lane record and delivered to the next incarnation at the placement (FO5, FO6).
-- B. Success and failure become evidence (TanStack Query's component callbacks); only holds are adopted.
-- C. A host port per write (EX's `whenOrphaned`, falling back to the contract's `orphaned`).
+- A. A fragment may list `O.x.cancel(k)` in `whenAbandoned`: when the incarnation is removed, left or reset (not
+  frozen, not on actor disposal), that lane is **released on leave** (2.4's row). A held unknown is released at once;
+  one on the wire is interrupted and released when it lands; never-sent and queued commits end `NotSent { Cancelled }`, so nothing is sent for a subject that has gone. The
+  released write may still land unseen (OD20's stated limit). Without it, F6 holds as decided.
+- B. Keep F6 and F7: hosts keep busy keys and raise `Cancel`.
 
 ```ts
-// A: a reopened copy receives Saved { etag } and updates its etag
-Saved: [
-  { target: "self", guard: ({ memory }) => memory.rev > memory.sentRev || deny("NoNewEdits"), updateMemory: ({ memory, event }) => ({ etag: event.etag, sentRev: memory.rev }), actions: [send] },
-  { target: "self", updateMemory: ({ event }) => ({ etag: event.etag, status: "clean" }) },
+// before (F6): the avatar host keeps a busy predecessor and stops it by an event (RV1's upload.ts, 50 lines)
+traits: { avatar: Upload.each({ of: "avatar", by: "ref", max: 2 }) },
+Choose: [
+  { target: "self", guard: ({ memory }) => memory.avatar.length > 0 || deny("NoPrevious"),
+    updateMemory: ({ memory, operations, event }) => ({ avatar: [...memory.avatar.filter((a) => busy(Upload.O.put.get(operations, a))), event] }),
+    raise: [E.avatar.Cancel.from(({ memory }) => ({ key: memory.avatar[memory.avatar.length - 1]!.ref }))] },
+  { target: "self", updateMemory: ({ event }) => ({ avatar: [event] }) },
 ],
-// C: the host fills a port it cannot act on
-save: saveDoc.outcomes({ success: E.Saved.from((v) => ({ etag: v.etag })), failure: { Conflict: E.Conflict.from((r) => ({ serverEtag: r.serverEtag })), Refused: E.Refused, NotSent: E.Refused }, unknown: E.SaveUnsure })
-  .whenOrphaned(callbacks.onLateEnding.from((ending, { input }) => ({ docId: input.docId, saved: ending._tag === "Success" }))),   // NEW (EX)
+
+// after (A): the fragment says it once; every host just replaces its list
+// in upload.trait.ts
+whenAbandoned: [O.put.cancel(({ memory }) => ({ ref: memory.ref }))],                 // existing: whenAbandoned, cancel; NEW MEANING: release on leave
+// in the avatar host
+traits: { avatar: Upload.each({ of: "avatar", by: "ref", max: 1 }) },
+Choose: { target: "self", updateMemory: ({ event }) => ({ avatar: [event] }) },
 ```
 
-Recommendation: **A**: it is OD19–OD22 one level down, adds no word, and loses no fact.
+The same change removes 4.4's keep-busy line: a like whose issue leaves the board is released, and the store keeps the
+issue's `uncertain` mark (rule 32: `Released` keeps the mark), so the record queue no longer waits on it.
+Added: one new place for an existing word (`cancel` in `whenAbandoned`), one row in 2.4, one summary flag (FO9).
+Dropped: the keep-busy line, the predecessor raise, `max: 2`, and FO8's `.each` warning for fragments that release.
+Recommendation: **A**. Release is declared, so OD6's "no quiet release" holds; a document's autosave simply does not
+list it and keeps its save for the document's return (4.1).
 
-### Round 2: scope
+**Q13. Does `Flow.entry` fire on a thaw?** (H2)
 
-**Q4. Which placements may own mapped writes in v1.**
-
-- A. Every trait placement (root, node, `.each`, `.resumable()`, with `resetOn`).
-- B. Placements whose incarnations are about one thing: root, `.each`, `.resumable()`, no `resetOn` (FO0).
-- C. Everything, subroutines included.
+- A. No. A frozen schedule that is overdue fires once on return (rule 1), and thaw re-places `activities` (FO4); a
+  fragment that waits on a lookup arms a schedule for it.
+- B. Yes: `armOn: [Flow.entry]` also starts on thaw.
 
 ```ts
-// B allows
-traits: { docs: Autosave.each({ of: "open", by: "docId", max: 20 }) }
-// B refuses (a construction error; its finding name, if one is wanted, is a new word for you to choose)
-{ DISCUSSION: Flow.state({ traits: { draft: Autosave } }) }   // a node trait with a mapped write
+// A (4.2): the catch-up's safety timer is armed by the gap, so an overdue tick re-looks-up after a thaw
+resync: { schedule: "5 seconds", armOn: [E.Missed, E.CatchUpFailed], send: E.ResyncDue },
+// B: also start on thaw
+resync: { schedule: "5 seconds", armOn: [Flow.entry, E.Missed, E.CatchUpFailed], send: E.ResyncDue },   // NEW MEANING: Flow.entry on thaw
 ```
 
-Recommendation: **B**: no cross-thing adoption and no host-invisible late result in v1; reads stay allowed anywhere.
+Recommendation: **A**: B changes a decided word's meaning for a case that A covers.
 
-**Q5. Can a host read a fragment's lanes?**
-
-- A. Yes, like schedules: `s.operations.<instance>.<name>`, `Fragment.O.x.get`, `idle` and `retryable` in guards;
-  acting is a type error (FO2).
-- B. Private unless the fragment marks the operation.
-
-```ts
-// A
-Close: { target: "self", guard: [Autosave.O.save.idle(({ event }) => event)], updateMemory: ({ memory, event }) => ({ open: memory.open.filter((d) => d.docId !== event.docId) }) },   // NEW MEANING
-// B
-save: saveDoc.outcomes({ success: E.Saved.from((v) => ({ etag: v.etag })), failure: { Conflict: E.Conflict.from((r) => ({ serverEtag: r.serverEtag })), Refused: E.Refused, NotSent: E.Refused }, unknown: E.SaveUnsure }).public(),   // NEW (EX)
-```
-
-Recommendation: **A**: rows are status, not wiring, and the host still cannot act; no new word.
-
-**Q6. A held write whose `.each` copy is removed.**
-
-- A. Stated limit; the host keeps busy keys in membership (4.4's one line) when it matters.
-- B. Flow keeps a copy alive while it holds work.
-- C. Ban mapped writes under `.each`.
-
-```ts
-// A (host code, no new word)
-issueIds: [...event.ids, ...memory.issueIds.filter((id) => !event.ids.includes(id) && busy(LikeButton.O.set.get(operations, { id })))]
-// B: no code; membership silently differs from `issueIds`
-```
-
-Recommendation: **A**. B is the hidden membership and draining the operations merge rejected; C loses the like and
-autosave cases.
-
-### Round 3: smaller items
-
-**Q7. Subroutines that own writes (phase 2).**
-
-- A. Later, under FO5–FO8 unchanged, after a Sonnet stress test of 4.3 and an upload step.
-- B. Never: subroutines own reads, streams and bare writes only.
-
-Recommendation: **A**, keeping 1.2 item 4 as the guidance (a host that needs a late result now keeps the write).
-
-**Q8. Fragment Stories.**
-
-- A. `story.machine(fragment, { id, fixtures })`, `.enter` and `.leave` on traits too (FO10).
-- B. Fragments with operations are tested only inside a host Story.
-
-```ts
-story.machine(Autosave, { id: "Autosave/unsure-then-saved", fixtures: FakeDocs({ script: [{ drop: true }, { status: 200 }] }) })   // NEW MEANING: fixtures
-  .send(Autosave.E.Edited({ body: "a" })).advance("1 second").leave().enter({ docId: "d1", body: "a", etag: "e1" }).advance("3 seconds")
-```
-
-Recommendation: **A**: it is what makes the policy tested once.
-
-**Q9. Work on a subroutine's entry.**
-
-- A. No hook: a `Flow.entry` schedule or a user event.
-- B. Revive `start: [O.x.commit(select)]` (EX F10).
-
-Recommendation: **A**: no case needs B, and B is a new word.
-
-**Q10. `cancel` in `whenAbandoned`** (stop an upload when its step is abandoned).
-
-- A. Defer to `revisit.md`; abandonment never stops a write (OD19's rule, one level down).
-- B. Allow `O.x.cancel` in `whenAbandoned` now.
-
-Recommendation: **A**: a cancelled write is still `unknown { Cancelled }` and held, so B saves nothing in v1.
-
-**For `revisit.md` (proposed, not written there):** Q10's `cancel` on abandonment; a finding name for FO0 if wanted;
-per-copy fan-out of write members (MD 2.7.13's limit, unchanged).
+**For `revisit.md` (proposed, not written there):** the subject as phase 2's admission rule for node traits and
+subroutines (an entry's input as subject); one fragment's placements sharing an operation when subjects differ (M8);
+"release on user cancel" so `unknown { Cancelled }` needs no second `cancel`; per-copy fan-out of write members.
