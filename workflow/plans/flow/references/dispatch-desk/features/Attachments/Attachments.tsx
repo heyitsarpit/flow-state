@@ -1,10 +1,9 @@
 // The attachment rows of the ticket panel. Each row reads its copy's public memory (`status`, `url`,
 // `problem`) and the lane's row (`progress`, `retryCount`), through the narrowest selector.
-// design gap: the plan names the placement `uploads: AttachmentUpload.each({ of: "uploads", … })`, so
-// the copies are read here from `s.memory.uploads` (each copy has `key` and its public memory); B6's
-// editor definition may name the host's draft list differently.
-// design gap: `attach`, `cancelUpload` and `removeAttachment` are B6's `useEditor` commands (the plan
-// lists "attach, remove an attachment"; cancel is `E.uploads.key(ref).Cancel()`).
+// The editor places `uploads: AttachmentUpload.each({ of: "attachments", by: "ref", max: 10 })`: `uploads` is the
+// trait, so the copies are read here from `s.memory.uploads` (each copy has `key` and its public memory);
+// `attachments` is the editor's own list of drafts. `attach`, `cancelUpload` and `removeAttachment` are
+// `useEditor`'s commands (cancel sends `E.uploads.key(ref).Cancel()`).
 import type { ChangeEvent, ReactNode } from "react";
 import { useView } from "flow-state/react";
 import type { UploadProgress } from "./attachments-api.js";

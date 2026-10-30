@@ -1,13 +1,20 @@
 // Each component selects the narrowest thing it needs (minimal-library decision 8): only the
-// title field re-renders per keystroke, only the badge per technician update.
+// title field re-renders per keystroke, only the notice when the save lane changes.
+//
+// Two stores are read, and told apart (2.8.1): the shared record (`Ticket.get`: what every copy of the ticket
+// shows, `predicted` while a write is unconfirmed) and this actor's lane (`O.save.get`: this editor's save,
+// `pending` while it is on the wire, `uncertain` while it is held).
 import type { ReactNode } from "react";
 import { check } from "flow-state";
 import { useView } from "flow-state/react";
+import { Attachments } from "../../Attachments/Attachments.js";
+import { CommentsPanel } from "../../Comments/CommentsPanel.js";
+import { Ticket } from "../ticket.domain.js";
 import type { TicketKey } from "../types.js";
-import { Editor } from "./editor.definition.js";
+import { Editor, MAX_RESENDS } from "./editor.definition.js";
 import { useEditor, type EditorCommands } from "./useEditor.js";
 
-const { S, E } = Editor;
+const { S, E, O } = Editor;
 
 export function TicketPanel({ ticket }: { ticket: TicketKey }) {
   const commands = useEditor(ticket);
@@ -35,7 +42,7 @@ function OpenTicket({ commands }: { commands: EditorCommands }) {
     SAVED: <span role="status">Saved</span>,
     FAILED: <ErrorNotice commands={commands} />,
     LOCKED: <LockNotice commands={commands} />,
-    UNCERTAIN: null, // UncertainNotice below covers it, in CLOSED too
+    UNSURE: <UnsureNotice commands={commands} />,
   } satisfies Record<typeof step, ReactNode>;
 
   return (
@@ -47,27 +54,26 @@ function OpenTicket({ commands }: { commands: EditorCommands }) {
         {status[step]}
         <button onClick={commands.close}>Done</button>
       </footer>
-      <UncertainNotice commands={commands} />
+      <Attachments commands={commands} />
+      <CommentsPanel host={commands.editor} instance="comments" events={commands.comments} />
     </>
   );
 }
 
+// The shared record's title, with what the record says about it: a prediction every copy shows, or a value
+// the server has not confirmed. A lane is `undefined` while its activity is not running (CLOSED).
 function TicketHeader({ commands }: { commands: EditorCommands }) {
-  // A lane is undefined while its activity is not running, so optional chaining covers CLOSED.
-  const title = useView(commands.editor, (s) =>
-    S.OPEN.is(s) ? s.activities.ticket?.data?.title : undefined,
+  const record = useView(commands.editor, (s) =>
+    Ticket.get(
+      s,
+      { workspaceId: s.memory.workspaceId, ticketId: s.memory.ticketId },
+      Ticket.pick("title"),
+    ),
   );
 
-  const stage = useView(commands.editor, (s) =>
-    S.OPEN.is(s) ? s.activities.progress?.data?.stage : undefined,
-  );
+  const loadFailed = useView(commands.editor, (s) => s.operations.ticket?._tag === "Failure");
 
-  const loadFailed = useView(
-    commands.editor,
-    (s) => S.OPEN.is(s) && s.activities.ticket?._tag === "Failure",
-  );
-
-  if (loadFailed && title === undefined) {
+  if (loadFailed && record.data === undefined) {
     return (
       <p role="alert">
         This ticket could not be loaded. <button onClick={commands.refresh}>Try again</button>
@@ -77,8 +83,9 @@ function TicketHeader({ commands }: { commands: EditorCommands }) {
 
   return (
     <header>
-      <h2>{title ?? "Loading…"}</h2>
-      {stage && <span className="badge">Technician {stage}</span>}
+      <h2>{record.data?.title ?? "Loading…"}</h2>
+      {record.predicted && <span className="badge">Saving…</span>}
+      {record.uncertain && <span className="badge">Not confirmed</span>}
     </header>
   );
 }
@@ -107,7 +114,8 @@ const saveHints = new Map([
 
 function SaveButton({ commands }: { commands: EditorCommands }) {
   // Enablement and its explanation come only from check, which returns a Data value: the
-  // selector re-renders only when the verdict changes (minimal-library 8a).
+  // selector re-renders only when the verdict changes (minimal-library 8a). `O.save.idle` is among the
+  // guards, so a save on the wire or unconfirmed disables the button with no extra line here.
   const save = useView(commands.editor, (s) => check(s, E.SaveRequested()));
 
   const hint =
@@ -137,30 +145,38 @@ function ErrorNotice({ commands }: { commands: EditorCommands }) {
   return <p role="alert">{error}</p>;
 }
 
-function UncertainNotice({ commands }: { commands: EditorCommands }) {
-  // An honest unknown outcome becomes memory through SaveUncertain; views never read transactions.
-  // Shown open or closed: a save cancelled by Close can be just as uncertain.
-  const uncertain = useView(commands.editor, (s) => s.memory.uncertain !== null);
-  const canRetry = useView(commands.editor, (s) => S.OPEN.UNCERTAIN.is(s));
-
-  if (!uncertain) return null;
+// The hold, read from the lane: the Attempt is not in memory. `retryCount` counts the re-sends so far.
+function UnsureNotice({ commands }: { commands: EditorCommands }) {
+  const retries = useView(
+    commands.editor,
+    (s) =>
+      O.save.get(s, { workspaceId: s.memory.workspaceId, ticketId: s.memory.ticketId }).retryCount,
+  );
 
   return (
     <p role="status">
-      We couldn't confirm your last save.{" "}
-      {canRetry && <button onClick={commands.save}>Retry the same save</button>}
+      We couldn't confirm your last save. Trying again ({retries} of {MAX_RESENDS})…{" "}
+      <button onClick={commands.save}>Try again now</button>
     </p>
   );
 }
 
+// A closed ticket can still own a save: the Runtime keeps the lane after the panel is gone.
 function ClosedTicket({ commands }: { commands: EditorCommands }) {
   const title = useView(commands.editor, (s) => s.memory.saved);
+
+  const lane = useView(commands.editor, (s) =>
+    O.save.get(s, { workspaceId: s.memory.workspaceId, ticketId: s.memory.ticketId }),
+  );
 
   return (
     <>
       <h2>{title}</h2>
       <button onClick={commands.reopen}>Edit</button>
-      <UncertainNotice commands={commands} />
+      {lane.pending && <p role="status">Still saving your last change…</p>}
+      {lane.uncertain && (
+        <p role="status">We couldn't confirm your last save. Open the ticket to finish it.</p>
+      )}
     </>
   );
 }

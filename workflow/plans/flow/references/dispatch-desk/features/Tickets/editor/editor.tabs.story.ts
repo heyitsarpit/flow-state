@@ -2,7 +2,7 @@
 // Tabs are independent actors. Only the first persists; opening a second cannot transfer a save.
 import { story } from "flow-state/testing";
 import { browserSetup } from "../../../app/persistence.js";
-import { SlowSave } from "../../../testing/fixtures.js";
+import { Desk, DeskClient } from "../../../testing/desk.fake.js";
 import { SessionRef } from "../../Session/session.ref.js";
 import { ToastsRef } from "../../Toasts/toasts.ref.js";
 import { Editor } from "./editor.definition.js";
@@ -10,7 +10,12 @@ import { Editor42, T42 } from "./editor.story.js";
 
 const desk = (id: string) =>
   story
-    .app(browserSetup("dispatcher-7"), { id, fixtures: [SlowSave] })
+    // SlowSave became a held commit: the save stays on the wire until a step releases it.
+    .app(browserSetup("dispatcher-7"), {
+      id,
+      fixtures: [DeskClient],
+      world: [Desk.saveTitle.hold()],
+    })
     .ensure(SessionRef, { input: { userId: "dispatcher-7" } })
     .ensure(ToastsRef)
     .ensure(Editor42, { input: T42 })
@@ -29,7 +34,7 @@ export const secondTabIndependent = desk("ticket-second-tab-independent")
   .closeTab("main")
   .process()
   .checkpoint("no-handover")
-  .advance("2 seconds")
+  .world(Desk.saveTitle.release())
   .process()
   .checkpoint("b-saved");
 

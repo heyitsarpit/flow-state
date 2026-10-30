@@ -1,4 +1,4 @@
-// One upload, placed by the editor as `.each({ of: "uploads", by: "ref", max: 10 })`. It commits when its
+// One upload, placed by the editor as `uploads: AttachmentUpload.each({ of: "attachments", by: "ref", max: 10 })`. It commits when its
 // copy is created, shows progress through the lane's row, stops on `Cancel`, re-sends an unknown a few
 // times, and is released when its copy is removed: a removed attachment is worthless (rule 60).
 import { Schema } from "effect";

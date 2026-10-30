@@ -1,9 +1,23 @@
 // Reusable editor behaviour, readable as the spec. Structure is data: targets, operations and
-// outcome events are declarations; callbacks only compute payloads, patches and parameters.
+// ending events are declarations; callbacks only compute payloads, patches and parameters.
+//
+// The save, in one picture:
+//   EDITING --Save--> SAVING --Saved--------------> SAVED (or back to EDITING if the draft moved on)
+//                       |--SaveFailed-------------> FAILED         a definite failure: a new Attempt next time
+//                       |--SaveLocked-------------> LOCKED         a definite failure: backs off, new Attempt each
+//                       '--SaveUnsure (root)-----> UNSURE          the hold: the SAME Attempt, 3 s apart
+//   UNSURE --ResendDue, retryable({ times: 3 })--> SAVING (retry)
+//   UNSURE --ResendDue, budget spent-------------> FAILED, with `cancel` releasing the hold
+//
+// The lane is the Runtime's, not this actor's (rule 44). Closing the ticket, even disposing the actor, drops and
+// cancels nothing: the save lands, the store takes its ending at settlement (rule 27), and the ending is parked
+// for the persisted identity. The next incarnation adopts it at the root, before any event. So every ending is
+// handled at the root, current or late or adopted. `runtime.unsettledWrites()` lists such a lane while it lives
+// (app/host.ts uses it for `beforeunload`).
 import { deny, machine, send } from "flow-state";
 import { Toasts } from "../../Toasts/toasts.definition.js";
 import { ToastsRef } from "../../Toasts/toasts.ref.js";
-import { Editor } from "./editor.definition.js";
+import { Editor, MAX_ATTACHMENTS, MAX_RESENDS } from "./editor.definition.js";
 
 const MAX_TITLE = 200;
 
@@ -29,45 +43,43 @@ const canSave = ({ memory, context }: { memory: Memory; context: { canEdit: bool
   return true;
 };
 
-// What every confirmed save does to memory, wherever it lands.
-const confirmSaved = ({ event }: { event: { ticket: { title: string } } }) => ({
+const dirty = ({ memory }: { memory: Memory }) =>
+  memory.draft !== memory.saved || deny("NothingToSave");
+
+// What every confirmed save does to memory. It never touches the draft: the user may have typed on.
+const confirmed = ({ event }: { event: { ticket: { title: string } } }) => ({
   saved: event.ticket.title,
   error: "",
   lockRetries: 0,
-  uncertain: null,
+});
+
+// A late or adopted ending, at the root: the confirmed title also becomes the draft while there are no local
+// edits (a new incarnation starts with an empty draft and adopts the parked ending first).
+const confirmedAtRoot = ({
+  event,
+  memory,
+}: {
+  event: { ticket: { title: string } };
+  memory: Memory;
+}) => ({
+  ...confirmed({ event }),
+  ...(memory.draft === memory.saved ? { draft: event.ticket.title } : {}),
 });
 
 export const EditorMachine = machine(Editor, ({ S, E, O }) => {
-  // One set of outcomes serves the button, autosave, lock retries and the retry of an uncertain
-  // save. saveTitle is a domain operation, so the domain predicts the title, confirms it from the
-  // response and repairs every list that can be wrong (EntityDomains.plan D1).
-  const saveOutcomes = {
-    success: E.Saved.from((ticket) => ({ ticket })),
-    failure: {
-      TitleRejected: E.SaveFailed.from(({ reason }) => ({ reason })),
-      TicketNotFound: E.SaveFailed.from(() => ({ reason: "This ticket no longer exists" })),
-      TicketLocked: E.SaveLocked.from(({ lockedBy }) => ({ lockedBy })),
-    },
-    defect: E.SaveFailed.from(() => ({ reason: "Save failed unexpectedly" })),
-    // Cancelled after the request was sent, or restored mid-flight: the outcome is unknown, and
-    // the attempt is kept so a retry reuses its idempotency key.
-    unknown: E.SaveUncertain.from((attempt) => ({ attempt })),
-  };
-
-  const commitDraft = O.Tickets.saveTitle.commit(
-    ({ memory }) => ({ ...ticketKey({ memory }), title: memory.draft }),
-    { outcomes: saveOutcomes },
-  );
-
-  // Re-issues the uncertain attempt itself (same input, same attempt.id), never a new one.
-  const retryUncertain = O.Tickets.saveTitle.retry(({ memory }) => memory.uncertain, {
-    outcomes: saveOutcomes,
-  });
+  // The first send of a title is always a new Attempt (rule 19). Guarded by `idle`, so Save disables through
+  // `check()` while a save is on the wire or unconfirmed (the lane, not memory, says so).
+  const commitDraft = O.save.commit(({ memory }) => ({
+    ...ticketKey({ memory }),
+    title: memory.draft,
+  }));
 
   const toastSaved = send(
     ToastsRef,
     Toasts.E.Push.from(({ event }) => ({ text: `Saved “${event.ticket.title}”` })),
   );
+
+  const withinBudget = O.save.retryable(ticketKey, { times: MAX_RESENDS });
 
   return {
     default: S.OPEN,
@@ -80,29 +92,40 @@ export const EditorMachine = machine(Editor, ({ S, E, O }) => {
       },
     ],
 
-    // Root handlers apply wherever no nearer state handles the event, CLOSED included: a save
-    // that settles after Close still updates memory and still tells the user.
-    on: {
-      PermissionRevoked: { target: S.CLOSED, actions: [O.Tickets.saveTitle.cancel(ticketKey)] },
-      Saved: { target: "self", updateMemory: confirmSaved, actions: [toastSaved] },
-      SaveUncertain: {
-        target: "self",
-        updateMemory: ({ event }) => ({ uncertain: event.attempt }),
+    // Fillings for the two placed traits. `comments` is the editor's thread; its callback closes the editor when
+    // the ticket does not exist. `uploads`' callbacks (`onStored`, `onFailed`) are optional and left out: the row
+    // shows its own status.
+    traits: {
+      comments: {
+        input: ({ memory }) => ({ workspaceId: memory.workspaceId, ticketId: memory.ticketId }),
+        callbacks: { onTicketGone: S.CLOSED },
       },
+      uploads: { input: ({ item }) => ({ ref: item.ref, name: item.name, size: item.size }) },
+    },
+
+    // Root handlers apply wherever no nearer state handles the event, CLOSED included, and they receive what a
+    // new incarnation adopts (rule 44): a save that settles after Close still updates memory and still tells the
+    // user; one that was left unconfirmed is found again here.
+    on: {
+      PermissionRevoked: { target: S.CLOSED, actions: [O.save.cancel(ticketKey)] },
+      Saved: { target: "self", updateMemory: confirmedAtRoot, actions: [toastSaved] },
+      SaveFailed: { target: "self", updateMemory: ({ event }) => ({ error: event.reason }) },
+      SaveLocked: {
+        target: "self",
+        updateMemory: ({ event }) => ({ error: `Locked by ${event.lockedBy}` }),
+      },
+      SaveNotSent: { target: "self" }, // the explicit ignore (rule 20): nothing left, nothing to clean up
+      // The user's own stop: release the lane now. Key-less, in the handler of an event only `save` maps (rule 43).
+      SaveStopped: { target: "self", actions: [O.save.cancel] },
+      // The hold. The request may have landed. From SAVING, or adopted by a new incarnation, go where it is
+      // reconciled. (CLOSED keeps it without moving: see below.)
+      SaveUnsure: S.OPEN.UNSURE,
     },
 
     states: {
       OPEN: {
         default: S.OPEN.EDITING,
-        activities: {
-          // A domain read: the store keeps the ticket coherent with the queue's copy. Its value
-          // outcome fires only when the confirmed ticket changes, never for a prediction, so
-          // `saved` only ever holds what the server confirmed.
-          ticket: O.Tickets.ticketById.subscribe(ticketKey, {
-            outcomes: { value: E.TicketLoaded.from((ticket) => ({ title: ticket.title })) },
-          }),
-          progress: O.technicianUpdates.subscribe(ticketKey), // read in views as a lane; no events
-        },
+        activities: [O.ticket.subscribe(ticketKey)],
         on: {
           // The server's title becomes the draft only while there are no local edits.
           TicketLoaded: {
@@ -112,11 +135,39 @@ export const EditorMachine = machine(Editor, ({ S, E, O }) => {
                 ? { saved: event.title, draft: event.title }
                 : { saved: event.title },
           },
+          TicketGone: {
+            target: S.CLOSED,
+            updateMemory: () => ({ error: "This ticket no longer exists" }),
+          },
+          TicketLoadFailed: { target: "self" }, // the row's Failure shows it; Refresh refetches
           TitleChanged: {
-            target: S.OPEN.EDITING, // from SAVED, FAILED, LOCKED or UNCERTAIN: editing again
+            target: S.OPEN.EDITING, // from SAVED, FAILED or LOCKED: editing again
             updateMemory: ({ event }) => ({ draft: event.title, error: "" }),
           },
-          RefreshRequested: { target: "self", actions: [O.Tickets.ticketById.refetch(ticketKey)] },
+          RefreshRequested: { target: "self", actions: [O.ticket.refetch(ticketKey)] },
+          AttachFile: {
+            target: "self",
+            guard: [
+              ({ context }) => context.canEdit || deny("NoPermission"),
+              ({ memory }) => memory.attachments.length < MAX_ATTACHMENTS || deny("TooManyFiles"),
+              ({ memory, event }) =>
+                !memory.attachments.some((a) => a.ref === event.ref) || deny("AlreadyAttached"),
+            ],
+            // A copy is created for the new entry; it commits itself (upload.trait.ts).
+            updateMemory: ({ memory, event }) => ({
+              attachments: [
+                ...memory.attachments,
+                { ref: event.ref, name: event.name, size: event.size },
+              ],
+            }),
+          },
+          // Removing the entry ends its copy, and the copy releases its lane (rule 60).
+          RemoveAttachment: {
+            target: "self",
+            updateMemory: ({ memory, event }) => ({
+              attachments: memory.attachments.filter((a) => a.ref !== event.ref),
+            }),
+          },
           Escape: S.CLOSED,
           Close: S.CLOSED,
         },
@@ -136,13 +187,14 @@ export const EditorMachine = machine(Editor, ({ S, E, O }) => {
                 target: "self",
                 updateMemory: ({ event }) => ({ draft: event.title, error: "" }),
               },
-              SaveRequested: { target: S.OPEN.SAVING, guard: canSave, actions: [commitDraft] },
+              SaveRequested: {
+                target: S.OPEN.SAVING,
+                guard: [canSave, O.save.idle(ticketKey)],
+                actions: [commitDraft],
+              },
               AutosaveDue: {
                 target: S.OPEN.SAVING,
-                guard: (input) =>
-                  input.memory.draft !== input.memory.saved
-                    ? canSave(input)
-                    : deny("NothingToSave"),
+                guard: [dirty, canSave, O.save.idle(ticketKey)],
                 actions: [commitDraft],
               },
               // With edits, Escape discards them. Without, this guard declines and the event
@@ -169,10 +221,10 @@ export const EditorMachine = machine(Editor, ({ S, E, O }) => {
                   target: S.OPEN.SAVED,
                   guard: ({ event, memory }) =>
                     event.ticket.title === memory.draft || deny("DraftMovedOn"),
-                  updateMemory: confirmSaved,
+                  updateMemory: confirmed,
                   actions: [toastSaved],
                 },
-                { target: S.OPEN.EDITING, updateMemory: confirmSaved, actions: [toastSaved] },
+                { target: S.OPEN.EDITING, updateMemory: confirmed, actions: [toastSaved] },
               ],
               SaveFailed: {
                 target: S.OPEN.FAILED,
@@ -182,22 +234,27 @@ export const EditorMachine = machine(Editor, ({ S, E, O }) => {
                 target: S.OPEN.LOCKED,
                 updateMemory: ({ event }) => ({ error: `Locked by ${event.lockedBy}` }),
               },
-              SaveUncertain: {
-                target: S.OPEN.UNCERTAIN,
-                updateMemory: ({ event }) => ({ uncertain: event.attempt }),
-              },
-              CancelSave: {
+              SaveNotSent: {
                 target: S.OPEN.EDITING,
-                actions: [O.Tickets.saveTitle.cancel(ticketKey)],
+                updateMemory: () => ({ error: "That save did not leave this device. Try again." }),
               },
+              // Stop waiting. On the wire this interrupts; the ending comes back as SaveStopped, and the root
+              // releases it. SaveUnsure needs no handler here: the root takes it to UNSURE.
+              CancelSave: { target: S.OPEN.EDITING, actions: [O.save.cancel(ticketKey)] },
             },
           },
           SAVED: {},
           FAILED: {
             on: {
-              SaveRequested: { target: S.OPEN.SAVING, guard: canSave, actions: [commitDraft] },
+              SaveRequested: {
+                target: S.OPEN.SAVING,
+                guard: [canSave, O.save.idle(ticketKey)],
+                actions: [commitDraft],
+              },
             },
           },
+          // A definite failure: nothing happened on the server, so every retry is a new write with a new
+          // Attempt (rule 19). Its budget is memory, counted across writes (2.7.6).
           LOCKED: {
             schedules: {
               // Each retry passes through SAVING and re-enters LOCKED, which restarts this
@@ -211,9 +268,12 @@ export const EditorMachine = machine(Editor, ({ S, E, O }) => {
               RetrySave: [
                 {
                   target: S.OPEN.SAVING,
-                  guard: ({ memory }) =>
-                    memory.lockRetries < MAX_LOCK_RETRIES ||
-                    deny("RetryLimitReached", { attempts: memory.lockRetries }),
+                  guard: [
+                    ({ memory }) =>
+                      memory.lockRetries < MAX_LOCK_RETRIES ||
+                      deny("RetryLimitReached", { attempts: memory.lockRetries }),
+                    O.save.idle(ticketKey),
+                  ],
                   updateMemory: ({ memory }) => ({ lockRetries: memory.lockRetries + 1 }),
                   actions: [commitDraft],
                 },
@@ -228,20 +288,58 @@ export const EditorMachine = machine(Editor, ({ S, E, O }) => {
               ],
             },
           },
-          // The save may or may not have reached the server. Retrying reuses the same attempt,
-          // so the server deduplicates it; refreshing shows the server's title meanwhile.
-          UNCERTAIN: {
+          // The hold: the save may or may not have reached the server, and the lane is Held with its one
+          // Attempt. Re-sending reuses that Attempt (`retry`, never `commit`), so the server deduplicates on
+          // `attempt.id`. Each re-send passes through SAVING and, if unconfirmed again, re-enters UNSURE, which
+          // restarts the schedule. After the budget, `cancel` releases the hold and FAILED says so honestly.
+          UNSURE: {
+            schedules: { resend: { schedule: "3 seconds", send: E.ResendDue } },
             on: {
+              ResendDue: [
+                {
+                  target: S.OPEN.SAVING,
+                  guard: [withinBudget],
+                  actions: [O.save.retry(ticketKey)], // the same Attempt, the same idempotency key
+                },
+                {
+                  target: S.OPEN.FAILED,
+                  updateMemory: () => ({ error: "We couldn't confirm your last save" }),
+                  actions: [O.save.cancel(ticketKey)], // give up and release; the save may still have landed
+                },
+              ],
+              // "Try again now": the same re-send, on demand, from the same budget.
               SaveRequested: {
                 target: S.OPEN.SAVING,
-                guard: ({ memory }) => memory.uncertain !== null || deny("NothingToRetry"),
-                actions: [retryUncertain],
+                guard: [withinBudget],
+                actions: [O.save.retry(ticketKey)],
+              },
+              // Typing here keeps the draft and the hold: the re-send schedule must keep running, so the state
+              // does not change. When the re-send lands, SAVING's ordered Saved sends a moved-on draft to EDITING.
+              TitleChanged: {
+                target: "self",
+                updateMemory: ({ event }) => ({ draft: event.title }),
               },
             },
           },
         },
       },
-      CLOSED: { on: { Reopen: S.OPEN } },
+      CLOSED: {
+        on: {
+          // A save that outlives the screen, found unconfirmed: keep the hold where it is. Reopen reconciles it.
+          SaveUnsure: { target: "self" },
+          // Three ways back, by what the lane is doing (rule 45 gives every hold an owner):
+          Reopen: [
+            { target: S.OPEN, guard: [O.save.idle(ticketKey)] },
+            {
+              target: S.OPEN.UNSURE,
+              // The row, read in a guard as a view reads it (2.7.5).
+              guard: ({ memory, operations }) =>
+                O.save.get(operations, ticketKey({ memory })).uncertain || deny("NotUnsure"),
+            },
+            { target: S.OPEN.SAVING }, // still on the wire: its ending is then current
+          ],
+        },
+      },
     },
   };
 });

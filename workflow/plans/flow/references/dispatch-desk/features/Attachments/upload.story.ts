@@ -112,8 +112,8 @@ export const removedWhileUploading = upload("upload/removed-while-uploading", Ph
 
 // The same walk across a reload, in the editor (an app Story, so tabs close and open). Nothing is parked
 // and no write is unsettled afterwards.
-// design gap: `AttachFile` and `RemoveAttachment` are B6's editor events (not written yet); `Kept` seeds
-// the bytes in every tab, which is enough here because nothing needs them after the reload.
+// `AttachFile` and `RemoveAttachment` are the editor's events (editor.definition.ts); `Kept` seeds the bytes
+// in every tab, which is enough here because nothing needs them after the reload.
 const T42 = { workspaceId: "north", ticketId: "T-42" };
 
 const Editor42 = editorRef(T42);
