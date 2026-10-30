@@ -1,4 +1,4 @@
-# Streams, designed from the brief (merge 6, proposal v2, revision 7)
+# Streams, designed from the brief (merge 6, proposal v2, revision 7.1)
 
 Status: **revision 7, written 2026-10-31, for the owner to check before merging.** The owner chose this design (S1)
 and decided S1–S10
@@ -584,7 +584,7 @@ a proof replays from the requested position; a reset moves the head to a new spa
 `dropAt`, `endAt`; `owed` (facts: a `missed Unproven` was queued for a value since the current `down`); `conn` (+1 at
 every start); `answer ∈ { none, proven, fresh, pending, unproven, lost, reset, abandoned }`; `startAt`; `last` (none, or `{ value, at, conn, own
 }`; `own` = confirmed by this session); `confirmed` (state); `pendingInitial` (the `initial` of a pending start).
-**Outside the session** (S10): `registered`, per (memory slice, operation, key): set by every start; cleared only by a
+**Outside the session** (S10): `registered`, per (memory slice, operation, key): set by every start and by every value the session delivers (a value without a start is the conservative implicit live, so it counts as a registration; rev 7.1, MDL N1); cleared only by a
 new slice (a new actor or incarnation, a `resetOn` reset) and per key when the key leaves `subscribe.each`; kept
 through release, re-entry, freeze and thaw; persisted and hydrated with the slice like `heard`. **Initial:** `st =
 Opening`, `drop = none`, `owed = false`, `conn = 0`, `answer = none`; for state, `last` = the restored or hydrated value with `own = false` and `at`
@@ -612,7 +612,7 @@ rebased from its age, `confirmed = false`.
 | **`pending(b)`** (internal) | `start(pending)`; state: as `live()` | `start(pending)`; state: as `live()` | `start(pending)`; state: as `live()` | —¹ | discard, evidence | —² |
 | **`settle(proven)`** (internal) | —³ | —³ | if `answer = pending`: `answer = proven`; else evidence | —¹ | discard, evidence | —² |
 | **`settle(lost r)`** (internal) | —³ | —³ | if `answer = pending`: `answer = lost`; facts: `deliver(missed Lost, initial = pendingInitial)` (RV5 M2); else evidence | —¹ | discard, evidence | —² |
-| **value v** | the plain-Stream case: `start(unproven)`, then the `Live` cell | **not current**: state: `last = { v, dropAt, conn, own: false }`, nothing delivered (FC54, RV1 M6); facts: unless `owed`, `deliver(missed Unproven, initial = ¬registered)`, `owed = true`; then `deliver(value v)`, `last = v`; evidence `UnprovenValues` | facts: `deliver(value v)`, `last = v`; state: `last = { v, now, conn, own: true }`, `confirmed = true`, `reconcile` | —¹ | discard, evidence | —² |
+| **value v** | the plain-Stream case: `start(unproven)`, then the `Live` cell | **not current**: state: `last = { v, dropAt, conn, own: false }`, nothing delivered (FC54, RV1 M6), `registered = true` (rev 7.1); facts: unless `owed`, `deliver(missed Unproven, initial = ¬registered)`, then `registered = true` (rev 7.1), `owed = true`; then `deliver(value v)`, `last = v`; evidence `UnprovenValues` | facts: `deliver(value v)`, `last = v`; state: `last = { v, now, conn, own: true }`, `confirmed = true`, `reconcile` | —¹ | discard, evidence | —² |
 | **`down(r)`** | `st = Dropped`, `drop = r`, `dropAt = now` | `drop = r`, `owed = false` (a second drop is a second interruption) | `st = Dropped`, `drop = r`, `dropAt = now`, `owed = false`; `pending` → `abandoned`; state: if `confirmed`, `last.at = now` (a restored, unconfirmed `last` keeps its age; rev 4.1); `confirmed = false` | —¹ | discard, evidence | —² |
 | **stream fails e** | `end(e)` | `end(e)` | `end(e)` | —¹ | discard, evidence | —² |
 | **stream completes** | `end(Closed)` | `end(Closed)` | `end(Closed)` | —¹ | discard, evidence | —² |
@@ -701,7 +701,9 @@ non-empty, socket values that match it are dropped); in `CatchingUp`: `cursor`, 
   `emittedAny = true`; append its position to `seen` (oldest dropped past `bufferSize`).
 - `register(sig)`, for an inner unproven or lost start without `restartAt`, or the implicit start: `signalled = true`;
   `liveSince = now`. If `catchUp` is set and `last` is defined: `startRepair()`. Else if `sig` is unproven,
-  `fromDeclared` and `last` is undefined: emit `fresh`, an offer Flow answers by `registered` (3.1; S8, S10). Else
+  `fromDeclared` and `last` is undefined: emit `fresh`, an offer Flow answers by `registered` (3.1; S8, S10), which
+  every earlier start and every earlier value of the slice has set, so an offer after a value is read as `live()`
+  (rev 7.1, MDL N1). Else
   emit `sig`. `ph = Live` unless repairing. The adapter keeps no "first" state of its own: S9's per-session `announced`
   is replaced by Flow's `registered` (S10).
 - `startRepair()`: emit `pending("catch-up from <last>")`; `ph = CatchingUp`; `cursor = last`; `buf = []`; `seen =
@@ -819,7 +821,7 @@ server must respect are named P0–P4 (2.3, `catchUp`'s contract):
 | I23 | Under P0–P3, the fact positions admitted to one memory slice, across all its sessions, cut at every admitted `missed`, are contiguous in the log within each cut; a `pending`, proven or `fresh` start never covers a hole | SR5, SR9, FC22, FC51 |
 | I24 | State: whenever row `value` is defined, `value` is mapped and it differs from `heard`, a value delivery is queued, and an admitted value event carries the row's current `value` | SR21, RV1 H2, MDL N7 |
 | I25 | The signals and values a session receives equal what the adapter emitted, in order, except merges of signals with no value between them, and no merge upgrades an answer or removes a `down` | SR5, SR18, MDL N8 |
-| I27 | `fresh` is answered only when the slice is not `registered`; every delivered `missed` carries `initial` = `¬registered` as it was before its start (for `settle(lost)`, before the pending start); `registered` survives release, re-entry, freeze, thaw and reload, and is cleared only by a new slice or a key leaving | SR5, RV5 H1, M2 |
+| I27 | `registered` is set by every start and every delivered value; `fresh` is answered only when the slice is not `registered`; every delivered `missed` carries `initial` = `¬registered` as it was before its start (for `settle(lost)`, before the pending start); `registered` survives release, re-entry, freeze, thaw and reload, and is cleared only by a new slice or a key leaving | SR5, RV5 H1, M2 |
 | I26 | Time (C5): `last.at ≤ now`; when `st ≠ Live`, `last.at ≤` the moment the connection last left `Live` (`dropAt` or `endAt`), and a value received in `Dropped` has `at = dropAt`; after a restore or hydration `now − last.at` equals the transferred age; `startAt ≤ now`; `liveSince ≤ now` | SR20, SR23, FC15, FC78 |
 
 **Mutants** (each must be killed): a fact before its `missed` (FC4, FC55; I1); the budget reset on the first value, or
@@ -1768,6 +1770,9 @@ None in revision 7. S10's `registered` is internal (an author sees it only as `i
 decided shape (S6 Q15, S7 Q23) already assumes, and are listed for review in section 9.
 
 ## 9. Changes in revision 7
+
+**Revision 7.1** (model run on revision 7, N1 on I23): a value delivered without a start (the implicit live) now sets
+`registered` as a start does, so a later `fresh` offer is read as `live()` and the loss is reported (3.1, 3.4, I27).
 
 Review 5 (RV5) found one High and two Mediums, decided as S10.
 
