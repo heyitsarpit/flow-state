@@ -3,7 +3,8 @@
 Status: **accepted by the owner on 2026-10-30 (section 10); revised twice: after correctness review 1
 ([reviews/review-1.md](reviews/review-1.md)) and, simplified, after three reviews and the owner's decisions M5-D5 to
 M5-D9 ([reviews/review-2.md](reviews/review-2.md)), then hardened against review 3's probes
-([reviews/review-3.md](reviews/review-3.md)); merges after merge 4.** It answers [brief.md](brief.md). Nothing
+([reviews/review-3.md](reviews/review-3.md)) and review 4's ([reviews/review-4.md](reviews/review-4.md)); merges
+after merge 4.** It answers [brief.md](brief.md). Nothing
 here edits a `.plan` file or another merge; section 6 lists the amendments to apply when it merges. The spike in
 [spike/](spike/) checks sections 3.1–3.8 (`tsc -p .` with the root `node_modules/.bin/tsc`, then `bun main.ts`;
 output in [spike/output.txt](spike/output.txt)).
@@ -18,6 +19,15 @@ concepts fell from about 40 to about 23 (review-2.md, "Concept count"); the rule
 (creates, deletes, first sightings) and matches nested paths by prefix; an absent input takes its Schema default
 first; settlement is per record; field functions are checked for purity and mutation in development, and author
 defects are reported, not skipped; the lint became an allowlist grammar. Rules: 11 to 12.
+
+**What review 4 changed.** The lint finds recorded callbacks by position (receivers, computed names, zero- and
+`any`-parameter and named callbacks included). Store records and inputs are frozen in every environment, and a write to
+them is a prediction fault; the purity check is a Runtime option, `checkReplays`, on in Stories and `propertyTest`.
+Inputs are the Type side (Effect has no `optional` default; defaults are `withDecodingDefaultKey` and apply when an
+Encoded input is decoded once). A side of a delta is the store's merged base with the fields it holds. Paths are
+segment arrays with arrays atomic; settlement confirms only whole values and is fed by the replay. The ESLint rule
+cannot be built as specified: the editor path is an owner item (9.8). Every fix of reviews 3 and 4 is shown by a
+spike check that fails when the fix is reverted (`spike/mutations.py`, 20 of 20).
 
 Sources and the short names used for citations:
 
@@ -49,14 +59,14 @@ A domain's declarations are recorded by calling each recorded function once, at 
    scan whose shape is unspecified (ED:477, ED:1016).
 2. **Runtime functions are opaque** (ED:339, ED:440-445, ED:464-466): predicted field values and `.as` mappings.
 3. **Server behaviour cannot be seen** (ED:148-154). Out of scope (BR:20).
-4. **Machine and domain are analysed apart** (M4 finding A-L2, M4:884-887; accepted as a display, M4:650).
+4. **Machine and domain are analysed apart** (M4 finding A-L2, M4:892-895; accepted as a display, M4:658).
 5. **"Static" constructs the App** (BR:18). **Half wrong:** all of Flow's static analysis loads the App's modules
    (INS:12-13, CLP:31-33, CLP:125-126); only deny codes come from the compiler (INS:158-161). What differs is that a
    domain's construction **calls author callbacks**, while CLP:96-97 says `flow check` runs "without running
    application callbacks". This proposal keeps those calls, has the lint check them, and amends CLP:96-97 (6.4).
 
 Gap 2 is answered by **not** reading runtime functions: nothing reads a predicted value. Joins, repairs, queues and
-lane keys read only the entity, the key and the field names (ED:609, M4:606-608), which is the same reason `.as`
+lane keys read only the entity, the key and the field names (ED:609, M4:614-616), which is the same reason `.as`
 stays a runtime function (3.5, M5-D4). Recording keeps capturing structure; the values stay code (M5-D5).
 
 ## 2. Where the data comes from
@@ -67,10 +77,12 @@ stays a runtime function (3.5, M5-D4). Recording keeps capturing structure; the 
 | Whether a key is an array | the Model, `many` on the change | recording, from the operation's input Schema (M5-D9) | App construction | merge 4 rule 34's default lane key; queue joins |
 | A predicted field's function, a `.as` mapping, a commit select | the runtime's live description; the Model holds `{ runtime: true }` | the author | — | the runtime only; `flow explain` shows `likes ← <runtime>` |
 | A predicted value | a live prediction in the store (EDP:64-65) | the field's function, called with the record beneath and the real input (rule A8) | at write start and at every replay | views, the store |
-| A skipped predicted value | the store (the field reads `predicted`, with the value beneath); the trace's `prediction` event, `skipped` | the store (rule A9) | start or replay | views; settlement, which schedules its confirming read |
-| An answer's input | the answer | the machine's input, **decoded through the operation's input Schema**, so an absent field with a declared default is that default (rule A3) | the answer's creation | the evaluator |
-| A condition's verdict: yes, no or maybe with its cause | not kept; computed per delta | the evaluator (rule A2), over the record before and after; a record that does not exist on one side is a definite no (rule A5) | each join, response check, order check | the join; repair evidence (`repair` gains `why`, 6.4) |
-| Source and type facts | `flow check`'s and the ESLint rule's memory; never saved | one adapter over the TypeScript 7 API, shared with Inspection D2 (rule A10) | each run | the lint; deny codes |
+| An uncomputed predicted value | the store (the record reads `predicted`; the field shows the value beneath); the trace's `prediction` event, `uncomputed` | the store (rule A9) | start or replay | views; settlement, which schedules its confirming read |
+| An answer's input | the answer | the machine's input, on the Schema's **Type side**, never decoded again; an Encoded input (hydration, a route parameter, persisted actor input) is decoded once at that boundary, where a decoding default fills a missing key (rule A3) | the answer's creation | the evaluator; its refetch sends the same value |
+| The literal default of an input field | the Model | flow check, from `withDecodingDefaultKey(Effect.succeed(<literal>))`; any other default makes the field non-extractable (rule A3) | App construction | `flow explain`; the Encoded-boundary decode |
+| A condition's verdict: yes, no or maybe with its cause | not kept; computed per delta | the evaluator (rule A2), over the store's merged base before and after, with the set of fields the store holds for the record; a record that does not exist on one side is a definite no (rule A5) | each join, response check, order check | the join; repair evidence (the `repair` event's existing `matched` field, 6.4) |
+| A prediction fault | the trace (`predictionFault`, an Inspection O4 and ED 7.4 event kind) | the store (rule A9) | start or replay | Stories (a Story fails on one), `flow trace summarize` |
+| Source and type facts | `flow check`'s memory (and its `--watch` session, 9.8); never saved | one adapter over the TypeScript 7 API, shared with Inspection D2 (rule A10) | each run | the lint; deny codes |
 | The machine-to-domain join | `flow explain` and `flow check` output | the CLI, over the Model and the impact classifier (ED:836-838) | each invocation | people and agents |
 
 Nothing here reads server behaviour or a view's selector: neither is in the Model.
@@ -115,12 +127,32 @@ TanStack DB, which evaluates in JavaScript with SQL's three-valued logic (TSE:30
 length, TSE:526-555), date formatting (time zones, TSE:633-660) and `caseWhen` (truthy numbers, TSE:687-700). String
 order is the server's collation (ED:408-409). Each is `serverMatches`.
 
-**Absent inputs and Schema defaults** (review 3). An answer's input is decoded through the operation's input Schema
-before any condition sees it, so `Schema.optional(Schema.Boolean, { default: () => false })` makes an absent
-`includeArchived` the value `false`. Only an optional input **without** a default is absent, and drops its
-constraint. Without this, `eq(record.archived, input.includeArchived)` would drop for an absent input while the server
-filters `archived = false`, and archiving a card would not repair the column (the spike's kanban case). An author whose
-server applies a default must declare it in the Schema; `flow check` cannot see a server default otherwise.
+**Inputs, absence and defaults** (reviews 3 and 4). The evaluator sees an answer's input on its Schema's **Type side**,
+as the machine passed it, and never decodes it again (decoding twice is wrong for `Date` or `NumberFromString`).
+Effect 4.0.5's `Schema.optional` takes no default (`node_modules/effect/src/Schema.ts:2460`); a default is
+`Schema.withDecodingDefaultKey(Effect.succeed(false))` (`Schema.ts:6009`), which makes the key optional on the Encoded
+side and **required on the Type side**. So:
+
+- a field with a decoding default is never absent where the evaluator looks: the machine must pass it, and kanban's
+  `includeArchived` is `false` unless the machine says otherwise, so archiving a card repairs the column;
+- an input that arrives **Encoded** (hydration, a route parameter, a persisted actor's input) is decoded once, at that
+  boundary, and the default fills the missing key there;
+- only a Type-side optional field with **no default** is absent, and drops its constraint. If the server applies a
+  default the Schema does not declare, the domain's claim is wrong and `flow check` cannot see it: the input Schema is
+  the contract, as a `serverMatches` field list is (3.3);
+- the Model records each default `flow check` can extract statically and synchronously (`Effect.succeed` of a
+  literal); another Effect (a service, an async step) is not allowed on a domain read's input, an error;
+- a function-valued default (`Effect.sync(() => new Date())`) is decoded once when the answer is created; the answer
+  keeps the decoded value and its refetch sends the same value. A transport that would re-decode makes the field
+  server-maybe;
+- a decode failure at the boundary makes the answer's condition maybe (server) and reports `InputDecodeFailed`; it is
+  never thrown;
+- a predicted field's function receives the write's Type-side input, as the machine passed it, not decoded again.
+
+**Absent optional record fields.** The store knows which fields it holds for each record. A field it does not hold is
+**not carried** (maybe). A field it holds whose value is absent (an optional entity field the server left out) is an
+**absent value**: `eq` is no, `isNull` is no, order is maybe. Inferring "not carried" from `undefined` would make an
+absent optional field maybe forever.
 
 **The null split** (the author review). With `input.assignee` **absent**, `eq(record.assignee, input.assignee)` drops
 its constraint: every assignee. With `input.assignee` **present and `null`**, it is **maybe**: some APIs read `null` as
@@ -141,7 +173,7 @@ exactly; a case-insensitive match is `serverMatches` (DD's search key is already
 ### 3.2 The conformance table
 
 M5-D3: the evaluator's own test, CEL-style, not a client/server agreement suite. Every row is in `spike/conformance.ts`;
-`main.ts` runs each and prints this table, and 58 of 58 give their expected result. Existence (a record that does not
+`main.ts` runs each and prints this table, and 60 of 60 give their expected result. Existence (a record that does not
 exist on one side) is the join's concern, not a row here: 3.3. `r` is the record, `i` the input.
 
 | operator | written | given | result |
@@ -158,6 +190,8 @@ exist on one side) is the join's concern, not a row here: 3.3. `r` is the record
 | `eq` | `eq(r.t, i.t)` | t = invalid Date | maybe: failed |
 | `eq` | `eq(r.meta.owner, "ana")` | meta = { owner: "ana" } | yes |
 | `eq` | `eq(r.meta.owner, "ana")` | meta not carried | maybe: not carried |
+| `eq` | `eq(r.nick, "x")` | nick held by the store, value absent (carried) | no |
+| `isNull` | `isNull(r.nick)` | nick held, value absent: not null | no |
 | `oneOf` | `oneOf(r.s, i.xs)` | s = "b", xs = ["a", "b"] | yes |
 | `oneOf` | `oneOf(r.s, i.xs)` | s = "c", xs = ["a", "b"] | no |
 | `oneOf` | `oneOf(r.s, i.xs)` | xs = [] | maybe: server |
@@ -207,48 +241,51 @@ exist on one side) is the join's concern, not a row here: 3.3. `r` is the record
 
 ### 3.3 The join rule
 
-A delta is the record before, the record after, and the fields it changed. Either side may be **none**: before a
-create, after a delete. For each answer the join asks whether the record is in the condition on each side (rule A5,
-SPK `flow.ts:462-530`):
+A delta's two sides are **the store's merged base** for the record before and after the change (not the delta's own
+fields), each with **the set of fields the store holds**. Either side may be **none**: before a create, after a delete.
+For each answer the join asks whether the record is in the condition on each side (rule A5, SPK `membership`, `joins`):
 
 - a side that is **none** is a definite **no**;
 - a record the client sees for the first time is **no** before, for a list (every record an active list holds is
-  held, ED:523-524), and **maybe** before, for a derived answer (it may have counted; ED:525-526);
-- otherwise the condition is evaluated (yes, no or maybe).
+  held, ED:523-524), and **maybe** before, for a derived answer (it may have counted; ED:525-526). "First time" is
+  **per Runtime**: each tab's store sees a record for the first time on its own (multiplicity audit, MT 8.1);
+- otherwise the condition is evaluated over the merged base and the held fields (yes, no or maybe).
 
-> **An answer repairs when the record's existence changed, or a field its condition reads changed, unless the
+> **An answer repairs when the record's existence changed, or a path its condition reads changed, unless the
 > condition gives the same definite answer before and after.**
 
-Paths are compared by dot-separated segments and match when one is a prefix of the other: a condition reading
-`meta.owner` matches a change reported as `meta` (the object was replaced) and one reported as `meta.owner.id`;
-`metadata` is not `meta`. This is the granularity of every "field" in the rule.
+**Paths** are segment arrays (`["meta", "owner"]`), not dotted strings, so a field named `a.b` is not the path `[a, b]`.
+Two paths match when one is a prefix of the other: a read of `[meta, owner]` matches a change to `[meta]` (the object
+was replaced) and to `[meta, owner, id]`; `[metadata]` is not `[meta]`. **Arrays are atomic**: a read through an index
+(`record.tags[0]`) reads `[tags]`, and a change anywhere inside an array is the array's path, so an insert at the
+front cannot slip past a condition on the first element.
 
-The repair carries its reason as evidence: `entered` or `left` for a definite change, or the maybe's cause (`not
-carried`, `failed`, `server`). When both sides are maybe, the reported cause follows a fixed precedence (failed, then
-not carried, then server), so it does not depend on argument order.
+The repair carries its reason in the `repair` event's existing `matched` field (ED:907): `entered` or `left` for a
+definite change, or the maybe's cause (`notCarried`, `failed`, `server`). When both sides are maybe, the cause follows a
+fixed precedence (failed, then not carried, then server), so it does not depend on argument order.
 
-**What it fixes.** With `or(eq(record.team, input.t), eq(record.status, "open"))` and a delta that carries only
-`status`, revision 1 gave true before and true after, and no repair, though the ticket on the blue team left the list;
-now `status` is read and changed, and yes before, maybe after (team not carried) is not the same definite answer:
-repair, why `not carried`. A create into "all issues" (an absent `projectId`, so every leaf drops) is none → yes:
-`entered`. A delete is yes → none: `left`. A list with no `.where` repairs on every create and delete and on no update.
-A first sighting refetches a derived answer once, as ED:525-526 requires.
+**The counterexample, under merged bases.** With `or(eq(record.team, input.t), eq(record.status, "open"))`, a store that
+has never held `team` for the record (its list shape omits it), and a change of `status` from open to closed: before is
+yes (status open), after is maybe (team not carried), `status` is read and changed, and yes then maybe is not the same
+definite answer, so the answer repairs (`notCarried`). Revision 1 read true then true and missed it. Had the store held
+`team`, the merged base would carry it and the verdict would be definite.
 
-**Bounded.** A change to a field the condition does not read never changes membership, and two definite equal answers
-never repair, so there is no "refetch on every change" cliff; the cost of maybe is a refetch when a field it depends on
-changes.
+**Existence.** A create into "all issues" (an absent `projectId`, so every leaf drops) is none then yes: `entered`. A
+delete is yes then none: `left`. A list with no `.where` repairs on every create and delete and on no update. A first
+sighting refetches a derived answer once (ED:525-526).
+
+**Bounded.** A change to a path the condition does not read never changes membership, even when both sides are maybe
+(a `serverMatches` list is not refetched when an unnamed field changes), and two definite equal answers never repair.
 
 **Membership is one of ED 2.3's reasons.** For a record in the answer (yes or maybe on either side), section 2.3's
 other reasons still apply: an order field of an ordered list, any field of a server-ranked list except `unaffectedBy`,
-and a derived answer's fields. A derived answer's fields are **its declared fields plus the fields its condition
-reads** (ED:128-129: condition fields always repair), so `.derivedFrom` fields and `.where` cannot disagree; the
-classifier takes the union (SPK `impact`, `flow.ts:502`). The spike checks each kind.
+and a derived answer's fields, which are **its declared fields plus the paths its condition reads** (ED:128-129), so
+`.derivedFrom` and `.where` cannot disagree (SPK `impact`).
 
 **The `serverMatches` field list is a claim**, like `.alsoChanges`: `serverMatches(input.viewer, record.acl)` says the
 server's match reads only `acl`, so making a document private (`visibility`) does not repair that list. If the server
-also reads `visibility`, the declaration is wrong and repairs are missed, as with any omitted dependency (ED:148-154);
-audit mode and `propertyTest` are the only checks, and `flow check` says so with an info finding wherever a field list
-is given. `serverMatches(input.viewer)` with no fields claims nothing narrower and repairs on any change.
+also reads `visibility`, the declaration is wrong and repairs are missed (ED:148-154); audit mode and `propertyTest`
+are the only checks, and `flow check` says so with an info finding wherever a field list is given.
 
 ### 3.4 Predicted values are runtime functions
 
@@ -257,7 +294,7 @@ record beneath and the input** (M5-D5). Recording captures the entity, the key a
 called with the real input at write start and again at every replay.
 
 ```ts
-// merge 4's Issues.setLike (M4:125-128), ported. One line changes: the input is a parameter.
+// merge 4's Issues.setLike (M4:128-131), ported. One line changes: the input is a parameter.
 setLike: write(setLike).one(Issue).predicts(({ input }) => Issue.patch(input.key, {
   liked: input.liked,                                                                   // a recorded read
   likes: (i, input) => i.likes + (input.liked === i.liked ? 0 : input.liked ? 1 : -1),   // ← NEW: (beneath, input)
@@ -272,29 +309,46 @@ archive: write(archiveUsers).predicts(({ input }) => User.patch(input.keys, { st
 - **"`.predicts` runs twice" ends** (ED:440-445, ED:1172-1174, EDP:51-52): the callback runs once, for structure.
 - **The function is typed** by the record beneath and the write's input (the input type is inferred from where the
   change is returned; SPK `types.ts`). Naming the second parameter `input` shadows the recording one.
-- **Field functions must be pure and deterministic, and must not change the record beneath.** It is typed
-  `DeepReadonly` (so `m.labels.push(…)` is a type error), and in development each function is called **twice per
-  replay, each time on a fresh copy of the record beneath**: two different results (`Math.random`) or a changed copy (a
-  mutation that got past the types) is a defect (SPK `callField`, `flow.ts:592`). Production calls it once on the
-  record itself. The double call cannot see a clock read that lands in the same millisecond twice; review must.
-  Copies are used rather than freezing the record, because a write to a frozen object throws a `TypeError` that looks
-  exactly like a missing nested field and would be skipped as rule A9's ordinary failure.
+- **Field functions must be pure and deterministic, and must not write to their arguments.** The record beneath and
+  the input are **deeply frozen in every environment**: store records, like snapshots, are frozen plain data
+  (Machines O8), and the input is the request body. A write to either throws a `TypeError` in strict code (and is a
+  no-op in sloppy JavaScript, so the base is never corrupted). The store classifies a `TypeError` by calling the
+  function again on unfrozen copies (made through the entity's and the input's Schemas, so `Schema.Class`, `Option`,
+  `Data`, `Map`, `Set`, `Date` and `bigint` survive): if a copy changed, the function wrote to it, a **prediction
+  fault**; otherwise the `TypeError` (a missing nested field) is an ordinary failure, uncomputed. A copy that cannot be
+  made is a fault too. This replaces revision 3's development-only copies (9.7).
+- **`checkReplays`** is a Runtime option, like audit mode: when on, each field function is called twice per replay and
+  two results that differ structurally (compared by a total canonical form: `bigint`, `Map`, `Set`, `NaN`, cycles and
+  prototypes included) are a fault. It is **on by default in Stories and `propertyTest`**, where replays are
+  exercised, and off in production. It cannot see a cached clock read (the same value twice); settlement corrects
+  such a value, and review must catch it.
+- **A field's function is called only over a record the store holds** (multiplicity audit F12; merge 4 rule 30 as
+  revised, E18). A patch over an absent record (never held, or deleted beneath it) shows nothing, stays with its
+  Attempt for its queue and settlement, and is called when a base arrives. Existence is explicit (design rule N3): a
+  record read of such a record is `undefined`, never a default.
 - **The recording `input` is sealed** after its callback returns, and enumerating it (a spread, `in`, `Object.keys`,
   `JSON.stringify`) is a construction error. A function that closed over it fails on its first read with "input was
   read after its `.predicts` callback returned: a predicted field's function receives the input as its second
-  parameter" (SPK `flow.ts:49`). That is a **defect, reported, never skipped** (rule A9). A captured proxy used only for
-  its truthiness (`input.liked ? 1 : -1` inside the function) cannot be trapped by a proxy; the lint makes any use of
-  the callback's parameters inside a field function an error (3.6), and the types reject most (TS2367, no overlap).
+  parameter", a prediction fault. A captured proxy used only for its truthiness cannot be trapped by a proxy; the lint
+  makes any use of the callback's parameters inside a field function an error (3.6).
 - **Keys** are recorded reads and constants. An **array key** (the input Schema says the path is an array) is recorded
   as `many` (M5-D9): it is read at start, predicts each listed record once, joins each queue once, and **never takes
-  merge 4 rule 34's default lane key**, even with one element (M4:606-608: "exactly one record"). It keeps its
+  merge 4 rule 34's default lane key**, even with one element (M4:614-616: "exactly one record"). It keeps its
   declared key or `{}`; with `{}` every start of that transaction shares one lane in the actor, so `reject` and
-  `latest` act on the whole transaction, not per record (a cost, not a correctness problem). An empty array predicts
-  nothing. Keys are compared canonically, so `{ a, b }` and `{ b, a }` are one record.
-- **Settlement is per record** (rule A9): every prediction is kept per (entity, key, field). A response confirms a
-  field only on the records it carries; each predicted field on a record it does not carry is unconfirmed and gets
-  its confirming read; and a confirmed field retires older predictions of that field **on that record only**
-  (ED:511-513). A transfer whose response carries only account A leaves B's balance unconfirmed, and A's confirmation
+  `latest` act on the whole transaction, not per record (a cost, not a correctness problem). An empty array predicts nothing. Its length is bounded by the record queues: each listed record joins its queue
+  (at most 64 waiting, merge 4 rule 35), and a write past any bound ends `NotSent { why: "Overloaded" }` with no
+  partial join; the array itself is bounded by the codec's 4,096 items (INS O2), an owner item (9.11). Under design
+  rule N2, `retry` and a lane row's `retryCount` and `progress` exist only where the lane has one addressable Attempt
+  (`reject`, `latest`, `cancel`); with `allow` or `serialize` they are type errors, so a bulk write that must be
+  retried declares a per-call key (a batch id) and `reject`. Keys are
+  decoded through the entity's primary-key Schema (`"12"` and `12` are one record when the key is a number) and
+  compared by a total canonical form, so `{ a, b }` and `{ b, a }` are one record and a `bigint` or circular key
+  cannot crash a replay.
+- **Settlement is per record and fed by the replay** (rule A9): every prediction is kept per (entity, key, field), and
+  settlement takes the slots the replay reports, shown, uncomputed or faulted. A response confirms a field only on the
+  records it carries, and only if it carries that field's **whole value**: a response holding `meta.color` alone
+  confirms neither `meta` nor `meta.owner`. Each predicted field it does not confirm is unconfirmed and gets its
+  confirming read; a confirmed field retires older predictions of that field **on that record only** (ED:511-513). A transfer whose response carries only account A leaves B's balance unconfirmed, and A's confirmation
   does not retire an older prediction on B; a bulk `many` write whose response carries some users leaves the rest
   unconfirmed. Revision 2 keyed this by field name across records and silently dropped B.
 - **Replay** (rule A8, ED:507-510): live predictions apply in start order, a write's patches in written order, every
@@ -302,12 +356,18 @@ archive: write(archiveUsers).predicts(({ input }) => User.patch(input.keys, { st
   like A `6`; unlike B behind it `5`; a push to `liked true, likes 9` replays to `liked false, likes 8`; A retracted,
   still `8`), settlement and retirement (ED:511-513), a transfer over a pushed base, a delete, two patches to one
   record (`5 → 6 → 7`) and array keys.
-- **A value that cannot be computed for this record is skipped** (rule A9, M5-D4): the function throws, or returns a
-  value the field's Schema rejects (the spike's `likes` over a record without `likes` gives NaN). An author defect (a
-  sealed-session error, a mutation, two results) is not "cannot be computed": it is reported. The field keeps the value beneath and
+- **A value that cannot be computed for this record is uncomputed** (rule A9, M5-D4; revision 3 said "skipped", which
+  collides with the `skip` event): the function throws, or returns a value the field's Schema rejects (the spike's
+  `likes` over a record without `likes` gives NaN). A **prediction fault** (a sealed read, a write to a frozen
+  argument, two results, an uncopyable value; named so as not to collide with merge 4's `Defect` reason) behaves the
+  same for display and settlement, and is also reported as a `predictionFault` trace event (Inspection O4, ED 7.4),
+  on which a Story fails. Neither is ever thrown out of a replay or a view. The record read's `predicted` stays per
+  record (merge 4, E16); per field, an uncomputed field shows the value beneath and, after settlement, is listed in
+  `unconfirmed`. ED 8.2's C5 ("every displayed unconfirmed value is a live prediction") gains "or the value beneath an
+  uncomputed one". The field keeps the value beneath and
   still reads `predicted`; the other fields go on; the write is still sent; and at settlement the field counts as
   predicted, so if the response omits it a confirming read is scheduled (EDP:92-100, ED:613-630). Without that last
-  step a skipped field would never be confirmed and could stay stale.
+  step an uncomputed field would never be confirmed and could stay stale.
 - **Inspection** (fix 7): a function body is not in the Model, so it is not in the fingerprint (INS D3 covers the
   Model), exactly as `.as` mappings and selects are not. Revision 1's problem of fingerprinting `opaque` bodies goes
   with `opaque`; nothing replaces it.
@@ -329,7 +389,7 @@ A proxy cannot see truthiness, so `?:`, `if`, `&&`, `||` and `typeof` on a recor
 missed-refetch class; **only the source can be sound**. Revision 2's lint was a denylist and review 3's probes found
 twenty-two ways past it (`if`, `switch`, `typeof`, `in`, spreads, `JSON.stringify`, `any` and generic helper
 parameters, `as any`, nested arrows, imported or aliased clocks, consts computed at load). So `flow check`, and an
-ESLint rule built on the same code (M5-D6), check a **grammar** instead (rule A10, SPK `source.ts`):
+an editor host (9.8), check a **grammar** instead (rule A10, SPK `source.ts`):
 
 > **A recorded callback's body is one expression made only of library operator calls; property reads on the
 > callback's own parameters; literals, `new Date(<literal>)` and pure `Math` functions over literals; identifiers and
@@ -339,13 +399,21 @@ ESLint rule built on the same code (M5-D6), check a **grammar** instead (rule A1
 > `satisfies`, arrays and objects of these, without spreads.** Anything else is an error, "not a recorded expression:
 > …".
 
+- **Found by position** (review 4). A recorded callback is any function passed to a library recorded position
+  (`.where`, `.orderBy`, `.byKey`, `.pagedBy`, a place, `.derivedFrom`, `.predicts`), whatever its own parameter types:
+  a zero-parameter callback (`.where(() => Date.now() % 2 ? a : b)`) and one with an `any` parameter passed by name
+  (`.where(w)`) are checked like any other. A callback passed by a name the lint cannot follow (an import) is an error:
+  write it inline or as a `const` in the same file. A block body is allowed only as a single `return`.
+- **Receivers and names are part of the expression.** A library call's receiver is checked
+  (`(input.x ? Card : Card2).patch(…)` is an error), and a computed property name (`{ [input.x ? "a" : "b"]: v }`) is
+  an error.
 - **Type-aware.** Library operators are recognised by the checker resolving them to the library module (through
   imports, aliases, namespaces and re-exports); recorded callbacks by their parameter's type; literal constants by
   their literal type. `const NOW = Date.now()` has type `number`, so it is not a constant; an `any` or generic helper
   parameter is neither recorded nor primitive, so it is an error.
 - **Predicted fields.** A field's value is in the grammar, or a runtime function; a runtime function may not use the
   `.predicts` callback's parameters (rule "closure"). Its body is otherwise not linted: purity there is the
-  development double call's job (3.4), which is the one probe of review 3 the lint does not catch (`e22`,
+  `checkReplays`' job (3.4), which is the one probe of review 3 the lint does not catch (`e22`,
   `String(Date.now())` inside a field function).
 - **Factories** (decided here, not by the owner; 9.5). A factory's recorded callbacks meet the grammar like any
   others. A factory's **parameters** may be used as values when their type is a string, number or boolean (a tenant id,
@@ -353,7 +421,12 @@ ESLint rule built on the same code (M5-D6), check a **grammar** instead (rule A1
   records it as a constant, and a primitive cannot be a recorded value. A Date or object parameter is not allowed (a
   time passed in is stale). A factory **branches outside** its callbacks: `opts.strict ? eq(…) : eq(…)` inside one is an
   error, and the fix is `.where(opts.strict ? (c) => … : (c) => …)`, choosing the callback.
-- **No false positives on pure constants.** `new Date("2024-01-01T00:00:00Z")` and `Math.max(1, 2)` are allowed.
+- **No false positives on pure constants.** `new Date("2024-01-01T00:00:00Z")` and `Math.max(1, 2)` are allowed. Known
+  limits, stated: prefix `!` is always an error in a recorded expression (`not(…)` is the operator); a same-file
+  `function` declaration is not followed as a helper (write `const f = (…) => …`).
+- **Sources.** The lint reads the project's TypeScript program (its `tsconfig`, named by a new `tsconfig` field of
+  `defineConfig`, CommandLine O6), not a file list. It ignores disable comments, and a file it cannot analyse
+  (JavaScript, or `@ts-nocheck`) that holds recorded positions is an error, not a pass.
 - **Fix-its are code only when they type-check**: `&&` and `||` over conditions become `and(…)` and `or(…)`, `===` over
   two recorded values `eq(…)`, `!` over a condition `not(…)`; everything else gets an instruction (`?:`: "write
   or(and(…), and(…)), make two read entries, choose the callback outside it, or use serverMatches"). The spike compiles
@@ -384,13 +457,23 @@ a nullable field" (SPK `types.ts`; review-3.md lists the messages).
 
 **One layer of source and type facts** (M5-D6). Inspection D2 already reads deny codes from types and fails closed
 with `TypeFactsUnavailable` (INS:158-161). The lint uses the same adapter, and fails the same way: a file the facts do
-not cover is an error, never a pass. **The dependency risk.** The adapter talks to TypeScript 7 through
-`typescript/unstable/async` (7.0.2; the `unstable/sync` client fails under bun), an API its name marks as unstable,
-and typescript-eslint's type information is built on the older JavaScript compiler API. So: one adapter module is the
-only code that imports it; the CLI pins the TypeScript version it supports; the ESLint rule gets its facts from the
-same adapter (one extra compiler session per lint run), not from typescript-eslint; and if the API changes, the
-adapter fails closed. oxlint's type-aware mode, which runs on TypeScript 7 already, is a possible second host for the
-same rule.
+not cover is an error, never a pass. The adapter talks to TypeScript 7 through `typescript/unstable/async` (7.0.2; the
+`unstable/sync` client needs Node's stream internals and fails under bun), an API its name marks as unstable; one
+module is the only code that imports it, the CLI pins the TypeScript version, and an API change fails closed.
+
+**The editor path** (review 4; 9.8). M5-D6 said the lint would also ship as an ESLint rule. That cannot be built as
+specified: an ESLint rule runs synchronously, the pinned reader is asynchronous only, and typescript-eslint's type
+information comes from the older JavaScript compiler API, not TypeScript 7. Three honest paths:
+
+| Path | How | Cost |
+| --- | --- | --- |
+| `flow check --watch` | the CLI keeps one compiler session, re-lints changed files, and prints findings; editors show them through a problem matcher or the terminal | no in-editor squiggles without an extension; one more process |
+| a TypeScript language-service plugin | tsserver plugins get synchronous access to the program and checker inside the editor's own TypeScript, and report diagnostics as squiggles | tied to the editor's TypeScript version, which may differ from the pinned one; TypeScript 7's plugin API is not yet settled |
+| a named bridge | an ESLint rule that blocks on a synchronous channel to a resident `flow check` process | a second protocol to keep alive, and ESLint's caching assumptions break |
+
+*Recommendation:* `flow check --watch` as the supported path now, because it reuses the one adapter unchanged and
+fails closed; a language-service plugin later, once TypeScript 7's plugin API is stable, using the same lint module.
+No ESLint rule. This changes M5-D6, so it is the owner's decision.
 
 ### 3.7 The machine and the domain, joined
 
@@ -401,9 +484,9 @@ by the runtime's impact classifier (ED:836-838), and to the activities that subs
 ```text
 $ flow explain Issues/List READY Toggle
 Toggle      READY → READY; updateMemory likeUnsure; commits Issues.setLike (select: <runtime>)
-  setLike   writes one Issue; one at a time per record; lane key input.key (rule 34)
+  setLike   writes one Issue; one at a time per record; lane key input.key (rule 34); latest: one addressable Attempt per lane (retry exists, N2)
     at start  liked ← input.liked; likes ← <runtime>
-    repairs   Issues.list: no (liked, likes are neither condition nor order fields)
+    repairs   Issues.list: may, through the response (.one(Issue) can reveal a changed projectId or number); not through liked, likes
     retained  by the write's own response (.one(Issue)) and Issues.list
     shown in  Issues.list, subscribed by Issues/List READY.activities.issues
   endings   success → Settled; failure.Gone → IssueGone, Refused | NotSent → Failed; unknown → LikeUnsure
@@ -411,95 +494,116 @@ Toggle      READY → READY; updateMemory likeUnsure; commits Issues.setLike (se
 
 - **Computed from the Model alone**, with the action-to-operation edge added to INS O1 (6.4). No machine callback,
   adapter or Layer runs.
+- **The lane's cardinality** comes from the transaction's `concurrency` (design rule 21, D18–D20): "one addressable
+  Attempt per lane" under `reject`, `latest` and `cancel`, where `retry` and the `s.calls` row's `retryCount` and
+  `progress` exist; "outstanding count only" under `allow` and `serialize`. The line also prints the lane key, so an
+  agent sees whether `retry` exists before writing it.
+- **A field-level, conservative mode.** Static explain has no record and no input, so it asks, per answer, whether any
+  path the write can change touches what the answer depends on (its condition's paths, order fields, a derived
+  answer's fields, any field of a ranked list). The write can change its predicted fields, **every field of the record
+  shapes its response carries** (a response can reveal any of them) and its `.alsoChanges` targets. It prints "no" only
+  when none touches (SPK `mayRepair`).
 - **`.each` copies** subscribe like any activity: each copy's subscription is its own answer with its own input, and
   the join treats it like any other answer. Nothing else connects them.
 - **Where it stops.** At subscribing activities and at `listen` entries (M6), which are sources of deltas, not
-  readers. Views (`useView`, `Issue.get` in a component, M4:303-306) are not in the Model, so "the views that read
+  readers. Views (`useView`, `Issue.get` in a component, M4:306-309) are not in the Model, so "the views that read
   them" (BR:36) cannot be joined.
 - **`PredictionNotRetained`** (a warning). A predicted field with no carrier is dropped at settlement unless the
   response carries it (EDP:99-100): it shows while the write is in flight, then disappears until a reader fetches it.
-  Carriers (EDP:15-16): the write's own response places, every read entry and `.byKey` loader on the entity, and every
-  `listen` entry that lists the entity (fix 4; a push carries whole records), across the complete declared graph, lazy
-  entries included (CLP:96). It is issued only for a complete graph; a failed lazy entry already fails the load
+  Carriers (EDP:15-16, "an active answer or loader whose shape holds a field"): the write's own response places, every
+  read entry and every `.byKey` loader on the entity, across the complete declared graph, lazy entries included
+  (CLP:96). A `listen` entry is not a carrier under EDP:15-16 and EDP:99-100 (review 4 corrected revision 3). It is issued only for a complete graph; a failed lazy entry already fails the load
   (CLP:108-109).
 
 ### 3.8 One App: identities and factories
 
-A domain factory is allowed (M5-D6), so the identity rules that literal domains get by inspection are construction
-errors for factories too (EDP:21-25, SPK `app`, `flow.ts:656`): **two domains with one id, two entity objects with one
-id, or one operation registered in two domains, is `InvalidConfiguration` at App construction.** A factory therefore
-parameterises everything it creates: `entity({ id: \`${tenant}/Card\` })`, `domain(\`${tenant}-kanban\`, …)`, and its
-operations, because an operation belongs to one domain. The spike shows the consequence for review 3's tenant factory:
-calling it for two tenants with shared operations is an error. The alternative is one domain whose keys carry the
-tenant (`primaryKey: ["tenantId", "id"]`), as dispatch-desk's tickets carry `workspaceId`; a constant entity id
-inside a factory called twice is caught as two entity objects with one id, so records never merge across tenants
-silently.
+A domain factory is allowed (M5-D6), so the identity rules are errors for factories as for literal domains, **at App
+construction or lazy adoption** (EDP:21-25, LazyFeatures O2; SPK `app`): two domains with one id, two entity objects
+with one id, or one operation registered twice, in two domains or (9.10) in two entries of one domain, is
+`InvalidConfiguration`. A factory therefore parameterises everything it creates (`entity({ id: tenant + "/Card" })`,
+`domain(tenant + "-kanban", …)`) and its operations, because an operation belongs to one entry. The spike shows the
+consequence for review 3's tenant factory: two tenants sharing operations is an error. The alternative is one domain
+whose keys carry the tenant (`primaryKey: ["tenantId", "id"]`), as dispatch-desk's tickets carry `workspaceId`. A
+constant entity id inside a factory called twice is caught as two entity objects with one id, so records never merge
+across tenants silently.
 
 ### 3.9 Migration, line by line
 
 | Domain | Line | Before | After |
 | --- | --- | --- | --- |
 | dispatch-desk tickets (DD) | all | conditions, order, paging, predictions of inputs and constants, `.as` | unchanged |
-| merge 4 `Issues` (M4:127) | 127 | `likes: (i) => i.likes + (input.liked === i.liked ? 0 : input.liked ? 1 : -1),` | `likes: (i, input) => i.likes + (input.liked === i.liked ? 0 : input.liked ? 1 : -1),` |
+| merge 4 `Issues` (M4:130) | 127 | `likes: (i) => i.likes + (input.liked === i.liked ? 0 : input.liked ? 1 : -1),` | `likes: (i, input) => i.likes + (input.liked === i.liked ? 0 : input.liked ? 1 : -1),` |
 | entity-domain-examples (EDX) | 53 | `reactions: (m) => addReaction(m.reactions, input.emoji),` | `reactions: (m, input) => addReaction(m.reactions, input.emoji),` |
 | | 99-100 | `balance: (a) => a.balance - input.amount` / `+` | `balance: (a, input) => a.balance - input.amount` / `+` |
 | | 185 | `User.patch(input.keys, …)` | unchanged; recorded as `many`, never rule 34's default |
 | ED notes app, EDX `.as` | — | `.as` with `?:` | unchanged |
 
-The only change anywhere is that a predicted value's function takes the input as its second parameter.
+The only change anywhere is that a predicted value's function takes the input as its second parameter. Re-checked against merge 4 after the multiplicity audit: its `createIssue` is now `reject` and
+`CreateFailed.draftId` is no longer nullable (E17); neither touches a domain declaration, so this still holds.
 
 ## 4. Rules
 
-Numbered A1–A12, for `entity-domain.md` section 9. Revision 1's and 2's rules are mapped in review-2.md and
-review-3.md.
+Numbered A1–A12, for `entity-domain.md` section 9. Earlier revisions' rules are mapped in review-2.md, review-3.md
+and review-4.md.
 
 - **A1. Recorded and runtime positions.** Recorded: conditions, sort keys, places, keys, paging, derived fields, and
   predicted fields written as a read or a constant. Runtime: a predicted field's function, a `.as` mapping, a select.
   The Model holds the first as data and marks the second `runtime`.
 - **A2. Conditions are three-valued.** Every condition operator answers yes, no or maybe over decoded values, by
   table 3.1 and the conformance table (3.2); `and`, `or`, `not` are Kleene. Maybe has a cause: not carried, failed or
-  server. No arithmetic, string order or string transform appears in a condition; those are `serverMatches`.
-- **A3. Inputs are decoded, then an absent one drops a constraint only directly under `and`.** An answer's input is
-  decoded through the operation's input Schema, so a declared default fills an absent field. A field still absent
-  drops the constraint of a comparison leaf directly under `and` (or as the whole condition), and only its own bound
-  for `between` and `overlaps`; elsewhere it is maybe. A present `null` input is maybe. (Amends ED:391-395.)
+  server. A field the store holds with an absent value is a value, not "not carried". No arithmetic, string order or
+  string transform appears in a condition; those are `serverMatches`.
+- **A3. Inputs are the Type side; an absent one drops a constraint only directly under `and`.** The evaluator sees an
+  answer's input as the machine passed it, never decoded again; an Encoded input is decoded once at its boundary,
+  where a decoding default (`withDecodingDefaultKey(Effect.succeed(<literal>))`, recorded in the Model) fills a
+  missing key, and a failure makes the answer maybe with `InputDecodeFailed`. A Type-side optional field with no
+  default, when absent, drops the constraint of a comparison leaf directly under `and` (or as the whole condition), and
+  only its own bound for `between` and `overlaps`; elsewhere it is maybe. A present `null` input is maybe. (Amends
+  ED:391-395, EDP:32-33.)
 - **A4. Order is Effect's.** Ordering operators and the order check compare numbers with `Order.Number` after a
   finiteness check and Dates with `Order.Date` after a validity check (M5-D2), at millisecond precision; `null` and a
   Date tie are maybe; ordering a string is a type error with a sentence.
-- **A5. The join rule.** For each answer, each side of a delta is in the condition or not: a side that does not exist
-  is a definite no; a first sighting is no for a list and maybe for a derived answer. An answer repairs when the
-  record's existence changed, or a field its condition reads changed, unless the condition gives the same definite
-  answer before and after. Fields are dot paths matched by prefix in either direction; a fieldless `serverMatches`
-  reads every field. When both sides are maybe the cause follows the precedence failed, not carried, server. The
-  repair's evidence names `entered`, `left` or the cause. For a record in the answer (yes or maybe), ED 2.3's other
-  reasons also apply, a derived answer's fields being its declared fields plus its condition's.
+- **A5. The join rule.** Each side of a delta is the store's merged base with the fields it holds, or none. A side that
+  does not exist is a definite no; a first sighting (per Runtime) is no for a list and maybe for a derived answer. An
+  answer repairs when the record's existence changed, or a path its condition reads changed, unless the condition
+  gives the same definite answer before and after. Paths are segment arrays matched by prefix in either direction,
+  arrays atomic; a fieldless `serverMatches` reads every field. When both sides are maybe the cause follows the
+  precedence failed, not carried, server; it goes in the `repair` event's `matched` field. For a record in the answer
+  (yes or maybe), ED 2.3's other reasons also apply, a derived answer's fields being its declared fields plus its
+  condition's.
 - **A6. The response check and the order check.** A returned record contradicts its condition only when the answer is
   no. A response pair whose sort key is maybe for the client (null, bad, a Date tie) is skipped, never `HiddenOrder`
   (M5-D4).
 - **A7. A write's structure is recorded; its values are code.** `.predicts` runs once, for the entity, the key and the
-  field names. A key is recorded reads and constants, compared canonically. An array key is recorded as `many` from
-  the input Schema, read at start, predicts each listed record once, and never takes merge 4 rule 34's default lane
-  key. A recording parameter is sealed after its callback returns, and enumerating it is a construction error.
-- **A8. Replay, with pure functions.** A predicted field's function is called with the record beneath (`DeepReadonly`)
-  and the real input at write start and at every base change; live predictions apply in start order, a write's
-  patches in written order, all fields of one patch over the same record beneath. It must be pure and deterministic
-  and must not change the record beneath; development calls it twice per replay on copies and reports a difference.
-- **A9. Per record: skip, defect, settle.** Predictions are kept per (entity, key, field). A value that cannot be
-  computed for this record (the function throws, or its field's Schema rejects the result) is skipped: the field keeps
-  its value beneath and reads `predicted`, the rest go on, the write is sent, and `prediction` records `skipped`. An
-  author defect (a sealed-session read, a mutation, two results) is reported as a diagnostic, never skipped. At
-  settlement, a field the response carries for that record is confirmed and retires older predictions of that field on
-  that record only; a predicted or skipped field it does not carry for that record is unconfirmed and gets its
-  confirming read.
-- **A10. The lint is an allowlist grammar.** `flow check` and an ESLint rule require every recorded callback to be one
-  expression in the grammar of 3.6, checked with type facts from one adapter shared with Inspection D2, which fails
-  closed; a field function may not use its `.predicts` callback's parameters; a fix-it is code only when it
-  type-checks; a `serverMatches` field list gets an info finding.
+  field names. A key is recorded reads and constants, decoded through the primary key's Schema and compared by a total
+  canonical form. An array key is recorded as `many` from the input Schema, read at start, predicts each listed record
+  once, never takes merge 4 rule 34's default lane key, and is bounded by the record queues. A recording parameter is
+  sealed after its callback returns, and enumerating it is a construction error.
+- **A8. Replay, with pure functions over frozen data.** A predicted field's function is called only over a record the
+  store holds, with that record (`DeepReadonly`, frozen) and the real Type-side input (frozen), at write start and at
+  every base change; live predictions apply in start order, a write's patches in written order, all fields of one
+  patch over the same record beneath. It must be pure and deterministic and must not write to its arguments. The
+  Runtime option `checkReplays` (on in Stories and `propertyTest`) calls it twice per replay and compares.
+- **A9. Per record: uncomputed, fault, settle.** Predictions are kept per (entity, key, field). A value that cannot
+  be computed for this record (the function throws an ordinary error, or its field's Schema rejects the result) is
+  uncomputed: the field shows its value beneath, the record reads `predicted`, the rest go on, the write is sent, and
+  `prediction` records `uncomputed`. A prediction fault (a sealed read, a write to a frozen argument, two results, an
+  uncopyable value) behaves the same and is also reported as `predictionFault`, on which a Story fails; neither is
+  thrown out of a replay or a view. Settlement takes the replay's slots: a field the response carries whole for that
+  record is confirmed and retires older predictions of that field on that record only; any other predicted slot is
+  unconfirmed and gets its confirming read.
+- **A10. The lint is an allowlist grammar.** `flow check` (and its `--watch` mode, 9.8) requires every function passed
+  to a library recorded position to be one expression in the grammar of 3.6, receivers and property names included,
+  checked over the project's program with type facts from one adapter shared with Inspection D2, which fails closed; a
+  file it cannot analyse is an error; a field function may not use its `.predicts` callback's parameters; a fix-it is
+  code only when it type-checks; a `serverMatches` field list gets an info finding.
 - **A11. The join display.** `flow explain` and `flow check` join actions to operations, domain entries, predicted
-  fields, impact rows and subscribing activities. A predicted field no carrier holds (the write's response, a read
-  entry, a loader, a `listen` entry) is `PredictionNotRetained`, over a complete graph only.
-- **A12. Identities are unique.** Two domains with one id, two entity objects with one id, or one operation in two
-  domains is `InvalidConfiguration` at App construction, for factories as for literal domains.
+  fields, impact rows and subscribing activities, in a field-level conservative mode that counts response shapes and
+  `.alsoChanges`, and print each lane's key and cardinality. A predicted field no carrier holds (the write's response,
+  a read entry, a loader) is `PredictionNotRetained`, over a complete graph only.
+- **A12. Identities are unique.** Two domains with one id, two entity objects with one id, or one operation
+  registered twice (in two domains, or in two entries of one, 9.10) is `InvalidConfiguration` at App construction or
+  lazy adoption, for factories as for literal domains.
 
 Unchanged: the ordering rule and contests (ED:592-602), write endings (ED:604-611), record queues (ED:639-654) and
 merge 4 rules 26-38 (with rule 34's array-key sentence).
@@ -508,29 +612,32 @@ merge 4 rules 26-38 (with rule 34's array-key sentence).
 
 One runtime: the store's evaluator is the only code that gives a condition a verdict; the CLI prints and classifies.
 The `Condition` module holds the operators, the evaluator and the order comparators. Recording is as today, plus the
-sealed session. The lint is one module over the facts adapter, hosted by `flow check` and by the ESLint rule.
+sealed session and the enumeration traps. Store records and inputs are frozen. The lint is one module over the facts
+adapter, hosted by `flow check` (and `--watch`, 9.8).
 
-**The spike** (SPK, about 1,850 lines; `output.txt`): a stand-in library (`flow.ts`: condition operators with sentence
-type errors, sealed and enumeration-trapping recording, entries with input defaults, the three-valued evaluator, the
-existence-aware join and ED 2.3's classifier, the response and order checks, start, replay with the development double
-call, per-record settle, App identity checks), the two reference domains ported (`domains/tickets.ts` unchanged,
-`domains/issues.ts` one line), extras, lint-clean variants, legacy declarations, review 3's probe domains
-(`domains/kanban.ts`, `mail.ts`, `docs.ts`, `cal.ts`, `tenant.ts`, `holes.ts`, `helperlib.ts`), the conformance rows,
-the lint (`source.ts`) and the checks (`types.ts`, `main.ts`). Result: **ALL PASS, 84 checks**; `tsc` 0 errors, with
-14 expected errors in `types.ts` and 4 in the probe files (forms the types already reject).
+**The spike** (SPK, about 2,100 lines; `output.txt`): a stand-in library (`flow.ts`: condition operators with sentence
+type errors, sealed and enumeration-trapping recording, Type-side inputs with a once-only Encoded decode, the
+three-valued evaluator with carried fields, the existence-aware join over segment paths and ED 2.3's classifier, the
+static `mayRepair`, the response and order checks, start with key decoding, replay over frozen data with fault
+classification and `checkReplays`, settlement fed by the replay, App identity checks), the two reference domains
+ported, extras, lint-clean variants, legacy declarations, review 3's and review 4's probe domains (`domains/kanban.ts`,
+`mail.ts`, `docs.ts`, `cal.ts`, `tenant.ts`, `holes.ts`, `helperlib.ts`, `p.ts`), the conformance rows, the lint
+(`source.ts`), the checks (`types.ts`, `main.ts`) and `mutations.py`. Result: **ALL PASS, 102 checks**; `tsc` 0
+errors with 14 expected errors in `types.ts` and 4 in the probe files; **every one of the 20 fixes of reviews 3 and 4,
+reverted in turn, makes at least one check fail** (`mutations.py`, its output at the end of `output.txt`).
 
 | Item | Result |
 | --- | --- |
-| (a) conditions type, record and evaluate three-valued | **pass.** 58/58 conformance rows (nested paths included); reference, queue and calendar conditions; the response check; the order check; recording alone reproduces the four silent failures |
-| (b) the join | **pass.** The team/status counterexample; definite equal answers and unread fields; `left` as evidence; **a create into "all issues", a create outside, a delete, no `.where`, a first sighting for a list and for a derived answer**; **nested paths** (`meta` and `meta.owner` changes, `metadata` not); **input defaults** (kanban: archiving repairs only once includeArchived is decoded to its default; mineOnly default and true); the `serverMatches` claim (docs); ED 2.3's ordered, ranked and derived reasons with the derived union; cause precedence independent of order |
-| (c) predictions | **pass.** Structure in the Model; the lane key; merge 4's like scenario; a delete; two patches to one record; a list edit; **per-record settlement** (a transfer whose response carries only A; retirement on A only; a bulk write); array keys; canonical keys; A9 (skipped, confirmed); **the development double call** (Math.random and a mutation are defects); **the sealed session's error is a defect, not a skip**; spreads, `JSON.stringify` and `in` throw at construction; App identity errors (duplicate domain, entity, operation; two tenants sharing operations) |
-| (d) the allowlist lint | **pass.** No errors on the reference domains, extras, variants, kanban and docs; every `serverMatches` field list is an info claim; **21 of review 3's 22 holes are errors** (all but `e22`, impurity inside a field function); clocks and computed consts are errors while `new Date("…")` and `Math.max(1, 2)` are not; the tenant factory's `?:` and `??` are errors, its primitive parameter is not; a spread of fields; `||`/`&&` code fix-its compile in `types.ts`; `?:` gets an instruction; the closure in merge 4's `setLike`; a helper's `?:` |
+| (a) conditions | **pass.** 60/60 conformance rows (nested paths, carried absent fields); reference, queue and calendar conditions; the response and order checks; recording alone reproduces the four silent failures |
+| (b) the join | **pass.** The counterexample under merged bases; definite equal answers; server-maybe → server-maybe on an unread field; existence (create into "all issues", outside, delete, no `.where`, first sightings); segment paths (`meta`, `[meta, owner]`, `metadata` against a maybe condition, an array insert, a field named `a.b`); Type-side inputs, a once-only Encoded decode and a decode failure; `serverMatches` claim; ED 2.3's kinds; cause precedence; static `mayRepair` counting the response shape |
+| (c) predictions | **pass.** Structure in the Model; the lane key; the like scenario; frozen records; a delete; a patch over an unheld record; two patches; a list edit with no fault; `checkReplays` on and off; a write to the frozen record and to the frozen input are faults; a missing nested field is uncomputed; a class instance and a bigint field; the cached-clock limit; the sealed read as a fault; bigint and circular keys; `"12"` and `12`; canonical keys; settlement fed by the replay (transfer, retirement on A only, bulk, uncomputed `likes`, whole-value `meta`); enumeration traps; identity errors, including two entries of one domain |
+| (d) the lint | **pass.** Over the project's program; no errors on correct domains; info claims; 23 of 24 holes (all but `e22`); review 4's receiver, computed name, zero-parameter and named `any` callbacks; `@ts-nocheck`; clocks and computed consts but not pure constants; the tenant factory; fix-its that compile; `?:` instructions; the closure; a helper's `?:` |
 
-Not modelled: Effect Schema (the spike's Schema check is "defined and finite"; the input Schema's array paths and
-defaults are lists on the operation), the store, the join over many answers and its indexes, confirming-read
-scheduling beyond reporting unconfirmed fields, uncertain endings and restore, the input rule (ED:136-141),
-`.alsoChanges`, paging, the ESLint host, cross-file helpers (the spike follows same-file helpers only; the checker
-would resolve the rest), the join display and `PredictionNotRetained`.
+Not modelled: Effect Schema itself (the spike's Schema check is "defined and finite"; array paths, literal defaults
+and key types are lists on the operation and entity), the store, the join over many answers and its indexes,
+confirming-read scheduling beyond reporting unconfirmed fields, uncertain endings and restore, the input rule
+(ED:136-141), `.alsoChanges`, paging, the `--watch` host, cross-file helpers and named callbacks (the spike follows
+same-file ones; the checker would resolve the rest), the join display and `PredictionNotRetained`.
 
 ## 6. Changes
 
@@ -540,18 +647,22 @@ would resolve the rest), the join display and `PredictionNotRetained`.
 | --- | --- | --- |
 | `or`, `not`, `gt`, `gte`, `lt`, `lte`, `isNull` | condition operators | table 3.1 |
 | yes / no / maybe, with a cause | condition semantics | rule A2 (M5-D8) |
-| The join rule and repair evidence `why` | runtime rule | rule A5 |
+| The join rule, its reason in the `repair` event's existing `matched` field | runtime rule | rule A5 |
 | The conformance table | test | 3.2 (M5-D3) |
 | A predicted field's function `(beneath, input) => value` | authoring | rules A7–A9 (M5-D5) |
 | `many` on a recorded change | Model | rule A7 (M5-D9) |
 | The sealed recording session | recording | rule A7 |
-| `skipped` on the `prediction` trace event | evidence | rule A9 |
-| The lint, in `flow check` and as an ESLint rule | tooling | rule A10 (M5-D6) |
+| `uncomputed` on the `prediction` trace event; the `predictionFault` event kind | evidence | rule A9 |
+| The lint, in `flow check` and `flow check --watch` | tooling | rule A10 (M5-D6; 9.8) |
 | `PredictionNotRetained` | `flow check` warning | rule A11 |
 | The machine-to-domain chain in `flow explain` | tooling | 3.7 |
 | The existence side of a delta (none, first sighting) and prefix path matching | join rule | rule A5 (review 3) |
 | Input decoding through the input Schema before evaluation | runtime | rule A3 (review 3) |
-| The development double call; `DeepReadonly` beneath; defects reported, not skipped | runtime | rules A8, A9 (review 3) |
+| Frozen records and inputs; fault classification; the `checkReplays` Runtime option; `DeepReadonly` beneath | runtime | rules A8, A9 (reviews 3, 4) |
+| Type-side inputs; literal defaults in the Model; `InputDecodeFailed` | runtime | rule A3 (review 4) |
+| The store's carried-field set in evaluation; segment paths; whole-value confirmation | runtime | rules A2, A5, A9 (review 4) |
+| A static, field-level `mayRepair` and lane cardinality in `flow explain` | tooling | rule A11 (review 4, audit) |
+| A `tsconfig` field in `defineConfig` | configuration | rule A10 (review 4) |
 | Per-record settlement and retirement | runtime | rule A9 (review 3) |
 | The allowlist grammar, the `closure` rule, `claim` info findings | tooling | rule A10 (review 3) |
 | Enumeration traps on recording proxies | recording | rule A7 (review 3) |
@@ -569,7 +680,7 @@ would resolve the rest), the join display and `PredictionNotRetained`.
 | Matching a delta (ED:521-526) | old or new value meets the condition; a field not carried counts as meeting it; first sightings repair derived answers | rule A5: existence-aware, three-valued, prefix paths; first sightings kept |
 | Settlement and retirement | by field (EDP:92-100, ED:511-513) | by (entity, key, field) (A9) |
 | A response pair with a `null` sort key | compared (ED:408-412) | skipped (A6, M5-D4) |
-| The `?:`/`&&` check | "a mandatory flow check rule … also run at construction in development" (ED:477, ED:1016) | an allowlist grammar with type facts in `flow check` and ESLint (A10) |
+| The `?:`/`&&` check | "a mandatory flow check rule … also run at construction in development" (ED:477, ED:1016) | an allowlist grammar with type facts in `flow check` and `flow check --watch` (A10, 9.8) |
 | `flow explain` for a machine event | transitions, denials, fallthrough (CLP:23-25) | also the store-effect chain (3.7) |
 
 ### 6.3 Removed
@@ -588,14 +699,14 @@ Applied when this proposal merges.
 
 | Where | Amendment |
 | --- | --- |
-| O1 (EDP:29-31) | "Conditions use where (eq, oneOf, contains, between, overlaps, and)" becomes "Conditions use eq, oneOf, contains, between, overlaps, gt, gte, lt, lte, isNull, and, or, not and serverMatches. Each answers yes, no or maybe (Kleene); maybe means a field not carried, a value the operator cannot use, or an answer the server decides (serverMatches, null order, an empty list, a present null input, an absent input outside and, a Date tie at the millisecond). Ordering takes numbers and Dates, compared with Effect's Order.Number after a finiteness check and Order.Date." "An absent optional input drops its constraint" becomes "An answer's input is decoded through its Schema first, so a declared default fills an absent field; a field still absent drops its constraint directly under and or as the whole condition, and only its own bound for between and overlaps; elsewhere it is maybe" |
+| O1 (EDP:29-31) | "Conditions use where (eq, oneOf, contains, between, overlaps, and)" becomes "Conditions use eq, oneOf, contains, between, overlaps, gt, gte, lt, lte, isNull, and, or, not and serverMatches. Each answers yes, no or maybe (Kleene); maybe means a field not carried, a value the operator cannot use, or an answer the server decides (serverMatches, null order, an empty list, a present null input, an absent input outside and, a Date tie at the millisecond). Ordering takes numbers and Dates, compared with Effect's Order.Number after a finiteness check and Order.Date." "An absent optional input drops its constraint" (EDP:32-33) becomes "An answer's input is the Type side the machine passed, never decoded again; an Encoded input is decoded once at its boundary, where a decoding default (Effect.succeed of a literal, recorded in the Model) fills a missing key, and a failure makes the answer maybe with InputDecodeFailed. A Type-side optional field with no default, when absent, drops its constraint directly under and or as the whole condition, and only its own bound for between and overlaps; elsewhere it is maybe. A field the store holds with an absent value is a value, not 'not carried'" |
 | O1 (EDP:37-41) | the order check "compares with Effect's Order; a pair whose sort key is null, non-finite, an invalid Date or a Date tie is skipped, never HiddenOrder" |
-| O1 (EDP:49-52) | "Declarations are recorded once at construction. … predicts runs again at write start with the real input." becomes "Declarations are recorded once at construction; predicts records its entities, keys and field names, and a field's function is called with the record beneath and the real input at write start and on each replay. A recording parameter read after its callback returns, or enumerated, is an error. A field's function must be pure, deterministic and must not change the record beneath (DeepReadonly; development calls it twice on copies and reports a difference). flow check and an ESLint rule require each recorded callback to be one expression in the allowlist grammar." |
+| O1 (EDP:49-52) | "Declarations are recorded once at construction. … predicts runs again at write start with the real input." becomes "Declarations are recorded once at construction; predicts records its entities, keys and field names, and a field's function is called with the record beneath and the real input at write start and on each replay. A recording parameter read after its callback returns, or enumerated, is an error. A field's function must be pure, deterministic and must not write to its arguments; store records and inputs are frozen, a write to them is a prediction fault, and the checkReplays Runtime option (on in Stories and propertyTest) calls it twice and compares. flow check requires each function passed to a recorded position to be one expression in the allowlist grammar." |
 | O1 (EDP:54) | patch fields "are recorded reads, constants or functions (beneath, input) => value; a key is recorded reads and constants; an array key (from the input Schema) is recorded as many and predicts each listed record once" |
-| O1 (EDP:64-70) | replay "calls each field's function over the record beneath, a write's patches in written order, all fields of one patch over the same record; a value that throws or that its Schema rejects is skipped: the field keeps its value beneath and still reads predicted; an author defect (a sealed read, a mutation, two results) is reported, never skipped. Predictions are kept per entity, key and field" |
+| O1 (EDP:64-70) | replay "calls each field's function over the record beneath, a write's patches in written order, all fields of one patch over the same record; a field's function is called only over a record the store holds, and a patch over an absent record shows nothing, stays with its Attempt and is called when a base arrives; a value that throws or that its Schema rejects is uncomputed: the field shows its value beneath and the record reads predicted; a prediction fault behaves the same and is reported. Predictions are kept per entity, key and field" |
 | O1 (EDP:73-75) | "on its old or new values; a missing condition field matches" becomes "on each side, a record that does not exist is a definite no and a first sighting is no for a list and maybe for a derived answer; an answer repairs when the record's existence changed or a field its condition reads changed (dot paths, matched by prefix), unless the condition gives the same definite answer before and after"; the first-sighting sentence (EDP:74-75) stays |
-| O1 (EDP:92-100) | "Predicted fields the response omits" becomes "a predicted or skipped field the response does not carry for that record"; retirement (EDP:70-71) is per record |
-| O1 (EDP:21-25) | add: "for domains built by factories as for literal ones; a factory parameterises its domain, entity and operation ids" |
+| O1 (EDP:92-100) | "Predicted fields the response omits" becomes "a predicted slot, shown, uncomputed or faulted, whose whole value the response does not carry for that record"; retirement (EDP:70-71) is per record |
+| O1 (EDP:21-25) | add: "at App construction or lazy adoption, for domains built by factories as for literal ones; an operation registered twice, in two domains or two entries of one, is an error; a factory parameterises its domain, entity and operation ids" |
 | O1 (new sentence, with merge 4 rule 34) | "A write whose key is recorded as many never takes the default lane key" |
 | V1 (EDP:197-199) | "source check rejects conditionals and impurity" becomes "the conformance table passes as the evaluator's golden test; the join rule's counterexamples (a field not carried, an unread field, a definite transition, a create, a delete, a first sighting, no condition, a nested path, a Schema default) each have a test; two-record settlement has a test; the development double call catches Math.random and a mutation; lint goldens with code fix-its that type-check and instructions otherwise" |
 
@@ -614,9 +725,10 @@ Applied when this proposal merges.
 | 5.1 (ED:507-510) | "keeps its value or function" becomes "keeps its value or function, called again over each new base"; rule A9 |
 | 5.2 (ED:521-526) | matching becomes rule A5, keeping the first-sighting sentence; conditions with `or` or `not` are scanned, never indexed (ED:557-559) |
 | 5.5 (ED:604-611, ED:613-630) | settlement and retirement per record (A9) |
-| 5.5 (ED:613-630) | a skipped field needs its confirming read like any predicted field |
+| 5.5 (ED:613-630) | an uncomputed or faulted field needs its confirming read like any predicted field; confirmation needs the whole value |
+| 8.2 (ED:989) | C5 "every displayed unconfirmed value is a live prediction marked pending" gains "or the value beneath an uncomputed one, with the record marked predicted" |
 | 7.2 (ED:850-853) | predicted fields print as `title ← input.title` or `likes ← <runtime>` |
-| 7.4 (ED:907, ED:910) | `repair` gains `why` (`entered`, `left`, `notCarried`, `failed`, `server`) and a detail, so a Story can assert why a list refetched; `prediction` gains `skipped` |
+| 7.4 (ED:907, ED:910) | `repair`'s existing `matched` field carries `entered`, `left` or the maybe's cause (`notCarried`, `failed`, `server`), so a Story can assert why a list refetched; a new `predictionFault` kind; `prediction` gains `uncomputed` |
 | 8.3 (ED:998-1004) | name the oracle as where condition exactness meets server truth |
 | 9 (ED:1016) | rules A1–A12 |
 | 14 (ED:1122) | add TSE and Effect `Order` (PA) |
@@ -628,7 +740,8 @@ Applied when this proposal merges.
 | --- | --- |
 | O1 (CLP:22-25) | static explain of a machine event "also shows, for a commit to a domain write, its predicted entity, key and field names, the reads they can repair, their carriers and the activities that subscribe them" |
 | O5 (CLP:96-97) | "without running application callbacks" becomes "without running application callbacks other than entity domain recorded positions, which App construction calls once with recording proxies" |
-| O5 (CLP:95-110) | add: "flow check requires each entity domain recorded callback to be one expression of library operators, reads on its own parameters, literal constants and a factory's primitive parameters (the allowlist grammar), checked with type facts; anything else is an error, with a fix-it that type-checks or an instruction. It reports each serverMatches field list as an info claim, and over a complete graph warns on a predicted field no carrier retains (PredictionNotRetained). The same rule ships for ESLint." |
+| O5 (CLP:95-110) | add: "flow check requires each function passed to an entity domain recorded position (inline or by a same-file name, whatever its parameter types) to be one expression of library operators, reads on its own parameters, literal constants and a factory's primitive parameters (the allowlist grammar), checked with type facts; anything else is an error, with a fix-it that type-checks or an instruction. It reports each serverMatches field list as an info claim, and over a complete graph warns on a predicted field no carrier retains (PredictionNotRetained). flow check --watch keeps one compiler session and re-lints changed files (the editor path, pending the owner's 9.8)." |
+| O6 (CLP:111-126) | `defineConfig` gains `tsconfig`, the program the lint reads (default `tsconfig.json` at the project root) |
 | Q1 (CLP:137-139) | "static-analysis implementation" is decided for domains: one source-and-type-facts adapter, shared with Inspection D2 |
 
 **`Inspection.plan`**
@@ -637,6 +750,8 @@ Applied when this proposal merges.
 | --- | --- |
 | O1 (INS:16-19) | "actions" gains "each naming the operation it commits or reads"; "each entity domain as recorded" holds predicted field names, `runtime` markers and `many`, never functions |
 | D2 (INS:158-161) | the type-facts reader is one adapter, also used by the domain lint, and fails closed for both |
+| D1 (INS:155-157) | add: "the lint's reading of source is a check, not a representation; it is never saved" |
+| O4 (INS:86-90) | the event kinds gain `predictionFault` (a Story fails on it) |
 
 **`references/design/sync-engine-adapter.md`**: SEA:351-353's "by the same recording the entity domain uses for
 `.predicts`" becomes "by recording `apply`'s collection set at construction, as entity domains record `.predicts`
@@ -644,11 +759,11 @@ structure; both functions then run for real (`apply` inside `tx.mutate`, a domai
 
 **`machine-design.md`**: no change.
 
-**merge 4** (accepted; for when it merges): 3.1 (M4:127) takes the ported `likes` line; M4:74's "the domain's
-`.predicts`, with the real input" becomes "the domain's predicted fields' functions, with the real input"; M4:624-625's
+**merge 4** (accepted; for when it merges): 3.1 (M4:130) takes the ported `likes` line; M4:75's "the domain's
+`.predicts`, with the real input" becomes "the domain's predicted fields' functions, with the real input"; M4:632-633's
 "runs `.predicts` with the real input" becomes "calls its predicted fields' functions with the real input"; rule 34
-(M4:606-608) gains "A write whose key the Model records as `many` (an array, from the input Schema) never takes the
-default, and so shares the lane `{}` or its declared key"; 6.1 (M4:650) reads "the commit node shows its domain entry's predicted entity, key and field names,
+(M4:614-616) gains "A write whose key the Model records as `many` (an array, from the input Schema) never takes the
+default; such a write's lane key is declared or `{}`; with `allow` or `serialize`, `retry` is a type error (design rule N2), so a bulk write that must be retried declares a per-call key and `reject`"; 6.1 (M4:658) reads "the commit node shows its domain entry's predicted entity, key and field names,
 `.alsoChanges` targets and the reads they reach (merge 5, 3.7)".
 
 ## 7. Coverage
@@ -673,7 +788,8 @@ default, and so shares the lane `{}` or its declared key"; 6.1 (M4:650) reads "t
 | Q: migration (BR:68) | 3.8 |
 | Hint: `field("likes")` (BR:30); arithmetic (BR:25) | not taken: values are functions |
 | Hint: views (BR:36) | not reachable (3.7) |
-| Reviews 1, 2 and 3 | [review-1.md](reviews/review-1.md), [review-2.md](reviews/review-2.md), [review-3.md](reviews/review-3.md) |
+| Reviews 1 to 4 | [review-1.md](reviews/review-1.md), [review-2.md](reviews/review-2.md), [review-3.md](reviews/review-3.md), [review-4.md](reviews/review-4.md) |
+| The multiplicity audit, section 4 | first sighting per Runtime (3.3); calls only over a held record (3.4, A8); lane cardinality in `flow explain` (3.7); the `many` retry sentence (3.4, merge 4 amendment); M4 citations re-pointed |
 
 ## 8. Alternatives considered
 
@@ -717,8 +833,25 @@ Review 3 forced three more choices. Each is written into the text, and each is t
    caller passing a time into a string parameter is the one residue.
 6. **A tenant factory must parameterise its operations too, or carry the tenant in keys** (3.8), because an operation
    belongs to one domain. *Recommendation:* keep the EDP rule and prefer one domain with the tenant in the key.
-7. **Development checks field functions with copies, not by freezing** (3.4), because a frozen-object `TypeError`
-   would be indistinguishable from a missing field and be skipped. *Recommendation:* copies, as written.
+7. **Freezing, re-decided** (3.4, review 4). Revision 3 recommended development-only copies, because a frozen-object
+   `TypeError` looked like a missing field. Review 4 showed production then hands functions the live record, so a
+   write through `as any` or a JavaScript file corrupts the base for good. *Recommendation (changed):* freeze store
+   records and inputs in every environment (snapshots already are, Machines O8), and classify a `TypeError` by
+   re-running the function on Schema-made copies: a changed copy is a fault, an unchanged one an ordinary failure.
+
+Review 4 forced four more:
+
+8. **The editor path replaces the ESLint rule** (3.6; changes M5-D6). *Recommendation:* `flow check --watch` now, a
+   TypeScript language-service plugin once TypeScript 7's plugin API is stable, no ESLint rule. If accepted, item 4's
+   "the ESLint rule using it" clause falls away.
+9. **`checkReplays` is on by default in Stories and `propertyTest`** (3.4), off in production. *Recommendation:* as
+   written; production keeps freezing, which catches writes, but not impurity.
+10. **An operation registered in two entries of one domain is an error** (3.8). Today EDP only forbids two domains.
+    *Recommendation:* an error: two entries for one operation would give one request two meanings (two predictions,
+    two conditions), and nothing needs it.
+11. **The `many` array's length** (3.4). *Recommendation:* bounded by the codec's 4,096 items per array (INS O2) and by
+    the record queues (64 waiting each, merge 4 rule 35); a larger array is `NotSent { why: "Overloaded" }`, never a
+    partial join.
 
 ## 10. Decisions
 
@@ -784,14 +917,16 @@ Settled by the owner after the second reviews (soundness, authors, system fit):
 | yes / no / maybe | a condition's three answers; maybe's causes are not carried, failed, server |
 | the join rule | repair when existence or a read field changed, unless the same definite answer before and after (A5) |
 | none, first sighting | a side of a delta that does not exist (a definite no), and a record seen for the first time (A5) |
-| defect | an author's mistake in a field function or a recording read, reported, never skipped (A9) |
-| development double call | each field function called twice on copies of the record beneath, to find impurity and mutation (A8) |
+| prediction fault | an author's mistake in a field function or a recording read: displayed and settled as uncomputed, and reported (`predictionFault`) (A9) |
+| `checkReplays` | a Runtime option: each field function called twice per replay, results compared (A8) |
+| carried | the fields the store holds for a record; outside them a field is not carried (A2) |
+| Type side | the decoded input the machine passes; Encoded inputs are decoded once, at their boundary (A3) |
 | allowlist grammar | what a recorded callback may contain (3.6, A10) |
 | record beneath | the visible record under a prediction: base plus older live predictions, in start order |
 | `(beneath, input) => value` | a predicted field's runtime function |
 | `many` | a recorded array key (A7) |
 | sealed session | a recording parameter read after its callback returns is an error |
-| skipped (prediction) | a value its function could not give: the value beneath, still predicted (A9) |
+| uncomputed (prediction) | a value its function could not give for this record: the value beneath, the record still predicted (A9) |
 | conformance table | the evaluator's golden rows (3.2, M5-D3) |
-| the lint | `flow check`'s and the ESLint rule's allowlist check of recorded callbacks, with type facts (A10) |
+| the lint | `flow check`'s allowlist check of every function passed to a recorded position, with type facts (A10) |
 | `PredictionNotRetained` | a predicted field no carrier holds after settlement (warning) |

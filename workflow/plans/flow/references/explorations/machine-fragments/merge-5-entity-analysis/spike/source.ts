@@ -1,7 +1,8 @@
 // The lint (M5-D6, revised after review 3): an allowlist grammar for recorded callbacks, checked with type
 // facts from the TypeScript 7 compiler API (the root node_modules/typescript, `unstable/async`). It runs
-// nothing and builds no description. A recorded callback is found by its parameter's type (the
-// `__flowRecording` brand), wherever it is written, so factories and helpers are covered.
+// nothing and builds no description. A recorded callback is found by its position: any function passed to a
+// library recorded position (`.where`, `.orderBy`, `.byKey`, `.pagedBy`, a place, `.derivedFrom`, `.predicts`),
+// written inline or passed by name, whatever its own parameter types (none, `any`), wherever the call is written.
 //
 // The grammar. A recorded callback's body is one expression made only of:
 //   - calls to library functions (resolved by the checker to the library module), whose arguments are again
@@ -35,14 +36,20 @@ const PURE_MATH = new Set(["max", "min", "abs", "floor", "ceil", "round", "trunc
 const WRAPPERS = new Set([K.ParenthesizedExpression, K.AsExpression, K.TypeAssertionExpression, K.NonNullExpression, K.SatisfiesExpression]);
 const unwrap = (n: any): any => (n && WRAPPERS.has(n.kind) ? unwrap(n.expression) : n);
 
-export async function lint(dir: string, files: readonly string[]): Promise<Finding[]> {
+// The positions of recorded callbacks, by method and argument index.
+const RECORDED: Record<string, readonly number[]> = { where: [0], orderBy: [0], byKey: [0], pagedBy: [0, 1], list: [1], one: [1], derivedFrom: [1], predicts: [0] };
+
+// Lints the project's program (every source file its tsconfig includes, outside node_modules), or the given files.
+export async function lint(dir: string, files?: readonly string[]): Promise<Finding[]> {
   const api = new API({ cwd: dir });
   const findings: Finding[] = [];
   try {
     const snapshot = await api.updateSnapshot({ openProjects: [`${dir}/tsconfig.json`] });
     const project = snapshot.getProjects()[0]!;
-    for (const f of files) {
-      const sf: any = await project.program.getSourceFile(`${dir}/${f}`);
+    const names: string[] = files ? files.map((f) => `${dir}/${f}`) : (await project.program.getSourceFileNames()).filter((n: string) => n.startsWith(`${dir}/`) && !n.includes("/node_modules/") && !n.endsWith(".d.ts"));
+    for (const full of names) {
+      const f = full.slice(dir.length + 1);
+      const sf: any = await project.program.getSourceFile(full);
       // A source file the type facts do not cover fails closed, as Inspection D2's deny codes do.
       if (!sf) throw new Error(`TypeFactsUnavailable: ${f}`);
       await lintFile(f, sf, project.checker, `${dir}/flow.ts`, findings);
@@ -105,7 +112,6 @@ async function lintFile(file: string, sf: any, checker: any, libPath: string, fi
     for (let p = n.parent; p; p = p.parent) if (p.kind === K.ArrowFunction || p.kind === K.FunctionExpression || p.kind === K.FunctionDeclaration) out.push(p);
     return out;
   };
-  const isRecordedCallback = async (fn: any) => !!fn?.parameters?.[0] && (await brand(fn.parameters[0], "__flowRecording"));
   // Same-file helpers: `const name = (params) => expression`.
   const helpers = new Map<string, any>();
   for (const st of sf.statements)
@@ -165,7 +171,8 @@ async function lintFile(file: string, sf: any, checker: any, libPath: string, fi
       case K.ObjectLiteralExpression: {
         let ok = true;
         for (const p of n.properties) {
-          if (p.kind === K.PropertyAssignment) ok = (await check(p.initializer, ctx, seen)) && ok;
+          if (p.name?.kind === K.ComputedPropertyName) ok = bad(p, "a computed property name") && ok;
+          else if (p.kind === K.PropertyAssignment) ok = (await check(p.initializer, ctx, seen)) && ok;
           else if (p.kind === K.ShorthandPropertyAssignment) ok = (await check(p.name, ctx, seen)) && ok;
           else ok = bad(p, p.kind === K.SpreadAssignment ? "a spread (it would copy recorded values as one object)" : "a method or accessor");
         }
@@ -177,6 +184,8 @@ async function lintFile(file: string, sf: any, checker: any, libPath: string, fi
         const entityMethod = callee.kind === K.PropertyAccessExpression && ["patch", "delete"].includes(callee.name.text) && (await fromLibraryEntity(callee.expression));
         if (lib || entityMethod) {
           let ok = true;
+          // The receiver is part of the expression: `(c ? Card : Card2).patch(…)` branches there.
+          if (callee.kind === K.PropertyAccessExpression && unwrap(callee.expression).kind !== K.Identifier) ok = (await check(callee.expression, ctx, seen)) && ok;
           for (const [i, a] of n.arguments.entries()) {
             if (a.kind === K.SpreadElement) {
               ok = bad(a, "a spread argument");
@@ -215,6 +224,10 @@ async function lintFile(file: string, sf: any, checker: any, libPath: string, fi
   const patchFields = async (obj: any, ctx: Ctx, seen: Set<any>) => {
     let ok = true;
     for (const p of obj.properties) {
+      if (p.name?.kind === K.ComputedPropertyName) {
+        ok = bad(p, "a computed field name") && ok;
+        continue;
+      }
       if (p.kind !== K.PropertyAssignment) {
         ok = (p.kind === K.ShorthandPropertyAssignment ? await check(p.name, ctx, seen) : bad(p, "a spread of fields")) && ok;
         continue;
@@ -237,13 +250,35 @@ async function lintFile(file: string, sf: any, checker: any, libPath: string, fi
     return ok;
   };
 
+  // Same-file named functions, for callbacks passed by name.
+  const named = new Map<string, any>(helpers);
+  for (const st of sf.statements) if (st.kind === K.FunctionDeclaration && st.name) named.set(st.name.text, st);
+  const nocheck = /@ts-nocheck/.test(text) || file.endsWith(".js");
+  let reportedNocheck = false;
+  const checkCallback = async (fn: any) => {
+    if (nocheck && !reportedNocheck) {
+      reportedNocheck = true;
+      findings.push({ file, line: 1, rule: "not-recorded", severity: "error", message: "not a recorded expression: this file is not type-checked (@ts-nocheck or JavaScript), so its recorded positions cannot be analysed" });
+    }
+    const ctx = { params: new Set(paramsOf(fn)), fn };
+    if (fn.body.kind === K.Block) {
+      const stmt = fn.body.statements[0];
+      const single = fn.body.statements.length === 1 && stmt?.kind === K.ReturnStatement && stmt.expression;
+      if (single) await check(stmt.expression, ctx);
+      else bad(stmt ?? fn.body, "a block (`if`, `switch`, statements): a recorded callback is one expression", stmt ? await fixFor(stmt) : undefined);
+    } else await check(fn.body, ctx);
+  };
   const visit = async (n: any): Promise<void> => {
-    if ((n.kind === K.ArrowFunction || n.kind === K.FunctionExpression) && (await isRecordedCallback(n))) {
-      const ctx = { params: new Set(paramsOf(n)), fn: n };
-      if (n.body.kind === K.Block) {
-        const stmt = n.body.statements[0];
-        bad(stmt ?? n.body, "a block (`if`, `switch`, statements): a recorded callback is one expression", stmt ? await fixFor(stmt) : undefined);
-      } else await check(n.body, ctx);
+    const callee = n.kind === K.CallExpression ? unwrap(n.expression) : undefined;
+    const positions = callee?.kind === K.PropertyAccessExpression ? RECORDED[callee.name.text] : undefined;
+    if (positions && (await fromLibrary(callee))) {
+      for (const i of positions) {
+        const a = n.arguments[i] && unwrap(n.arguments[i]);
+        if (!a) continue;
+        if (a.kind === K.ArrowFunction || a.kind === K.FunctionExpression) await checkCallback(a);
+        else if (a.kind === K.Identifier && named.has(a.text)) await checkCallback(named.get(a.text));
+        else bad(a, `a recorded callback the lint cannot read here (\`${src(a).slice(0, 40)}\`): write it inline or as a const in this file`);
+      }
     }
     // A claim the lint cannot check: say so where it is made.
     if (n.kind === K.CallExpression && (await fromLibrary(n.expression)) && unwrap(n.expression).text === "serverMatches")

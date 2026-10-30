@@ -150,7 +150,14 @@ export type RowOf<E> = E extends Entity<infer Row, any, any> ? Row : never;
 
 export const entity =
   <Row>() =>
-  <const K extends keyof Row, Ver extends keyof Row = never>(d: { id: string; primaryKey: readonly K[]; version?: Ver }): Entity<Row, K, Ver> => ({
+  <const K extends keyof Row, Ver extends keyof Row = never>(d: {
+    id: string;
+    primaryKey: readonly K[];
+    version?: Ver;
+    keyTypes?: Partial<Record<K, "string" | "number" | "bigint">>; // stands in for the primary key's Schema
+  }): Entity<Row, K, Ver> => {
+    if (d.keyTypes) keyTypesOf.set(d.id, d.keyTypes as Record<string, string>);
+    return ({
     id: d.id,
     patch: (key, fields) => {
       const out: Record<string, FieldIR> = {};
@@ -168,6 +175,8 @@ export const entity =
     delete: (key) => ({ [IRK]: { change: "delete", entity: d.id, key: toIR(key, "key") } }) as any,
     save: (row) => ({ change: "save", entity: d.id, row }) as any,
   });
+  };
+const keyTypesOf = new Map<string, Record<string, string>>();
 
 // ───────────────────────────────────────────────────────────── operations and entries (stand-ins)
 
@@ -269,8 +278,18 @@ export class ListenEntry<I, Ev> {
 }
 
 export const read = <I, R>(o: Op<I, R>) => new ReadEntry<I, R, never>({ kind: "read", op: o.id, ...(o.defaults ? { inputDefaults: o.defaults } : {}) });
-// An answer's input is decoded through the operation's input Schema first: a declared default fills an absent field.
-export const decodeInput = (d: EntryDescription, input: object): object => ({ ...(d.inputDefaults ?? {}), ...Object.fromEntries(Object.entries(input).filter(([, v]) => v !== undefined)) });
+// The evaluator sees the answer's input on the Type side, as the machine passed it, never decoded again. A field
+// with a decoding default (`Schema.withDecodingDefaultKey(Effect.succeed(v))`) is required on the Type side, so it
+// is never absent there; absence exists only for an optional field with no default. An input that arrives Encoded
+// (hydration, a route parameter, a persisted actor's input) is decoded exactly once, at that boundary, where the
+// default fills a missing key. A decode failure is not thrown: the answer is evaluated as maybe (server), with a
+// diagnostic. `inputDefaults` stands in for the statically extracted literal defaults the Model records.
+export const DECODE_FAILED: unique symbol = Symbol("input decode failed");
+export function fromEncoded(d: EntryDescription, encoded: Record<string, unknown>, types: Record<string, "boolean" | "string" | "number"> = {}): { input: object } | { input: typeof DECODE_FAILED; diagnostic: string } {
+  const out: Record<string, unknown> = { ...(d.inputDefaults ?? {}), ...encoded };
+  for (const [k, t] of Object.entries(types)) if (out[k] !== undefined && typeof out[k] !== t) return { input: DECODE_FAILED, diagnostic: `InputDecodeFailed: ${k} is not a ${t}` };
+  return { input: out };
+}
 export const write = <I, R>(o: Op<I, R>) => new WriteEntry<I, R>({ kind: "write", op: o.id }, o.arrayKeys ?? []);
 export const listen = <I, Ev>(o: Op<I, Ev>) => new ListenEntry<I, Ev>({ kind: "listen", op: o.id });
 
@@ -281,7 +300,9 @@ export const describe = (dm: Domain): Record<string, EntryDescription> =>
 
 // ───────────────────────────────────────────────────────────── the three-valued evaluator
 
-export type Env = { input?: unknown; record?: unknown; result?: unknown };
+// `carried`: the record fields the store holds for this record (top-level names). When given, a field outside it
+// is not carried (maybe), and a carried field whose value is absent is an absent optional field (a value).
+export type Env = { input?: unknown; record?: unknown; result?: unknown; carried?: ReadonlySet<string> };
 export type Why = "notCarried" | "failed" | "server";
 // yes / no / maybe (Kleene). A maybe says why, and which record fields it came from ("*": every field).
 export type Tri = { v: "yes" } | { v: "no" } | { v: "maybe"; why: Why; detail: string; fields: readonly string[] };
@@ -291,6 +312,7 @@ const maybe = (why: Why, detail: string, fields: readonly string[] = []): Tri =>
 const tri = (b: boolean): Tri => (b ? YES : NO);
 
 const ABSENT = Symbol("absent input");
+const ABSENT_FIELD = Symbol("absent optional field");
 const NULL_INPUT = Symbol("present null input");
 type Read = { value: unknown; field?: string } | Tri;
 const isTri = (x: Read): x is Tri => "v" in x;
@@ -303,7 +325,12 @@ function readArg(ir: IR, env: Env): Read {
       v = v[p];
     }
     const name = ir.ref.slice(1).join(".");
-    if (ir.ref[0] === "record") return v === undefined ? maybe("notCarried", `record.${name} is not carried`, [name]) : { value: v, field: name };
+    if (ir.ref[0] === "record") {
+      const top = ir.ref[1]!;
+      if (env.carried && !env.carried.has(top)) return maybe("notCarried", `record.${name} is not carried`, [name]);
+      if (v === undefined) return env.carried ? { value: ABSENT_FIELD, field: name } : maybe("notCarried", `record.${name} is not carried`, [name]);
+      return { value: v, field: name };
+    }
     if (ir.ref[0] === "input") return { value: v === undefined ? ABSENT : v === null ? NULL_INPUT : v };
     return { value: v };
   }
@@ -333,6 +360,7 @@ function usable(x: unknown, op: string, field?: string): Tri | undefined {
 // Equality: scalars by ===; Dates at millisecond precision, where a tie is maybe (the server may hold finer
 // times); a Date never equals a non-Date.
 function equal(a: unknown, b: unknown, fields: string[]): Tri {
+  if (a === ABSENT_FIELD || b === ABSENT_FIELD) return tri(a === b); // an absent optional field equals nothing
   if (a instanceof Date && b instanceof Date)
     return a.getTime() === b.getTime() ? maybe("server", "two Dates equal at millisecond precision", fields) : NO;
   return tri(a === b);
@@ -340,6 +368,7 @@ function equal(a: unknown, b: unknown, fields: string[]): Tri {
 // Order: Effect's Order.Number and Order.Date (M5-D2), after the checks above. `null` is unordered and its
 // place is the server's: maybe. A Date tie is maybe.
 function compare(a: unknown, b: unknown, op: string, fields: string[], test: (c: -1 | 0 | 1) => boolean): Tri {
+  if (a === ABSENT_FIELD || b === ABSENT_FIELD) return maybe("server", `${op}: an absent field has no order the client knows`, fields);
   if (a === null || b === null) return maybe("server", `${op}: null has no order the client knows`, fields);
   let c: -1 | 0 | 1;
   if (typeof a === "number" && typeof b === "number") c = Order.Number(a, b);
@@ -438,33 +467,48 @@ export function evaluate(ir: IR, env: Env, top = true): Tri {
     case "lte":
       return compare(v(0), v(1), "lte", fields, (c) => c <= 0);
     case "isNull":
-      return tri(v(0) === null);
+      return tri(v(0) === null); // an absent optional field is not null
     default:
       return maybe("failed", `unknown operator ${ir.op}`);
   }
 }
 
-// The record fields a condition reads ("*" when a fieldless serverMatches reads every field).
-export function reads(ir: IR): string[] {
-  if ("ref" in ir) return ir.ref[0] === "record" ? [ir.ref.slice(1).join(".")] : [];
+// The record paths a condition reads, as segment arrays (["*"] when a fieldless serverMatches reads every
+// field). A path through an array index is cut at the array (`tags.0` reads `tags`): arrays are atomic.
+export type Path = readonly string[];
+const normalise = (p: Path): Path => {
+  const i = p.findIndex((seg) => /^\d+$/.test(seg));
+  return i < 0 ? p : p.slice(0, i);
+};
+export function reads(ir: IR): Path[] {
+  if ("ref" in ir) return ir.ref[0] === "record" ? [normalise(ir.ref.slice(1))] : [];
   if ("arr" in ir) return ir.arr.flatMap(reads);
   if ("op" in ir) {
-    if (ir.op === "serverMatches" && ir.args.length === 1) return ["*"];
-    return [...new Set(ir.args.flatMap(reads))];
+    if (ir.op === "serverMatches" && ir.args.length === 1) return [["*"]];
+    return ir.args.flatMap(reads);
   }
   return [];
 }
 
 // ───────────────────────────────────────────────────────────── the join rule
 
-// Paths are compared by dot-separated segments, and match when one is a prefix of the other: a condition
-// reading `meta.owner` matches a change to `meta` (the object was replaced) and to `meta.owner.id`.
-export const overlapsPath = (a: string, b: string) => a === "*" || b === "*" || a === b || a.startsWith(`${b}.`) || b.startsWith(`${a}.`);
-const touches = (readsOf: readonly string[], changed: readonly string[]) => readsOf.some((r) => changed.some((c) => overlapsPath(r, c)));
+// Paths are segment arrays and match when one is a prefix of the other: a condition reading [meta, owner] matches a
+// change to [meta] (the object was replaced) and to [meta, owner, id]; [metadata] is not [meta]. A change inside an
+// array is reported as the array's path. A plain string is one segment (a field name may contain a dot).
+export type ChangedPath = string | Path;
+const asPath = (p: ChangedPath): Path => normalise(typeof p === "string" ? [p] : p);
+export const overlapsPath = (a: Path, b: Path) => {
+  if (a[0] === "*" || b[0] === "*") return true;
+  const n = Math.min(a.length, b.length);
+  for (let i = 0; i < n; i++) if (a[i] !== b[i]) return false;
+  return true;
+};
+const touches = (readsOf: readonly Path[], changed: readonly ChangedPath[]) => readsOf.some((r) => changed.some((c) => overlapsPath(r, asPath(c))));
 
 // One side of a delta: the record, `"none"` (it does not exist: before a create, after a delete), or
 // `"unknown"` (a record the client sees for the first time; it may have existed on the server).
-export type Side = object | "none" | "unknown";
+// A side is the store's merged base for the record (not the delta alone), with the fields it holds.
+export type Side = object | "none" | "unknown" | { readonly record: object; readonly carried: readonly string[] };
 export type Repair = { repair: false } | { repair: true; why: "entered" | "left" | Why; detail?: string };
 
 // The membership half of the join: is the record in the answer's condition before and after? A side that
@@ -472,17 +516,21 @@ export type Repair = { repair: false } | { repair: true; why: "entered" | "left"
 // held, ED:523-524) and maybe for a derived answer (it may have counted). An existence change repairs whatever
 // the condition reads; otherwise membership can change only through a field the condition reads. The answer
 // then repairs unless both sides are the same definite answer.
-export function membership(where: IR | undefined, input: unknown, before: Side, after: Side, changed: readonly string[], derived = false) {
+export function membership(where: IR | undefined, input: unknown, before: Side, after: Side, changed: readonly ChangedPath[], derived = false) {
   const cond = where ?? { val: true };
   const side = (x: Side): Tri =>
-    x === "none" ? NO : x === "unknown" ? (derived ? maybe("notCarried", "a first sighting: the record's earlier state is unknown") : NO) : evaluate(cond, { input, record: x });
+    x === "none" ? NO
+    : input === DECODE_FAILED ? maybe("server", "the answer's input could not be decoded")
+    : x === "unknown" ? (derived ? maybe("notCarried", "a first sighting: the record's earlier state is unknown") : NO)
+    : "carried" in x && "record" in x ? evaluate(cond, { input, record: x.record, carried: new Set(x.carried) })
+    : evaluate(cond, { input, record: x });
   const a = side(before);
   const b = side(after);
   const existence = typeof before !== "object" || typeof after !== "object";
   const touched = existence || touches(reads(cond), changed);
   return { a, b, touched };
 }
-export function joins(where: IR | undefined, input: unknown, before: Side, after: Side, changed: readonly string[], derived = false): Repair {
+export function joins(where: IR | undefined, input: unknown, before: Side, after: Side, changed: readonly ChangedPath[], derived = false): Repair {
   const { a, b, touched } = membership(where, input, before, after, changed, derived);
   if (!touched) return { repair: false };
   if (a.v !== "maybe" && b.v !== "maybe") return a.v === b.v ? { repair: false } : { repair: true, why: b.v === "yes" ? "entered" : "left" };
@@ -495,11 +543,11 @@ export function joins(where: IR | undefined, input: unknown, before: Side, after
 // fields its condition reads (ED:128-129: condition fields always repair), so the two lists cannot disagree.
 export type Answer =
   | { kind: "one" }
-  | { kind: "ordered"; where?: IR; orderBy: readonly string[] }
+  | { kind: "ordered"; where?: IR; orderBy: readonly Path[] }
   | { kind: "unordered"; where?: IR }
-  | { kind: "ranked"; where?: IR; unaffectedBy?: readonly string[] }
-  | { kind: "derived"; where?: IR; fields?: readonly string[] };
-export function impact(answer: Answer, input: unknown, before: Side, after: Side, changed: readonly string[]): Repair {
+  | { kind: "ranked"; where?: IR; unaffectedBy?: readonly Path[] }
+  | { kind: "derived"; where?: IR; fields?: readonly Path[] };
+export function impact(answer: Answer, input: unknown, before: Side, after: Side, changed: readonly ChangedPath[]): Repair {
   if (answer.kind === "one") return after === "none" ? { repair: true, why: "left" } : { repair: false };
   const derived = answer.kind === "derived";
   const m = joins(answer.where, input, before, after, changed, derived);
@@ -508,10 +556,21 @@ export function impact(answer: Answer, input: unknown, before: Side, after: Side
   if (a.v === "no" && b.v === "no") return { repair: false };
   const depends =
     answer.kind === "ordered" ? touches(answer.orderBy, changed)
-    : answer.kind === "ranked" ? changed.some((c) => !(answer.unaffectedBy ?? []).some((u) => overlapsPath(u, c)))
+    : answer.kind === "ranked" ? changed.some((c) => !(answer.unaffectedBy ?? []).some((u) => overlapsPath(u, asPath(c))))
     : answer.kind === "derived" ? answer.fields === undefined || touches([...answer.fields, ...(answer.where ? reads(answer.where) : [])], changed)
     : false;
-  return depends ? { repair: true, why: "server" as Why, detail: `a ${answer.kind} answer depends on ${changed.join(", ")}` } : { repair: false };
+  return depends ? { repair: true, why: "server" as Why, detail: `a ${answer.kind} answer depends on ${changed.map((c) => asPath(c).join(".")).join(", ")}` } : { repair: false };
+}
+
+// The static, field-level form `flow explain` uses, with no record and no input: an answer may repair from a write
+// if any path the write can change touches what the answer depends on. The write can change its predicted fields,
+// every field of the record shapes its response carries (a response can reveal any of them), and its .alsoChanges
+// targets. "No" is printed only when none touches.
+export function mayRepair(answer: Answer, writeChanges: readonly ChangedPath[]): boolean {
+  if (answer.kind === "one") return false;
+  const where = answer.where ? reads(answer.where) : [];
+  const extra = answer.kind === "ordered" ? answer.orderBy : answer.kind === "derived" ? (answer.fields ?? [["*"]]) : answer.kind === "ranked" ? [["*"] as Path] : [];
+  return touches([...where, ...extra], writeChanges);
 }
 
 // The response check: a returned record contradicts the condition only when it definitely fails it.
@@ -519,13 +578,38 @@ export const contradicts = (where: IR, input: unknown, row: object) => evaluate(
 
 // ───────────────────────────────────────────────────────────── predictions: start, replay, settle
 
-// A key's text with its fields sorted, so { a, b } and { b, a } are one record.
-const canonical = (x: unknown): string =>
-  Array.isArray(x) ? `[${x.map(canonical).join(",")}]`
-  : x !== null && typeof x === "object" && !(x instanceof Date) ? `{${Object.keys(x).sort().map((k) => `${JSON.stringify(k)}:${canonical((x as any)[k])}`).join(",")}}`
-  : x instanceof Date ? `Date(${x.getTime()})`
-  : JSON.stringify(x);
+// A total canonical text: sorted object keys, bigint, Map, Set, Date, NaN and ±Infinity spelt out, cycles cut. It
+// never throws, so one odd key cannot crash a replay or a view.
+export function canonical(x: unknown, seen: WeakSet<object> = new WeakSet()): string {
+  if (typeof x === "bigint") return `${x}n`;
+  if (typeof x === "number") return Number.isFinite(x) ? JSON.stringify(x) : String(x);
+  if (typeof x === "undefined") return "undefined";
+  if (typeof x === "function" || typeof x === "symbol") return `<${typeof x}>`;
+  if (x === null || typeof x !== "object") return JSON.stringify(x);
+  if (seen.has(x)) return "<cycle>";
+  seen.add(x);
+  if (x instanceof Date) return `Date(${x.getTime()})`;
+  if (Array.isArray(x)) return `[${x.map((e) => canonical(e, seen)).join(",")}]`;
+  if (x instanceof Map) return `Map{${[...x.entries()].map(([k, v]) => `${canonical(k, seen)}=>${canonical(v, seen)}`).sort().join(",")}}`;
+  if (x instanceof Set) return `Set{${[...x].map((e) => canonical(e, seen)).sort().join(",")}}`;
+  const proto = Object.getPrototypeOf(x);
+  const tag = proto && proto !== Object.prototype ? `${proto.constructor?.name ?? "?"}` : "";
+  return `${tag}{${Object.keys(x).sort().map((k) => `${JSON.stringify(k)}:${canonical((x as any)[k], seen)}`).join(",")}}`;
+}
 const keyText = canonical;
+// A key decoded through the entity's primary-key Schema, so "12" and 12 are one record when the key is a number.
+function decodeKey(entity: string, key: unknown): unknown {
+  const types = keyTypesOf.get(entity);
+  if (!types || key === null || typeof key !== "object") return key;
+  const out: Record<string, unknown> = { ...(key as object) };
+  for (const [f, t] of Object.entries(types)) {
+    const v = out[f];
+    if (t === "number" && typeof v === "string" && /^-?\d+(\.\d+)?$/.test(v)) out[f] = Number(v);
+    if (t === "bigint" && (typeof v === "string" || typeof v === "number")) out[f] = BigInt(v);
+    if (t === "string" && typeof v === "number") out[f] = String(v);
+  }
+  return out;
+}
 // Predictions are kept per (entity, key, field): settlement, confirmation and retirement never cross records.
 const slot = (entity: string, key: unknown, field: string) => `${entity}:${keyText(key)}:${field}`;
 
@@ -549,12 +633,14 @@ const valueOf = (ir: IR, input: unknown): unknown => {
   throw new Error("a key or recorded field is a read or a constant");
 };
 
-// At write start: each key is read from the real input. An array key (`many`, from the input Schema)
-// predicts each record it lists, once.
+// At write start: each key is read from the real (Type-side) input and decoded through the primary-key Schema.
+// An array key (`many`) predicts each record it lists, once. The input is frozen: it is the request body.
 export function start(changes: readonly ChangeIR[], input: unknown, attempt: string): Live[] {
+  deepFreeze(input);
   return changes.map((c) => {
     const k = valueOf(c.key, input);
-    const keys = c.many && Array.isArray(k) ? [...new Map(k.map((x) => [keyText(x), x])).values()] : [k];
+    const raw = c.many && Array.isArray(k) ? k : [k];
+    const keys = [...new Map(raw.map((x) => decodeKey(c.entity, x)).map((x) => [keyText(x), x])).values()];
     const fields = c.fields ?? {};
     return { attempt, kind: c.change, entity: c.entity, keys, many: c.many === true, fields, fns: runtimeFns.get(fields) ?? {}, input, retired: new Set() };
   });
@@ -569,46 +655,114 @@ export const laneKey = (lives: readonly Live[]) => {
   return keys.length === 1 && lives.every((l) => !l.many) ? lives[0]!.keys[0] : undefined;
 };
 
-// A defect is the author's mistake, not this record's: it is reported (a diagnostic; a Story fails on it),
-// never silently skipped. An ordinary failure to compute a value for this record is skipped (rule A9).
-export class FlowDefect extends Error {}
+// A prediction fault: the author's mistake (a sealed read, a write to the frozen record or input, two results from
+// one record and input, a harness that cannot copy the value). It behaves like an uncomputed value for display and
+// settlement, and is also reported as a `predictionFault` diagnostic (a Story fails on it). It is never thrown out
+// of a replay or a view.
+export class PredictionFault extends Error {}
 
+export type SlotState = { attempt: string; slot: string; field: string; state: "shown" | "uncomputed" | "fault"; reason?: string };
 export type Replayed<Row> = {
   visible: Row | "deleted" | undefined;
-  predicted: string[]; // every field a live prediction names on this record: shown or skipped
-  skipped: { attempt: string; field: string; reason: string }[];
-  defects: { attempt: string; field: string; reason: string }[];
+  slots: SlotState[]; // every (entity, key, field) a live prediction names on this record, with its state
+  faults: { attempt: string; field: string; reason: string }[];
 };
 
 // A stand-in for the field's Schema check: a value must be defined, and a number finite.
 const acceptable = (x: unknown) => x !== undefined && !(typeof x === "number" && !Number.isFinite(x));
-const clone = <T>(x: T): T => structuredClone(x);
 export type DeepReadonly<T> = T extends Date ? T : T extends object ? { readonly [K in keyof T]: DeepReadonly<T[K]> } : T;
 
-// Calls a field's function. In development it is called twice, each time on a fresh copy of the record
-// beneath: a copy that changed is a mutation, and two different results are an impure function (Math.random,
-// a clock read in another millisecond). Both are defects. Production calls it once on the record itself,
-// typed DeepReadonly.
-function callField(fn: (b: any, i: any) => unknown, beneath: object, input: unknown, development: boolean): unknown {
-  if (!development) return fn(beneath, input);
-  const c1 = clone(beneath);
-  const c2 = clone(beneath);
-  const v1 = fn(c1, input);
-  const v2 = fn(c2, input);
-  if (canonical(c1) !== canonical(beneath) || canonical(c2) !== canonical(beneath)) throw new FlowDefect("the function changed the record beneath; it must return a new value");
-  if (canonical(v1) !== canonical(v2)) throw new FlowDefect("the function gave two results for one record and input; it must be pure and deterministic");
+// Store records, snapshots and inputs are deeply frozen plain data in every environment (Machines O8).
+export function deepFreeze<T>(x: T, seen: WeakSet<object> = new WeakSet()): T {
+  if (x === null || typeof x !== "object" || seen.has(x as object) || x instanceof Date) return x;
+  seen.add(x as object);
+  if (x instanceof Map) for (const [k, v] of x) (deepFreeze(k, seen), deepFreeze(v, seen));
+  else if (x instanceof Set) for (const v of x) deepFreeze(v, seen);
+  else for (const k of Object.keys(x)) deepFreeze((x as any)[k], seen);
+  return Object.freeze(x);
+}
+// A copy that keeps prototypes (Schema.Class, Option, Data), Maps, Sets, Dates and bigints; it stands in for
+// copying through the entity's and the input's Schemas. A value it cannot copy is a fault.
+function copy<T>(x: T, seen: Map<object, unknown> = new Map()): T {
+  if (x === null || typeof x !== "object") return x;
+  if (seen.has(x as object)) return seen.get(x as object) as T;
+  if (x instanceof Date) return new Date(x.getTime()) as T;
+  if (x instanceof Map) {
+    const m = new Map();
+    seen.set(x as object, m);
+    for (const [k, v] of x) m.set(copy(k, seen), copy(v, seen));
+    return m as T;
+  }
+  if (x instanceof Set) {
+    const st = new Set();
+    seen.set(x as object, st);
+    for (const v of x) st.add(copy(v, seen));
+    return st as T;
+  }
+  const out = Array.isArray(x) ? [] : Object.create(Object.getPrototypeOf(x));
+  seen.set(x as object, out);
+  for (const k of Object.keys(x)) out[k] = copy((x as any)[k], seen);
+  return out;
+}
+
+// Runtime options (like audit mode): `checkReplays` calls each field function twice per replay and compares the
+// results; it is on by default in Stories and propertyTest, off in production.
+export type ReplayOptions = { checkReplays?: boolean };
+
+// Calls a field's function on the frozen record beneath and the frozen input. A TypeError is classified by calling
+// it again on unfrozen copies: if a copy changed, the function wrote to the record or the input (a fault);
+// otherwise the TypeError is an ordinary failure for this record (uncomputed).
+function callField(fn: (b: any, i: any) => unknown, beneath: object, input: unknown, options: ReplayOptions): unknown {
+  let v1: unknown;
+  try {
+    v1 = fn(beneath, input);
+  } catch (e) {
+    if (e instanceof TypeError) {
+      let cb: object, ci: unknown;
+      try {
+        cb = copy(beneath);
+        ci = copy(input);
+      } catch {
+        throw new PredictionFault("the record or input could not be copied to classify a TypeError");
+      }
+      try {
+        fn(cb, ci);
+      } catch {
+        /* the second error is the same failure */
+      }
+      if (canonical(cb) !== canonical(beneath)) throw new PredictionFault("the function wrote to the record beneath; it must return a new value");
+      if (canonical(ci) !== canonical(input)) throw new PredictionFault("the function wrote to the input (the request body)");
+    }
+    throw e;
+  }
+  if (options.checkReplays) {
+    const v2 = fn(beneath, input);
+    if (canonical(v1) !== canonical(v2)) throw new PredictionFault("the function gave two results for one record and input; it must be pure and deterministic");
+  }
   return v1;
 }
 
-// Replay: the base with this record's live predictions in start order (a write's patches in written order).
-// Every field of one patch sees the same record beneath.
-export function replay<Row extends object>(base: Row | undefined, lives: readonly Live[], entity: string, key: unknown, development = true): Replayed<Row> {
-  let cur: Row | "deleted" | undefined = base;
-  const predicted = new Set<string>();
-  const skipped: Replayed<Row>["skipped"] = [];
-  const defects: Replayed<Row>["defects"] = [];
+// Replay: the base with this record's live predictions in start order (a write's patches in written order). Every
+// field of one patch sees the same frozen record beneath. A key that cannot be compared is a fault for that live
+// prediction, never a crash.
+export function replay<Row extends object>(base: Row | undefined, lives: readonly Live[], entity: string, key: unknown, options: ReplayOptions = { checkReplays: true }): Replayed<Row> {
+  let cur: Row | "deleted" | undefined = base === undefined ? undefined : deepFreeze(base);
+  const slots: SlotState[] = [];
+  const faults: Replayed<Row>["faults"] = [];
+  let me: string;
+  try {
+    me = keyText(decodeKey(entity, key));
+  } catch (e) {
+    return { visible: cur, slots, faults: [{ attempt: "-", field: "-", reason: `the key cannot be read: ${(e as Error).message}` }] };
+  }
   for (const l of lives) {
-    if (l.entity !== entity || !l.keys.some((k) => keyText(k) === keyText(key))) continue;
+    let mine = false;
+    try {
+      mine = l.entity === entity && l.keys.some((k) => keyText(k) === me);
+    } catch (e) {
+      faults.push({ attempt: l.attempt, field: "-", reason: `a key cannot be compared: ${(e as Error).message}` });
+    }
+    if (!mine) continue;
     if (l.kind === "delete") {
       cur = "deleted";
       continue;
@@ -616,43 +770,66 @@ export function replay<Row extends object>(base: Row | undefined, lives: readonl
     const beneath: Row | undefined = cur === "deleted" ? undefined : cur;
     const next = { ...(beneath ?? {}) } as Record<string, unknown>;
     for (const [f, ir] of Object.entries(l.fields)) {
-      if (l.retired.has(slot(entity, key, f))) continue;
-      predicted.add(f);
+      const sl = slot(entity, key, f);
+      if (l.retired.has(sl)) continue;
       try {
         if (beneath === undefined) throw new Error("the record is not held");
-        const v = "runtime" in ir ? callField(l.fns[f]!, beneath, l.input, development) : valueOf(ir, l.input);
+        const v = "runtime" in ir ? callField(l.fns[f]!, beneath, l.input, options) : valueOf(ir, l.input);
         if (!acceptable(v)) throw new Error(`the field's Schema rejects ${String(v)}`);
         next[f] = v;
+        slots.push({ attempt: l.attempt, slot: sl, field: f, state: "shown" });
       } catch (e) {
-        const entry = { attempt: l.attempt, field: f, reason: (e as Error).message };
-        if (e instanceof RecordingError || e instanceof FlowDefect) defects.push(entry);
-        else skipped.push(entry);
+        const reason = (e as Error).message;
+        const fault = e instanceof RecordingError || e instanceof PredictionFault;
+        slots.push({ attempt: l.attempt, slot: sl, field: f, state: fault ? "fault" : "uncomputed", reason });
+        if (fault) faults.push({ attempt: l.attempt, field: f, reason });
       }
     }
-    cur = beneath === undefined ? cur : (next as Row);
+    cur = beneath === undefined ? cur : deepFreeze(next as Row);
   }
-  return { visible: cur, predicted: [...predicted], skipped, defects };
+  return { visible: cur, slots, faults };
 }
 
-// Settlement on success, per record: `responses` lists each record the response carries and its fields. For
-// every (entity, key, field) the write predicted, shown or skipped: carried means confirmed, and retires older
-// live predictions of that slot only; not carried means unconfirmed, and needs its confirming read.
-export function settle(lives: readonly Live[], attempt: string, responses: readonly { entity: string; key: unknown; fields: readonly string[] }[]) {
-  const carried = new Set(responses.flatMap((r) => r.fields.map((f) => slot(r.entity, r.key, f))));
-  const mine = lives.filter((l) => l.attempt === attempt);
-  const predictedSlots = mine.flatMap((l) => l.keys.flatMap((k) => Object.keys(l.fields).map((f) => slot(l.entity, k, f))));
-  const unconfirmed = [...new Set(predictedSlots)].filter((s) => !carried.has(s));
+// Settlement on success, per record, fed by the replay: every slot the attempt predicted on these records, shown,
+// uncomputed or faulted. A response confirms a predicted field only on a record it carries, and only if it carries
+// that field's whole value: the field itself or a prefix of it. A partial object (`meta.color` alone) confirms
+// neither `meta` nor `meta.owner`. A confirmed slot retires older live predictions of that slot only.
+export function settle(
+  lives: readonly Live[],
+  attempt: string,
+  responses: readonly { entity: string; key: unknown; fields: readonly ChangedPath[] }[],
+  replays: readonly Replayed<object>[],
+) {
+  const carries = (entity: string, key: unknown, field: string) =>
+    responses.some((r) => {
+      try {
+        return r.entity === entity && keyText(decodeKey(entity, r.key)) === keyText(key) && r.fields.some((p) => { const q = asPath(p); return q.length <= 1 && q[0] === field; });
+      } catch {
+        return false;
+      }
+    });
+  const mine = replays.flatMap((r) => r.slots.filter((s) => s.attempt === attempt));
+  const unconfirmed: string[] = [];
+  const confirmed = new Set<string>();
+  for (const l of lives.filter((x) => x.attempt === attempt))
+    for (const k of l.keys)
+      for (const f of Object.keys(l.fields)) {
+        const sl = slot(l.entity, k, f);
+        if (!mine.some((s) => s.slot === sl)) continue; // only what the replay says was predicted
+        if (carries(l.entity, k, f)) confirmed.add(sl);
+        else if (!unconfirmed.includes(sl)) unconfirmed.push(sl);
+      }
   const firstMine = lives.findIndex((l) => l.attempt === attempt);
   const remaining = lives
     .filter((l) => l.attempt !== attempt)
-    .map((l) => (lives.indexOf(l) < firstMine ? { ...l, retired: new Set([...l.retired, ...[...carried]]) } : l));
+    .map((l) => (lives.indexOf(l) < firstMine ? { ...l, retired: new Set([...l.retired, ...confirmed]) } : l));
   return { remaining, unconfirmed };
 }
 
 // ───────────────────────────────────────────────────────────── one App: identities are unique
 
-// Construction errors for factories as for literal domains: a domain id, an entity id (two entity objects with
-// one id) or an operation registered in two domains (EDP:21-23, EDP:24-25).
+// Errors at App construction or lazy adoption, for factories as for literal domains: a domain id, an entity id (two
+// entity objects with one id) or an operation registered twice, in two domains or in two entries of one (EDP:21-25).
 export function app(domains: readonly Domain[], entities: readonly { id: string }[] = []): void {
   const ids = new Set<string>();
   const ops = new Map<string, string>();
@@ -661,8 +838,8 @@ export function app(domains: readonly Domain[], entities: readonly { id: string 
     ids.add(d.id);
     for (const [name, e] of Object.entries(d.entries)) {
       const prev = ops.get(e.d.op);
-      if (prev && prev !== d.id) throw new RecordingError(`InvalidConfiguration: operation ${e.d.op} is registered in ${prev} and ${d.id}.${name}`);
-      ops.set(e.d.op, d.id);
+      if (prev) throw new RecordingError(`InvalidConfiguration: operation ${e.d.op} is registered in ${prev} and ${d.id}.${name}`);
+      ops.set(e.d.op, `${d.id}.${name}`);
     }
   }
   const seen = new Map<string, object>();

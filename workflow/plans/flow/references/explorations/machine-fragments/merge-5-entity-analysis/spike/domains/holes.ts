@@ -10,7 +10,8 @@ const genHelper = <T,>(flag: T, a: Condition, b: Condition) => (flag ? a : b);  
 const typedHelper = (flag: boolean, a: Condition, b: Condition) => (flag ? a : b);            // (type error to call)
 const andish = (a: any, b: any) => a && b;                                                    // H3
 const getterObj = { get cond() { return 1; } };
-const nowAlias = Date; 
+const nowAlias = Date;
+const LOADED = Date.now();
 // A function: some entries throw at construction (the enumeration traps), which main.ts checks one by one.
 export const H = () => domain("holes", {
   e1: read(cardsIn).list(Card, ({ result }) => result.cards).where(({ input, record }) => anyHelper(input.mineOnly, eq(record.boardId, "a"), eq(record.boardId, "b"))),
@@ -40,5 +41,7 @@ export const H = () => domain("holes", {
   e20: write(moveCard).one(Card).predicts(({ input }) => Card.patch(input.key, { title: (c: any, i: any) => (input as any).toColumn })), // closure via any
   e21: write(moveCard).one(Card).predicts(({ input }) => Card.patch(input.key, { title: (c) => String(input.toColumn) })),  // closure through String()
   e22: write(moveCard).one(Card).predicts(({ input }) => Card.patch(input.key, { title: (c, input) => String(Date.now()) })),   // impure in predicted fn
+  e24: read(cardsIn).list(Card, ({ result }) => result.cards).where(({ input, record }) => eq(record.position, LOADED)), // a const computed at load, bare
+  e25: read(cardsIn).list(Card, ({ result }) => result.cards).where(({ input, record }) => eq(record.position, imported)), // an imported computed value, bare
   e23: write(moveCard).one(Card).predicts(({ input }) => Card.patch(input.key, { ...input } as any)),   // spread of input
 });
