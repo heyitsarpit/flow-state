@@ -2,7 +2,7 @@
 # that does not fail on the unmutated model: a (check, system, kind) triple that is new, or the same triple with a different shortest counterexample.
 import os, re, shutil, subprocess, sys, tempfile
 HERE = os.path.dirname(os.path.abspath(__file__))
-ENV = dict(os.environ, DEPTH="9")  # a lower bound keeps the 35 runs short; no isolation switch: the baseline runs as the proposal states it
+ENV = dict(os.environ, DEPTH="8")  # a lower bound keeps the 39 runs short; no isolation switch: the baseline runs as the proposal states it
 M = [
  ("a fact before its missed (FC4, FC55; I1)", "missedBeforeDroppedFact: true,", "missedBeforeDroppedFact: false,", "a value in Dropped is delivered with no missed Unproven first", "I1"),
  ("the budget reset on the first value (FC41; I12)", "resetOnlyAtFail: true,", "resetOnlyAtFail: false,", "the reconnect budget resets on the first value of a connection", "I12"),
@@ -39,6 +39,14 @@ M = [
  ("C1: the repair's proof announced before it is earned", "pendingAnnounced: true,", "pendingAnnounced: false,", "startRepair emits proof, not pending, and complete() settles nothing", "I23"),
  ("C2: CannotRepair is not an exit from the repair", "cannotRepairExits: true,", "cannotRepairExits: false,", "CannotRepair is handled as a retryable page failure", "I22b"),
  ("C6: an overflowing queue ends instead of failing with Overflow", "overflowFails: true,", "overflowFails: false,", "closing = ending after an overflow", "C6-overflow"),
+ ("H1: fresh without a declared from while memory holds facts (RV3 H1; I23 across sessions)", "freshNeedsDeclared: true,", "freshNeedsDeclared: false,", "a session with no from declared starts fresh, hiding the gap since the last session", "I23"),
+ ("H2: session identity without the placement path (RV3 H2; I10)", "identityHasPath: true,", "identityHasPath: false,", "two placements with an equal key: the second stalls until the first is released", "I10s"),
+ ("H3: pages not oldest first (RV3 H3; I23)", "pagesOldestFirst: true,", "pagesOldestFirst: false,", "a newest-first history is paged as it comes", "I23"),
+ ("H1 (RV4): a missed handler ignoring a non-initial start on an empty memory (S9; I23)", "handlerIgnoresOnlyInitial: true,", "handlerIgnoresOnlyInitial: false,", "the handler ignores any Unproven missed while the memory is empty, not only the initial one", "I23"),
+ ("M1 (RV4): a successor at another path not waiting for a releasing predecessor (S9; I10)", "waitAnyPath: true,", "waitAnyPath: false,", "a new session opens while a session of the same actor, operation and key is releasing at another path", "I10"),
+ ("RV5 H1: registered scoped to the session, so a second session of a quiet memory is fresh (S10; I23, I27)", "registeredPerSlice: true,", "registeredPerSlice: false,", "a successor session (re-entry, thaw, reload) starts with registered clear", "I27"),
+ ("RV5 M2: initial lost on settle(lost) (S10; I27)", "settleCarriesInitial: true,", "settleCarriesInitial: false,", "settle(lost r) delivers missed Lost with initial = false", "I27"),
+ ("RV5 M2: an ignore guard that also ignores Lost (S10; I23)", "ignoreOnlyUnproven: true,", "ignoreOnlyUnproven: false,", "the handler ignores an initial missed of any kind on an empty memory", "I23"),
 ]
 def run(d, env=ENV):
     p = subprocess.run(["bun", "main.ts"], cwd=d, env=env, capture_output=True, text=True, timeout=300)

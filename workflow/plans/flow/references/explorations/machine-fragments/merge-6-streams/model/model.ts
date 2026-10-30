@@ -1,4 +1,4 @@
-// Executable model of proposal-v2.md revision 4 (bf249a24), section 3: 3.1 session, 3.2 pump, 3.3 Feed.callback queue, 3.4 Feed.reconnect,
+// Executable model of proposal-v2.md revision 7 (37bed2e4), section 3: 3.1 session, 3.2 pump, 3.3 Feed.callback queue, 3.4 Feed.reconnect,
 // 3.5 write progress, 3.6 listen coverage.
 // Types: `tsc -p .`   Run: bun main.ts
 // Ghost fields (mfDiff, gpos, needM, dv, em, opens, ts, gls, gsig, impl, exp, nv, age0) belong to the checks, never to the behaviour.
@@ -42,6 +42,14 @@ export const CONFIG = {
   overflowFails: true, //           3.3: an overflowing queue fails with Overflow (C6)
   valueAtDropAt: true, //           3.1 value/Dropped: at = dropAt (a cached value keeps the drop's time)
   ageRebased: true, //              3.1 initial: at is rebased from the transferred age
+  registeredPerSlice: true, //      3.1 (S10): registered belongs to the memory slice and survives release, re-entry, thaw and reload
+  settleCarriesInitial: true, //    3.1 settle(lost r): the missed carries pendingInitial (RV5 M2)
+  ignoreOnlyUnproven: true, //      S10: the handler ignores only an initial Unproven missed on an empty memory
+  handlerIgnoresOnlyInitial: true, // S9: a missed handler may ignore only an initial missed on an empty memory (RV4 H1 b)
+  waitAnyPath: true, //             2.5: a new session waits for a releasing session of the same (actor, operation, key) at any path (S9, RV4 M1)
+  freshNeedsDeclared: true, //      3.4 register(): fresh only when the options declare from (S8, RV3 H1)
+  identityHasPath: true, //         3.1: a session is identified by its placement path too (S8, RV3 H2)
+  pagesOldestFirst: true, //        3.7 P0: pages return values oldest first, after the cursor (S8, RV3 H3)
 };
 const C = CONFIG;
 
@@ -51,7 +59,7 @@ export type Answer = "none" | "proven" | "fresh" | "pending" | "unproven" | "los
 export const STATES: St[] = ["Opening", "Dropped", "Live", "Ended", "Releasing", "Released"];
 export const INPUTS = ["proof", "live", "lost", "reset", "fresh", "pending", "settleP", "settleL", "value", "down", "fail", "complete", "defect", "release", "closed", "bound"];
 export const CLOCK = 2; // the session clock saturates here
-export interface Item { t: "missed" | "value" | "failure"; k?: string; v?: number; ra?: number; e?: string }
+export interface Item { t: "missed" | "value" | "failure"; k?: string; v?: number; ra?: number; e?: string; initial?: boolean }
 export interface Sess {
   kind: Kind; st: St; drop: number; owed: boolean; answer: Answer;
   lastV: number | null; lastOwn: boolean; lastCur: boolean; reconfCur: boolean; confirmed: boolean;
@@ -59,6 +67,7 @@ export interface Sess {
   Q: Item[]; inFlight: Item | null; adm: boolean; // 3.2 facts
   slot: number | null; slotCur: boolean; box: Item[]; heard: number | null; // 3.2 state (queued = box holds a value delivery)
   mfDiff: number; gpos: number | null; needM: boolean; dv: boolean; track: boolean; // ghosts
+  conn: number; registered: boolean; gReg: boolean; pInit: boolean; pGInit: boolean; pCov: number | null; mem: boolean; cov: number | null; chk: boolean; // 3.1 conn (capped at 1) and the ghosts of I23: memory holds facts, covered position, a hole check is due
 }
 export interface SIn { k: string; v?: number; ra?: number; e?: string }
 export interface SR { s: Sess; viol: string[]; ev: string[]; lev: string[]; cannot?: boolean }
@@ -79,7 +88,7 @@ export function initSess(kind: Kind, lastV: number | null, heard: number | null,
   const st = kind === "state" && lastV !== null;
   return { kind, st: "Opening", drop: 0, owed: false, answer: "none", lastV: kind === "state" ? lastV : null, lastOwn: false, lastCur: false, reconfCur: false, confirmed: false,
     now: 1, dropAt: null, endAt: null, startAt: null, lastAt: st ? (C.ageRebased ? 1 - age : age) : null, lastDrop: false, lastRest: st, age0: age,
-    Q: [], inFlight: null, adm: false, slot: null, slotCur: false, box: [], heard: kind === "state" ? heard : null, mfDiff: 0, gpos: null, needM: false, dv: false, track };
+    Q: [], inFlight: null, adm: false, slot: null, slotCur: false, box: [], heard: kind === "state" ? heard : null, mfDiff: 0, gpos: null, needM: false, dv: false, track, conn: 0, registered: false, gReg: false, pInit: false, pGInit: false, pCov: null, mem: false, cov: null, chk: false };
 }
 export const pendingMF = (s: Sess) =>
   s.Q.filter((i) => i.t !== "value").length + (s.inFlight && !s.adm && s.inFlight.t !== "value" ? 1 : 0) + s.box.filter((i) => i.t !== "value").length;
@@ -109,15 +118,30 @@ export function sIn(s0: Sess, inp: SIn): SR {
     if (s.kind === "facts") { s.Q.push(it); if (s.inFlight === null) { s.inFlight = s.Q.shift()!; s.adm = false; } if (s.Q.length > 3) viol.push("I7-Q"); }
     else s.box.push(it);
   };
-  const deliverMissed = (kk: string) => { deliver({ t: "missed", k: kk, ra: inp.ra }); s.needM = false; s.gpos = null; };
+  let initial = !s.registered, gInitial = !s.gReg;
+  const deliverMissed = (kk: string, ini: boolean = initial, gIni: boolean = gInitial) => {
+    deliver({ t: "missed", k: kk, ra: inp.ra, initial: ini }); s.needM = false;
+    if (ini !== gIni) viol.push("I27"); // every delivered missed carries initial = not registered, as it was before its start
+    const why = kk === "U", guard = C.ignoreOnlyUnproven ? why : true;
+    const ignored = guard && (C.handlerIgnoresOnlyInitial ? ini && !s.mem : !s.mem); // the machine's handler (S9, S10): it ignores only an initial Unproven missed on an empty memory
+    if (ignored) { s.chk = true; s.cov = inp.ra ?? (kk === "L" ? s.pCov : null) ?? s.cov; } else { s.gpos = null; s.chk = false; s.cov = null; }
+  };
   const deliverValue = (v: number) => {
     if (s.needM) viol.push("I1");
-    if (s.track) { if (s.gpos !== null && v !== s.gpos + 1) viol.push("I23"); s.gpos = v; }
+    if (s.track) {
+      if (s.gpos !== null && v !== s.gpos + 1) viol.push("I23");
+      if (s.chk && s.cov !== null && v > s.cov + 1) viol.push("I23"); // a start that owed nothing (fresh, proven) or a missed the machine ignored covers no hole
+      s.chk = false; s.gpos = v; s.cov = v; s.mem = true;
+    }
     putV++; deliver({ t: "value", v }); s.lastV = v;
   };
   const discard = () => ev.push("evidence:discard");
   const start = (a: Answer) => {
-    s.lastCur = false; s.slotCur = false; s.reconfCur = false; s.st = "Live"; s.drop = 0; s.answer = a; s.dv = false; s.lastDrop = false; s.startAt = state ? s.now : null;
+    s.lastCur = false; s.slotCur = false; s.reconfCur = false; s.st = "Live"; s.drop = 0; s.answer = a; s.dv = false; s.lastDrop = false; s.startAt = state ? s.now : null; initial = !s.registered; gInitial = !s.gReg;
+    if (a === "fresh" && s.gReg) viol.push("I27"); // fresh is answered only while the slice was never registered
+    if (a === "pending" && s.kind === "facts") { s.pInit = initial; s.pGInit = gInitial; s.pCov = inp.ra ?? null; }
+    s.registered = true; s.gReg = true;
+    if (a === "fresh") { s.chk = true; s.cov = s.cov ?? inp.ra ?? s.gpos; } else if (a === "proven") { s.chk = true; s.cov = inp.ra ?? s.gpos; }
     if (s.kind === "facts") {
       if (a === "unproven" || a === "lost" || a === "reset") {
         s.needM = true;
@@ -147,14 +171,14 @@ export function sIn(s0: Sess, inp: SIn): SR {
     }
   } else if (k === "live" || k === "lost" || k === "reset" || k === "fresh" || k === "pending") {
     if (st === "Releasing") discard();
-    else if (k === "fresh" && st === "Opening") start("fresh");
-    else if (k === "fresh") { ev.push("evidence:fresh"); start("unproven"); }
+    else if (k === "fresh" && !s.registered && (st === "Opening" || st === "Dropped")) start("fresh"); // a first connection, also one that failed before registering (RV3 M1)
+    else if (k === "fresh") { ev.push("evidence:fresh"); start("unproven"); } // the slice is registered: read as live()
     else start(k === "live" ? "unproven" : (k as Answer));
   } else if (k === "settleP" || k === "settleL") {
     if (st === "Releasing") discard();
     else if (s.answer === "pending") {
-      if (k === "settleP") { s.answer = "proven"; lev.push("P"); }
-      else { s.answer = "lost"; if (s.kind === "facts") { s.needM = true; deliverMissed("L"); } lev.push("G"); }
+      if (k === "settleP") { s.answer = "proven"; lev.push("P"); s.chk = true; s.cov = s.gpos ?? s.cov; }
+      else { s.answer = "lost"; if (s.kind === "facts") { s.needM = true; deliverMissed("L", C.settleCarriesInitial ? s.pInit : false, s.pGInit); } lev.push("G"); }
       reconcile(s);
     } else ev.push("evidence:settle");
   } else if (k === "value") {
@@ -333,21 +357,21 @@ export function cbInv(c: Cb): string[] {
 
 
 // ---- 3.4 Feed.reconnect ----------------------------------------------------------------------------------------
-export const RCFG = { catchUp: true, from: 0 as number | null, nopos: false, sched: 2, psched: 2, buf: 2, hmax: 3, tick: true };
+export const RCFG = { catchUp: true, from: 0 as number | null, fromDeclared: true, nopos: false, sched: 2, psched: 2, buf: 2, hmax: 3, tick: true };
 export type Ph = "Connecting" | "Live" | "CatchingUp" | "Waiting" | "Done";
 export type Emit = { t: "sig"; k: "proof" | "live" | "lost" | "reset" | "fresh" | "pending" | "settleP" | "settleL" | "down" | "fail"; ra?: number } | { t: "value"; v: number };
 interface BV { v: number; p: number | null }
 export interface Rc {
   ph: Ph; rel: boolean; sig: boolean; any: boolean; last: number | null; n: number; ls: number | null; tail: number[]; seen: number[]; cursor: number | null; buf: BV[];
   ec: number; ps: number; pw: "none" | "req" | "wait"; pstale: boolean; settled: boolean; head: number; sock: number | null; ret: number; reg: number | null; now: number;
-  exp: number | null; em: number[]; opens: number; ts: boolean; gls: number | null; gsig: boolean; impl: number; nv: number; fv: boolean;
+  exp: number | null; em: number[]; opens: number; ts: boolean; gls: number | null; gsig: boolean; impl: number; nv: number; fv: boolean; ann: boolean;
 }
 export interface RR { r: Rc; out: Emit[]; viol: string[]; ev: string[] }
 const posOf = (v: number) => (RCFG.nopos ? null : v);
-export function rInit(): RR {
+export function rInit(from: number | null = RCFG.from, server?: { head: number; ret: number }): RR {
   const viol: string[] = [], out: Emit[] = [];
-  const r: Rc = { ph: "Connecting", rel: false, sig: false, any: false, last: RCFG.from, n: 0, ls: null, tail: [], seen: [], cursor: null, buf: [], ec: 0, ps: 0, pw: "none", pstale: false, settled: false,
-    head: 0, sock: 1, ret: 1, reg: 1, now: 0, exp: RCFG.from, em: [], opens: 1, ts: false, gls: null, gsig: false, impl: 0, nv: 0, fv: false };
+  const r: Rc = { ph: "Connecting", rel: false, sig: false, any: false, last: from, n: 0, ls: null, tail: [], seen: [], cursor: null, buf: [], ec: 0, ps: 0, pw: "none", pstale: false, settled: false,
+    head: server?.head ?? 0, sock: (server?.head ?? 0) + 1, ret: server?.ret ?? 1, reg: (server?.head ?? 0) + 1, now: 0, exp: from, em: [], opens: 1, ts: false, gls: null, gsig: false, impl: 0, nv: 0, fv: false, ann: false };
   if (!C.catchUpAfterLive && RCFG.catchUp && r.last !== null) { startRepair(r, out, viol, true); r.sock = null; r.reg = null; }
   return { r, out, viol, ev: [] };
 }
@@ -360,7 +384,7 @@ export function rCell(ph: Ph, row: string): "defined" | "cannot" {
   return "defined";
 }
 const START = ["proof", "live", "lost", "reset", "fresh", "pending"];
-function emitSig(r: Rc, out: Emit[], k: any, ra?: number) { if (START.includes(k)) r.gsig = true; out.push({ t: "sig", k, ra }); }
+function emitSig(r: Rc, out: Emit[], k: any, ra?: number) { if (START.includes(k)) { r.gsig = true; r.ann = true; } out.push({ t: "sig", k, ra }); }
 function emitReal(r: Rc, out: Emit[], viol: string[], v: number) {
   if (r.em.includes(v)) viol.push("I13");
   r.em = [...r.em.slice(-5), v]; out.push({ t: "value", v });
@@ -375,7 +399,7 @@ function emitValue(r: Rc, out: Emit[], viol: string[], b: BV) { // a socket valu
 }
 function startRepair(r: Rc, out: Emit[], viol: string[], withPending: boolean) {
   if (r.last !== r.exp) viol.push("I4");
-  if (withPending) emitSig(r, out, C.pendingAnnounced ? "pending" : "proof");
+  if (withPending) emitSig(r, out, C.pendingAnnounced ? "pending" : "proof", r.last ?? undefined);
   r.ph = "CatchingUp"; r.cursor = r.last; r.buf = []; r.seen = []; r.tail = []; r.ec = 0; r.settled = false; r.ps = 0; r.pw = "req"; r.nv = 0;
 }
 function abandon(r: Rc, out: Emit[], viol: string[]) {
@@ -390,7 +414,8 @@ function register(r: Rc, out: Emit[], viol: string[], k: "live" | "lost", implic
   r.sig = implicit ? C.signalledSetByImplicit : true; r.ls = r.now; r.gls = r.now;
   if (RCFG.catchUp && r.last !== null) startRepair(r, out, viol, true);
   else {
-    if (k === "live" && r.last === null && !r.any) emitSig(r, out, "fresh"); else emitSig(r, out, k);
+    const rp = (r.reg ?? r.head + 1) - 1; // the registration point: everything up to it is covered
+    if (k === "live" && r.last === null && (RCFG.fromDeclared || !C.freshNeedsDeclared)) emitSig(r, out, "fresh", rp); else emitSig(r, out, k, rp);
     r.ph = "Live";
   }
   if (!implicit) setSock(r, r.head + 1);
@@ -437,7 +462,7 @@ export function rMoves(r: Rc): RMove[] {
     if (r.last !== null && !RCFG.nopos) mk("inner proof(b)", "proof", (r, out) => {
       if (r.ph === "CatchingUp") return; // evidence
       setSock(r, r.last! + 1);
-      if (r.ph === "Connecting") { emitSig(r, out, "proof"); r.sig = true; r.ls = r.now; r.gls = r.now; r.ph = "Live"; } else emitSig(r, out, "proof"); // a second start with its own answer
+      if (r.ph === "Connecting") { emitSig(r, out, "proof", r.last!); r.sig = true; r.ls = r.now; r.gls = r.now; r.ph = "Live"; } else emitSig(r, out, "proof", r.last!); // a second start with its own answer
     });
     for (const p of ["live", "lost"] as const) mk(`inner ${p === "live" ? "live()" : "lost(r)"}`, "live", (r, out, viol) => {
       setSock(r, r.head + 1);
@@ -493,6 +518,7 @@ export function rMoves(r: Rc): RMove[] {
         if (kind === "more") { if (c < r.head) { vals = [c + 1]; nextSome = c + 1 < r.head; } }
         else if (kind === "emptyMore") nextSome = true;
         else for (let p = c + 1; p <= r.head; p++) vals.push(p);
+        if (!C.pagesOldestFirst) vals.reverse(); // mutant: a newest-first source paged as it comes (P0 broken)
         for (const p of vals) {
           const b: BV = { v: p, p: posOf(p) };
           if (C.meetAtFirstCommon && b.p !== null && r.buf.some((x) => x.p === b.p)) { complete(r, out, viol, "meet"); return; } // pageValue(): the meet

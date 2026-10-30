@@ -87,7 +87,7 @@ function sysS(kind: Kind, withL: boolean): Sys<SS> {
       } else {
         if (!t.wait) { const r = s.st === "Releasing" || s.st === "Released" ? { s, viol: [] as string[], ev: [] as string[] } : sIn(s, { k: "release" }); mv.push({ label: "restart (reload or key re-entered)", next: { ...t, s: r.s, wait: true }, viol: r.viol, ev: r.ev }); }
         if (t.wait && (s.st === "Released" || (!CONFIG.successorAfterClosed && s.st === "Releasing"))) {
-          const n = initSess(kind, s.lastV, s.heard, false, 0); n.now = s.now; n.lastAt = s.lastAt; n.lastRest = false;
+          const n = initSess(kind, s.lastV, s.heard, false, 0); n.now = s.now; n.lastAt = s.lastAt; n.lastRest = false; n.registered = CONFIG.registeredPerSlice ? s.registered : false; n.gReg = s.gReg;
           mv.push({ label: "successor starts", next: { s: n, old: s.st === "Released" ? null : s, wait: false, L: null }, viol: [], ev: [] });
         }
         if (t.old && t.old.st === "Releasing") mv.push({ label: "old scope closed", next: { ...t, old: null }, viol: [], ev: [] });
@@ -169,12 +169,12 @@ function sysCB(kind: Kind): Sys<SC> {
 }
 
 // ---- Feed.reconnect feeding a session -------------------------------------------------------------------------------
-interface SR2 { rc: Rc; out: Emit[]; s: Sess; resume: number | null }
+interface SR2 { rc: Rc; out: Emit[]; s: Sess; resume: number | null; restarted: boolean }
 function sysR(kind: Kind, name: string, bare = false): Sys<SR2> {
   const toIn = (e: Emit): SIn => e.t === "value" ? { k: "value", v: e.v } : e.k === "down" ? { k: "down", v: 1 } : { k: e.k, ra: e.ra };
   return {
     name, norm: (t) => { if (bare) t.rc.opens = Math.min(t.rc.opens, 4); return t; },
-    init: (() => { const r = rInit(); return [{ rc: r.r, out: r.out, s: initSess(kind, null, null, kind === "facts"), resume: null }]; })(),
+    init: (() => { const r = rInit(); return [{ rc: r.r, out: r.out, s: initSess(kind, null, null, kind === "facts"), resume: null, restarted: false }]; })(),
     inv: (t) => {
       const v = [...rInv(t.rc), ...(bare ? [] : sessInv(t.s))];
       if (!bare) for (const it of [t.s.inFlight && !t.s.adm ? t.s.inFlight : null, ...t.s.Q]) if (it && it.t === "value" && t.resume !== null && t.resume >= it.v!) v.push("I5");
@@ -214,6 +214,14 @@ function sysR(kind: Kind, name: string, bare = false): Sys<SR2> {
         mv.push({ label: "release", next: { ...t, rc: x ? x.r : t.rc, out: [], s: r.s }, viol: r.viol, ev: [...r.ev, ...(x ? x.ev : [])] });
       }
       if (t.s.st === "Releasing") for (const k of ["closed", "bound"]) { const r = sIn(t.s, { k }); mv.push({ label: k, next: { ...t, s: r.s }, viol: r.viol, ev: r.ev }); }
+      // A second session for the same placement (reload, re-entry, thaw): the old one is released, its undelivered items are discarded, and the
+      // machine's memory (the last admitted position) fills `from` if the options declare it (S4, S8). The server and the facts admitted so far persist.
+      if (!t.restarted && t.s.st !== "Releasing" && t.s.st !== "Released") {
+        const from = RCFG.fromDeclared ? t.resume ?? RCFG.from : null;
+        const rr = rInit(from, { head: t.rc.head, ret: t.rc.ret });
+        const n = initSess(kind, null, null, kind === "facts"); n.gpos = t.resume; n.mem = t.resume !== null; n.registered = CONFIG.registeredPerSlice ? t.s.registered : false; n.gReg = t.s.gReg; n.cov = t.resume ?? t.s.cov;
+        mv.push({ label: "restart: new session", next: settle({ rc: rr.r, out: rr.out, s: n, resume: t.resume, restarted: true }, [], []), viol: rr.viol, ev: [] });
+      }
       return mv;
     },
   };
@@ -246,6 +254,53 @@ function liveness(keys: string[], cannotOnly = false): string | null {
   for (const key of keys) { const t: SR2 = JSON.parse(key); if (t.rc.ph !== "CatchingUp") continue; if (cannotOnly && (t.rc.cursor ?? 0) + 1 >= t.rc.ret) continue; const rk = JSON.stringify(t.rc); if (seenR.has(rk)) continue; seenR.add(rk); if (!go(t.rc)) return bad; }
   return null;
 }
+// ---- placements: session identity includes the placement path; freeze, thaw and resetOn ---------------------------------------------
+type Path = "A" | "B" | "A2";
+const PATHS: Path[] = ["A", "B", "A2"];
+interface PL { ss: Record<Path, Sess[]>; req: Record<Path, boolean>; frozen: boolean; thawed: boolean; reset: boolean; bad: boolean }
+function sysPL(kind: Kind): Sys<PL> {
+  const live = (t: PL, p: Path) => t.ss[p].some((x) => x.st !== "Released");
+  const releasing = (t: PL) => PATHS.some((q) => t.ss[q].some((x) => x.st === "Releasing"));
+  const startOk = (t: PL, p: Path) => (CONFIG.identityHasPath ? !live(t, p) : PATHS.every((q) => !live(t, q))) && (!CONFIG.waitAnyPath || !releasing(t));
+  const settleReq = (t: PL) => { for (const p of PATHS) if (t.req[p] && startOk(t, p)) { if (releasing(t)) t.bad = true; t.ss[p].push(initSess(kind, null, null)); t.req[p] = false; } return t; };
+  const place = (t0: PL, p: Path) => { const t = clone(t0); t.req[p] = true; return settleReq(t); };
+  const last = (t: PL, p: Path) => t.ss[p][t.ss[p].length - 1]!;
+  return {
+    name: "PL", init: [{ ss: { A: [], B: [], A2: [] }, req: { A: false, B: false, A2: false }, frozen: false, thawed: false, reset: false, bad: false }],
+    inv: (t) => {
+      const v: string[] = []; if (t.bad) v.push("I10"); // a session opened while a session of the same (actor, operation, key) was releasing
+      for (const p of PATHS) {
+        if (t.ss[p].filter((x) => x.st !== "Released").length > 1) v.push("I10");
+        for (const x of t.ss[p]) v.push(...sessInv(x));
+        if (t.req[p] && !live(t, p) && !releasing(t)) v.push("I10s"); // a placement at a free path waits: it was stalled by another path's session
+      }
+      return v;
+    },
+    moves(t) {
+      const mv: Mv<PL>[] = [];
+      for (const p of ["A", "B"] as Path[]) if (!t.ss[p].length && !t.req[p]) mv.push({ label: `place ${p}`, next: place(t, p), viol: [], ev: [] });
+      for (const p of PATHS) for (let i = 0; i < t.ss[p].length; i++) {
+        const x = t.ss[p][i]!;
+        for (const k of x.st === "Releasing" ? ["closed", "bound"] : x.st === "Released" ? [] : ["release"]) {
+          const r = sIn(x, { k }), n = clone(t); n.ss[p][i] = r.s;
+          mv.push({ label: `${k === "release" ? "release" : k === "closed" ? "scope closed" : "release bound"} ${p}`, next: settleReq(n), viol: r.viol, ev: r.ev });
+        }
+      }
+      const a = last(t, "A");
+      if (a && !t.frozen && a.st === "Releasing") { const n = clone(t); n.frozen = true; mv.push({ label: "freeze A (release kept as memory)", next: n, viol: [], ev: [] }); }
+      if (a && t.frozen && !t.thawed && (a.st === "Released" || (!CONFIG.successorAfterClosed && a.st === "Releasing"))) {
+        const n = clone(t); n.thawed = true;
+        const m = initSess(kind, a.lastV, a.heard, false, 0); m.now = a.now; m.lastAt = a.lastAt; m.lastRest = false; m.lastDrop = false; m.registered = CONFIG.registeredPerSlice ? a.registered : false; m.gReg = a.gReg;
+        n.ss.A.push(m); mv.push({ label: "thaw A (placed again from memory)", next: n, viol: [], ev: [] });
+      }
+      if (a && !t.reset && a.st !== "Released" && a.st !== "Releasing") {
+        const n = clone(t); n.reset = true; const r = sIn(a, { k: "release" }); n.ss.A[n.ss.A.length - 1] = r.s;
+        mv.push({ label: "resetOn: release A, place A2 (a new subject path)", next: place(n, "A2"), viol: r.viol, ev: [] });
+      }
+      return mv;
+    },
+  };
+}
 function sysP(): Sys<any> {
   return { name: "P", init: [pgInit()], inv: () => [], moves: (p) => pgMoves(p) };
 }
@@ -253,7 +308,7 @@ function sysP(): Sys<any> {
 // ---- run everything -----------------------------------------------------------------------------------------------
 interface Run { sys: string; kind: Kind | "-"; reading: string; res: Res }
 const runs: Run[] = [];
-const DEPTH = QUICK ? 8 : Number(env("DEPTH") ?? 10);
+const DEPTH = QUICK ? 8 : Number(env("DEPTH") ?? 9);
 const out = (s: string) => console.log(s);
 function runOne<T>(sys: Sys<T>, kind: Kind | "-", reading: string, depth: number, max = 1_500_000) {
   const res = explore(sys, depth, max);
@@ -262,32 +317,53 @@ function runOne<T>(sys: Sys<T>, kind: Kind | "-", reading: string, depth: number
   return res;
 }
 const T0 = performance.now();
-for (const kind of ["facts", "state"] as Kind[]) runOne(sysS(kind, false), kind, "spec", 99);
+runOne(sysS("facts", false), "facts", "spec", 99);
+runOne(sysS("state", false), "state", "spec", 99, 600_000);
 for (const kind of ["facts", "state"] as Kind[]) runOne(sysS(kind, true), kind, "spec", 12, 400_000);
 for (const kind of ["facts", "state"] as Kind[]) runOne(sysCB(kind), kind, "spec", 99);
 runOne(sysP(), "-", "spec", 99);
+for (const kind of ["facts", "state"] as Kind[]) runOne(sysPL(kind), kind, "spec", 99);
 const rcfgs = [
-  { n: "R+S[catchUp,from=0]", catchUp: true, from: 0 as number | null, nopos: false }, { n: "R+S[catchUp,from=none]", catchUp: true, from: null, nopos: false },
-  { n: "R+S[no catchUp,from=0]", catchUp: false, from: 0 as number | null, nopos: false }, { n: "R+S[no catchUp,from=none,no positions]", catchUp: false, from: null, nopos: true },
+  { n: "R+S[catchUp,from=0]", catchUp: true, from: 0 as number | null, nopos: false, decl: true }, { n: "R+S[catchUp,from empty]", catchUp: true, from: null, nopos: false, decl: true },
+  { n: "R+S[no catchUp,from=0]", catchUp: false, from: 0 as number | null, nopos: false, decl: true }, { n: "R+S[no catchUp,from empty,no positions]", catchUp: false, from: null, nopos: true, decl: true },
+  { n: "R+S[no catchUp,no from]", catchUp: false, from: null, nopos: false, decl: false },
 ];
 let liveFail: string | null = null;
 // data path: positions up to 3, no clock. budget path: one position, the clock on (resetAfter is one tick).
 RCFG.tick = false; RCFG.hmax = 3;
 for (const c of rcfgs) {
-  RCFG.catchUp = c.catchUp; RCFG.from = c.from; RCFG.nopos = c.nopos;
+  RCFG.catchUp = c.catchUp; RCFG.from = c.from; RCFG.nopos = c.nopos; RCFG.fromDeclared = c.decl;
   for (const kind of ["facts", "state"] as Kind[]) {
     if (c.nopos && kind === "state") continue;
     const r = runOne(sysR(kind, c.n + "/data"), kind, "spec", DEPTH);
     if (kind === "facts" && c.catchUp && c.from === 0) liveFail = liveness(r.keys) ?? liveness(r.keys, true);
   }
 }
-RCFG.nopos = false; RCFG.tick = true; RCFG.hmax = 1; RCFG.catchUp = false; RCFG.from = 0;
+RCFG.nopos = false; RCFG.fromDeclared = true; RCFG.tick = true; RCFG.hmax = 1; RCFG.catchUp = false; RCFG.from = 0;
 runOne(sysR("facts", "R/budget[no catchUp]", true), "facts", "spec", 60);
 RCFG.hmax = 0; RCFG.catchUp = true;
 runOne(sysR("facts", "R/budget[catchUp,head=0]", true), "facts", "spec", 11, 400_000);
 
+// ---- review 4 cases, replayed by label --------------------------------------------------------------------------------------------
+function replay<T>(sys: Sys<T>, labels: string[]): T {
+  let t = sys.init[0] as T;
+  for (const l of labels) { const m = sys.moves(JSON.parse(JSON.stringify(t))).find((x) => x.label.startsWith(l)); if (!m) throw new Error("no move " + l); t = m.next; }
+  return t;
+}
+{
+  RCFG.catchUp = false; RCFG.from = null; RCFG.nopos = false; RCFG.fromDeclared = true; RCFG.tick = false; RCFG.hmax = 3;
+  const h1 = replay(sysR("facts", "case H1"), ["inner live()", "inner down(r)", "server append", "inner live()"]);
+  out(`CASE H1 quiet first connection, drop, reconnect: first start fresh, second start answered "${h1.s.answer}" (must be unproven, so that missed is delivered); missed items queued/admitted: ${h1.s.mfDiff === 0 ? "drained" : h1.s.mfDiff}`);
+  const walk = (decl: boolean, nopos: boolean) => { RCFG.fromDeclared = decl; RCFG.nopos = nopos; RCFG.from = null; return replay(sysR("facts", "case walk"), ["inner live()", "server append", "restart: new session", "inner live()"]); };
+  const w1 = walk(true, false), w2 = walk(false, true);
+  out(`CASE two-session walk, quiet positioned feed (declared empty from): second session's first start answered "${w1.s.answer}", registered ${w1.s.registered} (must be unproven: the memory was registered)`);
+  out(`CASE two-session walk, quiet Socket.IO room (no from, no positions): second session's first start answered "${w2.s.answer}", registered ${w2.s.registered} (must be unproven)`);
+  const pl = replay(sysPL("facts"), ["place A", "resetOn"]);
+  out(`CASE M1 successor at another path while the predecessor is releasing: A2 has ${pl.ss.A2.length} session(s) and is ${pl.req.A2 ? "waiting" : "started"} (must wait); after scope closed: ${replay(sysPL("facts"), ["place A", "resetOn", "scope closed A"]).ss.A2.length} session(s)`);
+}
+
 // ---- report -----------------------------------------------------------------------------------------------------------
-const IDS = ["I1", "I2", "I3", "I4", "I5", "I6", "I7", "I8", "I9", "I10", "I11", "I12", "I13", "I14", "I15", "I16", "I17", "I18", "I19", "I20", "I21", "I22a", "I22b", "I23", "I24", "I25", "I26",
+const IDS = ["I1", "I2", "I3", "I4", "I5", "I6", "I7", "I8", "I9", "I10", "I10s", "I11", "I12", "I13", "I14", "I15", "I16", "I17", "I18", "I19", "I20", "I21", "I22a", "I22b", "I23", "I24", "I25", "I26", "I27",
   "C6-overflow", "CB-order", "CB-down-lost", "CB-upgrade", "CB-waiter"];
 const norm = (id: string) => (id.startsWith("I7") ? "I7" : id.startsWith("I2-") ? "I2" : id);
 function summary(reading: string) {
