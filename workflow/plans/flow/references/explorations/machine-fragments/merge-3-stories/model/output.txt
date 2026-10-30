@@ -1,0 +1,39 @@
+RUN W[reject] states=56947 depth=4 (bounded by depth/state cap) transitions=121975 4900 ms
+RUN W[serialize,autoRetry] states=54379 depth=7 (bounded by depth/state cap) transitions=146484 5600 ms
+RUN Wreload[reject] states=22477 depth=9 (bounded by depth/state cap) transitions=106931 997 ms
+RUN S[reconnect] states=23654 depth=4 (bounded by depth/state cap) transitions=161244 1403 ms
+RUN S[plain] states=16129 depth=4 (bounded by depth/state cap) transitions=134028 1097 ms
+RUN S[callback] states=21427 depth=4 (bounded by depth/state cap) transitions=158220 1325 ms
+RUN Eq[auto] states=5671 depth=7 (bounded by depth/state cap) transitions=26376 233 ms
+RUN WS[reject,reconnect] states=80018 depth=3 (bounded by depth/state cap) transitions=272454 6857 ms
+INFO StoryTurnLimit in S[reconnect]: send a Sub ; world chat.hist:more ; world chat.burst
+INFO StoryTurnLimit in WS[reject,reconnect]: send a Sub ; world chat.hist:more ; world chat.burst
+RUN Host[resumable,plain] states=26,14
+RESULT 1-determinism PASS 1 determinism (same step, same state, unordered collections scanned both ways)
+RESULT 2-settling PASS 2 settling (nothing runnable after any step)
+RESULT 3-injected PASS 3 no injected endings (T2)
+RESULT 4-cannot-cell-fired PASS 4a a 'cannot occur' cell fires
+RESULT 5-deadlock PASS 5 no deadlocks (every state reaches a quiet state)
+RESULT 6-conformance:R:restore-revives-ended-attempt#1 FAIL
+   counterexample in W[serialize,autoRetry] (6 steps): world sto.hold:ack ; send a Pay ; send a Cancel ; world sto.release ; life closeTab a ; life openTab a   [R:restore-revives-ended-attempt#1]
+RESULT 6-conformance:R:restore-revives-ended-attempt#2 FAIL
+   counterexample in W[serialize,autoRetry] (7 steps): send a Pay ; world sto.hold:ack ; send a Pay ; send a Cancel ; world sto.release ; life closeTab a ; life openTab a   [R:restore-revives-ended-attempt#2]
+RESULT 6-conformance:R:restore-revives-ended-attempt#3 FAIL
+   counterexample in Wreload[reject] (8 steps): send a Pay ; send a Pay ; world sto.hold:ack ; send a Pay ; send a Cancel ; world sto.release ; life closeTab a ; life openTab a   [R:restore-revives-ended-attempt#3]
+RESULT 4-reachability MISSING write lane (2.7.13 holding table): 30/33 cells reached; unreachable: W|runtimeDisposal|Idle, W|runtimeDisposal|InFlight, W|runtimeDisposal|Held
+RESULT 4-reachability MISSING 3.2 request on the wire: 16/18 cells reached; unreachable: Wire|interrupt|Transit, Wire|interrupt|Answered
+RESULT 4-reachability PASS 3.3 connection: 18/18 cells reached
+RESULT 4-reachability PASS 3.4 stand-in host: 23/23 cells reached
+RESULT 4-reachability PASS write progress (M6 3.5): 6/6 cells reached
+RESULT 4-reachability PASS Feed.callback queue (M6 3.3): 18/18 cells reached
+RESULT 4-reachability PASS Feed.reconnect (M6 3.4): 32/32 cells reached
+RESULT 4-reachability PASS stream session (M6 3.1): 55/55 cells reached
+INFO cells outside the target lists: none
+INFO errors reached: ActorAbsent, AlreadyEntered, AlreadyEntered(host), InvalidDuration, NoDeadline, NotEntered, NotEntered(host), NothingHeld, StoryTurnLimit, TabClosed, TabOpen
+INFO errors not reached by the alphabet: none
+INFO total search time 22.4 s, 280702 states
+FAILPAIR 6-conformance:R:restore-revives-ended-attempt#1 | W[serialize,autoRetry] | world sto.hold:ack ; send a Pay ; send a Cancel ; world sto.release ; life closeTab a ; life openTab a   [R:restore-revives-ended-attempt#1]
+FAILPAIR 6-conformance:R:restore-revives-ended-attempt#2 | W[serialize,autoRetry] | send a Pay ; world sto.hold:ack ; send a Pay ; send a Cancel ; world sto.release ; life closeTab a ; life openTab a   [R:restore-revives-ended-attempt#2]
+FAILPAIR 6-conformance:R:restore-revives-ended-attempt#3 | Wreload[reject] | send a Pay ; send a Pay ; world sto.hold:ack ; send a Pay ; send a Cancel ; world sto.release ; life closeTab a ; life openTab a   [R:restore-revives-ended-attempt#3]
+FAILPAIR 4-reachability | write lane (2.7.13 holding table) | W|runtimeDisposal|Idle, W|runtimeDisposal|InFlight, W|runtimeDisposal|Held
+FAILPAIR 4-reachability | 3.2 request on the wire | Wire|interrupt|Transit, Wire|interrupt|Answered
