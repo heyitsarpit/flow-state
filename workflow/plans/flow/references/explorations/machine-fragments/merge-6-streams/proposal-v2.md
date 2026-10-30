@@ -1,4 +1,4 @@
-# Streams, designed from the brief (merge 6, proposal v2, revision 4)
+# Streams, designed from the brief (merge 6, proposal v2, revision 4.1)
 
 Status: **revision 4, written 2026-10-31.** The owner chose this design (S1) and decided S1–S7
 ([decisions-v2.md](decisions-v2.md)): in-band signals (S2), repair in the adapter (S3), the resume position in machine
@@ -548,7 +548,7 @@ rebased from its age, `confirmed = false`.
   defined and `value` is mapped: if `¬Equal(cur, heard)`, set the 3.2 slot to `cur` at `conn`; else clear the slot.
   (One reconciliation point for every path that makes a value current: a value, a proof, a re-confirm; RV1 H2, MDL F2,
   F3.)
-- `end(f)`: if `st` was `Live` and `last` is defined, `last.at = now`; `st = Ended { f }`, `endAt = now`; `deliver(failure
+- `end(f)`: if `st` was `Live` and `confirmed` (state), `last.at = now` (a restored, unconfirmed `last` keeps its age; rev 4.1); `st = Ended { f }`, `endAt = now`; `deliver(failure
   f)`; a `pending` answer becomes `abandoned`.
 
 | Input ↓ / State → | `Opening` | `Dropped` | `Live` | `Ended` | `Releasing` | `Released` |
@@ -562,7 +562,7 @@ rebased from its age, `confirmed = false`.
 | **`settle(proven)`** (internal) | —³ | —³ | if `answer = pending`: `answer = proven`; else evidence | —¹ | discard, evidence | —² |
 | **`settle(lost r)`** (internal) | —³ | —³ | if `answer = pending`: `answer = lost`; facts: `deliver(missed Lost)`; else evidence | —¹ | discard, evidence | —² |
 | **value v** | the plain-Stream case: `start(unproven)`, then the `Live` cell | **not current**: state: `last = { v, dropAt, conn, own: false }`, nothing delivered (FC54, RV1 M6); facts: unless `owed`, `deliver(missed Unproven)`, `owed = true`; then `deliver(value v)`, `last = v`; evidence `UnprovenValues` | facts: `deliver(value v)`, `last = v`; state: `last = { v, now, conn, own: true }`, `confirmed = true`, `reconcile` | —¹ | discard, evidence | —² |
-| **`down(r)`** | `st = Dropped`, `drop = r`, `dropAt = now` | `drop = r`, `owed = false` (a second drop is a second interruption) | `st = Dropped`, `drop = r`, `dropAt = now`, `owed = false`; `pending` → `abandoned`; state: `confirmed = false`, `last.at = now` | —¹ | discard, evidence | —² |
+| **`down(r)`** | `st = Dropped`, `drop = r`, `dropAt = now` | `drop = r`, `owed = false` (a second drop is a second interruption) | `st = Dropped`, `drop = r`, `dropAt = now`, `owed = false`; `pending` → `abandoned`; state: if `confirmed`, `last.at = now` (a restored, unconfirmed `last` keeps its age; rev 4.1); `confirmed = false` | —¹ | discard, evidence | —² |
 | **stream fails e** | `end(e)` | `end(e)` | `end(e)` | —¹ | discard, evidence | —² |
 | **stream completes** | `end(Closed)` | `end(Closed)` | `end(Closed)` | —¹ | discard, evidence | —² |
 | **defect / outside interrupt** | `end(Defect \| Interrupted)`; a defect is an issue | same | same | —¹ | discard, evidence | —² |
@@ -666,7 +666,7 @@ non-empty, socket values that match it are dropped); in `CatchingUp`: `cursor`, 
 | **inner `live()` or `lost(r)`** | `register(it)` | `register(it)` (an unseen re-registration) | `abandon()`; `startRepair()` again from `last`, without a second `pending` (the start stays pending) | —⁶ | —⁷ |
 | **inner `reset(r, at)`** | `last = at`; emit it; `signalled = true`, `liveSince = now`; `ph = Live` | `last = at`; `tail = []`; emit it (a second start, principle 1) | `abandon()`; `last = at`; emit it (Flow delivers `missed Reset`); `ph = Live` (MDL F9) | —⁶ | —⁷ |
 | **inner `down(r)`** | emit it; `signalled = true`; `liveSince = none` | emit it; `ph = Connecting`; `signalled = true`; `liveSince = none` | `abandon()`; emit it; `ph = Connecting`; `liveSince = none` | —⁶ | —⁷ |
-| **inner value v** | if `¬signalled`: `register(implicit unproven)`, then as `CatchingUp` if repairing (`buf = [v]`, RV1 M2), else `emitValue(v)`; if `signalled`: `emitValue(v)` | `emitValue(v)` | append to `buf`; past `bufferSize`: `dropConn(Overflow)` | —⁶ | —⁷ |
+| **inner value v** | if `¬signalled`: `register(implicit unproven)`, then as `CatchingUp` if repairing (`buf = [v]`, RV1 M2), else `emitValue(v)`; if `signalled`: `emitValue(v)` | `emitValue(v)` | if `position(v)` is defined and in `seen`, the pages already delivered it: drop v (evidence; principle 2 for a late socket value, rev 4.1); else append to `buf`; past `bufferSize`: `dropConn(Overflow)` | —⁶ | —⁷ |
 | **page ok `[values, next]`** | —⁸ | —⁸ | `pageValue(v)` for each value in order, stopping at a meet; if no meet: if `values` is empty and `next` defined, `emptyRun += 1`, else `emptyRun = 0` and `pageSched` fresh; if `emptyRun ≥ 2`: as a page failure `while` accepts (MDL N5); else `next = some(c)`: `cursor = c`, request; `next = none`: `complete()` | —⁸ | —⁷ |
 | **page fails `CannotRepair(r, continueAt?)`** | —⁸ | —⁸ | emit `settle(lost r)`; `settled = true`; `continueAt` given: `cursor = continueAt`, request (its pages meet `buf` or precede it, P1); else `complete()` | —⁸ | —⁷ |
 | **page fails e, `while(e)`** | —⁸ | —⁸ | step `pageSched`: a delay → wait for "page delay elapsed"; exhausted → `dropConn(e)` (the socket is closed) | —⁸ | —⁷ |
@@ -1675,6 +1675,10 @@ stated fairness assumption P4 for liveness (I22b) (MDL N5); the `Feed.callback` 
 (MDL N6); I24 now also checks the delivered value (MDL N7); I25 checks the adapter-to-session sequence (MDL N8); I26
 reads the time variables (`at`, `dropAt`, `endAt`, `startAt`, `liveSince`), so C5's mutants can be killed; the
 equivalent "`fresh` on a reconnect" mutant is dropped (MDL N10).
+
+**Revision 4.1** (model run on revision 4): a socket value that arrives during a repair after a page already
+delivered its position is dropped on arrival, not buffered (3.4, inner value in `CatchingUp`; I13, I23); `down` and
+`end` move `last.at` only for a confirmed `last`, so a restored age survives a drop (3.1; I26).
 
 **Big changes:** none. No word, option or code shape changes; the samples of section 4 are unchanged. The one thing
 an author now reads that they did not before is `catchUp`'s contract (P1–P3):
