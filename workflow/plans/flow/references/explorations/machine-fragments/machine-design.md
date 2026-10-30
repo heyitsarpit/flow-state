@@ -12,8 +12,10 @@ Runtime's (2.7.13).
 Operations in fragments ([merged/fragment-operations/proposal.md](merged/fragment-operations/proposal.md), revision 3) was merged on 2026-10-31: a fragment may declare
 and act on its own operations (2.9, rules 48–60); write lanes keep their identity and record the subject path of the
 incarnation that created them.
-Stories (merge 3) is last; parts of 2.8 that
-need Story reads are marked *Story reads: merge 3* (section 7 item 17). The work order is in [the folder README](README.md). It
+Stories (merge 3, [merged/stories/proposal-v2.md](merged/stories/proposal-v2.md), revision 3) was merged on 2026-10-31:
+a Story is a plan of the user's, time's and the world's inputs, run on the production Runtime against fake servers,
+with no ending injected (2.10, rules 61–66). Streams (merge 6) is not merged yet; where Stories reads streams, the text
+is marked *Stream details: merge 6*. The work order is in [the folder README](README.md). It
 **supersedes `proposal-v3.md`** (removed, see [the folder README](README.md)). It is evaluated against
 [principles.md](principles.md). v4 keeps v3's model and adds what the prior-art study found missing (`prior-art/`,
 removed, see [the folder README](README.md)). Where this file and a plan differ, the plan wins. Section 5 lists every
@@ -24,9 +26,9 @@ read, action, event, record and evidence item for how many exist at once, which 
 happens before creation, after deletion and across restores and tabs. Its three general rules are N1–N3 (2.4, after
 rule 25); its changes are marked with this heading's words, and its decisions are D18–D21.
 
-**Six decisions.** Decision 1 can be accepted alone; decision 2 builds on decision 1's turn (2.5); decision 3 is
+**Seven decisions.** Decision 1 can be accepted alone; decision 2 builds on decision 1's turn (2.5); decision 3 is
 independent; decision 4 builds on decision 2; decision 5 builds on decisions 2 and 4; decision 6 builds on decisions 1
-and 5.
+and 5; decision 7 builds on decisions 5 and 6.
 
 | Decision | What it covers | Plans it touches |
 |---|---|---|
@@ -36,6 +38,7 @@ and 5.
 | **4. Entity domains** | section 2.8, rules 26–38, C21–C30, decisions E1–E18 | Operations O1–O3/O5/O6, EntityDomains O1/O2/O5, Persistence O6, Inspection, CommandLine O5 |
 | **5. Operations in the definition** | 2.7 (rewritten), 2.7.13–2.7.16, rules 13–25 and N1–N3 amended, 26–38 amended, rules 39–47, C31–C53, decisions OD1–OD26 | Operations O1–O7, Machines O1/O4–O6/O8, Runtime O3/O6/V4, Persistence O2–O6, ServerRendering O3/O5, LazyFeatures O3, Inspection O1, React O2/O3, Testing O3/O7, CommandLine O5 |
 | **6. Operations in fragments** | 2.9, rules 48–60, rules 1–4, 6, 8–17, 20–24, 26, 27, 37, 40–47, N1 and N3 amended, C54–C68, decisions F1–F10 | Machines O1/O4–O6/O8, Runtime O3/V4, Persistence O2–O5, Testing O1, Inspection O1, CommandLine O5, React O4, EntityDomains O1, Operations O3/O7 |
+| **7. Stories** | 2.10, rules 61–66, rules 11, 17, 21, 47, 58 amended, 2.4, 2.5, 2.7.2, 2.7.3, 2.7.11, 2.7.13, 2.7.16, 2.8, 3.6, sections 5–7, C69–C85, decisions Stories T1–T7 | Testing O1–O4, O6–O9, V1–V9, Inspection O1/O4/O5, CommandLine O2/O5/O6, Package O1, Diagnostics, EntityDomains O2/O4, Persistence O7 |
 
 ## 1. The idea
 
@@ -387,7 +390,7 @@ that node.
 Rules 1–12 are fragments and the turn; rules 13–25 are server calls (2.7) and the memory and schedule reads they
 rely on; N1–N3, after rule 25, say how many of each thing exist and which one a reference names (Revision
 (multiplicity audit, 2026-10-31)); rules 26–38 are entity domains, 39–47 operations in the definition, and 48–60,
-after rule 47, let fragments declare operations (2.9).
+after rule 47, let fragments declare operations (2.9); 61–66, after rule 60, are Stories (2.10).
 
 1. **Lifetime comes from placement.**
    - An **incarnation** is one life of a fragment instance. A trait gets a new one each time its
@@ -527,10 +530,12 @@ after rule 47, let fragments declare operations (2.9).
     **One exception** (rule 57): a fragment's summary carries its children's write operations (contract, holding,
     releasing) and its contracts' requirements, so `SharedContract` and rule 56 work above a nested writing child;
     changing such a child changes every ancestor's summary.
-11. **Tested alone.** `story.machine(fragment, { id, fixtures })` fills every port with a recording harness
-    and may send host events. `run.calls.<callback>` records notifications, including `whenAbandoned`;
-    `checkpoint.exit` records exits. `.enter(input)` enters a subroutine or starts a trait
-    incarnation, with its `Input` record; `.leave()` abandons or ends it, as a host transition would (rule 58).
+11. **Tested alone** (Stories T3). `Story.make(fragment, { id, fixtures?, world? })` runs the fragment in an invisible
+    **stand-in host** whose placement its declaration alone decides (2.10.12). `enter(input?, { subject? })` starts it,
+    with its `Input` record; `leave()` ends it, or freezes a resumable trait; `leave({ end: true })` ends a frozen one;
+    `reset(subject)` (traits) changes its reset value; `guards(answers)` sets the stand-in's guard answers (default:
+    allow); public `events` and `hostEvents` may be sent. Notifications, `whenAbandoned` included, are `callback`
+    records and exits are `exit` records, the same as in a host (rule 58).
 12. **Construction errors and runtime defects.**
     - **Construction errors** (types or `flow check`):
       - unfilled required ports;
@@ -594,7 +599,9 @@ declarer" (a definition or a fragment), and "binding actor" as "binding incarnat
     guard.
 17. **Every commit ends once, unless its operation declares it replaceable.** Every commit and lookup, and every retry
     that sends, delivers exactly one ending, to a live incarnation of its identity with the lane's subject path, or parked for it
-    (rules 44, 53).
+    (rules 44, 53). This holds within one Runtime; across a crash the restore row decides (2.7.13): an Attempt whose
+    acknowledgement was stored restores as `unknown { Restored }`, even if its `NotSent { Cancelled }` was delivered
+    before its record was cleared (Stories T7; section 7 item 21).
     Evidence, by declaration: a never-sent commit replaced under `latest` (`Superseded`); a lookup a newer lookup or
     `cancel` released (`Superseded`); a declined retry (`InFlight`, `NothingToResend`); a bare write's endings (rule
     40); under `concurrency: "cancel"`, the ending of an Attempt a newer commit interrupted; a fragment's lookup whose
@@ -640,7 +647,7 @@ declarer" (a definition or a fragment), and "binding actor" as "binding incarnat
     re-sends. A failed Attempt is resolved, not kept for `retry`. **Members:** `retry(k?)` and `cancel(k?)` in actions;
     `idle(k?)` (a partial key passes only when every lane it matches is `Idle`, OD23 Q34) and `retryable(k?, { times })`
     in guards. A lane held by an unknown, bound or unbound, is listed by Inspection, so a lane nobody reconciles is
-    visible (*Story reads: merge 3*: the `checkpoint.evidence` shape). A lane created by a fragment's commit records the committing
+    visible in Inspection and in `Story.inspection`'s lane listing, the same listing (2.10.7). A lane created by a fragment's commit records the committing
     incarnation's subject path; a member from another path is declined (rule 51); a lane may be marked releasing (rule
     60). A lane holds no store state: predictions, record
     queues and marks are the store's (rule 26).
@@ -857,9 +864,8 @@ decision (E1–E18). Rules 13–25 and N1–N3 still apply.
     equality only when the placement's last subject part is the contract's single key field, else goes to `orphaned`
     (rule 51; 2.9.4). A local identity's lanes are never persisted; one-off read lanes are not persisted (rule 42).
 47. **Mapped events come only from endings** (OD23 Q33). An event an operation maps is never a schedule's `send`, a
-    `raise` or a view's `send`; operations map only `internalEvents`; `flow check` reads all three. Stories drive
-    endings through the operation, `Story.ending(O.x, …)` (*Story reads: merge 3*); a fragment's, through `Fragment.O.x` (rule 58; *Story
-    reads: merge 3*).
+    `raise` or a view's `send`; operations map only `internalEvents`; `flow check` reads all three. Stories produce
+    endings only through fakes and lifecycle steps; no ending is injected (Testing O3; rule 62; Stories T2).
 
 **Operations in fragments** (2.9). Rules 48–60 are operations-in-fragments' ([merged/fragment-operations/proposal.md](merged/fragment-operations/proposal.md)); each names its
 decisions (F1–F10).
@@ -990,8 +996,10 @@ decisions (F1–F10).
     type carries the union of its contracts' Effect requirements (`R`), so a host or Story missing `DocsApi` is a type
     error. Hosts are checked against summaries only.
 
-58. **Stories** (decided, F7). `story.machine(fragment, { id, fixtures })`; `.leave()` and `.enter(input)` on traits;
-    `Story.ending(Autosave.O.save, …)` (*Story reads: merge 3*). Walks kept as Stories: two copies on one lane, the second
+58. **Stories** (decided, F7; amended by Stories T2, T3). `Story.make(fragment, { id, fixtures })` (rule 11); `enter`,
+    `leave` and `reset` on traits; a fragment's endings come from its fake's answers, its request named by address
+    (`match: { operation: Autosave.O.save, actor, copy }`, rule 65). Walks kept as Stories, each written as steps
+    (2.10.15): two copies on one lane, the second
     declined (FP RV1 H1); a freeze during a catch-up, thaw, `Interrupted` is delivered and `resync` looks up again (FP RV2 H2); a creating raise meeting
     an adopted hold (FP RV1 M3); a copy removed during a save that gets a 412, re-added, the adopted `Conflict` keeps the
     user's text (FP RV1 M9); an upgrade from a host-only lane (FP RV1 M4); a removed uploading copy, reload, nothing parked, no
@@ -1030,6 +1038,40 @@ decisions (F1–F10).
       follow keeps the hold and the host's keep-busy line (decided, F6, F9). The released write may also still land
       unseen (OD20's stated limit).
     - `UnresolvedHold` inside the fragment is unchanged; at the host, rule 56 does not apply to an operation that releases.
+
+**Stories** (2.10). Rules 61–66 are Stories' ([merged/stories/proposal-v2.md](merged/stories/proposal-v2.md)); each
+names its decisions (Stories T1–T7). Streams (merge 6) renumbers from rule 67 when it merges.
+
+61. **Every step settles** (decided, Stories T5 B1, T7). Every step applies its input, then **settles** on a
+    **microtask-only run scheduler** (Effect 4.0.5's `MixedScheduler` with `executionMode: "sync"`): no host task runs
+    during a settle, and the settle ends once Flow's queue and the microtask queue are both empty, with every fiber
+    finished or suspended on the Clock, a Story gate or input that is not coming. Host I/O never completes inside it,
+    so a fiber waiting on the host (a real timer, `crypto.subtle`, a network promise) is always `HostTimeWait`: host
+    I/O never decides a result. `advance(d)` settles at every deadline it passes, in a documented total order
+    (2.10.17.5). There is no `process()`.
+62. **The world is fakes** (decided, Stories T2, T5 B2). Everything outside the client is a **fake server**: one per
+    run, holding typed truth and a log of what it received, shared by every tab and reload, and set up before the
+    subject starts (the `world` option). It is reached through declared **endpoints** whose wire the Story controls with
+    four words (`hold`, `release`, `drop`, `duplicate`). The network can keep a request after its client is gone; local
+    storage cannot. A fake never writes client truth and never produces an ending: every ending comes from a fake's
+    answer through the commit's real classification, or from a lifecycle step. No ending is injected (Testing O3).
+63. **Plans are data** (decided, Stories T4). Plans, controls, reads and expectations are data. Code lives only in
+    fakes (they are Layers) and in properties, which are options, never steps; Testing O1's no-callbacks rule holds.
+64. **Every step has its own cut** (decided, Stories T5 B4). Every step ends with a **step cut**: its latest
+    publication frame plus the evidence position, fake truth and wire state at the step's end, so a step that
+    publishes nothing still reads its own effects. Every committed publication is also a frame. Every cumulative fact
+    is one record in one ordered evidence list.
+65. **One address** (decided, Stories T6). One **address** names a thing everywhere: `{ actor?, instance?, copy?,
+    operation?, schedule?, timer?, key?, tab?, life? }`. Wire `match` (an address plus kind fields such as `purpose`),
+    `Story.attempt`, record filters, `advance({ next })` and step targets take it; a request's `via` and every record
+    carry the same fields. No ordinal across actors, hosts or tabs. `operation` takes a visible handle (a definition's
+    `O.x`, or a fragment's write through `Fragment.O.x`, as a name only, so rule 50 holds); a fragment's read or stream
+    is named by `instance` and the operation's name (2.10.6; delegated, at merge). `timer` names `Feed.reconnect`'s own
+    sleeps (*Stream details: merge 6*).
+66. **The owner decides.** Each behaviour is decided by the declaration that owns it: the stand-in host's placement by
+    the fragment's declaration, what a lost request raises by the transport binding, what a server failure looks like
+    on the wire by the binding, and a hydration source's world by the run it hydrates into. Never by later steps or by
+    the fake author's Effect code.
 
 ### 2.5 The turn
 
@@ -1161,7 +1203,7 @@ instead, or keep the old value under its own key.
 **Settlement and Runtime steps publish without a turn.** For a domain write, settlement applies the Attempt's ending to the store and
 releases record queues in one publication (rule 27); every actor's snapshot reflects that store revision, while a bound
 lane changes when the ending's turn is admitted (an unbound or unplaced lane, when the Runtime applies the ending's cell, rules 44, 53). Between the two, a record can read confirmed while the lane row still
-reads `pending` (2.8.1). How a Story reads this frame and asserts the gap is merge 3's (*Story reads: merge 3*). A Runtime step that changes a
+reads `pending` (2.8.1). The settlement is its own publication, hence its own frame; a Story names it with `checkpoint(name, { at: { settled: O.x } })` (2.10.6). A Runtime step that changes a
 bound lane's row (an invocation raising `retryCount`, a storage refusal promoting the next commit) publishes that row on
 its own, as a new snapshot; an old snapshot never sees it (Machines O8).
 
@@ -1352,7 +1394,7 @@ throws ([merged/outcomes.md](merged/outcomes.md) section 6 lists each source, wi
 | Cancel | the machine's `O.pay.cancel(k?)` action | `Fiber.interrupt` on the commit, which aborts the `AbortSignal` it handed the adapter; the browser drops the request **only if the adapter passed it to `fetch`/XHR** |
 | "the request reached the server", "the server finished after a cancel" | nothing: no browser API reports either | so a send interrupted after invocation is `unknown`, and clean-up is keyed by the Attempt (2.7.7) |
 | Time | the Runtime Clock; `TestClock` in Stories | schedules (`now`, firing metadata, a keyed schedule's `key`) |
-| Server truth in Stories | the fixture (a stateful fake server behind the service) | the Story reads the fixture; no ending is injected (Testing O3); `Story.ending` (rule 47) against this is merge 3's (*Story reads: merge 3*) |
+| Server truth in Stories | a fake server, one per run (rule 62) | the fake's truth and request log, read at every step cut (2.10.4); no ending is injected (Testing O3, rule 62) |
 
 #### 2.7.3 Contracts, operations and the commit
 
@@ -1590,8 +1632,8 @@ FieldEdited: { target: "self", actions: [O.save.commit(({ memory, event }) => ({
   `SharedEnding` info is cut (R5 L4): it fired only on the intended use.
 - **Mapped events come only from endings** (proposed, simplified per R5 L3). An event an `outcomes` maps is never a
   schedule's `send`, a `raise` or a view's `send`; `outcomes` map only `internalEvents`. `flow check` reads all three.
-  Stories drive endings through the operation (`Story.ending(O.like, "unknown", { id })`, *Story reads: merge 3*); on a lane with nothing on
-  the wire it is a Story error.
+  Stories produce endings through fakes (rule 62); a lane with nothing on the wire has nothing to `release`
+  (`NothingHeld`, 2.10.2).
 - **`retry`, `cancel`, `idle`, `retryable` on a write do exactly what the write-lane table in 2.7.13 says** (decided,
   OD10), per state; the bullets below are summaries. The addressable Attempt is the one sent Attempt the lane holds
   in `InFlight` or `Held` (the head under `serialize`).
@@ -2017,11 +2059,11 @@ const busyThenPaid = story.machine(Checkout, { id: "Checkout/busy-then-paid", fi
   .checkpoint("paid", ({ truth }) => truth.FakeStripe.charges === 1)   // the fixture's truth, read, not commented
 ```
 
-A fixture may expose its truth; a checkpoint reads it. Every ending can be produced through services: `unknown` by a
-dropped response, `NotSent` by a cancel during the Attempt's storage acknowledgement, by `reject`, or by a refused
-acknowledgement (`StorageRefused`). `NotSent { why: "Overloaded" }` and record-queue order are reached with a
-fixture that holds the head's answer plus enough sends (*Story reads: merge 3*). (Merge 3 designs the Story API for all
-of this, `Story.ending` included, rule 47.)
+A fake server holds the truth, and a Story reads it with `expect(fake, partial)` (2.10.4, 2.10.6). Every ending is
+produced through fakes and lifecycle steps (2.10.5): `unknown` by a dropped answer, `NotSent` by a cancel while the
+Attempt's acknowledgement is held, by `reject`, or by a refused acknowledgement (`StorageRefused`).
+`NotSent { why: "Overloaded" }` and record-queue order are reached by holding the head's request and sending enough
+commits (2.10.8).
 
 #### 2.7.12 Timing in the turn
 
@@ -2338,12 +2380,13 @@ Consequence worth stating: a user's "Retry" in `Idle` gives no ending, so a UI m
 `RetrySave`).
 
 **Stories and tests.** A Story reaches the cells its machine's transitions allow: `commit`, `retry`, `cancel` by
-sending the user events that hold them; endings with `Story.ending(O.x, ...)` (*Story reads: merge 3*); dispose and rebind by disposing the
-Story's actor and starting another incarnation of the same identity in the same Runtime; restore with the Story's
-reload. `Story.ending` on an unbound lane addresses the lane by identity in the Story's Runtime (R8 L6): a shared actor
-by its ref, a local one by its machine and input (R9 L6). All 33 reachable
-cells per holding policy, the storage refusal, Runtime disposal and the unacknowledged-restore cell belong to **a
-policy suite in Flow's own tests**, which drives the real Runtime under the TestClock, not to an app's Stories (R6 L2). The executable lane model (in
+sending the user events that hold them; endings by the fakes' answers (an unbound lane's ending is its held request's
+answer: the wire does not care who is bound, 2.10.5); dispose and rebind by `dispose` and another `ensure` of the same
+identity in the same Runtime; restore with `reload` (2.10.10). **A policy suite in Flow's own tests** covers all 33
+reachable cells per holding policy, the storage refusal, Runtime disposal and the unacknowledged-restore cell, driving
+the real Runtime under the TestClock (R6 L2); an app Story may reach any cell its machine allows, the storage and
+restore cells through `Fake.storage` and `reload`, and only Runtime disposal is the suite's alone (`disposeRuntime`,
+Stories T2; 2.10.15). The executable lane model (in
 the operations record) is a design check, not that suite: running the suite on it would be the second execution path
 T1 removed. Walks kept as Stories: 8.2's force save, 5.3's three
 re-sends offline, 8.2's `CloseAnyway` then unmount (R7 H1), 9.3's `Saved` denied (R7 H3), and sketch 10's walk E
@@ -2515,7 +2558,8 @@ Rule 46 is normative. Per kind (OD3):
 
 - Stories: `ending` evidence names `operation`, `contract`, the verb (`commit`, `lookup`, `subscribe`) and `key`;
   `Superseded` is an evidence kind, for a never-sent `latest` commit or a released lookup; `Released` (proposed) for
-  an unknown `cancel` released. Stories drive endings with `Story.ending` (*Story reads: merge 3*); a Story reaches the cells its
+  an unknown `cancel` released. Endings come from fakes (rule 62), and `lane` records name their cell, so `flow stories
+  --coverage` counts cells (2.10.14); a Story reaches the cells its
   machine's transitions allow, and all reachable cells belong to a policy suite in Flow's own tests (2.7.13). The
   walks listed in 2.7.13 are Stories by steps.
 - `flow check`: errors `SharedContract` (per actor tree, F2; a warning for `key: []` on a placement whose path is not
@@ -2577,7 +2621,7 @@ whose record also holds the review findings it answers (A-H1 to F-L2, from
 LIST is [merged/server-calls/rewrites/list.ts](merged/server-calls/rewrites/list.ts); EDP `EntityDomains.plan`, OPS
 `Operations.plan`, PER `Persistence.plan`, ED `references/design/entity-domain.md`, EDX
 `references/design/entity-domain-examples.md`, REV the entities review. "The store" is the Runtime's record store
-(EDP:6, EDP:62-64). Parts that need Story reads are marked *Story reads: merge 3* (section 7 item 17).
+(EDP:6, EDP:62-64). Stories read the store with `Story.entity`, and its queues and marks in `Story.inspection` (2.10.8).
 
 #### 2.8.1 Where the data comes from
 
@@ -3646,6 +3690,779 @@ Rule 48 admits it (an `.each` copy, then a root trait of that copy; no subroutin
 The same holds under `resetOn`: an Autosave at the root with `resetOn: docId` has path `["d1"]` while on `d1`, and
 `["d2"]` after a switch; `d1`'s lanes wait for `["d1"]` (2.9.2).
 
+### 2.10 Stories
+
+Stories (merge 3, [merged/stories/proposal-v2.md](merged/stories/proposal-v2.md), revision 3; decisions Stories T1–T7).
+Rules 61–66 (2.4) are normative; this section shows them, and 2.10.17's tables are normative for the executor.
+Citations: STR*n*, STF*n*, SG*n* and "brief C*n*" are the brief's ([merged/stories/brief.md](merged/stories/brief.md));
+SP is the proposal, with its reviews (SP RV, SP RV2), its model (SP MDL), its root causes (SP RC) and its new changes
+(SP N1–N4); "Stories T*n*" are its decisions (a bare T*n* is a tooling row of section 5). The examples are 2.10.18.
+
+**Where the inputs come from.** Production gets input from three places: **the user** (sends and lifecycle), **time**
+(the Clock) and **the world** (servers, the network, storage). A Story is a plan of those inputs, as data. Each input
+is applied to the production Runtime, which is then left to do everything it would do before the next input could
+arrive (rule 61). The world is a set of **fakes** that hold server truth and answer through the real transport boundary;
+Flow never injects an ending, so the commit's own classification always runs (rule 62). What a Story checks is a value
+read from the **cut** a step leaves (rule 64), with one read function, one way to name a thing (an **address**, rule 65)
+and one home per kind of record.
+
+**Concepts per tier** (3.6 has the words with their marks):
+
+| Tier | Count | Words |
+| --- | --- | --- |
+| **Common** (a scripted test of one machine) | **13** | `Story.make` (with `world`), `send`, `advance` (with `{ next }`), `checkpoint`, `expect`, `world`, `run`, `read`; `Fake.server` (with `truth`, `endpoints`); the wire words `hold`, `release`; `Story.attempt` |
+| **Uncommon** (fragments, domains, reloads, tabs, streams, SSR) | **18** new, 8 reused | new: `together`, `drop`, `duplicate`, `controls`, `match`, `Fake.storage`, `Fake.stream`, `Fake.webSocket`, `Fake.fetch`, `dispose`, `reload`, `guards`, `Story.records`, `Story.inspection`, `Story.entity`, `advance(…, { suspended })`, `checkpoint(…, { at })`, `Story.property` (an option); reused: `ensure`, `openTab` (with `from`), `closeTab`, `enter`, `leave`, `setContext`, `dehydrate`, `hydrate` |
+| **Rare** (policy cells, property tests, upgrades) | **5** | `advance({ to })`, `reset` (a fragment alone), `release({ nth })`, `Fake.storage.from(story)`, `propertyTest(story, …)` |
+
+**Removed** from the plans' Story surface: `process()`, `advanceTo`, `advanceToNextTimer`, the `frames` option and
+frame collapse, `run.calls`, `checkpoint.exit`, the checkpoint predicate (C16), `Story.ending` (never adopted),
+`story.app` / `story.machine` (renamed `Story.make`, Stories T3), merge 6's `.do(…)` and `story.suspend` (its 2.11),
+and Testing O4's `pending` for work.
+
+#### 2.10.1 What a Story is
+
+`Story.make(subject, options)` (decided, Stories T3) returns an inert plan (STR2): the subject, its options and an ordered list
+of steps. Constructing, importing and discovering it start nothing. Each chained step returns a new plan; a prefix
+never changes, and nothing in a prefix depends on later steps (rule 66), so branches are plain variables and each
+branch runs in a fresh Runtime.
+
+| Subject | Options (exactly what the subject declares, STR1) | Steps that type-check beyond the common ones |
+| --- | --- | --- |
+| an app setup (`RuntimeSetup`) | `id`, `fixtures?`, `world?`, `storage?`, `seed?`, `properties?` | `ensure(ref)`, `dispose(ref)`, `send(target, …events)`, `openTab`, `closeTab`, `reload`, `dehydrate`, `hydrate` |
+| a machine | `id`, `input` (iff declared), `context` (iff declared), `fixtures?`, `world?`, `seed?`, `properties?` | `send(…events)`, `setContext`, `dispose()`, `ensure()` (another incarnation of the same identity) |
+| a trait or a subroutine alone | `id`, `fixtures?`, `world?`, `seed?`, `properties?` (input is given at `enter`) | `enter(input?, { subject? })`, `leave(options?)`, `guards(answers)`, `reset(subject)` (traits), `send` of `events` and `hostEvents` |
+
+**The start** (SP RC3, SP N1). A run builds the fake servers, applies the `world` option's controls to them in order
+(server controls and standing wire rules; nothing is held yet, since nothing has been sent), and only then bootstraps
+the first tab (an app) or starts the subject's actor (a machine; a fragment is started by `enter`). So "the server
+already holds X when the screen opens" is one option, printed by `describe`, and the actor's first read meets it.
+`world` is the same data `.world(…)` takes; there is no second spelling.
+
+**Targets** (rule 65, SP N2). In an app Story a step names its actor with a ref, or with an address when more must be
+said: `{ actor: Workspace, tab: "b" }`. A send takes a target, then events: `send(target, …events)`; there is no
+trailing options object, so the event list stays unambiguous to the type checker. A machine Story's steps need no
+target. A fragment inside an author-written test host is a machine Story over that host. Every subject's Effect
+requirements (`R`, a fragment's through rule 57) must be met by `fixtures`, so a missing fake is a type error at
+`Story.make` (STR12, STR63).
+
+**Ids and discovery** (STR4, STF61, STF73). An id is non-empty and **unique across the configuration**, so `flow story
+run <id>` needs no scope. `defineConfig({ apps: [{ app, stories }], stories })` lists app Stories under their app and
+Stories with no app at the top level; a trace of the latter has `appId: null`. Discovery rejects duplicate ids before
+acquiring anything (Testing O1).
+
+**Running** (STR3). `story.run({ signal? })` is the one execution boundary. It returns a `StoryRun` (`frames`, `steps`,
+`checkpoints`, `end`, `evidence`, `payloads`, `trace`) or rejects with a `FlowError` that carries the same evidence up
+to the failing boundary (Testing O8). It rejects with `StoryExpectationFailed` when any expectation or property failed,
+after the whole plan ran, carrying the complete run and every failure (decided, Stories T5 B3), so playback can still show
+it. Direct and CLI runs agree.
+
+#### 2.10.2 Steps, and what each one runs (rule 61)
+
+**Settling** (decided, Stories T5 B1; quiescence proposed, SP RC2). After a step applies its input, the executor runs every tab's
+Runtime and every fake on one deterministic, **microtask-only** run scheduler (decided, Stories T7): Effect 4.0.5's
+`MixedScheduler` with `executionMode: "sync"`, whose dispatcher uses `setMicrotask` and never hands a fiber to a
+macrotask, so **no host task runs during a settle**. It stops once Flow's queue and the microtask queue are both empty
+and every fiber is finished or suspended on one of three things: the Clock (a deadline), a Story gate (a held request,
+answer or frame, a held storage write), or input that is not coming (an open stream with nothing sent). Effect 4.0.5's
+`TestClock` counts the tasks it wakes through the scheduler (its wake tracker), which is the signal used. Host I/O
+never completes inside a microtask drain, so a fiber still waiting on anything else (a real `setTimeout`,
+`crypto.subtle`, a network promise) is **always** `HostTimeWait`, naming its owner, even if its promise would resolve a
+moment later: host I/O never decides a result or an order (STR27, STF19, brief C6). Microtask-only promises (an `async`
+client half that awaits no I/O) resolve inside the drain, in a fixed order.
+
+While it runs, turns, pending resets, adoption deliveries, settlements, invocations, acknowledgements, fake handlers and
+adapter pulls happen in production's order (2.5, P21; the FIFO mailbox). **Interleaving is fixed**: tabs take turns
+one at a time in each name's first-open order (a reloaded tab keeps its rank); Attempts invoked in one settle reach their fakes in invocation order (tab order, then
+the turn that promoted them); fakes' handlers run in arrival order. What waits for time or the world stays, and is read
+as work (2.10.6).
+
+| Step | Input applied | Then |
+| --- | --- | --- |
+| `send(target?, …events)` | each event is one step, queued as a view's send would be | settle; the verdict is a record (STR7) |
+| `together(…inputs)` | admission is held in every tab while each listed input arrives, in order: a send is queued; a control runs until its effects reach a mailbox or a gate; `{ advance: d }` moves time, firing each deadline so its event is queued, without turns | admission resumes, then settle (STR16) |
+| `world(…controls)` | each control, in order: a wire word, or a server control (2.10.4) | settle (STR24) |
+| `advance(d)` | time moves to now + d, stopping at every deadline on the way, in the order of 2.10.3, settling at each | settle at now + d |
+| `advance({ next: address })`, `advance({ to })` | to the earliest unfrozen deadline the address matches; to an epoch millisecond at or after now | as `advance` |
+| `advance(d, { suspended })` | a page in the background (2.10.3) | the tab's overdue timers fire, then settle |
+| `ensure`, `dispose`, `openTab`, `closeTab`, `reload`, `enter`, `leave`, `reset`, `setContext` | the lifecycle command, as a host would issue it | settle |
+| `guards(answers)` | the stand-in host's answers from now on (2.10.12) | nothing to settle |
+| `dehydrate`, `hydrate` | Testing O7; dehydrate's time motion follows 2.10.3, deadline by deadline | settle |
+| `checkpoint(name, { at? })`, `expect(target?, partial)` | nothing: they name or check the latest step cut (2.10.6) | nothing |
+
+**`together` is the only concurrency word** (decided, Stories T4). It states a real interleaving: these inputs arrived before
+the actor ran any of them. `together(Stripe.confirm.release(), E.Cancel())` settles the charge and queues its ending,
+then queues `Cancel`; listed the other way round, `Cancel` is admitted while the ending waits, which is 2.7.13's "the
+real ending if it had already settled" cell and the spike's P1 race. `together({ advance: "30 seconds" },
+Stripe.confirm.release())` is the timeout-against-answer race: PAYING's `TookTooLong` and the landing answer are both
+queued before either is admitted (SP N4). Inside `together({ advance })` **every woken fiber** (a fake's latency sleep, an
+adapter's backoff, a setup-scoped heartbeat) runs until it reaches a mailbox, a gate or the Clock; only admission is
+held, so a woken backoff may send a request and a woken handler may answer. A timer chain does not re-arm there,
+because no turn runs. `together(E.Cancel(), { advance: d })` models a busy main thread: production fires a timer while
+a click waits only when the thread is blocked.
+Outside `together` a send never sits behind queued arrivals, because the previous step settled.
+
+**Limits and errors** (STR5, Testing O2, O8). Each step may run 10,000 turns per instant; the 10,001st rejects with
+`StoryTurnLimit` naming the step and the instant (a fake that always answers with another page loops at one instant
+and is stopped here; the author bounds the fake). `InvalidDuration` rejects a negative, non-finite or backwards move.
+`StoryInvalidCommand` names the step and one reason: `ActorAbsent`, `AlreadyEntered`, `NotEntered`, `TabOpen`,
+`TabClosed`, `NothingHeld` (a `release` with nothing held **and** no standing rule to end, or a `release({ nth: k })`
+with fewer than k held items, 2.10.17.2), `NoDeadline` (an
+`advance({ next })` whose address matches nothing). `HostTimeWait` is above. Cancellation and cleanup follow Testing O8.
+
+#### 2.10.3 Time
+
+One controlled clock per run (Effect's `TestClock`). Work takes no virtual time (STR13). `advance(d)` is what
+production does if d passes with nothing else happening: each deadline fires at its instant, the turns it causes run,
+and a timer they re-arm inside the window fires too, so the dispatch desk's `lockedOut` runs its whole chain (STF20).
+
+**A total order at equal instants** (STR14, STF22). Every sleep has an owner, attached by Flow to the fiber that sleeps;
+2.10.17.5 is normative. At one instant the sleeps wake one at a time, settling after each, by rank: the world (fake servers
+in the order a fixture first refers to them, then by name, then `Fake.storage`), adapters (by tab, actor, operation, key), **setup-scoped fibers** (an SDK
+client's heartbeat or backoff forked at layer build, a rate limiter: by layer order), the Runtime's own waits, then
+actor schedules (by tab, actor, instance path in placement order, copy in list order, schedule key in list order).
+Ties within an owner go by arming order. "Outside before inside" is a documented choice; a Story that needs the other
+order uses `together({ advance })`.
+
+**The next deadline** (STR15, STF23, SP RV M3). `advance({ next: address })` moves to the earliest unfrozen deadline whose
+owner the address matches: `{ schedule: "checkTick" }` (schedule names are type-checked against the subject, so a
+typo is a type error, not a `NoDeadline`), `{ operation: O.messages, timer: "backoff" }` (`Feed.reconnect` is Flow's,
+so its sleeps carry `timer`: `backoff`, `page`, `resetAfter`; *Stream details: merge 6*), `{ actor: Checkout1 }`. An author's own adapter sleeps
+(an idle deadline in the adapter's code) are addressed by operation only, the earliest of them. Adding an unrelated timer to the app (a toast, a heartbeat) cannot move the Story. A frozen
+schedule has no sleep (rule 1), so it is never chosen. `advance({ to })` stays for the rare exact instant.
+
+**A suspended page** (STR17, STF78). `advance(d, { suspended: true })` (or `{ suspended: "b" }`) moves time while the
+tab runs nothing: its timers, adapters and Runtime are paused; fake servers keep running and their pushes wait in the
+tab's transport. At now + d the tab's overdue deadlines fire in deadline order, then its waiting transport input is
+delivered, each settling.
+
+**Time is readable** (STR18, STF24). `frame.read(Story.now)`; schedules keep the design's reads (`s.schedules.<path>.dueAt`,
+keyed lists of `{ key, dueAt }`); the work listing names every deadline with its owner, `dueAt` and `frozen` (2.10.6).
+
+#### 2.10.4 The world: fakes
+
+(Decided, Stories T5 B2: the module. Its parts below are proposed.) A fake has two halves with two lifetimes, which is what
+makes one server per run possible without breaking per-tab fixtures (STR22, STF13–STF15):
+
+| Half | What it is | Lifetime | May depend on |
+| --- | --- | --- | --- |
+| **the server** (`Fake.server`) | typed truth, a request log per endpoint, handlers, controls | **one per run**: built first, given the `world` option, shared by every tab and reload, released last | nothing from a tab |
+| **the client half** (a fixture: an ordinary Layer, or a binding `Fake.fetch` / `Fake.webSocket`) | the app's service or a transport, calling the server's endpoints | **one per tab**, as Testing O3's fixtures are | setup services (STF14) |
+
+**Everything a fake remembers is server truth**, and so is every wire rule's remaining count (`times: 2` survives a
+reload): a reload rebuilds only the client half, which holds no state (STF15). The dispatch desk's `DemoServer` is shadowed in
+Stories by a fixture that provides it from the run's server (STF13).
+
+A handler returns `[truth, response]`, or an Effect of it for latency (`Effect.sleep`) or atomic updates through the
+server's truth `Ref` (`Stripe` and `StripeFake` in 2.10.18 show both halves). **A server failure never reaches the client as a defect** (rule 66, SP RV M8): a handler that dies
+is a crashed server, which the wire turns into the binding's failure (`Fake/Lost` for a client half, `500` for
+`Fake.fetch`, close `1011` for `Fake.webSocket`), plus an `issue` naming the fake. Nothing in Flow reads a status, a
+header or an error type: `429` means busy because the fake author wrote it and the commit classifies it.
+
+**What a lost request raises is the binding's** (rule 66, SP RV L3). Every endpoint call fails with `Fake/Lost` when the
+wire loses it; `Fake.fetch` turns that into `fetch`'s `TypeError`, `Fake.webSocket` into a close with `1006`, and an
+app-service client half maps it itself, as `StripeFake` does (2.10.18). Endpoints declare no `lost`.
+
+**The wire.** Every endpoint call goes through a gate Flow owns, between the client half and the handler; 2.10.17.2 and 2.10.17.3
+are normative. Its words are delivery facts true of any transport, never server meanings (brief C16, STF17):
+
+| Word | On a call endpoint | On a stream endpoint (2.10.9) | Options |
+| --- | --- | --- | --- |
+| `hold()` | a standing rule: matching requests wait in transit, unseen by the server | frames stop reaching the client (silence, half-open) | `at: "request"` (default) or `"response"` (handled, the answer waits); stream: `"frames"` (default) or `"open"` |
+| `release()` | held items are delivered in arrival order, and every standing rule on this target ends | held frames flow; held opens complete; standing rules end | `{ drop: true }`: the held items are lost instead; `{ nth }` (rare): deliver the n-th held item first (a reorder) |
+| `drop()` | matching requests are lost before the server; `at: "response"`: handled, the answer is lost | open connections close as the network would; `at: "open"`: matching attempts are refused | `times` (default 1, or `"always"` until `release`) |
+| `duplicate()` | a matching request reaches the server twice; the client gets the first answer, the second is discarded (`phase: "duplicate"`) | the next frame arrives twice | `times` |
+
+`hold` is standing (until `release`) unless `times` is given; `drop` and `duplicate` default to once. Every word takes
+`match: address` (rule 65): `{ actor: BoardP1 }`, `{ operation: LikeButton.O.set, actor: IssuePageC7 }`, `{ tab: "b"
+}`, `{ purpose: "acknowledge" }` (an address plus kind fields). **One rule per request**: each server keeps one rule
+list, ordered by when each rule was set, on the handle or on an endpoint; a request takes the earliest-set rule that
+covers its endpoint and matches it, and only that one; `release` on a target ends only that target's rules (2.10.17.2). Applied to the server handle (`Stripe.drop({ times: "always" })`), a word covers every endpoint: an
+offline device.
+
+**Remote and local.** A request to a remote server that has left the device **stays in transit** after its client is
+gone (a cancel, a closed tab): released, the server handles it and the answer goes nowhere (`phase: "orphan"`). That is
+2.7.2's "the server finished after a cancel", and it makes "charged once across a reload" (STF12) a fact the Story
+sets. **Local storage is not remote** (SP RC6, SP MDL F1): `Fake.storage`'s writes are FIFO per tab, as one writer's writes
+are (Persistence O7), and a closed tab's unfinished writes are **aborted** (`phase: "aborted"`), never applied later, as a
+crashed page's storage transaction is. A held acknowledgement for an Attempt the Story then cancels either lands
+before the capture that removes it, which is queued behind it (a Persistence fact, Persistence O7's one writer), or is
+aborted with the tab. A write that was **stored but whose confirmation was held** (`hold({ at: "response" })`) stays
+stored when the tab closes, as an IndexedDB transaction that committed before the page crashed does; the restore then
+finds an acknowledged Attempt and delivers `unknown { Restored }` even if the Story had cancelled it. That is
+2.7.13's restore row (decided, Stories T7): Stories reach the cell and do not decide it (section 7 item 21).
+
+**Server controls** are the author's typed messages to the server (`Stripe.busy({ times: 1 })`, `Chat.post({ text })`):
+their arguments are Schemas, so they are data, `describe` prints them and a property test generates them (STF16,
+STF52). Pushing, refusing, going silent, resetting a log, keeping the last n and greeting with or without a replay are
+each a control or a wire word (STR23); flapping and flooding are loops at construction, data once built.
+
+**Provenance** (STR21, STR26, STF3, SP RV M9). Each logged request is `{ n, input, phase, via }`. At a call endpoint `phase` is one
+of `held`, `handled`, `answered`, `lost`, `dropped`, `duplicate`, `orphan`; at a stream endpoint an open's is one of
+`opening` (held), `open`, `refused { code }`, `closed { code }`. `via` is the **client side**, recorded by Flow, never
+seen by the server: `{ tab: { name, open }, actor, instance, copy, operation, attempts, purpose }`. `attempts` is a
+list, since a batched request (Effect's `RequestResolver`) carries several. `via.tab` is **always** present (a client
+half is built per tab); a send an SDK's own fiber makes lacks only the Attempt fields (`actor`, `instance`, `copy`,
+`operation`, `attempts`), so `match: { tab: "b" }` still targets one device's SDK traffic, and the Story checks the
+idempotency key the server saw in `input` instead. So "charged once" is
+checked by values: requests whose `via.attempts` hold the same Attempt and one charge whose `key` is that Attempt's id
+is a deduplicated retry; two Attempts and one charge is a different, wrong case.
+
+**Storage** (STR25, STF5, STF6). `Fake.storage` is Flow's own in-memory `KeyValueStore` plus Persistence O7's scope lock, one
+per run, used by every tab (STR42). Its endpoints are `read` and `write`, under `hold`, `release` and `drop` (not `duplicate`, 2.10.17.6), and Flow knows
+each write's purpose: `acknowledge`, `capture`, `flush`. `Fake.storage.write.hold({ match: { purpose: "acknowledge" } })`
+opens the acknowledgement window without delaying bootstrap restore, which reads (STF6); `hold({ at: "response",
+match: { purpose: "acknowledge" } })` stores the acknowledgement but holds its confirmation, which is 2.7.13's
+G1 "acknowledged, never invoked" restore cell once the tab closes; `drop(…)` refuses (`StorageRefused`). Storage starts
+fresh and may be seeded with encoded records, which restore validates (Testing O3): `storage: Fake.storage.seed(records)`,
+or (rare) `Fake.storage.from(story, { at? })`, the storage an earlier Story's run left, which is how records written by
+an earlier definition are made (STR41).
+
+**Transport bindings** (uncommon). Most apps put `fetch` behind their own service (OD11), and a client half replaces
+that service; the commit's classification still runs (STR19). Where the adapter itself calls a transport, Flow ships
+`Fake.fetch(server, route)` (provides `FetchHttpClient.Fetch`) and `Fake.webSocket(server, route)` (provides
+`Socket.WebSocketConstructor`). `route` maps a web `Request` or socket URL to an endpoint and input; Flow parses
+nothing else.
+
+#### 2.10.5 Endings: how every one is produced (decided, Stories T2)
+
+An ending is the commit fiber's `Exit`, classified (2.7.1), or a reason Flow's Runtime adds. A Story produces the
+first by what the fake returns and the second by the lifecycle step that causes it. No step names an ending.
+
+| Ending (2.7.1, rule 20, rule 37) | Produced by |
+| --- | --- |
+| success; each failure tag; each author unknown tag | the handler's response, classified by the commit (`429` → `Busy`, `5xx` → `unknown ServerError`) |
+| author unknown after a lost request or answer | `drop()` or `drop({ at: "response" })`: `Fake/Lost`, mapped by the binding, reaches the commit's `catchTag("NoResponse", Outcome.unknown)` |
+| `unknown { Defect }`; a read's `Defect` | a response the adapter cannot handle (a malformed body it throws on): an adapter bug, which is what `Defect` means. A server crash is not this (2.10.4) |
+| `unknown { Interrupted }`; a read's `Interrupted` | a client half that interrupts its call, as an SDK whose own fiber is interrupted does; it is client code, so the wire stays honest |
+| `StillUnknown { failure }` | a lost answer, then a retry the server refuses definitely |
+| `unknown { Cancelled }` | `hold()`, then the send whose transition cancels |
+| `NotSent { Cancelled }` | `Fake.storage.write.hold({ match: { purpose: "acknowledge" } })`, or a head held in a record queue, then the cancel (STF5) |
+| `unknown { Restored }` | `reload` with the Attempt acknowledged and on the wire; with the acknowledgement stored but its confirmation held (2.7.13's G1: acknowledged, never invoked); the same after the Story cancelled that Attempt (a cancelled Attempt's stored acknowledgement, restored as unknown: the merged design's crash behaviour, Stories T7); a rebind (`dispose`, `ensure`) adopting a held lane |
+| `NotSent { Restored }` | `reload` with the acknowledgement held (not stored: aborted with the tab, 2.10.4); each queued `W` entry of the restored lane |
+| `NotSent { Rejected }` | `hold()`, then a second commit on a `reject` lane; or a commit from another subject path (rule 51) |
+| `NotSent { Overloaded }` | `hold()` on the head, then 64 queued commits and one more (STF11; 2.10.18) |
+| `NotSent { StorageRefused }`, `unknown { StorageRefused }` | `Fake.storage.write.drop({ match: { purpose: "acknowledge" } })`; the same on a persisted re-send's `capture` |
+| evidence `Superseded`, `Released`, `NothingToResend`, `InFlight` | a second `latest` commit while the first waits; `cancel` in `Held`; `retry` in `Idle`; `retry` while held on the wire |
+| `NotSent { Disposed }` | only Runtime disposal, through the policy suite's internal `disposeRuntime` step (decided, Stories T2; OD23 Q41, brief C11) |
+
+**Why no injection** (decided, Stories T2; STF8). `Story.ending(O.x, "unknown")` would skip the commit's classification and the
+adapter's decoding, so a Story could pass along a path the real response never takes (requirements R38). Every reason above is
+reachable without it (requirements R34), and the cases that seemed to need it are covered by rule 62 and rule 65:
+
+- **an unbound lane** (STF9): the fake answers the request it still holds; the wire does not care who is bound;
+- **a fragment's operation** (STF10): `match: { operation: Autosave.O.save, actor, copy }` names its request in a host,
+  and alone;
+- **a lane with nothing on the wire** (STF7): there is nothing to `release`, which is `NothingHeld`;
+- **the wrong path passing** (STF4): the ending record names its channel and reason, so a Story that asserts
+  `{ channel: "failure", reason: { _tag: "Busy" } }` fails if the fake answers 503. A Story that checks only the final
+  state is **reported by coverage**, which shows the `Busy` handler unreached; the documented shape also checks the
+  intermediate state (`S.WAITING`).
+
+Prior art kept: alternatives B (injection at the lane) and C (`Story.ending(O.x, exit)`, a scripted fake without
+truth) were rejected in SP revision 1 for the reasons Stories T2 records.
+
+#### 2.10.6 Step cuts, frames, reads and expectations
+
+**Step cuts** (rule 64, SP RC1, SP RV H1; decided Stories T5 B4 for the frames). Every step ends with its own cut: `{ frame, seq,
+truth, wire }`, where `frame` is the latest publication frame (of each open tab), `seq` the evidence position at the
+step's end, `truth` each fake server's truth then, and `wire` each endpoint's held items and standing rules then. A
+step that publishes nothing (an `Unhandled` send, a `world` control, a `release` after the only tab closed) still has a
+cut that includes its own `verdict`, `request` and `control` records and the server's new truth. `run.steps[i]` is
+`{ command, cut, frames: [from, to], evidence: [from, to] }`. `checkpoint` names a step cut and `expect` checks one;
+neither ever reads a bare publication frame. `end` is reserved, so `checkpoint("end")` is a type error (STF75).
+
+**Frames** (STR45, STR50). A frame is the cut after one committed publication of one tab (a turn, a settlement or a
+Runtime step, 2.5), plus the initial frame: every actor's snapshot and one store revision per open tab, `now`, and
+the truth and `seq` at that publication. Snapshots and truth are immutable and shared (Machines O8, playback.md 4); records are
+referred to by position, never copied (STF66), so memory is linear. A frame has exactly one cause (STF64). Frames
+serve properties, `checkpoint(…, { at })` and playback. `run.frames` keeps at most 10,000 and marks truncation; step
+cuts and checkpoints are **never** truncated, as the trace never drops checkpoints (Inspection O4; SP RV L1), and a property over
+truncated frames fails closed (`FramesTruncated`).
+
+**One read.** `frame.read(target)` and `cut.read(target)` return a typed value; `.expect(target, partial)` checks the
+same read against the latest step cut. Targets are data:
+
+| Target | Reads | Tier |
+| --- | --- | --- |
+| omitted (a machine or fragment Story), an actor `ref`, or an address `{ actor, tab }` | the snapshot, as views read it but with private fields typed (2.2.2), or `undefined` if absent or the tab is closed (SP N3) | common |
+| a fake server (`Stripe`) | its truth | common |
+| an endpoint (`Stripe.confirm`) | its request log, in arrival order, with phases (2.10.4) | common |
+| `Story.now` | the epoch millisecond | common |
+| `Story.records(kind, filter?)` | the run's records of one kind up to this cut; `filter` is an address plus kind fields | uncommon |
+| `Story.inspection`, `Story.inspection({ tab })` | `inspect(runtime)` (Inspection O1) at this cut: lanes by identity, incarnations, work, sessions, domain queues and marks, persistence. Held wire items are not Runtime facts and are read from endpoints (SP RV L2) | uncommon |
+| `Story.entity(Entity, key, { tab? })` | the record as a view reads it, `{ data, predicted, uncertain, unconfirmed }`, or `undefined` (STR31) | uncommon |
+
+In test code the same values are also reachable as the design's reads on a snapshot (`O.like.get(s, k)`, `Issue.get(s, k)`).
+
+**One home per kind of record** (STR48, STF33, STF55). `run.evidence` is one list in run order; each record has the
+run-wide `seq`, the Runtime's own sequence, and `tab: { name, open }`, so a closed tab's records and the reopened tab's
+are told apart (STR42, SP RV M4); filters accept the name alone. `Story.records(kind, { …address, since?: "checkpoint" })`
+selects one kind; `since` takes a checkpoint **name**, since a plan exists before any run (SP RV L5). Records are kept for
+the whole run in process, taken from the Inspection O4 event stream, independent of the trace's 4,096-event window and of
+Inspection's per-session 256-entry ring (STR49, STF76). Every kind is an Inspection O4 event
+kind (STF72; members added in C79):
+
+| Kind | One record per | Fields beyond `seq`, `tab` |
+| --- | --- | --- |
+| `step` | command | the command as data |
+| `verdict` | send, raise, guard check of a lifecycle command | `actor`, `instance`, `copy`, `event`, `result` (`Allowed`, `Denied { reasons }`, `Unhandled`) |
+| `ending` | ending delivered, parked, applied with no incarnation, or turned into evidence | `actor`, `instance`, `copy`, `operation`, `contract`, `verb`, `key`, `attempt`, `channel`, `reason`, `event`, `route` (`{ kind: "current" \| "late", from, owner }`, state paths), `declined` (`LateMayNotLeave`), `subject`, `disposition` |
+| `lane` | write-lane cell applied (rule 21, 2.7.13, 2.9.3) | lane identity, `cell` (row and state), `before`, `after`; evidence words are cells |
+| `life` | fragment incarnation event | `actor`, `instance`, `copy`, `life`, `change` (`created`, `ended`, `frozen`, `thawed`, `reset`), `why` |
+| `callback`, `exit` | callback told; exit taken | `actor`, `instance`, `copy`, `life`, `name`, `payload` |
+| `listRepair`, `drop` | `.each` or keyed-schedule repair; dropped raise or timer delivery (rule 9) | `actor`, `instance`, `copy`, `reason` |
+| `schedule` | armed, fired, discarded, retracted by a freeze | owner (an address), `dueAt` |
+| `queue`, `store` | record-queue join, release, removal (`Superseded`, `Cancelled`, `Released`); predictions, confirmations, `uncertain` set or cleared, repairs, skips, tombstones | `entity`, `key`, `attempt`, `reason` |
+| `session` | stream-session evidence (merge 6's 2.12; *Stream details: merge 6*) | `actor`, `instance`, `copy`, `operation`, `key`, `cell`, each start's `answer` and basis, `missed`, drops, `Overflow`, `Discarded`, reconnect phase |
+| `request`, `control` | a fake's request (each phase change) or control | 2.10.4 |
+| `issue`, `diagnostic`, `persistence`, `hydration`, `entry` | as Inspection O4; merge 6's flags `UnprovenValues`, `RegistrationChurn`, `ReleaseOverdue` are `diagnostic` records | as Inspection O4 |
+
+One shape everywhere: `instance` is a list of placement names (`["likes"]`), `copy` is the `.each` copy's key string,
+`key` is the contract's key record, `subject` is the subject path (STF38). A callback and an exit with the same name
+are two kinds (STF59). An owner is a state path (STF40). An `Overloaded` commit never joined a queue, so it is an
+`ending` record, not a `queue` removal (STR32).
+
+**Work** (STR51, STF31, STF32, STF34). `Story.inspection.work` lists the Runtime's unfinished things with what each
+waits for, and nothing else: a queued mailbox item (`{ actor, item: "event" | "reset" | "adoption", event, from }`); an
+Attempt waiting (`waitsFor: "acknowledgement" | "recordQueue" | "capture" | "server"`, the last with the request's
+`n`); a deadline (owner address, `dueAt`, `frozen`); an open session. A lane's state is never repeated there. `pending`
+keeps the design's one meaning, the lane row's `InFlight`; the record's old `pending` is `predicted` (E16).
+
+**Expectations** (decided, Stories T5 B3; STR47, STF2, SG4, SG6). `expect(target?, partial)` checks the read by five rules:
+objects match the keys listed, and a key listed as `undefined` matches only an absent key (SP RV L6); arrays match element
+by element with equal length; primitives match exactly; a state token matches at or below it; `Story.attempt(op,
+address?)` matches the Attempt of `op` that address names (rule 65): `Story.attempt(O.pay)` is unambiguous when one
+actor commits it once, `Story.attempt(LikeButton.O.set, { actor: BoardP1 })` names the board's, and `{ n }` (from 0)
+picks among one address's Attempts in mint order. An address that matches several Attempts without `n` fails with
+`AmbiguousAttempt`, never by guessing. An address's `operation` takes a handle where one is visible: a definition's
+`O.x`, or a fragment's write through `Fragment.O.x`, used only as a name, so rule 50 holds. A fragment's read or stream
+has no outside handle (rule 50), so it is named by `instance` and the operation's name, type-checked against the
+subject's summary (rule 57), as a schedule is named by its string (2.10.3); alone, its instance is `[]` (delegated, at
+merge). A failure is `{ step, cut, target, path, expected, actual }`, printed the same
+way by a test runner and by `flow story run`, and shown by the player at its cut.
+
+**Properties** (STR45, STF47). `Story.property(name, (frame) => violation | undefined)`, listed in the `properties`
+option: pure code over every frame after the run, failing with the first violating frame and the returned value.
+Properties are options, not steps; `describe` prints them by name (Testing O1's no-callbacks rule holds for steps).
+
+**A moment inside a step** (uncommon; STF46). `checkpoint(name, { at: { settled: O.like } })` names the latest frame of
+the previous step whose cause matches; the other causes are `{ turn: E.X }` and `{ step: "invoked" }`. The
+confirmed-but-saving moment of 2.8.1 is then a named frame.
+
+#### 2.10.7 Lanes and rows
+
+Rows are snapshot data (brief C7; 2.7.5), so a frame shows them exactly as a view at that publication reads them
+(STR28, STF67). Keyed rows are keyed lists of the lanes that exist; an expectation against `operations.like` lists only
+existing lanes, so a wrong key fails instead of reading idle (STF30); the design's `O.like.get(s, k)` stays total for views.
+`Story.inspection.lanes` lists every non-`Idle` write lane by identity (actor identity, contract id, key), with subject
+path, `binding` (`bound`, `unbound`, `unplaced`), `releasing`, state, flags, queued commits and parked endings: the same
+listing as Inspection O1 and `runtime.unsettledWrites()` (STR29, STF41). A parked lane under `cancel` or `allow` is listed
+`Held` with `uncertain: true`, as 2.7.13's `Held (parked)` table decides; that listing is where a Story reads it
+(STF42). Read lanes and sessions are not write lanes and are never in that listing (STF35). Every ending is an `ending`
+record (STR30); "admitted" means only 2.5 step 1, and entering the mailbox is "queued" (STF36).
+
+#### 2.10.8 Entities and the store
+
+Server truth is per run, in fakes; client truth is per tab, in the store; a fake never writes the store, and truth
+reaches it only through real responses and pushes (STR34). A Story compares them in its own words:
+`expect(Issues, { issues: { c7: { likes: 4 } } })` and `expect(Story.entity(Issue, { id: "c7" }, { tab: "b" }), { data:
+{ likes: 4 }, predicted: false })` (STF51). The three moments of a domain write (start, settlement, admission) are
+three publications, hence three frames (STR33, STF46); `predicted` is read per record and omitted fields are listed in
+`unconfirmed`, which is what an expectation at settlement states (STF45, STF50). A record queue's members, with
+Attempt and retry count, are in `Story.inspection`; a removal is one `queue` record with its reason (STR32, STF48). A
+deleted record reads `undefined` like a never-loaded one, as a view sees it, and the tombstone that tells them apart
+is in `Story.inspection` and in `store` records while it lives (STR31, STF49). The boundaries (64/65 with no partial
+join, FIFO across two actors, a forced repair holding the queue, `uncertain` set and cleared) are reached by holds and
+sends (STR35; 2.10.18).
+
+#### 2.10.9 Streams (controls decided, Stories T4)
+
+*Stream details: merge 6.* This section reads merge 6's `Feed`, sessions and rows ([merge-6-streams/proposal-v2.md](merge-6-streams/proposal-v2.md)), which are not merged; merge 6 resolves it.
+
+A stream endpoint is a connection: `Fake.stream({ request, open, message? })`, where `open(truth, request)` returns the
+truth, the first frames (a greeting) and whether to accept, and `message` handles client frames. A control returns
+frames to send on open connections, or a close with a code. `Fake.webSocket` binds stream endpoints to
+`Socket.WebSocketConstructor`; an `EventSource`, a streamed `fetch` body or an SDK subscription is a client half over
+the same endpoint (STR19). So every `Feed` signal comes from the real adapter reading real frames (STR36, STF77):
+
+| Real sequence | Story step |
+| --- | --- |
+| a greeting that proves a replay, or registers without one | `open` returns the author's greeting; a control `Chat.greet({ replay: false })` changes it |
+| a drop, then a reconnect from the resume position | `world(Chat.socket.drop())`, then `advance({ next: { operation: O.messages, timer: "backoff" } })` |
+| refused attempts, a flap | `drop({ at: "open", times: 3 })`; a loop of drop and advance |
+| a quiet or half-open connection | `hold()` on the socket (frames stop, nothing closes) |
+| a server close code (token expiry) | a control that closes with `4401` |
+| a log reset, retention shorter than the gap | controls `Chat.resetLog({ epoch })`, `Chat.retain({ last })` |
+| a catch-up page held, answered, failed | the history endpoint under `hold`, `release`, `drop` |
+| a flood past `bufferSize` | a control that sends n frames |
+| reordered frames (merge 6's SR12) | `hold()`, the frames, then `release({ nth })` |
+
+**The resume position the server saw** is the socket endpoint's request log, read directly: `expect(Chat.socket,
+[{ input: { from: { epoch: 1, seq: 2 } } }, …])`. The fake keeps no `connections` field
+by hand (SP RV L4).
+
+Rows (`connection`, `drop`, `value`, `last { value, at }`) are snapshot data; each start's answer, `missed`, drops,
+`Overflow`, `Discarded`, the reconnect phase and release are `session` records (STR37). Settling never waits for an
+open stream (STR38). A streaming write's `progress` publishes as Runtime steps, so each token is a frame; Stop
+mid-stream is the send that cancels while the body is open (STR39; SP 4.6). Backoff, heartbeats and `resetAfter` run on
+the TestClock (brief C12).
+
+**What no transport can produce** (SP RC5; the socket-finalizer finding, SP RV M10). Effect 4.0.5's socket finalizer closes
+with `Effect.sync(() => ws.close(1000))` and does not await the close, so a session's scope closes at once on release.
+`ReleaseOverdue` and merge 6's 3.1 `Releasing` cells in which a signal or value arrives after release begins therefore cannot
+be produced through `Fake.webSocket` or any binding whose finalizer does not wait, and SP revision 1's `hold({ at:
+"close" })` is removed. They are reached in **Flow's policy suite**, whose purpose-built `Feed.callback` adapter has a
+finalizer that awaits a gate (2.10.15). An app whose own adapter awaits its close (an SDK `removeChannel`) can reach them
+through its own client half; the cells stay listed as suite cells.
+
+#### 2.10.10 Persistence, reload and tabs
+
+An app Story's tabs are independent Runtimes of its setup that share the run's fake servers and `Fake.storage`
+(STR42, Testing O7). A tab's identity is `{ name, open }`: the name and how many times that name has been opened (STR26's
+seed already counts it), carried by `via` and every record (SP RV M4).
+
+- `openTab(name, { from? })` constructs and readies one. With `from: "main"` it then ensures, in the new tab, the
+  refs this Story's steps ensured in that tab's **latest life and did not dispose**, with the same options, in
+  first-ensure order (SP RC3, SP RV2 M2), so `describe` prints the list from the plan alone. Refs app code ensured are
+  ensured again by app code, as in production; `from` may name a closed tab (its latest life). Sends are not repeated: memory comes from
+  the server or storage, as in production.
+- `closeTab(name)` ends it abruptly with no final flush, releases its scope ownership (brief C11, brief C14), aborts its storage
+  writes and leaves its remote requests in transit (2.10.4).
+- `reload(name = "main")` is `closeTab(name)` then `openTab(name, { from: name })` in one step (SP N3): the reopened tab
+  ensures what the closed one had ensured. It is the one-line reload every reload Story was writing by hand.
+
+A reload mid-charge is written exactly (STR40, STF12): what was acknowledged, what the server applied, and when, are
+each a step. After the reopen, restore, `Restored` endings, held lanes, parked endings and the delivery order before
+any external event are records and frames. A tab opened while another holds the scope runs without persistence
+(`SecondTabNoPersistence` in `Story.inspection`'s persistence status). While a tab is closed, `read({ actor, tab })` is
+`undefined` and its records stay (STR55, STF69). A focused machine Story's actor is a local identity, whose lanes are
+never persisted (brief C14), so `closeTab` and `reload` there are type errors. Rebind is `dispose()` then `ensure()`; retain
+expiry is `dispose(ref)` then `advance` past the retain; `dispose(ref, { how: "now" })` is `disposeActor` and
+`{ how: "forget" }` is `forget` (STR9, STF43). Upgrades start from `storage: Fake.storage.from(oldStory)` (STR41).
+
+#### 2.10.11 SSR and lazy entries
+
+`dehydrate(label, { within })` and `hydrate(source, label?)` are Testing O7's, with two rules (SP RC5). **One world**: a
+hydration source Story runs against the destination run's fake servers, not a second run's, so the server render and
+the client's refetch read one truth, as in production (SP RV M11). A source may not set `world` (a type error), runs at
+the `hydrate` step against the truth current then, and its requests carry `via.tab: { name: "server", open }` (SP RV2 M6). **Time**: `dehydrate`'s time motion settles deadline by
+deadline in 2.10.3's order (SP RV L8). A commit in flight at dehydration is a `hydration` record `DehydrateCommitInFlight`
+naming the actor, state and instance path, and no client lane exists (brief C15). A state stream's `last` arrives rebased by
+its age (STR43). Lazy adoption at a chosen step is Testing O7's (STR44).
+
+#### 2.10.12 Fragments (constructor decided, Stories T3)
+
+**In a host** (STR11, STR12, STF53, STF55, STF60). Every fact about a fragment is a record at its actor, instance path
+and copy: `life`, `callback`, `exit`, `listRepair`, `drop`, and its operations' `ending` and `lane` records with
+`subject`. `Story.inspection.incarnations` lists each live or frozen incarnation (`{ instance, copy, life, status:
+"active" | "frozen" }`), so a frozen slice no longer looks active (STF54). A fragment on two hosts gives the same
+records at each host's address, and `match`, `Story.attempt` and filters tell them apart by `actor` (SP RV M1, M2).
+
+**Alone** (STR10, F7, rule 58). A trait or subroutine Story runs in a **stand-in host** Flow builds, whose placement
+is decided by the **fragment's declaration alone**, never by later steps (rule 66, SP RV M7):
+
+| Fragment | Placement | `leave()` | `leave({ end: true })` | `reset(subject)` |
+| --- | --- | --- | --- | --- |
+| a trait | one `.each` copy keyed by the Story's `subject` (default `""`), on a node, with `resetOn` returning the same subject | its node is left: the incarnation ends (`whenAbandoned`, rule 60's release) | the same | the reset value changes: a pending reset, a new life |
+| a `.resumable()` trait | the same, on a resumable node | its node is left: the incarnation **freezes** | the copy is removed: a frozen or active incarnation **ends** | as above; a frozen one resets on its next `enter` |
+| a subroutine | a state | the state is left: abandoned | the same | a type error |
+
+So one prefix has one placement in every branch, a Story may use `leave` and `reset` together, and every placement is
+one rule 48 allows. Nothing about the stand-in is readable (STF57): `read()` is the fragment's own snapshot (its memory
+with private fields, schedules, rows); records carry the fragment's instance path `[]` and a subject path made only of
+the Story's own `subject` (empty when none is given); a send after `leave` is `Unhandled`. Reads are re-rooted at the
+fragment: the stand-in's two path parts (its copy key and its reset value, both the subject) are reported as one,
+`[subject]`, or `[]` when no subject is given, in every read, `Story.inspection` included (delegated, at merge).
+**Rule 20 at the stand-in** reads its path as `[]` until the Story changes the subject (an `enter({ subject })` with
+another value, or `reset`), since only then can a decline from another path occur (rule 51): a writing fragment that
+does not map `failure.NotSent` may be tested alone, and `flow check`, which reads the Story's steps (2.10.14), reports
+rule 20 at the first step that changes the subject (delegated, at merge).
+
+`guards` is the one way to set a stand-in guard (STF58). `enter(input, { subject })` gives the subject a real host's
+`.each` key or `resetOn` would; `enter` while frozen thaws (same subject) or resets on return (another). Callbacks and
+exits alone and in a host are the same records (STF60); rule 11's `run.calls` and `checkpoint.exit` are gone. 2.10.17.4
+is normative.
+
+#### 2.10.13 Playback
+
+Recording is still `run()` once and only rendering after (brief C5). Every frame is a publication, so lane-gated buttons,
+`check()` eligibility, stream connection states and the confirmed-but-saving moment render as production would
+(STR52). The player moves by frame, step or scene: a step is never lost (STR53, STF63), and a frame's cause is one
+cause (STF64). The next-action highlight compares the clicked control's addressed event, `{ ref?, instance path, copy,
+tag, payload }`, with the next step's, so a keyed copy or a nested subroutine is found (STR54, STF68); steps that are
+not clicks (`world`, `advance`) play as captioned waits. A frame between a settlement and its ending's turn shows its
+queued arrival from `work` in Inspect, so it never looks stuck (STR56, STF70). For a tab that is closed at a frame,
+`<StoryFrame tab="b">` renders nothing and reports the gap `{ tab: "b", closed: true }` (STR55, STF69). Expectations
+and property violations are shown at their frames (SG4). A fragment-alone Story has no app to render: handing it to
+`StoryPlayer` or `StoryFrame` is a type error, and its frames are readable as text (playback.md 8's agent text frames); playback.md's
+open question 2 stays open (STR57, STF71). Presentations stay typed, name checkpoints and hold no callbacks (STR58).
+
+#### 2.10.14 CLI, `flow check`, `flow explain` and Inspection
+
+- `flow story list`, `describe <id>` and `run <id>` work for every subject (STR59). `describe` prints, from the plan
+  alone: subject and kind, options, every step with index, checkpoints, expectations, properties, and every fake
+  server reached with its endpoints, controls and their Schemas.
+- `flow explain --trace <file> --at <checkpoint>` answers lane, ending, store and session questions from the trace's
+  records at that checkpoint's `seq`, and says "evidence unavailable" for what fell outside the trace window (STR59,
+  brief C13).
+- Every record kind is an Inspection O4 member, follows Inspection O5's redaction, and fake truth leaves a process as digests
+  (STR60). Request `via` fields are identities and are never redacted.
+- `flow stories --coverage` (T2) also lists write-lane cells (from `lane` records' `cell`), stream cells (from
+  `session` records' `cell`; *Stream details: merge 6*), ending handlers reached current and late (from `ending` records' `route`) and Flow
+  reasons reached (STR61).
+- The Story-derived `flow check` warnings read records the trace keeps (STR62): denial codes from `verdict` records,
+  repairs and dropped raises, rule 51's declines from `ending` records, and mapper read-after-write from the `turn`
+  event, which gains the keys its mappers read that the turn writes (D16).
+- Types catch: unknown checkpoint names, a wrong instance path or copy key in an addressed event, a mapped, internal or
+  host event sent from outside (rule 47, 2.2; host events only alone), a fixture list that does not meet `R`, an
+  undeclared control (controls are members of the fake's handle), a schedule name in an address the subject does not
+  declare, a read of an operation the subject does not declare,
+  and a fragment Story given to an app-only API (STR6, STR63).
+- A Story is data: `flow check` and `flow graph` read its steps without running a Runtime (STR64).
+
+#### 2.10.15 Reaching every cell: write lanes, streams and the policy suite
+
+Every reachable cell is reached through production paths (decided, Stories T2: no injection). Each `lane` and `session` record
+names its cell, so coverage counts cells; a "cannot occur" cell firing is a Runtime defect (an issue), which property
+tests over the policy suite's machines search for (STR65, STR66).
+
+| 2.7.13 holding table row | Reached in `Idle` / `InFlight` / `Held` by |
+| --- | --- |
+| `commit`, `retry`, `cancel` | the send (or timer) whose transition lists the member, after the lane was brought to the state: `InFlight` by `hold()`, `Held` by `drop({ at: "response" })`; `cancel` while waiting to be invoked by holding the acknowledgement (never sent) or a persisted re-send's `capture` (a re-send) |
+| `idle`, `retryable` (guards) | a guarded send in each state; the result is a `verdict` record |
+| invoked | settling once the acknowledgement, record queues and capture allow |
+| storage refused | `Fake.storage.write.drop({ match: { purpose: "acknowledge" } })` (never sent); the same on `capture` for a re-send |
+| success, failure, unknown, interrupt | the held request's answer; an interrupting client half, or a cancel's interruption |
+| dispose, rebind | `dispose`; `dispose` then `ensure` of the same identity |
+| restore | `reload`: acknowledged and on the wire (`unknown { Restored }`); acknowledgement stored, confirmation held (2.7.13's G1: acknowledged, never invoked); acknowledgement held, so aborted (`NotSent { Restored }`); with a `W` entry queued (its `NotSent { Restored }`); a cancelled Attempt whose acknowledgement was stored with its confirmation held (`unknown { Restored }`, Stories T7) |
+| SSR hydration | `dehydrate` with a commit held on the wire, then `hydrate` |
+| Runtime disposal | the policy suite's internal step only (Stories T2) |
+
+The `cancel`/`allow` table adds `turn end`, reached by settling; `Held (parked)` by a persisted identity disposed by
+retain expiry (`dispose`, `advance`), an unknown answer released while it has no actor, then `ensure`. 2.9.3's rows:
+another path's member by two copies whose commits share a key; freeze and thaw by `leave()` and `enter()` on a
+resumable placement; parking in a live actor by removing the copy; the releasing rows by a `whenAbandoned` cancel and
+a removal in each state, restore by `reload`, and the cleared mark by re-adding the copy before the lane is `Idle`. The
+two hydration cells 2.7.13 calls untestable (G6) stay so.
+
+For streams (merge 6's 3.1–3.5, STR66; *Stream details: merge 6*): its 3.1's signal inputs come from `open` and controls, values from controls, `down` from
+`drop`, failure and completion from controls that close, defect from a malformed frame, release from leaving the state;
+its 3.4's pages, page failures and `CannotRepair` from the history endpoint and `retain`, its delays from `advance`; its 3.3's
+queue from floods through a `Feed.callback` client half; its 3.5's progress from a streamed body with a superseded
+Attempt. **Suite-only cells**: `ReleaseOverdue` and the `Releasing` cells with a late signal or value (2.10.9), and the
+Runtime-disposal cells. The wire's own `interrupt` while in transit or while an answer returns cannot occur under
+rule 61 (both are instantaneous within a step, SP MDL W2), so 2.10.17.2 no longer lists them.
+
+**The policy suite** (STR67, operations merge-plan X33, brief C11). Flow's own suite is Stories over small purpose-built machines and adapters,
+run by the same executor under the TestClock. It uses one step apps cannot import, `disposeRuntime()` from
+`flow-state/internal/testing`, and one adapter (a `Feed.callback` client half whose finalizer awaits a gate; *Stream details: merge 6*). The
+executable lane, stream and Story models remain design checks (brief C1); their invariants become properties of the suite.
+
+**Rule 58's walks, as steps** (STF62). Two copies on one lane, the second declined: two `send`s to two copies whose
+commits share a key, `ending { reason: NotSent Rejected }`. A freeze during catch-up, thaw, `Interrupted`, `resync`:
+`hold()` the read, `leave()` a resumable trait, `enter()`, then `advance` to `resync`. A creating raise meeting an
+adopted hold: `drop({ at: "response" })`, `leave()`, `enter()` whose turn raises. A copy removed during a 412 save,
+re-added, text kept: 2.10.18's `reopenedKeepsText`. An upgrade from a host-only lane: `storage:
+Fake.storage.from(oldStory)`, `openTab`. A removed uploading copy, reload, nothing parked: `hold()`, a removal with
+rule 60's cancel, `closeTab`, `openTab`, `expect(Story.inspection, { lanes: [] })`. Two rows of a nested writing trait,
+one removed: two copies, `hold()`, a removal, `expect` on the other copy's rows. "A, B, A" under `resetOn`:
+`reset("B")`, `reset("A")` alone, or the host's sends. A reload while frozen or while owed: `leave()` or `hold()`,
+`closeTab`, `openTab`. A reload that loses a pending reset: `storage: Fake.storage.seed([an actor record whose reset key
+differs from its saved incarnation's reset value])`, then `openTab`: the restore re-takes the value and resets the
+trait as the first turn, before rule 44's deliveries (rule 51).
+
+#### 2.10.16 Property tests and exploration (decided, Stories T5 B5, with SP RV's condition)
+
+`propertyTest(story, { steps, properties, seed, runs?, length?, quietWithin? })` generates ordinary Stories by
+appending generated steps to a base Story: `steps` lists generators of step values (sends of the subject's public events
+with Schema-derived payloads, wire words on the fakes' endpoints with generated addresses, server controls from their
+Schemas, `advance`, lifecycle steps); `properties` are `Story.property` values. Two rules make generated runs useful
+(SP RV's B5 condition):
+
+- **A generated step that is invalid in the current state is skipped**, never `StoryInvalidCommand`: a `release` with
+  nothing held, a `leave` when not entered, an `ensure` of an existing actor. The skip is a `step` record with
+  `skipped: reason`, and the same seed skips the same steps. **The emitted and shrunk Story leaves skipped steps
+  out**: they had no effect, so the run is the same, and the literal Story replays without `StoryInvalidCommand`
+  (STR69, SP RV2 M9).
+- **Shrinking keeps pairs**: a `hold` and the `release` that ends it, a `closeTab` and its `openTab`, `enter` and
+  `leave`, are removed together or not at all, so a shrunk Story never strands a hold it did not have.
+
+Every fault Testing O6 names is one of those steps (hold, release, fail, delay as hold-advance-release, reorder as
+`release({ nth })`, duplicate, lose as `drop`, push as a control, disconnect and reconnect, change subscriptions as
+sends or `ensure`/`dispose`, invalidate as a step, crash and restore as `reload`, adopt as lazy adoption), so a shrunk
+failure is a literal Story that runs and plays back (STR69, STF52). Testing O6's domain form becomes a preset
+(`Domain.propertySteps(domains, inputs)`), keeping its oracle, quietness and Inconclusive rules.
+
+**After `model()`** (STR68, STF79). Finding a sequence the author did not write is this search on the real Runtime:
+write the property "never `LOCKED_OUT`" and shrink the counterexample. Shrinking gives a **local minimum**, a short way
+in, not the shortest (SP RV). Cut, stated: enumerating every simple path and guaranteeing that every reachable
+combination was visited; nothing replaces them without a second execution path (T1).
+
+**Weighed.** STR70 (worlds from contracts): in reach with no new runtime; the generators already range over every
+endpoint a subject's contracts reach, every wire word and every address. STR71 (record and replay): in reach later as a
+scripted fake whose truth is the recorded answers, recorded at the transport bindings; it needs stable event tags and
+Schemas (present), raw in-process capture (Inspection O5 digests cannot replay), and it rots loudly when a payload no longer
+decodes. STR72 (one controller): yes; user input, time, the network, server state and storage are steps of one plan,
+seeded by one option, named by one address.
+
+#### 2.10.17 State machines as tables
+
+Normative for the executor, and complete enough to rebuild the executable model from this section alone: every state
+is a column, every input a row, every cell defined or "—" (cannot occur, with the reason). The model's ambiguities
+A1–A6 are settled here (delegated, at merge).
+
+##### 2.10.17.1 What a step runs
+
+| Step | Admission | Time | Settles (2.10.2) | Its cut | Errors |
+| --- | --- | --- | --- | --- | --- |
+| `send(target?, …events)` | open | fixed | after each event | a step cut per event | `ActorAbsent`, `TabClosed`, `StoryTurnLimit` |
+| `together(…inputs)` | held until every input arrived, then open | fixed, or moved by an `{ advance }` input (deadlines fire, events queue, no turns) | after admission resumes | one | as `send`; `NothingHeld`, `InvalidDuration` |
+| `world(…controls)` | open | fixed | after each control | one | `NothingHeld` |
+| `advance(d)` | open | each deadline ≤ now + d, then now + d | at each deadline (2.10.17.5), then at now + d | one | `InvalidDuration`, `StoryTurnLimit` (per instant) |
+| `advance({ next })`, `advance({ to })` | open | to the earliest unfrozen deadline the address matches; to `to` | as `advance` | one | `NoDeadline`, `InvalidDuration` |
+| `advance(d, { suspended })` | the tab runs nothing during the move | as `advance`, the tab's sleeps skipped | at each world deadline; then the tab's overdue ones in deadline order, then its queued transport input | one | as `advance` |
+| `ensure`, `dispose`, `enter`, `leave`, `reset`, `setContext` | open | fixed | after | one | `AlreadyEntered`, `NotEntered`, `ActorAbsent` |
+| `openTab(name, { from? })` | open | fixed | after bootstrap, then after each ensure `from` repeats | one | `TabOpen` |
+| `closeTab(name)` | the tab stops | fixed | after (other tabs; remote requests keep travelling; local writes abort) | one | `TabClosed` |
+| `reload(name)` | as `closeTab` then `openTab(name, { from: name })` | fixed | as both | one | as both |
+| `guards(answers)` | — | fixed | no | one (no publication) | — |
+| `dehydrate`, `hydrate` | open | `dehydrate` moves time as `advance` does | after | one | Testing O7's |
+| `checkpoint(name, { at? })`, `expect(target?, partial)` | — | fixed | no | names or checks the latest step cut (`at`: a frame of the previous step) | `StoryExpectationFailed` after the run |
+
+Every settle runs on the microtask-only run scheduler: no host task runs during it, and it ends once Flow's queue and
+the microtask queue are both empty; a fiber then waiting on the host is `HostTimeWait` (2.10.2, Stories T7). A world control
+applied while every tab is closed still has a step cut (rule 64).
+
+##### 2.10.17.2 A request at a call endpoint
+
+**Rules.** Each server keeps one list of rules `{ target, word, at, times, match }` (target: the handle, covering every
+endpoint, or one endpoint), ordered by when each was set. **At arrival** a request takes the earliest-set rule whose
+target covers its endpoint and whose `match` it fits, and only that
+rule, whose `times` then drops by one (removed at zero; `"always"` stays). Its effect applies at the rule's phase.
+Requests from tabs reach the endpoint in invocation order (2.10.2). Under rule 61 a request is never observable between
+leaving the client and reaching the gate, nor between the handler's answer and the client (SP MDL W2), so those are not
+states.
+
+States: `Held` (in transit, unseen by the server), `Server` (the handler runs; it may sleep), `HeldAnswer` (handled;
+the answer waits). Each request also has `gone` (its client cancelled, or its tab closed). Terminal phases: `answered`,
+`lost`, `dropped`, `orphan` (handled, nobody to answer), `duplicate` (a second copy's answer, discarded).
+
+| Input ↓ / State → | (arriving) | `Held` | `Server` | `HeldAnswer` |
+| --- | --- | --- | --- | --- |
+| its rule is none | → `Server` | — | — | — |
+| its rule is `hold()` | → `Held` | — | — | — |
+| its rule is `hold({ at: "response" })` | → `Server`, marked to hold | — | — | — |
+| its rule is `drop()` | → `lost`; the client gets `Fake/Lost` | — | — | — |
+| its rule is `drop({ at: "response" })` | → `Server`, marked to drop | — | — | — |
+| its rule is `duplicate()` | → `Server`, and a copy → `Server` after it | — | — | — |
+| `release()` on its target | — | → `Server`, in arrival order | no change | → `answered` (or `orphan` if `gone`), in arrival order |
+| `release({ drop: true })` | — | → `lost` | no change | → `dropped`; the client gets `Fake/Lost` |
+| `release({ nth: k })` | — | the k-th held item (from 1, arrival order) first, then the rest as `release()`; fewer than k held: `NothingHeld`, naming k | no change | as `Held`'s cell |
+| handler answers | — | — | marked to hold: → `HeldAnswer`; marked to drop: → `dropped` (the client gets `Fake/Lost`); a copy: → `duplicate`; else → `answered`, or `orphan` if `gone` | — |
+| handler fails (a crashed server) | — | — | → `answered` with the binding's failure (`Fake/Lost`, `500`, close `1011`), and an `issue` | — |
+| its client cancels, or its tab closes | — | stays `Held`, `gone` | continues, `gone` | stays, `gone` |
+| a tab is suspended | — | stays | continues (the server is not suspended); its answer waits in the tab's transport | stays; delivered when the tab wakes |
+
+A held item belongs to the rule that held it: `release()` on a target delivers exactly the items its own rules held
+(a handle's, on any endpoint) and removes every standing rule whose target is its own (a handle's `release` does not
+end an endpoint's rules, nor the reverse). With no held item and no standing rule it is `NothingHeld` (SP MDL W1),
+at a call endpoint, a stream endpoint and `Fake.storage` alike. Every change is a `request` record. 13 rows × 4 columns: 52 cells, 23 defined, 29 "—" (a
+request takes its rule once, at arrival, and a handler acts only on a request at the server).
+
+##### 2.10.17.3 A connection at a stream endpoint
+
+States: `None` (no connection), `Opening` (an attempt held by `hold({ at: "open" })`), `Open`, `Silent` (frames held),
+`Closed { code }`. A tab's transport input waits while the tab is suspended, in every state, and is delivered at wake.
+
+| Input ↓ / State → | `None` | `Opening` | `Open` | `Silent` | `Closed` |
+| --- | --- | --- | --- | --- | --- |
+| an attempt, rule none | `open` runs: accepts → `Open`, greeting sent; refuses with a code → `Closed { code }`; dies → `Closed { 1011 }`, an `issue` | — | — | — | as `None` (a new connection) |
+| an attempt, rule `hold({ at: "open" })` | → `Opening` | — | — | — | → `Opening` |
+| an attempt, rule `drop({ at: "open" })` | refused: the binding's `lost` (close `1006`), stays `None` | — | — | — | refused, stays |
+| a control sends frames | nothing (no connection) | nothing | delivered in order | queued | nothing |
+| a control closes with a code | — | → `Closed { code }` | → `Closed { code }` | → `Closed { code }`, queued frames lost | — |
+| `hold()` (frames) | a standing rule: the next connection opens `Silent` | the rule applies when it opens | → `Silent` | — | a standing rule, as `None` |
+| `release()` | ends standing rules; `NothingHeld` if none | the open completes as "rule none" | ends standing rules; `NothingHeld` if none | → `Open`, queued frames delivered | ends standing rules; `NothingHeld` if none |
+| `release({ nth: k })` | as `release()` | as `release()` | as `release()` | → `Open`, the k-th queued frame first, then the rest in order | as `release()` |
+| `drop()` (frames) | nothing, recorded | → `Closed { 1006 }` | → `Closed { 1006 }` | → `Closed { 1006 }`, queued frames lost | nothing, recorded |
+| `duplicate()` | a standing rule for the next frame | as `None` | the next frame is delivered twice | the next released frame twice | as `None` |
+| a client frame (`message`) | — | — | the handler runs; may answer frames | the handler runs; answers queue | — |
+| the client closes (release) or its tab closes | — | → `None` | → `None` (Effect's finalizer does not wait, 2.10.9) | → `None`, queued frames lost | — |
+
+12 rows × 5 columns: 60 cells, 43 defined, 17 "—" (an attempt arrives only with no live connection; nothing closes or
+sends where no connection exists). `release({ nth: k })` with fewer than k queued frames is `NothingHeld`, naming k, as
+at a call endpoint. An answer or frame that reaches a suspended tab waits in its transport and is delivered at wake,
+after the tab's overdue deadlines, in arrival order (2.10.3).
+
+##### 2.10.17.4 The stand-in host (a fragment alone)
+
+Placement per 2.10.12's table. `subject` is the Story's subject value; "same" and "other" compare with the incarnation's.
+
+| Step ↓ / State → | `Absent` | `Active` | `Frozen` (resumable) | `Ended` (exit taken) |
+| --- | --- | --- | --- | --- |
+| `enter(input, { subject })` | a new incarnation | `AlreadyEntered` | same subject: thaw (parked endings, then `activities`); other: reset on return, a new life. The subject compared is `enter`'s when it gives one, else the one `reset` stored | a new incarnation |
+| `leave()` | `NotEntered` | resumable: → `Frozen`; else → `Absent`, `whenAbandoned` and rule 60's release | `NotEntered` | `NotEntered` |
+| `leave({ end: true })` | `NotEntered` | → `Absent`, `whenAbandoned`, release | → `Absent`: the frozen incarnation ends, `whenAbandoned` runs, its parked read endings become evidence (SP MDL H1) | `NotEntered` |
+| `reset(subject)` (traits) | `NotEntered` | same: nothing; other: a pending reset, a new life | stores the new subject; the next `enter` resets, unless it gives a subject of its own | `NotEntered` |
+| `guards(answers)` | stored | stored | stored | stored |
+| `send(event)` | `Unhandled` | the fragment's turn | `Unhandled` | `Unhandled` |
+| the fragment takes an exit (subroutines) | — | → `Ended`, an `exit` record | — | — |
+
+7 rows × 4 columns: 28 cells, 25 defined, 3 "—" (only an active subroutine takes an exit).
+
+##### 2.10.17.5 Order: equal instants and settling
+
+| Rank | Owner of a sleep | Then by |
+| --- | --- | --- |
+| 1 | fake servers, then `Fake.storage` | first reference by a fixture, then name; arming order |
+| 2 | adapters (fibers of an operation) | tab order, actor creation, operation, key, arming |
+| 3 | setup-scoped fibers (an SDK client, a rate limiter) | tab order, layer order, arming |
+| 4 | the Runtime's own waits | tab order, actor creation, arming |
+| 5 | actor schedules | tab order, actor creation, instance path in placement order, copy in list order, schedule key in list order, arming |
+
+At one instant one sleep wakes, the Runtime settles, then the next. "Tab order" is each name's first-open order; a
+reloaded tab keeps its rank (SP RV2 L5). Inside a settle: tabs take turns one at a time in tab order; invoked Attempts reach fakes in invocation order (tab order, then the turn that promoted them); fake
+handlers run in arrival order; storage writes are FIFO per tab (2.10.17.6).
+
+##### 2.10.17.6 A write at `Fake.storage` (local)
+
+States: `Queued` (behind an earlier write of the same tab), `Held`, `HeldConfirm` (stored; the caller's confirmation
+waits). Terminal: `stored`, `aborted`, `refused`. Reads never queue behind writes (bootstrap restore is a read, STF6); their
+own rows are below.
+
+| Input ↓ / State → | (arriving) | `Queued` | `Held` | `HeldConfirm` |
+| --- | --- | --- | --- | --- |
+| an earlier write of its tab is unfinished | → `Queued` | — | — | — |
+| its rule is none | → `stored` | — | — | — |
+| its rule is `hold()` | → `Held` | — | — | — |
+| its rule is `hold({ at: "response" })` | applied, → `HeldConfirm` | — | — | — |
+| its rule is `drop()` | → `refused` (the caller sees the store's failure: `StorageRefused`) | — | — | — |
+| the write ahead of it finishes | — | takes its rule now, as "arriving" | — | — |
+| `release()` | — | no change | → `stored` (then the queue behind it moves) | → `stored`, confirmed |
+| `release({ drop: true })` | — | no change | → `refused` | → `refused`: the caller sees a failure though the bytes were written |
+| its tab closes | — | → `aborted` | → `aborted`: never applied | stays written; the confirmation is lost (2.7.13's G1 cell after `reload`) |
+
+A cancelled Attempt's `Held` acknowledgement either lands before the capture that removes it (queued behind it; a
+Persistence fact, Persistence O7) or is aborted with the tab (SP MDL F1). A `HeldConfirm` one stays written, so `reload` restores
+it as `unknown { Restored }` (2.10.4; Stories T7). 9 rows × 4 columns: 36 cells, 15 defined, 21 "—".
+
+`duplicate` is not a `Fake.storage` word (a type error): local storage has no network to repeat a request.
+
+A read at `Fake.storage` (a slow or failed restore):
+
+| Input ↓ / State → | (arriving) | `Held` |
+| --- | --- | --- |
+| its rule is none | → `served` | — |
+| its rule is `hold()` | → `Held` | — |
+| its rule is `drop()` | → `refused`: the restore fails as the store's failure would | — |
+| `release()` | — | → `served` |
+| `release({ drop: true })` | — | → `refused` |
+| its tab closes | — | → `aborted` |
+
+6 rows × 2 columns: 12 cells, 6 defined, 6 "—". While a restore read is held, the tab has not finished bootstrap:
+its persisted actors are absent, and a send to one is `ActorAbsent`. Refused, the tab reports `StorageFailure` and runs
+without persistence (Persistence O5).
+
 ## 3. Example
 
 ### 3.1 Two-factor sign-in, in full
@@ -4370,11 +5187,13 @@ turn (rule 6).
 
 | Kind | Words |
 |---|---|
-| **New, fragments** | `trait`, `subroutine`, `traits` (root and node), `Flow.state`, `.resumable()`, `.each` (`of`, `max`, `by`), `key` / `item` in fillings and copy views, `.key(k)`, `hostEvents`, `guards`, `callbacks`, `exits` (declarations and fillings), `notify`, the `Flow` module (`Flow.Guard`, `Flow.Callback`, `Flow.Exit`, `Flow.optional`, `Flow.uncertain`, `Flow.annotate`, `Flow.input`, `Flow.initial`, `Flow.private`, `Flow.Denial`, `Flow.entry`), `raise`, `resetOn`, `whenAbandoned`, the definition's `handler` / `guard`, state tokens in guard arrays, `story.machine(fragment)` with `.enter` / `.leave` / `run.calls` / `checkpoint.exit`; (operations in fragments) `operations` in a trait or subroutine declaration, `O` in a fragment body, `Fragment.O.<write>.get` / `.idle` / `.retryable` outside it, `activities` in a trait body, `s.operations.<instance>.<name>`, `fixtures` / `.enter` / `.leave` on a fragment Story, a string `resetOn` on a writing trait, key-less `O.x.cancel` in `whenAbandoned` (existing words, new meanings; no new word) |
-| **New, plans** | `Outcome.success`, `Outcome.failure`, `Outcome.unknown`; Flow's reasons `NotSent { why }` (`Cancelled`, `Restored`, `Rejected`, `Overloaded`, `StorageRefused`, `Disposed`), `Cancelled`, `Restored`, `Interrupted`, `Defect`, `StillUnknown { failure }`, `StorageRefused`; evidence `Superseded`, `Released`, `NothingToResend`, `InFlight`; (operations merge) contracts with `input`, `output` (omitted: `Schema.Void`) and a required `key: [...]` field list, in `*.contracts.ts`; `operations: ({ E }) => ({ … })` with `contract.outcomes({ … })` (`unknown` may be a record by tag); the handles `O.x` with `commit(select)`, `lookup(select)`, `subscribe(select)`, `subscribe.each(select)`, `retry(k?)`, `cancel(k?)`, `idle(k?)` (a partial key allowed), `retryable(k?, { times })`, `refetch`, `get(s, k?)`; the rows `s.operations.<name>` with `pending`, `uncertain`, `waiting`, `retryCount`, `progress`, `outstanding`; the mapper's `{ input, attempt, progress, key }`; the operation's options argument `.outcomes(mapping, { writes })` and the commit's `{ optimistic }` (OD26); `runtime.unsettledWrites()`; `Story.ending` (*Story reads: merge 3*); the findings `SharedContract`, `DuplicatePlacement`, `VerbMismatch`, `KeyRequired`, `UnresolvedHold`, `KeyOmitsInput`, `UnusedOperation`; the denials `Uncertain`, `RetryLimit`; `DehydrateCommitInFlight`; `attempt.id`, `attempt.retryCount`, `attempt.mayHaveApplied`; `concurrency: "latest"`; the record read `{ data, predicted, uncertain, unconfirmed }` (`predicted` replaces the record's and the resource lane's `pending`); (merge 5) the condition operators `or`, `not`, `gt`, `gte`, `lt`, `lte`, `isNull`, a predicted field's `(beneath, input) => value`, the Runtime option `checkReplays`, the warning `PredictionNotRetained`; the codes `InFlight` and `LateMayNotLeave`; `keys` on keyed schedules (key records); `.checkpoint(name, ({ truth }) => …)`; `orphaned`; `.history` (and `.history.child`); `armOn`; `disarmOn`; `s.schedules`; `dueAt` (the `model()` options `invariants`, `hot` and `explore` are removed with T1) |
+| **New, fragments** | `trait`, `subroutine`, `traits` (root and node), `Flow.state`, `.resumable()`, `.each` (`of`, `max`, `by`), `key` / `item` in fillings and copy views, `.key(k)`, `hostEvents`, `guards`, `callbacks`, `exits` (declarations and fillings), `notify`, the `Flow` module (`Flow.Guard`, `Flow.Callback`, `Flow.Exit`, `Flow.optional`, `Flow.uncertain`, `Flow.annotate`, `Flow.input`, `Flow.initial`, `Flow.private`, `Flow.Denial`, `Flow.entry`), `raise`, `resetOn`, `whenAbandoned`, the definition's `handler` / `guard`, state tokens in guard arrays; (operations in fragments) `operations` in a trait or subroutine declaration, `O` in a fragment body, `Fragment.O.<write>.get` / `.idle` / `.retryable` outside it, `activities` in a trait body, `s.operations.<instance>.<name>`, a string `resetOn` on a writing trait, key-less `O.x.cancel` in `whenAbandoned` (existing words, new meanings; no new word) |
+| **New, plans** | `Outcome.success`, `Outcome.failure`, `Outcome.unknown`; Flow's reasons `NotSent { why }` (`Cancelled`, `Restored`, `Rejected`, `Overloaded`, `StorageRefused`, `Disposed`), `Cancelled`, `Restored`, `Interrupted`, `Defect`, `StillUnknown { failure }`, `StorageRefused`; evidence `Superseded`, `Released`, `NothingToResend`, `InFlight`; (operations merge) contracts with `input`, `output` (omitted: `Schema.Void`) and a required `key: [...]` field list, in `*.contracts.ts`; `operations: ({ E }) => ({ … })` with `contract.outcomes({ … })` (`unknown` may be a record by tag); the handles `O.x` with `commit(select)`, `lookup(select)`, `subscribe(select)`, `subscribe.each(select)`, `retry(k?)`, `cancel(k?)`, `idle(k?)` (a partial key allowed), `retryable(k?, { times })`, `refetch`, `get(s, k?)`; the rows `s.operations.<name>` with `pending`, `uncertain`, `waiting`, `retryCount`, `progress`, `outstanding`; the mapper's `{ input, attempt, progress, key }`; the operation's options argument `.outcomes(mapping, { writes })` and the commit's `{ optimistic }` (OD26); `runtime.unsettledWrites()`; the findings `SharedContract`, `DuplicatePlacement`, `VerbMismatch`, `KeyRequired`, `UnresolvedHold`, `KeyOmitsInput`, `UnusedOperation`; the denials `Uncertain`, `RetryLimit`; `DehydrateCommitInFlight`; `attempt.id`, `attempt.retryCount`, `attempt.mayHaveApplied`; `concurrency: "latest"`; the record read `{ data, predicted, uncertain, unconfirmed }` (`predicted` replaces the record's and the resource lane's `pending`); (merge 5) the condition operators `or`, `not`, `gt`, `gte`, `lt`, `lte`, `isNull`, a predicted field's `(beneath, input) => value`, the Runtime option `checkReplays`, the warning `PredictionNotRetained`; the codes `InFlight` and `LateMayNotLeave`; `keys` on keyed schedules (key records); `orphaned`; `.history` (and `.history.child`); `armOn`; `disarmOn`; `s.schedules`; `dueAt` (`model()` and its options are removed: T1, C82) |
+| **New, Stories** | (rules 61–66, 2.10; common) `Story.make` with the `world` option, `send`, `advance` (settles at every deadline; `{ next: address }`), `checkpoint`, `expect`, `world`, `run`, `read`, `Fake.server` (`truth`, `endpoints`, `Fake.call`), `hold`, `release`, `Story.attempt`; (uncommon) `together` (`{ advance }`), `drop`, `duplicate`, `match`, `controls` (`Fake.control`), `Fake.storage` (`purpose`), `Fake.stream`, `Fake.webSocket`, `Fake.fetch`, `Fake/Lost`, `dispose`, `reload`, `guards`, `Story.records`, `Story.inspection` (`work`, `incarnations`), `Story.entity`, `advance(…, { suspended })`, `checkpoint(…, { at })`, `Story.property`, `openTab(…, { from })`, `enter(input, { subject })`, `leave({ end })`; (rare) `advance({ to })`, `reset` (a fragment alone), `release({ nth })`, `Fake.storage.seed`, `Fake.storage.from(story)`, `propertyTest(story, …)`; the errors `StoryInvalidCommand`, `NoDeadline`, `HostTimeWait`, `StoryExpectationFailed`, `FramesTruncated`, `AmbiguousAttempt`; fourteen record kinds (read, not written). Reused: `ensure`, `closeTab`, `enter`, `leave`, `setContext`, `dehydrate`, `hydrate`. The address is a shape, not a word |
 | **New concepts, not words** | **incarnation** (one life of a fragment instance), **frozen** (a resumable trait while its node is inactive), **summary** (a contract's inferred per-alternative effects), the memory views **before**, **before-walk** and **after** (2.5, rule 22), pending reset, the three **channels** (2.7.1), a **write** (one Attempt) and a **send** (one invocation), a **contract** and an **operation** (rules 39, 40), the **write lane** with its states **`Idle`**, **`InFlight`**, **`Held`** and **`HeldThisTurn`** and its queued commits **`W`** (rule 21, 2.7.13), the **hold**, the lane's **addressable Attempt**, **after lanes**, the **binding incarnation**, an **unbound lane**, an **unplaced lane**, a **releasing lane**, the **subject path** (rules 51, 53, 60), **rebind**, **actor identity**, a **pending mapped outcome** (rule 44), a **keyed list** (rules 21, N1, N2), a call's **owner** and its **current** or **late** ending (rule 14), **late turn** (rule 15), the **Attempt's ending** (rule 18); the **record queue** (per record, across actors, rule 29), the **uncertain mark** (per record and Attempt, rule 32), **settlement** versus **admission** (rule 27), a **create draft** (`creating`, a convention, rule 33); (merge 5) yes / no / maybe, a **carried path**, the **record beneath**, an **uncomputed** prediction, a **prediction fault**, `many` |
-| **Existing** | `definition`, `machine`, `states`, `default`, `events`, `internalEvents`, `input` (caller side only: `ensure`, `useActor`, a host's filling), `memory`, `on`, `target`, `guard`, `updateMemory`, `actions`, `schedules`, `restartOn`, `transaction`, `key`, `concurrency`, `commit`, `outcomes`, `optimistic`, `setData`, the Attempt, `deny`, `check`, `model` (marked for removal, T1), `S`, `E`, `O`, `.from`, `payload` |
+| **Existing** | `definition`, `machine`, `states`, `default`, `events`, `internalEvents`, `input` (caller side only: `ensure`, `useActor`, a host's filling), `memory`, `on`, `target`, `guard`, `updateMemory`, `actions`, `schedules`, `restartOn`, `transaction`, `key`, `concurrency`, `commit`, `outcomes`, `optimistic`, `setData`, the Attempt, `deny`, `check`, `S`, `E`, `O`, `.from`, `payload` |
 | **Removed** (operations merge) | commit values and their `{ outcomes }` option; `writes` as a commit option; `s.calls`; `s.activities` and the `activities` record; `keys` on activities; `read.fetch(key)`; the mapper's `superseded`, `laneKey` and copy `key`; `SharedCopyLane`; the default lane key of a domain write; key closures `key: (i) => …`; `result` and `params` on contracts; `*.operations.ts`; `NotSent { Superseded \| NothingToResend }` as endings |
+| **Removed** (Stories merge) | `story.app`, `story.machine` (renamed `Story.make`), `process()`, `advanceTo`, `advanceToNextTimer`, the `frames` option and frame collapse, `run.calls`, `checkpoint.exit`, the checkpoint predicate `.checkpoint(name, ({ truth }) => …)` (C16), `Story.ending` (never adopted), `model` and Testing O5 (T1), Testing O4's `pending` for work |
 | **Author-chosen** | every other name (`Field`, `Lockout`, `challenges`, `LOCKED_OUT`, `canEdit`, `onLocked`, …) |
 
 ## 4. Against the problems in principles.md
@@ -4435,8 +5254,8 @@ C1–C18 (their record is in [merged/](merged/)); P15 and P20 are rewritten in p
 | **Machines O4** | Guards also receive `schedules` and `operations` (the rows of rules 21 and 42, read with `O.x.get(operations, k)`), and may use an operation's `idle` and `retryable` guards. `check()` runs steps 2–6 of the turn. `deny(code, context?)` returns plain data matching `Flow.Denial`, so it may be stored in memory, and a guard may return a stored denial | Replaces "A guard receives { event, state, memory, context, activities }" with the same list plus `schedules`; adds the last sentence |
 | **Machines O8** | The snapshot exposes fragment slices (`undefined` while inactive, present while frozen), `.each` copies in key order, `schedules`, and `operations`, the rows of rules 21 and 42, replacing `calls` and `activities`; keyed schedules, keyed write lanes and `subscribe.each` placements are keyed lists (rule N1). A Runtime step publishes the bound lane rows it changes (2.5). Reading an old snapshot still never consults live lanes | Replaces "It has no input, methods, timers or public revision" with "…no input, methods or public revision; armed schedules appear under `schedules`" |
 | **Persistence O2** | Resumable slices, frozen schedules and `.each` copies with their incarnation counters persist with the actor; (Revision (multiplicity audit, 2026-10-31)) so do keyed schedules' per-key timers, by key with `dueAt` (rule 23) | Adds to "Actor state, memory … survive reload"; amended by C60 (operations in fragments) |
-| **Testing O1** | `story.machine` also accepts a fragment (`.enter`, `.leave`, `run.calls`, `checkpoint.exit`, host-event sends). `send` runs its turn; `process()` drains operation work and due timers. Copies' incarnations are deterministic | Adds to "story.machine(machine, { … }) tests one fresh actor"; amended by C63 (operations in fragments) |
-| **Inspection O1** | Fragments, `.each` copies, incarnations, fused transitions and contract summaries appear under their instance names | Adds; amended by C64 (operations in fragments) |
+| **Testing O1** | `story.machine` also accepts a fragment (`.enter`, `.leave`, `run.calls`, `checkpoint.exit`, host-event sends). `send` runs its turn; `process()` drains operation work and due timers. Copies' incarnations are deterministic | Adds to "story.machine(machine, { … }) tests one fresh actor"; amended by C63 (operations in fragments); replaced by C69 (Stories) |
+| **Inspection O1** | Fragments, `.each` copies, incarnations, fused transitions and contract summaries appear under their instance names | Adds; amended by C64 (operations in fragments) and C78 (Stories) |
 | **CommandLine O5** | Errors: rule 12's list. Warnings: overlaps only closures separate; history targets over non-resumable fragments or states that own a call; a mapper reading a key its own turn writes (from Story traces). Info: unfilled optional guards. The server-call findings are C18 | Adds; amended by C65 (operations in fragments) |
 
 ### For every machine: turns, history, timers
@@ -4469,7 +5288,7 @@ C1–C18 (their record is in [merged/](merged/)); P15 and P20 are rewritten in p
 | C13 | Machines O3 | "Action parameters" split: guards, updates and patch-feeding mappers read before; commit selects, key selects and schedule inputs read after (rule 22) | Exempts commit selects and schedule inputs from "both read the pre-turn snapshot" |
 | C14 | Machines O5 | A schedule function reads the after memory of its arming turn, with the same `now`; `armOn` counts an event accepted anywhere on the active path; keyed schedules (`keys`) keep one timer per key (rule 23) | Adds |
 | C15 | Operations O3 | `optimistic` is the commit's only option, `O.x.commit(select, { optimistic })`, and reads the starting turn's after memory, captured at start; `writes` is the operation's option, `contract.outcomes(mapping, { writes })`, receives `{ value, input }` and reads no memory; domain operations have no `optimistic`, and their `writes` may only invalidate (rules 22, 36; OD26) | Adds |
-| C16 | Testing O2, O3 | A Story checkpoint may read fixture truth (`.checkpoint(name, ({ truth }) => …)`); every ending can be produced through services | Adds |
+| C16 | Testing O2, O3 | *Superseded by C70–C72 (Stories): truth is read with `expect(fake, partial)`, with no checkpoint predicate (Stories T4); every ending is produced through fakes (Stories T2).* | — |
 | C17 | Persistence O4, O6 | Write lanes are Runtime records of the actor identity (C44–C48), acknowledged once per Attempt, in one capture with the records the Attempt predicts; prediction values are never persisted (rules 38, 46). On restore, an Attempt acknowledged once ends `unknown` (`Restored`) and an unacknowledged one `NotSent { why: "Restored" }`; parked endings and held lanes are delivered in rule 44's order, routed by the one owner test (rule 14) | Replaces the former P12 ("a fenced commit restores with its activation"); extends "A crash after acknowledgment restores unknown carrying the same Attempt…" |
 | C18 | CommandLine O5 | Errors: a late event with no handler at a strict ancestor of its owner, naming the event and the state; `failure.NotSent` unmapped where it can occur; an adopted ending unhandled in a leaf of its operation's arrival set (rule 20); `SharedContract`, `DuplicatePlacement`, `VerbMismatch`, `KeyRequired`, `UnresolvedHold` (rules 40–45); a mapped event used as a schedule's `send`, a `raise` or a view's `send` (rule 47); a contract without `key`, or a key field that is not a top-level `input` field (rule 39); (merge 4) `concurrency: "cancel"` on a predicting write (rule 29); `Defect` or `Interrupted` unmapped in a read operation's tag record (rule 37). Warnings: a state-changing transition listing a `reject` commit without its `idle` guard (rule 16); one transition reading, in both memory views, a key it writes (rule 22); `KeyOmitsInput` (rule 39); `UnusedOperation`; `UnresolvedHold` when the owner exists but is unreachable (rule 45); a one-record domain write whose key fields are not those its predicted record's key reads (rule 34). Info: bare writes (rule 40). Type errors: `retry`, `retryable`, a row's `retryCount` or `progress` under `allow` outside an ending's own handler (rule N2); a key-less member outside its operation's ending (rule 43). `SharedCopyLane` is deleted. Display: the commit node shows its operation, contract, verb, policy and key, and for a domain write its predicted entity, key and field names, `.alsoChanges` targets and the reads they reach; `flow explain` prints the lane key and cardinality (A-L2; merge 5, 3.7; 2.7.16) | Adds; amended by C65 (operations in fragments) |
 | C19 | Machines O6 | *Superseded by C40 (operations merge): `subscribe.each` replaces keyed activities.* | — |
@@ -4490,10 +5309,10 @@ Merge 4 ([merged/entities.md](merged/entities.md) section 6.4). Operations O1's 
 | C24 | EntityDomains O1 | The actor decides whether a start runs, the record queue when it is sent; actor concurrency includes `latest`; a replaced never-sent queued write is evidence `Superseded` and a cancelled one ends `NotSent { why: "Cancelled" }`, both without repair (rule 29) | Replaces EDP:112-116's concurrency sentences and ED:650-651's "settles interrupted" |
 | C25 | EntityDomains O1 | `uncertain` is a mark per record and Attempt; a successful retry of that Attempt clears it, a later successful write clears every mark on the record whose Attempt is resolved or released; a read, a forced repair, a failure and `StillUnknown` clear nothing (rule 32) | Replaces "a later write … succeeds or the machine reconciles" (EDP:105-106) |
 | C26 | EntityDomains O1 | No temporary ids: a pending create is a memory draft shown apart from the answer (rule 33) | Names the pattern at EDP:118-119 |
-| C27 | EntityDomains O1, Operations O5, O6 | The record read is `{ data, predicted, uncertain, unconfirmed }`; the resource and answer lane's "true for live optimistic values or predictions" is `predicted` (E16) | Replaces `pending` at EDP:130, OPS:153, OPS:166. Testing.plan still says `pending`; the Testing amendment waits (*Story reads: merge 3*) |
+| C27 | EntityDomains O1, Operations O5, O6 | The record read is `{ data, predicted, uncertain, unconfirmed }`; the resource and answer lane's "true for live optimistic values or predictions" is `predicted` (E16) | Replaces `pending` at EDP:130, OPS:153, OPS:166. Testing O4's `pending` becomes `predicted` in C72 (Stories) |
 | C28 | EntityDomains O1 | A domain write states its `key` like every contract; `flow check` warns when a one-record write's key fields are not the input fields its predicted record's key reads (rule 34, OD15) | Replaces EDP O1's default lane key and merge 5's `many` sentence |
 | C29 | Operations O2 | A read operation's `success:` sees confirmed data only; a read's defect or interruption ends on `failure` as `Defect` or `Interrupted`, required in a tag record (rule 37) | Adds to O2's call values |
-| C30 | Inspection; EntityDomains O2 | Inspection (ED 7's evidence table): `queue` events gain `superseded`, `cancelled` and `overloaded` removals; `uncertain` "ended (later write or reconciliation)" becomes "ended (a later write succeeded, or a retry of the Attempt succeeded)"; held lanes, bound or unbound, appear in Inspection by identity (C51; *Story reads: merge 3*). *Story reads: merge 3:* EntityDomains O2's `Entity.queue` states include removals with their `NotSent` reason, pending merge 3's choice of read (its revision 3 reads removals from `ending` entries) | Adds |
+| C30 | Inspection; EntityDomains O2 | Inspection (ED 7's evidence table): `queue` events gain `Superseded`, `Cancelled` and `Released` removals (an `Overloaded` write never joined, so it is an `ending` record, rule 35); `uncertain` "ended (later write or reconciliation)" becomes "ended (a later write succeeded, or a retry of the Attempt succeeded)"; held lanes, bound or unbound, appear in Inspection by identity (C51). EntityDomains O2's `Entity.queue` removals are `queue` records with their reason (C84, Stories) | Adds |
 
 Merge 5 amends EntityDomains O1/V1, CommandLine O1/O5/O6/Q1 and Inspection O1/O4/D1/D2; its amendments are listed by
 target in [merged/entity-analysis/proposal.md](merged/entity-analysis/proposal.md) section 6.4 (with
@@ -4525,9 +5344,9 @@ The operations merge ([merged/operations/proposal.md](merged/operations/proposal
 | C48 | Persistence O6 | Once per Attempt, per lane record, with no actor (OD20 F2); a persisted lane's re-send waits for its lane record's capture (R9 M3); a failed acknowledgement ends `NotSent { StorageRefused }`, not an interrupt (R9 M2). P15 is narrowed to match. | Replaces "an Attempt's acknowledgement before its adapter is invoked; a failed acknowledgement settles through interrupt with `StorageFailure` evidence" |
 | C49 | ServerRendering O3, O5 | Write lanes are never hydrated; `DehydrateCommitInFlight` is evidence on the client, naming the actor and its state; "the actor's unknown outcome owns reconciliation" is removed; only resource entries hydrate (OD20; R9 M4) | Replaces "an in-flight commit transfers as unknown, and "the actor's unknown outcome owns reconciliation"; client or persisted actors beat hydrated copies"; amended by operations in fragments (instance path in `DehydrateCommitInFlight`, 2.7.13) |
 | C50 | LazyFeatures O3 | A lazy machine's lane records stay dormant, undecoded and uninvoked, until the feature is adopted (R9 M2) | Replaces "a lazy feature's machine loads on demand" |
-| C51 | Inspection O1 | Unbound lanes by identity, with holds, queued commits and marks; lane states `Idle`, `InFlight`, `Held`; `ending` evidence names operation, contract, verb and key; evidence kinds `Superseded`, `Released`, `NothingToResend`, `InFlight` | Amends "lists actors and their lanes" and C30; amended by C64 (operations in fragments) |
+| C51 | Inspection O1 | Unbound lanes by identity, with holds, queued commits and marks; lane states `Idle`, `InFlight`, `Held`; `ending` evidence names operation, contract, verb and key; evidence kinds `Superseded`, `Released`, `NothingToResend`, `InFlight` | Amends "lists actors and their lanes" and C30; amended by C64 (operations in fragments) and C78 (Stories) |
 | C52 | React O2, O3 | Fresh memory and state, with write lanes adopted by identity; the pre-attach send buffer flushes after a new incarnation's deliveries (rule 44); selectors read `operations` | Amends "one fresh local actor per component incarnation" and the pre-attach buffer; amended by C66 (operations in fragments) |
-| C53 | Testing O3, O7 | `Story.ending(O.x, …)` drives an ending through the operation (*Story reads: merge 3*: against Testing O3's "no ending is injected"); Testing O7's `closeTab` stays abrupt; a clean Runtime shutdown with queued work is a policy-suite test (OD23 Q41) | Adds; amended by C63 (operations in fragments) |
+| C53 | Testing O3, O7 | Stories produce endings through fakes, never by injection (Testing O3 kept; Stories T2); Testing O7's `closeTab` stays abrupt; a clean Runtime shutdown with queued work is a policy-suite test (OD23 Q41) | Adds; amended by C63 (operations in fragments) and C71, C74 (Stories) |
 
 ### For operations in fragments
 
@@ -4544,19 +5363,44 @@ The fragments merge ([merged/fragment-operations/proposal.md](merged/fragment-op
 | C60 | Persistence O2 | The lane record carries the subject path (strings) and the releasing mark (a flag); a writing placement's reset value persists with its slice; a frozen slice persists its parked read endings (`Interrupted`) beside its frozen schedules; parked endings of an unplaced path are on the lane record (rules 46, 51, 52, 60) | Amends C44 and the fragments' Persistence O2 row |
 | C61 | Persistence O3 | A releasing mark is captured no later than the actor record that drops the incarnation (rule 60) | Amends C45 |
 | C62 | Persistence O4, O5 | On restore, a writing placement whose re-taken reset value differs resets as a pending reset, the first turn after restore, before rule 44's deliveries; a recorded path the placement cannot produce adopts by key equality only when its last part is the contract's single key field, else `orphaned` (rules 46, 51; P19 gains the case) | Amends C46, C47, P19 |
-| C63 | Testing O1 | `story.machine(fragment, { id, fixtures })`; `.enter`/`.leave` on traits; `Story.ending(Fragment.O.x, …)` (*Story reads: merge 3*); rule 58's walks are Stories | Amends the fragments' Testing O1 row and C53 |
-| C64 | Inspection O1 | Every lane with its operation path, subject path, and whether it is unplaced or releasing; fragment operations in contract summaries; `runtime.unsettledWrites()` lists unplaced lanes and drops a releasing lane once its ending lands | Amends C51 and the fragments' Inspection O1 row |
+| C63 | Testing O1 | `Story.make(fragment, { id, fixtures })`; `enter`/`leave`/`reset` on traits; a fragment's request named by address (rule 65); rule 58's walks are Stories | Amends the fragments' Testing O1 row and C53; amended by C69 (Stories) |
+| C64 | Inspection O1 | Every lane with its operation path, subject path, and whether it is unplaced or releasing; fragment operations in contract summaries; `runtime.unsettledWrites()` lists unplaced lanes and drops a releasing lane once its ending lands | Amends C51 and the fragments' Inspection O1 row; amended by C78 (Stories) |
 | C65 | CommandLine O5 | `SharedContract` per actor tree (an error; a warning for `key: []` on a non-empty path, also C18's severity); `UnresolvedHold` and rule 20 inside each fragment, plus rule 56 at the host; rule 20's `NotSent` on a non-empty path, at the placement; rule 12's new construction errors; `flow explain` prints fragment operations and their subject; a key-less `O.x.cancel` in `whenAbandoned` is the one exception to C18's key-less type error (rules 43, 60); no new finding name | Amends C18 and the fragments' CommandLine O5 row |
 | C66 | React O4 | Views read `Fragment.O.x.get(s, k)` and `s.operations.<instance>.<name>` | Amends C52 |
 | C67 | EntityDomains O1 | A fragment's domain write registers its domain for its actor; `Released` on a releasing lane keeps the record's mark (rules 26, 30, 32, 60) | Adds |
 | C68 | Operations O3, O7 | One write operation per contract per actor, across placements; a release on leave interrupts, releases and ends queued commits as evidence, the one exception to "never silently drops" (rules 24, 40, 60) | Amends C33, C36 |
 
+### For Stories
+
+The Stories merge ([merged/stories/proposal-v2.md](merged/stories/proposal-v2.md), section 6.2). playback.md follows
+Testing O4 and O9; its one stale sentence (`minDwell`'s "frames from one `process()`") is the plan's (M10).
+
+| # | Plan | Rule | Replaces or adds |
+|---|---|---|---|
+| C69 | Testing (title), O1 | Title "…checkpoints, models and property tests" → "…checkpoints and property tests". `Story.make(subject, options)` over an app setup, a machine, a trait or a subroutine (Stories T3); 2.10.2's steps; ids unique across the configuration; the stand-in host, its placement from the declaration; the `world` option; addressed targets; `reload` and `openTab(…, { from })`; properties are options, printed by name; "Scenario commands accept no arbitrary callbacks…" **kept** (rules 61–66) | Replaces O1's `story.app` / `story.machine` sentences and "Both Story kinds support send, process, advance, advanceTo, advanceToNextTimer…"; "unique within its App" → "unique across the configuration"; replaces the fragments' Testing O1 row and C63's syntax |
+| C70 | Testing O2 | Every step settles on a microtask-only run scheduler (`executionMode: "sync"`): no host task runs during a settle, which ends once Flow's queue and the microtask queue are empty; a fiber waiting on the host is `HostTimeWait`; the turn limit is per instant; 2.10.17.5's order (setup-scoped fibers, invocation order); `advance({ next: address })`, `together({ advance })`, `suspended` (rule 61; Stories T5 B1, T7; *Stream details: merge 6* for `Feed.reconnect`'s timers) | Replaces "process() drains currently eligible work…" and "These commands make work eligible without draining it…" |
+| C71 | Testing O3 | Fixtures are client halves; `Fake.server` (run-scoped truth, endpoints, controls, the wire words `hold`, `release`, `drop`, `duplicate`); provenance (`via`); `Fake/Lost` mapped by the binding; a crashed server is the binding's failure plus an `issue`; `Fake.storage` with `purpose`, FIFO per tab, aborted on close, and the scope lock; "fixtures cannot inject operation outcomes directly" **kept** (rules 62, 66; Stories T2, T5 B2) | Adds to O3; supersedes C16 |
+| C72 | Testing O4 | A frame after every committed publication; a step per command, each with its step cut; frames never collapse; `checkpoint.actor(ref)` → `frame.read(ref)`; `pending` → `Story.inspection.work`; `Entity.get` returns `{ data, predicted, uncertain, unconfirmed }`; records in one list with `tab: { name, open }`; `expect` and properties; step cuts and checkpoints are never truncated (rule 64; Stories T5 B3, B4) | Replaces "a frame after every command by default … Consecutive identical frames collapse into one" (amends the accepted playback contract, Stories T5 B4); answers C27's note |
+| C73 | Testing O6 | `propertyTest(story, { steps, properties, seed, runs?, length?, quietWithin? })`; invalid generated steps are skipped and left out of emitted Stories; shrinking keeps pairs; faults are steps; the domain form is a preset (Stories T5 B5; 2.10.16) | Replaces O6's generator shape |
+| C74 | Testing O7 | Tabs share the run's fake servers and `Fake.storage`; remote requests in transit survive `closeTab`, local writes abort; a hydration source runs in the destination's world, may not set `world`, and its requests carry `via.tab: { name: "server", open }`; `dehydrate` moves time as `advance` does (2.10.10, 2.10.11) | Adds |
+| C75 | Testing O8 | Errors `StoryExpectationFailed`, `StoryInvalidCommand` (`ActorAbsent`, `AlreadyEntered`, `NotEntered`, `TabOpen`, `TabClosed`, `NothingHeld`, `NoDeadline`), `HostTimeWait`, `FramesTruncated`, `AmbiguousAttempt` (2.10.2, 2.10.6) | Adds |
+| C76 | Testing O9 | The next-action highlight compares the addressed event; a closed tab renders nothing and reports the gap; fragment-alone Stories are not playable (a type error) (2.10.13) | Adds |
+| C77 | Testing O5, V1–V9 | O5 and V5 removed (T1); V3 proves rule 61 and the instant order; V4 proves publication frames and steps | Applies T1 |
+| C78 | Inspection O1 | `inspect(runtime)` adds `work` (with `waitsFor`) and `incarnations` (`status: active \| frozen`); lanes by identity with `binding` (`bound`, `unbound`, `unplaced`), `releasing` and parked endings; held wire items are not Runtime facts (2.10.6, 2.10.7) | Amends C51, C64 and the fragments' Inspection O1 row |
+| C79 | Inspection O4 | Event kinds gain `ending`, `lane` (with `cell`), `life`, `callback`, `exit`, `listRepair`, `drop`, `session` (with `cell`; *Stream details: merge 6*), and for Story runs `step`, `request`, `control`, `verdict`; `turn` carries the keys its mappers read that it writes; every event gains the run-wide sequence and `tab: { name, open }` (2.10.6) | Adds |
+| C80 | Inspection O5 | Fake truth and request inputs leave the process as digests; `via` is identity, never redacted | Adds |
+| C81 | CommandLine O2, O5, O6 | `describe` prints subject, options, steps, checkpoints, expectations, properties and every fake reached; coverage by cells, handlers (current and late) and Flow reasons; Story-derived warnings from `verdict`, `listRepair`, `drop`, `ending` (rule 51's declines) and `turn` records; rule 20 at a stand-in after a subject change (2.10.12); top-level Stories in `defineConfig` (`appId: null`) (2.10.14) | Amends T2 |
+| C82 | Package O1 | `flow-state/testing` exports `Story`, `Fake`, `propertyTest`, `StoryFrame`, `StoryPlayer`, `definePresentation`; `story` and `model` removed (T1); `flow-state/internal/testing` (not public) exports `disposeRuntime` for Flow's suite | Amends Package O1 |
+| C83 | Diagnostics | The error names of C75 | Adds |
+| C84 | EntityDomains O2, O4 | `Entity.queue` removals are `queue` records with their reason (`Superseded`, `Cancelled`, `Released`; an `Overloaded` write never joined and is an `ending` record, rule 35); `propertyTest`'s domain preset `Domain.propertySteps(domains, inputs)` keeps O4's oracle, quietness and Inconclusive rules | Resolves C30's deferred half |
+| C85 | Persistence O7 | The capture that removes a cancelled Attempt's acknowledgement queues behind that acknowledgement (one writer per scope); an acknowledgement stored before a crash restores as `unknown { Restored }` even if this Runtime had cancelled the Attempt (2.7.13's restore row; Stories T7; section 7 item 21) | Adds |
+
 ### For tooling
 
 | # | Plan | Rule | Replaces or adds |
 |---|---|---|---|
-| T1 | Testing O5 | **Marked for removal: model-based exploration is cut.** Remove Testing O5 (`model`, `stateKey`, `getShortestPaths`, `getSimplePaths`) and the `invariants`, `hot` and `explore` options this row used to add; remove `model` from Package's `flow-state/testing` exports; remove the dispatch-desk demo (`editor.story.ts` `exploreEditor`, its test in `editor.test.tsx`, the README coverage row). Exploration predicts operations, schedules and turns without running them, a second execution path that must keep "replay parity" with the Runtime; Flow keeps one runtime. Finding unwritten sequences stays with `propertyTest` (Testing O6) on the real Runtime | Removes Testing O5 and the Package export; check V7's proofs that cite O5 |
-| T2 | CommandLine O5 | Warnings: an exit no reachable transition takes; a `hostEvent` no host raises; a public fragment event unhandled everywhere; a subroutine whose exits are unreachable from its default. `flow stories --coverage` lists transitions, exits, callbacks and ending handlers (current and late) no Story reaches | Adds to the warning list |
+| T1 | Testing O5 | **Marked for removal: model-based exploration is cut.** Remove Testing O5 (`model`, `stateKey`, `getShortestPaths`, `getSimplePaths`) and the `invariants`, `hot` and `explore` options this row used to add; remove `model` from Package's `flow-state/testing` exports; remove the dispatch-desk demo (`editor.story.ts` `exploreEditor`, its test in `editor.test.tsx`, the README coverage row). Exploration predicts operations, schedules and turns without running them, a second execution path that must keep "replay parity" with the Runtime; Flow keeps one runtime. Finding unwritten sequences stays with `propertyTest` (Testing O6) on the real Runtime | Removes Testing O5 and the Package export; check V7's proofs that cite O5; applied by C77 and C82 (Stories) |
+| T2 | CommandLine O5 | Warnings: an exit no reachable transition takes; a `hostEvent` no host raises; a public fragment event unhandled everywhere; a subroutine whose exits are unreachable from its default. `flow stories --coverage` lists transitions, exits, callbacks and ending handlers (current and late) no Story reaches, and (Stories, C81) the write-lane cells, stream cells (*Stream details: merge 6*) and Flow reasons none reaches | Adds to the warning list |
 | T3 | CommandLine O5 | Warn when `send(ref, E.X)` can reach a state of the target actor where X is Unhandled. There is no silencing keyword; warnings never fail the check | Sharpens "unhandled events" |
 | T4 | CommandLine O5 | A lint rule with an autofix orders the category keys of definitions, fragments, machine bodies, fillings, transitions, commit options and operation options (section 2.6). It never reorders entries inside a record, whose order carries meaning | Adds |
 
@@ -4597,8 +5441,9 @@ The fragments merge ([merged/fragment-operations/proposal.md](merged/fragment-op
   hand (modal R2).
 - **Data-conditioned leaving** (`while: { select, event }`), which enqueues an event when a lane
   selection turns false (modal R7).
-- **Saved-state compatibility Stories** (`story.restore(fixture)`), the analogue of Temporal's
-  replay test. They matter more now that `orphaned` makes version changes first-class (durable R8).
+- **Recorded-history replay** (Temporal's replay test). Upgrade Stories exist: `storage: Fake.storage.from(oldStory)`
+  or `Fake.storage.seed(records)` (2.10.10), which matter more now that `orphaned` makes version changes first-class
+  (durable R8). Replaying recorded production histories stays out (SP 2.17's STR71).
 - **`idempotency` windows, deferred.** A server's dedup window would bound how late a `.retry` may re-send the same
   Attempt. The durable note's R1 gating, restated for this design:
   - an Attempt `createdAt` lets an expired re-send answer **`unknown`** (reason `IdempotencyExpired`), never
@@ -4667,20 +5512,30 @@ Found while merging:
     shape is not settled (see also entities.md A-H2). Narrowed by the operations merge: only a write lane whose operation
     is gone, or whose key no longer decodes, reaches `orphaned`; an undecodable actor record does not orphan its lanes
     (rule 46, P19).
-17. **Story reads for entity domains** (merge 3): `Entity.get` with `predicted` (Testing still says `pending`),
+17. ~~**Story reads for entity domains**~~ **Closed (Stories merge):** `Story.entity` reads `{ data, predicted, uncertain,
+    unconfirmed }` (C72); removals are `queue` records (C84); settlement frames are named with `checkpoint(…, { at })`;
+    `Overloaded` and queue order are reached by holds and sends; held lanes are in `Story.inspection` (2.10.6–2.10.8).
+    Was: `Entity.get` with `predicted` (Testing still says `pending`),
     `Entity.queue` removals (C30), the frames between settlement and admission (2.5, rule 27), reaching `Overloaded`
     and record-queue order with fixtures (2.7.11), held unknown lanes in evidence (rule 21), and server truth against
-    the store. Each is marked *Story reads: merge 3*; merge 3's G10–G14 answer them.
+    the store.
 18. **Typing risks** (operations merge, 2.7.16): the `operations` callback needs `E` first; key-less members need the
     handler's event origin, with `flow check` as the fallback; the fallback for the callback is
     `definition({ … }).operations(fn)`.
-19. **Story reads for operations** (merge 3): `Story.ending` (rule 47) against Testing O3's "no ending is injected";
+19. ~~**Story reads for operations**~~ **Closed (Stories merge):** no ending is injected (Stories T2, rule 62); rows are
+    read on the snapshot; `dispose`, `ensure` and `reload` drive rebind and restore; the parked lane is listed `Held`
+    with `uncertain: true` (2.10.7, 2.10.10). Was: `Story.ending` (rule 47) against Testing O3's "no ending is injected";
     merge 3's 3.14 reads `snapshot.operations` and `O.x.get`, so its question 40 (export commit values at module scope)
     is moot, the definition exports `O`; Story drives for dispose, rebind and restore (2.7.13); the parked lane's flags
-    (2.7.13). Each is marked *Story reads: merge 3*.
+    (2.7.13).
 20. **Typing risks** (operations in fragments, 2.7.16): `Fragment.O`, branded members, key-less `cancel` in
     `whenAbandoned`, rows under `.each`, the fragment's `R` reaching the host, string-only `resetOn`; no type spike;
     `flow check` is the fallback.
+21. **A cancelled Attempt's stored acknowledgement** (Stories merge; for the owner). A cancel that ends a never-sent
+    commit `NotSent { Cancelled }` queues the capture that clears its acknowledgement; if the tab crashes after the
+    acknowledgement was stored and before that capture, the restore finds an acknowledged Attempt and delivers
+    `unknown { Restored }` (2.7.13's restore row, rule 17, C85). Stories T7 keeps this; the alternative is to fence the
+    cancel's capture so the restore sees the cancel (the Stories record's Q15, option B).
 
 ## Changes from v3
 
@@ -4785,10 +5640,17 @@ From [reviews/design-correctness.md](reviews/design-correctness.md) and [reviews
   and requirements (rule 57); release on leave (rule 60); 2.9 added (its examples in a second change set); rules 1–4,
   6, 8–17, 20–24, 26, 27, 37, 40–47, N1, N3, 2.1–2.6, 2.5 steps 1, 3, 5, 6, 2.7.3, 2.7.12–2.7.16, 2.8.4, 3.6, sections
   4, 6, 7 amended; C54–C68 added.
+- Stories (merge 3) merged on 2026-10-31 ([merged/stories/proposal-v2.md](merged/stories/proposal-v2.md), revision 3;
+  decisions Stories T1–T7; plan [merged/stories/merge-plan.md](merged/stories/merge-plan.md)): rules 61–66 (settling,
+  fakes, data, cuts, addresses, owners); 2.10 added (its examples in a second change set); rules 11, 17, 21, 47, 58,
+  2.4, 2.5, 2.7.2, 2.7.3, 2.7.11, 2.7.13, 2.7.16, 2.8, 3.6, sections 5–7 amended; C16, C27, C30, C51, C53, C63, C64,
+  T1 and T2 amended; C69–C85 added; section 7 items 17 and 19 closed, item 21 added; every merge 3 mark for Story reads
+  resolved. Streams (merge 6) is not merged: its rules renumber from 67, and Stories' stream parts are marked *Stream
+  details: merge 6*.
 
 ## Decisions
 
-Settled by the owner, with the reason each wins and what was rejected. Merge 2's decisions keep their numbers D1–D17, merge 4's E1–E18, the operations merge's OD1–OD26 and operations-in-fragments' F1–F10, which
+Settled by the owner, with the reason each wins and what was rejected. Merge 2's decisions keep their numbers D1–D17, merge 4's E1–E18, the operations merge's OD1–OD26, operations-in-fragments' F1–F10 and Stories' T1–T7 (cited "Stories T*n*"; a bare T*n* is a tooling row of section 5), which
 their rewrites, spikes, models and later proposals cite; they are not the problems D1–D7 of section 4.
 
 ### Outcomes (merge 1, [merged/outcomes.md](merged/outcomes.md))
@@ -5242,7 +6104,7 @@ kept, because the record, its reviews and delegated-decisions.md cite them; OD20
 - **F4** Q4 B: in v1, mapped writes only in placements about one thing (root trait, `.each` copy, `.resumable()` without `resetOn`); reads and streams anywhere. (2026-10-30)
 - **F5** Q5 A: a host may read a fragment's lanes (`Fragment.O.x.get`, `idle`, `retryable`; `s.operations.<instance>.<name>`); acting is a type error. (2026-10-30)
 - **F6** Q6 A: a held write whose `.each` copy is removed is a stated limit; the host keeps busy keys in membership when it matters. (2026-10-30)
-- **F7** Q7–Q10 A: subroutines that own writes are phase 2; fragment Stories with `fixtures`, `.enter`, `.leave`; no subroutine entry hook; `cancel` in `whenAbandoned` deferred. (2026-10-30)
+- **F7** Q7–Q10 A: subroutines that own writes are phase 2; fragment Stories with `fixtures`, `.enter`, `.leave`; no subroutine entry hook; `cancel` in `whenAbandoned` deferred. (2026-10-30) *Amended by Stories T3 (delegated, big): `Story.make(fragment)` with `enter`, `leave`, `guards`, `reset`.*
 - **F8** Revision 2 questions, all option A: Q11 (`resetOn` allowed on a writing root or resumable trait; the reset value is the subject; amends F4), Q12 (`cancel` in `whenAbandoned` releases the incarnation's write when it ends; amends F6, reverses F7's deferral), Q13 (`Flow.entry` does not fire on thaw). (2026-10-31)
 - **F9** Review 2 H1, option A: release on leave is a property of the subject's lanes, remembered by the Runtime; spelled key-less, `whenAbandoned: [O.put.cancel]` (NEW MEANING: releases every lane of this incarnation's subject, survives reload, also releases endings parked for the subject). Use it only for work that is worthless once its subject is gone (review 2 H3); like and follow keep the keep-busy line. (2026-10-31)
 - **F10** The proposal (revision 3 with review 3 fixes, 1c3a1c68) is accepted for merging into machine-design.md, under the same process as the operations merge (OD24: the main session approves the change list and resolves small conflicts, logged in delegated-decisions.md; owner conflicts go to the owner). (2026-10-31) *Process, not a design decision.*
@@ -5266,3 +6128,39 @@ kept, because the record, its reviews and delegated-decisions.md cite them; OD20
 - **`Flow.entry` on thaw**, **`Fragment.O` for reads** (ambiguous when a read is placed twice), **a host port for late
   endings**, **Flow keeping a removed copy alive**, **quiet release**, and **release for likes** (loses the user's
   write).
+
+### Stories (merge 3, [merged/stories/decisions-v2.md](merged/stories/decisions-v2.md))
+
+Made by the main session under the owner's overnight delegation, for the owner's review
+([delegated-decisions.md](delegated-decisions.md)). Cited in this file as "Stories T*n*"; a bare T*n* is a tooling row
+of section 5.
+
+- **T1** Continue with proposal-v2.md (from the brief); the earlier proposal.md and its reviews stay as prior art. *Delegated.* (2026-10-31)
+- **T2** C3: no ending injection. Every ending comes from a fake's answer through the real classification, or from a lifecycle step; Testing O3 stays as written. `NotSent { Disposed }` is reached only by the policy suite's internal `disposeRuntime` step. *Delegated.* (2026-10-31)
+- **T3** C10: one constructor, `Story.make(subject)`; the subject's kind decides which steps type-check; a fragment alone runs in an invisible stand-in host. *Delegated, big* (B6: `story.app` and `story.machine` renamed). (2026-10-31)
+- **T4** C4/C12: stream and wire controls are data values on fake handles, applied with `.world(…)`; `together(…)` is the only race word; Testing O1's no-callbacks rule stays. *Delegated.* (2026-10-31)
+- **T5** Accept the proposal's big changes for review and convergence: B1 (`process()` removed, each step settles), B2 (a `Fake` module), B3 (`expect` makes `run()` reject), B4 (a frame per publication, amending accepted Testing O4), B5 (`propertyTest` takes any Story). *Delegated, big.* (2026-10-31)
+- **T6** Revision 2's new changes N1–N4 accepted: the `world` option (servers seeded before the subject starts), one address shape for `match`, `Story.attempt`, record filters, `advance({ next })` and step targets, `reload(tab)` and `openTab(name, { from })`, and `together({ advance: d })`. *Delegated, big.* (2026-10-31)
+- **T7** From final review 2: H1, settling runs on a microtask-only scheduler (Effect 4.0.5 `executionMode: "sync"`), so host I/O never decides a result; the `hold({ at: "response" })` ghost restore is the same as a real crash and follows the merged design (an acknowledged Attempt restores as `unknown { Restored }`), so 2.5 and 3.6 stop claiming "never restores an ended Attempt"; all Mediums and Lows fixed as the review proposes. *Delegated.* (2026-10-31)
+
+(T*n*'s C*n* above are the brief's constraints, not this file's C rows; its section numbers are the proposal's.)
+
+- **Accepted with the proposal (delegated)**, option A each, not decided one by one: the proposal's Q5 (storage is
+  local: FIFO per tab, aborted on close), Q6 (a crashed server is the binding's failure plus an `issue`), Q7 (cells no
+  transport reaches belong to the policy suite), Q9 (outside before inside at equal instants), Q10 (ids unique across
+  the configuration), Q12 (fragment Stories not playable until playback.md's question 2), Q13 (the turn limit per
+  instant per step), Q14 (the names as written). **Decided by the main session at merge (delegated,
+  [merged/stories/merge-plan.md](merged/stories/merge-plan.md)):** a fragment's read named by `instance` and name
+  (rule 65); two endings across a crash stated (rule 17); the stand-in's re-rooted path and rule 20 at the stand-in
+  (2.10.12); the model's ambiguities A1–A6 (2.10.17).
+
+**Also rejected** (the record's sections 1, 2.6 and 2.10):
+
+- **Injecting endings** at the lane, or `Story.ending(O.x, exit)` with a scripted fake without truth: a Story could pass
+  along a path the real response never takes.
+- **A settle that waits for host time** (a grace, or a macrotask flush): host I/O would decide results.
+- **`advance("next")` without an address**, **ordinals across actors**, **a trailing `{ tab }` option**, **`lost` on
+  endpoints**, **`hold({ at: "close" })`** (no transport produces it).
+- **Storage that travels like a remote request** (a ghost restore no page produces), **a handler's defect reaching the
+  client** (no transport carries a defect), **an app-shipped awaiting adapter** (it would test Flow's adapter, not the
+  app).
