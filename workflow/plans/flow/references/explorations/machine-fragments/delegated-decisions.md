@@ -4,6 +4,8 @@ Small conflicts and superseded-decision clean-ups that the main session resolved
 owner's delegation of 2026-10-30 ([merged/operations/decisions.md](merged/operations/decisions.md) OD24). Each row can be reverted on its own:
 the commit that applied it is listed. Larger conflicts are not here; they go to the owner as numbered questions.
 
+**Wider delegation (owner, 2026-10-31):** for streams (merge 6) and operations-in-fragments, the main session takes both to the finish line (revisions, reviews, merges) without asking, including syntax changes and new vocabulary where needed. Every such decision is logged here or in the proposal's decisions file, marked "delegated", for the owner's later review.
+
 | # | Where | Conflict | Resolution | Commit |
 | --- | --- | --- | --- | --- |
 | 1 | merge-plan-4-5.md 3.1–3.3, K1, K2, K4–K10, K12–K21 | the small conflicts between merge 4, merge 5 and the design (wording, numbering, superseded clauses) | as proposed in the merge plan's conflict tables | e4e9527b (merge 4), a88b24b6 (merge 5) |
