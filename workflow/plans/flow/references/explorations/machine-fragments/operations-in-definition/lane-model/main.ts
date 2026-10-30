@@ -8,6 +8,7 @@ import type { Ctx, EndKind, Mode, S, Spec, Viol } from "./model.ts";
 import { audit } from "./audit.ts";
 import { HS, events, mk, restoreTurns } from "./events.ts";
 import { identity } from "./identity.ts";
+import { system } from "./system.ts";
 
 declare const process: any;
 declare const performance: any;
@@ -181,6 +182,8 @@ function main() {
   }
   console.log("\n=== two actor identities on one contract and key (identity.ts; scoped=true is revision 10, false is revision 9's lane per contract and key)");
   identity();
+  console.log("\n=== the lane with the actor's saved record and the active leaf (system.ts; revision 11: OD21)");
+  system();
   if (env("QUICK")) return;
   console.log("\n=== raw enumeration of every event sequence (reduced alphabet, no state merging) vs merged search on the same alphabet");
   for (const mode of only) {

@@ -82,8 +82,13 @@ function product(L: Lane, m: M, wantPath: boolean) {
       else if (e.kind === "user") { const t = m.t[ms]; if (t && key(t.g, t.a) === e.spec) go(u, e.to * 2 + (e.denied ? ms : t.to), `e/${e.spec}`); }
       else if (e.kind === "end") { if (e.spec === hk) go(u, e.to * 2 + (m.hU && !e.denied ? m.hU.to : ms), `unknown->${hk}`); }
       else { // start / reload: a new actor of the machine starts in S0; a delivered unknown { Restored } meets the handler there
-        if (e.spec === "") go(u, e.to * 2 + 0, e.kind, true);
-        else if (e.spec === hk) go(u, e.to * 2 + (m.hU && !e.denied ? m.hU.to : 0), `${e.kind}+Restored->${hk}`, true);
+        // revision 11: a restored record resumes in its saved leaf (m kept); a start without a record (disposeActor, local) begins in S0
+        const fresh = e.kind === "start" ? [false, true] : [false];
+        for (const f of fresh) {
+          const base = f ? 0 : ms;
+          if (e.spec === "") go(u, e.to * 2 + base, e.kind, true);
+          else if (e.spec === hk) go(u, e.to * 2 + (m.hU && !e.denied ? m.hU.to : base), `${e.kind}${f ? "(fresh)" : "(resume)"}+Restored->${hk}`, true);
+        }
       }
     }
   }
@@ -100,7 +105,7 @@ function product(L: Lane, m: M, wantPath: boolean) {
 }
 
 // The rule as written. Returns "pass" | "error" | "warning".
-function rule(mode: Mode, m: M, terminal = true): "pass" | "error" | "warning" {
+function rule(mode: Mode, m: M, terminal = true, arrivals: "rev10" | "rev11" = "rev11"): "pass" | "error" | "warning" {
   const trans = (st: 0 | 1) => m.t[st];
   const isOwnerAct = (t: Tr) => !!t && (t.a === "retry" || t.a === "cancel");
   const anyMember = [m.t[0], m.t[1], m.hU].some(isOwnerAct);
@@ -113,7 +118,22 @@ function rule(mode: Mode, m: M, terminal = true): "pass" | "error" | "warning" {
   const searchOwner = (T: 0 | 1) => reach(T, (t) => (t.g === "idle" ? "block" : isOwnerAct(t) ? (t.g === "none" ? "owner" : "block") : "go"));
   const anyCommit = (T: 0 | 1) => reach(T, (t) => (t.a === "commit" ? "go" : "go")).commit; // plain reachability over every transition
   let worst: "pass" | "error" | "warning" = "pass";
-  const leaves: (0 | 1)[] = m.t[0] && m.t[0].to === 1 ? [0, 1] : [0];
+  // revision 10: any leaf of the machine. Revision 11 (OD21): the initial leaf and every leaf reachable from it without passing X.idle,
+  // plus every leaf reachable without passing X.idle from a transition holding X.commit or from an arrival branch's target.
+  const arrivalLeaves = (): (0 | 1)[] => {
+    const R = new Set<number>([0]);
+    const expand = (from: number) => { const st = [from]; R.add(from); while (st.length) { const x = st.pop()! as 0 | 1; const t = trans(x); if (t && t.g !== "idle" && !R.has(t.to)) { R.add(t.to); st.push(t.to); } } };
+    let changed = true;
+    while (changed) {
+      const n = R.size;
+      for (const x of [...R]) expand(x);
+      for (const x of [0, 1] as const) { const t = trans(x); if (t && t.a === "commit") expand(t.to); }
+      if (m.hU) for (const x of [...R]) expand(m.hU.to);
+      changed = R.size !== n;
+    }
+    return [...R] as (0 | 1)[];
+  };
+  const leaves: (0 | 1)[] = arrivals === "rev11" ? arrivalLeaves() : m.t[0] && m.t[0].to === 1 ? [0, 1] : [0];
   for (const L of leaves) { // U can arrive in any reachable leaf; S0 is also the initial leaf
     const kept: (0 | 1)[] = [];
     if (!m.hU) kept.push(L);
@@ -152,16 +172,17 @@ export function audit() {
   for (const mode of ["reject", "latest", "serialize"] as Mode[]) {
     const t0 = Date.now();
     const L = buildLane(mode);
-    let tp = 0, fp = 0, fn = 0, tn = 0; const ex = { fp: [] as M[], fn: [] as M[] }; const cause = new Map<string, M[]>();
+    let tp = 0, fp = 0, fn = 0, tn = 0, diffArr = 0; const ex = { fp: [] as M[], fn: [] as M[] }; const cause = new Map<string, M[]>();
     for (const m of machines) {
       const flagged = rule(mode, m) !== "pass", stuck = product(L, m, false).stuck;
+      if ((rule(mode, m, true, "rev10") !== "pass") !== flagged) diffArr++;
       if (flagged && stuck) tp++; else if (flagged) { fp++; ex.fp.push(m); } else if (stuck) {
         fn++; ex.fn.push(m);
         const why = rule(mode, m, false) !== "pass" ? "reject's terminal pass (5.1 LEFT): the hold is left on purpose" : "other (unexpected)";
         cause.set(why, [...(cause.get(why) ?? []), m]);
       } else tn++;
     }
-    console.log(`AUDIT mode=${mode} lane-nodes=${L.nodes.length} machines=${machines.length} stuck-and-flagged=${tp} flagged-but-never-stuck=${fp} stuck-but-not-flagged=${fn} neither=${tn} (${((Date.now() - t0) / 1000).toFixed(1)}s)`);
+    console.log(`AUDIT mode=${mode} lane-nodes=${L.nodes.length} machines=${machines.length} stuck-and-flagged=${tp} flagged-but-never-stuck=${fp} stuck-but-not-flagged=${fn} neither=${tn} machines-where-revision-10-arrivals-differ=${diffArr} (${((Date.now() - t0) / 1000).toFixed(1)}s)`);
     const show = (name: string, list: M[], n: number) => {
       list.sort((a, b) => cx(a) - cx(b));
       for (const m of list.slice(0, n)) {
@@ -174,7 +195,14 @@ export function audit() {
     const into = new Map<string, number>();
     for (const es of L.edges) for (const e of es) if (laneSt(L.nodes[e.from]!) !== "Held" && laneSt(L.nodes[e.to]!) === "Held") into.set(e.what, (into.get(e.what) ?? 0) + 1);
     console.log(`  transitions into Held, by cause: ${[...into].map(([k, v]) => `${k} x${v}`).join("; ")}`);
-    show("FALSE POSITIVE (rule flags, never stuck)", ex.fp, 3);
+    const fpClass = new Map<string, M[]>();
+    for (const m of ex.fp) {
+      const hasRetryable = [m.t[0], m.t[1], m.hU].some((t) => t?.g === "retryable");
+      const hasIdle = [m.t[0], m.t[1], m.hU].some((t) => t?.g === "idle");
+      const why = hasRetryable ? "a retryable guard (a budget that the machine never spends, or a leaf it never reaches)" : hasIdle ? "an idle guard that keeps a leaf unreachable while the lane is held" : "other";
+      fpClass.set(why, [...(fpClass.get(why) ?? []), m]);
+    }
+    for (const [why, list] of fpClass) { console.log(`  FALSE POSITIVES caused by ${why}: ${list.length}`); show("   e.g.", list, why === "other" ? 3 : 1); }
   }
   Object.assign(CONFIG, saved);
 }

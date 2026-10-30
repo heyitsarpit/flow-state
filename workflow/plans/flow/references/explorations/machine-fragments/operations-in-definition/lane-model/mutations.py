@@ -15,6 +15,9 @@ M = [
  ("F2 acknowledgement once per Attempt", "ackPerAttempt: true,", "ackPerAttempt: false,", "every (re-)send needs its own acknowledgement again (revision 9)"),
  ("F3 a reload delivers a Held lane", "restoreDeliversHeld: true,", "restoreDeliversHeld: false,", "a reload leaves a Held lane undelivered (revision 9: not delivered again)"),
  ("F5 a refused re-send re-delivers unknown", "refusedResendDelivers: true,", "refusedResendDelivers: false,", "a storage-refused re-send returns to Held and tells nobody (revision 9)"),
+ ("K25 drop the pending-outcome save", "savePendingOutcome: true,", "savePendingOutcome: false,", "an ending with no live actor is evidence even though the identity's record survives (revision 10)"),
+ ("K26 adopted endings and Restored are current", "currentFromActiveLeaf: true,", "currentFromActiveLeaf: false,", "an adopted lane's endings and unknown { Restored } route late, from the root (MD rule 14 as written)"),
+ ("G3 one delivery for a saved unknown and Restored", "restoredDedup: true,", "restoredDedup: false,", "a saved pending unknown and unknown { Restored } for the same hold are both delivered"),
  ("K21 lane identity (actor identity, contract id, key)", "identityScoped: true,", "identityScoped: false,", "one lane per contract id and key: a new incarnation adopts any identity's lane (revision 9)"),
 ]
 def run(src_dir):
@@ -23,7 +26,7 @@ def run(src_dir):
     for line in p.stdout.splitlines():
         if line.startswith("######## reading:"): on = "revision 10" in line
         m = re.match(r"RESULT mode=([\w-]+) (inv\d[\w-]*) (\w+)", line)
-        if m and (on or m.group(1).startswith('identity')): res[(m.group(1), m.group(2))] = m.group(3)
+        if m and (on or m.group(1).startswith(('identity','system'))): res[(m.group(1), m.group(2))] = m.group(3)
     return res
 def bad(r): return {k for k, v in r.items() if v in ("FAIL", "MISSING")}
 tmp = tempfile.mkdtemp()

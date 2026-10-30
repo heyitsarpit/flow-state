@@ -1,86 +1,81 @@
-# Write-lane model: results against proposal.md revision 10 (commit 65f542fe)
+# Write-lane model: results against proposal.md revision 11 (commit ddf46d4a)
 
 Files: `model.ts` (lane), `events.ts` (alphabet), `main.ts` (explorer), `audit.ts` (UnresolvedHold), `identity.ts` (two identities),
-`mutations.py`, `output.txt`, `mutations-output.txt`. Run `tsc -p . && bun main.ts` (17 s), `python3 mutations.py` (about 15 s).
-Line numbers are `proposal.md` at revision 10.
+`system.ts` (new: actor record, leaves, delivery), `mutations.py`, `output.txt`, `mutations-output.txt`.
+Run `tsc -p . && bun main.ts` (30 s), `python3 mutations.py` (about 4 min, 14 mutants). Line numbers are `proposal.md` at revision 11.
 
 ## What is modelled
-- One lane, one key, all five modes; the 16-row table as code. Each use of a row looks up its (row, state) cell and flags the 15
-  "cannot occur" cells. Members, guards, several members per turn, endings (success, failure, unknown, interrupt), the one acknowledgement
-  per Attempt (accepted or refused), invoke, dispose, rebind, reload (restore), Runtime disposal, SSR hydration, and turns ending
-  `ok`, `Denied`, `Unhandled`, `InvalidTurn`. A server applies requests in any order, once per Attempt id, or refuses for good.
-- Revision 10 additions: `retryCount` counted at the invoked cell; a refused re-send returns to `Held` and re-delivers `unknown`
-  (`StorageRefused`); a Held lane is delivered `unknown { Restored }` once per incarnation on rebind and on reload; the full `cancel`/`allow`
-  table; `NotSent { Disposed }`. Every invented behaviour that the text now states was removed.
-- Identity (`identity.ts`): two identities on one contract and key are two lanes with one server value; a new incarnation adopts only its
-  own identity's lane. Bounds: 1 commit per lane there.
-- Search: breadth-first with state merging over the whole finite state space ("complete": every sequence of any length). Bounds: 3
-  commits (cancel, allow: 2), invoked re-sends saturate at 2, `serialize` queue cap 2 (proposal 64), one in-flight copy per request.
-  Raw enumeration of all sequences to depth 6 (reduced alphabet, no merging) agrees with the merged search.
-- New check, inv 9: a Held lane with a live incarnation has always been told of its unknown (every entry into `Held` reaches a
-  handler). Inv 11/12 (identity): endings and `Restored` reach only the owning identity; a turn of one identity never changes another's Attempts.
+- Revisions 10 and earlier: unchanged (one lane, five modes, the 16 x 3 table, identity). See the previous run's text in git history.
+- **Revision 11, `system.ts`** (holding modes; one identity, persisted or local; 2 commits): a small machine with leaves CARD (initial),
+  PAYING, DONE (`Pay` commits and enters PAYING; `Back`; `Giveup` cancels; `Reset`). The mapped events S, F, U, N (success, failure,
+  unknown, delivered `NotSent`) are handled at the root or at the leaf PAYING (two configurations).
+  - A saved actor record (leaf, memory, pending mapped outcomes) that survives while no actor lives: `retain-expiry`, `disposeActor`
+    (record gone), `ensure`, `reload`, Runtime disposal with a final capture (a head that settles first is saved; `NotSent { Disposed }`
+    is saved). An ending with no live actor is saved as a pending outcome when a record exists, else evidence (K25).
+  - Routing (K26): an adopted lane's endings and every `unknown { Restored }` are current from the active leaf; a restored record's
+    saved outcomes and a live actor's own endings keep rule 14 (current while PAYING is active, else late from the root).
+  - Delivery order for a new incarnation: saved outcomes first, then the `Held` head's `Restored` (not if its unknown was saved), then on a
+    reload `W`'s `NotSent { Restored }` (by construction in `deliverAfterStart`).
+  - A local (non-persisted) actor: no actor record, no lane record; a reload drops the lane (G4); an unmount keeps the lane for
+    the next incarnation with equal input.
+- Invariants added: **13** the UI never contradicts what the lane learned (never Paying after a recorded success, failure, release or
+  delivered `NotSent`; never Done unless the Attempt succeeded); **14** every ending is delivered once, saved, or evidence when no record
+  survives (a saved unknown and `Restored` for one hold are one delivery; nothing saved outlives its incarnation); **15** `UnresolvedHold`
+  with OD21's arrivals against stuck states (audit).
 
-## Invariants (revision 10)
+## Results (revision 11)
 | # | reject / latest / serialize | cancel / allow |
 | --- | --- | --- |
-| 1 ending never dropped; `NotSent` only if never sent | PASS | PASS |
-| 2 nothing newer sent past an unresolved unknown | PASS | n/a |
-| 3 server = latest eligible commit | PASS, except the stated limit F1 below | not claimed |
-| 4 no double send | PASS | PASS |
-| 5 flags match definitions | PASS | PASS |
-| 6a every state reaches Idle | PASS | PASS |
-| 6b UnresolvedHold vs stuck | only the by-design `reject` terminal pass (below) | |
-| 7 cannot-occur cells never reached | PASS | PASS |
-| 8 all 33 reachable cells visited | PASS (33/33 per policy) | the `HeldThisTurn` table has no held cells: 29/33 of the holding table |
-| 9 no silent hold | PASS | PASS |
+| 1, 2, 4, 5, 6a, 7, 9 | PASS (3 commits) | PASS (2 commits) |
+| 3 | PASS except the stated limit F1 (a released Attempt landing late; unchanged) | not claimed |
+| 8 | 33 of 33 reachable cells | HeldThisTurn table: 29 of 33 holding cells (unchanged) |
 | 11, 12 identity | PASS | |
+| **13** persisted, handlers at root or leaf | **PASS** | |
+| **14** persisted | **PASS** | |
+| 13, 14 local | PASS | |
+| 2 local (`inv2-local`) | FAIL, stated by G4 (below) | |
+| **15** | no unflagged stuck machine except the `reject` terminal pass | |
 
-## Counterexample (the only one)
-- **F1, inv 3, stated limit** (all holding modes; unchanged, and kept in revision 10 as "a released Attempt landing late"). The write
-  the user released can land after a newer one. `commit;commit -> ack(1) -> invoke(1) -> end-unknown(1)/h:cancel -> ack(2) -> invoke(2) ->
-  land(2)`, then c1 lands last: server=1, latest commit=2 (7 events `serialize`, 8 `reject` and `latest`). Cancelled-yet-landed: 4 events.
+- **15.** 3,500 machines. `latest`, `serialize`: stuck and flagged 2,130, stuck-not-flagged **0**. `reject`: stuck and flagged 2,074,
+  stuck-not-flagged **56, all the terminal pass** (by design). Flagged-but-never-stuck: 640 to 648, all with a `retryable` guard (rule 3's
+  stated over-approximation: a budget the machine never spends). So the rule is exact on stuck machines but not minimal. The two-leaf
+  family cannot tell revision 10's arrivals from OD21's (0 machines differ); the refinement needs a machine with three leaves.
+- Contrast, same machine with K25 and K26 off (revision 10): persisted, root handlers: inv 14 fails in 2 events (`Pay -> runtime-dispose`:
+  the disposed `NotSent` is dropped). Leaf handlers: inv 13 fails in 2 events (`Pay -> reload`: `NotSent { Restored }` routes late and the
+  PAYING handler never sees it).
 
-## inv 6b: UnresolvedHold against stuck states
-3,500 small machines (2 leaves, one user event per leaf, one `unknown` handler; guards none/idle/retryable; members none/retry/cancel/commit)
-in product with the lane. Stuck = a bound lane that cannot reach Idle without a host move.
-- `latest`, `serialize`: stuck and flagged 2,130; flagged, never stuck 648; **stuck, not flagged 0**.
-- `reject`: stuck and flagged 2,074; flagged, never stuck 640; **stuck, not flagged 56, all the terminal pass** (5.1 `LEFT`: the
-  machine leaves the hold on purpose, 3.7). Revision 9's 240 refused-re-send and 18 reload misses are gone: both deliver `unknown` now.
-- False positives are `retryable`-guarded edges that cannot pass in `Idle`, so the leaves the rule counts are unreachable.
+## Counterexamples
+- **F1** (inv 3, stated): unchanged, 7 to 8 events (`commit;commit -> ack(1) -> invoke(1) -> end-unknown(1)/h:cancel -> ack(2) ->
+  invoke(2) -> land(2)`).
+- **L1** (`inv2-local`, all three modes, local identity): `Pay -> ack(1) -> invoke(1) -> reload -> Pay -> ack(2) -> invoke(2)` (7 events).
+  The reload forgets the lane, so a newer write is sent while the older one is unresolved. Line 748-751 states the exception for the
+  *ending* only; it also removes the hold and its order. Same cause as G4, not a new rule, but the stated text is narrower than the effect.
 
-## Mutations (`mutations.py`; all 11 caught; checks that newly fail against the unmutated model)
+## Mutations (all caught; checks that newly fail against the unmutated model)
 | Reverted rule | Newly failing |
 | --- | --- |
-| interrupted Attempt becomes `Held` | inv 2, 3, 5 (all holding modes, identity) |
-| promote only on release | inv 3, 5 (latest, serialize) |
-| invocation whatever the turn's outcome | inv 3 (latest, serialize) |
-| `cancel` by history | inv 1, 2, 3 (all holding modes), inv 1 (cancel) |
-| the `serialize` hold | inv 2, 3, 5 (serialize) |
-| `HeldThisTurn` | inv 5, 7 (cancel, allow) |
-| ending kept on a non-ok turn (F8) | inv 1 (all) |
-| **F2** acknowledgement once per Attempt | inv 1, 2, 3 (all holding modes), inv 1 (cancel, allow) |
-| **F3** a reload delivers a Held lane | inv 9 (all holding modes, identity) |
-| **F5** a refused re-send re-delivers `unknown` | inv 9 (all holding modes, identity) |
-| **K21** lane identity | inv 11, 12 (identity) |
+| interrupted becomes Held; promote only on release; invocation whatever the outcome; cancel by history; serialize hold; HeldThisTurn; ending kept on a non-ok turn; F2; F3; F5; K21 identity | as in revision 10 (see `mutations-output.txt`) |
+| **K25** drop the pending-outcome save | inv 13 and 14 (persisted, root and leaf handlers, all holding modes) |
+| **K26** adopted endings and `Restored` are late, from the root | inv 13 (persisted, leaf handlers, all holding modes) |
+| **G3** a saved unknown and `Restored` both delivered | inv 14 (persisted, leaf handlers) |
 
-`output.txt` also re-runs the model with F2, F3 and F5 switched off (revision 9 behaviour): inv 1, 2, 3 and 9 fail again.
+K26 shows only with a handler at the leaf: a root handler hears a late event too, which is why S7c says "handle at the root".
 
-## New ambiguities and gaps (revision 10)
-- **G1 (line 813, restore, `InFlight`).** "An Attempt acknowledged once restores as `unknown { Restored }`" includes one acknowledged but
-  never invoked (waiting on the record queue). It was never sent, yet becomes an unknown, so `retry` makes its first send. Modelled as written.
-- **G2 (line 814 vs 871-872, Runtime disposal under `cancel`/`allow`).** The row says "as the holding table", whose waiting re-send goes
-  to `Held`; the second table says `HeldThisTurn` "cannot occur" and cannot outlast a turn. Modelled: evidence, lane `Idle`.
-- **G3 (line 814, 962).** "An ending that settles before the final capture is saved as a pending mapped outcome ... delivered to the
-  restored incarnation." Its interaction with `unknown { Restored }` for the same Attempt (one delivery or two) is not said. Not modelled;
-  the model takes the "else unknown" branch.
-- **G4 (lines 715, 750-751).** Principle 2 says a sent Attempt's ending is always delivered; local actors' lanes are never persisted, so a
-  write sent by a local actor before a reload has no lane afterwards and its landing is unseen. Not modelled (single persisted identity);
-  principle 2 needs an exception.
-- **G5 (line 813 restore, `InFlight`, never acknowledged).** "Ends `NotSent { Restored }`" with no promotion; `W` ends the same way, so the lane
-  becomes `Idle`. Consistent, but "an unknown, a retry and a restore never promote" (line ~766) is what makes it work; worth one sentence.
-- **G6 (line 814, hydration).** Only the `Idle` cell is observable (a no-op); the two "cannot occur" hydration cells cannot be tested.
-- Still stated, not new: two identities' lanes on one key are unordered, so inv 3 does not hold across them.
+## Contradictions and gaps (revision 11)
+- **C1 (lines 748-751 vs 849-880, the hold under a local reload).** Principle 2's exception covers the ending, but the table's
+  hold guarantee ("nothing newer is sent while an older unknown is unresolved") also fails after a local reload (L1). One sentence.
+- **C2 (line 807, re-send waits for the lane record's capture, R9 M3).** The table has no cell or event for that wait; the model gates
+  nothing on it (its failure, `capture-refused`, is modelled). `retryCount` and the invoked cell say nothing about it.
+- **C3 (lines 849-880, W's `NotSent { Restored }` with no live actor).** The delivery list puts it at step 2 of the incarnation, but
+  K25 describes *every* ending with no actor as a pending outcome saved in order. Modelled as a step-2 item of the lane, not a pending
+  outcome. If it were a pending outcome it would be delivered at step 1, before `Restored`.
+- **C4 (S7c, line ~1260).** "The same holds for the adopted Attempt's success and failure": a handler of S/F/N that compares the event's
+  Attempt with memory (`cur`) ignores an adopted one in a fresh incarnation (cur = 0). The machine here uses the event's Attempt for S and
+  keeps the comparison for F/N/U; a fresh incarnation then shows the card form after a recorded success. No contradiction with inv 13
+  (the UI does not say Paying), but the user can pay twice. Stated limit worth a sentence.
+- Still stated, not new: two live local actors with equal input have two lanes; `Superseded` is evidence; hydration cells untestable (G6).
 
 ## Where I invented behaviour
-`NotSent` deliveries are counted but run no handler; evidence endings of non-addressable Attempts; the retry saturation; G2's evidence;
-inv 3 treats a failed commit as ineligible and classes a released Attempt that lands as the stated limit, not a failure.
+`Superseded` is never delivered; delivered `NotSent` kinds are Rejected, Cancelled, Overloaded, StorageRefused, Restored, Disposed; a
+head that settles before the final capture is modelled as two variants (success or failure); the final capture is assumed to succeed;
+capture is continuous (the record equals the live actor at any crash); pending outcomes are not size-bounded.

@@ -17,6 +17,9 @@ export const RULES = {
   ackPerAttempt: true, // F2 (OD20): the storage acknowledgement is once per Attempt; a re-send needs no new one
   restoreDeliversHeld: true, // F3 (OD20): a reload delivers a Held lane once, as unknown { Restored } (revision 9: not delivered again)
   refusedResendDelivers: true, // F5 (OD20): a storage-refused re-send re-delivers unknown { StorageRefused }
+  savePendingOutcome: true, // K25 (OD21): an ending with no live actor is a pending outcome of the saved record, else evidence
+  currentFromActiveLeaf: true, // K26 (OD21): an adopted lane's endings and unknown { Restored } are current, from the active leaf (rule 14 as written: late, from the root)
+  restoredDedup: true, // G3: a saved unknown and unknown { Restored } for one hold are one delivery
   identityScoped: true, // K21 (OD20): a new incarnation adopts only its own identity's lanes (revision 9: any, by contract id and key)
 };
 
