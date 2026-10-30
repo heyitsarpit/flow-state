@@ -1,9 +1,12 @@
-// Correct declarations written the ways authors write them, which the source reader must read and agree
-// on: a barrel import, a namespace import, a module const, an `as const` member, a numeric enum member,
-// casts and `!`, element access, a single-parameter callback and nested destructuring.
+// Correct declarations the type-aware lint must not flag: a namespace import, a module const, an enum member,
+// casts and `!`, element access, a single-parameter callback, nested destructuring, a helper that builds a
+// condition, and a domain factory with a computed id (both allowed: the lint follows types, not syntax).
 import * as F from "../flow.ts";
-import { and, domain, eq, read, write } from "./lib.ts";
-import { saveTitle, ticketList } from "./ops.ts";
+import { and, domain, eq, read, write } from "../flow.ts";
+import type { Fields } from "../flow.ts";
+import { issuesInProject, saveTitle, ticketList } from "./ops.ts";
+import type { IssueRow, TicketRow } from "./ops.ts";
+import { Issue } from "./issues.ts";
 import { Ticket } from "./tickets.ts";
 
 export enum Since {
@@ -12,12 +15,13 @@ export enum Since {
 }
 const ASSIGNED = "assigned";
 export const Defaults = { status: "open" } as const;
+const inWorkspace = (record: Fields<TicketRow>, workspaceId: Fields<{ w: string }>["w"]) => eq(record.workspaceId, workspaceId);
 
 export const Variants = domain("variants", {
   constants: read(ticketList)
     .list(Ticket, ({ result }) => result.tickets)
     .where(({ input, record }) =>
-      and(eq(record.workspaceId, input.workspaceId), F.or(eq(record.status, Defaults.status), eq(record.status, ASSIGNED)), F.gt(record.updatedAt, Since.Launch)),
+      and(inWorkspace(record, input.workspaceId), F.or(eq(record.status, Defaults.status), eq(record.status, ASSIGNED)), F.gt(record.updatedAt, Since.Launch)),
     ),
   singleParameter: read(ticketList)
     .list(Ticket, (c) => c.result.tickets)
@@ -31,3 +35,13 @@ export const Variants = domain("variants", {
       Ticket.patch({ workspaceId: input.workspaceId, ticketId: input.ticketId }, { title: input.title as F.Expr<string>, status: Defaults.status }),
     ),
 });
+
+export const issuesFor = (id: string) =>
+  domain(`issues-${id}`, {
+    list: read(issuesInProject)
+      .list(Issue, ({ result }) => result.issues)
+      .where(({ input, record }) => eq(record.projectId, input.projectId)),
+    // A runtime function may use any JavaScript: it is not a recorded position.
+    title: write(saveTitle).predicts(({ input }) => Ticket.patch({ workspaceId: input.workspaceId, ticketId: input.ticketId }, { title: (t, input) => (input.title.trim() === "" ? t.title : input.title) })),
+  });
+export type { IssueRow };

@@ -44,5 +44,5 @@ export const occurrencesIn = op<{ calendarId: string; from?: Date; to?: Date }, 
 export const startingBetween = op<{ calendarId: string; from?: Date; to?: Date }, { items: readonly OccurrenceRow[] }>()("cal/starting-between");
 export const moveOccurrence = op<{ key: { occurrenceId: string }; startsAt: Date }, OccurrenceRow>()("cal/move");
 export type UserRow = { userId: string; status: "active" | "archived"; revision: number };
-export const archiveUsers = op<{ keys: readonly { userId: string }[] }, {}>()("admin/archive");
+export const archiveUsers = op<{ keys: readonly { userId: string }[] }, {}>()("admin/archive", ["keys"]); // the input Schema says keys is an array
 export const bump = op<{ key: IssueKey }, {}>()("issues/bump-twice");

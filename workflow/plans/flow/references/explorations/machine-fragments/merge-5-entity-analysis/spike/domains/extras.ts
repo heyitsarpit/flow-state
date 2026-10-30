@@ -1,7 +1,6 @@
-// Spike-only: shapes from entity-domain-examples.md (a transfer over two records, a list edit kept opaque,
-// a calendar over Dates, a bulk archive with an array key) and reads using the new condition operators.
-// Not reference domains.
-import { add, and, asc, between, desc, domain, entity, eq, isNull, lt, opaque, or, overlaps, read, sub, write } from "../flow.ts";
+// Spike-only: shapes from entity-domain-examples.md (a transfer over two records, a list edit, a calendar over
+// Dates, a bulk archive with an array key) and reads using the new condition operators. Not reference domains.
+import { and, asc, between, desc, domain, entity, eq, isNull, lt, or, overlaps, read, serverMatches, write } from "../flow.ts";
 import { archiveUsers, bump, moveOccurrence, myQueue, occurrencesIn, react, startingBetween, transfer } from "./ops.ts";
 import type { AccountRow, MessageRow, OccurrenceRow, Reaction, UserRow } from "./ops.ts";
 import { Issue } from "./issues.ts";
@@ -19,11 +18,11 @@ export const addReaction = (rs: readonly Reaction[], emoji: string): readonly Re
 
 export const Extras = domain("extras", {
   transfer: write(transfer).predicts(({ input }) => [
-    Account.patch(input.from, { balance: (a) => sub(a.balance, input.amount) }),
-    Account.patch(input.to, { balance: (a) => add(a.balance, input.amount) }),
+    Account.patch(input.from, { balance: (a, input) => a.balance - input.amount }),
+    Account.patch(input.to, { balance: (a, input) => a.balance + input.amount }),
   ]),
   react: write(react).one(Message).predicts(({ input }) => Message.patch(input.key, {
-    reactions: (m) => opaque([m.reactions, input.emoji], (rs, emoji) => addReaction(rs, emoji)),
+    reactions: (m, input) => addReaction(m.reactions, input.emoji),
   })),
   // Two `.where` calls: combined with `and`, in call order.
   myQueue: read(myQueue)
@@ -31,6 +30,10 @@ export const Extras = domain("extras", {
     .where(({ input, record }) => eq(record.workspaceId, input.workspaceId))
     .where(({ input, record }) => and(or(isNull(record.assignee), eq(record.assignee, input.me)), lt(record.updatedAt, input.before)))
     .orderBy(({ record }) => [desc(record.updatedAt), asc(record.workspaceId), asc(record.ticketId)]),
+  // serverMatches under `or`: legal, and maybe for every record, so the join stays conservative.
+  mineOrMatching: read(myQueue)
+    .list(Ticket, ({ result }) => result.tickets)
+    .where(({ input, record }) => and(eq(record.workspaceId, input.workspaceId), or(eq(record.assignee, input.me), serverMatches(input.me, record.title)))),
   // Dates: an absent bound is no bound; endsAt may be null (an open-ended occurrence never overlaps).
   occurrences: read(occurrencesIn)
     .list(Occurrence, ({ result }) => result.items)
@@ -45,7 +48,7 @@ export const Extras = domain("extras", {
   archive: write(archiveUsers).predicts(({ input }) => User.patch(input.keys, { status: "archived" })),
   // Two patches to one record: applied in written order, the second over the first.
   bumpTwice: write(bump).predicts(({ input }) => [
-    Issue.patch(input.key, { likes: (i) => add(i.likes, 1) }),
-    Issue.patch(input.key, { likes: (i) => add(i.likes, 1) }),
+    Issue.patch(input.key, { likes: (i) => i.likes + 1 }),
+    Issue.patch(input.key, { likes: (i) => i.likes + 1 }),
   ]),
 });

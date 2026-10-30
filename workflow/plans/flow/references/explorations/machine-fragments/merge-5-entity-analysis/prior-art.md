@@ -44,3 +44,12 @@ stays custom.
    `Order.Date`; no helpers in version 1; `.as` stays a function, since Effect's `Match` is closures; unevaluable
    predictions skipped, as CEL propagates errors; null sort pairs skipped, as Zero treats null as unordered; the
    agreement check only in `flow check`).
+
+## Revised after review 2
+
+- Recommendation 5's "no helpers in version 1" and "the agreement check only in `flow check`" are superseded by M5-D6
+  (a type-aware lint, helpers allowed, no agreement check), and "no new value operators" by M5-D5 (predicted values
+  are runtime functions; there are no value operators).
+- Three-valued conditions (M5-D8) follow CEL's "errors propagate as values" more closely than two-valued logic did:
+  a failure is a maybe, not a match. They differ from Zero, where a comparison with `null` is false, and from TanStack
+  DB, where UNKNOWN in a WHERE is false: here maybe makes the join repair.

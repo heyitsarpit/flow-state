@@ -1,165 +1,144 @@
 $ tsc -p .   (TypeScript 7.0.2)
-tsc: 0 errors; all 23 @ts-expect-error checks in types.ts hold, and its five exact-type assertions and three allowed forms compile
+tsc: 0 errors; all 13 @ts-expect-error checks in types.ts hold, and its three exact-type assertions and five allowed forms compile
 
 $ bun main.ts   (bun 1.4.2)
-(a) the operator set records and evaluates; both branches of `when` are recorded
-   Issues.setLike predicts likes = add(prior.likes, when(eq(input.liked, prior.liked), 0, when(input.liked, 1, -1)))
-   PASS the whole expression is recorded, the outer and the inner `when`, all three outcomes 0, 1, -1
-   PASS liked true over liked false: likes 5 → 6 (branch 1)
-   PASS liked false over liked true: likes 5 → 4 (branch -1)
-   PASS liked true over liked true: likes 5 → 5 (branch 0)
-   PASS liked false over liked false: likes 5 → 5 (branch 0)
-
-   the conformance table (M5-D3), every row run by the evaluator:
+(a) conditions record and evaluate three-valued: the conformance table (M5-D3)
    | operator | written | given | result |
    | --- | --- | --- | --- |
-   | `eq` | `eq(r.s, "a")` | s = "a" | true |
-   | `eq` | `eq(r.s, "a")` | s = "A" | false |
-   | `eq` | `eq(r.n, null)` | n = null | true |
-   | `eq` | `eq(r.n, i.x)` | n = null, x = null (present) | true |
-   | `eq` | `eq(r.n, i.x)` | n = "a", x = null (present) | false |
-   | `eq` | `eq(r.n, i.x)` | n = "a", x absent | true |
-   | `eq` | `eq(r.s, "a")` | s not carried | matches: not carried |
-   | `eq` | `eq(r.n, 1)` | n = NaN | matches: failed |
-   | `eq` | `eq(r.t, i.t)` | equal times, two Date objects | true |
-   | `eq` | `eq(r.t, i.t)` | t = invalid Date | matches: failed |
-   | `eq` | `eq(r.t, 0)` | t = a Date, against a number | false |
-   | `oneOf` | `oneOf(r.s, i.xs)` | s = "b", xs = ["a", "b"] | true |
-   | `oneOf` | `oneOf(r.s, i.xs)` | s = "b", xs = [] | false |
-   | `oneOf` | `oneOf(r.s, i.xs)` | xs absent | true |
-   | `oneOf` | `oneOf(r.t, [i.t])` | t equal by time | true |
-   | `contains` | `contains(r.tags, "x")` | tags = ["x"] | true |
-   | `contains` | `contains(r.tags, "x")` | tags = [] | false |
-   | `contains` | `contains(r.tags, i.tag)` | tag absent | true |
-   | `contains` | `contains(r.tags, "x")` | tags = null | matches: failed |
-   | `lt` | `lt(r.n, 5)` | n = 3 | true |
-   | `lt` | `lt(r.n, 5)` | n = null | false |
-   | `gte` | `gte(r.n, 5)` | n = 5 | true |
-   | `gte` | `gte(r.n, 5)` | n = null | false |
-   | `lte` | `lte(r.n, 5)` | n = 6 | false |
-   | `gt` | `gt(r.n, 5)` | n = Infinity | matches: failed |
-   | `gt` | `gt(r.n, 5)` | n = {} (bad data) | matches: failed |
-   | `lt` | `lt(r.n, i.x)` | x absent | true |
-   | `lt` | `lt(r.t, i.t)` | t earlier (Dates) | true |
-   | `lt` | `lt(r.t, i.t)` | t = invalid Date | matches: failed |
-   | `lt` | `lt(r.t, 5)` | a Date against a number | matches: failed |
-   | `between` | `between(r.n, 1, 3)` | n = 1 | true |
-   | `between` | `between(r.n, 1, 3)` | n = 3 | false |
-   | `between` | `between(r.n, i.from, i.to)` | from absent, to = 3, n = -100 | true |
-   | `between` | `between(r.n, i.from, i.to)` | from absent, to = 3, n = 5 | false |
-   | `between` | `between(r.n, i.from, i.to)` | both absent, n = null | true |
-   | `between` | `between(r.n, 1, 3)` | n = null | false |
-   | `between` | `between(r.t, i.from, i.to)` | Dates, inside | true |
-   | `overlaps` | `overlaps(r.s, r.e, 2, 5)` | [1, 3) | true |
-   | `overlaps` | `overlaps(r.s, r.e, 2, 5)` | [1, 2) | false |
-   | `overlaps` | `overlaps(r.s, r.e, i.from, i.to)` | to absent, from = 2, [10, 11) | true |
-   | `overlaps` | `overlaps(r.s, r.e, i.from, i.to)` | to absent, from = 2, [0, 1) | false |
-   | `overlaps` | `overlaps(r.s, r.e, 2, 5)` | e = null | false |
-   | `isNull` | `isNull(r.a)` | a = null | true |
-   | `isNull` | `isNull(r.a)` | a = "x" | false |
-   | `isNull` | `isNull(r.a)` | a not carried | matches: not carried |
-   | `not` | `not(isNull(r.a))` | a not carried | matches: not carried |
-   | `not` | `not(eq(r.s, "a"))` | s = "b" | true |
-   | `not` | `not(lt(coalesce(r.n, 0), 5))` | n = null (coalesce guards it) | false |
-   | `or` | `or(isNull(r.a), eq(r.a, i.me))` | a = null | true |
-   | `or` | `or(isNull(r.a), eq(r.a, i.me))` | a = "bo", me = "ana" | false |
-   | `when` | `when(isNull(r.a), true, eq(r.a, "x"))` | a = null | true |
-   | `coalesce` | `eq(r.s, coalesce(i.s, "open"))` | s = "open", input s absent | true |
-   | `coalesce` | `eq(r.s, coalesce(i.s, "open"))` | s = "open", input s = null (present) | true |
-   | `and` | `and(eq(r.w, i.w), serverMatches(i.q, r.title))` | any title | true |
-   | `add` | `add(p.n, 1)` | n = 2 | value 3 |
-   | `add` | `add(p.n, 1)` | n not held | fails (skipped, rule A7) |
-   | `add` | `add(p.n, p.n)` | n = 1e308 (overflow) | fails (skipped, rule A7) |
-   | `sub` | `sub(p.n, i.k)` | n = 10, k = 3 | value 7 |
-   | `when` | `when(i.b, 1, add(p.missing, 1))` | b = true (the other branch is not evaluated) | value 1 |
-   | `coalesce` | `coalesce(p.n, 0)` | n = null | value 0 |
-   | `opaque` | `opaque([p.n], throws)` | the function throws | fails (skipped, rule A7) |
-   PASS 61/61 conformance rows give their expected result
+   | `eq` | `eq(r.s, "a")` | s = "a" | yes |
+   | `eq` | `eq(r.s, "a")` | s = "A" | no |
+   | `eq` | `eq(r.n, null)` | n = null | yes |
+   | `eq` | `eq(r.n, i.x)` | n = "a", x absent | yes |
+   | `eq` | `eq(r.n, i.x)` | n = null, x = null (present) | maybe: server |
+   | `eq` | `eq(r.s, "a")` | s not carried | maybe: not carried |
+   | `eq` | `eq(r.n, 1)` | n = NaN | maybe: failed |
+   | `eq` | `eq(r.t, i.t)` | equal at the millisecond | maybe: server |
+   | `eq` | `eq(r.t, i.t)` | a day apart | no |
+   | `eq` | `eq(r.t, i.t)` | t = invalid Date | maybe: failed |
+   | `oneOf` | `oneOf(r.s, i.xs)` | s = "b", xs = ["a", "b"] | yes |
+   | `oneOf` | `oneOf(r.s, i.xs)` | s = "c", xs = ["a", "b"] | no |
+   | `oneOf` | `oneOf(r.s, i.xs)` | xs = [] | maybe: server |
+   | `oneOf` | `oneOf(r.s, i.xs)` | xs absent | yes |
+   | `contains` | `contains(r.tags, "x")` | tags = ["x"] | yes |
+   | `contains` | `contains(r.tags, "x")` | tags = [] | no |
+   | `contains` | `contains(r.tags, "x")` | tags = null | maybe: failed |
+   | `lt` | `lt(r.n, 5)` | n = 3 | yes |
+   | `gte` | `gte(r.n, 5)` | n = 5 | yes |
+   | `lte` | `lte(r.n, 5)` | n = 6 | no |
+   | `lt` | `lt(r.n, 5)` | n = null | maybe: server |
+   | `not` | `not(lt(r.n, 5))` | n = null (the two-valued trap is gone) | maybe: server |
+   | `gt` | `gt(r.n, 5)` | n = Infinity | maybe: failed |
+   | `gt` | `gt(r.n, 5)` | n = {} (bad data) | maybe: failed |
+   | `lt` | `lt(r.n, i.x)` | x absent | yes |
+   | `lt` | `lt(r.t, i.t)` | a month earlier | yes |
+   | `lt` | `lt(r.t, i.t)` | equal at the millisecond | maybe: server |
+   | `lt` | `lt(r.t, 5)` | a Date against a number | maybe: failed |
+   | `between` | `between(r.n, 1, 3)` | n = 1 | yes |
+   | `between` | `between(r.n, 1, 3)` | n = 3 | no |
+   | `between` | `between(r.n, i.from, i.to)` | from absent, to = 3, n = -100 | yes |
+   | `between` | `between(r.n, i.from, i.to)` | from absent, to = 3, n = 5 | no |
+   | `between` | `between(r.n, 1, 3)` | n = null | maybe: server |
+   | `overlaps` | `overlaps(r.s, r.e, 2, 5)` | [1, 3) | yes |
+   | `overlaps` | `overlaps(r.s, r.e, 2, 5)` | [1, 2) | no |
+   | `overlaps` | `overlaps(r.s, r.e, i.from, i.to)` | to absent, from = 2, [10, 11) | yes |
+   | `overlaps` | `overlaps(r.s, r.e, i.from, i.to)` | to absent, from = 2, [0, 1) | no |
+   | `overlaps` | `overlaps(r.s, r.e, 2, 5)` | s = 1, e = null | maybe: server |
+   | `overlaps` | `overlaps(r.s, r.e, 2, 5)` | s = 6, e = null (the start term decides) | no |
+   | `overlaps` | `overlaps(r.s, r.e, i.from, i.to)` | e = null, from absent, s = 1, to = 5 | yes |
+   | `overlaps` | `overlaps(r.s, r.e, 5, 2)` | from after to | maybe: server |
+   | `isNull` | `isNull(r.a)` | a = null | yes |
+   | `isNull` | `isNull(r.a)` | a = "x" | no |
+   | `isNull` | `isNull(r.a)` | a not carried | maybe: not carried |
+   | `not` | `not(isNull(r.a))` | a not carried | maybe: not carried |
+   | `not` | `not(eq(r.s, "a"))` | s = "b" | yes |
+   | `or` | `or(isNull(r.a), eq(r.a, i.me))` | a = null | yes |
+   | `or` | `or(isNull(r.a), eq(r.a, i.me))` | a = "bo", me = "ana" | no |
+   | `or` | `or(eq(r.team, i.t), eq(r.status, "open"))` | team not carried, status = "open" | yes |
+   | `or` | `or(eq(r.team, i.t), eq(r.status, "open"))` | team not carried, status = "closed" | maybe: not carried |
+   | `or` | `or(eq(r.s, i.s), isNull(r.a))` | s absent (outside `and`), a = "x" | maybe: server |
+   | `and` | `and(eq(r.w, i.w), serverMatches(i.q, r.title))` | w equal | maybe: server |
+   | `and` | `and(eq(r.w, i.w), serverMatches(i.q, r.title))` | w differs | no |
+   | `or` | `or(eq(r.a, i.me), serverMatches(i.q, r.title))` | a = me | yes |
+   | `or` | `or(eq(r.a, i.me), serverMatches(i.q, r.title))` | a = someone else | maybe: server |
+   | `not` | `not(serverMatches(i.q, r.title))` | any record | maybe: server |
+   PASS 56/56 conformance rows give their expected result
 
    tickets.list where and(eq(record.workspaceId, input.workspaceId), eq(record.status, input.status), eq(record.assignee, input.assignee), serverMatches(input.search, record.title))
-   PASS absent status, assignee and search drop their constraints (and serverMatches may hold for any record)
-   PASS status open keeps the open ticket
-   PASS assignee ana: a null assignee is not equal to ana
-   PASS openCount: workspace and the constant "open"
-   extras.myQueue where and(eq(record.workspaceId, input.workspaceId), and(or(isNull(record.assignee), eq(record.assignee, input.me)), lt(record.updatedAt, input.before)))
+   PASS w1, absent filters dropped: the two w1 tickets are maybe (serverMatches), the w2 ticket no
+   PASS status open: only t1 can be in
+   PASS the response check: a maybe never contradicts; a no does
    PASS two `.where` calls are recorded as and(first, second), in call order
    PASS or(isNull, eq) keeps unassigned and mine; lt on a number
-   PASS lt(updatedAt, 15) drops the ticket updated at 20
-   PASS overlaps over Dates: [5,6) and [20,25) meet [4,21); a null end never overlaps
-   PASS overlaps with `to` absent: only the lower bound applies
-   PASS between with `from` absent: the upper bound stays (half-open: the 10th is out)
+   PASS overlaps over Dates: the open-ended occurrence is maybe (its end term only)
+   PASS overlaps with `from` absent: a null end does not matter, the start term decides
+   PASS between with `from` absent: the upper bound stays; a start equal to `to` at the millisecond is maybe
    PASS order check: updatedAt descending, then the key (Order.Number)
    PASS an ascending pair under desc(updatedAt) is HiddenOrder, naming the key
-   PASS a pair with a null sort key is skipped, not HiddenOrder (M5-D4): both pairs touching the null
-   PASS a non-finite sort key is skipped too (Order.Number would rank NaN first)
-   recording without the source reader (the gap this proposal closes):
+   PASS a pair with a null sort key is maybe: skipped, not HiddenOrder (M5-D4)
+   recording alone (the gap the lint closes):
    PASS `||` silently records its first operand
    PASS `?:` silently records one branch
    PASS `&&` silently records its second operand
    PASS Date.now() is recorded as a constant
-   PASS JavaScript arithmetic fails at construction, naming the value: "prior.likes was converted to a primitive: arithmetic, templa…"
 
-(b) source reading equals recording, and a stale build is a DomainSourceMismatch
-   read 7 files through typescript/unstable/async in 52 ms
-   PASS tickets: 6 entries, source and recording identical
-   PASS issues: 5 entries, source and recording identical
-   PASS extras: 8 entries, source and recording identical
-   PASS variants: 4 entries, source and recording identical
-   variants as read: constants and(eq(record.workspaceId, input.workspaceId), or(eq(record.status, "open"), eq(record.status, "assigned")), gt(record.updatedAt, 1700000000))
-   PASS no findings on the reference domains, the extras, the variants or stale.ts (0)
-   DomainSourceMismatch stale.list at list.orderBy.0.op: recorded "asc", source "desc"
-   PASS a lint-clean declaration whose running build is older: the mismatch names the entry and the first differing node (desc in source, asc running)
-   PASS on linted legacy declarations the two disagree wherever recording was silently wrong: either, status, both, recent
-   PASS a domain factory is reported unreadable (an error), not compared, so correct code never gets a false mismatch
+(b) the join rule: repair unless a read field is unchanged or both sides are the same definite answer
+   PASS rev 1's two-valued rule: true before and true after, so no transition fires (the verified missed refetch)
+   PASS the three-valued rule: yes before, maybe after, on a changed read field: repair (evidence: notCarried)
+   PASS a change to a field the condition does not read never repairs it (no refetch-on-every-change cliff)
+   PASS both sides definite and equal (yes, yes: still on red): no repair
+   PASS a definite transition: left, as evidence
+   PASS serverMatches under `or` is legal and maybe: a title change repairs, with `server` as the reason
+   PASS …and a change to a field it does not name does not
+   PASS serverMatches with no record fields reads every field: any change repairs (ED:144)
+   PASS isNull: assigning a ticket is a definite leave
 
-(c) recorded predicted values: start, replay over a changed base, skip, settle
-   PASS at start the key evaluates to {"id":"i1"}: one record, so merge 4 rule 34's lane key
+(c) predictions: runtime functions, recorded for structure, called with the real input
+   Issues.setLike records {"change":"patch","entity":"issues/Issue","fields":{"liked":{"ref":["input","liked"]},"likes":{"runtime":true}},"key":{"ref":["input","key"]}}
+   PASS the Model holds the entity, key and field names; likes is `runtime` (flow explain: likes ← <runtime>)
+   PASS at start the key is read from the input: one record, so merge 4 rule 34's lane key
    PASS base liked false, likes 5; A like starts: liked true, likes 6
    PASS B unlike starts behind A: liked false, likes 5
-   PASS base changes to liked true, likes 9 (a push); A and B replay: liked false, likes 8
+   PASS a push sets liked true, likes 9; A and B replay: liked false, likes 8
    PASS A fails and is retracted; B replays alone: liked false, likes 8
-   PASS B fails too: the base shows: liked true, likes 9
-   PASS the operator form equals the JavaScript function it replaces in 186/186 base × sequence cases
-   PASS A succeeds and its response carries both fields: nothing unconfirmed, B stays live
-   PASS B's confirmed likes retires A's older likes prediction; B's omitted liked is unconfirmed (a confirming read)
-   PASS the store does not hold likes: liked is still shown, likes is skipped (prior.likes is not held) but counts as predicted
-   PASS the response omits likes: the skipped field is unconfirmed, so a confirming read is scheduled (no stale field)
-   PASS an opaque body that throws is skipped, the field keeps the value beneath, the replay goes on
-   PASS a non-finite sum is skipped, not shown as Infinity
-   PASS opaque list edit: two reactions over none give 2; the base moves to 4 and the function replays: 6
-   PASS transfer: A 100 → 70, B 5 → 35; a push sets A to 40 and the replay shows 10
-   PASS transfer joins two record queues and takes no default lane key
-   PASS a predicted delete hides the record; its retraction brings it back
+   PASS B's confirmed likes retires A's older likes; B's omitted liked is unconfirmed (a confirming read)
+   PASS likes is not held: its function gives NaN, the Schema rejects it, it is skipped but still predicted (the field's Schema rejects NaN)
+   PASS the response omits likes: the skipped field is unconfirmed, so it gets a confirming read (no stale field)
+   PASS a function that throws is skipped; the field keeps its value beneath; the replay goes on
+   PASS a list edit is an ordinary function: two reactions over none give 2; over a moved base of 4, 6
+   PASS transfer: two records, replayed over a pushed base; two queues, no default lane key
+   PASS a predicted delete hides the record
    PASS two patches to one record apply in written order (5 → 6 → 7) and join its queue once
-   PASS an array key predicts each listed record once (u1 twice is one), joins both queues and takes no rule-34 lane key
-   PASS an array key with one element still takes no default lane key (the Schema says many)
-   PASS a single-key write does
-   PASS a predicted Date field
-   PASS tickets.assign predicts assignee ana and status assigned
+   PASS an array key is recorded in the Model (`many`, from the input Schema)
+   PASS an array key predicts each listed record once and takes no rule-34 lane key
+   PASS …not even with one element: the Model says many
+   PASS merge 4's original setLike, which closes over the recording input: "input was read after construction: a predicted value's function receiv…"
+   PASS a domain factory with a computed id records normally (allowed, M5-D6)
 
-(d) the source reader flags JavaScript logic and impure calls, with a fix-it
-   domains/legacy.ts:14 legacy-issues.setLike [logic] JavaScript arithmetic or comparison on a recorded value throws at construction; write add, sub, lt, gt
-      fix-it (starting point): add(i.likes, when(eq(input.liked, i.liked), 0, when(input.liked, 1, -1)))
-   domains/legacy.ts:22 legacy-tickets.either [logic] `||` records only its first operand; write or(...)
-      fix-it (starting point): or(eq(record.status, "open"), eq(record.assignee, input.assignee))
-   domains/legacy.ts:26 legacy-tickets.status [logic] `?:` records only one branch (the proxy is always truthy); write when(c, a, b)
-      fix-it (starting point): when(input.status, eq(record.status, input.status), eq(record.status, "open"))
-   domains/legacy.ts:30 legacy-tickets.both [logic] `&&` records only its second operand; write and(...)
-      fix-it (mechanical): and(eq(record.workspaceId, input.workspaceId), eq(record.status, "open"))
-   domains/legacy.ts:34 legacy-tickets.recent [impure] `Date.now()` runs once, at construction, and is recorded as a constant
-      fix-it: pass the value as an input field the machine supplies (input.now)
-   domains/legacy.ts:40 legacy-chat.react [opaque-closure] the opaque function closes over `input.emoji`, a recording value at construction; declare it as a dependency
-      fix-it (mechanical): opaque([m.reactions, input.emoji], (rs, emoji) => addReaction(rs, emoji))
-   domains/legacy.ts:46 legacy-flags.setLike [logic] `?:` records only one branch (the proxy is always truthy); write when(c, a, b)
-      fix-it (starting point): when(input.liked, true, false)
-   domains/legacy.ts:50 <unknown> [unreadable-domain] a domain is read only as domain("literal id", { entry: read(op)…, … }); a factory or a computed id is not read in version 1 (M5-D4: no helpers)
-   PASS `?:` in a predicted value: when(input.liked, true, false), a starting point
-   PASS `?:` in a condition: when(…), which types.ts shows the types then reject
-   PASS `&&`: and(...), mechanical
-   PASS `||`: or(...), a starting point (input.assignee is optional, so rule A3 rejects it)
-   PASS Date.now() is impure
-   PASS an opaque function closing over input: the extras form
-   PASS merge 4's setLike: the fix-it is exactly the ported line
-   PASS a domain factory: unreadable-domain
+(d) the type-aware lint: JavaScript logic and impure calls, with a fix-it that type-checks
+   linted 5 files with type facts from typescript/unstable/async in 57 ms
+   domains/legacy.ts:15 [logic] a recorded value inside a runtime function: `===` on a recorded value records a JavaScript boolean
+      instruction: a predicted value's function receives the input as its second parameter, (beneath, input) => …; use that instead of the recording `input`
+   domains/legacy.ts:15 [logic] a recorded value inside a runtime function: `?:` on a recorded value records only one branch (a proxy is always truthy)
+      instruction: a predicted value's function receives the input as its second parameter, (beneath, input) => …; use that instead of the recording `input`
+   domains/legacy.ts:23 [logic] `||` records only its first operand
+      fix-it: or(eq(record.status, "open"), eq(record.assignee, input.assignee))
+   domains/legacy.ts:27 [logic] `?:` on a recorded value records only one branch (a proxy is always truthy)
+      instruction: a recorded position cannot branch: in a condition, write the alternatives as or(and(…), and(…)) over conditions, make two read entries, or use serverMatches; in a predicted field, use a function (beneath, input) => …
+   domains/legacy.ts:31 [logic] `&&` records only its second operand
+      fix-it: and(eq(record.workspaceId, input.workspaceId), eq(record.status, "open"))
+   domains/legacy.ts:35 [impure] `Date.now()` runs once, at construction, and is recorded as a constant (a best-effort list: Date, Math, crypto, performance)
+      instruction: pass the value as an input field the machine supplies (input.now)
+   domains/legacy.ts:41 [logic] `?:` on a recorded value records only one branch (a proxy is always truthy)
+      instruction: a recorded position cannot branch: in a condition, write the alternatives as or(and(…), and(…)) over conditions, make two read entries, or use serverMatches; in a predicted field, use a function (beneath, input) => …
+   domains/legacy.ts:45 [logic] `?:` on a recorded value records only one branch (a proxy is always truthy)
+      instruction: a recorded position cannot branch: in a condition, write the alternatives as or(and(…), and(…)) over conditions, make two read entries, or use serverMatches; in a predicted field, use a function (beneath, input) => …
+   PASS no findings on the reference domains, the extras or the variants (a helper, a factory, consts, enums, casts, single-parameter and nested callbacks)
+   PASS `||`: or(…), and that exact text compiles in types.ts: or(eq(record.status, "open"), eq(record.assignee, input.assignee))
+   PASS `&&`: and(…), and that exact text compiles in types.ts
+   PASS `?:` in a condition: an instruction, never code (no operator branches, so any code would be a type error)
+   PASS Date.now() in a recorded position is impure
+   PASS merge 4's setLike: both `===` and `?:` over the captured recording input are flagged as a closure, with the (beneath, input) instruction
+   PASS a helper's `?:` over its own recorded parameter is found by type (not reported as a closure)
+   PASS `?:` in a recorded field value is flagged
 
-ALL PASS (64 checks)
+ALL PASS (52 checks)
