@@ -187,7 +187,7 @@ The audit should, for each case: show the wiring as it is written today; say whe
 Candidates already seen: resume position and dedupe on fact feeds; catch-up paging; reconnect backoff kept across a
 reload (the chat `reopenInMs` field); retry-budget handlers (`retryable` then `retry`, else `cancel`) repeated on every
 write; releasing a held write in every toast-only `unknown` handler; mirroring lane state into memory for views;
-key selectors in user events; seeding a feed's first position from a history read. Also: a ready-made payload schema for `missed` events (for example `Feed.Missed`, `{ why, restartAt? }`), since every app declares the same shape. Scope: machine-design.md as merged,
+key selectors in user events; seeding a feed's first position from a history read. From the new-shapes experiment (experiments/new-shapes.md): #10 policy as one value (retry, budget, cooldown, lockout declared once instead of the `retryable`/`retry`/`cancel` trio in every handler) and #14 feeds as tables (resume position, dedupe, ordering and status derived from one declared source). Also: a ready-made payload schema for `missed` events (for example `Feed.Missed`, `{ why, restartAt? }`), since every app declares the same shape. Scope: machine-design.md as merged,
 streams (proposal-v2.md) and operations-in-fragments.
 
 ## 16. Outbound live state on a session (cursors) (deferred by streams S5, 2026-10-30)
@@ -222,3 +222,12 @@ from scratch. Not a full proposal; two outputs:
    to adopt now.
 
 Judge the findings against the current design afterwards; nothing is adopted without the owner.
+
+Leads already found by the new-shapes experiment (experiments/new-shapes.md), to test first: #3 tri-state
+knowledge (one type for a write's `unknown`, a stream's `missed`, and stale or restored data); #9 keyed lanes for
+streams too (removing `DuplicateSession` and release-before-restart); #5 and #6 time as deadlines with reactive
+transitions (removing arm-only handlers, item 1); #1 an intent ledger and #16 `Remote<A>` (Runtime-owned lanes
+widened to timers, sessions and reads). Skipped, with reasons in the experiment's routing: #2, #4, #8 (a different
+core model), #12 (durable workflows, out of scope), #17 (a sync engine), #7 (closures everywhere), #22 (tooling).
+For the Stories proposal (merge 3) when it starts: #19 simulation testing from contracts, #20 record and replay real
+sessions as Stories, #21 fake worlds with one world controller.
