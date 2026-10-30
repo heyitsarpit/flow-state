@@ -11,3 +11,4 @@ Decisions on [proposal.md](proposal.md) (2026-10-30). Everything else in it stay
 | F5 | Q5 A: a host may read a fragment's lanes (`Fragment.O.x.get`, `idle`, `retryable`; `s.operations.<instance>.<name>`); acting is a type error. | 2026-10-30 |
 | F6 | Q6 A: a held write whose `.each` copy is removed is a stated limit; the host keeps busy keys in membership when it matters. | 2026-10-30 |
 | F7 | Q7–Q10 A: subroutines that own writes are phase 2; fragment Stories with `fixtures`, `.enter`, `.leave`; no subroutine entry hook; `cancel` in `whenAbandoned` deferred. | 2026-10-30 |
+| F8 | Revision 2 questions, all option A: Q11 (`resetOn` allowed on a writing root or resumable trait; the reset value is the subject; amends F4), Q12 (`cancel` in `whenAbandoned` releases the incarnation's write when it ends; amends F6, reverses F7's deferral), Q13 (`Flow.entry` does not fire on thaw). | 2026-10-31 |
