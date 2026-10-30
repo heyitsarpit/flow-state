@@ -163,6 +163,31 @@ API and public syntax stay with the owner, and this revision adds none. By root 
 6. **Prior art** (10.3): each write-lane rule against TanStack Query's source, TanStack DB and Replicache.
 7. **Decided (OD18, OD19).** `progress` keeps its schema; Q9, Q10, Q20, Q28, Q31, Q32, Q35 leave section 11.
 
+**Revision 10 (2026-10-30).** Applies OD20 ([decisions.md](decisions.md)), [reviews/review-8.md](reviews/review-8.md)
+and the executable lane model ([lane-model/RESULTS.md](lane-model/RESULTS.md)), which explored 3.8.1's table
+exhaustively and found contradictions F2–F9 and two gaps in `UnresolvedHold`. No public syntax is added. By root
+cause:
+
+1. **Runtime ownership had reached the lane's behaviour but not its identity or storage (R8 K21, H1, H2). Decided
+   (OD20).** A lane is (actor identity, contract id, key), with Runtime O3's identity; a starting incarnation adopts
+   only lanes of its own identity. Lanes are Runtime records for persistence, captured and acknowledged per lane and
+   per Attempt, never copied into the actor's record. Runtime O3/V4 and Persistence O2/O3/O6 are amended.
+2. **`UnresolvedHold` assumed every way into `Held` delivers U to a handler (R8 K22, H3; model 6b). Decided
+   (OD20).** An arrival with no handler is a branch that keeps the hold; a reloaded or rebound hold is delivered
+   exactly once as `unknown { Restored }` (F3); a storage-refused re-send delivers U again with reason
+   `StorageRefused` (F5). S7c says what an author must do. 5.1, 9.2 and 9.6 are fixed.
+3. **The table had contradictions and gaps (model F2, F4, F6–F9). Decided (OD20).** The acknowledgement is per
+   Attempt (F2); a `latest` commit replacing a never-sent head becomes the head (F4); the `cancel` and `allow` table
+   is complete (F6, F9); an ending in a `Denied` or `Unhandled` turn counts as delivered (F8); item 2's sentence is
+   repaired (F7); a released Attempt landing after a newer one is a stated limit with version preconditions as its
+   remedy (F1). `retryCount` counts invoked re-sends (R8 M1).
+4. **The Runtime's own edges had no rows (R8 K23). Decided (OD20).** Runtime disposal invokes nothing new and ends
+   queued commits `NotSent { Disposed }`; lanes are never hydrated from the server. The table is 16 rows × 3 states.
+5. **The OD19 sweep (R8 K24).** Runtime O3/O6, Persistence O2/O3/O6, ServerRendering O3/O5, MD 2.5 step 2, S3, 3.7,
+   R12, C1′ and D9 are amended or reworded; 10.3's two inexact readings are corrected; lows L1–L8 applied.
+6. **Owner API question:** Q40, a Runtime-level read of unsettled writes for `beforeunload` (recommended, optional;
+   the behaviour holds without it).
+
 Short names for citations (all under `workflow/plans/flow/`):
 
 | Short name | File |
@@ -228,7 +253,7 @@ two are new (C7, C8). The decision in the last column replaces revision 2's for 
 | --- | --- | --- | --- |
 | C2′ | **The identity of a server thing was removed instead of placed.** Revision 2 fixed C2 (identity stated twice) by deleting the transaction `key`, then had to rebuild per-thing lanes from entities or memory lists, which do not cover every case and add lifetimes of their own. | C-H1 (plain writes over non-entity rows: per-field autosave drops an edit); A-H1 (no per-member live read); A-H4 (the member spelled several times); A-M3 (starting before the member joins); C-M4 (draining); C-M6 (`.joins` on `.each`) | **The contract's `key` names the server thing** (3.3). Revision 3 made it the lane for every kind; revision 4 states it per kind (OD3, R3 K2): write lanes per (operation, key), created by work, the key derived from the commit's input; `latest` and `cancel` require `key`; for reads the key stays the cache entry (OPS O1), and the lane is the operation (one-off) or the placement (live), with `subscribe.each` placing one session per key |
 | C4′ | **Replaced work was still delivered as if current.** Revision 2 moved superseded results to a mapping key, but kept delivering a plain unknown, and reads had no notion of replacement. | C-H2 (a superseded unknown reaches the main handler, whose `retry` acts on the newer write); A-H2 (one-off reads unordered, a hand-written stale guard); A-H3 (`superseded:` required, yet bare operations exist) | **Replaced work is not delivered** (3.8), by a rule per kind since revision 4: since revision 5 (OD5), only a never-sent `latest` commit is replaceable, and an unknown holds its lane, so `retry` acts on its own Attempt (3.8.1); a one-off read operation delivers only its latest lookup (3.8.2); live work has no replacement rule (3.8.3) |
-| C1′ | **Lane state was attached to data with a different lifetime.** Revision 2 fixed C1 (lanes apart from data) by putting `pending` on records and rows on list items, which tied the actor's workflow to shared or foreign lifetimes. | C-H3 (record `pending` misses many-record writes, absent records, other actors); C-M3 (store events mutating a lane outside a turn; deleted records filling the cap); C-M5 (`Inactive { data }` across params); C-M4 (draining) | **Lanes are the actor's workflow and change only in its turns** (3.4, 3.7): shared data stays in the store (`predicted`, `uncertain`, M4 rule 26); views join by key with `O.x.get(s, key)`; an inactive placement is `undefined`; continuity across params is OPS O6's `placeholder` |
+| C1′ | **Lane state was attached to data with a different lifetime.** (Revision 10: lanes change in the binding actor's turns or the Runtime's steps, OD19, OD20.) Revision 2 fixed C1 (lanes apart from data) by putting `pending` on records and rows on list items, which tied the actor's workflow to shared or foreign lifetimes. | C-H3 (record `pending` misses many-record writes, absent records, other actors); C-M3 (store events mutating a lane outside a turn; deleted records filling the cap); C-M5 (`Inactive { data }` across params); C-M4 (draining) | **Lanes are the actor's workflow and change only in its turns** (3.4, 3.7): shared data stays in the store (`predicted`, `uncertain`, M4 rule 26); views join by key with `O.x.get(s, key)`; an inactive placement is `undefined`; continuity across params is OPS O6's `placeholder` |
 | C3′ | **Persisted identity used a chosen name where a stable one existed.** | C-M1 (`retryCount` resets on reload); C-M2 (joined lanes, per-Attempt binding, `.was` clashes, shape mismatch) | **Persist by (contract id, key)**, with each Attempt's `retryCount` (3.10); unique because a definition has one write operation per contract |
 | C7 | **New** — **rare cases got their own concepts.** | the vocabulary count (about 8 words and 2 modes for rare cases: `.joins`, `.was`, `Inactive`, the 64 cap, draining); A-M1 (`.joins`: one row, two names) | **Rare cases use existing tools** (0.2): a second kind of start is a second `commit` with its own select and a memory flag the handler reads; releasing an unresolved unknown is `cancel`; a rename needs nothing |
 | C8 | **New** — **per-key time and file names were left unspecified.** | A-M4 (keyed-schedule re-arm); A-M2 (`*.operations.ts` holds contracts); names (`with`, `emits`, `joins`, `was`) | `restartOn` evaluated per key on a keyed schedule (3.12); `*.contracts.ts`; `outcomes` (3.1); revision 3's `params` and `start` replaced by the contract's own verbs (OD2) |
@@ -243,6 +268,10 @@ rule for every kind, so the key meant the lane for writes and the cache entry fo
 reads and "evidence only" for writes, and mapping `success` silently made a read one-off. OD3 removes it: the
 declaration stays uniform; identity, rows and replacement are stated per kind; OD2 makes the verb, not the mapping,
 say how the work runs.
+
+**Revision 10's causes** are review 8's K21–K24 and the model's findings: Runtime ownership had reached a lane's
+behaviour but not its identity or storage; the hold check assumed every entry into `Held` delivers a handler; the
+Runtime's own edges had no rows; the sweep was incomplete.
 
 **Revision 9's causes** are review 7's K17–K20: a lane had no end of life (OD19: the Runtime owns it), invocation
 was not in the table, the required key had the opposite risk on reads, and two merge 4 facts had the wrong owner.
@@ -307,6 +336,12 @@ actor may receive `unknown { Restored }` in its first turn and must handle it. R
 ("a resource's key lists every output-changing field") is now checked by `KeyOmitsInput` and folded into S4. The
 table is 14 rows × 3 states = 42 cells, 29 reachable.
 
+Revision 10 (review 8's method): **7 words, 0 modes, 15 rules**. No new word: `StorageRefused` and `Disposed` are
+values of `NotSent` and of the unknown reason; "actor identity" is Runtime O3's. S7c now says the three things an author
+must do (handle U where a new incarnation starts, with a path to an owner, carrying what the owner needs), still one
+rule. Q40 would add one word if taken. The table is **16 rows × 3 states = 48 cells**: 15 cannot occur, 33 are
+reachable, and 4 of those act on the virtual idle lane and do nothing.
+
 ## 1. Requirements
 
 | # | Requirement | Source |
@@ -322,7 +357,7 @@ table is 14 rows × 3 states = 42 cells, 29 reachable.
 | R9 | **No leaked wiring**: no mirrored id lists, no counters in events, no internal key records in views. | AGENTS |
 | R10 | **One runtime, one graph**; `flow check` reads declarations and tokens, never closures. | AGENTS |
 | R11 | **Views, `check()` and Stories read the same published data**, typed from the definition. | MD D18 |
-| R12 | **The store's split stays**: the store owns shared data; the lane owns this actor's workflow. | M4 rule 26 |
+| R12 | **The store's split stays**: the store owns shared data; the lane owns this actor identity's workflow, kept by the Runtime (OD19, OD20). | M4 rule 26 |
 | R13 | **Streams keep their three layers.** | M6 |
 | R14 | **Persistence survives refactors** and keeps retry budgets. | MD C17; R2 C-M1 |
 | R15 | **Fewer concepts**; cut scope for correctness. | owner |
@@ -430,7 +465,7 @@ every kind; what a lane is per differs:
 
 | Kind | A lane is | The contract's `key` is | Status |
 | --- | --- | --- | --- |
-| write (`commit`) | (actor, operation, contract key of the input) | the lane's identity: one write in flight per thing (D9) | **decided (OD9, Q2)** |
+| write (`commit`) | (actor identity, contract id, key of the input), owned by the Runtime | the lane's identity: one write in flight per thing per actor identity (D9) | **decided (OD9, Q2; OD19, OD20)** |
 | one-off read (`lookup`) | (actor, operation): **one lane per operation** | the cache entry the lookup reads (OPS O1, O2), not the lane | proposed, follows from OD3 (R3 K2); its delivery rule decided (OD9, Q6) |
 | live read or stream (`subscribe`) | (actor, placement); under `subscribe.each`, (actor, placement, key) | the entry or session (OPS O1, O4); under `each`, also the session's key | proposed (revision 3, kept) |
 
@@ -629,7 +664,8 @@ const hits = useView(search, (s) => s.operations.results?.data?.hits ?? [])     
   Revision 2 removed it to delete the K-rule; with lanes per key there is no K-rule to delete: different keys are
   different lanes. For reads it keeps OPS O1's meaning only (3.3).
 - **Two write operations on one write contract** in one definition are a declaration error (`SharedContract`). D9's
-  "one write in flight per key" holds by construction. Revision 2's `.joins` is removed (R2 A-M1, C-M6): a second kind
+  "one write in flight per key" holds by construction, per actor identity (two live local actors with equal input are
+  two lanes, R8 M5). Revision 2's `.joins` is removed (R2 A-M1, C-M6): a second kind
   of start is a second `commit` of the same operation with its own select; when the handlers must tell them apart,
   the starting transition records it in memory (9.2's `method`; R3 M6: correct for an unkeyed lane, a known limit for
   concurrent starts on different keys). Reads and streams are exempt: two reads never charge twice, and two sessions on
@@ -645,8 +681,10 @@ Per kind (OD3):
 | a one-off read lane (proposed) | from the operation's first lookup until `cancel`, or the actor ends; it holds its entry until the next lookup or `cancel` (R4 M4) | a released lookup's settlement is evidence only (3.8.2) |
 | a placement's session | the state activation | a released session's delivery is discarded (M6 rule 44) |
 
-- A lane's **status** changes **only in this actor's turns**: at a commit or lookup (step 5, OD16), at an ending's admission
-  (step 1), and at a `cancel` (R5 L7: status, not data). No store event and no other actor touches it (R2 C-M3). A
+- A lane's **status** changes **only in its binding actor's turns** (at a commit or lookup in step 5, OD16; at an
+  ending's admission, step 1; at a `cancel`), **or in the Runtime's own steps for an orphan or after a turn**
+  (invocation, endings with no binding actor, dispose, Runtime disposal; OD19, OD20). No store event and no other
+  actor touches it (R2 C-M3; R5 L7: status, not data). A
   one-off read row's data is the held entry's current confirmed data, so another actor's refetch changes the data,
   not the status.
 - A write lane is the Runtime's (OD19): it outlives its binding actor, and a `reject` hold that passes the terminal
@@ -684,7 +722,7 @@ Revisions 5 and 6 stated how a lane behaves under each member and ending in pros
 next hole (R4 H1–H4, R5 H1, H2). Revision 7 states the write lane once, as a state machine (decided, OD10), and every
 other sentence about write lanes in this proposal is a reading of the table below.
 
-##### The write lane (decided, OD10; cells decided, OD19; timing decided, OD16; ownership decided, OD19)
+##### The write lane (decided, OD10; cells decided, OD19, OD20; timing decided, OD16; ownership decided, OD19, OD20)
 
 **Owner** (decided, OD19; R7 H1, K17). **A write lane is owned by the Runtime, not by the actor**, as TanStack
 Query's `MutationCache` owns mutations rather than the component that started them (`mutationObserver.ts:96-99`:
@@ -693,18 +731,34 @@ kept while pending). The actor that commits is the lane's **binding actor**: it 
 members address the lane. Disposing that actor never drops or cancels the lane's sent, held or queued writes. The
 Runtime keeps the lane, applies its endings to it (the table's lane effects and merge 4's store effects, which never
 depended on the actor, rule 27), and invokes what the table promotes. With no binding actor, an ending is evidence.
-**A later actor of the same definition rebinds the lane by (contract id, key)**, the identity persistence already
-binds by (OD17, Q12), so restore and rebind are one rule: restore is a rebind across a reload. A lane's identity is
-(binding actor, operation, key) while bound, as before, and (definition, contract id, key) while orphaned; two live
-actors of one definition still have two lanes for one key (their writes are ordered by merge 4's record queue, not
-by the lane). "Actor" in earlier sections reads as "binding actor".
+**A lane's identity is (actor identity, contract id, key)** (decided, OD20; R8 K21, H1), where the actor identity
+is Runtime O3's: the ref (machine id, actor id) for a shared actor, and (machine id, input by `Equal.equals`) for a
+local one. **A starting actor (created, ensured or restored) adopts only the orphaned lanes of its own identity**: d2's
+editor never takes d1's lane, and checkout B never takes checkout A's. Restore and rebind are one rule: a new
+incarnation of an identity receives that identity's lanes. A shared identity has one live actor; two live local
+actors with equal input have two lanes for one key, and their plain writes are unordered, as two tabs are (stated;
+domain writes are ordered by merge 4's record queue). Considered and not taken (R8): one lane per (contract id, key)
+Runtime-wide, as TanStack's cache-wide `scope` is; it would let one actor's `retry` and `cancel` act on another's
+Attempt. "Actor" in earlier sections reads as "binding actor". Amends Runtime O3 and V4 ("no outcome from an old
+incarnation reaches a new one"): **a new incarnation of the same identity receives its write lanes**, a hold as
+`unknown { Restored }` and the ending of an Attempt still on the wire.
+
+**Lanes are Runtime records for persistence too** (decided, OD20; R8 H2). A capture includes every non-`Idle` lane
+of a persisted identity, bound or orphaned, under (actor identity, contract id, key); Persistence O6's acknowledgement
+is per lane record and per Attempt, and needs no actor. An actor's saved record holds no lanes. Restore at ready, and
+an ensure after retain expiry, bind the incarnation to the Runtime's one lane, never to a stale copy beside it.
+`disposeActor` removes the actor's record and keeps its non-`Idle` lanes as orphans; `forget` removes both. A local
+actor's lanes are never persisted (Persistence O2). When an actor record no longer decodes but its lane records do
+(they decode by the contract's `input` pick, independent of the machine), the fresh incarnation adopts them in its
+initial leaf. Amends Persistence O2 ("pending writes follow their actor's identity"), O3 (a capture's contents) and O6
+(acknowledgement per lane and Attempt).
 
 **States.** A lane is in one of three states, each with an optional waiting part `W`:
 
 | State | Meaning |
 | --- | --- |
-| `Idle` | no Attempt is unresolved, and `W` is empty; an `Idle` lane with no binding actor is removed |
-| `InFlight` | one Attempt (the **addressable Attempt**) is minted, promoted or re-sent: either **waiting to be invoked** (Persistence O6's acknowledgement, merge 4's record queue, or the turn's end) or **on the wire** |
+| `Idle` | no Attempt is unresolved, and `W` is empty; an `Idle` lane is not stored, and reads see the virtual idle lane, as `get` does (R8 L1) |
+| `InFlight` | one Attempt (the **addressable Attempt**) is minted, promoted or re-sent: either **waiting to be invoked** (Persistence O6's acknowledgement, **once per Attempt**: a re-send of an acknowledged Attempt needs no new one, OD20 F2; merge 4's record queue; or the turn's end) or **on the wire** |
 | `Held` | the addressable Attempt's last ending was unknown, and it is not on the wire: a retained unknown |
 
 `W` holds the **queued commits** behind the addressable Attempt (OD16): none under `reject`; at most one under
@@ -722,7 +776,7 @@ and waiting to be invoked; an unknown, a retry and a restore never promote (R7 M
 its turn ends, whatever the turn's outcome**: an ending admitted in a turn that is then `Denied`, `Unhandled` or
 `InvalidTurn` keeps its lane effects (the ending's cell and any promotion), publishes the after lanes, and invokes the
 promoted Attempt; only the turn's own members are dropped with the turn. An Attempt is then invoked when Persistence
-O6's acknowledgement and its merge 4 record queues allow, which may be many turns later; until then it is waiting to
+O6's acknowledgement (once per Attempt, OD20) and its merge 4 record queues allow, which may be many turns later; until then it is waiting to
 be invoked. Before, MD 2.7.12 invoked a waiting start at settlement; this keeps that independence from the turn.
 
 **Flags, as functions of the state** (decided, OD10; R5 K10). Each is true in exactly one condition:
@@ -733,7 +787,7 @@ be invoked. Before, MD 2.7.12 invoked a waiting start at settlement; this keeps 
 | `uncertain` | `Held` | M4's word, for this lane; false during a re-send, so a keyed schedule over `uncertain` re-arms on every unknown (5.3) |
 | `waiting` | `W` is not empty | independent of the other two |
 | `outstanding` | the number of queued commits | `serialize` rows only, MD's word (R6 L4) |
-| `retryCount` | the addressable Attempt's re-sends; 0 in `Idle` | kept across `Held` → `InFlight`, across rebinds and persisted (3.10) |
+| `retryCount` | the addressable Attempt's **invoked** re-sends; 0 in `Idle` | counted at the invoked cell, not at `retry` (R8 M1), so a re-send that never left uses no budget; kept across rebinds and persisted |
 
 A view that wants "not confirmed" to stay on during a re-send reads `uncertain || retryCount > 0`.
 
@@ -743,42 +797,47 @@ OD19: Q28 A). "Delivered" is a mapped event to the binding actor in a later turn
 
 | Row | `Idle` | `InFlight` | `Held` |
 | --- | --- | --- | --- |
-| **`commit`** | mint an Attempt → `InFlight` | `reject`: ends `NotSent { Rejected }`, delivered, state unchanged; `latest`: becomes `W`, a previous `W` ends `Superseded` (evidence), **and an addressable Attempt never sent and not yet invoked is replaced too** (it is never-sent work, principle 1; R7 L3); `serialize`: appended to `W`, past 64 `NotSent { Overloaded }` | as `InFlight`: the hold refuses (`reject`) or queues (`latest`, `serialize`); nothing is sent |
-| **`retry`** | evidence `NothingToResend` | evidence `InFlight`, no re-send | re-send the addressable Attempt with its id and input (M4 rule 31), `retryCount + 1` → `InFlight` (waiting to be invoked) |
-| **`cancel`** | nothing | on the wire: interrupt it; the lane stays `InFlight` until the interrupt's ending is admitted, `unknown { Cancelled }` (→ `Held`) or the real ending if it had already settled (R6 L1). Waiting to be invoked, **by history** (R7 H2): never sent → it ends `NotSent { Cancelled }`, delivered (MD rule 24) → promote; a re-send → it returns to `Held` and is released (`Released`, the record's mark kept) → promote | release the addressable Attempt (`Released`) → promote, or `Idle` |
+| **`commit`** | mint an Attempt → `InFlight` | `reject`: ends `NotSent { Rejected }`, delivered, state unchanged; `latest`: becomes `W`, a previous `W` ends `Superseded` (evidence), **and an addressable Attempt never sent and not yet invoked is replaced too**: it ends `Superseded` and **the new commit becomes the addressable Attempt**, waiting to be invoked (OD20, F4; R7 L3); `serialize`: appended to `W`, past 64 `NotSent { Overloaded }` | as `InFlight`: the hold refuses (`reject`) or queues (`latest`, `serialize`); nothing is sent |
+| **`retry`** | evidence `NothingToResend` | evidence `InFlight`, no re-send | re-send the addressable Attempt with its id and input (M4 rule 31) → `InFlight` (waiting to be invoked) |
+| **`cancel`** | nothing | on the wire: interrupt it; the lane stays `InFlight` until the interrupt's ending is admitted, `unknown { Cancelled }` (→ `Held`) or the real ending if it had already settled (R6 L1). Waiting to be invoked, **by history** (R7 H2): never sent → it ends `NotSent { Cancelled }`, delivered (MD rule 24) → promote; a re-send → it returns to `Held` and is released (`Released`, the record's mark kept, its record-queue entry withdrawn so it is never invoked, R8 L2) → promote | release the addressable Attempt (`Released`) → promote, or `Idle` |
 | **`idle`** (guard) | passes | denies `InFlight` | denies `Uncertain` |
 | **`retryable({ times })`** (guard) | denies `NothingToResend` | denies `InFlight` | passes if `retryCount < times`, else denies `RetryLimit { retryCount }` |
-| **invoked** (Runtime) | cannot occur | waiting → on the wire | cannot occur |
-| **storage refused** (Persistence O6 acknowledgement fails, before invocation; R7 L9) | cannot occur | never sent: ends `NotSent { StorageFailure }`, delivered → promote; a re-send: returns to `Held` (it may have landed the first time) | cannot occur |
+| **invoked** (Runtime) | cannot occur | waiting → on the wire; a re-send adds 1 to `retryCount` here | cannot occur |
+| **storage refused** (before invocation; R7 L9) | cannot occur | never sent (its Attempt's one acknowledgement fails): ends `NotSent { StorageRefused }` (Persistence O6's `StorageFailure` evidence), delivered → promote. A re-send (its Attempt was acknowledged once, so it waits for no new acknowledgement; refused only when the lane record's capture fails before invocation): returns to `Held`, and **the operation's mapped `unknown` event is delivered again, with reason `StorageRefused`**, so a handler runs (OD20, F5; R8 M1) | cannot occur |
 | **success** | cannot occur | delivered → promote, or `Idle` | cannot occur |
 | **failure** | cannot occur | delivered → promote, or `Idle`; the failed Attempt is resolved, so a later `retry` is `NothingToResend` (amends MD rule 19) | cannot occur |
 | **unknown** (incl. `StillUnknown`) | cannot occur | delivered → `Held` | cannot occur |
 | **interrupt** (adapter, or after a `cancel`) | cannot occur | delivered as `unknown` → `Held` | cannot occur |
-| **dispose** (the binding actor ends; R7 K17) | the lane is removed | unchanged: the Attempt stays waiting or on the wire, and the Runtime invokes it; its ending is applied and is evidence until a rebind | unchanged; the hold and `W` stay in the Runtime |
-| **rebind** (an actor of the definition starts and adopts the lane) | cannot occur (no lane) | unchanged; the new actor receives the ending when it lands | the hold is delivered to the new actor as `unknown { Restored }` in its first turn, `retryCount` kept; `W` stays queued |
-| **restore** (Persistence O6) | stays `Idle` | an Attempt whose send was acknowledged restores as `unknown { Restored }`, delivered → `Held`; one never acknowledged ends `NotSent { Restored }`; each `W` entry ends `NotSent { Restored }`, delivered (MD C2) | stays `Held`, **not delivered again** (R5 L6), unless the restoring actor is a new binding actor, which is a rebind; "acknowledged" is per Attempt (R6 L2); `W` as in `InFlight` |
+| **dispose** (the binding actor ends; R7 K17) | nothing (virtual idle lane) | unchanged: the Attempt stays waiting or on the wire, and the Runtime invokes it; its ending is applied and is evidence until a rebind | unchanged; the hold and `W` stay in the Runtime |
+| **rebind** (an incarnation of **the same identity** starts and adopts the lane, OD20) | cannot occur (no lane) | unchanged; the new incarnation receives the ending when it lands | the hold is delivered **exactly once**, as `unknown { Restored }`, in the new incarnation's first turn (OD20, F3), `retryCount` kept; `W` stays queued |
+| **restore** (Persistence O6) | nothing (virtual idle lane) | an Attempt acknowledged once (per Attempt, OD20 F2) restores as `unknown { Restored }`, delivered → `Held`, even if its current re-send was waiting; one never acknowledged ends `NotSent { Restored }`; each `W` entry ends `NotSent { Restored }`, delivered (MD C2) | stays `Held`, and the hold is delivered **exactly once**, as `unknown { Restored }`, in the restored incarnation's first turn (OD20, F3; revision 9's "not delivered again" is removed); `W` as in `InFlight` |
+| **Runtime disposal** (OD20, K23; R8 M2) | nothing (virtual idle lane) | from its start nothing is invoked. Waiting, never sent: ends `NotSent { Disposed }`, delivered as evidence (predictions removed, rule 30). Waiting re-send: → `Held`. On the wire: Runtime O6 (settles within its bound, else unknown). An ending that settles before the final capture is saved as a pending mapped outcome (Persistence O3) and delivered to the restored incarnation. Each `W` entry ends `NotSent { Disposed }`, evidence | stays `Held`; captured if the identity persists, else gone with the Runtime (evidence); each `W` entry ends `NotSent { Disposed }`, evidence |
+| **SSR hydration** (OD20, K23; R8 M3) | lanes are never hydrated from the server; only resource entries are. A commit in flight at dehydration is reported (`DehydrateCommitInFlight`, ServerRendering O3) and is evidence; no client lane is created | cannot occur (no client lane exists before hydration) | cannot occur |
 
-That is 14 rows by 3 states, 42 cells; 13 are "cannot occur" (an ending, an invocation or a storage refusal only
-exists for an Attempt that is `InFlight`; a rebind needs a lane), and 29 are reachable. An ending of an Attempt
+That is 16 rows by 3 states, 48 cells; 15 are "cannot occur" (an ending, an invocation or a storage refusal only
+exists for an Attempt that is `InFlight`; a rebind needs a lane; hydration creates none), and 33 are reachable, of
+which 4 act on the virtual idle lane and do nothing (dispose, restore, Runtime disposal, hydration in `Idle`). `unknown`
+and `interrupt` have the same effect; they stay two rows because their causes differ. `StillUnknown` is MD rule 18's
+name for a re-send's failure, which is treated as unknown. **An ending admitted in a `Denied` or `Unhandled` turn
+counts as delivered** (OD20, F8): its lane effect is kept, and it is not delivered again. An ending of an Attempt
 that is not the addressable one (under `cancel` concurrency, an interrupted older Attempt) is evidence, routed by
 Attempt id, never read against the `unknown` in `InFlight` cell (R7 L8). Every cell names one address and one next
 state.
 
-**What rebinding delivers, and when** (decided, OD19; specified here, proposed). Rebinding happens when an actor of
-the same definition starts (is created or restored) and finds an orphaned lane of its definition whose (contract id,
-key) it does not already hold. If a live actor already holds that key, the orphan stays with the Runtime until a
-starting actor can adopt it. In the adopting actor's first turn:
+**What rebinding delivers, and when** (decided, OD19, OD20). When an incarnation of an identity starts, in its first
+turn, after any saved outcomes (Persistence O4) and before any external event (R8 L7):
 
-- a `Held` lane delivers `unknown { Restored }` once, so the new actor's unknown handler owns the hold, exactly as
-  after a reload;
+- each `Held` lane delivers `unknown { Restored }` **exactly once**, in lane creation order, so the new
+  incarnation's unknown handler owns the hold, whether it came by rebind or by reload;
 - an `InFlight` lane delivers nothing now; its ending is delivered when it lands;
-- `W` stays queued and keeps its order: the latest edit is not lost, and it is sent after the hold resolves.
+- `W` stays queued and keeps its order on a rebind (it ends `NotSent { Restored }` only on a reload, MD C2).
 
-Never re-delivered: an ending that landed while the lane had no binding actor is evidence, and is not replayed; its
-lane effect (→ `Idle`, → promote, or → `Held`) already happened, and a resulting `Held` is delivered as above. This
-matches TanStack Query: paused mutations stay in the cache and continue through `resumePausedMutations`
-(`mutationCache.ts:231-239`, `mutation.ts:165-170`), and only paused ones are dehydrated by default
-(`hydration.ts:125-127`), rebuilt into the cache on hydrate (`hydration.ts:200-209`).
+Never re-delivered: an ending that landed while the lane had no binding actor is evidence; its lane effect already
+happened, and a resulting `Held` is delivered as above. Runtime observers see such evidence, as TanStack's
+`MutationCache` global callbacks see every mutation's settlement (`mutationCache.ts:19-45`, `mutation.ts:238-300`).
+An orphan that no incarnation of its identity adopts keeps its hold, its queued commits and its record's mark until
+the Runtime ends (or, persisted, until a reload); Inspection lists it (R8 M4, stated limit). A Runtime-level read of
+unsettled writes, for a host's `beforeunload`, would need public API: owner question Q40.
 
 **Key-less members in an ending** (decided, OD8; R5 K9; R6 M1): a key-less `retry`, `retryable` or `cancel` in a
 handler of an event its operation alone maps names **that ending's own Attempt; once that Attempt is resolved or
@@ -798,16 +857,22 @@ is live; an unknown is held only for its own ending's turn (**`HeldThisTurn`**, 
 
 | Row | `Idle` | `InFlight` | `HeldThisTurn` |
 | --- | --- | --- | --- |
-| **`commit`** | mint → `InFlight` | interrupt the one on the wire (its ending is evidence by Attempt id), mint → `InFlight` | mint → `InFlight`; the held one becomes evidence |
+| **`commit`** | mint → `InFlight` | on the wire: interrupt it (its ending is evidence by Attempt id), mint → `InFlight`; waiting to be invoked, never sent: it ends `Superseded` (evidence), mint; a waiting re-send: it becomes evidence (released), mint (OD20, F6) | mint → `InFlight`; the held one becomes evidence |
 | **`retry`** | `NothingToResend` | evidence `InFlight` | re-send, same id → `InFlight` |
 | **`cancel`** | nothing | as the holding table (by history before invocation) | release (`Released`) → `Idle` |
 | **`idle`**, **`retryable`** | as the holding table's `Idle` | as its `InFlight` | as its `Held` |
 | **success**, **failure** | cannot occur | delivered → `Idle` | cannot occur |
 | **unknown**, **interrupt** | cannot occur | delivered → `HeldThisTurn` | cannot occur |
 | **turn end** | | | → `Idle`; the unknown is evidence |
-| **dispose**, **rebind**, **restore** | as the holding table | as the holding table | → `Idle` (evidence); a restored acknowledged Attempt becomes `HeldThisTurn` in the restoring actor's first turn |
+| **invoked** | cannot occur | waiting → on the wire | cannot occur |
+| **storage refused** | cannot occur | never sent: `NotSent { StorageRefused }` → `Idle`; a re-send: delivered as `unknown { StorageRefused }` → `HeldThisTurn` (OD20, F5) | cannot occur |
+| **dispose** | nothing | unchanged; the Runtime invokes it; its ending is evidence until a rebind | cannot outlast its turn |
+| **rebind** | cannot occur | unchanged; the new incarnation receives the ending | cannot occur |
+| **restore** | nothing | acknowledged: delivered as `unknown { Restored }` → `HeldThisTurn` in the first turn; never acknowledged: `NotSent { Restored }` | cannot occur |
+| **Runtime disposal**, **SSR hydration** | as the holding table | as the holding table | cannot occur |
 
-Under **`allow`**, a lane is a set of independent Attempts; its state is a count (`outstanding`), `pending` is
+Under **`allow`** (OD20, F9), a lane is a set of independent Attempts, each following the `cancel` table's rows for
+itself, including invoked, storage refused, dispose, rebind and restore; its state is a count (`outstanding`), `pending` is
 `outstanding > 0`, and each Attempt has its own `HeldThisTurn` for its own ending's turn. `retry` and `cancel` exist
 only key-less in an ending's own handler (MD N2 stands elsewhere); the "then the lane's addressable one" step does not
 apply. Rows: `{ pending, retryCount, progress? }` under `cancel`, `{ pending, outstanding }` under `allow`; no
@@ -843,27 +908,29 @@ settlement (rule 27), and orders writes to a record across lanes and actors (rul
 - **Marks (rule 32, amended per Attempt):** a later write's success clears every mark on the record whose Attempt is
   resolved or released; a mark whose Attempt is still unresolved stays. `Released` (the table's `cancel` cells) is a
   store effect: it tells the record queue the Attempt is given up. Disposal is not a release (the lane lives on,
-  OD19), so a disposed actor's held write keeps its mark until it is resolved or released by a rebinding actor; a
-  mark is never orphaned, because its Attempt is never orphaned (R7 walk B).
+  OD19), so a disposed actor's held write keeps its mark while its Attempt is unresolved; an orphan that no
+  incarnation of its identity adopts keeps it until the Runtime ends, and Inspection lists it (R8 M4).
 - **`basedOn` rebase (decided, OD19: Q32 A, owner moved to the record queue):** a queued write whose `basedOn` for
   record r equals the committed base of the write ahead of it **in r's record queue** takes that write's returned
   version for r, transitively. A like and a rename of issue 1 committed on v4 no longer 412 each other (R7 M4);
   revision 8's lane chain is the special case. A released predecessor returns no version, so the queued write keeps
-  its base (a 412 may follow, stated). Plain transactions have no record queue and get no rebase; they compare
-  versions in their commit function.
+  its base (a 412 may follow, stated). The rebase applies to never-sent writes only: a re-send keeps its first
+  send's input and `basedOn` under its own idempotency key (R8 L5). Plain transactions have no record queue and get
+  no rebase; they compare versions in their commit function.
 
 The other merge 4 facts are unchanged: a queued `latest` commit applies its prediction at commit and joins the record
-queue (rules 28, 29); `Superseded` and `NotSent { Cancelled | Rejected | Restored | StorageFailure }` remove its
+queue (rules 28, 29); `Superseded` and `NotSent { Cancelled | Rejected | Restored | StorageRefused | Disposed }` remove its
 prediction without repair (rule 30); rule 30's record-queue hold and the lane hold agree. A re-send joins its record
 queues again (rule 31), which is why a re-send can wait to be invoked across turns (the `cancel` cell's re-send case).
 
 **Stories and tests.** A Story reaches the cells its machine's transitions allow: `commit`, `retry`, `cancel` by
 sending the user events that hold them; endings with `Story.ending(O.x, ...)`; dispose and rebind by disposing the
-Story's actor and starting another of the definition in the same Runtime; restore with the Story's reload. All 29
-reachable cells per holding policy, the storage refusal, and the unacknowledged-restore cell belong to **a policy
-suite in Flow's own tests**, not to an app's Stories (R6 L2). Walks kept as Stories: 8.2's force save, 5.3's three
+Story's actor and starting another incarnation of the same identity in the same Runtime; restore with the Story's
+reload. `Story.ending` on an orphan addresses the lane by identity in the Story's Runtime (R8 L6). All 33 reachable
+cells per holding policy, the storage refusal, Runtime disposal and the unacknowledged-restore cell belong to **a
+policy suite in Flow's own tests**, which the executable model (`lane-model/`) is the first draft of, not to an app's Stories (R6 L2). Walks kept as Stories: 8.2's force save, 5.3's three
 re-sends offline, 8.2's `CloseAnyway` then unmount (R7 H1), 9.3's `Saved` denied (R7 H3), and sketch 10's walk E
-(R7 H2).
+(R7 H2), plus a rebind into a leaf with no handler (R8 H3).
 
 **Amendments to MD, OPS and merge 4** (listed, OD16; completed per R7 M6). Each is a sentence an implementer would
 otherwise follow:
@@ -887,7 +954,14 @@ otherwise follow:
 | M4 rule 31 | `retry` only under `reject`, `latest`, `cancel` | also on a `serialize` head |
 | M4 rule 32 | a later write's success clears every mark on the record | only marks whose Attempt is resolved or released, per Attempt, in the record queue |
 | M4 rule 34 | a one-record domain write's key defaults to the record's key | no default (OD15) |
-| M4 `basedOn` | the version at commit | rebased along the record queue (OD19) |
+| M4 `basedOn` | the version at commit | rebased along the record queue, never-sent writes only (OD19) |
+| MD 2.5 step 2 | when every alternative declines, "then nothing changes" | an admitted ending's lane effects survive `Denied`, `Unhandled` and `InvalidTurn`, and count as delivered (OD20) |
+| Runtime O3, V4 | no outcome, schedule, issue or send from an old incarnation reaches a new one | except its write lanes: a hold as `unknown { Restored }`, and the ending of an Attempt still on the wire (OD20) |
+| Runtime O6 | invoked commits settle within the disposal bound | and nothing new is invoked once disposal starts; queued commits end `NotSent { Disposed }` (OD20) |
+| Persistence O2 | pending writes follow their actor | write lanes are Runtime records of the actor's identity; local actors' lanes never persist (OD20) |
+| Persistence O3 | a capture is the actor's saved record | plus every non-`Idle` lane of a persisted identity, bound or orphaned; a pending mapped outcome settled before the final capture is delivered after reload (OD20) |
+| Persistence O6 | an Attempt's acknowledgement before its adapter is invoked | once per Attempt, per lane record, with no actor (OD20, F2) |
+| ServerRendering O3, O5 | an in-flight commit transfers as unknown; client or persisted actors beat hydrated copies | write lanes are never hydrated; `DehydrateCommitInFlight` is evidence on the client; only resource entries hydrate (OD20) |
 
 Consequence worth stating: a user's "Retry" in `Idle` gives no ending, so a UI must not wait for one (9.3's
 `RetrySave`).
@@ -898,13 +972,15 @@ For a write operation X on `reject`, `latest` or `serialize`:
 
 1. If X maps anything but not `unknown`, that is `UnresolvedHold` (error): the table reaches `Held` with no handler.
    This replaces revision 6's separate `UnmappedUnknown`. A bare X never holds (S10).
-2. Otherwise let U be the event X maps `unknown` to. For each leaf where U can arrive (its owner by rule 14,
-   ancestors for late endings, and **the definition's initial leaf**, where a rebinding or restoring actor receives
-   `unknown { Restored }`, OD19) and each branch of U's handler that keeps the hold. **If every alternative of U's
-   handler in that leaf has a guard, add an implicit "declined" branch** that keeps the hold, with the arrival leaf
-   as its target (R7 M7: a handler that is `Denied` offline owns nothing) (no `X.retry`, no `X.cancel`, or a
-   `X.retry` behind `X.retryable` whose fallback branch keeps the hold), search the state graph from the branch's
-   target by state tokens:
+2. Otherwise let U be the event X maps `unknown` to. Take every **arrival**: each leaf where U can arrive (its owner by
+   rule 14; ancestors for late endings; **the definition's initial leaf**, where a new incarnation receives
+   `unknown { Restored }` by rebind or restore, OD19, OD20; and any leaf a storage-refused re-send can deliver to,
+   OD20 F5). For each arrival, take each **branch that keeps the hold**: a branch of U's handler with no `X.retry`, no
+   `X.cancel`, or only an `X.retry` behind `X.retryable` whose fallback keeps the hold. Two implicit branches keep the
+   hold, with the arrival leaf as their target: **"declined"**, when every alternative of U's handler there has a
+   guard (R7 M7), and **"unhandled"**, when that leaf, or the root above it, has no handler for U at all (decided,
+   OD20; R8 H3, K22: an arrival with no handler is no longer a vacuous pass). From each such branch's target, search
+   the state graph by state tokens:
    - **pass under `reject` only** if no transition holding `X.commit` is reachable (5.1's `LEFT`; R5 M1 false
      positive). Under `latest` and `serialize` a queued commit may already be in `W` when the hold starts, so an
      owner is always required (decided, OD16: the check sees commits already waiting; R6 H3, K14);
@@ -919,11 +995,14 @@ For a write operation X on `reject`, `latest` or `serialize`:
    `O.x.get(operations, k).uncertain` is `idle` written by hand and is not seen as blocking (false negative); an owner
    path through `X.idle(k)` for a different key is treated as blocked (rare false positive); an owner reached only
    through a schedule whose `keys` closure never includes the lane is counted (false negative).
-4. **Disposal** (decided, OD19). A host that disposes the actor does not end a hold: the lane stays with the Runtime,
-   and the next actor of the definition rebinds it and receives the hold in its first turn. So the check needs no host
-   knowledge; the initial-leaf arrival in rule 2 is what makes a rebinding actor an owner. Stated limit: if no actor
-   of the definition is ever started again in that Runtime, the hold lasts until the Runtime ends (or, for a
-   persisted actor, until a reload restores it); Inspection lists such orphaned holds.
+4. **Disposal and reload** (decided, OD19, OD20). A host that disposes the actor, or a reload, does not end a hold:
+   the lane stays with the Runtime (or its persisted lane record), and the next incarnation **of the same identity**
+   receives it exactly once, as `unknown { Restored }`, in its first turn (F3). So the check needs no host knowledge;
+   the initial-leaf arrival in rule 2 is what makes a new incarnation an owner, and its "unhandled" branch makes a
+   missing handler there an error. Stated limit: if no incarnation of that identity starts again, the hold lasts
+   until the Runtime ends (or, persisted, until a reload); Inspection lists it. The executable model's 6b audit
+   (`lane-model/RESULTS.md`) found the two missed entries into `Held`, a refused re-send and a reloaded hold; both now
+   deliver U (F3, F5), so both are arrivals.
 
 On 5.2 as revision 5 wrote it (no `cancel` in `CodeUnchecked`), revision 6's spec passed, because `Submit` →
 VERIFYING was reachable; with rule 2's `idle` refinement, `Submit` is guarded by `O.verify.idle` and is blocked, so
@@ -940,7 +1019,10 @@ unknown"; and, still, the `superseded` mapper flag, revision 2's `superseded:` k
 **The late-landing race is gone** for any contract that sends `attempt.id` as an idempotency key: nothing newer is
 sent while an older write is unknown, and the only re-send of it carries its own id, so the server answers what it
 did, and a late copy of the first request is a no-op there (8.2 shows the steps). What is left is stated: a write the
-machine **releases** with `cancel` may still land later, unseen; and a server that ignores idempotency keys cannot be
+machine **releases** with `cancel` may still land later, unseen, even after a newer write (decided as a stated limit,
+OD20 F1: the executable model's invariant 3, "the server ends at the latest eligible commit", holds in every other
+sequence; its shortest counterexample is commit, unknown, cancel, commit, the newer lands, the released one lands);
+the remedy is a version precondition, `basedOn` sent as `If-Match`; and a server that ignores idempotency keys cannot be
 fenced by any client ordering. For those, a version precondition is an optional layer on top (see the limits below): the contract sends
 `basedOn` as `If-Match` and maps `412` to a failure. It is a contract-level choice, not a replacement for the hold
 (OD5).
@@ -1004,16 +1086,17 @@ Traits and subroutines keep "no I/O" (MD rule 3); none of the cases needs fragme
 
 Per kind (OD3):
 
-- **A write lane** is stored (decided, OD17, Q12) under **(contract id, key)**, with its Attempts, each with its `retryCount` (R2 C-M1). On
-  restore it binds to the definition's operation on that contract, of which there is exactly one (3.6). The key is
-  stored as its record and decoded with the input Schema's pick of the key fields (OD4; closes R3 M5). A restored
-  unknown (OPS O3: "work with an acknowledged Attempt restores as unknown") holds its lane again (OD5), so a reload
-  cannot send a newer write ahead of it; the flags are derived from the restored state, not stored. The table's
-  restore row is the whole rule (OD10): an in-flight acknowledged Attempt is delivered as `unknown { Restored }`; a
-  `Held` one stays held and is **not** delivered again, so 8.2's first `SaveUnsure` branch does not re-send after
-  every reload (R5 L6). A persisted waiting commit was never
-  sent, so restore does not replay it; it ends `NotSent { why: "Restored" }` (MD C2, R4 L1), and an autosave that
-  should re-send it re-arms on that ending (8.2).
+- **A write lane** is a Runtime record (decided, OD17 Q12, OD20), stored under **(actor identity, contract id, key)**,
+  bound or orphaned, with its Attempts, each with its `retryCount` and whether it was acknowledged (R2 C-M1). It is
+  not inside the actor's saved record; restore and ensure bind the incarnation to the one lane record (3.8.1, "Lanes
+  are Runtime records"). The key decodes with `input`'s pick (OD4; closes R3 M5). A restored unknown holds its lane
+  again (OD5), so a reload cannot send a newer write ahead of it; the flags are derived, not stored. The table's
+  restore row is the whole rule: an Attempt acknowledged once is delivered as `unknown { Restored }`; a `Held` lane's
+  hold is delivered **exactly once**, as `unknown { Restored }`, in the restored incarnation's first turn (OD20, F3).
+  Revision 9's "not delivered again" (R5 L6) is removed: a reload is a new incarnation, whose handlers have not seen
+  the hold. 8.2's first `SaveUnsure` branch therefore re-sends once after a reload, within its budget, which
+  `retryCount` keeps. A persisted waiting commit was never sent, so restore does not replay it; it ends
+  `NotSent { why: "Restored" }` (MD C2, R4 L1), and an autosave that should re-send it re-arms on that ending (8.2).
 - **A live placement** re-opens from its input, and M6 rule 51 restores the data (OPS O4, Persistence O4).
 - **A one-off read lane is not persisted.** OPS has no restore for finite lookups and the
   lane holds no workflow fact the server does not: on restore the row is `undefined` and nothing is delivered, so a
@@ -1038,7 +1121,8 @@ Per kind (OD3):
   `send`, a `raise` or a view's `send` (3.5, proposed); a contract without `key` (OD15; a type error first), a key
   field that is not a top-level `input` field; warning **`KeyOmitsInput`** (proposed, R7 K19): a resource's `input`
   has a field outside its `key`, which would alias cache entries (non-key input is read only when the entry opens,
-  OPS O2); streams are exempt, since a resume position is non-key by design (OD12); warning `UnusedOperation`; info: bare writes. Field-list
+  OPS O2); streams are exempt, since a resume position is non-key by design (OD12); a paged resource puts its page
+  cursor in `key`, since each page is its own entry (R8 L4); warning `UnusedOperation`; info: bare writes. Field-list
   keys are data, so `flow check` and Inspection print every lane's key without running code (R10). Rule 20's `NotSent`
   requirement is read per operation. `SharedCopyLane` is deleted. Because the verb at each use is a token, the
   one-off or live kind of every resource operation is read from the machine without reading a mapping or a closure.
@@ -1073,12 +1157,13 @@ structure, not something an author must remember.
   in `activities`; `retry`, `cancel`, `refetch` in `actions`; `idle`, `retryable({ times })` and
   `retryable(k, { times })` in `guard`; `get(s, key?)` in views and callbacks. *Decided (OD1, OD2, OD9 for
   `subscribe.each`); `get` in callbacks proposed.*
-- **S3. Lane identity, per kind** [1]: a write lane is (actor, operation, contract key of the input), created by
-  work and removed when empty; a one-off read has one lane per operation; a live operation has one lane per
+- **S3. Lane identity, per kind** [1]: a write lane is (actor identity, contract id, key of the input), owned by
+  the Runtime, created by work and removed when empty (OD19, OD20); a one-off read has one lane per operation; a live operation has one lane per
   placement, or per key under `subscribe.each`. The contract's `key`, a list of top-level input fields, names the
   server thing for every kind; its record has one meaning everywhere: mappers, lanes, rows and keyed schedules
-  (merges revision 6's S14). No derived or nested keys. A lane's status changes only in the actor's turns. *Decided
-  (OD4; OD9 for write lanes per key, Q2); one lane per one-off read and key records on schedules proposed.*
+  (merges revision 6's S14). No derived or nested keys. A lane's status changes only in its binding actor's turns or
+  the Runtime's own steps. *Decided (OD4; OD9 for write lanes per key, Q2; OD19, OD20 for ownership and identity);
+  one lane per one-off read and key records on schedules proposed.*
 - **S4. Keys** [8]: every resource and transaction states `key`, a list of `input` fields; `[]` is one lane or entry;
   no default, domain writes included; on a resource, every `input` field that changes its output is in `key`
   (`KeyOmitsInput` warns otherwise, R7 K19). *Decided (OD4, OD15); streams the same, proposed (Q38);
@@ -1095,10 +1180,12 @@ structure, not something an author must remember.
   (`HeldThisTurn`); invocation follows the turn whatever its outcome, and waits for storage and the record queue;
   `cancel` before invocation acts by history. *Decided (OD5, OD6, OD7, OD10, OD16; the cells, the `serialize` head
   and `HeldThisTurn`: OD19, Q28 A); invocation as its own step proposed (R7 K18).*
-- **S7c. Write lanes are the Runtime's** [15]: disposing the binding actor drops and cancels nothing; endings with no
-  binding actor are evidence; the next actor of the definition rebinds by (contract id, key) and receives a hold as
-  `unknown { Restored }` in its first turn, with queued commits kept. *Decided (OD19); the delivery on rebind
-  proposed.*
+- **S7c. A hold outlives its actor** [15]: write lanes are the Runtime's, and disposing the binding actor drops and
+  cancels nothing; the next incarnation **of the same identity** receives a hold exactly once, as
+  `unknown { Restored }`, in its first turn, with queued commits kept. So a holding write's U must be handled **where
+  a new incarnation starts** (the root or the initial leaf), with a path to an owner, and its event must carry what
+  that owner needs (the mapper's `key`), because the new incarnation's memory is initial. `UnresolvedHold`'s
+  "unhandled" branch checks it. *Decided (OD19, OD20).*
 - **S8. Key-less addressing** [7]: on an unkeyed operation, always its one lane; on a keyed operation, only in a
   handler of an event that operation alone maps, acting on that ending's own Attempt, then, once it is resolved, on
   the lane's addressable one; in a `NotSent` ending, nothing; anywhere else `KeyRequired`. *Decided (OD8); the
@@ -1564,6 +1651,8 @@ export const CheckoutMachine = machine(Checkout, ({ S, E, O }) => {             
             updateMemory: ({ event }) => ({ error: null, slow: false, busyTries: 0, paymentMethodId: event.paymentMethodId }),
             actions: [O.pay.commit(({ memory, event }) => ({ intentId: memory.intentId, paymentMethodId: event.paymentMethodId }))],
           },
+          Unsure: S.UNSURE,                                                      // R8 H3: a new incarnation starts in CARD and receives a held pay as unknown { Restored }; intentId is input, so UNSURE's checks work
+          ChallengeUnsure: toRead,                                               // the same for a held challenge: READING's answered releases it
         },
       },
       PAYING: {
@@ -1654,6 +1743,12 @@ send a second charge (R3 M1). `Pay`'s `O.pay.idle` denies `Uncertain` (proposed,
 guard would end `NotSent { why: "Rejected" }`, until the unknown is resolved or released. `READING` answers the
 question by a read, not by `retry`, so its `Intent` branches release both lanes with `cancel` (`answered`). That one
 line is what a reconcile-by-read machine pays for the hold.
+
+**Revision 10 (R8 H1, H3).** A new incarnation of this checkout (the same ref; OD20) starts in CARD. If `pay` is held,
+it receives `unknown { Restored }` there: CARD's `Unsure` goes to UNSURE, which re-sends the same id or reaches
+STUCK → READING → `answered`. Before, the root handler looked the intent up and stayed in CARD, where `Pay` is denied
+`Uncertain` for good. Another cart is another identity and adopts nothing (R8 H1). `UnresolvedHold`'s "unhandled"
+branch is what reports the missing CARD handler.
 
 **Revision 6 (R4 H4, OD8).** `pay` and `challenge` are unkeyed, so `O.pay.cancel` and `O.challenge.cancel` name
 their one lane in any handler, including READING's `Intent`, which is `read`'s ending. Walk: `pay` ends unknown →
@@ -3064,16 +3159,36 @@ Each walk names the table's cells (3.8.1) in order. Code changes in revision 7 a
 
 | Case | Walk | `UnresolvedHold` |
 | --- | --- | --- |
-| 5.1 checkout | `Pay`: `Idle` → `InFlight`. unknown → `Held` (`Unsure` → UNSURE). `CheckTick`: `retryable` passes in `Held` → `retry` → `InFlight` → success → `Idle` → DONE. `TookTooLong`: `cancel` in `InFlight` interrupts → `unknown { Cancelled }` → `Held` → UNSURE re-sends the same id (R4 L3's wasted step is gone). READING's `answered`: `pay.cancel` in `Held` releases; `challenge.cancel` in `Idle` does nothing. `Pay` while `Held`: `idle` denies `Uncertain`. | passes; `Leave` → LEFT passes (no `pay` commit reachable), where revision 6 warned |
+| 5.1 checkout | `Pay`: `Idle` → `InFlight`. unknown → `Held` (`Unsure` → UNSURE). `CheckTick`: `retryable` passes in `Held` → `retry` → `InFlight` → success → `Idle` → DONE. `TookTooLong`: `cancel` in `InFlight` interrupts → `unknown { Cancelled }` → `Held` → UNSURE re-sends the same id (R4 L3's wasted step is gone). READING's `answered`: `pay.cancel` in `Held` releases; `challenge.cancel` in `Idle` does nothing. `Pay` while `Held`: `idle` denies `Uncertain`. | passes with CARD's `Unsure: S.UNSURE` and `ChallengeUnsure: toRead` (revision 10); without them, the "unhandled" branch at CARD is an error (R8 H3) |
 | 5.2 sign-in | verify unknown → `Held`; `CodeUnchecked` re-sends twice, then releases → ENTERING; `Submit`'s `idle` passes in `Idle`. resend unknown → `Held` → `ResendUnsure` releases. | passes; revision 5's version (no release) is now an error, because `Submit` is guarded by `verify.idle` (3.8.1 rule 2) |
 | 5.3 Issues | like unknown → `Held` (`uncertain`; the reconcile key appears) → `ReconcileLike` `retry` → `InFlight` (`uncertain` false, key leaves) → unknown → `Held` (key re-appears, timer re-armed) ... after 3, `LikeUnsure`'s fallback cancels → `Idle` → the waiting unlike is promoted (R5 H2 closed). `RenameUnsure`, `RemoveUnsure`: `cancel` in `Held` → promote. `CreateUnsure`: re-send, or the user's `Retry` names the draft. | passes (the reconcile schedule is reachable, and its fallback cancels) |
 | 8.1 uploads | `Cancel`: `put.cancel(event)` in `InFlight` interrupts → `UploadUnsure` in `Held`: key-less `put.cancel` now releases a real retained unknown (it was a no-op in revision 6) and `clean` is committed. `CleanUnsure`: re-send ×5, then release. | passes |
-| 8.2 editor | see 8.2's revision 7 walk: `CloseAnyway` in `InFlight` → `Held` → re-send → `Idle` → "ABC" promoted. `Loaded`'s `idle` guard denies in `InFlight`, `Held` and with `W`. | passes with CLOSED's release (revision 8); without it, an error (R6 H3); the actor's disposal in CLOSED drops nothing (OD19) |
+| 8.2 editor | see 8.2's revision 7 walk: `CloseAnyway` in `InFlight` → `Held` → re-send → `Idle` → "ABC" promoted. `Loaded`'s `idle` guard denies in `InFlight`, `Held` and with `W`. | passes with CLOSED's release (revision 8); disposal in CLOSED drops nothing, and only the next editor of **the same document** adopts the lane (OD20, R8 H1) |
 | 8.4 todos | `DoneUnsure`, `RenameUnsure`, `RemoveUnsure`: release in `Held` → promote. `ClearUnsure` (unkeyed) releases `clear` only. `AddUnsure`: re-send ×3, then release. | passes |
-| 9.2 saved card | `SaveUnsure` (`reject`, unkeyed): `cancel` in `Held` → `Idle`; the next `SaveCard`'s `idle` passes. `pay` as 5.1. | passes |
+| 9.2 saved card | `SaveUnsure` (`reject`, unkeyed): `cancel` in `Held` → `Idle`; the next `SaveCard`'s `idle` passes. `pay` as 5.1. | passes with CARD's `SaveUnsure` release (revision 10) |
 | 9.3 workspace | per document, as 8.2. `RetrySave` (user event, named key): `Held` → `InFlight`; `InFlight` → evidence `InFlight`; `Idle` → evidence `NothingToResend`. | passes |
 | 9.4 kanban | `MoveUnsure`: re-send ×3 (`InFlight` each), then `cancel` in `Held` → the next drag in `W` is promoted. `LabelUnsure` the same. `RebalanceUnsure`: release, then refetch. | passes |
-| 9.6 wizard | see 9.6. | passes |
+| 9.6 wizard | see 9.6. | passes with root `StartUnsure` and `SubmitUnsure`, the latter carrying `draftId` (revision 10); before, an error by the "unhandled" branch at EMAIL |
+
+**Revision 10 walks** (OD20; review 8 and the executable model, `lane-model/RESULTS.md`).
+
+- **Two documents (R8 H1).** d1's editor is disposed with "ABC" `Held`. The user opens d2: d2's editor is another
+  identity (another ref, or another input) and adopts nothing. The user reopens d1: d1's new incarnation adopts the
+  lane and receives `unknown { Restored }`; its root `SaveUnsure` re-sends "ABC" with its own id. No second lane for
+  d1 exists, so "X" cannot be saved past the hold.
+- **Two carts, two folders (R8 H1).** Checkout B and folder B adopt nothing from A; A's holds wait for A's identity.
+- **The reference editor (`persist: true, retain`) after retain expiry (R8 H2).** "AB" `InFlight` (acknowledged),
+  "ABC" queued → disposal → "AB" succeeds in the Runtime, "ABC" is promoted; its acknowledgement is the lane record's,
+  which needs no actor, so it is invoked. The user reopens d1: `ensureActor` binds to the one lane record; nothing
+  stale is restored beside it.
+- **Storage refused on a re-send (R8 M1, F5).** 5.2: `CodeUnchecked` re-sends; the lane record's capture fails
+  before invocation → `Held` and `CodeUnchecked` is delivered again with reason `StorageRefused`, so the handler's
+  next alternative runs (re-send within budget, which did not count the unsent re-send, or release).
+- **Reload of a held lane (F3).** 8.2 reloads with "AB" `Held`: the restored incarnation receives
+  `unknown { Restored }` once, in LOADING, its initial leaf, where the root `SaveUnsure` owns it. Revision 9 delivered nothing,
+  and the model found machines that stayed stuck.
+- **`latest` replacing a never-sent head (F4).** "AB" promoted, waiting for its acknowledgement; "ABC" is committed →
+  "AB" ends `Superseded`, and "ABC" is the head, waiting. One request goes out.
 
 **Revision 9 walks** (OD19 ownership; R7 K18 invocation).
 
@@ -3204,17 +3319,22 @@ caused it is gone).
 | B70 | **new**: the `basedOn` rebase is scoped to domain writes; plain transactions compare versions themselves | resolved | OD19: Q32 A, along the record queue |
 | B71 | **new**: per-item stops on a `serialize` queue cannot be written; `unknown` by tag; `progress` and void `output` against "exactly two schemas"; a stream's key | resolved in part | Q35 decided (OD19), `progress` decided (OD18); Q36, Q37, Q38 open |
 | B72 | **new**: work over a dynamic set of keys in one turn has no member; a bulk contract is the pattern | accepted | stated cut, for `revisit.md` (R6 M9) |
-| B73 | **new in revision 9**: write lanes are the Runtime's; disposing an actor drops and cancels nothing; a later actor of the definition rebinds by (contract id, key) and may receive `unknown { Restored }` in its first turn | accepted | decided (OD19); OPS O3 and O7 amended (3.8.1's list) |
+| B73 | **new in revision 9**: write lanes are the Runtime's; disposing an actor drops and cancels nothing; a later incarnation of the same actor identity (revision 10, OD20) rebinds by (contract id, key) and may receive `unknown { Restored }` in its first turn | accepted | decided (OD19); OPS O3 and O7 amended (3.8.1's list) |
 | B74 | **new**: invocation is its own step, after the turn whatever its outcome, waiting for storage and the record queue | accepted | R7 K18, H3; MD 2.7.12 amended |
 | B75 | **new**: `cancel` before invocation acts by history: a first send ends `NotSent`, a re-send returns to `Held` and is released | accepted | R7 H2 |
 | B76 | **new**: `flow check` warns `KeyOmitsInput` when a resource's `input` has a field outside `key` | accepted | R7 K19; a check, not syntax |
 | B77 | **new**: under `latest`, a commit also replaces a never-sent head not yet invoked | accepted | R7 L3; principle 1 |
 | B78 | **new**: merge 4's projector still says `({ result })` | open | Q39 |
+| B79 | **new in revision 10**: a lane is (actor identity, contract id, key); only an incarnation of the same identity adopts it; Runtime O3/V4 amended | accepted | decided (OD20); closes R8 H1 |
+| B80 | **new**: write lanes are Runtime records for persistence, acknowledged per lane and Attempt; an actor's record holds no lanes; Persistence O2/O3/O6 amended | accepted | decided (OD20); closes R8 H2 |
+| B81 | **new**: a reloaded or rebound hold is delivered exactly once as `unknown { Restored }`; a storage-refused re-send re-delivers U with `StorageRefused`; an unhandled arrival is an `UnresolvedHold` branch | accepted | decided (OD20); closes R8 H3, model F3, F5 |
+| B82 | **new**: Runtime disposal invokes nothing new; queued commits end `NotSent { Disposed }`; lanes never hydrate from the server | accepted | decided (OD20); Runtime O6, ServerRendering O3/O5 amended |
+| B83 | **new**: a Runtime read of unsettled writes for `beforeunload` | open | Q40 |
 
-Totals: 78 breaks. 26 resolved (B1, B2, B4, B6, B9, B11, B15–B19, B30, B33, B34, B36–B41, B45, B55, B61, B63, B69,
-B70), 3 resolved in part (B47, B48, B71), 2 reduced (B10, B12), 6 open (B8, B13, B14, B53, B62, B78), 27 accepted
-(B7, B23, B31, B32, B35, B42, B43, B46, B49–B51, B56–B60, B64–B68, B72–B77), 14 withdrawn with the concept that
-caused them (B3, B5, B20–B22, B24–B29, B44, B52, B54). "Accepted" means the proposal accepts the cost; the owner has not.
+Totals: 83 breaks. 26 resolved (B1, B2, B4, B6, B9, B11, B15–B19, B30, B33, B34, B36–B41, B45, B55, B61, B63, B69,
+B70), 3 resolved in part (B47, B48, B71), 2 reduced (B10, B12), 7 open (B8, B13, B14, B53, B62, B78, B83), 31
+accepted (B7, B23, B31, B32, B35, B42, B43, B46, B49–B51, B56–B60, B64–B68, B72–B77, B79–B82), 14 withdrawn with the
+concept that caused them (B3, B5, B20–B22, B24–B29, B44, B52, B54). "Accepted" means the proposal accepts the cost; the owner has not.
 
 ## 8. R1's five authoring apps, revision 4
 
@@ -3909,6 +4029,7 @@ CARD: {
   on: {
     SaveCard: { target: S.SAVING, guard: [O.save.idle], updateMemory: () => ({ method: "new" }), actions: [O.save.commit(({ event }) => ({ token: event.token }))] },
     PaySaved: { target: S.PAYING, guard: [O.pay.idle], updateMemory: () => ({ method: "saved" }), actions: [payWith] },
+    SaveUnsure: { target: "self", updateMemory: () => ({ error: "We couldn't confirm the card was saved. Try again." }), actions: [O.save.cancel] },   // R8 H3: a held attach restored in CARD is released here, as SAVING does; plus 5.1's CARD `Unsure: S.UNSURE`
   },
 },
 SAVING: { on: { CardSaved: { target: S.PAYING, guard: [O.pay.idle], actions: [payWith] }, CardRefused: toCard("This card was refused."), SaveUnsure: { ...toCard("We couldn't confirm the card was saved. Try again."), actions: [O.save.cancel] },   // release: else the next SaveCard is denied Uncertain (OD5) TryLater: toCard("We couldn't reach the payment service.") } },
@@ -4286,7 +4407,7 @@ export const Wizard = definition({
     Started: { draftId: Schema.String }, StartFailed: { message: Schema.String }, StartUnsure: Flow.uncertain({}),
     StepSaved: { step: Step }, StepFailed: { step: Step, message: Schema.String }, StepUnsure: Flow.uncertain({ step: Step }),
     NameChecked: {}, NameCheckFailed: {}, NameDue: {},
-    Submitted: {}, SubmitFailed: { message: Schema.String }, SubmitUnsure: Flow.uncertain({}),
+    Submitted: {}, SubmitFailed: { message: Schema.String }, SubmitUnsure: Flow.uncertain({ draftId: Schema.String }),   // carries the key: a new incarnation's memory is initial (S7c)
     Status: { state: Schema.Literals(["draft", "submitted"]) }, StatusFailed: {},
   },
   memory: {
@@ -4305,7 +4426,7 @@ export const Wizard = definition({
       unknown: E.StepUnsure.from((_r, { key }) => ({ step: key.step })),     // the key copied for memory bookkeeping (stated friction)
     }),
     name: Onboarding.nameFree.outcomes({ success: E.NameChecked, failure: E.NameCheckFailed }),   // maps success: looked up (S12)
-    submit: Onboarding.submit.outcomes({ success: E.Submitted, failure: E.SubmitFailed.from(() => ({ message: "Couldn't submit" })), unknown: E.SubmitUnsure }),
+    submit: Onboarding.submit.outcomes({ success: E.Submitted, failure: E.SubmitFailed.from(() => ({ message: "Couldn't submit" })), unknown: E.SubmitUnsure.from((_r, { key }) => ({ draftId: key.draftId })) }),
     status: Onboarding.status.outcomes({ success: E.Status.from((v) => ({ state: v.state })), failure: E.StatusFailed }),
   }),
 })
@@ -4326,6 +4447,12 @@ export const WizardMachine = machine(Wizard, ({ S, E, O }) => {
       Edit: { target: "self", updateMemory: ({ memory, event, state }) => ({ values: { ...memory.values, [stepOf(state)]: { ...memory.values[stepOf(state)], [event.field]: event.value } }, unsaved: { ...memory.unsaved, [stepOf(state)]: true } }) },
       StepSaved: { target: "self" },
       StepFailed: { target: "self", updateMemory: ({ memory, event }) => ({ unsaved: { ...memory.unsaved, [event.step]: true }, error: event.message }) },   // also NotSent { Restored } after a reload
+      // R8 H3: the start and submit holds are handled at the root, so a new incarnation (starting in EMAIL) owns them
+      StartUnsure: [{ target: S.STARTING, guard: [O.start.retryable({ times: 3 })], actions: [O.start.retry] }, { target: S.EMAIL, updateMemory: () => ({ error: "Couldn't start, try again" }), actions: [O.start.cancel] }],   // a released start may leave an orphan draft (stated residual)
+      SubmitUnsure: [
+        { target: S.SUBMITTING, guard: [O.submit.retryable({ times: 3 })], updateMemory: ({ event }) => ({ draftId: event.draftId }), actions: [O.submit.retry] },   // key-less: submit alone maps SubmitUnsure
+        { target: S.UNSURE, updateMemory: ({ event }) => ({ draftId: event.draftId }) },   // CheckStatus then reads memory.draftId
+      ],
       StepUnsure: [
         { target: "self", guard: [O.save.retryable({ times: 2 })], actions: [O.save.retry] },   // key-less: save alone maps StepUnsure (OD8); Held → InFlight
         { target: "self", updateMemory: ({ memory, event }) => ({ unsaved: { ...memory.unsaved, [event.step]: true } }), actions: [O.save.cancel] },   // Held → Idle; a waiting edit of this step is then sent (OD7)
@@ -4337,7 +4464,6 @@ export const WizardMachine = machine(Wizard, ({ S, E, O }) => {
         on: {
           Started: { target: S.ACCOUNT, updateMemory: ({ event }) => ({ draftId: event.draftId }) },
           StartFailed: { target: S.EMAIL, updateMemory: ({ event }) => ({ error: event.message }) },
-          StartUnsure: [{ target: "self", guard: [O.start.retryable({ times: 3 })], actions: [O.start.retry] }, { target: S.EMAIL, updateMemory: () => ({ error: "Couldn't start, try again" }), actions: [O.start.cancel] }],   // a released start may leave an orphan draft (stated residual)
         },
       },
       ACCOUNT: {
@@ -4371,7 +4497,6 @@ export const WizardMachine = machine(Wizard, ({ S, E, O }) => {
         on: {
           Submitted: S.DONE,
           SubmitFailed: { target: S.REVIEW, updateMemory: ({ event }) => ({ error: event.message }) },
-          SubmitUnsure: [{ target: "self", guard: [O.submit.retryable({ times: 3 })], actions: [O.submit.retry] }, { target: S.UNSURE }],
         },
       },
       UNSURE: { on: { CheckStatus: checkNow } },
@@ -4477,11 +4602,11 @@ DB and Replicache are cited from their documented models, not their code. "Borro
 
 | Write-lane rule | TanStack Query (source) | TanStack DB | Replicache | Ours |
 | --- | --- | --- | --- | --- |
-| Writes are owned by a cache, not the component | `MutationCache`; unsubscribing removes only the observer (`mutationObserver.ts:96-99`); a pending mutation with no observer is kept and gc is only scheduled (`mutation.ts:155-162`) | transactions live in the collection, not the component | mutations live in the client's pending queue | **borrowed** (OD19): the Runtime owns lanes; disposal drops nothing |
-| One write at a time per thing, in order | `scope.id`: only the first pending mutation of a scope runs (`mutationCache.ts:160-175`); the next runs in `finally`, after success *or error* (`mutation.ts:326-327`, `mutationCache.ts:177-185`) | per-collection ordering of optimistic transactions | one ordered pending queue per client | **stronger**: a lane per key is a scope, but an unknown **holds** it; TanStack runs the next mutation after a network error that may have landed, which is the late-landing race OD5 closes |
+| Writes are owned by a cache, not the component | `MutationCache`; unsubscribing removes only the observer (`mutationObserver.ts:96-99`); a pending mutation with no observer is kept and gc is only scheduled (`mutation.ts:155-162`); cache-wide `onError`/`onSettled` see every settlement (`mutationCache.ts:19-45`, `mutation.ts:238-300`) | transactions live in the collection, not the component | mutations live in the client's pending queue | **borrowed** (OD19): the Runtime owns lanes; disposal drops nothing |
+| One write at a time per thing, in order | `scope.id`: only the first pending mutation of a scope runs (`mutationCache.ts:160-175`); the next runs in `finally`, after success *or error* (`mutation.ts:326-327`, `mutationCache.ts:177-185`) | per-collection ordering of optimistic transactions | one ordered pending queue per client | **stronger**: a lane per (actor identity, key) is like a scope (a `scope.id` spans the whole cache, a lane one identity, R8 L3), but an unknown **holds** it; TanStack runs the next mutation after a network error that may have landed, which is the late-landing race OD5 closes |
 | Retry | the retryer re-runs `mutationFn` automatically, `retry: 0` by default for mutations (`mutation.ts:199`; `retryer.ts:171-196`) | rollback on error; retry is the app's | replays pending mutations until the server confirms each | **different**: no automatic retry (MD rule 25); an explicit `retry` re-sends the **same Attempt id**, as Replicache's mutation id and Stripe's idempotency key do; `retryable({ times })` is the budget |
 | Not sent while offline | a mutation pauses before running when it cannot start (`retryer.ts:104-109`, `retryer.ts:125-135`; `onlineManager.ts`) and `resumePausedMutations` continues them (`mutationCache.ts:231-239`) | sync-dependent | pushes when online | **not adopted now**: an offline send ends unknown or failure. Candidate, no syntax: treat "offline" as one more reason to wait before invocation (the table's `InFlight`, waiting), which is never-sent and so safe; for `revisit.md` |
-| Persisted writes across reload | only paused (never-sent) mutations are dehydrated by default (`hydration.ts:125-127`), rebuilt on hydrate (`hydration.ts:200-209`) and continued (`mutation.ts:165-170`) | persistence is the collection's | pending mutations persist and replay | **different, and listed**: every lane persists, including `Held` (so a possibly-landed write keeps its id and budget); never-sent queued commits end `NotSent { Restored }` (MD C2, OPS O3: restore never invokes). TanStack resumes never-sent work instead, which better keeps "never lose the latest edit"; adopting it would amend MD C2 and OPS O3, a behaviour change left for the next revision's review, not applied here |
+| Persisted writes across reload | only paused mutations are dehydrated by default (`hydration.ts:125-127`); `isPaused` is also true between retries after a send (`retryer.ts:195-198`), so "never sent" holds only with `retry: 0`, and `continue()` re-runs `mutationFn` with no idempotency key (R8 L3); rebuilt on hydrate (`hydration.ts:200-209`) and continued (`mutation.ts:165-170`) | persistence is the collection's | pending mutations persist and replay | **different, and listed**: every lane persists, including `Held` (so a possibly-landed write keeps its id and budget); never-sent queued commits end `NotSent { Restored }` (MD C2, OPS O3: restore never invokes). TanStack resumes never-sent work instead, which better keeps "never lose the latest edit"; adopting it would amend MD C2 and OPS O3, a behaviour change left for the next revision's review, not applied here |
 | Optimistic state and rollback | `onMutate` context, rollback by hand | optimistic mutations over synced data, rolled back on error, dropped when sync confirms | the client rebases pending mutations on each pull | **borrowed** in merge 4 (predictions per record), **stronger** on unknown: the prediction stays with a mark and a forced repair |
 | Version rebase | none | none built in | pending mutations rebase on the latest server state | **borrowed** in spirit: `basedOn` rebases along the record queue (OD19, Q32 A) |
 | Unknown vs failure | none: a network error is an error | none | a push either lands or is retried | **stronger**: `unknown` is its own ending, retained, and owned (`UnresolvedHold`) |
@@ -4499,7 +4624,7 @@ narrows **Q28** (OD7 decides `cancel`'s address) and **Q29** (OD8 decides key-le
 every resource and transaction states `key`), **Q27** (OD12: every kind has `input`, whose pick is the key Schema) and
 **Q30** (OD15: no domain default, so no entity to infer). Revision 9 removes **Q9, Q10, Q20, Q28, Q31, Q32, Q35**
 (decided, OD19) and Q37's second part (decided, OD18: `progress` keeps its own schema). What remains are the owner's
-API questions; behaviour is decided by the main session (OD19). Question numbers are kept so section 7's references stay valid.
+API questions; behaviour is decided by the main session (OD19, OD20). Revision 10 adds Q40. Question numbers are kept so section 7's references stay valid.
 
 ### Round 7: rules that follow from OD4 to OD8
 
@@ -4548,6 +4673,12 @@ API questions; behaviour is decided by the main session (OD19). Question numbers
   `result`, which OD12 renamed `output` on contracts (5.3, 8.4, 9.4 keep it as written). **A (recommended)** rename to
   `({ output })`, one word for one thing. B merge 4's projector keeps `result` as its own word.
 
+- **Q40. A Runtime-level read of unsettled writes** (R8 M4). A host's `beforeunload` cannot see an orphan's hold or
+  queued commits once the editor that owned `useBeforeUnload` is unmounted. **A (recommended)** a Runtime read, such
+  as `runtime.unsettledWrites()` returning the non-`Idle` lanes by identity, as TanStack's `MutationCache` exposes its
+  mutations (`mutationCache.ts`); a host warns while it is non-empty. B no API: Inspection lists orphans, and hosts
+  keep a persisted actor alive. The behaviour (orphans kept, Inspection lists them) holds without it.
+
 ## 12. Keywords
 
 | Kind | Words |
@@ -4557,7 +4688,7 @@ API questions; behaviour is decided by the main session (OD19). Question numbers
 | **Existing verbs, kept (OD2)** | `commit(select)` (OPS O3), `lookup(select)` (OPS O2), `subscribe(select)` (OPS O2, O4; the stream's own function name), now on the operation and without an `outcomes` option |
 | **Contract shape (OD11–OD15)** | `input` and `output` on every kind (RENAMED: `result` → `output`; NEW on resources and streams: `input`); the mapper's `{ input }` (RENAMED from `{ params }`); `key` required, `[]` for one (NEW MEANING); a fields record or a full Schema for each; `fromRpc` (later, opt-in) |
 | **Table labels, not author words (OD16)** | `Idle`, `InFlight` (waiting to be invoked, or on the wire), `Held`, `HeldThisTurn`; "queued commits" (`W`); "after lanes"; "binding actor", "rebind" (OD19) |
-| **Revision 9 values and codes** | `unknown { Restored }` on rebind (existing value, new occasion); `NotSent { StorageFailure }`; `KeyOmitsInput` (proposed `flow check` warning) |
+| **Revision 9 and 10 values and codes** | `unknown { Restored }` on rebind and reload, exactly once (existing value); `NotSent { StorageRefused }` and the unknown reason `StorageRefused`; `NotSent { Disposed }`; `KeyOmitsInput` (proposed `flow check` warning); "actor identity" (Runtime O3's word) |
 | **New meaning** | `outstanding` on `serialize` rows only (MD's word, kept, R6 L4); `pending` on a write row: `InFlight` only, not a waiting start (OD10, against MD rule 21); `idle` over a partial key (proposed, Q34); `operations`; `O`; `activities` (a list); `key` on every contract: a list of top-level input fields (OD4); the mapper's, lane's and keyed schedule's `key`: one key record (L1, the schedule half proposed); `cancel`: acts on the same one Attempt as `retry`, then the waiting commit is sent (OD7); `Superseded`: never-sent commits only (OD5) |
 | **Renamed** | `s.calls`, `s.activities` → `s.operations`; `read.fetch(key)` → `O.read.lookup(select)`; `O.Stripe.confirm.commit(select, { outcomes })` → `O.pay.commit(select)`; `*.operations.ts` → `*.contracts.ts` |
 | **Existing, unchanged** | `retry`, `cancel`, `idle`, `refetch`, `concurrency`, `transaction`, `resource`, `stream`, `write`, `read`, `listen`, `placeholder`, `when`, `NotSent`, `InFlight`, `attempt`, `input`, `progress` |
