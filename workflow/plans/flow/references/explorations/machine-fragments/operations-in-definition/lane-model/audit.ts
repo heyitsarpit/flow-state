@@ -1,7 +1,7 @@
 // Invariant 6, second half: UnresolvedHold (3.8.1 "UnresolvedHold over the graph") as written, against the lane model.
 // A tiny machine (two leaves S0, S1; one user event `e` per leaf; one `unknown` handler) is run in product with the lane.
 // "Actually stuck" = a reachable product state from which no sequence of machine transitions and environment events reaches an Idle lane.
-import { CONFIG, A, clone, commitsIn, doAck, doAckRefused, doCapture, doCaptureRefused, doDispose, doInvoke, doLand, doReload, doStart, endingTurn, init, laneSt, newCtx, prepRestore, runTurn, turnEnd, holds } from "./model.ts";
+import { CONFIG, RULES, A, clone, commitsIn, doAck, doAckRefused, doCapture, doCaptureRefused, doDispose, doInvoke, doLand, doReload, doStart, endingTurn, init, laneSt, newCtx, prepRestore, runTurn, turnEnd, holds } from "./model.ts";
 import type { Act, Guard, Mode, S } from "./model.ts";
 
 type Tr = { g: Guard; a: "none" | Act; to: 0 | 1 } | null;
@@ -106,7 +106,7 @@ function product(L: Lane, m: M, wantPath: boolean) {
 }
 
 // The rule as written. Returns "pass" | "error" | "warning".
-function rule(mode: Mode, m: M, terminal = true, arrivals: "rev10" | "rev11" = "rev11", idleCommitCounts = false): "pass" | "error" | "warning" {
+function rule(mode: Mode, m: M, terminal = true, arrivals: "rev10" | "rev11" = "rev11", idleCommitCounts = !RULES.idleCommitExempt): "pass" | "error" | "warning" {
   const trans = (st: 0 | 1) => m.t[st];
   const isOwnerAct = (t: Tr) => !!t && (t.a === "retry" || t.a === "cancel");
   const anyMember = [m.t[0], m.t[1], m.hU].some(isOwnerAct);
@@ -123,7 +123,7 @@ function rule(mode: Mode, m: M, terminal = true, arrivals: "rev10" | "rev11" = "
   // plus every leaf reachable without passing X.idle from a transition holding X.commit or from an arrival branch's target.
   const arrivalLeaves = (): (0 | 1)[] => {
     const R = new Set<number>([0]);
-    const expand = (from: number) => { const st = [from]; R.add(from); while (st.length) { const x = st.pop()! as 0 | 1; const t = trans(x); if (t && t.g !== "idle" && !isOwnerAct(t) && !R.has(t.to)) { R.add(t.to); st.push(t.to); } } }; // OD22 M1: the search stops at idle-guarded transitions and at retry/cancel (ownership passes to the current incarnation)
+    const expand = (from: number) => { const st = [from]; R.add(from); while (st.length) { const x = st.pop()! as 0 | 1; const t = trans(x); if (t && t.g !== "idle" && !(isOwnerAct(t) && (RULES.retryStopsAlways || t.g === "retryable")) && !R.has(t.to)) { R.add(t.to); st.push(t.to); } } }; // OD22 M1: the search stops at idle-guarded transitions and at retry/cancel (ownership passes to the current incarnation)
     let changed = true;
     while (changed) {
       const n = R.size;
@@ -179,10 +179,9 @@ export function audit() {
       if ((rule(mode, m, true, "rev10") !== "pass") !== flagged) diffArr++;
       if (flagged && stuck) tp++; else if (flagged) { fp++; ex.fp.push(m); } else if (stuck) {
         fn++; ex.fn.push(m);
-        const why = rule(mode, m, true, "rev11", true) !== "pass" ? "revision 12's M1: an idle-guarded commit no longer blocks reject's terminal pass, yet the machine can only offer that commit, which a held lane denies for good (a deadlock revision 11 flagged)"
+        const why = rule(mode, m, true, "rev11", true) !== "pass" ? "the rule passes although a commit is reachable (an idle-guarded commit exempted from the terminal pass, revision 12)"
           : rule(mode, m, false) !== "pass" ? "reject's terminal pass (5.1 LEFT): no commit is reachable, the hold is left on purpose"
-          : rule(mode, m, true, "rev10") !== "pass" ? "revision 12's M1 stop at retry/cancel: such a transition can fire while the lane is InFlight or Idle (evidence), so the leaf it leads to can still receive the hold"
-          : "other (unexpected)";
+          : "the rule passes a leaf the hold can reach (its arrival search stopped early, revision 12)";
         cause.set(why, [...(cause.get(why) ?? []), m]);
       } else tn++;
     }
@@ -195,6 +194,8 @@ export function audit() {
         console.log(`  ${name}: ${dM(m)}${bad ? `\n      stuck lane: ${laneSt(bad)} head=${bad.head ? A(bad, bad.head).status : "-"} W=${bad.W.length} bound=${bad.bound} via ${p.path.join(" , ") || "(start)"}` : ""}`);
       }
     };
+    const bugs = [...cause].filter(([why]) => !why.startsWith("reject's terminal pass")).reduce((n, [, l]) => n + l.length, 0);
+    console.log(`RESULT mode=audit-${mode} inv15 ${bugs ? "FAIL (" + bugs + " stuck machines pass the rule)" : "PASS (every stuck machine is flagged, except the by-design terminal pass: " + (cause.get([...cause.keys()].find((k) => k.startsWith("reject's terminal pass")) ?? "")?.length ?? 0) + ")"}`);
     for (const [why, list] of cause) { console.log(`  FALSE NEGATIVES caused by ${why}: ${list.length}`); show("   e.g.", list, 2); }
     const into = new Map<string, number>();
     for (const es of L.edges) for (const e of es) if (laneSt(L.nodes[e.from]!) !== "Held" && laneSt(L.nodes[e.to]!) === "Held") into.set(e.what, (into.get(e.what) ?? 0) + 1);

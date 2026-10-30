@@ -21,7 +21,7 @@ RESULT mode=reject inv6 PASS (every reachable state reaches Idle)
 RESULT mode=reject inv7 PASS (cannot-occur cells never reached)
 RESULT mode=reject inv8 PASS (all 33 reachable cells visited)
 
-=== latest: 330032 states, 3049200 transitions, longest shortest-path 27 (complete: every sequence of any length is covered), 3.6s
+=== latest: 330032 states, 3049200 transitions, longest shortest-path 27 (complete: every sequence of any length is covered), 3.5s
 RESULT mode=latest inv1 PASS
 RESULT mode=latest inv2 PASS
 RESULT mode=latest inv3 PASS
@@ -245,7 +245,7 @@ RESULT mode=system-persisted-root-serialize inv14 PASS
 RESULT mode=system-persisted-root-serialize inv16 PASS
 RESULT mode=system-persisted-root-serialize inv17 PASS
 RESULT mode=system-persisted-root-serialize inv18 PASS
-system-persisted-root-cancel: 5876 states, 0.0s; MD rule 20 accepts this machine
+system-persisted-root-cancel: 5828 states, 0.0s; MD rule 20 accepts this machine
 RESULT mode=system-persisted-root-cancel inv1 PASS
 RESULT mode=system-persisted-root-cancel inv2 PASS
 RESULT mode=system-persisted-root-cancel inv2-local PASS
@@ -257,10 +257,8 @@ RESULT mode=system-persisted-root-cancel inv13 PASS
 RESULT mode=system-persisted-root-cancel inv14 PASS
 RESULT mode=system-persisted-root-cancel inv16 PASS
 RESULT mode=system-persisted-root-cancel inv17 PASS
-RESULT mode=system-persisted-root-cancel inv18 FAIL
-  inv18 counterexample (6 events): Pay -> ack(1) -> invoke(1) -> retain-expiry -> end-unknown(1) [no actor] -> ensure
-    the UI shows Paying but Attempt 1's fate is evidence only: nothing is in flight or held, so no ending can arrive
-system-persisted-leafIgnore-reject: 310887 states, 1.8s; MD rule 20 accepts this machine
+RESULT mode=system-persisted-root-cancel inv18 PASS
+system-persisted-leafIgnore-reject: 310887 states, 1.7s; MD rule 20 accepts this machine
 RESULT mode=system-persisted-leafIgnore-reject inv1 PASS
 RESULT mode=system-persisted-leafIgnore-reject inv2 PASS
 RESULT mode=system-persisted-leafIgnore-reject inv2-local PASS
@@ -273,7 +271,7 @@ RESULT mode=system-persisted-leafIgnore-reject inv14 PASS
 RESULT mode=system-persisted-leafIgnore-reject inv16 PASS
 RESULT mode=system-persisted-leafIgnore-reject inv17 PASS
 RESULT mode=system-persisted-leafIgnore-reject inv18 PASS
-system-persisted-leafIgnore-latest: 347955 states, 1.9s; MD rule 20 accepts this machine
+system-persisted-leafIgnore-latest: 347955 states, 1.8s; MD rule 20 accepts this machine
 RESULT mode=system-persisted-leafIgnore-latest inv1 PASS
 RESULT mode=system-persisted-leafIgnore-latest inv2 PASS
 RESULT mode=system-persisted-leafIgnore-latest inv2-local PASS
@@ -286,7 +284,7 @@ RESULT mode=system-persisted-leafIgnore-latest inv14 PASS
 RESULT mode=system-persisted-leafIgnore-latest inv16 PASS
 RESULT mode=system-persisted-leafIgnore-latest inv17 PASS
 RESULT mode=system-persisted-leafIgnore-latest inv18 PASS
-system-persisted-leafIgnore-cancel: 5931 states, 0.0s; MD rule 20 accepts this machine
+system-persisted-leafIgnore-cancel: 6123 states, 0.0s; MD rule 20 accepts this machine
 RESULT mode=system-persisted-leafIgnore-cancel inv1 PASS
 RESULT mode=system-persisted-leafIgnore-cancel inv2 PASS
 RESULT mode=system-persisted-leafIgnore-cancel inv2-local PASS
@@ -298,9 +296,7 @@ RESULT mode=system-persisted-leafIgnore-cancel inv13 PASS
 RESULT mode=system-persisted-leafIgnore-cancel inv14 PASS
 RESULT mode=system-persisted-leafIgnore-cancel inv16 PASS
 RESULT mode=system-persisted-leafIgnore-cancel inv17 PASS
-RESULT mode=system-persisted-leafIgnore-cancel inv18 FAIL
-  inv18 counterexample (6 events): Pay -> ack(1) -> invoke(1) -> retain-expiry -> end-unknown(1) [no actor] -> ensure
-    the UI shows Paying but Attempt 1's fate is evidence only: nothing is in flight or held, so no ending can arrive
+RESULT mode=system-persisted-leafIgnore-cancel inv18 PASS
 system-persisted-leaf-reject: 310887 states, 1.8s; MD rule 20 rejects this machine
 INFO mode=system-persisted-leaf-reject inv1 PASS
 INFO mode=system-persisted-leaf-reject inv2 PASS
@@ -316,7 +312,7 @@ INFO mode=system-persisted-leaf-reject inv17 PASS
 INFO mode=system-persisted-leaf-reject inv18 PASS
   inv16 counterexample (7 events): Pay -> Back -> ack(1) -> invoke(1) -> land(1) -> runtime-dispose, success settles first -> reload (new Runtime)
     an adopted success of Attempt 1 reached CARD with no handler and no explicit ignore (MD rule 20)
-system-persisted-leaf-cancel: 5931 states, 0.0s; MD rule 20 rejects this machine
+system-persisted-leaf-cancel: 6123 states, 0.0s; MD rule 20 rejects this machine
 INFO mode=system-persisted-leaf-cancel inv1 PASS
 INFO mode=system-persisted-leaf-cancel inv2 PASS
 INFO mode=system-persisted-leaf-cancel inv2-local PASS
@@ -328,12 +324,10 @@ INFO mode=system-persisted-leaf-cancel inv13 PASS
 INFO mode=system-persisted-leaf-cancel inv14 PASS
 INFO mode=system-persisted-leaf-cancel inv16 FAIL
 INFO mode=system-persisted-leaf-cancel inv17 PASS
-INFO mode=system-persisted-leaf-cancel inv18 FAIL
-  inv18 counterexample (6 events): Pay -> ack(1) -> invoke(1) -> retain-expiry -> end-unknown(1) [no actor] -> ensure
-    the UI shows Paying but Attempt 1's fate is evidence only: nothing is in flight or held, so no ending can arrive
+INFO mode=system-persisted-leaf-cancel inv18 PASS
   inv16 counterexample (7 events): Pay -> Back -> ack(1) -> invoke(1) -> land(1) -> runtime-dispose, success settles first -> reload (new Runtime)
     an adopted success of Attempt 1 reached CARD with no handler and no explicit ignore (MD rule 20)
-system-local-root-reject: 47258 states, 0.3s; MD rule 20 accepts this machine
+system-local-root-reject: 47258 states, 0.2s; MD rule 20 accepts this machine
 RESULT mode=system-local-root-reject inv1 PASS
 RESULT mode=system-local-root-reject inv2 PASS
 RESULT mode=system-local-root-reject inv2-local FAIL
@@ -419,48 +413,31 @@ INFO revision 10 rules (K25, K26 off), persisted, handlers leafIgnore, reject: i
   inv13 counterexample (2 events): Pay -> reload
     the UI shows Paying but the lane learned Attempt 1 notsent Restored
 
-=== raw enumeration of every event sequence (reduced alphabet, no state merging) vs merged search on the same alphabet
-RESULT mode=reject rawcheck sequences=353190 depth=6 tags={inv3-limit-landed@4} merged-search-agrees=true (0.2s)
-RESULT mode=latest rawcheck sequences=353099 depth=6 tags={inv3-limit-landed@4} merged-search-agrees=true (0.2s)
-RESULT mode=serialize rawcheck sequences=368006 depth=6 tags={inv3-limit-landed@4} merged-search-agrees=true (0.3s)
-RESULT mode=cancel rawcheck sequences=350953 depth=6 tags={} merged-search-agrees=true (0.1s)
-RESULT mode=allow rawcheck sequences=45460 depth=6 tags={} merged-search-agrees=true (0.0s)
-
-=== UnresolvedHold audit (invariant 6, second half)
-AUDIT mode=reject lane-nodes=4488 machines=3500 stuck-and-flagged=1100 flagged-but-never-stuck=378 stuck-but-not-flagged=1030 neither=992 machines-where-revision-10-arrivals-differ=34 (0.6s)
-  FALSE NEGATIVES caused by revision 12's M1: an idle-guarded commit no longer blocks reject's terminal pass, yet the machine can only offer that commit, which a held lane denies for good (a deadlock revision 11 flagged): 960
-     e.g.: S0:{idle?commit->S0} S1:{-} unknown:{-}
-      stuck lane: Held head=unknown W=0 bound=true via e/idle:commit , reload(resume)+Restored->none:none
-     e.g.: S0:{idle?commit->S1} S1:{-} unknown:{-}
-      stuck lane: Held head=unknown W=0 bound=true via e/idle:commit , dispose , start , reload(resume)+Restored->none:none
-  FALSE NEGATIVES caused by other (unexpected): 14
-     e.g.: S0:{retry->S1} S1:{idle?commit->S0} unknown:{-}
-      stuck lane: Held head=unknown W=0 bound=true via e/none:retry , e/idle:commit , e/none:retry , reload(resume)+Restored->none:none
-     e.g.: S0:{cancel->S1} S1:{idle?commit->S0} unknown:{-}
-      stuck lane: Held head=unknown W=0 bound=true via e/none:cancel , e/idle:commit , e/none:cancel , unknown->none:none
+=== UnresolvedHold audit (invariant 15)
+AUDIT mode=reject lane-nodes=4488 machines=3500 stuck-and-flagged=2074 flagged-but-never-stuck=640 stuck-but-not-flagged=56 neither=730 machines-where-revision-10-arrivals-differ=0 (0.6s)
+RESULT mode=audit-reject inv15 PASS (every stuck machine is flagged, except the by-design terminal pass: 56)
   FALSE NEGATIVES caused by reject's terminal pass (5.1 LEFT): no commit is reachable, the hold is left on purpose: 56
      e.g.: S0:{commit->S0} S1:{-} unknown:{none->S1}
       stuck lane: Held head=unknown W=0 bound=true via e/none:commit , reload(resume)+Restored->none:none
      e.g.: S0:{commit->S0} S1:{-} unknown:{commit->S1}
       stuck lane: Held head=unknown W=0 bound=true via e/none:commit , reload(resume)+Restored->none:commit
   transitions into Held, by cause: reload (InFlight: delivers unknown { Restored }) x9104; end-unknown (bound) x4444; end-interrupt (bound) x4444; reload (no delivery) x987; capture-refused (re-send, delivers unknown) x4444; end-unknown (no actor) x480; end-interrupt (no actor) x480; capture-refused (re-send, no actor) x480
-  FALSE POSITIVES caused by a retryable guard (a budget that the machine never spends, or a leaf it never reaches): 378
+  FALSE POSITIVES caused by a retryable guard (a budget that the machine never spends, or a leaf it never reaches): 640
      e.g.: S0:{commit->S0} S1:{-} unknown:{retryable?cancel->S0}
-AUDIT mode=latest lane-nodes=4586 machines=3500 stuck-and-flagged=2116 flagged-but-never-stuck=644 stuck-but-not-flagged=14 neither=726 machines-where-revision-10-arrivals-differ=18 (0.6s)
-  FALSE NEGATIVES caused by revision 12's M1 stop at retry/cancel: such a transition can fire while the lane is InFlight or Idle (evidence), so the leaf it leads to can still receive the hold: 14
-     e.g.: S0:{retry->S1} S1:{idle?commit->S0} unknown:{-}
-      stuck lane: Held head=unknown W=0 bound=true via e/none:retry , e/idle:commit , e/none:retry , reload(resume)+Restored->none:none
-     e.g.: S0:{cancel->S1} S1:{idle?commit->S0} unknown:{-}
-      stuck lane: Held head=unknown W=0 bound=true via e/none:cancel , e/idle:commit , e/none:cancel , unknown->none:none
+AUDIT mode=latest lane-nodes=4586 machines=3500 stuck-and-flagged=2130 flagged-but-never-stuck=648 stuck-but-not-flagged=0 neither=722 machines-where-revision-10-arrivals-differ=0 (0.6s)
+RESULT mode=audit-latest inv15 PASS (every stuck machine is flagged, except the by-design terminal pass: 0)
   transitions into Held, by cause: reload (InFlight: delivers unknown { Restored }) x9408; end-unknown (bound) x4592; end-interrupt (bound) x4592; reload (no delivery) x1020; capture-refused (re-send, delivers unknown) x4592; end-unknown (no actor) x496; end-interrupt (no actor) x496; capture-refused (re-send, no actor) x496
-  FALSE POSITIVES caused by a retryable guard (a budget that the machine never spends, or a leaf it never reaches): 644
+  FALSE POSITIVES caused by a retryable guard (a budget that the machine never spends, or a leaf it never reaches): 648
      e.g.: S0:{commit->S0} S1:{-} unknown:{retryable?cancel->S0}
-AUDIT mode=serialize lane-nodes=4588 machines=3500 stuck-and-flagged=2116 flagged-but-never-stuck=644 stuck-but-not-flagged=14 neither=726 machines-where-revision-10-arrivals-differ=18 (0.7s)
-  FALSE NEGATIVES caused by revision 12's M1 stop at retry/cancel: such a transition can fire while the lane is InFlight or Idle (evidence), so the leaf it leads to can still receive the hold: 14
-     e.g.: S0:{retry->S1} S1:{idle?commit->S0} unknown:{-}
-      stuck lane: Held head=unknown W=0 bound=true via e/none:retry , e/idle:commit , e/none:retry , reload(resume)+Restored->none:none
-     e.g.: S0:{cancel->S1} S1:{idle?commit->S0} unknown:{-}
-      stuck lane: Held head=unknown W=0 bound=true via e/none:cancel , e/idle:commit , e/none:cancel , unknown->none:none
+AUDIT mode=serialize lane-nodes=4588 machines=3500 stuck-and-flagged=2130 flagged-but-never-stuck=648 stuck-but-not-flagged=0 neither=722 machines-where-revision-10-arrivals-differ=0 (0.6s)
+RESULT mode=audit-serialize inv15 PASS (every stuck machine is flagged, except the by-design terminal pass: 0)
   transitions into Held, by cause: reload (InFlight: delivers unknown { Restored }) x9408; end-unknown (bound) x4592; end-interrupt (bound) x4592; reload (no delivery) x1020; capture-refused (re-send, delivers unknown) x4592; end-unknown (no actor) x496; end-interrupt (no actor) x496; capture-refused (re-send, no actor) x496
-  FALSE POSITIVES caused by a retryable guard (a budget that the machine never spends, or a leaf it never reaches): 644
+  FALSE POSITIVES caused by a retryable guard (a budget that the machine never spends, or a leaf it never reaches): 648
      e.g.: S0:{commit->S0} S1:{-} unknown:{retryable?cancel->S0}
+
+=== raw enumeration of every event sequence (reduced alphabet, no state merging) vs merged search on the same alphabet
+RESULT mode=reject rawcheck sequences=353190 depth=6 tags={inv3-limit-landed@4} merged-search-agrees=true (0.2s)
+RESULT mode=latest rawcheck sequences=353099 depth=6 tags={inv3-limit-landed@4} merged-search-agrees=true (0.2s)
+RESULT mode=serialize rawcheck sequences=368006 depth=6 tags={inv3-limit-landed@4} merged-search-agrees=true (0.2s)
+RESULT mode=cancel rawcheck sequences=350953 depth=6 tags={} merged-search-agrees=true (0.1s)
+RESULT mode=allow rawcheck sequences=45460 depth=6 tags={} merged-search-agrees=true (0.0s)

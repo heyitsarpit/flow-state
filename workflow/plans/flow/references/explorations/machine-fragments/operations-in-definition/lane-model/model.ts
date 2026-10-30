@@ -1,4 +1,4 @@
-// The write lane of proposal.md revision 12 (HEAD 9772678a), section 3.8.1, as an executable state machine.
+// The write lane of proposal.md revision 13 (3729662e), section 3.8.1, as an executable state machine.
 // Dependency-free. One lane, one key (identity.ts composes two lanes by identity). Where the text is silent the code says `GAP:`.
 // RULES holds the key rules; mutations.py flips them one at a time.
 
@@ -22,6 +22,9 @@ export const RULES = {
   parkRaw: true, // M3 (OD22): a parked ending lives raw on its lane record and is mapped at delivery (mapped and parked on the actor record: lost with it)
   laneOrder: true, // M4 (OD22): at Runtime disposal W ends after the head's ending, so parked endings keep lane order
   cancelKeepsSent: true, // H2 (OD22): under cancel and allow, Runtime disposal keeps a persisted identity's sent work as an acknowledged InFlight lane record (revision 11: evidence)
+  parkHeld: true, // C5 (OD25): under cancel/allow a persisted identity's parked unknown keeps its lane Held (parked) between turns until delivery (revision 12: evidence at once)
+  idleCommitExempt: false, // C6 (OD25: removed): revision 12 let an idle-guarded commit not count for reject's terminal pass
+  retryStopsAlways: false, // C7 (OD25): retry/cancel stop the arrival search only where the hold already exists (revision 12: everywhere)
   rule20: true, // K29 (OD22): MD rule 20 checks every mapped event over the new-incarnation arrival set (a static check, used by system.ts)
   restoredDedup: true, // G3: a saved unknown and unknown { Restored } for one hold are one delivery
   identityScoped: true, // K21 (OD20): a new incarnation adopts only its own identity's lanes (revision 9: any, by contract id and key)
@@ -247,14 +250,14 @@ export function doAckRefused(s: S, c: Ctx, id: number) {
 }
 // A re-send whose lane-record capture fails before invocation: back to Held and the mapped unknown is delivered again,
 // reason StorageRefused (OD20 F5). Returns the Attempt to deliver, or 0.
-export function doCaptureRefused(s: S, c: Ctx, id: number): number {
+export function doCaptureRefused(s: S, c: Ctx, id: number, park = false): number {
   const a = A(s, id);
   cell(s, c, "storageRefused", s.mode === "allow" ? "InFlight" : s.head === id ? s.st : "Idle");
   a.status = "unknown"; a.acked = a.ackedEver;
   if (s.mode !== "allow") s.st = "Held"; // cancel mode: HeldThisTurn, closed by turnEnd
   s.told = false;
   if (!RULES.refusedResendDelivers) { if (s.mode === "cancel") turnEnd(s); if (s.mode === "allow") turnEnd(s); return 0; }
-  if (!s.bound) { turnEnd(s); return 0; } // evidence until a rebind
+  if (!s.bound) { if (!(park && s.mode === "cancel")) turnEnd(s); return 0; } // evidence until a rebind; C5: a persisted identity's unknown stays parked (Held) under cancel
   s.told = true;
   return id;
 }
@@ -281,8 +284,13 @@ export function doLand(s: S, id: number, refuse: boolean) {
   if (s.refused.includes(id) || s.applied.includes(id)) return; // dead id, or an idempotent duplicate
   s.applied.push(id); s.srvVal = A(s, id).val;
 }
-export function endingTurn(s: S, c: Ctx, id: number, kind: EndKind, spec: Spec): Outcome | "evidence" {
-  if (!s.bound || !addressable(s, id)) { admit(s, c, id, kind); turnEnd(s); return "evidence"; }
+export function endingTurn(s: S, c: Ctx, id: number, kind: EndKind, spec: Spec, park = false): Outcome | "evidence" {
+  if (!s.bound || !addressable(s, id)) {
+    admit(s, c, id, kind);
+    // C5 (OD25): a persisted identity's parked unknown keeps the lane Held (parked) until its delivering turn
+    if (!(park && s.mode === "cancel" && (kind === "unknown" || kind === "interrupt"))) turnEnd(s);
+    return "evidence";
+  }
   return runTurn(s, c, spec, () => { admit(s, c, id, kind); return id; });
 }
 export function doDispose(s: S, c: Ctx) { cell(s, c, "dispose"); s.bound = false; s.told = false; }

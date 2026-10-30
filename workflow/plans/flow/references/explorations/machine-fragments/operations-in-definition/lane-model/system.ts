@@ -129,8 +129,8 @@ function steps(cfg: Cfg, sys: Sys, mode: Mode): Step[] {
       if (a.status === "waiting" && !a.acked && !a.everSent) { wrap(`ack(${id})`, (x) => doAck(x.lane, id)); wrap(`ack-refused(${id})`, (x, c) => doAckRefused(x.lane, c, id)); }
       if (a.status === "waiting" && a.everSent && CONFIG.persistLanes && !a.captured) wrap(`capture(${id})`, (x) => doCapture(x.lane, id));
       if (a.status === "waiting" && a.everSent) wrap(`capture-refused(${id})`, (x, c) => {
-        const d = doCaptureRefused(x.lane, c, id);
-        if (d && x.actor) deliverU(cfg, x, c, d, false, true); else turnEnd(x.lane);
+        const d = doCaptureRefused(x.lane, c, id, cfg.persisted && x.rec && RULES.parkHeld);
+        if (d && x.actor) deliverU(cfg, x, c, d, false, true); else if (!(x.lane.mode === "cancel" && x.lane.st === "Held" && !x.actor)) turnEnd(x.lane); // C5: a parked unknown stays Held
       });
       if (a.status === "waiting" && a.acked && !a.noInvoke && (!a.everSent || a.captured || !CONFIG.persistLanes)) wrap(`invoke(${id})`, (x, c) => doInvoke(x.lane, c, id));
       if (a.status === "wire") {
@@ -139,8 +139,8 @@ function steps(cfg: Cfg, sys: Sys, mode: Mode): Step[] {
           const ev: Ev = k === "success" ? "S" : k === "failure" ? "F" : "U";
           if (!x.actor) { // no binding actor: applied to the lane; parked on the lane record if the identity's record survives, else evidence
             const addressable = x.lane.head === id; // an older Attempt's ending (cancel) is evidence by Attempt id and never parked
-            endingTurn(x.lane, c, id, k, uSpec);
             const keep = cfg.persisted && x.rec && addressable;
+            endingTurn(x.lane, c, id, k, uSpec, keep && RULES.parkHeld);
             if (keep && RULES.savePendingOutcome) x.pend.push({ att: id, kind: ev === "S" ? "success" : ev === "F" ? "failure" : "unknown", why: "", phase: 1 });
             else if (keep) c.handled--; // dropped: K25 reverted
             return;

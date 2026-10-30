@@ -22,6 +22,9 @@ M = [
  ("M3 park mapped on the actor record, not raw on the lane", "parkRaw: true,", "parkRaw: false,", "a parked ending is mapped and stored with the actor record, so a release that discards the record loses it"),
  ("M4 lane order at Runtime disposal", "laneOrder: true,", "laneOrder: false,", "W ends NotSent { Disposed } before the head's ending is parked"),
  ("H2 cancel/allow disposal keeps sent work", "cancelKeepsSent: true,", "cancelKeepsSent: false,", "under cancel, Runtime disposal turns a persisted identity's sent work into evidence (revision 11)"),
+ ("C5 a parked unknown keeps its lane Held under cancel", "parkHeld: true,", "parkHeld: false,", "under cancel a persisted identity's parked unknown is evidence at once; the delivered handler's retry finds Idle (revision 12)"),
+ ("C6 idle-guarded commit exempt from the terminal pass", "idleCommitExempt: false,", "idleCommitExempt: true,", "an idle-guarded commit no longer counts for reject's terminal pass (revision 12)"),
+ ("C7 retry/cancel stop the arrival search everywhere", "retryStopsAlways: false,", "retryStopsAlways: true,", "the search stops at any retry/cancel, even one that fires as a declined no-op (revision 12)"),
  ("K21 lane identity (actor identity, contract id, key)", "identityScoped: true,", "identityScoped: false,", "one lane per contract id and key: a new incarnation adopts any identity's lane (revision 9)"),
 ]
 def run(src_dir):
@@ -30,7 +33,7 @@ def run(src_dir):
     for line in p.stdout.splitlines():
         if line.startswith("######## reading:"): on = "revision 10" in line
         m = re.match(r"RESULT mode=([\w-]+) (inv\d[\w-]*) (\w+)", line)
-        if m and (on or m.group(1).startswith(('identity','system'))): res[(m.group(1), m.group(2))] = m.group(3)
+        if m and (on or m.group(1).startswith(('identity','system','audit'))): res[(m.group(1), m.group(2))] = m.group(3)
     return res
 def bad(r): return {k for k, v in r.items() if v in ("FAIL", "MISSING")}
 tmp = tempfile.mkdtemp()

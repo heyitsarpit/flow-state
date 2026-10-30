@@ -184,6 +184,8 @@ function main() {
   identity();
   console.log("\n=== the lane with the actor's saved record and the active leaf (system.ts; revision 11: OD21)");
   system();
+  console.log("\n=== UnresolvedHold audit (invariant 15)");
+  audit();
   if (env("QUICK")) return;
   console.log("\n=== raw enumeration of every event sequence (reduced alphabet, no state merging) vs merged search on the same alphabet");
   for (const mode of only) {
@@ -196,7 +198,5 @@ function main() {
     }) && [...m.tagFirst.keys()].every((t) => raw.tags.has(t));
     console.log(`RESULT mode=${mode} rawcheck sequences=${raw.seqs} depth=${RAW} tags={${[...raw.tags].map(([t, d]) => t + "@" + d)}} merged-search-agrees=${agree} (${((performance.now() - t0) / 1000).toFixed(1)}s)`);
   }
-  console.log("\n=== UnresolvedHold audit (invariant 6, second half)");
-  audit();
 }
 main();
