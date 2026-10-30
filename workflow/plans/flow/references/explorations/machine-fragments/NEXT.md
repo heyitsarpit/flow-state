@@ -7,9 +7,9 @@ All paths are under `workflow/plans/flow/references/explorations/machine-fragmen
    already written in with a recommendation: skipped predictions read `predicted`; unevaluable conditions match; keep
    array keys; no negated ordering of nullable values and `serverMatches` only under `and`; the
    `PredictionNotRetained` rename.
-2. **Story lane reads (one decision).** `merge-3-stories/proposal.md`, section 3.14 and question 40: A (export commit
+2. **Story lane reads (one decision).** `merged/stories/proposal.md`, section 3.14 and question 40: A (export commit
    values at module scope, recommended) or B (read by transaction and key).
-3. **Story before/after session.** `merge-3-stories/proposal.md` (revision 3) against `../../Testing.plan`. Then
+3. **Story before/after session.** `merged/stories/proposal.md` (revision 3) against `../../Testing.plan`. Then
    accept merge 3.
 4. **Merge 4 into the design: done 2026-10-30** (now `merged/entities.md`; plan `merge-plan-4-5.md`). Merge 3 goes last, on its own. Then a
    verification review.

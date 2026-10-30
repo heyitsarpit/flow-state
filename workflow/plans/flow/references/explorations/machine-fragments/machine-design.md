@@ -34,7 +34,7 @@ and 5; decision 7 builds on decisions 5 and 6.
 |---|---|---|
 | **1. Fragments and the turn** | sections 2.1–2.6 and 3, rules 1–12, P5–P8, P11, P21 | Machines O1–O8, Runtime O4, Persistence O2, Testing O1, Inspection O1, CommandLine O5, React O2/O4, Package O1 |
 | **2. Server calls** | section 2.7, rules 13–25 and N1–N3, C1–C20, P15, P19, P20 | Operations O1–O3/O5/O7, Machines O3/O5/O6, Persistence O4–O6, Testing O2/O3, EntityDomains O1, CommandLine O5 |
-| **3. Exploration tooling** | T2–T3; T1 and Testing O5 marked for removal | CommandLine O5; Testing O5 (removed), Package (`model` export removed) |
+| **3. Exploration tooling** | T2–T3; T1 and Testing O5 removed (C77, C82) | CommandLine O5; Testing O5 (removed), Package (`model` export removed) |
 | **4. Entity domains** | section 2.8, rules 26–38, C21–C30, decisions E1–E18 | Operations O1–O3/O5/O6, EntityDomains O1/O2/O5, Persistence O6, Inspection, CommandLine O5 |
 | **5. Operations in the definition** | 2.7 (rewritten), 2.7.13–2.7.16, rules 13–25 and N1–N3 amended, 26–38 amended, rules 39–47, C31–C53, decisions OD1–OD26 | Operations O1–O7, Machines O1/O4–O6/O8, Runtime O3/O6/V4, Persistence O2–O6, ServerRendering O3/O5, LazyFeatures O3, Inspection O1, React O2/O3, Testing O3/O7, CommandLine O5 |
 | **6. Operations in fragments** | 2.9, rules 48–60, rules 1–4, 6, 8–17, 20–24, 26, 27, 37, 40–47, N1 and N3 amended, C54–C68, decisions F1–F10 | Machines O1/O4–O6/O8, Runtime O3/V4, Persistence O2–O5, Testing O1, Inspection O1, CommandLine O5, React O4, EntityDomains O1, Operations O3/O7 |
@@ -2054,7 +2054,7 @@ request and completes each entry from the per-item statuses. Not spiked.
 **Stories read the server's truth.**
 
 ```ts
-const busyThenPaid = Story.make(CheckoutMachine, { id: "checkout/busy-then-paid", input: { intentId: "pi_1" }, fixtures: [StripeFake] })
+const busyThenCharged = Story.make(CheckoutMachine, { id: "checkout/busy-then-charged", input: { intentId: "pi_1" }, fixtures: [StripeFake] })
   .world(Stripe.busy({ times: 1 }))                                   // user-defined control: the next confirm answers 429 (Busy)
   .send(E.Pay({ paymentMethodId: "pm_card" }))
   .expect({ state: S.WAITING, memory: { busyTries: 1, retryInMs: 2000 } })
@@ -2067,7 +2067,7 @@ A fake server holds the truth, and a Story reads it with `expect(fake, partial)`
 produced through fakes and lifecycle steps (2.10.5): `unknown` by a dropped answer, `NotSent` by a cancel while the
 Attempt's acknowledgement is held, by `reject`, or by a refused acknowledgement (`StorageRefused`).
 `NotSent { why: "Overloaded" }` and record-queue order are reached by holding the head's request and sending enough
-commits (2.10.8).
+commits (2.10.8). (2.10.18.2's `busyThenPaid` checks the same run by its `ending` records.)
 
 #### 2.7.12 Timing in the turn
 
@@ -2560,7 +2560,7 @@ Rule 46 is normative. Per kind (OD3):
 
 #### 2.7.16 Views, `check()`, Stories, `flow check`, `flow explain`
 
-- Stories: `ending` evidence names `operation`, `contract`, the verb (`commit`, `lookup`, `subscribe`) and `key`;
+- Stories: `ending` records name `operation`, `contract`, the verb (`commit`, `lookup`, `subscribe`) and `key` (2.10.6);
   `Superseded` is an evidence kind, for a never-sent `latest` commit or a released lookup; `Released` (proposed) for
   an unknown `cancel` released. Endings come from fakes (rule 62), and `lane` records name their cell, so `flow stories
   --coverage` counts cells (2.10.14); a Story reaches the cells its
@@ -3716,7 +3716,7 @@ and one home per kind of record.
 | --- | --- | --- |
 | **Common** (a scripted test of one machine) | **13** | `Story.make` (with `world`), `send`, `advance` (with `{ next }`), `checkpoint`, `expect`, `world`, `run`, `read`; `Fake.server` (with `truth`, `endpoints`); the wire words `hold`, `release`; `Story.attempt` |
 | **Uncommon** (fragments, domains, reloads, tabs, streams, SSR) | **18** new, 8 reused | new: `together`, `drop`, `duplicate`, `controls`, `match`, `Fake.storage`, `Fake.stream`, `Fake.webSocket`, `Fake.fetch`, `dispose`, `reload`, `guards`, `Story.records`, `Story.inspection`, `Story.entity`, `advance(…, { suspended })`, `checkpoint(…, { at })`, `Story.property` (an option); reused: `ensure`, `openTab` (with `from`), `closeTab`, `enter`, `leave`, `setContext`, `dehydrate`, `hydrate` |
-| **Rare** (policy cells, property tests, upgrades) | **5** | `advance({ to })`, `reset` (a fragment alone), `release({ nth })`, `Fake.storage.from(story)`, `propertyTest(story, …)` |
+| **Rare** (policy cells, property tests, upgrades) | **5** | `advance({ to })`, `reset` (a fragment alone), `release({ nth })`, `Fake.storage.from(story)` (and its `seed`), `propertyTest(story, …)` |
 
 **Removed** from the plans' Story surface: `process()`, `advanceTo`, `advanceToNextTimer`, the `frames` option and
 frame collapse, `run.calls`, `checkpoint.exit`, the checkpoint predicate (C16), `Story.ending` (never adopted),
@@ -4047,7 +4047,7 @@ kind (STF72; members added in C79):
 | `queue`, `store` | record-queue join, release, removal (`Superseded`, `Cancelled`, `Released`); predictions, confirmations, `uncertain` set or cleared, repairs, skips, tombstones | `entity`, `key`, `attempt`, `reason` |
 | `session` | stream-session evidence (merge 6's 2.12; *Stream details: merge 6*) | `actor`, `instance`, `copy`, `operation`, `key`, `cell`, each start's `answer` and basis, `missed`, drops, `Overflow`, `Discarded`, reconnect phase |
 | `request`, `control` | a fake's request (each phase change) or control | 2.10.4 |
-| `issue`, `diagnostic`, `persistence`, `hydration`, `entry` | as Inspection O4; merge 6's flags `UnprovenValues`, `RegistrationChurn`, `ReleaseOverdue` are `diagnostic` records | as Inspection O4 |
+| `issue`, `diagnostic`, `persistence`, `hydration`, `entry` | as Inspection O4; merge 6's flags `UnprovenValues`, `RegistrationChurn`, `ReleaseOverdue` are `diagnostic` records (*Stream details: merge 6*) | as Inspection O4 |
 
 One shape everywhere: `instance` is a list of placement names (`["likes"]`), `copy` is the `.each` copy's key string,
 `key` is the contract's key record, `subject` is the subject path (STF38). A callback and an exit with the same name
@@ -5785,7 +5785,7 @@ Testing O4 and O9; its one stale sentence (`minDwell`'s "frames from one `proces
 | C81 | CommandLine O2, O5, O6 | `describe` prints subject, options, steps, checkpoints, expectations, properties and every fake reached; coverage by cells, handlers (current and late) and Flow reasons; Story-derived warnings from `verdict`, `listRepair`, `drop`, `ending` (rule 51's declines) and `turn` records; rule 20 at a stand-in after a subject change (2.10.12); top-level Stories in `defineConfig` (`appId: null`) (2.10.14) | Amends T2 |
 | C82 | Package O1 | `flow-state/testing` exports `Story`, `Fake`, `propertyTest`, `StoryFrame`, `StoryPlayer`, `definePresentation`; `story` and `model` removed (T1); `flow-state/internal/testing` (not public) exports `disposeRuntime` for Flow's suite | Amends Package O1 |
 | C83 | Diagnostics | The error names of C75 | Adds |
-| C84 | EntityDomains O2, O4 | `Entity.queue` removals are `queue` records with their reason (`Superseded`, `Cancelled`, `Released`; an `Overloaded` write never joined and is an `ending` record, rule 35); `propertyTest`'s domain preset `Domain.propertySteps(domains, inputs)` keeps O4's oracle, quietness and Inconclusive rules | Resolves C30's deferred half |
+| C84 | EntityDomains O2, O4 | `Entity.queue` removals are `queue` records with their reason (`Superseded`, `Cancelled`, `Released`; an `Overloaded` write never joined and is an `ending` record, rule 35); `propertyTest`'s domain preset `Domain.propertySteps(domains, inputs)` keeps O4's oracle, quietness and Inconclusive rules | Resolves C30's deferred half and delegated-decisions row 3 (K11) |
 | C85 | Persistence O7 | The capture that removes a cancelled Attempt's acknowledgement queues behind that acknowledgement (one writer per scope); an acknowledgement stored before a crash restores as `unknown { Restored }` even if this Runtime had cancelled the Attempt (2.7.13's restore row; Stories T7; section 7 item 21) | Adds |
 
 ### For tooling
@@ -6043,7 +6043,7 @@ From [reviews/design-correctness.md](reviews/design-correctness.md) and [reviews
 
 ## Decisions
 
-Settled by the owner, with the reason each wins and what was rejected. Merge 2's decisions keep their numbers D1–D17, merge 4's E1–E18, the operations merge's OD1–OD26, operations-in-fragments' F1–F10 and Stories' T1–T7 (cited "Stories T*n*"; a bare T*n* is a tooling row of section 5), which
+Settled by the owner or under the owner's delegation, with the reason each wins and what was rejected. Merge 2's decisions keep their numbers D1–D17, merge 4's E1–E18, the operations merge's OD1–OD26, operations-in-fragments' F1–F10 and Stories' T1–T7 (cited "Stories T*n*"; a bare T*n* is a tooling row of section 5), which
 their rewrites, spikes, models and later proposals cite; they are not the problems D1–D7 of section 4.
 
 ### Outcomes (merge 1, [merged/outcomes.md](merged/outcomes.md))
