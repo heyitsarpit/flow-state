@@ -670,8 +670,8 @@ decision (E1–E18). Rules 13–25 and N1–N3 still apply.
 
 26. **One split** (E1). For an operation registered in a domain, the domain owns shared data: the prediction, its
     confirmation and rollback, repair, the record queue, `uncertain` and `unconfirmed`. The operation and the
-    machine own workflow: which event each ending becomes, its route, retry and cancel. Call-site `optimistic` and
-    `setData` are type errors on it (EDP:60-61; *Pending owner Q1 (where a plain operation's `optimistic` and `writes` live).*). Memory holds workflow and never a copy of a record field; views read records and
+    machine own workflow: which event each ending becomes, its route, retry and cancel. A commit's `optimistic` and a
+    `setData` action on its own entries are type errors on a domain operation (EDP:60-61; OD26). Memory holds workflow and never a copy of a record field; views read records and
     answers.
 27. **Settlement for the store, admission for the lane** (E4, E13). At settlement Flow classifies the send, applies
     rule 18, applies the Attempt's ending to the store (rule 30) and releases record queues, in one publication, then
@@ -721,9 +721,11 @@ decision (E1–E18). Rules 13–25 and N1–N3 still apply.
     several records or none.
 35. **Overflow is an ending** (E11). A commit that would exceed its lane's queued commits (`W`, 64 under `serialize`) or any record queue, or a `many`
     key array past 4,096 items (merge 5, M5-D10), ends `NotSent { why: "Overloaded" }`, with no prediction and no queue join; the transition and its other actions run.
-36. **Callback reads** (E12, amends rule 22). `optimistic` reads the starting turn's after memory, captured at start.
-    `writes` receives `{ value, input }` and reads no memory. Domain operations have no `optimistic`; their `writes`
-    may only invalidate (2.8.9). *Pending owner Q1 (where a plain operation's `optimistic` and `writes` live).*
+36. **Callback reads** (E12, amends rule 22; OD26). `optimistic`, the commit's only option
+    (`O.x.commit(select, { optimistic })`), reads the starting turn's after memory, captured at commit. `writes`, the
+    operation's option (`contract.outcomes(mapping, { writes })`), receives `{ value, input }` and reads no memory, so it
+    is found by contract id after a rebind or reload, as `outcomes` are. Domain operations have no `optimistic`; their
+    `writes` may only invalidate (2.8.9).
 37. **Reads carry confirmed data** (E15). A read operation's `success:` and `value:` see confirmed data only. A read's defect
     or interruption ends on `failure` as `Defect` or `Interrupted`; a tag record must map them (rule 20; 2.8.10).
 38. **Lanes and predicted keys persist together** (E14; amended by OD20). A domain write's lane record, its Attempt and
@@ -933,7 +935,8 @@ its own, as a new snapshot; an old snapshot never sees it (Machines O8).
 | machine or fragment body      | `default`, `schedules`, `traits`, `on`, `states`, `whenAbandoned`                                                                                        |
 | a host's filling              | `input`, `guards`, `callbacks`, `exits`                                                                                                            |
 | a transition                  | `target`, `guard`, `updateMemory`, `actions`, `raise`, `notify`                                                                                    |
-| commit options                | `optimistic`, `writes` (*Pending owner Q1 (where a plain operation's `optimistic` and `writes` live).*)                                                                     |
+| commit options                | `optimistic`                                                                                                                                       |
+| operation options             | `writes`                                                                                                                                           |
 
 A lint rule enforces it with an autofix (T4). It moves category keys only: the entries of `traits`,
 alternatives and schedules keep their order, because declaration order carries meaning (rule 1,
@@ -2655,8 +2658,8 @@ Toggle: { target: "self", actions: [O.like.commit(({ event }) => ({ id: event.id
 - Machine memory never mirrors entity data. It holds drafts, toasts, reconcile keys and selection. Views read records
   and answers.
 - This is EDP D1 (EDP:185-187) stated for the operation: `optimistic` and `setData` stay type errors on a domain
-  operation (EDP:60-61, ED:294-299; *Pending owner Q1 (where a plain operation's `optimistic` and `writes` live).*).
-- A plain operation (not in a domain) keeps memory-held or `optimistic` predictions (2.7.8). *Pending owner Q1 (where a plain operation's `optimistic` and `writes` live).*
+  operation (EDP:60-61, ED:294-299; OD26).
+- A plain operation (not in a domain) keeps memory-held predictions or the commit's `optimistic` (2.7.8, rule 36).
 
 #### 2.8.4 Timing: settlement and admission (E4, E13)
 
@@ -2857,23 +2860,23 @@ Rule 22 used to list "optimistic and write callbacks" as after reads while secti
 F-L2). Decided (E12, rule 36):
 
 ```ts
-// notes.definition.ts: a plain operation; its mapping is on the definition (rule 13)
-notes: Notes.save.outcomes({ success: E.Saved, failure: { … }, unknown: E.SaveUnsure }),
-// notes.machine.ts: optimistic and writes stay commit options for now (Q1)
+// notes.definition.ts: a plain operation; its mapping and `writes` are on the definition (rules 13, 36)
+notes: Notes.save.outcomes({ success: E.Saved, failure: { … }, unknown: E.SaveUnsure }, {
+  writes: ({ value, input }) => …,            // no memory: it runs at settlement, before any turn of the ending exists
+}),
+// notes.machine.ts: optimistic is the commit's only option
 O.notes.commit(select, {
   optimistic: ({ memory, input }) => …,       // the starting turn's after memory, captured at start, even if the start waits
-  writes: ({ value, input }) => …,            // no memory: it runs at settlement, before any turn of the ending exists
 })
 ```
 
 - `optimistic` (plain operations only) reads the starting turn's after memory, captured when the start is recorded,
   so a queued `serialize` start applies what its own turn saw, not a later turn's memory.
-- `writes` receives `{ value, input }` and reads no memory: it runs at settlement (OPS:83), and the after memory of
-  the ending's turn does not exist yet.
+- `writes`, the operation's option, receives `{ value, input }` and reads no memory: it runs at settlement (OPS:83),
+  and the after memory of the ending's turn does not exist yet; on the operation, it is found by contract id after a
+  rebind or reload (OD26).
 - Domain operations have no `optimistic` (EDP:60-61); their `writes` may only invalidate, with the same
-  `{ value, input }` view (ED:297-299; E12, as corrected).
-
-*Pending owner Q1 (where a plain operation's `optimistic` and `writes` live).*
+  `{ value, input }` view (ED:297-299; E12, as corrected), on the operation (OD26).
 
 #### 2.8.10 Reads around writes (E15)
 
@@ -3577,17 +3580,15 @@ const listQuery = ({ memory }: { memory: Memory }) => ({
 // issuelist.definition.ts (excerpt). Issues.setPinned: a plain operation (this list registers no domain; with 2.8's
 // domain, the pin would be `.predicts`, and `optimistic` a type error, rule 26), key: ["id"], concurrency "reject".
 operations: ({ E }) => ({
-  pin: Issues.setPinned.outcomes({
-    success: E.Pinned,
-    failure: E.PinFailed,   // one event for every failure, NotSent included
-    unknown: E.PinUnsure,
-  }),
+  pin: Issues.setPinned.outcomes(
+    { success: E.Pinned, failure: E.PinFailed, unknown: E.PinUnsure },   // one event for every failure, NotSent included
+    { writes: ({ value }) => [Issues.list.invalidate({})] },             // the operation's option: cache verbs on the contract (OD26)
+  ),
   issues: Issues.list,      // bare: placed in the machine, its data read from the row
 }),
 
 // issuelist.machine.ts (excerpt)
-// Pending owner Q1 (where a plain operation's `optimistic` and `writes` live): `optimistic` stays a commit option here.
-// It reads the after memory (rule 22). Success confirms the look; failure removes it; unknown keeps it,
+// `optimistic` is the commit's only option (OD26). It reads the after memory (rule 22). Success confirms the look; failure removes it; unknown keeps it,
 // marked uncertain, and refetches the displayed entries once (2.7.1).
 const pin = O.pin.commit(({ event }) => ({ id: event.id, pinned: event.pinned }), {
   optimistic: [Issues.list.setData(({ memory, event }) => ({ key: listQuery({ memory }), data: pinRow(event) }))],
@@ -3663,10 +3664,10 @@ turn (rule 6).
 | Kind | Words |
 |---|---|
 | **New, fragments** | `trait`, `subroutine`, `traits` (root and node), `Flow.state`, `.resumable()`, `.each` (`of`, `max`, `by`), `key` / `item` in fillings and copy views, `.key(k)`, `hostEvents`, `guards`, `callbacks`, `exits` (declarations and fillings), `notify`, the `Flow` module (`Flow.Guard`, `Flow.Callback`, `Flow.Exit`, `Flow.optional`, `Flow.uncertain`, `Flow.annotate`, `Flow.input`, `Flow.initial`, `Flow.private`, `Flow.Denial`, `Flow.entry`), `raise`, `resetOn`, `whenAbandoned`, the definition's `handler` / `guard`, state tokens in guard arrays, `story.machine(fragment)` with `.enter` / `.leave` / `run.calls` / `checkpoint.exit` |
-| **New, plans** | `Outcome.success`, `Outcome.failure`, `Outcome.unknown`; Flow's reasons `NotSent { why }` (`Cancelled`, `Restored`, `Rejected`, `Overloaded`, `StorageRefused`, `Disposed`), `Cancelled`, `Restored`, `Interrupted`, `Defect`, `StillUnknown { failure }`, `StorageRefused`; evidence `Superseded`, `Released`, `NothingToResend`, `InFlight`; (operations merge) contracts with `input`, `output` (omitted: `Schema.Void`) and a required `key: [...]` field list, in `*.contracts.ts`; `operations: ({ E }) => ({ … })` with `contract.outcomes({ … })` (`unknown` may be a record by tag); the handles `O.x` with `commit(select)`, `lookup(select)`, `subscribe(select)`, `subscribe.each(select)`, `retry(k?)`, `cancel(k?)`, `idle(k?)` (a partial key allowed), `retryable(k?, { times })`, `refetch`, `get(s, k?)`; the rows `s.operations.<name>` with `pending`, `uncertain`, `waiting`, `retryCount`, `progress`, `outstanding`; the mapper's `{ input, attempt, progress, key }`; `runtime.unsettledWrites()`; `Story.ending` (*Story reads: merge 3*); the findings `SharedContract`, `DuplicatePlacement`, `VerbMismatch`, `KeyRequired`, `UnresolvedHold`, `KeyOmitsInput`, `UnusedOperation`; the denials `Uncertain`, `RetryLimit`; `DehydrateCommitInFlight`; `attempt.id`, `attempt.retryCount`, `attempt.mayHaveApplied`; `concurrency: "latest"`; the record read `{ data, predicted, uncertain, unconfirmed }` (`predicted` replaces the record's and the resource lane's `pending`); (merge 5) the condition operators `or`, `not`, `gt`, `gte`, `lt`, `lte`, `isNull`, a predicted field's `(beneath, input) => value`, the Runtime option `checkReplays`, the warning `PredictionNotRetained`; the codes `InFlight` and `LateMayNotLeave`; `keys` on keyed schedules (key records); `.checkpoint(name, ({ truth }) => …)`; `orphaned`; `.history` (and `.history.child`); `armOn`; `disarmOn`; `s.schedules`; `dueAt` (the `model()` options `invariants`, `hot` and `explore` are removed with T1) |
+| **New, plans** | `Outcome.success`, `Outcome.failure`, `Outcome.unknown`; Flow's reasons `NotSent { why }` (`Cancelled`, `Restored`, `Rejected`, `Overloaded`, `StorageRefused`, `Disposed`), `Cancelled`, `Restored`, `Interrupted`, `Defect`, `StillUnknown { failure }`, `StorageRefused`; evidence `Superseded`, `Released`, `NothingToResend`, `InFlight`; (operations merge) contracts with `input`, `output` (omitted: `Schema.Void`) and a required `key: [...]` field list, in `*.contracts.ts`; `operations: ({ E }) => ({ … })` with `contract.outcomes({ … })` (`unknown` may be a record by tag); the handles `O.x` with `commit(select)`, `lookup(select)`, `subscribe(select)`, `subscribe.each(select)`, `retry(k?)`, `cancel(k?)`, `idle(k?)` (a partial key allowed), `retryable(k?, { times })`, `refetch`, `get(s, k?)`; the rows `s.operations.<name>` with `pending`, `uncertain`, `waiting`, `retryCount`, `progress`, `outstanding`; the mapper's `{ input, attempt, progress, key }`; the operation's options argument `.outcomes(mapping, { writes })` and the commit's `{ optimistic }` (OD26); `runtime.unsettledWrites()`; `Story.ending` (*Story reads: merge 3*); the findings `SharedContract`, `DuplicatePlacement`, `VerbMismatch`, `KeyRequired`, `UnresolvedHold`, `KeyOmitsInput`, `UnusedOperation`; the denials `Uncertain`, `RetryLimit`; `DehydrateCommitInFlight`; `attempt.id`, `attempt.retryCount`, `attempt.mayHaveApplied`; `concurrency: "latest"`; the record read `{ data, predicted, uncertain, unconfirmed }` (`predicted` replaces the record's and the resource lane's `pending`); (merge 5) the condition operators `or`, `not`, `gt`, `gte`, `lt`, `lte`, `isNull`, a predicted field's `(beneath, input) => value`, the Runtime option `checkReplays`, the warning `PredictionNotRetained`; the codes `InFlight` and `LateMayNotLeave`; `keys` on keyed schedules (key records); `.checkpoint(name, ({ truth }) => …)`; `orphaned`; `.history` (and `.history.child`); `armOn`; `disarmOn`; `s.schedules`; `dueAt` (the `model()` options `invariants`, `hot` and `explore` are removed with T1) |
 | **New concepts, not words** | **incarnation** (one life of a fragment instance), **frozen** (a resumable trait while its node is inactive), **summary** (a contract's inferred per-alternative effects), the memory views **before**, **before-walk** and **after** (2.5, rule 22), pending reset, the three **channels** (2.7.1), a **write** (one Attempt) and a **send** (one invocation), a **contract** and an **operation** (rules 39, 40), the **write lane** with its states **`Idle`**, **`InFlight`**, **`Held`** and **`HeldThisTurn`** and its queued commits **`W`** (rule 21, 2.7.13), the **hold**, the lane's **addressable Attempt**, **after lanes**, the **binding actor**, an **unbound lane**, **rebind**, **actor identity**, a **pending mapped outcome** (rule 44), a **keyed list** (rules 21, N1, N2), a call's **owner** and its **current** or **late** ending (rule 14), **late turn** (rule 15), the **Attempt's ending** (rule 18); the **record queue** (per record, across actors, rule 29), the **uncertain mark** (per record and Attempt, rule 32), **settlement** versus **admission** (rule 27), a **create draft** (`creating`, a convention, rule 33); (merge 5) yes / no / maybe, a **carried path**, the **record beneath**, an **uncomputed** prediction, a **prediction fault**, `many` |
 | **Existing** | `definition`, `machine`, `states`, `default`, `events`, `internalEvents`, `input` (caller side only: `ensure`, `useActor`, a host's filling), `memory`, `on`, `target`, `guard`, `updateMemory`, `actions`, `schedules`, `restartOn`, `transaction`, `key`, `concurrency`, `commit`, `outcomes`, `optimistic`, `setData`, the Attempt, `deny`, `check`, `model` (marked for removal, T1), `S`, `E`, `O`, `.from`, `payload` |
-| **Removed** (operations merge) | commit values and their `{ outcomes }` option; `s.calls`; `s.activities` and the `activities` record; `keys` on activities; `read.fetch(key)`; the mapper's `superseded`, `laneKey` and copy `key`; `SharedCopyLane`; the default lane key of a domain write; key closures `key: (i) => …`; `result` and `params` on contracts; `*.operations.ts`; `NotSent { Superseded \| NothingToResend }` as endings |
+| **Removed** (operations merge) | commit values and their `{ outcomes }` option; `writes` as a commit option; `s.calls`; `s.activities` and the `activities` record; `keys` on activities; `read.fetch(key)`; the mapper's `superseded`, `laneKey` and copy `key`; `SharedCopyLane`; the default lane key of a domain write; key closures `key: (i) => …`; `result` and `params` on contracts; `*.operations.ts`; `NotSent { Superseded \| NothingToResend }` as endings |
 | **Author-chosen** | every other name (`Field`, `Lockout`, `challenges`, `LOCKED_OUT`, `canEdit`, `onLocked`, …) |
 
 ## 4. Against the problems in principles.md
@@ -3760,7 +3761,7 @@ C1–C18 (their record is in [merged/](merged/)); P15 and P20 are rewritten in p
 | C12 | Operations O2, Machines O6 | A commit, lookup or retry of an operation is owned by the activation of the state its transition names. At admission its ending is current (from the active leaf) or late (from the owner's nearest surviving ancestor) (rule 14); an adopted ending is current from the active leaf. A late turn may not leave a state that owns another pending call, or an active subroutine (`LateMayNotLeave`); lateness is not transitive (rule 15). Every late event that can occur is handled (rule 20) | Replaces "State exit does not cancel finite work; its event reaches the actor's later state." **Breaking:** the reference editor's after-Close save is handled at the ancestor its late ending routes to ([m1.save](merged/server-calls/rewrites/m1.save.ts)) |
 | C13 | Machines O3 | "Action parameters" split: guards, updates and patch-feeding mappers read before; commit selects, key selects and schedule inputs read after (rule 22) | Exempts commit selects and schedule inputs from "both read the pre-turn snapshot" |
 | C14 | Machines O5 | A schedule function reads the after memory of its arming turn, with the same `now`; `armOn` counts an event accepted anywhere on the active path; keyed schedules (`keys`) keep one timer per key (rule 23) | Adds |
-| C15 | Operations O3 | `optimistic` reads the starting turn's after memory, captured at start; `writes` receives `{ value, input }` and reads no memory; domain operations have no `optimistic`, and their `writes` may only invalidate (rules 22, 36). *Pending owner Q1 (where a plain operation's `optimistic` and `writes` live).* | Adds |
+| C15 | Operations O3 | `optimistic` is the commit's only option, `O.x.commit(select, { optimistic })`, and reads the starting turn's after memory, captured at start; `writes` is the operation's option, `contract.outcomes(mapping, { writes })`, receives `{ value, input }` and reads no memory; domain operations have no `optimistic`, and their `writes` may only invalidate (rules 22, 36; OD26) | Adds |
 | C16 | Testing O2, O3 | A Story checkpoint may read fixture truth (`.checkpoint(name, ({ truth }) => …)`); every ending can be produced through services | Adds |
 | C17 | Persistence O4, O6 | Write lanes are Runtime records of the actor identity (C44–C48), acknowledged once per Attempt, in one capture with the records the Attempt predicts; prediction values are never persisted (rules 38, 46). On restore, an Attempt acknowledged once ends `unknown` (`Restored`) and an unacknowledged one `NotSent { why: "Restored" }`; parked endings and held lanes are delivered in rule 44's order, routed by the one owner test (rule 14) | Replaces the former P12 ("a fenced commit restores with its activation"); extends "A crash after acknowledgment restores unknown carrying the same Attempt…" |
 | C18 | CommandLine O5 | Errors: a late event with no handler at a strict ancestor of its owner, naming the event and the state; `failure.NotSent` unmapped where it can occur; an adopted ending unhandled in a leaf of its operation's arrival set (rule 20); `SharedContract`, `DuplicatePlacement`, `VerbMismatch`, `KeyRequired`, `UnresolvedHold` (rules 40–45); a mapped event used as a schedule's `send`, a `raise` or a view's `send` (rule 47); a contract without `key`, or a key field that is not a top-level `input` field (rule 39); (merge 4) `concurrency: "cancel"` on a predicting write (rule 29); `Defect` or `Interrupted` unmapped in a read operation's tag record (rule 37). Warnings: a state-changing transition listing a `reject` commit without its `idle` guard (rule 16); one transition reading, in both memory views, a key it writes (rule 22); `KeyOmitsInput` (rule 39); `UnusedOperation`; `UnresolvedHold` when the owner exists but is unreachable (rule 45); a one-record domain write whose key fields are not those its predicted record's key reads (rule 34). Info: bare writes (rule 40). Type errors: `retry`, `retryable`, a row's `retryCount` or `progress` under `allow` outside an ending's own handler (rule N2); a key-less member outside its operation's ending (rule 43). `SharedCopyLane` is deleted. Display: the commit node shows its operation, contract, verb, policy and key, and for a domain write its predicted entity, key and field names, `.alsoChanges` targets and the reads they reach; `flow explain` prints the lane key and cardinality (A-L2; merge 5, 3.7; 2.7.16) | Adds |
@@ -4042,8 +4043,9 @@ From [reviews/design-correctness.md](reviews/design-correctness.md) and [reviews
   26–38 amended, rules 39–47 added; 2.5 steps 1, 2, 5 and 6; section 4; C2, C5–C8, C10–C12, C17–C20, C22–C25, C28–C30,
   P15, P19, P20 amended and C31–C53 added; section 7 items 0, 6, 11, 15, 16 amended and 18, 19 added. OD23 is applied as
   decided (the proposal had left it open). Examples rewritten: 2.7.3–2.7.10, 2.8.2, 2.8.3, 2.8.7, 2.8.9, 3.1 (from the
-  record's 5.2), 3.2 and 3.4 (both re-walked against `UnresolvedHold` and rule 20), and 3.6's keywords. Edits that depend on owner question Q1
-  (where a plain operation's `optimistic` and `writes` live) are marked and wait.
+  record's 5.2), 3.2 and 3.4 (both re-walked against `UnresolvedHold` and rule 20), and 3.6's keywords. The owner's
+  answer to Q1 is OD26: `writes` is the operation's option, `optimistic` the commit's only one (2.6, rules 26, 36, 2.8.3,
+  2.8.9, 3.4, C15).
 
 ## Decisions
 
@@ -4222,7 +4224,7 @@ E1–E18 are kept, because its rules, merge 3, merge 5 and operations-in-definit
   different declared key (rule 34). *Superseded by OD15: every write states `key` (rule 34).*
 - **E11** Queue overflow ends `NotSent { why: "Overloaded" }` for that write only (rule 35).
 - **E12, as corrected** `optimistic` reads the starting turn's after memory, captured; `writes` reads `{ value, input }`
-  only; domain operations keep `writes` for `invalidate` only (rule 36). *Pending owner Q1 (where a plain operation's `optimistic` and `writes` live).*
+  only; domain operations keep `writes` for `invalidate` only (rule 36). *Amended by OD26: `writes` is the operation's option, `optimistic` the commit's only option.*
 - **E14** A lane, its Attempt and its predicted keys persist in one capture (rule 38). *Amended by OD20: the lane record's capture (rule 38).*
 - **E15, as corrected** Read call values carry confirmed data; `Defect` and `Interrupted` arrive on `failure` and must be
   mapped (rule 37).
@@ -4331,7 +4333,7 @@ Settled by the owner after the second reviews (soundness, authors, system fit):
 
 ### Operations in the definition (operations merge, [merged/operations/decisions.md](merged/operations/decisions.md))
 
-Settled by the owner, OD1–OD18 and OD23; OD19–OD22 and OD25 are behaviour the owner delegated to the main session; OD24
+Settled by the owner, OD1–OD18, OD23 and OD26; OD19–OD22 and OD25 are behaviour the owner delegated to the main session; OD24
 is the process under which this merge was approved. The numbers are kept, because merge 6, the RPC exploration,
 operations-in-fragments, the lane model and the reviews cite them.
 
@@ -4446,6 +4448,11 @@ operations-in-fragments, the lane model and the reviews cite them.
   `idle`-guarded commit. C7: a `retry` or `cancel` resolves a hold only on paths where the hold already exists when it
   runs. C8: disposing an actor leaves an acknowledged re-send that waits for its capture unchanged; the Runtime captures
   and then invokes it. (2026-10-30)
+- **OD26** Operations merge Q1 (X20), option B: a plain operation's `writes` moves to the operation, as
+  `.outcomes(mapping, { writes })`, because it reads only `{ value, input }` and must be found from a lane record after
+  rebind or reload; `optimistic` stays the commit's only option, `O.x.commit(select, { optimistic })`, because it reads
+  the starting turn's memory and event (rule 36). Domain writes take no `optimistic` (they predict records with
+  `.predicts`); their `writes` may only invalidate, now on the operation. (2026-10-30)
 - **OD24** Process, delegated by the owner (2026-10-30): the main session approves the merge change lists for merges 4
   and 5 and for operations-in-definition, and treats operations as accepted for merging, unless a conflict needs an
   owner decision; only then is the owner asked. The streams direction review remains the owner's. (2026-10-30) *Process,
