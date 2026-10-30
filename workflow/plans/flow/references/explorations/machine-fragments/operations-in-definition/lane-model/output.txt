@@ -1,0 +1,224 @@
+invariants: 1 sent endings never dropped (and NotSent only for never-sent); 2 nothing newer sent past an older unresolved unknown (holding modes); 3 server ends at the latest commit not cancelled/NotSent/failed;
+            4 no double send except same-id re-send; 5 pending/uncertain/waiting match their definitions; 6 every reachable state reaches Idle; 7 cannot-occur cells never reached; 8 reachable cells all visited
+
+######## reading: literal: every (re-)send needs its own storage acknowledgement (needed for the storage-refused re-send cell)
+config: {"maxCommits":3,"resendCap":1,"queueCap":2,"ackPerSend":true,"retryTimes":1}  depthBound=200
+
+=== reject: 614406 states, 6321092 transitions, longest shortest-path 28 (complete: every sequence of any length is covered), 7.5s
+RESULT mode=reject inv1 FAIL (1 distinct)
+  counterexample (5 events): commit -> ack(1) -> invoke(1) -> end-unknown(1)/h:retry -> reload/h:none
+    Attempt 1 was sent but is recorded NotSent { Restored }
+RESULT mode=reject inv2 FAIL (1 distinct)
+  counterexample (8 events): commit -> ack(1) -> invoke(1) -> end-unknown(1)/h:retry -> reload/h:none -> commit -> ack(2) -> invoke(2)
+    Attempt 2 sent while older sent Attempt 1 is unresolved (notsent Restored)
+RESULT mode=reject inv3 FAIL (1 distinct)
+  counterexample (5 events): commit -> ack(1) -> invoke(1) -> end-unknown(1)/h:retry -> reload/h:none
+    server=1 expected(latest eligible commit)=0; applied order=[1]; Attempts c1:notsent/Restored
+RESULT mode=reject inv3-limit-landed FAIL (1 distinct)
+  counterexample (4 events): commit -> ack(1) -> invoke(1) -> end-unknown(1)/h:cancel
+    server=1 expected(latest eligible commit)=0; applied order=[1]; Attempts c1:released
+RESULT mode=reject inv3-limit-stale FAIL (1 distinct)
+  counterexample (8 events): commit -> ack(1) -> invoke(1) -> end-unknown(1)/h:none -> cancel;commit -> ack(2) -> invoke(2) -> land(2)
+    server=1 expected(latest eligible commit)=2; applied order=[2,1]; Attempts c1:released c2:success
+RESULT mode=reject inv4 PASS
+RESULT mode=reject inv5 PASS
+RESULT mode=reject inv6 PASS (every reachable state reaches Idle)
+RESULT mode=reject inv7 PASS (cannot-occur cells never reached)
+RESULT mode=reject inv8 PASS (all 29 reachable cells visited)
+
+=== latest: 695666 states, 7158501 transitions, longest shortest-path 28 (complete: every sequence of any length is covered), 9.6s
+RESULT mode=latest inv1 FAIL (1 distinct)
+  counterexample (5 events): commit -> ack(1) -> invoke(1) -> end-unknown(1)/h:retry -> reload/h:none
+    Attempt 1 was sent but is recorded NotSent { Restored }
+RESULT mode=latest inv2 FAIL (1 distinct)
+  counterexample (8 events): commit -> ack(1) -> invoke(1) -> end-unknown(1)/h:retry -> reload/h:none -> commit -> ack(2) -> invoke(2)
+    Attempt 2 sent while older sent Attempt 1 is unresolved (notsent Restored)
+RESULT mode=latest inv3 FAIL (1 distinct)
+  counterexample (5 events): commit -> ack(1) -> invoke(1) -> end-unknown(1)/h:retry -> reload/h:none
+    server=1 expected(latest eligible commit)=0; applied order=[1]; Attempts c1:notsent/Restored
+RESULT mode=latest inv3-limit-landed FAIL (1 distinct)
+  counterexample (4 events): commit -> ack(1) -> invoke(1) -> end-unknown(1)/h:cancel
+    server=1 expected(latest eligible commit)=0; applied order=[1]; Attempts c1:released
+RESULT mode=latest inv3-limit-stale FAIL (1 distinct)
+  counterexample (8 events): commit -> ack(1) -> invoke(1) -> commit -> end-unknown(1)/h:cancel -> ack(2) -> invoke(2) -> land(2)
+    server=1 expected(latest eligible commit)=2; applied order=[2,1]; Attempts c1:released c2:success
+RESULT mode=latest inv4 PASS
+RESULT mode=latest inv5 PASS
+RESULT mode=latest inv6 PASS (every reachable state reaches Idle)
+RESULT mode=latest inv7 PASS (cannot-occur cells never reached)
+RESULT mode=latest inv8 PASS (all 29 reachable cells visited)
+
+=== serialize: 604896 states, 6263126 transitions, longest shortest-path 28 (complete: every sequence of any length is covered), 8.2s
+RESULT mode=serialize inv1 FAIL (1 distinct)
+  counterexample (5 events): commit -> ack(1) -> invoke(1) -> end-unknown(1)/h:retry -> reload/h:none
+    Attempt 1 was sent but is recorded NotSent { Restored }
+RESULT mode=serialize inv2 FAIL (1 distinct)
+  counterexample (8 events): commit -> ack(1) -> invoke(1) -> end-unknown(1)/h:retry -> reload/h:none -> commit -> ack(2) -> invoke(2)
+    Attempt 2 sent while older sent Attempt 1 is unresolved (notsent Restored)
+RESULT mode=serialize inv3 FAIL (1 distinct)
+  counterexample (5 events): commit -> ack(1) -> invoke(1) -> end-unknown(1)/h:retry -> reload/h:none
+    server=1 expected(latest eligible commit)=0; applied order=[1]; Attempts c1:notsent/Restored
+RESULT mode=serialize inv3-limit-landed FAIL (1 distinct)
+  counterexample (4 events): commit -> ack(1) -> invoke(1) -> end-unknown(1)/h:cancel
+    server=1 expected(latest eligible commit)=0; applied order=[1]; Attempts c1:released
+RESULT mode=serialize inv3-limit-stale FAIL (1 distinct)
+  counterexample (7 events): commit;commit -> ack(1) -> invoke(1) -> end-unknown(1)/h:cancel -> ack(2) -> invoke(2) -> land(2)
+    server=1 expected(latest eligible commit)=2; applied order=[2,1]; Attempts c1:released c2:success
+RESULT mode=serialize inv4 PASS
+RESULT mode=serialize inv5 PASS
+RESULT mode=serialize inv6 PASS (every reachable state reaches Idle)
+RESULT mode=serialize inv7 PASS (cannot-occur cells never reached)
+RESULT mode=serialize inv8 PASS (all 29 reachable cells visited)
+
+=== cancel: 21962 states, 211679 transitions, longest shortest-path 19 (complete: every sequence of any length is covered), 0.2s
+RESULT mode=cancel inv1 FAIL (1 distinct)
+  counterexample (5 events): commit -> ack(1) -> invoke(1) -> end-unknown(1)/h:retry -> reload/h:none
+    Attempt 1 was sent but is recorded NotSent { Restored }
+RESULT mode=cancel inv2 PASS
+RESULT mode=cancel inv3 PASS
+RESULT mode=cancel inv3-limit-landed PASS
+RESULT mode=cancel inv3-limit-stale PASS
+RESULT mode=cancel inv4 PASS
+RESULT mode=cancel inv5 PASS
+RESULT mode=cancel inv6 PASS (every reachable state reaches Idle)
+RESULT mode=cancel inv7 PASS (cannot-occur cells never reached)
+INFO mode=cancel cells visited 26/29 of the holding table (cancel and allow use the HeldThisTurn table; an unknown is never held between turns); not visited: dispose x Held; rebind x Held; restore x Held
+
+=== allow: 11586 states, 74690 transitions, longest shortest-path 19 (complete: every sequence of any length is covered), 0.1s
+RESULT mode=allow inv1 FAIL (1 distinct)
+  counterexample (5 events): commit -> ack(1) -> invoke(1) -> end-unknown(1)/h:retry -> reload
+    Attempt 1 was sent but is recorded NotSent { Restored }
+RESULT mode=allow inv2 PASS
+RESULT mode=allow inv3 PASS
+RESULT mode=allow inv3-limit-landed PASS
+RESULT mode=allow inv3-limit-stale PASS
+RESULT mode=allow inv4 PASS
+RESULT mode=allow inv5 PASS
+RESULT mode=allow inv6 PASS (every reachable state reaches Idle)
+RESULT mode=allow inv7 PASS (cannot-occur cells never reached)
+INFO mode=allow cells visited 25/29 of the holding table (cancel and allow use the HeldThisTurn table; an unknown is never held between turns); not visited: dispose x Held; rebind x InFlight; rebind x Held; restore x Held
+
+######## reading: per-Attempt: acknowledged is per Attempt and sticky (R6 L2; the restore row's wording)
+config: {"maxCommits":2,"resendCap":1,"queueCap":2,"ackPerSend":false,"retryTimes":1}  depthBound=200
+
+=== reject: 132758 states, 1510723 transitions, longest shortest-path 22 (complete: every sequence of any length is covered), 1.7s
+RESULT mode=reject inv1 PASS
+RESULT mode=reject inv2 PASS
+RESULT mode=reject inv3 PASS
+RESULT mode=reject inv3-limit-landed FAIL (1 distinct)
+  counterexample (4 events): commit -> ack(1) -> invoke(1) -> end-unknown(1)/h:cancel
+    server=1 expected(latest eligible commit)=0; applied order=[1]; Attempts c1:released
+RESULT mode=reject inv3-limit-stale FAIL (1 distinct)
+  counterexample (8 events): commit -> ack(1) -> invoke(1) -> end-unknown(1)/h:none -> cancel;commit -> ack(2) -> invoke(2) -> land(2)
+    server=1 expected(latest eligible commit)=2; applied order=[2,1]; Attempts c1:released c2:success
+RESULT mode=reject inv4 PASS
+RESULT mode=reject inv5 PASS
+RESULT mode=reject inv6 PASS (every reachable state reaches Idle)
+RESULT mode=reject inv7 PASS (cannot-occur cells never reached)
+RESULT mode=reject inv8 PASS (all 29 reachable cells visited)
+
+=== latest: 155850 states, 1780177 transitions, longest shortest-path 22 (complete: every sequence of any length is covered), 2.1s
+RESULT mode=latest inv1 PASS
+RESULT mode=latest inv2 PASS
+RESULT mode=latest inv3 PASS
+RESULT mode=latest inv3-limit-landed FAIL (1 distinct)
+  counterexample (4 events): commit -> ack(1) -> invoke(1) -> end-unknown(1)/h:cancel
+    server=1 expected(latest eligible commit)=0; applied order=[1]; Attempts c1:released
+RESULT mode=latest inv3-limit-stale FAIL (1 distinct)
+  counterexample (8 events): commit -> ack(1) -> invoke(1) -> commit -> end-unknown(1)/h:cancel -> ack(2) -> invoke(2) -> land(2)
+    server=1 expected(latest eligible commit)=2; applied order=[2,1]; Attempts c1:released c2:success
+RESULT mode=latest inv4 PASS
+RESULT mode=latest inv5 PASS
+RESULT mode=latest inv6 PASS (every reachable state reaches Idle)
+RESULT mode=latest inv7 PASS (cannot-occur cells never reached)
+RESULT mode=latest inv8 PASS (all 29 reachable cells visited)
+
+=== serialize: 129546 states, 1490921 transitions, longest shortest-path 21 (complete: every sequence of any length is covered), 1.8s
+RESULT mode=serialize inv1 PASS
+RESULT mode=serialize inv2 PASS
+RESULT mode=serialize inv3 PASS
+RESULT mode=serialize inv3-limit-landed FAIL (1 distinct)
+  counterexample (4 events): commit -> ack(1) -> invoke(1) -> end-unknown(1)/h:cancel
+    server=1 expected(latest eligible commit)=0; applied order=[1]; Attempts c1:released
+RESULT mode=serialize inv3-limit-stale FAIL (1 distinct)
+  counterexample (7 events): commit;commit -> ack(1) -> invoke(1) -> end-unknown(1)/h:cancel -> ack(2) -> invoke(2) -> land(2)
+    server=1 expected(latest eligible commit)=2; applied order=[2,1]; Attempts c1:released c2:success
+RESULT mode=serialize inv4 PASS
+RESULT mode=serialize inv5 PASS
+RESULT mode=serialize inv6 PASS (every reachable state reaches Idle)
+RESULT mode=serialize inv7 PASS (cannot-occur cells never reached)
+RESULT mode=serialize inv8 PASS (all 29 reachable cells visited)
+
+=== raw enumeration of every event sequence (reduced alphabet, no state merging) vs merged search on the same alphabet
+RESULT mode=reject rawcheck sequences=275673 depth=6 tags={inv3-limit-landed@4} merged-search-agrees=true (0.2s)
+RESULT mode=latest rawcheck sequences=275557 depth=6 tags={inv3-limit-landed@4} merged-search-agrees=true (0.2s)
+RESULT mode=serialize rawcheck sequences=302260 depth=6 tags={inv3-limit-landed@4} merged-search-agrees=true (0.3s)
+RESULT mode=cancel rawcheck sequences=275120 depth=6 tags={} merged-search-agrees=true (0.1s)
+RESULT mode=allow rawcheck sequences=36062 depth=6 tags={} merged-search-agrees=true (0.0s)
+
+=== UnresolvedHold audit (invariant 6, second half)
+AUDIT mode=reject lane-nodes=9844 machines=3500 stuck-and-flagged=2104 flagged-but-never-stuck=610 stuck-but-not-flagged=325 neither=461 (1.5s)
+  FALSE NEGATIVES caused by a re-send refused by storage returns to Held with no unknown delivered (storage-refused row), so the retrying handler never runs again: 240
+     e.g.: S0:{commit->S0} S1:{-} unknown:{retry->S0}
+      stuck lane: Held head=unknown W=0 bound=true via e/none:commit , unknown->none:retry , ack-refused (re-send)
+     e.g.: S0:{commit->S0} S1:{-} unknown:{retry->S1}
+      stuck lane: Held head=unknown W=0 bound=true via e/none:commit , unknown->none:retry , ack-refused (re-send) , reload
+  FALSE NEGATIVES caused by reject's terminal pass (5.1 LEFT): the hold is left on purpose: 55
+     e.g.: S0:{commit->S0} S1:{-} unknown:{none->S1}
+      stuck lane: Held head=unknown W=0 bound=true via e/none:commit , reload+Restored->none:none , reload
+     e.g.: S0:{commit->S0} S1:{-} unknown:{commit->S1}
+      stuck lane: Held head=unknown W=0 bound=true via e/none:commit , reload+Restored->none:commit , reload
+  FALSE NEGATIVES caused by other: 12
+     e.g.: S0:{commit->S0} S1:{retry->S0} unknown:{none->S1}
+      stuck lane: Held head=unknown W=0 bound=true via e/none:commit , reload+Restored->none:none , reload
+     e.g.: S0:{commit->S0} S1:{retry->S0} unknown:{commit->S1}
+      stuck lane: Held head=unknown W=0 bound=true via e/none:commit , reload+Restored->none:commit , reload
+  FALSE NEGATIVES caused by a reload does not deliver a Held lane (restore row), so the new actor's handler never runs: 18
+     e.g.: S0:{commit->S0} S1:{cancel->S0} unknown:{none->S1}
+      stuck lane: Held head=unknown W=0 bound=true via e/none:commit , reload+Restored->none:none , reload
+     e.g.: S0:{commit->S0} S1:{cancel->S0} unknown:{commit->S1}
+      stuck lane: Held head=unknown W=0 bound=true via e/none:commit , reload+Restored->none:commit , reload
+  transitions into Held, by cause: reload (InFlight: acked -> Restored, else NotSent) x14642; end-unknown (bound) x10008; end-interrupt (bound) x10008; reload (other) x1530; ack-refused (re-send) x772; end-unknown (no actor) x1058; end-interrupt (no actor) x1058
+  FALSE POSITIVE (rule flags, never stuck): S0:{commit->S0} S1:{-} unknown:{retryable?cancel->S0}
+  FALSE POSITIVE (rule flags, never stuck): S0:{commit->S0} S1:{-} unknown:{retryable?cancel->S1}
+  FALSE POSITIVE (rule flags, never stuck): S0:{commit->S1} S1:{-} unknown:{retryable?cancel->S0}
+AUDIT mode=latest lane-nodes=9950 machines=3500 stuck-and-flagged=2166 flagged-but-never-stuck=612 stuck-but-not-flagged=263 neither=459 (1.5s)
+  FALSE NEGATIVES caused by a re-send refused by storage returns to Held with no unknown delivered (storage-refused row), so the retrying handler never runs again: 239
+     e.g.: S0:{commit->S0} S1:{-} unknown:{retry->S0}
+      stuck lane: Held head=unknown W=0 bound=true via e/none:commit , unknown->none:retry , ack-refused (re-send)
+     e.g.: S0:{commit->S0} S1:{-} unknown:{retry->S1}
+      stuck lane: Held head=unknown W=0 bound=true via e/none:commit , unknown->none:retry , ack-refused (re-send) , reload
+  FALSE NEGATIVES caused by other: 12
+     e.g.: S0:{commit->S0} S1:{retry->S0} unknown:{none->S1}
+      stuck lane: Held head=unknown W=0 bound=true via e/none:commit , reload+Restored->none:none , reload
+     e.g.: S0:{commit->S0} S1:{retry->S0} unknown:{commit->S1}
+      stuck lane: Held head=unknown W=0 bound=true via e/none:commit , e/none:commit , reload+Restored->none:commit , reload
+  FALSE NEGATIVES caused by a reload does not deliver a Held lane (restore row), so the new actor's handler never runs: 12
+     e.g.: S0:{commit->S0} S1:{cancel->S0} unknown:{none->S1}
+      stuck lane: Held head=unknown W=0 bound=true via e/none:commit , reload+Restored->none:none , reload
+     e.g.: S0:{commit->S0} S1:{cancel->S0} unknown:{commit->S1}
+      stuck lane: Held head=unknown W=0 bound=true via e/none:commit , e/none:commit , reload+Restored->none:commit , reload
+  transitions into Held, by cause: reload (InFlight: acked -> Restored, else NotSent) x14884; end-unknown (bound) x10168; end-interrupt (bound) x10168; reload (other) x1554; ack-refused (re-send) x788; end-unknown (no actor) x1074; end-interrupt (no actor) x1074
+  FALSE POSITIVE (rule flags, never stuck): S0:{commit->S0} S1:{-} unknown:{retryable?cancel->S0}
+  FALSE POSITIVE (rule flags, never stuck): S0:{commit->S0} S1:{-} unknown:{retryable?cancel->S1}
+  FALSE POSITIVE (rule flags, never stuck): S0:{commit->S1} S1:{-} unknown:{retryable?cancel->S0}
+AUDIT mode=serialize lane-nodes=9954 machines=3500 stuck-and-flagged=2166 flagged-but-never-stuck=612 stuck-but-not-flagged=263 neither=459 (1.4s)
+  FALSE NEGATIVES caused by a re-send refused by storage returns to Held with no unknown delivered (storage-refused row), so the retrying handler never runs again: 239
+     e.g.: S0:{commit->S0} S1:{-} unknown:{retry->S0}
+      stuck lane: Held head=unknown W=0 bound=true via e/none:commit , unknown->none:retry , ack-refused (re-send)
+     e.g.: S0:{commit->S0} S1:{-} unknown:{retry->S1}
+      stuck lane: Held head=unknown W=0 bound=true via e/none:commit , unknown->none:retry , ack-refused (re-send) , reload
+  FALSE NEGATIVES caused by other: 12
+     e.g.: S0:{commit->S0} S1:{retry->S0} unknown:{none->S1}
+      stuck lane: Held head=unknown W=0 bound=true via e/none:commit , reload+Restored->none:none , reload
+     e.g.: S0:{commit->S0} S1:{retry->S0} unknown:{commit->S1}
+      stuck lane: Held head=unknown W=0 bound=true via e/none:commit , reload+Restored->none:commit , reload
+  FALSE NEGATIVES caused by a reload does not deliver a Held lane (restore row), so the new actor's handler never runs: 12
+     e.g.: S0:{commit->S0} S1:{cancel->S0} unknown:{none->S1}
+      stuck lane: Held head=unknown W=0 bound=true via e/none:commit , reload+Restored->none:none , reload
+     e.g.: S0:{commit->S0} S1:{cancel->S0} unknown:{commit->S1}
+      stuck lane: Held head=unknown W=0 bound=true via e/none:commit , reload+Restored->none:commit , reload
+  transitions into Held, by cause: reload (InFlight: acked -> Restored, else NotSent) x14892; end-unknown (bound) x10168; end-interrupt (bound) x10168; reload (other) x1555; ack-refused (re-send) x788; end-unknown (no actor) x1074; end-interrupt (no actor) x1074
+  FALSE POSITIVE (rule flags, never stuck): S0:{commit->S0} S1:{-} unknown:{retryable?cancel->S0}
+  FALSE POSITIVE (rule flags, never stuck): S0:{commit->S0} S1:{-} unknown:{retryable?cancel->S1}
+  FALSE POSITIVE (rule flags, never stuck): S0:{commit->S1} S1:{-} unknown:{retryable?cancel->S0}
