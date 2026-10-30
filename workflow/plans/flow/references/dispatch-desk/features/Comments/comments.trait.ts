@@ -118,6 +118,8 @@ export const Comments = trait(
   },
   ({ E, O, callbacks }) => {
     const ofEvent = ({ event }: { event: { clientId: string } }) => ({ clientId: event.clientId });
+    const noTicket = ({ memory }: { memory: { ticketId: string } }) =>
+      memory.ticketId !== "" || deny("NoTicket");
     const draftOf = (drafts: ReadonlyArray<Draft>, clientId: string) =>
       drafts.find((d) => d.clientId === clientId);
 
@@ -163,6 +165,7 @@ export const Comments = trait(
         Post: {
           target: "self",
           guard: [
+            noTicket, // the queue's preview has ticketId "" while it previews nothing: no post into ticket ""
             ({ event }) => event.text.trim() !== "" || deny("EmptyComment"),
             ({ memory, event }) =>
               !draftOf(memory.drafts, event.clientId) || deny("DuplicateDraft"),
@@ -174,6 +177,7 @@ export const Comments = trait(
         Resend: {
           target: "self",
           guard: [
+            noTicket,
             ({ memory, event }) =>
               draftOf(memory.drafts, event.clientId)?.problem === "notSent" ||
               deny("NotResendable"),

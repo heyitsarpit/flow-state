@@ -9,9 +9,9 @@ import {
   escaped,
   lockedOut,
   lockLifts,
-  outlivesClose,
-  outlivesCloseUnsure,
+  heldLaneReadopted,
   readonly,
+  reopenedInFlight,
   reopenedUnsure,
   saved,
   stopped,
@@ -30,7 +30,7 @@ test("editor lock lifts", () => lockLifts.run());
 test("editor unsure resend", () => unsureResend.run());
 test("editor unsure gave up", () => unsureGaveUp.run());
 test("editor stopped", () => stopped.run());
-test("editor outlives close", () => outlivesClose.run());
-test("editor outlives close unsure", () => outlivesCloseUnsure.run());
+test("editor held lane readopted", () => heldLaneReadopted.run());
 test("editor reopened unsure", () => reopenedUnsure.run());
+test("editor reopened in flight", () => reopenedInFlight.run());
 test("editor attached", () => attached.run());

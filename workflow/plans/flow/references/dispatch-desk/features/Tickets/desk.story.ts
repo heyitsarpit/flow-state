@@ -7,9 +7,10 @@
 //   - a sign-out refuses nothing by itself: the Runtime lists what is unsettled (C64) and `forget` drops it.
 // `desk/pushed-rename` needs the workspace feed and is pending merge 6.
 //
-// design gap: `dispose(ref, { how: "now" })` (2.10.10) ends the actor at once. A plain `dispose(Editor42)` keeps
-// it for its `retain` (10 minutes), and a re-`ensure` inside that window adopts the live actor, so a Story of
-// "no actor when the answer lands" disposes `now`.
+// `dispose(ref, { how: "now" })` (2.10.10) ends the actor at once (`disposeActor`). A plain `dispose(Editor42)`
+// keeps it for its `retain`, expiring with `advance`, so a Story of "no actor when the answer lands" disposes `now`.
+// `DeskSetup` has no persistence, so an ending that lands with no actor is evidence (rule 44). The adopted ending
+// of a persisted identity is the app Story in editor/editor.tabs.story.ts (`outlivesClose`).
 import { Story } from "flow-state/testing";
 import { DeskSetup } from "../../app/setup.js";
 import { Desk, DeskClient } from "../../testing/desk.fake.js";
@@ -53,7 +54,7 @@ export const saveRepairsQueue = desk("desk/save-repairs-queue", [Desk.saveTitle.
   .send(Editor42, E.TitleChanged({ title: FIRST }), E.SaveRequested())
   .checkpoint("saving")
   .expect(Story.entity(Ticket, key("T-42")), { data: { title: FIRST }, predicted: true })
-  .expect(Editor42, { operations: { save: { pending: true } } })
+  .expect(Editor42, { operations: { save: [{ key: key("T-42"), pending: true }] } })
   .world(Desk.saveTitle.release())
   .expect(Story.entity(Ticket, key("T-42")), { data: { title: FIRST }, predicted: false })
   .expect(Editor42, { state: S.OPEN.SAVED, memory: { saved: FIRST } })
@@ -94,7 +95,7 @@ export const revokedMidSave = desk("desk/revoked-mid-save", [Desk.saveTitle.hold
   .send(SessionRef, Session.E.PermissionChanged({ canEdit: false }))
   .expect(Editor42, {
     state: S.CLOSED,
-    operations: { save: { pending: false, uncertain: false } },
+    operations: { save: [] },
   })
   .expect(Story.inspection, { lanes: [] }) // released, not held
   .expect(Desk.saveTitle, [{ phase: "held" }])
@@ -103,10 +104,10 @@ export const revokedMidSave = desk("desk/revoked-mid-save", [Desk.saveTitle.hold
   .expect(Desk, { desk: { tickets: [{ ticketId: "T-42", title: FIRST }] } }); // it landed, and nobody heard
 
 // A write that outlives the screen. Close and dispose cancel nothing (rule 44): the Runtime owns the lane, and
-// the listing a host's `beforeunload` reads shows it, unbound. The answer lands with no actor, the store takes
-// it at settlement (the queue repairs), and the ending is parked for the persisted identity. The next
-// incarnation adopts it at the root before any event: `saved` holds the new title, a toast says so, and
-// nothing is left unsettled.
+// the listing a host's `beforeunload` reads shows it, unbound. The answer lands with no actor, and in this setup
+// there is no saved record, so the ending is evidence (rule 44) and no toast follows. The store still takes the
+// confirmation at settlement (the queue repairs), so the next incarnation's ticket read fills `saved` and the
+// draft. (With storage, the ending is parked and adopted: editor.tabs.story.ts `outlivesClose`.)
 export const closedMidSave = desk("desk/closed-mid-save", [Desk.saveTitle.hold()])
   .send(Editor42, E.TitleChanged({ title: FIRST }), E.SaveRequested(), E.Close())
   .dispose(Editor42, { how: "now" }) // the screen is gone and so is the actor
@@ -118,7 +119,7 @@ export const closedMidSave = desk("desk/closed-mid-save", [Desk.saveTitle.hold()
   .expect(Desk.list, [{ phase: "answered" }, { phase: "answered" }]) // repaired with no editor alive
   .ensure(Editor42, { input: T42 })
   .expect(Editor42, { state: S.OPEN, memory: { saved: FIRST, draft: FIRST } })
-  .expect(ToastsRef, { memory: { messages: [`Saved “${FIRST}”`] } })
+  .expect(ToastsRef, { memory: { messages: [] } }) // evidence, not an adopted Saved
   .expect(Story.inspection, { lanes: [] });
 
 // Sign-out with a save on the wire. The host reads the same listing (`runtime.unsettledWrites()`, app/host.ts)

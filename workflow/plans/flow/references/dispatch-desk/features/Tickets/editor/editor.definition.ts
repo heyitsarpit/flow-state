@@ -95,6 +95,7 @@ export const Editor = definition({
         Interrupted: E.SaveUnsure,
         Defect: E.SaveUnsure,
         StillUnknown: E.SaveUnsure,
+        StorageRefused: E.SaveUnsure, // a persisted re-send whose lane-record capture failed (2.7.13)
       },
     }),
   }),

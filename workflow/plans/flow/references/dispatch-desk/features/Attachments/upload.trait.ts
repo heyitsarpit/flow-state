@@ -22,6 +22,7 @@ export const AttachmentUpload = trait(
       NotSent: {}, // never left the device (cancelled while waiting): nothing to clean up
       Stopped: Flow.uncertain({}), // existing: Flow.uncertain; `unknown { Cancelled }`, the user's own stop
       Unsure: Flow.uncertain({}), // the request may have landed
+      Lost: Flow.uncertain({}), // `Restored`: a reload mid-upload. Its bytes cannot exist in a fresh tab, so it is over
     },
     callbacks: {
       // existing: callbacks, Flow.optional, Flow.Callback
@@ -63,10 +64,12 @@ export const AttachmentUpload = trait(
           Cancelled: E.Stopped,
           NoResponse: E.Unsure,
           ServerError: E.Unsure,
-          Restored: E.Unsure, // a reload mid-upload: re-send; the bytes are gone, so it ends Gone
+          Restored: E.Lost, // a reload mid-upload: the bytes are gone, so there is nothing to re-send (a re-send's
+          // FileGone would come back as `unknown { StillUnknown }`, rule 18, and the copy would give up after three tries)
           Interrupted: E.Unsure,
           Defect: E.Unsure,
           StillUnknown: E.Unsure,
+          StorageRefused: E.Unsure, // a persisted re-send whose lane-record capture failed (2.7.13)
         },
       }),
     }),
@@ -81,7 +84,7 @@ export const AttachmentUpload = trait(
         resend: {
           schedule: "3 seconds",
           armOn: [E.Unsure],
-          disarmOn: [E.Cancel, E.Stored, E.Gone, E.TooBig, E.Stopped], // existing: disarmOn
+          disarmOn: [E.Cancel, E.Stored, E.Gone, E.TooBig, E.Stopped, E.Lost], // existing: disarmOn
           send: E.ResendDue,
         },
       },
@@ -109,6 +112,18 @@ export const AttachmentUpload = trait(
           actions: [O.put.cancel(own)], // on the wire: interrupts, and the ending is `Stopped`; held: releases now
         },
         Stopped: { target: "self", actions: [O.put.cancel] }, // key-less: release the stop's hold (2.7.7); nothing newer is waiting
+        // A reload took the bytes: end it as FileGone, definitely, and release the restored Held lane (key-less).
+        Lost: {
+          target: "self",
+          updateMemory: () => ({ status: "failed", problem: "FileGone" }),
+          actions: [O.put.cancel],
+          notify: [
+            callbacks.onFailed.from(({ memory }) => ({
+              ref: memory.ref,
+              problem: "FileGone" as const,
+            })),
+          ],
+        },
         NotSent: { target: "self" }, // a stop before the bytes left; status is already "stopped"
         Unsure: { target: "self", updateMemory: () => ({ status: "unsure" }) }, // Held; `resend` arms
         ResendDue: [

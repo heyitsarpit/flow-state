@@ -40,6 +40,23 @@ export const secondTab = desk("editor/second-tab", [Desk.saveTitle.hold()])
   .expect(inB, { state: S.OPEN.SAVED, memory: { saved: "Only in tab b" } })
   .expect(Desk.saveTitle, [{ phase: "answered", via: { tab: { name: "b" } } }]);
 
+// A save that outlives a closed ticket, on a persisted identity. Close and dispose cancel nothing (rule 44): the
+// Runtime owns the lane, the listing a host's `beforeunload` reads shows it unbound, and the answer lands with no
+// actor. `editorRef` persists, so with a saved record (`Fake.storage`) the ending is parked for the identity, and
+// the next incarnation adopts it at the root before any event: the toast says so, and nothing is left unsettled.
+export const outlivesClose = desk("editor/outlives-close", [Desk.saveTitle.hold()])
+  .send(Editor42, E.TitleChanged({ title: FIRST }), E.SaveRequested(), E.Close())
+  .expect(Editor42, { state: S.CLOSED, operations: { save: [{ key: T42, pending: true }] } })
+  .dispose(Editor42, { how: "now" })
+  .expect(Story.inspection, {
+    lanes: [{ contract: SAVE_TITLE, state: "InFlight", binding: "unbound" }],
+  })
+  .world(Desk.saveTitle.release()) // handled; the ending is parked for the identity's saved record
+  .ensure(Editor42, { input: T42 })
+  .expect(Editor42, { state: S.OPEN, memory: { saved: FIRST, draft: FIRST } })
+  .expect(ToastsRef, { memory: { messages: [`Saved “${FIRST}”`] } }) // only the adopted Saved says this
+  .expect(Story.inspection, { lanes: [] });
+
 // Reload mid-save, the request on the wire. The acknowledged Attempt is stored, so the reopened editor finds
 // its lane `Held` and delivers `unknown { Restored }` (rule 46): UNSURE, with no second invocation. The
 // orphaned request is released (the server handles it, nobody hears), then the re-send carries the SAME
@@ -51,7 +68,7 @@ export const reloadMidSave = desk("editor/reload-mid-save", [Desk.saveTitle.hold
   .expect(Editor42, {
     state: S.OPEN.UNSURE,
     memory: { draft: FIRST },
-    operations: { save: { pending: false, uncertain: true, retryCount: 0 } },
+    operations: { save: [{ key: T42, pending: false, uncertain: true, retryCount: 0 }] },
   })
   .expect(Story.inspection, {
     lanes: [{ contract: SAVE_TITLE, state: "Held", binding: "bound" }],
@@ -78,7 +95,7 @@ export const reloadAckHeld = desk("editor/reload-ack-held", [
   .send(Editor42, E.TitleChanged({ title: FIRST }), E.SaveRequested())
   .expect(Desk.saveTitle, []) // waits for the acknowledgement: nothing has left
   .reload()
-  .expect(Editor42, { operations: { save: { pending: false, uncertain: false } } })
+  .expect(Editor42, { operations: { save: [] } })
   .expect(Story.inspection, { lanes: [] })
   .expect(Desk.saveTitle, []);
 
@@ -92,7 +109,7 @@ export const reloadAckConfirmationHeld = desk("editor/reload-ack-confirmation-he
   .reload()
   .expect(Editor42, {
     state: S.OPEN.UNSURE,
-    operations: { save: { uncertain: true } },
+    operations: { save: [{ key: T42, uncertain: true }] },
   })
   .expect(Desk.saveTitle, [])
   .advance("3 seconds")

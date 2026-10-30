@@ -5,15 +5,20 @@
 //   EDITING --Save--> SAVING --Saved--------------> SAVED (or back to EDITING if the draft moved on)
 //                       |--SaveFailed-------------> FAILED         a definite failure: a new Attempt next time
 //                       |--SaveLocked-------------> LOCKED         a definite failure: backs off, new Attempt each
-//                       '--SaveUnsure (root)-----> UNSURE          the hold: the SAME Attempt, 3 s apart
+//                       '--SaveUnsure (OPEN)------> UNSURE         the hold: the SAME Attempt, 3 s apart
 //   UNSURE --ResendDue, retryable({ times: 3 })--> SAVING (retry)
 //   UNSURE --ResendDue, budget spent-------------> FAILED, with `cancel` releasing the hold
 //
 // The lane is the Runtime's, not this actor's (rule 44). Closing the ticket, even disposing the actor, drops and
 // cancels nothing: the save lands, the store takes its ending at settlement (rule 27), and the ending is parked
 // for the persisted identity. The next incarnation adopts it at the root, before any event. So every ending is
-// handled at the root, current or late or adopted. `runtime.unsettledWrites()` lists such a lane while it lives
-// (app/host.ts uses it for `beforeunload`).
+// handled at the root, current or late or adopted, except SaveUnsure, which OPEN takes (below).
+// `runtime.unsettledWrites()` lists such a lane while it lives (app/host.ts uses it for `beforeunload`).
+//
+// Where an ending arrives (rule 14), for SaveUnsure; the others land on the root handlers in all three cases:
+//   current  from SAVING (the owner activation is live)        -> OPEN's handler -> UNSURE
+//   late     after Close, actor alive (owner has ended)         -> the root's handler -> stays CLOSED
+//   adopted  a new incarnation, at its default leaf (EDITING)   -> OPEN's handler -> UNSURE
 import { deny, machine, send } from "flow-state";
 import { Toasts } from "../../Toasts/toasts.definition.js";
 import { ToastsRef } from "../../Toasts/toasts.ref.js";
@@ -117,9 +122,8 @@ export const EditorMachine = machine(Editor, ({ S, E, O }) => {
       SaveNotSent: { target: "self" }, // the explicit ignore (rule 20): nothing left, nothing to clean up
       // The user's own stop: release the lane now. Key-less, in the handler of an event only `save` maps (rule 43).
       SaveStopped: { target: "self", actions: [O.save.cancel] },
-      // The hold. The request may have landed. From SAVING, or adopted by a new incarnation, go where it is
-      // reconciled. (CLOSED keeps it without moving: see below.)
-      SaveUnsure: S.OPEN.UNSURE,
+      // The hold, arriving late (after Close): keep it where it is. Reopen reconciles it (rule 45's owner).
+      SaveUnsure: { target: "self" },
     },
 
     states: {
@@ -127,6 +131,9 @@ export const EditorMachine = machine(Editor, ({ S, E, O }) => {
         default: S.OPEN.EDITING,
         activities: [O.ticket.subscribe(ticketKey)],
         on: {
+          // The hold. The request may have landed. Current (from SAVING) or adopted (default leaf EDITING), go where
+          // it is reconciled. A late one after Close reaches the root and stays put.
+          SaveUnsure: S.OPEN.UNSURE,
           // The server's title becomes the draft only while there are no local edits.
           TicketLoaded: {
             target: "self",
@@ -239,7 +246,7 @@ export const EditorMachine = machine(Editor, ({ S, E, O }) => {
                 updateMemory: () => ({ error: "That save did not leave this device. Try again." }),
               },
               // Stop waiting. On the wire this interrupts; the ending comes back as SaveStopped, and the root
-              // releases it. SaveUnsure needs no handler here: the root takes it to UNSURE.
+              // releases it. SaveUnsure needs no handler here: OPEN takes it to UNSURE.
               CancelSave: { target: S.OPEN.EDITING, actions: [O.save.cancel(ticketKey)] },
             },
           },
@@ -325,8 +332,6 @@ export const EditorMachine = machine(Editor, ({ S, E, O }) => {
       },
       CLOSED: {
         on: {
-          // A save that outlives the screen, found unconfirmed: keep the hold where it is. Reopen reconciles it.
-          SaveUnsure: { target: "self" },
           // Three ways back, by what the lane is doing (rule 45 gives every hold an owner):
           Reopen: [
             { target: S.OPEN, guard: [O.save.idle(ticketKey)] },
@@ -336,7 +341,9 @@ export const EditorMachine = machine(Editor, ({ S, E, O }) => {
               guard: ({ memory, operations }) =>
                 O.save.get(operations, ticketKey({ memory })).uncertain || deny("NotUnsure"),
             },
-            { target: S.OPEN.SAVING }, // still on the wire: its ending is then current
+            // Still on the wire: back to OPEN, not SAVING. Its ending is late (the old SAVING has ended), so it lands
+            // on the root or OPEN handlers; Save stays disabled by `O.save.idle`, and a view reads the lane's `pending`.
+            { target: S.OPEN },
           ],
         },
       },

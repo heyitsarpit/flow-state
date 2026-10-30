@@ -39,8 +39,19 @@ export const posted = comments("comments/posted")
 export const emptyDenied = comments("comments/empty-denied")
   .enter(on("T-42"))
   .send(post("c1", "   "))
-  .expect(Story.records("verdict"), [{ result: { _tag: "Denied", code: "EmptyComment" } }])
+  .expect(Story.records("verdict"), [
+    { result: { _tag: "Denied", reasons: [{ code: "EmptyComment" }] } },
+  ])
   .expect({ memory: { drafts: [] } })
+  .expect(Desk.postComment, []);
+
+// The queue's preview with nothing previewed has ticketId "": a post is denied, never committed to ticket "".
+export const noTicket = comments("comments/no-ticket")
+  .enter(on(""))
+  .send(post("c1", "Into the void"))
+  .expect(Story.records("verdict"), [
+    { result: { _tag: "Denied", reasons: [{ code: "NoTicket" }] } },
+  ])
   .expect(Desk.postComment, []);
 
 // The answer is lost after the server stored the comment. The post is unknown, the same Attempt is re-sent

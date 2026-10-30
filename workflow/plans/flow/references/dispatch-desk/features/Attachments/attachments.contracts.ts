@@ -1,22 +1,9 @@
 // The upload contract. Plain request, no trait or domain imports: the trait (upload.trait.ts) maps its
 // endings. Every contract states `input`, `output` and `key` (rule 39).
 import { Effect, Schema } from "effect";
-import { Outcome, transaction } from "flow-state";
+import { transaction } from "flow-state";
+import { unknownWhenLost } from "../shared/outcomes.js";
 import { AttachmentsApi, PendingFiles, StoredAttachment } from "./attachments-api.js";
-
-// "This may have happened": `fetch`/XHR rejected, or a 5xx after the bytes were sent. Same
-// classification as ticket.contracts.ts, written once more here because that one is not exported.
-// TooLarge (413) and FileGone (no bytes in this tab) are definite, so they stay plain errors and
-// default to failure.
-const unknownWhenLost = <A, E extends { readonly _tag: string }, R>(
-  write: Effect.Effect<A, E, R>,
-) =>
-  write.pipe(
-    Effect.catchTags({
-      NoResponse: (e) => Outcome.unknown(e),
-      ServerError: (e) => Outcome.unknown(e),
-    }),
-  );
 
 // Input is the ref only. The bytes are not input: the editor is persisted and its memory must decode
 // on restore, so the commit takes them from `PendingFiles` (REWRITE-PLAN section 6, item 2).
@@ -41,6 +28,6 @@ export const putAttachment = transaction({
         ),
       ),
       // TooLarge (413): definite
-      unknownWhenLost, // NoResponse and ServerError (5xx): unknown
+      unknownWhenLost, // NoResponse and ServerError (5xx): unknown. TooLarge (413) and FileGone stay failures
     ),
 });

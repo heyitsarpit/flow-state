@@ -1,6 +1,7 @@
 // The upload port, its Schemas, and `PendingFiles`. Editor memory holds `{ ref, name, size }` and
 // is persisted, so it cannot hold a `File` (it must decode on restore). The bytes wait here, in
-// this tab's memory, keyed by `ref`. After a reload they are gone, and the upload ends `FileGone`.
+// this tab's memory, keyed by `ref`. After a reload they are gone: a copy found mid-upload (`unknown { Restored }`) ends
+// `FileGone` through its `Lost` event, and a restored draft that never started fails `FileGone` at `take`.
 import { Context, Effect, Layer, Schema } from "effect";
 import type { NoResponse, ServerError } from "../Tickets/types.js";
 

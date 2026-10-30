@@ -40,12 +40,14 @@ export const uploaded = upload("upload/uploaded", Photo)
   .world(Desk.putFile.hold()) // in transit, unseen by the server
   .expect({
     memory: { status: "sending" },
-    operations: { put: { pending: true, progress: { sent: 40_000, total: 40_000 } } },
+    operations: {
+      put: [{ key: { ref: "r-1" }, pending: true, progress: { sent: 40_000, total: 40_000 } }],
+    },
   })
   .world(Desk.putFile.release())
   .expect({
     memory: { status: "stored", url: "/uploads/r-1" },
-    operations: { put: { pending: false, uncertain: false } },
+    operations: { put: [] }, // settled: the lane is gone
   })
   .expect(Desk, { desk: { files: { "r-1": { name: "r-1.jpg", size: 40_000 } } } });
 
@@ -60,7 +62,7 @@ export const cancelled = Story.make(AttachmentUpload, {
   .send(E.Cancel())
   .expect({
     memory: { status: "stopped" },
-    operations: { put: { pending: false, uncertain: false } },
+    operations: { put: [] },
   })
   .expect(Story.inspection, { lanes: [] }) // nothing held
   .world(Desk.putFile.release()) // the server handles it and the answer goes nowhere
@@ -70,9 +72,12 @@ export const cancelled = Story.make(AttachmentUpload, {
 // later with the same idempotency key, so the server stores it once.
 export const lostThenResent = upload("upload/lost-then-resent", Photo)
   .world(Desk.putFile.drop({ at: "response", times: 1 }))
-  .expect({ memory: { status: "unsure" }, operations: { put: { uncertain: true } } })
+  .expect({
+    memory: { status: "unsure" },
+    operations: { put: [{ key: { ref: "r-1" }, uncertain: true }] },
+  })
   .advance("3 seconds")
-  .expect({ memory: { status: "stored" }, operations: { put: { uncertain: false } } })
+  .expect({ memory: { status: "stored" }, operations: { put: [] } })
   .expect(Desk.putFile, [
     { phase: "dropped", via: { attempts: [Story.attempt(O.put)] } },
     { phase: "answered", via: { attempts: [Story.attempt(O.put)] } },
@@ -88,13 +93,13 @@ export const gaveUp = Story.make(AttachmentUpload, {
   .advance("12 seconds")
   .expect({
     memory: { status: "failed", problem: "GaveUp" },
-    operations: { put: { pending: false, uncertain: false } },
+    operations: { put: [] },
   })
   .expect(Story.inspection, { lanes: [] });
 
 export const tooLarge = upload("upload/too-large", Huge).expect({
   memory: { status: "failed", problem: "TooLarge", limit: 5_000_000 },
-  operations: { put: { pending: false, uncertain: false } },
+  operations: { put: [] },
 });
 
 // A restored draft after a reload: `PendingFiles` starts empty, so `take` fails `FileGone` before

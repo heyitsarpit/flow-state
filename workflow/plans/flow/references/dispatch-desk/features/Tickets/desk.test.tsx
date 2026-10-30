@@ -7,6 +7,7 @@ import { expect, test } from "vite-plus/test";
 import { TicketPanel } from "./editor/TicketPanel.js";
 import { T42 } from "./editor/editor.story.js";
 import {
+  outlivesClose,
   reloadAckConfirmationHeld,
   reloadAckHeld,
   reloadMidSave,
@@ -28,6 +29,7 @@ test("desk/closed-mid-save", () => closedMidSave.run());
 test("desk/sign-out", () => signOut.run());
 test("desk/pushed-rename", () => pushedRename.run()); // pending merge 6
 test("editor/second-tab", () => secondTab.run());
+test("editor/outlives-close", () => outlivesClose.run());
 test("editor/reload-mid-save", () => reloadMidSave.run());
 test("editor/reload-ack-held", () => reloadAckHeld.run());
 test("editor/reload-ack-confirmation-held", () => reloadAckConfirmationHeld.run());
