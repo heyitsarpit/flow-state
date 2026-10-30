@@ -42,6 +42,7 @@ workflow check       # see .agents/skills/workflow-cli/SKILL.md before editing W
 - Don't break static analysis, the single graph or runtime, Stories, or CLI inspection. Truth is a compilation target.
 - Exercise abstract thinking and consider the broad implications of any API or feature change for the rest of the system. Tell agents to do the same.
 - Question whether each addition is worth it. Cutting scope for correctness is fine.
+- Design by convergence. Fixing findings one review at a time solves problems in increments and leaves case-by-case rules. So run the reviews first; once several rounds have surfaced the problems, gather every requirement and finding at once and redesign from scratch for one API that handles all of them, keeping the current draft as prior art. A holistic API is only possible after that iteration.
 
 ### Decisions and files
 - Ask me in numbered rounds: options, before/after, your recommendation. I reply with `Q1 A`. Write down only what I confirm.
