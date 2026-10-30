@@ -24,3 +24,4 @@ the commit that applied it is listed. Larger conflicts are not here; they go to 
 | 14 | fragments merge-plan FX8 (small syntax, delegated) | guards and `updateMemory` need lane reads inside a fragment | every `updateMemory` receives `operations` (a new context field, no new word) | fragments merge commits |
 | 15 | fragments merge-plan FX1 (merge order) | streams proposal-v2 claims rules 48–53 | fragments merges first as rules 48–60; streams renumbers to 61 onward when it merges | fragments merge commits |
 | 16 | fragments merge-plan, deferrals | the plan numbers its open-items entries 20–26, but item 20 is taken (the from-scratch experiment) | they become items 21–27 | fragments merge commits |
+| 17 | Stories proposal-v2 C3, C10, C4/C12 and big changes B1–B6 | the three open calls and six big changes of the from-scratch Stories design | decided as merge-3-stories/decisions-v2.md T1–T5 (B1–B6 flagged "delegated, big") | Stories decisions commit |
