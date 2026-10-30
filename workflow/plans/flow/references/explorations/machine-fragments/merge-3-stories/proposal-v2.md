@@ -1,13 +1,16 @@
-# Stories, designed from the brief (merge 3, proposal v2, revision 2)
+# Stories, designed from the brief (merge 3, proposal v2, revision 3)
 
-Status: **revision 2, written 2026-10-31.** The main session decided **T1–T5** under the owner's delegation
+Status: **revision 3, written 2026-10-31.** The main session decided **T1–T5** and **T7** under the owner's delegation
 ([decisions-v2.md](decisions-v2.md)): continue with this proposal (T1); no ending injection (T2, C3); one constructor,
 `Story.make` (T3, C10, B6); controls as data, applied with `world`, raced with `together` (T4, C4/C12); and the big
 changes B1–B5 (T5). Those parts are marked **decided (T*n*)**; everything else is *proposed*. Revision 2 answers
 [reviews/v2-review-1.md](reviews/v2-review-1.md) (RV, 3 High, 11 Medium, 8 Low), the executable model of section 3
 ([model/RESULTS.md](model/RESULTS.md), MDL: one counterexample, 15 ambiguities, two unreachable cells) and the review's
-finding that Effect's socket finalizer does not wait for a close, all at once by root cause (1.1). Revision 1 is kept
-as prior art outside the repository. Built only from [brief.md](brief.md) (SG1–SG7, STR1–STR72, C1–C19, STF1–STF79),
+finding that Effect's socket finalizer does not wait for a close, all at once by root cause (1.1). Revision 3 applies
+[reviews/v2-review-2.md](reviews/v2-review-2.md) (RV2: 1 High, 9 Medium, 14 Low) as decided in **T7**: settling on a
+microtask-only scheduler (RV2 H1), the stored-acknowledgement restore kept as the merged design's crash behaviour
+(RV2 M1), and every Medium and Low (1.2). It adds no big change. Revisions 1 and 2 are kept as prior art outside the
+repository. Built only from [brief.md](brief.md) (SG1–SG7, STR1–STR72, C1–C19, STF1–STF79),
 [../machine-design.md](../machine-design.md) (MD), the operations and fragment decisions (OD, F),
 [../merge-6-streams/proposal-v2.md](../merge-6-streams/proposal-v2.md) (M6, decisions S1–S7), [../../playback.md](../../playback.md)
 (PB), the plans, and Effect 4.0.5's `effect/testing/TestClock.ts` and `effect/socket/Socket.ts`. The earlier
@@ -30,11 +33,11 @@ leaves, with one read function, one way to name a thing (an **address**) and one
 
 | Rule | Statement |
 | --- | --- |
-| **R-Settle** | Every step applies its input, then **settles**: the scheduler runs until no task is runnable and every fiber is finished or suspended on the Clock, a Story gate or input that is not coming. Anything still waiting on the host (a real timer, an unowned promise) is `HostTimeWait` at once, never after a grace. `advance(d)` settles at every deadline it passes, in a documented total order. There is no `process()` (T5, B1). |
+| **R-Settle** | Every step applies its input, then **settles** on a **microtask-only run scheduler** (decided, T7): no host task runs during a settle, and the settle ends once Flow's queue and the microtask queue are both empty, with every fiber finished or suspended on the Clock, a Story gate or input that is not coming. Host I/O never completes inside it, so a fiber waiting on the host (a real timer, `crypto.subtle`, a network promise) is always `HostTimeWait`: host I/O never decides a result. `advance(d)` settles at every deadline it passes, in a documented total order. There is no `process()` (T5, B1). |
 | **R-World** | Everything outside the client is a **fake server**: one per run, holding typed truth and a log of what it received, shared by every tab and reload, and **set up before the subject starts** (the `world` option). It is reached through declared **endpoints** whose wire the Story controls with four words (`hold`, `release`, `drop`, `duplicate`). The network can keep a request after its client is gone; local storage cannot. A fake never writes client truth and never produces an ending (T2, T5 B2). |
 | **R-Data** | Plans, controls, reads and expectations are data. Code lives only in fakes (they are Layers) and in properties, which are options, never steps (T4, C4). |
 | **R-Cut** | Every step ends with a **step cut**: its latest publication frame plus the evidence position, fake truth and wire state at the step's end, so a step that publishes nothing still reads its own effects. Every committed publication is also a frame. Every cumulative fact is one record in one ordered evidence list (T5 B4). |
-| **R-Address** | One **address** names a thing everywhere: `{ actor?, instance?, copy?, operation?, schedule?, key?, tab?, life? }`. Wire `match`, `Story.attempt`, record filters, `advance({ next })` and step targets take it; a request's `via` and every record carry the same fields. No ordinal across actors, hosts or tabs. |
+| **R-Address** | One **address** names a thing everywhere: `{ actor?, instance?, copy?, operation?, schedule?, timer?, key?, tab?, life? }`. Wire `match` (an address plus kind fields such as `purpose`), `Story.attempt`, record filters, `advance({ next })` and step targets take it; a request's `via` and every record carry the same fields. No ordinal across actors, hosts or tabs. |
 | **R-Owner** | Each behaviour is decided by the declaration that owns it: the stand-in host's placement by the fragment's declaration, what a lost request raises by the transport binding, what a server failure looks like on the wire by the binding, and a hydration source's world by the run it hydrates into. Never by later steps or by the fake author's Effect code. |
 
 **Concepts per tier** (section 7 has the full list with marks):
@@ -86,9 +89,9 @@ endpoints, `hold({ at: "close" })`, the trailing `{ tab }` option on steps, the 
 - **N2, the address** (RC4, signature of `Story.attempt`, `match`, `advance`, step targets):
   ```ts
   // before: an ordinal across actors; any next deadline; a trailing tab option
-  Story.attempt(LikeButton.O.set, 1); .advance("next"); .send(Workspace, edit("x"), { tab: "b" })
+  Story.attempt(LikeButton.O.set, { n: 1 }); .advance("next"); .send(Workspace, edit("x"), { tab: "b" })
   // after: named by what it is
-  Story.attempt(LikeButton.O.set, { actor: IssuePageC7 }); .advance({ next: { schedule: "CheckTick" } }); .send({ actor: Workspace, tab: "b" }, edit("x"))
+  Story.attempt(LikeButton.O.set, { actor: IssuePageC7 }); .advance({ next: { schedule: "checkTick" } }); .send({ actor: Workspace, tab: "b" }, edit("x"))
   ```
 - **N3, `reload` and `openTab(…, { from })`** (RC3):
   ```ts
@@ -99,6 +102,22 @@ endpoints, `hold({ at: "close" })`, the trailing `{ tab }` option on steps, the 
   ```
 - **N4, `together` takes a time move** (the review's timeout-against-answer race): `together({ advance: "30 seconds" },
   Stripe.confirm.release())` fires the timer and lands the answer before either is admitted.
+
+### 1.2 Revision 3: what review 2 changed (T7)
+
+| RV2 | Change |
+| --- | --- |
+| H1 | settling runs on Effect 4.0.5's `MixedScheduler` with `executionMode: "sync"` (`Scheduler.ts`: its dispatcher uses `setMicrotask`, `shouldYield` counts ops, never a macrotask); 2.3, 3.1, Testing O2 |
+| M1 | the claim that a reload never restores an ended Attempt is removed: a stored acknowledgement whose confirmation was held restores as `unknown { Restored }`, as a real crash after the write commits does (MD 2.7.13's restore row); listed in 2.6, 2.16, 3.6 and as a Persistence question |
+| M2 | `openTab(…, { from })` ensures the refs the Story's steps ensured in that tab's latest life and did not dispose, in first-ensure order |
+| M3 | inside `together({ advance })`, every woken fiber runs until it reaches a mailbox, a gate or the Clock; only admission is held |
+| M4 | the address gains `timer` for `Feed.reconnect`'s own sleeps (`backoff`, `page`, `resetAfter`); an author's adapter sleeps stay addressed by operation |
+| M5 | `via.tab` is always present; SDK-owned sends lack only the Attempt fields |
+| M6 | a hydration source may not set `world` (a type error), runs at the `hydrate` step against current truth, and its requests carry `via.tab: { name: "server", open }` |
+| M7 | STF62's pending-reset walk uses seeded storage and `openTab` |
+| M8 | 4.3's `historyGone` retains after LOADING, and `flapping` expects `RETRY_WAIT` (M6 revision 6, 2.11) |
+| M9 | emitted and shrunk Stories leave out skipped steps |
+| L1–L14 | `match` is an address plus kind fields; `{ n }`; schedule names type-checked; server, tab and rule order defined; read rows in 3.6; stream log phases; reordered frames; `session.copy`; M6 flags as `diagnostic`; the MD 3.6 "New, fragments" row; a heartbeat in `wokenPage`; the capture that removes a cancelled acknowledgement cited to PER |
 
 ## 2. The design
 
@@ -180,18 +199,20 @@ it. Direct and CLI runs agree.
 ### 2.3 Steps, and what each one runs (R-Settle)
 
 **Settling** (decided, T5 B1; quiescence proposed, RC2). After a step applies its input, the executor runs every tab's
-Runtime and every fake on one deterministic scheduler. It stops when, after a macrotask flush, **no task is runnable**
+Runtime and every fake on one deterministic, **microtask-only** run scheduler (decided, T7): Effect 4.0.5's
+`MixedScheduler` with `executionMode: "sync"`, whose dispatcher uses `setMicrotask` and never hands a fiber to a
+macrotask, so **no host task runs during a settle**. It stops once Flow's queue and the microtask queue are both empty
 and every fiber is finished or suspended on one of three things: the Clock (a deadline), a Story gate (a held request,
 answer or frame, a held storage write), or input that is not coming (an open stream with nothing sent). Effect 4.0.5's
-`TestClock` already tracks the tasks it wakes; the executor uses the same signal for the whole scheduler. A fiber
-still waiting on anything else at that point (a real `setTimeout`, `crypto.subtle`, a host promise) is `HostTimeWait`
-**at once**, naming its owner, with no host-time grace, so neither the result nor the order can depend on host speed
-(STR27, STF19, C6). Microtask-only promises (an `async` client half that awaits no I/O) resolve inside the flush and
-are deterministic.
+`TestClock` counts the tasks it wakes through the scheduler (its wake tracker), which is the signal used. Host I/O
+never completes inside a microtask drain, so a fiber still waiting on anything else (a real `setTimeout`,
+`crypto.subtle`, a network promise) is **always** `HostTimeWait`, naming its owner, even if its promise would resolve a
+moment later: host I/O never decides a result or an order (STR27, STF19, C6). Microtask-only promises (an `async`
+client half that awaits no I/O) resolve inside the drain, in a fixed order.
 
 While it runs, turns, pending resets, adoption deliveries, settlements, invocations, acknowledgements, fake handlers and
 adapter pulls happen in production's order (MD 2.5, P21; the FIFO mailbox). **Interleaving is fixed**: tabs take turns
-one at a time in tab-open order; Attempts invoked in one settle reach their fakes in invocation order (tab order, then
+one at a time in each name's first-open order (a reloaded tab keeps its rank); Attempts invoked in one settle reach their fakes in invocation order (tab order, then
 the turn that promoted them); fakes' handlers run in arrival order. What waits for time or the world stays, and is read
 as work (2.7).
 
@@ -213,7 +234,11 @@ the actor ran any of them. `together(Stripe.confirm.release(), E.Cancel())` sett
 then queues `Cancel`; listed the other way round, `Cancel` is admitted while the ending waits, which is 2.7.13's "the
 real ending if it had already settled" cell and the spike's P1 race. `together({ advance: "30 seconds" },
 Stripe.confirm.release())` is the timeout-against-answer race: PAYING's `TookTooLong` and the landing answer are both
-queued before either is admitted (N4). A timer chain does not re-arm inside `together`, because no turn runs there.
+queued before either is admitted (N4). Inside `together({ advance })` **every woken fiber** (a fake's latency sleep, an
+adapter's backoff, a setup-scoped heartbeat) runs until it reaches a mailbox, a gate or the Clock; only admission is
+held, so a woken backoff may send a request and a woken handler may answer. A timer chain does not re-arm there,
+because no turn runs. `together(E.Cancel(), { advance: d })` models a busy main thread: production fires a timer while
+a click waits only when the thread is blocked.
 Outside `together` a send never sits behind queued arrivals, because the previous step settled.
 
 **Limits and errors** (STR5, TST O2, O8). Each step may run 10,000 turns per instant; the 10,001st rejects with
@@ -231,15 +256,17 @@ and a timer they re-arm inside the window fires too, so DD's `lockedOut` runs it
 
 **A total order at equal instants** (STR14, STF22). Every sleep has an owner, attached by Flow to the fiber that sleeps;
 3.5 is normative. At one instant the sleeps wake one at a time, settling after each, by rank: the world (fake servers
-in `fixtures` order, then `Fake.storage`), adapters (by tab, actor, operation, key), **setup-scoped fibers** (an SDK
+in the order a fixture first refers to them, then by name, then `Fake.storage`), adapters (by tab, actor, operation, key), **setup-scoped fibers** (an SDK
 client's heartbeat or backoff forked at layer build, a rate limiter: by layer order), the Runtime's own waits, then
 actor schedules (by tab, actor, instance path in placement order, copy in list order, schedule key in list order).
 Ties within an owner go by arming order. "Outside before inside" is a documented choice; a Story that needs the other
 order uses `together({ advance })`.
 
 **The next deadline** (STR15, STF23, RV M3). `advance({ next: address })` moves to the earliest unfrozen deadline whose
-owner the address matches: `{ schedule: "CheckTick" }`, `{ operation: O.messages }` (that operation's adapter backoff),
-`{ actor: Checkout1 }`. Adding an unrelated timer to the app (a toast, a heartbeat) cannot move the Story. A frozen
+owner the address matches: `{ schedule: "checkTick" }` (schedule names are type-checked against the subject, so a
+typo is a type error, not a `NoDeadline`), `{ operation: O.messages, timer: "backoff" }` (`Feed.reconnect` is Flow's,
+so its sleeps carry `timer`: `backoff`, `page`, `resetAfter`), `{ actor: Checkout1 }`. An author's own adapter sleeps
+(an idle deadline in the adapter's code) are addressed by operation only, the earliest of them. Adding an unrelated timer to the app (a toast, a heartbeat) cannot move the Story. A frozen
 schedule has no sleep (rule 1), so it is never chosen. `advance({ to })` stays for the rare exact instant.
 
 **A suspended page** (STR17, STF78). `advance(d, { suspended: true })` (or `{ suspended: "b" }`) moves time while the
@@ -314,8 +341,9 @@ are normative. Its words are delivery facts true of any transport, never server 
 
 `hold` is standing (until `release`) unless `times` is given; `drop` and `duplicate` default to once. Every word takes
 `match: address` (R-Address): `{ actor: BoardP1 }`, `{ operation: LikeButton.O.set, actor: IssuePageC7 }`, `{ tab: "b"
-}`, `{ purpose: "acknowledge" }`. **One rule per request**: a request takes the earliest-set rule that matches it, and
-only that one. Applied to the server handle (`Stripe.drop({ times: "always" })`), a word covers every endpoint: an
+}`, `{ purpose: "acknowledge" }` (an address plus kind fields). **One rule per request**: each server keeps one rule
+list, ordered by when each rule was set, on the handle or on an endpoint; a request takes the earliest-set rule that
+covers its endpoint and matches it, and only that one; `release` on a target ends only that target's rules (3.2). Applied to the server handle (`Stripe.drop({ times: "always" })`), a word covers every endpoint: an
 offline device.
 
 **Remote and local.** A request to a remote server that has left the device **stays in transit** after its client is
@@ -323,20 +351,26 @@ gone (a cancel, a closed tab): released, the server handles it and the answer go
 MD 2.7.2's "the server finished after a cancel", and it makes "charged once across a reload" (STF12) a fact the Story
 sets. **Local storage is not remote** (RC6, MDL F1): `Fake.storage`'s writes are FIFO per tab, as one writer's writes
 are (PER O7), and a closed tab's unfinished writes are **aborted** (`phase: "aborted"`), never applied later, as a
-crashed page's storage transaction is. So a held acknowledgement for an Attempt the Story then cancels either lands
-before the Runtime's next capture (which removes it) or, if the tab closes first, never lands: no reload can restore an
-ended Attempt.
+crashed page's storage transaction is. A held acknowledgement for an Attempt the Story then cancels either lands
+before the capture that removes it, which is queued behind it (a Persistence fact, PER O7's one writer), or is
+aborted with the tab. A write that was **stored but whose confirmation was held** (`hold({ at: "response" })`) stays
+stored when the tab closes, as an IndexedDB transaction that committed before the page crashed does; the restore then
+finds an acknowledged Attempt and delivers `unknown { Restored }` even if the Story had cancelled it. That is MD
+2.7.13's restore row (decided, T7): Stories reach the cell and do not decide it (section 8, Q15).
 
 **Server controls** are the author's typed messages to the server (`Stripe.busy({ times: 1 })`, `Chat.post({ text })`):
 their arguments are Schemas, so they are data, `describe` prints them and a property test generates them (STF16,
 STF52). Pushing, refusing, going silent, resetting a log, keeping the last n and greeting with or without a replay are
 each a control or a wire word (STR23); flapping and flooding are loops at construction, data once built.
 
-**Provenance** (STR21, STR26, STF3, RV M9). Each logged request is `{ n, input, phase, via }`. `phase` is one of `held`,
-`handled`, `answered`, `lost`, `dropped`, `duplicate`, `orphan`. `via` is the **client side**, recorded by Flow, never
+**Provenance** (STR21, STR26, STF3, RV M9). Each logged request is `{ n, input, phase, via }`. At a call endpoint `phase` is one
+of `held`, `handled`, `answered`, `lost`, `dropped`, `duplicate`, `orphan`; at a stream endpoint an open's is one of
+`opening` (held), `open`, `refused { code }`, `closed { code }`. `via` is the **client side**, recorded by Flow, never
 seen by the server: `{ tab: { name, open }, actor, instance, copy, operation, attempts, purpose }`. `attempts` is a
-list, since a batched request (Effect's `RequestResolver`) carries several; a send an SDK's own fiber makes has
-`via: undefined`, and the Story checks the idempotency key the server saw in `input` instead. So "charged once" is
+list, since a batched request (Effect's `RequestResolver`) carries several. `via.tab` is **always** present (a client
+half is built per tab); a send an SDK's own fiber makes lacks only the Attempt fields (`actor`, `instance`, `copy`,
+`operation`, `attempts`), so `match: { tab: "b" }` still targets one device's SDK traffic, and the Story checks the
+idempotency key the server saw in `input` instead. So "charged once" is
 checked by values: requests whose `via.attempts` hold the same Attempt and one charge whose `key` is that Attempt's id
 is a deduplicated retry; two Attempts and one charge is a different, wrong case.
 
@@ -370,7 +404,7 @@ first by what the fake returns and the second by the lifecycle step that causes 
 | `StillUnknown { failure }` | a lost answer, then a retry the server refuses definitely |
 | `unknown { Cancelled }` | `hold()`, then the send whose transition cancels |
 | `NotSent { Cancelled }` | `Fake.storage.write.hold({ match: { purpose: "acknowledge" } })`, or a head held in a record queue, then the cancel (STF5) |
-| `unknown { Restored }` | `reload` with the Attempt acknowledged and on the wire; with the acknowledgement stored but its confirmation held (MD G1: acknowledged, never invoked); a rebind (`dispose`, `ensure`) adopting a held lane |
+| `unknown { Restored }` | `reload` with the Attempt acknowledged and on the wire; with the acknowledgement stored but its confirmation held (MD G1: acknowledged, never invoked); the same after the Story cancelled that Attempt (a cancelled Attempt's stored acknowledgement, restored as unknown: the merged design's crash behaviour, T7); a rebind (`dispose`, `ensure`) adopting a held lane |
 | `NotSent { Restored }` | `reload` with the acknowledgement held (not stored: aborted with the tab, 2.5); each queued `W` entry of the restored lane |
 | `NotSent { Rejected }` | `hold()`, then a second commit on a `reject` lane; or a commit from another subject path (rule 51) |
 | `NotSent { Overloaded }` | `hold()` on the head, then 64 queued commits and one more (STF11; 4.4) |
@@ -431,7 +465,8 @@ In test code the same values are also reachable as MD's reads on a snapshot (`O.
 run-wide `seq`, the Runtime's own sequence, and `tab: { name, open }`, so a closed tab's records and the reopened tab's
 are told apart (STR42, RV M4); filters accept the name alone. `Story.records(kind, { …address, since?: "checkpoint" })`
 selects one kind; `since` takes a checkpoint **name**, since a plan exists before any run (RV L5). Records are kept for
-the whole run in process, independent of the trace's 4,096-event window (STR49, STF76). Every kind is an INS O4 event
+the whole run in process, taken from the INS O4 event stream, independent of the trace's 4,096-event window and of
+Inspection's per-session 256-entry ring (STR49, STF76). Every kind is an INS O4 event
 kind (STF72; members added in section 6):
 
 | Kind | One record per | Fields beyond `seq`, `tab` |
@@ -445,9 +480,9 @@ kind (STF72; members added in section 6):
 | `listRepair`, `drop` | `.each` or keyed-schedule repair; dropped raise or timer delivery (rule 9) | `actor`, `instance`, `copy`, `reason` |
 | `schedule` | armed, fired, discarded, retracted by a freeze | owner (an address), `dueAt` |
 | `queue`, `store` | record-queue join, release, removal (`Superseded`, `Cancelled`, `Released`); predictions, confirmations, `uncertain` set or cleared, repairs, skips, tombstones | `entity`, `key`, `attempt`, `reason` |
-| `session` | stream-session evidence (M6 2.12) | `actor`, `instance`, `operation`, `key`, `cell`, each start's `answer` and basis, `missed`, drops, `Overflow`, `Discarded`, reconnect phase |
+| `session` | stream-session evidence (M6 2.12) | `actor`, `instance`, `copy`, `operation`, `key`, `cell`, each start's `answer` and basis, `missed`, drops, `Overflow`, `Discarded`, reconnect phase |
 | `request`, `control` | a fake's request (each phase change) or control | 2.5 |
-| `issue`, `diagnostic`, `persistence`, `hydration`, `entry` | as INS O4 | as INS O4 |
+| `issue`, `diagnostic`, `persistence`, `hydration`, `entry` | as INS O4; M6's flags `UnprovenValues`, `RegistrationChurn`, `ReleaseOverdue` are `diagnostic` records | as INS O4 |
 
 One shape everywhere: `instance` is a list of placement names (`["likes"]`), `copy` is the `.each` copy's key string,
 `key` is the contract's key record, `subject` is the subject path (STF38). A callback and an exit with the same name
@@ -514,13 +549,14 @@ the same endpoint (STR19). So every `Feed` signal comes from the real adapter re
 | Real sequence | Story step |
 | --- | --- |
 | a greeting that proves a replay, or registers without one | `open` returns the author's greeting; a control `Chat.greet({ replay: false })` changes it |
-| a drop, then a reconnect from the resume position | `world(Chat.socket.drop())`, then `advance({ next: { operation: O.messages } })` |
+| a drop, then a reconnect from the resume position | `world(Chat.socket.drop())`, then `advance({ next: { operation: O.messages, timer: "backoff" } })` |
 | refused attempts, a flap | `drop({ at: "open", times: 3 })`; a loop of drop and advance |
 | a quiet or half-open connection | `hold()` on the socket (frames stop, nothing closes) |
 | a server close code (token expiry) | a control that closes with `4401` |
 | a log reset, retention shorter than the gap | controls `Chat.resetLog({ epoch })`, `Chat.retain({ last })` |
 | a catch-up page held, answered, failed | the history endpoint under `hold`, `release`, `drop` |
 | a flood past `bufferSize` | a control that sends n frames |
+| reordered frames (M6 SR12) | `hold()`, the frames, then `release({ nth })` |
 
 **The resume position the server saw** is the socket endpoint's request log, read directly: `expect(Chat.socket,
 [{ input: { from: { epoch: 1, seq: 2 } } }, …])`. The fake keeps no `connections` field
@@ -546,8 +582,10 @@ An app Story's tabs are independent Runtimes of its setup that share the run's f
 (STR42, TST O7). A tab's identity is `{ name, open }`: the name and how many times that name has been opened (STR26's
 seed already counts it), carried by `via` and every record (RV M4).
 
-- `openTab(name, { from? })` constructs and readies one. With `from: "main"` it then ensures, in the new tab, every
-  ref that tab had ensured, with the same options, in the same order (RC3). Sends are not repeated: memory comes from
+- `openTab(name, { from? })` constructs and readies one. With `from: "main"` it then ensures, in the new tab, the
+  refs this Story's steps ensured in that tab's **latest life and did not dispose**, with the same options, in
+  first-ensure order (RC3, RV2 M2), so `describe` prints the list from the plan alone. Refs app code ensured are
+  ensured again by app code, as in production; `from` may name a closed tab (its latest life). Sends are not repeated: memory comes from
   the server or storage, as in production.
 - `closeTab(name)` ends it abruptly with no final flush, releases its scope ownership (C11, C14), aborts its storage
   writes and leaves its remote requests in transit (2.5).
@@ -567,7 +605,8 @@ expiry is `dispose(ref)` then `advance` past the retain; `dispose(ref, { how: "n
 
 `dehydrate(label, { within })` and `hydrate(source, label?)` are TST O7's, with two rules (RC5). **One world**: a
 hydration source Story runs against the destination run's fake servers, not a second run's, so the server render and
-the client's refetch read one truth, as in production (RV M11). **Time**: `dehydrate`'s time motion settles deadline by
+the client's refetch read one truth, as in production (RV M11). A source may not set `world` (a type error), runs at
+the `hydrate` step against the truth current then, and its requests carry `via.tab: { name: "server", open }` (RV2 M6). **Time**: `dehydrate`'s time motion settles deadline by
 deadline in 2.4's order (RV L8). A commit in flight at dehydration is a `hydration` record `DehydrateCommitInFlight`
 naming the actor, state and instance path, and no client lane exists (C15). A state stream's `last` arrives rebased by
 its age (STR43). Lazy adoption at a chosen step is TST O7's (STR44).
@@ -639,7 +678,8 @@ open question 2 stays open (STR57, STF71). Presentations stay typed, name checkp
   event, which gains the keys its mappers read that the turn writes (D16).
 - Types catch: unknown checkpoint names, a wrong instance path or copy key in an addressed event, a mapped, internal or
   host event sent from outside (rule 47, MD 2.2; host events only alone), a fixture list that does not meet `R`, an
-  undeclared control (controls are members of the fake's handle), a read of an operation the subject does not declare,
+  undeclared control (controls are members of the fake's handle), a schedule name in an address the subject does not
+  declare, a read of an operation the subject does not declare,
   and a fragment Story given to an app-only API (STR6, STR63).
 - A Story is data: `flow check` and `flow graph` read its steps without running a Runtime (STR64).
 
@@ -657,7 +697,7 @@ tests over the policy suite's machines search for (STR65, STR66).
 | storage refused | `Fake.storage.write.drop({ match: { purpose: "acknowledge" } })` (never sent); the same on `capture` for a re-send |
 | success, failure, unknown, interrupt | the held request's answer; an interrupting client half, or a cancel's interruption |
 | dispose, rebind | `dispose`; `dispose` then `ensure` of the same identity |
-| restore | `reload`: acknowledged and on the wire (`unknown { Restored }`); acknowledgement stored, confirmation held (MD G1: acknowledged, never invoked); acknowledgement held, so aborted (`NotSent { Restored }`); with a `W` entry queued (its `NotSent { Restored }`) |
+| restore | `reload`: acknowledged and on the wire (`unknown { Restored }`); acknowledgement stored, confirmation held (MD G1: acknowledged, never invoked); acknowledgement held, so aborted (`NotSent { Restored }`); with a `W` entry queued (its `NotSent { Restored }`); a cancelled Attempt whose acknowledgement was stored with its confirmation held (`unknown { Restored }`, T7) |
 | SSR hydration | `dehydrate` with a commit held on the wire, then `hydrate` |
 | Runtime disposal | the policy suite's internal step only (T2) |
 
@@ -691,7 +731,9 @@ Schemas, `advance`, lifecycle steps); `properties` are `Story.property` values. 
 
 - **A generated step that is invalid in the current state is skipped**, never `StoryInvalidCommand`: a `release` with
   nothing held, a `leave` when not entered, an `ensure` of an existing actor. The skip is a `step` record with
-  `skipped: reason`, so the emitted Story still runs, and the same seed skips the same steps.
+  `skipped: reason`, and the same seed skips the same steps. **The emitted and shrunk Story leaves skipped steps
+  out**: they had no effect, so the run is the same, and the literal Story replays without `StoryInvalidCommand`
+  (STR69, RV2 M9).
 - **Shrinking keeps pairs**: a `hold` and the `release` that ends it, a `closeTab` and its `openTab`, `enter` and
   `leave`, are removed together or not at all, so a shrunk Story never strands a hold it did not have.
 
@@ -749,13 +791,15 @@ column and row the model found missing (MDL W1–W7, S1–S5, H1, E1) and 3.6, l
 | `dehydrate`, `hydrate` | open | `dehydrate` moves time as `advance` does | after | one | TST O7's |
 | `checkpoint(name, { at? })`, `expect(target?, partial)` | — | fixed | no | names or checks the latest step cut (`at`: a frame of the previous step) | `StoryExpectationFailed` after the run |
 
-Every settle fails with `HostTimeWait` the moment it ends with a fiber waiting on the host (2.3). A world control
+Every settle runs on the microtask-only run scheduler: no host task runs during it, and it ends once Flow's queue and
+the microtask queue are both empty; a fiber then waiting on the host is `HostTimeWait` (2.3, T7). A world control
 applied while every tab is closed still has a step cut (R-Cut).
 
 ### 3.2 A request at a call endpoint
 
-**Rules.** Each target (an endpoint, or a server handle covering its endpoints) keeps an ordered list of rules
-`{ word, at, times, match }`. **At arrival** a request takes the earliest-set rule whose `match` it fits, and only that
+**Rules.** Each server keeps one list of rules `{ target, word, at, times, match }` (target: the handle, covering every
+endpoint, or one endpoint), ordered by when each was set. **At arrival** a request takes the earliest-set rule whose
+target covers its endpoint and whose `match` it fits, and only that
 rule, whose `times` then drops by one (removed at zero; `"always"` stays). Its effect applies at the rule's phase.
 Requests from tabs reach the endpoint in invocation order (2.3). Under R-Settle a request is never observable between
 leaving the client and reaching the gate, nor between the handler's answer and the client (MDL W2), so those are not
@@ -781,7 +825,8 @@ the answer waits). Each request also has `gone` (its client cancelled, or its ta
 | its client cancels, or its tab closes | — | stays `Held`, `gone` | continues, `gone` | stays, `gone` |
 | a tab is suspended | — | stays | continues (the server is not suspended) | stays; delivered when the tab wakes |
 
-`release()` also removes every standing rule on its target. With no held item and no standing rule it is
+`release()` also removes every standing rule whose target is its own (a handle's `release` does not end an endpoint's
+rules, nor the reverse). With no held item and no standing rule it is
 `NothingHeld` (MDL W1). Every change is a `request` record. 13 rows × 4 columns: 52 cells, 23 defined, 29 "—" (a
 request takes its rule once, at arrival, and a handler acts only on a request at the server).
 
@@ -799,12 +844,13 @@ States: `None` (no connection), `Opening` (an attempt held by `hold({ at: "open"
 | a control closes with a code | — | → `Closed { code }` | → `Closed { code }` | → `Closed { code }`, queued frames lost | — |
 | `hold()` (frames) | a standing rule: the next connection opens `Silent` | the rule applies when it opens | → `Silent` | — | a standing rule, as `None` |
 | `release()` | ends standing rules; `NothingHeld` if none | the open completes as "rule none" | ends standing rules | → `Open`, queued frames delivered | ends standing rules |
+| `release({ nth: k })` | as `release()` | as `release()` | as `release()` | → `Open`, the k-th queued frame first, then the rest in order | as `release()` |
 | `drop()` (frames) | nothing, recorded | → `Closed { 1006 }` | → `Closed { 1006 }` | → `Closed { 1006 }`, queued frames lost | nothing, recorded |
 | `duplicate()` | a standing rule for the next frame | as `None` | the next frame is delivered twice | the next released frame twice | as `None` |
 | a client frame (`message`) | — | — | the handler runs; may answer frames | the handler runs; answers queue | — |
 | the client closes (release) or its tab closes | — | → `None` | → `None` (Effect's finalizer does not wait, 2.10) | → `None`, queued frames lost | — |
 
-11 rows × 5 columns: 55 cells, 38 defined, 17 "—" (an attempt arrives only with no live connection; nothing closes or
+12 rows × 5 columns: 60 cells, 43 defined, 17 "—" (an attempt arrives only with no live connection; nothing closes or
 sends where no connection exists).
 
 ### 3.4 The stand-in host (a fragment alone)
@@ -827,21 +873,21 @@ Placement per 2.13's table. `subject` is the Story's subject value; "same" and "
 
 | Rank | Owner of a sleep | Then by |
 | --- | --- | --- |
-| 1 | fake servers, then `Fake.storage` | `fixtures` order, arming order |
+| 1 | fake servers, then `Fake.storage` | first reference by a fixture, then name; arming order |
 | 2 | adapters (fibers of an operation) | tab order, actor creation, operation, key, arming |
 | 3 | setup-scoped fibers (an SDK client, a rate limiter) | tab order, layer order, arming |
 | 4 | the Runtime's own waits | tab order, actor creation, arming |
 | 5 | actor schedules | tab order, actor creation, instance path in placement order, copy in list order, schedule key in list order, arming |
 
-At one instant one sleep wakes, the Runtime settles, then the next. Inside a settle: tabs take turns one at a time in
-tab-open order; invoked Attempts reach fakes in invocation order (tab order, then the turn that promoted them); fake
+At one instant one sleep wakes, the Runtime settles, then the next. "Tab order" is each name's first-open order; a
+reloaded tab keeps its rank (RV2 L5). Inside a settle: tabs take turns one at a time in tab order; invoked Attempts reach fakes in invocation order (tab order, then the turn that promoted them); fake
 handlers run in arrival order; storage writes are FIFO per tab (3.6).
 
 ### 3.6 A write at `Fake.storage` (local)
 
 States: `Queued` (behind an earlier write of the same tab), `Held`, `HeldConfirm` (stored; the caller's confirmation
-waits). Terminal: `stored`, `aborted`, `refused`. Reads are never held unless a rule says so, and never queue behind
-writes of another purpose (bootstrap restore is a read, STF6).
+waits). Terminal: `stored`, `aborted`, `refused`. Reads never queue behind writes (bootstrap restore is a read, STF6); their
+own rows are below.
 
 | Input ↓ / State → | (arriving) | `Queued` | `Held` | `HeldConfirm` |
 | --- | --- | --- | --- | --- |
@@ -855,9 +901,22 @@ writes of another purpose (bootstrap restore is a read, STF6).
 | `release({ drop: true })` | — | no change | → `refused` | → `refused`: the caller sees a failure though the bytes were written |
 | its tab closes | — | → `aborted` | → `aborted`: never applied | stays written; the confirmation is lost (MD G1's cell after `reload`) |
 
-So a cancelled Attempt's held acknowledgement either lands before the Runtime's next capture of that lane, which is
-queued behind it and removes it, or is aborted with the tab: a reload never restores an ended Attempt (MDL F1).
-9 rows × 4 columns: 36 cells, 15 defined, 21 "—".
+A cancelled Attempt's `Held` acknowledgement either lands before the capture that removes it (queued behind it; a
+Persistence fact, PER O7) or is aborted with the tab (MDL F1). A `HeldConfirm` one stays written, so `reload` restores
+it as `unknown { Restored }` (2.5; T7). 9 rows × 4 columns: 36 cells, 15 defined, 21 "—".
+
+A read at `Fake.storage` (a slow or failed restore):
+
+| Input ↓ / State → | (arriving) | `Held` |
+| --- | --- | --- |
+| its rule is none | → `served` | — |
+| its rule is `hold()` | → `Held` | — |
+| its rule is `drop()` | → `refused`: the restore fails as the store's failure would | — |
+| `release()` | — | → `served` |
+| `release({ drop: true })` | — | → `refused` |
+| its tab closes | — | → `aborted` |
+
+6 rows × 2 columns: 12 cells, 6 defined, 6 "—".
 
 ## 4. The seven product cases
 
@@ -904,8 +963,8 @@ export const busyThenPaid = checkout("checkout/busy-then-paid")
   .advance("2 seconds")                                                             // NEW MEANING: WAITING's timer fires; a new Attempt is sent
   .expect({ state: S.DONE })
   .expect(Story.records("ending", { operation: O.pay }), [
-    { channel: "failure", reason: { _tag: "Busy" }, attempt: Story.attempt(O.pay, 0) },   // a 503 here would read unknown, and fail (STF4)
-    { channel: "success", attempt: Story.attempt(O.pay, 1) },
+    { channel: "failure", reason: { _tag: "Busy" }, attempt: Story.attempt(O.pay, { n: 0 }) },   // a 503 here would read unknown, and fail (STF4)
+    { channel: "success", attempt: Story.attempt(O.pay, { n: 1 }) },
   ])
 
 export const droppedThenResent = checkout("checkout/dropped-then-resent")
@@ -1054,8 +1113,8 @@ swap point) and `fetchPage`, a paged `fetch` history. M6 4.1's `ChatSocketLive`,
 ```ts
 // chat.fake.ts
 export const ChatServer = Fake.server("Chat", {
-  truth: { log: Schema.Array(Message), epoch: Schema.Int, kept: Schema.Int, replay: Schema.Boolean },
-  initial: { log: [], epoch: 1, kept: 10_000, replay: true },
+  truth: { log: Schema.Array(Message), epoch: Schema.Int, kept: Schema.Int, replay: Schema.Boolean, pingEvery: Schema.NullOr(Schema.Duration) },
+  initial: { log: [], epoch: 1, kept: 10_000, replay: true, pingEvery: null },
   endpoints: {
     socket: Fake.stream({                                                           // NEW: Fake.stream
       request: { roomId: Schema.String, from: Schema.optional(Cursor) },            // the request log is the resume position the server saw
@@ -1069,6 +1128,7 @@ export const ChatServer = Fake.server("Chat", {
     retain: Fake.control({ last: Schema.Int }, (t, { last }) => ({ ...t, kept: last })),
     resetLog: Fake.control({ epoch: Schema.Int }, (t, { epoch }) => ({ ...t, epoch, log: [] })),
     expireToken: Fake.control({}, (t) => [t, { close: { socket: 4401 } }]),
+    ping: Fake.control({ every: Schema.Duration }, (t, { every }) => ({ ...t, pingEvery: every })),   // the fake's own sleep sends a ping frame
   },
 })
 export const ChatTransport = [Fake.webSocket(ChatServer, (url) => ({ endpoint: "socket", request: parseRoomUrl(url) })),   // NEW: Fake.webSocket (lost: close 1006)
@@ -1080,7 +1140,8 @@ export const ChatTransport = [Fake.webSocket(ChatServer, (url) => ({ endpoint: "
 const history = [ChatServer.post({ text: "hi" }), ChatServer.post({ text: "there" })]
 const room = (id: string, world = history) =>
   Story.make(ChatRoomMachine, { id, input: { roomId: "r1" }, fixtures: ChatTransport, world })   // NEW: the world option — LOADING reads two messages
-const backoff = { next: { operation: O.messages } }                                  // the session's reconnect delay, by address
+const backoff = { next: { operation: O.messages, timer: "backoff" } }              // NEW: timer — Feed.reconnect's reconnect delay
+const pageRetry = { next: { operation: O.messages, timer: "page" } }               // its page retry
 
 export const dropAndReplay = room("chat/drop-and-replay")
   .world(ChatServer.socket.drop())                                                   // the network closes the socket: Feed.down
@@ -1094,24 +1155,28 @@ export const pagedRepair = room("chat/failed-then-paged")
   .world(ChatServer.greet({ replay: false }), ChatServer.history.drop(), ChatServer.socket.drop())   // hello without replay; the first page is lost
   .world(ChatServer.post({ text: "a" }), ChatServer.post({ text: "b" }))
   .advance(backoff)                                                                  // reconnect, pending, the page lost: retried with the socket open
-  .advance(backoff)                                                                  // the page arrives; the start settles proven
+  .advance(pageRetry)                                                                // the page arrives; the start settles proven
   .expect({ memory: { messages: [{}, {}, { text: "a" }, { text: "b" }] } })
 
-export const historyGone = room("chat/retention", [...history, ...Array.from({ length: 150 }, (_, i) => ChatServer.post({ text: `m${i}` })), ChatServer.retain({ last: 100 })])
+export const historyGone = room("chat/retention")                                  // LOADING reads the two seeded messages first
   .world(ChatServer.greet({ replay: false }), ChatServer.socket.drop())
+  .world(...Array.from({ length: 150 }, (_, i) => ChatServer.post({ text: `m${i}` })), ChatServer.retain({ last: 100 }))   // the gap outgrows retention
   .advance(backoff)                                                                  // catchUp fails Feed.CannotRepair → missed Lost, then the kept 100
   .expect({ memory: { notice: "Some messages could not be recovered." } })
 
 const flapStart = room("chat/flapping")
 export const flapping = Array.from({ length: 20 })                                  // built at construction: data once built (R-Data)
   .reduce<typeof flapStart>((s) => s.advance("1 second").world(ChatServer.socket.drop()), flapStart)   // no connection lives a minute: the budget never resets
-  .expect({ operations: { messages: { connection: "Ended" } } })
+  .expect({ state: S.RETRY_WAIT, operations: { messages: undefined } })              // FeedEnded leaves LIVE: the row is gone (M6 2.11)
 
 export const tokenExpired = room("chat/token-expiry")
   .world(ChatServer.expireToken())                                                   // close 4401 → SignedOut, not transient
   .expect({ state: S.SIGNED_OUT })
 
 export const wokenPage = room("chat/suspended")
+  .world(ChatServer.ping({ every: "20 seconds" }))                                   // user-defined control: the server pings, so an awake page never idles out
+  .advance("1 minute")
+  .expect({ operations: { messages: { connection: "Live" } } })
   .advance("10 minutes", { suspended: true })                                        // NEW: suspended — the 45 s idle deadline fires overdue on wake
   .expect({ operations: { messages: { connection: "Connecting" } } })                // never "Live" with a stale connection (STF78)
 ```
@@ -1337,7 +1402,7 @@ named; "cut" states what is not provided.
 | STF9 | met: the wire answers whoever is bound (2.6) | STF49 | met: tombstones in inspection and `store` records (2.9) |
 | STF10 | met: `match` by address (2.6, 4.7) | STF50 | met: shown in 4.4 |
 | STF11 | met: hold plus 64 commits (4.4) | STF51 | met: 2.9, 4.4 `twoTabs` |
-| STF12 | met: remote transit survives, local writes abort; each fact a step (4.1) | STF52 | met: 2.17 |
+| STF12 | met: remote transit survives, local writes abort; each fact a step (4.1) | STF52 | met: 2.17; shrunk Stories omit skipped steps |
 | STF13 | impossible: one server per run (2.5) | STF53 | met: `callback`, `exit` records in a host (2.13) |
 | STF14 | met: client halves per tab; rule counts are run truth (2.5) | STF54 | met: `incarnations[].status` (2.13) |
 | STF15 | impossible: all memory is truth (2.5) | STF55 | met: cumulative records with `since: "checkpoint"` (2.7) |
@@ -1376,7 +1441,9 @@ re-added, text kept: 4.2's `reopenedKeepsText`. An upgrade from a host-only lane
 `openTab`, `expect(Story.inspection, { lanes: [] })`. Two rows of a nested writing trait, one removed: two copies,
 `hold()`, a removal, `expect` on the other copy's rows. "A, B, A" under `resetOn`: `reset("B")`, `reset("A")` alone or
 the host's sends. A reload while frozen or while owed: `leave()` or `hold()`, `closeTab`, `openTab`. A reload that loses
-a pending reset: a send whose part writes the reset key, then `closeTab` in the same step's `together`.
+a pending reset: `storage: Fake.storage.seed([an actor record whose reset key differs from its saved incarnation's
+reset value])`, then `openTab`: the restore re-takes the value, resets the trait as the first turn, before rule 44's
+deliveries (rule 51).
 
 ## 6. Amendments (proposed; none applied)
 
@@ -1398,6 +1465,7 @@ a pending reset: a send whose part writes the reset key, then `closeTab` in the 
 | 3.1's `lockout.test.ts` | `Story.make(L, …).enter().send(…, …).checkpoint("locked").expect({ … }).advance("1 minute").checkpoint("cleared")`; calls read as `callback` records |
 | 3.2's `Confirm` Story | 4.5's `confirmYes` |
 | 3.6, keywords (New, plans) | remove `Story.ending` and `.checkpoint(name, ({ truth }) => …)`; add section 7's words |
+| 3.6, keywords (New, fragments) | `story.machine(fragment)` with `run.calls` and `checkpoint.exit` → `Story.make(fragment)` with `enter`, `leave`, `guards`, `reset`; callbacks and exits as `callback` and `exit` records |
 | 5, Testing O1 (fragments row), C16, C27's Testing note, C30's `Entity.queue` note, C53, C63 | replaced by 6.2's Testing rows; C30's removals are `queue` records; C53 and C63 lose `Story.ending` |
 | 5, T2 | coverage also lists lane cells, stream cells, current and late handlers and Flow reasons |
 | 7, items 17 and 19 | closed by this merge (pointer to 2.6–2.9) |
@@ -1408,7 +1476,7 @@ a pending reset: a send whose part writes the reset key, then `closeTab` in the 
 | --- | --- |
 | **Testing**, title | "…checkpoints, models and property tests" → "…checkpoints and property tests" |
 | **Testing O1** | "story.app(setup, …) … story.machine(machine, …)" → `Story.make(subject, options)` over an app setup, a machine, a trait or a subroutine; "Both Story kinds support send, process, advance, advanceTo, advanceToNextTimer, checkpoint and run" → 2.3's steps; "unique within its App" → "unique across the configuration"; adds the stand-in host (placement from the declaration), the `world` option, addressed targets, `reload` and `openTab(…, { from })`; properties are options, printed by name. "Scenario commands accept no arbitrary callbacks…" **kept** |
-| **Testing O2** | "process() drains currently eligible work…" and "These commands make work eligible without draining it" → R-Settle; the turn limit is per instant; adds 3.5's order (with setup-scoped fibers and invocation order), `advance({ next: address })`, `together({ advance })`, `suspended`, and `HostTimeWait` at once with no grace |
+| **Testing O2** | "process() drains currently eligible work…" and "These commands make work eligible without draining it" → R-Settle; the turn limit is per instant; adds 3.5's order (with setup-scoped fibers and invocation order), `advance({ next: address })`, `together({ advance })`, `suspended`, and settling on a microtask-only run scheduler (`executionMode: "sync"`): "no host task runs during a settle; it ends once Flow's queue and the microtask queue are empty", so a fiber waiting on the host is always `HostTimeWait` |
 | **Testing O3** | "Fixtures are Effect Layers…" kept for client halves; adds `Fake.server` (run-scoped truth, endpoints, controls, the wire words), provenance (`via.attempts`), `Fake/Lost` mapped by the binding, a crashed server as the binding's failure, `Fake.storage` with `purpose`, FIFO per tab, aborted on close, and the scope lock; "fixtures cannot inject operation outcomes directly" **kept** |
 | **Testing O4** (accepted PB contract; B4) | "a frame after every command by default, or after every committed publication with frames: \"publication\"; frames: \"named\" records only checkpoints. Consecutive identical frames collapse into one" → "a frame after every committed publication; a step per command; frames never collapse"; `checkpoint.actor(ref)` → `frame.read(ref)`; `pending` → `Story.inspection.work`; `Entity.get` returns `{ data, predicted, uncertain, unconfirmed }`; records in one list with `tab: { name, open }`; adds step cuts (checkpoints and `expect` read them), `expect` and properties; step cuts and checkpoints are never truncated |
 | **Testing O5** | removed (MD T1) |
@@ -1424,7 +1492,8 @@ a pending reset: a send whose part writes the reset key, then `closeTab` in the 
 | **Package O1** | `flow-state/testing` exports `Story`, `Fake`, `propertyTest`, `StoryFrame`, `StoryPlayer`, `definePresentation`; `story` and `model` removed; `flow-state/internal/testing` (not public) exports `disposeRuntime` for Flow's suite |
 | **Diagnostics** | the error names above |
 | **EntityDomains O2, O4** | `Entity.queue` removals are `queue` records; `propertyTest`'s domain preset |
-| **M6 (proposal-v2)** | 2.11's control table and `.do` Story → 2.10's mapping; `checkpoint.evidence("feed")` → `session` records; `truth.fake.resumedFrom` → the socket's request log; `ReleaseOverdue` reached in the policy suite |
+| **M6 (proposal-v2)** | 2.11's control table and `.do` Story → 2.10's mapping; `checkpoint.evidence("feed")` → `session` records; `truth.fake.resumedFrom` → the socket's request log; 2.11's "maps these needs to … `expect(…, { connections })`" → "the socket endpoint's request log"; the per-session evidence contract gains `cell` (Stories' coverage reads it); `ReleaseOverdue` reached in the policy suite |
+| **Persistence** (a question, not an amendment) | a cancelled Attempt whose acknowledgement was stored before a crash restores as `unknown { Restored }` (MD 2.7.13): keep, or have the cancel's capture fenced? The capture that removes a cancelled acknowledgement queues behind it (PER O7's one writer); state it there |
 | **playback.md** (via TST O4, O9) | the player steps by step cut; `minDwell`'s reason ("frames from one `process()` share the same `now`") becomes "frames from one step share the same `now`" |
 | **DD migration** (not edited) | `DemoServer` → a `Fake.server`; `fixtures.ts`'s `overriding` fixtures → client halves over it; every `.process()` removed; `exploreEditor` already removed (T1) |
 
@@ -1508,8 +1577,7 @@ defect.
 own awaiting adapter. B: ship a `Fake` client half with an awaiting finalizer for apps. **Recommend A**: Effect's own
 socket cannot produce them, so an app Story reaching them through Flow's adapter would test Flow's adapter, not the app.
 
-**Q8. Settling without a grace.** A: one macrotask flush, then `HostTimeWait` at once. B: a configurable grace.
-**Recommend A** (RV H2): any grace lets host speed choose order (C6).
+**Q8. Settling.** Decided (T7): a microtask-only run scheduler; no host task runs during a settle.
 
 ### Round 3: kept from revision 1 (smaller choices)
 
@@ -1520,6 +1588,10 @@ socket cannot produce them, so an app Story reaching them through Flow's adapter
 **Q13.** Turn limit per instant per step. **Recommend A.**
 **Q14.** Names: `world`, `together`, `reload`, `from`, `Fake/Lost`, `Fake.call` / `Fake.stream`, `guards`, `work`, `via`,
 `suspended`, `AmbiguousAttempt`. **Recommend** as written.
+
+**Q15. A cancelled Attempt's stored acknowledgement** (for MD and Persistence). A: keep MD 2.7.13's restore row: it
+restores as `unknown { Restored }`, as after a real crash (T7 keeps this for Stories). B: fence the cancel's capture so
+the restore sees the cancel. **Recommend A** for this merge; Stories expose the cell and do not decide it.
 
 ### Deferred, for `revisit.md` if the owner agrees
 
