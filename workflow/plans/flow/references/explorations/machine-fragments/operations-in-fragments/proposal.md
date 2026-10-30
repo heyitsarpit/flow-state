@@ -45,7 +45,7 @@ Rules are **FO0–FO12** ("fragment operations").
 | **Release on leave was written as a member call, but it is a standing property of the subject's lanes** (RV2-R1) | H1 | FO12 (decided, F9): key-less `whenAbandoned: [O.put.cancel]`. When the incarnation ends, the Runtime marks **every lane of that operation with this subject path** as *releasing* on the lane record. The mark survives a reload, turns endings already parked for the subject into evidence, and makes every later ending be applied and released instead of parked. 2.4 gives the cells. No member select runs in the leaving turn, so rule 22 is not involved |
 | **Release on leave was recommended where it loses user intent** | H3 | FO12's rule of thumb: only for work worthless once its subject is gone (a replaced avatar upload, a removed attachment, a discarded draft). Like and follow keep 4.4's keep-busy line (F6). 2.8, 4.4 and 4.5 corrected |
 | **The subject was defined per placement kind, not per path** (RV2-R2) | H4, M1, M3, L3, L4, L5 | FO3: the subject is a **path**, one part per `.each` (its copy key) and per `resetOn` (its string reset value) from the actor's root to the placement. A writing root trait inside a copy has the copy's key as its subject (2.10's walk). The decline and the `NotSent` requirement apply to every placement with a non-empty path, not only `.each`. The authoring rule becomes "a write key belongs to one subject". The upgrade rule in 2.5 says which shapes adopt and which go to `orphaned` |
-| **A freeze cut a lookup into evidence, against rule 17** (RV2-R3) | H2 | FO4: a lookup cut by a freeze **ends** `failure { Interrupted }`, parked and delivered at the thaw. Rule 37 already makes every read map `Interrupted`, so each fragment recovers without a thaw event (F8's Q13 A is then safe). Rule 17 checked in FO4 |
+| **A freeze cut a lookup into evidence, against rule 17** (RV2-R3) | H2 | FO4: a lookup cut by a freeze **ends** `failure { Interrupted }`, parked and delivered at the thaw. Rule 37 already makes every read map `Interrupted`, so each fragment recovers without a thaw event (F8's Q13 A is then safe); the ending persists with the frozen slice, and a fragment waiting on a live lookup keeps a recurring schedule for reloads (RV3 H1). Rule 17 checked in FO4 |
 | **`resetOn` had no `UnresolvedHold` case** | M2 | FO8 states it, with an `idle`-guard default and a Story walk |
 | **Small gaps** | L1, L2, L6, L7 | FO6 lists a reset among starts; the other-subject row denies `retryable`; the upload sample lists `onIdle` beside its release; F8 and F9 are reflected throughout |
 
@@ -108,7 +108,7 @@ per-key fan-out limit); host data many writes share.
 | Q-j | Optional: a fragment without `operations` costs nothing | owner | FO1 (decided, F1) |
 | Q-k | Freeze and thaw leave no wait without an ending | RV1 H2, RV2 H2 | FO4 |
 | Q-l | Upgrading a host-only write to a fragment loses no persisted lane silently | RV1 M4, RV2 M3 | 2.5 |
-| Q-m | **A declared release can never be lost** (by a reload, a parked ending, or many lanes) **and never drops user intent** | RV2 H1, H3 | FO12 |
+| Q-m | **A declared release can never be lost** (by a reload, a parked ending, or many lanes), and is **declared only for worthless work** (guidance, checked by Stories, not by `flow check`) | RV2 H1, H3 | FO12 |
 
 ## 2. The design
 
@@ -139,7 +139,8 @@ the definition, or at the root of such a trait), an `.each` copy, or a `.resumab
 `resetOn`, and **no subroutine is on the path**. `.each` with `resetOn` is allowed (its path gains two parts). A
 `resetOn` on such a placement must return a string, so it can be recorded and persisted: a non-string reset value is a
 type error, whose remedy is a joined key (`[sort, status].join("|")`). Elsewhere a fragment may own reads, streams and
-bare writes. A violation is a construction error (rule 12).
+bare writes. A violation is a construction error (rule 12). Nested `.each` is out of scope (MD rule 9), so a path
+holds at most one copy key.
 
 **FO1. A fragment may declare `operations`** (decided, F1). Same shape and meaning as a definition's (rules 13,
 39–43, 47), after `memory` and `traits`. Its endings map onto its own `internalEvents`, which now come from its
@@ -149,7 +150,8 @@ write registers the domain for its actor. A fragment without `operations` is unc
 **FO2. Only the fragment acts; the host reads and asks** (decided, F5). Acting members (`commit`, `lookup`,
 `subscribe`, `retry`, `cancel`, `refetch`) are typed only in the declaring fragment's body. `Fragment.O` exposes only
 its write operations' reads: `get(s, k?)` in views, and `get`, `idle`, `retryable` in a host's guards and
-`updateMemory`; they are unambiguous because a write operation is unique per actor (FO3). Reads and streams are read
+`updateMemory`; they are unambiguous because a write operation is unique per actor (FO3), and they read the operation
+at any depth (the board reads `LikeButton.O.set` through `IssueRow`, 2.10). Reads and streams are read
 through the instance path, `s.operations.<instance>.<name>`. A host that wants a fragment to stop or retry asks through
 its public `events` or `hostEvents`; the fragment decides.
 
@@ -162,6 +164,10 @@ concept by F8; path refined, RV2 H4).
   (that copy's key) and one for each `resetOn` (its reset value), in order; any other placement adds nothing. A root
   trait at the actor's root has `[]`; a copy of `docs` has `["d1"]`; a root trait inside copy `X` has `["X"]`; a
   writing `.each` copy with `resetOn` has `[resetValue, copyKey]` in placement order.
+- **A `resetOn` part is the incarnation's own reset value** (RV3 M2), recorded when the incarnation is created and
+  persisted with its slice. On restore, if a writing placement's re-taken value differs from the recorded one (a
+  pending reset was lost by the reload, MD rule 1), the trait is **reset** (its `whenAbandoned` runs), not silently
+  re-baselined; so the path always matches the memory that commits.
 - When a commit creates a lane (`Idle` → `InFlight`), the lane records the committing incarnation's path. It stays
   until the lane is `Idle` **with no parked ending**, and is persisted with the lane record as an array of strings.
 - A member from an incarnation whose path differs from the lane's is **declined**, with existing words: a `commit`
@@ -169,8 +175,11 @@ concept by F8; path refined, RV2 H4).
   evidence, as in `Idle`; `retryable` denies `NothingToResend`; `idle` denies by the lane's real state (`InFlight` or
   `Uncertain`); `get` reads the real row. **On every placement whose subject path is not empty, rule 20 requires
   `failure.NotSent` mapped on every mapped write**, since the decline can occur there.
-- **Authoring rule: a write key belongs to one subject**, decided by it or unique within it (1.2 item 3). `flow
-  check` cannot see a breach (the key comes from a closure); the decline is visible in Stories and Inspection.
+- **Authoring rule: a write key belongs to one subject**, decided by it or unique within it (1.2 item 3). **What
+  `flow check` can catch** (RV3 L10): only the case visible from summaries, a contract with `key: []` on a placement
+  whose path is not empty (every subject on one lane), warned under the widened `SharedContract`. Beyond that the key
+  comes from a closure, so a breach is seen only at runtime: the decline appears in Inspection, and a decline in a
+  Story trace is a Story-derived warning, as MD does for list repairs.
 - **Two placements of one writing fragment** are a `SharedContract` error; fold one into the other's `.each`
   membership, or split the screen into two actors (stated, RV1 M8).
 
@@ -181,14 +190,22 @@ list in a trait body is placed for the incarnation's life, switched by `when`.
 - **Ending** the incarnation releases its placements and lookups; nothing is delivered later, because nothing is left
   to receive it (amends rule 17's evidence list: "a fragment's lookup whose incarnation ended").
 - **Freezing** a `.resumable()` trait releases its placements, and **ends each of its lookups with `failure {
-  Interrupted }`**: the ending is parked and delivered at the thaw, first among the parked endings (FO6). The shared
-  request continues only if another holder needs it (OPS O2).
+  Interrupted }`**: the ending is parked **with the frozen slice, which persists it** (Persistence O2, beside its
+  frozen schedules), and delivered at the thaw, first among the parked endings (FO6). The shared request continues
+  only if another holder needs it (OPS O2). A frozen trait **reset on return** has ended, so its parked
+  `Interrupted` endings are evidence (RV3 L6).
+- **A live incarnation's lookup is still not persisted** (OD9 Q26, rule 42). A fragment has no restore event, so a
+  fragment that waits on a lookup keeps a **recurring** schedule that looks up again (4.2's `resync`,
+  `Schedule.spaced`); a recurring schedule persists and ticks after a reload.
 - **Thawing** places its `activities` again from the thawed memory, as entering a state does, so a stream resumes from
   the fragment's own position. `Flow.entry` does not fire on thaw (decided, F8).
 - **Against rule 17:** every lookup still delivers exactly one ending; a freeze is not added to rule 17's evidence
   releases, it produces an ending. Rule 37 already requires every read operation to map `Interrupted`, so the
-  fragment's handler for it (4.2's `CatchUpFailed`) runs at thaw and re-arms whatever retries the read. Against rule
-  42: only the latest lookup is delivered, and the interrupted one is the latest, since a frozen trait issues none.
+  fragment's handler for it (4.2's `CatchUpFailed`) runs at thaw. Against rule 42: only the latest lookup is
+  delivered, and the interrupted one is the latest, since a frozen trait issues none; "one-off read lanes are not
+  persisted" stays true of the lane, and gains one exception for the ending a freeze parks in its slice. Against rule
+  46: no lane record is involved (a read has none), so rule 46 is unchanged; Persistence O2's frozen-slice contents
+  gain the parked read endings (amendment 23).
 
 **FO5. Writes outlive the incarnation; their endings go to the subject** (decided, F3). A lane's **binding
 incarnation** is the live incarnation at its operation's placement whose subject path is the lane's; for a host
@@ -226,17 +243,21 @@ to every holding write operation that does **not** release on leave (FO12).
   Inspection.
 
 **FO9. Summaries carry operations and requirements** (refined, RV1 M5). Per operation: contract id, kind, verb,
-concurrency, key fields, mapped events, whether it holds, and **whether it releases on leave** (FO12). The fragment's
+concurrency, key fields, mapped events, whether it holds, and **whether it releases on leave** (FO12), including
+its **children's** write operations, so `SharedContract` and FO8 work at a host above a nested writing trait (an
+explicit exception to rule 10's "hides the level below" for these facts only). The fragment's
 type carries the union of its contracts' Effect requirements (`R`), so a host or Story missing `DocsApi` is a type
 error. Hosts are checked against summaries only.
 
 **FO10. Stories** (decided, F7). `story.machine(fragment, { id, fixtures })`; `.leave()` and `.enter(input)` on traits;
 `Story.ending(Autosave.O.save, …)` (*Story reads: merge 3*). Walks kept as Stories: two copies on one lane, the second
-declined (RV1 H1); a freeze during a catch-up, thaw, `Interrupted` re-arms `resync` (RV2 H2); a creating raise meeting
+declined (RV1 H1); a freeze during a catch-up, thaw, `Interrupted` is delivered and `resync` looks up again (RV2 H2); a creating raise meeting
 an adopted hold (RV1 M3); a copy removed during a save that gets a 412, re-added, the adopted `Conflict` keeps the
 user's text (RV1 M9); an upgrade from a host-only lane (RV1 M4); a removed uploading copy, reload, nothing parked, no
 unsettled write (RV2 H1); two rows of a nested writing trait, one removed, the other untouched (RV2 H4); "A, B, A"
-under `resetOn` (RV2 M2).
+under `resetOn` (RV2 M2); a reload while frozen during a catch-up, the parked `Interrupted` delivered at thaw, and a
+reload while live and owed, `resync` looking up again (RV3 H1); a reload that loses a pending reset, the trait reset
+on restore (RV3 M2).
 
 **FO11. A fragment's rows** (refined, RV1 L4). `s.operations.<instance>.<name>` is `undefined` while the incarnation is
 inactive, a keyed list of copies under `.each` (rule N1). A write row there lists the lanes whose path is the
@@ -278,7 +299,7 @@ whenAbandoned: [O.put.cancel, callbacks.onIdle],                                
 | `.each` copy added in a turn that also raises into it | the raise runs first | — | — | the raise, then adopted endings (FO6) |
 | Two copies, one lane | own | the first path's; another path's commit ends `NotSent { Rejected }` | the first path's | the first path's copy only |
 | Writing root trait inside a copy (2.10) | own | the copy's path `["X"]` | `["X"]`'s | copy X's inner trait only |
-| `.resumable()` frozen | placements released; lookups end `Interrupted`, parked | runs | held | parked; at thaw the same incarnation, interrupted lookups first; `activities` placed again (FO4) |
+| `.resumable()` frozen | placements released; lookups end `Interrupted`, parked with the slice (persisted) | runs | held | parked; at thaw the same incarnation, interrupted lookups first; `activities` placed again (FO4) |
 | `resetOn` reset (F8) | released; placed again | runs | held | the incarnation with the old value, when it returns (FO6); with FO12, released |
 | Node trait left, subroutine left (phase 2) | released | runs | held, unplaced | the next incarnation with the same path |
 | Actor disposed | released | unchanged (OD19) | unchanged | the identity's next incarnation, then the path's placement; parked for a persisted identity, evidence otherwise (OD21); a releasing mark survives |
@@ -298,7 +319,7 @@ Delta:
 | **lane created** (`commit` in `Idle`) | mint an Attempt → `InFlight` | as before, and the lane records the committing incarnation's subject path |
 | **member from another path** | — | `commit`: `NotSent { Rejected }`, delivered to the asking incarnation, lane unchanged; `retry`: evidence `NothingToResend`; `cancel`: nothing, with evidence; `retryable`: denies `NothingToResend`; `idle`: denies by the lane's state; `get`: the real row |
 | **lane becomes `Idle`** | removed | removed once it also holds no parked ending; the path and any mark go with it |
-| **dispose** | the binding actor ends | the binding incarnation ends: the actor is disposed, or the incarnation with the lane's path ends. Cells unchanged |
+| **dispose** | the binding actor ends | the binding incarnation ends: the actor is disposed, or the incarnation with the lane's path ends. Cells unchanged, except the parking row below |
 | **freeze** | — | as dispose for writes; lookups end `Interrupted`, parked (FO4) |
 | **rebind** | an incarnation of the same identity starts | an incarnation starts at the placement with the lane's path (an entry, a copy, a reset, the actor's rebind). Cells unchanged; a releasing mark is cleared |
 | **thaw** | — | the frozen incarnation resumes: parked endings delivered (interrupted lookups first); `activities` placed again; no `unknown { Restored }`; `W` stays |
@@ -316,6 +337,11 @@ operation is listed in that incarnation's `whenAbandoned`. Cells, by state at ma
 | **rebind** (an incarnation with the lane's path starts) | cannot occur | the mark is cleared; the lane is adopted (FO6) | cannot occur |
 | **dispose, Runtime disposal** | — | the mark is captured with the lane record; the rows above apply when the ending lands or the record is restored | — |
 
+**Under `cancel` and `allow`** (RV3 L4): a lane in `HeldThisTurn` or `Held (parked)` is released at marking, as
+`Held` is; under `allow` the rows apply per Attempt. **Order and capture** (RV3 L5): in step 5 the marks apply after
+every member of the turn, so a commit in a copy the same turn removes is marked too; the mark is captured no later
+than the actor record that drops the incarnation, so a crash between the two captures cannot lose it.
+
 Every other row is unchanged. OD25's parked `Held` row reads "no binding incarnation" for "no live actor". Inspection
 lists a releasing lane as such.
 
@@ -330,6 +356,8 @@ lists a releasing lane as such.
   single key field**: for `.each`, `by` names that field (4.1: `by: "docId"`, `key: ["docId"]`, so a held save of `d1`
   becomes path `["d1"]`); for `resetOn`, the reset value is that field's value. Otherwise it goes to `orphaned` (P19),
   stated. A subjectless lane adopted by a root trait at the actor's root needs nothing (its path is `[]`).
+  Membership of bare strings has no `by`, so it does not pass the test: after 4.4's upgrade (a board with bare-string
+  `issueIds`), a held like from the host-only form goes to `orphaned`, stated (RV3 L3).
 - Parked endings of an unplaced path are on the lane record (OD22), captured, and listed by Inspection and
   `runtime.unsettledWrites()`; a releasing lane leaves that list once its ending lands.
 - A version that removes the fragment's operation sends the lane to `orphaned` (P19).
@@ -405,12 +433,12 @@ FO0 admits it (an `.each` copy, then a root trait of that copy; no subroutine). 
 `["X"]` in row X and `["Y"]` in row Y (FO3).
 
 1. Row X's like ends unknown. The lane (board, `issues/set-like`, `{ id: X }`) records path `["X"]`.
-2. X is removed. Y is live at the same placement, but its path is `["Y"]`, so Y is not the binding incarnation. X's
-   endings are parked for `["X"]` (FO5); FO8's structural warning fires on the host's `issueIds` write unless it keeps
-   busy keys (4.4).
+2. A host without 4.4's keep-busy line removes X. Y is live at the same placement, but its path is `["Y"]`, so Y is
+   not the binding incarnation. X's endings are parked for `["X"]` (FO5); FO8's structural warning fires on the
+   host's `issueIds` write (it fires with the keep-busy line too, which is not a token).
 3. Y's own toggles create or use the lane `{ id: Y }` with path `["Y"]`; a stray `retry` from Y on X's lane is
    `NothingToResend` (FO3). Y's rows list only `["Y"]`'s lanes (FO11).
-4. X is re-added (the keep-busy line, or the list refreshes): the copy X's inner `like` has path `["X"]`, adopts the
+4. X is re-added (a later list holds it): the copy X's inner `like` has path `["X"]`, adopts the
    lane, receives the parked unknown, and its `reconcile` re-sends it.
 
 The same holds under `resetOn`: an Autosave at the root with `resetOn: docId` has path `["d1"]` while on `d1`, and
@@ -832,7 +860,7 @@ placement's `when` is the reconnect switch: false releases the session, true ope
 ```ts
 // livefeed.trait.ts
 import { deny, Flow, trait } from "flow-state"
-import { Duration, Schema } from "effect"
+import { Duration, Schedule, Schema } from "effect"
 import { Chat, Message } from "./chat.contracts"
 
 const Position = Schema.Struct({ epoch: Schema.String, after: Schema.Number })
@@ -880,7 +908,7 @@ export const LiveFeed = trait(                                                  
       activities: [O.feed.subscribe(from, { when: ({ memory }) => memory.status === "synced" || memory.status === "owed" })],   // NEW MEANING: activities in a trait body (FO4)
       schedules: {
         retry: { schedule: ({ memory }) => Duration.seconds(2 ** memory.tries), armOn: [E.FeedLost, E.FeedEnded], send: E.RetryFeed },
-        resync: { schedule: "5 seconds", armOn: [E.Missed, E.CatchUpFailed], send: E.ResyncDue },
+        resync: { schedule: Schedule.spaced("5 seconds"), armOn: [E.Missed], send: E.ResyncDue },   // existing: Schedule.spaced (Effect); recurring, so it persists and looks up again after a reload (FO4); ResyncDue is guarded by "owed" and idle
       },
       on: {
         Message: [
@@ -893,7 +921,7 @@ export const LiveFeed = trait(                                                  
           { target: "self", guard: ({ memory }) => memory.status === "owed" || deny("NotOwed"), updateMemory: ({ memory, event }) => paged(memory, event), actions: [catchUp] },
           { target: "self", updateMemory: ({ memory, event }) => paged(memory, event) },
         ],
-        CatchUpFailed: { target: "self" },                                           // `resync` arms
+        CatchUpFailed: { target: "self" },                                           // the recurring `resync` looks up again
         ResyncDue: [{ target: "self", guard: [({ memory }) => memory.status === "owed" || deny("NotOwed"), O.catchUp.idle], actions: [catchUp] }, { target: "self" }],
         FeedEnded: { target: "self", updateMemory: () => ({ status: "lost" }) },
         FeedLost: [
@@ -942,8 +970,8 @@ export const RoomMachine = machine(Room, ({ S, E }) => ({
 
 **After: a second host** (a support ticket whose discussion tab is the same feed, on a node, `.resumable()`:
 leaving the tab freezes it, releasing the session and any catch-up; coming back re-places the session from the frozen
-`at`, and a catch-up the freeze cut arrives at the thaw as `Interrupted`, which maps to `CatchUpFailed` and re-arms
-`resync`, FO4. Without `.resumable()`, every visit would start again from
+`at`, and a catch-up the freeze cut arrives at the thaw as `Interrupted`, which maps to `CatchUpFailed`; the recurring
+`resync` then looks up again, also after a reload, FO4. Without `.resumable()`, every visit would start again from
 `{ epoch: "", after: 0 }` and fetch the whole history, which `merge` dedupes but does not avoid: L2).
 
 ```ts
@@ -1511,7 +1539,7 @@ are excluded.
 | Case | Before (lines / chars) | After: fragment + first host (lines / chars) | First use | Further host, after vs before (lines / chars) | Saved per further host (chars) |
 | --- | --- | --- | --- | --- | --- |
 | 4.1 Autosave (`.each`) | 93 / 5,769 | 63 + 44 = 107 / 5,273 | +14 lines, **−9 % chars** | 44 / 1,847 vs 93 / 5,769 | 68 % |
-| 4.2 Live feed (root; node, resumable) | 94 / 4,353 | 77 + 22 = 99 / 5,673 | +5 lines, +30 % chars | ticket 26 / 940 vs 94 / 4,353 | 78 % |
+| 4.2 Live feed (root; node, resumable) | 94 / 4,353 | 77 + 22 = 99 / 5,683 | +5 lines, +30 % chars | ticket 26 / 940 vs 94 / 4,353 | 78 % |
 | 4.3 Checkout (subroutine, phase 2) | 108 / 5,208 | 95 + 27 = 122 / 5,597 | +14 lines, +7 % chars | 27 / 897 vs 108 / 5,208 | 83 % |
 | 4.4 Like (`.each`; root) | 54 / 2,305 | 37 + 44 = 81 / 3,317 | +27 lines, +44 % chars | issue page 20 / 610 vs 31 / 1,409 (written, 4.4) | 57 % (35 % of lines) |
 
@@ -1534,13 +1562,13 @@ Reading it (corrected from revision 1, RV1 section 4):
 | Infinite pager | trait: `subscribe.each` over loaded pages | fits anywhere | page cache is the resource's |
 | Presence heartbeat | trait: stream + a bare `ping` write | fits anywhere | none |
 | Notification bell on every screen | root trait: stream + `markSeen` (`latest`, key `[]`) | fits | two screens are two identities, unordered for a plain write (MD 2.7.13) |
-| Comment composer per thread | `.each` by thread id: `post` keyed `["clientId"]` | fits | one subject, many lanes: each lane records path `[threadId]`; a discarded thread's drafts may release on leave, all lanes at once (FO12) |
+| Comment composer per thread | `.each` by thread id: `post` keyed `["clientId"]` | fits | one subject, many lanes: each lane records path `[threadId]`. Sent posts are user intent: keep the hold and a keep-busy line (F6). Release on leave only if the thread itself is deleted, and then only if its posts are worthless (FO12) |
 | Follow author on each post | `.each` by post id, key `["userId"]` | **declined at runtime** (FO3, H1) | two posts by one author share a lane; the second copy's commit ends `NotSent { Rejected }`. Write it over distinct authors |
 | Follow in a header plus a suggestions list | two placements of one writing trait | `SharedContract` | fold the header into the list's membership (FO3, M8) |
 | Comments panel on a tab | node trait with two mapped writes | fits as `.resumable()` (FO4) | thaw re-places its list subscription and delivers parked endings |
 | Like inside a row fragment | a root trait inside `IssueRow.each` | fits | path `[issueId]`, inherited from the copy (2.10) |
 | Avatar upload (input arrives later) | `Upload.each` of one, or a root trait with `resetOn: ref` | fits (decided, F8, F9) | `whenAbandoned: [O.put.cancel]`: a replaced upload is worthless, so it is released, and the host just replaces its list (RV1 M7 closed) |
-| Editor that switches documents | root trait with `resetOn: docId` | fits (decided, F8) | path `[docId]`; A's save waits for A, B proceeds; the switch guards with `idle` (FO8) and never releases (user intent) |
+| Editor that switches documents | root trait with `resetOn: docId` | fits (decided, F8) | path `[docId]`; with FO8's `idle` guard the switch waits until A's save settles; without it, A's save waits for A. Never released (user intent) |
 | Cart quantity stepper per line | `.each`: a domain write | fits (the like again) | bulk "clear cart" is MD's per-key fan-out limit |
 | Upload a file (step), two-factor verify (step) | subroutines | **phase 2** (decided, F7) | cross-thing adoption would be closed by a subject part per entry (an entry's input), phase 2's rule |
 | Booking saga | host | stays in the host | must refund a late charge at once (1.2 item 4) |
@@ -1578,8 +1606,9 @@ Exact amendments to MD if accepted. None is applied; each waits for the owner's 
 6. **2.6 key order**: a machine or fragment body gains `activities` before `schedules`.
 7. **Rule 1**: `.resumable()`: "Freezing releases the trait's placements and ends its lookups `failure { Interrupted
    }`, parked; thawing delivers its parked endings and places its `activities` again (FO4)". `resetOn`: "on a trait
-   that owns a mapped write, the reset value is a string and a subject part (FO0, FO3); `whenAbandoned` with a
-   release runs on reset (FO12)".
+   that owns a mapped write, the reset value is a string and a subject part, recorded with the slice; on restore a
+   differing re-taken value resets the trait instead of re-baselining it (FO0, FO3); `whenAbandoned` with a release
+   runs on reset (FO12)".
 8. **Rule 2**: `internalEvents` of a fragment also come from its operations' endings.
 9. **Rule 3**: replaced by FO1 and FO0.
 10. **Rule 4**: the host reads a fragment's write lanes and asks through its public events; it cannot act (FO2).
@@ -1603,7 +1632,9 @@ Exact amendments to MD if accepted. None is applied; each waits for the owner's 
 21. **Rule 24**: add "a release on leave (FO12) acts on every lane of the subject path, by 2.4's releasing rows".
 22. **Rule 40**: `SharedContract` counts every write operation in the actor's placement tree (decided, F2).
 23. **Rules 37 and 42**: a fragment's one-off read lane is (actor, operation, incarnation); ending the incarnation
-    releases it; a freeze ends it `failure { Interrupted }`, delivered at the thaw (FO4).
+    releases it; a freeze ends it `failure { Interrupted }`, parked with the frozen slice and delivered at the thaw;
+    rule 42's "one-off read lanes are not persisted" gains that one exception; **Persistence O2**: a frozen slice
+    also persists its parked read endings. Rule 46 is unchanged (FO4).
 24. **Rule 44**: add FO6 (adoption by subject path, starts include a reset, follow-up turns after the starting turn's
     raises, thaw; a releasing mark cleared by an incarnation of the path).
 25. **Rule 45**: add FO8's arrivals, its structural `.each` warning and its `resetOn` default; none for an operation
@@ -1613,7 +1644,9 @@ Exact amendments to MD if accepted. None is applied; each waits for the owner's 
     field, else goes to `orphaned` (2.5)".
 27. **2.5 step 1**: the owner test runs in the binding incarnation; an ending with none is parked or, if releasing,
     released. **Step 3**: leaving appends FO12's marks after `whenAbandoned`'s notifications. **Step 5**: a member from
-    another path is declined; the marks' cells apply. **Step 6**: after pending resets, queue FO6's deliveries.
+    another path is declined; the marks' cells apply after every member. **Step 6**: "freeze resumable ones" adds
+    "ending each of their lookups `failure { Interrupted }`, parked with the slice (FO4)"; after pending resets, queue
+    FO6's deliveries.
 28. **2.7.13**: the "Owner" paragraph reads "binding incarnation"; 2.4's delta and releasing rows.
 29. **2.7.14** item 2: arrivals inside a fragment (FO7); new item 5: FO8.
 30. **2.7.16**: `SharedContract` and `UnresolvedHold` widened; `flow explain` prints fragment operations and their
@@ -1629,6 +1662,18 @@ Exact amendments to MD if accepted. None is applied; each waits for the owner's 
 34. **Merge 3** (not merged): fragment Stories have `fixtures` (FO10).
 35. **Merge 6** (not merged): a trait body's `activities` places a stream for the incarnation's life; freeze releases
     it and thaw places it again (FO4).
+
+36. **Rule 16** (declines): add "under every concurrency, a commit from an incarnation whose subject path differs
+    from the lane's ends `NotSent { why: "Rejected" }`; the transition runs (FO3)".
+37. **Rule 41**: `activities` is a list of placements "in a state or a trait body (FO4)".
+38. **Rule 43** (`KeyRequired`): add "except a key-less `O.x.cancel` in `whenAbandoned`, which names every lane of the
+    incarnation's subject path (FO12)".
+39. **Rule 23 and N1**: inside a fragment, `keys` and guards read the fragment's own rows; a write row under `.each`
+    lists only the lanes of that copy's path (FO11).
+40. **MD 2.1's lifecycle table**, row "On ending, except by an exit or a freeze": add "and releases the subject's lanes
+    of every operation it lists (FO12)".
+41. **`flow check`**: a contract with `key: []` on a writing placement whose path is not empty is a `SharedContract`
+    warning (FO3, RV3 L10).
 
 ## 8. Risks
 
