@@ -583,7 +583,7 @@ is one invocation of its commit function. The rules are numbered as merge 2's ru
     - **Existence** (rule N3). A lane with nothing outstanding and nothing addressable is evicted, and has no row; a
       lane never started has none either, so the two cannot be told apart, and neither can be mistaken for a lane
       that exists. A lane whose addressable Attempt failed or ended unknown is kept, because `retry` needs it, and a lane held by an
-      unknown is listed in the actor's evidence, so a lane nobody reconciles is visible (merge 4, "Lane lifetime"); under
+      unknown is listed in the actor's evidence, so a lane nobody reconciles is visible (merge 4, "Lane lifetime"; *Story reads: merge 3*: the `checkpoint.evidence` shape); under
       `allow` and `serialize` nothing is retained, so the lane is evicted when nothing is outstanding.
     - **Each Attempt remembers what started it**: its commit value (whose `outcomes` a `retry` uses, called on any
       commit value of the transaction), its lane key, and, from a `.each` copy, the copy's key and incarnation (rule
@@ -814,7 +814,7 @@ instead, or keep the old value under its own key.
 **Settlement publishes without a turn.** For a domain write, settlement applies the Attempt's ending to the store and
 releases record queues in one publication (rule 27); every actor's snapshot reflects that store revision, while lanes
 change only when the ending's turn is admitted. Between the two, a record can read confirmed while the lane row still
-reads `pending` (2.8.1).
+reads `pending` (2.8.1). How a Story reads this frame and asserts the gap is merge 3's (*Story reads: merge 3*).
 
 ### 2.6 Conventions
 
@@ -1841,7 +1841,7 @@ A read never clears it: a read cannot prove the write will not still land (ED:65
 Attempt (found checking E3): a record reads `uncertain` while any of its marks remains; a retry's success clears that
 Attempt's mark, and a later write's success clears every mark on the record (EDP:105-106).
 
-**The rule table** (replaces the cache table of 2.7.1 for domain operations; C4, C4):
+**The rule table** (replaces the cache table of 2.7.1 for domain operations; C4):
 
 | The Attempt's ending (after rule 18) | Predictions | Repair | Queue release | `uncertain` |
 | --- | --- | --- | --- | --- |
@@ -1931,7 +1931,7 @@ delivers what it reads. A state that must wait for a read uses a call value (2.7
 #### 2.8.11 Persistence (E14)
 
 A lane, its Attempt and the keys that Attempt predicts persist in **one capture**, the Attempt acknowledgement
-Persistence O6 already requires before invocation (PER:123-127, C17 C17). Restore therefore finds either both or
+Persistence O6 already requires before invocation (PER:123-127, C17). Restore therefore finds either both or
 neither: an acknowledged Attempt whose predicted keys are marked `uncertain` with a forced repair (EDP:106-107), or an
 unacknowledged one that ends `NotSent { why: "Restored" }` with nothing to repair (F-M7). Prediction values are never
 persisted (EDP:127-128).
@@ -2799,10 +2799,10 @@ Merge 4 ([merged/entities.md](merged/entities.md) section 6.4). Operations O1's 
 | C24 | EntityDomains O1 | The actor decides whether a start runs, the record queue when it is sent; actor concurrency includes `latest`; a superseded or cancelled queued write ends `NotSent` without repair (rule 29) | Replaces EDP:112-116's concurrency sentences and ED:650-651's "settles interrupted" |
 | C25 | EntityDomains O1 | `uncertain` is a mark per record and Attempt; a successful retry of that Attempt clears it, a later successful write clears every mark on the record; a read, a forced repair, a failure and `StillUnknown` clear nothing (rule 32) | Replaces "a later write … succeeds or the machine reconciles" (EDP:105-106) |
 | C26 | EntityDomains O1 | No temporary ids: a pending create is a memory draft shown apart from the answer (rule 33) | Names the pattern at EDP:118-119 |
-| C27 | EntityDomains O1, Operations O5, O6 | The record read is `{ data, predicted, uncertain, unconfirmed }`; the resource and answer lane's "true for live optimistic values or predictions" is `predicted` (E16) | Replaces `pending` at EDP:130, OPS:153, OPS:166 |
+| C27 | EntityDomains O1, Operations O5, O6 | The record read is `{ data, predicted, uncertain, unconfirmed }`; the resource and answer lane's "true for live optimistic values or predictions" is `predicted` (E16) | Replaces `pending` at EDP:130, OPS:153, OPS:166. Testing.plan still says `pending`; the Testing amendment waits (*Story reads: merge 3*) |
 | C28 | EntityDomains O1 | A write that predicts exactly one record and declares no `key` has that record's key as its lane key, supplied by the domain at registration (rule 34) | Adds |
 | C29 | Operations O2 | A resource call value's `success:` sees confirmed data only; a read's defect or interruption ends on `failure` as `Defect` or `Interrupted`, required in a tag record (rule 37) | Adds to O2's call values |
-| C30 | Inspection; EntityDomains O2 | Inspection (ED 7's evidence table): `queue` events gain `superseded`, `cancelled` and `overloaded` removals; `uncertain` "ended (later write or reconciliation)" becomes "ended (a later write succeeded, or a retry of the Attempt succeeded)"; held unknown lanes appear in actor evidence. *Story reads: merge 3:* EntityDomains O2's `Entity.queue` states include removals with their `NotSent` reason, pending merge 3's choice of read (its revision 3 reads removals from `ending` entries) | Adds |
+| C30 | Inspection; EntityDomains O2 | Inspection (ED 7's evidence table): `queue` events gain `superseded`, `cancelled` and `overloaded` removals; `uncertain` "ended (later write or reconciliation)" becomes "ended (a later write succeeded, or a retry of the Attempt succeeded)"; held unknown lanes appear in actor evidence (*Story reads: merge 3*). *Story reads: merge 3:* EntityDomains O2's `Entity.queue` states include removals with their `NotSent` reason, pending merge 3's choice of read (its revision 3 reads removals from `ending` entries) | Adds |
 
 Merge 5 amends EntityDomains O1/V1, CommandLine O1/O5/O6/Q1 and Inspection O1/O4/D1/D2; its amendments are listed by
 target in [merged/entity-analysis/proposal.md](merged/entity-analysis/proposal.md) section 6.4 (with
