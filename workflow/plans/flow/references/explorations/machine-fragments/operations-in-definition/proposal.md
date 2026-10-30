@@ -224,6 +224,13 @@ the local exception covers the lost hold (L1); a re-send's capture wait is in th
 `NotSent { Restored }` is delivery step 2, not a parked ending (C3). The table and the concept count are unchanged:
 **16 × 3 = 48 cells, 33 reachable; 7 words, 0 modes, 15 rules.**
 
+**Revision 13 (2026-10-30).** Applies OD25 ([decisions.md](decisions.md)) to three contradictions the lane model
+found in revision 12 ([lane-model/RESULTS.md](lane-model/RESULTS.md)): C5, a persisted identity's parked `unknown`
+under `cancel`/`allow` keeps its lane `Held` (parked) between turns until delivery, a new between-turns state in the
+`cancel`/`allow` table; C6, an `idle`-guarded commit counts for the terminal pass and never owns a hold; C7, `retry`
+and `cancel` stop the `UnresolvedHold` search only where the hold already exists. Walks in 5.7. Nothing else changed;
+no public syntax. The holding table is unchanged (16 × 3); the `cancel`/`allow` table gains one between-turns state.
+
 Short names for citations (all under `workflow/plans/flow/`):
 
 | Short name | File |
@@ -882,7 +889,7 @@ OD19: Q28 A). "Delivered" is a mapped event to the binding actor in a later turn
 | **failure** | cannot occur | delivered → promote, or `Idle`; the failed Attempt is resolved, so a later `retry` is `NothingToResend` (amends MD rule 19) | cannot occur |
 | **unknown** (incl. `StillUnknown`) | cannot occur | delivered → `Held` | cannot occur |
 | **interrupt** (adapter, or after a `cancel`) | cannot occur | delivered as `unknown` → `Held` | cannot occur |
-| **dispose** (the binding actor ends; R7 K17) | nothing (virtual idle lane) | unchanged: the Attempt stays waiting or on the wire, and the Runtime invokes it; its ending is applied, and is a pending mapped outcome of the identity's saved record if one exists, else evidence (OD21) | unchanged; the hold and `W` stay in the Runtime |
+| **dispose** (the binding actor ends; R7 K17) | nothing (virtual idle lane) | unchanged: the Attempt stays waiting or on the wire, and the Runtime invokes it; its ending is applied, and is a pending mapped outcome of the identity's saved record if one exists, else evidence (OD21). An acknowledged re-send still waiting for its lane record's capture is unchanged: the Runtime owns the lane (OD19), so it captures it later and then invokes it (decided, OD25; lane model C8) | unchanged; the hold and `W` stay in the Runtime |
 | **rebind** (an incarnation of **the same identity** starts and adopts the lane, OD20) | cannot occur (no lane) | unchanged; the new incarnation receives the ending when it lands | the hold is delivered **exactly once**, as `unknown { Restored }`, routed by the owner test below (OD20 F3, OD21, OD22), `retryCount` kept, unless that Attempt's outcome is already parked (G3; R10 L1); `W` stays queued |
 | **restore** (Persistence O6) | nothing (virtual idle lane) | an Attempt acknowledged once (per Attempt, OD20 F2) restores as `unknown { Restored }`, delivered → `Held`, even if its current re-send was waiting, and even if it was acknowledged but never invoked: the Runtime cannot know whether invocation began before the crash (G1), so `retry` may be its first send, which the idempotency key makes safe; one never acknowledged ends `NotSent { Restored }`; each `W` entry ends `NotSent { Restored }`, delivered (MD C2); if a saved pending outcome exists for this Attempt, that outcome is delivered instead, once (G3) | stays `Held`, and the hold is delivered **exactly once**, as `unknown { Restored }`, from the restored incarnation's saved leaf (OD20 F3, OD21), unless the hold's own unknown is already among the record's pending outcomes (G3); `W` as in `InFlight` |
 | **Runtime disposal** (OD20, K23; R8 M2; R9 H2) | nothing (virtual idle lane) | from its start nothing is invoked. Waiting, never sent: ends `NotSent { Disposed }`; predictions removed (rule 30); **for a persisted identity it is saved with the final capture as a pending mapped outcome and delivered to the restored incarnation** (OD21), else evidence. Waiting re-send: → `Held`. On the wire: Runtime O6 (settles within its bound, else unknown); an ending that settles before the final capture is saved as a pending mapped outcome (Persistence O3). Each `W` entry ends `NotSent { Disposed }` when the head's ending is admitted, or when Runtime O6's bound ends, so a lane's parked endings keep lane order (R10 M4). If the final capture fails, the last good capture's lane record restores per the restore row, which is also safe | stays `Held`; captured if the identity persists, else gone with the Runtime (evidence); each `W` entry as in `InFlight` |
@@ -942,7 +949,7 @@ is live; an unknown is held only for its own ending's turn (**`HeldThisTurn`**, 
 | **`cancel`** | nothing | as the holding table (by history before invocation) | release (`Released`) → `Idle` |
 | **`idle`**, **`retryable`** | as the holding table's `Idle` | as its `InFlight` | as its `Held` |
 | **success**, **failure** | cannot occur | delivered → `Idle` | cannot occur |
-| **unknown**, **interrupt** | cannot occur | delivered → `HeldThisTurn` | cannot occur |
+| **unknown**, **interrupt** | cannot occur | delivered → `HeldThisTurn`; with no live actor and a persisted identity: parked, and the lane is **`Held` (parked)** between turns until delivery (OD25, C5) | cannot occur |
 | **turn end** | | | → `Idle`; the unknown is evidence |
 | **invoked** | cannot occur | waiting → on the wire | cannot occur |
 | **storage refused** | cannot occur | never sent: `NotSent { StorageRefused }`, delivered → `Idle`; a re-send: delivered as `unknown { StorageRefused }` → `HeldThisTurn` (OD20, F5; R9 L4) | cannot occur |
@@ -951,6 +958,21 @@ is live; an unknown is held only for its own ending's turn (**`HeldThisTurn`**, 
 | **restore** | nothing | acknowledged: delivered as `unknown { Restored }` → `HeldThisTurn` in its delivery turn (R10 L3); never acknowledged: `NotSent { Restored }`, delivered (R9 L4) | cannot occur |
 | **Runtime disposal** | nothing | from its start nothing is invoked; a waiting, never-sent Attempt ends `NotSent { Disposed }`. An Attempt on the wire follows Runtime O6 (it settles within the bound, or not). For a persisted identity, `NotSent { Disposed }` and an ending that settles before the final capture are parked (OD21, OD22); a waiting re-send, or an Attempt still on the wire at the final capture, is captured as an acknowledged `InFlight` lane record, so a reload uses this table's restore cell (`unknown { Restored }` → `HeldThisTurn`, where a key-less `retry` re-sends the same id). Otherwise they are evidence. The live lane ends `Idle`: nothing is held past a turn (G2; R10 H2, K30). `allow` follows this per Attempt | cannot occur |
 | **SSR hydration** | as the holding table | cannot occur | cannot occur |
+
+**The between-turns state for a persisted identity** (decided, OD25; lane model C5, inv 18). Under `cancel` and
+`allow`, an `unknown` that lands while a persisted identity has no live actor is parked, and its lane stays
+**`Held` (parked)** between turns until the parked ending is delivered, so the Attempt is still addressable when the
+handler runs. `HeldThisTurn` starts at delivery, not at admission:
+
+| Row | `Held` (parked; persisted identity, no live actor) |
+| --- | --- |
+| **delivery** (ensure, rebind or restore of the identity) | the parked `unknown` is delivered, current, from the active leaf (OD21) → `HeldThisTurn` for the delivering turn |
+| **`retry`**, **`cancel`** in the delivering turn | as `HeldThisTurn`: re-send the same id → `InFlight`; or release (`Released`) → `Idle` |
+| **turn end** of the delivering turn | → `Idle`; the unknown is evidence |
+| **`commit`**, endings, **invoked**, **storage refused** | cannot occur (no live actor; nothing on the wire) |
+| **restore** | stays `Held` (parked); delivered in the restored incarnation's delivery turn |
+| **Runtime disposal** | captured with the lane record if the identity persists, else evidence |
+| **dispose**, **rebind** without a record, **SSR hydration** | cannot occur |
 
 Under **`allow`** (OD20, F9), a lane is a set of independent Attempts, each following the `cancel` table's rows for
 itself, including invoked, storage refused, dispose, rebind and restore; its state is a count (`outstanding`), `pending` is
@@ -1077,9 +1099,12 @@ For a write operation X on `reject`, `latest` or `serialize`:
    new incarnation can be in while X's lane is unresolved** (decided, OD21; R9 K26, H3): the initial leaf and every
    leaf reachable from it (rebind), and every leaf reachable from a transition holding `X.commit` or from an arrival
    branch's target (a restored record resumes in its saved leaf), where the search **stops at** a transition guarded
-   by `X.idle`, a transition that handles U, and a transition holding `X.retry` or `X.cancel`: after any of them,
-   ownership or resolution belongs to the current incarnation (R10 M1). An `X.idle`-guarded commit does not count for
-   `reject`'s terminal pass. The same set is MD rule 20's arrival set for X's other mapped events (OD22). For each arrival, take each **branch that keeps the hold**: a branch of U's handler with
+   by `X.idle`, a transition that handles U, and a transition holding `X.retry` or `X.cancel` **only on a path where
+   the hold already exists when it runs** (it is in a handler of U, or guarded by `X.retryable`); elsewhere a `retry`
+   or `cancel` can fire as a declined no-op while the lane is `InFlight` or `Idle`, so the search continues to where
+   the hold can arrive (decided, OD25; lane model C7, inv 15b; R10 M1). An `X.idle`-guarded commit counts as a
+   reachable commit for `reject`'s terminal pass and never owns a hold (decided, OD25; lane model C6, inv 15a:
+   revision 12's exemption hid stuck `reject` machines). The same set is MD rule 20's arrival set for X's other mapped events (OD22). For each arrival, take each **branch that keeps the hold**: a branch of U's handler with
    neither `X.retry` nor `X.cancel`, or with only an `X.retry` behind `X.retryable` whose fallback keeps the hold (R9
    L2). Two implicit branches keep the hold, with the arrival leaf as their target: **"declined"**, when every
    alternative of U's handler there has a guard (R7 M7), and **"unhandled"**, when neither that leaf nor any ancestor
@@ -3292,6 +3317,20 @@ Each walk names the table's cells (3.8.1) in order. Code changes in revision 7 a
 | 9.3 workspace | per document, as 8.2. `RetrySave` (user event, named key): `Held` → `InFlight`; `InFlight` → evidence `InFlight`; `Idle` → evidence `NothingToResend`. | passes |
 | 9.4 kanban | `MoveUnsure`: re-send ×3 (`InFlight` each), then `cancel` in `Held` → the next drag in `W` is promoted. `LabelUnsure` the same. `RebalanceUnsure`: release, then refetch. | passes |
 | 9.6 wizard | see 9.6. | passes with root `StartUnsure` and `SubmitUnsure`, the latter carrying `draftId` (revision 10); before, an error by the "unhandled" branch at EMAIL, and with Q34 A for `Submit`'s partial-key `O.save.idle` (open; R9 L7) |
+
+**Revision 13 walks** (OD25; the lane model's minimal counterexamples against revision 12).
+
+- **C5 (inv 18), `cancel`, persisted:** `Pay → ack → invoke → retain expiry → unknown with no actor → ensure`. The
+  unknown is parked and the lane stays `Held` (parked); at ensure it is delivered and becomes `HeldThisTurn`, so the
+  handler's `retry` re-sends the same id (→ `InFlight`) and PAYING is resolved by its ending. Revision 12 made the
+  Attempt evidence at once, the `retry` found `Idle`, and PAYING waited for good.
+- **C6 (inv 15a), `reject`:** `S0: { idle?commit → S0 }`, no U handler. A commit, then an unknown: `Held`; the only way
+  out is the `idle`-guarded commit, which `Held` denies. The commit now counts as reachable, so the terminal pass
+  does not apply, no owner exists, and `UnresolvedHold` is an error. Revision 12 passed it.
+- **C7 (inv 15b), `latest`/`serialize`:** `S0: { retry → S1 }, S1: { idle?commit → S0 }`. The `retry` in S0 fires
+  while the lane is `InFlight` (evidence) and moves to S1, where the hold later arrives with no owner. The search no
+  longer stops at that `retry` (it is neither in a handler of U nor behind `retryable`), reaches S1, finds no owner,
+  and reports an error.
 
 **Revision 11 walks** (OD21; review 9).
 
