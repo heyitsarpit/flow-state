@@ -1,152 +1,289 @@
 # Dispatch Desk: the reference application
 
-A dispatcher's desk: a ticket queue with search, filters, paging, assignment and a live feed; a
-ticket editor with saves, autosave, lock retries and permission handling; toasts other actors
-send to; React views; deterministic Stories, tests and an entity property test; inspection and
-the CLI.
+A dispatcher's desk, written against the design in
+[machine-design.md](../explorations/machine-fragments/machine-design.md) ("MD"). It has a ticket queue (search,
+filters, paging, keyed "assign to me"), a ticket editor (autosave, lock retries, the hold on an unknown save, writes that
+outlive the screen), two fragments placed by hosts (Comments, Attachments), three streams (a live workspace feed,
+presence on a ticket, a streamed assistant reply), a ticket entity domain, and Stories on a fake server. It is the
+example an implementer builds the library against. The design behind it is [REWRITE-PLAN.md](REWRITE-PLAN.md).
 
-It is written against the adopted design: [FlowState.plan](../../FlowState.plan), with
-[minimal-library.md](../design/minimal-library.md) for the actor, operation and view surface
-and [entity-domain.md](../design/entity-domain.md) for shared records. It is the example an
-implementer builds the library against. **It is not runnable yet**: the library does not
-exist. Only the Effect-only service, adapter and fixture files can be typechecked today; the
-Flow-dependent examples and tests remain illustrative. Stage S10 of the plan makes it a running app.
+**Status: illustrative.** The library does not exist. Only the files that import nothing but `effect` type-check today
+(see "Status" below). Streams are not merged: they follow
+[merge-6-streams/proposal-v2.md](../explorations/machine-fragments/merge-6-streams/proposal-v2.md) revision 7 ("M6",
+decisions S1–S10) and are marked **pending merge 6** (PM6).
+
+## Status
+
+Type-checks today (Effect-only, no `flow-state` import), from the repo root:
+
+```sh
+nubx tsc -p workflow/plans/flow/references/dispatch-desk/tsconfig.effect-only.json   # passes
+nubx vp fmt workflow/plans/flow/references/dispatch-desk --check                       # every file
+```
+
+| Effect-only file                                                                                                                | Holds                                                      |
+| ------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| `features/Tickets/types.ts`, `ticket-api.ts`                                                                                    | schemas, errors, the ticket port                           |
+| `features/Comments/comments-api.ts`, `features/Attachments/attachments-api.ts`                                                  | comment and upload ports, `PendingFiles`                   |
+| `features/Tickets/feed/desk-socket.ts`, `features/Presence/presence-api.ts`, `features/Assistant/assistant-api.ts` (PM6 shapes) | socket, presence and assistant ports as Streams            |
+| `app/desk-server.ts`, `app/demo-api.ts`                                                                                         | the server's rules as pure functions; the in-memory Layers |
+| `next/http-api.ts`                                                                                                              | every port over `fetch`, `XMLHttpRequest`, `WebSocket`     |
+
+Everything else imports `flow-state`, `flow-state/react`, `flow-state/testing`, `flow-state/server` or `next`, so it is
+illustrative: it uses the design's spellings and nothing is faked in it. `nub run check`, `test` and `verify` do not
+cover this folder, so passing them proves nothing about the desk. Where the design is silent, the file says
+`// design gap:` (43 of them, listed below).
 
 ## Start here
 
-1. [ticket.operations.ts](features/Tickets/ticket.operations.ts): plain requests, which import
-   no entity.
-2. [ticket.domain.ts](features/Tickets/ticket.domain.ts): what those requests mean for shared
-   ticket records.
+1. [ticket.contracts.ts](features/Tickets/ticket.contracts.ts): where data comes from (reads, writes, outcome
+   classification beside the status).
+2. [ticket.domain.ts](features/Tickets/ticket.domain.ts): what those contracts mean for shared ticket records.
 3. [editor.definition.ts](features/Tickets/editor/editor.definition.ts) and
-   [editor.machine.ts](features/Tickets/editor/editor.machine.ts): the editor, readable as the
-   spec.
-4. [queue.machine.ts](features/Tickets/queue/queue.machine.ts): a second machine reading the
-   session, with polling that adapts to list availability.
-5. [TicketPanel.tsx](features/Tickets/editor/TicketPanel.tsx) and
-   [QueueList.tsx](features/Tickets/queue/QueueList.tsx): narrow views.
+   [editor.machine.ts](features/Tickets/editor/editor.machine.ts): the editor, readable as the spec.
+4. [comments.trait.ts](features/Comments/comments.trait.ts) and
+   [upload.trait.ts](features/Attachments/upload.trait.ts): the two fragments the editor places.
+5. [queue.machine.ts](features/Tickets/queue/queue.machine.ts): keyed lanes and a comments preview.
+6. [feed/\*](features/Tickets/feed/) (PM6): the live feed with catch-up.
+7. [editor.story.ts](features/Tickets/editor/editor.story.ts), then [desk.story.ts](features/Tickets/desk.story.ts):
+   one actor's Stories, then the whole app's.
 
-[editor.story.ts](features/Tickets/editor/editor.story.ts),
-[editor.test.tsx](features/Tickets/editor/editor.test.tsx) and
-[queue.test.ts](features/Tickets/queue/queue.test.ts): scenarios and assertions.
+## Where the data comes from
+
+Real API to our world. Flow is not a network library: the adapter (the Effect-only files) turns the API into typed
+values and errors, and the contract's `commit` decides what is definite and what is unknown (MD 2.7.1, 2.7.2).
+
+| Real API                                           | Adapter                                                    | Becomes                                                                 | Read in                                                        |
+| -------------------------------------------------- | ---------------------------------------------------------- | ----------------------------------------------------------------------- | -------------------------------------------------------------- |
+| `fetch` resolves with a status                     | `next/http-api.ts` decodes it to a value or a tagged error | contract `output`, or a failure the contract classifies                 | `ticket.contracts.ts`, `comments.contracts.ts`                 |
+| `fetch` rejects; a 5xx                             | `NoResponse`, `ServerError`                                | `unknown` (the write may have happened); the lane is Held (rule 21)     | `ticket.contracts.ts` (`unknownWhenLost`), `editor.machine.ts` |
+| A 4xx the server meant                             | tagged errors (`TicketLocked`, `AlreadyAssigned`)          | definite `failure`; a typed ending event                                | `editor.definition.ts`, `queue.definition.ts`                  |
+| `XMLHttpRequest` upload progress                   | `attachments-api.ts` `onProgress`                          | the lane row's `progress` (the setter is PM6, S5 Q11)                   | `attachments.contracts.ts`, `Attachments.tsx`                  |
+| A dropped `File`'s bytes                           | `PendingFiles` service (tab memory)                        | memory holds `{ ref, name, size }`; a reload gives `FileGone`           | `useEditor.ts`, `upload.trait.ts`                              |
+| `WebSocket` `change` frames (PM6)                  | `desk-socket.ts` decodes frames                            | `listen` entry updating `Ticket` records in place (M6 2.8)              | `feed.contracts.ts`, `feed.domain.ts`                          |
+| `WebSocket` `activity` frames (PM6)                | the same socket, a second connection                       | a fact feed into `DeskFeed` memory, cursor by the fact's turn (S4)      | `feed.contracts.ts`, `feed.machine.ts`                         |
+| `eventsSince` pages (PM6)                          | `ticket-api.ts` read                                       | `Feed.reconnect` catch-up, `missed { why: "Lost" }` past the history    | `feed.contracts.ts`                                            |
+| A presence socket (PM6)                            | `presence-api.ts` `frames(ticket)`                         | a state feed: the row's `last` is the viewer list (`delivers: "state"`) | `presence.contracts.ts`, `Viewers.tsx`                         |
+| A streamed NDJSON body and `AbortController` (PM6) | `assistant-api.ts` returns a `Stream` of frames            | a streamed write: tokens through `progress`, no turn per token          | `assistant.contracts.ts`, `AssistantPanel.tsx`                 |
+| A close code (4401), a transport loss              | `SignedOut`, `SocketDropped`                               | the feed's SIGNED_OUT / RETRY_WAIT; the presence reopen                 | `feed.machine.ts`, `presence.definition.ts`                    |
 
 ## Structure
 
-| Location                                            | Responsibility                                                                                                                                |
-| --------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| [features/Session](features/Session/)               | permission and current-user truth others read                                                                                                 |
-| [features/Toasts](features/Toasts/)                 | a shared actor other actors send to                                                                                                           |
-| [features/Tickets](features/Tickets/)               | Schemas and errors, the service port, operations, the ticket entity and domain                                                                |
-| [features/Tickets/editor](features/Tickets/editor/) | the editor: definition, machine, ref, hook, UI, Stories, tests                                                                                |
-| [features/Tickets/queue](features/Tickets/queue/)   | the queue: definition, machine, ref, UI, Stories, tests                                                                                       |
-| [app](app/)                                         | the closed app, lazy editor entry, setup, demo server, persistence, sign-out host and browser view                                            |
-| [next](next/)                                       | request-scoped HTTP services and auth stub, a FlowProvider that owns one Runtime per scope, root session hydration and streamed queue segment |
-| [testing](testing/)                                 | fixtures as Layers and the entity property test                                                                                               |
-| [flow.config.ts](flow.config.ts)                    | Apps and Story globs the CLI discovers                                                                                                        |
-| [tools](tools/)                                     | inspection, CLI and diagnostics examples                                                                                                      |
+| Location                                              | Responsibility                                                                                    |
+| ----------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| [features/Session](features/Session/)                 | permission and current-user truth others read                                                     |
+| [features/Toasts](features/Toasts/)                   | a shared actor other actors send to                                                               |
+| [features/Tickets](features/Tickets/)                 | schemas and errors, the ticket port, `ticket.contracts.ts`, the ticket entity domain, app Stories |
+| [features/Tickets/editor](features/Tickets/editor/)   | the editor: definition, machine, ref, hook, panel, Stories, tests, tab Stories                    |
+| [features/Tickets/queue](features/Tickets/queue/)     | the queue: definition, machine, list view, Stories, SSR Stories, tests                            |
+| [features/Tickets/feed](features/Tickets/feed/) (PM6) | the workspace socket, contracts, listen domain, `DeskFeed` machine, activity log, Stories         |
+| [features/Comments](features/Comments/)               | the Comments fragment (trait), contracts, panel, Stories; placed by editor and queue              |
+| [features/Attachments](features/Attachments/)         | the AttachmentUpload fragment (`.each`), contracts, view, Stories                                 |
+| [features/Presence](features/Presence/) (PM6)         | who has a ticket open: a state feed, machine, view, Stories                                       |
+| [features/Assistant](features/Assistant/) (PM6)       | a streamed reply: contracts, machine, panel, Stories                                              |
+| [app](app/)                                           | the closed app, setup, host, persistence, view; `desk-server.ts` and `demo-api.ts` (the server)   |
+| [next](next/)                                         | HTTP adapter, request-scoped and browser setups, auth stub, provider, pages                       |
+| [testing](testing/)                                   | the Desk fake (server and client halves), the Presence and Assistant fakes, the property test     |
+| [tools](tools/)                                       | inspection, CLI and diagnostics examples                                                          |
+| [flow.config.ts](flow.config.ts)                      | the apps and Story globs the CLI discovers                                                        |
 
-## Where each decision shows
+## Feature map
 
-Capability plans own semantics; FlowState remains the entry plan. Where a design example and
-a plan differ, the plan wins; in particular shared multi-tab behaviour is deferred, and a second
-tab only runs without persistence ([Persistence.plan](../../Persistence.plan) O7). The [SSR](../design/server-rendering.md) and
-[lazy-feature](../design/lazy-features.md) designs explain the recipes.
+Each feature, the files that show it, and the design it demonstrates. Rule numbers are MD's; "OD" is its open
+decisions.
 
-| Contract                                                                                                   | Shown in                                                                                                                                                                            |
-| ---------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| FlowState D1: structure is data                                                                            | [editor.machine.ts](features/Tickets/editor/editor.machine.ts), [inspection.ts](tools/inspection.ts)                                                                                |
-| Machines plan O1–O3: definitions, states, turns and internal events                                        | [editor.definition.ts](features/Tickets/editor/editor.definition.ts), [host.ts](app/host.ts)                                                                                        |
-| Machines plan O2, O4: self, re-entry, ordered alternatives, nearest-handler fallthrough, deny/check        | [editor.machine.ts](features/Tickets/editor/editor.machine.ts), [TicketPanel.tsx](features/Tickets/editor/TicketPanel.tsx)                                                          |
-| Machines plan O5–O7: schedules, outcomes and context reactions                                             | [editor.machine.ts](features/Tickets/editor/editor.machine.ts), [queue.machine.ts](features/Tickets/queue/queue.machine.ts), [toasts.machine.ts](features/Toasts/toasts.machine.ts) |
-| Runtime plan O1–O4: wiring, Layers, shared/local actors, composite identities, sends                       | [app.ts](app/app.ts), [host.ts](app/host.ts), [editor.ref.ts](features/Tickets/editor/editor.ref.ts)                                                                                |
-| Runtime plan O6–O7: bounded disposal and scope isolation                                                   | [host.ts](app/host.ts), [view.tsx](app/view.tsx), [providers.tsx](next/providers.tsx)                                                                                               |
-| Operations plan O1–O4: keys, freshness, commit concurrency, attempts and streams                           | [ticket.operations.ts](features/Tickets/ticket.operations.ts)                                                                                                                       |
-| Operations plan O5–O7: predictions, lane tags, hasMore and cancellation                                    | [QueueList.tsx](features/Tickets/queue/QueueList.tsx), [TicketPanel.tsx](features/Tickets/editor/TicketPanel.tsx)                                                                   |
-| EntityDomains plan O1–O4: confirmed records, dependencies, repair and property tests                       | [ticket.domain.ts](features/Tickets/ticket.domain.ts), [queue.test.ts](features/Tickets/queue/queue.test.ts), [tickets.property.test.ts](testing/tickets.property.test.ts)          |
-| Persistence plan O1–O6: storage, restore, attempt durability; O7: a second tab runs without persistence    | [persistence.ts](app/persistence.ts), [editor.tabs.story.ts](features/Tickets/editor/editor.tabs.story.ts)                                                                          |
-| LazyFeatures plan O1–O3: declared lazy entry, synchronous adoption and dormant records                     | [app.ts](app/app.ts), [view.tsx](app/view.tsx), [editor.tabs.story.ts](features/Tickets/editor/editor.tabs.story.ts)                                                                |
-| ServerRendering plan O1–O7: request Runtime, settle, payload, H1 and Next.js                               | [next](next/), [queue.ssr.story.ts](features/Tickets/queue/queue.ssr.story.ts), [queue.ssr.test.ts](features/Tickets/queue/queue.ssr.test.ts)                                       |
-| React plan O1–O5: provider ownership, handles, views and eligibility                                       | [view.tsx](app/view.tsx), [useEditor.ts](features/Tickets/editor/useEditor.ts), [TicketPanel.tsx](features/Tickets/editor/TicketPanel.tsx)                                          |
-| Testing plan O1–O8: Stories, fixtures, checkpoints, models, hydration and cleanup                          | [editor.story.ts](features/Tickets/editor/editor.story.ts), [editor.test.tsx](features/Tickets/editor/editor.test.tsx), [fixtures.ts](testing/fixtures.ts)                          |
-| Diagnostics plan O1–O4: FlowError at host boundaries                                                       | [diagnostics.ts](tools/diagnostics.ts), [host.ts](app/host.ts)                                                                                                                      |
-| Inspection plan O1–O6: async structural and passive live inspection, sinks, traces, keyed export redaction | [inspection.ts](tools/inspection.ts)                                                                                                                                                |
-| CommandLine plan O1–O6: CLI and discovery                                                                  | [cli.ts](tools/cli.ts), [flow.config.ts](flow.config.ts)                                                                                                                            |
-| Package plan O1–O3: core, React, server and inspection routes                                              | [next](next/), [tools](tools/)                                                                                                                                                      |
+| Feature                                              | Files                                                                                                                                                | Design                                            |
+| ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
+| Named operations in every definition                 | every `*.definition.ts`, `*.trait.ts`, `*.contracts.ts`                                                                                              | rules 39–43, 47; 2.7                              |
+| Save, lock and the hold (unknown save, same Attempt) | `ticket.contracts.ts`, `editor.definition.ts`, `editor.machine.ts`, `TicketPanel.tsx`, `editor.story.ts`                                             | rules 13–25, 43, 45; 2.7.1, 2.7.3                 |
+| Keyed lanes: assign many tickets                     | `queue.definition.ts`, `queue.machine.ts`, `QueueList.tsx`, `queue.story.ts`                                                                         | rules 39–43; 2.7.3; OD4                           |
+| Writes that outlive the screen                       | `editor.machine.ts`, `app/host.ts` (`unsettledWrites`), `app/view.tsx`, `desk.story.ts`, `editor.story.ts`, `tools/inspection.ts`                    | rules 44, 53; OD21                                |
+| Tickets as an entity domain with predictions         | `ticket.domain.ts`, `TicketPanel.tsx`, `QueueList.tsx`, `desk.story.ts`, `testing/desk.property.test.ts`, `app/desk-server.ts`                       | rules 26–38; 2.8                                  |
+| Comments on two hosts (`resetOn`, A-B-A)             | `comments.trait.ts`, `comments.contracts.ts`, `CommentsPanel.tsx`, `comments.story.ts`, placements in `editor.definition.ts`, `queue.definition.ts`  | rules 9, 23, 33, 36, 48–59; 2.9.6                 |
+| Attachment upload: progress, cancel, `FileGone`      | `upload.trait.ts`, `attachments.contracts.ts`, `Attachments.tsx`, `upload.story.ts`, `useEditor.ts`                                                  | rules 21, 48, 51–54, 57, 60; 2.9.2, 2.9.3         |
+| Live feed with catch-up (PM6)                        | `feed/feed.contracts.ts`, `feed.domain.ts`, `feed.definition.ts`, `feed.machine.ts`, `ActivityLog.tsx`, `feed.story.ts`                              | M6 2.2–2.8, 3.6, 4.1; S2–S4, S7, S10; rule 25     |
+| Presence on a ticket (PM6)                           | `presence.contracts.ts`, `presence.definition.ts`, `presence.machine.ts`, `Viewers.tsx`, `presence.story.ts`, `testing/presence.fake.ts`             | M6 2.6, 2.7, 4.2; rules 25, 47                    |
+| Streamed assistant reply (PM6)                       | `assistant.contracts.ts`, `assistant.definition.ts`, `assistant.machine.ts`, `AssistantPanel.tsx`, `assistant.story.ts`, `testing/assistant.fake.ts` | M6 2.9, 4.4; S5 Q11                               |
+| Stories on fakes                                     | every `*.story.ts`, `testing/desk.fake.ts`, `desk.test.tsx`, `queue.ssr.story.ts`, `editor.tabs.story.ts`                                            | rules 61–66; 2.10.1–2.10.14                       |
+| Property test                                        | `testing/desk.property.test.ts`, `app/desk-server.ts` (the oracle)                                                                                   | 2.10.16                                           |
+| Persistence, tabs, reload                            | `app/persistence.ts`, `editor.tabs.story.ts`, `next/browser-setup.ts`                                                                                | OD11, OD21; 2.10.4                                |
+| SSR and hydration                                    | `next/`, `queue.ssr.story.ts`, `queue.ssr.test.ts`                                                                                                   | ServerRendering O1–O7; M6 2.10                    |
+| Inspection, CLI, diagnostics                         | `tools/inspection.ts`, `tools/cli.ts`, `tools/diagnostics.ts`, `flow.config.ts`                                                                      | 2.9.5, 2.10.6, 2.10.7, 2.10.14; Diagnostics O1–O2 |
 
-## What each scenario exercises
+## Where each design rule shows
 
-| Scenario                    | Features                                                                                                  |
-| --------------------------- | --------------------------------------------------------------------------------------------------------- |
-| Save a title                | the domain predicts the title across this Runtime, confirms it and repairs affected lists                 |
-| Edit while saving           | ordered Saved alternatives compare the moving draft with the confirmed response                           |
-| Autosave                    | restartOn resets the two-second debounce; opening alone does not save                                     |
-| Escape                      | discard edits first; a declined guard falls through to the parent's Close                                 |
-| Save while locked           | tagged failure, backoff in memory and a final exhausted alternative                                       |
-| Permission revoked mid-save | closes the editor; cancelling an invoked save honestly carries an unknown Attempt                         |
-| Queue search                | normalized keys share a cache entry; placeholders retain rows during search                               |
-| Mine only                   | context supplies the signed-in user's id; a user switch creates a new Runtime and scope                   |
-| List unavailable            | HEALTHY/DEGRADED reflect list availability; polling uses bounded jittered backoff                         |
-| Paging                      | 20 records a page, loaded pages in order, hasMore gates LoadMore; no unrepairable list total              |
-| Assign to me                | prediction appears immediately; filtered lists and openCount repair on confirmation                       |
-| Renamed elsewhere           | push updates confirmed records and repairs only answers that can be wrong                                 |
-| Lazy editor                 | opening loads the panel chunk using React state; ensuring its ref adopts the declared entry               |
-| SSR and hydration           | separate server/browser Stories; fresh list and openCount both reuse payload data; React no-mismatch test |
-| Two tabs (v1)               | second tab is independent and reports SecondTabNoPersistence; no forwarding or handover                   |
-| Reload mid-save             | abrupt close/reopen restores UNCERTAIN with the acknowledged Attempt; no replay of the save               |
-| Sign-out                    | send SignedOut before dispose({ forget: true }); remount for a new user; no cross-tab broadcast           |
-| Model exploration           | shortest paths include declared internal producers, replayed against live behavior                        |
+| Group (rules)                      | Rule or section                                                          | Shown in                                                                                     |
+| ---------------------------------- | ------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------- |
+| Operations (39–47)                 | 39 contract states `input`, `output`, `key`                              | `ticket.contracts.ts`, `comments.contracts.ts`, `attachments.contracts.ts`                   |
+|                                    | 40–42 named operations, verbs, handler mapping                           | `editor.definition.ts`, `queue.definition.ts`, `editor.machine.ts`, `queue.machine.ts`       |
+|                                    | 43 `retryable`, `cancel`, release a held key                             | `editor.machine.ts` (UNSURE), `queue.machine.ts` (`assign`)                                  |
+|                                    | 44, 45 outlives the screen; a path from every arrival to retry or cancel | `editor.machine.ts` (CLOSED `Reopen`), `desk.story.ts`                                       |
+|                                    | 47 named operations in small actors                                      | `presence.definition.ts`, `assistant.definition.ts`                                          |
+| Write lane and hold (13–25, N1–N3) | 13, 19, 21 Attempt in the lane; new Attempt per definite failure         | `editor.machine.ts`, `TicketPanel.tsx`, `editor.story.ts` (`unsure-resend`)                  |
+|                                    | 25 a drop is not a transition                                            | `feed.machine.ts`, `presence.definition.ts`                                                  |
+| Entities (26–38)                   | 26 memory never copies a record field                                    | `editor.definition.ts`, `ticket.domain.ts`                                                   |
+|                                    | 27–38 predictions, repair, dependencies, `writes`                        | `ticket.domain.ts`, `QueueList.tsx`, `desk.story.ts`, `desk.property.test.ts`                |
+| Fragments (48–60)                  | 48–51 placement, `resetOn`, subject path                                 | `editor.definition.ts`, `queue.definition.ts`, `comments.trait.ts`                           |
+|                                    | 52–59 thread read, parked posts, `failure.NotSent`                       | `comments.trait.ts`, `comments.story.ts`                                                     |
+|                                    | 54, 60 `.each`, `whenAbandoned`                                          | `upload.trait.ts`, `upload.story.ts`                                                         |
+| Stories (61–66)                    | 61–66, 2.10.1–2.10.13 steps, fakes, `Story.inspection`                   | all `*.story.ts`, `testing/desk.fake.ts`, `desk.test.tsx`                                    |
+| Streams (M6, **pending merge 6**)  | 2.2–2.4, 3.6 feeds, `listen`, `Feed`, `delivers`                         | `feed.contracts.ts`, `feed.domain.ts`, `feed.definition.ts`, `presence.contracts.ts`         |
+|                                    | 2.6, 2.7 state feeds, ending mapping                                     | `presence.definition.ts`, `feed.definition.ts`                                               |
+|                                    | 2.9, 4.4 streamed write, `progress`                                      | `assistant.contracts.ts`, `AssistantPanel.tsx`                                               |
+|                                    | 2.10, 2.12 persistence and inspection of sessions                        | `feed.ref.ts`, `app/persistence.ts`, `tools/inspection.ts`, `next/server-setup.ts`           |
+|                                    | 2.11 stream fakes                                                        | `feed.story.ts`, `presence.fake.ts`, `assistant.fake.ts`, the socket block of `desk.fake.ts` |
 
-The mirror-save/leader-close scenario in the original reference brief is deferred: multi-tab sharing is not in version 1.
-The tab Stories retain the documented openTab/closeTab syntax for independent contexts and reload;
-its test lock Layer must implement detect-and-refuse, not the deferred coordination design.
-Browser gates in S10 must prove actual Web Lock refusal and zero storage I/O in the second tab,
-plus reload and hydration in Chromium, Gecko and WebKit; these illustrative tests do not prove them.
+## Scenarios
+
+Story id → what it exercises → what drives it. The full list is `flow stories` ([cli.ts](tools/cli.ts)).
+
+| Story id                                                                                       | Exercises                                                                                              | Driven by                                                              |
+| ---------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------- |
+| `editor/saved`, `edit-while-saving`, `autosave`, `empty-title`, `escape`                       | save, ordered `Saved` alternatives, debounce, discard                                                  | `Desk.saveTitle.hold()`, `send`, `advance`                             |
+| `editor/locked-out`, `lock-lifts`                                                              | definite failure, backoff from memory, a new Attempt each retry                                        | `Desk.lock({ times: "always" })`, `advance`                            |
+| `editor/unsure-resend`, `unsure-gave-up`, `stopped`                                            | the hold: same Attempt re-sent, then `cancel`                                                          | `Desk.saveTitle.drop({ at: "response" })`                              |
+| `editor/outlives-close`, `outlives-close-unsure`, `reopened-unsure`                            | Runtime-owned lanes, parked endings                                                                    | `hold`, `dispose`, `ensure`                                            |
+| `editor/second-tab`, `reload-mid-save`, `reload-ack-held`, `reload-ack-confirmation-held`      | persistence, tabs, reload                                                                              | `openTab(…, { from })`, `reload()`, `Fake.storage`                     |
+| `queue/search-key`, `mine-only`, `paged`, `degraded`                                           | keys, session context, paging, outage polling                                                          | request log, `Desk.listOutage`                                         |
+| `queue/assign`, `assign-many`, `assign-unsure`, `already-assigned`                             | keyed lanes, predictions, `retryable` budget, 409                                                      | holds, `drop({ at: "response" })`                                      |
+| `queue/preview-a-b-a`, `comments/*`                                                            | `resetOn`, parked posts, `failure.NotSent`, leaving while sending                                      | `enter`, `leave`, `reset`                                              |
+| `upload/*`                                                                                     | progress, cancel, give-up, too large, `FileGone`, removed mid-upload                                   | `Kept` bytes, held request, `reload`                                   |
+| `queue/ssr-server`, `queue/ssr-browser`                                                        | request Runtime, payload, hydration                                                                    | `dehydrate` / `hydrate` on one world                                   |
+| `desk/save-repairs-queue`, `assign-repairs`, `revoked-mid-save`, `closed-mid-save`, `sign-out` | cross-actor effects on the whole app                                                                   | `Desk` holds, Session sends, `dispose(…, { how })`, `Story.inspection` |
+| `feed/*` (PM6)                                                                                 | connect, drop and catch up, history truncated, reload resumes, log reset, token expired, pushed rename | `Desk.socket.drop()`, `withhold`, `expireToken`                        |
+| `desk/pushed-rename` (PM6)                                                                     | a push updates the one Ticket record in every copy                                                     | `Desk.renameElsewhere`                                                 |
+| `presence/*` (PM6)                                                                             | joined, dropped, rejoin changed, budget spent, token expired                                           | `PresenceFake`, `advance({ next })`                                    |
+| `assistant/*` (PM6)                                                                            | answered, streaming, stopped, asked again, stalled, truncated, refused, reloaded                       | `AssistantFake`, `hold({ after })`                                     |
+| `desk.property.test.ts`                                                                        | convergence against the Desk's truth; never SAVING with an idle `save` lane                            | `propertyTest`, generators                                             |
 
 ## What writing it found
 
-| Finding                                     | Current answer                                                                                                                         |
-| ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| Edits during a save were lost               | saved holds only the confirmed title; compare it with the current draft after the outcome                                              |
-| Ordered alternatives were missing           | first passing guard wins; all declining alternatives fall through; check collects their reasons                                        |
-| Guards needed lane input                    | hasMore and assignment eligibility read the pre-turn activities in the same input check receives                                       |
-| Composite ids could collide                 | actorRef takes parts arrays, not string-joined workspace/ticket ids                                                                    |
-| List totals could stay stale                | only records and cursor have list repair guarantees; openCount is a separate derived read with a result Schema                         |
-| Unknown saves had no actionable exit        | unknown carries the exported Attempt; UNCERTAIN retries that Attempt with the same id and encoded input                                |
-| Re-entry differed from self                 | self retains active work; LOCKED is left for SAVING and re-entered on failure, so backoff grows from memory                            |
-| Fixtures lacked service access              | fixture Layers are built on setup.services via Layer.provideMerge; duplicate fixture tags reject and replacement is explicit           |
-| No-input ensure was ambiguous               | ensureActor(ref) and useActorByRef(ref, {}) ensure; useActorByRef(ref) only looks up; Session now has required userId input            |
-| Stories could not create shared actors      | ensure(ref, options) creates them before sends; importing a Story runs nothing                                                         |
-| Denial shape was unnamed                    | Denied contains reasons with code and context; view eligibility belongs to the guard                                                   |
-| Paging and stream ownership were unclear    | lane data is ordered pages, hasMore gates .more; domain streams are activities and adapters use Stream.unwrap                          |
-| Nearest handlers do not compose             | a handled child event replaces its parent's handler; SaveRequested stays in states where a new save is legal                           |
-| Browser and server data needed the same API | Next uses token-authenticated HTTP on the server and cookie-authenticated HTTP in the browser; the standalone demo keeps DemoTicketApi |
-| Multi-tab scope changed                     | v1 refuses persistence in a second tab; mirrors, shared predictions and leader handover are deferred                                   |
+| Finding                                     | Current answer                                                                                                    |
+| ------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| Edits during a save were lost               | `saved` holds only the confirmed title; compare it with the draft after the outcome                               |
+| Ordered alternatives were missing           | first passing guard wins; declining alternatives fall through; `check` collects their reasons                     |
+| Nearest handlers do not compose             | a handled child event replaces its parent's handler; `SaveRequested` stays where a new save is legal              |
+| Unknown saves had no actionable exit        | the lane holds the Attempt; UNSURE re-sends it with `retryable`, then `cancel` releases it (rules 21, 43)         |
+| Composite ids could collide                 | `actorRef` takes part arrays, not string-joined ids                                                               |
+| The contract key cannot normalise           | normalisation (trim, lowercase) lives in the caller, before the input exists (OD4); a design gap                  |
+| Paging is not in MD                         | `more` and `hasMore` are the plan's (Operations O6/O7), marked as such in `queue.machine.ts`                      |
+| A `File` cannot live in persisted memory    | memory holds `{ ref, name, size }`; bytes sit in `PendingFiles`; a reload gives `FileGone`                        |
+| Rule 56 under `resetOn` with a keyed write  | the warning stays; the comments preview accepts it                                                                |
+| A hold's ending can arrive while CLOSED     | CLOSED's `Reopen` goes to UNSURE while `O.save.idle` denies `Uncertain` (rule 45)                                 |
+| `listen` keeps no position across sessions  | every restart refetches covered lists; cross-session resume needs the separate `activity` fact feed (PM6)         |
+| One fake must own HTTP truth and the socket | `desk.fake.ts` mixes merged code and a PM6 block; fakes cannot share truth across servers                         |
+| The progress setter is merge 6              | the row's `progress` is merged (rule 21), `progress(p)` in a commit is S5 Q11, so one line in the upload is PM6   |
+| App Stories need the whole app              | cross-actor Stories wait for `DeskSetup`; machine Stories use `context`                                           |
+| Sending into another actor's fragment       | "Use as comment" sends `Editor.E.comments.Post` to the editor's ref; not shown in MD (a design gap)               |
+| `model()` is gone (T1)                      | a property test finds a short counterexample, not the shortest path; the old shortest-path test has no equivalent |
+| Browser and server data need the same API   | Next uses token HTTP on the server and cookie HTTP in the browser; the demo keeps the in-memory server            |
+| Multi-tab scope                             | v1 refuses persistence in a second tab; mirrors and leader handover are deferred                                  |
+
+These answers are the plan's proposals as the code follows them; the owner has not confirmed each one.
 
 ## Host assumptions
 
-The Next authentication lookup is an explicit throwing stub. The HTTP adapter assumes the
-Schema-shaped JSON routes, status codes and cursor-batch polling protocol documented in
-[http-api.ts](next/http-api.ts); these are application choices, not Flow APIs. Replace the
-localhost server origin with the deployment's trusted API origin. Browser fetches use the
-current origin and cookies. An auth change must replace the Runtime before another user's
-requests can enter it; v1 does not propagate sign-out to other tabs.
-
-Story tabs and reload follow Testing.plan O7: tabs are independent Runtimes sharing the run's
-memory storage, and a tab opened while another holds the scope runs without persistence.
-Inspection specifies commit attempt identity semantically; the test uses `CommitStarted.attempt.id`
-as the illustrative event encoding, pending the library's concrete trace types.
+- **Auth.** `next/auth.ts` is an explicit throwing stub. A user change replaces the Runtime; v1 does not propagate
+  sign-out to other tabs.
+- **HTTP and socket routes.** `next/http-api.ts` assumes Schema-shaped JSON routes, status codes, cursor-batch
+  `eventsSince`, a workspace socket, a presence socket and an NDJSON assistant body. These are application choices, not
+  Flow APIs. Browser requests use the current origin and cookies; replace the localhost origin with the deployment's.
+- **`PendingFiles`.** Dropped bytes are tab memory (`PendingFilesLive`), so a reload loses them by design.
+- **`beforeunload`.** `app/host.ts` warns while `runtime.unsettledWrites()` is non-empty, and sign-out refuses unless
+  the user confirms.
+- **SSR releases stream sessions.** `next/server-setup.ts` never ensures a feed, watcher or assistant, and sessions are
+  released at capture (M6 2.10). PM6.
+- **Tabs and reload.** Tabs are independent Runtimes sharing the run's `Fake.storage`; a tab opened while another
+  holds the scope runs without persistence. Browser gates in S10 must prove real Web Lock refusal and hydration; these
+  illustrative files do not.
 
 ## Conventions
 
-| Shape                                        | Owns                                               |
-| -------------------------------------------- | -------------------------------------------------- |
-| `<name>.definition.ts` / `<name>.machine.ts` | vocabulary / behaviour                             |
-| `<name>.ref.ts`                              | the feature's stable actor identities              |
-| `<name>.operations.ts` / `<name>.domain.ts`  | plain requests / what they mean for shared records |
-| `use<Name>.ts`                               | the feature's one hook: an actor and its commands  |
-| `<name>.story.ts` / `<name>.test.ts(x)`      | scenario plans / assertions                        |
-| `PascalCase.tsx`                             | React components                                   |
+| Shape                                        | Owns                                                      |
+| -------------------------------------------- | --------------------------------------------------------- |
+| `<name>.definition.ts` / `<name>.machine.ts` | vocabulary / behaviour                                    |
+| `<name>.ref.ts`                              | the feature's stable actor identities                     |
+| `<name>.contracts.ts`                        | plain requests: `input`, `output`, `key`, outcome classes |
+| `<name>.trait.ts`                            | a fragment placed by hosts                                |
+| `<name>.domain.ts`                           | what contracts mean for shared records                    |
+| `<name>-api.ts`                              | a port (Effect-only service) and its errors               |
+| `<name>.fake.ts`                             | a Story fake: server truth, controls, a client half       |
+| `use<Name>.ts`                               | the feature's one hook                                    |
+| `<name>.story.ts` / `<name>.test.ts(x)`      | scenario plans / one line per Story                       |
+| `PascalCase.tsx`                             | React components                                          |
 
-Production feature code never imports `app/` or `testing/`; app defaults import feature refs,
-not the other way round. Story and test modules are composition boundaries and may import app
-setup and fixtures. Relative `.js` imports refer to `.ts` and `.tsx` files.
+Production feature code never imports `app/` or `testing/`. Story and test modules are composition boundaries and
+may import app setup and fakes. Relative `.js` imports refer to `.ts` and `.tsx` files.
+
+## Pending merge 6
+
+Revisit these when merge 6 lands. A PM6 file says so in its header: "written against
+merge-6-streams/proposal-v2.md revision 7".
+
+- **Whole PM6 files:** everything in `features/Tickets/feed/` (`desk-socket.ts`, `feed.contracts.ts`, `feed.domain.ts`,
+  `feed.definition.ts`, `feed.machine.ts`, `feed.ref.ts`, `ActivityLog.tsx`, `feed.story.ts`, `feed.test.ts`);
+  everything in `features/Presence/` and `features/Assistant/`; `testing/presence.fake.ts`, `testing/assistant.fake.ts`.
+- **Lines in other files:**
+  - `app/app.ts`: the `feed`, `presence`, `assistant` machines and their imports.
+  - `app/host.ts`: `ensureActor(feedRef(…))`. `app/view.tsx`: `Viewers`, `AssistantPanel`, `ActivityLog`.
+  - `app/persistence.ts`: the DeskFeed restore note (M6 2.10).
+  - `features/Tickets/queue/QueueList.tsx`: the `Viewers` line.
+  - `features/Attachments/attachments.contracts.ts` and `attachments-api.ts`: the `progress(p)` setter (S5 Q11).
+  - `features/Tickets/ticket.contracts.ts`, `ticket-api.ts`, `types.ts`, `ticket.domain.ts`: comments pointing at the feed.
+  - `features/Tickets/desk.story.ts` and `desk.test.tsx`: `desk/pushed-rename`.
+  - `testing/desk.fake.ts`: the streams block (about line 253) and the stream ports (about line 471).
+  - `next/http-api.ts`, `next/server-setup.ts`: the socket, presence and assistant ports; sessions released at capture.
+  - `flow.config.ts`: the Presence and Assistant Story globs.
+  - `tools/cli.ts`: `flow check --finding FeedUnhandled`, `flow stories --coverage --kind session`.
+  - `tools/inspection.ts`: stream sessions in the inspection listing (M6 2.12).
+
+## Design gaps
+
+Every `// design gap:` comment in this folder (grep `design gap:`), where the design is silent and the file follows the
+plan or makes an assumption. 43 gaps.
+
+| #   | File                                           | Gap                                                                                                                              | What the design would need                                          |
+| --- | ---------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| 1   | `app/host.ts`                                  | shape of an `unsettledWrites()` entry                                                                                            | the entry type (identity, contract, key)                            |
+| 2   | `features/Assistant/AssistantPanel.tsx`        | reading a single-row lane without a key                                                                                          | say how a view reads an unkeyed streamed lane's row                 |
+| 3   | `features/Assistant/AssistantPanel.tsx`        | sending into another actor's fragment (`Editor.E.comments.Post` to the editor's ref)                                             | the send form for a ref plus a fragment instance path               |
+| 4   | `features/Assistant/assistant.story.ts`        | `hold({ after: 2 })` paces a body                                                                                                | a spelling for letting n frames through before holding              |
+| 5   | `features/Assistant/assistant.story.ts`        | `fixtures` order for two client halves                                                                                           | rule for combining several fixtures that provide the same ports     |
+| 6   | `features/Comments/CommentsPanel.tsx`          | `s.memory[instance]`, `s.operations[instance]` indexed by a prop                                                                 | a host-agnostic way to address a placed fragment's view as data     |
+| 7   | `features/Comments/CommentsPanel.tsx`          | the host passes its own `E[instance]` as `events`                                                                                | a handle that sends to a placed fragment without importing its host |
+| 8   | `features/Comments/comments.contracts.ts`      | `unknownWhenLost` repeated (private to `ticket.contracts.ts`)                                                                    | a shared outcome-classification helper for contracts                |
+| 9   | `features/Comments/comments.story.ts`          | how `reset(subject)` refills the Input                                                                                           | the stand-in host's rule for deriving an Input from a subject       |
+| 10  | `features/Tickets/desk.story.ts`               | plain `dispose` keeps the actor for `retain`; `how: "now"` ends it                                                               | how `retain` and a re-`ensure` behave on a Story clock              |
+| 11  | `features/Tickets/desk.test.tsx`               | `StoryFrame`'s props                                                                                                             | the props (run, checkpoint name, views as children)                 |
+| 12  | `features/Tickets/editor/editor.story.ts`      | a machine Story's `send(ToastsRef, …)` with no Toasts actor                                                                      | whether it is dropped, fails, or is recorded                        |
+| 13  | `features/Tickets/editor/editor.story.ts`      | `ensure()` after `dispose()` re-adopts a parked ending (OD21) for a machine Story's actor                                        | the identity a machine Story's actor has                            |
+| 14  | `features/Tickets/editor/editor.tabs.story.ts` | `browserSetup` brings `layerIndexedDb`; `Fake.storage` stands in                                                                 | a statement that a Story's storage replaces the setup's             |
+| 15  | `features/Tickets/editor/useEditor.ts`         | a React hook for the Runtime (`useRuntime`)                                                                                      | a hook to reach the Runtime from a view                             |
+| 16  | `features/Tickets/feed/feed.contracts.ts`      | the `catchUp` step gets no `signal`                                                                                              | pass the interruption signal to a `catchUp` step                    |
+| 17  | `features/Tickets/feed/feed.contracts.ts`      | `listen` has no `from`, `position` or `catchUp`; `eventsSince` pages `ActivityEntry`                                             | cross-session position for `listen`, or a TicketEvent history port  |
+| 18  | `features/Tickets/feed/feed.definition.ts`     | SIGNED_OUT terminal state for close 4401                                                                                         | how a non-retriable close ends a stream session in the machine      |
+| 19  | `features/Tickets/feed/feed.domain.ts`         | a patch of a ticket no list holds yet changes nothing                                                                            | whether `patch` of an unseen record is ignored, stored or an error  |
+| 20  | `features/Tickets/feed/feed.story.ts`          | no replay-withholding control on `Desk.socket`                                                                                   | `fake.withhold("replay")` (M6 2.11) on the multi-endpoint Desk      |
+| 21  | `features/Tickets/queue/queue.definition.ts`   | events that set `memory.previewId`                                                                                               | the preview's open and close events                                 |
+| 22  | `features/Tickets/queue/queue.machine.ts`      | normalisation lives in the caller                                                                                                | a key function or input normaliser on the contract (OD4)            |
+| 23  | `features/Tickets/queue/queue.machine.ts`      | `more` and `hasMore` are the plan's                                                                                              | paging members on a live read (plan section 6, item 1)              |
+| 24  | `features/Tickets/queue/queue.ssr.story.ts`    | a source Story's `world` is a type error                                                                                         | how a source Story seeds its server                                 |
+| 25  | `features/Tickets/queue/queue.story.ts`        | a machine Story's `context` option stands in for Session                                                                         | a spelling for context in machine Stories                           |
+| 26  | `features/Tickets/queue/queue.story.ts`        | `match` filters a rule by request fields (`{ ticketId }`)                                                                        | the match form for request fields                                   |
+| 27  | `features/Tickets/ticket.contracts.ts`         | normalisation moves to the caller; the key is a field list                                                                       | same as 22                                                          |
+| 28  | `features/Presence/presence.definition.ts`     | a state feed that maps `failure` alone                                                                                           | permit mapping only `failure` (M6 2.7)                              |
+| 29  | `features/Presence/presence.story.ts`          | the address of a machine schedule in `advance({ next })`                                                                         | a way to name a machine schedule                                    |
+| 30  | `features/Attachments/upload.story.ts`         | the full bar: the client half reports all bytes before the request is held                                                       | a way to hold a request after the upload completes                  |
+| 31  | `testing/presence.fake.ts`                     | `open` returns truth, greeting frames and accept; this file's tuple                                                              | the return shape of `open`                                          |
+| 32  | `testing/presence.fake.ts`                     | a control returns `{ to, send }` or `{ to, close }`                                                                              | the return shape of a control on open connections                   |
+| 33  | `testing/presence.fake.ts`                     | how a client half reads a stream endpoint                                                                                        | a client-half reader for stream endpoints (STR19)                   |
+| 34  | `testing/desk.fake.ts`                         | a lost read has no `NoResponse` in the B0 read ports; the fake dies                                                              | a lost-read outcome for read ports                                  |
+| 35  | `testing/desk.fake.ts`                         | `DeskTruth` declared structurally with `Schema.declare`                                                                          | a way to declare server truth from plain data                       |
+| 36  | `testing/desk.fake.ts`                         | `pushes` (log changes to open sockets) is not in 2.10.4                                                                          | a fake-level declaration of pushes                                  |
+| 37  | `testing/desk.fake.ts`                         | `Fake.closeStreams(endpoint, code)` as a control's result                                                                        | a closing result for stream controls                                |
+| 38  | `testing/desk.fake.ts`                         | a stream endpoint's failure is `Fake/Closed { code }` or `Fake/Lost`                                                             | the error tags of a stream endpoint                                 |
+| 39  | `testing/desk.property.test.ts`                | the generators' spellings (`Generate.sends`, `.wire`, `.controls`, `.advance`, `.lifecycle`)                                     | 2.10.16's generator API                                             |
+| 40  | `next/server-setup.ts`                         | the setup type asks for every port, though no stream is opened on the server                                                     | a way to type a setup that needs only the ports its actors use      |
+| 41  | `tools/cli.ts`                                 | `--finding` on `flow check`, `--kind` on `flow stories --coverage`                                                               | flags 2.10.14 does not name                                         |
+| 42  | `tools/diagnostics.ts`                         | whether the closed `FlowError` code type includes `InvalidTurn`, `StoryInvalidCommand`, `HostTimeWait`, `StoryExpectationFailed` | the closed code list                                                |
+| 43  | `tools/inspection.ts`                          | the field names of a lane entry (2.10.7's list)                                                                                  | the entry type                                                      |
