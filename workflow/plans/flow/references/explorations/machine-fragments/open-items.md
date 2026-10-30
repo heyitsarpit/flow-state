@@ -132,3 +132,43 @@ cache and domains) are discussed first; these in-machine ones wait here.
   turns may not pre-empt live work. Review whether both runs are needed and how they read.
 - **The saga recipe, `O.x.retry(attempt)`, `O.x.cancel`, `.pending`, the mapper's
   `{ input, attempt }`.**
+
+## 5. Bulk starts ("like all selected") (deferred by the operations merge, 2026-10-30)
+
+One write per item is the only form; a bulk contract over the set is the pattern today (operations merge B14; audit-multiplicity F13).
+
+## 6. Throttled independent writes (deferred by the operations merge, 2026-10-30)
+
+Under unkeyed `serialize`, one unknown holds every later write; `allow` neither throttles nor holds. Today: a memory queue in the machine (design 2.7.13's limits; operations merge B56).
+
+## 7. Per-key fan-out of write members (deferred by the operations merge, 2026-10-30)
+
+`commit`, `retry` and `cancel` have no per-key form over a dynamic set in one turn: archive selected threads, flush held notes on reconnect, retry all unsure, cancel all uploads (design 2.7.13's limits; operations merge B72).
+
+## 8. Per-item stops and "drop the queue" on `serialize` (deferred by the operations merge, 2026-10-30)
+
+No member stops one queued commit or drops the queue; key-less members stand only in the head's own ending (OD19, Q35). A keyed design is the pattern today.
+
+## 9. Offline as a reason to wait before invocation (deferred by the operations merge, 2026-10-30)
+
+Treat offline as one more wait in `InFlight` (waiting to be invoked), which is never-sent and so safe, as TanStack Query pauses mutations (operations record 10.3). No syntax.
+
+## 10. Resuming never-sent work across a reload (deferred by the operations merge, 2026-10-30)
+
+TanStack Query's model; today queued commits end `NotSent { Restored }`. Adopting it would amend C2 and Operations O3 (operations record 10.3).
+
+## 11. Branded keys (deferred by the operations merge, 2026-10-30)
+
+Any record carrying the key's fields type-checks against `get`; branded keys would close it (operations record 3.4). Not proposed.
+
+## 12. An age bound on adopted holds (deferred by the operations merge, 2026-10-30)
+
+A hold adopted after the server's idempotency window re-sends what is a new write there; a bound would be public API (design 2.7.13's limits).
+
+## 13. A `fromRpc` adapter (deferred by the operations merge, 2026-10-30)
+
+An opt-in `resource.fromRpc` / `transaction.fromRpc` taking an existing `Rpc` for its schemas, when a real app needs it (OD13).
+
+## 14. A catch-all for per-tag `unknown` (deferred by the operations merge, 2026-10-30)
+
+If listing Flow's unknown reasons in every per-tag record proves too verbose, a catch-all entry would be public API (operations merge X22).

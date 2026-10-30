@@ -37,7 +37,7 @@ Merged proposals move to [merged/](merged/) with their evidence, as the record b
 | [merged/server-calls/proposal.md](merged/server-calls/proposal.md) | merge 2, 2026-10-30 | server calls in the machine (design 2.7, rules 13–25, C rows, decisions D1–D17) |
 | [merged/entities.md](merged/entities.md) | merge 4, 2026-10-30 | entity domains in the machine (design 2.8, rules 26–38, C21–C30, decisions E1–E18) |
 | [merged/entity-analysis/proposal.md](merged/entity-analysis/proposal.md) | merge 5, 2026-10-30 | statically analysable domains (design 2.8 amendments, rules 34–35, M5-D1–M5-D10; rules A1–A12 for entity-domain.md) |
-| [merged/operations/proposal.md](merged/operations/proposal.md) | operations, 2026-10-30 | server interaction declared once under `operations`; the Runtime's write lanes (design 2.7, 2.7.13–2.7.16, rules 39–47, C31–C53, decisions OD1–OD25) |
+| [merged/operations/proposal.md](merged/operations/proposal.md) | operations, 2026-10-30 | server interaction declared once under `operations`; the Runtime's write lanes (design 2.7, 2.7.13–2.7.16, rules 39–47, C31–C53, decisions OD1–OD26) |
 
 [principles.md](principles.md) is what every proposal is judged against.
 [audit-multiplicity.md](audit-multiplicity.md) (2026-10-31) audits every design document for how many of each thing exist,

@@ -30,7 +30,7 @@ independent; decision 4 builds on decision 2; decision 5 builds on decisions 2 a
 | **2. Server calls** | section 2.7, rules 13–25 and N1–N3, C1–C20, P15, P19, P20 | Operations O1–O3/O5/O7, Machines O3/O5/O6, Persistence O4–O6, Testing O2/O3, EntityDomains O1, CommandLine O5 |
 | **3. Exploration tooling** | T2–T3; T1 and Testing O5 marked for removal | CommandLine O5; Testing O5 (removed), Package (`model` export removed) |
 | **4. Entity domains** | section 2.8, rules 26–38, C21–C30, decisions E1–E18 | Operations O1–O3/O5/O6, EntityDomains O1/O2/O5, Persistence O6, Inspection, CommandLine O5 |
-| **5. Operations in the definition** | 2.7 (rewritten), 2.7.13–2.7.16, rules 13–25 and N1–N3 amended, 26–38 amended, rules 39–47, C31–C53, decisions OD1–OD25 | Operations O1–O7, Machines O1/O4–O6/O8, Runtime O3/O6/V4, Persistence O2–O6, ServerRendering O3/O5, LazyFeatures O3, Inspection O1, React O2/O3, Testing O3/O7, CommandLine O5 |
+| **5. Operations in the definition** | 2.7 (rewritten), 2.7.13–2.7.16, rules 13–25 and N1–N3 amended, 26–38 amended, rules 39–47, C31–C53, decisions OD1–OD26 | Operations O1–O7, Machines O1/O4–O6/O8, Runtime O3/O6/V4, Persistence O2–O6, ServerRendering O3/O5, LazyFeatures O3, Inspection O1, React O2/O3, Testing O3/O7, CommandLine O5 |
 
 ## 1. The idea
 
@@ -566,7 +566,7 @@ is one invocation of its commit function. The rules are numbered as merge 2's ru
     `unknown` with reason `StillUnknown { failure }`.
 19. **The key is the Attempt's id.** Flow mints `attempt.id`, random, when a write starts; every send of that write
     carries the same id. The commit author puts it on the wire where the API expects it; Flow sends nothing itself and
-    derives no other key. Re-sending after an unknown is `pay.retry` (the same id, so the server dedups). After a
+    derives no other key. Re-sending after an unknown is `O.pay.retry` (the same id, so the server dedups). After a
     definite failure nothing happened, so trying again is a new write (`pay`, a new id): a server that stores failures
     under a key cannot replay one. A failed Attempt is resolved: a `retry` after it is
     evidence `NothingToResend`, and trying again is a new commit.
@@ -919,8 +919,8 @@ and when one transition reads, in both views, a key it writes (decision D16), an
 instead, or keep the old value under its own key.
 
 **Settlement and Runtime steps publish without a turn.** For a domain write, settlement applies the Attempt's ending to the store and
-releases record queues in one publication (rule 27); every actor's snapshot reflects that store revision, while lanes
-change only when the ending's turn is admitted. Between the two, a record can read confirmed while the lane row still
+releases record queues in one publication (rule 27); every actor's snapshot reflects that store revision, while a bound
+lane changes when the ending's turn is admitted (an unbound lane, when the Runtime applies the ending's cell, rule 44). Between the two, a record can read confirmed while the lane row still
 reads `pending` (2.8.1). How a Story reads this frame and asserts the gap is merge 3's (*Story reads: merge 3*). A Runtime step that changes a
 bound lane's row (an invocation raising `retryCount`, a storage refusal promoting the next commit) publishes that row on
 its own, as a new snapshot; an old snapshot never sees it (Machines O8).
@@ -1269,8 +1269,8 @@ reads `key` against `input`'s fields as data. OPS O1 is rewritten around `input`
 
 **The key is a field list of `input`** (decided, OD4, OD12; R3 K3), like an entity's `primaryKey`: `key: ["docId"]`,
 and a composite key lists every field, `key: ["docId", "field"]`. **`key` is required on resources and transactions,
-with no default** (decided, OD15): one lane or one cache entry is written `key: []`. Proposed for streams (OD15
-leaves them open): required as well, `key: []` for one session, because a stream's key is its session identity (OPS
+with no default** (decided, OD15): one lane or one cache entry is written `key: []`. Decided for streams as well
+(OD23 Q38): required, `key: []` for one session, because a stream's key is its session identity (OPS
 O4) and the same rule on every kind is one rule; a resume position such as `after` is an ordinary input field outside
 the key (OD12). Consequences:
 
@@ -1319,7 +1319,7 @@ Per-field autosave, the case that broke revision 2 (R2 C-H1):
 export const saveField = transaction({
   id: "settings/save-field",
   input: { docId: Schema.String, field: Schema.Literals(["title", "description", "tags"]), value: Schema.String },   // OD14: a fields record
-  key: ["docId", "field"],                                                     // NEW MEANING (OD4): key is a field list; one lane per field: title, description and tags never supersede each other
+  key: ["docId", "field"],                                                     // a field list (OD4); one lane per field: title, description and tags never supersede each other
   concurrency: "latest",
   commit: (i, { attempt, signal }) => SettingsApi.use((api) => api.patch(i, { idempotencyKey: attempt.id, signal })),
 })
@@ -1375,11 +1375,10 @@ FieldEdited: { target: "self", actions: [O.save.commit(({ memory, event }) => ({
   this cancels this operation's wait, not the cache. `idle` on a one-off read passes while no lookup of the operation
   is waiting.
 - **`refetch(k?)`** re-requests the entry a live placement holds (OPS O2).
-- **Mapper context**: writes `(value, { input, attempt, progress, key })`; reads and streams `(value, { input, key })`
-  (RENAMED, OD12: was `{ params }`).
+- **Mapper context**: writes `(value, { input, attempt, progress, key })`; reads and streams `(value, { input, key })`.
   `key` is always the contract's key record of the call that ended, the pick of its key fields; it identifies the lane
-  for a write and the entry or session for a read or stream (2.7.3). 2.7.10's keyed-activity `key` and (proposed,
-  L1) a keyed schedule's `key` are the same record. `laneKey` and `superseded` are gone.
+  for a write and the entry or session for a read or stream (2.7.3). The key of a `subscribe.each` session (2.7.10, rule
+  41) and a keyed schedule's `key` (rule 23) are the same record. `laneKey` and `superseded` are gone.
 
 **The contract: concurrency, `key`, one write operation per contract.**
 
@@ -1508,7 +1507,7 @@ Rows are per kind (OD3; rules 21, 42):
 ```tsx
 const paying = useView(checkout, (s) => s.operations.pay.pending)                          // unkeyed write
 const saving = useView(list, (s) => List.O.like.get(s, issue).pending)                     // keyed write: the item the view renders (OD4)
-const unsure = useView(list, (s) => List.O.like.get(s, issue).uncertain)                    // NEW (OD5): this actor's write is unknown
+const unsure = useView(list, (s) => List.O.like.get(s, issue).uncertain)                    // this actor's write is unknown (OD5)
 const row = useView(list, (s) => Issue.get(s, { id }, Issue.pick("title", "liked")))         // shared: predicted, uncertain
 const hits = useView(search, (s) => s.operations.results?.data?.hits ?? [])                  // one-off read: one lane per operation
 ```
@@ -1591,7 +1590,7 @@ const chargeKey = ({ memory }) => ({ holdId: memory.holdId })
 const refundKey = ({ memory }) => ({ paymentId: memory.paymentId })
 on: {
   Paid: [{ target: S.REFUNDING, guard: [S.LEFT], updateMemory: ({ event }) => ({ paymentId: event.paymentId }), actions: [O.refund.commit(refundKey)] }, { target: "self" }],
-  ChargeUnsure: { target: S.SETTLING, actions: [O.charge.retry(chargeKey)] },   // late or adopted, in any leaf: SETTLING owns the hold (rule 44)
+  ChargeUnsure: { target: S.SETTLING, actions: [O.charge.retry(chargeKey)] },   // late or adopted, in any leaf: SETTLING owns the hold (rule 44; SETTLING retries or reads, elided)
 },
 REFUNDING: {
   on: {
@@ -2059,7 +2058,7 @@ apply. Rows: `{ pending, retryCount, progress? }` under `cancel`, `{ pending, ou
 | --- | --- | --- | --- | --- |
 | `reject` | yes | none | the one minted Attempt | a commit while `InFlight` or `Held` ends `NotSent { Rejected }` |
 | `latest` | yes | one queued commit | the one minted Attempt | a commit replaces `W`, and a never-sent head not yet invoked |
-| `serialize` | yes | queued commits, FIFO ≤ 64 | the head | amends N2 and C18 (`retry`, `retryable`, `retryCount` on the head); key-less members only in the head's own ending (Q35 A); "drop the queue" and per-item stops have no member (`revisit.md`; a keyed design) |
+| `serialize` | yes | queued commits, FIFO ≤ 64 | the head | amends N2 and C18 (`retry`, `retryable`, `retryCount` on the head); key-less members only in the head's own ending (Q35 A); "drop the queue" and per-item stops have no member ([open-items.md](open-items.md); a keyed design) |
 | `cancel` | no | none | the one minted Attempt, for its own ending's turn | `HeldThisTurn` |
 | `allow` | no | none | per Attempt, in its own ending's turn | a count; `HeldThisTurn` per Attempt |
 
@@ -2136,10 +2135,10 @@ non-initial leaf.
   members, and `commit`, `retry` and `cancel` have no per-key form (archive selected threads, flush N held notes on
   reconnect, retry all unsure, cancel all uploads). The pattern is a bulk contract: one request over the set, one
   `serialize` lane (review 6's sketch 9, `archived: boolean` with Undo queued behind it). Per-key fan-out of write
-  members goes to `revisit.md` with these four cases; no word now.
+  members goes to [open-items.md](open-items.md) with these four cases; no word now.
 - **Independent work one at a time.** Under unkeyed `serialize`, one unknown holds every later write (photo 3 holds
   photos 4–20); `allow` neither throttles nor holds. A throttle of independent writes is a memory queue in the
-  machine (commit the next file on `Uploaded`). Stated as a cut, for `revisit.md` (R4 M6).
+  machine (commit the next file on `Uploaded`). Stated as a cut, for [open-items.md](open-items.md) (R4 M6).
 
 **Prior art.** RxJS uses `concatMap` (queue, never drop sent work) rather than `switchMap` (cancel the previous) for
 writes, because switching drops results the server already acted on. TanStack Query's mutation `scope` runs
@@ -2157,7 +2156,7 @@ For a write operation X on `reject`, `latest` or `serialize`:
 
 1. If X maps anything but not `unknown`, that is `UnresolvedHold` (error): the table reaches `Held` with no handler.
    This replaces revision 6's separate `UnmappedUnknown`. A bare X never holds (rule 40).
-2. Otherwise let U be the event X maps `unknown` to. Take every **arrival**: each leaf where U can arrive (its owner by
+2. Otherwise let U be each event X's `unknown` maps (one, or one per tag). Take every **arrival**: each leaf where any of them can arrive (its owner by
    rule 14; ancestors for late endings; any leaf a storage-refused re-send can deliver to, OD20 F5); and **every leaf a
    new incarnation can be in while X's lane is unresolved** (decided, OD21; R9 K26, H3): the initial leaf and every
    leaf reachable from it (rebind), and every leaf reachable from a transition holding `X.commit` or from an arrival
@@ -2887,7 +2886,8 @@ as they never fire `value` (EDP:130-131). A read's defect or interruption arrive
 ```ts
 // in the definition's operations: one event, Defect and Interrupted arrive there; or a tag record that maps them
 issue: Issues.issueById.outcomes({ success: E.Loaded, failure: E.ReadFailed }),
-issue2: Issues.issueById.outcomes({ success: E.Loaded, failure: { NotFound: E.Gone, Defect: E.ReadFailed, Interrupted: E.ReadFailed } }),
+// or, as a tag record:
+// issue: Issues.issueById.outcomes({ success: E.Loaded, failure: { NotFound: E.Gone, Defect: E.ReadFailed, Interrupted: E.ReadFailed } }),
 // in the machine
 Open: { target: "self", actions: [O.issue.lookup(({ event }) => ({ id: event.id }))] },
 ```
@@ -3112,7 +3112,7 @@ export const SignIn = definition({
   traits: {
     challenges: Lockout({ limit: LIMIT, length: "5 minutes" }).each({ of: "struck", max: 20 }),
   },
-  operations: ({ E }) => ({                                                     
+  operations: ({ E }) => ({
     verify: Auth.verifyCode.outcomes({                                          // user-defined: verify; one lane per challenge (the contract's key)
       success: E.CodeAccepted,
       failure: {
@@ -3430,7 +3430,6 @@ operations: ({ E }) => ({
 }),
 
 // signup.machine.ts (excerpt)
-const create = O.create.commit(reviewedFields)
 on: {
   // A new incarnation can adopt create's lane in any leaf, so its endings are handled at the root too (rule 44).
   Created: S.DONE,
@@ -3440,7 +3439,7 @@ on: {
   TryAgain: { target: S.WIZARD.REVIEW, updateMemory: () => ({ error: "Not sent. Try again" }) },
 },
 
-WIZARD: { default: S.WIZARD.ACCOUNT, on: { Cancel: S.CANCELLING }, states: { /* pages; REVIEW's Submit: { target: S.SUBMITTING, guard: [O.create.idle], updateMemory: () => ({ busyTries: 0 }), actions: [create] } */ } },
+WIZARD: { default: S.WIZARD.ACCOUNT, on: { Cancel: S.CANCELLING }, states: { /* pages; REVIEW's Submit: { target: S.SUBMITTING, guard: [O.create.idle], updateMemory: () => ({ busyTries: 0 }), actions: [O.create.commit(reviewedFields)] } */ } },
 CANCELLING: { exits: { Confirmed: S.CANCELLED, Declined: S.WIZARD.history } },
 SUBMITTING: {
   // Owns create. Cancel is Unhandled here and nothing else leaves SUBMITTING, so no ending can be late.
@@ -3464,7 +3463,7 @@ WAITING: {
   // Entry arms the wait, with the retryInMs the Busy turn wrote (after memory, rule 23). Busy proved
   // nothing happened, so trying again is a new write with a new id (rule 19).
   schedules: { retry: { schedule: ({ memory }) => Duration.millis(memory.retryInMs), send: E.RetryNow } },
-  on: { RetryNow: [{ target: S.SUBMITTING, guard: [O.create.idle], actions: [create] }, { target: "self" }] },
+  on: { RetryNow: [{ target: S.SUBMITTING, guard: [O.create.idle], actions: [O.create.commit(reviewedFields)] }, { target: "self" }] },
 },
 UNSURE: {
   // The account may exist: send the same write again, so the server dedups by its id (rule 19). No idle guard:
@@ -3587,12 +3586,6 @@ operations: ({ E }) => ({
   issues: Issues.list,      // bare: placed in the machine, its data read from the row
 }),
 
-// issuelist.machine.ts (excerpt)
-// `optimistic` is the commit's only option (OD26). It reads the after memory (rule 22). Success confirms the look; failure removes it; unknown keeps it,
-// marked uncertain, and refetches the displayed entries once (2.7.1).
-const pin = O.pin.commit(({ event }) => ({ id: event.id, pinned: event.pinned }), {
-  optimistic: [Issues.list.setData(({ memory, event }) => ({ key: listQuery({ memory }), data: pinRow(event) }))],
-});
 
 // A host debounce: 300 ms after the last keystroke, SearchSettled is the source of its own turn.
 schedules: { settle: { schedule: "300 millis", send: E.SearchSettled, restartOn: ({ memory }) => memory.search.value } },
@@ -3609,7 +3602,13 @@ traits: {
 on: {
   SearchSettled: { target: "self", updateMemory: ({ memory }) => ({ appliedSearch: memory.search.value }) },
   SortChanged: { target: "self", updateMemory: ({ event }) => ({ sort: event.sort }) },
-  Pin: { target: "self", guard: [O.pin.idle(({ event }) => event)], actions: [pin] },   // InFlight or Uncertain per row
+  // `optimistic` is the commit's only option (OD26). It reads the after memory (rule 22). Success confirms the look;
+  // failure removes it; unknown keeps it, marked uncertain, and refetches the displayed entries once (2.7.1).
+  Pin: {
+    target: "self",
+    guard: [O.pin.idle(({ event }) => event)],   // InFlight or Uncertain per row
+    actions: [O.pin.commit(({ event }) => ({ id: event.id, pinned: event.pinned }), { optimistic: [Issues.list.setData(({ memory, event }) => ({ key: listQuery({ memory }), data: pinRow(event) }))] })],
+  },
   Pinned: { target: "self" }, PinFailed: { target: "self" },   // the cache shows each ending
   PinUnsure: { target: "self", actions: [O.pin.cancel] },   // key-less: pin alone maps it; release, the look stays marked uncertain
   // Select all on this page: the ids come from the pre-turn snapshot, never from the click.
@@ -3829,7 +3828,7 @@ The operations merge ([merged/operations/proposal.md](merged/operations/proposal
 | T1 | Testing O5 | **Marked for removal: model-based exploration is cut.** Remove Testing O5 (`model`, `stateKey`, `getShortestPaths`, `getSimplePaths`) and the `invariants`, `hot` and `explore` options this row used to add; remove `model` from Package's `flow-state/testing` exports; remove the dispatch-desk demo (`editor.story.ts` `exploreEditor`, its test in `editor.test.tsx`, the README coverage row). Exploration predicts operations, schedules and turns without running them, a second execution path that must keep "replay parity" with the Runtime; Flow keeps one runtime. Finding unwritten sequences stays with `propertyTest` (Testing O6) on the real Runtime | Removes Testing O5 and the Package export; check V7's proofs that cite O5 |
 | T2 | CommandLine O5 | Warnings: an exit no reachable transition takes; a `hostEvent` no host raises; a public fragment event unhandled everywhere; a subroutine whose exits are unreachable from its default. `flow stories --coverage` lists transitions, exits, callbacks and ending handlers (current and late) no Story reaches | Adds to the warning list |
 | T3 | CommandLine O5 | Warn when `send(ref, E.X)` can reach a state of the target actor where X is Unhandled. There is no silencing keyword; warnings never fail the check | Sharpens "unhandled events" |
-| T4 | CommandLine O5 | A lint rule with an autofix orders the category keys of definitions, fragments, machine bodies, fillings, transitions and commit options (section 2.6). It never reorders entries inside a record, whose order carries meaning | Adds |
+| T4 | CommandLine O5 | A lint rule with an autofix orders the category keys of definitions, fragments, machine bodies, fillings, transitions, commit options and operation options (section 2.6). It never reorders entries inside a record, whose order carries meaning | Adds |
 
 ## 6. Deliberately left out
 
@@ -3854,7 +3853,7 @@ The operations merge ([merged/operations/proposal.md](merged/operations/proposal
   [operations-in-fragments/exploration.md](operations-in-fragments/exploration.md).
 - **An Rpc-based contract** (OD13): a `fromRpc` adapter, later, when a real app needs it.
 - **Per-key fan-out of write members, throttled independent writes, per-item stops on a `serialize` queue** (2.7.13's
-  limits): bulk contracts and keyed designs; deferred to `revisit.md`.
+  limits): bulk contracts and keyed designs; deferred to [open-items.md](open-items.md).
 
 **Decisions pending for the user** (each is its own proposal):
 
@@ -4035,7 +4034,7 @@ From [reviews/design-correctness.md](reviews/design-correctness.md) and [reviews
   row and a pointer to its plan amendments in section 5; decisions M5-D1–M5-D10. Its rules A1–A12 go to
   `entity-domain.md` section 9.
 - Operations in the definition merged on 2026-10-30
-  ([merged/operations/proposal.md](merged/operations/proposal.md), revision 13; decisions OD1–OD25; plan
+  ([merged/operations/proposal.md](merged/operations/proposal.md), revision 13; decisions OD1–OD26; plan
   [merged/operations/merge-plan.md](merged/operations/merge-plan.md)):
   operations declared once under `operations` with `outcomes`; the verbs `commit`, `lookup`, `subscribe`; `s.operations`
   and `O.x.get`; contracts with `input`, `output` and a required field-list `key`; the write lane owned by the Runtime
@@ -4049,7 +4048,7 @@ From [reviews/design-correctness.md](reviews/design-correctness.md) and [reviews
 
 ## Decisions
 
-Settled by the owner, with the reason each wins and what was rejected. Merge 2's decisions keep their numbers D1–D17, merge 4's E1–E18 and the operations merge's OD1–OD25, which
+Settled by the owner, with the reason each wins and what was rejected. Merge 2's decisions keep their numbers D1–D17, merge 4's E1–E18 and the operations merge's OD1–OD26, which
 their rewrites, spikes, models and later proposals cite; they are not the problems D1–D7 of section 4.
 
 ### Outcomes (merge 1, [merged/outcomes.md](merged/outcomes.md))
@@ -4206,14 +4205,14 @@ confirmation (the audit's section 5).
 Settled by the owner on 2026-10-30 (the whole of merge 4, with every recommendation of its section 9). Its numbers
 E1–E18 are kept, because its rules, merge 3, merge 5 and operations-in-definition cite them.
 
-- **E1** One split: the domain owns shared data, the commit value owns workflow; memory never mirrors a record (rule 26).
+- **E1** One split: the domain owns shared data, the commit value owns workflow; memory never mirrors a record (rule 26). *After the operations merge: the operation and the machine own workflow (OD3).*
 - **E2, E7** One retry shape, `x.retry(key)`: the identical request, no new prediction, joins the record queue,
   positioned at the first send (rule 31). *Superseded in part by E17 (2026-10-31): `x.retry(key)` exists only where
   the lane has one addressable Attempt.* *Spelled `O.x.retry(k?)`; a retry outside `Held` is evidence (OD10).*
 - **E3** `uncertain` is per record and Attempt; a successful retry or a later successful write clears it; a read never
   does (rule 32). *Amended by OD19: a later write's success clears only marks whose Attempt is resolved or released (rule 32).*
 - **E4, E13** The store applies endings at settlement (rule 18 decided there); the lane changes at admission; routing
-  never changes store effects (rule 27). A start publishes its prediction with its turn (rule 28).
+  never changes store effects (rule 27). A start publishes its prediction with its turn (rule 28). *Amended by OD19: an unbound lane changes when the Runtime applies the ending's cell (rule 27).*
 - **E5, as corrected** The actor decides whether a start runs, the record queue when it is sent; `latest` joins the
   queue and supersedes by removal; `concurrency: "cancel"` on a predicting write stays a `flow check` error, while the
   `.cancel(key)` action is allowed under rule 24 (rule 29). *`cancel` acts by the table (OD7); a replaced write is evidence `Superseded` (OD5).*
@@ -4235,7 +4234,7 @@ E1–E18 are kept, because its rules, merge 3, merge 5 and operations-in-definit
   concurrent calls takes a per-call key and `reject`. The list's `createIssue` is `reject` per draft (2.8.2). Reason:
   under `allow` the lane's "current" Attempt was the newest create, so a retry re-sent the wrong draft's write
   ([audit-multiplicity.md](audit-multiplicity.md) F1). Views and guards read lanes as `s.calls` rows (D18);
-  the `NotSent` mapper's `laneKey` names the draft (D21), so `CreateFailed.draftId` is never `null`. *Amended by OD19: also the `serialize` head (rule 31).*
+  the `NotSent` mapper's `laneKey` names the draft (D21), so `CreateFailed.draftId` is never `null`. *Amended by OD19: also the `serialize` head (rule 31).* *Rows are `s.operations`; `laneKey` is `key` (X30).*
 - **E18 (Revision (multiplicity audit, 2026-10-31); new).** A prediction over a record the store does not hold shows nothing and waits for a base;
   an uncertain mark holds its record (rules 30, 32). Reason: a patch replayed over a deleted or never-loaded record had
   no defined result, and a collected record lost its mark (audit F12). Merge 5's replay rule needs the matching
@@ -4484,7 +4483,7 @@ operations-in-fragments, the lane model and the reviews cite them.
   `subscribe`, `outcomes`).
 - **One lane per (contract id, key) Runtime-wide** (TanStack's cache-wide `scope`): one actor's `retry` and `cancel`
   would act on another's Attempt.
-- **Resuming never-sent work across a reload** (TanStack Query's model): left for `revisit.md`; it would amend C2 and
+- **Resuming never-sent work across a reload** (TanStack Query's model): left for [open-items.md](open-items.md); it would amend C2 and
   Operations O3.
 - **Branded keys** and **an age bound on adopted holds**: not proposed; the first would close a structural-typing gap,
   the second is public API.
