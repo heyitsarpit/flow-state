@@ -3,13 +3,14 @@
 // change inside one (Runtime plan), so nothing cached for one user can be shown to another.
 // Signing out is session truth in this Runtime before its scope's stored records are removed.
 import { Schema } from "effect";
-import { definition } from "flow-state";
+import { definition, Flow } from "flow-state";
 
 export const Session = definition({
   id: "DispatchDesk/Session",
   states: ["AVAILABLE", "SIGNED_OUT"],
   events: { PermissionChanged: { canEdit: Schema.Boolean }, SignedOut: {} },
-  input: { userId: Schema.String },
-  memory: { canEdit: Schema.Boolean, userId: Schema.String },
-  initial: ({ input }) => ({ canEdit: true, userId: input.userId }),
+  memory: {
+    userId: Flow.input(Schema.String), // NEW: supplied by the creator, ensure(SessionRef, { input: { userId } })
+    canEdit: Flow.initial(Schema.Boolean, true), // NEW: constant start
+  },
 });
