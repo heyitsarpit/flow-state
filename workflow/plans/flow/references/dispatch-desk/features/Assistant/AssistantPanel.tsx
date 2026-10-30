@@ -15,13 +15,12 @@ export function AssistantPanel({ ticket }: { ticket: TicketKey }) {
   const assistant = useActorByRef(assistantRef(ticket), { input: ticket });
   const editor = useActorByRef(editorRef(ticket), { input: ticket });
 
-  // design gap: the plan reads the single row; a keyed lane is `Assistant.O.suggest.get(s, ticket)`
-  // elsewhere, but this actor has exactly one ticket.
+  // The contract is keyed by workspace and ticket, so the view reads its lane with `get` (MD 2.7.15).
   const text = useView(
     assistant,
-    (s) => s.operations.suggest?.progress?.text ?? s.memory.last, // pending merge 6: `progress`
+    (s) => Assistant.O.suggest.get(s, ticket).progress?.text ?? s.memory.last, // pending merge 6: `progress`
   );
-  const asking = useView(assistant, (s) => s.operations.suggest?.pending === true); // the lane, not a state name
+  const asking = useView(assistant, (s) => Assistant.O.suggest.get(s, ticket).pending); // the lane, not a state name
   const incomplete = useView(assistant, (s) => s.memory.incomplete);
   const refused = useView(assistant, (s) => s.memory.refused);
   const ask = useView(assistant, (s) => check(s, Assistant.E.Ask({ prompt: PROMPT })));
@@ -43,8 +42,8 @@ export function AssistantPanel({ ticket }: { ticket: TicketKey }) {
           {asking ? null : (
             <button
               onClick={() =>
-                // design gap: M6 does not show sending to another actor's fragment; the public-event path
-                // is `Editor.E.comments.Post` (rule 2), sent to the editor's ref (REWRITE-PLAN section 6, item 9).
+                // The fragment's public event, sent to the editor's ref (rule 2; MD 2.10.18.4 sends
+                // `IssuePage.E.like.Toggle` the same way).
                 editor.send(Editor.E.comments.Post({ clientId: crypto.randomUUID(), text }))
               }
             >

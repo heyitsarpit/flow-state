@@ -34,13 +34,13 @@ export const connected = desk("feed/connected").expect(FeedNorth, {
   operations: { activity: { connection: "Live" } },
 });
 
-// A drop while two changes happen, on a server that cannot replay (`withhold`). The reconnect starts
+// A drop while two changes happen, on a server that greets without a replay (`Desk.greet({ replay: false })`). The reconnect starts
 // from the stored cursor, so `catchUp` pages `eventsSince` after it. The row reads Live while it runs;
 // the start settles proven and the machine hears the entries in order, with no notice.
 export const dropAndCatchUp = desk("feed/drop-and-catch-up")
   .world(rename("T-43", "Fix the loading dock door"))
   .expect(FeedNorth, { memory: { cursor: { epoch: 1, seq: 1 } } })
-  .world(Desk.socket.withhold("replay")) // design gap: B2's Desk has no replay-withholding control; M6 2.11 spells it `fake.withhold("replay")`
+  .world(Desk.greet({ replay: false })) // a server control that `open` reads (2.10.9)
   .world(Desk.socket.drop()) // the network closes the sockets; the row reads Connecting with a `drop`
   .expect(FeedNorth, { operations: { activity: { connection: "Connecting" } } })
   .world(rename("T-43", "Dock door, second try"), rename("T-42", "Replace foyer light"))

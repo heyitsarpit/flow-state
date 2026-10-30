@@ -12,7 +12,7 @@ type Memory = typeof Queue.Memory.Type;
 // which the domain reads as "no constraint".
 // The contract's key is a field list and cannot normalise (OD4), so "Lobby " and "lobby" share a cache
 // entry only because the search is trimmed and lowercased here, before the input exists.
-// design gap: normalisation lives in the caller (ticket.contracts.ts says the same).
+// Normalisation lives in the caller (decided, OD4; ticket.contracts.ts says the same).
 export const listInput = ({
   memory,
   context,
@@ -41,13 +41,8 @@ const assignKey = ({ memory, event }: { memory: Memory; event: { ticketId: strin
 // The reconcile event carries the whole key, so it names the lane itself.
 const named = ({ event }: { event: { workspaceId: string; ticketId: string } }) => event;
 
-// The part of the snapshot these guards read: the list lane, paged.
-type Lanes = {
-  list?: {
-    hasMore: boolean;
-    data?: ReadonlyArray<{ tickets: ReadonlyArray<{ ticketId: string; status: string }> }>;
-  };
-};
+// The part of the snapshot these guards read: the list lane, paged (derived from the definition).
+type Lanes = (typeof Queue.Snapshot.Type)["operations"];
 
 // Guards read the pre-turn snapshot, lanes included, so check() can tell a view whether these
 // commands do anything (minimal-library decision 8): the button state is never a view rule.
@@ -123,7 +118,7 @@ export const QueueMachine = machine(Queue, ({ S, E, O }) => {
         target: "self",
         updateMemory: ({ memory }) => ({ mineOnly: !memory.mineOnly }),
       },
-      // design gap: `more` and `hasMore` are the plan's, not MD's (plan 6, item 1).
+      // PROPOSED, not decided: `more` and `hasMore` are the plan's (gap 23); the domain's `.pagedBy` must agree.
       LoadMore: { target: "self", guard: hasMorePages, actions: [O.list.more(listInput)] },
       PollDue: { target: "self", actions: [O.list.refetch(listInput)] },
 
@@ -171,7 +166,7 @@ export const QueueMachine = machine(Queue, ({ S, E, O }) => {
     states: {
       HEALTHY: {
         schedules: { poll: { schedule: Schedule.spaced("30 seconds"), send: E.PollDue } },
-        on: { ListUnavailable: S.DEGRADED },
+        on: { ListUnavailable: S.DEGRADED, ListLoaded: { target: "self" } },
       },
       DEGRADED: {
         schedules: {
@@ -185,7 +180,7 @@ export const QueueMachine = machine(Queue, ({ S, E, O }) => {
             send: E.PollDue,
           },
         },
-        on: { ListLoaded: S.HEALTHY },
+        on: { ListLoaded: S.HEALTHY, ListUnavailable: { target: "self" } },
       },
     },
   };

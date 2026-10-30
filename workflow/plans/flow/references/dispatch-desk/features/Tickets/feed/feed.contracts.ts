@@ -59,10 +59,15 @@ const activityOf = (frame: DeskFrame) => (frame.t === "activity" ? [frame.entry]
 // (retried by the schedule with the socket open), so the port's `NoResponse` becomes `SocketDropped`.
 const eventsPage = (workspaceId: string) => (cursor: Cursor) =>
   Effect.gen(function* () {
-    const page = yield* TicketApi.use((api) =>
-      // design gap: the `catchUp` step is handed no `signal` (it is Stream.paginate's step), so the
-      // read is interrupted with the fiber and the port's signal is a fresh one.
-      api.eventsSince({ workspaceId, after: cursor }, { signal: new AbortController().signal }),
+    // `catchUp` is an Effect, so interruption is Effect's: the port's signal is aborted when this step is
+    // interrupted or ends, and an interrupted catch-up leaves no request running (S6 Q15).
+    const page = yield* Effect.acquireUseRelease(
+      Effect.sync(() => new AbortController()),
+      (controller) =>
+        TicketApi.use((api) =>
+          api.eventsSince({ workspaceId, after: cursor }, { signal: controller.signal }),
+        ),
+      (controller) => Effect.sync(() => controller.abort()),
     ).pipe(Effect.mapError((_: NoResponse) => new SocketDropped({ why: "History" })));
 
     if (page.truncated) {
@@ -71,6 +76,12 @@ const eventsPage = (workspaceId: string) => (cursor: Cursor) =>
         reason: `history starts at ${String(page.truncated.oldest.epoch)}:${String(page.truncated.oldest.seq)}`,
         continueAt: page.truncated.beforeOldest, // the next page starts after it
       });
+    }
+
+    // Only the server's completeness field completes the repair (FC42): an incomplete page with no
+    // `next` is a transient drop, retried with the socket open.
+    if (!page.complete && page.next === undefined) {
+      return yield* new SocketDropped({ why: "History" });
     }
 
     const next = page.complete ? Option.none() : Option.fromNullishOr(page.next);
@@ -108,7 +119,9 @@ export const ticketChanges = stream({
                   Stream.fromIterable(toItems(from, ticketChangeOf)(frame)),
                 ),
               ),
-          { while: whileDropped, schedule }, // design gap: no `from`, `position` or `catchUp`: `listen` keeps no position, and eventsSince pages ActivityEntry, not TicketEvent
+          // No `from`, `position` or `catchUp`: a `listen` session starts fresh and lowers once, so the
+          // cross-session position belongs to the fact feed below (M6 2.7).
+          { while: whileDropped, schedule },
         ),
       ),
     ),

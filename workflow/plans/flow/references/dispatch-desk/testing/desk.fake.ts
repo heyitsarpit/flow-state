@@ -7,7 +7,7 @@
 //
 // Every rule is app/desk-server.ts, the one implementation the demo Layers and the entity property
 // test (desk.property.test.ts) also call. This file adds only what a fake adds: wire statuses, the
-// outage and lock-budget truth, controls, and the two stream endpoints. Stories drive it with wire
+// outage and lock-budget truth, controls, and the socket endpoint. Stories drive it with wire
 // words, never with injected results (2.10.5):
 //
 //   SlowSave           -> Desk.saveTitle.hold()           (then release())
@@ -17,13 +17,13 @@
 //   countingTicketApi  -> expect(Desk.list, [...])        (the endpoint's request log)
 import { Fake } from "flow-state/testing";
 import { Effect, Layer, Schema, Stream } from "effect";
+import { Socket } from "effect/unstable/socket";
 import * as Server from "../app/desk-server.js";
 import {
   AttachmentsApi,
   StoredAttachment,
   TooLarge,
 } from "../features/Attachments/attachments-api.js";
-import { AssistantApi, Refused, SuggestFrame } from "../features/Assistant/assistant-api.js";
 import { CommentRejected, CommentRow, CommentsApi } from "../features/Comments/comments-api.js";
 import {
   DeskFrame,
@@ -39,6 +39,8 @@ import {
   NoResponse,
   QueueUnavailable,
   ServerError,
+  SocketDropped,
+  type SignedOut,
   TicketLocked,
   TicketNotFound,
   TicketPage,
@@ -101,12 +103,8 @@ const lostRead = Effect.catchTag("Fake/Lost", (lost) => Effect.die(lost));
 
 // --- truth -----------------------------------------------------------------------------------
 
-// design gap: the server core's `DeskTruth` is plain data, declared here structurally. It already
-// holds tickets, applied keys, locks, comments, files and the { epoch, seq } log.
-const DeskTruthSchema = Schema.declare(
-  (u: unknown): u is Server.DeskTruth =>
-    typeof u === "object" && u !== null && "log" in u && "applied" in u,
-);
+// The server core's truth is an Effect Schema (`Server.DeskTruth`): tickets, applied keys, locks,
+// comments, files and the { epoch, seq } log. `describe`, digests and generated controls read it.
 
 // How many more refused saves a lock gives before it lifts itself; "always" until `unlock`.
 const Budget = Schema.Union([Schema.Int, Schema.Literal("always")]);
@@ -114,6 +112,7 @@ const Budget = Schema.Union([Schema.Int, Schema.Literal("always")]);
 type FakeTruth = {
   desk: Server.DeskTruth;
   outage: boolean;
+  replay: boolean; // whether a greeting proves a replay (`Desk.greet`)
   budget: Record<string, number | "always">;
 };
 
@@ -156,13 +155,15 @@ const edit = {
   assignee: Schema.optional(Schema.String),
 };
 
+// Frames are JSON text, as on the wire, so the real `decodeFrame` reads them.
+const text = (frame: DeskFrame) => JSON.stringify(frame);
+
+// A control's effect on open connections (one spelling in every fake): `{ to, send }` sends text frames and
+// `{ to, close }` closes with a code. `to` names the endpoint and the request fields a connection must have.
 const sockets = (items: ReadonlyArray<Server.LogItem>) =>
   items.map((item) => ({
-    to: (request: { workspaceId: string }) => request.workspaceId === item.workspaceId,
-    frames: [
-      { t: "change", event: item.event },
-      { t: "activity", entry: item.entry },
-    ] satisfies ReadonlyArray<DeskFrame>,
+    to: { socket: { workspaceId: item.workspaceId } },
+    send: [text({ t: "change", event: item.event }), text({ t: "activity", entry: item.entry })],
   }));
 
 // The tail of the log a step appended. A reset restarts at seq 1 and appends nothing.
@@ -175,13 +176,14 @@ const appended = (before: FakeTruth, after: FakeTruth) =>
 
 export const Desk = Fake.server("Desk", {
   truth: {
-    desk: DeskTruthSchema,
+    desk: Server.DeskTruth,
     outage: Schema.Boolean,
+    replay: Schema.Boolean,
     budget: Schema.Record(Schema.String, Budget),
   },
-  initial: { desk: Server.seed(), outage: false, budget: {} },
+  initial: { desk: Server.seed(), outage: false, replay: true, budget: {} },
 
-  // design gap: `pushes` is not in 2.10.4. Every logged change goes to the open `socket`
+  // design gap: `pushes` is not in 2.10.4 (gap 36). Every logged change goes to the open `socket`
   // connections of its workspace, whichever call or control caused it, so a rename elsewhere and a
   // client's own save push alike. Declaring it once beats wiring each handler to the socket.
   pushes: {
@@ -258,12 +260,13 @@ export const Desk = Fake.server("Desk", {
       request: { workspaceId: Schema.String, from: Schema.optional(Cursor) },
       open: (truth, req) => {
         const { replayedFrom, items } = Server.replay(truth.desk, req.workspaceId, req.from);
+        const proven = truth.replay ? replayedFrom : undefined; // `Desk.greet({ replay: false })`
         const stale = req.from !== undefined && req.from.epoch !== truth.desk.epoch;
 
         const greeting: DeskFrame = stale
           ? { t: "reset", epoch: truth.desk.epoch }
-          : replayedFrom
-            ? { t: "hello", replayedFrom }
+          : proven
+            ? { t: "hello", replayedFrom: proven }
             : { t: "hello" };
 
         const replay = items.flatMap((item): ReadonlyArray<DeskFrame> => [
@@ -271,31 +274,8 @@ export const Desk = Fake.server("Desk", {
           { t: "activity", entry: item.entry },
         ]);
 
-        return [
-          truth,
-          [greeting, ...replay].map((frame) => JSON.stringify(frame)),
-          { accept: true },
-        ];
-      },
-    }),
-
-    // The assistant's NDJSON body: the tokens, then `done`. An unknown ticket is refused with 404
-    // before any body. Pace comes from the Story (`hold`, `release`), not a sleep.
-    suggest: Fake.stream({
-      request: { ...ticketKey, prompt: Schema.String, key: Schema.String },
-      open: (truth, req) => {
-        const ticket = Server.find(truth.desk, req);
-
-        if (!ticket) return [truth, [], { accept: false, code: 404 }];
-
-        const tokens = Server.replyTokens(ticket);
-
-        const frames: ReadonlyArray<SuggestFrame> = [
-          ...tokens.map((text): SuggestFrame => ({ t: "token", text })),
-          { t: "done", usage: { tokens: tokens.length } },
-        ];
-
-        return [truth, frames.map((frame) => `${JSON.stringify(frame)}\n`), { accept: true }];
+        // [truth, first frames, accept] (2.10.9), the same shape in every fake.
+        return [truth, [greeting, ...replay].map(text), { accept: true }];
       },
     }),
   },
@@ -317,6 +297,10 @@ export const Desk = Fake.server("Desk", {
       return { ...withDesk(truth, Server.unlock(truth.desk, key)), budget };
     }),
     listOutage: Fake.control({ on: Schema.Boolean }, (truth, { on }) => ({ ...truth, outage: on })),
+
+    // What the next greetings say: with `replay: false` the server registers the workspace but proves no
+    // replay, so a reconnect must `catchUp`. `open` reads it.
+    greet: Fake.control({ replay: Schema.Boolean }, (truth, { replay }) => ({ ...truth, replay })),
 
     renameElsewhere: Fake.control(
       { ...ticketKey, title: Schema.String, by: Schema.optionalKey(Schema.String) },
@@ -347,8 +331,8 @@ export const Desk = Fake.server("Desk", {
     ),
 
     // The token expires: every open socket closes with 4401 (`closedWith` makes it `SignedOut`).
-    // design gap: `Fake.closeStreams(endpoint, code)` as a control's result is not spelled in 2.10.4.
-    expireToken: Fake.control({}, (truth) => [truth, Fake.closeStreams("socket", 4401)]),
+    // design gap: a control's close result is `{ to, close }` here (gap 37).
+    expireToken: Fake.control({}, (truth) => [truth, { to: { socket: {} }, close: 4401 }]),
   },
 });
 
@@ -468,55 +452,91 @@ const AttachmentsOverDesk = Layer.effect(
   ),
 );
 
-// pending merge 6: the stream ports. The real adapter's decoding and close-code reading run over
-// the fake's frames. design gap: a stream endpoint's failure is `Fake/Closed { code }` (a server or
-// pushed close) or `Fake/Lost` (the network); 2.10.4 names the wire's effects, not the error tags.
-const SocketOverDesk = Layer.effect(
+// pending merge 6: the socket, written as the real adapter does it (next/http-api.ts) but over
+// `Socket.WebSocketConstructor`, and bound to the Desk server by `Fake.webSocket`. A Story replaces the
+// transport, never the adapter (M6 2.11): the idle deadline, the NoHello check and the close-code reading
+// below all run, on the TestClock, over the fake's frames.
+// design gap: a stream endpoint's failure is `Fake/Closed { code }` or `Fake/Lost`; `Fake.webSocket` turns
+// them into a close with that code and 1006 (2.10.4), so no client half reads those tags (gap 38).
+const ORIGIN = "http://desk.test";
+
+const classify = (error: Socket.SocketError): SocketDropped | SignedOut =>
+  closedWith(error.reason._tag === "SocketCloseError" ? error.reason.code : 1006);
+
+const socketText = (url: URL) =>
+  Stream.unwrap(
+    Effect.gen(function* () {
+      const socket = yield* Socket.makeWebSocket(url.toString(), { highWaterMark: 1_048_576 }); // M6 4.1
+      const pull = yield* Socket.readerString(socket);
+
+      return Stream.fromEffectRepeat(pull).pipe(Stream.flatMap(Stream.fromIterable));
+    }),
+  ).pipe(
+    Stream.mapError((error) => classify(error)),
+    // An idle deadline on every frame; the server pings every 20 s.
+    Stream.timeoutOrElse({
+      duration: "45 seconds",
+      orElse: () => Stream.fail(new SocketDropped({ why: "Silent" })),
+    }),
+  );
+
+const SocketOverWebSocket = Layer.effect(
   DeskSocket,
-  Effect.map(Desk, (server) =>
+  Effect.map(Socket.WebSocketConstructor, (constructor) =>
     DeskSocket.of({
-      frames: (workspaceId, from) =>
-        server.socket(from === undefined ? { workspaceId } : { workspaceId, from }).pipe(
-          Stream.mapError((error) =>
-            error._tag === "Fake/Closed" ? closedWith(error.code) : closedWith(1006),
-          ),
+      frames: (workspaceId, from) => {
+        const url = new URL(`/api/workspaces/${encodeURIComponent(workspaceId)}/socket`, ORIGIN);
+        url.protocol = "ws:";
+
+        if (from !== undefined) {
+          url.searchParams.set("epoch", String(from.epoch));
+          url.searchParams.set("seq", String(from.seq));
+        }
+
+        return socketText(url).pipe(
           Stream.mapEffect(decodeFrame),
-        ),
+          // Registration comes first: a server that only pings must not hold the row in "Connecting".
+          Stream.zipWithIndex,
+          Stream.mapEffect(([frame, index]) =>
+            index === 0 && frame.t !== "hello" && frame.t !== "reset"
+              ? Effect.fail(new SocketDropped({ why: "NoHello" }))
+              : Effect.succeed(frame),
+          ),
+          Stream.provideService(Socket.WebSocketConstructor, constructor),
+        );
+      },
     }),
   ),
 );
 
-const AssistantOverDesk = Layer.effect(
-  AssistantApi,
-  Effect.map(Desk, (server) =>
-    AssistantApi.of({
-      suggest: (input, { idempotencyKey }) =>
-        server.suggest({ ...input, key: idempotencyKey }).pipe(
-          Stream.mapError((error) =>
-            error._tag === "Fake/Closed" && error.code >= 400 && error.code < 500
-              ? new Refused({ status: error.code })
-              : error._tag === "Fake/Closed"
-                ? new ServerError({ status: error.code })
-                : new NoResponse(),
-          ),
-          Stream.splitLines,
-          Stream.mapEffect((line) =>
-            Schema.decodeUnknownEffect(Schema.fromJsonString(SuggestFrame))(line).pipe(
-              Effect.orDie,
-            ),
-          ),
-        ),
-    }),
-  ),
-);
+// `route` maps a socket URL to an endpoint and its input; Flow parses nothing else (2.10.4).
+const DeskWebSocket = Fake.webSocket(Desk, (url: URL) => {
+  const workspace = /^\/api\/workspaces\/([^/]+)\/socket$/.exec(url.pathname)?.[1];
 
-// Every port the editor, queue, comments, upload, feed and assistant use, over the run's server.
+  if (workspace === undefined) return undefined;
+
+  const epoch = url.searchParams.get("epoch");
+  const seq = url.searchParams.get("seq");
+
+  return {
+    endpoint: "socket",
+    input:
+      epoch === null || seq === null
+        ? { workspaceId: decodeURIComponent(workspace) }
+        : {
+            workspaceId: decodeURIComponent(workspace),
+            from: { epoch: Number(epoch), seq: Number(seq) },
+          },
+  };
+});
+
+// Every port the editor, queue, comments, upload and feed use, over the run's server. The assistant has its
+// own server (assistant.fake.ts).
 // A tab builds this again on reload; it holds no state (STF15). Presence has its own server
 // (presence.fake.ts, PM6). `PendingFiles` is tab memory, so setup provides it, not the fake.
 export const DeskClient = Layer.mergeAll(
   TicketsOverDesk,
   CommentsOverDesk,
   AttachmentsOverDesk,
-  SocketOverDesk,
-  AssistantOverDesk,
+  SocketOverWebSocket.pipe(Layer.provide(DeskWebSocket)),
 );

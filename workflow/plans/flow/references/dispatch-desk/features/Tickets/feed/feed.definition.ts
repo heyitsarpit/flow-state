@@ -13,7 +13,7 @@ export const ACTIVITY_KEPT = 100;
 
 export const DeskFeed = definition({
   id: "DispatchDesk/DeskFeed",
-  states: ["LIVE", "RETRY_WAIT", "SIGNED_OUT"], // design gap: SIGNED_OUT is the plan's LIVE / RETRY_WAIT plus a terminal state for close 4401
+  states: ["LIVE", "RETRY_WAIT", "SIGNED_OUT"], // SIGNED_OUT is terminal: close 4401 maps to SessionExpired (M6 4.1)
   events: { DismissNotice: {} },
   internalEvents: {
     Entry: { entry: ActivityEntry }, // pending merge 6

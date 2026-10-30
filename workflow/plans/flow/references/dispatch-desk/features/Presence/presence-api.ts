@@ -4,7 +4,7 @@
 // `presence_diff` with `joins` and `leaves` (Phoenix Presence's shape), so each connection's
 // state is correct again after a reconnect even if nobody joined or left.
 import { Context, Schema, type Stream } from "effect";
-import type { SignedOut, SocketDropped, TicketKey } from "../Tickets/types.js";
+import { SignedOut, SocketDropped, type TicketKey } from "../Tickets/types.js";
 
 export const Member = Schema.Struct({ id: Schema.String, name: Schema.String });
 
@@ -30,6 +30,11 @@ export const applyDiff = (members: Members, diff: { joins: Members; leaves: Memb
 
   return { ...left, ...diff.joins };
 };
+
+// What a close code means for the presence socket: 4401 is terminal (the token expired); every other close,
+// including 1006 (no close frame), is transient. The adapter classifies; the machine never reads a code.
+export const presenceClosedWith = (code: number): SocketDropped | SignedOut =>
+  code === 4401 ? new SignedOut() : new SocketDropped({ why: `Closed${String(code)}` });
 
 export class PresenceApi extends Context.Service<
   PresenceApi,

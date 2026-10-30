@@ -1,7 +1,7 @@
 // Presence Stories: join, drop (the value goes, `last` dims), rejoin, a spent budget, an expired token.
 // Each Story runs the watcher alone over the presence fake. Demonstrates 2.10.9 (stream controls: the
 // wire words `drop` and `release`, `advance` with `{ next }`) and M6 2.6 (the row).
-// Pending merge 6: written against merge-6-streams/proposal-v2.md revision 7, S1–S10.
+// Pending merge 6: written against merge-6-streams/proposal-v2.md revision 7.1, S1–S10.
 import { Story } from "flow-state/testing";
 import { Presence as PresenceServer, PresenceFake } from "../../testing/presence.fake.js";
 import { Presence } from "./presence.definition.js";
@@ -46,21 +46,24 @@ export const dropped = watching("presence/dropped")
 export const rejoinedChanged = watching("presence/rejoined-changed")
   .world(PresenceServer.join({ ...T42, member: two }))
   .world(PresenceServer.join({ ...T42, member: three }))
-  .world(PresenceServer.frames.drop({ at: "open" })) // the next attempt is refused too
+  .world(PresenceServer.frames.drop(), PresenceServer.frames.drop({ at: "open" })) // close it, then refuse the next attempt
   .world(PresenceServer.leave({ ...T42, memberId: "dispatcher-2" }))
   .advance({ next: { operation: O.viewers, timer: "backoff" } })
   .expect({
     operations: { viewers: { connection: "Live", value: { "dispatcher-3": three } } },
   });
 
-// Eleven refused opens spend the budget (one start and ten retries): the session ends, the machine waits
-// in RETRY_WAIT with a doubled delay, then watches again.
-export const budgetSpent = watching("presence/budget-spent")
-  .world(PresenceServer.frames.drop({ at: "open", times: 11 }))
-  .world(PresenceServer.frames.drop())
-  .advance({ next: { schedule: "reopen" } }) // design gap: the address of a machine schedule
+// The connection closes, then ten refused opens spend the budget (`upTo({ times: 10 })`): the session ends,
+// the machine waits in RETRY_WAIT with a doubled delay, and its `reopen` schedule watches again.
+export const budgetSpent = Array.from({ length: 10 })
+  .reduce<ReturnType<typeof watching>>(
+    (story) => story.advance({ next: { operation: O.viewers, timer: "backoff" } }),
+    watching("presence/budget-spent")
+      .world(PresenceServer.frames.drop()) // close the open connection first: `drop({ at: "open" })` closes nothing
+      .world(PresenceServer.frames.drop({ at: "open", times: 10 })),
+  )
   .expect({ state: S.RETRY_WAIT, memory: { reopenInMs: 2_000 } })
-  .advance({ next: { operation: O.viewers, timer: "registered" } })
+  .advance({ next: { schedule: "reopen" } }) // type-checked against the machine's schedules (2.10.3)
   .expect({ state: S.WATCHING, operations: { viewers: { connection: "Live" } } });
 
 // Close code 4401 is terminal: SignedOut ends the session, and the watcher stops.

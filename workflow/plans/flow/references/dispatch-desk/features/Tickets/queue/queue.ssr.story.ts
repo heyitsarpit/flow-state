@@ -12,7 +12,7 @@ import { queueRef } from "./queue.ref.js";
 
 const North = queueRef("north");
 
-// design gap: a source Story's `world` is a type error (2.10.11); it has none, and the Desk's seed is the truth.
+// A source Story sets no `world` (2.10.11); it runs on the destination run's truth, the Desk's seed.
 export const queuePage = Story.make(DeskSetup, {
   id: "queue/ssr-server",
   fixtures: [DeskClient],

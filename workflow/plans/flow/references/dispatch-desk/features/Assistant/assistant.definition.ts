@@ -1,7 +1,7 @@
 // The assistant for one ticket: IDLE until asked, ASKING while the reply streams. Demonstrates rule 13
 // (`unknown` mapped by tag), rule 21 (the lane holds the Attempt; the machine keeps only the text),
 // rule 24 and OD23 Q36 (a stop is `unknown { Cancelled }`, held until a handler releases it).
-// Pending merge 6: written against merge-6-streams/proposal-v2.md revision 7, 4.4.
+// Pending merge 6: written against merge-6-streams/proposal-v2.md revision 7.1, 4.4.
 import { Schema } from "effect";
 import { definition, Flow } from "flow-state";
 import { suggestReply } from "./assistant.contracts.js";

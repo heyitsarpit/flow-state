@@ -1,24 +1,11 @@
 // The ticket contracts: plain requests with no entity or domain imports (adopting entities edits only
 // ticket.domain.ts). Every contract states `input`, `output` and `key` (rule 39). The live feeds are not
 // here: `ticketChanges` and `activity` are in feed/feed.contracts.ts (pending merge 6).
-import { Effect, Schema } from "effect";
-import { Outcome, resource, transaction } from "flow-state";
+import { Schema } from "effect";
+import { resource, transaction } from "flow-state";
+import { unknownWhenLost } from "../shared/outcomes.js";
 import { TicketApi } from "./ticket-api.js";
 import { TicketPage, TicketRow, TicketStatus } from "./types.js";
-
-// The two ways a write can end without an answer: `fetch` rejected, or the server failed with a 5xx and
-// may have applied the write first. Both are "this may have happened" (2.7.1); every other tagged error
-// the port fails with is a 4xx the server meant, so it stays a plain error and defaults to failure. The
-// classification sits here, beside the statuses the port decoded, never in the port itself.
-const unknownWhenLost = <A, E extends { readonly _tag: string }, R>(
-  write: Effect.Effect<A, E, R>,
-) =>
-  write.pipe(
-    Effect.catchTags({
-      NoResponse: (e) => Outcome.unknown(e),
-      ServerError: (e) => Outcome.unknown(e),
-    }),
-  );
 
 // Resources ----------------------------------------------------------------------------------------
 
@@ -36,7 +23,7 @@ export const ticketById = resource({
 // Every input field that changes the output is in `key` (rule 39), so the key lists all five. A key is
 // the pick of those fields and cannot be derived (OD4), so the old normalised search ("Lobby " and "lobby"
 // sharing one entry) is no longer written here: the queue's definition trims and lowercases `search`
-// before it builds the input. // design gap: normalisation moves to the caller; the key is a field list.
+// before it builds the input (decided, OD4).
 export const ticketList = resource({
   id: "DispatchDesk/ticket-list",
   input: {

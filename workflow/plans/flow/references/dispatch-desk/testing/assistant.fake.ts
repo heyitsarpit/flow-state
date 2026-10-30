@@ -3,7 +3,7 @@
 // separate service from the ticket store, and Stories here need bodies the Desk's endpoint cannot make
 // (a body with no `done`, a refusal). Demonstrates 2.10.4 (truth, endpoints, controls) and 2.10.9
 // (a streamed `fetch` body as a client half over a stream endpoint).
-// Pending merge 6: written against merge-6-streams/proposal-v2.md revision 7, 4.4.
+// Pending merge 6: written against merge-6-streams/proposal-v2.md revision 7.1, 4.4.
 import { Effect, Layer, Schema, Stream } from "effect";
 import { Fake } from "flow-state/testing"; // pending merge 6
 import { AssistantApi, Refused, SuggestFrame } from "../features/Assistant/assistant-api.js";

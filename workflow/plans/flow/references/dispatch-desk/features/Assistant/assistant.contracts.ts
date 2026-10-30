@@ -1,6 +1,6 @@
 // "Suggest a reply": a streamed write. Demonstrates M6 2.9 and 4.4 (a transaction whose commit reports
 // `progress(p)` as the body arrives) and rule 39 (a contract states input, output and key).
-// Pending merge 6: written against merge-6-streams/proposal-v2.md revision 7, S5 Q11.
+// Pending merge 6: written against merge-6-streams/proposal-v2.md revision 7.1, S5 Q11.
 import { Effect, Schema, Stream } from "effect";
 import { Outcome, transaction } from "flow-state";
 import { AssistantApi, Usage } from "./assistant-api.js";

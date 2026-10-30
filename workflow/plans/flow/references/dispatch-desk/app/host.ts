@@ -66,14 +66,17 @@ export async function runDeskHost() {
     const exit = await runtime.runPromise(
       Effect.exit(
         TicketApi.use((api) =>
-          api.load({ workspaceId: "north", ticketId: "T-42" }, new AbortController().signal),
+          api.load(
+            { workspaceId: "north", ticketId: "T-42" },
+            { signal: new AbortController().signal },
+          ),
         ),
       ),
     );
 
     console.log(exit._tag);
 
-    // Disposal is bounded: a save that cannot settle is recorded as unknown.
+    // Disposal cancels nothing: an in-flight save keeps its lane, and its ending is parked or adopted (rule 44).
     await runtime.disposeActor(scratch);
     await runtime.disposeActor(editor);
     removeEventListener("beforeunload", warnBeforeLeaving);
@@ -93,8 +96,8 @@ export function describeHostFailure(failure: unknown) {
 // Sign-out refuses while a write is unsettled (a save on the wire or one held as unknown), because
 // `forget: true` would drop the record that lets the next sign-in find out how it ended (rule 44).
 // `confirmDiscard` is the host's own dialog; it receives what would be lost, one line per lane.
-// design gap: the shape of an `unsettledWrites()` entry is not shown in the design; `operation` and `key`
-// are assumed from the lane's identity (identity, contract, key).
+// design gap: the shape of an `unsettledWrites()` entry is not shown in the design; `contract` and `key`
+// follow the lane's identity (actor, contract, key), as tools/inspection.ts lists them.
 export async function signOut(
   runtime: ReturnType<typeof DeskSetup.construct>,
   userId: string,
@@ -103,7 +106,7 @@ export async function signOut(
   const unsettled = runtime.unsettledWrites();
 
   if (unsettled.length > 0) {
-    const lost = unsettled.map((write) => `${write.operation} ${JSON.stringify(write.key)}`);
+    const lost = unsettled.map((write) => `${write.contract} ${JSON.stringify(write.key)}`);
 
     if (!(await confirmDiscard(lost))) return "Refused";
   }

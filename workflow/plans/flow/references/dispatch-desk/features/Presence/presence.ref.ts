@@ -2,7 +2,7 @@
 // queue row: both ensure the same ref, so the Runtime holds one session per ticket (M6 2.5).
 // Not persisted: who is here is only true now, and a reload opens a new session. It stays for 15
 // seconds after the last view lets go, so moving from a row to its panel does not leave and rejoin.
-// Pending merge 6: written against merge-6-streams/proposal-v2.md revision 7, S1–S10.
+// Pending merge 6: written against merge-6-streams/proposal-v2.md revision 7.1, S1–S10.
 import { actorRef } from "flow-state";
 import type { TicketKey } from "../Tickets/types.js";
 import { PresenceMachine } from "./presence.machine.js";

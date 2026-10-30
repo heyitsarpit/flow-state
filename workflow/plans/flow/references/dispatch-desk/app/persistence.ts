@@ -37,7 +37,7 @@ export const browserSetup = (userId: string) =>
  *   persisted: who is here is only true now.
  *
  * Restore never replays input, initial, events, saves or old stream values. The bytes of a dropped file
- * are not durable either: `PendingFiles` is tab memory, so a restored upload ends `FileGone`.
+ * are not durable either: `PendingFiles` is tab memory, so a restored upload arrives as the upload trait's `Lost` event, which cancels the copy, sets `FileGone` and notifies `onFailed`.
  * A durable editor needs a durable session (its context provider), or capture fails with
  * NonDurableContextProvider.
  *

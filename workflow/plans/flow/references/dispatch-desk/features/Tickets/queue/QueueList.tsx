@@ -150,8 +150,10 @@ function TicketRowItem({
   onOpen: (ticket: TicketKey) => void;
 }) {
   // The record store's copy, coherent with the editor's: a rename in the editor shows here at
-  // once. pending is true while a predicted assignment or rename is unconfirmed.
-  const ticket = useView(queue, (s) => Ticket.get(s, row, ["title", "status", "assignee"]));
+  // once. `predicted` is true while an assignment or rename is unconfirmed.
+  const ticket = useView(queue, (s) =>
+    Ticket.get(s, row, Ticket.pick("title", "status", "assignee")),
+  );
 
   // This ticket's own lane: the row passes itself, a value carrying the key's fields (OD4).
   const assign = useView(queue, (s) => O.assign.get(s, row));
@@ -163,10 +165,10 @@ function TicketRowItem({
     (s) => check(s, E.AssignToMe({ ticketId: row.ticketId }))._tag === "Allowed",
   );
 
-  if (!ticket) return null;
+  if (ticket.data === undefined) return null;
 
   return (
-    <li aria-busy={ticket.pending || assign.pending}>
+    <li aria-busy={ticket.predicted || assign.pending}>
       <button onClick={() => onOpen(row)}>{ticket.data.title}</button>
       <span className="badge">{ticket.data.status}</span>
       {assign.pending && <span role="status">Assigning…</span>}
@@ -191,15 +193,18 @@ function TicketRowItem({
   );
 }
 
-// The comments of the previewed ticket. Nothing is placed while `previewId` is null.
+// The comments of the previewed ticket. While `previewId` is null the drawer is hidden; the trait still
+// lives, and its thread read is off.
 function PreviewDrawer({ queue }: { queue: QueueActor }) {
   const previewId = useView(queue, (s) => s.memory.previewId);
   const title = useView(queue, (s) =>
     s.memory.previewId === null
       ? undefined
-      : Ticket.get(s, { workspaceId: s.memory.workspaceId, ticketId: s.memory.previewId }, [
-          "title",
-        ])?.data.title,
+      : Ticket.get(
+          s,
+          { workspaceId: s.memory.workspaceId, ticketId: s.memory.previewId },
+          Ticket.pick("title"),
+        ).data?.title,
   );
 
   if (previewId === null) return null;

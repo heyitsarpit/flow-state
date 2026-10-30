@@ -1,10 +1,9 @@
 // Assistant Stories: tokens, Stop mid-stream, a truncated body, a stall, a refusal, a reload while asking.
 // Each runs the machine over the model fake, paced by wire words, never by injected results.
-// Pending merge 6: written against merge-6-streams/proposal-v2.md revision 7, 4.4.
+// Pending merge 6: written against merge-6-streams/proposal-v2.md revision 7.1, 4.4.
 import { Story } from "flow-state/testing";
 import { DeskSetup } from "../../app/setup.js";
 import { Assistant as Model, AssistantFake, textAfter } from "../../testing/assistant.fake.js";
-import { DeskClient } from "../../testing/desk.fake.js";
 import { SessionRef } from "../Session/session.ref.js";
 import { Assistant } from "./assistant.definition.js";
 import { AssistantMachine } from "./assistant.machine.js";
@@ -12,7 +11,7 @@ import { assistantRef } from "./assistant.ref.js";
 
 const { S, E } = Assistant;
 
-const T42 = { workspaceId: "north", ticketId: "T-42" };
+const T42 = { workspaceId: "north", ticketId: "T-42" }; // also the lane key
 
 const ask = (id: string) =>
   Story.make(AssistantMachine, { id, input: T42, fixtures: [AssistantFake] }).send(
@@ -28,14 +27,14 @@ export const answered = ask("assistant/answered")
   .expect({
     state: S.IDLE,
     memory: { last: textAfter(10), incomplete: false },
-    operations: { suggest: { pending: false } },
+    operations: { suggest: [] }, // the lane is gone
   })
-  .expect(Model.suggest, [{ phase: "closed" }]);
+  .expect(Model.suggest, [{ phase: "closed", code: 1000 }]);
 
 export const streaming = midStream("assistant/streaming").expect({
   state: S.ASKING,
   memory: { last: "" },
-  operations: { suggest: { pending: true, progress: { text: textAfter(2) } } },
+  operations: { suggest: [{ key: T42, pending: true, progress: { text: textAfter(2) } }] },
 });
 
 // Stop while the body is open: the fetch is aborted, the partial text is kept as incomplete, and the
@@ -46,7 +45,7 @@ export const stopped = midStream("assistant/stopped")
   .expect({
     state: S.IDLE,
     memory: { last: textAfter(2), incomplete: true },
-    operations: { suggest: { pending: false, uncertain: false } }, // released, not held
+    operations: { suggest: [] }, // released, not held: no lane
   })
   .expect(Story.inspection, { lanes: [] });
 
@@ -71,7 +70,7 @@ export const truncated = Story.make(AssistantMachine, {
   .expect({
     state: S.IDLE,
     memory: { last: textAfter(4), incomplete: true },
-    operations: { suggest: { pending: false, uncertain: false } },
+    operations: { suggest: [] },
   });
 
 // 20 seconds of silence: the stall fails the commit and the machine hears `Cut` with the partial text.
@@ -93,15 +92,14 @@ export const refused = Story.make(AssistantMachine, {
   .expect({
     state: S.IDLE,
     memory: { last: "", incomplete: false, refused: true },
-    operations: { suggest: { pending: false } },
+    operations: { suggest: [] },
   });
 
 // A reload while asking: progress is never persisted, so the held Attempt arrives as `Restored` and the
 // reply shows as incomplete with no text. App Story (reload is a tab step), so it waits for B11's setup.
-// design gap: `fixtures` order for two client halves (DeskClient provides the other ports).
 export const reloaded = Story.make(DeskSetup, {
   id: "assistant/reloaded",
-  fixtures: [DeskClient, AssistantFake],
+  fixtures: [AssistantFake], // the setup provides every other port; only the model is faked
 })
   .ensure(SessionRef, { input: { userId: "dispatcher-7" } })
   .ensure(assistantRef(T42), { input: T42 })
@@ -111,6 +109,6 @@ export const reloaded = Story.make(DeskSetup, {
   .expect(assistantRef(T42), {
     state: S.IDLE,
     memory: { last: "", incomplete: true },
-    operations: { suggest: { pending: false, uncertain: false } },
+    operations: { suggest: [] },
   })
-  .expect(Model.suggest, [{ phase: "orphan" }]); // the request left the device; the server may finish
+  .expect(Model.suggest, [{ phase: "closed", code: 1001 }]); // the page went away; the server may finish

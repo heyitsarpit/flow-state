@@ -12,18 +12,19 @@ export function ActivityLog({ workspaceId }: { workspaceId: string }) {
   const notice = useView(feed, (s) => s.memory.notice);
   const row = useView(feed, (s) => s.operations.activity); // pending merge 6: the stream row; undefined while the feed is not placed
 
-  // pending merge 6: `connection` type-checks on an undefined, connecting or ended row; `drop` tells a
+  // pending merge 6: `connection` is Live or Connecting on a placed row; `drop` tells a
   // first "Connecting..." from a "Reconnecting" after the socket went away.
-  const badge =
-    row === undefined
-      ? "Retrying soon"
+  const signedOut = useView(feed, (s) => DeskFeed.S.SIGNED_OUT.is(s));
+
+  const badge = signedOut
+    ? "Signed out"
+    : row === undefined
+      ? "Retrying soon" // RETRY_WAIT: the feed is not placed
       : row.connection === "Live"
         ? "Live"
-        : row.connection === "Connecting"
-          ? row.drop
-            ? `Reconnecting (${row.drop.why})`
-            : "Connecting"
-          : "Offline";
+        : row.drop
+          ? `Reconnecting (${row.drop.why})`
+          : "Connecting";
 
   return (
     <section aria-label="Activity">

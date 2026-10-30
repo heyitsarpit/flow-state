@@ -19,7 +19,7 @@ export const Queue = definition({
     MineOnlyToggled: {},
     LoadMore: {},
     AssignToMe: { ticketId: Schema.String },
-    // design gap: the plan names `memory.previewId` but no events; these two set it.
+    // The drawer's open and close set `memory.previewId`.
     PreviewOpened: { ticketId: Schema.String },
     PreviewClosed: {},
   },

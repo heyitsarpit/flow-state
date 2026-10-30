@@ -1,9 +1,7 @@
 // Queue Stories: the normalised search key, mine only, paging, degraded backoff, and keyed assignments with
 // held and dropped wires. Each runs the Queue machine alone over the Desk fake (the client half provides
 // every port), with the session's user supplied as `context`. Wire words, never injected results (2.10.5).
-// design gap: a machine Story's `context` option stands in for the Session actor (2.10.1 lists it).
-// design gap: `match` filters a rule by the request's fields (`{ ticketId }`); 2.10.17.2 gives the word, and
-// the examples match on an actor or a storage purpose.
+// A machine Story's `context` option stands in for the Session actor (2.10.1), and `setContext` is a step.
 import { Story } from "flow-state/testing";
 import { Ticket } from "../ticket.domain.js";
 import { Desk, DeskClient } from "../../../testing/desk.fake.js";
@@ -58,7 +56,7 @@ export const paged = queue("queue/paged")
   .checkpoint("last-page")
   .send(E.LoadMore())
   .expect(Story.records("verdict", { since: "last-page" }), [
-    { result: { _tag: "Denied", code: "NoMorePages" } },
+    { result: { _tag: "Denied", reasons: [{ code: "NoMorePages" }] } },
   ]);
 
 // The list cannot load: the queue degrades, and polling backs off (5 seconds with jitter) instead of
@@ -86,7 +84,7 @@ export const assigned = queue("queue/assign")
   .send(E.AssignToMe({ ticketId: "T-43" })) // a second press on the same row
   .expect(Story.records("verdict"), [
     { result: { _tag: "Allowed" } },
-    { result: { _tag: "Denied", code: "InFlight" } },
+    { result: { _tag: "Denied", reasons: [{ code: "InFlight" }] } },
   ])
   .world(Desk.assign.release())
   .expect({ operations: { assign: [] } }) // the lane held nothing, so it is gone
@@ -102,7 +100,16 @@ export const assigned = queue("queue/assign")
 // Two rows at once are two lanes: each shows its own "Assigning…", and each ending is its own. One answer
 // is lost on the way back, so only that row says "?" and the other settles.
 export const assignedMany = queue("queue/assign-many")
-  .world(Desk.assign.hold({ at: "response" }))
+  .world(
+    // The drop is set first: a request takes the earliest-set rule that matches (2.10.4). The address is
+    // the lane's `operation` and `key` (rule 65).
+    Desk.assign.drop({
+      at: "response",
+      match: { operation: O.assign, key: key("T-101") },
+      times: 1,
+    }),
+    Desk.assign.hold({ at: "response" }),
+  )
   .send(E.AssignToMe({ ticketId: "T-43" }), E.AssignToMe({ ticketId: "T-101" }))
   .expect({
     operations: {
@@ -112,7 +119,6 @@ export const assignedMany = queue("queue/assign-many")
       ],
     },
   })
-  .world(Desk.assign.drop({ at: "response", match: { ticketId: "T-101" }, times: 1 }))
   .world(Desk.assign.release())
   .expect({ operations: { assign: [{ key: key("T-101"), uncertain: true }] } }) // T-43 settled, its lane gone
   .expect(Story.entity(Ticket, key("T-43")), {

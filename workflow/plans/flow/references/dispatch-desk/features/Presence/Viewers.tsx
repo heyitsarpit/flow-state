@@ -1,7 +1,7 @@
 // "Also viewing: dispatcher-2". Demonstrates the state row of M6 2.6: `value` is what the current
 // connection confirmed, `last.value` the previous one, so a drop dims the list instead of emptying it.
 // Used by the ticket panel and the queue row; both read the same watcher (presence.ref.ts).
-// Pending merge 6: written against merge-6-streams/proposal-v2.md revision 7, S1–S10.
+// Pending merge 6: written against merge-6-streams/proposal-v2.md revision 7.1, S1–S10.
 import { useActorByRef, useView } from "flow-state/react";
 import { SessionRef } from "../Session/session.ref.js";
 import type { TicketKey } from "../Tickets/types.js";

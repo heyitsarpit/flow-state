@@ -6,26 +6,27 @@
 //
 // Nothing here is Effect: a function takes truth and a request and returns the next truth and a
 // reply. Latency, holds, drops and pushes are the callers' concerns.
+import { Schema } from "effect";
 import {
   CommentRejected,
-  type CommentRow,
+  CommentRow,
   type CommentThread,
 } from "../features/Comments/comments-api.js";
-import { TooLarge, type StoredAttachment } from "../features/Attachments/attachments-api.js";
-import type { Member, Members } from "../features/Presence/presence-api.js";
+import { StoredAttachment, TooLarge } from "../features/Attachments/attachments-api.js";
+import { Members, type Member } from "../features/Presence/presence-api.js";
 import {
+  ActivityEntry,
   AlreadyAssigned,
+  TicketEvent,
   TicketLocked,
   TicketNotFound,
+  TicketRow,
   TitleRejected,
-  type ActivityEntry,
   type ActivityPage,
   type Cursor,
-  type TicketEvent,
   type TicketKey,
   type TicketListInput,
   type TicketPage,
-  type TicketRow,
 } from "../features/Tickets/types.js";
 
 export const PAGE_SIZE = 20;
@@ -44,26 +45,36 @@ export type Step<A, E> = readonly [DeskTruth, Result<A, E>];
 
 // One logged change and the activity line derived from it. They share a cursor, so the socket's
 // `change` and `activity` frames for one event carry the same position.
-export type LogItem = { workspaceId: string; event: TicketEvent; entry: ActivityEntry };
+export const LogItem = Schema.Struct({
+  workspaceId: Schema.String,
+  event: TicketEvent,
+  entry: ActivityEntry,
+});
 
-export type DeskTruth = {
-  clock: number;
-  tickets: ReadonlyArray<TicketRow>;
-  locks: Readonly<Record<string, string>>; // "workspace/ticket" → who holds it
+export type LogItem = typeof LogItem.Type;
+
+// The server's whole truth as an Effect Schema, so a fake can declare it as its `truth`: `describe`,
+// digests and generated controls read it (2.10.4, 2.10.16).
+export const DeskTruth = Schema.Struct({
+  clock: Schema.Int,
+  tickets: Schema.Array(TicketRow),
+  locks: Schema.Record(Schema.String, Schema.String), // "workspace/ticket" → who holds it
   // First reply per idempotency key. Only successes are kept: a refused write may be tried again.
-  applied: {
-    readonly tickets: Readonly<Record<string, TicketRow>>;
-    readonly comments: Readonly<Record<string, CommentRow>>;
-    readonly files: Readonly<Record<string, StoredAttachment>>;
-  };
-  comments: ReadonlyArray<CommentRow>;
-  files: Readonly<Record<string, StoredAttachment>>;
+  applied: Schema.Struct({
+    tickets: Schema.Record(Schema.String, TicketRow),
+    comments: Schema.Record(Schema.String, CommentRow),
+    files: Schema.Record(Schema.String, StoredAttachment),
+  }),
+  comments: Schema.Array(CommentRow),
+  files: Schema.Record(Schema.String, StoredAttachment),
   // One log for the server, filtered by workspace on read. A reset starts a new epoch at seq 1.
-  epoch: number;
-  nextSeq: number;
-  log: ReadonlyArray<LogItem>; // only what retention still keeps
-  viewers: Readonly<Record<string, Members>>; // "workspace/ticket" → who has it open
-};
+  epoch: Schema.Int,
+  nextSeq: Schema.Int,
+  log: Schema.Array(LogItem), // only what retention still keeps
+  viewers: Schema.Record(Schema.String, Members), // "workspace/ticket" → who has it open
+});
+
+export type DeskTruth = typeof DeskTruth.Type;
 
 export const keyOf = (key: TicketKey) => `${key.workspaceId}/${key.ticketId}`;
 

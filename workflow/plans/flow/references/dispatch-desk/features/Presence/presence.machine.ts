@@ -1,8 +1,8 @@
 // WATCHING places the session; an ended session waits in RETRY_WAIT with a doubling delay that only a
 // healthy minute resets (M6 2.7, RV1 M9). Demonstrates rules 25 and 50 (only the fragment subscribes).
-// Pending merge 6: written against merge-6-streams/proposal-v2.md revision 7, S1–S10.
+// Pending merge 6: written against merge-6-streams/proposal-v2.md revision 7.1, S1–S10.
 import { Duration } from "effect";
-import { machine } from "flow-state";
+import { deny, machine } from "flow-state";
 import { MAX_REOPEN_MS, MIN_REOPEN_MS, Presence } from "./presence.definition.js";
 
 export const PresenceMachine = machine(Presence, ({ S, E, O }) => ({
@@ -21,7 +21,7 @@ export const PresenceMachine = machine(Presence, ({ S, E, O }) => ({
       on: {
         Healthy: {
           target: "self",
-          guard: [({ operations }) => operations.viewers?.connection === "Live"], // accepted: connection
+          guard: [({ operations }) => operations.viewers?.connection === "Live" || deny("NotLive")], // accepted: connection
           updateMemory: () => ({ reopenInMs: MIN_REOPEN_MS }),
         },
         Ended: {
@@ -37,7 +37,7 @@ export const PresenceMachine = machine(Presence, ({ S, E, O }) => ({
       schedules: {
         reopen: { schedule: ({ memory }) => Duration.millis(memory.reopenInMs), send: E.Reopen },
       },
-      on: { Reopen: S.WATCHING, SignedOut: S.SIGNED_OUT },
+      on: { Reopen: S.WATCHING },
     },
     SIGNED_OUT: {}, // the Session actor closes the panel; nothing to re-open
   },
