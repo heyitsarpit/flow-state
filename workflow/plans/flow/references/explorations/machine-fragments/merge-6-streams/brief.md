@@ -16,7 +16,7 @@ Short names for citations (all under `workflow/plans/flow/`):
 | MD | `references/explorations/machine-fragments/machine-design.md` (merges 1, 2, 4, 5 and operations-in-definition) |
 | OD | `references/explorations/machine-fragments/merged/operations/decisions.md` (OD1–OD26) |
 | M4 | `references/explorations/machine-fragments/merged/entities.md` (merge 4, merged into MD 2.8 and rules 26–38) |
-| M3 | `references/explorations/machine-fragments/merge-3-stories/` (Stories; **not accepted**) |
+| M3 | `references/explorations/machine-fragments/merged/stories/` (Stories; **not accepted**) |
 | GAPS | `references/explorations/machine-fragments/merge-6-streams/gaps.md` (findings and the source table; its line citations were not re-verified) |
 | R1, R2 | `references/explorations/machine-fragments/merge-6-streams/reviews/review-1.md`, `review-2.md` |
 | AUD | `references/explorations/machine-fragments/audit-multiplicity.md` |

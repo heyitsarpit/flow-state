@@ -2,7 +2,7 @@
 
 Status: **advice to the main session, not a decision.** I read proposal-v2.md end to end, decisions S1–S7 (fixed),
 brief.md, v2-review-1 (RV1), v2-review-2 (RV2), model/RESULTS.md (MDL), machine-design.md (MD) rules 8, 14, 17, 20, 25,
-29, 39–60, 2.9 and N1–N3, EntityDomains.plan's repair paragraph, and merge-3-stories/proposal-v2.md 2.10, 3.3, 4.3.
+29, 39–60, 2.9 and N1–N3, EntityDomains.plan's repair paragraph, and merged/stories/proposal-v2.md 2.10, 3.3, 4.3.
 Effect calls were checked against `node_modules/effect/src` (4.0.5). Nothing was run. The model is treated as evidence
 that section 3's tables agree with their invariants. It is not evidence about cases outside its server: pages
 ascending, one session per key, one placement.

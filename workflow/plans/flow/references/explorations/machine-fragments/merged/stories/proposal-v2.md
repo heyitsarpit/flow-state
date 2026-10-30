@@ -1,5 +1,9 @@
 # Stories, designed from the brief (merge 3, proposal v2, revision 3)
 
+**Merged into machine-design.md on 2026-10-31; kept as the record behind it.** It became 2.10, rules 61–66, C69–C85
+and decisions Stories T1–T7 ([merge-plan.md](merge-plan.md)). Where this record and the design differ, the design
+wins; its 4.3 and 4.6 wait for merge 6.
+
 Status: **revision 3, written 2026-10-31.** The main session decided **T1–T5** and **T7** under the owner's delegation
 ([decisions-v2.md](decisions-v2.md)): continue with this proposal (T1); no ending injection (T2, C3); one constructor,
 `Story.make` (T3, C10, B6); controls as data, applied with `world`, raced with `together` (T4, C4/C12); and the big
@@ -11,8 +15,8 @@ finding that Effect's socket finalizer does not wait for a close, all at once by
 microtask-only scheduler (RV2 H1), the stored-acknowledgement restore kept as the merged design's crash behaviour
 (RV2 M1), and every Medium and Low (1.2). It adds no big change. Revisions 1 and 2 are kept as prior art outside the
 repository. Built only from [brief.md](brief.md) (SG1–SG7, STR1–STR72, C1–C19, STF1–STF79),
-[../machine-design.md](../machine-design.md) (MD), the operations and fragment decisions (OD, F),
-[../merge-6-streams/proposal-v2.md](../merge-6-streams/proposal-v2.md) (M6, decisions S1–S7), [../../playback.md](../../playback.md)
+[../machine-design.md](../../machine-design.md) (MD), the operations and fragment decisions (OD, F),
+[../merge-6-streams/proposal-v2.md](../../merge-6-streams/proposal-v2.md) (M6, decisions S1–S7), [../../playback.md](../../../playback.md)
 (PB), the plans, and Effect 4.0.5's `effect/testing/TestClock.ts` and `effect/socket/Socket.ts`. The earlier
 `proposal.md` and its reviews were not read.
 

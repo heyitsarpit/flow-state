@@ -1,18 +1,18 @@
 # Merge plan: Stories (merge 3) into machine-design.md
 
-Status: **change set 1 applied 2026-10-31; change set 2 and the mechanics wait.** Written as proposed: under the
-owner's overnight delegation ([delegated-decisions.md](../delegated-decisions.md), "Widened again") and
+Status: **applied 2026-10-31** (change sets 1 and 2 and mechanics M1–M7; delegated-decisions.md rows 18–22). Written as proposed: under the
+owner's overnight delegation ([delegated-decisions.md](../../delegated-decisions.md), "Widened again") and
 [decisions-v2.md](decisions-v2.md) T1–T7, the main session approves this change list and resolves the small conflicts;
 each is to be logged in delegated-decisions.md, marked "delegated". This plan found **no owner conflict** (1.5).
 Written against `machine-design.md` at HEAD `7e7c430f` (last changed by the operations-in-fragments merge and its
 check) and `proposal-v2.md` revision 3 (`10ae00f4`), whose model passes ([model/RESULTS.md](model/RESULTS.md)) and
 whose last review has no High once T7 is applied ([reviews/v2-review-2.md](reviews/v2-review-2.md)). Method as in
-[merged/fragment-operations/merge-plan.md](../merged/fragment-operations/merge-plan.md) (OPP),
-[reviews/fragments-merge-check.md](../reviews/fragments-merge-check.md) and delegated-decisions.md.
+[merged/fragment-operations/merge-plan.md](../fragment-operations/merge-plan.md) (OPP),
+[reviews/fragments-merge-check.md](../../reviews/fragments-merge-check.md) and delegated-decisions.md.
 
-Short names: **MD** [machine-design.md](../machine-design.md); **SP** [proposal-v2.md](proposal-v2.md) (revision 3,
+Short names: **MD** [machine-design.md](../../machine-design.md); **SP** [proposal-v2.md](proposal-v2.md) (revision 3,
 accepted for merging); **T** [decisions-v2.md](decisions-v2.md) (T1–T7); **MDL** the model's RESULTS; **M6**
-[merge-6-streams/proposal-v2.md](../merge-6-streams/proposal-v2.md) (held for the owner, **not merged**). The earlier
+[merge-6-streams/proposal-v2.md](../../merge-6-streams/proposal-v2.md) (held for the owner, **not merged**). The earlier
 [proposal.md](proposal.md) and its reviews stay as prior art. "Before" quotes are copied from MD; "…" only shortens a
 quote, and the edit replaces the whole sentence, row or block it names.
 
@@ -147,7 +147,7 @@ All three should be logged as "delegated" so the owner sees them.
    the normative tables), 3.6, sections 5–7, change log, decisions.
 2. **Change set 2, examples** (EX1–EX8): the new 2.10.18, the code blocks of 2.10.4 and 2.10.12, and MD's 2.7.11,
    3.1 and 3.2 Stories, after change set 1 is checked.
-3. Each change set ends with a check in [reviews/fragments-merge-check.md](../reviews/fragments-merge-check.md)'s form;
+3. Each change set ends with a check in [reviews/fragments-merge-check.md](../../reviews/fragments-merge-check.md)'s form;
    then the mechanics (2.7).
 4. Out of scope: `.plan` files (C rows only), playback.md (M10 offers a line), merge-6-streams/ (rebase, 2.8), the
    model folders, delegated-decisions.md (M7 lists its rows for the main session).

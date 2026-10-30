@@ -3,8 +3,8 @@
 Reviewed: [../proposal-v2.md](../proposal-v2.md) revision 2, with [../decisions-v2.md](../decisions-v2.md) T1–T6 taken
 as fixed, against [../brief.md](../brief.md), [v2-review-1.md](v2-review-1.md) (RV1) and its four Story files, the
 model's counterexample and ambiguities ([../model/RESULTS.md](../model/RESULTS.md), MDL; the file on disk is still the
-revision-1 run, so I walked F1 and every ambiguity against revision 2's tables by hand), [../../machine-design.md](../../machine-design.md)
-(MD), [../../merge-6-streams/proposal-v2.md](../../merge-6-streams/proposal-v2.md) revision 5 (M6), and Effect 4.0.5 as
+revision-1 run, so I walked F1 and every ambiguity against revision 2's tables by hand), [../../machine-design.md](../../../machine-design.md)
+(MD), [../../merge-6-streams/proposal-v2.md](../../../merge-6-streams/proposal-v2.md) revision 5 (M6), and Effect 4.0.5 as
 installed at the repository root (`effect/src/testing/TestClock.ts`, `effect/src/Scheduler.ts`). These findings are
 advice to the main session. Nothing here is decided.
 

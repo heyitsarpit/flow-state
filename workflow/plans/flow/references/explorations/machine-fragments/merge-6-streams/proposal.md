@@ -38,7 +38,7 @@ Short names for citations (all under `workflow/plans/flow/`):
 | MD | `references/explorations/machine-fragments/machine-design.md` (merges 1, 2, 4, 5 and operations-in-definition) |
 | OD | `references/explorations/machine-fragments/merged/operations/decisions.md` (OD1–OD26, merged) |
 | OID | `references/explorations/machine-fragments/merged/operations/proposal.md` (the record, merged) |
-| M3 | `references/explorations/machine-fragments/merge-3-stories/proposal.md` (being revised, not accepted) |
+| M3 | `references/explorations/machine-fragments/merged/stories/proposal.md` (being revised, not accepted) |
 | M4 | `references/explorations/machine-fragments/merged/entities.md` (accepted) |
 | EDP | `EntityDomains.plan` |
 | ED | `references/design/entity-domain.md` |

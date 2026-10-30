@@ -1,5 +1,7 @@
 # Stories (from-scratch design): decisions
 
+Merged into machine-design.md's decisions as "Stories T1–T7" on 2026-10-31 ([merge-plan.md](merge-plan.md)).
+
 Decisions on [proposal-v2.md](proposal-v2.md). All made by the main session under the owner's overnight delegation
 (delegated-decisions.md), for the owner's review.
 

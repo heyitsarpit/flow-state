@@ -259,3 +259,28 @@ The same limit as item 7, for `.each` copies that own writes (design 2.7.13's li
 ## 27. Delivering `Interrupted` on restore to every lookup a persisted incarnation was waiting on (deferred by operations-in-fragments, 2026-10-31)
 
 A fragment has no restore event, so a fragment waiting on a live lookup keeps a recurring schedule (rule 52). Delivering `Interrupted` on restore would reopen OD9 Q26 for fragments (record review 3).
+
+## 28. A `Fake.fetch` route-table helper (deferred by Stories, 2026-10-31)
+
+`Fake.fetch(server, route)` takes a function from a web `Request` to an endpoint and input (design 2.10.4). A helper
+that maps method and path to an endpoint would remove that function for most REST fakes. Not needed for correctness.
+
+## 29. A typed `match` on `via.subject` (deferred by Stories, 2026-10-31)
+
+Requests are matched by address (rule 65); a fragment's subject path is on every record but not a `match` field. Add
+it if a Story needs to target one subject's requests without naming the copy.
+
+## 30. The record-and-replay recorder (deferred by Stories, 2026-10-31)
+
+STR71: a scripted fake whose truth is recorded answers, captured at the transport bindings. It needs raw in-process
+capture (Inspection O5 digests cannot replay) and rots loudly when a payload stops decoding (design 2.10.16, section 6).
+
+## 31. An exhaustive small-scope search over the policy suite's machines (deferred by Stories, 2026-10-31)
+
+`propertyTest` gives a local minimum, not every reachable combination (design 2.10.16). A bounded exhaustive search on
+the real Runtime, over the suite's small machines only, would cover the cells the executable models cover today.
+
+## 32. `together` with an `{ advance }` that also runs turns (deferred by Stories, 2026-10-31)
+
+Inside `together({ advance })` no turn runs, so a timer chain does not re-arm there (design 2.10.2). Add a form that
+runs turns only if a case needs a chain inside a race.

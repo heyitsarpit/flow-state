@@ -1,9 +1,9 @@
 # Stories proposal-v2: review 1 (correctness and real code)
 
 Reviewed: [../proposal-v2.md](../proposal-v2.md) with [../decisions-v2.md](../decisions-v2.md) T1–T5 taken as fixed,
-against [../brief.md](../brief.md), [../../machine-design.md](../../machine-design.md) (MD), Testing.plan (TST),
-Inspection.plan (INS), Persistence.plan (PER), [../../../playback.md](../../../playback.md) (PB),
-[../../merge-6-streams/proposal-v2.md](../../merge-6-streams/proposal-v2.md) revision 4 (M6), the lane model and the
+against [../brief.md](../brief.md), [../../machine-design.md](../../../machine-design.md) (MD), Testing.plan (TST),
+Inspection.plan (INS), Persistence.plan (PER), [../../../playback.md](../../../../playback.md) (PB),
+[../../merge-6-streams/proposal-v2.md](../../../merge-6-streams/proposal-v2.md) revision 4 (M6), the lane model and the
 stream model results, and Effect 4.0.5 as installed (`effect/testing/TestClock.ts`, `effect/socket/Socket.ts`). Real
 Story code for the four cases is in the scratchpad (paths at the end); the friction table summarises it. Findings are
 advice to the main session. Nothing here is decided.

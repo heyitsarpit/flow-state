@@ -1,20 +1,22 @@
 # Proposal: Stories for fragments, server calls and entity domains
 
-Status: proposal, **revision 3, not accepted; awaits validation.** Merge 3 into [machine-design.md](../machine-design.md),
-which holds merges 1 and 2 (section 2.7 and rules 13–25; their records are [merged/outcomes.md](../merged/outcomes.md)
-and [merged/server-calls](../merged/server-calls/proposal.md)). It merges together with
-[merge 4](../merged/entities.md) (entity domains, rules 26–38, accepted on 2026-10-30, `M4:3-6`), and is
+**Prior art, superseded by [proposal-v2.md](proposal-v2.md)** (Stories T1), which was merged on 2026-10-31.
+
+Status: proposal, **revision 3, not accepted; awaits validation.** Merge 3 into [machine-design.md](../../machine-design.md),
+which holds merges 1 and 2 (section 2.7 and rules 13–25; their records are [merged/outcomes.md](../outcomes.md)
+and [merged/server-calls](../server-calls/proposal.md)). It merges together with
+[merge 4](../entities.md) (entity domains, rules 26–38, accepted on 2026-10-30, `M4:3-6`), and is
 written to be correct with merge 4 merged in. No `.plan` file changes until it is accepted. It makes Stories
-([Testing.plan](../../../../Testing.plan)) cover what the design added: traits and subroutines inside a machine and
+([Testing.plan](../../../../../Testing.plan)) cover what the design added: traits and subroutines inside a machine and
 alone, `.each` copies and their lives, resumable traits, server-call endings, lanes, late routing, keyed schedules,
 fixture truth, restore mid-write, and the store's records, predictions and queues around a write. Every addition is
-checked against the accepted playback design ([playback.md](../../playback.md), whose contract is Testing O4 and O9);
+checked against the accepted playback design ([playback.md](../../../playback.md), whose contract is Testing O4 and O9);
 section 3.11 says how each one appears in playback, or why it does not. There is no spike yet; the code here is
 examples only. Model-based exploration (`model()`, Testing O5) is removed by the design (T1, `D:2164`) and is not used
 or replaced here. D1–D3 were settled by the owner; every other decision (section 10) was made under the owner's
 delegation and awaits the owner's validation.
 
-**Revision (multiplicity audit, 2026-10-31).** [audit-multiplicity.md](../audit-multiplicity.md) settles Q40: lanes are plain snapshot data,
+**Revision (multiplicity audit, 2026-10-31).** [audit-multiplicity.md](../../audit-multiplicity.md) settles Q40: lanes are plain snapshot data,
 `s.calls`, beside `s.activities` (the design's rule 21 and decision D18), so a Story and a view read them from the
 snapshot and no commit value is exported; `Definition.O` goes and rule 17 says so. Record-queue members are named per send
 (rule 16). Changed passages carry this heading's words.
@@ -797,7 +799,7 @@ export const queued = story.app(setup, { id: "Issues/queue", fixtures: server })
   - `Entity.get(cut, key, shape)` returns `undefined` for an absent record, otherwise
     `{ data, predicted, uncertain, unconfirmed }`, merge 4's names (`M4:570-574`), with field meanings from
     EntityDomains O2. (Revision (multiplicity audit, 2026-10-31): what it returns for a tombstoned record, `undefined` per EntityDomains O2 or the
-    typed `Deleted` of O1, is open for the owner; [audit-multiplicity.md](../audit-multiplicity.md) F11 recommends
+    typed `Deleted` of O1, is open for the owner; [audit-multiplicity.md](../../audit-multiplicity.md) F11 recommends
     `Deleted` while the tombstone lives.) `uncertain` is true while any mark on the record remains (rule 32, `M4:608-610`). Which
     Attempt holds a mark is not a view fact; a Story checks rule 32 by its effect, as a view would: two unknowns,
     one retry succeeds, the record still reads `uncertain`.
@@ -1376,7 +1378,7 @@ working. When this proposal is accepted:
 ## 9. Open questions
 
 **Revision (multiplicity audit, 2026-10-31).** Q40 is settled by the audit (below, and the design's decision D18); it stays here for the owner's
-confirmation with the other audit decisions ([audit-multiplicity.md](../audit-multiplicity.md) section 5).
+confirmation with the other audit decisions ([audit-multiplicity.md](../../audit-multiplicity.md) section 5).
 
 **Q40. How do a Story and a view reach a commit value's lane reads?**
 

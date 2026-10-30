@@ -1410,7 +1410,7 @@ export const Stripe = {
     key: [],                                                    // one lane: one intent per checkout actor (rule 39)
     concurrency: "reject",
     commit: (input, { attempt, signal }) => Effect.gen(function* () {
-      const api = yield* StripeApi                              // production wraps fetch; Stories use a fixture
+      const api = yield* StripeApi                              // production wraps fetch; Stories use a fake's client half (2.10.4)
       const res = yield* api.confirm(input, { idempotencyKey: attempt.id, signal }).pipe(   // the author puts Flow's id on the wire (rule 19)
         Effect.retry({ while: (e) => e._tag === "NoResponse", times: 1 }),                  // invisible: inside one send
         Effect.catchTag("NoResponse", (e) => Outcome.unknown(e)))
@@ -2054,9 +2054,13 @@ request and completes each entry from the per-item statuses. Not spiked.
 **Stories read the server's truth.**
 
 ```ts
-const busyThenPaid = story.machine(Checkout, { id: "Checkout/busy-then-paid", fixtures: FakeStripe({ script: [{ status: 429, retryAfterMs: 2000 }] }) })   // Erratum (2026-10-30): 429 is Busy (the commit above); 503 would be unknown
-  .send(E.Pay()).advance("3 seconds").process()
-  .checkpoint("paid", ({ truth }) => truth.FakeStripe.charges === 1)   // the fixture's truth, read, not commented
+const busyThenPaid = Story.make(CheckoutMachine, { id: "checkout/busy-then-paid", input: { intentId: "pi_1" }, fixtures: [StripeFake] })
+  .world(Stripe.busy({ times: 1 }))                                   // user-defined control: the next confirm answers 429 (Busy)
+  .send(E.Pay({ paymentMethodId: "pm_card" }))
+  .expect({ state: S.WAITING, memory: { busyTries: 1, retryInMs: 2000 } })
+  .advance("2 seconds")                                               // WAITING's schedule fires; a new Attempt is sent
+  .expect({ state: S.DONE })
+  .expect(Stripe, { charges: [{ intentId: "pi_1", key: Story.attempt(O.pay, { n: 1 }) }] })   // the fake's truth, read
 ```
 
 A fake server holds the truth, and a Story reads it with `expect(fake, partial)` (2.10.4, 2.10.6). Every ending is
@@ -3852,15 +3856,43 @@ makes one server per run possible without breaking per-tab fixtures (STR22, STF1
 reload): a reload rebuilds only the client half, which holds no state (STF15). The dispatch desk's `DemoServer` is shadowed in
 Stories by a fixture that provides it from the run's server (STF13).
 
+```ts
+// stripe.fake.ts (test code)
+import { Fake } from "flow-state/testing"
+import { Effect, Layer, Schema } from "effect"
+
+const Charge = Schema.Struct({ intentId: Schema.String, key: Schema.String })
+export const Stripe = Fake.server("Stripe", {                                     // user-defined: Stripe
+  truth: { charges: Schema.Array(Charge), busy: Schema.Int },
+  initial: { charges: [], busy: 0 },
+  endpoints: {
+    confirm: Fake.call({
+      request: { intentId: Schema.String, key: Schema.String },                  // logged; redacted by Inspection O5
+      handle: (truth, req) =>                                                    // (truth, request) → [truth, response]
+        truth.busy > 0 ? [{ ...truth, busy: truth.busy - 1 }, { ok: false, status: 429, retryAfterMs: 2000 }]
+        : truth.charges.some((c) => c.key === req.key) ? [truth, { ok: true, status: 200, intent: succeeded(req.intentId) }]   // the fake's own dedupe (brief C16)
+        : [{ ...truth, charges: [...truth.charges, req] }, { ok: true, status: 200, intent: succeeded(req.intentId) }],
+    }),
+  },
+  controls: { busy: Fake.control({ times: Schema.Int }, (truth, { times }) => ({ ...truth, busy: times })) },
+})
+
+// The client half: the app's StripeApi (production wraps fetch), over the run's server.
+export const StripeFake = Layer.effect(StripeApi, Effect.map(Stripe, (server) => StripeApi.of({
+  confirm: (input, { idempotencyKey }) => server.confirm({ intentId: input.intentId, key: idempotencyKey }).pipe(
+    Effect.catchTag("Fake/Lost", () => new NoResponse())),                       // the client half says what a lost request raises
+})))
+```
+
 A handler returns `[truth, response]`, or an Effect of it for latency (`Effect.sleep`) or atomic updates through the
-server's truth `Ref` (`Stripe` and `StripeFake` in 2.10.18 show both halves). **A server failure never reaches the client as a defect** (rule 66, SP RV M8): a handler that dies
+server's truth `Ref`. **A server failure never reaches the client as a defect** (rule 66, SP RV M8): a handler that dies
 is a crashed server, which the wire turns into the binding's failure (`Fake/Lost` for a client half, `500` for
 `Fake.fetch`, close `1011` for `Fake.webSocket`), plus an `issue` naming the fake. Nothing in Flow reads a status, a
 header or an error type: `429` means busy because the fake author wrote it and the commit classifies it.
 
 **What a lost request raises is the binding's** (rule 66, SP RV L3). Every endpoint call fails with `Fake/Lost` when the
 wire loses it; `Fake.fetch` turns that into `fetch`'s `TypeError`, `Fake.webSocket` into a close with `1006`, and an
-app-service client half maps it itself, as `StripeFake` does (2.10.18). Endpoints declare no `lost`.
+app-service client half maps it itself, as `StripeFake` does above. Endpoints declare no `lost`.
 
 **The wire.** Every endpoint call goes through a gate Flow owns, between the client half and the handler; 2.10.17.2 and 2.10.17.3
 are normative. Its words are delivery facts true of any transport, never server meanings (brief C16, STF17):
@@ -4178,6 +4210,15 @@ another value, or `reset`), since only then can a decline from another path occu
 does not map `failure.NotSent` may be tested alone, and `flow check`, which reads the Story's steps (2.10.14), reports
 rule 20 at the first step that changes the subject (delegated, at merge).
 
+```ts
+const L = Lockout({ limit: 2, length: "1 minute" })
+export const paused = Story.make(L, { id: "lockout/paused" })                    // a trait alone; no input declared, none written
+  .enter()
+  .guards({ canStrike: deny("Paused") })                                          // the stand-in's answers from now on (default: allow)
+  .send(L.E.Strike())                                                             // public events; hostEvents are sendable alone
+  .leave()                                                                        // ends, or freezes if resumable
+```
+
 `guards` is the one way to set a stand-in guard (STF58). `enter(input, { subject })` gives the subject a real host's
 `.each` key or `resetOn` would; `enter` while frozen thaws (same subject) or resets on return (another). Callbacks and
 exits alone and in a host are the same records (STF60); rule 11's `run.calls` and `checkpoint.exit` are gone. 2.10.17.4
@@ -4462,6 +4503,352 @@ A read at `Fake.storage` (a slow or failed restore):
 6 rows × 2 columns: 12 cells, 6 defined, 6 "—". While a restore read is held, the tab has not finished bootstrap:
 its persisted actors are absent, and a send to one is `ActorAbsent`. Refused, the tab reports `StorageFailure` and runs
 without persistence (Persistence O5).
+
+#### 2.10.18 Examples
+
+Each case starts at the real source, names the fake that stands in for it, and gives the Stories in full. Machines are
+the design's (cited), unchanged. The record's chat (SP 4.3) and LLM (SP 4.6) cases run on merge 6's `Feed` and
+sessions, which are not merged; they port with merge 6 (*Stream details: merge 6*).
+
+##### 2.10.18.1 Before and after: the common case
+
+The SG2 case: an editor actor with input and a fake for its one service; two sends; time passes; the state, one
+memory field, one lane row and what the server received are checked.
+
+Before (the dispatch desk's `editor.story.ts` `saved`, 8 lines; assertions in `editor.test.tsx`):
+
+```ts
+export const saved = desk("ticket-save")
+  .send(Editor42, E.TitleChanged({ title: "Replace foyer light" }))
+  .send(Editor42, E.SaveRequested())
+  .process()
+  .checkpoint("saving")
+  .advance("2 seconds")
+  .process()
+  .checkpoint("saved");
+// editor.test.tsx: const run = await saved.run(); expect(run.checkpoints.saved.actor(Editor42)?.snapshot.state)…
+```
+
+After (6 lines with its assertions; the test file is one line):
+
+```ts
+import { Fake, Story } from "flow-state/testing"
+
+export const saved = Story.make(Editor, { id: "editor/saved", input: T42, fixtures: [TicketsFake] })
+  .send(E.TitleChanged({ title: "Replace foyer light" }), E.SaveRequested())      // each event is its own step
+  .advance("2 seconds")
+  .expect({ state: S.SAVED, memory: { title: "Replace foyer light" }, operations: { save: { pending: false } } })
+  .expect(Tickets.save, [{ input: { title: "Replace foyer light" }, via: { attempts: [Story.attempt(O.save)] } }])   // user-defined: Tickets (a Fake.server)
+// editor.test.ts
+test("editor saved", () => saved.run())
+```
+
+Added: `Story.make`, `expect`, `Story.attempt`, a fake server (`Tickets`, written like 2.10.4's `Stripe`). Dropped: `process()`, the separate
+assertion file. The "Saving…" moment is still recorded: it is a publication frame inside the `SaveRequested` step
+(2.10.6), and a checkpoint can name it only if something real keeps the save going (the fake's 2-second latency here,
+or a `hold`).
+
+##### 2.10.18.2 Checkout with 3-D Secure (common; 2.7.3–2.7.4, the operations record's 5.1)
+
+**Source.** `fetch` to the payment API with `Idempotency-Key: attempt.id`, wrapped by the app's `StripeApi` service;
+the commit classifies `429` as `Busy`, `402` as `CardDeclined`, `5xx` and `NoResponse` as unknown, and retries one
+`NoResponse` inside the send (2.7.3). The fake is 2.10.4's `Stripe` server with its `StripeFake` client half.
+3-D Secure's challenge is a control (`Stripe.requireAction()`, user-defined) whose `requires_action` answer the
+commit classifies; its Story has the shape of `busyThenPaid`.
+
+```ts
+// checkout.story.ts
+import { Fake, Story } from "flow-state/testing"
+import { CheckoutMachine } from "./checkout.machine"
+import { E, O, S } from "./checkout.definition"
+import { Stripe, StripeFake } from "./stripe.fake"                                 // user-defined (2.10.4)
+
+const checkout = (id: string) => Story.make(CheckoutMachine, { id, input: { intentId: "pi_1" }, fixtures: [StripeFake] })
+const pay = E.Pay({ paymentMethodId: "pm_card" })
+
+export const paid = checkout("checkout/paid")
+  .send(pay)                                                                        // settles: committed, invoked, answered, Intent, DONE
+  .expect({ state: S.DONE, operations: { pay: { pending: false, uncertain: false } } })
+  .expect(Stripe, { charges: [{ intentId: "pi_1", key: Story.attempt(O.pay) }] })   // the wire key is the Attempt's id
+
+export const paying = checkout("checkout/paying")
+  .world(Stripe.confirm.hold())                                                     // the request waits in transit
+  .send(pay, pay)                                                                   // a second press while paying: two steps, two cuts (rule 64)
+  .checkpoint("paying")
+  .expect({ state: S.PAYING, operations: { pay: { pending: true } } })              // check() disables Pay here; the frame renders it so
+  .expect(Story.records("verdict"), [{ result: { _tag: "Allowed" } }, { result: { _tag: "Unhandled" } }])
+  .world(Stripe.confirm.release())
+  .expect({ state: S.DONE })
+
+export const busyThenPaid = checkout("checkout/busy-then-paid")
+  .world(Stripe.busy({ times: 1 }))                                                 // user-defined control: the next confirm answers 429
+  .send(pay)
+  .expect({ state: S.WAITING, memory: { busyTries: 1, retryInMs: 2000 } })
+  .advance("2 seconds")                                                             // a new Attempt is sent
+  .expect({ state: S.DONE })
+  .expect(Story.records("ending", { operation: O.pay }), [
+    { channel: "failure", reason: { _tag: "Busy" }, attempt: Story.attempt(O.pay, { n: 0 }) },   // a 503 here would read unknown, and fail (STF4)
+    { channel: "success", attempt: Story.attempt(O.pay, { n: 1 }) },
+  ])
+
+export const droppedThenResent = checkout("checkout/dropped-then-resent")
+  .world(Stripe.confirm.drop({ at: "response", times: 2 }))                         // charged, both answers lost (the in-send retry included)
+  .send(pay)
+  .expect({ state: S.UNSURE, operations: { pay: { uncertain: true } } })
+  .advance({ next: { schedule: "checkTick" } })                                     // UNSURE's timer (user-defined name): retry, the same Attempt
+  .expect({ state: S.DONE })
+  .expect(Stripe.confirm, [                                                          // three requests, one Attempt, one charge (STF3)
+    { phase: "dropped", via: { attempts: [Story.attempt(O.pay)] } },
+    { phase: "dropped", via: { attempts: [Story.attempt(O.pay)] } },
+    { phase: "answered", via: { attempts: [Story.attempt(O.pay)] } },
+  ])
+  .expect(Stripe, { charges: [{ key: Story.attempt(O.pay) }] })
+```
+
+The two walks that need a persisted identity are app Stories (`ShopSetup` persists `CheckoutRef`):
+
+```ts
+const shop = (id: string) => Story.make(ShopSetup, { id, fixtures: [StripeFake] })
+  .ensure(Checkout1, { input: { intentId: "pi_1" } })                               // a reopened tab repeats it
+
+export const cancelledInAckWindow = shop("checkout/cancel-before-send")
+  .world(Fake.storage.write.hold({ match: { purpose: "acknowledge" } }))            // bootstrap restore is unaffected
+  .send(Checkout1, pay)
+  .advance({ next: { schedule: "tookTooLong" } })                                   // PAYING's timer: cancel; never sent
+  .expect(Story.records("ending", { operation: O.pay }), [{ channel: "failure", reason: { _tag: "NotSent", why: "Cancelled" } }])
+  .expect(Stripe.confirm, [])                                                       // the server never heard of it
+
+export const reloadMidCharge = shop("checkout/reload-mid-charge")
+  .world(Stripe.confirm.hold())                                                     // acknowledged, sent, in transit
+  .send(Checkout1, pay)
+  .closeTab("main")                                                                 // abrupt; the request still travels
+  .world(Stripe.confirm.release())                                                  // the server charges; the answer goes nowhere
+  .openTab("main", { from: "main" })                                                // re-ensures Checkout1; restore: unknown { Restored } → UNSURE
+  .expect(Checkout1, { state: S.UNSURE })
+  .advance({ next: { schedule: "checkTick" } })                                     // retry the same id; the server's dedupe answers
+  .expect(Checkout1, { state: S.DONE })
+  .expect(Stripe, { charges: [{ key: Story.attempt(O.pay) }] })                     // charged once across the reload (STF12)
+  .expect(Stripe.confirm, [{ phase: "orphan", via: { tab: { name: "main", open: 1 } } }, { phase: "answered", via: { tab: { name: "main", open: 2 } } }])
+
+export const reloadAfterPaid = shop("checkout/reload-after-paid")                  // nothing held: the charge settles before the reload
+  .send(Checkout1, pay)
+  .reload("main")                                                                   // close, reopen, re-ensure
+  .expect(Checkout1, { state: S.DONE })                                             // nothing was in flight: the restored actor is paid
+```
+
+**Walk.** `fetch` → `StripeApi` (fake client half) → the wire → `Stripe.confirm`'s handler → `StripeResponse` → the
+commit's `if (res.status === 429)` → `Busy` → `E.Busy` → WAITING. The Pay button reads `s.operations.pay.pending`;
+the `paying` frame holds that row, so playback renders it disabled. Playback shows `paying` as a scene; the next step
+(`world`) plays as "the server answers".
+
+##### 2.10.18.3 Autosave (common; 2.9.6's `Autosave` under `.each`)
+
+**Source.** `fetch("PUT /docs/:id", { headers: { "If-Match", "Idempotency-Key" }, signal })` behind `DocsApi.put`.
+
+```ts
+// docs.fake.ts
+const Doc = Schema.Struct({ body: Schema.String, etag: Schema.String })
+export const Docs = Fake.server("Docs", {                                          // user-defined: Docs
+  truth: { docs: Schema.Record({ key: Schema.String, value: Doc }), applied: Schema.Array(Schema.String) },   // applied: idempotency keys
+  initial: { docs: { d1: { body: "Hello", etag: "e1" } }, applied: [] },
+  endpoints: {
+    put: Fake.call({
+      request: { docId: Schema.String, body: Schema.String, ifMatch: Schema.String, key: Schema.String },
+      handle: (t, r) => {
+        const doc = t.docs[r.docId]
+        if (t.applied.includes(r.key)) return [t, { status: 200, etag: doc.etag }]           // a re-send of an applied write
+        if (doc.etag !== r.ifMatch) return [t, { status: 412, etag: doc.etag }]
+        const etag = bump(doc.etag)                                                          // user-defined: e1 → e2
+        return [{ docs: { ...t.docs, [r.docId]: { body: r.body, etag } }, applied: [...t.applied, r.key] }, { status: 200, etag }]
+      },
+    }),
+  },
+  controls: {
+    editElsewhere: Fake.control({ docId: Schema.String, body: Schema.String }, (t, e) => ({ ...t, docs: { ...t.docs, [e.docId]: { body: e.body, etag: bump(t.docs[e.docId].etag) } } })),
+  },
+})
+export const DocsFake = Layer.effect(DocsApi, Effect.map(Docs, (docs) => DocsApi.of({
+  put: (d, { idempotencyKey }) => docs.put({ ...d, key: idempotencyKey }).pipe(Effect.catchTag("Fake/Lost", () => new NoResponse())),
+})))
+```
+
+```ts
+// workspace.story.ts
+const ws = (id: string) => Story.make(WorkspaceMachine, { id, fixtures: [DocsFake] })
+  .send(E.Open({ docId: "d1", title: "Notes", body: "Hello", etag: "e1" }))
+const edit = (body: string) => E.docs.key("d1").Edited({ body })
+
+export const debounced = ws("autosave/debounce")
+  .send(edit("Hello w"))
+  .advance("500 millis")
+  .send(edit("Hello world"))
+  .advance("800 millis")                                                            // one pause after the last edit: one save
+  .expect(Docs.put, [{ input: { body: "Hello world", ifMatch: "e1" } }])
+  .expect({ memory: { docs: [{ key: "d1", status: "clean" }] } })
+
+export const editDuringSave = ws("autosave/edit-during-save")
+  .world(Docs.put.hold())
+  .send(edit("Hello world"))
+  .advance("800 millis")                                                            // the save is in transit
+  .send(edit("Hello world!"), E.Close({ docId: "d1" }))                             // the newer edit waits; Close is refused
+  .expect(Story.records("verdict", { event: E.Close }), [{ result: { _tag: "Denied" } }])           // Autosave.O.save.idle and the dirty check
+  .world(Docs.put.release())                                                        // Saved → the newer body goes next with the new etag
+  .expect(Docs.put, [{ input: { body: "Hello world", ifMatch: "e1" } }, { input: { body: "Hello world!", ifMatch: "e2" } }])
+
+export const conflictKeepMine = ws("autosave/412-keep-mine")
+  .world(Docs.editElsewhere({ docId: "d1", body: "Theirs" }))                       // the server's etag moves to e2
+  .send(edit("Mine"))
+  .advance("800 millis")                                                            // 412 → Conflict, the user's text kept
+  .expect({ memory: { docs: [{ key: "d1", status: "conflict", body: "Mine", serverEtag: "e2" }] } })
+  .send(E.KeepMine({ docId: "d1" }))
+  .advance("800 millis")                                                            // Overwrite → dirty → saved over e2
+  .expect(Docs, { docs: { d1: { body: "Mine" } } })
+
+export const offline = ws("autosave/offline")
+  .world(Docs.drop({ times: "always" }))                                            // on the server handle: every endpoint, until release
+  .send(edit("Hello world"))
+  .advance("800 millis")                                                            // NoResponse → SaveUnsure; resend every 2 s
+  .advance("6 seconds")                                                             // three re-sends of the same Attempt, then released
+  .expect({ memory: { docs: [{ key: "d1", status: "stalled" }] } })
+  .expect(Docs.put, Array.from({ length: 4 }, () => ({ phase: "lost", via: { attempts: [Story.attempt(Autosave.O.save)] } })))
+  .expect(Docs, { docs: { d1: { body: "Hello" } } })                                // the server never got it
+
+export const reopenedKeepsText = ws("autosave/unmounted-mid-save")
+  .world(Docs.put.hold())
+  .send(edit("Mine"))
+  .advance("800 millis")
+  .dispose()                                                                        // the workspace unmounts; the Runtime keeps the lane
+  .ensure()                                                                         // a new incarnation of the same (input-free) identity adopts it
+  .world(Docs.editElsewhere({ docId: "d1", body: "Theirs" }), Docs.put.release())   // 412 with no copy d1: parked for ["d1"] (rule 53)
+  .expect(Story.inspection, { lanes: [{ subject: ["d1"], binding: "unplaced", parked: [{ reason: { _tag: "Conflict" } }] }] })
+  .send(E.Open({ docId: "d1", title: "Notes", body: "Theirs", etag: "e2" }))        // the copy returns and adopts the Conflict
+  .expect({ memory: { docs: [{ key: "d1", status: "conflict", body: "Mine" }] } })  // the user's text, from the event (FP RV1 M9)
+```
+
+**Walk.** `Edited` arms `settle`; `advance` fires it at 800 ms and the commit's `fetch` stand-in reaches `Docs.put`.
+The operations record's 8.2 `CloseAnyway` then unmount, and a reload, are `reopenedKeepsText`'s shape in an app Story with `closeTab`.
+
+##### 2.10.18.4 Kanban board with likes (uncommon; 2.9.6's `Board` and `LikeButton`, 2.8.2's `Issues`)
+
+**Source.** `fetch` behind `IssuesApi` (`PUT /issues/:id/like` with the Attempt's key, `GET` the project's list).
+`Issues` is a fake server whose truth is `{ issues: Record<id, Row>, applied }`, with endpoints `list`, `setLike` and
+`get`, and controls `add` and `move` (written as 2.10.18.3's `Docs`).
+
+```ts
+const c7 = Issues.add({ id: "c7", projectId: "p1", likes: 3 })                     // user-defined control
+const desk = (id: string) => Story.make(IssuesSetup, { id, fixtures: [IssuesFake], world: [c7] })   // the server holds c7 before bootstrap
+  .ensure(BoardP1, { input: { projectId: "p1" } })
+const toggle = (liked: boolean) => Board.E.likes.key("c7").Toggle({ liked })
+
+export const unknownLikeKept = desk("board/unknown-like-kept")
+  .world(Issues.setLike.drop({ at: "response" }))                                    // applied on the server; the answer lost → LikeUnsure
+  .send(BoardP1, toggle(true))
+  .expect(Story.entity(Issue, { id: "c7" }), { data: { liked: true, likes: 4 }, predicted: true, uncertain: true })   // after an unknown (STF50)
+  .expect(Story.inspection, { lanes: [{ key: { id: "c7" }, subject: ["c7"], state: "Held", binding: "bound" }] })
+  .world(Issues.move({ id: "c7", to: "p2" }))                                        // the card leaves the column on the server
+  .advance("3 seconds")                                                              // reconcile: the same Attempt; deduped; the repair read moves c7 out
+  .expect(Story.entity(Issue, { id: "c7" }), { data: { projectId: "p2" }, predicted: false, uncertain: false })
+  .expect(Issues, { issues: { c7: { likes: 4 } } })                                  // liked once
+
+export const queueAcrossActors = desk("board/queue-across-actors")
+  .ensure(IssuePageC7, { input: { issueId: "c7" } })
+  .world(Issues.setLike.hold())
+  .send(BoardP1, toggle(true))                                                       // heads c7's record queue, in transit
+  .send(IssuePageC7, IssuePage.E.like.Toggle({ liked: false }))                      // joins behind it: predicted, not sent
+  .expect(Issues.setLike, [{ input: { liked: true }, phase: "held" }])
+  .world(Issues.setLike.release())
+  .expect(Issues.setLike, [{ input: { liked: true }, phase: "answered" }, { input: { liked: false }, phase: "answered" }])   // FIFO across actors
+
+const pages = Array.from({ length: 64 }, (_, i) => issuePageRef(`c7-${i}`))          // user-defined: 64 actors on one issue
+export const overloaded = pages
+  .reduce((s, page) => s.ensure(page, { input: { issueId: "c7" } }).send(page, IssuePage.E.like.Toggle({ liked: false })),
+    desk("board/65th-write").world(Issues.setLike.hold()).send(BoardP1, toggle(true)))   // 1 held head + 63 queued; the 65th is refused
+  .expect(Story.records("ending", { channel: "failure" }), [{ reason: { _tag: "NotSent", why: "Overloaded" }, instance: ["like"] }])
+  .expect(Story.inspection, { domains: { issues: { queues: [{ key: { id: "c7" }, length: 64 } ] } } })   // no partial join
+
+export const twoTabs = desk("board/two-tabs")
+  .send(BoardP1, toggle(true))
+  .openTab("b", { from: "main" })                                                    // ensures BoardP1 in b too: the same server, b's own store
+  .expect(Story.entity(Issue, { id: "c7" }, { tab: "b" }), { data: { liked: true, likes: 4 }, predicted: false })
+  .expect(Story.inspection({ tab: "b" }), { persistence: { status: "SecondTabNoPersistence" } })
+```
+
+"Never shown twice" (rule 33) is a property over every frame of the list Stories (2.8.2's `List`, which creates):
+
+```ts
+const shownOnce = Story.property("a created issue is never shown as a draft too", (frame) => {
+  const s = frame.read(ListP1); if (s === undefined) return undefined
+  const rows = Issues.list.get(s, { projectId: "p1" })?.rows ?? []
+  const both = s.memory.creating.filter((d) => !d.discarded && d.status !== "created" && rows.some((r) => r.id === d.id))
+  return both.length > 0 ? both : undefined                                                     // the violation is a value
+})
+export const created = Story.make(IssuesSetup, { id: "list/created", fixtures: [IssuesFake], properties: [shownOnce] })
+  .ensure(ListP1, { input: { projectId: "p1" } })
+  .send(ListP1, List.E.Create({ draftId: "dr1", title: "New" }))
+```
+
+**Walk.** "A like that ends unknown on a card removed and re-added" is 2.9.6's `IssueRow` walk: the same steps over
+a host without the keep-busy line, where the list's next answer removes copy c7 (its unknown is parked for `["c7"]`,
+read in `Story.inspection`) and `Issues.move` back re-adds it, whose new life adopts and reconciles.
+
+##### 2.10.18.5 Onboarding wizard (uncommon; 3.2's `Confirm`, the operations record's 9.6)
+
+**Source.** `fetch` behind `AccountsApi`: a profile save keyed by draft (`saveProfile`) and the final `submit`.
+
+```ts
+export const confirmYes = Story.make(Confirm, { id: "confirm/yes" })                  // a subroutine alone (rule 11)
+  .enter()
+  .send(Confirm.E.Yes())
+  .expect(Story.records("exit"), [{ instance: [], name: "Confirmed", payload: {} }])
+
+const signup = (id: string) => Story.make(SignupMachine, { id, fixtures: [AccountsFake] })
+export const discardDeclined = signup("signup/discard-declined")
+  .send(E.Next(), E.Cancel())                                                        // user-defined: Next, ProfileChanged (the operations record's 9.6 page events)
+  .expect({ state: S.CANCELLING })
+  .send(E.CANCELLING.No())
+  .expect({ state: S.WIZARD.PROFILE })                                               // history restores the page, fields kept
+  .expect(Story.records("exit"), [{ instance: ["CANCELLING"], name: "Declined" }])   // the same record shape as alone (STF60)
+
+export const submitWaitsForProfile = signup("signup/submit-guarded")
+  .world(Accounts.saveProfile.drop({ at: "response" }))                              // the profile save ends unknown: held
+  .send(E.ProfileChanged({ name: "Ada" }))
+  .advance({ next: { schedule: "saveProfile" } })                                   // its debounce (user-defined name) commits the save
+  .send(E.Submit())
+  .expect(Story.records("verdict", { event: E.Submit }), [{ result: { _tag: "Denied", reasons: [{ code: "Uncertain" }] } }])   // O.save.idle over a partial key
+  .expect(Accounts.submit, [])                                                       // an old profile is never submitted
+  .dispose()
+  .ensure()                                                                          // an input-free local machine is one identity: it adopts the hold
+  .expect(Story.records("ending", { operation: O.save }), [{ channel: "unknown" }, { channel: "unknown", reason: { _tag: "Restored" }, route: { kind: "current" } }])
+```
+
+`.leave()` on `Confirm` alone abandons it: `Story.records("exit")` stays empty and `frame.read()` is `undefined`.
+
+##### 2.10.18.6 A fragment reused on two hosts (uncommon; 2.9.6's `LikeButton`)
+
+```ts
+export const likeAlone = Story.make(LikeButton, { id: "like/alone", fixtures: [IssuesFake], world: [c7] })   // R includes IssuesApi (rule 57)
+  .world(Issues.setLike.drop({ at: "response" }))
+  .enter({ id: "c7" })                                                               // the trait's Input record
+  .send(LikeButton.E.Toggle({ liked: true }))
+  .expect({ operations: { set: [{ key: { id: "c7" }, uncertain: true }] } })         // its own rows (rule 59)
+  .leave()                                                                           // ends (a one-copy .each, 2.10.12); no release on leave (F6, F9): the hold stays
+  .expect(Story.inspection, { lanes: [{ key: { id: "c7" }, subject: [], binding: "unplaced", state: "Held" }] })   // no stand-in parts
+  .enter({ id: "c7" })                                                               // a new life adopts it: unknown { Restored }
+  .advance("3 seconds")                                                              // reconcile re-sends the same Attempt
+  .expect(Issues, { issues: { c7: { likes: 4 } } })
+
+export const bothHosts = desk("like/both-hosts")                                    // 2.10.18.4's desk: one Runtime, two hosts of one fragment
+  .ensure(IssuePageC7, { input: { issueId: "c7" } })
+  .world(Issues.setLike.drop({ at: "response", match: { actor: IssuePageC7 } }))   // only the page's request
+  .send(BoardP1, Board.E.likes.key("c7").Toggle({ liked: true }))
+  .send(IssuePageC7, IssuePage.E.like.Toggle({ liked: true }))
+  .expect(Story.records("ending", { operation: LikeButton.O.set, actor: BoardP1 }), [{ channel: "success", instance: ["likes"], copy: "c7", subject: ["c7"] }])
+  .expect(Story.records("ending", { operation: LikeButton.O.set, actor: IssuePageC7 }), [{ channel: "unknown", instance: ["like"], subject: [] }])
+  .expect(Issues.setLike, [{ via: { attempts: [Story.attempt(LikeButton.O.set, { actor: BoardP1 })] } }, { via: { attempts: [Story.attempt(LikeButton.O.set, { actor: IssuePageC7 })] } }])
+
+Story.make(IssuePageMachine, { id: "page/no-fake", input: { issueId: "c7" }, fixtures: [] })
+// type error: IssuesApi is missing (LikeButton's R, rule 57)
+```
 
 ## 3. Example
 
@@ -4882,16 +5269,19 @@ export function TwoFactorStep({ signIn }: { signIn: Actor<typeof SignInMachine> 
 ```
 
 ```ts
-// lockout.test.ts: a fragment alone (rule 11); send runs its turn, process drains due work
+// lockout.story.ts: a fragment alone (rule 11); every step settles (rule 61)
 const L = Lockout({ limit: 2, length: "1 minute" });
-const locks = story
-  .machine(L, { id: "Lockout/locks-then-clears" })
-  .send(L.E.Strike()).send(L.E.Strike())
+export const locks = Story.make(L, { id: "lockout/locks-then-clears" })
+  .enter()
+  .send(L.E.Strike(), L.E.Strike())
   .checkpoint("locked")
-  .advance("1 minute").process()
-  .checkpoint("cleared");
-// locked: memory.strikes === 2, schedules.timer.done.dueAt === now + 60_000, run.calls.onLocked.length === 1
-// cleared: memory.strikes === 0, run.calls.onUnlocked.length === 1
+  .expect({ memory: { strikes: 2 } })
+  .expect(Story.records("callback"), [{ name: "onLocked" }])
+  .advance("1 minute")                                               // the lock's timer fires and its turn runs
+  .checkpoint("cleared")
+  .expect({ memory: { strikes: 0 } })
+  .expect(Story.records("callback", { since: "locked" }), [{ name: "onUnlocked" }]);
+// at "locked", s.schedules.timer.done.dueAt is Story.now + 60_000 (cut.read(Story.now))
 ```
 
 ### 3.2 A subroutine with exits, history, drafts and a visible retry
@@ -5010,9 +5400,12 @@ const asking = useView(signup, (s) => S.CANCELLING.is(s));
 ```
 
 ```ts
-// confirm.test.ts: a subroutine alone (rule 11)
-const yes = story.machine(Confirm, { id: "Confirm/yes" }).enter({}).send(Confirm.E.Yes()).checkpoint("end");
-// run.checkpoints.end.exit → { exit: "Confirmed", payload: {} }; .leave() instead would abandon it
+// confirm.story.ts: a subroutine alone (rule 11)
+export const confirmYes = Story.make(Confirm, { id: "confirm/yes" })
+  .enter()
+  .send(Confirm.E.Yes())
+  .expect(Story.records("exit"), [{ instance: [], name: "Confirmed", payload: {} }]);
+// .leave() instead abandons it: no exit record, and read() is undefined
 ```
 
 Had the fields been placed on each page, they would come back empty after Keep, and `flow check`
