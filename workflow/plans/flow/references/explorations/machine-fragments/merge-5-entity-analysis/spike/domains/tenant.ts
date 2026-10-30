@@ -14,3 +14,4 @@ export const tenantDomain = (tenant: string, opts: { strict: boolean; archivedTo
 export const A = tenantDomain("a", { strict: true });
 export const B = tenantDomain("b", { strict: false });
 export const A2 = tenantDomain("a", { strict: true });
+export const T3 = tenantDomain(`t${Date.now()}`, { strict: true }); // review 5: a non-literal factory argument (an info finding)

@@ -1,5 +1,5 @@
 $ tsc -p .   (TypeScript 7.0.2)
-tsc: 0 errors; all 14 @ts-expect-error checks in types.ts and 4 in review 3's probe files hold
+tsc: 0 errors; all 16 @ts-expect-error checks in types.ts and 8 in the probe files hold
 
 $ bun main.ts   (bun 1.4.2)
 (a) conditions record and evaluate three-valued: the conformance table (M5-D3)
@@ -18,7 +18,14 @@ $ bun main.ts   (bun 1.4.2)
    | `eq` | `eq(r.meta.owner, "ana")` | meta = { owner: "ana" } | yes |
    | `eq` | `eq(r.meta.owner, "ana")` | meta not carried | maybe: not carried |
    | `eq` | `eq(r.nick, "x")` | nick held by the store, value absent (carried) | no |
-   | `isNull` | `isNull(r.nick)` | nick held, value absent: not null | no |
+   | `isNull` | `isNull(r.nick)` | nick held, value absent (the server may mean null) | maybe: server |
+   | `eq` | `eq(r.author.userId, "u")` | the store holds author as { name } only (path [author, name]) | maybe: not carried |
+   | `eq` | `eq(r.author.userId, "u")` | author held whole, userId absent | no |
+   | `eq` | `eq(r.n, 1)` | n = "1" (the wrong kind) | maybe: failed |
+   | `oneOf` | `oneOf(r.s, [i.a, i.b])` | a = "x", b = null (present) | maybe: server |
+   | `oneOf` | `oneOf(r.s, [i.a, i.b])` | a = "z", b absent (dropped at the top) | yes |
+   | `contains` | `contains(r.t, 5)` | t = [NaN] | maybe: failed |
+   | `between` | `between(r.n, 10, 1)` | from after to, n = 5 | maybe: server |
    | `oneOf` | `oneOf(r.s, i.xs)` | s = "b", xs = ["a", "b"] | yes |
    | `oneOf` | `oneOf(r.s, i.xs)` | s = "c", xs = ["a", "b"] | no |
    | `oneOf` | `oneOf(r.s, i.xs)` | xs = [] | maybe: server |
@@ -65,7 +72,7 @@ $ bun main.ts   (bun 1.4.2)
    | `or` | `or(eq(r.a, i.me), serverMatches(i.q, r.title))` | a = me | yes |
    | `or` | `or(eq(r.a, i.me), serverMatches(i.q, r.title))` | a = someone else | maybe: server |
    | `not` | `not(serverMatches(i.q, r.title))` | any record | maybe: server |
-   PASS 60/60 conformance rows give their expected result
+   PASS 67/67 conformance rows give their expected result
 
    tickets.list where and(eq(record.workspaceId, input.workspaceId), eq(record.status, input.status), eq(record.assignee, input.assignee), serverMatches(input.search, record.title))
    PASS w1, absent filters dropped: the two w1 tickets are maybe (serverMatches), the w2 ticket no
@@ -136,6 +143,11 @@ $ bun main.ts   (bun 1.4.2)
    PASS a bigint field: compared structurally, no harness failure
    PASS documented limit: a cached clock read gives the same value twice, so the double call cannot see it; settlement corrects it
    PASS the sealed session's error is a fault: reported, and the slot is shown as uncomputed
+   PASS Date set*, Map.set and Set.add on the frozen record are faults even when they change nothing (an idempotent write), with checkReplays off
+   PASS a Uint8Array in the record or the input neither throws out of replay nor fails a write's start
+   PASS under checkReplays, a function that throws only on its second call is a fault, not uncomputed
+   PASS the caller's objects are copied before freezing: a shared input object and a module array a function returned stay unfrozen
+   PASS nested partial carriage: with author held as { name } only, a condition on author.userId is maybe (not carried), so a change to author repairs
    PASS a bigint key is compared, not thrown
    PASS a circular key cannot crash the replay
    PASS keys are decoded through the primary key's Schema: "12" and 12 are one record
@@ -147,6 +159,9 @@ $ bun main.ts   (bun 1.4.2)
    PASS A9: likes is not held, its function gives NaN: uncomputed (the field's Schema rejects NaN)
    PASS A9: settlement reads the replay: the uncomputed likes is unconfirmed and gets its confirming read
    PASS a response carrying only meta.color does not confirm a predicted meta; one carrying meta whole does
+   PASS when every carrier holds only part of the predicted field (meta.color), the prediction ends (PredictionNotRetained), never waits forever
+   PASS a nested default applies only when its parent is present
+   PASS a JavaScript caller that omits a Type-side required (defaulted) key gets InputMissingRequiredKey at answer creation
    PASS spreading the recording input throws at construction
    PASS JSON.stringify(input) throws at construction
    PASS `in` on the recording input throws at construction
@@ -157,7 +172,7 @@ $ bun main.ts   (bun 1.4.2)
    PASS two tenants sharing operations: an error, so a factory parameterises its operations too
 
 (d) the lint: an allowlist grammar, with type facts
-   linted the project's program with type facts from typescript/unstable/async in 222 ms
+   linted the project's program with type facts from typescript/unstable/async in 283 ms
    domains/legacy.ts:1 [not-recorded] not a recorded expression: this file is not type-checked (@ts-nocheck or JavaScript), so its recorded positions cannot b
    domains/legacy.ts:15 [closure] a predicted field's function uses `input` from its `.predicts` callback (a recording value)
       instruction: a predicted field's function receives the input as its second parameter, (beneath, input) => …
@@ -223,14 +238,15 @@ $ bun main.ts   (bun 1.4.2)
    domains/p.ts:10 [not-recorded] not a recorded expression: `input.position ? Card : Card2` (ConditionalExpression)
       instruction: a recorded expression cannot branch: write or(and(…), and(…)) over conditions, make two read entries, choose t
    domains/p.ts:12 [not-recorded] not a recorded expression: a computed field name
-   domains/p.ts:14 [not-recorded] not a recorded expression: `Date.now() % 2 ? eq((Card as any).fields.boardId, "a") : eq(` (ConditionalExpression)
-      instruction: a recorded expression cannot branch: write or(and(…), and(…)) over conditions, make two read entries, choose t
+   domains/p.ts:14 [not-recorded] not a recorded expression: a recorded callback takes exactly one parameter (it has 0)
    domains/p.ts:7 [not-recorded] not a recorded expression: `c.input.mineOnly ? eq(c.record.boardId, "a") : eq(c.record.b` (ConditionalExpression)
       instruction: a recorded expression cannot branch: write or(and(…), and(…)) over conditions, make two read entries, choose t
    main.ts:1 [not-recorded] not a recorded expression: this file is not type-checked (@ts-nocheck or JavaScript), so its recorded positions cannot b
-   main.ts:291 [not-recorded] not a recorded expression: a call to `JSON.stringify` (only library operators, same-file helpers that meet this grammar,
+   main.ts:242 [not-recorded] not a recorded expression: `fn` is neither a read on the callback's parameters nor a literal constant
+      instruction: a value computed at load (Date.now(), a call) is stale; pass it as an input, or use a literal const
+   main.ts:326 [not-recorded] not a recorded expression: a call to `JSON.stringify` (only library operators, same-file helpers that meet this grammar,
       instruction: compute it in the machine and pass it as an input, or inline it as operators
-   main.ts:292 [not-recorded] not a recorded expression: `"status" in input ? eqF(record.status, "open") : eqF(record.` (ConditionalExpression)
+   main.ts:327 [not-recorded] not a recorded expression: `"status" in input ? eqF(record.status, "open") : eqF(record.` (ConditionalExpression)
       instruction: a recorded expression cannot branch: write or(and(…), and(…)) over conditions, make two read entries, choose t
    types.ts:47 [not-recorded] not a recorded expression: `record.updatedAt - 1` (BinaryExpression)
       instruction: write it with condition operators over the callback's parameters and constants; compute anything else in the m
@@ -238,13 +254,54 @@ $ bun main.ts   (bun 1.4.2)
       fix-it: eq(record.workspaceId, input.workspaceId)
    types.ts:57 [closure] a predicted field's function uses `input` from its `.predicts` callback (a recording value)
       instruction: a predicted field's function receives the input as its second parameter, (beneath, input) => …
-   types.ts:64 [not-recorded] not a recorded expression: `record.title ? eq(record.status, "open") : eq(record.status,` (ConditionalExpression)
+   types.ts:65 [not-recorded] not a recorded expression: a recorded callback takes exactly one parameter (it has 0)
+   types.ts:68 [not-recorded] not a recorded expression: `record.title ? eq(record.status, "open") : eq(record.status,` (ConditionalExpression)
       instruction: a recorded expression cannot branch: write or(and(…), and(…)) over conditions, make two read entries, choose t
    domains/cal.ts:15 [not-recorded] not a recorded expression: `new Date()` runs once, at construction (a Date constant is new Date("…literal…"))
       instruction: pass the value as an input field the machine supplies (input.now)
    domains/cal.ts:17 [not-recorded] not a recorded expression: `new Date(NOW)` runs once, at construction (a Date constant is new Date("…literal…"))
       instruction: pass the value as an input field the machine supplies (input.now)
    domains/cal.ts:19 [not-recorded] not a recorded expression: helper `startOfToday` is not one expression
+   domains/r3.ts:22 [not-recorded] not a recorded expression: a recorded callback the lint cannot follow (`extW` is declared elsewhere): write it inline or
+   domains/r3.ts:23 [not-recorded] not a recorded expression: a recorded callback the lint cannot read here (`holder.w`): write it inline or as a const in 
+   domains/r3.ts:24 [not-recorded] not a recorded expression: a recorded callback the lint cannot follow (`bound` is declared elsewhere): write it inline o
+   domains/r3.ts:25 [not-recorded] not a recorded expression: a recorded callback the lint cannot read here (`mk()`): write it inline or as a const in this
+   domains/r3.ts:26 [not-recorded] not a recorded expression: a call to `Reflect.apply` (only library operators, same-file helpers that meet this grammar, 
+      instruction: compute it in the machine and pass it as an input, or inline it as operators
+   domains/r3.ts:27 [not-recorded] not a recorded expression: an optional call (`?.()`)
+   domains/r3.ts:28 [not-recorded] not a recorded expression: `G.v` is neither a read on the callback's parameters nor a literal constant
+      instruction: a value computed at load (Date.now(), a call) is stale; pass it as an input, or use a literal const
+   domains/r3.ts:29 [not-recorded] not a recorded expression: `Comp.A` is neither a read on the callback's parameters nor a literal constant
+      instruction: a value computed at load (Date.now(), a call) is stale; pass it as an input, or use a literal const
+   domains/r3.ts:31 [not-recorded] not a recorded expression: `BUILD` is neither a read on the callback's parameters nor a literal constant
+      instruction: a value computed at load (Date.now(), a call) is stale; pass it as an input, or use a literal const
+   domains/r3.ts:32 [not-recorded] not a recorded expression: `NOW` is neither a read on the callback's parameters nor a literal constant
+      instruction: a value computed at load (Date.now(), a call) is stale; pass it as an input, or use a literal const
+   domains/r3.ts:33 [not-recorded] not a recorded expression: a recorded callback takes exactly one parameter (it has 2)
+   domains/r3.ts:35 [not-recorded] not a recorded expression: a recorded callback takes exactly one parameter (it has 2)
+   domains/r3.ts:36 [not-recorded] not a recorded expression: a default or rest parameter (it would be evaluated once, at construction)
+   domains/r3.ts:37 [not-recorded] not a recorded expression: `t`x`` (TaggedTemplateExpression)
+      instruction: write it with condition operators over the callback's parameters and constants; compute anything else in the m
+   domains/r3.ts:40 [not-recorded] not a recorded expression: `0, eq(record.boardId, "x")` (BinaryExpression)
+      instruction: write it with condition operators over the callback's parameters and constants; compute anything else in the m
+   domains/r3.ts:42 [not-recorded] not a recorded expression: `void 0 ?? eq(record.boardId, "x")` (BinaryExpression)
+      instruction: write it with condition operators over the callback's parameters and constants; compute anything else in the m
+   domains/r3.ts:43 [not-recorded] not a recorded expression: `new String("x")` runs once, at construction (a Date constant is new Date("…literal…"))
+      instruction: pass the value as an input field the machine supplies (input.now)
+   domains/r3.ts:44 [not-recorded] not a recorded expression: a call to `JSON.parse` (only library operators, same-file helpers that meet this grammar, and
+      instruction: compute it in the machine and pass it as an input, or inline it as operators
+   domains/r3.ts:45 [not-recorded] not a recorded expression: a recorded callback the lint cannot follow (`reass` is not a const): write it inline or as a 
+   domains/r3.ts:17 [not-recorded] not a recorded expression: a default or rest parameter (it would be evaluated once, at construction)
+   domains/r3.ts:46 [not-recorded] not a recorded expression: helper `hdef2` has a default or rest parameter
+   domains/r3.ts:16 [not-recorded] not a recorded expression: a default or rest parameter (it would be evaluated once, at construction)
+   domains/r3.ts:47 [not-recorded] not a recorded expression: helper `hdef` has a default or rest parameter
+   domains/r3.ts:49 [not-recorded] not a recorded expression: `contradicts` returns a plain value, not a recorded expression
+   domains/r3.ts:50 [not-recorded] not a recorded expression: a call to `w` (only library operators, same-file helpers that meet this grammar, and pure Mat
+      instruction: compute it in the machine and pass it as an input, or inline it as operators
+   domains/r3.ts:52 [not-recorded] not a recorded expression: `record.position ? eq(record.boardId, "a") : eq(record.boardI` (ConditionalExpression)
+      instruction: a recorded expression cannot branch: write or(and(…), and(…)) over conditions, make two read entries, choose t
+   domains/r3.ts:53 [not-recorded] not a recorded expression: `canonical` returns a plain value, not a recorded expression
+   domains/r3.ts:57 [not-recorded] not a recorded expression: a recorded callback the lint cannot follow (`named` is a parameter): write it inline or as a 
    PASS domains/tickets.ts: no errors
    PASS domains/issues.ts: no errors
    PASS domains/extras.ts: no errors
@@ -255,6 +312,9 @@ $ bun main.ts   (bun 1.4.2)
    PASS review 3's 24 holes (with review 4's bare computed constants e24, e25) are all errors except e22 (impurity inside a field function: checkReplays' job): missed e22
    PASS review 4's probes: a branch in a receiver, a computed field name, a zero-parameter callback and an any-typed callback passed by name are all errors (callbacks found by position)
    PASS a file with @ts-nocheck that holds recorded positions is an error, not a pass
+   PASS review 5's 30 lint probes: all are errors except the four correct ones (a string enum member, satisfies, a factory's primitive parameter twice): passed a8b, a14, b4, b7
+   PASS default parameters in a callback, in a nested binding, and in helpers are errors
+   PASS a factory call with a non-literal argument (a time in a tenant id) gets an info finding, fixed for the domain's life; literal arguments do not
    PASS new Date(), new Date(NOW) (computed at load) and the startOfToday() helper are errors
    PASS new Date("2024-01-01…") and Math.max(1, 2) are pure: no false positive
    PASS a factory: `opts.strict ? … : …` and `opts.archivedToo ?? false` are errors; the primitive parameter `tenant` is allowed
@@ -265,26 +325,44 @@ $ bun main.ts   (bun 1.4.2)
    PASS merge 4's setLike: a closure over the recording input
    PASS a helper's `?:` is found by checking the helper's body against the grammar
 
-ALL PASS (102 checks)
+ALL PASS (113 checks)
 
-$ python3 mutations.py   (each fix of reviews 3 and 4 reverted in turn; OK means some check failed)
+$ python3 mutations.py   (each fix of reviews 3 to 5 reverted in turn; OK means the spike then fails)
 OK   existence side: 5 failing; ['a create into "all issues" (projectId absent, every leaf drops): none → ye
 OK   unread-field bound: 4 failing; ['server-maybe before and after, on a field the condition does not read: n
-OK   prefix paths: 1 failing; ['a condition reading [meta, owner] repairs on a change reported as [meta]']
+OK   prefix paths: 2 failing; ['a condition reading [meta, owner] repairs on a change reported as [meta]', 'ne
 OK   arrays atomic: 1 failing; ['arrays are atomic: an insert at the front reported at [tags, 1] still repairs
-OK   carried fields: 2 failing; ['58/60 conformance rows give their expected result', 'a carried optional fiel
+OK   carried fields: 2 failing; ['64/67 conformance rows give their expected result', 'a carried optional fiel
 OK   decode failure is maybe: 1 failing; ['a decode failure is a diagnostic and makes the answer maybe (server
-OK   per-record slots: 5 failing; ["a transfer whose response carries only A: B's balance is unconfirmed", "A'
+OK   per-record slots: 6 failing; ["a transfer whose response carries only A: B's balance is unconfirmed", "A'
 OK   settle reads uncomputed slots: 3 failing; ['a TypeError from a missing nested field is uncomputed, not a 
-OK   whole-value confirmation: 1 failing; ['a response carrying only meta.color does not confirm a predicted m
+OK   whole-value confirmation: 2 failing; ['a response carrying only meta.color does not confirm a predicted m
 OK   freeze everywhere: 3 failing; ['the record beneath and the visible record are frozen, in every environmen
-OK   faults not skips: 4 failing; ['checkReplays (on in Stories and propertyTest): Math.random gives two resul
-OK   checkReplays double call: 1 failing; ['checkReplays (on in Stories and propertyTest): Math.random gives t
+OK   faults not skips: 6 failing; ['checkReplays (on in Stories and propertyTest): Math.random gives two resul
+OK   checkReplays double call: 2 failing; ['checkReplays (on in Stories and propertyTest): Math.random gives t
 OK   key decode: 1 failing; ['keys are decoded through the primary key\'s Schema: "12" and 12 are one record']
 OK   total canonical (bigint): 1 failing; ['a bigint key is compared, not thrown']
-OK   literal-type constants: 1 failing; ["review 3's 24 holes (with review 4's bare computed constants e24, e2
+OK   literal-type constants: 2 failing; ["review 3's 24 holes (with review 4's bare computed constants e24, e2
 OK   receiver check: 1 failing; ["review 4's probes: a branch in a receiver, a computed field name, a zero-par
 OK   computed field names: 1 failing; ["review 4's probes: a branch in a receiver, a computed field name, a ze
-OK   named callbacks: 1 failing; ["review 4's probes: a branch in a receiver, a computed field name, a zero-pa
+OK   named callbacks: 2 failing; ["review 4's probes: a branch in a receiver, a computed field name, a zero-pa
 OK   zero-parameter callbacks: 1 failing; ["review 4's probes: a branch in a receiver, a computed field name, 
 OK   ts-nocheck files: 1 failing; ['a file with @ts-nocheck that holds recorded positions is an error, not a p
+OK   H1 carried as paths: 2 failing; ['66/67 conformance rows give their expected result', 'nested partial car
+OK   H2 oneOf element checks: 1 failing; ['66/67 conformance rows give their expected result']
+OK   H3 one parameter, no defaults: 2 failing; ["review 5's 30 lint probes: all are errors except the four cor
+OK   H4 sealed Date/Map/Set mutators: 1 failing; ['Date set*, Map.set and Set.add on the frozen record are fau
+OK   wrong-kind eq is maybe: 1 failing; ['66/67 conformance rows give their expected result']
+OK   between inverted is maybe: 1 failing; ['66/67 conformance rows give their expected result']
+OK   contains element checks: 1 failing; ['66/67 conformance rows give their expected result']
+OK (the run crashes) typed arrays skipped: 0 failing; []
+OK   second-call outcomes: 1 failing; ['under checkReplays, a function that throws only on its second call is 
+OK   copy before freezing: 1 failing; ["the caller's objects are copied before freezing: a shared input object
+OK   isNull of an absent field is maybe: 1 failing; ['66/67 conformance rows give their expected result']
+OK   carriers end a prediction: 1 failing; ['when every carrier holds only part of the predicted field (meta.c
+OK   nested defaults need a parent: 1 failing; ['a nested default applies only when its parent is present']
+OK   constants are value facts: 1 failing; ["review 5's 30 lint probes: all are errors except the four correct
+OK   library results must be recorded: 1 failing; ["review 5's 30 lint probes: all are errors except the four 
+OK   names followed by symbol: 1 failing; ["review 5's 30 lint probes: all are errors except the four correct 
+OK   optional calls: 1 failing; ["review 5's 30 lint probes: all are errors except the four correct ones (a st
+OK   factory call-site info: 1 failing; ['a factory call with a non-literal argument (a time in a tenant id) g

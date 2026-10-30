@@ -4,7 +4,7 @@
 // lint over the reference domains and review 3's probes.
 // Types are checked separately by `tsc -p .` (types.ts). Run: tsc -p . && bun main.ts
 import { and as andF, eq as eqF, isNull as isNullF, or as orF, read as readF, serverMatches as smF } from "./flow.ts";
-import { app, checkOrder, condition, contradicts, DECODE_FAILED, describe, entity, evaluate, fromEncoded, impact, joins, laneKey, mayRepair, op, queueKeys, RecordingError, replay, settle, start, write } from "./flow.ts";
+import { app, checkOrder, condition, contradicts, DECODE_FAILED, describe, entity, evaluate, fromEncoded, impact, joins, laneKey, mayRepair, op, queueKeys, RecordingError, replay, settle, start, typeSideInput, write } from "./flow.ts";
 import type { ChangeIR, Domain, IR, Live, Replayed } from "./flow.ts";
 import { conformance } from "./conformance.ts";
 import { TicketsDomain } from "./domains/tickets.ts";
@@ -205,7 +205,7 @@ check(canon((rx(msgOf(4)).visible as MessageRow).reactions) === canon([{ emoji: 
 // Faults: reported, and treated as uncomputed for display and settlement.
 const touch2 = mail.touch2!.predicts! as ChangeIR[];
 const rd = replay({ ...msgD }, start(touch2, { key: { id: "m" } }, "r"), "mail/Msg", { id: "m" });
-check(rd.faults[0]?.reason.includes("two results") === true && rd.slots[0]?.state === "fault", "checkReplays (on in Stories and propertyTest): Math.random gives two results, a fault");
+check(rd.faults[0]?.reason.includes("two different outcomes") === true && rd.slots[0]?.state === "fault", "checkReplays (on in Stories and propertyTest): Math.random gives two results, a fault");
 check(replay({ ...msgD }, start(touch2, { key: { id: "m" } }, "r"), "mail/Msg", { id: "m" }, { checkReplays: false }).faults.length === 0, "with checkReplays off (production), impurity is not detected: the option is what finds it");
 const mut = mail.addLabelMut!.predicts! as ChangeIR[];
 const rm = replay({ ...msgD, labels: ["a"] }, start(mut, { key: { id: "m" }, label: "b" }, "mu"), "mail/Msg", { id: "m" }, { checkReplays: false });
@@ -213,7 +213,7 @@ check(rm.faults[0]?.reason.includes("wrote to the record beneath") === true && r
 const sortW = write(op<{ key: { id: string }; xs: number[] }, MsgRowLike>()("t/sort")).predicts(({ input }) => MsgE.patch(input.key, { subject: (_m, i) => i.xs.sort().join() }));
 const sortIn = { key: { id: "m" }, xs: [3, 1, 2] };
 const rs = replay({ id: "m", subject: "" }, start(sortW.d.predicts!, sortIn, "s"), "t/Msg", { id: "m" }, { checkReplays: false });
-check(rs.faults[0]?.reason.includes("wrote to the input") === true && canon(sortIn.xs) === canon([3, 1, 2]), "i.xs.sort() on the frozen input is a fault, and the request body is unchanged");
+check(rs.faults[0]?.reason.includes("the input") === true && canon(sortIn.xs) === canon([3, 1, 2]), "i.xs.sort() on the frozen input is a fault, and the request body is unchanged");
 const missingNested = write(op<{ key: { id: string } }, MsgRowLike>()("t/nested")).predicts(({ input }) => MsgE.patch(input.key, { subject: (m: any) => m.meta.owner }));
 const rn = replay({ id: "m", subject: "" }, start(missingNested.d.predicts!, { key: { id: "m" } }, "n"), "t/Msg", { id: "m" });
 check(rn.faults.length === 0 && rn.slots[0]?.state === "uncomputed", "a TypeError from a missing nested field is uncomputed, not a fault: the copies did not change");
@@ -236,6 +236,33 @@ void (cached = 2);
 const legacy = describe(legacyIssues() as Domain).setLike!.predicts! as ChangeIR[];
 const lr = at(base0, start(legacy, { key: { id: "i1" }, liked: true }, "l"));
 check(lr.faults[0]?.reason.includes("after its `.predicts` callback returned") === true && lr.slots.find((x) => x.field === "likes")?.state === "fault", "the sealed session's error is a fault: reported, and the slot is shown as uncomputed");
+
+// Frozen Dates, Maps and Sets: their mutators throw, even for a write that changes nothing.
+const fz = (label: string, base: any, fn: (b: any) => unknown) => {
+  const W = write(op<{ key: { id: string } }, MsgRowLike>()(`t/${label}`)).predicts(({ input }) => MsgE.patch(input.key, { subject: fn as any }));
+  return replay({ id: "m", subject: "", ...base }, start(W.d.predicts!, { key: { id: "m" } }, label), "t/Msg", { id: "m" }, { checkReplays: false });
+};
+const d0 = new Date("2026-05-05T15:30:00Z");
+const rDate = fz("date", { at: d0 }, (b) => (b.at.setTime(b.at.getTime()), "x"));
+const rMap = fz("map", { tags: new Map([["a", 1]]) }, (b) => (b.tags.set("a", 1), "x"));
+const rSet = fz("set", { ids: new Set([1]) }, (b) => (b.ids.add(1), "x"));
+check([rDate, rMap, rSet].every((r) => r.faults.length === 1 && r.slots[0]?.state === "fault") && d0.toISOString() === "2026-05-05T15:30:00.000Z", "Date set*, Map.set and Set.add on the frozen record are faults even when they change nothing (an idempotent write), with checkReplays off");
+check(fz("u8", { blob: new Uint8Array([1, 2]) }, () => "x").slots[0]?.state === "shown" && start(issues.rename!.predicts! as ChangeIR[], { key: { id: "i" }, title: "t", blob: new Uint8Array([1]) } as any, "u").length === 1, "a Uint8Array in the record or the input neither throws out of replay nor fails a write's start");
+let calls = 0;
+const second = fz("second", {}, () => {
+  if (++calls === 2) throw new Error("boom");
+  return "x";
+});
+calls = 0;
+const second2 = replay({ id: "m", subject: "" }, start(write(op<{ key: { id: string } }, MsgRowLike>()("t/second2")).predicts(({ input }) => MsgE.patch(input.key, { subject: () => { if (++calls === 2) throw new Error("boom"); return "x"; } })).d.predicts!, { key: { id: "m" } }, "s2"), "t/Msg", { id: "m" });
+check(second.faults.length === 0 && second2.faults[0]?.reason.includes("two different outcomes") === true, "under checkReplays, a function that throws only on its second call is a fault, not uncomputed");
+const shared = { limits: [1, 2] };
+start(issues.rename!.predicts! as ChangeIR[], { key: { id: "i" }, title: "t", opts: shared } as any, "sh");
+const MODULE_TAGS = ["a"];
+fz("mod", {}, () => MODULE_TAGS);
+check(!Object.isFrozen(shared) && !Object.isFrozen(shared.limits) && !Object.isFrozen(MODULE_TAGS), "the caller's objects are copied before freezing: a shared input object and a module array a function returned stay unfrozen");
+const partial = joins(condition(({ record }) => eqF(record.author.userId, "u")), {}, { record: { author: { name: "x" } }, carried: [["author", "name"]] }, { record: { author: { name: "y" } }, carried: [["author", "name"]] }, [["author"]]);
+check(partial.repair && partial.why === "notCarried", "nested partial carriage: with author held as { name } only, a condition on author.userId is maybe (not carried), so a change to author repairs");
 
 // Keys.
 const bigKey = replay({ x: 0 } as any, [{ attempt: "a", kind: "patch", entity: "E", keys: [1n], many: false, fields: { x: { val: 1 } }, fns: {}, input: {}, retired: new Set() }], "E", 1n);
@@ -277,6 +304,14 @@ const ml = start(metaW.d.predicts!, { key: { id: "c1" } }, "mt");
 const mr = replay({ id: "c1", meta: { owner: "ana", color: "blue" } }, ml, "t/Meta", { id: "c1" });
 check(canon(settle(ml, "mt", [{ entity: "t/Meta", key: { id: "c1" }, fields: [["meta", "color"]] }], [mr]).unconfirmed) === canon(['t/Meta:{"id":"c1"}:meta']) && settle(ml, "mt", [{ entity: "t/Meta", key: { id: "c1" }, fields: ["meta"] }], [mr]).unconfirmed.length === 0, "a response carrying only meta.color does not confirm a predicted meta; one carrying meta whole does");
 
+const carriers = [{ entity: "t/Meta", paths: [["meta", "color"]] as string[][] }];
+const ended = settle(ml, "mt", [{ entity: "t/Meta", key: { id: "c1" }, fields: [["meta", "color"]] }], [mr], carriers);
+check(canon(ended.ended) === canon(['t/Meta:{"id":"c1"}:meta']) && ended.unconfirmed.length === 0, "when every carrier holds only part of the predicted field (meta.color), the prediction ends (PredictionNotRetained), never waits forever");
+const enc2 = fromEncoded({ kind: "read", op: "x", inputDefaults: { "filter/archived": false } }, { filter: { q: "a" } });
+const enc3 = fromEncoded({ kind: "read", op: "x", inputDefaults: { "filter/archived": false } }, {});
+check("input" in enc2 && (enc2.input as any).filter.archived === false && "input" in enc3 && (enc3.input as any).filter === undefined, "a nested default applies only when its parent is present");
+check(!typeSideInput(column, { boardId: "b", columnId: "todo", me: "ana" }).ok && typeSideInput(column, typeSide).ok, "a JavaScript caller that omits a Type-side required (defaulted) key gets InputMissingRequiredKey at answer creation");
+
 // Enumeration, identities.
 const throws = (f: () => unknown) => {
   try {
@@ -317,6 +352,12 @@ const pLine = (needle: string) => pSrc.split("\n").findIndex((l) => l.includes(n
 const pErr = (needle: string) => errors("domains/p.ts").some((f) => f.line === pLine(needle));
 check(pErr("r1:") && pErr("r5:") && pErr("r6:") && pErr("const wAny"), "review 4's probes: a branch in a receiver, a computed field name, a zero-parameter callback and an any-typed callback passed by name are all errors (callbacks found by position)");
 check(errors("domains/legacy.ts").some((f) => f.line === 1 && f.message.includes("not type-checked")), "a file with @ts-nocheck that holds recorded positions is an error, not a pass");
+const r3Src = await fileText("domains/r3.ts");
+const r3Entries = r3Src.split("\n").flatMap((l, i) => (/^  [a-z]\d+b?:/.test(l) ? [{ name: l.trim().split(":")[0]!, line: i + 1 }] : []));
+const r3Passed = r3Entries.filter((e, i) => !errors("domains/r3.ts").some((f) => f.line >= e.line && f.line < (r3Entries[i + 1]?.line ?? 1e9))).map((e) => e.name);
+check(canon(r3Passed) === canon(["a8b", "a14", "b4", "b7"]), `review 5's ${r3Entries.length} lint probes: all are errors except the four correct ones (a string enum member, satisfies, a factory's primitive parameter twice): passed ${r3Passed.join(", ")}`);
+check(["a11", "a11b", "a12", "b2", "b3"].every((n) => !r3Passed.includes(n)), "default parameters in a callback, in a nested binding, and in helpers are errors");
+check(findings.filter((f) => f.file === "domains/tenant.ts" && f.rule === "claim" && f.message.includes("fixed for the domain's life")).length === 1, "a factory call with a non-literal argument (a time in a tenant id) gets an info finding, fixed for the domain's life; literal arguments do not");
 const calSrc = await fileText("domains/cal.ts");
 const calLine = (needle: string) => calSrc.split("\n").findIndex((l) => l.includes(needle)) + 1;
 check(["openOrFuture:", "openOrFutureConst:", "openOrFutureHelper:"].every((n) => errors("domains/cal.ts").some((f) => f.line === calLine(n) + 1)), "new Date(), new Date(NOW) (computed at load) and the startOfToday() helper are errors");

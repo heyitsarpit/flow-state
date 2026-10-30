@@ -25,7 +25,14 @@ c("eq", "eq(r.t, i.t)", "t = invalid Date", { record: { t: d("nope") }, input: {
 c("eq", 'eq(r.meta.owner, "ana")', 'meta = { owner: "ana" }', { record: { meta: { owner: "ana" } } }, ({ record: r }) => eq(r.meta.owner, "ana"), "yes");
 c("eq", 'eq(r.meta.owner, "ana")', "meta not carried", { record: {} }, ({ record: r }) => eq(r.meta.owner, "ana"), "maybe: not carried");
 rows.push({ op: "eq", written: 'eq(r.nick, "x")', given: "nick held by the store, value absent (carried)", env: { record: {}, carried: new Set(["nick"]) }, expr: condition(({ record: r }) => eq(r.nick, "x")), expect: "no" });
-rows.push({ op: "isNull", written: "isNull(r.nick)", given: "nick held, value absent: not null", env: { record: {}, carried: new Set(["nick"]) }, expr: condition(({ record: r }) => isNull(r.nick)), expect: "no" });
+rows.push({ op: "isNull", written: "isNull(r.nick)", given: "nick held, value absent (the server may mean null)", env: { record: {}, carried: new Set(["nick"]) }, expr: condition(({ record: r }) => isNull(r.nick)), expect: "maybe: server" });
+rows.push({ op: "eq", written: 'eq(r.author.userId, "u")', given: "the store holds author as { name } only (path [author, name])", env: { record: { author: { name: "x" } }, carried: [["author", "name"]] }, expr: condition(({ record: r }) => eq(r.author.userId, "u")), expect: "maybe: not carried" });
+rows.push({ op: "eq", written: 'eq(r.author.userId, "u")', given: "author held whole, userId absent", env: { record: { author: { name: "x" } }, carried: ["author"] }, expr: condition(({ record: r }) => eq(r.author.userId, "u")), expect: "no" });
+c("eq", "eq(r.n, 1)", 'n = "1" (the wrong kind)', { record: { n: "1" } }, ({ record: r }) => eq(r.n, 1), "maybe: failed");
+c("oneOf", "oneOf(r.s, [i.a, i.b])", 'a = "x", b = null (present)', { record: { s: "z" }, input: { a: "x", b: null } }, ({ record: r, input: i }) => oneOf(r.s, [i.a, i.b]), "maybe: server");
+c("oneOf", "oneOf(r.s, [i.a, i.b])", 'a = "z", b absent (dropped at the top)', { record: { s: "z" }, input: { a: "z" } }, ({ record: r, input: i }) => oneOf(r.s, [i.a, i.b]), "yes");
+c("contains", "contains(r.t, 5)", "t = [NaN]", { record: { t: [Number.NaN] } }, ({ record: r }) => contains(r.t, 5), "maybe: failed");
+c("between", "between(r.n, 10, 1)", "from after to, n = 5", { record: { n: 5 } }, ({ record: r }) => between(r.n, 10, 1), "maybe: server");
 // oneOf, contains
 c("oneOf", "oneOf(r.s, i.xs)", 's = "b", xs = ["a", "b"]', { record: { s: "b" }, input: { xs: ["a", "b"] } }, ({ record: r, input: i }) => oneOf(r.s, i.xs), "yes");
 c("oneOf", "oneOf(r.s, i.xs)", 's = "c", xs = ["a", "b"]', { record: { s: "c" }, input: { xs: ["a", "b"] } }, ({ record: r, input: i }) => oneOf(r.s, i.xs), "no");

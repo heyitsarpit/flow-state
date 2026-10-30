@@ -57,6 +57,10 @@ write(setLike).predicts(({ input }) => Issue.patch(input.key, { likes: (i, input
 write(setLike).predicts(({ input }) => Issue.patch(input.key, { likes: (i) => i.likes + (input.liked === i.liked ? 0 : 1) }));
 // @ts-expect-error the record beneath is DeepReadonly: a function may not mutate it (push does not exist on a readonly array)
 write(react).predicts(({ input }) => Message.patch(input.key, { reactions: (m) => { m.reactions.push({ emoji: "x", count: 1 }); return m.reactions; } }));
+// @ts-expect-error a Date beneath offers its getters only (setTime does not exist on ReadonlyDate)
+write(setLike).predicts(({ input }) => Issue.patch(input.key, { title: (i) => { (i as unknown as { d: import("./flow.ts").DeepReadonly<Date> }).d.setTime(0); return ""; } }));
+// @ts-expect-error a Map beneath is a ReadonlyMap (set does not exist)
+((m: import("./flow.ts").DeepReadonly<Map<string, number>>) => m.set("a", 1))(new Map());
 // @ts-expect-error `.predicts` returns changes
 write(setLike).predicts(() => true);
 

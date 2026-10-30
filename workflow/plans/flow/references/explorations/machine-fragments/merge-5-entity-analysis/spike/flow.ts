@@ -285,8 +285,22 @@ export const read = <I, R>(o: Op<I, R>) => new ReadEntry<I, R, never>({ kind: "r
 // default fills a missing key. A decode failure is not thrown: the answer is evaluated as maybe (server), with a
 // diagnostic. `inputDefaults` stands in for the statically extracted literal defaults the Model records.
 export const DECODE_FAILED: unique symbol = Symbol("input decode failed");
+// At answer creation, a Type-side input must hold every key its Schema makes required (a defaulted key included), so
+// a JavaScript caller that omits one is told so instead of the key silently dropping a constraint.
+export function typeSideInput(d: EntryDescription, input: Record<string, unknown>): { ok: true } | { ok: false; diagnostic: string } {
+  const missing = Object.keys(d.inputDefaults ?? {}).filter((p) => !p.includes("/") && input[p] === undefined);
+  return missing.length ? { ok: false, diagnostic: `InputMissingRequiredKey: ${missing.join(", ")}` } : { ok: true };
+}
+// Defaults are keyed by path (the spike joins segments with "/"); an inner default applies only when its parent is
+// present.
 export function fromEncoded(d: EntryDescription, encoded: Record<string, unknown>, types: Record<string, "boolean" | "string" | "number"> = {}): { input: object } | { input: typeof DECODE_FAILED; diagnostic: string } {
-  const out: Record<string, unknown> = { ...(d.inputDefaults ?? {}), ...encoded };
+  const out: Record<string, unknown> = structuredClone(encoded);
+  for (const [path, value] of Object.entries(d.inputDefaults ?? {})) {
+    const segs = path.split("/");
+    let at: any = out;
+    for (const seg of segs.slice(0, -1)) at = at && typeof at === "object" ? at[seg] : undefined;
+    if (at && typeof at === "object" && at[segs[segs.length - 1]!] === undefined) at[segs[segs.length - 1]!] = value;
+  }
   for (const [k, t] of Object.entries(types)) if (out[k] !== undefined && typeof out[k] !== t) return { input: DECODE_FAILED, diagnostic: `InputDecodeFailed: ${k} is not a ${t}` };
   return { input: out };
 }
@@ -300,9 +314,18 @@ export const describe = (dm: Domain): Record<string, EntryDescription> =>
 
 // ───────────────────────────────────────────────────────────── the three-valued evaluator
 
-// `carried`: the record fields the store holds for this record (top-level names). When given, a field outside it
-// is not carried (maybe), and a carried field whose value is absent is an absent optional field (a value).
-export type Env = { input?: unknown; record?: unknown; result?: unknown; carried?: ReadonlySet<string> };
+// `carried`: the paths the store holds whole for this record, as segment arrays (a string is one segment). A read is
+// carried only if a held path is a prefix of it or equals it: holding `author` as `{ name }` is the path
+// [author, name], so [author, userId] is not carried. A carried read whose value is absent is an absent optional
+// field (a value).
+export type Env = { input?: unknown; record?: unknown; result?: unknown; carried?: ReadonlySet<string> | readonly (string | readonly string[])[] };
+const isCarried = (carried: Env["carried"], read: readonly string[]) => {
+  for (const c of carried as Iterable<string | readonly string[]>) {
+    const held = typeof c === "string" ? [c] : c;
+    if (held.length <= read.length && held.every((seg, i) => seg === read[i])) return true;
+  }
+  return false;
+};
 export type Why = "notCarried" | "failed" | "server";
 // yes / no / maybe (Kleene). A maybe says why, and which record fields it came from ("*": every field).
 export type Tri = { v: "yes" } | { v: "no" } | { v: "maybe"; why: Why; detail: string; fields: readonly string[] };
@@ -327,7 +350,8 @@ function readArg(ir: IR, env: Env): Read {
     const name = ir.ref.slice(1).join(".");
     if (ir.ref[0] === "record") {
       const top = ir.ref[1]!;
-      if (env.carried && !env.carried.has(top)) return maybe("notCarried", `record.${name} is not carried`, [name]);
+      void top;
+      if (env.carried && !isCarried(env.carried, ir.ref.slice(1))) return maybe("notCarried", `record.${name} is not carried`, [name]);
       if (v === undefined) return env.carried ? { value: ABSENT_FIELD, field: name } : maybe("notCarried", `record.${name} is not carried`, [name]);
       return { value: v, field: name };
     }
@@ -361,6 +385,8 @@ function usable(x: unknown, op: string, field?: string): Tri | undefined {
 // times); a Date never equals a non-Date.
 function equal(a: unknown, b: unknown, fields: string[]): Tri {
   if (a === ABSENT_FIELD || b === ABSENT_FIELD) return tri(a === b); // an absent optional field equals nothing
+  const kind = (x: unknown) => (x === null ? "null" : x instanceof Date ? "date" : typeof x);
+  if (kind(a) !== "null" && kind(b) !== "null" && kind(a) !== kind(b)) return maybe("failed", `eq: a ${kind(a)} against a ${kind(b)}`, fields);
   if (a instanceof Date && b instanceof Date)
     return a.getTime() === b.getTime() ? maybe("server", "two Dates equal at millisecond precision", fields) : NO;
   return tri(a === b);
@@ -424,8 +450,14 @@ export function evaluate(ir: IR, env: Env, top = true): Tri {
     return compare((reads[i] as any).value, (reads[j] as any).value, ir.op, fields, test);
   };
   switch (ir.op) {
-    case "between": // from ≤ a < to; each bound is its own term
+    case "between": {
+      // from ≤ a < to; each bound is its own term. An inverted range is maybe, as for overlaps (APIs differ).
+      const f = reads[1]!;
+      const t = reads[2]!;
+      const num = (x: unknown) => (typeof x === "number" ? x : x instanceof Date ? x.getTime() : Number.NaN);
+      if (!isTri(f) && !isTri(t) && num(f.value) > num(t.value)) return maybe("server", "between: from is after to", fields);
       return andT([term(0, 1, (c) => c >= 0), term(0, 2, (c) => c < 0)]);
+    }
     case "overlaps": {
       // [start, end) overlaps [from, to): start < to, and end > from. A null start or end affects only its
       // own term. An inverted range (from > to) is maybe: APIs differ (empty, or an error).
@@ -448,14 +480,31 @@ export function evaluate(ir: IR, env: Env, top = true): Tri {
     case "eq":
       return equal(v(0), v(1), fields);
     case "oneOf": {
-      const list = v(1);
-      if (!Array.isArray(list)) return maybe("failed", "oneOf needs an array", fields);
-      if (list.length === 0) return maybe("server", "oneOf over an empty list means none to some APIs and any to others", fields);
+      const raw = v(1);
+      if (!Array.isArray(raw)) return maybe("failed", "oneOf needs an array", fields);
+      // Each element is checked like any argument: an absent input element drops (at the top) or makes it maybe; a
+      // present null input element is maybe (server); NaN or an invalid Date fails.
+      const list: unknown[] = [];
+      for (const x of raw) {
+        if (x === ABSENT) {
+          if (top) continue;
+          return maybe("server", "oneOf: an absent input element outside `and`", fields);
+        }
+        const bad = usable(x, "oneOf");
+        if (bad) return bad.v === "maybe" ? maybe(bad.why, bad.detail, fields) : bad;
+        list.push(x);
+      }
+      if (raw.length === 0) return maybe("server", "oneOf over an empty list means none to some APIs and any to others", fields);
+      if (list.length === 0) return YES; // every element was an absent input: the leaf drops
       return orT(list.map((x) => equal(v(0), x, fields)));
     }
     case "contains": {
       const list = v(0);
       if (!Array.isArray(list)) return maybe("failed", "contains needs an array field", fields);
+      for (const x of list) {
+        const bad = usable(x, "contains");
+        if (bad) return bad.v === "maybe" ? maybe(bad.why, bad.detail, fields) : bad;
+      }
       return orT(list.map((x) => equal(x, v(1), fields)));
     }
     case "gt":
@@ -467,7 +516,8 @@ export function evaluate(ir: IR, env: Env, top = true): Tri {
     case "lte":
       return compare(v(0), v(1), "lte", fields, (c) => c <= 0);
     case "isNull":
-      return tri(v(0) === null); // an absent optional field is not null
+      // An absent optional field the server may omit is not known to be null or not: maybe.
+      return v(0) === ABSENT_FIELD ? maybe("server", "isNull: the field is absent, which the server may mean as null", fields) : tri(v(0) === null);
     default:
       return maybe("failed", `unknown operator ${ir.op}`);
   }
@@ -508,7 +558,7 @@ const touches = (readsOf: readonly Path[], changed: readonly ChangedPath[]) => r
 // One side of a delta: the record, `"none"` (it does not exist: before a create, after a delete), or
 // `"unknown"` (a record the client sees for the first time; it may have existed on the server).
 // A side is the store's merged base for the record (not the delta alone), with the fields it holds.
-export type Side = object | "none" | "unknown" | { readonly record: object; readonly carried: readonly string[] };
+export type Side = object | "none" | "unknown" | { readonly record: object; readonly carried: readonly (string | readonly string[])[] };
 export type Repair = { repair: false } | { repair: true; why: "entered" | "left" | Why; detail?: string };
 
 // The membership half of the join: is the record in the answer's condition before and after? A side that
@@ -522,7 +572,7 @@ export function membership(where: IR | undefined, input: unknown, before: Side, 
     x === "none" ? NO
     : input === DECODE_FAILED ? maybe("server", "the answer's input could not be decoded")
     : x === "unknown" ? (derived ? maybe("notCarried", "a first sighting: the record's earlier state is unknown") : NO)
-    : "carried" in x && "record" in x ? evaluate(cond, { input, record: x.record, carried: new Set(x.carried) })
+    : "carried" in x && "record" in x ? evaluate(cond, { input, record: x.record, carried: x.carried })
     : evaluate(cond, { input, record: x });
   const a = side(before);
   const b = side(after);
@@ -635,8 +685,8 @@ const valueOf = (ir: IR, input: unknown): unknown => {
 
 // At write start: each key is read from the real (Type-side) input and decoded through the primary-key Schema.
 // An array key (`many`) predicts each record it lists, once. The input is frozen: it is the request body.
-export function start(changes: readonly ChangeIR[], input: unknown, attempt: string): Live[] {
-  deepFreeze(input);
+export function start(changes: readonly ChangeIR[], input0: unknown, attempt: string): Live[] {
+  const input = frozenCopy(input0); // the caller's objects are never frozen in place
   return changes.map((c) => {
     const k = valueOf(c.key, input);
     const raw = c.many && Array.isArray(k) ? k : [k];
@@ -655,6 +705,14 @@ export const laneKey = (lives: readonly Live[]) => {
   return keys.length === 1 && lives.every((l) => !l.many) ? lives[0]!.keys[0] : undefined;
 };
 
+// Each live prediction's key texts, computed once (a bulk write is not O(K²) across its replays).
+const keyTextCache = new WeakMap<Live, ReadonlySet<string>>();
+const keyTextsOf = (l: Live) => {
+  let t = keyTextCache.get(l);
+  if (!t) keyTextCache.set(l, (t = new Set(l.keys.map((k) => keyText(k)))));
+  return t;
+};
+
 // A prediction fault: the author's mistake (a sealed read, a write to the frozen record or input, two results from
 // one record and input, a harness that cannot copy the value). It behaves like an uncomputed value for display and
 // settlement, and is also reported as a `predictionFault` diagnostic (a Story fails on it). It is never thrown out
@@ -670,22 +728,61 @@ export type Replayed<Row> = {
 
 // A stand-in for the field's Schema check: a value must be defined, and a number finite.
 const acceptable = (x: unknown) => x !== undefined && !(typeof x === "number" && !Number.isFinite(x));
-export type DeepReadonly<T> = T extends Date ? T : T extends object ? { readonly [K in keyof T]: DeepReadonly<T[K]> } : T;
+// A Date offers its getters only; Maps and Sets are ReadonlyMap and ReadonlySet.
+export type ReadonlyDate = Omit<Date, `set${string}`>;
+export type DeepReadonly<T> = T extends Date
+  ? ReadonlyDate
+  : T extends Map<infer K, infer V>
+    ? ReadonlyMap<DeepReadonly<K>, DeepReadonly<V>>
+    : T extends Set<infer V>
+      ? ReadonlySet<DeepReadonly<V>>
+      : T extends object
+        ? { readonly [K in keyof T]: DeepReadonly<T[K]> }
+        : T;
 
-// Store records, snapshots and inputs are deeply frozen plain data in every environment (Machines O8).
+// Store records, snapshots and inputs are deeply frozen plain data in every environment (Machines O8). Freezing does
+// not stop a Date's `set*` or a Map's or Set's mutators, so those get own methods that throw `FrozenWrite` before the
+// object is frozen. ArrayBuffer views (Uint8Array) cannot be frozen and are left as they are. Freezing never throws.
+export class FrozenWrite extends TypeError {}
+const DATE_SETTERS = Object.getOwnPropertyNames(Date.prototype).filter((n) => n.startsWith("set"));
+const seal = (x: object, names: readonly string[]) => {
+  for (const n of names)
+    Object.defineProperty(x, n, {
+      value() {
+        throw new FrozenWrite(`${n} on a frozen record or input`);
+      },
+    });
+};
 export function deepFreeze<T>(x: T, seen: WeakSet<object> = new WeakSet()): T {
-  if (x === null || typeof x !== "object" || seen.has(x as object) || x instanceof Date) return x;
+  if (x === null || typeof x !== "object" || seen.has(x as object) || ArrayBuffer.isView(x)) return x;
   seen.add(x as object);
-  if (x instanceof Map) for (const [k, v] of x) (deepFreeze(k, seen), deepFreeze(v, seen));
-  else if (x instanceof Set) for (const v of x) deepFreeze(v, seen);
-  else for (const k of Object.keys(x)) deepFreeze((x as any)[k], seen);
-  return Object.freeze(x);
+  try {
+    if (x instanceof Date) seal(x, DATE_SETTERS);
+    else if (x instanceof Map) {
+      for (const [k, v] of x) (deepFreeze(k, seen), deepFreeze(v, seen));
+      seal(x, ["set", "delete", "clear"]);
+    } else if (x instanceof Set) {
+      for (const v of x) deepFreeze(v, seen);
+      seal(x, ["add", "delete", "clear"]);
+    } else for (const k of Object.keys(x)) deepFreeze((x as any)[k], seen);
+    return Object.freeze(x);
+  } catch {
+    return x; // an exotic object that cannot be frozen stays as it is; never thrown out of replay or start
+  }
 }
+const frozenCopy = <T>(x: T): T => {
+  try {
+    return deepFreeze(copy(x));
+  } catch {
+    return x;
+  }
+};
 // A copy that keeps prototypes (Schema.Class, Option, Data), Maps, Sets, Dates and bigints; it stands in for
 // copying through the entity's and the input's Schemas. A value it cannot copy is a fault.
 function copy<T>(x: T, seen: Map<object, unknown> = new Map()): T {
   if (x === null || typeof x !== "object") return x;
   if (seen.has(x as object)) return seen.get(x as object) as T;
+  if (ArrayBuffer.isView(x)) return x;
   if (x instanceof Date) return new Date(x.getTime()) as T;
   if (x instanceof Map) {
     const m = new Map();
@@ -704,42 +801,73 @@ function copy<T>(x: T, seen: Map<object, unknown> = new Map()): T {
   for (const k of Object.keys(x)) out[k] = copy((x as any)[k], seen);
   return out;
 }
+// A copy that records any write to it, even one that stores the value already there: plain objects and arrays are
+// proxies with write traps, and Dates, Maps and Sets have their mutators wrapped. Used only to classify a TypeError.
+function watched<T>(x: T, flag: { wrote: boolean }, seen: Map<object, unknown> = new Map()): T {
+  if (x === null || typeof x !== "object") return x;
+  if (seen.has(x as object)) return seen.get(x as object) as T;
+  const c: any = copy(x);
+  if (c instanceof Date || c instanceof Map || c instanceof Set || ArrayBuffer.isView(c)) {
+    const names = c instanceof Date ? DATE_SETTERS : c instanceof Map ? ["set", "delete", "clear"] : c instanceof Set ? ["add", "delete", "clear"] : [];
+    for (const n of names) {
+      const orig = (c as any)[n];
+      Object.defineProperty(c, n, { value: (...a: unknown[]) => ((flag.wrote = true), orig.apply(c, a)) });
+    }
+    if (c instanceof Map) for (const [k, v] of [...c]) c.set(k, watched(v, flag, seen));
+    seen.set(x as object, c);
+    return c as T;
+  }
+  for (const k of Object.keys(c)) c[k] = watched(c[k], flag, seen);
+  const p = new Proxy(c, {
+    set: (t, k, v) => ((flag.wrote = true), Reflect.set(t, k, v)),
+    deleteProperty: (t, k) => ((flag.wrote = true), Reflect.deleteProperty(t, k)),
+    defineProperty: (t, k, d) => ((flag.wrote = true), Reflect.defineProperty(t, k, d)),
+  });
+  seen.set(x as object, p);
+  return p;
+}
 
 // Runtime options (like audit mode): `checkReplays` calls each field function twice per replay and compares the
-// results; it is on by default in Stories and propertyTest, off in production.
+// outcomes; it is on by default in Stories and propertyTest, off in production.
 export type ReplayOptions = { checkReplays?: boolean };
 
-// Calls a field's function on the frozen record beneath and the frozen input. A TypeError is classified by calling
-// it again on unfrozen copies: if a copy changed, the function wrote to the record or the input (a fault);
-// otherwise the TypeError is an ordinary failure for this record (uncomputed).
-function callField(fn: (b: any, i: any) => unknown, beneath: object, input: unknown, options: ReplayOptions): unknown {
-  let v1: unknown;
+type Outcome = { ok: true; value: unknown } | { ok: false; error: unknown };
+const attempt = (fn: (b: any, i: any) => unknown, b: unknown, i: unknown): Outcome => {
   try {
-    v1 = fn(beneath, input);
-  } catch (e) {
+    return { ok: true, value: fn(b, i) };
+  } catch (error) {
+    return { ok: false, error };
+  }
+};
+// Calls a field's function on the frozen record beneath and the frozen input. A FrozenWrite (a Date, Map or Set
+// mutator) is a fault. Any other TypeError is classified by calling it again on watched copies: a write is a fault,
+// otherwise it is an ordinary failure for this record (uncomputed). Under checkReplays each of the two calls has its
+// own outcome; two different outcomes (a value and a throw, or two values) are a fault.
+function callField(fn: (b: any, i: any) => unknown, beneath: object, input: unknown, options: ReplayOptions): unknown {
+  const first = attempt(fn, beneath, input);
+  if (!first.ok) {
+    const e = first.error;
+    if (e instanceof FrozenWrite) throw new PredictionFault(`the function wrote to the record or input (${e.message})`);
     if (e instanceof TypeError) {
+      const flag = { wrote: false };
       let cb: object, ci: unknown;
       try {
-        cb = copy(beneath);
-        ci = copy(input);
+        cb = watched(beneath, flag);
+        ci = watched(input, flag);
       } catch {
         throw new PredictionFault("the record or input could not be copied to classify a TypeError");
       }
-      try {
-        fn(cb, ci);
-      } catch {
-        /* the second error is the same failure */
-      }
-      if (canonical(cb) !== canonical(beneath)) throw new PredictionFault("the function wrote to the record beneath; it must return a new value");
-      if (canonical(ci) !== canonical(input)) throw new PredictionFault("the function wrote to the input (the request body)");
+      attempt(fn, cb, ci);
+      if (flag.wrote) throw new PredictionFault("the function wrote to the record beneath or the input; it must return a new value");
     }
-    throw e;
   }
   if (options.checkReplays) {
-    const v2 = fn(beneath, input);
-    if (canonical(v1) !== canonical(v2)) throw new PredictionFault("the function gave two results for one record and input; it must be pure and deterministic");
+    const second = attempt(fn, beneath, input);
+    const same = first.ok && second.ok ? canonical(first.value) === canonical(second.value) : !first.ok && !second.ok && String(first.error) === String(second.error);
+    if (!same) throw new PredictionFault("the function gave two different outcomes for one record and input; it must be pure and deterministic");
   }
-  return v1;
+  if (!first.ok) throw first.error;
+  return first.value;
 }
 
 // Replay: the base with this record's live predictions in start order (a write's patches in written order). Every
@@ -758,7 +886,7 @@ export function replay<Row extends object>(base: Row | undefined, lives: readonl
   for (const l of lives) {
     let mine = false;
     try {
-      mine = l.entity === entity && l.keys.some((k) => keyText(k) === me);
+      mine = l.entity === entity && keyTextsOf(l).has(me);
     } catch (e) {
       faults.push({ attempt: l.attempt, field: "-", reason: `a key cannot be compared: ${(e as Error).message}` });
     }
@@ -776,7 +904,7 @@ export function replay<Row extends object>(base: Row | undefined, lives: readonl
         if (beneath === undefined) throw new Error("the record is not held");
         const v = "runtime" in ir ? callField(l.fns[f]!, beneath, l.input, options) : valueOf(ir, l.input);
         if (!acceptable(v)) throw new Error(`the field's Schema rejects ${String(v)}`);
-        next[f] = v;
+        next[f] = frozenCopy(v); // a value the function returned is copied before it is frozen
         slots.push({ attempt: l.attempt, slot: sl, field: f, state: "shown" });
       } catch (e) {
         const reason = (e as Error).message;
@@ -799,6 +927,9 @@ export function settle(
   attempt: string,
   responses: readonly { entity: string; key: unknown; fields: readonly ChangedPath[] }[],
   replays: readonly Replayed<object>[],
+  // The shapes that can confirm each entity's fields: the write's response places, read entries and loaders. When
+  // given, a predicted field no shape holds whole ends at settlement instead of waiting (PredictionNotRetained).
+  carriers?: readonly { entity: string; paths: readonly ChangedPath[] }[],
 ) {
   const carries = (entity: string, key: unknown, field: string) =>
     responses.some((r) => {
@@ -810,6 +941,7 @@ export function settle(
     });
   const mine = replays.flatMap((r) => r.slots.filter((s) => s.attempt === attempt));
   const unconfirmed: string[] = [];
+  const ended: string[] = []; // no carrier holds the whole field: the prediction ends, the field is dropped (EDP:99-100)
   const confirmed = new Set<string>();
   for (const l of lives.filter((x) => x.attempt === attempt))
     for (const k of l.keys)
@@ -817,13 +949,15 @@ export function settle(
         const sl = slot(l.entity, k, f);
         if (!mine.some((s) => s.slot === sl)) continue; // only what the replay says was predicted
         if (carries(l.entity, k, f)) confirmed.add(sl);
-        else if (!unconfirmed.includes(sl)) unconfirmed.push(sl);
+        else if (carriers && !carriers.some((c) => c.entity === l.entity && c.paths.some((p) => { const q = asPath(p); return q.length === 1 && q[0] === f; }))) {
+          if (!ended.includes(sl)) ended.push(sl);
+        } else if (!unconfirmed.includes(sl)) unconfirmed.push(sl);
       }
   const firstMine = lives.findIndex((l) => l.attempt === attempt);
   const remaining = lives
     .filter((l) => l.attempt !== attempt)
     .map((l) => (lives.indexOf(l) < firstMine ? { ...l, retired: new Set([...l.retired, ...confirmed]) } : l));
-  return { remaining, unconfirmed };
+  return { remaining, unconfirmed, ended };
 }
 
 // ───────────────────────────────────────────────────────────── one App: identities are unique

@@ -118,6 +118,65 @@ async function lintFile(file: string, sf: any, checker: any, libPath: string, fi
     if (st.kind === K.VariableStatement)
       for (const d of st.declarationList.declarations) if (d.initializer?.kind === K.ArrowFunction && d.name.kind === K.Identifier) helpers.set(d.name.text, d.initializer);
 
+  // Declarations through the checker (names are never resolved by text): a constant is a type fact and a value fact.
+  const declOf = async (n: any): Promise<any> => {
+    let sym = await checker.getSymbolAtLocation(n);
+    if (sym && sym.flags & 2097152) sym = await checker.getAliasedSymbol(sym);
+    return sym?.valueDeclaration ? await sym.valueDeclaration.resolve() : undefined;
+  };
+  const literalInit = (x: any): boolean => {
+    x = unwrap(x);
+    if ([K.StringLiteral, K.NumericLiteral, K.NoSubstitutionTemplateLiteral, K.TrueKeyword, K.FalseKeyword, K.NullKeyword].includes(x.kind)) return true;
+    if (x.kind === K.PrefixUnaryExpression && x.operator === K.MinusToken && unwrap(x.operand).kind === K.NumericLiteral) return true;
+    if (x.kind === K.ArrayLiteralExpression) return x.elements.every(literalInit);
+    if (x.kind === K.ObjectLiteralExpression) return x.properties.every((p: any) => p.kind === K.PropertyAssignment && p.name?.kind !== K.ComputedPropertyName && literalInit(p.initializer));
+    return false;
+  };
+  // A constant: its type is a literal, and its declaration is a single, non-ambient `const` (or an enum member, or a
+  // property of a literal object) whose initializer is itself a literal. `Date.now() as 1`, a getter, `declare
+  // const` and a computed enum member are not.
+  const isConstant = async (n: any): Promise<boolean> => {
+    if (!(await isLiteralType(n))) return false;
+    const d = await declOf(n.kind === K.PropertyAccessExpression ? n.name : n);
+    if (!d) return false;
+    if (d.kind === K.VariableDeclaration) {
+      const list = d.parent;
+      const stmt = list?.parent;
+      const ambient = (stmt?.modifiers ?? []).some((m: any) => m.kind === K.DeclareKeyword) || (list?.flags & 8388608) !== 0;
+      return (list?.flags & 2) !== 0 && list.declarations.length === 1 && !ambient && d.initializer !== undefined && literalInit(d.initializer);
+    }
+    if (d.kind === K.EnumMember) return d.initializer === undefined || literalInit(d.initializer);
+    if (d.kind === K.PropertyAssignment) return literalInit(d.initializer);
+    return false;
+  };
+  // Parameters: a recorded callback has exactly one; no parameter of a callback or helper has an initializer or a
+  // rest element anywhere in its binding tree (`now = Date.now()` would record a stale constant).
+  const badBinding = (b: any): any => {
+    if (!b) return undefined;
+    if (b.initializer || b.dotDotDotToken) return b;
+    for (const e of b.name?.elements ?? []) {
+      const x = badBinding(e);
+      if (x) return x;
+    }
+    return undefined;
+  };
+  const checkParams = (fn: any, kind: "callback" | "helper"): boolean => {
+    if (kind === "callback" && fn.parameters.length !== 1) return bad(fn, `a recorded callback takes exactly one parameter (it has ${fn.parameters.length})`);
+    for (const p of fn.parameters) {
+      const b = badBinding(p);
+      if (b) return bad(b, "a default or rest parameter (it would be evaluated once, at construction)");
+    }
+    return true;
+  };
+  // A library call must return a recorded value, a sort key or a change: `contradicts(…)` and `canonical(…)` are
+  // declared in the library but return plain values.
+  const recordedResult = async (n: any) => {
+    const t = await typeOf(n);
+    if (!t || t.flags & TypeFlags.Any) return false;
+    if ((await checker.getPropertyOfType(t, "__flowRecorded")) || (await checker.getPropertyOfType(t, "__sort"))) return true;
+    const text: string = await checker.typeToString(t);
+    return /^Change</.test(text) || /^(readonly )?Change<.*>\[\]$/.test(text);
+  };
   type Ctx = { params: Set<string>; fn: any };
   const bad = (n: any, what: string, fix?: Finding["fix"]): false => {
     findings.push({ file, line: line(n), rule: "not-recorded", severity: "error", message: `not a recorded expression: ${what}`, ...(fix ? { fix } : {}) });
@@ -159,7 +218,7 @@ async function lintFile(file: string, sf: any, checker: any, libPath: string, fi
         if (n.kind === K.ElementAccessExpression && ![K.StringLiteral, K.NumericLiteral].includes(unwrap(n.argumentExpression).kind)) return bad(n, "a computed property name");
         const root = rootOf(n);
         if (root?.kind === K.Identifier && ctx.params.has(root.text)) return true; // a read on the callback's parameters
-        if (await isLiteralType(n)) return true; // a literal const, an as-const member, an enum member
+        if (await isConstant(n)) return true; // a literal const, an as-const member, an enum member
         if (root?.kind === K.Identifier && enclosingFunctions(ctx.fn).some((f) => paramsOf(f).includes(root.text)) && (await isPrimitive(n))) return true; // a factory's primitive parameter
         return bad(n, `\`${src(n)}\` is neither a read on the callback's parameters nor a literal constant`, { instruction: "a value computed at load (Date.now(), a call) is stale; pass it as an input, or use a literal const" });
       }
@@ -182,8 +241,9 @@ async function lintFile(file: string, sf: any, checker: any, libPath: string, fi
         const callee = unwrap(n.expression);
         const lib = await fromLibrary(callee);
         const entityMethod = callee.kind === K.PropertyAccessExpression && ["patch", "delete"].includes(callee.name.text) && (await fromLibraryEntity(callee.expression));
+        if (n.questionDotToken) return bad(n, "an optional call (`?.()`)");
         if (lib || entityMethod) {
-          let ok = true;
+          let ok = (await recordedResult(n)) || bad(n, `\`${src(callee)}\` returns a plain value, not a recorded expression`);
           // The receiver is part of the expression: `(c ? Card : Card2).patch(…)` branches there.
           if (callee.kind === K.PropertyAccessExpression && unwrap(callee.expression).kind !== K.Identifier) ok = (await check(callee.expression, ctx, seen)) && ok;
           for (const [i, a] of n.arguments.entries()) {
@@ -198,11 +258,14 @@ async function lintFile(file: string, sf: any, checker: any, libPath: string, fi
         }
         if (callee.kind === K.PropertyAccessExpression && unwrap(callee.expression).text === "Math" && PURE_MATH.has(callee.name.text)) {
           let ok = true;
-          for (const a of n.arguments) ok = ((await isLiteralType(a)) || bad(a, "Math over a non-literal")) && ok;
+          for (const a of n.arguments) ok = ((await isConstant(unwrap(a))) || literalInit(a) || bad(a, "Math over a non-literal")) && ok;
           return ok;
         }
-        if (callee.kind === K.Identifier && helpers.has(callee.text) && !seen.has(callee.text)) {
+        const hd = callee.kind === K.Identifier ? await declOf(callee) : undefined;
+        const isHelper = hd?.kind === K.VariableDeclaration && (hd.parent?.flags & 2) !== 0 && hd.initializer?.kind === K.ArrowFunction && helpers.get(callee.text) !== undefined && hd.initializer.pos === helpers.get(callee.text).pos;
+        if (callee.kind === K.Identifier && isHelper && !seen.has(callee.text)) {
           const h = helpers.get(callee.text);
+          if (!checkParams(h, "helper")) return bad(n, `helper \`${callee.text}\` has a default or rest parameter`);
           for (const p of h.parameters)
             if (!(await brand(p, "__flowRecorded")) && !(await isPrimitive(p))) return bad(n, `helper \`${callee.text}\`'s parameter \`${src(p.name)}\` is not a recorded value or a primitive (any, a generic or an object)`);
           if (h.body.kind === K.Block) return bad(n, `helper \`${callee.text}\` is not one expression`);
@@ -254,12 +317,26 @@ async function lintFile(file: string, sf: any, checker: any, libPath: string, fi
   const named = new Map<string, any>(helpers);
   for (const st of sf.statements) if (st.kind === K.FunctionDeclaration && st.name) named.set(st.name.text, st);
   const nocheck = /@ts-nocheck/.test(text) || file.endsWith(".js");
+  // Same-file domain factories: functions whose body calls the library's `domain`.
+  const factories = new Set<string>();
+  for (const [name, fn] of named) {
+    let found = false;
+    const scan = (x: any) => {
+      if (x.kind === K.CallExpression && unwrap(x.expression).kind === K.Identifier && unwrap(x.expression).text === "domain") found = true;
+      x.forEachChild((c: any) => {
+        scan(c);
+      });
+    };
+    scan(fn.body ?? fn);
+    if (found) factories.add(name);
+  }
   let reportedNocheck = false;
   const checkCallback = async (fn: any) => {
     if (nocheck && !reportedNocheck) {
       reportedNocheck = true;
       findings.push({ file, line: 1, rule: "not-recorded", severity: "error", message: "not a recorded expression: this file is not type-checked (@ts-nocheck or JavaScript), so its recorded positions cannot be analysed" });
     }
+    if (!checkParams(fn, "callback")) return;
     const ctx = { params: new Set(paramsOf(fn)), fn };
     if (fn.body.kind === K.Block) {
       const stmt = fn.body.statements[0];
@@ -276,10 +353,26 @@ async function lintFile(file: string, sf: any, checker: any, libPath: string, fi
         const a = n.arguments[i] && unwrap(n.arguments[i]);
         if (!a) continue;
         if (a.kind === K.ArrowFunction || a.kind === K.FunctionExpression) await checkCallback(a);
-        else if (a.kind === K.Identifier && named.has(a.text)) await checkCallback(named.get(a.text));
+        else if (a.kind === K.Identifier) {
+          // A name is followed through the checker: a single same-file `const` (or function declaration) only. A
+          // parameter, a `let`, an import or a shadowed name cannot be followed.
+          const d = await declOf(a);
+          const sameFile = d && named.get(a.text) !== undefined;
+          const fn =
+            d?.kind === K.VariableDeclaration && (d.parent?.flags & 2) !== 0 && d.parent.declarations.length === 1 && [K.ArrowFunction, K.FunctionExpression].includes(d.initializer?.kind) ? d.initializer
+            : d?.kind === K.FunctionDeclaration ? d
+            : undefined;
+          if (sameFile && fn && named.get(a.text).pos === (fn.kind === K.FunctionDeclaration ? fn.pos : fn.pos)) await checkCallback(named.get(a.text));
+          else bad(a, `a recorded callback the lint cannot follow (\`${a.text}\` is ${d ? K[d.kind] === "Parameter" ? "a parameter" : (d.parent?.flags & 2) === 0 ? "not a const" : "declared elsewhere" : "unresolved"}): write it inline or as a const in this file`);
+        }
         else bad(a, `a recorded callback the lint cannot read here (\`${src(a).slice(0, 40)}\`): write it inline or as a const in this file`);
       }
     }
+    // A factory call: an argument that is not a literal is fixed for the domain's life; say so (9.5).
+    if (n.kind === K.CallExpression && unwrap(n.expression).kind === K.Identifier && factories.has(unwrap(n.expression).text))
+      for (const a of n.arguments)
+        if (!(await isLiteralType(a)) && !literalInit(a))
+          findings.push({ file, line: line(a), rule: "claim", severity: "info", message: `\`${src(a).slice(0, 40)}\` is passed to the domain factory \`${unwrap(n.expression).text}\`: its value is fixed for the domain's life` });
     // A claim the lint cannot check: say so where it is made.
     if (n.kind === K.CallExpression && (await fromLibrary(n.expression)) && unwrap(n.expression).text === "serverMatches")
       findings.push({ file, line: line(n), rule: "claim", severity: "info", message: `\`${src(n)}\` claims the server's match reads ${n.arguments.length > 1 ? "only these record fields" : "any field"}; a wrong list misses repairs, and only audit mode and propertyTest check it` });
