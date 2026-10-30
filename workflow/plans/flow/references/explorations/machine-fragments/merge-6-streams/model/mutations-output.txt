@@ -1,0 +1,73 @@
+baseline failing (check, system, kind), REPAIR=1: 28
+    G1 | R+S[catchUp,from=0]/data | facts
+    G1 | R+S[catchUp,from=none]/data | facts
+    G1 | R+S[no catchUp,from=0]/data | facts
+    G2 | R+S[catchUp,from=0]/data | facts
+    G2 | R+S[catchUp,from=0]/data | state
+    I1 | CB+S | facts
+    I1 | R+S[catchUp,from=0]/data | facts
+    I1 | R+S[catchUp,from=none]/data | facts
+    I1 | R+S[no catchUp,from=0]/data | facts
+    I1 | S | facts
+    I13 | R+S[catchUp,from=0]/data | facts
+    I13 | R+S[catchUp,from=0]/data | state
+    I13 | R+S[catchUp,from=none]/data | facts
+    I13 | R+S[catchUp,from=none]/data | state
+    I20 | R+S[catchUp,from=0]/data | facts
+    I20 | R+S[catchUp,from=0]/data | state
+    I20 | R+S[catchUp,from=none]/data | facts
+    I20 | R+S[catchUp,from=none]/data | state
+    I20 | R+S[no catchUp,from=0]/data | facts
+    X1 | R+S[catchUp,from=0]/data | state
+    X1 | R+S[catchUp,from=none]/data | state
+    X1 | S | state
+    X2 | CB+S | state
+    X2 | R+S[catchUp,from=0]/data | state
+    X2 | R+S[catchUp,from=none]/data | state
+    X2 | S | state
+    X4 | CB+S | state
+    X4 | S | state
+OK   a fact before its missed (FC4, FC55; I1): a value in Dropped is delivered with no missed Unproven first
+      newly failing: I1* [CB+S facts], I1* [R+S[catchUp,from=0]/data facts], I1* [R+S[catchUp,from=none]/data facts], I1* [R+S[no catchUp,from=0]/data facts], I1* [S facts]
+      changed counterexample: G1 [R+S[catchUp,from=0]/data facts], G1 [R+S[catchUp,from=none]/data facts], G1 [R+S[no catchUp,from=0]/data facts], I1 [CB+S facts], I1 [R+S[catchUp,from=0]/data facts], I1 [R+S[catchUp,from=none]/data facts], I1 [R+S[no catchUp,from=0]/data facts], I1 [S facts]
+OK   the budget reset on the first value (FC41; I12): the reconnect budget resets on the first value of a connection, not after a live period of resetAfter
+      newly failing: I12 [R+S[catchUp,from=0]/data facts], I12 [R+S[catchUp,from=0]/data state], I12 [R+S[catchUp,from=none]/data facts], I12 [R+S[catchUp,from=none]/data state], I12 [R+S[no catchUp,from=0]/data facts], I12 [R/budget[no catchUp] facts]
+      changed counterexample: none
+OK   a value before live read as proven (FC64; I1): a plain Stream's first value in Opening is not preceded by missed Unproven
+      newly failing: I1* [S facts]
+      changed counterexample: I1 [S facts]
+OK   a status evicted on overflow (FC26; I1): a full Feed.callback queue drops a signal instead of merging it
+      newly failing: CB-status [CB+S facts], CB-status [CB+S state], I1* [CB+S facts]
+      changed counterexample: none
+OK   a state delivery admitted after a drop (FC20, FC54; I9): state admission no longer requires st = Live and slotConn = conn
+      newly failing: I9 [CB+S state], I9 [R+S[catchUp,from=0]/data state], I9 [R+S[catchUp,from=none]/data state], I9 [S state]
+      changed counterexample: none
+OK   a value after down making value current (FC54; I16): a state value in Dropped confirms and is delivered
+      newly failing: I16 [CB+S state], I16 [R+S[catchUp,from=0]/data state], I16 [R+S[catchUp,from=none]/data state], I16 [S state]
+      changed counterexample: X2 [CB+S state], X2 [S state]
+OK   equality on facts (FC1, FC25; I3): a fact equal to the last one is not delivered
+      newly failing: I3 [CB+S facts], I3 [R+S[catchUp,from=0]/data facts], I3 [R+S[catchUp,from=none]/data facts], I3 [S facts]
+      changed counterexample: I1 [S facts]
+OK   a catch-up started before live (FC51; I4, here G2): the catch-up starts at connect; the socket registers later than the page read
+      newly failing: G2 [R+S[catchUp,from=none]/data facts], G2 [R+S[catchUp,from=none]/data state]
+      changed counterexample: G1 [R+S[catchUp,from=0]/data facts], G2 [R+S[catchUp,from=0]/data facts], G2 [R+S[catchUp,from=0]/data state], I13 [R+S[catchUp,from=0]/data facts], I13 [R+S[catchUp,from=0]/data state], I20 [R+S[catchUp,from=0]/data facts], I20 [R+S[catchUp,from=0]/data state], X1 [R+S[catchUp,from=0]/data state], X1 [R+S[catchUp,from=none]/data state], X2 [R+S[catchUp,from=0]/data state]
+OK   a catch-up completing on an empty page or a stream end (FC42; I18): an empty page with a next cursor, or the end of the inner stream, completes the catch-up
+      newly failing: G1c [R+S[catchUp,from=0]/data facts], G1c [R+S[catchUp,from=0]/data state], G1c [R+S[catchUp,from=none]/data facts], G1c [R+S[catchUp,from=none]/data state], G2 [R+S[catchUp,from=none]/data facts], G2 [R+S[catchUp,from=none]/data state], I18 [R+S[catchUp,from=0]/data facts], I18 [R+S[catchUp,from=0]/data state], I18 [R+S[catchUp,from=none]/data facts], I18 [R+S[catchUp,from=none]/data state], I18 [R/budget[catchUp,head=0] facts]
+      changed counterexample: G2 [R+S[catchUp,from=0]/data facts], G2 [R+S[catchUp,from=0]/data state]
+OK   a page failure dropping the socket at once (FC23; I19): a retryable page failure fails the connection although pageSched has steps left
+      newly failing: I19 [R+S[catchUp,from=0]/data facts], I19 [R+S[catchUp,from=0]/data state], I19 [R+S[catchUp,from=none]/data facts], I19 [R+S[catchUp,from=none]/data state], I19 [R/budget[catchUp,head=0] facts]
+      changed counterexample: none
+OK   a restart before the scope closed (FC33; I10): the successor session opens while the predecessor is Releasing
+      newly failing: I10 [S facts], I10 [S state]
+      changed counterexample: none
+OK   last = the highest position seen (FC22; I4): last follows buffered positions, not the last value emitted downstream
+      newly failing: G2 [R+S[catchUp,from=none]/data facts], G2 [R+S[catchUp,from=none]/data state], I4 [R+S[catchUp,from=0]/data facts], I4 [R+S[catchUp,from=0]/data state], I4 [R+S[catchUp,from=none]/data facts], I4 [R+S[catchUp,from=none]/data state]
+      changed counterexample: G2 [R+S[catchUp,from=0]/data facts], G2 [R+S[catchUp,from=0]/data state]
+OK   a state proof re-confirming a restored last (FC78; I17): a state proof confirms a last that this session did not set
+      newly failing: I17 [CB+S state], I17 [R+S[catchUp,from=0]/data state], I17 [R+S[catchUp,from=none]/data state], I17 [S state], I8 [CB+S state], I8 [R+S[catchUp,from=0]/data state], I8 [R+S[catchUp,from=none]/data state], I8 [S state]
+      changed counterexample: X2 [S state]
+NOT MODELLED listen staleness withdrawn on an unproven start (FC19, FC47; I15): no variable in 3.1-3.4 models a covered answer or a listen read
+NOT MODELLED progress written by a superseded Attempt (FC30; I14): no variable in 3.1-3.4 models row.progress or an Attempt
+OK   page values emitted after a drop (FC43; I21): ending a connection no longer interrupts the page read
+      newly failing: I21 [R+S[catchUp,from=0]/data facts], I21 [R+S[catchUp,from=0]/data state], I21 [R+S[catchUp,from=none]/data facts], I21 [R+S[catchUp,from=none]/data state], I21 [R/budget[catchUp,head=0] facts]
+      changed counterexample: I1 [R+S[catchUp,from=0]/data facts], I1 [R+S[catchUp,from=none]/data facts], X1 [R+S[catchUp,from=0]/data state], X1 [R+S[catchUp,from=none]/data state]
