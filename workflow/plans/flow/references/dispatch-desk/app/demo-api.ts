@@ -1,75 +1,71 @@
-// The in-memory server. It is also the entity property test's oracle (testing/), so it filters,
-// orders, pages and deduplicates exactly as the real server does; the domain's declarations are
-// checked against it, never the other way round (entity-domain.md section 8.3).
-import { Context, Effect, Layer, PubSub, Stream } from "effect";
-import { TicketApi } from "../features/Tickets/ticket-api.js";
+// The in-memory server as Effect Layers, one per port: tickets, comments, attachments, the
+// workspace socket, presence and the assistant. Every rule is a pure function of desk-server.ts,
+// which is also the entity property test's oracle and the Story fake's engine, so the demo filters,
+// orders, pages and deduplicates exactly as the real server does. The Layers add what the pure core
+// leaves out: sharing one truth between ports, and pushing logged changes on the socket.
+import { Context, Effect, Layer, PubSub, Schedule, Stream } from "effect";
 import {
-  TicketNotFound,
-  TitleRejected,
-  type TicketEvent,
-  type TicketKey,
-  type TicketRow,
-} from "../features/Tickets/types.js";
+  AttachmentsApi,
+  PendingFilesLive,
+  type StoredAttachment,
+  type TooLarge,
+} from "../features/Attachments/attachments-api.js";
+import { CommentsApi } from "../features/Comments/comments-api.js";
+import { AssistantApi, Refused, type SuggestFrame } from "../features/Assistant/assistant-api.js";
+import { PresenceApi, type Member, type PresenceFrame } from "../features/Presence/presence-api.js";
+import { DeskSocket, type DeskFrame } from "../features/Tickets/feed/desk-socket.js";
+import { TicketApi } from "../features/Tickets/ticket-api.js";
+import type { Cursor, TicketNotFound, TicketKey, TicketRow } from "../features/Tickets/types.js";
+import * as Desk from "./desk-server.js";
 
-const PAGE = 20;
+type Pushed<Frame> = { workspaceId: string; frame: Frame };
 
-// Code-point order, never localeCompare: the declared asc(ticketId) is the same on every host.
-const byCodePoint = (a: string, b: string) => {
-  if (a < b) return -1;
+const reply = <A, E>(result: Desk.Result<A, E>): Effect.Effect<A, E> =>
+  result.ok ? Effect.succeed(result.value) : Effect.fail(result.error);
 
-  if (a > b) return 1;
-
-  return 0;
-};
-
-// The order ticket.domain.ts declares: updatedAt descending, then the key.
-const declaredOrder = (a: TicketRow, b: TicketRow) =>
-  b.updatedAt - a.updatedAt ||
-  byCodePoint(a.workspaceId, b.workspaceId) ||
-  byCodePoint(a.ticketId, b.ticketId);
-
-// Two named tickets the Stories use, plus enough filler that the queue has three pages.
-const seed = (): TicketRow[] => [
-  {
-    workspaceId: "north",
-    ticketId: "T-42",
-    title: "Replace lobby light",
-    status: "assigned",
-    assignee: "dispatcher-7",
-    updatedAt: 1,
-    revision: 1,
-  },
-  {
-    workspaceId: "north",
-    ticketId: "T-43",
-    title: "Fix loading dock door",
-    status: "open",
-    assignee: null,
-    updatedAt: 1,
-    revision: 1,
-  },
-  ...Array.from({ length: 43 }, (_, index): TicketRow => ({
-    workspaceId: "north",
-    ticketId: `T-${String(100 + index)}`,
-    title: `Routine inspection ${index + 1}`,
-    status: index % 3 === 0 ? "closed" : "open",
-    assignee: null,
-    updatedAt: 0,
-    revision: 1,
-  })),
+// The change frame and the activity frame a logged item becomes. They share its cursor.
+const framesOf = (item: Desk.LogItem): ReadonlyArray<DeskFrame> => [
+  { t: "change", event: item.event },
+  { t: "activity", entry: item.entry },
 ];
 
-// The server itself, so fixtures can change it the way another dispatcher would: through the
-// same state the API reads, followed by the push the real server sends.
+// The registration frame: a reset when `from` belongs to an older epoch, else a hello that echoes
+// `from` only if the kept log still reaches it.
+const greet = (
+  epoch: number,
+  from: Cursor | undefined,
+  replayedFrom: Cursor | undefined,
+): DeskFrame => {
+  if (from !== undefined && from.epoch !== epoch) return { t: "reset", epoch };
+
+  if (replayedFrom) return { t: "hello", replayedFrom };
+
+  return { t: "hello" };
+};
+
+// The server itself, so fixtures can act the way another dispatcher would: through the same
+// state the ports read, followed by the push the real server sends.
 export class DemoServer extends Context.Service<
   DemoServer,
   {
-    api: typeof TicketApi.Service;
+    tickets: typeof TicketApi.Service;
+    comments: typeof CommentsApi.Service;
+    attachments: typeof AttachmentsApi.Service;
+    socket: typeof DeskSocket.Service;
+    presence: typeof PresenceApi.Service;
+    assistant: typeof AssistantApi.Service;
+    // Controls: another dispatcher, the server's log, a lock someone else holds.
     externalSave: (
       key: TicketKey,
       change: Partial<Pick<TicketRow, "title" | "status" | "assignee">>,
     ) => Effect.Effect<TicketRow, TicketNotFound>;
     externalRemove: (key: TicketKey) => Effect.Effect<void, TicketNotFound>;
+    lock: (key: TicketKey, by: string) => Effect.Effect<void>;
+    unlock: (key: TicketKey) => Effect.Effect<void>;
+    resetLog: Effect.Effect<void>;
+    retain: (count: number) => Effect.Effect<void>;
+    viewerJoins: (key: TicketKey, member: Member) => Effect.Effect<void>;
+    viewerLeaves: (key: TicketKey, memberId: string) => Effect.Effect<void>;
   }
 >()("DispatchDesk/DemoServer") {}
 
@@ -77,136 +73,203 @@ export class DemoServer extends Context.Service<
 const DemoServerLive = Layer.effect(
   DemoServer,
   Effect.gen(function* () {
-    const pushes = yield* PubSub.unbounded<TicketEvent>();
-    let clock = 1;
-    let tickets = seed();
-    const settled = new Map<string, TicketRow>(); // idempotency key → the result first returned
+    const pushes = yield* PubSub.unbounded<Pushed<DeskFrame>>();
+    const presence = yield* PubSub.unbounded<{ key: string; frame: PresenceFrame }>();
+    let truth = Desk.seed();
 
-    const find = (key: TicketKey) =>
-      tickets.find(
-        (ticket) => ticket.workspaceId === key.workspaceId && ticket.ticketId === key.ticketId,
-      );
-
-    const update = (ticket: TicketRow, change: Partial<TicketRow>) => {
-      const next = { ...ticket, ...change, updatedAt: ++clock, revision: ticket.revision + 1 };
-      tickets = tickets.map((current) => (current === ticket ? next : current));
-
-      return { ...next };
-    };
-
-    // A repeated idempotency key returns the first result and changes nothing.
-    const once = <E>(idempotencyKey: string, apply: () => Effect.Effect<TicketRow, E>) =>
+    // Applies one pure step to the shared truth, then pushes whatever it appended to the log.
+    const write = <A, E>(apply: (current: Desk.DeskTruth) => Desk.Step<A, E>) =>
       Effect.suspend(() => {
-        const previous = settled.get(idempotencyKey);
+        const first = truth.nextSeq;
+        const [next, result] = apply(truth);
+        truth = next;
 
-        if (previous) return Effect.succeed({ ...previous });
+        const appended = next.log.filter((item) => item.event.cursor.seq >= first);
 
-        return apply().pipe(
-          Effect.tap((row) => Effect.sync(() => settled.set(idempotencyKey, row))),
-        );
+        return PubSub.publishAll(
+          pushes,
+          appended.flatMap((item) =>
+            framesOf(item).map((frame) => ({ workspaceId: item.workspaceId, frame })),
+          ),
+        ).pipe(Effect.andThen(reply(result)));
       });
 
-    const api = TicketApi.of({
-      load: (key) =>
-        Effect.suspend(() => {
-          const ticket = find(key);
+    const change = (apply: (current: Desk.DeskTruth) => Desk.DeskTruth) =>
+      Effect.sync(() => {
+        truth = apply(truth);
+      });
 
-          return ticket
-            ? Effect.succeed({ ...ticket })
-            : Effect.fail(new TicketNotFound({ ticketId: key.ticketId }));
+    const tickets = TicketApi.of({
+      load: (key) => Effect.suspend(() => reply(Desk.loadTicket(truth, key))),
+      list: (input) => Effect.sync(() => Desk.listTickets(truth, input)),
+      openCount: ({ workspaceId }) => Effect.sync(() => Desk.openCount(truth, workspaceId)),
+      saveTitle: (input, { idempotencyKey }) =>
+        write((current) => Desk.saveTitle(current, input, idempotencyKey)),
+      assign: (input, { idempotencyKey }) =>
+        write((current) => Desk.assign(current, input, idempotencyKey)),
+      eventsSince: ({ workspaceId, after }) =>
+        Effect.sync(() => Desk.eventsSince(truth, workspaceId, after)),
+    });
+
+    const comments = CommentsApi.of({
+      list: (key) => Effect.suspend(() => reply(Desk.listComments(truth, key))),
+      post: (input, { idempotencyKey }) =>
+        write((current) => Desk.postComment(current, input, idempotencyKey)),
+    });
+
+    // The demo reports progress in four steps, then answers: enough for a bar to move.
+    const attachments = AttachmentsApi.of({
+      put: (ref, bytes, { idempotencyKey, onProgress }) =>
+        Effect.gen(function* () {
+          for (const share of [0.25, 0.5, 0.75, 1]) {
+            onProgress({ sent: Math.round(bytes.size * share), total: bytes.size });
+            yield* Effect.sleep("200 millis");
+          }
+
+          const name = bytes instanceof File ? bytes.name : ref;
+
+          return yield* write((current): Desk.Step<StoredAttachment, TooLarge> =>
+            Desk.putFile(current, { ref, name, size: bytes.size }, idempotencyKey),
+          );
         }),
-      list: ({ workspaceId, status, assignee, search, page = 0 }) =>
-        Effect.sync(() => {
-          const needle = search?.trim().toLowerCase() ?? "";
+    });
 
-          const matching = tickets
-            .filter(
-              (ticket) =>
-                ticket.workspaceId === workspaceId &&
-                (status === undefined || ticket.status === status) &&
-                (assignee === undefined || ticket.assignee === assignee) &&
-                ticket.title.toLowerCase().includes(needle),
-            )
-            .sort(declaredOrder);
+    // The first frame is the registration: a reset when `from` belongs to an older epoch, else a
+    // hello that echoes `from` only if the kept log still reaches it. Subscribing before reading
+    // the truth means no push falls between the replay and the live frames.
+    const socket = DeskSocket.of({
+      frames: (workspaceId, from) =>
+        Stream.unwrap(
+          Effect.gen(function* () {
+            const subscription = yield* PubSub.subscribe(pushes);
+            const { replayedFrom, items } = Desk.replay(truth, workspaceId, from);
 
-          const slice = matching.slice(page * PAGE, page * PAGE + PAGE);
-          const nextPage = (page + 1) * PAGE < matching.length ? page + 1 : undefined;
+            const greeting = greet(truth.epoch, from, replayedFrom);
 
-          return { tickets: slice.map((ticket) => ({ ...ticket })), nextPage };
-        }),
-      openCount: ({ workspaceId }) =>
-        Effect.sync(
-          () =>
-            tickets.filter(
-              (ticket) => ticket.workspaceId === workspaceId && ticket.status === "open",
-            ).length,
-        ),
-      saveTitle: ({ idempotencyKey, title, ...key }) =>
-        once(idempotencyKey, (): Effect.Effect<TicketRow, TicketNotFound | TitleRejected> => {
-          const ticket = find(key);
+            const live = Stream.fromSubscription(subscription).pipe(
+              Stream.filter((pushed) => pushed.workspaceId === workspaceId),
+              Stream.map((pushed) => pushed.frame),
+            );
 
-          if (!ticket) return Effect.fail(new TicketNotFound({ ticketId: key.ticketId }));
+            const pings = Stream.tick("20 seconds").pipe(
+              Stream.map((): DeskFrame => ({ t: "ping" })),
+            );
 
-          if (title.trim() === "")
-            return Effect.fail(new TitleRejected({ reason: "Enter a ticket title" }));
-
-          return Effect.sync(() => update(ticket, { title }));
-        }),
-      assign: ({ idempotencyKey, assignee, ...key }) =>
-        once(idempotencyKey, () => {
-          const ticket = find(key);
-
-          return ticket
-            ? Effect.sync(() => update(ticket, { assignee, status: "assigned" }))
-            : Effect.fail(new TicketNotFound({ ticketId: key.ticketId }));
-        }),
-      technicianUpdates: () =>
-        Stream.fromIterable([
-          { stage: "assigned" as const, at: 0 },
-          { stage: "on-site" as const, at: 60_000 },
-        ]),
-      events: ({ workspaceId }) =>
-        Stream.fromPubSub(pushes).pipe(
-          Stream.filter((event) =>
-            event._tag === "TicketSaved"
-              ? event.ticket.workspaceId === workspaceId
-              : event.workspaceId === workspaceId,
-          ),
+            return Stream.make(greeting).pipe(
+              Stream.concat(Stream.fromIterable(items.flatMap(framesOf))),
+              Stream.concat(Stream.merge(live, pings)),
+            );
+          }),
         ),
     });
 
+    // A fresh `presence_state` on every join, then diffs for this ticket only.
+    const presenceApi = PresenceApi.of({
+      frames: (key) =>
+        Stream.unwrap(
+          Effect.gen(function* () {
+            const subscription = yield* PubSub.subscribe(presence);
+            const state: PresenceFrame = {
+              t: "presence_state",
+              members: Desk.viewersOf(truth, key),
+            };
+
+            const diffs = Stream.fromSubscription(subscription).pipe(
+              Stream.filter((pushed) => pushed.key === Desk.keyOf(key)),
+              Stream.map((pushed) => pushed.frame),
+            );
+
+            return Stream.make(state).pipe(Stream.concat(diffs));
+          }),
+        ),
+    });
+
+    // Tokens at 100 ms, then `done`. An unknown ticket is refused before any body.
+    const assistant = AssistantApi.of({
+      suggest: (input) => {
+        const ticket = Desk.find(truth, input);
+
+        if (!ticket) return Stream.fail(new Refused({ status: 404 }));
+
+        const tokens = Desk.replyTokens(ticket);
+
+        return Stream.fromIterable(tokens).pipe(
+          Stream.schedule(Schedule.spaced("100 millis")),
+          Stream.map((text): SuggestFrame => ({ t: "token", text })),
+          Stream.concat(
+            Stream.make<SuggestFrame[]>({ t: "done", usage: { tokens: tokens.length } }),
+          ),
+        );
+      },
+    });
+
     return DemoServer.of({
-      api,
-      externalSave: (key, change) =>
-        Effect.suspend(() => {
-          const ticket = find(key);
-
-          if (!ticket) return Effect.fail(new TicketNotFound({ ticketId: key.ticketId }));
-          const next = update(ticket, change);
-
-          return PubSub.publish(pushes, { _tag: "TicketSaved", ticket: next }).pipe(
-            Effect.as(next),
-          );
-        }),
+      tickets,
+      comments,
+      attachments,
+      socket,
+      presence: presenceApi,
+      assistant,
+      externalSave: (key, patch) =>
+        write((current) => Desk.changeElsewhere(current, key, patch, "dispatcher-2")),
       externalRemove: (key) =>
+        write((current) => Desk.removeElsewhere(current, key, "dispatcher-2")),
+      lock: (key, by) => change((current) => Desk.lock(current, key, by)),
+      unlock: (key) => change((current) => Desk.unlock(current, key)),
+      resetLog: change(Desk.resetLog),
+      retain: (count) => change((current) => Desk.retain(current, count)),
+      viewerJoins: (key, member) =>
         Effect.suspend(() => {
-          const ticket = find(key);
+          const [next, diff] = Desk.join(truth, key, member);
+          truth = next;
 
-          if (!ticket) return Effect.fail(new TicketNotFound({ ticketId: key.ticketId }));
-          tickets = tickets.filter((current) => current !== ticket);
+          return PubSub.publish(presence, {
+            key: Desk.keyOf(key),
+            frame: { t: "presence_diff", ...diff },
+          }).pipe(Effect.asVoid);
+        }),
+      viewerLeaves: (key, memberId) =>
+        Effect.suspend(() => {
+          const [next, diff] = Desk.leave(truth, key, memberId);
+          truth = next;
 
-          return PubSub.publish(pushes, {
-            _tag: "TicketRemoved",
-            ...key,
-            revision: ticket.revision + 1,
+          return PubSub.publish(presence, {
+            key: Desk.keyOf(key),
+            frame: { t: "presence_diff", ...diff },
           }).pipe(Effect.asVoid);
         }),
     });
   }),
 );
 
-// The API the app uses, over the server fixtures can reach. Both come from one build.
-export const DemoTicketApi = Layer.effect(
-  TicketApi,
-  DemoServer.useSync((server) => server.api),
+// Every port the app uses, over the one server fixtures can reach. All come from one build.
+export const DemoDeskApi = Layer.mergeAll(
+  Layer.effect(
+    TicketApi,
+    DemoServer.useSync((server) => server.tickets),
+  ),
+  Layer.effect(
+    CommentsApi,
+    DemoServer.useSync((server) => server.comments),
+  ),
+  Layer.effect(
+    AttachmentsApi,
+    DemoServer.useSync((server) => server.attachments),
+  ),
+  Layer.effect(
+    DeskSocket,
+    DemoServer.useSync((server) => server.socket),
+  ),
+  Layer.effect(
+    PresenceApi,
+    DemoServer.useSync((server) => server.presence),
+  ),
+  Layer.effect(
+    AssistantApi,
+    DemoServer.useSync((server) => server.assistant),
+  ),
+  PendingFilesLive,
 ).pipe(Layer.provideMerge(DemoServerLive));
+
+// The name earlier files import (app/setup.ts, app/persistence.ts); it now provides every port.
+export const DemoTicketApi = DemoDeskApi;

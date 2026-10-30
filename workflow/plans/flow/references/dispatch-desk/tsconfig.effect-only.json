@@ -1,0 +1,21 @@
+{
+  "extends": "../../../../../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "declaration": false,
+    "declarationMap": false,
+    "plugins": []
+  },
+  "include": [
+    "features/Tickets/types.ts",
+    "features/Tickets/ticket-api.ts",
+    "features/Tickets/feed/desk-socket.ts",
+    "features/Comments/comments-api.ts",
+    "features/Attachments/attachments-api.ts",
+    "features/Presence/presence-api.ts",
+    "features/Assistant/assistant-api.ts",
+    "app/desk-server.ts",
+    "app/demo-api.ts",
+    "next/http-api.ts"
+  ]
+}
