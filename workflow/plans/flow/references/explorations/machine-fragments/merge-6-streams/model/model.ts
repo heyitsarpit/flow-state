@@ -117,7 +117,7 @@ export function sIn(s0: Sess, inp: SIn): SR {
   };
   const discard = () => ev.push("evidence:discard");
   const start = (a: Answer) => {
-    s.lastCur = false; s.slotCur = false; s.reconfCur = false; s.st = "Live"; s.drop = 0; s.answer = a; s.dv = false; s.startAt = state ? s.now : null;
+    s.lastCur = false; s.slotCur = false; s.reconfCur = false; s.st = "Live"; s.drop = 0; s.answer = a; s.dv = false; s.lastDrop = false; s.startAt = state ? s.now : null;
     if (s.kind === "facts") {
       if (a === "unproven" || a === "lost" || a === "reset") {
         s.needM = true;
@@ -130,7 +130,7 @@ export function sIn(s0: Sess, inp: SIn): SR {
   };
   const setLast = (v: number, own: boolean, at: number, fromDrop: boolean) => { s.lastV = v; s.lastOwn = own; s.lastAt = at; s.lastDrop = fromDrop; s.lastRest = false; };
   const end = (f: string) => {
-    if (st === "Live" && s.lastV !== null && state) { s.lastAt = s.now; s.lastRest = false; }
+    if (st === "Live" && s.confirmed && state) { s.lastAt = s.now; s.lastRest = false; }
     s.st = "Ended"; s.endAt = state ? s.now : null; deliver({ t: "failure", e: f }); if (s.answer === "pending") s.answer = "abandoned"; lev.push("E"); reconcile(s);
   };
   if (k === "proof") {
@@ -184,7 +184,7 @@ export function sIn(s0: Sess, inp: SIn): SR {
     else {
       if (st === "Opening") { s.st = "Dropped"; s.drop = inp.v ?? 1; s.dv = false; s.dropAt = state ? s.now : null; }
       else if (st === "Dropped") { s.drop = inp.v ?? 1; if (C.secondDownResetsOwed) { s.owed = false; s.dv = false; } }
-      else { s.st = "Dropped"; s.drop = inp.v ?? 1; s.owed = false; s.dv = false; s.dropAt = state ? s.now : null; if (s.answer === "pending") s.answer = "abandoned"; if (state) { s.confirmed = false; if (s.lastV !== null) { s.lastAt = s.now; s.lastRest = false; } } }
+      else { s.st = "Dropped"; s.drop = inp.v ?? 1; s.owed = false; s.dv = false; s.dropAt = state ? s.now : null; if (s.answer === "pending") s.answer = "abandoned"; if (state) { if (s.confirmed) { s.lastAt = s.now; s.lastRest = false; } s.confirmed = false; } }
       lev.push("D"); reconcile(s);
     }
   } else if (k === "fail" || k === "complete" || k === "defect") {
@@ -255,7 +255,7 @@ export function sessInv(s: Sess): string[] {
     if (s.lastAt !== null && s.st === "Dropped" && s.dropAt !== null && s.lastAt > s.dropAt) v.push("I26");
     if (s.lastAt !== null && s.st === "Dropped" && s.lastDrop && s.dropAt !== null && s.lastAt !== s.dropAt) v.push("I26");
     if (s.lastAt !== null && s.st === "Ended" && s.endAt !== null && s.lastAt > s.endAt) v.push("I26");
-    if (s.lastRest && s.lastAt !== null && s.now === 1 && s.lastAt !== s.now - s.age0) v.push("I26");
+    if (s.lastRest && s.lastAt !== null && s.lastAt !== 1 - s.age0) v.push("I26"); // a restored, untouched last keeps its age, also after a drop or an end
   }
   return v;
 }
@@ -465,6 +465,7 @@ export function rMoves(r: Rc): RMove[] {
       r.fv = true;
       if (r.ph === "CatchingUp") {
         if (!C.lastIsEmitted && b.p !== null) r.last = Math.max(r.last ?? 0, b.p);
+        if (b.p !== null && r.seen.includes(b.p)) { ev.push("evidence:late socket value"); return; } // rev 4.1: the pages already delivered it
         r.buf.push(b); if (r.buf.length > RCFG.buf) dropConn(r, out, viol, ev);
         return;
       }

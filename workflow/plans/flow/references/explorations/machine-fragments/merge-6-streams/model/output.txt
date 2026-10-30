@@ -1,17 +1,17 @@
-RUN S kind=facts reading=spec states=4796 depth=13 (fixpoint) 77 ms
-RUN S kind=state reading=spec states=364646 depth=12 (fixpoint) 5092 ms
-RUN S+L kind=facts reading=spec states=42072 depth=12 (bounded by depth/state cap) 606 ms
-RUN S+L kind=state reading=spec states=307630 depth=12 (bounded by depth/state cap) 4780 ms
-RUN CB+S kind=facts reading=spec states=1075336 depth=23 (fixpoint) 6326 ms
-RUN CB+S kind=state reading=spec states=636542 depth=14 (fixpoint) 3220 ms
+RUN S kind=facts reading=spec states=4796 depth=13 (fixpoint) 67 ms
+RUN S kind=state reading=spec states=444468 depth=12 (fixpoint) 6106 ms
+RUN S+L kind=facts reading=spec states=42072 depth=12 (bounded by depth/state cap) 594 ms
+RUN S+L kind=state reading=spec states=342910 depth=12 (bounded by depth/state cap) 5246 ms
+RUN CB+S kind=facts reading=spec states=1075336 depth=23 (fixpoint) 6179 ms
+RUN CB+S kind=state reading=spec states=636590 depth=14 (fixpoint) 3169 ms
 RUN P kind=- reading=spec states=688 depth=11 (fixpoint) 4 ms
-RUN R+S[catchUp,from=0]/data kind=facts reading=spec states=163596 depth=10 (bounded by depth/state cap) 2002 ms
-RUN R+S[catchUp,from=0]/data kind=state reading=spec states=232877 depth=10 (bounded by depth/state cap) 2308 ms
-RUN R+S[catchUp,from=none]/data kind=facts reading=spec states=114984 depth=10 (bounded by depth/state cap) 1351 ms
-RUN R+S[catchUp,from=none]/data kind=state reading=spec states=179173 depth=10 (bounded by depth/state cap) 1717 ms
-RUN R+S[no catchUp,from=0]/data kind=facts reading=spec states=34179 depth=10 (bounded by depth/state cap) 455 ms
-RUN R+S[no catchUp,from=0]/data kind=state reading=spec states=54991 depth=10 (bounded by depth/state cap) 505 ms
-RUN R+S[no catchUp,from=none,no positions]/data kind=facts reading=spec states=35378 depth=10 (bounded by depth/state cap) 438 ms
+RUN R+S[catchUp,from=0]/data kind=facts reading=spec states=162750 depth=10 (bounded by depth/state cap) 1962 ms
+RUN R+S[catchUp,from=0]/data kind=state reading=spec states=232228 depth=10 (bounded by depth/state cap) 2239 ms
+RUN R+S[catchUp,from=none]/data kind=facts reading=spec states=114673 depth=10 (bounded by depth/state cap) 1315 ms
+RUN R+S[catchUp,from=none]/data kind=state reading=spec states=178949 depth=10 (bounded by depth/state cap) 1683 ms
+RUN R+S[no catchUp,from=0]/data kind=facts reading=spec states=34179 depth=10 (bounded by depth/state cap) 447 ms
+RUN R+S[no catchUp,from=0]/data kind=state reading=spec states=56016 depth=10 (bounded by depth/state cap) 506 ms
+RUN R+S[no catchUp,from=none,no positions]/data kind=facts reading=spec states=35378 depth=10 (bounded by depth/state cap) 431 ms
 RUN R/budget[no catchUp] kind=facts reading=spec states=5746 depth=14 (fixpoint) 44 ms
 RUN R/budget[catchUp,head=0] kind=facts reading=spec states=4798 depth=11 (bounded by depth/state cap) 35 ms
 RESULT mode=spec I1 PASS
@@ -26,7 +26,7 @@ RESULT mode=spec I9 PASS
 RESULT mode=spec I10 PASS
 RESULT mode=spec I11 PASS
 RESULT mode=spec I12 PASS
-RESULT mode=spec I13 FAIL
+RESULT mode=spec I13 PASS
 RESULT mode=spec I14 PASS
 RESULT mode=spec I15 PASS
 RESULT mode=spec I16 PASS
@@ -37,7 +37,7 @@ RESULT mode=spec I20 PASS
 RESULT mode=spec I21 PASS
 RESULT mode=spec I22a PASS
 RESULT mode=spec I22b PASS
-RESULT mode=spec I23 FAIL
+RESULT mode=spec I23 PASS
 RESULT mode=spec I24 PASS
 RESULT mode=spec I25 PASS
 RESULT mode=spec I26 PASS
@@ -46,12 +46,6 @@ RESULT mode=spec CB-order PASS
 RESULT mode=spec CB-down-lost PASS
 RESULT mode=spec CB-upgrade PASS
 RESULT mode=spec CB-waiter PASS
-CE I13 [R+S[catchUp,from=0]/data facts] (6 steps): inner live() -> server append -> server append -> page ok (more) -> inner value -> page ok (more)
-CE I23 [R+S[catchUp,from=0]/data facts] (6 steps): inner live() -> server append -> server append -> page ok (more) -> inner value -> page ok (more)
-CE I13 [R+S[catchUp,from=0]/data state] (6 steps): inner live() -> server append -> server append -> page ok (more) -> inner value -> page ok (more)
-CE I13 [R+S[catchUp,from=none]/data facts] (7 steps): inner reset(r, at) -> inner live() -> server append -> server append -> page ok (more) -> inner value -> page ok (more)
-CE I23 [R+S[catchUp,from=none]/data facts] (7 steps): inner reset(r, at) -> inner live() -> server append -> server append -> page ok (more) -> inner value -> page ok (more)
-CE I13 [R+S[catchUp,from=none]/data state] (7 steps): inner reset(r, at) -> inner live() -> server append -> server append -> page ok (more) -> inner value -> page ok (more)
 COVERAGE 3.1 (rows = inputs, columns = states; F = facts reached, S = state reached, - = cannot occur, . = defined but unreached)
   input     Opening   Dropped   Live      Ended     Releasing Released  
   proof     FS        FS        FS        -         FS        -         
@@ -74,4 +68,4 @@ COVERAGE 3.1 cells: 55 defined, 41 cannot occur; unreached (cell, kind): none
 COVERAGE 3.4 cells: 70 = 32 defined + 38 cannot; unreached defined: none
 COVERAGE 3.3 cells (6 inputs x 3 columns): unreached: none
 COVERAGE 3.5 cells: unreached: none; 3.6 events: readStart true, readLand true
-TOTAL 29429 ms
+TOTAL 30488 ms

@@ -1,13 +1,7 @@
-baseline failing (check, system, kind): 6
-    I13 | R+S[catchUp,from=0]/data | facts
-    I13 | R+S[catchUp,from=0]/data | state
-    I13 | R+S[catchUp,from=none]/data | facts
-    I13 | R+S[catchUp,from=none]/data | state
-    I23 | R+S[catchUp,from=0]/data | facts
-    I23 | R+S[catchUp,from=none]/data | facts
+baseline failing (check, system, kind): 0
 OK   a fact before its missed (FC4, FC55; I1): a value in Dropped is delivered with no missed Unproven first
-      newly failing: I1 [CB+S facts], I1 [R+S[catchUp,from=0]/data facts], I1 [R+S[catchUp,from=none]/data facts], I1 [R+S[no catchUp,from=0]/data facts], I1 [R+S[no catchUp,from=none,no positions]/data facts], I1 [S facts], I1 [S+L facts], I23 [R+S[no catchUp,from=0]/data facts], I23 [R+S[no catchUp,from=none,no positions]/data facts]
-      changed counterexample: I23 [R+S[catchUp,from=none]/data facts]
+      newly failing: I1 [CB+S facts], I1 [R+S[catchUp,from=0]/data facts], I1 [R+S[catchUp,from=none]/data facts], I1 [R+S[no catchUp,from=0]/data facts], I1 [R+S[no catchUp,from=none,no positions]/data facts], I1 [S facts], I1 [S+L facts], I23 [R+S[catchUp,from=0]/data facts], I23 [R+S[catchUp,from=none]/data facts], I23 [R+S[no catchUp,from=0]/data facts], I23 [R+S[no catchUp,from=none,no positions]/data facts]
+      changed counterexample: none
 OK   the budget reset on the first value (FC41; I12): the reconnect budget resets on the first value of a connection
       newly failing: I12 [R+S[catchUp,from=0]/data facts], I12 [R+S[catchUp,from=0]/data state], I12 [R+S[catchUp,from=none]/data facts], I12 [R+S[catchUp,from=none]/data state], I12 [R+S[no catchUp,from=0]/data facts], I12 [R+S[no catchUp,from=0]/data state], I12 [R+S[no catchUp,from=none,no positions]/data facts], I12 [R/budget[no catchUp] facts]
       changed counterexample: none
@@ -36,14 +30,14 @@ OK   a value after down made own (RV1 M6; I16): a state value in Dropped sets ow
       newly failing: I16 [CB+S state], I16 [R+S[catchUp,from=0]/data state], I16 [R+S[catchUp,from=none]/data state], I16 [R+S[no catchUp,from=0]/data state], I16 [S state], I16 [S+L state]
       changed counterexample: none
 OK   equality on facts (FC1, FC25; I3): a fact equal to the last one is not delivered
-      newly failing: I3 [CB+S facts], I3 [R+S[catchUp,from=0]/data facts], I3 [R+S[catchUp,from=none]/data facts], I3 [S facts], I3 [S+L facts]
+      newly failing: I3 [CB+S facts], I3 [S facts], I3 [S+L facts]
       changed counterexample: none
 OK   a catch-up started before live (FC51; I23): the repair starts at connect; the socket registers later than the page read
-      newly failing: I20 [R+S[catchUp,from=0]/data facts], I20 [R+S[catchUp,from=0]/data state], I20 [R+S[catchUp,from=none]/data facts], I20 [R+S[catchUp,from=none]/data state]
-      changed counterexample: I13 [R+S[catchUp,from=0]/data facts], I13 [R+S[catchUp,from=0]/data state], I13 [R+S[catchUp,from=none]/data facts], I13 [R+S[catchUp,from=none]/data state], I23 [R+S[catchUp,from=0]/data facts], I23 [R+S[catchUp,from=none]/data facts]
+      newly failing: I13 [R+S[catchUp,from=0]/data facts], I13 [R+S[catchUp,from=0]/data state], I13 [R+S[catchUp,from=none]/data facts], I13 [R+S[catchUp,from=none]/data state], I20 [R+S[catchUp,from=0]/data facts], I20 [R+S[catchUp,from=0]/data state], I20 [R+S[catchUp,from=none]/data facts], I20 [R+S[catchUp,from=none]/data state], I23 [R+S[catchUp,from=0]/data facts], I23 [R+S[catchUp,from=none]/data facts]
+      changed counterexample: none
 OK   a catch-up completing on an empty page or a stream end (FC42; I18): an empty page with a next cursor, or the end of the inner stream, completes the repair
-      newly failing: I18 [R+S[catchUp,from=0]/data facts], I18 [R+S[catchUp,from=0]/data state], I18 [R+S[catchUp,from=none]/data facts], I18 [R+S[catchUp,from=none]/data state], I18 [R/budget[catchUp,head=0] facts]
-      changed counterexample: I23 [R+S[catchUp,from=none]/data facts]
+      newly failing: I13 [R+S[catchUp,from=0]/data facts], I13 [R+S[catchUp,from=0]/data state], I13 [R+S[catchUp,from=none]/data facts], I13 [R+S[catchUp,from=none]/data state], I18 [R+S[catchUp,from=0]/data facts], I18 [R+S[catchUp,from=0]/data state], I18 [R+S[catchUp,from=none]/data facts], I18 [R+S[catchUp,from=none]/data state], I18 [R/budget[catchUp,head=0] facts], I23 [R+S[catchUp,from=0]/data facts], I23 [R+S[catchUp,from=none]/data facts]
+      changed counterexample: none
 OK   emptyRun caught only at exactly 2 (MDL N5; I22a): emptyRun = 2 instead of >= 2, so later empty pages are not caught
       newly failing: I22a [R+S[catchUp,from=0]/data facts], I22a [R+S[catchUp,from=0]/data state], I22a [R/budget[catchUp,head=0] facts]
       changed counterexample: none
@@ -57,27 +51,25 @@ OK   a restart before the scope closed (FC33; I10): the successor session opens 
       newly failing: I10 [S facts], I10 [S state]
       changed counterexample: none
 OK   last = the highest position seen (FC22; I4): last follows buffered positions, not the last value emitted downstream
-      newly failing: I4 [R+S[catchUp,from=0]/data facts], I4 [R+S[catchUp,from=0]/data state], I4 [R+S[catchUp,from=none]/data facts], I4 [R+S[catchUp,from=none]/data state]
+      newly failing: I23 [R+S[catchUp,from=0]/data facts], I23 [R+S[catchUp,from=none]/data facts], I4 [R+S[catchUp,from=0]/data facts], I4 [R+S[catchUp,from=0]/data state], I4 [R+S[catchUp,from=none]/data facts], I4 [R+S[catchUp,from=none]/data state]
       changed counterexample: none
 OK   a proof re-confirming a restored or cached last (FC78; I17): a proof confirms a last that this session did not set
       newly failing: I17 [CB+S state], I17 [R+S[catchUp,from=0]/data state], I17 [R+S[catchUp,from=none]/data state], I17 [R+S[no catchUp,from=0]/data state], I17 [S state], I17 [S+L state], I26 [S state], I8 [CB+S state], I8 [R+S[catchUp,from=0]/data state], I8 [R+S[catchUp,from=none]/data state], I8 [R+S[no catchUp,from=0]/data state], I8 [S state], I8 [S+L state]
       changed counterexample: none
 OK   the buffer emitted on abandonment (RV1 H1; I21, I23): abandon() emits the buffered values
-      newly failing: I21 [R+S[catchUp,from=0]/data facts], I21 [R+S[catchUp,from=0]/data state], I21 [R+S[catchUp,from=none]/data facts], I21 [R+S[catchUp,from=none]/data state]
-      changed counterexample: I13 [R+S[catchUp,from=0]/data facts], I13 [R+S[catchUp,from=0]/data state], I13 [R+S[catchUp,from=none]/data facts], I13 [R+S[catchUp,from=none]/data state], I23 [R+S[catchUp,from=0]/data facts], I23 [R+S[catchUp,from=none]/data facts]
+      newly failing: I13 [R+S[catchUp,from=0]/data facts], I13 [R+S[catchUp,from=0]/data state], I13 [R+S[catchUp,from=none]/data facts], I13 [R+S[catchUp,from=none]/data state], I21 [R+S[catchUp,from=0]/data facts], I21 [R+S[catchUp,from=0]/data state], I21 [R+S[catchUp,from=none]/data facts], I21 [R+S[catchUp,from=none]/data state], I23 [R+S[catchUp,from=0]/data facts], I23 [R+S[catchUp,from=none]/data facts]
+      changed counterexample: none
 OK   page values emitted after a drop (FC43; I21): ending a connection no longer interrupts the page read
-      newly failing: I21 [R+S[catchUp,from=0]/data facts], I21 [R+S[catchUp,from=0]/data state], I21 [R+S[catchUp,from=none]/data facts], I21 [R+S[catchUp,from=none]/data state], I21 [R/budget[catchUp,head=0] facts], I22b [liveness facts]
-      changed counterexample: I13 [R+S[catchUp,from=0]/data facts], I13 [R+S[catchUp,from=0]/data state], I13 [R+S[catchUp,from=none]/data facts], I13 [R+S[catchUp,from=none]/data state], I23 [R+S[catchUp,from=0]/data facts], I23 [R+S[catchUp,from=none]/data facts]
+      newly failing: I13 [R+S[catchUp,from=0]/data facts], I13 [R+S[catchUp,from=0]/data state], I13 [R+S[catchUp,from=none]/data facts], I13 [R+S[catchUp,from=none]/data state], I21 [R+S[catchUp,from=0]/data facts], I21 [R+S[catchUp,from=0]/data state], I21 [R+S[catchUp,from=none]/data facts], I21 [R+S[catchUp,from=none]/data state], I21 [R/budget[catchUp,head=0] facts], I22b [liveness facts], I23 [R+S[catchUp,from=0]/data facts], I23 [R+S[catchUp,from=none]/data facts]
+      changed counterexample: none
 OK   the dedupe kept by the newest page positions instead of the meet (MDL N2; I13): pages no longer stop at the first common position; complete() filters the buffer by the newest page positions
-      newly failing: none
-      changed counterexample: I13 [R+S[catchUp,from=0]/data facts], I13 [R+S[catchUp,from=0]/data state], I13 [R+S[catchUp,from=none]/data facts], I13 [R+S[catchUp,from=none]/data state], I23 [R+S[catchUp,from=0]/data facts], I23 [R+S[catchUp,from=none]/data facts]
-        e.g. I13 [R+S[catchUp,from=0]/data facts]: baseline inner live() -> server append -> server append -> page ok (more) -> inner value -> page ok (more)
-          mutant server append -> server append -> inner value -> server append -> page ok (last)
+      newly failing: I13 [R+S[catchUp,from=0]/data facts], I13 [R+S[catchUp,from=0]/data state], I13 [R+S[catchUp,from=none]/data facts], I13 [R+S[catchUp,from=none]/data state], I23 [R+S[catchUp,from=0]/data facts], I23 [R+S[catchUp,from=none]/data facts]
+      changed counterexample: none
 OK   an owed missed suppressing a start's own missed (MDL N3; I23): an unproven start after an owed missed delivers none
       newly failing: I23 [R+S[no catchUp,from=0]/data facts], I23 [R+S[no catchUp,from=none,no positions]/data facts]
       changed counterexample: none
 OK   a second down not resetting owed (MDL N3; I23): a down in Dropped keeps owed
-      newly failing: I23 [R+S[no catchUp,from=0]/data facts], I23 [R+S[no catchUp,from=none,no positions]/data facts]
+      newly failing: I23 [R+S[catchUp,from=0]/data facts], I23 [R+S[catchUp,from=none]/data facts], I23 [R+S[no catchUp,from=0]/data facts], I23 [R+S[no catchUp,from=none,no positions]/data facts]
       changed counterexample: none
 OK   signalled not set by the implicit live (MDL F7; I20): a repair abandoned by down lets the next value start a second implicit live
       newly failing: I20 [R+S[catchUp,from=0]/data facts], I20 [R+S[catchUp,from=0]/data state], I20 [R+S[catchUp,from=none]/data facts], I20 [R+S[catchUp,from=none]/data state]
@@ -86,7 +78,7 @@ OK   a re-confirm not offered to the machine (RV1 H2; I24): a proof that re-conf
       newly failing: I24 [CB+S state], I24 [S state], I24 [S+L state]
       changed counterexample: none
 OK   a stale slot kept when a newer value equals heard (MDL F2; I24): reconcile no longer clears the slot
-      newly failing: I24 [R+S[catchUp,from=0]/data state], I24 [R+S[catchUp,from=none]/data state], I24 [S state], I24 [S+L state]
+      newly failing: I24 [S state], I24 [S+L state]
       changed counterexample: none
 OK   freshness restored by a read after an end (MDL N1; I15): freshness ignores a covering session that is not Live
       newly failing: I15 [S+L facts], I15 [S+L state]
@@ -104,10 +96,8 @@ OK   an age not rebased on restore (RV1 M14; I26): the restored last.at is the t
       newly failing: I26 [S state]
       changed counterexample: none
 OK   C1: the repair's proof announced before it is earned: startRepair emits proof, not pending, and complete() settles nothing
-      newly failing: none
-      changed counterexample: I23 [R+S[catchUp,from=0]/data facts], I23 [R+S[catchUp,from=none]/data facts]
-        e.g. I23 [R+S[catchUp,from=0]/data facts]: baseline inner live() -> server append -> server append -> page ok (more) -> inner value -> page ok (more)
-          mutant server append -> server append -> inner live() -> server append -> inner value -> page ok (more) -> server drops a prefix -> server drops a prefix -> page CannotRepair
+      newly failing: I23 [R+S[catchUp,from=0]/data facts], I23 [R+S[catchUp,from=none]/data facts]
+      changed counterexample: none
 OK   C2: CannotRepair is not an exit from the repair: CannotRepair is handled as a retryable page failure
       newly failing: I22b [liveness facts]
       changed counterexample: none
