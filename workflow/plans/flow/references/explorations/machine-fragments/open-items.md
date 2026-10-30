@@ -188,7 +188,7 @@ Candidates already seen: resume position and dedupe on fact feeds; catch-up pagi
 reload (the chat `reopenInMs` field); retry-budget handlers (`retryable` then `retry`, else `cancel`) repeated on every
 write; releasing a held write in every toast-only `unknown` handler; mirroring lane state into memory for views;
 key selectors in user events; seeding a feed's first position from a history read. From the new-shapes experiment (experiments/new-shapes.md): #10 policy as one value (retry, budget, cooldown, lockout declared once instead of the `retryable`/`retry`/`cancel` trio in every handler) and #14 feeds as tables (resume position, dedupe, ordering and status derived from one declared source). Also: a ready-made payload schema for `missed` events (for example `Feed.Missed`, `{ why, restartAt? }`), since every app declares the same shape. Scope: machine-design.md as merged,
-streams (proposal-v2.md) and operations-in-fragments.
+streams (proposal-v2.md) and operations-in-fragments. The fragments half is answered in [the fragments record](merged/fragment-operations/proposal.md) 2.8 (design 2.9.5): kept, the retry budget and the keep-busy line; absorbed, release on leave and `resetOn`.
 
 ## 16. Outbound live state on a session (cursors) (deferred by streams S5, 2026-10-30)
 
@@ -231,3 +231,31 @@ widened to timers, sessions and reads). Skipped, with reasons in the experiment'
 core model), #12 (durable workflows, out of scope), #17 (a sync engine), #7 (closures everywhere), #22 (tooling).
 For the Stories proposal (merge 3) when it starts: #19 simulation testing from contracts, #20 record and replay real
 sessions as Stories, #21 fake worlds with one world controller.
+
+## 21. The subject path as phase 2's admission rule for node traits and subroutines (deferred by operations-in-fragments, 2026-10-31)
+
+Mapped writes in node traits and subroutines are phase 2 (F4, F7). The candidate rule: an entry's input becomes a subject part, so a re-entry about the same thing adopts the lane (design rule 51; [the record](merged/fragment-operations/proposal.md) section 9).
+
+## 22. One fragment's placements sharing an operation when their paths differ (deferred by operations-in-fragments, 2026-10-31)
+
+Two placements of one writing fragment are a `SharedContract` error today (rule 51); folding one into the other's `.each` membership is the workaround (record RV1 M8).
+
+## 23. Release on user cancel (deferred by operations-in-fragments, 2026-10-31)
+
+So `unknown { Cancelled }` after a user's stop needs no second `cancel` (record 2.8's wiring table). A tombstone clean-up needs the hold (design 2.7.7), so it would be opt-in.
+
+## 24. Releasing without interrupting (deferred by operations-in-fragments, 2026-10-31)
+
+Let the request finish and release only the hold, if a real case needs it beside rule 60's release on leave (record RV2).
+
+## 25. An age bound on parked endings of a path that never returns (deferred by operations-in-fragments, 2026-10-31)
+
+Parked endings in a live actor accumulate for subject paths that never come back, bounded only by distinct keys (record risk 7; compare item 12).
+
+## 26. Per-copy fan-out of write members (deferred by operations-in-fragments, 2026-10-31)
+
+The same limit as item 7, for `.each` copies that own writes (design 2.7.13's limit, unchanged).
+
+## 27. Delivering `Interrupted` on restore to every lookup a persisted incarnation was waiting on (deferred by operations-in-fragments, 2026-10-31)
+
+A fragment has no restore event, so a fragment waiting on a live lookup keeps a recurring schedule (rule 52). Delivering `Interrupted` on restore would reopen OD9 Q26 for fragments (record review 3).

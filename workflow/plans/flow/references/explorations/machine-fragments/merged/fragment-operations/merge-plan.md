@@ -1,16 +1,16 @@
 # Merge plan: operations-in-fragments into machine-design.md
 
-Status: **proposed, not applied.** Under F10 (the operations process, OD24) and the owner's wider delegation of
-2026-10-31 ([delegated-decisions.md](../delegated-decisions.md)), the main session approves this change list and resolves
+Status: **applied 2026-10-31** (change sets 1 and 2; approved under the delegation, delegated-decisions.md rows 12–16). Written as proposed: Under F10 (the operations process, OD24) and the owner's wider delegation of
+2026-10-31 ([delegated-decisions.md](../../delegated-decisions.md)), the main session approves this change list and resolves
 the small conflicts, logging each in delegated-decisions.md marked "delegated". This plan found **no owner conflict**
 (1.4). Written 2026-10-31 against `machine-design.md` at HEAD `a92181ef` (last changed in `0cfadee4`: merges 1, 2, 4,
 5 and operations-in-definition, the operations check's fixes) and `proposal.md` revision 3 with review 3's fixes
-(`1c3a1c68`). Method as in [merged/operations/merge-plan.md](../merged/operations/merge-plan.md),
-[reviews/operations-merge-check.md](../reviews/operations-merge-check.md) and [merge-plan-4-5.md](../merge-plan-4-5.md).
+(`1c3a1c68`). Method as in [merged/operations/merge-plan.md](../operations/merge-plan.md),
+[reviews/operations-merge-check.md](../../reviews/operations-merge-check.md) and [merge-plan-4-5.md](../../merge-plan-4-5.md).
 
-Short names: **MD** [machine-design.md](../machine-design.md); **FP** [proposal.md](proposal.md) (revision 3, accepted
+Short names: **MD** [machine-design.md](../../machine-design.md); **FP** [proposal.md](proposal.md) (revision 3, accepted
 for merging, F10); **F** [decisions.md](decisions.md) (F1–F10); **EX** [exploration.md](exploration.md) (prior art);
-**RV3** [reviews/review-3.md](reviews/review-3.md); **M6** [merge-6-streams/proposal-v2.md](../merge-6-streams/proposal-v2.md)
+**RV3** [reviews/review-3.md](reviews/review-3.md); **M6** [merge-6-streams/proposal-v2.md](../../merge-6-streams/proposal-v2.md)
 (accepted, not merged); **OPP** the operations merge plan. FP's "MD rule *n*" stays MD rule *n* (rules 1–47 keep their
 numbers). FP's FO0–FO12 become **MD rules 48–60** (2.2). "Before" quotes are copied from MD; "…" only shortens a
 quote, and the edit replaces the whole sentence, row or block it names.
@@ -140,7 +140,7 @@ now run a reset turn); both are recommended as small† and should be logged as 
    sections 3.6–7, change log, decisions (FE1–FE71, FE73–FE81).
 2. **Change set 2, examples:** new 2.9.6 (Autosave, the like, the subject walk; FE72), after change set 1 is checked.
 3. FX1's merge order is settled before change set 1 (it fixes the rule numbers).
-4. Each change set ends with a check in [operations-merge-check.md](../reviews/operations-merge-check.md)'s form. Then
+4. Each change set ends with a check in [operations-merge-check.md](../../reviews/operations-merge-check.md)'s form. Then
    the mechanics (2.9).
 5. Out of scope: `.plan` files (C rows only), merge 3 and merge 6 (their rebases are in 2.10), principles.md (M5 offers
    a pointer).

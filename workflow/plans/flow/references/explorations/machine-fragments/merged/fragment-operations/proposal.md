@@ -1,15 +1,17 @@
 # Proposal: operations owned by fragments (revision 3)
 
-**Status: proposal.** F1–F9 are decided by the owner ([decisions.md](decisions.md), 2026-10-30 and 2026-10-31) and
+**Status: merged into machine-design.md on 2026-10-31; kept as the record behind it.** It became 2.9, rules
+48–60, C54–C68 and decisions F1–F10 ([merge-plan.md](merge-plan.md)). Where this record and the design differ, the
+design wins (its 4.2 uses merge 6's first stream syntax). Before the merge: F1–F9 are decided by the owner ([decisions.md](decisions.md), 2026-10-30 and 2026-10-31) and
 marked *decided (Fn)* where they appear. Everything else is **proposed**, including each refinement of a decided rule
 made here. Revisions 1 and 2 (commits `00678be6`, `0f6b1a4a`) are prior art; this revision fixes
 [reviews/review-2.md](reviews/review-2.md) (**RV2**) at its root, on top of [reviews/review-1.md](reviews/review-1.md)
 (**RV1**). No other file is edited. No type spike was built; every code sample is a working draft and was not
 type-checked.
 
-It builds on [../machine-design.md](../machine-design.md) as merged (**MD**; decisions OD1–OD26 in
-[../merged/operations/decisions.md](../merged/operations/decisions.md)). [exploration.md](exploration.md) (**EX**) is
-older prior art. Streams use merge 6's syntax ([../merge-6-streams/proposal.md](../merge-6-streams/proposal.md),
+It builds on [../machine-design.md](../../machine-design.md) as merged (**MD**; decisions OD1–OD26 in
+[../merged/operations/decisions.md](../operations/decisions.md)). [exploration.md](exploration.md) (**EX**) is
+older prior art. Streams use merge 6's syntax ([../merge-6-streams/proposal.md](../../merge-6-streams/proposal.md),
 **M6**, accepted, not merged).
 
 Marks in code: `// NEW` (a word that does not exist), `// NEW MEANING` (an existing word in a new place),

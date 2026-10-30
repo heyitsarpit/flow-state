@@ -36,7 +36,7 @@ Mechanical results:
   the "limit" bullet, and annotated historical decisions (see nit 4).
 - **Links.** No path `operations-in-definition/` remains outside `merge-plan-4-5.md`, `reviews/merge-4-5-check.md`, the
   plan's own mechanics (M1, M4, "Merge plan:" title) and `lane-model/main.ts` line 1 (a comment). All relative links in
-  `machine-design.md`, `README.md`, `delegated-decisions.md`, `merge-6-streams/`, `operations-in-fragments/` and
+  `machine-design.md`, `README.md`, `delegated-decisions.md`, `merge-6-streams/`, `merged/fragment-operations/` and
   `rpc-contracts/` resolve. Rule, section and C-row cross-references checked (rules 14, 20, 21, 22, 24, 27-32, 34-38,
   41-47; sections 2.5, 2.7.13-2.7.16, 2.8.5, 2.8.6, 2.8.8; C2, C15, C17, C18, C30, C33, C37-C53; E1-E18) resolve to
   the right text.
@@ -134,7 +134,7 @@ rule 36's "OD26" and 2.6's "operation options" row (OD26); the `Machines O1` K9 
 7. `merged/operations/merge-plan.md` quotes MD-relative links (`merged/operations/proposal.md`, lines 291, 338, 419-423,
    540-543) that do not resolve from its own folder. Harmless: they sit inside quoted edit text.
 8. NEXT.md was not updated (M8, "by the main session"); the README, `delegated-decisions.md` (rows 4-11),
-   `merge-6-streams/proposal.md`, `operations-in-fragments/exploration.md` and `rpc-contracts/exploration.md` path fixes
+   `merge-6-streams/proposal.md`, `merged/fragment-operations/exploration.md` and `rpc-contracts/exploration.md` path fixes
    are all in place.
 9. 2.7.3 keeps proposal-era words "Proposed" / "(proposed, follows from OD5)" on points the intro says were accepted
    under OD24. That is allowed by the intro note; only the items decided later (OD23) needed updating (defect 5).

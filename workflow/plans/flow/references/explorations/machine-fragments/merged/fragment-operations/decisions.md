@@ -1,5 +1,7 @@
 # Operations in fragments: owner decisions
 
+**Merged into machine-design.md on 2026-10-31** (decisions section, F1–F10); kept as the record.
+
 Decisions on [proposal.md](proposal.md) (2026-10-30). Everything else in it stays proposed.
 
 | # | Decision | Date |

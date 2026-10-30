@@ -247,7 +247,7 @@ the moved files and their neighbours, README rows):
    `bun main.ts`); check that the root `node_modules/.bin/tsc` path it names still resolves one level deeper.
 3. **Links to fix elsewhere** (path only): `README.md`, `NEXT.md`, `audit-multiplicity.md`,
    `merge-3-stories/proposal.md`, `merge-3-stories/reviews/review-2.md`, `merge-6-streams/proposal.md`,
-   `merge-6-streams/gaps.md`, `operations-in-fragments/exploration.md`, and the M5 spike's
+   `merge-6-streams/gaps.md`, `merged/fragment-operations/exploration.md`, and the M5 spike's
    `domains/issues.ts`, `legacy.ts`, `ops.ts` comments. `operations-in-definition/proposal.md` names
    `merge-N-*/proposal.md` generically; leave it.
 4. **README rows.** "The design and what merges into it": remove the merge 4 and merge 5 rows; the merge 4 row's

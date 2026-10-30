@@ -1,6 +1,6 @@
 # Exploration: operations owned by fragments
 
-Status: **exploration, nothing decided, nothing accepted.** Written 2026-10-30 for the owner's idea: a trait or subroutine
+Status: **prior art, superseded by [proposal.md](proposal.md)** (merged 2026-10-31). Originally: **exploration, nothing decided, nothing accepted.** Written 2026-10-30 for the owner's idea: a trait or subroutine
 owns its operations completely, and exposes only what it chooses through its existing ports. This file edits no plan
 and no other proposal. No type spike was built; every code sample is a working draft and was not type-checked.
 It builds on `../merged/operations/proposal.md` (short name **OID**) and answers its section 3.10.

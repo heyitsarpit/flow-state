@@ -2,7 +2,7 @@
 
 **Status: advice to the main session.** Nothing here is decided. Reviewed: [../proposal.md](../proposal.md) revision 3
 (commit `6634030b`) under F1–F9 ([../decisions.md](../decisions.md)), read end to end once. Checked against
-[../../machine-design.md](../../machine-design.md) (rules 1, 6, 9, 10, 14, 16, 17, 20–24, 41–46, N1–N3; 2.5 steps 3–6;
+[../../machine-design.md](../../../machine-design.md) (rules 1, 6, 9, 10, 14, 16, 17, 20–24, 41–46, N1–N3; 2.5 steps 3–6;
 2.7.13's dispose, rebind and restore rows; 2.7.14) and OD1–OD26. Review 1's sketches (`upload.ts`, `follow.ts`,
 `comments.ts`) were walked again under revision 3. Nothing was type-checked.
 

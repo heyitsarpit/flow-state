@@ -2,7 +2,7 @@
 
 **Status: advice to the main session.** Nothing here is decided. Reviewed: [../proposal.md](../proposal.md) revision 2
 (commit `0f6b1a4a`) under F1–F8 ([../decisions.md](../decisions.md)); F8's Q11–Q13 are read as decided (all A), though
-the proposal still shows them as open. Checked against [../../machine-design.md](../../machine-design.md) (rules 1, 6,
+the proposal still shows them as open. Checked against [../../machine-design.md](../../../machine-design.md) (rules 1, 6,
 9, 14, 17, 20–24, 37, 42, 44–46; 2.5; 2.7.13–2.7.15) and OD1–OD26. Review 1's sketches (`upload.ts`, `follow.ts`,
 `comments.ts` in the review-1 scratchpad) were walked again under revision 2 plus F8. Nothing was type-checked.
 

@@ -1,7 +1,7 @@
 # Review 1: operations in fragments, correctness and real code
 
 **Status: advice to the main session.** Nothing here is decided. Reviewed: [../proposal.md](../proposal.md) under
-F1–F7 ([../decisions.md](../decisions.md)), against [../../machine-design.md](../../machine-design.md) (sections 1–2,
+F1–F7 ([../decisions.md](../decisions.md)), against [../../machine-design.md](../../../machine-design.md) (sections 1–2,
 2.7.13–2.7.16, rules 1, 9, 14, 20, 39–47, N1–N3) and OD1–OD26. Streams are judged only for ownership. Code for the
 three features is in this session's scratchpad (`review/upload.ts`, `review/follow.ts`, `review/comments.ts`); it was
 not type-checked, like the proposal's.

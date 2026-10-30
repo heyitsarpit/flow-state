@@ -3212,7 +3212,7 @@ and `check()` still runs steps 2–6 and publishes nothing (2.5): it decides no 
 
 ### 2.9 Operations in fragments
 
-Rules 48–60 are normative; this section is their reading, in the record's terms ([merged/fragment-operations/proposal.md](merged/fragment-operations/proposal.md), revision 3; decisions F1–F10). 2.7.13's table stays the write lane's one normative table: 2.9.3 adds the rows fragments change. Worked examples follow in 2.9.6 (change set 2).
+Rules 48–60 are normative; this section is their reading, in the record's terms ([merged/fragment-operations/proposal.md](merged/fragment-operations/proposal.md), revision 3; decisions F1–F10). 2.7.13's table stays the write lane's one normative table: 2.9.3 adds the rows fragments change. Worked examples are in 2.9.6.
 
 #### 2.9.1 Where the data comes from, and when a fragment should own I/O
 
@@ -3348,6 +3348,301 @@ lists a releasing lane as such.
 | View-minted client ids | comments | yes | **keep for now**: a key must exist before the commit (rule 39), and a turn has no randomness source (section 7 item 12) |
 | `writes` invalidation of a thread's list on each post | comments | no | **keep** |
 | Toast callbacks with fixed text | like, follow | no | **keep** |
+
+#### 2.9.6 Examples
+
+**Autosave, used by several documents (`.each`).** Edits are debounced 800 ms; one save per document in flight;
+edits during a save are coalesced and the newest body goes next with the etag the save returned (the contract is
+`reject` and the fragment coalesces, since a queued `latest` commit would carry a stale etag); a 412 is a conflict the
+user resolves with "keep mine"; an unknown is re-sent as the same write every 2 s, three times, then released.
+Closing a document is refused while it is dirty or its save is unresolved. The contract is `docs/save` (`input: {
+docId, body, etag }`, `key: ["docId"]`, `concurrency: "reject"`), whose commit calls `DocsApi.put`, a wrapper of
+`fetch("PUT /docs/:id", { headers: { "If-Match", "Idempotency-Key": attempt.id }, signal })` ([the record](merged/fragment-operations/proposal.md) 4.1).
+
+```ts
+// autosave.trait.ts
+import { deny, Flow, trait } from "flow-state"                                       // existing
+import { Schema } from "effect"
+import { saveDoc } from "./docs.contracts"
+
+export const MAX_RESENDS = 3                                                          // user-defined
+
+export const Autosave = trait(                                                        // existing: trait; user-defined: Autosave
+  {
+    id: "Autosave",
+    events: { Edited: { body: Schema.String } },                                     // existing: events; the editor view sends it
+    hostEvents: { Overwrite: {} },                                                   // existing: hostEvents; the host keeps this version after a conflict
+    internalEvents: {                                                                // existing; also this fragment's operations' endings (rule 49)
+      SaveDue: {}, ResendDue: {},
+      Saved: { etag: Schema.String }, Conflict: { serverEtag: Schema.String, mine: Schema.String }, Refused: {},   // mine: the body the refused save carried (FP RV1 M9)
+      SaveUnsure: Flow.uncertain({}),                                                // existing: Flow.uncertain
+    },
+    callbacks: { onStalled: Flow.optional(Flow.Callback({})) },                     // existing: callbacks, Flow.optional, Flow.Callback
+    memory: {
+      docId: Flow.input(Schema.String), body: Flow.input(Schema.String), etag: Flow.input(Schema.String),   // existing: Flow.input
+      status: Flow.initial(Schema.Literals(["clean", "dirty", "saving", "unsure", "conflict", "stalled"]), "clean"),
+      serverEtag: Flow.initial(Schema.NullOr(Schema.String), null),
+      rev: Flow.private(Flow.initial(Schema.Int, 0)),                                // existing: Flow.private; edits seen
+      sentRev: Flow.private(Flow.initial(Schema.Int, 0)),                            // edits in the last commit
+    },
+    operations: ({ E }) => ({                                                        // existing key; in a fragment (rule 49)
+      save: saveDoc.outcomes({                                                       // existing: outcomes; user-defined: save
+        success: E.Saved.from((v) => ({ etag: v.etag })),
+        failure: { Conflict: E.Conflict.from((r, { input }) => ({ serverEtag: r.serverEtag, mine: input.body })), Refused: E.Refused, NotSent: E.Refused },   // existing: the mapper's input
+        unknown: E.SaveUnsure,
+      }),
+    }),
+  },
+  ({ E, O, callbacks }) => {                                                         // O, this fragment's own handles (rule 50); no whenAbandoned: a closed document's save is kept for its return (rule 54)
+    const own = ({ memory }: { memory: { docId: string } }) => ({ docId: memory.docId })   // user-defined: this document's lane
+    const send = O.save.commit(({ memory }) => ({ docId: memory.docId, body: memory.body, etag: memory.etag }))   // existing: commit; after memory (rule 22)
+    return {
+      schedules: {
+        settle: { schedule: "800 millis", armOn: [E.Edited, E.Overwrite], send: E.SaveDue },   // existing: armOn; a debounce
+        resend: { schedule: "2 seconds", armOn: [E.SaveUnsure], send: E.ResendDue },
+      },
+      on: {
+        Edited: { target: "self", updateMemory: ({ memory, event }) => ({ body: event.body, rev: memory.rev + 1, status: memory.status === "clean" || memory.status === "stalled" ? "dirty" : memory.status }) },
+        SaveDue: [
+          { target: "self", guard: [({ memory }) => memory.status === "dirty" || deny("NotDirty"), O.save.idle(own)], updateMemory: ({ memory }) => ({ status: "saving", sentRev: memory.rev }), actions: [send] },   // existing: idle
+          { target: "self" },
+        ],
+        Saved: [                                                                     // current, or adopted by a reopened copy (rule 54)
+          { target: "self", guard: ({ memory }) => memory.rev > memory.sentRev || deny("NoNewEdits"), updateMemory: ({ memory, event }) => ({ etag: event.etag, sentRev: memory.rev }), actions: [send] },
+          { target: "self", updateMemory: ({ event }) => ({ etag: event.etag, status: "clean" }) },
+        ],
+        Conflict: { target: "self", updateMemory: ({ memory, event }) => ({ status: "conflict", serverEtag: event.serverEtag, body: memory.rev > memory.sentRev ? memory.body : event.mine }) },   // adopted by a fresh copy: keeps the user's text from the event (FP RV1 M9)
+        Refused: { target: "self", updateMemory: () => ({ status: "stalled" }), notify: [callbacks.onStalled] },
+        SaveUnsure: { target: "self", updateMemory: () => ({ status: "unsure" }) },  // Held; `resend` arms
+        ResendDue: [
+          { target: "self", guard: [O.save.retryable(own, { times: MAX_RESENDS })], updateMemory: () => ({ status: "saving" }), actions: [O.save.retry(own)] },   // existing: retryable, retry; the same Attempt
+          { target: "self", updateMemory: () => ({ status: "stalled" }), actions: [O.save.cancel(own)], notify: [callbacks.onStalled] },   // existing: cancel; give up, release (OD7); the released save may still land, and If-Match turns that into a Conflict (FP RV3 L5)
+        ],
+        Overwrite: { target: "self", updateMemory: ({ memory }) => ({ etag: memory.serverEtag ?? memory.etag, serverEtag: null, status: "dirty" }) },
+      },
+    }
+  },
+)
+```
+
+The host decides only when a document opens and closes, and what "keep mine" means:
+
+```ts
+// workspace.definition.ts (after)
+import { definition, Flow } from "flow-state"
+import { Schema } from "effect"
+import { Autosave } from "./autosave.trait"
+
+const OpenDoc = Schema.Struct({ docId: Schema.String, title: Schema.String, body: Schema.String, etag: Schema.String })   // user-defined: what GET /docs/:id returned
+
+export const Workspace = definition({
+  id: "Docs/Workspace",
+  states: ["READY"],
+  events: {
+    Open: { docId: Schema.String, title: Schema.String, body: Schema.String, etag: Schema.String },
+    Close: { docId: Schema.String },
+    KeepMine: { docId: Schema.String },
+  },
+  memory: { open: Flow.initial(Schema.Array(OpenDoc), []) },
+  traits: { docs: Autosave.each({ of: "open", by: "docId", max: 20 }) },             // existing: .each, of, by, max; one copy per open document
+})
+```
+
+```ts
+// workspace.machine.ts (after)
+import { deny, machine } from "flow-state"
+import { Autosave } from "./autosave.trait"
+import { Workspace } from "./workspace.definition"
+
+type Memory = typeof Workspace.Memory.Type
+const copy = (m: Memory, docId: string) => m.docs.find((d) => d.key === docId)       // user-defined: a copy's public memory (rule 9)
+
+export const WorkspaceMachine = machine(Workspace, ({ S, E }) => ({
+  default: S.READY,
+  traits: { docs: { input: ({ item }) => ({ docId: item.docId, body: item.body, etag: item.etag }) } },   // existing: one filling for every copy; onStalled left out
+  on: {
+    Open: { target: "self", guard: ({ memory, event }) => !memory.open.some((d) => d.docId === event.docId) || deny("AlreadyOpen"), updateMemory: ({ memory, event }) => ({ open: [...memory.open, event] }) },
+    Close: {
+      target: "self",
+      guard: [Autosave.O.save.idle(({ event }) => event), ({ memory, event }) => copy(memory, event.docId)?.status !== "dirty" || deny("Unsaved")],   // the host reads the fragment's lane (rule 50)
+      updateMemory: ({ memory, event }) => ({ open: memory.open.filter((d) => d.docId !== event.docId) }),
+    },
+    KeepMine: {
+      target: "self",
+      guard: ({ memory, event }) => copy(memory, event.docId)?.status === "conflict" || deny("NoConflict"),
+      raise: [E.docs.Overwrite.from(({ event }) => ({ key: event.docId }))],         // existing: a raise into one copy
+    },
+  },
+  states: { READY: {} },
+}))
+// view: useView(ws, (s) => Autosave.O.save.get(s, { docId }).pending)   // Fragment.O read from a view
+//       send(Workspace.E.docs.key(docId).Edited({ body }))
+```
+
+The host writes nothing about I/O; it reads `Autosave.O.save` (`idle`, `get`). Its `Close` guard carries the
+`Autosave.O.save.idle` token, so rule 56's structural `.each` check passes, and a user cannot strand a save; a
+disposed workspace can, and the reopened copy then adopts the save, including a `Conflict` that still carries the
+user's text. Autosave has no release on leave: unsaved edits are user intent (rule 60). The copy's key is the
+document id and the contract's key is `["docId"]`, so each lane's subject path is its own document (rule 51), and a
+lane a host-only form left is adopted by key after an upgrade (2.9.4).
+
+**A like button over an entity-domain write (`.each`).** 2.8.2's like, moved into a fragment: the view sends the value
+it wants; `latest` queues one newer toggle behind a held one; the store predicts, confirms and rolls back; an unknown
+is re-sent as the same write every 3 s, three times, then released with a notice. `Issues.setLike` and `Issues.list`
+are 2.8.2's domain entries (`key: ["id"]`, `latest`).
+
+```ts
+// likebutton.trait.ts
+import { Flow, trait } from "flow-state"
+import { Schema } from "effect"
+import { Issues } from "./issues.domain"
+
+export const MAX_LIKE_RESENDS = 3
+
+export const LikeButton = trait(                                                      // user-defined: LikeButton
+  {
+    id: "LikeButton",
+    events: { Toggle: { liked: Schema.Boolean } },
+    internalEvents: { Settled: {}, Gone: {}, Failed: {}, LikeUnsure: Flow.uncertain({}), ReconcileDue: {} },   // endings (rule 49)
+    callbacks: { onGone: Flow.Callback({}), onFailed: Flow.optional(Flow.Callback({ message: Schema.String })) },
+    memory: { id: Flow.input(Schema.String) },
+    operations: ({ E }) => ({                                                        // in a fragment; registers the Issues domain for its actor (rule 49)
+      set: Issues.setLike.outcomes({ success: E.Settled, failure: { Gone: E.Gone, Refused: E.Failed, NotSent: E.Failed }, unknown: E.LikeUnsure }),
+    }),
+  },
+  ({ E, O, callbacks }) => {
+    const own = ({ memory }: { memory: { id: string } }) => ({ id: memory.id })
+    const failed = (message: string) => callbacks.onFailed.from(() => ({ message }))
+    return {
+      schedules: { reconcile: { schedule: "3 seconds", armOn: [E.LikeUnsure], send: E.ReconcileDue } },
+      on: {
+        Toggle: { target: "self", actions: [O.set.commit(({ memory, event }) => ({ id: memory.id, liked: event.liked }))] },   // a toggle while unsure waits behind the hold (OD5)
+        Settled: { target: "self" },
+        Gone: { target: "self", notify: [callbacks.onGone] },
+        Failed: { target: "self", notify: [failed("Couldn't update the like")] },
+        LikeUnsure: [
+          { target: "self", guard: [O.set.retryable({ times: MAX_LIKE_RESENDS })] },   // key-less: this ending's Attempt (OD8); `reconcile` re-sends
+          { target: "self", actions: [O.set.cancel], notify: [failed("Couldn't confirm your like")] },   // give up: release; a waiting toggle is then sent
+        ],
+        ReconcileDue: { target: "self", actions: [O.set.retry(own)] },              // the same request, no new prediction (rule 31)
+      },
+    }
+  },
+)
+```
+
+The board places one copy per listed issue:
+
+```ts
+// board.definition.ts (after)
+import { definition, Flow } from "flow-state"
+import { Schema } from "effect"
+import { Issues } from "./issues.domain"
+import { LikeButton } from "./likebutton.trait"
+
+export const Board = definition({
+  id: "Issues/Board",
+  states: ["READY"],
+  events: { Dismiss: {} },
+  internalEvents: { Listed: { ids: Schema.Array(Schema.String) } },
+  memory: {
+    projectId: Flow.input(Schema.String),
+    issueIds: Flow.initial(Schema.Array(Schema.String), []),                         // membership is host data (rule 9)
+    toast: Flow.initial(Schema.NullOr(Schema.String), null),
+  },
+  traits: { likes: LikeButton.each({ of: "issueIds", max: 500 }) },                  // existing: .each
+  operations: ({ E }) => ({ issues: Issues.list.outcomes({ value: E.Listed.from((v) => ({ ids: v.issues.map((i) => i.id) })) }) }),
+})
+```
+
+```ts
+// board.machine.ts (after)
+import { machine } from "flow-state"
+import { LikeButton } from "./likebutton.trait"
+import { Board } from "./board.definition"
+
+const busy = (row: { pending: boolean; uncertain: boolean; waiting: boolean }) => row.pending || row.uncertain || row.waiting
+
+export const BoardMachine = machine(Board, ({ S, O }) => ({
+  default: S.READY,
+  traits: {
+    likes: {
+      input: ({ key }) => ({ id: key }),
+      callbacks: { onGone: { actions: [O.issues.refetch] }, onFailed: { updateMemory: ({ payload }) => ({ toast: payload.message }) } },
+    },
+  },
+  states: {
+    READY: {
+      activities: [O.issues.subscribe(({ memory }) => ({ projectId: memory.projectId }))],
+      on: {
+        Listed: { target: "self", updateMemory: ({ memory, operations, event }) => ({ issueIds: [...event.ids, ...memory.issueIds.filter((id) => !event.ids.includes(id) && busy(LikeButton.O.set.get(operations, { id })))] }) },   // a host read (rule 50); keeps a copy whose like is unresolved (decided, F6, F9: a like is user intent, so it is never released on leave)
+        Dismiss: { target: "self", updateMemory: () => ({ toast: null }) },
+      },
+    },
+  },
+}))
+// view: useView(board, (s) => LikeButton.O.set.get(s, { id }).pending)  and  send(Board.E.likes.key(id).Toggle({ liked: !row.data.liked }))
+```
+
+A second host, an issue page with one like button at the root, writes only the placement and its filling:
+
+```ts
+// issuepage.definition.ts
+import { definition, Flow } from "flow-state"
+import { Schema } from "effect"
+import { LikeButton } from "./likebutton.trait"
+
+export const IssuePage = definition({
+  id: "Issues/IssuePage",
+  states: ["SHOWING", "GONE"],
+  memory: { issueId: Flow.input(Schema.String) },
+  traits: { like: LikeButton },
+})
+```
+
+```ts
+// issuepage.machine.ts
+import { machine } from "flow-state"
+import { IssuePage } from "./issuepage.definition"
+
+export const IssuePageMachine = machine(IssuePage, ({ S }) => ({
+  default: S.SHOWING,
+  traits: { like: { input: ({ memory }) => ({ id: memory.issueId }), callbacks: { onGone: S.GONE } } },   // onFailed left out (optional)
+  states: { SHOWING: {}, GONE: {} },
+}))
+```
+
+The board's `Listed` line keeps a copy whose like is unresolved (F6): a like is user intent, so it is never released
+on leave (F9), and rule 56's structural warning stays on the board, because reading lanes in `updateMemory` is not a
+token. Store effects (predictions, rollback, `uncertain` marks, the record queue) apply at settlement whether a copy
+exists or not (rule 27); two screens liking one issue are two actor identities, ordered by the record queue (rule 29).
+
+**The subject path, walked: a writing root trait inside an `.each` copy.**
+
+```ts
+// issuerow.trait.ts                                                                    // user-defined: IssueRow
+export const IssueRow = trait(
+  { id: "IssueRow", memory: { id: Flow.input(Schema.String) }, traits: { like: LikeButton } },   // existing: traits in a fragment; LikeButton at IssueRow's root
+  () => ({ traits: { like: { input: ({ memory }) => ({ id: memory.id }) } } }),
+)
+// board.definition.ts
+traits: { rows: IssueRow.each({ of: "issueIds", max: 500 }) },                             // existing: .each
+```
+
+rule 48 admits it (an `.each` copy, then a root trait of that copy; no subroutine). The inner `like` incarnation's path is
+`["X"]` in row X and `["Y"]` in row Y (rule 51).
+
+1. Row X's like ends unknown. The lane (board, `issues/set-like`, `{ id: X }`) records path `["X"]`.
+2. A host without the like example's keep-busy line removes X. Y is live at the same placement, but its path is `["Y"]`, so Y is
+   not the binding incarnation. X's endings are parked for `["X"]` (rule 53); rule 56's structural warning fires on the
+   host's `issueIds` write (it fires with the keep-busy line too, which is not a token).
+3. Y's own toggles create or use the lane `{ id: Y }` with path `["Y"]`; a stray `retry` from Y on X's lane is
+   `NothingToResend` (rule 51). Y's rows list only `["Y"]`'s lanes (rule 59).
+4. X is re-added (a later list holds it): the copy X's inner `like` has path `["X"]`, adopts the
+   lane, receives the parked unknown, and its `reconcile` re-sends it.
+
+The same holds under `resetOn`: an Autosave at the root with `resetOn: docId` has path `["d1"]` while on `d1`, and
+`["d2"]` after a switch; `d1`'s lanes wait for `["d1"]` (2.9.2).
 
 ## 3. Example
 

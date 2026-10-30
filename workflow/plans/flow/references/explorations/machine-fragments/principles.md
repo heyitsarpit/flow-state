@@ -199,6 +199,9 @@ sections 3 and 4.
 | D1–D3          | Fragments may contain fragments; nested names are readable; no depth limit                                                   | 3; E2                |
 | version 2      | Fragments do no I/O; the host runs every operation and maps every outcome                                                     | 1; A5, D4            |
 
+The "version 2" starting point is revisited by F1 (operations in fragments, merged 2026-10-31): a fragment may declare
+and alone act on its own operations ([machine-design.md](machine-design.md) 2.9, rules 48–60).
+
 ## 6. Open questions
 
 Carried from the single-fragment proposal, in the order they will be reviewed:
