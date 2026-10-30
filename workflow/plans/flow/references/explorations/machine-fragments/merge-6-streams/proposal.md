@@ -1,26 +1,35 @@
 # Proposal: streams (merge 6)
 
-Status: **accepted by the owner on 2026-10-30, with the decisions in section 10; not yet reviewed, and merges after
-merges 3, 4 and 5.** Designed from the sources in [gaps.md](gaps.md), not from any earlier stream
-draft. Builds on the merged design (machine-design.md, rules 1–25) and on the accepted entity proposal (merge 4, rules
-26–38). Nothing here edits a `.plan` file; section 6 lists the amendments for when the owner accepts them. All syntax
-is a working draft; `// ← NEW` marks what this proposal adds.
+Status: **revision 1 accepted by the owner on 2026-10-30, with the decisions in section 10. Revision 2 (2026-10-31)
+answers [review 1](reviews/review-1.md) and is proposed, not accepted**: section 0 names the root causes behind the
+review's findings, and the design changes they force are marked `Revision 2` in the text. Two of them supersede parts
+of accepted decisions; both are recorded in section 10 as proposals (M6-D8, M6-D9) and change nothing until the owner
+accepts them. [reviews/review-1-response.md](reviews/review-1-response.md) maps every finding to its cause and its
+resolution. Designed from the sources in [gaps.md](gaps.md). Builds on the merged design (machine-design.md, rules
+1–25) and on the accepted entity proposal (merge 4, rules 26–38). Nothing here edits a `.plan` file; section 6 lists the
+amendments. All syntax is a working draft.
 
-**Revision (multiplicity audit, 2026-10-31).** [audit-multiplicity.md](../audit-multiplicity.md) changed four things here, each marked with these
-words: a streaming write's progress is read from the snapshot's lane row and exists only where a lane has one
-addressable Attempt (rule 48, M6-D5); the upload walk is `reject` per upload (7.5); two sessions of one `listen` entry
-are stated and warned (rule 49, M6-D6); a keyed activity's sessions meet rule 47 (M6-D7).
+**Marks in code** (AGENTS.md, "Showing designs"): `// NEW` is added by this proposal, `// NEW (r2)` by revision 2,
+`// NEW MEANING` is an existing word whose meaning changes, `// existing` is unchanged design, `// user-defined` is the
+author's own name. A line with no mark is ordinary Effect or TypeScript.
+
+**Revision (multiplicity audit, 2026-10-31).** [audit-multiplicity.md](../audit-multiplicity.md) changed four things,
+each marked with these words: a streaming write's progress is read from the snapshot's lane row and exists only where a
+lane has one addressable Attempt (rule 48, M6-D5); the upload walk is `reject` per upload (7.5); two sessions of one
+`listen` entry are stated and warned (rule 49, M6-D6); a keyed activity's sessions meet rule 47 (M6-D7).
 
 Short names for citations (all under `workflow/plans/flow/`):
 
 | Short name | File |
 | --- | --- |
 | GAPS | `references/explorations/machine-fragments/merge-6-streams/gaps.md` |
+| R1 | `references/explorations/machine-fragments/merge-6-streams/reviews/review-1.md` |
 | OPS | `Operations.plan` |
 | MCH | `Machines.plan` |
 | MD | `references/explorations/machine-fragments/machine-design.md` |
 | M3 | `references/explorations/machine-fragments/merge-3-stories/proposal.md` (being revised, not accepted) |
 | M4 | `references/explorations/machine-fragments/merge-4-entities/proposal.md` (accepted) |
+| OID | `references/explorations/machine-fragments/operations-in-definition/proposal.md` (proposed, being revised) |
 | EDP | `EntityDomains.plan` |
 | ED | `references/design/entity-domain.md` |
 | PER | `Persistence.plan` |
@@ -30,9 +39,32 @@ Short names for citations (all under `workflow/plans/flow/`):
 | MT | `references/design/multi-tab.md` |
 | SE | `references/design/sync-engine-adapter.md` |
 | DD | `references/dispatch-desk/` |
+| EFX | `node_modules/effect/src/` (Effect 4.0.5, the installed package) |
 
 "Flow" means Flow's own runtime: nothing in Flow reads an HTTP status, a close code or an author error type
 (MD:775-776). "The adapter" is the author's `subscribe` (or `commit`) and the Effect services it calls.
+
+## 0. Root causes (revision 2)
+
+Review 1 found 7 high and 14 medium problems. They come from seven causes. Each row names the cause, the findings it
+explains, and the one decision that removes it. The rest of the document applies these decisions.
+
+| # | Root cause | Findings it explains (R1) | The decision that removes it |
+| --- | --- | --- | --- |
+| C1 | **A connection was never a unit.** Flow inferred "open" from data and had no grammar for what one connection is, so a quiet connection never opened, a second `open` meant nothing, and a buffer could evict a signal. | H1 quiet reconnect never opens; signal semantics (`open` while open, the first signal of a connection, `Opened` vs `Reconnected`); H6 a sliding queue evicting `down` | **A session is a sequence of connections, and each connection starts with exactly one claim.** The claim (`open`, `resumed` or `gap`) is made when the transport opens, not when data arrives. `Session.reconnect`'s `connect` now returns the opened connection with its claim, so a quiet connection still opens (4.1.2, 4.1.3, rule 40) |
+| C2 | **Liveness and freshness were one field.** `connection: "Open"` with `data` read as "this is the current value". After a reconnect it was not. | H2 `latest` data looks fresh when it isn't; the quiet-feed staleness recipe; the restored lane's age; values while down | **The lane is typed by freshness.** `data` exists only while the lane is `Live`. A `latest` lane is `Live` only after a value has arrived on the current connection; otherwise it holds `lastKnown`. An `every` lane has no data at all, because its facts live in memory or the store (4.1.5) |
+| C3 | **A continuity claim was not defined against a position or a kind.** "Resumed" did not say "from where" or "for which kind", so a snapshot counted as a resumption. | H3 continuity claimed too generously (silent re-opens; "a full snapshot counts as resumed" on `every`); the SSE proof; `Last-Event-ID` | **`resumed` means one thing:** every fact after the position this connection was opened from will come, in order, before anything newer. On `every`, a snapshot is a `gap`. On `latest`, claims carry no continuity at all. An in-band server answer is the only proof (4.1.4, rule 41) |
+| C4 | **The resume position had no defined meaning.** "The position it has handled" was read as "the highest seen". | H4 the chat recipe loses messages: highest-seen as the cursor, a failed catch-up forgotten, a server reset below `lastSeq` | **The resume parameter is a watermark:** the consumer holds every fact at or before it. A gap is an obligation that only a successful catch-up discharges. Positions are scoped by the source's epoch (rule 45, 4.3.2) |
+| C5 | **The lifecycle edges had no stated meaning.** Rules were written for a live session of one kind, so end, release, restore, supersede and cancel each fell through. | H5 persistence suppresses equal values on `every`; a `listen` that ends or sits down leaves answers fresh; a clean server close ends a feed; progress wiped by a superseded Attempt; rule 8 and the mailbox cap; the release/restart race; `Stream.timeout` ending silently; retry after Stop under `reject` | **One table gives every edge its meaning at each layer** (4.5). Every rule that differs by kind says which kind it is for |
+| C6 | **The push boundary and the clock were each adapter's private business.** Each adapter re-implemented buffering, overflow and timing, and a Story could only replace the whole adapter. | H6 per-adapter buffers and overflow; `Stream.callback`'s unbounded default; untestable fakes; adapters using `Date.now`; Stories missing controls for most sequences | **Flow owns the push boundary:** `Session.push(register, { capacity })`, which is bounded, turns loss into a gap and never evicts a signal. **Adapters are written over a structural transport service** (Effect's `Socket.WebSocketConstructor`, or the author's subset of an SDK), and Stories fake that service. **Adapter time is Effect's `Clock`** (4.1.6, 7.0, rule 52) |
+| C7 | **Data flowed only inward.** Nothing modelled state the client keeps on the server while a session lives. | H7 outbound ephemeral sends (a cursor at 30 Hz) | **`publish`: latest-wins state an activity carries on its session**, re-sent on every connection, with no Attempt and no ending (4.1.9, open question R2.1) |
+
+Two findings were errors in examples, not causes: `Schedule.both` does not exist in Effect 4.0.5 (`Schedule.max` does,
+EFX `Schedule.ts:856`), and the retry budget's reset was unstated. Both are fixed in 4.1.3.
+
+**What revision 2 keeps:** the four signals, `delivers`, the three layers, `progress` on writes, `listen`'s consistency
+with merges 4 and 5, Flow keeping no cursor, and the four SDK adapters (now rewritten over `Session.push` and
+`Session.reconnect`). Section 11 lists what changes if OID moves declarations onto the definition.
 
 ## 1. The problem
 
@@ -89,10 +121,10 @@ and whether reading pushes back. For each source, what Flow must model and what 
 
 | Source | Flow models | The adapter (an Effect service and the `subscribe` that calls it) owns |
 | --- | --- | --- |
-| **WebSocket** | the session's life (owned by an activity); delivery into the actor; the connection status the adapter reports; the continuity claim at each open; the session's ending | `new WebSocket`, auth (cookie, URL token, first message), heartbeats and the half-open check, reading close codes into its own errors (`SignedOut` from 4401, `Dropped { code }` from 1006), reconnecting with its own backoff, the resume message, a bounded receive buffer and reporting its overflow |
+| **WebSocket** | the session's life (owned by an activity); delivery into the actor; the connection status the adapter reports; the continuity claim at each open; the session's ending | `new WebSocket`, auth (cookie, URL token, first message), heartbeats and the half-open check, reading close codes into its own errors (`SignedOut` from 4401, `Dropped { code }` from 1006), reconnecting with its own backoff, the resume message. Revision 2: written over the `Socket.WebSocketConstructor` transport service, so a Story can fake the socket (4.1.6) |
 | **SSE** | the same | `EventSource`; its built-in reconnect is the adapter's reconnect: `readyState` CONNECTING is "down", a later message is "open"; whether the server honoured `Last-Event-ID` (an app event says so) |
 | **`fetch` body** (feed) | the same; pull-based reading keeps the TCP window honest | the terminator (`[DONE]`, a final frame, a length) that tells completion from a clean cut; the status and headers |
-| **`fetch` body** (a write: LLM answer) | the transaction's Attempt and its three endings (2.7.1); **progress** before the ending (4.1.8) | the same terminator; that a cut answer is `unknown` |
+| **`fetch` body** (a write: LLM answer) | the transaction's Attempt and its three endings (2.7.1); **progress** before the ending (4.1.10) | the same terminator; that a cut answer is `unknown` |
 | **Upload progress** (XHR) | progress before the ending; the ending | `xhr.upload.onprogress` into progress; `load`/`error`/`abort` into `Outcome` |
 | **Polling with a cursor** | the same as a WebSocket | the loop, the cursor, the delay; that a failed GET is "down", not a defect |
 | **Sync engine** | the same; its recoverable `error` is "down" | everything else: the engine owns log replay, offline catch-up and completeness (SE) |
@@ -128,15 +160,15 @@ Each server-call and entity concept, judged from the design text.
 | `outcomes` mapping onto author events (rule 13, D1) | **as is** | `value`, `gap`, `complete`, `failure` map onto declared events; a failure or gap mapping is one event or an exhaustive tag record |
 | Mappers receive `(value, context)` (C6) | **adapted** | `(value, { params, key })`; the session has no Attempt |
 | `Flow.uncertain` (rule 13, D3) | **not carried** | No unknown channel on a read. A gap's reason (`Unproven` or the adapter's) is information in the payload |
-| The commit value as handle: `retry`, `cancel`, `idle`, `pending`, `retryCount` (D4) | **not carried** for sessions; **extended** for streaming writes | A session is declarative: it starts with its activity, stops when released or `when` is false, re-opens only by starting the activity again. Its lane is read like any activity lane. A streaming write's lane row gains one field, `progress` (4.1.8; Revision (multiplicity audit, 2026-10-31): lanes are the snapshot's `calls` rows, the design's D18) |
-| The lane per actor, transaction and key (rule 21) | **adapted** | Streams already have activity lanes (OPS O6). `Running` gains `connection` (4.1.5) |
+| The commit value as handle: `retry`, `cancel`, `idle`, `pending`, `retryCount` (D4) | **not carried** for sessions; **extended** for streaming writes | A session is declarative: it starts with its activity, stops when released or `when` is false, re-opens only by starting the activity again. Its lane is read like any activity lane. A streaming write's lane row gains one field, `progress` (4.1.10; Revision (multiplicity audit, 2026-10-31): lanes are the snapshot's `calls` rows, the design's D18) |
+| The lane per actor, transaction and key (rule 21) | **adapted** | Streams already have activity lanes (OPS O6). `Running` gains `connection`, and revision 2 types the lane by freshness (4.1.5) |
 | Owner, current or late, decided at admission (rule 14) | **adapted** | The owner is the activity's activation. A delivery is mapped at admission (as an ending is); if its session was released, it is discarded, never routed late (rule 44): a session owes nothing after release, and the next session's continuity says what it missed |
 | Late turns (rule 15) | **not carried** | No late stream deliveries |
 | Declines are endings (rule 16, D5) | **adapted** | A duplicate session is a failure ending (`DuplicateSession`), never silence (rule 47) |
 | Every start ends once (rule 17) | **adapted** | A session ends at most once; a planned release ends it without an ending (OPS:133, kept) |
 | The Attempt's ending, `StillUnknown` (rule 18) | **not carried** | No Attempt |
 | The key is the Attempt's id (rule 19) | **adapted** | The idempotency key's counterpart is the resume position: the author puts it on the wire through `params` (rule 45). Flow keeps no cursor |
-| Required handling (rule 20) | **adapted** | `value` and `gap` are required for an `every` stream; `Defect` and `Interrupted` in a tag record (rule 37); `DuplicateSession` where it can occur. Current only |
+| Required handling (rule 20) | **adapted** | `value`, `gap` and (r2) `complete` are required for an `every` stream; `Defect` and `Interrupted` in a tag record (rule 37); `DuplicateSession` where it can occur. Current only |
 | Memory reads: before for decisions, after for effects (rule 22) | **as is** | Activity `params` and `when` read after. So a handler that writes `lastSeq` and re-enters the state opens the next session from it |
 | Schedules and keyed schedules (rule 23, 2.7.10) | **as is** | Backoff after a terminal failure, give-up budgets and "stale after a quiet minute" are schedules |
 | Cancel (rule 24) | **not carried** for sessions; **as is** for streaming writes | A session is released, not cancelled. Stopping a generation is `gen.cancel(key)`: `unknown(Cancelled)` |
@@ -162,7 +194,7 @@ coherent and honest; log replay, offline catch-up and completeness belong to a s
 | What clears `uncertain` (rule 32) | **as is, extended** | A push is an observation, like a read: it clears no mark (rule 49) |
 | No temporary ids (rule 33) | **as is** | A pushed new record enters lists only through repair (EDP:118-119) |
 | Lane key of a domain write (rule 34) | **not carried** | |
-| Overflow is an ending (rule 35) | **adapted** | The adapter's buffer overflow is a gap, a known loss, never a silent drop (rule 41) |
+| Overflow is an ending (rule 35) | **adapted** | A push buffer's overflow is a gap, a known loss, never a silent drop; revision 2 makes the buffer Flow's (`Session.push`, rule 52) |
 | Callback reads (rule 36) | **not carried** | |
 | Reads carry confirmed data; `Defect`/`Interrupted` mapped (rule 37) | **as is** | A session's failures (rule 42) |
 | Lanes and predicted keys persist together (rule 38) | **not carried** | Deliveries are not persisted at all (rule 48) |
@@ -171,427 +203,584 @@ coherent and honest; log replay, offline catch-up and completeness belong to a s
 
 ## 4. Design
 
-Three layers, each in its own section. Section 4.4 shows what each owns and what crosses between them.
+Three layers, each in its own section, then the layer table (4.4) and the lifecycle table (4.5), which revision 2 adds.
 
 ### 4.1 The stream operation (Operations O1, O4, O6, O7)
 
-#### 4.1.1 The descriptor
+#### 4.1.1 The descriptor, from the WebSocket up
+
+The data starts at the browser's `WebSocket`. Revision 2 writes the adapter over Effect's own socket module, so the
+transport is a service a Story can replace (EFX `socket/Socket.ts:864-875`, `WebSocketConstructor`) and every close is
+an error with its code (EFX `socket/Socket.ts:444-452`: "Sockets never classify closes").
 
 ```ts
 // chat.operations.ts (outside the machine)
-export const messages = stream({
-  id: "chat/messages",
-  key: (p: { roomId: string; after: number }) => ({ roomId: p.roomId }),   // the feed; `after` only says where a session starts ← NEW meaning
-  delivers: "every",                                                          // ← NEW, required: "every" | "latest"
-  result: Message,                                                            // as today (OPS:18)
-  subscribe: (p, { signal }) => Session.reconnect({                           // ← NEW: the adapter's vocabulary (4.1.2, 4.1.3)
-    connect: (from) => ChatSocket.use((s) => s.messages({ roomId: p.roomId, after: from ?? p.after })),
-    position: (m) => m.seq,                                                   // adapter-local: where the next connection resumes
-    schedule: Schedule.exponential("500 millis").pipe(Schedule.both(Schedule.recurs(8))),   // the author's backoff, on the Runtime Clock
-    while: (e) => e._tag === "Dropped",                                       // transient: reconnect; any other error ends the session
-  }),
-})
+import { Data, Effect, Schedule, Schema, Stream } from "effect"
+import { Socket } from "effect/socket"                       // existing (Effect 4.0.5): makeWebSocket, readerString, SocketError
+import { Session, stream } from "flow-state"                  // NEW: Session; existing: stream
 
-export const quote = stream({
-  id: "market/quote",
-  key: (p: { symbol: string }) => p,
-  delivers: "latest",                                                         // ← NEW: each value replaces the last; skipping is correct
-  subscribe: (p) => Session.reconnect({ connect: () => Quotes.use((q) => q.ticks(p.symbol)), position: () => undefined, schedule: backoff, while: isDrop }),
+export const Message = Schema.Struct({ epoch: Schema.String, seq: Schema.Number, text: Schema.String })   // user-defined
+export type Message = typeof Message.Type
+export class Dropped extends Data.TaggedError("Dropped")<{ readonly code: number }> {}        // user-defined: a down reason
+export class SignedOut extends Data.TaggedError("SignedOut")<{}> {}                            // user-defined: ends the session
+export class Reset extends Data.TaggedError("Reset")<{ readonly epoch: string }> {}           // user-defined: a gap reason
+
+const Hello = Schema.fromJsonString(Schema.Union([                                              // user-defined: the server's answer to "resume"
+  Schema.Struct({ t: Schema.Literal("resumed") }),
+  Schema.Struct({ t: Schema.Literal("gap"), epoch: Schema.String }),                            // "I cannot replay from there; my log is now `epoch`"
+]))
+const Frame = Schema.fromJsonString(Schema.Union([
+  Schema.Struct({ t: Schema.Literal("msg"), message: Message }),
+  Schema.Struct({ t: Schema.Literal("pong") }),
+]))
+
+const classify = (e: Socket.SocketError): Dropped | SignedOut =>                                // the author reads the close code; Flow never does
+  e.reason._tag === "SocketCloseError" && e.reason.code === 4401 ? new SignedOut({})
+    : new Dropped({ code: e.reason._tag === "SocketCloseError" ? e.reason.code : 1006 })
+
+export const messages = stream({                                                                // existing
+  id: "chat/messages",
+  key: (p: { roomId: string; epoch: string; after: number }) => ({ roomId: p.roomId }),        // existing: the key names the feed
+  delivers: "every",                                                                            // NEW
+  result: Message,
+  subscribe: (p) => Session.reconnect({                                                         // NEW (shape revised in r2, M6-D8)
+    connect: (from) => Effect.gen(function* () {                                                // NEW (r2): an Effect of one opened connection
+      const socket = yield* Socket.makeWebSocket(`/rooms/${p.roomId}/live`)
+      const pull = (yield* Socket.readerString(socket).pipe(Effect.mapError(classify))).pipe(Effect.mapError(classify))   // acquiring the reader waits for "open"
+      const writer = yield* socket.writer
+      const start = from ?? { epoch: p.epoch, after: p.after }                                  // this session's watermark (rule 45), or this session's last value
+      yield* writer.write(JSON.stringify({ t: "resume", ...start })).pipe(Effect.mapError(classify))
+      const [first, ...rest] = yield* pull.pipe(Effect.timeoutOrElse({ duration: "10 seconds", orElse: () => Effect.fail(new Dropped({ code: 4000 })) }))
+      const hello = Schema.decodeUnknownSync(Hello)(first)
+      yield* Effect.forkScoped(Effect.forever(Effect.sleep("15 seconds").pipe(                  // a heartbeat on Effect's Clock (rule 52)
+        Effect.andThen(writer.write(JSON.stringify({ t: "ping" }))), Effect.ignore)))
+      return {
+        claim: hello.t === "resumed" ? Session.resumed() : Session.gap(new Reset({ epoch: hello.epoch })),   // NEW (r2): the claim, made at open
+        values: Stream.fromIterable(rest).pipe(
+          Stream.concat(Stream.fromEffectRepeat(pull).pipe(Stream.flatMap(Stream.fromIterable))),
+          Stream.timeoutOrElse({ duration: "40 seconds", orElse: () => Stream.fail(new Dropped({ code: 4000 })) }),   // silence fails; it never ends quietly
+          Stream.flatMap((raw) => {
+            const f = Schema.decodeUnknownSync(Frame)(raw)                                       // an undecodable frame is a defect
+            return f.t === "msg" ? Stream.succeed(f.message) : Stream.empty                      // pongs only keep the deadline alive
+          })),
+      }
+    }),
+    position: (m) => ({ epoch: m.epoch, after: m.seq }),                                        // existing
+    schedule: Schedule.max([Schedule.exponential("500 millis"), Schedule.recurs(8)]),           // r2: was Schedule.both, which does not exist
+    while: (e) => e._tag === "Dropped" || e._tag === "ConnectionEnded",                         // NEW (r2): a clean end is offered to `while` too
+  }),
 })
 ```
 
-**`delivers`** is required, like `concurrency` (OPS:26): a standard upfront contract stating what the data is.
+`delivers` and the key's meaning are unchanged from revision 1:
 
 | | `"every"` | `"latest"` |
 | --- | --- | --- |
-| A value is | a fact: a message, a notification, a delta | the current state: a price, a presence set, a job's progress |
-| Flow may coalesce or skip | never | yes: only the newest matters |
-| Equal values | delivered (two equal "sync now" are two facts) | silent under `Equal.equals` |
+| A value is | a fact: a message, a notification, a delta | the current state: a price, a presence set |
+| Flow may coalesce or skip | never | yes |
+| Equal values | delivered, also after a restore (r2, rule 51) | silent under `Equal.equals` |
 | Reading the adapter's Stream | pulled one element at a time, by its consumer (rule 46) | drained continuously into the lane |
-| In a machine | `value` and `gap` must be mapped | `value` optional; no `gap` (the next value is the truth) |
-| In `listen` | required | a type error (section 4.2) |
+| Claims carry continuity | yes (4.1.4) | no: every claim only opens (r2) |
+| The lane holds | no data: facts live in memory or the store (r2, 4.1.5) | `data` while `Live`, else `lastKnown` (r2) |
+| In a machine | `value`, `gap` and `complete` must be mapped (r2: `complete` added) | `value` optional |
+| In `listen` | required | a type error |
 
-**The key names the feed; parameters outside it say where a session starts.** OPS:41-43 asks authors to put every
-parameter that affects the result in the key. For a stream the key is the session's identity (OPS:120-121), so a
-resume position must stay *outside* it: changing `after` on every message would re-open the session on every message.
-A new session reads the current parameters; a running one keeps its originals (OPS:120-121, kept). This is an
-amendment to O1 (6.4).
+**The key names the feed; parameters outside it say where a session starts** (OPS:41-43 amended, rule 45). A new
+session reads the current parameters; a running one keeps its originals (OPS:120-121).
 
-#### 4.1.2 The adapter's vocabulary: `Session`
+#### 4.1.2 The connection grammar (revision 2)
 
-`subscribe` returns `Stream<A | Session.Signal<D, G>, E, R>`. Plain elements are values. Signals are wrapper values
-built with `Session.*`, as `Outcome.failure` and `Outcome.unknown` build classified errors (MD:806-812); Flow peels
-them off, and `A`, `D` (down reasons), `G` (gap reasons) and `E` are inferred with nothing declared elsewhere.
+A session is a sequence of connections. The adapter's Stream is read by this grammar, which Flow enforces:
 
-```ts
-Session.open()          // a transport connection is open; continuity unproven        ← NEW
-Session.resumed()       // open, and nothing since the last position is missing:        ← NEW
-                        //   the server replayed from the cursor, or the connection starts with a full snapshot
-Session.gap(reason)     // something was lost: "history expired", a buffer overflow       ← NEW
-Session.down(reason)    // the connection dropped; the adapter is trying again            ← NEW
-// a plain element: a value. The first value of a session with no signal before it counts as Session.open().
-// values may also arrive while Down (a cache serving data, 7.7.4); after a down, only open, resumed or gap re-open.
-// failing the Stream ends the session (failure); completing it ends the session (complete).
+```text
+session     := connection* ending?
+connection  := claim item* (down | the session's ending)
+claim       := open | resumed | gap(reason)      made when the transport opens, before any of its values
+item        := value | gap(reason)               a gap after the claim is a loss inside the connection
+between     := value*                            values after a down and before the next claim (a cache serving data)
 ```
 
-- Each signal is a **claim by the adapter**, with the adapter's own reason as information (a `Dropped { code }`, a
-  `HistoryExpired { oldest }`). Flow reads no close code, `readyState` or status; it reads which signal came.
-- `resumed` and `gap` describe the connection they follow; `resumed` must come before that connection's first value.
-  `gap` may also come mid-connection (an overflow).
-- Nothing is configuration: a server close that should reconnect is a `Dropped` error the adapter's `while` accepts,
-  not an option.
+- **The claim opens the connection.** `Session.open()` claims nothing about continuity, `Session.resumed()` proves
+  it, and `Session.gap(reason)` reports a loss (4.1.4). The claim is made when the transport opens. A connection that
+  stays quiet is still open.
+- **The session's first value with no claim before it counts as `open()`.** This keeps M6-D2: a plain Stream with
+  no signals (`Stream.fromIterable`, a polling loop) still works.
+- **A claim inside an open connection is ignored**, with an `ExtraClaim` evidence entry (an adapter bug made
+  visible). A `down` while down replaces the reason.
+- **`Unproven { why }`:** `"Opened"` for the session's first connection, `"Reconnected"` for every later one.
+- **Values between a `down` and the next claim** update a `latest` lane's `lastKnown` (Firestore's cache, 7.7.4). On
+  `every` they are delivered: a fact is a fact. They open nothing.
+- **Signals are never lost.** Flow's push buffer (4.1.6) never evicts a signal, and Flow never coalesces two claims.
 
-#### 4.1.3 `Session.reconnect`: reconnecting inside one session
+The vocabulary itself is the four signals of revision 1, with two Flow reasons added:
 
-`Session.reconnect({ connect, position, schedule, while })` is an Effect combinator the adapter places in its own
-`subscribe`. It runs `connect(from)`, passes its elements through, and remembers `position(value)` of the last value.
-When the connection fails with an error `while` accepts, it emits `Session.down(error)`, sleeps by `schedule` on the
-Runtime Clock, and connects again with the last position. Any other error, or an exhausted `schedule`, ends the
-session with that error. It mirrors `Effect.retry({ schedule, while })`, and is ordinary adapter code: Flow's runtime
-never re-opens a session (rule 43). The position never leaves the adapter; across sessions, the machine's memory holds
-it (4.3.2). Because only a session's first value implies an open (rule 40), the combinator reports each re-open: it
-emits `Session.open()` before a reconnected connection's first element, unless that connection starts with its own
-signal. That is the "reports each re-open" of section 2, spelled out; the combinator is otherwise unchanged (7.7).
+```ts
+Session.open()        // NEW: the connection is open; continuity unproven
+Session.resumed()     // NEW: open; every fact after this connection's start position follows, in order (4.1.4)
+Session.gap(reason)   // NEW: as a claim, open with a known loss; as an item, a loss inside the connection
+Session.down(reason)  // NEW: the connection dropped; the adapter is trying again
+// Flow's own reasons (NEW): Unproven { why: "Opened" | "Reconnected" } (a gap), Overflow { lost } (a gap, 4.1.6),
+// ConnectionEnded (offered to Session.reconnect's `while` when a connection's values complete, 4.1.3)
+```
 
-A source that reconnects by itself (SSE, a sync engine) reports the same signals without the combinator: CONNECTING
-or `error` is `down`, the next message or `ready` is `open`.
+#### 4.1.3 `Session.reconnect` (revision 2, M6-D8)
 
-**A receive buffer that drops must say so.** A WebSocket pushes whatever the consumer does (GAPS, "Backpressure"),
-so the adapter buffers messages from `onmessage` in a bounded queue. On overflow it drops the buffer and emits
-`Session.gap(new Overflow())`. Flow cannot see a silent drop, so rule 41 makes it the adapter's obligation. A `fetch`
-body needs no buffer: it is pulled, and the TCP window follows.
+```ts
+Session.reconnect<A, P, G, E, R>(options: {                                                     // NEW
+  readonly connect: (from: P | undefined) =>
+    Effect.Effect<{ readonly claim: Session.Claim<G>; readonly values: Stream.Stream<A | Session.Gap<G>, E, R> }, E, R | Scope.Scope>
+  readonly position: (value: A) => P
+  readonly schedule: Schedule.Schedule<unknown, E | Session.ConnectionEnded, never, R>
+  readonly while: (error: E | Session.ConnectionEnded) => boolean
+}): Stream.Stream<A | Session.Signal<E | Session.ConnectionEnded, G>, E, R>   // a refused ConnectionEnded completes the session
+```
 
-#### 4.1.4 Continuity: the three answers
+- **`connect` returns the opened connection** (r2). Its Effect succeeds when the transport is open and the claim is
+  known. The combinator emits the claim at that moment, then the values. So a quiet connection opens (finding H1).
+  The type requires a claim, so a connection cannot start without one.
+- **Each connection runs in its own scope**, closed before the next `connect` runs. The old socket is closed before a
+  new one opens.
+- **Ending a connection.** If `values` fails with `e`, or `connect` fails, the combinator asks `while(e)`. If
+  `values` completes, it asks `while(ConnectionEnded)` (r2). A server's clean close is therefore a reconnect when the
+  author says so, and never a silent end of the feed. If `while` accepts, the combinator emits `Session.down(e)`,
+  sleeps by `schedule` on Effect's Clock, and connects again. If `while` refuses, the session ends: with the error,
+  or as `complete` for `ConnectionEnded`.
+- **`from` is the position of the last value this session emitted.** Gaps inside the session were already reported
+  to the consumer, who owns the repair (4.3.2), so the combinator never holds back. Across sessions the machine's
+  watermark is the start (rule 45).
+- **The schedule restarts at every open** (r2). It counts the failed attempts since the last connection that
+  opened. A server that accepts and immediately drops is still paced by the schedule's first delay.
+- The combinator is adapter code. Flow's runtime never re-opens a session (rule 43, rule 25).
 
-At every open of a transport connection, the session's continuity is decided by the adapter's claim:
+Sources that reconnect by themselves (SSE inside one `EventSource`, Supabase realtime, Firestore, a sync engine) do
+not use it: they report signals through `Session.push` (4.1.6).
 
-| The adapter said | Answer | Flow's delivery (an `every` stream) |
+#### 4.1.4 Continuity: what a claim means (revision 2)
+
+| Claim | On `every` | On `latest` |
 | --- | --- | --- |
-| `Session.resumed()` | continuous | nothing |
-| `Session.gap(reason)` | something was lost | a gap with the adapter's `reason` |
-| `Session.open()`, or the session's first value with no signal | unproven | a gap with Flow's reason `Unproven { why: "Opened" \| "Reconnected" }` |
+| `resumed()` | **continuous**: every fact after the position this connection was opened from will be delivered, in order, before anything newer. No gap is delivered | opens; nothing else |
+| `gap(reason)` | **a known loss**: a gap with the adapter's reason, before the connection's values | opens; no gap is delivered |
+| `open()`, or the session's first value with no claim | **unproven**: a gap with `Unproven { why }`, before the connection's values | opens |
 
-The gap is delivered **before any value of that connection**, in the session's sequence. It is delivered on the
-**first** open too (`why: "Opened"`): a machine that read history before the socket opened may have missed what was
-said in between (the first-live race, G10), and only a proof closes that window. On a `latest` stream there are no gap
-deliveries: its next value is the whole truth.
+- **Only an in-band answer proves continuity** (C3). The server must say, on this connection, that it replayed from
+  the given position (chat's `{ t: "resumed" }`, an SSE `event: resumed`). A transport opening proves nothing. Neither
+  does a browser sending `Last-Event-ID`: the server may have ignored it.
+- **A full snapshot is not a resumption on `every`** (finding H3). A snapshot tells you the current state but not the
+  facts that happened in between: a deleted message, a notification already dismissed. An adapter whose server
+  answers "here is everything" says `gap(new Snapshot())` and delivers the snapshot's items as values, or lets the
+  machine re-read. On `latest`, a snapshot is simply the next value.
+- **A silent re-open is an adapter defect.** Flow cannot see a transport that re-opened without saying so. Both of
+  Flow's constructors make it hard to write one: `Session.reconnect`'s type requires a claim per connection, and
+  `Session.push`'s `emit.open()` sits in the SDK's open callback. Inspection reports an `every` session that has
+  delivered values but never received a claim (`NoClaims`, 6.4).
+- **A gap is delivered before the connection's values,** so a consumer always learns of a loss before it sees
+  anything newer.
 
-Continuity is judged per connection, against the position the connection started from: the session's previous
-connection, or, for a new session, the position in its parameters. Flow does not judge across sessions on its own.
-The machine's memory holds the position, and the adapter proves or disproves resumption from it (4.3.2).
-
-#### 4.1.5 The lane
+#### 4.1.5 The lane, typed by freshness (revision 2, M6-D9)
 
 ```ts
-s.activities.feed
-// Running     { data, connection: "Opening" | "Open" | "Down", down?: D }   ← NEW fields; `down` is the last down reason while Down
-// Complete    { data }
-// Failure     { data, error }       Defect { data, cause }    Interrupted { data, cause }   (as OPS:166-169)
+// A latest stream's lane                                                                       NEW (r2)
+type LatestLane<A, D, E> =
+  | { readonly _tag: "Running"; readonly connection: "Live"; readonly data: A }                 // a value arrived on the current connection
+  | { readonly _tag: "Running"; readonly connection: "Opening"; readonly lastKnown: A | undefined }
+  | { readonly _tag: "Running"; readonly connection: "Down"; readonly lastKnown: A | undefined; readonly down: D }
+  | { readonly _tag: "Complete"; readonly lastKnown: A | undefined }
+  | { readonly _tag: "Failure"; readonly lastKnown: A | undefined; readonly error: E }
+  | { readonly _tag: "Defect" | "Interrupted"; readonly lastKnown: A | undefined; readonly cause: Cause.Cause<unknown> }
+
+// An every stream's lane: no data; its facts went to memory or the store                       NEW (r2)
+type EveryLane<D, E> =
+  | { readonly _tag: "Running"; readonly connection: "Live" | "Opening" }
+  | { readonly _tag: "Running"; readonly connection: "Down"; readonly down: D }
+  | { readonly _tag: "Complete" }
+  | { readonly _tag: "Failure"; readonly error: E }
+  | { readonly _tag: "Defect" | "Interrupted"; readonly cause: Cause.Cause<unknown> }
 ```
 
-- `connection` starts `"Opening"`, becomes `"Open"` at `open`, `resumed`, `gap` or the session's first value, and
-  `"Down"` at `down`. A value that arrives while `"Down"` updates `data` and leaves `connection` as it is (7.7.4).
-  It is the adapter's report, not Flow's measurement: whether quiet means idle or dead is the adapter's heartbeat
-  (GAPS, WebSocket "Unknown").
-- `data` is the latest value, as today. A `latest` stream's lane updates coalesce to at most one publication per
-  Runtime publication; lane-only changes run no handlers (MCH:148-150, kept).
-- **A new session starts with the old data.** When an activity starts a new session with the same key as its previous
-  one (re-entry, restore, handover), the lane starts `Running`, `connection: "Opening"`, with the previous session's
-  `data` (G5). This extends the retention placeholders already use (OPS:172-173). The data is not re-mapped
-  (OPS:74-75); `connection` says it is not live.
-- No `receivedAt`: when staleness matters, the server's timestamp in the value is the source (alternative A13).
+- **`"Live"` replaces revision 1's `"Open"`** (r2), because its meaning changed. On `every`, a lane is `Live` from
+  the connection's claim (and its gap, if any, is queued first). On `latest`, it is `Live` only once a value has
+  arrived on the current connection. Before that it is `Opening`, even if the transport is open. A ticker on a quiet
+  symbol after a reconnect therefore shows its old price as `lastKnown`, not as live (finding H2).
+- **`data` exists only while `Live`.** A view that renders `lane.data` must first narrow on `connection === "Live"`,
+  so the most common mistake, rendering a stale value as current, is a type error. `lastKnown` is there to render
+  dimmed.
+- **An `every` lane has no data.** A chat message or a push is a fact handled into memory or applied to the store;
+  showing "the last message" from a lane invites treating a fact as state.
+- **A new session with the same key starts with `lastKnown`** set to the previous session's data, as `Opening`
+  (revision 1's G5 answer, renamed). A restore does the same (rule 51).
+- Lane updates of a `latest` stream coalesce to at most one publication per Runtime publication (MCH:148-150).
 
-#### 4.1.6 Endings and classification
+#### 4.1.6 The push boundary: `Session.push` and transports (revision 2)
 
-A session ends once, as a read: `complete` (the Stream completed), or `failure` with the author's error, Flow's
-`Defect` (a die, plus an issue) or `Interrupted` (an outside interruption), classified from the whole `Cause` outside
-the session's fiber (MD:844-863). A planned release (state exit, key change, `when` false, disposal) ends it with no
-ending (OPS:133, OPS:178-179, kept). There is no unknown channel.
-
-**Classification is the adapter's.** A token expiry shows as `error` then close 1006 with no status (GAPS, G6). The
-adapter decides what it knows: a server that sends close 4401 lets it fail `SignedOut`; one that cannot, lets it
-probe (an authenticated read) before reconnecting; anything else is `Dropped` and goes through `while`. "Offline" and
-"signed out" look different only if the adapter makes them so; Flow interprets neither.
-
-**Every failure reaches its owner.** DD's `Effect.orDie` (section 1.1) would make one dropped poll a `Defect`. With
-`Session.reconnect`, a dropped poll is `down`, and only a give-up is a failure.
-
-#### 4.1.7 Delivery to a consumer
-
-A session has exactly one consumer: a machine activity (4.3) or, for a `listen` entry, the store and the activity
-that started it (4.2). Flow pulls the adapter's Stream:
-
-- **`every`:** one element at a time. The next element is pulled only after the consumer has handled the previous one
-  (a machine: the turn of its delivery; the store: its application). Values, gaps and the ending stay in the adapter's
-  order. This is OPS:127-128's rule, now independent of whether `value` is mapped.
-- **`latest`:** continuously; the newest element replaces the lane's data. A machine gets at most one delivery
-  waiting, whose payload is read at admission (4.3.3).
-
-#### 4.1.8 Writes that stream: progress
-
-An LLM answer in a POST body and an upload are **writes**: they may cost money or create data, they can be cut off,
-and the client cannot know whether the server finished. So they are transactions with an Attempt and three endings
-(2.7.1), plus one thing: **progress before the ending.**
+Callback SDKs (Supabase, Firestore, `EventSource`, a sync engine) push whatever the consumer does. In revision 1, each
+adapter wrote its own bounded queue and overflow protocol over `Stream.callback`. `Stream.callback`'s buffer is
+unbounded by default (EFX `Stream.ts:698`, `:725`), and its `"sliding"` strategy can evict a signal. Revision 2 makes
+this boundary Flow's:
 
 ```ts
-export const generate = transaction({
+Session.push<A, D = never, G = never, E = never, R = never>(                                    // NEW (r2)
+  register: (emit: Session.Emit<A, D, G, E>) => Effect.Effect<unknown, never, R | Scope.Scope>,
+  options: { readonly capacity: number },                                                       // required: no unbounded default
+): Stream.Stream<A | Session.Signal<D, G | Session.Overflow>, E, Exclude<R, Scope.Scope>>
+
+interface Emit<A, D, G, E> {                                                                    // NEW (r2): synchronous, callable from any SDK callback
+  value(a: A): void
+  open(): void
+  resumed(): void
+  gap(reason: G): void
+  down(reason: D): void
+  fail(error: E): void
+  end(): void
+}
+```
+
+- **Bounded, and loss becomes a gap.** At most `capacity` values wait. When a value arrives at a full buffer, the
+  oldest waiting value is dropped, and Flow places `gap(Overflow { lost })` where it was. On `every`, the gap sits
+  exactly at the loss and comes before the surviving values. On `latest`, the newest value survives and the gap is
+  dropped (rule 41). One policy is correct for both kinds, so `Session.push` needs no `delivers` option.
+- **Signals are never evicted** and never count against `capacity`. A run of `down`s keeps the last reason; claims
+  follow 4.1.2.
+- **After the session's scope closes, `emit` does nothing.** An SDK callback that fires during or after the
+  release (Supabase's asynchronous `removeChannel`) cannot reach a released session (rule 44).
+- `register`'s Effect sets the SDK up and returns its clean-up through `Effect.acquireRelease` (EFX `Effect.ts:13366`).
+
+**Transports are services; Stories fake the transport, not the adapter** (finding H6). In revision 1 a Story
+replaced the whole adapter, so overflow, close-code classification and heartbeats never ran in a Story. Revision 2
+writes every adapter over a structural transport service, and Stories replace only that service:
+
+| Source | The transport service | Production | Story fake (7.0) |
+| --- | --- | --- | --- |
+| WebSocket | `Socket.WebSocketConstructor` (EFX `socket/Socket.ts:864-875`) | `Socket.layerWebSocketConstructorGlobal` (`:877`) | a scripted `WebSocketLike` (`:790-806`) driven by fixture controls |
+| SDK callbacks (Supabase, Firestore) | the author's structural subset of the SDK (`RealtimeLike`, `SnapshotsLike`) | the real client | the same subset, driven by controls |
+| `fetch` (a write, an LLM answer) | the author's service returning a `Stream` of parts (7.7.1) | the SDK | a Layer of the same service |
+
+Everything above the transport runs in the Story: `Session.reconnect`, `Session.push`, overflow, decoding,
+classification, and heartbeats on the TestClock (rule 52).
+
+#### 4.1.7 Endings and classification
+
+Unchanged from revision 1. A session ends once, as a read: `complete`, or `failure` with the author's error, Flow's
+`Defect` (a die, plus an issue) or `Interrupted`, classified from the whole `Cause` outside the session's fiber
+(MD:844-863). A planned release ends it with no ending (OPS:133, OPS:178-179). There is no unknown channel. The adapter
+classifies (`classify` in 4.1.1); Flow reads no close code.
+
+Revision 2 adds two things:
+
+- **A deadline fails, never completes.** `Stream.timeout` *ends* a stream when the deadline passes (EFX
+  `Stream.ts:3431-3454`). That reads as `complete`, or, inside a commit, as a missing terminator. Adapters and commits
+  use `Stream.timeoutOrElse({ duration, orElse: () => Stream.fail(e) })` (EFX `Stream.ts:3539`) or
+  `Effect.timeoutOrElse` (EFX `Effect.ts:8866`), as 4.1.1 does (rule 52).
+- **An `every` session's `complete` must be mapped** (rule 50). A feed that ends is an event the machine must answer;
+  leaving it unmapped would leave a state waiting forever, the silent decline that D5 rejected.
+
+#### 4.1.8 Delivery to a consumer
+
+Unchanged: one consumer per session (a machine activity, or the store plus its activity). `every` is pulled one
+element at a time, after the previous one is handled; `latest` is drained into the lane.
+
+#### 4.1.9 `publish`: state the client keeps on the session (revision 2, proposed; R2.1)
+
+Some live data flows outward: my cursor, my "typing…" state, my presence status. It is state, not a write: only the
+newest value matters, loss is fine, nothing ends, and after a reconnect the server must be told again. Revision 1 had
+no home for it (finding H7).
+
+```ts
+// the descriptor declares what a session may carry outward
+export const cursors = stream({                                                                 // existing
+  id: "doc/cursors",
+  key: (p: { docId: string }) => p,
+  delivers: "latest",
+  publishes: CursorPos,                                                                         // NEW (r2): a Schema
+  subscribe: (p, { published }) => Session.reconnect({                                          // NEW (r2): published: Stream<CursorPos | undefined>
+    connect: () => Effect.gen(function* () {
+      const socket = yield* Socket.makeWebSocket(`/docs/${p.docId}/cursors`)
+      const pull = (yield* Socket.readerString(socket).pipe(Effect.mapError(toDropped))).pipe(Effect.mapError(toDropped))
+      const writer = yield* socket.writer
+      yield* Effect.forkScoped(Stream.runForEach(published, (c) =>                             // the current value first, then each change
+        writer.write(JSON.stringify({ t: "me", cursor: c ?? null }))).pipe(Effect.ignore))      // re-sent on every connection
+      return { claim: Session.open(), values: Stream.fromEffectRepeat(pull).pipe(Stream.flatMap(Stream.fromIterable), Stream.map(decodeOthers)) }
+    }),
+    position: () => undefined, schedule: backoff, while: isDrop,
+  }),
+})
+
+// the activity says which memory it publishes
+EDITING: {
+  activities: {
+    others: O.Doc.cursors.subscribe(({ memory }) => ({ docId: memory.docId }), {               // existing
+      publish: ({ memory }) => memory.myCursor,                                                 // NEW (r2): after memory (rule 22)
+    }),
+  },
+  on: { Moved: { target: "self", updateMemory: ({ event }) => ({ myCursor: { x: event.x, y: event.y } }) } },   // user-defined event
+},
+```
+
+- Flow evaluates `publish` on each committed turn's after memory and offers the value to the session when it
+  changes under `Equal.equals`. `published` always starts with the current value, so each connection re-sends it.
+- No Attempt, no ending, no lane row and no event: it is not a write. A value published while `Down` is sent on the
+  next connection, or replaced by a newer one first.
+- Anything whose loss matters (a chat message, a like) is a transaction, as before.
+
+#### 4.1.10 Writes that stream: progress
+
+Unchanged in shape (M6-D1, M6-D5). Revision 2 fixes three things:
+
+```ts
+export const generate = transaction({                                                           // existing
   id: "assistant/generate",
   input: Schema.Struct({ conversationId: Schema.String, prompt: Schema.String }),
   key: (i) => ({ conversationId: i.conversationId }),
-  progress: Schema.Struct({ text: Schema.String }),                           // ← NEW: what the commit may report before it ends
+  progress: Schema.Struct({ text: Schema.String }),                                             // NEW
   concurrency: "reject",
-  commit: (input, { attempt, signal, progress }) => Effect.gen(function* () {  // ← NEW: progress(value) in the context
-    const api = yield* Assistant
-    const res = yield* api.generate(input, { clientMessageId: attempt.id, signal }).pipe(
-      Effect.catchTag("NoResponse", (e) => Outcome.unknown(e)))              // the POST may have reached the server
+  commit: (input, { attempt, signal, progress }) => Effect.gen(function* () {                    // NEW: progress
+    const res = yield* Assistant.use((api) => api.generate(input, { clientMessageId: attempt.id, signal })).pipe(
+      Effect.catchTag("NoResponse", (e) => Outcome.unknown(e)))
     if (res.status === 429) return yield* Outcome.failure(new Busy({ retryAfterMs: res.retryAfterMs }))
     if (res.status !== 200) return yield* Outcome.failure(new Refused({ status: res.status }))
     let text = ""
     let done: Done | undefined
-    yield* res.frames.pipe(                                                    // a pulled body: the TCP window follows the reader
-      Stream.timeout("30 seconds"),                                            // a stall deadline the UI never sees (MD:1116)
+    yield* res.frames.pipe(
+      Stream.timeoutOrElse({ duration: "30 seconds", orElse: () => Stream.fail(new Stalled({})) }),   // r2: was Stream.timeout, which ends silently
       Stream.runForEach((f) => {
         if (f._tag === "Done") { done = f; return Effect.void }
         text += f.token
-        return progress({ text })                                              // latest-wins: never blocks the reader
+        return progress({ text })
       }),
-      Effect.catch((e) => Outcome.unknown(new BodyBroken({ cause: e }))))     // an error after the headers: it may have finished
-    if (done === undefined) return yield* Outcome.unknown(new CutOff({}))     // a clean end without the terminator
-    return { messageId: done.messageId, text }                                 // the ending carries the whole answer
+      Effect.catch((e) => Outcome.unknown(new BodyBroken({ cause: e }))))                       // Stalled included: it may have finished
+    if (done === undefined) return yield* Outcome.unknown(new CutOff({}))
+    return { messageId: done.messageId, text }
   }),
 })
 ```
 
-- `progress` declares a Schema; the commit's context gains `progress(value): Effect<void>`, which replaces the
-  Attempt's current progress and never waits.
-- Progress is **latest**-delivered: the ending carries the whole result, so skipping progress loses nothing. Tokens
-  are therefore reported as the text so far, not one by one.
-- The machine reads it as a lane field beside `pending` and `retryCount` (D6). **Revision (multiplicity audit, 2026-10-31) (M6-D5).** It is the
-  lane row's `progress` in `s.calls` (`s.calls.Assistant.generate.find((l) => l.key.conversationId === id)?.progress`):
-  the addressable Attempt's last progress, or `undefined`, cleared when the ending's turn is admitted. It exists only
-  where the lane has one addressable Attempt, under `reject`, `latest` and `cancel` (the design's rule N2); under
-  `allow` and `serialize` declaring `progress` is a type error, so several concurrent uploads key each upload.
-- Every ending mapper's context gains `progress`, the last value reported (`undefined` if none): a stopped or cut-off
-  answer keeps its partial text without the author's error having to carry it.
-- Upload progress is the same with `{ loaded, total }`: bytes handed to the network stack, an upper bound on what the
-  server has (GAPS, "Upload progress"). A drop at 100 % is still `unknown`, and clean-up is keyed by the Attempt
-  (MD:1194-1211).
-- "A stream ack completes the write" (REQ R32) needs nothing new: the commit awaits the ack from a service (an engine's
-  `awaitTxId`, SE:73) before it returns, so the ending is the ack's.
+- **Progress belongs to its Attempt** (r2; finding "progress wiped by a superseded Attempt"). Flow stores progress
+  per Attempt. The row's `progress` (M6-D5) is the addressable Attempt's. An Attempt's ending clears only its own.
+  Under `latest`, a superseded Attempt's progress is never shown, and its ending does not touch the newer Attempt's.
+  Each mapper's `progress` is its own Attempt's last value.
+- **A new question after Stop** (r2). Once Stop's `unknown(Cancelled)` ending is admitted, the lane has nothing
+  outstanding, so under `reject` a new start is admitted as a new Attempt. `gen.retry(key)` would re-send the stopped
+  Attempt with the same id, which is right only for a server that dedups by it (rule 19). The author chooses.
+- **A stalled body fails** (`Stalled`), so it can never look like a clean end.
 
 ### 4.2 The entity wrapper: `listen(stream).as(...)` (EntityDomains O1, ED)
 
-The domain is client-side coherence, not a sync engine. `listen` needs four things to keep the store coherent and
-honest: apply every push, in order; never let a push pretend to prove what it cannot; lower what may be stale after
-a gap; and leave completeness to a sync engine.
+The domain is client-side coherence, not a sync engine. Revision 1's four obligations stand: apply every push in
+order; a push proves nothing; lower what may be stale after a gap; leave completeness to a sync engine. Revision 2
+adds the fifth (finding "a `listen` that ends or sits down leaves answers fresh"): **an answer is never fresher than
+the push channel that keeps it coherent.**
 
 ```ts
-export const ticketEvents = stream({
-  id: "DispatchDesk/ticket-events",
-  key: ({ workspaceId }: { workspaceId: string }) => ({ workspaceId }),
-  delivers: "every",                                                           // ← NEW: required for listen; "latest" is a type error
-  subscribe: (input) => Session.reconnect({ connect: () => TicketApi.use((api) => api.events(input)), position: () => undefined, schedule: backoff, while: isDrop }),
-})
-
-events: listen(ticketEvents).as([Ticket], (event) =>                          // unchanged (DD ticket.domain.ts:81-88)
+// ticketEvents is 7.7.3's: delivers "every", Session.push over the Realtime transport
+events: listen(ticketEvents).as([Ticket], (event) =>                                            // existing (DD ticket.domain.ts:81-88)
   event._tag === "TicketSaved" ? Ticket.save(event.ticket)
     : Ticket.delete({ workspaceId: event.workspaceId, ticketId: event.ticketId }, { version: event.revision })),
 
-// in a machine, unchanged (DD queue.machine.ts:66): the activity owns the session; the store consumes it
-feed: O.Tickets.events.subscribe(workspace),
+feed: O.Tickets.events.subscribe(workspace, {                                                   // existing
+  outcomes: { failure: { Closed: E.FeedLost, SignedOut: E.SignedOut, Defect: E.FeedLost, Interrupted: E.FeedLost }, complete: E.FeedLost },   // NEW (r2): required on listen
+}),
 ```
 
-- **Every push, in order.** A `listen` stream is `every`; the store applies each element as it arrives, before any
-  machine turn (rule 27's settlement side), and pulls the next after applying it. Deltas still consolidate per turn and
-  causes never drop (ED 5.4). This settles G1 for `listen`.
-- **Pushes are observations.** A push is positioned at arrival (ED:594-595), never joins a record queue, and clears no
-  `uncertain` mark: like a read, it cannot prove an uncertain write will not still land (rule 32, ED:656-658).
-  Predictions replay over the pushed base (ED:507-510), and a settled write repairs from both bases (ED:541-544), so a
-  push during an in-flight write is not lost.
-- **A gap lowers frontiers.** A gap delivery, including `Unproven`, is a **reconnect** cause for the entities the entry
-  changes: every covered answer whose request started before that open has its frontier lowered; subscribed ones
-  refetch in canonical order under `repairSlots`, the rest are marked stale (EDP:82, ED:574-576, EDP:177-178). This
-  gives EDP:82's "Reconnect" a definition: the browser's connection restored (OPS:59) **or** a `listen` connection
-  opened without proof. `Session.resumed()` lowers nothing.
-- **The first open counts** (G10). An answer whose request started before the listen's first open may have been read
-  by the server before the push subscription began, so the `Unproven { why: "Opened" }` gap lowers it too. Requests
-  started after the open are safe. The cost is one extra read of the answers loaded before the socket opened, at page
-  load; it is the honest price of a push channel that proves nothing. A source that can prove continuity from the read
-  (a log offset shared by reads and pushes) is a sync engine, and plugs in through SE.
-- **Duplicates and replays.** A save is a whole-field value and a delete is idempotent, so a duplicate push is
-  harmless. With versions, an older replayed push loses (EDP:65-66). Without versions, pushes order by arrival, so a
-  replayed older push can briefly overwrite a newer read; the read that lands later with a different value contests
-  the field and refetches it (EDP:66-69), so it self-heals, and `flow check` already warns on `listen` over an
-  unversioned entity (EDP:123-124).
-- **Not designed here, by the scope note:** replaying a server log into the store, offline catch-up, guaranteed
-  completeness, conflict resolution against a log. A source that needs them is a sync engine behind SE. SE's own
-  status workaround (SE:182-185) becomes `down` and `open` signals, which closes SE's open question 2 (SE:420-421).
-- A machine may still map the same session's `value` (a toast "Ticket deleted by Ana"); it sees the push after the
-  store applied it, at admission (rule 27). It need not map `gap`: the store handles it.
+What each moment of a `listen` session does to the answers it covers (the answers on the entities it changes):
+
+| Moment | Covered answers |
+| --- | --- |
+| a push | applied at arrival, in order (rule 27's settlement side); never joins a record queue; clears no `uncertain` mark (rule 32) |
+| the session is `Opening` or `Down` (r2) | stale, cause `listen` ("the push channel is not live"); no refetch yet |
+| a claim `resumed()` | the `listen` cause is withdrawn: nothing was missed |
+| a claim `open()` or `gap(r)`, or a gap item | a **reconnect** cause: subscribed answers whose request started before this point refetch in canonical order under `repairSlots`; the rest stay stale (EDP:82, ED:574-576) |
+| the session ends (`complete`, `failure`, `Defect`, `Interrupted`) (r2) | stale, cause `listen ended`; the activity's `failure` and `complete` must be mapped (rule 50), so the machine re-opens it |
+| a planned release (r2) | a `listen` cause becomes an ordinary stale cause (the answer may have missed pushes); a live session's release changes nothing |
+
+- **The first open counts** (G10): answers whose requests started before the first claim are lowered by
+  `Unproven { why: "Opened" }`. The cost is one extra read at page load. Proof from a read's cursor is a sync engine's
+  job (SE).
+- **Several sessions** (M6-D6): an answer stays stale while any session covering it is not `Live`.
+- **Duplicates, replays, versions:** unchanged (versions decide; without them the contest rule heals, EDP:66-69;
+  `flow check` warns on unversioned `listen`, EDP:123-124).
+- Log replay, offline catch-up, guaranteed completeness: a sync engine behind SE (the scope note).
 
 ### 4.3 Streams inside machines (Machines O6, machine-design.md)
 
 #### 4.3.1 Starting, owning, reading
 
-Unchanged in shape: a stream runs as an activity of the state that declares it (MCH:131-137), owned by that state's
-activation. What changes is the mapping and what the machine can read:
+Unchanged in shape. Guards and views read the typed lane:
 
 ```ts
-LIVE: {
-  activities: {
-    feed: O.Chat.messages.subscribe(({ memory }) => ({ roomId: memory.roomId, after: memory.lastSeq }), {   // params read after memory (rule 22)
-      outcomes: {
-        value: E.Message.from((m) => ({ message: m })),                       // required for an `every` stream
-        gap: E.Missed.from((r) => ({ reason: r._tag })),                      // ← NEW, required for an `every` stream: one event or a tag record
-        failure: { SignedOut: E.SignedOut, Dropped: E.FeedLost, Defect: E.FeedLost, Interrupted: E.FeedLost },   // rule 37
-      },
-    }),
-  },
-  on: {
-    Send: { target: "self", guard: ({ activities }) => activities.feed?.connection === "Open" || deny("Offline"), actions: [post] },   // ← NEW read
-    // …
-  },
-},
+Send: { target: "self", guard: ({ activities }) => activities.feed?.connection === "Live" || deny("Offline"), actions: [post] },   // NEW MEANING: "Live"
 ```
 
-- `outcomes` keys for a stream: `value`, `gap`, `complete`, `failure`. `defect` and `interrupt` go (as C2 did for
-  commits); `Defect` and `Interrupted` are failure reasons (rule 37).
-- Handlers stay top-level `on` handlers of the definition's events. Nothing is nested under the stream.
-- Guards and views read `activities.<name>.connection` (guards receive `activities`, MCH O4); a view's "Reconnecting…"
-  banner and a disabled composer agree through `check()`.
+```tsx
+const q = useView(m, (s) => s.activities.price)
+q?.connection === "Live" ? <Price value={q.data.last} /> : <Price value={q?.lastKnown?.last} dimmed />   // NEW (r2): data only when Live
+```
 
-#### 4.3.2 Resume through memory
+Stream `outcomes` keys: `value`, `gap`, `complete`, `failure`. A `latest` value mapper's context gains `live`
+(r2): `(value, { params, key, live })`, because a value can arrive while `Down` (a cache).
 
-Flow keeps no cursor. The machine keeps the position it has **handled**, in memory, and passes it in `params`:
+#### 4.3.2 Resume through a watermark (revision 2)
 
-- Within a session the adapter tracks its own position (`Session.reconnect`'s `position`), which may be ahead of
-  memory; that is safe, because a live session's pulled elements are always delivered.
-- A new session (re-entry, restore, handover) reads `params` from the after memory (rule 22), so it starts from the
-  last position a handler committed. A delivery queued but not handled when the old session was released is
-  discarded (rule 44) and comes again from the new session, or the new session reports a gap.
-- Dedup is the machine's: a handler ignores a message it already holds, by id.
+Flow keeps no cursor (A6). Revision 1 said the machine keeps "the position it has handled". The chat walk read that
+as "the highest position seen" and lost messages three ways (finding H4). Rule 45 now says precisely what a resume
+parameter is:
+
+- **It is a watermark:** the consumer holds every fact at or before it. It is not the highest position seen. A
+  message that arrives past a hole is held, but the watermark stays below the hole.
+- **A gap is an obligation.** The watermark cannot pass a gap until a catch-up discharges it. A failed catch-up is
+  retried by a state and a schedule, never forgotten. A session started meanwhile resumes from below the hole, so the
+  server replays it or reports a gap again.
+- **Positions belong to an epoch.** A server that restarts its log answers `gap(Reset { epoch })`. The consumer
+  starts a new watermark in the new epoch, and dedups by `(epoch, seq)`, never by `seq` alone.
+- **In-session**, `Session.reconnect` resumes from its own last emitted value (4.1.3): each in-session gap has
+  already been delivered to the machine, which repairs it against its watermark.
+
+7.1 shows the full recipe (`hold`, the watermark helper, and the catch-up states).
 
 #### 4.3.3 Deliveries in the turn
 
-- **Queued and mapped like endings.** A delivery (value, gap, ending) is queued in the actor's FIFO mailbox with user
-  sends, call endings, timer firings and `onContext` events (P21), and mapped through `outcomes` at admission (2.5
-  step 1), routed from the active leaf.
-- **Released means discarded.** At admission, a delivery whose session was released (its activation ended, its key
-  changed, its `when` turned false) is discarded with evidence, as a dead activation's timer is (MD:659, MCH:118).
-- **`every`:** one delivery waiting per session; the next element is pulled after its turn commits.
-- **`latest`:** at most one delivery waiting per session. Its payload is the lane's data **at admission**, so a
-  ticker at 1,000 updates a second costs at most one turn per admission. If that data equals the last mapped value,
-  admission discards it: no turn, no publication.
+Unchanged: deliveries join the FIFO mailbox and are mapped at admission. A released session's deliveries are
+discarded at admission. An `every` session has one delivery waiting; a `latest` session has at most one, with its
+payload read at admission. Revision 2 adds:
 
-#### 4.3.4 Reconnect after a terminal failure: a state and a schedule
+- **Deliveries never count against the mailbox cap.** The 1,024 cap (RT:83-84) bounds external sends. Each session
+  has at most one delivery waiting, so deliveries are bounded by work already admitted, as endings and firings are
+  (RT:87-88). They are never dropped, except a released session's at admission (rule 44).
+- **Release before restart.** A new session for the same activity and key starts only after the previous session's
+  finalizers have finished (finding "the release/restart race"). So a Supabase channel is removed before the same
+  topic is joined again. A finalizer that outlasts the Runtime's bound (Runtime O6) reports an issue, and the new
+  session starts.
 
-A failure that needs a decision (the adapter gave up, the user was signed out) ends the session, and the machine
-decides, with merge 2's CALL/WAIT split (2.7.6):
+#### 4.3.4 Reconnect after a terminal failure
 
-```ts
-FeedLost: [
-  { target: S.LOST, guard: ({ memory }) => memory.feedTries < 5 || deny("GaveUp"), updateMemory: ({ memory }) => ({ feedTries: memory.feedTries + 1 }) },
-  { target: S.OFFLINE },
-],
-LOST: {
-  schedules: { retry: { schedule: ({ memory }) => Duration.seconds(2 ** memory.feedTries), send: E.RetryFeed } },
-  on: { RetryFeed: S.LIVE },                                                  // entering LIVE opens a new session from memory.lastSeq
-},
-```
-
-A machine that wants to keep showing the lane's data while it waits stays in the owning state and re-enters it:
-`RetryFeed: { target: S.LIVE }` from LIVE itself re-enters it (MCH:62), and the new session starts with the old data
-(4.1.5).
+Unchanged: a failure that needs a decision is the machine's, as a state and a schedule (2.7.6). Re-entering the
+owning state starts a new session from the watermark.
 
 #### 4.3.5 Schedules around a stream
 
 | Need | Form |
 | --- | --- |
-| "Live" badge, disabled composer | the lane's `connection`, in a guard or view |
-| The transport is half-open | the adapter's heartbeat: no pong, so `down` and reconnect |
-| "No message for a minute" (an app-level quiet) | a schedule with `armOn: [Flow.entry, E.Message]` |
-| Backoff after a terminal failure, a give-up budget | a schedule and memory (4.3.4) |
-| A stalled generation | inside the commit (`Stream.timeout`), or a schedule that runs `gen.cancel(key)` |
-| Per-user expiry from presence deltas | a keyed schedule (2.7.10); usually the server's job |
+| "Live" badge, disabled composer | the lane's `connection === "Live"` |
+| The transport is half-open | the adapter's heartbeat on Effect's Clock: no frame within the deadline fails `Dropped` (4.1.1) |
+| A quiet feed is stale (r2) | the server's timestamp in each value (`asOf`), and a schedule `armOn: [Flow.entry, E.Price]`; the timestamp also keeps a repeated equal price from being silenced (7.3) |
+| Backoff after a terminal failure, a give-up budget | a schedule and memory |
+| A catch-up that failed (r2) | a waiting state with a schedule and a budget (7.1) |
+| A stalled generation | inside the commit: `Stream.timeoutOrElse` failing (4.1.10) |
 
 ### 4.4 The layers: who owns what, and what crosses
 
 | Layer | Owns | Rules |
 | --- | --- | --- |
-| **The adapter** (author code and services) | transports, auth, heartbeats, close codes into errors, reconnect loops and backoff, resume messages, buffers and their overflow, terminators | — (Flow's contract with it is 4.1.2) |
-| **Operations: the stream** | the descriptor and `delivers`; the `Session` vocabulary; the session's life, lane and `connection`; continuity decided per connection; endings and their classification; pulling (`every`) or draining (`latest`); progress of streaming writes | 39–43, 48 |
-| **Entity domains: `listen`** | applying each push to the store, in order; pushes as observations; gaps as reconnect causes that lower frontiers | 49 |
-| **Machines** | owning a session through an activity; mapping deliveries onto events at admission; discarding released sessions' deliveries; resume through memory; reconnect decisions as states and schedules; checks | 44–47, 50, 51 |
-
-What crosses each boundary:
+| **The adapter** | the transport service and its production Layer; auth; heartbeats; close codes into errors; resume handshakes; terminators | 52 |
+| **Operations: the stream** | the descriptor (`delivers`, `publishes`); the `Session` vocabulary and the connection grammar; `Session.reconnect` and `Session.push`; the typed lane; endings; pulling or draining; progress per Attempt | 39–43, 48, 53 |
+| **Entity domains: `listen`** | applying pushes in order; staleness while the channel is not live; gaps as reconnect causes | 49 |
+| **Machines** | owning a session; mapping deliveries at admission; discarding released ones; release before restart; the watermark in memory; reconnect and catch-up as states and schedules; `publish` selections | 44–47, 50, 51 |
 
 | From → to | What crosses | Never crosses |
 | --- | --- | --- |
-| adapter → operation | elements (values) and `Session` signals, in order; the Stream's `Exit` | close codes, `readyState`, HTTP status (unless the adapter put them in its own reasons) |
-| operation → entity layer | each value of an `every` session, in order; each gap (with its reason) | lane coalescing; connection changes |
-| operation → machine | the lane (`data`, `connection`, tags) for guards and views; deliveries (value, gap, ending) for the mailbox | the adapter's position; progress events (progress is a lane read) |
-| machine → operation | `params` (including a resume position) when a session starts; release by leaving, key change or `when` | anything mid-session: a running session keeps its parameters |
-| entity layer → machine | records and answers (`Entity.get`, answer lanes with `stale` causes) | the push itself, unless the machine also maps `value` |
+| transport → adapter | frames, opens, closes with codes | — |
+| adapter → operation | per connection, a claim and values (and gap items); downs; the Stream's `Exit` | close codes, statuses, SDK types |
+| operation → entity layer | each value of an `every` session, in order; each gap; whether the session is `Live` | lane coalescing |
+| operation → machine | the typed lane; deliveries (value, gap, ending) | the adapter's in-session position; progress events (progress is a row field) |
+| machine → operation | `params` (a watermark) at a session's start; `publish` values; release | anything else mid-session |
+| entity layer → machine | records and answers with `stale` causes | the push, unless `value` is mapped |
+
+### 4.5 Every lifecycle edge (revision 2)
+
+C5's table: what each edge means at each layer. Where revision 1 said nothing, this is normative.
+
+| Edge | Operation (session, lane) | `listen` (answers) | Machine |
+| --- | --- | --- | --- |
+| session starts | lane `Opening` (with `lastKnown` from the previous same-key session); waits for the previous session's release to finish | covered answers stale, cause `listen` | `params` read from the after memory |
+| a claim | `every`: `Live`, the gap (if any) queued first; `latest`: `Opening` until a value | 4.2's table | a gap delivery, if any |
+| a value | `every`: pulled after the last delivery's turn; `latest`: `data`, `Live` | applied in order | `value` delivered (`latest`: at most one waiting) |
+| a value between `down` and the next claim | `latest`: `lastKnown`; `every`: delivered | applied | `latest` mapper's `live: false` |
+| `down` | `Down`, reason kept | stale, cause `listen` | guards see `Down` |
+| a connection's values complete | `Session.reconnect` offers `ConnectionEnded` to `while` | — | — |
+| the session completes | `Complete` | stale, cause `listen ended` | `complete` delivered; required on `every` and `listen` |
+| the session fails | `Failure` / `Defect` / `Interrupted` | stale, cause `listen ended` | `failure` delivered; required |
+| planned release | no ending; `emit` disabled; finalizers awaited | `listen` cause becomes ordinary stale | queued deliveries discarded at admission |
+| restore, handover | a fresh session; persisted `latest` data restored as `lastKnown`, `Opening` | restore lowers frontiers (ED:700-701) | `latest`: equal values silent against the persisted last mapped value; `every`: no equality baseline (r2, finding H5) |
+| a write's Attempt superseded | its progress dropped; the newer Attempt's untouched | — | — |
+| Stop (cancel) on a streaming write | `unknown(Cancelled)` with its own `progress` | — | after admission, nothing outstanding: a new start is admitted under `reject` |
 
 ## 5. Rules
 
-Provisional, numbered after merge 4's 38.
+Provisional, numbered after merge 4's 38. `(r2)` marks a rule revision 2 changed or added.
 
 39. **`delivers` is declared.** A stream descriptor declares `delivers: "every" | "latest"`. An `every` value is a
-    fact: Flow never coalesces, skips or equality-suppresses it. A `latest` value is the current state: Flow may
-    coalesce it, and equal values are silent under `Equal.equals`.
-40. **The `Session` vocabulary.** `subscribe` returns a Stream of values and `Session` signals (`open`, `resumed`,
-    `gap(reason)`, `down(reason)`). Flow reads only which signal came; reasons are the adapter's information. The first
-    value of a session with no signal before it is an `open`. After a `down`, only `open`, `resumed` or `gap` re-open;
-    a value while down changes the data, not the connection.
-41. **Continuity at every open.** On an `every` stream, each open that is not `resumed` delivers a gap before any of
-    that connection's values: the adapter's reason after `gap`, Flow's `Unproven { why: "Opened" | "Reconnected" }`
-    after `open`. The first open counts. An adapter that drops data (a buffer overflow) must emit `gap`. `latest`
-    streams deliver no gaps.
+    fact: Flow never coalesces, skips or equality-suppresses it, including after a restore (r2). A `latest` value is
+    the current state: Flow may coalesce it, and equal values are silent under `Equal.equals`.
+40. **The connection grammar** (r2). `subscribe` returns a Stream of values and `Session` signals. A session is a
+    sequence of connections. Each connection begins with exactly one claim (`open`, `resumed` or `gap(reason)`), made
+    when its transport opens, and ends with `down` or the session's ending. A gap after the claim is a loss. The
+    session's first value with no claim before it is an `open`. A second claim inside an open connection is ignored,
+    with evidence. Values between a `down` and the next claim open nothing. Flow reads only which signal came;
+    reasons are the adapter's information.
+41. **Continuity per claim** (r2). On `every`: `resumed` means every fact after the connection's start position
+    follows, in order, before anything newer, and delivers nothing; `gap(reason)` delivers that gap; `open` delivers
+    `Unproven { why: "Opened" | "Reconnected" }` ("Opened" for the session's first connection). The gap is delivered
+    before the connection's values. Only an in-band answer from the server proves continuity, and a snapshot is a
+    `gap`, never a `resumed`. A loss inside a connection is a gap item; `Session.push` places
+    `Overflow { lost }` at the point of loss. On `latest`, claims only open and no gap is ever delivered.
 42. **A session ends as a read.** `complete`, or `failure` with the author's error, `Defect` (with an issue) or
     `Interrupted`, classified from the whole `Cause` outside the session's fiber. A planned release delivers nothing.
-    There is no unknown channel.
+    There is no unknown channel. A deadline in an adapter or commit fails; it never completes the stream (r2).
 43. **Flow never re-opens a session** (extends rule 25). The adapter may reconnect inside one session, reporting `down`
-    and the next open. A session that ended re-opens only when its activity starts again (re-entry, key change, `when`
-    turning true, restore).
+    and the next claim. `Session.reconnect` (r2): `connect` returns an opened connection with its claim; each
+    connection has its own scope, closed before the next; a connection whose values complete is offered to `while` as
+    `ConnectionEnded`; the schedule restarts at each open; `from` is the session's last emitted value. A session that
+    ended re-opens only when its activity starts again.
 44. **A session belongs to its activity's activation.** Its deliveries are mapped at admission; a delivery whose session
-    was released is discarded at admission with evidence, never routed late. Rule 8's "deliveries are never lost"
-    covers a live session's deliveries.
-45. **Resume through parameters.** A stream's key names the feed; parameters outside it (a resume position) are read
-    when a session starts, from the after memory (rule 22), and kept while it runs. Flow keeps no cursor and dedups
-    nothing.
+    was released is discarded at admission with evidence, never routed late. After release, `Session.push`'s `emit`
+    does nothing (r2). A new session for the same activity and key starts only after the previous session's finalizers
+    finish, within the Runtime's disposal bound (r2). Rule 8 covers a live session's deliveries.
+45. **Resume through a watermark** (r2). A stream's key names the feed; parameters outside it are read when a session
+    starts, from the after memory (rule 22), and kept while it runs. A resume parameter is a watermark: every fact at
+    or before it is held by the consumer. A delivered gap is an obligation the watermark may not pass until a catch-up
+    discharges it. Positions are compared only within one epoch of the source; a reset is a gap that names the new
+    epoch. Flow keeps no cursor and dedups nothing.
 46. **Delivery order and pace.** Deliveries join the actor's FIFO mailbox (P21). An `every` session has one delivery
-    waiting; its next element is pulled after that delivery's turn commits, so values, gaps and the ending keep the
-    adapter's order. A `latest` session has at most one waiting, whose payload is the lane's data at admission;
-    admission discards it if that equals the last mapped value.
+    waiting; its next element is pulled after that delivery's turn commits. A `latest` session has at most one waiting,
+    whose payload is the lane's value at admission; admission discards it if that equals the last mapped value.
+    Deliveries are bounded by sessions, never count against the mailbox's cap on external sends, and are never dropped
+    except under rule 44 (r2).
 47. **Duplicate sessions end, never wait.** A second same-actor session for the same descriptor and key does not open:
     the second activity's lane is `Failure` with Flow's reason `DuplicateSession`, delivered on `failure`. `flow check`
     warns when two activities of one machine on one descriptor can be active at once, and then requires
-    `DuplicateSession` mapped. **Revision (multiplicity audit, 2026-10-31) (M6-D7).** The same holds inside one keyed activity (the design's
-    2.7.10): two keys whose params project one descriptor key give the later key's lane `DuplicateSession`; `flow
-    check` requires it mapped on a keyed activity whose descriptor key is not the activity key itself.
+    `DuplicateSession` mapped. **Revision (multiplicity audit, 2026-10-31) (M6-D7).** The same holds inside one keyed
+    activity: two keys whose params project one descriptor key give the later key's lane `DuplicateSession`.
 48. **Progress of a streaming write.** A transaction may declare a `progress` Schema; its commit's context has
-    `progress(value)`, latest-wins and non-blocking. **Revision (multiplicity audit, 2026-10-31) (M6-D5).** The lane row's `progress` in `s.calls`
-    reads the addressable Attempt's last progress, so `progress` may be declared only with `reject`, `latest` or
-    `cancel` (the design's rule N2); it is cleared when the ending's turn is admitted; every ending mapper's context
-    carries the last `progress` of its own Attempt. Progress is never persisted and never an ending; the ending carries
-    the whole result.
+    `progress(value)`, latest-wins and non-blocking. **Revision (multiplicity audit, 2026-10-31) (M6-D5).** The lane
+    row's `progress` in `s.calls` reads the addressable Attempt's progress, so `progress` may be declared only with
+    `reject`, `latest` or `cancel`. Progress is stored per Attempt (r2): an Attempt's ending clears only its own; a
+    superseded Attempt's progress is never shown; every ending mapper's `progress` is its own Attempt's. Progress is
+    never persisted and never an ending; the ending carries the whole result.
 49. **`listen` keeps the store coherent, not complete.** A `listen` entry requires an `every` stream. Each push is
     applied at arrival, in order, before the next is pulled. Pushes never join record queues and clear no `uncertain`
-    mark. A gap (including `Unproven`) is a reconnect cause: covered answers whose request started before that open have
-    their frontier lowered (subscribed ones refetch, the rest go stale). `resumed` lowers nothing. Log replay, offline
-    catch-up and completeness belong to a sync engine (SE). **Revision (multiplicity audit, 2026-10-31) (M6-D6).** Each live session of a `listen`
-    entry is its own source: two actors in one Runtime that subscribe one entry on one key hold two sessions, every
-    push of either is applied (idempotently), and either session's gap lowers the frontiers it covers. `flow check`
-    warns (`DuplicateListen`) when two actors' activities can hold such sessions at once; one actor owns the session
-    and the others read the store.
-50. **Required mappings** (extends rules 20 and 37). An activity on a non-`listen` `every` stream must map `value` and
-    `gap` (type errors). `failure` maps every author tag plus `Defect` and `Interrupted`; `DuplicateSession` where rule
-    47 says it can occur. Each delivery is handled totally in every state under the activity's owner.
-51. **What survives reload and handover.** A persisted stream's latest data survives with its persisted actor
-    (PER:32-33); the restored lane is `Running`, `connection: "Opening"`, with that data, until the fresh session
-    opens. Queued deliveries and progress are not persisted: the new session's continuity covers them (rule 41), and
-    resume comes from persisted memory (rule 45). A handover restores the same way (MT:334).
+    mark. While a session covering an answer is not `Live`, or after it ended, the answer is stale with cause `listen`
+    (r2). A gap (including `Unproven`) is a reconnect cause: covered answers whose request started before it have their
+    frontier lowered (subscribed ones refetch, the rest go stale); `resumed` withdraws the `listen` cause. A planned
+    release turns a `listen` cause into an ordinary stale cause (r2). Log replay, offline catch-up and completeness
+    belong to a sync engine (SE). **Revision (multiplicity audit, 2026-10-31) (M6-D6).** Each live session of a
+    `listen` entry is its own source; `flow check` warns `DuplicateListen`.
+50. **Required mappings** (extends rules 20 and 37). An activity on a non-`listen` `every` stream must map `value`,
+    `gap` and `complete` (r2: `complete` added). A `listen` activity must map `failure` and `complete` (r2). `failure`
+    maps every author tag plus `Defect` and `Interrupted`, and `DuplicateSession` where rule 47 says it can occur.
+    Each delivery is handled totally in every state under the activity's owner.
+51. **What survives reload and handover.** A persisted `latest` stream's data survives with its persisted actor
+    (PER:32-33) and is restored as `lastKnown`, `Opening`; its value events stay silent against the persisted last
+    mapped value. An `every` stream has no data to persist and no equality baseline (r2). Queued deliveries and
+    progress are not persisted; resume comes from persisted memory (rule 45). A handover restores the same way
+    (MT:334).
+52. **The push boundary, the transport and the clock** (r2). A push source reaches Flow through `Session.push` (a
+    required `capacity`; loss becomes `Overflow`; signals are never evicted), or through a bounded buffer that reports
+    loss as a gap. An adapter is written over a transport service, so a Story can replace the transport and keep the
+    adapter. Adapter time comes from Effect's `Clock` (`Effect.sleep`, `Clock.currentTimeMillis`), never `Date.now`
+    or `setTimeout`, so the TestClock drives heartbeats, deadlines and backoff.
+53. **`publish`** (r2, proposed in R2.1). A stream descriptor may declare `publishes: Schema`; an activity on it may
+    declare `publish(view)`, read from each committed turn's after memory. Flow offers each changed value (under
+    `Equal.equals`) to the session as `published`, a Stream that starts with the current value. It has no Attempt,
+    ending, lane row or event, and is never persisted.
 
 ## 6. Changes
 
@@ -601,12 +790,17 @@ Provisional, numbered after merge 4's 38.
 | --- | --- | --- |
 | `delivers: "every" \| "latest"` | descriptor option, required | rule 39 |
 | `Session.open`, `.resumed`, `.gap`, `.down`, `Session.Signal` | adapter vocabulary | rule 40 |
-| `Session.reconnect({ connect, position, schedule, while })` | adapter combinator | 4.1.3 (open question Q1) |
-| `connection`, `down` on a `Running` stream lane | lane fields | 4.1.5 |
-| `outcomes.gap` | stream mapping | rules 41, 50 |
-| `Unproven { why }`, `DuplicateSession` | Flow reasons | rules 41, 47 |
-| `progress` Schema, `progress(value)`, the lane row's `progress` in `s.calls`, mapper `progress` | streaming writes | rule 48 (Revision (multiplicity audit, 2026-10-31): was `x.progress(g \| s, key)`) |
-| `DuplicateListen` | `flow check` warning | rule 49 (Revision (multiplicity audit, 2026-10-31)) |
+| the connection grammar (r2) | contract | rule 40, 4.1.2 |
+| `Session.reconnect({ connect, position, schedule, while })`, `Session.ConnectionEnded` | adapter combinator | rule 43 (r2 shape, M6-D8) |
+| `Session.push(register, { capacity })`, `Session.Emit` (r2) | adapter constructor | rule 52 |
+| a typed stream lane: `connection: "Opening" \| "Live" \| "Down"`, `data` only while `Live`, `lastKnown` otherwise (r2) | lane | 4.1.5, M6-D9 |
+| `outcomes.gap`; `complete` required on `every` and `listen` (r2) | stream mapping | rules 41, 50 |
+| `Unproven { why }`, `Overflow { lost }` (r2), `DuplicateSession` | Flow reasons | rules 41, 47, 52 |
+| `ExtraClaim`, `NoClaims` (r2) | Inspection evidence | rule 40, 4.1.4 |
+| the `listen` stale cause (r2) | store | rule 49 |
+| `publishes`, `publish`, `published` (r2, proposed) | outbound state | rule 53 |
+| `progress` Schema, `progress(value)`, the lane row's `progress`, mapper `progress` | streaming writes | rule 48 |
+| `DuplicateListen` | `flow check` warning | rule 49 |
 | `session` and `delivery` evidence | Inspection | 6.4 |
 
 ### 6.2 Changed
@@ -614,627 +808,682 @@ Provisional, numbered after merge 4's 38.
 | Changed | Before | Now |
 | --- | --- | --- |
 | Delivery semantics | chosen by whether `value` is mapped (OPS:126-130) | chosen by `delivers` (rule 39) |
-| Stream outcomes | `value`, `complete`, `failure`, `defect`, `interrupt`; values only (MCH:139-140, OPS:70) | `value`, `gap`, `complete`, `failure` with `Defect`/`Interrupted`; mappers `(value, { params, key })` |
+| Stream outcomes | `value`, `complete`, `failure`, `defect`, `interrupt`; values only (MCH:139-140, OPS:70) | `value`, `gap`, `complete`, `failure` with `Defect`/`Interrupted`; mappers `(value, { params, key })`, plus `live` on `latest` (r2) |
 | Duplicate session | lane undefined, activity waits (OPS:122-124) | `Failure` with `DuplicateSession` (rule 47) |
-| Lane of a re-opened session | unstated (OPS:131-133) | starts with the previous data, `connection: "Opening"` (4.1.5) |
-| "Reconnect" in EntityDomains | the browser's connection restored (EDP:82) | that, or a `listen` connection opened without proof (rule 49) |
-| Deliveries after release | "facts from an ended activation are discarded" (RT:88-90) | discarded at admission with evidence; the next session's continuity says what it missed (rule 44) |
-| A key's parameters | "include every parameter affecting the result" (OPS:41-42) | for a stream, the key names the feed; a resume position stays outside it (rule 45) |
+| The stream lane (r2) | `Running { data, connection: "Opening" \| "Open" \| "Down" }` for every kind (revision 1) | typed by kind and freshness (4.1.5) |
+| When a connection opens (r2) | before its first element (revision 1 4.1.3) | when its transport opens, by its claim (rule 40) |
+| `resumed` (r2) | "nothing is missing", including "starts with a full snapshot" (revision 1 4.1.2) | every fact after the start position follows, in order; a snapshot is a `gap` (rule 41) |
+| The resume parameter (r2) | "the position it has handled" (revision 1 4.3.2) | a watermark, epoch-scoped (rule 45) |
+| A connection's clean end (r2) | ended the session | offered to `while` as `ConnectionEnded` (rule 43) |
+| Persistence of equal values (r2) | suppressed after restore for every binding (PER:35-38) | only for resources and `latest` streams (rule 51) |
+| "Reconnect" in EntityDomains | the browser's connection restored (EDP:82) | that, or a `listen` gap, including an unproven open (rule 49) |
+| Deliveries after release | "facts from an ended activation are discarded" (RT:88-90) | discarded at admission with evidence (rule 44) |
+| A key's parameters | "include every parameter affecting the result" (OPS:41-42) | for a stream, the key names the feed; a resume watermark stays outside it (rule 45) |
 
 ### 6.3 Removed
 
 | Removed | Was | Why |
 | --- | --- | --- |
 | `defect` and `interrupt` stream outcome keys | MCH:139-140 | rule 42, as C2 did for commits |
-| "Without value mapped, lane updates may coalesce …; slow readers may skip" | OPS:129-130 | rule 39 |
-| "Stream buffering integration" as a build-time choice | OPS:204 | rules 41, 46: pace is Flow's, buffers are the adapter's; only the mechanics stay deferred |
+| "Without value mapped, lane updates may coalesce …" | OPS:129-130 | rule 39 |
+| "Stream buffering integration" as a build-time choice | OPS:204 | rules 46, 52 |
+| `data` on `every` lanes and on non-`Live` `latest` lanes (r2) | revision 1 4.1.5 | 4.1.5 |
+| per-adapter overflow code over `Stream.callback` (r2) | revision 1 4.1.3, 7.7.3 | `Session.push` (rule 52) |
 
 ### 6.4 Amendments by target
 
-The `.plan` files change only when this proposal is accepted (D14).
+The `.plan` files change only when this proposal is accepted (D14). Rows marked (r2) are revision 2's.
 
 **`Operations.plan`**
 
 | Where | Amendment |
 | --- | --- |
-| O1 (OPS:11-17) | `stream({ id, key?, delivers, subscribe, result?, persist? })`; `subscribe(params, { signal })` returns a Stream of values and `Session` signals |
-| O1 (OPS:41-43) | add: "A stream's key names its feed; a parameter that only says where a session starts (a resume position) stays outside it" |
-| O3 (OPS:79-84) | a transaction may declare `progress`; the commit's context gains `progress(value)` (rule 48) |
-| O4 (OPS:120-124) | duplicate sessions per rule 47 |
-| O4 (OPS:126-130) | replace with rules 39, 41 and 46 (operation side: pulling, draining, continuity) |
+| O1 (OPS:11-17) | `stream({ id, key?, delivers, subscribe, result?, persist?, publishes? })` (r2: `publishes`); `subscribe(params, { signal, published? })` returns a Stream of values and `Session` signals under rule 40's grammar |
+| O1 (OPS:41-43) | add: "A stream's key names its feed; a resume watermark that only says where a session starts stays outside it" |
+| O3 (OPS:79-84) | a transaction may declare `progress`; the commit's context gains `progress(value)`; progress is stored per Attempt (rule 48, r2) |
+| O4 (OPS:120-124) | duplicate sessions per rule 47; release before restart per rule 44 (r2) |
+| O4 (OPS:126-130) | replace with rules 39, 40, 41 and 46 |
 | O4 (OPS:130-134) | endings per rule 42; re-opening per rule 43; a new session's starting lane per 4.1.5 |
-| O6 (OPS:166-169) | `Running` carries `connection` and `down`; progress reads for transactions (rule 48) |
-| O7 (OPS:178-179) | a planned release ends a session with no delivery; adapter-reported interruption is `Interrupted` on `failure` |
-| Q1 (OPS:204) | "Choose stream buffering integration" becomes "Choose the pulling and draining mechanics of rule 46" |
+| O6 (OPS:166-169) | stream lanes per 4.1.5 (r2: typed; `Live`; `lastKnown`) |
+| O7 (OPS:178-179) | a planned release ends a session with no delivery and disables `Session.push`'s `emit` (r2) |
+| Q1 (OPS:204) | "Choose stream buffering integration" becomes "Choose `Session.push`'s buffer mechanics and the pulling and draining of rule 46" |
 
 **`Machines.plan`**
 
 | Where | Amendment |
 | --- | --- |
-| O1 (MCH:39-40) | unchanged; noted: a stream's resume parameter may read memory or an earlier activity's lane |
-| O6 (MCH:139-145) | stream outcomes per 6.2; required mappings per rule 50; "value fires only for a changed confirmed value" holds for resources and `latest` streams, not `every` |
-| O6 (new sentences) | deliveries are mapped at admission and discarded when their session was released (rule 44); pace per rule 46 |
-| O4 | guards read `activities.<name>.connection` (already `activities`; noted) |
+| O6 (MCH:139-145) | stream outcomes per 6.2; required mappings per rule 50; "value fires only for a changed confirmed value" holds for resources and `latest` streams, not `every`; a `latest` mapper's context has `live` (r2) |
+| O6 (new) | deliveries mapped at admission and discarded when their session was released (rule 44); pace per rule 46; `publish` per rule 53 (r2, if R2.1 is accepted) |
+| O4 | guards read `activities.<name>.connection`; narrowing on `"Live"` gives `data` (r2) |
 
 **`machine-design.md`**
 
 | Where | Amendment |
 | --- | --- |
-| 2.4 | add rules 39–51 |
-| Rule 8 (MD:431-440) | "call endings, current and late" gains "and a live stream session's deliveries (rule 44)" |
+| 2.4 | add rules 39–53 |
+| Rule 8 (MD:431-440) | "call endings, current and late" gains "and a live stream session's deliveries (rule 44)"; deliveries are bounded by sessions (rule 46, r2) |
 | Rule 20 (MD:544-550) | stream mappings per rule 50 |
 | Rule 25 (MD:609-610) | add "Flow never re-opens a stream session (rule 43)" |
-| 2.5 step 1 (MD:651-661) | the FIFO list gains stream deliveries; a released session's delivery is discarded here (rule 44); a `latest` delivery reads the lane here |
-| 2.7.2 (MD:888-907) | rows for a session's signals, its lane's `connection`, and progress |
+| 2.5 step 1 (MD:651-661) | the FIFO list gains stream deliveries; a released session's delivery is discarded here; a `latest` delivery reads the lane here |
+| 2.7.2 (MD:888-907) | rows for a session's claims, its lane's `connection`, progress per Attempt (r2) |
 | 2.7.6 (MD:1111-1117) | rows from 4.3.5 |
 | P21 (MD:2130) | "User sends, call endings, stream deliveries, timer firings and `onContext` events queue together" |
-| Section 7 item 9 (MD:2242) | closed by 4.1.8 |
+| Section 7 item 9 (MD:2242) | closed by 4.1.10 |
 
 **`EntityDomains.plan` and `entity-domain.md`**
 
 | Where | Amendment |
 | --- | --- |
-| EDP O1 (EDP:59-60) | `listen(stream)` requires `delivers: "every"` |
+| EDP O1 (EDP:59-60) | `listen(stream)` requires `delivers: "every"`; its activity maps `failure` and `complete` (r2) |
 | EDP O1 (EDP:82) | "Reconnect" defined per rule 49 |
-| EDP O1 (new sentence) | rule 49's push rules: applied at arrival in order, no record queue, no `uncertain` clearing |
+| EDP O1 (new) | rule 49: pushes applied at arrival in order; no record queue; no `uncertain` clearing; the `listen` stale cause while the channel is not live or has ended (r2) |
 | EDP C1 (EDP:189-192) | add "no log replay or completeness from `listen`: a sync engine's (SE)" |
-| ED 5.2 causes (ED:537-540) | "a reconnect" records which: browser connection or `listen` open |
-| ED 5.3 (ED:568-576) | the ordered-stream precondition is rule 46's order; reconnects include rule 49's unproven opens |
-| ED 5.5 (ED:594-595) | unchanged; noted: a replayed unversioned push self-heals by contest (4.2) |
+| ED 5.2 causes (ED:537-540) | "a reconnect" records which: the browser's connection or a `listen` gap; add the cause `listen` (r2) |
+| ED 5.3 (ED:568-576) | the ordered-stream precondition is rule 46's order; reconnects include rule 49's gaps |
+| ED 5.5 Status (ED:703-707) | an answer's `stale` lists `listen` while its push channel is not `Live` (r2) |
 
 **`Persistence.plan`**
 
 | Where | Amendment |
 | --- | --- |
-| O2 (PER:32-33) | unchanged |
-| O2 (PER:35-38) | queued stream deliveries and progress are not "pending outcomes" (rule 51) |
-| O4 (PER:96-99) | the restored lane is `Running`, `connection: "Opening"`, with the retained data; resume per rule 45 |
+| O2 (PER:35-38) | "for each activity binding, the last value it mapped to a value outcome" becomes "for each resource binding and `latest` stream binding"; `every` bindings keep no baseline (r2, rule 51) |
+| O2 (PER:35-38) | queued stream deliveries and progress are not "pending outcomes" |
+| O4 (PER:96-99) | the restored `latest` lane is `Running`, `Opening`, with the retained data as `lastKnown` (r2); resume per rule 45 |
 
 **`Testing.plan`** (depends on merge 3; see 7.0)
 
 | Where | Amendment |
 | --- | --- |
-| O2 (TST:42-44) | unchanged ("waits neither for an open stream to end"); add: adapter sleeps inside a session (`Session.reconnect`'s backoff) are pending deadlines, `kind: "operation"`, owner the session |
-| O3 (TST:63-64) | pushes, drops and history loss are a stateful fixture's controls (merge 3 Q24) |
+| O2 (TST:42-44) | add: an adapter's Effect sleeps inside a session (heartbeats, deadlines, `Session.reconnect`'s backoff) are pending deadlines, owner the session (rule 52) |
+| O3 (TST:53-67) | a stream fixture replaces the **transport** service (`Socket.WebSocketConstructor`, an SDK subset), not the adapter; its controls cover open, frame, silence, close with a code, flood, server reset (r2, 7.0) |
 
 **`Inspection.plan`**
 
 | Where | Amendment |
 | --- | --- |
-| O1 (INS:28-29) | "stream sessions in flight" gains, per session: `delivers`, `connection`, deliveries waiting, gaps so far |
-| O4 (INS:86-88) | stream evidence: `session` (open, resumed, gap, down, end, with reasons) and `delivery` (queued, admitted, discarded with why) |
-| CommandLine O5 | errors: rule 50's missing mappings (where not already type errors); `listen` over a `latest` stream. Warnings: rule 47's co-active activities on one descriptor; (Revision (multiplicity audit, 2026-10-31)) rule 49's `DuplicateListen`; an `every` activity under a state that history can re-enter without a resume parameter (deliveries discarded on leave, no position kept) |
+| O1 (INS:28-29) | per session: `delivers`, `connection`, the current connection's claim, deliveries waiting, gaps so far, values held in `Session.push`'s buffer (r2) |
+| O4 (INS:86-88) | `session` evidence (claim, gap, down, end, `ExtraClaim`, `NoClaims`, `Overflow`) and `delivery` evidence (queued, admitted, discarded with why) |
+| CommandLine O5 | errors: rule 50's missing mappings; `listen` over a `latest` stream; `publish` without `publishes` (r2). Warnings: rule 47; `DuplicateListen`; an `every` activity under a state that history can re-enter without a resume parameter |
 
-**Outside the targets:** SE 4.2 (SE:182-185) loses its status-in-value workaround: the TanStack binding emits `down`
-on `error` and `open` on `ready`, and SE open question 2 (SE:420-421) closes. DD's polling adapters (section 1.1) would
-use `Session.reconnect` and take the cursor as a parameter.
+**Outside the targets:** SE 4.2 (SE:182-185) loses its status-in-value workaround: the TanStack binding uses
+`Session.push` with `down` on `error` and a claim on `ready`; SE open question 2 (SE:420-421) closes. DD's polling
+adapters (section 1.1) would use `Session.reconnect` and take a watermark as a parameter. Merge 3 gains the fixture
+kinds of 7.0.
 
 ## 7. The product-case walks
 
-### 7.0 Story dependencies
+### 7.0 Stories: transport fakes and their controls (revision 2)
 
 The Stories use merge 3's `Fixture.stateful({ id, truth, controls, layer })`, `.control(fixture.name(payload))`,
-`checkpoint.truth`, and its `advance` rule that runs non-turn work and admits no turn (M3:422-427, M3:450-457,
-M3:556-563). Merge 3 is being revised: if those change, the Stories change spelling, not design. One addition is
-needed there: an adapter's own sleep inside a session is a pending deadline, beside the kinds M3:547-551 lists.
+`checkpoint.truth`, `story.app`'s `.closeTab` / `.openTab` for reloads (M3:621-622), and its rule that every
+controlled-clock sleep is a pending deadline (M3:639-645). Merge 3 is being revised; if those change, the spelling
+changes, not this design. Two things are added there:
 
-### 7.1 Chat feed, Wi-Fi drop and resume
+- **An adapter's Effect sleep is a pending deadline**, beside the kinds M3:639-645 lists: heartbeats, deadlines and
+  `Session.reconnect`'s backoff (rule 52).
+- **A stream fixture replaces the transport, not the adapter** (rule 52). Its controls are the transport's events, so
+  every sequence a real connection can produce is one `.control` away:
 
-**The adapter.** `ChatSocket.messages({ roomId, after })` opens a WebSocket, sends `{ resume: after }`, and maps the
-server's reply: `{ type: "resumed" }` → `Session.resumed()`; `{ type: "reset" }` → `Session.gap(new HistoryExpired())`.
-Messages go through a bounded queue (overflow → `Session.gap(new Overflow())`). Close 4401 fails `SignedOut`; any
-other close fails `Dropped { code }`; a missed pong closes and fails `Dropped`. The descriptor is 4.1.1's `messages`.
+| Control | What the fake transport does | What the adapter above it then does |
+| --- | --- | --- |
+| `open` / connect accepted | fires `open` | makes its claim |
+| `frame(…)`, `post(…)` | delivers a frame | decodes it into a value |
+| `silence` | stops answering pings | its deadline fails `Dropped`, then it reconnects |
+| `drop({ code })` | closes with the code | classifies the code: `Dropped`, `SignedOut`, … |
+| `flood({ count })` | delivers `count` frames in one tick | `Session.push` overflows into a gap, or a socket's `highWaterMark` fails it |
+| `restart({ epoch })` | loses its log | answers the next resume with `gap(Reset { epoch })` |
+| `refuseCatchUp({ times })` | fails the next catch-up reads | the machine retries from its waiting state |
+| `status(s)` (SDK fakes) | fires the SDK's status callback | `emit.open` / `emit.down` / `emit.fail` |
 
-**The machine.**
+The chat server fake, for example (its socket is a scripted `WebSocketLike`, EFX `socket/Socket.ts:790-806`):
 
 ```ts
-export const Room = definition({
+// fixtures/fake-chat-server.ts
+export const FakeChatServer = (o: { epoch: string; history: number }) => Fixture.stateful({     // M3 (proposed)
+  id: "FakeChatServer",
+  truth: ChatTruth({ epoch: o.epoch, history: o.history }),       // user-defined: { epoch, messages, connects: [{ epoch, after }] }
+  controls: {
+    post: Schema.Struct({ text: Schema.String }),
+    drop: Schema.Struct({ code: Schema.Number }),
+    silence: Schema.Struct({}),
+    restart: Schema.Struct({ epoch: Schema.String }),
+    refuseCatchUp: Schema.Struct({ times: Schema.Number }),
+  },
+  layer: (truth, controls) => Layer.mergeAll(
+    Layer.succeed(Socket.WebSocketConstructor, (url) => fakeSocket(url, truth, controls)),   // existing service, faked: the adapter runs unchanged
+    Layer.succeed(ChatApi, { since: (q) => sinceFromTruth(truth, controls, q) }),            // the catch-up read
+  ),
+})
+```
+
+`fakeSocket` (user-defined) answers `resume` from the truth: `resumed` and a replay when the epoch matches and the log
+reaches back, otherwise `gap` with the current epoch. It answers `ping` with `pong` unless it was silenced, and
+closes with a code on `drop`. It records each resume in `truth.connects`, so a Story asserts the cursor on the server
+side.
+
+### 7.1 Chat feed: Wi-Fi drop, quiet reconnect, server reset, failed catch-up (revision 2)
+
+The adapter is 4.1.1's `messages`. The catch-up read and the send:
+
+```ts
+// chat.operations.ts (continued)
+export const since = resource({                                                                 // existing
+  id: "chat/since",
+  key: (p: { roomId: string; epoch: string; after: number }) => p,
+  lookup: (p) => ChatApi.use((api) => api.since(p)),                                            // user-defined service: { epoch, messages }
+  result: Schema.Struct({ epoch: Schema.String, messages: Schema.Array(Message) }),
+  staleTime: 0, gcTime: "1 minute",
+})
+export const post = transaction({                                                               // existing
+  id: "chat/post",
+  input: Schema.Struct({ roomId: Schema.String, clientId: Schema.String, text: Schema.String }),
+  key: (i) => ({ clientId: i.clientId }),                                                       // one lane per message
+  concurrency: "reject",
+  commit: (i, { attempt }) => ChatApi.use((api) => api.post(i, { idempotencyKey: attempt.id })),
+})
+```
+
+```ts
+// room.definition.ts
+export const Room = definition({                                                                // existing
   id: "Chat/Room",
-  states: ["LIVE", "LOST", "SIGNED_OUT", "OFFLINE"],
-  events: { Send: { text: Schema.String } },
+  states: [{ LIVE: ["SYNCED", "CATCHING_UP", "CATCH_UP_WAIT", "OUT_OF_SYNC"] }, "LOST", "SIGNED_OUT", "OFFLINE"],
+  events: { Send: { clientId: Schema.String, text: Schema.String }, Reconnect: {}, RetryCatchUp: {} },   // user-defined
   internalEvents: {
     Message: { message: Message },
-    Missed: { reason: Schema.String },
-    CaughtUp: { messages: Schema.Array(Message) }, CatchUpFailed: {},
-    SignedOut: {}, FeedLost: {}, RetryFeed: {},
+    Missed: { epoch: Schema.NullOr(Schema.String) },                                            // a string: the server's new epoch
+    CaughtUp: { epoch: Schema.String, messages: Schema.Array(Message) },
+    CatchUpFailed: {}, CatchUpTick: {},
+    FeedEnded: {}, FeedLost: {}, SignedOut: {}, RetryFeed: {},
+    Posted: {}, PostFailed: {}, PostUnsure: Flow.uncertain({}),                                 // existing: Flow.uncertain
   },
   memory: {
-    roomId: Flow.input(Schema.String),
-    messages: Flow.initial(Schema.Array(Message), []),
-    lastSeq: Flow.initial(Schema.Number, 0),                                   // the handled position (4.3.2)
+    roomId: Flow.input(Schema.String),                                                          // existing: Flow.input, Flow.initial
+    epoch: Flow.initial(Schema.String, ""),
+    through: Flow.initial(Schema.Number, 0),                                                    // the watermark (rule 45)
+    held: Flow.initial(Schema.Array(Message), []),
+    catchUpTries: Flow.initial(Schema.Int, 0),
     feedTries: Flow.initial(Schema.Int, 0),
   },
   operations: { Chat },
 })
 
+// room.machine.ts
+type Memory = typeof Room.Memory.Type
+const hold = (m: Memory, incoming: ReadonlyArray<Message>, epoch = m.epoch) => {               // user-defined: rule 45's watermark
+  const held = [...m.held]
+  for (const x of incoming) if (!held.some((h) => h.epoch === x.epoch && h.seq === x.seq)) held.push(x)   // dedup by (epoch, seq)
+  held.sort((a, b) => (a.epoch === b.epoch ? a.seq - b.seq : 0))
+  let through = epoch === m.epoch ? m.through : 0                                               // a new epoch starts a new watermark
+  while (held.some((h) => h.epoch === epoch && h.seq === through + 1)) through++                // never past a hole
+  return { epoch, held, through }
+}
+
 export const RoomMachine = machine(Room, ({ S, E, O }) => {
-  const catchUp = O.Chat.since.lookup(({ memory }) => ({ roomId: memory.roomId, after: memory.lastSeq }), {
-    outcomes: { success: E.CaughtUp.from((v) => ({ messages: v.messages })), failure: { Defect: E.CatchUpFailed, Interrupted: E.CatchUpFailed } },
+  const room = ({ memory }: { memory: Memory }) => ({ roomId: memory.roomId, epoch: memory.epoch, after: memory.through })
+  const catchUp = O.Chat.since.lookup(room, {                                                   // existing: a resource call value
+    outcomes: { success: E.CaughtUp.from((v) => ({ epoch: v.epoch, messages: v.messages })), failure: { Defect: E.CatchUpFailed, Interrupted: E.CatchUpFailed } },
+  })
+  const post = O.Chat.post.commit(({ memory, event }) => ({ roomId: memory.roomId, clientId: event.clientId, text: event.text }), {
+    outcomes: { success: E.Posted, failure: { NotSent: E.PostFailed }, unknown: E.PostUnsure },
   })
   return {
     default: S.LIVE,
     on: {
-      CaughtUp: { target: "self", updateMemory: ({ memory, event }) => mergeBySeq(memory, event.messages) },   // also late, after LIVE was left
+      CaughtUp: { target: "self", updateMemory: ({ memory, event }) => hold(memory, event.messages, event.epoch) },   // late, after LIVE was left
       CatchUpFailed: { target: "self" },
+      Posted: { target: "self" }, PostFailed: { target: "self" }, PostUnsure: { target: "self" },   // the outbox is not this walk
     },
     states: {
       LIVE: {
-        activities: { feed: /* 4.3.1 */ },
+        default: S.LIVE.SYNCED,
+        activities: {
+          feed: O.Chat.messages.subscribe(room, {                                               // params: the watermark, read after (rule 22)
+            outcomes: {
+              value: E.Message.from((m) => ({ message: m })),
+              gap: {                                                                            // NEW: a tag record over the gap reasons
+                Reset: E.Missed.from((r) => ({ epoch: r.epoch })),
+                Unproven: E.Missed.from(() => ({ epoch: null })),
+                Overflow: E.Missed.from(() => ({ epoch: null })),
+              },
+              complete: E.FeedEnded,                                                            // NEW (r2): required on every
+              failure: { SignedOut: E.SignedOut, Dropped: E.FeedLost, Defect: E.FeedLost, Interrupted: E.FeedLost },
+            },
+          }),
+        },
         on: {
-          Message: [
-            { target: "self", guard: ({ memory, event }) => !hasSeq(memory, event.message.seq) || deny("Seen"),
-              updateMemory: ({ memory, event }) => mergeBySeq(memory, [event.message]) },   // sets lastSeq = max seq held
-            { target: "self" },                                                // a replayed duplicate (rule 50: total)
-          ],
-          Missed: { target: "self", actions: [catchUp.fetch(({ memory }) => ({ roomId: memory.roomId, after: memory.lastSeq }))] },
+          Message: { target: "self", updateMemory: ({ memory, event }) => ({ ...hold(memory, [event.message]), feedTries: 0 }) },
+          Missed: {                                                                             // the gap is an obligation (rule 45)
+            target: S.LIVE.CATCHING_UP,
+            updateMemory: ({ memory, event }) => (event.epoch === null || event.epoch === memory.epoch ? {} : { epoch: event.epoch, through: 0 }),
+            actions: [catchUp.fetch(room)],
+          },
+          Send: { target: "self", guard: ({ activities }) => activities.feed?.connection === "Live" || deny("Offline"), actions: [post] },
           SignedOut: S.SIGNED_OUT,
-          FeedLost: [/* 4.3.4 */],
-          Send: { /* 4.3.1 */ },
+          FeedEnded: S.LOST,
+          FeedLost: [
+            { target: S.LOST, guard: ({ memory }) => memory.feedTries < 5 || deny("GaveUp"), updateMemory: ({ memory }) => ({ feedTries: memory.feedTries + 1 }) },
+            { target: S.OFFLINE },
+          ],
+        },
+        states: {
+          SYNCED: {},
+          CATCHING_UP: {
+            on: {
+              CaughtUp: { target: S.LIVE.SYNCED, updateMemory: ({ memory, event }) => ({ ...hold(memory, event.messages, event.epoch), catchUpTries: 0 }) },
+              CatchUpFailed: [
+                { target: S.LIVE.CATCH_UP_WAIT, guard: ({ memory }) => memory.catchUpTries < 4 || deny("GaveUp"), updateMemory: ({ memory }) => ({ catchUpTries: memory.catchUpTries + 1 }) },
+                { target: S.LIVE.OUT_OF_SYNC },
+              ],
+            },
+          },
+          CATCH_UP_WAIT: {
+            schedules: { again: { schedule: ({ memory }) => Duration.seconds(2 ** memory.catchUpTries), send: E.CatchUpTick } },
+            on: { CatchUpTick: { target: S.LIVE.CATCHING_UP, actions: [catchUp.fetch(room)] } },
+          },
+          OUT_OF_SYNC: {                                                                        // the view: "Some messages may be missing. Retry"
+            on: { RetryCatchUp: { target: S.LIVE.CATCHING_UP, updateMemory: () => ({ catchUpTries: 0 }), actions: [catchUp.fetch(room)] } },
+          },
         },
       },
-      LOST: { /* 4.3.4 */ },
-      SIGNED_OUT: {}, OFFLINE: {},
+      LOST: {
+        schedules: { retry: { schedule: ({ memory }) => Duration.seconds(2 ** memory.feedTries), send: E.RetryFeed } },
+        on: { RetryFeed: S.LIVE },                                                              // a new session from the watermark
+      },
+      SIGNED_OUT: {},
+      OFFLINE: { on: { Reconnect: { target: S.LIVE, updateMemory: () => ({ feedTries: 0 }) } } },
     },
   }
 })
 ```
 
-**The walk.** LIVE opens a session with `after: 0`. The server replays history and says `resumed`: no gap, 40
-`Message` turns, `lastSeq` 40. Wi-Fi drops: the socket closes 1006, the adapter fails `Dropped`, `Session.reconnect`
-emits `down`; the lane is `Down` and `Send` is denied `Offline`. A message 41 is posted meanwhile. After 500 ms the
-adapter reconnects with `after: 40`; the server replays 41 and says `resumed`; one `Message` turn. If the server had
-restarted and lost its log, it says `reset`: `Missed` arrives before any new value, `catchUp` reads since 40, and
-`CaughtUp` merges by seq.
+**The walk.**
+
+1. LIVE opens a session with `{ epoch: "", after: 0 }`. The server answers `gap` with epoch `e1`, so `Missed { e1 }`
+   arrives before any value. The watermark restarts in `e1`, and CATCHING_UP reads history: 40 messages, `through`
+   40.
+2. Wi-Fi drops: close 1006, `Dropped`, `down`; the lane is `Down`, so `Send` is denied `Offline`. Message 41 is
+   posted.
+3. After 500 ms, the reconnect starts from the session's last value `{ e1, 40 }`. The server answers `resumed` and
+   replays 41.
+4. **Quiet reconnect:** had nothing been posted, the connection still opens at the server's `resumed`, and the lane
+   is `Live` (finding H1).
+5. **Hole:** a gap at 41 (overflow, or an unproven open), then 42 and 43 arrive live. They are held, but `through`
+   stays at 40 until the catch-up returns 41.
+6. **Failed catch-up:** CATCH_UP_WAIT retries with a budget, then OUT_OF_SYNC. A session started meanwhile resumes
+   from 40, so the hole is replayed or reported again: never skipped.
+7. **Server reset:** the next resume answers `gap(Reset { e2 })`. The watermark restarts at 0 in `e2`, and dedup by
+   `(epoch, seq)` keeps `e2`'s seq 1 apart from `e1`'s seq 1 (finding H4).
 
 **The Story.**
 
 ```ts
-const chat = FakeChat({ history: 40 })   // Fixture.stateful: truth { messages, connects }, controls { post, drop, loseLog }
+const server = FakeChatServer({ epoch: "e1", history: 40 })
 export const wifiDrop = story
-  .machine(RoomMachine, { id: "Chat/wifi-drop", input: { roomId: "r1" }, fixtures: chat })
-  .process()                                         // opens, resumed, 40 messages
-  .control(chat.drop({})).process()                  // Dropped → down
+  .machine(RoomMachine, { id: "Chat/wifi-drop", input: { roomId: "r1" }, fixtures: server })
+  .process()                                                     // gap(e1) → catch-up → 40 held
+  .checkpoint("loaded")
+  .control(server.drop({ code: 1006 })).process()
   .checkpoint("down")
-  .control(chat.post({ text: "while away" }))        // seq 41: server truth only
-  .advance("500 millis").process()                   // backoff sleep (a pending deadline), reconnect, replay 41
+  .control(server.post({ text: "while away" }))
+  .advance("500 millis").process()                               // backoff (an adapter deadline), resume from { e1, 40 }
   .checkpoint("back")
-// down.snapshot.activities.feed.connection → "Down"; check(down.snapshot, E.Send({ text: "x" })) → Denied Offline
-// back.truth.FakeChat.connects → [{ after: 0 }, { after: 40 }]        the resume cursor, asserted on the server side
-// back.snapshot.memory.lastSeq → 41; back.evidence has no gap delivery
+  .control(server.silence({})).advance("40 seconds").process()   // the half-open check: the deadline fails Dropped { 4000 }
+  .advance("500 millis").process()
+  .checkpoint("quietBack")                                        // reconnected, nothing new
+  .control(server.restart({ epoch: "e2" })).control(server.refuseCatchUp({ times: 1 })).control(server.drop({ code: 1012 }))
+  .advance("500 millis").process()                               // gap(Reset e2) → CATCHING_UP → refused → CATCH_UP_WAIT
+  .advance("2 seconds").process()                                // the retry succeeds
+  .checkpoint("reset")
+// loaded.snapshot.memory.through                    → 40
+// check(down.snapshot, E.Send({ clientId: "c1", text: "x" }))  → Denied "Offline"
+// back.truth.FakeChatServer.connects                → [{ epoch: "", after: 0 }, { epoch: "e1", after: 40 }]
+// back.snapshot.memory.through                      → 41
+// quietBack.snapshot.activities.feed?.connection    → "Live"
+// reset.snapshot.memory                             → { epoch: "e2", through: <e2's history>, … }; state LIVE.SYNCED
 ```
 
-**What this walk changed.** (1) A first draft decided continuity per session and reported a gap on every new session;
-with a cursorless server, a `Missed` handler that re-entered LIVE re-opened, reported a gap, and looped. Continuity is
-now judged per connection against the position the connection started from (4.1.4), and the recipe reads in place.
-(2) The same draft had no gap at the first open; a cursorless server then loses what was said between the history read
-and the socket opening, so the first open counts (rule 41). (3) Dedup by `seq > lastSeq` drops message 42 when a live
-43 lands before the catch-up's 42; dedup is by id (`hasSeq`, `mergeBySeq`).
+**What this walk changed in revision 2:** the watermark replaced "highest seen" (C4); `complete` became required and
+the gap mapping a tag record; the catch-up became states with a budget; the fake moved below the adapter, so the
+heartbeat, the classification and the resume handshake all run in the Story (C6).
 
 ### 7.2 Live presence
 
-**The adapter folds deltas.** The server sends a full `presence_state` on each connection, then `presence_diff`s. The
-adapter folds them with `Stream.scan` into a set, resetting at each connection, and emits the set: a `latest` stream.
+The adapter folds the server's `presence_state` and `presence_diff` frames per connection, inside `connect`, so the
+fold resets on every connection:
 
 ```ts
-export const presence = stream({ id: "chat/presence", key: (p: { roomId: string }) => p, delivers: "latest", subscribe: (p) => Session.reconnect({ connect: () => PresenceSocket.use((s) => s.members(p.roomId)), position: () => undefined, schedule: backoff, while: isDrop }) })
+export const presence = stream({                                                                // existing
+  id: "chat/presence",
+  key: (p: { roomId: string }) => p,
+  delivers: "latest",
+  subscribe: (p) => Session.reconnect({
+    connect: () => Effect.gen(function* () {
+      const frames = yield* PresenceSocket.use((s) => s.frames(p.roomId))                       // user-defined: Effect<Stream<Frame>> that succeeds at open
+      return {
+        claim: Session.open(),                                                                  // latest: claims only open
+        values: frames.pipe(
+          Stream.scan(new Set<string>(), (set, f) => f.t === "state" ? new Set(f.ids) : applyDiff(set, f)),
+          Stream.drop(1),                                                                       // scan emits its seed first; an empty "nobody online" is not a value
+          Stream.map((set) => [...set].sort())),
+      }
+    }),
+    position: () => undefined, schedule: backoff, while: isDrop,
+  }),
+})
 ROOM: { activities: { here: O.Chat.presence.subscribe(({ memory }) => ({ roomId: memory.roomId })) } }   // no outcomes: views read the lane
 ```
 
 ```tsx
 const here = useView(room, (s) => s.activities.here)
-<Avatars members={here?.data ?? []} dimmed={here?.connection !== "Open"} />   // while Down, presence is unknown: say so
+here?.connection === "Live" ? <Avatars members={here.data} /> : <Avatars members={here?.lastKnown ?? []} dimmed />   // NEW (r2)
 ```
 
-**The walk.** Joins and leaves coalesce into lane publications; no turns run. On a drop the lane is `Down` with the
-last set and the view dims it. On reconnect the full state replaces the set. No gap is delivered: the next value is the
-truth.
+**The walk.** Joins and leaves coalesce into lane publications. On a drop, the lane is `Down` with `lastKnown` and
+the view dims it. On reconnect it stays `Opening` until the new connection's first state frame (the bug window of R1
+H2), then `Live`. **The Story** (`FakePresence` over the transport, controls `join`, `leave`, `drop`):
+`.control(p.drop({})).process()` reads `connection: "Down"`, `lastKnown: ["ana"]`; after the reconnect and before the
+state frame it reads `"Opening"`.
 
-**The Story.** `FakePresence` controls `{ join, leave, drop }`: `.control(p.join({ user: "ana" })).process()`, then
-`checkpoint("joined")` reads `snapshot.activities.here.data`; `.control(p.drop({})).process()` reads `connection:
-"Down"` with the set retained.
-
-**What this walk changed.** As deltas mapped to machine events, presence would be an `every` stream whose gaps must
-refetch the whole set; folding in the adapter makes it `latest` and removes that workflow. The design now recommends
-folding deltas into state in the adapter whenever the source sends a full state on connect.
-
-### 7.3 Stock ticker
+### 7.3 Stock ticker, and a quiet feed (revision 2)
 
 ```ts
+export const Quote = Schema.Struct({ last: Schema.Number, asOf: Schema.Number })                // user-defined: asOf is the exchange's time
 WATCHING: {
-  activities: { price: O.Market.quote.subscribe(({ memory }) => ({ symbol: memory.symbol }), { outcomes: { value: E.Price.from((q) => ({ last: q.last })) } }) },
+  activities: { price: O.Market.quote.subscribe(({ memory }) => ({ symbol: memory.symbol }), { outcomes: { value: E.Price.from((q, { live }) => ({ last: q.last, asOf: q.asOf, live })) } }) },   // NEW (r2): live
+  schedules: { quiet: { schedule: "5 seconds", send: E.Quiet, armOn: [Flow.entry, E.Price] } },   // existing: armOn, Flow.entry
   on: {
     Price: [
-      { target: "self", guard: ({ memory, event }) => event.last >= memory.alertAt || deny("Below"), updateMemory: () => ({ alerted: true }) },
-      { target: "self" },
+      { target: "self", guard: ({ memory, event }) => (event.live && event.last >= memory.alertAt) || deny("NoAlert"), updateMemory: () => ({ alerted: true, quiet: false }) },
+      { target: "self", updateMemory: () => ({ quiet: false }) },
     ],
+    Quiet: { target: "self", updateMemory: () => ({ quiet: true }) },
   },
 },
 ```
 
-**The walk.** At 1,000 ticks a second, the adapter's Stream is drained into the lane; publications coalesce; at most
-one `Price` waits in the mailbox and reads the newest quote at admission, so the machine runs about one turn per
-admission. A crossing that goes and returns between two admissions is not seen: correct for a state feed, and an
-alert that must never be missed is a server-side event feed. A quiet market repeats equal quotes, which are silent;
-liveness is the adapter's heartbeat, so a dead socket shows as `Down`, not as a flat price. After the laptop sleeps, a
-persisted ticker restores `Running`, `Opening`, with the old quote (rule 51), and the view shows it as not live. A
-quote's own timestamp says how old it is.
+```tsx
+const p = useView(m, (s) => s.activities.price)
+const quiet = useView(m, (s) => s.memory.quiet)
+p?.connection === "Live" && !quiet ? <Price q={p.data} /> : <Price q={p?.connection === "Live" ? p.data : p?.lastKnown} stale />
+```
 
-**The Story.** `FakeQuotes` controls `{ tick, drop }`: three `tick`s then one `process()` give one `Price` turn with
-the third quote; `.control(q.drop({}))` then `advance` past the backoff shows `Down`, then `Open`.
+**The walk.** At 1,000 ticks a second, one `Price` waits and reads the newest quote at admission. Because each quote
+carries `asOf`, a repeated price is not an equal value, so a healthy flat market keeps re-arming `quiet`. Without
+`asOf` it would be silenced, and `Quiet` would fire on a healthy feed (R1's trap). After a reconnect on a quiet
+symbol, the lane is `Opening` with `lastKnown`, not `Live`: the old price cannot read as current. A restored ticker
+is the same (rule 51). An alert fires only on a live value.
 
-**What this walk changed.** A first draft armed a "stale" schedule on each `Price`; equality suppression made a flat
-market look stale. Liveness moved to the adapter's heartbeat (4.3.5), and a `receivedAt` lane field was dropped in
-favour of the source's timestamp.
+**The Story** (`FakeQuotes` over the transport): three `frame`s then `process()` give one `Price` with the third;
+`advance("5 seconds")` without frames gives `Quiet`; `drop` then reconnect reads `"Opening"` until the next `frame`.
 
-### 7.4 LLM tokens from a `fetch` body, and a cut-off answer
+### 7.4 LLM tokens from a `fetch` body, a cut-off answer, and Stop
 
-The transaction is 4.1.8's `generate`.
+The transaction is 4.1.10's `generate`; the service is 7.7.1's `Llm`.
 
 ```ts
 const gen = O.Assistant.generate.commit(({ memory }) => ({ conversationId: memory.conversationId, prompt: memory.draft }), {
   outcomes: {
     success: E.Answered.from((v) => ({ messageId: v.messageId, text: v.text })),
     failure: { Busy: E.TryLater, Refused: E.TryLater, NotSent: E.TryLater },
-    unknown: E.AnswerUnsure.from((r, { progress, attempt }) => ({          // ← NEW: progress in the context
-      partial: progress?.text ?? "", stopped: r._tag === "Cancelled", clientMessageId: attempt.id })),
+    unknown: E.AnswerUnsure.from((r, { progress }) => ({ partial: progress?.text ?? "", stopped: r._tag === "Cancelled" })),   // its own Attempt's progress (r2)
   },
 })
 const conv = ({ memory }) => ({ conversationId: memory.conversationId })
-ASKING:   { on: { Stop: { target: "self", actions: [gen.cancel(conv)] }, Answered: S.IDLE, TryLater: S.IDLE,
-                  AnswerUnsure: [{ target: S.IDLE, guard: ({ event }) => event.stopped || deny("NotStopped"), updateMemory: keepPartial }, { target: S.CHECKING, updateMemory: keepPartial }] } },
-CHECKING: { on: { /* a read of the conversation by clientMessageId: the stored full answer, or "cut off" */ } },
+ASKING: { on: {
+  Stop: { target: "self", actions: [gen.cancel(conv)] },
+  Answered: S.IDLE, TryLater: S.IDLE,
+  AnswerUnsure: [
+    { target: S.IDLE, guard: ({ event }) => event.stopped || deny("NotStopped"), updateMemory: ({ event }) => ({ partial: event.partial }) },
+    { target: S.CUT, updateMemory: ({ event }) => ({ partial: event.partial }) },
+  ] } },
+IDLE: { on: { Ask: { target: S.ASKING, guard: [gen.idle(conv)], actions: [gen] } } },   // after Stop's ending is admitted, idle: a new Attempt (r2)
+CUT:  { on: { Continue: { target: S.ASKING, updateMemory: ({ memory }) => ({ draft: `Continue: ${memory.partial}` }), actions: [gen] } } },   // a new write, not gen.retry: no idempotency key
 ```
 
-```tsx
-const text = useView(chat, (s) => s.calls.Assistant.generate.find((l) => l.key.conversationId === conversationId)?.progress?.text)   // ← NEW read: the answer so far (Revision (multiplicity audit, 2026-10-31): a lane row field)
-```
-
-**The walk.** `Ask` starts the write; the commit reads the body as it arrives and reports the text so far; the view
-re-renders per publication, never per token, and no turn runs per token. `[DONE]` ends it `success` with the whole
-text. A proxy closing the body cleanly without `[DONE]` ends it `unknown(CutOff)`: the server may have stored a full
-answer, so CHECKING reads the conversation by the client message id the commit put on the wire. Stop cancels:
-`unknown(Cancelled)` with the partial text from `progress`; the server may keep generating, and no browser API says.
-
-**The Story.** `FakeAssistant({ tokens: ["Hel", "lo"], every: "100 millis", cut: true })`: `.send(E.Ask())
-.advance("100 millis").checkpoint("first")` reads `first.snapshot.calls.Assistant.generate[0]?.progress?.text` → `"Hel"`;
-`.advance("100 millis").process()` ends without `[DONE]`: the `ending` entry is `channel: "unknown"`, reason `CutOff`,
-and the snapshot is in CHECKING with `partial: "Hello"`.
-
-**What this walk changed.** Stop left nothing to show: Flow's `Cancelled` carries no author data and the lane's
-progress is cleared at admission. Every ending mapper's context gained `progress` (rule 48).
+The view reads `s.calls.Assistant.generate.find((l) => l.key.conversationId === id)?.progress?.text` while asking, and
+`memory.partial` after. **The walk** is revision 1's. In addition: a stalled body now fails `Stalled`, so it becomes
+`unknown`, never a clean end. Pressing Ask again after Stop is admitted (`idle`). **The Story:**
+`FakeLlm({ tokens: ["Hel", "lo"], every: "100 millis" })`; `.send(E.Ask()).advance("100 millis").send(E.Stop())
+.process()` gives `unknown(Cancelled)` with `partial: "Hel"`; `.send(E.Ask())` is allowed.
 
 ### 7.5 Upload progress
 
-```ts
-export const upload = transaction({
-  id: "uploads/put", key: (i) => ({ ref: i.ref }), concurrency: "reject",   // Revision (multiplicity audit, 2026-10-31): was "allow"; one lane per upload is one call (rule 48)
-  progress: Schema.Struct({ loaded: Schema.Number, total: Schema.NullOr(Schema.Number) }),   // ← NEW
-  commit: (input, { attempt, signal, progress }) => Uploader.use((u) => u.put(input, { idempotencyKey: attempt.id, signal })).pipe(
-    Stream.runForEach((e) => e._tag === "Progress" ? progress({ loaded: e.loaded, total: e.total }) : Effect.void),   // the XHR service turns onprogress into a Stream
-    Effect.flatMap(() => /* the final response */ …)),
-})
-```
+Unchanged (revision 1 with the multiplicity audit's `reject` per upload, M6-D5). Progress is the Attempt's (rule 48).
+The XHR service's `onabort` must not look like a clean end: the commit treats a missing `Done` as `unknown(CutOff)`.
 
-The machine is 2.7.7's `put` (MD:1197-1206) unchanged, plus a view read
-`s.calls.Uploads.upload.find((l) => l.key.ref === ref)?.progress` (Revision (multiplicity audit, 2026-10-31)). Under `allow`, picking one file twice
-would put two Attempts on one lane and the bar would show whichever started last; keyed per upload and `reject`, each
-upload's row is its own, and a second pick of the same `ref` while one is sending is `Rejected`. **The walk.**
-Progress rises; the XHR fires `error` at 100 %: `unknown(NoResponse)`, because bytes handed to the stack prove nothing,
-and the clean-up is keyed by the Attempt, as today. **The Story.** `FakeUploader({ chunks: 4, every: "250 millis" })`
-with control `drop`: `advance("500 millis")` reads `{ loaded: 50, total: 100 }`; `.control(u.drop({})).process()`
-gives the `UploadUnsure` ending and CLEANING.
+### 7.6 `listen` feeding entity records, with a drop and a reconnect (revision 2)
 
-**What this walk changed.** A synchronous `progress` callable from DOM callbacks was considered; it would run outside
-Effect. `progress` stays an Effect, and the service turns the XHR's callbacks into a Stream, as Effect services
-already do.
+The descriptor is 7.7.3's `ticketEvents` over the `Realtime` transport; the activity maps `failure` and `complete`
+(4.2).
 
-### 7.6 `listen` feeding entity records, with a reconnect
+**The walk.**
 
-The domain and activity are 4.2's. **The walk.** The queue loads the ticket list (request started at t0). The socket
-opens at t1 with `open`: `Unproven { why: "Opened" }`, a reconnect cause; the list's request started before t1, so it
-refetches once (`repair` evidence, cause "reconnect: listen"). Another dispatcher saves t3: the push changes the base,
-and the ordered list repairs by its rules. The socket drops (`down`); meanwhile t2 is deleted on the server. The
-adapter reconnects: `open` again, `Reconnected`; the list and every subscribed answer covering `Ticket` refetch, and t2
-leaves. A rename of t1 whose send ended unknown before the drop keeps t1 `uncertain` through every push (rule 49); the
-forced repair still runs (rule 30).
+1. The queue loads the ticket list. Until the channel's `SUBSCRIBED`, the list is stale with cause `listen`. The
+   claim `open()` is unproven, so the list refetches once.
+2. Another dispatcher saves t3. The push is applied, and the list repairs by its rules.
+3. The channel errors (`CHANNEL_ERROR`), so `down`. The list is stale again with cause `listen` (r2). In revision 1 it
+   looked fresh while pushes were not arriving.
+4. Meanwhile t2 is deleted on the server.
+5. The SDK rejoins (`SUBSCRIBED`, `open()`, `Unproven { Reconnected }`). The list refetches, and t2 leaves.
+6. If the channel closes for good (`CLOSED`), `failure: Closed` reaches the machine (required) and the list is stale
+   with cause `listen ended` until the machine re-opens the session.
 
 **The Story.**
 
 ```ts
-const server = FakeTickets({ tickets: ["t1", "t2", "t3"] })   // controls { externalSave, externalDelete, drop }
+const rt = FakeRealtime({ tickets: ["t1", "t2", "t3"] })        // 7.7.3: the transport fake
 export const listenReconnect = story
-  .machine(QueueMachine, { id: "Queue/listen-reconnect", input: { workspaceId: "w1" }, fixtures: server })
-  .process()                                                       // list loads; the listen opens; one refetch
-  .control(server.drop({})).process()
-  .control(server.externalDelete({ ticketId: "t2" }))              // truth only: the socket is down
-  .advance("500 millis").process()                                 // reconnect, Unproven, the list refetches
+  .machine(QueueMachine, { id: "Queue/listen-reconnect", input: { workspaceId: "w1" }, fixtures: rt })
+  .process()
+  .control(rt.status({ status: "SUBSCRIBED" })).process()       // unproven open: one refetch
+  .control(rt.status({ status: "CHANNEL_ERROR" })).process()
+  .checkpoint("down")
+  .control(rt.deleteOnServer({ id: "t2" }))                     // truth only: no push while down
+  .control(rt.status({ status: "SUBSCRIBED" })).process()
   .checkpoint("healed")
-// Domain.entry.get(healed, { workspaceId: "w1" }).data → t1, t3; healed.truth.FakeTickets.tickets → t1, t3
+// Domain.entry.get(down, { workspaceId: "w1" }).stale  → [{ cause: "listen" }]
+// Domain.entry.get(healed, { workspaceId: "w1" }).data → t1, t3; .stale → false
 ```
 
-**What this walk changed.** (1) A first draft lowered frontiers only on re-opens; a ticket edited between the list's
-read and the socket's open stayed stale, so the first open counts (G10). (2) A draft recipe had the listen subscribe
-from a cursor in the list's response to skip that refetch; that is log replay into the store, which the scope note
-puts behind a sync engine, so it went, and its cost is stated instead (4.2).
+### 7.7 Third-party SDKs (revision 2)
 
-### 7.7 Third-party SDKs
+The pattern of revision 1 holds, with three changes:
 
-The walks above use Effect-native services. These four wrap real SDKs against the same contract. Each follows one
-pattern:
+- **Push SDKs use `Session.push`** instead of a hand-written queue.
+- **Each adapter is written over a structural transport service**, which Stories fake.
+- **Deadlines fail**, rather than ending the stream.
 
-- **The service owns the SDK.** An Effect service (`Context.Service`) wraps the SDK and exposes an Effect `Stream` of
-  the author's own parts and tagged errors. The SDK's types, status codes and close reasons stop at the service: the
-  operation, Flow and the machine never see them. The service is where the author reads the SDK's errors.
-- **Cancellation is Effect interruption.** An abort signal is the commit's `signal` (aborted when Flow interrupts
-  the commit, MD:904), or an `unsubscribe`/`removeChannel` in an `Effect.acquireRelease` finalizer that runs when
-  the session's scope closes.
-- **A Story replaces the service, not the SDK.** A fixture is a Layer for the same service (TST:54-56), so no Story
-  fakes an SDK object.
-- **Two sources are writes, two are streams.** An LLM completion is a POST that costs money and can be cut off, so
-  OpenAI and the Vercel AI SDK are transactions with `progress` (4.1.8). Supabase realtime and Firestore are streams.
+**Verified against Effect 4.0.5** (EFX), in addition to revision 1's list:
+- `Socket.makeWebSocket`, `Socket.readerString`, `socket.writer`, `Socket.SocketError` with
+  `reason: SocketCloseError { code }` (`socket/Socket.ts:896`, `:254`, `:104-108`, `:457-468`, `:507`).
+- `Socket.WebSocketConstructor` (`:864-875`) and `layerWebSocketConstructorGlobal` (`:877`). A browser socket buffers
+  frames and can fail with `SocketReadError` past `highWaterMark` (`:930-947`).
+- `Stream.timeoutOrElse` (`Stream.ts:3539`) and `Effect.timeoutOrElse` (`Effect.ts:8866`). `Stream.timeout` ends the
+  stream silently (`Stream.ts:3431`).
+- `Stream.fromEffectRepeat` (`:478`), `Stream.scan` (`:14214`) and `Stream.drop` (`:11897`).
+- `Schedule.max` (`Schedule.ts:856`), `Schedule.exponential` (`:1127`) and `Schedule.recurs` (`:1565`).
+- `Effect.forkScoped` (`Effect.ts:18090`), `Effect.forever` (`:15370`), `Effect.ignore` (`:8106`) and
+  `Clock.currentTimeMillis` (`Clock.ts:270`).
+- `Layer.effect` / `Layer.succeed` with the service first (`Layer.ts:1418-1421`, `:1068`, `:1100`) and `Layer.mergeAll`
+  (`:1691`).
+- `Schema.fromJsonString` (`Schema.ts:9829`), `Schema.decodeUnknownSync` (`:1872`) and `Schema.Union` (`:4976`).
 
-**Verified against Effect 4.0.5** (`node_modules/effect/src`):
-- `Stream.fromAsyncIterable(iterable, onError)` (Stream.ts:1334). Its finalizer calls the iterator's `return()` when
-  the stream is interrupted (Channel.ts:1995-2012).
-- `Stream.callback(f, { bufferSize, strategy })` (Stream.ts:725). `f` may use `Scope`, and its buffer defaults to
-  unbounded. `Queue.offerUnsafe` returns `false` when a `"dropping"` queue is full (Queue.ts:801-818).
-  `Queue.failCauseUnsafe` (Queue.ts:1262) is used with `Cause.fail` (Cause.ts:500).
-- `Stream.unwrap` removes `Scope`, so resources acquired in it live as long as the stream (Stream.ts:1704-1706).
-- `Effect.acquireRelease` (Effect.ts:13366) and `Effect.tryPromise` (Effect.ts:1441).
-- `Effect.catchTag` (Effect.ts:4639), `Stream.runForEach` (Stream.ts:20351), `Stream.flatMap` (Stream.ts:2853) and
-  `Stream.fail` (Stream.ts:844).
-- `Stream.merge` (Stream.ts:4120) and `Stream.fromQueue` (Stream.ts:1185).
-- `Layer.succeed(Service, impl)` (Layer.ts:1036-1058) and `class X extends Context.Service<X, Shape>()("id")`
-  (Context.ts:180-209).
+**From memory, not verified** (no SDK is installed): every SDK detail listed in revision 1, and the `EventSource`
+behaviour in 7.7.5.
 
-**SDK details from memory, not verified.** No SDK is installed in this repository, so these are unchecked; check them
-against the SDK versions when the reference app adopts one:
-- **OpenAI:** chunk shape `choices[0].delta.content` / `finish_reason`; the error classes `RateLimitError`,
-  `APIError.status`, `APIConnectionError`; `create(…, { signal })`; the stream's `return()` aborting the request.
-- **Vercel AI SDK:** `streamText` returning synchronously; `fullStream` part names (`text-delta` with `text` in v5,
-  `textDelta` in v4; `finish`; `error`); errors arriving as parts instead of throwing; `APICallError.statusCode`.
-- **Supabase:** the `subscribe` status strings (`SUBSCRIBED`, `CHANNEL_ERROR`, `TIMED_OUT`, `CLOSED`); realtime-js
-  rejoining channels by itself after a socket drop; `payload.eventType`, `.new` and `.old`.
-- **Firestore:** the `onSnapshot(query, options, next, error)` overload; `includeMetadataChanges`;
-  `metadata.fromCache`; `error.code`.
+#### 7.7.1 The OpenAI Node SDK and 7.7.2 the Vercel AI SDK (writes)
 
-#### 7.7.1 The OpenAI Node SDK (a write)
+Unchanged from revision 1: both implement one `Llm` service, which the commit reads (4.1.10). The fixture is
+`FakeLlm`, which already replaces the transport-level service: the commit's terminator check and classification run
+in the Story. The only change is that the commit's stall deadline uses `Stream.timeoutOrElse`.
+
+#### 7.7.3 Supabase realtime over `Session.push`
 
 ```ts
-// llm.service.ts: the SDK stops here
-export type LlmPart = { readonly _tag: "Text"; readonly text: string } | { readonly _tag: "Finished"; readonly reason: string }
-export class LlmBusy extends Data.TaggedError("LlmBusy")<{ readonly retryAfterMs?: number }> {}
-export class LlmRefused extends Data.TaggedError("LlmRefused")<{ readonly status: number }> {}       // the server answered no
-export class LlmNoResponse extends Data.TaggedError("LlmNoResponse")<{}> {}                          // no response: it may have reached the server
-export class LlmBodyBroken extends Data.TaggedError("LlmBodyBroken")<{}> {}                          // the body broke after the headers
-export type LlmError = LlmBusy | LlmRefused | LlmNoResponse | LlmBodyBroken
-
-export class Llm extends Context.Service<Llm, {
-  readonly complete: (req: { readonly prompt: string }, signal: AbortSignal) => Stream.Stream<LlmPart, LlmError>
-}>()("app/Llm") {}
-
-const classify = (e: unknown, phase: "request" | "body"): LlmError =>      // the author reads the SDK; Flow reads none of it
-  e instanceof OpenAI.RateLimitError ? new LlmBusy({ retryAfterMs: retryAfterMs(e.headers) })
-  : e instanceof OpenAI.APIError && e.status !== undefined ? new LlmRefused({ status: e.status })
-  : phase === "request" ? new LlmNoResponse({}) : new LlmBodyBroken({})
-
-export const OpenAiLlm = (client: OpenAI) => Layer.succeed(Llm, {
-  complete: (req, signal) => Stream.unwrap(
-    Effect.tryPromise({
-      try: () => client.chat.completions.create(
-        { model: "gpt-4o-mini", messages: [{ role: "user", content: req.prompt }], stream: true },
-        { signal }),                                                        // the commit's signal: Flow's cancel aborts the request
-      catch: (e) => classify(e, "request"),
-    }).pipe(Effect.map((chunks) =>
-      Stream.fromAsyncIterable(chunks, (e) => classify(e, "body")).pipe(  // interruption calls return(): the SDK aborts
-        Stream.flatMap((chunk) => Stream.fromIterable(toParts(chunk))))))),   // content → Text; finish_reason → Finished
+// realtime.transport.ts: the structural subset of supabase-js this adapter uses (the transport seam, rule 52)
+export interface ChannelLike {                                                                  // user-defined
+  on(type: "postgres_changes", filter: { event: "*"; schema: string; table: string; filter: string }, f: (p: ChangePayload) => void): ChannelLike
+  subscribe(f: (status: string, err?: Error) => void): ChannelLike
+}
+export class Realtime extends Context.Service<Realtime, {                                       // user-defined
+  readonly channel: (name: string) => ChannelLike
+  readonly removeChannel: (c: ChannelLike) => Promise<unknown>
+  readonly onSignedOut: (f: () => void) => () => void
+}>()("app/Realtime") {}
+export const SupabaseRealtime = (supabase: SupabaseClient) => Layer.succeed(Realtime, {
+  channel: (name) => supabase.channel(name),
+  removeChannel: (c) => supabase.removeChannel(c as RealtimeChannel),
+  onSignedOut: (f) => {
+    const { data } = supabase.auth.onAuthStateChange((e) => { if (e === "SIGNED_OUT") f() })
+    return () => data.subscription.unsubscribe()
+  },
 })
 
-// assistant.operations.ts: the commit sees only LlmPart and LlmError
-export const ask = transaction({
-  id: "assistant/ask",
-  input: Schema.Struct({ conversationId: Schema.String, prompt: Schema.String }),
-  key: (i) => ({ conversationId: i.conversationId }),
-  progress: Schema.Struct({ text: Schema.String }),
-  concurrency: "reject",
-  commit: (input, { signal, progress }) => Effect.gen(function* () {
-    let text = ""
-    let finished: string | undefined
-    yield* Llm.use((llm) => Stream.runForEach(llm.complete({ prompt: input.prompt }, signal), (p) => {
-      if (p._tag === "Finished") { finished = p.reason; return Effect.void }
-      text += p.text
-      return progress({ text })
-    })).pipe(
-      Effect.catchTag("LlmNoResponse", (e) => Outcome.unknown(e)),
-      Effect.catchTag("LlmBodyBroken", (e) => Outcome.unknown(e)))          // LlmBusy, LlmRefused stay failures (MD:811-812)
-    if (finished === undefined) return yield* Outcome.unknown(new CutOff({}))   // a clean end with no finish_reason
-    return { text, truncated: finished === "length" }                        // "length" is an answer, cut by max_tokens: information
-  }),
-})
-```
-
-- **Session signals:** none. A write has no connection; the Attempt's lane is its status (`pending`, `progress`).
-- **Idempotency:** chat completions take no idempotency key (from memory), so `attempt.id` has nowhere to go and a
-  `retry` after `unknown` could pay twice. The machine of 7.4 shows the partial text and offers a new question. It
-  does not `retry`. The author decides this because only the author knows the API (rule 19).
-- **Fixture:**
-
-```ts
-export const FakeLlm = (o: { tokens: ReadonlyArray<string>; every: Duration.Input; finish?: string }) =>
-  Layer.succeed(Llm, {
-    complete: () => Stream.fromIterable([
-      ...o.tokens.map((text) => ({ _tag: "Text" as const, text })),
-      ...(o.finish === undefined ? [] : [{ _tag: "Finished" as const, reason: o.finish }]),   // omit finish: a cut-off
-    ]).pipe(Stream.flatMap((p) => Stream.fromEffect(Effect.as(Effect.sleep(o.every), p)))),   // controlled-clock sleeps
-  })
-// story: .send(E.Ask()).advance("100 millis") → snapshot.calls.Assistant.generate[0]?.progress?.text === "Hel"; finish omitted → ending unknown CutOff
-```
-
-#### 7.7.2 The Vercel AI SDK (a write, the same service)
-
-```ts
-export const VercelLlm = (model: LanguageModel) => Layer.succeed(Llm, {
-  complete: (req, signal) => Stream.unwrap(Effect.sync(() => {
-    let answered = false                                                   // whether any part arrived: the request reached a server
-    const result = streamText({ model, prompt: req.prompt, abortSignal: signal })   // the commit's signal
-    return Stream.fromAsyncIterable(result.fullStream, (e) => classifyAi(e, answered)).pipe(
-      Stream.flatMap((part) => {
-        answered = true
-        switch (part.type) {
-          case "text-delta": return Stream.succeed({ _tag: "Text" as const, text: part.text })
-          case "finish": return Stream.succeed({ _tag: "Finished" as const, reason: part.finishReason })
-          case "error": return Stream.fail(classifyAi(part.error, answered))   // errors arrive as parts, not throws
-          default: return Stream.empty
-        }
-      }))
-  })),
-})
-const classifyAi = (e: unknown, answered: boolean): LlmError =>
-  APICallError.isInstance(e) && e.statusCode === 429 ? new LlmBusy({})
-  : APICallError.isInstance(e) && e.statusCode !== undefined ? new LlmRefused({ status: e.statusCode })
-  : answered ? new LlmBodyBroken({}) : new LlmNoResponse({})
-```
-
-- **The same `Llm` service, so `ask` and its machine do not change.** Changing the SDK means changing the Layer.
-- **`fullStream`, not `textStream`.** `textStream` yields text only. A clean end then looks the same as a cut, and
-  the commit cannot tell a complete answer from a truncated one (GAPS, "fetch body", "Unknown"). `fullStream`'s
-  `finish` part is the terminator.
-- **Fixture:** `FakeLlm` (7.7.1), unchanged.
-
-#### 7.7.3 Supabase realtime (a stream feeding entity records)
-
-```ts
-export type TicketChange = { readonly _tag: "Saved"; readonly row: TicketRow } | { readonly _tag: "Deleted"; readonly key: { readonly id: string } }
-export class RealtimeDown extends Data.TaggedError("RealtimeDown")<{ readonly status: string; readonly message?: string }> {}   // a down reason
-export class Overflow extends Data.TaggedError("Overflow")<{}> {}                                                             // a gap reason
-export class RealtimeClosed extends Data.TaggedError("RealtimeClosed")<{}> {}                                                 // ends the session
+// tickets.operations.ts
+export class RealtimeDown extends Data.TaggedError("RealtimeDown")<{ readonly status: string; readonly message?: string }> {}   // user-defined
+export class Closed extends Data.TaggedError("Closed")<{}> {}
 export class SignedOut extends Data.TaggedError("SignedOut")<{}> {}
 
-export class TicketFeed extends Context.Service<TicketFeed, {
-  readonly changes: (workspaceId: string) => Stream.Stream<TicketChange | Session.Signal<RealtimeDown, Overflow>, RealtimeClosed | SignedOut>
-}>()("app/TicketFeed") {}
-
-export const SupabaseTicketFeed = (supabase: SupabaseClient) => Layer.succeed(TicketFeed, {
-  changes: (workspaceId) => Stream.callback<TicketChange | Session.Signal<RealtimeDown, Overflow>, RealtimeClosed | SignedOut>((queue) => {
-    let lost = false
-    const offer = (item: TicketChange | Session.Signal<RealtimeDown, Overflow>) => {   // rule 41: a dropped push becomes a gap, in order
-      if (lost) lost = !Queue.offerUnsafe(queue, Session.gap(new Overflow()))
-      if (!lost) lost = !Queue.offerUnsafe(queue, item)
-    }
-    const fail = (e: RealtimeClosed | SignedOut) => Queue.failCauseUnsafe(queue, Cause.fail(e))
-    return Effect.all([
-      Effect.acquireRelease(                                               // the channel lives exactly as long as the session
-        Effect.sync(() => supabase
-          .channel(`tickets:${workspaceId}`)
-          .on("postgres_changes", { event: "*", schema: "public", table: "tickets", filter: `workspace_id=eq.${workspaceId}` },
-            (p) => offer(p.eventType === "DELETE" ? { _tag: "Deleted", key: { id: p.old.id } } : { _tag: "Saved", row: p.new }))
-          .subscribe((status, err) => {                                    // the SDK's own status: the Session signals
-            if (status === "SUBSCRIBED") offer(Session.open())             // no replay: every (re)join is unproven (rule 41)
-            else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") offer(Session.down(new RealtimeDown({ status, message: err?.message })))
-            else if (status === "CLOSED") fail(new RealtimeClosed({}))     // after release the queue is already done: a no-op
-          })),
-        (channel) => Effect.promise(() => supabase.removeChannel(channel))),
-      Effect.acquireRelease(                                               // "signed out" comes from another SDK API, read by the author
-        Effect.sync(() => supabase.auth.onAuthStateChange((event) => { if (event === "SIGNED_OUT") fail(new SignedOut({})) })),
-        ({ data }) => Effect.sync(() => data.subscription.unsubscribe())),
-    ])
-  }, { bufferSize: 1024, strategy: "dropping" }),                        // dropping, so offerUnsafe reports the loss (Queue.ts:801-818)
-})
-
-// tickets.operations.ts and the domain
-export const ticketChanges = stream({
-  id: "tickets/changes",
+export const ticketEvents = stream({                                                            // existing
+  id: "DispatchDesk/ticket-events",
   key: (p: { workspaceId: string }) => p,
   delivers: "every",
-  subscribe: (p) => Stream.unwrap(TicketFeed.useSync((f) => f.changes(p.workspaceId))),   // no Session.reconnect: the SDK rejoins by itself
+  subscribe: (p) => Session.push<TicketEvent, RealtimeDown, never, Closed | SignedOut, Realtime>((emit) =>   // NEW (r2)
+    Effect.gen(function* () {
+      const rt = yield* Realtime
+      yield* Effect.acquireRelease(
+        Effect.sync(() => rt.channel(`tickets:${p.workspaceId}`)
+          .on("postgres_changes", { event: "*", schema: "public", table: "tickets", filter: `workspace_id=eq.${p.workspaceId}` },
+            (c) => emit.value(toTicketEvent(c)))                                                // user-defined decoding
+          .subscribe((status, err) => {
+            if (status === "SUBSCRIBED") emit.open()                                            // the claim at open: no replay, so unproven
+            else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") emit.down(new RealtimeDown({ status, message: err?.message }))
+            else if (status === "CLOSED") emit.fail(new Closed({}))                             // after release, emit does nothing (rule 44)
+          })),
+        (channel) => Effect.promise(() => rt.removeChannel(channel)))                           // awaited before a new session joins the topic
+      yield* Effect.acquireRelease(Effect.sync(() => rt.onSignedOut(() => emit.fail(new SignedOut({})))), (off) => Effect.sync(off))
+    }), { capacity: 1_000 }),                                                                   // a burst past 1,000 becomes Overflow, then refetch
 })
-changes: listen(ticketChanges).as([Ticket], (c) => c._tag === "Saved" ? Ticket.save(c.row) : Ticket.delete(c.key)),
 ```
 
-- **Signals come from the SDK's status callback.** realtime-js rejoins after a socket drop (from memory), so this is
-  4.1.3's "a source that reconnects by itself": `CHANNEL_ERROR`/`TIMED_OUT` is `down`, and the next `SUBSCRIBED` is
-  an `open`. `postgres_changes` replays nothing, so every rejoin is `Unproven`, and the store lowers the covered
-  answers (rule 49). Applying pushes and refetching after a rejoin is all the store does. Catching up on missed rows
-  from a log would be a sync engine's job (SE).
-- **Classification:** whether a `CHANNEL_ERROR` was caused by the network or by row-level security is not in the
-  status. The author keeps it as `down` and takes "signed out" from the auth client instead. Flow reads neither.
-- **Versions:** a row with no version column makes this `listen` over an unversioned entity, which `flow check` warns
-  about (EDP:123-124). A `version` column fixes that.
-- **Fixture:**
-
 ```ts
-export const FakeTicketFeed = Fixture.stateful({                           // merge 3's constructor (7.0)
-  id: "FakeTicketFeed",
-  truth: TicketTruth,
-  controls: { change: TicketChangeSchema, drop: Schema.Struct({}), rejoin: Schema.Struct({}) },
-  layer: (truth, controls) => Layer.succeed(TicketFeed, {
-    changes: () => Stream.succeed(Session.open()).pipe(Stream.concat(Stream.merge(
-      Stream.fromQueue(controls.change).pipe(Stream.tap((c) => applyToTruth(truth, c))),   // truth first, then the push (TST:63-64)
-      Stream.merge(
-        Stream.fromQueue(controls.drop).pipe(Stream.map(() => Session.down(new RealtimeDown({ status: "CHANNEL_ERROR" })))),
-        Stream.fromQueue(controls.rejoin).pipe(Stream.map(() => Session.open())))))),
-  }),
+// fixtures/fake-realtime.ts
+export const FakeRealtime = (o: { tickets: ReadonlyArray<string> }) => Fixture.stateful({
+  id: "FakeRealtime",
+  truth: TicketTruth(o),
+  controls: {
+    status: Schema.Struct({ status: Schema.String }),                                           // fires the channel's status callback
+    change: ChangePayloadSchema,                                                                // updates truth, then fires the change callback
+    deleteOnServer: Schema.Struct({ id: Schema.String }),                                       // truth only (no callback)
+    flood: Schema.Struct({ count: Schema.Number }),                                             // fires `count` change callbacks in one tick
+    signOut: Schema.Struct({}),
+  },
+  layer: (truth, controls) => Layer.mergeAll(
+    Layer.effect(Realtime, makeFakeRealtime(truth, controls)),                                  // user-defined: a ChannelLike per channel()
+    Layer.succeed(TicketApi, ticketApiFromTruth(truth)),                                        // the list's reads
+  ),
 })
-// story: .control(feed.drop({})).control(feed.rejoin({})).process() → the list refetches (repair cause "reconnect: listen")
+// .control(rt.flood({ count: 1_200 })).process() → one Overflow gap (200 lost) → the covered answers refetch
 ```
 
-#### 7.7.4 Firebase `onSnapshot` (a `latest` stream)
+- **Signals:** the SDK's status callback (from memory: realtime-js rejoins by itself). Each rejoin is unproven.
+- **Release before restart:** `removeChannel` is awaited before the same topic is joined again (rule 44), and a late
+  `CLOSED` from the removal reaches nobody.
+- **Overflow is now testable:** `flood` exercises `Session.push`'s bound, because the fake sits below it.
+
+#### 7.7.4 Firebase `onSnapshot` over `Session.push` (a `latest` stream)
 
 ```ts
-export class FromCache extends Data.TaggedError("FromCache")<{}> {}        // a down reason: the SDK serves its local cache
-export class MembersDenied extends Data.TaggedError("MembersDenied")<{}> {}
-export class MembersFailed extends Data.TaggedError("MembersFailed")<{ readonly code: string }> {}
-
-export class Rooms extends Context.Service<Rooms, {
-  readonly members: (roomId: string) => Stream.Stream<ReadonlyArray<Member> | Session.Signal<FromCache, never>, MembersDenied | MembersFailed>
-}>()("app/Rooms") {}
-
-export const FirestoreRooms = (db: Firestore) => Layer.succeed(Rooms, {
-  members: (roomId) => Stream.callback<ReadonlyArray<Member> | Session.Signal<FromCache, never>, MembersDenied | MembersFailed>((queue) =>
-    Effect.acquireRelease(
-      Effect.sync(() => onSnapshot(
-        collection(db, "rooms", roomId, "members"),
-        { includeMetadataChanges: true },                                  // a snapshot also when fromCache flips
-        (snap) => {
-          Queue.offerUnsafe(queue, snap.metadata.fromCache ? Session.down(new FromCache()) : Session.open())
-          Queue.offerUnsafe(queue, snap.docs.map((d) => toMember(d.data())))
-        },
-        (error) => Queue.failCauseUnsafe(queue, Cause.fail(        // the listener stops after an error: the session ends
-          error.code === "permission-denied" ? new MembersDenied() : new MembersFailed({ code: error.code }))))),
-      (unsubscribe) => Effect.sync(unsubscribe)),                          // interruption runs the SDK's unsubscribe
-    { bufferSize: 2, strategy: "sliding" }),                               // latest: older states may go; signal and value travel in pairs
+export class Snapshots extends Context.Service<Snapshots, {                                     // user-defined transport subset
+  readonly members: (roomId: string, next: (s: { fromCache: boolean; members: ReadonlyArray<Member> }) => void, error: (code: string) => void) => () => void
+}>()("app/Snapshots") {}
+export const FirestoreSnapshots = (db: Firestore) => Layer.succeed(Snapshots, {
+  members: (roomId, next, error) => onSnapshot(collection(db, "rooms", roomId, "members"), { includeMetadataChanges: true },
+    (snap) => next({ fromCache: snap.metadata.fromCache, members: snap.docs.map((d) => toMember(d.data())) }),
+    (e) => error(e.code)),
 })
 
-export const roomMembers = stream({
+export const roomMembers = stream({                                                             // existing
   id: "rooms/members",
   key: (p: { roomId: string }) => p,
-  delivers: "latest",                                                      // a query snapshot is the whole state
-  subscribe: (p) => Stream.unwrap(Rooms.useSync((r) => r.members(p.roomId))),
+  delivers: "latest",
+  subscribe: (p) => Session.push<ReadonlyArray<Member>, FromCache, never, MembersDenied | MembersFailed, Snapshots>((emit) =>
+    Effect.gen(function* () {
+      const s = yield* Snapshots
+      yield* Effect.acquireRelease(
+        Effect.sync(() => s.members(p.roomId,
+          (snap) => {
+            if (snap.fromCache) emit.down(new FromCache())                                       // a value from the cache is "between" (4.1.2)
+            else emit.open()                                                                    // a server-confirmed snapshot opens
+            emit.value(snap.members)
+          },
+          (code) => emit.fail(code === "permission-denied" ? new MembersDenied() : new MembersFailed({ code })))),
+        (unsubscribe) => Effect.sync(unsubscribe))
+    }), { capacity: 2 }),                                                                        // latest: the newest survives; signals are never evicted
 })
 ```
 
-- **Signals come from snapshot metadata.** Firestore has no connection callback, but each snapshot says whether it
-  came from the local cache. A cached snapshot is `down` plus a value, and a server-confirmed one is `open` plus a
-  value. The view shows the cached members, dimmed (7.2).
-- **This case changed the contract.** Before, a value implied an open. A cache serving data while offline then showed
-  `"Open"`. Now only a session's first value implies an open, and a value while `"Down"` changes the data but not
-  the connection (rule 40, 4.1.5).
-- **Not a `listen`.** Firestore's offline cache, pending writes and completeness are a sync engine's. Feeding them
-  into the store as records belongs behind SE, not in `listen` (4.2).
-- **Fixture:** a plain Layer: `members: () => Stream.make(Session.down(new FromCache()), cached, Session.open(), fresh)`.
-  A Story checks `connection` and `data` after `process()`.
+A cached snapshot updates `lastKnown` while `Down`. The first server snapshot opens the connection and makes the lane
+`Live`. The `open()` emitted on each later server snapshot is an extra claim inside an open connection and is ignored
+(4.1.2), so the adapter need not track state. Revision 1's `"sliding"` buffer could evict the `down` and keep the
+value; `Session.push` cannot.
 
-#### 7.7.5 What the SDKs confirm
+#### 7.7.5 Server-Sent Events (`EventSource`) (revision 2, new)
 
-- **`Session.reconnect` stays as designed** (4.1.3; open question Q1). Supabase and Firestore reconnect by
-  themselves and report signals without it. OpenAI and the Vercel AI SDK are writes. The only text added to 4.1.3
-  spells out that the combinator emits the re-open it already had to report. The owner reviews the combinator
-  separately.
-- **No SDK type crosses the service.** Each service maps the SDK's classes, statuses, close events and metadata into
-  the author's tagged errors and `Session` signals (MD:775-776).
-- **Cancellation is always Effect interruption.** It reaches the SDK either as the commit's `signal` or as a
-  finalizer: the iterator's `return()`, `removeChannel` or `unsubscribe`.
-- **One contract change:** values while down (7.7.4).
+```ts
+export class Sse extends Context.Service<Sse, {                                                // user-defined transport subset
+  readonly open: (url: string) => EventSourceLike                                              // { readyState, onopen, onmessage, onerror, addEventListener, close }
+}>()("app/Sse") {}
+
+export const notes = stream({                                                                   // existing
+  id: "notes/feed",
+  key: () => ({}),
+  delivers: "every",
+  subscribe: (p: { after: number }) => Session.push<Note, Reconnecting, Reset, Closed, Sse>((emit) => Effect.gen(function* () {
+    const sse = yield* Sse
+    yield* Effect.acquireRelease(Effect.sync(() => {
+      const es = sse.open(`/notes?after=${p.after}`)                                           // a new EventSource cannot set Last-Event-ID: the watermark goes in the URL
+      es.addEventListener("hello", (e) => {                                                     // the server's in-band answer: the only proof (4.1.4)
+        const h = JSON.parse(e.data)
+        if (h.resumed) emit.resumed(); else emit.gap(new Reset({ epoch: h.epoch }))
+      })
+      es.onmessage = (e) => emit.value({ id: Number(e.lastEventId), body: e.data })
+      es.onerror = () => es.readyState === 2 /* CLOSED */ ? emit.fail(new Closed({})) : emit.down(new Reconnecting({}))
+      return es
+    }), (es) => Effect.sync(() => es.close()))
+  }), { capacity: 1_000 }),
+})
+```
+
+- **The browser reconnects inside one `EventSource`** and sends `Last-Event-ID` itself, using the server's `retry:`
+  delay. Neither is visible to the adapter, so a Story cannot drive the real browser's timing. It drives the fake's
+  `onerror`/`hello` instead. Proof comes only from the server's `hello` on each connection: `resumed` if it honoured
+  `Last-Event-ID`, `gap` otherwise. A server that sends no `hello` gets `open()` semantics: the adapter emits
+  `emit.open()` from `onopen` instead.
+- **When the browser gives up** (`CLOSED`: a non-200 or the wrong content type, reason hidden), the session fails
+  `Closed` and the machine decides (4.3.4). A new session's `EventSource` carries the watermark in its URL.
+- A `contiguous(last, first)` check could prove continuity from the first value instead of a `hello`. It is open
+  question R2.2.
+
+#### 7.7.6 What the SDKs confirm (revision 2)
+
+- `Session.reconnect` is used where the adapter must reconnect: WebSocket, `fetch` polling. `Session.push` is used
+  where the SDK reconnects by itself: Supabase, Firestore, SSE. Both make the claim structural.
+- No SDK type crosses the transport service. Each fake sits below the adapter, so classification, overflow, decoding,
+  heartbeats and handshakes run in Stories.
+- Cancellation is Effect interruption: the commit's `signal`, or a finalizer (`removeChannel`, `unsubscribe`,
+  `close`), awaited before a restart.
+
+### 7.8 Cursors: outbound state with `publish` (revision 2, proposed)
+
+The descriptor and activity are 4.1.9's. **The walk.** Each `Moved` writes `memory.myCursor`. After each committed
+turn, Flow offers the changed value to the session, and the adapter writes it on the socket. A drop and reconnect
+re-sends the current cursor on the new connection, unasked. While `Down`, moves only update memory. Nothing creates an
+Attempt, a turn per send, or an ending. **The Story:** `FakeCursorServer` over `Socket.WebSocketConstructor` records
+received frames in its truth: `.send(E.Moved({ x: 1, y: 2 })).process()` then `.control(server.drop({ code: 1006 }))
+.advance("500 millis").process()` gives `truth.received` → `[{ x: 1, y: 2 }, { x: 1, y: 2 }]`, the second from the
+new connection.
 
 ## 8. Alternatives considered
 
@@ -1269,21 +1518,77 @@ export const roomMembers = stream({
   one value would become two events; two connections are the author's to choose explicitly (different keys), and one
   shared socket is the adapter's multiplexing (also the answer to SSE's six-connection limit, GAPS "Smaller").
 
-## 9. Open questions
+Revision 2 also considered these:
 
-Only choices between equally correct options. All four are decided in section 10 (M6-D3, M6-D4).
+- **A16. Emit `open` before a connection's first element** (revision 1's combinator). Rejected by finding H1: a quiet
+  connection never opens. Replaced by the opened-connection shape (M6-D8).
+- **A17. One lane field `fresh: boolean` beside `data`.** It is correct but easy to ignore. The common mistake,
+  rendering a stale value as current, stays legal. Rejected in favour of typing `data` out of the non-live states
+  (M6-D9; open question R1.1).
+- **A18. `Open` means a value arrived since the open, on every kind** (R1 H2's first proposal). Rejected for `every`:
+  an `every` feed is live from its claim, because its facts go to memory, not to a displayed value. Kept for `latest`.
+- **A19. Treat a snapshot as `resumed` on `every`.** Rejected (finding H3): a snapshot omits the facts in between.
+- **A20. A Flow-held watermark** (Flow tracks `(epoch, seq)` per activity and passes it). Rejected, as A6 was: it
+  would make Flow compare author positions, and the watermark's advance is a memory write the machine already makes.
+  Rule 45 states the meaning instead.
+- **A21. Require `complete` mapped, instead of `ConnectionEnded`** (R1's second option for the clean close). Revision
+  2 does both: a connection's clean end goes to `while`, and an `every` session's `complete` is required. Either alone
+  leaves a hole: without `while`, a deploy's clean close ends every feed; without the requirement, a source that ends
+  for real leaves its state waiting.
+- **A22. `Session.push` with a `delivers` option for its overflow policy.** Rejected: the sliding buffer with a loss
+  marker is correct for both kinds, so the option would be configuration with one right value.
+- **A23. Outbound sends as transactions** (`concurrency: "latest"`, a mapping-less commit, R1 H7 option a). Rejected:
+  an Attempt, an ending turn and a lane row per cursor move at 30 Hz, and nothing re-sends after a reconnect.
+- **A24. Fake the adapter's service in Stories** (revision 1). Rejected by finding H6: overflow, classification,
+  heartbeats and handshakes never ran.
 
-- **Q1. Ship `Session.reconnect` in version 1?** Flow derives continuity from the signals either way, so correctness
-  does not depend on it; without it, every adapter writes the down/backoff/reconnect loop by hand. *Recommendation:
-  ship it, as the one spelling of the honest loop.*
-- **Q2. Progress as a read only, or also a mapped event** (`outcomes.progress`, latest-coalesced, current only)? Every
-  walk was served by the read and the mapper's `progress`; a mapped event would let a schedule `armOn` progress.
-  *Recommendation: read only; add the mapping when a case needs it.*
-- **Q3. `every` delivery granularity:** one value per turn (today's rule) or every buffered value in one turn (the
-  mapper receives an array). Both keep every value; the second costs fewer turns on a burst. *Recommendation: one per
-  turn; an adapter that needs batches emits arrays.*
-- **Q4. Names:** `delivers: "every" | "latest"` against `values: "events" | "states"`; `connection` against `link`.
-  *Recommendation: `delivers` and `connection`.*
+## 9. Open questions (revision 2)
+
+Revision 1's Q1–Q4 are decided (M6-D3, M6-D4). Revision 2 leaves five choices between options that are equally
+correct. They are asked in rounds; reply `R1.1 A`.
+
+### Round 1: the lane
+
+**R1.1 How does a lane say its value is not current?**
+
+```ts
+// A (recommended): data exists only while Live
+lane.connection === "Live" ? show(lane.data) : showDimmed(lane.lastKnown)
+// B: one field, and a flag
+lane.fresh ? show(lane.data) : showDimmed(lane.data)
+```
+
+Both are correct. A makes the common mistake, rendering an old price as live, a type error. B is one name fewer.
+*Recommendation: A.*
+
+**R1.2 The name of the live state.** A: `"Live"` (recommended). The meaning changed (for `latest`, a value arrived on
+this connection), so a new word stops readers carrying revision 1's "the transport is open". B: keep `"Open"` with
+the new meaning.
+
+### Round 2: adapters
+
+**R2.1 Outbound state** (`publish`, 4.1.9, rule 53).
+
+```ts
+// A (recommended): declared, latest-wins, re-sent on every connection
+others: O.Doc.cursors.subscribe(params, { publish: ({ memory }) => memory.myCursor })
+// B: out of scope in version 1; an app writes it from the adapter's own service, outside Flow and Stories
+```
+
+*Recommendation: A.* The re-send after a reconnect is the bug every hand-written version has, and A's cost is one
+optional key on the descriptor and one on the activity.
+
+**R2.2 Proving continuity from the first value** (SSE, 7.7.5). A (recommended): only an in-band answer proves it
+(`hello`, `{ t: "resumed" }`); a server without one gets `Unproven` on every reconnect. B: add
+`contiguous: { check: (last, first) => boolean, within: Duration }` to `Session.reconnect` and `Session.push`. It
+holds the claim until the first value proves contiguity, or `within` passes. B saves one catch-up read per blip on
+servers that cannot send a `hello`, at the cost of a delayed claim and a second way to prove. *Recommendation: A, and
+add B if a real server needs it.*
+
+**R2.3 When `Session.reconnect`'s schedule restarts.** A (recommended): at every open (4.1.3). B: only after a
+connection has stayed open for a minimum time, which is a new option. A server that accepts and drops at once is
+paced by the schedule's first delay under A, and backs off fully under B. *Recommendation: A, because the adapter
+can add a minimum itself.*
 
 ## 10. Decisions
 
@@ -1318,17 +1623,86 @@ Settled by the owner on 2026-10-30: the proposal is accepted with its recommenda
   descriptor key are `DuplicateSession` for the later key (rule 47). Reason: per-row live data (a watchlist) needs one
   session per row, and rule 47 must say what a collision within one activity does (audit F8).
 
+
+**Proposed in revision 2, not accepted.** These supersede parts of accepted decisions. They change nothing until the
+owner accepts them.
+
+- **M6-D8 (proposed; supersedes M6-D3 in part).** `Session.reconnect` changes in three ways:
+  - `connect` returns an Effect of the opened connection, `{ claim, values }`;
+  - a connection whose values complete is offered to `while` as `ConnectionEnded`;
+  - the schedule restarts at each open.
+
+  **Reason:** root cause C1. Emitting `open` before a connection's first element left a quiet connection unopened, so
+  the `listen` frontier was never lowered and a deleted record stayed shown (R1 H1). C5 adds that a server's clean
+  close silently ended the feed. M6-D3's "ships as designed, for the owner's later review" stands for everything
+  else, and the combinator is still the owner's to review.
+- **M6-D9 (proposed; supersedes M6-D2's lane clause, not its contract).** The stream lane is typed by kind and
+  freshness (4.1.5):
+  - a `latest` lane has `data` only while `connection === "Live"`, which needs a value on the current connection,
+    and `lastKnown` otherwise;
+  - an `every` lane has no data.
+
+  M6-D2's "a value while `Down` updates data, not `connection`" becomes "updates `lastKnown`". M6-D2's contract,
+  "`subscribe` returns an Effect `Stream`", stands. **Reason:** root cause C2. After a reconnect the lane read `Open`
+  with the old connection's data, so a quiet ticker showed an old price as live (R1 H2).
+
+M6-D1, M6-D4, M6-D5, M6-D6 and M6-D7 stand. Revision 2 states M6-D5's progress per Attempt (rule 48). That is how
+"the addressable Attempt's progress" is kept when a superseded Attempt ends, not a change to M6-D5.
+
+## 11. If declarations move onto the definition (operations-in-definition)
+
+OID (being revised) proposes declaring every server interaction once, under the definition's `operations`, and
+placing it in a state's `activities`. This design does not depend on where declarations live. Under OID these would
+change spelling, not meaning:
+
+| Here | Under OID |
+| --- | --- |
+| a module-level `stream({ … })` with `outcomes` mapped at the activity | the contract stays module-level (`stream`, OID 3.1); the site under `operations` maps `value`, `gap`, `complete`, `failure` |
+| `activities: { feed: O.x.subscribe(params, { outcomes, publish }) }` | `activities: [O.feed.params(select, { when? })]`; `publish` moves to the site, or stays with the placement (an OID question) |
+| `s.activities.feed` (the typed lane, 4.1.5) | `s.operations.feed`, with OID's `Inactive` row while no placement is active |
+| `DuplicateSession` (rule 47) for two activities on one descriptor and key | a construction error, `DuplicatePlacement` (OID B12), for one site placed twice; two sites on one contract and key remain `DuplicateSession` |
+| `DuplicateListen` (rule 49) | unchanged in meaning; named by site |
+| progress in `s.calls.X.y` rows (rule 48) | `s.operations.y.progress` |
+| rule 50's required mappings, checked at the activity | checked at the site's declaration |
+
+The adapter vocabulary (`Session.*`), the connection grammar, the lane's typing, the watermark, `listen`'s staleness
+and the lifecycle table (4.5) are untouched by OID.
+
+### 11.1 To explore: a manual reconnect member (owner, 2026-10-30; not decided, parked with streams)
+
+Under operations-in-definition (OD2), a stream is placed with its contract's own verb, `O.feed.subscribe(select)`.
+A stream has no manual member today: `Session.reconnect` reconnects inside a session, and a machine reconnects by hand
+by leaving and re-entering the placing state (7.1: `LOST` → `LIVE`). Open: whether a "Reconnect now" control that
+does not leave the state is needed. If it is, the member is named `reconnect`, not `refetch` (a resource word).
+
+```ts
+// today: leave the state and come back
+LOST: { on: { RetryFeed: S.LIVE } }
+// to explore: a member
+ReconnectNow: { target: "self", actions: [O.feed.reconnect] }   // NEW, proposed: reconnect
+```
+
 ## New keywords
 
 | Keyword | Meaning |
 | --- | --- |
 | `delivers: "every" \| "latest"` | what a stream's values are: facts delivered one by one, or the current state (rule 39) |
-| `Session` | the subscribe function's vocabulary: `open`, `resumed`, `gap(reason)`, `down(reason)` (rule 40) |
-| `Session.reconnect` | the adapter combinator that reconnects inside one session and reports it (4.1.3) |
-| connection | a `Running` stream lane's `"Opening" \| "Open" \| "Down"`, as the adapter reports it (4.1.5) |
-| gap | a delivery saying the session may have missed values: the adapter's reason or `Unproven` (rule 41) |
-| `Unproven { why }` | Flow's gap reason for an open the adapter did not prove continuous: `"Opened"` or `"Reconnected"` |
+| `Session` | the adapter vocabulary: `open`, `resumed`, `gap(reason)`, `down(reason)` (rule 40) |
+| claim (r2) | a connection's first signal, made when its transport opens: `open`, `resumed` or `gap` (rule 40) |
+| `Session.reconnect` | the combinator that reconnects inside one session; `connect` returns `{ claim, values }` (rule 43, r2) |
+| `Session.ConnectionEnded` (r2) | offered to `while` when a connection's values complete |
+| `Session.push` (r2) | the bounded push boundary for callback sources; loss becomes `Overflow`; signals are never evicted (rule 52) |
+| `Session.Emit` (r2) | `push`'s synchronous `value / open / resumed / gap / down / fail / end` |
+| connection | a running stream lane's `"Opening" \| "Live" \| "Down"` (r2: `"Live"` was `"Open"`) |
+| `lastKnown` (r2) | a `latest` lane's last value while it is not `Live` |
+| gap | a delivery saying the session may have missed values: the adapter's reason, `Unproven` or `Overflow` (rule 41) |
+| `Unproven { why }` | Flow's gap reason for an unproven claim: `"Opened"` (the session's first connection) or `"Reconnected"` |
+| `Overflow { lost }` (r2) | Flow's gap reason for values `Session.push` dropped |
+| watermark (r2) | a resume parameter: every fact at or before it is held (rule 45) |
+| `listen` stale cause (r2) | an answer's push channel is not live, or has ended (rule 49) |
+| `publishes`, `publish`, `published` (r2, proposed) | outbound latest-wins state on a session (rule 53) |
+| `ExtraClaim`, `NoClaims` (r2) | Inspection evidence for adapter claim defects |
 | `DuplicateSession` | Flow's failure reason for a second same-actor session on one descriptor and key (rule 47) |
-| progress | what a streaming write reports before its ending; the lane row's `progress` in `s.calls` (rule 48; Revision (multiplicity audit, 2026-10-31)) |
-| `DuplicateListen` | a `flow check` warning: two actors can hold sessions of one `listen` entry on one key (rule 49; Revision (multiplicity audit, 2026-10-31)) |
-| resume parameter | a stream parameter outside its key that says where a new session starts (rule 45) |
+| `DuplicateListen` | a `flow check` warning: two actors can hold sessions of one `listen` entry on one key (rule 49) |
+| progress | what a streaming write reports before its ending, stored per Attempt (rule 48) |
+| resume parameter | a stream parameter outside its key that says where a new session starts: a watermark (rule 45) |

@@ -3,6 +3,20 @@
 Traits, subroutines and server calls inside the machine. Nothing here is accepted into a plan yet; the `.plan` files
 change only when a proposal is accepted.
 
+## Work order
+
+The open proposals are worked one at a time, in this order (owner, 2026-10-30). Every one of them depends on
+operations-in-definition, so it goes first. Stories goes last. Streams is somewhere in between. The positions marked
+*proposed* have not been confirmed.
+
+| Order | Proposal | Position |
+| --- | --- | --- |
+| 1 | [operations-in-definition/proposal.md](operations-in-definition/proposal.md) | **confirmed first** |
+| 2 | merges 4 and 5, re-checked against operations | *proposed* |
+| 3 | [merge-6-streams/proposal.md](merge-6-streams/proposal.md) | **confirmed in the middle**; exact slot *proposed* |
+| 4 | [operations-in-fragments/exploration.md](operations-in-fragments/exploration.md) | *proposed* |
+| 5 | [merge-3-stories/proposal.md](merge-3-stories/proposal.md) | **confirmed last** |
+
 ## The design and what merges into it
 
 [machine-design.md](machine-design.md) is the one design (formerly `proposal-v4.md`; "v4" in its text and in the
@@ -12,7 +26,7 @@ other documents names it). Merges 1 and 2 are merged into it (2026-10-30). What 
 | --- | --- | --- | --- |
 | 1 | [merge-4-entities/proposal.md](merge-4-entities/proposal.md) | **accepted** 2026-10-30 (E1–E16); merges together with merge 3 | the merged design: who owns a write about an entity, and the conflicts in [merged/server-calls/reviews/entities.md](merged/server-calls/reviews/entities.md) |
 | 2 | [merge-3-stories/proposal.md](merge-3-stories/proposal.md) | not accepted; D1–D3 settled, revision 1, open questions in eleven rounds | the merged design and merge 4 (whether records or memory carry entity data); checked against [playback.md](../playback.md) |
-| 3 | [merge-5-entity-analysis/proposal.md](merge-5-entity-analysis/proposal.md) | **accepted** 2026-10-30 (M5-D1–D4); under review | merge 4: operators, source reading and the machine-to-domain join for entity domains |
+| 3 | [merge-5-entity-analysis/proposal.md](merge-5-entity-analysis/proposal.md) | **accepted in full, ready to merge** 2026-10-31 (M5-D1–D10; five review rounds) | merge 4: operators, source reading and the machine-to-domain join for entity domains |
 | 4 | [merge-6-streams/proposal.md](merge-6-streams/proposal.md) | **accepted** 2026-10-30 (M6-D1–D4); not yet reviewed | the merged design and merge 4: streams in three layers |
 | — | [open-items.md](open-items.md) | nothing open: items 1 and 3 closed, 2 parked, 4 merged | its closing notes merge with the design |
 

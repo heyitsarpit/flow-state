@@ -1,6 +1,6 @@
 # Proposal: statically analysable entity domains (merge 5)
 
-Status: **accepted by the owner on 2026-10-30 (section 10); revised twice: after correctness review 1
+Status: **accepted in full by the owner on 2026-10-31 (section 10, M5-D10); first accepted 2026-10-30; revised twice: after correctness review 1
 ([reviews/review-1.md](reviews/review-1.md)) and, simplified, after three reviews and the owner's decisions M5-D5 to
 M5-D9 ([reviews/review-2.md](reviews/review-2.md)), then hardened against review 3's probes
 ([reviews/review-3.md](reviews/review-3.md)), review 4's ([reviews/review-4.md](reviews/review-4.md)) and review
@@ -966,6 +966,16 @@ Settled by the owner after the second reviews (soundness, authors, system fit):
   start, predicts each listed record once, and never takes merge 4 rule 34's default lane key. *Reason:* the record
   count must be static for rule 34 and the queues. *Consequence:* rule 34 gains one sentence; bulk writes keep working.
   *Rejected:* forbidding array keys; deciding at start from the value.
+- **M5-D10 Open items 9.1–9.11 take their recommendations** (owner, 2026-10-31). A Date tie at millisecond precision
+  is maybe (9.1); a present `null` input is maybe (9.2); the recording session is sealed (9.3); one pinned TypeScript 7
+  adapter that fails closed (9.4); a factory's primitive parameters may appear in recorded expressions, with an info
+  finding for non-literal arguments (9.5); a tenant factory parameterises its operations or carries the tenant in keys
+  (9.6); records and inputs are frozen everywhere and a write is a prediction fault (9.7); the editor path is
+  `flow check --watch` now and a language-service plugin later, with no ESLint rule, superseding M5-D6's ESLint clause
+  (9.8); `checkReplays` is on in Stories and `propertyTest`, off in production (9.9); one operation in two entries of a
+  domain is an error (9.10); a `many` key array is capped at 4,096 items, overflow ending `Overloaded` (9.11).
+  *Reason:* each recommendation chose the conservative, correct option; prior art and three review rounds agreed.
+  The proposal is accepted in full; it merges after merge 4.
 
 ## New keywords
 
