@@ -1,17 +1,20 @@
-RUN S kind=facts reading=spec states=823 depth=12 (fixpoint) 13 ms
-RUN S kind=state reading=spec states=3099 depth=10 (fixpoint) 47 ms
-RUN CB+S kind=facts reading=spec states=642927 depth=27 (fixpoint) 4446 ms
-RUN CB+S kind=state reading=spec states=390108 depth=16 (fixpoint) 2269 ms
-RUN R+S[catchUp,from=0]/data kind=facts reading=spec states=169402 depth=9 (bounded by depth/state cap) 4312 ms
-RUN R+S[catchUp,from=0]/data kind=state reading=spec states=185578 depth=9 (bounded by depth/state cap) 2995 ms
-RUN R+S[catchUp,from=none]/data kind=facts reading=spec states=69919 depth=9 (bounded by depth/state cap) 1492 ms
-RUN R+S[catchUp,from=none]/data kind=state reading=spec states=97253 depth=9 (bounded by depth/state cap) 1364 ms
-RUN R+S[no catchUp,from=0]/data kind=facts reading=spec states=6689 depth=9 (bounded by depth/state cap) 85 ms
-RUN R/budget[no catchUp] kind=facts reading=spec states=799 depth=13 (fixpoint) 7 ms
-RUN R/budget[catchUp,head=0] kind=facts reading=spec states=218025 depth=11 (bounded by depth/state cap) 2420 ms
-RUN R/budget[no catchUp] kind=facts reading=literal-liveSince states=218644 depth=11 (bounded by depth/state cap) 2427 ms
-RESULT mode=spec I1 FAIL
-RESULT mode=spec I1* FAIL
+RUN S kind=facts reading=spec states=5392 depth=13 (fixpoint) 72 ms
+RUN S kind=state reading=spec states=25267 depth=9 (fixpoint) 311 ms
+RUN S+L kind=facts reading=spec states=400002 depth=11 (bounded by depth/state cap) 5517 ms
+RUN S+L kind=state reading=spec states=400003 depth=7 (bounded by depth/state cap) 3613 ms
+RUN CB+S kind=facts reading=spec states=293969 depth=23 (fixpoint) 1951 ms
+RUN CB+S kind=state reading=spec states=236997 depth=14 (fixpoint) 1335 ms
+RUN P kind=- reading=spec states=688 depth=11 (fixpoint) 5 ms
+RUN R+S[catchUp,from=0]/data kind=facts reading=spec states=102666 depth=10 (bounded by depth/state cap) 1376 ms
+RUN R+S[catchUp,from=0]/data kind=state reading=spec states=107649 depth=10 (bounded by depth/state cap) 1114 ms
+RUN R+S[catchUp,from=none]/data kind=facts reading=spec states=75085 depth=10 (bounded by depth/state cap) 928 ms
+RUN R+S[catchUp,from=none]/data kind=state reading=spec states=89730 depth=10 (bounded by depth/state cap) 926 ms
+RUN R+S[no catchUp,from=0]/data kind=facts reading=spec states=12243 depth=10 (bounded by depth/state cap) 166 ms
+RUN R+S[no catchUp,from=0]/data kind=state reading=spec states=14672 depth=10 (bounded by depth/state cap) 143 ms
+RUN R+S[no catchUp,from=none,no positions]/data kind=facts reading=spec states=12930 depth=10 (bounded by depth/state cap) 157 ms
+RUN R/budget[no catchUp] kind=facts reading=spec states=1212 depth=14 (fixpoint) 9 ms
+RUN R/budget[catchUp,head=0] kind=facts reading=spec states=3436 depth=11 (bounded by depth/state cap) 26 ms
+RESULT mode=spec I1 PASS
 RESULT mode=spec I2 PASS
 RESULT mode=spec I3 PASS
 RESULT mode=spec I4 PASS
@@ -24,56 +27,57 @@ RESULT mode=spec I10 PASS
 RESULT mode=spec I11 PASS
 RESULT mode=spec I12 PASS
 RESULT mode=spec I13 FAIL
-RESULT mode=spec I14 NOT-MODELLED
-RESULT mode=spec I15 NOT-MODELLED
+RESULT mode=spec I14 PASS
+RESULT mode=spec I15 FAIL
 RESULT mode=spec I16 PASS
 RESULT mode=spec I17 PASS
 RESULT mode=spec I18 PASS
 RESULT mode=spec I19 PASS
-RESULT mode=spec I20 FAIL
+RESULT mode=spec I20 PASS
+RESULT mode=spec I20b FAIL
 RESULT mode=spec I21 PASS
 RESULT mode=spec I22 PASS
-RESULT mode=spec G1 FAIL
-RESULT mode=spec G1c PASS
-RESULT mode=spec G2 FAIL
-RESULT mode=spec X1 FAIL
-RESULT mode=spec X2 FAIL
-RESULT mode=spec X4 FAIL
-RESULT mode=spec CB-status FAIL
-RESULT mode=spec CB-order FAIL
+RESULT mode=spec I22b FAIL
+RESULT mode=spec I23 FAIL
+RESULT mode=spec I24 PASS
+RESULT mode=spec I1a PASS
+RESULT mode=spec I24x PASS
+RESULT mode=spec C6-overflow PASS
+RESULT mode=spec CB-status PASS
+RESULT mode=spec CB-order PASS
 RESULT mode=spec CB-down-lost PASS
 RESULT mode=spec CB-upgrade PASS
-CE I1 [S facts] (8 steps): Feed.down(1) -> value 0 -> admission -> turn ends -> admission -> turn ends -> Feed.live() -> value 0
-CE X4 [S state] (3 steps): value 0 -> stream fails -> admission
-CE X2 [S state] (3 steps): Feed.down(1) -> value 0 -> Feed.live({ proof })
-CE X1 [S state] (3 steps): value 1 -> value 0 -> admission
-CE CB-order [CB+S facts] (2 steps): emit(live proof) -> emit(down)
-CE CB-status [CB+S facts] (4 steps): emit(live proof) -> emit(down) -> pull -> down -> pull -> proof
-CE I1 [CB+S facts] (6 steps): emit(live proof) -> emit(down) -> emit(value 0) -> pull -> down -> pull -> proof -> pull -> value
-CE I1* [CB+S facts] (6 steps): emit(live proof) -> emit(down) -> emit(value 0) -> pull -> down -> pull -> proof -> pull -> value
-CE CB-order [CB+S state] (2 steps): emit(live proof) -> emit(down)
-CE CB-status [CB+S state] (4 steps): emit(live proof) -> emit(down) -> pull -> down -> pull -> proof
-CE X4 [CB+S state] (5 steps): emit(value 0) -> emit.fail(e) -> pull -> value -> pull -> fail -> admission
-CE X2 [CB+S state] (6 steps): emit(down) -> emit(value 0) -> emit(live proof) -> pull -> down -> pull -> value -> pull -> proof
-CE I13 [R+S[catchUp,from=0]/data facts] (4 steps): inner Feed.live() -> server append -> page ok (more) -> inner value
-CE I20 [R+S[catchUp,from=0]/data facts] (5 steps): server append -> inner value -> inner Feed.down(r) -> server append -> inner value
-CE I1 [R+S[no catchUp,from=0]/data facts] (6 steps): inner Feed.down(r) -> server append -> inner value -> inner Feed.live() -> server append -> inner value
-CE G1 [R+S[catchUp,from=0]/data facts] (8 steps): server append -> server append -> inner Feed.live() -> server append -> inner value -> inner Feed.live({ proof }) -> page ok (more) -> inner Feed.live({ lost, restartAt })
-CE G2 [R+S[catchUp,from=0]/data facts] (9 steps): inner Feed.live() -> server append -> server append -> inner Feed.live({ proof }) -> inner value -> inner Feed.live() -> server append -> page ok (last) -> inner value
-CE I13 [R+S[catchUp,from=0]/data state] (4 steps): inner Feed.live() -> server append -> page ok (more) -> inner value
-CE X2 [R+S[catchUp,from=0]/data state] (4 steps): inner Feed.down(r) -> server append -> inner value -> inner Feed.live({ proof })
-CE I20 [R+S[catchUp,from=0]/data state] (5 steps): server append -> inner value -> inner Feed.down(r) -> server append -> inner value
-CE X1 [R+S[catchUp,from=0]/data state] (7 steps): inner Feed.live() -> server append -> server append -> inner Feed.live({ proof }) -> inner value -> page ok (more) -> page ok (more)
-CE G2 [R+S[catchUp,from=0]/data state] (9 steps): inner Feed.live() -> server append -> server append -> inner Feed.live({ proof }) -> inner value -> inner Feed.live() -> server append -> page ok (last) -> inner value
-NOTE I22 under the strict fairness (no empty page with a next cursor, repeated forever): reaches Live on every good path; with such pages allowed: also fine
-READING literal-liveSince: I12 FAIL
-CE I12 [literal liveSince, R/budget[no catchUp] facts] (8 steps): inner Feed.live({ proof }) -> inner fails (while) -> tick (resetAfter passes) -> reconnect delay elapsed -> inner fails (while) -> reconnect delay elapsed -> inner fails (while) -> reconnect delay elapsed
+RESULT mode=spec CB-waiter PASS
+CE I15 [S+L facts] (5 steps): proof(b) -> stream fails -> read of r starts -> read of r lands -> read of r lands
+CE I15 [S+L state] (5 steps): proof(b) -> stream fails -> read of r starts -> read of r lands -> read of r lands
+CE I20b [R+S[catchUp,from=0]/data facts] (2 steps): inner proof(b) -> inner reset(r, at)
+CE I13 [R+S[catchUp,from=0]/data facts] (5 steps): server append -> server append -> server append -> inner value -> page ok (last)
+CE I23 [R+S[catchUp,from=0]/data facts] (5 steps): server append -> server append -> server append -> inner value -> page ok (last)
+CE I20b [R+S[catchUp,from=0]/data state] (2 steps): inner proof(b) -> inner reset(r, at)
+CE I13 [R+S[catchUp,from=0]/data state] (5 steps): server append -> server append -> server append -> inner value -> page ok (last)
+CE I20b [R+S[catchUp,from=none]/data facts] (2 steps): inner live() -> inner reset(r, at)
+CE I13 [R+S[catchUp,from=none]/data facts] (7 steps): inner reset(r, at) -> inner live() -> server append -> server append -> server append -> inner value -> page ok (last)
+CE I23 [R+S[catchUp,from=none]/data facts] (7 steps): inner reset(r, at) -> inner live() -> server append -> server append -> server append -> inner value -> page ok (last)
+CE I20b [R+S[catchUp,from=none]/data state] (2 steps): inner live() -> inner reset(r, at)
+CE I13 [R+S[catchUp,from=none]/data state] (7 steps): inner reset(r, at) -> inner live() -> server append -> server append -> server append -> inner value -> page ok (last)
+CE I20b [R+S[no catchUp,from=0]/data facts] (2 steps): inner proof(b) -> inner reset(r, at)
+CE I23 [R+S[no catchUp,from=0]/data facts] (7 steps): inner down(r) -> server append -> server append -> inner value -> inner live() -> server append -> inner value
+CE I20b [R+S[no catchUp,from=0]/data state] (2 steps): inner proof(b) -> inner reset(r, at)
+CE I20b [R+S[no catchUp,from=none,no positions]/data facts] (2 steps): inner live() -> inner reset(r, at)
+CE I23 [R+S[no catchUp,from=none,no positions]/data facts] (7 steps): inner down(r) -> server append -> server append -> inner value -> inner live() -> server append -> inner value
+CE I20b [R/budget[no catchUp] facts] (2 steps): inner proof(b) -> inner reset(r, at)
+CE I22b [R+S[catchUp,from=0] facts (liveness, endless empty pages)] (1 steps): an empty page with a next cursor repeats forever (emptyRun = 3)
+NOTE I22 under strict fairness (no empty page with a next cursor, forever): reaches Live on every good path; with such pages allowed: an empty page with a next cursor repeats forever (emptyRun = 3)
 COVERAGE 3.1 (rows = inputs, columns = states; F = facts reached, S = state reached, - = cannot occur, . = defined but unreached)
   input     Opening   Dropped   Live      Ended     Releasing Released  
   proof     FS        FS        FS        -         FS        -         
   live      FS        FS        FS        -         FS        -         
   lost      FS        FS        FS        -         FS        -         
   reset     FS        FS        FS        -         FS        -         
+  fresh     FS        FS        FS        -         FS        -         
+  pending   FS        FS        FS        -         FS        -         
+  settleP   -         -         FS        -         FS        -         
+  settleL   -         -         FS        -         FS        -         
   value     FS        FS        FS        -         FS        -         
   down      FS        FS        FS        -         FS        -         
   fail      FS        FS        FS        -         FS        -         
@@ -82,7 +86,8 @@ COVERAGE 3.1 (rows = inputs, columns = states; F = facts reached, S = state reac
   release   FS        FS        FS        FS        FS        -         
   closed    -         -         -         -         FS        -         
   bound     -         -         -         -         FS        -         
-COVERAGE 3.1 cells: 43 defined, 29 cannot occur, 0 (cell, kind) pairs unreached
-COVERAGE 3.4 cells: 65 = 32 defined (live rows counted once per column) + cannot 33; unreached defined: none
-COVERAGE 3.3 cells (6 inputs x 3 columns; release x closed is "-"): unreached: none; release in a closed queue reached: true
-TOTAL 28850 ms
+COVERAGE 3.1 cells: 55 defined, 41 cannot occur; unreached (cell, kind): none
+COVERAGE 3.4 cells: 70 = 32 defined + 38 cannot; unreached defined: none
+COVERAGE 3.3 cells (6 inputs x 3 columns): unreached: none
+COVERAGE 3.5 cells: unreached: none; 3.6 events: readStart true, readLand true
+TOTAL 17975 ms
