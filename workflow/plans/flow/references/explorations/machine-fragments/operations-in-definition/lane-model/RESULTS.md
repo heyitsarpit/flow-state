@@ -1,86 +1,86 @@
-# Write-lane model: results (proposal.md revision 9, section 3.8.1)
+# Write-lane model: results against proposal.md revision 10 (commit 65f542fe)
 
-Files: `model.ts` (the lane), `main.ts` (explorer and checks), `audit.ts` (UnresolvedHold), `mutations.py`, `output.txt`,
-`mutations-output.txt`. Run: `tsc -p . && bun main.ts` (about 36 s); `python3 mutations.py` (7 s). Line numbers are `proposal.md`.
+Files: `model.ts` (lane), `events.ts` (alphabet), `main.ts` (explorer), `audit.ts` (UnresolvedHold), `identity.ts` (two identities),
+`mutations.py`, `output.txt`, `mutations-output.txt`. Run `tsc -p . && bun main.ts` (17 s), `python3 mutations.py` (about 15 s).
+Line numbers are `proposal.md` at revision 10.
 
 ## What is modelled
-- One lane, one key. All five modes. The 14-row table as code; each row looks up its (row, state) cell and flags the 13 "cannot occur" cells.
-- Members `commit`, `retry`, `cancel`, guards `idle`, `retryable({times:1})`; several members per turn, applied in action order (step 5).
-- Endings `success`, `failure`, `unknown`, `interrupt`; storage ack accepted/refused, then invoke; `dispose`, rebind (`start`), reload (restore).
-- Turns end `ok`, `Denied`, `Unhandled` or `InvalidTurn`; ending effects and promotion are kept, only the turn's members are dropped.
-- A server: a request lands at any time, in any order, applies once per Attempt id (idempotent), or refuses for good; a response is `success`
-  only if applied, `failure` only if refused, `unknown` any time.
-- Search: breadth-first with state merging over the whole finite state space ("complete": every sequence of any length). Bounds: 3 commits
-  (cancel and allow: 2), retries saturate at 1, `serialize` queue cap 2 (proposal 64), one in-flight copy per request. Raw enumeration of all
-  sequences to depth 6 (reduced alphabet, no merging) agrees with the merged search on the same alphabet.
-- Two readings of the acknowledgement (see F2): literal (each send needs its own ack) and per-Attempt (sticky).
+- One lane, one key, all five modes; the 16-row table as code. Each use of a row looks up its (row, state) cell and flags the 15
+  "cannot occur" cells. Members, guards, several members per turn, endings (success, failure, unknown, interrupt), the one acknowledgement
+  per Attempt (accepted or refused), invoke, dispose, rebind, reload (restore), Runtime disposal, SSR hydration, and turns ending
+  `ok`, `Denied`, `Unhandled`, `InvalidTurn`. A server applies requests in any order, once per Attempt id, or refuses for good.
+- Revision 10 additions: `retryCount` counted at the invoked cell; a refused re-send returns to `Held` and re-delivers `unknown`
+  (`StorageRefused`); a Held lane is delivered `unknown { Restored }` once per incarnation on rebind and on reload; the full `cancel`/`allow`
+  table; `NotSent { Disposed }`. Every invented behaviour that the text now states was removed.
+- Identity (`identity.ts`): two identities on one contract and key are two lanes with one server value; a new incarnation adopts only its
+  own identity's lane. Bounds: 1 commit per lane there.
+- Search: breadth-first with state merging over the whole finite state space ("complete": every sequence of any length). Bounds: 3
+  commits (cancel, allow: 2), invoked re-sends saturate at 2, `serialize` queue cap 2 (proposal 64), one in-flight copy per request.
+  Raw enumeration of all sequences to depth 6 (reduced alphabet, no merging) agrees with the merged search.
+- New check, inv 9: a Held lane with a live incarnation has always been told of its unknown (every entry into `Held` reaches a
+  handler). Inv 11/12 (identity): endings and `Restored` reach only the owning identity; a turn of one identity never changes another's Attempts.
 
-## Invariants
+## Invariants (revision 10)
 | # | reject / latest / serialize | cancel / allow |
 | --- | --- | --- |
-| 1 ending never dropped, NotSent only if never sent | FAIL (literal reading, F2); PASS per-Attempt | FAIL (F2) |
-| 2 nothing newer sent past an unresolved unknown | FAIL (literal, F2); PASS per-Attempt | n/a |
-| 3 server = latest eligible commit | FAIL (literal, F2); per-Attempt: only the stated limit F1 | not claimed |
+| 1 ending never dropped; `NotSent` only if never sent | PASS | PASS |
+| 2 nothing newer sent past an unresolved unknown | PASS | n/a |
+| 3 server = latest eligible commit | PASS, except the stated limit F1 below | not claimed |
 | 4 no double send | PASS | PASS |
 | 5 flags match definitions | PASS | PASS |
 | 6a every state reaches Idle | PASS | PASS |
-| 6b UnresolvedHold vs stuck states | see 'inv 6b' below | |
+| 6b UnresolvedHold vs stuck | only the by-design `reject` terminal pass (below) | |
 | 7 cannot-occur cells never reached | PASS | PASS |
-| 8 every reachable cell visited | PASS, all 29 | n/a (other table) |
+| 8 all 33 reachable cells visited | PASS (33/33 per policy) | the `HeldThisTurn` table has no held cells: 29/33 of the holding table |
+| 9 no silent hold | PASS | PASS |
+| 11, 12 identity | PASS | |
 
-## Counterexamples (shortest; full list in output.txt)
-- **F1, stated limit, inv 3** (all three holding modes). `commit -> ack(1) -> invoke(1) -> end-unknown(1)/h:cancel` leaves the released
-  write able to land after the user cancelled (4 events). Stale overwrite: `commit;commit -> ack(1) -> invoke(1) -> end-unknown(1)/h:cancel
-  -> ack(2) -> invoke(2) -> land(2)`, then the released c1 lands last: server=1, latest commit=2 (7 events under `serialize`, 8 under `reject` and
-  `latest`). 3.8.1 "late-landing race is gone" says this holds only "for any contract that sends attempt.id", yet the released Attempt's
-  id is never asked about again. The text states it ("a write the machine releases ... may still land later"). Not a new bug; the invariant as
-  worded fails here.
-- **F2, inv 1, 2, 3** (all modes, literal reading). `commit -> ack(1) -> invoke(1) -> end-unknown(1)/h:retry -> reload/h:none`: the re-send is
-  waiting and not yet acknowledged, so restore (line 759) ends it `NotSent { Restored }` although it was sent once. Then `commit -> ack(2) ->
-  invoke(2)` (8 events) sends 2 past an Attempt whose first send may still land (inv 2), and the server can end at c1 (inv 3).
+## Counterexample (the only one)
+- **F1, inv 3, stated limit** (all holding modes; unchanged, and kept in revision 10 as "a released Attempt landing late"). The write
+  the user released can land after a newer one. `commit;commit -> ack(1) -> invoke(1) -> end-unknown(1)/h:cancel -> ack(2) -> invoke(2) ->
+  land(2)`, then c1 lands last: server=1, latest commit=2 (7 events `serialize`, 8 `reject` and `latest`). Cancelled-yet-landed: 4 events.
 
-## Ambiguities and contradictions
-- **F2 (contradiction, 752 vs 759).** The storage-refused row needs a fresh acknowledgement per re-send ("a re-send: returns to Held").
-  The restore row says "acknowledged is per Attempt" (759), which makes that cell unreachable for re-sends. Per-Attempt makes inv 1-3 pass.
-  Fix: state which; with per-send ack, a never-acknowledged re-send must restore as `unknown`, not `NotSent`.
-- **F3 (contradiction, 696/1014 vs 759).** "restore is a rebind across a reload" (697) and rebind delivers `unknown { Restored }` (758);
-  restore of `Held` is "not delivered again" (759, R5 L6). A reloaded actor is a new actor, so which row applies is unspecified. Also, the
-  `acked` word on a never-sent but acknowledged Attempt (restores as `unknown`, 759) makes `retry` its first send.
-- **F4 (gap, 746).** `latest` commit "replaces" a never-sent, uninvoked head. Not said whether the new commit becomes the head (modelled so)
-  or `W` with an empty head, which the state definitions forbid.
-- **F5 (gap, 752).** A refused re-send "returns to Held" and delivers nothing, so no handler runs for that Held. Under `cancel` and `allow`
-  the second table (797-808) has no invoked or storage-refused row, and `HeldThisTurn` exists only inside an ending's turn. INVENTED: Idle
-  (cancel) and evidence (allow).
-- **F6 (gap, 801).** `cancel` concurrency, commit while the head is waiting to be invoked: the cell says "interrupt the one on the wire".
-  INVENTED: never sent -> `Superseded` evidence; a waiting re-send -> evidence.
-- **F7 (UnresolvedHold, 895-926).** Item 2's parenthetical "(no X.retry, no X.cancel, or ...)" has lost its head noun; modelled as
-  "branch that keeps the hold". Rule 4 says restoring actors receive `unknown { Restored }` (902), contradicting the restore row (F3).
-- **F8 (gap).** Whether an ending admitted in a `Denied`/`Unhandled` turn counts as "delivered" (its handler never ran). Modelled as
-  delivered (lane effect kept). Also: `unknown` and `interrupt` rows are identical in effect; `StillUnknown` is not defined here.
-- **F9 (gap).** `allow` has no dispose, rebind or restore cells. INVENTED: attempts stay on dispose; restore turns them into evidence.
+## inv 6b: UnresolvedHold against stuck states
+3,500 small machines (2 leaves, one user event per leaf, one `unknown` handler; guards none/idle/retryable; members none/retry/cancel/commit)
+in product with the lane. Stuck = a bound lane that cannot reach Idle without a host move.
+- `latest`, `serialize`: stuck and flagged 2,130; flagged, never stuck 648; **stuck, not flagged 0**.
+- `reject`: stuck and flagged 2,074; flagged, never stuck 640; **stuck, not flagged 56, all the terminal pass** (5.1 `LEFT`: the
+  machine leaves the hold on purpose, 3.7). Revision 9's 240 refused-re-send and 18 reload misses are gone: both deliver `unknown` now.
+- False positives are `retryable`-guarded edges that cannot pass in `Idle`, so the leaves the rule counts are unreachable.
 
-## inv 6b: UnresolvedHold as written against actual stuck states
-3,500 tiny machines (2 leaves, one user event per leaf, one `unknown` handler; guards none/idle/retryable; members none/retry/cancel/commit) run
-in product with the lane. "Stuck" = a bound lane that cannot reach Idle without a host move (dispose/start/reload). Per mode (reject; latest and
-serialize are alike): stuck and flagged 2,104 (2,166); flagged, never stuck 610 (612); **stuck, not flagged 325 (263)**; neither 461 (459).
-The rule sees arrivals by `unknown`/`interrupt` and rebind. Entries into `Held` it cannot see:
-1. **Refused re-send** (752): `S0:{commit}`, `unknown:{retry->S0}`; `commit, unknown->retry, ack-refused`: Held, no event, nobody owns it
-   (240 reject machines, 239 each for latest/serialize).
-2. **Reload of a Held lane** (759): not delivered, so S0's handler never runs (18/12). A `reject` machine that leaves via the terminal
-   pass (5.1 LEFT) keeps a Held lane by design (55; reject only).
-False positives: mostly `retryable`-guarded edges that cannot pass in Idle, so leaves the rule counts are unreachable.
-
-## Mutations (`mutations.py`; all caught; checks that newly fail vs the unmutated model)
+## Mutations (`mutations.py`; all 11 caught; checks that newly fail against the unmutated model)
 | Reverted rule | Newly failing |
 | --- | --- |
-| interrupted Attempt becomes `Held` | inv 2, 3, 5 (reject, latest, serialize) |
+| interrupted Attempt becomes `Held` | inv 2, 3, 5 (all holding modes, identity) |
 | promote only on release | inv 3, 5 (latest, serialize) |
 | invocation whatever the turn's outcome | inv 3 (latest, serialize) |
-| `cancel` by history | inv 1, 2, 3 (all holding modes) |
+| `cancel` by history | inv 1, 2, 3 (all holding modes), inv 1 (cancel) |
 | the `serialize` hold | inv 2, 3, 5 (serialize) |
 | `HeldThisTurn` | inv 5, 7 (cancel, allow) |
-| ending kept on a non-ok turn (extra) | inv 1 (all) |
+| ending kept on a non-ok turn (F8) | inv 1 (all) |
+| **F2** acknowledgement once per Attempt | inv 1, 2, 3 (all holding modes), inv 1 (cancel, allow) |
+| **F3** a reload delivers a Held lane | inv 9 (all holding modes, identity) |
+| **F5** a refused re-send re-delivers `unknown` | inv 9 (all holding modes, identity) |
+| **K21** lane identity | inv 11, 12 (identity) |
+
+`output.txt` also re-runs the model with F2, F3 and F5 switched off (revision 9 behaviour): inv 1, 2, 3 and 9 fail again.
+
+## New ambiguities and gaps (revision 10)
+- **G1 (line 813, restore, `InFlight`).** "An Attempt acknowledged once restores as `unknown { Restored }`" includes one acknowledged but
+  never invoked (waiting on the record queue). It was never sent, yet becomes an unknown, so `retry` makes its first send. Modelled as written.
+- **G2 (line 814 vs 871-872, Runtime disposal under `cancel`/`allow`).** The row says "as the holding table", whose waiting re-send goes
+  to `Held`; the second table says `HeldThisTurn` "cannot occur" and cannot outlast a turn. Modelled: evidence, lane `Idle`.
+- **G3 (line 814, 962).** "An ending that settles before the final capture is saved as a pending mapped outcome ... delivered to the
+  restored incarnation." Its interaction with `unknown { Restored }` for the same Attempt (one delivery or two) is not said. Not modelled;
+  the model takes the "else unknown" branch.
+- **G4 (lines 715, 750-751).** Principle 2 says a sent Attempt's ending is always delivered; local actors' lanes are never persisted, so a
+  write sent by a local actor before a reload has no lane afterwards and its landing is unseen. Not modelled (single persisted identity);
+  principle 2 needs an exception.
+- **G5 (line 813 restore, `InFlight`, never acknowledged).** "Ends `NotSent { Restored }`" with no promotion; `W` ends the same way, so the lane
+  becomes `Idle`. Consistent, but "an unknown, a retry and a restore never promote" (line ~766) is what makes it work; worth one sentence.
+- **G6 (line 814, hydration).** Only the `Idle` cell is observable (a no-op); the two "cannot occur" hydration cells cannot be tested.
+- Still stated, not new: two identities' lanes on one key are unordered, so inv 3 does not hold across them.
 
 ## Where I invented behaviour
-`NotSent` deliveries are counted but run no handler; endings of non-addressable Attempts are evidence; retry saturation; the ambiguities F4,
-F5, F6, F9 above; invariant 3's "eligible" excludes failed commits; a released Attempt that lands is classed as the stated limit, not a failure.
+`NotSent` deliveries are counted but run no handler; evidence endings of non-addressable Attempts; the retry saturation; G2's evidence;
+inv 3 treats a failed commit as ineligible and classes a released Attempt that lands as the stated limit, not a failure.

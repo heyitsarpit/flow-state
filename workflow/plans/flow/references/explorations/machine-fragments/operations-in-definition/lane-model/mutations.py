@@ -1,5 +1,5 @@
 # Reverts each key rule of the write lane in turn and checks that some check fails that does not fail on the unmutated model
-# (run from lane-model/: python3 mutations.py). Hold modes are read from the per-Attempt ack reading (the second reading); cancel and allow only run in the literal one, where the
+# (run from lane-model/: python3 mutations.py). Everything is read from the revision 10 reading, where the
 # unmutated model fails only the two stated-limit checks, so any other failing check is caused by the mutation.
 import os, re, shutil, subprocess, sys, tempfile
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -11,16 +11,19 @@ M = [
  ("cancel by history", "cancelByHistory: true,", "cancelByHistory: false,", "cancel before invocation always ends NotSent { Cancelled }, even for a re-send that was sent before"),
  ("the serialize hold", "serializeHolds: true,", "serializeHolds: false,", "serialize promotes the next queued commit on an unknown, as if it were resolved"),
  ("HeldThisTurn", "heldThisTurn: true,", "heldThisTurn: false,", "cancel and allow keep an unknown across turns instead of for its own turn only"),
- ("ending kept on a non-ok turn", "endingKeptOnDeniedTurn: true,", "endingKeptOnDeniedTurn: false,", "a Denied/Unhandled/InvalidTurn turn drops the ending it admitted"),
+ ("ending kept on a non-ok turn (F8)", "endingKeptOnDeniedTurn: true,", "endingKeptOnDeniedTurn: false,", "a Denied/Unhandled/InvalidTurn turn drops the ending it admitted"),
+ ("F2 acknowledgement once per Attempt", "ackPerAttempt: true,", "ackPerAttempt: false,", "every (re-)send needs its own acknowledgement again (revision 9)"),
+ ("F3 a reload delivers a Held lane", "restoreDeliversHeld: true,", "restoreDeliversHeld: false,", "a reload leaves a Held lane undelivered (revision 9: not delivered again)"),
+ ("F5 a refused re-send re-delivers unknown", "refusedResendDelivers: true,", "refusedResendDelivers: false,", "a storage-refused re-send returns to Held and tells nobody (revision 9)"),
+ ("K21 lane identity (actor identity, contract id, key)", "identityScoped: true,", "identityScoped: false,", "one lane per contract id and key: a new incarnation adopts any identity's lane (revision 9)"),
 ]
 def run(src_dir):
     p = subprocess.run(["bun", "main.ts"], cwd=src_dir, env=ENV, capture_output=True, text=True, timeout=300)
     res = {}; on = False
     for line in p.stdout.splitlines():
-        if line.startswith("######## reading: per-Attempt"): on = True
-        elif line.startswith("######## reading: literal"): on = False
-        m = re.match(r"RESULT mode=(\w+) (inv\d[\w-]*) (\w+)", line)
-        if m and (on or m.group(1) in ("cancel", "allow")): res[(m.group(1), m.group(2))] = m.group(3)
+        if line.startswith("######## reading:"): on = "revision 10" in line
+        m = re.match(r"RESULT mode=([\w-]+) (inv\d[\w-]*) (\w+)", line)
+        if m and (on or m.group(1).startswith('identity')): res[(m.group(1), m.group(2))] = m.group(3)
     return res
 def bad(r): return {k for k, v in r.items() if v in ("FAIL", "MISSING")}
 tmp = tempfile.mkdtemp()

@@ -1,7 +1,7 @@
 // Invariant 6, second half: UnresolvedHold (3.8.1 "UnresolvedHold over the graph") as written, against the lane model.
 // A tiny machine (two leaves S0, S1; one user event `e` per leaf; one `unknown` handler) is run in product with the lane.
 // "Actually stuck" = a reachable product state from which no sequence of machine transitions and environment events reaches an Idle lane.
-import { CONFIG, A, clone, commitsIn, doAck, doAckRefused, doDispose, doInvoke, doLand, doReload, doStart, endingTurn, init, laneSt, newCtx, runTurn, turnEnd, holds } from "./model.ts";
+import { CONFIG, A, clone, commitsIn, doAck, doAckRefused, doCaptureRefused, doDispose, doInvoke, doLand, doReload, doStart, endingTurn, init, laneSt, newCtx, prepRestore, runTurn, turnEnd, holds } from "./model.ts";
 import type { Act, Guard, Mode, S } from "./model.ts";
 
 type Tr = { g: Guard; a: "none" | Act; to: 0 | 1 } | null;
@@ -14,7 +14,7 @@ const specOf = (g: Guard, a: "none" | Act) => ({ label: key(g, a), guard: g, act
 
 interface Edge { kind: "plain" | "user" | "end" | "start" | "reload" | "dispose"; spec: string; to: number; denied: boolean; what: string; from: number }
 interface Lane { nodes: S[]; edges: Edge[][]; good: boolean[] }
-const nk = (s: S) => JSON.stringify([s.commits, s.st, s.head, s.W, s.bound, s.srvVal, s.applied, s.refused, [...s.net].sort(), s.atts.map((a) => [a.status, a.everSent, a.acked, a.ackedEver, a.sends, a.resends, a.interrupting, a.evid])]);
+const nk = (s: S) => JSON.stringify([s.commits, s.st, s.head, s.told, s.disposed, s.W, s.bound, s.srvVal, s.applied, s.refused, [...s.net].sort(), s.atts.map((a) => [a.status, a.everSent, a.acked, a.ackedEver, a.sends, a.resends, a.interrupting, a.evid])]);
 
 function buildLane(mode: Mode): Lane {
   const nodes: S[] = [], edges: Edge[][] = [], ids = new Map<string, number>();
@@ -36,7 +36,11 @@ function buildLane(mode: Mode): Lane {
     if (s.bound) for (const sp of SPECS) push("user", key(sp.g, sp.a), (x, c) => specRun(sp, x, c));
     for (const a of s.atts) {
       const id = a.id;
-      if (a.status === "waiting" && !a.acked) { push("plain", "", (x) => doAck(x, id)); push("plain", "", (x, c) => doAckRefused(x, c, id), a.everSent ? "ack-refused (re-send)" : "ack-refused (first send)"); }
+      if (a.status === "waiting" && !a.acked) { push("plain", "", (x) => doAck(x, id)); push("plain", "", (x, c) => doAckRefused(x, c, id), "ack-refused (first send)"); }
+      if (a.status === "waiting" && a.everSent) { // a refused re-send re-delivers the mapped unknown (OD20 F5)
+        if (s.bound) for (const sp of SPECS) push("end", key(sp.g, sp.a), (x, c) => { const d = doCaptureRefused(x, c, id); return d ? runTurn(x, c, fit(sp), () => d) : (turnEnd(x), undefined); }, "capture-refused (re-send, delivers unknown)");
+        else push("plain", "", (x, c) => { doCaptureRefused(x, c, id); turnEnd(x); }, "capture-refused (re-send, no actor)");
+      }
       if (a.status === "waiting" && a.acked) push("plain", "", (x, c) => doInvoke(x, c, id));
       if (a.status === "wire") {
         const handler = s.bound && s.head === id;
@@ -53,15 +57,15 @@ function buildLane(mode: Mode): Lane {
       if (holds(s.mode) && laneSt(s) === "Held") for (const sp of SPECS) push("start", key(sp.g, sp.a), (x, c) => { const id = doStart(x, c); return runTurn(x, c, fit(sp), () => id); }, "rebind (Held, delivers Restored)");
       else push("start", "", (x, c) => { doStart(x, c); }, "start (no hold to deliver)");
     }
-    if (s.bound && laneSt(s) === "InFlight") for (const sp of SPECS) push("reload", key(sp.g, sp.a), (x, c) => { const id = doReload(x, c); return id ? runTurn(x, c, fit(sp), () => id) : (turnEnd(x), undefined); }, "reload (InFlight: acked -> Restored, else NotSent)");
-    else push("reload", "", (x, c) => { doReload(x, c); turnEnd(x); }, laneSt(s) === "Held" ? "reload (Held: stays Held, NOT delivered)" : "reload (other)");
+    if (s.bound && laneSt(s) !== "Idle") for (const sp of SPECS) push("reload", key(sp.g, sp.a), (x, c) => { const ids = doReload(x, c); if (!ids.length) { turnEnd(x); return undefined; } let o: string | undefined; for (const id of ids) o = runTurn(x, c, fit(sp), () => { prepRestore(x, id); return id; }); return o; }, `reload (${laneSt(s)}: delivers unknown { Restored })`);
+    else push("reload", "", (x, c) => { doReload(x, c); turnEnd(x); }, "reload (no delivery)");
     edges.push(es);
   }
   return { nodes, edges, good: nodes.map((s) => laneSt(s) === "Idle" && s.W.length === 0 && s.out.length === 0) };
 }
 
 // Product of a machine with the lane. Returns the stuck reachable nodes (and parents for a path).
-function product(L: Lane, m: M, wantPath: boolean, deliverHeld = false) {
+function product(L: Lane, m: M, wantPath: boolean) {
   const N = L.nodes.length;
   const seen = new Uint8Array(N * 2), par = wantPath ? new Int32Array(N * 2).fill(-1) : null;
   const parEv: string[] = [];
@@ -78,10 +82,7 @@ function product(L: Lane, m: M, wantPath: boolean, deliverHeld = false) {
       else if (e.kind === "user") { const t = m.t[ms]; if (t && key(t.g, t.a) === e.spec) go(u, e.to * 2 + (e.denied ? ms : t.to), `e/${e.spec}`); }
       else if (e.kind === "end") { if (e.spec === hk) go(u, e.to * 2 + (m.hU && !e.denied ? m.hU.to : ms), `unknown->${hk}`); }
       else { // start / reload: a new actor of the machine starts in S0; a delivered unknown { Restored } meets the handler there
-        if (e.spec === "" && deliverHeld && e.what.startsWith("reload (Held")) { // variant: the reloaded actor also receives the hold
-          const h = L.edges[e.to]!.find((x) => x.kind === "user" && x.spec === hk);
-          go(u, (h ? h.to : e.to) * 2 + (h && m.hU && !h.denied ? m.hU.to : 0), "reload+Restored(variant)", true);
-        } else if (e.spec === "") go(u, e.to * 2 + 0, e.kind, true);
+        if (e.spec === "") go(u, e.to * 2 + 0, e.kind, true);
         else if (e.spec === hk) go(u, e.to * 2 + (m.hU && !e.denied ? m.hU.to : 0), `${e.kind}+Restored->${hk}`, true);
       }
     }
@@ -139,7 +140,7 @@ const cx = (m: M) => [m.t[0], m.t[1], m.hU].filter(Boolean).length;
 
 export function audit() {
   const saved = { ...CONFIG };
-  CONFIG.maxCommits = 2; CONFIG.resendCap = 1; CONFIG.ackPerSend = true;
+  CONFIG.maxCommits = 2; CONFIG.resendCap = 1;
   const trs: Tr[] = [null];
   for (const g of GS) for (const a of AS) for (const to of [0, 1] as const) trs.push({ g, a, to });
   const machines: M[] = [];
@@ -156,7 +157,7 @@ export function audit() {
       const flagged = rule(mode, m) !== "pass", stuck = product(L, m, false).stuck;
       if (flagged && stuck) tp++; else if (flagged) { fp++; ex.fp.push(m); } else if (stuck) {
         fn++; ex.fn.push(m);
-        const why = product(L, m, true).path.some((p) => p.startsWith("ack-refused (re-send)")) ? "a re-send refused by storage returns to Held with no unknown delivered (storage-refused row), so the retrying handler never runs again" : !product(L, m, false, true).stuck ? "a reload does not deliver a Held lane (restore row), so the new actor's handler never runs" : rule(mode, m, false) !== "pass" ? "reject's terminal pass (5.1 LEFT): the hold is left on purpose" : "other";
+        const why = rule(mode, m, false) !== "pass" ? "reject's terminal pass (5.1 LEFT): the hold is left on purpose" : "other (unexpected)";
         cause.set(why, [...(cause.get(why) ?? []), m]);
       } else tn++;
     }

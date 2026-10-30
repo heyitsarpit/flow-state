@@ -1,16 +1,23 @@
-baseline failing checks: ['allow:inv1', 'cancel:inv1', 'latest:inv3-limit-landed', 'latest:inv3-limit-stale', 'reject:inv3-limit-landed', 'reject:inv3-limit-stale', 'serialize:inv3-limit-landed', 'serialize:inv3-limit-stale']
+baseline failing checks: ['latest:inv3-limit-landed', 'latest:inv3-limit-stale', 'reject:inv3-limit-landed', 'reject:inv3-limit-stale', 'serialize:inv3-limit-landed', 'serialize:inv3-limit-stale']
 OK   interrupted Attempt becomes Held: an interrupt (after cancel or by an adapter) no longer retains the unknown, so a newer commit is sent while the request may still land
-      new failing checks: latest:inv2, latest:inv3, latest:inv5, reject:inv2, reject:inv3, reject:inv5, serialize:inv2, serialize:inv3, serialize:inv5
+      new failing checks: identity-latest:inv5, identity-reject:inv5, latest:inv2, latest:inv3, latest:inv5, reject:inv2, reject:inv3, reject:inv5, serialize:inv2, serialize:inv3, serialize:inv5
 OK   promote only on release: success and failure no longer promote the queued commit; only cancel does
       new failing checks: latest:inv3, latest:inv5, serialize:inv3, serialize:inv5
 OK   invocation whatever the turn's outcome: an Attempt promoted by an ending in a Denied/Unhandled/InvalidTurn turn is never invoked
       new failing checks: latest:inv3, serialize:inv3
 OK   cancel by history: cancel before invocation always ends NotSent { Cancelled }, even for a re-send that was sent before
-      new failing checks: latest:inv1, latest:inv2, latest:inv3, reject:inv1, reject:inv2, reject:inv3, serialize:inv1, serialize:inv2, serialize:inv3
+      new failing checks: cancel:inv1, latest:inv1, latest:inv2, latest:inv3, reject:inv1, reject:inv2, reject:inv3, serialize:inv1, serialize:inv2, serialize:inv3
 OK   the serialize hold: serialize promotes the next queued commit on an unknown, as if it were resolved
       new failing checks: serialize:inv2, serialize:inv3, serialize:inv5
 OK   HeldThisTurn: cancel and allow keep an unknown across turns instead of for its own turn only
       new failing checks: allow:inv5, allow:inv7, cancel:inv5
-OK   ending kept on a non-ok turn: a Denied/Unhandled/InvalidTurn turn drops the ending it admitted
-      new failing checks: latest:inv1, reject:inv1, serialize:inv1
-python3 mutations.py  10.15s user 0.78s system 164% cpu 6.650 total
+OK   ending kept on a non-ok turn (F8): a Denied/Unhandled/InvalidTurn turn drops the ending it admitted
+      new failing checks: allow:inv1, cancel:inv1, latest:inv1, reject:inv1, serialize:inv1
+OK   F2 acknowledgement once per Attempt: every (re-)send needs its own acknowledgement again (revision 9)
+      new failing checks: allow:inv1, cancel:inv1, latest:inv1, latest:inv2, latest:inv3, reject:inv1, reject:inv2, reject:inv3, serialize:inv1, serialize:inv2, serialize:inv3
+OK   F3 a reload delivers a Held lane: a reload leaves a Held lane undelivered (revision 9: not delivered again)
+      new failing checks: identity-latest:inv9, identity-reject:inv9, latest:inv9, reject:inv9, serialize:inv9
+OK   F5 a refused re-send re-delivers unknown: a storage-refused re-send returns to Held and tells nobody (revision 9)
+      new failing checks: identity-latest:inv9, identity-reject:inv9, latest:inv9, reject:inv9, serialize:inv9
+OK   K21 lane identity (actor identity, contract id, key): one lane per contract id and key: a new incarnation adopts any identity's lane (revision 9)
+      new failing checks: identity-latest:inv11, identity-latest:inv12, identity-reject:inv11, identity-reject:inv12

@@ -1,80 +1,24 @@
-// Model checker for the write lane of operations-in-definition/proposal.md rev 9, 3.8.1.
-// Types: `tsc -p .`   Run: bun main.ts   (MODES=reject,latest to restrict, ACK=attempt for the per-Attempt ack reading)
+// Model checker for the write lane of operations-in-definition/proposal.md rev 10 (65f542fe), 3.8.1.
+// Types: `tsc -p .`   Run: bun main.ts   (MODES=reject,latest to restrict; COMMITS, DEPTH, RAW, QUICK to tune)
 import {
-  A, CANNOT, CONFIG, FLAGS, LSTATES, MODES, ROWS, VISITED, checkState, clone, commitsIn, doAck, doAckRefused, doDispose, doInvoke, doLand, doReload,
-  doStart, endingTurn, holds, init, laneSt, newCtx, runTurn, turnEnd,
+  A, CANNOT, CONFIG, LSTATES, MODES, ROWS, RULES, VISITED, checkState, clone, commitsIn, doAck, doAckRefused, doCaptureRefused, doDispose, doHydrate, doInvoke,
+  doLand, doReload, doRuntimeDispose, doStart, endingTurn, holds, init, laneSt, newCtx, prepRestore, runTurn, turnEnd,
 } from "./model.ts";
 import type { Ctx, EndKind, Mode, S, Spec, Viol } from "./model.ts";
 import { audit } from "./audit.ts";
+import { HS, events, mk, restoreTurns } from "./events.ts";
+import { identity } from "./identity.ts";
 
 declare const process: any;
 declare const performance: any;
 const env = (k: string) => (typeof process !== "undefined" ? process.env[k] : undefined);
 
-const mk = (label: string, guard: Spec["guard"], acts: Spec["acts"], outcome: Spec["outcome"] = "ok"): Spec => ({ label, guard, acts, outcome });
-const USER: Spec[] = [
-  mk("commit", "none", ["commit"]), mk("commit/Denied", "none", ["commit"], "Denied"), mk("commit/Unhandled", "none", ["commit"], "Unhandled"),
-  mk("commit/InvalidTurn", "none", ["commit"], "InvalidTurn"), mk("retry", "none", ["retry"]), mk("cancel", "none", ["cancel"]),
-  mk("cancel;cancel", "none", ["cancel", "cancel"]), mk("commit;commit", "none", ["commit", "commit"]), mk("commit;cancel", "none", ["commit", "cancel"]),
-  mk("cancel;commit", "none", ["cancel", "commit"]), mk("retry;cancel", "none", ["retry", "cancel"]), mk("idle?commit", "idle", ["commit"]),
-  mk("retryable?retry", "retryable", ["retry"]),
-];
-const USER_R = USER.filter((u) => ["commit", "commit/Denied", "retry", "cancel", "cancel;cancel", "commit;commit"].includes(u.label));
-const HS: Spec[] = [
-  mk("h:none", "none", []), mk("h:retry", "none", ["retry"]), mk("h:cancel", "none", ["cancel"]), mk("h:cancel;cancel", "none", ["cancel", "cancel"]),
-  mk("h:commit", "none", ["commit"]), mk("h:Denied(retry)", "none", ["retry"], "Denied"), mk("h:Unhandled(cancel)", "none", ["cancel"], "Unhandled"),
-  mk("h:InvalidTurn(commit)", "none", ["commit"], "InvalidTurn"), mk("h:retryable?retry", "retryable", ["retry"]), mk("h:idle?commit", "idle", ["commit"]),
-];
-const HS_R = HS.filter((h) => ["h:none", "h:retry", "h:cancel"].includes(h.label));
-
-export interface Ev { label: string; run: (s: S, c: Ctx) => void }
-function events(s: S, reduced: boolean): Ev[] {
-  const out: Ev[] = [];
-  const left = CONFIG.maxCommits - s.commits;
-  const hs = (reduced ? HS_R : HS).filter((h) => commitsIn(h.acts) <= left);
-  const users = (reduced ? USER_R : USER).filter((u) => commitsIn(u.acts) <= left && (s.mode !== "allow" || (!u.acts.includes("retry") && !u.acts.includes("cancel") && u.guard !== "retryable")));
-  if (s.bound) for (const u of users) out.push({ label: u.label, run: (x, c) => runTurn(x, c, u) });
-  for (const a of s.atts) {
-    const id = a.id;
-    if (a.status === "waiting" && !a.acked) {
-      out.push({ label: `ack(${id})`, run: (x) => doAck(x, id) });
-      out.push({ label: `ack-refused(${id})`, run: (x, c) => doAckRefused(x, c, id) });
-    }
-    if (a.status === "waiting" && a.acked && !a.noInvoke) out.push({ label: `invoke(${id})`, run: (x, c) => doInvoke(x, c, id) });
-    if (a.status === "wire") {
-      const kinds: EndKind[] = [];
-      if (s.applied.includes(id)) kinds.push("success");
-      if (s.refused.includes(id)) kinds.push("failure");
-      kinds.push("unknown", "interrupt");
-      for (const k of kinds) {
-        const withHandler = s.bound && (s.mode === "allow" ? s.out.includes(id) : s.head === id);
-        for (const h of withHandler ? hs : [HS[0]!])
-          out.push({ label: `end-${k}(${id})${withHandler ? "/" + h.label : " [evidence]"}`, run: (x, c) => endingTurn(x, c, id, k, h) });
-      }
-    }
-  }
-  for (const id of [...new Set(s.net)]) {
-    out.push({ label: `land(${id})`, run: (x) => doLand(x, id, false) });
-    if (!s.applied.includes(id) && !s.refused.includes(id)) out.push({ label: `land-refuse(${id})`, run: (x) => doLand(x, id, true) });
-  }
-  if (s.bound) out.push({ label: "dispose", run: (x, c) => doDispose(x, c) });
-  const delivering = (x: S) => holds(x.mode) && laneSt(x) === "Held";
-  if (!s.bound) {
-    if (delivering(s)) for (const h of hs) out.push({ label: `start/Restored/${h.label}`, run: (x, c) => { const id = doStart(x, c); runTurn(x, c, h, () => id); } });
-    else out.push({ label: "start", run: (x, c) => { doStart(x, c); } });
-  }
-  const reloadDelivers = !!s.bound && (s.mode !== "allow") && ((s.mode === "cancel" ? false : false) || laneSt(s) === "InFlight");
-  if (reloadDelivers) for (const h of hs) out.push({ label: `reload/${h.label}`, run: (x, c) => { const id = doReload(x, c); if (id) runTurn(x, c, h, () => id); else turnEnd(x); } });
-  else out.push({ label: "reload", run: (x, c) => { doReload(x, c); turnEnd(x); } });
-  return out;
-}
-
 // ---- drain: a benign continuation used by invariant 3 -----------------------------------------------
 function drain(s0: S): { s: S; v: Viol[] } {
   const s = clone(s0), c = newCtx();
-  FLAGS.cap = false;
-  try {
+  {
     for (let i = 0; i < 120; i++) {
+      if (s.disposed) { restoreTurns(s, c, doReload(s, c), HS[0]!); continue; }
       if (!s.bound) { const id = doStart(s, c); if (id) runTurn(s, c, HS[0]!, () => id); continue; }
       const h = s.head ? A(s, s.head) : undefined;
       if (h && h.status === "waiting" && !h.noInvoke) { if (!h.acked) doAck(s, h.id); doInvoke(s, c, h.id); continue; }
@@ -83,7 +27,7 @@ function drain(s0: S): { s: S; v: Viol[] } {
       if (h && h.status === "unknown" && s.st === "Held") { runTurn(s, c, mk("drain-retry", "none", ["retry"])); continue; }
       break;
     }
-  } finally { FLAGS.cap = true; }
+  }
   return { s, v: c.viol };
 }
 function inv3(s0: S): Viol | null {
@@ -98,7 +42,7 @@ function inv3(s0: S): Viol | null {
 }
 
 const keyOf = (s: S) =>
-  [s.commits, s.st, s.head, s.W.join(","), s.out.join(","), s.old.join(","), s.bound ? 1 : 0, s.srvVal, s.applied.join(","), s.refused.join(","), [...s.net].sort().join(","),
+  [s.commits, s.st, s.head, +s.told, +s.disposed, s.W.join(","), s.out.join(","), s.old.join(","), s.bound ? 1 : 0, s.srvVal, s.applied.join(","), s.refused.join(","), [...s.net].sort().join(","),
     s.atts.map((a) => [a.status, +a.everSent, +a.acked, +a.ackedEver, a.sends, a.resends, +a.interrupting, +a.cancelled, +a.noInvoke, +a.evid, a.why].join("")).join("|")].join(";");
 
 interface Found { depth: number; path: string[]; msg: string }
@@ -198,13 +142,12 @@ const RAW = Number(env("RAW") ?? 6);
 const only = (env("MODES") ?? MODES.join(",")).split(",") as Mode[];
 if (env("COMMITS")) CONFIG.maxCommits = Number(env("COMMITS"));
 if (env("RESEND")) CONFIG.resendCap = Number(env("RESEND"));
-const TAGS = ["inv1", "inv2", "inv3", "inv3-limit-landed", "inv3-limit-stale", "inv4", "inv5"];
+const TAGS = ["inv1", "inv2", "inv3", "inv3-limit-landed", "inv3-limit-stale", "inv4", "inv5", "inv9"];
 
-function reading(label: string, ackPerSend: boolean, modes: Mode[]) {
-  CONFIG.ackPerSend = ackPerSend;
+function reading(label: string, modes: Mode[], commits?: number) {
   console.log(`\n######## reading: ${label}\nconfig: ${JSON.stringify(CONFIG)}  depthBound=${BOUND}`);
   for (const mode of modes) {
-    CONFIG.maxCommits = env("COMMITS") ? Number(env("COMMITS")) : holds(mode) ? 3 : 2; // cancel and allow: 2 commits (their state space is far larger; they are informational for invariant 3)
+    CONFIG.maxCommits = env("COMMITS") ? Number(env("COMMITS")) : commits ?? (holds(mode) ? 3 : 2); // cancel and allow: 2 commits (their state space is far larger; invariant 3 is not claimed for them)
     const r = explore(mode, { reduced: false, maxDepth: BOUND });
     console.log(`\n=== ${mode}: ${r.states} states, ${r.edges} transitions, longest shortest-path ${r.maxDepth}${r.truncated ? " (TRUNCATED at depth bound)" : " (complete: every sequence of any length is covered)"}, ${(r.ms / 1000).toFixed(1)}s`);
     for (const t of TAGS) {
@@ -229,11 +172,17 @@ function reading(label: string, ackPerSend: boolean, modes: Mode[]) {
 function main() {
   console.log("invariants: 1 sent endings never dropped (and NotSent only for never-sent); 2 nothing newer sent past an older unresolved unknown (holding modes); 3 server ends at the latest commit not cancelled/NotSent/failed;");
   console.log("            4 no double send except same-id re-send; 5 pending/uncertain/waiting match their definitions; 6 every reachable state reaches Idle; 7 cannot-occur cells never reached; 8 reachable cells all visited");
-  reading("literal: every (re-)send needs its own storage acknowledgement (needed for the storage-refused re-send cell)", true, only);
-  reading("per-Attempt: acknowledged is per Attempt and sticky (R6 L2; the restore row's wording)", false, only.filter(holds));
+  reading("revision 10 as written", only);
+  if (!env("QUICK") || env("REV9")) {
+    // the same model with revision 10's three fixes switched off: shows what F2, F3 and F5 each did
+    Object.assign(RULES, { ackPerAttempt: false, restoreDeliversHeld: false, refusedResendDelivers: false });
+    reading("revision 9 behaviour (F2 ack per send, F3 reload not delivered, F5 refused re-send silent), 2 commits", only.filter(holds), 2);
+    Object.assign(RULES, { ackPerAttempt: true, restoreDeliversHeld: true, refusedResendDelivers: true });
+  }
+  console.log("\n=== two actor identities on one contract and key (identity.ts; scoped=true is revision 10, false is revision 9's lane per contract and key)");
+  identity();
   if (env("QUICK")) return;
   console.log("\n=== raw enumeration of every event sequence (reduced alphabet, no state merging) vs merged search on the same alphabet");
-  CONFIG.ackPerSend = false;
   for (const mode of only) {
     const t0 = performance.now();
     const raw = enumerate(mode, RAW);
