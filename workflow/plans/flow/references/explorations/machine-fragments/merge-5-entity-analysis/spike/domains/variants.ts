@@ -21,7 +21,7 @@ export const Variants = domain("variants", {
   constants: read(ticketList)
     .list(Ticket, ({ result }) => result.tickets)
     .where(({ input, record }) =>
-      and(inWorkspace(record, input.workspaceId), F.or(eq(record.status, Defaults.status), eq(record.status, ASSIGNED)), F.gt(record.updatedAt, Since.Launch)),
+      and(inWorkspace(record, input.workspaceId), F.or(eq(record.status, Defaults.status), eq(record.status, ASSIGNED)), F.gt(record.updatedAt, Since.Launch), F.gt(record.updatedAt, Math.max(1, 2))),
     ),
   singleParameter: read(ticketList)
     .list(Ticket, (c) => c.result.tickets)

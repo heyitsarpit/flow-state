@@ -25,12 +25,13 @@ export interface Expr<V> {
   readonly __flowRecorded?: { v: V };
 }
 export type Condition = Expr<boolean>;
-// A type error that reads as a sentence.
-export type Msg<S extends string> = { readonly __flowError: S };
+// A type error that reads as a sentence: the compiler reports "Property '<sentence>' is missing".
+export type Msg<S extends string> = { readonly [K in S]: never };
 
 type ValOf<E> = E extends Value ? E : E extends Expr<infer V> ? V : E;
 
-type Fields<T> = { readonly [K in keyof T]-?: Ref<Exclude<T[K], undefined>> };
+// A recorded root (`input`, `record`) carries the brand too, so spreading or serialising it is caught by type.
+type Fields<T> = { readonly [K in keyof T]-?: Ref<Exclude<T[K], undefined>> } & { readonly __flowRecorded?: { v: T } };
 export type Ref<V> = Expr<V> &
   (NonNullable<V> extends Value ? unknown : NonNullable<V> extends readonly unknown[] ? unknown : Fields<NonNullable<V>>);
 export type { Fields };
@@ -38,23 +39,32 @@ export type { Fields };
 // ───────────────────────────────────────────────────────────── recording
 
 // A session ends when the recorded callback returns; a proxy read after that (a runtime function that
-// closed over the recording `input`) throws a sentence naming the fix, instead of reading a proxy as truthy.
-type Session = { open: boolean };
-export function refProxy(path: readonly string[], session: Session = { open: true }): any {
+// closed over the recording `input`) throws a sentence naming the fix. Enumerating a recorded value (spread,
+// `in`, Object.keys, JSON.stringify) throws too: it would record nothing and silently drop a constraint.
+// Truthiness (`if (input.x)`, `?:`) cannot be trapped by a proxy; only the lint catches it.
+type Session = { open: boolean; kind: string };
+const enumerated = (path: readonly string[]) => () => {
+  throw new RecordingError(`${path.join(".")} was enumerated (spread, \`in\`, Object.keys or JSON.stringify): a recorded value is read one property at a time`);
+};
+export function refProxy(path: readonly string[], session: Session = { open: true, kind: "recorded" }): any {
   return new Proxy(Object.create(null), {
     get(_t, p) {
       if (!session.open)
         throw new RecordingError(
-          `${path.join(".")} was read after construction: a predicted value's function receives the input as its second parameter, (beneath, input) => …`,
+          `${path.join(".")} was read after its ${session.kind} callback returned: a predicted field's function receives the input as its second parameter, (beneath, input) => …`,
         );
       if (p === IRK) return { ref: path };
       if (p === Symbol.toPrimitive)
         return () => {
           throw new RecordingError(`${path.join(".")} was converted to a primitive: comparisons in a recorded position are operators (eq, lt, …)`);
         };
-      if (typeof p === "symbol" || p === "then" || p === "toJSON") return undefined;
+      if (p === "toJSON") return enumerated(path);
+      if (typeof p === "symbol" || p === "then") return undefined;
       return refProxy([...path, p], session);
     },
+    has: enumerated(path),
+    ownKeys: enumerated(path),
+    getOwnPropertyDescriptor: enumerated(path),
   });
 }
 
@@ -89,7 +99,7 @@ export const condition = (f: (c: { input: any; record: any }) => unknown): IR =>
 type Arg<V> = V | Expr<V>;
 type Ordered = number | Date | null;
 type Orderable<L> = ValOf<L> extends Ordered ? L : Msg<"gt, gte, lt, lte, between and overlaps order numbers and Dates; a string's order is the server's collation: use serverMatches">;
-type SameType<L, R> = R extends Arg<ValOf<L>> ? R : Msg<"eq compares two values of one type (a Date with a Date, a string with a string)">;
+type SameType<L, R> = R extends Arg<ValOf<L>> ? R : Msg<"eq compares two values of one type"> & { readonly left: ValOf<L>; readonly right: ValOf<R> };
 
 export const eq = <L extends Expr<Value>, R>(a: L, b: SameType<L, R> & R): Condition => node("eq", a, b);
 export const oneOf = <L extends Expr<Value>>(a: L, values: Arg<readonly ValOf<L>[]>): Condition => node("oneOf", a, values);
@@ -122,7 +132,7 @@ export interface Change<in I = any> {
 }
 type KeyArg<Key> = Expr<Key> | Expr<readonly Key[]> | { readonly [F in keyof Key]: Key[F] | Expr<Key[F]> };
 // A predicted field: a recorded read or constant, or a runtime function of the record beneath and the input.
-type Slot<T, Row, I> = T | Expr<T> | ((beneath: Row, input: I) => T);
+type Slot<T, Row, I> = T | Expr<T> | ((beneath: DeepReadonly<Row>, input: I) => T);
 
 export type FieldIR = IR | { readonly runtime: true };
 export type ChangeIR = { change: "patch" | "delete"; entity: string; key: IR; many?: boolean; fields?: { [k: string]: FieldIR } };
@@ -165,15 +175,17 @@ declare const opTypes: unique symbol;
 export interface Op<I, R> {
   readonly id: string;
   readonly arrayKeys?: readonly string[]; // stands in for the input Schema: which input paths are arrays
+  readonly defaults?: Readonly<Record<string, Scalar>>; // stands in for Schema.optional(…, { default }) on the input
   readonly [opTypes]?: [I, R];
 }
 export const op =
   <I, R>() =>
-  (id: string, arrayKeys?: readonly string[]): Op<I, R> => ({ id, ...(arrayKeys ? { arrayKeys } : {}) });
+  (id: string, arrayKeys?: readonly string[], defaults?: Readonly<Record<string, Scalar>>): Op<I, R> => ({ id, ...(arrayKeys ? { arrayKeys } : {}), ...(defaults ? { defaults } : {}) });
 
 export type EntryDescription = {
   kind: "read" | "write" | "listen";
   op: string;
+  inputDefaults?: Readonly<Record<string, Scalar>>; // from the input Schema: an absent input with a default is that value
   places?: { mode: "one" | "list"; entity: string; at: IR | null }[];
   byKey?: IR;
   where?: IR;
@@ -187,8 +199,8 @@ export type EntryDescription = {
 // The recording context: the brand marks a recorded callback for the lint.
 type Ctx<T> = T & { readonly __flowRecording?: true };
 // Calls a recorded callback once and converts its result while the session is open.
-const record = <T, U>(f: (c: any) => T, convert: (x: T) => U): U => {
-  const session = { open: true };
+const record = <T, U>(f: (c: any) => T, convert: (x: T) => U, kind = "recorded"): U => {
+  const session = { open: true, kind };
   try {
     return convert(f({ input: refProxy(["input"], session), record: refProxy(["record"], session), result: refProxy(["result"], session) }));
   } finally {
@@ -206,40 +218,40 @@ export class ReadEntry<I, R, Row> {
     return new ReadEntry({ ...this.d, ...patch });
   }
   one<E extends Entity<any, any, any>>(e: E, at?: (c: Ctx<{ result: Fields<R> }>) => Expr<unknown>): ReadEntry<I, R, RowOf<E>> {
-    return this.add({ places: [...(this.d.places ?? []), { mode: "one", entity: e.id, at: at ? record(at, (x) => toIR(x, "at")) : null }] });
+    return this.add({ places: [...(this.d.places ?? []), { mode: "one", entity: e.id, at: at ? record(at, (x) => toIR(x, "at"), "place") : null }] });
   }
   list<E extends Entity<any, any, any>>(e: E, at: (c: Ctx<{ result: Fields<R> }>) => Expr<unknown>): ReadEntry<I, R, RowOf<E>> {
-    return this.add({ places: [...(this.d.places ?? []), { mode: "list", entity: e.id, at: record(at, (x) => toIR(x, "at")) }] });
+    return this.add({ places: [...(this.d.places ?? []), { mode: "list", entity: e.id, at: record(at, (x) => toIR(x, "at"), "place") }] });
   }
   derivedFrom<E extends Entity<any, any, any>>(e: E, fields?: (c: Ctx<{ record: Fields<RowOf<E>> }>) => readonly Expr<unknown>[]): ReadEntry<I, R, RowOf<E>> {
-    return this.add({ derivedFrom: { entity: e.id, fields: fields ? record(fields, (x) => toIR(x, "derivedFrom")) : null } });
+    return this.add({ derivedFrom: { entity: e.id, fields: fields ? record(fields, (x) => toIR(x, "derivedFrom"), "`.derivedFrom`") : null } });
   }
   byKey(f: (c: Ctx<{ input: Fields<I> }>) => unknown): ReadEntry<I, R, Row> {
-    return this.add({ byKey: record(f, (x) => toIR(x, "byKey")) });
+    return this.add({ byKey: record(f, (x) => toIR(x, "byKey"), "`.byKey`") });
   }
   // Several `.where` calls are combined with `and` (ED:387-388), in call order.
   where(f: (c: Ctx<{ input: Fields<I>; record: Fields<Row> }>) => Condition): ReadEntry<I, R, Row> {
-    const c = record(f, (x) => cond(x, ".where"));
+    const c = record(f, (x) => cond(x, ".where"), "`.where`");
     return this.add({ where: this.d.where ? { op: "and", args: [this.d.where, c] } : c });
   }
   orderBy(f: (c: Ctx<{ record: Fields<Row> }>) => readonly Sort[]): ReadEntry<I, R, Row> {
-    return this.add({ orderBy: record(f, (x) => x.map((s) => toIR(s, ".orderBy"))) });
+    return this.add({ orderBy: record(f, (x) => x.map((s) => toIR(s, ".orderBy")), "`.orderBy`") });
   }
   pagedBy(input: (c: Ctx<{ input: Fields<I> }>) => Expr<unknown>, next: (c: Ctx<{ result: Fields<R> }>) => Expr<unknown>): ReadEntry<I, R, Row> {
-    return this.add({ pagedBy: { input: record(input, (x) => toIR(x, "pagedBy")), next: record(next, (x) => toIR(x, "pagedBy")) } });
+    return this.add({ pagedBy: { input: record(input, (x) => toIR(x, "pagedBy"), "`.pagedBy`"), next: record(next, (x) => toIR(x, "pagedBy"), "`.pagedBy`") } });
   }
 }
 
 export class WriteEntry<I, R> {
   constructor(readonly d: EntryDescription, readonly arrayKeys: readonly string[] = []) {}
   one(e: Entity<any, any, any>, at?: (c: Ctx<{ result: Fields<R> }>) => Expr<unknown>): WriteEntry<I, R> {
-    return new WriteEntry({ ...this.d, places: [...(this.d.places ?? []), { mode: "one", entity: e.id, at: at ? record(at, (x) => toIR(x, "at")) : null }] }, this.arrayKeys);
+    return new WriteEntry({ ...this.d, places: [...(this.d.places ?? []), { mode: "one", entity: e.id, at: at ? record(at, (x) => toIR(x, "at"), "place") : null }] }, this.arrayKeys);
   }
   // Recorded once, for structure: the changes, their entities, keys and field names. A field's runtime
   // function is called later, with the real input. Whether a key is an array is recorded from the input
   // Schema (`many`), so merge 4 rule 34's default lane key is decided statically.
   predicts(f: (c: Ctx<{ input: Fields<I> }>) => Change<I> | readonly Change<I>[]): WriteEntry<I, R> {
-    const out = record(f, (o) => (Array.isArray(o) ? o : [o]).map((c) => irOf(c) as unknown as ChangeIR | undefined));
+    const out = record(f, (o) => (Array.isArray(o) ? o : [o]).map((c) => irOf(c) as unknown as ChangeIR | undefined), "`.predicts`");
     const changes = out.map((ir) => {
       if (!ir || !("change" in ir)) throw new RecordingError(".predicts must return Entity.patch or Entity.delete");
       const path = "ref" in ir.key && ir.key.ref[0] === "input" ? ir.key.ref.slice(1).join(".") : undefined;
@@ -256,7 +268,9 @@ export class ListenEntry<I, Ev> {
   }
 }
 
-export const read = <I, R>(o: Op<I, R>) => new ReadEntry<I, R, never>({ kind: "read", op: o.id });
+export const read = <I, R>(o: Op<I, R>) => new ReadEntry<I, R, never>({ kind: "read", op: o.id, ...(o.defaults ? { inputDefaults: o.defaults } : {}) });
+// An answer's input is decoded through the operation's input Schema first: a declared default fills an absent field.
+export const decodeInput = (d: EntryDescription, input: object): object => ({ ...(d.inputDefaults ?? {}), ...Object.fromEntries(Object.entries(input).filter(([, v]) => v !== undefined)) });
 export const write = <I, R>(o: Op<I, R>) => new WriteEntry<I, R>({ kind: "write", op: o.id }, o.arrayKeys ?? []);
 export const listen = <I, Ev>(o: Op<I, Ev>) => new ListenEntry<I, Ev>({ kind: "listen", op: o.id });
 
@@ -336,8 +350,13 @@ function compare(a: unknown, b: unknown, op: string, fields: string[], test: (c:
   return tri(test(c));
 }
 
-const andT = (ts: readonly Tri[]): Tri => (ts.some((t) => t.v === "no") ? NO : ts.find((t) => t.v === "maybe") ?? YES);
-const orT = (ts: readonly Tri[]): Tri => (ts.some((t) => t.v === "yes") ? YES : ts.find((t) => t.v === "maybe") ?? NO);
+// When several arguments are maybe, the reported cause is chosen by a fixed precedence, so it does not depend
+// on argument order: failed, then not carried, then server.
+const RANK: Record<Why, number> = { failed: 0, notCarried: 1, server: 2 };
+const firstMaybe = (ts: readonly Tri[]): Tri | undefined =>
+  ts.filter((t): t is Extract<Tri, { v: "maybe" }> => t.v === "maybe").sort((a, b) => RANK[a.why] - RANK[b.why])[0];
+const andT = (ts: readonly Tri[]): Tri => (ts.some((t) => t.v === "no") ? NO : firstMaybe(ts) ?? YES);
+const orT = (ts: readonly Tri[]): Tri => (ts.some((t) => t.v === "yes") ? YES : firstMaybe(ts) ?? NO);
 const notT = (t: Tri): Tri => (t.v === "yes" ? NO : t.v === "no" ? YES : t);
 
 // A condition over one record. `top`: directly under `and` from the root (or the root itself), the only
@@ -438,18 +457,61 @@ export function reads(ir: IR): string[] {
 
 // ───────────────────────────────────────────────────────────── the join rule
 
-// A delta (old record, new record, changed fields) against one answer's condition. Membership can change only
-// if a field the condition reads changed. Then the answer repairs unless both sides are the same definite
-// answer. The reason is repair evidence: a definite transition, or the maybe's cause.
+// Paths are compared by dot-separated segments, and match when one is a prefix of the other: a condition
+// reading `meta.owner` matches a change to `meta` (the object was replaced) and to `meta.owner.id`.
+export const overlapsPath = (a: string, b: string) => a === "*" || b === "*" || a === b || a.startsWith(`${b}.`) || b.startsWith(`${a}.`);
+const touches = (readsOf: readonly string[], changed: readonly string[]) => readsOf.some((r) => changed.some((c) => overlapsPath(r, c)));
+
+// One side of a delta: the record, `"none"` (it does not exist: before a create, after a delete), or
+// `"unknown"` (a record the client sees for the first time; it may have existed on the server).
+export type Side = object | "none" | "unknown";
 export type Repair = { repair: false } | { repair: true; why: "entered" | "left" | Why; detail?: string };
-export function joins(where: IR, input: unknown, old: object, next: object, changed: readonly string[]): Repair {
-  const r = reads(where);
-  if (!r.includes("*") && !changed.some((f) => r.includes(f))) return { repair: false };
-  const a = evaluate(where, { input, record: old });
-  const b = evaluate(where, { input, record: next });
+
+// The membership half of the join: is the record in the answer's condition before and after? A side that
+// does not exist is a definite no. A first sighting is no for a list (every record an active list holds is
+// held, ED:523-524) and maybe for a derived answer (it may have counted). An existence change repairs whatever
+// the condition reads; otherwise membership can change only through a field the condition reads. The answer
+// then repairs unless both sides are the same definite answer.
+export function membership(where: IR | undefined, input: unknown, before: Side, after: Side, changed: readonly string[], derived = false) {
+  const cond = where ?? { val: true };
+  const side = (x: Side): Tri =>
+    x === "none" ? NO : x === "unknown" ? (derived ? maybe("notCarried", "a first sighting: the record's earlier state is unknown") : NO) : evaluate(cond, { input, record: x });
+  const a = side(before);
+  const b = side(after);
+  const existence = typeof before !== "object" || typeof after !== "object";
+  const touched = existence || touches(reads(cond), changed);
+  return { a, b, touched };
+}
+export function joins(where: IR | undefined, input: unknown, before: Side, after: Side, changed: readonly string[], derived = false): Repair {
+  const { a, b, touched } = membership(where, input, before, after, changed, derived);
+  if (!touched) return { repair: false };
   if (a.v !== "maybe" && b.v !== "maybe") return a.v === b.v ? { repair: false } : { repair: true, why: b.v === "yes" ? "entered" : "left" };
-  const m = (a.v === "maybe" ? a : b) as Extract<Tri, { v: "maybe" }>;
+  const m = firstMaybe([a, b]) as Extract<Tri, { v: "maybe" }>;
   return { repair: true, why: m.why, detail: m.detail };
+}
+
+// ED 2.3's classifier: membership (above) or, for a record in the answer (yes or maybe on either side), a
+// change to a field this kind of answer depends on. A derived answer's fields are its declared fields plus the
+// fields its condition reads (ED:128-129: condition fields always repair), so the two lists cannot disagree.
+export type Answer =
+  | { kind: "one" }
+  | { kind: "ordered"; where?: IR; orderBy: readonly string[] }
+  | { kind: "unordered"; where?: IR }
+  | { kind: "ranked"; where?: IR; unaffectedBy?: readonly string[] }
+  | { kind: "derived"; where?: IR; fields?: readonly string[] };
+export function impact(answer: Answer, input: unknown, before: Side, after: Side, changed: readonly string[]): Repair {
+  if (answer.kind === "one") return after === "none" ? { repair: true, why: "left" } : { repair: false };
+  const derived = answer.kind === "derived";
+  const m = joins(answer.where, input, before, after, changed, derived);
+  if (m.repair) return m;
+  const { a, b } = membership(answer.where, input, before, after, changed, derived);
+  if (a.v === "no" && b.v === "no") return { repair: false };
+  const depends =
+    answer.kind === "ordered" ? touches(answer.orderBy, changed)
+    : answer.kind === "ranked" ? changed.some((c) => !(answer.unaffectedBy ?? []).some((u) => overlapsPath(u, c)))
+    : answer.kind === "derived" ? answer.fields === undefined || touches([...answer.fields, ...(answer.where ? reads(answer.where) : [])], changed)
+    : false;
+  return depends ? { repair: true, why: "server" as Why, detail: `a ${answer.kind} answer depends on ${changed.join(", ")}` } : { repair: false };
 }
 
 // The response check: a returned record contradicts the condition only when it definitely fails it.
@@ -457,7 +519,15 @@ export const contradicts = (where: IR, input: unknown, row: object) => evaluate(
 
 // ───────────────────────────────────────────────────────────── predictions: start, replay, settle
 
-const keyText = (k: unknown) => JSON.stringify(k);
+// A key's text with its fields sorted, so { a, b } and { b, a } are one record.
+const canonical = (x: unknown): string =>
+  Array.isArray(x) ? `[${x.map(canonical).join(",")}]`
+  : x !== null && typeof x === "object" && !(x instanceof Date) ? `{${Object.keys(x).sort().map((k) => `${JSON.stringify(k)}:${canonical((x as any)[k])}`).join(",")}}`
+  : x instanceof Date ? `Date(${x.getTime()})`
+  : JSON.stringify(x);
+const keyText = canonical;
+// Predictions are kept per (entity, key, field): settlement, confirmation and retirement never cross records.
+const slot = (entity: string, key: unknown, field: string) => `${entity}:${keyText(key)}:${field}`;
 
 export type Live = {
   attempt: string;
@@ -468,6 +538,7 @@ export type Live = {
   fields: { [k: string]: FieldIR };
   fns: Record<string, (beneath: any, input: any) => unknown>;
   input: unknown;
+  retired: ReadonlySet<string>; // slots a later confirmed write retired (ED:511-513), for this record only
 };
 
 const valueOf = (ir: IR, input: unknown): unknown => {
@@ -485,7 +556,7 @@ export function start(changes: readonly ChangeIR[], input: unknown, attempt: str
     const k = valueOf(c.key, input);
     const keys = c.many && Array.isArray(k) ? [...new Map(k.map((x) => [keyText(x), x])).values()] : [k];
     const fields = c.fields ?? {};
-    return { attempt, kind: c.change, entity: c.entity, keys, many: c.many === true, fields, fns: runtimeFns.get(fields) ?? {}, input };
+    return { attempt, kind: c.change, entity: c.entity, keys, many: c.many === true, fields, fns: runtimeFns.get(fields) ?? {}, input, retired: new Set() };
   });
 }
 
@@ -498,22 +569,44 @@ export const laneKey = (lives: readonly Live[]) => {
   return keys.length === 1 && lives.every((l) => !l.many) ? lives[0]!.keys[0] : undefined;
 };
 
+// A defect is the author's mistake, not this record's: it is reported (a diagnostic; a Story fails on it),
+// never silently skipped. An ordinary failure to compute a value for this record is skipped (rule A9).
+export class FlowDefect extends Error {}
+
 export type Replayed<Row> = {
   visible: Row | "deleted" | undefined;
-  predicted: string[]; // every field a live prediction names: shown or skipped
+  predicted: string[]; // every field a live prediction names on this record: shown or skipped
   skipped: { attempt: string; field: string; reason: string }[];
+  defects: { attempt: string; field: string; reason: string }[];
 };
 
 // A stand-in for the field's Schema check: a value must be defined, and a number finite.
 const acceptable = (x: unknown) => x !== undefined && !(typeof x === "number" && !Number.isFinite(x));
+const clone = <T>(x: T): T => structuredClone(x);
+export type DeepReadonly<T> = T extends Date ? T : T extends object ? { readonly [K in keyof T]: DeepReadonly<T[K]> } : T;
+
+// Calls a field's function. In development it is called twice, each time on a fresh copy of the record
+// beneath: a copy that changed is a mutation, and two different results are an impure function (Math.random,
+// a clock read in another millisecond). Both are defects. Production calls it once on the record itself,
+// typed DeepReadonly.
+function callField(fn: (b: any, i: any) => unknown, beneath: object, input: unknown, development: boolean): unknown {
+  if (!development) return fn(beneath, input);
+  const c1 = clone(beneath);
+  const c2 = clone(beneath);
+  const v1 = fn(c1, input);
+  const v2 = fn(c2, input);
+  if (canonical(c1) !== canonical(beneath) || canonical(c2) !== canonical(beneath)) throw new FlowDefect("the function changed the record beneath; it must return a new value");
+  if (canonical(v1) !== canonical(v2)) throw new FlowDefect("the function gave two results for one record and input; it must be pure and deterministic");
+  return v1;
+}
 
 // Replay: the base with this record's live predictions in start order (a write's patches in written order).
-// Every field of one patch sees the same record beneath. A field whose function throws, or returns a value
-// its Schema rejects, is skipped: it keeps the value beneath, still counts as predicted, and the rest go on.
-export function replay<Row extends object>(base: Row | undefined, lives: readonly Live[], entity: string, key: unknown): Replayed<Row> {
+// Every field of one patch sees the same record beneath.
+export function replay<Row extends object>(base: Row | undefined, lives: readonly Live[], entity: string, key: unknown, development = true): Replayed<Row> {
   let cur: Row | "deleted" | undefined = base;
   const predicted = new Set<string>();
   const skipped: Replayed<Row>["skipped"] = [];
+  const defects: Replayed<Row>["defects"] = [];
   for (const l of lives) {
     if (l.entity !== entity || !l.keys.some((k) => keyText(k) === keyText(key))) continue;
     if (l.kind === "delete") {
@@ -523,33 +616,61 @@ export function replay<Row extends object>(base: Row | undefined, lives: readonl
     const beneath: Row | undefined = cur === "deleted" ? undefined : cur;
     const next = { ...(beneath ?? {}) } as Record<string, unknown>;
     for (const [f, ir] of Object.entries(l.fields)) {
+      if (l.retired.has(slot(entity, key, f))) continue;
       predicted.add(f);
       try {
         if (beneath === undefined) throw new Error("the record is not held");
-        const v = "runtime" in ir ? l.fns[f]!(beneath, l.input) : valueOf(ir, l.input);
+        const v = "runtime" in ir ? callField(l.fns[f]!, beneath, l.input, development) : valueOf(ir, l.input);
         if (!acceptable(v)) throw new Error(`the field's Schema rejects ${String(v)}`);
         next[f] = v;
       } catch (e) {
-        skipped.push({ attempt: l.attempt, field: f, reason: (e as Error).message });
+        const entry = { attempt: l.attempt, field: f, reason: (e as Error).message };
+        if (e instanceof RecordingError || e instanceof FlowDefect) defects.push(entry);
+        else skipped.push(entry);
       }
     }
     cur = beneath === undefined ? cur : (next as Row);
   }
-  return { visible: cur, predicted: [...predicted], skipped };
+  return { visible: cur, predicted: [...predicted], skipped, defects };
 }
 
-// Settlement on success: the write's predictions end; a field it predicted (shown or skipped) that the
-// response omits is unconfirmed and needs a confirming read; a confirmed field retires older predictions
-// of that field on the record (ED:511-513).
-export function settle(lives: readonly Live[], attempt: string, response: Record<string, unknown>) {
+// Settlement on success, per record: `responses` lists each record the response carries and its fields. For
+// every (entity, key, field) the write predicted, shown or skipped: carried means confirmed, and retires older
+// live predictions of that slot only; not carried means unconfirmed, and needs its confirming read.
+export function settle(lives: readonly Live[], attempt: string, responses: readonly { entity: string; key: unknown; fields: readonly string[] }[]) {
+  const carried = new Set(responses.flatMap((r) => r.fields.map((f) => slot(r.entity, r.key, f))));
   const mine = lives.filter((l) => l.attempt === attempt);
-  const older = lives.slice(0, lives.findIndex((l) => l.attempt === attempt));
-  const confirmed = Object.keys(response);
-  const unconfirmed = [...new Set(mine.flatMap((l) => Object.keys(l.fields)))].filter((f) => !confirmed.includes(f));
+  const predictedSlots = mine.flatMap((l) => l.keys.flatMap((k) => Object.keys(l.fields).map((f) => slot(l.entity, k, f))));
+  const unconfirmed = [...new Set(predictedSlots)].filter((s) => !carried.has(s));
+  const firstMine = lives.findIndex((l) => l.attempt === attempt);
   const remaining = lives
     .filter((l) => l.attempt !== attempt)
-    .map((l) => (older.includes(l) ? { ...l, fields: Object.fromEntries(Object.entries(l.fields).filter(([f]) => !confirmed.includes(f))) } : l));
+    .map((l) => (lives.indexOf(l) < firstMine ? { ...l, retired: new Set([...l.retired, ...[...carried]]) } : l));
   return { remaining, unconfirmed };
+}
+
+// ───────────────────────────────────────────────────────────── one App: identities are unique
+
+// Construction errors for factories as for literal domains: a domain id, an entity id (two entity objects with
+// one id) or an operation registered in two domains (EDP:21-23, EDP:24-25).
+export function app(domains: readonly Domain[], entities: readonly { id: string }[] = []): void {
+  const ids = new Set<string>();
+  const ops = new Map<string, string>();
+  for (const d of domains) {
+    if (ids.has(d.id)) throw new RecordingError(`InvalidConfiguration: two domains named ${d.id}`);
+    ids.add(d.id);
+    for (const [name, e] of Object.entries(d.entries)) {
+      const prev = ops.get(e.d.op);
+      if (prev && prev !== d.id) throw new RecordingError(`InvalidConfiguration: operation ${e.d.op} is registered in ${prev} and ${d.id}.${name}`);
+      ops.set(e.d.op, d.id);
+    }
+  }
+  const seen = new Map<string, object>();
+  for (const e of entities) {
+    const prev = seen.get(e.id);
+    if (prev && prev !== e) throw new RecordingError(`InvalidConfiguration: two entities with id ${e.id}`);
+    seen.set(e.id, e);
+  }
 }
 
 // ───────────────────────────────────────────────────────────── the response's order check (ED 4.4)

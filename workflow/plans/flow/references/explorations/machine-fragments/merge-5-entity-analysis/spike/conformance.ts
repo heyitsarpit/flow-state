@@ -22,6 +22,8 @@ c("eq", "eq(r.n, 1)", "n = NaN", { record: { n: Number.NaN } }, ({ record: r }) 
 c("eq", "eq(r.t, i.t)", "equal at the millisecond", { record: { t: J1 }, input: { t: d("2026-01-01T00:00Z") } }, ({ record: r, input: i }) => eq(r.t, i.t), "maybe: server");
 c("eq", "eq(r.t, i.t)", "a day apart", { record: { t: J1 }, input: { t: d("2026-01-02T00:00Z") } }, ({ record: r, input: i }) => eq(r.t, i.t), "no");
 c("eq", "eq(r.t, i.t)", "t = invalid Date", { record: { t: d("nope") }, input: { t: J1 } }, ({ record: r, input: i }) => eq(r.t, i.t), "maybe: failed");
+c("eq", 'eq(r.meta.owner, "ana")', 'meta = { owner: "ana" }', { record: { meta: { owner: "ana" } } }, ({ record: r }) => eq(r.meta.owner, "ana"), "yes");
+c("eq", 'eq(r.meta.owner, "ana")', "meta not carried", { record: {} }, ({ record: r }) => eq(r.meta.owner, "ana"), "maybe: not carried");
 // oneOf, contains
 c("oneOf", "oneOf(r.s, i.xs)", 's = "b", xs = ["a", "b"]', { record: { s: "b" }, input: { xs: ["a", "b"] } }, ({ record: r, input: i }) => oneOf(r.s, i.xs), "yes");
 c("oneOf", "oneOf(r.s, i.xs)", 's = "c", xs = ["a", "b"]', { record: { s: "c" }, input: { xs: ["a", "b"] } }, ({ record: r, input: i }) => oneOf(r.s, i.xs), "no");

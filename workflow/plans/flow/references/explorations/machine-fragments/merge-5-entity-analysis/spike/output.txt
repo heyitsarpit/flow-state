@@ -1,5 +1,5 @@
 $ tsc -p .   (TypeScript 7.0.2)
-tsc: 0 errors; all 13 @ts-expect-error checks in types.ts hold, and its three exact-type assertions and five allowed forms compile
+tsc: 0 errors; all 14 @ts-expect-error checks in types.ts and 4 in review 3's probe files hold; three exact-type assertions and five allowed forms compile
 
 $ bun main.ts   (bun 1.4.2)
 (a) conditions record and evaluate three-valued: the conformance table (M5-D3)
@@ -15,6 +15,8 @@ $ bun main.ts   (bun 1.4.2)
    | `eq` | `eq(r.t, i.t)` | equal at the millisecond | maybe: server |
    | `eq` | `eq(r.t, i.t)` | a day apart | no |
    | `eq` | `eq(r.t, i.t)` | t = invalid Date | maybe: failed |
+   | `eq` | `eq(r.meta.owner, "ana")` | meta = { owner: "ana" } | yes |
+   | `eq` | `eq(r.meta.owner, "ana")` | meta not carried | maybe: not carried |
    | `oneOf` | `oneOf(r.s, i.xs)` | s = "b", xs = ["a", "b"] | yes |
    | `oneOf` | `oneOf(r.s, i.xs)` | s = "c", xs = ["a", "b"] | no |
    | `oneOf` | `oneOf(r.s, i.xs)` | xs = [] | maybe: server |
@@ -61,7 +63,7 @@ $ bun main.ts   (bun 1.4.2)
    | `or` | `or(eq(r.a, i.me), serverMatches(i.q, r.title))` | a = me | yes |
    | `or` | `or(eq(r.a, i.me), serverMatches(i.q, r.title))` | a = someone else | maybe: server |
    | `not` | `not(serverMatches(i.q, r.title))` | any record | maybe: server |
-   PASS 56/56 conformance rows give their expected result
+   PASS 58/58 conformance rows give their expected result
 
    tickets.list where and(eq(record.workspaceId, input.workspaceId), eq(record.status, input.status), eq(record.assignee, input.assignee), serverMatches(input.search, record.title))
    PASS w1, absent filters dropped: the two w1 tickets are maybe (serverMatches), the w2 ticket no
@@ -81,64 +83,141 @@ $ bun main.ts   (bun 1.4.2)
    PASS `&&` silently records its second operand
    PASS Date.now() is recorded as a constant
 
-(b) the join rule: repair unless a read field is unchanged or both sides are the same definite answer
-   PASS rev 1's two-valued rule: true before and true after, so no transition fires (the verified missed refetch)
-   PASS the three-valued rule: yes before, maybe after, on a changed read field: repair (evidence: notCarried)
-   PASS a change to a field the condition does not read never repairs it (no refetch-on-every-change cliff)
-   PASS both sides definite and equal (yes, yes: still on red): no repair
-   PASS a definite transition: left, as evidence
-   PASS serverMatches under `or` is legal and maybe: a title change repairs, with `server` as the reason
-   PASS …and a change to a field it does not name does not
-   PASS serverMatches with no record fields reads every field: any change repairs (ED:144)
-   PASS isNull: assigning a ticket is a definite leave
+(b) the join: existence, nested paths, input defaults, ED 2.3's kinds
+   PASS the team/status counterexample (team not carried): yes before, maybe after, status read and changed: repair, why not carried
+   PASS both sides definite and equal (still on red): no repair
+   PASS a definite transition is evidence: left
+   PASS membership: a change to a field the condition does not read never changes membership
+   PASS a create into "all issues" (a condition of only droppable leaves): none → yes, repair, entered
+   PASS a create outside the condition: none → no, no repair
+   PASS a delete: yes → none, repair, left
+   PASS no .where: a create repairs, an update does not (membership)
+   PASS a first sighting for a list: no before (ED:523-524), so only a record in the condition enters
+   PASS a first sighting for a derived answer: before is maybe, so it refetches once (ED:525-526), even for a record outside the condition now
+   PASS a condition reading meta.owner repairs on a change reported as meta (the object replaced)
+   PASS …and on a change reported as meta.owner
+   PASS paths match by segment: metadata is not meta
+   PASS without the Schema default, an absent includeArchived drops the constraint: archiving a card does not repair (the missed refetch)
+   PASS decoded through the Schema (includeArchived defaults to false): archiving the card repairs, left
+   PASS mineOnly defaults to false: reassigning a card keeps it in the column, no repair
+   PASS with mineOnly true, reassigning my card away repairs
+   PASS serverMatches(viewer, acl) claims acl is all it reads: making a doc private does not repair; the claim is checked only by audit mode and propertyTest
+   PASS serverMatches(viewer) with no fields claims nothing narrower: it repairs
+   PASS an ordered list: an order field of a record in it repairs, though the condition does not read it
+   PASS …not for a record definitely outside it
+   PASS a server-ranked list: any field of a record in it repairs
+   PASS a derived count: its condition fields and its declared fields repair (the union, so the lists cannot disagree); the subject does not
+   PASS both maybe: the cause follows a fixed precedence (failed, not carried, server), so argument order does not change it
 
-(c) predictions: runtime functions, recorded for structure, called with the real input
-   Issues.setLike records {"change":"patch","entity":"issues/Issue","fields":{"liked":{"ref":["input","liked"]},"likes":{"runtime":true}},"key":{"ref":["input","key"]}}
-   PASS the Model holds the entity, key and field names; likes is `runtime` (flow explain: likes ← <runtime>)
-   PASS at start the key is read from the input: one record, so merge 4 rule 34's lane key
-   PASS base liked false, likes 5; A like starts: liked true, likes 6
+(c) predictions: runtime functions, recorded for structure, settled per record
+   PASS the Model holds the entity, key and field names; likes is `runtime` (likes ← <runtime>)
+   PASS one record by a single key: merge 4 rule 34's lane key
+   PASS A like starts over liked false, likes 5: liked true, likes 6
    PASS B unlike starts behind A: liked false, likes 5
    PASS a push sets liked true, likes 9; A and B replay: liked false, likes 8
    PASS A fails and is retracted; B replays alone: liked false, likes 8
-   PASS B's confirmed likes retires A's older likes; B's omitted liked is unconfirmed (a confirming read)
-   PASS likes is not held: its function gives NaN, the Schema rejects it, it is skipped but still predicted (the field's Schema rejects NaN)
-   PASS the response omits likes: the skipped field is unconfirmed, so it gets a confirming read (no stale field)
-   PASS a function that throws is skipped; the field keeps its value beneath; the replay goes on
-   PASS a list edit is an ordinary function: two reactions over none give 2; over a moved base of 4, 6
-   PASS transfer: two records, replayed over a pushed base; two queues, no default lane key
    PASS a predicted delete hides the record
    PASS two patches to one record apply in written order (5 → 6 → 7) and join its queue once
-   PASS an array key is recorded in the Model (`many`, from the input Schema)
-   PASS an array key predicts each listed record once and takes no rule-34 lane key
-   PASS …not even with one element: the Model says many
-   PASS merge 4's original setLike, which closes over the recording input: "input was read after construction: a predicted value's function receiv…"
-   PASS a domain factory with a computed id records normally (allowed, M5-D6)
+   PASS a list edit is an ordinary pure function: two reactions over none give 2; over a moved base of 4, 6 (and the double call finds no defect)
+   PASS a transfer whose response carries only A: B's balance is unconfirmed and gets its confirming read (it used to be dropped)
+   PASS A's confirmation retires the older write's prediction on A only; its prediction on B still shows (B 100 → 105)
+   PASS a bulk (many) write whose response carries u1 only: u2 is unconfirmed
+   PASS an array key: recorded as many, deduplicated, never rule 34's lane key, even with one element
+   PASS keys are canonical: { b, a } and { a, b } are one record
+   PASS A9: likes is not held, its function gives NaN, the Schema rejects it: skipped, still predicted (the field's Schema rejects NaN)
+   PASS A9: the response omits likes: the skipped field gets its confirming read
+   PASS development calls a field's function twice: Math.random gives two results, a defect, reported (not skipped)
+   PASS a function that mutates the record beneath (labels.push) is a defect: each call gets a copy, and a changed copy is reported
+   PASS the sealed session's error is a defect, never skipped: "input was read after its `.predicts` callback returned: a pr…"
+   PASS spreading the recording input ({ ...input }) throws at construction
+   PASS JSON.stringify(input) throws at construction
+   PASS `in` on the recording input throws at construction
+   PASS review 3's probe file throws at construction on its first enumeration
+   PASS a factory called twice with one tenant: duplicate domain ids are a construction error
+   PASS one operation in two domains is a construction error
+   PASS two entity objects with one id (a constant id inside a factory) is a construction error
+   PASS two tenants with parameterised domain and entity ids still share their operations: an error, so a factory parameterises its operations too, or the tenant belongs in one domain's keys
 
-(d) the type-aware lint: JavaScript logic and impure calls, with a fix-it that type-checks
-   linted 5 files with type facts from typescript/unstable/async in 57 ms
-   domains/legacy.ts:15 [logic] a recorded value inside a runtime function: `===` on a recorded value records a JavaScript boolean
-      instruction: a predicted value's function receives the input as its second parameter, (beneath, input) => …; use that instead of the recording `input`
-   domains/legacy.ts:15 [logic] a recorded value inside a runtime function: `?:` on a recorded value records only one branch (a proxy is always truthy)
-      instruction: a predicted value's function receives the input as its second parameter, (beneath, input) => …; use that instead of the recording `input`
-   domains/legacy.ts:23 [logic] `||` records only its first operand
-      fix-it: or(eq(record.status, "open"), eq(record.assignee, input.assignee))
-   domains/legacy.ts:27 [logic] `?:` on a recorded value records only one branch (a proxy is always truthy)
-      instruction: a recorded position cannot branch: in a condition, write the alternatives as or(and(…), and(…)) over conditions, make two read entries, or use serverMatches; in a predicted field, use a function (beneath, input) => …
-   domains/legacy.ts:31 [logic] `&&` records only its second operand
-      fix-it: and(eq(record.workspaceId, input.workspaceId), eq(record.status, "open"))
-   domains/legacy.ts:35 [impure] `Date.now()` runs once, at construction, and is recorded as a constant (a best-effort list: Date, Math, crypto, performance)
+(d) the lint: an allowlist grammar, with type facts
+   linted 11 files with type facts from typescript/unstable/async in 133 ms
+   domains/mail.ts:27 [not-recorded] not a recorded expression: a spread of fields
+   domains/cal.ts:15 [not-recorded] not a recorded expression: `new Date()` runs once, at construction (a Date constant is new Date("…literal…"))
       instruction: pass the value as an input field the machine supplies (input.now)
-   domains/legacy.ts:41 [logic] `?:` on a recorded value records only one branch (a proxy is always truthy)
-      instruction: a recorded position cannot branch: in a condition, write the alternatives as or(and(…), and(…)) over conditions, make two read entries, or use serverMatches; in a predicted field, use a function (beneath, input) => …
-   domains/legacy.ts:45 [logic] `?:` on a recorded value records only one branch (a proxy is always truthy)
-      instruction: a recorded position cannot branch: in a condition, write the alternatives as or(and(…), and(…)) over conditions, make two read entries, or use serverMatches; in a predicted field, use a function (beneath, input) => …
-   PASS no findings on the reference domains, the extras or the variants (a helper, a factory, consts, enums, casts, single-parameter and nested callbacks)
-   PASS `||`: or(…), and that exact text compiles in types.ts: or(eq(record.status, "open"), eq(record.assignee, input.assignee))
+   domains/cal.ts:17 [not-recorded] not a recorded expression: `new Date(NOW)` runs once, at construction (a Date constant is new Date("…literal…"))
+      instruction: pass the value as an input field the machine supplies (input.now)
+   domains/cal.ts:19 [not-recorded] not a recorded expression: helper `startOfToday` is not one expression
+   domains/tenant.ts:9 [not-recorded] not a recorded expression: `opts.strict ? eq(record.columnId, input.columnId) : eq(recor` (ConditionalExpression)
+      instruction: a recorded expression cannot branch: write or(and(…), and(…)) over conditions, make two read entries, choose t
+   domains/tenant.ts:9 [not-recorded] not a recorded expression: `opts.archivedToo ?? false` (BinaryExpression)
+      instruction: write it with condition operators over the callback's parameters and constants; compute anything else in the m
+   domains/holes.ts:16 [not-recorded] not a recorded expression: helper `anyHelper`'s parameter `flag` is not a recorded value or a primitive (any, a generic 
+   domains/holes.ts:17 [not-recorded] not a recorded expression: helper `genHelper`'s parameter `flag` is not a recorded value or a primitive (any, a generic 
+   domains/holes.ts:18 [not-recorded] not a recorded expression: helper `andish`'s parameter `a` is not a recorded value or a primitive (any, a generic or an 
+   domains/holes.ts:20 [not-recorded] not a recorded expression: a block (`if`, `switch`, statements): a recorded callback is one expression
+      instruction: a recorded expression cannot branch: write or(and(…), and(…)) over conditions, make two read entries, choose t
+   domains/holes.ts:25 [not-recorded] not a recorded expression: a block (`if`, `switch`, statements): a recorded callback is one expression
+      instruction: a recorded expression cannot branch: write or(and(…), and(…)) over conditions, make two read entries, choose t
+   domains/holes.ts:27 [not-recorded] not a recorded expression: `(input.mineOnly as any) ? eq(record.boardId, "a") : eq(recor` (ConditionalExpression)
+      instruction: a recorded expression cannot branch: write or(and(…), and(…)) over conditions, make two read entries, choose t
+   domains/holes.ts:28 [not-recorded] not a recorded expression: `typeof input.mineOnly === "boolean" ? eq(record.boardId, "a"` (ConditionalExpression)
+      instruction: a recorded expression cannot branch: write or(and(…), and(…)) over conditions, make two read entries, choose t
+   domains/holes.ts:29 [not-recorded] not a recorded expression: `"mineOnly" in input ? eq(record.boardId, "a") : eq(record.bo` (ConditionalExpression)
+      instruction: a recorded expression cannot branch: write or(and(…), and(…)) over conditions, make two read entries, choose t
+   domains/holes.ts:30 [not-recorded] not a recorded expression: a call to `JSON.stringify` (only library operators, same-file helpers that meet this grammar,
+      instruction: compute it in the machine and pass it as an input, or inline it as operators
+   domains/holes.ts:31 [not-recorded] not a recorded expression: a spread argument
+   domains/holes.ts:32 [not-recorded] not a recorded expression: a call to `Now` (only library operators, same-file helpers that meet this grammar, and pure M
+      instruction: compute it in the machine and pass it as an input, or inline it as operators
+   domains/holes.ts:33 [not-recorded] not a recorded expression: a call to `String` (only library operators, same-file helpers that meet this grammar, and pur
+      instruction: compute it in the machine and pass it as an input, or inline it as operators
+   domains/holes.ts:34 [not-recorded] not a recorded expression: a call to `String` (only library operators, same-file helpers that meet this grammar, and pur
+      instruction: compute it in the machine and pass it as an input, or inline it as operators
+   domains/holes.ts:35 [not-recorded] not a recorded expression: a call to `String` (only library operators, same-file helpers that meet this grammar, and pur
+      instruction: compute it in the machine and pass it as an input, or inline it as operators
+   domains/holes.ts:36 [not-recorded] not a recorded expression: a spread argument
+   domains/holes.ts:37 [not-recorded] not a recorded expression: a call to `String` (only library operators, same-file helpers that meet this grammar, and pur
+      instruction: compute it in the machine and pass it as an input, or inline it as operators
+   domains/holes.ts:38 [not-recorded] not a recorded expression: `input.boardId ?? "x"` (BinaryExpression)
+      instruction: write it with condition operators over the callback's parameters and constants; compute anything else in the m
+   domains/holes.ts:39 [not-recorded] not a recorded expression: `(input as any).boardId || "x"` (BinaryExpression)
+      instruction: write it with condition operators over the callback's parameters and constants; compute anything else in the m
+   domains/holes.ts:40 [closure] a predicted field's function uses `input` from its `.predicts` callback (a recording value)
+      instruction: a predicted field's function receives the input as its second parameter, (beneath, input) => …
+   domains/holes.ts:41 [closure] a predicted field's function uses `input` from its `.predicts` callback (a recording value)
+      instruction: a predicted field's function receives the input as its second parameter, (beneath, input) => …
+   domains/holes.ts:43 [not-recorded] not a recorded expression: a spread of fields
+   domains/legacy.ts:15 [closure] a predicted field's function uses `input` from its `.predicts` callback (a recording value)
+      instruction: a predicted field's function receives the input as its second parameter, (beneath, input) => …
+   domains/legacy.ts:15 [closure] a predicted field's function uses `input` from its `.predicts` callback (a recording value)
+      instruction: a predicted field's function receives the input as its second parameter, (beneath, input) => …
+   domains/legacy.ts:23 [not-recorded] not a recorded expression: `eq(record.status, "open") || eq(record.assignee, input.assig` (BinaryExpression)
+      fix-it: or(eq(record.status, "open"), eq(record.assignee, input.assignee))
+   domains/legacy.ts:27 [not-recorded] not a recorded expression: `input.status ? eq(record.status, input.status) : eq(record.s` (ConditionalExpression)
+      instruction: a recorded expression cannot branch: write or(and(…), and(…)) over conditions, make two read entries, choose t
+   domains/legacy.ts:31 [not-recorded] not a recorded expression: `eq(record.workspaceId, input.workspaceId) && eq(record.statu` (BinaryExpression)
+      fix-it: and(eq(record.workspaceId, input.workspaceId), eq(record.status, "open"))
+   domains/legacy.ts:35 [not-recorded] not a recorded expression: a call to `Date.now` (only library operators, same-file helpers that meet this grammar, and p
+      instruction: compute it in the machine and pass it as an input, or inline it as operators
+   domains/legacy.ts:41 [not-recorded] not a recorded expression: `me ? eq(record.assignee, me) : eq(record.status, "open")` (ConditionalExpression)
+      instruction: a recorded expression cannot branch: write or(and(…), and(…)) over conditions, make two read entries, choose t
+   domains/legacy.ts:45 [not-recorded] not a recorded expression: `input.liked ? true : false` (ConditionalExpression)
+      instruction: a recorded expression cannot branch: write or(and(…), and(…)) over conditions, make two read entries, choose t
+   PASS domains/tickets.ts: no errors
+   PASS domains/issues.ts: no errors
+   PASS domains/extras.ts: no errors
+   PASS domains/variants.ts: no errors
+   PASS domains/kanban.ts: no errors
+   PASS domains/docs.ts: no errors
+   PASS every serverMatches with a field list gets an info finding: the list is a claim only audit mode and propertyTest check
+   PASS review 3's 22 holes are all errors except e22 (impurity inside a runtime function, the development double call's job): missed e22
+   PASS new Date(), new Date(NOW) (computed at load) and the startOfToday() helper are errors
+   PASS new Date("2024-01-01…") and Math.max(1, 2) are pure: no false positive
+   PASS a factory: `opts.strict ? … : …` and `opts.archivedToo ?? false` are errors; the primitive parameter `tenant` is allowed
+   PASS a spread of the input into patch fields is an error
+   PASS `||`: or(…), and that exact text compiles in types.ts
    PASS `&&`: and(…), and that exact text compiles in types.ts
-   PASS `?:` in a condition: an instruction, never code (no operator branches, so any code would be a type error)
-   PASS Date.now() in a recorded position is impure
-   PASS merge 4's setLike: both `===` and `?:` over the captured recording input are flagged as a closure, with the (beneath, input) instruction
-   PASS a helper's `?:` over its own recorded parameter is found by type (not reported as a closure)
-   PASS `?:` in a recorded field value is flagged
+   PASS `?:`: an instruction, never code
+   PASS merge 4's setLike: a closure over the recording input
+   PASS a helper's `?:` is found by checking the helper's body against the grammar
 
-ALL PASS (52 checks)
+ALL PASS (84 checks)

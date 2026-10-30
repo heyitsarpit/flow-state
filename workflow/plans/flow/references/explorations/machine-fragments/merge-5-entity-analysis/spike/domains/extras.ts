@@ -34,7 +34,7 @@ export const Extras = domain("extras", {
   mineOrMatching: read(myQueue)
     .list(Ticket, ({ result }) => result.tickets)
     .where(({ input, record }) => and(eq(record.workspaceId, input.workspaceId), or(eq(record.assignee, input.me), serverMatches(input.me, record.title)))),
-  // Dates: an absent bound is no bound; endsAt may be null (an open-ended occurrence never overlaps).
+  // Dates: an absent bound is no bound; endsAt may be null (an open-ended occurrence is maybe on its end term).
   occurrences: read(occurrencesIn)
     .list(Occurrence, ({ result }) => result.items)
     .where(({ input, record }) =>

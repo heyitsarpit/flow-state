@@ -3,11 +3,11 @@
 // must compile with the exact type asserted.
 import { and, asc, eq, gt, isNull, lt, not, or, read, serverMatches, write } from "./flow.ts";
 import type { Condition, Expr, Fields } from "./flow.ts";
-import { archiveUsers, setLike, ticketList } from "./domains/ops.ts";
+import { archiveUsers, react, setLike, ticketList } from "./domains/ops.ts";
 import type { OccurrenceRow, TicketListInput, TicketRow } from "./domains/ops.ts";
 import { Issue } from "./domains/issues.ts";
 import { Ticket } from "./domains/tickets.ts";
-import { User } from "./domains/extras.ts";
+import { Message, User } from "./domains/extras.ts";
 
 type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false;
 const assert = <T extends true>() => undefined as unknown as T;
@@ -55,6 +55,8 @@ write(setLike).predicts(({ input }) => Issue.patch(input.key, { likes: (i) => i.
 write(setLike).predicts(({ input }) => Issue.patch(input.key, { likes: (i, input) => input.nope }));
 // @ts-expect-error a runtime function that closes over the recording `input`: Ref<boolean> and boolean have no overlap
 write(setLike).predicts(({ input }) => Issue.patch(input.key, { likes: (i) => i.likes + (input.liked === i.liked ? 0 : 1) }));
+// @ts-expect-error the record beneath is DeepReadonly: a function may not mutate it (push does not exist on a readonly array)
+write(react).predicts(({ input }) => Message.patch(input.key, { reactions: (m) => { m.reactions.push({ emoji: "x", count: 1 }); return m.reactions; } }));
 // @ts-expect-error `.predicts` returns changes
 write(setLike).predicts(() => true);
 
