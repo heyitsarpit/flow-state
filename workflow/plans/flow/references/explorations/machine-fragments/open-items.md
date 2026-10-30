@@ -187,5 +187,23 @@ The audit should, for each case: show the wiring as it is written today; say whe
 Candidates already seen: resume position and dedupe on fact feeds; catch-up paging; reconnect backoff kept across a
 reload (the chat `reopenInMs` field); retry-budget handlers (`retryable` then `retry`, else `cancel`) repeated on every
 write; releasing a held write in every toast-only `unknown` handler; mirroring lane state into memory for views;
-key selectors in user events; seeding a feed's first position from a history read. Scope: machine-design.md as merged,
+key selectors in user events; seeding a feed's first position from a history read. Also: a ready-made payload schema for `missed` events (for example `Feed.Missed`, `{ why, restartAt? }`), since every app declares the same shape. Scope: machine-design.md as merged,
 streams (proposal-v2.md) and operations-in-fragments.
+
+## 16. Outbound live state on a session (cursors) (deferred by streams S5, 2026-10-30)
+
+A first-class outbound slot (`O.doc.publish(s, value)` from views) with its own rules for turns, Stories and
+`check()`. Today a write is the documented workaround (streams proposal-v2 4.8).
+
+## 17. One shared session per Runtime (deferred by streams S5, 2026-10-30)
+
+For `listen` entries and connection-limited sources (SSE's six per origin); M6-D6's open part. A stated limit today.
+
+## 18. A manual `reconnect` member on a stream (parked, 2026-10-30)
+
+Re-open a placement's session from its `input` without leaving the state (merge-6-streams/proposal.md 11.1).
+proposal-v2 does not preclude it.
+
+## 19. `fromRpc` streams and download resume with `Range` (deferred by streams S5, 2026-10-30)
+
+An Rpc-backed stream adapter (with OD13's `fromRpc`), and resuming a download by byte range.
