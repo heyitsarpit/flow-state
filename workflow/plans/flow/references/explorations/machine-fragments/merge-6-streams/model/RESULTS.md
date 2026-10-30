@@ -1,72 +1,64 @@
-# Streams state machines: model results against proposal-v2.md revision 3 (ac493bd1), section 3
+# Streams state machines: model results against proposal-v2.md revision 4 (bf249a24), section 3
 
 Files: `model.ts` (3.1 to 3.6; `CONFIG` holds the mutable rules), `main.ts` (explorer, systems, checks), `mutations.py`, `output.txt`, `mutations-output.txt`.
-Run `tsc -p . && bun main.ts` (18 s), `python3 mutations.py` (about 9 min). Line numbers are proposal-v2.md at ac493bd1. Revision 2's model is superseded.
+Run `tsc -p . && bun main.ts` (29 s), `python3 mutations.py` (about 12 min, depth 9). No isolation switch: the baseline runs as the text states it. Line numbers are proposal-v2.md at bf249a24.
 
 ## What is modelled
-- **S**: 3.1 (16 inputs x 6 states) and 3.2 for `facts` and `state`, with restart and successor. Exhaustive fixpoint (5,392 and 25,267 states).
-- **S+L**: S with 3.6 attached (reads, `feedDown`/`feedGap`/`feedEnded`, refetch). Bounded: 11 inputs (facts), 7 (state), 400k states.
-- **CB+S**: 3.3 (group `(down1, live, down2)`, waiters) feeding a session, `bufferSize` 2. Fixpoint (294k and 237k states).
-- **R+S**: 3.4 (14 inputs x 5 phases, `ring`, `emptyRun`, `CannotRepair`) feeding a session. Four configs: catchUp from 0, catchUp with no `from`, no catchUp, no catchUp with no positions.
-  **Bounded to 10 inputs**; schedules of length 2, `bufferSize` 2, server head up to 3. `resetAfter` is "stable" / "not stable", checked in a clock-only run (`R/budget`).
-- **P**: 3.5 (3 Attempts, setter, ending, promotion, restore). Fixpoint (688 states).
-- Coverage: 3.1 all 55 defined cells (41 cannot never fire); 3.4 all 32 (38 cannot); 3.3 all 18 cells; 3.5 all 6; 3.6 all event kinds.
+- **S**: 3.1 (16 inputs x 6 states) and 3.2, `facts` and `state`, with a clock (saturating at 2), restored `last` with a transferred age, restart and successor. Exhaustive (4,796 and 379,316 states).
+- **S+L**: S with 3.6 attached: the function `fresh(r)` against the table's implementation, reads (one trailing), refetch. Bounded at 12 inputs.
+- **CB+S**: 3.3 (group `(down1, live, down2)`, waiters) feeding a session, `bufferSize` 2, with I25's end-to-end comparison. Exhaustive (1.03M and 590k states).
+- **R+S**: 3.4 (14 inputs x 5 phases, `buf`, `seen`, `tail`, meet, `emptyRun >= 2`, `CannotRepair`) feeding a session, four configs (catchUp from 0, catchUp with no `from`, no catchUp, no positions).
+  **Bounded to 10 inputs**; server per 3.7: head up to 3, retention drops a prefix (never past the registration point), the socket lags at most `bufferSize` (P1 to P3). P4 is the fairness filter of I22b.
+  `resetAfter` is one tick of a clock in a clock-only run (`R/budget`).
+- **P**: 3.5, exhaustive. Coverage: 3.1 all 55 defined cells (41 cannot never fire); 3.4 all 32 (38); 3.3 all 18; 3.5 all 6; 3.6 reads and refetch.
 
 ## Invariants (PASS = no counterexample inside the bounds)
 | # | Result | # | Result |
 | --- | --- | --- | --- |
-| I1 | PASS (session-local; see N8) | I13 | **FAIL** (N2) |
-| I2 | PASS (counts 55/41 and 32/38 match 557 and 658) | I14 | PASS (3.5) |
-| I3 | PASS | I15 | **FAIL** (N1) |
-| I4 | PASS | I16 | PASS |
-| I5 | PASS by construction | I17 | PASS |
-| I6 | PASS | I18 | PASS |
-| I7 | PASS (`\|Q\|` ≤ 3, ring, buf, callback) | I19 | PASS |
-| I8 | PASS | I20 | PASS for the implicit clause; **FAIL** for "at most one start" (N4) |
-| I9 | PASS | I21 | PASS |
-| I10 | PASS | I22 | PASS with fairness; **FAIL** with endless empty pages (N5) |
-| I11 | PASS (discard path only) | I23 | **FAIL** (N3) |
-| I12 | PASS | I24 | PASS (but see N7) |
+| I1 to I12 | PASS | I19 | PASS |
+| I13 | **FAIL** (N1) | I20 | PASS (restated) |
+| I14 | PASS | I21 | PASS |
+| I15 | PASS (impl equals the function) | I22a | PASS (bound 6) |
+| I16 | PASS | I22b | PASS under P4 (empty pages excluded) |
+| I17 | PASS | I23 | **FAIL** (N1) |
+| I18 | PASS | I24 | PASS (value check included) |
+| I25 | PASS (adapter to session) | I26 | PASS (with N2) |
 
-## Counterexamples (shortest; `output.txt` has all)
-- **I15** (S+L, 5): `proof(b)` -> `stream fails` -> read starts -> read lands -> read lands. r is fresh and the session is `Ended`.
-- **I13 and I23** (R+S, 5): `append` x3, `inner value`, `page ok (last)`. The page emits 1, 2, 3 (ring = 2, 3); the buffer holds 1; `complete()` emits 1 again.
-- **I23** (R+S no catchUp, 7): `down`, `append` x2, `value`, `live()`, `append`, `value`: position 2 is a hole inside one cut. The same with `down` in place of `live()` (catchUp configs).
-- **I20, "at most one start"** (R+S, 2): `inner proof(b)` -> `inner reset(r, at)`; also `inner live()` -> `inner reset`.
-- **I22b** (liveness): an `empty with next` page repeats at `emptyRun` 3 for ever.
+Revision 3's failures are fixed: owed `missed` (I23), `reset` after a start (I20), ring size (the meet), `emptyRun` (I22), freshness after an end (I15), the Room cell promise, I24's stale slot, group order.
 
-## Findings: new contradictions and gaps in revision 3 (N), with lines
-- **N1 (I15 vs 3.6, 685 and 687, 709)**: `end` and release add `feedEnded`, but a read that started after them lands and removes it, so r is fresh while the session is `Ended` or `Releasing`. I15 demands `st = Live`.
-- **N2 (3.4, 620, 634, 647 vs I13 at 707)**: `ring` keeps the newest `bufferSize` page positions, `buf` the oldest socket positions. When a repair overlaps the socket by more than `bufferSize`, a buffered position that is not in the ring clears it and is emitted twice.
-- **N3 (3.1, 527 and 563-564 vs I23 at 717)**: an owed `missed Unproven` suppresses the `missed` of the next unproven start (and `Dropped` + `down` keeps `owed`, 547), so values lost on the SDK's own re-registration leave a hole inside one cut. Also `CannotRepair(continueAt)` (648): buffered positions at or below `continueAt` are emitted after the page values (out of order).
-- **N4 (I20 at 714 vs 642 and 644)**: a `reset` after a registering `proof`, `live()` or `lost` in one connection is a second start before the first value.
-- **N5 (647)**: `emptyRun = 2` fires once; the third and later empty pages with a next cursor are not caught, so I22 needs fairness.
-- **N6 (606 vs 612-613)**: the Room cell returns a resolved promise, the note says the emit that fills the last slot waits. Modelled per the note (`wt`).
-- **N7 (I24 at 718)**: it does not cover the slot staying stale when a newer value equals `heard`; I added `I24x` (the delivered slot equals the current value). It passes.
-- **N8 (I1 at 695)**: I1 reads only session events, so an evicted `down` or an order-blind merge cannot violate it. The listed mutants (721-723) are killed by my adapter-level `I1a` and `CB-status`, not by I1 or I8.
-- **N9 (527)**: "then `owed = false`" read as unconditional.
-- **N10 (mutants)**: "`fresh` emitted on a reconnect" is equivalent: 3.1 treats `fresh` outside `Opening` as `live()` (542), and `Opening` is left by any signal. "`signalled` not set by the implicit live" is only visible after a repair is abandoned by `down` (645 leaves `signalled` alone).
-- Revision 2's F1 to F3, F5, F7, F8, F12 (my numbers) are fixed by 3.1 to 3.4; the old X1, X2, X4, G1 and G2 checks are gone.
+## Counterexample (shortest; `output.txt` has all)
+- **I13 and I23** (R+S, 6): `inner live()` -> `append` -> `append` -> `page ok (more)` -> `inner value` -> `page ok (more)`.
+  Page 1 emits position 1; the socket then delivers 1 into `buf`; page 2 emits 2 and finds no meet (`buf` = [1]); `next = none`, `complete()` emits 1 again, after 2.
 
-## Invented behaviour left
-Server nondeterminism (positions, registration at the live signal, a proof replays from `last`, `restartAt` = head, `CannotRepair(continueAt)` = head); time reduced to "stable"; `at`, `dropAt`, `startAt` not modelled;
-`lost` versus `reset` rank; one covering session, at most 3 reads in flight, reads landing oldest first, `subscribed` toggling; restart = release + successor with `own = false`; eager pump drain between reconnect events.
-Removed (now specified): the page-retry delay input, a `failure` behind an item in flight, `release` in `Done`, the server model.
+## Findings: contradictions and gaps in revision 4
+- **N1 (3.4: 648-650 and 669 vs I13 at 753, I23 at 763)**: the meet compares a page value with `buf` only when the page value arrives. A socket value that arrives after a page already returned its position goes into `buf` unchecked (669) and `complete()` emits it again (656-657). P3 allows this (the lag may be up to `bufferSize`). The `seen` window is not consulted for it. The fix is to drop a socket value whose position is in `seen`, or to count it as the meet.
+- **N2 (3.1: 551 and 565 vs I26 at 766)**: `end(f)` and `down` in `Live` set `last.at = now` even for a restored `last` that was never confirmed. After that `now - last.at` no longer equals the transferred age. I26's restore clause holds only until the first drop or end, so I check it only while `last` is untouched.
+- **N3 (I26)**: a value received in `Dropped` is checked against `dropAt` and a restored value against its age only for `state`; for `facts` the time variables carry no meaning, so I do not model them there.
+- **N4 (3.4: 671 and P1 at 733)**: `continueAt` is only specified through "pages meet `buf` or precede it". The model gives the server the rule that retention never passes the registration point; without it the pages can start after `buf` and never meet it.
+- **N5 (I25 at 765)**: "merges of signals with no value between them" does not say what a merge may keep. The model reads it as: a down never disappears, the last pulled signal matches the last emitted (down or live), and a pulled live is not stronger than the weakest live emitted since the previous pulled live.
+- **N6 (3.6: 713-723)**: with one covering session and "one in flight and one trailing" the model keeps the current read and at most one older read. A read that lands while a newer one has started does not make r landed.
+- **N7 (3.7 mutant list at 782)**: "`fresh` on a reconnect" is dropped as equivalent, as stated. "`catchUp` before live (FC51; I23)" is killed by I20 here (the proof is announced before any live signal), not by I23.
 
-## Mutations (REPAIR=1 turns off N1, N2, the repeated-`down` part of N3 and `continueAt` so they do not mask)
+## Behaviour I had to invent
+Server nondeterminism (positions, registration at the live signal, a proof replays from `last`, `restartAt` = head, `CannotRepair` offered only when `cursor + 1 < ret`, `continueAt = ret - 1`); the clock (saturating at 2 for S, 3 for R, `resetAfter` = 1 tick);
+`lost` versus `reset` rank; one covering session; restart = release + successor with `own = false`; I25's merge rule (N5); eager pump drain between reconnect events; times only for `state`.
+Removed (now specified): the page-retry delay input, a `failure` behind an item in flight, `release` in `Done`, the server model, the `listen` event bookkeeping, the epoch ghosts (replaced by I25).
+
+## Mutations (35, no isolation switch; each fails a check that passes, or fails differently, on the baseline)
 | Mutant | Killed by |
 | --- | --- |
-| fact before `missed`; `fresh` on a reconnect | I1, I23; fresh: **survives** (equivalent, N10) |
-| value before live read as proven | I1 |
+| fact before `missed`; value before live read as proven | I1 |
 | budget reset on first value; `liveSince` not cleared | I12 |
-| status evicted; group emits `down` before `live` [C4] | I1a, CB-status, CB-order |
-| state delivery after a drop; value after `down` current; value after `down` own [C3] | I9; I16; I16 |
+| status evicted; group emits `down` first; merge upgrades an answer (**kills I25**) | I25 (and CB-order, CB-upgrade) |
+| state delivery after a drop; value after `down` current; value after `down` own | I9; I16; I16 |
 | equality on facts; completing on empty page or stream end | I3; I18 |
-| catch-up before live; C1 proof announced early; `last` = highest | I23; I23; I4 |
-| page failure drops socket; restart before scope closed | I19; I10 |
-| proof re-confirms restored; buffer emitted on abandon; page after drop | I17; I21; I21 |
-| `signalled` unset by implicit live; ring emptied at complete | I20; I13 |
-| re-confirm not offered; slot kept when equal | I24; I24x |
-| listen: unproven or pending start withdrawn; progress by superseded Attempt | I15 (both); I14 |
-| C2 CannotRepair not an exit; C6 overflow ends | I22; C6-overflow |
-| C5 time across clocks | not killable (no invariant reads a time) |
+| `emptyRun` exactly 2; `pageSched` refreshed by empty pages | I22a |
+| page failure drops socket; restart before scope closed; `last` = highest seen | I19; I10; I4 |
+| proof re-confirms restored; buffer emitted on abandon; page values after a drop | I17 (also I8, I26); I21; I21 |
+| owed `missed` suppresses a start's own; second `down` keeps `owed` | I23 |
+| `signalled` unset by implicit live; catch-up before live | I20 |
+| re-confirm not offered; stale slot kept | I24; I24 |
+| freshness after an end; kept through pending; progress by a superseded Attempt | I15; I15; I14 |
+| value aged from arrival; age not rebased on restore (**kills I26**) | I26; I26 |
+| C1 proof announced early; dedupe by newest page positions instead of the meet | only a different I13/I23 counterexample: the baseline already fails both (N1) |
+| C2 CannotRepair not an exit; C6 overflow ends | I22b; C6-overflow |

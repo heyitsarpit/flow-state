@@ -2,7 +2,7 @@
 // Types: `tsc -p .`   Run: bun main.ts   (QUICK=1 lowers the composite depth)
 import {
   CONFIG, INPUTS, RCFG, STATES, admit, canPull, cbClose, cbEmitSignal, cbEmitValue, cbInit, cbInv, cbPull, cbRelease, cellKind, clone, initSess,
-  lEvent, lInit, lInv, lNorm, lReadLand, lReadStart, pendingAny, pgInit, pgMoves, rCell, rInit, rInv, rMoves, sIn, sessInv, turnEnd,
+  lEvent, lInit, lInv, lReadLand, lReadStart, pendingAny, pgInit, pgMoves, rCell, rInit, rInv, rMoves, sIn, sessInv, tick, turnEnd,
 } from "./model.ts";
 import type { Cb, Emit, Kind, Ls, Rc, SIn, Sess, Sig } from "./model.ts";
 
@@ -42,17 +42,6 @@ function explore<T>(sys: Sys<T>, maxDepth: number, maxStates: number): Res {
   }
   return { name: sys.name, states: nodes.length, depth: maxD, capped, ms: Math.round(performance.now() - t0), fails, cells, keys: nodes };
 }
-function normEp<T>(t: T): T {
-  const nums: number[] = [];
-  const walk = (o: any, f: (holder: any, key: string) => void) => {
-    if (Array.isArray(o)) o.forEach((x) => walk(x, f));
-    else if (o && typeof o === "object") for (const k of Object.keys(o)) { if (["ep", "cov", "gep"].includes(k) && typeof o[k] === "number") f(o, k); else walk(o[k], f); }
-  };
-  walk(t, (h, k) => nums.push(h[k]));
-  const m = nums.length ? Math.min(...nums) : 0;
-  if (m > 0) walk(t, (h, k) => { h[k] -= m; });
-  return t;
-}
 
 // ---- standalone session: 3.1 and 3.2 under the sixteen inputs (optionally with 3.6's coverage attached) ------------------
 interface SS { s: Sess; old: Sess | null; wait: boolean; L: Ls | null }
@@ -69,9 +58,9 @@ function pumpMoves(s: Sess, wrap: (n: Sess) => any, out: Mv<any>[]) {
 function sysS(kind: Kind, withL: boolean): Sys<SS> {
   const inits: SS[] = [];
   const vals: (number | null)[] = kind === "state" && !withL ? [null, 0, 1] : [null];
-  for (const l of vals) for (const h of kind === "state" && !withL ? vals : [null]) inits.push({ s: initSess(kind, l, h), old: null, wait: false, L: withL ? lInit() : null });
+  for (const l of vals) for (const h of kind === "state" && !withL ? vals : [null]) for (const age of l === null ? [0] : [0, 1]) inits.push({ s: initSess(kind, l, h, false, age), old: null, wait: false, L: withL ? lInit() : null });
   return {
-    name: withL ? "S+L" : "S", init: inits, norm: withL ? (t) => ({ ...t, L: lNorm(t.L!) }) : undefined,
+    name: withL ? "S+L" : "S", init: inits,
     inv: (t) => { const v = sessInv(t.s); if (t.old) v.push(...sessInv(t.old)); if ([t.s, t.old].filter((x) => x && x.st !== "Released").length > 1) v.push("I10"); if (t.L) v.push(...lInv(t.L, t.s)); return v; },
     moves(t) {
       const mv: Mv<SS>[] = [];
@@ -89,15 +78,16 @@ function sysS(kind: Kind, withL: boolean): Sys<SS> {
       if (s.st !== "Released") { const r = sIn(s, { k: "release" }); mv.push({ label: "release", next: withLev(r), viol: r.viol, ev: r.ev }); }
       if (s.st === "Releasing") for (const k of ["closed", "bound"]) { const r = sIn(s, { k }); mv.push({ label: k === "closed" ? "scope closed" : "release bound passed", next: withLev(r), viol: r.viol, ev: r.ev }); }
       pumpMoves(s, (n) => ({ ...t, s: n }), mv);
+      const tk = tick(s); if (tk && !t.L) mv.push({ label: "clock tick", next: { ...t, s: tk }, viol: [], ev: [] });
       if (t.L) {
         const L = t.L;
         mv.push({ label: "read of r starts", next: { ...t, L: lReadStart(L) }, viol: [], ev: ["L|readStart"] });
-        const landed = lReadLand(L); if (landed) mv.push({ label: "read of r lands", next: { ...t, L: landed }, viol: [], ev: ["L|readLand"] });
+        for (const n of lReadLand(L)) mv.push({ label: "read of r lands", next: { ...t, L: n }, viol: [], ev: ["L|readLand"] });
         mv.push({ label: "subscribed toggles", next: { ...t, L: { ...L, sub: !L.sub } }, viol: [], ev: [] });
       } else {
         if (!t.wait) { const r = s.st === "Releasing" || s.st === "Released" ? { s, viol: [] as string[], ev: [] as string[] } : sIn(s, { k: "release" }); mv.push({ label: "restart (reload or key re-entered)", next: { ...t, s: r.s, wait: true }, viol: r.viol, ev: r.ev }); }
         if (t.wait && (s.st === "Released" || (!CONFIG.successorAfterClosed && s.st === "Releasing"))) {
-          const n = initSess(kind, s.lastV, s.heard);
+          const n = initSess(kind, s.lastV, s.heard, false, 0); n.now = s.now; n.lastAt = s.lastAt; n.lastRest = false;
           mv.push({ label: "successor starts", next: { s: n, old: s.st === "Released" ? null : s, wait: false, L: null }, viol: [], ev: [] });
         }
         if (t.old && t.old.st === "Releasing") mv.push({ label: "old scope closed", next: { ...t, old: null }, viol: [], ev: [] });
@@ -107,24 +97,39 @@ function sysS(kind: Kind, withL: boolean): Sys<SS> {
   };
 }
 
-// ---- Feed.callback feeding a facts or state session -----------------------------------------------------------------
-interface SC { cb: Cb; s: Sess; gneed: boolean; gep: number; gdown: boolean; ne: number; truth: "none" | "up" | "down" }
+// ---- Feed.callback feeding a facts or state session; I25 compares what the adapter emitted with what the session received --------
+type Ex = { v: number } | { s: string; p: string; m: number };
+interface SC { cb: Cb; s: Sess; ne: number; ex: Ex[] }
+const CODE: Record<string, string> = { down: "d", proof: "p", live: "u", lost: "o", reset: "r" };
+const RK: Record<string, number> = { p: 3, u: 2, o: 1, r: 0 };
+function validateRun(e: { s: string; p: string }): boolean { // a pulled run is a merge of the emitted signals
+  if (e.s.includes("d") && !e.p.includes("d")) return false;
+  if (e.p.length && (e.s[e.s.length - 1] === "d") !== (e.p[e.p.length - 1] === "d")) return false;
+  const lives = [...e.s].filter((x) => x !== "d");
+  if (!lives.length && [...e.p].some((x) => x !== "d")) return false;
+  return true;
+}
 function sysCB(kind: Kind): Sys<SC> {
   const col = (c: Cb) => (c.released || c.closing !== "open" ? "closed" : c.q.filter((e) => "v" in e).length >= 2 ? "full" : "room");
   return {
-    name: "CB+S", norm: normEp, init: [{ cb: cbInit(), s: initSess(kind, null, null), gneed: false, gep: 0, gdown: false, ne: 0, truth: "none" }],
-    inv: (t) => [...cbInv(t.cb), ...sessInv(t.s), ...(t.cb.q.length === 0 && (t.s.st === "Live" || t.s.st === "Dropped") && t.truth !== "none" && (t.truth === "up") !== (t.s.st === "Live") && pendingAny(t.s) === 0 ? ["CB-status"] : [])],
+    name: "CB+S", init: [{ cb: cbInit(), s: initSess(kind, null, null), ne: 0, ex: [] }],
+    inv: (t) => [...cbInv(t.cb), ...sessInv(t.s)],
     moves(t) {
       const mv: Mv<SC>[] = [], c0 = col(t.cb);
       const push = (label: string, row: string, patch: Partial<SC>, viol: string[] = []) => mv.push({ label, next: { ...t, ...patch }, viol, ev: [`CB|${c0}|${row}`] });
       const dead = t.s.st === "Ended" || t.s.st === "Releasing" || t.s.st === "Released";
+      const addSig = (code: string): Ex[] => {
+        const ex = clone(t.ex), last = ex[ex.length - 1];
+        if (last && "s" in last) last.s += code; else ex.push({ s: code, p: "", m: 0 });
+        return ex;
+      };
       if (t.ne < 5 && !dead) {
-        const r = cbEmitValue(t.cb, 0, t.gep, t.gneed); push("emit(value 0)", "emit(value)", { cb: r.c, ne: t.ne + 1 });
+        const r = cbEmitValue(t.cb, 0, 0, false);
+        push("emit(value 0)", "emit(value)", { cb: r.c, ne: t.ne + 1, ex: r.ev === "value:append" ? [...clone(t.ex), { v: 0 }] : t.ex });
         const sigs: [Sig, string][] = [["down", "emit(down)"], ["proof", "emit(proof)"], ["live", "emit(live)"], ["lost", "emit(lost)"], ["reset", "emit(reset)"]];
         for (const [k, l] of sigs) {
-          const gep = k === "proof" || (k === "down" && t.gdown) ? t.gep : t.gep + 1, gneed = k !== "proof", gdown = k === "down";
-          const r = cbEmitSignal(t.cb, k, gep, 0), ok = !r.ev.startsWith("evidence");
-          push(l, "emit(signal)", ok ? { cb: r.c, gep, gneed, gdown, ne: t.ne + 1, truth: k === "down" ? "down" : "up" } : { cb: r.c, ne: t.ne + 1 }, r.viol);
+          const r = cbEmitSignal(t.cb, k, 0, 0), ok = !r.ev.startsWith("evidence");
+          push(l, "emit(signal)", { cb: r.c, ne: t.ne + 1, ex: ok ? addSig(CODE[k]!) : t.ex }, r.viol);
         }
         push("emit.fail(e)", "emit.fail", { cb: cbClose(t.cb, "fail").c, ne: t.ne + 1 });
         push("emit.end()", "emit.end", { cb: cbClose(t.cb, "end").c, ne: t.ne + 1 });
@@ -136,9 +141,24 @@ function sysCB(kind: Kind): Sys<SC> {
       if (canPull(t.s) && !dead) {
         const p = cbPull(t.cb);
         if (p) {
-          const r = sIn(t.s, p.inp), viol = [...r.viol];
+          const r = sIn(t.s, p.inp), viol = [...r.viol], ex = clone(t.ex);
           if (t.cb.ovf && (p.inp.k === "complete" || (p.inp.k === "fail" && p.inp.e !== "Overflow"))) viol.push("C6-overflow");
-          mv.push({ label: `pull -> ${p.inp.k}`, next: { ...t, cb: p.c, s: r.s }, viol, ev: [`CB|${c0}|pull`, ...r.ev] });
+          const k = p.inp.k, front = ex[0];
+          if (k === "value") {
+            if (front && "s" in front) { if (!validateRun(front)) viol.push("I25"); ex.shift(); }
+            if (!ex[0] || !("v" in ex[0])) viol.push("I25"); else ex.shift();
+          } else if (k === "fail" || k === "complete") {
+            if (front && "s" in front) { if (!validateRun(front)) viol.push("I25"); ex.shift(); }
+            if (ex.length) viol.push("I25"); // an emitted value or signal never reached the session
+          } else {
+            const code = CODE[k]!;
+            if (!front || !("s" in front)) viol.push("I25"); // a signal pulled before the earlier value
+            else {
+              front.p += code;
+              if (code !== "d") { const lives = [...front.s.slice(front.m)].filter((x) => x !== "d").map((x) => RK[x]!); if (!lives.length || RK[code]! > Math.min(...lives)) viol.push("I25"); front.m = front.s.length; }
+            }
+          }
+          mv.push({ label: `pull -> ${p.inp.k}`, next: { ...t, cb: p.c, s: r.s, ex }, viol, ev: [`CB|${c0}|pull`, ...r.ev] });
         }
       }
       if (t.s.st === "Releasing") for (const k of ["closed", "bound"]) { const r = sIn(t.s, { k }); mv.push({ label: k, next: { ...t, s: r.s }, viol: r.viol, ev: r.ev }); }
@@ -198,9 +218,10 @@ function sysR(kind: Kind, name: string, bare = false): Sys<SR2> {
     },
   };
 }
-// I22: from every CatchingUp state, under good behaviour (pages succeed or say CannotRepair, the socket stays up), Live is reached.
-function liveness(keys: string[], strictNoEmpty: boolean, cannotOnly = false): string | null {
-  const good = (m: { label: string }) => (cannotOnly ? /^(page delay|page CannotRepair\b|inner value|server append|tick)/ : /^(page ok|page delay|page CannotRepair|inner value|server append|tick)/).test(m.label) && !(strictNoEmpty && m.label.includes("empty")) && !(cannotOnly && m.label.includes("continueAt"));
+// I22b: under P4 (pages answered, a page with values advances the cursor, finite history), if the connection stays up, CatchingUp reaches Live.
+function liveness(keys: string[], cannotOnly = false): string | null {
+  const good = (m: { label: string }) => (cannotOnly ? /^(page delay|page CannotRepair\b|inner value|server append|tick)/ : /^(page ok|page delay|page CannotRepair|inner value|server append|tick)/).test(m.label)
+    && !m.label.includes("empty") && !(cannotOnly && m.label.includes("continueAt"));
   const memo = new Map<string, boolean>(), stack = new Set<string>();
   let bad: string | null = null;
   const go = (r: Rc): boolean => {
@@ -208,21 +229,21 @@ function liveness(keys: string[], strictNoEmpty: boolean, cannotOnly = false): s
     if (r.ph !== "CatchingUp") { bad = bad ?? `left CatchingUp for ${r.ph} on good moves`; return false; }
     const k = JSON.stringify(r);
     if (memo.has(k)) return memo.get(k)!;
-    if (stack.has(k)) { bad = bad ?? `cycle at cursor ${r.cursor}, emptyRun ${r.ec}`; return false; }
+    if (stack.has(k)) { bad = bad ?? `cycle at cursor ${r.cursor}`; return false; }
     stack.add(k);
     let ok = true, any = false;
     for (const m of rMoves(r)) {
       if (!good(m)) continue;
-      const n = m.fn(r).r; if (JSON.stringify(n) === k) { if (m.label.includes("empty")) { bad = bad ?? `an empty page with a next cursor repeats forever (emptyRun = ${r.ec})`; ok = false; } continue; }
+      const n = m.fn(r).r; if (JSON.stringify(n) === k) continue;
       if (n.ph === "Waiting" || n.ph === "Done" || n.ph === "Connecting") continue; // the connection did not stay up: not a good move
       any = true;
       if (!go(n)) ok = false;
     }
-    if (!any) { ok = false; bad = bad ?? "stuck in CatchingUp"; }
+    if (!any) { ok = false; bad = bad ?? "stuck in CatchingUp: " + k; }
     stack.delete(k); memo.set(k, ok); return ok;
   };
   const seenR = new Set<string>();
-  for (const key of keys) { const t: SR2 = JSON.parse(key); if (t.rc.ph !== "CatchingUp") continue; const rk = JSON.stringify(t.rc); if (seenR.has(rk)) continue; seenR.add(rk); if (!go(t.rc)) return bad; }
+  for (const key of keys) { const t: SR2 = JSON.parse(key); if (t.rc.ph !== "CatchingUp") continue; if (cannotOnly && (t.rc.cursor ?? 0) + 1 >= t.rc.ret) continue; const rk = JSON.stringify(t.rc); if (seenR.has(rk)) continue; seenR.add(rk); if (!go(t.rc)) return bad; }
   return null;
 }
 function sysP(): Sys<any> {
@@ -249,15 +270,15 @@ const rcfgs = [
   { n: "R+S[catchUp,from=0]", catchUp: true, from: 0 as number | null, nopos: false }, { n: "R+S[catchUp,from=none]", catchUp: true, from: null, nopos: false },
   { n: "R+S[no catchUp,from=0]", catchUp: false, from: 0 as number | null, nopos: false }, { n: "R+S[no catchUp,from=none,no positions]", catchUp: false, from: null, nopos: true },
 ];
-let liveFail: string | null = null, liveFail2: string | null = null;
-// data path: positions up to 3, no clock. budget path: one position, the clock on (resetAfter abstracted to "stable" / "not stable").
+let liveFail: string | null = null;
+// data path: positions up to 3, no clock. budget path: one position, the clock on (resetAfter is one tick).
 RCFG.tick = false; RCFG.hmax = 3;
 for (const c of rcfgs) {
   RCFG.catchUp = c.catchUp; RCFG.from = c.from; RCFG.nopos = c.nopos;
   for (const kind of ["facts", "state"] as Kind[]) {
     if (c.nopos && kind === "state") continue;
     const r = runOne(sysR(kind, c.n + "/data"), kind, "spec", DEPTH);
-    if (kind === "facts" && c.catchUp && c.from === 0) { liveFail = liveness(r.keys, false); liveFail2 = liveness(r.keys, true) ?? liveness(r.keys, true, true); }
+    if (kind === "facts" && c.catchUp && c.from === 0) liveFail = liveness(r.keys) ?? liveness(r.keys, true);
   }
 }
 RCFG.nopos = false; RCFG.tick = true; RCFG.hmax = 1; RCFG.catchUp = false; RCFG.from = 0;
@@ -266,8 +287,8 @@ RCFG.hmax = 0; RCFG.catchUp = true;
 runOne(sysR("facts", "R/budget[catchUp,head=0]", true), "facts", "spec", 11, 400_000);
 
 // ---- report -----------------------------------------------------------------------------------------------------------
-const IDS = ["I1", "I2", "I3", "I4", "I5", "I6", "I7", "I8", "I9", "I10", "I11", "I12", "I13", "I14", "I15", "I16", "I17", "I18", "I19", "I20", "I20b", "I21", "I22", "I22b", "I23", "I24",
-  "I1a", "I24x", "C6-overflow", "CB-status", "CB-order", "CB-down-lost", "CB-upgrade", "CB-waiter"];
+const IDS = ["I1", "I2", "I3", "I4", "I5", "I6", "I7", "I8", "I9", "I10", "I11", "I12", "I13", "I14", "I15", "I16", "I17", "I18", "I19", "I20", "I21", "I22a", "I22b", "I23", "I24", "I25", "I26",
+  "C6-overflow", "CB-order", "CB-down-lost", "CB-upgrade", "CB-waiter"];
 const norm = (id: string) => (id.startsWith("I7") ? "I7" : id.startsWith("I2-") ? "I2" : id);
 function summary(reading: string) {
   const m = new Map<string, { sys: string; trace: string[] }>();
@@ -279,17 +300,14 @@ function summary(reading: string) {
 }
 const failed = (m: Map<string, any>, id: string) => [...m.keys()].some((k) => k.split("|")[0] === id);
 const sp = summary("spec");
-if (liveFail2) sp.set("I22|live", { sys: "R+S[catchUp,from=0] facts (liveness)", trace: [liveFail2] });
-if (liveFail) sp.set("I22b|live", { sys: "R+S[catchUp,from=0] facts (liveness, endless empty pages)", trace: [liveFail] });
+if (liveFail) sp.set("I22b|live", { sys: "R+S[catchUp,from=0] facts (liveness)", trace: [liveFail] });
 for (const id of IDS) out(`RESULT mode=spec ${id} ${failed(sp, id) ? "FAIL" : "PASS"}`);
 for (const [k, c] of sp) out(`CE ${k.split("|")[0]} [${c.sys}] (${c.trace.length} steps): ${c.trace.join(" -> ")}`);
-out(`NOTE I22 under strict fairness (no empty page with a next cursor, forever): ${liveFail2 ?? "reaches Live on every good path"}; with such pages allowed: ${liveFail ?? "also fine"}`);
-if (liveFail2) out(`FAILPAIR I22 | liveness | facts | ${liveFail2}`);
 if (liveFail) out(`FAILPAIR I22b | liveness | facts | ${liveFail}`);
 for (const r of runs.filter((x) => x.reading === "spec")) for (const [id, tr] of r.res.fails) out(`FAILPAIR ${norm(id)} | ${r.sys} | ${r.kind} | ${tr.join(" -> ")}`);
 // coverage
 const all = new Set<string>(); for (const r of runs.filter((x) => x.reading === "spec")) for (const c of r.res.cells) all.add(c);
-let definedS = 0, cannotS = 0, missS: string[] = [];
+let definedS = 0, cannotS = 0; const missS: string[] = [];
 out("COVERAGE 3.1 (rows = inputs, columns = states; F = facts reached, S = state reached, - = cannot occur, . = defined but unreached)");
 out("  input     " + STATES.map((s) => s.padEnd(10)).join(""));
 for (const inp of INPUTS) {

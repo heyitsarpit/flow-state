@@ -1,7 +1,7 @@
-// Executable model of proposal-v2.md revision 3 (ac493bd1), section 3: 3.1 session, 3.2 pump, 3.3 Feed.callback queue, 3.4 Feed.reconnect,
+// Executable model of proposal-v2.md revision 4 (bf249a24), section 3: 3.1 session, 3.2 pump, 3.3 Feed.callback queue, 3.4 Feed.reconnect,
 // 3.5 write progress, 3.6 listen coverage.
 // Types: `tsc -p .`   Run: bun main.ts
-// Ghost fields (cov, mfDiff, gpos, needM, dv, em, opens, ts, greg, starts, gsig, exp) belong to the checks, never to the behaviour.
+// Ghost fields (mfDiff, gpos, needM, dv, em, opens, ts, gls, gsig, impl, exp, nv, age0) belong to the checks, never to the behaviour.
 
 declare const process: any;
 
@@ -9,14 +9,20 @@ declare const process: any;
 export const CONFIG = {
   missedBeforeDroppedFact: true, // 3.1 value/Dropped facts: unless owed, deliver missed Unproven first
   openingValueUnproven: true, //    3.1 value/Opening: the plain-Stream case is start(unproven)
+  startOwnMissed: true, //          3.1 start(): every unproven start delivers its own missed (principle 1)
+  secondDownResetsOwed: true, //    3.1 down/Dropped: a second drop is a second interruption
   keepStatusWhenFull: true, //      3.3: signals are never evicted
-  groupOrderAware: true, //         3.3: group is (down1, live, down2); a pulled group ends in the last signal's state
+  groupOrderAware: true, //         3.3: group is (down1, live, down2)
+  mergeWeakest: true, //            3.3: a merge keeps the weaker answer
   admitNeedsLive: true, //          3.2: state admission needs st = Live and slotConn = conn
   droppedValueNotCurrent: true, //  3.1 value/Dropped state: not current, nothing delivered
-  droppedValueNotOwn: true, //      3.1 value/Dropped state: own = false (C3)
+  droppedValueNotOwn: true, //      3.1 value/Dropped state: own = false
   noEqualityOnFacts: true, //       SR2
   catchUpAfterLive: true, //        3.4: the repair starts at the live signal, not at connect
-  completeOnlyOnLastPage: true, //  3.4: only next = none (or CannotRepair, or a reset) leaves CatchingUp
+  completeOnlyOnLastPage: true, //  3.4: only a meet, next = none, or CannotRepair leaves CatchingUp
+  meetAtFirstCommon: true, //       3.4 pageValue(): the pages stop at the first position the buffer holds (principle 2)
+  emptyRunGE: true, //              3.4 page ok: emptyRun >= 2 (not exactly 2)
+  emptyKeepsBudget: true, //        3.4 page ok: pageSched is refreshed only by a page with values
   pageRetryKeepsSocket: true, //    3.4: a retryable page failure keeps the socket while pageSched has steps
   successorAfterClosed: true, //    3.1: a successor starts only after scope closed
   lastIsEmitted: true, //           3.4: last = position of the last value emitted downstream
@@ -24,38 +30,37 @@ export const CONFIG = {
   discardBufferOnAbandon: true, //  3.4 abandon(): nothing buffered is emitted
   cancelPageOnEnd: true, //         3.4 abandon(): the page read is interrupted
   signalledSetByImplicit: true, //  3.4 register(): signalled = true for the implicit start
-  ringKeptAfterComplete: true, //   3.4 complete(): the ring stays and filters the connection's next values
   reconcileAfterProof: true, //     3.1: a re-confirm goes through reconcile
   clearSlotWhenEqual: true, //      3.1 reconcile: a newer value equal to heard clears the slot
-  listenGapStale: true, //          3.6: an unproven start or settle(lost) adds feedGap
-  listenPendingDown: true, //       3.6: a pending start adds feedDown
+  listenChecksState: true, //       3.6: a covering session that is not Live makes r stale (an end is not cleared by a read)
+  listenChecksPending: true, //     3.6: a pending answer makes r stale
   setterOnlyAddr: true, //          3.5: only the addressable, un-ended Attempt writes the row
-  freshOnlyFirst: true, //          3.4 register(): fresh only when last is undefined and nothing was emitted
   liveSinceCleared: true, //        3.4: liveSince = none at a drop and at connect
   resetOnlyAtFail: true, //         3.4: the budget resets only in dropConn after resetAfter registered
   pendingAnnounced: true, //        3.4 startRepair(): emit pending (C1), not a proof
   cannotRepairExits: true, //       3.4: CannotRepair leaves the repair (C2)
   overflowFails: true, //           3.3: an overflowing queue fails with Overflow (C6)
+  valueAtDropAt: true, //           3.1 value/Dropped: at = dropAt (a cached value keeps the drop's time)
+  ageRebased: true, //              3.1 initial: at is rebased from the transferred age
 };
 const C = CONFIG;
-// Isolation switch for mutations.py only (REPAIR=1): lets the ring cover the whole overlap and lets 3.6 ignore ended sessions, so that the two baseline
-// findings (RESULTS N2, N1) do not mask the mutants that the same checks must kill.
-export const READ = { repair: typeof process !== "undefined" && !!process.env.REPAIR };
 
 export type Kind = "facts" | "state";
 export type St = "Opening" | "Dropped" | "Live" | "Ended" | "Releasing" | "Released";
 export type Answer = "none" | "proven" | "fresh" | "pending" | "unproven" | "lost" | "reset" | "abandoned";
 export const STATES: St[] = ["Opening", "Dropped", "Live", "Ended", "Releasing", "Released"];
 export const INPUTS = ["proof", "live", "lost", "reset", "fresh", "pending", "settleP", "settleL", "value", "down", "fail", "complete", "defect", "release", "closed", "bound"];
-export interface Item { t: "missed" | "value" | "failure"; k?: string; v?: number; ep?: number; ra?: number; e?: string }
+export const CLOCK = 2; // the session clock saturates here
+export interface Item { t: "missed" | "value" | "failure"; k?: string; v?: number; ra?: number; e?: string }
 export interface Sess {
   kind: Kind; st: St; drop: number; owed: boolean; answer: Answer;
   lastV: number | null; lastOwn: boolean; lastCur: boolean; reconfCur: boolean; confirmed: boolean;
+  now: number; dropAt: number | null; endAt: number | null; startAt: number | null; lastAt: number | null; lastDrop: boolean; lastRest: boolean; age0: number; // 3.1 time (state only)
   Q: Item[]; inFlight: Item | null; adm: boolean; // 3.2 facts
   slot: number | null; slotCur: boolean; box: Item[]; heard: number | null; // 3.2 state (queued = box holds a value delivery)
-  cov: number; mfDiff: number; gpos: number | null; needM: boolean; dv: boolean; track: boolean; // ghosts
+  mfDiff: number; gpos: number | null; needM: boolean; dv: boolean; track: boolean; // ghosts
 }
-export interface SIn { k: string; v?: number; ep?: number; need?: boolean; ra?: number; e?: string }
+export interface SIn { k: string; v?: number; ra?: number; e?: string }
 export interface SR { s: Sess; viol: string[]; ev: string[]; lev: string[]; cannot?: boolean }
 export const clone = <T>(x: T): T => JSON.parse(JSON.stringify(x));
 
@@ -70,14 +75,17 @@ export function cellKind(st: St, k: string): "defined" | "cannot" {
   return adapter || k === "release" ? "defined" : "cannot";
 }
 
-export function initSess(kind: Kind, lastV: number | null, heard: number | null, track = false): Sess {
+export function initSess(kind: Kind, lastV: number | null, heard: number | null, track = false, age = 0): Sess {
+  const st = kind === "state" && lastV !== null;
   return { kind, st: "Opening", drop: 0, owed: false, answer: "none", lastV: kind === "state" ? lastV : null, lastOwn: false, lastCur: false, reconfCur: false, confirmed: false,
-    Q: [], inFlight: null, adm: false, slot: null, slotCur: false, box: [], heard: kind === "state" ? heard : null, cov: 0, mfDiff: 0, gpos: null, needM: false, dv: false, track };
+    now: 1, dropAt: null, endAt: null, startAt: null, lastAt: st ? (C.ageRebased ? 1 - age : age) : null, lastDrop: false, lastRest: st, age0: age,
+    Q: [], inFlight: null, adm: false, slot: null, slotCur: false, box: [], heard: kind === "state" ? heard : null, mfDiff: 0, gpos: null, needM: false, dv: false, track };
 }
 export const pendingMF = (s: Sess) =>
   s.Q.filter((i) => i.t !== "value").length + (s.inFlight && !s.adm && s.inFlight.t !== "value" ? 1 : 0) + s.box.filter((i) => i.t !== "value").length;
 export const pendingAny = (s: Sess) => s.Q.length + (s.inFlight && !s.adm ? 1 : 0) + s.box.length;
 const hasValueDelivery = (s: Sess) => s.box.some((i) => i.t === "value");
+export function tick(s0: Sess): Sess | null { if (s0.now >= CLOCK || s0.kind !== "state") return null; const s = clone(s0); s.now++; return s; }
 
 // 3.1 reconcile (state): one point that makes a value current
 function reconcile(s: Sess) {
@@ -94,44 +102,47 @@ export function sIn(s0: Sess, inp: SIn): SR {
   const k = inp.k, st = s.st, cell = `${s.kind}|${st}|${k}`;
   if (cellKind(st, k) === "cannot") return { s, viol: ["I2-cannot-fired"], ev: [cell], lev, cannot: true };
   ev.push(cell);
-  const ep = inp.ep ?? 1;
+  const state = s.kind === "state";
   let putV = 0;
   const deliver = (it: Item) => {
     if (it.t !== "value") s.mfDiff++;
     if (s.kind === "facts") { s.Q.push(it); if (s.inFlight === null) { s.inFlight = s.Q.shift()!; s.adm = false; } if (s.Q.length > 3) viol.push("I7-Q"); }
     else s.box.push(it);
   };
-  const deliverMissed = (kk: string) => { deliver({ t: "missed", k: kk, ep, ra: inp.ra }); s.cov = Math.max(s.cov, ep); s.needM = false; s.gpos = null; };
+  const deliverMissed = (kk: string) => { deliver({ t: "missed", k: kk, ra: inp.ra }); s.needM = false; s.gpos = null; };
   const deliverValue = (v: number) => {
     if (s.needM) viol.push("I1");
-    if (inp.need && ep > s.cov) viol.push("I1a");
     if (s.track) { if (s.gpos !== null && v !== s.gpos + 1) viol.push("I23"); s.gpos = v; }
-    putV++; deliver({ t: "value", v, ep }); s.lastV = v;
+    putV++; deliver({ t: "value", v }); s.lastV = v;
   };
   const discard = () => ev.push("evidence:discard");
   const start = (a: Answer) => {
-    s.lastCur = false; s.slotCur = false; s.reconfCur = false; s.st = "Live"; s.drop = 0; s.answer = a; s.dv = false;
+    s.lastCur = false; s.slotCur = false; s.reconfCur = false; s.st = "Live"; s.drop = 0; s.answer = a; s.dv = false; s.startAt = state ? s.now : null;
     if (s.kind === "facts") {
       if (a === "unproven" || a === "lost" || a === "reset") {
         s.needM = true;
-        if (a === "unproven" && s.owed) { s.needM = false; s.cov = Math.max(s.cov, ep); } else deliverMissed(a === "unproven" ? "U" : a === "lost" ? "L" : "R");
+        if (a === "unproven" && s.owed && !C.startOwnMissed) s.needM = false; else deliverMissed(a === "unproven" ? "U" : a === "lost" ? "L" : "R");
       }
       s.owed = false;
     } else s.confirmed = false;
     lev.push(a === "proven" ? "P" : a === "pending" ? "D" : "G");
     reconcile(s);
   };
-  const end = (f: string) => { s.st = "Ended"; deliver({ t: "failure", e: f }); if (s.answer === "pending") s.answer = "abandoned"; lev.push("E"); reconcile(s); };
+  const setLast = (v: number, own: boolean, at: number, fromDrop: boolean) => { s.lastV = v; s.lastOwn = own; s.lastAt = at; s.lastDrop = fromDrop; s.lastRest = false; };
+  const end = (f: string) => {
+    if (st === "Live" && s.lastV !== null && state) { s.lastAt = s.now; s.lastRest = false; }
+    s.st = "Ended"; s.endAt = state ? s.now : null; deliver({ t: "failure", e: f }); if (s.answer === "pending") s.answer = "abandoned"; lev.push("E"); reconcile(s);
+  };
   if (k === "proof") {
     if (st === "Releasing") discard();
     else if (st === "Opening") start("proven");
     else if (st === "Dropped") {
       start("proven");
-      if (s.kind === "state" && (s.lastOwn || !C.proofNeedsOwn)) { s.confirmed = true; s.reconfCur = true; }
+      if (state && (s.lastOwn || !C.proofNeedsOwn)) { s.confirmed = true; s.reconfCur = true; s.lastAt = s.now; }
       if (C.reconcileAfterProof) reconcile(s);
     } else { // Live: no start
       s.answer = "proven";
-      if (s.kind === "state" && !s.confirmed && (s.lastOwn || !C.proofNeedsOwn)) { s.confirmed = true; s.reconfCur = true; }
+      if (state && !s.confirmed && (s.lastOwn || !C.proofNeedsOwn)) { s.confirmed = true; s.reconfCur = true; }
       if (C.reconcileAfterProof) reconcile(s);
     }
   } else if (k === "live" || k === "lost" || k === "reset" || k === "fresh" || k === "pending") {
@@ -154,15 +165,14 @@ export function sIn(s0: Sess, inp: SIn): SR {
       if (st === "Opening") { if (s.kind === "facts") s.needM = true; /* ghost: the first value of a plain Stream is an unproven start */ if (C.openingValueUnproven) start("unproven"); else start("proven"); cur = "Live"; }
       if (cur === "Live") {
         if (s.kind === "facts") { if (!C.noEqualityOnFacts && v === s.lastV) { /* mutant: dropped */ } else deliverValue(v); }
-        else { s.lastV = v; s.lastOwn = true; s.lastCur = true; s.confirmed = true; reconcile(s); }
+        else { setLast(v, true, s.now, false); s.lastCur = true; s.confirmed = true; reconcile(s); }
       } else { // Dropped: not current
-        if (s.kind === "state") {
-          s.lastV = v; s.lastOwn = !C.droppedValueNotOwn; s.lastCur = false;
+        if (state) {
+          setLast(v, !C.droppedValueNotOwn, C.valueAtDropAt ? s.dropAt ?? s.now : s.now, true);
           if (!C.droppedValueNotCurrent) { s.confirmed = true; s.lastOwn = true; s.lastCur = true; if (v !== s.heard) { s.slot = v; s.slotCur = true; if (!hasValueDelivery(s)) s.box.push({ t: "value" }); } }
         } else {
           if (!s.dv) { s.needM = true; s.dv = true; }
           if (!s.owed) { if (C.missedBeforeDroppedFact) { deliverMissed("U"); s.owed = true; } }
-          else { s.needM = false; s.cov = Math.max(s.cov, ep); }
           deliverValue(v);
         }
         ev.push("evidence:UnprovenValues");
@@ -172,9 +182,9 @@ export function sIn(s0: Sess, inp: SIn): SR {
   } else if (k === "down") {
     if (st === "Releasing") discard();
     else {
-      if (st === "Opening") { s.st = "Dropped"; s.drop = inp.v ?? 1; s.dv = false; }
-      else if (st === "Dropped") { s.drop = inp.v ?? 1; if (READ.repair) { s.owed = false; s.dv = false; } }
-      else { s.st = "Dropped"; s.drop = inp.v ?? 1; s.owed = false; s.dv = false; if (s.answer === "pending") s.answer = "abandoned"; if (s.kind === "state") s.confirmed = false; }
+      if (st === "Opening") { s.st = "Dropped"; s.drop = inp.v ?? 1; s.dv = false; s.dropAt = state ? s.now : null; }
+      else if (st === "Dropped") { s.drop = inp.v ?? 1; if (C.secondDownResetsOwed) { s.owed = false; s.dv = false; } }
+      else { s.st = "Dropped"; s.drop = inp.v ?? 1; s.owed = false; s.dv = false; s.dropAt = state ? s.now : null; if (s.answer === "pending") s.answer = "abandoned"; if (state) { s.confirmed = false; if (s.lastV !== null) { s.lastAt = s.now; s.lastRest = false; } } }
       lev.push("D"); reconcile(s);
     }
   } else if (k === "fail" || k === "complete" || k === "defect") {
@@ -209,7 +219,7 @@ export function admit(s0: Sess, admitReleased = false): SR | null {
   const ok = s.slot !== null && s.st === "Live" && s.slotCur;
   if (ok || (!C.admitNeedsLive && s.slot !== null)) {
     if (!(s.st === "Live" && s.slotCur)) viol.push("I9");
-    if (s.st === "Live" && s.confirmed && s.lastV !== null && s.slot !== s.lastV) viol.push("I24x"); // the delivered slot is stale
+    if (s.st === "Live" && s.confirmed && s.lastV !== null && s.slot !== s.lastV) viol.push("I24"); // the admitted event must carry the row's current value
     s.heard = s.slot; ev.push("admit:value");
   } else ev.push("Discarded{NotLive}");
   s.slot = null; s.slotCur = false;
@@ -239,6 +249,14 @@ export function sessInv(s: Sess): string[] {
     for (let i = 0; i < 8; i++) { const a = admit(t); if (a) { t = a.s; continue; } const e = turnEnd(t); if (e) { t = e.s; continue; } break; }
     if (t.mfDiff !== 0 || pendingAny(t) !== 0) v.push("I6");
   }
+  if (s.kind === "state") { // I26: time
+    if (s.lastAt !== null && s.lastAt > s.now) v.push("I26");
+    if (s.startAt !== null && s.startAt > s.now) v.push("I26");
+    if (s.lastAt !== null && s.st === "Dropped" && s.dropAt !== null && s.lastAt > s.dropAt) v.push("I26");
+    if (s.lastAt !== null && s.st === "Dropped" && s.lastDrop && s.dropAt !== null && s.lastAt !== s.dropAt) v.push("I26");
+    if (s.lastAt !== null && s.st === "Ended" && s.endAt !== null && s.lastAt > s.endAt) v.push("I26");
+    if (s.lastRest && s.lastAt !== null && s.now === 1 && s.lastAt !== s.now - s.age0) v.push("I26");
+  }
   return v;
 }
 
@@ -266,11 +284,11 @@ export function cbEmitSignal(c0: Cb, k: Sig, ep: number, ra?: number): { c: Cb; 
   if (!tail || "v" in tail) { tail = { g: { d1: false, d2: false, ep, src: "", pulled: false } }; c.q.push(tail); }
   const g = (tail as { g: Grp }).g;
   g.src += ({ down: "d", proof: "p", live: "u", lost: "o", reset: "r" } as const)[k]; g.ep = Math.max(g.ep, ep);
-  if (!C.groupOrderAware) { if (k === "down") g.d1 = true; else { g.live = g.live === undefined || rank[k] < rank[g.live] ? k : g.live; } }
+  if (!C.groupOrderAware) { if (k === "down") g.d1 = true; else { g.live = g.live === undefined || (C.mergeWeakest ? rank[k] < rank[g.live] : rank[k] > rank[g.live]) ? k : g.live; } }
   else if (k === "down") { if (g.live) g.d2 = true; else g.d1 = true; }
   else {
     if (g.d2) { g.d1 = true; g.d2 = false; }
-    g.live = g.live === undefined || rank[k] < rank[g.live] ? k : g.live;
+    g.live = g.live === undefined || (C.mergeWeakest ? rank[k] < rank[g.live] : rank[k] > rank[g.live]) ? k : g.live;
     if (k === "reset") g.ra = ra;
   }
   // 3.3: no merge upgrades an answer, hides a drop, or loses the order of the last signal
@@ -295,11 +313,11 @@ export function cbPull(c0: Cb): { c: Cb; inp: SIn } | null {
   const resolve = () => { if (c.wt > 0 && nvals(c) < BUFFER && c.closing === "open" && !c.released) c.wt--; };
   const h = c.q[0];
   if (h) {
-    if ("v" in h) { c.q.shift(); resolve(); return { c, inp: { k: "value", v: h.v, ep: h.ep, need: h.need } }; }
+    if ("v" in h) { c.q.shift(); resolve(); return { c, inp: { k: "value", v: h.v } }; }
     const g = h.g; g.pulled = true;
-    if (g.d1) { g.d1 = false; if (!g.live && !g.d2) c.q.shift(); return { c, inp: { k: "down", v: 1, ep: g.ep } }; }
-    if (g.live) { const l = g.live; g.live = undefined; if (!g.d2) c.q.shift(); return { c, inp: { k: l === "live" ? "live" : l, ep: g.ep, ra: g.ra } }; }
-    g.d2 = false; c.q.shift(); return { c, inp: { k: "down", v: 1, ep: g.ep } };
+    if (g.d1) { g.d1 = false; if (!g.live && !g.d2) c.q.shift(); return { c, inp: { k: "down", v: 1 } }; }
+    if (g.live) { const l = g.live; g.live = undefined; if (!g.d2) c.q.shift(); return { c, inp: { k: l, ra: g.ra } }; }
+    g.d2 = false; c.q.shift(); return { c, inp: { k: "down", v: 1 } };
   }
   if (c.closing === "fail") return { c, inp: { k: "fail", e: c.fe } };
   if (c.closing === "end" || c.released) return { c, inp: { k: "complete" } };
@@ -313,23 +331,24 @@ export function cbInv(c: Cb): string[] {
   return v;
 }
 
+
 // ---- 3.4 Feed.reconnect ----------------------------------------------------------------------------------------
 export const RCFG = { catchUp: true, from: 0 as number | null, nopos: false, sched: 2, psched: 2, buf: 2, hmax: 3, tick: true };
 export type Ph = "Connecting" | "Live" | "CatchingUp" | "Waiting" | "Done";
 export type Emit = { t: "sig"; k: "proof" | "live" | "lost" | "reset" | "fresh" | "pending" | "settleP" | "settleL" | "down" | "fail"; ra?: number } | { t: "value"; v: number };
 interface BV { v: number; p: number | null }
 export interface Rc {
-  ph: Ph; rel: boolean; sig: boolean; any: boolean; last: number | null; n: number; ls: number; ring: number[]; cursor: number | null; buf: BV[];
-  ec: number; ps: number; pw: "none" | "req" | "wait"; pstale: boolean; settled: boolean; head: number; sock: number | null;
-  exp: number | null; em: number[]; opens: number; ts: boolean; greg: boolean; starts: number; gsig: boolean; seenV: boolean;
+  ph: Ph; rel: boolean; sig: boolean; any: boolean; last: number | null; n: number; ls: number | null; tail: number[]; seen: number[]; cursor: number | null; buf: BV[];
+  ec: number; ps: number; pw: "none" | "req" | "wait"; pstale: boolean; settled: boolean; head: number; sock: number | null; ret: number; reg: number | null; now: number;
+  exp: number | null; em: number[]; opens: number; ts: boolean; gls: number | null; gsig: boolean; impl: number; nv: number; fv: boolean;
 }
 export interface RR { r: Rc; out: Emit[]; viol: string[]; ev: string[] }
 const posOf = (v: number) => (RCFG.nopos ? null : v);
 export function rInit(): RR {
   const viol: string[] = [], out: Emit[] = [];
-  const r: Rc = { ph: "Connecting", rel: false, sig: false, any: false, last: RCFG.from, n: 0, ls: 0, ring: [], cursor: null, buf: [], ec: 0, ps: 0, pw: "none", pstale: false, settled: false,
-    head: 0, sock: 1, exp: RCFG.from, em: [], opens: 1, ts: false, greg: false, starts: 0, gsig: false, seenV: false };
-  if (!C.catchUpAfterLive && RCFG.catchUp && r.last !== null) { startRepair(r, out, viol, true, true); r.sock = null; }
+  const r: Rc = { ph: "Connecting", rel: false, sig: false, any: false, last: RCFG.from, n: 0, ls: null, tail: [], seen: [], cursor: null, buf: [], ec: 0, ps: 0, pw: "none", pstale: false, settled: false,
+    head: 0, sock: 1, ret: 1, reg: 1, now: 0, exp: RCFG.from, em: [], opens: 1, ts: false, gls: null, gsig: false, impl: 0, nv: 0, fv: false };
+  if (!C.catchUpAfterLive && RCFG.catchUp && r.last !== null) { startRepair(r, out, viol, true); r.sock = null; r.reg = null; }
   return { r, out, viol, ev: [] };
 }
 export function rCell(ph: Ph, row: string): "defined" | "cannot" {
@@ -341,102 +360,109 @@ export function rCell(ph: Ph, row: string): "defined" | "cannot" {
   return "defined";
 }
 const START = ["proof", "live", "lost", "reset", "fresh", "pending"];
-function emitSig(r: Rc, out: Emit[], viol: string[], k: any, ra?: number) {
-  if (START.includes(k)) { if (r.starts >= 1 && !r.seenV) viol.push("I20b"); r.starts = Math.min(r.starts + 1, 2); r.gsig = true; }
-  if (k === "down") { r.starts = 0; r.seenV = false; }
-  out.push({ t: "sig", k, ra });
-}
-function emitDown(r: Rc, out: Emit[], viol: string[]) { emitSig(r, out, viol, "down"); }
+function emitSig(r: Rc, out: Emit[], k: any, ra?: number) { if (START.includes(k)) r.gsig = true; out.push({ t: "sig", k, ra }); }
 function emitReal(r: Rc, out: Emit[], viol: string[], v: number) {
   if (r.em.includes(v)) viol.push("I13");
-  r.em = [...r.em.slice(-5), v]; r.seenV = true; out.push({ t: "value", v });
+  r.em = [...r.em.slice(-5), v]; out.push({ t: "value", v });
 }
-function emitValue(r: Rc, out: Emit[], viol: string[], b: BV) {
-  if (r.ring.length) { if (b.p !== null && r.ring.includes(b.p)) return; r.ring = []; }
-  emitReal(r, out, viol, b.v);
-  if (C.lastIsEmitted) { if (b.p !== null) r.last = b.p; r.exp = b.p ?? r.exp; } else if (b.p !== null) r.last = Math.max(r.last ?? 0, b.p);
-  if (b.p !== null) r.exp = b.p;
+function setLast(r: Rc, b: BV) {
+  if (C.lastIsEmitted) { if (b.p !== null) { r.last = b.p; r.exp = b.p; } } else if (b.p !== null) { r.last = Math.max(r.last ?? 0, b.p); r.exp = b.p; }
   r.any = true;
 }
-function startRepair(r: Rc, out: Emit[], viol: string[], withPending: boolean, atConnect = false) {
+function emitValue(r: Rc, out: Emit[], viol: string[], b: BV) { // a socket value
+  if (r.tail.length) { if (b.p !== null && r.tail.includes(b.p)) return; r.tail = []; }
+  emitReal(r, out, viol, b.v); setLast(r, b);
+}
+function startRepair(r: Rc, out: Emit[], viol: string[], withPending: boolean) {
   if (r.last !== r.exp) viol.push("I4");
-  if (withPending) { r.starts = atConnect ? 0 : r.starts; if (C.pendingAnnounced) emitSig(r, out, viol, "pending"); else emitSig(r, out, viol, "proof"); }
-  r.ph = "CatchingUp"; r.cursor = r.last; r.buf = []; r.ring = []; r.ec = 0; r.settled = false; r.ps = 0; r.pw = "req";
+  if (withPending) emitSig(r, out, C.pendingAnnounced ? "pending" : "proof");
+  r.ph = "CatchingUp"; r.cursor = r.last; r.buf = []; r.seen = []; r.tail = []; r.ec = 0; r.settled = false; r.ps = 0; r.pw = "req"; r.nv = 0;
 }
 function abandon(r: Rc, out: Emit[], viol: string[]) {
   if (C.cancelPageOnEnd) r.pw = "none"; else if (r.pw !== "none") r.pstale = true;
-  if (!C.discardBufferOnAbandon) for (const b of r.buf) { if (r.pstale || true) { emitReal(r, out, viol, b.v); viol.push("I21"); } }
-  r.buf = []; r.ring = [];
+  if (!C.discardBufferOnAbandon) for (const b of r.buf) { emitReal(r, out, viol, b.v); viol.push("I21"); }
+  r.buf = []; r.seen = []; r.tail = [];
 }
+function setSock(r: Rc, v: number) { r.sock = v; r.reg = v; }
 function register(r: Rc, out: Emit[], viol: string[], k: "live" | "lost", implicit = false) {
-  if (!implicit && r.gsig === false) { /* first start of the connection */ }
-  if (implicit && r.gsig) viol.push("I20");
-  r.sig = implicit ? C.signalledSetByImplicit : true; r.ls = 1; r.greg = true;
+  if (implicit && (r.gsig || r.impl >= 1)) viol.push("I20");
+  if (implicit) r.impl++;
+  r.sig = implicit ? C.signalledSetByImplicit : true; r.ls = r.now; r.gls = r.now;
   if (RCFG.catchUp && r.last !== null) startRepair(r, out, viol, true);
   else {
-    if (k === "live" && r.last === null && (!C.freshOnlyFirst || !r.any)) emitSig(r, out, viol, "fresh");
-    else emitSig(r, out, viol, k);
+    if (k === "live" && r.last === null && !r.any) emitSig(r, out, "fresh"); else emitSig(r, out, k);
     r.ph = "Live";
   }
-  if (!implicit) r.sock = r.head + 1;
+  if (!implicit) setSock(r, r.head + 1);
 }
 function complete(r: Rc, out: Emit[], viol: string[], how: string) {
-  if (!r.settled) emitSig(r, out, viol, C.pendingAnnounced ? "settleP" : "live");
-  r.ph = "Live"; r.pw = "none";
-  const b = r.buf; r.buf = [];
-  for (const x of b) emitValue(r, out, viol, x);
-  if (!C.ringKeptAfterComplete) r.ring = [];
-  if (how !== "last" && how !== "cannot") viol.push("I18");
+  r.pw = "none";
+  if (!r.settled) emitSig(r, out, C.pendingAnnounced ? "settleP" : "live");
+  r.ph = "Live";
+  const b = C.meetAtFirstCommon ? r.buf : r.buf.filter((x) => !(x.p !== null && r.seen.includes(x.p))); // mutant: dedupe by the newest page positions
+  r.tail = r.buf.length === 0 ? r.seen : [];
+  for (const x of b) { emitReal(r, out, viol, x.v); setLast(r, x); }
+  r.buf = []; r.seen = [];
+  if (how !== "last" && how !== "cannot" && how !== "meet") viol.push("I18");
 }
 function dropConn(r: Rc, out: Emit[], viol: string[], ev: string[]) {
   if (r.ph === "CatchingUp") abandon(r, out, viol);
-  emitDown(r, out, viol);
-  if (r.ls === 2) r.n = 0;
-  if (C.liveSinceCleared) { r.ls = 0; r.greg = false; }
-  r.sock = null;
+  emitSig(r, out, "down");
+  if (r.gls !== null && r.now - r.gls >= 1) r.ts = true; // ghost: this connection stayed registered for resetAfter
+  if (r.ls !== null && r.now - r.ls >= 1) r.n = 0;
+  if (C.liveSinceCleared) r.ls = null;
+  r.gls = null; r.sock = null;
   if (r.n < RCFG.sched) { r.n++; r.ph = "Waiting"; } else { out.push({ t: "sig", k: "fail" }); r.ph = "Done"; ev.push("exhausted"); }
 }
 function pageRequest(r: Rc, viol: string[], first: boolean) { if (first && r.cursor !== r.exp) viol.push("I4"); r.pw = "req"; }
+function retry(r: Rc, out: Emit[], viol: string[], ev: string[]) {
+  r.nv = Math.min(r.nv + 1, 9); if (r.nv > 2 * (RCFG.psched + 1)) viol.push("I22a");
+  if (r.ps < RCFG.psched && C.pageRetryKeepsSocket) { r.ps++; r.pw = "wait"; ev.push("pageRetry"); return; }
+  if (r.ps < RCFG.psched) viol.push("I19");
+  dropConn(r, out, viol, ev);
+}
 export interface RMove { label: string; row: string; fn: (r: Rc) => RR }
 export function rMoves(r: Rc): RMove[] {
   const mv: RMove[] = [];
   const mk = (label: string, row: string, body: (r: Rc, out: Emit[], viol: string[], ev: string[]) => void) =>
-    mv.push({ label, row, fn: (r0) => { const r = clone(r0), out: Emit[] = [], viol: string[] = [], ev: string[] = [`R|${r0.ph}|${row}`]; body(r, out, viol, ev); return { r, out, viol, ev }; } });
-  if (r.head < RCFG.hmax) mk("server append", "env", (r) => { r.head++; });
-  if (RCFG.tick) mk("tick (resetAfter passes)", "env", (r) => { if (r.ls === 1) r.ls = 2; if (r.greg && r.ph !== "Waiting") r.ts = true; });
+    mv.push({ label, row, fn: (r0) => { const r = clone(r0), out: Emit[] = [], viol: string[] = [], ev: string[] = [`R|${r0.ph}|${row}`]; body(r, out, viol, ev); if (r.ls !== null && r.ls > r.now) viol.push("I26"); return { r, out, viol, ev }; } });
+  // P3: the socket's lag behind the log head stays within bufferSize
+  if (r.head < RCFG.hmax && (r.sock === null || r.head + 1 - (r.sock - 1) <= RCFG.buf)) mk("server append", "env", (r) => { r.head++; });
+  // P1: retention drops a prefix; it never passes the registration point
+  if (r.ret <= r.head && (r.reg === null || r.ret < r.reg)) mk("server drops a prefix", "env", (r) => { r.ret++; });
+  if (RCFG.tick && r.now < 3) mk("tick (resetAfter passes)", "env", (r) => { r.now++; });
   if (r.rel) return mv;
   const connected = r.ph === "Connecting" || r.ph === "Live" || r.ph === "CatchingUp";
   if (connected) {
-    const rep = r.ph === "CatchingUp";
-    if (r.last !== null && !RCFG.nopos) mk("inner proof(b)", "proof", (r, out, viol) => {
+    if (r.last !== null && !RCFG.nopos) mk("inner proof(b)", "proof", (r, out) => {
       if (r.ph === "CatchingUp") return; // evidence
-      r.sock = r.last! + 1;
-      if (r.ph === "Connecting") { emitSig(r, out, viol, "proof"); r.sig = true; r.ls = 1; r.greg = true; r.ph = "Live"; } else out.push({ t: "sig", k: "proof" }); // a repeat proof starts nothing
+      setSock(r, r.last! + 1);
+      if (r.ph === "Connecting") { emitSig(r, out, "proof"); r.sig = true; r.ls = r.now; r.gls = r.now; r.ph = "Live"; } else emitSig(r, out, "proof"); // a second start with its own answer
     });
     for (const p of ["live", "lost"] as const) mk(`inner ${p === "live" ? "live()" : "lost(r)"}`, "live", (r, out, viol) => {
-      r.sock = r.head + 1;
+      setSock(r, r.head + 1);
       if (r.ph === "CatchingUp") { abandon(r, out, viol); startRepair(r, out, viol, false); return; }
-      if (r.ph === "Live") { r.starts = 0; r.seenV = false; r.gsig = false; }
       register(r, out, viol, p);
     });
     mk("inner reset(r, at)", "reset", (r, out, viol) => {
-      const at = r.head; r.sock = r.head + 1;
+      const at = r.head; setSock(r, r.head + 1);
       if (r.ph === "CatchingUp") abandon(r, out, viol);
-      r.last = at; r.exp = at; emitSig(r, out, viol, "reset", at);
-      if (r.ph !== "CatchingUp") { r.sig = true; r.ls = 1; r.greg = true; }
+      r.last = at; r.exp = at; r.tail = []; emitSig(r, out, "reset", at);
+      if (r.ph !== "CatchingUp") { r.sig = true; r.ls = r.now; r.gls = r.now; }
       r.ph = "Live"; r.em = [];
     });
     mk("inner down(r)", "down", (r, out, viol) => {
       r.sock = r.head + 1;
       if (r.ph === "CatchingUp") abandon(r, out, viol);
-      emitDown(r, out, viol);
+      emitSig(r, out, "down");
       if (r.ph === "Connecting") r.sig = true; else { if (r.ph === "Live") r.sig = true; r.ph = "Connecting"; }
-      r.ls = 0; r.greg = false;
+      r.ls = null; r.gls = null;
     });
     if ((r.sock !== null && r.sock <= r.head) || (r.sock === null && r.head >= 1)) mk("inner value", "value", (r, out, viol, ev) => {
-      const pos = r.sock ?? r.head; r.sock = pos + 1;
+      const pos = r.sock ?? r.head; r.sock = pos + 1; if (r.reg === null) r.reg = pos;
       const b: BV = { v: pos, p: posOf(pos) };
-      if (!C.resetOnlyAtFail && !r.seenV && !rep) r.n = 0;
+      if (!C.resetOnlyAtFail && !r.fv) r.n = 0;
+      r.fv = true;
       if (r.ph === "CatchingUp") {
         if (!C.lastIsEmitted && b.p !== null) r.last = Math.max(r.last ?? 0, b.p);
         r.buf.push(b); if (r.buf.length > RCFG.buf) dropConn(r, out, viol, ev);
@@ -450,7 +476,7 @@ export function rMoves(r: Rc): RMove[] {
     });
     mk("inner fails (while) / Overflow", "failW", (r, out, viol, ev) => dropConn(r, out, viol, ev));
     mk("inner completes (Closed)", "failW", (r, out, viol, ev) => {
-      if (r.ph === "CatchingUp" && !C.completeOnlyOnLastPage) { abandon(r, out, viol); r.buf = []; r.ph = "Live"; viol.push("I18"); return; }
+      if (r.ph === "CatchingUp" && !C.completeOnlyOnLastPage) { abandon(r, out, viol); r.ph = "Live"; viol.push("I18"); return; }
       dropConn(r, out, viol, ev);
     });
     mk("inner fails (not while)", "failT", (r, out, viol) => {
@@ -458,6 +484,7 @@ export function rMoves(r: Rc): RMove[] {
       out.push({ t: "sig", k: "fail" }); r.ph = "Done"; r.sock = null;
     });
     if (r.ph === "CatchingUp" && (r.pw === "req" || r.pstale)) {
+      const reachable = (r.cursor ?? 0) + 1 >= r.ret; // P1: the log still reaches the cursor
       const page = (kind: "more" | "emptyMore" | "last") => (r: Rc, out: Emit[], viol: string[], ev: string[]) => {
         if (r.pstale) viol.push("I21");
         let vals: number[] = [], nextSome = false;
@@ -466,31 +493,32 @@ export function rMoves(r: Rc): RMove[] {
         else if (kind === "emptyMore") nextSome = true;
         else for (let p = c + 1; p <= r.head; p++) vals.push(p);
         for (const p of vals) {
-          emitReal(r, out, viol, p);
-          if (!RCFG.nopos) { r.last = p; r.exp = p; r.ring = [...r.ring, p].slice(-(READ.repair ? 8 : RCFG.buf)); }
-          r.any = true;
+          const b: BV = { v: p, p: posOf(p) };
+          if (C.meetAtFirstCommon && b.p !== null && r.buf.some((x) => x.p === b.p)) { complete(r, out, viol, "meet"); return; } // pageValue(): the meet
+          emitReal(r, out, viol, p); setLast(r, b);
+          if (b.p !== null) r.seen = [...r.seen, b.p].slice(-RCFG.buf);
         }
         if (r.pstale) { r.pw = "none"; r.pstale = false; return; }
-        r.ec = vals.length === 0 && nextSome ? Math.min(r.ec + 1, 3) : 0; r.ps = 0;
-        if (r.ec === 2) { retry(r, out, viol, ev); return; }
+        if (vals.length) r.nv = 0; else r.nv = Math.min(r.nv + 1, 9);
+        if (r.nv > 2 * (RCFG.psched + 1)) viol.push("I22a");
+        if (vals.length === 0 && nextSome) r.ec = Math.min(r.ec + 1, 3); else { r.ec = 0; r.ps = 0; }
+        if (vals.length === 0 && !C.emptyKeepsBudget) r.ps = 0;
+        if (C.emptyRunGE ? r.ec >= 2 : r.ec === 2) { const nv0 = r.nv; retry(r, out, viol, ev); r.nv = nv0; return; }
         if (nextSome && !(kind === "emptyMore" && !C.completeOnlyOnLastPage)) { r.cursor = vals.length ? vals[vals.length - 1]! : c; pageRequest(r, viol, false); return; }
         if (nextSome) viol.push("I18");
         complete(r, out, viol, "last");
       };
-      const retry = (r: Rc, out: Emit[], viol: string[], ev: string[]) => {
-        if (r.ps < RCFG.psched && C.pageRetryKeepsSocket) { r.ps++; r.pw = "wait"; ev.push("pageRetry"); return; }
-        if (r.ps < RCFG.psched) viol.push("I19");
-        dropConn(r, out, viol, ev);
-      };
-      mk("page ok (more)", "pageOk", page("more")); mk("page ok (empty, more)", "pageOk", page("emptyMore")); mk("page ok (last)", "pageOk", page("last"));
-      mk("page CannotRepair", "cannotRepair", (r, out, viol, ev) => {
-        if (!C.cannotRepairExits) { retry(r, out, viol, ev); return; }
-        emitSig(r, out, viol, "settleL"); r.settled = true; complete(r, out, viol, "cannot");
-      });
-      if (!READ.repair) mk("page CannotRepair(continueAt)", "cannotRepair", (r, out, viol, ev) => {
-        if (!C.cannotRepairExits) { retry(r, out, viol, ev); return; }
-        emitSig(r, out, viol, "settleL"); r.settled = true; r.cursor = r.head; pageRequest(r, viol, false);
-      });
+      if (reachable) { mk("page ok (more)", "pageOk", page("more")); mk("page ok (empty, more)", "pageOk", page("emptyMore")); mk("page ok (last)", "pageOk", page("last")); }
+      else {
+        mk("page CannotRepair", "cannotRepair", (r, out, viol, ev) => {
+          if (!C.cannotRepairExits) { retry(r, out, viol, ev); return; }
+          emitSig(r, out, "settleL"); r.settled = true; r.nv = 0; complete(r, out, viol, "cannot");
+        });
+        mk("page CannotRepair(continueAt)", "cannotRepair", (r, out, viol, ev) => {
+          if (!C.cannotRepairExits) { retry(r, out, viol, ev); return; }
+          emitSig(r, out, "settleL"); r.settled = true; r.nv = 0; r.cursor = r.ret - 1; pageRequest(r, viol, false);
+        });
+      }
       mk("page fails (while)", "pageFailW", retry);
       mk("page fails (not while)", "pageFailT", (r, out, viol) => { abandon(r, out, viol); out.push({ t: "sig", k: "fail" }); r.ph = "Done"; r.sock = null; });
     }
@@ -504,8 +532,8 @@ export function rMoves(r: Rc): RMove[] {
       if (r.ts) r.opens = 1; else r.opens++; r.ts = false;
       if (r.opens > RCFG.sched + 1) viol.push("I12");
       r.opens = Math.min(r.opens, RCFG.sched + 2);
-      r.ph = "Connecting"; r.sig = false; r.seenV = false; r.gsig = false; r.starts = 0; r.sock = r.head + 1; r.ls = C.liveSinceCleared ? 0 : r.ls; r.greg = false;
-      if (!C.catchUpAfterLive && RCFG.catchUp && r.last !== null) { startRepair(r, out, viol, true, true); r.sock = null; }
+      r.ph = "Connecting"; r.sig = false; r.gsig = false; r.impl = 0; r.fv = false; r.sock = r.head + 1; r.reg = r.sock; r.ls = C.liveSinceCleared ? null : r.ls; r.gls = null;
+      if (!C.catchUpAfterLive && RCFG.catchUp && r.last !== null) { startRepair(r, out, viol, true); r.sock = null; r.reg = null; }
     });
   }
   mk("release", "release", (r) => { r.rel = true; r.pw = "none"; r.buf = []; r.sock = null; r.ph = "Done"; });
@@ -513,8 +541,9 @@ export function rMoves(r: Rc): RMove[] {
 }
 export function rInv(r: Rc): string[] {
   const v: string[] = [];
-  if (r.buf.length > RCFG.buf || r.ring.length > (READ.repair ? 8 : RCFG.buf)) v.push("I7-buf");
+  if (r.buf.length > RCFG.buf || r.seen.length > RCFG.buf || r.tail.length > RCFG.buf) v.push("I7-buf");
   if (r.ph !== "CatchingUp" && r.buf.length) v.push("I7-buf");
+  if (r.ls !== null && r.ls > r.now) v.push("I26");
   return v;
 }
 
@@ -547,39 +576,32 @@ export function pgMoves(p: Pg): { label: string; next: Pg; viol: string[]; ev: s
   return out;
 }
 
-// ---- 3.6 listen coverage ------------------------------------------------------------------------------------------
-export interface Ls { D: boolean; evs: number[]; reads: { s: number; U: boolean }[]; landed: { U: boolean } | null; t: number; sub: boolean }
-export const lInit = (): Ls => ({ D: true, evs: [], reads: [{ s: 0, U: false }], landed: null, t: 1, sub: true });
-export function lNorm(l: Ls): Ls {
-  const ticks = [...l.evs, ...l.reads.map((r) => r.s), l.t].sort((a, b) => a - b), rk = (x: number) => ticks.indexOf(x);
-  return { ...l, evs: l.evs.map(rk), reads: l.reads.map((r) => ({ ...r, s: rk(r.s) })), t: ticks.length - 1 + 0 * rk(l.t) };
-}
+
+// ---- 3.6 listen coverage: freshness is a function ----------------------------------------------------------------------
+// fresh(r) = landed ∧ (every covering s is Live with a settled answer) ∧ (no gap, end or release after readStart[r]).
+// `gapAfter` is "lastGap >= readStart" and `old` counts reads in flight that a refetch left behind (EDP: one in flight, one trailing).
+export interface Ls { landed: boolean; gapAfter: boolean; old: number; sub: boolean }
+export const lInit = (): Ls => ({ landed: false, gapAfter: false, old: 0, sub: true });
+export const lNorm = (l: Ls): Ls => l;
+function lStartRead(l: Ls) { if (!l.landed) l.old = Math.min(l.old + 1, 1); l.landed = false; l.gapAfter = false; }
 export function lEvent(l0: Ls, e: string): Ls {
   const l = clone(l0);
-  if (e === "D") { if (C.listenPendingDown) l.D = true; }
-  else if (e === "P") l.D = false;
-  else if (e === "E") l.evs.push(l.t++);
-  else if (e === "G") {
-    l.D = false;
-    for (const r of l.reads) r.U = true; if (l.landed) l.landed.U = true; // ghost: an unproven start happened after those reads started
-    if (C.listenGapStale) {
-      l.evs.push(l.t++);
-      if (l.sub && l.reads.length < 3) l.reads.push({ s: l.t++, U: false });
-    }
-  }
-  return l;
+  if (e === "G" || e === "E") { l.gapAfter = true; if (l.sub) lStartRead(l); } // gap events: unproven/lost/reset/fresh starts, settle(lost), end, release
+  return l; // down, pending and proven starts are not gap events: they change only the present state
 }
-export function lReadStart(l0: Ls): Ls { const l = clone(l0); if (l.reads.length < 3) l.reads.push({ s: l.t++, U: false }); return l; }
-export function lReadLand(l0: Ls): Ls | null {
-  if (!l0.reads.length) return null;
-  const l = clone(l0), r = l.reads.shift()!;
-  l.evs = l.evs.filter((e) => e > r.s); l.landed = { U: r.U };
-  return l;
+export function lReadStart(l0: Ls): Ls { const l = clone(l0); lStartRead(l); return l; }
+export function lReadLand(l0: Ls): Ls[] {
+  const out: Ls[] = [];
+  if (!l0.landed) { const l = clone(l0); l.landed = true; out.push(l); }
+  if (l0.old > 0) { const l = clone(l0); l.old--; out.push(l); }
+  return out;
 }
-export function lFresh(l: Ls): boolean { return !l.D && l.evs.length === 0 && l.landed !== null; }
+export function lFresh(l: Ls, s: Sess, checksState: boolean, checksPending: boolean): boolean {
+  const covers = s.st !== "Released";
+  const present = !covers || ((!checksState || s.st === "Live") && (!checksPending || s.answer !== "pending"));
+  return l.landed && !l.gapAfter && present;
+}
+// I15: the table's freshness equals the function
 export function lInv(l: Ls, s: Sess): string[] {
-  if (!lFresh(l)) return [];
-  if (READ.repair && s.st !== "Live" && s.st !== "Opening" && s.st !== "Dropped") return [];
-  const bad = s.st !== "Live" || s.answer === "pending" || l.landed!.U;
-  return bad ? ["I15"] : [];
+  return lFresh(l, s, C.listenChecksState, C.listenChecksPending) !== lFresh(l, s, true, true) ? ["I15"] : [];
 }
