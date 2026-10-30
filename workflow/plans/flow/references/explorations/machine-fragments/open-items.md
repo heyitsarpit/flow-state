@@ -207,3 +207,18 @@ proposal-v2 does not preclude it.
 ## 19. `fromRpc` streams and download resume with `Range` (deferred by streams S5, 2026-10-30)
 
 An Rpc-backed stream adapter (with OD13's `fromRpc`), and resuming a download by byte range.
+
+## 20. A from-scratch experiment: what we would build knowing everything now (owner, 2026-10-31; after merge 3)
+
+Run after the Stories proposal (merge 3) is done, so every requirement is in. Give fresh Opus designers the full set
+of requirements, known failure cases and constraints gathered across all proposals (machine-design.md, the merged
+records, the briefs, every review and model finding), but not the design itself, and ask them to sketch a library
+from scratch. Not a full proposal; two outputs:
+
+1. **New shapes.** Ideas that do not appear in the current design at all and may be worth borrowing.
+2. **The main point: overbuilt, underbuilt or built wrong.** Places where one unifying feature would have fixed
+   several problems at once, compared with what we ended up with (several rules, modes or words each covering one
+   case). For each: the problems it would unify, what it would replace in machine-design.md, and what it would cost
+   to adopt now.
+
+Judge the findings against the current design afterwards; nothing is adopted without the owner.
