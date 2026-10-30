@@ -1,0 +1,220 @@
+# Runtime
+
+The Runtime is the one place that runs every app, server request and Story, and it owns the actors and their write lanes.
+
+## Example: wire the app and ensure an order
+
+The app lists its machines, the Runtime gets its services as a Layer, and an actor is ensured by its identity.
+
+```ts
+import { actorRef, app, runtimeSetup } from "flow-state"
+import { Layer } from "effect"
+import { CheckoutMachine } from "./checkout.machine"            // user-defined: the Machine page's checkout
+import { StripeApi, StripeLive } from "./stripe"                 // user-defined: the service and its production Layer
+
+// new: the closed list of machines this Runtime may run
+const shop = app({ id: "shop", machines: [CheckoutMachine] })
+
+// new: synchronous and inert until ready() resolves
+const runtime = runtimeSetup({
+  app: shop,
+  // new: services is a Layer, the swap point for implementations
+  services: Layer.succeed(StripeApi, StripeLive),
+}).construct()
+
+// new: an inert ref; the id names the actor
+const order = actorRef(CheckoutMachine, "o-1001", {
+  persist: true,              // new: saved as this identity's record
+  retain: "5 minutes",        // new: disposed 5 minutes after its last use; the saved record stays
+})
+
+// new: after ready() resolves (earlier it rejects with RuntimeNotReady); the one shared actor for this identity
+const checkout = runtime.ensureActor(order, {
+  input: { intentId: "pi_123" },   // user-defined: the input CheckoutMachine initializes from
+})
+```
+
+## Example: a write outlives its actor
+
+A write committed by the actor keeps its lane in the Runtime, so the actor can be disposed and a new one picks the lane up.
+
+```ts
+// the Pay transition from the Machine example has committed a write; its lane is the Runtime's
+
+// new: removes the actor's record; the unsettled lane stays as an unbound lane
+runtime.disposeActor(checkout)
+
+// rebind: a new incarnation of the same identity adopts that lane, and a held unknown arrives once,
+// as unknown { Restored }, from the active leaf
+const again = runtime.ensureActor(order, {
+  input: { intentId: "pi_123" },   // user-defined: same input, so the identity matches
+})
+
+// forget (prose only in the design, no call shown) would also drop the record and the lanes
+```
+
+## Example: a clean shutdown and a crash
+
+A clean disposal starts no new work; a crash runs nothing, and the next load restores what was in flight.
+
+```ts
+// new: Runtime disposal closes admission and starts no new invocations
+await runtime.dispose()
+
+// a crash calls nothing; the reload restores each lane by its restore row
+
+// new: a host's beforeunload reads the lanes that are not Idle, by identity
+window.addEventListener("beforeunload", () => {
+  console.warn("writes still settling", runtime.unsettledWrites())
+})
+```
+
+## Keywords
+
+### app
+
+**What:** `app({ id, machines })` is the closed list of every machine the Runtime may run.
+
+**Why it exists:** The list is fixed for the Runtime's life, so there is no runtime registration or child actor, and tools see the whole structure.
+
+- Construction throws `FlowError` on duplicate machine ids or colliding operation, domain or entity identities.
+
+<small>Source: Runtime.plan O1 · decision D1</small>
+
+### runtimeSetup
+
+**What:** `runtimeSetup({ app, services?, persistence?, ... }).construct()` builds a Runtime that starts nothing until `ready()` resolves.
+
+**Why it exists:** One Runtime runs every host, React tree, server request and Story through one execution path.
+
+- `ready()` bootstraps in order: claim scope, acquire storage and validate it, merge restored data, then acquire the remaining services.
+
+<small>Source: Runtime.plan O2 · constraint C1</small>
+
+### services
+
+**What:** An Effect Layer that provides every service the operation adapters need; a missing service is a type error.
+
+**Why it exists:** The Layer is the swap point: production wraps `fetch`, and a Story passes a fake in its place.
+
+```ts
+// a Story: the same app, with the fake Layer in place of the production one
+const storyRuntime = runtimeSetup({ app: shop, services: StripeFake }).construct()
+```
+
+- Contracts keep their function inline and call the service; they are not a Layer per contract.
+
+<small>Source: Runtime.plan O2 · machine-design OD11, 2.8</small>
+
+### actorRef
+
+**What:** `actorRef(machine, id, { persist?, retain?, context? })` names an actor without starting it.
+
+**Why it exists:** The ref is the identity that `ensureActor`, rebind and restore all find the same actor by.
+
+- Two refs with the same machine and id but different `persist`, `retain` or `context` reject with `ConflictingActorRef`.
+
+<small>Source: Runtime.plan O3</small>
+
+### retain
+
+**What:** A Duration after which a shared actor is disposed once its last use ends; for a persisted actor, its saved record stays.
+
+**Why it exists:** An unused actor can go without losing the state a later `ensureActor` restores.
+
+- A provider with bound consumers never expires; without `retain` the actor lives until explicit or Runtime disposal.
+
+<small>Source: Runtime.plan O3 · machine-design 2.7.13 (retain expiry)</small>
+
+### ensureActor
+
+**What:** `runtime.ensureActor(ref, { input })` returns the one shared actor for the identity, creating or restoring it.
+
+**Why it exists:** It is the single way to get a shared actor, so an identity never has two live actors.
+
+- The first accepted input initializes the actor; a later different input reports `InputIgnored`, and later ensures never reset memory.
+- The design calls the same step `ensure` in Story steps (2.10).
+
+<small>Source: Runtime.plan O3 · machine-design 2.7.13</small>
+
+### actor identity
+
+**What:** For a shared actor, the identity is the machine id and actor id; for a local actor, the machine id and its input.
+
+**Why it exists:** A lane's identity is (actor identity, contract id, key), so a new actor adopts only its own identity's lanes.
+
+- A starting actor adopts only the unbound lanes of its own identity: one checkout never takes another checkout's lane.
+
+<small>Source: Runtime.plan O3 · machine-design 2.7.13 (Owner), OD20</small>
+
+### write lane
+
+**What:** The Runtime's record of one write's ordering for an actor identity, contract and key, in state `Idle`, `InFlight`, `Held` or `HeldThisTurn`.
+
+**Why it exists:** A write lane outlives the actor that started it, so disposing the actor never drops or cancels its sent, held or queued writes.
+
+- A retained unknown holds its lane until `retry` resolves it or `cancel` releases it; the hold is the default.
+
+<small>Source: machine-design 2.7.13, rule 21, OD19, OD6</small>
+
+### rebind
+
+**What:** An incarnation of the same identity starts and adopts its unbound lanes, receiving a held head's `unknown { Restored }` exactly once.
+
+**Why it exists:** A new incarnation must resolve work an earlier one started, and it reads what it needs from the event, never from the earlier memory.
+
+- On a rebind without a reload, queued commits `W` stay queued in order.
+
+<small>Source: machine-design rule 44, 2.7.13 (rebind row), OD20, OD21</small>
+
+### disposeActor
+
+**What:** `runtime.disposeActor(actor)` disposes the actor for every user; its record is removed and its non-`Idle` lanes stay as unbound lanes.
+
+**Why it exists:** Disposing an actor is not cancelling its writes: the Runtime keeps the lanes and applies their endings.
+
+- Disposing a provider while consumers are bound rejects with `BlockedByDependents`.
+
+<small>Source: Runtime.plan O6 · machine-design 2.7.13 (Lanes are Runtime records)</small>
+
+### forget
+
+**What:** Removes the actor's record and its lanes, so nothing is left to deliver an ending to.
+
+**Why it exists:** It is the deliberate end of an identity: a later ending has no record and is only evidence.
+
+- The design gives `forget` in prose only; in Story steps it is `dispose(ref, { how: "forget" })`.
+- Runtime disposal with `forget` also deletes the scope's stored records (Runtime.plan O6, `runtime.dispose({ forget: true })`).
+
+<small>Source: machine-design 2.7.13 (Owner), 2.10 · Runtime.plan O6</small>
+
+### Runtime disposal
+
+**What:** `runtime.dispose()` closes admission, drops queued events, and starts no new invocations; a waiting, never-sent write ends `NotSent { Disposed }`.
+
+**Why it exists:** A clean shutdown must not start a write after the user has left; a crash is the other case, where nothing runs and a reload restores the lanes.
+
+- After a crash, an acknowledged Attempt restores as `unknown { Restored }`, and an unacknowledged one as `NotSent { Restored }`.
+- Plan and design disagree: Runtime.plan O6 says queued work is dropped and in-flight commits settle within 5 seconds; the design adds that a persisted identity saves its parked endings with the final capture. The design wins.
+
+<small>Source: machine-design 2.7.13 (Runtime disposal row), rule 44, OD20, OD21 · Runtime.plan O6</small>
+
+### parked ending
+
+**What:** An ending with no live incarnation to receive it, kept raw on its lane record and mapped through the current `outcomes` when delivered.
+
+**Why it exists:** A write's success, failure or unknown must reach someone, even after disposal or a machine change, so it is not lost.
+
+- For a persisted identity, the parked ending is delivered once to its next incarnation, in saved order; otherwise it is evidence.
+
+<small>Source: machine-design rule 44, OD21, OD22</small>
+
+### runtime.unsettledWrites()
+
+**What:** Lists the lanes that are not `Idle`, by actor identity.
+
+**Why it exists:** A host's `beforeunload` needs to know which writes are still settling when the page goes away.
+
+- A lane holding only a parked ending counts as not `Idle` until it is delivered.
+
+<small>Source: machine-design 2.7.13 (Owner), OD23 Q40</small>

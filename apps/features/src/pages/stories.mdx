@@ -1,0 +1,326 @@
+# Stories
+
+A Story is a plan of inputs (the user's sends, time, and the fake world) that runs the real Runtime, settling after each step, and checks values read from the cut each step leaves.
+
+## Example: checkout against a Stripe fake
+
+Two checkouts: one pays, and one is pressed twice while its request waits in transit.
+
+```ts
+import { Fake, Story } from "flow-state/testing"
+import { Effect, Layer, Schema } from "effect"
+import { CheckoutMachine } from "./checkout.machine"          // user-defined
+import { E, O, S } from "./checkout.definition"              // user-defined
+import { StripeApi } from "./stripe.api"                     // user-defined: the app's service
+
+const Charge = Schema.Struct({ intentId: Schema.String, key: Schema.String })
+
+// user-defined: Stripe is a server, one per run, with typed truth
+export const Stripe = Fake.server("Stripe", {
+  truth: { charges: Schema.Array(Charge) },
+  initial: { charges: [] },
+  endpoints: {
+    confirm: Fake.call({                                      // NEW: a request endpoint
+      request: { intentId: Schema.String, key: Schema.String },
+      handle: (truth, req) =>                                 // (truth, request) → [truth, response]
+        truth.charges.some((c) => c.key === req.key)          // the fake's own dedupe
+          ? [truth, { ok: true, status: 200 }]
+          : [{ ...truth, charges: [...truth.charges, req] }, { ok: true, status: 200 }],
+    }),
+  },
+})
+
+// The client half: the app's StripeApi over the run's server. One per tab.
+export const StripeFake = Layer.effect(StripeApi, Effect.map(Stripe, (server) => StripeApi.of({
+  confirm: (input, { idempotencyKey }) =>
+    server.confirm({ intentId: input.intentId, key: idempotencyKey }).pipe(
+      Effect.catchTag("Fake/Lost", () => new NoResponse())),  // user-defined: the app's error
+})))
+
+const checkout = (id: string) =>
+  Story.make(CheckoutMachine, { id, input: { intentId: "pi_1" }, fixtures: [StripeFake] })
+const pay = E.Pay({ paymentMethodId: "pm_card" })
+
+export const paid = checkout("checkout/paid")
+  .send(pay)                                                  // settles: committed, answered, DONE
+  .expect({ state: S.DONE, operations: { pay: { pending: false, uncertain: false } } })
+  .expect(Stripe, { charges: [{ intentId: "pi_1", key: Story.attempt(O.pay) }] })
+
+export const paying = checkout("checkout/paying")
+  .world(Stripe.confirm.hold())                               // the request waits in transit
+  .send(pay, pay)                                             // two presses: two steps, two cuts
+  .checkpoint("paying")                                       // names the cut after the second press
+  .expect({ state: S.PAYING })
+  .expect(Story.records("verdict"), [{ result: { _tag: "Allowed" } }, { result: { _tag: "Unhandled" } }])
+  .world(Stripe.confirm.release())                            // the held request is answered
+  .expect({ state: S.DONE })
+```
+
+## Example: a trait alone in a stand-in host
+
+A lockout trait with no app around it, one guard answered, then left.
+
+```ts
+import { deny } from "flow-state"
+import { Story } from "flow-state/testing"
+import { Lockout } from "./lockout"                           // user-defined trait
+
+const L = Lockout({ limit: 2, length: "1 minute" })
+export const paused = Story.make(L, { id: "lockout/paused" }) // no input declared, none written
+  .enter()                                                    // the stand-in host enters the trait
+  .guards({ canStrike: deny("Paused") })                      // the stand-in's answers from now on
+  .send(L.E.Strike())
+  .leave()                                                    // ends, or freezes if resumable
+```
+
+## Example: a lost answer, then a new life
+
+A like button whose answer is lost, checked across a leave and a fresh enter.
+
+```ts
+import { Story } from "flow-state/testing"
+import { LikeButton } from "./like-button"                    // user-defined fragment
+import { Issues, IssuesFake, c7 } from "./issues.fake"       // user-defined fake and seed
+
+export const likeAlone = Story.make(LikeButton, { id: "like/alone", fixtures: [IssuesFake], world: [c7] })
+  .world(Issues.setLike.drop({ at: "response" }))             // the answer is lost; the write is unknown
+  .enter({ id: "c7" })
+  .send(LikeButton.E.Toggle({ liked: true }))
+  .expect({ operations: { set: [{ key: { id: "c7" }, uncertain: true }] } })
+  .leave()                                                    // no release on leave: the hold stays
+  .expect(Story.inspection, { lanes: [{ key: { id: "c7" }, subject: [], binding: "unplaced", state: "Held" }] })
+  .enter({ id: "c7" })                                        // a new life adopts it: unknown { Restored }
+  .advance("3 seconds")                                       // the reconcile re-sends the same Attempt
+  .expect(Issues, { issues: { c7: { likes: 4 } } })
+```
+
+## Keywords
+
+### Story.make
+
+**What:** `Story.make(subject, { id, input, fixtures, world })` returns an inert plan of steps for a machine, a fragment or an app setup (renamed from `story.app` and `story.machine`, Stories T3).
+
+**Why it exists:** One constructor lets the subject's kind decide which steps type-check, and each chained step returns a new plan, so branches are plain variables.
+
+- `input` appears only when the subject declares one, and `fixtures` must meet every Effect requirement, so a missing fake is a type error.
+
+<small>Source: machine-design 2.10.1 · Stories T3</small>
+
+### Fake.server
+
+**What:** `Fake.server(name, { truth, initial, endpoints, controls })` holds typed server truth, one server per run, shared by every tab and reload.
+
+**Why it exists:** Server truth lives in one place, so a reload or a second tab sees the same world the server does.
+
+- The client half (an ordinary Layer, like `StripeFake`) is per tab and holds no state.
+
+<small>Source: machine-design 2.10.4 · rule 62</small>
+
+### Fake.call
+
+**What:** `Fake.call({ request, handle })` declares a request endpoint, where `handle(truth, request)` returns `[truth, response]`, or an Effect of it.
+
+**Why it exists:** The fake answers only what the server would, and the commit classifies the answer, so `429` becomes `Busy` and `5xx` becomes unknown without the fake saying so.
+
+<small>Source: machine-design 2.10.4 · rule 66</small>
+
+### send
+
+**What:** `send(target?, ...events)` queues each event as its own step, as a view's send would, and settles after each one.
+
+**Why it exists:** Each event has its own cut, so a Story checks the state between two presses.
+
+<small>Source: machine-design 2.10.2</small>
+
+### Settle (R-Settle)
+
+**What:** Every step applies its input, then settles on a microtask-only scheduler until nothing is runnable except through the Clock, a Story gate or input that is not coming.
+
+**Why it exists:** Host I/O never decides a result or an order, so the same Story gives the same run each time, and there is no `process()`.
+
+- Testing.plan still lists `process()`, `advanceTo` and `advanceToNextTimer`. The design removes them (rule 61, Stories T5 B1), and the design wins.
+
+<small>Source: machine-design 2.10.2 · rule 61 · Stories T5 B1, T7</small>
+
+### expect
+
+**What:** `expect(target?, partial)` checks a read of the latest step cut against a partial value, and the run rejects after it finishes if any check failed.
+
+**Why it exists:** A partial shape states only what matters, so a Story reads as a claim rather than a full snapshot.
+
+- A failure names the step, cut, target, path, expected and actual.
+
+<small>Source: machine-design 2.10.6 · Stories T5 B3</small>
+
+### Story.attempt
+
+**What:** `Story.attempt(op, address?)` names the Attempt of an operation that the address matches, with `{ n }` to pick one among several.
+
+**Why it exists:** A Story names a write by its operation, not by an id it cannot know in advance.
+
+<small>Source: machine-design 2.10.6 · rule 65</small>
+
+### .world(...)
+
+**What:** `.world(...controls)` applies server controls and wire words to the fake servers in order, then settles.
+
+**Why it exists:** The world is data, so `describe` can print it, a property test can generate it, and the `world` option takes the same values.
+
+<small>Source: machine-design 2.10.1 · 2.10.2 · Stories T4, T6</small>
+
+### hold
+
+**What:** `hold()` makes matching requests wait in transit, unseen by the server, until a `release`.
+
+**Why it exists:** It is a delivery fact any transport can have, so a Story keeps a request in flight without an answer being written.
+
+<small>Source: machine-design 2.10.4 · rule 62</small>
+
+### Step cuts and frames
+
+**What:** Every step ends with a cut `{ frame, seq, truth, wire }`, and a frame is the cut after one committed publication of one tab.
+
+**Why it exists:** A checkpoint names a step cut, so a moment such as "Saving..." is a named frame, and a step that publishes nothing still shows its own effects.
+
+- `checkpoint(name, { at? })` names a cut, and `at` names a frame of an earlier step.
+
+<small>Source: machine-design 2.10.6 · rule 64</small>
+
+### Story.records
+
+**What:** `Story.records(kind, filter?)` returns the run's records of one kind up to this cut, filtered by an address and kind fields.
+
+**Why it exists:** Every kind of record has one home in one ordered evidence list, so a Story reads each fact the same way however many tabs or copies it has.
+
+<small>Source: machine-design 2.10.6 · rule 64</small>
+
+### release
+
+**What:** `release()` delivers held items in arrival order, and ends every standing rule on its target.
+
+**Why it exists:** The Story chooses when a held answer arrives, so the race it tests is one the author wrote.
+
+- With nothing held and no standing rule it fails with `NothingHeld`.
+
+<small>Source: machine-design 2.10.4 · 2.10.17.2</small>
+
+### Fragment Story (stand-in host)
+
+**What:** A trait or subroutine Story runs in a stand-in host that Flow builds from the fragment's own declaration, driven by `enter`, `leave` and `guards`.
+
+**Why it exists:** A fragment is tested alone, and its placement comes from its declaration, never from later steps.
+
+- `leave()` freezes a resumable trait and ends any other. `leave({ end: true })` ends a frozen one. `guards(answers)` sets the stand-in's answers.
+
+<small>Source: machine-design 2.10.12 · rule 66 · Stories T3</small>
+
+### drop
+
+**What:** `drop()` loses matching requests before the server, or with `at: "response"` loses the answer after the server handled it.
+
+**Why it exists:** A lost answer is the wire fact that makes an Attempt unknown, so the commit's real classification runs.
+
+<small>Source: machine-design 2.10.4 · 2.10.5</small>
+
+### Story.inspection
+
+**What:** `Story.inspection` reads `inspect(runtime)` at the cut, and `Story.inspection({ tab })` reads one tab.
+
+**Why it exists:** Lanes, incarnations, work and persistence are read the way the Runtime reports them, not rebuilt from the trace.
+
+- `Story.inspection.lanes` lists every non-`Idle` write lane by identity. `Story.inspection.work` lists what the Runtime waits for.
+
+<small>Source: machine-design 2.10.6 · 2.10.7</small>
+
+### advance
+
+**What:** `advance(d)` moves time to now + d, firing each deadline on the way and settling at each.
+
+**Why it exists:** Time is controlled, so a Story reaches a backoff or a timeout without waiting for it.
+
+- `advance({ next: address })` moves to the earliest unfrozen deadline that the address matches.
+
+<small>Source: machine-design 2.10.3</small>
+
+### Fake.storage
+
+**What:** `Fake.storage` is Flow's in-memory KeyValueStore, one per run, used by every tab, with `read` and `write` endpoints.
+
+**Why it exists:** Local storage is not remote, so its writes are FIFO per tab, and a closed tab's unfinished write is aborted rather than applied later.
+
+- `write` takes `hold`, `release` and `drop`, but not `duplicate`. `Fake.storage.seed(records)` seeds it, and `Fake.storage.from(story)` reuses an earlier run's storage.
+
+<small>Source: machine-design 2.10.4 · rule 62</small>
+
+### duplicate
+
+**What:** `duplicate()` makes a matching request reach the server twice, while the client gets the first answer.
+
+**Why it exists:** Double delivery is real wire behaviour, and the server's own dedupe has to hold against it.
+
+<small>Source: machine-design 2.10.4</small>
+
+### together(...)
+
+**What:** `together(...inputs)` holds admission in every tab while each listed input arrives, in order, so the inputs are queued before any of them runs.
+
+**Why it exists:** It is the only concurrency word, and it states a real interleaving, such as a timeout racing an answer.
+
+```ts
+together({ advance: "30 seconds" }, Stripe.confirm.release())   // the timeout and the answer, both queued
+```
+
+<small>Source: machine-design 2.10.2 · Stories T4, T6</small>
+
+### reload, openTab, closeTab
+
+**What:** `openTab(name, { from? })` opens a tab, `closeTab(name)` ends it with no final flush, and `reload(name)` does both in one step.
+
+**Why it exists:** A reload is the crash a Story most often checks, and `from` re-ensures the refs the closed tab had ensured.
+
+- On a focused machine Story, `closeTab` and `reload` are type errors, since its lanes are never persisted.
+
+<small>Source: machine-design 2.10.10 · Stories T6</small>
+
+### Address shape
+
+**What:** One address `{ actor?, instance?, copy?, operation?, schedule?, timer?, key?, tab?, life? }` names a thing everywhere it is needed.
+
+**Why it exists:** `match`, `Story.attempt`, record filters, `advance({ next })` and step targets read the same shape, so it is learned once.
+
+```ts
+{ actor: BoardP1 }
+{ operation: LikeButton.O.set, actor: IssuePageC7 }
+{ tab: "b" }
+{ purpose: "acknowledge" }                                 // an address plus kind fields
+```
+
+<small>Source: machine-design rule 65 · Stories T6</small>
+
+### propertyTest
+
+**What:** `propertyTest(story, { steps, properties, seed, runs?, length?, quietWithin? })` generates ordinary Stories by appending generated steps to a base Story.
+
+**Why it exists:** Every fault the oracle names is one of these steps, so a shrunk failure is a literal Story that runs and plays back.
+
+- A generated step that is invalid in the current state is skipped and left out of the emitted Story, never thrown.
+
+<small>Source: machine-design 2.10.16 · Stories T5 B5</small>
+
+### No ending injection
+
+**What:** A Story never names an ending. Every ending comes from a fake's answer through the commit's classification, or from a lifecycle step.
+
+**Why it exists:** An injected ending would skip the classification and the decoding, so a Story could pass along a path the real response never takes.
+
+<small>Source: machine-design 2.10.5 · rule 62 · Stories T2</small>
+
+### Playback
+
+**What:** A Story runs once to record, and its frames render afterwards through `StoryPlayer` or `StoryFrame`.
+
+**Why it exists:** Each frame is a real publication, so the player shows what production would show at that moment, with no second model.
+
+- The player moves by frame, step or scene, and a step is never lost. A step that is not a click plays as a captioned wait.
+
+<small>Source: machine-design 2.10.13 · Stories T5</small>

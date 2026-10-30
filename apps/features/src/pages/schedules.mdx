@@ -1,0 +1,199 @@
+# Schedules
+
+A schedule is a named timer that a state, trait or host declares, and it sends an event when it fires.
+
+## Example: a countdown fragment
+
+`Countdown` starts its timer on `Start` and tells its host with `Done` when the duration ends.
+
+```ts
+import { Duration } from "effect"
+import { Flow, trait } from "flow-state"
+
+// Start has no handler of its own: the schedule's armOn handles it.
+// Start also restarts the timer if it is already running.
+export const Countdown = (p: { length: Duration.Input }) =>
+  trait(
+    {
+      id: "Countdown",
+      hostEvents: { Start: {} },
+      internalEvents: { Done: {} },
+      callbacks: { onDone: Flow.optional(Flow.Callback({})) },
+    },
+    ({ E, callbacks }) => ({
+      // a schedule named done: a duration from the parameter, sends Done, armed by Start
+      schedules: { done: { schedule: p.length, send: E.Done, armOn: [E.Start] } },
+      on: {
+        // the schedule's own event, handled by this state
+        Done: { target: "self", notify: [callbacks.onDone] },
+      },
+    }),
+  )
+```
+
+## Example: one timer per key
+
+Each locked challenge gets its own unlock timer, and each dirty document gets its own debounce.
+
+```ts
+// on any state or trait
+schedules: {
+  unlock: {
+    // one timer per key: one key record per locked challenge
+    keys: ({ memory }) => Object.keys(memory.lockedUntil).map((challengeId) => ({ challengeId })),
+    // the duration is read from the after memory, with now
+    schedule: ({ key, memory, now }) => Duration.millis(Math.max(0, memory.lockedUntil[key.challengeId] - now)),
+    send: E.Unlock.from(({ key }) => ({ challengeId: key.challengeId })),
+  },
+  autosave: {
+    keys: ({ memory }) => memory.dirty.map((docId) => ({ docId })),
+    // per key: a new draft value for that document restarts only its timer
+    restartOn: ({ key, memory }) => memory.drafts[key.docId],
+    schedule: "1 second",
+    send: E.SaveDue.from(({ key }) => ({ docId: key.docId })),
+  },
+},
+```
+
+## Example: a retry that waits for a computed delay
+
+The checkout's `WAITING` state retries after the delay the `Busy` turn stored in memory.
+
+```ts
+WAITING: {
+  // the delay is read from memory after the turn that entered WAITING
+  schedules: { retry: { schedule: ({ memory }) => Duration.millis(memory.retryInMs), send: E.RetryNow } },
+  on: {
+    // a new write with a new id, or wait again
+    RetryNow: [
+      { target: S.PAYING, guard: [O.pay.idle], actions: [O.pay.commit(({ memory }) => ({ intentId: memory.intentId, paymentMethodId: memory.paymentMethodId }))] },
+      { target: "self" },
+    ],
+  },
+},
+```
+
+## Keywords
+
+### `schedules`
+
+**What:** Named timers that a state, trait, subroutine or host declares; each sends an event when it fires.
+
+**Why it exists:** Time becomes an ordinary event, so a deadline can be tested and a view can read it from the snapshot.
+
+- Armed schedules are read under the instance name, as `s.schedules.<name>` for a host or `s.schedules.code.<name>` for a trait, each with its `dueAt`.
+- Exit stops every schedule of the state, and every temporal construct is delayed: it never counts the turn that arms it.
+
+<small>Source: machine-design 2.1 (reading), 2.4 rule 1, 5 P7 · Machines O5</small>
+
+### `schedule`
+
+**What:** How long a timer waits: a `Duration.Input`, an Effect `Schedule`, or a function that returns a duration from `{ memory, now }`, plus `key` on a keyed schedule.
+
+**Why it exists:** A delay can depend on data the arming turn wrote, and the function reads that data after the turn.
+
+- An invalid duration rejects the turn (`InvalidTurn`). The plan's Machines O5 says it prevents entry instead, so the design wins.
+
+<small>Source: machine-design 2.4 rules 22–23 · 2.7.6 · Machines O5</small>
+
+### `send`
+
+**What:** The event a schedule sends when it fires: `E.X`, or `E.X.from(…)` to build the payload from the firing.
+
+**Why it exists:** A firing is handled by the same `on` table as any other event, so each state decides what the timer means.
+
+- The `.from` mapper receives the firing's metadata, such as `key` on a keyed schedule or `attempt` on a recurring one.
+
+<small>Source: machine-design 2.4 rule 23 · 2.7.6 · 2.7.10</small>
+
+### `armOn`
+
+**What:** Events that start a schedule, or restart it if it is running; a schedule with no `armOn` starts on entry.
+
+**Why it exists:** A countdown or a debounce can start from an event such as `Start` or `Edited`, not from entering the state.
+
+- `armOn` counts an event accepted anywhere on the active path; `disarmOn: [events]` stops the schedule on each accepted listed event.
+- The plan's Machines O5 says entry always arms a schedule; the design (P7) says a schedule with `armOn` is idle on entry unless `Flow.entry` is listed, so the design wins.
+
+<small>Source: machine-design 2.4 rule 23 · 2.5 · 5 P7 · Machines O5</small>
+
+### `keys`
+
+**What:** On a keyed schedule, a function that returns the list of key records (`({ docId })`), with one timer per record.
+
+**Why it exists:** Per-row timers, such as a debounce per document or a lockout per challenge, need no hand-written timer for each row.
+
+- A key's timer arms when the key first appears, is cancelled when it leaves, and fires once with `key` in its metadata.
+- `keys` reads the after memory and the after lanes, so it may read `operations`.
+
+<small>Source: machine-design 2.4 rule 23 · 2.7.10 · 5 C39</small>
+
+### `Duration`
+
+**What:** Effect's duration values: a string such as `"1 second"` or `"300 millis"`, `Duration.millis(n)`, or a `Duration.Input` passed in.
+
+**Why it exists:** One duration type covers a literal delay, a computed delay and a delay passed in as a parameter.
+
+- A duration fires once and then the schedule is idle, unless it is restarted or armed again.
+
+<small>Source: machine-design 2.7.6 · 2.7.10 · Machines O5</small>
+
+### `restartOn`
+
+**What:** A value a schedule watches; when it changes after a turn, the schedule restarts from its first step. On a keyed schedule it is `({ key, memory }) => value`, and it restarts that key's timer.
+
+**Why it exists:** A debounce restarts on every change without any timer code in the handler.
+
+- Its baseline is the activating turn's after memory, so the first value does not restart the timer (P8).
+- `armOn` together with `restartOn` is a construction error (P7); on a keyed schedule `armOn` is also a construction error.
+
+```ts
+// a debounce: 300 ms after the last change to the search text
+schedules: { settle: { schedule: "300 millis", send: E.SearchSettled, restartOn: ({ memory }) => memory.search.value } },
+```
+
+<small>Source: machine-design 2.4 rule 23 · 5 P7, P8 · 3.4</small>
+
+### `Flow.entry`
+
+**What:** A marker in `armOn` that also starts the schedule when its owner begins: its state is entered, or its trait is created or reset.
+
+**Why it exists:** A schedule with `armOn` is idle on entry, so `Flow.entry` opts entry back in, and the schedule can also restart on an event.
+
+- It does not fire on a thaw of a frozen trait (F8).
+
+```ts
+// starts on entry, and restarts on each Refresh
+schedules: { poll: { schedule: "30 seconds", send: E.Poll, armOn: [Flow.entry, E.Refresh] } },
+```
+
+<small>Source: machine-design 2.2.1 (`Flow.entry`) · 2.4 rule 1 · 2.5 · 5 P7</small>
+
+### `Schedule.spaced`
+
+**What:** An Effect `Schedule` value that recurs, with the given delay between steps.
+
+**Why it exists:** A recurring tick, such as a poll or a resync, needs no re-arm code in the handler.
+
+- A recurring schedule persists and ticks after a reload, which is how a fragment keeps looking up again.
+
+```ts
+schedules: { poll: { schedule: Schedule.spaced("2 seconds"), send: E.PollTick.from((m) => ({ n: m.attempt })) } },
+```
+
+<small>Source: machine-design 2.7.6 · 2.7.9</small>
+
+### `dueAt`
+
+**What:** The absolute deadline an armed schedule is waiting for, read at `s.schedules.<name>.dueAt`, and per key on a keyed schedule.
+
+**Why it exists:** A view can count down to a deadline that survives a reload, and an overdue timer can be found from the snapshot.
+
+- A resumable trait's schedule keeps its `dueAt` while the trait is frozen; on return it fires once if it is overdue.
+- Keyed timers persist by key with their `dueAt`; on restore the keys of the restored memory win, and a recurring schedule keeps ticking after a reload.
+
+```ts
+const resendDue = useView(signIn, (s) => s.schedules.resendCooldown?.done?.dueAt)
+```
+
+<small>Source: machine-design 2.4 rules 1 and 23 · 2.7.9 · Persistence O2 (5 P6)</small>

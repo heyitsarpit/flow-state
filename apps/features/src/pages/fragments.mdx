@@ -1,0 +1,302 @@
+# Fragments
+
+A fragment is a trait or a subroutine: a piece of behaviour the host places in its definition and fills in its machine, and which may own its own I/O through `operations`.
+
+## Example: a discard dialog that is a subroutine
+
+The dialog goes into a state, its two exits are filled by the host, and leaving the state abandons it.
+
+```ts
+// imports: Flow, subroutine from "flow-state"
+export const Confirm = subroutine(
+  {
+    id: "Confirm",
+    events: { Yes: {}, No: {} },
+    exits: { Confirmed: Flow.Exit({}), Declined: Flow.Exit({}) },
+  },
+  ({ exits }) => ({ on: { Yes: exits.Confirmed, No: exits.Declined } }),
+)
+
+// signup.definition.ts (excerpt)
+states: [
+  { WIZARD: ["ACCOUNT", "PROFILE", "INVITE", "REVIEW"] },
+  { CANCELLING: Confirm },                                  // a subroutine, placed on a state
+  "SUBMITTING", "WAITING", "UNSURE", "DONE", "CANCELLED",
+],
+traits: {
+  // at the root: the drafts live across pages and the dialog
+  email: Field(Schema.String, { validate: isEmail }),       // isEmail: user-defined validator
+},
+
+// signup.machine.ts (excerpt)
+CANCELLING: { exits: { Confirmed: S.CANCELLED, Declined: S.WIZARD.history } },   // every exit is filled
+```
+
+## Example: a list's page and checked rows reset with its query
+
+The page goes back to 1, and the checked rows clear, whenever the applied search, sort or status changes.
+
+```ts
+// issuelist.machine.ts (excerpt)
+import { deny } from "flow-state"
+
+traits: {
+  pager: {
+    // read from the before-walk memory: the query as this turn starts
+    resetOn: ({ memory }) => [memory.appliedSearch, memory.sort, memory.status],
+    guards: {
+      hasNext: ({ memory, operations }) =>
+        memory.pager.page * 20 < (operations.issues?.data?.total ?? 0) || deny("LastPage"),
+    },
+  },
+  // declared after pager, so it sees pager's reset in the same turn
+  checked: {
+    resetOn: ({ memory }) => ({
+      search: memory.appliedSearch, sort: memory.sort, status: memory.status, page: memory.pager.page,
+    }),
+  },
+},
+```
+
+## Example: a trait that owns its save
+
+Autosave owns the save of one document. The host only places it and says what "keep mine" means.
+
+```ts
+// autosave.trait.ts
+import { deny, Flow, trait } from "flow-state"
+import { Schema } from "effect"
+import { saveDoc } from "./docs.contracts"
+
+export const MAX_RESENDS = 3                                                 // user-defined
+
+export const Autosave = trait(
+  {
+    id: "Autosave",
+    events: { Edited: { body: Schema.String } },
+    hostEvents: { Overwrite: {} },
+    internalEvents: {
+      SaveDue: {}, ResendDue: {},
+      Saved: { etag: Schema.String }, Conflict: { serverEtag: Schema.String, mine: Schema.String }, Refused: {},
+      SaveUnsure: Flow.uncertain({}),
+    },
+    callbacks: { onStalled: Flow.optional(Flow.Callback({})) },
+    memory: {
+      docId: Flow.input(Schema.String), body: Flow.input(Schema.String), etag: Flow.input(Schema.String),
+      status: Flow.initial(Schema.Literals(["clean", "dirty", "saving", "unsure", "conflict", "stalled"]), "clean"),
+      serverEtag: Flow.initial(Schema.NullOr(Schema.String), null),
+      rev: Flow.private(Flow.initial(Schema.Int, 0)),                        // edits seen
+      sentRev: Flow.private(Flow.initial(Schema.Int, 0)),                    // edits in the last commit
+    },
+    operations: ({ E }) => ({
+      save: saveDoc.outcomes({
+        success: E.Saved.from((v) => ({ etag: v.etag })),
+        failure: { Conflict: E.Conflict.from((r, { input }) => ({ serverEtag: r.serverEtag, mine: input.body })), Refused: E.Refused, NotSent: E.Refused },
+        unknown: E.SaveUnsure,
+      }),
+    }),
+  },
+  ({ E, O, callbacks }) => {                                             // O: the fragment's own handles
+    const own = ({ memory }: { memory: { docId: string } }) => ({ docId: memory.docId })   // this document's lane
+    const send = O.save.commit(({ memory }) => ({ docId: memory.docId, body: memory.body, etag: memory.etag }))
+    return {
+      schedules: {
+        settle: { schedule: "800 millis", armOn: [E.Edited, E.Overwrite], send: E.SaveDue },
+        resend: { schedule: "2 seconds", armOn: [E.SaveUnsure], send: E.ResendDue },
+      },
+      on: {
+        Edited: { target: "self", updateMemory: ({ memory, event }) => ({ body: event.body, rev: memory.rev + 1, status: memory.status === "clean" || memory.status === "stalled" ? "dirty" : memory.status }) },
+        SaveDue: [
+          { target: "self", guard: [({ memory }) => memory.status === "dirty" || deny("NotDirty"), O.save.idle(own)], updateMemory: ({ memory }) => ({ status: "saving", sentRev: memory.rev }), actions: [send] },
+          { target: "self" },
+        ],
+        Saved: [
+          { target: "self", guard: ({ memory }) => memory.rev > memory.sentRev || deny("NoNewEdits"), updateMemory: ({ memory, event }) => ({ etag: event.etag, sentRev: memory.rev }), actions: [send] },
+          { target: "self", updateMemory: ({ event }) => ({ etag: event.etag, status: "clean" }) },
+        ],
+        Conflict: { target: "self", updateMemory: ({ memory, event }) => ({ status: "conflict", serverEtag: event.serverEtag, body: memory.rev > memory.sentRev ? memory.body : event.mine }) },
+        Refused: { target: "self", updateMemory: () => ({ status: "stalled" }), notify: [callbacks.onStalled] },
+        SaveUnsure: { target: "self", updateMemory: () => ({ status: "unsure" }) },
+        ResendDue: [
+          { target: "self", guard: [O.save.retryable(own, { times: MAX_RESENDS })], updateMemory: () => ({ status: "saving" }), actions: [O.save.retry(own)] },
+          { target: "self", updateMemory: () => ({ status: "stalled" }), actions: [O.save.cancel(own)], notify: [callbacks.onStalled] },
+        ],
+        Overwrite: { target: "self", updateMemory: ({ memory }) => ({ etag: memory.serverEtag ?? memory.etag, serverEtag: null, status: "dirty" }) },
+      },
+    }
+  },
+)
+```
+
+## Keywords
+
+### subroutine(...)
+
+**What.** A subroutine is behaviour the actor goes into: it lives while its state is active and is fresh on every entry.
+
+**Why it exists.** A dialog that blocks what is under it is entered and left, not kept alive beside other states.
+
+- Its ends are an exit, or abandonment by a transition that exits its state. A subroutine is never `.resumable()`.
+
+<small>Source: machine-design 2.1 · rule 1 · 3.2</small>
+
+### traits (placement)
+
+**What.** A trait is placed under `traits` on the root or on a node, with `Flow.state(node, { traits })`, and its key is its instance name.
+
+**Why it exists.** The actor has a trait while its node is active, so the placement decides its lifetime.
+
+```ts
+{ TWO_FACTOR: Flow.state(["ENTERING", "VERIFYING", "LOCKED_OUT"], {
+    traits: { code: Field(Schema.String, { validate: sixDigits }) },
+  }) },
+traits: { challenges: Lockout({ limit: 3, length: "5 minutes" }) },   // the root node
+```
+
+- Place a trait on the highest node whose lifetime matches its data.
+- A trait on a subroutine's node belongs to the host and cannot see inside the subroutine.
+
+<small>Source: machine-design 2.3 · 2.1</small>
+
+### exits
+
+**What.** An exit is a named way out of a subroutine, declared with `Flow.Exit({})` and filled in the host machine with a state.
+
+**Why it exists.** The subroutine does not know where the host goes next, so the host fills every exit (rule 6).
+
+- An exit filling must leave the subroutine's state, and every exit is filled.
+- A Story reads an exit with `Story.records("exit")`. Abandonment writes no exit record.
+
+<small>Source: machine-design rule 6 · 3.2</small>
+
+### resetOn
+
+**What.** `resetOn` returns a reset value on a trait, and the trait gets a fresh incarnation whenever that value changes (compared with `Equal.equals`).
+
+**Why it exists.** Data for a query restarts when the query changes, without a transition clearing it by hand.
+
+- It reads the before-walk memory: the memory before the turn, with the source transition's own updates applied.
+- On a list, a reset removes every instance. On a writing placement the value must be a string (rule 48).
+
+<small>Source: machine-design rule 1 · rule 48 · 3.4</small>
+
+### trait(...)
+
+**What.** `trait(declaration, body)` declares a trait: a piece of behaviour the actor has, with its own events, memory, operations and handlers.
+
+**Why it exists.** A countdown or a field runs beside other states, so it is a trait rather than a subroutine (2.1).
+
+- The body receives the fragment's own `E`, `O` and `callbacks`, and returns its `schedules` and `on`.
+- A fragment runs I/O only if it declares `operations` (rule 3).
+
+<small>Source: machine-design 2.1 · rule 3 · 2.9.6</small>
+
+### operations (in a fragment)
+
+**What.** A fragment may declare `operations` after `memory` and `traits`, with the same shape and meaning as a definition's.
+
+**Why it exists.** A reusable policy for endings, such as coalescing saves, belongs with the fragment, and its hosts need only a few of its facts.
+
+- Its endings map onto its own `internalEvents`. It reads no context and sends to no actor.
+- A fragment's domain write registers the domain for its actor.
+
+<small>Source: machine-design rule 49 · 2.9.1</small>
+
+### O (in a fragment body)
+
+**What.** `O` in a fragment's body is the fragment's own operation handles, the only place its operations are acted on.
+
+**Why it exists.** A host cannot reach inside a fragment, so acting stays with the declaring fragment (rule 50).
+
+- Acting members (`commit`, `lookup`, `subscribe`, `retry`, `cancel`, `refetch`) are typed only in the declaring fragment's body.
+- The fragment decides retries and stops. A host asks through the fragment's public `events` or `hostEvents`.
+
+<small>Source: machine-design rule 50 · 2.3</small>
+
+### subject path
+
+**What.** An incarnation's subject path lists, from the actor's root down, one part for each `.each` copy key and one for each `resetOn` value, in order.
+
+**Why it exists.** A write lane is one (actor, contract, key) and records its path, so a copy's lanes stay its own when it is removed or reset.
+
+- A copy of `docs` has `["d1"]`, and a root trait inside copy `X` has `["X"]`. A root trait at the actor's root has `[]`.
+- Two placements of one writing fragment are a `SharedContract` error (rule 51).
+
+<small>Source: machine-design rule 51 · 2.9.1</small>
+
+### callbacks
+
+**What.** A callback is a named notice from a fragment to its host, declared as `Flow.Callback({})` and filled in the host's `notify`.
+
+**Why it exists.** A callback asks the host without moving it out of the fragment's node, so the host keeps its own states (rule 6).
+
+```ts
+Refused: { target: "self", updateMemory: () => ({ status: "stalled" }), notify: [callbacks.onStalled] },
+```
+
+- A root trait's callback may target any state. A subroutine's callback targets nothing.
+- `onStalled` is declared with `Flow.optional`, as in Autosave.
+
+<small>Source: machine-design rule 6 · 2.9.6</small>
+
+### Fragment.O.x.get and idle
+
+**What.** `Fragment.O.x` exposes a fragment's write operations to its host: `get` in views, and `get`, `idle` and `retryable` in a host's guards and `updateMemory`.
+
+**Why it exists.** The host needs to see a save's state and to wait for it, but never to act on it (rule 50).
+
+```ts
+// view: the save's row for one document
+useView(ws, (s) => Autosave.O.save.get(s, { docId }).pending)
+// host guard: the subject's lane is idle; k is the host's key for the subject (2.9.6)
+guard: [Autosave.O.save.idle(k)]
+```
+
+- Reads go through the instance path too: `s.operations.<instance>.<name>` (rule 59).
+- Names are unambiguous because a write operation is unique per actor (rules 50, 51).
+
+<small>Source: machine-design rule 50 · rule 59 · 2.9.6</small>
+
+### .resumable()
+
+**What.** `T.resumable()` placed on a node makes the trait frozen, not dropped, when the node is left, and it resumes when the node is entered again.
+
+**Why it exists.** Some data must outlive leaving its node, such as a cooldown that is still counting.
+
+```ts
+{ TWO_FACTOR: Flow.state(["ENTERING", "VERIFYING", "LOCKED_OUT"], {
+    traits: { resendCooldown: Countdown({ length: "30 seconds" }).resumable() },
+  }) },
+```
+
+- Freezing is not ending, so `whenAbandoned` does not run. It runs only if the trait is reset on return.
+- A resumable trait is fresh again only when its `resetOn` value differs from the one it was frozen with.
+
+<small>Source: machine-design rule 1 · 2.3</small>
+
+### freeze and thaw
+
+**What.** A freeze releases a resumable trait's placements and ends its lookups as `Interrupted`, parked with its slice; a thaw resumes the same incarnation and delivers those endings first.
+
+**Why it exists.** A catch-up in flight is not lost when the node is left, and a schedule keeps its due time while frozen.
+
+- Thawing places `activities` again, and `Flow.entry` does not fire on a thaw (rule 52).
+- A freeze is persisted with the frozen slice, so a reload keeps the parked endings (rule 52).
+
+<small>Source: machine-design rule 1 · rule 52</small>
+
+### whenAbandoned
+
+**What.** `whenAbandoned` lists what runs when a trait's incarnation ends other than by its own exit: its node is left, or it is abandoned, removed or reset (not frozen).
+
+**Why it exists.** Work that is worthless once its subject is gone must be released, not left to land.
+
+```ts
+// a replaced avatar upload: its write is worthless once the subject is gone
+whenAbandoned: [O.put.cancel, callbacks.onIdle],   // key-less cancel: release this subject's lanes
+```
+
+- A keyed `O.save.cancel(own)` in a transition gives up one subject. A key-less `cancel` in `whenAbandoned` releases every lane of that operation on the ending incarnation's path.
+- Only for worthless work: a like or a follow keeps its hold, and a released write may still land (rule 60).
+
+<small>Source: machine-design rule 6 · rule 60 · 2.1</small>

@@ -1,0 +1,326 @@
+# Operations
+
+A definition or fragment declares each server call once, by name, and the machine starts, retries and cancels it through `O`.
+
+## Example: a checkout charge
+
+Contracts say how a call is made; the definition maps its endings to events.
+
+```ts
+// stripe.contracts.ts (outside the machine)
+import { Effect, Schema } from "effect"
+import { Outcome, resource, transaction } from "flow-state"
+
+class CardDeclined extends Schema.TaggedError<CardDeclined>("CardDeclined")({ code: Schema.String }) {}
+class ServerError extends Schema.TaggedError<ServerError>("ServerError")({ status: Schema.Number }) {}
+class Rejected extends Schema.TaggedError<Rejected>("Rejected")({ code: Schema.String }) {}
+
+export const Stripe = {
+  confirm: transaction({
+    id: "Stripe.confirm",
+    input: { intentId: Schema.String, paymentMethodId: Schema.String },   // flat
+    output: { id: Schema.String, status: Schema.String },                  // flat
+    key: ["intentId"],                                                     // one lane per intent
+    progress: Schema.Number,                                               // side channel
+    concurrency: "reject",
+    commit: (input, { attempt, signal }) => Effect.gen(function* () {
+      const api = yield* StripeApi                                         // user service
+      const res = yield* api.confirm(input, { idempotencyKey: attempt.id, signal })   // the id goes on the wire
+        .pipe(Effect.catchTag("NoResponse", (e) => Outcome.unknown(e)))
+      if (res.ok) return yield* Outcome.success(toIntent(res))
+      if (res.status === 402) return yield* Outcome.failure(new CardDeclined({ code: res.code }))
+      if (res.status >= 500) return yield* Outcome.unknown(new ServerError({ status: res.status }))
+      return yield* Outcome.failure(new Rejected({ code: res.code }))
+    }),
+  }),
+  intent: resource({
+    id: "Stripe.intent",
+    input: { intentId: Schema.String },
+    output: { id: Schema.String, status: Schema.String },
+    key: ["intentId"],
+    staleTime: "0 millis",
+    gcTime: "1 minute",
+    lookup: retrieveIntent,                                                // a read, defined beside this file
+  }),
+}
+
+// checkout.definition.ts
+import { definition, Flow } from "flow-state"
+import { Schema } from "effect"
+import { Stripe } from "./stripe.contracts"
+
+export const Checkout = definition({
+  id: "Shop/Checkout",
+  states: ["CARD", "PAYING", "UNSURE", "STUCK", "DONE"],
+  events: { Pay: { paymentMethodId: Schema.String } },
+  internalEvents: {
+    Intent: { status: Schema.String },
+    Declined: { code: Schema.String, paymentMethodId: Schema.String },
+    Refused: {}, TryLater: {},
+    Unsure: Flow.uncertain({}),
+    CheckTick: {}, TookTooLong: {},
+  },
+  memory: { intentId: Flow.input(Schema.String) },
+  operations: ({ E }) => ({
+    pay: Stripe.confirm.outcomes({
+      success: E.Intent.from((v) => ({ status: v.status })),
+      failure: {
+        CardDeclined: E.Declined.from((r, { input }) => ({ code: r.code, paymentMethodId: input.paymentMethodId })),
+        Rejected: E.Refused,
+        NotSent: E.TryLater,                                               // required under reject
+      },
+      unknown: E.Unsure,
+    }),
+  }),
+})
+```
+
+## Example: pay, then reconcile
+
+The machine decides when work starts, is sent again, or is cancelled.
+
+```ts
+import { E, O, S } from "./checkout.definition"                            // the definition exports its handles
+const pay = ({ memory, event }) => ({ intentId: memory.intentId, paymentMethodId: event.paymentMethodId })
+
+export const states = {
+  CARD: {
+    on: { Pay: { target: S.PAYING, guard: [O.pay.idle], actions: [O.pay.commit(pay)] } },
+  },
+  PAYING: {
+    on: {
+      Intent: { target: S.DONE },
+      Declined: { target: S.CARD },
+      Unsure: { target: S.UNSURE },                                        // the write may have landed
+      TookTooLong: { target: "self", actions: [O.pay.cancel] },           // unknown { Cancelled } is kept
+    },
+  },
+  UNSURE: {
+    schedules: { check: { schedule: "3 seconds", send: E.CheckTick } },
+    on: {
+      CheckTick: [
+        { target: S.PAYING, guard: [O.pay.retryable({ times: 5 })], actions: [O.pay.retry] },   // same Attempt, same id
+        { target: S.STUCK },                                               // never "not charged"
+      ],
+    },
+  },
+}
+```
+
+## Keywords
+
+### transaction
+
+**What:** A contract for a write, with `input`, `output`, `key`, `concurrency`, an optional `progress` and one `commit` function. (existing name; `key` now required)
+
+**Why it exists:** A write's lane and retries depend on the contract, so they are stated once there, not at each call.
+
+<small>Source: machine-design 2.7.3 · rule 39 · OD2, OD11, OD17</small>
+
+### input
+
+**What:** The flat schema of what a call takes, on every contract kind: a fields record or a full Schema. (existing; flat)
+
+**Why it exists:** The select, the key and the mappers read the same input, so they cannot disagree about it.
+
+<small>Source: machine-design 2.7.3 · rule 39 · OD12, OD14</small>
+
+### output
+
+**What:** The flat schema of what a successful call returns. (renamed from `result`)
+
+**Why it exists:** Persistence and server rendering decode stored data with it.
+
+<small>Source: machine-design 2.7.3 · rule 39 · OD12, OD23</small>
+
+### key
+
+**What:** A required list of top-level `input` fields naming which server thing a call is about; `key: []` means one. (existing; no default)
+
+**Why it exists:** One statement sets the write's lane and the read's cache entry.
+
+- The plan disagrees: `Operations.plan` O1 still has `key?` optional. The design wins (OD15).
+
+<small>Source: machine-design 2.7.3 · rule 39 · OD4, OD15</small>
+
+### progress
+
+**What:** An optional side channel of a transaction, typed by its own schema: neither input nor output. (existing)
+
+**Why it exists:** Progress describes a call in flight, so it must not change what the call takes or returns.
+
+<small>Source: machine-design 2.7.3 · rule 13 · OD18</small>
+
+### concurrency
+
+**What:** The required policy for a second commit on the same lane: `reject`, `latest`, `serialize`, `cancel` or `allow`. (existing)
+
+**Why it exists:** Only the author knows whether a second press is refused, replaces the first or queues behind it.
+
+<small>Source: machine-design 2.7.8 · rule 21 · OD19</small>
+
+### resource
+
+**What:** A contract for a read of server data, cached by `key`, with `lookup`, `staleTime` and `gcTime`. (existing)
+
+**Why it exists:** Two places asking for one key share one entry and one request.
+
+<small>Source: machine-design 2.7.3 · rule 41 · OD9, OD17</small>
+
+### outcomes
+
+**What:** The method that maps a contract's endings to events: `success`, `failure` and `unknown` for a write. (existing name, now a method on the contract)
+
+**Why it exists:** The machine receives a server call as events it already routes, not as a promise to await.
+
+<small>Source: machine-design 2.7.1 · rule 13 · OD3, OD17</small>
+
+### unknown
+
+**What:** The ending for "this may have happened": one event, or one event per tag, as `failure` is. (per-tag mapping new)
+
+**Why it exists:** A dropped connection cannot be told from a lost request, so the machine must reconcile rather than guess.
+
+```ts
+unknown: {
+  NoResponse: E.Unsure,              // contract tag
+  ServerError: E.Unsure,             // contract tag
+  Cancelled: E.Stopped,              // Flow's tag after cancel; Stopped is user-defined
+  Restored: E.Unsure, Interrupted: E.Unsure, Defect: E.Unsure,   // Flow's reasons, required on a holding write
+},
+```
+
+<small>Source: machine-design 2.7.1 · 2.7.13 · rule 18 · OD23</small>
+
+### idle
+
+**What:** A guard, `O.pay.idle`, that passes only when the lane is `Idle`: it denies `InFlight` and `Held`. (new)
+
+**Why it exists:** A transition should not start a second write while an earlier one may still be unresolved.
+
+<small>Source: machine-design 2.7.13 · rule 16 · OD10</small>
+
+### commit
+
+**What:** The machine verb that starts a write, `O.pay.commit(select)`, listed in `actions`. (existing verb)
+
+**Why it exists:** Starting is an action, so the transition that starts a write is visible in the machine.
+
+<small>Source: machine-design 2.7.3 · rule 22 · OD2</small>
+
+### cancel
+
+**What:** `O.pay.cancel`, an action that interrupts the addressable Attempt on the wire, or releases a held one. (new)
+
+**Why it exists:** A user can stop waiting while the request may still land, so its unknown is kept rather than dropped.
+
+<small>Source: machine-design 2.7.13 · rule 24 · OD7</small>
+
+### retryable({ times })
+
+**What:** A guard, `O.pay.retryable({ times: 5 })`, that passes in `Held` while `retryCount < times`. (new)
+
+**Why it exists:** Re-sends must be bounded, and the budget lives in the machine, not in events.
+
+<small>Source: machine-design 2.7.6 · 2.7.13 · OD1</small>
+
+### retry
+
+**What:** `O.pay.retry`, an action that re-sends the addressable Attempt with its same id and input. (new)
+
+**Why it exists:** After an unknown the server may already hold the write, and the same id lets it answer what it did.
+
+<small>Source: machine-design 2.7.6 · rule 31 · rule 19</small>
+
+### lookup
+
+**What:** The machine verb for a one-off read, `O.read.lookup(select)`, listed in `actions`. (existing verb)
+
+**Why it exists:** A search box needs only the newest answer, and an older one must never overwrite it.
+
+<small>Source: machine-design 2.7.9 · rule 42 · OD9</small>
+
+### subscribe
+
+**What:** The machine verb for a live read or stream, `O.feed.subscribe(select)`, listed in `activities` while its state is active. (existing verb)
+
+**Why it exists:** A live value ends with the state that asked for it, with no cleanup step in the machine.
+
+<small>Source: machine-design 2.7.10 · rule 41 · OD2a</small>
+
+### Idle, InFlight, Held
+
+**What:** The three states of a write lane: nothing unresolved, an Attempt minted or on the wire, and an unknown that is not on the wire. Each may also hold a waiting commit `W`. (new)
+
+**Why it exists:** A lane must know whether a new write is safe to send while an earlier one may still land.
+
+<small>Source: machine-design 2.7.13 · rule 21 · OD5, OD10</small>
+
+### pending, uncertain, waiting
+
+**What:** Row flags that are functions of the lane's state: `pending` is `InFlight`, `uncertain` is `Held`, `waiting` is true while `W` holds a commit. (new meanings)
+
+**Why it exists:** A view can say "saving", "not confirmed" or "your newer edit waits" from one row.
+
+<small>Source: machine-design 2.7.5 · 2.7.13 · OD6, OD10</small>
+
+### s.operations
+
+**What:** The view's read of operation rows: `s.operations.pay` for an unkeyed write, or a keyed list of the lanes that exist for a keyed one. (existing name)
+
+**Why it exists:** Views and guards read lanes with no extra subscription per lane.
+
+```tsx
+const paying = useView(checkout, (s) => s.operations.pay.pending)            // unkeyed write
+const saving = useView(list, (s) => List.O.like.get(s, issue).pending)       // keyed: the item rendered
+```
+
+<small>Source: machine-design 2.7.5 · rule 21 · OD3</small>
+
+### get
+
+**What:** `O.like.get(s, item)` reads one keyed lane's row; it takes any value that carries the key's fields. (new)
+
+**Why it exists:** A view never builds a key record, so it cannot pass the wrong one.
+
+<small>Source: machine-design 2.7.5 · rule 43 · OD4</small>
+
+### idle over a partial key
+
+**What:** `O.save.idle(({ memory }) => ({ draftId: memory.draftId }))` passes only when every existing lane matching the partial key is `Idle`. (new)
+
+**Why it exists:** Two lanes are unordered, so a write that depends on others must check them first.
+
+<small>Source: machine-design 2.7.13 · limits · OD23</small>
+
+### runtime.unsettledWrites()
+
+**What:** Lists every non-`Idle` write lane, by identity. (new)
+
+**Why it exists:** A host can warn before a tab closes, so a held write does not disappear from sight.
+
+<small>Source: machine-design 2.7.13 · rule 44 · OD23</small>
+
+### UnresolvedHold
+
+**What:** A `flow check` error when a write on `reject`, `latest` or `serialize` can reach `Held` with no handler that retries or cancels it.
+
+**Why it exists:** A hold nobody resolves blocks its lane for good, so the check finds it before a user does.
+
+<small>Source: machine-design 2.7.14 · rule 45 · OD6</small>
+
+### VerbMismatch
+
+**What:** A declaration error when one operation is used with both `lookup` and `subscribe`, or with a verb its mapping does not allow.
+
+**Why it exists:** The verb decides one-off or live, so a mismatch would leave the row and the delivery disagreeing.
+
+<small>Source: machine-design 2.7.3 · rule 41 · OD9</small>
+
+### KeyOmitsInput
+
+**What:** A `flow check` warning that a resource's `input` has a field outside its `key`.
+
+**Why it exists:** Fields outside `key` do not separate cache entries, so calls differing only there would share one answer.
+
+<small>Source: machine-design 2.7.16 · rule 39 · OD12</small>
