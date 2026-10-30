@@ -1,4 +1,4 @@
-// The write lane of proposal.md revision 10 (commit 65f542fe), section 3.8.1, as an executable state machine.
+// The write lane of proposal.md revision 12 (HEAD 9772678a), section 3.8.1, as an executable state machine.
 // Dependency-free. One lane, one key (identity.ts composes two lanes by identity). Where the text is silent the code says `GAP:`.
 // RULES holds the key rules; mutations.py flips them one at a time.
 
@@ -19,15 +19,20 @@ export const RULES = {
   refusedResendDelivers: true, // F5 (OD20): a storage-refused re-send re-delivers unknown { StorageRefused }
   savePendingOutcome: true, // K25 (OD21): an ending with no live actor is a pending outcome of the saved record, else evidence
   currentFromActiveLeaf: true, // K26 (OD21): an adopted lane's endings and unknown { Restored } are current, from the active leaf (rule 14 as written: late, from the root)
+  parkRaw: true, // M3 (OD22): a parked ending lives raw on its lane record and is mapped at delivery (mapped and parked on the actor record: lost with it)
+  laneOrder: true, // M4 (OD22): at Runtime disposal W ends after the head's ending, so parked endings keep lane order
+  cancelKeepsSent: true, // H2 (OD22): under cancel and allow, Runtime disposal keeps a persisted identity's sent work as an acknowledged InFlight lane record (revision 11: evidence)
+  rule20: true, // K29 (OD22): MD rule 20 checks every mapped event over the new-incarnation arrival set (a static check, used by system.ts)
   restoredDedup: true, // G3: a saved unknown and unknown { Restored } for one hold are one delivery
   identityScoped: true, // K21 (OD20): a new incarnation adopts only its own identity's lanes (revision 9: any, by contract id and key)
 };
 
 export const CONFIG = {
   maxCommits: 3,
-  resendCap: 2, // saturation bound on invoked re-sends per Attempt, so the state space is finite
+  resendCap: 1, // saturation bound on invoked re-sends per Attempt, so the state space is finite
   queueCap: 2, // proposal: 64. Lowered so Overloaded is reachable
   retryTimes: 1, // the `times` of retryable({ times })
+  persistLanes: true, // a persisted identity's re-send waits for the lane record's capture (C2); a local actor's lanes are not persisted
 };
 
 export type LSt = "Idle" | "InFlight" | "Held";
@@ -49,7 +54,7 @@ export interface Att {
   id: number; val: number; status: AStatus;
   everSent: boolean; acked: boolean; ackedEver: boolean;
   sends: number; resends: number; interrupting: boolean;
-  cancelled: boolean; noInvoke: boolean; evid: boolean; why: string; lane: number;
+  cancelled: boolean; noInvoke: boolean; evid: boolean; why: string; lane: number; captured: boolean; await: boolean; // await: a restored unknown waiting for an incarnation (cancel, allow)
 }
 export interface S {
   mode: Mode; commits: number; atts: Att[];
@@ -80,7 +85,7 @@ function cell(s: S, c: Ctx, row: Row, st: LSt = laneSt(s)) {
 }
 
 function mint(s: S): Att {
-  const a: Att = { id: s.atts.length + 1, val: ++s.commits, status: "queued", everSent: false, acked: false, ackedEver: false, sends: 0, resends: 0, interrupting: false, cancelled: false, noInvoke: false, evid: false, why: "", lane: s.laneId };
+  const a: Att = { id: s.atts.length + 1, val: ++s.commits, status: "queued", everSent: false, acked: false, ackedEver: false, sends: 0, resends: 0, interrupting: false, cancelled: false, noInvoke: false, evid: false, why: "", lane: s.laneId, captured: false, await: false };
   s.atts.push(a);
   return a;
 }
@@ -132,7 +137,7 @@ function doCommit(s: S, c: Ctx) {
 
 function resend(s: S, c: Ctx, a: Att) {
   // retryCount is counted at the invoked cell, not here (rev 10, R8 M1)
-  a.status = "waiting"; s.told = false;
+  a.status = "waiting"; s.told = false; a.captured = !CONFIG.persistLanes; // C2: a re-send of a persisted lane waits for its capture
   a.acked = RULES.ackPerAttempt ? a.ackedEver : false; // OD20 F2: a re-send of an acknowledged Attempt needs no new acknowledgement
   s.st = "InFlight"; s.head = s.mode === "allow" ? s.head : a.id;
   c.promoted.push(a.id);
@@ -211,7 +216,7 @@ export interface Spec { label: string; guard: Guard; acts: Act[]; outcome: Outco
 export function turnEnd(s: S) {
   if (s.mode === "cancel" && s.st === "Held" && RULES.heldThisTurn) { A(s, s.head).evid = true; s.head = 0; s.st = "Idle"; s.told = false; } // "turn end -> Idle; the unknown is evidence"
   if (s.mode === "allow" && RULES.heldThisTurn)
-    s.out = s.out.filter((i) => { const a = A(s, i); if (a.status === "unknown") { a.evid = true; return false; } return true; });
+    s.out = s.out.filter((i) => { const a = A(s, i); if (a.status === "unknown" && !a.await) { a.evid = true; return false; } return true; });
 }
 export function runTurn(s: S, c: Ctx, spec: Spec, pre?: () => number): Outcome {
   c.endAtt = pre ? pre() : 0;
@@ -253,11 +258,13 @@ export function doCaptureRefused(s: S, c: Ctx, id: number): number {
   s.told = true;
   return id;
 }
+export function doCapture(s: S, id: number) { A(s, id).captured = true; }
 export function doInvoke(s: S, c: Ctx, id: number) {
   const a = A(s, id);
   cell(s, c, "invoked", s.mode === "allow" ? "InFlight" : s.head === id ? s.st : "Idle");
   if (a.status !== "waiting") viol(c, "inv4", `invoke of Attempt ${id} that is not waiting (${a.status})`);
   if (s.disposed) viol(c, "inv4", `Attempt ${id} invoked after Runtime disposal started`);
+  if (a.everSent && CONFIG.persistLanes && !a.captured) viol(c, "inv4", `re-send of Attempt ${id} invoked before its lane record was captured (C2)`);
   if (holds(s.mode))
     for (const o of mine(s))
       if (o.id !== id && o.everSent && ["unknown", "waiting", "wire", "notsent"].includes(o.status))
@@ -279,14 +286,15 @@ export function endingTurn(s: S, c: Ctx, id: number, kind: EndKind, spec: Spec):
   return runTurn(s, c, spec, () => { admit(s, c, id, kind); return id; });
 }
 export function doDispose(s: S, c: Ctx) { cell(s, c, "dispose"); s.bound = false; s.told = false; }
-// A new incarnation of the same identity starts and adopts the lane. Returns the Attempt whose unknown { Restored } is delivered.
-export function doStart(s: S, c: Ctx): number {
+// A new incarnation of the same identity starts and adopts the lane. Returns the Attempts whose unknown { Restored } is delivered, one turn each.
+// `cancel` and `allow` hold nothing between turns, but a lane restored while no incarnation lived waits (`await`) for the first one.
+export function doStart(s: S, c: Ctx): number[] {
   s.bound = true; s.told = false;
-  if (laneSt(s) === "Idle") return 0; // no lane: a fresh actor, not a rebind
+  if (laneSt(s) === "Idle") return []; // no lane: a fresh actor, not a rebind
   cell(s, c, "rebind");
-  if (s.mode === "cancel" || s.mode === "allow") return 0; // unchanged; the new incarnation receives the ending when it lands
-  if (s.st === "Held") { s.told = true; return s.head; } // exactly once, in the first turn; W stays queued
-  return 0; // InFlight: delivers nothing now
+  if (s.mode === "allow") { const ids = s.out.filter((i) => A(s, i).await); if (ids.length) s.told = true; return ids; }
+  if (s.st === "Held") { s.told = true; return [s.head]; } // exactly once, in the first turn; W stays queued
+  return []; // InFlight: delivers nothing now
 }
 // Reload (restore, Persistence O6). Returns the Attempts to deliver as unknown { Restored }, one turn each.
 export function doReload(s: S, c: Ctx): number[] {
@@ -301,7 +309,7 @@ export function doReload(s: S, c: Ctx): number[] {
   if (s.mode === "allow") {
     for (const i of [...s.out]) {
       const a = A(s, i);
-      if (RULES.ackPerAttempt ? a.ackedEver : a.acked) { if (s.bound) ids.push(i); else { a.status = "unknown"; a.evid = true; s.out = s.out.filter((x) => x !== i); } } // acknowledged once: unknown { Restored }
+      if (RULES.ackPerAttempt ? a.ackedEver : a.acked) { if (s.bound) ids.push(i); else { a.status = "unknown"; a.await = true; } } // acknowledged once: unknown { Restored }, now or at the first incarnation
       else { notSent(a, "Restored"); s.out = s.out.filter((x) => x !== i); }
     }
     return ids;
@@ -320,26 +328,30 @@ export function doReload(s: S, c: Ctx): number[] {
 // For `allow`: the restored Attempt becomes its own HeldThisTurn just before its turn.
 export function prepRestore(s: S, id: number) {
   if (s.mode !== "allow") return;
-  const a = A(s, id); a.status = "unknown"; a.interrupting = false;
+  const a = A(s, id); a.status = "unknown"; a.interrupting = false; a.await = false;
 }
-// Runtime disposal (OD20 K23): nothing is invoked from its start; the table's row per state.
-export function doRuntimeDispose(s: S, c: Ctx) {
+// Runtime disposal (OD20 K23, OD21, OD22): nothing is invoked from its start. `skipQueued`: the caller ended W itself (lane order, M4).
+export function endQueuedDisposed(s: S) { for (const w of s.W) notSent(A(s, w), "Disposed"); s.W = []; }
+export function doRuntimeDispose(s: S, c: Ctx, skipQueued = false) {
   const cl = laneSt(s);
   cell(s, c, "runtimeDisposal", cl);
   s.disposed = true;
-  for (const w of s.W) notSent(A(s, w), "Disposed"); // each W entry ends NotSent { Disposed }, evidence
-  s.W = [];
-  if (s.mode === "allow") {
-    for (const i of [...s.out]) { const a = A(s, i); if (a.status === "waiting" && !a.everSent) notSent(a, "Disposed"); else { a.status = "unknown"; a.evid = true; } a.interrupting = false; }
-    s.out = [];
+  if (!skipQueued) endQueuedDisposed(s); // each W entry: NotSent { Disposed }
+  if (s.mode === "allow") { // per Attempt, as `cancel`: a never-sent Attempt ends Disposed; anything else is captured as an acknowledged InFlight record (OD22 H2)
+    for (const i of [...s.out]) {
+      const a = A(s, i); a.interrupting = false;
+      if (a.status === "waiting" && !a.everSent) { notSent(a, "Disposed"); s.out = s.out.filter((x) => x !== i); }
+      else if (!RULES.cancelKeepsSent) { a.status = "unknown"; a.evid = true; s.out = s.out.filter((x) => x !== i); } // revision 11: evidence
+    }
     return;
   }
   if (cl === "InFlight") {
     const h = A(s, s.head);
     h.interrupting = false;
     if (h.status === "waiting" && !h.everSent) { notSent(h, "Disposed"); s.head = 0; s.st = "Idle"; } // waiting, never sent
+    else if (s.mode === "cancel" && !RULES.cancelKeepsSent) { h.status = "unknown"; h.evid = true; s.head = 0; s.st = "Idle"; } // revision 11: evidence, the lane Idle
+    else if (s.mode === "cancel") { /* captured as an acknowledged InFlight lane record: a reload restores it as unknown { Restored } (OD22 H2) */ }
     else { h.status = "unknown"; s.st = "Held"; } // waiting re-send -> Held; on the wire: Runtime O6, else unknown
-    if (s.mode === "cancel" && s.st === "Held") { h.evid = true; s.head = 0; s.st = "Idle"; } // GAP: no HeldThisTurn outside a turn; evidence
   }
   s.told = false;
 }
@@ -361,16 +373,16 @@ export function checkState(s: S): Viol[] {
   const live = all.filter((a) => !a.evid && ["waiting", "wire", "unknown"].includes(a.status));
   const queued = all.filter((a) => a.status === "queued");
   if (s.mode === "allow") {
-    const p = live.some((a) => a.status !== "unknown");
+    const p = live.some((a) => a.status !== "unknown" || a.await); // a restored Attempt awaiting its incarnation is still outstanding
     if (f.pending !== (p || false) && !(s.out.length > 0 && p)) bad(`allow: pending=${f.pending} but live Attempts=${live.map((a) => a.id)}`);
-    if (live.some((a) => a.status === "unknown")) bad("allow: an unknown outlives its turn (HeldThisTurn)");
+    if (live.some((a) => a.status === "unknown" && !a.await)) bad("allow: an unknown outlives its turn (HeldThisTurn)");
     if (live.length !== s.out.length) bad(`allow: out=${s.out} live=${live.map((a) => a.id)}`);
     return v;
   }
   const oPending = live.some((a) => a.status === "waiting" || a.status === "wire");
   const oUncertain = live.some((a) => a.status === "unknown");
   if (s.mode === "cancel") {
-    if (s.st === "Held") bad("cancel: lane Held between turns (an unknown outlived its turn)");
+    if (s.st === "Held" && s.bound) bad("cancel: lane Held between turns (an unknown outlived its turn)");
     if (f.pending !== oPending) bad(`cancel: pending=${f.pending} oracle=${oPending}`);
     return v;
   }

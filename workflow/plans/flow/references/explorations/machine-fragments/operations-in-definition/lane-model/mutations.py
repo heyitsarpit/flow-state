@@ -18,6 +18,10 @@ M = [
  ("K25 drop the pending-outcome save", "savePendingOutcome: true,", "savePendingOutcome: false,", "an ending with no live actor is evidence even though the identity's record survives (revision 10)"),
  ("K26 adopted endings and Restored are current", "currentFromActiveLeaf: true,", "currentFromActiveLeaf: false,", "an adopted lane's endings and unknown { Restored } route late, from the root (MD rule 14 as written)"),
  ("G3 one delivery for a saved unknown and Restored", "restoredDedup: true,", "restoredDedup: false,", "a saved pending unknown and unknown { Restored } for the same hold are both delivered"),
+ ("H1 drop the MD rule 20 row", "rule20: true,", "rule20: false,", "a machine that leaves an adopted success or failure unhandled in some leaf is accepted"),
+ ("M3 park mapped on the actor record, not raw on the lane", "parkRaw: true,", "parkRaw: false,", "a parked ending is mapped and stored with the actor record, so a release that discards the record loses it"),
+ ("M4 lane order at Runtime disposal", "laneOrder: true,", "laneOrder: false,", "W ends NotSent { Disposed } before the head's ending is parked"),
+ ("H2 cancel/allow disposal keeps sent work", "cancelKeepsSent: true,", "cancelKeepsSent: false,", "under cancel, Runtime disposal turns a persisted identity's sent work into evidence (revision 11)"),
  ("K21 lane identity (actor identity, contract id, key)", "identityScoped: true,", "identityScoped: false,", "one lane per contract id and key: a new incarnation adopts any identity's lane (revision 9)"),
 ]
 def run(src_dir):

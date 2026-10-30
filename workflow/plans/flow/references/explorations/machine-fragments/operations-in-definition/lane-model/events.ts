@@ -1,6 +1,6 @@
 // Event alphabet shared by main.ts (one lane) and identity.ts (two lanes).
 import {
-  A, CONFIG, RULES, commitsIn, doAck, doAckRefused, doCaptureRefused, doDispose, doHydrate, doInvoke, doLand, doReload, doRuntimeDispose, doStart,
+  A, CONFIG, RULES, commitsIn, doAck, doAckRefused, doCapture, doCaptureRefused, doDispose, doHydrate, doInvoke, doLand, doReload, doRuntimeDispose, doStart,
   endingTurn, holds, laneSt, prepRestore, runTurn, turnEnd,
 } from "./model.ts";
 import type { Ctx, EndKind, S, Spec } from "./model.ts";
@@ -48,7 +48,8 @@ export function events(s: S, reduced: boolean): Ev[] {
         if (delivers) withH(`capture-refused(${id})`, (x, c, h) => { const d = doCaptureRefused(x, c, id); if (d) runTurn(x, c, h, () => d); else turnEnd(x); });
         else out.push({ label: `capture-refused(${id})`, run: (x, c) => { doCaptureRefused(x, c, id); turnEnd(x); } });
       }
-      if (a.status === "waiting" && a.acked && !a.noInvoke) out.push({ label: `invoke(${id})`, run: (x, c) => doInvoke(x, c, id) });
+      if (a.status === "waiting" && a.everSent && CONFIG.persistLanes && !a.captured) out.push({ label: `capture(${id})`, run: (x) => doCapture(x, id) });
+      if (a.status === "waiting" && a.acked && !a.noInvoke && (!a.everSent || a.captured || !CONFIG.persistLanes)) out.push({ label: `invoke(${id})`, run: (x, c) => doInvoke(x, c, id) });
       if (a.status === "wire") {
         const kinds: EndKind[] = [];
         if (s.applied.includes(id)) kinds.push("success");
@@ -69,7 +70,7 @@ export function events(s: S, reduced: boolean): Ev[] {
   if (!s.disposed) {
     if (s.bound) out.push({ label: "dispose", run: (x, c) => doDispose(x, c) });
     if (!s.bound) {
-      if (holds(s.mode) && laneSt(s) === "Held") withH("start/Restored", (x, c, h) => { const id = doStart(x, c); runTurn(x, c, h, () => id); });
+      if (laneSt(s) === "Held") withH("start/Restored", (x, c, h) => restoreTurns(x, c, doStart(x, c), h));
       else out.push({ label: "start", run: (x, c) => { doStart(x, c); } });
     }
     out.push({ label: "runtime-dispose", run: (x, c) => doRuntimeDispose(x, c) });

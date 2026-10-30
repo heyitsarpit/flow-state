@@ -27,8 +27,8 @@ function back(s: Sys, lane: number, v: S) {
   const l = s.lanes[lane]!;
   l.head = v.head; l.st = v.st; l.W = v.W; l.out = v.out; l.old = v.old; l.commits = v.commits; l.told = v.told; s.srvVal = v.srvVal;
 }
-const key = (s: Sys) => JSON.stringify([s.lanes, s.live, s.atts.map((a) => [a.status, a.everSent, a.acked, a.ackedEver, a.sends, a.resends, a.interrupting, a.evid, a.lane]), s.ident, [...s.net].sort(), s.applied, s.refused, s.srvVal]);
-const perLane = (l: string) => /^(ack|capture-refused|invoke|end-)/.test(l);
+const key = (s: Sys) => JSON.stringify([s.lanes, s.live, s.atts.map((a) => [a.status, a.everSent, a.acked, a.ackedEver, a.sends, a.resends, a.interrupting, a.evid, a.lane, a.captured]), s.ident, [...s.net].sort(), s.applied, s.refused, s.srvVal]);
+const perLane = (l: string) => /^(ack|capture|invoke|end-)/.test(l);
 
 interface Step { label: string; run: (s: Sys, c: Ctx, bad: Viol[]) => void }
 function steps(s: Sys): Step[] {
@@ -92,8 +92,8 @@ function steps(s: Sys): Step[] {
             if (wasBound) return; // the lane already has a live incarnation (shared-lane reading)
             const vv = view(x, lane);
             vv.bound = false;
-            const id = doStart(vv, c); vv.bound = true;
-            if (id) {
+            const ids = doStart(vv, c); vv.bound = true;
+            for (const id of ids) {
               const owner = x.ident[id - 1] ?? lane;
               if (owner !== k) bad.push({ tag: "inv11", msg: `unknown { Restored } of identity ${owner + 1}'s Attempt ${id} was delivered to an incarnation of identity ${k + 1}` });
               runTurn(vv, c, h, () => id);

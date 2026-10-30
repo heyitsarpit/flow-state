@@ -1,81 +1,76 @@
-# Write-lane model: results against proposal.md revision 11 (commit ddf46d4a)
+# Write-lane model: results against proposal.md revision 12 (HEAD 9772678a, OD22, review 10)
 
 Files: `model.ts` (lane), `events.ts` (alphabet), `main.ts` (explorer), `audit.ts` (UnresolvedHold), `identity.ts` (two identities),
-`system.ts` (new: actor record, leaves, delivery), `mutations.py`, `output.txt`, `mutations-output.txt`.
-Run `tsc -p . && bun main.ts` (30 s), `python3 mutations.py` (about 4 min, 14 mutants). Line numbers are `proposal.md` at revision 11.
+`system.ts` (actor record, leaves, delivery), `mutations.py`, `output.txt`, `mutations-output.txt`.
+Run `tsc -p . && bun main.ts` (26 s), `python3 mutations.py` (about 6 min, 18 mutants, trimmed system matrix). Lines are `proposal.md` rev 12.
 
-## What is modelled
-- Revisions 10 and earlier: unchanged (one lane, five modes, the 16 x 3 table, identity). See the previous run's text in git history.
-- **Revision 11, `system.ts`** (holding modes; one identity, persisted or local; 2 commits): a small machine with leaves CARD (initial),
-  PAYING, DONE (`Pay` commits and enters PAYING; `Back`; `Giveup` cancels; `Reset`). The mapped events S, F, U, N (success, failure,
-  unknown, delivered `NotSent`) are handled at the root or at the leaf PAYING (two configurations).
-  - A saved actor record (leaf, memory, pending mapped outcomes) that survives while no actor lives: `retain-expiry`, `disposeActor`
-    (record gone), `ensure`, `reload`, Runtime disposal with a final capture (a head that settles first is saved; `NotSent { Disposed }`
-    is saved). An ending with no live actor is saved as a pending outcome when a record exists, else evidence (K25).
-  - Routing (K26): an adopted lane's endings and every `unknown { Restored }` are current from the active leaf; a restored record's
-    saved outcomes and a live actor's own endings keep rule 14 (current while PAYING is active, else late from the root).
-  - Delivery order for a new incarnation: saved outcomes first, then the `Held` head's `Restored` (not if its unknown was saved), then on a
-    reload `W`'s `NotSent { Restored }` (by construction in `deliverAfterStart`).
-  - A local (non-persisted) actor: no actor record, no lane record; a reload drops the lane (G4); an unmount keeps the lane for
-    the next incarnation with equal input.
-- Invariants added: **13** the UI never contradicts what the lane learned (never Paying after a recorded success, failure, release or
-  delivered `NotSent`; never Done unless the Attempt succeeded); **14** every ending is delivered once, saved, or evidence when no record
-  survives (a saved unknown and `Restored` for one hold are one delivery; nothing saved outlives its incarnation); **15** `UnresolvedHold`
-  with OD21's arrivals against stuck states (audit).
+## What changed in the model (revision 12)
+- **Parked endings are raw, on the lane record** (M3): they survive a release of the actor record, are mapped at delivery, and a fresh
+  incarnation adopts them in its initial leaf. New event `release` (the actor record no longer decodes).
+- **One owner test** (M2): an Attempt of this incarnation, or one whose owner activation was restored with the record, is current while
+  that activation is alive and late once it ended; any other adopted Attempt, `unknown { Restored }` and `NotSent { Restored }` are current
+  from the active leaf. **C3:** `NotSent { Restored }` is delivery step 2 only. **C4:** the machine's handlers use no memory set after the commit.
+- **Runtime disposal** (M4, H2): `W` ends after the head's ending, so parked endings keep lane order; under `cancel`/`allow` a persisted
+  identity keeps its sent work as an acknowledged `InFlight` record, restored at reload as `unknown { Restored }`; a `cancel`/`allow` lane
+  restored with no incarnation waits (`await`) for the first one. **C2:** a persisted lane's re-send waits for its capture (`capture` event; a
+  failure is `capture-refused`). **L1:** the local limit also covers the lost hold.
+- **MD rule 20** as a static check over the arrival set (CARD, PAYING, DONE): machines with handlers at the root, or at PAYING with explicit
+  ignores elsewhere, pass; handlers at PAYING only are rejected. New invariants: **16** an adopted success or failure is never silently
+  ignored in a leaf; **17** parked endings keep lane order; **18** the UI never waits (PAYING) for an ending that can no longer arrive.
+- `UnresolvedHold` arrivals now **stop at** `X.idle`-guarded transitions, handlers of U and `retry`/`cancel`; an idle-guarded commit no
+  longer counts for `reject`'s terminal pass (M1).
 
-## Results (revision 11)
+## Results
 | # | reject / latest / serialize | cancel / allow |
 | --- | --- | --- |
-| 1, 2, 4, 5, 6a, 7, 9 | PASS (3 commits) | PASS (2 commits) |
-| 3 | PASS except the stated limit F1 (a released Attempt landing late; unchanged) | not claimed |
-| 8 | 33 of 33 reachable cells | HeldThisTurn table: 29 of 33 holding cells (unchanged) |
-| 11, 12 identity | PASS | |
-| **13** persisted, handlers at root or leaf | **PASS** | |
-| **14** persisted | **PASS** | |
-| 13, 14 local | PASS | |
-| 2 local (`inv2-local`) | FAIL, stated by G4 (below) | |
-| **15** | no unflagged stuck machine except the `reject` terminal pass | |
-
-- **15.** 3,500 machines. `latest`, `serialize`: stuck and flagged 2,130, stuck-not-flagged **0**. `reject`: stuck and flagged 2,074,
-  stuck-not-flagged **56, all the terminal pass** (by design). Flagged-but-never-stuck: 640 to 648, all with a `retryable` guard (rule 3's
-  stated over-approximation: a budget the machine never spends). So the rule is exact on stuck machines but not minimal. The two-leaf
-  family cannot tell revision 10's arrivals from OD21's (0 machines differ); the refinement needs a machine with three leaves.
-- Contrast, same machine with K25 and K26 off (revision 10): persisted, root handlers: inv 14 fails in 2 events (`Pay -> runtime-dispose`:
-  the disposed `NotSent` is dropped). Leaf handlers: inv 13 fails in 2 events (`Pay -> reload`: `NotSent { Restored }` routes late and the
-  PAYING handler never sees it).
+| 1, 2, 4, 5, 6a, 7, 9, 11, 12 | PASS | PASS |
+| 3 | PASS except the stated limit F1 (a released Attempt landing late) | not claimed |
+| 8 | 33/33 cells | HeldThisTurn table (29/33 of the holding cells) |
+| 13, 14 persisted (root, and PAYING with ignores; 4 modes) | PASS | PASS |
+| **16**, accepted machines | **PASS**; rule 20 rejects exactly the machines that lose an adopted success (exact) | |
+| 17 | PASS | PASS |
+| **18** | PASS | **FAIL (cancel, persisted)** |
+| 15 (UnresolvedHold vs stuck) | **FAIL**, see below | |
+| local actors (`inv2-local`) | stated limit (L1) | |
 
 ## Counterexamples
-- **F1** (inv 3, stated): unchanged, 7 to 8 events (`commit;commit -> ack(1) -> invoke(1) -> end-unknown(1)/h:cancel -> ack(2) ->
-  invoke(2) -> land(2)`).
-- **L1** (`inv2-local`, all three modes, local identity): `Pay -> ack(1) -> invoke(1) -> reload -> Pay -> ack(2) -> invoke(2)` (7 events).
-  The reload forgets the lane, so a newer write is sent while the older one is unresolved. Line 748-751 states the exception for the
-  *ending* only; it also removes the hold and its order. Same cause as G4, not a new rule, but the stated text is narrower than the effect.
+- **F1** (inv 3, stated): `commit;commit -> ack(1) -> invoke(1) -> end-unknown(1)/h:cancel -> ack(2) -> invoke(2) -> land(2)`, 7 to 8 events.
+- **L1** (stated, now in 748-751): `Pay -> ack(1) -> invoke(1) -> reload -> Pay -> ack(2) -> invoke(2)`: a local reload loses the hold.
+- **G7, inv 18, `cancel`, persisted** (6 events): `Pay -> ack(1) -> invoke(1) -> retain-expiry -> end-unknown(1) [no actor] -> ensure`.
+  The unknown lands with no actor; under `cancel` it is evidence at once (turn end, lines 945-946), but K25 parks it for the record. At ensure
+  it is delivered, its handler's `retry` finds the lane `Idle` (NothingToResend), and the UI waits in PAYING for good. R9 H1's shape,
+  for `unknown` under `cancel`/`allow`. The holding table keeps the hold, so it does not happen there.
+- **15a** (`reject`, 960 of 1,030 unflagged stuck machines): `S0:{idle?commit->S0}`, no handler. `commit` then an unknown leaves the lane
+  `Held`; the only transition is `commit` guarded by `idle`, which a held lane denies, so the user can never act again. Revision 11 flagged
+  it; revision 12's rule 2 ("an X.idle-guarded commit does not count for reject's terminal pass", line 1081) passes it.
+- **15b** (`latest`/`serialize`, 14 stuck machines, same in `reject`): `S0:{retry->S1} S1:{idle?commit->S0}`. The stop at `retry`/`cancel`
+  (line 1079) assumes the transition resolves the hold, but it also fires while the lane is `InFlight` or `Idle` (a declined retry is
+  evidence), moving the machine to S1, where the hold later arrives with no owner. 56 more `reject` machines are the intended terminal pass.
+  The 644 flagged-never-stuck machines all carry a `retryable` guard (rule 3, stated).
 
-## Mutations (all caught; checks that newly fail against the unmutated model)
+## Mutations (all 18 caught; checks that newly fail against the unmutated model)
 | Reverted rule | Newly failing |
 | --- | --- |
-| interrupted becomes Held; promote only on release; invocation whatever the outcome; cancel by history; serialize hold; HeldThisTurn; ending kept on a non-ok turn; F2; F3; F5; K21 identity | as in revision 10 (see `mutations-output.txt`) |
-| **K25** drop the pending-outcome save | inv 13 and 14 (persisted, root and leaf handlers, all holding modes) |
-| **K26** adopted endings and `Restored` are late, from the root | inv 13 (persisted, leaf handlers, all holding modes) |
-| **G3** a saved unknown and `Restored` both delivered | inv 14 (persisted, leaf handlers) |
+| revision 10 and 11 rules (interrupt, promote, invocation, cancel by history, serialize hold, HeldThisTurn, F8, F2, F3, F5, K21, K25, K26, G3) | as before (see `mutations-output.txt`) |
+| **H1** drop the MD rule 20 row | inv 16 (a machine rule 20 accepts loses an adopted success) and the exactness check |
+| **M3** park mapped on the actor record, not raw on the lane | inv 14 (a release loses the parked ending) |
+| **M4** `W` before the head's ending at disposal | inv 17 |
+| **H2** `cancel`/`allow` disposal makes sent work evidence | inv 14 (persisted, `cancel`) |
 
-K26 shows only with a handler at the leaf: a root handler hears a late event too, which is why S7c says "handle at the root".
-
-## Contradictions and gaps (revision 11)
-- **C1 (lines 748-751 vs 849-880, the hold under a local reload).** Principle 2's exception covers the ending, but the table's
-  hold guarantee ("nothing newer is sent while an older unknown is unresolved") also fails after a local reload (L1). One sentence.
-- **C2 (line 807, re-send waits for the lane record's capture, R9 M3).** The table has no cell or event for that wait; the model gates
-  nothing on it (its failure, `capture-refused`, is modelled). `retryCount` and the invoked cell say nothing about it.
-- **C3 (lines 849-880, W's `NotSent { Restored }` with no live actor).** The delivery list puts it at step 2 of the incarnation, but
-  K25 describes *every* ending with no actor as a pending outcome saved in order. Modelled as a step-2 item of the lane, not a pending
-  outcome. If it were a pending outcome it would be delivered at step 1, before `Restored`.
-- **C4 (S7c, line ~1260).** "The same holds for the adopted Attempt's success and failure": a handler of S/F/N that compares the event's
-  Attempt with memory (`cur`) ignores an adopted one in a fresh incarnation (cur = 0). The machine here uses the event's Attempt for S and
-  keeps the comparison for F/N/U; a fresh incarnation then shows the card form after a recorded success. No contradiction with inv 13
-  (the UI does not say Paying), but the user can pay twice. Stated limit worth a sentence.
-- Still stated, not new: two live local actors with equal input have two lanes; `Superseded` is evidence; hydration cells untestable (G6).
+## Contradictions and gaps (revision 12)
+- **C5 (lines 944-946, 788).** G7 above: a parked `unknown` under `cancel`/`allow` is delivered after its Attempt became evidence, so no
+  `retry` can re-send it. Either do not park it (the lane `Idle`, nothing to wait for: the machine must learn it by `NotSent`), or keep the
+  Attempt as an awaiting record like H2's captured work.
+- **C6 (line 1081).** Rule 2's idle-guarded commit exemption passes a `reject` deadlock (15a). Keep the exemption only when no
+  non-`idle` path of that commit exists, or count it when its guard is the only way out of the leaf.
+- **C7 (line 1079).** The stop at `retry`/`cancel` is unsound because those fire without a held lane (15b). Stop only at one guarded by
+  `X.retryable` or run in a handler of U.
+- **C8 (C2, line ~777).** The capture wait is modelled as one event; the text does not say what happens to an acknowledged re-send waiting for
+  its capture when the incarnation is disposed (modelled as unchanged: captured later by the Runtime).
+- Still stated: two local actors with equal input have two lanes; hydration cells untestable.
 
 ## Where I invented behaviour
-`Superseded` is never delivered; delivered `NotSent` kinds are Rejected, Cancelled, Overloaded, StorageRefused, Restored, Disposed; a
-head that settles before the final capture is modelled as two variants (success or failure); the final capture is assumed to succeed;
-capture is continuous (the record equals the live actor at any crash); pending outcomes are not size-bounded.
+`Superseded` is never delivered; delivered `NotSent` kinds are Rejected, Cancelled, Overloaded, StorageRefused, Restored, Disposed; a head that
+settles before the final capture is modelled as success or failure (two variants); the final capture always succeeds; capture is continuous;
+a `cancel`/`allow` lane restored with no incarnation waits as `Held`/`await` (the text has no between-turns state for it, `HeldThisTurn` cannot
+outlast a turn); the machine is three leaves with memory-free handlers.

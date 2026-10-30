@@ -20,7 +20,7 @@ function drain(s0: S): { s: S; v: Viol[] } {
   {
     for (let i = 0; i < 120; i++) {
       if (s.disposed) { restoreTurns(s, c, doReload(s, c), HS[0]!); continue; }
-      if (!s.bound) { const id = doStart(s, c); if (id) runTurn(s, c, HS[0]!, () => id); continue; }
+      if (!s.bound) { restoreTurns(s, c, doStart(s, c), HS[0]!); continue; }
       const h = s.head ? A(s, s.head) : undefined;
       if (h && h.status === "waiting" && !h.noInvoke) { if (!h.acked) doAck(s, h.id); doInvoke(s, c, h.id); continue; }
       if (s.net.length) { doLand(s, Math.min(...s.net), false); continue; }
@@ -44,7 +44,7 @@ function inv3(s0: S): Viol | null {
 
 const keyOf = (s: S) =>
   [s.commits, s.st, s.head, +s.told, +s.disposed, s.W.join(","), s.out.join(","), s.old.join(","), s.bound ? 1 : 0, s.srvVal, s.applied.join(","), s.refused.join(","), [...s.net].sort().join(","),
-    s.atts.map((a) => [a.status, +a.everSent, +a.acked, +a.ackedEver, a.sends, a.resends, +a.interrupting, +a.cancelled, +a.noInvoke, +a.evid, a.why].join("")).join("|")].join(";");
+    s.atts.map((a) => [a.status, +a.everSent, +a.acked, +a.ackedEver, a.sends, a.resends, +a.interrupting, +a.cancelled, +a.noInvoke, +a.evid, +a.captured, a.why].join("")).join("|")].join(";");
 
 interface Found { depth: number; path: string[]; msg: string }
 export interface Result {
@@ -148,7 +148,7 @@ const TAGS = ["inv1", "inv2", "inv3", "inv3-limit-landed", "inv3-limit-stale", "
 function reading(label: string, modes: Mode[], commits?: number) {
   console.log(`\n######## reading: ${label}\nconfig: ${JSON.stringify(CONFIG)}  depthBound=${BOUND}`);
   for (const mode of modes) {
-    CONFIG.maxCommits = env("COMMITS") ? Number(env("COMMITS")) : commits ?? (holds(mode) ? 3 : 2); // cancel and allow: 2 commits (their state space is far larger; invariant 3 is not claimed for them)
+    CONFIG.maxCommits = env("COMMITS") ? Number(env("COMMITS")) : commits ?? (mode === "latest" ? 3 : 2); // latest: 3 commits (a replaced W needs them); the others 2, to stay under a minute
     const r = explore(mode, { reduced: false, maxDepth: BOUND });
     console.log(`\n=== ${mode}: ${r.states} states, ${r.edges} transitions, longest shortest-path ${r.maxDepth}${r.truncated ? " (TRUNCATED at depth bound)" : " (complete: every sequence of any length is covered)"}, ${(r.ms / 1000).toFixed(1)}s`);
     for (const t of TAGS) {

@@ -1,7 +1,7 @@
 // Invariant 6, second half: UnresolvedHold (3.8.1 "UnresolvedHold over the graph") as written, against the lane model.
 // A tiny machine (two leaves S0, S1; one user event `e` per leaf; one `unknown` handler) is run in product with the lane.
 // "Actually stuck" = a reachable product state from which no sequence of machine transitions and environment events reaches an Idle lane.
-import { CONFIG, A, clone, commitsIn, doAck, doAckRefused, doCaptureRefused, doDispose, doInvoke, doLand, doReload, doStart, endingTurn, init, laneSt, newCtx, prepRestore, runTurn, turnEnd, holds } from "./model.ts";
+import { CONFIG, A, clone, commitsIn, doAck, doAckRefused, doCapture, doCaptureRefused, doDispose, doInvoke, doLand, doReload, doStart, endingTurn, init, laneSt, newCtx, prepRestore, runTurn, turnEnd, holds } from "./model.ts";
 import type { Act, Guard, Mode, S } from "./model.ts";
 
 type Tr = { g: Guard; a: "none" | Act; to: 0 | 1 } | null;
@@ -14,7 +14,7 @@ const specOf = (g: Guard, a: "none" | Act) => ({ label: key(g, a), guard: g, act
 
 interface Edge { kind: "plain" | "user" | "end" | "start" | "reload" | "dispose"; spec: string; to: number; denied: boolean; what: string; from: number }
 interface Lane { nodes: S[]; edges: Edge[][]; good: boolean[] }
-const nk = (s: S) => JSON.stringify([s.commits, s.st, s.head, s.told, s.disposed, s.W, s.bound, s.srvVal, s.applied, s.refused, [...s.net].sort(), s.atts.map((a) => [a.status, a.everSent, a.acked, a.ackedEver, a.sends, a.resends, a.interrupting, a.evid])]);
+const nk = (s: S) => JSON.stringify([s.commits, s.st, s.head, s.told, s.disposed, s.W, s.bound, s.srvVal, s.applied, s.refused, [...s.net].sort(), s.atts.map((a) => [a.status, a.everSent, a.acked, a.ackedEver, a.sends, a.resends, a.interrupting, a.evid, a.captured])]);
 
 function buildLane(mode: Mode): Lane {
   const nodes: S[] = [], edges: Edge[][] = [], ids = new Map<string, number>();
@@ -41,7 +41,8 @@ function buildLane(mode: Mode): Lane {
         if (s.bound) for (const sp of SPECS) push("end", key(sp.g, sp.a), (x, c) => { const d = doCaptureRefused(x, c, id); return d ? runTurn(x, c, fit(sp), () => d) : (turnEnd(x), undefined); }, "capture-refused (re-send, delivers unknown)");
         else push("plain", "", (x, c) => { doCaptureRefused(x, c, id); turnEnd(x); }, "capture-refused (re-send, no actor)");
       }
-      if (a.status === "waiting" && a.acked) push("plain", "", (x, c) => doInvoke(x, c, id));
+      if (a.status === "waiting" && a.everSent && !a.captured) push("plain", "", (x) => doCapture(x, id));
+      if (a.status === "waiting" && a.acked && (!a.everSent || a.captured)) push("plain", "", (x, c) => doInvoke(x, c, id));
       if (a.status === "wire") {
         const handler = s.bound && s.head === id;
         const kinds = [...(s.applied.includes(id) ? ["success"] : []), ...(s.refused.includes(id) ? ["failure"] : []), "unknown", "interrupt"] as ("success" | "failure" | "unknown" | "interrupt")[];
@@ -54,7 +55,7 @@ function buildLane(mode: Mode): Lane {
     for (const id of [...new Set(s.net)]) { push("plain", "", (x) => doLand(x, id, false)); if (!s.applied.includes(id) && !s.refused.includes(id)) push("plain", "", (x) => doLand(x, id, true)); }
     if (s.bound) push("dispose", "", (x, c) => doDispose(x, c));
     if (!s.bound) {
-      if (holds(s.mode) && laneSt(s) === "Held") for (const sp of SPECS) push("start", key(sp.g, sp.a), (x, c) => { const id = doStart(x, c); return runTurn(x, c, fit(sp), () => id); }, "rebind (Held, delivers Restored)");
+      if (holds(s.mode) && laneSt(s) === "Held") for (const sp of SPECS) push("start", key(sp.g, sp.a), (x, c) => { const ids = doStart(x, c); let o: string | undefined; for (const id of ids) o = runTurn(x, c, fit(sp), () => id); return o; }, "rebind (Held, delivers Restored)");
       else push("start", "", (x, c) => { doStart(x, c); }, "start (no hold to deliver)");
     }
     if (s.bound && laneSt(s) !== "Idle") for (const sp of SPECS) push("reload", key(sp.g, sp.a), (x, c) => { const ids = doReload(x, c); if (!ids.length) { turnEnd(x); return undefined; } let o: string | undefined; for (const id of ids) o = runTurn(x, c, fit(sp), () => { prepRestore(x, id); return id; }); return o; }, `reload (${laneSt(s)}: delivers unknown { Restored })`);
@@ -105,7 +106,7 @@ function product(L: Lane, m: M, wantPath: boolean) {
 }
 
 // The rule as written. Returns "pass" | "error" | "warning".
-function rule(mode: Mode, m: M, terminal = true, arrivals: "rev10" | "rev11" = "rev11"): "pass" | "error" | "warning" {
+function rule(mode: Mode, m: M, terminal = true, arrivals: "rev10" | "rev11" = "rev11", idleCommitCounts = false): "pass" | "error" | "warning" {
   const trans = (st: 0 | 1) => m.t[st];
   const isOwnerAct = (t: Tr) => !!t && (t.a === "retry" || t.a === "cancel");
   const anyMember = [m.t[0], m.t[1], m.hU].some(isOwnerAct);
@@ -116,13 +117,13 @@ function rule(mode: Mode, m: M, terminal = true, arrivals: "rev10" | "rev11" = "
     return { owner, commit };
   };
   const searchOwner = (T: 0 | 1) => reach(T, (t) => (t.g === "idle" ? "block" : isOwnerAct(t) ? (t.g === "none" ? "owner" : "block") : "go"));
-  const anyCommit = (T: 0 | 1) => reach(T, (t) => (t.a === "commit" ? "go" : "go")).commit; // plain reachability over every transition
+  const anyCommit = (T: 0 | 1) => { const vis = new Set<number>([T]), st: number[] = [T]; let c = false; while (st.length) { const x = st.pop()! as 0 | 1; const t = trans(x); if (!t) continue; if (t.a === "commit" && (idleCommitCounts || t.g !== "idle")) c = true; if (!vis.has(t.to)) { vis.add(t.to); st.push(t.to); } } return c; }; // plain reachability; an idle-guarded commit does not count (OD22 M1)
   let worst: "pass" | "error" | "warning" = "pass";
   // revision 10: any leaf of the machine. Revision 11 (OD21): the initial leaf and every leaf reachable from it without passing X.idle,
   // plus every leaf reachable without passing X.idle from a transition holding X.commit or from an arrival branch's target.
   const arrivalLeaves = (): (0 | 1)[] => {
     const R = new Set<number>([0]);
-    const expand = (from: number) => { const st = [from]; R.add(from); while (st.length) { const x = st.pop()! as 0 | 1; const t = trans(x); if (t && t.g !== "idle" && !R.has(t.to)) { R.add(t.to); st.push(t.to); } } };
+    const expand = (from: number) => { const st = [from]; R.add(from); while (st.length) { const x = st.pop()! as 0 | 1; const t = trans(x); if (t && t.g !== "idle" && !isOwnerAct(t) && !R.has(t.to)) { R.add(t.to); st.push(t.to); } } }; // OD22 M1: the search stops at idle-guarded transitions and at retry/cancel (ownership passes to the current incarnation)
     let changed = true;
     while (changed) {
       const n = R.size;
@@ -178,7 +179,10 @@ export function audit() {
       if ((rule(mode, m, true, "rev10") !== "pass") !== flagged) diffArr++;
       if (flagged && stuck) tp++; else if (flagged) { fp++; ex.fp.push(m); } else if (stuck) {
         fn++; ex.fn.push(m);
-        const why = rule(mode, m, false) !== "pass" ? "reject's terminal pass (5.1 LEFT): the hold is left on purpose" : "other (unexpected)";
+        const why = rule(mode, m, true, "rev11", true) !== "pass" ? "revision 12's M1: an idle-guarded commit no longer blocks reject's terminal pass, yet the machine can only offer that commit, which a held lane denies for good (a deadlock revision 11 flagged)"
+          : rule(mode, m, false) !== "pass" ? "reject's terminal pass (5.1 LEFT): no commit is reachable, the hold is left on purpose"
+          : rule(mode, m, true, "rev10") !== "pass" ? "revision 12's M1 stop at retry/cancel: such a transition can fire while the lane is InFlight or Idle (evidence), so the leaf it leads to can still receive the hold"
+          : "other (unexpected)";
         cause.set(why, [...(cause.get(why) ?? []), m]);
       } else tn++;
     }
