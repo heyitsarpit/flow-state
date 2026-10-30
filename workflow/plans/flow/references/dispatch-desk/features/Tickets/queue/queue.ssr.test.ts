@@ -9,17 +9,43 @@ import { FlowProvider, Hydrate } from "flow-state/react";
 import { DeskApp } from "../../../app/app.js";
 import { DemoTicketApi } from "../../../app/demo-api.js";
 import { DeskSetup } from "../../../app/setup.js";
-import { Layer } from "effect";
-import { countingTicketApi } from "../../../testing/fixtures.js";
+import { Effect, Layer } from "effect";
+import { TicketApi } from "../ticket-api.js";
 import { QueueList } from "./QueueList.js";
 import { Queue } from "./queue.definition.js";
 import { queueRef } from "./queue.ref.js";
-import { countedQueueHydration, queuePage } from "./queue.ssr.story.js";
+import { queueHydrated, queuePage } from "./queue.ssr.story.js";
+
+// A small counting Layer over the demo API: how many list and count lookups the browser tab sends.
+const countingTicketApi = () => {
+  const calls = { list: 0, openCount: 0 };
+
+  const layer = Layer.effect(
+    TicketApi,
+    Effect.gen(function* () {
+      const api = yield* TicketApi;
+
+      return {
+        ...api,
+        list: (input, options) => {
+          calls.list += 1;
+
+          return api.list(input, options);
+        },
+        openCount: (input, options) => {
+          calls.openCount += 1;
+
+          return api.openCount(input, options);
+        },
+      };
+    }),
+  );
+
+  return { layer, calls: () => ({ ...calls }) };
+};
 
 test("fresh hydrated list and openCount do not refetch", async () => {
-  const { scenario, counter } = countedQueueHydration();
-  const run = await scenario.run();
-  expect(counter.calls()).toEqual({ list: 0, openCount: 0 });
+  const run = await queueHydrated.run(); // its expectations read the Desk request log: the server's two lookups only
   expect(Queue.S.HEALTHY.is(run.checkpoints.active.actor(queueRef("north")).snapshot)).toBe(true);
 });
 

@@ -1,14 +1,18 @@
 // The list body is the one place where every lane state renders differently, so it matches
-// all of them with Effect's Match.valueTags; the rest reads memory and states.
+// all of them with Effect's Match.valueTags; the rest reads memory and states. A row's fields come from
+// the record (coherent with the editor), its "Assigning…" or "?" from its own assign lane, and the
+// preview drawer is the Comments panel on the queue's `preview` placement.
 import { Match, Schema } from "effect";
 import { check } from "flow-state";
 import { useActorByRef, useView } from "flow-state/react";
+import { CommentsPanel } from "../../Comments/CommentsPanel.js";
+import { Viewers } from "../../Presence/Viewers.js";
 import { Ticket } from "../ticket.domain.js";
 import { TicketStatus, type TicketKey } from "../types.js";
 import { Queue } from "./queue.definition.js";
 import { queueRef } from "./queue.ref.js";
 
-const { S, E } = Queue;
+const { S, E, O } = Queue;
 
 type QueueActor = ReturnType<typeof useQueue>;
 
@@ -33,6 +37,7 @@ export function QueueList({
       {reconnecting && <p role="status">Reconnecting to the queue…</p>}
       {notice && <p role="alert">{notice}</p>}
       <QueueBody queue={queue} onOpen={onOpen} />
+      <PreviewDrawer queue={queue} />
     </section>
   );
 }
@@ -41,7 +46,7 @@ function Toolbar({ queue }: { queue: QueueActor }) {
   const search = useView(queue, (s) => s.memory.search);
   const status = useView(queue, (s) => s.memory.status);
   const mineOnly = useView(queue, (s) => s.memory.mineOnly);
-  const open = useView(queue, (s) => s.activities.open?.data);
+  const open = useView(queue, (s) => s.operations.open?.data);
 
   return (
     <div className="toolbar">
@@ -77,7 +82,7 @@ function Toolbar({ queue }: { queue: QueueActor }) {
 }
 
 function QueueBody({ queue, onOpen }: { queue: QueueActor; onOpen: (ticket: TicketKey) => void }) {
-  const lane = useView(queue, (s) => s.activities.list);
+  const lane = useView(queue, (s) => s.operations.list);
 
   if (lane === undefined) return <RowsSkeleton />;
 
@@ -148,7 +153,11 @@ function TicketRowItem({
   // once. pending is true while a predicted assignment or rename is unconfirmed.
   const ticket = useView(queue, (s) => Ticket.get(s, row, ["title", "status", "assignee"]));
 
-  // Not open, or already predicted as assigned: the guard declines, so the button disables.
+  // This ticket's own lane: the row passes itself, a value carrying the key's fields (OD4).
+  const assign = useView(queue, (s) => O.assign.get(s, row));
+
+  // Not open, already predicted as assigned, or this ticket's lane busy: the guards decline, so the
+  // button disables. Another row's assignment does not affect it.
   const assignable = useView(
     queue,
     (s) => check(s, E.AssignToMe({ ticketId: row.ticketId }))._tag === "Allowed",
@@ -157,10 +166,16 @@ function TicketRowItem({
   if (!ticket) return null;
 
   return (
-    <li aria-busy={ticket.pending}>
+    <li aria-busy={ticket.pending || assign.pending}>
       <button onClick={() => onOpen(row)}>{ticket.data.title}</button>
       <span className="badge">{ticket.data.status}</span>
-      {ticket.data.assignee === null && (
+      {assign.pending && <span role="status">Assigning…</span>}
+      {assign.uncertain && (
+        <span role="status" title="We are checking whether this assignment went through">
+          ?
+        </span>
+      )}
+      {ticket.data.assignee === null && !assign.pending && !assign.uncertain && (
         <button
           disabled={!assignable}
           onClick={() => queue.send(E.AssignToMe({ ticketId: row.ticketId }))}
@@ -168,7 +183,33 @@ function TicketRowItem({
           Assign to me
         </button>
       )}
+      <button onClick={() => queue.send(E.PreviewOpened({ ticketId: row.ticketId }))}>
+        Preview
+      </button>
+      <Viewers ticket={row} /> {/* pending merge 6 */}
     </li>
+  );
+}
+
+// The comments of the previewed ticket. Nothing is placed while `previewId` is null.
+function PreviewDrawer({ queue }: { queue: QueueActor }) {
+  const previewId = useView(queue, (s) => s.memory.previewId);
+  const title = useView(queue, (s) =>
+    s.memory.previewId === null
+      ? undefined
+      : Ticket.get(s, { workspaceId: s.memory.workspaceId, ticketId: s.memory.previewId }, [
+          "title",
+        ])?.data.title,
+  );
+
+  if (previewId === null) return null;
+
+  return (
+    <aside aria-label="Ticket preview">
+      <h3>{title ?? previewId}</h3>
+      <button onClick={() => queue.send(E.PreviewClosed())}>Close</button>
+      <CommentsPanel host={queue} instance="preview" events={E.preview} />
+    </aside>
   );
 }
 
