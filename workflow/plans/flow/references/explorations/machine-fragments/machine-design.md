@@ -435,8 +435,8 @@ after rule 47, let fragments declare operations (2.9).
 2. **Three sender lists.**
    - `events` come from anyone: views, other actors, the host.
    - `hostEvents` come only from the direct host, by `raise`.
-   - `internalEvents` come only from the fragment's own schedules. On a definition or a fragment, `internalEvents` come from its
-     schedules or its operations' endings; an event an operation maps comes only from endings (rule 47).
+   - `internalEvents` come only from the declarer's own schedules or its operations' endings (a fragment's too, rule
+     49); an event an operation maps comes only from endings (rule 47).
 
    Each declarer maps its operations' endings onto **its own** events, through their `outcomes`; a host raises into fragments. Sending a
    host or internal event from outside is a type error, and `InvalidEvent` untyped.
@@ -554,7 +554,7 @@ is one invocation of its commit function. The rules are numbered as merge 2's ru
 13–25 say how their work runs. Rules 48–60 let a fragment declare them; read "the definition" in rules 13–47 as "the
 declarer" (a definition or a fragment), and "binding actor" as "binding incarnation" (rule 53).
 
-13. **Endings map to events, on the definition.** An operation `name: contract.outcomes({ … })` (rule 40) maps each
+13. **Endings map to events, on the declarer.** An operation `name: contract.outcomes({ … })` (rule 40) maps each
     ending to one of its declarer's events (a definition's, or a fragment's `internalEvents`, rule 49): for a write `success:`, `failure:` (an exhaustive record over the commit's
     failure tags, plus an optional `NotSent`; or one event for an untagged failure type), and `unknown:` (one event, or
     a record by tag as `failure` is, OD23 Q36; 2.7.13); for a read `success:` (one-off) or `value:` (live) and
@@ -574,7 +574,7 @@ declarer" (a definition or a fragment), and "binding actor" as "binding incarnat
     incarnation (an adopted lane) → current, from the active leaf. Every `unknown { Restored }` is current from the
     active leaf. The test runs inside the binding incarnation (rule 53): a fragment's operation is current or late
     within that incarnation, and an adopted ending is current from its active leaf (a trait: its own `on`). With no
-    binding incarnation the ending is parked for the lane's path (rule 53). Routing is never decided at settlement. Settlement decides only the Attempt's ending (rule 18) and, for
+    binding incarnation the ending is parked for the lane's path (rule 53), unless the lane is releasing (rule 60). Routing is never decided at settlement. Settlement decides only the Attempt's ending (rule 18) and, for
     a domain write, its store effects (rule 27).
 15. **Late turns.** In a late event's turn, an alternative whose target would exit a state that owns another pending
     call, or an active subroutine, is denied (`LateMayNotLeave`); so a late handler ends in an alternative that does not
@@ -809,7 +809,7 @@ decision (E1–E18). Rules 13–25 and N1–N3 still apply.
     list of placements in a state (a subroutine's included) or a trait body, placed for that activation or incarnation
     (rule 52; *Stream details: merge 6*). The verb decides one-off or live and must agree with the mapping (`success` only with `lookup`,
     `value` only with `subscribe`); one operation uses one verb (`VerbMismatch`). A live operation is placed in one
-    state at a time unless state tokens in `when` make placements exclusive (`DuplicatePlacement`). Each select is typed
+    state or trait incarnation at a time unless state tokens in `when` make placements exclusive (`DuplicatePlacement`). Each select is typed
     by its transition.
 42. **Reads** (OD9 Q6, Q21, Q23, Q26; OD23 Q33). A one-off read operation has one lane (in a fragment, one per
     incarnation: actor, operation, incarnation; rule 52); a lookup releases the previous
@@ -944,7 +944,7 @@ decisions (F1–F10).
       delivered, and the interrupted one is the latest, since a frozen trait issues none; "one-off read lanes are not
       persisted" stays true of the lane, and gains one exception for the ending a freeze parks in its slice. Against rule
       46: no lane record is involved (a read has none), so rule 46 is unchanged; Persistence O2's frozen-slice contents
-      gain the parked read endings (amendment 23).
+      gain the parked read endings (C60).
 
 53. **Writes outlive the incarnation; their endings go to the subject** (decided, F3). A lane's **binding
     incarnation** is the live incarnation at its operation's placement whose subject path is the lane's; for a host
@@ -1016,8 +1016,8 @@ decisions (F1–F10).
       (OD19: disposal drops nothing; the identity may return).
     - **What:** every lane of that operation whose subject path is the ending incarnation's (one subject may own many
       lanes, as a thread owns one per `clientId`). It is listed in step 3 with the leaving notifications and is a Runtime step in the leaving turn's step 5, after
-      every member, reading no memory; `check()` applies no mark,
-      so rule 22 does not apply and OD8's `KeyRequired` does not apply to `whenAbandoned`.
+      every member, reading no memory, so rule 22 does not apply and OD8's `KeyRequired` does not apply to
+      `whenAbandoned`; `check()` applies no mark.
     - **How:** each such lane is marked **releasing** on its lane record (persisted, like the subject), and the cells of
       2.9.3's releasing rows apply: a held lane is released now, never-sent and queued commits end `NotSent { Cancelled }` as
       evidence, an Attempt on the wire is interrupted, endings already parked for the path become evidence, and every
@@ -1201,7 +1201,7 @@ item. Readability decides between the two.
 
 ### 2.7 Server calls
 
-A definition declares each server interaction once, by name, under `operations`, and maps its endings with `outcomes`;
+A definition or a fragment declares each server interaction once, by name, under `operations`, and maps its endings with `outcomes`;
 the machine uses it through `O`, with the contract's own verb: `commit` and `lookup` in `actions`, `subscribe` in
 `activities` (rules 40, 41). Contracts own how the call is made and which server thing it is about (2.7.1, rule 39); the
 machine owns when work starts, is sent again or cancelled, and where its ending goes (2.7.3–2.7.7); the Runtime keeps
@@ -1628,7 +1628,7 @@ FieldEdited: { target: "self", actions: [O.save.commit(({ memory, event }) => ({
   what a write lane is per.
   Revision 2 removed it to delete the K-rule; with lanes per key there is no K-rule to delete: different keys are
   different lanes. For reads it keeps OPS O1's meaning only (2.7.3).
-- **Two write operations on one write contract** in one definition are a declaration error (`SharedContract`). D9's
+- **Two write operations on one write contract** in one definition are a declaration error (`SharedContract`), per actor, counting every fragment placement (rule 40, F2). D9's
   "one write in flight per key" holds by construction, per actor identity (two live local actors with equal input are
   two lanes, R8 M5). Revision 2's `.joins` is removed (R2 A-M1, C-M6): a second kind
   of start is a second `commit` of the same operation with its own select; when the handlers must tell them apart,
@@ -2057,7 +2057,7 @@ citations as in 2.7's introduction).
 | a placement's session | the state activation, or the trait incarnation (rule 52; *Stream details: merge 6*) | a released session's delivery is discarded (M6 rule 44) |
 
 - A lane's **status** changes **only in its binding incarnation's turns** (at a commit or lookup in step 5, OD16; at an
-  ending's admission, step 1; at a `cancel`), **or in the Runtime's own steps for an unbound lane or after a turn**
+  ending's admission, step 1; at a `cancel`), **or in the Runtime's own steps for an unbound or unplaced lane or after a turn**
   (invocation, endings with no binding incarnation, dispose, Runtime disposal; OD19, OD20). No store event and no other
   actor touches it (R2 C-M3; R5 L7: status, not data). A
   one-off read row's data is the held entry's current confirmed data, so another actor's refetch changes the data,
@@ -2103,10 +2103,11 @@ kept while pending). The live incarnation with the lane's subject path is its **
 definition's operation; rule 53): it receives the lane's endings and its
 members address the lane. Disposing that actor never drops or cancels the lane's sent, held or queued writes. The
 Runtime keeps the lane, applies its endings to it (the table's lane effects and merge 4's store effects, which never
-depended on the actor, rule 27), and invokes what the table promotes. **With no binding incarnation** (decided, OD21; R9
+depended on the actor, rule 27), and invokes what the table promotes. **With no live actor incarnation** (decided, OD21; R9
 K25, H1), an ending is applied to the lane by the Runtime; if the lane's identity has a saved actor record (a
 persisted actor disposed by retain expiry, or awaiting reload), the ending, including `NotSent { Disposed }`, is also
-**parked** for that identity and delivered once to its next incarnation, in saved order (Persistence O2, O4). It is
+**parked** for that identity and delivered once to its next incarnation, in saved order (Persistence O2, O4). With a live actor but no incarnation of the lane's path, the ending is parked
+for that path instead (rule 53). It is
 evidence only when no record of the identity survives (`disposeActor`, `forget`, a non-persisted or local identity).
 A reload's `NotSent { Restored }` is **not** parked: it is produced by the restore itself and delivered as step 2 of
 the delivery order below, once (lane model C3).
@@ -2945,7 +2946,8 @@ admission  ── map through outcomes, test the owner (rule 14), update the lan
   actor (OPS:105-106 keeps cache consequences during disposal) must not hold another screen's view of a record.
 - **The lane changes at admission**, as merge 2 decided (2.7.12): it records whether this actor has handled
   the ending, which is what `O.pay.idle` and "Saving…" mean (D5, D6); for a lane with no binding incarnation, the
-  Runtime applies the cell when the ending lands and parks the ending for the identity's saved record (rule 44). A
+  Runtime applies the cell when the ending lands and parks the ending for the identity's saved record (rule 44), or, in a live actor, for the lane's subject
+  path (rule 53). A
   Runtime step publishes the rows it changes (2.5).
 - **Rule 18 moves to settlement** (found checking E4/E8). 2.5 step 1 applies rule 18 at admission, but the store needs
   the Attempt's ending at settlement. Rule 18 reads only the Attempt's send history, which is known at settlement, so
@@ -3273,7 +3275,7 @@ Store and cache effects never wait: a domain write's prediction, confirmation, r
 The lane's states (`Idle`, `InFlight`, `Held`, `W`), its 16 rows and both policy tables (2.7.13) are unchanged.
 Delta:
 
-| Row | Before (2.7.13) | After (proposed) |
+| Row | Before (2.7.13 before this merge) | After |
 | --- | --- | --- |
 | **lane created** (`commit` in `Idle`) | mint an Attempt → `InFlight` | as before, and the lane records the committing incarnation's subject path |
 | **member from another path** | — | `commit`: `NotSent { Rejected }`, delivered to the asking incarnation, lane unchanged; `retry`: evidence `NothingToResend`; `cancel`: nothing, with evidence; `retryable`: denies `NothingToResend`; `idle`: denies by the lane's state; `get`: the real row |
@@ -3329,7 +3331,7 @@ lists a releasing lane as such.
 - **`flow check` adds no finding name.** `SharedContract` widens (F2). `UnresolvedHold` and rule 20's adopted-ending
   check run inside each fragment (rule 55) and gain rule 56's arrivals and structural warning at the host. Rule 20's `NotSent`
   list gains "a mapped write on a placement whose subject path is not empty (`Rejected`)". An acting member used
-  outside its fragment, an rule 48 violation and a non-string `resetOn` on a writing placement are construction or type
+  outside its fragment, a rule 48 violation and a non-string `resetOn` on a writing placement are construction or type
   errors.
 - **Typing.** `Fragment.O` is typed from the declaration and has only write operations' reads. Members are branded
   with their fragment. Key-less `O.x.cancel` type-checks in `whenAbandoned` on any write operation. The fragment's `R`
@@ -3629,7 +3631,7 @@ export const IssueRow = trait(
 traits: { rows: IssueRow.each({ of: "issueIds", max: 500 }) },                             // existing: .each
 ```
 
-rule 48 admits it (an `.each` copy, then a root trait of that copy; no subroutine). The inner `like` incarnation's path is
+Rule 48 admits it (an `.each` copy, then a root trait of that copy; no subroutine). The inner `like` incarnation's path is
 `["X"]` in row X and `["Y"]` in row Y (rule 51).
 
 1. Row X's like ends unknown. The lane (board, `issues/set-like`, `{ id: X }`) records path `["X"]`.
@@ -4544,7 +4546,7 @@ The fragments merge ([merged/fragment-operations/proposal.md](merged/fragment-op
 | C62 | Persistence O4, O5 | On restore, a writing placement whose re-taken reset value differs resets as a pending reset, the first turn after restore, before rule 44's deliveries; a recorded path the placement cannot produce adopts by key equality only when its last part is the contract's single key field, else `orphaned` (rules 46, 51; P19 gains the case) | Amends C46, C47, P19 |
 | C63 | Testing O1 | `story.machine(fragment, { id, fixtures })`; `.enter`/`.leave` on traits; `Story.ending(Fragment.O.x, …)` (*Story reads: merge 3*); rule 58's walks are Stories | Amends the fragments' Testing O1 row and C53 |
 | C64 | Inspection O1 | Every lane with its operation path, subject path, and whether it is unplaced or releasing; fragment operations in contract summaries; `runtime.unsettledWrites()` lists unplaced lanes and drops a releasing lane once its ending lands | Amends C51 and the fragments' Inspection O1 row |
-| C65 | CommandLine O5 | `SharedContract` per actor tree, and its warning for `key: []` on a non-empty path; `UnresolvedHold` and rule 20 inside each fragment, plus rule 56 at the host; rule 20's `NotSent` on a non-empty path, at the placement; rule 12's new construction errors; `flow explain` prints fragment operations and their subject; no new finding name | Amends C18 and the fragments' CommandLine O5 row |
+| C65 | CommandLine O5 | `SharedContract` per actor tree (an error; a warning for `key: []` on a non-empty path, also C18's severity); `UnresolvedHold` and rule 20 inside each fragment, plus rule 56 at the host; rule 20's `NotSent` on a non-empty path, at the placement; rule 12's new construction errors; `flow explain` prints fragment operations and their subject; a key-less `O.x.cancel` in `whenAbandoned` is the one exception to C18's key-less type error (rules 43, 60); no new finding name | Amends C18 and the fragments' CommandLine O5 row |
 | C66 | React O4 | Views read `Fragment.O.x.get(s, k)` and `s.operations.<instance>.<name>` | Amends C52 |
 | C67 | EntityDomains O1 | A fragment's domain write registers its domain for its actor; `Released` on a releasing lane keeps the record's mark (rules 26, 30, 32, 60) | Adds |
 | C68 | Operations O3, O7 | One write operation per contract per actor, across placements; a release on leave interrupts, releases and ends queued commits as evidence, the one exception to "never silently drops" (rules 24, 40, 60) | Amends C33, C36 |
@@ -4929,7 +4931,7 @@ confirmation (the audit's section 5).
   Attempt" made `retry` re-send the newest write while the older one's unknown went unreconciled, and `retryCount`
   and `progress` described the wrong write (the audit's F1). Consequence: concurrent sends with per-message status,
   several uploads and per-item batch retries are written with per-call keys and are correct by construction; `retry`
-  inside one `serialize` lane is not expressible (F15, for the owner). Rejected: picking "the oldest unknown" or "the
+  inside one `serialize` lane is not expressible (audit F15, for the owner). Rejected: picking "the oldest unknown" or "the
   Attempt of the ending's own turn" as the target (clever rules no reader can predict), and an Attempt-addressed retry
   now (a second retry shape, against D4, with no case yet). *Superseded in part by OD7, OD19: the `serialize` head is addressable; `cancel` acts on one Attempt; no starter.*
 - **D21 Calls started in `.each` copies, and `laneKey`** (closes section 7 items 6 and 15). The Attempt carries its
