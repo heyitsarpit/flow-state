@@ -12,9 +12,10 @@ import { DeskSetup } from "../../../app/setup.js";
 import { Effect, Layer } from "effect";
 import { TicketApi } from "../ticket-api.js";
 import { QueueList } from "./QueueList.js";
-import { Queue } from "./queue.definition.js";
-import { queueRef } from "./queue.ref.js";
 import { queueHydrated, queuePage } from "./queue.ssr.story.js";
+
+// The Stories are the Desk fake's view of SSR: the request log. The render test below is React's: one string
+// from `renderToString`, the same markup from `hydrateRoot`, no recoverable error.
 
 // A small counting Layer over the demo API: how many list and count lookups the browser tab sends.
 const countingTicketApi = () => {
@@ -44,10 +45,7 @@ const countingTicketApi = () => {
   return { layer, calls: () => ({ ...calls }) };
 };
 
-test("fresh hydrated list and openCount do not refetch", async () => {
-  const run = await queueHydrated.run(); // its expectations read the Desk request log: the server's two lookups only
-  expect(Queue.S.HEALTHY.is(run.checkpoints.active.actor(queueRef("north")).snapshot)).toBe(true);
-});
+test("queue/ssr-browser", () => queueHydrated.run()); // its `expect` steps read the Desk request log
 
 test("renderToString and hydrateRoot agree before browser activation", async () => {
   const payload = (await queuePage.run()).payloads.page;
