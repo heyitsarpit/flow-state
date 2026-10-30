@@ -6,6 +6,11 @@ draft. Builds on the merged design (machine-design.md, rules 1–25) and on the 
 26–38). Nothing here edits a `.plan` file; section 6 lists the amendments for when the owner accepts them. All syntax
 is a working draft; `// ← NEW` marks what this proposal adds.
 
+**Revision (multiplicity audit, 2026-10-31).** [audit-multiplicity.md](../audit-multiplicity.md) changed four things here, each marked with these
+words: a streaming write's progress is read from the snapshot's lane row and exists only where a lane has one
+addressable Attempt (rule 48, M6-D5); the upload walk is `reject` per upload (7.5); two sessions of one `listen` entry
+are stated and warned (rule 49, M6-D6); a keyed activity's sessions meet rule 47 (M6-D7).
+
 Short names for citations (all under `workflow/plans/flow/`):
 
 | Short name | File |
@@ -27,7 +32,7 @@ Short names for citations (all under `workflow/plans/flow/`):
 | DD | `references/dispatch-desk/` |
 
 "Flow" means Flow's own runtime: nothing in Flow reads an HTTP status, a close code or an author error type
-(MD:716-717). "The adapter" is the author's `subscribe` (or `commit`) and the Effect services it calls.
+(MD:775-776). "The adapter" is the author's `subscribe` (or `commit`) and the Effect services it calls.
 
 ## 1. The problem
 
@@ -44,30 +49,30 @@ server-call design, and GAPS lists thirteen gaps. In short:
 - **No connection status** (G3): a lane is `Running` from open to end (OPS:166-168). The sync-engine adapter already
   puts status inside the value to work around it (SE:182-185, SE:420-421).
 - **Endings predate merge 2** (G4): mappers get values only (OPS:70), `defect` and `interrupt` are separate keys
-  (MCH:139-140), deliveries have no place in the FIFO list (P21, MD:2014), and a duplicate session leaves the lane
-  undefined with the activity waiting (OPS:122-124), the silent decline D5 rejected (MD:2274-2279).
-- **Nobody owns classification or reconnect** (G6). Rule 25 says Flow retries nothing (MD:572-573), but not what that
+  (MCH:139-140), deliveries have no place in the FIFO list (P21, MD:2130), and a duplicate session leaves the lane
+  undefined with the activity waiting (OPS:122-124), the silent decline D5 rejected (MD:2396-2401).
+- **Nobody owns classification or reconnect** (G6). Rule 25 says Flow retries nothing (MD:609-610), but not what that
   means for a stream; the browser hides almost every reason (GAPS, "The sources").
 - **Ownership is one clause** (G7): "facts from an ended activation are discarded by design" (RT:88-90).
 - **Backpressure is deferred** (G8, OPS:204), yet `fetch` bodies have it and WebSockets do not.
-- **Writes that stream** (G9) are deferred (MD:2123): a transaction reports nothing before its ending.
+- **Writes that stream** (G9) are deferred (MD:2242): a transaction reports nothing before its ending.
 - **`listen` ordering, duplicates and the first-live race** (G10, ED:568-569, ED:691-692).
 - **Persistence and tabs** (G11): a restored lane has no idea how stale it is; a handover opens "a fresh generation"
   (PER:96-98, PER:32-33, MT:334).
-- **Stories cannot drive a feed** (G12) without merge 3's fixture controls (M3:416-421, M3:444-451).
+- **Stories cannot drive a feed** (G12) without merge 3's fixture controls (M3:422-427, M3:450-457).
 - **Nothing is checked** (G13, INS:28-29, INS:86-88).
 
 ### 1.1 Where gaps.md is wrong or imprecise
 
 Each citation was re-read. All but these hold:
 
-- **G12's M3 citation** (M3:929-932) points at the end of M3's "Added" table. Fixture controls are M3:416-421 and
-  M3:444-451, decided as Q24 (M3:1265-1269).
+- **G12's M3 citation** (M3:938-941) points at the end of M3's "Added" table. Fixture controls are M3:422-427 and
+  M3:450-457, decided as Q24 (M3:1275-1279).
 - **G3's SE:67** for "status can recover from `error` to `ready`" is SE:66; SE:67 is the `truncate` event.
 - **G1's "a `listen` stream is not exempt from skipping"** overstates the text: OPS:126-127 defers domain listeners to
   EDP O1, which says nothing about delivery. It is unspecified, not stated.
 - **G4's "there is no `Flow.uncertain`"** is not a gap. A stream is a read, and reads keep two channels because a
-  read changes nothing (MD:818-819, C5 MD:2024, rule 37 M4:614-615). Streams need an honest answer about *what was
+  read changes nothing (MD:877-878, C5 MD:2140, rule 37 M4:622-623). Streams need an honest answer about *what was
   missed*, not an unknown channel (section 4.1.4).
 - **G8 is half answered already.** With `value` mapped, OPS:127-128 pulls the adapter's Stream only after each turn,
   which is backpressure into the adapter. The gap is upstream of that (push sources) and the unmapped case.
@@ -98,7 +103,7 @@ What follows from the table:
 - **Reconnecting is the adapter's, inside one session.** SSE reconnects by itself, sync engines recover from `error`,
   and only the adapter sees close codes. So a Flow session spans transport connections, and the adapter *reports*
   each drop and each re-open. This is merge 2's split for sends: a retry inside one send is the adapter's
-  (`Effect.retry` in the commit, MD:861; a transport deadline inside the commit, MD:1040); a retry that needs a
+  (`Effect.retry` in the commit, MD:921; a transport deadline inside the commit, MD:1116); a retry that needs a
   decision is the machine's states and schedules (2.7.6). For streams, a session that ends with a failure is the
   machine's decision.
 - **Continuity is a claim only the adapter can make, and its honest default is "unproven".** GAPS's three answers
@@ -116,14 +121,14 @@ Each server-call and entity concept, judged from the design text.
 
 | Concept | Verdict | How or why |
 | --- | --- | --- |
-| Three channels: success, failure, unknown (2.7.1) | **adapted** for sessions; **as is** for writes that stream | A session is a read: it ends `complete` or `failure`, as reads do (MD:818-819, C5). A streaming write keeps all three channels. The question "what did I miss?" gets its own three answers (4.1.4), which describe the data, not the server's state |
+| Three channels: success, failure, unknown (2.7.1) | **adapted** for sessions; **as is** for writes that stream | A session is a read: it ends `complete` or `failure`, as reads do (MD:877-878, C5). A streaming write keeps all three channels. The question "what did I miss?" gets its own three answers (4.1.4), which describe the data, not the server's state |
 | `Outcome` in the commit (2.7.1) | **adapted** | `Session` is the subscribe function's vocabulary: plain elements are values (as a plain `return` is success), and `Session.open / down / resumed / gap` are signals (4.1.2) |
-| The classifier outside the fiber (MD:785-804) | **as is** | A session's `Exit` and whole `Cause` are classified the same way, with a read's two channels: author error → failure; die → `Defect` and an issue; outside interruption → `Interrupted`; Flow's release → nothing |
-| Flow's reasons (MD:755-767) | **adapted** | `Defect` and `Interrupted` arrive on `failure` (rule 37); `DuplicateSession` joins them (rule 47). `NotSent`, `Cancelled`, `Restored`, `StillUnknown` belong to Attempts and do not apply. A new reason, `Unproven`, is Flow's gap reason (4.1.4) |
+| The classifier outside the fiber (MD:844-863) | **as is** | A session's `Exit` and whole `Cause` are classified the same way, with a read's two channels: author error → failure; die → `Defect` and an issue; outside interruption → `Interrupted`; Flow's release → nothing |
+| Flow's reasons (MD:814-826) | **adapted** | `Defect` and `Interrupted` arrive on `failure` (rule 37); `DuplicateSession` joins them (rule 47). `NotSent`, `Cancelled`, `Restored`, `StillUnknown` belong to Attempts and do not apply. A new reason, `Unproven`, is Flow's gap reason (4.1.4) |
 | `outcomes` mapping onto author events (rule 13, D1) | **as is** | `value`, `gap`, `complete`, `failure` map onto declared events; a failure or gap mapping is one event or an exhaustive tag record |
 | Mappers receive `(value, context)` (C6) | **adapted** | `(value, { params, key })`; the session has no Attempt |
 | `Flow.uncertain` (rule 13, D3) | **not carried** | No unknown channel on a read. A gap's reason (`Unproven` or the adapter's) is information in the payload |
-| The commit value as handle: `retry`, `cancel`, `idle`, `pending`, `retryCount` (D4) | **not carried** for sessions; **extended** for streaming writes | A session is declarative: it starts with its activity, stops when released or `when` is false, re-opens only by starting the activity again. Its lane is read like any activity lane. A streaming write's handle gains one read, `.progress` (4.1.8) |
+| The commit value as handle: `retry`, `cancel`, `idle`, `pending`, `retryCount` (D4) | **not carried** for sessions; **extended** for streaming writes | A session is declarative: it starts with its activity, stops when released or `when` is false, re-opens only by starting the activity again. Its lane is read like any activity lane. A streaming write's lane row gains one field, `progress` (4.1.8; Revision (multiplicity audit, 2026-10-31): lanes are the snapshot's `calls` rows, the design's D18) |
 | The lane per actor, transaction and key (rule 21) | **adapted** | Streams already have activity lanes (OPS O6). `Running` gains `connection` (4.1.5) |
 | Owner, current or late, decided at admission (rule 14) | **adapted** | The owner is the activity's activation. A delivery is mapped at admission (as an ending is); if its session was released, it is discarded, never routed late (rule 44): a session owes nothing after release, and the next session's continuity says what it missed |
 | Late turns (rule 15) | **not carried** | No late stream deliveries |
@@ -139,7 +144,7 @@ Each server-call and entity concept, judged from the design text.
 | Mailbox FIFO with endings, timers, `onContext` (P21) | **as is, extended** | Stream deliveries queue in the same FIFO (rule 46) |
 | Concurrency modes (2.7.8) | **not carried** for sessions; **as is** for streaming writes | One session per activity; a second one is `DuplicateSession` |
 | Attempt durability (Persistence O6, C17) | **not carried** for sessions; **as is** for streaming writes | Progress is never persisted (rule 48) |
-| The cache table (MD:806-817) | **not carried** | A stream never writes resource data (OPS:126, kept); `listen` writes records under section 4.2 |
+| The cache table (MD:865-876) | **not carried** | A stream never writes resource data (OPS:126, kept); `listen` writes records under section 4.2 |
 | `orphaned` (P19) | **not carried** | Nothing to finish across a version change |
 
 ### 3.2 From entity domains (M4 rules 26–38, EDP, ED)
@@ -215,7 +220,7 @@ amendment to O1 (6.4).
 #### 4.1.2 The adapter's vocabulary: `Session`
 
 `subscribe` returns `Stream<A | Session.Signal<D, G>, E, R>`. Plain elements are values. Signals are wrapper values
-built with `Session.*`, as `Outcome.failure` and `Outcome.unknown` build classified errors (MD:747-753); Flow peels
+built with `Session.*`, as `Outcome.failure` and `Outcome.unknown` build classified errors (MD:806-812); Flow peels
 them off, and `A`, `D` (down reasons), `G` (gap reasons) and `E` are inferred with nothing declared elsewhere.
 
 ```ts
@@ -300,7 +305,7 @@ s.activities.feed
 
 A session ends once, as a read: `complete` (the Stream completed), or `failure` with the author's error, Flow's
 `Defect` (a die, plus an issue) or `Interrupted` (an outside interruption), classified from the whole `Cause` outside
-the session's fiber (MD:785-804). A planned release (state exit, key change, `when` false, disposal) ends it with no
+the session's fiber (MD:844-863). A planned release (state exit, key change, `when` false, disposal) ends it with no
 ending (OPS:133, OPS:178-179, kept). There is no unknown channel.
 
 **Classification is the adapter's.** A token expiry shows as `error` then close 1006 with no status (GAPS, G6). The
@@ -344,7 +349,7 @@ export const generate = transaction({
     let text = ""
     let done: Done | undefined
     yield* res.frames.pipe(                                                    // a pulled body: the TCP window follows the reader
-      Stream.timeout("30 seconds"),                                            // a stall deadline the UI never sees (MD:1040)
+      Stream.timeout("30 seconds"),                                            // a stall deadline the UI never sees (MD:1116)
       Stream.runForEach((f) => {
         if (f._tag === "Done") { done = f; return Effect.void }
         text += f.token
@@ -361,13 +366,16 @@ export const generate = transaction({
   Attempt's current progress and never waits.
 - Progress is **latest**-delivered: the ending carries the whole result, so skipping progress loses nothing. Tokens
   are therefore reported as the text so far, not one by one.
-- The machine reads it as a lane read beside `pending` and `retryCount` (D6): `gen.progress(g | s, key)` returns the
-  current Attempt's last progress, or `undefined`. It is cleared when the ending's turn is admitted.
+- The machine reads it as a lane field beside `pending` and `retryCount` (D6). **Revision (multiplicity audit, 2026-10-31) (M6-D5).** It is the
+  lane row's `progress` in `s.calls` (`s.calls.Assistant.generate.find((l) => l.key.conversationId === id)?.progress`):
+  the addressable Attempt's last progress, or `undefined`, cleared when the ending's turn is admitted. It exists only
+  where the lane has one addressable Attempt, under `reject`, `latest` and `cancel` (the design's rule N2); under
+  `allow` and `serialize` declaring `progress` is a type error, so several concurrent uploads key each upload.
 - Every ending mapper's context gains `progress`, the last value reported (`undefined` if none): a stopped or cut-off
   answer keeps its partial text without the author's error having to carry it.
 - Upload progress is the same with `{ loaded, total }`: bytes handed to the network stack, an upper bound on what the
   server has (GAPS, "Upload progress"). A drop at 100 % is still `unknown`, and clean-up is keyed by the Attempt
-  (MD:1116-1133).
+  (MD:1194-1211).
 - "A stream ack completes the write" (REQ R32) needs nothing new: the commit awaits the ack from a service (an engine's
   `awaitTxId`, SE:73) before it returns, so the ending is the ack's.
 
@@ -469,7 +477,7 @@ Flow keeps no cursor. The machine keeps the position it has **handled**, in memo
   sends, call endings, timer firings and `onContext` events (P21), and mapped through `outcomes` at admission (2.5
   step 1), routed from the active leaf.
 - **Released means discarded.** At admission, a delivery whose session was released (its activation ended, its key
-  changed, its `when` turned false) is discarded with evidence, as a dead activation's timer is (MD:601, MCH:118).
+  changed, its `when` turned false) is discarded with evidence, as a dead activation's timer is (MD:659, MCH:118).
 - **`every`:** one delivery waiting per session; the next element is pulled after its turn commits.
 - **`latest`:** at most one delivery waiting per session. Its payload is the lane's data **at admission**, so a
   ticker at 1,000 updates a second costs at most one turn per admission. If that data equals the last mapped value,
@@ -559,16 +567,24 @@ Provisional, numbered after merge 4's 38.
 47. **Duplicate sessions end, never wait.** A second same-actor session for the same descriptor and key does not open:
     the second activity's lane is `Failure` with Flow's reason `DuplicateSession`, delivered on `failure`. `flow check`
     warns when two activities of one machine on one descriptor can be active at once, and then requires
-    `DuplicateSession` mapped.
+    `DuplicateSession` mapped. **Revision (multiplicity audit, 2026-10-31) (M6-D7).** The same holds inside one keyed activity (the design's
+    2.7.10): two keys whose params project one descriptor key give the later key's lane `DuplicateSession`; `flow
+    check` requires it mapped on a keyed activity whose descriptor key is not the activity key itself.
 48. **Progress of a streaming write.** A transaction may declare a `progress` Schema; its commit's context has
-    `progress(value)`, latest-wins and non-blocking. `x.progress(g | s, key)` reads the current Attempt's last progress;
-    it is cleared when the ending's turn is admitted; every ending mapper's context carries the last `progress`.
-    Progress is never persisted and never an ending; the ending carries the whole result.
+    `progress(value)`, latest-wins and non-blocking. **Revision (multiplicity audit, 2026-10-31) (M6-D5).** The lane row's `progress` in `s.calls`
+    reads the addressable Attempt's last progress, so `progress` may be declared only with `reject`, `latest` or
+    `cancel` (the design's rule N2); it is cleared when the ending's turn is admitted; every ending mapper's context
+    carries the last `progress` of its own Attempt. Progress is never persisted and never an ending; the ending carries
+    the whole result.
 49. **`listen` keeps the store coherent, not complete.** A `listen` entry requires an `every` stream. Each push is
     applied at arrival, in order, before the next is pulled. Pushes never join record queues and clear no `uncertain`
     mark. A gap (including `Unproven`) is a reconnect cause: covered answers whose request started before that open have
     their frontier lowered (subscribed ones refetch, the rest go stale). `resumed` lowers nothing. Log replay, offline
-    catch-up and completeness belong to a sync engine (SE).
+    catch-up and completeness belong to a sync engine (SE). **Revision (multiplicity audit, 2026-10-31) (M6-D6).** Each live session of a `listen`
+    entry is its own source: two actors in one Runtime that subscribe one entry on one key hold two sessions, every
+    push of either is applied (idempotently), and either session's gap lowers the frontiers it covers. `flow check`
+    warns (`DuplicateListen`) when two actors' activities can hold such sessions at once; one actor owns the session
+    and the others read the store.
 50. **Required mappings** (extends rules 20 and 37). An activity on a non-`listen` `every` stream must map `value` and
     `gap` (type errors). `failure` maps every author tag plus `Defect` and `Interrupted`; `DuplicateSession` where rule
     47 says it can occur. Each delivery is handled totally in every state under the activity's owner.
@@ -589,7 +605,8 @@ Provisional, numbered after merge 4's 38.
 | `connection`, `down` on a `Running` stream lane | lane fields | 4.1.5 |
 | `outcomes.gap` | stream mapping | rules 41, 50 |
 | `Unproven { why }`, `DuplicateSession` | Flow reasons | rules 41, 47 |
-| `progress` Schema, `progress(value)`, `x.progress(g \| s, key)`, mapper `progress` | streaming writes | rule 48 |
+| `progress` Schema, `progress(value)`, the lane row's `progress` in `s.calls`, mapper `progress` | streaming writes | rule 48 (Revision (multiplicity audit, 2026-10-31): was `x.progress(g \| s, key)`) |
+| `DuplicateListen` | `flow check` warning | rule 49 (Revision (multiplicity audit, 2026-10-31)) |
 | `session` and `delivery` evidence | Inspection | 6.4 |
 
 ### 6.2 Changed
@@ -644,14 +661,14 @@ The `.plan` files change only when this proposal is accepted (D14).
 | Where | Amendment |
 | --- | --- |
 | 2.4 | add rules 39–51 |
-| Rule 8 (MD:420-429) | "call endings, current and late" gains "and a live stream session's deliveries (rule 44)" |
-| Rule 20 (MD:527-533) | stream mappings per rule 50 |
-| Rule 25 (MD:572-573) | add "Flow never re-opens a stream session (rule 43)" |
-| 2.5 step 1 (MD:593-603) | the FIFO list gains stream deliveries; a released session's delivery is discarded here (rule 44); a `latest` delivery reads the lane here |
-| 2.7.2 (MD:829-847) | rows for a session's signals, its lane's `connection`, and progress |
-| 2.7.6 (MD:1035-1041) | rows from 4.3.5 |
-| P21 (MD:2014) | "User sends, call endings, stream deliveries, timer firings and `onContext` events queue together" |
-| Section 7 item 9 (MD:2123) | closed by 4.1.8 |
+| Rule 8 (MD:431-440) | "call endings, current and late" gains "and a live stream session's deliveries (rule 44)" |
+| Rule 20 (MD:544-550) | stream mappings per rule 50 |
+| Rule 25 (MD:609-610) | add "Flow never re-opens a stream session (rule 43)" |
+| 2.5 step 1 (MD:651-661) | the FIFO list gains stream deliveries; a released session's delivery is discarded here (rule 44); a `latest` delivery reads the lane here |
+| 2.7.2 (MD:888-907) | rows for a session's signals, its lane's `connection`, and progress |
+| 2.7.6 (MD:1111-1117) | rows from 4.3.5 |
+| P21 (MD:2130) | "User sends, call endings, stream deliveries, timer firings and `onContext` events queue together" |
+| Section 7 item 9 (MD:2242) | closed by 4.1.8 |
 
 **`EntityDomains.plan` and `entity-domain.md`**
 
@@ -686,7 +703,7 @@ The `.plan` files change only when this proposal is accepted (D14).
 | --- | --- |
 | O1 (INS:28-29) | "stream sessions in flight" gains, per session: `delivers`, `connection`, deliveries waiting, gaps so far |
 | O4 (INS:86-88) | stream evidence: `session` (open, resumed, gap, down, end, with reasons) and `delivery` (queued, admitted, discarded with why) |
-| CommandLine O5 | errors: rule 50's missing mappings (where not already type errors); `listen` over a `latest` stream. Warnings: rule 47's co-active activities on one descriptor; an `every` activity under a state that history can re-enter without a resume parameter (deliveries discarded on leave, no position kept) |
+| CommandLine O5 | errors: rule 50's missing mappings (where not already type errors); `listen` over a `latest` stream. Warnings: rule 47's co-active activities on one descriptor; (Revision (multiplicity audit, 2026-10-31)) rule 49's `DuplicateListen`; an `every` activity under a state that history can re-enter without a resume parameter (deliveries discarded on leave, no position kept) |
 
 **Outside the targets:** SE 4.2 (SE:182-185) loses its status-in-value workaround: the TanStack binding emits `down`
 on `error` and `open` on `ready`, and SE open question 2 (SE:420-421) closes. DD's polling adapters (section 1.1) would
@@ -697,9 +714,9 @@ use `Session.reconnect` and take the cursor as a parameter.
 ### 7.0 Story dependencies
 
 The Stories use merge 3's `Fixture.stateful({ id, truth, controls, layer })`, `.control(fixture.name(payload))`,
-`checkpoint.truth`, and its `advance` rule that runs non-turn work and admits no turn (M3:416-421, M3:444-451,
-M3:550-557). Merge 3 is being revised: if those change, the Stories change spelling, not design. One addition is
-needed there: an adapter's own sleep inside a session is a pending deadline, beside the kinds M3:541-545 lists.
+`checkpoint.truth`, and its `advance` rule that runs non-turn work and admits no turn (M3:422-427, M3:450-457,
+M3:556-563). Merge 3 is being revised: if those change, the Stories change spelling, not design. One addition is
+needed there: an adapter's own sleep inside a session is a pending deadline, beside the kinds M3:547-551 lists.
 
 ### 7.1 Chat feed, Wi-Fi drop and resume
 
@@ -869,7 +886,7 @@ CHECKING: { on: { /* a read of the conversation by clientMessageId: the stored f
 ```
 
 ```tsx
-const text = useView(chat, (s) => gen.progress(s, { conversationId })?.text)   // ← NEW read: the answer so far
+const text = useView(chat, (s) => s.calls.Assistant.generate.find((l) => l.key.conversationId === conversationId)?.progress?.text)   // ← NEW read: the answer so far (Revision (multiplicity audit, 2026-10-31): a lane row field)
 ```
 
 **The walk.** `Ask` starts the write; the commit reads the body as it arrives and reports the text so far; the view
@@ -879,7 +896,7 @@ answer, so CHECKING reads the conversation by the client message id the commit p
 `unknown(Cancelled)` with the partial text from `progress`; the server may keep generating, and no browser API says.
 
 **The Story.** `FakeAssistant({ tokens: ["Hel", "lo"], every: "100 millis", cut: true })`: `.send(E.Ask())
-.advance("100 millis").checkpoint("first")` reads `gen.progress(first.snapshot, key)?.text` → `"Hel"`;
+.advance("100 millis").checkpoint("first")` reads `first.snapshot.calls.Assistant.generate[0]?.progress?.text` → `"Hel"`;
 `.advance("100 millis").process()` ends without `[DONE]`: the `ending` entry is `channel: "unknown"`, reason `CutOff`,
 and the snapshot is in CHECKING with `partial: "Hello"`.
 
@@ -890,7 +907,7 @@ progress is cleared at admission. Every ending mapper's context gained `progress
 
 ```ts
 export const upload = transaction({
-  id: "uploads/put", key: (i) => ({ ref: i.ref }), concurrency: "allow",
+  id: "uploads/put", key: (i) => ({ ref: i.ref }), concurrency: "reject",   // Revision (multiplicity audit, 2026-10-31): was "allow"; one lane per upload is one call (rule 48)
   progress: Schema.Struct({ loaded: Schema.Number, total: Schema.NullOr(Schema.Number) }),   // ← NEW
   commit: (input, { attempt, signal, progress }) => Uploader.use((u) => u.put(input, { idempotencyKey: attempt.id, signal })).pipe(
     Stream.runForEach((e) => e._tag === "Progress" ? progress({ loaded: e.loaded, total: e.total }) : Effect.void),   // the XHR service turns onprogress into a Stream
@@ -898,7 +915,10 @@ export const upload = transaction({
 })
 ```
 
-The machine is 2.7.7's `put` (MD:1119-1128) unchanged, plus a view read `put.progress(s, { ref })`. **The walk.**
+The machine is 2.7.7's `put` (MD:1197-1206) unchanged, plus a view read
+`s.calls.Uploads.upload.find((l) => l.key.ref === ref)?.progress` (Revision (multiplicity audit, 2026-10-31)). Under `allow`, picking one file twice
+would put two Attempts on one lane and the bar would show whichever started last; keyed per upload and `reject`, each
+upload's row is its own, and a second pick of the same `ref` while one is sending is `Rejected`. **The walk.**
 Progress rises; the XHR fires `error` at 100 %: `unknown(NoResponse)`, because bytes handed to the stack prove nothing,
 and the clean-up is keyed by the Attempt, as today. **The Story.** `FakeUploader({ chunks: 4, every: "250 millis" })`
 with control `drop`: `advance("500 millis")` reads `{ loaded: 50, total: 100 }`; `.control(u.drop({})).process()`
@@ -946,7 +966,7 @@ pattern:
   the author's own parts and tagged errors. The SDK's types, status codes and close reasons stop at the service: the
   operation, Flow and the machine never see them. The service is where the author reads the SDK's errors.
 - **Cancellation is Effect interruption.** An abort signal is the commit's `signal` (aborted when Flow interrupts
-  the commit, MD:844), or an `unsubscribe`/`removeChannel` in an `Effect.acquireRelease` finalizer that runs when
+  the commit, MD:904), or an `unsubscribe`/`removeChannel` in an `Effect.acquireRelease` finalizer that runs when
   the session's scope closes.
 - **A Story replaces the service, not the SDK.** A fixture is a Layer for the same service (TST:54-56), so no Story
   fakes an SDK object.
@@ -1026,7 +1046,7 @@ export const ask = transaction({
       return progress({ text })
     })).pipe(
       Effect.catchTag("LlmNoResponse", (e) => Outcome.unknown(e)),
-      Effect.catchTag("LlmBodyBroken", (e) => Outcome.unknown(e)))          // LlmBusy, LlmRefused stay failures (MD:752-753)
+      Effect.catchTag("LlmBodyBroken", (e) => Outcome.unknown(e)))          // LlmBusy, LlmRefused stay failures (MD:811-812)
     if (finished === undefined) return yield* Outcome.unknown(new CutOff({}))   // a clean end with no finish_reason
     return { text, truncated: finished === "length" }                        // "length" is an answer, cut by max_tokens: information
   }),
@@ -1047,7 +1067,7 @@ export const FakeLlm = (o: { tokens: ReadonlyArray<string>; every: Duration.Inpu
       ...(o.finish === undefined ? [] : [{ _tag: "Finished" as const, reason: o.finish }]),   // omit finish: a cut-off
     ]).pipe(Stream.flatMap((p) => Stream.fromEffect(Effect.as(Effect.sleep(o.every), p)))),   // controlled-clock sleeps
   })
-// story: .send(E.Ask()).advance("100 millis") → gen.progress(…)?.text === "Hel"; finish omitted → ending unknown CutOff
+// story: .send(E.Ask()).advance("100 millis") → snapshot.calls.Assistant.generate[0]?.progress?.text === "Hel"; finish omitted → ending unknown CutOff
 ```
 
 #### 7.7.2 The Vercel AI SDK (a write, the same service)
@@ -1211,7 +1231,7 @@ export const roomMembers = stream({
   spells out that the combinator emits the re-open it already had to report. The owner reviews the combinator
   separately.
 - **No SDK type crosses the service.** Each service maps the SDK's classes, statuses, close events and metadata into
-  the author's tagged errors and `Session` signals (MD:716-717).
+  the author's tagged errors and `Session` signals (MD:775-776).
 - **Cancellation is always Effect interruption.** It reaches the SDK either as the commit's `signal` or as a
   finalizer: the iterator's `return()`, `removeChannel` or `unsubscribe`.
 - **One contract change:** values while down (7.7.4).
@@ -1282,7 +1302,21 @@ Settled by the owner on 2026-10-30: the proposal is accepted with its recommenda
   accepting non-Effect shapes in `subscribe` directly (the owner is content with Effect wrappers).
 - **M6-D3 `Session.reconnect` ships as designed (Q1),** marked for the owner's later review.
 - **M6-D4 Q2–Q4 take their recommendations:** progress is a read and the ending mapper's `progress`, not a mapped event;
-  `every` delivers one value per turn; the names are `delivers` and `connection`.
+  `every` delivers one value per turn; the names are `delivers` and `connection`. *Superseded in part by M6-D5
+  (2026-10-31): the read's spelling and where it exists.*
+- **M6-D5 (Revision (multiplicity audit, 2026-10-31); supersedes M6-D4's `x.progress(g | s, key)`).** Progress is still a read and the mapper's
+  `progress`, not a mapped event. The read is the lane row's `progress` in `s.calls` (the design's D18), and it exists
+  only under `reject`, `latest` and `cancel`, where a lane has one addressable Attempt (the design's rule N2, D20);
+  declaring `progress` on an `allow` or `serialize` transaction is a type error. Reason: the upload walk was `allow`,
+  so two uploads of one `ref` shared a lane and the bar showed the newer one's progress
+  ([audit-multiplicity.md](../audit-multiplicity.md) F1). Consequence: 7.5's upload is `reject` per upload.
+- **M6-D6 (Revision (multiplicity audit, 2026-10-31); new).** Two sessions of one `listen` entry on one key in one Runtime are two sources: both apply,
+  either's gap lowers frontiers, and `flow check` warns `DuplicateListen` (rule 49). Reason: Operations O4 gives each
+  actor its own session, and 4.1.7's "one consumer" did not say what two sessions feeding one store do (audit F10).
+  Open for the owner: sharing one `listen` session per Runtime, as resources share requests.
+- **M6-D7 (Revision (multiplicity audit, 2026-10-31); new).** A keyed activity (the design's 2.7.10) holds one session per key; two keys projecting one
+  descriptor key are `DuplicateSession` for the later key (rule 47). Reason: per-row live data (a watchlist) needs one
+  session per row, and rule 47 must say what a collision within one activity does (audit F8).
 
 ## New keywords
 
@@ -1295,5 +1329,6 @@ Settled by the owner on 2026-10-30: the proposal is accepted with its recommenda
 | gap | a delivery saying the session may have missed values: the adapter's reason or `Unproven` (rule 41) |
 | `Unproven { why }` | Flow's gap reason for an open the adapter did not prove continuous: `"Opened"` or `"Reconnected"` |
 | `DuplicateSession` | Flow's failure reason for a second same-actor session on one descriptor and key (rule 47) |
-| progress | what a streaming write reports before its ending; `x.progress(g \| s, key)` (rule 48) |
+| progress | what a streaming write reports before its ending; the lane row's `progress` in `s.calls` (rule 48; Revision (multiplicity audit, 2026-10-31)) |
+| `DuplicateListen` | a `flow check` warning: two actors can hold sessions of one `listen` entry on one key (rule 49; Revision (multiplicity audit, 2026-10-31)) |
 | resume parameter | a stream parameter outside its key that says where a new session starts (rule 45) |

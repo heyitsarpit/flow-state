@@ -9,13 +9,18 @@ are kept as the record behind it, and where they differ from this file, this fil
 removed, see [the folder README](README.md)). Where this file and a plan differ, the plan wins. Section 5 lists every
 plan amendment, with the sentence each one replaces. All syntax is a working draft.
 
+**Revision (multiplicity audit, 2026-10-31).** [audit-multiplicity.md](audit-multiplicity.md) checked every handle,
+read, action, event, record and evidence item for how many exist at once, which one each reference names, and what
+happens before creation, after deletion and across restores and tabs. Its three general rules are N1–N3 (2.4, after
+rule 25); its changes are marked with this heading's words, and its decisions are D18–D21.
+
 **Three decisions.** Decision 1 can be accepted alone; decision 2 builds on decision 1's turn (2.5); decision 3 is
 independent.
 
 | Decision | What it covers | Plans it touches |
 |---|---|---|
 | **1. Fragments and the turn** | sections 2.1–2.6 and 3, rules 1–12, P5–P8, P11, P21 | Machines O1–O8, Runtime O4, Persistence O2, Testing O1, Inspection O1, CommandLine O5, React O2/O4, Package O1 |
-| **2. Server calls** | section 2.7, rules 13–25, C1–C18, P15, P19, P20 | Operations O1–O3/O5/O7, Machines O3/O5/O6, Persistence O4–O6, Testing O2/O3, EntityDomains O1, CommandLine O5 |
+| **2. Server calls** | section 2.7, rules 13–25 and N1–N3, C1–C20, P15, P19, P20 | Operations O1–O3/O5/O7, Machines O3/O5/O6, Persistence O4–O6, Testing O2/O3, EntityDomains O1, CommandLine O5 |
 | **3. Exploration tooling** | T2–T3; T1 and Testing O5 marked for removal | CommandLine O5; Testing O5 (removed), Package (`model` export removed) |
 
 ## 1. The idea
@@ -73,10 +78,15 @@ other states is a trait. A dialog that blocks what is under it is a subroutine.
 - a subroutine: `s.memory.CANCELLING` and `s.schedules.HOLDING.<name>`;
 - the host's own schedules: `s.schedules.<name>`;
 - `.each` copies: `s.memory.challenges[i]` and `s.schedules.challenges[i]`, in key order, each with `key`;
-- a nested child: `s.memory.challenges[i].timer`, `s.schedules.challenges[i].timer.<name>`.
+- a nested child: `s.memory.challenges[i].timer`, `s.schedules.challenges[i].timer.<name>`;
+- **Revision (multiplicity audit, 2026-10-31).** a keyed schedule: `s.schedules.<name>[i]`, each `{ key, dueAt }`; a
+  keyed activity: `s.activities.<name>[i]`, each `{ key, …lane }` (2.7.10); the machine's call lanes:
+  `s.calls.<operation path>` (rule 21).
 
 These names, state names and memory keys share one namespace, and a collision rejects. A slice is
-`undefined` while its fragment is inactive, except a resumable slice, which stays present while frozen.
+`undefined` while its fragment is inactive, except a resumable slice, which stays present while frozen. Every list
+above is a **keyed list** (rule N1): in key order, each entry with `key`, found by key with `find`; an entry that does
+not exist is absent, never a default.
 
 ### 2.2 The contract
 
@@ -348,7 +358,8 @@ that node.
 ### 2.4 The rules
 
 Rules 1–12 are fragments and the turn; rules 13–25 are server calls (2.7) and the memory and schedule reads they
-rely on.
+rely on; N1–N3, after rule 25, say how many of each thing exist and which one a reference names (Revision
+(multiplicity audit, 2026-10-31)).
 
 1. **Lifetime comes from placement.**
    - An **incarnation** is one life of a fragment instance. A trait gets a new one each time its
@@ -435,8 +446,13 @@ rely on.
      The host adds and removes copies by writing the field in its own transitions, behind its own
      guards. There are no `Add` or `Remove` events. `max` is required.
    - **Fillings and views.** One filling serves every copy, and each part of it receives `key` and
-     `item` (the entry). A commit started in a copy's filling remembers its key and incarnation, and
-     its ending mappers receive `key`. `s.memory.<name>` and `s.schedules.<name>` are the copies in
+     `item` (the entry). **Revision (multiplicity audit, 2026-10-31).** A commit started in a copy's filling is an
+     ordinary call: its **Attempt** carries the copy's key and incarnation, and every ending of that Attempt (a retry
+     from the host or another copy included) gives its mappers that `key`, never the retrier's. Call endings are
+     governed by rules 8, 14, 17 and 20 and are never dropped; only a raise the ending's handler makes into a copy
+     that is gone follows the drop below (rule N3, decision D21). Two copies whose lane key does not name the copy
+     share one lane, which is `reject`'s server promise (D9); `flow check` warns from Story traces when Attempts
+     started under two copies of one placement are on one lane at once (`SharedCopyLane`). `s.memory.<name>` and `s.schedules.<name>` are the copies in
      key order, each `{ key, item, … }` (`key` only when the field is `Flow.private`). Views send
      `E.<name>.key(k).Event(…)`; host raises put `key` in the mapper's result. `key` and `item` are
      reserved memory names in a trait placed with `.each`.
@@ -453,8 +469,8 @@ rely on.
      is dead and the same turn created a new one for the key, it reaches the new one (the sign-in
      relies on this). Otherwise it is dropped with evidence and the rest of the turn commits.
      Removing and re-adding a key in one patch changes nothing. View events address keys, not
-     incarnations. Copies arming for the same instant fire in list order. (How this meets the call
-     rules 14, 17 and 20 is open, section 7 item 15.)
+     incarnations. Copies arming for the same instant fire in list order. These drops cover raises and timer
+     firings; call endings are never dropped (above; section 7 item 15, closed).
    - **Frozen, persisted, hydrated.** With `.resumable()`, frozen copies are still reconciled every
      turn. Copies persist by key with their counters; on restore the key list wins and is repaired.
      Hydration restores copies and never re-runs `input`.
@@ -508,9 +524,10 @@ is one invocation of its commit function. The rules are numbered as merge 2's ru
     transitive.
 16. **Declines are endings; Flow adds no guard.** A decline refuses only the write, never the transition that asked for
     it: the transition's target, memory and other actions run as written. Under `concurrency: "reject"`, a start on a
-    lane that is pending invokes nothing and ends `NotSent { why: "Rejected" }`. A retry on a lane that is pending also
-    ends `NotSent { why: "Rejected" }`; a retry on a lane with no current Attempt ends
-    `NotSent { why: "NothingToResend" }`. A declined start has no Attempt and a `NothingToResend` has no write, so
+    lane that is pending invokes nothing and ends `NotSent { why: "Rejected" }`. **Revision (multiplicity audit,
+    2026-10-31).** In every mode, a retry whose addressable Attempt (rule 21) is still outstanding also ends
+    `NotSent { why: "Rejected" }`, so one Attempt never has two sends at once; a retry on a lane with no addressable
+    Attempt ends `NotSent { why: "NothingToResend" }`. A declined start has no Attempt and a `NothingToResend` has no write, so
     their `NotSent` mapper sees `attempt` (and, for `NothingToResend`, `input`) undefined (decision D17). The ending is
     mapped through the commit value's `outcomes` and owned by the transition that asked (rule 14). To refuse the
     transition itself, the author writes `pay.idle(key)` in its guard, so `check()` and a view's button agree.
@@ -531,19 +548,34 @@ is one invocation of its commit function. The rules are numbered as merge 2's ru
     `{ target: "self" }` is the explicit ignore. A missing late handler is a `flow check` error naming the event and
     the state whose leaving makes it late. Flow cannot know which late failures matter (sign-in's late `WrongCode` is a
     strike), so a person decides for each one.
-21. **The lane: `pending` and `retryCount`.** Per actor, transaction and key (Operations O3), across every commit value
-    of that transaction, Flow keeps a lane holding the current Attempt. The machine reads two things from it:
-    `pay.pending(g | s, key)`, true from the starting turn until the ending's turn of every outstanding Attempt of the
-    lane is admitted (a waiting `latest` start included); and `pay.retryCount(g | s, key)`, the number of times the
-    current Attempt has been sent again, 0 on its first send and when there is none. `pay.idle(key)` is the guard form
-    of `!pending` (rule 16). The current Attempt is replaced by a start, kept after a failure or unknown, and cleared
-    after a success; it is not readable from guards or views, only through the mapper's `attempt`. A lane that settles
-    with nothing pending and no current Attempt (after a success) is evicted; reading an evicted lane gives `pending`
-    false and `retryCount` 0, the same as a fresh lane, so eviction cannot be observed. A lane holding a failed or
-    unknown Attempt is kept, because `retry` needs it. The lane remembers which commit value started the current
-    Attempt; `retry` on any commit value of the transaction uses that starter's `outcomes`. The ending's own turn sees
-    the lane with that ending applied, so it may retry. Lanes persist with the actor; Persistence O6 acknowledges the
-    Attempt before invocation.
+21. **The lane, read as `s.calls`.** **Revision (multiplicity audit, 2026-10-31; decisions D18–D20).** Per actor,
+    transaction and key (Operations O3), across every commit value of that transaction, Flow keeps a lane: the
+    Attempts of that key that are outstanding, and, where one is addressable, that one.
+    - **The addressable Attempt** (rule N2). Under `reject` it is the lane's only Attempt; under `latest` and `cancel`
+      it is the newest start (an older one is superseded). It is replaced by a start, kept after a failure or
+      unknown, and cleared after a success. Under `allow` and `serialize` a lane has none: several Attempts can be
+      outstanding and none is "the" one.
+    - **What the machine reads** is plain snapshot data, beside `s.activities`: `s.calls.<operation path>` (the
+      definition's `operations` record, `s.calls.Stripe.confirm`). A keyed transaction's entry is a keyed list (rule
+      N1) of the lanes that exist, in the order they were created; an unkeyed one's is one row or `undefined`. Under
+      `reject`, `latest` and `cancel` a row is `{ key, pending, retryCount }` (plus `progress` for a transaction that
+      declares it, merge 6): `pending` is true from the starting turn until the ending's turn of every outstanding
+      Attempt is admitted (a waiting `latest` start included); `retryCount` counts the addressable Attempt's re-sends,
+      0 on its first send. Under `allow` and `serialize` a row is `{ key, outstanding }`, the number of outstanding
+      Attempts. Guards receive `calls` with the rest of the turn's view; `check()` on an old snapshot reads that
+      snapshot's rows. A row carries no Attempt, input or last ending: those reach the machine through the mapper.
+    - **The commit value's members** are the actions `retry` and `cancel` and the guard `idle(key)`, the guard form of
+      "no outstanding Attempt" with the code `InFlight` (rule 16). `retry` exists only where a lane has an
+      addressable Attempt (a type error under `allow` and `serialize`); `cancel` cancels every outstanding Attempt
+      of the lane (rule 24).
+    - **Existence** (rule N3). A lane with nothing outstanding and nothing addressable is evicted, and has no row; a
+      lane never started has none either, so the two cannot be told apart, and neither can be mistaken for a lane
+      that exists. A lane whose addressable Attempt failed or ended unknown is kept, because `retry` needs it; under
+      `allow` and `serialize` nothing is retained, so the lane is evicted when nothing is outstanding.
+    - **Each Attempt remembers what started it**: its commit value (whose `outcomes` a `retry` uses, called on any
+      commit value of the transaction), its lane key, and, from a `.each` copy, the copy's key and incarnation (rule
+      9). The ending's own turn sees the lane with that ending applied, so it may retry. Lanes persist with the actor;
+      Persistence O6 acknowledges each Attempt before invocation.
 22. **Memory reads: before for decisions, after for effects** (decision D15). A memory read in a turn sees one of two
     values. A read whose result can change this turn's memory (a guard, an `updateMemory`, a payload mapper that
     raises, notifies or fills an exit, and the key select of an `idle` guard) sees **before**, the last published snapshot. A read whose result only starts
@@ -560,17 +592,43 @@ is one invocation of its commit function. The rules are numbered as merge 2's ru
       a select reads the new one. `flow check` warns when one transition reads, in both views, a key it writes.
     - **The pending reset edge.** A part writes a key a `resetOn` watches and the same turn starts a commit whose
       select reads that slice: the select sees the old incarnation, and the reset follows one turn later.
-    - **Lane reads** (`pending`, `retryCount`, `idle`) are not memory. They see the pre-turn lanes with the turn's own
+    - **Lane reads** (`calls` and the `idle` guard) are not memory. They see the pre-turn lanes with the turn's own
       ending already admitted (rule 21).
 23. **Schedules.** A function schedule reads the after memory of the arming turn (rule 22). `armOn` counts an event
     accepted anywhere on the active path. A keyed schedule (`keys`) keeps one timer per key of the after list: armed
-    when the key first appears, cancelled when it leaves, firing once with `key` in its metadata.
+    when the key first appears, cancelled when it leaves, firing once with `key` in its metadata. **Revision
+    (multiplicity audit, 2026-10-31).** A key the `keys` result repeats keeps its first position, with `listRepair`
+    evidence, as `.each` repairs (rule 9); per-key timers persist by key with their `dueAt`, and on restore the keys of
+    the restored memory win. An activity may declare `keys` the same way (2.7.10): one subscription per key.
 24. **Cancel.** Before invocation: the ending is `NotSent { why: "Cancelled" }`. After invocation, before settlement:
     the commit's fiber is interrupted; the ending (`unknown`, `Cancelled`) is queued when the fiber has exited, and the
     lane stays pending until its turn. After settlement, or with nothing outstanding: no effect, with evidence. **A
-    settled ending is never rewritten.**
+    settled ending is never rewritten.** **Revision (multiplicity audit, 2026-10-31).** `x.cancel(key)` applies this
+    to **every** outstanding Attempt of the lane (a running one and the queued ones, as Operations O7 says), and each
+    ends once.
 25. **No Flow timeout and no Flow retry.** Waiting and trying again are states and schedules of the machine (2.7.6).
     **Classification runs outside the fiber it interrupts.**
+
+**Multiplicity** (rules N1–N3). **Revision (multiplicity audit, 2026-10-31).** Every rule above that names "the" lane,
+"the" Attempt, "the" copy or "the" session obeys these three; [audit-multiplicity.md](audit-multiplicity.md) has the
+matrix behind them and a failing sequence for each case they close.
+
+- **N1. One reference, one thing; many is a keyed list.** A declaration that can have several instances at once
+  publishes them as a list in key order, each entry with `key`: `.each` copies, keyed schedules, keyed activities,
+  call lanes. A read names its entry by key. A reference that can match several says in its name or type how it
+  aggregates: `idle` and a row's `pending` mean any outstanding Attempt, `cancel` means every one, `outstanding`
+  counts them.
+- **N2. A per-call reference names one Attempt.** `retry`, and a lane row's `retryCount` and `progress`, address the
+  lane's addressable Attempt, so they exist only where the transaction's `concurrency` guarantees at most one:
+  `reject`, `latest` and `cancel`. Under `allow` and `serialize` they are type errors; a call that needs its own
+  status, retry or progress gets its own key (a draft id, an upload ref, a client message id) and `reject`, so one
+  lane is one call. Every ending reads its origin (starting commit value, lane key, copy key and incarnation) from its
+  Attempt, never from the transition that retried it, and every mapper receives `laneKey`.
+- **N3. Existence is explicit.** A read of something that may not exist returns `undefined` (a lane never started or
+  evicted, a copy, a record), never a default that looks like an existing thing. Each delivery to something gone has
+  one rule: call endings are never dropped and route by owner (rules 8, 14, 17, 20); raises and timers to a dead copy
+  are dropped with evidence (rule 9); a released stream session's deliveries are discarded with evidence (merge 6).
+  Whatever the store keeps for an Attempt holds its record (merge 4).
 
 ### 2.5 The turn
 
@@ -586,9 +644,9 @@ given event and publishes nothing.
 | **Initial memory** | a new incarnation's starting memory (input fields, then constant and computed `Flow.initial`s) | guards, mappers and updates of parts addressed to an incarnation created in this turn |
 | **After** | the memory the turn publishes: initial memory of new incarnations, then every patch in expansion order, after list repair; computed in step 5 | commit input selects; retry and cancel key selects; schedule functions; `keys`; `restartOn`; activity `params` and `when`; `.each` membership; the `resetOn` re-check; optimistic and write callbacks |
 
-**Lane reads** (`pay.pending`, `pay.retryCount`, `pay.idle`) are not memory: they see the pre-turn lanes with the
-turn's own ending already admitted (rule 21). A guard `pay.idle(key)` in an ending's own turn therefore sees the lane
-free.
+**Lane reads** (`calls` and the `pay.idle` guard) are not memory: they see the pre-turn lanes with the turn's own
+ending already admitted (rule 21). A guard `pay.idle(key)` in an ending's own turn therefore sees the lane free, unless
+another Attempt of the lane is still outstanding (rule N1: `idle` means none outstanding).
 
 1. **Admit** (runtime only).
    - A pending reset from the last commit runs first, as its own follow-up turn (rule 1).
@@ -698,7 +756,8 @@ Machines O5).
 (`Flow.Guard`, `Flow.Callback`, `Flow.Exit`), memory modifiers (`Flow.input`, `Flow.initial`,
 `Flow.private`), `Flow.uncertain`, `Flow.annotate`, `Flow.state` and the schedule marker `Flow.entry`. How one trait instance behaves
 is an attribute of that trait, so it is a method on it: `.resumable()`, `.each(…)`. In the same way, what a commit
-value does is a member of it: `.retry`, `.cancel`, `.idle`, `.pending`, `.retryCount`. `trait(…)` and
+value does is a member of it: `.retry`, `.cancel`, `.idle`. What a lane is, is a fact about the actor, so it is
+snapshot data, `s.calls` (rule 21; Revision (multiplicity audit, 2026-10-31)). `trait(…)` and
 `subroutine(…)` stay plain constructors beside `definition` and `machine`; their inference comes
 from branding their results and `const` type parameters, not from a namespace. `Outcome` is the commit function's
 vocabulary, outside the machine (2.7.1).
@@ -756,7 +815,7 @@ catch: (e) => Outcome.unknown(err)    // the same calls work wherever Effect wan
 
 | Reason | Channel | When |
 | --- | --- | --- |
-| `NotSent { why }` | failure | the commit was never called. `why`: `Cancelled` (before invocation, rule 24), `Restored` (the page reloaded before the Attempt was saved), `Superseded` (a newer `latest` start replaced it), `Rejected` (a busy `reject` lane, rule 16), `NothingToResend` (a retry with no current Attempt) |
+| `NotSent { why }` | failure | the commit was never called. `why`: `Cancelled` (before invocation, rule 24), `Restored` (the page reloaded before the Attempt was saved), `Superseded` (a newer `latest` start replaced it), `Rejected` (a busy `reject` lane, rule 16), `NothingToResend` (a retry with no addressable Attempt, rule 21) |
 | `Cancelled` | unknown | `pay.cancel(key)` after the call started (rule 24) |
 | `Restored` | unknown | the page reloaded mid-call (persisted actors only) |
 | `Interrupted` | unknown | the commit's fiber was interrupted by something other than Flow |
@@ -835,11 +894,12 @@ throws ([merged/outcomes.md](merged/outcomes.md) section 6 lists each source, wi
 | An unknown reason | the author's `Outcome.unknown(u)`, or Flow's reasons | the `unknown:` mapper's `value`, typed `U \| Flow reasons \| StillUnknown<X>` |
 | `NotSent { why }` | Flow: the adapter was never called | the `failure.NotSent:` mapper |
 | The author's event and payload | the author's mapper: `E.Busy.from((r) => ({ retryAfterMs: r.retryAfterMs }))` | the event, declared in the definition, routed by rule 14 |
-| Attempt `id`, `retryCount` | Flow mints the id, random, when a write starts, and counts each re-send of that write | the mapper's `attempt` (absent on a declined start and on `NothingToResend`); the count also as `pay.retryCount(g, key)` |
+| Attempt `id`, `retryCount` | Flow mints the id, random, when a write starts, and counts each re-send of that write | the mapper's `attempt` (absent on a declined start and on `NothingToResend`); the addressable Attempt's count also as the lane row's `retryCount` in `s.calls` (rule 21; Revision (multiplicity audit, 2026-10-31)) |
 | The idempotency key on the wire | the commit author puts `attempt.id` wherever the API expects it | the server; Flow sends nothing itself (rule 19) |
 | `attempt.mayHaveApplied` | Flow: an earlier send of this Attempt ended unknown | the commit's context, to read a response with the write's history |
 | `input` | the commit's select, over the after memory and event (rule 22) | the mapper's `input`; absent on a `NothingToResend` ending |
-| `key` | the transaction's optional `key(input)` (Operations O1; omitted means one lane, `{}`) | the lane's key; `attempt.key` |
+| `key` | the transaction's optional `key(input)` (Operations O1; omitted means one lane, `{}`) | the lane's key; `attempt.key`; **Revision (multiplicity audit, 2026-10-31):** every mapper's `laneKey`, present even when `attempt` is not (rule N2) |
+| The copy's key | the `.each` copy whose filling started the Attempt, carried by the Attempt (rule 9) | the mapper's `key`, on every ending of that Attempt, retries included; absent for an Attempt not started in a copy |
 | `superseded` | Flow: a newer Attempt was started on the same key after this one | the mapper's `superseded` |
 | Cancel | the machine's `pay.cancel(key)` action | `Fiber.interrupt` on the commit, which aborts the `AbortSignal` it handed the adapter; the browser drops the request **only if the adapter passed it to `fetch`/XHR** |
 | "the request reached the server", "the server finished after a cancel" | nothing: no browser API reports either | so a send interrupted after invocation is `unknown`, and clean-up is keyed by the Attempt (2.7.7) |
@@ -898,9 +958,12 @@ const pay = O.Stripe.confirm.commit(({ memory }) => ({ intentId: memory.intentId
 })
 ```
 
-- Mappers receive `(value, { input, attempt, superseded })`. A `failure.NotSent` mapper receives `input?` and
-  `attempt?` (decision D17): a declined start has an input but no Attempt, and `NothingToResend` has neither. Every
-  other mapper's context is complete.
+- Mappers receive `(value, { input, attempt, superseded, laneKey, key? })`. A `failure.NotSent` mapper receives
+  `input?` and `attempt?` (decision D17): a declined start has an input but no Attempt, and `NothingToResend` has
+  neither. Every other mapper's context is complete. **Revision (multiplicity audit, 2026-10-31).** `laneKey` is the
+  lane's key record, always present, because the start's or retry's key select always ran, so even a
+  `NothingToResend` names its row (section 7 item 6, closed); `key` is the `.each` copy's key, read from the Attempt
+  (rule 9), present only for an Attempt started in a copy (decision D21).
 - `failure` is exhaustive over the commit's tags: a missing tag, or one the commit cannot produce, is a type error.
   `NotSent` is optional in the type and required by `flow check` only where it can occur.
 - `unknown:` may target only a `Flow.uncertain` event: a type error otherwise.
@@ -923,23 +986,29 @@ when a turn that lists it in `actions` commits (Machines O3). Its members return
 | Member | Kind | Meaning |
 | --- | --- | --- |
 | `pay` (in `actions`) | action | start a new write: run the select on the turn's after memory and event, mint an Attempt, invoke the commit |
-| `pay.retry(key?)` | action | send the lane's current Attempt again, with the same id, through the `outcomes` of the commit value that started it; owned by the transition that retries (rule 14) |
-| `pay.cancel(key?)` | action | interrupt the lane's write (rule 24) |
-| `pay.idle(key?)` | guard | `(g) => !pay.pending(g, key) \|\| deny("InFlight", { operation, key })`: the guard form of `pending`, with one standard code |
-| `pay.pending(g \| s, key?)` | read | something on the lane is unfinished (rule 21) |
-| `pay.retryCount(g \| s, key?)` | read | how many times the lane's current write has been sent again: 0 on its first send, and when there is none (rule 21) |
+| `pay.retry(key?)` | action | send the lane's **addressable** Attempt again, with the same id, through the `outcomes` of the commit value that started it; owned by the transition that retries (rule 14). Only under `reject`, `latest` and `cancel` (rule N2) |
+| `pay.cancel(key?)` | action | cancel **every** outstanding Attempt of the lane, each ending once (rule 24) |
+| `pay.idle(key?)` | guard | no Attempt of the lane is outstanding, or `deny("InFlight", { operation, key })`: one standard code |
+| `s.calls.<operation path>` | snapshot data | the lanes that exist: rows `{ key, pending, retryCount }` under `reject`, `latest` and `cancel`, `{ key, outstanding }` under `allow` and `serialize` (rule 21); guards read `calls` too |
+
+**Revision (multiplicity audit, 2026-10-31).** The commit value no longer has `pending` and `retryCount` reads: lane
+state is snapshot data, so a view, a guard, `check()` and a Story read the same published rows, and a read of an actor
+that does not declare the operation is a type error (decision D18). A lane that does not exist has no row (D19).
 
 **Keys are optional.** The key is the transaction's key record. Actions and the guard (`retry`, `cancel`, `idle`)
-take it as a selector over the turn, like `key` above; the reads take the key record itself (`pay.pending(g, key(g))`,
-`like.pending(s, { id })`). A transaction without `key` has one lane per actor (Operations O1: omitted means `{}`),
-and its members take no key: `pay.idle()`, `pay.retry()`, `pay.pending(g)`. A key is needed only when one actor runs
-several independent lanes of one transaction (list rows, documents, challenges).
+take it as a selector over the turn, like `key` above; a read finds the row by its key
+(`s.calls.Issues.setLike.find((l) => l.key.id === id)`). A transaction without `key` has one lane per actor
+(Operations O1: omitted means `{}`), its members take no key (`pay.idle()`, `pay.retry()`), and its `s.calls` entry is
+one row or `undefined`. A key is needed when one actor runs several independent lanes of one transaction (list rows,
+documents, challenges), and, under rule N2, whenever one call needs its own status, retry or progress: then the key
+names the call (a draft id, an upload ref, a client message id) and the transaction is `reject`.
 
 **Lanes belong to the transaction and key, not to `pay`.** Two commit values of the same transaction in one machine
-share a lane: the same `pending`, the same current Attempt. `reject` promises the server one write in flight per key,
-and separate lanes per commit value would let `pay` and `payWithSaved` both charge one intent. The lane remembers
-which commit value started its current Attempt, and `retry`, called on any commit value of the transaction, sends it
-through that starter's `outcomes`:
+share a lane: the same row, the same addressable Attempt. `reject` promises the server one write in flight per key,
+and separate lanes per commit value would let `pay` and `payWithSaved` both charge one intent. Each Attempt remembers
+which commit value started it (Revision (multiplicity audit, 2026-10-31): per Attempt, not per lane, decision D20),
+and `retry`, called on any commit value of the transaction, sends the addressable Attempt through its starter's
+`outcomes`:
 
 ```ts
 const pay          = O.Payments.charge.commit(fromForm,  { outcomes: formOutcomes })
@@ -1010,15 +1079,22 @@ has one, even if it is `{ target: "self" }` (rule 20). A save that belongs to th
 `target: "self"` and its endings are handled once, at the root, whether they arrive current or late
 ([merged/server-calls/rewrites/m1.save.ts](merged/server-calls/rewrites/m1.save.ts)).
 
-#### 2.7.5 Reading a lane: `pending` and `retryCount`
+#### 2.7.5 Reading a lane: `s.calls`
+
+**Revision (multiplicity audit, 2026-10-31; decision D18).**
 
 ```ts
-guard: (g) => pay.retryCount(g, key(g)) < MAX_CHECKS || deny("ChecksLeft")      // a budget for re-sending one write
-useView(actor, (s) => save.pending(s, { docId }))                                // "Saving…" and the leave warning
+const lane = (calls, intentId) => calls.Stripe.confirm.find((l) => l.key.intentId === intentId)   // undefined: no lane
+guard: ({ calls, memory }) => (lane(calls, memory.intentId)?.retryCount ?? 0) < MAX_CHECKS || deny("ChecksLeft")   // a budget for re-sending one write
+useView(actor, (s) => s.calls.Docs.save.find((l) => l.key.docId === docId)?.pending ?? false)     // "Saving…" and the leave warning
+useView(chat, (s) => s.calls.Chat.send.length)                                                     // allow, keyed per message: how many are sending
 ```
 
-The machine reads two things from a lane, and nothing else: whether it is busy, and how many times its current
-write has been sent again. Both are typed from the transaction's key. Everything else has a better home:
+The machine reads two things from a lane, and nothing else: whether it is busy, and how many times its addressable
+write has been sent again. Both are rows of plain snapshot data, typed from the transaction's key and concurrency
+(rule 21): under `allow` and `serialize` a row has only `outstanding`, because no one Attempt is the lane's (rule N2).
+A lane that does not exist has no row, so `?? false` and `?? 0` are written where the author means "no lane is idle"
+(rule N3). Everything else has a better home:
 
 - **The write itself** (`attempt`: id, input, `retryCount`) reaches the machine only through the mapper, for the rare
   case that needs it (a clean-up keyed by the write, 2.7.7).
@@ -1038,7 +1114,7 @@ Flow has no timeout and no retry (rule 25). Each is a state and a schedule.
 | Stop waiting, keep listening (soft) | a schedule whose handler leaves the owner state; the real ending is then late (rule 14) |
 | Abort a hung request (hard) | a schedule whose handler runs `pay.cancel(key)`; the ending is `unknown(Cancelled)`, or the real one if it already settled (rule 24) |
 | A transport deadline the UI never sees | inside the commit: `Effect.timeoutOrElse({ duration, orElse: () => Outcome.unknown(new NoResponse()) })` |
-| A deadline racing a write (seat hold) | a schedule on the enclosing state; `pay.pending(g, key)` stays true until the ending's turn |
+| A deadline racing a write (seat hold) | a schedule on the enclosing state; the lane row's `pending` stays true until the ending's turn |
 
 **A visible retry: the CALL/WAIT split.** After a definite failure such as `Busy`, nothing happened, so trying again
 is a new write with a new id (rule 19), and a server that stores failures under a key cannot replay `Busy`. Its
@@ -1063,7 +1139,7 @@ UNSURE: {
   schedules: { check: { schedule: "3 seconds", send: E.CheckTick } },
   on: {
     CheckTick: [
-      { target: S.PAYING, guard: (g) => pay.retryCount(g, key(g)) < 5 || deny("ChecksLeft"), actions: [pay.retry(key)] },   // never a new Attempt
+      { target: S.PAYING, guard: ({ calls, memory }) => (lane(calls, memory.intentId)?.retryCount ?? 0) < 5 || deny("ChecksLeft"), actions: [pay.retry(key)] },   // never a new Attempt (lane: 2.7.5)
       { target: S.STUCK },                                    // still unknown after 5 re-sends: tell the user, never "not charged"
     ],
   },
@@ -1072,7 +1148,9 @@ UNSURE: {
 
 Re-sending is safe when the server dedups by key; otherwise reconcile with a read (2.7.9). Once a send has ended
 unknown, a later definite failure of the same Attempt reaches `unknown:` as `StillUnknown { failure }` (rule 18), so
-a give-up branch can never say "not charged" after a send that may have charged.
+a give-up branch can never say "not charged" after a send that may have charged. `Stripe.confirm` is `reject`, so the
+lane's one Attempt is the one this state reconciles; under `allow` this `retry` would be a type error, because a
+second charge on the same intent could be the lane's newest (rule N2; Revision (multiplicity audit, 2026-10-31)).
 
 #### 2.7.7 Leaving, compensation and clean-up
 
@@ -1140,6 +1218,21 @@ run beside it on the client (rule 24).
 | `latest` | one send in flight, at most one waiting; a newer start replaces the waiting one, which ends `NotSent { why: "Superseded" }`; the waiting one goes when the in-flight one settles; every mapper receives `superseded` |
 | `cancel`, `allow`, `serialize` | as Operations O3; a cancelled or replaced queued start ends `NotSent` |
 
+**Revision (multiplicity audit, 2026-10-31).** The mode also decides how many Attempts a lane can hold at once, and so
+which members exist (rule N2):
+
+| Mode | Outstanding at once | Addressable Attempt | `retry`, `retryCount`, `progress` | Row in `s.calls` |
+| --- | --- | --- | --- | --- |
+| `reject` | one | the only one | yes | `{ key, pending, retryCount }` |
+| `latest` | one in flight, one waiting | the newest start; older ones are `superseded` | yes | `{ key, pending, retryCount }` |
+| `cancel` | one (a start cancels the previous) | the newest start | yes | `{ key, pending, retryCount }` |
+| `allow` | any number | none | type errors | `{ key, outstanding }` |
+| `serialize` | one running, up to 64 queued | none | type errors | `{ key, outstanding }` |
+
+`idle` and `cancel` exist in every mode, aggregating as rule N1 says. Several concurrent calls that each need a status,
+a retry or a progress bar (messages, uploads, per-item batch results) are keyed per call and declared `reject`; on its
+own key, `reject` never refuses a different call.
+
 ```ts
 // Likes: rapid toggles; the select reads the memory this turn flipped (rule 22). No hand-written coalescing.
 const like = O.Issues.setLike.commit(({ memory, event }) => ({ id: event.id, liked: desired(memory, event.id) }), {
@@ -1161,7 +1254,10 @@ READING: { on: { PollTick: { target: "self", actions: [read.fetch(key)] }, Inten
 
 A resource's call value maps `success` and its failure tags, never `unknown` or `NotSent`, and has no Attempt and
 no `retry`; `read.fetch(key)` has Operations O2's `refetch` semantics (joins a running request). Its endings are
-routed like a write's (rule 14).
+routed like a write's (rule 14). **Revision (multiplicity audit, 2026-10-31).** Each `fetch` action is its own call
+with one ending, owned by its own transition, even when it joins a request another fetch, an activity or another
+actor started: two fetches from two states that join one request give two endings, one to each owner, so neither
+state waits with nothing coming (rule N1).
 
 #### 2.7.10 Time per key: keyed schedules
 
@@ -1179,10 +1275,30 @@ A key's timer is armed when the key first appears in the after list, cancelled w
 (rule 23). It replaces "one timer aimed at the earliest deadline" and per-row ticks. Keyed schedules are a Machines
 feature (C14).
 
+**Keyed activities.** **Revision (multiplicity audit, 2026-10-31).** An activity takes `keys` as an option, read
+like a keyed schedule's, so a list can hold one live subscription per row (rule N1; section 7 item 0):
+
+```ts
+activities: {
+  quotes: O.Market.quote.subscribe(({ key }) => ({ symbol: key }), {           // params receive `key`
+    keys: ({ memory }) => memory.watchlist,                                     // one session per symbol in the after list
+    outcomes: { failure: E.QuoteLost.from((_e, { key }) => ({ symbol: key })) },   // every mapper receives `key`
+  }),
+},
+useView(watch, (s) => s.activities.quotes.find((q) => q.key === symbol)?.data)  // a keyed list of lanes, each { key, …lane }
+```
+
+A key's subscription starts when the key first appears in the after list and is released when it leaves; a repeated
+key keeps its first position, with `listRepair` evidence (rule 23). Each key's lane and deliveries behave as one
+ordinary activity's (Machines O6; merge 6 for streams), and a delivery for a key that has left is discarded as a
+released session's is. Two keys whose params project the same descriptor key are a duplicate session for the later key
+(merge 6 rule 47).
+
 #### 2.7.11 Batches and Stories
 
-**Per-item results of a batch.** Each item is its own commit (`allow`, keyed by item) with its own Attempt,
-classification and cache rule. The batching happens below the commit, in the adapter, with Effect's
+**Per-item results of a batch.** Each item is its own commit (keyed by item, `reject`, so each item's lane is one
+call that `retry` can name: rule N2, Revision (multiplicity audit, 2026-10-31)) with its own Attempt, classification
+and cache rule. The batching happens below the commit, in the adapter, with Effect's
 `RequestResolver`: each commit calls `Effect.request(Archive({ id, key }), resolver)`, and the resolver sends one HTTP
 request and completes each entry from the per-item statuses. Not spiked.
 
@@ -1204,11 +1320,11 @@ the Story API for all of this.)
 | --- | --- |
 | The starting turn, steps 2–3 | the author's guards, including `pay.idle(key)` if written, decide whether the transition runs; Flow adds none (rule 16) |
 | The starting turn, step 5 | input and key computed from the after memory (rule 22) |
-| The starting turn, step 6, after publish | on a busy `reject` lane: no Attempt, and `NotSent { why: "Rejected" }` queued (rule 16). Otherwise: Attempt minted and made the lane's current one; `pending` true; owner recorded |
+| The starting turn, step 6, after publish | on a busy `reject` lane: no Attempt, and `NotSent { why: "Rejected" }` queued (rule 16). Otherwise: Attempt minted, with its starter, lane key and copy (rule 21); under `reject`, `latest` and `cancel` it becomes the addressable one; the lane row exists and `pending` is true (or `outstanding` grows); owner recorded |
 | Invocation | after the Persistence O6 acknowledgement; from here a cancel means `unknown` |
 | Settlement | the send is classified (2.7.1) and its ending queued in the FIFO mailbox; the lane is not touched; `pending` stays true; under `latest` the waiting start is invoked now |
 | A cancel | rule 24 |
-| The ending's admission (step 1) | rule 18 applied; the lane updated (`pending`, `retryCount`, the current Attempt); mapped through `outcomes`; owner tested (rule 14) |
+| The ending's admission (step 1) | rule 18 applied; the lane updated (its row, the addressable Attempt; evicted if nothing is left, rule 21); mapped through `outcomes`; owner tested (rule 14) |
 | The event's turn, steps 2–6 | ordinary selection, rule 15 if late; the lane is already free, so a retry here is not `Rejected` |
 | A timer of a dead activation | discarded at admission (Machines O5) |
 | Restore | an invoked send ends `unknown` (`Restored`); an unacknowledged one `NotSent { why: "Restored" }`; saved endings are delivered after readiness (Persistence O4) and routed by rule 14 then |
@@ -1935,8 +2051,8 @@ turn (rule 6).
 | Kind | Words |
 |---|---|
 | **New, fragments** | `trait`, `subroutine`, `traits` (root and node), `Flow.state`, `.resumable()`, `.each` (`of`, `max`, `by`), `key` / `item` in fillings and copy views, `.key(k)`, `hostEvents`, `guards`, `callbacks`, `exits` (declarations and fillings), `notify`, the `Flow` module (`Flow.Guard`, `Flow.Callback`, `Flow.Exit`, `Flow.optional`, `Flow.uncertain`, `Flow.annotate`, `Flow.input`, `Flow.initial`, `Flow.private`, `Flow.Denial`, `Flow.entry`), `raise`, `resetOn`, `whenAbandoned`, the definition's `handler` / `guard`, state tokens in guard arrays, `story.machine(fragment)` with `.enter` / `.leave` / `run.calls` / `checkpoint.exit` |
-| **New, plans** | `Outcome.success`, `Outcome.failure`, `Outcome.unknown`; Flow's reasons `NotSent { why }` (`Cancelled`, `Restored`, `Superseded`, `Rejected`, `NothingToResend`), `Cancelled`, `Restored`, `Interrupted`, `Defect`, `StillUnknown { failure }`; the commit value's `.retry(key?)`, `.cancel(key?)`, `.idle(key?)`, `.pending(g \| s, key?)`, `.retryCount(g \| s, key?)`; the mapper's `{ input, attempt, superseded }`; `attempt.id`, `attempt.retryCount`, `attempt.mayHaveApplied`; `concurrency: "latest"`; the codes `InFlight` and `LateMayNotLeave`; a resource's call value `O.x.lookup(select, { outcomes })` and `read.fetch(key)`; `keys` (keyed schedules); `.checkpoint(name, ({ truth }) => …)`; `orphaned`; `.history` (and `.history.child`); `armOn`; `disarmOn`; `s.schedules`; `dueAt` (the `model()` options `invariants`, `hot` and `explore` are removed with T1) |
-| **New concepts, not words** | **incarnation** (one life of a fragment instance), **frozen** (a resumable trait while its node is inactive), **summary** (a contract's inferred per-alternative effects), the memory views **before**, **before-walk** and **after** (2.5, rule 22), pending reset, the three **channels** (2.7.1), a **write** (one Attempt) and a **send** (one invocation), the **lane** (rule 21), a call's **owner** and its **current** or **late** ending (rule 14), **late turn** (rule 15), the **Attempt's ending** (rule 18) |
+| **New, plans** | `Outcome.success`, `Outcome.failure`, `Outcome.unknown`; Flow's reasons `NotSent { why }` (`Cancelled`, `Restored`, `Superseded`, `Rejected`, `NothingToResend`), `Cancelled`, `Restored`, `Interrupted`, `Defect`, `StillUnknown { failure }`; the commit value's `.retry(key?)`, `.cancel(key?)`, `.idle(key?)`; the lane rows `s.calls.<operation path>` with `pending`, `retryCount` or `outstanding` (Revision (multiplicity audit, 2026-10-31): replaces `.pending` and `.retryCount`); the mapper's `{ input, attempt, superseded, laneKey, key? }`; `attempt.id`, `attempt.retryCount`, `attempt.mayHaveApplied`; `concurrency: "latest"`; the codes `InFlight` and `LateMayNotLeave`; a resource's call value `O.x.lookup(select, { outcomes })` and `read.fetch(key)`; `keys` (keyed schedules and, Revision (multiplicity audit, 2026-10-31), keyed activities); `.checkpoint(name, ({ truth }) => …)`; `orphaned`; `.history` (and `.history.child`); `armOn`; `disarmOn`; `s.schedules`; `dueAt` (the `model()` options `invariants`, `hot` and `explore` are removed with T1) |
+| **New concepts, not words** | **incarnation** (one life of a fragment instance), **frozen** (a resumable trait while its node is inactive), **summary** (a contract's inferred per-alternative effects), the memory views **before**, **before-walk** and **after** (2.5, rule 22), pending reset, the three **channels** (2.7.1), a **write** (one Attempt) and a **send** (one invocation), the **lane** (rule 21), the lane's **addressable Attempt** and a **keyed list** (rules 21, N1, N2; Revision (multiplicity audit, 2026-10-31)), a call's **owner** and its **current** or **late** ending (rule 14), **late turn** (rule 15), the **Attempt's ending** (rule 18) |
 | **Existing** | `definition`, `machine`, `states`, `default`, `events`, `internalEvents`, `input` (caller side only: `ensure`, `useActor`, a host's filling), `memory`, `on`, `target`, `guard`, `updateMemory`, `actions`, `schedules`, `restartOn`, `transaction`, `key`, `concurrency`, `commit`, `outcomes`, `optimistic`, `setData`, the Attempt, `deny`, `check`, `model` (marked for removal, T1), `S`, `E`, `O`, `.from`, `payload` |
 | **Author-chosen** | every other name (`Field`, `Lockout`, `challenges`, `LOCKED_OUT`, `canEdit`, `onLocked`, …) |
 
@@ -1945,11 +2061,11 @@ turn (rule 6).
 | Problem | Answer |
 |---|---|
 | **L1** stale timers, **T2** schedule traps | Prevented. Schedules stop with their incarnation. Arming ids drop firings from before a re-arm (P11). `armOn` replaces counter idioms. The `restartOn` baseline is the activating turn's memory (P8). A schedule function reads the memory its own turn wrote (rule 23). |
-| **L2** late results | Prevented. A call's ending is routed when its turn is admitted, by its owner: current from the active leaf, late from the owner's nearest surviving ancestor (rule 14). Deliveries to `.each` copies follow the copy's incarnation (rule 9; for call endings see section 7, item 15). |
+| **L2** late results | Prevented. A call's ending is routed when its turn is admitted, by its owner: current from the active leaf, late from the owner's nearest surviving ancestor (rule 14). Raises and timers to `.each` copies follow the copy's incarnation (rule 9); call endings started in a copy are never dropped and carry the copy's key from their Attempt (rules 9, N3; Revision (multiplicity audit, 2026-10-31)). |
 | **L3** leftover memory | Prevented by placement and incarnations. `.resumable()` is an explicit opt-in to carry data back. |
 | **L4** no way out | Prevented. The host may always leave a subroutine's state (rule 6). |
 | **L5** abandoned effects | Prevented. A late ending is the same mapped event, handled at an ancestor, and every late event that can occur must be handled (rules 14, 20). A late handler may start a compensating call, which can finish (rule 15). |
-| **L6** silent admission, **L8** phantom replies | Prevented. A call never sent ends `NotSent { why }`, and a declined start or retry is an ending too (rules 16, 17). Lanes are readable (`pending`, `retryCount`, rule 21). A delivery into a dead incarnation is dropped with evidence (for call endings, see section 7, item 15). |
+| **L6** silent admission, **L8** phantom replies | Prevented. A call never sent ends `NotSent { why }`, and a declined start or retry is an ending too (rules 16, 17). Lanes are readable as snapshot data, and an absent lane is absent (`s.calls`, rules 21, N3). A raise or timer into a dead incarnation is dropped with evidence; a call ending never is (rule 9; Revision (multiplicity audit, 2026-10-31)). |
 | **L7** departure gap | Allowed. Refusing a new submit while an earlier write is still unfinished is host code (`verify.idle(key)`, as the sign-in does). |
 | **E1** broken invariants, **E4** refusal by forwarding | Prevented. Refusal happens only at declared guards, and deliveries cannot be refused (rule 8). A decline refuses only the write, never the transition (rule 16). |
 | **E2** interfaces growing with depth | Prevented, for types and for checks. Hosts are checked against contract summaries only (rule 10). |
@@ -1961,7 +2077,7 @@ turn (rule 6).
 | **H4** mislabelled results | Prevented. The commit classifies each ending with `Outcome` where it reads the response (2.7.1); `unknown:` reaches only `Flow.uncertain` events (rule 13); a definite failure after an unknown send stays unknown (`StillUnknown`, rule 18). |
 | **H5** interrupt treated as not sent | Prevented. An interruption after invocation is unknown (`Cancelled`, `Interrupted`); only one before invocation is `NotSent` (rule 24). Re-sending after an unknown is `.retry`, the same Attempt (rule 19). In host code, starting a new write from an `uncertain` handler is a convention. |
 | **D1** drifting copies | Prevented. Fragment memory, resumable slices, schedule deadlines and lanes are readable, so nothing is copied; the Attempt stays in the lane, not in events or memory. |
-| **D2** live values on retry | Prevented. `.retry` re-sends the lane's current Attempt with the input it was started with (rule 21). |
+| **D2** live values on retry | Prevented. `.retry` re-sends the lane's addressable Attempt with the input it was started with (rule 21), and exists only where a lane has one (rule N2; Revision (multiplicity audit, 2026-10-31)). |
 | **D3** feedback loops | Not applicable: fragments do no I/O. |
 | **D4** unmapped outcomes | Prevented. `failure:` is exhaustive by tag (rule 13), and every current and late event that can occur must be handled (rule 20). |
 | **D5** restore in flight | Prevented. Lanes persist with the actor, and a restored ending is routed by its owner (rule 14, C17). Attempts survive a version change through `orphaned`, at least once (P19). Saved-state compatibility Stories are left out (section 6). |
@@ -1995,9 +2111,9 @@ C1–C18 (their record is in [merged/](merged/)); P15 and P20 are rewritten in p
 | **Machines O2** | A subroutine state is entered at its default, or is a leaf. It is left by an exit, or abandoned by a transition that exits it; host events fall through to ancestors as usual. Exits are targets only fragments take | Adds to "target is required and is this machine's token or "self"" |
 | **Machines O2** | `token.is` accepts a snapshot or a state path. A state token may be an element of a guard array, and passes when the pre-turn state is at or below it | Replaces "token.is(snapshot) includes descendants" with "token.is(snapshot or state)…" |
 | **Machines O3** | **The turn algorithm of section 2.5 is normative**, for the runtime and `check()`. All-declining still falls through to ancestors (O2); a child's refusal inside a selected alternative never does | Replaces the prose from "An accepted transition computes updateMemory before action parameters" to "One invalid action rejects the whole turn" with the algorithm, keeping its defect rules (the memory views are C13) |
-| **Machines O4** | Guards also receive `schedules`, and may use a commit value's `idle` guard and its `pending` / `retryCount` reads (rule 21). `check()` runs steps 2–6 of the turn. `deny(code, context?)` returns plain data matching `Flow.Denial`, so it may be stored in memory, and a guard may return a stored denial | Replaces "A guard receives { event, state, memory, context, activities }" with the same list plus `schedules`; adds the last sentence |
-| **Machines O8** | The snapshot exposes fragment slices (`undefined` while inactive, present while frozen), `.each` copies in key order, and `schedules` | Replaces "It has no input, methods, timers or public revision" with "…no input, methods or public revision; armed schedules appear under `schedules`" |
-| **Persistence O2** | Resumable slices, frozen schedules and `.each` copies with their incarnation counters persist with the actor | Adds to "Actor state, memory … survive reload" |
+| **Machines O4** | Guards also receive `schedules` and `calls` (Revision (multiplicity audit, 2026-10-31): the lane rows of rule 21, replacing the commit value's `pending` / `retryCount` reads), and may use a commit value's `idle` guard. `check()` runs steps 2–6 of the turn. `deny(code, context?)` returns plain data matching `Flow.Denial`, so it may be stored in memory, and a guard may return a stored denial | Replaces "A guard receives { event, state, memory, context, activities }" with the same list plus `schedules`; adds the last sentence |
+| **Machines O8** | The snapshot exposes fragment slices (`undefined` while inactive, present while frozen), `.each` copies in key order, `schedules`, and (Revision (multiplicity audit, 2026-10-31)) `calls`, the lane rows of rule 21; keyed schedules and keyed activities are keyed lists (rule N1). Reading an old snapshot still never consults live lanes | Replaces "It has no input, methods, timers or public revision" with "…no input, methods or public revision; armed schedules appear under `schedules`" |
+| **Persistence O2** | Resumable slices, frozen schedules and `.each` copies with their incarnation counters persist with the actor; (Revision (multiplicity audit, 2026-10-31)) so do keyed schedules' per-key timers, by key with `dueAt` (rule 23) | Adds to "Actor state, memory … survive reload" |
 | **Testing O1** | `story.machine` also accepts a fragment (`.enter`, `.leave`, `run.calls`, `checkpoint.exit`, host-event sends). `send` runs its turn; `process()` drains operation work and due timers. Copies' incarnations are deterministic | Adds to "story.machine(machine, { … }) tests one fresh actor" |
 | **Inspection O1** | Fragments, `.each` copies, incarnations, fused transitions and contract summaries appear under their instance names | Adds |
 | **CommandLine O5** | Errors: rule 12's list. Warnings: overlaps only closures separate; history targets over non-resumable fragments or states that own a call; a mapper reading a key its own turn writes (from Story traces). Info: unfilled optional guards. The server-call findings are C18 | Adds |
@@ -2021,10 +2137,10 @@ C1–C18 (their record is in [merged/](merged/)); P15 and P20 are rewritten in p
 | C2 | Operations O3, O7 | Flow's reasons: the failure `NotSent { why }` (`Cancelled`, `Restored`, `Superseded`, `Rejected`, `NothingToResend`) and the unknowns `Cancelled`, `Restored`, `Interrupted`, `Defect` (with the Cause) and `StillUnknown { failure }`. `interrupt` and `defect` stop being outcome keys. Flow has no timeout reason | Replaces the `reject` and "ends it as interrupt" sentences |
 | C3 | Operations O3 | The runtime classifies each send from the commit fiber's `Exit` and its whole `Cause`, outside that fiber, most cautious first (2.7.1). The ending delivered is the Attempt's: a definite failure after an unknown send of the same Attempt is `StillUnknown` (rule 18) | Adds |
 | C4 | Operations O5, EntityDomains O1 | Success confirms the optimistic look and domain predictions; failure removes them without a refetch; unknown keeps them, marked uncertain, and refetches the displayed entries once. Flow never loops. `revertOnUnknown` does not exist | Replaces Operations O5's "unknown retains them and invalidates the entry" and EntityDomains O1's "failure or defect … repairs" |
-| C5 | Operations O2 | Reads keep two channels, success and failure; a defect in a read is an issue and a `Failure` lane. A resource's call value `O.x.lookup(select, { outcomes })` maps `success` and failure tags; `read.fetch(key)` has `refetch` semantics; its endings are routed like a write's (rule 14) | Replaces `defect` and `interrupt` for lookups; adds call values |
-| C6 | Operations O2, O3 | `O.x.commit(select, { outcomes })` returns an inert commit value that maps each ending onto a definition event (rule 13). Mappers receive `(value, { input, attempt, superseded })`; a `NotSent` mapper `{ input?, attempt?, superseded }`. `failure` is exhaustive by tag; `NotSent` is optional in the type | Replaces "Mappers receive values only." |
-| C7 | Operations O3 | The commit value is the handle: `.retry(key?)` and `.cancel(key?)` (actions), `.idle(key?)` (a guard, code `InFlight`), `.pending` and `.retryCount` (reads). Starting is static: only from `actions`. `O.x.retry(attempt)`, `retry(select, options)`, and `cancel` / `pending` on the descriptor are removed. Flow has no timeout and never retries (rule 25) | Replaces Operations O3's `retry(select, options)` and descriptor-level `cancel`; keeps "Flow promises no remote rollback and never retries automatically" |
-| C8 | Operations O3 | One lane per actor, transaction and key, across commit values. It holds the current Attempt, remembers the commit value that started it (whose `outcomes` a `retry` uses), and is evicted once settled with no current Attempt (rule 21) | Adds |
+| C5 | Operations O2 | Reads keep two channels, success and failure; a defect in a read is an issue and a `Failure` lane. A resource's call value `O.x.lookup(select, { outcomes })` maps `success` and failure tags; `read.fetch(key)` has `refetch` semantics; its endings are routed like a write's (rule 14); (Revision (multiplicity audit, 2026-10-31)) each `fetch` action has its own ending, even when it joins a running request | Replaces `defect` and `interrupt` for lookups; adds call values |
+| C6 | Operations O2, O3 | `O.x.commit(select, { outcomes })` returns an inert commit value that maps each ending onto a definition event (rule 13). Mappers receive `(value, { input, attempt, superseded, laneKey, key? })`; a `NotSent` mapper `{ input?, attempt?, superseded, laneKey, key? }` (Revision (multiplicity audit, 2026-10-31): `laneKey` always, `key` the Attempt's `.each` copy). `failure` is exhaustive by tag; `NotSent` is optional in the type | Replaces "Mappers receive values only." |
+| C7 | Operations O3 | The commit value is the handle: `.retry(key?)` and `.cancel(key?)` (actions), `.idle(key?)` (a guard, code `InFlight`). (Revision (multiplicity audit, 2026-10-31): lane reads are snapshot data, C8; `retry` only under `reject`, `latest` and `cancel`, rule N2; `cancel` cancels every outstanding Attempt of the lane, rule 24.) Starting is static: only from `actions`. `O.x.retry(attempt)`, `retry(select, options)`, and `cancel` / `pending` on the descriptor are removed. Flow has no timeout and never retries (rule 25) | Replaces Operations O3's `retry(select, options)` and descriptor-level `cancel`; keeps "Flow promises no remote rollback and never retries automatically" |
+| C8 | Operations O3 | One lane per actor, transaction and key, across commit values. **Revision (multiplicity audit, 2026-10-31).** It holds the outstanding Attempts and, under `reject`, `latest` and `cancel`, one addressable Attempt; each Attempt remembers the commit value that started it (whose `outcomes` a `retry` uses), its lane key and its `.each` copy. A lane with nothing outstanding and nothing addressable is evicted. The snapshot exposes lanes as `s.calls.<operation path>`, a keyed list (one row or `undefined` when unkeyed) of `{ key, pending, retryCount }` or, under `allow` and `serialize`, `{ key, outstanding }`; this amends "Transactions have outcomes, never lanes" (Operations O6) (rule 21) | Adds |
 | C9 | Operations O3 | `attempt.id` is minted by Flow, random per write, the same for every send of it; the commit author puts it on the wire, and Flow derives no other key. A definite failure is tried again as a new write. The Attempt carries `retryCount` and `mayHaveApplied` (rule 19) | Adds |
 | C10 | Operations O3 | `concurrency: "reject"` declines only the write, ending `NotSent { why: "Rejected" }`; the transition runs. `concurrency: "latest"` keeps one send in flight and one waiting, replacing the waiting one (`NotSent { why: "Superseded" }`); mappers receive `superseded`. Every start and retry, invoked or declined, ends once (rules 16, 17) | Replaces "declines … without work or outcome"; adds `latest` |
 | C11 | Operations O7 | Cancel before invocation ends `NotSent { why: "Cancelled" }`; while running it interrupts, the ending `unknown(Cancelled)` is queued when the fiber exits, and the lane stays pending until its turn; after settlement or with nothing outstanding it does nothing, with evidence. A settled ending is never rewritten (rule 24) | Replaces "Every invoked commit delivers exactly one outcome" and the silent cancel before invocation |
@@ -2034,7 +2150,9 @@ C1–C18 (their record is in [merged/](merged/)); P15 and P20 are rewritten in p
 | C15 | Operations O3 | Optimistic and write callbacks read the after memory (rule 22; open, section 7 item 10) | Adds |
 | C16 | Testing O2, O3 | A Story checkpoint may read fixture truth (`.checkpoint(name, ({ truth }) => …)`); every ending can be produced through services | Adds |
 | C17 | Persistence O4, O6 | Lanes persist with the actor; Persistence O6 acknowledges the Attempt before invocation. On restore, an invoked send ends `unknown` (`Restored`) and an unacknowledged one `NotSent { why: "Restored" }`; saved endings are delivered after readiness and routed by rule 14 | Replaces the former P12 ("a fenced commit restores with its activation"); extends "A crash after acknowledgment restores unknown carrying the same Attempt…" |
-| C18 | CommandLine O5 | Errors: a late event with no handler at a strict ancestor of its owner, naming the event and the state; `failure.NotSent` unmapped where it can occur (rule 20). Warnings: a state-changing transition listing a `reject` commit value without its `idle` guard (rule 16); one transition reading, in both memory views, a key it writes (rule 22) | Adds |
+| C18 | CommandLine O5 | Errors: a late event with no handler at a strict ancestor of its owner, naming the event and the state; `failure.NotSent` unmapped where it can occur (rule 20). Warnings: a state-changing transition listing a `reject` commit value without its `idle` guard (rule 16); one transition reading, in both memory views, a key it writes (rule 22); (Revision (multiplicity audit, 2026-10-31)) Attempts started under two `.each` copies of one placement on one lane at once, from Story traces (`SharedCopyLane`, rule 9). Type errors: `retry` on a commit value whose transaction is `allow` or `serialize`, and a lane row's `retryCount` or `progress` there (rule N2) | Adds |
+| C19 | Machines O6 | **Revision (multiplicity audit, 2026-10-31).** An activity's options may declare `keys` (a function of the after memory): one subscription per key, started when the key appears and released when it leaves; `s.activities.<name>` is then a keyed list of `{ key, …lane }`; params and mappers receive `key`; a repeated key is repaired with evidence (2.7.10, rule 23) | Adds to "activities: { name: O.x.subscribe(params, { outcomes?, placeholder?, when? }) }" |
+| C20 | Operations O3, Machines O1 | **Revision (multiplicity audit, 2026-10-31).** A commit started in a `.each` copy's filling is an ordinary call: its Attempt carries the copy's key and incarnation, its endings are never dropped, and every mapper of that Attempt receives the copy's `key`; only the handler's raises into a gone copy are dropped (rule 9, D21) | Adds; closes section 7 item 15 |
 | P15 | Operations O3, Persistence O6 | All sends of a write are **one Attempt** (same id, same input). `attempt.retryCount` counts the re-sends. Each send is acknowledged before it runs | Adds to "A persisted actor's remote commit cannot invoke its adapter until storage acknowledges its Attempt" |
 | P19 | Persistence O5 | On `RestoreDiscarded`, acknowledged Attempts that are unsettled, or settled but undelivered, survive in a version-independent record. After ready, each goes to its descriptor's `orphaned` handler (which may `retry` or invalidate), or else surfaces as an issue. Delivery is at least once, so the adapter must be idempotent. Input that no longer decodes under the new Schema is an issue, not a retry. An orphaned retry has no actor: its ending is evidence only | Adds to O5's version-change rule |
 | P20 | Operations O3 | A late handler may start a commit; it is an ordinary call owned by its transition's state (rule 15). **Compensation recipe** (2.7.7): handle a late success at an ancestor by moving an idle state to a compensating state that starts the undo; try the undo's definite failures again as new writes after a wait, and reconcile its unknowns with `.retry` of the same Attempt, each with a budget | Adds to C12 |
@@ -2097,9 +2215,10 @@ C1–C18 (their record is in [merged/](merged/)); P15 and P20 are rewritten in p
 ## 7. Open
 
 0. **Collections, after `.each`** (rule 9; [merged/each.md](merged/each.md)
-   section 4): per-copy subscriptions (keyed activities); raising into every copy at once; several
-   copies writing their list's field in one turn; commits joined across incarnations (check against
-   Operations); nested `.each`.
+   section 4): ~~per-copy subscriptions (keyed activities)~~ (Revision (multiplicity audit, 2026-10-31): keyed
+   activities, 2.7.10 and C19, for the owner to confirm); raising into every copy at once; several
+   copies writing their list's field in one turn; ~~commits joined across incarnations~~ (closed with item 15: the
+   Attempt carries its copy); nested `.each`.
 1. **Summaries in types.** Can the contract summary (rule 10) be inferred into TypeScript types
    cheaply enough, or does it live only in `flow check` metadata?
 2. **`.resumable()` and `resetOn` together.** A resumable trait resets on return when its value differs. Is
@@ -2112,9 +2231,9 @@ C1–C18 (their record is in [merged/](merged/)); P15 and P20 are rewritten in p
 
 From merge 2 (its section 10, in its order):
 
-6. **The lane key in a `NotSent` mapper.** Every `NotSent` knows its lane's key, even without an Attempt, because the
-   start's or retry's key select ran. Adding `key` to the `NotSent` context would let the list rewrite name the row of
-   a `NothingToResend` instead of mapping it to `null`.
+6. ~~**The lane key in a `NotSent` mapper.**~~ **Closed (Revision (multiplicity audit, 2026-10-31), D21):** every
+   mapper's context carries `laneKey` (2.7.3), so a `NothingToResend` names its row. It is not called `key`, which
+   already names the `.each` copy.
 7. **A send that must finish while the page closes** (undo send): out of scope; `pagehide` gives no time for an async
    turn and Persistence O6's acknowledgement. The server-side alternative is a server delay (`sendAt`) with undo as a
    `DELETE` by the Attempt's id.
@@ -2137,13 +2256,10 @@ Found while merging:
 14. **Server calls and entity domains:** who owns a write about an entity, and the conflicts recorded in
     [merged/server-calls/reviews/entities.md](merged/server-calls/reviews/entities.md) (retry shape, settlement
     versus admission, queue release, temporary ids, `AdmissionOverloaded`).
-15. **`.each` copies and call owners.** Rule 9 says a commit started in a copy's filling remembers its copy's
-    incarnation, and a delivery to a dead incarnation is dropped with evidence. Rules 8 ("call endings, current and late",
-    are never lost), 14, 17 and 20 say every ending is delivered, routed by its owner state's activation, and handled.
-    A copy is not a state, so rule 14 never makes such an ending late, and "dropped with evidence" contradicts "every
-    start ends once" for call endings. Merge 2 did not consider copies. Undecided; the recommendation is that rules 8,
-    14, 17 and 20 govern call endings and rule 9's drop applies only to raises and timers. Section 4's L2 and L6 rows
-    describe the drop pending this decision.
+15. ~~**`.each` copies and call owners.**~~ **Closed (Revision (multiplicity audit, 2026-10-31), D21), with the
+    recommendation it carried:** rules 8, 14, 17 and 20 govern call endings, which are never dropped; rule 9's drop
+    applies only to raises and timers; the Attempt carries the copy's key and incarnation, so a retry from the host or
+    another copy still reaches its own copy's handling (rule 9, C20). For the owner to confirm.
 16. **`orphaned`'s `retry(attempt)`** (P19, 2.7.7). Merge 2 removed every Attempt-argument retry in favour of the
     commit value's `.retry(key)`, but an orphaned Attempt has no actor and no lane, so the descriptor-level
     `orphaned: ({ attempt, retry }) => retry(attempt)` remains the one place an Attempt is retried by argument. Its
@@ -2219,6 +2335,11 @@ From [reviews/design-correctness.md](reviews/design-correctness.md) and [reviews
   [merged/server-calls/reviews/memory-reads.md](merged/server-calls/reviews/memory-reads.md)). Their decisions follow.
   One deviation from merge 2's text: its amendment table said selects are computed in step 4; its rule (now rule
   22) and the memory-read review say step 5, after every patch, and the design follows the rule.
+- **Revision (multiplicity audit, 2026-10-31)** ([audit-multiplicity.md](audit-multiplicity.md)): rules N1–N3; lanes
+  as `s.calls` with the per-call members decided by concurrency (rule 21, 2.7.3, 2.7.5, 2.7.8); `cancel` over every
+  outstanding Attempt (rule 24); a retry of an outstanding Attempt is `Rejected` in every mode (rule 16); copy-started
+  calls and `laneKey` (rule 9, 2.7.2, 2.7.3; items 6 and 15 closed); one ending per `fetch` (2.7.9); keyed schedules'
+  repeats and restore (rule 23); keyed activities (2.7.10); C8, C19, C20; decisions D18–D21.
 
 ## Decisions
 
@@ -2270,7 +2391,8 @@ which its rewrites and spike cite; they are not the problems D1–D7 of section 
 - **D4 The commit value is the handle.** Listed in `actions` it starts a write; its members are `retry`, `cancel`
   (actions), `idle` (a guard) and `pending`, `retryCount` (reads). Starting is static. Consequence: a re-send can
   never miss its mapping. Rejected: `O.x.retry(attempt)` on the descriptor, which five builds spelled five ways, two
-  with no mapping at all.
+  with no mapping at all. *Superseded in part by D18 (2026-10-31): the reads `pending` and `retryCount` leave the
+  commit value for snapshot data; `retry`, `cancel` and `idle` stay.*
 - **D5 Declines are endings; refusing the transition is explicit.** Under `reject`, a busy lane refuses only the
   write and ends `NotSent { why: "Rejected" }`; `pay.idle(key)` is the explicit guard, with the code `InFlight`.
   Concurrency is the transaction's required choice, so a button that should send every press uses `allow` or
@@ -2280,7 +2402,8 @@ which its rewrites and spike cite; they are not the problems D1–D7 of section 
 - **D6 The machine reads a lane through `pending` and `retryCount`.** The write reaches the machine through the
   mapper, and the last ending through its own event's handler. Rejected: a readable record
   `{ pending, attempt, sends, last }` (the builds only read "is it busy" and "how many tries"), and the names `sends`,
-  `attempts`, `attemptCount`, `sendCount`, `tryCount`.
+  `attempts`, `attemptCount`, `sendCount`, `tryCount`. *Superseded in part by D18 (2026-10-31): the same two facts,
+  and still nothing else, are read as snapshot rows, not through the commit value.*
 - **D7 Keys are optional.** A transaction without `key` has one lane per actor and its members take no key.
   Rejected: making keys mandatory.
 - **D8 The idempotency key is `attempt.id`, and a definite failure is tried again as a new write.** `pay.retry`
@@ -2291,7 +2414,8 @@ which its rewrites and spike cite; they are not the problems D1–D7 of section 
   503 is replayed to every re-send, spike P6).
 - **D9 Two commit values of one transaction share a lane, and the lane remembers its starter.** Consequence: `reject`
   still guarantees one write in flight per key. Rejected: a lane per commit value (two charges for one intent), and a
-  `flow check` warning on two commit values of one transaction.
+  `flow check` warning on two commit values of one transaction. *Superseded in part by D20 (2026-10-31): each Attempt,
+  not the lane, remembers its starter.*
 - **D10 `StillUnknown` has no author override.** A definite failure after an unknown send of the same write stays
   unknown; a server that replays its original decline is confirmed by a read. Rejected: an override, which would put
   configuration on the error; and keeping failure definite per send with only `mayHaveApplied` for the author, which
@@ -2299,7 +2423,7 @@ which its rewrites and spike cite; they are not the problems D1–D7 of section 
 - **D11 A settled lane is evicted.** Reading it gives `pending` false and `retryCount` 0, as a fresh lane does, so
   eviction cannot be observed; a lane holding a failed or unknown Attempt is kept for `retry`. Consequence: memory
   stays bounded for unbounded keys, with no new option. Rejected: a required `max` like `.each`, and keeping every
-  lane.
+  lane. *Superseded in part by D19 (2026-10-31): an evicted lane has no row, the same as one never started.*
 - **D12 The machine-wide rules were reviewed.** Rules 22 and 23 and keyed schedules change every machine, not only
   calls; they came with merge 2 so the calls design reads as one piece, and were reviewed before merging
   ([merged/server-calls/reviews/memory-reads.md](merged/server-calls/reviews/memory-reads.md)); the answer is D15 and
@@ -2332,3 +2456,42 @@ which its rewrites and spike cite; they are not the problems D1–D7 of section 
   guards for lockouts (`check` would depend on the clock; keyed schedules keep it pure); polling as a transaction
   (each GET would mint an Attempt and have an unknown channel a read cannot have); per-item results in one success
   value (per-item unknowns get no cache rule).
+
+### Multiplicity audit ([audit-multiplicity.md](audit-multiplicity.md), 2026-10-31)
+
+**Revision (multiplicity audit, 2026-10-31).** Made by the audit under the owner's brief; each awaits the owner's
+confirmation (the audit's section 5).
+
+- **D18 Lanes are snapshot data, `s.calls`, beside `s.activities`; the commit value keeps `retry`, `cancel` and
+  `idle`** (supersedes the read half of D4 and D6). Reason: correctness first. A read of a lane by an actor that does
+  not declare the operation is a type error, because `calls` is typed by the snapshot's own definition; a lane that
+  does not exist is absent, not "idle"; a view, a guard, `check()` and a Story read the same published rows; "this
+  call" and "anything on this key" are told apart by the row's type (D20). Locality: lane state is a fact about the
+  actor, so it lives on the snapshot with the activity lanes, and commit values stay in the machine body where their
+  selects are typed. Consequence: a keyed read is a `find` over plain data, as copies and keyed schedules already are;
+  guards receive `calls`. Rejected: (A) commit values exported at module scope (breaks locality and select typing);
+  (B) a descriptor read `O.x.pending(s, key)` (silent wrong-actor and never-started reads; brings back the read C7
+  removed); (C) `Machine.lanes.x.pending(s, key)` (correct, but a namespace and a call where data suffices); keeping
+  `pay.pending` beside `s.calls` (two spellings of one fact).
+- **D19 An absent lane has no row** (supersedes D11's read sentence). An evicted lane and one never started are both
+  absent (rule N3); under `allow` and `serialize`, where nothing is retained for `retry`, a lane is evicted as soon as
+  nothing is outstanding. Reason: a default that looks like a lane hides a wrong key. Consequence: readers write
+  `?? false` or `?? 0` where they mean it. Rejected: keeping "reads as fresh", which made a lane that will never exist
+  indistinguishable from an idle one.
+- **D20 Concurrency decides which per-call members exist** (rule N2; supersedes D9's "the lane remembers its
+  starter"). Under `reject`, `latest` and `cancel` a lane has one addressable Attempt, and `retry`, `retryCount` and
+  `progress` address it; under `allow` and `serialize` they are type errors, and a call that needs them gets its own
+  key and `reject`. Each Attempt remembers its starter, lane key and copy. `cancel` aggregates over every outstanding
+  Attempt; a retry of an outstanding Attempt is `Rejected` in every mode. Reason: under `allow` the old "current
+  Attempt" made `retry` re-send the newest write while the older one's unknown went unreconciled, and `retryCount`
+  and `progress` described the wrong write (the audit's F1). Consequence: concurrent sends with per-message status,
+  several uploads and per-item batch retries are written with per-call keys and are correct by construction; `retry`
+  inside one `serialize` lane is not expressible (F15, for the owner). Rejected: picking "the oldest unknown" or "the
+  Attempt of the ending's own turn" as the target (clever rules no reader can predict), and an Attempt-addressed retry
+  now (a second retry shape, against D4, with no case yet).
+- **D21 Calls started in `.each` copies, and `laneKey`** (closes section 7 items 6 and 15). The Attempt carries its
+  copy's key and incarnation; call endings are never dropped; every mapper receives `laneKey`, and `key` stays the
+  copy's key. Reason: rules 8 and 17 promise every ending, and a retry from the host must still reach the copy that
+  started the write; a `NothingToResend` must name its row. Rejected: dropping copy endings with evidence (breaks rule
+  17); naming the lane key `key` (already the copy's).
+

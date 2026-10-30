@@ -25,6 +25,9 @@ Merged proposals move to [merged/](merged/) with their evidence, as the record b
 | [merged/server-calls/proposal.md](merged/server-calls/proposal.md) | merge 2, 2026-10-30 | server calls in the machine (design 2.7, rules 13–25, C rows, decisions D1–D17) |
 
 [principles.md](principles.md) is what every proposal is judged against.
+[audit-multiplicity.md](audit-multiplicity.md) (2026-10-31) audits every design document for how many of each thing exist,
+which one each reference names, and what exists when; its changes are marked in the design and merges 3, 4 and 6, and
+merge 5's are listed in its section 4.
 
 ## Supporting documents
 

@@ -1,7 +1,8 @@
 # Proposal: server calls and entity domains (merge 4)
 
 Status: **accepted by the owner on 2026-10-30; merges into machine-design.md together with merge 3 (Stories), once
-that is accepted.** Builds on the merged design (2.7, rules 13–25). Decisions E1–E16 are settled as section 10 records,
+that is accepted.** Revision (multiplicity audit, 2026-10-31): rules 30–32, the list rewrite (3.1) and section 2 follow
+[audit-multiplicity.md](../audit-multiplicity.md); decisions E17 and E18. Builds on the merged design (2.7, rules 13–25). Decisions E1–E16 are settled as section 10 records,
 with the corrections section 9 found; section 9 is kept as the reasoning behind them.
 Nothing here edits a `.plan` file; section 6 lists the amendments for when the owner accepts them.
 
@@ -18,23 +19,23 @@ Sources and the short names used for citations:
 | OPS | `Operations.plan` |
 | PER | `Persistence.plan` |
 
-"Flow" means Flow's own runtime; nothing in Flow reads an HTTP status or an author error type (MD:716-717). "The
+"Flow" means Flow's own runtime; nothing in Flow reads an HTTP status or an author error type (MD:775-776). "The
 store" is the Runtime's record store (EDP:6, EDP:62-64). "The lane" is the commit value's lane per actor, transaction
-and key (rule 21, MD:534-546).
+and key (rule 21, MD:551-563).
 
 ## 1. The problem
 
 Merge 2 was written without entity domains (REV:9-12). Its rewrites keep rows, predictions and rollback in machine
 memory (LIST:8-19, LIST:117-128), while EntityDomains replaces call-site `optimistic` and `setData` with `.predicts`
 (EDP:60-61, EDP:185-187), forbids temporary ids (EDP:118-119) and still spells retry `O.x.retry(select)` (EDP:107-108,
-OPS:113). MD defers the meeting point to open item 14 (MD:816-817, MD:2134-2136). The two reviews in REV found:
+OPS:113). MD defers the meeting point to open item 14 (MD:875-876, MD:2253-2255). The two reviews in REV found:
 
 **Ownership and API**
 
 - **A-H1** (REV:15-19): a write about an entity has two owners. Renaming is about 22 lines and 5 concepts in
   `list.ts` against about 3 lines of `.predicts`; without a canonical path an author writes both and shows two truths.
-- **A-H2** (REV:20-22): two retry shapes, `O.x.retry(select)` (OPS:113, EDP:107-108) and `pay.retry(key)` (MD:926).
-- **A-H3** (REV:23-25): `latest` and `reject`-as-ending (MD:509-517, MD:1137) against OPS's "without work or
+- **A-H2** (REV:20-22): two retry shapes, `O.x.retry(select)` (OPS:113, EDP:107-108) and `pay.retry(key)` (MD:989).
+- **A-H3** (REV:23-25): `latest` and `reject`-as-ending (MD:525-534, MD:1215) against OPS's "without work or
   outcome" (OPS:92-93) and EDP's `cancel` error (EDP:112-113); what a superseded waiting start does to its prediction
   and the record queue is unanswered.
 - **A-M1** (REV:26-27): one id, three spellings (entity primary key, transaction `key`, `.each` key).
@@ -47,12 +48,12 @@ OPS:113). MD defers the meeting point to open item 14 (MD:816-817, MD:2134-2136)
 **Data flow and cache consistency**
 
 - **F-H1** (REV:40-42): the store changes at settlement (OPS:101) while the lane and event change at admission
-  (MD:1206-1208), so a view can show confirmed data with "Saving…", or the reverse.
+  (MD:1322-1324), so a view can show confirmed data with "Saving…", or the reverse.
 - **F-H2** (REV:43-45): a retry's prediction, its `basedOn`, and whether its late response overwrites a newer write.
-- **F-H3** (REV:46-48): merge 2 invokes a waiting `latest` start at settlement (MD:1206), but EDP holds the record
+- **F-H3** (REV:46-48): merge 2 invokes a waiting `latest` start at settlement (MD:1322), but EDP holds the record
   queue until an uncertain write's forced repair settles (EDP:115-116).
-- **F-H4** (REV:49-52): rule 22's view for `writes` and `optimistic` (MD:551) is circular or vague; merge 2 left it
-  open (MD:2121-2124).
+- **F-H4** (REV:49-52): rule 22's view for `writes` and `optimistic` (MD:583) is circular or vague; merge 2 left it
+  open (MD:2240-2243).
 - **F-M1–F-M7** (REV:53-65): the cache follows the channel but rule 18 changes the channel; no rule clears
   `uncertain`; no table of `NotSent` reasons against predictions; temporary-id rows show one issue twice; late
   store effects are unstated and `LikeSynced` lacks a `superseded` check (LIST:123); `AdmissionOverloaded` rejects
@@ -75,7 +76,7 @@ Three places hold facts about one write. Each has one writer and one moment.
 | The record queue | the store, per record, across actors (EDP:112-116) | Flow, from starts and retries | joined at start or retry; released at **settlement**, or after the forced repair for an unknown | Flow; `Entity.queue` in Stories (EDP:138) |
 | `uncertain` | the store, per record and Attempt (EDP:103-106) | Flow, from the Attempt's ending | set at **settlement** of an unknown; cleared per rule 32 | views, as `uncertain` |
 | `unconfirmed` fields | the store (EDP:93-100) | Flow, from a success that omitted a predicted field | **settlement**; cleared by a confirming read | views |
-| `pending`, `retryCount`, the current Attempt | the lane (rule 21) | Flow | `pending` from the starting turn until the ending's turn is **admitted** | guards, views (`like.pending(s, key)`), never the store |
+| `pending`, `retryCount`, the addressable Attempt | the lane (rule 21) | Flow | `pending` from the starting turn until the ending's turn is **admitted** | guards and views, as the snapshot's lane rows (`s.calls.Issues.setLike`; Revision (multiplicity audit, 2026-10-31): replaces `like.pending(s, key)`, design D18), never the store |
 | The ending as an event, its route | the mailbox and the commit value's `outcomes` (rules 13, 14) | Flow, at **admission** | the ending's turn | the machine's handlers |
 | Drafts, toasts, reconcile keys, selection | memory | the machine's handlers | its turns | views, guards, selects |
 | `attempt.id` on the wire, `basedOn` | the request | the commit author (rule 19); Flow passes `basedOn` (OPS:88-89, EDP:109) | each send; a retry sends the same (rule 31) | the server |
@@ -86,7 +87,7 @@ different questions, so they change at different moments, and a view picks the o
 
 ```ts
 const row = useView(list, (s) => Issue.get(s, { id }, Issue.pick("title", "liked", "likes")))   // { data, predicted, uncertain, unconfirmed }
-const saving = useView(list, (s) => like.pending(s, { id }))   // this actor's call is in flight or not yet handled
+const saving = useView(list, (s) => s.calls.Issues.setLike.find((l) => l.key.id === id)?.pending ?? false)   // this actor's call is in flight or not yet handled (Revision (multiplicity audit, 2026-10-31): lane rows, design D18)
 // "Saving…" reads `saving`; the grey "not yet confirmed" style reads `row.predicted`; the "?" badge reads `row.uncertain`
 ```
 
@@ -111,7 +112,9 @@ export const renameIssue = transaction({ id: "issues/rename", input: Schema.Stru
 export const removeIssue = transaction({ id: "issues/remove", input: Schema.Struct({ key: IssueKey }), concurrency: "reject", commit: … })
 export const createIssue = transaction({                          // no predicts, so its key is declared (E10)
   id: "issues/create", input: Schema.Struct({ draftId: Schema.String, projectId: Schema.String, title: Schema.String }),
-  key: (i) => ({ draftId: i.draftId }), concurrency: "allow", commit: …,   // attempt.id on the wire (rule 19); draftId stays on the device
+  key: (i) => ({ draftId: i.draftId }), concurrency: "reject", commit: …,   // attempt.id on the wire (rule 19); draftId stays on the device
+  // Revision (multiplicity audit, 2026-10-31): was "allow". One lane per draft is one call, so `create.retry(drafted)` names it (design rule N2);
+  // under "allow" retry is a type error, because two creates of one draft would share a lane.
 })
 // the three predicting writes declare no key: their lane is the predicted record, { id } (E10)
 
@@ -171,7 +174,7 @@ export const List = definition({
     Unsure: Flow.uncertain({ message: Schema.String, superseded: Schema.Boolean }),
     LikeUnsure: Flow.uncertain({ id: Schema.String, superseded: Schema.Boolean }),
     Created: { draftId: Schema.String, id: Schema.String },
-    CreateFailed: { draftId: Schema.NullOr(Schema.String), message: Schema.String },   // null: a NothingToResend names no draft (D17)
+    CreateFailed: { draftId: Schema.String, message: Schema.String },   // Revision (multiplicity audit, 2026-10-31): a NothingToResend names its draft through laneKey (design D21)
     CreateUnsure: Flow.uncertain({ draftId: Schema.String }),
     ReconcileLike: { id: Schema.String }, ToastExpired: {},
   },
@@ -187,9 +190,9 @@ export const List = definition({
 
 // ───────────────────────────────────────────────── list.machine.ts
 type Memory = typeof List.Memory.Type
-const draft = (m: Memory, draftId: string | null) => m.creating.find((d) => d.draftId === draftId)
-const editDraft = (m: Memory, draftId: string | null, f: (d: Draft) => Draft) => ({ creating: m.creating.map((d) => (d.draftId === draftId ? f(d) : d)) })
-const dropDraft = (m: Memory, draftId: string | null) => ({ creating: m.creating.filter((d) => d.draftId !== draftId) })
+const draft = (m: Memory, draftId: string) => m.creating.find((d) => d.draftId === draftId)
+const editDraft = (m: Memory, draftId: string, f: (d: Draft) => Draft) => ({ creating: m.creating.map((d) => (d.draftId === draftId ? f(d) : d)) })
+const dropDraft = (m: Memory, draftId: string) => ({ creating: m.creating.filter((d) => d.draftId !== draftId) })
 const without = (ids: ReadonlyArray<string>, id: string) => ids.filter((x) => x !== id)
 
 export const ListMachine = machine(List, ({ S, E, O }) => {
@@ -219,7 +222,7 @@ export const ListMachine = machine(List, ({ S, E, O }) => {
       failure: {
         Invalid: E.CreateFailed.from((r, { input }) => ({ draftId: input.draftId, message: r.message })),
         Refused: E.CreateFailed.from((r, { input }) => ({ draftId: input.draftId, message: `Refused (${r.status})` })),
-        NotSent: E.CreateFailed.from((r, { input }) => ({ draftId: input?.draftId ?? null, message: `Not sent (${r.why})` })),
+        NotSent: E.CreateFailed.from((r, { laneKey }) => ({ draftId: laneKey.draftId, message: `Not sent (${r.why})` })),   // laneKey: always present
       },
       unknown: E.CreateUnsure.from((_r, { input }) => ({ draftId: input.draftId })),
     },
@@ -254,7 +257,7 @@ export const ListMachine = machine(List, ({ S, E, O }) => {
           Unsure: toastUnlessSuperseded,                             // the record reads uncertain until a later write or a retry succeeds (E3)
           LikeUnsure: [
             { target: "self", guard: ({ event }) => event.superseded || deny("Latest") },   // the newer write's success clears it (E3)
-            { target: "self", guard: (g) => like.retryCount(g, { id: g.event.id }) < MAX_LIKE_RESENDS || deny("GaveUp"), updateMemory: ({ memory, event }) => ({ likeUnsure: [...without(memory.likeUnsure, event.id), event.id] }) },
+            { target: "self", guard: ({ calls, event }) => (calls.Issues.setLike.find((l) => l.key.id === event.id)?.retryCount ?? 0) < MAX_LIKE_RESENDS || deny("GaveUp"), updateMemory: ({ memory, event }) => ({ likeUnsure: [...without(memory.likeUnsure, event.id), event.id] }) },   // setLike is latest: one addressable Attempt (design rule N2)
             { target: "self", updateMemory: ({ memory, event }) => ({ likeUnsure: without(memory.likeUnsure, event.id), toast: "Couldn't confirm your like" }) },
           ],
           ReconcileLike: { target: "self", updateMemory: ({ memory, event }) => ({ likeUnsure: without(memory.likeUnsure, event.id) }), actions: [like.retry(issue)] },   // the same request, no new prediction (E7)
@@ -273,10 +276,10 @@ export const ListMachine = machine(List, ({ S, E, O }) => {
           Listed: { target: "self", updateMemory: ({ memory, event }) => ({ creating: memory.creating.filter((d) => d.id === null || !event.ids.includes(d.id)) }) },
           CreateFailed: [
             { guard: [draftIs((d) => d.discarded, "NotDiscarded")], target: "self", updateMemory: ({ memory, event }) => dropDraft(memory, event.draftId) },
-            { target: "self", updateMemory: ({ memory, event }) => editDraft(memory, event.draftId, (d) => ({ ...d, status: "failed", failure: event.message })) },   // null names no draft: a no-op
+            { target: "self", updateMemory: ({ memory, event }) => editDraft(memory, event.draftId, (d) => ({ ...d, status: "failed", failure: event.message })) },
           ],
           CreateUnsure: [
-            { guard: [draftIs((d) => d.discarded, "NotDiscarded"), (g) => create.retryCount(g, drafted(g)) < 3 || deny("GaveUp")], target: "self", actions: [create.retry(drafted)] },   // find out, so a landed create is deleted
+            { guard: [draftIs((d) => d.discarded, "NotDiscarded"), ({ calls, event }) => (calls.Issues.create.find((l) => l.key.draftId === event.draftId)?.retryCount ?? 0) < 3 || deny("GaveUp")], target: "self", actions: [create.retry(drafted)] },   // find out, so a landed create is deleted
             { target: "self", updateMemory: ({ memory, event }) => editDraft(memory, event.draftId, (d) => ({ ...d, status: "unsure" })) },
           ],
           Retry: [
@@ -315,7 +318,7 @@ const row = useView(list, (s) => Issue.get(s, { id }, Issue.pick("title", "liked
 | Rename | select reads memory; `Edit` with two alternatives and `pendingTitle` for an unsaved row; `Created` re-sends (LIST:93, LIST:152, LIST:172-178) | one transition; the store predicts and confirms. Editing a draft while it sends is dropped: a draft is not a record |
 | Remove | `deleted` flag, `notConfirmed` restores it (LIST:104, LIST:180-184) | `.predicts(Issue.delete)` hides it everywhere; failure restores it in the store |
 | Create | a temporary-id row adopted on `Created` (LIST:100-103, LIST:150-154) | a `creating` draft, hidden by the view once the list holds its id, pruned by `Listed` (rule 33) |
-| A gone issue | `dropId` from memory | `IssueGone` refetches the list: a failure repairs nothing (C4, MD:2020) |
+| A gone issue | `dropId` from memory | `IssueGone` refetches the list: a failure repairs nothing (C4, MD:2136) |
 
 **Count.** The file shrinks by 38 lines (197 to 159), the machine body by 33 (142 to 109), and the domain adds 26; the concepts per write fall from five
 (select, outcomes, mapped events, memory prediction, hand rollback; REV:15-17) to three (select, outcomes, events).
@@ -358,9 +361,9 @@ admission  ── map through outcomes, test the owner (rule 14), update the lan
 
 - **Store effects publish at settlement.** Shared truth never waits for one actor's mailbox: a busy or disposed
   actor (OPS:105-106 keeps cache consequences during disposal) must not hold another screen's view of a record.
-- **The lane changes at admission**, as merge 2 decided (MD:1206-1208): it records whether this actor has handled
+- **The lane changes at admission**, as merge 2 decided (MD:1322-1324): it records whether this actor has handled
   the ending, which is what `pay.idle` and "Saving…" mean (D5, D6).
-- **Rule 18 moves to settlement** (found checking E4/E8). MD:597 applies rule 18 at admission, but the store needs
+- **Rule 18 moves to settlement** (found checking E4/E8). MD:655 applies rule 18 at admission, but the store needs
   the Attempt's ending at settlement. Rule 18 reads only the Attempt's send history, which is known at settlement, so
   nothing else moves; admission only maps it.
 - **Routing never changes store effects (E13).** A late, superseded or current ending has the same store effect,
@@ -374,7 +377,7 @@ Settled: { target: "self" },       // at the root: handled whether current or la
 ```
 
 **The starting side** (found checking E4). A start applies its prediction "on start" (OPS:82), but step 6 publishes
-the turn first and starts actions after (MD:671-672). The rewrite would publish a snapshot in which this actor's lane
+the turn first and starts actions after (MD:729-730). The rewrite would publish a snapshot in which this actor's lane
 is not yet pending and the record not yet predicted, then a second one. Rule 28 joins them: a domain write's queue
 join and prediction publish in the starting turn's publication. A declined start (Rejected, Overloaded) applies
 nothing, and that is known before publication.
@@ -395,7 +398,7 @@ shared and decides when a send leaves.
 
 - **E5. A `latest` waiting start joins the record queue.** Superseding it removes a queued, never-invoked write,
   which EDP already allows (EDP:114-115): it ends `NotSent { why: "Superseded" }` with its prediction removed and no
-  repair. The record queue, not merge 2's settlement rule (MD:1206), releases the next send, so a waiting `latest`
+  repair. The record queue, not merge 2's settlement rule (MD:1322), releases the next send, so a waiting `latest`
   start never runs over an unrepaired record (F-H3).
 - **`cancel`.** EDP makes `concurrency: "cancel"` on a predicting write a `flow check` error (EDP:112-113,
   ED:645-646). The proposed E5 extends that to "`cancel` of an invoked predicting write"; section 9 (question 2.1)
@@ -428,9 +431,9 @@ This replaces ED:650-651's "settles interrupted" for a queued cancel.
 
 ### 3.5 Unknown, retry and uncertain (E2, E3, E7, E8)
 
-**E2. One retry shape.** `pay.retry(key)` (MD:926, rule 19) replaces `O.x.retry(select)` in OPS O3 (OPS:113-117) and
+**E2. One retry shape.** `pay.retry(key)` (MD:989, rule 19) replaces `O.x.retry(select)` in OPS O3 (OPS:113-117) and
 EDP O1 (EDP:107-108), with OPS's "known settled result settles immediately" (OPS:114-115): under rule 21 a lane whose
-Attempt succeeded has no current Attempt, so a retry ends `NotSent { why: "NothingToResend" }`. "The machine
+Attempt succeeded has no addressable Attempt, so a retry ends `NotSent { why: "NothingToResend" }`. "The machine
 reconciles the Attempt" (EDP:105-106) is spelled `pay.retry(key)`.
 
 **E7. A retry is the same request.**
@@ -471,7 +474,7 @@ A read never clears it: a read cannot prove the write will not still land (ED:65
 Attempt (found checking E3): a record reads `uncertain` while any of its marks remains; a retry's success clears that
 Attempt's mark, and a later write's success clears every mark on the record (EDP:105-106).
 
-**The rule table** (replaces the cache table of MD:806-812 for domain operations; C4, MD:2020):
+**The rule table** (replaces the cache table of MD:865-871 for domain operations; C4, MD:2136):
 
 | The Attempt's ending (after rule 18) | Predictions | Repair | Queue release | `uncertain` |
 | --- | --- | --- | --- | --- |
@@ -521,8 +524,8 @@ create: write(createIssue).one(Issue),            // predicts nothing: createIss
 
 ### 3.8 Callback memory reads (E12)
 
-Rule 22 lists "optimistic and write callbacks" as after reads (MD:551) while open item 10 leaves them open
-(MD:2121-2124; F-H4, F-L2). Proposed:
+Rule 22 lists "optimistic and write callbacks" as after reads (MD:583) while open item 10 leaves them open
+(MD:2240-2243; F-H4, F-L2). Proposed:
 
 ```ts
 O.Notes.save.commit(select, {                 // a plain operation
@@ -541,7 +544,7 @@ O.Notes.save.commit(select, {                 // a plain operation
 
 ### 3.9 Reads around writes (E15)
 
-A resource's call value (MD:1152-1161) carries confirmed data only: predictions never reach a `success:` mapper,
+A resource's call value (MD:1245-1254) carries confirmed data only: predictions never reach a `success:` mapper,
 as they never fire `value` (EDP:130-131). A read's defect or interruption arrives on `failure` as the Flow reasons
 `Defect` and `Interrupted`:
 
@@ -557,7 +560,7 @@ in a tag record, as it requires `NotSent` where it can occur (rule 20).
 ### 3.10 Persistence (E14)
 
 A lane, its Attempt and the keys that Attempt predicts persist in **one capture**, the Attempt acknowledgement
-Persistence O6 already requires before invocation (PER:123-127, C17 MD:2033). Restore therefore finds either both or
+Persistence O6 already requires before invocation (PER:123-127, C17 MD:2149). Restore therefore finds either both or
 neither: an acknowledged Attempt whose predicted keys are marked `uncertain` with a forced repair (EDP:106-107), or an
 unacknowledged one that ends `NotSent { why: "Restored" }` with nothing to repair (F-M7). Prediction values are never
 persisted (EDP:127-128).
@@ -572,7 +575,7 @@ OPS:166, ED:703-704); it recommends renaming that one too.
 
 ## 4. Rules
 
-Rules 13–25 (MD:488-573) still apply. These are added to 2.4 as rules 26–38; each names its decision.
+Rules 13–25 (MD:504-610) still apply. These are added to 2.4 as rules 26–38; each names its decision.
 
 26. **One split** (E1). For an operation registered in a domain, the domain owns shared data: the prediction, its
     confirmation and rollback, repair, the record queue, `uncertain` and `unconfirmed`. The commit value owns
@@ -594,13 +597,18 @@ Rules 13–25 (MD:488-573) still apply. These are added to 2.4 as rules 26–38;
 30. **The store follows the Attempt's ending** (E8). Success confirms; a definite failure removes predictions without
     repair; `NotSent` removes or never applies them, without repair (3.4); unknown, including `StillUnknown`, keeps live
     predictions until a forced repair lands, holds the record queue until that repair settles, and marks the record
-    uncertain for that Attempt.
-31. **A retry is the same request** (E2, E7). `pay.retry(key)` is the only re-send of a domain write. It sends the
+    uncertain for that Attempt. **Revision (multiplicity audit, 2026-10-31) (E18).** A prediction over a record the store does not hold (never held,
+    or deleted beneath it by an earlier write or a push) shows nothing, and the record reads absent; it stays with its
+    Attempt for the record queue and settlement, and its field functions run only once a base exists.
+31. **A retry is the same request** (E2, E7). `pay.retry(key)` is the only re-send of a domain write. **Revision (multiplicity audit, 2026-10-31)
+    (E17).** It exists only where the lane has one addressable Attempt (`reject`, `latest`, `cancel`; design rule
+    N2); a domain write that must be retried under several concurrent calls takes a per-call key and `reject`. It sends the
     Attempt's input and `basedOn` unchanged, applies no prediction and joins the record queue. Its response is
     positioned at the Attempt's first send; a differing field it loses on is contested (EDP:66-69).
 32. **What clears `uncertain`** (E3). A mark is per record and Attempt. A success of a retry of that Attempt clears it;
     a success of a later write to the record clears every mark on that record. A read, a forced repair, a failure and
-    `StillUnknown` clear nothing.
+    `StillUnknown` clear nothing. **Revision (multiplicity audit, 2026-10-31) (E18).** A mark holds its record, as a prediction does, so the record is
+    not collected while it may still be changed by a lost request.
 33. **No temporary ids** (E9). A domain list holds only records the server returned. A pending create is a memory draft
     the view shows apart from the answer; membership appears when an answer's refetch holds its key.
 34. **The lane key of a domain write** (E10, as corrected in 9.4.3). A write that predicts exactly one record and
@@ -619,7 +627,7 @@ Rules 13–25 (MD:488-573) still apply. These are added to 2.4 as rules 26–38;
 ## 5. How it is implemented
 
 One runtime: the store and the actors already share the Runtime (EDP:6); nothing here adds a second execution path,
-and `check()` still runs steps 2–6 and publishes nothing (MD:577-578), so it never predicts.
+and `check()` still runs steps 2–6 and publishes nothing (MD:635-636), so it never predicts.
 
 - **Start** (step 6). After step 5 computes the input and key, a domain write runs `.predicts` with the real input
   (ED:339), checks every record queue's bound, and either declines (`Overloaded`, `Rejected`) or joins all its queues
@@ -633,7 +641,7 @@ and `check()` still runs steps 2–6 and publishes nothing (MD:577-578), so it n
   the mailbox. Routing stays in `admitEnding`.
 - **Admission** is unchanged: map, test the owner, update the lane.
 - **Restore.** Predicted keys come back with their Attempt; the store marks them uncertain and forces their repair
-  before readiness, and the ending (`Restored`) is routed by rule 14 after readiness (MD:1211).
+  before readiness, and the ending (`Restored`) is routed by rule 14 after readiness (MD:1327).
 
 ## 6. Changes
 
@@ -655,23 +663,23 @@ and `check()` still runs steps 2–6 and publishes nothing (MD:577-578), so it n
 | --- | --- | --- |
 | Who predicts a domain write | memory (LIST:117-128) or the domain (EDP:52-61) | the domain only (rule 26) |
 | When store effects apply | "publish together before its event" (OPS:101) | at settlement, before the ending is queued (rule 27) |
-| When rule 18 runs | at admission (MD:597) | at settlement; admission maps it |
-| When a start's prediction shows | "on start" (OPS:82), after the turn publishes (MD:671-672) | in the starting turn's publication (rule 28) |
-| `latest`'s waiting start | invoked at settlement (MD:1206) | joins the record queue; sent when it heads it (rule 29) |
+| When rule 18 runs | at admission (MD:655) | at settlement; admission maps it |
+| When a start's prediction shows | "on start" (OPS:82), after the turn publishes (MD:729-730) | in the starting turn's publication (rule 28) |
+| `latest`'s waiting start | invoked at settlement (MD:1322) | joins the record queue; sent when it heads it (rule 29) |
 | A queued cancel | "settles interrupted" (ED:650-651) | `NotSent { why: "Cancelled" }`, no repair |
 | Retry of a domain write | `O.x.retry(select)` (EDP:107-108, OPS:113) | `pay.retry(key)`, identical request, no prediction, record queue (rule 31) |
 | Clearing `uncertain` | "a later write … succeeds or the machine reconciles" (EDP:105-106) | a later write's success, or a retry's success (rule 32) |
-| A definite failure after an unknown send | the failure row (MD:811) by channel | unknown in the store (rule 30) |
+| A definite failure after an unknown send | the failure row (MD:870) by channel | unknown in the store (rule 30) |
 | Queue overflow | rejects the whole batch (OPS:96-97); the whole write (EDP:180-182) | `NotSent { why: "Overloaded" }` for that write (rule 35) |
-| `optimistic` and `writes` reads | after memory (MD:551; C15, MD:2031), open (MD:2121-2124) | rule 36 |
-| Domain write lane key | `{}` when omitted (D7, MD:2278) | the predicted record's key (rule 34) |
+| `optimistic` and `writes` reads | after memory (MD:583; C15, MD:2147), open (MD:2240-2243) | rule 36 |
+| Domain write lane key | `{}` when omitted (D7, MD:2400) | the predicted record's key (rule 34) |
 | The list rewrite | rows in memory with temporary ids (LIST) | section 3.1 |
 
 ### 6.3 Removed
 
 | Removed | Was | Why |
 | --- | --- | --- |
-| `O.x.retry(select)` and "a known-settled attempt settles without calling the adapter" | EDP:107-109, OPS:113-117 | `pay.retry(key)`; a succeeded lane has no current Attempt (rule 21) |
+| `O.x.retry(select)` and "a known-settled attempt settles without calling the adapter" | EDP:107-109, OPS:113-117 | `pay.retry(key)`; a succeeded lane has no addressable Attempt (rule 21) |
 | `InvalidAttempt` | OPS:115-116 | no Attempt argument exists |
 | "rejects the whole action batch with AdmissionOverloaded" | OPS:96-97 | rule 35 |
 | Memory rows, temporary ids, `pendingTitle`, `deleted`, `like.desired`/`confirmed` | LIST:8-19 | rules 26, 33 |
@@ -686,22 +694,22 @@ The `.plan` files change only when this proposal is accepted (D14).
 | Where | Amendment |
 | --- | --- |
 | 2.4 | add rules 26–38 |
-| Rule 16 (MD:509-517) | the declines list gains `Overloaded` (rule 35) |
-| Rule 18 (MD:519-521) | "decided at settlement, from the Attempt's send history" |
-| Rule 21 (MD:534-546) | a domain write's key defaults per rule 34; the lane does not hold store state |
-| Rule 22 (MD:547-553) | callback rows per rule 36; closes open item 10 |
-| 2.5 step 1 (MD:597-600) | rule 18 is already applied; admission maps |
-| 2.5 step 6 (MD:671-672) | domain starts join queues and predict in the turn's publication (rule 28) |
-| 2.7.1 cache table (MD:806-817) | the domain column follows section 3.5's table; the sentence "How domains meet the rest of this section is open" goes |
-| 2.7.2 table (MD:829-847) | rows for the store: prediction, record queue, `uncertain`, `predicted` (section 2) |
-| 2.7.8 (MD:1132-1150) | `latest` with a predicting write (rule 29); the like example becomes section 3.1's |
-| 2.7.9 (MD:1159-1161) | rule 37 |
-| 2.7.12 (MD:1198-1211) | settlement row: "store effects applied and queues released; rule 18 applied; under `latest` the waiting start is invoked when it heads its record queues (domain) or now (plain)" |
-| C4 (MD:2020) | by the Attempt's ending, not the channel (rule 30) |
-| C10 (MD:2026) | `latest` and the record queue; `Overloaded` |
-| C15 (MD:2031) | rule 36 |
-| C17 (MD:2033) | one capture with predicted keys (rule 38) |
-| Section 7 (MD:2121-2124, MD:2134-2136) | items 10 and 14 closed by this proposal; item 16 unchanged |
+| Rule 16 (MD:525-534) | the declines list gains `Overloaded` (rule 35) |
+| Rule 18 (MD:536-538) | "decided at settlement, from the Attempt's send history" |
+| Rule 21 (MD:551-563) | a domain write's key defaults per rule 34; the lane does not hold store state. Revision (multiplicity audit, 2026-10-31): the design's rule 21 now reads lanes as `s.calls` rows and decides per-call members by concurrency (D18–D20); rules 31 and 32 follow it (E17, E18) |
+| Rule 22 (MD:579-585) | callback rows per rule 36; closes open item 10 |
+| 2.5 step 1 (MD:655-658) | rule 18 is already applied; admission maps |
+| 2.5 step 6 (MD:729-730) | domain starts join queues and predict in the turn's publication (rule 28) |
+| 2.7.1 cache table (MD:865-876) | the domain column follows section 3.5's table; the sentence "How domains meet the rest of this section is open" goes |
+| 2.7.2 table (MD:888-907) | rows for the store: prediction, record queue, `uncertain`, `predicted` (section 2) |
+| 2.7.8 (MD:1210-1243) | `latest` with a predicting write (rule 29); the like example becomes section 3.1's |
+| 2.7.9 (MD:1252-1254) | rule 37 |
+| 2.7.12 (MD:1314-1327) | settlement row: "store effects applied and queues released; rule 18 applied; under `latest` the waiting start is invoked when it heads its record queues (domain) or now (plain)" |
+| C4 (MD:2136) | by the Attempt's ending, not the channel (rule 30) |
+| C10 (MD:2142) | `latest` and the record queue; `Overloaded` |
+| C15 (MD:2147) | rule 36 |
+| C17 (MD:2149) | one capture with predicted keys (rule 38) |
+| Section 7 (MD:2240-2243, MD:2253-2255) | items 10 and 14 closed by this proposal; item 16 unchanged |
 
 **`Operations.plan`**
 
@@ -779,7 +787,7 @@ succeeded, or a retry of the Attempt succeeded)".
 - **Retry re-applies the prediction.** Shows a value the forced repair just contradicted. Rejected.
 - **Retry's response by its own position.** Overwrites a newer confirmed write whenever the server replays a stored
   response. The first-send position plus the existing contest rule is right in both server behaviours. Rejected.
-- **`latest` bypasses the record queue** (MD:1206 as written). Sends over an unrepaired uncertain record (F-H3).
+- **`latest` bypasses the record queue** (MD:1322 as written). Sends over an unrepaired uncertain record (F-H3).
   Rejected.
 - **Temporary ids with re-keying** (TanStack DB's model). EDP C1 forbids instant inserts (EDP:189-192). Rejected.
 - **A read clears `uncertain`.** It cannot prove the lost request will not still run (ED:656-658). Rejected.
@@ -802,7 +810,7 @@ the domain owns shared data, the commit value owns workflow, memory never mirror
 confirm; it is EDP's goal sentence (EDP:6-7) applied to the merged commit value.
 
 1.2 **E4 Timing** (F-H1). *Before:* store effects "before its event" (OPS:101). *After:* at settlement; the lane at
-admission. **Found:** rule 18 must then be decided at settlement (MD:597), and a start's prediction should publish
+admission. **Found:** rule 18 must then be decided at settlement (MD:655), and a start's prediction should publish
 with its turn (rule 28). *Recommendation:* confirm E4 with both additions.
 
 1.3 **E13 Store effects never depend on routing** (F-M5). *Before:* unstated. *After:* rule 27's last sentence.
@@ -811,7 +819,7 @@ from workflow memory.
 
 ### Round 2: concurrency
 
-2.1 **E5 The record queue wins** (F-H3, A-H3). *Before:* `latest` invokes its waiting start at settlement (MD:1206).
+2.1 **E5 The record queue wins** (F-H3, A-H3). *Before:* `latest` invokes its waiting start at settlement (MD:1322).
 *After:* the waiting start joins the record queue; superseding it is a removal without repair. **Correction:**
 "`cancel` of an invoked predicting write stays a `flow check` error" conflates two things. EDP's error is
 `concurrency: "cancel"` (EDP:112-113, ED:645-646). Whether a `.cancel(key)` action reaches an invoked or a queued
@@ -824,13 +832,13 @@ rule 16; a Rejected start never predicts. *Recommendation:* confirm; it is D5.
 
 2.3 **E11 Overflow is an ending** (F-M6). *Before:* the batch (OPS:96-97) or the write (EDP:180-182) is rejected.
 *After:* `NotSent { why: "Overloaded" }`. *Recommendation:* confirm, with the name `Overloaded` beside `Rejected`.
-`InvalidKey` from a failing key select stays a turn rejection (`InvalidTurn`, MD:552-553): it is a programmer error,
+`InvalidKey` from a failing key select stays a turn rejection (`InvalidTurn`, MD:584-585): it is a programmer error,
 not load.
 
 ### Round 3: retry and uncertain
 
 3.1 **E2 One retry shape** (A-H2). *Before:* `O.x.retry(select)` (OPS:113, EDP:107-108). *After:* `pay.retry(key)`;
-known-settled and `InvalidAttempt` go. *Recommendation:* confirm. `orphaned`'s `retry(attempt)` (MD:2143-2146) stays
+known-settled and `InvalidAttempt` go. *Recommendation:* confirm. `orphaned`'s `retry(attempt)` (MD:2262-2262) stays
 open item 16.
 
 3.2 **E7 A retry is the same request** (F-H2). *Before:* unspecified. *After:* same input and `basedOn`, no
@@ -846,7 +854,7 @@ older lost request will not still land; `basedOn` checked by the server is the o
 
 ### Round 4: store endings, creates, keys
 
-4.1 **E8 The store follows the Attempt's ending** (F-M1, A-M4). *Before:* by channel (MD:806-812). *After:* after rule
+4.1 **E8 The store follows the Attempt's ending** (F-M1, A-M4). *Before:* by channel (MD:865-871). *After:* after rule
 18. *Recommendation:* confirm. Refinement: "keeps predictions" applies only to predictions still live, which exist
 only if the retry was sent before the first forced repair landed.
 
@@ -854,7 +862,7 @@ only if the retry was sent before the first forced repair landed.
 confirm. The cost: a draft cannot be renamed while it sends (LIST:152, LIST:172-178 could).
 
 4.3 **E10 Keys** (A-M1). **Correction:** `.one(Entity)` on a write names where the record is in the response (ED:247,
-EDX:96-97), unknown at start, when the lane key is computed (MD:1203). *Recommendation:* default the lane key to the
+EDX:96-97), unknown at start, when the lane key is computed (MD:1319). *Recommendation:* default the lane key to the
 recorded key of `.predicts` when it predicts exactly one record (ED:338); creates and multi-record writes declare
 their key or use `{}`; `flow check` warns when a declared key differs from the predicted record's key. Because
 operation modules never import entities (EDP:18-19), the default is supplied at registration, by the domain.
@@ -867,7 +875,7 @@ ED:297-299 and EDP:60-61, which keep `writes` on domain operations for `invalida
 operations have no `optimistic`, and their `writes` may only invalidate, with the same `{ value, input }` view.
 
 5.2 **E15 Reads carry confirmed data** (F-L1). **Correction:** "optional to map" lets an unmapped `Defect` leave a
-waiting state with no event, the silent decline D5 removed for writes (spike P5, MD:2273). *Recommendation:* with a single
+waiting state with no event, the silent decline D5 removed for writes (spike P5, MD:2394). *Recommendation:* with a single
 `failure:` event they arrive there; in a tag record they are optional in the type and required by `flow check`, as
 `NotSent` is where it can occur (rule 20). A read can always defect, so in practice they are always required.
 
@@ -886,11 +894,11 @@ acknowledgement already exists (PER:123-127).
 targets), already recorded at construction (ED:338). *Recommendation:* add it as a CommandLine O5 display; no new
 analysis.
 
-6.3 **Found: `.each` keys versus record keys** (A-L1). `.each` keys are strings (rule 9, MD:434), record keys are
-records. *Recommendation:* leave to section 7 item 0, "Collections, after `.each`" (MD:2096-2099); rule 34 removes
+6.3 **Found: `.each` keys versus record keys** (A-L1). `.each` keys are strings (rule 9, MD:445), record keys are
+records. *Recommendation:* leave to section 7 item 0, "Collections, after `.each`" (MD:2214-2217); rule 34 removes
 the transaction side of the remap.
 
-6.4 **Open: unknown lanes live until success** (D11, MD:2293-2296). A lane holding an unknown Attempt is kept for
+6.4 **Open: unknown lanes live until success** (D11, MD:2416-2420). A lane holding an unknown Attempt is kept for
 `retry`, so a never-retried unknown lane lives as long as the actor, and persists with it. *Recommendation:* keep D11
 (correctness: evicting it would turn a later reconcile into `NothingToResend`); a new write on the lane replaces it
 (rule 21), so the growth is one lane per key the user touched and abandoned. Add held unknown lanes to actor
@@ -903,7 +911,8 @@ section 9. In short:
 
 - **E1** One split: the domain owns shared data, the commit value owns workflow; memory never mirrors a record (rule 26).
 - **E2, E7** One retry shape, `x.retry(key)`: the identical request, no new prediction, joins the record queue,
-  positioned at the first send (rule 31).
+  positioned at the first send (rule 31). *Superseded in part by E17 (2026-10-31): `x.retry(key)` exists only where
+  the lane has one addressable Attempt.*
 - **E3** `uncertain` is per record and Attempt; a successful retry or a later successful write clears it; a read never
   does (rule 32).
 - **E4, E13** The store applies endings at settlement (rule 18 decided there); the lane changes at admission; routing
@@ -924,6 +933,16 @@ section 9. In short:
   mapped (rule 37).
 - **E16, as corrected** The record read and the resource/answer lane read rename `pending` to `predicted`.
 - **Lane lifetime** Lanes holding an unknown Attempt are kept (D11), with evidence added so they are visible.
+- **E17 (Revision (multiplicity audit, 2026-10-31); supersedes part of E2, E7).** `x.retry(key)` addresses the lane's one addressable Attempt, so
+  it exists only under `reject`, `latest` and `cancel` (design rule N2, D20); a domain write retried under several
+  concurrent calls takes a per-call key and `reject`. The list's `createIssue` is `reject` per draft (3.1). Reason:
+  under `allow` the lane's "current" Attempt was the newest create, so a retry re-sent the wrong draft's write
+  ([audit-multiplicity.md](../audit-multiplicity.md) F1). Views and guards read lanes as `s.calls` rows (design D18);
+  the `NotSent` mapper's `laneKey` names the draft (design D21), so `CreateFailed.draftId` is never `null`.
+- **E18 (Revision (multiplicity audit, 2026-10-31); new).** A prediction over a record the store does not hold shows nothing and waits for a base;
+  an uncertain mark holds its record (rules 30, 32). Reason: a patch replayed over a deleted or never-loaded record had
+  no defined result, and a collected record lost its mark (audit F12). Merge 5's replay rule needs the matching
+  sentence (audit section 4).
 
 Not caused by server calls, and recorded only to correct merge 2's example: E1's "memory never mirrors a record" and E9
 were already required by EntityDomains (D1, O1).
