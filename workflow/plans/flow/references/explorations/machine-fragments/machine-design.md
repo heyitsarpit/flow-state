@@ -6,7 +6,7 @@ are kept as the record behind it, and where they differ from this file, this fil
 ([merged/entities.md](merged/entities.md), entity domains) was merged on 2026-10-30, and merge 5
 ([merged/entity-analysis/proposal.md](merged/entity-analysis/proposal.md), statically analysable domains) on 2026-10-30; merge
 5's rules A1–A12 belong to `references/design/entity-domain.md` section 9, and only its effects on 2.8 are here.
-Operations in the definition ([operations-in-definition/proposal.md](operations-in-definition/proposal.md), revision 13) was merged on
+Operations in the definition ([merged/operations/proposal.md](merged/operations/proposal.md), revision 13) was merged on
 2026-10-30: server interaction is declared once under `operations` (2.7, rules 39–47), and write lanes are the
 Runtime's (2.7.13).
 Stories (merge 3) is last; parts of 2.8 that
@@ -731,7 +731,7 @@ decision (E1–E18). Rules 13–25 and N1–N3 still apply.
     its first invocation (rule 46). Prediction values are never persisted.
 
 **Operations in the definition** (2.7, 2.7.13–2.7.16). Rules 39–47 are the operations merge's
-([operations-in-definition/proposal.md](operations-in-definition/proposal.md)); each names its decisions.
+([merged/operations/proposal.md](merged/operations/proposal.md)); each names its decisions.
 
 39. **Contracts** (OD4, OD11–OD15, OD17 Q18, OD18, OD23 Q37, Q38). A contract (`transaction`, `resource`, `stream`, or a
     domain entry) lives in `*.contracts.ts` and has exactly two schemas, `input` and `output`, flat at its top level,
@@ -966,9 +966,8 @@ runtime: **nothing in Flow reads an HTTP status or an author error type.**
 
 Citations in 2.7.3, 2.7.5, 2.7.9, 2.7.10 and 2.7.13–2.7.16 to reviews (R*n*, K*n*, H*n*, M*n*, L*n*), lane-model
 findings (F*n*, G*n*, C*n*, inv *n*), revisions, cases (5.*x*, 8.*x*, 9.*x*) and questions (Q*n*) are the operations
-record's ([operations-in-definition/proposal.md](operations-in-definition/proposal.md)); its marks *decided (OD*n*)* and
-*proposed* are kept as written there, and all of it was accepted for merging (OD24). Code excerpts in 2.7 and 2.8 that
-still show commit values and `s.calls` are rewritten in the examples change set.
+record's ([merged/operations/proposal.md](merged/operations/proposal.md)); its marks *decided (OD*n*)* and
+*proposed* are kept as written there, and all of it was accepted for merging (OD24).
 
 #### 2.7.1 Endings: three channels
 
@@ -1113,8 +1112,71 @@ throws ([merged/outcomes.md](merged/outcomes.md) section 6 lists each source, wi
 
 #### 2.7.3 Contracts, operations and the commit
 
-*The checkout excerpt (its contracts with `key: []`, the definition's `operations`, and `Pay`, `CheckAgain`,
-`TookTooLong`) is added in the examples change set.*
+The checkout (the operations record's 5.1), in excerpts:
+
+```ts
+// checkout.contracts.ts (outside the machine)
+export const Stripe = {
+  confirm: transaction({
+    id: "Stripe.confirm",
+    input: Schema.Struct({ intentId: Schema.String, paymentMethodId: Schema.String }),
+    output: Intent,
+    key: [],                                                    // one lane: one intent per checkout actor (rule 39)
+    concurrency: "reject",
+    commit: (input, { attempt, signal }) => Effect.gen(function* () {
+      const api = yield* StripeApi                              // production wraps fetch; Stories use a fixture
+      const res = yield* api.confirm(input, { idempotencyKey: attempt.id, signal }).pipe(   // the author puts Flow's id on the wire (rule 19)
+        Effect.retry({ while: (e) => e._tag === "NoResponse", times: 1 }),                  // invisible: inside one send
+        Effect.catchTag("NoResponse", (e) => Outcome.unknown(e)))
+      if (res.ok) return yield* Outcome.success(toIntent(res))
+      if (res.status === 402) return yield* Outcome.failure(new CardDeclined({ declineCode: res.declineCode ?? "generic_decline" }))
+      if (res.status === 429) return yield* Outcome.failure(new Busy({ retryAfterMs: res.retryAfterMs }))   // information only
+      if (res.status === 409) return yield* Outcome.failure(new TooManyAttempts({}))
+      if (res.status >= 500) return yield* Outcome.unknown(new ServerError({ status: res.status }))
+      return yield* Outcome.failure(new Rejected({ code: res.code ?? "unknown" }))
+    }),
+  }),
+  intent: resource({ id: "Stripe.intent", input: { intentId: Schema.String }, output: Intent, key: ["intentId"], staleTime: "0 millis", gcTime: "1 minute", lookup: retrieveIntent }),
+}
+
+// A response read with the write's history, by the author who knows the API:
+if (res.status === 404 && attempt.mayHaveApplied) return yield* Outcome.success({ alreadyGone: true })
+```
+
+```ts
+// checkout.definition.ts
+internalEvents: {
+  Intent: { status: IntentStatus, chargeId: Schema.optionalKey(Schema.String) },   // 2.7.4 reads `status`
+  Declined: { code: Schema.String, paymentMethodId: Schema.String },
+  Busy: { retryAfterMs: Schema.optional(Schema.Number) },   // no `attempt` field: Flow keeps the Attempt
+  TooManyAttempts: {}, Refused: {}, TryLater: {}, ReadFailed: {},
+  Unsure: Flow.uncertain({}),                               // the only kind of event `unknown:` may target
+  TookTooLong: {}, RetryNow: {}, CheckTick: {},
+},
+operations: ({ E }) => {
+  const intent = E.Intent.from((i) => ({ status: i.status, chargeId: i.chargeId }))
+  return {
+    pay: Stripe.confirm.outcomes({
+      success: intent,                                      // the read in 2.7.9 maps to the same event
+      failure: {                                            // exhaustive over the commit's failure tags
+        CardDeclined: E.Declined.from((r, { input }) => ({ code: r.declineCode, paymentMethodId: input.paymentMethodId })),
+        Busy: E.Busy.from((r) => ({ retryAfterMs: r.retryAfterMs })),
+        TooManyAttempts: E.TooManyAttempts, Rejected: E.Refused,
+        NotSent: E.TryLater,                                // optional in the type; flow check requires it here (rule 20)
+      },
+      unknown: E.Unsure,                                    // StillUnknown arrives here too (rule 18)
+    }),
+    read: Stripe.intent.outcomes({ success: intent, failure: E.ReadFailed }),   // maps success: looked up (rule 41)
+  }
+},
+
+// checkout.machine.ts
+CARD:    { on: { Pay: { target: S.PAYING, guard: [O.pay.idle], updateMemory: ({ event }) => ({ paymentMethodId: event.paymentMethodId, busyTries: 0 }), actions: [O.pay.commit(({ memory, event }) => ({ intentId: memory.intentId, paymentMethodId: event.paymentMethodId }))] } } },   // a new Attempt
+UNSURE:  { on: { CheckTick: [{ target: S.PAYING, guard: [O.pay.retryable({ times: 6 })], actions: [O.pay.retry] }, { target: S.STUCK }] } },   // the same Attempt, in Held
+PAYING:  { on: { TookTooLong: { target: "self", actions: [O.pay.cancel] } } },   // interrupts; the unknown { Cancelled } is retained
+```
+
+
 
 **What an operation is.**
 
@@ -1362,15 +1424,19 @@ An excerpt: it shows routing, so PAYING's handlers for `Declined` and `TryLater`
 handler are left out; a complete machine needs them (rule 20).
 
 ```ts
+const thisIntent = ({ memory }) => ({ intentId: memory.intentId })
 const paid = { target: S.DONE, guard: ({ event }) => event.status === "succeeded" || deny("NotSucceeded") }
+const toRead = { target: S.READING, actions: [O.read.lookup(thisIntent)] }
+const answered = [O.pay.cancel, O.challenge.cancel]           // the read answered: release what the lanes still hold
 return {
   on: {
-    // Late (rule 14): PAYING was left before the ending's turn. The same event, routed from the root.
-    Intent: [{ ...paid, guard: [S.LEFT, paid.guard] }, { target: "self" }],
-    Unsure: { target: "self", actions: [read.fetch(key)] },     // never drop a charge that may have landed
+    // Late (rule 14), or adopted by a new incarnation in any leaf (rule 44): the same event, routed from the root.
+    Intent: [{ ...paid, actions: answered }, { target: "self" }],
+    Unsure: { target: "self", actions: [O.read.lookup(thisIntent)] },   // never drop a charge that may have landed
     Declined: { target: "self" }, Busy: { target: "self" }, TryLater: { target: "self" },   // late failures: explicit ignores (rule 20)
   },
   states: {
+    CARD: { on: { Unsure: S.UNSURE } },                         // a new incarnation starts here and may receive a held pay
     PAYING: {
       on: {   // current: the user is still in PAYING (or below it)
         Intent: [paid, toRead],
@@ -1470,7 +1536,7 @@ budget is therefore memory, counted across writes:
 PAYING:  { on: { Busy: [{ target: S.WAITING, guard: underBudget, updateMemory: countAndDelay }, toCard("busy")] } },
 WAITING: {
   schedules: { retry: { schedule: ({ memory }) => Duration.millis(memory.retryInMs), send: E.RetryNow } },   // after memory: the Busy turn's retryInMs (rule 23)
-  on: { RetryNow: [{ target: S.PAYING, guard: [pay.idle(key)], actions: [pay] }, { target: "self" }] },   // a new write, a new id
+  on: { RetryNow: [{ target: S.PAYING, guard: [O.pay.idle], actions: [O.pay.commit(({ memory }) => ({ intentId: memory.intentId, paymentMethodId: memory.paymentMethodId }))] }, { target: "self" }] },   // a new write, a new id
 },
 ```
 
@@ -1485,8 +1551,8 @@ UNSURE: {
   schedules: { check: { schedule: "3 seconds", send: E.CheckTick } },
   on: {
     CheckTick: [
-      { target: S.PAYING, guard: ({ calls, memory }) => (lane(calls, memory.intentId)?.retryCount ?? 0) < 5 || deny("ChecksLeft"), actions: [pay.retry(key)] },   // never a new Attempt (lane: 2.7.5)
-      { target: S.STUCK },                                    // still unknown after 5 re-sends: tell the user, never "not charged"
+      { target: S.PAYING, guard: [O.pay.retryable({ times: 5 })], actions: [O.pay.retry] },   // never a new Attempt; RetryLimit at the budget
+      { target: S.STUCK },                                    // still unknown after 5 re-sends: tell the user, never "not charged"; STUCK reads and releases (2.7.4's answered)
     ],
   },
 },
@@ -1501,28 +1567,34 @@ own handler, naming that ending's Attempt (rule N2).
 #### 2.7.7 Leaving, compensation and clean-up
 
 ```ts
-// booking.operations.ts (excerpt)
+// booking.contracts.ts (excerpt)
 export const charge = transaction({
   id: "Booking.charge",
-  key: (i) => ({ holdId: i.holdId }),
+  input: { holdId: Schema.String, amountCents: Schema.Int },
+  key: ["holdId"],
   concurrency: "reject",
   commit: chargeCard,                                 // classifies with Outcome where it reads the response
-  orphaned: ({ attempt, retry }) => retry(attempt),   // in flight across a version change (P19)
+  orphaned: ({ attempt, retry }) => retry(attempt),   // its operation gone across a version change (P19)
 });
+
+// booking.definition.ts (excerpt)
+operations: ({ E }) => ({
+  charge: Booking.charge.outcomes({ success: E.Paid.from((v) => ({ paymentId: v.paymentId })), failure: { … }, unknown: E.ChargeUnsure }),
+  refund: Booking.refund.outcomes({ success: E.Refunded, failure: { … }, unknown: E.RefundUnsure }),
+}),
 
 // booking.machine.ts (excerpt): the user left mid-charge; the charge lands. LEFT owns no call, so the late handler may move it.
 const chargeKey = ({ memory }) => ({ holdId: memory.holdId })
 const refundKey = ({ memory }) => ({ paymentId: memory.paymentId })
-const refund = O.Booking.refund.commit(refundKey, { outcomes: { success: E.Refunded, failure: { … }, unknown: E.RefundUnsure } })
 on: {
-  Paid: [{ target: S.REFUNDING, guard: [S.LEFT], updateMemory: ({ event }) => ({ paymentId: event.paymentId }), actions: [refund] }, { target: "self" }],
-  ChargeUnsure: [{ target: S.SETTLING, guard: [S.LEFT], actions: [charge.retry(chargeKey)] }, { target: "self" }],
+  Paid: [{ target: S.REFUNDING, guard: [S.LEFT], updateMemory: ({ event }) => ({ paymentId: event.paymentId }), actions: [O.refund.commit(refundKey)] }, { target: "self" }],
+  ChargeUnsure: { target: S.SETTLING, actions: [O.charge.retry(chargeKey)] },   // late or adopted, in any leaf: SETTLING owns the hold (rule 44)
 },
 REFUNDING: {
   on: {
     Refunded: S.REFUNDED,
     RefundBusy: [waitBusy(S.REFUND_WAIT, 8), needsHelp("Your refund is delayed. We'll complete it and email you.")],   // a new write after a wait
-    RefundUnsure: [waitUnsure(S.REFUND_WAIT, refund, refundKey, 8), needsHelp("Your refund is delayed. We'll complete it and email you.")],   // the same write
+    RefundUnsure: [waitUnsure(S.REFUND_WAIT, O.refund, refundKey, 8), needsHelp("Your refund is delayed. We'll complete it and email you.")],   // the same write
   },
 },
 ```
@@ -1530,25 +1602,34 @@ REFUNDING: {
 Lateness is not transitive: a call started by a late turn is an ordinary call with its own owner (rule 15), so the
 chain can finish. REFUNDING owns the refund, so its endings are current there and may move the user. The refund's
 select reads the `paymentId` the same turn wrote (rule 22), so one commit serves both starting points
-(CONFIRMING's give-up and the late `Paid`) and `refund.retry(refundKey)` always finds its record.
+(CONFIRMING's give-up and the late `Paid`) and `O.refund.retry(refundKey)` always finds its record.
 
 **Compensation recipe.** Handle a late success at an ancestor by moving an idle state to a compensating state that
 starts the undo; try a definite failure of the undo again as a new write after a wait, and reconcile its unknown with
-`.retry` of the same Attempt, each with a budget, ending in a state that tells the user. The full case is
+`O.x.retry` of the same Attempt, each with a budget, ending in a state that tells the user. The full case is
 [merged/server-calls/rewrites/booking.ts](merged/server-calls/rewrites/booking.ts).
 
 **Cancel, then clean up.**
 
 ```ts
-const put = O.Uploads.upload.commit(({ memory }) => ({ ref: memory.ref }), {
-  outcomes: {
-    success: E.Uploaded,
-    failure: { NotSent: E.UploadNotSent },                               // never left the device: nothing to clean
-    unknown: E.UploadUnsure.from((_r, { input, attempt }) => ({ ref: input.ref, uploadKey: attempt.id })),
+// uploads.definition.ts (excerpt; the operations record's 8.1)
+operations: ({ E }) => ({
+  put: Uploads.put.outcomes({                                            // key: ["ref"], one lane per file
+    success: E.Uploaded.from((_v, { key }) => ({ ref: key.ref })),
+    failure: { NotSent: E.UploadNotSent.from((_r, { key }) => ({ ref: key.ref })) },   // never left the device: nothing to clean
+    unknown: E.UploadUnsure.from((_r, { key, attempt }) => ({ ref: key.ref, uploadKey: attempt.id })),   // Cancelled after invocation arrives here
+  }),
+  clean: Uploads.discard.outcomes({ success: E.Cleaned, failure: { … }, unknown: E.CleanUnsure }),
+}),
+// uploads.machine.ts (excerpt)
+UPLOADING: {
+  on: {
+    Uploaded: S.DONE,
+    Cancel: { target: "self", actions: [O.put.cancel(({ event }) => event)] },   // interrupts; the unknown { Cancelled } is retained (Held)
+    UploadNotSent: S.CANCELLED,
+    UploadUnsure: { target: S.CLEANING, actions: [O.put.cancel, O.clean.commit(({ event }) => ({ ref: event.ref, uploadKey: event.uploadKey }))] },   // key-less: release this upload's hold; the tombstone takes over
   },
-})
-const clean = O.Uploads.discard.commit(({ event }) => ({ ref: event.ref, uploadKey: event.uploadKey }), { outcomes: { … } })
-UPLOADING: { on: { Uploaded: S.DONE, Cancel: { target: "self", actions: [put.cancel(key)] }, UploadNotSent: S.CANCELLED, UploadUnsure: { target: S.CLEANING, actions: [clean] } } },
+},
 ```
 
 The client cannot stop a body already sent, and no browser API says when the server is done with it. So the
@@ -1573,17 +1654,21 @@ retry or a progress bar (messages, uploads, per-item batch results) are keyed pe
 key, `reject` never refuses a different call.
 
 ```ts
-// Likes on an Issues domain (2.8.2): the store predicts and rolls back; a failure only toasts, so it can never undo newer intent (rule 30).
-setLike: write(setLike).one(Issue).predicts(({ input }) => Issue.patch(input.key, { liked: input.liked, likes: (i, input) => i.likes + (input.liked === i.liked ? 0 : input.liked ? 1 : -1) })),
-const like = O.Issues.setLike.commit(({ event }) => ({ key: { id: event.id }, liked: event.liked }), {
-  outcomes: {
-    success: E.Settled,                                            // the store confirms; memory has nothing to write
-    failure: { Gone: E.IssueGone, Refused: fail("Could not update"), NotSent: fail("Could not update") },
-    unknown: E.LikeUnsure.from((_r, { input, superseded }) => ({ id: input.key.id, superseded })),
-  },
-})
-Toggle: { target: "self", updateMemory: ({ memory, event }) => ({ likeUnsure: without(memory.likeUnsure, event.id) }), actions: [like] },
-ReconcileLike: { target: "self", updateMemory: ({ memory, event }) => ({ likeUnsure: without(memory.likeUnsure, event.id) }), actions: [like.retry(issue)] },   // the same request, no new prediction (rule 31)
+// issues.domain.ts (2.8.2): the store predicts and rolls back; a failure only toasts, so it can never undo newer intent (rule 30).
+setLike: write(setLike).one(Issue).predicts(({ input }) => Issue.patch({ id: input.id }, { liked: input.liked, likes: (i, input) => i.likes + (input.liked === i.liked ? 0 : input.liked ? 1 : -1) })),
+// list.definition.ts: setLike is `latest`, key: ["id"]
+like: Issues.setLike.outcomes({
+  success: E.Settled,                                              // the store confirms; memory has nothing to write
+  failure: { Gone: E.IssueGone, Refused: fail("Could not update"), NotSent: fail("Could not update") },
+  unknown: E.LikeUnsure.from((_r, { key }) => ({ id: key.id })),
+}),
+// list.machine.ts
+Toggle: { target: "self", actions: [O.like.commit(({ event }) => ({ id: event.id, liked: event.liked }))] },   // a toggle while unsure waits behind the held lane
+LikeUnsure: [
+  { target: "self", guard: [O.like.retryable({ times: MAX_LIKE_RESENDS })] },   // the reconcile schedule re-sends it
+  { target: "self", updateMemory: () => ({ toast: "Couldn't confirm your like" }), actions: [O.like.cancel] },   // give up: release; a waiting unlike is then sent
+],
+ReconcileLike: { target: "self", actions: [O.like.retry(named)] },   // the same request, no new prediction (rule 31)
 ```
 
 A plain operation (no domain) keeps memory-held predictions, as before: the select reads the memory its turn flipped
@@ -1611,17 +1696,39 @@ released session cannot publish later (M6 rule 44). Nothing new is needed.
 
 A read operation's `success:` sees confirmed data only, never a prediction (rule 37).
 
-*The checkout's READING excerpt (`O.read.lookup(select)`) and the search box (`O.results.cancel`) are added in the
-examples change set.*
+```ts
+// checkout: a reconcile read; a slow poll is released by the next, so only the latest answer arrives
+READING: {
+  schedules: { poll: { schedule: Schedule.spaced("2 seconds"), send: E.PollTick.from((m) => ({ n: m.attempt })) } },
+  on: {
+    PollTick: [{ target: S.STUCK, guard: ({ event }) => event.n >= MAX_POLLS || deny("PollsLeft") }, { target: "self", actions: [O.read.lookup(thisIntent)] }],
+    Intent: [{ ...paid, actions: answered }, { target: "self" }],   // the read answered: release the held writes (rule 24)
+    ReadFailed: { target: "self" },
+  },
+},
+// a search box: one lane, no stale guard; an empty query cancels the waiting lookup, with no key
+Typed: [
+  { target: "self", guard: ({ event }) => event.q.trim().length > 1 || deny("TooShort"), updateMemory: ({ event }) => ({ q: event.q }) },
+  { target: "self", updateMemory: ({ event }) => ({ q: event.q, hits: [] }), actions: [O.results.cancel] },
+],
+SearchDue: { target: "self", actions: [O.results.lookup(({ memory }) => ({ q: memory.q }))] },
+Found: { target: "self", updateMemory: ({ event }) => ({ hits: event.hits }) },   // an older query's answer is never delivered
+```
 
 #### 2.7.10 Time per key: keyed schedules
 
 ```ts
 schedules: {
   unlock: {                                                                   // one timer per key
-    keys: ({ memory }) => Object.keys(memory.lockedUntil),
-    schedule: ({ key, memory, now }) => Duration.millis(Math.max(0, memory.lockedUntil[key] - now)),
-    send: E.Unlock.from(({ key }) => ({ key })),
+    keys: ({ memory }) => Object.keys(memory.lockedUntil).map((challengeId) => ({ challengeId })),   // key records
+    schedule: ({ key, memory, now }) => Duration.millis(Math.max(0, memory.lockedUntil[key.challengeId] - now)),
+    send: E.Unlock.from(({ key }) => ({ challengeId: key.challengeId })),
+  },
+  autosave: {                                                                 // one debounce per document
+    keys: ({ memory }) => memory.dirty.map((docId) => ({ docId })),
+    restartOn: ({ key, memory }) => memory.drafts[key.docId],                 // per key (rule 23)
+    schedule: "1 second",
+    send: E.SaveDue.from(({ key }) => ({ docId: key.docId })),
   },
 },
 ```
@@ -1633,23 +1740,22 @@ feature (C14).
 
 **One session per key.** A list holds one live session per row with `O.x.subscribe.each(select)` (rule 41): the
 select returns a list of inputs, one session per distinct key (rule N1; OD9 Q22); the view reads one with
-`O.x.get(s, key)`. The excerpt below still shows the replaced `keys` option:
+`O.x.get(s, key)`:
 
 ```ts
-activities: {
-  quotes: O.Market.quote.subscribe(({ key }) => ({ symbol: key }), {           // params receive `key`
-    keys: ({ memory }) => memory.watchlist,                                     // one session per symbol in the after list
-    outcomes: { failure: E.QuoteLost.from((_e, { key }) => ({ symbol: key })) },   // every mapper receives `key`
-  }),
-},
-useView(watch, (s) => s.activities.quotes.find((q) => q.key === symbol)?.data)  // a keyed list of lanes, each { key, …lane }
+// definition: the stream's key is ["symbol"]; every mapper receives `key`
+quotes: Market.quote.outcomes({ failure: E.QuoteLost.from((_e, { key }) => ({ symbol: key.symbol })) }),
+// machine
+activities: [O.quotes.subscribe.each(({ memory }) => memory.watchlist.map((symbol) => ({ symbol })))],   // one session per symbol in the after list
+// view
+useView(watch, (s) => List.O.quotes.get(s, { symbol })?.data)               // undefined for a symbol not placed
 ```
 
 A key's subscription starts when the key first appears in the after list and is released when it leaves; a repeated
 key keeps its first position, with `listRepair` evidence (rule 23). Each key's lane and deliveries behave as one
 ordinary activity's (Machines O6; merge 6 for streams), and a delivery for a key that has left is discarded as a
-released session's is. Two keys whose params project the same descriptor key are a duplicate session for the later key
-(merge 6 rule 47).
+released session's is. Two selected inputs with the same key are one session (rule 41); two placements of one key are
+`DuplicateSession` (merge 6 rule 47).
 
 #### 2.7.11 Batches and Stories
 
@@ -2234,57 +2340,116 @@ LIST (197 lines: definition 52, machine 142) keeps every issue in memory as an `
 `like.confirmed`, `pendingTitle`, `deleted` and a temporary id (LIST:8-19), and writes prediction and rollback by hand
 (LIST:117-128, LIST:104). The rewrite moves shared data to the domain and keeps workflow in memory.
 
-**The domain** (26 lines, new; LIST's `list.operations.ts` was not shown):
+**The contracts and the domain** (`issues.contracts.ts` is plain structs; every contract states `input`, `output` and `key`,
+rule 39):
 
 ```ts
-// ───────────────────────────────────────────────── issues.operations.ts (plain structs; no entity imports, EDP O1)
-export const issuesInProject = resource({ id: "issues/in-project", key: (i: { projectId: string }) => i, result: IssuesPage, … })
-export const setLike = transaction({ id: "issues/set-like", input: Schema.Struct({ key: IssueKey, liked: Schema.Boolean }), concurrency: "latest", commit: … })
-export const renameIssue = transaction({ id: "issues/rename", input: Schema.Struct({ key: IssueKey, title: Schema.String }), concurrency: "latest", commit: … })
-export const removeIssue = transaction({ id: "issues/remove", input: Schema.Struct({ key: IssueKey }), concurrency: "reject", commit: … })
-export const createIssue = transaction({                          // no predicts, so its key is declared (E10)
-  id: "issues/create", input: Schema.Struct({ draftId: Schema.String, projectId: Schema.String, title: Schema.String }),
-  key: (i) => ({ draftId: i.draftId }), concurrency: "reject", commit: …,   // attempt.id on the wire (rule 19); draftId stays on the device
-  // Revision (multiplicity audit, 2026-10-31): was "allow". One lane per draft is one call, so `create.retry(drafted)` names it (rule N2);
-  // under "allow" retry is a type error, because two creates of one draft would share a lane.
-})
-// the three predicting writes declare no key: their lane is the predicted record, { id } (E10)
+// issues.contracts.ts (plain structs; no entity imports, EDP O1)
+import { Effect, Schema } from "effect"
+import { Outcome, resource, transaction } from "flow-state"
+import { IssueRow, IssuesApi, IssuesPage } from "./issues-api"
 
-// ───────────────────────────────────────────────── issues.domain.ts
-import { asc, desc, eq } from "flow-state"   // the Condition operators (merge 5)
-export const Issue = entity({ id: "issues/Issue", fields: IssueRow.fields, primaryKey: ["id"] })
-export const Issues = domain("issues", {
-  list: read(issuesInProject)
-    .list(Issue, ({ result }) => result.issues)
-    .where(({ input, record }) => eq(record.projectId, input.projectId))
-    .orderBy(({ record }) => [desc(record.number), asc(record.id)]),
-  setLike: write(setLike).one(Issue).predicts(({ input }) => Issue.patch(input.key, {
-    liked: input.liked,
-    likes: (i, input) => i.likes + (input.liked === i.liked ? 0 : input.liked ? 1 : -1),
-  })),
-  rename: write(renameIssue).one(Issue).predicts(({ input }) => Issue.patch(input.key, { title: input.title })),
-  remove: write(removeIssue).predicts(({ input }) => Issue.delete(input.key)),
-  create: write(createIssue).one(Issue),                          // membership arrives by refetch (EDP O1)
+export class Gone extends Schema.TaggedError<Gone>()("Gone", {}) {}
+export class Refused extends Schema.TaggedError<Refused>()("Refused", { status: Schema.Number }) {}
+export class Invalid extends Schema.TaggedError<Invalid>()("Invalid", { message: Schema.String }) {}
+export class ServerError extends Schema.TaggedError<ServerError>()("ServerError", { status: Schema.Number }) {}
+export class ListFailed extends Schema.TaggedError<ListFailed>()("ListFailed", { status: Schema.Number }) {}
+
+const send = (method: "PUT" | "PATCH" | "DELETE" | "POST", path: string, body: unknown, attemptId: string, signal: AbortSignal) =>
+  IssuesApi.use((api) => api.send(method, path, body, { idempotencyKey: attemptId, signal })).pipe(Effect.catchTag("NoResponse", (e) => Outcome.unknown(e)))
+const settle = (res: { status: number }) => Effect.gen(function* () {
+  if (res.status === 404) return yield* Outcome.failure(new Gone({}))
+  if (res.status >= 500) return yield* Outcome.unknown(new ServerError({ status: res.status }))
+  return yield* Outcome.failure(new Refused({ status: res.status }))
+})
+
+export const issuesInProject = resource({
+  id: "issues/in-project", input: { projectId: Schema.String }, output: IssuesPage, key: ["projectId"], staleTime: "30 seconds", gcTime: "5 minutes",   // OD12: input/output; OD4: key names input fields
+  lookup: (i, { signal }) => Effect.gen(function* () {
+    const res = yield* (yield* IssuesApi).list(i, { signal }).pipe(Effect.mapError(() => new ListFailed({ status: 0 })))
+    if (res.page === undefined) return yield* new ListFailed({ status: res.status })
+    return res.page
+  }),
+})
+export const setLike = transaction({
+  id: "issues/set-like", input: Schema.Struct({ id: Schema.String, liked: Schema.Boolean }), output: IssueRow, key: ["id"], concurrency: "latest",   // stated, no domain default
+  commit: (i, { attempt, signal }) => Effect.gen(function* () {
+    const res = yield* send("PUT", `/issues/${i.id}/like`, { liked: i.liked }, attempt.id, signal)
+    if (res.status === 200 && res.row !== undefined) return res.row
+    return yield* settle(res)
+  }),
+})
+export const renameIssue = transaction({
+  id: "issues/rename", input: Schema.Struct({ id: Schema.String, title: Schema.String }), output: IssueRow, key: ["id"], concurrency: "latest",
+  commit: (i, { attempt, signal }) => Effect.gen(function* () {
+    const res = yield* send("PATCH", `/issues/${i.id}`, { title: i.title }, attempt.id, signal)
+    if (res.status === 200 && res.row !== undefined) return res.row
+    return yield* settle(res)
+  }),
+})
+export const removeIssue = transaction({
+  id: "issues/remove", input: Schema.Struct({ id: Schema.String }), key: ["id"], concurrency: "reject",   // no output: void (Q37)
+  commit: (i, { attempt, signal }) => Effect.gen(function* () {
+    const res = yield* send("DELETE", `/issues/${i.id}`, {}, attempt.id, signal)
+    if (res.status === 204) return
+    return yield* settle(res)
+  }),
+})
+export const createIssue = transaction({
+  id: "issues/create", input: Schema.Struct({ draftId: Schema.String, projectId: Schema.String, title: Schema.String }), output: IssueRow,
+  key: ["draftId"],                                                            
+  concurrency: "reject",
+  commit: (i, { attempt, signal }) => Effect.gen(function* () {
+    const res = yield* send("POST", `/projects/${i.projectId}/issues`, { title: i.title }, attempt.id, signal)   // draftId stays on the device
+    if (res.status === 201 && res.row !== undefined) return res.row
+    if (res.status === 422) return yield* Outcome.failure(new Invalid({ message: res.message ?? "invalid" }))
+    if (res.status >= 500) return yield* Outcome.unknown(new ServerError({ status: res.status }))
+    return yield* Outcome.failure(new Refused({ status: res.status }))
+  }),
 })
 ```
 
-**The definition and machine** (159 lines: definition 49, machine 109; LIST was 197: definition 52, machine 142):
+```ts
+// issues.domain.ts (the predicts read input.id: keys are top-level input fields, rule 39)
+import { asc, desc, domain, entity, eq, read, write } from "flow-state"   // eq, asc, desc: the Condition operators (merge 5)
+import { IssueRow } from "./issues-api"
+import { createIssue, issuesInProject, removeIssue, renameIssue, setLike } from "./issues.contracts"
+
+export const Issue = entity({ id: "issues/Issue", fields: IssueRow.fields, primaryKey: ["id"] })
+export const Issues = domain("issues", {
+  list: read(issuesInProject)
+    .list(Issue, ({ output }) => output.issues)
+    .where(({ input, record }) => eq(record.projectId, input.projectId))
+    .orderBy(({ record }) => [desc(record.number), asc(record.id)]),
+  setLike: write(setLike).one(Issue).predicts(({ input }) => Issue.patch({ id: input.id }, {
+    liked: input.liked,
+    likes: (i, input) => i.likes + (input.liked === i.liked ? 0 : input.liked ? 1 : -1),
+  })),
+  rename: write(renameIssue).one(Issue).predicts(({ input }) => Issue.patch({ id: input.id }, { title: input.title })),
+  remove: write(removeIssue).predicts(({ input }) => Issue.delete({ id: input.id })),
+  create: write(createIssue).one(Issue),
+})
+```
+
+**The definition, machine and view** (definition 72 lines, machine 86; LIST was 197: definition 52, machine 142). The
+operations, their mappings and their keys are on the definition; the machine holds behaviour only; rows come from the
+answer, row fields from the record, drafts from memory, "Saving…" from the lane:
 
 ```ts
-// ───────────────────────────────────────────────── list.definition.ts
-import { definition, deny, Flow, machine } from "flow-state"
+// list.definition.ts
+import { definition, Flow } from "flow-state"
 import { Schema } from "effect"
 import { Issues } from "./issues.domain"
 
 export const MAX_LIKE_RESENDS = 3
 
-export const Draft = Schema.Struct({            // workflow, not entity data: a create the list does not hold yet (E9)
-  draftId: Schema.String,                       // the view's key and the create's lane; never sent
+export const Draft = Schema.Struct({
+  draftId: Schema.String,
   title: Schema.String,
   status: Schema.Literals(["sending", "failed", "unsure", "created"]),
   failure: Schema.NullOr(Schema.String),
-  id: Schema.NullOr(Schema.String),             // the real id once Created; the view hides the draft once the list holds it
-  discarded: Schema.Boolean,                    // discarded while it may land: deleted once Created
+  id: Schema.NullOr(Schema.String),
+  discarded: Schema.Boolean,
 })
 export type Draft = typeof Draft.Type
 
@@ -2292,7 +2457,7 @@ export const List = definition({
   id: "Issues/List",
   states: ["READY"],
   events: {
-    Toggle: { id: Schema.String, liked: Schema.Boolean },   // the view sends the value it wants, read from the record
+    Toggle: { id: Schema.String, liked: Schema.Boolean },
     Edit: { id: Schema.String, title: Schema.String },
     Delete: { id: Schema.String },
     Open: { id: Schema.String },
@@ -2303,107 +2468,115 @@ export const List = definition({
   internalEvents: {
     Listed: { ids: Schema.Array(Schema.String) },
     Settled: {}, IssueGone: {},
-    Failed: { message: Schema.String, superseded: Schema.Boolean },
-    Unsure: Flow.uncertain({ message: Schema.String, superseded: Schema.Boolean }),
-    LikeUnsure: Flow.uncertain({ id: Schema.String, superseded: Schema.Boolean }),
+    Failed: { message: Schema.String },                                         // no superseded field (2.7.13)
+    RenameUnsure: Flow.uncertain({ message: Schema.String }), RemoveUnsure: Flow.uncertain({ message: Schema.String }),   // one unknown event per keyed operation whose handler acts on its lane
+    LikeUnsure: Flow.uncertain({ id: Schema.String }),                          // no superseded field
     Created: { draftId: Schema.String, id: Schema.String },
-    CreateFailed: { draftId: Schema.String, message: Schema.String },   // Revision (multiplicity audit, 2026-10-31): a NothingToResend names its draft through laneKey (D21)
+    CreateFailed: { draftId: Schema.String, message: Schema.String },
     CreateUnsure: Flow.uncertain({ draftId: Schema.String }),
     ReconcileLike: { id: Schema.String }, ToastExpired: {},
   },
-  memory: {                                                        // workflow only: no row, title, like or rollback (E1)
+  memory: {
     projectId: Flow.input(Schema.String),
     creating: Flow.initial(Schema.Array(Draft), []),
-    likeUnsure: Flow.initial(Schema.Array(Schema.String), []),     // the keyed schedule's keys
+    // likeUnsure, the mirrored id list (R3 M2); the reconcile schedule reads the lanes' `uncertain`
     selectedId: Flow.initial(Schema.NullOr(Schema.String), null),
     toast: Flow.initial(Schema.NullOr(Schema.String), null),
   },
-  operations: { Issues },
+  operations: ({ E }) => {                                                      
+    const fail = (message: string) => E.Failed.from(() => ({ message }))
+    const unsure = (event: typeof E.RenameUnsure | typeof E.RemoveUnsure, message: string) => event.from(() => ({ message }))
+    return {
+      issues: Issues.list.outcomes({ value: E.Listed.from((v) => ({ ids: v.issues.map((i) => i.id) })) }),   // maps value: the machine subscribes (S11)
+      like: Issues.setLike.outcomes({                                           // one lane per Issue, created by work (key: ["id"], stated on the contract, OD15)
+        success: E.Settled,
+        failure: { Gone: E.IssueGone, Refused: fail("Could not update"), NotSent: fail("Could not update") },   // a replaced toggle never arrives here (2.7.13)
+        unknown: E.LikeUnsure.from((_r, { key }) => ({ id: key.id })),
+      }),
+      rename: Issues.rename.outcomes({
+        success: E.Settled,
+        failure: { Gone: E.IssueGone, Refused: fail("Couldn't save the title"), NotSent: fail("Couldn't save the title") },
+        unknown: unsure(E.RenameUnsure, "Couldn't confirm the title"),
+      }),
+      remove: Issues.remove.outcomes({
+        success: E.Settled,
+        failure: { Gone: E.Settled, Refused: fail("Couldn't delete"), NotSent: fail("Couldn't delete") },
+        unknown: unsure(E.RemoveUnsure, "Couldn't confirm the delete"),
+      }),
+      create: Issues.create.outcomes({                                          // one lane per draft (the contract's key)
+        success: E.Created.from((v, { key }) => ({ draftId: key.draftId, id: v.id })),
+        failure: {
+          Invalid: E.CreateFailed.from((r, { key }) => ({ draftId: key.draftId, message: r.message })),
+          Refused: E.CreateFailed.from((r, { key }) => ({ draftId: key.draftId, message: `Refused (${r.status})` })),
+          NotSent: E.CreateFailed.from((r, { key }) => ({ draftId: key.draftId, message: `Not sent (${r.why})` })),   // key: always present (was laneKey)
+        },
+        unknown: E.CreateUnsure.from((_r, { key }) => ({ draftId: key.draftId })),
+      }),
+    }
+  },
 })
+```
 
-// ───────────────────────────────────────────────── list.machine.ts
+```ts
+// list.machine.ts
+import { deny, machine } from "flow-state"
+import { List, MAX_LIKE_RESENDS, type Draft } from "./list.definition"
+
 type Memory = typeof List.Memory.Type
 const draft = (m: Memory, draftId: string) => m.creating.find((d) => d.draftId === draftId)
 const editDraft = (m: Memory, draftId: string, f: (d: Draft) => Draft) => ({ creating: m.creating.map((d) => (d.draftId === draftId ? f(d) : d)) })
 const dropDraft = (m: Memory, draftId: string) => ({ creating: m.creating.filter((d) => d.draftId !== draftId) })
-const without = (ids: ReadonlyArray<string>, id: string) => ids.filter((x) => x !== id)
 
-export const ListMachine = machine(List, ({ S, E, O }) => {
-  const issue = ({ event }) => ({ id: event.id })                  // the lane key is the record key (E10)
-  const drafted = ({ event }) => ({ draftId: event.draftId })
-  const fail = (message: string) => E.Failed.from((_r, { superseded }) => ({ message, superseded }))
-  const unsure = (message: string) => E.Unsure.from((_r, { superseded }) => ({ message, superseded }))
-
-  // B1: the store predicts liked and likes; `latest` coalesces inside the record queue (E5)
-  const like = O.Issues.setLike.commit(({ event }) => ({ key: { id: event.id }, liked: event.liked }), {
-    outcomes: {
-      success: E.Settled,                                          // the store confirms; memory has nothing to write
-      failure: { Gone: E.IssueGone, Refused: fail("Could not update"), NotSent: fail("Could not update") },   // NotSent: Superseded or Overloaded (E11)
-      unknown: E.LikeUnsure.from((_r, { input, superseded }) => ({ id: input.key.id, superseded })),
-    },
-  })
-  const rename = O.Issues.rename.commit(({ event }) => ({ key: { id: event.id }, title: event.title }), {
-    outcomes: { success: E.Settled, failure: { Gone: E.IssueGone, Refused: fail("Couldn't save the title"), NotSent: fail("Couldn't save the title") }, unknown: unsure("Couldn't confirm the title") },
-  })
-  const remove = O.Issues.remove.commit(({ event }) => ({ key: { id: event.id } }), {   // Delete, and Created for a discarded draft
-    outcomes: { success: E.Settled, failure: { Refused: fail("Couldn't delete"), NotSent: fail("Couldn't delete") }, unknown: unsure("Couldn't confirm the delete") },
-  })
-  // B2: Create and Retry both start it; the select reads the draft from the after memory (rule 22)
-  const create = O.Issues.create.commit(({ memory, event }) => ({ draftId: event.draftId, projectId: memory.projectId, title: draft(memory, event.draftId)?.title ?? "" }), {
-    outcomes: {
-      success: E.Created.from((v, { input }) => ({ draftId: input.draftId, id: v.id })),
-      failure: {
-        Invalid: E.CreateFailed.from((r, { input }) => ({ draftId: input.draftId, message: r.message })),
-        Refused: E.CreateFailed.from((r, { input }) => ({ draftId: input.draftId, message: `Refused (${r.status})` })),
-        NotSent: E.CreateFailed.from((r, { laneKey }) => ({ draftId: laneKey.draftId, message: `Not sent (${r.why})` })),   // laneKey: always present
-      },
-      unknown: E.CreateUnsure.from((_r, { input }) => ({ draftId: input.draftId })),
-    },
-  })
-  const reload = O.Issues.list.refetch(({ memory }) => ({ projectId: memory.projectId }))   // a failure repairs nothing (C4): ask again
+export const ListMachine = machine(List, ({ S, E, O }) => {                      
+  const named = ({ event }) => event                                            // user-defined: a user event names the thing; it carries the key's fields (OD4)
   const draftIs = (pred: (d: Draft) => boolean, code: string) => ({ memory, event }) => { const d = draft(memory, event.draftId); return (d !== undefined && pred(d)) || deny(code) }
-  const toastUnlessSuperseded = [
-    { target: "self", guard: ({ event }) => event.superseded || deny("Latest") },   // a newer write on the lane decides
-    { target: "self", updateMemory: ({ event }) => ({ toast: event.message }) },
-  ]
+  const toast = { target: "self", updateMemory: ({ event }) => ({ toast: event.message }) }
 
   return {
     default: S.READY,
     states: {
       READY: {
-        activities: {   // value sees confirmed data only (EDP O1); the event carries ids, never rows
-          issues: O.Issues.list.subscribe(({ memory }) => ({ projectId: memory.projectId }), { outcomes: { value: E.Listed.from((v) => ({ ids: v.issues.map((i) => i.id) })) } }),
-        },
+        activities: [O.issues.subscribe(({ memory }) => ({ projectId: memory.projectId }))],   
         schedules: {
-          reconcile: { keys: ({ memory }) => memory.likeUnsure, schedule: "3 seconds", send: E.ReconcileLike.from(({ key }) => ({ id: key })) },
-          toastOff: { schedule: "4 seconds", send: E.ToastExpired, armOn: [E.Failed, E.Unsure, E.LikeUnsure] },
+          reconcile: { keys: ({ operations }) => operations.like.filter((l) => l.uncertain).map((l) => l.key), schedule: "3 seconds", send: E.ReconcileLike.from(({ key }) => ({ id: key.id })) },   // uncertain on the row; key: the lane's key record (L1, 2.7.10)
+          toastOff: { schedule: "4 seconds", send: E.ToastExpired, armOn: [E.Failed, E.RenameUnsure, E.RemoveUnsure, E.LikeUnsure] },
         },
         on: {
-          // ───────────── B1 likes, rename, remove: the store predicts, confirms, rolls back and marks uncertain (E1)
-          Toggle: { target: "self", updateMemory: ({ memory, event }) => ({ likeUnsure: without(memory.likeUnsure, event.id) }), actions: [like] },   // a newer write replaces the reconcile
-          Edit: { guard: ({ event }) => event.title.trim() !== "" || deny("EmptyTitle"), target: "self", actions: [rename] },
-          Delete: { guard: [remove.idle(issue)], target: "self", updateMemory: ({ memory, event }) => ({ selectedId: memory.selectedId === event.id ? null : memory.selectedId }), actions: [remove] },
-          Open: { guard: ({ activities, event }) => activities.issues?.data?.issues.some((i) => i.id === event.id) || deny("NoSuchRow"), target: "self", updateMemory: ({ event }) => ({ selectedId: event.id }) },
+          Toggle: {
+            target: "self",                                                     // a toggle while unsure waits behind the held lane (OD5); no mirror to update
+            actions: [O.like.commit(({ event }) => ({ id: event.id, liked: event.liked }))],   // existing: commit; the key is derived
+          },
+          Edit: {
+            guard: ({ event }) => event.title.trim() !== "" || deny("EmptyTitle"),
+            target: "self",
+            actions: [O.rename.commit(({ event }) => ({ id: event.id, title: event.title }))],
+          },
+          Delete: {
+            guard: [O.remove.idle(named)],                                      // existing: idle(key); the event carries `id` (OD4)
+            target: "self",
+            updateMemory: ({ memory, event }) => ({ selectedId: memory.selectedId === event.id ? null : memory.selectedId }),
+            actions: [O.remove.commit(({ event }) => ({ id: event.id }))],
+          },
+          Open: { guard: ({ operations, event }) => operations.issues?.data?.issues.some((i) => i.id === event.id) || deny("NoSuchRow"), target: "self", updateMemory: ({ event }) => ({ selectedId: event.id }) },
           Settled: { target: "self" },
-          IssueGone: { target: "self", actions: [reload] },
-          Failed: toastUnlessSuperseded,
-          Unsure: toastUnlessSuperseded,                             // the record reads uncertain until a later write or a retry succeeds (E3)
+          IssueGone: { target: "self", actions: [O.issues.refetch] },
+          Failed: toast,
+          RenameUnsure: { ...toast, actions: [O.rename.cancel] },              // give up: release this Attempt; a rename that waited behind it is then sent (OD7)
+          RemoveUnsure: { ...toast, actions: [O.remove.cancel] },              // key-less: rename and remove each alone map their event (OD8)
           LikeUnsure: [
-            { target: "self", guard: ({ event }) => event.superseded || deny("Latest") },   // the newer write's success clears it (E3)
-            { target: "self", guard: ({ calls, event }) => (calls.Issues.setLike.find((l) => l.key.id === event.id)?.retryCount ?? 0) < MAX_LIKE_RESENDS || deny("GaveUp"), updateMemory: ({ memory, event }) => ({ likeUnsure: [...without(memory.likeUnsure, event.id), event.id] }) },   // setLike is latest: one addressable Attempt (rule N2)
-            { target: "self", updateMemory: ({ memory, event }) => ({ likeUnsure: without(memory.likeUnsure, event.id), toast: "Couldn't confirm your like" }) },
+            { target: "self", guard: [O.like.retryable({ times: MAX_LIKE_RESENDS })] },   // retryable (OD1); no key: this ending's Attempt (OD4); the reconcile schedule re-sends it
+            { target: "self", updateMemory: () => ({ toast: "Couldn't confirm your like" }), actions: [O.like.cancel] },   // gave up: release this Attempt (OD7); an unlike that waited is then sent, not dropped (R4 H3)
           ],
-          ReconcileLike: { target: "self", updateMemory: ({ memory, event }) => ({ likeUnsure: without(memory.likeUnsure, event.id) }), actions: [like.retry(issue)] },   // the same request, no new prediction (E7)
+          ReconcileLike: { target: "self", actions: [O.like.retry(named)] },   // not an ending: the event names the Issue
 
-          // ───────────── B2: create as a draft, shown apart from the list (E9)
           Create: {
             guard: [({ event }) => event.title.trim() !== "" || deny("EmptyTitle"), ({ memory, event }) => draft(memory, event.draftId) === undefined || deny("DuplicateDraft")],
             target: "self",
             updateMemory: ({ memory, event }) => ({ creating: [...memory.creating, { draftId: event.draftId, title: event.title, status: "sending", failure: null, id: null, discarded: false }] }),
-            actions: [create],
+            actions: [O.create.commit(({ memory, event }) => ({ draftId: event.draftId, projectId: memory.projectId, title: event.title }))],   // the key comes from the input
           },
           Created: [
-            { guard: draftIs((d) => d.discarded, "NotDiscarded"), target: "self", updateMemory: ({ memory, event }) => dropDraft(memory, event.draftId), actions: [remove] },
+            { guard: draftIs((d) => d.discarded, "NotDiscarded"), target: "self", updateMemory: ({ memory, event }) => dropDraft(memory, event.draftId), actions: [O.remove.commit(({ event }) => ({ id: event.id }))] },
             { target: "self", updateMemory: ({ memory, event }) => editDraft(memory, event.draftId, (d) => ({ ...d, status: "created", id: event.id })) },
           ],
           Listed: { target: "self", updateMemory: ({ memory, event }) => ({ creating: memory.creating.filter((d) => d.id === null || !event.ids.includes(d.id)) }) },
@@ -2412,16 +2585,16 @@ export const ListMachine = machine(List, ({ S, E, O }) => {
             { target: "self", updateMemory: ({ memory, event }) => editDraft(memory, event.draftId, (d) => ({ ...d, status: "failed", failure: event.message })) },
           ],
           CreateUnsure: [
-            { guard: [draftIs((d) => d.discarded, "NotDiscarded"), ({ calls, event }) => (calls.Issues.create.find((l) => l.key.draftId === event.draftId)?.retryCount ?? 0) < 3 || deny("GaveUp")], target: "self", actions: [create.retry(drafted)] },   // find out, so a landed create is deleted
+            { guard: [draftIs((d) => d.discarded, "NotDiscarded"), O.create.retryable({ times: 3 })], target: "self", actions: [O.create.retry] },   // an ending: no key (OD4)
             { target: "self", updateMemory: ({ memory, event }) => editDraft(memory, event.draftId, (d) => ({ ...d, status: "unsure" })) },
           ],
           Retry: [
-            { guard: [draftIs((d) => d.status === "failed", "NotFailed"), create.idle(drafted)], target: "self", updateMemory: ({ memory, event }) => editDraft(memory, event.draftId, (d) => ({ ...d, status: "sending", failure: null })), actions: [create] },   // a new write (rule 19)
-            { guard: [draftIs((d) => d.status === "unsure", "NothingToRetry"), create.idle(drafted)], target: "self", updateMemory: ({ memory, event }) => editDraft(memory, event.draftId, (d) => ({ ...d, status: "sending" })), actions: [create.retry(drafted)] },   // the same Attempt
+            { guard: [draftIs((d) => d.status === "failed", "NotFailed"), O.create.idle(named)], target: "self", updateMemory: ({ memory, event }) => editDraft(memory, event.draftId, (d) => ({ ...d, status: "sending", failure: null })), actions: [O.create.commit(({ memory, event }) => ({ draftId: event.draftId, projectId: memory.projectId, title: draft(memory, event.draftId)?.title ?? "" }))] },   // a second start, its own select
+            { guard: [draftIs((d) => d.status === "unsure", "NothingToRetry"), O.create.idle(named)], target: "self", updateMemory: ({ memory, event }) => editDraft(memory, event.draftId, (d) => ({ ...d, status: "sending" })), actions: [O.create.retry(named)] },
           ],
           Discard: [
             { guard: [draftIs((d) => d.status === "failed", "NotFailed")], target: "self", updateMemory: ({ memory, event }) => dropDraft(memory, event.draftId) },
-            { guard: [draftIs((d) => d.status === "unsure", "NotUnsure"), create.idle(drafted)], target: "self", updateMemory: ({ memory, event }) => editDraft(memory, event.draftId, (d) => ({ ...d, discarded: true })), actions: [create.retry(drafted)] },
+            { guard: [draftIs((d) => d.status === "unsure", "NotUnsure"), O.create.idle(named)], target: "self", updateMemory: ({ memory, event }) => editDraft(memory, event.draftId, (d) => ({ ...d, discarded: true })), actions: [O.create.retry(named)] },
             { guard: [draftIs((d) => d.status === "sending", "NotSending")], target: "self", updateMemory: ({ memory, event }) => editDraft(memory, event.draftId, (d) => ({ ...d, discarded: true })) },
           ],
           ToastExpired: { target: "self", updateMemory: () => ({ toast: null }) },
@@ -2432,14 +2605,18 @@ export const ListMachine = machine(List, ({ S, E, O }) => {
 })
 ```
 
-**The view** (excerpt): rows come from the answer, row fields from the record, drafts from memory, "Saving…" from the
-lane.
-
 ```tsx
-const rows = useView(list, (s) => s.activities.issues?.data?.issues ?? [])
-const drafts = useView(list, (s) => s.memory.creating.filter((d) => !d.discarded && !rows.some((r) => r.id === d.id)))
-const row = useView(list, (s) => Issue.get(s, { id }, Issue.pick("title", "liked", "likes")))
-<LikeButton liked={row.data.liked} count={row.data.likes} unsure={row.uncertain} onClick={() => send(E.Toggle({ id, liked: !row.data.liked }))} />
+// IssueList.tsx
+const { O } = List                                                              // the definition exports O, as it exports S and E
+const rows = useView(list, (s) => s.operations.issues?.data?.issues ?? [])      // path; undefined while not placed (OPS O6)
+const drafts = useView(list, (s) => s.memory.creating.filter((d) => !d.discarded && !rows.some((r) => r.id === d.id)))   // one issue never shows twice (rule 33)
+{rows.map((r) => <IssueRow key={r.id} issue={r} />)}
+{drafts.map((d) => <DraftRow key={d.draftId} title={d.title} status={d.status} />)}   // status lives in memory: the handlers write it
+
+// IssueRow.tsx
+const row = useView(list, (s) => Issue.get(s, { id: issue.id }, Issue.pick("title", "liked", "likes")))   // shared: data, predicted, uncertain
+const saving = useView(list, (s) => O.like.get(s, issue).pending || O.rename.get(s, issue).pending)   // get(s, item): the item carries `id` (OD4)
+<LikeButton liked={row.data.liked} count={row.data.likes} unsure={row.uncertain} saving={saving} onClick={() => send(E.Toggle({ id: issue.id, liked: !row.data.liked }))} />
 ```
 
 **What changed, case by case.**
@@ -2447,11 +2624,13 @@ const row = useView(list, (s) => Issue.get(s, { id }, Issue.pick("title", "liked
 | Case | LIST | Rewrite |
 | --- | --- | --- |
 | Like | memory `desired`/`confirmed`/`count`; `LikeSynced`, `LikeRefused` rollback with a `superseded` guard (LIST:117-128) | `.predicts` (2 lines); success is `Settled`; failure only toasts; the store replays the newer waiting prediction, so a failure can never undo newer intent |
-| Like unknown | keyed reconcile, `retryCount` budget (LIST:130-138) | the same; `Toggle` drops the key, because a newer write's success clears `uncertain` (rule 32) |
+| Like unknown | keyed reconcile, `retryCount` budget (LIST:130-138) | the reconcile schedule's `keys` read the held lanes; `retryable({ times })` is the budget, then `cancel` releases; a newer toggle waits behind the held like, and once the like is retried or released the toggle's success clears its mark (rule 32) |
 | Rename | select reads memory; `Edit` with two alternatives and `pendingTitle` for an unsaved row; `Created` re-sends (LIST:93, LIST:152, LIST:172-178) | one transition; the store predicts and confirms. Editing a draft while it sends is dropped: a draft is not a record |
 | Remove | `deleted` flag, `notConfirmed` restores it (LIST:104, LIST:180-184) | `.predicts(Issue.delete)` hides it everywhere; failure restores it in the store |
 | Create | a temporary-id row adopted on `Created` (LIST:100-103, LIST:150-154) | a `creating` draft, hidden by the view once the list holds its id, pruned by `Listed` (rule 33) |
 | A gone issue | `dropId` from memory | `IssueGone` refetches the list: a failure repairs nothing (C4) |
+| Unknown rename and remove | one shared `Unsure` | `RenameUnsure`, `RemoveUnsure`: one event per keyed operation whose handler acts on its lane, so a key-less `cancel` names it (rule 43) |
+| Superseded endings | `superseded` in three events, two guards | none: a replaced toggle was never sent and is not delivered (rule 17) |
 
 #### 2.8.3 Ownership (E1)
 
@@ -2469,7 +2648,7 @@ For an operation registered in a domain, **the domain owns shared data; the oper
 Toggle: { updateMemory: ({ memory, event }) => ({ items: editId(memory, event.id, (i) => withLike(i, { desired: !i.like.desired })) }), actions: [like] },
 LikeRefused: [{ guard: superseded }, { updateMemory: …(i) => withLike(i, { desired: i.like.confirmed }) }],
 // after: the domain predicts; memory holds nothing about the like
-setLike: write(setLike).one(Issue).predicts(({ input }) => Issue.patch(input.key, { liked: input.liked, likes: … })),
+setLike: write(setLike).one(Issue).predicts(({ input }) => Issue.patch({ id: input.id }, { liked: input.liked, likes: … })),
 Toggle: { target: "self", actions: [O.like.commit(({ event }) => ({ id: event.id, liked: event.liked }))] },
 ```
 
@@ -2678,10 +2857,12 @@ Rule 22 used to list "optimistic and write callbacks" as after reads while secti
 F-L2). Decided (E12, rule 36):
 
 ```ts
-O.Notes.save.commit(select, {                 // a plain operation
+// notes.definition.ts: a plain operation; its mapping is on the definition (rule 13)
+notes: Notes.save.outcomes({ success: E.Saved, failure: { … }, unknown: E.SaveUnsure }),
+// notes.machine.ts: optimistic and writes stay commit options for now (Q1)
+O.notes.commit(select, {
   optimistic: ({ memory, input }) => …,       // the starting turn's after memory, captured at start, even if the start waits
   writes: ({ value, input }) => …,            // no memory: it runs at settlement, before any turn of the ending exists
-  outcomes: { … },
 })
 ```
 
@@ -2692,12 +2873,11 @@ O.Notes.save.commit(select, {                 // a plain operation
 - Domain operations have no `optimistic` (EDP:60-61); their `writes` may only invalidate, with the same
   `{ value, input }` view (ED:297-299; E12, as corrected).
 
-*Pending owner Q1 (where a plain operation's `optimistic` and `writes` live).* The excerpt above still shows `outcomes` as a commit option;
-under rule 13 the mapping is on the definition's operation.
+*Pending owner Q1 (where a plain operation's `optimistic` and `writes` live).*
 
 #### 2.8.10 Reads around writes (E15)
 
-A resource's call value (2.7.9) carries confirmed data only: predictions never reach a `success:` mapper,
+A read operation (2.7.9) carries confirmed data only: predictions never reach a `success:` mapper,
 as they never fire `value` (EDP:130-131). A read's defect or interruption arrives on `failure` as the Flow reasons
 `Defect` and `Interrupted`:
 
@@ -2769,7 +2949,7 @@ SIGNED_IN`. In the two-factor step:
 - a wrong code that settles after Back still strikes its own challenge, and a late third strike
   locks at once if the user is entering that challenge's code;
 - only one guess is in flight per challenge: the next Submit is refused until the verify's ending has been handled
-  (`verify.idle`, rule 21);
+  (`O.verify.idle`, rule 21);
 - a verify that takes longer than 15 seconds shows "couldn't check" at once, but the call keeps running and the next
   guess waits for its real ending (a soft timeout, 2.7.6);
 - a challenge gets its lockout copy at its first strike; the copy is removed once it unlocks, and
@@ -2880,16 +3060,16 @@ export const Lockout = (p: { limit: number; length: Duration.Input }) =>
 
 ```ts
 // signin.definition.ts
-import { definition, deny, Flow } from "flow-state";
-import { Schema } from "effect";
-// verifyCode and resendCode: keyed by challengeId, concurrency "reject". The commits classify
+import { definition, deny, Flow } from "flow-state"
+import { Schema } from "effect"
+// verifyCode: key challengeId, concurrency "reject"; resendCode: concurrency "reject", no key. The commits classify
 // WrongCode, Expired and Throttled as failures, with Outcome, where they read the response.
-import { Auth } from "./auth.operations";
-import { Countdown, Field, Lockout } from "./fragments";
+import { Auth } from "./auth.contracts"                                         // file
+import { Countdown, Field, Lockout } from "./fragments"
 
-export const LIMIT = 3;
+export const LIMIT = 3
 
-const sixDigits = (v: string) => /^\d{6}$/.test(v) || deny("CodeFormat", { length: 6 });
+const sixDigits = (v: string) => /^\d{6}$/.test(v) || deny("CodeFormat", { length: 6 })
 
 export const SignIn = definition({
   id: "Auth/SignIn",
@@ -2898,9 +3078,7 @@ export const SignIn = definition({
     {
       TWO_FACTOR: Flow.state(["ENTERING", "VERIFYING", "LOCKED_OUT"], {
         traits: {
-          // Fresh on every entry to TWO_FACTOR: Back drops the typed code.
           code: Field(Schema.String, { validate: sixDigits }),
-          // Resumable: Back and return do not reset the 30 seconds; an overdue cooldown ends on return.
           resendCooldown: Countdown({ length: "30 seconds" }).resumable(),
         },
       }),
@@ -2908,85 +3086,70 @@ export const SignIn = definition({
     "SIGNED_IN",
   ],
   events: {
-    PasswordAccepted: { challengeId: Schema.String }, // the password step's stub
+    PasswordAccepted: { challengeId: Schema.String },
     Submit: {},
     Resend: {},
     BackToPassword: {},
   },
   internalEvents: {
     CodeAccepted: {},
-    CodeWrong: { challengeId: Schema.String },     // the call's own challenge, from its input
+    CodeWrong: { challengeId: Schema.String },
     CodeExpired: {},
-    CodeUnchecked: Flow.uncertain({}),             // the only kind of event `unknown:` may target
+    CodeUnchecked: Flow.uncertain({}),
     ResendSent: {},
     ResendRefused: {},
     ResendUnsure: Flow.uncertain({}),
-    StopWaiting: {},                               // VERIFYING's soft timeout
+    StopWaiting: {},
   },
   memory: {
     challengeId: Flow.initial(Schema.String, ""),
     error: Flow.initial(Schema.NullOr(Schema.String), null),
-    struck: Flow.private(Flow.initial(Schema.Array(Schema.String), [])), // challenges with a strike
+    struck: Flow.private(Flow.initial(Schema.Array(Schema.String), [])),
   },
   traits: {
-    // One per struck challenge, at the root: strikes and lockouts survive Back (rule 9).
     challenges: Lockout({ limit: LIMIT, length: "5 minutes" }).each({ of: "struck", max: 20 }),
   },
-  operations: { Auth },
-});
+  operations: ({ E }) => ({                                                     
+    verify: Auth.verifyCode.outcomes({                                          // user-defined: verify; one lane per challenge (the contract's key)
+      success: E.CodeAccepted,
+      failure: {
+        WrongCode: E.CodeWrong.from((_, { key }) => ({ challengeId: key.challengeId })),   // key: the lane's challenge
+        Expired: E.CodeExpired,
+        NotSent: E.CodeUnchecked,
+      },
+      unknown: E.CodeUnchecked,
+    }),
+    resend: Auth.resendCode.outcomes({
+      success: E.ResendSent,
+      failure: { Throttled: E.ResendRefused, NotSent: E.ResendRefused },
+      unknown: E.ResendUnsure,
+    }),
+  }),
+})
 ```
 
 ```ts
 // signin.machine.ts
-import { deny, machine } from "flow-state";
-import { LIMIT, SignIn } from "./signin.definition";
+import { deny, machine } from "flow-state"
+import { LIMIT, SignIn } from "./signin.definition"
 
-type Memory = typeof SignIn.Memory.Type;
-const strikesOf = (memory: Memory, key: string) => memory.challenges.find((c) => c.key === key)?.strikes ?? 0;
+type Memory = typeof SignIn.Memory.Type
+const strikesOf = (memory: Memory, key: string) => memory.challenges.find((c) => c.key === key)?.strikes ?? 0
 
-export const SignInMachine = machine(SignIn, ({ S, E, O }) => {
-  const strike = E.challenges.Strike.from(({ event }) => ({ key: event.challengeId }));
-  const isCurrent = ({ key, memory }) => key === memory.challengeId || deny("OtherChallenge");
-  // A challenge gets its Lockout copy at its first strike, and loses it when it unlocks.
-  const union = (ids: ReadonlyArray<string>, id: string) => (ids.includes(id) ? ids : [...ids, id]);
-  const forget = ({ memory, key }) => ({ struck: memory.struck.filter((id) => id !== key) });
-  const challenge = ({ memory }) => ({ challengeId: memory.challengeId }); // the lane: one per challenge
-
-  // Owned by VERIFYING, the state Submit enters (rule 14). If VERIFYING was left (Back, or the soft
-  // timeout) when an ending's turn is admitted, the same event routes from TWO_FACTOR, or the root.
-  const verify = O.Auth.verifyCode.commit(
-    ({ memory }) => ({ challengeId: memory.challengeId, code: memory.code.value }),
-    {
-      outcomes: {
-        success: E.CodeAccepted,
-        failure: {
-          WrongCode: E.CodeWrong.from((_, { input }) => ({ challengeId: input.challengeId })),
-          Expired: E.CodeExpired,
-          NotSent: E.CodeUnchecked,                // `reject` (rule 20)
-        },
-        unknown: E.CodeUnchecked,                  // StillUnknown arrives here too (rule 18)
-      },
-    },
-  );
-  // Owned by TWO_FACTOR ("self" on its handler): moving ENTERING → LOCKED_OUT does not make it late.
-  const resend = O.Auth.resendCode.commit(({ memory }) => ({ challengeId: memory.challengeId }), {
-    outcomes: {
-      success: E.ResendSent,
-      failure: { Throttled: E.ResendRefused, NotSent: E.ResendRefused },
-      unknown: E.ResendUnsure,                     // the code may be on its way
-    },
-  });
-
-  const toEntering = (error: string) => ({ target: S.TWO_FACTOR.ENTERING, updateMemory: () => ({ error }) });
+export const SignInMachine = machine(SignIn, ({ S, E, O }) => {                  
+  const strike = E.challenges.Strike.from(({ event }) => ({ key: event.challengeId }))
+  const isCurrent = ({ key, memory }) => key === memory.challengeId || deny("OtherChallenge")
+  const union = (ids: ReadonlyArray<string>, id: string) => (ids.includes(id) ? ids : [...ids, id])
+  const forget = ({ memory, key }) => ({ struck: memory.struck.filter((id) => id !== key) })
+  const toEntering = (error: string) => ({ target: S.TWO_FACTOR.ENTERING, updateMemory: () => ({ error }) })
+  const thisChallenge = ({ memory }) => ({ challengeId: memory.challengeId })   // user-defined: a key selector (was the lane-key const)
 
   return {
     default: S.PASSWORD,
 
     traits: {
       challenges: {
-        // Root-trait callbacks may move the host anywhere (rule 6).
         callbacks: {
-          // A late third strike while this challenge's code is being entered: lock now.
           onLocked: [
             {
               target: S.TWO_FACTOR.LOCKED_OUT,
@@ -2996,7 +3159,6 @@ export const SignInMachine = machine(SignIn, ({ S, E, O }) => {
             },
             { target: "self" },
           ],
-          // Unlocked with zero strikes: the copy is no longer needed, so forget its key.
           onUnlocked: [
             { target: S.TWO_FACTOR.ENTERING, guard: [S.TWO_FACTOR.LOCKED_OUT, isCurrent], updateMemory: (g) => ({ ...forget(g), error: null }) },
             { target: "self", updateMemory: forget },
@@ -3005,23 +3167,23 @@ export const SignInMachine = machine(SignIn, ({ S, E, O }) => {
       },
     },
 
-    // Late endings (rule 14): every one that can occur is handled here (rule 20).
     on: {
       CodeWrong: [
         {
-          // Strikes its own challenge, current or not, re-adding its key first. The strike reaches the
-          // copy this turn creates (rule 9).
           target: "self",
           guard: ({ state }) => !S.SIGNED_IN.is(state) || deny("SignedIn"),
           updateMemory: ({ memory, event }) => ({ struck: union(memory.struck, event.challengeId) }),
           raise: [strike],
         },
-        { target: "self" },                        // signed in: nothing re-adds a copy
+        { target: "self" },
       ],
-      CodeAccepted: { target: "self" },            // the user was already told "couldn't check"
+      CodeAccepted: { target: "self" },   // deliberate for an adopted verify too (OD22 rule 20): the user signs in again
       CodeExpired: { target: "self" },
-      CodeUnchecked: { target: "self" },
-      ResendSent: { target: "self" }, ResendRefused: { target: "self" }, ResendUnsure: { target: "self" },
+      CodeUnchecked: [
+        { target: "self", guard: [O.verify.retryable({ times: 2 })], actions: [O.verify.retry] },   // R5 M6: re-send the same id first; the server answers what it did with the code
+        { target: "self", actions: [O.verify.cancel] },                        // then release (OD6, R4 H1); key-less: verify alone maps CodeUnchecked (OD8)
+      ],
+      ResendSent: { target: "self" }, ResendRefused: { target: "self" }, ResendUnsure: { target: "self", actions: [O.resend.cancel] },   // resending is safe to repeat: release, else every Resend ends Rejected
     },
 
     states: {
@@ -3043,7 +3205,7 @@ export const SignInMachine = machine(SignIn, ({ S, E, O }) => {
 
       TWO_FACTOR: {
         default: S.TWO_FACTOR.ENTERING,
-        traits: {                                     // filled where they are placed
+        traits: {
           code: {
             input: () => ({ value: "" }),
             guards: { canEdit: ({ state }) => !S.TWO_FACTOR.LOCKED_OUT.is(state) || deny("LockedOut") },
@@ -3058,11 +3220,11 @@ export const SignInMachine = machine(SignIn, ({ S, E, O }) => {
               ({ state }) => !S.TWO_FACTOR.VERIFYING.is(state) || deny("Checking"),
               ({ schedules }) => schedules.resendCooldown.done === undefined || deny("CoolingDown"),
             ],
-            actions: [resend],
+            actions: [O.resend.commit(({ memory }) => ({ challengeId: memory.challengeId }))],   // existing: commit (OPS O3)
             raise: [E.resendCooldown.Start],
           },
           ResendSent: { target: "self" },
-          ResendUnsure: { target: "self" },
+          ResendUnsure: { target: "self", actions: [O.resend.cancel] },
           ResendRefused: { target: "self", updateMemory: () => ({ error: "Too many requests, try again later" }) },
         },
         states: {
@@ -3071,23 +3233,22 @@ export const SignInMachine = machine(SignIn, ({ S, E, O }) => {
               Submit: {
                 target: S.TWO_FACTOR.VERIFYING,
                 guard: [
-                  ({ memory }) => memory.code.error ?? true, // forwards the field's own reason, e.g. CodeFormat
+                  ({ memory }) => memory.code.error ?? true,
                   ({ memory }) => strikesOf(memory, memory.challengeId) < LIMIT || deny("NoTriesLeft"),
-                  verify.idle(challenge),                    // InFlight until the last verify's ending is handled
+                  O.verify.idle(thisChallenge),                                  // existing: idle(key); InFlight per challenge
                 ],
                 updateMemory: () => ({ error: null }),
-                actions: [verify],
+                actions: [O.verify.commit(({ memory }) => ({ challengeId: memory.challengeId, code: memory.code.value }))],   // the key comes from the input
               },
             },
           },
           VERIFYING: {
-            // A soft timeout: stop waiting, keep listening. The real ending then arrives late (2.7.6).
             schedules: { gaveUp: { schedule: "15 seconds", send: E.StopWaiting } },
             on: {
               StopWaiting: toEntering("Couldn't check the code, try again"),
               CodeAccepted: {
                 target: S.SIGNED_IN,
-                updateMemory: () => ({ struck: [] }), // every lockout is forgotten
+                updateMemory: () => ({ struck: [] }),
               },
               CodeWrong: [
                 {
@@ -3106,18 +3267,22 @@ export const SignInMachine = machine(SignIn, ({ S, E, O }) => {
                 },
               ],
               CodeExpired: toEntering("Code expired, send a new one"),
-              CodeUnchecked: toEntering("Couldn't check the code, try again"),
+              CodeUnchecked: [
+                { target: "self", guard: [O.verify.retryable({ times: 2 })], actions: [O.verify.retry] },   // Held → InFlight, same id (2.7.13); a consumed code answers "accepted", not WrongCode (R5 M6)
+                { ...toEntering("Couldn't check the code, try again"), actions: [O.verify.cancel] },   // Held → Idle: released, so Submit's idle passes
+              ],
             },
           },
-          LOCKED_OUT: {}, // Submit is Unhandled; typing is refused by canEdit; Resend falls through
+          LOCKED_OUT: {},
         },
       },
 
       SIGNED_IN: {},
     },
-  };
-});
+  }
+})
 ```
+
 
 **The third strike.** `CodeWrong` targets LOCKED_OUT itself. Its `Strike` locks the instance and
 notifies `onLocked`. The token element `S.TWO_FACTOR.ENTERING` excludes `onLocked`'s first
@@ -3247,11 +3412,10 @@ traits: {
   name: Field(Schema.String, { validate: required }),
   role: Field(Role, { validate: chosen }),
 },
-
-// signup.machine.ts (excerpt). Accounts.create: no key (one lane per actor), concurrency "reject";
-// its commit classifies 409 as EmailTaken and 429 as Busy, both failures.
-const create = O.Accounts.create.commit(reviewedFields, {
-  outcomes: {
+// Accounts.create: key: [] (one lane per actor), concurrency "reject"; its commit classifies 409 as EmailTaken and
+// 429 as Busy, both failures.
+operations: ({ E }) => ({
+  create: Accounts.create.outcomes({
     success: E.Created,
     failure: {
       EmailTaken: E.EmailTaken,
@@ -3259,10 +3423,21 @@ const create = O.Accounts.create.commit(reviewedFields, {
       NotSent: E.TryAgain,                                            // `reject` (rule 20)
     },
     unknown: E.Unsure,                                                // StillUnknown too (rule 18)
-  },
-});
+  }),
+}),
 
-WIZARD: { default: S.WIZARD.ACCOUNT, on: { Cancel: S.CANCELLING }, states: { /* pages; REVIEW's Submit: { target: S.SUBMITTING, guard: [create.idle()], updateMemory: () => ({ busyTries: 0 }), actions: [create] } */ } },
+// signup.machine.ts (excerpt)
+const create = O.create.commit(reviewedFields)
+on: {
+  // A new incarnation can adopt create's lane in any leaf, so its endings are handled at the root too (rule 44).
+  Created: S.DONE,
+  Unsure: S.UNSURE,
+  Busy: { target: S.WIZARD.REVIEW, updateMemory: () => ({ error: "Try again later" }) },
+  EmailTaken: { target: S.WIZARD.ACCOUNT, updateMemory: () => ({ error: "That email is registered" }) },
+  TryAgain: { target: S.WIZARD.REVIEW, updateMemory: () => ({ error: "Not sent. Try again" }) },
+},
+
+WIZARD: { default: S.WIZARD.ACCOUNT, on: { Cancel: S.CANCELLING }, states: { /* pages; REVIEW's Submit: { target: S.SUBMITTING, guard: [O.create.idle], updateMemory: () => ({ busyTries: 0 }), actions: [create] } */ } },
 CANCELLING: { exits: { Confirmed: S.CANCELLED, Declined: S.WIZARD.history } },
 SUBMITTING: {
   // Owns create. Cancel is Unhandled here and nothing else leaves SUBMITTING, so no ending can be late.
@@ -3286,11 +3461,17 @@ WAITING: {
   // Entry arms the wait, with the retryInMs the Busy turn wrote (after memory, rule 23). Busy proved
   // nothing happened, so trying again is a new write with a new id (rule 19).
   schedules: { retry: { schedule: ({ memory }) => Duration.millis(memory.retryInMs), send: E.RetryNow } },
-  on: { RetryNow: [{ target: S.SUBMITTING, guard: [create.idle()], actions: [create] }, { target: "self" }] },
+  on: { RetryNow: [{ target: S.SUBMITTING, guard: [O.create.idle], actions: [create] }, { target: "self" }] },
 },
 UNSURE: {
-  // The account may exist: send the same write again, so the server dedups by its id (rule 19).
-  on: { CheckAgain: { target: S.SUBMITTING, guard: [create.idle()], actions: [create.retry()] } },
+  // The account may exist: send the same write again, so the server dedups by its id (rule 19). No idle guard:
+  // the lane is Held here, and idle would deny the re-send (rule 21).
+  on: {
+    CheckAgain: [
+      { target: S.SUBMITTING, guard: [O.create.retryable({ times: 3 })], actions: [O.create.retry] },
+      { target: S.WIZARD.REVIEW, updateMemory: () => ({ error: "We couldn't confirm your account. Check your email before trying again" }), actions: [O.create.cancel] },   // give up: release the hold
+    ],
+  },
 },
 ```
 
@@ -3311,7 +3492,8 @@ Had the fields been placed on each page, they would come back empty after Keep, 
 would warn, because a history target re-activates nodes with non-resumable traits under them (rule 1).
 Placing them at the root avoids that without `.resumable()`. Nothing outside the
 subroutine can take `Confirmed`. Each try after `Busy` is a new Attempt, built from the reviewed fields by the select
-(rule 22); `create.retry()` from UNSURE re-sends the Attempt the lane holds, with its own input (rule 21).
+(rule 22); `O.create.retry` from UNSURE re-sends the held Attempt with its own input (rule 21); `idle` would deny it
+there, so UNSURE has none, and its last branch releases the hold (rule 45).
 
 ### 3.3 A list of Field instances
 
@@ -3392,17 +3574,23 @@ const listQuery = ({ memory }: { memory: Memory }) => ({
   page: memory.pager.page,
 });
 
-// Issues.setPinned: a plain operation (this list registers no domain; with 2.8's domain, the pin would be
-// `.predicts`, and `optimistic` a type error, rule 26), keyed by id, concurrency "reject".
-const pin = O.Issues.setPinned.commit(({ event }) => ({ id: event.id, pinned: event.pinned }), {
-  outcomes: {
+// issuelist.definition.ts (excerpt). Issues.setPinned: a plain operation (this list registers no domain; with 2.8's
+// domain, the pin would be `.predicts`, and `optimistic` a type error, rule 26), key: ["id"], concurrency "reject".
+operations: ({ E }) => ({
+  pin: Issues.setPinned.outcomes({
     success: E.Pinned,
     failure: E.PinFailed,   // one event for every failure, NotSent included
     unknown: E.PinUnsure,
-  },
-  // Reads the after memory (rule 22). Success confirms the look; failure removes it; unknown keeps it,
-  // marked uncertain, and refetches the displayed entries once (2.7.1).
-  optimistic: [O.Issues.list.setData(({ memory, event }) => ({ key: listQuery({ memory }), data: pinRow(event) }))],
+  }),
+  issues: Issues.list,      // bare: placed in the machine, its data read from the row
+}),
+
+// issuelist.machine.ts (excerpt)
+// Pending owner Q1 (where a plain operation's `optimistic` and `writes` live): `optimistic` stays a commit option here.
+// It reads the after memory (rule 22). Success confirms the look; failure removes it; unknown keeps it,
+// marked uncertain, and refetches the displayed entries once (2.7.1).
+const pin = O.pin.commit(({ event }) => ({ id: event.id, pinned: event.pinned }), {
+  optimistic: [Issues.list.setData(({ memory, event }) => ({ key: listQuery({ memory }), data: pinRow(event) }))],
 });
 
 // A host debounce: 300 ms after the last keystroke, SearchSettled is the source of its own turn.
@@ -3411,8 +3599,8 @@ traits: {
   pager: {
     resetOn: ({ memory }) => [memory.appliedSearch, memory.sort, memory.status],
     guards: {
-      hasNext: ({ memory, activities }) =>
-        memory.pager.page * 20 < (activities.issues?.data?.total ?? 0) || deny("LastPage"),
+      hasNext: ({ memory, operations }) =>
+        memory.pager.page * 20 < (operations.issues?.data?.total ?? 0) || deny("LastPage"),
     },
   },
   checked: { resetOn: listQuery }, // declared after pager, so it sees pager's reset (rule 1)
@@ -3420,13 +3608,14 @@ traits: {
 on: {
   SearchSettled: { target: "self", updateMemory: ({ memory }) => ({ appliedSearch: memory.search.value }) },
   SortChanged: { target: "self", updateMemory: ({ event }) => ({ sort: event.sort }) },
-  Pin: { target: "self", guard: [pin.idle(({ event }) => ({ id: event.id }))], actions: [pin] },   // InFlight per row
-  Pinned: { target: "self" }, PinFailed: { target: "self" }, PinUnsure: { target: "self" },   // the cache shows each ending
+  Pin: { target: "self", guard: [O.pin.idle(({ event }) => event)], actions: [pin] },   // InFlight or Uncertain per row
+  Pinned: { target: "self" }, PinFailed: { target: "self" },   // the cache shows each ending
+  PinUnsure: { target: "self", actions: [O.pin.cancel] },   // key-less: pin alone maps it; release, the look stays marked uncertain
   // Select all on this page: the ids come from the pre-turn snapshot, never from the click.
   SelectPage: {
     target: "self",
-    raise: [E.checked.SelectAll.from(({ activities }) => ({
-      ids: activities.issues?.data?.items.map((i) => i.id) ?? [],
+    raise: [E.checked.SelectAll.from(({ operations }) => ({
+      ids: operations.issues?.data?.items.map((i) => i.id) ?? [],
     }))],
   },
 },
@@ -3474,9 +3663,10 @@ turn (rule 6).
 | Kind | Words |
 |---|---|
 | **New, fragments** | `trait`, `subroutine`, `traits` (root and node), `Flow.state`, `.resumable()`, `.each` (`of`, `max`, `by`), `key` / `item` in fillings and copy views, `.key(k)`, `hostEvents`, `guards`, `callbacks`, `exits` (declarations and fillings), `notify`, the `Flow` module (`Flow.Guard`, `Flow.Callback`, `Flow.Exit`, `Flow.optional`, `Flow.uncertain`, `Flow.annotate`, `Flow.input`, `Flow.initial`, `Flow.private`, `Flow.Denial`, `Flow.entry`), `raise`, `resetOn`, `whenAbandoned`, the definition's `handler` / `guard`, state tokens in guard arrays, `story.machine(fragment)` with `.enter` / `.leave` / `run.calls` / `checkpoint.exit` |
-| **New, plans** | `Outcome.success`, `Outcome.failure`, `Outcome.unknown`; Flow's reasons `NotSent { why }` (`Cancelled`, `Restored`, `Superseded`, `Rejected`, `NothingToResend`, `Overloaded`), `Cancelled`, `Restored`, `Interrupted`, `Defect`, `StillUnknown { failure }`; the commit value's `.retry(key?)`, `.cancel(key?)`, `.idle(key?)`; the lane rows `s.calls.<operation path>` with `pending`, `retryCount` or `outstanding` (Revision (multiplicity audit, 2026-10-31): replaces `.pending` and `.retryCount`); the mapper's `{ input, attempt, superseded, laneKey, key? }`; `attempt.id`, `attempt.retryCount`, `attempt.mayHaveApplied`; `concurrency: "latest"`; the record read `{ data, predicted, uncertain, unconfirmed }` (`predicted` replaces the record's and the resource lane's `pending`); (merge 5) the condition operators `or`, `not`, `gt`, `gte`, `lt`, `lte`, `isNull`, a predicted field's `(beneath, input) => value`, the Runtime option `checkReplays`, the warning `PredictionNotRetained`; the codes `InFlight` and `LateMayNotLeave`; a resource's call value `O.x.lookup(select, { outcomes })` and `read.fetch(key)`; `keys` (keyed schedules and, Revision (multiplicity audit, 2026-10-31), keyed activities); `.checkpoint(name, ({ truth }) => …)`; `orphaned`; `.history` (and `.history.child`); `armOn`; `disarmOn`; `s.schedules`; `dueAt` (the `model()` options `invariants`, `hot` and `explore` are removed with T1) |
-| **New concepts, not words** | **incarnation** (one life of a fragment instance), **frozen** (a resumable trait while its node is inactive), **summary** (a contract's inferred per-alternative effects), the memory views **before**, **before-walk** and **after** (2.5, rule 22), pending reset, the three **channels** (2.7.1), a **write** (one Attempt) and a **send** (one invocation), the **lane** (rule 21), the lane's **addressable Attempt** and a **keyed list** (rules 21, N1, N2; Revision (multiplicity audit, 2026-10-31)), a call's **owner** and its **current** or **late** ending (rule 14), **late turn** (rule 15), the **Attempt's ending** (rule 18); the **record queue** (per record, across actors, rule 29), the **uncertain mark** (per record and Attempt, rule 32), **settlement** versus **admission** (rule 27), a **create draft** (`creating`, a convention, rule 33); (merge 5) yes / no / maybe, a **carried path**, the **record beneath**, an **uncomputed** prediction, a **prediction fault**, `many` |
+| **New, plans** | `Outcome.success`, `Outcome.failure`, `Outcome.unknown`; Flow's reasons `NotSent { why }` (`Cancelled`, `Restored`, `Rejected`, `Overloaded`, `StorageRefused`, `Disposed`), `Cancelled`, `Restored`, `Interrupted`, `Defect`, `StillUnknown { failure }`, `StorageRefused`; evidence `Superseded`, `Released`, `NothingToResend`, `InFlight`; (operations merge) contracts with `input`, `output` (omitted: `Schema.Void`) and a required `key: [...]` field list, in `*.contracts.ts`; `operations: ({ E }) => ({ … })` with `contract.outcomes({ … })` (`unknown` may be a record by tag); the handles `O.x` with `commit(select)`, `lookup(select)`, `subscribe(select)`, `subscribe.each(select)`, `retry(k?)`, `cancel(k?)`, `idle(k?)` (a partial key allowed), `retryable(k?, { times })`, `refetch`, `get(s, k?)`; the rows `s.operations.<name>` with `pending`, `uncertain`, `waiting`, `retryCount`, `progress`, `outstanding`; the mapper's `{ input, attempt, progress, key }`; `runtime.unsettledWrites()`; `Story.ending` (*Story reads: merge 3*); the findings `SharedContract`, `DuplicatePlacement`, `VerbMismatch`, `KeyRequired`, `UnresolvedHold`, `KeyOmitsInput`, `UnusedOperation`; the denials `Uncertain`, `RetryLimit`; `DehydrateCommitInFlight`; `attempt.id`, `attempt.retryCount`, `attempt.mayHaveApplied`; `concurrency: "latest"`; the record read `{ data, predicted, uncertain, unconfirmed }` (`predicted` replaces the record's and the resource lane's `pending`); (merge 5) the condition operators `or`, `not`, `gt`, `gte`, `lt`, `lte`, `isNull`, a predicted field's `(beneath, input) => value`, the Runtime option `checkReplays`, the warning `PredictionNotRetained`; the codes `InFlight` and `LateMayNotLeave`; `keys` on keyed schedules (key records); `.checkpoint(name, ({ truth }) => …)`; `orphaned`; `.history` (and `.history.child`); `armOn`; `disarmOn`; `s.schedules`; `dueAt` (the `model()` options `invariants`, `hot` and `explore` are removed with T1) |
+| **New concepts, not words** | **incarnation** (one life of a fragment instance), **frozen** (a resumable trait while its node is inactive), **summary** (a contract's inferred per-alternative effects), the memory views **before**, **before-walk** and **after** (2.5, rule 22), pending reset, the three **channels** (2.7.1), a **write** (one Attempt) and a **send** (one invocation), a **contract** and an **operation** (rules 39, 40), the **write lane** with its states **`Idle`**, **`InFlight`**, **`Held`** and **`HeldThisTurn`** and its queued commits **`W`** (rule 21, 2.7.13), the **hold**, the lane's **addressable Attempt**, **after lanes**, the **binding actor**, an **unbound lane**, **rebind**, **actor identity**, a **pending mapped outcome** (rule 44), a **keyed list** (rules 21, N1, N2), a call's **owner** and its **current** or **late** ending (rule 14), **late turn** (rule 15), the **Attempt's ending** (rule 18); the **record queue** (per record, across actors, rule 29), the **uncertain mark** (per record and Attempt, rule 32), **settlement** versus **admission** (rule 27), a **create draft** (`creating`, a convention, rule 33); (merge 5) yes / no / maybe, a **carried path**, the **record beneath**, an **uncomputed** prediction, a **prediction fault**, `many` |
 | **Existing** | `definition`, `machine`, `states`, `default`, `events`, `internalEvents`, `input` (caller side only: `ensure`, `useActor`, a host's filling), `memory`, `on`, `target`, `guard`, `updateMemory`, `actions`, `schedules`, `restartOn`, `transaction`, `key`, `concurrency`, `commit`, `outcomes`, `optimistic`, `setData`, the Attempt, `deny`, `check`, `model` (marked for removal, T1), `S`, `E`, `O`, `.from`, `payload` |
+| **Removed** (operations merge) | commit values and their `{ outcomes }` option; `s.calls`; `s.activities` and the `activities` record; `keys` on activities; `read.fetch(key)`; the mapper's `superseded`, `laneKey` and copy `key`; `SharedCopyLane`; the default lane key of a domain write; key closures `key: (i) => …`; `result` and `params` on contracts; `*.operations.ts`; `NotSent { Superseded \| NothingToResend }` as endings |
 | **Author-chosen** | every other name (`Field`, `Lockout`, `challenges`, `LOCKED_OUT`, `canEdit`, `onLocked`, …) |
 
 ## 4. Against the problems in principles.md
@@ -3603,7 +3793,7 @@ target in [merged/entity-analysis/proposal.md](merged/entity-analysis/proposal.m
 
 ### For operations in the definition
 
-The operations merge ([operations-in-definition/proposal.md](operations-in-definition/proposal.md), 2.7.13's amendment list).
+The operations merge ([merged/operations/proposal.md](merged/operations/proposal.md), 2.7.13's amendment list).
 
 | # | Plan | Rule | Replaces or adds |
 |---|---|---|---|
@@ -3844,14 +4034,15 @@ From [reviews/design-correctness.md](reviews/design-correctness.md) and [reviews
   row and a pointer to its plan amendments in section 5; decisions M5-D1–M5-D10. Its rules A1–A12 go to
   `entity-domain.md` section 9.
 - Operations in the definition merged on 2026-10-30
-  ([operations-in-definition/proposal.md](operations-in-definition/proposal.md), revision 13; decisions OD1–OD25; plan
-  [operations-in-definition/merge-plan.md](operations-in-definition/merge-plan.md)), change set 1 (normative text):
+  ([merged/operations/proposal.md](merged/operations/proposal.md), revision 13; decisions OD1–OD25; plan
+  [merged/operations/merge-plan.md](merged/operations/merge-plan.md)):
   operations declared once under `operations` with `outcomes`; the verbs `commit`, `lookup`, `subscribe`; `s.operations`
   and `O.x.get`; contracts with `input`, `output` and a required field-list `key`; the write lane owned by the Runtime
   (2.7.13); `UnresolvedHold` (2.7.14); lane persistence (2.7.15); tooling (2.7.16); rules 2, 8, 9, 13–25, N1–N3 and
   26–38 amended, rules 39–47 added; 2.5 steps 1, 2, 5 and 6; section 4; C2, C5–C8, C10–C12, C17–C20, C22–C25, C28–C30,
   P15, P19, P20 amended and C31–C53 added; section 7 items 0, 6, 11, 15, 16 amended and 18, 19 added. OD23 is applied as
-  decided (the proposal had left it open). The examples follow in change set 2. Edits that depend on owner question Q1
+  decided (the proposal had left it open). Examples rewritten: 2.7.3–2.7.10, 2.8.2, 2.8.3, 2.8.7, 2.8.9, 3.1 (from the
+  record's 5.2), 3.2 and 3.4 (both re-walked against `UnresolvedHold` and rule 20), and 3.6's keywords. Edits that depend on owner question Q1
   (where a plain operation's `optimistic` and `writes` live) are marked and wait.
 
 ## Decisions
@@ -4138,7 +4329,7 @@ Settled by the owner after the second reviews (soundness, authors, system fit):
   *Reason:* each recommendation chose the conservative, correct option; prior art and three review rounds agreed.
   The proposal is accepted in full; it merges after merge 4.
 
-### Operations in the definition (operations merge, [operations-in-definition/decisions.md](operations-in-definition/decisions.md))
+### Operations in the definition (operations merge, [merged/operations/decisions.md](merged/operations/decisions.md))
 
 Settled by the owner, OD1–OD18 and OD23; OD19–OD22 and OD25 are behaviour the owner delegated to the main session; OD24
 is the process under which this merge was approved. The numbers are kept, because merge 6, the RPC exploration,

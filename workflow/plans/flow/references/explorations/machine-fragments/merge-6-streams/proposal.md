@@ -29,7 +29,7 @@ Short names for citations (all under `workflow/plans/flow/`):
 | MD | `references/explorations/machine-fragments/machine-design.md` |
 | M3 | `references/explorations/machine-fragments/merge-3-stories/proposal.md` (being revised, not accepted) |
 | M4 | `references/explorations/machine-fragments/merged/entities.md` (accepted) |
-| OID | `references/explorations/machine-fragments/operations-in-definition/proposal.md` (proposed, being revised) |
+| OID | `references/explorations/machine-fragments/merged/operations/proposal.md` (merged into the design 2026-10-30) |
 | EDP | `EntityDomains.plan` |
 | ED | `references/design/entity-domain.md` |
 | PER | `Persistence.plan` |

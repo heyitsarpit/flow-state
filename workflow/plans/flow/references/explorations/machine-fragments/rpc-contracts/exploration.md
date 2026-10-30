@@ -1,7 +1,7 @@
 # Contracts in the image of Effect RPC: an exploration
 
 **Status: exploration. Nothing here is decided.** Every shape below is proposed. The owner's decisions it builds on
-are OD1–OD5 ([operations-in-definition/decisions.md](../operations-in-definition/decisions.md)); requirements come
+are OD1–OD5 ([merged/operations/decisions.md](../merged/operations/decisions.md)); requirements come
 from `Operations.plan` O1–O7, `EntityDomains.plan` O1 and `Persistence.plan`. The old proposals were not read for
 shapes. Installed code (`node_modules/effect`, version 4.0.5) is the reference for every citation; paths are
 relative to `node_modules/effect/src/`.

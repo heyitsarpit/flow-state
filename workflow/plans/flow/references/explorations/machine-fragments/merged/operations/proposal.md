@@ -1,5 +1,9 @@
 # Proposal: server interaction declared once, as named operations
 
+**Merged into machine-design.md on 2026-10-30; kept as the record behind it.** It became 2.7 (rewritten), 2.7.13–2.7.16,
+rules 39–47, C31–C53 and decisions OD1–OD25 ([merge-plan.md](merge-plan.md)). OD23 was applied at merge. Where this
+record and the design differ, the design wins: its 5.6, section 7 statuses and S-numbers are older than OD15–OD25.
+
 Status: **proposed; owner decisions OD1–OD21 applied** (OD2a confirms `subscribe` for both live kinds; OD19–OD21 are behaviour delegated by the owner). Written 2026-10-30 from the owner's direction (call state belongs
 to a named use site declared on the definition, under the existing keyword `operations`). The owner has decided OD1
 to OD5 ([decisions.md](decisions.md)); text that applies them is marked **decided (ODn)**. Every other rule,
@@ -242,8 +246,8 @@ Short names for citations (all under `workflow/plans/flow/`):
 | M3, M4, M5, M6 | `references/explorations/machine-fragments/merge-N-*/proposal.md` |
 | OPS, MCH, EDP, PER | `Operations.plan`, `Machines.plan`, `EntityDomains.plan`, `Persistence.plan` |
 | DD | `references/dispatch-desk/` |
-| R1, R2, R3 | `operations-in-definition/reviews/review-1.md`, `review-2.md`, `review-3.md` |
-| OD | `operations-in-definition/decisions.md` |
+| R1, R2, R3 | `merged/operations/reviews/review-1.md`, `review-2.md`, `review-3.md` |
+| OD | `merged/operations/decisions.md` |
 
 Marks used in code: `// NEW`, `// RENAMED`, `// REMOVED`, `// NEW MEANING` (an existing word whose meaning changes),
 `// existing`, `// user-defined`. A line with no mark is unchanged from the design.

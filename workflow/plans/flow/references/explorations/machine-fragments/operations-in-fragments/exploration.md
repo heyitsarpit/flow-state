@@ -3,7 +3,7 @@
 Status: **exploration, nothing decided, nothing accepted.** Written 2026-10-30 for the owner's idea: a trait or subroutine
 owns its operations completely, and exposes only what it chooses through its existing ports. This file edits no plan
 and no other proposal. No type spike was built; every code sample is a working draft and was not type-checked.
-It builds on `../operations-in-definition/proposal.md` (short name **OID**) and answers its section 3.10.
+It builds on `../merged/operations/proposal.md` (short name **OID**) and answers its section 3.10.
 
 Short names for citations (all under `workflow/plans/flow/references/explorations/machine-fragments/` unless noted):
 
@@ -12,7 +12,7 @@ Short names for citations (all under `workflow/plans/flow/references/exploration
 | MD | `machine-design.md` |
 | PR | `principles.md` |
 | IM | `calls-object/impact.md` |
-| OID | `operations-in-definition/proposal.md` |
+| OID | `merged/operations/proposal.md` |
 | M3, M4, M6 | `merge-3-stories/proposal.md`, `merged/entities.md`, `merge-6-streams/proposal.md` |
 | v2, v3 | `git show 26bf7ab9:<this folder>/proposal-v2.md` and `proposal-v3.md` (removed from the tree; line numbers are those of the commit) |
 | CMP | the same commit's `comparison/README.md`, `comparison/reviews/principles.md`, `comparison/reviews/correctness.md`, `comparison/build-a-v2-amended.md`, and `reviews/v2-principles.md` |
