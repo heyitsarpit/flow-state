@@ -6,6 +6,9 @@ import { useState } from "react";
 import { FlowProvider, useActorByRef, useView } from "flow-state/react";
 import { Session } from "../features/Session/session.definition.js";
 import { SessionRef } from "../features/Session/session.ref.js";
+import { AssistantPanel } from "../features/Assistant/AssistantPanel.js"; // pending merge 6
+import { Viewers } from "../features/Presence/Viewers.js"; // pending merge 6
+import { ActivityLog } from "../features/Tickets/feed/ActivityLog.js"; // pending merge 6
 import { QueueList } from "../features/Tickets/queue/QueueList.js";
 import type { TicketPanel } from "../features/Tickets/editor/TicketPanel.js";
 import type { TicketKey } from "../features/Tickets/types.js";
@@ -19,6 +22,20 @@ export function renderDesk(runtime: ReturnType<typeof DeskSetup.construct>, user
     <FlowProvider key={userId} runtime={runtime}>
       <Desk userId={userId} />
     </FlowProvider>
+  );
+}
+
+// One ticket, composed from independent actors: the editor (its panel mounts the Comments and Attachments
+// traits), the watcher (shared with the queue row), the assistant and the workspace feed. Each reads its
+// own actor, so none re-renders for another's change.
+export function TicketScreen({ ticket, Panel }: { ticket: TicketKey; Panel: PanelComponent }) {
+  return (
+    <div className="ticket-screen">
+      <Panel ticket={ticket} />
+      <Viewers ticket={ticket} /> {/* pending merge 6 */}
+      <AssistantPanel ticket={ticket} /> {/* pending merge 6 */}
+      <ActivityLog workspaceId={ticket.workspaceId} /> {/* pending merge 6 */}
+    </div>
   );
 }
 
@@ -47,7 +64,13 @@ export function Desk({ userId, workspaceId = "north" }: { userId: string; worksp
 
   if (opened) {
     if (Panel)
-      panel = <Panel key={JSON.stringify([opened.workspaceId, opened.ticketId])} ticket={opened} />;
+      panel = (
+        <TicketScreen
+          key={JSON.stringify([opened.workspaceId, opened.ticketId])}
+          ticket={opened}
+          Panel={Panel}
+        />
+      );
     else if (loadFailed) panel = <button onClick={() => open(opened)}>Retry opening ticket</button>;
     else panel = <p role="status">Opening…</p>;
   }

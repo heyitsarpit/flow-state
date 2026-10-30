@@ -6,6 +6,7 @@ import { SessionRef } from "../features/Session/session.ref.js";
 import { Editor } from "../features/Tickets/editor/editor.definition.js";
 import { EditorMachine } from "../features/Tickets/editor/editor.machine.js";
 import { editorRef } from "../features/Tickets/editor/editor.ref.js";
+import { feedRef } from "../features/Tickets/feed/feed.ref.js"; // pending merge 6
 import { queueRef } from "../features/Tickets/queue/queue.ref.js";
 import { TicketApi } from "../features/Tickets/ticket-api.js";
 import { ToastsRef } from "../features/Toasts/toasts.ref.js";
@@ -21,6 +22,7 @@ export async function runDeskHost() {
     runtime.ensureActor(SessionRef, { input: { userId: "dispatcher-7" } });
     runtime.ensureActor(ToastsRef);
     runtime.ensureActor(queueRef("north"), { input: { workspaceId: "north" } });
+    runtime.ensureActor(feedRef("north"), { input: { workspaceId: "north" } }); // pending merge 6
 
     // The same ref twice names the same actor; the first accepted input wins.
     const editor = runtime.ensureActor(editorRef({ workspaceId: "north", ticketId: "T-42" }), {
@@ -31,6 +33,15 @@ export async function runDeskHost() {
     const scratch = runtime.createActor(EditorMachine, {
       input: { workspaceId: "north", ticketId: "T-43" },
     });
+
+    // A write on the wire outlives this page: the browser asks before it leaves. The Runtime lists every lane
+    // whose ending is not yet known, including one whose editor was closed (rule 44, C43, C64).
+    const warnBeforeLeaving = (event: BeforeUnloadEvent) => {
+      if (runtime.unsettledWrites().length === 0) return;
+      event.preventDefault(); // the browser shows its own wording; the page cannot set it
+    };
+
+    addEventListener("beforeunload", warnBeforeLeaving);
 
     editor.send(Editor.E.TitleChanged({ title: "Replace foyer light" }));
     console.log(editor.getSnapshot().memory.draft, Editor.S.OPEN.is(editor.getSnapshot()));
@@ -65,6 +76,7 @@ export async function runDeskHost() {
     // Disposal is bounded: a save that cannot settle is recorded as unknown.
     await runtime.disposeActor(scratch);
     await runtime.disposeActor(editor);
+    removeEventListener("beforeunload", warnBeforeLeaving);
   } finally {
     await runtime.dispose(); // owns everything left, in reverse dependency order
   }
@@ -78,10 +90,28 @@ export function describeHostFailure(failure: unknown) {
 }
 
 // Call from the authenticated browser host; use browserSetup(userId) for durable sessions.
-export async function signOut(runtime: ReturnType<typeof DeskSetup.construct>, userId: string) {
+// Sign-out refuses while a write is unsettled (a save on the wire or one held as unknown), because
+// `forget: true` would drop the record that lets the next sign-in find out how it ended (rule 44).
+// `confirmDiscard` is the host's own dialog; it receives what would be lost, one line per lane.
+// design gap: the shape of an `unsettledWrites()` entry is not shown in the design; `operation` and `key`
+// are assumed from the lane's identity (identity, contract, key).
+export async function signOut(
+  runtime: ReturnType<typeof DeskSetup.construct>,
+  userId: string,
+  confirmDiscard: (lost: ReadonlyArray<string>) => Promise<boolean>,
+): Promise<"SignedOut" | "Refused"> {
+  const unsettled = runtime.unsettledWrites();
+
+  if (unsettled.length > 0) {
+    const lost = unsettled.map((write) => `${write.operation} ${JSON.stringify(write.key)}`);
+
+    if (!(await confirmDiscard(lost))) return "Refused";
+  }
+
   const session = runtime.ensureActor(SessionRef, { input: { userId } });
   session.send(Session.E.SignedOut());
   await runtime.dispose({ forget: true });
   // The host now switches to its signed-out UI. Other tabs require their own auth notification;
   // v1 does not mirror actors or broadcast sign-out (Persistence.plan O7).
+  return "SignedOut";
 }

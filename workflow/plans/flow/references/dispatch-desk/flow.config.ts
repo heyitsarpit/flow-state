@@ -1,8 +1,20 @@
-// Found by the CLI at the project root (CommandLine.plan O6). Every exported Story under the glob is
-// discovered; each declares its own id, namespaced by the app: dispatch-desk/ticket-save.
+// Found by the CLI at the project root. Every exported Story under a glob is discovered; each declares its
+// own id (2.10.1). Machine Stories and the app Stories (`desk/*`) belong to the app and are listed under it.
+// Fragment Stories (Comments, Attachments) have no app: they run in the stand-in host, so they are
+// top-level and print with `appId: null` (2.10.14).
 import { defineConfig } from "flow-state/testing";
 import { DeskApp } from "./app/app.js";
 
 export default defineConfig({
-  apps: [{ app: DeskApp, stories: "features/**/*.story.ts" }],
+  apps: [
+    {
+      app: DeskApp,
+      stories: [
+        "features/Tickets/**/*.story.ts",
+        "features/Presence/*.story.ts", // pending merge 6
+        "features/Assistant/*.story.ts", // pending merge 6
+      ],
+    },
+  ],
+  stories: ["features/Comments/*.story.ts", "features/Attachments/*.story.ts"],
 });
