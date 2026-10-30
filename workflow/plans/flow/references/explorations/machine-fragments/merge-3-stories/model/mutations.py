@@ -5,23 +5,27 @@ import os, shutil, subprocess, sys, tempfile
 HERE = os.path.dirname(os.path.abspath(__file__))
 M = [
  # (name, only, old, new, what)
- ("3.5 ranks: world, adapters, Runtime waits, actor schedules", "Eq", "ranksOk: true,", "ranksOk: false,", "equal instants fire in arming order only, so a Runtime wait can fire before the fake server's answer"),
+ ("3.5 ranks: world, adapters, setup fibers, Runtime waits, actor schedules", "Eq", "ranksOk: true,", "ranksOk: false,", "equal instants fire in arming order only, so a Runtime wait can fire before the fake server's answer"),
  ("3.5 'then by arming' is the last key", "Eq", "armTie: true,", "armTie: false,", "two equal-keyed deadlines (two tabs' handlers at one instant) have no order, so it depends on scan order"),
  ("3.1 suspended: the tab runs nothing", "S[reconnect]", "suspendHolds: true,", "suspendHolds: false,", "advance(d, { suspended }) lets the tab's reconnect timer fire inside the window"),
  ("3.1 world/together/advance settle after each control", "W[reject]", "settleAfterWire: true,", "settleAfterWire: false,", "a release leaves the handler runnable after the step"),
- ("3.1 NothingHeld", "W[reject]", "nothingHeld: true,", "nothingHeld: false,", "release with nothing held is silently fine, so the error row is unreachable"),
- ("2.6/3.1 a Held lane is left by retry or cancel", "W[reject]", "heldEscapes: true,", "heldEscapes: false,", "retry and cancel ignore a Held lane, so it can never be left"),
- ("2.5 release() ends standing rules (against the strict NothingHeld reading)", "W[reject]", "releaseEndsStanding: true,", "releaseEndsStanding: false,", "release with nothing held is an error even if a drop(always) stands, so the rule can never end"),
+ ("3.2 NothingHeld", "W[reject]", "nothingHeld: true,", "nothingHeld: false,", "release with nothing held is silently fine, so the error row is unreachable"),
+ ("2.6 a Held lane is left by retry or cancel", "W[reject]", "heldEscapes: true,", "heldEscapes: false,", "retry and cancel ignore a Held lane, so it can never be left"),
+ ("3.2 release() also removes standing rules (the old release()/NothingHeld deadlock)", "W[reject]", "releaseEndsStanding: true,", "releaseEndsStanding: false,", "release with nothing held is an error even if a drop(always) stands, so the rule can never end (revision 1's contradiction)"),
+ ("3.2 release() ends only its own target's standing rules", "W[reject]", "targetScoped: true,", "targetScoped: false,", "a handle release also ends an endpoint rule"),
  ("T2/C3 no step names an ending", "W[reject]", "noInject: true,", "noInject: false,", "an `inject unknown` step exists"),
  ("3.2 a request of a gone client stays in transit", "W[reject]", "orphanTravels: true,", "orphanTravels: false,", "a held request of a cancelled or closed client is removed instead of travelling"),
- ("3.2/2.6 cancel with the request on the wire interrupts the client", "W[reject]", "cancelInterrupts: true,", "cancelInterrupts: false,", "cancel leaves a wire-stage Attempt alone"),
+ ("3.2 cancel with the request on the wire interrupts the client", "W[reject]", "cancelInterrupts: true,", "cancelInterrupts: false,", "cancel leaves a wire-stage Attempt alone"),
  ("2.5 the acknowledgement write gates the send", "W[reject]", "ackGate: true,", "ackGate: false,", "a persisted Attempt is sent without waiting for its acknowledgement"),
- ("3.3 hold({ at: close }) makes the close wait", "S[reconnect]", "closeHold: true,", "closeHold: false,", "the client close never waits, so the release bound is unreachable"),
+ ("2.10 only an awaiting finalizer makes a close wait (suite)", "S[suite,callback]", "closeHold: true,", "closeHold: false,", "the suite adapter's close never waits, so the release bound is unreachable"),
  ("3.2 release({ drop }) of a Held request makes it Lost", "W[reject]", "lostNotServed: true,", "lostNotServed: false,", "release({ drop: true }) serves the request instead"),
  ("3.3 drop({ at: open }) refuses the attempt", "S[reconnect]", "dropOpenRefuses: true,", "dropOpenRefuses: false,", "a dropped open is accepted"),
  ("3.2 duplicate(): the client sees the first answer only", "W[reject]", "dupAnswerIgnored: true,", "dupAnswerIgnored: false,", "the duplicate's answer also reaches the client"),
  ("3.2 the answer of a gone client goes nowhere", "W[reject]", "goneDiscarded: true,", "goneDiscarded: false,", "an orphan's answer is applied to the lane"),
  ("3.4 leave() of a resumable fragment freezes it", "Eq", 'h.st = h.resum ? "Frozen" : "Absent";', 'h.st = "Absent";', "a resumable fragment is abandoned on leave"),
+ ("3.6 ghost restore (revision 1): writes of a tab are FIFO", "Wreload", "writeFifo: true,", "writeFifo: false,", "the capture that removes a cancelled Attempt's record no longer queues behind its held acknowledgement, which then lands late"),
+ ("3.6 ghost restore (revision 1): a Held write is aborted with its tab", "Wreload", "abortOnClose: true,", "abortOnClose: false,", "a held acknowledgement survives closeTab and lands after the reload"),
+ ("3.6 ghost restore (revision 1): an ended Attempt queues a capture that removes its record", "Wreload", "clearOnResolve: true,", "clearOnResolve: false,", "nothing removes a cancelled Attempt's record, so its late acknowledgement is restored"),
 ]
 def run(d, only):
     p = subprocess.run(["bun", "main.ts"], cwd=d, env=dict(os.environ, ONLY=only), capture_output=True, text=True, timeout=300)

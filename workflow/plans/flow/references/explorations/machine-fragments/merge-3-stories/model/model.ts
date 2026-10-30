@@ -13,44 +13,48 @@ export const CFG = {
   orphanTravels: true, //    3.2: a request whose client has gone stays in transit and still reaches the server
   cancelInterrupts: true, // 3.2/2.6: a cancel with the request on the wire interrupts the client (the request still travels)
   ackGate: true, //          2.5: the acknowledgement write of a persisted Attempt gates the send
-  closeHold: true, //        3.3: hold({ at: "close" }) makes the client close wait for release
+  closeHold: true, //        2.10/3.3: only an awaiting finalizer (the policy suite's adapter, OPT.suite) makes a close wait
+  writeFifo: true, //        3.6: writes of one tab are FIFO
+  abortOnClose: true, //     3.6: a tab's Queued and Held writes are aborted with the tab
+  clearOnResolve: true, //   3.6: an Attempt that leaves the lane queues a capture that removes its record
   suspendHolds: true, //     3.1: advance(d, { suspended }): the tab runs nothing during the move
   settleAfterWire: true, //  3.1: world, together and advance settle after each control
   nothingHeld: true, //      3.1: release with nothing held is NothingHeld
   heldEscapes: true, //      2.6/3.1: a Held lane can be left by retry (re-send) or cancel (release)
-  releaseEndsStanding: true,// 2.5/3.1: release() ends standing rules (the lenient reading of the NothingHeld contradiction, finding F1)
+  targetScoped: true, //     3.2: release() ends only the standing rules of its own target (handle or endpoint)
+  releaseEndsStanding: true,// 3.2: release() also removes every standing rule; NothingHeld only with no held item and no standing rule
   noInject: true, //         T2/C3: no step names an ending
   lostNotServed: true, //    3.2: release({ drop: true }) of a Held request makes it Lost: the server never sees it
   dupAnswerIgnored: true, // 3.2/2.5: duplicate(): the client sees the first answer only
   goneDiscarded: true, //    3.2: the answer of a request whose client has gone goes nowhere
   dropOpenRefuses: true, //  3.3: drop({ at: "open" }) refuses the attempt (the binding's lost)
-  releaseHeldOpen: true, //  3.3 (finding S2): release() completes a held open
 };
 
-export const OPT = { policy: "reject" as "reject" | "serialize", src: "reconnect" as "plain" | "reconnect" | "callback", auto: false, host: false };
+export const OPT = { policy: "reject" as "reject" | "serialize", src: "reconnect" as "plain" | "reconnect" | "callback", auto: false, host: false, suite: false };
 
 export type T = "a" | "b";
 export const TABS: T[] = ["a", "b"];
 const BUF = 2, MAXATT = 3, NOWMAX = 6, RETAIN = 2, BOUND = 2, RESETAFTER = 2, SCHED = 2, PAGESCHED = 1, TURNS = 40;
 
-export interface Rule { k: "hold" | "drop" | "dup"; at: "request" | "response"; times: number; tab?: T; pur?: string }
+export interface Rule { h?: boolean; k: "hold" | "drop" | "dup"; at: "request" | "response"; times: number; tab?: T; pur?: string }
 export type Ans = "" | "ok" | "busy" | "die" | "more" | "empty" | "cannot" | "fail" | "fatal";
-export type RS = "Held" | "Server" | "HeldAnswer" | "Answered";
-export interface Req { id: number; ep: "pay" | "sto" | "hist"; tab: T; pur: string; att: number; st: RS; gone: boolean; ans: Ans; dup: boolean; srv: boolean; due: number; arm: number }
+export type RS = "Held" | "Server" | "HeldAnswer" | "Waking"; // Waking: answered, the tab is suspended, the transport input waits (3.2 last row)
+export interface Req { id: number; ep: "pay" | "hist"; tab: T; pur: string; att: number; st: RS; gone: boolean; ans: Ans; dup: boolean; srv: boolean; due: number; arm: number; mark: "" | "hold" | "drop"; host: boolean }
+export interface Wr { tab: T; pur: string; att: number; st: "Queued" | "Held" | "HeldConfirm"; arm: number }
 export interface Lane { st: "Idle" | "InFlight" | "Held"; head: number; stage: "" | "ack" | "cap" | "wire"; ended: boolean; W: number[] }
-export interface Tab { persist: boolean; actor: boolean; exp: boolean; lane: Lane }
-export interface Tm { own: 1 | 2 | 3 | 4; kind: string; tab: T | "-"; due: number; ref: number; fx: number; op: number; arm: number }
+export interface Tab { keep?: boolean; persist: boolean; actor: boolean; exp: boolean; lane: Lane }
+export interface Tm { own: 1 | 2 | 3 | 4 | 5; kind: string; tab: T | "-"; due: number; ref: number; fx: number; op: number; arm: number }
 export type SSt = "Opening" | "Dropped" | "Live" | "Ended" | "Releasing" | "Released";
 export interface Sess { st: SSt; answer: string; owed: boolean }
 export interface Ad { cp: boolean; rel: boolean; on: boolean; ph: "Connecting" | "Live" | "CatchingUp" | "Waiting" | "Done"; sig: boolean; last: boolean; any: boolean; ls: number | null; n: number; buf: number; ec: number; ps: number; settled: boolean }
 export interface Cb { q: string[]; closing: "open" | "fail" | "end" | "done"; released: boolean }
-export interface Conn { st: "Connecting" | "Open" | "Silent" | "Closed"; code: number; q: string[]; hc: boolean }
-export interface Chat { greet: "proof" | "live" | "lost" | "reset" | "none"; refuse: boolean; hist: Ans; orules: Rule[]; holdClose: number; cn: Conn | null; pos: number }
+export interface Conn { st: "Opening" | "Open" | "Silent" | "Closed"; code: number; q: string[]; hc: boolean }
+export interface Chat { greet: "proof" | "live" | "lost" | "reset" | "none"; refuse: boolean; hist: Ans; orules: Rule[]; holdClose: number; cn: Conn | null; pos: number; nextSilent: boolean; nextDup: boolean }
 export interface S {
   now: number; natt: number; armc: number; nid: number; tabs: { a: Tab | null; b: Tab | null }; own: T | "";
-  rec: { att: number; held: boolean } | null; dead: number[]; dh: boolean;
-  reqs: Req[]; rules: { pay: Rule[]; sto: Rule[]; hist: Rule[] }; tm: Tm[];
-  srv: { busy: number; lat: number; die: boolean; chg: number[] };
+  rec: { att: number; held: boolean; late?: boolean; hc?: boolean; crash?: boolean } | null; rd: T[]; dead: number[]; dh: boolean;
+  reqs: Req[]; wr: Wr[]; rules: { pay: Rule[]; sto: Rule[]; hist: Rule[] }; tm: Tm[];
+  srv: { busy: number; lat: number; die: boolean; host: boolean; chg: number[] };
   chat: Chat; ad: Ad; ss: Sess; cb: Cb; susp: T | ""; sentS: boolean;
 }
 export const clone = <X>(x: X): X => JSON.parse(JSON.stringify(x));
@@ -58,20 +62,22 @@ export const newLane = (): Lane => ({ st: "Idle", head: 0, stage: "", ended: fal
 export const newAd = (): Ad => ({ cp: false, rel: false, on: false, ph: "Connecting", sig: false, last: false, any: false, ls: null, n: 0, buf: 0, ec: 0, ps: 0, settled: false });
 export const init = (): S => ({
   now: 0, natt: 0, armc: 0, nid: 0, tabs: { a: { persist: true, actor: true, exp: false, lane: newLane() }, b: null }, own: "a", rec: null, dead: [], dh: false,
-  reqs: [], rules: { pay: [], sto: [], hist: [] }, tm: [], srv: { busy: 0, lat: 0, die: false, chg: [] },
-  chat: { greet: "proof", refuse: false, hist: "ok", orules: [], holdClose: 0, cn: null, pos: 0 }, ad: newAd(), ss: { st: "Opening", answer: "none", owed: false },
+  reqs: [], wr: [], rd: [], rules: { pay: [], sto: [], hist: [] }, tm: [], srv: { busy: 0, lat: 0, die: false, host: false, chg: [] },
+  chat: { greet: "proof", refuse: false, hist: "ok", orules: [], holdClose: 0, cn: null, pos: 0, nextSilent: false, nextDup: false }, ad: newAd(), ss: { st: "Opening", answer: "none", owed: false },
   cb: { q: [], closing: "open", released: false }, susp: "", sentS: false,
 });
 
 // ---- cells ------------------------------------------------------------------------------------------------------
 export const LROWS = ["commit", "retry", "cancel", "idle", "retryable", "invoked", "storageRefused", "success", "failure", "unknown", "interrupt", "dispose", "rebind", "restore", "runtimeDisposal", "hydration"];
 const LCANNOT: Record<string, string[]> = { invoked: ["Idle", "Held"], storageRefused: ["Idle", "Held"], success: ["Idle", "Held"], failure: ["Idle", "Held"], unknown: ["Idle", "Held"], interrupt: ["Idle", "Held"], rebind: ["Idle"], hydration: ["InFlight", "Held"] };
-export const laneCells = (): string[] => LROWS.flatMap((r) => ["Idle", "InFlight", "Held"].filter((s) => !(LCANNOT[r] ?? []).includes(s)).map((s) => `W|${r}|${s}`));
-export const WIRE_CELLS = ["hold|Transit", "drop|Transit", "dup|Transit", "none|Transit", "release|Held", "release|Held:orphan", "release|HeldAnswer", "releaseDrop|Held", "releaseDrop|HeldAnswer", "done|Server", "done:holdResp|Server", "done:dropResp|Server",
-  "interrupt|Transit", "interrupt|Held", "interrupt|Server", "interrupt|HeldAnswer", "interrupt|Answered", "delivered|Answered"].map((x) => "Wire|" + x);
-export const CONN_CELLS = ["dropOpen|Connecting", "holdOpen|Connecting", "accept|Connecting", "refuse|Connecting", "frames|Open", "frames|Silent", "hold|Open", "release|Silent", "drop|Open", "drop|Silent",
-  "close4401|Open", "close4401|Silent", "clientClose|Connecting", "clientClose|Open", "clientClose|Silent", "tab|Connecting", "tab|Open", "tab|Silent"].map((x) => "Conn|" + x);
-export const HOST_CELLS = ["enter|Absent", "enter|Active", "enter|Frozen:same", "enter|Frozen:other", "enter|Ended", "leave|Absent", "leave|Active:resumable", "leave|Active:plain", "leave|Frozen", "leave|Ended",
+export const laneCells = (): string[] => ["W|restore|InFlight:HeldConfirm"].concat(LROWS.flatMap((r) => ["Idle", "InFlight", "Held"].filter((s) => !(LCANNOT[r] ?? []).includes(s)).map((s) => `W|${r}|${s}`)));
+export const WIRE_CELLS = ["arrive:none", "arrive:hold", "arrive:holdResp", "arrive:drop", "arrive:dropResp", "arrive:dup", "release|Held", "release|Held:orphan", "release|Server", "release|HeldAnswer", "releaseDrop|Held", "releaseDrop|Server", "releaseDrop|HeldAnswer",
+  "nth|Held", "nth|Server", "nth|HeldAnswer", "answers|Server", "fails|Server", "cancel|Held", "cancel|Server", "cancel|HeldAnswer", "suspended|Held", "suspended|Server", "suspended|HeldAnswer"].map((x) => "Wire|" + x);
+export const STO_CELLS = ["arrive:queued", "arrive:none", "arrive:hold", "arrive:holdResp", "arrive:drop", "ahead", "release|Queued", "release|Held", "release|HeldConfirm", "releaseDrop|Queued", "releaseDrop|Held", "releaseDrop|HeldConfirm", "close|Queued", "close|Held", "close|HeldConfirm", "read:arrive:none", "read:arrive:hold", "read:arrive:drop", "read:release|Held", "read:releaseDrop|Held", "read:close|Held"].map((x) => "Sto|" + x);
+export const CONN_CELLS = ["att:none|None", "att:none|Closed", "att:hold|None", "att:hold|Closed", "att:drop|None", "att:drop|Closed", "frames|None", "frames|Closed", "frames|Opening", "frames|Open", "frames|Silent", "close|Opening", "close|Open", "close|Silent",
+  "hold|None", "hold|Opening", "hold|Open", "hold|Closed", "nth|None", "nth|Opening", "nth|Open", "nth|Silent", "nth|Closed", "release|None", "release|Opening", "release|Open", "release|Silent", "release|Closed", "drop|None", "drop|Opening", "drop|Open", "drop|Silent", "drop|Closed",
+  "dup|None", "dup|Opening", "dup|Open", "dup|Silent", "dup|Closed", "msg|Open", "msg|Silent", "clientClose|Opening", "clientClose|Open", "clientClose|Silent"].map((x) => "Conn|" + x);
+export const HOST_CELLS = ["enter|Absent", "enter|Active", "enter|Frozen", "enter|Ended", "leave|Absent", "leave|Active", "leave|Frozen", "leave|Ended", "leaveEnd|Absent", "leaveEnd|Active", "leaveEnd|Frozen", "leaveEnd|Ended",
   "reset|Absent", "reset|Active", "reset|Frozen", "reset|Ended", "guards|Absent", "guards|Active", "guards|Frozen", "guards|Ended", "send|Absent", "send|Active", "send|Frozen", "send|Ended", "exit|Active"].map((x) => "Host|" + x);
 export const PROG_CELLS = ["addr|setter", "other|setter", "addr|ending", "other|ending", "addr|promotion", "addr|restore"].map((x) => "P|" + x);
 export const CB_CELLS = ["emitV", "emitS", "fail", "end", "pull", "release"].flatMap((r) => ["room", "full", "closed"].map((c) => `CB|${r}|${c}`));
@@ -96,77 +102,144 @@ export function sKind(st: SSt, k: string): "defined" | "cannot" {
   return adapter || k === "release" ? "defined" : "cannot";
 }
 export const SESS_CELLS = (["Opening", "Dropped", "Live", "Ended", "Releasing", "Released"] as SSt[]).flatMap((st) => SINPUTS.filter((k) => sKind(st, k) === "defined").map((k) => `S|${st}|${k}`));
-export const ERRORS = ["ActorAbsent", "TabClosed", "TabOpen", "NothingHeld", "NoDeadline", "InvalidDuration", "AlreadyEntered", "NotEntered", "NotEntered(host)", "AlreadyEntered(host)", "StoryTurnLimit"];
+export const ERRORS = ["ActorAbsent", "TabClosed", "TabOpen", "NothingHeld", "NoDeadline", "InvalidDuration", "AlreadyEntered", "NotEntered", "NotEntered(host)", "AlreadyEntered(host)", "StoryTurnLimit", "HostTimeWait"];
 
 // ---- context ----------------------------------------------------------------------------------------------------
 export interface End { tab: T; att: number; reason: string; by: "ans" | "lc" | "inj" }
-export interface Ctx { log: string[]; viol: string[]; cells: string[]; ends: End[]; deliv: { att: number; ans: string }[]; fired: string[]; step: string; rev: boolean; turns: number; errs: string[] }
+export interface Ctx { qt?: boolean; log: string[]; viol: string[]; cells: string[]; ends: End[]; deliv: { att: number; ans: string }[]; fired: string[]; step: string; rev: boolean; turns: number; errs: string[] }
 const cellAdd = (c: Ctx, x: string) => { if (!c.cells.includes(x)) c.cells.push(x); };
 
 // ---- the wire (3.2) -----------------------------------------------------------------------------------------------
-const FX: Record<string, number> = { pay: 0, hist: 1, chat: 1, sto: 2 }; // GAP: 3.5 rank 1 names "fixture order" but Fake.storage is not a listed fixture; placed last (INVENTED)
+const FX: Record<string, number> = { pay: 0, hist: 1, chat: 1 }; // rank 1: fake servers by fixtures order, then Fake.storage (3.5)
 function arm(S: S) { return ++S.armc; }
-function findRule(rs: Rule[], at: string, tab: T, pur: string) { return rs.findIndex((r) => r.at === at && r.times !== 0 && (!r.tab || r.tab === tab) && (!r.pur || r.pur === pur)); }
+function takeRule(rs: Rule[], tab: T, pur: string): Rule | null { // 3.2: at arrival the earliest-set rule the request fits, and only that rule
+  const i = rs.findIndex((r) => r.times !== 0 && (!r.tab || r.tab === tab) && (!r.pur || r.pur === pur));
+  if (i < 0) return null;
+  const r = { ...rs[i]! }; useRule(rs, i); return r;
+}
 function useRule(rs: Rule[], i: number) { if (rs[i]!.times > 0) rs[i]!.times--; if (rs[i]!.times === 0) rs.splice(i, 1); }
 function newReq(S: S, ep: Req["ep"], tab: T, pur: string, att: number, st: RS): Req {
-  const r: Req = { id: ++S.nid, ep, tab, pur, att, st, gone: false, ans: "", dup: false, srv: false, due: S.now, arm: arm(S) };
+  const r: Req = { id: ++S.nid, ep, tab, pur, att, st, gone: false, ans: "", dup: false, srv: false, due: S.now, arm: arm(S), mark: "", host: false };
   S.reqs.push(r); return r;
 }
 function toServer(S: S, r: Req) { r.st = "Server"; r.due = S.now + (r.ep === "pay" ? S.srv.lat : 0); r.arm = arm(S); }
 export function issue(S: S, c: Ctx, ep: Req["ep"], tab: T, pur: string, att: number) {
   const r = newReq(S, ep, tab, pur, att, "Server");
-  const rs = S.rules[ep], i = findRule(rs, "request", tab, pur);
-  if (i < 0) { cellAdd(c, "Wire|none|Transit"); toServer(S, r); return; }
-  const k = rs[i]!.k; useRule(rs, i);
-  if (k === "hold") { cellAdd(c, "Wire|hold|Transit"); r.st = "Held"; }
-  else if (k === "drop") { cellAdd(c, "Wire|drop|Transit"); S.reqs.splice(S.reqs.indexOf(r), 1); clientLost(S, c, r); }
-  else { cellAdd(c, "Wire|dup|Transit"); toServer(S, r); const d = newReq(S, ep, tab, pur, att, "Server"); d.dup = true; d.gone = CFG.dupAnswerIgnored; toServer(S, d); } // INVENTED: the duplicate's own answer goes nowhere (3.2 says only "the client sees the first answer")
+  if (ep === "pay" && S.srv.host) { r.host = true; S.srv.host = false; } // a handler that waits on the host (HostTimeWait)
+  const rule = takeRule(S.rules[ep], tab, pur);
+  if (!rule) { cellAdd(c, "Wire|arrive:none"); toServer(S, r); return; }
+  const resp = rule.at === "response";
+  if (rule.k === "hold") { cellAdd(c, resp ? "Wire|arrive:holdResp" : "Wire|arrive:hold"); if (resp) { r.mark = "hold"; toServer(S, r); } else r.st = "Held"; }
+  else if (rule.k === "drop") {
+    cellAdd(c, resp ? "Wire|arrive:dropResp" : "Wire|arrive:drop");
+    if (resp) { r.mark = "drop"; toServer(S, r); } else { S.reqs.splice(S.reqs.indexOf(r), 1); clientLost(S, c, r); }
+  } else { cellAdd(c, "Wire|arrive:dup"); toServer(S, r); const d = newReq(S, ep, tab, pur, att, "Server"); d.dup = true; d.gone = CFG.dupAnswerIgnored; toServer(S, d); }
 }
-function interrupt(S: S, c: Ctx, r: Req) { // client interrupted or tab closed (3.2 last-but-one row)
-  cellAdd(c, "Wire|interrupt|" + r.st);
+function interrupt(S: S, c: Ctx, r: Req) { // its client cancels, or its tab closes
+  cellAdd(c, "Wire|cancel|" + (r.st === "Waking" ? "Server" : r.st));
   r.gone = true;
   if (!CFG.orphanTravels && r.st === "Held") S.reqs.splice(S.reqs.indexOf(r), 1);
 }
-function clientLost(S: S, c: Ctx, r: Req) { if (r.gone) return; c.deliv.push({ att: r.att, ans: "lost" }); onAnswer(S, c, r, "lost"); } // lost() is the fake's answer through the transport
-function handlerDone(S: S, c: Ctx, r: Req) { // Server -> truth updated, then response rules
+function clientLost(S: S, c: Ctx, r: Req) { if (r.gone) return; c.deliv.push({ att: r.att, ans: "lost" }); onAnswer(S, c, r, "lost"); } // Fake/Lost is the fake's answer through the transport
+function handlerDone(S: S, c: Ctx, r: Req) {
   r.srv = true;
   if (r.ep === "pay") {
-    if (S.srv.die) { S.srv.die = false; r.ans = "die"; }
+    if (S.srv.die) { S.srv.die = false; cellAdd(c, "Wire|fails|Server"); c.log.push("issue: handler crashed"); S.reqs.splice(S.reqs.indexOf(r), 1); clientLost(S, c, r); return; } // 3.2 "handler fails"
+    if (r.dup) r.ans = "ok";
     else if (S.srv.busy > 0) { S.srv.busy--; r.ans = "busy"; }
     else { if (!S.srv.chg.includes(r.att)) S.srv.chg.push(r.att); r.ans = "ok"; }
-  } else if (r.ep === "sto") {
-    r.ans = "ok";
-    if (r.pur === "ack") S.rec = { att: r.att, held: false };
-    else if (r.pur === "flush" && S.rec && S.rec.att === r.att) S.rec.held = true;
   } else r.ans = S.chat.hist;
-  const rs = S.rules[r.ep], i = findRule(rs, "response", r.tab, r.pur);
-  if (i >= 0) {
-    const k = rs[i]!.k;
-    if (k === "hold") { useRule(rs, i); cellAdd(c, "Wire|done:holdResp|Server"); r.st = "HeldAnswer"; return; }
-    if (k === "drop") { useRule(rs, i); cellAdd(c, "Wire|done:dropResp|Server"); S.reqs.splice(S.reqs.indexOf(r), 1); if (!CFG.lostNotServed) r.srv = false; clientLost(S, c, r); return; }
-  }
-  cellAdd(c, "Wire|done|Server"); r.st = "Answered";
+  cellAdd(c, "Wire|answers|Server");
+  if (r.mark === "hold") { r.st = "HeldAnswer"; return; }
+  if (r.mark === "drop") { S.reqs.splice(S.reqs.indexOf(r), 1); clientLost(S, c, r); return; }
+  finish(S, c, r);
 }
-function deliverAns(S: S, c: Ctx, r: Req) {
-  cellAdd(c, "Wire|delivered|Answered");
+function finish(S: S, c: Ctx, r: Req) { // answered (or orphan if gone, or the discarded answer of a duplicate copy)
+  if (S.susp === r.tab && !r.gone) { r.st = "Waking"; return; }
   S.reqs.splice(S.reqs.indexOf(r), 1);
-  if (r.gone && CFG.goneDiscarded) { c.log.push(`orphan ${r.ep}/${r.pur}#${r.att} answer discarded`); return; } // Orphan
+  if (r.gone && CFG.goneDiscarded) { c.log.push(`orphan ${r.ep}/${r.pur}#${r.att} answer discarded`); return; }
   c.deliv.push({ att: r.att, ans: r.ans });
   onAnswer(S, c, r, r.ans);
 }
-export function release(S: S, c: Ctx, ep: Req["ep"], drop: boolean): string | null {
+export function release(S: S, c: Ctx, ep: Req["ep"], drop: boolean, nth = 0, handle = false): string | null {
   const held = S.reqs.filter((r) => r.ep === ep && (r.st === "Held" || r.st === "HeldAnswer"));
-  const hadRules = S.rules[ep].length > 0;
+  const hadRules = S.rules[ep].some((r) => !!r.h === handle);
   if (CFG.nothingHeld && held.length === 0 && !(CFG.releaseEndsStanding && hadRules)) return "NothingHeld";
-  for (const r of held) {
+  const word = drop ? "releaseDrop" : nth ? "nth" : "release";
+  if (S.reqs.some((r) => r.ep === ep && r.st === "Server")) cellAdd(c, `Wire|${word}|Server`);
+  const order = [...held];
+  if (nth && order.length >= nth) { const k = order.splice(nth - 1, 1)[0]!; order.unshift(k); }
+  let first = true;
+  for (const r of order) {
+    const w = nth && first ? "nth" : word; first = false;
     if (r.st === "Held") {
       if (drop && CFG.lostNotServed) { cellAdd(c, "Wire|releaseDrop|Held"); S.reqs.splice(S.reqs.indexOf(r), 1); clientLost(S, c, r); }
-      else { cellAdd(c, "Wire|release|Held" + (r.gone ? ":orphan" : "")); toServer(S, r); if (r.gone) cellAdd(c, "Wire|release|Held"); }
-    } else if (drop) { cellAdd(c, "Wire|releaseDrop|HeldAnswer"); S.reqs.splice(S.reqs.indexOf(r), 1); clientLost(S, c, r); } // Dropped: the server handled it
-    else { cellAdd(c, "Wire|release|HeldAnswer"); r.st = "Answered"; }
+      else { cellAdd(c, `Wire|${w}|Held`); if (r.gone) cellAdd(c, "Wire|release|Held:orphan"); toServer(S, r); }
+    } else if (drop) { cellAdd(c, "Wire|releaseDrop|HeldAnswer"); S.reqs.splice(S.reqs.indexOf(r), 1); clientLost(S, c, r); } // dropped: the server handled it
+    else { cellAdd(c, `Wire|${w}|HeldAnswer`); finish(S, c, r); }
   }
-  if (CFG.releaseEndsStanding) S.rules[ep] = [];
+  if (CFG.releaseEndsStanding) {
+    if (CFG.targetScoped) S.rules[ep] = S.rules[ep].filter((r) => !!r.h !== handle);
+    else { if (S.rules[ep].some((r) => !!r.h !== handle)) c.viol.push("W:release-ended-other-target"); S.rules[ep] = []; }
+  }
   return null;
+}
+
+// ---- 3.6 a write at Fake.storage (local, FIFO per tab) ------------------------------------------------------------------
+const wc = (c: Ctx, x: string) => cellAdd(c, "Sto|" + x);
+function applyW(S: S, w: Wr) {
+  if (w.pur === "ack") S.rec = { att: w.att, held: false, late: S.dead.includes(w.att) || !S.tabs[w.tab] || undefined }; // late: an acknowledgement that lands after its Attempt ended or its tab closed
+  else if (w.pur === "flush") { if (S.rec && S.rec.att === w.att) S.rec.held = true; }
+  else if (w.pur === "clear") { if (S.rec && S.rec.att === w.att) S.rec = null; }
+}
+function startW(S: S, c: Ctx, w: Wr) { // takes its rule now
+  const rule = takeRule(S.rules.sto, w.tab, w.pur);
+  if (!rule || rule.k === "dup") { wc(c, "arrive:none"); applyW(S, w); finishW(S, c, w, "stored"); return; } // INVENTED: duplicate() on a write is a no-op
+  if (rule.k === "hold") { if (rule.at === "request") { wc(c, "arrive:hold"); w.st = "Held"; } else { wc(c, "arrive:holdResp"); applyW(S, w); if (w.pur === "ack" && S.rec) S.rec.hc = true; w.st = "HeldConfirm"; } return; }
+  wc(c, "arrive:drop"); finishW(S, c, w, "refused");
+}
+export function write(S: S, c: Ctx, tab: T, pur: string, att: number) {
+  const behind = S.wr.some((x) => x.tab === tab);
+  const w: Wr = { tab, pur, att, st: "Queued", arm: arm(S) }; S.wr.push(w);
+  if (behind && CFG.writeFifo) { wc(c, "arrive:queued"); return; }
+  startW(S, c, w);
+}
+function finishW(S: S, c: Ctx, w: Wr, res: "stored" | "refused") {
+  const i = S.wr.indexOf(w); if (i >= 0) S.wr.splice(i, 1);
+  onWrite(S, c, w, res);
+  const nx = S.wr.find((x) => x.tab === w.tab);
+  if (nx && nx.st === "Queued") { wc(c, "ahead"); startW(S, c, nx); }
+}
+export function releaseW(S: S, c: Ctx, drop: boolean): string | null {
+  const held = S.wr.filter((w) => w.st === "Held" || w.st === "HeldConfirm"), hadRules = S.rules.sto.length > 0;
+  if (CFG.nothingHeld && held.length === 0 && S.rd.length === 0 && !(CFG.releaseEndsStanding && hadRules)) return "NothingHeld";
+  const w0 = drop ? "releaseDrop" : "release";
+  if (S.wr.some((w) => w.st === "Queued")) wc(c, w0 + "|Queued");
+  for (const w of held) {
+    wc(c, `${w0}|${w.st}`);
+    if (drop) finishW(S, c, w, "refused"); else { if (w.st === "Held") applyW(S, w); finishW(S, c, w, "stored"); }
+  }
+  for (const t of [...S.rd]) { wc(c, drop ? "read:releaseDrop|Held" : "read:release|Held"); S.rd.splice(S.rd.indexOf(t), 1); restoreTab(S, c, t, !drop); }
+  if (CFG.releaseEndsStanding) S.rules.sto = [];
+  return null;
+}
+function closeWrites(S: S, c: Ctx, tab: T) { // its tab closes
+  if (S.rd.includes(tab)) { wc(c, "read:close|Held"); S.rd.splice(S.rd.indexOf(tab), 1); }
+  for (const w of [...S.wr]) {
+    if (w.tab !== tab) continue;
+    wc(c, "close|" + w.st);
+    if (w.pur === "clear" && w.st !== "HeldConfirm" && S.rec && S.rec.att === w.att) S.rec.crash = true; // a crash before the capture ran
+    if (w.st === "HeldConfirm" || CFG.abortOnClose) S.wr.splice(S.wr.indexOf(w), 1); // HeldConfirm: stays written, the confirmation is lost
+  }
+}
+function onWrite(S: S, c: Ctx, w: Wr, res: "stored" | "refused") {
+  const t = w.tab, tb = S.tabs[t];
+  if (!tb || w.pur === "flush" || w.pur === "clear") return;
+  const L = tb.lane;
+  if (L.head !== w.att || (L.stage !== "ack" && L.stage !== "cap")) return; // the Attempt has ended: the confirmation is evidence
+  if (res === "stored") return sendCommit(S, c, t, w.att);
+  lcell(c, "storageRefused", "InFlight"); progEnding(c, L, w.att);
+  if (w.pur === "ack") { endRec(c, t, w.att, "NotSent{StorageRefused}", "lc"); resolve(S, c, t, w.att); } else { endRec(c, t, w.att, "unknown{StorageRefused}", "lc"); hold(S, c, t, w.att); }
 }
 
 // ---- write lane (reduced) ------------------------------------------------------------------------------------------
@@ -186,38 +259,31 @@ function promote(S: S, c: Ctx, t: T) {
 }
 function startHead(S: S, c: Ctx, t: T, a: number) {
   const tb = S.tabs[t]!, L = tb.lane; L.st = "InFlight"; L.head = a; L.ended = false;
-  if (tb.persist && CFG.ackGate) { L.stage = "ack"; issue(S, c, "sto", t, "ack", a); } else sendCommit(S, c, t, a);
+  if (tb.persist && CFG.ackGate) { L.stage = "ack"; write(S, c, t, "ack", a); } else sendCommit(S, c, t, a);
 }
 function sendCommit(S: S, c: Ctx, t: T, a: number) { const L = S.tabs[t]!.lane; lcell(c, "invoked", "InFlight"); L.stage = "wire"; issue(S, c, "pay", t, "commit", a); }
 function resolve(S: S, c: Ctx, t: T, att: number) { // success, failure, NotSent, Released: the Attempt leaves the lane
   const tb = S.tabs[t]!;
   if (!S.dead.includes(att)) S.dead.push(att);
-  if (tb.persist && S.rec && S.rec.att === att) S.rec = null;
+  if (tb.persist && CFG.clearOnResolve) write(S, c, t, "clear", att); // the next capture of the lane removes its record, queued behind any held acknowledgement
+  else if (tb.persist && S.rec && S.rec.att === att) S.rec = null;
   if (tb.lane.head === att) promote(S, c, t);
 }
 function hold(S: S, c: Ctx, t: T, att: number) { // unknown: the lane holds the Attempt
   const tb = S.tabs[t]!, L = tb.lane; L.st = "Held"; L.stage = ""; L.ended = true;
-  if (tb.persist) issue(S, c, "sto", t, "flush", att);
-  if (OPT.auto) S.tm.push({ own: 4, kind: "autoRetry", tab: t, due: S.now + 1, ref: 0, fx: 0, op: 0, arm: arm(S) });
+  if (tb.persist) write(S, c, t, "flush", att);
+  if (OPT.auto) S.tm.push({ own: 5, kind: "autoRetry", tab: t, due: S.now + 1, ref: 0, fx: 0, op: 0, arm: arm(S) });
 }
 function onAnswer(S: S, c: Ctx, r: Req, ans: string) {
   const t = r.tab, tb = S.tabs[t];
   if (r.ep === "hist") return pageAns(S, c, r, ans);
   if (!tb) return;
   const L = tb.lane;
-  if (r.ep === "sto") {
-    if (r.pur === "flush") return;
-    if (L.head !== r.att || (L.stage !== "ack" && L.stage !== "cap")) { c.viol.push("L:stale-storage-answer"); return; }
-    if (ans === "ok") return sendCommit(S, c, t, r.att);
-    lcell(c, "storageRefused", "InFlight"); progEnding(c, L, r.att);
-    if (r.pur === "ack") { endRec(c, t, r.att, "NotSent{StorageRefused}", "lc"); resolve(S, c, t, r.att); } else { endRec(c, t, r.att, "unknown{StorageRefused}", "lc"); hold(S, c, t, r.att); }
-    return;
-  }
   if (L.head !== r.att || L.stage !== "wire") { c.viol.push("L:stale-commit-answer"); return; }
   progEnding(c, L, r.att);
   if (ans === "ok") { lcell(c, "success", "InFlight"); endRec(c, t, r.att, "success", "ans"); resolve(S, c, t, r.att); }
   else if (ans === "busy") { lcell(c, "failure", "InFlight"); endRec(c, t, r.att, "failure{Busy}", "ans"); resolve(S, c, t, r.att); }
-  else { lcell(c, "unknown", "InFlight"); endRec(c, t, r.att, ans === "die" ? "unknown{Defect}" : "unknown{NoResponse}", "ans"); hold(S, c, t, r.att); }
+  else { lcell(c, "unknown", "InFlight"); endRec(c, t, r.att, "unknown{NoResponse}", "ans"); hold(S, c, t, r.att); }
 }
 function commit(S: S, c: Ctx, t: T) {
   const tb = S.tabs[t]!, L = tb.lane; lcell(c, "commit", L.st);
@@ -231,14 +297,14 @@ function retry(S: S, c: Ctx, t: T) {
   const tb = S.tabs[t]!, L = tb.lane; lcell(c, "retry", L.st);
   if (L.st !== "Held" || !CFG.heldEscapes) return; // evidence NothingToResend / InFlight
   L.st = "InFlight"; L.ended = false;
-  if (tb.persist) { L.stage = "cap"; issue(S, c, "sto", t, "capture", L.head); } else sendCommit(S, c, t, L.head);
+  if (tb.persist) { L.stage = "cap"; write(S, c, t, "capture", L.head); } else sendCommit(S, c, t, L.head);
 }
 function cancel(S: S, c: Ctx, t: T) {
   const tb = S.tabs[t]!, L = tb.lane; lcell(c, "cancel", L.st);
   if (L.st === "Idle") return;
   if (L.st === "Held") { if (!CFG.heldEscapes) return; S.dead.includes(L.head) || S.dead.push(L.head); resolve(S, c, t, L.head); return; } // Released
   const att = L.head, stage = L.stage;
-  for (const r of S.reqs) if (r.tab === t && r.att === att && !r.gone && (r.ep === "pay" || r.pur === "ack" || r.pur === "capture")) interruptReq(S, c, r);
+  for (const r of S.reqs) if (r.tab === t && r.att === att && !r.gone && r.ep === "pay") interruptReq(S, c, r);
   if (stage === "wire") {
     if (!CFG.cancelInterrupts) { return; }
     lcell(c, "interrupt", "InFlight"); progEnding(c, L, att); endRec(c, t, att, "unknown{Cancelled}", "lc"); hold(S, c, t, att);
@@ -351,7 +417,7 @@ function innerValue(S: S, c: Ctx) {
 }
 function innerClose(S: S, c: Ctx, kind: "lost" | "fatal" | "end" | "die") {
   const ad = S.ad;
-  if (kind === "die") { if (!ad.rel) emit(S, c, "defect"); return; }
+  if (kind === "die") { if (!ad.rel || OPT.suite) sIn(S, c, "defect"); return; } // INVENTED: the suite's awaiting adapter can fail while its finalizer waits
   if (ad.rel && OPT.src !== "callback") return;
   if (OPT.src === "plain") { emit(S, c, kind === "end" ? "complete" : "fail"); return; }
   if (OPT.src === "callback") { if (kind === "lost") cbEmit(S, c, "emitS", "down"); else if (kind === "fatal") cbEmit(S, c, "fail"); else cbEmit(S, c, "end"); return; }
@@ -378,48 +444,46 @@ function pageAns(S: S, c: Ctx, r: Req, ans: string) {
   if (next) reqPage(S, c); else complete(S, c);
 }
 // 3.3: the connection
+const cst = (S: S) => (S.chat.cn ? S.chat.cn.st : "None");
 function frames(S: S, c: Ctx, fs: string[]) { // a control sends frames
-  const cn = S.chat.cn; if (!cn) return;
-  if (cn.st === "Open") { cellAdd(c, "Conn|frames|Open"); for (const f of fs) deliverFrame(S, c, f); }
-  else if (cn.st === "Silent") { cellAdd(c, "Conn|frames|Silent"); cn.q = cn.q.concat(fs).slice(0, 3); }
+  const cn = S.chat.cn, st = cst(S); cellAdd(c, "Conn|frames|" + st);
+  if (st === "Open") { if (S.chat.nextDup) { fs = [fs[0]!, ...fs]; S.chat.nextDup = false; } for (const f of fs) deliverFrame(S, c, f); }
+  else if (st === "Silent") { if (S.chat.nextDup) { fs = [fs[0]!, ...fs]; S.chat.nextDup = false; } cn!.q = cn!.q.concat(fs).slice(0, 4); }
 }
 function deliverFrame(S: S, c: Ctx, f: string) {
   if (f === "!fatal" || f === "!end") { innerClose(S, c, f === "!fatal" ? "fatal" : "end"); return; } if (!S.ad.on || (S.ad.rel && OPT.src !== "callback")) return; if (f === "value") innerValue(S, c); else innerSig(S, c, f); }
-function connect(S: S, c: Ctx) {
-  const ch = S.chat, ad = S.ad;
-  const i = ch.orules.findIndex((r) => r.times !== 0);
-  const cn: Conn = { st: "Connecting", code: 0, q: [], hc: false }; ch.cn = cn;
-  if (i >= 0) {
-    const k = ch.orules[i]!.k; useRule(ch.orules, i);
-    if (k === "hold") { cellAdd(c, "Conn|holdOpen|Connecting"); return; }
-    if (k === "drop" && CFG.dropOpenRefuses) { cellAdd(c, "Conn|dropOpen|Connecting"); cn.st = "Closed"; innerClose(S, c, "lost"); return; }
-  }
-  acceptOpen(S, c);
-  void ad;
+function connect(S: S, c: Ctx) { // an attempt (3.3 first three rows)
+  const ch = S.chat, prior = cst(S);
+  const rule = takeRule(ch.orules, "a", "open");
+  if (rule && rule.k === "hold") { cellAdd(c, `Conn|att:hold|${prior}`); ch.cn = { st: "Opening", code: 0, q: [], hc: false }; return; }
+  if (rule && rule.k === "drop" && CFG.dropOpenRefuses) { cellAdd(c, `Conn|att:drop|${prior}`); if (prior !== "Closed") ch.cn = null; innerClose(S, c, "lost"); return; } // refused: the binding's lost, stays None
+  cellAdd(c, `Conn|att:none|${prior}`);
+  ch.cn = { st: "Opening", code: 0, q: [], hc: false }; acceptOpen(S, c);
 }
-function acceptOpen(S: S, c: Ctx) {
+function acceptOpen(S: S, c: Ctx) { // open runs
   const ch = S.chat, cn = ch.cn!;
-  if (ch.refuse) { cellAdd(c, "Conn|refuse|Connecting"); cn.st = "Closed"; cn.code = 4401; innerClose(S, c, "fatal"); return; }
-  cellAdd(c, "Conn|accept|Connecting"); cn.st = "Open";
+  if (ch.refuse) { cn.st = "Closed"; cn.code = 4401; innerClose(S, c, "fatal"); return; }
+  cn.st = "Open";
+  if (ch.nextSilent) { cn.st = "Silent"; ch.nextSilent = false; if (ch.greet !== "none" && OPT.src !== "plain") cn.q.push(ch.greet); return; }
   if (ch.greet !== "none" && OPT.src !== "plain") deliverFrame(S, c, ch.greet);
 }
-function clientClose(S: S, c: Ctx) { // the client closes (release): 3.3's "the client closes" row
+function clientClose(S: S, c: Ctx) { // the client closes (release) or its tab closes: -> None, the finalizer does not wait (2.10)
   const cn = S.chat.cn;
   if (!cn || cn.st === "Closed") { sIn(S, c, "closed"); return; }
   cellAdd(c, "Conn|clientClose|" + cn.st);
-  if (cn.st === "Open" && S.chat.holdClose !== 0 && CFG.closeHold) {
+  if (OPT.suite && cn.st === "Open" && S.chat.holdClose !== 0 && CFG.closeHold) { // the policy suite's adapter awaits a gate in its finalizer
     if (S.chat.holdClose > 0) S.chat.holdClose--;
-    cn.hc = true; S.tm.push({ own: 3, kind: "bound", tab: "a", due: S.now + BOUND, ref: 0, fx: 0, op: 0, arm: arm(S) }); return;
+    cn.hc = true; S.tm.push({ own: 4, kind: "bound", tab: "a", due: S.now + BOUND, ref: 0, fx: 0, op: 0, arm: arm(S) }); return;
   }
-  cn.st = "Closed"; cn.q = []; sIn(S, c, "closed");
+  S.chat.cn = null; sIn(S, c, "closed");
 }
 function unsub(S: S, c: Ctx) {
   const ad = S.ad;
-  S.tm = S.tm.filter((t) => !(t.tab === "a" && (t.kind === "reconnect" || t.kind === "pageDelay"))); ad.rel = true;
+  S.tm = S.tm.filter((t) => !(t.tab === "a" && (t.kind === "reconnect" || t.kind === "pageDelay" || t.kind === "sdk"))); ad.rel = true;
   if (OPT.src === "reconnect") { if (Rcell(S, c, "release") && ad.ph === "CatchingUp") abandon(S, c); }
   if (OPT.src === "callback") { cellAdd(c, `CB|release|${cbCol(S.cb)}`); S.cb.released = true; }
   sIn(S, c, "release");
-  if (S.ss.st === "Releasing") ad.cp = true; // the finalizers run after the pump has drained what was already pulled
+  if (S.ss.st === "Releasing") { if (OPT.suite) ad.cp = true; else clientClose(S, c); } // only an awaiting finalizer (the suite's) lets the pump run first
 }
 
 // ---- settling (3.1, R-Settle) -------------------------------------------------------------------------------------
@@ -429,9 +493,8 @@ export function settle(S: S, c: Ctx, pull = true) {
     if (!tick(c)) return;
     let did = false;
     for (const r of S.reqs) {
-      if (S.susp === r.tab && !r.dup) continue; // a suspended tab runs nothing; INVENTED: its transport input waits
-      if (r.st === "Server" && r.due <= S.now) { handlerDone(S, c, r); did = true; break; }
-      if (r.st === "Answered") { deliverAns(S, c, r); did = true; break; }
+      if (r.st === "Server" && r.due <= S.now && !r.host) { handlerDone(S, c, r); did = true; break; }
+      if (r.st === "Waking" && S.susp !== r.tab) { S.reqs.splice(S.reqs.indexOf(r), 1); c.deliv.push({ att: r.att, ans: r.ans }); onAnswer(S, c, r, r.ans); did = true; break; }
     }
     if (did) continue;
     if (pull && pullOne(S, c)) continue;
@@ -440,15 +503,17 @@ export function settle(S: S, c: Ctx, pull = true) {
     break;
   }
   if (S.ad.on === false) S.ss = { st: "Opening", answer: "none", owed: false };
+  if (S.reqs.some((r) => r.st === "Server" && r.host)) c.errs.push("HostTimeWait"); // 2.3: a fiber still waiting on the host after the flush
 }
 export function runnable(S: S): string[] { // independent of settle: what would still run
   const o: string[] = [];
-  for (const r of S.reqs) { if (S.susp === r.tab && !r.dup) continue; if (r.st === "Server" && r.due <= S.now) o.push(`handler ${r.ep}/${r.pur}`); if (r.st === "Answered") o.push(`answer ${r.ep}/${r.pur}`); }
+  for (const r of S.reqs) { if (r.st === "Server" && r.due <= S.now && !r.host) o.push(`handler ${r.ep}/${r.pur}`); if (r.st === "Waking" && S.susp !== r.tab) o.push(`answer ${r.ep}/${r.pur}`); }
+  for (const t of TABS) { const f = S.wr.find((w) => w.tab === t); if (f && f.st === "Queued") o.push(`write ${f.pur} not started`); }
   for (const t of S.tm) if (t.due <= S.now && !(S.susp && t.tab === S.susp && t.own >= 2)) o.push(`timer ${t.kind}`);
   for (const t of TABS) { const tb = S.tabs[t]; if (tb && tb.lane.st === "InFlight" && tb.lane.stage === "") o.push(`lane ${t} not started`); if (tb && tb.lane.st === "Idle" && tb.lane.W.length) o.push(`lane ${t} queue not promoted`); }
   if (S.ad.on && OPT.src !== "plain" && (S.cb.q.length || (S.cb.closing === "fail" || S.cb.closing === "end"))) o.push("callback queue not drained");
   if (S.ad.on && S.ad.cp) o.push("close pending");
-  if (S.ad.on && S.ss.st === "Releasing" && (!S.chat.cn || S.chat.cn.st === "Closed")) o.push("session releasing but closed");
+  if (S.ad.on && S.ss.st === "Releasing" && (!S.chat.cn || S.chat.cn.st === "Closed") && !OPT.suite) o.push("session releasing but closed");
   if (S.ad.on && OPT.src === "reconnect" && S.ad.ph === "Waiting" && !S.tm.some((t) => t.kind === "reconnect")) o.push("waiting with no timer");
   return o;
 }
@@ -461,7 +526,7 @@ function deadlines(S: S, rev: boolean): Dl[] {
   for (const t of S.tm) out.push({ own: t.own, kind: t.kind, tab: t.tab, due: t.due, fx: t.fx, op: t.op, arm: t.arm, tm: t });
   return rev ? out.reverse() : out;
 }
-const RANK: Record<number, number> = { 1: 1, 2: 2, 3: 3, 4: 4 };
+const RANK: Record<number, number> = { 1: 1, 2: 2, 3: 3, 4: 4, 5: 5 };
 function cmp(a: Dl, b: Dl): number {
   const rk = (x: Dl) => (CFG.ranksOk ? RANK[x.own]! : 0);
   const k = (x: Dl) => [x.due, rk(x), x.own === 1 ? x.fx : x.tab === "-" ? 0 : x.tab === "a" ? 0 : 1, x.own === 1 ? 0 : x.tab === "-" ? 0 : x.tab === "a" ? 0 : 1, x.op, CFG.armTie ? x.arm : 0];
@@ -481,12 +546,13 @@ function fire(S: S, c: Ctx, d: Dl, suspended: boolean) {
     const t = d.tm;
     if (t.kind === "reconnect") { if (S.ad.on && S.ad.ph === "Waiting") { Rcell(S, c, "delay"); S.ad.ph = "Connecting"; S.ad.sig = false; S.ad.ls = null; connect(S, c); } }
     else if (t.kind === "pageDelay") { if (S.ad.on && S.ad.ph === "CatchingUp") { Rcell(S, c, "pageDelay"); reqPage(S, c); } }
-    else if (t.kind === "bound") { if (S.ad.on && S.ss.st === "Releasing") { const cn = S.chat.cn; if (cn) { cn.st = "Closed"; cn.hc = false; } sIn(S, c, "bound"); } }
+    else if (t.kind === "sdk") { c.log.push("sdk tick"); }
+    else if (t.kind === "bound") { if (S.ad.on && S.ss.st === "Releasing") { S.chat.cn = null; sIn(S, c, "bound"); } }
     else if (t.kind === "retain") { const tb = S.tabs[t.tab as T]; if (tb && !tb.actor) { tb.exp = true; if (!tb.persist) { for (const r of S.reqs) if (r.tab === t.tab && !r.gone) interrupt(S, c, r); tb.lane = newLane(); } } }
     else if (t.kind === "autoRetry") { const tb = S.tabs[t.tab as T]; if (tb && tb.actor && tb.lane.st === "Held") retry(S, c, t.tab as T); }
   }
   c.log.push(`fire ${d.kind}@${d.due}`);
-  settle(S, c);
+  settle(S, c, !c.qt);
 }
 function runUntil(S: S, c: Ctx, target: number, suspended: boolean) {
   for (;;) {
@@ -504,22 +570,23 @@ function runUntil(S: S, c: Ctx, target: number, suspended: boolean) {
 export function stepList(): string[] {
   const o: string[] = ["send a Pay", "send a Retry", "send a Cancel", "send a GuardIdle", "send a GuardRetryable", "send b Pay", "send b Cancel",
     "advance 1", "advance next", "advance -1",
-    "world pay.hold", "world pay.hold:response", "world pay.hold:b", "world pay.release", "world pay.release:drop", "world pay.drop", "world pay.drop:response", "world pay.drop:always", "world pay.dup",
-    "world sto.hold:ack", "world sto.hold:capture", "world sto.hold:flush", "world sto.release", "world sto.drop:ack", "world sto.drop:capture",
-    "world srv.busy", "world srv.slow", "world srv.die", "world srv.progress",
-    "life closeTab a", "life openTab a", "life openTab b", "life closeTab b", "life dispose a", "life ensure a", "life dispose b", "life ensure b", "life dehydrate", "life hydrate",
-    "together pay.release+send a Cancel", "together send a Cancel+pay.release"];
+    "world pay.hold", "world pay.hold:response", "world pay.hold:b", "world pay.release", "world pay.release:drop", "world pay.release:nth2", "world pay.drop:always:handle", "world pay.release:handle", "world sto.hold:read", "world sto.drop:read", "world pay.drop", "world pay.drop:response", "world pay.drop:always", "world pay.dup",
+    "world sto.hold:ack", "world sto.hold:ack:response", "world sto.hold:capture", "world sto.hold:flush", "world sto.hold:clear", "world sto.release", "world sto.release:drop", "world sto.drop:ack", "world sto.drop:capture",
+    "world srv.busy", "world srv.slow", "world srv.die", "world srv.progress", "world srv.hostwait", "world pay.hold:response", "world pay.drop:response",
+    "life closeTab a", "life openTab a", "life openTab b", "life closeTab b", "life dispose a", "life ensure a", "life dispose b", "life ensure b", "life dehydrate", "life hydrate", "life reload a", "life reload b",
+    "together pay.release+send a Cancel", "together send a Cancel+pay.release", "together advance 1+send a Cancel", "together advance -1+send a Cancel"];
   return o;
 }
 export function streamSteps(): string[] {
-  return ["send a Sub", "send a SubFrom", "send a Unsub", "advance 1", "advance 2", "advance next", "advance 1 suspended",
-    "world chat.hold", "world chat.release", "world chat.drop", "world chat.hold:open", "world chat.drop:open", "world chat.drop:open:always", "world chat.hold:close", "world chat.close4401", "world chat.end", "world chat.die",
+  return ["send a Sub", "send a SubFrom", "send a Unsub", "send a Msg", "advance 1", "advance 2", "advance next", "advance 1 suspended",
+    "world chat.hold", "world chat.release", "world chat.drop", "world chat.dup", "world chat.release:nth2", "world chat.hold:open", "world chat.drop:open", "world chat.drop:open:always", "world chat.close4401", "world chat.end", "world chat.die",
     "world chat.push", "world chat.flood", "world chat.burst", "world chat.burst:fail", "world chat.burst:end", "together chat.burst+send a Unsub", "together chat.burst:fail+send a Unsub", "together chat.sig:proof+send a Unsub", "together chat.sig:lost+send a Unsub", "together chat.sig:reset+send a Unsub", "together chat.sig:down+send a Unsub", "together chat.sig:live+send a Unsub", "together chat.die+send a Unsub", "together chat.close4401+send a Unsub", "together chat.end+send a Unsub", "together chat.drop+send a Unsub", "together hist.release+send a Unsub", "world chat.sig:proof", "world chat.sig:live", "world chat.sig:lost", "world chat.sig:reset", "world chat.sig:down",
     "world chat.greet:live", "world chat.greet:lost", "world chat.greet:reset", "world chat.greet:none", "world chat.refuse",
     "world chat.hist:more", "world chat.hist:empty", "world chat.hist:cannot", "world chat.hist:fail", "world chat.hist:fatal",
     "world hist.hold", "world hist.release", "world hist.hold:response",
-    "life closeTab a", "life openTab a"];
+    "life closeTab a", "life openTab a", "life reload a"];
 }
+export const SUITE_EXTRA = ["world chat.hold:close"];
 
 function needTab(S: S, t: T, c: Ctx): string | null { return S.tabs[t] ? null : "TabClosed"; }
 export function apply(S0: S, label: string, rev = false): { s: S; c: Ctx; err?: string } {
@@ -533,7 +600,8 @@ export function apply(S0: S, label: string, rev = false): { s: S; c: Ctx; err?: 
     const t = w[1] as T, ev = w[2]!;
     const e = needTab(S, t, c); if (e) return fail(e);
     const tb = S.tabs[t]!;
-    if (ev === "Sub" || ev === "SubFrom") { if (t !== "a") return fail("ActorAbsent"); if (S.ad.on) return fail("AlreadyEntered"); S.ad = newAd(); S.ad.on = true; S.ad.last = ev === "SubFrom"; S.cb = { q: [], closing: "open", released: false }; S.ss = { st: "Opening", answer: "none", owed: false }; if (OPT.src === "reconnect" || OPT.src === "callback" || OPT.src === "plain") connect(S, c); settle(S, c); return done(); }
+    if (ev === "Sub" || ev === "SubFrom") { if (t !== "a") return fail("ActorAbsent"); if (S.ad.on) return fail("AlreadyEntered"); S.ad = newAd(); S.ad.on = true; S.ad.last = ev === "SubFrom"; S.cb = { q: [], closing: "open", released: false }; S.ss = { st: "Opening", answer: "none", owed: false }; S.tm.push({ own: 3, kind: "sdk", tab: "a", due: S.now + 1, ref: 0, fx: 0, op: 0, arm: arm(S) }); connect(S, c); settle(S, c); return done(); }
+    if (ev === "Msg") { const st = cst(S); if (st === "Open" || st === "Silent") cellAdd(c, "Conn|msg|" + st); settle(S, c); return done(); }
     if (ev === "Unsub") { if (!S.ad.on || S.ss.st === "Released") return fail("NotEntered"); unsub(S, c); settle(S, c); return done(); }
     if (!tb.actor) return fail("ActorAbsent");
     if (ev === "Pay") { if (S.natt >= MAXATT) return fail("StoryTurnLimit".replace("StoryTurnLimit", "NoMore")); commit(S, c, t); }
@@ -550,7 +618,7 @@ export function apply(S0: S, label: string, rev = false): { s: S; c: Ctx; err?: 
     let target: number;
     if (d === "next") { const ds = deadlines(S, false); if (!ds.length) return fail("NoDeadline"); target = Math.min(...ds.map((x) => x.due)); } else target = S.now + d;
     if (target > NOWMAX) return fail("NoMore");
-    if (susp) { if (!S.tabs.a) return fail("TabClosed"); S.susp = "a"; if (S.chat.cn && S.chat.cn.st !== "Closed" && S.ad.on) cellAdd(c, "Conn|tab|" + S.chat.cn.st); }
+    if (susp) { if (!S.tabs.a) return fail("TabClosed"); S.susp = "a"; for (const r of S.reqs) if (r.tab === "a") cellAdd(c, "Wire|suspended|" + (r.st === "Waking" ? "Server" : r.st)); }
     runUntil(S, c, target, susp);
     if (c.errs.length) return done();
     if (susp) { S.susp = ""; settle(S, c); runUntil(S, c, S.now, false); }
@@ -564,12 +632,15 @@ export function apply(S0: S, label: string, rev = false): { s: S; c: Ctx; err?: 
     const parts = label.slice("together ".length).split("+");
     for (const p of parts) { // admission held while each arrives: sends are queued, controls run until effects reach a mailbox or gate; then one settle
       if (p.startsWith("send ")) { const q = p.split(" "); const t = q[1] as T; const e = needTab(S, t, c); if (e) return fail(e); const tb = S.tabs[t]!; if (!tb.actor) return fail("ActorAbsent"); if (q[2] === "Cancel") cancel(S, c, t); else if (q[2] === "Unsub") { if (!S.ad.on || S.ss.st === "Released") return fail("NotEntered"); unsub(S, c); } else if (q[2] === "Pay" && S.natt < MAXATT) commit(S, c, t); }
+      else if (p.startsWith("advance ")) { const d = Number(p.split(" ")[1]); if (!Number.isFinite(d) || d < 0) return fail("InvalidDuration"); if (S.now + d > NOWMAX) return fail("NoMore"); c.qt = true; runUntil(S, c, S.now + d, false); c.qt = false; if (c.errs.length) return done(); } // deadlines fire, events queue, no turns
       else { const r = worldCtl(S, c, p); if (r) return fail("NothingHeld"); settle(S, c, false); } // a control runs until its effects reach a mailbox or a gate; Flow has not pulled yet
     }
     settle(S, c); return done();
   }
   if (kind === "life") {
-    const r = lifecycle(S, c, w[1]!, w[2] as T | undefined); if (r) return fail(r);
+    let r: string | null; const wasActor = S.tabs[w[2] as T]?.actor;
+    if (w[1] === "reload") { r = lifecycle(S, c, "closeTab", w[2] as T); if (!r) r = lifecycle(S, c, "openTab", w[2] as T, wasActor); } else r = lifecycle(S, c, w[1]!, w[2] as T | undefined);
+    if (r) return fail(r);
     settle(S, c); return done();
   }
   if (label === "inject unknown" && !CFG.noInject) { const tb = S.tabs.a; if (tb && tb.lane.st === "InFlight") { endRec(c, "a", tb.lane.head, "unknown{Injected}", "inj"); hold(S, c, "a", tb.lane.head); } return done(); }
@@ -578,49 +649,58 @@ export function apply(S0: S, label: string, rev = false): { s: S; c: Ctx; err?: 
 function worldCtl(S: S, c: Ctx, ctl: string): string | null {
   const [ns, rest] = ctl.split("."), parts = rest!.split(":");
   const verb = parts[0]!;
-  if (ns === "pay" || ns === "sto" || ns === "hist") {
+  if (ns === "pay" || ns === "hist") {
     const ep = ns as Req["ep"], rs = S.rules[ep];
-    if (verb === "release") return release(S, c, ep, parts[1] === "drop");
-    const k = verb === "dup" ? "dup" : (verb as "hold" | "drop");
-    const o = parts[1];
-    const at = o === "response" ? "response" : "request";
-    const rule: Rule = { k, at, times: o === "always" ? -1 : 1 };
-    if (o === "b") rule.tab = "b"; else if (ep === "sto" && o) rule.pur = o; else if (ep === "pay" && at === "request") rule.pur = "commit";
-    if (ep === "sto" && !rule.pur && o === "response") rule.pur = undefined;
+    if (verb === "release") { const m = /^nth(\d)$/.exec(parts[1] ?? ""); return release(S, c, ep, parts[1] === "drop", m ? Number(m[1]) : 0, parts.includes("handle")); }
+    const o = parts[1], rule: Rule = { k: verb === "dup" ? "dup" : (verb as "hold" | "drop"), at: o === "response" ? "response" : "request", times: o === "always" ? -1 : 1 };
+    if (o === "b") rule.tab = "b"; else if (ep === "pay") rule.pur = "commit";
+    if (parts.includes("handle")) rule.h = true;
     rs.push(rule); return null;
   }
+  if (ns === "sto") {
+    if (verb === "release") return releaseW(S, c, parts[1] === "drop");
+    S.rules.sto.push({ k: verb as "hold" | "drop", at: parts[2] === "response" ? "response" : "request", times: 1, pur: parts[1] }); return null;
+  }
   if (ns === "srv") {
-    if (verb === "busy") S.srv.busy = 1; else if (verb === "slow") S.srv.lat = S.srv.lat ? 0 : 1; else if (verb === "die") S.srv.die = true;
+    if (verb === "busy") S.srv.busy = 1; else if (verb === "slow") S.srv.lat = S.srv.lat ? 0 : 1; else if (verb === "die") S.srv.die = true; else if (verb === "hostwait") S.srv.host = true;
     else if (verb === "progress") for (const r of S.reqs) if (r.ep === "pay" && r.st === "Server" && r.pur === "commit") { const tb = S.tabs[r.tab]; cellAdd(c, `P|${tb && tb.lane.head === r.att && !tb.lane.ended ? "addr" : "other"}|setter`); }
     return null;
   }
-  const ch = S.chat; // chat
-  const cn = ch.cn;
+  const ch = S.chat, cn = ch.cn, st = cst(S); // chat
+  const standing = ch.orules.length > 0 || ch.nextSilent || ch.nextDup || ch.holdClose !== 0;
   switch (verb) {
     case "hold": {
       if (parts[1] === "open") { ch.orules.push({ k: "hold", at: "request", times: 1 }); return null; }
       if (parts[1] === "close") { ch.holdClose = 1; return null; }
-      if (cn && cn.st === "Open") { cellAdd(c, "Conn|hold|Open"); cn.st = "Silent"; } return null; // GAP (S1): hold() with no open connection is a no-op here
+      if (st === "Silent") return null; // "—" in 3.3
+      cellAdd(c, "Conn|hold|" + st);
+      if (st === "Open") cn!.st = "Silent"; else ch.nextSilent = true; // a standing rule: the next connection opens Silent
+      return null;
     }
     case "release": {
-      let any = false;
-      if (cn && cn.st === "Silent") { cellAdd(c, "Conn|release|Silent"); cn.st = "Open"; const q = cn.q; cn.q = []; any = true; for (const f of q) deliverFrame(S, c, f); }
-      else if (cn && cn.st === "Connecting" && CFG.releaseHeldOpen) { any = true; acceptOpen(S, c); }
-      else if (cn && cn.st === "Open" && cn.hc) { any = true; cn.st = "Closed"; cn.hc = false; S.tm = S.tm.filter((t) => t.kind !== "bound"); sIn(S, c, "closed"); }
-      if (ch.orules.length || ch.holdClose) any = true;
-      ch.orules = []; ch.holdClose = 0;
-      return CFG.nothingHeld && !any ? "NothingHeld" : null;
+      const nth = parts[1] === "nth2";
+      cellAdd(c, (nth ? "Conn|nth|" : "Conn|release|") + st);
+      if ((st === "None" || st === "Closed") && CFG.nothingHeld && !(CFG.releaseEndsStanding && standing)) return "NothingHeld";
+      if (st === "Opening") acceptOpen(S, c);
+      else if (st === "Silent") { cn!.st = "Open"; const q = [...cn!.q]; if (nth && q.length >= 2) q.unshift(q.splice(1, 1)[0]!); cn!.q = []; for (const f of q) deliverFrame(S, c, f); }
+      else if (st === "Open" && cn!.hc) { S.chat.cn = null; S.tm = S.tm.filter((t) => t.kind !== "bound"); sIn(S, c, "closed"); }
+      if (CFG.releaseEndsStanding) { ch.orules = []; ch.holdClose = 0; ch.nextSilent = false; ch.nextDup = false; }
+      return null;
     }
     case "drop": {
       if (parts[1] === "open") { ch.orules.push({ k: "drop", at: "request", times: parts[2] === "always" ? -1 : 1 }); return null; }
-      if (!cn || (cn.st !== "Open" && cn.st !== "Silent")) return null; // GAP (S1)
-      cellAdd(c, "Conn|drop|" + cn.st); const hc = cn.hc; cn.st = "Closed"; cn.q = []; cn.hc = false; innerClose(S, c, "lost"); if (hc) { S.tm = S.tm.filter((t) => t.kind !== "bound"); sIn(S, c, "closed"); } return null; // GAP (S6): a drop while the close waits
+      cellAdd(c, "Conn|drop|" + st);
+      if (st === "None" || st === "Closed") return null; // nothing, recorded
+      const hc = cn!.hc; cn!.st = "Closed"; cn!.code = 1006; cn!.q = []; cn!.hc = false; innerClose(S, c, "lost");
+      if (hc) { S.tm = S.tm.filter((t) => t.kind !== "bound"); sIn(S, c, "closed"); } return null;
     }
     case "close4401": case "end": {
-      if (!cn || (cn.st !== "Open" && cn.st !== "Silent")) return null;
-      if (verb === "close4401") cellAdd(c, "Conn|close4401|" + cn.st);
-      const hc = cn.hc; cn.st = "Closed"; cn.code = verb === "end" ? 1000 : 4401; cn.q = []; cn.hc = false; innerClose(S, c, verb === "end" ? "end" : "fatal"); if (hc) { S.tm = S.tm.filter((t) => t.kind !== "bound"); sIn(S, c, "closed"); } return null;
+      if (st !== "Opening" && st !== "Open" && st !== "Silent") return null; // "—"
+      cellAdd(c, "Conn|close|" + st);
+      const hc = cn!.hc; cn!.st = "Closed"; cn!.code = verb === "end" ? 1000 : 4401; cn!.q = []; cn!.hc = false; innerClose(S, c, verb === "end" ? "end" : "fatal");
+      if (hc) { S.tm = S.tm.filter((t) => t.kind !== "bound"); sIn(S, c, "closed"); } return null;
     }
+    case "dup": cellAdd(c, "Conn|dup|" + st); ch.nextDup = true; return null;
     case "die": { if (cn && cn.st !== "Closed") innerClose(S, c, "die"); return null; }
     case "push": ch.pos = Math.min(ch.pos + 1, 2); frames(S, c, ["value"]); return null;
     case "burst": ch.pos = 2; frames(S, c, ["value", "value", "live"].concat(parts[1] === "fail" ? ["!fatal"] : parts[1] === "end" ? ["!end"] : [])); return null;
@@ -632,28 +712,36 @@ function worldCtl(S: S, c: Ctx, ctl: string): string | null {
   }
   return "unknown control " + ctl;
 }
-function lifecycle(S: S, c: Ctx, op: string, t?: T): string | null {
+function restoreTab(S: S, c: Ctx, t: T, served: boolean) {
+  const tb = S.tabs[t]; if (!tb) return;
+  tb.actor = tb.keep ?? true;
+  if (!served) { lcell(c, "restore", "Idle"); return; } // INVENTED: a refused restore opens an empty lane
+  if (!S.rec) { lcell(c, "restore", "Idle"); return; }
+  if (S.rec.late && !S.rec.crash) c.viol.push("R:late-ack-restored#" + S.rec.att); // revision 1's ghost: a late acknowledgement survives with nothing to remove it
+  const st = S.rec.held ? "Held" : "InFlight"; lcell(c, "restore", st); cellAdd(c, "P|addr|restore");
+  if (S.rec.hc && st === "InFlight") cellAdd(c, "W|restore|InFlight:HeldConfirm"); // T7: a stored acknowledgement whose confirmation was held restores as unknown { Restored }
+  tb.lane = { st: "Held", head: S.rec.att, stage: "", ended: true, W: [] };
+  if (st === "InFlight") { lcell(c, "unknown", "InFlight"); endRec(c, t, S.rec.att, "unknown{Restored}", "lc"); write(S, c, t, "flush", S.rec.att); }
+}
+function lifecycle(S: S, c: Ctx, op: string, t?: T, keep?: boolean): string | null {
   if (op === "closeTab") {
     if (!S.tabs[t!]) return "TabClosed";
     for (const r of S.reqs) if (r.tab === t && !r.gone) interrupt(S, c, r);
     S.tm = S.tm.filter((x) => x.tab !== t);
     if (S.own === t) S.own = "";
-    if (t === "a") { if (S.chat.cn && S.chat.cn.st !== "Closed" && S.ad.on) cellAdd(c, "Conn|tab|" + S.chat.cn.st); closeConn(S, c); S.ad = newAd(); S.cb = { q: [], closing: "open", released: false }; }
+    closeWrites(S, c, t!);
+    if (t === "a") { if (S.chat.cn && S.ad.on && S.chat.cn.st !== "Closed") cellAdd(c, "Conn|clientClose|" + S.chat.cn.st); S.chat.cn = null; S.ad = newAd(); S.cb = { q: [], closing: "open", released: false }; }
     S.tabs[t!] = null; return null;
   }
   if (op === "openTab") {
     if (S.tabs[t!]) return "TabOpen";
     const persist = S.own === ""; if (persist) S.own = t!;
-    const tb: Tab = { persist, actor: true, exp: false, lane: newLane() }; S.tabs[t!] = tb;
-    if (persist) {
-      if (!S.rec) lcell(c, "restore", "Idle");
-      else {
-        if (S.dead.includes(S.rec.att)) c.viol.push("R:restore-revives-ended-attempt#" + S.rec.att); // a late acknowledgement write landed after the Attempt ended
-        const st = S.rec.held ? "Held" : "InFlight"; lcell(c, "restore", st); cellAdd(c, "P|addr|restore");
-        tb.lane = { st: "Held", head: S.rec.att, stage: "", ended: true, W: [] };
-        if (st === "InFlight") { lcell(c, "unknown", "InFlight"); endRec(c, t!, S.rec.att, "unknown{Restored}", "lc"); issue(S, c, "sto", t!, "flush", S.rec.att); }
-      }
-    }
+    const tb: Tab = { persist, actor: true, exp: false, lane: newLane(), keep: keep ?? true }; S.tabs[t!] = tb;
+    if (!persist) { tb.actor = tb.keep!; return null; }
+    const rule = takeRule(S.rules.sto, t!, "read"); // 3.6 reads: bootstrap restore is a read
+    if (!rule || rule.k === "dup") { wc(c, "read:arrive:none"); restoreTab(S, c, t!, true); }
+    else if (rule.k === "hold") { wc(c, "read:arrive:hold"); tb.actor = false; S.rd.push(t!); }
+    else { wc(c, "read:arrive:drop"); restoreTab(S, c, t!, false); }
     return null;
   }
   if (op === "dehydrate") { if (!S.tabs.a) return "TabClosed"; S.dh = true; return null; }
@@ -662,10 +750,10 @@ function lifecycle(S: S, c: Ctx, op: string, t?: T): string | null {
   if (op === "dispose") {
     if (!tb.actor) return "ActorAbsent";
     lcell(c, "dispose", tb.lane.st); tb.actor = false; tb.exp = false;
-    S.tm.push({ own: 3, kind: "retain", tab: t!, due: S.now + RETAIN, ref: 0, fx: 0, op: 0, arm: arm(S) }); return null;
+    S.tm.push({ own: 4, kind: "retain", tab: t!, due: S.now + RETAIN, ref: 0, fx: 0, op: 0, arm: arm(S) }); return null;
   }
   if (op === "ensure") {
-    if (tb.actor) return null;
+    if (tb.actor) return "AlreadyEntered";
     tb.actor = true; S.tm = S.tm.filter((x) => !(x.kind === "retain" && x.tab === t));
     if (tb.lane.st !== "Idle") lcell(c, "rebind", tb.lane.st);
     return null;
@@ -678,16 +766,16 @@ function canon(S: S) {
   const ids = [...new Set(S.reqs.map((r) => r.id))].sort((a, b) => a - b), m = new Map<number, number>(); ids.forEach((x, i) => m.set(x, i + 1));
   for (const r of S.reqs) r.id = m.get(r.id)!;
   S.nid = ids.length;
-  const arms = [...new Set([...S.reqs.map((r) => r.arm), ...S.tm.map((t) => t.arm)])].sort((a, b) => a - b), am = new Map<number, number>(); arms.forEach((x, i) => am.set(x, i + 1));
+  const arms = [...new Set([...S.reqs.map((r) => r.arm), ...S.tm.map((t) => t.arm), ...S.wr.map((w) => w.arm)])].sort((a, b) => a - b), am = new Map<number, number>(); arms.forEach((x, i) => am.set(x, i + 1));
   for (const r of S.reqs) r.arm = am.get(r.arm)!;
   for (const t of S.tm) t.arm = am.get(t.arm)!;
+  for (const w of S.wr) w.arm = am.get(w.arm)!;
   S.armc = arms.length;
-  S.reqs = S.reqs.filter((r) => !(r.gone && r.dup && r.st === "Answered"));
   if (S.srv.chg.length > MAXATT) S.srv.chg = S.srv.chg.slice(0, MAXATT);
   S.srv.chg.sort(); S.dead.sort();
 }
 export function quiet(S: S): boolean {
-  if (S.reqs.length || S.tm.length || S.rules.pay.length || S.rules.sto.length || S.rules.hist.length || S.chat.orules.length || S.chat.holdClose) return false;
+  if (S.reqs.length || S.wr.length || S.rd.length || S.chat.nextSilent || S.chat.nextDup || S.tm.length || S.rules.pay.length || S.rules.sto.length || S.rules.hist.length || S.chat.orules.length || S.chat.holdClose) return false;
   for (const t of TABS) { const tb = S.tabs[t]; if (tb && (tb.lane.st !== "Idle" || tb.lane.W.length)) return false; }
   if (S.ad.on && S.ss.st !== "Ended" && S.ss.st !== "Released") return false;
   return true;
@@ -697,23 +785,32 @@ export const key = (S: S) => JSON.stringify(S);
 // ---- 3.4: the stand-in host (a fragment alone) --------------------------------------------------------------------------
 export interface H { st: "Absent" | "Active" | "Frozen" | "Ended"; subj: number; guards: number; resum: boolean; pend: boolean }
 export const hInit = (resum: boolean): H => ({ st: "Absent", subj: 0, guards: 0, resum, pend: false });
-export const HSTEPS = ["enter s1", "enter s2", "leave", "reset s1", "reset s2", "guards", "send ev", "send exit"];
+export const HSTEPS = ["enter s1", "enter s2", "leave", "leave end", "reset s1", "reset s2", "guards", "send ev", "send exit"];
 export function hApply(h0: H, step: string): { h: H; cells: string[]; err?: string } {
   const h = clone(h0), cells: string[] = []; const [op, arg] = step.split(" ");
   const subj = arg === "s2" ? 2 : 1, st = h0.st;
   switch (op) {
     case "enter":
-      if (st === "Active") return { h: h0, cells: ["Host|enter|Active"], err: "AlreadyEntered(host)" };
-      if (st === "Frozen") { cells.push(`Host|enter|Frozen:${h.subj === subj ? "same" : "other"}`); if (h.subj !== subj) h.pend = true; }
-      else cells.push(`Host|enter|${st}`);
-      h.st = "Active"; h.subj = subj; if (st !== "Frozen") h.pend = false; return { h, cells };
+      cells.push(`Host|enter|${st}`);
+      if (st === "Active") return { h: h0, cells, err: "AlreadyEntered(host)" };
+      if (st === "Frozen" && h.subj !== subj) h.pend = true; // other subject: reset on return, a new life
+      else if (st !== "Frozen") h.pend = false;
+      h.st = "Active"; if (st !== "Frozen") h.subj = subj; else if (h.pend) h.subj = subj; return { h, cells };
     case "leave":
-      if (st !== "Active") return { h: h0, cells: [`Host|leave|${st}`], err: "NotEntered(host)" };
-      cells.push(`Host|leave|Active:${h.resum ? "resumable" : "plain"}`); h.st = h.resum ? "Frozen" : "Absent"; return { h, cells };
+      cells.push(`Host|leave|${st}`);
+      if (arg === "end") {
+        cells.pop(); cells.push(`Host|leaveEnd|${st}`);
+        if (st === "Active" || st === "Frozen") { h.st = "Absent"; return { h, cells }; }
+        return { h: h0, cells, err: "NotEntered(host)" };
+      }
+      if (st !== "Active") return { h: h0, cells, err: "NotEntered(host)" };
+      h.st = h.resum ? "Frozen" : "Absent"; return { h, cells };
     case "reset":
       cells.push(`Host|reset|${st}`);
-      if (st !== "Active") return { h: h0, cells, err: "NotEntered(host)" };
-      h.subj = subj; h.pend = false; return { h, cells };
+      if (st === "Absent" || st === "Ended") return { h: h0, cells, err: "NotEntered(host)" };
+      if (st === "Frozen") { h.subj = subj; h.pend = true; return { h, cells }; }
+      if (h.subj !== subj) { h.subj = subj; h.pend = true; }
+      return { h, cells };
     case "guards": cells.push(`Host|guards|${st}`); h.guards = (h.guards + 1) % 2; return { h, cells };
     case "send":
       cells.push(`Host|send|${st}`);

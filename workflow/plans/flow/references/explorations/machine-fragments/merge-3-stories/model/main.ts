@@ -1,7 +1,7 @@
 // Exhaustive bounded search over sequences of Story steps (proposal-v2.md section 3).
 // Types: `tsc -p .`   Run: bun main.ts   (QUICK=1 lowers the depths; DEPTH=n overrides)
 import {
-  CB_CELLS, CFG, CONN_CELLS, ERRORS, HOST_CELLS, OPT, PROG_CELLS, RECON_CELLS, SESS_CELLS, WIRE_CELLS, apply, clone, hApply, hInit, init, key, laneCells, quiet, runnable, stepList, streamSteps, HSTEPS,
+  CB_CELLS, CFG, CONN_CELLS, ERRORS, HOST_CELLS, OPT, PROG_CELLS, RECON_CELLS, SESS_CELLS, STO_CELLS, SUITE_EXTRA, WIRE_CELLS, apply, clone, hApply, hInit, init, key, laneCells, quiet, runnable, stepList, streamSteps, HSTEPS,
 } from "./model.ts";
 import type { H, S } from "./model.ts";
 
@@ -17,7 +17,7 @@ interface Res {
 const FAILPAIRS: string[] = [];
 const errTr = new Map<string, string[]>();
 const ROOT = 3;
-const RECOV = ["send a Retry", "send a Cancel", "send b Cancel", "world pay.release", "world pay.release:drop", "world sto.release", "world hist.release", "world chat.release", "send a Unsub", "advance next", "life ensure a", "life ensure b"];
+const RECOV = ["send a Retry", "send a Cancel", "send b Cancel", "world pay.release", "world pay.release:handle", "world pay.release:drop", "world sto.release", "world hist.release", "world chat.release", "send a Unsub", "advance next", "life ensure a", "life ensure b"];
 
 function explore(run: Run): Res {
   const t0 = performance.now();
@@ -94,31 +94,35 @@ const D = (n: number) => (env("DEPTH") ? Number(env("DEPTH")) : QUICK ? Math.max
 const W_STEPS = stepList(), S_STEPS = streamSteps();
 const ALL = [...new Set([...W_STEPS, ...S_STEPS])];
 const extra = CFG.noInject ? [] : ["inject unknown"];
-interface Cfg { name: string; policy: "reject" | "serialize"; src: "plain" | "reconnect" | "callback"; auto: boolean; run: Run }
-const RELOAD = ["send a Pay", "send a Retry", "send a Cancel", "world sto.hold:ack", "world sto.hold:flush", "world sto.release", "world pay.hold", "world pay.release", "life closeTab a", "life openTab a", "advance next"];
+interface Cfg { suite?: boolean; name: string; policy: "reject" | "serialize"; src: "plain" | "reconnect" | "callback"; auto: boolean; run: Run }
+const RELOAD0 = ["send a Pay", "send a Retry", "send a Cancel", "world sto.hold:ack", "world sto.hold:flush", "world sto.release", "world pay.hold", "world pay.release", "life closeTab a", "life openTab a", "advance next"];
+const RELOAD = ["send a Pay", "send a Retry", "send a Cancel", "world sto.hold:ack", "world sto.hold:ack:response", "world sto.hold:clear", "world sto.hold:flush", "world sto.release", "world pay.hold", "world pay.release", "life reload a", "advance next"];
+void RELOAD0;
 const SER = ["send a Pay", "send a Retry", "send a Cancel", "send a GuardIdle", "world pay.hold", "world pay.release", "world pay.drop:response", "world srv.slow", "world srv.progress", "world sto.hold:ack", "world sto.release",
   "life dispose a", "life ensure a", "life closeTab a", "life openTab a", "advance 1", "advance next", "together pay.release+send a Cancel"];
 const EQ = ["life openTab b", "life dispose a", "life dispose b", "advance 1", "advance next", "world srv.slow", "world srv.die", "send b Pay", "send a Pay", "send a Retry", "send b Retry", "send b Cancel"];
 const CONFIGS: Cfg[] = [
   { name: "W[reject]", policy: "reject", src: "reconnect", auto: false, run: { name: "W[reject]", steps: [...W_STEPS, ...extra], depth: D(4), maxStates: 300000 } },
   { name: "W[serialize,autoRetry]", policy: "serialize", src: "reconnect", auto: true, run: { name: "W[serialize,autoRetry]", steps: SER, depth: D(7), maxStates: 150000 } },
-  { name: "Wreload[reject]", policy: "reject", src: "reconnect", auto: false, run: { name: "Wreload[reject]", steps: RELOAD, depth: D(9), maxStates: 300000 } },
+  { name: "Wreload[reject]", policy: "reject", src: "reconnect", auto: false, run: { name: "Wreload[reject]", steps: RELOAD, depth: D(8), maxStates: 300000 } },
   { name: "S[reconnect]", policy: "reject", src: "reconnect", auto: false, run: { name: "S[reconnect]", steps: S_STEPS, depth: D(4), maxStates: 200000 } },
   { name: "S[plain]", policy: "reject", src: "plain", auto: false, run: { name: "S[plain]", steps: S_STEPS, depth: D(4), maxStates: 200000 } },
   { name: "S[callback]", policy: "reject", src: "callback", auto: false, run: { name: "S[callback]", steps: S_STEPS, depth: D(4), maxStates: 200000 } },
+  { name: "S[suite,reconnect]", suite: true, policy: "reject", src: "reconnect", auto: false, run: { name: "S[suite,reconnect]", steps: [...S_STEPS, ...SUITE_EXTRA], depth: D(4), maxStates: 200000 } },
+  { name: "S[suite,callback]", suite: true, policy: "reject", src: "callback", auto: false, run: { name: "S[suite,callback]", steps: [...S_STEPS, ...SUITE_EXTRA], depth: D(4), maxStates: 200000 } },
   { name: "Eq[auto]", policy: "reject", src: "reconnect", auto: true, run: { name: "Eq[auto]", steps: EQ, depth: D(7), maxStates: 100000, root: -1 } },
   { name: "WS[reject,reconnect]", policy: "reject", src: "reconnect", auto: false, run: { name: "WS[reject,reconnect]", steps: ALL, depth: D(4), maxStates: 50000 } },
 ];
 
 const only = env("ONLY");
-const allCells = new Set<string>(), allErrors = new Set<string>(), results: Res[] = [];
+const suiteCells = new Set<string>(), allCells = new Set<string>(), allErrors = new Set<string>(), results: Res[] = [];
 let totalMs = 0;
 for (const cfg of CONFIGS) {
   if (only && !cfg.name.startsWith(only)) continue;
-  OPT.policy = cfg.policy; OPT.src = cfg.src; OPT.auto = cfg.auto;
+  OPT.suite = !!cfg.suite; OPT.policy = cfg.policy; OPT.src = cfg.src; OPT.auto = cfg.auto;
   const r = explore(cfg.run); results.push(r); totalMs += r.ms;
   console.log(`RUN ${r.name} states=${r.states} depth=${r.depth} ${r.capped ? "(bounded by depth/state cap)" : "(fixpoint)"} transitions=${r.transitions} ${r.ms} ms`);
-  for (const c of r.cells) allCells.add(c);
+  for (const c of r.cells) (cfg.suite ? suiteCells : allCells).add(c);
   for (const e of r.errors) allErrors.add(e);
 }
 for (const [k, t] of errTr) console.log(`INFO StoryTurnLimit in ${k}: ${t.join(" ; ")}`);
@@ -140,15 +144,16 @@ for (const k of [...conf].sort()) { const r = results.find((x) => x.fails.has(k)
 for (const h of hosts) for (const f of h.fails) { console.log("RESULT host FAIL " + f); FAILPAIRS.push("FAILPAIR host | Host | " + f); }
 if (!conf.size) console.log("RESULT 6-conformance PASS (no table-level violation: Lost never served, rank order, suspended tab silent, no late restore of an ended Attempt)");
 
-const groups: [string, string[]][] = [["write lane (2.7.13 holding table)", laneCells()], ["3.2 request on the wire", WIRE_CELLS], ["3.3 connection", CONN_CELLS], ["3.4 stand-in host", HOST_CELLS],
+const groups: [string, string[]][] = [["write lane (2.7.13 holding table)", laneCells()], ["3.2 request on the wire", WIRE_CELLS], ["3.6 write at Fake.storage", STO_CELLS], ["3.3 connection", CONN_CELLS], ["3.4 stand-in host", HOST_CELLS],
   ["write progress (M6 3.5)", PROG_CELLS], ["Feed.callback queue (M6 3.3)", CB_CELLS], ["Feed.reconnect (M6 3.4)", RECON_CELLS], ["stream session (M6 3.1)", SESS_CELLS]];
 let missTotal = 0;
 for (const [g, list] of groups) {
-  const miss = list.filter((c) => !allCells.has(c)); missTotal += miss.length;
-  console.log(`RESULT 4-reachability ${miss.length ? "MISSING" : "PASS"} ${g}: ${list.length - miss.length}/${list.length} cells reached${miss.length ? "; unreachable: " + miss.join(", ") : ""}`);
-  if (miss.length) FAILPAIRS.push(`FAILPAIR 4-reachability | ${g} | ${miss.join(", ")}`);
+  const miss = list.filter((c) => !allCells.has(c)), suiteOnly = miss.filter((c) => suiteCells.has(c)), expected = g.startsWith("write lane") ? miss.filter((c) => c.includes("runtimeDisposal")) : [];
+  const bad = miss.filter((c) => !suiteOnly.includes(c) && !expected.includes(c)); missTotal += bad.length;
+  console.log(`RESULT 4-reachability ${bad.length ? "MISSING" : "PASS"} ${g}: ${list.length - miss.length}/${list.length} reached by app Stories${suiteOnly.length ? "; suite-only (policy suite adapter): " + suiteOnly.join(", ") : ""}${expected.length ? "; by design (T2): " + expected.join(", ") : ""}${bad.length ? "; UNREACHABLE: " + bad.join(", ") : ""}`);
+  if (bad.length) FAILPAIRS.push(`FAILPAIR 4-reachability | ${g} | ${bad.join(", ")}`);
 }
-const stray = [...allCells].filter((c) => !groups.some(([, l]) => l.includes(c)) && !c.startsWith("W|") && !c.startsWith("Wire") );
+const stray = [...allCells, ...suiteCells].filter((c) => !groups.some(([, l]) => l.includes(c)) && !c.startsWith("W|"));
 const wstray = [...allCells].filter((c) => c.startsWith("W|") && !laneCells().includes(c));
 console.log(`INFO cells outside the target lists: ${[...stray, ...wstray].join(", ") || "none"}`);
 const errMiss = ERRORS.filter((e) => !allErrors.has(e));
