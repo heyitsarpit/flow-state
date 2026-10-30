@@ -1,14 +1,7 @@
-// What the ticket requests mean for shared data (entity-domain.md). One record per ticket stays
+// What the ticket contracts mean for shared data (rules 26-38). One record per ticket stays
 // coherent across the editor, the queue and the counts; repair refetches only what can be wrong.
-import { and, asc, desc, domain, entity, eq, listen, read, serverMatches, write } from "flow-state";
-import {
-  assignTicket,
-  openCount,
-  saveTitle,
-  ticketById,
-  ticketEvents,
-  ticketList,
-} from "./ticket.operations.js";
+import { and, asc, desc, domain, entity, eq, read, serverMatches, write } from "flow-state";
+import { assignTicket, openCount, saveTitle, ticketById, ticketList } from "./ticket.contracts.js";
 import { TicketRow } from "./types.js";
 
 // The record is declared once: the entity reuses the wire row's fields.
@@ -25,10 +18,10 @@ export const TicketsDomain = domain("tickets", {
     .one(Ticket)
     .byKey(({ input }) => ({ workspaceId: input.workspaceId, ticketId: input.ticketId })),
 
-  // Every input is accounted for (section 2.4): workspace, status and assignee are conditions;
+  // Every input is accounted for (rule 26): workspace, status and assignee are conditions;
   // the search is matched by the server on the title; page is the paging input.
   list: read(ticketList)
-    .list(Ticket, ({ result }) => result.tickets)
+    .list(Ticket, ({ output }) => output.tickets)
     .where(({ input, record }) =>
       and(
         eq(record.workspaceId, input.workspaceId),
@@ -39,12 +32,12 @@ export const TicketsDomain = domain("tickets", {
     )
     .orderBy(({ record }) => [
       desc(record.updatedAt),
-      asc(record.workspaceId), // total: ends with every key field (section 4.4)
+      asc(record.workspaceId), // total: ends with every key field (2.8.2)
       asc(record.ticketId),
     ])
     .pagedBy(
       ({ input }) => input.page,
-      ({ result }) => result.nextPage,
+      ({ output }) => output.nextPage,
     ),
 
   // A count the server computes; it changes only when a ticket enters or leaves "open".
@@ -76,14 +69,6 @@ export const TicketsDomain = domain("tickets", {
       ),
     ),
 
-  // Other dispatchers' changes. Removals carry the revision, so a late save cannot resurrect a
-  // removed ticket (section 5.5, Deletes).
-  events: listen(ticketEvents).as([Ticket], (event) =>
-    event._tag === "TicketSaved"
-      ? Ticket.save(event.ticket)
-      : Ticket.delete(
-          { workspaceId: event.workspaceId, ticketId: event.ticketId },
-          { version: event.revision },
-        ),
-  ),
+  // Other dispatchers' changes are not here: the push `listen` entry moved to a second domain over the
+  // same entity, TicketFeed in feed/feed.domain.ts (pending merge 6).
 });
