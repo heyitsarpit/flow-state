@@ -1,0 +1,243 @@
+# Dispatch Desk review
+
+Reviewed against [machine-design.md](../explorations/machine-fragments/machine-design.md) ("MD") and, for streams,
+[merge-6-streams/proposal-v2.md](../explorations/machine-fragments/merge-6-streams/proposal-v2.md) revision 7.1 ("M6",
+S1–S10). This review is advice to the main session. Nothing in it is decided.
+
+## Verdict
+
+**Close, but not yet the spec.** The structure, file conventions, contracts and domain are good. Most rule citations
+are right, and cross-batch names resolve: every relative import resolves, `DeskSetup` is used consistently, and
+`uploads`/`attachments` are used consistently. The Effect-only files type-check.
+
+Three things stop it from reading as the spec:
+
+1. **The editor's hold routing is wrong in two places.** This is the feature the app exists to show. A late
+   `SaveUnsure` reopens a closed editor. `Reopen` into SAVING leaves the editor waiting on an ending that is routed
+   late to a root that does not move (M1, M2). The app's own property test would find the second bug.
+2. **Story expectations use two incompatible shapes,** split along batch lines. One is keyed rows versus plain rows
+   (MD 2.10.7). The other is the verdict shape. Two Stories rely on parked endings that, per MD rule 44 and 2.10.10,
+   are evidence in their setup (M12–M14).
+3. **The streams files bypass the real adapter in Stories** (S-H2). As a result, the feed's deadlines and close-code
+   handling never run under test.
+
+There are **25 misuses**: 16 against the merged design and 9 against M6, plus low-severity notes. Each fix is local.
+None needs a design change.
+
+## Type-check
+
+```
+nubx tsc -p workflow/plans/flow/references/dispatch-desk/tsconfig.effect-only.json   → exit 0
+```
+
+The check passes. nub printed two `WARN_PHANTOM_DEP` notices: `react` from
+`workflow/plans/archive/rewrite/references/app/view.tsx`, and `react-dom` from `queue.ssr.test.ts`. These come from
+nub's import scan, not from tsc, and neither file is in the Effect-only project.
+
+## 1. Misuses
+
+### Operations and the write lane
+
+| #   | Where | Misuse | Fix |
+| --- | ----- | ------ | --- |
+| M1  | `features/Tickets/editor/editor.machine.ts:122` (with `:329`) | Root `SaveUnsure: S.OPEN.UNSURE`. A save that ends unknown **after Close, with the actor alive**, is **late**. Late endings route from the nearest live strict ancestor of the owner (SAVING), which is the root (rule 14). So the root's handler runs, not CLOSED's `SaveUnsure: self`, and the closed editor jumps to OPEN.UNSURE. CLOSED's handler is reached only by adopted endings. | Move the move into OPEN: `OPEN.on.SaveUnsure: S.OPEN.UNSURE`, root `SaveUnsure: { target: "self" }`. A current ending (from SAVING) or an adopted one (default leaf EDITING) reaches OPEN. A late one after Close stays put, and `Reopen` still reaches UNSURE (rule 45's owner). Delete CLOSED's handler. |
+| M2  | `editor.machine.ts:339` | `Reopen → S.OPEN.SAVING` "still on the wire: its ending is then current". This is false in the same incarnation. The owner activation (the old SAVING) has ended, so the ending is **late** (rule 14: "an activation of this incarnation that has ended → late"). It routes to the root's `Saved: self`, and the editor sits in SAVING with an idle lane. `desk.property.test.ts`'s "never SAVING with an idle save lane" would shrink to Close, Reopen, release. MD 2.4 rule 1 already warns about re-entering a state that owns a call. | Drop the third alternative. `Reopen` goes to `S.OPEN` while the lane is in flight. Save stays disabled by `O.save.idle`. The ending, late or adopted, lands at the root or OPEN handlers. If a "Saving…" state is wanted, read the lane (`O.save.get(…).pending`) in the view. |
+| M3  | `editor.definition.ts:89-97`; `features/Attachments/upload.trait.ts:61-70` | The per-tag `unknown` records omit `StorageRefused`. Both lanes belong to a persisted identity (`editorRef` persists, and the upload copies live in it). Both re-send with `retry`, and a persisted re-send whose lane-record capture fails ends `unknown { StorageRefused }` (MD 2.7.13 table, 1304). `flow check` requires each Flow reason where it can occur (2.7.13, after OD23 Q36). | Add `StorageRefused: E.SaveUnsure` and `StorageRefused: E.Unsure`. |
+| M4  | `upload.trait.ts:66`; `app/persistence.ts:40`; `attachments-api.ts:3` | "A reload mid-upload: re-send; the bytes are gone, so it ends Gone". `Restored` is an unknown ending of an acknowledged Attempt, so the re-send's `FileGone` becomes `unknown { StillUnknown { FileGone } }` (rule 18), not a definite `Gone`. The copy then re-sends three times and ends `GaveUp`. | Map `Restored` to its own event (`Lost: Flow.uncertain({})`) whose handler does a key-less `O.put.cancel`, sets `problem: "FileGone"` and notifies `onFailed`. Its bytes cannot exist in a fresh tab. Fix the two comments. |
+| M5  | `features/Tickets/queue/queue.machine.ts:172-189` | `ListLoaded` has no handler in HEALTHY, and `ListUnavailable` has none in DEGRADED. The root `list` placement's `value` and `failure` arrive in both states, and rule 8 and rule 20 require each to be handled from every leaf. | Add `ListLoaded: { target: "self" }` to HEALTHY and `ListUnavailable: { target: "self" }` to DEGRADED, or the same pair at the root. |
+| M6  | `app/host.ts:76` | "Disposal is bounded: a save that cannot settle is recorded as unknown." This predates OD19. Disposal drops and cancels nothing, and the lane outlives the actor (rule 44, C43). | "Disposal cancels nothing: an in-flight save keeps its lane, and its ending is parked or adopted (rule 44)." |
+| M7  | `app/host.ts:69` | `api.load(key, new AbortController().signal)`. The port takes `{ signal }` (`ticket.contracts.ts:31`). | Pass `{ signal: … }`. |
+| M8  | `features/Comments/comments.trait.ts:163-173` | `Post` (and `Resend`) has no guard for the empty subject. A view can post into the queue's preview while `ticketId === ""`, which commits a comment to ticket `""` on path `[""]`. | Add `({ memory }) => memory.ticketId !== "" \|\| deny("NoTicket")` to `Post` and `Resend`. |
+
+### Entities
+
+| #   | Where | Misuse | Fix |
+| --- | ----- | ------ | --- |
+| M9  | `features/Tickets/queue/QueueList.tsx:169` | `ticket.pending`. The record read is `{ data, predicted, uncertain, unconfirmed }`, and `predicted` replaces the record's `pending` (MD 1787, 5584). | `ticket.predicted`. |
+| M10 | `QueueList.tsx:154, 200, 166` | `Ticket.get(s, row, ["title", …])` passes an array. The design spells it `Ticket.pick("title", …)`, as `TicketPanel.tsx:70` does. `if (!ticket)` assumes `get` can return `undefined`, but `get` is total, as `TicketPanel` treats it. | `Ticket.pick(...)`; `if (ticket.data === undefined) return null`. |
+
+### Fragments
+
+| #   | Where | Misuse | Fix |
+| --- | ----- | ------ | --- |
+| M11 | `QueueList.tsx:194` | "Nothing is placed while `previewId` is null." The `preview` trait is a root trait and is always placed. Only its thread read is switched off by `when`. Rule 59 rows exist, and a post can still be made (M8). | "The drawer is hidden; the trait still lives, and its thread read is off." |
+
+### Stories
+
+| #   | Where | Misuse | Fix |
+| --- | ----- | ------ | --- |
+| M12 | `editor.story.ts:40,45,125,128,133,153,167,177,199,208`; `editor.tabs.story.ts:54,81,95`; `desk.story.ts:56,97`; `upload.story.ts:43,48,63,73,75,91,97`; `assistant.story.ts:31-114` | `operations: { save: { pending: … } }` uses plain-row expectations on **keyed** lanes. `saveTitle`, `putAttachment` and `suggestReply` all have non-empty `key`. MD 2.10.7: "Keyed rows are keyed lists of the lanes that exist", so a wrong key fails instead of reading idle. `comments.story.ts` and `queue.story.ts` already do it right. | `operations: { save: [{ key: T42, pending: true }] }`, and `[]` once the lane is gone. |
+| M13 | `editor.story.ts:175-200` (`outlives-close`, `outlives-close-unsure`) | These rely on "the ending is parked for the identity", but a machine Story's actor is a **local identity** (MD 2.10.10). With no saved record, rule 44 makes an ending that lands with no live actor evidence. `outlives-close` passes only because the ticket read refills `saved`. Gap 13 assumes otherwise. | Move both into app Stories on `editorRef` (`desk.story.ts` already has `closed-mid-save`). In the machine Story, assert only the `unknown { Restored }` re-adoption of a held lane, which rule 44 delivers to a rebind of any identity. |
+| M14 | `desk.story.ts:110-123` (`closed-mid-save`) | This expects the adopted `Saved` (the toast at `:121`) after `dispose(…, { how: "now" })`. `DeskSetup` has no persistence (`app/setup.ts`), so there is no saved record and the ending is evidence (rule 44: "parked … for the identity's saved record, if one exists; otherwise it is evidence"). | Run it on `browserSetup` with `Fake.storage`, as `editor.tabs.story.ts` does, or drop the toast expectation. If the owner means a persisted ref parks endings in memory without storage, that is a design gap (see 3, note). |
+| M15 | `queue.story.ts:115-116` | `drop({ at: "response", match })` is set **after** both requests are held. A request takes the earliest-set rule that matches (MD 2.10.4, "one rule per request"), so the held answer is still the hold's, `release()` delivers both, and T-101 is never lost. `match: { ticketId }` is not an address either. | Set the drop first: `world: [Desk.assign.drop({ at: "response", match: { operation: O.assign, key: key("T-101") } }), Desk.assign.hold({ at: "response" })]`. The address has `operation` and `key` (rule 65). |
+| M16 | `comments.story.ts:42`; `queue.story.ts:61, 89` | The verdict record is written `{ _tag: "Denied", code }`. MD (4817) and `editor.story.ts:75` write `{ _tag: "Denied", reasons: [{ code }] }`. | Use `reasons: [{ code }]`. |
+
+### Streams (pending merge 6)
+
+These come from a separate pass over every PM6 file. Lines were checked where quoted.
+
+| #    | Where | Misuse | Fix |
+| ---- | ----- | ------ | --- |
+| S-H1 | `next/http-api.ts:284` | `socketText` uses `Stream.callback` and `Queue.offerUnsafe`, which buffer without bound. A flood never raises `Feed.Overflow` (M6 2.3, 2.4 recipe P). | Use `Socket.makeWebSocket(…, { highWaterMark })` (M6 4.1) or `Feed.callback(emit, { bufferSize })`. |
+| S-H2 | `testing/desk.fake.ts:474` (`SocketOverDesk`); `testing/presence.fake.ts:68` | The Stories replace the whole `DeskSocket`/`PresenceApi` service, so the adapter's idle deadline (`http-api.ts:307`), NoHello check (`:321-326`) and close-code reading never run. M6 2.11 says "A Story replaces the transport, never the adapter", and MD 2.10.9 says every Feed signal comes from the real adapter (STR36). | Write the ports over `Socket.WebSocketConstructor` and bind with `Fake.webSocket(Desk, route)` (MD 2.10.4, transport bindings). |
+| S-H3 | `features/Assistant/AssistantPanel.tsx:22, 24` | `s.operations.suggest?.progress` and `?.pending` read a keyed lane (`key: ["workspaceId","ticketId"]`) as a plain row. | `Assistant.O.suggest.get(s, ticket)`. The file's own gap 2 says so. |
+| S-M1 | `features/Assistant/assistant.machine.ts:40-58` | `Answered`, `Stopped`, `Cut` and `AskFailed` are handled only in ASKING. Adopted endings must be handled from every leaf of the arrival set (rule 20). M6 4.4 puts them at the root. | Move them to the root `on`. |
+| S-M2 | `features/Tickets/feed/feed.contracts.ts:63-65` | `new AbortController().signal` is never aborted, so an interrupted catch-up leaves the HTTP request running. | The port takes no signal. `request()` in `http-api.ts:192` uses `Effect.tryPromise((signal) => fetch(url, { signal }))`. |
+| S-M3 | `feed.contracts.ts:76` | A page with `complete: false` and no `next` returns `Option.none()`, which completes the repair. Only the server's completeness field may complete it (M6 2.3, FC42). | Fail with `SocketDropped` when `!complete && next === undefined`. |
+| S-M4 | `testing/presence.fake.ts:23-27` | `open` returns `[truth, { accept, frames }]`. The other two fakes return `[truth, frames, { accept }]`, and MD 2.10.9 gives truth, first frames, accept. | Align on `[truth, frames, { accept }]`. |
+| S-M5 | `features/Presence/presence.story.ts:48-63` | Three plan errors. `advance({ next: { schedule: "reopen" } })` then `expect(RETRY_WAIT)` fires the reopen first. `timer: "registered"` is not a timer word (MD 2.10.3: `backoff \| page \| resetAfter`). `drop({ at: "open" })` closes nothing (2.10.4), so a plain `drop()` must come first. `times: 11` is one too many for `upTo({ times: 10 })`. | Reorder, use `timer: "backoff"`, add `drop()`, and use `times: 10`. |
+| S-M6 | `features/Assistant/assistant.story.ts:34, 43, 102` | `phase: "orphan"` is used at a stream endpoint, and `phase: "closed"` has no code. Stream phases are `opening \| open \| refused { code } \| closed { code }` (MD 2.10.4). | Use `{ phase: "closed", code }`. |
+
+Low-severity notes, not counted:
+
+- Headers cite revision 7, not 7.1. Nothing in the app conflicts with 7.1.
+- `ActivityLog.tsx:20-29` shows "Retrying soon" in SIGNED_OUT, and its `Ended` branch is unreachable.
+- `presence.machine.ts:25` returns a bare boolean guard rather than `|| deny(...)`.
+- `presence.machine.ts:41` has a dead `SignedOut` handler in RETRY_WAIT.
+- `presence.contracts.ts:48` puts the idle deadline after `scan`/`filter`. It belongs on the raw frames. There are also two deadlines, 45 s in the adapter and 60 s in the contract; keep one.
+- `desk.fake.ts:284` (`suggest`) and `:489` (`AssistantOverDesk`) are dead code.
+- `queue.machine.ts:61` hand-writes a `Lanes` type for the snapshot. That is a type the definition already derives; use `typeof Queue.Snapshot`.
+
+## 2. Cross-batch consistency
+
+**Checked and consistent:**
+
+- Every relative import resolves to a file that exports the name, checked with a script over all 82 `.ts`/`.tsx` files.
+- `DeskSetup` (`app/setup.ts`) is the subject of every app Story.
+- `uploads` (the trait instance) and `attachments` (its `of:` list) are used the same way in `editor.definition.ts`,
+  `editor.machine.ts`, `useEditor.ts`, `Attachments.tsx` and `editor.story.ts`.
+- Event names match between definitions, machines, hooks and Stories.
+- `Editor42`/`T42` are shared from `editor.story.ts`.
+
+**Defects:**
+
+| Defect | Files |
+| --- | --- |
+| Keyed-row expectations: keyed lists in B7/B8, plain rows elsewhere | M12 |
+| Verdict record shape: `reasons: [{ code }]` versus `code` | M16 |
+| Entity read: `Ticket.pick` and `predicted` versus an array and `pending`; total versus `undefined` | `TicketPanel.tsx` vs `QueueList.tsx` (M9, M10) |
+| Lane-entry field names: `write.operation` versus `lane.contract` | `app/host.ts:106` vs `tools/inspection.ts:40` and every `Story.inspection` expectation |
+| Port signature: `load(key, signal)` versus `load(key, { signal })` | `app/host.ts:69` vs `ticket.contracts.ts:31` |
+| Fake `open` return shape; frames as objects versus JSON strings | `presence.fake.ts` vs `desk.fake.ts`, `assistant.fake.ts` |
+| Close-from-control spelling: `{ to, close }` versus `Fake.closeStreams(ep, code)` | `presence.fake.ts:36` vs `desk.fake.ts:351` |
+| `unknownWhenLost` written three times | `ticket.contracts.ts`, `comments.contracts.ts`, `attachments.contracts.ts` |
+| Two `AssistantApi` providers in one fixture list | `assistant.story.ts:104` (`DeskClient` and `AssistantFake`) |
+| Cross-feature import: `presence.fake.ts` takes `closedWith` from the feed's `desk-socket.ts` | `testing/presence.fake.ts` |
+| Two browser setups with different names and services | `app/persistence.ts` `browserSetup` (demo) and `next/browser-setup.ts` `deskBrowserSetup` (HTTP). Both are fine, but the README calls both "browserSetup" |
+
+## 3. The 43 design gaps
+
+Key: **a** = app mistake (the design answers it); **b** = small design gap (one-line answer proposed); **c** = API gap
+(owner decides).
+
+| #   | File | Class | Reason / proposed answer |
+| --- | ---- | ----- | ------------------------ |
+| 1   | `app/host.ts` | c | The `unsettledWrites()` entry type. 2.10.7 lists the fields but not their names. It should be one shared `LaneEntry` (`actor, contract, key, subject, binding, releasing, state, uncertain, queued, parked`) for Inspection, `Story.inspection.lanes` and `unsettledWrites`. Same decision as 43. |
+| 2   | `AssistantPanel.tsx` | a | The contract is keyed, so the view uses `O.suggest.get(s, ticket)` (MD 2.7.15). |
+| 3   | `AssistantPanel.tsx` | a | Send `Editor.E.comments.Post(…)` to the editor's ref, as MD 2.10.18.4 sends `IssuePage.E.like.Toggle`. |
+| 4   | `assistant.story.ts` | c | Letting n frames through before a hold needs a new option on a wire word, for example `hold({ after: n })`. The alternative is an `open` that returns n frames plus a control for the rest, which needs no word. |
+| 5   | `assistant.story.ts` | b | "Fixtures merge left to right; a later provider of the same service shadows." The app's real fault is the duplicate provider. |
+| 6   | `CommentsPanel.tsx` | c | A host-agnostic view needs a placed fragment's view as data. One handle covers 6 and 7: `useFragment(host, Editor.I.comments)` returning `{ memory, operations, send }`. |
+| 7   | `CommentsPanel.tsx` | c | Same handle as 6. Today `events: typeof Comments.E` does not even match the `Editor.E.comments` the hosts pass. |
+| 8   | `comments.contracts.ts` | a | Nothing stops a shared `features/shared/outcomes.ts`. Absorbing it is item 15 (see 4). |
+| 9   | `comments.story.ts` | b | "`reset(subject)` keeps the Input given to `enter`; a new Input is `leave()` then `enter(input, { subject })`." A-B-A still adopts by path. |
+| 10  | `desk.story.ts` | a | MD 2.10.10: retain expiry is `dispose(ref)` then `advance`, and `{ how: "now" }` is `disposeActor`. The app already uses it. |
+| 11  | `desk.test.tsx` | b | "`<StoryFrame run at={checkpoint} tab?>` renders the app's views (children) at that cut." 2.10.13 already shows `tab`. |
+| 12  | `editor.story.ts` | b | "In a machine Story a `send` to an absent ref is a `send` record with `ActorAbsent` evidence; it never fails the step." |
+| 13  | `editor.story.ts` | a | MD 2.10.10: a machine Story's actor is a local identity. Parked endings need an app Story (M13). |
+| 14  | `editor.tabs.story.ts` | b | "In a Story the run's `Fake.storage` replaces the setup's `KeyValueStore`; the `storage` option only seeds it." |
+| 15  | `useEditor.ts` | c | A view reaching a service (`useRuntime`, or a narrower `useService(PendingFiles)`). Part of the owner's "`File` in persisted memory" question: either Flow carries non-durable payloads beside a persisted event, or apps keep a tab-memory service and need this hook. |
+| 16  | `feed.contracts.ts` | a | `catchUp` is an Effect (S6 Q15), so interruption is Effect's and the signal comes from `Effect.tryPromise((signal) => …)` (S-M2). |
+| 17  | `feed.contracts.ts` | a | M6 2.7: a `listen` session starts fresh and lowers once, so cross-session position belongs to a fact feed. This is what the app built. |
+| 18  | `feed.definition.ts` | a | Map `SignedOut` in `failure` to an event that enters a terminal state (M6 4.1, walk 9, `SIGNED_OUT: {}`). |
+| 19  | `feed.domain.ts` | b | "A pushed patch of an unheld key is stored as a base change (its fields, its revision) and matched like any base change, so lists that could hold it refetch." The app's "changes nothing" would drop a ticket that newly belongs in a list. |
+| 20  | `feed.story.ts` | a | MD 2.10.9 overrides M6 2.11's `withhold`. Write a server control `Desk.greet({ replay })` that `open` reads. |
+| 21  | `queue.definition.ts` | a | App vocabulary. The plan's gap, not the design's. |
+| 22  | `queue.machine.ts` | a | Decided (OD4): normalisation lives in the caller. |
+| 23  | `queue.machine.ts` | c | Paging on a live read: `O.list.more(select)` and the row's `hasMore` (Operations O6/O7). This needs the owner's spelling, and the domain's `.pagedBy` must agree with it. |
+| 24  | `queue.ssr.story.ts` | a | MD 2.10.11: a source Story may not set `world`. It runs on the destination run's truth. |
+| 25  | `queue.story.ts` | a | MD 2.10.1: `context` is a machine Story option ("iff declared"), and `setContext` is a step. |
+| 26  | `queue.story.ts` | a | The address has `operation` and `key` (rule 65): `match: { operation: O.assign, key }` (M15). |
+| 27  | `ticket.contracts.ts` | a | Same as 22 (OD4). |
+| 28  | `presence.definition.ts` | a | M6 2.7: `value` is optional and `failure` is required when anything is mapped. `FeedUnhandled` flags only `value` without `failure`. |
+| 29  | `presence.story.ts` | a | MD 2.10.3 gives `advance({ next: { schedule: "…" } })` with type-checked names. Only the step order is wrong (S-M5). |
+| 30  | `upload.story.ts` | b | "A client half's own progress reports run before the wire gate; `hold()` holds the request after them." Alternatively the Story uses `hold({ at: "response" })`. |
+| 31  | `presence.fake.ts` | b | "`open` returns `[truth, frames, { accept: true } \| { accept: false, code }]`." That is what two of the three fakes already do. |
+| 32  | `presence.fake.ts` | c | The spelling of a control's effect on open connections: `{ to, send }` / `{ to, close }`, or helpers `Fake.send(ep, match, frames)` / `Fake.close(ep, match, code)`. Same decision as 37 and 38. |
+| 33  | `presence.fake.ts` | b | "A client half calls a stream endpoint as `server.ep(input)`: a `Stream<Frame, Fake/Lost \| Fake/Closed>`, mirroring a call endpoint's Effect." `Fake.webSocket` is preferred (S-H2). |
+| 34  | `desk.fake.ts` | a | The client half maps `Fake/Lost` (MD 2.10.4). The read ports should declare `NoResponse`. Reporting a lost read as `Defect` misreports a network fact as a bug. |
+| 35  | `desk.fake.ts` | a | The truth needs a real Schema. `desk-server.ts` should export `DeskTruth` as an Effect Schema. `Schema.declare` with a two-key guard defeats `describe`, digests and generated controls (2.10.4, 2.10.16). |
+| 36  | `desk.fake.ts` | c | How a fake pushes. A handler returns only `[truth, response]`, so there are two candidates: a fake-level `pushes` observer on `Fake.server` (declared once, general) or a third tuple slot for frames. Every streaming fake with writes needs one. |
+| 37  | `desk.fake.ts` | c | See 32. |
+| 38  | `desk.fake.ts` | c | The public error tags of a stream endpoint (`Fake/Closed { code }` beside `Fake/Lost`). MD names only `Fake/Lost`, and close 1011 under `Fake.webSocket`. |
+| 39  | `desk.property.test.ts` | c | The generator API's spellings (`Generate.sends`, `.wire`, `.controls`, `.advance`, `.lifecycle`). 2.10.16 names only their kinds. |
+| 40  | `next/server-setup.ts` | a | Provide the full Layer: Layers are lazy, and the server ensures no stream actor, so nothing opens. A setup typed by "the ports its actors use" would break the closed app's single requirement. Reject it. |
+| 41  | `tools/cli.ts` | c | CLI flags (`flow check --finding`, `flow stories --coverage --kind`). These are public words; low priority. |
+| 42  | `tools/diagnostics.ts` | b | "The closed `FlowError` code list is every code MD names", with the list written once in 2.10 (including `InvalidTurn`, `StoryInvalidCommand`, `HostTimeWait`, `StoryExpectationFailed`). |
+| 43  | `tools/inspection.ts` | c | Same as 1. |
+
+**Counts: a = 20, b = 10, c = 13.**
+
+Note on M14: if the owner intends a persisted ref in a non-durable Runtime to park endings in memory, rule 44's "for the
+identity's saved record, if one exists" needs one more line. Proposed: "Without storage, a persisted identity's endings
+are evidence, as a local identity's are."
+
+**The API gaps the owner must decide, by weight:**
+
+1. Paging (23).
+2. A placed-fragment handle for views (6, 7).
+3. The lane-entry type (1, 43).
+4. Fake stream controls: push, send, close, error tags (32, 36, 37, 38).
+5. Non-durable payloads (`File`) beside persisted memory (15).
+6. Generator spellings (39).
+7. Frame pacing on `hold` (4).
+8. CLI flags (41).
+
+## 4. Repeated wiring (open-items item 15)
+
+This is wiring that every app with the same feature writes the same way. For each item: how often it appears here,
+whether to absorb or keep, and the internal behaviour, with no new word where possible.
+
+| # | Wiring | Seen | Absorb? | Proposed internal behaviour |
+| --- | --- | --- | --- | --- |
+| 1 | "Transport loss and 5xx are unknown" (`unknownWhenLost`) | 3 contracts | absorb | A contract option `unknownOn: ["NoResponse", "ServerError"]`. The commit fails with those tags, and Flow classifies them as unknown. |
+| 2 | Per-tag `unknown` that maps `Cancelled` to a stop and every Flow reason (`Restored`, `Interrupted`, `Defect`, `StillUnknown`, `StorageRefused`) to one event | editor, upload, assistant | absorb (open item 14) | A catch-all key in the record. M3 shows the cost of listing every reason by hand. |
+| 3 | A "stopped" handler whose only job is a key-less `cancel` | editor `SaveStopped`, upload `Stopped`, assistant `Stopped` | absorb (open item 23) | Release on the user's own cancel: `unknown { Cancelled }` from a `cancel` releases at admission. Mapping it is optional. |
+| 4 | The retry-budget trio: resend schedule, `retryable` guard plus `retry`, else `cancel` plus a message | editor UNSURE, queue `reconcile`, comments `resend`, upload `resend` | absorb | Policy as one value on the operation (`{ resend: "3 seconds", times: 3 }`). The machine keeps only the "gave up" event. |
+| 5 | Keyed resend schedule `keys: ({ operations }) => operations.x.filter((l) => l.uncertain).map((l) => l.key)` | queue, comments, identical | absorb with 4 | |
+| 6 | Key selectors from memory (`ticketKey`, `own`, `ofEvent`, `assignKey`) passed to `idle`/`get`/`retry` | every write | partly | When the key's fields are all `Flow.input` memory fields, a key-less `idle`/`get`/`retry` names that lane (an unkeyed-like default). Event-keyed lanes keep the selector. |
+| 7 | Every read maps `Defect` and `Interrupted` to one "failed" event | editor `ticket`, comments `thread` | absorb | They default to the operation's `failure` event when it is a single event. |
+| 8 | Commit on creation: 0 ms `Flow.entry` schedule, `status === "queued"` guard, `O.x.idle(own)` | upload (rule 54's documented default) | absorb | A placement-level "commit on start" that Flow guards with `idle(own)`. |
+| 9 | Mirroring lane state into memory for views (upload `status`, comments `drafts.problem`) | upload, comments | keep partly | `pending`/`uncertain` are already the lane's. Only "how it ended" needs memory. Drop `sending`/`unsure` from `status`. |
+| 10 | `beforeunload` over `runtime.unsettledWrites()` | every app with writes | absorb | A provider or setup option `warnBeforeUnload: true`. |
+| 11 | Dropped-file bytes in a tab-memory service plus `useRuntime` | every upload app | decide | See gap 15. |
+| 12 | Client-half wire mapping (`toWire`/`fromWire`, `Fake/Lost` → `NoResponse`, truth via `Schema.declare`) | every fake | partly | `Fake.fetch` over the real adapter removes it (MD 2.10.4), and open item 28 (route-table helper) covers the rest. |
+| 13 | Streams: reopen policy (`FeedEnded → RETRY_WAIT`, doubling `reopenInMs`, a `Healthy` reset) | feed, presence | absorb | A Flow-shipped reopen policy on `subscribe`. |
+| 14 | Streams: the six-key `failure` map to one event | feed ×2, presence | absorb | A catch-all key (`rest: E.FeedEnded`). |
+| 15 | Streams: the `Missed` schema and its handler (`cursor: restartAt ?? memory.cursor`) | feed | absorb | `Feed.Missed` as a Schema, already noted in open item 15. |
+| 16 | Streams: the hello-echo to `Feed.live({ proof })` translation and the raw WebSocket adapter (bounded queue, close-code classification, NoHello, idle deadline) | desk-socket, http-api | absorb | `Feed.webSocket(url, { idle, hello, classify })`. This also fixes S-H2. |
+| 17 | Streams: connection badge logic | ActivityLog, Viewers | keep | View code, but a `Feed.status(row)` helper is cheap. |
+| 18 | Streams: the streamed-write body (stall timeout, terminator, `progress` accumulation, `Truncated`) and its nine-key `unknown` map to `Cut` | assistant | partly | A stream-body helper. The `unknown` map is covered by 2. |
+
+## 5. Readability as the spec
+
+The README, the contracts and the domain read well. The "Where the data comes from" table is the best page in the
+folder. The weak spots are where a reader must already know rules 14 and 44 to see why the code is right, and there
+the code is in fact wrong.
+
+The three files to improve first:
+
+1. **`features/Tickets/editor/editor.machine.ts`.** This is the centerpiece, and its routing is subtly wrong (M1, M2).
+   Its header picture marks `SaveUnsure` "(root)" but does not show late versus adopted. Fix M1 and M2, then add a
+   three-line table in the header: current (from SAVING), late (after Close, the root), and adopted (a new
+   incarnation, the active leaf). Every ending's arrival should be visible at a glance.
+2. **`testing/desk.fake.ts`.** At 522 lines it mixes merged code with a PM6 block. Its truth is `Schema.declare`, two
+   control spellings coexist, and a lost read dies. Split it into `desk.fake.ts` (calls) and `desk.socket.fake.ts`
+   (PM6), give the truth a Schema, and map a lost read to `NoResponse`. Every Story reads through it, so its shapes
+   become the reader's model of fakes.
+3. **`features/Tickets/queue/queue.machine.ts`.** It hand-writes a `Lanes` snapshot type, carries plan-only `more` and
+   `hasMore`, and leaves two delivery events unhandled. Use the definition's derived snapshot type and fix M5. Mark
+   paging as **proposed** in one place rather than as an inline gap.
+
+Next after these: `CommentsPanel.tsx`. Its indexed `s.memory[instance]` and mistyped `events` prop are the visible cost
+of gaps 6 and 7.
