@@ -1,4 +1,4 @@
-// Executable model of proposal-v2.md revision 7 (37bed2e4), section 3: 3.1 session, 3.2 pump, 3.3 Feed.callback queue, 3.4 Feed.reconnect,
+// Executable model of proposal-v2.md revision 7.1 (f055417c), section 3: 3.1 session, 3.2 pump, 3.3 Feed.callback queue, 3.4 Feed.reconnect,
 // 3.5 write progress, 3.6 listen coverage.
 // Types: `tsc -p .`   Run: bun main.ts
 // Ghost fields (mfDiff, gpos, needM, dv, em, opens, ts, gls, gsig, impl, exp, nv, age0) belong to the checks, never to the behaviour.
@@ -43,6 +43,7 @@ export const CONFIG = {
   valueAtDropAt: true, //           3.1 value/Dropped: at = dropAt (a cached value keeps the drop's time)
   ageRebased: true, //              3.1 initial: at is rebased from the transferred age
   registeredPerSlice: true, //      3.1 (S10): registered belongs to the memory slice and survives release, re-entry, thaw and reload
+  valueSetsRegistered: true, //     3.1 (rev 7.1): a delivered value sets registered, as a start does
   settleCarriesInitial: true, //    3.1 settle(lost r): the missed carries pendingInitial (RV5 M2)
   ignoreOnlyUnproven: true, //      S10: the handler ignores only an initial Unproven missed on an empty memory
   handlerIgnoresOnlyInitial: true, // S9: a missed handler may ignore only an initial missed on an empty memory (RV4 H1 b)
@@ -200,6 +201,7 @@ export function sIn(s0: Sess, inp: SIn): SR {
           deliverValue(v);
         }
         ev.push("evidence:UnprovenValues");
+        if (C.valueSetsRegistered) s.registered = true;
         reconcile(s);
       }
     }
@@ -215,6 +217,7 @@ export function sIn(s0: Sess, inp: SIn): SR {
     if (st === "Releasing") discard(); else end(k === "complete" ? "Closed" : k === "defect" ? "Defect" : inp.e ?? "e");
   } else if (k === "release") { if (st !== "Releasing") { s.st = "Releasing"; lev.push("E"); } }
   else if (k === "closed" || k === "bound") s.st = "Released";
+  if (k === "value" && st !== "Releasing") { s.gReg = true; if (!s.registered) viol.push("I27"); } // I27: every delivered value sets registered
   // post-step properties
   const facts = s.kind === "facts", live3 = st === "Opening" || st === "Dropped" || st === "Live";
   if (facts && k === "value" && live3 && putV !== 1) viol.push("I3");

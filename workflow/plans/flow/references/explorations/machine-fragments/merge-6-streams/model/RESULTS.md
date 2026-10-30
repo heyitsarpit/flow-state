@@ -1,7 +1,7 @@
-# Streams state machines: model results against proposal-v2.md revision 7 (37bed2e4), section 3
+# Streams state machines: model results against proposal-v2.md revision 7.1 (f055417c), section 3
 
 Files: `model.ts` (3.1 to 3.6; `CONFIG` holds the mutable rules), `main.ts` (explorer, systems, checks, replayed cases), `mutations.py`, `output.txt`, `mutations-output.txt`.
-Run `tsc -p . && bun main.ts` (43 s), `python3 mutations.py` (about 20 min, depth 8). No isolation switch. Line numbers are proposal-v2.md at 37bed2e4.
+Run `tsc -p . && bun main.ts` (43 s), `python3 mutations.py` (about 20 min, depth 8). No isolation switch. Line numbers are proposal-v2.md at f055417c.
 
 ## What is modelled
 - **S**: 3.1 (16 inputs x 6 states) and 3.2, `facts` exhaustive; `state` bounded (600k states, 7 inputs; the 3.1 state cells are also reached in the other systems). `registered` is a slice variable (outside the session), carried to successors.
@@ -16,7 +16,7 @@ Run `tsc -p . && bun main.ts` (43 s), `python3 mutations.py` (about 20 min, dept
 | --- | --- | --- | --- |
 | I1 to I22b | PASS | I25, I26 | PASS |
 | I10 (identity and wait, per path) | PASS | I27 | PASS (new) |
-| I23 | **FAIL** in one config (N1) | I24 | PASS |
+| I23 | PASS (N1 fixed by rev 7.1) | I24 | PASS |
 
 ## Review cases (replayed in `output.txt`)
 - RV4 H1, a quiet first connection, a drop, a reconnect: the first start is `fresh`, the second is answered `unproven` (so `missed`).
@@ -24,21 +24,20 @@ Run `tsc -p . && bun main.ts` (43 s), `python3 mutations.py` (about 20 min, dept
 - RV4 M1, a successor at another path while the predecessor is `Releasing`: it waits; it starts after `scope closed`.
 
 ## Counterexample
-- **I23** (R+S, no catchUp, empty `from`, no positions; 7 steps): `inner down` -> `append` -> `append` -> `inner value` -> `inner live()` -> `append` -> `inner value`.
+None: all invariants pass. Revision 7's counterexample (`inner down`, `append`, `append`, `inner value`, `inner live()`, `append`, `inner value`) now gives `unproven` on the `live()`, so `missed` reports the lost position (replayed as CASE N1 in `output.txt`).
 
-## Findings: contradictions and gaps in revision 7
-- **N1 (3.4: 704-706 and 3.1: 611, 615 vs I23 at 817)**: a value can reach the session with no start (after an SDK `down`, `signalled` is true, so no implicit start is emitted). `registered` is set only by starts, so it is still clear; the next `live()` is offered `fresh` and answered `fresh`, and the positions lost between the value and the start are not reported. It needs `from` declared and no `position`, because a positioned feed has `last` defined after the value. Rev 6's `announced` and rev 4's `emittedAny` had the same hole. The fix is to let `registered` (or the answer) also be set by a value that arrives without a start, or to require `position` with `from`.
-- **N2 (I27 at 822)**: for `settle(lost)` the model compares the delivered `initial` with the `registered` of the slice before the pending start, as written. It holds.
+## Findings: contradictions and gaps in revision 7.1
+- **R1 (I27)**: for `settle(lost)` the model compares the delivered `initial` with the `registered` of the slice before the pending start, as written. It holds.
 - Unchanged readings: `continueAt` (2.3), I25's merge rule, 3.6 under one covering session.
 
 ## Behaviour I had to invent
 Server nondeterminism (positions, registration at the live signal, retention never passing the registration point, `CannotRepair` only when the log no longer reaches the cursor); the machine's `missed` handler (it ignores an initial `Unproven` on an empty memory, per S10) and the hole check I23 reads from it (a covered position, kept across sessions); the second-session move; the clock; one covering session for 3.6; placements limited to paths A, B, A2.
 
-## Mutations (43; each fails a check that passes on the baseline)
+## Mutations (44: 43 killed, each by a check that passes on the baseline; 1 equivalent survivor, H1 of RV3)
 | Mutant | Killed by |
 | --- | --- |
 | the 35 of revision 4.1 (I1, I3, I4, I9, I10, I12 to I26, C1, C2, C6, ...) | as in `mutations-output.txt` |
-| H1 (RV3): `fresh` without a declared `from` | I23 |
+| H1 (RV3): `fresh` without a declared `from` | **survives**: equivalent since rev 7, because `registered` (set by every start and value, persisted) already turns a second session's `fresh` into `live()` |
 | H2: identity without the placement path | I10s (the second placement stalls) |
 | H3: pages not oldest first | I13, I23 |
 | RV4 H1: a handler ignoring any non-initial `Unproven` on an empty memory | I23 |
@@ -46,3 +45,4 @@ Server nondeterminism (positions, registration at the live signal, retention nev
 | RV5 H1: `registered` scoped to the session | I27 |
 | RV5 M2: `initial` lost on `settle(lost)` | I27 |
 | RV5 M2: an ignore guard that also ignores `Lost` | I23 |
+| rev 7.1: a delivered value does not set `registered` | I27 (and I23) |

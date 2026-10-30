@@ -358,6 +358,9 @@ function replay<T>(sys: Sys<T>, labels: string[]): T {
   const w1 = walk(true, false), w2 = walk(false, true);
   out(`CASE two-session walk, quiet positioned feed (declared empty from): second session's first start answered "${w1.s.answer}", registered ${w1.s.registered} (must be unproven: the memory was registered)`);
   out(`CASE two-session walk, quiet Socket.IO room (no from, no positions): second session's first start answered "${w2.s.answer}", registered ${w2.s.registered} (must be unproven)`);
+  RCFG.fromDeclared = true; RCFG.nopos = true; RCFG.from = null; RCFG.catchUp = false;
+  const n1 = replay(sysR("facts", "case N1"), ["inner down(r)", "server append", "server append", "inner value", "inner live()", "server append", "inner value"]);
+  out(`CASE N1 (rev 7 counterexample): down, append, append, value, live(), append, value: the live() is answered "${n1.s.answer}", registered ${n1.s.registered} (must be unproven, so that missed reports the lost position)`);
   const pl = replay(sysPL("facts"), ["place A", "resetOn"]);
   out(`CASE M1 successor at another path while the predecessor is releasing: A2 has ${pl.ss.A2.length} session(s) and is ${pl.req.A2 ? "waiting" : "started"} (must wait); after scope closed: ${replay(sysPL("facts"), ["place A", "resetOn", "scope closed A"]).ss.A2.length} session(s)`);
 }

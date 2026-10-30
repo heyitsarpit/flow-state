@@ -47,6 +47,7 @@ M = [
  ("RV5 H1: registered scoped to the session, so a second session of a quiet memory is fresh (S10; I23, I27)", "registeredPerSlice: true,", "registeredPerSlice: false,", "a successor session (re-entry, thaw, reload) starts with registered clear", "I27"),
  ("RV5 M2: initial lost on settle(lost) (S10; I27)", "settleCarriesInitial: true,", "settleCarriesInitial: false,", "settle(lost r) delivers missed Lost with initial = false", "I27"),
  ("RV5 M2: an ignore guard that also ignores Lost (S10; I23)", "ignoreOnlyUnproven: true,", "ignoreOnlyUnproven: false,", "the handler ignores an initial missed of any kind on an empty memory", "I23"),
+ ("RV7 N1: a delivered value does not set registered (rev 7.1; I27, I23)", "valueSetsRegistered: true,", "valueSetsRegistered: false,", "a value without a start leaves the slice unregistered, so a later fresh offer is answered fresh", "I27"),
 ]
 def run(d, env=ENV):
     p = subprocess.run(["bun", "main.ts"], cwd=d, env=env, capture_output=True, text=True, timeout=300)

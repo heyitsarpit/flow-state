@@ -1,26 +1,27 @@
-RUN S kind=facts reading=spec states=11040 depth=15 (fixpoint) 184 ms
-RUN S kind=state reading=spec states=600001 depth=7 (bounded by depth/state cap) 7932 ms
-RUN S+L kind=facts reading=spec states=86740 depth=12 (bounded by depth/state cap) 1455 ms
-RUN S+L kind=state reading=spec states=400001 depth=9 (bounded by depth/state cap) 5994 ms
-RUN CB+S kind=facts reading=spec states=1083230 depth=23 (fixpoint) 7603 ms
-RUN CB+S kind=state reading=spec states=656586 depth=14 (fixpoint) 3899 ms
+RUN S kind=facts reading=spec states=10656 depth=15 (fixpoint) 176 ms
+RUN S kind=state reading=spec states=600001 depth=7 (bounded by depth/state cap) 7800 ms
+RUN S+L kind=facts reading=spec states=84698 depth=12 (bounded by depth/state cap) 1393 ms
+RUN S+L kind=state reading=spec states=400001 depth=9 (bounded by depth/state cap) 5892 ms
+RUN CB+S kind=facts reading=spec states=1079524 depth=23 (fixpoint) 7390 ms
+RUN CB+S kind=state reading=spec states=656586 depth=14 (fixpoint) 3853 ms
 RUN P kind=- reading=spec states=688 depth=11 (fixpoint) 4 ms
 RUN PL kind=facts reading=spec states=126 depth=12 (fixpoint) 3 ms
 RUN PL kind=state reading=spec states=126 depth=12 (fixpoint) 2 ms
-RUN R+S[catchUp,from=0]/data kind=facts reading=spec states=228131 depth=9 (bounded by depth/state cap) 3085 ms
-RUN R+S[catchUp,from=0]/data kind=state reading=spec states=283662 depth=9 (bounded by depth/state cap) 3164 ms
-RUN R+S[catchUp,from empty]/data kind=facts reading=spec states=136828 depth=9 (bounded by depth/state cap) 1784 ms
-RUN R+S[catchUp,from empty]/data kind=state reading=spec states=234984 depth=9 (bounded by depth/state cap) 2557 ms
-RUN R+S[no catchUp,from=0]/data kind=facts reading=spec states=51767 depth=9 (bounded by depth/state cap) 823 ms
-RUN R+S[no catchUp,from=0]/data kind=state reading=spec states=100679 depth=9 (bounded by depth/state cap) 1069 ms
-RUN R+S[no catchUp,from empty,no positions]/data kind=facts reading=spec states=47164 depth=9 (bounded by depth/state cap) 681 ms
-RUN R+S[no catchUp,no from]/data kind=facts reading=spec states=49072 depth=9 (bounded by depth/state cap) 753 ms
-RUN R+S[no catchUp,no from]/data kind=state reading=spec states=77014 depth=9 (bounded by depth/state cap) 842 ms
-RUN R/budget[no catchUp] kind=facts reading=spec states=6185 depth=14 (fixpoint) 53 ms
-RUN R/budget[catchUp,head=0] kind=facts reading=spec states=4868 depth=11 (bounded by depth/state cap) 43 ms
+RUN R+S[catchUp,from=0]/data kind=facts reading=spec states=219295 depth=9 (bounded by depth/state cap) 2974 ms
+RUN R+S[catchUp,from=0]/data kind=state reading=spec states=283463 depth=9 (bounded by depth/state cap) 3135 ms
+RUN R+S[catchUp,from empty]/data kind=facts reading=spec states=127992 depth=9 (bounded by depth/state cap) 1670 ms
+RUN R+S[catchUp,from empty]/data kind=state reading=spec states=234785 depth=9 (bounded by depth/state cap) 2494 ms
+RUN R+S[no catchUp,from=0]/data kind=facts reading=spec states=51107 depth=9 (bounded by depth/state cap) 780 ms
+RUN R+S[no catchUp,from=0]/data kind=state reading=spec states=100480 depth=9 (bounded by depth/state cap) 1053 ms
+RUN R+S[no catchUp,from empty,no positions]/data kind=facts reading=spec states=45180 depth=9 (bounded by depth/state cap) 642 ms
+RUN R+S[no catchUp,no from]/data kind=facts reading=spec states=48412 depth=9 (bounded by depth/state cap) 715 ms
+RUN R+S[no catchUp,no from]/data kind=state reading=spec states=76815 depth=9 (bounded by depth/state cap) 792 ms
+RUN R/budget[no catchUp] kind=facts reading=spec states=6185 depth=14 (fixpoint) 51 ms
+RUN R/budget[catchUp,head=0] kind=facts reading=spec states=4868 depth=11 (bounded by depth/state cap) 39 ms
 CASE H1 quiet first connection, drop, reconnect: first start fresh, second start answered "unproven" (must be unproven, so that missed is delivered); missed items queued/admitted: drained
 CASE two-session walk, quiet positioned feed (declared empty from): second session's first start answered "unproven", registered true (must be unproven: the memory was registered)
 CASE two-session walk, quiet Socket.IO room (no from, no positions): second session's first start answered "unproven", registered true (must be unproven)
+CASE N1 (rev 7 counterexample): down, append, append, value, live(), append, value: the live() is answered "unproven", registered true (must be unproven, so that missed reports the lost position)
 CASE M1 successor at another path while the predecessor is releasing: A2 has 0 session(s) and is waiting (must wait); after scope closed: 1 session(s)
 RESULT mode=spec I1 PASS
 RESULT mode=spec I2 PASS
@@ -46,7 +47,7 @@ RESULT mode=spec I20 PASS
 RESULT mode=spec I21 PASS
 RESULT mode=spec I22a PASS
 RESULT mode=spec I22b PASS
-RESULT mode=spec I23 FAIL
+RESULT mode=spec I23 PASS
 RESULT mode=spec I24 PASS
 RESULT mode=spec I25 PASS
 RESULT mode=spec I26 PASS
@@ -56,7 +57,6 @@ RESULT mode=spec CB-order PASS
 RESULT mode=spec CB-down-lost PASS
 RESULT mode=spec CB-upgrade PASS
 RESULT mode=spec CB-waiter PASS
-CE I23 [R+S[no catchUp,from empty,no positions]/data facts] (7 steps): inner down(r) -> server append -> server append -> inner value -> inner live() -> server append -> inner value
 COVERAGE 3.1 (rows = inputs, columns = states; F = facts reached, S = state reached, - = cannot occur, . = defined but unreached)
   input     Opening   Dropped   Live      Ended     Releasing Released  
   proof     FS        FS        FS        -         FS        -         
@@ -79,4 +79,4 @@ COVERAGE 3.1 cells: 55 defined, 41 cannot occur; unreached (cell, kind): none
 COVERAGE 3.4 cells: 70 = 32 defined + 38 cannot; unreached defined: none
 COVERAGE 3.3 cells (6 inputs x 3 columns): unreached: none
 COVERAGE 3.5 cells: unreached: none; 3.6 events: readStart true, readLand true
-TOTAL 42604 ms
+TOTAL 41503 ms

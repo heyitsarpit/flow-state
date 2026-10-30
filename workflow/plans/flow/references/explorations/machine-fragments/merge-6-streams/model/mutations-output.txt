@@ -1,8 +1,7 @@
-baseline failing (check, system, kind): 1
-    I23 | R+S[no catchUp,from empty,no positions]/data | facts
+baseline failing (check, system, kind): 0
 OK   a fact before its missed (FC4, FC55; I1): a value in Dropped is delivered with no missed Unproven first
-      newly failing: I1 [CB+S facts], I1 [R+S[catchUp,from empty]/data facts], I1 [R+S[catchUp,from=0]/data facts], I1 [R+S[no catchUp,from empty,no positions]/data facts], I1 [R+S[no catchUp,from=0]/data facts], I1 [R+S[no catchUp,no from]/data facts], I1 [S facts], I1 [S+L facts], I23 [R+S[catchUp,from empty]/data facts], I23 [R+S[catchUp,from=0]/data facts], I23 [R+S[no catchUp,from=0]/data facts], I23 [R+S[no catchUp,no from]/data facts]
-      changed counterexample: I23 [R+S[no catchUp,from empty,no positions]/data facts]
+      newly failing: I1 [CB+S facts], I1 [R+S[catchUp,from empty]/data facts], I1 [R+S[catchUp,from=0]/data facts], I1 [R+S[no catchUp,from empty,no positions]/data facts], I1 [R+S[no catchUp,from=0]/data facts], I1 [R+S[no catchUp,no from]/data facts], I1 [S facts], I1 [S+L facts], I23 [R+S[catchUp,from empty]/data facts], I23 [R+S[catchUp,from=0]/data facts], I23 [R+S[no catchUp,from empty,no positions]/data facts], I23 [R+S[no catchUp,from=0]/data facts], I23 [R+S[no catchUp,no from]/data facts]
+      changed counterexample: none
 OK   the budget reset on the first value (FC41; I12): the reconnect budget resets on the first value of a connection
       newly failing: I12 [R+S[catchUp,from empty]/data facts], I12 [R+S[catchUp,from empty]/data state], I12 [R+S[catchUp,from=0]/data facts], I12 [R+S[catchUp,from=0]/data state], I12 [R+S[no catchUp,from empty,no positions]/data facts], I12 [R+S[no catchUp,from=0]/data facts], I12 [R+S[no catchUp,from=0]/data state], I12 [R+S[no catchUp,no from]/data facts], I12 [R+S[no catchUp,no from]/data state], I12 [R/budget[no catchUp] facts]
       changed counterexample: none
@@ -67,10 +66,10 @@ OK   the dedupe kept by the newest page positions instead of the meet (MDL N2; I
       newly failing: I13 [R+S[catchUp,from empty]/data facts], I13 [R+S[catchUp,from empty]/data state], I13 [R+S[catchUp,from=0]/data facts], I13 [R+S[catchUp,from=0]/data state], I23 [R+S[catchUp,from empty]/data facts], I23 [R+S[catchUp,from=0]/data facts]
       changed counterexample: none
 OK   an owed missed suppressing a start's own missed (MDL N3; I23): an unproven start after an owed missed delivers none
-      newly failing: I23 [R+S[no catchUp,from=0]/data facts], I23 [R+S[no catchUp,no from]/data facts]
+      newly failing: I23 [R+S[no catchUp,from empty,no positions]/data facts], I23 [R+S[no catchUp,from=0]/data facts], I23 [R+S[no catchUp,no from]/data facts]
       changed counterexample: none
 OK   a second down not resetting owed (MDL N3; I23): a down in Dropped keeps owed
-      newly failing: I23 [R+S[catchUp,from empty]/data facts], I23 [R+S[catchUp,from=0]/data facts], I23 [R+S[no catchUp,from=0]/data facts], I23 [R+S[no catchUp,no from]/data facts]
+      newly failing: I23 [R+S[catchUp,from empty]/data facts], I23 [R+S[catchUp,from=0]/data facts], I23 [R+S[no catchUp,from empty,no positions]/data facts], I23 [R+S[no catchUp,from=0]/data facts], I23 [R+S[no catchUp,no from]/data facts]
       changed counterexample: none
 OK   signalled not set by the implicit live (MDL F7; I20): a repair abandoned by down lets the next value start a second implicit live
       newly failing: I20 [R+S[catchUp,from empty]/data facts], I20 [R+S[catchUp,from empty]/data state], I20 [R+S[catchUp,from=0]/data facts], I20 [R+S[catchUp,from=0]/data state]
@@ -105,8 +104,8 @@ OK   C2: CannotRepair is not an exit from the repair: CannotRepair is handled as
 OK   C6: an overflowing queue ends instead of failing with Overflow: closing = ending after an overflow
       newly failing: C6-overflow [CB+S facts], C6-overflow [CB+S state]
       changed counterexample: none
-OK   H1: fresh without a declared from while memory holds facts (RV3 H1; I23 across sessions): a session with no from declared starts fresh, hiding the gap since the last session
-      newly failing: I23 [R+S[no catchUp,no from]/data facts]
+MISS H1: fresh without a declared from while memory holds facts (RV3 H1; I23 across sessions): a session with no from declared starts fresh, hiding the gap since the last session
+      newly failing: none
       changed counterexample: none
 OK   H2: session identity without the placement path (RV3 H2; I10): two placements with an equal key: the second stalls until the first is released
       newly failing: I10s [PL facts], I10s [PL state]
@@ -115,17 +114,20 @@ OK   H3: pages not oldest first (RV3 H3; I23): a newest-first history is paged a
       newly failing: I13 [R+S[catchUp,from empty]/data facts], I13 [R+S[catchUp,from empty]/data state], I13 [R+S[catchUp,from=0]/data facts], I13 [R+S[catchUp,from=0]/data state], I23 [R+S[catchUp,from empty]/data facts], I23 [R+S[catchUp,from=0]/data facts]
       changed counterexample: none
 OK   H1 (RV4): a missed handler ignoring a non-initial start on an empty memory (S9; I23): the handler ignores any Unproven missed while the memory is empty, not only the initial one
-      newly failing: I23 [R+S[catchUp,from empty]/data facts], I23 [R+S[catchUp,from=0]/data facts], I23 [R+S[no catchUp,from=0]/data facts], I23 [R+S[no catchUp,no from]/data facts]
-      changed counterexample: I23 [R+S[no catchUp,from empty,no positions]/data facts]
+      newly failing: I23 [R+S[catchUp,from empty]/data facts], I23 [R+S[catchUp,from=0]/data facts], I23 [R+S[no catchUp,from empty,no positions]/data facts], I23 [R+S[no catchUp,from=0]/data facts], I23 [R+S[no catchUp,no from]/data facts]
+      changed counterexample: none
 OK   M1 (RV4): a successor at another path not waiting for a releasing predecessor (S9; I10): a new session opens while a session of the same actor, operation and key is releasing at another path
       newly failing: I10 [PL facts], I10 [PL state]
       changed counterexample: none
 OK   RV5 H1: registered scoped to the session, so a second session of a quiet memory is fresh (S10; I23, I27): a successor session (re-entry, thaw, reload) starts with registered clear
-      newly failing: I23 [R+S[catchUp,from empty]/data facts], I23 [R+S[catchUp,from=0]/data facts], I23 [R+S[no catchUp,from=0]/data facts], I23 [R+S[no catchUp,no from]/data facts], I27 [R+S[catchUp,from empty]/data facts], I27 [R+S[catchUp,from empty]/data state], I27 [R+S[catchUp,from=0]/data facts], I27 [R+S[no catchUp,from empty,no positions]/data facts], I27 [R+S[no catchUp,from=0]/data facts], I27 [R+S[no catchUp,no from]/data facts], I27 [S facts], I27 [S state]
-      changed counterexample: I23 [R+S[no catchUp,from empty,no positions]/data facts]
+      newly failing: I23 [R+S[catchUp,from empty]/data facts], I23 [R+S[catchUp,from=0]/data facts], I23 [R+S[no catchUp,from empty,no positions]/data facts], I23 [R+S[no catchUp,from=0]/data facts], I23 [R+S[no catchUp,no from]/data facts], I27 [R+S[catchUp,from empty]/data facts], I27 [R+S[catchUp,from empty]/data state], I27 [R+S[catchUp,from=0]/data facts], I27 [R+S[no catchUp,from empty,no positions]/data facts], I27 [R+S[no catchUp,from=0]/data facts], I27 [R+S[no catchUp,no from]/data facts], I27 [S facts], I27 [S state]
+      changed counterexample: none
 OK   RV5 M2: initial lost on settle(lost) (S10; I27): settle(lost r) delivers missed Lost with initial = false
-      newly failing: I27 [R+S[catchUp,from empty]/data facts], I27 [R+S[catchUp,from=0]/data facts], I27 [S facts], I27 [S+L facts]
+      newly failing: I27 [R+S[catchUp,from=0]/data facts], I27 [S facts], I27 [S+L facts]
       changed counterexample: none
 OK   RV5 M2: an ignore guard that also ignores Lost (S10; I23): the handler ignores an initial missed of any kind on an empty memory
       newly failing: I23 [R+S[catchUp,from=0]/data facts]
+      changed counterexample: none
+OK   RV7 N1: a delivered value does not set registered (rev 7.1; I27, I23): a value without a start leaves the slice unregistered, so a later fresh offer is answered fresh
+      newly failing: I23 [R+S[no catchUp,from empty,no positions]/data facts], I27 [CB+S facts], I27 [CB+S state], I27 [R+S[catchUp,from empty]/data facts], I27 [R+S[catchUp,from empty]/data state], I27 [R+S[catchUp,from=0]/data facts], I27 [R+S[catchUp,from=0]/data state], I27 [R+S[no catchUp,from empty,no positions]/data facts], I27 [R+S[no catchUp,from=0]/data facts], I27 [R+S[no catchUp,from=0]/data state], I27 [R+S[no catchUp,no from]/data facts], I27 [R+S[no catchUp,no from]/data state], I27 [S facts], I27 [S state], I27 [S+L facts], I27 [S+L state]
       changed counterexample: none
