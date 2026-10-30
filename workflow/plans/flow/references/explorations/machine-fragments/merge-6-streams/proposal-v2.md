@@ -1,11 +1,13 @@
-# Streams, designed from the brief (merge 6, proposal v2, revision 6)
+# Streams, designed from the brief (merge 6, proposal v2, revision 7)
 
-Status: **revision 6, written 2026-10-31.** The owner chose this design (S1) and decided S1–S9
+Status: **revision 7, written 2026-10-31, for the owner to check before merging.** The owner chose this design (S1)
+and decided S1–S10
 ([decisions-v2.md](decisions-v2.md)): in-band signals (S2), repair in the adapter (S3), the resume position in machine
-memory (S4), and every question of revisions 1–3 as option A (S5–S7), including `Feed.CannotRepair` (S7), review 3's three Highs (S8) and review 4's (S9), both delegated. Those are
+memory (S4), and every question of revisions 1–3 as option A (S5–S7), including `Feed.CannotRepair` (S7), review 3's three Highs (S8), review 4's (S9) and review 5's (S10), all delegated. Those are
 marked **decided (S*n*)**; everything else is proposed. Revision 5 applied S8 and review 3's Mediums and Lows
-([reviews/v2-review-3.md](reviews/v2-review-3.md), RV3); revision 6 applies S9 and review 4's findings
-([reviews/v2-review-4.md](reviews/v2-review-4.md), RV4; section 9). Revision 4 is a convergence pass (AGENTS.md, "Design by
+([reviews/v2-review-3.md](reviews/v2-review-3.md), RV3); revision 6 applied S9 and review 4's findings
+([reviews/v2-review-4.md](reviews/v2-review-4.md), RV4); revision 7 applies S10 and review 5's
+([reviews/v2-review-5.md](reviews/v2-review-5.md), RV5; section 9). Revision 4 is a convergence pass (AGENTS.md, "Design by
 convergence"): every requirement, both reviews ([reviews/v2-review-1.md](reviews/v2-review-1.md) RV1,
 [reviews/v2-review-2.md](reviews/v2-review-2.md) RV2) and both model runs ([model/RESULTS.md](model/RESULTS.md) MDL)
 taken at once, with the parts that still failed redesigned around three principles (section 1). **No public API
@@ -51,7 +53,7 @@ becomes *proven* or *lost* only when it is earned (RV1 RC2, MDL F11). Most of re
 | --- | --- |
 | **R-Kind** | `delivers: "facts"` or `"state"` on the contract (M6-D4). Facts are never skipped, coalesced or equality-silenced, one per turn, and a fact feed must be consumed by a machine mapping `value` and `missed`, or by `listen`; there is no view-only fact feed (RV1 H3). State coalesces to the newest and is current only while the connection that sent it, or a proof on it, says so. |
 | **R-Live** | A connection is registered only when the adapter says so (`Feed.live`), or, for M6-D2's plain Stream, at its first value. After a `Feed.down`, a value with no new `Feed.live` is never current: state updates only `last`, a fact arrives after a `missed`. |
-| **R-Answer** | Every connection start answers "have I seen everything since this connection's position?": **proven** (a basis string; the evidence must cover the span since the last value this session's stream delivered), **fresh** (Flow's: the first registration of a session whose `Feed.reconnect` declares `from` and it is empty; nothing was owed, decided S8, S9), **pending** (Flow's: a repair is running), **lost**, **reset**, or **unproven** (the default). On a fact feed, every answer except proven, fresh and pending is delivered as `missed` before any later fact; a pending answer settles as proven or lost. |
+| **R-Answer** | Every connection start answers "have I seen everything since this connection's position?": **proven** (a basis string; the evidence must cover the span since the last value this session's stream delivered), **fresh** (Flow's: the first registration ever for this memory and key, when `Feed.reconnect` declares `from` and it is empty; nothing was owed, decided S8, S10), **pending** (Flow's: a repair is running), **lost**, **reset**, or **unproven** (the default). On a fact feed, every answer except proven, fresh and pending is delivered as `missed` before any later fact; a pending answer settles as proven or lost. |
 | **R-Position** | **Decided (S4).** Positions belong to the source. Inside a session `Feed.reconnect` resumes from the last value it emitted; across sessions the resume position is an ordinary `input` field (K2) the machine fills from its memory, which only fact turns advance. No position can pass a fact the consumer has neither handled nor accepted as missed. |
 | **R-Repair** | **Decided (S3).** Repair happens where the knowledge is: in the adapter (a server replay, or `Feed.reconnect`'s `catchUp`), in the entity domain (`listen` lowers covered answers), or, where nothing can repair, in the machine's explicit acceptance of `missed`. A repair that cannot reach back says so (`Feed.CannotRepair`, decided S7) and becomes `missed Lost`, never an outage and never a silent "complete". |
 | **R-Owner** | A session belongs to its placement's activation. Releasing it discards what it has not delivered, with evidence. **Identity** is per placement path (at most one live session per path, S8); **the wait** is per (actor, operation, key): a new session opens only after every releasing session of that triple, at any path, finished its clean-up (S9). Session endings are current, never late. |
@@ -64,7 +66,7 @@ becomes *proven* or *lost* only when it is earned (RV1 RC2, MDL F11). Most of re
 | **Uncommon** (8) | `Feed.down`, `Feed.callback` (`emit`), `bufferSize`, `catchUp`, Flow reason `Overflow`, **`Feed.CannotRepair`** (decided, S7) with its `continueAt`, `missed`'s `initial` (decided, S9) | the write row's `progress` (M6-D5); the commit context's `progress(p)` (S5) |
 | **Rare** (4) | `lost`, `restartAt`, `missed`'s `why` literals, `resetAfter` | `{ target: "self" }` as the explicit acceptance |
 
-Twenty-four in all, twelve common (RV3 section 7's honest count: `Feed.Signal` and `continueAt` are written too). Revision 3 added `Feed.CannotRepair` (S7), revision 6 adds `initial` (S9); `fresh` and `pending` are
+Twenty-four in all, twelve common (RV3 section 7's honest count: `Feed.Signal` and `continueAt` are written too). Revision 3 added `Feed.CannotRepair` (S7), revision 6 added `initial` (S9), revision 7 adds nothing; `fresh` and `pending` are
 Flow's own answers, emitted only by `Feed.reconnect`, never written by an author.
 
 **Why this set.** Every source in the brief's 1.2 agrees on three facts: the server starts listening, the connection
@@ -196,17 +198,19 @@ Stream that fails when the connection is lost. Section 3.4 is normative; in word
 - **it announces every connection**: before the first value of a connection on which the inner stream sent no
   signal, it emits the implicit live itself, so Flow's table can read a value after `Feed.down` with no new live as
   "not current" (MDL F7, CMP carry-over 1);
-- **a session's first registration with a declared, empty `from` is `fresh`** (RV2 H1; decided S8, S9): when the
-  options declare `from`, its value is undefined, and **this session has not announced any start yet** (`announced`,
-  3.4), an unproven start is answered `fresh` (Flow's answer, not an author word), so no `missed` reaches the machine.
-  A session owes everything from its first registration on, so a quiet registered connection that drops makes the
-  next start unproven, whether or not a value arrived (RV4 H1 a). **Precondition** (stated; `flow check` cannot see
-  it): an undefined `from` means the consumer needs nothing from before this registration. A consumer that read a
+- **the first registration ever for this memory is `fresh`** (RV2 H1; decided S8, S10): the obligation belongs to
+  the consumer, whose memory outlives its sessions (a RETRY_WAIT re-open, a re-entry, a thaw, a reload). So Flow keeps
+  **`registered`** per (memory slice, operation, key), set by every start and persisted with the slice like `heard`
+  (3.1; internal: an author sees it only through `initial` and in Inspection and Story evidence). `Feed.reconnect`
+  offers `fresh` when its options declare `from`, the value is undefined and nothing positioned has been emitted;
+  Flow answers `fresh` only if the slice is not `registered`, and otherwise reads it as `live()`, so `missed` follows.
+  **Precondition**, reduced to what Flow cannot see (stated; `flow check` cannot check it): a consumer that read a
   snapshot first passes the snapshot's position, even for an empty snapshot (4.1 passes the history's `head`), and
-  every fact handler writes a defined cursor (`event.cursor ?? memory.cursor`) (RV4 H1 c, L8). The options type
-  requires `from` whenever `position` is given; a call without `from` (a source with no positions) gets an unproven
-  first start on every session, marked `initial` in its `missed`, which its handler may ignore when it also holds
-  nothing (`m.initial && memory is empty`; S9, RV4 H1 b). `listen` still lowers covered answers on it (FC13, 2.8). A plain Stream without
+  every fact handler writes a defined cursor (`event.cursor ?? memory.cursor`) (RV4 H1 c, L8). Re-placement is Flow's.
+  The options type requires `from` whenever `position` is given; a call without `from` (a source with no positions)
+  gets an unproven first start on every session. Its `missed` carries `initial` = "this memory was not `registered`
+  before", so a handler may ignore a `missed` only when `why = "Unproven"`, `initial` and its memory holds nothing
+  (S10; RV5 M2: a `Lost` or `Reset` is never ignored). `listen` still lowers covered answers on it (FC13, 2.8). A plain Stream without
   `Feed.reconnect` stays conservative: Flow cannot see its `from`;
 - on a failure `while` accepts, on `Feed.Overflow`, or on a connection that completes (`Feed.Closed`), it emits
   `Feed.down(error)`, waits by `schedule` on Effect's `Clock`, and connects again from `last`; any other failure, or
@@ -279,13 +283,13 @@ Who owns the transport decides the recipe (RV2 X1, H3). Both are documentation; 
 
 | Recipe | Sources | Shape | Budget and resume |
 | --- | --- | --- | --- |
-| **P: per-session transport** | raw WebSocket, EventSource, `fetch` bodies, polling, graphql-ws (lazy client, `retryAttempts: 0`), a Supabase channel | `Feed.reconnect((from) => connect(from), …)`; `connect` opens and closes the transport; the SDK's own retry is off | `Feed.reconnect` owns both: `schedule`, `resetAfter`, `from` |
-| **S: SDK-owned, app-wide transport** | Ably, Socket.IO, Phoenix sockets, Firestore, the Electric client | an app-level SDK client service; each session is a `Feed.callback` subscription on it, emitting the SDK's status as `Feed.down` and `Feed.live` (with `proof` from `resumed` / `recovered`); wrapped in `Feed.reconnect` only for terminal failures and `catchUp` | the SDK owns reconnect and its backoff (decided, Q3); a finite SDK retry setting is the budget; closing the client per session would kill the other sessions |
+| **P: per-session transport** | raw WebSocket, EventSource, `fetch` bodies, polling, graphql-ws (lazy client, `retryAttempts: 0`), a Supabase channel, a Socket.IO Socket made per session (`forceNew`; its own retry kept, the stated exception, so `recovered` stays honest) | `Feed.reconnect((from) => connect(from), …)`; `connect` opens and closes the transport; the SDK's own retry is off | `Feed.reconnect` owns both: `schedule`, `resetAfter`, `from` |
+| **S: SDK-owned, app-wide transport** | Ably, Phoenix sockets, Firestore, the Electric client (and Socket.IO when one Manager is shared) | an app-level SDK client service; each session is a `Feed.callback` subscription on it, emitting the SDK's status as `Feed.down` and `Feed.live` (with `proof` from `resumed` / `recovered`); wrapped in `Feed.reconnect` only for terminal failures and `catchUp` | the SDK owns reconnect and its backoff (decided, Q3); a finite SDK retry setting is the budget; closing the client per session would kill the other sessions |
 
 In recipe S, **a session's finalizer removes only its own listeners**: it never detaches, leaves or closes an SDK
 object it obtained by name (an Ably channel, a Supabase `channel(topic)`, a Socket.IO `Manager.socket(nsp)`), since
 other live sessions (equal keys in two actors, two fragment copies, a successor) may hold the same object, unless the
-client service reference-counts that object per name. A session listens for the object's own detach or close, so a
+client service reference-counts that object per name (4.7's Ably service does: without it, every channel a client ever used stays attached; RV5 M1). A session listens for the object's own detach or close, so a
 detach from any cause drops its row (S9, RV4 H2). Every recipe in section 4 owns what it closes: a per-connection
 Socket, a per-session Supabase topic, its own EventSource, AbortController, `onSnapshot` unsubscribe or iterator.
 
@@ -328,7 +332,7 @@ Lifecycle (SR33; every cell filled; 3.1 is normative):
 
 | Edge | Adapter | Flow session (3.1) | Row | Machine | `listen` answers (3.6) | Persistence |
 | --- | --- | --- | --- | --- | --- | --- |
-| placement starts | `subscribe(input)` once the predecessor is `Released` | `Opening` | `Connecting`, `drop: undefined`, restored `last` (state) | nothing | stale `feedDown` | nothing |
+| placement starts | `subscribe(input)` once no session of its (actor, operation, key) is `Releasing` | `Opening` | `Connecting`, `drop: undefined`, restored `last` (state) | nothing | stale `feedDown` | nothing |
 | `Feed.live({ proof })` | — | `Live`, answer proven | `Live` | nothing | `feedDown` withdrawn if this start covers the drop | nothing |
 | first registration of the session, declared empty `from` | `Feed.reconnect` answers `fresh` | `Live`, answer fresh | `Live` | nothing | lowered (FC13) | nothing |
 | unproven or lost start | — | `Live`, answer unproven, lost or reset | `Live` | facts: `missed` before the next fact | lowered | nothing |
@@ -340,8 +344,8 @@ Lifecycle (SR33; every cell filled; 3.1 is normative):
 | terminal failure, budget gone, completion | — | `Ended` | `{ connection: "Ended", failure }` | `failure`, after the item in flight | stale `feedEnded` | nothing |
 | leaving, key gone, disposal | finalizers awaited (bound 5 s) | `Releasing` → `Released` | `undefined` | undelivered items discarded, `Discarded { Released }` | stale `feedEnded` | nothing |
 | freeze (`.resumable()`, MD rule 52) | released; finalizers awaited | `Releasing` → `Released` | `undefined` | undelivered items `Discarded { Released }` | stale `feedEnded` (a gap) | a state row's `last` (with its age) and `heard` are kept with the frozen slice |
-| thaw | placed again from the thawed memory's `input` | a new session; state `last` restored with `own = false` | `Connecting` | as placement starts | as placement starts | — |
-| `resetOn` reset | released, then placed again for the new incarnation (a new subject path); the new session waits for the old one's release, since they share (actor, operation, key) when the key is unchanged | `Released`, then `Opening` | `Connecting` | as placement starts (the fresh slice's memory) | a gap, then as placement starts | — |
+| thaw | placed again from the thawed memory's `input` | a new session; state `last` restored with `own = false`; `registered` kept with the slice | `Connecting` | as placement starts | as placement starts | — |
+| `resetOn` reset | released, then placed again for the new incarnation (a new subject path, a fresh slice, so `registered` is clear); the new session waits for the old one's release, since they share (actor, operation, key) when the key is unchanged | `Released`, then `Opening` | `Connecting` | as placement starts (the fresh slice's memory) | a gap, then as placement starts | — |
 | restore, handover | new session from restored `input` | new table | `Connecting`, restored `last` (state) | no replay; state baseline restored | stale (EDP) | read |
 | page wake | the idle deadline, run on `setTimeout`, fires at most one deadline after wake (RV1 M8) | `Dropped` | dimmed | nothing | stale | nothing |
 | SSR (server) | sessions may run; released at capture | — | state `last` transferred as an age | — | as EDP | — |
@@ -396,7 +400,7 @@ Outcome keys per kind (IP2; mapper context `(value, { input, key })`, K8):
 
 | Kind | `value` | `missed` | `failure` |
 | --- | --- | --- | --- |
-| `delivers: "facts"`, machine | **required**: each fact, once, in order | **required**: `Feed.Missed { why: "Unproven" \| "Lost" \| "Reset"; restartAt?; initial }` (`initial`: the session's first registration, S9) | **required**: exhaustive over the adapter's error tags plus Flow's `Closed`, `Overflow`, `Defect`, `Interrupted` (rule 37's pattern; RV2 M1) |
+| `delivers: "facts"`, machine | **required**: each fact, once, in order | **required**: `Feed.Missed { why: "Unproven" \| "Lost" \| "Reset"; restartAt?; initial }` (`initial`: the first registration for this memory and key, S10) | **required**: exhaustive over the adapter's error tags plus Flow's `Closed`, `Overflow`, `Defect`, `Interrupted` (rule 37's pattern; RV2 M1) |
 | `delivers: "state"` | a reconciled value that differs from the last one heard (optional) | does not exist (type error) | **required when anything is mapped** |
 | `listen` entry | the domain's | the domain's | **required** (SR26) |
 
@@ -406,8 +410,8 @@ reads the machine's memory, which received every one. A state feed may stay bare
 
 **How a machine handles gaps.** It does not compute them. Every fact-feed start answered unproven, lost or reset,
 every catch-up that settles lost, and every value after a drop with no new live, arrives as `missed`, admitted before
-any later fact (R-Answer, SR5). A session's first registration with a declared, empty `from` is `fresh` under
-`Feed.reconnect` and sends nothing (RV2 H1, S8, S9). The smallest correct handling is one line, the explicit acceptance SR10 allows:
+any later fact (R-Answer, SR5). The first registration ever for this memory, with a declared, empty `from`, is `fresh`
+under `Feed.reconnect` and sends nothing (RV2 H1, S8, S10). The smallest correct handling is one line, the explicit acceptance SR10 allows:
 
 ```ts
 MayHaveMissed: { target: "self", updateMemory: () => ({ notice: "Some messages may be missing." }) },   // user-defined: MayHaveMissed, notice
@@ -485,7 +489,7 @@ own, with a terminator frame the adapter turns into a typed error, since a strea
 
 | | Fact feed | State feed |
 | --- | --- | --- |
-| Saved with a persisted actor | nothing of Flow's: the machine's memory (messages, cursor) is the record | `last` with its **age**, and `heard` (the machine's baseline); sensitive or unencodable `output` is omitted (PER O2) |
+| Saved with a persisted actor | the slice's `registered` (one boolean per placement and key); otherwise the machine's memory (messages, cursor) is the record | `last` with its **age**, and `heard` (the machine's baseline); sensitive or unencodable `output` is omitted (PER O2) |
 | Equality baseline after restore | **none** (SR2, FC25) | `heard` restored, so an equal confirmed value is not delivered again |
 | Row after restore | `Connecting`, `last` absent | `Connecting`, `value: undefined`, `last` rebased from its age (FC15) |
 | Queued deliveries, buffers, the adapter budget | not saved; a reload starts a new session with a fresh budget (SR14, stated) | same |
@@ -566,8 +570,8 @@ to the session's pump queue (3.2); `emit(x)` passes x downstream; `now` is the R
 `Equal.equals`, and `undefined` equals nothing. Evidence kinds are tooling output (2.12).
 
 **Signals.** Public, from any adapter: `proof(b)`, `live()` (unproven), `lost(r)`, `reset(r, restartAt)`, `down(r)`.
-Internal, emitted only by `Feed.reconnect` (3.4) and never written by an author: `fresh` (a session's first registration
-with a declared, empty `from`), `pending(b)` (registered, repair running), `settle(proven)`, `settle(lost r)`. Answer order, weakest
+Internal, emitted only by `Feed.reconnect` (3.4) and never written by an author: `fresh` (an offer: the connection started
+from a declared, empty `from`; Flow answers it by `registered`), `pending(b)` (registered, repair running), `settle(proven)`, `settle(lost r)`. Answer order, weakest
 first, used to merge: `reset` < `lost` < `unproven` < `proof` (the latest `restartAt` kept).
 
 **A model's server.** MDL's is sufficient: a log of positions with a head; a connection registers at its live signal;
@@ -579,14 +583,18 @@ a proof replays from the requested position; a reset moves the head to a new spa
 **Variables.** `kind ∈ { facts, state }`; `st ∈ { Opening, Dropped, Live, Ended, Releasing, Released }`; `drop`;
 `dropAt`, `endAt`; `owed` (facts: a `missed Unproven` was queued for a value since the current `down`); `conn` (+1 at
 every start); `answer ∈ { none, proven, fresh, pending, unproven, lost, reset, abandoned }`; `startAt`; `last` (none, or `{ value, at, conn, own
-}`; `own` = confirmed by this session); `confirmed` (state). **Initial:** `st = Opening`, `drop = none`, `owed =
-false`, `conn = 0`, `answer = none`; for state, `last` = the restored or hydrated value with `own = false` and `at`
+}`; `own` = confirmed by this session); `confirmed` (state); `pendingInitial` (the `initial` of a pending start).
+**Outside the session** (S10): `registered`, per (memory slice, operation, key): set by every start; cleared only by a
+new slice (a new actor or incarnation, a `resetOn` reset) and per key when the key leaves `subscribe.each`; kept
+through release, re-entry, freeze and thaw; persisted and hydrated with the slice like `heard`. **Initial:** `st =
+Opening`, `drop = none`, `owed = false`, `conn = 0`, `answer = none`; for state, `last` = the restored or hydrated value with `own = false` and `at`
 rebased from its age, `confirmed = false`.
 
 **Procedures.**
-- `start(a)`: let `initial = (conn = 0)`; `conn += 1`; `st = Live`; `drop = none`; `answer = a`; `startAt = now`. Facts:
-  if `a ∈ { unproven, lost, reset }`, `deliver(missed a, initial)` (a start always answers for itself, principle 1; an
-  owed `missed` covered only the values before it, MDL N3); `owed = false`. State: `confirmed = false`. Then `reconcile`.
+- `start(a)`: let `initial = ¬registered`; `registered = true`; `conn += 1`; `st = Live`; `drop = none`; `answer = a`;
+  `startAt = now`; if `a = pending`, `pendingInitial = initial`. Facts: if `a ∈ { unproven, lost, reset }`,
+  `deliver(missed a, initial)` (a start always answers for itself, principle 1; an owed `missed` covered only the
+  values before it, MDL N3); `owed = false`. State: `confirmed = false`. Then `reconcile`.
 - `reconcile` (state, after every cell): let `cur` = `last.value` if `st = Live ∧ confirmed`, else none. If `cur` is
   defined and `value` is mapped: if `¬Equal(cur, heard)`, set the 3.2 slot to `cur` at `conn`; else clear the slot.
   (One reconciliation point for every path that makes a value current: a value, a proof, a re-confirm; RV1 H2, MDL F2,
@@ -600,11 +608,11 @@ rebased from its age, `confirmed = false`.
 | **`live()`** | `start(unproven)` | `start(unproven)` | an unseen reconnect (FC47): `start(unproven)` | —¹ | discard, evidence | —² |
 | **`lost(r)`** | `start(lost)` | `start(lost)` | `start(lost)` | —¹ | discard, evidence | —² |
 | **`reset(r, at)`** | `start(reset)` | `start(reset)` | `start(reset)` | —¹ | discard, evidence | —² |
-| **`fresh`** (internal) | `start(fresh)` | `start(fresh)` (only reachable when no start was announced: a first connection that failed before registering, so nothing is owed; RV3 M1, RV4 H1 a) | as `live()`, evidence | —¹ | discard, evidence | —² |
+| **`fresh`** (internal) | if `registered`: as `live()` (evidence); else `start(fresh)` | if `registered`: as `live()` (evidence); else `start(fresh)` (a first connection that failed before ever registering: nothing is owed; RV3 M1) | as `live()`, evidence | —¹ | discard, evidence | —² |
 | **`pending(b)`** (internal) | `start(pending)`; state: as `live()` | `start(pending)`; state: as `live()` | `start(pending)`; state: as `live()` | —¹ | discard, evidence | —² |
 | **`settle(proven)`** (internal) | —³ | —³ | if `answer = pending`: `answer = proven`; else evidence | —¹ | discard, evidence | —² |
-| **`settle(lost r)`** (internal) | —³ | —³ | if `answer = pending`: `answer = lost`; facts: `deliver(missed Lost)`; else evidence | —¹ | discard, evidence | —² |
-| **value v** | the plain-Stream case: `start(unproven)`, then the `Live` cell | **not current**: state: `last = { v, dropAt, conn, own: false }`, nothing delivered (FC54, RV1 M6); facts: unless `owed`, `deliver(missed Unproven, initial = (conn = 0))`, `owed = true`; then `deliver(value v)`, `last = v`; evidence `UnprovenValues` | facts: `deliver(value v)`, `last = v`; state: `last = { v, now, conn, own: true }`, `confirmed = true`, `reconcile` | —¹ | discard, evidence | —² |
+| **`settle(lost r)`** (internal) | —³ | —³ | if `answer = pending`: `answer = lost`; facts: `deliver(missed Lost, initial = pendingInitial)` (RV5 M2); else evidence | —¹ | discard, evidence | —² |
+| **value v** | the plain-Stream case: `start(unproven)`, then the `Live` cell | **not current**: state: `last = { v, dropAt, conn, own: false }`, nothing delivered (FC54, RV1 M6); facts: unless `owed`, `deliver(missed Unproven, initial = ¬registered)`, `owed = true`; then `deliver(value v)`, `last = v`; evidence `UnprovenValues` | facts: `deliver(value v)`, `last = v`; state: `last = { v, now, conn, own: true }`, `confirmed = true`, `reconcile` | —¹ | discard, evidence | —² |
 | **`down(r)`** | `st = Dropped`, `drop = r`, `dropAt = now` | `drop = r`, `owed = false` (a second drop is a second interruption) | `st = Dropped`, `drop = r`, `dropAt = now`, `owed = false`; `pending` → `abandoned`; state: if `confirmed`, `last.at = now` (a restored, unconfirmed `last` keeps its age; rev 4.1); `confirmed = false` | —¹ | discard, evidence | —² |
 | **stream fails e** | `end(e)` | `end(e)` | `end(e)` | —¹ | discard, evidence | —² |
 | **stream completes** | `end(Closed)` | `end(Closed)` | `end(Closed)` | —¹ | discard, evidence | —² |
@@ -676,13 +684,13 @@ the cell and this note now say the same thing). `waiters` holds at most one prom
 
 ### 3.4 `Feed.reconnect` (adapter side, Flow-shipped; its phase reported to Inspection)
 
-**Variables:** `fromDeclared` (the options name `from`); `announced` (this session has emitted a start: `fresh`, `live`, `proof`, `lost`, `reset` or `pending`, implicit ones included; S9); `ph ∈ { Connecting, Live, CatchingUp, Waiting, Done }`; `signalled` (this connection's inner stream sent
+**Variables:** `fromDeclared` (the options name `from`); `ph ∈ { Connecting, Live, CatchingUp, Waiting, Done }`; `signalled` (this connection's inner stream sent
 a signal, or the implicit live was emitted); `emittedAny` (any value emitted in this session); `last` (initially
 `options.from`); `n` (the reconnect schedule's state); `liveSince` (none, or the time this connection registered);
 `tail` (positions of a completed repair's last page values, kept only when it completed with an empty `buf`; while
 non-empty, socket values that match it are dropped); in `CatchingUp`: `cursor`, `buf` (≤ `bufferSize` socket values),
 `seen` (positions of the last `bufferSize` page values emitted), `emptyRun`, `pageSched` (a copy of `schedule`),
-`settled`. **Initial:** `ph = Connecting`, `connect(last)` opened, `signalled = false`, `announced = false`, `emittedAny = false`,
+`settled`. **Initial:** `ph = Connecting`, `connect(last)` opened, `signalled = false`, `emittedAny = false`,
 `liveSince = none`, `tail = []`.
 
 **Procedures.**
@@ -693,8 +701,9 @@ non-empty, socket values that match it are dropped); in `CatchingUp`: `cursor`, 
   `emittedAny = true`; append its position to `seen` (oldest dropped past `bufferSize`).
 - `register(sig)`, for an inner unproven or lost start without `restartAt`, or the implicit start: `signalled = true`;
   `liveSince = now`. If `catchUp` is set and `last` is defined: `startRepair()`. Else if `sig` is unproven,
-  `fromDeclared`, `last` is undefined and `¬announced`: emit `fresh` (RV2 H1; S8, S9). Else emit `sig`. `ph = Live`
-  unless repairing. Every emitted start (here, in `startRepair`, and in the proof and reset cells) sets `announced = true`.
+  `fromDeclared` and `last` is undefined: emit `fresh`, an offer Flow answers by `registered` (3.1; S8, S10). Else
+  emit `sig`. `ph = Live` unless repairing. The adapter keeps no "first" state of its own: S9's per-session `announced`
+  is replaced by Flow's `registered` (S10).
 - `startRepair()`: emit `pending("catch-up from <last>")`; `ph = CatchingUp`; `cursor = last`; `buf = []`; `seen =
   []`; `tail = []`; `emptyRun = 0`; `settled = false`; `pageSched` fresh; request `catchUp(cursor)`.
 - `complete()`: interrupt any page read; if `¬settled`, emit `settle(proven)`; `ph = Live`; `tail = buf empty ? seen :
@@ -794,7 +803,7 @@ server must respect are named P0–P4 (2.3, `catchUp`'s contract):
 | I7 | `\|Q\| ≤ 3` and ≤ 1 mailbox item per fact session; ≤ 2 per state session; `Feed.callback` ≤ `bufferSize` values + one group per gap; `buf`, `seen`, `tail` ≤ `bufferSize`; evidence ≤ 256 entries | SR18, SR19 |
 | I8 | Row `value` defined ⇒ `st = Live ∧ confirmed`, and `last` was set by a value on the current `conn` or re-confirmed by a proof while `last.own` | SR20 |
 | I9 | A state `value` event is admitted only when `st = Live` and `slotConn = conn` | SR21 |
-| I10 | (identity) At most one session per (actor, placement path, operation, key) is not `Released`; (wait) a session opens only when no session with the same (actor, operation, key), at any path, is `Releasing`, except for the `ReleaseOverdue` overlap | SR17, FC33 |
+| I10 | (identity) At most one session per (actor incarnation, placement path, operation, key) is not `Released`; (wait) a session opens only when no session with the same (actor, operation, key), at any path, is `Releasing`, except for the `ReleaseOverdue` overlap | SR17, FC33 |
 | I11 | No item of a `Releasing` or `Released` session is admitted | SR33 |
 | I12 | Between two connections that stayed registered for `resetAfter`, the number of `connect` calls ≤ the schedule's length + 1 | SR14 |
 | I13 | Under P0–P3, within a session no defined position is emitted downstream twice | SR12 |
@@ -807,9 +816,10 @@ server must respect are named P0–P4 (2.3, `catchUp`'s contract):
 | I20 | The implicit start is emitted only before the first value of a connection on which no start was emitted (`signalled = false`), and at most once per connection; other starts each carry their own answer | SR8, FC64 |
 | I21 | No page value or buffered value is emitted after its connection dropped or failed | SR10, FC43 |
 | I22 | (a) Bound: at most `2 × (schedule length + 1)` page results in a row without values (failures and empty pages) occur before `CatchingUp` is left by `dropConn`. (b) Under P4, if the connection stays up, `CatchingUp` reaches `Live` | SR10 |
-| I23 | Under P0–P3, the fact positions admitted, cut at every admitted `missed`, are contiguous in the log within each cut; a `pending` or proven start never covers a hole | SR5, SR9, FC22, FC51 |
+| I23 | Under P0–P3, the fact positions admitted to one memory slice, across all its sessions, cut at every admitted `missed`, are contiguous in the log within each cut; a `pending`, proven or `fresh` start never covers a hole | SR5, SR9, FC22, FC51 |
 | I24 | State: whenever row `value` is defined, `value` is mapped and it differs from `heard`, a value delivery is queued, and an admitted value event carries the row's current `value` | SR21, RV1 H2, MDL N7 |
 | I25 | The signals and values a session receives equal what the adapter emitted, in order, except merges of signals with no value between them, and no merge upgrades an answer or removes a `down` | SR5, SR18, MDL N8 |
+| I27 | `fresh` is answered only when the slice is not `registered`; every delivered `missed` carries `initial` = `¬registered` as it was before its start (for `settle(lost)`, before the pending start); `registered` survives release, re-entry, freeze, thaw and reload, and is cleared only by a new slice or a key leaving | SR5, RV5 H1, M2 |
 | I26 | Time (C5): `last.at ≤ now`; when `st ≠ Live`, `last.at ≤` the moment the connection last left `Live` (`dropAt` or `endAt`), and a value received in `Dropped` has `at = dropAt`; after a restore or hydration `now − last.at` equals the transferred age; `startAt ≤ now`; `liveSince ≤ now` | SR20, SR23, FC15, FC78 |
 
 **Mutants** (each must be killed): a fact before its `missed` (FC4, FC55; I1); the budget reset on the first value, or
@@ -830,14 +840,18 @@ Attempt (FC30; I14); a cached value aged from its arrival, or an age not rebased
 `from` while memory holds facts (RV3 H1; I23 across sessions); a descending pager (RV3 H3; I23); two placements of one
 key stalling the second (RV3 H2; I10); `fresh` after a registered connection with no value (RV4 H1 a; I23); a
 successor at another path not waiting for a releasing predecessor (RV4 M1; I10); a `missed` handler ignoring a
-non-initial start on an empty memory (RV4 H1 b; I23).
+non-initial start on an empty memory (RV4 H1 b; I23); `registered` scoped to the session, so a second session of a
+quiet memory is `fresh` (RV5 H1; I23, I27); `initial` lost on `settle(lost)` (RV5 M2; I27); an ignore guard that also
+ignores `Lost` (RV5 M2; I23).
 
 **Model scope.** Inputs: 3.1's sixteen, 3.4's fourteen, 3.3's six, page results (`more`, `empty with next`, `last`,
 a meet with the socket, `CannotRepair` with and without `continueAt`, retryable and terminal failures), a clock tick
 (for `resetAfter`, delays and I26), 3.5's four and 3.6's read start, read land and toggle of `subscribed`. The server
 respects P0–P3, with a descending-page variant to show P0 is needed; P4 is a fairness filter on infinite runs. Two
 placements on one key (two fragment copies), the `Dropped` × `fresh` cell, a quiet registered first connection then a
-drop and a reconnect, and a different-path successor of a releasing session are in scope. Readings to keep from MDL
+drop and a reconnect, a different-path successor of a releasing session, and two sessions of one quiet memory with
+events between them (release, re-entry, freeze and thaw, reload) are in scope; `registered` is a model variable of the
+slice, outside the session. Readings to keep from MDL
 (RV3 L9): `continueAt` is the cursor the next page starts after (2.3); an I25 merge may keep `down₁`, the weakest
 `live`, and `down₂`; 3.6's reads are modelled under one covering session, and the function covers many. Sequences up to about 10 inputs cover drop, repair, drop
 again, and repair settled lost.
@@ -907,7 +921,8 @@ export const Chat = {
             : Effect.succeed([p.messages, p.complete ? Option.none() : Option.some(p.next)] as const))),   // the server's own completeness, never "a short page" (FC42)
       }))),
   }),
-  history: resource({ id: "Chat.history", input: { roomId: Schema.String }, output: HistoryPage, key: ["roomId"], staleTime: "0 millis", gcTime: "1 minute", lookup: lastPage }),   // existing: resource
+  history: resource({ id: "Chat.history", input: { roomId: Schema.String }, output: HistoryPage, key: ["roomId"],   // HistoryPage = { messages, head: Cursor }: head is the newest message's position, or for an empty room the position before the first (L1)
+                        staleTime: "0 millis", gcTime: "1 minute", lookup: lastPage }),   // existing: resource
   post: transaction({ id: "Chat.post", input: { roomId: Schema.String, clientId: Schema.String, text: Schema.String }, output: Message, key: ["clientId"], concurrency: "reject", commit: postMessage }),   // existing: transaction
 }
 ```
@@ -919,7 +934,7 @@ events: { Send: { text: Schema.String } },
 internalEvents: {
   Loaded: { messages: Schema.Array(Message), head: Cursor }, LoadFailed: {},
   Message: { message: Message },
-  MayHaveMissed: { why: Schema.Literals(["Unproven", "Lost", "Reset"]), restartAt: Schema.optional(Cursor), initial: Schema.Boolean },
+  MayHaveMissed: { why: Schema.Literals(["Unproven", "Lost", "Reset"]), restartAt: Schema.optional(Cursor) },
   FeedEnded: {}, SignedOut: {}, Reopen: {}, Healthy: {},
   Posted: { clientId: Schema.String }, PostFailed: { clientId: Schema.String }, PostUnsure: Flow.uncertain({ clientId: Schema.String }),
 },
@@ -927,7 +942,7 @@ operations: ({ E }) => ({
   history: Chat.history.outcomes({ success: E.Loaded.from((p) => ({ messages: p.messages, head: p.head })), failure: { HistoryFailed: E.LoadFailed, Defect: E.LoadFailed, Interrupted: E.LoadFailed } }),
   messages: Chat.messages.outcomes({
     value: E.Message.from((message) => ({ message })),                                        // existing: value
-    missed: E.MayHaveMissed.from((m) => ({ why: m.why, restartAt: m.restartAt, initial: m.initial })),   // NEW: missed (type-required here); decided: initial (S9)
+    missed: E.MayHaveMissed.from((m) => ({ why: m.why, restartAt: m.restartAt })),           // NEW: missed (type-required here); 4.1 never ignores one, so it does not read initial (L2)
     failure: { SignedOut: E.SignedOut, ChatDropped: E.FeedEnded, Closed: E.FeedEnded, Overflow: E.FeedEnded, Defect: E.FeedEnded, Interrupted: E.FeedEnded },   // NEW: Closed, Overflow (RV2 M1)
   }),
   post: Chat.post.outcomes({
@@ -951,7 +966,7 @@ states: {
   LOADING: {
     entry: [O.history.lookup(({ memory }) => ({ roomId: memory.roomId }))],
     on: {
-      Loaded: { target: S.LIVE, updateMemory: ({ event }) => ({ messages: event.messages, cursor: event.messages.at(-1)?.cursor ?? event.head }) },   // the history's head even when empty: the socket resumes after the read, so no first-live race (FC13; RV4 H1 c); FC13)
+      Loaded: { target: S.LIVE, updateMemory: ({ event }) => ({ messages: event.messages, cursor: event.messages.at(-1)?.cursor ?? event.head }) },   // the history's head even when empty: the socket resumes after the read, so no first-live race (FC13; RV4 H1 c)
       LoadFailed: { target: S.RETRY_WAIT, updateMemory: ({ memory }) => ({ reopenInMs: Math.min(30_000, memory.reopenInMs * 2) }) },
     },
   },
@@ -1275,7 +1290,7 @@ connection is unproven (no `from`, S8), and `listen` lowers covered answers on i
 reads (FC55, FC68 cost). A drop: answers stale; the rejoin's `SUBSCRIBED` is unproven, so subscribed lists refetch and a
 ticket deleted meanwhile leaves the list, quiet or not (SR25, FC5, FC19). Opening settings releases the session: the
 list is stale (`feedEnded`) and refetches on return, once (FC48, FC69 cost). Leaving and re-entering fast waits for
-`removeChannel` (FC33). Sign-out is a terminal failure, not a reconnect.
+`removeChannel` (FC33); with a per-connection topic the wait protects nothing here, and is harmless (RV5 L6). Sign-out is a terminal failure, not a reconnect.
 
 ### 4.7 SDKs by recipe, and two more sources (uncommon)
 
@@ -1283,11 +1298,12 @@ Recipe P or S (2.4) per source; neither needs a Flow concept of its own (DG3).
 
 **Supabase** (recipe P per channel): 4.6.
 
-**Socket.IO** (recipe S). Recovery state lives on the client Socket across its own reconnects, so the SDK's retry stays
-on and `recovered` becomes the proof (PA2 s2; RV2 H3); the Socket is created per connection, so its flag covers only
-what this session's stream received (RV3 L7), and the session owns it, so disconnecting it closes nothing shared
-(S9). Socket.IO has no positions, so there is no `from` and no `fresh`: every session's first `connect` is unproven
-(S8), marked `initial`; the machine ignores it only when it is initial **and** memory holds nothing (S9, RV4 H1 b).
+**Socket.IO** (recipe P, with the SDK's own retry kept as the stated exception; RV5 L3). Recovery state lives on the
+client Socket across its own reconnects, so `recovered` becomes the proof (PA2 s2; RV2 H3); the Socket is made per
+connection (`forceNew`), so its flag covers only what this session's stream received (RV3 L7), and disconnecting it
+closes nothing shared (S9). Socket.IO has no positions, so there is no `from` and no `fresh`: every session's first
+`connect` is unproven (S8). Its `missed` is `initial` only on the first registration ever for this memory (S10), so the
+machine ignores an `Unproven` one only when it is initial **and** memory holds nothing.
 
 ```ts
 subscribe: ({ room }) => Stream.unwrap(Effect.map(Sio, (io) =>                               // user-defined: Sio, an app-level client service
@@ -1302,7 +1318,7 @@ subscribe: ({ room }) => Stream.unwrap(Effect.map(Sio, (io) =>                  
 ```
 
 ```ts
-MayHaveMissed: [{ target: "self", guard: ({ memory, event }) => (event.initial && memory.messages.length === 0) || deny("MayHaveMissed") },   // the first registration, nothing held: nothing to miss
+MayHaveMissed: [{ target: "self", guard: ({ memory, event }) => (event.why === "Unproven" && event.initial && memory.messages.length === 0) || deny("HoldsOrRejoined") },   // never registered, nothing held: nothing to miss (S10)
                 { target: "self", updateMemory: () => ({ notice: "Some messages may be missing." }) }],
 ```
 
@@ -1316,8 +1332,15 @@ retained window, reverses it in the adapter, bounded by `bufferSize`, and fails 
 past retention (S8, RV3 H3).
 
 ```ts
-subscribe: ({ name, after }) => Stream.unwrap(Effect.map(Ably, (ably) => {                     // user-defined: Ably, one Realtime client service
-  const ch = ably.channels.get(name)
+// ably.service.ts (user-defined): channels reference-counted per name, so no session detaches another's channel and an
+// unused one does not stay attached for the client's lifetime (RV5 M1). Ably queues an attach after a pending detach,
+// so an acquire during a detach re-attaches.
+const acquire = (name) => { refs.set(name, (refs.get(name) ?? 0) + 1); return client.channels.get(name) }
+const release = (name) => { const n = refs.get(name)! - 1; if (n > 0) refs.set(name, n); else { refs.delete(name); client.channels.get(name).detach() } }
+
+subscribe: ({ name, after }) => Stream.unwrap(Effect.map(
+  Effect.flatMap(Ably, (ably) => Effect.acquireRelease(Effect.sync(() => ably.acquire(name)), () => Effect.sync(() => ably.release(name)))),   // Effect: released when the session ends
+  (ch) => {
   return Feed.reconnect(() => Feed.callback((emit) => Effect.gen(function* () {
     let first = true
     const down = (c) => emit(Feed.down({ state: c.current }))
@@ -1329,7 +1352,7 @@ subscribe: ({ name, after }) => Stream.unwrap(Effect.map(Ably, (ably) => {      
     ably.connection.on(["disconnected", "suspended"], down); ch.on("attached", attached); ch.on("update", update); ch.on("failed", failed); ch.on("detached", detached)
     yield* Effect.promise(() => ch.subscribe(message))
     if (ch.state === "attached" && first) { emit(Feed.live()); first = false }               // already attached by another session: no attached event comes (RV4 L7)
-    yield* Effect.addFinalizer(() => Effect.sync(() => {                                    // only this session's listeners; the shared channel is never detached (S9, RV4 H2)
+    yield* Effect.addFinalizer(() => Effect.sync(() => {                                    // only this connection's listeners; the channel is the service's (S9, RV4 H2)
       ably.connection.off(down); ch.off(attached); ch.off(update); ch.off(failed); ch.off(detached); ch.unsubscribe(message) }))
   })), { from: after, position: (m) => ({ serial: m.serial, at: m.timestamp }), catchUp: ablyForwards(ch), while: (e) => e._tag === "AblyDown", schedule })   // user-defined: ablyForwards pages oldest first from the cursor's time (P0; RV4 L3)
 })),
@@ -1537,7 +1560,7 @@ with the reason).
 | FC10 | memory advances only in handled fact turns; unhandled facts are re-requested | 2.7 | met where the server replays; a no-replay source gives `missed` |
 | FC11 | facts pulled per turn; state coalesced; tokens are write progress; bounded buffers | 3.2, 3.3, 2.9 | met |
 | FC12 | `progress` on the write lane | 2.9 | met |
-| FC13 | listen: the first start is a gap, so earlier answers refetch; chat: subscribe after the history's position, its `head` when empty (precondition beside `fresh`, not checkable) | 2.3, 2.8, 3.6, 4.1 | met (stated precondition) |
+| FC13 | listen: the first start is a gap, so earlier answers refetch; chat: subscribe after the history's position, its `head` when empty; re-placements are covered by `registered` | 2.3, 2.8, 3.1, 3.6, 4.1 | met (stated snapshot precondition) |
 | FC14 | identity storage; versions in domains; EDP's unversioned-listen warning | 2.7 | met |
 | FC15 | `last.at` as wall-clock epoch ms, transferred as an age | 2.6, 2.10 | met |
 | FC16 | Story controls | 2.11 | met |
@@ -1729,8 +1752,9 @@ payload (2 lines).
 | S5 | Q2 `missed`; Q3 SDK policies wrapped by recipe; Q6 the row (`connection`, `drop`, `value` on state feeds, `last { value, at }`); Q7 `Closed` in `failure`; Q8 cursors out of scope; Q9 no shared session; Q10 no `persist` on streams; Q11 `progress(p)`; Q12 `resetAfter` default 1 minute, `Closed` and `Overflow` retryable; Q13 `bufferSize` 1,024; Q14 the finding names |
 | S6 | Q15 `catchUp` is a page-step function; Q16 the row reads `Live` during a catch-up; Q17 a state proof re-confirms only a `last` this session confirmed; Q18 pages retry with a fresh copy of the reconnect `schedule` |
 | S7 | Q19 `Feed.CannotRepair` (NEW word); Q20 `emit` returns a `Promise<void>`; Q21 a first start with no position is `fresh` under `Feed.reconnect` only (amended by S8); Q22 an unhandled fact feed is a type error; Q23 one `catchUp` step function, first call the position, later calls the page token |
-| S9 | Delegated, from RV4: H1 a session owes from its first registration (internal `announced`, 3.4); `Missed` gains `initial`; an empty-`from` precondition for `fresh`; H2 recipe finalizers remove only their own listeners, a shared Ably channel is never detached, a `detached` listener; M1 release-before-restart waits per (actor, operation, key) across placements |
 | S8 | Delegated, from RV3: H1 `fresh` only when `Feed.reconnect` declares `from` and it is empty; H2 session identity includes the placement path (fragment instance and subject path), with freeze, thaw and `resetOn` rows; H3 `catchUp` pages oldest first (P0); newest-first histories page forwards or are reversed in the adapter |
+| S9 | Delegated, from RV4: H1 a session owes from its first registration (internal `announced`, 3.4); `Missed` gains `initial`; an empty-`from` precondition for `fresh`; H2 recipe finalizers remove only their own listeners, a shared Ably channel is never detached, a `detached` listener; M1 release-before-restart waits per (actor, operation, key) across placements |
+| S10 | Delegated, from RV5: `registered` per (memory slice, operation, key), persisted like `heard`, replaces S9's per-session `announced`; `fresh` drops to `live()` once set; `initial = ¬registered`; Ably channels reference-counted; `initial` on `settle(lost)` specified; the ignore guard only for `Unproven` |
 
 Deferred to [../open-items.md](../open-items.md): **16** outbound live state on a session (cursors); **17** one shared
 session per Runtime; **18** a manual `reconnect` member (parked; this design does not preclude it); **19** `fromRpc`
@@ -1740,10 +1764,38 @@ classifier, `Closed`/`Defect`/`Interrupted` defaults in a stream's `failure` rec
 
 ### 8.2 Open questions
 
-None in revision 6. S9's `initial` is decided; S8's `from` requirement is a type on an existing option. The preconditions P0–P3 on `catchUp` (3.7) are documentation of what the
+None in revision 7. S10's `registered` is internal (an author sees it only as `initial`); S9's `initial` is decided; S8's `from` requirement is a type on an existing option. The preconditions P0–P3 on `catchUp` (3.7) are documentation of what the
 decided shape (S6 Q15, S7 Q23) already assumes, and are listed for review in section 9.
 
-## 9. Changes in revision 6
+## 9. Changes in revision 7
+
+Review 5 (RV5) found one High and two Mediums, decided as S10.
+
+- **H1 (root: the obligation belongs to the memory, not to the session).** Flow keeps `registered` per (memory slice,
+  operation, key), set by every start, persisted with the slice like `heard`, cleared only by a new slice or a key
+  leaving. `fresh` is answered only when it is clear; `initial = ¬registered`. S9's per-session `announced` is gone, so
+  `Feed.reconnect` only offers `fresh`. Walks, none losing a message:
+  - **RETRY_WAIT re-open** (4.1, Socket.IO): the first session set `registered`; the re-opened session's first start is
+    `live()` (or the replay or catch-up from 4.1's `head`), so `missed` arrives with `initial = false` and the guard
+    does not ignore it.
+  - **Re-entry** (4.6's settings): the definition's slice outlives the state, so the same as a re-open.
+  - **Thaw:** `registered` is kept with the frozen slice; the thawed session's `fresh` offer is read as `live()`.
+  - **Quiet Socket.IO room:** the first registration ever is initial with an empty memory and is ignored, which is
+    correct (nothing owed); every later start, in-session or after a re-open, is non-initial and shows the notice.
+  - **Quiet positioned feed** (graphql-ws, Ably with `from: after`): session 1 is `fresh`; session 2 offers `fresh`,
+    Flow reads `live()`, and `missed Unproven` follows, or `catchUp` repairs once `last` is defined.
+  - **The precondition** an author must meet is now only "pass a snapshot's position if you read one" (4.1's `head`),
+    which is the author's own data.
+- **M1.** 4.7's Ably service reference-counts channels, with the detach at zero and the in-flight edge.
+- **M2.** `settle(lost)` carries the pending start's `initial`; the ignore guard applies only to `Unproven`.
+- **Lows.** `HistoryPage` shows `head` and the duplicated comment is gone (L1); 4.1 no longer maps `initial` (L2);
+  Socket.IO is recipe P with its retry as the stated exception (L3); the "placement starts" row and I10 use one wording
+  (L4); the guard's reason is `HoldsOrRejoined` (L5); 4.6's FC33 wait is stated as harmless (L6); the decision log is in
+  order. Section 3 adds `registered` (3.1), I27 and three mutants, and the model scope gains the two-session walks.
+- **Where an author sees `registered`:** only as `initial` in a `missed` payload, and in Inspection and Story evidence.
+  No new word; the count stays 24.
+
+## Earlier: changes in revision 6
 
 Review 4 (RV4) found two Highs and a Medium, decided as S9; each is a root cause, fixed once.
 
