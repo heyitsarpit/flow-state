@@ -47,8 +47,8 @@ the main session. Revision 3 of [the proposal](../proposal.md) answers every fin
 ## Errata outside the proposal (2026-10-30)
 
 - `machine-design.md:1192`: `busyThenPaid` scripts 429.
-- `merge-4-entities/proposal.md:388`: "another tab's rename" becomes "another actor's rename".
-- `merge-4-entities/proposal.md:372`: "prediction ended" becomes "fields the response carries are confirmed; omitted
+- `merged/entities.md:388`: "another tab's rename" becomes "another actor's rename".
+- `merged/entities.md:372`: "prediction ended" becomes "fields the response carries are confirmed; omitted
   ones stay predicted until a confirming read".
 
 ## Left for the owner

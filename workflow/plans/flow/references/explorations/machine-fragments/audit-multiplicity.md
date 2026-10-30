@@ -1,6 +1,6 @@
 # Audit: multiplicity, identity and existence
 
-Written 2026-10-31. Scope: [machine-design.md](machine-design.md) (MD), [merge-4-entities](merge-4-entities/proposal.md)
+Written 2026-10-31. Scope: [machine-design.md](machine-design.md) (MD), [merged/entities.md](merged/entities.md)
 (M4, accepted), [merge-3-stories](merge-3-stories/proposal.md) (M3, revision 3), [merge-6-streams](merge-6-streams/proposal.md)
 (M6, accepted), [merge-5-entity-analysis](merge-5-entity-analysis/proposal.md) (M5, read only), and the plans
 `Operations` (Op), `Machines` (Mc), `EntityDomains` (EP), `Testing` (T), `Persistence` (Ps), `Runtime` (Rt) and

@@ -3,7 +3,7 @@
 Status: proposal, **revision 3, not accepted; awaits validation.** Merge 3 into [machine-design.md](../machine-design.md),
 which holds merges 1 and 2 (section 2.7 and rules 13–25; their records are [merged/outcomes.md](../merged/outcomes.md)
 and [merged/server-calls](../merged/server-calls/proposal.md)). It merges together with
-[merge 4](../merge-4-entities/proposal.md) (entity domains, rules 26–38, accepted on 2026-10-30, `M4:3-6`), and is
+[merge 4](../merged/entities.md) (entity domains, rules 26–38, accepted on 2026-10-30, `M4:3-6`), and is
 written to be correct with merge 4 merged in. No `.plan` file changes until it is accepted. It makes Stories
 ([Testing.plan](../../../../Testing.plan)) cover what the design added: traits and subroutines inside a machine and
 alone, `.each` copies and their lives, resumable traits, server-call endings, lanes, late routing, keyed schedules,
@@ -59,7 +59,7 @@ Citations. Paths are relative to `workflow/plans/flow/`:
 | `EP` | `EntityDomains.plan` |
 | `Pk` | `Package.plan` |
 | `D` | `references/explorations/machine-fragments/machine-design.md` (merges 1 and 2 merged in) |
-| `M4` | `references/explorations/machine-fragments/merge-4-entities/proposal.md` (accepted, merging with this one) |
+| `M4` | `references/explorations/machine-fragments/merged/entities.md` (accepted, merging with this one) |
 | `EA` | `references/explorations/machine-fragments/merged/each.md` |
 | `M1` | `references/explorations/machine-fragments/merged/outcomes.md` (record of merge 1) |
 | `M2` | `references/explorations/machine-fragments/merged/server-calls/proposal.md` (record of merge 2) |

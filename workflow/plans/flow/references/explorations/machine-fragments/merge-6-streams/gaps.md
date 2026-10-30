@@ -17,7 +17,7 @@ Sources and the short names used for citations (all under `workflow/plans/flow/`
 | M2 | `references/explorations/machine-fragments/merged/server-calls/proposal.md` |
 | REQ | `references/explorations/machine-fragments/merged/server-calls/requirements.md` |
 | M3 | `references/explorations/machine-fragments/merge-3-stories/proposal.md` (not accepted) |
-| M4 | `references/explorations/machine-fragments/merge-4-entities/proposal.md` (accepted) |
+| M4 | `references/explorations/machine-fragments/merged/entities.md` (accepted) |
 | EDP | `EntityDomains.plan` |
 | ED | `references/design/entity-domain.md` |
 | PER | `Persistence.plan` |

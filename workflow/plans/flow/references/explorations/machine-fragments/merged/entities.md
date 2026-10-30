@@ -1,10 +1,12 @@
 # Proposal: server calls and entity domains (merge 4)
 
-Status: **accepted by the owner on 2026-10-30; merges into machine-design.md together with merge 3 (Stories), once
-that is accepted.** Revision (multiplicity audit, 2026-10-31): rules 30–32, the list rewrite (3.1) and section 2 follow
-[audit-multiplicity.md](../audit-multiplicity.md); decisions E17 and E18. Builds on the merged design (2.7, rules 13–25). Decisions E1–E16 are settled as section 10 records,
-with the corrections section 9 found; section 9 is kept as the reasoning behind them.
-Nothing here edits a `.plan` file; section 6 lists the amendments for when the owner accepts them.
+Status: **merged into machine-design.md on 2026-10-30; kept as the record behind it.** It was merge 4 into
+[machine-design.md](../machine-design.md) (section 2.8, rules 26–38, section 5's C21–C30 and the "Decisions" section
+there; plan: [merge-plan-4-5.md](../merge-plan-4-5.md)). Where this record and the design differ, the design wins:
+the design decides every start in step 5, before publication, for every write (rule 28 here was written for domain
+writes only). Accepted by the owner on 2026-10-30 (E1–E16), revised by the multiplicity audit (2026-10-31, E17, E18,
+[audit-multiplicity.md](../audit-multiplicity.md)). Its `MD:` citations are line numbers of the design before this
+merge. Section 9 is kept as the reasoning behind section 10's decisions.
 
 Sources and the short names used for citations:
 
