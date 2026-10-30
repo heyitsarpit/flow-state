@@ -172,3 +172,20 @@ An opt-in `resource.fromRpc` / `transaction.fromRpc` taking an existing `Rpc` fo
 ## 14. A catch-all for per-tag `unknown` (deferred by the operations merge, 2026-10-30)
 
 If listing Flow's unknown reasons in every per-tag record proves too verbose, a catch-all entry would be public API (operations merge X22).
+
+## 15. Wiring the author writes that the system should handle (flagged by the owner, 2026-10-30)
+
+Flow controls the whole stack (contracts, operations, machine, store, persistence, Stories), so integration work an
+author repeats in every app should be in the "it just works" category instead of user code. Audit every feature for
+wiring the author must write by hand that the system could do internally, and decide which to absorb. The streams
+example that raised it: each fact-feed handler stores the message and moves the resume position, and the position
+rule is written twice (the contract's `position` and the machine's `cursor: event.message.cursor`); a helper such as
+`Feed.track` was considered and deferred because it fits only "a list plus a cursor" in memory.
+
+The audit should, for each case: show the wiring as it is written today; say whether it is the same in every app
+(absorb) or a real app decision (keep); and propose the internal behaviour, with no new public word where possible.
+Candidates already seen: resume position and dedupe on fact feeds; catch-up paging; reconnect backoff kept across a
+reload (the chat `reopenInMs` field); retry-budget handlers (`retryable` then `retry`, else `cancel`) repeated on every
+write; releasing a held write in every toast-only `unknown` handler; mirroring lane state into memory for views;
+key selectors in user events; seeding a feed's first position from a history read. Scope: machine-design.md as merged,
+streams (proposal-v2.md) and operations-in-fragments.
