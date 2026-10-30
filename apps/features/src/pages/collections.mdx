@@ -67,8 +67,9 @@ Each row is a `Field` copy keyed by its own entry in `inviteIds`. The host adds 
 
 ```ts
 // signup.definition.ts
-import { definition, deny, Field, Flow } from "flow-state"
+import { definition, deny, Flow } from "flow-state"
 import { Schema } from "effect"
+import { Field } from "./fragments"                  // user-defined trait (machine-design 3.1)
 
 const optionalEmail = (v: string) => v === "" || v.includes("@") || deny("NotAnEmail") // user-defined
 

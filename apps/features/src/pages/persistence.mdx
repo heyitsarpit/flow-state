@@ -17,7 +17,7 @@ import { Stripe, StripeFake } from "./stripe.fake"     // user-defined (2.10.4)
 const checkout = (id: string) => Story.make(CheckoutSetup, { id, fixtures: [StripeFake] })
 
 export const reloadMidCharge = checkout("checkout/reload-mid-charge")
-  .ensure(CheckoutP1, { input: { intentId: "pi_1" } })  // a persisted actor: its saved record survives the reload
+  .ensure(CheckoutP1, { input: { intentId: "pi_1" } })  // a persisted actor (ref made with persist: true, per Persistence.plan O2; see the Runtime page)
   .world(Stripe.confirm.hold())                         // the Attempt is acknowledged in storage before it is sent
   .send(CheckoutP1, E.Pay({ paymentMethodId: "pm_card" }))  // its lane record holds the Attempt
   .reload()                                             // closes the tab, reopens it and ensures CheckoutP1 again
@@ -69,10 +69,11 @@ export const twoTabs = Story.make(CheckoutSetup, { id: "checkout/two-tabs", fixt
 
 ### persisted actor and its saved record
 
-**What** A persisted shared actor's saved record holds its state, memory, issues and pending outcomes, and never its write lanes.
+**What:** A persisted shared actor's saved record holds its state, memory, issues and pending outcomes, and never its write lanes.
 
-**Why it exists** A write must outlive the actor that started it, so a reload or a disposed actor cannot lose a held or unacknowledged write.
+**Why it exists:** A write must outlive the actor that started it, so a reload or a disposed actor cannot lose a held or unacknowledged write.
 
+- `persist: true` on `actorRef` is stated only in Persistence.plan (the design says "persisted identity" without spelling the option).
 - The design replaces two plan sentences: "pending writes follow their actor" (Persistence O2) and "explicitly disposed durable actors disappear from the next capture" (O3). Lane records are Runtime records, and a disposed actor's live lanes stay as unbound records. The design wins.
 - Also replaced by the design: "saved records for an undeclared machine id are discarded" (Persistence O5), which becomes lane records decoding on their own.
 
@@ -80,9 +81,9 @@ export const twoTabs = Story.make(CheckoutSetup, { id: "checkout/two-tabs", fixt
 
 ### captures and acknowledgement, per lane and per Attempt
 
-**What** A capture saves a whole, consistent view of the persisted actors and their non-`Idle` lanes, and storage acknowledges each Attempt once, before its first send.
+**What:** A capture saves a whole, consistent view of the persisted actors and their non-`Idle` lanes, and storage acknowledges each Attempt once, before its first send.
 
-**Why it exists** After a crash, a restored Attempt can be reported honestly as unknown, and no remote write runs without a durable record of it.
+**Why it exists:** After a crash, a restored Attempt can be reported honestly as unknown, and no remote write runs without a durable record of it.
 
 - A failed acknowledgement ends `NotSent { StorageRefused }` and the adapter is never called. The plan's "settles through interrupt with StorageFailure" (Persistence O6) is replaced by the design (C48).
 - A persisted re-send waits for its lane record's capture before it is invoked. Acknowledgement is not repeated for it.
@@ -91,9 +92,9 @@ export const twoTabs = Story.make(CheckoutSetup, { id: "checkout/two-tabs", fixt
 
 ### lane records, keyed by contract id and key
 
-**What** A write lane is stored as a Runtime record under (actor identity, contract id, key), holding its Attempts with their `retryCount` and whether each was acknowledged.
+**What:** A write lane is stored as a Runtime record under (actor identity, contract id, key), holding its Attempts with their `retryCount` and whether each was acknowledged.
 
-**Why it exists** A hold belongs to one write target, so a reload restores the same lane for the same key and never sends a newer write past an unresolved one.
+**Why it exists:** A hold belongs to one write target, so a reload restores the same lane for the same key and never sends a newer write past an unresolved one.
 
 ```ts
 // one lane per Issue: key ["id"] on the contract (OD15)
@@ -113,9 +114,9 @@ operations: ({ E }) => ({
 
 ### restore and reload
 
-**What** `ready()` restores each persisted actor in its saved leaf, then delivers its lane endings in a fixed order, before any external event.
+**What:** `ready()` restores each persisted actor in its saved leaf, then delivers its lane endings in a fixed order, before any external event.
 
-**Why it exists** A reload continues the work that was there. It never runs the actor's start again or replays old input or turns.
+**Why it exists:** A reload continues the work that was there. It never runs the actor's start again or replays old input or turns.
 
 - The delivery order is: parked endings in saved order; then per lane in creation order, a held head's `unknown { Restored }`, or `NotSent { Restored }` for work never acknowledged, then each waiting entry's `NotSent { Restored }`. An in-flight lane's ending is delivered when it lands.
 - The restored incarnation is new, so its handlers have not seen the hold and receive `unknown { Restored }` once.
@@ -124,9 +125,9 @@ operations: ({ E }) => ({
 
 ### `unknown { Restored }` and `NotSent { Restored }`
 
-**What** `unknown { Restored }` is the outcome of an Attempt acknowledged before the reload; `NotSent { Restored }` is the outcome of an Attempt never acknowledged, and of each queued commit behind a held head.
+**What:** `unknown { Restored }` is the outcome of an Attempt acknowledged before the reload; `NotSent { Restored }` is the outcome of an Attempt never acknowledged, and of each queued commit behind a held head.
 
-**Why it exists** The page reloaded mid-call, so Flow cannot tell whether the adapter ran. Only a `Restored` label on an acknowledged Attempt lets the author decide to re-send, relying on the idempotency key.
+**Why it exists:** The page reloaded mid-call, so Flow cannot tell whether the adapter ran. Only a `Restored` label on an acknowledged Attempt lets the author decide to re-send, relying on the idempotency key.
 
 ```ts
 // the author maps both; NotSent carries its reason in why
@@ -141,9 +142,9 @@ failure: { NotSent: E.Failed.from(() => ({ message: "Could not update" })) },   
 
 ### pending mapped outcomes
 
-**What** A pending mapped outcome is a lane ending that settled while no incarnation could receive it. It is saved with its record and delivered once after reload.
+**What:** A pending mapped outcome is a lane ending that settled while no incarnation could receive it. It is saved with its record and delivered once after reload.
 
-**Why it exists** An ending that lands during a disposal or between turns must not be lost, or replaced by `unknown { Restored }` after the fact.
+**Why it exists:** An ending that lands during a disposal or between turns must not be lost, or replaced by `unknown { Restored }` after the fact.
 
 - Endings are saved raw: the contract's outcome, the Attempt and the lane state. They are mapped through the current `outcomes` when delivered, so a changed machine still receives them.
 - If an Attempt's outcome is already saved, that outcome is delivered once in place of `unknown { Restored }`.
@@ -152,9 +153,9 @@ failure: { NotSent: E.Failed.from(() => ({ message: "Could not update" })) },   
 
 ### local actors
 
-**What** A local actor, from `createActor` or a local React actor, is the stated exception: its write lanes are never persisted.
+**What:** A local actor, from `createActor` or a local React actor, is the stated exception: its write lanes are never persisted.
 
-**Why it exists** A local actor has no stable shared identity to save under. Making it persist would need one, so the design states the gap instead.
+**Why it exists:** A local actor has no stable shared identity to save under. Making it persist would need one, so the design states the gap instead.
 
 - A write sent by a local actor before a reload leaves no lane afterwards, so its ending is not seen and its hold is lost. A newer write on that key can then be sent past an unresolved one. The remedy is a persisted identity, or a version precondition (`basedOn` as `If-Match`).
 - A local identity is (machine id, input compared by `Equal.equals`), so a remounted local actor with the same input adopts its predecessor's lanes, and those are not persisted.
@@ -163,9 +164,9 @@ failure: { NotSent: E.Failed.from(() => ({ message: "Could not update" })) },   
 
 ### two tabs
 
-**What** Two tabs on the same app and scope are two Runtimes. Only the owner persists. The second runs without restore, capture or writes and reports `SecondTabNoPersistence`.
+**What:** Two tabs on the same app and scope are two Runtimes. Only the owner persists. The second runs without restore, capture or writes and reports `SecondTabNoPersistence`.
 
-**Why it exists** Two Runtimes cannot order each other's writes, so one writer per scope is the only rule the design can keep honest.
+**Why it exists:** Two Runtimes cannot order each other's writes, so one writer per scope is the only rule the design can keep honest.
 
 - Cross-tab ordering is the server's job, through a version precondition, or a shared actor's. Tab 1's held "A" can still apply over tab 2's "X".
 - There is no tab sharing or handover. A second Runtime stays without persistence even after the owner closes; a new Runtime may try again (Persistence O7).
@@ -174,9 +175,9 @@ failure: { NotSent: E.Failed.from(() => ({ message: "Could not update" })) },   
 
 ### SSR hydration
 
-**What** Lanes never hydrate: only resource entries come from the server. A commit in flight at dehydration is reported as evidence, and no client lane is created for it.
+**What:** Lanes never hydrate: only resource entries come from the server. A commit in flight at dehydration is reported as evidence, and no client lane is created for it.
 
-**Why it exists** A server render cannot carry a client's unacknowledged write, so the client never receives a hold it cannot resolve.
+**Why it exists:** A server render cannot carry a client's unacknowledged write, so the client never receives a hold it cannot resolve.
 
 - `DehydrateCommitInFlight` names the actor, its state and, for a fragment's operation, its instance path. The transferred actor gets no ending for it, so a state that waits for one waits for its own timers or for the user.
 - A later client write to that key is unordered with the server's write. This is a stated limit, not a bug.

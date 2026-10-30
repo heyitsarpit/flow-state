@@ -53,7 +53,7 @@ const saving = useView(list, (s) => List.O.like.get(s, { id }).pending)
 
 ## Keywords
 
-### entity({ id, fields, primaryKey })
+### `entity({ id, fields, primaryKey })`
 
 **What** Declares a record type: its fields, and the key fields that identify one record.
 
@@ -119,7 +119,7 @@ const saving = useView(list, (s) => List.O.like.get(s, { id }).pending)
 
 ### desc(field)
 
-**What** The descending sort key for one record field; a condition operator, imported from `flow-state` like `eq` and `asc`.
+**What** The descending sort key for one record field; an ordering helper used inside `.orderBy`, imported from `flow-state` as the example shows.
 
 **Why it exists** Each sort key carries its own direction, so the order is declared with the list rather than set elsewhere (2.8.2).
 
@@ -172,8 +172,8 @@ const saving = useView(list, (s) => List.O.like.get(s, { id }).pending)
 
 **Why it exists** The store is shared truth, so a view reads the record rather than a copy in memory (2.8.1, rule 26).
 
-- The record's flag is `predicted`. EntityDomains.plan (EDP:130) calls it `pending`; the design renames it, so `pending` means only that this actor's write is in flight (2.8.12).
-- `Issue.get(s, k).uncertain` is the record's mark; `List.O.like.get(s, k).uncertain` is this actor's lane holding an unknown (2.8.12).
+- The record's flag is `predicted`. EntityDomains.plan (EDP:130) calls it `pending`; the design renames it (2.8.12), so `pending` means only that this actor's write is in flight. `Issue.get(s, k).uncertain` is the store's mark; `List.O.like.get(s, k).uncertain` is this actor's lane.
+- The shape may be left out, as `Issue.get(s, key)` in 2.7.5; the design writes the shape as `Issue.pick(...)`, and `pick` is not otherwise defined there.
 
 <small>Source: machine-design 2.8.1 · 2.8.12 · rule 26</small>
 
@@ -213,11 +213,11 @@ admission   the machine maps the ending, tests its owner, and updates the lane
 
 ### listen
 
-**What** The design's name for a stream read in a domain, subscribed in `activities`; its events are `value`, `gap`, `complete` and `failure`.
+**What** The design's name for a stream read in a domain, subscribed in `activities`; its events are `value`, `gap`, `complete` and `failure` (merge 6 rule 50, not the design's own rule 50).
 
 **Why it exists** Not stated in section 2.8; see machine-design 2.7.3 and merge 6 (rule 50).
 
 - Its lane is per placement, and per key under `each`; it is `undefined` while the stream is not placed (2.7.3).
 - Section 2.8 does not cover `listen`; read 2.7.3 before relying on it.
 
-<small>Source: machine-design 2.7.3 · rule 50</small>
+<small>Source: machine-design 2.7.3 (the verb table) · merge 6 rule 50</small>

@@ -190,6 +190,7 @@ schedules: { poll: { schedule: Schedule.spaced("2 seconds"), send: E.PollTick.fr
 **Why it exists:** A view can count down to a deadline that survives a reload, and an overdue timer can be found from the snapshot.
 
 - A resumable trait's schedule keeps its `dueAt` while the trait is frozen; on return it fires once if it is overdue.
+- How a plain (non-keyed, non-recurring) schedule is restored on reload is not stated; see machine-design 2.7.15 and Persistence O2.
 - Keyed timers persist by key with their `dueAt`; on restore the keys of the restored memory win, and a recurring schedule keeps ticking after a reload.
 
 ```ts

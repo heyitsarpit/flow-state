@@ -11,9 +11,7 @@ Contracts say how a call is made; the definition maps its endings to events.
 import { Effect, Schema } from "effect"
 import { Outcome, resource, transaction } from "flow-state"
 
-class CardDeclined extends Schema.TaggedError<CardDeclined>("CardDeclined")({ code: Schema.String }) {}
-class ServerError extends Schema.TaggedError<ServerError>("ServerError")({ status: Schema.Number }) {}
-class Rejected extends Schema.TaggedError<Rejected>("Rejected")({ code: Schema.String }) {}
+// CardDeclined, ServerError, Rejected: Schema.TaggedError classes, defined here
 
 export const Stripe = {
   confirm: transaction({
@@ -37,28 +35,22 @@ export const Stripe = {
     id: "Stripe.intent",
     input: { intentId: Schema.String },
     output: { id: Schema.String, status: Schema.String },
-    key: ["intentId"],
-    staleTime: "0 millis",
-    gcTime: "1 minute",
+    key: ["intentId"], staleTime: "0 millis", gcTime: "1 minute",
     lookup: retrieveIntent,                                                // a read, defined beside this file
   }),
 }
 
 // checkout.definition.ts
 import { definition, Flow } from "flow-state"
-import { Schema } from "effect"
-import { Stripe } from "./stripe.contracts"
+import { Stripe } from "./stripe.contracts"   // Schema is imported from effect as above
 
 export const Checkout = definition({
   id: "Shop/Checkout",
   states: ["CARD", "PAYING", "UNSURE", "STUCK", "DONE"],
   events: { Pay: { paymentMethodId: Schema.String } },
   internalEvents: {
-    Intent: { status: Schema.String },
-    Declined: { code: Schema.String, paymentMethodId: Schema.String },
-    Refused: {}, TryLater: {},
-    Unsure: Flow.uncertain({}),
-    CheckTick: {}, TookTooLong: {},
+    Intent: { status: Schema.String }, Declined: { code: Schema.String, paymentMethodId: Schema.String },
+    Refused: {}, TryLater: {}, Unsure: Flow.uncertain({}), CheckTick: {}, TookTooLong: {},
   },
   memory: { intentId: Flow.input(Schema.String) },
   operations: ({ E }) => ({
@@ -84,13 +76,10 @@ import { E, O, S } from "./checkout.definition"                            // th
 const pay = ({ memory, event }) => ({ intentId: memory.intentId, paymentMethodId: event.paymentMethodId })
 
 export const states = {
-  CARD: {
-    on: { Pay: { target: S.PAYING, guard: [O.pay.idle], actions: [O.pay.commit(pay)] } },
-  },
+  CARD: { on: { Pay: { target: S.PAYING, guard: [O.pay.idle], actions: [O.pay.commit(pay)] } } },
   PAYING: {
     on: {
-      Intent: { target: S.DONE },
-      Declined: { target: S.CARD },
+      Intent: { target: S.DONE }, Declined: { target: S.CARD },
       Unsure: { target: S.UNSURE },                                        // the write may have landed
       TookTooLong: { target: "self", actions: [O.pay.cancel] },           // unknown { Cancelled } is kept
     },
@@ -183,9 +172,8 @@ export const states = {
 
 ```ts
 unknown: {
-  NoResponse: E.Unsure,              // contract tag
-  ServerError: E.Unsure,             // contract tag
-  Cancelled: E.Stopped,              // Flow's tag after cancel; Stopped is user-defined
+  NoResponse: E.Unsure, ServerError: E.Unsure,   // contract tags
+  Cancelled: E.Stopped,                           // Flow's tag after cancel; Stopped is user-defined
   Restored: E.Unsure, Interrupted: E.Unsure, Defect: E.Unsure,   // Flow's reasons, required on a holding write
 },
 ```
@@ -194,7 +182,7 @@ unknown: {
 
 ### idle
 
-**What:** A guard, `O.pay.idle`, that passes only when the lane is `Idle`: it denies `InFlight` and `Held`. (new)
+**What:** A guard, `O.pay.idle`, that passes only when the lane is `Idle`: it denies `InFlight` while a write is on the wire and `Uncertain` while the lane is `Held`. (new)
 
 **Why it exists:** A transition should not start a second write while an earlier one may still be unresolved.
 
@@ -216,7 +204,7 @@ unknown: {
 
 <small>Source: machine-design 2.7.13 · rule 24 · OD7</small>
 
-### retryable({ times })
+### `retryable({ times })`
 
 **What:** A guard, `O.pay.retryable({ times: 5 })`, that passes in `Held` while `retryCount < times`. (new)
 
@@ -266,7 +254,7 @@ unknown: {
 
 ### s.operations
 
-**What:** The view's read of operation rows: `s.operations.pay` for an unkeyed write, or a keyed list of the lanes that exist for a keyed one. (existing name)
+**What:** The view's read of operation rows: `s.operations.pay` for an unkeyed write, or a keyed list of the lanes that exist for a keyed one. (new; replaces `s.calls`)
 
 **Why it exists:** Views and guards read lanes with no extra subscription per lane.
 
@@ -303,7 +291,7 @@ const saving = useView(list, (s) => List.O.like.get(s, issue).pending)       // 
 
 ### UnresolvedHold
 
-**What:** A `flow check` error when a write on `reject`, `latest` or `serialize` can reach `Held` with no handler that retries or cancels it.
+**What:** A `flow check` finding (an error, or a warning for some fragment cases) when a write on `reject`, `latest` or `serialize` can reach `Held` with no handler that retries or cancels it.
 
 **Why it exists:** A hold nobody resolves blocks its lane for good, so the check finds it before a user does.
 
@@ -311,7 +299,7 @@ const saving = useView(list, (s) => List.O.like.get(s, issue).pending)       // 
 
 ### VerbMismatch
 
-**What:** A declaration error when one operation is used with both `lookup` and `subscribe`, or with a verb its mapping does not allow.
+**What:** A declaration error (`flow check` finding) when one operation is used with both `lookup` and `subscribe`, or with a verb its mapping does not allow.
 
 **Why it exists:** The verb decides one-off or live, so a mismatch would leave the row and the delivery disagreeing.
 

@@ -4,7 +4,7 @@ The Runtime is the one place that runs every app, server request and Story, and 
 
 ## Example: wire the app and ensure an order
 
-The app lists its machines, the Runtime gets its services as a Layer, and an actor is ensured by its identity.
+The app lists its machines, the Runtime gets its services as a Layer, and an actor is ensured by its identity. The call signatures in this page are plan-sourced (Runtime.plan O1-O6): machine-design uses these names in prose and in Story steps but does not spell the calls.
 
 ```ts
 import { actorRef, app, runtimeSetup } from "flow-state"
@@ -12,23 +12,23 @@ import { Layer } from "effect"
 import { CheckoutMachine } from "./checkout.machine"            // user-defined: the Machine page's checkout
 import { StripeApi, StripeLive } from "./stripe"                 // user-defined: the service and its production Layer
 
-// new: the closed list of machines this Runtime may run
+// new (plan-sourced signature): the closed list of machines this Runtime may run
 const shop = app({ id: "shop", machines: [CheckoutMachine] })
 
-// new: synchronous and inert until ready() resolves
+// new (plan-sourced): synchronous and inert until ready() resolves
 const runtime = runtimeSetup({
   app: shop,
   // new: services is a Layer, the swap point for implementations
   services: Layer.succeed(StripeApi, StripeLive),
 }).construct()
 
-// new: an inert ref; the id names the actor
+// new (plan-sourced): an inert ref; the id names the actor
 const order = actorRef(CheckoutMachine, "o-1001", {
   persist: true,              // new: saved as this identity's record
   retain: "5 minutes",        // new: disposed 5 minutes after its last use; the saved record stays
 })
 
-// new: after ready() resolves (earlier it rejects with RuntimeNotReady); the one shared actor for this identity
+// new (plan-sourced): after ready() resolves (earlier it rejects with RuntimeNotReady); the one shared actor for this identity
 const checkout = runtime.ensureActor(order, {
   input: { intentId: "pi_123" },   // user-defined: the input CheckoutMachine initializes from
 })
@@ -41,7 +41,7 @@ A write committed by the actor keeps its lane in the Runtime, so the actor can b
 ```ts
 // the Pay transition from the Machine example has committed a write; its lane is the Runtime's
 
-// new: removes the actor's record; the unsettled lane stays as an unbound lane
+// new (plan-sourced call; the design states the effect): removes the actor's record; the unsettled lane stays as an unbound lane
 runtime.disposeActor(checkout)
 
 // rebind: a new incarnation of the same identity adopts that lane, and a held unknown arrives once,
@@ -58,12 +58,12 @@ const again = runtime.ensureActor(order, {
 A clean disposal starts no new work; a crash runs nothing, and the next load restores what was in flight.
 
 ```ts
-// new: Runtime disposal closes admission and starts no new invocations
+// new (plan-sourced call; the design states the effect): Runtime disposal closes admission and starts no new invocations
 await runtime.dispose()
 
 // a crash calls nothing; the reload restores each lane by its restore row
 
-// new: a host's beforeunload reads the lanes that are not Idle, by identity
+// new (named in the design, 2.7.13): a host's beforeunload reads the lanes that are not Idle, by identity
 window.addEventListener("beforeunload", () => {
   console.warn("writes still settling", runtime.unsettledWrites())
 })
@@ -194,6 +194,7 @@ const storyRuntime = runtimeSetup({ app: shop, services: StripeFake }).construct
 
 **Why it exists:** A clean shutdown must not start a write after the user has left; a crash is the other case, where nothing runs and a reload restores the lanes.
 
+- An Attempt still on the wire follows Runtime.plan O6: it settles within a 5 second bound, or becomes unknown and its late result is ignored.
 - After a crash, an acknowledged Attempt restores as `unknown { Restored }`, and an unacknowledged one as `NotSent { Restored }`.
 - Plan and design disagree: Runtime.plan O6 says queued work is dropped and in-flight commits settle within 5 seconds; the design adds that a persisted identity saves its parked endings with the final capture. The design wins.
 

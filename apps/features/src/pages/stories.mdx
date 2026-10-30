@@ -9,9 +9,7 @@ Two checkouts: one pays, and one is pressed twice while its request waits in tra
 ```ts
 import { Fake, Story } from "flow-state/testing"
 import { Effect, Layer, Schema } from "effect"
-import { CheckoutMachine } from "./checkout.machine"          // user-defined
-import { E, O, S } from "./checkout.definition"              // user-defined
-import { StripeApi } from "./stripe.api"                     // user-defined: the app's service
+// user-defined: CheckoutMachine, E, O, S (its definition), StripeApi (the app's service)
 
 const Charge = Schema.Struct({ intentId: Schema.String, key: Schema.String })
 
@@ -42,7 +40,7 @@ const checkout = (id: string) =>
 const pay = E.Pay({ paymentMethodId: "pm_card" })
 
 export const paid = checkout("checkout/paid")
-  .send(pay)                                                  // settles: committed, answered, DONE
+  .send(pay)                                                  // settles: DONE
   .expect({ state: S.DONE, operations: { pay: { pending: false, uncertain: false } } })
   .expect(Stripe, { charges: [{ intentId: "pi_1", key: Story.attempt(O.pay) }] })
 
@@ -112,8 +110,6 @@ export const likeAlone = Story.make(LikeButton, { id: "like/alone", fixtures: [I
 
 **Why it exists:** Server truth lives in one place, so a reload or a second tab sees the same world the server does.
 
-- The client half (an ordinary Layer, like `StripeFake`) is per tab and holds no state.
-
 <small>Source: machine-design 2.10.4 · rule 62</small>
 
 ### Fake.call
@@ -136,7 +132,7 @@ export const likeAlone = Story.make(LikeButton, { id: "like/alone", fixtures: [I
 
 **What:** Every step applies its input, then settles on a microtask-only scheduler until nothing is runnable except through the Clock, a Story gate or input that is not coming.
 
-**Why it exists:** Host I/O never decides a result or an order, so the same Story gives the same run each time, and there is no `process()`.
+**Why it exists:** Host I/O never decides a result or an order, so the same Story gives the same run each time, and a step needs no explicit drain.
 
 - Testing.plan still lists `process()`, `advanceTo` and `advanceToNextTimer`. The design removes them (rule 61, Stories T5 B1), and the design wins.
 
@@ -147,8 +143,6 @@ export const likeAlone = Story.make(LikeButton, { id: "like/alone", fixtures: [I
 **What:** `expect(target?, partial)` checks a read of the latest step cut against a partial value, and the run rejects after it finishes if any check failed.
 
 **Why it exists:** A partial shape states only what matters, so a Story reads as a claim rather than a full snapshot.
-
-- A failure names the step, cut, target, path, expected and actual.
 
 <small>Source: machine-design 2.10.6 · Stories T5 B3</small>
 
@@ -200,8 +194,6 @@ export const likeAlone = Story.make(LikeButton, { id: "like/alone", fixtures: [I
 
 **Why it exists:** The Story chooses when a held answer arrives, so the race it tests is one the author wrote.
 
-- With nothing held and no standing rule it fails with `NothingHeld`.
-
 <small>Source: machine-design 2.10.4 · 2.10.17.2</small>
 
 ### Fragment Story (stand-in host)
@@ -228,8 +220,6 @@ export const likeAlone = Story.make(LikeButton, { id: "like/alone", fixtures: [I
 
 **Why it exists:** Lanes, incarnations, work and persistence are read the way the Runtime reports them, not rebuilt from the trace.
 
-- `Story.inspection.lanes` lists every non-`Idle` write lane by identity. `Story.inspection.work` lists what the Runtime waits for.
-
 <small>Source: machine-design 2.10.6 · 2.10.7</small>
 
 ### advance
@@ -237,8 +227,6 @@ export const likeAlone = Story.make(LikeButton, { id: "like/alone", fixtures: [I
 **What:** `advance(d)` moves time to now + d, firing each deadline on the way and settling at each.
 
 **Why it exists:** Time is controlled, so a Story reaches a backoff or a timeout without waiting for it.
-
-- `advance({ next: address })` moves to the earliest unfrozen deadline that the address matches.
 
 <small>Source: machine-design 2.10.3</small>
 
@@ -303,8 +291,6 @@ together({ advance: "30 seconds" }, Stripe.confirm.release())   // the timeout a
 
 **Why it exists:** Every fault the oracle names is one of these steps, so a shrunk failure is a literal Story that runs and plays back.
 
-- A generated step that is invalid in the current state is skipped and left out of the emitted Story, never thrown.
-
 <small>Source: machine-design 2.10.16 · Stories T5 B5</small>
 
 ### No ending injection
@@ -320,7 +306,5 @@ together({ advance: "30 seconds" }, Stripe.confirm.release())   // the timeout a
 **What:** A Story runs once to record, and its frames render afterwards through `StoryPlayer` or `StoryFrame`.
 
 **Why it exists:** Each frame is a real publication, so the player shows what production would show at that moment, with no second model.
-
-- The player moves by frame, step or scene, and a step is never lost. A step that is not a click plays as a captioned wait.
 
 <small>Source: machine-design 2.10.13 · Stories T5</small>

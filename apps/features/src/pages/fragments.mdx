@@ -60,7 +60,7 @@ traits: {
 
 ## Example: a trait that owns its save
 
-Autosave owns the save of one document. The host only places it and says what "keep mine" means.
+Autosave owns the save of one document; the host only places it. This is a shortened form of the design's Autosave (machine-design 3.x): conflict handling and `Overwrite` are left out.
 
 ```ts
 // autosave.trait.ts
@@ -74,24 +74,22 @@ export const Autosave = trait(
   {
     id: "Autosave",
     events: { Edited: { body: Schema.String } },
-    hostEvents: { Overwrite: {} },
     internalEvents: {
       SaveDue: {}, ResendDue: {},
-      Saved: { etag: Schema.String }, Conflict: { serverEtag: Schema.String, mine: Schema.String }, Refused: {},
+      Saved: { etag: Schema.String }, Refused: {},
       SaveUnsure: Flow.uncertain({}),
     },
     callbacks: { onStalled: Flow.optional(Flow.Callback({})) },
     memory: {
       docId: Flow.input(Schema.String), body: Flow.input(Schema.String), etag: Flow.input(Schema.String),
-      status: Flow.initial(Schema.Literals(["clean", "dirty", "saving", "unsure", "conflict", "stalled"]), "clean"),
-      serverEtag: Flow.initial(Schema.NullOr(Schema.String), null),
+      status: Flow.initial(Schema.Literals(["clean", "dirty", "saving", "unsure", "stalled"]), "clean"),
       rev: Flow.private(Flow.initial(Schema.Int, 0)),                        // edits seen
       sentRev: Flow.private(Flow.initial(Schema.Int, 0)),                    // edits in the last commit
     },
     operations: ({ E }) => ({
       save: saveDoc.outcomes({
         success: E.Saved.from((v) => ({ etag: v.etag })),
-        failure: { Conflict: E.Conflict.from((r, { input }) => ({ serverEtag: r.serverEtag, mine: input.body })), Refused: E.Refused, NotSent: E.Refused },
+        failure: { Refused: E.Refused, NotSent: E.Refused },
         unknown: E.SaveUnsure,
       }),
     }),
@@ -101,7 +99,7 @@ export const Autosave = trait(
     const send = O.save.commit(({ memory }) => ({ docId: memory.docId, body: memory.body, etag: memory.etag }))
     return {
       schedules: {
-        settle: { schedule: "800 millis", armOn: [E.Edited, E.Overwrite], send: E.SaveDue },
+        settle: { schedule: "800 millis", armOn: [E.Edited], send: E.SaveDue },
         resend: { schedule: "2 seconds", armOn: [E.SaveUnsure], send: E.ResendDue },
       },
       on: {
@@ -114,14 +112,12 @@ export const Autosave = trait(
           { target: "self", guard: ({ memory }) => memory.rev > memory.sentRev || deny("NoNewEdits"), updateMemory: ({ memory, event }) => ({ etag: event.etag, sentRev: memory.rev }), actions: [send] },
           { target: "self", updateMemory: ({ event }) => ({ etag: event.etag, status: "clean" }) },
         ],
-        Conflict: { target: "self", updateMemory: ({ memory, event }) => ({ status: "conflict", serverEtag: event.serverEtag, body: memory.rev > memory.sentRev ? memory.body : event.mine }) },
         Refused: { target: "self", updateMemory: () => ({ status: "stalled" }), notify: [callbacks.onStalled] },
         SaveUnsure: { target: "self", updateMemory: () => ({ status: "unsure" }) },
         ResendDue: [
           { target: "self", guard: [O.save.retryable(own, { times: MAX_RESENDS })], updateMemory: () => ({ status: "saving" }), actions: [O.save.retry(own)] },
           { target: "self", updateMemory: () => ({ status: "stalled" }), actions: [O.save.cancel(own)], notify: [callbacks.onStalled] },
         ],
-        Overwrite: { target: "self", updateMemory: ({ memory }) => ({ etag: memory.serverEtag ?? memory.etag, serverEtag: null, status: "dirty" }) },
       },
     }
   },

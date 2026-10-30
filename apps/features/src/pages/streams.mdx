@@ -26,9 +26,8 @@ export const Chat = {
           while: (e) => e._tag === "ChatDropped",                  // Effect: while (which errors are transient)
           schedule: Schedule.exponential("500 millis").pipe(Schedule.jittered, Schedule.upTo({ times: 8 })),   // Effect: schedule
           catchUp: (cursor) => fetchPage(roomId, cursor).pipe(     // NEW: catchUp; user-defined: fetchPage
-            Effect.mapError(() => new ChatDropped({ why: "History" })),   // user-defined: ChatDropped
             Effect.flatMap((p) => p.truncated                      // the server's word: its history no longer reaches the cursor
-              ? Effect.fail(new Feed.CannotRepair({ reason: `history starts at ${p.oldest.epoch}:${p.oldest.seq}`, continueAt: p.beforeOldest }))   // NEW: Feed.CannotRepair (decided S7)
+              ? Effect.fail(new Feed.CannotRepair({ reason: "history starts later", continueAt: p.beforeOldest }))   // NEW: Feed.CannotRepair (decided S7)
               : Effect.succeed([p.messages, p.complete ? Option.none() : Option.some(p.next)] as const))),   // the server's own completeness field ends paging
         }))),
   }),
@@ -41,9 +40,8 @@ operations: ({ E }) => ({
     missed: E.MayHaveMissed.from((m) => ({ why: m.why, restartAt: m.restartAt })),   // NEW: missed; user-defined: MayHaveMissed
     failure: {                                                     // existing: failure
       SignedOut: E.SignedOut,                                      // user-defined: terminal error from the adapter
-      ChatDropped: E.FeedEnded,                                    // user-defined: transient error, once the budget is gone
-      Closed: E.FeedEnded, Overflow: E.FeedEnded,                  // NEW: Flow reasons Closed and Overflow (decided S5)
-      Defect: E.FeedEnded, Interrupted: E.FeedEnded,               // existing: Flow reasons
+      ChatDropped: E.FeedEnded, Closed: E.FeedEnded,               // user-defined: transient error, once the budget is gone; NEW: Closed (decided S5)
+      Overflow: E.FeedEnded, Defect: E.FeedEnded, Interrupted: E.FeedEnded,   // NEW: Overflow; existing: Flow reasons Defect, Interrupted
     },
   }),
 }),
@@ -64,21 +62,18 @@ LIVE: {
 The adapter turns socket frames into values and signals; the machine never sees a frame.
 
 ```ts
-// chat.socket.ts (simplified: the 10-second registration deadline and error mapping are in streams proposal-v2 4.1)
-import { Feed } from "@flow-state/core"                            // NEW: Feed
-import { Effect, Stream } from "effect"                            // Effect; Socket is from effect/socket
-
+// chat.socket.ts (simplified: the registration deadline and error mapping are in streams proposal-v2 4.1)
 const room = (roomId: string, from: Cursor | undefined) =>         // user-defined: ChatSocket.room
   Stream.unwrap(Effect.gen(function* () {
     const socket = yield* Socket.makeWebSocket(roomUrl(roomId, from))   // Effect: effect/socket; user-defined: roomUrl
     const pull = yield* Socket.readerString(socket)                // Effect: one pull per batch of frames
-    return Stream.fromEffectRepeat(pull).pipe(                     // Effect: repeat the pull
+    return Stream.fromEffectRepeat(pull).pipe(
       Stream.flatMap((frames) => Stream.fromIterable(frames)),
       Stream.mapEffect(decodeFrame),                               // user-defined: pure decoding, not shown
       Stream.flatMap((f) => Stream.fromIterable<Message | Feed.Signal<never, Cursor>>(   // Feed.Signal<D, P>: drop reason and position types
         f.t === "hello"
           ? [f.replayedFrom && same(f.replayedFrom, from)          // user-defined: same (Cursor equality)
-              ? Feed.live({ proof: `server replayed from ${f.replayedFrom.epoch}:${f.replayedFrom.seq}` })   // NEW: Feed.live({ proof }): the server's echo of this from
+              ? Feed.live({ proof: "server replayed from our cursor" })   // NEW: Feed.live({ proof }): the server's echo of this from
               : Feed.live()]                                       // NEW: Feed.live(): registered, nothing proven
           : f.t === "reset"
           ? [Feed.live({ lost: "server log reset", restartAt: { epoch: f.epoch, seq: 0 } })]   // NEW: lost, restartAt
@@ -111,12 +106,9 @@ export const Market = {
 operations: ({ E }) => ({
   quotes: Market.quote.outcomes({
     value: E.Quoted.from((q, { key }) => ({ symbol: key.symbol, price: q.price })),   // existing: value; user-defined: Quoted
-    failure: {                                                     // existing: failure
-      MarketDropped: E.QuoteEnded.from((_e, { key }) => key),      // user-defined: MarketDropped, QuoteEnded
-      Closed: E.QuoteEnded.from((_e, { key }) => key),             // NEW: Closed
-      Overflow: E.QuoteEnded.from((_e, { key }) => key),           // NEW: Overflow
-      Defect: E.QuoteEnded.from((_e, { key }) => key),
-      Interrupted: E.QuoteEnded.from((_e, { key }) => key),
+    failure: {                                                     // existing: failure; every tag is mapped (exhaustive)
+      MarketDropped: ended, Closed: ended, Overflow: ended,        // user-defined: MarketDropped, ended (= E.QuoteEnded.from((_e, { key }) => key)); NEW: Closed, Overflow
+      Defect: ended, Interrupted: ended,
     },
   }),
 }),
@@ -131,6 +123,7 @@ WATCHING: {
 
 // Quote.tsx
 const row = useView(watch, (s) => Watch.O.quotes.get(s, { symbol }))   // existing: get; undefined if not placed
+const now = useNow("1 second")                                     // existing: useNow
 const reconnecting = row?.connection === "Connecting" && row.drop !== undefined   // accepted: connection; NEW: drop
 const price = row?.value                                           // state: confirmed by the current connection
 return price ? <Price value={price.price} />                       // user-defined: Price
@@ -217,8 +210,6 @@ return price ? <Price value={price.price} />                       // user-defin
 
 **Why it exists:** Facts are never skipped and state is coalesced, so the same key carries a different guarantee for each kind.
 
-- Required on a fact feed. Optional on a state feed.
-
 <small>Source: streams proposal-v2 2.7 · R-Kind in 1</small>
 
 ### `missed`
@@ -249,8 +240,6 @@ return price ? <Price value={price.price} />                       // user-defin
 
 **Why it exists:** The machine says when interest exists, and the session's input is read at start.
 
-- Leaving the state releases the session, and its clean-up is awaited before a successor for the same key starts.
-
 <small>Source: streams proposal-v2 2.1, 2.5 (lifecycle, R-Owner)</small>
 
 ### `Feed.live()`
@@ -258,8 +247,6 @@ return price ? <Price value={price.price} />                       // user-defin
 **What:** Registers the connection: the server is listening now, and nothing is proven about the past.
 
 **Why it exists:** Registration and continuity are separate facts, so a row can read Live while a gap is still unanswered.
-
-- It is the default: a connection that sends no proof starts unproven. A plain Stream with no signals is registered at its first value.
 
 <small>Source: streams proposal-v2 2.3, 1 (R-Live, R-Answer) · decided S2</small>
 
@@ -299,8 +286,6 @@ return price ? <Price value={price.price} />                       // user-defin
 
 **Why it exists:** A watchlist or a set of rooms is many keyed streams, without writing one session per item.
 
-- Equal keys in two actors are two sessions. `subscribe.each` has no cap of its own, so the list's own size is the cap.
-
 <small>Source: streams proposal-v2 2.5 (multiplicity), 4.3 · K4</small>
 
 ### `connection`
@@ -308,8 +293,6 @@ return price ? <Price value={price.price} />                       // user-defin
 **What:** The row's registration state, `"Connecting"`, `"Live"` or `"Ended"`, present on every phase.
 
 **Why it exists:** A view asks one question, whether the server is listening now, and `row?.connection === "Live"` type-checks even when the row is undefined.
-
-- `failure` says why an `"Ended"` row ended. The row is `undefined` when the stream is not placed.
 
 <small>Source: streams proposal-v2 2.6 · accepted M6-D4; SR22</small>
 
@@ -346,8 +329,6 @@ return price ? <Price value={price.price} />                       // user-defin
 **What:** `resetAfter` is how long a connection must stay registered before `Feed.reconnect` restores its `schedule` to the first step; the default is `"1 minute"`.
 
 **Why it exists:** A server that accepts and drops at once must not reset the backoff on every cycle.
-
-- The timer starts at the connection's live signal and is cleared at every connect and every drop.
 
 <small>Source: streams proposal-v2 2.3 · decided S5 (Q12)</small>
 

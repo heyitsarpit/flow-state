@@ -66,11 +66,8 @@ export const SignInMachine = machine(SignIn, ({ S, E, O }) => {
                 updateMemory: () => ({ error: "Wrong code, try again" }),
                 raise: [E.code.Reset],                     // into the direct child code (rule 10)
               },
-              CodeExpired: { target: S.TWO_FACTOR.ENTERING, updateMemory: () => ({ error: "Code expired, send a new one" }) },
-              CodeUnchecked: [
-                { target: "self", guard: [O.verify.retryable({ times: 2 })], actions: [O.verify.retry] },
-                { target: S.TWO_FACTOR.ENTERING, actions: [O.verify.cancel] },
-              ],
+              CodeExpired: S.TWO_FACTOR.ENTERING,
+              CodeUnchecked: { target: S.TWO_FACTOR.ENTERING, actions: [O.verify.cancel] },
             },
           },
         },
@@ -159,7 +156,7 @@ export const Field = <V, I>(value: Schema.Codec<V, I>, p: { validate?: (v: V) =>
 
 ### late
 
-**What:** A late event is the ending of a call whose owning state was left before it arrived, and it routes from the nearest ancestor that is still alive; an owner still alive makes the ending current, routed from the active leaf.
+**What:** A late event is the ending of a call whose owning state was left before it arrived, and it routes from the nearest strict ancestor of the owner that was alive when the call started (the root at worst); an owner still alive makes the ending current, routed from the active leaf (rule 14).
 
 **Why it exists:** A server's answer can arrive after the user has left the state that asked, and the answer still has to be handled rather than dropped (rule 8).
 

@@ -38,7 +38,7 @@ The check reads declarations and prints findings; explain prints what one event 
 
 ```sh
 flow check --app checkout        # errors exit 1; warnings alone exit 0
-flow explain checkout           # argument form is not fixed in the design
+flow explain checkout           # plan-sourced operands (CommandLine O1): a machine, a state path and a public event; exact order not stated
 ```
 
 ```text
@@ -75,7 +75,7 @@ Toggle  READY → READY; commits like (Issues.setLike, latest, one lane per Issu
 **Why it exists:** A reader can see what an event does, and which lane it takes, without reading closures.
 
 - Output is one line per transition, as in the example above.
-- The design does not fix the argument syntax of the static form; the example shows only the output shape.
+- Operands are plan-sourced (CommandLine O1: a machine, state path and public event, or a domain with optional `--read`); the exact argument order is not stated, and machine-design shows only the output shape and `--trace <file> --at <checkpoint>`.
 
 <small>Source: machine-design 2.7.16, 2.10.14; CommandLine O1, O4</small>
 
