@@ -43,12 +43,12 @@ Gap 3 is out of scope: no client-side tool can see server behaviour.
   cites (`entity-domain.md:1122`); it has `and`, `or`, `not`, comparison, `add`, `coalesce`, `concat`, `upper`,
   and evaluates the IR client-side. Check what it evaluates exactly and what it cannot.
 - **Reference domains:** dispatch-desk's `references/dispatch-desk/features/Tickets/ticket.domain.ts`; the `Issues`
-  domain in `merge-4-entities/proposal.md` 3.1; the examples in `references/design/entity-domain-examples.md`.
+  domain in `merged/entities.md` 3.1; the examples in `references/design/entity-domain-examples.md`.
 - **The design to amend:** `EntityDomains.plan` O1 (recorded positions, predicts, the "one expression" rule),
   `references/design/entity-domain.md` sections 2.3, 4.1–4.7 and 7.2, and `CommandLine.plan` (`flow check`,
   `flow explain`, `flow graph`).
 - **Accepted context:** `machine-fragments/machine-design.md` (merged design, server calls 2.7) and
-  `machine-fragments/merge-4-entities/proposal.md` (accepted: who owns a write, lane keys from `.predicts`, rules
+  `machine-fragments/merged/entities.md` (accepted: who owns a write, lane keys from `.predicts`, rules
   26–38). Merge 4's rule 34 reads the key from `.predicts`; recorded predictions should keep that working.
 - **Effect 4.0.5** is installed at the repository root (`node_modules/effect`), with TypeScript; a spike can use the
   TypeScript compiler API from `node_modules/typescript`.

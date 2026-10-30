@@ -8,7 +8,7 @@ import type { TicketRow } from "./ops.ts";
 import { Issue } from "./issues.ts";
 import { Ticket } from "./tickets.ts";
 
-// merge-4-entities/proposal.md:125-128 as written: the function closes over the recording `input`.
+// merged/entities.md:127-130 as written: the function closes over the recording `input`.
 export const legacyIssues = () => domain("legacy-issues", {
   setLike: write(setLike).one(Issue).predicts(({ input }) => Issue.patch(input.key, {
     liked: input.liked,

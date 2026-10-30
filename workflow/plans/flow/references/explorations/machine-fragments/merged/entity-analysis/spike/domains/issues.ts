@@ -1,4 +1,4 @@
-// merge 4's Issues domain (merge-4-entities/proposal.md:119-132), ported. One line changed: setLike's
+// merge 4's Issues domain (merged/entities.md:121-134), ported. One line changed: setLike's
 // `likes` function takes the input as its second parameter instead of closing over the recording `input`.
 import { asc, desc, domain, entity, eq, read, write } from "../flow.ts";
 import { createIssue, issuesInProject, removeIssue, renameIssue, setLike } from "./ops.ts";

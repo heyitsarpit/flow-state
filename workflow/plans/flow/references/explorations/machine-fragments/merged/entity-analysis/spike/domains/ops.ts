@@ -1,5 +1,5 @@
 // Operation stand-ins: ids and types only. Ids and shapes follow dispatch-desk's ticket.operations.ts and
-// types.ts, and merge 4's issues.operations.ts (merge-4-entities/proposal.md:107-115). IssueRow is not shown
+// types.ts, and merge 4's issues.operations.ts (merged/entities.md:109-117). IssueRow is not shown
 // in merge 4; its fields are read off the Issues domain and the view there.
 import { op } from "../flow.ts";
 

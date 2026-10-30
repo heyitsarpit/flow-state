@@ -3,7 +3,10 @@
 **Status:** proposal, not accepted. This is the one design. Merge 1 ([merged/outcomes.md](merged/outcomes.md)) and
 merge 2 ([merged/server-calls/proposal.md](merged/server-calls/proposal.md)) were merged into it on 2026-10-30; they
 are kept as the record behind it, and where they differ from this file, this file wins. Merge 4
-([merged/entities.md](merged/entities.md), entity domains) was merged on 2026-10-30. Stories (merge 3) is last; parts of 2.8 that
+([merged/entities.md](merged/entities.md), entity domains) was merged on 2026-10-30, and merge 5
+([merged/entity-analysis/proposal.md](merged/entity-analysis/proposal.md), statically analysable domains) on 2026-10-30; merge
+5's rules A1–A12 belong to `references/design/entity-domain.md` section 9, and only its effects on 2.8 are here.
+Stories (merge 3) is last; parts of 2.8 that
 need Story reads are marked *Story reads: merge 3* (section 7 item 17). The work order is in [the folder README](README.md). It
 **supersedes `proposal-v3.md`** (removed, see [the folder README](README.md)). It is evaluated against
 [principles.md](principles.md). v4 keeps v3's model and adds what the prior-art study found missing (`prior-art/`,
@@ -682,9 +685,12 @@ decision (E1–E18). Rules 13–25 and N1–N3 still apply.
     the view shows apart from the answer; membership appears when an answer's refetch holds its key.
 34. **The lane key of a domain write** (E10, as corrected; 2.8.8). A write that predicts exactly one record and
     declares no `key` has that record's key as its lane key. `flow check` warns when a declared key is not that
-    projection. Other writes keep their declared key or `{}`.
-35. **Overflow is an ending** (E11). A start that would exceed its actor queue or any record queue ends
-    `NotSent { why: "Overloaded" }`, with no prediction and no queue join; the transition and its other actions run.
+    projection. Other writes keep their declared key or `{}`. A write whose key the Model records as `many` (an array,
+    from the input Schema) never takes the default; its lane key is declared or `{}`; with `allow` or `serialize`,
+    `retry` is a type error (rule N2), so a bulk write that must be retried declares a per-call key and `reject`
+    (merge 5, M5-D9).
+35. **Overflow is an ending** (E11). A start that would exceed its actor queue or any record queue, or a `many`
+    key array past 4,096 items (merge 5, M5-D10), ends `NotSent { why: "Overloaded" }`, with no prediction and no queue join; the transition and its other actions run.
 36. **Callback reads** (E12, amends rule 22). `optimistic` reads the starting turn's after memory, captured at start.
     `writes` receives `{ value, input }` and reads no memory. Domain operations have no `optimistic`; their `writes`
     may only invalidate (2.8.9).
@@ -889,7 +895,7 @@ catch: (e) => Outcome.unknown(err)    // the same calls work wherever Effect wan
 
 | Reason | Channel | When |
 | --- | --- | --- |
-| `NotSent { why }` | failure | the commit was never called. `why`: `Cancelled` (before invocation, rule 24), `Restored` (the page reloaded before the Attempt was saved), `Superseded` (a newer `latest` start replaced it), `Rejected` (a busy `reject` lane, rule 16), `NothingToResend` (a retry with no addressable Attempt, rule 21), `Overloaded` (a start past its actor queue or a record queue's bound, rule 35) |
+| `NotSent { why }` | failure | the commit was never called. `why`: `Cancelled` (before invocation, rule 24), `Restored` (the page reloaded before the Attempt was saved), `Superseded` (a newer `latest` start replaced it), `Rejected` (a busy `reject` lane, rule 16), `NothingToResend` (a retry with no addressable Attempt, rule 21), `Overloaded` (a start past its actor queue or a record queue's bound, or a `many` key array past 4,096 items, rule 35) |
 | `Cancelled` | unknown | `pay.cancel(key)` after the call started (rule 24) |
 | `Restored` | unknown | the page reloaded mid-call (persisted actors only) |
 | `Interrupted` | unknown | the commit's fiber was interrupted by something other than Flow |
@@ -978,7 +984,7 @@ throws ([merged/outcomes.md](merged/outcomes.md) section 6 lists each source, wi
 | `key` | the transaction's optional `key(input)` (Operations O1; omitted means one lane, `{}`, except a domain write that predicts one record, whose lane key is that record's key, rule 34) | the lane's key; `attempt.key`; **Revision (multiplicity audit, 2026-10-31):** every mapper's `laneKey`, present even when `attempt` is not (rule N2) |
 | The copy's key | the `.each` copy whose filling started the Attempt, carried by the Attempt (rule 9) | the mapper's `key`, on every ending of that Attempt, retries included; absent for an Attempt not started in a copy |
 | `superseded` | Flow: a newer Attempt was started on the same key after this one | the mapper's `superseded` |
-| A prediction | the domain's `.predicts`, with the real input | the store, joined in the starting turn's publication (rule 28); views read `predicted` on the record |
+| A prediction | the domain's predicted fields' functions `(beneath, input) => value`, with the real input; `.predicts` itself runs once, at construction, for structure | the store, joined in the starting turn's publication (rule 28); views read `predicted` on the record |
 | The record queue | the store, per record, across actors | Flow joins it at start or retry and releases it at settlement, or after a forced repair (rules 29, 30) |
 | `uncertain` | the store, per record and Attempt | set at settlement of an unknown, cleared by rule 32; views read it on the record |
 | `unconfirmed` | the store, from a success that omitted a predicted field | views |
@@ -1316,7 +1322,7 @@ own key, `reject` never refuses a different call.
 
 ```ts
 // Likes on an Issues domain (2.8.2): the store predicts and rolls back; a failure only toasts, so it can never undo newer intent (rule 30).
-setLike: write(setLike).one(Issue).predicts(({ input }) => Issue.patch(input.key, { liked: input.liked, likes: (i) => i.likes + (input.liked === i.liked ? 0 : input.liked ? 1 : -1) })),
+setLike: write(setLike).one(Issue).predicts(({ input }) => Issue.patch(input.key, { liked: input.liked, likes: (i, input) => i.likes + (input.liked === i.liked ? 0 : input.liked ? 1 : -1) })),
 const like = O.Issues.setLike.commit(({ event }) => ({ key: { id: event.id }, liked: event.liked }), {
   outcomes: {
     success: E.Settled,                                            // the store confirms; memory has nothing to write
@@ -1439,7 +1445,7 @@ Three places hold facts about one write. Each has one writer and one moment.
 | Fact | Kept in | Written by | When | Read by |
 | --- | --- | --- | --- | --- |
 | The record's confirmed fields, versions, positions | the store (EDP:62-70) | responses, pushes, a write's success | when the response lands; a write's at **settlement** | views (`Issue.get`), answers, `value` outcomes |
-| A prediction | the store, per record and Attempt (EDP:64-65) | the domain's `.predicts`, with the real input (EDP:51-52) | joined at the **start**, in the starting turn's publication (rule 28) | views, as `predicted` |
+| A prediction | the store, per record and Attempt (EDP:64-65) | the domain's predicted fields' functions `(beneath, input) => value`, with the real input; `.predicts` itself runs once, at construction, for structure (EDP:51-52) | joined at the **start**, in the starting turn's publication (rule 28) | views, as `predicted` |
 | The record queue | the store, per record, across actors (EDP:112-116) | Flow, from starts and retries | joined at start or retry; released at **settlement**, or after the forced repair for an unknown | Flow; `Entity.queue` in Stories (EDP:138) |
 | `uncertain` | the store, per record and Attempt (EDP:103-106) | Flow, from the Attempt's ending | set at **settlement** of an unknown; cleared per rule 32 | views, as `uncertain` |
 | `unconfirmed` fields | the store (EDP:93-100) | Flow, from a success that omitted a predicted field | **settlement**; cleared by a confirming read | views |
@@ -1484,6 +1490,7 @@ export const createIssue = transaction({                          // no predicts
 // the three predicting writes declare no key: their lane is the predicted record, { id } (E10)
 
 // ───────────────────────────────────────────────── issues.domain.ts
+import { asc, desc, eq } from "flow-state"   // the Condition operators (merge 5)
 export const Issue = entity({ id: "issues/Issue", fields: IssueRow.fields, primaryKey: ["id"] })
 export const Issues = domain("issues", {
   list: read(issuesInProject)
@@ -1492,7 +1499,7 @@ export const Issues = domain("issues", {
     .orderBy(({ record }) => [desc(record.number), asc(record.id)]),
   setLike: write(setLike).one(Issue).predicts(({ input }) => Issue.patch(input.key, {
     liked: input.liked,
-    likes: (i) => i.likes + (input.liked === i.liked ? 0 : input.liked ? 1 : -1),
+    likes: (i, input) => i.likes + (input.liked === i.liked ? 0 : input.liked ? 1 : -1),
   })),
   rename: write(renameIssue).one(Issue).predicts(({ input }) => Issue.patch(input.key, { title: input.title })),
   remove: write(removeIssue).predicts(({ input }) => Issue.delete(input.key)),
@@ -1838,7 +1845,7 @@ Attempt's mark, and a later write's success clears every mark on the record (EDP
 
 | The Attempt's ending (after rule 18) | Predictions | Repair | Queue release | `uncertain` |
 | --- | --- | --- | --- | --- |
-| success | confirmed fields replace them; omitted ones `unconfirmed` (EDP:92-100) | answers from both bases | at settlement | this Attempt's mark and the record's cleared |
+| success | confirmed fields (whole values, per record) replace them; omitted ones `unconfirmed` (EDP:92-100), unless no carrier's shape holds the whole field, when the prediction ends (`PredictionNotRetained`); an uncomputed field counts as predicted (merge 5, A9) | answers from both bases | at settlement | this Attempt's mark and the record's cleared |
 | failure (author's tag) | removed | none (C4) | at settlement | unchanged |
 | failure `NotSent` | 2.8.5's table | none | at settlement | unchanged |
 | unknown (author's, `Cancelled`, `Restored`, `Interrupted`, `Defect`, `StillUnknown`) | kept until the forced repair lands | forced | after the forced repair settles | set for this Attempt |
@@ -1942,7 +1949,7 @@ corrected).
 One runtime: the store and the actors already share the Runtime (EDP:6); nothing here adds a second execution path,
 and `check()` still runs steps 2–6 and publishes nothing (2.5): it decides no start, so it never predicts.
 
-- **Start** (step 5). Once the after memory gives the input and key, a domain write runs `.predicts` with the real input
+- **Start** (step 5). Once the after memory gives the input and key, a domain write calls its predicted fields' functions with the real input, over records the store holds (merge 5, A8)
   (ED:339), checks every record queue's bound, and either declines (`Overloaded`, `Rejected`) or joins all its queues
   at once. The store revision and the actor's snapshot publish as one cut in step 6. A persisted actor captures the lane, the
   Attempt and the predicted keys in one record and waits for the acknowledgement before invocation (rule 38).
@@ -2674,8 +2681,8 @@ turn (rule 6).
 | Kind | Words |
 |---|---|
 | **New, fragments** | `trait`, `subroutine`, `traits` (root and node), `Flow.state`, `.resumable()`, `.each` (`of`, `max`, `by`), `key` / `item` in fillings and copy views, `.key(k)`, `hostEvents`, `guards`, `callbacks`, `exits` (declarations and fillings), `notify`, the `Flow` module (`Flow.Guard`, `Flow.Callback`, `Flow.Exit`, `Flow.optional`, `Flow.uncertain`, `Flow.annotate`, `Flow.input`, `Flow.initial`, `Flow.private`, `Flow.Denial`, `Flow.entry`), `raise`, `resetOn`, `whenAbandoned`, the definition's `handler` / `guard`, state tokens in guard arrays, `story.machine(fragment)` with `.enter` / `.leave` / `run.calls` / `checkpoint.exit` |
-| **New, plans** | `Outcome.success`, `Outcome.failure`, `Outcome.unknown`; Flow's reasons `NotSent { why }` (`Cancelled`, `Restored`, `Superseded`, `Rejected`, `NothingToResend`, `Overloaded`), `Cancelled`, `Restored`, `Interrupted`, `Defect`, `StillUnknown { failure }`; the commit value's `.retry(key?)`, `.cancel(key?)`, `.idle(key?)`; the lane rows `s.calls.<operation path>` with `pending`, `retryCount` or `outstanding` (Revision (multiplicity audit, 2026-10-31): replaces `.pending` and `.retryCount`); the mapper's `{ input, attempt, superseded, laneKey, key? }`; `attempt.id`, `attempt.retryCount`, `attempt.mayHaveApplied`; `concurrency: "latest"`; the record read `{ data, predicted, uncertain, unconfirmed }` (`predicted` replaces the record's and the resource lane's `pending`); the codes `InFlight` and `LateMayNotLeave`; a resource's call value `O.x.lookup(select, { outcomes })` and `read.fetch(key)`; `keys` (keyed schedules and, Revision (multiplicity audit, 2026-10-31), keyed activities); `.checkpoint(name, ({ truth }) => …)`; `orphaned`; `.history` (and `.history.child`); `armOn`; `disarmOn`; `s.schedules`; `dueAt` (the `model()` options `invariants`, `hot` and `explore` are removed with T1) |
-| **New concepts, not words** | **incarnation** (one life of a fragment instance), **frozen** (a resumable trait while its node is inactive), **summary** (a contract's inferred per-alternative effects), the memory views **before**, **before-walk** and **after** (2.5, rule 22), pending reset, the three **channels** (2.7.1), a **write** (one Attempt) and a **send** (one invocation), the **lane** (rule 21), the lane's **addressable Attempt** and a **keyed list** (rules 21, N1, N2; Revision (multiplicity audit, 2026-10-31)), a call's **owner** and its **current** or **late** ending (rule 14), **late turn** (rule 15), the **Attempt's ending** (rule 18); the **record queue** (per record, across actors, rule 29), the **uncertain mark** (per record and Attempt, rule 32), **settlement** versus **admission** (rule 27), a **create draft** (`creating`, a convention, rule 33) |
+| **New, plans** | `Outcome.success`, `Outcome.failure`, `Outcome.unknown`; Flow's reasons `NotSent { why }` (`Cancelled`, `Restored`, `Superseded`, `Rejected`, `NothingToResend`, `Overloaded`), `Cancelled`, `Restored`, `Interrupted`, `Defect`, `StillUnknown { failure }`; the commit value's `.retry(key?)`, `.cancel(key?)`, `.idle(key?)`; the lane rows `s.calls.<operation path>` with `pending`, `retryCount` or `outstanding` (Revision (multiplicity audit, 2026-10-31): replaces `.pending` and `.retryCount`); the mapper's `{ input, attempt, superseded, laneKey, key? }`; `attempt.id`, `attempt.retryCount`, `attempt.mayHaveApplied`; `concurrency: "latest"`; the record read `{ data, predicted, uncertain, unconfirmed }` (`predicted` replaces the record's and the resource lane's `pending`); (merge 5) the condition operators `or`, `not`, `gt`, `gte`, `lt`, `lte`, `isNull`, a predicted field's `(beneath, input) => value`, the Runtime option `checkReplays`, the warning `PredictionNotRetained`; the codes `InFlight` and `LateMayNotLeave`; a resource's call value `O.x.lookup(select, { outcomes })` and `read.fetch(key)`; `keys` (keyed schedules and, Revision (multiplicity audit, 2026-10-31), keyed activities); `.checkpoint(name, ({ truth }) => …)`; `orphaned`; `.history` (and `.history.child`); `armOn`; `disarmOn`; `s.schedules`; `dueAt` (the `model()` options `invariants`, `hot` and `explore` are removed with T1) |
+| **New concepts, not words** | **incarnation** (one life of a fragment instance), **frozen** (a resumable trait while its node is inactive), **summary** (a contract's inferred per-alternative effects), the memory views **before**, **before-walk** and **after** (2.5, rule 22), pending reset, the three **channels** (2.7.1), a **write** (one Attempt) and a **send** (one invocation), the **lane** (rule 21), the lane's **addressable Attempt** and a **keyed list** (rules 21, N1, N2; Revision (multiplicity audit, 2026-10-31)), a call's **owner** and its **current** or **late** ending (rule 14), **late turn** (rule 15), the **Attempt's ending** (rule 18); the **record queue** (per record, across actors, rule 29), the **uncertain mark** (per record and Attempt, rule 32), **settlement** versus **admission** (rule 27), a **create draft** (`creating`, a convention, rule 33); (merge 5) yes / no / maybe, a **carried path**, the **record beneath**, an **uncomputed** prediction, a **prediction fault**, `many` |
 | **Existing** | `definition`, `machine`, `states`, `default`, `events`, `internalEvents`, `input` (caller side only: `ensure`, `useActor`, a host's filling), `memory`, `on`, `target`, `guard`, `updateMemory`, `actions`, `schedules`, `restartOn`, `transaction`, `key`, `concurrency`, `commit`, `outcomes`, `optimistic`, `setData`, the Attempt, `deny`, `check`, `model` (marked for removal, T1), `S`, `E`, `O`, `.from`, `payload` |
 | **Author-chosen** | every other name (`Field`, `Lockout`, `challenges`, `LOCKED_OUT`, `canEdit`, `onLocked`, …) |
 
@@ -2725,7 +2732,7 @@ C1–C18 (their record is in [merged/](merged/)); P15 and P20 are rewritten in p
 |---|---|---|
 | **Machines O1** | Definitions gain `traits` (the root's `traits`, and `Flow.state(children \| {} \| Sub, { traits })` on a node; `.resumable()`; `.each`) and fragment states. Fillings sit at the node where a fragment is placed. A fragment declares what a definition declares (`id`, `events`, `internalEvents`, `memory`, child `traits` / `states`) plus `hostEvents`, `guards`, `callbacks` and `exits` at the top level, its body's `whenAbandoned`, and an inferred summary. Machines gain one filling block per instance. Names share one namespace | Adds to "A definition requires id, states and events." |
 | **Machines O1** | An internal event may be marked `Flow.uncertain(fields)`; an event payload may be a `Schema.Struct` with checks, refused at admission when a check fails | Adds to "events and optional internalEvents are records…" |
-| **Package O1** | The root route exports `Flow` (with `Flow.Guard`, `Flow.Callback`, `Flow.Exit`, `Flow.optional`, `Flow.uncertain`, `Flow.annotate`, `Flow.input`, `Flow.initial`, `Flow.private`, `Flow.Denial`, the `Flow.is*` predicates and the `Flow.Payload` / `Flow.Filling` types) and `Outcome` (`Outcome.success`, `Outcome.failure`, `Outcome.unknown`, 2.7.1) | Adds to the flow-state route's name list |
+| **Package O1** | The root route exports `Flow` (with `Flow.Guard`, `Flow.Callback`, `Flow.Exit`, `Flow.optional`, `Flow.uncertain`, `Flow.annotate`, `Flow.input`, `Flow.initial`, `Flow.private`, `Flow.Denial`, the `Flow.is*` predicates and the `Flow.Payload` / `Flow.Filling` types) and `Outcome` (`Outcome.success`, `Outcome.failure`, `Outcome.unknown`, 2.7.1), and `Condition` (the condition operators `eq`, `oneOf`, `contains`, `between`, `overlaps`, `gt`, `gte`, `lt`, `lte`, `isNull`, `and`, `or`, `not`, `serverMatches`, `asc`, `desc`; merge 5) | Adds to the flow-state route's name list |
 | **Machines O1** | Memory fields carry `Flow.input` (supplied by the creator; the `Input` type is derived from them), `Flow.initial` (a constant or a pure computed start) and `Flow.private`. Every field starts from exactly one source. The top-level `input` and `initial` are removed | Replaces "Optional input and memory are Schema field records. Nonempty memory requires initial({ input })…" |
 | **Machines O8**, **React O4** | Outside snapshot and view types omit `Flow.private` fields; Stories and Inspection still see them | Adds |
 | **React O2** | The pure starting snapshot uses the memory built from `Flow.input`, `Flow.initial` and computed initials | Replaces "initial(input) memory" |
@@ -2773,7 +2780,7 @@ C1–C18 (their record is in [merged/](merged/)); P15 and P20 are rewritten in p
 | C15 | Operations O3 | `optimistic` reads the starting turn's after memory, captured at start; `writes` receives `{ value, input }` and reads no memory; domain operations have no `optimistic`, and their `writes` may only invalidate (rules 22, 36) | Adds |
 | C16 | Testing O2, O3 | A Story checkpoint may read fixture truth (`.checkpoint(name, ({ truth }) => …)`); every ending can be produced through services | Adds |
 | C17 | Persistence O4, O6 | Lanes persist with the actor; Persistence O6 acknowledges the Attempt before invocation, in one capture with the records the Attempt predicts; prediction values are never persisted (rule 38). On restore, an invoked send ends `unknown` (`Restored`) and an unacknowledged one `NotSent { why: "Restored" }`; saved endings are delivered after readiness and routed by rule 14 | Replaces the former P12 ("a fenced commit restores with its activation"); extends "A crash after acknowledgment restores unknown carrying the same Attempt…" |
-| C18 | CommandLine O5 | Errors: a late event with no handler at a strict ancestor of its owner, naming the event and the state; `failure.NotSent` unmapped where it can occur (rule 20). Warnings: a state-changing transition listing a `reject` commit value without its `idle` guard (rule 16); one transition reading, in both memory views, a key it writes (rule 22); (Revision (multiplicity audit, 2026-10-31)) Attempts started under two `.each` copies of one placement on one lane at once, from Story traces (`SharedCopyLane`, rule 9). Type errors: `retry` on a commit value whose transaction is `allow` or `serialize`, and a lane row's `retryCount` or `progress` there (rule N2). (Merge 4) Errors: `concurrency: "cancel"` on a predicting write (rule 29); `Defect` or `Interrupted` unmapped in a read call value's tag record (rule 37). Warning: a domain write's declared `key` is not its predicted record's key (rule 34). Display: the commit node lists its domain entry's recorded `.predicts` entity and fields and `.alsoChanges` targets (A-L2) | Adds |
+| C18 | CommandLine O5 | Errors: a late event with no handler at a strict ancestor of its owner, naming the event and the state; `failure.NotSent` unmapped where it can occur (rule 20). Warnings: a state-changing transition listing a `reject` commit value without its `idle` guard (rule 16); one transition reading, in both memory views, a key it writes (rule 22); (Revision (multiplicity audit, 2026-10-31)) Attempts started under two `.each` copies of one placement on one lane at once, from Story traces (`SharedCopyLane`, rule 9). Type errors: `retry` on a commit value whose transaction is `allow` or `serialize`, and a lane row's `retryCount` or `progress` there (rule N2). (Merge 4) Errors: `concurrency: "cancel"` on a predicting write (rule 29); `Defect` or `Interrupted` unmapped in a read call value's tag record (rule 37). Warning: a domain write's declared `key` is not its predicted record's key (rule 34). Display: the commit node shows its domain entry's predicted entity, key and field names, `.alsoChanges` targets and the reads they reach; `flow explain` prints the lane key and cardinality (A-L2; merge 5, 3.7) | Adds |
 | C19 | Machines O6 | **Revision (multiplicity audit, 2026-10-31).** An activity's options may declare `keys` (a function of the after memory): one subscription per key, started when the key appears and released when it leaves; `s.activities.<name>` is then a keyed list of `{ key, …lane }`; params and mappers receive `key`; a repeated key is repaired with evidence (2.7.10, rule 23) | Adds to "activities: { name: O.x.subscribe(params, { outcomes?, placeholder?, when? }) }" |
 | C20 | Operations O3, Machines O1 | **Revision (multiplicity audit, 2026-10-31).** A commit started in a `.each` copy's filling is an ordinary call: its Attempt carries the copy's key and incarnation, its endings are never dropped, and every mapper of that Attempt receives the copy's `key`; only the handler's raises into a gone copy are dropped (rule 9, D21) | Adds; closes section 7 item 15 |
 | P15 | Operations O3, Persistence O6 | All sends of a write are **one Attempt** (same id, same input). `attempt.retryCount` counts the re-sends. Each send is acknowledged before it runs | Adds to "A persisted actor's remote commit cannot invoke its adapter until storage acknowledges its Attempt" |
@@ -2787,7 +2794,7 @@ Merge 4 ([merged/entities.md](merged/entities.md) section 6.4). Operations O1's 
 | # | Plan | Rule | Replaces or adds |
 |---|---|---|---|
 | C21 | Operations O3 | A domain write's store effects publish at settlement, before its ending is queued (rule 27) | Replaces "publish together before its event" (OPS:101) |
-| C22 | Operations O3, EntityDomains O1, O5 | A start past the actor's `serialize` queue or any record queue ends `NotSent { why: "Overloaded" }` for that write, with no prediction and no partial join; the transition and its other actions run (rule 35) | Replaces "rejects the whole action batch with AdmissionOverloaded" (OPS:96-97) and EDP:179-182's whole-write rejection |
+| C22 | Operations O3, EntityDomains O1, O5 | A start past the actor's `serialize` queue or any record queue, or a `many` key array past 4,096 items, ends `NotSent { why: "Overloaded" }` for that write, with no prediction and no partial join; the transition and its other actions run (rule 35) | Replaces "rejects the whole action batch with AdmissionOverloaded" (OPS:96-97) and EDP:179-182's whole-write rejection |
 | C23 | Operations O3, EntityDomains O1, Persistence O6 | One retry shape, `pay.retry(key)`: the identical request (input and `basedOn`), no prediction, joins the record queue, positioned at the first send (rule 31). `O.x.retry(select)`, "a known-settled attempt settles without calling the adapter" and `InvalidAttempt` are removed; PER:133's "Explicit retry(attempt) and known-settled behavior" becomes "`pay.retry(key)` (Operations O3)" | Replaces OPS:113-117, EDP:105-109, PER:133 |
 | C24 | EntityDomains O1 | The actor decides whether a start runs, the record queue when it is sent; actor concurrency includes `latest`; a superseded or cancelled queued write ends `NotSent` without repair (rule 29) | Replaces EDP:112-116's concurrency sentences and ED:650-651's "settles interrupted" |
 | C25 | EntityDomains O1 | `uncertain` is a mark per record and Attempt; a successful retry of that Attempt clears it, a later successful write clears every mark on the record; a read, a forced repair, a failure and `StillUnknown` clear nothing (rule 32) | Replaces "a later write … succeeds or the machine reconciles" (EDP:105-106) |
@@ -2796,6 +2803,10 @@ Merge 4 ([merged/entities.md](merged/entities.md) section 6.4). Operations O1's 
 | C28 | EntityDomains O1 | A write that predicts exactly one record and declares no `key` has that record's key as its lane key, supplied by the domain at registration (rule 34) | Adds |
 | C29 | Operations O2 | A resource call value's `success:` sees confirmed data only; a read's defect or interruption ends on `failure` as `Defect` or `Interrupted`, required in a tag record (rule 37) | Adds to O2's call values |
 | C30 | Inspection; EntityDomains O2 | Inspection (ED 7's evidence table): `queue` events gain `superseded`, `cancelled` and `overloaded` removals; `uncertain` "ended (later write or reconciliation)" becomes "ended (a later write succeeded, or a retry of the Attempt succeeded)"; held unknown lanes appear in actor evidence. *Story reads: merge 3:* EntityDomains O2's `Entity.queue` states include removals with their `NotSent` reason, pending merge 3's choice of read (its revision 3 reads removals from `ending` entries) | Adds |
+
+Merge 5 amends EntityDomains O1/V1, CommandLine O1/O5/O6/Q1 and Inspection O1/O4/D1/D2; its amendments are listed by
+target in [merged/entity-analysis/proposal.md](merged/entity-analysis/proposal.md) section 6.4 (with
+`entity-domain.md` and `sync-engine-adapter.md`, which are designs, not plans).
 
 ### For tooling
 
@@ -2988,6 +2999,10 @@ From [reviews/design-correctness.md](reviews/design-correctness.md) and [reviews
   2.7.2, 2.7.3, 2.7.5, 2.7.8, 2.7.9, 2.7.11, 2.7.12, 3.4, C2, C4, C10, C15, C17, C18 and the Machines O1 row;
   decisions E1–E18; section 7 items 10 and 14 closed, item 17 added. Stories-dependent parts are marked *Story reads:
   merge 3*.
+- Merge 5 merged on 2026-10-30 ([merged/entity-analysis/proposal.md](merged/entity-analysis/proposal.md)): 2.8 amended
+  (predicted fields' functions, the list's `likes` line, whole-value settlement); rules 34 and 35; C18, the Package O1
+  row and a pointer to its plan amendments in section 5; decisions M5-D1–M5-D10. Its rules A1–A12 go to
+  `entity-domain.md` section 9.
 
 ## Decisions
 
@@ -3208,3 +3223,68 @@ were already required by EntityDomains (D1, O1).
 - **Rename the lane's `pending`** instead of the record's. The lane name is in rules 16, 21, D5, D6 and every rewrite;
   the record's is in one plan line and its design. Rejected.
 - **Key from `.one(Entity)`** (E10 as proposed). Not available at start (2.8.8). Replaced by the predicted record key.
+
+### Entity analysis (merge 5, [merged/entity-analysis/proposal.md](merged/entity-analysis/proposal.md))
+
+Settled by the owner on 2026-10-30: the proposal is accepted as written, with these decisions.
+
+- **M5-D1 Scope.** Entity domains are client coherence (one store across screens) plus honest optimistic writes, not a
+  sync engine (sync engines plug in through `references/design/sync-engine-adapter.md`). The exact client semantics of
+  condition operators stay: a condition the client evaluates differently could skip a refetch a list needed, so
+  exactness protects coherence; it is kept because it is correct, not as a server-agreement guarantee.
+- **M5-D2 Effect's comparators.** Client-side ordering uses Effect's `Order.Date`, `Order.Number` (after a finiteness
+  check, since `Order.Number` ranks NaN below every number, `node_modules/effect/src/Order.ts:183-187`) and
+  `Order.mapInput`, not hand-written comparators ([prior-art.md](merged/entity-analysis/prior-art.md)).
+- **M5-D3 A conformance table** (operator, inputs, expected result, null rows included) is the client evaluator's own
+  test, CEL-style; it is not a client/server agreement suite.
+- **M5-D4 Open questions 1–7 take their recommendations:** ~~no new value operators until an app needs one~~
+  (superseded by M5-D5: there are no value operators); ordering operators compare Schema `Date` fields by time and
+  date strings by equality only; ~~no helper functions in version 1~~ (superseded by M5-D6: helpers are allowed);
+  `.as` stays a runtime function; ~~an unevaluable prediction is not shown, the write is still sent, and `skipped` is
+  recorded~~ (superseded by rule A9: an uncomputed field shows its value beneath, the record reads `predicted`, the
+  write is sent, and `prediction` records `uncomputed`); a sort pair with a `null` key is skipped rather than raising `HiddenOrder` (`nullsFirst`/`nullsLast` later,
+  separately); ~~the agreement check runs only in `flow check`~~ (superseded by M5-D6: there is no agreement check).
+- **Rejected:** renaming the IR after TanStack DB's variants (cosmetic), and dropping the exact-semantics rule.
+
+Settled by the owner after the second reviews (soundness, authors, system fit):
+
+- **M5-D5 Predicted values are runtime functions.** *Choice:* a predicted field is a recorded read, a constant, or
+  `(beneath, input) => value`, called with the real input at write start and on each replay; recording captures the
+  entity, the key and the field names. *Reason:* nothing reads a predicted value: joins, repairs, queues and lane keys
+  read names only, the same reason `.as` stays a function. *Consequence:* `add`, `sub`, `opaque`, value-position
+  `when`/`coalesce`, the value-only type flag, the `opaque` Model/runtime split, revision 1's rule A9 (opaque purity) and the
+  `opaque-closure` and `outer-value` lint rules go; "runs twice" still ends; rule 34's lane key still comes from the
+  recorded key; `flow explain` shows `likes ← <runtime>`; A6 (replay, now A8) and A7 (skip, now A9) stay for plain
+  functions. Supersedes M5-D4's first clause. *Rejected:* recorded value expressions (revision 1).
+- **M5-D6 Lint only** (its ESLint clause pending 9.8). *Choice:* a type-aware lint for `?:`, `&&`, `||` and impure calls in recorded positions, in
+  `flow check` and as an ESLint rule, over one source-and-type-facts layer shared with Inspection D2, failing closed;
+  no source description and no agreement check. *Reason:* the comparison duplicated the Model, rejected correct
+  factories, and caught only stale builds of recorded positions. *Consequence:* `DomainSourceMismatch` and
+  `unreadable-domain` go; helpers and domain factories with computed ids are allowed; the `typescript/unstable/async`
+  dependency sits behind one adapter (9.4). Supersedes M5-D4's "no helpers" and "agreement check" clauses.
+  *Rejected:* the revision 1 agreement check.
+- **M5-D7 No `when` or `coalesce` in conditions.** *Choice:* conditions keep `eq`, `oneOf`, `contains`, `between`,
+  `overlaps`, `gt`/`gte`/`lt`/`lte`, `isNull`, `and`, `or`, `not` and `serverMatches`. *Reason:* fewer concepts; an
+  absent input already drops its constraint under `and`, and an alternative is `or(and(…), and(…))`. *Consequence:*
+  the `?:` fix-it is an instruction, never code. *Rejected:* `when`/`coalesce` as condition operators.
+- **M5-D8 Three-valued conditions and the join rule.** *Choice:* every condition answers yes, no or maybe (Kleene),
+  maybe with a cause; an answer repairs when a field its condition reads changed unless both sides are the same
+  definite answer; the cause is repair evidence. *Reason:* revision 1's "an undecidable condition counts as matching"
+  missed a refetch (`or(eq(team, …), eq(status, "open"))` with only `status` carried) and refetched on every change
+  once a field failed. *Consequence:* revision 1's A12, the "only under `and`" rule for `serverMatches`, the ban on
+  negating a nullable order and the optional-input type flag go; a null sort pair is a maybe pair, skipped (M5-D4
+  kept). *Rejected:* two-valued logic; SQL's UNKNOWN-is-false.
+- **M5-D9 Array keys in the Model.** *Choice:* a key whose input Schema is an array is recorded as `many`; it is read at
+  start, predicts each listed record once, and never takes merge 4 rule 34's default lane key. *Reason:* the record
+  count must be static for rule 34 and the queues. *Consequence:* rule 34 gains one sentence; bulk writes keep working.
+  *Rejected:* forbidding array keys; deciding at start from the value.
+- **M5-D10 Open items 9.1–9.11 take their recommendations** (owner, 2026-10-31). A Date tie at millisecond precision
+  is maybe (9.1); a present `null` input is maybe (9.2); the recording session is sealed (9.3); one pinned TypeScript 7
+  adapter that fails closed (9.4); a factory's primitive parameters may appear in recorded expressions, with an info
+  finding for non-literal arguments (9.5); a tenant factory parameterises its operations or carries the tenant in keys
+  (9.6); records and inputs are frozen everywhere and a write is a prediction fault (9.7); the editor path is
+  `flow check --watch` now and a language-service plugin later, with no ESLint rule, superseding M5-D6's ESLint clause
+  (9.8); `checkReplays` is on in Stories and `propertyTest`, off in production (9.9); one operation in two entries of a
+  domain is an error (9.10); a `many` key array is capped at 4,096 items, overflow ending `Overloaded` (9.11).
+  *Reason:* each recommendation chose the conservative, correct option; prior art and three review rounds agreed.
+  The proposal is accepted in full; it merges after merge 4.

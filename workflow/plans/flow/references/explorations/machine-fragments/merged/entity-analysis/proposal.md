@@ -1,6 +1,13 @@
 # Proposal: statically analysable entity domains (merge 5)
 
-Status: **accepted in full by the owner on 2026-10-31 (section 10, M5-D10); first accepted 2026-10-30; revised twice: after correctness review 1
+Status: **merged into machine-design.md on 2026-10-30; kept as the record behind it.** It was merge 5 into
+[machine-design.md](../../machine-design.md) (section 2.8's predicted-field wording, rules 34 and 35, C18, the Package O1
+row, a pointer in section 5, decisions M5-D1–M5-D10; plan: [merge-plan-4-5.md](../../merge-plan-4-5.md)); its rules
+A1–A12 are for `references/design/entity-domain.md` section 9. Where this record and the design differ, the design
+wins. Its `M4:` citations are line numbers of merge 4 before it was merged; in
+[merged/entities.md](../entities.md) they are two lines later.
+
+History: **accepted in full by the owner on 2026-10-31 (section 10, M5-D10); first accepted 2026-10-30; revised twice: after correctness review 1
 ([reviews/review-1.md](reviews/review-1.md)) and, simplified, after three reviews and the owner's decisions M5-D5 to
 M5-D9 ([reviews/review-2.md](reviews/review-2.md)), then hardened against review 3's probes
 ([reviews/review-3.md](reviews/review-3.md)), review 4's ([reviews/review-4.md](reviews/review-4.md)) and review
@@ -41,21 +48,21 @@ Sources and the short names used for citations:
 
 | Short name | File (under `workflow/plans/flow/` unless marked) |
 | --- | --- |
-| BR | `references/explorations/machine-fragments/merge-5-entity-analysis/brief.md` |
-| PA | `references/explorations/machine-fragments/merge-5-entity-analysis/prior-art.md` |
+| BR | `references/explorations/machine-fragments/merged/entity-analysis/brief.md` |
+| PA | `references/explorations/machine-fragments/merged/entity-analysis/prior-art.md` |
 | ED | `references/design/entity-domain.md` |
 | EDX | `references/design/entity-domain-examples.md` |
 | SEA | `references/design/sync-engine-adapter.md` |
 | EDP | `EntityDomains.plan` |
 | CLP | `CommandLine.plan` |
 | INS | `Inspection.plan` |
-| M4 | `references/explorations/machine-fragments/merge-4-entities/proposal.md` |
+| M4 | `references/explorations/machine-fragments/merged/entities.md` |
 | M6 | `references/explorations/machine-fragments/merge-6-streams/proposal.md` |
 | MT | `references/design/multi-tab.md` (MT 8.1: each tab is its own Runtime and store) |
 | DD | `references/dispatch-desk/features/Tickets/ticket.domain.ts` |
 | EO | `node_modules/effect/src/Order.ts` (Effect 4.0.5, at the repository root) |
 | TSE | TanStack DB `packages/db/src/query/compiler/evaluators.ts` at `main` commit `bea84cd4` (read for this proposal; not in the repository) |
-| SPK | `merge-5-entity-analysis/spike/` |
+| SPK | `merged/entity-analysis/spike/` |
 
 ## 1. The problem
 
