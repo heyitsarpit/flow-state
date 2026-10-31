@@ -21,7 +21,8 @@ no `.plan` file is touched; every step is its own commit.
    `unsettledWrites`, Inspection and `Story.inspection`; how fakes push and close on stream endpoints and their error
    tags; `File` bytes beside persisted memory (`useRuntime`/`useService`); `hold({ after: n })`; generator spellings;
    CLI flags.
-4. **Small design gaps** (10, same table, class b): each has a proposed one-line answer for machine-design.md.
+4. **Coverage build gaps** (63, in the two READMEs) plus the three cells built differently (see below).
+5. **Small design gaps** (10, same table, class b): each has a proposed one-line answer for machine-design.md.
 
 ## Done overnight
 
@@ -32,6 +33,25 @@ no `.plan` file is touched; every step is its own commit.
   43 design gaps), Opus review (`REVIEW.md`), 25 misuses and 20 app mistakes fixed (b9728cc3, d5471e43). Effect-only
   files type-check. Two small app items left: gap 34 (declare `NoResponse` on read ports) and S-H1 (export the
   adapters from `next/http-api.ts` so the fakes need no copies).
+
+## Done: coverage build (COVERAGE.md section 7, one Opus agent)
+
+- Commits B1–B9: 102decf2, da1bef1c, 768505f8, 91927d86, 906cae2e, 67066476, 5677ae36, b268ee67, 805a0c1a.
+- **Desk** (`../dispatch-desk/`): Roster admin, Find, Resolve wizard, editor panels and fields, technician panel,
+  presence over a collaboration SDK, `tools/findings/` (19 wrong files), presentation and demo page. Gap 34 and S-H1
+  fixed in B1. Every Story is a transcript; checks are in `*.test.ts` through `@flow-state/vitest`.
+- **Checkout** (`../checkout/`, new): Cart, Pay (Stripe.js, 3-D Secure countdown, reconcile before any re-send, void
+  on leave), Refunds, Shopper, a Stripe fake, a property test, an SSR cart page, presentation and demo page.
+- **Coverage** (`../../COVERAGE.md` 2.10, column "Built (B9)"): 0 none / 11 once / 104 several of 115 (was 46/56/13).
+  114 of 115 rows meet their target. O11 is short: `NotSent { Disposed }` was skipped because no app path commits into
+  a disposed actor; it is left to the runtime's tests.
+- **Built differently from the cell, each noted in its README:** F11 B (the write stays in the host; rule 48 forbids a
+  mapped write under a subroutine), O10 C (the late ending cannot leave PAYING), P4 C (Stripe refuses the second tab,
+  not `reject`, because lanes are per Runtime). These three may be design questions for you.
+- **Design gaps:** 49 in the desk and 14 in Checkout. Each README's table is generated from the `// design gap:` lines.
+- **Checks:** Effect-only `tsc` passes for both projects, and the files are formatted. Code that depends on Flow is
+  illustrative. `nub run verify` does not cover these folders. `app/demo-api.ts` does not serve the ports added in
+  B3–B5; Stories replace their transport instead.
 
 ## Then: the path to implementation
 
