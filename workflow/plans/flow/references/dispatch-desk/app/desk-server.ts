@@ -23,6 +23,12 @@ import {
 } from "../features/Attachments/attachments-api.js";
 import { Breaks, Pulse } from "../features/Tickets/technicians/technicians-api.js";
 import {
+  OutOfStock,
+  Part,
+  PartUnknown,
+  SignatureMissing,
+} from "../features/Resolve/resolve-api.js";
+import {
   BodyConflict,
   FieldRejected,
   HistoryEntry,
@@ -117,6 +123,8 @@ export const DeskTruth = Schema.Struct({
   details: Schema.Record(Schema.String, TicketDetails), // "workspace/ticket" → its fields, body and etag
   history: Schema.Record(Schema.String, Schema.Array(HistoryEntry)), // newest first
   pulses: Schema.Record(Schema.String, Pulse), // "workspace/technician" → the phone's latest report
+  parts: Schema.Array(Part), // the van stock catalogue: what a resolve uses and a reservation holds
+  signatures: Schema.Array(Schema.String), // uploaded signature refs
   breaks: Schema.Record(Schema.String, Breaks), // workspace → who is on a break
   // One log for the server, filtered by workspace on read. A reset starts a new epoch at seq 1.
   epoch: Schema.Int,
@@ -252,6 +260,12 @@ export const seed = (): DeskTruth => ({
     ]),
   ),
   breaks: { north: {} },
+  parts: [
+    { partNumber: "BULB-40W", label: "Bulb, 40 W", stock: 12, reserved: 0 },
+    { partNumber: "HINGE-L", label: "Door hinge, left", stock: 3, reserved: 0 },
+    { partNumber: "SEAL-24", label: "Dock seal, 24 in", stock: 1, reserved: 0 },
+  ],
+  signatures: [],
   history: {
     "north/T-42": Array.from({ length: 15 }, (_, n) => ({
       entryId: `h-${15 - n}`,
@@ -1184,6 +1198,125 @@ export const pinNote = (
       entry,
     ),
     ok(entry),
+  ];
+};
+
+// --- find -------------------------------------------------------------------------------------------
+
+// The best twenty hits, tickets first. Case-insensitive substring of a title, a customer's name or a part's label.
+export const search = (truth: DeskTruth, input: { workspaceId: string; q: string }) => {
+  const needle = input.q.trim().toLowerCase();
+  const tickets = truth.tickets
+    .filter((t) => t.workspaceId === input.workspaceId && t.title.toLowerCase().includes(needle))
+    .map((t) => ({ kind: "ticket" as const, id: t.ticketId, label: t.title }));
+  const customers = truth.customers
+    .filter((c) => c.workspaceId === input.workspaceId && c.name.toLowerCase().includes(needle))
+    .map((c) => ({ kind: "customer" as const, id: c.customerId, label: c.name }));
+  const parts = truth.parts
+    .filter(
+      (p) => p.label.toLowerCase().includes(needle) || p.partNumber.toLowerCase().includes(needle),
+    )
+    .map((p) => ({ kind: "part" as const, id: p.partNumber, label: p.label }));
+
+  return [...tickets, ...customers, ...parts].slice(0, 20);
+};
+
+// --- resolving on site: parts, signatures, the resolution -----------------------------------------
+
+export const partByNumber = (truth: DeskTruth, partNumber: string): Result<Part, PartUnknown> => {
+  const part = truth.parts.find((p) => p.partNumber === partNumber);
+
+  return part ? ok(part) : fail(new PartUnknown({ partNumber }));
+};
+
+const moveStock = (truth: DeskTruth, partNumber: string, by: number): DeskTruth => ({
+  ...truth,
+  parts: truth.parts.map((p) =>
+    p.partNumber === partNumber ? { ...p, reserved: Math.max(0, p.reserved + by) } : p,
+  ),
+});
+
+export const reservePart = (
+  truth: DeskTruth,
+  input: TicketKey & { partNumber: string },
+  idempotencyKey: string,
+): Step<Part, PartUnknown | OutOfStock> => {
+  const previous = replayed<Part>(truth, idempotencyKey);
+
+  if (previous) return [truth, ok(previous)];
+
+  const found = partByNumber(truth, input.partNumber);
+
+  if (!found.ok) return [truth, found];
+
+  if (found.value.stock - found.value.reserved <= 0)
+    return [truth, fail(new OutOfStock({ partNumber: input.partNumber }))];
+
+  const next = moveStock(truth, input.partNumber, 1);
+
+  return [rememberWrite(next, idempotencyKey, found.value), ok(found.value)];
+};
+
+// Compensation: the parts go back on the shelf. Safe to repeat (the key), safe on a part never reserved.
+export const releaseParts = (
+  truth: DeskTruth,
+  input: TicketKey & { partNumbers: ReadonlyArray<string> },
+  idempotencyKey: string,
+): Step<void, never> => {
+  if (replayed(truth, idempotencyKey) !== undefined) return [truth, ok(undefined)];
+
+  const next = input.partNumbers.reduce(
+    (current, partNumber) => moveStock(current, partNumber, -1),
+    truth,
+  );
+
+  return [rememberWrite(next, idempotencyKey, true), ok(undefined)];
+};
+
+export const uploadSignature = (truth: DeskTruth, ref: string): DeskTruth => ({
+  ...truth,
+  signatures: truth.signatures.includes(ref) ? truth.signatures : [...truth.signatures, ref],
+});
+
+// The resolution closes the ticket, uses the reserved parts and logs a history line. It needs the signature the
+// technician uploaded: a resolution whose signature never arrived is refused (422), and the wizard asks again.
+export const resolveTicket = (
+  truth: DeskTruth,
+  input: TicketKey & { reason: string; parts: ReadonlyArray<string>; signatureRef: string },
+  idempotencyKey: string,
+): Step<TicketRow, TicketNotFound | SignatureMissing> => {
+  const previous = truth.applied.tickets[idempotencyKey];
+
+  if (previous) return [truth, ok({ ...previous })];
+
+  const ticket = find(truth, input);
+
+  if (!ticket) return [truth, fail(new TicketNotFound({ ticketId: input.ticketId }))];
+
+  if (!truth.signatures.includes(input.signatureRef))
+    return [truth, fail(new SignatureMissing({ signatureRef: input.signatureRef }))];
+
+  const [closed, row] = update(
+    truth,
+    ticket,
+    { status: "closed" },
+    `${ME} resolved ${input.ticketId}: ${input.reason}`,
+  );
+  const history = closed.history[keyOf(input)] ?? [];
+  const entry = {
+    entryId: `h-${String(history.length + 1)}`,
+    at: closed.clock,
+    text: `Resolved: ${input.reason}`,
+    pinned: false,
+  };
+
+  return [
+    remember(
+      { ...closed, history: { ...closed.history, [keyOf(input)]: [entry, ...history] } },
+      idempotencyKey,
+      row,
+    ),
+    ok({ ...row }),
   ];
 };
 

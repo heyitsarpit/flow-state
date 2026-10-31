@@ -60,6 +60,7 @@ import {
   techniciansControls,
   techniciansEndpoints,
 } from "./desk.technicians.fake.js";
+import { visitClient, visitEndpoints } from "./desk.visit.fake.js";
 import { rosterClient, rosterControls, rosterEndpoints } from "./desk.roster.fake.js";
 import { CollabFake } from "./presence.fake.js";
 import { socketClient, socketControls, socketEndpoints, socketPushes } from "./desk.socket.fake.js";
@@ -84,6 +85,9 @@ const STATUS = {
   EditWindowClosed: 403,
   AlreadyAssigned: 409,
   TooLarge: 413,
+  PartUnknown: 404,
+  OutOfStock: 409,
+  SignatureMissing: 422,
   BodyConflict: 412, // If-Match did not match: the body carries what is there now
   FieldRejected: 422,
   RemoveRefused: 403,
@@ -377,6 +381,7 @@ export const Desk = Fake.server("Desk", {
     ...rosterEndpoints, // desk.roster.fake.ts: the roster's endpoints, reached through `Fake.fetch`
     ...detailsEndpoints, // desk.details.fake.ts: fields, body and history, reached through `Fake.fetch`
     ...techniciansEndpoints, // desk.technicians.fake.ts: pulses, breaks, nudges, dispatch, through `Fake.fetch`
+    ...visitEndpoints, // desk.visit.fake.ts: find, parts, signatures, resolutions, through `Fake.fetch`
 
     ...socketEndpoints, // pending merge 6: desk.socket.fake.ts
   },
@@ -693,6 +698,7 @@ export const DeskClient = Layer.mergeAll(
   rosterClient(Desk), // desk.roster.fake.ts: the real `RosterHttp` adapter over `Fake.fetch`
   detailsClient(Desk), // desk.details.fake.ts: the real `DetailsHttp` adapter over `Fake.fetch`
   techniciansClient(Desk), // desk.technicians.fake.ts: the real `TechniciansHttp` adapter over `Fake.fetch`
+  visitClient(Desk), // desk.visit.fake.ts: the real `FindHttp` and `ResolveHttp` adapters over `Fake.fetch`
   // The collaboration SDK is its own service with its own server (presence.fake.ts): who is on a channel is not desk
   // truth. It is in the desk's fixture because the queue and the roster place its sessions.
   CollabFake, // pending merge 6

@@ -15,6 +15,8 @@
     "features/Presence/collab-sdk.ts",
     "features/Assistant/assistant-api.ts",
     "features/Roster/roster-api.ts",
+    "features/Find/find-api.ts",
+    "features/Resolve/resolve-api.ts",
     "features/Tickets/editor/details-api.ts",
     "features/Tickets/technicians/technicians-api.ts",
     "app/desk-server.ts",

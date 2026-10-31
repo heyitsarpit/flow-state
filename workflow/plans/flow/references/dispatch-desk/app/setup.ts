@@ -6,6 +6,8 @@ import { runtimeSetup } from "flow-state";
 import { RosterHttp } from "../features/Roster/roster-api.js";
 import { DetailsHttp } from "../features/Tickets/editor/details-api.js";
 import { TechniciansHttp } from "../features/Tickets/technicians/technicians-api.js";
+import { FindHttp } from "../features/Find/find-api.js";
+import { PendingSignaturesLive, ResolveHttp } from "../features/Resolve/resolve-api.js";
 import { DeskApp } from "./app.js";
 import { DemoDeskApi } from "./demo-api.js";
 
@@ -20,10 +22,13 @@ export const DeskSetup = runtimeSetup({
   app: DeskApp,
   services: Layer.mergeAll(
     DemoDeskApi,
+    PendingSignaturesLive, // tab memory for drawn signatures (P6)
     Layer.mergeAll(
       RosterHttp("http://localhost:3000"),
       DetailsHttp("http://localhost:3000"),
       TechniciansHttp("http://localhost:3000"),
+      FindHttp("http://localhost:3000"),
+      ResolveHttp("http://localhost:3000"),
     ).pipe(Layer.provide(FetchHttpClient.layer)),
   ),
 });

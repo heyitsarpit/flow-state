@@ -8,6 +8,8 @@ import { DeskFeedMachine } from "../features/Tickets/feed/feed.machine.js"; // p
 import { QueueMachine } from "../features/Tickets/queue/queue.machine.js";
 import { RosterMachine } from "../features/Roster/roster.machine.js";
 import { PanelsMachine } from "../features/Tickets/panels/panels.machine.js";
+import { FindMachine } from "../features/Find/find.machine.js";
+import { VisitMachine } from "../features/Resolve/visit.machine.js";
 import { TechniciansMachine } from "../features/Tickets/technicians/technicians.machine.js"; // pending merge 6
 import { ToastsMachine } from "../features/Toasts/toasts.machine.js";
 
@@ -30,6 +32,8 @@ export const DeskApp = app({
     queue: { machine: QueueMachine, context: { userId: SessionRef } },
     roster: { machine: RosterMachine, context: { isAdmin: SessionRef } },
     panels: PanelsMachine,
+    find: FindMachine,
+    visit: { machine: VisitMachine, context: { me: SessionRef } },
     technicians: { machine: TechniciansMachine, context: { userId: SessionRef } }, // pending merge 6
     feed: DeskFeedMachine, // pending merge 6
     presence: PresenceMachine, // pending merge 6
