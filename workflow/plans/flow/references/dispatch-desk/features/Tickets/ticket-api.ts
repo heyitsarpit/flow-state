@@ -1,6 +1,6 @@
 // The replaceable service port, over `fetch`. Each call returns an Effect with exact success and
-// failure channels: `NoResponse` when `fetch` rejects, `ServerError` for a 5xx, and the tagged
-// 4xx failures the contract knows. The commit classifies them (machine-design 2.7.2); this port
+// failure channels: `NoResponse` when `fetch` rejects (reads and writes alike: a lost read is a network
+// fact, not a defect), `ServerError` for a 5xx write, and the tagged 4xx failures the contract knows. The commit classifies them (machine-design 2.7.2); this port
 // never decides what is definite and what is unknown. Live feeds are not here: they moved to
 // feed/desk-socket.ts.
 import { Context, type Effect } from "effect";
@@ -30,9 +30,12 @@ type Write = { idempotencyKey: string; signal: AbortSignal };
 export class TicketApi extends Context.Service<
   TicketApi,
   {
-    load: (key: TicketKey, options: Read) => Effect.Effect<TicketRow, TicketNotFound>;
-    list: (input: TicketListInput, options: Read) => Effect.Effect<TicketPage, QueueUnavailable>;
-    openCount: (input: { workspaceId: string }, options: Read) => Effect.Effect<number>;
+    load: (key: TicketKey, options: Read) => Effect.Effect<TicketRow, TicketNotFound | NoResponse>;
+    list: (
+      input: TicketListInput,
+      options: Read,
+    ) => Effect.Effect<TicketPage, QueueUnavailable | NoResponse>;
+    openCount: (input: { workspaceId: string }, options: Read) => Effect.Effect<number, NoResponse>;
     saveTitle: (
       input: TicketKey & { title: string },
       options: Write,

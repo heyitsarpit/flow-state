@@ -89,6 +89,7 @@ export const Comments = trait(
         value: E.ThreadLoaded.from((thread) => ({ clientIds: thread.map((c) => c.clientId) })),
         failure: {
           TicketNotFound: E.ThreadGone,
+          NoResponse: E.ThreadFailed, // a lost read (REVIEW gap 34)
           Defect: E.ThreadFailed, // a read's tag record maps Flow's two (rule 37)
           Interrupted: E.ThreadFailed,
         },

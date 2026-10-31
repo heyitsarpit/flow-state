@@ -48,7 +48,14 @@ export const Queue = definition({
     // Maps `value`, so the machine subscribes. Rows are read from the lane; the event only says "loaded".
     list: TicketsDomain.list.outcomes({
       value: E.ListLoaded,
-      failure: { QueueUnavailable: E.ListUnavailable.from(({ retryAfter }) => ({ retryAfter })) },
+      failure: {
+        QueueUnavailable: E.ListUnavailable.from(({ retryAfter }) => ({ retryAfter })),
+        // A lost read degrades the queue the same way a 503 does; Flow's two are required in a tag record
+        // (rule 37), and a list that cannot be read is "unavailable" whatever the reason.
+        NoResponse: E.ListUnavailable.from(() => ({ retryAfter: 5 })),
+        Defect: E.ListUnavailable.from(() => ({ retryAfter: 5 })),
+        Interrupted: E.ListUnavailable.from(() => ({ retryAfter: 5 })),
+      },
     }),
     open: TicketsDomain.openCount, // bare: the badge reads the lane
     // Key `["workspaceId", "ticketId"]` on the contract: one lane per ticket, created by work.

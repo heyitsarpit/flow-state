@@ -7,7 +7,8 @@
 // a URL, so the sockets (opened in the browser only) rely on the cookie.
 //
 // Pending merge 6: the socket, presence and assistant ports (M6 4.1, 4.2, 4.4).
-import { Cause, Effect, Layer, Queue, Schema, Stream } from "effect";
+import { Effect, Layer, Schema, Stream } from "effect";
+import { Socket } from "effect/socket";
 import {
   AttachmentsApi,
   PendingFilesLive,
@@ -30,7 +31,6 @@ import {
   NoResponse,
   QueueUnavailable,
   ServerError,
-  SignedOut,
   SocketDropped,
   TicketLocked,
   TicketNotFound,
@@ -101,19 +101,31 @@ export const HttpDeskApi = (token?: string, origin = "http://localhost:3000") =>
     return unexpected(response);
   };
 
+  // A read's success body, or `NoResponse` for a 5xx (the read shows what it had and asks again), or a
+  // defect for a status nobody planned for.
+  const readBody = <S extends Schema.Constraint>(schema: S, response: Response) => {
+    if (response.ok) return decoded(schema, response);
+
+    if (response.status >= 500) return Effect.fail(new NoResponse());
+
+    return unexpected(response);
+  };
+
   const ticketPath = (key: TicketKey) =>
     `/api/workspaces/${encodeURIComponent(key.workspaceId)}/tickets/${encodeURIComponent(key.ticketId)}`;
 
   const missing = (key: TicketKey) => Effect.fail(new TicketNotFound({ ticketId: key.ticketId }));
 
   const tickets = TicketApi.of({
+    // Reads fail `NoResponse` when `fetch` rejects or the server answers 5xx: either way nothing came back
+    // that the client can show, and the read's handler decides (REVIEW gap 34: a lost read is not a defect).
     load: (key, { signal }) =>
       Effect.gen(function* () {
-        const response = yield* request(ticketPath(key), { signal }).pipe(Effect.orDie);
+        const response = yield* request(ticketPath(key), { signal });
 
         if (response.status === 404) return yield* missing(key);
 
-        return yield* decoded(TicketRow, response);
+        return yield* readBody(TicketRow, response);
       }),
     list: (input, { signal }) =>
       Effect.gen(function* () {
@@ -125,27 +137,24 @@ export const HttpDeskApi = (token?: string, origin = "http://localhost:3000") =>
           if (value !== undefined) query.set(name, String(value));
         }
 
-        const response = yield* request(`/api/tickets?${query}`, { signal }).pipe(
-          Effect.mapError(() => new QueueUnavailable({ retryAfter: 5 })),
-        );
+        const response = yield* request(`/api/tickets?${query}`, { signal });
 
+        // 503 is the server's own word that the queue is down, with a `Retry-After`; the queue degrades.
         if (response.status === 503)
-          return yield* Effect.fail(new QueueUnavailable({ retryAfter: 5 }));
+          return yield* Effect.fail(
+            new QueueUnavailable({ retryAfter: Number(response.headers.get("Retry-After") ?? 5) }),
+          );
 
-        if (!response.ok) return yield* unexpected(response);
-
-        return yield* decoded(TicketPage, response);
+        return yield* readBody(TicketPage, response);
       }),
     openCount: ({ workspaceId }, { signal }) =>
       Effect.gen(function* () {
         const response = yield* request(
           `/api/workspaces/${encodeURIComponent(workspaceId)}/open-count`,
           { signal },
-        ).pipe(Effect.orDie);
+        );
 
-        if (!response.ok) return yield* unexpected(response);
-
-        return yield* decoded(Schema.Number, response);
+        return yield* readBody(Schema.Number, response);
       }),
     saveTitle: ({ title, ...key }, { idempotencyKey, signal }) =>
       Effect.gen(function* () {
@@ -211,13 +220,11 @@ export const HttpDeskApi = (token?: string, origin = "http://localhost:3000") =>
   const comments = CommentsApi.of({
     list: (key, { signal }) =>
       Effect.gen(function* () {
-        const response = yield* request(`${ticketPath(key)}/comments`, { signal }).pipe(
-          Effect.orDie,
-        );
+        const response = yield* request(`${ticketPath(key)}/comments`, { signal });
 
         if (response.status === 404) return yield* missing(key);
 
-        return yield* decoded(CommentThread, response);
+        return yield* readBody(CommentThread, response);
       }),
     post: ({ clientId, text, ...key }, { idempotencyKey, signal }) =>
       Effect.gen(function* () {
@@ -277,38 +284,38 @@ export const HttpDeskApi = (token?: string, origin = "http://localhost:3000") =>
       }),
   });
 
-  // The socket as a Stream of text frames. The Scope owns the WebSocket: ending or interrupting the
-  // stream closes it. A close fails the stream with the adapter's classification; the browser's
-  // `error` event carries nothing and is always followed by a close.
-  const socketText = (path: string, params: Record<string, string>) =>
-    Stream.callback<string, SocketDropped | SignedOut>((queue) =>
-      Effect.acquireRelease(
-        Effect.sync(() => {
-          const url = new URL(path, origin);
-          url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
+  // The socket as a Stream of text frames, over Effect's `Socket` (REVIEW S-H1). `highWaterMark` bounds what
+  // the browser may buffer: a flood past it fails the socket with a `SocketReadError`, which the adapter
+  // reads as a transient drop, so `Feed.reconnect` reconnects and catches up instead of the page buffering
+  // without bound (M6 2.3, 2.4 recipe P; 4.1). The Scope owns the WebSocket: ending or interrupting the
+  // stream closes it. A close fails the stream with the adapter's classification of its code.
+  const socketText = (path: string, params: Record<string, string>) => {
+    const url = new URL(path, origin);
+    url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
 
-          for (const [name, value] of Object.entries(params)) url.searchParams.set(name, value);
+    for (const [name, value] of Object.entries(params)) url.searchParams.set(name, value);
 
-          const socket = new WebSocket(url);
-          // This protocol is text frames only.
-          socket.onmessage = (event) => {
-            Queue.offerUnsafe(queue, String(event.data));
-          };
-          socket.onclose = (event) => {
-            Queue.failCauseUnsafe(queue, Cause.fail(closedWith(event.code)));
-          };
+    return Stream.unwrap(
+      Effect.gen(function* () {
+        const socket = yield* Socket.makeWebSocket(url.toString(), { highWaterMark: 1_048_576 });
+        const pull = yield* Socket.readerString(socket);
 
-          return socket;
-        }),
-        (socket) => Effect.sync(() => socket.close()),
-      ),
+        return Stream.fromEffectRepeat(pull).pipe(Stream.flatMap(Stream.fromIterable));
+      }),
     ).pipe(
+      Stream.mapError((error) =>
+        error.reason._tag === "SocketCloseError"
+          ? closedWith(error.reason.code)
+          : new SocketDropped({ why: error.reason._tag }),
+      ),
       // An idle deadline on every frame; the server pings every 20 s (M6 4.1).
       Stream.timeoutOrElse({
         duration: "45 seconds",
         orElse: () => Stream.fail(new SocketDropped({ why: "Silent" })),
       }),
+      Stream.provide(Socket.layerWebSocketConstructorGlobal),
     );
+  };
 
   const socket = DeskSocket.of({
     frames: (workspaceId, from: Cursor | undefined) =>

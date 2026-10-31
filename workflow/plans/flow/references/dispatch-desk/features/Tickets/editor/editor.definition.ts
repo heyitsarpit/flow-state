@@ -72,6 +72,7 @@ export const Editor = definition({
       value: E.TicketLoaded.from((ticket) => ({ title: ticket.title })),
       failure: {
         TicketNotFound: E.TicketGone,
+        NoResponse: E.TicketLoadFailed, // `fetch` rejected or a 5xx: a lost read, never a defect (REVIEW gap 34)
         Defect: E.TicketLoadFailed, // a read's tag record maps Flow's two (rule 37)
         Interrupted: E.TicketLoadFailed,
       },

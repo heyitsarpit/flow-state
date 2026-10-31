@@ -4,7 +4,7 @@
 // endpoints, the greeting, a close code).
 // Pending merge 6: written against merge-6-streams/proposal-v2.md revision 7.1, S1–S10.
 import { Effect, Layer, Schema, Stream } from "effect";
-import { Socket } from "effect/unstable/socket";
+import { Socket } from "effect/socket";
 import { Fake } from "flow-state/testing"; // pending merge 6
 import {
   Member,

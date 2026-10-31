@@ -30,7 +30,7 @@ export class CommentsApi extends Context.Service<
     list: (
       ticket: TicketKey,
       options: { signal: AbortSignal },
-    ) => Effect.Effect<CommentThread, TicketNotFound>;
+    ) => Effect.Effect<CommentThread, TicketNotFound | NoResponse>;
     post: (
       input: TicketKey & { clientId: string; text: string },
       options: { idempotencyKey: string; signal: AbortSignal },
