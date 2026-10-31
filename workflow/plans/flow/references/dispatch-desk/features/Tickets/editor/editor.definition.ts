@@ -13,6 +13,10 @@ import { AttachmentUpload } from "../../Attachments/upload.trait.js";
 import { Comments } from "../../Comments/comments.trait.js";
 import { Session } from "../../Session/session.definition.js";
 import { TicketsDomain } from "../ticket.domain.js";
+import { Autosave } from "./autosave.trait.js";
+import { Body } from "./body.trait.js";
+import { FieldName } from "./details-api.js";
+import { ticketDetails } from "./fields.contracts.js";
 import { TicketRow } from "../types.js";
 
 export const MAX_RESENDS = 3; // user-defined: re-sends of an unconfirmed save, then give up
@@ -25,6 +29,17 @@ export const AttachmentDraft = Schema.Struct({
   size: Schema.Number,
 });
 
+// One entry per description field, in the order the form shows them. `field` is the copy's key (`by`); the list's
+// order is the copies' order (rule 9), so the form's schema position is the list's.
+export const FieldEntry = Schema.Struct({
+  field: FieldName,
+  label: Schema.String,
+  saved: Schema.String,
+});
+
+// The editor holds three write styles on one screen (COVERAGE.md 5.1): the title (the hold, re-sent on a schedule,
+// editor.machine.ts), the description fields (`.each` copies on `latest`, autosave.trait.ts) and the body (etag'd,
+// `reject`, coalesced in its trait, body.trait.ts). The panels beside them are their own actor (panels.machine.ts).
 export const Editor = definition({
   id: "DispatchDesk/Editor",
   states: [{ OPEN: ["EDITING", "SAVING", "SAVED", "FAILED", "LOCKED", "UNSURE"] }, "CLOSED"],
@@ -57,6 +72,13 @@ export const Editor = definition({
     FileRemoved: {},
     FileKept: { uploadedBy: Schema.String }, // 403: the store already put it back
     FileRemoveUnsure: Flow.uncertain({}),
+    DetailsLoaded: {
+      fields: Schema.Record(Schema.String, Schema.String),
+      body: Schema.String,
+      etag: Schema.String,
+    },
+    DetailsFailed: {},
+    FieldSettled: { field: FieldName }, // one field's debounce: the keyed schedule `settle`
   },
   context: { canEdit: Session.select(({ memory }) => memory.canEdit) }, // one upward read edge
   // Memory holds keys and drafts, never copies of cached tickets, and never the Attempt: the lane holds it
@@ -69,6 +91,8 @@ export const Editor = definition({
     error: Flow.initial(Schema.String, ""),
     lockRetries: Flow.initial(Schema.Int, 0),
     attachments: Flow.initial(Schema.Array(AttachmentDraft), []), // the `of:` list of `uploads`
+    fieldList: Flow.initial(Schema.Array(FieldEntry), []), // the `of:` list of `fields`, filled by the first read
+    lastFieldSaved: Flow.initial(Schema.NullOr(FieldName), null), // the "saved" badge (F17)
   },
   operations: ({ E }) => ({
     // A domain read: the store keeps the ticket coherent with the queue's copy. Its `value` fires only when the
@@ -104,6 +128,15 @@ export const Editor = definition({
         StorageRefused: E.SaveUnsure, // a persisted re-send whose lane-record capture failed (2.7.13)
       },
     }),
+    // The description fields and the body, one read. Its value fills the field list once and feeds the body.
+    details: ticketDetails.outcomes({
+      value: E.DetailsLoaded.from((d) => ({ fields: d.fields, body: d.body, etag: d.etag })),
+      failure: {
+        NoResponse: E.DetailsFailed,
+        Defect: E.DetailsFailed,
+        Interrupted: E.DetailsFailed,
+      },
+    }),
     // The ticket's stored files: a domain list the view reads. A finished upload joins it (the trait's `put` is a
     // domain write), so the view shows each file once: as a copy while it uploads, as a record once stored.
     files: AttachmentsDomain.files, // bare: the view reads the rows
@@ -120,6 +153,8 @@ export const Editor = definition({
   traits: {
     comments: Comments,
     uploads: AttachmentUpload.each({ of: "attachments", by: "ref", max: MAX_ATTACHMENTS }),
+    fields: Autosave.each({ of: "fieldList", by: "field", max: 3 }),
+    body: Body,
   },
 });
 

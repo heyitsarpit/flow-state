@@ -21,8 +21,11 @@ export const suggestReply = transaction({
   id: "DispatchDesk/suggest-reply",
   input: { workspaceId: Schema.String, ticketId: Schema.String, prompt: Schema.String },
   output: Reply,
-  key: ["workspaceId", "ticketId"], // one question per ticket at a time
-  concurrency: "reject", // one addressable Attempt (M6-D5): an Ask while one is held is refused
+  key: ["workspaceId", "ticketId"], // one reply per ticket at a time
+  // `cancel` (the desk's only one): a newer commit interrupts the Attempt on the wire, whose ending is then evidence
+  // (rule 17). That is Regenerate: nobody wants the old reply once a new one is asked for. The lane holds nothing
+  // beyond an ending's own turn (`HeldThisTurn`), so no handler has to release anything (O8).
+  concurrency: "cancel",
   progress: { text: Schema.String }, // the text so far; latest wins, so the commit accumulates
   commit: (input, { attempt, signal, progress }) =>
     Effect.gen(function* () {

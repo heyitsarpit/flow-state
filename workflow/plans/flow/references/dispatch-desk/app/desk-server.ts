@@ -21,6 +21,15 @@ import {
   StoredAttachment,
   TooLarge,
 } from "../features/Attachments/attachments-api.js";
+import { Breaks, Pulse } from "../features/Tickets/technicians/technicians-api.js";
+import {
+  BodyConflict,
+  FieldRejected,
+  HistoryEntry,
+  TicketDetails,
+  type FieldName,
+  type HistoryPage,
+} from "../features/Tickets/editor/details-api.js";
 import {
   CustomerRow,
   HasOpenTickets,
@@ -35,7 +44,7 @@ import {
   type RosterPage,
   type TechnicianKey,
 } from "../features/Roster/roster-api.js";
-import { Members, type Member } from "../features/Presence/presence-api.js";
+import { Members, type Member } from "../features/Presence/collab-sdk.js";
 import {
   ActivityEntry,
   AlreadyAssigned,
@@ -105,6 +114,10 @@ export const DeskTruth = Schema.Struct({
   customers: Schema.Array(CustomerRow),
   rosterLog: Schema.Array(RosterChange), // dense `seq` per server; the polling feed reads after a cursor
   rosterSeq: Schema.Int,
+  details: Schema.Record(Schema.String, TicketDetails), // "workspace/ticket" → its fields, body and etag
+  history: Schema.Record(Schema.String, Schema.Array(HistoryEntry)), // newest first
+  pulses: Schema.Record(Schema.String, Pulse), // "workspace/technician" → the phone's latest report
+  breaks: Schema.Record(Schema.String, Breaks), // workspace → who is on a break
   // One log for the server, filtered by workspace on read. A reset starts a new epoch at seq 1.
   epoch: Schema.Int,
   nextSeq: Schema.Int,
@@ -223,6 +236,30 @@ export const seed = (): DeskTruth => ({
   ],
   rosterLog: [],
   rosterSeq: 0,
+  details: {
+    "north/T-42": {
+      workspaceId: "north",
+      ticketId: "T-42",
+      fields: { summary: "Lobby light out", locationNote: "Above the front desk", accessCode: "" },
+      body: "The lobby ceiling light is out. Ladder needed.",
+      etag: "e1",
+    },
+  },
+  pulses: Object.fromEntries(
+    ["tech-ana", "tech-ben", "tech-cy", "tech-dee", "tech-eli"].map((id) => [
+      `north/${id}`,
+      { online: true, location: "Depot", battery: 80, reportedAt: 0 },
+    ]),
+  ),
+  breaks: { north: {} },
+  history: {
+    "north/T-42": Array.from({ length: 15 }, (_, n) => ({
+      entryId: `h-${15 - n}`,
+      at: 15 - n,
+      text: `Event ${15 - n}`,
+      pinned: false,
+    })),
+  },
   epoch: 1,
   nextSeq: 1,
   log: [],
@@ -479,6 +516,99 @@ export const assign = (
   );
 
   return [remember(next, idempotencyKey, row), ok({ ...row })];
+};
+
+// An assignment that may also be an unassignment (`assignee: null`). Someone else's ticket is refused (409);
+// toggling one's own back and forth is fine.
+export const setAssignee = (
+  truth: DeskTruth,
+  input: TicketKey & { assignee: string | null },
+  idempotencyKey: string,
+): Step<TicketRow, TicketNotFound | AlreadyAssigned> => {
+  const previous = truth.applied.tickets[idempotencyKey];
+
+  if (previous) return [truth, ok({ ...previous })];
+
+  const ticket = find(truth, input);
+
+  if (!ticket) return [truth, fail(new TicketNotFound({ ticketId: input.ticketId }))];
+
+  if (input.assignee !== null && ticket.assignee !== null && ticket.assignee !== input.assignee)
+    return [truth, fail(new AlreadyAssigned({ assignee: ticket.assignee }))];
+
+  const [next, row] = update(
+    truth,
+    ticket,
+    { assignee: input.assignee, status: input.assignee === null ? "open" : "assigned" },
+    input.assignee === null
+      ? `${ME} released ${input.ticketId}`
+      : `${input.assignee} took ${input.ticketId}`,
+  );
+
+  return [remember(next, idempotencyKey, row), ok({ ...row })];
+};
+
+// A batch of assignments, each answered on its own.
+export const assignBatch = (
+  truth: DeskTruth,
+  items: ReadonlyArray<{ input: TicketKey & { assignee: string | null }; idempotencyKey: string }>,
+) =>
+  items.reduce<readonly [DeskTruth, ReadonlyArray<AssignResultRow>]>(
+    ([current, results], item) => {
+      const [next, result] = setAssignee(current, item.input, item.idempotencyKey);
+
+      return [
+        next,
+        [
+          ...results,
+          result.ok
+            ? { status: 200 as const, ticket: result.value }
+            : result.error._tag === "AlreadyAssigned"
+              ? { status: 409 as const, assignee: result.error.assignee }
+              : { status: 404 as const, ticketId: item.input.ticketId },
+        ],
+      ];
+    },
+    [truth, []],
+  );
+
+type AssignResultRow =
+  | { status: 200; ticket: TicketRow }
+  | { status: 404; ticketId: string }
+  | { status: 409; assignee: string };
+
+// Close many tickets in one request. A ticket someone is working on is skipped, not refused: the answer lists every
+// ticket as it now is, so the client sees which ones closed.
+export const closeMany = (
+  truth: DeskTruth,
+  input: { workspaceId: string; tickets: ReadonlyArray<TicketKey> },
+  idempotencyKey: string,
+): Step<{ tickets: ReadonlyArray<TicketRow> }, never> => {
+  const previous = replayed<{ tickets: ReadonlyArray<TicketRow> }>(truth, idempotencyKey);
+
+  if (previous) return [truth, ok(previous)];
+
+  const [next, rows] = input.tickets.reduce<readonly [DeskTruth, ReadonlyArray<TicketRow>]>(
+    ([current, done], key) => {
+      const ticket = find(current, key);
+
+      if (!ticket) return [current, done];
+
+      if (ticket.status === "assigned") return [current, [...done, { ...ticket }]];
+
+      const [after, row] = update(
+        current,
+        ticket,
+        { status: "closed" },
+        `${ME} closed ${key.ticketId}`,
+      );
+
+      return [after, [...done, row]];
+    },
+    [truth, []],
+  );
+
+  return [rememberWrite(next, idempotencyKey, { tickets: rows }), ok({ tickets: rows })];
 };
 
 export const lock = (truth: DeskTruth, key: TicketKey, by: string): DeskTruth => ({
@@ -953,6 +1083,166 @@ export const removeFile = (
   const { [input.ref]: _removed, ...files } = truth.files;
 
   return [rememberWrite({ ...truth, files }, idempotencyKey, true), ok(undefined)];
+};
+
+// --- ticket details: fields, body, history -----------------------------------------------------
+
+export const HISTORY_PAGE_SIZE = 10;
+
+export const loadDetails = (truth: DeskTruth, key: TicketKey): TicketDetails =>
+  truth.details[keyOf(key)] ?? { ...key, fields: {}, body: "", etag: "e0" };
+
+const nextEtag = (etag: string) => `e${Number(etag.slice(1)) + 1}`;
+
+const putDetails = (truth: DeskTruth, details: TicketDetails): DeskTruth => ({
+  ...truth,
+  details: { ...truth.details, [keyOf(details)]: details },
+});
+
+// Last write wins on a short field; an access code is digits or nothing.
+export const saveField = (
+  truth: DeskTruth,
+  input: TicketKey & { field: FieldName; value: string },
+  idempotencyKey: string,
+): Step<TicketDetails, FieldRejected> => {
+  const previous = replayed<TicketDetails>(truth, idempotencyKey);
+
+  if (previous) return [truth, ok(previous)];
+
+  if (input.field === "accessCode" && !/^\d{0,6}$/.test(input.value))
+    return [truth, fail(new FieldRejected({ reason: "An access code is up to six digits" }))];
+
+  const current = loadDetails(truth, input);
+  const next = { ...current, fields: { ...current.fields, [input.field]: input.value } };
+
+  return [rememberWrite(putDetails(truth, next), idempotencyKey, next), ok(next)];
+};
+
+// `If-Match`: a stale etag is refused with what is there now (412).
+export const saveBody = (
+  truth: DeskTruth,
+  input: TicketKey & { body: string; ifMatch: string },
+  idempotencyKey: string,
+): Step<TicketDetails, BodyConflict> => {
+  const previous = replayed<TicketDetails>(truth, idempotencyKey);
+
+  if (previous) return [truth, ok(previous)];
+
+  const current = loadDetails(truth, input);
+
+  if (current.etag !== input.ifMatch)
+    return [truth, fail(new BodyConflict({ body: current.body, etag: current.etag }))];
+
+  const next = { ...current, body: input.body, etag: nextEtag(current.etag) };
+
+  return [rememberWrite(putDetails(truth, next), idempotencyKey, next), ok(next)];
+};
+
+export const editBodyElsewhere = (truth: DeskTruth, key: TicketKey, body: string): DeskTruth => {
+  const current = loadDetails(truth, key);
+
+  return putDetails(truth, { ...current, body, etag: nextEtag(current.etag) });
+};
+
+export const historyPage = (
+  truth: DeskTruth,
+  input: TicketKey & { before?: string },
+): HistoryPage => {
+  const all = truth.history[keyOf(input)] ?? [];
+  const start = input.before === undefined ? 0 : Number(input.before);
+  const entries = all.slice(start, start + HISTORY_PAGE_SIZE);
+
+  return start + HISTORY_PAGE_SIZE < all.length
+    ? { entries, older: String(start + HISTORY_PAGE_SIZE) }
+    : { entries };
+};
+
+export const pinNote = (
+  truth: DeskTruth,
+  input: TicketKey & { entryId: string; pinned: boolean },
+  idempotencyKey: string,
+): Step<HistoryEntry, never> => {
+  const previous = replayed<HistoryEntry>(truth, idempotencyKey);
+
+  if (previous) return [truth, ok(previous)];
+
+  const all = truth.history[keyOf(input)] ?? [];
+  const entries = all.map((entry) =>
+    entry.entryId === input.entryId ? { ...entry, pinned: input.pinned } : entry,
+  );
+  const entry = entries.find((e) => e.entryId === input.entryId) ?? {
+    entryId: input.entryId,
+    at: 0,
+    text: "",
+    pinned: input.pinned,
+  };
+
+  return [
+    rememberWrite(
+      { ...truth, history: { ...truth.history, [keyOf(input)]: entries } },
+      idempotencyKey,
+      entry,
+    ),
+    ok(entry),
+  ];
+};
+
+// --- technicians: pulses, breaks, dispatch ------------------------------------------------------
+
+export const pulseOf = (truth: DeskTruth, key: TechnicianKey): Pulse | undefined =>
+  truth.pulses[techKey(key)];
+
+export const reportPulse = (truth: DeskTruth, key: TechnicianKey, pulse: Pulse): DeskTruth => ({
+  ...truth,
+  pulses: { ...truth.pulses, [techKey(key)]: pulse },
+});
+
+export const breaksOf = (truth: DeskTruth, workspaceId: string): Breaks =>
+  truth.breaks[workspaceId] ?? {};
+
+export const setBreak = (
+  truth: DeskTruth,
+  input: TechnicianKey & { onBreak: boolean },
+  idempotencyKey: string,
+): Step<Breaks, never> => {
+  const previous = replayed<Breaks>(truth, idempotencyKey);
+
+  if (previous) return [truth, ok(previous)];
+
+  const breaks = { ...breaksOf(truth, input.workspaceId), [input.technicianId]: input.onBreak };
+
+  return [
+    rememberWrite(
+      { ...truth, breaks: { ...truth.breaks, [input.workspaceId]: breaks } },
+      idempotencyKey,
+      breaks,
+    ),
+    ok(breaks),
+  ];
+};
+
+// A ticket to a technician: the ticket is theirs, and they are busy. One write on two tables, as the server does it.
+export const dispatch = (
+  truth: DeskTruth,
+  input: TicketKey & { technicianId: string },
+  idempotencyKey: string,
+): Step<TicketRow, TicketNotFound | AlreadyAssigned> => {
+  const [assigned, result] = assign(
+    truth,
+    { ...input, assignee: input.technicianId },
+    idempotencyKey,
+  );
+
+  if (!result.ok) return [truth, result];
+
+  const found = findTech(assigned, input);
+
+  return [
+    found
+      ? saveTech(assigned, { ...found, status: "busy", revision: found.revision + 1 })
+      : assigned,
+    result,
+  ];
 };
 
 // --- the roster --------------------------------------------------------------------------------

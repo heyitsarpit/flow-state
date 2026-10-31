@@ -4,7 +4,10 @@
 // never decides what is definite and what is unknown. Live feeds are not here: they moved to
 // feed/desk-socket.ts.
 import { Context, type Effect } from "effect";
+import { Effect as E, Exit, Request, RequestResolver } from "effect";
 import type {
+  AssignResult,
+  ClosePage,
   ActivityPage,
   AlreadyAssigned,
   ArchiveRefused,
@@ -69,6 +72,16 @@ export class TicketApi extends Context.Service<
       input: NewTicket,
       options: Write,
     ) => Effect.Effect<TicketRow, TicketRejected | NoResponse | ServerError>;
+    // One ticket's assignee (or none). Each call is its own commit and Attempt; the adapter batches the calls of
+    // one moment into one request below the commit (`assignResolver`).
+    setAssignee: (
+      input: TicketKey & { assignee: string | null },
+      options: Write,
+    ) => Effect.Effect<TicketRow, TicketNotFound | AlreadyAssigned | NoResponse | ServerError>;
+    closeMany: (
+      input: { workspaceId: string; tickets: ReadonlyArray<TicketKey> },
+      options: Write,
+    ) => Effect.Effect<ClosePage, NoResponse | ServerError>;
     archive: (
       input: TicketKey,
       options: Write,
@@ -81,3 +94,60 @@ export class TicketApi extends Context.Service<
     ) => Effect.Effect<ActivityPage, NoResponse>;
   }
 >()("DispatchDesk/TicketApi") {}
+
+// Per-item results of a batch (MD 2.7.11). Each `setAssignee` is one commit with its own Attempt and lane; the
+// resolver waits a moment, sends every assignment that arrived in one request, and completes each entry from its own
+// item: one 409 among ten fails that one commit only. A lost request fails every entry with `NoResponse` (each
+// Attempt is then unknown on its own), a 5xx with `ServerError`. Shared by the HTTP adapter and the Story fake.
+class AssignRequest extends Request.TaggedClass("Assign")<
+  { readonly input: TicketKey & { assignee: string | null }; readonly idempotencyKey: string },
+  TicketRow,
+  TicketNotFound | AlreadyAssigned | NoResponse | ServerError
+> {}
+
+export const assignResolver = (
+  sendBatch: (
+    items: ReadonlyArray<{
+      input: TicketKey & { assignee: string | null };
+      idempotencyKey: string;
+    }>,
+  ) => Effect.Effect<ReadonlyArray<AssignResult>, NoResponse | ServerError>,
+  errors: {
+    gone: (ticketId: string) => TicketNotFound;
+    held: (assignee: string) => AlreadyAssigned;
+  },
+) => {
+  const resolver = RequestResolver.make<AssignRequest>((entries) =>
+    sendBatch(
+      entries.map(({ request }) => ({
+        input: request.input,
+        idempotencyKey: request.idempotencyKey,
+      })),
+    ).pipe(
+      E.matchEffect({
+        onFailure: (error) =>
+          E.sync(() => entries.forEach((entry) => entry.completeUnsafe(Exit.fail(error)))),
+        onSuccess: (items) =>
+          E.sync(() =>
+            entries.forEach((entry, index) => {
+              const item = items[index];
+
+              if (item === undefined)
+                return entry.completeUnsafe(Exit.fail(errors.gone(entry.request.input.ticketId)));
+
+              if (item.status === 404)
+                return entry.completeUnsafe(Exit.fail(errors.gone(item.ticketId)));
+
+              if (item.status === 409)
+                return entry.completeUnsafe(Exit.fail(errors.held(item.assignee)));
+
+              return entry.completeUnsafe(Exit.succeed(item.ticket));
+            }),
+          ),
+      }),
+    ),
+  ).pipe(RequestResolver.setDelay("10 millis"));
+
+  return (input: TicketKey & { assignee: string | null }, idempotencyKey: string) =>
+    E.request(new AssignRequest({ input, idempotencyKey }), resolver);
+};

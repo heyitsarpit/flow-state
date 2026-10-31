@@ -8,7 +8,7 @@
 // Stories (queue.bulk.story.ts); the technician panel's in technicians/technicians.story.ts.
 import { Story } from "flow-state/testing";
 import { Desk, DeskClient } from "../../../testing/desk.fake.js";
-import { MAX_ASSIGN_RESENDS, Queue } from "./queue.definition.js";
+import { Queue } from "./queue.definition.js";
 import { QueueMachine } from "./queue.machine.js";
 
 const { E } = Queue;
@@ -26,12 +26,18 @@ export const queue = (id: string, world: ReadonlyArray<unknown> = []) =>
 
 export const key = (ticketId: string) => ({ workspaceId: "north", ticketId });
 
+// A row's assign toggle: the row's own copy (`toggles`), addressed by its key (rule 9).
+export const toggle = (ticketId: string, assignee: string | null = "dispatcher-7") =>
+  E.toggles.key(ticketId).Toggle({ assignee });
+
 // "Lobby " and "lobby" are one key because the queue lowercases and trims before it builds the input, so the
 // second search reuses the cached page: the endpoint's log has the first load and one search lookup.
 export const searched = queue("queue/search-key")
   .send(E.SearchChanged({ search: "Lobby " }))
   .send(E.SearchChanged({ search: "lobby" }))
   .send(E.SearchChanged({ search: "  LOBBY" }))
+  .checkpoint("typing")
+  .advance("300 millis") // the debounce (S1): three edits, one applied search
   .checkpoint("searched");
 
 // "Mine only" reads the session's user as a list parameter: toggling it replaces the subscription by key.
@@ -72,12 +78,14 @@ export const filtered = queue("queue/triage")
 // Assigning from the "Unassigned" tab predicts `assignee`, so the ticket no longer meets `isNull(assignee)`: it
 // leaves the list in the starting turn's publication, before the server answers (E4), and the "mine" filter
 // would hold it. The answer then confirms it; nothing is read again to make it leave.
-export const leftUnassigned = queue("queue/left-unassigned", [Desk.assign.hold({ at: "response" })])
+export const leftUnassigned = queue("queue/left-unassigned", [
+  Desk.assignBatch.hold({ at: "response" }),
+])
   .send(E.TabChosen({ tab: "unassigned" }))
   .checkpoint("unassigned")
-  .send(E.AssignToMe({ ticketId: "T-43" }))
+  .send(toggle("T-43"))
   .checkpoint("left-unassigned")
-  .world(Desk.assign.release())
+  .world(Desk.assignBatch.release())
   .checkpoint("confirmed");
 
 // The predicted assignee replays over a new base (E11): another dispatcher lowers T-43's priority while the
@@ -85,13 +93,13 @@ export const leftUnassigned = queue("queue/left-unassigned", [Desk.assign.hold({
 // still-predicted assignee. `checkReplays` (on in every Story) runs each predicted field function twice over the
 // new base and fails the run if they disagree.
 export const replayedOverPush = queue("queue/replayed-over-push", [
-  Desk.assign.hold({ at: "response" }),
+  Desk.assignBatch.hold({ at: "response" }),
 ])
-  .send(E.AssignToMe({ ticketId: "T-43" }))
+  .send(toggle("T-43"))
   .world(Desk.changeElsewhere({ ...key("T-43"), priority: 0 }))
   .advance({ next: { schedule: "poll" } })
   .checkpoint("replayed-over-push")
-  .world(Desk.assign.release())
+  .world(Desk.assignBatch.release())
   .checkpoint("settled");
 
 // A new ticket: shown as a draft until a list holds the server's id (rule 33), never twice. The create holds no
@@ -113,51 +121,40 @@ export const archived = queue("queue/archived", [Desk.archiveTicket.hold({ at: "
   .world(Desk.archiveTicket.release())
   .checkpoint("archived");
 
-// Assigning an open ticket: the row shows the assignee at once (predicted), the lane says it is on the wire, and
-// the "open" count repairs when the answer lands because status and assignee are condition fields.
-export const assigned = queue("queue/assign", [Desk.assign.hold({ at: "response" })]) // handled, the answer waits
-  .send(E.AssignToMe({ ticketId: "T-43" }))
+// A row's toggle: assign, release, assign. The first is on the wire; the release is queued behind it, then the
+// third tap REPLACES it before it was ever sent (`latest`, `Superseded`): two requests, and never the release (O4).
+// The row shows the assignee at once (predicted), and the "open" count repairs when the answers land, because
+// status and assignee are condition fields.
+export const toggled = queue("queue/toggled", [Desk.assignBatch.hold({ at: "response" })])
+  .send(toggle("T-43"))
   .checkpoint("assigning")
-  .send(E.AssignToMe({ ticketId: "T-43" })) // a second press on the same row
-  .checkpoint("second-press")
-  .world(Desk.assign.release())
+  .send(toggle("T-43", null), toggle("T-43"))
+  .checkpoint("toggled")
+  .world(Desk.assignBatch.release())
   .checkpoint("assigned");
 
-// Two rows at once are two lanes: each shows its own "Assigning…", and each ending is its own. One answer is lost
-// on the way back, so only that row says "?" and the other settles.
-export const assignedMany = queue("queue/assign-many", [
-  // The drop is set first: a request takes the earliest-set rule that matches (2.10.4). The address is the lane's
-  // `operation` and `key` (rule 65).
-  Desk.assign.drop({
-    at: "response",
-    match: { operation: Queue.O.assign, key: key("T-101") },
-    times: 1,
-  }),
-  Desk.assign.hold({ at: "response" }),
+// A tap while the row's assignment is unsure waits behind the hold (O5). The first answer is lost; the copy asks
+// again with the same Attempt at once, and that re-send is held: the lane is still the first Attempt's, so the
+// next tap queues and is sent only after the re-send answers.
+export const toggledWhileUnsure = queue("queue/toggled-while-unsure", [
+  Desk.assignBatch.drop({ at: "response", times: 1 }), // set first: a request takes the earliest-set rule (2.10.4)
+  Desk.assignBatch.hold({ at: "response" }),
 ])
-  .send(E.AssignToMe({ ticketId: "T-43" }), E.AssignToMe({ ticketId: "T-101" }))
-  .checkpoint("both-on-the-wire")
-  .world(Desk.assign.release())
-  .checkpoint("one-unsure");
+  .send(toggle("T-43"))
+  .send(toggle("T-43", null))
+  .checkpoint("toggled-while-unsure")
+  .world(Desk.assignBatch.release())
+  .checkpoint("caught-up");
 
-// Nothing ever answers T-43: `reconcile` re-sends the same Attempt (the server dedupes on its id) until the
-// budget is spent, then the hold is released and the notice says the queue could not confirm it.
-export const assignUnsure = Array.from({ length: MAX_ASSIGN_RESENDS })
-  .reduce<ReturnType<typeof queue>>(
-    (story) => story.advance({ next: { schedule: "reconcile" } }),
-    queue("queue/assign-unsure", [Desk.assign.drop({ at: "response", times: "always" })])
-      .send(E.AssignToMe({ ticketId: "T-43" }))
-      .checkpoint("unsure"),
-  )
-  .checkpoint("gave-up");
-
-// Somebody else took T-43 first: a definite 409. The prediction goes without a repair of its own, the notice
-// names the holder, and the list is read again.
-export const alreadyAssigned = queue("queue/already-assigned", [
-  Desk.changeElsewhere({ ...key("T-43"), status: "assigned", assignee: "dispatcher-2" }),
+// Two rows at once are two lanes, two commits and two Attempts, sent as ONE request: the adapter's `RequestResolver`
+// batches below the commit and completes each from its own item (O19, O2). T-43 is free; T-42 is someone else's, so
+// only T-42's copy hears 409 (`bulk-partly-failed`), and only its prediction goes.
+export const bulkAssigned = queue("queue/bulk-assigned", [
+  Desk.changeElsewhere({ ...key("T-42"), assignee: "dispatcher-2" }),
 ])
-  .send(E.AssignToMe({ ticketId: "T-43" }))
-  .checkpoint("conflict");
+  .send(toggle("T-43"), toggle("T-42"))
+  .advance("10 millis") // the resolver's window
+  .checkpoint("bulk-partly-failed");
 
 // "A, B, A" through the queue's own filling: a post held for A while the drawer previews B is parked, B's thread is
 // separate, and previewing A again adopts A's ending (the Comments Story walks the same cell alone).

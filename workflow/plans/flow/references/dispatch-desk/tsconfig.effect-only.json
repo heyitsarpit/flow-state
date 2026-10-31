@@ -12,9 +12,11 @@
     "features/Tickets/feed/desk-socket.ts",
     "features/Comments/comments-api.ts",
     "features/Attachments/attachments-api.ts",
-    "features/Presence/presence-api.ts",
+    "features/Presence/collab-sdk.ts",
     "features/Assistant/assistant-api.ts",
     "features/Roster/roster-api.ts",
+    "features/Tickets/editor/details-api.ts",
+    "features/Tickets/technicians/technicians-api.ts",
     "app/desk-server.ts",
     "app/demo-api.ts",
     "next/http-api.ts"

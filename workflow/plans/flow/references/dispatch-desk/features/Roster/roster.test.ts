@@ -21,6 +21,7 @@ import {
   movedTeam,
   North,
   notAdmin,
+  onlineDots,
   rebuilt,
   removeRefused,
   renameUnsure,
@@ -224,4 +225,12 @@ storyTest(rosterHydrated, ({ at }) => {
     expect.objectContaining({ code: "DehydrateCommitInFlight" }),
   );
   expect(at.hydrated.read(Desk.rosterChanges).some((r) => r.via.tab.name === "server")).toBe(true);
+});
+
+// pending merge 6
+storyTest(onlineDots, ({ at }) => {
+  const roster = at["ana-online"].read(North);
+  expect(roster?.operations.online).toHaveLength(3); // one session per technician on the page (Ana, Ben, Eli)
+  expect(O.online.get(roster, ws(ana))?.value).toBe(true);
+  expect(O.online.get(roster, ws({ technicianId: "tech-ben" }))?.value).toBe(false);
 });

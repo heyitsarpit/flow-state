@@ -6,7 +6,8 @@
 // requests supply the authenticated token. Tokens never enter actor memory, dehydrated payloads or
 // a URL, so the sockets (opened in the browser only) rely on the cookie.
 //
-// Pending merge 6: the socket, presence and assistant ports (M6 4.1, 4.2, 4.4).
+// Pending merge 6: the socket and assistant ports (M6 4.1, 4.4). Presence is not here: it is a collaboration SDK's
+// client (next/collab.ts), not an HTTP port.
 import { Effect, Layer, Schema, Stream } from "effect";
 import { Socket } from "effect/socket";
 import {
@@ -27,12 +28,13 @@ import {
   type CommentKey,
 } from "../features/Comments/comments-api.js";
 import { AssistantApi, Refused, SuggestFrame } from "../features/Assistant/assistant-api.js";
-import { PresenceApi, PresenceFrame } from "../features/Presence/presence-api.js";
 import { closedWith, DeskSocket, decodeFrame } from "../features/Tickets/feed/desk-socket.js";
-import { TicketApi } from "../features/Tickets/ticket-api.js";
+import { assignResolver, TicketApi } from "../features/Tickets/ticket-api.js";
 import {
   ActivityPage,
   AlreadyAssigned,
+  AssignResult,
+  ClosePage,
   ArchiveRefused,
   TicketRejected,
   NoResponse,
@@ -122,6 +124,29 @@ export const HttpDeskApi = (token?: string, origin = "http://localhost:3000") =>
     `/api/workspaces/${encodeURIComponent(key.workspaceId)}/tickets/${encodeURIComponent(key.ticketId)}`;
 
   const missing = (key: TicketKey) => Effect.fail(new TicketNotFound({ ticketId: key.ticketId }));
+
+  // Assignments, batched below the commit: one `POST …/tickets:assign` for every assignment of one moment, each
+  // item answered on its own (ticket-api.ts `assignResolver`). The batch is sent on the resolver's own fiber, so
+  // it takes no caller's signal.
+  const assignBatched = assignResolver(
+    (items) =>
+      Effect.gen(function* () {
+        const workspaceId = items[0]?.input.workspaceId ?? "";
+        const response = yield* request(
+          `/api/workspaces/${encodeURIComponent(workspaceId)}/tickets:assign`,
+          {
+            signal: new AbortController().signal,
+            body: { items },
+          },
+        );
+
+        return yield* body(Schema.Array(AssignResult), response);
+      }),
+    {
+      gone: (ticketId) => new TicketNotFound({ ticketId }),
+      held: (assignee) => new AlreadyAssigned({ assignee }),
+    },
+  );
 
   const tickets = TicketApi.of({
     // Reads fail `NoResponse` when `fetch` rejects or the server answers 5xx: either way nothing came back
@@ -239,6 +264,20 @@ export const HttpDeskApi = (token?: string, origin = "http://localhost:3000") =>
         );
 
         return yield* readBody(TicketPage, response);
+      }),
+    setAssignee: (input, { idempotencyKey }) => assignBatched(input, idempotencyKey),
+    closeMany: ({ workspaceId, tickets }, { idempotencyKey, signal }) =>
+      Effect.gen(function* () {
+        const response = yield* request(
+          `/api/workspaces/${encodeURIComponent(workspaceId)}/tickets:close`,
+          {
+            signal,
+            idempotencyKey,
+            body: { tickets },
+          },
+        );
+
+        return yield* body(ClosePage, response);
       }),
     byCustomer: ({ workspaceId, customerId }, { signal }) =>
       Effect.gen(function* () {
@@ -523,17 +562,6 @@ export const HttpDeskApi = (token?: string, origin = "http://localhost:3000") =>
       ),
   });
 
-  const presence = PresenceApi.of({
-    frames: (key) =>
-      socketText(`${ticketPath(key)}/presence`, {}).pipe(
-        Stream.mapEffect((text) =>
-          Schema.decodeUnknownEffect(Schema.fromJsonString(PresenceFrame))(text).pipe(
-            Effect.mapError(() => new SocketDropped({ why: "BadFrame" })),
-          ),
-        ),
-      ),
-  });
-
   // The body is NDJSON, one frame per line. Back-pressure comes from pulling the ReadableStream.
   // An unreadable line is a broken body, the same as a dropped connection.
   const assistant = AssistantApi.of({
@@ -577,7 +605,6 @@ export const HttpDeskApi = (token?: string, origin = "http://localhost:3000") =>
     Layer.succeed(CommentsApi, comments),
     Layer.succeed(AttachmentsApi, attachments),
     Layer.succeed(DeskSocket, socket),
-    Layer.succeed(PresenceApi, presence),
     Layer.succeed(AssistantApi, assistant),
     PendingFilesLive,
   );

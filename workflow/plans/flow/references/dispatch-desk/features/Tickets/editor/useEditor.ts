@@ -19,6 +19,7 @@ export function useEditor(ticket: TicketKey) {
 
   return {
     editor,
+    ticket,
     rename: (title: string) => editor.send(E.TitleChanged({ title })),
     save: () => editor.send(E.SaveRequested()),
     cancel: () => editor.send(E.CancelSave()),
@@ -42,6 +43,13 @@ export function useEditor(ticket: TicketKey) {
     },
     // The row's Cancel button: an event for one copy (`E.<instance>.key(k).<Event>`).
     cancelUpload: (ref: string) => editor.send(E.uploads.key(ref).Cancel()),
+
+    // A description field's keystroke goes to its copy's nested Field (rule 9's `key`, rule 10's path).
+    typeField: (field: "summary" | "locationNote" | "accessCode", value: string) =>
+      editor.send(E.fields.key(field).check.Changed({ value })),
+    editBody: (body: string) => editor.send(E.body.Edited({ body })),
+    keepMine: () => editor.send(E.body.KeepMine()),
+    takeTheirs: () => editor.send(E.body.TakeTheirs()),
 
     // The comments thread's events, for `CommentsPanel`: it sends to the host's namespace (rule 2).
     comments: E.comments,

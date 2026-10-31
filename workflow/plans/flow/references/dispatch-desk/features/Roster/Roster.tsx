@@ -97,13 +97,15 @@ function RosterRow({
     Technician.get(s, key, Technician.pick("name", "teamId", "skills")),
   );
   const rename = useView(roster, (s) => O.rename.get(s, key));
+  const online = useView(roster, (s) => O.online.get(s, key)?.value === true); // pending merge 6
   const removable = useView(roster, (s) => check(s, E.Remove(key)));
 
   if (tech.data === undefined) return null; // removed, as every screen sees it
 
   return (
     <li style={{ opacity: tech.predicted ? 0.6 : 1 }}>
-      {tech.data.name} · {tech.data.teamId ?? "unplaced"} · {tech.data.skills.join(", ")}
+      <span aria-label={online ? "online" : "offline"}>{online ? "●" : "○"}</span> {tech.data.name}{" "}
+      · {tech.data.teamId ?? "unplaced"} · {tech.data.skills.join(", ")}
       {rename.uncertain && (
         <>
           <button onClick={() => roster.send(E.RetryRename(key))}>Retry rename?</button>

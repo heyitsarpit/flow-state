@@ -105,6 +105,28 @@ export const EditorMachine = machine(Editor, ({ S, E, O }) => {
         input: ({ memory }) => ({ workspaceId: memory.workspaceId, ticketId: memory.ticketId }),
         callbacks: { onTicketGone: S.CLOSED },
       },
+      // One filling for every field copy (rule 9): `item` is the field's entry. `onSaved` feeds the badge (F17).
+      fields: {
+        input: ({ memory, item }) => ({
+          workspaceId: memory.workspaceId,
+          ticketId: memory.ticketId,
+          field: item.field,
+          saved: item.saved,
+        }),
+        callbacks: {
+          onSaved: { updateMemory: ({ payload }) => ({ lastFieldSaved: payload.field }) },
+        },
+      },
+      body: {
+        input: ({ memory }) => ({ workspaceId: memory.workspaceId, ticketId: memory.ticketId }),
+        callbacks: {
+          onConflict: {
+            updateMemory: () => ({
+              error: "Someone else changed the description. Compare and choose.",
+            }),
+          },
+        },
+      },
       uploads: {
         input: ({ memory, item }) => ({
           workspaceId: memory.workspaceId,
@@ -145,7 +167,25 @@ export const EditorMachine = machine(Editor, ({ S, E, O }) => {
     states: {
       OPEN: {
         default: S.OPEN.EDITING,
-        activities: [O.ticket.subscribe(ticketKey), O.files.subscribe(ticketKey)],
+        activities: [
+          O.ticket.subscribe(ticketKey),
+          O.files.subscribe(ticketKey),
+          O.details.subscribe(ticketKey),
+        ],
+        schedules: {
+          // One debounce per dirty field (a keyed schedule, S2): armed when a field first differs from what the
+          // server holds, restarted by every change of that field's text, cancelled when it is clean again.
+          settle: {
+            keys: ({ memory }) =>
+              memory.fields
+                .filter((copy) => copy.check.value !== copy.saved)
+                .map((copy) => ({ field: copy.key })),
+            restartOn: ({ key, memory }) =>
+              memory.fields.find((copy) => copy.key === key.field)?.check.value,
+            schedule: "800 millis",
+            send: E.FieldSettled.from(({ key }) => ({ field: key.field })),
+          },
+        },
         on: {
           // The hold. The request may have landed. Current (from SAVING) or adopted (default leaf EDITING), go where
           // it is reconciled. A late one after Close reaches the root and stays put.
@@ -157,6 +197,43 @@ export const EditorMachine = machine(Editor, ({ S, E, O }) => {
               memory.draft === memory.saved
                 ? { saved: event.title, draft: event.title }
                 : { saved: event.title },
+          },
+          // The first answer makes the copies (membership is host data, rule 9); later ones only feed the body.
+          DetailsLoaded: [
+            {
+              target: "self",
+              guard: [({ memory }) => memory.fieldList.length === 0 || deny("AlreadyListed")],
+              updateMemory: ({ event }) => ({
+                fieldList: [
+                  {
+                    field: "summary" as const,
+                    label: "Summary",
+                    saved: event.fields.summary ?? "",
+                  },
+                  {
+                    field: "locationNote" as const,
+                    label: "Where",
+                    saved: event.fields.locationNote ?? "",
+                  },
+                  {
+                    field: "accessCode" as const,
+                    label: "Access code",
+                    saved: event.fields.accessCode ?? "",
+                  },
+                ],
+              }),
+              raise: [E.body.Loaded.from(({ event }) => ({ body: event.body, etag: event.etag }))],
+            },
+            {
+              target: "self",
+              raise: [E.body.Loaded.from(({ event }) => ({ body: event.body, etag: event.etag }))],
+            },
+          ],
+          DetailsFailed: { target: "self" }, // the fields keep what they had; Refresh asks again
+          // A field settled: tell its copy to send what it holds. A raise into a copy puts the key in the payload.
+          FieldSettled: {
+            target: "self",
+            raise: [E.fields.Flush.from(({ event }) => ({ key: event.field }))],
           },
           TicketGone: {
             target: S.CLOSED,

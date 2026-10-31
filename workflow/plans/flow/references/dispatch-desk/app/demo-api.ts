@@ -12,7 +12,14 @@ import {
 } from "../features/Attachments/attachments-api.js";
 import { CommentsApi } from "../features/Comments/comments-api.js";
 import { AssistantApi, Refused, type SuggestFrame } from "../features/Assistant/assistant-api.js";
-import { PresenceApi, type Member, type PresenceFrame } from "../features/Presence/presence-api.js";
+import {
+  CollabClient,
+  type ChannelStatus,
+  type CollabChannel,
+  type Member,
+  type Members,
+  type Typing,
+} from "../features/Presence/collab-sdk.js";
 import { DeskSocket, type DeskFrame } from "../features/Tickets/feed/desk-socket.js";
 import { TicketApi } from "../features/Tickets/ticket-api.js";
 import type { Cursor, TicketNotFound, TicketKey, TicketRow } from "../features/Tickets/types.js";
@@ -52,7 +59,7 @@ export class DemoServer extends Context.Service<
     comments: typeof CommentsApi.Service;
     attachments: typeof AttachmentsApi.Service;
     socket: typeof DeskSocket.Service;
-    presence: typeof PresenceApi.Service;
+    collab: typeof CollabClient.Service;
     assistant: typeof AssistantApi.Service;
     // Controls: another dispatcher, the server's log, a lock someone else holds.
     externalSave: (
@@ -74,7 +81,6 @@ const DemoServerLive = Layer.effect(
   DemoServer,
   Effect.gen(function* () {
     const pushes = yield* PubSub.unbounded<Pushed<DeskFrame>>();
-    const presence = yield* PubSub.unbounded<{ key: string; frame: PresenceFrame }>();
     let truth = Desk.seed();
 
     // Applies one pure step to the shared truth, then pushes whatever it appended to the log.
@@ -112,6 +118,10 @@ const DemoServerLive = Layer.effect(
       unassigned: (input) => Effect.sync(() => Desk.listUnassigned(truth, input)),
       triage: (input) => Effect.sync(() => Desk.listTriage(truth, input)),
       byCustomer: (input) => Effect.sync(() => Desk.ticketsOfCustomer(truth, input)),
+      setAssignee: (input, { idempotencyKey }) =>
+        write((current) => Desk.setAssignee(current, input, idempotencyKey)),
+      closeMany: (input, { idempotencyKey }) =>
+        write((current) => Desk.closeMany(current, input, idempotencyKey)),
       create: (input, { idempotencyKey }) =>
         write((current) => Desk.createTicket(current, input, idempotencyKey)),
       archive: (input, { idempotencyKey }) =>
@@ -185,26 +195,46 @@ const DemoServerLive = Layer.effect(
         ),
     });
 
-    // A fresh `presence_state` on every join, then diffs for this ticket only.
-    const presenceApi = PresenceApi.of({
-      frames: (key) =>
-        Stream.unwrap(
-          Effect.gen(function* () {
-            const subscription = yield* PubSub.subscribe(presence);
-            const state: PresenceFrame = {
-              t: "presence_state",
-              members: Desk.viewersOf(truth, key),
-            };
+    // The collaboration SDK, in memory: a channel per ticket, always attached, members from the server's viewers.
+    // Typing is not simulated. The real client is next/collab.ts.
+    const channels = new Map<string, Set<(members: Members) => void>>();
+    const collab = CollabClient.of({
+      acquire: (name): CollabChannel => {
+        const listeners = channels.get(name) ?? new Set();
+        channels.set(name, listeners);
+        const [, workspaceId, ticketId] = name.split(":");
 
-            const diffs = Stream.fromSubscription(subscription).pipe(
-              Stream.filter((pushed) => pushed.key === Desk.keyOf(key)),
-              Stream.map((pushed) => pushed.frame),
-            );
+        return {
+          onStatus: (listener: (status: ChannelStatus) => void) => {
+            queueMicrotask(() => listener({ state: "attached", resumed: false }));
 
-            return Stream.make(state).pipe(Stream.concat(diffs));
-          }),
-        ),
+            return () => {};
+          },
+          presence: {
+            subscribe: (listener) => {
+              listeners.add(listener);
+              queueMicrotask(() =>
+                listener(Desk.viewersOf(truth, { workspaceId: workspaceId!, ticketId: ticketId! })),
+              );
+
+              return () => listeners.delete(listener);
+            },
+            enter: () => Promise.resolve(),
+            leave: () => Promise.resolve(),
+          },
+          subscribe: (_event: "typing", _listener: (message: Typing) => Promise<void>) => () => {},
+          publish: () => Promise.resolve(),
+        };
+      },
+      release: () => {},
     });
+
+    const announce = (key: TicketKey) =>
+      Effect.sync(() => {
+        for (const listener of channels.get(`ticket:${key.workspaceId}:${key.ticketId}`) ?? []) {
+          listener(Desk.viewersOf(truth, key));
+        }
+      });
 
     // Tokens at 100 ms, then `done`. An unknown ticket is refused before any body.
     const assistant = AssistantApi.of({
@@ -230,7 +260,7 @@ const DemoServerLive = Layer.effect(
       comments,
       attachments,
       socket,
-      presence: presenceApi,
+      collab,
       assistant,
       externalSave: (key, patch) =>
         write((current) => Desk.changeElsewhere(current, key, patch, "dispatcher-2")),
@@ -242,23 +272,15 @@ const DemoServerLive = Layer.effect(
       retain: (count) => change((current) => Desk.retain(current, count)),
       viewerJoins: (key, member) =>
         Effect.suspend(() => {
-          const [next, diff] = Desk.join(truth, key, member);
-          truth = next;
+          truth = Desk.join(truth, key, member)[0];
 
-          return PubSub.publish(presence, {
-            key: Desk.keyOf(key),
-            frame: { t: "presence_diff", ...diff },
-          }).pipe(Effect.asVoid);
+          return announce(key);
         }),
       viewerLeaves: (key, memberId) =>
         Effect.suspend(() => {
-          const [next, diff] = Desk.leave(truth, key, memberId);
-          truth = next;
+          truth = Desk.leave(truth, key, memberId)[0];
 
-          return PubSub.publish(presence, {
-            key: Desk.keyOf(key),
-            frame: { t: "presence_diff", ...diff },
-          }).pipe(Effect.asVoid);
+          return announce(key);
         }),
     });
   }),
@@ -283,8 +305,8 @@ export const DemoDeskApi = Layer.mergeAll(
     DemoServer.useSync((server) => server.socket),
   ),
   Layer.effect(
-    PresenceApi,
-    DemoServer.useSync((server) => server.presence),
+    CollabClient,
+    DemoServer.useSync((server) => server.collab),
   ),
   Layer.effect(
     AssistantApi,

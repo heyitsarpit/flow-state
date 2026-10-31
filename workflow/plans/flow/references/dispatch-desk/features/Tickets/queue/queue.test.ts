@@ -7,11 +7,8 @@ import { Desk } from "../../../testing/desk.fake.js";
 import { Ticket } from "../ticket.domain.js";
 import { Queue } from "./queue.definition.js";
 import {
-  alreadyAssigned,
   archived,
-  assigned,
-  assignedMany,
-  assignUnsure,
+  bulkAssigned,
   created,
   degraded,
   filtered,
@@ -22,9 +19,12 @@ import {
   previewABA,
   replayedOverPush,
   searched,
+  toggled,
+  toggledWhileUnsure,
 } from "./queue.story.js";
+import { AssignToggle } from "./assign-toggle.trait.js";
 
-const { S, O } = Queue;
+const { S } = Queue;
 
 // Ticket ids on every loaded page of a paged answer.
 const ids = (
@@ -32,6 +32,7 @@ const ids = (
 ) => lane?.data?.flatMap((page) => page.tickets.map((ticket) => ticket.ticketId)) ?? [];
 
 storyTest(searched, ({ at }) => {
+  expect(at.typing.read(Desk.list)).toHaveLength(1); // nothing applied yet: the debounce waits for a pause
   expect(at.searched.read(Desk.list)).toMatchObject([
     { input: { search: undefined }, phase: "answered" },
     { input: { search: "lobby" }, phase: "answered" },
@@ -76,7 +77,7 @@ storyTest(leftUnassigned, ({ at }) => {
   expect(ids(at.unassigned.operations.unassigned)).toContain("T-43");
   // Gone from the list in the starting turn's publication, while the request is still on the wire (E4).
   expect(ids(at["left-unassigned"].operations.unassigned)).not.toContain("T-43");
-  expect(O.assign.get(at["left-unassigned"], key("T-43")).pending).toBe(true);
+  expect(AssignToggle.O.set.get(at["left-unassigned"], key("T-43")).pending).toBe(true);
   expect(at["left-unassigned"].read(Story.entity(Ticket, key("T-43")))).toMatchObject({
     data: { assignee: "dispatcher-7" },
     predicted: true,
@@ -115,56 +116,46 @@ storyTest(archived, ({ at }) => {
   expect(at.archived.memory.notice).toBe("dispatcher-7 is working on it");
 });
 
-storyTest(assigned, ({ at }) => {
-  expect(at.assigning.operations.assign).toMatchObject([{ key: key("T-43"), pending: true }]);
+storyTest(toggled, ({ at }) => {
   expect(at.assigning.read(Story.entity(Ticket, key("T-43")))).toMatchObject({
     data: { assignee: "dispatcher-7", status: "assigned" },
     predicted: true,
   });
-  expect(at["second-press"].read(Story.records("verdict"))).toMatchObject([
-    { result: { _tag: "Allowed" } },
-    { result: { _tag: "Denied", reasons: [{ code: "InFlight" }] } },
-  ]);
-  expect(at.assigned.operations.assign).toEqual([]); // the lane held nothing, so it is gone
-  expect(at.assigned.read(Desk.assign)).toMatchObject([
-    {
-      input: { ticketId: "T-43", key: at.assigned.read(Story.attempt(O.assign)) },
-      phase: "answered",
-    },
-  ]);
+  // The toggle's lane is the copy's: one on the wire, one waiting, the middle tap replaced before it was sent.
+  expect(AssignToggle.O.set.get(at.toggled, key("T-43"))).toMatchObject({
+    pending: true,
+    waiting: true,
+  });
+  expect(at.toggled.read(Story.records("lane", { operation: AssignToggle.O.set }))).toContainEqual(
+    expect.objectContaining({ cell: expect.objectContaining({ evidence: "Superseded" }) }),
+  );
+  const sent = at.assigned
+    .read(Desk.assignBatch)
+    .flatMap((r) => r.input.items.map((i) => i.input.assignee));
+  expect(sent).toEqual(["dispatcher-7", "dispatcher-7"]); // never the release
   expect(at.assigned.read(Desk.openCount)).toHaveLength(2); // the first read, then the repair
 });
 
-storyTest(assignedMany, ({ at }) => {
-  expect(at["both-on-the-wire"].operations.assign).toMatchObject([
-    { key: key("T-43"), pending: true },
-    { key: key("T-101"), pending: true },
-  ]);
-  expect(at["one-unsure"].operations.assign).toMatchObject([
-    { key: key("T-101"), uncertain: true },
-  ]);
-  expect(at["one-unsure"].read(Story.entity(Ticket, key("T-101")))?.uncertain).toBe(true);
+storyTest(toggledWhileUnsure, ({ at }) => {
+  expect(AssignToggle.O.set.get(at["toggled-while-unsure"], key("T-43"))).toMatchObject({
+    pending: true,
+    retryCount: 1,
+    waiting: true,
+  });
+  expect(at["caught-up"].read(Story.entity(Ticket, key("T-43")))?.data.assignee).toBeNull(); // the waiting tap won
 });
 
-storyTest(assignUnsure, ({ at }) => {
-  expect(at.unsure.operations.assign).toMatchObject([
-    { key: key("T-43"), uncertain: true, retryCount: 0 },
-  ]);
-  expect(at["gave-up"].memory.notice).toBe("We couldn't confirm that assignment");
-  expect(at["gave-up"].operations.assign).toEqual([]); // released: no lane
-  const attempt = at["gave-up"].read(Story.attempt(O.assign));
-  expect(at["gave-up"].read(Desk.assign).map((r) => r.input.key)).toEqual([
-    attempt,
-    attempt,
-    attempt,
-    attempt,
-  ]);
-});
-
-storyTest(alreadyAssigned, ({ at }) => {
-  expect(at.conflict.memory.notice).toBe("Already assigned to dispatcher-2");
-  expect(at.conflict.read(Story.entity(Ticket, key("T-43")))?.data.assignee).toBe("dispatcher-2");
-  expect(at.conflict.read(Desk.list)).toHaveLength(2); // the refetch
+storyTest(bulkAssigned, ({ at }) => {
+  const cut = at["bulk-partly-failed"];
+  expect(cut.read(Desk.assignBatch)).toHaveLength(1); // two commits, one request
+  expect(cut.read(Desk.assignBatch)[0]?.via.attempts).toHaveLength(2); // a batched request carries both Attempts
+  expect(cut.memory.toggles.find((copy) => copy.key === "T-42")).toMatchObject({ problem: "held" });
+  expect(cut.memory.notice).toBe("T-42 is with dispatcher-2");
+  expect(cut.read(Story.entity(Ticket, key("T-43")))).toMatchObject({
+    data: { assignee: "dispatcher-7" },
+    predicted: false,
+  });
+  expect(cut.read(Story.entity(Ticket, key("T-42")))?.data.assignee).toBe("dispatcher-2"); // its prediction removed
 });
 
 storyTest(previewABA, ({ at }) => {

@@ -10,6 +10,7 @@
 import { Schema } from "effect";
 import { definition, Flow } from "flow-state";
 import { Session } from "../Session/session.definition.js";
+import { technicianOnline } from "../Presence/presence.contracts.js";
 import { TicketsDomain } from "../Tickets/ticket.domain.js";
 import { RosterChange } from "./roster-api.js";
 import { rebuildIndex, rosterEvents, sendInviteEmail } from "./roster.contracts.js";
@@ -129,6 +130,9 @@ export const Roster = definition({
       teams: RosterDomain.teams,
       teamSizes: RosterDomain.teamSizes,
       customers: RosterDomain.customers,
+      // Online dots per row: the collaboration SDK's presence, one session per technician shown (`subscribe.each`,
+      // T6), the same SDK contract the ticket watcher uses, placed per row (T7). Pending merge 6: bare state feed.
+      online: technicianOnline,
       // What a merge re-points: the tickets of the customer that goes, one placement per open merge dialog.
       mergedTickets: TicketsDomain.byCustomer,
 

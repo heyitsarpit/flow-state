@@ -38,6 +38,21 @@ export type NewTicket = {
   dueAt: number | null;
 };
 
+// One assignment in a batch request: the server answers each item on its own (MD 2.7.11).
+export const AssignResult = Schema.Union([
+  Schema.Struct({ status: Schema.Literal(200), ticket: TicketRow }),
+  Schema.Struct({ status: Schema.Literal(404), ticketId: Schema.String }),
+  Schema.Struct({ status: Schema.Literal(409), assignee: Schema.String }),
+]);
+
+export type AssignResult = typeof AssignResult.Type;
+
+// A bulk close's answer: every listed ticket as the server now has it. One refused (someone is on it) keeps its
+// status, which is how the client learns which items failed: the confirmed fields replace the predictions.
+export const ClosePage = Schema.Struct({ tickets: Schema.Array(TicketRow) });
+
+export type ClosePage = typeof ClosePage.Type;
+
 // Absent filters mean "no constraint", on the server and in the domain's conditions.
 export type TicketListInput = {
   workspaceId: string;

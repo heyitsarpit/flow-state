@@ -54,6 +54,13 @@ export const RosterMachine = machine(Roster, ({ S, E, O }) => {
       O.teams.subscribe(workspace),
       O.teamSizes.subscribe(workspace),
       O.customers.subscribe(workspace),
+      // pending merge 6: one SDK session per technician on the loaded pages; keys follow paging and team changes
+      O.online.subscribe.each(({ memory, operations }) =>
+        (operations.roster?.data?.flatMap((page) => page.technicians) ?? []).map((t) => ({
+          workspaceId: memory.workspaceId,
+          technicianId: t.technicianId,
+        })),
+      ),
       // pending merge 6: both readers of the polled change log, for the actor's life
       O.changes.subscribe(workspace, { when: ({ memory }) => !memory.feedPaused }),
       O.audit.subscribe(

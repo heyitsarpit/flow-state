@@ -12,6 +12,7 @@ import { CommentsPanel } from "../../Comments/CommentsPanel.js";
 import { Ticket } from "../ticket.domain.js";
 import type { TicketKey } from "../types.js";
 import { Editor, MAX_RESENDS } from "./editor.definition.js";
+import { DescriptionFields } from "./DescriptionFields.js";
 import { useEditor, type EditorCommands } from "./useEditor.js";
 
 const { S, E, O } = Editor;
@@ -55,11 +56,12 @@ function OpenTicket({ commands }: { commands: EditorCommands }) {
         <button onClick={commands.close}>Done</button>
       </footer>
       <Attachments commands={commands} />
+      <DescriptionFields commands={commands} />
       <CommentsPanel
         host={commands.editor}
         instance="comments"
         events={commands.comments}
-        ticket={ticket}
+        ticket={commands.ticket}
       />
     </>
   );

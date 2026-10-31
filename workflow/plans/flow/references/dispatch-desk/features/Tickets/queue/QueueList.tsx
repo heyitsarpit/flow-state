@@ -4,13 +4,17 @@
 // preview drawer is the Comments panel on the queue's `preview` placement.
 import { Match, Schema } from "effect";
 import { check } from "flow-state";
-import { useActorByRef, useView } from "flow-state/react";
+import { useActorByRef, useNow, useView } from "flow-state/react";
 import { CommentsPanel } from "../../Comments/CommentsPanel.js";
-import { Viewers } from "../../Presence/Viewers.js";
+import { Technician } from "../../Roster/roster.domain.js";
+import { SessionRef } from "../../Session/session.ref.js";
+import { Editor } from "../editor/editor.definition.js";
+import { editorRef } from "../editor/editor.ref.js";
 import { Ticket } from "../ticket.domain.js";
 import { TicketStatus, type TicketKey } from "../types.js";
 import { Queue } from "./queue.definition.js";
 import { queueRef } from "./queue.ref.js";
+import { AssignToggle } from "./assign-toggle.trait.js";
 
 const { S, E, O } = Queue;
 
@@ -39,6 +43,7 @@ export function QueueList({
       {reconnecting && <p role="status">Reconnecting to the queue…</p>}
       {notice && <p role="alert">{notice}</p>}
       <QueueBody queue={queue} onOpen={onOpen} />
+      <BulkBar queue={queue} />
       <PreviewDrawer queue={queue} />
     </section>
   );
@@ -197,6 +202,11 @@ function Rows({
   );
 }
 
+// One row. Every piece reads its own store (E9): the record (`predicted` italic, `uncertain` "?", `unconfirmed`
+// "checking"), the row copy's own lane (`AssignToggle.O.set.get`: on the wire, waiting behind an unsure one), the
+// assignee's own record for the name (E1), the SDK's viewers for this ticket (`Queue.O.viewers.get`), the SLA from
+// the record's `dueAt` and `useNow` ("breaches in 12 min", S4), and a flash copy while another dispatcher's change
+// is fresh (F5).
 function TicketRowItem({
   queue,
   row,
@@ -206,47 +216,105 @@ function TicketRowItem({
   row: TicketKey;
   onOpen: (ticket: TicketKey) => void;
 }) {
-  // The record store's copy, coherent with the editor's: a rename in the editor shows here at
-  // once. `predicted` is true while an assignment or rename is unconfirmed.
   const ticket = useView(queue, (s) =>
-    Ticket.get(s, row, Ticket.pick("title", "status", "assignee")),
+    Ticket.get(s, row, Ticket.pick("title", "status", "assignee", "priority", "dueAt")),
   );
+  const assign = useView(queue, (s) => AssignToggle.O.set.get(s, row));
+  const assignee = useView(queue, (s) => {
+    const id = Ticket.get(s, row, Ticket.pick("assignee")).data?.assignee;
 
-  // This ticket's own lane: the row passes itself, a value carrying the key's fields (OD4).
-  const assign = useView(queue, (s) => O.assign.get(s, row));
-
-  // Not open, already predicted as assigned, or this ticket's lane busy: the guards decline, so the
-  // button disables. Another row's assignment does not affect it.
-  const assignable = useView(
-    queue,
-    (s) => check(s, E.AssignToMe({ ticketId: row.ticketId }))._tag === "Allowed",
+    return id?.startsWith("tech-")
+      ? Technician.get(
+          s,
+          { workspaceId: row.workspaceId, technicianId: id },
+          Technician.pick("name"),
+        ).data?.name
+      : id;
+  });
+  const viewers = useView(queue, (s) => Object.keys(O.viewers.get(s, row)?.value ?? {}).length); // pending merge 6
+  const flashing = useView(queue, (s) =>
+    s.memory.flashes.some((copy) => copy.key === row.ticketId),
   );
+  const selected = useView(queue, (s) => s.memory.selected.includes(row.ticketId));
+  const me = useView(useActorByRef(SessionRef, {}), (s) => s.memory.userId);
+  const now = useNow("1 minute");
 
   if (ticket.data === undefined) return null;
 
+  const dueIn = ticket.data.dueAt === null ? null : Math.round((ticket.data.dueAt - now) / 60_000);
+  const mine = ticket.data.assignee === me;
+
   return (
-    <li aria-busy={ticket.predicted || assign.pending}>
-      <button onClick={() => onOpen(row)}>{ticket.data.title}</button>
+    <li aria-busy={assign.pending} className={flashing ? "flash" : undefined}>
+      <input
+        type="checkbox"
+        aria-label="Select"
+        checked={selected}
+        onChange={() => queue.send(E.Select({ ticketId: row.ticketId, selected: !selected }))}
+      />
+      <button
+        onClick={() => onOpen(row)}
+        style={{ fontStyle: ticket.predicted ? "italic" : undefined }}
+      >
+        {ticket.data.title}
+      </button>
       <span className="badge">{ticket.data.status}</span>
-      {assign.pending && <span role="status">Assigning…</span>}
-      {assign.uncertain && (
-        <span role="status" title="We are checking whether this assignment went through">
-          ?
-        </span>
+      {ticket.uncertain && (
+        <span title="We are checking whether a change to this ticket went through">?</span>
       )}
-      {ticket.data.assignee === null && !assign.pending && !assign.uncertain && (
-        <button
-          disabled={!assignable}
-          onClick={() => queue.send(E.AssignToMe({ ticketId: row.ticketId }))}
-        >
-          Assign to me
-        </button>
-      )}
+      {ticket.unconfirmed.length > 0 && <em>checking</em>}
+      {assignee !== undefined && assignee !== null && <span>{assignee}</span>}
+      {dueIn !== null && dueIn > 0 && <span className="muted">breaches in {dueIn} min</span>}
+      {dueIn !== null && dueIn <= 0 && <strong>overdue</strong>}
+      {/* The toggle is the row's own copy: a burst of taps is its business (`latest`), never refused. */}
+      <button
+        onClick={() =>
+          queue.send(E.toggles.key(row.ticketId).Toggle({ assignee: mine ? null : me }))
+        }
+      >
+        {mine ? "Release" : "Assign to me"}
+      </button>
+      {assign.waiting && <span role="status">Waiting for the last change…</span>}
+      {viewers > 0 && <span className="badge">{viewers} viewing</span>}
       <button onClick={() => queue.send(E.PreviewOpened({ ticketId: row.ticketId }))}>
         Preview
       </button>
-      <Viewers ticket={row} /> {/* pending merge 6 */}
+      <ReplyButton ticket={row} />
     </li>
+  );
+}
+
+// "Reply": send a comment into the ticket's EDITOR actor, through its placed Comments trait (F23). The queue's own
+// preview is a different placement; replying from the row writes to the thread the editor shows.
+// design gap: sending into another actor's fragment (REVIEW gap 3): the editor's ref and its `E.comments` path.
+function ReplyButton({ ticket }: { ticket: TicketKey }) {
+  const editor = useActorByRef(editorRef(ticket), { input: ticket });
+
+  return (
+    <button
+      onClick={() =>
+        editor.send(Editor.E.comments.Post({ clientId: crypto.randomUUID(), text: "On it" }))
+      }
+    >
+      Reply "On it"
+    </button>
+  );
+}
+
+// Bulk close: one write on the workspace's FIFO; "2 more waiting" while earlier ones are on their way.
+function BulkBar({ queue }: { queue: QueueActor }) {
+  const selected = useView(queue, (s) => s.memory.selected.length);
+  const lane = useView(queue, (s) => O.bulkClose.get(s, { workspaceId: s.memory.workspaceId }));
+
+  return (
+    <div className="bulk">
+      <button disabled={selected === 0} onClick={() => queue.send(E.CloseSelected())}>
+        Close {selected} selected
+      </button>
+      {lane.pending && <span role="status">Closing…</span>}
+      {lane.outstanding > 0 && <span role="status">{lane.outstanding} more waiting</span>}
+      {lane.uncertain && <span role="status">Checking whether that went through…</span>}
+    </div>
   );
 }
 

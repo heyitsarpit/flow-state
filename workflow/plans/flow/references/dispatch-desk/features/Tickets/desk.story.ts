@@ -21,7 +21,11 @@ import { feedRef } from "./feed/feed.ref.js"; // pending merge 6
 import { Editor } from "./editor/editor.definition.js";
 import { editorRef } from "./editor/editor.ref.js";
 import { Editor42, FIRST, T42 } from "./editor/editor.story.js";
+import { Roster } from "../Roster/roster.definition.js";
+import { rosterRef } from "../Roster/roster.ref.js";
 import { Queue } from "./queue/queue.definition.js";
+import { Technicians } from "./technicians/technicians.definition.js";
+import { techniciansRef } from "./technicians/technicians.ref.js";
 import { queueRef } from "./queue/queue.ref.js";
 
 const { E } = Editor;
@@ -55,11 +59,13 @@ export const saveRepairsQueue = desk("desk/save-repairs-queue", [Desk.saveTitle.
 // Assigning from the queue repairs a different set: `status` and `assignee` are condition fields, so the open
 // count refetches. The editor of the same ticket reads the same record and needs no event: its title is
 // unchanged, so its memory is untouched.
-export const assignRepairs = desk("desk/assign-repairs", [Desk.assign.hold({ at: "response" })])
+export const assignRepairs = desk("desk/assign-repairs", [
+  Desk.assignBatch.hold({ at: "response" }),
+])
   .ensure(Editor43, { input: key("T-43") })
-  .send(North, Queue.E.AssignToMe({ ticketId: "T-43" }))
+  .send(North, Queue.E.toggles.key("T-43").Toggle({ assignee: "dispatcher-7" }))
   .checkpoint("assigning")
-  .world(Desk.assign.release())
+  .world(Desk.assignBatch.release())
   .checkpoint("assigned");
 
 // Permission revoked mid-save. The session's `canEdit` is the editor's context; the root sends the editor to
@@ -127,3 +133,51 @@ export const editedInPreview = desk("desk/edited-in-preview", [
   .checkpoint("edited-in-preview")
   .world(Desk.editComment.release())
   .checkpoint("edit-confirmed");
+
+// A FIFO of N and one save meet on one record (E8). The editor's title save on T-42 is on the wire; the queue's bulk
+// close lists T-42 too. Both predict at once, but the record queue orders their sends across actors (rule 29): the
+// bulk waits behind the save on T-42's queue (`Entity.queue`, E12), and goes when the save answers.
+export const bulkVsSave = desk("desk/bulk-vs-save", [Desk.saveTitle.hold({ at: "response" })])
+  .send(Editor42, E.TitleChanged({ title: FIRST }), E.SaveRequested())
+  .send(North, Queue.E.Select({ ticketId: "T-42", selected: true }), Queue.E.CloseSelected())
+  .checkpoint("bulk-behind-save")
+  .world(Desk.saveTitle.release())
+  .checkpoint("both-landed");
+
+// Two dispatchers, two tabs, the same ticket, the same instant (Y5: `together` states that both arrived before
+// either ran). Each tab's row copy commits; the server takes the first and refuses the second (409), which that
+// tab's copy reports. One Runtime per tab, one server.
+// design gap: how `together` names a send's target in an app Story. 2.10.2 shows bare events and controls (a
+// machine Story); written here as `{ send: [target, event] }`.
+export const twoDispatchers = desk("desk/two-dispatchers")
+  .openTab("b", { from: "main" })
+  .together(
+    { send: [North, Queue.E.toggles.key("T-43").Toggle({ assignee: "dispatcher-7" })] },
+    {
+      send: [
+        { actor: North, tab: "b" },
+        Queue.E.toggles.key("T-43").Toggle({ assignee: "dispatcher-8" }),
+      ],
+    },
+  )
+  .advance("10 millis")
+  .checkpoint("one-wins");
+
+// One technician on two screens (E7, E8): the admin renames Ana on the roster while the queue's technician panel
+// shows her, and the panel dispatches T-43 to her before the rename answers. The rename shows on the panel at once
+// (one Technician record), and the dispatch's status prediction joins Ana's record queue BEHIND the rename: the
+// two writes from two actors are sent in order (rule 29).
+export const renameMeetsDispatch = desk("desk/rename-meets-dispatch", [
+  Desk.renameTechnician.hold({ at: "response" }),
+])
+  .send(SessionRef, Session.E.RoleChanged({ isAdmin: true }))
+  .ensure(rosterRef("north"), { input: { workspaceId: "north" } })
+  .ensure(techniciansRef("north"), { input: { workspaceId: "north" } })
+  .send(rosterRef("north"), Roster.E.Rename({ technicianId: "tech-ana", name: "Ana Lopez" }))
+  .send(
+    techniciansRef("north"),
+    Technicians.E.Dispatch({ ticketId: "T-43", technicianId: "tech-ana" }),
+  )
+  .checkpoint("rename-and-dispatch-queued")
+  .world(Desk.renameTechnician.release())
+  .checkpoint("both-landed-in-order");

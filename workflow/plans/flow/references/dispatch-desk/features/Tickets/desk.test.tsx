@@ -12,11 +12,18 @@ import { Session } from "../Session/session.definition.js";
 import { SessionRef } from "../Session/session.ref.js";
 import { ToastsRef } from "../Toasts/toasts.ref.js";
 import { TicketPanel } from "./editor/TicketPanel.js";
+import { Autosave } from "./editor/autosave.trait.js";
 import { Editor } from "./editor/editor.definition.js";
 import { Editor42, FIRST, T42 } from "./editor/editor.story.js";
 import {
+  continuedFromReload,
+  fieldsInTwoTabs,
   inB,
   outlivesClose,
+  quotaRefused,
+  reloadedMidAutosave,
+  reloadMidCommentEdit,
+  seededStaleLane,
   reloadAckConfirmationHeld,
   reloadAckHeld,
   reloadMidSave,
@@ -24,6 +31,7 @@ import {
 } from "./editor/editor.tabs.story.js";
 import {
   assignRepairs,
+  bulkVsSave,
   closedMidSave,
   editedInPreview,
   Editor43,
@@ -32,10 +40,14 @@ import {
   pushedRename,
   revokedMidSave,
   saveRepairsQueue,
+  renameMeetsDispatch,
   signOut,
+  twoDispatchers,
 } from "./desk.story.js";
 import { Comment } from "../Comments/comments.domain.js";
+import { Technician } from "../Roster/roster.domain.js";
 import { Ticket } from "./ticket.domain.js";
+import { techniciansRef } from "./technicians/technicians.ref.js";
 
 const { S, O } = Editor;
 
@@ -67,7 +79,7 @@ storyTest(assignRepairs, ({ at }) => {
     memory: { draft: "Fix loading dock door" },
   });
   expect(at.assigned.read(Desk.openCount)).toHaveLength(2); // status is a condition field: repaired
-  expect(at.assigned.read(Desk.assign)).toMatchObject([
+  expect(at.assigned.read(Desk.assignBatch)).toMatchObject([
     { phase: "answered", via: { actor: North } },
   ]);
 });
@@ -206,4 +218,121 @@ storyTest(editedInPreview, ({ at }) => {
     "c-1",
   ]);
   expect(at["edit-confirmed"].read(Story.entity(Comment, c1))?.predicted).toBe(false);
+});
+
+const summary = { ...T42, field: "summary" as const };
+
+storyTest(fieldsInTwoTabs, ({ at }) => {
+  const b = at["second-tab"];
+  expect(b.read(Story.inspection({ tab: "b" })).persistence.status).toBe("SecondTabNoPersistence");
+  expect(b.read(Desk.saveField)).toMatchObject([
+    { input: { value: "Lobby light, from tab b" }, via: { tab: { name: "b" } } },
+  ]);
+  expect(b.read(Story.inspection({ tab: "b" })).lanes).toEqual([]); // nothing of b's saves is kept on this device
+});
+
+storyTest(reloadedMidAutosave, ({ at }) => {
+  expect(Autosave.O.save.get(at["head-and-waiting"].read(Editor42), summary)).toMatchObject({
+    pending: true,
+    waiting: true,
+  });
+  const restored = at["reloaded-mid-autosave"];
+  expect(
+    restored.read(
+      Story.records("ending", { operation: Autosave.O.save, since: "head-and-waiting" }),
+    ),
+  ).toMatchObject([
+    { channel: "unknown", reason: { _tag: "Restored" } }, // the sent head: a lane, re-sent
+    { channel: "failure", reason: { _tag: "NotSent", why: "Restored" } }, // the waiting value: never a lane
+  ]);
+  expect(restored.read(Editor42)?.memory.fields[0]?.check.value).toBe("Lobby light, east"); // memory kept the newest
+  const settled = at["settled-after-reload"];
+  expect(settled.read(Desk).desk.details["north/T-42"]?.fields.summary).toBe("Lobby light, east");
+});
+
+storyTest(quotaRefused, ({ at }) => {
+  expect(
+    at["quota-refused"].read(Story.records("ending", { operation: Autosave.O.save })),
+  ).toMatchObject([{ channel: "failure", reason: { _tag: "NotSent", why: "StorageRefused" } }]);
+  expect(at["quota-refused"].read(Desk.saveField)).toEqual([]); // it never left the device
+});
+
+storyTest(continuedFromReload, ({ at }) => {
+  expect(at["restored-unsure"].read(Editor42)?.state).toBe(Editor.S.OPEN.UNSURE);
+});
+
+storyTest(seededStaleLane, ({ at }) => {
+  expect(at.restored.read(Editor42)?.state).toBe(Editor.S.OPEN.UNSURE);
+  expect(at.resent.read(Desk.saveTitle)).toMatchObject([
+    { input: { key: "attempt-from-yesterday" } },
+  ]);
+});
+
+storyTest(reloadMidCommentEdit, ({ at }) => {
+  const c1 = { ...T42, commentId: "c-1" };
+  expect(at["comment-uncertain"].read(Story.entity(Comment, c1))?.uncertain).toBe(true);
+  expect(at["comment-repaired"].read(Story.entity(Comment, c1))).toMatchObject({
+    data: { text: "Note 1, corrected" },
+  });
+});
+
+// X2: two tabs side by side, one frame each. Tab b shows its own draft; main shows the server's text.
+test("two tabs, one ticket, side by side", async () => {
+  const run = await fieldsInTwoTabs.run();
+
+  render(
+    <>
+      <StoryFrame run={run} checkpoint="second-tab" tab="main">
+        <TicketPanel ticket={T42} />
+      </StoryFrame>
+      <StoryFrame run={run} checkpoint="second-tab" tab="b">
+        <TicketPanel ticket={T42} />
+      </StoryFrame>
+    </>,
+  );
+
+  expect(
+    screen.getAllByRole("textbox", { name: "Summary" }).map((input) => input.getAttribute("value")),
+  ).toEqual(["Lobby light out", "Lobby light, from tab b"]);
+  expect(screen.getByText("Not saved on this device")).toBeTruthy();
+});
+
+storyTest(bulkVsSave, ({ at }) => {
+  const cut = at["bulk-behind-save"];
+  // design gap: the shape of a record queue in Inspection (`domains.<name>.queues`) is 2.10.18.4's; its members'
+  // fields are not listed. Assumed: per record, its key and the Attempts in order with their operation.
+  expect(cut.read(Story.inspection).domains.tickets.queues).toContainEqual(
+    expect.objectContaining({
+      key: key("T-42"),
+      members: [
+        expect.objectContaining({ operation: "save" }),
+        expect.objectContaining({ operation: "bulkClose" }),
+      ],
+    }),
+  );
+  expect(cut.read(Desk.closeMany)).toEqual([]); // waits in T-42's record queue behind the save
+  expect(at["both-landed"].read(Desk.closeMany)).toHaveLength(1);
+});
+
+storyTest(twoDispatchers, ({ at }) => {
+  const cut = at["one-wins"];
+  expect(cut.read(Desk.assignBatch).map((r) => r.via.tab.name)).toEqual(["main", "b"]); // tab order (2.10.2)
+  expect(cut.read({ actor: North, tab: "b" })?.memory.notice).toBe("T-43 is with dispatcher-7");
+  expect(cut.read(Desk).desk.tickets.find((t) => t.ticketId === "T-43")?.assignee).toBe(
+    "dispatcher-7",
+  );
+});
+
+storyTest(renameMeetsDispatch, ({ at }) => {
+  const ana = { workspaceId: "north", technicianId: "tech-ana" };
+  const cut = at["rename-and-dispatch-queued"];
+  // One record, two predictions from two actors: the panel shows the new name and the busy status at once.
+  expect(cut.read(Story.entity(Technician, ana))).toMatchObject({
+    data: { name: "Ana Lopez", status: "busy" },
+    predicted: true,
+  });
+  expect(cut.read(techniciansRef("north"))).toBeDefined();
+  expect(cut.read(Desk.dispatch)).toEqual([]); // behind the rename in Ana's record queue
+  expect(at["both-landed-in-order"].read(Desk.dispatch)).toHaveLength(1);
+  expect(at["both-landed-in-order"].read(Story.entity(Technician, ana))?.predicted).toBe(false);
 });

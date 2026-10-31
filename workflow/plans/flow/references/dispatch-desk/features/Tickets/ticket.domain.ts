@@ -17,6 +17,8 @@ import {
 import {
   archiveTicket,
   assignTicket,
+  closeTickets,
+  setAssignee,
   createTicket,
   customerTickets,
   openCount,
@@ -163,6 +165,28 @@ export const TicketsDomain = domain("tickets", {
   archive: write(archiveTicket).predicts(({ input }) =>
     Ticket.delete({ workspaceId: input.workspaceId, ticketId: input.ticketId }),
   ),
+
+  // The row toggle: assigns or clears. The ticket leaves "Unassigned" (or joins it) at once (E4).
+  setAssignee: write(setAssignee)
+    .one(Ticket)
+    .predicts(({ input }) =>
+      Ticket.patch(
+        { workspaceId: input.workspaceId, ticketId: input.ticketId },
+        {
+          assignee: input.assignee,
+          status: (beneath, input) =>
+            input.assignee === null ? "open" : beneath.status === "closed" ? "closed" : "assigned",
+        },
+      ),
+    ),
+
+  // Many records of one entity in one write (E2): every listed ticket is predicted closed, once. The answer lists
+  // each ticket as the server has it, so a skipped one (someone is on it) is confirmed as it was: the partial
+  // failure arrives as confirmed fields, not as an error. An unknown answer marks every listed record uncertain,
+  // and one successful re-send clears every mark (rule 32, E17).
+  bulkClose: write(closeTickets)
+    .list(Ticket, ({ output }) => output.tickets)
+    .predicts(({ input }) => Ticket.patch(input.tickets, { status: "closed" })),
 
   // Other dispatchers' changes are not here: the push `listen` entry moved to a second domain over the
   // same entity, TicketFeed in feed/feed.domain.ts (pending merge 6).

@@ -1,6 +1,7 @@
-// IDLE asks; ASKING waits for the stream's ending. Stop cancels the Attempt, and every unknown ending
-// releases the lane's hold with a key-less `cancel` before it returns to IDLE, so the next Ask is
-// admitted (`concurrency: "reject"` holds the lane until then; FC39, FC70). Demonstrates rules 13 and 24.
+// IDLE asks; ASKING waits for the stream's ending. Regenerate commits again while the reply streams: under
+// `concurrency: "cancel"` that interrupts the Attempt on the wire, whose ending is evidence (rule 17), so no
+// handler sees it and nothing is held (O8, T10). Stop cancels the Attempt; its `unknown { Cancelled }` is held
+// for its own ending's turn only (`HeldThisTurn`), so no handler releases anything.
 // Pending merge 6: written against merge-6-streams/proposal-v2.md revision 7.1, 4.4.
 import { deny, machine } from "flow-state";
 import { Assistant } from "./assistant.definition.js";
@@ -25,12 +26,10 @@ export const AssistantMachine = machine(Assistant, ({ S, O }) => {
       Stopped: {
         target: S.IDLE,
         updateMemory: ({ event }) => ({ last: event.partial, incomplete: true }),
-        actions: [O.suggest.cancel],
       },
       Cut: {
         target: S.IDLE,
         updateMemory: ({ event }) => ({ last: event.partial, incomplete: true }), // never shown as a success (SR30)
-        actions: [O.suggest.cancel],
       },
       AskFailed: { target: S.IDLE, updateMemory: () => ({ refused: true }) },
     },
@@ -39,11 +38,8 @@ export const AssistantMachine = machine(Assistant, ({ S, O }) => {
         on: {
           Ask: {
             target: S.ASKING,
-            guard: [
-              ({ event }) => event.prompt.trim() !== "" || deny("EmptyPrompt"),
-              O.suggest.idle(own), // a held Stop has not been released: refuse rather than queue
-            ],
-            updateMemory: () => ({ refused: false }),
+            guard: [({ event }) => event.prompt.trim() !== "" || deny("EmptyPrompt")],
+            updateMemory: ({ event }) => ({ refused: false, prompt: event.prompt }),
             actions: [
               O.suggest.commit(({ memory, event }) => ({
                 workspaceId: memory.workspaceId,
@@ -56,9 +52,19 @@ export const AssistantMachine = machine(Assistant, ({ S, O }) => {
       },
       ASKING: {
         on: {
-          // On the wire: interrupts the fetch (its signal aborts), and the ending is `Stopped`. The
-          // lane stays held, under `reject`, until the root's `Stopped` releases it.
+          // On the wire: interrupts the fetch (its signal aborts), and the ending is `Stopped`.
           Stop: { target: "self", actions: [O.suggest.cancel(own)] },
+          // A newer commit interrupts the one on the wire: its ending never arrives; this one's progress starts empty.
+          Regenerate: {
+            target: "self",
+            actions: [
+              O.suggest.commit(({ memory }) => ({
+                workspaceId: memory.workspaceId,
+                ticketId: memory.ticketId,
+                prompt: memory.prompt,
+              })),
+            ],
+          },
         },
       },
     },

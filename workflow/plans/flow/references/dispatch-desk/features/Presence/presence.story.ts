@@ -1,72 +1,60 @@
-// Presence Stories: join, drop (the value goes, `last` dims), rejoin, a spent budget, an expired token.
-// Each Story runs the watcher alone over the presence fake. Demonstrates 2.10.9 (stream controls: the
-// wire words `drop` and `release`, `advance` with `{ next }`) and M6 2.6 (the row).
-// Pending merge 6: written against merge-6-streams/proposal-v2.md revision 7.1, S1–S10.
+// Presence Stories: the watcher alone over the collaboration fake, whose client half is the SDK's own shape.
+// Transcripts; presence.test.ts reads them. Module checkpoints (COVERAGE.md section 6, "PR"): `joined`,
+// `sdk-resumed`, `typing`. Pending merge 6: written against merge-6-streams/proposal-v2.md revision 7.1, S1–S10.
 import { Story } from "flow-state/testing";
-import { Presence as PresenceServer, PresenceFake } from "../../testing/presence.fake.js";
+import { Collab, CollabFake } from "../../testing/presence.fake.js";
 import { Presence } from "./presence.definition.js";
 import { PresenceMachine } from "./presence.machine.js";
 
-const { S, O } = Presence;
+const { E } = Presence;
 
-const T42 = { workspaceId: "north", ticketId: "T-42" };
-const two = { id: "dispatcher-2", name: "dispatcher-2" };
-const three = { id: "dispatcher-3", name: "dispatcher-3" };
+export const T42 = { workspaceId: "north", ticketId: "T-42" };
 
-const watching = (id: string) =>
-  Story.make(PresenceMachine, { id, input: T42, fixtures: [PresenceFake] });
+const CHANNEL = "ticket:north:T-42";
 
-// The first `presence_state` is the first value; a diff then adds one member.
+export const ben = { id: "dispatcher-3", name: "Ben" };
+
+const watching = (id: string, world: ReadonlyArray<unknown> = []) =>
+  Story.make(PresenceMachine, { id, input: T42, fixtures: [CollabFake], world });
+
+// The attach greets with "attached" and the members; a join adds one, and its badge copy flashes (F5).
 export const joined = watching("presence/joined")
-  .expect({ operations: { viewers: { connection: "Live", value: {} } } })
-  .world(PresenceServer.join({ ...T42, member: two }))
-  .expect({ operations: { viewers: { value: { "dispatcher-2": two } } } });
+  .checkpoint("joined")
+  .world(Collab.join({ channel: CHANNEL, member: ben }))
+  .checkpoint("ben-joined")
+  .advance("2 seconds")
+  .checkpoint("settled");
 
-// A drop: the value goes, `last` keeps the members, dimmed. The next connection's state confirms them.
-export const dropped = watching("presence/dropped")
-  .world(PresenceServer.join({ ...T42, member: two }))
-  .world(PresenceServer.frames.drop()) // the connection closes as a network would (1006)
-  .expect({
-    operations: {
-      viewers: {
-        connection: "Connecting",
-        value: undefined,
-        last: { value: { "dispatcher-2": two } },
-      },
-    },
-  })
-  .expect({ state: S.WATCHING }) // no machine event: a transient drop is the adapter's
-  .advance({ next: { operation: O.viewers, timer: "backoff" } })
-  .expect({
-    operations: { viewers: { connection: "Live", value: { "dispatcher-2": two } } },
-  });
+// The SDK's connection drops and comes back by itself: `Feed.down` dims the row (no machine event, rule 25), and
+// the SDK's `resumed` flag on the re-attach is the proof nothing was missed (T3). No re-open by the machine (T9).
+export const sdkResumed = watching("presence/sdk-resumed")
+  .world(Collab.suspend({ channel: CHANNEL }))
+  .checkpoint("suspended")
+  .world(Collab.resume({ channel: CHANNEL, resumed: true }))
+  .checkpoint("sdk-resumed");
 
-// Someone leaves while this tab is offline: the new state, not the old one, confirms. Nobody's diff is
-// needed because the server sends the whole state on every join.
-export const rejoinedChanged = watching("presence/rejoined-changed")
-  .world(PresenceServer.join({ ...T42, member: two }))
-  .world(PresenceServer.join({ ...T42, member: three }))
-  .world(PresenceServer.frames.drop(), PresenceServer.frames.drop({ at: "open" })) // close it, then refuse the next attempt
-  .world(PresenceServer.leave({ ...T42, memberId: "dispatcher-2" }))
-  .advance({ next: { operation: O.viewers, timer: "backoff" } })
-  .expect({
-    operations: { viewers: { connection: "Live", value: { "dispatcher-3": three } } },
-  });
+// The SDK gives up on the channel: the session ends, and the watcher stops in ENDED with the SDK's reason.
+export const sdkGaveUp = watching("presence/sdk-gave-up")
+  .world(Collab.fail({ channel: CHANNEL, reason: "token revoked" }))
+  .checkpoint("ended");
 
-// The connection closes, then ten refused opens spend the budget (`upTo({ times: 10 })`): the session ends,
-// the machine waits in RETRY_WAIT with a doubled delay, and its `reopen` schedule watches again.
-export const budgetSpent = Array.from({ length: 10 })
-  .reduce<ReturnType<typeof watching>>(
-    (story) => story.advance({ next: { operation: O.viewers, timer: "backoff" } }),
-    watching("presence/budget-spent")
-      .world(PresenceServer.frames.drop()) // close the open connection first: `drop({ at: "open" })` closes nothing
-      .world(PresenceServer.frames.drop({ at: "open", times: 10 })),
+// Typing, both ways. A burst of 400 messages on a 256 bound: the SDK awaits each listener's promise, `emit`'s
+// promise waits for room, so nothing overflows (T7). And this tab's own keystrokes are pings through the SDK under
+// `allow`: two at once, each answered on its own, nothing held (O9).
+export const typing = watching("presence/typing")
+  .world(Collab.typingBurst({ channel: CHANNEL, memberId: "dispatcher-2", count: 400 }))
+  .checkpoint("typing")
+  .world(Collab.publish.hold({ at: "response" }))
+  .send(
+    E.Typed({ memberId: "dispatcher-7", at: 1_000 }),
+    E.Typed({ memberId: "dispatcher-7", at: 3_000 }),
   )
-  .expect({ state: S.RETRY_WAIT, memory: { reopenInMs: 2_000 } })
-  .advance({ next: { schedule: "reopen" } }) // type-checked against the machine's schedules (2.10.3)
-  .expect({ state: S.WATCHING, operations: { viewers: { connection: "Live" } } });
+  .checkpoint("pinging")
+  .world(Collab.publish.release())
+  .checkpoint("pinged");
 
-// Close code 4401 is terminal: SignedOut ends the session, and the watcher stops.
-export const expired = watching("presence/token-expired")
-  .world(PresenceServer.expireToken(T42))
-  .expect({ state: S.SIGNED_OUT });
+// The attach held (Y3): the row stays Connecting until the service answers the attach.
+export const attachHeld = watching("presence/attach-held", [Collab.channel.hold({ at: "open" })])
+  .checkpoint("attaching")
+  .world(Collab.channel.release())
+  .checkpoint("attached");

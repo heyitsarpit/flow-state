@@ -84,3 +84,94 @@ export const reloadAckConfirmationHeld = desk("editor/reload-ack-confirmation-he
   .checkpoint("reloaded")
   .advance("3 seconds")
   .checkpoint("resent");
+
+// --- the description fields across tabs and reloads (COVERAGE.md P3–P5, Y7) ---------------------------------
+
+const typeSummary = (value: string) => E.fields.key("summary").check.Changed({ value });
+
+// Two tabs, one ticket. Tab b runs without persistence (only one tab holds the scope), so its field saves still go
+// to the server but nothing of them is kept on this device: the view says "not saved on this device" from the
+// persistence status, and a reload of b would forget a pending one.
+export const fieldsInTwoTabs = desk("editor/fields-in-two-tabs", [])
+  .openTab("b", { from: "main" })
+  .send(inB, typeSummary("Lobby light, from tab b"))
+  .advance("800 millis")
+  .checkpoint("second-tab");
+
+// Reload mid-autosave (P3, O12). One value is on the wire, a newer one waits behind it (`latest`'s queued commit).
+// The reload restores the acknowledged head as `unknown { Restored }`: the copy re-sends the same Attempt. The
+// waiting value was never acknowledged, so it ends `NotSent { Restored }`: only the sent value is a lane. The
+// restored memory holds the newest text, so the field is still dirty and its debounce sends it again.
+export const reloadedMidAutosave = desk("editor/reloaded-mid-autosave", [Desk.saveField.hold()])
+  .send(Editor42, typeSummary("Lobby light"))
+  .advance("800 millis")
+  .send(Editor42, typeSummary("Lobby light, east"))
+  .advance("800 millis")
+  .checkpoint("head-and-waiting")
+  .reload()
+  .checkpoint("reloaded-mid-autosave")
+  .world(Desk.saveField.release())
+  .advance("3 seconds")
+  .checkpoint("settled-after-reload");
+
+// Storage refused (P5, O11): the quota is full, so the field save's acknowledgement cannot be written. The commit
+// never leaves the device: `NotSent { StorageRefused }`. The field stays dirty; nothing reached the server.
+export const quotaRefused = desk("editor/quota-refused", [
+  Fake.storage.write.drop({ match: { purpose: "acknowledge" }, times: "always" }),
+])
+  .send(Editor42, typeSummary("Lobby light"))
+  .advance("800 millis")
+  .checkpoint("quota-refused");
+
+// A run that starts from storage another Story left (Y7, rare): the reload Story's storage at its "saving"
+// checkpoint holds an acknowledged title save. Opening the editor restores it as `unknown { Restored }`: UNSURE.
+// design gap: `Fake.storage.from(story, { at })` takes a checkpoint name; 2.10.10 shows `{ at? }` without its type.
+export const continuedFromReload = Story.make(browserSetup("dispatcher-7"), {
+  id: "editor/continued-from-storage",
+  fixtures: [DeskClient],
+  storage: Fake.storage.from(reloadMidSave, { at: "saving" }),
+})
+  .ensure(SessionRef, { input: { userId: "dispatcher-7" } })
+  .ensure(Editor42, { input: T42 })
+  .checkpoint("restored-unsure");
+
+// Seeded storage with a stale lane (Y7): a lane record under the editor's identity for a save-title Attempt that
+// this server never saw. Restore validates and adopts it; the re-send is its first request.
+// design gap: the encoded shape of a seeded lane record is the Persistence plan's, not shown in 2.10.4; the fields
+// below name the lane's identity (actor, contract, key) and its Attempt.
+export const seededStaleLane = Story.make(browserSetup("dispatcher-7"), {
+  id: "editor/seeded-stale-lane",
+  fixtures: [DeskClient],
+  storage: Fake.storage.seed([
+    {
+      kind: "lane",
+      actor: Editor42,
+      contract: "DispatchDesk/save-title",
+      key: T42,
+      attempt: {
+        id: "attempt-from-yesterday",
+        input: { ...T42, title: FIRST },
+        retryCount: 0,
+        acknowledged: true,
+      },
+    },
+  ]),
+})
+  .ensure(SessionRef, { input: { userId: "dispatcher-7" } })
+  .ensure(Editor42, { input: T42 })
+  .checkpoint("restored")
+  .advance("3 seconds")
+  .checkpoint("resent");
+
+// Reload mid-comment-edit (E18): the edit's lane and the comment key it predicts are captured together (rule 38).
+// After the reload the comment is marked uncertain and repaired before readiness; the edit's held Attempt arrives as
+// `unknown { Restored }` and is re-sent once.
+export const reloadMidCommentEdit = desk("editor/reload-mid-comment-edit", [
+  Desk.commentsElsewhere({ ...T42, count: 1 }),
+  Desk.editComment.hold(),
+])
+  .send(Editor42, E.comments.Edit({ commentId: "c-1", text: "Note 1, corrected" }))
+  .reload()
+  .checkpoint("comment-uncertain")
+  .world(Desk.editComment.release())
+  .checkpoint("comment-repaired");

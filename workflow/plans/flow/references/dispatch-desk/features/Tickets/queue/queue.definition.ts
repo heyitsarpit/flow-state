@@ -1,15 +1,23 @@
-// The dispatcher's ticket queue: filters, search, paging, assignment and list availability. Named operations
-// (rule 39–43): `list` and `open` are reads, `assign` is a keyed write (one lane per ticket). The comments
-// preview drawer is the `Comments` trait placed as `preview`, reset by the previewed ticket (F7).
+// The dispatcher's ticket queue: filters, search, tabs, paging, new tickets, archive, bulk close, and a row per
+// ticket with its own assign toggle. The comments preview drawer is the `Comments` trait placed as `preview`, reset
+// by the previewed ticket (F7).
+//
+// How this module is different (COVERAGE.md 5.1): entities at list scale. The only module with a `serialize` bulk
+// write over many records of one entity, condition operators (`or`, `isNull`, `lt`) and two sort keys; its rows own
+// their assignment (`.each` copies on `latest`, batched below the commit); its SLA deadlines are a keyed schedule.
 import { Schema } from "effect";
 import { definition, Flow } from "flow-state";
 import { CommentsDomain } from "../../Comments/comments.domain.js";
 import { Comments } from "../../Comments/comments.trait.js";
+import { ticketViewers } from "../../Presence/presence.contracts.js";
+import { RosterDomain } from "../../Roster/roster.domain.js";
 import { Session } from "../../Session/session.definition.js";
 import { TicketsDomain } from "../ticket.domain.js";
 import { TicketStatus } from "../types.js";
+import { AssignToggle } from "./assign-toggle.trait.js";
+import { RowFlash } from "./row-flash.trait.js";
 
-export const MAX_ASSIGN_RESENDS = 3; // user-defined: re-sends after the first send, then give up
+export const MAX_ROWS = 200;
 
 export const QueueTab = Schema.Literals(["all", "unassigned", "triage"]);
 
@@ -26,6 +34,15 @@ export const NewTicketDraft = Schema.Struct({
 
 export type NewTicketDraft = typeof NewTicketDraft.Type;
 
+// What the list's confirmed value says about each row, kept for the row copies, the flashes and the SLA timers.
+const RowFacts = Schema.Struct({
+  ticketId: Schema.String,
+  revision: Schema.Number,
+  dueAt: Schema.NullOr(Schema.Number),
+  assignee: Schema.NullOr(Schema.String),
+  open: Schema.Boolean,
+});
+
 export const Queue = definition({
   id: "DispatchDesk/Queue",
   states: ["HEALTHY", "DEGRADED"],
@@ -34,8 +51,6 @@ export const Queue = definition({
     StatusChanged: { status: Schema.NullOr(TicketStatus) },
     MineOnlyToggled: {},
     LoadMore: {},
-    AssignToMe: { ticketId: Schema.String },
-    // The drawer's open and close set `memory.previewId`.
     PreviewOpened: { ticketId: Schema.String },
     PreviewClosed: {},
     TabChosen: { tab: QueueTab },
@@ -48,28 +63,31 @@ export const Queue = definition({
     RetryCreate: { draftId: Schema.String },
     DiscardDraft: { draftId: Schema.String },
     Archive: { ticketId: Schema.String },
+    Select: { ticketId: Schema.String, selected: Schema.Boolean },
+    CloseSelected: {},
   },
   internalEvents: {
     PollDue: {},
+    SearchSettled: {}, // the search box's debounce: its own turn applies the search (S1)
     Minute: { now: Schema.Number }, // the clock, rounded to the minute: the triage list's `now`
-    ListLoaded: { ticketIds: Schema.Array(Schema.String) },
+    ListLoaded: { rows: Schema.Array(RowFacts) },
     ListUnavailable: { retryAfter: Schema.Number },
-    AssignFailed: { reason: Schema.String },
-    AssignConflict: { assignee: Schema.String }, // 409: someone else holds the ticket
-    // One unknown event for the one keyed write whose handler acts on its lane (rule 43).
-    AssignUnsure: Flow.uncertain({ workspaceId: Schema.String, ticketId: Schema.String }),
-    ReconcileAssign: { workspaceId: Schema.String, ticketId: Schema.String },
+    SlaBreached: { workspaceId: Schema.String, ticketId: Schema.String },
     Created: { draftId: Schema.String, ticketId: Schema.String },
     CreateFailed: { draftId: Schema.String, reason: Schema.String },
     CreateUnsure: Flow.uncertain({ draftId: Schema.String }),
     Archived: {},
     ArchiveRefused: { reason: Schema.String },
     ArchiveUnsure: Flow.uncertain({}),
+    BulkClosed: { closed: Schema.Int, skipped: Schema.Array(Schema.String) },
+    BulkNotSent: { why: Schema.String },
+    BulkUnsure: Flow.uncertain({}),
   },
   context: { userId: Session.select(({ memory }) => memory.userId) },
   memory: {
     workspaceId: Flow.input(Schema.String),
-    search: Flow.initial(Schema.String, ""), // as typed; the list input trims and lowercases it
+    search: Flow.initial(Schema.String, ""), // as typed
+    appliedSearch: Flow.initial(Schema.String, ""), // what the list reads, after the debounce
     status: Flow.initial(Schema.NullOr(TicketStatus), null),
     mineOnly: Flow.initial(Schema.Boolean, false),
     notice: Flow.initial(Schema.String, ""),
@@ -77,31 +95,47 @@ export const Queue = definition({
     tab: Flow.initial(QueueTab, "all"),
     now: Flow.initial(Schema.Number, 0), // 0 until the first minute tick; the triage read waits for it
     creating: Flow.initial(Schema.Array(NewTicketDraft), []),
+    rows: Flow.initial(Schema.Array(RowFacts), []), // the list's confirmed rows, from its value
+    visibleRows: Flow.initial(Schema.Array(Schema.String), []), // the `of:` list of `toggles`
+    flashing: Flow.initial(Schema.Array(Schema.String), []), // the `of:` list of `flashes`
+    selected: Flow.initial(Schema.Array(Schema.String), []),
+    breached: Flow.initial(Schema.Array(Schema.String), []),
   },
-  // `Comments` at the root, once: the drawer. Its filling and `resetOn` are in the machine.
-  traits: { preview: Comments },
+  traits: {
+    preview: Comments, // the drawer: its filling and `resetOn` are in the machine
+    toggles: AssignToggle.each({ of: "visibleRows", max: MAX_ROWS }),
+    flashes: RowFlash.each({ of: "flashing", max: MAX_ROWS }),
+  },
   operations: ({ E }) => ({
-    // Maps `value`, so the machine subscribes. Rows are read from the lane; the event only says "loaded".
+    // Maps `value`, so the machine subscribes. The event carries the facts the copies and timers need.
     list: TicketsDomain.list.outcomes({
       value: E.ListLoaded.from((pages) => ({
-        ticketIds: pages.flatMap((page) => page.tickets.map((ticket) => ticket.ticketId)),
+        rows: pages.flatMap((page) =>
+          page.tickets.map((t) => ({
+            ticketId: t.ticketId,
+            revision: t.revision,
+            dueAt: t.dueAt,
+            assignee: t.assignee,
+            open: t.status !== "closed",
+          })),
+        ),
       })),
       failure: {
         QueueUnavailable: E.ListUnavailable.from(({ retryAfter }) => ({ retryAfter })),
-        // A lost read degrades the queue the same way a 503 does; Flow's two are required in a tag record
-        // (rule 37), and a list that cannot be read is "unavailable" whatever the reason.
+        // A lost read degrades the queue the same way a 503 does; Flow's two are required in a tag record (rule 37).
         NoResponse: E.ListUnavailable.from(() => ({ retryAfter: 5 })),
         Defect: E.ListUnavailable.from(() => ({ retryAfter: 5 })),
         Interrupted: E.ListUnavailable.from(() => ({ retryAfter: 5 })),
       },
     }),
     open: TicketsDomain.openCount, // bare: the badge reads the lane
-    // The other two tabs, each placed only while chosen. Bare: the rows are the lane's data.
-    unassigned: TicketsDomain.unassigned,
+    unassigned: TicketsDomain.unassigned, // the other two tabs, each placed only while chosen
     triage: TicketsDomain.triage,
-    // "@ you": unread comments that mention the signed-in dispatcher (a `contains` condition, E5).
-    mentions: CommentsDomain.mentions, // bare: the badge reads the lane
-    // One lane per draft (the contract's key, `draftId`).
+    mentions: CommentsDomain.mentions, // "@ you": unread comments that mention the signed-in dispatcher (E5)
+    // The assignee's name comes from its own record (E1): one technician read per distinct assignee shown.
+    assignees: RosterDomain.technicianById, // bare: rows read `Technician.get`
+    // Who is viewing each visible ticket: one SDK session per row, keys following the visible rows (T6).
+    viewers: ticketViewers, // pending merge 6: bare state feed
     create: TicketsDomain.create.outcomes({
       success: E.Created.from((ticket, { key }) => ({
         draftId: key.draftId,
@@ -128,17 +162,13 @@ export const Queue = definition({
       },
       unknown: E.ArchiveUnsure,
     }),
-    // Key `["workspaceId", "ticketId"]` on the contract: one lane per ticket, created by work.
-    assign: TicketsDomain.assign.outcomes({
-      failure: {
-        TicketNotFound: E.AssignFailed.from(() => ({ reason: "That ticket was removed" })),
-        AlreadyAssigned: E.AssignConflict.from(({ assignee }) => ({ assignee })),
-        NotSent: E.AssignFailed.from(() => ({ reason: "That assignment was not sent" })), // rule 20
-      },
-      unknown: E.AssignUnsure.from((_ending, { key }) => ({
-        workspaceId: key.workspaceId,
-        ticketId: key.ticketId,
+    bulkClose: TicketsDomain.bulkClose.outcomes({
+      success: E.BulkClosed.from((page) => ({
+        closed: page.tickets.filter((t) => t.status === "closed").length,
+        skipped: page.tickets.filter((t) => t.status !== "closed").map((t) => t.ticketId),
       })),
+      failure: { NotSent: E.BulkNotSent.from((r) => ({ why: r.why })) }, // Overloaded at the 65th (rule 35)
+      unknown: E.BulkUnsure,
     }),
   }),
 });

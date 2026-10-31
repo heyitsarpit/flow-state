@@ -9,6 +9,7 @@ import { Story } from "flow-state/testing";
 import { browserSetup } from "../../app/persistence.js";
 import { DeskSetup } from "../../app/setup.js";
 import { Desk, DeskClient } from "../../testing/desk.fake.js";
+import { Collab } from "../../testing/presence.fake.js"; // pending merge 6
 import { Session } from "../Session/session.definition.js";
 import { SessionRef } from "../Session/session.ref.js";
 import { Roster } from "./roster.definition.js";
@@ -212,3 +213,11 @@ export const rosterHydrated = Story.make(DeskSetup, {
 })
   .hydrate(rosterPage, "roster")
   .checkpoint("hydrated");
+
+// pending merge 6. Online dots: one SDK session per technician on the page (`subscribe.each`, T6), the same
+// collaboration contract the ticket watcher uses, placed per row (T7). Ana's phone joins her channel.
+export const onlineDots = admin("roster/online-dots")
+  .world(
+    Collab.join({ channel: "technician:north:tech-ana", member: { id: "tech-ana", name: "Ana" } }),
+  )
+  .checkpoint("ana-online");

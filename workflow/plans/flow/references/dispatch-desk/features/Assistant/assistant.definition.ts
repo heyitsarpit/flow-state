@@ -1,6 +1,7 @@
 // The assistant for one ticket: IDLE until asked, ASKING while the reply streams. Demonstrates rule 13
-// (`unknown` mapped by tag), rule 21 (the lane holds the Attempt; the machine keeps only the text),
-// rule 24 and OD23 Q36 (a stop is `unknown { Cancelled }`, held until a handler releases it).
+// (`unknown` mapped by tag), `concurrency: "cancel"` (Regenerate interrupts the reply on the wire; its ending is
+// evidence, never an event) and a streamed write's `progress` (M6 2.9).
+// How this module is different (COVERAGE.md 5.1): the desk's only `cancel` lane and only streamed write.
 // Pending merge 6: written against merge-6-streams/proposal-v2.md revision 7.1, 4.4.
 import { Schema } from "effect";
 import { definition, Flow } from "flow-state";
@@ -11,6 +12,7 @@ export const Assistant = definition({
   states: ["IDLE", "ASKING"],
   events: {
     Ask: { prompt: Schema.String },
+    Regenerate: {},
     Stop: {},
   },
   internalEvents: {
@@ -24,6 +26,7 @@ export const Assistant = definition({
     ticketId: Flow.input(Schema.String),
     last: Flow.initial(Schema.String, ""), // the last text shown: whole, or the partial of a stop or a cut
     incomplete: Flow.initial(Schema.Boolean, false),
+    prompt: Flow.initial(Schema.String, ""), // what Regenerate asks again
     refused: Flow.initial(Schema.Boolean, false),
   },
   operations: ({ E }) => ({

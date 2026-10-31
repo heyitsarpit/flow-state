@@ -5,7 +5,7 @@ import { Schema } from "effect";
 import { resource, transaction } from "flow-state";
 import { unknownWhenLost } from "../shared/outcomes.js";
 import { TicketApi } from "./ticket-api.js";
-import { TicketPage, TicketRow, TicketStatus } from "./types.js";
+import { ClosePage, TicketPage, TicketRow, TicketStatus } from "./types.js";
 
 // Resources ----------------------------------------------------------------------------------------
 
@@ -145,6 +145,44 @@ export const archiveTicket = transaction({
   concurrency: "reject",
   commit: (input, { attempt, signal }) =>
     TicketApi.use((api) => api.archive(input, { idempotencyKey: attempt.id, signal })).pipe(
+      unknownWhenLost,
+    ),
+});
+
+// One ticket's assignee, set or cleared, from the row's toggle. `latest`, one lane per ticket: assign, unassign,
+// assign in a burst sends at most two requests, and the server ends with the last (O4). The adapter batches the
+// assignments of one moment into one request (`assignResolver`, ticket-api.ts), and each item is answered on its
+// own: AlreadyAssigned (409) and TicketNotFound (404) are this commit's alone.
+export const setAssignee = transaction({
+  id: "DispatchDesk/set-assignee",
+  input: {
+    workspaceId: Schema.String,
+    ticketId: Schema.String,
+    assignee: Schema.NullOr(Schema.String),
+  },
+  output: TicketRow,
+  key: ["workspaceId", "ticketId"],
+  concurrency: "latest",
+  commit: (input, { attempt, signal }) =>
+    TicketApi.use((api) => api.setAssignee(input, { idempotencyKey: attempt.id, signal })).pipe(
+      unknownWhenLost,
+    ),
+});
+
+// Close many tickets in one write, one lane per workspace, in order: `serialize` keeps a FIFO of at most 64 bulk
+// operations behind the one on the wire, so "close these 50", then "close those 20" land in that order; the 65th is
+// declined `NotSent { Overloaded }` (rule 35). `tickets` is an array of keys: the domain predicts each once.
+export const closeTickets = transaction({
+  id: "DispatchDesk/close-tickets",
+  input: {
+    workspaceId: Schema.String,
+    tickets: Schema.Array(Schema.Struct({ workspaceId: Schema.String, ticketId: Schema.String })),
+  },
+  output: ClosePage,
+  key: ["workspaceId"],
+  concurrency: "serialize",
+  commit: (input, { attempt, signal }) =>
+    TicketApi.use((api) => api.closeMany(input, { idempotencyKey: attempt.id, signal })).pipe(
       unknownWhenLost,
     ),
 });

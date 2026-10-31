@@ -1,44 +1,53 @@
-// WATCHING places the session; an ended session waits in RETRY_WAIT with a doubling delay that only a
-// healthy minute resets (M6 2.7, RV1 M9). Demonstrates rules 25 and 50 (only the fragment subscribes).
+// WATCHING places both sessions for the screen's life. A drop is not a transition (rule 25): the SDK reconnects, the
+// row reads Connecting with its `drop`, and the badges dim. Only a channel the SDK gave up on ends WATCHING.
 // Pending merge 6: written against merge-6-streams/proposal-v2.md revision 7.1, S1–S10.
-import { Duration } from "effect";
-import { deny, machine } from "flow-state";
-import { MAX_REOPEN_MS, MIN_REOPEN_MS, Presence } from "./presence.definition.js";
+import { machine } from "flow-state";
+import { Presence, TYPING_SHOWN_MS } from "./presence.definition.js";
 
-export const PresenceMachine = machine(Presence, ({ S, E, O }) => ({
-  default: S.WATCHING,
-  states: {
-    WATCHING: {
-      activities: [
-        O.viewers.subscribe(({ memory }) => ({
-          workspaceId: memory.workspaceId,
-          ticketId: memory.ticketId,
-        })),
-      ],
-      // The backoff resets only after the session stayed registered for a minute, so a server that
-      // accepts and drops again and again keeps growing the delay.
-      schedules: { healthy: { schedule: "1 minute", send: E.Healthy } },
-      on: {
-        Healthy: {
-          target: "self",
-          guard: [({ operations }) => operations.viewers?.connection === "Live" || deny("NotLive")], // accepted: connection
-          updateMemory: () => ({ reopenInMs: MIN_REOPEN_MS }),
+export const PresenceMachine = machine(Presence, ({ S, O }) => {
+  const channel = ({ memory }: { memory: { workspaceId: string; ticketId: string } }) => ({
+    workspaceId: memory.workspaceId,
+    ticketId: memory.ticketId,
+  });
+
+  return {
+    default: S.WATCHING,
+    states: {
+      WATCHING: {
+        activities: [O.viewers.subscribe(channel), O.typing.subscribe(channel)],
+        on: {
+          // The badges' membership is host data, filled from the feed's reconciled value (rule 9).
+          Viewers: { target: "self", updateMemory: ({ event }) => ({ viewerIds: event.ids }) },
+          // Each typing message once, kept for a few seconds by the view (`useNow`); stale ones are dropped here.
+          Typing: {
+            target: "self",
+            updateMemory: ({ memory, event }) => ({
+              typing: Object.fromEntries(
+                [...Object.entries(memory.typing), [event.memberId, event.at] as const].filter(
+                  ([, at]) => at > event.at - TYPING_SHOWN_MS,
+                ),
+              ),
+            }),
+          },
+          MayHaveMissed: { target: "self" }, // typing is ephemeral: a missed "is typing" is nothing to show (SR10)
+          // "I am typing": a ping through the SDK, `allow`, bare. Nothing waits on it.
+          Typed: {
+            target: "self",
+            actions: [
+              O.ping.commit(({ memory, event }) => ({
+                ...channel({ memory }),
+                memberId: event.memberId,
+                at: event.at,
+              })),
+            ],
+          },
+          Ended: {
+            target: S.ENDED,
+            updateMemory: ({ event }) => ({ reason: event.reason, viewerIds: [] }),
+          },
         },
-        Ended: {
-          target: S.RETRY_WAIT,
-          updateMemory: ({ memory }) => ({
-            reopenInMs: Math.min(MAX_REOPEN_MS, memory.reopenInMs * 2),
-          }),
-        },
-        SignedOut: S.SIGNED_OUT,
       },
+      ENDED: {}, // the panel shows "Live presence is off"; reopening the ticket starts again
     },
-    RETRY_WAIT: {
-      schedules: {
-        reopen: { schedule: ({ memory }) => Duration.millis(memory.reopenInMs), send: E.Reopen },
-      },
-      on: { Reopen: S.WATCHING },
-    },
-    SIGNED_OUT: {}, // the Session actor closes the panel; nothing to re-open
-  },
-}));
+  };
+});

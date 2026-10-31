@@ -35,11 +35,13 @@ import {
   Reactions,
   ThreadPage,
 } from "../features/Comments/comments-api.js";
-import { TicketApi } from "../features/Tickets/ticket-api.js";
+import { assignResolver, TicketApi } from "../features/Tickets/ticket-api.js";
 import {
   ActivityPage,
   AlreadyAssigned,
   ArchiveRefused,
+  AssignResult,
+  ClosePage,
   TicketRejected,
   Cursor,
   NoResponse,
@@ -52,7 +54,14 @@ import {
   TicketStatus,
   TitleRejected,
 } from "../features/Tickets/types.js";
+import { detailsClient, detailsControls, detailsEndpoints } from "./desk.details.fake.js";
+import {
+  techniciansClient,
+  techniciansControls,
+  techniciansEndpoints,
+} from "./desk.technicians.fake.js";
 import { rosterClient, rosterControls, rosterEndpoints } from "./desk.roster.fake.js";
+import { CollabFake } from "./presence.fake.js";
 import { socketClient, socketControls, socketEndpoints, socketPushes } from "./desk.socket.fake.js";
 
 // --- the wire --------------------------------------------------------------------------------
@@ -75,6 +84,8 @@ const STATUS = {
   EditWindowClosed: 403,
   AlreadyAssigned: 409,
   TooLarge: 413,
+  BodyConflict: 412, // If-Match did not match: the body carries what is there now
+  FieldRejected: 422,
   RemoveRefused: 403,
   // the roster's (desk.roster.fake.ts)
   TechnicianGone: 404,
@@ -127,7 +138,7 @@ const Budget = Schema.Union([Schema.Int, Schema.Literal("always")]);
 
 export type FakeTruth = {
   desk: Server.DeskTruth;
-  // pending merge 6 (B4): technician polling state, the presence SDK's members; see desk.roster.fake.ts
+  pulseDown: boolean; // `Desk.pulseOutage`: every technician poll answers 503
   outage: boolean;
   replay: boolean; // whether a greeting proves a replay (`Desk.greet`)
   budget: Record<string, number | "always">;
@@ -187,8 +198,9 @@ export const Desk = Fake.server("Desk", {
     outage: Schema.Boolean,
     replay: Schema.Boolean,
     budget: Schema.Record(Schema.String, Budget),
+    pulseDown: Schema.Boolean,
   },
-  initial: { desk: Server.seed(), outage: false, replay: true, budget: {} },
+  initial: { desk: Server.seed(), outage: false, replay: true, budget: {}, pulseDown: false },
 
   pushes: socketPushes, // pending merge 6: desk.socket.fake.ts (gap 36)
 
@@ -279,6 +291,30 @@ export const Desk = Fake.server("Desk", {
       request: { ...ticketKey, assignee: Schema.String, key: Schema.String },
       handle: (truth, req) => step(truth, Server.assign(truth.desk, req, req.key)),
     }),
+    // One request for many assignments; each item answered on its own (MD 2.7.11).
+    assignBatch: Fake.call({
+      request: {
+        items: Schema.Array(
+          Schema.Struct({
+            input: Schema.Struct({ ...ticketKey, assignee: Schema.NullOr(Schema.String) }),
+            idempotencyKey: Schema.String,
+          }),
+        ),
+      },
+      handle: (truth, req) => {
+        const [desk, results] = Server.assignBatch(truth.desk, req.items);
+
+        return [withDesk(truth, desk), { status: 200, body: results }];
+      },
+    }),
+    closeMany: Fake.call({
+      request: {
+        workspaceId: Schema.String,
+        tickets: Schema.Array(Schema.Struct(ticketKey)),
+        key: Schema.String,
+      },
+      handle: (truth, req) => step(truth, Server.closeMany(truth.desk, req, req.key)),
+    }),
     postComment: Fake.call({
       request: { ...ticketKey, clientId: Schema.String, text: Schema.String, key: Schema.String },
       handle: (truth, req) => step(truth, Server.postComment(truth.desk, req, req.key)),
@@ -339,6 +375,8 @@ export const Desk = Fake.server("Desk", {
     }),
 
     ...rosterEndpoints, // desk.roster.fake.ts: the roster's endpoints, reached through `Fake.fetch`
+    ...detailsEndpoints, // desk.details.fake.ts: fields, body and history, reached through `Fake.fetch`
+    ...techniciansEndpoints, // desk.technicians.fake.ts: pulses, breaks, nudges, dispatch, through `Fake.fetch`
 
     ...socketEndpoints, // pending merge 6: desk.socket.fake.ts
   },
@@ -406,6 +444,8 @@ export const Desk = Fake.server("Desk", {
     ),
 
     ...rosterControls, // desk.roster.fake.ts
+    ...detailsControls, // desk.details.fake.ts
+    ...techniciansControls, // desk.technicians.fake.ts
 
     ...socketControls, // pending merge 6: greet, resetLog, retain, expireToken (desk.socket.fake.ts)
   },
@@ -420,8 +460,20 @@ const SocketOverDesk = socketClient(Desk); // pending merge 6
 
 const TicketsOverDesk = Layer.effect(
   TicketApi,
-  Effect.map(Desk, (server) =>
-    TicketApi.of({
+  Effect.map(Desk, (server) => {
+    const assignBatched = assignResolver(
+      (items) =>
+        server.assignBatch({ items }).pipe(
+          lost,
+          Effect.flatMap((wire) => fromWire(wire, Schema.Array(AssignResult), {})),
+        ),
+      {
+        gone: (ticketId) => new TicketNotFound({ ticketId }),
+        held: (assignee) => new AlreadyAssigned({ assignee }),
+      },
+    );
+
+    return TicketApi.of({
       load: (key) =>
         server.load(key).pipe(
           lost,
@@ -483,6 +535,14 @@ const TicketsOverDesk = Layer.effect(
           Effect.flatMap((wire) => fromWire(wire, TicketPage, {})),
           readFailed,
         ),
+      // The client half batches as the real adapter does: the same `assignResolver` (ticket-api.ts) over this
+      // server's batch endpoint, so a Story sees one request with several Attempts in its `via` (2.10.4).
+      setAssignee: (input, { idempotencyKey }) => assignBatched(input, idempotencyKey),
+      closeMany: (input, { idempotencyKey }) =>
+        server.closeMany({ ...input, key: idempotencyKey }).pipe(
+          lost,
+          Effect.flatMap((wire) => fromWire(wire, ClosePage, {})),
+        ),
       byCustomer: (input) =>
         server.byCustomer(input).pipe(
           lost,
@@ -506,8 +566,8 @@ const TicketsOverDesk = Layer.effect(
             }),
           ),
         ),
-    }),
-  ),
+    });
+  }),
 );
 
 const CommentsOverDesk = Layer.effect(
@@ -631,5 +691,10 @@ export const DeskClient = Layer.mergeAll(
   CommentsOverDesk,
   AttachmentsOverDesk,
   rosterClient(Desk), // desk.roster.fake.ts: the real `RosterHttp` adapter over `Fake.fetch`
+  detailsClient(Desk), // desk.details.fake.ts: the real `DetailsHttp` adapter over `Fake.fetch`
+  techniciansClient(Desk), // desk.technicians.fake.ts: the real `TechniciansHttp` adapter over `Fake.fetch`
+  // The collaboration SDK is its own service with its own server (presence.fake.ts): who is on a channel is not desk
+  // truth. It is in the desk's fixture because the queue and the roster place its sessions.
+  CollabFake, // pending merge 6
   SocketOverDesk, // pending merge 6: desk.socket.fake.ts
 );
