@@ -85,166 +85,166 @@ A situation is a module in a setting. The four axes the owner named, per module:
 
 ### 2.1 Fragments and the turn
 
-| # | API | Design | Today | A | B | C | Target |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| F1 | trait with no I/O | MD 2.1, rule 3 | none | **CK** `Countdown` — a visible 3-D Secure timer, armed on an event | **ED panels** `Reservation` — a parts-hold timer that must survive a freeze | **ED fields** `Field` — synchronous validation per field, no timer at all | 3 |
-| F2 | writing trait (a trait that declares `operations`) | MD 2.9, rules 48–50 | once | **CM** *today* — placed on two hosts, one with `resetOn`; A-B-A adoption | **RW** `Signature` — uploads a signature, placed only on SIGNOFF inside a subroutine | **ED panels** `History` — a read plus a "pin note" write, inside a resumable tab | 3 |
-| F3 | trait on a node, `Flow.state(…, { traits })` | MD 2.1, 2.3, rule 1 | none | **ED panels** — one trait per tab node | **RW** — the signature trait only on SIGNOFF | **CK** — `Countdown` only on CHALLENGE | 3 |
-| F4 | `.each` over a memory list, pure copies | MD 3.3, rule 9 | none | **CK** `QuantityStepper` per cart line — the host owns the writes | **RW** `PartLine` per part used — validation only | **AD** `SkillChip` per skill on a technician form — removed by its own event | 3 |
-| F5 | `.each` over keys a live source fills | MD rule 9, 2.7.10 | none | **QU techs** `TechCard` copies over the technicians the filter shows | **QU** `RowFlash` copies over rows a push just changed | **PR** `ViewerBadge` copies over viewers the SDK reports | 3 |
-| F6 | `.each` copies that own writes | MD 2.9.6, rules 48, 51 | once | **UP** *today* — commit on creation, release on abandon | **ED fields** `Autosave` per field — `latest`, debounced, never released | **QU** `AssignToggle` per row — a `latest` toggle owned by the row, not the queue | 3 |
-| F7 | `.each` options: `max`, `by`, `E.x.key(k)` | MD rule 9 | once | **UP** *today* — `max` refuses a sixth file | **ED fields** — `by` orders fields by schema position | **CK** — `E.line.key(k).Increment` from a line's own button | 3 |
-| F8 | leaf subroutine (`Confirm`) left by exits | MD 2.1, 3.2, rule 6 | none | **RW** `ConfirmDiscard` — nested inside another subroutine | **CK** `ConfirmRemove` — its exit carries which line | **AD** `ConfirmMerge` — its exit picks the surviving record | 3 |
-| F9 | subroutine with states and `.history` | MD 3.2 | none | **RW** wizard — Back returns to the last step (`.history`) | **CK** address step — returns to the exact field (`.history.child`) | — | 2 |
-| F10 | `exits` with data | MD 2.2, 3.2 | none | **RW** `Resolved { resolution }` | **CK** 3-D Secure `Passed { authId }`, `Declined { code }`, `TimedOut` | **AD** `Merge { survivorId }` | 3 |
-| F11 | a subroutine that owns a write; its ending arrives after the exit | MD rules 48, 53 | none | **RW** `resolve` lands after the wizard was left | **CK** the challenge's confirm lands after a `TimedOut` exit | — | 2 |
-| F12 | `.resumable()`: freeze, thaw, `dueAt` kept | MD 2.1, 2.4 rule 1 | none | **ED panels** — reads cut on freeze, restarted on thaw | **CK** `Countdown` under a help overlay — time keeps running while frozen | — | 2 |
-| F13 | `resetOn` (value) and the pin commit (3.4) | MD 3.4, rule 56 | once | **QU** preview *today* — follows the selected ticket, writes parked | **CK** checkout — resets on a new cart id; waits for its own write (pin) | **ED panels** — resumable, but fresh when the ticket changes | 3 |
-| F14 | `whenAbandoned` | MD rule 60, 3.5 | once | **UP** *today* — key-less `cancel`: the bytes are worthless | **CM** *today* — no cancel: a comment is intent | **RW** — notify only; the resolution draft survives (3.5) | 3 |
-| F15 | `guards`, `callbacks`, `Flow.optional` ports | MD 2.2, rule 5 | once (same template: one `onFailed`) | **RW** `canResolve` guard with denial codes | **CK** `mayPay` guard reading the host's context | **ED fields** optional `onConflict` callback; absent where a field is read-only | 3 |
-| F16 | `hostEvents` with `raise` | MD 2.2, rule 2 | none | **RW** `JumpTo { step }` from the step bar | **ED panels** `OpenTab { tab }` from a deep link | — | 2 |
-| F17 | `notify` | MD 2.2, rule 6 | once (same template) | **RW** `Progressed { step }` drives the host's step bar | **ED fields** `Saved { field }` feeds an "all saved" badge | **CM** *today* — failures only | 3 |
-| F18 | nesting hides the level below | MD rule 10 | none | **RW** wizard → `ConfirmDiscard` | **ED panels** tab → `Reservation` | **CK** challenge → `Countdown` | 3 |
-| F19 | `Flow.private`, `Flow.annotate({ denials })` | MD 2.2.1, 2.2.2 | none | **RW** — private step bookkeeping; annotated guard | **CK** — private challenge state; annotated `mayPay` | **ED panels** — private scroll anchors | 3 |
-| F20 | `Flow.input`, `Flow.initial`, `Flow.uncertain`, `internalEvents` | MD 2.2 | several | **ED**, **QU**, **CM** *today* | | | done |
-| F21 | the turn: before/after memory, ordered alternatives, `deny`, `check()` | MD 2.5, rules 7, 22 | several | **ED** *today* — saved vs draft compared after the outcome | **FD** — `TooShort` denial shown under the box | **CK** — Pay button's `check()` reasons rendered as help text | 3 |
-| F22 | shared actor; context from another actor | FP runtime, MD 2.10.1 | once | **DD** Toasts, Session *today* | **AD** — the Session's admin role decides which actions exist | **CK** — guest vs signed-in context changes the flow | 3 |
-| F23 | sending into another actor's fragment | DD gap 3 | once | **AS** *today* — "Use as comment" | **QU** — "Reply" in a row sends into the editor's `comments` copy | — | 2 |
+| # | API | Design | Today | A | B | C | Target | Built (B9) |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| F1 | trait with no I/O | MD 2.1, rule 3 | none | **CK** `Countdown` — a visible 3-D Secure timer, armed on an event | **ED panels** `Reservation` — a parts-hold timer that must survive a freeze | **ED fields** `Field` — synchronous validation per field, no timer at all | 3 | several (3), met |
+| F2 | writing trait (a trait that declares `operations`) | MD 2.9, rules 48–50 | once | **CM** *today* — placed on two hosts, one with `resetOn`; A-B-A adoption | **RW** `Signature` — uploads a signature, placed only on SIGNOFF inside a subroutine | **ED panels** `History` — a read plus a "pin note" write, inside a resumable tab | 3 | several (3), met |
+| F3 | trait on a node, `Flow.state(…, { traits })` | MD 2.1, 2.3, rule 1 | none | **ED panels** — one trait per tab node | **RW** — the signature trait only on SIGNOFF | **CK** — `Countdown` only on CHALLENGE | 3 | several (3), met |
+| F4 | `.each` over a memory list, pure copies | MD 3.3, rule 9 | none | **CK** `QuantityStepper` per cart line — the host owns the writes | **RW** `PartLine` per part used — validation only | **AD** `SkillChip` per skill on a technician form — removed by its own event | 3 | several (3), met |
+| F5 | `.each` over keys a live source fills | MD rule 9, 2.7.10 | none | **QU techs** `TechCard` copies over the technicians the filter shows | **QU** `RowFlash` copies over rows a push just changed | **PR** `ViewerBadge` copies over viewers the SDK reports | 3 | several (3), met |
+| F6 | `.each` copies that own writes | MD 2.9.6, rules 48, 51 | once | **UP** *today* — commit on creation, release on abandon | **ED fields** `Autosave` per field — `latest`, debounced, never released | **QU** `AssignToggle` per row — a `latest` toggle owned by the row, not the queue | 3 | several (3), met |
+| F7 | `.each` options: `max`, `by`, `E.x.key(k)` | MD rule 9 | once | **UP** *today* — `max` refuses a sixth file | **ED fields** — `by` orders fields by schema position | **CK** — `E.line.key(k).Increment` from a line's own button | 3 | several (3), met |
+| F8 | leaf subroutine (`Confirm`) left by exits | MD 2.1, 3.2, rule 6 | none | **RW** `ConfirmDiscard` — nested inside another subroutine | **CK** `ConfirmRemove` — its exit carries which line | **AD** `ConfirmMerge` — its exit picks the surviving record | 3 | several (3), met |
+| F9 | subroutine with states and `.history` | MD 3.2 | none | **RW** wizard — Back returns to the last step (`.history`) | **CK** address step — returns to the exact field (`.history.child`) | — | 2 | several (2), met |
+| F10 | `exits` with data | MD 2.2, 3.2 | none | **RW** `Resolved { resolution }` | **CK** 3-D Secure `Passed { authId }`, `Declined { code }`, `TimedOut` | **AD** `Merge { survivorId }` | 3 | several (3), met |
+| F11 | a subroutine that owns a write; its ending arrives after the exit | MD rules 48, 53 | none | **RW** `resolve` lands after the wizard was left | **CK** the challenge's confirm lands after a `TimedOut` exit | — | 2 | several (2), met; CK: write kept in the host (rule 48) |
+| F12 | `.resumable()`: freeze, thaw, `dueAt` kept | MD 2.1, 2.4 rule 1 | none | **ED panels** — reads cut on freeze, restarted on thaw | **CK** `Countdown` under a help overlay — time keeps running while frozen | — | 2 | several (2), met |
+| F13 | `resetOn` (value) and the pin commit (3.4) | MD 3.4, rule 56 | once | **QU** preview *today* — follows the selected ticket, writes parked | **CK** checkout — resets on a new cart id; waits for its own write (pin) | **ED panels** — resumable, but fresh when the ticket changes | 3 | several (3), met |
+| F14 | `whenAbandoned` | MD rule 60, 3.5 | once | **UP** *today* — key-less `cancel`: the bytes are worthless | **CM** *today* — no cancel: a comment is intent | **RW** — notify only; the resolution draft survives (3.5) | 3 | several (3), met |
+| F15 | `guards`, `callbacks`, `Flow.optional` ports | MD 2.2, rule 5 | once (same template: one `onFailed`) | **RW** `canResolve` guard with denial codes | **CK** `mayPay` guard reading the host's context | **ED fields** optional `onConflict` callback; absent where a field is read-only | 3 | several (3), met |
+| F16 | `hostEvents` with `raise` | MD 2.2, rule 2 | none | **RW** `JumpTo { step }` from the step bar | **ED panels** `OpenTab { tab }` from a deep link | — | 2 | several (2), met |
+| F17 | `notify` | MD 2.2, rule 6 | once (same template) | **RW** `Progressed { step }` drives the host's step bar | **ED fields** `Saved { field }` feeds an "all saved" badge | **CM** *today* — failures only | 3 | several (3), met |
+| F18 | nesting hides the level below | MD rule 10 | none | **RW** wizard → `ConfirmDiscard` | **ED panels** tab → `Reservation` | **CK** challenge → `Countdown` | 3 | several (3), met |
+| F19 | `Flow.private`, `Flow.annotate({ denials })` | MD 2.2.1, 2.2.2 | none | **RW** — private step bookkeeping; annotated guard | **CK** — private challenge state; annotated `mayPay` | **ED panels** — private scroll anchors | 3 | several (3), met |
+| F20 | `Flow.input`, `Flow.initial`, `Flow.uncertain`, `internalEvents` | MD 2.2 | several | **ED**, **QU**, **CM** *today* | | | done | once (1), done |
+| F21 | the turn: before/after memory, ordered alternatives, `deny`, `check()` | MD 2.5, rules 7, 22 | several | **ED** *today* — saved vs draft compared after the outcome | **FD** — `TooShort` denial shown under the box | **CK** — Pay button's `check()` reasons rendered as help text | 3 | several (3), met |
+| F22 | shared actor; context from another actor | FP runtime, MD 2.10.1 | once | **DD** Toasts, Session *today* | **AD** — the Session's admin role decides which actions exist | **CK** — guest vs signed-in context changes the flow | 3 | several (3), met |
+| F23 | sending into another actor's fragment | DD gap 3 | once | **AS** *today* — "Use as comment" | **QU** — "Reply" in a row sends into the editor's `comments` copy | — | 2 | several (2), met |
 
 ### 2.2 Operations and write lanes
 
-| # | API | Design | Today | A | B | C | D | Target |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| O1 | the hold: `unknown` keeps the Attempt, the same Attempt is re-sent | MD rules 18–21, 2.7.13 | once (same template ×4: ED, QU, CM, UP) | **ED** title *today* — re-sent on a schedule with `retryable`, then `cancel` | **CK** — a payment that must never double-charge: no blind re-send; a reconcile `lookup` decides, then the hold is released | **ED fields** body — an etag'd autosave; a re-send that meets 412 ends `StillUnknown` | **QU** bulk — the held head blocks a `serialize` FIFO, so order is kept | 4 |
-| O2 | contract `commit` over a real source | MD 2.7.2 | once (`fetch`, XHR) | **ED** *today* — `fetch` with `AbortController` | **CK** — Stripe.js Promises, no signal; `Idempotency-Key: attempt.id` | **QU** — `RequestResolver` batching per-item statuses below the commit | **PR** — the collaboration SDK's calls | 4 |
-| O3 | `reject` | MD 2.7.8 | several | **ED** *today* — one save at a time; a second is declined | **UP** *today* — keyed per call, so it never refuses a different file | **CK** pay — a double click is `NotSent { Rejected }`, mapped to nothing visible | | 3 |
-| O4 | `latest`: a newer commit replaces the queued one | MD 2.7.8, C10 | none | **ED fields** summary, location note — last write wins, `Superseded` evidence | **CK** quantity — rapid taps send at most two requests | **QU** assign toggle — assign, unassign, assign sends once | | 3 |
-| O5 | `latest` behind a held unknown | MD 2.7.8 (`setLike`), rule 29 | none | **QU** — a toggle while the assign is unsure waits behind the hold | **CK** — a quantity change on an unsure line waits, then goes | **ED fields** — a field edit waits behind that field's unsure save | | 3 |
-| O6 | when **not** to use `latest` | MD 2.9.6 | none | **ED fields** body — an etag would be stale, so `reject` and coalesce in the fragment | **ED** title — an explicit Save must not race the lock; `reject` | — | | 2 |
-| O7 | `serialize`: FIFO ≤ 64, `outstanding`, `Overloaded` | MD 2.7.8, rule 35 | none | **QU** bulk per workspace — operations apply in order | **CK** refunds per charge — money order matters | **CM** posts per ticket — comments land in the order typed | | 3 |
-| O8 | `cancel`: a newer commit interrupts the one on the wire | MD 2.7.8, rule N2 | none | **AS** — Regenerate interrupts the streaming reply | **CK** — a new address interrupts the shipping quote | — | | 2 |
-| O9 | `allow`: per-Attempt lanes | MD 2.7.8, rule N2 | none | **QU techs** Nudge — many at once, each toasts its own result | **PR** typing pings through the SDK — fire and forget | **AD** invite emails — key-less handling in each ending's own turn | | 3 |
-| O10 | endings current, late, adopted; late turns; `LateMayNotLeave` | MD rules 14, 15, 20 | once (misuse M1, M2) | **ED** *today* — late after Close, adopted on reopen | **RW** — late after the wizard's exit | **CK** — the challenge's ending after `TimedOut` may not leave PAID | | 3 |
-| O11 | declines as endings: `NotSent { Rejected, Overloaded, Disposed, StorageRefused, Cancelled }` | MD rule 16, 2.7.1 | once | **CM** *today* — `Rejected` from another subject path | **QU** — `Overloaded` at the 65th bulk op | **ED tabs** — `StorageRefused` on a full quota | **CK** — `Disposed` | 4 |
-| O12 | `unknown` reasons: `Restored`, `StillUnknown`, `Interrupted`, `Defect` | MD 2.7.1, rule 18 | once (misuse M4) | **UP** *today* — `Restored` means the bytes are gone | **CK** — `StillUnknown { AlreadyCaptured }` | **ED fields** — `Restored` mid-autosave: re-send the coalesced value | | 3 |
-| O13 | `attempt.id`, `retryCount`, `mayHaveApplied` | MD rule 19 | once | **ED** *today* — idempotency header | **CK** — `mayHaveApplied` decides the receipt's wording | **CM** — the pushed comment carries `attempt.id`, so its draft is pruned | | 3 |
-| O14 | holds outlive the actor; parked endings; adoption | MD rules 44, 53, 54 | several (misuse M13, M14) | **ED**, **CM**, **UP** *today* | **CK** — the receipt appears after the tab was closed and reopened | **AD** — a merge outlives the admin screen | | 3 |
-| O15 | every hold has an owner; `UnresolvedHold` | MD rule 45 | once | **ED** *today* — CLOSED's `Reopen` | **RW** — the wizard's host owns its hold after exit | — | | 2 |
-| O16 | `runtime.unsettledWrites()` | MD rule 44 | once | **DD** host *today* — `beforeunload` | **AD** — a "pending changes" footer lists unsettled roster writes | **CK** — leave-page warning only while capturing | | 3 |
-| O17 | lane `progress` | MD rule 21, M6 S5 Q11 | once | **UP** *today* — XHR bytes | **AS** — tokens (PM6) | **RW** — the signature image's upload | | 3 |
-| O18 | unkeyed operation, key-less members | MD rule 43 | none | **CK** coupon — one per cart | **AD** — "rebuild roster index", one per workspace | — | | 2 |
-| O19 | per-item batch results (`RequestResolver`) | MD 2.7.11 | none | **QU** bulk close | **AD** bulk invite | — | | 2 |
-| O20 | compensation on leave; contract `orphaned` | MD 2.7.7 | none | **CK** — void the authorization when checkout is left | **RW** — release reserved parts when the wizard is abandoned | **CK** — `orphaned` re-sends across a version change | | 3 |
-| O21 | plain write with `optimistic` | MD rule 36 | none | **CM** reactions | **CK** coupon — predicted total in memory | **QU techs** "on break" toggle | | 3 |
-| O22 | the operation's `writes` option | MD rule 36 | once | **CM** *today* — invalidates the thread | **RW** — resolving invalidates the ticket's history read | **CK** — a refund invalidates the order total | | 3 |
-| O23 | mapped events only from endings; named operations in small actors | MD rules 40–42, 47 | several | **PR**, **AS** *today* | | | | done |
+| # | API | Design | Today | A | B | C | D | Target | Built (B9) |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| O1 | the hold: `unknown` keeps the Attempt, the same Attempt is re-sent | MD rules 18–21, 2.7.13 | once (same template ×4: ED, QU, CM, UP) | **ED** title *today* — re-sent on a schedule with `retryable`, then `cancel` | **CK** — a payment that must never double-charge: no blind re-send; a reconcile `lookup` decides, then the hold is released | **ED fields** body — an etag'd autosave; a re-send that meets 412 ends `StillUnknown` | **QU** bulk — the held head blocks a `serialize` FIFO, so order is kept | 4 | several (4), met |
+| O2 | contract `commit` over a real source | MD 2.7.2 | once (`fetch`, XHR) | **ED** *today* — `fetch` with `AbortController` | **CK** — Stripe.js Promises, no signal; `Idempotency-Key: attempt.id` | **QU** — `RequestResolver` batching per-item statuses below the commit | **PR** — the collaboration SDK's calls | 4 | several (4), met |
+| O3 | `reject` | MD 2.7.8 | several | **ED** *today* — one save at a time; a second is declined | **UP** *today* — keyed per call, so it never refuses a different file | **CK** pay — a double click is `NotSent { Rejected }`, mapped to nothing visible | | 3 | several (3), met |
+| O4 | `latest`: a newer commit replaces the queued one | MD 2.7.8, C10 | none | **ED fields** summary, location note — last write wins, `Superseded` evidence | **CK** quantity — rapid taps send at most two requests | **QU** assign toggle — assign, unassign, assign sends once | | 3 | several (3), met |
+| O5 | `latest` behind a held unknown | MD 2.7.8 (`setLike`), rule 29 | none | **QU** — a toggle while the assign is unsure waits behind the hold | **CK** — a quantity change on an unsure line waits, then goes | **ED fields** — a field edit waits behind that field's unsure save | | 3 | several (3), met |
+| O6 | when **not** to use `latest` | MD 2.9.6 | none | **ED fields** body — an etag would be stale, so `reject` and coalesce in the fragment | **ED** title — an explicit Save must not race the lock; `reject` | — | | 2 | several (2), met |
+| O7 | `serialize`: FIFO ≤ 64, `outstanding`, `Overloaded` | MD 2.7.8, rule 35 | none | **QU** bulk per workspace — operations apply in order | **CK** refunds per charge — money order matters | **CM** posts per ticket — comments land in the order typed | | 3 | several (3), met |
+| O8 | `cancel`: a newer commit interrupts the one on the wire | MD 2.7.8, rule N2 | none | **AS** — Regenerate interrupts the streaming reply | **CK** — a new address interrupts the shipping quote | — | | 2 | several (2), met |
+| O9 | `allow`: per-Attempt lanes | MD 2.7.8, rule N2 | none | **QU techs** Nudge — many at once, each toasts its own result | **PR** typing pings through the SDK — fire and forget | **AD** invite emails — key-less handling in each ending's own turn | | 3 | several (3), met |
+| O10 | endings current, late, adopted; late turns; `LateMayNotLeave` | MD rules 14, 15, 20 | once (misuse M1, M2) | **ED** *today* — late after Close, adopted on reopen | **RW** — late after the wizard's exit | **CK** — the challenge's ending after `TimedOut` may not leave PAID | | 3 | several (3), met; CK: may not leave PAYING (PAID owns no call) |
+| O11 | declines as endings: `NotSent { Rejected, Overloaded, Disposed, StorageRefused, Cancelled }` | MD rule 16, 2.7.1 | once | **CM** *today* — `Rejected` from another subject path | **QU** — `Overloaded` at the 65th bulk op | **ED tabs** — `StorageRefused` on a full quota | **CK** — `Disposed` | 4 | several (3), short; CK `Disposed` skipped |
+| O12 | `unknown` reasons: `Restored`, `StillUnknown`, `Interrupted`, `Defect` | MD 2.7.1, rule 18 | once (misuse M4) | **UP** *today* — `Restored` means the bytes are gone | **CK** — `StillUnknown { AlreadyCaptured }` | **ED fields** — `Restored` mid-autosave: re-send the coalesced value | | 3 | several (3), met |
+| O13 | `attempt.id`, `retryCount`, `mayHaveApplied` | MD rule 19 | once | **ED** *today* — idempotency header | **CK** — `mayHaveApplied` decides the receipt's wording | **CM** — the pushed comment carries `attempt.id`, so its draft is pruned | | 3 | several (3), met |
+| O14 | holds outlive the actor; parked endings; adoption | MD rules 44, 53, 54 | several (misuse M13, M14) | **ED**, **CM**, **UP** *today* | **CK** — the receipt appears after the tab was closed and reopened | **AD** — a merge outlives the admin screen | | 3 | several (3), met |
+| O15 | every hold has an owner; `UnresolvedHold` | MD rule 45 | once | **ED** *today* — CLOSED's `Reopen` | **RW** — the wizard's host owns its hold after exit | — | | 2 | several (2), met |
+| O16 | `runtime.unsettledWrites()` | MD rule 44 | once | **DD** host *today* — `beforeunload` | **AD** — a "pending changes" footer lists unsettled roster writes | **CK** — leave-page warning only while capturing | | 3 | several (3), met |
+| O17 | lane `progress` | MD rule 21, M6 S5 Q11 | once | **UP** *today* — XHR bytes | **AS** — tokens (PM6) | **RW** — the signature image's upload | | 3 | several (3), met |
+| O18 | unkeyed operation, key-less members | MD rule 43 | none | **CK** coupon — one per cart | **AD** — "rebuild roster index", one per workspace | — | | 2 | several (2), met |
+| O19 | per-item batch results (`RequestResolver`) | MD 2.7.11 | none | **QU** bulk close | **AD** bulk invite | — | | 2 | several (2), met |
+| O20 | compensation on leave; contract `orphaned` | MD 2.7.7 | none | **CK** — void the authorization when checkout is left | **RW** — release reserved parts when the wizard is abandoned | **CK** — `orphaned` re-sends across a version change | | 3 | several (3), met |
+| O21 | plain write with `optimistic` | MD rule 36 | none | **CM** reactions | **CK** coupon — predicted total in memory | **QU techs** "on break" toggle | | 3 | several (3), met |
+| O22 | the operation's `writes` option | MD rule 36 | once | **CM** *today* — invalidates the thread | **RW** — resolving invalidates the ticket's history read | **CK** — a refund invalidates the order total | | 3 | several (3), met |
+| O23 | mapped events only from endings; named operations in small actors | MD rules 40–42, 47 | several | **PR**, **AS** *today* | | | | done | once (1), done |
 
 ### 2.3 Reads and schedules
 
-| # | API | Design | Today | A | B | C | Target |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| R1 | live read in `activities`, `refetch` | MD rules 41, 42 | several | **QU**, **ED**, **CM** *today* | **AD** — a roster read beside a `listen` | | done |
-| R2 | one-off `lookup`: one lane, latest delivered, `Superseded` | MD 2.7.9 | none | **FD** — per keystroke; stale answers never arrive | **CK** — a reconcile poll after an unknown charge | **RW** — a part number lookup a state waits on | 3 |
-| R3 | key-less `cancel` of a lookup | MD 2.7.9 | none | **FD** — an empty box | **CK** — stop polling once the webhook confirmed | — | 2 |
-| R4 | read failures `Defect`, `Interrupted` required | MD 2.8.10 | once (misuse M5) | **ED** *today* | **FD** — a failed search keeps the last results, dimmed | **RW** — a failed part lookup lets the step continue unvalidated | 3 |
-| R5 | paging on a live read (plan's proposed `more`, `hasMore`) | DD gap 23 | once | **QU** *today* — forward pages | **CM** — older comments, paged backwards | **AD** — roster pages under a sort | 3 |
-| S1 | debounce with `restartOn` | MD rule 23 | once | **ED** *today* | **FD** — per keystroke, then a `lookup` | **QU** — the search box, then a live read's new input | 3 |
-| S2 | keyed schedules (`keys`) | MD 2.7.10 | once (same template: resend per uncertain key) | **QU** — an SLA deadline per ticket | **ED fields** — a debounce per field | **CM** *today* — resend per post | 3 |
-| S3 | `armOn`, `disarmOn` | MD rule 23 | once | **UP** *today* | **CK** — armed when the challenge is shown | — | 2 |
-| S4 | `s.schedules`, `dueAt`, `useNow` in a view | MD 2.1, FP views | none | **QU** — "breaches in 12 min" | **CK** — challenge countdown | **QU techs** — "seen 40 s ago" from `last.at` | 3 |
-| S5 | backoff from memory; `Schedule.*` | MD 2.7.6 | several | **ED**, **FE**, **PR** *today* | | | done |
+| # | API | Design | Today | A | B | C | Target | Built (B9) |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| R1 | live read in `activities`, `refetch` | MD rules 41, 42 | several | **QU**, **ED**, **CM** *today* | **AD** — a roster read beside a `listen` | | done | several (2), done |
+| R2 | one-off `lookup`: one lane, latest delivered, `Superseded` | MD 2.7.9 | none | **FD** — per keystroke; stale answers never arrive | **CK** — a reconcile poll after an unknown charge | **RW** — a part number lookup a state waits on | 3 | several (3), met |
+| R3 | key-less `cancel` of a lookup | MD 2.7.9 | none | **FD** — an empty box | **CK** — stop polling once the webhook confirmed | — | 2 | several (2), met |
+| R4 | read failures `Defect`, `Interrupted` required | MD 2.8.10 | once (misuse M5) | **ED** *today* | **FD** — a failed search keeps the last results, dimmed | **RW** — a failed part lookup lets the step continue unvalidated | 3 | several (3), met |
+| R5 | paging on a live read (plan's proposed `more`, `hasMore`) | DD gap 23 | once | **QU** *today* — forward pages | **CM** — older comments, paged backwards | **AD** — roster pages under a sort | 3 | several (3), met |
+| S1 | debounce with `restartOn` | MD rule 23 | once | **ED** *today* | **FD** — per keystroke, then a `lookup` | **QU** — the search box, then a live read's new input | 3 | several (3), met |
+| S2 | keyed schedules (`keys`) | MD 2.7.10 | once (same template: resend per uncertain key) | **QU** — an SLA deadline per ticket | **ED fields** — a debounce per field | **CM** *today* — resend per post | 3 | several (3), met |
+| S3 | `armOn`, `disarmOn` | MD rule 23 | once | **UP** *today* | **CK** — armed when the challenge is shown | — | 2 | several (2), met |
+| S4 | `s.schedules`, `dueAt`, `useNow` in a view | MD 2.1, FP views | none | **QU** — "breaches in 12 min" | **CK** — challenge countdown | **QU techs** — "seen 40 s ago" from `last.at` | 3 | several (3), met |
+| S5 | backoff from memory; `Schedule.*` | MD 2.7.6 | several | **ED**, **FE**, **PR** *today* | | | done | once (1), done |
 
 ### 2.4 Entities
 
 The desk has one entity (Ticket), one domain plus the feed's `listen` domain, two predicting writes, one list with
 `eq`/`and`/`serverMatches`, and `Ticket.get` in two views. This block gives entities the same range as the rest.
 
-| # | API | Design | Today | A | B | C | D | Target |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| E1 | several entities with relations (key fields naming another entity; `.alsoChanges`) | ED-D 1.1, 4.6 | none | **AD** — `Technician` belongs to a `Team`; moving one `.alsoChanges` both teams' counts | **CM** — `Comment` as an entity; a post `.alsoChanges` its `Ticket.commentCount` | **CK** — a `CartLine` names a `Product`; its price comes from the product's record | **QU** — `Ticket.assignee` names a `Technician`; rows show the name from its own record | 4 |
-| E2 | many-record writes (a `many` key array; cap 4,096, `Overloaded`) | MD rule 35, M5-D9 | none | **QU** bulk close — one write predicts N tickets of one entity | **AD** merge customers — predicts a delete, a patch and N re-pointed tickets across two entities | **CM** "mark thread read" — N comments, no list moves | | 3 |
-| E3 | deletes (`Entity.delete`) restored on a definite failure | MD rule 30, 2.8.2 | none | **UP** — remove an attachment; 403 restores it | **CM** — delete a comment; past the edit window the server refuses, it reappears in place | **AD** — remove a technician who has open tickets; 409 restores the row | | 3 |
-| E4 | a record leaves or joins a list because of a prediction | MD rules 28, 30 | once | **QU** — assign predicts `assignee`, so the ticket leaves "Unassigned" (`isNull`) and joins "Mine" at once | **QU techs** — a dispatch also predicts the technician's `status: "busy"`, so the technician moves column (a second record) | **CM** — pin predicts `pinned`, so a comment joins "Pinned" | **CK** — a refund predicts `status: "refunding"`, so it leaves "Completed" | 4 |
-| E5 | three-valued conditions with `and`/`or`/`not`, nullable fields | M5-D7, M5-D8 | once (`eq`, `and`, `serverMatches`) | **QU** — `or(eq(priority, "urgent"), and(isNull(assignee), lt(dueAt, input.now)))`; a predicted field not carried makes it maybe, so it refetches | **AD** — `or(eq(teamId, input.team), isNull(teamId))`: my team or unplaced | **CM** — `and(contains(mentions, input.me), isNull(readAt))`: unread mentions | | 3 |
-| E6 | multiple sort keys; a null sort pair is skipped | M5-D4, MD 2.8.2 | once (`updatedAt`, keys) | **QU** — `desc(priority)`, `asc(dueAt)` with nullable `dueAt`, then keys | **CM** — `asc(createdAt)`, `asc(id)` | **AD** — `asc(team)`, `asc(name)`, keys | | 3 |
-| E7 | cross-actor coherence: one record on two screens, an optimistic write while the other holds it | MD 2.8.4 | once | **ED**+**QU** *today* — a title save shows in the queue row | **QU techs**+**AD** — an admin rename while the panel shows the technician | **CM** — a comment edited in the queue's preview while the editor's thread shows it | **CK** — mini-cart header and cart page show one line | 4 |
-| E8 | record-queue ordering across actors | MD rule 29, 2.8.5 | once | **ED**+**QU** *today* (`assign-repairs`) — save then assign on one ticket | **QU** bulk close vs **ED** save — a FIFO of N and one save meet on one record | **AD**+**QU techs** — a roster rename and a dispatch's status prediction meet on one technician | | 3 |
-| E9 | `predicted`, `uncertain`, `unconfirmed` shown distinctly | MD 2.8.12 | once (misuse M9, M10) | **QU** row badges — italic predicted, a "?" for uncertain, "checking" for unconfirmed | **CM** comment — "sending", "may not have saved", "edited, confirming" | **AD** roster row — greyed while predicted, a retry chip when uncertain | | 3 |
-| E10 | `listen` feeding records beside a domain read (PM6) | M6 2.8 | once | **FE**+**QU** *today* — socket pushes into the ticket list | **FE**+**CM** — the same socket's comment events into `Comment` records beside the thread read | **AD** — technician changes from a polling-with-cursor fact feed beside the roster read | | 3 |
-| E11 | `checkReplays` (on in Stories and `propertyTest`) | M5-D10 9.9 | none | **QU** — the predicted status field replays over a pushed base | **AD** — a team count `(beneath, input) => …` replays over a new base | **CK** — a line total replays when the price changes under it | | 3 |
-| E12 | `Entity.queue` in Inspection and Stories | ED-D 6.3, C30, C84 | none | **QU** — bulk vs save removals (`Superseded`, `Released`) | **AD** — the merge's queue across two entities | **CK** — a quantity `latest` vs a mini-cart removal on one line | | 3 |
-| E13 | creates as `creating` drafts (no temporary ids) | MD 2.8.7, rule 33 | none (CM drafts are the plain version) | **QU** — new ticket, shown apart until the list holds its id | **CM** — a posted comment, matched when the push holds its id | **AD** — invite a technician | | 3 |
-| E14 | predicted field functions `(beneath, input) => value` | M5 | none | **CM** — `Ticket.commentCount` `+1` | **CK** line totals | **AD** team counts | | 3 |
-| E15 | derived reads (`.derivedFrom`) | ED-D | once | **QU** *today* — open count | **AD** — technicians per team | **CM** — unread count per ticket | | 3 |
-| E16 | a domain write beside a plain write with `optimistic` | MD 2.8.3, rule 36 | none | **CM** — comment edit (domain) and reactions (plain) on one row | **CK** — cart line (domain) and coupon (plain) | — | | 2 |
-| E17 | unknown in a domain: forced repair; what clears `uncertain` | MD rules 30–32 | once | **ED** *today* | **QU** bulk — N records marked, cleared by one retry | **AD** merge — uncertain across two entities | | 3 |
-| E18 | lanes and predicted keys persist together; reload | MD rule 38 | once (prose) | **DD** `persistence.ts` *today* | **ED tabs** — reload mid-comment-edit marks the comment uncertain and repairs | **CK** — reload mid-refund | | 3 |
-| E19 | `.byKey`, `Entity.get`/`pick` (total), `.ignoring` | ED-D | once | **ED** *today* | **AD** — `.ignoring(lastSeenAt)` so presence churn never repairs lists | **CK** — a product by key | | 3 |
+| # | API | Design | Today | A | B | C | D | Target | Built (B9) |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| E1 | several entities with relations (key fields naming another entity; `.alsoChanges`) | ED-D 1.1, 4.6 | none | **AD** — `Technician` belongs to a `Team`; moving one `.alsoChanges` both teams' counts | **CM** — `Comment` as an entity; a post `.alsoChanges` its `Ticket.commentCount` | **CK** — a `CartLine` names a `Product`; its price comes from the product's record | **QU** — `Ticket.assignee` names a `Technician`; rows show the name from its own record | 4 | several (4), met |
+| E2 | many-record writes (a `many` key array; cap 4,096, `Overloaded`) | MD rule 35, M5-D9 | none | **QU** bulk close — one write predicts N tickets of one entity | **AD** merge customers — predicts a delete, a patch and N re-pointed tickets across two entities | **CM** "mark thread read" — N comments, no list moves | | 3 | several (3), met |
+| E3 | deletes (`Entity.delete`) restored on a definite failure | MD rule 30, 2.8.2 | none | **UP** — remove an attachment; 403 restores it | **CM** — delete a comment; past the edit window the server refuses, it reappears in place | **AD** — remove a technician who has open tickets; 409 restores the row | | 3 | several (3), met |
+| E4 | a record leaves or joins a list because of a prediction | MD rules 28, 30 | once | **QU** — assign predicts `assignee`, so the ticket leaves "Unassigned" (`isNull`) and joins "Mine" at once | **QU techs** — a dispatch also predicts the technician's `status: "busy"`, so the technician moves column (a second record) | **CM** — pin predicts `pinned`, so a comment joins "Pinned" | **CK** — a refund predicts `status: "refunding"`, so it leaves "Completed" | 4 | several (4), met |
+| E5 | three-valued conditions with `and`/`or`/`not`, nullable fields | M5-D7, M5-D8 | once (`eq`, `and`, `serverMatches`) | **QU** — `or(eq(priority, "urgent"), and(isNull(assignee), lt(dueAt, input.now)))`; a predicted field not carried makes it maybe, so it refetches | **AD** — `or(eq(teamId, input.team), isNull(teamId))`: my team or unplaced | **CM** — `and(contains(mentions, input.me), isNull(readAt))`: unread mentions | | 3 | several (3), met |
+| E6 | multiple sort keys; a null sort pair is skipped | M5-D4, MD 2.8.2 | once (`updatedAt`, keys) | **QU** — `desc(priority)`, `asc(dueAt)` with nullable `dueAt`, then keys | **CM** — `asc(createdAt)`, `asc(id)` | **AD** — `asc(team)`, `asc(name)`, keys | | 3 | several (3), met |
+| E7 | cross-actor coherence: one record on two screens, an optimistic write while the other holds it | MD 2.8.4 | once | **ED**+**QU** *today* — a title save shows in the queue row | **QU techs**+**AD** — an admin rename while the panel shows the technician | **CM** — a comment edited in the queue's preview while the editor's thread shows it | **CK** — mini-cart header and cart page show one line | 4 | several (4), met |
+| E8 | record-queue ordering across actors | MD rule 29, 2.8.5 | once | **ED**+**QU** *today* (`assign-repairs`) — save then assign on one ticket | **QU** bulk close vs **ED** save — a FIFO of N and one save meet on one record | **AD**+**QU techs** — a roster rename and a dispatch's status prediction meet on one technician | | 3 | several (3), met |
+| E9 | `predicted`, `uncertain`, `unconfirmed` shown distinctly | MD 2.8.12 | once (misuse M9, M10) | **QU** row badges — italic predicted, a "?" for uncertain, "checking" for unconfirmed | **CM** comment — "sending", "may not have saved", "edited, confirming" | **AD** roster row — greyed while predicted, a retry chip when uncertain | | 3 | several (3), met |
+| E10 | `listen` feeding records beside a domain read (PM6) | M6 2.8 | once | **FE**+**QU** *today* — socket pushes into the ticket list | **FE**+**CM** — the same socket's comment events into `Comment` records beside the thread read | **AD** — technician changes from a polling-with-cursor fact feed beside the roster read | | 3 | several (3), met |
+| E11 | `checkReplays` (on in Stories and `propertyTest`) | M5-D10 9.9 | none | **QU** — the predicted status field replays over a pushed base | **AD** — a team count `(beneath, input) => …` replays over a new base | **CK** — a line total replays when the price changes under it | | 3 | several (3), met |
+| E12 | `Entity.queue` in Inspection and Stories | ED-D 6.3, C30, C84 | none | **QU** — bulk vs save removals (`Superseded`, `Released`) | **AD** — the merge's queue across two entities | **CK** — a quantity `latest` vs a mini-cart removal on one line | | 3 | several (3), met |
+| E13 | creates as `creating` drafts (no temporary ids) | MD 2.8.7, rule 33 | none (CM drafts are the plain version) | **QU** — new ticket, shown apart until the list holds its id | **CM** — a posted comment, matched when the push holds its id | **AD** — invite a technician | | 3 | several (3), met |
+| E14 | predicted field functions `(beneath, input) => value` | M5 | none | **CM** — `Ticket.commentCount` `+1` | **CK** line totals | **AD** team counts | | 3 | several (3), met |
+| E15 | derived reads (`.derivedFrom`) | ED-D | once | **QU** *today* — open count | **AD** — technicians per team | **CM** — unread count per ticket | | 3 | several (3), met |
+| E16 | a domain write beside a plain write with `optimistic` | MD 2.8.3, rule 36 | none | **CM** — comment edit (domain) and reactions (plain) on one row | **CK** — cart line (domain) and coupon (plain) | — | | 2 | several (2), met |
+| E17 | unknown in a domain: forced repair; what clears `uncertain` | MD rules 30–32 | once | **ED** *today* | **QU** bulk — N records marked, cleared by one retry | **AD** merge — uncertain across two entities | | 3 | several (3), met |
+| E18 | lanes and predicted keys persist together; reload | MD rule 38 | once (prose) | **DD** `persistence.ts` *today* | **ED tabs** — reload mid-comment-edit marks the comment uncertain and repairs | **CK** — reload mid-refund | | 3 | several (3), met |
+| E19 | `.byKey`, `Entity.get`/`pick` (total), `.ignoring` | ED-D | once | **ED** *today* | **AD** — `.ignoring(lastSeenAt)` so presence churn never repairs lists | **CK** — a product by key | | 3 | several (3), met |
 
 ### 2.5 Streams (all **PM6**)
 
-| # | API | Design | Today | A | B | C | Target |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| T1 | fact feed with catch-up: `Feed.reconnect` `from`, `position`, `catchUp` | M6 2.3, S3, S6 | once (misuse S-M2, S-M3) | **FE** *today* — raw WebSocket, cursor pages | **AD** — polling with a cursor, every connection a loop of GETs | SSE — deferred | 2 |
-| T2 | `Feed.CannotRepair`, `missed { Lost }`, `initial` | M6 S7, S9, S10 | once | **FE** *today* | **AD** — a first registration with an empty roster ignores `initial` | — | 2 |
-| T3 | `Feed.live()`, `{ proof }`, `{ lost, restartAt }` | M6 2.3 | several | **FE**, **PR** *today* | **PR** — the SDK's resume flag as the proof | | done |
-| T4 | `Feed.down(reason)`, the row's `drop` | M6 2.3, 2.6 | none | **QU techs** — the poller's network drops | **PR** — the SDK reports a disconnect it will retry itself | browser offline — deferred | 2 |
-| T5 | state feed: `connection`, `value`, `last { value, at }`, `resetAfter` | M6 2.6 | once | **PR** *today* — the viewer list | **QU techs** — technician status, stale after a minute | — | 2 |
-| T6 | `subscribe.each`: one session per key | MD 2.7.10, M6 | none | **QU techs** — per technician, a fixed set | **QU** — presence per visible row, keys follow scrolling | **AD** — online dots per roster row, over the SDK contract | 3 |
-| T7 | an SDK through `Feed.callback(register, { bufferSize })` | M6 2.4 S, 3.3, 4.7 | none | **PR** — the presence set as a state feed, the SDK's reconnect kept | **PR** — typing events as a second callback, `emit` back-pressure | **AD** — the same SDK contract placed per row | 3 |
-| T8 | raw WebSocket recipe P (bounded queue, `Overflow`, close codes) | M6 2.4, 4.1 | once (misuse S-H1) | **FE** *today* | — | — | 1 |
-| T9 | machine-level re-open vs the SDK's budget | M6 4.1, S5 Q3 | once (same template ×2) | **FE** *today* — RETRY_WAIT | **PR** — no RETRY_WAIT; the SDK's budget is the budget | — | 2 |
-| T10 | streamed write: `progress(p)`, Stop | M6 2.9, 4.4 | once | **AS** — tokens, interrupted by Regenerate | **UP** — `progress(p)` from XHR | — | 2 |
-| T11 | streams across reload and SSR (cursor in memory, released at capture) | M6 2.10, S4 | once | **FE** *today* | a second fact feed resuming across reload — deferred | — | 1 |
+| # | API | Design | Today | A | B | C | Target | Built (B9) |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| T1 | fact feed with catch-up: `Feed.reconnect` `from`, `position`, `catchUp` | M6 2.3, S3, S6 | once (misuse S-M2, S-M3) | **FE** *today* — raw WebSocket, cursor pages | **AD** — polling with a cursor, every connection a loop of GETs | SSE — deferred | 2 | several (2), met; PM6 |
+| T2 | `Feed.CannotRepair`, `missed { Lost }`, `initial` | M6 S7, S9, S10 | once | **FE** *today* | **AD** — a first registration with an empty roster ignores `initial` | — | 2 | several (2), met; PM6 |
+| T3 | `Feed.live()`, `{ proof }`, `{ lost, restartAt }` | M6 2.3 | several | **FE**, **PR** *today* | **PR** — the SDK's resume flag as the proof | | done | several (2), done; PM6 |
+| T4 | `Feed.down(reason)`, the row's `drop` | M6 2.3, 2.6 | none | **QU techs** — the poller's network drops | **PR** — the SDK reports a disconnect it will retry itself | browser offline — deferred | 2 | several (2), met; PM6 |
+| T5 | state feed: `connection`, `value`, `last { value, at }`, `resetAfter` | M6 2.6 | once | **PR** *today* — the viewer list | **QU techs** — technician status, stale after a minute | — | 2 | several (2), met; PM6 |
+| T6 | `subscribe.each`: one session per key | MD 2.7.10, M6 | none | **QU techs** — per technician, a fixed set | **QU** — presence per visible row, keys follow scrolling | **AD** — online dots per roster row, over the SDK contract | 3 | several (3), met; PM6 |
+| T7 | an SDK through `Feed.callback(register, { bufferSize })` | M6 2.4 S, 3.3, 4.7 | none | **PR** — the presence set as a state feed, the SDK's reconnect kept | **PR** — typing events as a second callback, `emit` back-pressure | **AD** — the same SDK contract placed per row | 3 | several (3), met; PM6 |
+| T8 | raw WebSocket recipe P (bounded queue, `Overflow`, close codes) | M6 2.4, 4.1 | once (misuse S-H1) | **FE** *today* | — | — | 1 | once (1), met; PM6 |
+| T9 | machine-level re-open vs the SDK's budget | M6 4.1, S5 Q3 | once (same template ×2) | **FE** *today* — RETRY_WAIT | **PR** — no RETRY_WAIT; the SDK's budget is the budget | — | 2 | several (2), met; PM6 |
+| T10 | streamed write: `progress(p)`, Stop | M6 2.9, 4.4 | once | **AS** — tokens, interrupted by Regenerate | **UP** — `progress(p)` from XHR | — | 2 | several (2), met; PM6 |
+| T11 | streams across reload and SSR (cursor in memory, released at capture) | M6 2.10, S4 | once | **FE** *today* | a second fact feed resuming across reload — deferred | — | 1 | once (1), met; PM6 |
 
 ### 2.6 Runtime, persistence, reload, tabs, SSR
 
-| # | API | Design | Today | A | B | C | Target |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| P1 | `app`, setups, `actorRef`, `ensureActor`, lazy entries | FP runtime | several | **DD** *today* | | | done |
-| P2 | `retain`, `disposeActor`, `forget` | FP runtime | once | **DD** host *today* | **AD** — leaving the roster keeps it warm for a minute | **CK** — `forget` after the receipt | 3 |
-| P3 | reload mid-write | MD 2.7.15, 2.10.10 | once | **ED tabs** *today* — an acknowledged title save re-held | **CK** — an unacknowledged charge is `NotSent { Restored }`: never charged | **ED tabs** — a coalesced field autosave: only the sent value is a lane | 3 |
-| P4 | two tabs (the second runs without persistence) | MD 2.10.10 | once | **ED tabs** *today* — the title save | **ED tabs** — description fields in two tabs; the second says "not saved on this device" | **CK** — paying in a second tab is refused by the intent's `reject` | 3 |
-| P5 | storage refusal | MD 2.7.13 | none | **ED tabs** — quota full during an autosave capture | — | — | 1 |
-| P6 | a non-durable payload beside persisted memory | DD gap 15 | once | **UP** *today* | **RW** — a signature image in tab memory | — | 2 |
-| P7 | SSR: `dehydrate`, `hydrate`, `DehydrateCommitInFlight` | MD 2.7.15 | once | **QU** *today* | **CK** — a cart page with a coupon commit in flight | **AD** — the roster page; its `listen` released at capture | 3 |
-| P8 | rebind across versions | MD 2.7.7, P19 | none | **CK** | — | — | 1 |
+| # | API | Design | Today | A | B | C | Target | Built (B9) |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| P1 | `app`, setups, `actorRef`, `ensureActor`, lazy entries | FP runtime | several | **DD** *today* | | | done | once (1), done |
+| P2 | `retain`, `disposeActor`, `forget` | FP runtime | once | **DD** host *today* | **AD** — leaving the roster keeps it warm for a minute | **CK** — `forget` after the receipt | 3 | several (3), met |
+| P3 | reload mid-write | MD 2.7.15, 2.10.10 | once | **ED tabs** *today* — an acknowledged title save re-held | **CK** — an unacknowledged charge is `NotSent { Restored }`: never charged | **ED tabs** — a coalesced field autosave: only the sent value is a lane | 3 | several (3), met |
+| P4 | two tabs (the second runs without persistence) | MD 2.10.10 | once | **ED tabs** *today* — the title save | **ED tabs** — description fields in two tabs; the second says "not saved on this device" | **CK** — paying in a second tab is refused by the intent's `reject` | 3 | several (3), met; CK built as Stripe's `IntentBusy` (lanes are per Runtime) |
+| P5 | storage refusal | MD 2.7.13 | none | **ED tabs** — quota full during an autosave capture | — | — | 1 | once (1), met |
+| P6 | a non-durable payload beside persisted memory | DD gap 15 | once | **UP** *today* | **RW** — a signature image in tab memory | — | 2 | several (2), met |
+| P7 | SSR: `dehydrate`, `hydrate`, `DehydrateCommitInFlight` | MD 2.7.15 | once | **QU** *today* | **CK** — a cart page with a coupon commit in flight | **AD** — the roster page; its `listen` released at capture | 3 | several (3), met |
+| P8 | rebind across versions | MD 2.7.7, P19 | none | **CK** | — | — | 1 | once (1), met; seeded lane; seed shape a design gap |
 
 ### 2.7 Inspection and `flow check`
 
-| # | API | Design | Today | A | B | C | Target |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| I1 | Inspection listing: lanes, incarnations, sessions, `Entity.queue` | MD 2.10.7, M6 2.12 | once | **DD** `tools/inspection.ts` *today* | **CK** — an unknown charge's lane | **QU techs** — sessions per technician | 3 |
-| I2 | `flow explain` | MD 2.7.16 | once | **DD** *today* | **RW** — a subroutine's exits | **CK** — a challenge's late ending | 3 |
-| I3 | findings that fire: `UnresolvedHold`, `SharedContract`, `KeyRequired`, `VerbMismatch`, `DuplicatePlacement`, `KeyOmitsInput`, `UnusedOperation`, `LateMayNotLeave`, `DehydrateCommitInFlight`, `PredictionNotRetained`, rule 20 rows, rule 56 | MD 2.7.16, M5 | once (commands only) | **DD** `tools/findings/` — one wrong file each | organic: **QU** rule 56 accepted, **CK** `DehydrateCommitInFlight` | — | 1 each |
-| I4 | stream findings: `FeedUnhandled`, `ListenNeedsFacts`, `DuplicateSession`, `DuplicateListen`, `UnprovenValues`, `RegistrationChurn` (PM6) | M6 2.12 | once | **DD** `tools/findings/` | organic: **QU techs** `ListenNeedsFacts` if its state feed were listened | — | 1 each |
+| # | API | Design | Today | A | B | C | Target | Built (B9) |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| I1 | Inspection listing: lanes, incarnations, sessions, `Entity.queue` | MD 2.10.7, M6 2.12 | once | **DD** `tools/inspection.ts` *today* | **CK** — an unknown charge's lane | **QU techs** — sessions per technician | 3 | several (3), met |
+| I2 | `flow explain` | MD 2.7.16 | once | **DD** *today* | **RW** — a subroutine's exits | **CK** — a challenge's late ending | 3 | several (3), met |
+| I3 | findings that fire: `UnresolvedHold`, `SharedContract`, `KeyRequired`, `VerbMismatch`, `DuplicatePlacement`, `KeyOmitsInput`, `UnusedOperation`, `LateMayNotLeave`, `DehydrateCommitInFlight`, `PredictionNotRetained`, rule 20 rows, rule 56 | MD 2.7.16, M5 | once (commands only) | **DD** `tools/findings/` — one wrong file each | organic: **QU** rule 56 accepted, **CK** `DehydrateCommitInFlight` | — | 1 each | one wrong file per finding |
+| I4 | stream findings: `FeedUnhandled`, `ListenNeedsFacts`, `DuplicateSession`, `DuplicateListen`, `UnprovenValues`, `RegistrationChurn` (PM6) | M6 2.12 | once | **DD** `tools/findings/` | organic: **QU techs** `ListenNeedsFacts` if its state feed were listened | — | 1 each | one wrong file per finding |
 
 ### 2.8 Stories
 
-| # | API | Design | Today | A | B | C | Target |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| Y1 | machine, app and fragment-alone Stories | MD rules 11, 58, 61 | several | **ED**, **DD**, **CM** *today* | **RW** — a subroutine alone in the stand-in host | | done |
-| Y2 | `Fake.server` truth (an Effect Schema) and controls | MD 2.10.4 | once (`Schema.declare`, gap 35) | **DD** | **CK** `StripeFake` — `busy`, `challenge`, `webhookTwice` | **PR** SDK fake — `resume`, `detach` | 3 |
-| Y3 | `hold`, `release`, `drop`, `match` | MD 2.10.4, rule 65 | several (misuse M15) | **ED** *today* | **CK** — drop the charge's response | **PR** — hold the SDK's attach | done |
-| Y4 | `duplicate` | MD 2.10.4 | none | **CK** — the webhook arrives twice | **FE** — the socket redelivers a frame | — | 2 |
-| Y5 | `together`, `release({ nth })`, `advance({ to })`, `advance(…, { suspended })`, `checkpoint(…, { at })` | MD 2.10.3, 2.10.6 | none (`nth` in the property test only) | **QU** — `together` for two dispatchers; `advance({ to })` an SLA | **CK** — `together` for two tabs paying | **QU techs** — `suspended` overnight; the poller resumes | 3 |
-| Y6 | `Fake.fetch`, `Fake.webSocket` over the real adapter | MD 2.10.4, M6 2.11 | none (misuse S-H2) | **FE** — `Fake.webSocket` | **AD** — `Fake.fetch` under the polling recipe | **CK** — `Fake.fetch` under the Stripe adapter | 3 |
-| Y7 | `Fake.storage` `.seed`, `.from(story)`, `reload`, `openTab`, `closeTab` | MD 2.10.10 | once | **ED tabs** *today* | **ED tabs** — `.seed` stale lanes; `.from(story)` continues another Story's storage | **CK** — reload mid-charge | 3 |
-| Y8 | `Story.records`, `Story.inspection`, `Story.entity`, `Story.attempt` | MD 2.10.6–2.10.8 | several | **DD** *today* | | | done |
-| Y9 | property tests | MD 2.10.16 | once | **DD** *today* — converges | **CK** — never charged twice; every authorization captured or voided | **CM** — a comment never shows twice | 3 |
-| Y10 | Story as a raw transcript; checks in `@flow-state/vitest` with typed `at.<checkpoint>` (owner's direction, **proposed**) | — | none | every module (section 6) | | | all |
+| # | API | Design | Today | A | B | C | Target | Built (B9) |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Y1 | machine, app and fragment-alone Stories | MD rules 11, 58, 61 | several | **ED**, **DD**, **CM** *today* | **RW** — a subroutine alone in the stand-in host | | done | several (2), done |
+| Y2 | `Fake.server` truth (an Effect Schema) and controls | MD 2.10.4 | once (`Schema.declare`, gap 35) | **DD** | **CK** `StripeFake` — `busy`, `challenge`, `webhookTwice` | **PR** SDK fake — `resume`, `detach` | 3 | several (3), met |
+| Y3 | `hold`, `release`, `drop`, `match` | MD 2.10.4, rule 65 | several (misuse M15) | **ED** *today* | **CK** — drop the charge's response | **PR** — hold the SDK's attach | done | several (3), done |
+| Y4 | `duplicate` | MD 2.10.4 | none | **CK** — the webhook arrives twice | **FE** — the socket redelivers a frame | — | 2 | several (2), met |
+| Y5 | `together`, `release({ nth })`, `advance({ to })`, `advance(…, { suspended })`, `checkpoint(…, { at })` | MD 2.10.3, 2.10.6 | none (`nth` in the property test only) | **QU** — `together` for two dispatchers; `advance({ to })` an SLA | **CK** — `together` for two tabs paying | **QU techs** — `suspended` overnight; the poller resumes | 3 | several (3), met |
+| Y6 | `Fake.fetch`, `Fake.webSocket` over the real adapter | MD 2.10.4, M6 2.11 | none (misuse S-H2) | **FE** — `Fake.webSocket` | **AD** — `Fake.fetch` under the polling recipe | **CK** — `Fake.fetch` under the Stripe adapter | 3 | several (3), met |
+| Y7 | `Fake.storage` `.seed`, `.from(story)`, `reload`, `openTab`, `closeTab` | MD 2.10.10 | once | **ED tabs** *today* | **ED tabs** — `.seed` stale lanes; `.from(story)` continues another Story's storage | **CK** — reload mid-charge | 3 | several (3), met |
+| Y8 | `Story.records`, `Story.inspection`, `Story.entity`, `Story.attempt` | MD 2.10.6–2.10.8 | several | **DD** *today* | | | done | once (1), done |
+| Y9 | property tests | MD 2.10.16 | once | **DD** *today* — converges | **CK** — never charged twice; every authorization captured or voided | **CM** — a comment never shows twice | 3 | several (3), met |
+| Y10 | Story as a raw transcript; checks in `@flow-state/vitest` with typed `at.<checkpoint>` (owner's direction, **proposed**) | — | none | every module (section 6) | | | all | every Story |
 
 ### 2.9 Playback and exploration
 
-| # | API | Design | Today | A | B | C | Target |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| X1 | named checkpoints | MD 2.10.6 | several | **DD** *today* | | | every Story |
-| X2 | `StoryFrame` (one frame; `tab`) | PB 5 | once (gap 11) | **DD** *today* | **ED tabs** — two tabs side by side | — | 2 |
-| X3 | `StoryPlayer` and `definePresentation` | PB 6 | none | **DD** desk tour | **CK** "Pay safely" | **RW** "Resolve on site" | 3 |
-| X4 | next-action highlight into a keyed copy or a nested subroutine | MD 2.10.13 | none | **RW** — into `ConfirmDiscard` | **ED fields** — into one field's `Autosave` copy | — | 2 |
-| X5 | gaps (actors a frame lacks) | PB 5 | none | **DD** desk tour | — | — | 1 |
-| X6 | failure replay of a property counterexample | PB 8 | none | **CK** | — | — | 1 |
-| X7 | `flow stories --coverage` | MD 2.10.15 | once | every app | | | per app |
+| # | API | Design | Today | A | B | C | Target | Built (B9) |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| X1 | named checkpoints | MD 2.10.6 | several | **DD** *today* | | | every Story | every Story |
+| X2 | `StoryFrame` (one frame; `tab`) | PB 5 | once (gap 11) | **DD** *today* | **ED tabs** — two tabs side by side | — | 2 | several (2), met |
+| X3 | `StoryPlayer` and `definePresentation` | PB 6 | none | **DD** desk tour | **CK** "Pay safely" | **RW** "Resolve on site" | 3 | several (3), met |
+| X4 | next-action highlight into a keyed copy or a nested subroutine | MD 2.10.13 | none | **RW** — into `ConfirmDiscard` | **ED fields** — into one field's `Autosave` copy | — | 2 | several (2), met |
+| X5 | gaps (actors a frame lacks) | PB 5 | none | **DD** desk tour | — | — | 1 | once (1), met |
+| X6 | failure replay of a property counterexample | PB 8 | none | **CK** | — | — | 1 | once (1), met |
+| X7 | `flow stories --coverage` | MD 2.10.15 | once | every app | | | per app | every app |
 
 ### 2.10 Counts
 
@@ -264,6 +264,26 @@ The desk has one entity (Ticket), one domain plus the feed's `listen` domain, tw
 | **Total** | **46** | **56** | **13** | **115** |
 
 Only 13 of 115 APIs are shown today in two genuinely different situations, and no entity API is.
+
+**Built (B9 recount, against the code as committed):**
+
+| Family | none | once | several | rows |
+| --- | --- | --- | --- | --- |
+| Fragments and the turn (F) | 0 | 1 | 22 | 23 |
+| Operations (O) | 0 | 1 | 22 | 23 |
+| Reads and schedules (R, S) | 0 | 1 | 9 | 10 |
+| Entities (E) | 0 | 0 | 19 | 19 |
+| Streams, PM6 (T) | 0 | 2 | 9 | 11 |
+| Runtime and persistence (P) | 0 | 3 | 5 | 8 |
+| Inspection and `flow check` (I) | 0 | 0 | 4 | 4 |
+| Stories (Y) | 0 | 1 | 9 | 10 |
+| Playback (X) | 0 | 2 | 5 | 7 |
+| **Total** | **0** | **11** | **104** | **115** |
+
+114 of 115 rows meet their target. The one short of it is O11 (three of four situations: CK `Disposed` was
+skipped, see checkout/README.md). Situations counted are those each row names; a deferred cell (section 5.5) is not
+counted. The streams rows (T) are built and marked **pending merge 6**. Deviations from a cell as written are noted in
+the row (F11, O10, P4, P8) and in each project's README build notes.
 
 **Targets after the trim.** 72 rows aim at three situations or more (6 of them at four), 23 at two, 6 at one (T8, T11,
 P5, P8, X5, X6), 2 at one wrong file per finding (I3, I4), 9 rows are already done, and 3 apply to every Story or app.
@@ -502,6 +522,10 @@ One Opus agent builds everything. The batches are only the order of work.
 8. **B8, playback and the map.** Presentations and `demo.tsx` for both projects; recount section 2; update each README;
    revisit every PM6 row and open-items item 33 when merge 6 lands.
 
+
+**Built (2026-10-31).** B1 102decf2, B2 da1bef1c, B3 768505f8, B4 91927d86, B5 906cae2e, B6 67066476, B7 5677ae36
+(Checkout), B8 b268ee67 (playback), B9 (READMEs and this recount). Section 2's "Built (B9)" column and the recount in
+2.10 say what exists; each project's README lists its design gaps and what was skipped.
 ---
 
 ## Proposed questions for the owner (round 1)

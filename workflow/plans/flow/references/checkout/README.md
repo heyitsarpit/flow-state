@@ -45,3 +45,31 @@ authorized.
 - **O11 D** (`NotSent { Disposed }`): skipped. No checkout path commits into a disposed actor; a Story would have to
   stage it against the app's own flow.
 - `StorageRefused` is not repeated here; the desk's `editor/quota-refused` covers it.
+
+## Playback (B8)
+
+`app/presentation.ts` is "Pay safely", a list of presentations over the Stories that hold the module checkpoints
+(`cart`, `quantity-coalesced`, `coupon-predicted`, `paid`, `challenge-timing-out`, `pay-unsure`, `reconciled`,
+`voided-on-leave`, `reload-mid-charge`, `refunds-queued`; `challenge` is in `pay/challenged`). `app/demo.tsx` plays
+it in a `StoryPlayer`, and replays the property test's shrunk counterexample when one was emitted (X6).
+
+## Design gaps
+
+Every `// design gap:` comment in this folder's code (grep `design gap:`). 14 gaps; the text is the comment's.
+
+| #   | File                                  | Gap                                                                                                                                                                                                                                                                                       |
+| --- | ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | `app/demo.tsx`                        | playback.md 8 names failure replay of "the Story a property test emits" as a follow-up. Assumed: `propertyTest`'s `counterexample` option writes the shrunk run as a Story module under testing/**counterexamples**/, exporting `counterexample`, which this page imports when it exists. |
+| 2   | `app/presentation.ts`                 | as in the desk's app/presentation.ts, `definePresentation` is assumed to come from "flow-state/testing", and a list of presentations stands in for a playlist.                                                                                                                            |
+| 3   | `features/Cart/cart.domain.ts`        | on a READ, `.one` beside `.list` is assumed to be allowed the same way).                                                                                                                                                                                                                  |
+| 4   | `features/Cart/cart.test.ts`          | `checkReplays` reports a "prediction fault" (M5-D10 9.9); its record code is not named, so `PredictionFault` is assumed.                                                                                                                                                                  |
+| 5   | `features/Cart/cart.test.ts`          | a queue entry's fields beyond `entity` are not shown (merge 5 names the queue, not its row); `key` and `items` (the Attempts in order) are assumed.                                                                                                                                       |
+| 6   | `features/Pay/Pay.tsx`                | an `unsettledWrites()` entry's shape is not in the design; `contract` is assumed, as in the desk host.                                                                                                                                                                                    |
+| 7   | `features/Pay/order-summary.trait.ts` | under `cancel`, a key-less `O.shipping.cancel` in an ending's handler is assumed to release that ending's Attempt only (rule N2 states this for `allow`), not the newer quote on the wire.                                                                                                |
+| 8   | `features/Pay/pay.story.ts`           | COVERAGE P4 C says "refused by the intent's `reject`"; a lane is per Runtime, so `reject` cannot see another tab's confirm; the refusal is Stripe's.                                                                                                                                      |
+| 9   | `features/Pay/pay.story.ts`           | a seeded lane's shape is the Persistence plan's (as in the desk's editor.tabs.story.ts); `version` and `operation` on it are assumed, to say which build stored it.                                                                                                                       |
+| 10  | `features/Pay/three-ds.subroutine.ts` | F11 B names "a subroutine that owns a write"; under rule 48 the reference keeps the write in the host and lets its ending arrive after the exit, as the desk's Resolve wizard does.                                                                                                       |
+| 11  | `testing/checkout.property.test.ts`   | `frame.settled` and the `counterexample` option are assumed; playback.md 8 names failure replay of "the Story a property test emits" as a follow-up without its spelling.                                                                                                                 |
+| 12  | `testing/checkout.property.test.ts`   | the generators' spellings (`Generate.*`), as in the desk's comments.test.ts (REVIEW gap 39).                                                                                                                                                                                              |
+| 13  | `testing/stripe.fake.ts`              | `route` reads the request's JSON body, so it is async here; 2.10.4 shows only a URL being read.                                                                                                                                                                                           |
+| 14  | `tools/inspection.ts`                 | a lane entry's field names follow 2.10.7's list, as in the desk's tools/inspection.ts.                                                                                                                                                                                                    |
