@@ -114,12 +114,32 @@ export const cliExamples = [
       "lane, ending, store and session questions answered from the trace's records at that checkpoint, 'evidence unavailable' outside the window",
     exit: 0,
   },
+  // I2 B: a subroutine's exits and where each lands in the host, then a late ending after one of them.
+  {
+    command: "flow explain DispatchDesk/Visit --state RESOLVING",
+    expected:
+      "ResolveWizard exits Resolved { resolution } → RESOLVED (commits resolve), Abandoned { parts } → RELEASING (commits release); " +
+      "whenAbandoned notifies onDraft; nested DISCARD (ConfirmDiscard) exits Kept → STEPS.history, Discarded → exit Abandoned",
+    exit: 0,
+  },
+  {
+    command: "flow explain resolve/late-after-leaving --at late --operation resolve",
+    expected:
+      "resolve (owner RESOLVED) ended after RESOLVED was left: late, routed to the root's Resolved handler, which does not move (rule 20)",
+    exit: 0,
+  },
 
   // Coverage: write-lane cells, ending routes, Flow reasons, and stream cells (PM6) reached by the Stories
   {
     command: "flow stories --coverage",
     expected:
       "cells reached by editor/*, queue/* and desk/*: InFlight, Held, restore (unknown Restored, NotSent Restored), parked endings, current and late ending routes; unreached cells are listed",
+    exit: 0,
+  },
+  {
+    command: "flow stories --coverage --app dispatch-desk --checkpoints",
+    expected:
+      "per module, each COVERAGE.md section 6 checkpoint and the Story that reaches it (editor/*, fields, panels, queue, technicians, find, resolve, roster, comments, presence, feed, assistant, desk/*); none missing",
     exit: 0,
   },
   {
@@ -153,6 +173,6 @@ export const cliExamples = [
  * Exit 2: usage, config, artifact, Story, cleanup, I/O or internal failure (a failed expectation is a Story failure).
  * Success writes one document to stdout; failure writes one to stderr. --format text | json.
  *
- * design gap: the `--finding` filter on `flow check` and `--kind` on `flow stories --coverage` are placeholders;
+ * design gap: the `--finding` filter on `flow check`, and `--kind`, `--app` and `--checkpoints` on `flow stories --coverage`, are placeholders;
  * 2.10.14 names the commands and what they list, not these flags.
  */
