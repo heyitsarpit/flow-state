@@ -284,3 +284,11 @@ the real Runtime, over the suite's small machines only, would cover the cells th
 
 Inside `together({ advance })` no turn runs, so a timer chain does not re-arm there (design 2.10.2). Add a form that
 runs turns only if a case needs a chain inside a race.
+
+## 33. SSE transport and offline coverage (deferred by the coverage trim, 2026-10-31)
+
+The owner trimmed the reference code to the dispatch desk plus the Checkout app, dropping the Notebook app
+([COVERAGE.md](../../COVERAGE.md), section 5.5). Four streams situations had their home there and now have none: the SSE
+recipe with `Last-Event-ID` replay as the proof (M6 4.7), a `Feed.down` caused by the browser going offline, a fact feed's
+cursor resuming across reload in a second app, and `Fake.fetch` with a streamed SSE body (design 2.10.4). Add them, in a
+desk module or a small app, once merge 6 lands and a case needs them.

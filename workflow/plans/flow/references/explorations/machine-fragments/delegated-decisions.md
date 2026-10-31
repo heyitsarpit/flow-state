@@ -31,3 +31,4 @@ the commit that applied it is listed. Larger conflicts are not here; they go to 
 | 21 | Stories merge plan SX18 (owner to review) | T3's single `Story.make` amends the owner's F7 (fragment Stories' spelling) | applied as T3; flagged for the owner | Stories merge commits |
 | 22 | Stories merge plan SX7 | C30's `overloaded` queue removal contradicted rule 35 | fixed; also settles row 3 (K11) | Stories merge commits |
 | 23 | dispatch desk B6 (delegated) | a user stop of a save (`unknown { Cancelled }`) | released at once with key-less `cancel`, as the upload trait does; only a lost answer is held | 66c53cfd |
+| 24 | references/COVERAGE.md Q1–Q5 (delegated, two are API-shaped: Q4 drops `.expect` and adds `@flow-state/vitest`) | the build plan's open questions | all option A, as recorded in COVERAGE.md "Decisions" | coverage commit |
