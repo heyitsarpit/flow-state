@@ -1,5 +1,6 @@
 // Fragment Stories (2.10.12): the trait alone, in the stand-in host Flow builds. Each step settles
-// (rule 61); the world is the `Desk` fake, driven with wire words, never with injected results.
+// (rule 61); the world is the `Desk` fake, driven with wire words, never with injected results. Transcripts:
+// inputs and checkpoints only; upload.test.ts reads them.
 // `PendingFiles` is tab memory, so a fixture provides it (desk.fake.ts leaves it to setup).
 import { Effect, Layer } from "effect";
 import { Story } from "flow-state/testing";
@@ -10,7 +11,7 @@ import { Editor } from "../Tickets/editor/editor.definition.js";
 import { PendingFiles, PendingFilesLive } from "./attachments-api.js";
 import { AttachmentUpload } from "./upload.trait.js";
 
-const { E, O } = AttachmentUpload;
+const { E } = AttachmentUpload;
 
 const draft = (ref: string, bytes: number) => ({ ref, name: `${ref}.jpg`, size: bytes });
 
@@ -38,18 +39,9 @@ const upload = (id: string, d: ReturnType<typeof draft>) =>
 // is held, so the row reads 100% while the server has nothing: "Waiting for the server…".
 export const uploaded = upload("upload/uploaded", Photo)
   .world(Desk.putFile.hold()) // in transit, unseen by the server
-  .expect({
-    memory: { status: "sending" },
-    operations: {
-      put: [{ key: { ref: "r-1" }, pending: true, progress: { sent: 40_000, total: 40_000 } }],
-    },
-  })
+  .checkpoint("full-bar")
   .world(Desk.putFile.release())
-  .expect({
-    memory: { status: "stored", url: "/uploads/r-1" },
-    operations: { put: [] }, // settled: the lane is gone
-  })
-  .expect(Desk, { desk: { files: { "r-1": { name: "r-1.jpg", size: 40_000 } } } });
+  .checkpoint("stored");
 
 // Cancel on the wire: the fiber is interrupted, `unknown { Cancelled }` arrives as `Stopped`, and the
 // handler's key-less cancel releases it. The request already left, so the server may still store it.
@@ -60,28 +52,17 @@ export const cancelled = Story.make(AttachmentUpload, {
 })
   .enter(Photo, { subject: Photo.ref })
   .send(E.Cancel())
-  .expect({
-    memory: { status: "stopped" },
-    operations: { put: [] },
-  })
-  .expect(Story.inspection, { lanes: [] }) // nothing held
+  .checkpoint("stopped")
   .world(Desk.putFile.release()) // the server handles it and the answer goes nowhere
-  .expect(Desk.putFile, [{ phase: "orphan", via: { attempts: [Story.attempt(O.put)] } }]);
+  .checkpoint("orphaned");
 
 // The answer is lost after the server stored the file. The same Attempt is sent again three seconds
 // later with the same idempotency key, so the server stores it once.
 export const lostThenResent = upload("upload/lost-then-resent", Photo)
   .world(Desk.putFile.drop({ at: "response", times: 1 }))
-  .expect({
-    memory: { status: "unsure" },
-    operations: { put: [{ key: { ref: "r-1" }, uncertain: true }] },
-  })
+  .checkpoint("unsure")
   .advance("3 seconds")
-  .expect({ memory: { status: "stored" }, operations: { put: [] } })
-  .expect(Desk.putFile, [
-    { phase: "dropped", via: { attempts: [Story.attempt(O.put)] } },
-    { phase: "answered", via: { attempts: [Story.attempt(O.put)] } },
-  ]);
+  .checkpoint("stored");
 
 // Nothing arrives: three re-sends at 3, 6 and 9 seconds, then the fourth tick gives up and releases.
 export const gaveUp = Story.make(AttachmentUpload, {
@@ -91,29 +72,20 @@ export const gaveUp = Story.make(AttachmentUpload, {
 })
   .enter(Photo, { subject: Photo.ref })
   .advance("12 seconds")
-  .expect({
-    memory: { status: "failed", problem: "GaveUp" },
-    operations: { put: [] },
-  })
-  .expect(Story.inspection, { lanes: [] });
+  .checkpoint("gave-up");
 
-export const tooLarge = upload("upload/too-large", Huge).expect({
-  memory: { status: "failed", problem: "TooLarge", limit: 5_000_000 },
-  operations: { put: [] },
-});
+export const tooLarge = upload("upload/too-large", Huge).checkpoint("refused");
 
 // A restored draft after a reload: `PendingFiles` starts empty, so `take` fails `FileGone` before
 // anything is sent. Definite, so no re-send.
-export const fileGone = upload("upload/file-gone", Lost)
-  .expect({ memory: { status: "failed", problem: "FileGone" } })
-  .expect(Desk.putFile, []);
+export const fileGone = upload("upload/file-gone", Lost).checkpoint("file-gone");
 
 // Remove while uploading (rule 60): leaving ends the copy, and the lane on the wire is interrupted and
 // released, so nothing is parked for a copy that will never return.
 export const removedWhileUploading = upload("upload/removed-while-uploading", Photo)
   .world(Desk.putFile.hold())
   .leave()
-  .expect(Story.inspection, { lanes: [] });
+  .checkpoint("released");
 
 // The same walk across a reload, in the editor (an app Story, so tabs close and open). Nothing is parked
 // and no write is unsettled afterwards.
@@ -134,4 +106,4 @@ export const removedUploadingThenReload = Story.make(DeskSetup, {
   .closeTab("main")
   .world(Desk.putFile.release()) // the request still travels; the answer goes nowhere
   .openTab("main", { from: "main" })
-  .expect(Story.inspection, { lanes: [] });
+  .checkpoint("reopened");

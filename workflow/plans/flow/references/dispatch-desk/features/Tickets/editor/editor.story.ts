@@ -1,6 +1,12 @@
-// Machine Stories (2.10.1): the editor alone, its context supplied, its world the `Desk` fake. No ending is
-// injected (2.10.5): a lost answer is `Desk.saveTitle.drop({ at: "response" })`, a lock is `Desk.lock(...)`, a
-// slow save is `Desk.saveTitle.hold()`. Each exported Story builds its own id; importing runs nothing.
+// Machine Stories (2.10.1): the editor alone, its context supplied, its world the `Desk` fake. A Story is a
+// transcript: the user's, time's and the world's inputs, and named checkpoints (COVERAGE.md section 6, decided
+// Q4 A). It states no expectation: editor.test.ts reads each checkpoint through `@flow-state/vitest`. No ending
+// is injected (2.10.5): a lost answer is `Desk.saveTitle.drop({ at: "response" })`, a lock is `Desk.lock(...)`,
+// a slow save is `Desk.saveTitle.hold()`. Each exported Story builds its own id; importing runs nothing.
+//
+// The title save is the one home of the hand-written hold (COVERAGE.md section 3): the same Attempt re-sent on
+// a schedule with `retryable`, then `cancel`. Its checkpoints are the module's named ones: `draft`, `saving`,
+// `unsure`, `resending`, `gave-up`, `closed-while-saving`, `reopened-unsure`.
 //
 // design gap: what a machine Story does with the editor's `send(ToastsRef, ...)` when no Toasts actor exists is
 // not specified (plan section 6, item 8). Assumed: the send is dropped as evidence. The app Stories (desk.story.ts)
@@ -9,7 +15,6 @@
 // A machine Story's actor is a local identity (2.10.10): it has no saved record, so an ending that lands with no live
 // actor is evidence (rule 44). Stories about a parked ending are app Stories on `editorRef`
 // (editor.tabs.story.ts `outlivesClose`). Here only a lane that is still held is found again by a rebind.
-// Lanes are keyed rows (2.10.7): `save: [{ key: T42, ... }]`, and `[]` once the lane is gone.
 import { Story } from "flow-state/testing";
 import { PendingFilesLive } from "../../Attachments/attachments-api.js";
 import { Desk, DeskClient } from "../../../testing/desk.fake.js";
@@ -17,15 +22,17 @@ import { Editor } from "./editor.definition.js";
 import { EditorMachine } from "./editor.machine.js";
 import { editorRef } from "./editor.ref.js";
 
-const { S, E, O } = Editor;
+const { E } = Editor;
 
 export const T42 = { workspaceId: "north", ticketId: "T-42" };
 
 export const Editor42 = editorRef(T42);
 
-const FIRST = "Replace foyer light";
+export const SEEDED = "Replace lobby light"; // the ticket's title in `Server.seed()`
 
-// The ticket's seeded title is "Replace lobby light", loaded into the draft when the editor opens.
+export const FIRST = "Replace foyer light";
+
+// The ticket's seeded title is loaded into the draft when the editor opens; every Story names that moment.
 const editor = (id: string, options: { world?: ReadonlyArray<unknown>; canEdit?: boolean } = {}) =>
   Story.make(EditorMachine, {
     id,
@@ -33,24 +40,18 @@ const editor = (id: string, options: { world?: ReadonlyArray<unknown>; canEdit?:
     context: { canEdit: options.canEdit ?? true },
     fixtures: [DeskClient, PendingFilesLive],
     world: options.world,
-  }).expect({ memory: { saved: "Replace lobby light", draft: "Replace lobby light" } });
+  }).checkpoint("opened");
 
 const rename = (title: string) => E.TitleChanged({ title });
 
 // The happy path. The commit is held on the wire so the moment between predicted and confirmed is a real step.
 export const saved = editor("editor/saved", { world: [Desk.saveTitle.hold()] })
-  .send(rename(FIRST), E.SaveRequested())
-  .expect({
-    state: S.OPEN.SAVING,
-    operations: { save: [{ key: T42, pending: true, uncertain: false }] },
-  })
+  .send(rename(FIRST))
+  .checkpoint("draft")
+  .send(E.SaveRequested())
+  .checkpoint("saving")
   .world(Desk.saveTitle.release())
-  .expect({
-    state: S.OPEN.SAVED,
-    memory: { saved: FIRST, draft: FIRST },
-    operations: { save: [] },
-  })
-  .expect(Desk.saveTitle, [{ phase: "answered", via: { attempts: [Story.attempt(O.save)] } }]);
+  .checkpoint("saved");
 
 // A debounce: each edit restarts the 2-second autosave; only the pause after the last one saves.
 export const autosaved = editor("editor/autosave")
@@ -58,10 +59,9 @@ export const autosaved = editor("editor/autosave")
   .advance("1 second")
   .send(rename(FIRST))
   .advance("1 second")
-  .expect({ state: S.OPEN.EDITING }) // the debounce restarted: nothing sent yet
-  .expect(Desk.saveTitle, [])
+  .checkpoint("restarted") // the debounce restarted: nothing sent yet
   .advance("1 second")
-  .expect({ state: S.OPEN.SAVED, memory: { saved: FIRST } });
+  .checkpoint("autosaved");
 
 // Typing during a save is kept: after Saved the draft still differs from what was saved, so the editor
 // goes back to EDITING, where autosave saves the newer draft without another keystroke.
@@ -70,30 +70,24 @@ export const editedWhileSaving = editor("editor/edit-while-saving", {
 })
   .send(rename(FIRST), E.SaveRequested(), rename(`${FIRST}s`))
   .world(Desk.saveTitle.release())
-  .expect({ state: S.OPEN.EDITING, memory: { saved: FIRST, draft: `${FIRST}s` } })
+  .checkpoint("moved-on")
   .advance("2 seconds") // the autosave debounce, restarted by the edit made during the save
-  .expect({ state: S.OPEN.SAVED, memory: { saved: `${FIRST}s` } })
-  .expect(Desk.saveTitle, [{ phase: "answered" }, { phase: "answered" }]);
+  .checkpoint("caught-up");
 
 export const emptyTitle = editor("editor/empty-title")
   .send(rename(""), E.SaveRequested())
-  .expect(Story.records("verdict", { event: E.SaveRequested }), [
-    { result: { _tag: "Denied", reasons: [{ code: "EmptyTitle" }] } },
-  ])
-  .expect(Desk.saveTitle, []); // denied before any commit
+  .checkpoint("denied");
 
 // Escape falls through: with edits it discards them; without, OPEN's handler closes.
 export const escaped = editor("editor/escape")
   .send(rename("Something else"), E.Escape())
-  .expect({ state: S.OPEN.EDITING, memory: { draft: "Replace lobby light" } })
+  .checkpoint("discarded")
   .send(E.Escape())
-  .expect({ state: S.CLOSED });
+  .checkpoint("closed");
 
 export const readonly = editor("editor/readonly", { canEdit: false })
   .send(rename(FIRST), E.SaveRequested())
-  .expect(Story.records("verdict", { event: E.SaveRequested }), [
-    { result: { _tag: "Denied", reasons: [{ code: "NoPermission" }] } },
-  ]);
+  .checkpoint("denied");
 
 // Lock contention, a definite failure (423): the backoff is memory, and every retry is a NEW Attempt. Retries
 // fire at 5, 15, 35, 75 and 155 seconds; the sixth tick, at 315, takes the exhausted alternative.
@@ -101,15 +95,11 @@ export const lockedOut = editor("editor/locked-out", {
   world: [Desk.lock({ ...T42, by: "dispatcher-2", times: "always" })],
 })
   .send(rename(FIRST), E.SaveRequested())
-  .expect({ state: S.OPEN.LOCKED, memory: { error: "Locked by dispatcher-2" } })
+  .checkpoint("locked")
   .advance({ next: { schedule: "retry" } })
-  .expect({ state: S.OPEN.LOCKED, memory: { lockRetries: 1 } })
+  .checkpoint("first-retry")
   .advance("10 minutes") // runs the whole chain
-  .expect({ state: S.OPEN.FAILED })
-  .expect(
-    Desk.saveTitle,
-    Array.from({ length: 6 }, () => ({ phase: "answered" })), // the first send and five retries, each its own Attempt
-  );
+  .checkpoint("gave-up-on-lock");
 
 // A lock that lifts: the third retry succeeds.
 export const lockLifts = editor("editor/lock-lifts", {
@@ -117,7 +107,7 @@ export const lockLifts = editor("editor/lock-lifts", {
 })
   .send(rename(FIRST), E.SaveRequested())
   .advance("1 minute")
-  .expect({ state: S.OPEN.SAVED, memory: { saved: FIRST, lockRetries: 0 } });
+  .checkpoint("saved");
 
 // The hold. The server stores the title but every answer is lost, three times. The editor goes UNSURE,
 // re-sends the SAME Attempt every 3 seconds (`retryable({ times: 3 })` allows three), and the third re-send's
@@ -126,28 +116,11 @@ export const unsureResend = editor("editor/unsure-resend", {
   world: [Desk.saveTitle.drop({ at: "response", times: 3 })],
 })
   .send(rename(FIRST), E.SaveRequested())
-  .expect({
-    state: S.OPEN.UNSURE,
-    operations: { save: [{ key: T42, pending: false, uncertain: true, retryCount: 0 }] },
-  })
+  .checkpoint("unsure")
   .advance("3 seconds")
-  .expect({
-    state: S.OPEN.UNSURE,
-    operations: { save: [{ key: T42, uncertain: true, retryCount: 1 }] },
-  })
+  .checkpoint("resending")
   .advance("6 seconds") // the 6 s and 9 s ticks
-  .expect({
-    state: S.OPEN.SAVED,
-    memory: { saved: FIRST },
-    operations: { save: [] },
-  })
-  .expect(Desk.saveTitle, [
-    { phase: "dropped", via: { attempts: [Story.attempt(O.save)] } },
-    { phase: "dropped", via: { attempts: [Story.attempt(O.save)] } },
-    { phase: "dropped", via: { attempts: [Story.attempt(O.save)] } },
-    { phase: "answered", via: { attempts: [Story.attempt(O.save)] } }, // one Attempt in all four
-  ])
-  .expect(Desk, { desk: { nextSeq: 2 } }); // stored once: one change in the log
+  .checkpoint("saved");
 
 // Nothing ever answers. After the third re-send the fourth tick finds `retryable` spent, `cancel` releases the
 // hold, and FAILED says "We couldn't confirm". The lane is Idle: no hold is left without an owner (rule 45).
@@ -156,26 +129,13 @@ export const unsureGaveUp = editor("editor/unsure-gave-up", {
 })
   .send(rename(FIRST), E.SaveRequested())
   .advance("12 seconds") // ticks at 3, 6, 9 re-send; the one at 12 gives up
-  .expect({
-    state: S.OPEN.FAILED,
-    memory: { error: "We couldn't confirm your last save" },
-    operations: { save: [] },
-  })
-  .expect(Story.inspection, { lanes: [] })
-  .expect(
-    Desk.saveTitle,
-    Array.from({ length: 4 }, () => ({ phase: "dropped" })), // the first send and three re-sends: one Attempt
-  );
+  .checkpoint("gave-up");
 
 // Cancel while it is on the wire: the fetch is interrupted (`unknown { Cancelled }`), the root's SaveStopped
 // releases it at once, and the editor is back to EDITING. The request may still have reached the server.
 export const stopped = editor("editor/stopped", { world: [Desk.saveTitle.hold()] })
   .send(rename(FIRST), E.SaveRequested(), E.CancelSave())
-  .expect({
-    state: S.OPEN.EDITING,
-    operations: { save: [] },
-  })
-  .expect(Story.inspection, { lanes: [] });
+  .checkpoint("stopped");
 
 // A lane that is held when the screen goes is found again by a rebind of the same identity: rule 44 delivers the
 // held lane as `unknown { Restored }` (mapped to SaveUnsure), which OPEN sends to UNSURE, and the re-send then
@@ -184,24 +144,22 @@ export const heldLaneReadopted = editor("editor/held-lane-readopted", {
   world: [Desk.saveTitle.drop({ at: "response", times: 1 })],
 })
   .send(rename(FIRST), E.SaveRequested(), E.Close())
-  .expect({ state: S.CLOSED, operations: { save: [{ key: T42, uncertain: true }] } })
+  .checkpoint("closed-while-saving")
   .dispose()
-  .expect(Story.inspection, {
-    lanes: [{ contract: "DispatchDesk/save-title", state: "Held", binding: "unbound" }],
-  })
+  .checkpoint("disposed")
   .ensure()
-  .expect({ state: S.OPEN.UNSURE, operations: { save: [{ key: T42, uncertain: true }] } })
+  .checkpoint("readopted")
   .advance("3 seconds")
-  .expect({ state: S.OPEN.SAVED, memory: { saved: FIRST } });
+  .checkpoint("saved");
 
 // Reopening a live CLOSED editor with a hold goes to UNSURE, not to a fresh EDITING that could not save.
 export const reopenedUnsure = editor("editor/reopened-unsure", {
   world: [Desk.saveTitle.drop({ at: "response", times: "always" })],
 })
   .send(rename(FIRST), E.SaveRequested(), E.Close())
-  .expect({ state: S.CLOSED, operations: { save: [{ key: T42, uncertain: true }] } })
+  .checkpoint("closed-while-saving")
   .send(E.Reopen())
-  .expect({ state: S.OPEN.UNSURE });
+  .checkpoint("reopened-unsure");
 
 // Reopening while the save is still on the wire goes to OPEN, not to SAVING: the old SAVING has ended, so the
 // ending is late and lands on the root or OPEN handlers (M2). Save stays disabled by the lane; the ending then
@@ -210,15 +168,14 @@ export const reopenedInFlight = editor("editor/reopened-in-flight", {
   world: [Desk.saveTitle.hold()],
 })
   .send(rename(FIRST), E.SaveRequested(), E.Close(), E.Reopen())
-  .expect({ state: S.OPEN, operations: { save: [{ key: T42, pending: true }] } })
+  .checkpoint("reopened")
   .world(Desk.saveTitle.release())
-  .expect({ state: S.OPEN, memory: { saved: FIRST }, operations: { save: [] } });
+  .checkpoint("settled-late");
 
 // A file dropped in the editor: the editor adds the entry, the `uploads` placement makes a copy, and the copy
 // uploads itself. The bytes were kept first (the hook does it); a removed entry releases the lane (rule 60).
 export const attached = editor("editor/attached")
   .send(E.AttachFile({ ref: "r-1", name: "photo.jpg", size: 40_000 }))
-  .expect({ memory: { uploads: [{ key: "r-1" }] } }) // a copy's public memory (rule 9)
+  .checkpoint("attached")
   .send(E.RemoveAttachment({ ref: "r-1" }))
-  .expect({ memory: { attachments: [], uploads: [] } })
-  .expect(Story.inspection, { lanes: [] });
+  .checkpoint("removed");

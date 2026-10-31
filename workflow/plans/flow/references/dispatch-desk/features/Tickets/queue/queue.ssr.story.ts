@@ -5,12 +5,11 @@
 // none of its own: a fresh payload is not read again.
 import { Story } from "flow-state/testing";
 import { DeskSetup } from "../../../app/setup.js";
-import { Desk, DeskClient } from "../../../testing/desk.fake.js";
+import { DeskClient } from "../../../testing/desk.fake.js";
 import { SessionRef } from "../../Session/session.ref.js";
-import { Queue } from "./queue.definition.js";
 import { queueRef } from "./queue.ref.js";
 
-const North = queueRef("north");
+export const North = queueRef("north");
 
 // A source Story sets no `world` (2.10.11); it runs on the destination run's truth, the Desk's seed.
 export const queuePage = Story.make(DeskSetup, {
@@ -21,16 +20,11 @@ export const queuePage = Story.make(DeskSetup, {
   .ensure(North, { input: { workspaceId: "north" } })
   .dehydrate("page", { within: "1500 millis" }); // DeskSetup has no scope; the browser side matches
 
-const serverOnly = [{ via: { tab: { name: "server" } }, phase: "answered" }] as const;
-
 export const queueHydrated = Story.make(DeskSetup, {
   id: "queue/ssr-browser",
   fixtures: [DeskClient],
 })
   .hydrate(queuePage, "page") // a leading command: before bootstrap, as on initial page load
   .checkpoint("active")
-  .expect(North, { state: Queue.S.HEALTHY })
-  .expect(Desk.list, serverOnly) // the server's lookup; the browser asked for nothing
-  .expect(Desk.openCount, serverOnly)
   .advance("1 second") // still inside the payload's freshness: still nothing from the browser
-  .expect(Desk.list, serverOnly);
+  .checkpoint("still-fresh");

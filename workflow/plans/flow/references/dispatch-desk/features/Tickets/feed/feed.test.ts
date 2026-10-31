@@ -1,12 +1,16 @@
-// Feed tests (pending merge 6). Each Story states its own expectations with `expect`, which rejects the
-// run when one fails (`StoryExpectationFailed`, after the whole plan ran), so a Story that runs is a
-// Story that passed. These tests add what a Story cannot say with a partial: counts and orderings.
-import { expect, test } from "vite-plus/test";
+// Feed checks (pending merge 6), read from the Stories' checkpoints through the proposed test adapter
+// (COVERAGE.md section 6; features/Tickets/editor/editor.test.ts says what `at` is).
+import { storyTest } from "@flow-state/vitest"; // NEW (proposed)
+import { Story } from "flow-state/testing";
+import { expect } from "vite-plus/test";
 import { Desk } from "../../../testing/desk.fake.js";
+import { Ticket } from "../ticket.domain.js";
+import { DeskFeed } from "./feed.definition.js";
 import {
   FeedNorth,
   connected,
   dropAndCatchUp,
+  duplicateFrame,
   historyTruncated,
   logReset,
   pushedRename,
@@ -14,51 +18,79 @@ import {
   tokenExpired,
 } from "./feed.story.js";
 
-test("the first connection owes nothing", () => connected.run());
+const { S } = DeskFeed;
 
-test("a token expiry ends the feed instead of retrying", () => tokenExpired.run());
+storyTest(connected, ({ at }) => {
+  const feed = at.connected.read(FeedNorth);
+  expect(feed?.state).toBe(S.LIVE);
+  expect(feed?.memory).toMatchObject({ notice: "", activity: [] }); // fresh: nothing was owed
+  expect(feed?.operations.activity?.connection).toBe("Live"); // pending merge 6: accepted: connection
+});
 
-test("a drop catches up from the cursor and shows no notice", async () => {
-  const run = await dropAndCatchUp.run();
-  const feed = run.read(FeedNorth);
-
+storyTest(dropAndCatchUp, ({ at }) => {
+  expect(at["first-entry"].read(FeedNorth)?.memory.cursor).toEqual({ epoch: 1, seq: 1 });
+  expect(at.dropped.read(FeedNorth)?.operations.activity?.connection).toBe("Connecting");
+  const feed = at["caught-up"].read(FeedNorth);
   // Three renames, three entries, each once and in order, whatever the replay and pages repeated.
-  expect(feed.memory.activity.map((entry) => entry.cursor.seq)).toEqual([1, 2, 3]);
-  expect(feed.memory.notice).toBe("");
-
-  // One drop: the catch-up is a read beside the open socket, and a page failure would not add one.
-  expect(run.read(Desk.eventsSince)).toHaveLength(1);
+  expect(feed?.memory.activity.map((entry) => entry.cursor.seq)).toEqual([1, 2, 3]);
+  expect(feed?.memory).toMatchObject({ notice: "", cursor: { epoch: 1, seq: 3 } });
+  expect(feed?.operations.activity?.connection).toBe("Live");
+  // One catch-up read, beside the open socket, from the stored cursor.
+  expect(at["caught-up"].read(Desk.eventsSince)).toMatchObject([
+    { input: { workspaceId: "north", after: { epoch: 1, seq: 1 } } },
+  ]);
 });
 
-test("a history that no longer reaches the cursor is missed, not an outage", async () => {
-  const run = await historyTruncated.run();
-  const feed = run.checkpoints.rejoined.read(FeedNorth);
+storyTest(duplicateFrame, ({ at }) => {
+  const feed = at["delivered-twice"].read(FeedNorth);
+  expect(feed?.memory.activity).toHaveLength(1); // stored by the source's id: at least once, kept once
+  expect(feed?.memory.cursor).toEqual({ epoch: 1, seq: 1 });
+});
 
-  expect(feed.memory.notice).toBe("Some activity may be missing");
+storyTest(historyTruncated, ({ at }) => {
+  const feed = at["history-truncated"].read(FeedNorth);
+  expect(feed?.memory.notice).toBe("Some activity may be missing");
   // The one kept entry still arrives, after the notice; the lost ones are gone.
-  expect(feed.memory.activity.map((entry) => entry.cursor.seq)).toEqual([1, 3]);
+  expect(feed?.memory.activity.map((entry) => entry.cursor.seq)).toEqual([1, 3]);
   // Not a drop: the machine never left LIVE, so the backoff is where it started.
-  expect(feed.memory.reopenInMs).toBe(1000);
+  expect(feed?.memory.reopenInMs).toBe(1000);
+  expect(feed?.operations.activity?.connection).toBe("Live");
 });
 
-test("a reload resumes the activity feed from the stored cursor", async () => {
-  const run = await reloadResumes.run();
-  const opens = run.read(Desk.socket).map((request) => request.input.from);
-
-  expect(opens).toEqual([undefined, undefined, undefined, { epoch: 1, seq: 1 }]);
+storyTest(reloadResumes, ({ at }) => {
+  expect(at.resumed.read(FeedNorth)?.memory).toMatchObject({
+    notice: "",
+    cursor: { epoch: 1, seq: 1 },
+  });
+  // changes, activity (first run: fresh), changes after the reload (`listen` keeps no position), activity resuming.
+  expect(at.resumed.read(Desk.socket).map((request) => request.input.from)).toEqual([
+    undefined,
+    undefined,
+    undefined,
+    { epoch: 1, seq: 1 },
+  ]);
 });
 
-test("a log reset is missed, and the cursor moves to the new epoch", async () => {
-  const run = await logReset.run();
-
-  expect(run.read(FeedNorth).memory.cursor).toEqual({ epoch: 2, seq: 0 });
+storyTest(logReset, ({ at }) => {
+  expect(at.reset.read(FeedNorth)?.memory).toMatchObject({
+    notice: "Some activity may be missing",
+    cursor: { epoch: 2, seq: 0 },
+  });
 });
 
-test("a pushed rename repairs only the lists that can be wrong", async () => {
-  const run = await pushedRename.run();
-  const since = run.checkpoints["before-push"];
+storyTest(tokenExpired, ({ at }) => {
+  expect(at["signed-out"].read(FeedNorth)?.state).toBe(S.SIGNED_OUT);
+});
 
+storyTest(pushedRename, ({ at }) => {
+  const key = { workspaceId: "north", ticketId: "T-43" };
+  expect(at.pushed.read(Story.entity(Ticket, key))?.data.title).toBe("Fix the loading dock door");
+  expect(at.pushed.read(FeedNorth)?.memory.activity).toMatchObject([
+    { text: "dispatcher-2 updated T-43" }, // the server's line (desk-server.ts)
+  ]);
   // The push changed `title` and `updatedAt`: the list reads both. The open count reads only `status`.
-  expect(run.read(Desk.list).length - since.read(Desk.list).length).toBe(1);
-  expect(run.read(Desk.openCount).length - since.read(Desk.openCount).length).toBe(0);
+  expect(at.pushed.read(Desk.list).length - at["before-push"].read(Desk.list).length).toBe(1);
+  expect(
+    at.pushed.read(Desk.openCount).length - at["before-push"].read(Desk.openCount).length,
+  ).toBe(0);
 });

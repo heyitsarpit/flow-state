@@ -12,9 +12,12 @@ import { DeskSetup } from "../../../app/setup.js";
 import { Effect, Layer } from "effect";
 import { TicketApi } from "../ticket-api.js";
 import { QueueList } from "./QueueList.js";
-import { queueHydrated, queuePage } from "./queue.ssr.story.js";
+import { storyTest } from "@flow-state/vitest"; // NEW (proposed): COVERAGE.md section 6
+import { Desk } from "../../../testing/desk.fake.js";
+import { Queue } from "./queue.definition.js";
+import { North, queueHydrated, queuePage } from "./queue.ssr.story.js";
 
-// The Stories are the Desk fake's view of SSR: the request log. The render test below is React's: one string
+// The Stories are transcripts; their checks are below, through the proposed test adapter. The render test below is React's: one string
 // from `renderToString`, the same markup from `hydrateRoot`, no recoverable error.
 
 // A small counting Layer over the demo API: how many list and count lookups the browser tab sends.
@@ -45,7 +48,16 @@ const countingTicketApi = () => {
   return { layer, calls: () => ({ ...calls }) };
 };
 
-test("queue/ssr-browser", () => queueHydrated.run()); // its `expect` steps read the Desk request log
+// The hydrated tab's request log holds the server's two lookups and none of its own: a fresh payload is not read
+// again, at activation or a second later.
+const serverOnly = [{ via: { tab: { name: "server" } }, phase: "answered" }];
+
+storyTest(queueHydrated, ({ at }) => {
+  expect(at.active.read(North)?.state).toBe(Queue.S.HEALTHY);
+  expect(at.active.read(Desk.list)).toMatchObject(serverOnly);
+  expect(at.active.read(Desk.openCount)).toMatchObject(serverOnly);
+  expect(at["still-fresh"].read(Desk.list)).toMatchObject(serverOnly);
+});
 
 test("renderToString and hydrateRoot agree before browser activation", async () => {
   const payload = (await queuePage.run()).payloads.page;
