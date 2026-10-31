@@ -9,6 +9,40 @@ and is **used differently** in each, so a reader sees its range. The target is a
 use it differently, never three copies of one use. The code need not live in one app; a small new app is justified
 when it opens new situations, not only new APIs.
 
+## At a glance: what each app and module pushes (proposed)
+
+One comparison. Each row pushes a different set of Flow State features, covers a different point on the four axes,
+and leaves alone what another row owns. Codes are explained in section 1, and row numbers in section 2.
+
+| Row | Pushes hardest, and how | Domain · data shape · lifetime · failure profile | Deliberately avoids (owner) |
+| --- | --- | --- | --- |
+| **DD** Dispatch desk (app) | the whole Runtime on one closed app: many actors on one ticket, cross-actor coherence, writes that outlive screens, SSR of the queue, the desk tour presentation | ops · records, lists, facts · screens and background · many concurrent dispatchers | payments and compensation (CK); last-write-wins docs, SSE, two tabs as the main path (NB) |
+| **CK** Checkout (app) | the hold where a re-send could double-charge: Stripe.js as the commit, `Idempotency-Key: attempt.id`, a reconcile `lookup` that releases the hold, `mayHaveApplied`; 3-D Secure as a subroutine with exits and a visible `Countdown`; voiding the authorization on leave; `serialize` refunds; unkeyed coupon with `optimistic`; SSR with a commit in flight | payments · one intent, cart lines, refunds per charge · across reload, background capture · third-party SDK, challenge timeouts, duplicate webhooks | streams of any kind (FE, PR, FB, NB); timed re-sends of the hold (ED) |
+| **NB** Notebook (app) | `latest` per-field autosave as `.each` copies beside an etag'd `reject` body; `serialize` chat sends; a domain message edit beside plain `optimistic` reactions; SSE catch-up with `CannotRepair`; cursors through an SDK `Feed.callback` with `subscribe.each`; offline, Outbox, reload, two tabs, storage quota | docs and chat · a doc of fields, a message list, keyed cursors · across reload and tabs · offline, 412 conflicts, SSE gaps, quota | money and compensation (CK); raw WebSocket (FE); subroutine wizards (RW) |
+| **ED** Editor | the full hold: same Attempt re-sent on a schedule with `retryable`, then `cancel`; endings current, late after Close, adopted on reopen; `UnresolvedHold`; the one copy of this pattern | ops · one record · a screen whose writes outlive it · flaky network, lock conflicts | `latest` (NB); bulk (QU); subroutines (RW) |
+| **QU** Queue | entities at list scale: `serialize` bulk close with a `many` key, `RequestResolver` per-item results, `Overloaded`; `latest` assign toggles as `.each` copies waiting behind a held unknown; `or`/`isNull`/`lt` conditions, two sort keys, rows leaving and joining lists by prediction; SLA keyed schedule with `useNow` | ops · a filtered list, bulk sets · a screen · other dispatchers, partial bulk failure | one-record holds (ED); related entities (AD); one-off reads (FD) |
+| **FD** Find | one-off `lookup` only: one lane, latest answer delivered, `Superseded`, cleared by a key-less `cancel`, debounced with `restartOn`, `TooShort` denial | ops · ephemeral results · per keystroke · slow and stale answers | every write and every live placement |
+| **RW** Resolve wizard | subroutines: a wizard with `.history`, exits carrying data, a nested `ConfirmDiscard`, `hostEvents` from the step bar, guard ports with annotated denials, `Flow.private`; a write that lands after the exit; releasing reserved parts on abandon | field work · a tree of steps, a parts list · one subroutine's life · abandonment, late endings | resumable state (IN); streams; entities beyond the ticket |
+| **IN** Inspector | `.resumable()` traits on tab nodes: freeze and thaw, a read cut by the freeze beside a write that outlives it, a `Reservation` countdown whose `dueAt` survives, `resetOn` making a tab fresh, `raise` to open a tab | ops · a tree of tabs · frozen across tab switches · reads cut by freezes | subroutines (RW); new operations of its own beyond one note write |
+| **FB** Field board | keyed state feeds: `subscribe.each` per technician over a polling recipe, `last`, `resetAfter`, `Feed.down`, stale age with `useNow`; `.each` cards over live keys; `allow` nudges; a column move caused by another actor's prediction | field work · keyed current values · a long-lived wallboard · poller offline, stale values | fact feeds and catch-up (FE, NB); any held write |
+| **AD** Roster admin | entities across relations: `Technician`, `Team`, `Customer` in one domain with `.alsoChanges`; a customer merge predicting a delete, a patch and re-pointed tickets; deletes restored on 409; `.ignoring`; `listen` from a polling-with-cursor fact feed beside the roster read | admin · related entities · a screen · merge conflicts, refused deletes | bulk queues on one entity (QU); state feeds (FB) |
+| **CM** Comments | a writing trait placed on two hosts, one with `resetOn` (A-B-A adoption); `Comment` as an entity whose post `.alsoChanges` the ticket; manual resend only | ops / conversation · a list under a record · a drawer reset per ticket · flaky network, refused text | scheduled re-sends (ED); `.each` (UP) |
+| **UP** Uploads | `.each` copies that own writes: commit on creation (`Flow.entry`), XHR progress, `armOn`/`disarmOn`, `whenAbandoned` cancel, `FileGone` after reload; `Entity.delete` restored on 403 | ops · copies carrying bytes · across reload, bytes lost · slow network, user cancel | streamed bodies (AS); parked user intent (CM) |
+| **PR / FE / AS** Live desk (PM6) | PR: a vendor SDK through `Feed.callback`, the SDK's own reconnect kept. FE: raw WebSocket with close codes, catch-up, `{ lost, restartAt }`, `listen` into tickets, the one machine-level RETRY_WAIT. AS: a streamed write on `cancel`, Regenerate interrupting the reply | ops and AI · a current value, a stream of facts, a stream of tokens · a screen; FE across reload · SDK quirks, socket drops, history truncated, stalls | SSE and keyed state feeds (NB, FB); `reject` holds (ED) |
+
+**Why Checkout is its own app.** A dispatch desk never moves money, so it never meets a write where a blind re-send is
+the bug. Checkout makes the hold's hardest form the main path: an idempotency key handed to a third-party SDK, a
+reconcile read instead of a timer, compensation when the user leaves after authorizing, refunds whose order is money,
+and a 3-D Secure challenge that is a subroutine with its own timer and exits. Its failure profile (duplicate webhooks,
+challenge timeouts, `mayHaveApplied` wording on a receipt) and its SSR cart page with a commit in flight have no honest
+place in a desk.
+
+**Why Notebook is its own app.** A desk's records are owned by one dispatcher at a time and saved on purpose. A
+notebook is typed into continuously by several people, so last write wins per field, saves coalesce under `latest`,
+and an etag'd body shows when `latest` is wrong. It is also where offline, two tabs, reload and storage quota are the
+normal path, not edge cases, and where chat history over SSE and cursors over a collaboration SDK give two transports
+the desk does not use.
+
 **Sources.**
 
 | Short | Document |
@@ -479,6 +513,8 @@ replayable Story, and `flow stories --coverage` in its `tools/cli.ts`.
 ---
 
 ## 7. The order of work, in batches
+
+One Opus agent builds everything. The batches are only the order of work.
 
 1. **B1, desk fixes.** REVIEW.md M1–M16, S-H1–S-M6; split `desk.fake.ts`; truth as an Effect Schema. No new features.
 2. **B2, Stories as transcripts (if accepted).** ED first for the owner to judge, then the rest of the desk.
