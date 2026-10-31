@@ -25,6 +25,7 @@ import {
 import {
   assignRepairs,
   closedMidSave,
+  editedInPreview,
   Editor43,
   key,
   North,
@@ -33,6 +34,7 @@ import {
   saveRepairsQueue,
   signOut,
 } from "./desk.story.js";
+import { Comment } from "../Comments/comments.domain.js";
 import { Ticket } from "./ticket.domain.js";
 
 const { S, O } = Editor;
@@ -190,4 +192,18 @@ test("the panel at the saving step offers Cancel and not Save", async () => {
 
   expect(screen.getByRole("button", { name: "Cancel" })).toBeTruthy();
   expect(screen.getByRole("textbox").getAttribute("value")).toBe(FIRST);
+});
+
+storyTest(editedInPreview, ({ at }) => {
+  const c1 = { ...key("T-42"), commentId: "c-1" };
+  expect(at["edited-in-preview"].read(Story.entity(Comment, c1))).toMatchObject({
+    data: { text: "Bulb is 40 W, not 60" },
+    predicted: true,
+  });
+  // The editor's own thread lists the same record: one copy, read through the store, never memory.
+  const editorThread = at["edited-in-preview"].read(Editor42)?.operations.comments?.thread;
+  expect(editorThread?.data?.flatMap((page) => page.comments).map((c) => c.commentId)).toEqual([
+    "c-1",
+  ]);
+  expect(at["edit-confirmed"].read(Story.entity(Comment, c1))?.predicted).toBe(false);
 });

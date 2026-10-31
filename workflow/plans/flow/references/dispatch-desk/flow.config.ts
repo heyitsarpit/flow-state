@@ -11,6 +11,7 @@ export default defineConfig({
       app: DeskApp,
       stories: [
         "features/Tickets/**/*.story.ts",
+        "features/Roster/*.story.ts",
         "features/Presence/*.story.ts", // pending merge 6
         "features/Assistant/*.story.ts", // pending merge 6
       ],

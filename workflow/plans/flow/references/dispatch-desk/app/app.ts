@@ -6,6 +6,7 @@ import { SessionMachine } from "../features/Session/session.machine.js";
 import { SessionRef } from "../features/Session/session.ref.js";
 import { DeskFeedMachine } from "../features/Tickets/feed/feed.machine.js"; // pending merge 6
 import { QueueMachine } from "../features/Tickets/queue/queue.machine.js";
+import { RosterMachine } from "../features/Roster/roster.machine.js";
 import { ToastsMachine } from "../features/Toasts/toasts.machine.js";
 
 // Wiring is declared once (Runtime.plan D2): every editor and queue, shared or local, reads the
@@ -25,6 +26,7 @@ export const DeskApp = app({
       context: { canEdit: SessionRef },
     },
     queue: { machine: QueueMachine, context: { userId: SessionRef } },
+    roster: { machine: RosterMachine, context: { isAdmin: SessionRef } },
     feed: DeskFeedMachine, // pending merge 6
     presence: PresenceMachine, // pending merge 6
     assistant: AssistantMachine, // pending merge 6

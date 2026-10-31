@@ -13,7 +13,13 @@ import { AttachmentUpload } from "./upload.trait.js";
 
 const { E } = AttachmentUpload;
 
-const draft = (ref: string, bytes: number) => ({ ref, name: `${ref}.jpg`, size: bytes });
+const draft = (ref: string, bytes: number) => ({
+  workspaceId: "north",
+  ticketId: "T-42",
+  ref,
+  name: `${ref}.jpg`,
+  size: bytes,
+});
 
 export const Photo = draft("r-1", 40_000);
 
@@ -93,7 +99,7 @@ export const removedWhileUploading = upload("upload/removed-while-uploading", Ph
 // in every tab, which is enough here because nothing needs them after the reload.
 const T42 = { workspaceId: "north", ticketId: "T-42" };
 
-const Editor42 = editorRef(T42);
+export const Editor42 = editorRef(T42);
 
 export const removedUploadingThenReload = Story.make(DeskSetup, {
   id: "upload/removed-uploading-then-reload",
@@ -101,9 +107,23 @@ export const removedUploadingThenReload = Story.make(DeskSetup, {
 })
   .ensure(Editor42, { input: T42 })
   .world(Desk.putFile.hold())
-  .send(Editor42, Editor.E.AttachFile(Photo))
+  .send(Editor42, Editor.E.AttachFile({ ref: Photo.ref, name: Photo.name, size: Photo.size }))
   .send(Editor42, Editor.E.RemoveAttachment({ ref: Photo.ref }))
   .closeTab("main")
   .world(Desk.putFile.release()) // the request still travels; the answer goes nowhere
   .openTab("main", { from: "main" })
   .checkpoint("reopened");
+
+// A stored file someone else uploaded (seeded as `r-old`). Removing it predicts its delete, so it leaves the
+// editor's file list at once; the server refuses (403: only the uploader removes a file), and the definite failure
+// brings the record back in place with no repair (E3).
+export const removeRefused = Story.make(DeskSetup, {
+  id: "upload/remove-refused-restored",
+  fixtures: [DeskClient, Kept],
+})
+  .ensure(Editor42, { input: T42 })
+  .world(Desk.removeFile.hold({ at: "response" }))
+  .send(Editor42, Editor.E.RemoveStoredFile({ ref: "r-old" }))
+  .checkpoint("remove-predicted")
+  .world(Desk.removeFile.release())
+  .checkpoint("remove-refused-restored");

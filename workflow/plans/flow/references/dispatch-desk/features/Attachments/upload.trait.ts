@@ -3,7 +3,7 @@
 // times, and is released when its copy is removed: a removed attachment is worthless (rule 60).
 import { Schema } from "effect";
 import { deny, Flow, trait } from "flow-state"; // existing
-import { putAttachment } from "./attachments.contracts.js";
+import { AttachmentsDomain } from "./attachments.domain.js";
 
 export const MAX_RESENDS = 3; // user-defined
 
@@ -35,6 +35,8 @@ export const AttachmentUpload = trait(
       ),
     },
     memory: {
+      workspaceId: Flow.input(Schema.String),
+      ticketId: Flow.input(Schema.String),
       ref: Flow.input(Schema.String), // existing: Flow.input; the draft is { ref, name, size } in the editor's memory
       name: Flow.input(Schema.String),
       size: Flow.input(Schema.Number),
@@ -51,7 +53,8 @@ export const AttachmentUpload = trait(
     },
     operations: ({ E }) => ({
       // existing key; in a fragment (rule 49)
-      put: putAttachment.outcomes({
+      // A domain write: a stored upload joins the ticket's file list (AttachmentsDomain.files).
+      put: AttachmentsDomain.put.outcomes({
         // existing: outcomes; user-defined: put
         success: E.Stored.from((stored) => ({ url: stored.url })),
         failure: {
@@ -97,7 +100,13 @@ export const AttachmentUpload = trait(
               O.put.idle(own),
             ], // rule 54's default: a restored or adopted copy does not commit twice
             updateMemory: () => ({ status: "sending" }),
-            actions: [O.put.commit(({ memory }) => ({ ref: memory.ref }))], // existing: commit; the bytes come from PendingFiles
+            actions: [
+              O.put.commit(({ memory }) => ({
+                workspaceId: memory.workspaceId,
+                ticketId: memory.ticketId,
+                ref: memory.ref,
+              })),
+            ], // existing: commit; the bytes come from PendingFiles
           },
           { target: "self" },
         ],

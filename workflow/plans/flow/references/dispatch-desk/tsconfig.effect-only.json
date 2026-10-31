@@ -14,6 +14,7 @@
     "features/Attachments/attachments-api.ts",
     "features/Presence/presence-api.ts",
     "features/Assistant/assistant-api.ts",
+    "features/Roster/roster-api.ts",
     "app/desk-server.ts",
     "app/demo-api.ts",
     "next/http-api.ts"

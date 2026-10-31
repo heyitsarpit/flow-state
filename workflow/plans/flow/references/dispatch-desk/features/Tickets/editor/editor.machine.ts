@@ -105,7 +105,15 @@ export const EditorMachine = machine(Editor, ({ S, E, O }) => {
         input: ({ memory }) => ({ workspaceId: memory.workspaceId, ticketId: memory.ticketId }),
         callbacks: { onTicketGone: S.CLOSED },
       },
-      uploads: { input: ({ item }) => ({ ref: item.ref, name: item.name, size: item.size }) },
+      uploads: {
+        input: ({ memory, item }) => ({
+          workspaceId: memory.workspaceId,
+          ticketId: memory.ticketId,
+          ref: item.ref,
+          name: item.name,
+          size: item.size,
+        }),
+      },
     },
 
     // Root handlers apply wherever no nearer state handles the event, CLOSED included, and they receive what a
@@ -124,12 +132,20 @@ export const EditorMachine = machine(Editor, ({ S, E, O }) => {
       SaveStopped: { target: "self", actions: [O.save.cancel] },
       // The hold, arriving late (after Close): keep it where it is. Reopen reconciles it (rule 45's owner).
       SaveUnsure: { target: "self" },
+      // A stored file's removal, handled wherever it lands. The store did the showing and the restoring.
+      FileRemoved: { target: "self" },
+      FileKept: {
+        target: "self",
+        updateMemory: ({ event }) => ({ error: `Only ${event.uploadedBy} can remove that file` }),
+      },
+      // Key-less: `removeFile` alone maps it. Release; the record stays marked uncertain until a later write.
+      FileRemoveUnsure: { target: "self", actions: [O.removeFile.cancel] },
     },
 
     states: {
       OPEN: {
         default: S.OPEN.EDITING,
-        activities: [O.ticket.subscribe(ticketKey)],
+        activities: [O.ticket.subscribe(ticketKey), O.files.subscribe(ticketKey)],
         on: {
           // The hold. The request may have landed. Current (from SAVING) or adopted (default leaf EDITING), go where
           // it is reconciled. A late one after Close reaches the root and stays put.
@@ -167,6 +183,17 @@ export const EditorMachine = machine(Editor, ({ S, E, O }) => {
                 { ref: event.ref, name: event.name, size: event.size },
               ],
             }),
+          },
+          RemoveStoredFile: {
+            target: "self",
+            guard: [O.removeFile.idle(({ event }) => event)],
+            updateMemory: () => ({ error: "" }),
+            actions: [
+              O.removeFile.commit(({ memory, event }) => ({
+                ...ticketKey({ memory }),
+                ref: event.ref,
+              })),
+            ],
           },
           // Removing the entry ends its copy, and the copy releases its lane (rule 60).
           RemoveAttachment: {

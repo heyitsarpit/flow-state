@@ -22,14 +22,25 @@ import { Effect, Layer, Schema } from "effect";
 import * as Server from "../app/desk-server.js";
 import {
   AttachmentsApi,
+  RemoveRefused,
   StoredAttachment,
   TooLarge,
 } from "../features/Attachments/attachments-api.js";
-import { CommentRejected, CommentRow, CommentsApi } from "../features/Comments/comments-api.js";
+import {
+  CommentGone,
+  CommentRejected,
+  CommentRow,
+  CommentsApi,
+  EditWindowClosed,
+  Reactions,
+  ThreadPage,
+} from "../features/Comments/comments-api.js";
 import { TicketApi } from "../features/Tickets/ticket-api.js";
 import {
   ActivityPage,
   AlreadyAssigned,
+  ArchiveRefused,
+  TicketRejected,
   Cursor,
   NoResponse,
   QueueUnavailable,
@@ -41,6 +52,7 @@ import {
   TicketStatus,
   TitleRejected,
 } from "../features/Tickets/types.js";
+import { rosterClient, rosterControls, rosterEndpoints } from "./desk.roster.fake.js";
 import { socketClient, socketControls, socketEndpoints, socketPushes } from "./desk.socket.fake.js";
 
 // --- the wire --------------------------------------------------------------------------------
@@ -48,21 +60,31 @@ import { socketClient, socketControls, socketEndpoints, socketPushes } from "./d
 // What the server answers: a status and a body, as HTTP does. Nothing in Flow reads either; the
 // client half below (the adapter's role) turns them into the port's success and tagged failures,
 // and the commit classifies those (2.7.2).
-const Wire = Schema.Struct({ status: Schema.Int, body: Schema.Unknown });
+export const Wire = Schema.Struct({ status: Schema.Int, body: Schema.Unknown });
 
-type Wire = typeof Wire.Type;
+export type Wire = typeof Wire.Type;
 
 const STATUS = {
   TicketNotFound: 404,
   TicketLocked: 423,
   TitleRejected: 422,
+  TicketRejected: 422,
+  ArchiveRefused: 403,
   CommentRejected: 422,
+  CommentGone: 404,
+  EditWindowClosed: 403,
   AlreadyAssigned: 409,
   TooLarge: 413,
+  RemoveRefused: 403,
+  // the roster's (desk.roster.fake.ts)
+  TechnicianGone: 404,
+  HasOpenTickets: 409,
+  MergeConflict: 409,
+  InviteRejected: 422,
 } as const;
 
 // A pure Result from the server core, as a response.
-const toWire = <A, E extends { readonly _tag: keyof typeof STATUS }>(
+export const toWire = <A, E extends { readonly _tag: keyof typeof STATUS }>(
   result: Server.Result<A, E>,
 ): Wire =>
   result.ok
@@ -72,7 +94,7 @@ const toWire = <A, E extends { readonly _tag: keyof typeof STATUS }>(
 // The client half's reading of a response: decode a 200's body with the port's Schema (a body it
 // cannot decode is an adapter bug: a `Defect`, 2.10.5), rebuild a known 4xx as its tagged failure,
 // and turn a 5xx into `ServerError` (the commit makes that `unknown`).
-const fromWire = <A, E>(
+export const fromWire = <A, E>(
   wire: Wire,
   ok: Schema.Decoder<A>,
   refused: Readonly<Record<number, (body: any) => E>>,
@@ -90,10 +112,10 @@ const fromWire = <A, E>(
 
 // A lost request or answer, for a read or a write: every port declares `NoResponse`, which is what `fetch`
 // rejecting becomes in the real adapter (REVIEW gap 34: a lost read is a network fact, never a `Defect`).
-const lost = Effect.catchTag("Fake/Lost", () => Effect.fail(new NoResponse()));
+export const lost = Effect.catchTag("Fake/Lost", () => Effect.fail(new NoResponse()));
 
 // A read's 5xx is "nothing came back" too (the real adapter's `readBody`): the read's handler decides.
-const readFailed = Effect.catchTag("ServerError", () => Effect.fail(new NoResponse()));
+export const readFailed = Effect.catchTag("ServerError", () => Effect.fail(new NoResponse()));
 
 // --- truth -----------------------------------------------------------------------------------
 
@@ -105,6 +127,7 @@ const Budget = Schema.Union([Schema.Int, Schema.Literal("always")]);
 
 export type FakeTruth = {
   desk: Server.DeskTruth;
+  // pending merge 6 (B4): technician polling state, the presence SDK's members; see desk.roster.fake.ts
   outage: boolean;
   replay: boolean; // whether a greeting proves a replay (`Desk.greet`)
   budget: Record<string, number | "always">;
@@ -116,7 +139,7 @@ export const withDesk = (truth: FakeTruth, desk: Server.DeskTruth): FakeTruth =>
 });
 
 // A write through the core: the next truth and the response.
-const step = <A, E extends { readonly _tag: keyof typeof STATUS }>(
+export const step = <A, E extends { readonly _tag: keyof typeof STATUS }>(
   truth: FakeTruth,
   [desk, result]: Server.Step<A, E>,
 ): readonly [FakeTruth, Wire] => [withDesk(truth, desk), toWire(result)];
@@ -146,8 +169,12 @@ const spendLock = (truth: FakeTruth, key: string, wire: Wire): FakeTruth => {
 
 const ticketKey = { workspaceId: Schema.String, ticketId: Schema.String };
 
+const commentKey = { ...ticketKey, commentId: Schema.String };
+
 const edit = {
   title: Schema.optional(Schema.String),
+  priority: Schema.optional(Schema.Int),
+  customerId: Schema.optional(Schema.String),
   status: Schema.optional(TicketStatus),
   assignee: Schema.optional(Schema.String),
 };
@@ -199,8 +226,42 @@ export const Desk = Fake.server("Desk", {
       ],
     }),
     comments: Fake.call({
+      request: {
+        ...ticketKey,
+        pinned: Schema.optional(Schema.Boolean),
+        before: Schema.optional(Schema.String),
+      },
+      handle: (truth, req) => [truth, toWire(Server.listThread(truth.desk, req))],
+    }),
+    mentions: Fake.call({
+      request: { workspaceId: Schema.String, me: Schema.String },
+      handle: (truth, req) => [truth, { status: 200, body: Server.listMentions(truth.desk, req) }],
+    }),
+    reactions: Fake.call({
       request: ticketKey,
-      handle: (truth, req) => [truth, toWire(Server.listComments(truth.desk, req))],
+      handle: (truth, req) => [truth, { status: 200, body: Server.reactionsOf(truth.desk, req) }],
+    }),
+    files: Fake.call({
+      request: ticketKey,
+      handle: (truth, req) => [truth, { status: 200, body: Server.listFiles(truth.desk, req) }],
+    }),
+    unassigned: Fake.call({
+      request: { workspaceId: Schema.String, page: Schema.optional(Schema.Int) },
+      handle: (truth, req) => [
+        truth,
+        { status: 200, body: Server.listUnassigned(truth.desk, req) },
+      ],
+    }),
+    byCustomer: Fake.call({
+      request: { workspaceId: Schema.String, customerId: Schema.String },
+      handle: (truth, req) => [
+        truth,
+        { status: 200, body: Server.ticketsOfCustomer(truth.desk, req) },
+      ],
+    }),
+    triage: Fake.call({
+      request: { workspaceId: Schema.String, now: Schema.Number },
+      handle: (truth, req) => [truth, { status: 200, body: Server.listTriage(truth.desk, req) }],
     }),
 
     // --- writes: `key` is the idempotency key the client put on the wire (rule 19) ---
@@ -222,10 +283,62 @@ export const Desk = Fake.server("Desk", {
       request: { ...ticketKey, clientId: Schema.String, text: Schema.String, key: Schema.String },
       handle: (truth, req) => step(truth, Server.postComment(truth.desk, req, req.key)),
     }),
+    editComment: Fake.call({
+      request: { ...commentKey, text: Schema.String, key: Schema.String },
+      handle: (truth, req) => step(truth, Server.editComment(truth.desk, req, req.key)),
+    }),
+    removeComment: Fake.call({
+      request: { ...commentKey, key: Schema.String },
+      handle: (truth, req) => step(truth, Server.removeComment(truth.desk, req, req.key)),
+    }),
+    pinComment: Fake.call({
+      request: { ...commentKey, pinned: Schema.Boolean, key: Schema.String },
+      handle: (truth, req) => step(truth, Server.pinComment(truth.desk, req, req.key)),
+    }),
+    markRead: Fake.call({
+      request: {
+        workspaceId: Schema.String,
+        comments: Schema.Array(Schema.Struct(commentKey)),
+        at: Schema.Number,
+        key: Schema.String,
+      },
+      handle: (truth, req) => step(truth, Server.markRead(truth.desk, req, req.key)),
+    }),
+    react: Fake.call({
+      request: { ...commentKey, emoji: Schema.String, on: Schema.Boolean, key: Schema.String },
+      handle: (truth, req) => step(truth, Server.react(truth.desk, req, req.key)),
+    }),
     putFile: Fake.call({
-      request: { ref: Schema.String, name: Schema.String, size: Schema.Int, key: Schema.String },
+      request: {
+        ...ticketKey,
+        ref: Schema.String,
+        name: Schema.String,
+        size: Schema.Int,
+        key: Schema.String,
+      },
       handle: (truth, req) => step(truth, Server.putFile(truth.desk, req, req.key)),
     }),
+    removeFile: Fake.call({
+      request: { ...ticketKey, ref: Schema.String, key: Schema.String },
+      handle: (truth, req) => step(truth, Server.removeFile(truth.desk, req, req.key)),
+    }),
+    createTicket: Fake.call({
+      request: {
+        workspaceId: Schema.String,
+        draftId: Schema.String,
+        title: Schema.String,
+        priority: Schema.Int,
+        dueAt: Schema.NullOr(Schema.Number),
+        key: Schema.String,
+      },
+      handle: (truth, req) => step(truth, Server.createTicket(truth.desk, req, req.key)),
+    }),
+    archiveTicket: Fake.call({
+      request: { ...ticketKey, key: Schema.String },
+      handle: (truth, req) => step(truth, Server.archiveTicket(truth.desk, req, req.key)),
+    }),
+
+    ...rosterEndpoints, // desk.roster.fake.ts: the roster's endpoints, reached through `Fake.fetch`
 
     ...socketEndpoints, // pending merge 6: desk.socket.fake.ts
   },
@@ -269,6 +382,30 @@ export const Desk = Fake.server("Desk", {
       (truth, { by = "dispatcher-2", ...key }) =>
         withDesk(truth, Server.removeElsewhere(truth.desk, key, by)[0]),
     ),
+
+    // A comment past its author's fifteen-minute window: edits and deletes are refused (403) from now on.
+    ageComment: Fake.control({ commentId: Schema.String }, (truth, { commentId }) =>
+      withDesk(truth, { ...truth.desk, closedForEdit: [...truth.desk.closedForEdit, commentId] }),
+    ),
+    // Someone else writes `count` comments on a ticket, through the same rule a client post uses.
+    commentsElsewhere: Fake.control(
+      { ...ticketKey, count: Schema.Int },
+      (truth, { count, ...key }) =>
+        withDesk(
+          truth,
+          Array.from({ length: count }).reduce<Server.DeskTruth>(
+            (desk, _, n) =>
+              Server.postComment(
+                desk,
+                { ...key, clientId: `other-${n}`, text: `Note ${n + 1}` },
+                `other-${n}`,
+              )[0],
+            truth.desk,
+          ),
+        ),
+    ),
+
+    ...rosterControls, // desk.roster.fake.ts
 
     ...socketControls, // pending merge 6: greet, resetLog, retain, expireToken (desk.socket.fake.ts)
   },
@@ -334,20 +471,66 @@ const TicketsOverDesk = Layer.effect(
           Effect.flatMap((wire) => fromWire(wire, ActivityPage, {})),
           readFailed,
         ),
+      unassigned: (input) =>
+        server.unassigned(input).pipe(
+          lost,
+          Effect.flatMap((wire) => fromWire(wire, TicketPage, {})),
+          readFailed,
+        ),
+      triage: (input) =>
+        server.triage(input).pipe(
+          lost,
+          Effect.flatMap((wire) => fromWire(wire, TicketPage, {})),
+          readFailed,
+        ),
+      byCustomer: (input) =>
+        server.byCustomer(input).pipe(
+          lost,
+          Effect.flatMap((wire) => fromWire(wire, Schema.Array(TicketRow), {})),
+          readFailed,
+        ),
+      create: (input, { idempotencyKey }) =>
+        server.createTicket({ ...input, key: idempotencyKey }).pipe(
+          lost,
+          Effect.flatMap((wire) =>
+            fromWire(wire, TicketRow, { 422: (body) => new TicketRejected(body) }),
+          ),
+        ),
+      archive: (input, { idempotencyKey }) =>
+        server.archiveTicket({ ...input, key: idempotencyKey }).pipe(
+          lost,
+          Effect.flatMap((wire) =>
+            fromWire(wire, Schema.Void, {
+              404: (body) => new TicketNotFound(body),
+              403: (body) => new ArchiveRefused(body),
+            }),
+          ),
+        ),
     }),
   ),
 );
 
 const CommentsOverDesk = Layer.effect(
   CommentsApi,
-  Effect.map(Desk, (server) =>
-    CommentsApi.of({
-      list: (key) =>
-        server.comments(key).pipe(
+  Effect.map(Desk, (server) => {
+    const comment = {
+      404: (body: any) => new CommentGone(body),
+      403: (body: any) => new EditWindowClosed(body),
+    };
+
+    return CommentsApi.of({
+      list: (input) =>
+        server.comments(input).pipe(
           lost,
           Effect.flatMap((wire) =>
-            fromWire(wire, Schema.Array(CommentRow), { 404: (body) => new TicketNotFound(body) }),
+            fromWire(wire, ThreadPage, { 404: (body) => new TicketNotFound(body) }),
           ),
+          readFailed,
+        ),
+      mentions: (input) =>
+        server.mentions(input).pipe(
+          lost,
+          Effect.flatMap((wire) => fromWire(wire, Schema.Array(CommentRow), {})),
           readFailed,
         ),
       post: (input, { idempotencyKey }) =>
@@ -360,8 +543,41 @@ const CommentsOverDesk = Layer.effect(
             }),
           ),
         ),
-    }),
-  ),
+      edit: (input, { idempotencyKey }) =>
+        server.editComment({ ...input, key: idempotencyKey }).pipe(
+          lost,
+          Effect.flatMap((wire) =>
+            fromWire(wire, CommentRow, { ...comment, 422: (body) => new CommentRejected(body) }),
+          ),
+        ),
+      remove: (input, { idempotencyKey }) =>
+        server.removeComment({ ...input, key: idempotencyKey }).pipe(
+          lost,
+          Effect.flatMap((wire) => fromWire(wire, Schema.Void, comment)),
+        ),
+      pin: (input, { idempotencyKey }) =>
+        server.pinComment({ ...input, key: idempotencyKey }).pipe(
+          lost,
+          Effect.flatMap((wire) => fromWire(wire, CommentRow, { 404: comment[404] })),
+        ),
+      markRead: (input, { idempotencyKey }) =>
+        server.markRead({ ...input, key: idempotencyKey }).pipe(
+          lost,
+          Effect.flatMap((wire) => fromWire(wire, Schema.Void, {})),
+        ),
+      reactions: (input) =>
+        server.reactions(input).pipe(
+          lost,
+          Effect.flatMap((wire) => fromWire(wire, Reactions, {})),
+          readFailed,
+        ),
+      react: (input, { idempotencyKey }) =>
+        server.react({ ...input, key: idempotencyKey }).pipe(
+          lost,
+          Effect.flatMap((wire) => fromWire(wire, Reactions, { 404: comment[404] })),
+        ),
+    });
+  }),
 );
 
 // The XHR reports its bytes handed to the network before the answer, so the client half does too:
@@ -370,13 +586,27 @@ const AttachmentsOverDesk = Layer.effect(
   AttachmentsApi,
   Effect.map(Desk, (server) =>
     AttachmentsApi.of({
-      put: (ref, bytes, { idempotencyKey, onProgress }) =>
+      files: (key) =>
+        server.files(key).pipe(
+          lost,
+          Effect.flatMap((wire) => fromWire(wire, Schema.Array(StoredAttachment), {})),
+          readFailed,
+        ),
+      remove: (input, { idempotencyKey }) =>
+        server.removeFile({ ...input, key: idempotencyKey }).pipe(
+          lost,
+          Effect.flatMap((wire) =>
+            fromWire(wire, Schema.Void, { 403: (body) => new RemoveRefused(body) }),
+          ),
+        ),
+      put: (ticket, ref, bytes, { idempotencyKey, onProgress }) =>
         Effect.sync(() => {
           onProgress({ sent: Math.round(bytes.size / 2), total: bytes.size });
           onProgress({ sent: bytes.size, total: bytes.size });
         }).pipe(
           Effect.andThen(
             server.putFile({
+              ...ticket,
               ref,
               name: bytes instanceof File ? bytes.name : ref,
               size: bytes.size,
@@ -400,5 +630,6 @@ export const DeskClient = Layer.mergeAll(
   TicketsOverDesk,
   CommentsOverDesk,
   AttachmentsOverDesk,
+  rosterClient(Desk), // desk.roster.fake.ts: the real `RosterHttp` adapter over `Fake.fetch`
   SocketOverDesk, // pending merge 6: desk.socket.fake.ts
 );

@@ -8,9 +8,14 @@ import { definition, Flow } from "flow-state";
 export const Session = definition({
   id: "DispatchDesk/Session",
   states: ["AVAILABLE", "SIGNED_OUT"],
-  events: { PermissionChanged: { canEdit: Schema.Boolean }, SignedOut: {} },
+  events: {
+    PermissionChanged: { canEdit: Schema.Boolean },
+    RoleChanged: { isAdmin: Schema.Boolean },
+    SignedOut: {},
+  },
   memory: {
     userId: Flow.input(Schema.String), // NEW: supplied by the creator, ensure(SessionRef, { input: { userId } })
     canEdit: Flow.initial(Schema.Boolean, true), // NEW: constant start
+    isAdmin: Flow.initial(Schema.Boolean, false), // the roster's actions exist only for an admin (F22)
   },
 });

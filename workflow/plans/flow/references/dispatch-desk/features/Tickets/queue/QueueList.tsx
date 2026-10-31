@@ -34,6 +34,8 @@ export function QueueList({
   return (
     <section aria-label="Ticket queue">
       <Toolbar queue={queue} />
+      <Tabs queue={queue} />
+      <Drafts queue={queue} />
       {reconnecting && <p role="status">Reconnecting to the queue…</p>}
       {notice && <p role="alert">{notice}</p>}
       <QueueBody queue={queue} onOpen={onOpen} />
@@ -78,6 +80,61 @@ function Toolbar({ queue }: { queue: QueueActor }) {
       </label>
       {open !== undefined && <span className="badge">{open} open</span>}
     </div>
+  );
+}
+
+// The three lists. "Unassigned" and "Triage" are separate domain reads, placed only while chosen; an assignment
+// moves a row out of "Unassigned" the moment it is predicted (E4).
+function Tabs({ queue }: { queue: QueueActor }) {
+  const tab = useView(queue, (s) => s.memory.tab);
+  const mentions = useView(queue, (s) => s.operations.mentions?.data?.length ?? 0);
+
+  return (
+    <nav className="tabs">
+      {(["all", "unassigned", "triage"] as const).map((name) => (
+        <button
+          key={name}
+          aria-pressed={tab === name}
+          onClick={() => queue.send(E.TabChosen({ tab: name }))}
+        >
+          {name}
+        </button>
+      ))}
+      {mentions > 0 && <span className="badge">@ you: {mentions}</span>}
+    </nav>
+  );
+}
+
+// New tickets on their way: shown apart from the rows until a list holds the server's id (rule 33).
+function Drafts({ queue }: { queue: QueueActor }) {
+  const drafts = useView(queue, (s) => {
+    const ids = new Set(
+      s.operations.list?.data?.flatMap((page) => page.tickets.map((t) => t.ticketId)) ?? [],
+    );
+
+    return s.memory.creating.filter((d) => d.id === null || !ids.has(d.id));
+  });
+
+  return (
+    <ul aria-label="New tickets">
+      {drafts.map((d) => (
+        <li key={d.draftId} aria-busy={d.status === "sending"}>
+          {d.title} {d.status === "sending" && <em>Creating…</em>}
+          {d.status === "unsure" && <em>May have been created</em>}
+          {d.status === "failed" && (
+            <>
+              <strong role="alert">{d.failure}</strong>
+              <button onClick={() => queue.send(E.RetryCreate({ draftId: d.draftId }))}>
+                Try again
+              </button>
+              <button onClick={() => queue.send(E.DiscardDraft({ draftId: d.draftId }))}>
+                Discard
+              </button>
+            </>
+          )}
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -213,7 +270,12 @@ function PreviewDrawer({ queue }: { queue: QueueActor }) {
     <aside aria-label="Ticket preview">
       <h3>{title ?? previewId}</h3>
       <button onClick={() => queue.send(E.PreviewClosed())}>Close</button>
-      <CommentsPanel host={queue} instance="preview" events={E.preview} />
+      <CommentsPanel
+        host={queue}
+        instance="preview"
+        events={E.preview}
+        ticket={{ workspaceId: queue.getSnapshot().memory.workspaceId, ticketId: previewId }}
+      />
     </aside>
   );
 }

@@ -3,13 +3,19 @@
 // this tab's memory, keyed by `ref`. After a reload they are gone: a copy found mid-upload (`unknown { Restored }`) ends
 // `FileGone` through its `Lost` event, and a restored draft that never started fails `FileGone` at `take`.
 import { Context, Effect, Layer, Schema } from "effect";
-import type { NoResponse, ServerError } from "../Tickets/types.js";
+import type { NoResponse, ServerError, TicketKey } from "../Tickets/types.js";
 
+// A stored file is a record (`Attachment`, attachments.domain.ts): the ticket's file list holds it, and a
+// remove predicts its delete everywhere at once.
 export const StoredAttachment = Schema.Struct({
+  workspaceId: Schema.String,
+  ticketId: Schema.String,
   ref: Schema.String,
   name: Schema.String,
   size: Schema.Number,
   url: Schema.String,
+  uploadedBy: Schema.String,
+  revision: Schema.Number,
 });
 
 export type StoredAttachment = typeof StoredAttachment.Type;
@@ -28,12 +34,26 @@ export class TooLarge extends Schema.TaggedError<TooLarge>()("TooLarge", {
 // nothing was sent.
 export class FileGone extends Schema.TaggedError<FileGone>()("FileGone", { ref: Schema.String }) {}
 
+// 403 on a remove: only the uploader, or an admin, removes a file. Definite: the record comes back (E3).
+export class RemoveRefused extends Schema.TaggedError<RemoveRefused>()("RemoveRefused", {
+  uploadedBy: Schema.String,
+}) {}
+
 export class AttachmentsApi extends Context.Service<
   AttachmentsApi,
   {
     // `onProgress` is a plain callback: the adapter wires it to the XHR event (M6 4.5), and the
     // commit forwards it to the lane's `progress` setter (pending merge 6, S5 Q11).
+    files: (
+      ticket: TicketKey,
+      options: { signal: AbortSignal },
+    ) => Effect.Effect<ReadonlyArray<StoredAttachment>, NoResponse>;
+    remove: (
+      input: TicketKey & { ref: string },
+      options: { idempotencyKey: string; signal: AbortSignal },
+    ) => Effect.Effect<void, RemoveRefused | NoResponse | ServerError>;
     put: (
+      ticket: TicketKey,
       ref: string,
       bytes: Blob,
       options: {

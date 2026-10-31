@@ -12,9 +12,12 @@ import {
   lostThenResent,
   removedUploadingThenReload,
   removedWhileUploading,
+  removeRefused,
+  Editor42,
   tooLarge,
   uploaded,
 } from "./upload.story.js";
+import { Attachment } from "./attachments.domain.js";
 import { AttachmentUpload } from "./upload.trait.js";
 
 const { O } = AttachmentUpload;
@@ -72,4 +75,17 @@ storyTest(removedWhileUploading, ({ at }) => {
 
 storyTest(removedUploadingThenReload, ({ at }) => {
   expect(at.reopened.read(Story.inspection).lanes).toEqual([]);
+});
+
+storyTest(removeRefused, ({ at }) => {
+  expect(at["remove-predicted"].read(Story.entity(Attachment, { ref: "r-old" }))).toBeUndefined(); // hidden at once
+  expect(
+    at["remove-refused-restored"].read(Story.entity(Attachment, { ref: "r-old" })),
+  ).toMatchObject({
+    data: { name: "before.jpg", uploadedBy: "dispatcher-2" },
+    predicted: false,
+  });
+  expect(at["remove-refused-restored"].read(Editor42)?.memory.error).toBe(
+    "Only dispatcher-2 can remove that file",
+  );
 });

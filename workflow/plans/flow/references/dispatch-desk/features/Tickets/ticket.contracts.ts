@@ -52,6 +52,39 @@ export const openCount = resource({
   gcTime: "5 minutes",
 });
 
+// The queue's other lists. `unassigned` is every ticket nobody holds; `triage` reads the caller's clock, so
+// `now` is part of the key: the queue rounds it to the minute before it builds the input (OD4, normalised in the
+// caller), which makes one entry per minute rather than one per tick.
+export const unassignedTickets = resource({
+  id: "DispatchDesk/unassigned-tickets",
+  input: { workspaceId: Schema.String, page: Schema.optionalKey(Schema.Number) },
+  output: TicketPage,
+  key: ["workspaceId", "page"],
+  lookup: (input, { signal }) => TicketApi.use((api) => api.unassigned(input, { signal })),
+  staleTime: "10 seconds",
+  gcTime: "2 minutes",
+});
+
+export const customerTickets = resource({
+  id: "DispatchDesk/customer-tickets",
+  input: { workspaceId: Schema.String, customerId: Schema.String },
+  output: Schema.Array(TicketRow),
+  key: ["workspaceId", "customerId"],
+  lookup: (input, { signal }) => TicketApi.use((api) => api.byCustomer(input, { signal })),
+  staleTime: "30 seconds",
+  gcTime: "2 minutes",
+});
+
+export const triageTickets = resource({
+  id: "DispatchDesk/triage-tickets",
+  input: { workspaceId: Schema.String, now: Schema.Number },
+  output: TicketPage,
+  key: ["workspaceId", "now"],
+  lookup: (input, { signal }) => TicketApi.use((api) => api.triage(input, { signal })),
+  staleTime: "30 seconds",
+  gcTime: "2 minutes",
+});
+
 // Transactions -------------------------------------------------------------------------------------
 
 // `attempt.id` is minted by Flow per Attempt and reused when the Attempt is re-sent, so it is the idempotency
@@ -79,6 +112,39 @@ export const assignTicket = transaction({
   commit: (input, { attempt, signal }) =>
     TicketApi.use((api) => api.assign(input, { idempotencyKey: attempt.id, signal })).pipe(
       // TicketNotFound (404) and AlreadyAssigned (409): definite. The queue refetches on the second.
+      unknownWhenLost,
+    ),
+});
+
+// A new ticket. `draftId` is the lane (one create per draft) and the view's key; it never reaches the server,
+// which mints the ticket's id (rule 33). Fails TicketRejected (422): definite.
+export const createTicket = transaction({
+  id: "DispatchDesk/create-ticket",
+  input: {
+    workspaceId: Schema.String,
+    draftId: Schema.String,
+    title: Schema.String,
+    priority: Schema.Int,
+    dueAt: Schema.NullOr(Schema.Number),
+  },
+  output: TicketRow,
+  key: ["draftId"],
+  concurrency: "reject",
+  commit: (input, { attempt, signal }) =>
+    TicketApi.use((api) => api.create(input, { idempotencyKey: attempt.id, signal })).pipe(
+      unknownWhenLost,
+    ),
+});
+
+// Archiving removes the ticket from every list. ArchiveRefused (403, someone is working on it) and
+// TicketNotFound (404) are definite; the domain then restores what it hid.
+export const archiveTicket = transaction({
+  id: "DispatchDesk/archive-ticket",
+  input: { workspaceId: Schema.String, ticketId: Schema.String },
+  key: ["workspaceId", "ticketId"], // no output: void
+  concurrency: "reject",
+  commit: (input, { attempt, signal }) =>
+    TicketApi.use((api) => api.archive(input, { idempotencyKey: attempt.id, signal })).pipe(
       unknownWhenLost,
     ),
 });

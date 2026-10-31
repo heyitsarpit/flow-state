@@ -7,6 +7,9 @@ import { Context, type Effect } from "effect";
 import type {
   ActivityPage,
   AlreadyAssigned,
+  ArchiveRefused,
+  NewTicket,
+  TicketRejected,
   Cursor,
   NoResponse,
   QueueUnavailable,
@@ -47,6 +50,29 @@ export class TicketApi extends Context.Service<
       input: TicketKey & { assignee: string },
       options: Write,
     ) => Effect.Effect<TicketRow, TicketNotFound | AlreadyAssigned | NoResponse | ServerError>;
+    // The queue's other two lists (ticket.domain.ts): tickets nobody holds, and the triage view, whose
+    // condition reads the caller's clock (`now`, rounded to the minute by the queue: OD4, normalised in the caller).
+    unassigned: (
+      input: { workspaceId: string; page?: number },
+      options: Read,
+    ) => Effect.Effect<TicketPage, NoResponse>;
+    triage: (
+      input: { workspaceId: string; now: number },
+      options: Read,
+    ) => Effect.Effect<TicketPage, NoResponse>;
+    // Every ticket of one customer: what a customer merge re-points (features/Roster).
+    byCustomer: (
+      input: { workspaceId: string; customerId: string },
+      options: Read,
+    ) => Effect.Effect<ReadonlyArray<TicketRow>, NoResponse>;
+    create: (
+      input: NewTicket,
+      options: Write,
+    ) => Effect.Effect<TicketRow, TicketRejected | NoResponse | ServerError>;
+    archive: (
+      input: TicketKey,
+      options: Write,
+    ) => Effect.Effect<void, TicketNotFound | ArchiveRefused | NoResponse | ServerError>;
     // One page of the workspace's activity after a position: the catch-up behind the socket's
     // `activity` frames (pending merge 6: feed.contracts.ts pages it from `catchUp`).
     eventsSince: (

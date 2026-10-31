@@ -1,131 +1,144 @@
-// Queue Stories: the normalised search key, mine only, paging, degraded backoff, and keyed assignments with
-// held and dropped wires. Each runs the Queue machine alone over the Desk fake (the client half provides
-// every port), with the session's user supplied as `context`. Wire words, never injected results (2.10.5).
-// A machine Story's `context` option stands in for the Session actor (2.10.1), and `setContext` is a step.
+// Queue Stories: the queue machine alone over the Desk fake (the client half provides every port), with the
+// session's user supplied as `context` (a machine Story's `context` option stands in for the Session actor,
+// 2.10.1; `setContext` is a step). Transcripts: inputs and named checkpoints; queue.test.ts reads them.
+// Wire words, never injected results (2.10.5).
+//
+// Module checkpoints (COVERAGE.md section 6): `filtered`, `left-unassigned`, `created`, `archived` here;
+// `toggled`, `toggled-while-unsure`, `bulk-queued`, `bulk-partly-failed`, `sla-breached` with the bulk and toggle
+// Stories (queue.bulk.story.ts); the technician panel's in technicians/technicians.story.ts.
 import { Story } from "flow-state/testing";
-import { Ticket } from "../ticket.domain.js";
 import { Desk, DeskClient } from "../../../testing/desk.fake.js";
 import { MAX_ASSIGN_RESENDS, Queue } from "./queue.definition.js";
 import { QueueMachine } from "./queue.machine.js";
 
-const { S, E, O } = Queue;
+const { E } = Queue;
 
-const north = { workspaceId: "north" };
+export const north = { workspaceId: "north" };
 
-const queue = (id: string, world: ReadonlyArray<unknown> = []) =>
+export const queue = (id: string, world: ReadonlyArray<unknown> = []) =>
   Story.make(QueueMachine, {
     id,
     input: north,
     context: { userId: "dispatcher-7" },
     fixtures: [DeskClient],
     world,
-  });
+  }).checkpoint("loaded");
 
-const key = (ticketId: string) => ({ workspaceId: "north", ticketId });
+export const key = (ticketId: string) => ({ workspaceId: "north", ticketId });
 
-// "Lobby " and "lobby" are one key because the queue lowercases and trims before it builds the input, so
-// the second search reuses the cached page: the endpoint's log has the first load and one search lookup.
+// "Lobby " and "lobby" are one key because the queue lowercases and trims before it builds the input, so the
+// second search reuses the cached page: the endpoint's log has the first load and one search lookup.
 export const searched = queue("queue/search-key")
   .send(E.SearchChanged({ search: "Lobby " }))
   .send(E.SearchChanged({ search: "lobby" }))
   .send(E.SearchChanged({ search: "  LOBBY" }))
-  .expect(Desk.list, [
-    { input: { search: undefined }, phase: "answered" },
-    { input: { search: "lobby" }, phase: "answered" },
-  ]);
+  .checkpoint("searched");
 
 // "Mine only" reads the session's user as a list parameter: toggling it replaces the subscription by key.
 // A different user arrives as context, and the key changes again with no event.
 export const mineOnly = queue("queue/mine-only")
   .send(E.MineOnlyToggled())
-  .expect({ operations: { list: { data: [{ tickets: [{ ticketId: "T-42" }] }] } } })
+  .checkpoint("mine")
   .setContext({ userId: "dispatcher-8" })
-  .expect({ operations: { list: { data: [{ tickets: [] }] } } })
-  .expect(Desk.list, [
-    { input: { assignee: undefined } },
-    { input: { assignee: "dispatcher-7" } },
-    { input: { assignee: "dispatcher-8" } },
-  ]);
+  .checkpoint("someone-else");
 
 // Paging: 20 tickets a page, 45 in all. LoadMore appends while a next page exists, then its guard declines.
 export const paged = queue("queue/paged")
   .send(E.LoadMore())
-  .expect({ operations: { list: { hasMore: true, data: [{}, {}] } } })
+  .checkpoint("second-page")
   .send(E.LoadMore())
-  .expect({ operations: { list: { hasMore: false, data: [{}, {}, {}] } } })
   .checkpoint("last-page")
   .send(E.LoadMore())
-  .expect(Story.records("verdict", { since: "last-page" }), [
-    { result: { _tag: "Denied", reasons: [{ code: "NoMorePages" }] } },
-  ]);
+  .checkpoint("no-more");
 
 // The list cannot load: the queue degrades, and polling backs off (5 seconds with jitter) instead of
 // hammering the server. When the outage ends, the next poll loads and the queue is healthy again.
 export const degraded = queue("queue/degraded", [Desk.listOutage({ on: true })])
-  .expect({ state: S.DEGRADED })
   .advance({ next: { schedule: "poll" } })
-  .expect({ state: S.DEGRADED })
-  .expect(Desk.list, [{ phase: "answered" }, { phase: "answered" }])
+  .checkpoint("degraded")
   .world(Desk.listOutage({ on: false }))
   .advance({ next: { schedule: "poll" } })
-  .expect({ state: S.HEALTHY });
+  .checkpoint("recovered");
 
-// Assigning an open ticket: the row shows the assignee at once (predicted), the lane says it is on the
-// wire, and the "open" list and count repair when the answer lands because status and assignee are
-// condition fields (ticket.domain.ts).
-export const assigned = queue("queue/assign")
-  .world(Desk.assign.hold({ at: "response" })) // handled, the answer waits
+// The triage tab: `or(eq(priority, urgent), and(isNull(assignee), lt(dueAt, now)))`. T-43 is urgent; once the
+// clock passes the routine tickets' deadlines, the unassigned ones join (their `dueAt` is now behind `now`), and
+// the ones with no deadline never do: a null is not before anything (three-valued, M5-D7).
+export const filtered = queue("queue/triage")
+  .send(E.TabChosen({ tab: "triage" }))
+  .checkpoint("filtered")
+  .advance("2 days") // the routine deadlines are a day and some minutes in
+  .checkpoint("overdue-joined");
+
+// Assigning from the "Unassigned" tab predicts `assignee`, so the ticket no longer meets `isNull(assignee)`: it
+// leaves the list in the starting turn's publication, before the server answers (E4), and the "mine" filter
+// would hold it. The answer then confirms it; nothing is read again to make it leave.
+export const leftUnassigned = queue("queue/left-unassigned", [Desk.assign.hold({ at: "response" })])
+  .send(E.TabChosen({ tab: "unassigned" }))
+  .checkpoint("unassigned")
   .send(E.AssignToMe({ ticketId: "T-43" }))
-  .expect({ operations: { assign: [{ key: key("T-43"), pending: true }] } })
-  .expect(Story.entity(Ticket, key("T-43")), {
-    data: { assignee: "dispatcher-7", status: "assigned" },
-    predicted: true,
-  })
-  .send(E.AssignToMe({ ticketId: "T-43" })) // a second press on the same row
-  .expect(Story.records("verdict"), [
-    { result: { _tag: "Allowed" } },
-    { result: { _tag: "Denied", reasons: [{ code: "InFlight" }] } },
-  ])
+  .checkpoint("left-unassigned")
   .world(Desk.assign.release())
-  .expect({ operations: { assign: [] } }) // the lane held nothing, so it is gone
-  .expect(Story.entity(Ticket, key("T-43")), {
-    data: { assignee: "dispatcher-7" },
-    predicted: false,
-  })
-  .expect(Desk.assign, [
-    { input: { ticketId: "T-43", key: Story.attempt(O.assign) }, phase: "answered" },
-  ])
-  .expect(Desk.openCount, [{ phase: "answered" }, { phase: "answered" }]); // the first read, then the repair
+  .checkpoint("confirmed");
 
-// Two rows at once are two lanes: each shows its own "Assigning…", and each ending is its own. One answer
-// is lost on the way back, so only that row says "?" and the other settles.
-export const assignedMany = queue("queue/assign-many")
-  .world(
-    // The drop is set first: a request takes the earliest-set rule that matches (2.10.4). The address is
-    // the lane's `operation` and `key` (rule 65).
-    Desk.assign.drop({
-      at: "response",
-      match: { operation: O.assign, key: key("T-101") },
-      times: 1,
-    }),
-    Desk.assign.hold({ at: "response" }),
-  )
-  .send(E.AssignToMe({ ticketId: "T-43" }), E.AssignToMe({ ticketId: "T-101" }))
-  .expect({
-    operations: {
-      assign: [
-        { key: key("T-43"), pending: true },
-        { key: key("T-101"), pending: true },
-      ],
-    },
-  })
+// The predicted assignee replays over a new base (E11): another dispatcher lowers T-43's priority while the
+// assignment is on the wire, the poll reads the list again, and the record shows the server's priority under the
+// still-predicted assignee. `checkReplays` (on in every Story) runs each predicted field function twice over the
+// new base and fails the run if they disagree.
+export const replayedOverPush = queue("queue/replayed-over-push", [
+  Desk.assign.hold({ at: "response" }),
+])
+  .send(E.AssignToMe({ ticketId: "T-43" }))
+  .world(Desk.changeElsewhere({ ...key("T-43"), priority: 0 }))
+  .advance({ next: { schedule: "poll" } })
+  .checkpoint("replayed-over-push")
   .world(Desk.assign.release())
-  .expect({ operations: { assign: [{ key: key("T-101"), uncertain: true }] } }) // T-43 settled, its lane gone
-  .expect(Story.entity(Ticket, key("T-43")), {
-    data: { assignee: "dispatcher-7" },
-    predicted: false,
-  })
-  .expect(Story.entity(Ticket, key("T-101")), { uncertain: true });
+  .checkpoint("settled");
+
+// A new ticket: shown as a draft until a list holds the server's id (rule 33), never twice. The create holds no
+// prediction, so no temporary id enters a list.
+export const created = queue("queue/created", [Desk.createTicket.hold({ at: "response" })])
+  .send(
+    E.CreateTicket({ draftId: "d1", title: "Leaking tap, 3rd floor", priority: 2, dueAt: null }),
+  )
+  .checkpoint("creating")
+  .world(Desk.createTicket.release())
+  .checkpoint("created");
+
+// Archive predicts a delete, so the ticket leaves every list at once. T-42 is being worked on: the server refuses
+// (403), and the definite failure brings it back in place with no repair (rule 30). T-101 (open, nobody on it)
+// archives.
+export const archived = queue("queue/archived", [Desk.archiveTicket.hold({ at: "response" })])
+  .send(E.Archive({ ticketId: "T-42" }), E.Archive({ ticketId: "T-101" }))
+  .checkpoint("archive-predicted")
+  .world(Desk.archiveTicket.release())
+  .checkpoint("archived");
+
+// Assigning an open ticket: the row shows the assignee at once (predicted), the lane says it is on the wire, and
+// the "open" count repairs when the answer lands because status and assignee are condition fields.
+export const assigned = queue("queue/assign", [Desk.assign.hold({ at: "response" })]) // handled, the answer waits
+  .send(E.AssignToMe({ ticketId: "T-43" }))
+  .checkpoint("assigning")
+  .send(E.AssignToMe({ ticketId: "T-43" })) // a second press on the same row
+  .checkpoint("second-press")
+  .world(Desk.assign.release())
+  .checkpoint("assigned");
+
+// Two rows at once are two lanes: each shows its own "Assigning…", and each ending is its own. One answer is lost
+// on the way back, so only that row says "?" and the other settles.
+export const assignedMany = queue("queue/assign-many", [
+  // The drop is set first: a request takes the earliest-set rule that matches (2.10.4). The address is the lane's
+  // `operation` and `key` (rule 65).
+  Desk.assign.drop({
+    at: "response",
+    match: { operation: Queue.O.assign, key: key("T-101") },
+    times: 1,
+  }),
+  Desk.assign.hold({ at: "response" }),
+])
+  .send(E.AssignToMe({ ticketId: "T-43" }), E.AssignToMe({ ticketId: "T-101" }))
+  .checkpoint("both-on-the-wire")
+  .world(Desk.assign.release())
+  .checkpoint("one-unsure");
 
 // Nothing ever answers T-43: `reconcile` re-sends the same Attempt (the server dedupes on its id) until the
 // budget is spent, then the hold is released and the notice says the queue could not confirm it.
@@ -134,41 +147,26 @@ export const assignUnsure = Array.from({ length: MAX_ASSIGN_RESENDS })
     (story) => story.advance({ next: { schedule: "reconcile" } }),
     queue("queue/assign-unsure", [Desk.assign.drop({ at: "response", times: "always" })])
       .send(E.AssignToMe({ ticketId: "T-43" }))
-      .expect({ operations: { assign: [{ key: key("T-43"), uncertain: true, retryCount: 0 }] } }),
+      .checkpoint("unsure"),
   )
-  .expect({
-    memory: { notice: "We couldn't confirm that assignment" },
-    operations: { assign: [] }, // released: no lane
-  })
-  .expect(Desk.assign, [
-    { phase: "dropped", via: { attempts: [Story.attempt(O.assign)] } },
-    { phase: "dropped", via: { attempts: [Story.attempt(O.assign)] } }, // the same Attempt, every time
-    { phase: "dropped", via: { attempts: [Story.attempt(O.assign)] } },
-    { phase: "dropped", via: { attempts: [Story.attempt(O.assign)] } },
-  ])
-  .expect(Desk, { desk: { tickets: [{ ticketId: "T-43", assignee: "dispatcher-7" }] } }); // applied once
+  .checkpoint("gave-up");
 
 // Somebody else took T-43 first: a definite 409. The prediction goes without a repair of its own, the notice
 // names the holder, and the list is read again.
-export const alreadyAssigned = queue("queue/already-assigned")
-  .world(Desk.changeElsewhere({ ...key("T-43"), status: "assigned", assignee: "dispatcher-2" }))
+export const alreadyAssigned = queue("queue/already-assigned", [
+  Desk.changeElsewhere({ ...key("T-43"), status: "assigned", assignee: "dispatcher-2" }),
+])
   .send(E.AssignToMe({ ticketId: "T-43" }))
-  .expect({ memory: { notice: "Already assigned to dispatcher-2" } })
-  .expect(Story.entity(Ticket, key("T-43")), { data: { assignee: "dispatcher-2" } })
-  .expect(Desk.list, [{ phase: "answered" }, { phase: "answered" }]); // the refetch
+  .checkpoint("conflict");
 
-// "A, B, A" through the queue's own filling: a post held for A while the drawer previews B is parked, B's
-// thread is separate, and previewing A again adopts A's ending (the Comments Story walks the same cell alone).
+// "A, B, A" through the queue's own filling: a post held for A while the drawer previews B is parked, B's thread is
+// separate, and previewing A again adopts A's ending (the Comments Story walks the same cell alone).
 export const previewABA = queue("queue/preview-a-b-a")
   .send(E.PreviewOpened({ ticketId: "T-42" }))
   .world(Desk.postComment.hold({ at: "response" }))
   .send(E.preview.Post({ clientId: "a1", text: "For A" }))
   .send(E.PreviewOpened({ ticketId: "T-43" }))
-  .expect({ memory: { previewId: "T-43", preview: { drafts: [] } } })
-  .expect(Story.inspection.lanes, [
-    { key: { clientId: "a1" }, subject: ["T-42"], binding: "unplaced" },
-  ])
+  .checkpoint("previewing-b")
   .world(Desk.postComment.release()) // A's answer lands and is parked for ["T-42"]
   .send(E.PreviewOpened({ ticketId: "T-42" }))
-  .expect({ memory: { previewId: "T-42", preview: { drafts: [] } } }) // adopted; the refetch holds a1
-  .expect(Desk, { desk: { comments: [{ clientId: "a1", text: "For A" }] } });
+  .checkpoint("back-on-a");

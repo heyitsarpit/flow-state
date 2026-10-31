@@ -55,7 +55,12 @@ function OpenTicket({ commands }: { commands: EditorCommands }) {
         <button onClick={commands.close}>Done</button>
       </footer>
       <Attachments commands={commands} />
-      <CommentsPanel host={commands.editor} instance="comments" events={commands.comments} />
+      <CommentsPanel
+        host={commands.editor}
+        instance="comments"
+        events={commands.comments}
+        ticket={ticket}
+      />
     </>
   );
 }

@@ -8,15 +8,40 @@
 // reply. Latency, holds, drops and pushes are the callers' concerns.
 import { Schema } from "effect";
 import {
+  CommentGone,
   CommentRejected,
   CommentRow,
-  type CommentThread,
+  EditWindowClosed,
+  Reactions,
+  type CommentKey,
+  type ThreadPage,
 } from "../features/Comments/comments-api.js";
-import { StoredAttachment, TooLarge } from "../features/Attachments/attachments-api.js";
+import {
+  RemoveRefused,
+  StoredAttachment,
+  TooLarge,
+} from "../features/Attachments/attachments-api.js";
+import {
+  CustomerRow,
+  HasOpenTickets,
+  InviteRejected,
+  MergeConflict,
+  RosterChange,
+  TeamRow,
+  TechnicianGone,
+  TechnicianRow,
+  type ChangeBatch,
+  type Invite,
+  type RosterPage,
+  type TechnicianKey,
+} from "../features/Roster/roster-api.js";
 import { Members, type Member } from "../features/Presence/presence-api.js";
 import {
   ActivityEntry,
   AlreadyAssigned,
+  ArchiveRefused,
+  TicketRejected,
+  type NewTicket,
   TicketEvent,
   TicketLocked,
   TicketNotFound,
@@ -34,6 +59,10 @@ export const PAGE_SIZE = 20;
 export const ACTIVITY_PAGE_SIZE = 25;
 
 export const MAX_FILE_BYTES = 5_000_000;
+
+export const THREAD_PAGE_SIZE = 20;
+
+export const ROSTER_PAGE_SIZE = 20;
 
 // The signed-in dispatcher: the author of comments and the actor of the client's own writes.
 export const ME = "dispatcher-1";
@@ -64,9 +93,18 @@ export const DeskTruth = Schema.Struct({
     tickets: Schema.Record(Schema.String, TicketRow),
     comments: Schema.Record(Schema.String, CommentRow),
     files: Schema.Record(Schema.String, StoredAttachment),
+    writes: Schema.Record(Schema.String, Schema.Unknown), // every other write's first reply, by key
   }),
   comments: Schema.Array(CommentRow),
+  // Comments whose author's edit window has closed (a control ages them; the window is the server's rule).
+  closedForEdit: Schema.Array(Schema.String),
+  reactions: Schema.Record(Schema.String, Reactions), // "workspace/ticket" → per comment, per emoji
   files: Schema.Record(Schema.String, StoredAttachment),
+  technicians: Schema.Array(TechnicianRow),
+  teams: Schema.Array(TeamRow),
+  customers: Schema.Array(CustomerRow),
+  rosterLog: Schema.Array(RosterChange), // dense `seq` per server; the polling feed reads after a cursor
+  rosterSeq: Schema.Int,
   // One log for the server, filtered by workspace on read. A reset starts a new epoch at seq 1.
   epoch: Schema.Int,
   nextSeq: Schema.Int,
@@ -87,9 +125,15 @@ const byCodePoint = (a: string, b: string) => {
   return 0;
 };
 
-// The order ticket.domain.ts declares: updatedAt descending, then the key.
+// A null due date sorts after every date: the server's choice. The client never compares a null pair, so it
+// skips that key and goes on to the next one (merge 5, M5-D4).
+const byDue = (a: number | null, b: number | null) =>
+  a === b ? 0 : a === null ? 1 : b === null ? -1 : a - b;
+
+// The order ticket.domain.ts declares: priority descending, due date ascending, then the key.
 export const declaredOrder = (a: TicketRow, b: TicketRow) =>
-  b.updatedAt - a.updatedAt ||
+  b.priority - a.priority ||
+  byDue(a.dueAt, b.dueAt) ||
   byCodePoint(a.workspaceId, b.workspaceId) ||
   byCodePoint(a.ticketId, b.ticketId);
 
@@ -103,6 +147,10 @@ export const seed = (): DeskTruth => ({
       title: "Replace lobby light",
       status: "assigned",
       assignee: "dispatcher-7",
+      priority: 1,
+      dueAt: 7_200_000,
+      customerId: "acme",
+      commentCount: 0,
       updatedAt: 1,
       revision: 1,
     },
@@ -112,6 +160,10 @@ export const seed = (): DeskTruth => ({
       title: "Fix loading dock door",
       status: "open",
       assignee: null,
+      priority: 2,
+      dueAt: 3_600_000,
+      customerId: "acme-ltd",
+      commentCount: 0,
       updatedAt: 1,
       revision: 1,
     },
@@ -121,19 +173,79 @@ export const seed = (): DeskTruth => ({
       title: `Routine inspection ${index + 1}`,
       status: index % 3 === 0 ? "closed" : "open",
       assignee: null,
+      priority: 1,
+      dueAt: index % 4 === 0 ? null : 86_400_000 + index * 60_000, // some tickets have no deadline
+      customerId: index % 2 === 0 ? "acme" : "acme-ltd",
+      commentCount: 0,
       updatedAt: 0,
       revision: 1,
     })),
   ],
   locks: {},
-  applied: { tickets: {}, comments: {}, files: {} },
+  applied: { tickets: {}, comments: {}, files: {}, writes: {} },
   comments: [],
-  files: {},
+  closedForEdit: [],
+  reactions: {},
+  // One stored file someone else uploaded: removing it is refused (403) and the record comes back.
+  files: {
+    "r-old": {
+      workspaceId: "north",
+      ticketId: "T-42",
+      ref: "r-old",
+      name: "before.jpg",
+      size: 120_000,
+      url: "/uploads/r-old",
+      uploadedBy: "dispatcher-2",
+      revision: 1,
+    },
+  },
+  technicians: [
+    tech("tech-ana", "Ana", "team-east", ["electrical"]),
+    tech("tech-ben", "Ben", "team-east", ["doors", "hvac"]),
+    tech("tech-cy", "Cy", "team-west", ["plumbing"]),
+    tech("tech-dee", "Dee", "team-west", ["electrical", "doors"]),
+    tech("tech-eli", "Eli", null, []), // unplaced: shows under every team (`isNull(teamId)`)
+  ],
+  teams: [
+    { workspaceId: "north", teamId: "team-east", name: "East", technicianCount: 2, revision: 1 },
+    { workspaceId: "north", teamId: "team-west", name: "West", technicianCount: 2, revision: 1 },
+  ],
+  // Two records for one company, the case a merge exists for.
+  customers: [
+    { workspaceId: "north", customerId: "acme", name: "Acme", ticketCount: 23, revision: 1 },
+    {
+      workspaceId: "north",
+      customerId: "acme-ltd",
+      name: "ACME Ltd",
+      ticketCount: 22,
+      revision: 1,
+    },
+  ],
+  rosterLog: [],
+  rosterSeq: 0,
   epoch: 1,
   nextSeq: 1,
   log: [],
   viewers: { "north/T-42": { "dispatcher-2": { id: "dispatcher-2", name: "Dana" } } },
 });
+
+function tech(
+  technicianId: string,
+  name: string,
+  teamId: string | null,
+  skills: ReadonlyArray<string>,
+): TechnicianRow {
+  return {
+    workspaceId: "north",
+    technicianId,
+    name,
+    teamId,
+    skills,
+    status: "free",
+    lastSeenAt: 0,
+    revision: 1,
+  };
+}
 
 const ok = <A>(value: A): Result<A, never> => ({ ok: true, value });
 
@@ -280,7 +392,9 @@ export const eventsSince = (truth: DeskTruth, workspaceId: string, after: Cursor
 const update = (
   truth: DeskTruth,
   ticket: TicketRow,
-  change: Partial<Pick<TicketRow, "title" | "status" | "assignee">>,
+  change: Partial<
+    Pick<TicketRow, "title" | "status" | "assignee" | "priority" | "commentCount" | "customerId">
+  >,
   text: string,
 ): readonly [DeskTruth, TicketRow] => {
   const clock = truth.clock + 1;
@@ -383,7 +497,7 @@ export const unlock = (truth: DeskTruth, key: TicketKey): DeskTruth => {
 export const changeElsewhere = (
   truth: DeskTruth,
   key: TicketKey,
-  change: Partial<Pick<TicketRow, "title" | "status" | "assignee">>,
+  change: Partial<Pick<TicketRow, "title" | "status" | "assignee" | "priority" | "customerId">>,
   by: string,
 ): Step<TicketRow, TicketNotFound> => {
   const ticket = find(truth, key);
@@ -422,19 +536,172 @@ export const removeElsewhere = (
   ];
 };
 
-// --- comments --------------------------------------------------------------------------------
+// --- more ticket lists, creates and archives -------------------------------------------------------
 
-export const listComments = (
+const page = (rows: ReadonlyArray<TicketRow>, index: number): TicketPage => {
+  const slice = rows
+    .slice(index * PAGE_SIZE, (index + 1) * PAGE_SIZE)
+    .map((ticket) => ({ ...ticket }));
+
+  return (index + 1) * PAGE_SIZE < rows.length
+    ? { tickets: slice, nextPage: index + 1 }
+    : { tickets: slice };
+};
+
+// `isNull(assignee)`: tickets nobody holds, closed or not (the domain's condition, nothing else).
+export const listUnassigned = (truth: DeskTruth, input: { workspaceId: string; page?: number }) =>
+  page(
+    truth.tickets
+      .filter((ticket) => ticket.workspaceId === input.workspaceId && ticket.assignee === null)
+      .sort(declaredOrder),
+    input.page ?? 0,
+  );
+
+// `or(eq(priority, urgent), and(isNull(assignee), lt(dueAt, now)))`. Three-valued, as the domain reads it: a
+// null due date is not before anything, so an unassigned ticket with no deadline is not overdue.
+export const listTriage = (truth: DeskTruth, input: { workspaceId: string; now: number }) =>
+  page(
+    truth.tickets
+      .filter(
+        (ticket) =>
+          ticket.workspaceId === input.workspaceId &&
+          (ticket.priority === 2 ||
+            (ticket.assignee === null && ticket.dueAt !== null && ticket.dueAt < input.now)),
+      )
+      .sort(declaredOrder),
+    0,
+  );
+
+export const ticketsOfCustomer = (
+  truth: DeskTruth,
+  input: { workspaceId: string; customerId: string },
+) =>
+  truth.tickets
+    .filter(
+      (ticket) =>
+        ticket.workspaceId === input.workspaceId && ticket.customerId === input.customerId,
+    )
+    .sort(declaredOrder);
+
+// The first reply per idempotency key, for writes that have no table of their own.
+const replayed = <A>(truth: DeskTruth, key: string) => truth.applied.writes[key] as A | undefined;
+
+const rememberWrite = (truth: DeskTruth, key: string, reply: unknown): DeskTruth => ({
+  ...truth,
+  applied: { ...truth.applied, writes: { ...truth.applied.writes, [key]: reply } },
+});
+
+export const createTicket = (
+  truth: DeskTruth,
+  input: NewTicket,
+  idempotencyKey: string,
+): Step<TicketRow, TicketRejected> => {
+  const previous = replayed<TicketRow>(truth, idempotencyKey);
+
+  if (previous) return [truth, ok(previous)];
+
+  if (input.title.trim() === "")
+    return [truth, fail(new TicketRejected({ reason: "Give the ticket a title" }))];
+
+  const clock = truth.clock + 1;
+  const row: TicketRow = {
+    workspaceId: input.workspaceId,
+    ticketId: `T-${String(1000 + truth.tickets.length)}`, // the server's id; `draftId` never leaves the device
+    title: input.title,
+    status: "open",
+    assignee: null,
+    priority: input.priority,
+    dueAt: input.dueAt,
+    customerId: null,
+    commentCount: 0,
+    updatedAt: clock,
+    revision: 1,
+  };
+
+  const next = record(
+    { ...truth, clock, tickets: [...truth.tickets, row] },
+    row.workspaceId,
+    row.ticketId,
+    `${ME} opened ${row.ticketId}`,
+    (cursor) => ({ _tag: "TicketSaved", cursor, ticket: row }),
+  );
+
+  return [rememberWrite(next, idempotencyKey, row), ok(row)];
+};
+
+// A ticket someone is working on cannot be archived: the 403 restores it in every list.
+export const archiveTicket = (
   truth: DeskTruth,
   key: TicketKey,
-): Result<CommentThread, TicketNotFound> =>
-  find(truth, key)
-    ? ok(
-        truth.comments.filter(
-          (comment) => comment.workspaceId === key.workspaceId && comment.ticketId === key.ticketId,
-        ),
-      )
-    : fail(new TicketNotFound({ ticketId: key.ticketId }));
+  idempotencyKey: string,
+): Step<void, TicketNotFound | ArchiveRefused> => {
+  if (replayed(truth, idempotencyKey) !== undefined) return [truth, ok(undefined)];
+
+  const ticket = find(truth, key);
+
+  if (!ticket) return [truth, fail(new TicketNotFound({ ticketId: key.ticketId }))];
+
+  if (ticket.status === "assigned")
+    return [
+      truth,
+      fail(new ArchiveRefused({ reason: `${ticket.assignee ?? "Someone"} is working on it` })),
+    ];
+
+  const [next] = removeElsewhere(truth, key, ME);
+
+  return [rememberWrite(next, idempotencyKey, true), ok(undefined)];
+};
+
+// --- comments --------------------------------------------------------------------------------
+
+const commentsOf = (truth: DeskTruth, key: TicketKey) =>
+  truth.comments.filter(
+    (comment) => comment.workspaceId === key.workspaceId && comment.ticketId === key.ticketId,
+  );
+
+// The order comments.domain.ts declares: oldest first, then the key.
+const byCreated = (a: CommentRow, b: CommentRow) =>
+  a.createdAt - b.createdAt || byCodePoint(a.commentId, b.commentId);
+
+// Pages run backwards: the newest page first, and `older` names the page before it (a cursor is the index of
+// the first comment the next page must end before).
+export const listThread = (
+  truth: DeskTruth,
+  input: TicketKey & { pinned?: boolean; before?: string },
+): Result<ThreadPage, TicketNotFound> => {
+  if (!find(truth, input)) return fail(new TicketNotFound({ ticketId: input.ticketId }));
+
+  const all = commentsOf(truth, input)
+    .filter((comment) => input.pinned === undefined || comment.pinned === input.pinned)
+    .sort(byCreated);
+  const end = input.before === undefined ? all.length : Number(input.before);
+  const start = Math.max(0, end - THREAD_PAGE_SIZE);
+  const comments = all.slice(start, end);
+
+  return ok(start > 0 ? { comments, older: String(start) } : { comments });
+};
+
+// `and(contains(mentions, me), isNull(readAt))`, across the workspace.
+export const listMentions = (truth: DeskTruth, input: { workspaceId: string; me: string }) =>
+  truth.comments
+    .filter(
+      (comment) =>
+        comment.workspaceId === input.workspaceId &&
+        comment.mentions.includes(input.me) &&
+        comment.readAt === null,
+    )
+    .sort(byCreated);
+
+const mentionsIn = (text: string) => [...text.matchAll(/@([\w-]+)/g)].map((match) => match[1]!);
+
+// A comment changes its ticket's `commentCount`, and the change is logged for the socket.
+const countComments = (truth: DeskTruth, key: TicketKey, by: number, text: string) => {
+  const ticket = find(truth, key);
+
+  if (!ticket) return truth;
+
+  return update(truth, ticket, { commentCount: ticket.commentCount + by }, text)[0];
+};
 
 export const postComment = (
   truth: DeskTruth,
@@ -453,31 +720,196 @@ export const postComment = (
   const clock = truth.clock + 1;
 
   const row: CommentRow = {
-    id: `c-${String(truth.comments.length + 1)}`,
-    clientId: input.clientId,
     workspaceId: input.workspaceId,
     ticketId: input.ticketId,
+    commentId: `c-${String(truth.comments.length + 1)}`,
+    clientId: input.clientId,
+    attemptId: idempotencyKey,
     author: ME,
     text: input.text,
-    at: clock,
+    mentions: mentionsIn(input.text),
+    pinned: false,
+    readAt: null,
+    editedAt: null,
+    createdAt: clock,
+    revision: 1,
   };
+
+  const counted = countComments(
+    { ...truth, clock, comments: [...truth.comments, row] },
+    input,
+    1,
+    `${ME} commented on ${input.ticketId}`,
+  );
 
   return [
     {
-      ...truth,
-      clock,
-      comments: [...truth.comments, row],
-      applied: { ...truth.applied, comments: { ...truth.applied.comments, [idempotencyKey]: row } },
+      ...counted,
+      applied: {
+        ...counted.applied,
+        comments: { ...counted.applied.comments, [idempotencyKey]: row },
+      },
     },
     ok(row),
   ];
 };
 
+const findComment = (truth: DeskTruth, key: CommentKey) =>
+  truth.comments.find(
+    (comment) =>
+      comment.workspaceId === key.workspaceId &&
+      comment.ticketId === key.ticketId &&
+      comment.commentId === key.commentId,
+  );
+
+const replaceComment = (truth: DeskTruth, row: CommentRow): DeskTruth => ({
+  ...truth,
+  clock: truth.clock + 1,
+  comments: truth.comments.map((comment) => (comment.commentId === row.commentId ? row : comment)),
+});
+
+// Edits and deletes are the author's, within the window.
+const editable = (
+  truth: DeskTruth,
+  key: CommentKey,
+): Result<CommentRow, CommentGone | EditWindowClosed> => {
+  const comment = findComment(truth, key);
+
+  if (!comment) return fail(new CommentGone({ commentId: key.commentId }));
+
+  if (truth.closedForEdit.includes(key.commentId))
+    return fail(new EditWindowClosed({ closedAt: comment.createdAt + 900_000 }));
+
+  return ok(comment);
+};
+
+export const editComment = (
+  truth: DeskTruth,
+  input: CommentKey & { text: string },
+  idempotencyKey: string,
+): Step<CommentRow, CommentGone | EditWindowClosed | CommentRejected> => {
+  const previous = replayed<CommentRow>(truth, idempotencyKey);
+
+  if (previous) return [truth, ok(previous)];
+
+  const found = editable(truth, input);
+
+  if (!found.ok) return [truth, found];
+
+  if (input.text.trim() === "")
+    return [truth, fail(new CommentRejected({ reason: "A comment needs text" }))];
+
+  const row: CommentRow = {
+    ...found.value,
+    text: input.text,
+    mentions: mentionsIn(input.text),
+    editedAt: truth.clock + 1,
+    revision: found.value.revision + 1,
+  };
+
+  return [rememberWrite(replaceComment(truth, row), idempotencyKey, row), ok(row)];
+};
+
+export const removeComment = (
+  truth: DeskTruth,
+  input: CommentKey,
+  idempotencyKey: string,
+): Step<void, CommentGone | EditWindowClosed> => {
+  if (replayed(truth, idempotencyKey) !== undefined) return [truth, ok(undefined)];
+
+  const found = editable(truth, input);
+
+  if (!found.ok) return [truth, found];
+
+  const removed = countComments(
+    { ...truth, comments: truth.comments.filter((comment) => comment !== found.value) },
+    input,
+    -1,
+    `${ME} deleted a comment on ${input.ticketId}`,
+  );
+
+  return [rememberWrite(removed, idempotencyKey, true), ok(undefined)];
+};
+
+export const pinComment = (
+  truth: DeskTruth,
+  input: CommentKey & { pinned: boolean },
+  idempotencyKey: string,
+): Step<CommentRow, CommentGone> => {
+  const previous = replayed<CommentRow>(truth, idempotencyKey);
+
+  if (previous) return [truth, ok(previous)];
+
+  const comment = findComment(truth, input);
+
+  if (!comment) return [truth, fail(new CommentGone({ commentId: input.commentId }))];
+
+  const row = { ...comment, pinned: input.pinned, revision: comment.revision + 1 };
+
+  return [rememberWrite(replaceComment(truth, row), idempotencyKey, row), ok(row)];
+};
+
+// Many records in one write; the answer carries none of them (the client predicted `readAt`).
+export const markRead = (
+  truth: DeskTruth,
+  input: { comments: ReadonlyArray<CommentKey>; at: number },
+  idempotencyKey: string,
+): Step<void, never> => {
+  if (replayed(truth, idempotencyKey) !== undefined) return [truth, ok(undefined)];
+
+  const ids = new Set(input.comments.map((key) => key.commentId));
+  const next: DeskTruth = {
+    ...truth,
+    comments: truth.comments.map((comment) =>
+      ids.has(comment.commentId) && comment.readAt === null
+        ? { ...comment, readAt: input.at, revision: comment.revision + 1 }
+        : comment,
+    ),
+  };
+
+  return [rememberWrite(next, idempotencyKey, true), ok(undefined)];
+};
+
+export const reactionsOf = (truth: DeskTruth, key: TicketKey): Reactions =>
+  truth.reactions[keyOf(key)] ?? {};
+
+export const react = (
+  truth: DeskTruth,
+  input: CommentKey & { emoji: string; on: boolean },
+  idempotencyKey: string,
+): Step<Reactions, CommentGone> => {
+  const previous = replayed<Reactions>(truth, idempotencyKey);
+
+  if (previous) return [truth, ok(previous)];
+
+  if (!findComment(truth, input))
+    return [truth, fail(new CommentGone({ commentId: input.commentId }))];
+
+  const all = reactionsOf(truth, input);
+  const counts = all[input.commentId] ?? {};
+  const count = Math.max(0, (counts[input.emoji] ?? 0) + (input.on ? 1 : -1));
+  const reactions = { ...all, [input.commentId]: { ...counts, [input.emoji]: count } };
+
+  return [
+    rememberWrite(
+      { ...truth, reactions: { ...truth.reactions, [keyOf(input)]: reactions } },
+      idempotencyKey,
+      reactions,
+    ),
+    ok(reactions),
+  ];
+};
+
 // --- attachments -----------------------------------------------------------------------------
+
+export const listFiles = (truth: DeskTruth, key: TicketKey) =>
+  Object.values(truth.files).filter(
+    (file) => file.workspaceId === key.workspaceId && file.ticketId === key.ticketId,
+  );
 
 export const putFile = (
   truth: DeskTruth,
-  input: { ref: string; name: string; size: number },
+  input: TicketKey & { ref: string; name: string; size: number },
   idempotencyKey: string,
 ): Step<StoredAttachment, TooLarge> => {
   const previous = truth.applied.files[idempotencyKey];
@@ -486,7 +918,12 @@ export const putFile = (
 
   if (input.size > MAX_FILE_BYTES) return [truth, fail(new TooLarge({ limit: MAX_FILE_BYTES }))];
 
-  const stored: StoredAttachment = { ...input, url: `/uploads/${input.ref}` };
+  const stored: StoredAttachment = {
+    ...input,
+    url: `/uploads/${input.ref}`,
+    uploadedBy: ME,
+    revision: 1,
+  };
 
   return [
     {
@@ -495,6 +932,298 @@ export const putFile = (
       applied: { ...truth.applied, files: { ...truth.applied.files, [idempotencyKey]: stored } },
     },
     ok(stored),
+  ];
+};
+
+// Only the uploader removes a file.
+export const removeFile = (
+  truth: DeskTruth,
+  input: TicketKey & { ref: string },
+  idempotencyKey: string,
+): Step<void, RemoveRefused> => {
+  if (replayed(truth, idempotencyKey) !== undefined) return [truth, ok(undefined)];
+
+  const file = truth.files[input.ref];
+
+  if (!file) return [rememberWrite(truth, idempotencyKey, true), ok(undefined)]; // already gone: done
+
+  if (file.uploadedBy !== ME)
+    return [truth, fail(new RemoveRefused({ uploadedBy: file.uploadedBy }))];
+
+  const { [input.ref]: _removed, ...files } = truth.files;
+
+  return [rememberWrite({ ...truth, files }, idempotencyKey, true), ok(undefined)];
+};
+
+// --- the roster --------------------------------------------------------------------------------
+
+const techKey = (key: TechnicianKey) => `${key.workspaceId}/${key.technicianId}`;
+
+const findTech = (truth: DeskTruth, key: TechnicianKey) =>
+  truth.technicians.find((t) => techKey(t) === techKey(key));
+
+// A team-less technician sorts after every team, as a null due date does; then the name, then the key. Names
+// are strings, which the client never compares (entity-domain 4.4).
+const byTeam = (a: TechnicianRow, b: TechnicianRow) =>
+  (a.teamId === b.teamId
+    ? 0
+    : a.teamId === null
+      ? 1
+      : b.teamId === null
+        ? -1
+        : byCodePoint(a.teamId, b.teamId)) ||
+  byCodePoint(a.name, b.name) ||
+  byCodePoint(a.technicianId, b.technicianId);
+
+// `or(eq(teamId, input.teamId), isNull(teamId))`: my team, and everyone not placed yet. `locale` changes how
+// the page renders "last seen", never which technicians or their order (the domain `.ignoring`s it).
+export const listTechnicians = (
+  truth: DeskTruth,
+  input: { workspaceId: string; teamId: string; page?: number },
+): RosterPage => {
+  const rows = truth.technicians
+    .filter(
+      (t) =>
+        t.workspaceId === input.workspaceId && (t.teamId === input.teamId || t.teamId === null),
+    )
+    .sort(byTeam);
+  const index = input.page ?? 0;
+  const slice = rows.slice(index * ROSTER_PAGE_SIZE, (index + 1) * ROSTER_PAGE_SIZE);
+
+  return (index + 1) * ROSTER_PAGE_SIZE < rows.length
+    ? { technicians: slice, nextPage: index + 1 }
+    : { technicians: slice };
+};
+
+export const loadTechnician = (
+  truth: DeskTruth,
+  key: TechnicianKey,
+): Result<TechnicianRow, TechnicianGone> => {
+  const found = findTech(truth, key);
+
+  return found ? ok(found) : fail(new TechnicianGone({ technicianId: key.technicianId }));
+};
+
+export const teamSizes = (truth: DeskTruth, workspaceId: string) =>
+  Object.fromEntries(
+    truth.teams
+      .filter((team) => team.workspaceId === workspaceId)
+      .map((team) => [
+        team.teamId,
+        truth.technicians.filter((t) => t.teamId === team.teamId).length,
+      ]),
+  );
+
+export const rosterChanges = (
+  truth: DeskTruth,
+  workspaceId: string,
+  after: number,
+): ChangeBatch => {
+  const changes = truth.rosterLog.filter(
+    (change) =>
+      change.seq > after &&
+      (change._tag === "TechnicianSaved" ? change.technician.workspaceId : change.workspaceId) ===
+        workspaceId,
+  );
+
+  return { changes, cursor: changes.at(-1)?.seq ?? after };
+};
+
+const logTech = (truth: DeskTruth, technician: TechnicianRow): DeskTruth => {
+  const seq = truth.rosterSeq + 1;
+
+  return {
+    ...truth,
+    rosterSeq: seq,
+    rosterLog: [...truth.rosterLog, { _tag: "TechnicianSaved", seq, technician }],
+  };
+};
+
+const saveTech = (truth: DeskTruth, row: TechnicianRow): DeskTruth =>
+  logTech(
+    {
+      ...truth,
+      technicians: truth.technicians.map((t) => (techKey(t) === techKey(row) ? row : t)),
+    },
+    row,
+  );
+
+const recount = (truth: DeskTruth): DeskTruth => ({
+  ...truth,
+  teams: truth.teams.map((team) => ({
+    ...team,
+    technicianCount: truth.technicians.filter((t) => t.teamId === team.teamId).length,
+    revision: team.revision + 1,
+  })),
+});
+
+const techWrite = (
+  truth: DeskTruth,
+  key: TechnicianKey,
+  idempotencyKey: string,
+  change: (row: TechnicianRow) => TechnicianRow,
+): Step<TechnicianRow, TechnicianGone> => {
+  const previous = replayed<TechnicianRow>(truth, idempotencyKey);
+
+  if (previous) return [truth, ok(previous)];
+
+  const found = findTech(truth, key);
+
+  if (!found) return [truth, fail(new TechnicianGone({ technicianId: key.technicianId }))];
+
+  const row = change({ ...found, revision: found.revision + 1 });
+
+  return [rememberWrite(recount(saveTech(truth, row)), idempotencyKey, row), ok(row)];
+};
+
+export const moveTechnician = (
+  truth: DeskTruth,
+  input: TechnicianKey & { to: string },
+  idempotencyKey: string,
+) => techWrite(truth, input, idempotencyKey, (row) => ({ ...row, teamId: input.to }));
+
+export const renameTechnician = (
+  truth: DeskTruth,
+  input: TechnicianKey & { name: string },
+  idempotencyKey: string,
+) => techWrite(truth, input, idempotencyKey, (row) => ({ ...row, name: input.name }));
+
+export const setSkills = (
+  truth: DeskTruth,
+  input: TechnicianKey & { skills: ReadonlyArray<string> },
+  idempotencyKey: string,
+) => techWrite(truth, input, idempotencyKey, (row) => ({ ...row, skills: input.skills }));
+
+// Another device changes a technician's status (a poller sees it): no idempotency, a plain change.
+export const setStatusElsewhere = (
+  truth: DeskTruth,
+  key: TechnicianKey,
+  status: TechnicianRow["status"],
+): DeskTruth => {
+  const found = findTech(truth, key);
+
+  return found ? saveTech(truth, { ...found, status, revision: found.revision + 1 }) : truth;
+};
+
+export const removeTechnician = (
+  truth: DeskTruth,
+  key: TechnicianKey,
+  idempotencyKey: string,
+): Step<void, HasOpenTickets | TechnicianGone> => {
+  if (replayed(truth, idempotencyKey) !== undefined) return [truth, ok(undefined)];
+
+  const found = findTech(truth, key);
+
+  if (!found) return [truth, fail(new TechnicianGone({ technicianId: key.technicianId }))];
+
+  const open = truth.tickets.filter(
+    (t) => t.assignee === key.technicianId && t.status !== "closed",
+  ).length;
+
+  if (open > 0) return [truth, fail(new HasOpenTickets({ open }))];
+
+  const seq = truth.rosterSeq + 1;
+  const next: DeskTruth = recount({
+    ...truth,
+    technicians: truth.technicians.filter((t) => t !== found),
+    rosterSeq: seq,
+    rosterLog: [
+      ...truth.rosterLog,
+      {
+        _tag: "TechnicianRemoved",
+        seq,
+        workspaceId: key.workspaceId,
+        technicianId: key.technicianId,
+        revision: found.revision + 1,
+      },
+    ],
+  });
+
+  return [rememberWrite(next, idempotencyKey, true), ok(undefined)];
+};
+
+// One write over two entities: the merged customer goes, the survivor's count grows, and every listed ticket
+// is re-pointed. Refused whole when either record is not what the client saw.
+export const mergeCustomers = (
+  truth: DeskTruth,
+  input: {
+    workspaceId: string;
+    survivorId: string;
+    mergedId: string;
+    tickets: ReadonlyArray<TicketKey>;
+  },
+  idempotencyKey: string,
+): Step<CustomerRow, MergeConflict> => {
+  const previous = replayed<CustomerRow>(truth, idempotencyKey);
+
+  if (previous) return [truth, ok(previous)];
+
+  const survivor = truth.customers.find((c) => c.customerId === input.survivorId);
+  const merged = truth.customers.find((c) => c.customerId === input.mergedId);
+
+  if (!survivor || !merged)
+    return [truth, fail(new MergeConflict({ reason: "One of them was merged already" }))];
+
+  // The client re-points exactly the tickets it showed. If the merged customer's tickets changed meanwhile, the
+  // client's prediction is wrong about which ones move: refuse, and let it look again.
+  const moved = new Set(input.tickets.map((t) => t.ticketId));
+  const current = truth.tickets
+    .filter((t) => t.customerId === input.mergedId)
+    .map((t) => t.ticketId);
+
+  if (current.length !== moved.size || current.some((id) => !moved.has(id)))
+    return [truth, fail(new MergeConflict({ reason: "Its tickets changed; check them again" }))];
+
+  const row = {
+    ...survivor,
+    ticketCount: survivor.ticketCount + moved.size,
+    revision: survivor.revision + 1,
+  };
+  const next: DeskTruth = {
+    ...truth,
+    clock: truth.clock + 1,
+    customers: truth.customers.filter((c) => c !== merged).map((c) => (c === survivor ? row : c)),
+    tickets: truth.tickets.map((t) =>
+      moved.has(t.ticketId) ? { ...t, customerId: input.survivorId, revision: t.revision + 1 } : t,
+    ),
+  };
+
+  return [rememberWrite(next, idempotencyKey, row), ok(row)];
+};
+
+export const invite = (
+  truth: DeskTruth,
+  input: Invite,
+  idempotencyKey: string,
+): Step<TechnicianRow, InviteRejected> => {
+  const previous = replayed<TechnicianRow>(truth, idempotencyKey);
+
+  if (previous) return [truth, ok(previous)];
+
+  if (!input.email.includes("@"))
+    return [truth, fail(new InviteRejected({ reason: "Not an email address" }))];
+
+  if (truth.technicians.some((t) => t.name === input.name))
+    return [truth, fail(new InviteRejected({ reason: `${input.name} is on the roster already` }))];
+
+  const row: TechnicianRow = {
+    workspaceId: input.workspaceId,
+    technicianId: `tech-${input.name.toLowerCase()}`,
+    name: input.name,
+    teamId: null,
+    skills: [],
+    status: "off",
+    lastSeenAt: 0,
+    revision: 1,
+  };
+
+  return [
+    rememberWrite(
+      logTech({ ...truth, technicians: [...truth.technicians, row] }, row),
+      idempotencyKey,
+      row,
+    ),
+    ok(row),
   ];
 };
 

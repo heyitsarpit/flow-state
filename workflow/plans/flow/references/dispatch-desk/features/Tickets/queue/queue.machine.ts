@@ -1,7 +1,7 @@
 // The list subscription follows memory and context; polling adapts to whether the list loads; "assign to
 // me" is one lane per ticket, reconciled while its answer is unknown.
 import { Schedule } from "effect";
-import { deny, machine } from "flow-state";
+import { deny, Flow, machine } from "flow-state";
 import type { TicketListInput } from "../types.js";
 import { MAX_ASSIGN_RESENDS, Queue } from "./queue.definition.js";
 
@@ -44,6 +44,22 @@ const named = ({ event }: { event: { workspaceId: string; ticketId: string } }) 
 // The part of the snapshot these guards read: the list lane, paged (derived from the definition).
 type Lanes = (typeof Queue.Snapshot.Type)["operations"];
 
+type Draft = Memory["creating"][number];
+
+const draftOf = (memory: Memory, draftId: string) =>
+  memory.creating.find((d) => d.draftId === draftId);
+
+const editDraft = (memory: Memory, draftId: string, change: Partial<Draft>) => ({
+  creating: memory.creating.map((d) => (d.draftId === draftId ? { ...d, ...change } : d)),
+});
+
+const draftIs =
+  (status: Draft["status"], code: string) =>
+  ({ memory, event }: { memory: Memory; event: { draftId: string } }) =>
+    draftOf(memory, event.draftId)?.status === status || deny(code);
+
+const ofDraft = ({ event }: { event: { draftId: string } }) => ({ draftId: event.draftId });
+
 // Guards read the pre-turn snapshot, lanes included, so check() can tell a view whether these
 // commands do anything (minimal-library decision 8): the button state is never a view rule.
 const hasMorePages = ({ operations }: { operations: Lanes }) =>
@@ -73,6 +89,15 @@ export const QueueMachine = machine(Queue, ({ S, E, O }) => {
             : undefined,
       }),
       O.open.subscribe(workspace),
+      // The tabs: each list is placed only while it is chosen, so leaving a tab releases its read.
+      O.unassigned.subscribe(workspace, { when: ({ memory }) => memory.tab === "unassigned" }),
+      O.triage.subscribe(({ memory }) => ({ workspaceId: memory.workspaceId, now: memory.now }), {
+        when: ({ memory }) => memory.tab === "triage" && memory.now > 0,
+      }),
+      O.mentions.subscribe(({ memory, context }) => ({
+        workspaceId: memory.workspaceId,
+        me: context.userId,
+      })),
     ],
 
     // The preview drawer: the Comments trait, one thread per previewed ticket (F7). The reset value is the
@@ -99,6 +124,17 @@ export const QueueMachine = machine(Queue, ({ S, E, O }) => {
 
     // One keyed timer per held assignment, read from the lanes (rule 23), declared once for both health states.
     schedules: {
+      // The triage list's clock. Its input holds the minute, not the instant (OD4: normalised in the caller), so
+      // it reads once a minute rather than on every tick. The first tick is at once.
+      firstMinute: {
+        schedule: "0 millis",
+        armOn: [Flow.entry],
+        send: E.Minute.from(({ now }) => ({ now: Math.floor(now / 60_000) * 60_000 })),
+      },
+      minute: {
+        schedule: Schedule.spaced("1 minute"),
+        send: E.Minute.from(({ now }) => ({ now: Math.floor(now / 60_000) * 60_000 })),
+      },
       reconcile: {
         keys: ({ operations }) =>
           operations.assign.filter((lane) => lane.uncertain).map((lane) => lane.key),
@@ -127,6 +163,122 @@ export const QueueMachine = machine(Queue, ({ S, E, O }) => {
         updateMemory: ({ event }) => ({ previewId: event.ticketId }),
       },
       PreviewClosed: { target: "self", updateMemory: () => ({ previewId: null }) },
+      TabChosen: { target: "self", updateMemory: ({ event }) => ({ tab: event.tab }) },
+      Minute: { target: "self", updateMemory: ({ event }) => ({ now: event.now }) },
+
+      // A new ticket: a draft in memory, shown apart until a list holds the server's id (rule 33).
+      CreateTicket: {
+        target: "self",
+        guard: [
+          ({ event }) => event.title.trim() !== "" || deny("EmptyTitle"),
+          ({ memory, event }) =>
+            draftOf(memory, event.draftId) === undefined || deny("DuplicateDraft"),
+        ],
+        updateMemory: ({ memory, event }) => ({
+          creating: [
+            ...memory.creating,
+            {
+              draftId: event.draftId,
+              title: event.title,
+              priority: event.priority,
+              status: "sending" as const,
+              failure: null,
+              id: null,
+            },
+          ],
+        }),
+        actions: [
+          O.create.commit(({ memory, event }) => ({
+            workspaceId: memory.workspaceId,
+            draftId: event.draftId,
+            title: event.title,
+            priority: event.priority,
+            dueAt: event.dueAt,
+          })),
+        ],
+      },
+      Created: {
+        target: "self",
+        updateMemory: ({ memory, event }) =>
+          editDraft(memory, event.draftId, { status: "created", id: event.ticketId }),
+      },
+      CreateFailed: {
+        target: "self",
+        updateMemory: ({ memory, event }) =>
+          editDraft(memory, event.draftId, { status: "failed", failure: event.reason }),
+      },
+      // Key-less: `create` alone maps it, so these name this ending's Attempt (rule 43).
+      CreateUnsure: [
+        { target: "self", guard: [O.create.retryable({ times: 2 })], actions: [O.create.retry] },
+        {
+          target: "self",
+          updateMemory: ({ memory, event }) =>
+            editDraft(memory, event.draftId, { status: "unsure" }),
+        },
+      ],
+      // A failed draft is a new write; an unsure one asks about the same Attempt again.
+      RetryCreate: [
+        {
+          target: "self",
+          guard: [draftIs("failed", "NotFailed"), O.create.idle(ofDraft)],
+          updateMemory: ({ memory, event }) =>
+            editDraft(memory, event.draftId, { status: "sending", failure: null }),
+          actions: [
+            O.create.commit(({ memory, event }) => {
+              const draft = draftOf(memory, event.draftId);
+
+              return {
+                workspaceId: memory.workspaceId,
+                draftId: event.draftId,
+                title: draft?.title ?? "",
+                priority: draft?.priority ?? 1,
+                dueAt: null,
+              };
+            }),
+          ],
+        },
+        {
+          target: "self",
+          guard: [draftIs("unsure", "NothingToRetry"), O.create.retryable(ofDraft, { times: 3 })],
+          updateMemory: ({ memory, event }) =>
+            editDraft(memory, event.draftId, { status: "sending" }),
+          actions: [O.create.retry(ofDraft)],
+        },
+      ],
+      DiscardDraft: [
+        {
+          target: "self",
+          guard: [draftIs("failed", "NotFailed")],
+          updateMemory: ({ memory, event }) => ({
+            creating: memory.creating.filter((d) => d.draftId !== event.draftId),
+          }),
+        },
+        // An unsure draft may exist on the server: release it and keep the line, so the list can still show it.
+        {
+          target: "self",
+          guard: [draftIs("unsure", "NotUnsure")],
+          updateMemory: ({ memory, event }) =>
+            editDraft(memory, event.draftId, { status: "created" }),
+          actions: [O.create.cancel(ofDraft)],
+        },
+      ],
+      // The list holds a draft's id: the draft's job is done (housekeeping; the view's filter is what shows).
+      ListLoaded: {
+        target: "self",
+        updateMemory: ({ memory, event }) => ({
+          creating: memory.creating.filter((d) => d.id === null || !event.ticketIds.includes(d.id)),
+        }),
+      },
+
+      // Archiving predicts a delete: the ticket leaves every list at once. A 403 puts it back (rule 30).
+      Archive: {
+        target: "self",
+        guard: [O.archive.idle(assignKey)],
+        actions: [O.archive.commit(assignKey)],
+      },
+      Archived: { target: "self" },
+      ArchiveRefused: { target: "self", updateMemory: ({ event }) => ({ notice: event.reason }) },
+      ArchiveUnsure: { target: "self", actions: [O.archive.cancel] }, // release; the record stays marked uncertain
 
       // Assignment is predicted by the domain: the row shows the new assignee at once, and the lists and
       // counts that can be wrong repair when it settles. `idle` refuses a second press on the same ticket
@@ -166,7 +318,7 @@ export const QueueMachine = machine(Queue, ({ S, E, O }) => {
     states: {
       HEALTHY: {
         schedules: { poll: { schedule: Schedule.spaced("30 seconds"), send: E.PollDue } },
-        on: { ListUnavailable: S.DEGRADED, ListLoaded: { target: "self" } },
+        on: { ListUnavailable: S.DEGRADED },
       },
       DEGRADED: {
         schedules: {
@@ -180,7 +332,17 @@ export const QueueMachine = machine(Queue, ({ S, E, O }) => {
             send: E.PollDue,
           },
         },
-        on: { ListLoaded: S.HEALTHY, ListUnavailable: { target: "self" } },
+        on: {
+          ListLoaded: {
+            target: S.HEALTHY,
+            updateMemory: ({ memory, event }) => ({
+              creating: memory.creating.filter(
+                (d) => d.id === null || !event.ticketIds.includes(d.id),
+              ),
+            }),
+          },
+          ListUnavailable: { target: "self" },
+        },
       },
     },
   };

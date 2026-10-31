@@ -8,6 +8,7 @@
 // `attachments` is the host's list, the `of:` of the placement (rule 9: membership is host data).
 import { Schema } from "effect";
 import { definition, Flow } from "flow-state";
+import { AttachmentsDomain } from "../../Attachments/attachments.domain.js";
 import { AttachmentUpload } from "../../Attachments/upload.trait.js";
 import { Comments } from "../../Comments/comments.trait.js";
 import { Session } from "../../Session/session.definition.js";
@@ -37,6 +38,7 @@ export const Editor = definition({
     Reopen: {},
     AttachFile: AttachmentDraft.fields, // NEW: the hook has already put the bytes in PendingFiles
     RemoveAttachment: { ref: Schema.String }, // NEW
+    RemoveStoredFile: { ref: Schema.String }, // a file already on the server (the ticket's file list)
   },
   internalEvents: {
     TicketLoaded: { title: Schema.String },
@@ -52,6 +54,9 @@ export const Editor = definition({
     SaveNotSent: {}, // never left this device: cancelled while waiting, or a reload before the send
     SaveStopped: Flow.uncertain({}), // existing: Flow.uncertain; the user's own stop (`Cancelled`), released at once
     SaveUnsure: Flow.uncertain({}), // the request may have landed; the lane is Held until retried or released
+    FileRemoved: {},
+    FileKept: { uploadedBy: Schema.String }, // 403: the store already put it back
+    FileRemoveUnsure: Flow.uncertain({}),
   },
   context: { canEdit: Session.select(({ memory }) => memory.canEdit) }, // one upward read edge
   // Memory holds keys and drafts, never copies of cached tickets, and never the Attempt: the lane holds it
@@ -98,6 +103,18 @@ export const Editor = definition({
         StillUnknown: E.SaveUnsure,
         StorageRefused: E.SaveUnsure, // a persisted re-send whose lane-record capture failed (2.7.13)
       },
+    }),
+    // The ticket's stored files: a domain list the view reads. A finished upload joins it (the trait's `put` is a
+    // domain write), so the view shows each file once: as a copy while it uploads, as a record once stored.
+    files: AttachmentsDomain.files, // bare: the view reads the rows
+    // Removing a stored file predicts its delete; a 403 restores it (E3). One lane per file, `reject`.
+    removeFile: AttachmentsDomain.remove.outcomes({
+      success: E.FileRemoved,
+      failure: {
+        RemoveRefused: E.FileKept.from((e) => ({ uploadedBy: e.uploadedBy })),
+        NotSent: E.FileRemoved, // nothing happened, nothing to say: the record was never hidden for long
+      },
+      unknown: E.FileRemoveUnsure,
     }),
   }),
   traits: {

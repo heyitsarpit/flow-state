@@ -11,8 +11,12 @@ export const SessionMachine = machine(Session, ({ S }) => ({
           target: "self",
           updateMemory: ({ event }) => ({ canEdit: event.canEdit }),
         },
+        RoleChanged: { target: "self", updateMemory: ({ event }) => ({ isAdmin: event.isAdmin }) },
         // Editors read canEdit, so signing out also closes every open editor (its reaction).
-        SignedOut: { target: S.SIGNED_OUT, updateMemory: () => ({ canEdit: false }) },
+        SignedOut: {
+          target: S.SIGNED_OUT,
+          updateMemory: () => ({ canEdit: false, isAdmin: false }),
+        },
       },
     },
     SIGNED_OUT: {},

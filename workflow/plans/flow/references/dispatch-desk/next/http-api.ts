@@ -12,14 +12,19 @@ import { Socket } from "effect/socket";
 import {
   AttachmentsApi,
   PendingFilesLive,
+  RemoveRefused,
   StoredAttachment,
   TooLarge,
 } from "../features/Attachments/attachments-api.js";
 import {
+  CommentGone,
   CommentRejected,
   CommentRow,
   CommentsApi,
-  CommentThread,
+  EditWindowClosed,
+  Reactions,
+  ThreadPage,
+  type CommentKey,
 } from "../features/Comments/comments-api.js";
 import { AssistantApi, Refused, SuggestFrame } from "../features/Assistant/assistant-api.js";
 import { PresenceApi, PresenceFrame } from "../features/Presence/presence-api.js";
@@ -28,6 +33,8 @@ import { TicketApi } from "../features/Tickets/ticket-api.js";
 import {
   ActivityPage,
   AlreadyAssigned,
+  ArchiveRefused,
+  TicketRejected,
   NoResponse,
   QueueUnavailable,
   ServerError,
@@ -215,16 +222,121 @@ export const HttpDeskApi = (token?: string, origin = "http://localhost:3000") =>
 
         return yield* decoded(ActivityPage, response);
       }),
-  });
-
-  const comments = CommentsApi.of({
-    list: (key, { signal }) =>
+    unassigned: ({ workspaceId, page }, { signal }) =>
       Effect.gen(function* () {
-        const response = yield* request(`${ticketPath(key)}/comments`, { signal });
+        const response = yield* request(
+          `/api/workspaces/${encodeURIComponent(workspaceId)}/tickets/unassigned?page=${String(page ?? 0)}`,
+          { signal },
+        );
+
+        return yield* readBody(TicketPage, response);
+      }),
+    triage: ({ workspaceId, now }, { signal }) =>
+      Effect.gen(function* () {
+        const response = yield* request(
+          `/api/workspaces/${encodeURIComponent(workspaceId)}/tickets/triage?now=${String(now)}`,
+          { signal },
+        );
+
+        return yield* readBody(TicketPage, response);
+      }),
+    byCustomer: ({ workspaceId, customerId }, { signal }) =>
+      Effect.gen(function* () {
+        const response = yield* request(
+          `/api/workspaces/${encodeURIComponent(workspaceId)}/customers/${encodeURIComponent(customerId)}/tickets`,
+          { signal },
+        );
+
+        return yield* readBody(Schema.Array(TicketRow), response);
+      }),
+    // `draftId` never goes on the wire: the server mints the ticket's id (rule 33).
+    create: ({ draftId: _draft, workspaceId, ...ticket }, { idempotencyKey, signal }) =>
+      Effect.gen(function* () {
+        const response = yield* request(
+          `/api/workspaces/${encodeURIComponent(workspaceId)}/tickets`,
+          {
+            signal,
+            idempotencyKey,
+            body: ticket,
+          },
+        );
+
+        if (response.status === 422)
+          return yield* new TicketRejected(
+            yield* decoded(Schema.Struct({ reason: Schema.String }), response),
+          );
+
+        return yield* body(TicketRow, response);
+      }),
+    archive: (key, { idempotencyKey, signal }) =>
+      Effect.gen(function* () {
+        const response = yield* request(`${ticketPath(key)}/archive`, {
+          signal,
+          idempotencyKey,
+          body: {},
+        });
+
+        if (response.status === 204) return;
 
         if (response.status === 404) return yield* missing(key);
 
-        return yield* readBody(CommentThread, response);
+        if (response.status === 403)
+          return yield* new ArchiveRefused(
+            yield* decoded(Schema.Struct({ reason: Schema.String }), response),
+          );
+
+        if (response.status >= 500) return yield* new ServerError({ status: response.status });
+
+        return yield* unexpected(response);
+      }),
+  });
+
+  const commentPath = (key: CommentKey) =>
+    `${ticketPath(key)}/comments/${encodeURIComponent(key.commentId)}`;
+
+  const gone = (key: CommentKey) => Effect.fail(new CommentGone({ commentId: key.commentId }));
+
+  // A comment write's answer: the row, 404 gone, 403 the edit window closed, 422 refused text, 5xx unknown.
+  const commentAnswer = (key: CommentKey, response: Response) =>
+    Effect.gen(function* () {
+      if (response.status === 404) return yield* gone(key);
+
+      if (response.status === 403)
+        return yield* new EditWindowClosed(
+          yield* decoded(Schema.Struct({ closedAt: Schema.Number }), response),
+        );
+
+      if (response.status === 422)
+        return yield* new CommentRejected(
+          yield* decoded(Schema.Struct({ reason: Schema.String }), response),
+        );
+
+      return yield* body(CommentRow, response);
+    });
+
+  const comments = CommentsApi.of({
+    list: ({ before, pinned, ...key }, { signal }) =>
+      Effect.gen(function* () {
+        const query = new URLSearchParams();
+
+        if (before !== undefined) query.set("before", before);
+
+        if (pinned !== undefined) query.set("pinned", String(pinned));
+
+        const response = yield* request(`${ticketPath(key)}/comments?${query}`, { signal });
+
+        if (response.status === 404) return yield* missing(key);
+
+        return yield* readBody(ThreadPage, response);
+      }),
+    mentions: ({ workspaceId, me }, { signal }) =>
+      Effect.gen(function* () {
+        const response = yield* request(
+          `/api/workspaces/${encodeURIComponent(workspaceId)}/mentions?me=${encodeURIComponent(me)}`,
+          { signal },
+        );
+
+        return yield* readBody(Schema.Array(CommentRow), response);
       }),
     post: ({ clientId, text, ...key }, { idempotencyKey, signal }) =>
       Effect.gen(function* () {
@@ -243,13 +355,90 @@ export const HttpDeskApi = (token?: string, origin = "http://localhost:3000") =>
 
         return yield* body(CommentRow, response);
       }),
+    edit: ({ text, ...key }, { idempotencyKey, signal }) =>
+      request(`${commentPath(key)}/text`, { signal, idempotencyKey, body: { text } }).pipe(
+        Effect.flatMap((response) => commentAnswer(key, response)),
+      ),
+    remove: (key, { idempotencyKey, signal }) =>
+      request(`${commentPath(key)}/delete`, { signal, idempotencyKey, body: {} }).pipe(
+        Effect.flatMap((response) =>
+          response.status === 204
+            ? Effect.void
+            : commentAnswer(key, response).pipe(
+                Effect.asVoid,
+                Effect.catchTag("CommentRejected", Effect.die), // a delete has no text to refuse
+              ),
+        ),
+      ),
+    pin: ({ pinned, ...key }, { idempotencyKey, signal }) =>
+      request(`${commentPath(key)}/pin`, { signal, idempotencyKey, body: { pinned } }).pipe(
+        Effect.flatMap((response) => commentAnswer(key, response)),
+        Effect.catchTags({ EditWindowClosed: Effect.die, CommentRejected: Effect.die }), // never sent for a pin
+      ),
+    markRead: ({ workspaceId, ...rest }, { idempotencyKey, signal }) =>
+      Effect.gen(function* () {
+        const response = yield* request(
+          `/api/workspaces/${encodeURIComponent(workspaceId)}/comments:read`,
+          { signal, idempotencyKey, body: rest },
+        );
+
+        if (response.status >= 500) return yield* new ServerError({ status: response.status });
+
+        if (!response.ok) return yield* unexpected(response);
+      }),
+    reactions: (key, { signal }) =>
+      Effect.gen(function* () {
+        const response = yield* request(`${ticketPath(key)}/reactions`, { signal });
+
+        return yield* readBody(Reactions, response);
+      }),
+    react: ({ emoji, on, ...key }, { idempotencyKey, signal }) =>
+      Effect.gen(function* () {
+        const response = yield* request(`${commentPath(key)}/reactions`, {
+          signal,
+          idempotencyKey,
+          body: { emoji, on },
+        });
+
+        if (response.status === 404) return yield* gone(key);
+
+        return yield* body(Reactions, response);
+      }),
   });
 
   // `fetch` reports no upload progress, so uploads use XMLHttpRequest (M6 4.5). The callback always
   // resumes: success, an HTTP answer, a network error, a timeout or an abort. `signal` is the one
   // Effect gives the callback; interrupting the fiber aborts the request.
   const attachments = AttachmentsApi.of({
-    put: (ref, bytes, { idempotencyKey, onProgress }) =>
+    files: (key, { signal }) =>
+      Effect.gen(function* () {
+        const response = yield* request(`${ticketPath(key)}/files`, { signal });
+
+        return yield* readBody(Schema.Array(StoredAttachment), response);
+      }),
+    remove: ({ ref, ...key }, { idempotencyKey, signal }) =>
+      Effect.gen(function* () {
+        const response = yield* request(
+          `${ticketPath(key)}/files/${encodeURIComponent(ref)}/delete`,
+          {
+            signal,
+            idempotencyKey,
+            body: {},
+          },
+        );
+
+        if (response.status === 204) return;
+
+        if (response.status === 403)
+          return yield* new RemoveRefused(
+            yield* decoded(Schema.Struct({ uploadedBy: Schema.String }), response),
+          );
+
+        if (response.status >= 500) return yield* new ServerError({ status: response.status });
+
+        return yield* unexpected(response);
+      }),
+    put: (ticket, ref, bytes, { idempotencyKey, onProgress }) =>
       Effect.callback<StoredAttachment, TooLarge | NoResponse | ServerError>((resume, signal) => {
         const xhr = new XMLHttpRequest();
         xhr.upload.onprogress = (event) => {
@@ -275,7 +464,7 @@ export const HttpDeskApi = (token?: string, origin = "http://localhost:3000") =>
         };
         xhr.onerror = xhr.ontimeout = xhr.onabort = () => resume(Effect.fail(new NoResponse()));
         signal.addEventListener("abort", () => xhr.abort(), { once: true });
-        xhr.open("PUT", new URL(`/api/uploads/${encodeURIComponent(ref)}`, origin));
+        xhr.open("PUT", new URL(`${ticketPath(ticket)}/files/${encodeURIComponent(ref)}`, origin));
 
         if (token !== undefined) xhr.setRequestHeader("Authorization", `Bearer ${token}`);
 

@@ -114,3 +114,16 @@ export const pushedRename = desk("desk/pushed-rename") // pending merge 6
   .checkpoint("pushed-rename")
   .world(Desk.renameElsewhere({ ...key("T-43"), title: "Dock door, second try" }))
   .checkpoint("pushed-over-draft");
+
+// One comment on two screens (E7): the editor of T-42 shows its thread, and the queue previews the same ticket.
+// An edit made in the preview is predicted in the one `Comment` record, so the editor's thread shows the new text
+// at once, while the request is on the wire; the answer confirms it for both.
+export const editedInPreview = desk("desk/edited-in-preview", [
+  Desk.commentsElsewhere({ ...key("T-42"), count: 1 }),
+  Desk.editComment.hold({ at: "response" }),
+])
+  .send(North, Queue.E.PreviewOpened({ ticketId: "T-42" }))
+  .send(North, Queue.E.preview.Edit({ commentId: "c-1", text: "Bulb is 40 W, not 60" }))
+  .checkpoint("edited-in-preview")
+  .world(Desk.editComment.release())
+  .checkpoint("edit-confirmed");

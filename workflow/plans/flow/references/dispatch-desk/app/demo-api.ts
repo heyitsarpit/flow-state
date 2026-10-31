@@ -109,17 +109,39 @@ const DemoServerLive = Layer.effect(
         write((current) => Desk.assign(current, input, idempotencyKey)),
       eventsSince: ({ workspaceId, after }) =>
         Effect.sync(() => Desk.eventsSince(truth, workspaceId, after)),
+      unassigned: (input) => Effect.sync(() => Desk.listUnassigned(truth, input)),
+      triage: (input) => Effect.sync(() => Desk.listTriage(truth, input)),
+      byCustomer: (input) => Effect.sync(() => Desk.ticketsOfCustomer(truth, input)),
+      create: (input, { idempotencyKey }) =>
+        write((current) => Desk.createTicket(current, input, idempotencyKey)),
+      archive: (input, { idempotencyKey }) =>
+        write((current) => Desk.archiveTicket(current, input, idempotencyKey)),
     });
 
     const comments = CommentsApi.of({
-      list: (key) => Effect.suspend(() => reply(Desk.listComments(truth, key))),
+      list: (input) => Effect.suspend(() => reply(Desk.listThread(truth, input))),
+      mentions: (input) => Effect.sync(() => Desk.listMentions(truth, input)),
       post: (input, { idempotencyKey }) =>
         write((current) => Desk.postComment(current, input, idempotencyKey)),
+      edit: (input, { idempotencyKey }) =>
+        write((current) => Desk.editComment(current, input, idempotencyKey)),
+      remove: (input, { idempotencyKey }) =>
+        write((current) => Desk.removeComment(current, input, idempotencyKey)),
+      pin: (input, { idempotencyKey }) =>
+        write((current) => Desk.pinComment(current, input, idempotencyKey)),
+      markRead: (input, { idempotencyKey }) =>
+        write((current) => Desk.markRead(current, input, idempotencyKey)),
+      reactions: (key) => Effect.sync(() => Desk.reactionsOf(truth, key)),
+      react: (input, { idempotencyKey }) =>
+        write((current) => Desk.react(current, input, idempotencyKey)),
     });
 
     // The demo reports progress in four steps, then answers: enough for a bar to move.
     const attachments = AttachmentsApi.of({
-      put: (ref, bytes, { idempotencyKey, onProgress }) =>
+      files: (key) => Effect.sync(() => Desk.listFiles(truth, key)),
+      remove: (input, { idempotencyKey }) =>
+        write((current) => Desk.removeFile(current, input, idempotencyKey)),
+      put: (ticket, ref, bytes, { idempotencyKey, onProgress }) =>
         Effect.gen(function* () {
           for (const share of [0.25, 0.5, 0.75, 1]) {
             onProgress({ sent: Math.round(bytes.size * share), total: bytes.size });
@@ -129,7 +151,7 @@ const DemoServerLive = Layer.effect(
           const name = bytes instanceof File ? bytes.name : ref;
 
           return yield* write((current): Desk.Step<StoredAttachment, TooLarge> =>
-            Desk.putFile(current, { ref, name, size: bytes.size }, idempotencyKey),
+            Desk.putFile(current, { ...ticket, ref, name, size: bytes.size }, idempotencyKey),
           );
         }),
     });

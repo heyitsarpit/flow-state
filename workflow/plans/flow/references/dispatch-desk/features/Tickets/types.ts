@@ -6,12 +6,20 @@ export const TicketStatus = Schema.Literals(["open", "assigned", "closed"]);
 export type TicketStatus = typeof TicketStatus.Type;
 
 // The wire row the API returns. The Ticket entity reuses these fields (ticket.domain.ts).
+// Priority is a number, not a word: the domain orders by it (`desc(priority)`), and the client compares only
+// numbers, booleans, dates and keys, never strings, whose collation is the server's (entity-domain 4.4).
+export const Priority = { low: 0, normal: 1, urgent: 2 } as const;
+
 export const TicketRow = Schema.Struct({
   workspaceId: Schema.String,
   ticketId: Schema.String,
   title: Schema.String,
   status: TicketStatus,
-  assignee: Schema.NullOr(Schema.String),
+  assignee: Schema.NullOr(Schema.String), // a technician's id: names a `Technician` (features/Roster)
+  priority: Schema.Int, // 0 low, 1 normal, 2 urgent
+  dueAt: Schema.NullOr(Schema.Number), // the SLA deadline; null when the ticket has none
+  customerId: Schema.NullOr(Schema.String), // names a `Customer` (features/Roster); a merge re-points it
+  commentCount: Schema.Int, // the server counts; a post predicts `+1` (comments.domain.ts)
   updatedAt: Schema.Number,
   revision: Schema.Number, // the server's version; orders writes, never repairs
 });
@@ -19,6 +27,16 @@ export const TicketRow = Schema.Struct({
 export type TicketRow = typeof TicketRow.Type;
 
 export type TicketKey = { workspaceId: string; ticketId: string };
+
+// A new ticket from the queue's composer. `draftId` stays on the device: it is the create's lane and the
+// view's key, never the server's id (rule 33).
+export type NewTicket = {
+  workspaceId: string;
+  draftId: string;
+  title: string;
+  priority: number;
+  dueAt: number | null;
+};
 
 // Absent filters mean "no constraint", on the server and in the domain's conditions.
 export type TicketListInput = {
@@ -102,6 +120,16 @@ export class TitleRejected extends Schema.TaggedError<TitleRejected>()("TitleRej
 // 409 on an assignment: someone else holds the ticket. Definite, and the queue refetches.
 export class AlreadyAssigned extends Schema.TaggedError<AlreadyAssigned>()("AlreadyAssigned", {
   assignee: Schema.String,
+}) {}
+
+// 403 on an archive: only an admin archives a ticket with open work. Definite: the record is restored.
+export class ArchiveRefused extends Schema.TaggedError<ArchiveRefused>()("ArchiveRefused", {
+  reason: Schema.String,
+}) {}
+
+// 422 on a create: the title is empty or the due date is in the past.
+export class TicketRejected extends Schema.TaggedError<TicketRejected>()("TicketRejected", {
+  reason: Schema.String,
 }) {}
 
 export class QueueUnavailable extends Schema.TaggedError<QueueUnavailable>()("QueueUnavailable", {
