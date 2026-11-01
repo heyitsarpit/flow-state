@@ -101,7 +101,13 @@ export const makeHarness = (port: Port) => (): Harness => {
   };
   const run = (s: Step) => {
     if ("ensure" in s) inst.ensure(actorKey(s.ensure), s.ensure.actor, s.input);
-    else if ("send" in s) inst.send(actorKey(s.send), { tag: s.event, payload: s.payload ?? {} });
+    else if ("send" in s)
+      inst.send(actorKey(s.send), {
+        tag: s.event,
+        payload: s.payload ?? {},
+        ...(s.to ? { to: s.to } : {}),
+      });
+    else if ("dispose" in s) inst.dispose(actorKey(s.dispose));
     else if ("answer" in s) fake.answer(s.answer, s.with, s.where);
     else if ("storage" in s) fake.storageStep(s.storage, s.match);
     else if ("disposeRuntime" in s) inst.disposeRuntime();
@@ -110,6 +116,7 @@ export const makeHarness = (port: Port) => (): Harness => {
   const reads: Harness["read"] = {
     state: (a) => inst.state(actorKey(a)),
     memory: (a) => inst.memory(actorKey(a)),
+    inner: (a, p) => inst.inner(actorKey(a), p),
     row: (a, op, key) => inst.row(actorKey(a), op, key ?? {}),
     record: (ref) => inst.record(ref),
     requests: () => fake.publicRequests(),
@@ -187,6 +194,7 @@ export const makeHarness = (port: Port) => (): Harness => {
         else if ("startThrows" in f) startThrows.add(f.startThrows);
         else if ("afterYield" in f) yieldPlan = f.afterYield;
         else if ("mutateServer" in f) fake.serverState = f.mutateServer(fake.serverState);
+        else if ("corruptStored" in f) fake.corrupt(f.corruptStored.match, f.corruptStored.edit);
         else if ("uninterruptibleHang" in f) fake.uninterruptible.add(f.uninterruptibleHang);
         else if ("syncAnswer" in f) fake.syncAnswers.set(f.syncAnswer[0], f.syncAnswer[1]);
         else if ("lateAnswer" in f) fake.lateAnswer(f.lateAnswer[0], f.lateAnswer[1]);

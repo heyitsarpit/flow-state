@@ -62,7 +62,8 @@ const drain = (h: Harness) => {
   }
 };
 
-// Independent of Flow's vocabulary: only money and what the shopper can read.
+// Independent of Flow's vocabulary: only money and what the shopper can read. D53: per authorization, and "told" reads every
+// frame, so what a person has seen counts.
 export const moneyAudit = (h: Harness): string[] => {
   const r = h.read;
   const t = r.truth();
@@ -71,14 +72,19 @@ export const moneyAudit = (h: Harness): string[] => {
   if (!m) return [];
   const out: string[] = [];
   const told = (s: string) => String(m.notice ?? "").includes(s);
-  for (const intent of t.ledger.placed) {
-    if (t.ledger.voided.includes(intent)) out.push(`placed-and-voided:${leaf}`);
-    if (!m.receipt) out.push(`order-no-receipt:${leaf}`);
+  const shown = new Set<string>();
+  for (const f of r.frames()) {
+    const rc = (f.view["Checkout/Pay/shopper-1"]?.memory as any)?.receipt;
+    if (rc?.orderId) shown.add(rc.orderId);
   }
-  for (const intent of t.ledger.charged) {
-    if (t.ledger.placed.includes(intent) || t.ledger.voided.includes(intent)) continue;
-    const mine = m.intentId === intent;
-    const row = r.row(A, "pay", { intentId: intent });
+  for (const a of t.ledger.auths) if (a.placed && a.voided) out.push(`placed-and-voided:${leaf}`);
+  for (const o of t.ledger.orders) if (!shown.has(o)) out.push(`order-no-receipt:${leaf}`);
+  const seen = new Set<string>();
+  for (const a of t.ledger.auths) {
+    if (a.placed || a.voided || seen.has(a.intent)) continue;
+    seen.add(a.intent);
+    const mine = m.intentId === a.intent;
+    const row = r.row(A, "pay", { intentId: a.intent });
     const accounted =
       (mine && (leaf === "UNSURE" || leaf === "PLACING" || leaf === "STUCK")) ||
       (mine && m.authorized === true) ||
@@ -88,23 +94,29 @@ export const moneyAudit = (h: Harness): string[] => {
       (row?.uncertain === true && mine && leaf === "LEFT");
     if (!accounted) out.push(`charged-unaccounted:${leaf}`);
   }
-  if (told("haven't been charged") && t.ledger.charged.includes(m.intentId))
+  if (
+    told("haven't been charged") &&
+    t.ledger.auths.some((a) => a.intent === m.intentId && !a.voided)
+  )
     out.push(`told-not-charged:${leaf}`);
-  if (t.charges > t.ledger.charged.length) out.push(`two-keys-charged-one-intent:${leaf}`);
+  const keysPerIntent = new Map<string, number>();
+  for (const a of t.ledger.auths)
+    keysPerIntent.set(a.intent, (keysPerIntent.get(a.intent) ?? 0) + 1);
+  if ([...keysPerIntent.values()].some((n) => n > 1)) out.push(`two-keys-one-intent:${leaf}`);
   const cur = r.row(A, "pay", { intentId: m.intentId });
   if (cur?.uncertain && leaf !== "UNSURE" && leaf !== "LEFT" && leaf !== "STUCK")
     out.push(`held-no-owner:${leaf}`);
   return out;
 };
 
-// Which pin explains which class. Prefix only: a coarse map, so a new bug in a pinned class hides (stated in RESULTS).
-export const PAY_PINS: Readonly<Record<string, string>> = {
-  "placed-and-voided": "P1",
-  "order-no-receipt": "P1,P2",
-  "charged-unaccounted": "P3",
-  "held-no-owner": "P4,P5",
-  "told-not-charged": "P6",
-  "two-keys-charged-one-intent": "P6",
+// D53: a pin is class, state and a script fragment. Each occurrence must match one, so a new bug in a pinned class fails.
+export type Pin = { cls: string; state?: string; via: RegExp; pin: string };
+export const PAY_PINS: readonly Pin[] = [];
+const pinned = (pins: readonly Pin[], cls: string, script: string) => {
+  const [c, state] = cls.split(":");
+  return pins.find(
+    (p) => p.cls === c && (p.state === undefined || p.state === state) && p.via.test(script),
+  );
 };
 
 export const searchPay = (
@@ -114,10 +126,11 @@ export const searchPay = (
     depth: number;
     maxStates: number;
     deadlineMs: number;
-    pins?: Readonly<Record<string, string>>;
+    pins?: readonly Pin[];
   },
 ): Report & { unpinned: readonly string[] } => {
   const pins = opts.pins ?? PAY_PINS;
+  const unpinnedAt = new Map<string, string>();
   const boot = () => {
     const h = make();
     h.start({ machines: fixtures, seed: 1 });
@@ -132,7 +145,8 @@ export const searchPay = (
     maxStates: opts.maxStates,
     deadlineMs: opts.deadlineMs,
     edge(pre, post) {
-      // S6: no new id for an intent while an earlier id for it is unresolved. Resolved means a definite ending or a release.
+      // S6, independent of endings (H5): no new id for an intent while the fake says an earlier id may be at the server,
+      // unless the machine released it. It does not read the ending it judges.
       const before = new Set(
         pre.read
           .requests()
@@ -140,20 +154,16 @@ export const searchPay = (
           .map((x) => x.idempotencyKey),
       );
       const pays = post.read.requests().filter((x) => x.op === "pay");
-      const lastChannel = new Map<unknown, unknown>();
-      for (const e of post.read.evidence("ending"))
-        if (e["op"] === "pay" && e["attempt"] !== undefined)
-          lastChannel.set(e["attempt"], e["channel"]);
       const released = new Set(post.read.evidence("Released").map((e) => e["attempt"]));
+      const mayHave = new Set(pre.read.outside().mayHave);
       for (const q of pays) {
         if (before.has(q.idempotencyKey)) continue;
         for (const old of pays) {
           if (old.idempotencyKey === q.idempotencyKey || old.input.intentId !== q.input.intentId)
             continue;
-          if (!before.has(old.idempotencyKey)) continue;
-          const c = lastChannel.get(old.idempotencyKey);
-          if (c === "success" || c === "failure" || released.has(old.idempotencyKey)) continue;
-          throw new Oracle(`S6: a new id beside unresolved ${old.idempotencyKey}`);
+          if (!before.has(old.idempotencyKey) || !mayHave.has(old.idempotencyKey!)) continue;
+          if (released.has(old.idempotencyKey)) continue;
+          throw new Oracle(`S6: a new id beside undecided ${old.idempotencyKey}`);
         }
       }
       // S7: no ack, no request.
@@ -173,14 +183,18 @@ export const searchPay = (
       checkClaims(h.read);
       checkEndings(h.read);
     },
-    drain(h, _s, report) {
+    drain(h, script, report) {
       drain(h);
       checkClaims(h.read);
       checkEndings(h.read);
-      for (const c of moneyAudit(h)) report(c);
+      for (const c of moneyAudit(h)) {
+        report(c);
+        const text = script.join(" ");
+        if (!pinned(pins, c, text) && !unpinnedAt.has(c)) unpinnedAt.set(c, text);
+      }
     },
   });
-  const unpinned = Object.keys(rep.classes).filter((c) => !pins[c.split(":")[0]!]);
+  const unpinned = [...unpinnedAt].map(([c, w]) => `${c} via ${w}`);
   return {
     ...rep,
     unpinned,

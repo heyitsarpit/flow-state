@@ -1,4 +1,4 @@
-// bun packages/flow-state-v3/prototypes/conformance/main.ts --round 2 --runtime ../round-2/adapter.ts
+// bun packages/flow-state-v3/prototypes/conformance/main.ts --round 3 --runtime ../round-3/adapter.ts
 //   [--no-search] [--lock]. Searches run separately: search/run.ts, under watch.ts.
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
@@ -8,6 +8,8 @@ import type { Harness, RuntimeModule } from "./harness.ts";
 import { catalog, printReports } from "./report.ts";
 import { checkClaims, checkEndings, Ctx, Mismatch, type Scenario } from "./scenarios/ctx.ts";
 import { flowScenarios } from "./scenarios/flows.scenario.ts";
+import { fragScenarios } from "./scenarios/frag.scenario.ts";
+import { reviewScenarios } from "./scenarios/review.scenario.ts";
 import { orderScenarios } from "./scenarios/order.scenario.ts";
 import { payScenarios } from "./scenarios/pay.scenario.ts";
 import { storeScenarios } from "./scenarios/store.scenario.ts";
@@ -18,6 +20,8 @@ export const allScenarios: readonly Scenario[] = [
   ...orderScenarios,
   ...storeScenarios,
   ...flowScenarios,
+  ...reviewScenarios,
+  ...fragScenarios,
 ];
 
 const here = import.meta.dir;
@@ -40,6 +44,8 @@ const SHARED = [
   "scenarios/order.scenario.ts",
   "scenarios/store.scenario.ts",
   "scenarios/flows.scenario.ts",
+  "scenarios/review.scenario.ts",
+  "scenarios/frag.scenario.ts",
   "fake-world.ts",
   "drive.ts",
   "fixtures/compiled.ts",
@@ -52,6 +58,9 @@ const SHARED = [
   "fixtures/refunds.compiled.ts",
   "fixtures/order.compiled.ts",
   "fixtures/drv.compiled.ts",
+  "fixtures/lab.compiled.ts",
+  "fixtures/pay-full.compiled.ts",
+  "fixtures/comments.compiled.ts",
 ];
 const lockLines = (): string[] => [
   ...allScenarios.map((s) => `${s.id} ${sha(bodyOf(s))}`),
@@ -80,6 +89,7 @@ export const runScenarios = (
       };
       const c = new Ctx(fresh(), s.actor);
       c.fresh = fresh;
+      c.make = make;
       c.namedIssues = [...(s.namedIssues ?? [])];
       const v = variant ? { variant } : {};
       try {
@@ -136,7 +146,7 @@ if (import.meta.main) {
     return i < 0 ? undefined : process.argv[i + 1];
   };
   const has = (k: string) => process.argv.includes(k);
-  const round = Number(arg("--round") ?? 2);
+  const round = Number(arg("--round") ?? 3);
   const runtime = resolve(here, arg("--runtime") ?? "./null-adapter.ts");
   const mod = (await import(runtime)) as RuntimeModule;
   console.log(`runtime: ${runtime}\nbun ${Bun.version}`);

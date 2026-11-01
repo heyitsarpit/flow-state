@@ -17,6 +17,10 @@ export type AltSpec = {
   guards?: ReadonlyArray<(g: any) => any>;
   patch?: (u: any) => object;
   members?: (path: string) => readonly Member[];
+  raises?: Alternative["raises"];
+  notify?: Alternative["notify"];
+  exit?: Alternative["exit"];
+  history?: true;
   followUps?: ReadonlyArray<(a: any) => { tag: string; payload: any }>;
 };
 export const fixtureOf = (D: string) => {
@@ -31,6 +35,10 @@ export const fixtureOf = (D: string) => {
         guards: (s.guards ?? []).map((g, j) => slot(`${path}.guard[${j}]`, g)),
         ...(s.patch ? { patch: slot(`${path}.updateMemory`, s.patch) } : {}),
         members: s.members ? s.members(path) : [],
+        ...(s.raises ? { raises: s.raises } : {}),
+        ...(s.notify ? { notify: s.notify } : {}),
+        ...(s.exit ? { exit: s.exit } : {}),
+        ...(s.history ? { history: s.history } : {}),
         ...(s.followUps
           ? { followUps: s.followUps.map((f, j) => slot(`${path}.followUp[${j}]`, f)) }
           : {}),
@@ -66,7 +74,7 @@ export const fixtureOf = (D: string) => {
     op: string,
     name: string,
     event: string,
-    f?: (v: any, c: any) => object,
+    f?: (v: any, c: any) => any,
   ): Mapped => ({
     event,
     ...(f ? { from: slot(`operations.${op}.${name}`, f) } : {}),

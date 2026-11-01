@@ -197,7 +197,7 @@ export const storeScenarios: readonly Scenario[] = [
     kind: "example",
     fixtures: F,
     actor: A,
-    cites: ["sec:2.7.14", "OD:20.F1"],
+    cites: ["sec:2.7.14", "OD:20.F1", "D55"],
     run(c) {
       // Stated limit: a released unknown may land after a newer write. Rule 32 clears the mark on the newer success.
       opened(c, B);
@@ -209,6 +209,8 @@ export const storeScenarios: readonly Scenario[] = [
       toggle(c, false, B);
       c.answer("like", { apply: true });
       c.eq("rule 32: a later success clears a released mark", c.rec(I1)?.uncertain, false);
+      c.eq("D55: which forces one repair", c.reqs("repair").length, 2);
+      c.answer("repair", { truth: true });
       c.fault({ landLate: "like" });
       c.eq("the world moved, unseen", server(c).i1.liked, true);
       c.eq("the screen is wrong: the stated limit", c.rec(I1)?.data.liked, false);

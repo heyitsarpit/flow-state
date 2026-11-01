@@ -63,6 +63,7 @@ type Held = Request & {
   never?: boolean;
   aborted?: boolean;
   lostOpen?: boolean; // the answer was lost and the server has not applied it: it may land late
+  landedUnseen?: boolean; // the server applied it; nobody heard
   tracked?: boolean;
   resume?: ((e: E) => void) | undefined;
   process: number;
@@ -89,6 +90,8 @@ export class FakeWorld {
   readonly voidedIntents = new Set<string>();
   readonly placedIntents = new Set<string>();
   readonly landed = new Map<string, { value?: unknown; fail?: any }>();
+  readonly auths: Array<{ key: string; intent: string; voided: boolean; placed: boolean }> = [];
+  readonly orders: string[] = [];
   serverState: any;
   uninterruptible = new Set<string>();
   syncAnswers = new Map<string, Answer>();
@@ -144,6 +147,9 @@ export class FakeWorld {
       },
     };
   }
+  corrupt(match: string, edit: (raw: string) => string) {
+    for (const [k, v] of this.kv) if (k.includes(match)) this.kv.set(k, edit(v));
+  }
   private landWrites(writes: readonly Write[]) {
     for (const w of writes) {
       if (w.value === undefined) this.kv.delete(w.key);
@@ -152,9 +158,15 @@ export class FakeWorld {
   }
 
   storageStep(how: "ack" | "refuse" | "hang" | "landNoAck", match?: string) {
+    // L8: per key FIFO. A write behind a hung one for its key cannot be answered.
+    const behindHung = (h: (typeof this.held)[number]) =>
+      this.held
+        .slice(0, this.held.indexOf(h))
+        .some((o) => o.hung && o.writes.some((x) => h.writes.some((w) => w.key === x.key)));
     const eligible = (h: (typeof this.held)[number]) =>
       !h.hung &&
       h.then !== undefined &&
+      !behindHung(h) &&
       (match === undefined || h.purpose === match || h.writes.some((w) => w.key.includes(match)));
     for (const h of this.held.filter(eligible)) {
       if (how === "hang") {
@@ -191,8 +203,16 @@ export class FakeWorld {
       }
     }
   }
-  heldStorage() {
-    return this.held.filter((h) => h.then !== undefined && !h.hung).length;
+  // What a `storage` step could answer now: the search asks this rather than guessing (L8).
+  answerable() {
+    return this.held.some(
+      (h) =>
+        h.then !== undefined &&
+        !h.hung &&
+        !this.held
+          .slice(0, this.held.indexOf(h))
+          .some((o) => o.hung && o.writes.some((x) => h.writes.some((w) => w.key === x.key))),
+    );
   }
 
   // ── Fake server
@@ -271,16 +291,23 @@ export class FakeWorld {
   private ledger(r: Held, v: unknown) {
     const intent = (r.input as any)?.intentId;
     if (r.op === "pay" && capturable(v)) {
+      if (!this.charged.has(r.idempotencyKey!))
+        this.auths.push({ key: r.idempotencyKey!, intent, voided: false, placed: false });
       this.charged.add(r.idempotencyKey!);
       this.chargedIntents.add(intent);
     }
     if (r.op === "place") {
       this.placedKeys.add(r.idempotencyKey!);
       this.placedIntents.add(intent);
+      const latest = this.auths.findLast((a) => a.intent === intent && !a.placed);
+      if (latest) latest.placed = true;
+      const id = (v as any)?.orderId;
+      if (id && !this.orders.includes(id)) this.orders.push(id);
     }
     if (r.op === "void") {
       this.voidedKeys.add(r.idempotencyKey!);
       this.voidedIntents.add(intent);
+      for (const a of this.auths) if (a.intent === intent) a.voided = true;
     }
   }
   private settle(r: Held, a: Answer): E {
@@ -297,13 +324,17 @@ export class FakeWorld {
       return Effect.fail({ _tag: "NoResponse" });
     }
     if ("lostButLanded" in a) {
+      r.landedUnseen = true;
       this.ledger(r, a.lostButLanded);
       return Effect.fail({ _tag: "NoResponse" });
     }
     if ("die" in a) return Effect.die(a.die);
     if ("apply" in a || "applyLost" in a) {
       const out = this.landOnServer(r);
-      if ("applyLost" in a) return Effect.fail({ _tag: "NoResponse" });
+      if ("applyLost" in a) {
+        r.landedUnseen = true;
+        return Effect.fail({ _tag: "NoResponse" });
+      }
       if (out.fail) return Effect.fail(out.fail);
       return Effect.succeed(out.value);
     }
@@ -369,6 +400,8 @@ export class FakeWorld {
         charged: [...this.chargedIntents],
         voided: [...this.voidedIntents],
         placed: [...this.placedIntents],
+        auths: this.auths.map((a) => ({ ...a })),
+        orders: [...this.orders],
       },
       server: this.serverState,
     };
@@ -382,6 +415,15 @@ export class FakeWorld {
       ...(idempotencyKey === undefined ? {} : { idempotencyKey }),
     }));
   }
+  // Undecided at the server: never answered (from any process), or its answer was lost. An oracle reads this, not an ending.
+  mayHave(): string[] {
+    const keys = this.requests
+      .filter(
+        (r) => r.idempotencyKey !== undefined && (!r.answered || r.lostOpen || r.landedUnseen),
+      )
+      .map((r) => r.idempotencyKey!);
+    return [...new Set(keys)];
+  }
   outside(): Omit<Outside, "live" | "injections"> {
     return {
       open: this.requests
@@ -389,8 +431,10 @@ export class FakeWorld {
         .map((r) => ({
           op: r.op,
           never: r.never === true,
+          input: r.input,
           ...(r.idempotencyKey === undefined ? {} : { key: r.idempotencyKey }),
         })),
+      mayHave: this.mayHave(),
       storage: this.held.map((h) => ({
         purpose: h.purpose,
         keys: h.writes.map((w) => w.key),
@@ -408,6 +452,9 @@ export class FakeWorld {
         .filter((r) => !r.answered && r.process === this.process)
         .map((r) => [r.op, r.idempotencyKey, r.input, r.never === true, r.aborted === true]),
       lost: this.requests.filter((r) => r.lostOpen).map((r) => [r.op, r.idempotencyKey, r.input]),
+      mayHave: this.mayHave().sort(),
+      auths: this.auths,
+      orders: this.orders,
       landed: [...this.landed.entries()].sort(([a], [b]) => (a < b ? -1 : 1)),
       charged: [...this.charged].sort(),
       acked: [...this.acked].sort(),

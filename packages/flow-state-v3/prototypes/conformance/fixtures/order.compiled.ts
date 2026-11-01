@@ -21,6 +21,16 @@ const nodes = {
         },
       ],
       Loop: [{ patch: seen, followUps: [({ event }) => ({ tag: "Loop", payload: event })] }],
+      Nest: [
+        {
+          patch: seen,
+          followUps: [
+            () => ({ tag: "Nest1", payload: { n: "n1" } }),
+            () => ({ tag: "Say", payload: { n: "n2" } }),
+          ],
+        },
+      ],
+      Nest1: [{ patch: seen, followUps: [() => ({ tag: "Say", payload: { n: "n11" } })] }],
       Boom: [
         {
           guards: [() => true],

@@ -1,3 +1,4 @@
+import { issuesThrowing } from "../fixtures/lab.compiled.ts";
 // Turn order, the bounds and the driver: ORDER-*, DRV-*. Expected results from D1, D2, D13/D35, D5, D6, D27, rule 27.
 import { drvFixture } from "../fixtures/drv.compiled.ts";
 import { issueRef, issuesFixture } from "../fixtures/issues.compiled.ts";
@@ -290,9 +291,9 @@ export const orderScenarios: readonly Scenario[] = [
   {
     id: "DRV-03",
     kind: "fault",
-    fixtures: [issuesFixture],
+    fixtures: [issuesFixture, ringFixture],
     actor: issueA,
-    cites: ["D27"],
+    cites: ["D46"],
     namedIssues: ["ModuleDefect"],
     variants: {
       "throw-at-settlement"(c) {
@@ -300,32 +301,61 @@ export const orderScenarios: readonly Scenario[] = [
         c.send("Load");
         c.answer("list", { truth: true });
         c.send("Toggle", { id: "i1", liked: true });
-        c.fault({ throwInModule: "settled" });
+        c.fault({ throwInModule: "ended" });
         c.answer("like", { apply: true });
         c.eq("issue", c.r.issues().at(-1)?.code, "ModuleDefect");
         c.eq("the lane resolved anyway", c.r.row(c.A, "like", { id: "i1" }), undefined);
         c.eq("ending delivered", c.r.evidence("delivered").at(-1)?.["event"], "Settled");
       },
-      "a-disabled-store-frees-its-queue"(c) {
+      // H3: fail closed. What joined it stays unsent; machines not using it go on.
+      "a-disabled-store-holds-its-queue"(c) {
         const B = { actor: "Issues/List", id: "b" };
+        const R = { actor: "Ring", id: "r" };
         c.ensure();
         c.ensure(B);
+        c.ensure(R);
         c.send("Toggle", { id: "i1", liked: true });
         c.to(B, "Toggle", { id: "i1", liked: false });
         c.eq("B waits", c.reqs("like").length, 1);
-        c.fault({ throwInModule: "settled" });
+        c.fault({ throwInModule: "ended" });
         c.answer("like", { apply: true });
-        c.eq("B goes: a disabled module blocks nothing", c.reqs("like").length, 2);
+        c.eq("B does not go: nobody can say it is its turn", c.reqs("like").length, 1);
+        c.eq("B's row says so", c.r.row(B, "like", { id: "i1" })?.stalled, "module");
+        c.to(R, "Work", { n: 1, who: "r" });
+        c.eq("a machine not using it goes on", c.reqs("job").length, 1);
       },
-      "a-disabled-store-blocks-nothing"(c) {
+      "a-disabled-store-declines-what-would-join"(c) {
         const B = { actor: "Issues/List", id: "b" };
         c.ensure();
         c.ensure(B);
         c.send("Toggle", { id: "i1", liked: true });
         c.fault({ throwInModule: "start" });
         c.to(B, "Toggle", { id: "i1", liked: false });
-        c.eq("sent: no queue is left to wait in", c.reqs("like").length, 2);
+        c.eq("not sent", c.reqs("like").length, 1);
         c.eq("issue", c.r.issues().at(-1)?.code, "ModuleDefect");
+        c.eq("declined, with an ending", c.lastEnding("like")?.reason, "ModuleDisabled");
+        c.eq("told", (c.r.memory(B) as any).toast, "Could not update");
+        c.to(B, "Toggle", { id: "i2", liked: true });
+        c.eq("and the next one too", c.reqs("like").length, 1);
+      },
+      // L6: a refused turn does not bring a disabled module back.
+      "disabled-survives-a-refused-turn"(c0) {
+        const c = new Ctx(c0.fresh([issuesThrowing]), issueA);
+        c.ensure();
+        c.fault({ throwInModule: "prepare" });
+        c.fault({ throwIn: "on.TwoBad[0].actions[1]" });
+        c.send("TwoBad", { id: "i1" });
+        c.eq(
+          "both named",
+          c.r
+            .issues()
+            .map((i) => i.code)
+            .sort(),
+          ["InvalidTurn", "ModuleDefect"],
+        );
+        c0.namedIssues = ["ModuleDefect", "InvalidTurn"];
+        c.send("Toggle", { id: "i1", liked: true });
+        c.eq("still disabled: declined", c.lastEnding("like")?.reason, "ModuleDisabled");
       },
     },
   },

@@ -12,8 +12,8 @@ export const checkClaims = (r: Reads) => {
   const out = r.outside();
   const mints = new Map<string, number>();
   for (const e of r.evidence("mint")) mints.set(e["attempt"], e["mint"]);
-  const claimed = new Set<string>();
-  for (const w of q.waits) if ("attempt" in w && w.attempt) claimed.add(w.attempt);
+  const claimed = new Map<string, string>();
+  for (const w of q.waits) if ("attempt" in w && w.attempt) claimed.set(w.attempt, w.kind);
   for (const w of q.waits) {
     switch (w.kind) {
       case "wire":
@@ -34,6 +34,7 @@ export const checkClaims = (r: Reads) => {
       case "queue":
       case "W":
         for (const b of w.behind) {
+          // A wait must chain to something real: the holder itself claims a wait, checked in its own turn here.
           if (!claimed.has(b))
             throw new Mismatch(`L3: ${w.op} waits behind ${b}, which waits on nothing`);
           const mine = mints.get(w.attempt);
@@ -45,8 +46,23 @@ export const checkClaims = (r: Reads) => {
         }
         break;
       case "repair":
-        if (!out.open.some((o) => o.op === "repair"))
-          throw new Mismatch(`L3: repair claim for ${w.ref} with no read outside`);
+        if (!out.open.some((o) => o.op === "repair" && o.input?.ref === w.ref))
+          throw new Mismatch(`L3: repair claim for ${w.ref} with no read of that record outside`);
+        break;
+      case "held": {
+        // M9: a hold names who owns it, and the suite can see the actor. Unbound must be true, and visible by evidence.
+        const at = w.actor.lastIndexOf("/");
+        const alive =
+          r.state({ actor: w.actor.slice(0, at), id: w.actor.slice(at + 1) }) !== undefined;
+        if (w.owner === "unbound" ? alive : !alive)
+          throw new Mismatch(
+            `L3: ${w.op} held by ${w.actor} claims ${w.owner}, actor alive: ${alive}`,
+          );
+        break;
+      }
+      case "disabled":
+        if (!r.issues().some((i) => i.code === "ModuleDefect" && i.origin?.startsWith(w.module)))
+          throw new Mismatch(`D46: ${w.op} claims a disabled ${w.module} with no ModuleDefect`);
         break;
       case "mail":
         throw new Mismatch(`L3: ${w.op} settled with nothing to admit it`);
@@ -77,9 +93,17 @@ export const checkEndings = (r: Reads) => {
         }
         if (!ended) owed.set(ko(e), (owed.get(ko(e)) ?? 0) + 1);
         break;
-      case "unparked": // saved by disposal, owed again by this boot
+      case "unparked": // saved by disposal, or by a path with no incarnation, and owed again
         owed.set(ko(e), (owed.get(ko(e)) ?? 0) + 1);
         break;
+      case "parked": // rule 53: owed to whoever comes
+      case "evidenceOnly": {
+        // rule 60, rule 44: nobody is owed it, by declaration
+        const n = owed.get(ko(e)) ?? 0;
+        if (n === 0) throw new Mismatch(`${e["kind"]} with no ending: ${ko(e)}`);
+        owed.set(ko(e), n - 1);
+        break;
+      }
       case "delivered": {
         const n = owed.get(ko(e)) ?? 0;
         if (n === 0) throw new Mismatch(`delivered with no ending: ${ko(e)}`);
@@ -119,6 +143,9 @@ export class Ctx {
   fresh: (machines?: readonly Fixture[], bounds?: Record<string, number>) => Harness = () => {
     throw new Error("no fresh");
   };
+  make: () => Harness = () => {
+    throw new Error("no make");
+  };
   constructor(
     readonly h: Harness,
     readonly A: ActorRef = { actor: "Checkout/Pay", id: "shopper-1" },
@@ -143,6 +170,11 @@ export class Ctx {
     this.do({ ensure: a, ...(input === undefined ? {} : { input }) });
   to = (a: ActorRef, event: string, payload: unknown = {}) => this.do({ send: a, event, payload });
   send = (event: string, payload: unknown = {}) => this.to(this.A, event, payload);
+  // An event for a fragment instance: E.summary.PayPressed, E.uploads.key("r1").Cancel.
+  into = (path: readonly string[], event: string, payload: unknown = {}, a: ActorRef = this.A) =>
+    this.do({ send: a, event, payload, to: path });
+  dispose = (a: ActorRef = this.A) => this.do({ dispose: a });
+  inner = (path: readonly string[], a: ActorRef = this.A) => this.r.inner(a, path);
   ack = (match?: string) => this.do({ storage: "ack", ...(match ? { match } : {}) });
   answer = (op: string, a: Answer, where?: Readonly<Record<string, unknown>>) =>
     this.do({ answer: op, with: a, ...(where ? { where } : {}) });

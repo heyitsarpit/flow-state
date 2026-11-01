@@ -36,11 +36,13 @@ export type Fault =
   | { throwInCore: true } // D27: the next step's core code throws. Reached through data: no seam in the core
   | { startThrows: RequestMatch } // DRV-02: building this op's commit throws
   | { afterYield: Step } // runs when the runtime has yielded its drain to the host: a gap between steps
-  | { mutateServer: (s: any) => any }; // the world changes with nobody asking: a price, another device
+  | { mutateServer: (s: any) => any } // the world changes with nobody asking: a price, another device
+  | { corruptStored: { readonly match: string; readonly edit: (raw: string) => string } }; // a record on disk changed: a bad write, a release
 
 export type Step =
   | { ensure: ActorRef; input?: unknown }
-  | { send: ActorRef; event: string; payload?: unknown }
+  | { send: ActorRef; event: string; payload?: unknown; to?: readonly string[] }
+  | { dispose: ActorRef } // the actor's life ends. Its lanes stay the Runtime's (OD19)
   | { advance: number }
   | { answer: RequestMatch; with: Answer; where?: Readonly<Record<string, unknown>> }
   | { reload: true }
@@ -54,6 +56,7 @@ export type Row = {
   waiting: boolean;
   retryCount: number;
   outstanding: number;
+  stalled?: "storage" | "record" | "module"; // D49. Absent when nothing is stalled
 };
 export type RecordRead = {
   data: any; // undefined when absent or predicted away
@@ -78,6 +81,9 @@ export type World0 = {
     charged: readonly string[]; // intents
     voided: readonly string[];
     placed: readonly string[];
+    // Per authorization (D53). `pay` capturable adds one under its key; `void` voids what is on that intent then; `place` consumes the latest.
+    auths: ReadonlyArray<{ key: string; intent: string; voided: boolean; placed: boolean }>;
+    orders: readonly string[]; // order ids placed
   };
   server: any;
 };
@@ -99,13 +105,23 @@ export type Wait =
   | { kind: "ack" | "capture"; op: string; attempt: string; key: string }
   | { kind: "queue" | "W"; op: string; attempt: string; mint: number; behind: readonly string[] }
   | { kind: "repair"; op: string; attempt: string; ref: string }
-  | { kind: "held"; op: string; attempt: string; mint: number; actor: string }
+  | {
+      kind: "held";
+      op: string;
+      attempt: string;
+      mint: number;
+      actor: string;
+      owner: "bound" | "unplaced" | "unbound";
+    }
   | { kind: "mail"; op: string; attempt: string }
   | { kind: "ready"; op: string; attempt: string } // eligible and not invoked: never true after settling
   | { kind: "timer"; key: string; at: number }
-  | { kind: "disposing"; op: string; attempt: string };
+  | { kind: "disposing"; op: string; attempt: string }
+  | { kind: "disabled"; op: string; attempt: string; module: string } // D46: a module holds it, having failed
+  | { kind: "parked"; op: string; attempt: string }; // rule 53: an ending waits for an incarnation of its path
 export type Outside = {
-  open: ReadonlyArray<{ op: string; key?: string; never: boolean }>;
+  open: ReadonlyArray<{ op: string; key?: string; never: boolean; input: any }>;
+  mayHave: readonly string[]; // keys the fake says may be at the server, undecided: open, or lost
   storage: ReadonlyArray<{ purpose: string; keys: readonly string[]; hung: boolean }>;
   timers: readonly number[];
   lost: number; // requests whose answer was lost and which may still land
@@ -116,6 +132,7 @@ export type Outside = {
 export type Reads = {
   state(a: ActorRef): string | undefined;
   memory(a: ActorRef): any;
+  inner(a: ActorRef, path: readonly string[]): { state: string; memory: any } | undefined; // a fragment instance, undefined while inactive (N3)
   row(a: ActorRef, op: string, key?: unknown): Row | undefined;
   record(ref: string): RecordRead | undefined;
   requests(): readonly Request[];
@@ -163,6 +180,7 @@ export type BootArgs = {
 export type Instance = {
   ensure(actor: string, machine: string, input: unknown): void;
   send(actor: string, event: Ev): void;
+  dispose(actor: string): void;
   disposeRuntime(): void;
   repeatLastCompletion(): void;
   pending(): boolean;
@@ -170,6 +188,7 @@ export type Instance = {
   logLength(): number;
   state(actor: string): string | undefined;
   memory(actor: string): unknown;
+  inner(actor: string, path: readonly string[]): { state: string; memory: any } | undefined;
   row(actor: string, op: string, key: unknown): Row | undefined;
   record(ref: string): RecordRead | undefined;
   waits(): readonly Wait[];

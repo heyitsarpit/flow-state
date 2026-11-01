@@ -357,21 +357,49 @@ export const payScenarios: readonly Scenario[] = [
     id: "PAY-11",
     kind: "fault",
     fixtures: FIXTURES,
-    cites: ["rule:12", "F3", "F6", "D27", "sec:2.5"],
+    cites: ["rule:12", "F3", "F6", "D46", "D50", "sec:2.5"],
     variants: {
+      // D50: a closure that throws once costs one issue, not the fact.
       guard(c) {
         onWire(c);
         c.fault({ throwIn: "states.PAYING.on.Confirmed[1].guard[0]", times: 1 });
         c.answer("pay", req_cap);
-        c.state("PAYING");
+        c.state("PLACING");
         c.eq("cell kept", row(c), undefined);
         const i = c.r.issues();
+        c.eq("one issue", i.length, 1);
         c.eq("issue", i[0]?.code, "InvalidTurn");
         c.eq("origin", i[0]?.origin, "Checkout/Pay states.PAYING.on.Confirmed[1].guard[0]");
         c.eq("input", i[0]?.input, { k: "mail", event: "Confirmed" });
         c.namedIssues = ["InvalidTurn"];
+      },
+      // A closure that always throws: redelivered once, then final. No loop.
+      "guard-twice"(c) {
+        onWire(c);
+        c.fault({ throwIn: "states.PAYING.on.Confirmed[1].guard[0]", times: 2 });
+        c.answer("pay", req_cap);
+        c.state("PAYING");
+        c.eq("cell kept", row(c), undefined);
+        const i = c.r.issues();
+        c.eq("two issues", i.length, 2);
+        c.eq("second says it was the redelivery", i[1]?.input, {
+          k: "mail",
+          event: "Confirmed",
+          redelivered: true,
+        });
+        c.namedIssues = ["InvalidTurn"];
         c.send("Leave");
         c.state("LEFT");
+      },
+      // M5: the unknown's handler throws once: the fact and the hold's owner survive.
+      "unknown-handler-throws-once"(c) {
+        onWire(c);
+        c.fault({ throwIn: "states.PAYING.on.PayUnsure[0].updateMemory", times: 1 });
+        c.answer("pay", { lostButLanded: { status: "requires_capture", clientSecret: "" } });
+        c.state("UNSURE");
+        c.advance(3000);
+        c.eq("the owner polls", c.reqs("intent").length, 1);
+        c.namedIssues = ["InvalidTurn"];
       },
       // A refused turn keeps none of its own members (2.5 step 5). The throw comes after the members applied.
       "refused-after-members"(c) {
@@ -385,10 +413,12 @@ export const payScenarios: readonly Scenario[] = [
         d.eq("no row", d.r.row(R, "job", { n: 1 }), undefined);
         d.eq("no memory", d.mem().log, []);
       },
-      // D27: a hook's throw disables that module with an issue; the core's own work stands.
+      // D46: a hook's throw disables that module with an issue; the core's own work stands. Pay does not use this module.
       module(c) {
         onWire(c);
-        c.fault({ throwInModule: "commit" });
+        c.fault({ throwInModule: "ended" });
+        c.answer("pay", { lost: true });
+        c.state("UNSURE");
         c.send("Leave");
         c.state("LEFT");
         c.eq("issue", c.r.issues().at(-1)?.code, "ModuleDefect");
@@ -886,11 +916,11 @@ export const payScenarios: readonly Scenario[] = [
     id: "PAY-17",
     kind: "fault",
     fixtures: FIXTURES,
-    cites: ["D27", "L5"],
+    cites: ["D46", "L5"],
     variants: {
       "hook-throws-on-sent"(c) {
         onWire(c);
-        c.fault({ throwInModule: "commit" });
+        c.fault({ throwInModule: "ended" });
         c.answer("pay", req_cap);
         c.state("PLACING");
         c.eq("issue", c.r.issues().at(-1)?.code, "ModuleDefect");
@@ -898,28 +928,30 @@ export const payScenarios: readonly Scenario[] = [
       },
       "hook-throws-on-timer"(c) {
         onWire(c);
-        c.answer("pay", { lost: true });
-        c.fault({ throwInModule: "commit" });
+        c.answer("pay", { never: true });
+        c.fault({ throwInModule: "ended" });
+        c.advance(60_000); // the op's timeout timer settles the Attempt, and `ended` throws in that step
+        c.state("UNSURE");
         c.advance(3000);
         c.eq("reconcile asked", c.reqs("intent").length, 1);
-        c.advance(3000);
-        c.eq("and keeps asking", c.reqs("intent").length, 2);
         c.namedIssues = ["ModuleDefect"];
       },
       "hook-throws-on-acked"(c) {
         c.ensure();
         start(c);
         pay(c);
-        c.fault({ throwInModule: "commit" });
+        c.fault({ throwInModule: "blocks" });
         c.ack();
         c.eq("sent", c.reqs("pay").length, 1);
         c.namedIssues = ["ModuleDefect"];
       },
       "hook-throws-on-turn"(c) {
-        onWire(c);
-        c.fault({ throwInModule: "commit" });
-        c.answer("pay", { lost: true });
-        c.state("UNSURE");
+        c.ensure();
+        start(c);
+        c.fault({ throwInModule: "prepare" });
+        pay(c);
+        c.state("PAYING");
+        c.eq("the commit's cell stands", row(c)?.pending, true);
         c.namedIssues = ["ModuleDefect"];
       },
       "core-throw-is-fatal"(c) {

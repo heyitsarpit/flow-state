@@ -5,6 +5,7 @@ import { payFixture } from "./fixtures/pay.compiled.ts";
 import { s1Fixture } from "./fixtures/s1.compiled.ts";
 import type { RuntimeModule } from "./harness.ts";
 import { runScenarios } from "./main.ts";
+import { searchCross } from "./search/cross.search.ts";
 import { searchLike } from "./search/like.search.ts";
 import { searchPay } from "./search/pay.search.ts";
 
@@ -19,6 +20,7 @@ if (killers.length === 0) {
   const o = { depth: 6, maxStates: 3000, deadlineMs: 25_000 };
   const a = searchPay(make, [payFixture], o);
   const b = a.verdict === "failed" ? a : searchLike(make, [s1Fixture], o);
-  search = b.verdict;
+  const d = b.verdict === "failed" ? b : searchCross(make, o);
+  search = d.verdict;
 }
 console.log(JSON.stringify({ killers, search }));

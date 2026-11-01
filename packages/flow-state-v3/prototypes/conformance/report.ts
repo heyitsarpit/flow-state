@@ -39,7 +39,7 @@ export const catalog = (): Row[] => {
 
 export const changed = (): Map<string, string[]> => {
   const m = new Map<string, string[]>();
-  for (const f of ["convergence-1.md", "convergence-2.md"]) {
+  for (const f of ["convergence-1.md", "convergence-2.md", "convergence-3.md"]) {
     const text = readFileSync(join(proto, f), "utf8");
     const block = /```decisions-changed\n([\s\S]*?)```/.exec(text)![1]!;
     for (const l of block.trim().split("\n")) {
@@ -109,12 +109,14 @@ const allIds = (): string[] => {
     const n = /^\s*\*?\*?(N[123])\b/.exec(l);
     if (n) rules.add(n[1]!);
   }
-  const ds = Array.from({ length: 44 }, (_, i) => `D${i + 1}`);
+  const ds = Array.from({ length: 56 }, (_, i) => `D${i + 1}`);
   const ts = Array.from({ length: 9 }, (_, i) => `T${i + 1}`);
   return [...rules, ...laneCells(), ...ts, ...ds];
 };
 
 const ROUND_ROWS = [
+  "rebind",
+  "dispose",
   "commit",
   "retry",
   "cancel",
@@ -152,6 +154,21 @@ const ROUND_DS = [
   "D41",
   "D42",
   "D43",
+  "D15",
+  "D21",
+  "D22",
+  "D45",
+  "D46",
+  "D47",
+  "D48",
+  "D49",
+  "D50",
+  "D51",
+  "D52",
+  "D53",
+  "D54",
+  "D55",
+  "D56",
 ];
 const inRound = (id: string) => {
   const m = /^cell:lane\.(\w+)\./.exec(id);
@@ -221,7 +238,7 @@ export const printReports = (
   ];
   const near = checkable.filter((x) => !good.has(x));
   console.log(
-    `\nCITATIONS (D33)  ${good.size}/${checkable.length} proven by a killing mutant${results.length ? "" : " (no mutants file: run mutate.ts)"}`,
+    `\nCITATIONS (D33, D56)  ${good.size}/${checkable.length} covered by at least one killing mutant, which is not proof${results.length ? "" : " (no mutants file: run mutate.ts)"}`,
   );
   console.log(`  near, stays UNTESTED (${near.length}): ${near.sort().join(" ")}`);
   const bad = badSections([...new Set(citedIds)]);

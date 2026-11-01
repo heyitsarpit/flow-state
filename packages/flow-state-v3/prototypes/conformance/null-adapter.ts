@@ -4,6 +4,7 @@ import type { Instance, Port } from "./harness.ts";
 const nothing: Instance = {
   ensure() {},
   send() {},
+  dispose() {},
   disposeRuntime() {},
   repeatLastCompletion() {},
   pending: () => false,
@@ -11,6 +12,7 @@ const nothing: Instance = {
   logLength: () => 0,
   state: () => undefined,
   memory: () => undefined,
+  inner: () => undefined,
   row: () => undefined,
   record: () => undefined,
   waits: () => [],

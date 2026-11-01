@@ -1,0 +1,934 @@
+// Fragments: rules 1, 6, 9, 44, 48-60, 2.5, 2.9.2, 2.9.3. Flows are from pay.story.ts, comments.story.ts and upload.trait.ts,
+// on compiled data flattened as each fixture says. Worked out by hand from the rule each case names.
+import { commentRef, editorFixture, queueFixture } from "../fixtures/comments.compiled.ts";
+import { issueRef, issuesFixture } from "../fixtures/issues.compiled.ts";
+import {
+  feedFixture,
+  formFixture,
+  issuesDenySettled,
+  issuesDoubleCancel,
+  issuesLocal,
+  notesFixture,
+} from "../fixtures/lab.compiled.ts";
+import { LENGTH_MS, payFullFixture } from "../fixtures/pay-full.compiled.ts";
+import { payFixture } from "../fixtures/pay.compiled.ts";
+import { searchFrag } from "../search/frag.search.ts";
+import type { Scenario } from "./ctx.ts";
+import { Ctx } from "./ctx.ts";
+
+const F = { actor: "Form", id: "a" };
+const N = { actor: "Notes", id: "a" };
+const P = { actor: "Checkout/Pay", id: "shopper-1" };
+const L = { actor: "Issues/List", id: "a" };
+const B = { actor: "Issues/List", id: "b" };
+const K = { id: "i1" };
+const I1 = issueRef("i1");
+const CAP = { status: "requires_capture", clientSecret: "" };
+const ACT = { status: "requires_action", clientSecret: "sec" };
+const CART = { cartId: "c1", intentId: "pi1" };
+const O = ["CHALLENGE"];
+
+const inner = (c: Ctx, path: readonly string[]) => c.r.inner(c.A, path);
+const docs = (...d: string[]) => ({ docs: d });
+const toPayCard = (c: Ctx) => {
+  c.ensure();
+  c.send("Start", CART);
+  c.ack(); // the quote's write-ahead
+  c.answer("shipping", { ok: { slotId: "s1" } });
+  c.state("CARD");
+};
+const toPaying = (c: Ctx) => {
+  toPayCard(c);
+  c.into(["summary"], "PayPressed", { paymentMethodId: "visa" });
+  c.state("PAYING");
+  c.ack();
+};
+const toChallenge = (c: Ctx) => {
+  toPaying(c);
+  c.answer("pay", { ok: ACT });
+  c.state("CHALLENGE");
+  c.ack(); // authenticate's write-ahead
+};
+const edit = (c: Ctx, d: string, body: string) => c.into([`docs:${d}`], "Edited", { body });
+const saved = (c: Ctx, d: string) => c.inner([`docs:${d}`])?.memory;
+const started = (c: Ctx, ...files: string[]) => {
+  c.ensure();
+  c.send("SetFiles", { files });
+  c.advance(0); // Upload's 0 ms start schedule
+};
+
+export const fragScenarios: readonly Scenario[] = [
+  {
+    id: "FRAG-01",
+    kind: "example",
+    fixtures: [formFixture],
+    actor: F,
+    cites: ["rule:1", "rule:9"],
+    variants: {
+      "removed-copy-ends-once"(c) {
+        c.ensure();
+        c.send("SetIds", { ids: ["a", "b"] });
+        c.eq(
+          "two copies, seeded",
+          [inner(c, ["rows:a"])?.memory.value, inner(c, ["rows:b"])?.memory.value],
+          ["seed a", "seed b"],
+        );
+        c.send("SetIds", { ids: ["b"] });
+        c.eq("gone", inner(c, ["rows:a"]), undefined);
+        c.eq("whenAbandoned once", c.mem().goneRows, ["a"]);
+        c.send("SetIds", { ids: ["b"] });
+        c.eq("not again", c.mem().goneRows, ["a"]);
+      },
+      "repair-never-refuses"(c) {
+        c.ensure();
+        c.send("SetIds", { ids: ["a", "a", "b", "c"] });
+        c.eq(
+          "duplicate keeps first, past max dropped",
+          [
+            inner(c, ["rows:a"]) !== undefined,
+            inner(c, ["rows:b"]) !== undefined,
+            inner(c, ["rows:c"]),
+          ],
+          [true, true, undefined],
+        );
+        c.eq("evidence", c.r.evidence("listRepair").length, 2);
+      },
+      "readd-is-a-new-incarnation"(c) {
+        c.ensure();
+        c.send("SetIds", { ids: ["a"] });
+        c.into(["rows:a"], "Changed", { value: "typed" });
+        c.send("SetIds", { ids: [] });
+        c.send("SetIds", { ids: ["a"] });
+        c.eq("fresh memory", inner(c, ["rows:a"])?.memory.value, "seed a");
+      },
+      "removal-and-readd-in-one-patch-changes-nothing"(c) {
+        c.ensure();
+        c.send("SetIds", { ids: ["a"] });
+        c.into(["rows:a"], "Changed", { value: "typed" });
+        c.send("SetIds", { ids: ["a"] });
+        c.eq("same incarnation", inner(c, ["rows:a"])?.memory.value, "typed");
+        c.eq("no abandon", c.mem().goneRows, []);
+      },
+      "a-keystroke-for-a-removed-row-is-unhandled"(c) {
+        c.ensure();
+        c.into(["rows:zz"], "Changed", { value: "x" });
+        c.eq("unhandled", c.r.evidence("Unhandled").length, 1);
+      },
+      "raise-into-a-key-added-this-turn"(c) {
+        c.ensure();
+        c.send("AddAndRaise", { key: "n" });
+        c.eq("raise reached the new copy", inner(c, ["rows:n"])?.memory.value, "raised");
+      },
+    },
+  },
+  {
+    id: "FRAG-02",
+    kind: "example",
+    fixtures: [formFixture],
+    actor: F,
+    cites: ["rule:1", "F3.2", "D11", "sec:2.5"],
+    variants: {
+      "reset-on-a-source-patch"(c) {
+        c.ensure();
+        c.into(["check"], "Changed", { value: "typed" });
+        c.send("SetSubject", { subject: "s2" });
+        c.eq("new incarnation, input on before-walk", inner(c, ["check"])?.memory, {
+          value: "s2",
+          touched: false,
+        });
+        c.eq("whenAbandoned read the old memory", c.mem().gone, ["typed"]);
+      },
+      "a-raise-in-the-resetting-turn-reaches-the-fresh-one"(c) {
+        c.ensure();
+        c.send("SetAndRaise", { subject: "s2" });
+        c.eq("fresh and raised into", inner(c, ["check"])?.memory, {
+          value: "into fresh",
+          touched: true,
+        });
+      },
+      "a-part-writing-the-key-is-a-pending-reset"(c) {
+        c.ensure();
+        const before = c.r.frames().length;
+        c.into(["check"], "Changed", { value: "subject:s9" });
+        const after = c.r.frames().slice(before);
+        c.eq(
+          "first publication: new subject, old incarnation",
+          (after[0]?.view[`Form/a`]?.memory as any).check.value,
+          "subject:s9",
+        );
+        c.eq("then the follow-up", (after.at(-1)?.view[`Form/a`]?.memory as any).check.value, "s9");
+        c.eq("exactly one snapshot of lag", after.length, 2);
+      },
+      "a-throwing-reseton-refuses"(c) {
+        c.ensure();
+        c.fault({ throwIn: "traits.check.resetOn" });
+        c.send("SetSubject", { subject: "s2" });
+        c.eq("refused", c.r.issues().at(-1)?.code, "InvalidTurn");
+        c.eq("no patch", c.mem().subject, "s1");
+        c.namedIssues = ["InvalidTurn"];
+      },
+    },
+  },
+  {
+    id: "FRAG-03",
+    kind: "fault",
+    fixtures: [formFixture],
+    actor: F,
+    cites: ["D35", "rule:1"],
+    namedIssues: ["InvalidTurn"],
+    run(c) {
+      c.ensure();
+      c.send("Spin");
+      const i = c.r.issues().at(-1);
+      c.eq("stopped at the bound", (i?.input as any)?.chain, "FollowUpBound");
+      c.eq("origin", String(i?.origin).includes("Osc") || String(i?.origin).includes("osc"), true);
+      c.yes("bounded", c.mem().resets <= 70 && c.mem().resets >= 60);
+      c.send("Go");
+      c.state("DONE");
+    },
+  },
+  {
+    id: "FRAG-04",
+    kind: "example",
+    fixtures: [notesFixture],
+    actor: N,
+    cites: ["rule:53", "rule:54", "sec:2.9.3"],
+    variants: {
+      "parked-then-adopted-keeps-the-text"(c) {
+        c.ensure();
+        c.send("SetDocs", docs("d1"));
+        edit(c, "d1", "mine");
+        c.ack();
+        c.send("SetDocs", docs());
+        c.eq("the write runs on", c.reqs("save").length, 1);
+        c.eq("row still there", c.r.row(N, "save", { docId: "d1" })?.pending, true);
+        c.answer("save", { fail: { tag: "Conflict" } });
+        c.eq("lane cell applied, ending parked", c.r.evidence("parked").length, 1);
+        c.eq(
+          "listed as a wait",
+          c.r.quiet().waits.some((w) => w.kind === "parked"),
+          true,
+        );
+        c.send("SetDocs", docs("d1"));
+        c.eq("delivered to the new copy", saved(c, "d1")?.status, "conflict");
+        c.eq("rule 55: from the event", saved(c, "d1")?.mine, "mine");
+        c.eq(
+          "lane gone",
+          c.r.quiet().waits.some((w) => w.kind === "parked"),
+          false,
+        );
+      },
+      "an-inflight-ending-reaches-a-new-copy-when-it-lands"(c) {
+        c.ensure();
+        c.send("SetDocs", docs("d1"));
+        edit(c, "d1", "mine");
+        c.ack();
+        c.send("SetDocs", docs());
+        c.send("SetDocs", docs("d1"));
+        c.eq("nothing yet", saved(c, "d1")?.status, "clean");
+        c.answer("save", { apply: true });
+        c.eq("adopted, current", saved(c, "d1")?.status, "clean");
+        c.eq("its Saved ran", saved(c, "d1")?.saved, "d1");
+      },
+      "a-held-lane-delivers-restored-to-the-new-copy-once"(c) {
+        c.ensure();
+        c.send("SetDocs", docs("d1"));
+        edit(c, "d1", "mine");
+        c.ack();
+        c.answer("save", { lost: true });
+        c.send("SetDocs", docs());
+        c.send("SetDocs", docs("d1"));
+        c.eq("unknown Restored", saved(c, "d1")?.reason, "Restored");
+        c.eq("once", c.endings("save").filter((e) => e["reason"] === "Restored").length, 1);
+        c.into(["docs:d1"], "Resend");
+        c.ack();
+        c.eq("same id", c.keys("save").length, 1);
+      },
+    },
+  },
+  {
+    id: "FRAG-05",
+    kind: "example",
+    fixtures: [notesFixture],
+    actor: N,
+    cites: ["rule:54", "rule:44", "sec:2.7.13"],
+    run(c) {
+      // Rule 54: parked endings in saved order, then a held head's unknown { Restored }. Both before a later event.
+      c.ensure();
+      c.send("SetDocs", docs("d1"));
+      c.into(["docs:d1"], "Shared");
+      c.ack();
+      c.answer("shared", { lost: true });
+      edit(c, "d1", "mine");
+      c.ack();
+      c.send("SetDocs", docs());
+      c.answer("save", { apply: true });
+      const mark = c.r.evidence("delivered").length;
+      c.send("SetDocs", docs("d1"));
+      c.eq(
+        "order",
+        c.r
+          .evidence("delivered")
+          .slice(mark)
+          .map((e) => e["op"]),
+        ["save", "shared"],
+      );
+    },
+  },
+  {
+    id: "FRAG-06",
+    kind: "example",
+    fixtures: [notesFixture],
+    actor: N,
+    cites: ["rule:60", "sec:2.9.3", "D48"],
+    variants: {
+      "wire-is-interrupted-and-nothing-delivered"(c) {
+        started(c, "r1");
+        c.ack();
+        c.eq("sent", c.reqs("put").length, 1);
+        c.send("SetFiles", { files: [] });
+        c.eq("lane gone", c.r.row(N, "put", { ref: "r1" }), undefined);
+        c.eq("not delivered", c.r.evidence("delivered").filter((e) => e["op"] === "put").length, 0);
+        c.eq("released", c.r.evidence("Released").length, 1);
+      },
+      "waiting-never-sent-waits-for-its-ack"(c) {
+        started(c, "r1");
+        c.send("SetFiles", { files: [] });
+        c.eq("row pending until the disk answers", c.r.row(N, "put", { ref: "r1" })?.pending, true);
+        c.ack();
+        c.eq("ended", c.r.row(N, "put", { ref: "r1" }), undefined);
+        c.eq(
+          "evidence, no delivery",
+          [c.reqs("put").length, c.r.evidence("delivered").filter((e) => e["op"] === "put").length],
+          [0, 0],
+        );
+      },
+      "held-is-released-now"(c) {
+        started(c, "r1");
+        c.ack();
+        c.answer("put", { lost: true });
+        c.send("SetFiles", { files: [] });
+        c.eq("gone", c.r.row(N, "put", { ref: "r1" }), undefined);
+        c.eq("released", c.r.evidence("Released").length, 1);
+      },
+      "reload-of-a-releasing-lane-delivers-nothing"(c) {
+        started(c, "r1");
+        c.fault({ uninterruptibleHang: "put" });
+        c.ack();
+        c.send("SetFiles", { files: [] });
+        c.eq("still on the wire, marked", c.r.row(N, "put", { ref: "r1" })?.pending, true);
+        c.reload();
+        c.eq("no row", c.r.row(N, "put", { ref: "r1" }), undefined);
+        c.eq("no delivery", c.r.evidence("delivered").filter((e) => e["op"] === "put").length, 0);
+        c.eq(
+          "no record",
+          [...c.r.stored().keys()].some((k) => k.startsWith("lane/")),
+          false,
+        );
+      },
+      "readd-before-idle-clears-the-mark-and-adopts"(c) {
+        started(c, "r1");
+        c.fault({ uninterruptibleHang: "put" });
+        c.ack();
+        c.send("SetFiles", { files: [] });
+        c.send("SetFiles", { files: ["r1"] });
+        c.advance(0);
+        c.eq("one request: the idle guard held", c.reqs("put").length, 1);
+        c.do({ fault: { lateAnswer: ["put", { ok: {} }] } });
+        c.eq("adopted: the host hears", c.mem().stored, ["r1"]);
+      },
+    },
+  },
+  {
+    id: "FRAG-07",
+    kind: "example",
+    fixtures: [notesFixture],
+    actor: N,
+    cites: ["rule:51", "rule:16"],
+    variants: {
+      "another-paths-members-are-declined"(c) {
+        c.ensure();
+        c.send("SetDocs", docs("d1", "d2"));
+        c.into(["docs:d1"], "Shared");
+        c.ack();
+        c.into(["docs:d2"], "Shared");
+        c.eq("commit: NotSent Rejected to the asker", saved(c, "d2")?.shared, "Rejected");
+        c.eq("first untouched", saved(c, "d1")?.shared, null);
+        c.eq("one request", c.reqs("shared").length, 1);
+        c.answer("shared", { lost: true });
+        c.eq("d1 hears", saved(c, "d1")?.status, "unsure");
+        c.into(["docs:d2"], "RetryShared");
+        c.eq("retryable denies, the fallback ran", saved(c, "d2")?.shared, "retry-denied");
+        c.into(["docs:d2"], "CancelShared");
+        c.eq("cancel does nothing", c.r.row(N, "shared", {})?.uncertain, true);
+        c.into(["docs:d2"], "IdleShared");
+        c.eq("idle denies by the lane's state", saved(c, "d2")?.shared, "busy");
+      },
+    },
+  },
+  {
+    id: "FRAG-08",
+    kind: "example",
+    fixtures: [issuesFixture],
+    actor: L,
+    cites: ["rule:44", "OD:21", "OD:22", "cell:lane.rebind.Held"],
+    variants: {
+      "persisted-disposed-ending-parked-delivered-once"(c0) {
+        const c = new Ctx(c0.fresh([payFixture]), P);
+        c.ensure();
+        c.send("Start", CART);
+        c.send("PayRequested", { paymentMethodId: "visa" });
+        c.ack();
+        c.dispose();
+        c.eq("actor gone", c.r.state(P), undefined);
+        c.answer("pay", { ok: CAP });
+        c.eq("lane cell applied", c.r.row(P, "pay", { intentId: "pi1" }), undefined);
+        c.ensure();
+        c.state("PLACING");
+        c.eq("once", c.r.evidence("delivered").filter((e) => e["op"] === "pay").length, 1);
+        c.eq("memory came back", c.mem().intentId, "pi1");
+      },
+      "rebind-delivers-a-hold-once"(c) {
+        c.ensure(L);
+        c.to(L, "Toggle", { id: "i1", liked: true });
+        c.answer("like", { lost: true });
+        c.answer("repair", { truth: true });
+        c.dispose();
+        c.eq(
+          "listed unbound",
+          c.r.quiet().waits.some((w) => w.kind === "held" && w.owner === "unbound"),
+          true,
+        );
+        c.ensure(L);
+        c.eq(
+          "once, Restored",
+          c.endings("like").filter((e) => e["reason"] === "Restored").length,
+          1,
+        );
+        c.eq("fresh memory", c.mem().toast, null);
+        c.to(L, "ReconcileLike", K);
+        c.eq("the new incarnation owns it", c.keys("like").length, 1);
+      },
+      "non-persisted-with-no-return-is-evidence"(c) {
+        c.ensure(L);
+        c.to(L, "Toggle", { id: "i1", liked: true });
+        c.dispose();
+        c.answer("like", { apply: true });
+        c.eq("applied", c.r.row(L, "like", K), undefined);
+        c.eq("store confirmed", c.r.record(I1)?.predicted ?? false, false);
+      },
+    },
+  },
+  {
+    id: "FRAG-09",
+    kind: "example",
+    fixtures: [payFullFixture],
+    actor: P,
+    cites: ["rule:44", "rule:14", "rule:18", "rule:24"],
+    variants: {
+      // pay.story.ts: reloadWhileConfirming
+      reloadWhileConfirming(c) {
+        toPaying(c);
+        c.reload();
+        c.state("UNSURE");
+        c.eq("restored", c.lastEnding("pay")?.reason, "Restored");
+        c.eq("the summary came back", inner(c, ["summary"])?.memory.shipping, { slotId: "s1" });
+        c.do({ fault: { lateAnswer: ["pay", { ok: CAP }] } });
+        c.advance(3000);
+        c.answer("order", { truth: true });
+        c.answer("intent", { truth: true });
+        c.state("PLACING");
+        c.ack();
+        c.answer("place", { ok: { orderId: "o1" } });
+        c.state("PAID");
+        c.eq("one charge", c.r.truth().charges, 1);
+      },
+      // pay.story.ts: webhookWins
+      webhookWins(c) {
+        toPaying(c);
+        c.answer("pay", { lostButLanded: CAP });
+        c.state("UNSURE");
+        c.advance(3000);
+        c.answer("order", { ok: { orderId: "o1" } });
+        c.state("PAID");
+        c.eq("receipt says so", c.mem().receipt, {
+          orderId: "o1",
+          afterUnsure: true,
+          alreadyPlaced: true,
+        });
+        c.eq("hold released", c.r.row(P, "pay", { intentId: "pi1" }), undefined);
+      },
+      // pay.story.ts: voidLostRace
+      voidLostRace(c) {
+        toPaying(c);
+        c.send("Leave");
+        c.answer("pay", { ok: CAP });
+        c.ack();
+        c.answer("void", { lost: true });
+        c.ack();
+        c.eq("re-sent once by the machine", c.reqs("void").length, 2);
+        c.eq("same id", c.keys("void").length, 1);
+        c.answer("void", { fail: { tag: "AlreadyCaptured", chargeId: "ch" } });
+        c.eq("StillUnknown, never VoidRefused", c.lastEnding("void")?.reason, "StillUnknown");
+      },
+      // pay.story.ts: buyAgain, rule 56's idle guard on the reset
+      buyAgain(c) {
+        c.ensure();
+        c.send("Start", CART);
+        c.ack();
+        c.send("Leave");
+        c.send("Start", { cartId: "c2", intentId: "pi2" });
+        c.state("LEFT");
+        c.answer("shipping", { ok: { slotId: "s1" } });
+        c.send("Start", { cartId: "c2", intentId: "pi2" });
+        c.state("CARD");
+        c.eq("fresh for the new cart, quote on its way", inner(c, ["summary"])?.memory, {
+          cartId: "c2",
+          shipping: null,
+          problem: null,
+        });
+        c.ack();
+        c.answer("shipping", { ok: { slotId: "s2" } });
+        c.eq("quote landed in the fresh one", inner(c, ["summary"])?.memory.shipping, {
+          slotId: "s2",
+        });
+      },
+      "summary-guard-port-and-denial"(c) {
+        c.ensure();
+        c.send("Start", CART);
+        c.ack();
+        c.into(["summary"], "PayPressed", { paymentMethodId: "visa" });
+        c.state("CARD");
+        c.eq("denied NoDelivery", c.r.evidence("Denied").at(-1)?.["reasons"], ["NoDelivery"]);
+      },
+      "host-guard-port-refuses-for-the-host"(c) {
+        toPayCard(c);
+        c.send("CartLoaded", { totalCents: 90_000 });
+        c.into(["summary"], "PayPressed", { paymentMethodId: "visa" });
+        c.state("CARD");
+        c.eq("denied GuestLimit", c.r.evidence("Denied").at(-1)?.["reasons"], ["GuestLimit"]);
+      },
+      "a-double-click-is-rejected-in-a-callback"(c) {
+        toPaying(c);
+        c.into(["summary"], "PayPressed", { paymentMethodId: "visa" });
+        c.state("PAYING");
+        c.eq("one request", c.reqs("pay").length, 1);
+      },
+    },
+  },
+  {
+    id: "FRAG-10",
+    kind: "example",
+    fixtures: [payFullFixture],
+    actor: P,
+    cites: ["rule:6", "rule:15", "rule:14", "rule:1"],
+    variants: {
+      // pay.story.ts: lateChallenge
+      lateChallenge(c) {
+        toChallenge(c);
+        c.eq("in the subroutine", inner(c, O)?.state, "BANK");
+        c.eq("a host read of it", c.mem().CHALLENGE.intentId, "pi1");
+        c.into(O, "BankShown");
+        c.advance(LENGTH_MS);
+        c.eq("expired", inner(c, O)?.state, "EXPIRED");
+        c.advance(2000);
+        c.state("CARD");
+        c.eq("exit's filling", c.mem().notice, "The bank's check timed out. You can pay again.");
+        c.eq("subroutine gone", inner(c, O), undefined);
+        c.answer("authenticate", { ok: { intentId: "pi1" } });
+        c.state("PLACING");
+        c.eq("late handler: authorized", c.mem().authorized, true);
+      },
+      // pay.story.ts: lateWhilePaying
+      lateWhilePaying(c) {
+        toChallenge(c);
+        c.into(O, "BankShown");
+        c.advance(LENGTH_MS + 2000);
+        c.state("CARD");
+        c.into(["summary"], "PayPressed", { paymentMethodId: "visa" });
+        c.state("PAYING");
+        c.ack();
+        c.answer("authenticate", { ok: { intentId: "pi1" } });
+        c.state("PAYING");
+      },
+      // pay.story.ts: helpKeepsDeadline
+      helpKeepsDeadline(c) {
+        toChallenge(c);
+        c.into(O, "BankShown");
+        c.advance(120_000);
+        c.into(O, "Help");
+        c.eq("help", inner(c, O)?.state, "HELP");
+        c.eq("a frozen slice stays readable", inner(c, [...O, "countdown"]) !== undefined, true);
+        c.advance(240_000);
+        c.eq("nothing fired while frozen", inner(c, O)?.state, "HELP");
+        c.into(O, "CloseHelp");
+        c.eq("overdue fires once on return", inner(c, O)?.state, "EXPIRED");
+        c.eq("help counted", inner(c, O)?.memory.helpOpened, 1);
+        c.advance(2000);
+        c.state("CARD");
+      },
+      "history-restores-control-only"(c) {
+        toChallenge(c);
+        c.into(O, "Help");
+        c.into(O, "CloseHelp");
+        c.eq("back where the customer was", inner(c, O)?.state, "BANK");
+      },
+      "answer-from-the-host-passes-the-exit"(c) {
+        toChallenge(c);
+        c.answer("authenticate", { ok: { intentId: "pi1" } });
+        c.state("PLACING");
+        c.eq("exit's patch", c.mem().authorized, true);
+        c.ack();
+        c.eq("exit's commit", c.reqs("place").length, 1);
+      },
+      "failure-exits-with-its-reason"(c) {
+        toChallenge(c);
+        c.answer("authenticate", { fail: { tag: "ChallengeFailed", code: "x" } });
+        c.state("CARD");
+        c.eq("notice", c.mem().notice, "Your bank declined the check (x).");
+      },
+      "host-event-falls-through-the-subroutine"(c) {
+        toChallenge(c);
+        c.send("Leave");
+        c.state("LEFT");
+        c.eq("abandoned", inner(c, O), undefined);
+      },
+      "reload-inside-the-subroutine"(c) {
+        toChallenge(c);
+        c.into(O, "BankShown");
+        c.advance(1000);
+        c.reload();
+        c.state("CHALLENGE");
+        c.eq("inner state came back", inner(c, O)?.state, "BANK");
+        c.advance(LENGTH_MS);
+        c.eq("its timer too", inner(c, O)?.state, "EXPIRED");
+      },
+    },
+  },
+  {
+    id: "FRAG-11",
+    kind: "example",
+    fixtures: [editorFixture],
+    actor: { actor: "Desk/Editor", id: "t" },
+    cites: ["rule:9", "rule:51", "rule:53", "rule:30", "D3"],
+    variants: {
+      // comments.story.ts: postedInOrder
+      postedInOrder(c) {
+        c.ensure();
+        c.into(["comments"], "Post", { clientId: "c1", text: "first" });
+        c.into(["comments"], "Post", { clientId: "c2", text: "second" });
+        const row = () => c.r.row(c.A, "post", { ticketId: "T-42" });
+        c.eq("second queued", [row()?.outstanding, c.reqs("post").length], [1, 1]);
+        c.answer("post", { apply: true });
+        c.answer("post", { apply: true });
+        c.eq("order at the server", c.r.truth().server.posts, ["first", "second"]);
+        c.eq(
+          "both sent",
+          c.inner(["comments"])?.memory.drafts.map((d: any) => d.sent),
+          [true, true],
+        );
+      },
+      // comments.story.ts: an unconfirmed head holds; Resend, the same Attempt
+      "unconfirmed-head-holds-then-resend"(c) {
+        c.ensure();
+        c.into(["comments"], "Post", { clientId: "c1", text: "first" });
+        c.into(["comments"], "Post", { clientId: "c2", text: "second" });
+        c.answer("post", { applyLost: true });
+        c.eq("nothing passes it", c.reqs("post").length, 1);
+        c.eq("draft says", c.inner(["comments"])?.memory.drafts[0].problem, "unsure");
+        c.into(["comments"], "Resend", { clientId: "c1" });
+        c.answer("post", { apply: true });
+        c.eq("same id", c.reqs("post")[0]?.idempotencyKey, c.reqs("post")[1]?.idempotencyKey);
+        c.answer("post", { apply: true });
+        c.eq("once each", c.r.truth().server.posts, ["first", "second"]);
+      },
+      "give-up-releases-the-head"(c) {
+        c.ensure();
+        c.into(["comments"], "Post", { clientId: "c1", text: "first" });
+        c.into(["comments"], "Post", { clientId: "c2", text: "second" });
+        c.answer("post", { lost: true });
+        c.into(["comments"], "GiveUp", { clientId: "c1" });
+        c.eq("the next goes", c.reqs("post").length, 2);
+      },
+      // comments.story.ts: deleteRefused
+      deleteRefused(c) {
+        c.ensure();
+        c.into(["comments"], "Load");
+        c.answer("thread", { truth: true });
+        const ref = commentRef("T-42", "c2");
+        c.eq("there", c.rec(ref)?.data.text, "two");
+        c.into(["comments"], "Delete", { commentId: "c2" });
+        c.eq("predicted away", c.rec(ref)?.data, undefined);
+        c.answer("remove", { apply: true });
+        c.eq("back, without a repair", c.rec(ref)?.data.text, "two");
+        c.eq("no repair", c.reqs("repair").length, 0);
+        c.eq(
+          "notice",
+          c.inner(["comments"])?.memory.notice,
+          "Past the edit window: the comment stays",
+        );
+      },
+      "a-b-a-adopts-as-the-story-says"(c0) {
+        const Q = { actor: "Desk/Queue", id: "q" };
+        const c = new Ctx(c0.fresh([queueFixture]), Q);
+        c.ensure();
+        c.into(["comments"], "Post", { clientId: "c1", text: "first" });
+        c.send("Preview", { id: "T-2" });
+        c.eq("fresh for T-2", c.inner(["comments"])?.memory.drafts, []);
+        c.eq("post runs on", c.r.row(Q, "post", { ticketId: "T-1" })?.pending, true);
+        c.answer("post", { apply: true });
+        c.eq("parked for T-1", c.r.evidence("parked").length, 1);
+        c.eq("not for T-2", c.inner(["comments"])?.memory.drafts, []);
+        c.send("Preview", { id: "T-1" });
+        c.eq("adopted by T-1, from the event", c.inner(["comments"])?.memory.drafts, [
+          { clientId: "c1", text: "first", sent: true, problem: null },
+        ]);
+      },
+      "reset-subject-is-in-the-lane-record"(c0) {
+        const Q = { actor: "Desk/Queue", id: "q" };
+        const c = new Ctx(c0.fresh([queueFixture]), Q);
+        c.ensure();
+        c.into(["comments"], "Post", { clientId: "c1", text: "first" });
+        c.send("Preview", { id: "T-2" });
+        c.into(["comments"], "Post", { clientId: "c2", text: "other" });
+        c.eq("its own lane", c.r.row(Q, "post", { ticketId: "T-2" })?.pending, true);
+      },
+    },
+  },
+  {
+    id: "FRAG-12",
+    kind: "example",
+    fixtures: [issuesFixture],
+    actor: L,
+    cites: ["D15", "OD:5"],
+    variants: {
+      "unbound-hold-with-a-waiter-yields"(c) {
+        c.ensure(L);
+        c.ensure(B);
+        c.to(L, "Toggle", { id: "i1", liked: true });
+        c.answer("like", { lost: true });
+        c.answer("repair", { truth: true });
+        c.to(B, "Toggle", { id: "i1", liked: false });
+        c.dispose(L);
+        c.advance(299_999);
+        c.eq("waits", c.reqs("like").length, 1);
+        c.advance(1);
+        c.eq("yielded", c.reqs("like").length, 2);
+        c.eq("released with evidence", c.r.evidence("Released").length, 1);
+        c.eq("mark kept", c.rec(I1)?.uncertain, true);
+        c.ensure(L);
+        c.eq(
+          "parked Abandoned reaches the next incarnation",
+          c.r.evidence("unparked").length >= 0 && c.endings("like").at(-1)?.reason,
+          "Abandoned",
+        );
+      },
+      "bound-hold-never-yields"(c) {
+        c.ensure(L);
+        c.ensure(B);
+        c.to(L, "Toggle", { id: "i1", liked: true });
+        c.answer("like", { lost: true });
+        c.answer("repair", { truth: true });
+        c.to(B, "Toggle", { id: "i1", liked: false });
+        c.advance(3_600_000);
+        c.eq("A holds", c.r.row(L, "like", K)?.uncertain, true);
+        c.eq("B waits", c.reqs("like").length, 1);
+      },
+      "unbound-hold-with-no-waiter-stays"(c) {
+        c.ensure(L);
+        c.to(L, "Toggle", { id: "i1", liked: true });
+        c.answer("like", { lost: true });
+        c.answer("repair", { truth: true });
+        c.dispose(L);
+        c.advance(3_600_000);
+        c.eq("no release", c.r.evidence("Released").length, 0);
+      },
+    },
+  },
+  {
+    id: "FRAG-13",
+    kind: "example",
+    fixtures: [issuesLocal],
+    actor: L,
+    cites: ["D21", "sec:2.7.13"],
+    run(c) {
+      c.ensure(L);
+      c.ensure(B);
+      c.to(L, "Toggle", { id: "i1", liked: true });
+      c.answer("like", { lost: true });
+      c.answer("repair", { truth: true });
+      c.to(B, "Toggle", { id: "i1", liked: false });
+      c.dispose(L);
+      c.eq("released at once", c.r.evidence("Released").length, 1);
+      c.eq("B goes", c.reqs("like").length, 2);
+      c.eq("mark kept", c.rec(I1)?.uncertain, true);
+      c.ensure(L);
+      c.eq(
+        "no adoption",
+        c.endings("like").some((e) => e["reason"] === "Restored"),
+        false,
+      );
+    },
+  },
+  {
+    id: "FRAG-14",
+    kind: "example",
+    fixtures: [issuesDoubleCancel],
+    actor: L,
+    cites: ["D22", "rule:43"],
+    run(c) {
+      c.ensure(L);
+      c.to(L, "Toggle", { id: "i1", liked: true });
+      c.to(L, "Toggle", { id: "i1", liked: false });
+      c.answer("like", { lost: true });
+      c.eq("own Attempt released", c.r.evidence("Released").length, 1);
+      c.eq("the promoted one is untouched and goes", c.reqs("like").length, 2);
+    },
+  },
+  {
+    id: "FRAG-15",
+    kind: "bounded",
+    fixtures: [notesFixture],
+    actor: N,
+    cites: ["rule:53", "rule:54", "L3"],
+    run(c) {
+      const r = searchFrag(c.make, { depth: 5, maxStates: 1200, deadlineMs: 8_000 });
+      c.eq("no oracle failed", r.failure ?? "none", "none");
+      c.yes("it searched", r.states > 50);
+    },
+  },
+  {
+    id: "FRAG-16",
+    kind: "fault",
+    fixtures: [issuesDenySettled],
+    actor: L,
+    cites: ["F3", "sec:2.5"],
+    variants: {
+      "denied-keeps-the-cell-and-promotes"(c) {
+        c.ensure(L);
+        c.to(L, "Toggle", { id: "i1", liked: true });
+        c.to(L, "Toggle", { id: "i1", liked: false });
+        c.answer("like", { apply: true });
+        c.eq("promoted", c.reqs("like").length, 2);
+        c.eq("denied", c.r.evidence("Denied").length, 1);
+        c.eq("counts as delivered", c.r.evidence("delivered").length, 1);
+      },
+    },
+  },
+  {
+    id: "FRAG-17",
+    kind: "fault",
+    fixtures: [formFixture],
+    actor: F,
+    cites: ["sec:2.5", "rule:9", "rule:7"],
+    variants: {
+      "a-child-that-cannot-react-refuses-the-whole-turn"(c) {
+        c.ensure();
+        c.send("RefuseChild");
+        c.eq("refused", c.r.issues().at(-1)?.code, "InvalidTurn");
+        c.eq("source patch gone", c.mem().moved, false);
+        c.namedIssues = ["InvalidTurn"];
+      },
+      "raise-into-an-absent-key-refuses-outside-a-delivery"(c) {
+        c.ensure();
+        c.send("RaiseGone", { key: "nope" });
+        c.eq("refused", c.r.issues().at(-1)?.code, "InvalidTurn");
+        c.namedIssues = ["InvalidTurn"];
+      },
+      "leaving-cancels-a-node-traits-schedule"(c) {
+        c.ensure();
+        c.send("Go");
+        c.advance(5000);
+        c.eq("no firing", c.mem().flashes, 0);
+        c.eq("slice undefined", inner(c, ["flash"]), undefined);
+        c.send("Back");
+        c.advance(999);
+        c.eq("fresh incarnation, full length", c.mem().flashes, 0);
+        c.advance(1);
+        c.eq("fired", c.mem().flashes, 1);
+      },
+      "one-publication-per-turn"(c) {
+        c.ensure();
+        const before = c.r.frames().length;
+        c.send("SetIds", { ids: ["a", "b"] });
+        c.eq("one frame for the turn and its copies", c.r.frames().length - before, 1);
+      },
+    },
+  },
+  {
+    id: "FRAG-18",
+    kind: "example",
+    fixtures: [feedFixture],
+    actor: { actor: "Feed", id: "a" },
+    cites: ["rule:52", "rule:1"],
+    variants: {
+      "freeze-interrupts-a-lookup-thaw-delivers-it-first"(c) {
+        c.ensure();
+        c.into(["tail"], "Sync");
+        c.send("Away");
+        c.eq("slice readable", inner(c, ["tail"])?.memory.failed, []);
+        c.send("Live");
+        c.eq("Interrupted at thaw", inner(c, ["tail"])?.memory.failed, ["Interrupted"]);
+      },
+      "a-frozen-schedule-keeps-due-and-fires-once"(c) {
+        c.ensure();
+        c.into(["tail"], "Sync");
+        c.advance(500);
+        c.send("Away");
+        c.advance(5000);
+        c.eq("not while frozen", inner(c, ["tail"])?.memory.ticks, 0);
+        c.send("Live");
+        c.eq("once, on return", inner(c, ["tail"])?.memory.ticks, 1);
+      },
+      "reload-while-frozen-keeps-the-parked-ending"(c) {
+        c.ensure();
+        c.into(["tail"], "Sync");
+        c.send("Away");
+        c.reload();
+        c.send("Live");
+        c.eq("delivered after a reload", inner(c, ["tail"])?.memory.failed, ["Interrupted"]);
+      },
+      "a-live-lookup-is-not-persisted"(c) {
+        c.ensure();
+        c.into(["tail"], "Sync");
+        c.reload();
+        c.eq("nothing delivered", inner(c, ["tail"])?.memory.failed, []);
+        c.eq("no open read", c.r.outside().open.length, 0);
+      },
+    },
+  },
+  {
+    id: "FRAG-19",
+    kind: "example",
+    fixtures: [notesFixture],
+    actor: N,
+    cites: ["rule:46", "rule:51", "sec:2.9.4"],
+    variants: {
+      "copies-and-subject-paths-survive-a-reload"(c) {
+        c.ensure();
+        c.send("SetDocs", docs("d1"));
+        edit(c, "d1", "mine");
+        c.ack();
+        c.eq(
+          "record carries its path",
+          (c.r.stored().get('lane/Notes/a|save|{"docId":"d1"}') as any)?.subject,
+          ["d1"],
+        );
+        c.reload();
+        c.eq("copy back", saved(c, "d1")?.body, "mine");
+        c.eq("unknown Restored, to its copy", saved(c, "d1")?.status, "unsure");
+      },
+      "unplaced-parked-survives-a-reload"(c) {
+        c.ensure();
+        c.send("SetDocs", docs("d1"));
+        edit(c, "d1", "mine");
+        c.ack();
+        c.send("SetDocs", docs());
+        c.answer("save", { apply: true });
+        c.reload();
+        c.send("SetDocs", docs("d1"));
+        c.eq("once, and only now", saved(c, "d1")?.saved, "d1");
+      },
+    },
+  },
+];

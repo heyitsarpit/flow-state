@@ -6,6 +6,8 @@ import { payFixture } from "../fixtures/pay.compiled.ts";
 import { payFixedFixture } from "../fixtures/pay.fixed.ts";
 import { s1Fixture } from "../fixtures/s1.compiled.ts";
 import type { RuntimeModule } from "../harness.ts";
+import { searchCross } from "./cross.search.ts";
+import { searchFrag } from "./frag.search.ts";
 import { searchLike } from "./like.search.ts";
 import { searchPay } from "./pay.search.ts";
 
@@ -14,7 +16,7 @@ const arg = (k: string, d: string) => {
   return i < 0 ? d : process.argv[i + 1]!;
 };
 const mod = (await import(
-  resolve(import.meta.dir, arg("--runtime", "../../round-2/adapter.ts"))
+  resolve(import.meta.dir, arg("--runtime", "../../round-3/adapter.ts"))
 )) as RuntimeModule;
 const make = makeHarness(mod.port);
 const o = {
@@ -27,7 +29,11 @@ const r =
   which === "pay"
     ? searchPay(make, [payFixture], o)
     : which === "payFixed"
-      ? searchPay(make, [payFixedFixture], { ...o, pins: {} })
-      : searchLike(make, [s1Fixture], o);
+      ? searchPay(make, [payFixedFixture], { ...o, pins: [] })
+      : which === "cross"
+        ? searchCross(make, o)
+        : which === "frag"
+          ? searchFrag(make, o)
+          : searchLike(make, [s1Fixture], o);
 console.log(JSON.stringify({ search: which, ...r }, null, 1));
 process.exitCode = r.verdict === "failed" ? 1 : 0;

@@ -58,3 +58,12 @@ file:fixtures/issues.compiled.ts hash:97aa8f05906f | see the lines above
 file:fixtures/cart.compiled.ts hash:09651303f124 | see the lines above
 file:fixtures/order.compiled.ts hash:dd109a9b49b5 | see the lines above
 file:fixtures/drv.compiled.ts hash:52540e910415 | see the lines above
+# Round 3. Every hash line names its own reason (review L4).
+PAY-11/guard | throw once: PAYING, one issue, fact lost | PLACING: redelivered once; one issue | D31's reason fails for a closure that throws once (review M5). Variant guard-twice keeps the old expectation for one that always throws | D50 revises D31
+PAY-11/module, PAY-17/hook-throws-* | fault on `commit` | fault on `ended`, `blocks`, `prepare` by the same input kinds | D51 cut `commit`, whose only user was this fault. On-timer now goes through the op's timeout | D51
+DRV-03 | a disabled store frees its queue, blocks nothing | holds what joined, declines what would join, other machines go on | Review H3: that was failing open, by the priority order a correctness bug | D46 changes D27
+LIKE-06 | no second repair | a success clearing a given mark forces one; the late landing after it stays the stated limit | Review's narrowing | D55
+SCENARIOS | FRAG rows as round 1 wrote them | rows corrected to what runs: D13 to D35, cell:releasing.* to rule:60 (cells are not ids the report parses), sec:G4 to sec:2.7.13 | Catalog named ids that do not exist; review L3 | none
+fake | ledger by intent | ledger by authorization and key | Review M10: two keys on one intent were flagged as one thing | D53
+oracles | S6 trusts lastChannel | S6 reads the fake's mayHave | Review H5: it trusted the very ending that was wrong | D53
+claims | `held` default, `repair` any, `behind` anything | `held` names owner and the suite checks the actor, `repair` names its ref | Review M9 | D49
