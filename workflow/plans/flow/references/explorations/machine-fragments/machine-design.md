@@ -14,7 +14,7 @@ and act on its own operations (2.9, rules 48–60); write lanes keep their ident
 incarnation that created them.
 Stories (merge 3, [merged/stories/proposal-v2.md](merged/stories/proposal-v2.md), revision 3) was merged on 2026-10-31:
 a Story is a plan of the user's, time's and the world's inputs, run on the production Runtime against fake servers,
-with no ending injected (2.10, rules 61–66). Streams (merge 6) is not merged yet; where Stories reads streams, the text
+with no ending injected (2.10, rules 61–66). The amended Stories and Fake design ([merged/story-checks/stories-amended.md](merged/story-checks/stories-amended.md), [merged/story-checks/fakes-v2.md](merged/story-checks/fakes-v2.md)) was merged on 2026-11-01: a Story is a transcript of inputs and checkpoints, and a test checks values with its runner's own `expect` (rules 11, 61–66; decisions SC1–SC5, W1–W43). Streams (merge 6) is not merged yet; where Stories reads streams, the text
 is marked *Stream details: merge 6*. The work order is in [the folder README](README.md). It
 **supersedes `proposal-v3.md`** (removed, see [the folder README](README.md)). It is evaluated against
 [principles.md](principles.md). v4 keeps v3's model and adds what the prior-art study found missing (`prior-art/`,
@@ -38,7 +38,7 @@ and 5; decision 7 builds on decisions 5 and 6.
 | **4. Entity domains** | section 2.8, rules 26–38, C21–C30, decisions E1–E18 | Operations O1–O3/O5/O6, EntityDomains O1/O2/O5, Persistence O6, Inspection, CommandLine O5 |
 | **5. Operations in the definition** | 2.7 (rewritten), 2.7.13–2.7.16, rules 13–25 and N1–N3 amended, 26–38 amended, rules 39–47, C31–C53, decisions OD1–OD26 | Operations O1–O7, Machines O1/O4–O6/O8, Runtime O3/O6/V4, Persistence O2–O6, ServerRendering O3/O5, LazyFeatures O3, Inspection O1, React O2/O3, Testing O3/O7, CommandLine O5 |
 | **6. Operations in fragments** | 2.9, rules 48–60, rules 1–4, 6, 8–17, 20–24, 26, 27, 37, 40–47, N1 and N3 amended, C54–C68, decisions F1–F10 | Machines O1/O4–O6/O8, Runtime O3/V4, Persistence O2–O5, Testing O1, Inspection O1, CommandLine O5, React O4, EntityDomains O1, Operations O3/O7 |
-| **7. Stories** | 2.10, rules 61–66, rules 11, 17, 21, 47, 58 amended, 2.4, 2.5, 2.7.2, 2.7.3, 2.7.11, 2.7.13, 2.7.16, 2.8, 3.6, sections 5–7, C69–C85, decisions Stories T1–T7 | Testing O1–O4, O6–O9, V1–V9, Inspection O1/O4/O5, CommandLine O2/O5/O6, Package O1, Diagnostics, EntityDomains O2/O4, Persistence O7 |
+| **7. Stories** | 2.10, rules 61–66, rules 11, 17, 21, 47, 58 amended, 2.4, 2.5, 2.7.2, 2.7.3, 2.7.11, 2.7.13, 2.7.16, 2.8, 3.6, sections 5–7, C69–C85, decisions Stories T1–T7, amended by SC1–SC5 and W1–W43 | Testing O1–O9, V1–V9, Inspection O1/O4/O5, CommandLine O2/O5/O6, Package O1, Diagnostics, EntityDomains O2/O4, Persistence O7 |
 
 ## 1. The idea
 
@@ -530,11 +530,11 @@ after rule 47, let fragments declare operations (2.9); 61–66, after rule 60, a
     **One exception** (rule 57): a fragment's summary carries its children's write operations (contract, holding,
     releasing) and its contracts' requirements, so `SharedContract` and rule 56 work above a nested writing child;
     changing such a child changes every ancestor's summary.
-11. **Tested alone** (Stories T3). `Story.make(fragment, { id, fixtures?, world? })` runs the fragment in an invisible
-    **stand-in host** whose placement its declaration alone decides (2.10.12). `enter(input?, { subject? })` starts it,
-    with its `Input` record; `leave()` ends it, or freezes a resumable trait; `leave({ end: true })` ends a frozen one;
-    `reset(subject)` (traits) changes its reset value; `guards(answers)` sets the stand-in's guard answers (default:
-    allow); public `events` and `hostEvents` may be sent. Notifications, `whenAbandoned` included, are `callback`
+11. **Tested alone** (Stories T3; W1, W5, W30–W34). `Story.fragment(fragment, { id, fixtures?, world? })` runs the fragment
+    in an invisible **stand-in host** whose placement its declaration alone decides (2.10.12). `enter(input?, { subject? })`
+    starts it, with its `Input` record; `leave()` ends it, or freezes a resumable trait; `leave({ end: true })` ends a
+    frozen one; `reset(subject)` (traits) changes its reset value; `guards(answers)` sets the stand-in's guard answers
+    (default: allow); public `events` and `hostEvents` may be sent. Notifications, `whenAbandoned` included, are `callback`
     records and exits are `exit` records, the same as in a host (rule 58).
 12. **Construction errors and runtime defects.**
     - **Construction errors** (types or `flow check`):
@@ -647,7 +647,7 @@ declarer" (a definition or a fragment), and "binding actor" as "binding incarnat
     re-sends. A failed Attempt is resolved, not kept for `retry`. **Members:** `retry(k?)` and `cancel(k?)` in actions;
     `idle(k?)` (a partial key passes only when every lane it matches is `Idle`, OD23 Q34) and `retryable(k?, { times })`
     in guards. A lane held by an unknown, bound or unbound, is listed by Inspection, so a lane nobody reconciles is
-    visible in Inspection and in `Story.inspection`'s lane listing, the same listing (2.10.7). A lane created by a fragment's commit records the committing
+    visible in Inspection and in a checkpoint's `inspection` lane listing, the same listing (2.10.7). A lane created by a fragment's commit records the committing
     incarnation's subject path; a member from another path is declined (rule 51); a lane may be marked releasing (rule
     60). A lane holds no store state: predictions, record
     queues and marks are the store's (rule 26).
@@ -996,7 +996,7 @@ decisions (F1–F10).
     type carries the union of its contracts' Effect requirements (`R`), so a host or Story missing `DocsApi` is a type
     error. Hosts are checked against summaries only.
 
-58. **Stories** (decided, F7; amended by Stories T2, T3). `Story.make(fragment, { id, fixtures })` (rule 11); `enter`,
+58. **Stories** (decided, F7; amended by Stories T2, T3; W1). `Story.fragment(fragment, { id, fixtures })` (rule 11); `enter`,
     `leave` and `reset` on traits; a fragment's endings come from its fake's answers, its request named by address
     (`match: { operation: Autosave.O.save, actor, copy }`, rule 65). Walks kept as Stories, each written as steps
     (2.10.15): two copies on one lane, the second
@@ -1039,39 +1039,47 @@ decisions (F1–F10).
       unseen (OD20's stated limit).
     - `UnresolvedHold` inside the fragment is unchanged; at the host, rule 56 does not apply to an operation that releases.
 
-**Stories** (2.10). Rules 61–66 are Stories' ([merged/stories/proposal-v2.md](merged/stories/proposal-v2.md)); each
-names its decisions (Stories T1–T7). Streams (merge 6) renumbers from rule 67 when it merges.
+**Stories** (2.10). Rules 61–66 are Stories' ([merged/stories/proposal-v2.md](merged/stories/proposal-v2.md), amended by
+[merged/story-checks/stories-amended.md](merged/story-checks/stories-amended.md)); each names its decisions (2.10 has the marks). Streams (merge 6) renumbers from rule 67 when it merges.
 
-61. **Every step settles** (decided, Stories T5 B1, T7). Every step applies its input, then **settles** on a
-    **microtask-only run scheduler** (Effect 4.0.5's `MixedScheduler` with `executionMode: "sync"`): no host task runs
-    during a settle, and the settle ends once Flow's queue and the microtask queue are both empty, with every fiber
-    finished or suspended on the Clock, a Story gate or input that is not coming. Host I/O never completes inside it,
-    so a fiber waiting on the host (a real timer, `crypto.subtle`, a network promise) is always `HostTimeWait`: host
-    I/O never decides a result. `advance(d)` settles at every deadline it passes, in a documented total order
-    (2.10.17.5). There is no `process()`.
-62. **The world is fakes** (decided, Stories T2, T5 B2). Everything outside the client is a **fake server**: one per
+61. **Every step settles** (W2, W4; Stories T5 B1, T7; the mechanism is [P, SA RV1 H1, SA RV2 H1, M1]). A run never yields to the host between
+    its first step and its cleanup. Every step applies its input, then settles on a microtask-only run scheduler (Effect 4.0.5's
+    `MixedScheduler` with `executionMode: "sync"`): the settle's drain re-queues microtasks until `K` consecutive hops show no arrival at
+    anything of Flow's and no scheduler activity. A settle that does not end within the hop cap is `StoryTurnLimit` with `reason: "Settle"`.
+    After the last cut, if a commit or read fiber is parked, the run **finishes the world**: it releases held items, closes connections and fires deadlines up to a fixed horizon, settling after each, with nothing of this reaching the evidence. It looks only at fibers already parked at the last cut; a fiber the phase itself starts is not reported [P, SA MDL U3]. A fiber still parked is `HostTimeWait`: real host work, or something only a later step could wake. A session or setup-scoped fiber may wait. An `advance` fires at most 100,000 deadlines (`StoryTurnLimit`, `reason: "Advance"`). During cleanup the Clock runs free, and cleanup may yield. `advance(d)` settles at every deadline it passes, in a
+    documented total order (2.10.17.5; W8). There is no `process()`. **Limits, stated:** a commit on an in-app latch only a later step opens is rejected; a real wait under its own timeout, a cancelled fiber's real wait, and fire-and-forget host work (a `setTimeout` nobody awaits) are not caught [P, SA RV3 M1].
+
+62. **The world is fakes** (W11, W12; Stories T2, T5 B2). Everything outside the client is a **fake server**: one per
     run, holding typed truth and a log of what it received, shared by every tab and reload, and set up before the
-    subject starts (the `world` option). It is reached through declared **endpoints** whose wire the Story controls with
-    four words (`hold`, `release`, `drop`, `duplicate`). The network can keep a request after its client is gone; local
-    storage cannot. A fake never writes client truth and never produces an ending: every ending comes from a fake's
-    answer through the commit's real classification, or from a lifecycle step. No ending is injected (Testing O3).
-63. **Plans are data** (decided, Stories T4). Plans, controls, reads and expectations are data. Code lives only in
-    fakes (they are Layers) and in properties, which are options, never steps; Testing O1's no-callbacks rule holds.
-64. **Every step has its own cut** (decided, Stories T5 B4). Every step ends with a **step cut**: its latest
-    publication frame plus the evidence position, fake truth and wire state at the step's end, so a step that
-    publishes nothing still reads its own effects. Every committed publication is also a frame. Every cumulative fact
-    is one record in one ordered evidence list.
-65. **One address** (decided, Stories T6). One **address** names a thing everywhere: `{ actor?, instance?, copy?,
-    operation?, schedule?, timer?, key?, tab?, life? }`. Wire `match` (an address plus kind fields such as `purpose`),
-    `Story.attempt`, record filters, `advance({ next })` and step targets take it; a request's `via` and every record
-    carry the same fields. No ordinal across actors, hosts or tabs. `operation` takes a visible handle (a definition's
-    `O.x`, or a fragment's write through `Fragment.O.x`, as a name only, so rule 50 holds); a fragment's read or stream
-    is named by `instance` and the operation's name (2.10.6; delegated, at merge). `timer` names `Feed.reconnect`'s own
-    sleeps (*Stream details: merge 6*).
+    subject starts (the `world` option, W13). It is reached through declared **endpoints** whose wire the Story controls
+    with four words (`hold`, `release`, `drop`, `duplicate`; W18). A handler decides the result and never the wire
+    [fakes-v2]. The network can keep a request after its client is gone; local storage cannot. A fake never writes client
+    truth and never produces an ending: every ending comes from a fake's answer through the commit's real classification,
+    or from a lifecycle step. No ending is injected (Testing O3). A broken fake is a broken run: `StoryFakeError` [P, SA RV1 H4].
+
+63. **A Story is data; checks are the test's** (SC1, W25; Stories T4). A Story is a transcript of inputs and checkpoints, and
+    plans and controls are data. Code lives only in fakes and in tests. Flow owns no assertions: tests use the runner's own
+    `expect` over `run.checkpoints` and `run.frames`. `propertyTest` is the one thing in Flow that judges, because it
+    must search and shrink (W25, W38); its properties are plain functions, never part of a Story. Every step has a data form,
+    keyed by its method name [P, SA RV1 H3]. Testing O1's no-callbacks rule holds for steps.
+
+64. **Every step has its own cut** (W22; Stories T5 B4). Every step ends with a **step cut**: its latest publication
+    frame plus the evidence position, fake truth and wire state at the step's end, so a step that publishes nothing still
+    reads its own effects. Every committed publication is also a frame. Every cumulative fact is one record in one ordered
+    evidence list. A checkpoint names a step cut, and is read after the run: every read is answered from what was
+    captured then (SC3, W23, W24) [P]. The list of cuts is internal, for the player; a test reads named checkpoints [P, SA RV1 section 8].
+
+65. **One address** (Stories T6). One **address** names a thing everywhere: `{ actor?, instance?, copy?, operation?,
+    schedule?, timer?, key?, tab?, life? }`. Wire `match` (an address plus kind fields such as `purpose` and `input`), the
+    `attempt` read (with the kind field `n`), the `lane` read, record filters, `advance({ next })` (W7) and step targets take it; a request's `via` and
+    every record carry the same fields. No ordinal across actors, hosts or tabs. `operation` takes a visible handle (a
+    definition's `O.x`, or a fragment's write through `Fragment.O.x`, as a name only, so rule 50 holds); a fragment's read
+    or stream is named by `instance` and the operation's name (2.10.6; delegated, at merge). `timer` names Flow's own session sleeps (*Stream details: merge 6*).
+
 66. **The owner decides.** Each behaviour is decided by the declaration that owns it: the stand-in host's placement by
-    the fragment's declaration, what a lost request raises by the transport binding, what a server failure looks like
-    on the wire by the binding, and a hydration source's world by the run it hydrates into. Never by later steps or by
-    the fake author's Effect code.
+    the fragment's declaration (W30), what a lost request raises by the transport binding, what a server failure looks
+    like on the wire by the binding, a hydration source's world by the run it hydrates into (W29), and whether a value is
+    right by the test. Never by later steps or by the fake author's Effect code.
 
 ### 2.5 The turn
 
@@ -2054,16 +2062,23 @@ request and completes each entry from the per-item statuses. Not spiked.
 **Stories read the server's truth.**
 
 ```ts
-const busyThenCharged = Story.make(CheckoutMachine, { id: "checkout/busy-then-charged", input: { intentId: "pi_1" }, fixtures: [StripeFake] })
+const busyThenCharged = Story.machine(CheckoutMachine, { id: "checkout/busy-then-charged", input: { intentId: "pi_1" }, fixtures: [StripeFake] })
   .world(Stripe.busy({ times: 1 }))                                   // user-defined control: the next confirm answers 429 (Busy)
   .send(E.Pay({ paymentMethodId: "pm_card" }))
-  .expect({ state: S.WAITING, memory: { busyTries: 1, retryInMs: 2000 } })
+  .checkpoint("waiting")
   .advance("2 seconds")                                               // WAITING's schedule fires; a new Attempt is sent
-  .expect({ state: S.DONE })
-  .expect(Stripe, { charges: [{ intentId: "pi_1", key: Story.attempt(O.pay, { n: 1 }) }] })   // the fake's truth, read
+  .checkpoint("charged")
+
+test("busy then charged", async () => {
+  const { waiting, charged } = (await busyThenCharged.run()).checkpoints
+  expect(waiting.state).toBe(S.WAITING)
+  expect(waiting.memory).toMatchObject({ busyTries: 1, retryInMs: 2000 })
+  expect(charged.state).toBe(S.DONE)
+  expect(charged.read(Stripe)).toMatchObject({ charges: [{ intentId: "pi_1", key: charged.attempt(O.pay, { n: 1 }) }] })   // the fake's truth, read
+})
 ```
 
-A fake server holds the truth, and a Story reads it with `expect(fake, partial)` (2.10.4, 2.10.6). Every ending is
+A fake server holds the truth, and a test reads it with `cp.read(fake)` (2.10.4, 2.10.6). Every ending is
 produced through fakes and lifecycle steps (2.10.5): `unknown` by a dropped answer, `NotSent` by a cancel while the
 Attempt's acknowledgement is held, by `reject`, or by a refused acknowledgement (`StorageRefused`).
 `NotSent { why: "Overloaded" }` and record-queue order are reached by holding the head's request and sending enough
@@ -2625,7 +2640,7 @@ whose record also holds the review findings it answers (A-H1 to F-L2, from
 LIST is [merged/server-calls/rewrites/list.ts](merged/server-calls/rewrites/list.ts); EDP `EntityDomains.plan`, OPS
 `Operations.plan`, PER `Persistence.plan`, ED `references/design/entity-domain.md`, EDX
 `references/design/entity-domain-examples.md`, REV the entities review. "The store" is the Runtime's record store
-(EDP:6, EDP:62-64). Stories read the store with `Story.entity`, and its queues and marks in `Story.inspection` (2.10.8).
+(EDP:6, EDP:62-64). A test reads the store with `cp.entity`, and its queues and marks in `cp.inspection` (2.10.8).
 
 #### 2.8.1 Where the data comes from
 
@@ -3696,47 +3711,64 @@ The same holds under `resetOn`: an Autosave at the root with `resetOn: docId` ha
 
 ### 2.10 Stories
 
-Stories (merge 3, [merged/stories/proposal-v2.md](merged/stories/proposal-v2.md), revision 3; decisions Stories T1–T7).
-Rules 61–66 (2.4) are normative; this section shows them, and 2.10.17's tables are normative for the executor.
-Citations: STR*n*, STF*n*, SG*n* and "brief C*n*" are the brief's ([merged/stories/brief.md](merged/stories/brief.md));
-SP is the proposal, with its reviews (SP RV, SP RV2), its model (SP MDL), its root causes (SP RC) and its new changes
-(SP N1–N4); "Stories T*n*" are its decisions (a bare T*n* is a tooling row of section 5). The examples are 2.10.18.
+Stories (merge 3, [merged/stories/proposal-v2.md](merged/stories/proposal-v2.md), revision 3; decisions Stories T1–T7), amended
+2026-11-01 ([merged/story-checks/stories-amended.md](merged/story-checks/stories-amended.md) section 3, with the `Fake` module of
+[merged/story-checks/fakes-v2.md](merged/story-checks/fakes-v2.md); plan
+[merged/story-checks/merge-plan.md](merged/story-checks/merge-plan.md)).
+
+**Marks and citations.** **SC*n*** and **W*n*** are owner-confirmed decisions ("Decisions", Stories, amended; SC*n* is the record's C*n*, renamed
+because a bare C*n* is a row of section 5). **[P]** is proposed by the amended proposal, and **[fakes-v2]** is a proposed `Fake` spelling (W35):
+the owner approved the proposal as a whole, not each of these. No mark means carried from the Stories merge, where "Stories T*n*" is a delegated decision
+(a bare T*n* is a tooling row of section 5). STR*n*, STF*n*, SG*n* and "brief C*n*" are the brief's ([merged/stories/brief.md](merged/stories/brief.md)); SP is the earlier
+proposal, with its reviews (SP RV, SP RV2), model (SP MDL), root causes (SP RC) and new changes (SP N1–N4). SA H*n* is the record's table 1.3; SA RV1–SA RV3 are its
+reviews ([merged/story-checks/reviews/](merged/story-checks/reviews/)); SA MDL is its model; v3 is [merge-6-streams/proposal-v3.md](merge-6-streams/proposal-v3.md), not merged; inside *Stream details: merge 6* text, T1–T3 are v3's tables.
+
+Rules 61–66 are normative; this section shows them, and 2.10.17's tables are normative for the executor. The examples
+are 2.10.18.
 
 **Where the inputs come from.** Production gets input from three places: **the user** (sends and lifecycle), **time**
-(the Clock) and **the world** (servers, the network, storage). A Story is a plan of those inputs, as data. Each input
-is applied to the production Runtime, which is then left to do everything it would do before the next input could
-arrive (rule 61). The world is a set of **fakes** that hold server truth and answer through the real transport boundary;
-Flow never injects an ending, so the commit's own classification always runs (rule 62). What a Story checks is a value
-read from the **cut** a step leaves (rule 64), with one read function, one way to name a thing (an **address**, rule 65)
-and one home per kind of record.
+(the Clock) and **the world** (servers, the network, storage). A Story is a plan of those inputs, as data, with named
+**checkpoints** (SC1). Each input is applied to the production Runtime, which is then left to do everything it would do
+before the next input could arrive (rule 61). The world is a set of **fakes** that hold server truth and answer through
+the real transport boundary; Flow never injects an ending, so the commit's own classification always runs (rule 62, W12).
+What a **test** checks is a value read from a checkpoint, a **cut** a step left (rule 64), with the runner's own `expect`,
+one way to name a thing (an **address**, rule 65) and one home per kind of record.
 
-**Concepts per tier** (3.6 has the words with their marks):
+**Concepts per tier** (recounted **[P]**; 3.6 has the words with their marks). The Stories merge's table said 13, 18 + 8 and
+5. That omitted options and every word inside a fake, so it undercounted. Below is every word this section shows an author typing,
+on the Story side and the fake side. Not counted: the runner's `expect`; fields read off a record (`phase`, `via`, `channel`,
+`reason`, …), since they are read, not written; record-kind strings (21, 2.10.6); error names, since they are raised; and words of
+the design used here, such as `deny` (SA RV1 L4).
 
 | Tier | Count | Words |
 | --- | --- | --- |
-| **Common** (a scripted test of one machine) | **13** | `Story.make` (with `world`), `send`, `advance` (with `{ next }`), `checkpoint`, `expect`, `world`, `run`, `read`; `Fake.server` (with `truth`, `endpoints`); the wire words `hold`, `release`; `Story.attempt` |
-| **Uncommon** (fragments, domains, reloads, tabs, streams, SSR) | **18** new, 8 reused | new: `together`, `drop`, `duplicate`, `controls`, `match`, `Fake.storage`, `Fake.stream`, `Fake.webSocket`, `Fake.fetch`, `dispose`, `reload`, `guards`, `Story.records`, `Story.inspection`, `Story.entity`, `advance(…, { suspended })`, `checkpoint(…, { at })`, `Story.property` (an option); reused: `ensure`, `openTab` (with `from`), `closeTab`, `enter`, `leave`, `setContext`, `dehydrate`, `hydrate` |
-| **Rare** (policy cells, property tests, upgrades) | **5** | `advance({ to })`, `reset` (a fragment alone), `release({ nth })`, `Fake.storage.from(story)` (and its `seed`), `propertyTest(story, …)` |
+| **Common** (a scripted test of one machine, as 2.10.18.1–2) | **34** new, 5 reused | Story, 10: `Story.machine`, `id`, `fixtures`, `world`, `send`, `advance`, `next`, `checkpoint`, `run`, `checkpoints`. Reads, 8: `read`, `lane`, `records`, `since`, `attempt`, `n`, `now`, `run.end`. Fake, 11: `Fake.server`, `truth`, `initial`, `endpoints`, `Fake.call`, `request`, `handle`, `response`, `controls`, `Fake.control`, `Fake.Lost`. Wire, 5: `hold`, `release`, `drop`, `at`, `times`. Reused: `input`, `state`, `memory`, `operations`, `schedules` |
+| **Uncommon** (apps, fragments, domains, reloads, tabs, streams, transports, SSR) | **43** new, 13 reused | Subjects, 2: `Story.app`, `Story.fragment`. Steps and options, 12: `together`, `dispose`, `how`, `reload`, `guards`, `suspended`, `from`, `subject`, `end` (on `leave`), `settled`, `turn`, `step` (the last three in `checkpoint(…, { at })`). Wire, 4: `duplicate`, `match`, `purpose`, `after`. Fake, 20: `Fake.storage`, `Fake.stream`, `frame`, `open`, `ping`, `every`, `frames`, `refuse`, `end` (on `open`, and `socket.end`), `send`, `close`, `Fake.fetch`, `endpoint`, `params`, `query`, `body`, `headers` (the route context), `Fake.webSocket`, `Fake.Refused`, `Fake.Closed`. Reads, 5: `inspection`, `entity`, `tabs`, `run.frames`, `truncated`. Reused: `ensure`, `openTab`, `closeTab`, `enter`, `leave`, `setContext`, `dehydrate`, `hydrate`, `within`, `maxBytes`, `label`, `serverView`, `input` (in a route) |
+| **Rare** (policy cells, property tests, upgrades) | **17** | `to`, `reset`, `nth`, `storage`, `Fake.storage.seed`, `Fake.storage.from`, `seed`, `propertyTest`, `steps`, `properties`, `whenQuiet`, `runs`, `length`, `quietWithin`, `domainPropertyOptions`, `Story.Frame`, `Story.Step` |
+| **Total** | **94** new, 18 reused | v3's `ping` and `every` add 2 [v3 item 1]. Round 2's cuts of `message` and `signal` took 2. `Story.World` became `Story.Step`, same count. `release({ match })`, the data forms and round 3's rules add no word |
 
-**Removed** from the plans' Story surface: `process()`, `advanceTo`, `advanceToNextTimer`, the `frames` option and
-frame collapse, `run.calls`, `checkpoint.exit`, the checkpoint predicate (C16), `Story.ending` (never adopted),
-`story.app` / `story.machine` (renamed `Story.make`, Stories T3), merge 6's `.do(…)` and `story.suspend` (its 2.11),
-and Testing O4's `pending` for work.
+**Removed** from the plans' Story surface: `process()` (W2), `advanceTo`, `advanceToNextTimer` (W6), the `frames` option and
+frame collapse (W22), `run.calls`, `checkpoint.exit` (W34), the checkpoint predicate (SC2, C16), `Story.ending` (never
+adopted, W12), `Story.make` and the lowercase `story.app` / `story.machine` (W1), `.expect`, `StoryExpectationFailed`,
+`Story.property`, the `properties` option on a Story (SC1, W25), `Story.records`, `Story.inspection`, `Story.entity`,
+`Story.attempt`, `Story.now` (W24), merge 6's `.do(…)` (W37) and `story.suspend` (its 2.11; W9), `model()` (W39), `run`'s `signal` and `frames` (W22; P, SA RV2 section 8), and
+Testing O4's `pending` for work.
 
 #### 2.10.1 What a Story is
 
-`Story.make(subject, options)` (decided, Stories T3) returns an inert plan (STR2): the subject, its options and an ordered list
-of steps. Constructing, importing and discovering it start nothing. Each chained step returns a new plan; a prefix
-never changes, and nothing in a prefix depends on later steps (rule 66), so branches are plain variables and each
-branch runs in a fresh Runtime.
+`Story.app(setup, options)`, `Story.machine(machine, options)` and `Story.fragment(fragment, options)` (W1) each return an
+inert plan (STR2): the subject, its options and an ordered list of steps. The kind is visible on the line; handing the
+wrong kind to a constructor is a type error. Constructing, importing and discovering a Story start nothing. Each chained
+step returns a new plan; a prefix never changes, and nothing in a prefix depends on later steps (rule 66), so branches are
+plain variables and each branch runs in a fresh Runtime. A plan holds inputs and checkpoints, and no checks (SC1).
 
-| Subject | Options (exactly what the subject declares, STR1) | Steps that type-check beyond the common ones |
-| --- | --- | --- |
-| an app setup (`RuntimeSetup`) | `id`, `fixtures?`, `world?`, `storage?`, `seed?`, `properties?` | `ensure(ref)`, `dispose(ref)`, `send(target, …events)`, `openTab`, `closeTab`, `reload`, `dehydrate`, `hydrate` |
-| a machine | `id`, `input` (iff declared), `context` (iff declared), `fixtures?`, `world?`, `seed?`, `properties?` | `send(…events)`, `setContext`, `dispose()`, `ensure()` (another incarnation of the same identity) |
-| a trait or a subroutine alone | `id`, `fixtures?`, `world?`, `seed?`, `properties?` (input is given at `enter`) | `enter(input?, { subject? })`, `leave(options?)`, `guards(answers)`, `reset(subject)` (traits), `send` of `events` and `hostEvents` |
+| Constructor | Subject | Options (exactly what the subject declares, STR1) | Steps that type-check beyond the common ones |
+| --- | --- | --- | --- |
+| `Story.app` | an app setup (`RuntimeSetup`) | `id`, `fixtures?`, `world?`, `storage?`, `seed?` | `ensure(ref)`, `dispose(ref, { how? })`, `send(target, …events)`, `openTab`, `closeTab`, `reload`, `dehydrate`, `hydrate` |
+| `Story.machine` | a machine | `id`, `input` (iff declared), `context` (iff declared), `fixtures?`, `world?`, `seed?` | `send(…events)`, `setContext`, `dispose()`, `ensure()` (another incarnation of the same identity) |
+| `Story.fragment` | a trait or a subroutine alone | `id`, `fixtures?`, `world?`, `seed?` (input is given at `enter`) | `enter(input?, { subject? })`, `leave(options?)`, `guards(answers)`, `reset(subject)` (traits), `send` of `events` and `hostEvents` |
 
-**The start** (SP RC3, SP N1). A run builds the fake servers, applies the `world` option's controls to them in order
+**The start** (SP RC3, SP N1; W13). A run builds the fake servers, applies the `world` option's controls to them in order
 (server controls and standing wire rules; nothing is held yet, since nothing has been sent), and only then bootstraps
 the first tab (an app) or starts the subject's actor (a machine; a fragment is started by `enter`). So "the server
 already holds X when the screen opens" is one option, printed by `describe`, and the actor's first read meets it.
@@ -3746,33 +3778,76 @@ already holds X when the screen opens" is one option, printed by `describe`, and
 said: `{ actor: Workspace, tab: "b" }`. A send takes a target, then events: `send(target, …events)`; there is no
 trailing options object, so the event list stays unambiguous to the type checker. A machine Story's steps need no
 target. A fragment inside an author-written test host is a machine Story over that host. Every subject's Effect
-requirements (`R`, a fragment's through rule 57) must be met by `fixtures`, so a missing fake is a type error at
-`Story.make` (STR12, STR63).
+requirements (`R`, a fragment's through rule 57) must be met by `fixtures`, so a missing fake is a type error at the
+constructor (STR12, STR63).
 
 **Ids and discovery** (STR4, STF61, STF73). An id is non-empty and **unique across the configuration**, so `flow story
 run <id>` needs no scope. `defineConfig({ apps: [{ app, stories }], stories })` lists app Stories under their app and
 Stories with no app at the top level; a trace of the latter has `appId: null`. Discovery rejects duplicate ids before
 acquiring anything (Testing O1).
 
-**Running** (STR3). `story.run({ signal? })` is the one execution boundary. It returns a `StoryRun` (`frames`, `steps`,
-`checkpoints`, `end`, `evidence`, `payloads`, `trace`) or rejects with a `FlowError` that carries the same evidence up
-to the failing boundary (Testing O8). It rejects with `StoryExpectationFailed` when any expectation or property failed,
-after the whole plan ran, carrying the complete run and every failure (decided, Stories T5 B3), so playback can still show
-it. Direct and CLI runs agree.
+**Every step has a data form** [P, SA RV1 H3, SA RV2 M10], keyed by its own method name, with no new word. `Story.Step` is the type of any of them, so a helper can annotate one, since an unannotated literal widens to an array and fails to assign; the `world` option is `ReadonlyArray<Story.Step>` narrowed to controls.
+
+| Step | Data form |
+| --- | --- |
+| `send` | `{ send: [target?, ...events] }`; a bare event on a machine or fragment Story |
+| `world` | a control; `{ world: [...controls] }` |
+| `advance` | `{ advance: d }`, `{ advance: { next } }`, `{ advance: { to } }`, `{ advance: [d, { suspended }] }` |
+| `together` | `{ together: [...inputs] }` |
+| `ensure`, `dispose` | `{ ensure: [ref?, options?] }`, `{ dispose: [ref?, options?] }` |
+| `enter`, `leave`, `reset`, `guards` | `{ enter: [input?, options?] }`, `{ leave: options }`, `{ reset: subject }`, `{ guards: answers }` |
+| `setContext` | `{ setContext: context }` |
+| `openTab`, `closeTab`, `reload` | `{ openTab: [name, options?] }`, `{ closeTab: name }`, `{ reload: name }` |
+| `dehydrate`, `hydrate` | `{ dehydrate: [label, options] }`, `{ hydrate: [source, label?] }` |
+| `checkpoint` | `{ checkpoint: [name, options?] }` |
+
+**`together` takes a send, a control or `{ advance }`, and anything else is a type error**, since nothing else has a defined meaning there; a nested `together` is one. `propertyTest`'s `steps` take every form but `checkpoint`. `describe` prints these.
+
+**Running** (STR3). `story.run()` is the one execution boundary. It takes no `signal`: a run never yields to the host (rule 61), so `abort()` could not be called during one, and a runner's timeout cannot interrupt a run; it reports when the run ends, so a finished run over the limit fails with "Test timed out" [P, SA RV2 M1, SA RV3 M2]; the hop cap, the turn limit and the deadline limit bound it. C75 lists the change to Testing O8. It returns a `StoryRun` (`frames`, `steps`,
+`checkpoints`, `end`, `evidence`, `payloads`, `trace`; cuts for every step exist per W22, and their list is internal, for the player [P, SA RV1 section 8]), or rejects with a `FlowError` that carries the same evidence up to
+the failing boundary (Testing O8). **It rejects on a real Story error** (`StoryTurnLimit`, `HostTimeWait`,
+`StoryInvalidCommand`, `InvalidDuration`, a failed acquisition, a cleanup failure) **or a broken fake**
+(`StoryFakeError`, 2.10.4), never because of a value (SC1), so after a resolve every declared checkpoint is present and typed
+**[P, SA H15, SA RV1 H4]**. **The earliest recorded error is primary, and later ones are listed** [P, SA RV2 M6]: a route typo that makes a later `release` `NothingHeld` reports the route. **Classification runs at every rejection boundary, and "earliest" orders by the step where a fiber parked** [P, SA RV3 M5], so a commit parked on a real `fetch` at step 2 and a `NothingHeld` at step 4 report the `fetch`. A fiber's parked step is the last step whose settle saw it run; how to read that is left to the executor (`currentOpCount` is untested) [SA RV3 section 2]. `InvalidInput` is the one edge where a value rejects: it is a contract check by the fake's author, and a Story of the server refusing bad input declares a loose `request` and answers 422. **`run()` writes each diagnostic through `console.warn` at its end** (`UnusedWireRule`, 2.10.4); it fails nothing, and it is how a test runner's reader is told [P, SA RV2 M7]. Each `run()` is a fresh run; a test that reads several checkpoints runs once and destructures. A checkpoint
+and its Story cannot share a name there: `const { paid } = (await paid.run()).checkpoints` is TS2448. Keep SC5, and name the
+Story differently: `const { paid } = (await paidFirstTime.run()).checkpoints` [P, SA RV1 M10]. Direct and CLI runs agree.
 
 #### 2.10.2 Steps, and what each one runs (rule 61)
 
-**Settling** (decided, Stories T5 B1; quiescence proposed, SP RC2). After a step applies its input, the executor runs every tab's
-Runtime and every fake on one deterministic, **microtask-only** run scheduler (decided, Stories T7): Effect 4.0.5's
-`MixedScheduler` with `executionMode: "sync"`, whose dispatcher uses `setMicrotask` and never hands a fiber to a
-macrotask, so **no host task runs during a settle**. It stops once Flow's queue and the microtask queue are both empty
-and every fiber is finished or suspended on one of three things: the Clock (a deadline), a Story gate (a held request,
-answer or frame, a held storage write), or input that is not coming (an open stream with nothing sent). Effect 4.0.5's
-`TestClock` counts the tasks it wakes through the scheduler (its wake tracker), which is the signal used. Host I/O
-never completes inside a microtask drain, so a fiber still waiting on anything else (a real `setTimeout`,
-`crypto.subtle`, a network promise) is **always** `HostTimeWait`, naming its owner, even if its promise would resolve a
-moment later: host I/O never decides a result or an order (STR27, STF19, brief C6). Microtask-only promises (an `async`
-client half that awaits no I/O) resolve inside the drain, in a fixed order.
+**Settling** (W2, W4; Stories T5 B1, T7; the mechanism is [P, SA RV1 H1, SA RV2 H1, M1, M2]). **A run never yields to the host between its first step and its cleanup.** The executor runs every tab's Runtime and every fake on one deterministic, **microtask-only** run scheduler: Effect 4.0.5's `MixedScheduler` with `executionMode: "sync"`, whose dispatcher uses `setMicrotask` and never hands a fiber to a macrotask. So no host task runs during a run, and the result never depends on host speed. The start acquires fixtures and bootstraps as a step would, settling [SA RV2 L3]. **A build still parked after the start's settle with no deadline rejects there**, since nothing can wake it [P, SA RV3 M5]; a fixture needing host work finishes it before the Story runs, by a top-level `await` in the module, so its result reaches the Layer. **What a run uses is built in the run**: a `Queue` made by `Effect.runPromise` at module level keeps its creator's dispatcher and never wakes its taker (`Queue.ts:488`) [SA RV3 L1]. Two parts:
+
+1. **The settle's drain, not an emptiness check.** Nothing can observe an empty microtask queue from inside one, and the scheduler's task count reaches 0 while a promise chain still runs (SA RV1, `settle.ts`); a fiber working through promises shows no scheduler activity at all (SA RV2 `http.ts`: 20,000 chunks stopped at exactly 4,096 reads). So the settle re-queues one microtask until `K` consecutive hops show **no scheduler activity and no arrival at anything of Flow's**: a mailbox, a gate, the Clock, a connection's or body's pull. `K` is a fixed constant, proposed 4096, about 0.06 ms on Bun and 0.72 ms in Chromium. A chain of up to `K` idle hops completes; a longer one is cut there, at the same point on all three engines, since hop cost is identical (SA RV2 `engines.ts`) [SA MDL (d)]. The drain also runs the answer list: a settle ends with the list empty (2.10.4). A settle still showing activity at the **hop cap** (proposed 1,048,576 per instant) rejects as `StoryTurnLimit` with `reason: "Settle"`, naming the step, the instant and the fiber's owner that scheduled most, which catches a loop below the commit that takes no turns (`Stream.paginate`, `Effect.forever`) [SA RV3 section 2]. A synchronous `while (true)` in a handler hangs as in any JS; only a debugger helps. **An `advance` fires at most 100,000 deadlines** (proposed): `StoryTurnLimit` with `reason: "Advance"`, naming the owner that fired most, since a settle costs `K` hops whatever it does, and `advance("1 day")` over a 1 ms ticker is hours [P, SA RV3 M2].
+2. **Finish the world, then look** [P, SA RV2 H1, SA RV3 M1]. No fiber is attributed at each settle: an owner does not cross a promise, a queue, a shared lock or a batch, so per-settle attribution rejected Checkout's 3-D Secure and the desk's batches (SA RV2 `owner.ts`). And since no host task runs during a run, a host-waiting fiber cannot progress, so nothing is lost by asking at the end. Asking who *could* wake a fiber brings the same attribution back, so the run wakes what can be woken instead. After the last cut, only if a commit or read fiber is parked: release every held item, close every open connection as the network would, and fire deadlines up to a fixed horizon (proposed 1 hour of virtual time, or the deadline limit, whichever is first), settling after each. **A fiber still parked is `HostTimeWait`: "still parked at the end of the run: real host work, or something only a later step could wake", naming its owner and the step it parked at.** The run then rejects. A session or setup-scoped fiber may wait. **It looks only at fibers already parked at the last cut; a fiber the phase itself starts is not reported** [P, SA MDL U3]. **Nothing from this phase reaches the evidence:** no frame, record, truth read or diagnostic, and a rule it fires does not count as fired; what fakes do in it, a crash included, is not reported. `HostTimeWait` can also mean "a chain longer than `K`". The Clock records each sleep's owner, for the ranks only; gates and connections record none.
+
+| Case (run on Bun, Node and Chromium with SA RV3's own minimum, not Flow) | Result |
+| --- | --- |
+| 3-D Secure, a batch, a semaphore, `Effect.cached`: released, or ending on the hold | Fine |
+| A batch mid-window; its first commit cancelled mid-window | Fine |
+| A streaming write with a silent body, opened in the commit or by an SDK's fiber | Fine: closing wakes it |
+| RPC over a setup socket, the Story stopping before the push; a token bucket; an SDK sender mid-window | Fine |
+| A fake's Clock `ping` on an open connection: a session waiting on it, not host work (2.10.4) [P, v3 item 10] | Fine |
+| A real wait, alone, with a setup-scoped heartbeat, with another connection open, with an unrelated hold, or with another operation's backoff | `HostTimeWait` |
+
+**The four cases it does not catch, stated:**
+
+1. **An in-app latch a later step opens, the Story stopping first: rejected**, though no host work exists. Add the step that wakes it. The message says so.
+2. **A real wait under its own `Effect.timeout`: passes**, since the fired deadline wakes it. A stall test can pass without reaching a fake; the [record](merged/story-checks/stories-amended.md)'s section 11 item 9 is the real case.
+3. **A cancelled fiber's real wait: passes.**
+4. **Fire-and-forget host work**, such as a `setTimeout` nobody awaits: passes. No parked fiber exists, so a "nothing was sent" test can pass falsely.
+
+Flow's own suite (V3) tests for false passes: a matrix of host primitives against exemptions, an always-on sentinel (a `setTimeout(0)` and a `MessageChannel` armed at run start, checked before cleanup, and firing is an internal error), and running Stories at `K` and 2`K` and comparing evidence [SA RV3 section 2].
+
+**A Story is checked on the engine its tests run on** [P, SA RV2 M3]. The result never depends on host speed. It does depend on the engine, for one engine and version, because engines differ in what finishes in microtasks:
+
+| Work, inside a settle | Bun | Node | Chromium |
+| --- | --- | --- | --- |
+| A 500-`await` chain; a `Response` subclass with resolved bodies; a plain `Response.body` reader | yes | yes | yes |
+| `Response` or `Request` `.json`, `.text`, `.arrayBuffer`, `Blob.text` | yes | yes | **no** |
+| `crypto.subtle.digest` | **no** | **no** | yes |
+| `process.nextTick` | yes | **no** | n/a |
+| A dynamic import in a commit | **no** | yes | not meaningful: the bundle inlined it [SA RV3 L7] |
+
+So a client half returning `new Response(…)` can pass under Vitest on Node and reject in `StoryPlayer`, which records in the browser, and `flow story run` can differ from the tests. Playback may reject what tests accept. There are no guards on `fetch`, `WebSocket` or `crypto`. Microtask-only promises resolve inside the drain, in a fixed order. Firefox and Safari were not run.
 
 While it runs, turns, pending resets, adoption deliveries, settlements, invocations, acknowledgements, fake handlers and
 adapter pulls happen in production's order (2.5, P21; the FIFO mailbox). **Interleaving is fixed**: tabs take turns
@@ -3783,24 +3858,24 @@ as work (2.10.6).
 | Step | Input applied | Then |
 | --- | --- | --- |
 | `send(target?, …events)` | each event is one step, queued as a view's send would be | settle; the verdict is a record (STR7) |
-| `together(…inputs)` | admission is held in every tab while each listed input arrives, in order: a send is queued; a control runs until its effects reach a mailbox or a gate; `{ advance: d }` moves time, firing each deadline so its event is queued, without turns | admission resumes, then settle (STR16) |
+| `together(…inputs)` | admission is held in every tab while each listed input (a send, a control or `{ advance }`) arrives, in order: a send is queued; a control runs until its effects reach a mailbox or a gate; `{ advance: d }` moves time, firing each deadline so its event is queued, without turns | admission resumes, then settle (STR16); answers wait for that settle [P, SA MDL (e)] |
 | `world(…controls)` | each control, in order: a wire word, or a server control (2.10.4) | settle (STR24) |
 | `advance(d)` | time moves to now + d, stopping at every deadline on the way, in the order of 2.10.3, settling at each | settle at now + d |
 | `advance({ next: address })`, `advance({ to })` | to the earliest unfrozen deadline the address matches; to an epoch millisecond at or after now | as `advance` |
 | `advance(d, { suspended })` | a page in the background (2.10.3) | the tab's overdue timers fire, then settle |
 | `ensure`, `dispose`, `openTab`, `closeTab`, `reload`, `enter`, `leave`, `reset`, `setContext` | the lifecycle command, as a host would issue it | settle |
 | `guards(answers)` | the stand-in host's answers from now on (2.10.12) | nothing to settle |
-| `dehydrate`, `hydrate` | Testing O7; dehydrate's time motion follows 2.10.3, deadline by deadline | settle |
-| `checkpoint(name, { at? })`, `expect(target?, partial)` | nothing: they name or check the latest step cut (2.10.6) | nothing |
+| `dehydrate`, `hydrate` | Testing O7; dehydrate's time motion follows 2.10.3, deadline by deadline; a source runs on the run's clock (2.10.11) | settle |
+| `checkpoint(name, { at? })` | nothing: it names the latest step cut (2.10.6) | nothing |
 
-**`together` is the only concurrency word** (decided, Stories T4). It states a real interleaving: these inputs arrived before
-the actor ran any of them. `together(Stripe.confirm.release(), E.Cancel())` settles the charge and queues its ending,
+**`together` is the only concurrency word** (W3, W10; Stories T4). It states a real interleaving: these inputs arrived before
+the actor ran any of them. Its inputs are steps' data forms (2.10.1), so a targeted send is `{ send: [target, ...events] }`, and two tabs racing is `together({ send: [payRef, pay] }, { send: [{ actor: payRef, tab: "b" }, pay] })` [P, SA RV1 H3]. `together(Stripe.confirm.release(), E.Cancel())` settles the charge and queues its ending,
 then queues `Cancel`; listed the other way round, `Cancel` is admitted while the ending waits, which is 2.7.13's "the
 real ending if it had already settled" cell and the spike's P1 race. `together({ advance: "30 seconds" },
 Stripe.confirm.release())` is the timeout-against-answer race: PAYING's `TookTooLong` and the landing answer are both
-queued before either is admitted (SP N4). Inside `together({ advance })` **every woken fiber** (a fake's latency sleep, an
+queued before either is admitted (SP N4). Inside `together({ advance })` **every woken fiber** (an
 adapter's backoff, a setup-scoped heartbeat) runs until it reaches a mailbox, a gate or the Clock; only admission is
-held, so a woken backoff may send a request and a woken handler may answer. A timer chain does not re-arm there,
+held, so a woken backoff may send a request, whose handler answers at once. A timer chain does not re-arm there,
 because no turn runs. `together(E.Cancel(), { advance: d })` models a busy main thread: production fires a timer while
 a click waits only when the thread is blocked.
 Outside `together` a send never sits behind queued arrivals, because the previous step settled.
@@ -3810,42 +3885,44 @@ Outside `together` a send never sits behind queued arrivals, because the previou
 and is stopped here; the author bounds the fake). `InvalidDuration` rejects a negative, non-finite or backwards move.
 `StoryInvalidCommand` names the step and one reason: `ActorAbsent`, `AlreadyEntered`, `NotEntered`, `TabOpen`,
 `TabClosed`, `NothingHeld` (a `release` with nothing held **and** no standing rule to end, or a `release({ nth: k })`
-with fewer than k held items, 2.10.17.2), `NoDeadline` (an
-`advance({ next })` whose address matches nothing). `HostTimeWait` is above. Cancellation and cleanup follow Testing O8.
+when no queue has k, 2.10.4), `NoConnection` (a stream `drop()` with nothing to close, 2.10.4), `NoDeadline` (an
+`advance({ next })` whose address matches nothing, W7), or a negative `hold({ after })` [fakes-v2]. `HostTimeWait` is above. Cleanup follows Testing O8.
 
 #### 2.10.3 Time
 
-One controlled clock per run (Effect's `TestClock`). Work takes no virtual time (STR13). `advance(d)` is what
+One `advance`, with `{ next }` and `{ to }` (W6). One controlled clock per run: the executor's own `Clock`, since Effect's `TestClock` cannot rank owners or skip one tab's sleeps [P, SA RV2 L2]; a fixture providing `TestClock` hides its sleeps from it, so use the run's Clock [SA RV3 L6]. **A sleep of zero or less is a yield, as in Effect's Clock, and is not a deadline** [P, SA RV3 M4], so `Effect.retry({ times: 3 })` and `Schedule.spaced(0)` finish in the settle, and a `sleep(0)` loop reaches the hop cap. Work takes no virtual time (STR13). `advance(d)` is what
 production does if d passes with nothing else happening: each deadline fires at its instant, the turns it causes run,
 and a timer they re-arm inside the window fires too, so the dispatch desk's `lockedOut` runs its whole chain (STF20).
 
-**A total order at equal instants** (STR14, STF22). Every sleep has an owner, attached by Flow to the fiber that sleeps;
-2.10.17.5 is normative. At one instant the sleeps wake one at a time, settling after each, by rank: the world (fake servers
-in the order a fixture first refers to them, then by name, then `Fake.storage`), adapters (by tab, actor, operation, key), **setup-scoped fibers** (an SDK
+**A total order at equal instants** (W8; STR14, STF22). Every sleep has an owner, attached by Flow to the fiber that sleeps;
+2.10.17.5 is normative. At one instant the sleeps wake one at a time, settling after each, by rank: **a fake's `ping`, so a tie with a client's `idleTime` keeps a registered connection alive** (by server name, then connection open order) [P, v3 item 1]; adapters (by tab, actor, operation, key), **setup-scoped fibers** (an SDK
 client's heartbeat or backoff forked at layer build, a rate limiter: by layer order), the Runtime's own waits, then
 actor schedules (by tab, actor, instance path in placement order, copy in list order, schedule key in list order).
 Ties within an owner go by arming order. "Outside before inside" is a documented choice; a Story that needs the other
 order uses `together({ advance })`.
 
-**The next deadline** (STR15, STF23, SP RV M3). `advance({ next: address })` moves to the earliest unfrozen deadline whose
+**One clock** [P, SA RV1 M13]: a hydration source runs on it too (2.10.11).
+
+**The next deadline** (W7; STR15, STF23, SP RV M3). `advance({ next: address })` moves to the earliest unfrozen deadline whose
 owner the address matches: `{ schedule: "checkTick" }` (schedule names are type-checked against the subject, so a
-typo is a type error, not a `NoDeadline`), `{ operation: O.messages, timer: "backoff" }` (`Feed.reconnect` is Flow's,
-so its sleeps carry `timer`: `backoff`, `page`, `resetAfter`; *Stream details: merge 6*), `{ actor: Checkout1 }`. An author's own adapter sleeps
+typo is a type error, not a `NoDeadline`), `{ operation: O.messages, timer: "backoff" }` (a session's sleeps are Flow's,
+so they carry `timer`: `backoff`, `page`, `healthy`, `idle` [P, v3 item 4]; `{ timer: "page" }` under the default schedule uses its own copy of it [v3 item 9]; the default is jittered, so a fixed `advance("500 millis")` cannot land on it, and a Story uses `next` [v3 item 7]; *Stream details: merge 6*), `{ actor: Checkout1 }`. An author's own adapter sleeps
 (an idle deadline in the adapter's code) are addressed by operation only, the earliest of them. Adding an unrelated timer to the app (a toast, a heartbeat) cannot move the Story. A frozen
 schedule has no sleep (rule 1), so it is never chosen. `advance({ to })` stays for the rare exact instant.
 
-**A suspended page** (STR17, STF78). `advance(d, { suspended: true })` (or `{ suspended: "b" }`) moves time while the
+**A suspended page** (W9; STR17, STF78). `advance(d, { suspended: true })` (or `{ suspended: "b" }`) moves time while the
 tab runs nothing: its timers, adapters and Runtime are paused; fake servers keep running and their pushes wait in the
 tab's transport. At now + d the tab's overdue deadlines fire in deadline order, then its waiting transport input is
 delivered, each settling.
 
-**Time is readable** (STR18, STF24). `frame.read(Story.now)`; schedules keep the design's reads (`s.schedules.<path>.dueAt`,
-keyed lists of `{ key, dueAt }`); the work listing names every deadline with its owner, `dueAt` and `frozen` (2.10.6).
+**Time is readable** (W24; STR18, STF24). `cp.now` on any cut or frame; schedules keep the design's reads (`s.schedules.<path>.dueAt`,
+keyed lists of `{ key, dueAt }`); `inspection.work` names every deadline with its owner, `dueAt` and `frozen` (2.10.6).
 
 #### 2.10.4 The world: fakes
 
-(Decided, Stories T5 B2: the module. Its parts below are proposed.) A fake has two halves with two lifetimes, which is what
-makes one server per run possible without breaking per-tab fixtures (STR22, STF13–STF15):
+(Decided: the module, W11; `Fake` stands alone with its own narrow capabilities, and a mocking library is optional, W17, as W42 amends it; no MSW binding now, W15. The spelling below is **[fakes-v2]**.) A fake has two
+halves with two lifetimes, which is what makes one server per run possible without breaking per-tab fixtures (STR22,
+STF13–STF15):
 
 | Half | What it is | Lifetime | May depend on |
 | --- | --- | --- | --- |
@@ -3856,60 +3933,285 @@ makes one server per run possible without breaking per-tab fixtures (STR22, STF1
 reload): a reload rebuilds only the client half, which holds no state (STF15). The dispatch desk's `DemoServer` is shadowed in
 Stories by a fixture that provides it from the run's server (STF13).
 
+**Where a server comes from** [P, SA RV1 M9]. `Stripe` is an Effect that gets or builds the server from a **run-scoped registry** the executor
+provides. So it is not in a Layer's `R`, and "a missing fake is a type error" holds for the app's services, which is its point. A Layer is opaque,
+so nothing can list the fakes behind a fixture until it runs (2.10.14). A server is a module value with no parameters; seeds are `initial` or a
+`world` control. Controls and endpoints named `hold`, `release`, `drop` or `duplicate`, or one name used for both, are construction errors
+[P, SA RV1 L8].
+
+**A fake has three parts, and each answers one question** [fakes-v2]:
+
+- **The result** of any handler: what changed, what is answered, what connections hear.
+- **The wire** (W18): whether and when that reaches the client. Handlers never decide it.
+- **The binding**: how the app's own transport reaches an endpoint.
+
+Flow never asks the engine to do work that needs a host task (rule 61).
+
 ```ts
-// stripe.fake.ts (test code)
+// stripe.fake.ts (test code). Source: fetch to the payment API, wrapped by the app's StripeApi service.
 import { Fake } from "flow-state/testing"
 import { Effect, Layer, Schema } from "effect"
 
-const Charge = Schema.Struct({ intentId: Schema.String, key: Schema.String })
-export const Stripe = Fake.server("Stripe", {                                     // user-defined: Stripe
+const Charge = Schema.Struct({ intentId: Schema.String, key: Schema.String })        // user-defined
+type Truth = { readonly charges: ReadonlyArray<typeof Charge.Type>; readonly busy: number }   // user-defined
+
+export const Stripe = Fake.server("Stripe", {  // user-defined: Stripe
   truth: { charges: Schema.Array(Charge), busy: Schema.Int },
   initial: { charges: [], busy: 0 },
   endpoints: {
     confirm: Fake.call({
-      request: { intentId: Schema.String, key: Schema.String },                  // logged; redacted by Inspection O5
-      handle: (truth, req) =>                                                    // (truth, request) → [truth, response]
-        truth.busy > 0 ? [{ ...truth, busy: truth.busy - 1 }, { ok: false, status: 429, retryAfterMs: 2000 }]
-        : truth.charges.some((c) => c.key === req.key) ? [truth, { ok: true, status: 200, intent: succeeded(req.intentId) }]   // the fake's own dedupe (brief C16)
-        : [{ ...truth, charges: [...truth.charges, req] }, { ok: true, status: 200, intent: succeeded(req.intentId) }],
+      request: { intentId: Schema.String, key: Schema.String },  // logged, redacted by Inspection O5
+      handle: (truth: Truth, req) =>  // an object [W14]
+        truth.busy > 0 ? { truth: { ...truth, busy: truth.busy - 1 }, response: { ok: false, status: 429, retryAfterMs: 2000 } }
+        : truth.charges.some((c) => c.key === req.key) ? { response: { ok: true, status: 200, intent: succeeded(req.intentId) } }   // the fake's own dedupe (brief C16); truth omitted: unchanged
+        : { truth: { ...truth, charges: [...truth.charges, req] }, response: { ok: true, status: 200, intent: succeeded(req.intentId) } },   // user-defined: succeeded
     }),
   },
-  controls: { busy: Fake.control({ times: Schema.Int }, (truth, { times }) => ({ ...truth, busy: times })) },
+  controls: {
+    busy: Fake.control({ times: Schema.Int }, (truth: Truth, { times }) => ({ truth: { ...truth, busy: times } })),  // same result shape
+  },
 })
 
-// The client half: the app's StripeApi (production wraps fetch), over the run's server.
+// The client half: the app's StripeApi, over the run's server.
 export const StripeFake = Layer.effect(StripeApi, Effect.map(Stripe, (server) => StripeApi.of({
   confirm: (input, { idempotencyKey }) => server.confirm({ intentId: input.intentId, key: idempotencyKey }).pipe(
-    Effect.catchTag("Fake/Lost", () => new NoResponse())),                       // the client half says what a lost request raises
+    Effect.catchTag("FakeLost", () => new NoResponse())),  // the client half says what a lost request raises
 })))
 ```
 
-A handler returns `[truth, response]`, or an Effect of it for latency (`Effect.sleep`) or atomic updates through the
-server's truth `Ref`. **A server failure never reaches the client as a defect** (rule 66, SP RV M8): a handler that dies
-is a crashed server, which the wire turns into the binding's failure (`Fake/Lost` for a client half, `500` for
-`Fake.fetch`, close `1011` for `Fake.webSocket`), plus an `issue` naming the fake. Nothing in Flow reads a status, a
-header or an error type: `429` means busy because the fake author wrote it and the commit classifies it.
+A second fake, with a stream and a route table, showing every part [fakes-v2]:
 
-**What a lost request raises is the binding's** (rule 66, SP RV L3). Every endpoint call fails with `Fake/Lost` when the
-wire loses it; `Fake.fetch` turns that into `fetch`'s `TypeError`, `Fake.webSocket` into a close with `1006`, and an
-app-service client half maps it itself, as `StripeFake` does above. Endpoints declare no `lost`.
+```ts
+const Message = Schema.Struct({ room: Schema.String, text: Schema.String, from: Schema.String })  // user-defined
+type Truth = { readonly messages: ReadonlyArray<typeof Message.Type> }                            // user-defined
 
-**The wire.** Every endpoint call goes through a gate Flow owns, between the client half and the handler; 2.10.17.2 and 2.10.17.3
-are normative. Its words are delivery facts true of any transport, never server meanings (brief C16, STF17):
+const socket = Fake.stream({
+  request: { room: Schema.String, clientId: Schema.String },
+  frame: Schema.fromJsonString(Message),  // frame, required; Schema.String for raw
+  open: (truth: Truth, req) => ({  // object result
+    frames: truth.messages.filter((m) => m.room === req.room),
+    // or: refuse: 4403  // refuse
+    // and, for a finished body: end: true  // end, this connection, after its frames
+  }),
+})
+
+export const Chat = Fake.server("Chat", {                          // user-defined: Chat
+  truth: { messages: Schema.Array(Message) },
+  initial: { messages: [] },
+  endpoints: {
+    socket,
+    post: Fake.call({
+      request: { room: Schema.String, text: Schema.String, from: Schema.String },
+      handle: (truth: Truth, req) => ({                            // W14: an object; pure
+        truth: { messages: [...truth.messages, req] },             // omitted means unchanged
+        response: { status: 201 },                                 // under Fake.fetch: status, body?, headers?
+        send: [socket.frames((c) => c.room === req.room && c.clientId !== req.from, [req])],
+        // send, an ordered list; socket.frames(where, frames); where reads the connection's request
+      }),
+    }),
+    logout: Fake.call({
+      request: { clientId: Schema.String },
+      handle: (_truth: Truth, req) => ({
+        response: { status: 204 },                                 // no body, as Effect's omitsBody
+        send: [socket.close((c) => c.clientId === req.clientId, 4401, "expired")],
+      }),
+    }),
+  },
+  controls: {
+    finish: Fake.control({ room: Schema.String }, (_truth: Truth, a) => ({
+      send: [socket.end((c) => c.room === a.room)],  // socket.end(where), a clean end
+    })),
+  },
+})
+
+// A client half reads a stream as it makes a call. Each run of the Stream is one connection; its scope closes it.
+server.socket({ room, clientId })  // Stream of wire frames: encoded, not Type [P, SA RV1 L10]
+// failing with Fake.Lost, Fake.Refused { code } or Fake.Closed { code, reason? }
+
+// Bindings: one route table for both [W16, W36]
+Fake.fetch(Chat, {
+  "POST /api/rooms/:room/messages": {  // the key, FindMyWay's path syntax
+    endpoint: "post",  // endpoint, a name or a function of the context
+    input: ({ params, body, headers }) =>  // input; context also has query. params is typed from the key [P, SA RV1 M8]
+      ({ room: params.room, text: body.text, from: headers.get("X-Client") ?? "" }),
+  },
+  "POST /api/logout": "logout",                                    // short form; input is { ...params, ...query, ...body }
+  "POST /graphql": { endpoint: ({ body }) => body.operationName, input: ({ body }) => body.variables },
+})
+Fake.webSocket(Chat, {
+  "GET /api/rooms/:room/socket": { endpoint: "socket", input: ({ params, query }) => ({ room: params.room, clientId: query["client"] }) },
+})
+
+// In a Story
+Story.machine(Room, { id: "chat/mid-stream", world: [Chat.socket.hold({ after: 2 })] })
+  .world(Chat.socket.hold({ match: { input: { room: "r1" } } }))  // input in match, reads the logged request
+```
+
+`socket`, `Chat.socket` and `server.socket` are one name on three values: the definition, the Story target and the client
+read. A standalone `Fake.call` or `Fake.control` that reads `truth` annotates it (`Truth`), since it infers as `unknown`;
+`Fake.server` constrains `endpoints` by its truth Schema, so another server's `Truth` is rejected. `input`'s result is typed loosely, since `request`
+decodes it and invalid input is `StoryFakeError`; `query` values are `string | undefined` under the repo's `noUncheckedIndexedAccess` [P, SA RV1 M8].
+
+**A heartbeat** [P, v3 items 1–3, 10]. `Fake.stream({ …, ping: { every, frame } })`: on each open connection, the fake delivers `frame` every `every`, on the run's Clock, so a client's `idleTime` has something real to see. It is data, like `open`, and runs no handler; it reads no truth. `frame` encodes by the stream's `frame` Schema. NDJSON has no codec: `frame` is `Schema.String`, and `end: true` must be written [P, v3 item 13].
+
+- It takes no count: `hold({ after: n })` does not count a ping, and a `duplicate` does not take one.
+- A hold stops pings: while `Silent` or `Closing`, none is sent and none queues, so a half-open connection is really silent. When frames flow again, the next is `every` from then.
+- Each is one `delivery` record, with `ping: true`.
+- While the tab is suspended, pings **coalesce** to one at wake, after the tab's overdue deadlines: a week at 10 s would be 60,480 frames. So a client's overdue `idleTime` fires first, as Machines O5's overdue rule says.
+- It is not an operation's deadline: quiet ignores it, and it does not hold a run open. It counts toward an `advance`'s 100,000 deadlines (the record's section 10 item 13).
+
+`Fake.webSocket`'s `addEventListener("close")` gives a `code` [v3].
+
+**Not added** [fakes-v2]: `pushes`, a `closed` handler, `release({ take })`, a duplex client half, `HttpApi` derivation
+(`revisit.md`); `headers` on `Fake.stream`, until the first SSE adapter checks a content type [P, SA RV1 section 8]; `message` on `Fake.stream`, until the first duplex fake [P, SA RV2 section 8]. So a stream is server-to-client for now: a client's frame through `Fake.webSocket`'s socket is ignored and logged.
+
+**One result shape** [fakes-v2] for `handle`, `open` and controls: `truth?` and `send?` everywhere, `response`
+(required) on a call, `frames?`, `refuse?` and `end?` on `open`. All three are pure. Truth and `send` commit atomically; one
+that throws is a crashed server, with no truth and no frames.
+
+**`handle` is pure and always answers synchronously** [P, SA RV1 M1; main session's cut]. There is no `latency` and no `response` as an Effect: they had no real
+use, and added a second form of `Held`, a rank clause and a crash half. **A slow answer is `hold`, `advance`, `release`**, the form Testing O6 already spells:
+
+```ts
+Story.machine(Editor, { id: "editor/slow-save", input: T42, fixtures: [TicketsFake] })   // user-defined: T42, TicketsFake
+  .world(Tickets.save.hold())  // The request waits in transit
+  .send(E.SaveRequested())
+  .checkpoint("saving")
+  .advance("2 seconds")  // Two seconds pass
+  .world(Tickets.save.release())  // Now the server answers
+  .checkpoint("saved")
+```
+
+**A mocking library: a recipe** [P, W17 as amended; SA RV1 M1]. A **synchronous** library goes in a pure handler. An **async** one goes in the client half, an ordinary
+Layer, which can still call an endpoint first, so the wire words apply to it:
+
+```ts
+const Search = Fake.server("Search", {                             // user-defined: Search
+  truth: { asked: Schema.Array(Schema.String) },  // Only what the server declares is truth
+  initial: { asked: [] },
+  endpoints: {
+    gate: Fake.call({                                              // user-defined: gate, an ordinary endpoint
+      request: { q: Schema.String },
+      handle: (t: { readonly asked: ReadonlyArray<string> }, r) => ({ truth: { asked: [...t.asked, r.q] }, response: {} }),
+    }),
+  },
+})
+
+const SearchFake = Layer.effect(SearchApi, Effect.gen(function* () {  // user-defined: SearchApi
+  const server = yield* Search
+  const library = makeLibrary(handlers)                            // user-defined: built here, so never module-level
+  const askLibrary = (input: { q: string }) => Effect.promise(() => library.answer(input))
+  return SearchApi.of({
+    search: (input) => server.gate(input).pipe(                    // hold, drop and duplicate apply to the gate
+      Effect.andThen(() => askLibrary(input)),
+      Effect.catchTag("FakeLost", () => new NoResponse())),
+  })
+}))
+```
+
+Its limits:
+
+- **Truth only if declared on the server.** What the library remembers is not truth: no `cp.read(Search)`, no `propertyTest` oracle. Put what a test reads in `truth`.
+- **Memory is per Layer build,** so it cannot leak across runs or a shrink. A client half is built per tab, so a `reload` or second tab starts the library afresh. If that memory must survive a reload, declare it as truth.
+- **The library must finish in microtasks,** or the operation's fiber is `HostTimeWait` (rule 61). A real `Response` read needs a host task in Chromium (run), so anything that needs one is Bun and Node only. `response` under `Fake.fetch` never is a web `Response`.
+- **The wire only sees the gate.** `hold({ at: "response" })` holds the gate's answer before the library runs; a lost answer never reaches the library.
+
+**A broken fake is a broken run** [P, SA RV1 H4, SA RV2 M6; keeps SC1, which is about the app]. It is recorded when it happens, one per crash, so a crashed original and its crashed copy are two, listed in order [SA MDL (c)]. A wrong route otherwise gives a 404 the commit classifies, and a decline test passes
+without ever exercising a decline. These are errors in the test's own world, so `run()` **finishes the run, then rejects** with a `FlowError`:
+
+```ts
+await paidFirstTime.run()         // rejects: StoryFakeError { fake, endpoint, reason }
+// reason: "NoRoute" | "InvalidInput" | "Crashed" | "UnplacedStream" | "InvalidRefusal"
+```
+
+The evidence is complete on the error. A Story that wants a 500 writes `response: { status: 500 }`; one that wants a 404 writes a route. Product `issue`s stay records and never
+reject. `propertyTest` reports it as a rejecting `FlowError`, like an acquisition defect. A stream not placed on this server is `UnplacedStream`, at the send. One stream value on
+two servers is a construction error.
+
+**Order** [fakes-v2].
+
+| Case | Rule |
+| --- | --- |
+| A handler's `send` against its answer | Commit truth; deliver the list in order; its answer **joins the run's one FIFO answer list**. Each settle ends by delivering the next answer to its gate, then settling again [P, SA RV1 M2] |
+| `hold()` on the request | The handler has not run, so nothing is sent |
+| `hold({ at: "response" })` | Frames are delivered now; the answer waits |
+| `drop({ at: "response" })`, `release({ drop: true })` | Truth and frames stand; only the answer is lost |
+| `orphan` (client gone) | Frames still go, so a reopened tab hears them |
+| `duplicate` | The copy's answer is discarded, its frames are not; the fake's dedupe omits them |
+| Frames to a connection `Opening`, `None` or `Closed` | Nothing; `open` replays from truth |
+
+So A and B arriving in one settle answer A then B, frames still come before their answer, and adding a `send` never reorders answers (a nested settle answered B first; SA RV1 `wire.ts`). A request caused by a frame can reach the server before the first answer arrives. That is real and deterministic. Inside `together`, "settling" means what that row says: run until each fiber reaches a mailbox, a gate or the Clock.
+
+**A server failure never reaches the client as a defect** (rule 66, SP RV M8; W12). A handler that throws is a crashed
+server, which the wire turns into the binding's failure (`Fake.Lost` for a client half, `500` for `Fake.fetch`, close `1011`
+for `Fake.webSocket`), and the run rejects with `StoryFakeError { reason: "Crashed" }` at its end. Nothing in Flow reads a status, a header or an error type: `429` means
+busy because the fake author wrote it and the commit classifies it.
+
+**Failures** [fakes-v2]. A network loss is `Fake.Lost` on a client half, a `TypeError` from `fetch` under `Fake.fetch`, and close
+1006 under `Fake.webSocket`; an app-service client half maps it itself, as `StripeFake` does (rule 66). Endpoints declare no
+`lost`. A refusal is `Fake.Refused { code }` on a client half. Under `Fake.fetch` its code is the status; a code outside 200–599 is `StoryFakeError { reason: "InvalidRefusal" }`, since `new Response` would throw. Under `Fake.webSocket` it is an error event, then close 1006, as a refused handshake is in a real browser, with the code only in the log; app-level closes use `socket.close` after open [P, SA RV1 M11]. A server close is `Fake.Closed {
+code, reason? }`. A crashed `open` is `Fake.Closed { code: 1011 }`. `end` ends the Stream or body, and is close 1000 under
+`Fake.webSocket`, which Effect's `Socket` reports as `SocketCloseError { 1000 }`, not a stream end [P, SA RV1 M11]. Tags are `FakeLost`, `FakeRefused`, `FakeClosed`, as PascalCase importable error classes (following Effect's
+`SocketCloseError`, `HttpClientError`).
+
+**How the words combine** [P, SA RV1 H5, SA RV2 M8, M9, L4, SA RV3 M6; SA MDL G2, G4–G9, G12, G16, N1–N6]. Five rules, then the tables:
+
+1. **Arrivals take one rule.** A call or an attempt arrives once, and takes the earliest-set arrival rule that covers it, matches it and means something for it, and only that one, consuming its `times`. A `duplicate` means nothing to an attempt, so an attempt skips it without consuming it [SA MDL G5]. A hold or drop on a handle covers the next arrival, call or attempt [SA MDL G4].
+2. **Frames rules do not compete: every one covering a connection applies to it** [SA MDL G9]. So a standing `hold()` and a standing `duplicate()` both apply, at open as on an open connection, and each `hold({ after })` counts on its own. **A count is per rule and counts delivered frames**, so it is not a hold until reached, and it pauses while the connection is silent: set on a `Silent` or `Closing` connection, it starts when frames flow again [SA MDL N4]. The first to reach its count silences the connection, under its own rule; another target's count resumes when that one is released, and a `release` on one target ends all of that target's counts [SA MDL G8, N6]. **Each `duplicate` rule doubles one frame per connection, and one frame takes only the earliest armed**, so a frame never arrives three times [SA MDL N5]. **A connection is silent while any hold covering it has taken effect, on its endpoint or its handle; `release` on one target ends only that target's rules** [SA RV2 M8, SA MDL G2]. It returns to `Open` and delivers its queue when the last one ends. So `Chat.hold()`, `Chat.socket.hold()`, `Chat.release()` leaves it silent, and a `Chat.socket.release()` with no rule of the endpoint's own is `NothingHeld`.
+3. **`release` ends its target's rules first, then delivers** [SA MDL G16]; what it delivers has no arrival rule to take again. **The frames rules of its own target do not apply to what it delivers, even under `{ match }`, where they stay; another target's do** [SA RV3 M6]. A `Closing` close or end comes last, only when no hold is left. **A count reaching `n` during a release's own delivery queues the items past `n` again under that rule, whatever form of `release` delivered them** [P, SA MDL U1; not reached within the model's bounds].
+4. **A `release` must do something** [SA RV3 M6, SA MDL N1]: it is `NothingHeld` when it ends no rule and delivers no item. A request marked to hold, still at `Server`, counts as a held item for every form of `release` [P, SA MDL U2]. `release({ match })` is `NothingHeld` when no held item on its target matches, on every table, whether or not a rule stands or other items are held, since a typo'd match has no check left to catch it. This also defines `release({ nth })` and `{ drop: true }` over nothing.
+5. **A rule ends when it has nothing left to do** [SA RV3 M6, SA MDL N3]: a used-up rule is **removed unless it still holds an item or silences a connection**, and then `release` ends it. So `save.drop()`, used, then `save.release()` is `NothingHeld`, not a silent no-op, and a used-up `hold` can still be released.
+
+The rest follows:
+
+- **One word on a handle is two rules** with separate counters: an arrival rule, and a frames rule [SA MDL (a)]. `at` on a handle is a type error: use endpoints for phases.
+- **`times`** counts arrivals: on a call, requests; on a stream's `hold`, connections taking it; on a stream's or handle's `drop`, calls and attempts. A used-up rule takes no more arrivals; rule 5 says when it goes. A connection it silenced stays silent and held items stay held until `release` [P, SA RV3 M6, amending my reading of SA RV2 M8].
+- **`drop()` on a stream or a handle** closes matching open connections at once. With default `times` it stands for the next arrival **only when no connection matched** [SA RV2 M8]: on a handle a rule, on a stream endpoint `StoryInvalidCommand { NoConnection }`, since a silent no-op is what SC1 can no longer catch (skipped under `propertyTest`). With `times` above 1 or `"always"`, it closes and also stands, so **offline means offline**.
+- **`duplicate` is per connection** at frames; its `match` narrows it.
+- **`release({ match })` delivers the matching held items and leaves the rest held; the standing rule stays** until a `release()` with no `match` [SA RV2 M9; W21 kept]. So two saves in flight can be answered one at a time:
+
+```ts
+.world(Docs.put.hold())
+.send(edit("d1", "A"), edit("d2", "B"))                          // user-defined: edit
+.advance("800 millis")
+.checkpoint("bothSaving")
+.world(Docs.put.release({ match: { input: { docId: "d1" } } }))  // match on release
+.checkpoint("oneSaved")
+```
+
+- **`release({ nth: k })` is per queue** [SA MDL G6]: an endpoint's held list is one queue, counting `Held` and `HeldAnswer` together in arrival order [SA MDL (b)], and each connection is one queue. **"First" orders within a kind, and released answers still join the list before released requests run**: in `[HeldAnswer a, Held b]`, `nth: 2` delivers a, then b; in `[Held a, Held b]` it delivers b, then a [SA RV3 M6, SA MDL N2]. A queue shorter than k releases in order; it is `NothingHeld`, naming k, only when no queue has k, and then nothing is released. With a call endpoint's one queue this is the old reading.
+- **Order across connections is their open order** [SA MDL G7]: a `send` list item, `release` and `drop` reach matching connections earliest-opened first, across tabs.
+- **A handle's `release` across endpoints** reaches connection queues in open order, then answers, then requests [SA RV3 L2].
+- **A `send` list evaluates every `where` before delivering**, so a `where` that throws is a crash with nothing delivered [SA RV3 L4].
+- **"Fired"** [SA RV2 M7]: a rule fired if a call or attempt took it, or it applied to an open connection, so a `hold()` on a silent socket counts. A rule that never fired is `UnusedWireRule`.
+
+**The wire** (W18). Every endpoint call goes through a gate Flow owns, between the client half and the handler; 2.10.17.2 and
+2.10.17.3 are normative. Its words are delivery facts true of any transport, never server meanings (brief C16, STF17):
 
 | Word | On a call endpoint | On a stream endpoint (2.10.9) | Options |
 | --- | --- | --- | --- |
-| `hold()` | a standing rule: matching requests wait in transit, unseen by the server | frames stop reaching the client (silence, half-open) | `at: "request"` (default) or `"response"` (handled, the answer waits); stream: `"frames"` (default) or `"open"` |
-| `release()` | held items are delivered in arrival order, and every standing rule on this target ends | held frames flow; held opens complete; standing rules end | `{ drop: true }`: the held items are lost instead; `{ nth }` (rare): deliver the n-th held item first (a reorder) |
-| `drop()` | matching requests are lost before the server; `at: "response"`: handled, the answer is lost | open connections close as the network would; `at: "open"`: matching attempts are refused | `times` (default 1, or `"always"` until `release`) |
-| `duplicate()` | a matching request reaches the server twice; the client gets the first answer, the second is discarded (`phase: "duplicate"`) | the next frame arrives twice | `times` |
+| `hold()` | a standing rule: matching requests wait in transit, unseen by the server | frames stop reaching the client (silence, half-open) | `at: "request"` (default) or `"response"` (handled, the answer waits; W20); stream: `"frames"` (default) or `"open"`; stream only: `after: n` [fakes-v2]; not on a handle |
+| `release()` | every standing rule on this target ends, then held items are delivered: released answers join the answer list first, in arrival order, and released requests reach the handler in arrival order, whose answers follow [P, SA MDL G3] | its rules end; a connection with no hold left delivers its queue, then a held close or end; held opens complete | `{ drop: true }`: the held items are lost instead; `{ nth }` (rare): deliver the n-th held item first, a reorder (W21); `{ match }`: only those, and rules stay [P, SA RV2 M9] |
+| `drop()` | matching requests are lost before the server; `at: "response"`: handled, the answer is lost | open connections close as the network would, at once; `at: "open"`: matching attempts are lost | `times` (default 1, or `"always"` until `release`); on a stream, `times` counts attempts |
+| `duplicate()` | a matching request reaches the server twice; the client gets the first answer, the second is discarded (`phase: "duplicate"`) | the next frame arrives twice, per connection; the count is per frame | `times`. It has no `at`; a request is duplicated at arrival [SA RV1 L11] |
 
-`hold` is standing (until `release`) unless `times` is given; `drop` and `duplicate` default to once. Every word takes
+`hold` is standing (until `release`) unless `times` is given; `drop` and `duplicate` default to once (W19). A rule that never fires is the `UnusedWireRule` diagnostic, since a rule set after the step that sent its request waits for nothing [P, SA RV1 M17]. Every word takes
 `match: address` (rule 65): `{ actor: BoardP1 }`, `{ operation: LikeButton.O.set, actor: IssuePageC7 }`, `{ tab: "b"
-}`, `{ purpose: "acknowledge" }` (an address plus kind fields). **One rule per request**: each server keeps one rule
-list, ordered by when each rule was set, on the handle or on an endpoint; a request takes the earliest-set rule that
-covers its endpoint and matches it, and only that one; `release` on a target ends only that target's rules (2.10.17.2). Applied to the server handle (`Stripe.drop({ times: "always" })`), a word covers every endpoint: an
-offline device.
+}`, `{ purpose: "acknowledge" }`, `{ input: { room: "r1" } }` (an address plus kind fields; listed `input` keys must equal the
+logged request's; at frames, the connection's request). **One rule per request**, as the combination rule says; `release` on a target ends only that target's rules (2.10.17.2). Applied to the server handle (`Stripe.drop({ times: "always"
+})`), a word covers every endpoint: an offline device.
+
+**`hold({ after: n })`** [fakes-v2]. Counted per connection: from its first frame if set before open, otherwise from when it is
+set. `times` counts connections. `release` behaves as for `hold()`. A connection takes a frames rule at open or when the
+rule is set. A later `hold` on a matching open connection still counting takes effect at once, since silence only widens.
+`duplicate`'s count is per frame, and a duplicated frame counts as two. A `drop()` always closes. A `close` or `end` while
+counting, with no hold yet in effect, passes in order: so `end: true` with fewer than n frames is `Closed { 1000 }`, and once the count is reached, or under a plain `hold()`, it is `Closing { 1000 }` [SA MDL G12]. `after` with `at`, on a call or on the server handle is a type error; `after: 0` is `hold()`; a
+negative is `StoryInvalidCommand`.
+
+**Close under `hold`** [fakes-v2]. A server `close` or `end` is the last queued item: delivered at `release`, lost under
+`release({ drop: true })`, which becomes close 1006. A network `drop()` stays immediate. While a close is held, the server sees
+the connection as closed: a `send` reaches nothing, the log reads `phase: "closed"` with its `code`, the `delivery` record shows delivery, and
+`release({ nth })` does not count the close, which stays last. This is the state `Closing` in 2.10.17.3.
 
 **Remote and local.** A request to a remote server that has left the device **stays in transit** after its client is
 gone (a cancel, a closed tab): released, the server handles it and the answer goes nowhere (`phase: "orphan"`). That is
@@ -3921,41 +4223,72 @@ before the capture that removes it, which is queued behind it (a Persistence fac
 aborted with the tab. A write that was **stored but whose confirmation was held** (`hold({ at: "response" })`) stays
 stored when the tab closes, as an IndexedDB transaction that committed before the page crashed does; the restore then
 finds an acknowledged Attempt and delivers `unknown { Restored }` even if the Story had cancelled it. That is
-2.7.13's restore row (decided, Stories T7): Stories reach the cell and do not decide it (section 7 item 21).
+2.7.13's restore row (Stories T7): Stories reach the cell and do not decide it (section 7 item 21).
 
-**Server controls** are the author's typed messages to the server (`Stripe.busy({ times: 1 })`, `Chat.post({ text })`):
+**Server controls** (W13) are the author's typed messages to the server (`Stripe.busy({ times: 1 })`, `Chat.finish({ room })`):
 their arguments are Schemas, so they are data, `describe` prints them and a property test generates them (STF16,
 STF52). Pushing, refusing, going silent, resetting a log, keeping the last n and greeting with or without a replay are
 each a control or a wire word (STR23); flapping and flooding are loops at construction, data once built.
 
 **Provenance** (STR21, STR26, STF3, SP RV M9). Each logged request is `{ n, input, phase, via }`. At a call endpoint `phase` is one
 of `held`, `handled`, `answered`, `lost`, `dropped`, `duplicate`, `orphan`; at a stream endpoint an open's is one of
-`opening` (held), `open`, `refused { code }`, `closed { code }`. `via` is the **client side**, recorded by Flow, never
-seen by the server: `{ tab: { name, open }, actor, instance, copy, operation, attempts, purpose }`. `attempts` is a
-list, since a batched request (Effect's `RequestResolver`) carries several. `via.tab` is **always** present (a client
+`opening` (held), `open`, `refused`, `lost`, `closed`. `via` is the **client side**, recorded by Flow, never
+seen by the server: `{ tab: { name, open }, actor, instance, copy, operation, attempts, purpose }`. `phase` is always a plain string, with `code`, `reason` and `by` as fields [P, SA RV1 M11]: an open's `closed` has `code` and `by: "server" | "network" | "client"`, so a released connection reads `{ phase: "closed", code: 1000, by: "client" }`; a network-refused attempt is `lost`. At `Fake.storage` a write's is `held`, `stored`, `aborted` or `refused`, and a read's `held`, `served`, `refused` or `aborted` [P, SA RV1 M12]. `attempts` is a list, but a batched request (Effect's `RequestResolver`) carries **the Attempt of the fiber that formed it**, since the gate sees only that fiber's context: a test reads each item's idempotency key in `input` [P, SA RV2 M11]. `via.tab` is **always** present (a client
 half is built per tab); a send an SDK's own fiber makes lacks only the Attempt fields (`actor`, `instance`, `copy`,
-`operation`, `attempts`), so `match: { tab: "b" }` still targets one device's SDK traffic, and the Story checks the
-idempotency key the server saw in `input` instead. So "charged once" is
-checked by values: requests whose `via.attempts` hold the same Attempt and one charge whose `key` is that Attempt's id
-is a deduplicated retry; two Attempts and one charge is a different, wrong case.
+`operation`, `attempts`), so `match: { tab: "b" }` still targets one device's SDK traffic, and a test checks the
+idempotency key the server saw in `input` instead. So "charged once" is checked by values: requests whose `via.attempts`
+hold the same Attempt and one charge whose `key` is that Attempt's id is a deduplicated retry; two Attempts and one charge is
+a different, wrong case. The log records the mapped `input` and `via`, never the `Request` or its headers: `init.headers`
+carries random `b3` and `traceparent` values [fakes-v2]. A `delivery` record, `{ endpoint, connection, phase: "delivered" | "held" |
+"lost", digest }`, is a new Inspection O4 kind, redacted like `input` [fakes-v2].
 
-**Storage** (STR25, STF5, STF6). `Fake.storage` is Flow's own in-memory `KeyValueStore` plus Persistence O7's scope lock, one
+**Storage** (W28; STR25, STF5, STF6). `Fake.storage` is Flow's own in-memory `KeyValueStore` plus Persistence O7's scope lock, one
 per run, used by every tab (STR42). Its endpoints are `read` and `write`, under `hold`, `release` and `drop` (not `duplicate`, 2.10.17.6), and Flow knows
 each write's purpose: `acknowledge`, `capture`, `flush`. `Fake.storage.write.hold({ match: { purpose: "acknowledge" } })`
 opens the acknowledgement window without delaying bootstrap restore, which reads (STF6); `hold({ at: "response",
 match: { purpose: "acknowledge" } })` stores the acknowledgement but holds its confirmation, which is 2.7.13's
 G1 "acknowledged, never invoked" restore cell once the tab closes; `drop(…)` refuses (`StorageRefused`). Storage starts
 fresh and may be seeded with encoded records, which restore validates (Testing O3): `storage: Fake.storage.seed(records)`,
-or (rare) `Fake.storage.from(story, { at? })`, the storage an earlier Story's run left, which is how records written by
-an earlier definition are made (STR41).
+or (rare) `Fake.storage.from(story)`, the storage an earlier Story's run left, which is how records written by
+an earlier definition are made (STR41). Stories are prefixes, so a mid-run store is `from(thatPrefix)`, with no per-cut capture [P, SA RV1 M6]. `from` carries storage, not fake truth: the new run's servers start at `initial` [P, SA RV1 L7]. The new run's clock starts at the source's final `now`, so a restored `dueAt` is not in the far future; "reopened after a week" is one run with `closeTab`, `advance`, `openTab` [P, SA RV2 L7]. A seed record's shape is Persistence's encoded record; until that shape is public, `from` is the only form an app can rely on [P, SA RV1 L6]. A handle word (`Fake.storage.hold()`) covers reads and writes, so it blocks bootstrap; `release({ nth })` here is a type error, as writes are FIFO per tab [P, SA RV1 M12].
 
-**Transport bindings** (uncommon). Most apps put `fetch` behind their own service (OD11), and a client half replaces
+**Transport bindings** (uncommon; W16, W36). Most apps put `fetch` behind their own service (OD11), and a client half replaces
 that service; the commit's classification still runs (STR19). Where the adapter itself calls a transport, Flow ships
-`Fake.fetch(server, route)` (provides `FetchHttpClient.Fetch`) and `Fake.webSocket(server, route)` (provides
-`Socket.WebSocketConstructor`). `route` maps a web `Request` or socket URL to an endpoint and input; Flow parses
-nothing else.
+`Fake.fetch(server, routes)` (provides `FetchHttpClient.Fetch`) and `Fake.webSocket(server, routes)` (provides
+`Socket.WebSocketConstructor`). `routes` is the route table above; a function stays for unusual cases (W16).
 
-#### 2.10.5 Endings: how every one is produced (decided, Stories T2)
+- **Routes** [fakes-v2]. `::` is one literal colon. A key whose single-colon param does not follow `/` is rejected, because
+  `/parts:release` silently parses as a param. No matching route, or invalid `input`, is a 404 or 400, and the run then rejects with `StoryFakeError` (`NoRoute`, `InvalidInput`). Keys ignore the origin. The function form stays, and its `Request` has the same body overrides.
+- **Bodies never need a host task** [fakes-v2]. In Chromium every `Request` and `Response` body read does. *Request:* the binding
+  reads `init.body`, since `FetchHttpClient` passes `(URL, init)`. Effect's JSON, text and urlencoded bodies arrive as
+  `Uint8Array`, decoded synchronously by content type: JSON parsed, urlencoded to `URLSearchParams`, otherwise a string.
+  `FormData`, `URLSearchParams` and strings are given as they are. A `ReadableStream` is read with a reader, keeping the arrival
+  number. A `Blob` or `File` exposes `name`, `size` and `type`; its bytes stay unread. *Response:* `Fake.fetch` returns a `Response`
+  subclass with resolved `text`, `json` and `arrayBuffer`. It keeps `bodyUsed` honest and rejects a second read. A streamed body
+  stays a real `ReadableStream`. This is a deliberate shim. An object body becomes JSON; a string stays as is; a `Uint8Array` or `ArrayBuffer` passes through, and the shim's `formData` and `blob` resolve from it [P, SA RV2 L9]; 204, 205 and 304
+  carry no body. An adapter that calls `fetch(new Request(…))` with a body gets `HostTimeWait` in a browser. That is honest; the
+  docs say so.
+- **Arrival order** [fakes-v2]. A binding takes the arrival number and `via` synchronously at the `fetch` call, and delivers to the
+  gate in that order, even from an async route function.
+- **Streams under `Fake.fetch`** [fakes-v2]. Open is a 200 streamed body, `refuse` a status, `end` body done, a close a body error.
+- **Malformed frames** [fakes-v2]. To reach 2.10.5's `Defect`, declare `Schema.Union([Schema.fromJsonString(M), Schema.String])`. It
+  encoded a typed and a raw frame correctly in the review's probe.
+
+**From Effect** [fakes-v2].
+
+| Module | Use |
+| --- | --- |
+| `FindMyWay` | Reuse for the route table |
+| `Queue`, `Stream.fromQueue` | Reuse for a connection: `Queue.fail` for a close, `Queue.end` for an end |
+| `Deferred`, `Latch` | Parts of the gate; one `Deferred` per held item, since `nth` needs per-item release |
+| `Ref` | One atomic commit of truth and frames |
+| `Schema.fromJsonString` | The `frame` codec |
+| `FetchHttpClient.Fetch`, `Socket.WebSocketConstructor` | Keep as the seams |
+| `HttpServerResponse.omitsBody` | Follow |
+| `SocketCloseError`, `HttpClientError` | Follow: PascalCase importable error classes |
+| `HttpRouter.toWebHandler` | Do not use: a body read is a host task in Chromium, an abort kills the handler (the wire table says it continues), an unknown route is a silent 404, and the gate and `via` have no place in it |
+
+#### 2.10.5 Endings: how every one is produced (W12; Stories T2)
 
 An ending is the commit fiber's `Exit`, classified (2.7.1), or a reason Flow's Runtime adds. A Story produces the
 first by what the fake returns and the second by the lifecycle step that causes it. No step names an ending.
@@ -3963,8 +4296,8 @@ first by what the fake returns and the second by the lifecycle step that causes 
 | Ending (2.7.1, rule 20, rule 37) | Produced by |
 | --- | --- |
 | success; each failure tag; each author unknown tag | the handler's response, classified by the commit (`429` → `Busy`, `5xx` → `unknown ServerError`) |
-| author unknown after a lost request or answer | `drop()` or `drop({ at: "response" })`: `Fake/Lost`, mapped by the binding, reaches the commit's `catchTag("NoResponse", Outcome.unknown)` |
-| `unknown { Defect }`; a read's `Defect` | a response the adapter cannot handle (a malformed body it throws on): an adapter bug, which is what `Defect` means. A server crash is not this (2.10.4) |
+| author unknown after a lost request or answer | `drop()` or `drop({ at: "response" })`: `Fake.Lost`, mapped by the binding, reaches the commit's `catchTag("NoResponse", Outcome.unknown)` |
+| `unknown { Defect }`; a read's `Defect` | a response the adapter cannot handle (a malformed body it throws on; a malformed frame through a union `frame`, 2.10.4): an adapter bug, which is what `Defect` means. A server crash is not this: the app sees the binding's failure, and the run rejects (2.10.4) |
 | `unknown { Interrupted }`; a read's `Interrupted` | a client half that interrupts its call, as an SDK whose own fiber is interrupted does; it is client code, so the wire stays honest |
 | `StillUnknown { failure }` | a lost answer, then a retry the server refuses definitely |
 | `unknown { Cancelled }` | `hold()`, then the send whose transition cancels |
@@ -3975,9 +4308,9 @@ first by what the fake returns and the second by the lifecycle step that causes 
 | `NotSent { Overloaded }` | `hold()` on the head, then 64 queued commits and one more (STF11; 2.10.18) |
 | `NotSent { StorageRefused }`, `unknown { StorageRefused }` | `Fake.storage.write.drop({ match: { purpose: "acknowledge" } })`; the same on a persisted re-send's `capture` |
 | evidence `Superseded`, `Released`, `NothingToResend`, `InFlight` | a second `latest` commit while the first waits; `cancel` in `Held`; `retry` in `Idle`; `retry` while held on the wire |
-| `NotSent { Disposed }` | only Runtime disposal, through the policy suite's internal `disposeRuntime` step (decided, Stories T2; OD23 Q41, brief C11) |
+| `NotSent { Disposed }` | only Runtime disposal, through the policy suite's internal `disposeRuntime` step (Stories T2; OD23 Q41, brief C11) |
 
-**Why no injection** (decided, Stories T2; STF8). `Story.ending(O.x, "unknown")` would skip the commit's classification and the
+**Why no injection** (W12; Stories T2, STF8). `Story.ending(O.x, "unknown")` would skip the commit's classification and the
 adapter's decoding, so a Story could pass along a path the real response never takes (requirements R38). Every reason above is
 reachable without it (requirements R34), and the cases that seemed to need it are covered by rule 62 and rule 65:
 
@@ -3985,54 +4318,135 @@ reachable without it (requirements R34), and the cases that seemed to need it ar
 - **a fragment's operation** (STF10): `match: { operation: Autosave.O.save, actor, copy }` names its request in a host,
   and alone;
 - **a lane with nothing on the wire** (STF7): there is nothing to `release`, which is `NothingHeld`;
-- **the wrong path passing** (STF4): the ending record names its channel and reason, so a Story that asserts
-  `{ channel: "failure", reason: { _tag: "Busy" } }` fails if the fake answers 503. A Story that checks only the final
-  state is **reported by coverage**, which shows the `Busy` handler unreached; the documented shape also checks the
+- **the wrong path passing** (STF4): the ending record names its channel and reason, so a test that reads `cp.records("ending", …)` and
+  expects `{ channel: "failure", reason: { _tag: "Busy" } }` fails if the fake answers 503. A test that checks only the final
+  state still passes, and **coverage reports** the `Busy` handler unreached; the documented shape also checks the
   intermediate state (`S.WAITING`).
 
 Prior art kept: alternatives B (injection at the lane) and C (`Story.ending(O.x, exit)`, a scripted fake without
 truth) were rejected in SP revision 1 for the reasons Stories T2 records.
 
-#### 2.10.6 Step cuts, frames, reads and expectations
+#### 2.10.6 Step cuts, frames, reads and records
 
-**Step cuts** (rule 64, SP RC1, SP RV H1; decided Stories T5 B4 for the frames). Every step ends with its own cut: `{ frame, seq,
-truth, wire }`, where `frame` is the latest publication frame (of each open tab), `seq` the evidence position at the
-step's end, `truth` each fake server's truth then, and `wire` each endpoint's held items and standing rules then. A
-step that publishes nothing (an `Unhandled` send, a `world` control, a `release` after the only tab closed) still has a
-cut that includes its own `verdict`, `request` and `control` records and the server's new truth. `run.steps[i]` is
-`{ command, cut, frames: [from, to], evidence: [from, to] }`. `checkpoint` names a step cut and `expect` checks one;
-neither ever reads a bare publication frame. `end` is reserved, so `checkpoint("end")` is a type error (STF75).
+**Step cuts** (rule 64, SP RC1, SP RV H1; W22). Every step ends with its own cut. A cut is a frame plus `wire` [P, SA RV1 M15]: the
+latest publication frame (of each open tab), plus `seq` the evidence position at the step's end, `truth` each fake server's
+truth then, `storage` the encoded records then, and `wire` each endpoint's held items and standing rules then [SA RV2 L1]. A plain frame has no `wire` or `storage`, so its type omits `read(Fake.storage)`. `<StoryFrame frame={…}>` takes a frame or a cut. A step that publishes nothing (an `Unhandled` send, a
+`world` control, a `release` after the only tab closed) still has a cut that includes its own `verdict`, `request` and `control`
+records and the server's new truth. The executor keeps `{ command, cut, frames: [from, to], evidence: [from, to] }` per step for the player and `flow explain`;
+that list is not public [P, SA RV1 section 8]. `checkpoint`
+names a step cut (SC2); it never reads a bare publication frame, unless `{ at }` says so. `end` is reserved, so `checkpoint("end")`
+is a type error (STF75), and `run.end` is the cut after the last step. A `checkpoint` before any step names the cut the start left, once the subject has started and settled **[P]**. Checkpoint names are camelCase by convention, so
+destructuring works (SC5); duplicate names and unknown names are type errors (Testing O1).
 
-**Frames** (STR45, STR50). A frame is the cut after one committed publication of one tab (a turn, a settlement or a
-Runtime step, 2.5), plus the initial frame: every actor's snapshot and one store revision per open tab, `now`, and
-the truth and `seq` at that publication. Snapshots and truth are immutable and shared (Machines O8, playback.md 4); records are
-referred to by position, never copied (STF66), so memory is linear. A frame has exactly one cause (STF64). Frames
-serve properties, `checkpoint(…, { at })` and playback. `run.frames` keeps at most 10,000 and marks truncation; step
-cuts and checkpoints are **never** truncated, as the trace never drops checkpoints (Inspection O4; SP RV L1), and a property over
-truncated frames fails closed (`FramesTruncated`).
+**Frames** (STR45, STR50; W22). A frame is the cut after one committed publication of one tab (a turn, a settlement or a
+Runtime step, 2.5), plus the initial frame: every actor's snapshot and one store revision per open tab, `now`, and the truth and
+`seq` at that publication. Snapshots and truth are immutable and shared (Machines O8, playback.md 4); records are referred to by
+position, never copied (STF66), so memory is linear. A frame has exactly one cause (STF64). Frames serve test loops,
+`propertyTest`, `checkpoint(…, { at })` and playback. There is no `frames` option (W22).
 
-**One read.** `frame.read(target)` and `cut.read(target)` return a typed value; `.expect(target, partial)` checks the
-same read against the latest step cut. Targets are data:
+**`run.frames`** keeps at most 10,000 and **exposes `truncated`** (W25): a readonly array whose `truncated: boolean` is
+**non-enumerable**, since an enumerable one fails `toEqual` and `toMatchObject` against a plain array (run, SA RV1) **[P, SA RV1 M14]**. Its
+**iterator throws `FramesTruncated`** after yielding the last kept frame, so a `for … of`, spread or `Array.from` over a truncated run cannot finish quietly; `.every`, `.map`, `.some`, `.forEach` and `toEqual` can, which is stated, not fixed, since 10,000 frames is rare [SA RV2 L5];
+`run.frames[i]`, `.length` and `.truncated` stay plain, and `.filter` loses `truncated`. The first 10,000 stay **[P, SA H21]**. Step cuts,
+checkpoints and any frame named by `{ at }` are **never** truncated, as the trace never drops checkpoints (Inspection O4; SP RV L1).
 
-| Target | Reads | Tier |
+**Reading after the run [P, SA H6].** Reads run in test code, after `run()` has finished and the Runtime is gone. So every read is
+answered from what was captured [P, SA RV1 M6]. Every frame captures snapshots, store revision, `now`, truth, evidence position, and only
+`work` and lanes of `inspection`, which playback's Inspect and `lane` need. Cuts and named `{ at }` frames capture the full `inspection`;
+the executor knows the plan, so it captures those on demand. A session's 256-entry ring is therefore not copied per frame. A frame's
+`inspection` has that narrower type, and `propertyTest` drops a run's frames once they are checked. **Memory is unmeasured**; measure
+before accepting. Reads are pure and start nothing. A
+value read at an earlier checkpoint never changes: a logged request's `phase` is its phase **at that cut**.
+
+**The reads** (SC3, W23, W24). A checkpoint, `run.end` and every frame have the same reads. **Every read with no tab means tab `"main"`**, as
+Testing O7 says [P, SA RV1 M3]:
+
+| Read | Returns | Subjects | Status | Tier |
+| --- | --- | --- | --- | --- |
+| `state` | the active leaf's state token; throws `SubjectAbsent` if the subject is absent | machine, fragment | SC1's example; the throw is [P, SA RV1 M4] | common |
+| `memory` | the memory, private fields typed (2.2.2); throws `SubjectAbsent` if absent | machine, fragment | as above | common |
+| `operations` | the rows `s.operations` (2.7.5); throws `SubjectAbsent` if absent | machine, fragment | as above | common |
+| `schedules` | `s.schedules`; throws `SubjectAbsent` if absent | machine, fragment | [P, SA RV1 M15] | common |
+| `read()` | the whole snapshot, or `undefined` if absent (SP N3): the check for absence, and the snapshot `check(cp.read(), event)` and `O.x.get(cp.read(), k)` take | machine, fragment | W23 | common |
+| `read(ref)`, `read({ actor, tab })` | that actor's snapshot, or `undefined` | all | W23 | common |
+| `read(Stripe)` (a fake server) | its truth | all | W23 | common |
+| `read(Stripe.confirm)` (an endpoint) | its request log, in arrival order, with phases (2.10.4) | all | W23 | common |
+| `lane(O.x, key?)` | the lane at this cut, or `undefined` when it does not exist | machine, fragment | SC3 | common |
+| `lane(address)` | the same, by address: `{ actor?, instance?, copy?, tab?, operation, key? }`; `operation` is a handle, or a string for a fragment's read or stream, type-checked against the summary (rule 57) | all; the only form on an app Story | [P, SA RV1 M5] | common |
+| `records(kind, filter?)` | the run's records of one kind up to this cut; `filter` is an address plus kind fields, and `since: "checkpointName"` | all | SC3 | common |
+| `attempt(O.x, address?)` | the Attempt's id, or `undefined` if none was minted by this cut | all | W24; the return value is [P, SA H4] | common |
+| `now` | the epoch millisecond | all | W24 | common |
+| `inspection` | `inspect(runtime)` (Inspection O1) at this cut, of tab `"main"`; `| undefined` on an app Story, where `main` may be closed [P, SA RV1 M3]; only `work` and lanes on a plain frame: lanes by identity, incarnations, work, sessions, domain queues and marks, persistence. Held wire items are not Runtime facts and are read from endpoints (SP RV L2) | all | W24 | uncommon |
+| `tabs.b?.inspection` | the same for tab `b`; `tabs.b` is `undefined` while `b` is closed | app | [P, SA H5]; `tabs.<name>` is Testing O7's | uncommon |
+| `entity(Entity, key, { tab? })` | the record as a view reads it, `{ data, predicted, uncertain, unconfirmed }`, or `undefined` (STR31), also when the tab is closed [P, SA RV1 M3] | all | W24 | uncommon |
+| `read(Fake.storage)` | the encoded records at this cut's end; a cut only | all | [P, SA RV1 M6, SA RV2 L1] | rare |
+| `serverView(label)` | a `dehydrate` label's first-render view, for comparison | app | Testing O7; [P, SA RV2 L6] | uncommon |
+
+In test code the same values are also reachable as the design's reads on a snapshot (`O.like.get(cp.read(), k)`, `Issue.get(cp.read(), k)`). A
+`toBeUndefined()` on a tab-less read while `main` is closed passes for the wrong reason, so a test of another tab names it. **Absent** [P, SA RV1 M4]:
+2.10.17.4's `Absent` and `Ended` read absent; `Frozen` reads its slice, and `inspection.incarnations` says frozen; on a machine Story, after
+`dispose()`. **Dropped** [P, SA RV1 M15]: `Entity.get`'s `shape`, `descriptor.get(checkpoint, …)`, `Domain.entry.get(checkpoint, …)` and
+`Entity.queue(checkpoint, …)`, in favour of `Issues.list.get(cp.read(ref), …)` and `cp.inspection`. To share a helper across Stories, annotate
+`Story.Frame<typeof PayMachine>`, by subject, not Story, since a Story's checkpoint names would not assign across Stories [P, SA RV1 M7].
+
+**`lane` [P, SA H17].** `lane` differs from `O.x.get` on purpose. `O.x.get` is total, for views, and returns the idle row. `lane` is
+for tests, and `undefined` means there is nothing there (SC3), so a settled lane reads as gone and a wrong key fails.
+
+- A **write**: its entry in Inspection's lane listing (2.10.7), which is every non-`Idle` lane by identity, with the row's flags:
+  `{ key, subject, binding, releasing, state, pending, uncertain, waiting, retryCount, progress?, queued, parked }`. It reads the
+  listing rather than the actor's rows so an unbound or unplaced lane still holding an unknown is not reported as gone.
+  `paying.lane(O.pay, pi)` matches `{ pending: true }` (SC3); once settled it is `undefined`, and `operations.pay` still reads
+  `{ pending: false, uncertain: false }` there.
+- A **read or live operation**: its row (2.7.5), `undefined` before the first lookup, after `cancel`, or while not placed. A
+  settled read is `Ready`, not gone.
+- An **unkeyed** operation omits the key. On an app Story that is `lane({ actor: Checkout1, operation: O.pay })`.
+- **Conversion risk** [SA RV1 M15]: 40 real tests use `O.x.get(at, k)`, which returns the idle row on a settled lane where `lane` returns `undefined`.
+
+**Attempts [P, SA H4].** `attempt(op, address?)` names the Attempt of `op` that the address names (rule 65): `attempt(O.pay)` when one
+actor commits it once, `attempt(LikeButton.O.set, { actor: BoardP1 })` for the board's, and `{ n }` (from 0) picks among one
+address's Attempts in mint order (`n` is a kind field, rule 65). It reads **mints**, wherever they were restored: an Attempt minted in `main` and restored in b reads under `{ actor }`, even with main closed, and is `undefined` under `{ tab: "b" }` [P, SA RV2 L13]. An address that matches several without `n`, here or in `lane`, **throws `AmbiguousRead`** in the
+test, never guessing (RENAMED from `AmbiguousAttempt`, since `lane` needs the same rule). An address's `operation` takes a handle where
+one is visible: a definition's `O.x`, or a fragment's write through `Fragment.O.x`, used only as a name, so rule 50 holds. A
+fragment's read or stream has no outside handle (rule 50), so it is named by `instance` and the operation's name, type-checked
+against the subject's summary (rule 57), as a schedule is named by its string (2.10.3); alone, its instance is `[]` (delegated, at
+merge).
+
+**Checking a read: what replaces `expect`'s five rules** (SC1, SC3, SC4). All **[P]**, and the probes ran on Vitest 5.0.5:
+
+| The old rule | Now | Example |
 | --- | --- | --- |
-| omitted (a machine or fragment Story), an actor `ref`, or an address `{ actor, tab }` | the snapshot, as views read it but with private fields typed (2.2.2), or `undefined` if absent or the tab is closed (SP N3) | common |
-| a fake server (`Stripe`) | its truth | common |
-| an endpoint (`Stripe.confirm`) | its request log, in arrival order, with phases (2.10.4) | common |
-| `Story.now` | the epoch millisecond | common |
-| `Story.records(kind, filter?)` | the run's records of one kind up to this cut; `filter` is an address plus kind fields | uncommon |
-| `Story.inspection`, `Story.inspection({ tab })` | `inspect(runtime)` (Inspection O1) at this cut: lanes by identity, incarnations, work, sessions, domain queues and marks, persistence. Held wire items are not Runtime facts and are read from endpoints (SP RV L2) | uncommon |
-| `Story.entity(Entity, key, { tab? })` | the record as a view reads it, `{ data, predicted, uncertain, unconfirmed }`, or `undefined` (STR31) | uncommon |
+| Objects match the keys listed | `toMatchObject` | `expect(cp.memory).toMatchObject({ busyTries: 1 })` |
+| A key listed as `undefined` matches only an absent key | **Not `toMatchObject`**, which fails on an absent key listed as `undefined` and passes on a present one. Use `.toBeUndefined()` on the read. `.not.toHaveProperty` fails on a key held as `undefined`, which snapshots keep faithfully (Testing O4) [SA RV1 L1] | `expect(cp.lane(O.pay)).toBeUndefined()` |
+| Arrays match element by element, equal length | `toMatchObject`, which requires equal length; or `toHaveLength` for a count | `expect(cp.records("ending", { operation: O.pay })).toHaveLength(1)` (SC1's example) |
+| Primitives match exactly | `toBe`, or inside `toMatchObject` | `expect(cp.now).toBe(t0 + 60_000)` |
+| A state token matches at or below it | Leaf: `toBe`. A parent: the existing `token.is` | `expect(cp.state).toBe(S.PAYING)`; `expect(S.WIZARD.is(cp.state)).toBe(true)` |
+| `Story.attempt` as a matcher | A plain value inside `toMatchObject` | `expect(cp.read(Stripe)).toMatchObject({ charges: [{ key: cp.attempt(O.pay) }] })` |
 
-In test code the same values are also reachable as the design's reads on a snapshot (`O.like.get(s, k)`, `Issue.get(s, k)`).
+Use `toBe` for `state`, never a token inside `toMatchObject`: tokens compare by identity, and a deep subset compare of one says
+nothing useful. The runner's `toMatchObject` on a read that has no value fails with a clear diff. An `attempt` that reads `undefined` makes `toMatchObject` compare against `undefined`, which the runner reports
+as a mismatch on a present id. No matchers are added for now (SC4); `toHaveLane`, `toHaveRecord` and `toBeIn` stay in `revisit.md`.
+The same reads work on any runner (SC3), and nothing here imports a Flow test adapter: there is no `@flow-state/vitest` or `storyTest`
+(decisions' proposed list).
 
-**One home per kind of record** (STR48, STF33, STF55). `run.evidence` is one list in run order; each record has the
-run-wide `seq`, the Runtime's own sequence, and `tab: { name, open }`, so a closed tab's records and the reopened tab's
-are told apart (STR42, SP RV M4); filters accept the name alone. `Story.records(kind, { …address, since?: "checkpoint" })`
-selects one kind; `since` takes a checkpoint **name**, since a plan exists before any run (SP RV L5). Records are kept for
-the whole run in process, taken from the Inspection O4 event stream, independent of the trace's 4,096-event window and of
-Inspection's per-session 256-entry ring (STR49, STF76). Every kind is an Inspection O4 event
-kind (STF72; members added in C79):
+**"This never shows"** [W25, P for the shape]. A loop over frames:
+
+```ts
+test("never shown twice", async () => {
+  const run = await created.run()  // user-defined: created
+  for (const frame of run.frames) {  // the iterator throws FramesTruncated if any were dropped [P, SA RV1 M14]
+    expect(shownTwice(frame)).toEqual([])         // user-defined: shownTwice, a plain function (2.10.18.4)
+  }
+})
+```
+
+**One home per kind of record** (STR48, STF33, STF55). `run.evidence` is one list in run order; each record has the run-wide
+`seq`, the Runtime's own sequence, and `tab: { name, open }`, so a closed tab's records and the reopened tab's are told apart
+(STR42, SP RV M4); filters accept the name alone. `cp.records(kind, { …address, since?: "checkpointName" })` selects one kind, in
+order, up to `cp`; `since` is exclusive of that checkpoint's `seq` and takes a **name** (type-checked), and a name later than `cp`
+gives `[]`; on `Story.Frame<Subject>` it is typed `string` [P, SA H20, SA RV1 M7]. Records are kept for the whole run in process, taken from the Inspection O4 event stream, independent of
+the trace's 4,096-event window and of Inspection's per-session 256-entry ring (STR49, STF76). Every kind is an Inspection O4 event
+kind (STF72; members added in C79). **The table is the kinds `records` takes, 21** [P, SA H23, SA RV1 L3]; Inspection O4 has others, such as `turn`,
+`lifecycle` and `admission`:
 
 | Kind | One record per | Fields beyond `seq`, `tab` |
 | --- | --- | --- |
@@ -4041,52 +4455,38 @@ kind (STF72; members added in C79):
 | `ending` | ending delivered, parked, applied with no incarnation, or turned into evidence | `actor`, `instance`, `copy`, `operation`, `contract`, `verb`, `key`, `attempt`, `channel`, `reason`, `event`, `route` (`{ kind: "current" \| "late", from, owner }`, state paths), `declined` (`LateMayNotLeave`), `subject`, `disposition` |
 | `lane` | write-lane cell applied (rule 21, 2.7.13, 2.9.3) | lane identity, `cell` (row and state), `before`, `after`; evidence words are cells |
 | `life` | fragment incarnation event | `actor`, `instance`, `copy`, `life`, `change` (`created`, `ended`, `frozen`, `thawed`, `reset`), `why` |
-| `callback`, `exit` | callback told; exit taken | `actor`, `instance`, `copy`, `life`, `name`, `payload` |
-| `listRepair`, `drop` | `.each` or keyed-schedule repair; dropped raise or timer delivery (rule 9) | `actor`, `instance`, `copy`, `reason` |
+| `callback`, `exit` | callback told; exit taken (W34) | `actor`, `instance`, `copy`, `life`, `name`, `payload` |
+| `listRepair`, `drop` | `.each` or keyed-schedule repair; dropped raise or timer delivery (rule 9). `drop` is not a wire drop: after `Stripe.confirm.drop()` it is `[]`; read the endpoint's log [SA RV1 L2] | `actor`, `instance`, `copy`, `reason` |
 | `schedule` | armed, fired, discarded, retracted by a freeze | owner (an address), `dueAt` |
 | `queue`, `store` | record-queue join, release, removal (`Superseded`, `Cancelled`, `Released`); predictions, confirmations, `uncertain` set or cleared, repairs, skips, tombstones | `entity`, `key`, `attempt`, `reason` |
-| `session` | stream-session evidence (merge 6's 2.12; *Stream details: merge 6*) | `actor`, `instance`, `copy`, `operation`, `key`, `cell`, each start's `answer` and basis, `missed`, drops, `Overflow`, `Discarded`, reconnect phase |
+| `session` | stream-session evidence (v3's Inspection; *Stream details: merge 6*) | `actor`, `instance`, `copy`, `operation`, `key`, a `cell` per T1 and T3 write (`<State>.<input>`), T2's row and basis in place of `answer`, `proof` on a read, `bookmark` (`{ at, filled }`), `missed`, drops (a record carries `drop` only when one is written [final integration L9]), `Overflow`, `Discarded`, `st`, `ended` (the reason a session ended) [P, v3 item 6] |
 | `request`, `control` | a fake's request (each phase change) or control | 2.10.4 |
-| `issue`, `diagnostic`, `persistence`, `hydration`, `entry` | as Inspection O4; merge 6's flags `UnprovenValues`, `RegistrationChurn`, `ReleaseOverdue` are `diagnostic` records (*Stream details: merge 6*) | as Inspection O4 |
+| `delivery` | a stream frame's delivery [fakes-v2; P, SA RV1 L2] | `endpoint`, `connection`, `phase` (`delivered`, `held`, `lost`), `digest` |
+| `issue`, `diagnostic`, `persistence`, `hydration`, `entry` | as Inspection O4; `UnusedWireRule` is a `diagnostic`: a wire rule that never fired by the end of the run [P, SA RV1 M17]; v3's flags `ValuesWhileDown`, `RegistrationChurn`, `ReleaseOverdue`, `ProofWithoutPosition`, `PingsWithoutLive`, `IdleWithoutPing`, `DeliveryDenied`, `FillsUntouched` are `diagnostic` records (*Stream details: merge 6*) | as Inspection O4 |
 
 One shape everywhere: `instance` is a list of placement names (`["likes"]`), `copy` is the `.each` copy's key string,
 `key` is the contract's key record, `subject` is the subject path (STF38). A callback and an exit with the same name
 are two kinds (STF59). An owner is a state path (STF40). An `Overloaded` commit never joined a queue, so it is an
 `ending` record, not a `queue` removal (STR32).
 
-**Work** (STR51, STF31, STF32, STF34). `Story.inspection.work` lists the Runtime's unfinished things with what each
+**Work** (STR51, STF31, STF32, STF34). `cp.inspection.work` lists the Runtime's unfinished things with what each
 waits for, and nothing else: a queued mailbox item (`{ actor, item: "event" | "reset" | "adoption", event, from }`); an
 Attempt waiting (`waitsFor: "acknowledgement" | "recordQueue" | "capture" | "server"`, the last with the request's
 `n`); a deadline (owner address, `dueAt`, `frozen`); an open session. A lane's state is never repeated there. `pending`
 keeps the design's one meaning, the lane row's `InFlight`; the record's old `pending` is `predicted` (E16).
 
-**Expectations** (decided, Stories T5 B3; STR47, STF2, SG4, SG6). `expect(target?, partial)` checks the read by five rules:
-objects match the keys listed, and a key listed as `undefined` matches only an absent key (SP RV L6); arrays match element
-by element with equal length; primitives match exactly; a state token matches at or below it; `Story.attempt(op,
-address?)` matches the Attempt of `op` that address names (rule 65): `Story.attempt(O.pay)` is unambiguous when one
-actor commits it once, `Story.attempt(LikeButton.O.set, { actor: BoardP1 })` names the board's, and `{ n }` (from 0)
-picks among one address's Attempts in mint order. An address that matches several Attempts without `n` fails with
-`AmbiguousAttempt`, never by guessing. An address's `operation` takes a handle where one is visible: a definition's
-`O.x`, or a fragment's write through `Fragment.O.x`, used only as a name, so rule 50 holds. A fragment's read or stream
-has no outside handle (rule 50), so it is named by `instance` and the operation's name, type-checked against the
-subject's summary (rule 57), as a schedule is named by its string (2.10.3); alone, its instance is `[]` (delegated, at
-merge). A failure is `{ step, cut, target, path, expected, actual }`, printed the same
-way by a test runner and by `flow story run`, and shown by the player at its cut.
-
-**Properties** (STR45, STF47). `Story.property(name, (frame) => violation | undefined)`, listed in the `properties`
-option: pure code over every frame after the run, failing with the first violating frame and the returned value.
-Properties are options, not steps; `describe` prints them by name (Testing O1's no-callbacks rule holds for steps).
-
 **A moment inside a step** (uncommon; STF46). `checkpoint(name, { at: { settled: O.like } })` names the latest frame of
 the previous step whose cause matches; the other causes are `{ turn: E.X }` and `{ step: "invoked" }`. The
-confirmed-but-saving moment of 2.8.1 is then a named frame.
+confirmed-but-saving moment of 2.8.1 is then a named frame. It has every read in the table above. Its `wire` is not captured,
+since a frame has none; a held item at that moment shows in `read(endpoint)`'s phases. `at` here is a checkpoint option and needs
+no rename now that `at` is not a read **[proposed in decisions.md, not yet decided]**.
 
 #### 2.10.7 Lanes and rows
 
 Rows are snapshot data (brief C7; 2.7.5), so a frame shows them exactly as a view at that publication reads them
-(STR28, STF67). Keyed rows are keyed lists of the lanes that exist; an expectation against `operations.like` lists only
-existing lanes, so a wrong key fails instead of reading idle (STF30); the design's `O.like.get(s, k)` stays total for views.
-`Story.inspection.lanes` lists every non-`Idle` write lane by identity (actor identity, contract id, key), with subject
+(STR28, STF67). Keyed rows are keyed lists of the lanes that exist; `operations.like` lists only
+existing lanes, and `lane(O.like, key)` is `undefined` for one that does not exist, so a wrong key fails instead of reading idle (SC3, STF30); the design's `O.like.get(s, k)` stays total for views.
+`cp.inspection.lanes` lists every non-`Idle` write lane by identity (actor identity, contract id, key), with subject
 path, `binding` (`bound`, `unbound`, `unplaced`), `releasing`, state, flags, queued commits and parked endings: the same
 listing as Inspection O1 and `runtime.unsettledWrites()` (STR29, STF41). A parked lane under `cancel` or `allow` is listed
 `Held` with `uncertain: true`, as 2.7.13's `Held (parked)` table decides; that listing is where a Story reads it
@@ -4096,65 +4496,76 @@ record (STR30); "admitted" means only 2.5 step 1, and entering the mailbox is "q
 #### 2.10.8 Entities and the store
 
 Server truth is per run, in fakes; client truth is per tab, in the store; a fake never writes the store, and truth
-reaches it only through real responses and pushes (STR34). A Story compares them in its own words:
-`expect(Issues, { issues: { c7: { likes: 4 } } })` and `expect(Story.entity(Issue, { id: "c7" }, { tab: "b" }), { data:
-{ likes: 4 }, predicted: false })` (STF51). The three moments of a domain write (start, settlement, admission) are
-three publications, hence three frames (STR33, STF46); `predicted` is read per record and omitted fields are listed in
-`unconfirmed`, which is what an expectation at settlement states (STF45, STF50). A record queue's members, with
-Attempt and retry count, are in `Story.inspection`; a removal is one `queue` record with its reason (STR32, STF48). A
-deleted record reads `undefined` like a never-loaded one, as a view sees it, and the tombstone that tells them apart
-is in `Story.inspection` and in `store` records while it lives (STR31, STF49). The boundaries (64/65 with no partial
-join, FIFO across two actors, a forced repair holding the queue, `uncertain` set and cleared) are reached by holds and
-sends (STR35; 2.10.18).
+reaches it only through real responses and pushes (STR34). A test compares them in its own words (W24):
 
-#### 2.10.9 Streams (controls decided, Stories T4)
+```ts
+expect(cp.read(Issues)).toMatchObject({ issues: { c7: { likes: 4 } } })
+expect(cp.entity(Issue, { id: "c7" }, { tab: "b" })).toMatchObject({ data: { likes: 4 }, predicted: false })   // STF51
+```
 
-*Stream details: merge 6.* This section reads merge 6's `Feed`, sessions and rows ([merge-6-streams/proposal-v2.md](merge-6-streams/proposal-v2.md)), which are not merged; merge 6 resolves it.
+The three moments of a domain write (start, settlement, admission) are three publications, hence three frames (STR33, STF46);
+`predicted` is read per record and omitted fields are listed in `unconfirmed`, which is what a read at settlement states (STF45,
+STF50). A record queue's members, with Attempt and retry count, are in `cp.inspection`; a removal is one `queue` record with its
+reason (STR32, STF48). A deleted record reads `undefined` like a never-loaded one, as a view sees it, and the tombstone that tells
+them apart is in `cp.inspection` and in `store` records while it lives (STR31, STF49). The boundaries (64/65 with no partial join,
+FIFO across two actors, a forced repair holding the queue, `uncertain` set and cleared) are reached by holds and sends (STR35;
+2.10.18).
 
-A stream endpoint is a connection: `Fake.stream({ request, open, message? })`, where `open(truth, request)` returns the
-truth, the first frames (a greeting) and whether to accept, and `message` handles client frames. A control returns
-frames to send on open connections, or a close with a code. `Fake.webSocket` binds stream endpoints to
-`Socket.WebSocketConstructor`; an `EventSource`, a streamed `fetch` body or an SDK subscription is a client half over
-the same endpoint (STR19). So every `Feed` signal comes from the real adapter reading real frames (STR36, STF77):
+#### 2.10.9 Streams (controls decided, W37)
+
+*Stream details: merge 6.* This section reads v3's `Feed`, sessions and rows ([merge-6-streams/proposal-v3.md](merge-6-streams/proposal-v3.md)), which are not merged; merge 6 resolves it. v3 runs reconnecting and history from the contract (`reconnect`, `idleTime`, `catchUp`), so an adapter has no combinator and Flow's own sleeps carry the `timer`s. `.do(…)`, `.process()` and checkpoint predicates are gone (SC1, SC2, W2, W37); the [record](merged/story-checks/stories-amended.md)'s section 11 has the list **[P, SA H22, v3 section 9]**.
+
+A stream endpoint is a connection: `Fake.stream({ request, frame, open, ping? })` (2.10.4) [fakes-v2; `ping`, v3]. `open(truth, request)`
+returns `{ frames?, refuse?, end?, truth?, send? }`. Duplex waits for the first duplex fake [P, SA RV2 section 8]. Any handler or
+control reaches open connections through its `send` list: `socket.frames(where, frames)`, `socket.close(where, code, reason?)` and
+`socket.end(where)`, where `where` reads the connection's request. `Fake.webSocket` binds stream endpoints to
+`Socket.WebSocketConstructor`; `Fake.fetch` binds them to a streamed body; a client half reads one as `server.socket(input)`, and an
+`EventSource` or SDK subscription is a client half over that (STR19). So every `Feed` signal comes from the real adapter reading
+real frames (STR36, STF77). Stream controls are ordinary wire steps, with no stream-specific step words (W37):
 
 | Real sequence | Story step |
 | --- | --- |
-| a greeting that proves a replay, or registers without one | `open` returns the author's greeting; a control `Chat.greet({ replay: false })` changes it |
-| a drop, then a reconnect from the resume position | `world(Chat.socket.drop())`, then `advance({ next: { operation: O.messages, timer: "backoff" } })` |
-| refused attempts, a flap | `drop({ at: "open", times: 3 })`; a loop of drop and advance |
-| a quiet or half-open connection | `hold()` on the socket (frames stop, nothing closes) |
-| a server close code (token expiry) | a control that closes with `4401` |
+| a greeting that proves a replay, or registers without one | `open` returns the author's `frames`; a control `Chat.greet({ replay: false })` changes truth, which `open` reads |
+| a drop, then a reconnect from the bookmark | `world(Chat.socket.drop())`, then `advance({ next: { operation: O.messages, timer: "backoff" } })`; `next` only, since the default is jittered [v3 item 7] |
+| a reload that keeps the bookmark | a `Story.app`, since `reload` is a type error on `Story.machine` [v3 item 7] |
+| network-refused attempts, a flap | `drop({ at: "open", times: 3 })`; a loop of drop and advance |
+| a server refusal | `open` returns `refuse: 4403`; under `Fake.webSocket` the client sees an error, then close 1006, as a browser does, and the code is only in the log (2.10.4) |
+| a server's heartbeat | `ping: { every, frame }` on the stream [v3 item 1]. A ping does not register: `open` still sends the greeting [P, final integration L3] |
+| a quiet or half-open connection | `hold()` on the socket (frames and pings stop, nothing closes), so a client's `idleTime` ends it with the reason `Silent`, which is `Feed`'s, not the wire state `Silent` |
+| silence after n frames | `hold({ after: 2 })` [fakes-v2] |
+| a server close code (token expiry) | a handler or control with `send: [socket.close(where, 4401, "expired")]` |
+| a clean end of a body | `end: true` on `open`, or `socket.end(where)`. Under `Fake.webSocket` this is close 1000, which Effect's `Socket` fails as `SocketCloseError`, not a stream end; `complete` from a raw socket is adapter code reading code 1000 [SA RV1 M11] |
 | a log reset, retention shorter than the gap | controls `Chat.resetLog({ epoch })`, `Chat.retain({ last })` |
-| a catch-up page held, answered, failed | the history endpoint under `hold`, `release`, `drop` |
-| a flood past `bufferSize` | a control that sends n frames |
+| a catch-up page held, answered, failed | the history endpoint under `hold`, `release`, `drop`, **set before the step that reads it**; a failed page's retry is `next: { operation, timer: "page" }` [v3 item 9] |
+| a flood past the buffer | a control that sends `1,024 + 1` frames; a flood is a long list [P, final integration section 2] |
 | reordered frames (merge 6's SR12) | `hold()`, the frames, then `release({ nth })` |
 
-**The resume position the server saw** is the socket endpoint's request log, read directly: `expect(Chat.socket,
-[{ input: { from: { epoch: 1, seq: 2 } } }, …])`. The fake keeps no `connections` field
-by hand (SP RV L4).
+**The resume position the server saw** is the socket endpoint's request log, read directly:
+`expect(cp.read(Chat.socket)).toMatchObject([{ input: { from: { epoch: 1, seq: 2 } } }, { input: { from: { epoch: 1, seq: 5 } } }])`.
+The fake keeps no `connections` field by hand (SP RV L4).
 
-Rows (`connection`, `drop`, `value`, `last { value, at }`) are snapshot data; each start's answer, `missed`, drops,
-`Overflow`, `Discarded`, the reconnect phase and release are `session` records (STR37). Settling never waits for an
-open stream (STR38). A streaming write's `progress` publishes as Runtime steps, so each token is a frame; Stop
-mid-stream is the send that cancels while the body is open (STR39; SP 4.6). Backoff, heartbeats and `resetAfter` run on
-the TestClock (brief C12).
+Rows (`connection`, `drop`, `failure`, `catchingUp` for `every` [P, v3 item 5]; `value`, `last { value, at }` for `latest`) are snapshot data; the bookmark is in `session` records and Inspection only. They are read with `operations`, or `lane` with an address for one in a fragment (SA RV1 M5); after `FeedEnded` a
+flapping test reads the row as `undefined`, not `Ended` (merge 6's note). T2's row, each `proof` (on `Feed.live` and now `Feed.done`), the bookmark with `filled`, `missed`, drops, `Overflow`, `Discarded`,
+`st`, `ended` and release are `session` records (STR37) [P, v3 item 6]. **Spellings** [P, v3 section 3]: `head` on `Feed.live`, `through` on a read's answer, and `at` only for the bookmark's own place. A test reads it as `cp.records("session", { operation: O.x }).at(-1)?.bookmark?.at`, and `.filled` for "stays cleared". Settling never waits for an open stream (STR38). A streaming
+write's `progress` publishes as Runtime steps, so each token is a frame; Stop mid-stream is the send that cancels while the body is
+open (STR39; SP 4.6). `backoff`, `page`, `healthy`, `idle` and a fake's `ping` run on the run's Clock (brief C12).
 
 **What no transport can produce** (SP RC5; the socket-finalizer finding, SP RV M10). Effect 4.0.5's socket finalizer closes
 with `Effect.sync(() => ws.close(1000))` and does not await the close, so a session's scope closes at once on release.
-`ReleaseOverdue` and merge 6's 3.1 `Releasing` cells in which a signal or value arrives after release begins therefore cannot
+`ReleaseOverdue` and v3's T1 `Releasing` cells in which a signal or value arrives after release begins therefore cannot
 be produced through `Fake.webSocket` or any binding whose finalizer does not wait, and SP revision 1's `hold({ at:
 "close" })` is removed. They are reached in **Flow's policy suite**, whose purpose-built `Feed.callback` adapter has a
 finalizer that awaits a gate (2.10.15). An app whose own adapter awaits its close (an SDK `removeChannel`) can reach them
 through its own client half; the cells stay listed as suite cells.
 
-#### 2.10.10 Persistence, reload and tabs
+#### 2.10.10 Persistence, reload and tabs (W26, W27)
 
 An app Story's tabs are independent Runtimes of its setup that share the run's fake servers and `Fake.storage`
 (STR42, Testing O7). A tab's identity is `{ name, open }`: the name and how many times that name has been opened (STR26's
 seed already counts it), carried by `via` and every record (SP RV M4).
 
 - `openTab(name, { from? })` constructs and readies one. With `from: "main"` it then ensures, in the new tab, the
-  refs this Story's steps ensured in that tab's **latest life and did not dispose**, with the same options, in
+  refs this Story's steps ensured in that tab's **latest life and did not dispose**, those it got from an earlier `from` included [P, SA RV2 L8], with the same options, in
   first-ensure order (SP RC3, SP RV2 M2), so `describe` prints the list from the plan alone. Refs app code ensured are
   ensured again by app code, as in production; `from` may name a closed tab (its latest life). Sends are not repeated: memory comes from
   the server or storage, as in production.
@@ -4166,7 +4577,7 @@ seed already counts it), carried by `via` and every record (SP RV M4).
 A reload mid-charge is written exactly (STR40, STF12): what was acknowledged, what the server applied, and when, are
 each a step. After the reopen, restore, `Restored` endings, held lanes, parked endings and the delivery order before
 any external event are records and frames. A tab opened while another holds the scope runs without persistence
-(`SecondTabNoPersistence` in `Story.inspection`'s persistence status). While a tab is closed, `read({ actor, tab })` is
+(`SecondTabNoPersistence` in `cp.tabs.b?.inspection`'s persistence status). While a tab is closed, `read({ actor, tab })` is
 `undefined` and its records stay (STR55, STF69). A focused machine Story's actor is a local identity, whose lanes are
 never persisted (brief C14), so `closeTab` and `reload` there are type errors. Rebind is `dispose()` then `ensure()`; retain
 expiry is `dispose(ref)` then `advance` past the retain; `dispose(ref, { how: "now" })` is `disposeActor` and
@@ -4174,21 +4585,21 @@ expiry is `dispose(ref)` then `advance` past the retain; `dispose(ref, { how: "n
 
 #### 2.10.11 SSR and lazy entries
 
-`dehydrate(label, { within })` and `hydrate(source, label?)` are Testing O7's, with two rules (SP RC5). **One world**: a
+`dehydrate(label, { within })` and `hydrate(source, label?)` are Testing O7's, with two rules (SP RC5). **One world** (W29): a
 hydration source Story runs against the destination run's fake servers, not a second run's, so the server render and
 the client's refetch read one truth, as in production (SP RV M11). A source may not set `world` (a type error), runs at
 the `hydrate` step against the truth current then, and its requests carry `via.tab: { name: "server", open }` (SP RV2 M6). **Time**: `dehydrate`'s time motion settles deadline by
 deadline in 2.10.3's order (SP RV L8). A commit in flight at dehydration is a `hydration` record `DehydrateCommitInFlight`
 naming the actor, state and instance path, and no client lane exists (brief C15). A state stream's `last` arrives rebased by
-its age (STR43). Lazy adoption at a chosen step is Testing O7's (STR44).
+its age (STR43). **One clock** [P, SA RV1 M13]: a source runs on the run's clock and advances it. At a leading `hydrate` there is nothing else to fire. At a later one, tabs' sleeps are held as under `suspended` until it ends. `"server"` ranks before every tab. A source's `world` steps, not only the option, are a type error, so `Story.app`'s type carries "has no world"; its fixtures are its own, and its server is the destination's. Lazy adoption at a chosen step is Testing O7's (STR44). A cut keeps Testing O7's `serverView(label)` for first-render comparison, and hydration evidence is `hydration` records; W24's list does not name `serverView`, and no decision removes it [P].
 
-#### 2.10.12 Fragments (constructor decided, Stories T3)
+#### 2.10.12 Fragments (constructor W1; W5, W30–W34)
 
 **In a host** (STR11, STR12, STF53, STF55, STF60). Every fact about a fragment is a record at its actor, instance path
 and copy: `life`, `callback`, `exit`, `listRepair`, `drop`, and its operations' `ending` and `lane` records with
-`subject`. `Story.inspection.incarnations` lists each live or frozen incarnation (`{ instance, copy, life, status:
+`subject`. `cp.inspection.incarnations` lists each live or frozen incarnation (`{ instance, copy, life, status:
 "active" | "frozen" }`), so a frozen slice no longer looks active (STF54). A fragment on two hosts gives the same
-records at each host's address, and `match`, `Story.attempt` and filters tell them apart by `actor` (SP RV M1, M2).
+records at each host's address, and `match`, `attempt` and filters tell them apart by `actor` (SP RV M1, M2).
 
 **Alone** (STR10, F7, rule 58). A trait or subroutine Story runs in a **stand-in host** Flow builds, whose placement
 is decided by the **fragment's declaration alone**, never by later steps (rule 66, SP RV M7):
@@ -4200,11 +4611,11 @@ is decided by the **fragment's declaration alone**, never by later steps (rule 6
 | a subroutine | a state | the state is left: abandoned | the same | a type error |
 
 So one prefix has one placement in every branch, a Story may use `leave` and `reset` together, and every placement is
-one rule 48 allows. Nothing about the stand-in is readable (STF57): `read()` is the fragment's own snapshot (its memory
+one rule 48 allows. Nothing about the stand-in is readable (STF57): `read()` (and `state`, `memory`, `operations`) is the fragment's own snapshot (its memory
 with private fields, schedules, rows); records carry the fragment's instance path `[]` and a subject path made only of
 the Story's own `subject` (empty when none is given); a send after `leave` is `Unhandled`. Reads are re-rooted at the
 fragment: the stand-in's two path parts (its copy key and its reset value, both the subject) are reported as one,
-`[subject]`, or `[]` when no subject is given, in every read, `Story.inspection` included (delegated, at merge).
+`[subject]`, or `[]` when no subject is given, in every read, `inspection` included (delegated, at merge).
 **Rule 20 at the stand-in** reads its path as `[]` until the Story changes the subject (an `enter({ subject })` with
 another value, or `reset`), since only then can a decline from another path occur (rule 51): a writing fragment that
 does not map `failure.NotSent` may be tested alone, and `flow check`, which reads the Story's steps (2.10.14), reports
@@ -4212,58 +4623,66 @@ rule 20 at the first step that changes the subject (delegated, at merge).
 
 ```ts
 const L = Lockout({ limit: 2, length: "1 minute" })
-export const paused = Story.make(L, { id: "lockout/paused" })                    // a trait alone; no input declared, none written
+export const paused = Story.fragment(L, { id: "lockout/paused" })                    // a trait alone; no input declared, none written
   .enter()
   .guards({ canStrike: deny("Paused") })                                          // the stand-in's answers from now on (default: allow)
   .send(L.E.Strike())                                                             // public events; hostEvents are sendable alone
+  .checkpoint("struck")
   .leave()                                                                        // ends, or freezes if resumable
 ```
 
 `guards` is the one way to set a stand-in guard (STF58). `enter(input, { subject })` gives the subject a real host's
 `.each` key or `resetOn` would; `enter` while frozen thaws (same subject) or resets on return (another). Callbacks and
-exits alone and in a host are the same records (STF60); rule 11's `run.calls` and `checkpoint.exit` are gone. 2.10.17.4
-is normative.
+exits alone and in a host are the same records (STF60); rule 11's `run.calls` and `checkpoint.exit` are gone (W34). 2.10.17.4
+is normative. **Reads** [P, SA RV1 M4]: `Absent` and `Ended` read absent, so `read()` is `undefined` and `state`, `memory`, `operations`, `schedules` throw `SubjectAbsent`; a test of the memory at an exit reads a checkpoint before it. `Frozen` reads its slice, and `inspection.incarnations` says frozen.
 
 #### 2.10.13 Playback
 
 Recording is still `run()` once and only rendering after (brief C5). Every frame is a publication, so lane-gated buttons,
 `check()` eligibility, stream connection states and the confirmed-but-saving moment render as production would
-(STR52). The player moves by frame, step or scene: a step is never lost (STR53, STF63), and a frame's cause is one
+(STR52). `<StoryFrame frame={…}>` takes a frame or a cut (2.10.6) [P, SA RV1 M15]. The player moves by frame, step or scene, from the internal list of cuts: a step is never lost (STR53, STF63), and a frame's cause is one
 cause (STF64). The next-action highlight compares the clicked control's addressed event, `{ ref?, instance path, copy,
 tag, payload }`, with the next step's, so a keyed copy or a nested subroutine is found (STR54, STF68); steps that are
 not clicks (`world`, `advance`) play as captioned waits. A frame between a settlement and its ending's turn shows its
 queued arrival from `work` in Inspect, so it never looks stuck (STR56, STF70). For a tab that is closed at a frame,
-`<StoryFrame tab="b">` renders nothing and reports the gap `{ tab: "b", closed: true }` (STR55, STF69). Expectations
-and property violations are shown at their frames (SG4). A fragment-alone Story has no app to render: handing it to
-`StoryPlayer` or `StoryFrame` is a type error, and its frames are readable as text (playback.md 8's agent text frames); playback.md's
+`<StoryFrame tab="b">` renders nothing and reports the gap `{ tab: "b", closed: true }` (STR55, STF69). A Story holds no expectations (SC1), so the player shows no pass or fail; a `propertyTest` result gives the emitted Story and the frame index to look at [P, SA H11]. A fragment-alone Story has no app to render: handing it to
+`StoryPlayer` or `StoryFrame` is a type error (W1 makes the kind visible on the line), and its frames are readable as text (playback.md 8's agent text frames); playback.md's
 open question 2 stays open (STR57, STF71). Presentations stay typed, name checkpoints and hold no callbacks (STR58).
 
 #### 2.10.14 CLI, `flow check`, `flow explain` and Inspection
 
-- `flow story list`, `describe <id>` and `run <id>` work for every subject (STR59). `describe` prints, from the plan
-  alone: subject and kind, options, every step with index, checkpoints, expectations, properties, and every fake
-  server reached with its endpoints, controls and their Schemas.
+- `flow story list`, `describe <id>` and `run <id>` work for every subject (STR59; W40). `describe` prints, from the plan alone:
+  subject and kind (now the constructor's), options, every step with index in its data form, checkpoints, and **every fake server the plan
+  names** in `world` or a step, with its endpoints, controls and their Schemas. A Layer is opaque, so a fake reached only through a fixture is
+  not printed: `yield* Stripe` resolves per run from the run-scoped server registry (2.10.4), and only `story run` starts work [P, SA RV1 M9]. It has no expectation or property lines, because a Story holds neither (W40).
+- `flow story run <id>` reports **what ran**, with no pass or fail on correctness (W40): steps, checkpoints with their state and
+  `seq`, endings reached, requests per endpoint. **[P, SA H13, SA RV1 H4, M17]** It exits 2 when `run()` rejected, under CommandLine's "Story
+  execution" failure, printing the `FlowError`'s boundary and evidence. It prints the earliest error as primary, `issue` records and `UnusedWireRule` diagnostics; "product
+  failures recorded as Story issues do not alone fail the invocation" (CommandLine) stays. Tests answer whether values are right; `flow story run`
+  never claims to.
+- No SIGINT handler is installed for mid-run cancellation, since one cannot run during a run [SA RV3 L5].
 - `flow explain --trace <file> --at <checkpoint>` answers lane, ending, store and session questions from the trace's
   records at that checkpoint's `seq`, and says "evidence unavailable" for what fell outside the trace window (STR59,
   brief C13).
 - Every record kind is an Inspection O4 member, follows Inspection O5's redaction, and fake truth leaves a process as digests
   (STR60). Request `via` fields are identities and are never redacted.
-- `flow stories --coverage` (T2) also lists write-lane cells (from `lane` records' `cell`), stream cells (from
+- `flow stories --coverage` (T2; W40) also lists write-lane cells (from `lane` records' `cell`), stream cells (from
   `session` records' `cell`; *Stream details: merge 6*), ending handlers reached current and late (from `ending` records' `route`) and Flow
-  reasons reached (STR61).
+  reasons reached (STR61). **Coverage says reached, not checked [P, SA H14]**: it reads what Stories ran, and knows nothing about tests.
 - The Story-derived `flow check` warnings read records the trace keeps (STR62): denial codes from `verdict` records,
   repairs and dropped raises, rule 51's declines from `ending` records, and mapper read-after-write from the `turn`
   event, which gains the keys its mappers read that the turn writes (D16).
 - Types catch: unknown checkpoint names, a wrong instance path or copy key in an addressed event, a mapped, internal or
   host event sent from outside (rule 47, 2.2; host events only alone), a fixture list that does not meet `R`, an
   undeclared control (controls are members of the fake's handle), a schedule name in an address the subject does not
-  declare, a read of an operation the subject does not declare,
-  and a fragment Story given to an app-only API (STR6, STR63).
+  declare, a read of an operation the subject does not declare, `state`, `memory`, `operations`, `schedules` or `read()` on an app Story's cut,
+  `lane(O.x, …)` on an app Story, `at` on a handle, a `world` control on a hydration source, a subject of the wrong kind for its constructor (W1), and a fragment Story given to an
+  app-only API (STR6, STR63).
 - A Story is data: `flow check` and `flow graph` read its steps without running a Runtime (STR64).
 
 #### 2.10.15 Reaching every cell: write lanes, streams and the policy suite
 
-Every reachable cell is reached through production paths (decided, Stories T2: no injection). Each `lane` and `session` record
+Every reachable cell is reached through production paths (W12: no injection). Each `lane` and `session` record
 names its cell, so coverage counts cells; a "cannot occur" cell firing is a Runtime defect (an issue), which property
 tests over the policy suite's machines search for (STR65, STR66).
 
@@ -4286,16 +4705,16 @@ resumable placement; parking in a live actor by removing the copy; the releasing
 a removal in each state, restore by `reload`, and the cleared mark by re-adding the copy before the lane is `Idle`. The
 two hydration cells 2.7.13 calls untestable (G6) stay so.
 
-For streams (merge 6's 3.1–3.5, STR66; *Stream details: merge 6*): its 3.1's signal inputs come from `open` and controls, values from controls, `down` from
-`drop`, failure and completion from controls that close, defect from a malformed frame, release from leaving the state;
-its 3.4's pages, page failures and `CannotRepair` from the history endpoint and `retain`, its delays from `advance`; its 3.3's
-queue from floods through a `Feed.callback` client half; its 3.5's progress from a streamed body with a superseded
-Attempt. **Suite-only cells**: `ReleaseOverdue` and the `Releasing` cells with a late signal or value (2.10.9), and the
+For streams (v3's T1–T8, STR66; *Stream details: merge 6*) [P, v3 item 11]: T1's signals come from `open`, controls and `ping`, values from `socket.frames`, `down` from
+the adapter reading a `drop`, failure from `socket.close`, completion from `socket.end` or `end: true` on a body or client half (under `Fake.webSocket` close 1000 is adapter code's to read, SA RV1 M11), defect from a malformed frame, `idle` from `hold()`, release from leaving the state;
+its page rows from the history endpoint and a control like `retain`, their delays from `advance({ next })`; T6's
+queue from floods through a `Feed.callback` client half; T8's progress from a streamed body with a superseded
+Attempt. Coverage counts T1 and T3 cells, `<State>.<input>`, from `session` records. **Suite-only cells**: `ReleaseOverdue` and the `Releasing` cells with a late signal or value (2.10.9), T1 and T3's cells for a turn in the wait for a predecessor [v3 item 11], and the
 Runtime-disposal cells. The wire's own `interrupt` while in transit or while an answer returns cannot occur under
 rule 61 (both are instantaneous within a step, SP MDL W2), so 2.10.17.2 no longer lists them.
 
 **The policy suite** (STR67, operations merge-plan X33, brief C11). Flow's own suite is Stories over small purpose-built machines and adapters,
-run by the same executor under the TestClock. It uses one step apps cannot import, `disposeRuntime()` from
+run by the same executor under its Clock. It uses one step apps cannot import, `disposeRuntime()` from
 `flow-state/internal/testing`, and one adapter (a `Feed.callback` client half whose finalizer awaits a gate; *Stream details: merge 6*). The
 executable lane, stream and Story models remain design checks (brief C1); their invariants become properties of the suite.
 
@@ -4305,20 +4724,91 @@ commits share a key, `ending { reason: NotSent Rejected }`. A freeze during catc
 adopted hold: `drop({ at: "response" })`, `leave()`, `enter()` whose turn raises. A copy removed during a 412 save,
 re-added, text kept: 2.10.18's `reopenedKeepsText`. An upgrade from a host-only lane: `storage:
 Fake.storage.from(oldStory)`, `openTab`. A removed uploading copy, reload, nothing parked: `hold()`, a removal with
-rule 60's cancel, `closeTab`, `openTab`, `expect(Story.inspection, { lanes: [] })`. Two rows of a nested writing trait,
-one removed: two copies, `hold()`, a removal, `expect` on the other copy's rows. "A, B, A" under `resetOn`:
+rule 60's cancel, `closeTab`, `openTab`, and the test reads `cp.inspection.lanes` as empty. Two rows of a nested writing trait,
+one removed: two copies, `hold()`, a removal, and the test reads the other copy's rows. "A, B, A" under `resetOn`:
 `reset("B")`, `reset("A")` alone, or the host's sends. A reload while frozen or while owed: `leave()` or `hold()`,
 `closeTab`, `openTab`. A reload that loses a pending reset: `storage: Fake.storage.seed([an actor record whose reset key
 differs from its saved incarnation's reset value])`, then `openTab`: the restore re-takes the value and resets the
 trait as the first turn, before rule 44's deliveries (rule 51).
 
-#### 2.10.16 Property tests and exploration (decided, Stories T5 B5, with SP RV's condition)
+#### 2.10.16 Property tests and exploration (W25, W38, W39; Stories T5 B5, with SP RV's condition)
 
-`propertyTest(story, { steps, properties, seed, runs?, length?, quietWithin? })` generates ordinary Stories by
-appending generated steps to a base Story: `steps` lists generators of step values (sends of the subject's public events
-with Schema-derived payloads, wire words on the fakes' endpoints with generated addresses, server controls from their
-Schemas, `advance`, lifecycle steps); `properties` are `Story.property` values. Two rules make generated runs useful
-(SP RV's B5 condition):
+`propertyTest(story, options)` (W38) generates ordinary Stories by appending generated steps to a base Story. It takes **plain
+functions** as its properties, in its own option (W25). It is the one place in Flow that judges, because searching and shrinking need
+a verdict (rule 63).
+
+```ts
+// money.test.ts. Base Story: inputs only.
+const base = Story.machine(PayMachine, { id: "pay/money", context: signedIn, fixtures: [StripeFake] })  // [W1]
+  .send(E.Start(CART_1))                                                       // user-defined: CART_1, signedIn, PayMachine
+
+test("charged once, never left authorized", () =>
+  propertyTest(base, {  // story first [W38]
+    steps: [
+      [E.PayPressed(), E.Leave(), E.CheckAgain()],                             // Testing O6's generator: a sample array of step data [P, SA RV1 H3]
+      [Stripe.confirm.hold(), Stripe.confirm.release(), Stripe.confirm.drop({ at: "response" })],
+      [Stripe.busy({ times: 1 })],
+      [{ advance: "2 seconds" }, { advance: "5 minutes" }],                    // the shape together takes
+    ],
+    properties: {  // own option, plain functions [W25, W38]
+      chargedOnce: (frame) => {                                                // user-defined: chargedOnce; the key is its name
+        const { charges } = frame.read(Stripe)
+        const twice = charges.filter((c, i) => charges.findIndex((d) => d.intentId === c.intentId) !== i)
+        return twice.length > 0 ? twice : undefined                            // undefined: fine; any other value: the violation
+      },
+    },
+    whenQuiet: {  // checked once, at the quiet point [P]
+      noneLeftOnACard: (cut) => {                                              // user-defined
+        const left = cut.read(Stripe).charges.filter((c) => c.status === "authorized")   // this Stripe's Charge has a status (the Checkout's, not 2.10.4's)
+        return left.length > 0 ? left : undefined
+      },
+    },
+    seed: 11,
+    runs: 200,
+    length: 30,
+  }))
+```
+
+**Options.** `propertyTest(story, { steps, properties?, whenQuiet?, seed, runs?, length?, quietWithin? })`. `steps` lists generators
+of step values: Testing O6's nonempty sample arrays, or pure `{ sample, shrink }` objects. **A step value is a step's data form** (2.10.1), any but `checkpoint` [P, SA RV1 H3, SA RV2 M10], so an app Story can generate targeted sends, lifecycle steps and races:
+
+```ts
+steps: [  // on an app Story
+  [{ send: [payRef, pay] }, { send: [{ actor: payRef, tab: "b" }, pay] }],  // { send: [target?, ...events] }
+  [{ reload: "main" }, { closeTab: "b" }, { openTab: ["b", { from: "main" }] }],  // a lifecycle step, keyed by its method
+  [{ together: [{ send: [payRef, pay] }, Stripe.confirm.release()] }],  // a generated race, so 2.7.13's P1 is findable
+  [Stripe.confirm.hold(), Stripe.confirm.release()],
+]
+```
+
+The desk and Checkout invented a `Generate` module; no design defines one, so none is added here.
+
+**Properties are plain functions** (W25, W38). `properties` is a record of `(frame) => violation | undefined`, named by its key, run on
+every frame of every generated run. `whenQuiet` **[P, SA H9]** has the same shape, over the cut at the quiet point, and runs once if that is reached.
+This replaces the `frame.settled` the Checkout assumed.
+
+**The quiet phase ends the world** [P, SA RV1 H2]. Otherwise a correct app rejects, since a run ending on `hold` leaves a Pay `InFlight` forever. After the generated steps, it releases every target with a standing rule **or a held item** [SA RV2 M4],
+in the order set, then moves time within `quietWithin`. **These are ordinary steps and are part of the emitted Story**, so a pasted one reproduces. **Quiet** is no lane
+`InFlight`, no held item, no queued arrival, and no deadline at or before the horizon that an operation owns. Open sessions, actor schedules that recur and setup-scoped sleeps do not count, so a polling app can go quiet [SA RV2 M4]. EntityDomains O4's "at quiet" takes the same line. **[P]** A function that throws counts as a violation carrying the error, so the
+runner's `expect` works inside one; a function must be pure and has only the frame. **Flow's own read errors are not violations** [P, SA RV2 M5]: `SubjectAbsent` or `AmbiguousRead` thrown in a property, on a frame where a generated `dispose` left no subject, say, rejects as a `FlowError` with `reason: "PropertyDefect"`, naming the property, and shrinking retains a candidate only if its violation is not one of these. Otherwise a candidate dropping `enter` would "fail" on its first frame, and shrink the real failure to an empty Story. To share one across Stories, annotate
+`(frame: Story.Frame<typeof PayMachine>)` **[P, SA RV1 M7]**, by subject, as a type only, since `StoryFrame` is the component. At least one of `properties` and
+`whenQuiet` is required.
+
+**Judging** (Testing O6's distinctions, kept). **[P, SA H8]** `propertyTest` resolves with `{ _tag: "Pass", seed, runs }` and rejects with a
+`PropertyTestFailed` carrying `result`, whose `_tag` is:
+
+| `result._tag` | When | Fields |
+| --- | --- | --- |
+| `Fail` | a property returned a violation or threw | `property`, `violation`, `at: { frame: n } \| { quiet: true }` [SA RV1 H2], `story` (the shrunk Story), `source` (the appended steps as a string, section below) [SA RV1 L9, SA RV2 M12], `run`, `seed`, `shrinks`, `bound` |
+| `Fail` with `reason: "FramesTruncated"` | a generated run's frames were truncated, so some were not checked (W25; a truncated run never passes). No property failed, so nothing is shrunk, and **the search continues; a later real `Fail` wins** [SA RV2 M5]; lower `length` | `seed`, `run` |
+| `Inconclusive` | turn exhaustion, pending external work, a quiet horizon not reached, insufficient evidence. **`StoryTurnLimit` and `HostTimeWait` under generation are here** [SA RV2 M5]. Never pass | `reason`, `seed`, `completedRuns`, `inconclusiveRuns` |
+
+**All runs complete** unless one fails, and `Fail` wins over `Inconclusive`, so an `Inconclusive` at run 3 cannot hide a real `Fail` at run 50 [P, SA RV1 H2].
+
+Acquisition, generator and cleanup defects, and `StoryFakeError`, reject as ordinary `FlowError`s, not counterexamples (Testing O6); a `StoryFakeError` here carries `seed`, `run` and the unshrunk `source`, since a crash found only on a generated path has no other way to reproduce [SA RV3 L5]. Rejecting makes
+`test("x", () => propertyTest(…))` honest; a returned `Fail` that nobody checked would pass silently.
+
+Two rules make generated runs useful (SP RV's B5 condition):
 
 - **A generated step that is invalid in the current state is skipped**, never `StoryInvalidCommand`: a `release` with
   nothing held, a `leave` when not entered, an `ensure` of an existing actor. The skip is a `step` record with
@@ -4331,13 +4821,35 @@ Schemas, `advance`, lifecycle steps); `properties` are `Story.property` values. 
 Every fault Testing O6 names is one of those steps (hold, release, fail, delay as hold-advance-release, reorder as
 `release({ nth })`, duplicate, lose as `drop`, push as a control, disconnect and reconnect, change subscriptions as
 sends or `ensure`/`dispose`, invalidate as a step, crash and restore as `reload`, adopt as lazy adoption), so a shrunk
-failure is a literal Story that runs and plays back (STR69, STF52). Testing O6's domain form becomes a preset
-(`Domain.propertySteps(domains, inputs)`), keeping its oracle, quietness and Inconclusive rules.
+failure is a literal Story that runs and plays back (STR69, STF52). Shrinking retains a candidate only if the same property fails,
+stops at 1,000 candidates or no smaller failure, and reports the bound (Testing O6).
 
-**After `model()`** (STR68, STF79). Finding a sequence the author did not write is this search on the real Runtime:
-write the property "never `LOCKED_OUT`" and shrink the counterexample. Shrinking gives a **local minimum**, a short way
-in, not the shortest (SP RV). Cut, stated: enumerating every simple path and guaranteeing that every reachable
-combination was visited; nothing replaces them without a second execution path (T1).
+**A counterexample [P, SA H10, SA RV2 M12].** The emitted Story holds inputs only (SC1), so running it alone reports nothing wrong. `source` is **the appended steps only, chained from the author's `base`**, since at run time a Layer or a ref's variable has no name: `base.world(Stripe.confirm.drop({ at: "response" })).send({ _tag: "PayPressed" })`. Its options come from `base`. Controls print by server name and endpoint, so the variable must match `Fake.server`'s name; events print as literals; refs print as `steps[i]`, by generator index, since the author passed them there; a non-JSON event payload such as `DateTime` does not paste [SA RV3 L5]. A run between `propertyTest` runs may yield to the host, so a runner's timeout can fire there. Its id is
+`<base id>/counterexample/<seed>`, with no option needed. To keep it as a regression, paste `result.source`, lift the property to a `const`, and run the same plain function:
+
+```ts
+export const chargedTwice = base                                               // user-defined: base, the author's own  // the rest pasted from result.source
+  .world(Stripe.confirm.drop({ at: "response" })).send({ _tag: "PayPressed" }).advance("5 minutes")
+
+test("regression: charged twice", async () => {
+  const run = await chargedTwice.run()
+  for (const frame of run.frames) expect(chargedOnce(frame)).toBeUndefined()   // user-defined: chargedOnce, the same function
+})
+```
+
+**Domains are a preset** (W38). Testing O6's domain form becomes `domainPropertyOptions(domains, inputs)`, exported from `flow-state/testing` so a testing helper stays out of a production module **[P: RENAMED from
+`Domain.propertySteps`, SA H10, SA RV1 L12]**, which returns `{ steps, properties, whenQuiet, quietWithin }` to spread: its steps are the domain's faults
+and its properties are EntityDomains O4's, as plain functions over `frame.read(fake)` and `frame.entity`, keeping O4's oracle, quietness
+and `Inconclusive` rules.
+
+```ts
+propertyTest(base, { ...domainPropertyOptions([Issues], { setLike: likeInputs }), seed: 3 })  // [P]  // user-defined: base, Issues, likeInputs
+```
+
+**After `model()`** (W39; STR68, STF79). `model()` is removed. Finding a sequence the author did not write is this search on the
+real Runtime: write the property "never `LOCKED_OUT`" and shrink the counterexample. Shrinking gives a **local minimum**, a short way
+in, not the shortest (SP RV). Exhaustive paths and shortest counterexamples are given up; one Runtime and one execution path stay
+(W39, T1).
 
 **Weighed.** STR70 (worlds from contracts): in reach with no new runtime; the generators already range over every
 endpoint a subject's contracts reach, every wire word and every address. STR71 (record and replay): in reach later as a
@@ -4350,16 +4862,18 @@ seeded by one option, named by one address.
 
 Normative for the executor, and complete enough to rebuild the executable model from this section alone: every state
 is a column, every input a row, every cell defined or "—" (cannot occur, with the reason). The model's ambiguities
-A1–A6 are settled here (delegated, at merge).
+A1–A6 are settled here (delegated, at merge). fakes-v2's order and close rows and SA RV1 H5's rows are folded in below; the executable model was
+extended with them and re-run ([merged/story-checks/model/RESULTS.md](merged/story-checks/model/RESULTS.md): 77 invariants pass; 92 of 95 mutants killed; wire searches capped at 200,000 states, depths 5 to 8; a ping's coalescing, the 100,000-deadline limit and `together({ advance })` are not modelled).
 
 ##### 2.10.17.1 What a step runs
 
 | Step | Admission | Time | Settles (2.10.2) | Its cut | Errors |
 | --- | --- | --- | --- | --- | --- |
+| the start | fixtures acquired, first tab bootstrapped or actor started | fixed | after | one: a checkpoint before any step names it | a build parked after this settle with no deadline rejects here [P, SA RV3 M5] |
 | `send(target?, …events)` | open | fixed | after each event | a step cut per event | `ActorAbsent`, `TabClosed`, `StoryTurnLimit` |
 | `together(…inputs)` | held until every input arrived, then open | fixed, or moved by an `{ advance }` input (deadlines fire, events queue, no turns) | after admission resumes | one | as `send`; `NothingHeld`, `InvalidDuration` |
-| `world(…controls)` | open | fixed | after each control | one | `NothingHeld` |
-| `advance(d)` | open | each deadline ≤ now + d, then now + d | at each deadline (2.10.17.5), then at now + d | one | `InvalidDuration`, `StoryTurnLimit` (per instant) |
+| `world(…controls)` | open | fixed | after each control | one | `NothingHeld`, `NoConnection` |
+| `advance(d)` | open | each deadline ≤ now + d, then now + d | at each deadline (2.10.17.5), then at now + d | one | `InvalidDuration`, `StoryTurnLimit` (per instant; `reason: "Advance"` past 100,000 deadlines) |
 | `advance({ next })`, `advance({ to })` | open | to the earliest unfrozen deadline the address matches; to `to` | as `advance` | one | `NoDeadline`, `InvalidDuration` |
 | `advance(d, { suspended })` | the tab runs nothing during the move | as `advance`, the tab's sleeps skipped | at each world deadline; then the tab's overdue ones in deadline order, then its queued transport input | one | as `advance` |
 | `ensure`, `dispose`, `enter`, `leave`, `reset`, `setContext` | open | fixed | after | one | `AlreadyEntered`, `NotEntered`, `ActorAbsent` |
@@ -4367,24 +4881,25 @@ A1–A6 are settled here (delegated, at merge).
 | `closeTab(name)` | the tab stops | fixed | after (other tabs; remote requests keep travelling; local writes abort) | one | `TabClosed` |
 | `reload(name)` | as `closeTab` then `openTab(name, { from: name })` | fixed | as both | one | as both |
 | `guards(answers)` | — | fixed | no | one (no publication) | — |
-| `dehydrate`, `hydrate` | open | `dehydrate` moves time as `advance` does | after | one | Testing O7's |
-| `checkpoint(name, { at? })`, `expect(target?, partial)` | — | fixed | no | names or checks the latest step cut (`at`: a frame of the previous step) | `StoryExpectationFailed` after the run |
+| `dehydrate` | open | moves time as `advance` does | after | one | Testing O7's |
+| `hydrate` | open; a leading one runs before bootstrap | a source advances the run's clock; at a later one, tabs' sleeps are held as under `suspended` until it ends [P, SA RV1 M13] | after | one | Testing O7's |
+| `checkpoint(name, { at? })` | — | fixed | no | names the latest step cut (`at`: a frame of the previous step) | duplicate or unknown names are type errors |
 
-Every settle runs on the microtask-only run scheduler: no host task runs during it, and it ends once Flow's queue and
-the microtask queue are both empty; a fiber then waiting on the host is `HostTimeWait` (2.10.2, Stories T7). A world control
-applied while every tab is closed still has a step cut (rule 64).
+A run never yields to the host between its first step and its cleanup. Every settle runs the drain until `K` consecutive hops show no scheduler activity and no arrival at anything of Flow's, within the hop cap (`StoryTurnLimit`, `reason: "Settle"`). After the last cut, if a commit or read fiber is parked, the run finishes the world, with nothing reaching the evidence; a fiber still parked is `HostTimeWait` (2.10.2, rule 61) [P, SA RV2 H1, M1, M2, SA RV3 M1].
+
+**Cleanup** [P, SA RV3 M3]. During cleanup the Clock runs free: a settle that leaves a finalizer parked jumps to the next deadline, so a flush after a short sleep and a close under `Effect.timeout` finish. Cleanup may yield to the host, and has its own hop cap and a real-time bound, proposed 1 second. Past either, it is a cleanup failure naming the finalizer's scope. The run has already been judged, so a real timer here cannot change the result. An uninterruptible loop in a finalizer still starves the host (reasoned, not run). A world control applied while every tab is closed still has a step cut (rule 64).
 
 ##### 2.10.17.2 A request at a call endpoint
 
-**Rules.** Each server keeps one list of rules `{ target, word, at, times, match }` (target: the handle, covering every
-endpoint, or one endpoint), ordered by when each was set. **At arrival** a request takes the earliest-set rule whose
+**Rules.** Each server keeps two lists of rules `{ target, word, at, times, match }` (target: the handle, covering every
+endpoint, or one endpoint), ordered by when each was set: one for calls and attempts, one for frames (2.10.4) [P, SA RV1 H5]. **At arrival** a request takes the earliest-set rule whose
 target covers its endpoint and whose `match` it fits, and only that
-rule, whose `times` then drops by one (removed at zero; `"always"` stays). Its effect applies at the rule's phase.
+rule, whose `times` then drops by one (at zero it is removed unless it still holds an item, 2.10.4 rule 5 [SA RV3 M6, SA MDL N3]; `"always"` stays). Its effect applies at the rule's phase.
 Requests from tabs reach the endpoint in invocation order (2.10.2). Under rule 61 a request is never observable between
 leaving the client and reaching the gate, nor between the handler's answer and the client (SP MDL W2), so those are not
 states.
 
-States: `Held` (in transit, unseen by the server), `Server` (the handler runs; it may sleep), `HeldAnswer` (handled;
+States: `Held` (in transit, unseen by the server), `Server` (`handle` commits synchronously, its `send` is delivered, and its answer waits in the FIFO answer list; only `together` can observe this state, since a settle delivers the list) [P, SA RV1 M1, M2], `HeldAnswer` (handled;
 the answer waits). Each request also has `gone` (its client cancelled, or its tab closed). Terminal phases: `answered`,
 `lost`, `dropped`, `orphan` (handled, nobody to answer), `duplicate` (a second copy's answer, discarded).
 
@@ -4393,47 +4908,66 @@ the answer waits). Each request also has `gone` (its client cancelled, or its ta
 | its rule is none | → `Server` | — | — | — |
 | its rule is `hold()` | → `Held` | — | — | — |
 | its rule is `hold({ at: "response" })` | → `Server`, marked to hold | — | — | — |
-| its rule is `drop()` | → `lost`; the client gets `Fake/Lost` | — | — | — |
+| its rule is `drop()` | → `lost`; the client gets `Fake.Lost` | — | — | — |
 | its rule is `drop({ at: "response" })` | → `Server`, marked to drop | — | — | — |
 | its rule is `duplicate()` | → `Server`, and a copy → `Server` after it | — | — | — |
-| `release()` on its target | — | → `Server`, in arrival order | no change | → `answered` (or `orphan` if `gone`), in arrival order |
-| `release({ drop: true })` | — | → `lost` | no change | → `dropped`; the client gets `Fake/Lost` |
-| `release({ nth: k })` | — | the k-th held item (from 1, arrival order) first, then the rest as `release()`; fewer than k held: `NothingHeld`, naming k | no change | as `Held`'s cell |
-| handler answers | — | — | marked to hold: → `HeldAnswer`; marked to drop: → `dropped` (the client gets `Fake/Lost`); a copy: → `duplicate`; else → `answered`, or `orphan` if `gone` | — |
-| handler fails (a crashed server) | — | — | → `answered` with the binding's failure (`Fake/Lost`, `500`, close `1011`), and an `issue` | — |
-| its client cancels, or its tab closes | — | stays `Held`, `gone` | continues, `gone` | stays, `gone` |
+| `release()` on its target | — | → `Server`, in arrival order, after the `HeldAnswer`s join the answer list [P, SA MDL G3] | no change; a request marked to hold: the rule ends for later arrivals, and its answer is delivered once ready [P, SA MDL U2] | joins the answer list, in arrival order; then → `answered`, or `orphan` if `gone` |
+| `release({ match })`; no item matches: `NothingHeld` [SA MDL N1] | — | matching: → `Server`; else stays | no change | matching: as `release()`; else stays |
+| `release({ drop: true })` | — | → `lost` | no change | → `dropped`; the client, if any, gets `Fake.Lost` [SA RV3 L3] |
+| `release({ nth: k })` | — | the k-th held item (from 1, arrival order, `HeldAnswer`s counted) first within its kind, then the rest as `release()`; fewer than k held: `NothingHeld`, naming k, nothing released (2.10.4) [SA MDL N2] | no change | as `Held`'s cell |
+| handler answers | — | — | commits, delivers its `send`, then by the one order: a copy: → `duplicate`; marked to hold: → `HeldAnswer`; marked to drop: → `dropped` (the client, if any, gets `Fake.Lost`); `gone`: → `orphan`; else, at its turn in the answer list, → `answered`, or `orphan` if `gone` by then [SA RV3 L3] | — |
+| `handle` throws (a crashed server): no truth, no frames | — | — | the table below; `StoryFakeError` at the run's end | — |
+| its client cancels, or its tab closes | — | stays `Held`, `gone` | continues, `gone`; its frames still go | stays, `gone` |
 | a tab is suspended | — | stays | continues (the server is not suspended); its answer waits in the tab's transport | stays; delivered when the tab wakes |
+
+**Handler fails**, in the same order as the row above, so a hold-marked `gone` request is `HeldAnswer` whether it crashes or not, and `release` then makes it `orphan` [P, SA RV1 M1, SA MDL G1]:
+
+| Handler fails | Result |
+| --- | --- |
+| a copy | → `duplicate`, nothing reaches the client |
+| marked to hold | → `HeldAnswer`, holding the failure |
+| marked to drop | → `dropped`, `Fake.Lost` if a client is there |
+| `gone` | → `orphan` |
+| otherwise | → `answered` with the binding's failure (`Fake.Lost`, `500`, close `1011`) |
 
 A held item belongs to the rule that held it: `release()` on a target delivers exactly the items its own rules held
 (a handle's, on any endpoint) and removes every standing rule whose target is its own (a handle's `release` does not
 end an endpoint's rules, nor the reverse). With no held item and no standing rule it is `NothingHeld` (SP MDL W1),
-at a call endpoint, a stream endpoint and `Fake.storage` alike. Every change is a `request` record. 13 rows × 4 columns: 52 cells, 23 defined, 29 "—" (a
+at a call endpoint, a stream endpoint and `Fake.storage` alike. Every change is a `request` record. 14 rows × 4 columns: 56 cells, 26 defined, 30 "—" (a
 request takes its rule once, at arrival, and a handler acts only on a request at the server).
 
 ##### 2.10.17.3 A connection at a stream endpoint
 
-States: `None` (no connection), `Opening` (an attempt held by `hold({ at: "open" })`), `Open`, `Silent` (frames held),
-`Closed { code }`. A tab's transport input waits while the tab is suspended, in every state, and is delivered at wake.
+States: `None` (no connection), `Opening` (an attempt held by `hold({ at: "open" })`), `Open` (including one still counting a
+`hold({ after })`), `Silent` (frames held), `Closing { code }` (a server close or end queued behind held frames; the server sees it
+as closed, the client as silent) [fakes-v2: "2.10.17.3 gains this state"], `Closed { code }`. A tab's transport input waits while the
+tab is suspended, in every state, and is delivered at wake. A clean end is `{ code: 1000 }`. Under a `hold({ after })` a frame counts as
+it is delivered, and the frame that reaches the count takes the connection to `Silent`, with later frames queued. Words here are per connection, and 2.10.4's combination rule applies: a word on a handle reaches these rows as the same word on every stream, with `hold` also holding attempts and `drop` as below. Attempts use the arrival list; frames rules the other.
 
-| Input ↓ / State → | `None` | `Opening` | `Open` | `Silent` | `Closed` |
-| --- | --- | --- | --- | --- | --- |
-| an attempt, rule none | `open` runs: accepts → `Open`, greeting sent; refuses with a code → `Closed { code }`; dies → `Closed { 1011 }`, an `issue` | — | — | — | as `None` (a new connection) |
-| an attempt, rule `hold({ at: "open" })` | → `Opening` | — | — | — | → `Opening` |
-| an attempt, rule `drop({ at: "open" })` | refused: the binding's `lost` (close `1006`), stays `None` | — | — | — | refused, stays |
-| a control sends frames | nothing (no connection) | nothing | delivered in order | queued | nothing |
-| a control closes with a code | — | → `Closed { code }` | → `Closed { code }` | → `Closed { code }`, queued frames lost | — |
-| `hold()` (frames) | a standing rule: the next connection opens `Silent` | the rule applies when it opens | → `Silent` | — | a standing rule, as `None` |
-| `release()` | ends standing rules; `NothingHeld` if none | the open completes as "rule none" | ends standing rules; `NothingHeld` if none | → `Open`, queued frames delivered | ends standing rules; `NothingHeld` if none |
-| `release({ nth: k })` | as `release()` | as `release()` | as `release()` | → `Open`, the k-th queued frame first, then the rest in order | as `release()` |
-| `drop()` (frames) | nothing, recorded | → `Closed { 1006 }` | → `Closed { 1006 }` | → `Closed { 1006 }`, queued frames lost | nothing, recorded |
-| `duplicate()` | a standing rule for the next frame | as `None` | the next frame is delivered twice | the next released frame twice | as `None` |
-| a client frame (`message`) | — | — | the handler runs; may answer frames | the handler runs; answers queue | — |
-| the client closes (release) or its tab closes | — | → `None` | → `None` (Effect's finalizer does not wait, 2.10.9) | → `None`, queued frames lost | — |
+| Input ↓ / State → | `None` | `Opening` | `Open` | `Silent` | `Closing` | `Closed` |
+| --- | --- | --- | --- | --- | --- | --- |
+| an attempt, rule none | `open` runs. `frames`, `end` absent → `Open`, frames sent (or `Silent`, queued, under a hold in effect); `refuse` → `Closed { code }`, log `refused`, the client sees the binding's refusal (2.10.4); `end: true` → frames, then `Closed { 1000 }` (or `Closing { 1000 }` under a hold in effect, or once a count is reached, [SA MDL G12]); throws → `Closed { 1011 }`, `StoryFakeError` | — | — | — | — | as `None` (a new connection) |
+| an attempt, rule `hold({ at: "open" })`, or a handle's `hold()` | → `Opening` | — | — | — | — | → `Opening` |
+| an attempt, rule `drop({ at: "open" })`, or a handle's or a standing `drop` | lost, log `lost`: the binding's lost (`Fake.Lost`, close `1006`), stays `None` | — | — | — | — | lost, stays |
+| a `send` of `socket.frames` matches | nothing (no connection) | nothing; `open` replays from truth | delivered in order | queued | nothing: the server sees it closed | nothing |
+| a `send` of `socket.close` matches | — | nothing: the server has not seen it [SA RV1 M11] | → `Closed { code }`, after frames ahead of it | → `Closing { code }`: queued last | — | — |
+| a `send` of `socket.end` matches | — | nothing: the server has not seen it [SA RV1 M11] | → `Closed { 1000 }`, after frames ahead of it | → `Closing { 1000 }`: queued last | — | — |
+| a `ping` is due [v3 items 1–3] | — | — | delivered; not counted by `after`, not doubled | nothing; none queues | nothing; none queues | — |
+| `hold()` (frames) | a standing rule: the next connection opens `Silent` | the rule applies when it opens | → `Silent` | joins its holds | joins its holds | a standing rule, as `None` |
+| `hold({ after: n })` | a standing rule: the next connection counts from its first frame | the rule applies when it opens | counts on its own from now [SA MDL G8, N6] | a count, starting when frames flow again [SA MDL N4] | a count, starting when frames flow again [SA MDL N4] | a standing rule, as `None` |
+| `release()`, no other hold left on it | ends standing rules; `NothingHeld` if none | the target's rules end, then the open completes as "rule none" [SA MDL G16] | ends standing rules, and any count; `NothingHeld` if none | → `Open`, queued frames delivered | queued frames delivered, then the close → `Closed { code }` | ends standing rules; `NothingHeld` if none |
+| `release()`, another hold still on it | — | its own attempt: completes, → `Silent`; another target's: no change | ends its rules; a count of another rule goes on | ends its rules, stays `Silent`, queue kept [SA RV2 M8, SA MDL G2] | ends its rules, stays `Closing` | — |
+| `release({ match })`; no held item on the target matches: `NothingHeld` [SA MDL N1] | no change | matching: the open completes; else stays | no change | matching: queued frames delivered, unless another target's hold covers it; stays `Silent` while the rule stands [SA RV3 M6] | matching: frames likewise; the close waits until no hold is left [SA RV3 M6] | no change |
+| `release({ drop: true })` | as `release()` | the attempt is lost, as `drop({ at: "open" })` → `None` | as `release()` | queued frames lost; → `Open` when no hold is left | no hold left: frames and close lost → `Closed { 1006 }`; otherwise frames lost, stays | as `release()` |
+| `release({ nth: k })` | as `release()` | as `release()` | as `release()` | no hold left: → `Open`, the k-th queued frame first, then the rest in order; otherwise as `release()` | no hold left: the k-th queued frame first, the rest, then the close, which is not counted; otherwise as `release()` | as `release()` |
+| `drop()`, default `times` | if no connection matched: on the endpoint `NoConnection`, on a handle a rule for the next arrival | → `None`, lost, log `lost` [SA RV2 L4] | → `Closed { 1006 }` | → `Closed { 1006 }`, queued frames lost | → `Closed { 1006 }`, at once; queued frames and the close lost | as `None` |
+| `drop({ times })`, above 1 or `"always"` | stands as `drop({ at: "open" })` | → `None`, lost; stands | → `Closed { 1006 }`; stands | → `Closed { 1006 }`, queued frames lost; stands | → `Closed { 1006 }`, queued and close lost; stands | stands |
+| `duplicate()` | a standing rule for the next frame | as `None` | the next undoubled frame is delivered twice [SA MDL N5] | the next released undoubled frame twice | the next released undoubled frame twice | as `None` |
+| the client closes (release) or its tab closes | — | → `None` | → `None` (Effect's finalizer does not wait, 2.10.9) | → `None`, queued frames lost | → `None`, queued frames and the close lost | — |
 
-12 rows × 5 columns: 60 cells, 43 defined, 17 "—" (an attempt arrives only with no live connection; nothing closes or
-sends where no connection exists). `release({ nth: k })` with fewer than k queued frames is `NothingHeld`, naming k, as
-at a call endpoint. An answer or frame that reaches a suspended tab waits in its transport and is delivered at wake,
-after the tab's overdue deadlines, in arrival order (2.10.3).
+18 rows × 6 columns: 108 cells, 83 defined, 25 "—" (an attempt arrives only with no live connection; a ping needs an open connection; a `where` selects only connections the server sees as live, or a held open; another hold cannot be on a connection that does not exist; nothing is closed by a client that has no connection). 2.10.4's three combination rules are normative over these rows. `release({ nth: k })` with fewer than k queued frames releases that connection in order; it is `NothingHeld`, naming k, only when no queue has k (2.10.4). A count reaching `n` during a release's delivery queues the rest again [SA MDL U1]. Rows reach connections in their open order [SA MDL G7]. An answer or frame that reaches a suspended tab waits in its transport and is delivered at wake, after the tab's overdue deadlines, in arrival order (2.10.3); pings coalesce to one [v3 item 3].
+
+Changes **[P]** from the Stories merge's table beyond fakes-v2's: `release({ drop: true })` was in 2.10.4's word table with no row here; a second `hold()` on `Silent` was "—", though a Story can write it. `message`'s row is cut (SA RV2 section 8): a client's frame is ignored and logged in any state. Each `send` to a connection is a `delivery` record. A client close logs `{ phase: "closed", code: 1000, by: "client" }` [SA RV1 M11].
 
 ##### 2.10.17.4 The stand-in host (a fragment alone)
 
@@ -4455,15 +4989,17 @@ Placement per 2.10.12's table. `subject` is the Story's subject value; "same" an
 
 | Rank | Owner of a sleep | Then by |
 | --- | --- | --- |
-| 1 | fake servers, then `Fake.storage` | first reference by a fixture, then name; arming order |
+| 1 | a fake's `ping` [P, v3 item 1] | server name, connection open order, arming |
 | 2 | adapters (fibers of an operation) | tab order, actor creation, operation, key, arming |
 | 3 | setup-scoped fibers (an SDK client, a rate limiter) | tab order, layer order, arming |
 | 4 | the Runtime's own waits | tab order, actor creation, arming |
 | 5 | actor schedules | tab order, actor creation, instance path in placement order, copy in list order, schedule key in list order, arming |
 
+A handler is pure and takes no time (SA RV1 M1), so a fake's only sleep is its `ping`. It ranks first so a tie with a client's `idleTime` keeps a registered connection alive; without this rank, SA RV3 got `Silent` at 45 s or 90 s by arming order. A client half's own sleep ranks as an adapter under an operation, otherwise as setup-scoped. A hydration source's tab `"server"` ranks before every tab (SA RV1 M13).
+
 At one instant one sleep wakes, the Runtime settles, then the next. "Tab order" is each name's first-open order; a
 reloaded tab keeps its rank (SP RV2 L5). Inside a settle: tabs take turns one at a time in tab order; invoked Attempts reach fakes in invocation order (tab order, then the turn that promoted them); fake
-handlers run in arrival order; storage writes are FIFO per tab (2.10.17.6).
+handlers run in arrival order, and answers go through the one answer list: those a `release` freed join first, then handlers' [P, SA RV1 M2, SA MDL G3]; connections are reached in open order [SA MDL G7]; storage writes are FIFO per tab (2.10.17.6).
 
 ##### 2.10.17.6 A write at `Fake.storage` (local)
 
@@ -4478,14 +5014,16 @@ own rows are below.
 | its rule is `hold()` | → `Held` | — | — | — |
 | its rule is `hold({ at: "response" })` | applied, → `HeldConfirm` | — | — | — |
 | its rule is `drop()` | → `refused` (the caller sees the store's failure: `StorageRefused`) | — | — | — |
+| its rule is `drop({ at: "response" })` | applied, → `refused`: the caller sees a failure though the bytes were written [P, SA RV1 M12] | — | — | — |
 | the write ahead of it finishes | — | takes its rule now, as "arriving" | — | — |
 | `release()` | — | no change | → `stored` (then the queue behind it moves) | → `stored`, confirmed |
+| `release({ match })` | — | no change | matching: → `stored` | matching: → `stored`, confirmed |
 | `release({ drop: true })` | — | no change | → `refused` | → `refused`: the caller sees a failure though the bytes were written |
 | its tab closes | — | → `aborted` | → `aborted`: never applied | stays written; the confirmation is lost (2.7.13's G1 cell after `reload`) |
 
 A cancelled Attempt's `Held` acknowledgement either lands before the capture that removes it (queued behind it; a
 Persistence fact, Persistence O7) or is aborted with the tab (SP MDL F1). A `HeldConfirm` one stays written, so `reload` restores
-it as `unknown { Restored }` (2.10.4; Stories T7). 9 rows × 4 columns: 36 cells, 15 defined, 21 "—".
+it as `unknown { Restored }` (2.10.4; Stories T7). 11 rows × 4 columns: 44 cells, 19 defined, 25 "—".
 
 `duplicate` is not a `Fake.storage` word (a type error): local storage has no network to repeat a request.
 
@@ -4497,56 +5035,69 @@ A read at `Fake.storage` (a slow or failed restore):
 | its rule is `hold()` | → `Held` | — |
 | its rule is `drop()` | → `refused`: the restore fails as the store's failure would | — |
 | `release()` | — | → `served` |
+| `release({ match })` | — | matching: → `served` |
 | `release({ drop: true })` | — | → `refused` |
 | its tab closes | — | → `aborted` |
 
-6 rows × 2 columns: 12 cells, 6 defined, 6 "—". While a restore read is held, the tab has not finished bootstrap:
+7 rows × 2 columns: 14 cells, 7 defined, 7 "—". While a restore read is held, the tab has not finished bootstrap:
 its persisted actors are absent, and a send to one is `ActorAbsent`. Refused, the tab reports `StorageFailure` and runs
 without persistence (Persistence O5).
 
 #### 2.10.18 Examples
 
-Each case starts at the real source, names the fake that stands in for it, and gives the Stories in full. Machines are
-the design's (cited), unchanged. The record's chat (SP 4.3) and LLM (SP 4.6) cases run on merge 6's `Feed` and
-sessions, which are not merged; they port with merge 6 (*Stream details: merge 6*).
+Each case starts at the real source, names the fake that stands in for it, and gives the Story and its test in full. Machines are
+the design's (cited), unchanged. The record's chat (SP 4.3) and LLM (SP 4.6) cases run on v3's `Feed` and sessions, which are not
+merged; they port with merge 6 (*Stream details: merge 6*).
+
+Every example is **[P]** in form: SC1's example fixes the shape, and these apply it. Names of fakes, controls, schedules and refs are
+user-defined.
 
 ##### 2.10.18.1 Before and after: the common case
 
 The SG2 case: an editor actor with input and a fake for its one service; two sends; time passes; the state, one
 memory field, one lane row and what the server received are checked.
 
-Before (the dispatch desk's `editor.story.ts` `saved`, 8 lines; assertions in `editor.test.tsx`):
+Before (the Stories merge of 2026-10-31, with `.expect` in the Story):
 
 ```ts
-export const saved = desk("ticket-save")
-  .send(Editor42, E.TitleChanged({ title: "Replace foyer light" }))
-  .send(Editor42, E.SaveRequested())
-  .process()
-  .checkpoint("saving")
-  .advance("2 seconds")
-  .process()
-  .checkpoint("saved");
-// editor.test.tsx: const run = await saved.run(); expect(run.checkpoints.saved.actor(Editor42)?.snapshot.state)…
-```
-
-After (6 lines with its assertions; the test file is one line):
-
-```ts
-import { Fake, Story } from "flow-state/testing"
-
 export const saved = Story.make(Editor, { id: "editor/saved", input: T42, fixtures: [TicketsFake] })
-  .send(E.TitleChanged({ title: "Replace foyer light" }), E.SaveRequested())      // each event is its own step
+  .send(E.TitleChanged({ title: "Replace foyer light" }), E.SaveRequested())
   .advance("2 seconds")
   .expect({ state: S.SAVED, memory: { title: "Replace foyer light" }, operations: { save: { pending: false } } })
-  .expect(Tickets.save, [{ input: { title: "Replace foyer light" }, via: { attempts: [Story.attempt(O.save)] } }])   // user-defined: Tickets (a Fake.server)
-// editor.test.ts
+  .expect(Tickets.save, [{ input: { title: "Replace foyer light" }, via: { attempts: [Story.attempt(O.save)] } }])
 test("editor saved", () => saved.run())
 ```
 
-Added: `Story.make`, `expect`, `Story.attempt`, a fake server (`Tickets`, written like 2.10.4's `Stripe`). Dropped: `process()`, the separate
-assertion file. The "Saving…" moment is still recorded: it is a publication frame inside the `SaveRequested` step
-(2.10.6), and a checkpoint can name it only if something real keeps the save going (the fake's 2-second latency here,
-or a `hold`).
+After:
+
+```ts
+// editor.story.ts
+import { Story } from "flow-state/testing"
+
+export const savesTitle = Story.machine(Editor, {  // [W1]
+  id: "editor/saved", input: T42, fixtures: [TicketsFake],  // user-defined: T42, TicketsFake
+})
+  .world(Tickets.save.hold())  // A slow answer is hold, advance, release
+  .send(E.TitleChanged({ title: "Replace foyer light" }), E.SaveRequested())  // each event is its own step
+  .checkpoint("saving")
+  .advance("2 seconds")
+  .world(Tickets.save.release())
+  .checkpoint("saved")
+
+// editor.test.ts
+test("editor saved", async () => {
+  const { saving, saved } = (await savesTitle.run()).checkpoints  // The Story is not named saved (SA RV1 M10)
+  expect(saving.lane(O.save)).toMatchObject({ pending: true })  // [SC3]
+  expect(saved.state).toBe(S.SAVED)
+  expect(saved.memory.title).toBe("Replace foyer light")
+  expect(saved.lane(O.save)).toBeUndefined()                                     // settled, so gone [SC3]
+  expect(saved.read(Tickets.save)).toMatchObject([  // user-defined: Tickets (a Fake.server, as 2.10.4's Stripe)
+    { input: { title: "Replace foyer light" }, via: { attempts: [saved.attempt(O.save)] } },  // [W24]
+  ])
+})
+```
+
+Added: three constructors, the reads on a checkpoint. Dropped: `.expect`, `Story.attempt`, `Story.make`. The "Saving…" moment now has a name, because something real keeps the save going: the `hold`.
 
 ##### 2.10.18.2 Checkout with 3-D Secure (common; 2.7.3–2.7.4, the operations record's 5.1)
 
@@ -4560,63 +5111,97 @@ commit classifies; its Story has the shape of `busyThenPaid`.
 // checkout.story.ts
 import { Fake, Story } from "flow-state/testing"
 import { CheckoutMachine } from "./checkout.machine"
-import { E, O, S } from "./checkout.definition"
+import { E } from "./checkout.definition"
 import { Stripe, StripeFake } from "./stripe.fake"                                 // user-defined (2.10.4)
 
-const checkout = (id: string) => Story.make(CheckoutMachine, { id, input: { intentId: "pi_1" }, fixtures: [StripeFake] })
-const pay = E.Pay({ paymentMethodId: "pm_card" })
+const checkout = (id: string) => Story.machine(CheckoutMachine, { id, input: { intentId: "pi_1" }, fixtures: [StripeFake] })
+export const pay = E.Pay({ paymentMethodId: "pm_card" })
 
-export const paid = checkout("checkout/paid")
+export const paidFirstTime = checkout("checkout/paid")
   .send(pay)                                                                        // settles: committed, invoked, answered, Intent, DONE
-  .expect({ state: S.DONE, operations: { pay: { pending: false, uncertain: false } } })
-  .expect(Stripe, { charges: [{ intentId: "pi_1", key: Story.attempt(O.pay) }] })   // the wire key is the Attempt's id
+  .checkpoint("paid")
 
-export const paying = checkout("checkout/paying")
+export const pressedTwice = checkout("checkout/paying")
   .world(Stripe.confirm.hold())                                                     // the request waits in transit
   .send(pay, pay)                                                                   // a second press while paying: two steps, two cuts (rule 64)
-  .checkpoint("paying")
-  .expect({ state: S.PAYING, operations: { pay: { pending: true } } })              // check() disables Pay here; the frame renders it so
-  .expect(Story.records("verdict"), [{ result: { _tag: "Allowed" } }, { result: { _tag: "Unhandled" } }])
+  .checkpoint("paying")                                                             // names the second step's cut
   .world(Stripe.confirm.release())
-  .expect({ state: S.DONE })
+  .checkpoint("paid")
 
 export const busyThenPaid = checkout("checkout/busy-then-paid")
   .world(Stripe.busy({ times: 1 }))                                                 // user-defined control: the next confirm answers 429
   .send(pay)
-  .expect({ state: S.WAITING, memory: { busyTries: 1, retryInMs: 2000 } })
+  .checkpoint("waiting")
   .advance("2 seconds")                                                             // a new Attempt is sent
-  .expect({ state: S.DONE })
-  .expect(Story.records("ending", { operation: O.pay }), [
-    { channel: "failure", reason: { _tag: "Busy" }, attempt: Story.attempt(O.pay, { n: 0 }) },   // a 503 here would read unknown, and fail (STF4)
-    { channel: "success", attempt: Story.attempt(O.pay, { n: 1 }) },
-  ])
+  .checkpoint("paid")
 
 export const droppedThenResent = checkout("checkout/dropped-then-resent")
   .world(Stripe.confirm.drop({ at: "response", times: 2 }))                         // charged, both answers lost (the in-send retry included)
   .send(pay)
-  .expect({ state: S.UNSURE, operations: { pay: { uncertain: true } } })
+  .checkpoint("unsure")
   .advance({ next: { schedule: "checkTick" } })                                     // UNSURE's timer (user-defined name): retry, the same Attempt
-  .expect({ state: S.DONE })
-  .expect(Stripe.confirm, [                                                          // three requests, one Attempt, one charge (STF3)
-    { phase: "dropped", via: { attempts: [Story.attempt(O.pay)] } },
-    { phase: "dropped", via: { attempts: [Story.attempt(O.pay)] } },
-    { phase: "answered", via: { attempts: [Story.attempt(O.pay)] } },
-  ])
-  .expect(Stripe, { charges: [{ key: Story.attempt(O.pay) }] })
+  .checkpoint("paid")
 ```
 
-The two walks that need a persisted identity are app Stories (`ShopSetup` persists `CheckoutRef`):
+```ts
+// checkout.test.ts
+import { expect, test } from "vitest"                                               // any runner [SC3]
+import { O, S } from "./checkout.definition"
+import { Stripe } from "./stripe.fake"
+// and the Stories above, from ./checkout.story
+
+test("paid first time", async () => {
+  const { paid } = (await paidFirstTime.run()).checkpoints
+  expect(paid.state).toBe(S.DONE)
+  expect(paid.lane(O.pay)).toBeUndefined()                                          // or: operations.pay is { pending: false, uncertain: false }
+  expect(paid.read(Stripe)).toMatchObject({ charges: [{ intentId: "pi_1", key: paid.attempt(O.pay) }] })   // the wire key is the Attempt's id
+})
+
+test("a second press while paying", async () => {
+  const { paying, paid } = (await pressedTwice.run()).checkpoints
+  expect(paying.state).toBe(S.PAYING)
+  expect(paying.lane(O.pay)).toMatchObject({ pending: true })                       // check() disables Pay here; the frame renders it so
+  expect(paying.records("verdict")).toMatchObject([{ result: { _tag: "Allowed" } }, { result: { _tag: "Unhandled" } }])
+  expect(paid.state).toBe(S.DONE)
+})
+
+test("busy then paid", async () => {
+  const { waiting, paid } = (await busyThenPaid.run()).checkpoints
+  expect(waiting.state).toBe(S.WAITING)
+  expect(waiting.memory).toMatchObject({ busyTries: 1, retryInMs: 2000 })
+  expect(paid.state).toBe(S.DONE)
+  expect(paid.records("ending", { operation: O.pay })).toMatchObject([
+    { channel: "failure", reason: { _tag: "Busy" }, attempt: paid.attempt(O.pay, { n: 0 }) },   // a 503 here would read unknown, and fail (STF4)
+    { channel: "success", attempt: paid.attempt(O.pay, { n: 1 }) },
+  ])
+})
+
+test("dropped then resent: three requests, one Attempt, one charge (STF3)", async () => {
+  const { unsure, paid } = (await droppedThenResent.run()).checkpoints
+  expect(unsure.state).toBe(S.UNSURE)
+  expect(unsure.lane(O.pay)).toMatchObject({ uncertain: true })
+  expect(paid.state).toBe(S.DONE)
+  const id = paid.attempt(O.pay)
+  expect(paid.read(Stripe.confirm)).toMatchObject([
+    { phase: "dropped", via: { attempts: [id] } },
+    { phase: "dropped", via: { attempts: [id] } },
+    { phase: "answered", via: { attempts: [id] } },
+  ])
+  expect(paid.read(Stripe)).toMatchObject({ charges: [{ key: id }] })
+})
+```
+
+The two walks that need a persisted identity are app Stories (`ShopSetup` persists `CheckoutRef`). An app Story reads through the ref:
 
 ```ts
-const shop = (id: string) => Story.make(ShopSetup, { id, fixtures: [StripeFake] })
+const shop = (id: string) => Story.app(ShopSetup, { id, fixtures: [StripeFake] })  // [W1]
   .ensure(Checkout1, { input: { intentId: "pi_1" } })                               // a reopened tab repeats it
 
 export const cancelledInAckWindow = shop("checkout/cancel-before-send")
   .world(Fake.storage.write.hold({ match: { purpose: "acknowledge" } }))            // bootstrap restore is unaffected
   .send(Checkout1, pay)
   .advance({ next: { schedule: "tookTooLong" } })                                   // PAYING's timer: cancel; never sent
-  .expect(Story.records("ending", { operation: O.pay }), [{ channel: "failure", reason: { _tag: "NotSent", why: "Cancelled" } }])
-  .expect(Stripe.confirm, [])                                                       // the server never heard of it
+  .checkpoint("cancelled")
 
 export const reloadMidCharge = shop("checkout/reload-mid-charge")
   .world(Stripe.confirm.hold())                                                     // acknowledged, sent, in transit
@@ -4624,16 +5209,36 @@ export const reloadMidCharge = shop("checkout/reload-mid-charge")
   .closeTab("main")                                                                 // abrupt; the request still travels
   .world(Stripe.confirm.release())                                                  // the server charges; the answer goes nowhere
   .openTab("main", { from: "main" })                                                // re-ensures Checkout1; restore: unknown { Restored } → UNSURE
-  .expect(Checkout1, { state: S.UNSURE })
+  .checkpoint("reopened")
   .advance({ next: { schedule: "checkTick" } })                                     // retry the same id; the server's dedupe answers
-  .expect(Checkout1, { state: S.DONE })
-  .expect(Stripe, { charges: [{ key: Story.attempt(O.pay) }] })                     // charged once across the reload (STF12)
-  .expect(Stripe.confirm, [{ phase: "orphan", via: { tab: { name: "main", open: 1 } } }, { phase: "answered", via: { tab: { name: "main", open: 2 } } }])
+  .checkpoint("settled")
 
 export const reloadAfterPaid = shop("checkout/reload-after-paid")                  // nothing held: the charge settles before the reload
   .send(Checkout1, pay)
-  .reload("main")                                                                   // close, reopen, re-ensure
-  .expect(Checkout1, { state: S.DONE })                                             // nothing was in flight: the restored actor is paid
+  .reload("main")                                                                   // close, reopen, re-ensure [W26]
+  .checkpoint("reloaded")
+
+test("cancelled before it was sent", async () => {
+  const { cancelled } = (await cancelledInAckWindow.run()).checkpoints
+  expect(cancelled.records("ending", { operation: O.pay })).toMatchObject([{ channel: "failure", reason: { _tag: "NotSent", why: "Cancelled" } }])
+  expect(cancelled.read(Stripe.confirm)).toEqual([])                                // the server never heard of it
+})
+
+test("charged once across a reload (STF12)", async () => {
+  const { reopened, settled } = (await reloadMidCharge.run()).checkpoints
+  expect(reopened.read(Checkout1)?.state).toBe(S.UNSURE)
+  expect(settled.read(Checkout1)?.state).toBe(S.DONE)
+  expect(settled.read(Stripe)).toMatchObject({ charges: [{ key: settled.attempt(O.pay, { actor: Checkout1 }) }] })
+  expect(settled.read(Stripe.confirm)).toMatchObject([
+    { phase: "orphan", via: { tab: { name: "main", open: 1 } } },
+    { phase: "answered", via: { tab: { name: "main", open: 2 } } },
+  ])
+})
+
+test("nothing was in flight: the restored actor is paid", async () => {
+  const { reloaded } = (await reloadAfterPaid.run()).checkpoints
+  expect(reloaded.read(Checkout1)?.state).toBe(S.DONE)
+})
 ```
 
 **Walk.** `fetch` → `StripeApi` (fake client half) → the wire → `Stripe.confirm`'s handler → `StripeResponse` → the
@@ -4648,33 +5253,39 @@ the `paying` frame holds that row, so playback renders it disabled. Playback sho
 ```ts
 // docs.fake.ts
 const Doc = Schema.Struct({ body: Schema.String, etag: Schema.String })
+type Truth = { readonly docs: Readonly<Record<string, typeof Doc.Type>>; readonly applied: ReadonlyArray<string> }   // user-defined
 export const Docs = Fake.server("Docs", {                                          // user-defined: Docs
   truth: { docs: Schema.Record({ key: Schema.String, value: Doc }), applied: Schema.Array(Schema.String) },   // applied: idempotency keys
   initial: { docs: { d1: { body: "Hello", etag: "e1" } }, applied: [] },
   endpoints: {
     put: Fake.call({
       request: { docId: Schema.String, body: Schema.String, ifMatch: Schema.String, key: Schema.String },
-      handle: (t, r) => {
+      handle: (t: Truth, r) => {
         const doc = t.docs[r.docId]
-        if (t.applied.includes(r.key)) return [t, { status: 200, etag: doc.etag }]           // a re-send of an applied write
-        if (doc.etag !== r.ifMatch) return [t, { status: 412, etag: doc.etag }]
+        if (t.applied.includes(r.key)) return { response: { status: 200, etag: doc.etag } }   // a re-send of an applied write
+        if (doc.etag !== r.ifMatch) return { response: { status: 412, etag: doc.etag } }
         const etag = bump(doc.etag)                                                          // user-defined: e1 → e2
-        return [{ docs: { ...t.docs, [r.docId]: { body: r.body, etag } }, applied: [...t.applied, r.key] }, { status: 200, etag }]
+        return {
+          truth: { docs: { ...t.docs, [r.docId]: { body: r.body, etag } }, applied: [...t.applied, r.key] },
+          response: { status: 200, etag },
+        }
       },
     }),
   },
   controls: {
-    editElsewhere: Fake.control({ docId: Schema.String, body: Schema.String }, (t, e) => ({ ...t, docs: { ...t.docs, [e.docId]: { body: e.body, etag: bump(t.docs[e.docId].etag) } } })),
+    editElsewhere: Fake.control({ docId: Schema.String, body: Schema.String }, (t: Truth, e) => ({
+      truth: { ...t, docs: { ...t.docs, [e.docId]: { body: e.body, etag: bump(t.docs[e.docId].etag) } } },
+    })),
   },
 })
 export const DocsFake = Layer.effect(DocsApi, Effect.map(Docs, (docs) => DocsApi.of({
-  put: (d, { idempotencyKey }) => docs.put({ ...d, key: idempotencyKey }).pipe(Effect.catchTag("Fake/Lost", () => new NoResponse())),
+  put: (d, { idempotencyKey }) => docs.put({ ...d, key: idempotencyKey }).pipe(Effect.catchTag("FakeLost", () => new NoResponse())),
 })))
 ```
 
 ```ts
 // workspace.story.ts
-const ws = (id: string) => Story.make(WorkspaceMachine, { id, fixtures: [DocsFake] })
+const ws = (id: string) => Story.machine(WorkspaceMachine, { id, fixtures: [DocsFake] })
   .send(E.Open({ docId: "d1", title: "Notes", body: "Hello", etag: "e1" }))
 const edit = (body: string) => E.docs.key("d1").Edited({ body })
 
@@ -4683,35 +5294,32 @@ export const debounced = ws("autosave/debounce")
   .advance("500 millis")
   .send(edit("Hello world"))
   .advance("800 millis")                                                            // one pause after the last edit: one save
-  .expect(Docs.put, [{ input: { body: "Hello world", ifMatch: "e1" } }])
-  .expect({ memory: { docs: [{ key: "d1", status: "clean" }] } })
+  .checkpoint("clean")
 
 export const editDuringSave = ws("autosave/edit-during-save")
   .world(Docs.put.hold())
   .send(edit("Hello world"))
   .advance("800 millis")                                                            // the save is in transit
   .send(edit("Hello world!"), E.Close({ docId: "d1" }))                             // the newer edit waits; Close is refused
-  .expect(Story.records("verdict", { event: E.Close }), [{ result: { _tag: "Denied" } }])           // Autosave.O.save.idle and the dirty check
+  .checkpoint("closeRefused")
   .world(Docs.put.release())                                                        // Saved → the newer body goes next with the new etag
-  .expect(Docs.put, [{ input: { body: "Hello world", ifMatch: "e1" } }, { input: { body: "Hello world!", ifMatch: "e2" } }])
+  .checkpoint("bothSaved")
 
 export const conflictKeepMine = ws("autosave/412-keep-mine")
   .world(Docs.editElsewhere({ docId: "d1", body: "Theirs" }))                       // the server's etag moves to e2
   .send(edit("Mine"))
   .advance("800 millis")                                                            // 412 → Conflict, the user's text kept
-  .expect({ memory: { docs: [{ key: "d1", status: "conflict", body: "Mine", serverEtag: "e2" }] } })
+  .checkpoint("conflict")
   .send(E.KeepMine({ docId: "d1" }))
   .advance("800 millis")                                                            // Overwrite → dirty → saved over e2
-  .expect(Docs, { docs: { d1: { body: "Mine" } } })
+  .checkpoint("overwritten")
 
 export const offline = ws("autosave/offline")
   .world(Docs.drop({ times: "always" }))                                            // on the server handle: every endpoint, until release
   .send(edit("Hello world"))
   .advance("800 millis")                                                            // NoResponse → SaveUnsure; resend every 2 s
   .advance("6 seconds")                                                             // three re-sends of the same Attempt, then released
-  .expect({ memory: { docs: [{ key: "d1", status: "stalled" }] } })
-  .expect(Docs.put, Array.from({ length: 4 }, () => ({ phase: "lost", via: { attempts: [Story.attempt(Autosave.O.save)] } })))
-  .expect(Docs, { docs: { d1: { body: "Hello" } } })                                // the server never got it
+  .checkpoint("stalled")
 
 export const reopenedKeepsText = ws("autosave/unmounted-mid-save")
   .world(Docs.put.hold())
@@ -4720,9 +5328,47 @@ export const reopenedKeepsText = ws("autosave/unmounted-mid-save")
   .dispose()                                                                        // the workspace unmounts; the Runtime keeps the lane
   .ensure()                                                                         // a new incarnation of the same (input-free) identity adopts it
   .world(Docs.editElsewhere({ docId: "d1", body: "Theirs" }), Docs.put.release())   // 412 with no copy d1: parked for ["d1"] (rule 53)
-  .expect(Story.inspection, { lanes: [{ subject: ["d1"], binding: "unplaced", parked: [{ reason: { _tag: "Conflict" } }] }] })
+  .checkpoint("parked")
   .send(E.Open({ docId: "d1", title: "Notes", body: "Theirs", etag: "e2" }))        // the copy returns and adopts the Conflict
-  .expect({ memory: { docs: [{ key: "d1", status: "conflict", body: "Mine" }] } })  // the user's text, from the event (FP RV1 M9)
+  .checkpoint("reopened")
+```
+
+```ts
+// workspace.test.ts
+test("debounced: one save", async () => {
+  const { clean } = (await debounced.run()).checkpoints
+  expect(clean.read(Docs.put)).toMatchObject([{ input: { body: "Hello world", ifMatch: "e1" } }])
+  expect(clean.memory).toMatchObject({ docs: [{ key: "d1", status: "clean" }] })
+})
+
+test("an edit during a save goes next", async () => {
+  const { closeRefused, bothSaved } = (await editDuringSave.run()).checkpoints
+  expect(closeRefused.records("verdict", { event: E.Close })).toMatchObject([{ result: { _tag: "Denied" } }])   // Autosave.O.save.idle and the dirty check
+  expect(bothSaved.read(Docs.put)).toMatchObject([
+    { input: { body: "Hello world", ifMatch: "e1" } },
+    { input: { body: "Hello world!", ifMatch: "e2" } },
+  ])
+})
+
+test("412, keep mine", async () => {
+  const { conflict, overwritten } = (await conflictKeepMine.run()).checkpoints
+  expect(conflict.memory).toMatchObject({ docs: [{ key: "d1", status: "conflict", body: "Mine", serverEtag: "e2" }] })
+  expect(overwritten.read(Docs)).toMatchObject({ docs: { d1: { body: "Mine" } } })
+})
+
+test("offline: the same Attempt, four times, never applied", async () => {
+  const { stalled } = (await offline.run()).checkpoints
+  expect(stalled.memory).toMatchObject({ docs: [{ key: "d1", status: "stalled" }] })
+  const id = stalled.attempt(Autosave.O.save)
+  expect(stalled.read(Docs.put)).toMatchObject(Array.from({ length: 4 }, () => ({ phase: "lost", via: { attempts: [id] } })))
+  expect(stalled.read(Docs)).toMatchObject({ docs: { d1: { body: "Hello" } } })    // the server never got it
+})
+
+test("reopened keeps the user's text", async () => {
+  const { parked, reopened } = (await reopenedKeepsText.run()).checkpoints
+  expect(parked.inspection).toMatchObject({ lanes: [{ subject: ["d1"], binding: "unplaced", parked: [{ reason: { _tag: "Conflict" } }] }] })
+  expect(reopened.memory).toMatchObject({ docs: [{ key: "d1", status: "conflict", body: "Mine" }] })   // from the event (FP RV1 M9)
+})
 ```
 
 **Walk.** `Edited` arms `settle`; `advance` fires it at 800 ms and the commit's `fetch` stand-in reaches `Docs.put`.
@@ -4736,118 +5382,219 @@ The operations record's 8.2 `CloseAnyway` then unmount, and a reload, are `reope
 
 ```ts
 const c7 = Issues.add({ id: "c7", projectId: "p1", likes: 3 })                     // user-defined control
-const desk = (id: string) => Story.make(IssuesSetup, { id, fixtures: [IssuesFake], world: [c7] })   // the server holds c7 before bootstrap
+const desk = (id: string) => Story.app(IssuesSetup, { id, fixtures: [IssuesFake], world: [c7] })   // the server holds c7 before bootstrap
   .ensure(BoardP1, { input: { projectId: "p1" } })
 const toggle = (liked: boolean) => Board.E.likes.key("c7").Toggle({ liked })
 
 export const unknownLikeKept = desk("board/unknown-like-kept")
   .world(Issues.setLike.drop({ at: "response" }))                                    // applied on the server; the answer lost → LikeUnsure
   .send(BoardP1, toggle(true))
-  .expect(Story.entity(Issue, { id: "c7" }), { data: { liked: true, likes: 4 }, predicted: true, uncertain: true })   // after an unknown (STF50)
-  .expect(Story.inspection, { lanes: [{ key: { id: "c7" }, subject: ["c7"], state: "Held", binding: "bound" }] })
+  .checkpoint("unsure")
   .world(Issues.move({ id: "c7", to: "p2" }))                                        // the card leaves the column on the server
   .advance("3 seconds")                                                              // reconcile: the same Attempt; deduped; the repair read moves c7 out
-  .expect(Story.entity(Issue, { id: "c7" }), { data: { projectId: "p2" }, predicted: false, uncertain: false })
-  .expect(Issues, { issues: { c7: { likes: 4 } } })                                  // liked once
+  .checkpoint("reconciled")
 
 export const queueAcrossActors = desk("board/queue-across-actors")
   .ensure(IssuePageC7, { input: { issueId: "c7" } })
   .world(Issues.setLike.hold())
   .send(BoardP1, toggle(true))                                                       // heads c7's record queue, in transit
   .send(IssuePageC7, IssuePage.E.like.Toggle({ liked: false }))                      // joins behind it: predicted, not sent
-  .expect(Issues.setLike, [{ input: { liked: true }, phase: "held" }])
+  .checkpoint("queued")
   .world(Issues.setLike.release())
-  .expect(Issues.setLike, [{ input: { liked: true }, phase: "answered" }, { input: { liked: false }, phase: "answered" }])   // FIFO across actors
+  .checkpoint("drained")
 
 const pages = Array.from({ length: 64 }, (_, i) => issuePageRef(`c7-${i}`))          // user-defined: 64 actors on one issue
 export const overloaded = pages
   .reduce((s, page) => s.ensure(page, { input: { issueId: "c7" } }).send(page, IssuePage.E.like.Toggle({ liked: false })),
     desk("board/65th-write").world(Issues.setLike.hold()).send(BoardP1, toggle(true)))   // 1 held head + 63 queued; the 65th is refused
-  .expect(Story.records("ending", { channel: "failure" }), [{ reason: { _tag: "NotSent", why: "Overloaded" }, instance: ["like"] }])
-  .expect(Story.inspection, { domains: { issues: { queues: [{ key: { id: "c7" }, length: 64 } ] } } })   // no partial join
+  .checkpoint("refused")
 
 export const twoTabs = desk("board/two-tabs")
   .send(BoardP1, toggle(true))
   .openTab("b", { from: "main" })                                                    // ensures BoardP1 in b too: the same server, b's own store
-  .expect(Story.entity(Issue, { id: "c7" }, { tab: "b" }), { data: { liked: true, likes: 4 }, predicted: false })
-  .expect(Story.inspection({ tab: "b" }), { persistence: { status: "SecondTabNoPersistence" } })
+  .checkpoint("bOpen")
+
+test("an unknown like is kept, then reconciled", async () => {
+  const { unsure, reconciled } = (await unknownLikeKept.run()).checkpoints
+  expect(unsure.entity(Issue, { id: "c7" })).toMatchObject({ data: { liked: true, likes: 4 }, predicted: true, uncertain: true })   // after an unknown (STF50)
+  expect(unsure.inspection).toMatchObject({ lanes: [{ key: { id: "c7" }, subject: ["c7"], state: "Held", binding: "bound" }] })
+  expect(reconciled.entity(Issue, { id: "c7" })).toMatchObject({ data: { projectId: "p2" }, predicted: false, uncertain: false })
+  expect(reconciled.read(Issues)).toMatchObject({ issues: { c7: { likes: 4 } } })   // liked once
+})
+
+test("FIFO across actors", async () => {
+  const { queued, drained } = (await queueAcrossActors.run()).checkpoints
+  expect(queued.read(Issues.setLike)).toMatchObject([{ input: { liked: true }, phase: "held" }])
+  expect(drained.read(Issues.setLike)).toMatchObject([{ input: { liked: true }, phase: "answered" }, { input: { liked: false }, phase: "answered" }])
+})
+
+test("the 65th write is refused, with no partial join", async () => {
+  const { refused } = (await overloaded.run()).checkpoints
+  expect(refused.records("ending", { channel: "failure" })).toMatchObject([{ reason: { _tag: "NotSent", why: "Overloaded" }, instance: ["like"] }])
+  expect(refused.inspection).toMatchObject({ domains: { issues: { queues: [{ key: { id: "c7" }, length: 64 }] } } })
+})
+
+test("a second tab reads the same server, without persistence", async () => {
+  const { bOpen } = (await twoTabs.run()).checkpoints
+  expect(bOpen.entity(Issue, { id: "c7" }, { tab: "b" })).toMatchObject({ data: { liked: true, likes: 4 }, predicted: false })
+  expect(bOpen.tabs.b?.inspection).toMatchObject({ persistence: { status: "SecondTabNoPersistence" } })  // [P, SA H5]
+})
 ```
 
-"Never shown twice" (rule 33) is a property over every frame of the list Stories (2.8.2's `List`, which creates):
+"Never shown twice" (rule 33) is a loop over every frame of the list Stories (2.8.2's `List`, which creates). The check is a plain function
+the same test file can also hand to `propertyTest` (W25):
 
 ```ts
-const shownOnce = Story.property("a created issue is never shown as a draft too", (frame) => {
-  const s = frame.read(ListP1); if (s === undefined) return undefined
-  const rows = Issues.list.get(s, { projectId: "p1" })?.rows ?? []
-  const both = s.memory.creating.filter((d) => !d.discarded && d.status !== "created" && rows.some((r) => r.id === d.id))
-  return both.length > 0 ? both : undefined                                                     // the violation is a value
-})
-export const created = Story.make(IssuesSetup, { id: "list/created", fixtures: [IssuesFake], properties: [shownOnce] })
+export const created = Story.app(IssuesSetup, { id: "list/created", fixtures: [IssuesFake] })
   .ensure(ListP1, { input: { projectId: "p1" } })
   .send(ListP1, List.E.Create({ draftId: "dr1", title: "New" }))
+
+const shownTwice = (frame: Story.Frame<typeof IssuesSetup>) => {                     // user-defined; Story.Frame, by subject [P, SA RV1 M7]
+  const s = frame.read(ListP1)
+  if (s === undefined) return []
+  const rows = Issues.list.get(s, { projectId: "p1" })?.rows ?? []
+  return s.memory.creating.filter((d) => !d.discarded && d.status !== "created" && rows.some((r) => r.id === d.id))
+}
+
+test("a created issue is never shown as a draft too", async () => {
+  const run = await created.run()
+  for (const frame of run.frames) expect(shownTwice(frame)).toEqual([])              // the iterator throws FramesTruncated if any were dropped [P, SA RV1 M14]
+})
 ```
 
 **Walk.** "A like that ends unknown on a card removed and re-added" is 2.9.6's `IssueRow` walk: the same steps over
 a host without the keep-busy line, where the list's next answer removes copy c7 (its unknown is parked for `["c7"]`,
-read in `Story.inspection`) and `Issues.move` back re-adds it, whose new life adopts and reconciles.
+read in `inspection`) and `Issues.move` back re-adds it, whose new life adopts and reconciles.
 
 ##### 2.10.18.5 Onboarding wizard (uncommon; 3.2's `Confirm`, the operations record's 9.6)
 
 **Source.** `fetch` behind `AccountsApi`: a profile save keyed by draft (`saveProfile`) and the final `submit`.
 
 ```ts
-export const confirmYes = Story.make(Confirm, { id: "confirm/yes" })                  // a subroutine alone (rule 11)
+export const confirmYes = Story.fragment(Confirm, { id: "confirm/yes" })  // a subroutine alone (rule 11)  // [W1]
   .enter()
   .send(Confirm.E.Yes())
-  .expect(Story.records("exit"), [{ instance: [], name: "Confirmed", payload: {} }])
+  .checkpoint("answered")
 
-const signup = (id: string) => Story.make(SignupMachine, { id, fixtures: [AccountsFake] })
+const signup = (id: string) => Story.machine(SignupMachine, { id, fixtures: [AccountsFake] })
 export const discardDeclined = signup("signup/discard-declined")
   .send(E.Next(), E.Cancel())                                                        // user-defined: Next, ProfileChanged (the operations record's 9.6 page events)
-  .expect({ state: S.CANCELLING })
+  .checkpoint("asking")
   .send(E.CANCELLING.No())
-  .expect({ state: S.WIZARD.PROFILE })                                               // history restores the page, fields kept
-  .expect(Story.records("exit"), [{ instance: ["CANCELLING"], name: "Declined" }])   // the same record shape as alone (STF60)
+  .checkpoint("backOnPage")
 
 export const submitWaitsForProfile = signup("signup/submit-guarded")
   .world(Accounts.saveProfile.drop({ at: "response" }))                              // the profile save ends unknown: held
   .send(E.ProfileChanged({ name: "Ada" }))
-  .advance({ next: { schedule: "saveProfile" } })                                   // its debounce (user-defined name) commits the save
+  .advance({ next: { schedule: "saveProfile" } })                                    // its debounce (user-defined name) commits the save
   .send(E.Submit())
-  .expect(Story.records("verdict", { event: E.Submit }), [{ result: { _tag: "Denied", reasons: [{ code: "Uncertain" }] } }])   // O.save.idle over a partial key
-  .expect(Accounts.submit, [])                                                       // an old profile is never submitted
+  .checkpoint("submitDenied")
   .dispose()
   .ensure()                                                                          // an input-free local machine is one identity: it adopts the hold
-  .expect(Story.records("ending", { operation: O.save }), [{ channel: "unknown" }, { channel: "unknown", reason: { _tag: "Restored" }, route: { kind: "current" } }])
+  .checkpoint("adopted")
+
+test("a subroutine's exit, alone", async () => {
+  const { answered } = (await confirmYes.run()).checkpoints
+  expect(answered.records("exit")).toMatchObject([{ instance: [], name: "Confirmed", payload: {} }])
+})
+
+test("declining a discard restores the page", async () => {
+  const { asking, backOnPage } = (await discardDeclined.run()).checkpoints
+  expect(asking.state).toBe(S.CANCELLING)
+  expect(backOnPage.state).toBe(S.WIZARD.PROFILE)                                    // history restores the page, fields kept
+  expect(S.WIZARD.is(backOnPage.state)).toBe(true)                                   // at or below a parent: existing token.is [P, SA H4]
+  expect(backOnPage.records("exit")).toMatchObject([{ instance: ["CANCELLING"], name: "Declined" }])   // the same record shape as alone (STF60)
+})
+
+test("submit waits for an unknown profile save", async () => {
+  const { submitDenied, adopted } = (await submitWaitsForProfile.run()).checkpoints
+  expect(submitDenied.records("verdict", { event: E.Submit })).toMatchObject([{ result: { _tag: "Denied", reasons: [{ code: "Uncertain" }] } }])   // O.save.idle over a partial key
+  expect(submitDenied.read(Accounts.submit)).toEqual([])                             // an old profile is never submitted
+  expect(adopted.records("ending", { operation: O.save })).toMatchObject([{ channel: "unknown" }, { channel: "unknown", reason: { _tag: "Restored" }, route: { kind: "current" } }])
+})
 ```
 
-`.leave()` on `Confirm` alone abandons it: `Story.records("exit")` stays empty and `frame.read()` is `undefined`.
+`.leave()` on `Confirm` alone abandons it: `cp.records("exit")` stays empty, `cp.read()` is `undefined`, and `cp.memory` throws `SubjectAbsent`.
 
 ##### 2.10.18.6 A fragment reused on two hosts (uncommon; 2.9.6's `LikeButton`)
 
 ```ts
-export const likeAlone = Story.make(LikeButton, { id: "like/alone", fixtures: [IssuesFake], world: [c7] })   // R includes IssuesApi (rule 57)
+export const likeAlone = Story.fragment(LikeButton, { id: "like/alone", fixtures: [IssuesFake], world: [c7] })   // R includes IssuesApi (rule 57)
   .world(Issues.setLike.drop({ at: "response" }))
   .enter({ id: "c7" })                                                               // the trait's Input record
   .send(LikeButton.E.Toggle({ liked: true }))
-  .expect({ operations: { set: [{ key: { id: "c7" }, uncertain: true }] } })         // its own rows (rule 59)
+  .checkpoint("unsure")
   .leave()                                                                           // ends (a one-copy .each, 2.10.12); no release on leave (F6, F9): the hold stays
-  .expect(Story.inspection, { lanes: [{ key: { id: "c7" }, subject: [], binding: "unplaced", state: "Held" }] })   // no stand-in parts
+  .checkpoint("left")
   .enter({ id: "c7" })                                                               // a new life adopts it: unknown { Restored }
   .advance("3 seconds")                                                              // reconcile re-sends the same Attempt
-  .expect(Issues, { issues: { c7: { likes: 4 } } })
+  .checkpoint("reconciled")
 
-export const bothHosts = desk("like/both-hosts")                                    // 2.10.18.4's desk: one Runtime, two hosts of one fragment
+export const bothHosts = desk("like/both-hosts")                                     // 2.10.18.4's desk: one Runtime, two hosts of one fragment
   .ensure(IssuePageC7, { input: { issueId: "c7" } })
-  .world(Issues.setLike.drop({ at: "response", match: { actor: IssuePageC7 } }))   // only the page's request
+  .world(Issues.setLike.drop({ at: "response", match: { actor: IssuePageC7 } }))     // only the page's request
   .send(BoardP1, Board.E.likes.key("c7").Toggle({ liked: true }))
   .send(IssuePageC7, IssuePage.E.like.Toggle({ liked: true }))
-  .expect(Story.records("ending", { operation: LikeButton.O.set, actor: BoardP1 }), [{ channel: "success", instance: ["likes"], copy: "c7", subject: ["c7"] }])
-  .expect(Story.records("ending", { operation: LikeButton.O.set, actor: IssuePageC7 }), [{ channel: "unknown", instance: ["like"], subject: [] }])
-  .expect(Issues.setLike, [{ via: { attempts: [Story.attempt(LikeButton.O.set, { actor: BoardP1 })] } }, { via: { attempts: [Story.attempt(LikeButton.O.set, { actor: IssuePageC7 })] } }])
+  .checkpoint("both")
 
-Story.make(IssuePageMachine, { id: "page/no-fake", input: { issueId: "c7" }, fixtures: [] })
+test("a like alone", async () => {
+  const { unsure, left, reconciled } = (await likeAlone.run()).checkpoints
+  expect(unsure.operations).toMatchObject({ set: [{ key: { id: "c7" }, uncertain: true }] })   // its own rows (rule 59)
+  expect(left.lane(LikeButton.O.set, { id: "c7" })).toMatchObject({ subject: [], binding: "unplaced", state: "Held" })   // no stand-in parts; not gone [P, SA H17]
+  expect(reconciled.read(Issues)).toMatchObject({ issues: { c7: { likes: 4 } } })
+})
+
+test("records tell two hosts apart", async () => {
+  const { both } = (await bothHosts.run()).checkpoints
+  expect(both.records("ending", { operation: LikeButton.O.set, actor: BoardP1 })).toMatchObject([{ channel: "success", instance: ["likes"], copy: "c7", subject: ["c7"] }])
+  expect(both.records("ending", { operation: LikeButton.O.set, actor: IssuePageC7 })).toMatchObject([{ channel: "unknown", instance: ["like"], subject: [] }])
+  expect(both.read(Issues.setLike)).toMatchObject([
+    { via: { attempts: [both.attempt(LikeButton.O.set, { actor: BoardP1 })] } },
+    { via: { attempts: [both.attempt(LikeButton.O.set, { actor: IssuePageC7 })] } },
+  ])
+})
+
+Story.machine(IssuePageMachine, { id: "page/no-fake", input: { issueId: "c7" }, fixtures: [] })
 // type error: IssuesApi is missing (LikeButton's R, rule 57)
+```
+
+##### 2.10.18.7 A chat room over a socket (uncommon; *Stream details: merge 6*)
+
+The fake extends 2.10.4's `Chat` with a resume position and a seed control, reached through the real adapter with `Fake.webSocket`. The machine (`ChatRoom`, `O.messages`) is merge 6's and
+is not merged; the Story's shape is what this case shows. With `ping`, `hold({ after: 2 })` is a real half-open: pings stop too, so a client's `idleTime` ends it [v3]. Fixed from SA RV1 M16: the old example had no messages to deliver, and its `from` was not in `request`.
+
+```ts
+const socket = Fake.stream({
+  request: { room: Schema.String, clientId: Schema.String, from: Schema.optional(Schema.Number) },   // user-defined: from, the resume position
+  frame: Schema.fromJsonString(Message),  // [fakes-v2]
+  open: (truth: Truth, req) => ({
+    frames: truth.messages.filter((m) => m.room === req.room).slice(req.from ?? 0),
+  }),
+})
+export const Chat = Fake.server("Chat", {
+  truth: { messages: Schema.Array(Message) },
+  initial: { messages: [] },
+  endpoints: { socket },
+  controls: { seed: Fake.control({ messages: Schema.Array(Message) }, (_t: Truth, a) => ({ truth: { messages: a.messages } })) },   // user-defined: seed
+})
+
+export const replayThenDrop = Story.machine(ChatRoom, {
+  id: "chat/replay-then-drop", input: { room: "r1" }, fixtures: [ChatSocket],        // user-defined: ChatSocket = Fake.webSocket(Chat, routes)
+  world: [Chat.seed({ messages: threeMessages }), Chat.socket.hold({ after: 2 })],  // after. Quiet after two frames  // user-defined: threeMessages
+})
+  .checkpoint("quiet")                                                               // a start cut (2.10.6)
+  .world(Chat.socket.drop())  // a stream control is a wire step [W37]
+  .advance({ next: { operation: O.messages, timer: "backoff" } })
+  .checkpoint("reconnected")
+
+test("resumes from where it stopped", async () => {
+  const { quiet, reconnected } = (await replayThenDrop.run()).checkpoints
+  expect(quiet.records("delivery", { endpoint: "socket", phase: "delivered" })).toHaveLength(2)
+  expect(reconnected.read(Chat.socket)).toMatchObject([                               // replaces merge 6's expect(…, { connections })
+    { phase: "closed", code: 1006, by: "network" },                                   // plain phase (SA RV1 M11)
+    { phase: "open", input: { from: 2 } },                                            // the resume position the server saw
+  ])
+})
 ```
 
 ## 3. Example
@@ -5271,17 +6018,21 @@ export function TwoFactorStep({ signIn }: { signIn: Actor<typeof SignInMachine> 
 ```ts
 // lockout.story.ts: a fragment alone (rule 11); every step settles (rule 61)
 const L = Lockout({ limit: 2, length: "1 minute" });
-export const locks = Story.make(L, { id: "lockout/locks-then-clears" })
+export const locksThenClears = Story.fragment(L, { id: "lockout/locks-then-clears" })
   .enter()
   .send(L.E.Strike(), L.E.Strike())
   .checkpoint("locked")
-  .expect({ memory: { strikes: 2 } })
-  .expect(Story.records("callback"), [{ name: "onLocked" }])
   .advance("1 minute")                                               // the lock's timer fires and its turn runs
-  .checkpoint("cleared")
-  .expect({ memory: { strikes: 0 } })
-  .expect(Story.records("callback", { since: "locked" }), [{ name: "onUnlocked" }]);
-// at "locked", s.schedules.timer.done.dueAt is Story.now + 60_000 (cut.read(Story.now))
+  .checkpoint("cleared");
+
+test("locks, then clears", async () => {
+  const { locked, cleared } = (await locksThenClears.run()).checkpoints;
+  expect(locked.memory).toMatchObject({ strikes: 2 });
+  expect(locked.records("callback")).toMatchObject([{ name: "onLocked" }]);
+  expect(locked.schedules.timer.done.dueAt).toBe(locked.now + 60_000);
+  expect(cleared.memory).toMatchObject({ strikes: 0 });
+  expect(cleared.records("callback", { since: "locked" })).toMatchObject([{ name: "onUnlocked" }]);
+});
 ```
 
 ### 3.2 A subroutine with exits, history, drafts and a visible retry
@@ -5401,10 +6152,15 @@ const asking = useView(signup, (s) => S.CANCELLING.is(s));
 
 ```ts
 // confirm.story.ts: a subroutine alone (rule 11)
-export const confirmYes = Story.make(Confirm, { id: "confirm/yes" })
+export const confirmYes = Story.fragment(Confirm, { id: "confirm/yes" })
   .enter()
   .send(Confirm.E.Yes())
-  .expect(Story.records("exit"), [{ instance: [], name: "Confirmed", payload: {} }]);
+  .checkpoint("answered");
+
+test("yes confirms", async () => {
+  const { answered } = (await confirmYes.run()).checkpoints;
+  expect(answered.records("exit")).toMatchObject([{ instance: [], name: "Confirmed", payload: {} }]);
+});
 // .leave() instead abandons it: no exit record, and read() is undefined
 ```
 
@@ -5582,11 +6338,11 @@ turn (rule 6).
 |---|---|
 | **New, fragments** | `trait`, `subroutine`, `traits` (root and node), `Flow.state`, `.resumable()`, `.each` (`of`, `max`, `by`), `key` / `item` in fillings and copy views, `.key(k)`, `hostEvents`, `guards`, `callbacks`, `exits` (declarations and fillings), `notify`, the `Flow` module (`Flow.Guard`, `Flow.Callback`, `Flow.Exit`, `Flow.optional`, `Flow.uncertain`, `Flow.annotate`, `Flow.input`, `Flow.initial`, `Flow.private`, `Flow.Denial`, `Flow.entry`), `raise`, `resetOn`, `whenAbandoned`, the definition's `handler` / `guard`, state tokens in guard arrays; (operations in fragments) `operations` in a trait or subroutine declaration, `O` in a fragment body, `Fragment.O.<write>.get` / `.idle` / `.retryable` outside it, `activities` in a trait body, `s.operations.<instance>.<name>`, a string `resetOn` on a writing trait, key-less `O.x.cancel` in `whenAbandoned` (existing words, new meanings; no new word) |
 | **New, plans** | `Outcome.success`, `Outcome.failure`, `Outcome.unknown`; Flow's reasons `NotSent { why }` (`Cancelled`, `Restored`, `Rejected`, `Overloaded`, `StorageRefused`, `Disposed`), `Cancelled`, `Restored`, `Interrupted`, `Defect`, `StillUnknown { failure }`, `StorageRefused`; evidence `Superseded`, `Released`, `NothingToResend`, `InFlight`; (operations merge) contracts with `input`, `output` (omitted: `Schema.Void`) and a required `key: [...]` field list, in `*.contracts.ts`; `operations: ({ E }) => ({ … })` with `contract.outcomes({ … })` (`unknown` may be a record by tag); the handles `O.x` with `commit(select)`, `lookup(select)`, `subscribe(select)`, `subscribe.each(select)`, `retry(k?)`, `cancel(k?)`, `idle(k?)` (a partial key allowed), `retryable(k?, { times })`, `refetch`, `get(s, k?)`; the rows `s.operations.<name>` with `pending`, `uncertain`, `waiting`, `retryCount`, `progress`, `outstanding`; the mapper's `{ input, attempt, progress, key }`; the operation's options argument `.outcomes(mapping, { writes })` and the commit's `{ optimistic }` (OD26); `runtime.unsettledWrites()`; the findings `SharedContract`, `DuplicatePlacement`, `VerbMismatch`, `KeyRequired`, `UnresolvedHold`, `KeyOmitsInput`, `UnusedOperation`; the denials `Uncertain`, `RetryLimit`; `DehydrateCommitInFlight`; `attempt.id`, `attempt.retryCount`, `attempt.mayHaveApplied`; `concurrency: "latest"`; the record read `{ data, predicted, uncertain, unconfirmed }` (`predicted` replaces the record's and the resource lane's `pending`); (merge 5) the condition operators `or`, `not`, `gt`, `gte`, `lt`, `lte`, `isNull`, a predicted field's `(beneath, input) => value`, the Runtime option `checkReplays`, the warning `PredictionNotRetained`; the codes `InFlight` and `LateMayNotLeave`; `keys` on keyed schedules (key records); `orphaned`; `.history` (and `.history.child`); `armOn`; `disarmOn`; `s.schedules`; `dueAt` (`model()` and its options are removed: T1, C82) |
-| **New, Stories** | (rules 61–66, 2.10; common) `Story.make` with the `world` option, `send`, `advance` (settles at every deadline; `{ next: address }`), `checkpoint`, `expect`, `world`, `run`, `read`, `Fake.server` (`truth`, `endpoints`, `Fake.call`), `hold`, `release`, `Story.attempt`; (uncommon) `together` (`{ advance }`), `drop`, `duplicate`, `match`, `controls` (`Fake.control`), `Fake.storage` (`purpose`), `Fake.stream`, `Fake.webSocket`, `Fake.fetch`, `Fake/Lost`, `dispose`, `reload`, `guards`, `Story.records`, `Story.inspection` (`work`, `incarnations`), `Story.entity`, `advance(…, { suspended })`, `checkpoint(…, { at })`, `Story.property`, `openTab(…, { from })`, `enter(input, { subject })`, `leave({ end })`; (rare) `advance({ to })`, `reset` (a fragment alone), `release({ nth })`, `Fake.storage.seed`, `Fake.storage.from(story)`, `propertyTest(story, …)`; the errors `StoryInvalidCommand`, `NoDeadline`, `HostTimeWait`, `StoryExpectationFailed`, `FramesTruncated`, `AmbiguousAttempt`; fourteen record kinds (read, not written). Reused: `ensure`, `closeTab`, `enter`, `leave`, `setContext`, `dehydrate`, `hydrate`. The address is a shape, not a word |
+| **New, Stories** | (rules 61–66, 2.10; common) `Story.machine` (`id`, `fixtures`, `world`), `send`, `advance` (settles at every deadline; `{ next: address }`), `checkpoint`, `world`, `run`, `run.checkpoints`, `run.end`, the reads `read`, `lane`, `records` (`since`), `attempt` (`n`), `now` beside the existing `state`, `memory`, `operations`, `schedules`, `Fake.server` (`truth`, `initial`, `endpoints`, `controls`), `Fake.call` (`request`, `handle`, `response`), `Fake.control`, `Fake.Lost`, `hold`, `release`, `drop`, `at`, `times`; (uncommon) `Story.app`, `Story.fragment`, `together` (`{ advance }`), `duplicate`, `match` (`purpose`, `input`), `after`, `Fake.storage`, `Fake.stream` (`frame`, `open`, `ping`, `every`, `frames`, `refuse`, `end`), `send` on a result, `.frames`, `.close`, `.end`, `Fake.webSocket`, `Fake.fetch` (`endpoint`, `input`, `params`, `query`, `body`, `headers`), `Fake.Refused`, `Fake.Closed`, `dispose` (`how`), `reload`, `guards`, `inspection` (`work`, `incarnations`), `tabs`, `entity`, `run.frames` (`truncated`), `advance(…, { suspended })`, `checkpoint(…, { at })` (`settled`, `turn`, `step`), `openTab(…, { from })`, `enter(input, { subject })`, `leave({ end })`; (rare) `advance({ to })`, `reset` (a fragment alone), `release({ nth })`, `storage`, `seed`, `Fake.storage.seed`, `Fake.storage.from(story)`, `propertyTest(story, …)` (`steps`, `properties`, `whenQuiet`, `runs`, `length`, `quietWithin`), `domainPropertyOptions`, the types `Story.Frame`, `Story.Step`; the errors `StoryInvalidCommand`, `NoConnection`, `NoDeadline`, `HostTimeWait`, `AmbiguousRead`, `PropertyTestFailed` (with the reason `PropertyDefect`), `StoryFakeError`, `SubjectAbsent`, the diagnostic `UnusedWireRule`, and the `Fail` reason `FramesTruncated`; twenty-one record kinds that `records` takes (read, not written). Reused: `ensure`, `closeTab`, `setContext`, `dehydrate`, `hydrate`, `within`, `maxBytes`, `label`, `serverView`. The address is a shape, not a word |
 | **New concepts, not words** | **incarnation** (one life of a fragment instance), **frozen** (a resumable trait while its node is inactive), **summary** (a contract's inferred per-alternative effects), the memory views **before**, **before-walk** and **after** (2.5, rule 22), pending reset, the three **channels** (2.7.1), a **write** (one Attempt) and a **send** (one invocation), a **contract** and an **operation** (rules 39, 40), the **write lane** with its states **`Idle`**, **`InFlight`**, **`Held`** and **`HeldThisTurn`** and its queued commits **`W`** (rule 21, 2.7.13), the **hold**, the lane's **addressable Attempt**, **after lanes**, the **binding incarnation**, an **unbound lane**, an **unplaced lane**, a **releasing lane**, the **subject path** (rules 51, 53, 60), **rebind**, **actor identity**, a **pending mapped outcome** (rule 44), a **keyed list** (rules 21, N1, N2), a call's **owner** and its **current** or **late** ending (rule 14), **late turn** (rule 15), the **Attempt's ending** (rule 18); the **record queue** (per record, across actors, rule 29), the **uncertain mark** (per record and Attempt, rule 32), **settlement** versus **admission** (rule 27), a **create draft** (`creating`, a convention, rule 33); (merge 5) yes / no / maybe, a **carried path**, the **record beneath**, an **uncomputed** prediction, a **prediction fault**, `many` |
 | **Existing** | `definition`, `machine`, `states`, `default`, `events`, `internalEvents`, `input` (caller side only: `ensure`, `useActor`, a host's filling), `memory`, `on`, `target`, `guard`, `updateMemory`, `actions`, `schedules`, `restartOn`, `transaction`, `key`, `concurrency`, `commit`, `outcomes`, `optimistic`, `setData`, the Attempt, `deny`, `check`, `S`, `E`, `O`, `.from`, `payload` |
 | **Removed** (operations merge) | commit values and their `{ outcomes }` option; `writes` as a commit option; `s.calls`; `s.activities` and the `activities` record; `keys` on activities; `read.fetch(key)`; the mapper's `superseded`, `laneKey` and copy `key`; `SharedCopyLane`; the default lane key of a domain write; key closures `key: (i) => …`; `result` and `params` on contracts; `*.operations.ts`; `NotSent { Superseded \| NothingToResend }` as endings |
-| **Removed** (Stories merge) | `story.app`, `story.machine` (renamed `Story.make`), `process()`, `advanceTo`, `advanceToNextTimer`, the `frames` option and frame collapse, `run.calls`, `checkpoint.exit`, the checkpoint predicate `.checkpoint(name, ({ truth }) => …)` (C16), `Story.ending` (never adopted), `model` and Testing O5 (T1), Testing O4's `pending` for work |
+| **Removed** (Stories, amended) | `Story.make` and `story.app`, `story.machine` (W1), `.expect`, `StoryExpectationFailed`, `AmbiguousAttempt` (SC1; P), `Story.property`, a Story's `properties` option (W25), `Story.records`, `Story.inspection`, `Story.entity`, `Story.attempt`, `Story.now` (W24), `process()` (W2), `advanceTo`, `advanceToNextTimer`, the `frames` option and frame collapse (W22), `run.calls`, `checkpoint.exit` (W34), the checkpoint predicate `.checkpoint(name, ({ truth }) => …)` (SC2, C16), `Story.ending` (never adopted), `model` and Testing O5 (W39), merge 6's `.do(…)` (W37), `accept`, tuple results, `Fake/Lost`, `{ to, send }` [fakes-v2], `latency`, `response` as an Effect, `headers` on `Fake.stream`, public `run.steps`, `message` on `Fake.stream`, `signal` on `run`, `Fake.storage.from`'s `{ at }`, `services?`, `shape` on a checkpoint read (P), Testing O4's `pending` for work |
 | **Author-chosen** | every other name (`Field`, `Lockout`, `challenges`, `LOCKED_OUT`, `canEdit`, `onLocked`, …) |
 
 ## 4. Against the problems in principles.md
@@ -5681,7 +6437,7 @@ C1–C18 (their record is in [merged/](merged/)); P15 and P20 are rewritten in p
 | C13 | Machines O3 | "Action parameters" split: guards, updates and patch-feeding mappers read before; commit selects, key selects and schedule inputs read after (rule 22) | Exempts commit selects and schedule inputs from "both read the pre-turn snapshot" |
 | C14 | Machines O5 | A schedule function reads the after memory of its arming turn, with the same `now`; `armOn` counts an event accepted anywhere on the active path; keyed schedules (`keys`) keep one timer per key (rule 23) | Adds |
 | C15 | Operations O3 | `optimistic` is the commit's only option, `O.x.commit(select, { optimistic })`, and reads the starting turn's after memory, captured at start; `writes` is the operation's option, `contract.outcomes(mapping, { writes })`, receives `{ value, input }` and reads no memory; domain operations have no `optimistic`, and their `writes` may only invalidate (rules 22, 36; OD26) | Adds |
-| C16 | Testing O2, O3 | *Superseded by C70–C72 (Stories): truth is read with `expect(fake, partial)`, with no checkpoint predicate (Stories T4); every ending is produced through fakes (Stories T2).* | — |
+| C16 | Testing O2, O3 | *Superseded by C70–C72 (Stories): truth is read with `cp.read(fake)`, with no checkpoint predicate (SC2); every ending is produced through fakes (Stories T2).* | — |
 | C17 | Persistence O4, O6 | Write lanes are Runtime records of the actor identity (C44–C48), acknowledged once per Attempt, in one capture with the records the Attempt predicts; prediction values are never persisted (rules 38, 46). On restore, an Attempt acknowledged once ends `unknown` (`Restored`) and an unacknowledged one `NotSent { why: "Restored" }`; parked endings and held lanes are delivered in rule 44's order, routed by the one owner test (rule 14) | Replaces the former P12 ("a fenced commit restores with its activation"); extends "A crash after acknowledgment restores unknown carrying the same Attempt…" |
 | C18 | CommandLine O5 | Errors: a late event with no handler at a strict ancestor of its owner, naming the event and the state; `failure.NotSent` unmapped where it can occur; an adopted ending unhandled in a leaf of its operation's arrival set (rule 20); `SharedContract`, `DuplicatePlacement`, `VerbMismatch`, `KeyRequired`, `UnresolvedHold` (rules 40–45); a mapped event used as a schedule's `send`, a `raise` or a view's `send` (rule 47); a contract without `key`, or a key field that is not a top-level `input` field (rule 39); (merge 4) `concurrency: "cancel"` on a predicting write (rule 29); `Defect` or `Interrupted` unmapped in a read operation's tag record (rule 37). Warnings: a state-changing transition listing a `reject` commit without its `idle` guard (rule 16); one transition reading, in both memory views, a key it writes (rule 22); `KeyOmitsInput` (rule 39); `UnusedOperation`; `UnresolvedHold` when the owner exists but is unreachable (rule 45); a one-record domain write whose key fields are not those its predicted record's key reads (rule 34). Info: bare writes (rule 40). Type errors: `retry`, `retryable`, a row's `retryCount` or `progress` under `allow` outside an ending's own handler (rule N2); a key-less member outside its operation's ending (rule 43). `SharedCopyLane` is deleted. Display: the commit node shows its operation, contract, verb, policy and key, and for a domain write its predicted entity, key and field names, `.alsoChanges` targets and the reads they reach; `flow explain` prints the lane key and cardinality (A-L2; merge 5, 3.7; 2.7.16) | Adds; amended by C65 (operations in fragments) |
 | C19 | Machines O6 | *Superseded by C40 (operations merge): `subscribe.each` replaces keyed activities.* | — |
@@ -5756,7 +6512,7 @@ The fragments merge ([merged/fragment-operations/proposal.md](merged/fragment-op
 | C60 | Persistence O2 | The lane record carries the subject path (strings) and the releasing mark (a flag); a writing placement's reset value persists with its slice; a frozen slice persists its parked read endings (`Interrupted`) beside its frozen schedules; parked endings of an unplaced path are on the lane record (rules 46, 51, 52, 60) | Amends C44 and the fragments' Persistence O2 row |
 | C61 | Persistence O3 | A releasing mark is captured no later than the actor record that drops the incarnation (rule 60) | Amends C45 |
 | C62 | Persistence O4, O5 | On restore, a writing placement whose re-taken reset value differs resets as a pending reset, the first turn after restore, before rule 44's deliveries; a recorded path the placement cannot produce adopts by key equality only when its last part is the contract's single key field, else `orphaned` (rules 46, 51; P19 gains the case) | Amends C46, C47, P19 |
-| C63 | Testing O1 | `Story.make(fragment, { id, fixtures })`; `enter`/`leave`/`reset` on traits; a fragment's request named by address (rule 65); rule 58's walks are Stories | Amends the fragments' Testing O1 row and C53; amended by C69 (Stories) |
+| C63 | Testing O1 | `Story.fragment(fragment, { id, fixtures })`; `enter`/`leave`/`reset` on traits; a fragment's request named by address (rule 65); rule 58's walks are Stories | Amends the fragments' Testing O1 row and C53; amended by C69 (Stories) |
 | C64 | Inspection O1 | Every lane with its operation path, subject path, and whether it is unplaced or releasing; fragment operations in contract summaries; `runtime.unsettledWrites()` lists unplaced lanes and drops a releasing lane once its ending lands | Amends C51 and the fragments' Inspection O1 row; amended by C78 (Stories) |
 | C65 | CommandLine O5 | `SharedContract` per actor tree (an error; a warning for `key: []` on a non-empty path, also C18's severity); `UnresolvedHold` and rule 20 inside each fragment, plus rule 56 at the host; rule 20's `NotSent` on a non-empty path, at the placement; rule 12's new construction errors; `flow explain` prints fragment operations and their subject; a key-less `O.x.cancel` in `whenAbandoned` is the one exception to C18's key-less type error (rules 43, 60); no new finding name | Amends C18 and the fragments' CommandLine O5 row |
 | C66 | React O4 | Views read `Fragment.O.x.get(s, k)` and `s.operations.<instance>.<name>` | Amends C52 |
@@ -5765,27 +6521,28 @@ The fragments merge ([merged/fragment-operations/proposal.md](merged/fragment-op
 
 ### For Stories
 
-The Stories merge ([merged/stories/proposal-v2.md](merged/stories/proposal-v2.md), section 6.2). playback.md follows
-Testing O4 and O9; its one stale sentence (`minDwell`'s "frames from one `process()`") is the plan's (M10).
+The Stories merge ([merged/stories/proposal-v2.md](merged/stories/proposal-v2.md), section 6.2), amended
+([merged/story-checks/stories-amended.md](merged/story-checks/stories-amended.md) section 4): **all proposed**, following the decisions cited. playback.md follows
+Testing O4 and O9.
 
 | # | Plan | Rule | Replaces or adds |
 |---|---|---|---|
-| C69 | Testing (title), O1 | Title "…checkpoints, models and property tests" → "…checkpoints and property tests". `Story.make(subject, options)` over an app setup, a machine, a trait or a subroutine (Stories T3); 2.10.2's steps; ids unique across the configuration; the stand-in host, its placement from the declaration; the `world` option; addressed targets; `reload` and `openTab(…, { from })`; properties are options, printed by name; "Scenario commands accept no arbitrary callbacks…" **kept** (rules 61–66) | Replaces O1's `story.app` / `story.machine` sentences and "Both Story kinds support send, process, advance, advanceTo, advanceToNextTimer…"; "unique within its App" → "unique across the configuration"; replaces the fragments' Testing O1 row and C63's syntax |
-| C70 | Testing O2 | Every step settles on a microtask-only run scheduler (`executionMode: "sync"`): no host task runs during a settle, which ends once Flow's queue and the microtask queue are empty; a fiber waiting on the host is `HostTimeWait`; the turn limit is per instant; 2.10.17.5's order (setup-scoped fibers, invocation order); `advance({ next: address })`, `together({ advance })`, `suspended` (rule 61; Stories T5 B1, T7; *Stream details: merge 6* for `Feed.reconnect`'s timers) | Replaces "process() drains currently eligible work…" and "These commands make work eligible without draining it…" |
-| C71 | Testing O3 | Fixtures are client halves; `Fake.server` (run-scoped truth, endpoints, controls, the wire words `hold`, `release`, `drop`, `duplicate`); provenance (`via`); `Fake/Lost` mapped by the binding; a crashed server is the binding's failure plus an `issue`; `Fake.storage` with `purpose`, FIFO per tab, aborted on close, and the scope lock; "fixtures cannot inject operation outcomes directly" **kept** (rules 62, 66; Stories T2, T5 B2) | Adds to O3; supersedes C16 |
-| C72 | Testing O4 | A frame after every committed publication; a step per command, each with its step cut; frames never collapse; `checkpoint.actor(ref)` → `frame.read(ref)`; `pending` → `Story.inspection.work`; `Entity.get` returns `{ data, predicted, uncertain, unconfirmed }`; records in one list with `tab: { name, open }`; `expect` and properties; step cuts and checkpoints are never truncated (rule 64; Stories T5 B3, B4) | Replaces "a frame after every command by default … Consecutive identical frames collapse into one" (amends the accepted playback contract, Stories T5 B4); answers C27's note |
-| C73 | Testing O6 | `propertyTest(story, { steps, properties, seed, runs?, length?, quietWithin? })`; invalid generated steps are skipped and left out of emitted Stories; shrinking keeps pairs; faults are steps; the domain form is a preset (Stories T5 B5; 2.10.16) | Replaces O6's generator shape |
-| C74 | Testing O7 | Tabs share the run's fake servers and `Fake.storage`; remote requests in transit survive `closeTab`, local writes abort; a hydration source runs in the destination's world, may not set `world`, and its requests carry `via.tab: { name: "server", open }`; `dehydrate` moves time as `advance` does (2.10.10, 2.10.11) | Adds |
-| C75 | Testing O8 | Errors `StoryExpectationFailed`, `StoryInvalidCommand` (`ActorAbsent`, `AlreadyEntered`, `NotEntered`, `TabOpen`, `TabClosed`, `NothingHeld`, `NoDeadline`), `HostTimeWait`, `FramesTruncated`, `AmbiguousAttempt` (2.10.2, 2.10.6) | Adds |
+| C69 | Testing (title), O1 | Title "…checkpoints, models and property tests" → "…checkpoints and property tests". `Story.app`, `Story.machine`, `Story.fragment` (W1) over an app setup, a machine, a trait or a subroutine; 2.10.2's steps; ids unique across the configuration; the stand-in host, its placement from the declaration (W30); the `world` option (W13); addressed targets; `reload` and `openTab(…, { from })` (W26); a Story holds inputs and checkpoints and no checks (SC1); "Construction, import and discovery start no services, actors, fixtures or assertions" → the last word goes; "Scenario commands accept no arbitrary callbacks…" **kept** (rules 61–66); every step has a data form; `services?` on `story.machine` is removed, `fixtures` covers it; `run({ signal?, frames? })` → `run()` (W22; P, SA RV2 section 8) | Replaces O1's `story.app` / `story.machine` sentences and "Both Story kinds support send, process, advance, advanceTo, advanceToNextTimer…"; "unique within its App" → "unique across the configuration"; replaces the fragments' Testing O1 row and C63's syntax |
+| C70 | Testing O2 | A run never yields to the host between its first step and its cleanup. Every step settles on a microtask-only run scheduler (`executionMode: "sync"`), draining until `K` consecutive hops show no scheduler activity and no arrival at anything of Flow's, within a hop cap per instant (`StoryTurnLimit`, `reason: "Settle"`); after the last cut, if a commit or read fiber is parked, the run finishes the world with nothing reaching the evidence, and a fiber still parked is `HostTimeWait`; a session or setup-scoped fiber may wait; a sleep of zero or less is a yield; 100,000 deadlines per `advance` (`reason: "Advance"`); cleanup's free Clock and bounds; the turn limit is per instant; 2.10.17.5's five ranks; the executor's own Clock; a Story is checked on the engine its tests run on; `advance({ next: address })`, `together({ advance })`, `suspended` (rule 61; W2, W4, W6–W10; SA RV1 H1, SA RV2 H1, M1–M3, L2; *Stream details: merge 6* for a session's timers) | Replaces "process() drains currently eligible work…" and "These commands make work eligible without draining it…" |
+| C71 | Testing O3 | Fixtures are client halves; `Fake.server` (run-scoped truth, endpoints, controls, the wire words `hold`, `release`, `drop`, `duplicate`); fakes-v2's one result shape, a pure synchronous `handle`, `send`, one answer list, route tables, the combination rule, the run-scoped server registry; provenance (`via`); `Fake.Lost`, `Fake.Refused`, `Fake.Closed`, mapped by the binding; a crashed server is the binding's failure, and a broken fake rejects the run with `StoryFakeError`; `from` carries storage only; `Fake.storage` with `purpose`, FIFO per tab, aborted on close, and the scope lock; "fixtures cannot inject operation outcomes directly" **kept** (rules 62, 66; W11, W12, W14, W16–W21, W28, W35, W36) | Adds to O3; supersedes C16 |
+| C72 | Testing O4 | A frame after every committed publication; a step per command, each with its step cut; frames never collapse (W22); a checkpoint names a step cut and has the reads `state`, `memory`, `operations`, `schedules`, `read(target)`, `lane`, `records`, `inspection`, `entity`, `attempt`, `now` (SC3, W23, W24); `checkpoint.actor(ref)` → `cp.read(ref)`; `pending` → `cp.inspection.work`; `Entity.get(checkpoint, …)` → `cp.entity(…)`, returning `{ data, predicted, uncertain, unconfirmed }`; records in one list with `tab: { name, open }`; `descriptor.get`, `Domain.entry.get`, `Entity.queue` and `shape` on a checkpoint are removed; every cut captures its full `inspection`, every frame `work` and lanes; `run.frames` keeps at most 10,000, exposes a non-enumerable `truncated` (W25), and its iterator throws `FramesTruncated`; step cuts and checkpoints are never truncated (rule 64) | Replaces "a frame after every command by default … Consecutive identical frames collapse into one", and O4's reads; answers C27's note |
+| C73 | Testing O6 | `propertyTest(story, { steps, properties?, whenQuiet?, seed, runs?, length?, quietWithin? })` (W25, W38); plain function properties; steps are data forms; resolves on `Pass`, rejects `PropertyTestFailed { result }` on `Fail` or `Inconclusive`, after every run completes; a truncated run is a `Fail` with `FramesTruncated`; the quiet phase ends the world in ordinary steps, which the emitted Story keeps; invalid generated steps are skipped and left out of emitted Stories; shrinking keeps pairs; faults are steps; the domain form is `domainPropertyOptions` (2.10.16) | Replaces O6's generator shape, and "even when process() drains many turns". O6's "Results distinguish Pass, Fail and Inconclusive" stays. O6's "insufficient evidence is Inconclusive" gains the truncation exception, as the brief asks |
+| C74 | Testing O7 | Tabs share the run's fake servers and `Fake.storage`; remote requests in transit survive `closeTab`, local writes abort; a hydration source runs in the destination's world, may not set `world`, and its requests carry `via.tab: { name: "server", open }`; `dehydrate` moves time as `advance` does (2.10.10, 2.10.11); the default tab is `"main"` | Adds |
+| C75 | Testing O8 | Errors `StoryInvalidCommand` (`ActorAbsent`, `AlreadyEntered`, `NotEntered`, `TabOpen`, `TabClosed`, `NothingHeld`, `NoDeadline`), `NoConnection`, `HostTimeWait`, `PropertyTestFailed`, `PropertyDefect` (a reason) [SA RV3 L5], `AmbiguousRead`, `StoryFakeError`, `SubjectAbsent`. `run()` rejects on a real Story error or a broken fake, never on a value (SC1, SA RV1 H4); the earliest recorded error is primary (SA RV2 M6). **O8's cancellation goes with `signal`**: "Cancellation stops admission and later commands", "a blocked send settles once", the cancellation flag; cleanup order and failure evidence stay (SA RV2 M1, section 8). `StoryExpectationFailed` is removed | Adds |
 | C76 | Testing O9 | The next-action highlight compares the addressed event; a closed tab renders nothing and reports the gap; fragment-alone Stories are not playable (a type error) (2.10.13) | Adds |
-| C77 | Testing O5, V1–V9 | O5 and V5 removed (T1); V3 proves rule 61 and the instant order; V4 proves publication frames and steps | Applies T1 |
+| C77 | Testing O5, V1–V9 | O5 and V5 removed (W39, T1); V1 adds the reads' types; V3 proves rule 61 and the instant order, with the host-primitive matrix, the always-on sentinel and `K` doubling (SA RV3 section 2); V4 proves publication frames, steps and captured reads, and loses "recording and collapse"; V6 proves `propertyTest` judging, including `FramesTruncated` | Applies W39 |
 | C78 | Inspection O1 | `inspect(runtime)` adds `work` (with `waitsFor`) and `incarnations` (`status: active \| frozen`); lanes by identity with `binding` (`bound`, `unbound`, `unplaced`), `releasing` and parked endings; held wire items are not Runtime facts (2.10.6, 2.10.7) | Amends C51, C64 and the fragments' Inspection O1 row |
-| C79 | Inspection O4 | Event kinds gain `ending`, `lane` (with `cell`), `life`, `callback`, `exit`, `listRepair`, `drop`, `session` (with `cell`; *Stream details: merge 6*), and for Story runs `step`, `request`, `control`, `verdict`; `turn` carries the keys its mappers read that it writes; every event gains the run-wide sequence and `tab: { name, open }` (2.10.6) | Adds |
+| C79 | Inspection O4 | Event kinds gain `ending`, `lane` (with `cell`), `life`, `callback`, `exit`, `listRepair`, `drop`, `session` (with `cell`; *Stream details: merge 6*), and for Story runs `step`, `request`, `control`, `verdict`; `turn` carries the keys its mappers read that it writes; every event gains the run-wide sequence and `tab: { name, open }`; the `delivery` kind [fakes-v2]; `records` takes 21 kinds (2.10.6); the diagnostic `UnusedWireRule` (2.10.4) | Adds |
 | C80 | Inspection O5 | Fake truth and request inputs leave the process as digests; `via` is identity, never redacted | Adds |
-| C81 | CommandLine O2, O5, O6 | `describe` prints subject, options, steps, checkpoints, expectations, properties and every fake reached; coverage by cells, handlers (current and late) and Flow reasons; Story-derived warnings from `verdict`, `listRepair`, `drop`, `ending` (rule 51's declines) and `turn` records; rule 20 at a stand-in after a subject change (2.10.12); top-level Stories in `defineConfig` (`appId: null`) (2.10.14) | Amends T2 |
-| C82 | Package O1 | `flow-state/testing` exports `Story`, `Fake`, `propertyTest`, `StoryFrame`, `StoryPlayer`, `definePresentation`; `story` and `model` removed (T1); `flow-state/internal/testing` (not public) exports `disposeRuntime` for Flow's suite | Amends Package O1 |
+| C81 | CommandLine O2, O5, O6 | `describe` prints subject, options, steps, checkpoints and every fake the plan names (W40); `flow story run` reports what ran, exits 2 on a rejected run, and prints `issue` records and unused wire rules; coverage by cells, handlers (current and late) and Flow reasons, stated as reached; Story-derived warnings from `verdict`, `listRepair`, `drop`, `ending` (rule 51's declines) and `turn` records; rule 20 at a stand-in after a subject change (2.10.12); top-level Stories in `defineConfig` (`appId: null`) (2.10.14) | Amends T2 |
+| C82 | Package O1 | `flow-state/testing` exports `Story`, `Fake`, `propertyTest`, `domainPropertyOptions`, `StoryFrame`, `StoryPlayer`, `definePresentation`, `defineConfig`, `type StoryRun`, the error classes `PropertyTestFailed` and `Fake.Lost`; `story` and `model` removed (W39); no test-runner adapter package (SC4); `flow-state/internal/testing` (not public) exports `disposeRuntime` for Flow's suite | Amends Package O1 |
 | C83 | Diagnostics | The error names of C75 | Adds |
-| C84 | EntityDomains O2, O4 | `Entity.queue` removals are `queue` records with their reason (`Superseded`, `Cancelled`, `Released`; an `Overloaded` write never joined and is an `ending` record, rule 35); `propertyTest`'s domain preset `Domain.propertySteps(domains, inputs)` keeps O4's oracle, quietness and Inconclusive rules | Resolves C30's deferred half and delegated-decisions row 3 (K11) |
+| C84 | EntityDomains O2, O4 | `Entity.queue` removals are `queue` records with their reason (`Superseded`, `Cancelled`, `Released`; an `Overloaded` write never joined and is an `ending` record, rule 35); `domainPropertyOptions(domains, inputs)` keeps O4's oracle, quietness (with 2.10.16's line on recurring schedules) and `Inconclusive` rules | Resolves C30's deferred half and delegated-decisions row 3 (K11) |
 | C85 | Persistence O7 | The capture that removes a cancelled Attempt's acknowledgement queues behind that acknowledgement (one writer per scope); an acknowledgement stored before a crash restores as `unknown { Restored }` even if this Runtime had cancelled the Attempt (2.7.13's restore row; Stories T7; section 7 item 21) | Adds |
 
 ### For tooling
@@ -5905,9 +6662,9 @@ Found while merging:
     shape is not settled (see also entities.md A-H2). Narrowed by the operations merge: only a write lane whose operation
     is gone, or whose key no longer decodes, reaches `orphaned`; an undecodable actor record does not orphan its lanes
     (rule 46, P19).
-17. ~~**Story reads for entity domains**~~ **Closed (Stories merge):** `Story.entity` reads `{ data, predicted, uncertain,
+17. ~~**Story reads for entity domains**~~ **Closed (Stories merge):** `cp.entity` reads `{ data, predicted, uncertain,
     unconfirmed }` (C72); removals are `queue` records (C84); settlement frames are named with `checkpoint(…, { at })`;
-    `Overloaded` and queue order are reached by holds and sends; held lanes are in `Story.inspection` (2.10.6–2.10.8).
+    `Overloaded` and queue order are reached by holds and sends; held lanes are in `cp.inspection` (2.10.6–2.10.8).
     Was: `Entity.get` with `predicted` (Testing still says `pending`),
     `Entity.queue` removals (C30), the frames between settlement and admission (2.5, rule 27), reaching `Overloaded`
     and record-queue order with fixtures (2.7.11), held unknown lanes in evidence (rule 21), and server truth against
@@ -5929,6 +6686,10 @@ Found while merging:
     acknowledgement was stored and before that capture, the restore finds an acknowledged Attempt and delivers
     `unknown { Restored }` (2.7.13's restore row, rule 17, C85). Stories T7 keeps this; the alternative is to fence the
     cancel's capture so the restore sees the cancel (the Stories record's Q15, option B).
+22. **Amended Stories, what is unproven** (proposed, 2026-11-01). No Flow code ran: the rewrite has no `Fake`, Story executor or checkpoint reads. The model
+    ([merged/story-checks/model/RESULTS.md](merged/story-checks/model/RESULTS.md)) covers the wire within its caps; the desk's trial converted only its feed, Presence and Assistant fakes, and only on paper
+    (`merge-6-streams/trials/desk/RESULTS.md`). The rest of the desk and Checkout still use `Story.make`, `.expect` and `storyTest`. A Story is checked on the engine its tests run on (2.10.2), so playback may
+    reject what tests accept; no guards on `fetch` were added, so a real `fetch` under its own timeout passes (rule 61's limits). `inspection` and frame memory is unmeasured (2.10.6).
 
 ## Changes from v3
 
@@ -6040,10 +6801,14 @@ From [reviews/design-correctness.md](reviews/design-correctness.md) and [reviews
   T1 and T2 amended; C69–C85 added; section 7 items 17 and 19 closed, item 21 added; every merge 3 mark for Story reads
   resolved. Streams (merge 6) is not merged: its rules renumber from 67, and Stories' stream parts are marked *Stream
   details: merge 6*.
+- Stories, amended, merged on 2026-11-01 ([merged/story-checks/stories-amended.md](merged/story-checks/stories-amended.md), [merged/story-checks/fakes-v2.md](merged/story-checks/fakes-v2.md); decisions SC1–SC5,
+  W1–W43; plan [merged/story-checks/merge-plan.md](merged/story-checks/merge-plan.md)): a Story holds inputs and checkpoints, and tests use the runner's `expect` over checkpoint reads; `Story.app`,
+  `Story.machine`, `Story.fragment` replace `Story.make`; rules 11, 61–66 and 2.10 rewritten; rules 21, 58, 2.7.11, 2.8, 3.1, 3.2, 3.6, sections 5 and 7 amended; C16, C63, C69–C75, C77, C79, C81,
+  C82, C84 amended. The `.plan` files are still owed (the plan's 2.7). Streams (merge 6) is still not merged.
 
 ## Decisions
 
-Settled by the owner or under the owner's delegation, with the reason each wins and what was rejected. Merge 2's decisions keep their numbers D1–D17, merge 4's E1–E18, the operations merge's OD1–OD26, operations-in-fragments' F1–F10 and Stories' T1–T7 (cited "Stories T*n*"; a bare T*n* is a tooling row of section 5), which
+Settled by the owner or under the owner's delegation, with the reason each wins and what was rejected. Merge 2's decisions keep their numbers D1–D17, merge 4's E1–E18, the operations merge's OD1–OD26, operations-in-fragments' F1–F10, Stories' T1–T7 (cited "Stories T*n*"; a bare T*n* is a tooling row of section 5) and amended Stories' SC1–SC5 and W1–W43, which
 their rewrites, spikes, models and later proposals cite; they are not the problems D1–D7 of section 4.
 
 ### Outcomes (merge 1, [merged/outcomes.md](merged/outcomes.md))
@@ -6497,7 +7262,7 @@ kept, because the record, its reviews and delegated-decisions.md cite them; OD20
 - **F4** Q4 B: in v1, mapped writes only in placements about one thing (root trait, `.each` copy, `.resumable()` without `resetOn`); reads and streams anywhere. (2026-10-30)
 - **F5** Q5 A: a host may read a fragment's lanes (`Fragment.O.x.get`, `idle`, `retryable`; `s.operations.<instance>.<name>`); acting is a type error. (2026-10-30)
 - **F6** Q6 A: a held write whose `.each` copy is removed is a stated limit; the host keeps busy keys in membership when it matters. (2026-10-30)
-- **F7** Q7–Q10 A: subroutines that own writes are phase 2; fragment Stories with `fixtures`, `.enter`, `.leave`; no subroutine entry hook; `cancel` in `whenAbandoned` deferred. (2026-10-30) *Amended by Stories T3 (delegated, big): `Story.make(fragment)` with `enter`, `leave`, `guards`, `reset`.*
+- **F7** Q7–Q10 A: subroutines that own writes are phase 2; fragment Stories with `fixtures`, `.enter`, `.leave`; no subroutine entry hook; `cancel` in `whenAbandoned` deferred. (2026-10-30) *Amended by Stories T3 (delegated, big): `Story.make(fragment)` with `enter`, `leave`, `guards`, `reset`; respelled `Story.fragment(fragment)` by W1, and W5, W31–W33 confirm the steps.*
 - **F8** Revision 2 questions, all option A: Q11 (`resetOn` allowed on a writing root or resumable trait; the reset value is the subject; amends F4), Q12 (`cancel` in `whenAbandoned` releases the incarnation's write when it ends; amends F6, reverses F7's deferral), Q13 (`Flow.entry` does not fire on thaw). (2026-10-31)
 - **F9** Review 2 H1, option A: release on leave is a property of the subject's lanes, remembered by the Runtime; spelled key-less, `whenAbandoned: [O.put.cancel]` (NEW MEANING: releases every lane of this incarnation's subject, survives reload, also releases endings parked for the subject). Use it only for work that is worthless once its subject is gone (review 2 H3); like and follow keep the keep-busy line. (2026-10-31)
 - **F10** The proposal (revision 3 with review 3 fixes, 1c3a1c68) is accepted for merging into machine-design.md, under the same process as the operations merge (OD24: the main session approves the change list and resolves small conflicts, logged in delegated-decisions.md; owner conflicts go to the owner). (2026-10-31) *Process, not a design decision.*
@@ -6530,10 +7295,10 @@ of section 5.
 
 - **T1** Continue with proposal-v2.md (from the brief); the earlier proposal.md and its reviews stay as prior art. *Delegated.* (2026-10-31)
 - **T2** C3: no ending injection. Every ending comes from a fake's answer through the real classification, or from a lifecycle step; Testing O3 stays as written. `NotSent { Disposed }` is reached only by the policy suite's internal `disposeRuntime` step. *Delegated.* (2026-10-31)
-- **T3** C10: one constructor, `Story.make(subject)`; the subject's kind decides which steps type-check; a fragment alone runs in an invisible stand-in host. *Delegated, big* (B6: `story.app` and `story.machine` renamed). (2026-10-31)
+- **T3** C10: one constructor, `Story.make(subject)`; the subject's kind decides which steps type-check; a fragment alone runs in an invisible stand-in host. *Delegated, big* (B6: `story.app` and `story.machine` renamed). (2026-10-31) *Reversed by W1: `Story.app`, `Story.machine`, `Story.fragment`.*
 - **T4** C4/C12: stream and wire controls are data values on fake handles, applied with `.world(…)`; `together(…)` is the only race word; Testing O1's no-callbacks rule stays. *Delegated.* (2026-10-31)
-- **T5** Accept the proposal's big changes for review and convergence: B1 (`process()` removed, each step settles), B2 (a `Fake` module), B3 (`expect` makes `run()` reject), B4 (a frame per publication, amending accepted Testing O4), B5 (`propertyTest` takes any Story). *Delegated, big.* (2026-10-31)
-- **T6** Revision 2's new changes N1–N4 accepted: the `world` option (servers seeded before the subject starts), one address shape for `match`, `Story.attempt`, record filters, `advance({ next })` and step targets, `reload(tab)` and `openTab(name, { from })`, and `together({ advance: d })`. *Delegated, big.* (2026-10-31)
+- **T5** Accept the proposal's big changes for review and convergence: B1 (`process()` removed, each step settles), B2 (a `Fake` module), B3 (`expect` makes `run()` reject), B4 (a frame per publication, amending accepted Testing O4), B5 (`propertyTest` takes any Story). *Delegated, big.* (2026-10-31) *B3 reversed by SC1; B1 confirmed by W2, B2 by W11, B4 by W22, B5 by W38.*
+- **T6** Revision 2's new changes N1–N4 accepted: the `world` option (servers seeded before the subject starts), one address shape for `match`, `Story.attempt`, record filters, `advance({ next })` and step targets, `reload(tab)` and `openTab(name, { from })`, and `together({ advance: d })`. *Delegated, big.* (2026-10-31) *`Story.attempt` became the `attempt` read on a checkpoint (W24); the rest confirmed by W6, W7, W10, W13, W26.*
 - **T7** From final review 2: H1, settling runs on a microtask-only scheduler (Effect 4.0.5 `executionMode: "sync"`), so host I/O never decides a result; the `hold({ at: "response" })` ghost restore is the same as a real crash and follows the merged design (an acknowledged Attempt restores as `unknown { Restored }`), so 2.5 and 3.6 stop claiming "never restores an ended Attempt"; all Mediums and Lows fixed as the review proposes. *Delegated.* (2026-10-31)
 
 (T*n*'s C*n* above are the brief's constraints, not this file's C rows; its section numbers are the proposal's.)
@@ -6557,3 +7322,72 @@ of section 5.
 - **Storage that travels like a remote request** (a ghost restore no page produces), **a handler's defect reaching the
   client** (no transport carries a defect), **an app-shipped awaiting adapter** (it would test Flow's adapter, not the
   app).
+
+### Stories, amended ([merged/story-checks/decisions.md](merged/story-checks/decisions.md))
+
+The owner approved the amended proposal for merging on 2026-11-01. SC1–SC5 and W1–W43 are **owner-confirmed**, row by row; they amend the delegated
+Stories T1–T7 above. SC*n* is the record's C*n*, renamed because a bare C*n* is a row of section 5; bare T*n* inside a W row is Stories T*n*; Q*n* is the walk's question.
+
+- **SC1** A Story is a transcript of inputs and checkpoints. Flow owns no assertions: `.expect` leaves the Story, and tests use the runner's own `expect`. *Owner-confirmed.* (2026-11-01)
+- **SC2** Keep the word `checkpoints`. No `at` until it does something extra; no callback form. *Owner-confirmed.* (2026-11-01)
+- **SC3** Q1 B: short reads on a checkpoint, for every runner. `lane(O.x, key)` is `undefined` when the lane does not exist; `records(kind, filter?)` is NEW on a checkpoint. *Owner-confirmed.* (2026-11-01)
+- **SC4** Q2 A: no matchers for now. `toHaveLane`, `toHaveRecord` and `toBeIn` are deferred ([revisit.md](revisit.md)). *Owner-confirmed.* (2026-11-01)
+- **SC5** Q3 A: checkpoint names are camelCase by convention, so destructuring works. *Owner-confirmed.* (2026-11-01)
+- **W1** Group 1, Q1 B: `Story.app`, `Story.machine` and `Story.fragment`, so the kind is visible on the line. Reverses T3's `Story.make`; the options and steps per subject stay. *Owner-confirmed.* (2026-11-01)
+- **W2** Group 1, Q2 A: `process()` is removed; each step settles (T5 B1 confirmed). *Owner-confirmed.* (2026-11-01)
+- **W3** Group 1, Q3 A: `together` is the one word for races (T4 confirmed). *Owner-confirmed.* (2026-11-01)
+- **W4** Group 1, Q4 A: real host work pending during a settle fails with `HostTimeWait` (T7 confirmed). *Owner-confirmed.* (2026-11-01)
+- **W5** `enter` and `leave` stay as steps for a fragment alone. The rest of that group (`guards`, `reset`, the stand-in host) is still to be walked. *Owner-confirmed.* (2026-11-01)
+- **W6** Group 2, Q5 A: one `advance`, with `{ next }` and `{ to }`. *Owner-confirmed.* (2026-11-01)
+- **W7** Group 2, Q6 A: `next` names its timer by address; nothing matching fails with `NoDeadline`. *Owner-confirmed.* (2026-11-01)
+- **W8** Group 2, Q7 A: `advance` runs the whole chain, in the fixed order at equal instants. *Owner-confirmed.* (2026-11-01)
+- **W9** Group 2, Q8 A: keep `advance(d, { suspended })`. *Owner-confirmed.* (2026-11-01)
+- **W10** Group 2, Q9 A: `together({ advance })` for a deadline racing an input. *Owner-confirmed.* (2026-11-01)
+- **W11** Group 3, Q10 A: a `Fake` module with server and client halves (T5 B2 confirmed). *Owner-confirmed.* (2026-11-01)
+- **W12** Group 3, Q11 A: no ending injection (T2 confirmed). *Owner-confirmed.* (2026-11-01)
+- **W13** Group 3, Q12 A: `world` as an option and a step, with controls as data. *Owner-confirmed.* (2026-11-01)
+- **W14** Group 3, Q13 A: `handle` returns `{ truth, response }`, so order cannot be confused (Effect's `Ref.modify` is `[result, next]`, the reverse of the merged tuple). *Owner-confirmed.* (2026-11-01)
+- **W15** Group 3, Q14 A: no MSW binding now ([revisit.md](revisit.md)). *Owner-confirmed.* (2026-11-01)
+- **W16** Group 3, Q15 A: `Fake.fetch` routes by method and path, such as `{ "POST /confirm": "confirm" }`; the function stays for unusual cases. Spelling to check against the desk's five fakes. *Owner-confirmed.* (2026-11-01)
+- **W17** `Fake` stands alone with its own narrow set of capabilities. A mocking library is optional, and goes inside a handler or a plain Layer if a user wants one. *Owner-confirmed.* (2026-11-01)
+- **W18** Group 4, Q21 A: `hold`, `release`, `drop` and `duplicate` as a Story-owned wire layer. *Owner-confirmed.* (2026-11-01)
+- **W19** Group 4, Q22 A: `hold` stands until `release`; `drop` and `duplicate` apply once; `times` overrides. *Owner-confirmed.* (2026-11-01)
+- **W20** Group 4, Q23 A: keep `at: "request" \| "response"` on the wire. *Owner-confirmed.* (2026-11-01)
+- **W21** Group 4, Q24 A: keep `release({ drop: true })` and `release({ nth })`. *Owner-confirmed.* (2026-11-01)
+- **W22** Group 5, Q25 A: every step has a cut; frames are per publication; no `frames` option (T5 B4 confirmed). *Owner-confirmed.* (2026-11-01)
+- **W23** Group 5, Q26 A: one `read(target)` for actors, fakes and endpoints, beside SC3's `lane` and `records`. *Owner-confirmed.* (2026-11-01)
+- **W24** Group 5, Q27 A: `inspection`, `entity(Entity, key)`, `attempt(O.x)` and `now` live on the checkpoint. `Story.inspection`, `Story.entity`, `Story.attempt`, `Story.records` and `Story.now` go. This settles SC3's related proposal. *Owner-confirmed.* (2026-11-01)
+- **W25** Group 5, Q28 A: `Story.property` and the `properties` option go; tests loop over `run.frames`, which exposes `truncated`. `propertyTest` takes its checks as its own option (group 8). *Owner-confirmed.* (2026-11-01)
+- **W26** Group 6, Q29 A: `reload` and `openTab(name, { from })`. *Owner-confirmed.* (2026-11-01)
+- **W27** Group 6, Q30 A: one `dispose` with `{ how: "now" \| "forget" }`. *Owner-confirmed.* (2026-11-01)
+- **W28** Group 6, Q31 A: `Fake.storage`, with `seed` and `from`. *Owner-confirmed.* (2026-11-01)
+- **W29** Group 6, Q32 A: hydration sources run against this run's fake servers and cannot set `world`. *Owner-confirmed.* (2026-11-01)
+- **W30** Group 7, Q33 A: an invisible stand-in host, placed by the fragment's declaration alone. *Owner-confirmed.* (2026-11-01)
+- **W31** Group 7, Q34 A: `guards(answers)` as a step, defaulting to allow. *Owner-confirmed.* (2026-11-01)
+- **W32** Group 7, Q35 A: `enter(input, { subject })` and `reset(subject)`. *Owner-confirmed.* (2026-11-01)
+- **W33** Group 7, Q36 A: `leave({ end: true })` ends a frozen trait. *Owner-confirmed.* (2026-11-01)
+- **W34** Group 7, Q37 A: `run.calls` and `checkpoint.exit` go; callbacks and exits are records. *Owner-confirmed.* (2026-11-01)
+- **W35** Fake gaps, Q17–Q20: direction approved, final spellings delegated to the main session and an Opus review ([fakes-v2.md](merged/story-checks/fakes-v2.md)). The owner has not yet read the spellings. *Owner-confirmed.* (2026-11-01)
+- **W36** Group 8, Q38 A: `Fake.fetch` and `Fake.webSocket` on Effect's injection points, spelled as in [fakes-v2.md](merged/story-checks/fakes-v2.md). *Owner-confirmed.* (2026-11-01)
+- **W37** Group 8, Q39 A: stream controls are ordinary wire steps, with no stream-specific step words; `.do(…)` goes. Details wait for the streams merge. *Owner-confirmed.* (2026-11-01)
+- **W38** Group 8, Q40 A: `propertyTest(story, …)` with plain function properties; domains become a preset. *Owner-confirmed.* (2026-11-01)
+- **W39** Group 8, Q41 A: `model()` is removed. Exhaustive paths and shortest counterexamples are given up; one Runtime and one execution path stay (T1 confirmed). *Owner-confirmed.* (2026-11-01)
+- **W40** Group 8, Q42 A: coverage and CLI as walked; `flow story describe` loses its expectation and property lines, and `flow story run` reports what ran, with no pass or fail on correctness. *Owner-confirmed.* (2026-11-01)
+- **W41** Process: amend Stories into a new proposal, then two rounds of Opus deep review covering Stories, fakes and how they integrate; a third round is allowed for major issues. *Owner-confirmed.* (2026-11-01)
+- **W42** Owner confirmed: `latency` and `response` as an Effect are cut, so a slow answer is `hold`, `advance`, `release`; this changes W17, where an async library goes in the client half. *Owner-confirmed.* (2026-11-01)
+- **W43** Owner confirmed: `run({ signal })` is removed, changing Testing O8; a run never yields to the host. *Owner-confirmed.* (2026-11-01)
+
+(SC1's own snippet in the record spells `Story.make`, which W1 reversed; W1 wins. W42 changes W17: an async mocking library goes in the client half.)
+
+**Proposed: approved only with the proposal as a whole, not confirmed by a C or W.** Everything marked **[P]** or **[fakes-v2]** in 2.10 and rules 11, 61–66, chiefly:
+the settle's drain and its constants (`K`, the hop cap, 100,000 deadlines per `advance`); finishing the world before `HostTimeWait` (rule 61); what `Fake`'s words
+spell (W35; the owner has not read them) and how they combine (2.10.4's five rules); `StoryFakeError` and `InvalidInput` as the one value that rejects a run;
+`UnusedWireRule`; `cp.attempt`'s return, `AmbiguousRead`, `cp.lane(address)`, `cp.tabs.b?.inspection`, `SubjectAbsent`; capture of reads at cuts; `whenQuiet`, `PropertyTestFailed`,
+`PropertyDefect`, `result.source`, `domainPropertyOptions`; `Story.Step`, `Story.Frame`; `flow story run` exiting 2 on a rejected run; a fake's `ping` and its first rank; removing
+`latency`, `response` as an Effect and `signal` (W42, W43 confirm those two cuts; the rest of `run`'s surface is proposed); the rows of C69–C84.
+
+**Proposed: resolved at this merge** ([merged/story-checks/merge-plan.md](merged/story-checks/merge-plan.md) 1.4): the labels SC*n*, SA RV*n*, SA MDL, SA H*n* (MX1); the proposal's "C-new" folded
+into C79 rather than numbered, so merge 6's rows still start after C85 (MX2); this section's pointers to the record's sections 10 and 11 (MX3); section 7 item 22 (MX6).
+
+**Also rejected** (the record's 1.2 and 1.3): `.expect` in a Story and `StoryExpectationFailed` (SC1); `@flow-state/vitest` and `storyTest` (SC2–SC4, and the decisions' proposed list);
+matchers, for now (SC4, `revisit.md`); a callback on `checkpoint` (SC2); an MSW binding, for now (W15); a failure's `{ step, cut, target, path, expected, actual }` shape.
