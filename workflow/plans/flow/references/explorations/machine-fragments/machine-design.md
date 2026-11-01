@@ -3751,7 +3751,7 @@ the design used here, such as `deny` (SA RV1 L4).
 frame collapse (W22), `run.calls`, `checkpoint.exit` (W34), the checkpoint predicate (SC2, C16), `Story.ending` (never
 adopted, W12), `Story.make` and the lowercase `story.app` / `story.machine` (W1), `.expect`, `StoryExpectationFailed`,
 `Story.property`, the `properties` option on a Story (SC1, W25), `Story.records`, `Story.inspection`, `Story.entity`,
-`Story.attempt`, `Story.now` (W24), merge 6's `.do(…)` (W37) and `story.suspend` (its 2.11; W9), `model()` (W39), `run`'s `signal` and `frames` (W22; P, SA RV2 section 8), and
+`Story.attempt`, `Story.now` (W24), merge 6's `.do(…)` (W37) and `story.suspend` (its 2.11; W9), `model()` (W39), `run`'s `signal` (W43) and `frames` (W22; SA RV2 section 8), and
 Testing O4's `pending` for work.
 
 #### 2.10.1 What a Story is
@@ -3803,7 +3803,7 @@ acquiring anything (Testing O1).
 
 **`together` takes a send, a control or `{ advance }`, and anything else is a type error**, since nothing else has a defined meaning there; a nested `together` is one. `propertyTest`'s `steps` take every form but `checkpoint`. `describe` prints these.
 
-**Running** (STR3). `story.run()` is the one execution boundary. It takes no `signal`: a run never yields to the host (rule 61), so `abort()` could not be called during one, and a runner's timeout cannot interrupt a run; it reports when the run ends, so a finished run over the limit fails with "Test timed out" [P, SA RV2 M1, SA RV3 M2]; the hop cap, the turn limit and the deadline limit bound it. C75 lists the change to Testing O8. It returns a `StoryRun` (`frames`, `steps`,
+**Running** (STR3). `story.run()` is the one execution boundary. It takes no `signal` (W43): a run never yields to the host (rule 61), so `abort()` could not be called during one, and a runner's timeout cannot interrupt a run; it reports when the run ends, so a finished run over the limit fails with "Test timed out" [P, SA RV2 M1, SA RV3 M2]; the hop cap, the turn limit and the deadline limit bound it. C75 lists the change to Testing O8. It returns a `StoryRun` (`frames`, `steps`,
 `checkpoints`, `end`, `evidence`, `payloads`, `trace`; cuts for every step exist per W22, and their list is internal, for the player [P, SA RV1 section 8]), or rejects with a `FlowError` that carries the same evidence up to
 the failing boundary (Testing O8). **It rejects on a real Story error** (`StoryTurnLimit`, `HostTimeWait`,
 `StoryInvalidCommand`, `InvalidDuration`, a failed acquisition, a cleanup failure) **or a broken fake**
@@ -3990,7 +3990,7 @@ const socket = Fake.stream({
   frame: Schema.fromJsonString(Message),  // frame, required; Schema.String for raw
   open: (truth: Truth, req) => ({  // object result
     frames: truth.messages.filter((m) => m.room === req.room),
-    // or: refuse: 4403  // refuse
+    // or: refuse: 4403  // replaces accept
     // and, for a finished body: end: true  // end, this connection, after its frames
   }),
 })
@@ -4014,6 +4014,7 @@ export const Chat = Fake.server("Chat", {                          // user-defin
       handle: (_truth: Truth, req) => ({
         response: { status: 204 },                                 // no body, as Effect's omitsBody
         send: [socket.close((c) => c.clientId === req.clientId, 4401, "expired")],
+        // socket.close(where, code, reason?)
       }),
     }),
   },
@@ -4069,7 +4070,7 @@ decodes it and invalid input is `StoryFakeError`; `query` values are `string | u
 (required) on a call, `frames?`, `refuse?` and `end?` on `open`. All three are pure. Truth and `send` commit atomically; one
 that throws is a crashed server, with no truth and no frames.
 
-**`handle` is pure and always answers synchronously** [P, SA RV1 M1; main session's cut]. There is no `latency` and no `response` as an Effect: they had no real
+**`handle` is pure and always answers synchronously** [W42; SA RV1 M1]. There is no `latency` and no `response` as an Effect: they had no real
 use, and added a second form of `Held`, a rank clause and a crash half. **A slow answer is `hold`, `advance`, `release`**, the form Testing O6 already spells:
 
 ```ts
@@ -4461,7 +4462,7 @@ kind (STF72; members added in C79). **The table is the kinds `records` takes, 21
 | `queue`, `store` | record-queue join, release, removal (`Superseded`, `Cancelled`, `Released`); predictions, confirmations, `uncertain` set or cleared, repairs, skips, tombstones | `entity`, `key`, `attempt`, `reason` |
 | `session` | stream-session evidence (v3's Inspection; *Stream details: merge 6*) | `actor`, `instance`, `copy`, `operation`, `key`, a `cell` per T1 and T3 write (`<State>.<input>`), T2's row and basis in place of `answer`, `proof` on a read, `bookmark` (`{ at, filled }`), `missed`, drops (a record carries `drop` only when one is written [final integration L9]), `Overflow`, `Discarded`, `st`, `ended` (the reason a session ended) [P, v3 item 6] |
 | `request`, `control` | a fake's request (each phase change) or control | 2.10.4 |
-| `delivery` | a stream frame's delivery [fakes-v2; P, SA RV1 L2] | `endpoint`, `connection`, `phase` (`delivered`, `held`, `lost`), `digest` |
+| `delivery` | a stream frame's delivery [fakes-v2; renamed from `frame`, P, SA RV1 L2] | `endpoint`, `connection`, `phase` (`delivered`, `held`, `lost`), `digest` |
 | `issue`, `diagnostic`, `persistence`, `hydration`, `entry` | as Inspection O4; `UnusedWireRule` is a `diagnostic`: a wire rule that never fired by the end of the run [P, SA RV1 M17]; v3's flags `ValuesWhileDown`, `RegistrationChurn`, `ReleaseOverdue`, `ProofWithoutPosition`, `PingsWithoutLive`, `IdleWithoutPing`, `DeliveryDenied`, `FillsUntouched` are `diagnostic` records (*Stream details: merge 6*) | as Inspection O4 |
 
 One shape everywhere: `instance` is a list of placement names (`["likes"]`), `copy` is the `.each` copy's key string,
@@ -4479,7 +4480,7 @@ keeps the design's one meaning, the lane row's `InFlight`; the record's old `pen
 the previous step whose cause matches; the other causes are `{ turn: E.X }` and `{ step: "invoked" }`. The
 confirmed-but-saving moment of 2.8.1 is then a named frame. It has every read in the table above. Its `wire` is not captured,
 since a frame has none; a held item at that moment shows in `read(endpoint)`'s phases. `at` here is a checkpoint option and needs
-no rename now that `at` is not a read **[proposed in decisions.md, not yet decided]**.
+no rename now that `at` is not a read **[P]**.
 
 #### 2.10.7 Lanes and rows
 
@@ -4763,9 +4764,9 @@ test("charged once, never left authorized", () =>
         return left.length > 0 ? left : undefined
       },
     },
-    seed: 11,
-    runs: 200,
-    length: 30,
+    seed: 11,  // required
+    runs: 200,  // default 50
+    length: 30,  // default 40; Testing O6's "steps"
   }))
 ```
 
@@ -5079,7 +5080,7 @@ export const savesTitle = Story.machine(Editor, {  // [W1]
 })
   .world(Tickets.save.hold())  // A slow answer is hold, advance, release
   .send(E.TitleChanged({ title: "Replace foyer light" }), E.SaveRequested())  // each event is its own step
-  .checkpoint("saving")
+  .checkpoint("saving")  // camelCase [SC5]
   .advance("2 seconds")
   .world(Tickets.save.release())
   .checkpoint("saved")
@@ -5088,10 +5089,10 @@ export const savesTitle = Story.machine(Editor, {  // [W1]
 test("editor saved", async () => {
   const { saving, saved } = (await savesTitle.run()).checkpoints  // The Story is not named saved (SA RV1 M10)
   expect(saving.lane(O.save)).toMatchObject({ pending: true })  // [SC3]
-  expect(saved.state).toBe(S.SAVED)
-  expect(saved.memory.title).toBe("Replace foyer light")
+  expect(saved.state).toBe(S.SAVED)  // [SC1]
+  expect(saved.memory.title).toBe("Replace foyer light")  // not nullable (SA RV1 M4)
   expect(saved.lane(O.save)).toBeUndefined()                                     // settled, so gone [SC3]
-  expect(saved.read(Tickets.save)).toMatchObject([  // user-defined: Tickets (a Fake.server, as 2.10.4's Stripe)
+  expect(saved.read(Tickets.save)).toMatchObject([  // [W23]  // user-defined: Tickets (a Fake.server, as 2.10.4's Stripe)
     { input: { title: "Replace foyer light" }, via: { attempts: [saved.attempt(O.save)] } },  // [W24]
   ])
 })
@@ -5583,13 +5584,13 @@ export const replayThenDrop = Story.machine(ChatRoom, {
   world: [Chat.seed({ messages: threeMessages }), Chat.socket.hold({ after: 2 })],  // after. Quiet after two frames  // user-defined: threeMessages
 })
   .checkpoint("quiet")                                                               // a start cut (2.10.6)
-  .world(Chat.socket.drop())  // a stream control is a wire step [W37]
-  .advance({ next: { operation: O.messages, timer: "backoff" } })
+  .world(Chat.socket.drop())  // a network loss; a stream control is a wire step [W37]
+  .advance({ next: { operation: O.messages, timer: "backoff" } })  // [W7]
   .checkpoint("reconnected")
 
 test("resumes from where it stopped", async () => {
   const { quiet, reconnected } = (await replayThenDrop.run()).checkpoints
-  expect(quiet.records("delivery", { endpoint: "socket", phase: "delivered" })).toHaveLength(2)
+  expect(quiet.records("delivery", { endpoint: "socket", phase: "delivered" })).toHaveLength(2)  // the delivery record (SA RV1 L2)
   expect(reconnected.read(Chat.socket)).toMatchObject([                               // replaces merge 6's expect(…, { connections })
     { phase: "closed", code: 1006, by: "network" },                                   // plain phase (SA RV1 M11)
     { phase: "open", input: { from: 2 } },                                            // the resume position the server saw
@@ -6157,7 +6158,7 @@ export const confirmYes = Story.fragment(Confirm, { id: "confirm/yes" })
   .send(Confirm.E.Yes())
   .checkpoint("answered");
 
-test("yes confirms", async () => {
+test("a subroutine's exit, alone", async () => {
   const { answered } = (await confirmYes.run()).checkpoints;
   expect(answered.records("exit")).toMatchObject([{ instance: [], name: "Confirmed", payload: {} }]);
 });
@@ -6533,14 +6534,14 @@ Testing O4 and O9.
 | C72 | Testing O4 | A frame after every committed publication; a step per command, each with its step cut; frames never collapse (W22); a checkpoint names a step cut and has the reads `state`, `memory`, `operations`, `schedules`, `read(target)`, `lane`, `records`, `inspection`, `entity`, `attempt`, `now` (SC3, W23, W24); `checkpoint.actor(ref)` → `cp.read(ref)`; `pending` → `cp.inspection.work`; `Entity.get(checkpoint, …)` → `cp.entity(…)`, returning `{ data, predicted, uncertain, unconfirmed }`; records in one list with `tab: { name, open }`; `descriptor.get`, `Domain.entry.get`, `Entity.queue` and `shape` on a checkpoint are removed; every cut captures its full `inspection`, every frame `work` and lanes; `run.frames` keeps at most 10,000, exposes a non-enumerable `truncated` (W25), and its iterator throws `FramesTruncated`; step cuts and checkpoints are never truncated (rule 64) | Replaces "a frame after every command by default … Consecutive identical frames collapse into one", and O4's reads; answers C27's note |
 | C73 | Testing O6 | `propertyTest(story, { steps, properties?, whenQuiet?, seed, runs?, length?, quietWithin? })` (W25, W38); plain function properties; steps are data forms; resolves on `Pass`, rejects `PropertyTestFailed { result }` on `Fail` or `Inconclusive`, after every run completes; a truncated run is a `Fail` with `FramesTruncated`; the quiet phase ends the world in ordinary steps, which the emitted Story keeps; invalid generated steps are skipped and left out of emitted Stories; shrinking keeps pairs; faults are steps; the domain form is `domainPropertyOptions` (2.10.16) | Replaces O6's generator shape, and "even when process() drains many turns". O6's "Results distinguish Pass, Fail and Inconclusive" stays. O6's "insufficient evidence is Inconclusive" gains the truncation exception, as the brief asks |
 | C74 | Testing O7 | Tabs share the run's fake servers and `Fake.storage`; remote requests in transit survive `closeTab`, local writes abort; a hydration source runs in the destination's world, may not set `world`, and its requests carry `via.tab: { name: "server", open }`; `dehydrate` moves time as `advance` does (2.10.10, 2.10.11); the default tab is `"main"` | Adds |
-| C75 | Testing O8 | Errors `StoryInvalidCommand` (`ActorAbsent`, `AlreadyEntered`, `NotEntered`, `TabOpen`, `TabClosed`, `NothingHeld`, `NoDeadline`), `NoConnection`, `HostTimeWait`, `PropertyTestFailed`, `PropertyDefect` (a reason) [SA RV3 L5], `AmbiguousRead`, `StoryFakeError`, `SubjectAbsent`. `run()` rejects on a real Story error or a broken fake, never on a value (SC1, SA RV1 H4); the earliest recorded error is primary (SA RV2 M6). **O8's cancellation goes with `signal`**: "Cancellation stops admission and later commands", "a blocked send settles once", the cancellation flag; cleanup order and failure evidence stay (SA RV2 M1, section 8). `StoryExpectationFailed` is removed | Adds |
+| C75 | Testing O8 | Errors `StoryInvalidCommand` (`ActorAbsent`, `AlreadyEntered`, `NotEntered`, `TabOpen`, `TabClosed`, `NothingHeld`, `NoDeadline`, `NoConnection`), `HostTimeWait`, `FramesTruncated`, `PropertyTestFailed`, `PropertyDefect` (a reason) [SA RV3 L5], `AmbiguousRead`, `StoryFakeError`, `SubjectAbsent`. `run()` rejects on a real Story error or a broken fake, never on a value (SC1, SA RV1 H4); the earliest recorded error is primary (SA RV2 M6). **O8's cancellation goes with `signal`** (W43): "Cancellation stops admission and later commands", "a blocked send settles once", the cancellation flag; cleanup order and failure evidence stay (SA RV2 M1, section 8). `StoryExpectationFailed` is removed | Adds |
 | C76 | Testing O9 | The next-action highlight compares the addressed event; a closed tab renders nothing and reports the gap; fragment-alone Stories are not playable (a type error) (2.10.13) | Adds |
 | C77 | Testing O5, V1–V9 | O5 and V5 removed (W39, T1); V1 adds the reads' types; V3 proves rule 61 and the instant order, with the host-primitive matrix, the always-on sentinel and `K` doubling (SA RV3 section 2); V4 proves publication frames, steps and captured reads, and loses "recording and collapse"; V6 proves `propertyTest` judging, including `FramesTruncated` | Applies W39 |
 | C78 | Inspection O1 | `inspect(runtime)` adds `work` (with `waitsFor`) and `incarnations` (`status: active \| frozen`); lanes by identity with `binding` (`bound`, `unbound`, `unplaced`), `releasing` and parked endings; held wire items are not Runtime facts (2.10.6, 2.10.7) | Amends C51, C64 and the fragments' Inspection O1 row |
 | C79 | Inspection O4 | Event kinds gain `ending`, `lane` (with `cell`), `life`, `callback`, `exit`, `listRepair`, `drop`, `session` (with `cell`; *Stream details: merge 6*), and for Story runs `step`, `request`, `control`, `verdict`; `turn` carries the keys its mappers read that it writes; every event gains the run-wide sequence and `tab: { name, open }`; the `delivery` kind [fakes-v2]; `records` takes 21 kinds (2.10.6); the diagnostic `UnusedWireRule` (2.10.4) | Adds |
 | C80 | Inspection O5 | Fake truth and request inputs leave the process as digests; `via` is identity, never redacted | Adds |
 | C81 | CommandLine O2, O5, O6 | `describe` prints subject, options, steps, checkpoints and every fake the plan names (W40); `flow story run` reports what ran, exits 2 on a rejected run, and prints `issue` records and unused wire rules; coverage by cells, handlers (current and late) and Flow reasons, stated as reached; Story-derived warnings from `verdict`, `listRepair`, `drop`, `ending` (rule 51's declines) and `turn` records; rule 20 at a stand-in after a subject change (2.10.12); top-level Stories in `defineConfig` (`appId: null`) (2.10.14) | Amends T2 |
-| C82 | Package O1 | `flow-state/testing` exports `Story`, `Fake`, `propertyTest`, `domainPropertyOptions`, `StoryFrame`, `StoryPlayer`, `definePresentation`, `defineConfig`, `type StoryRun`, the error classes `PropertyTestFailed` and `Fake.Lost`; `story` and `model` removed (W39); no test-runner adapter package (SC4); `flow-state/internal/testing` (not public) exports `disposeRuntime` for Flow's suite | Amends Package O1 |
+| C82 | Package O1 | `flow-state/testing` exports `Story`, `Fake`, `propertyTest`, `domainPropertyOptions`, `StoryFrame`, `StoryPlayer`, `definePresentation`, `defineConfig`, `type StoryRun`, the error classes `PropertyTestFailed`, `Fake.Lost`, `Fake.Refused` and `Fake.Closed`; `story` and `model` removed (W39); no test-runner adapter package (proposed; follows from SC2–SC4); `flow-state/internal/testing` (not public) exports `disposeRuntime` for Flow's suite | Amends Package O1 |
 | C83 | Diagnostics | The error names of C75 | Adds |
 | C84 | EntityDomains O2, O4 | `Entity.queue` removals are `queue` records with their reason (`Superseded`, `Cancelled`, `Released`; an `Overloaded` write never joined and is an `ending` record, rule 35); `domainPropertyOptions(domains, inputs)` keeps O4's oracle, quietness (with 2.10.16's line on recurring schedules) and `Inconclusive` rules | Resolves C30's deferred half and delegated-decisions row 3 (K11) |
 | C85 | Persistence O7 | The capture that removes a cancelled Attempt's acknowledgement queues behind that acknowledgement (one writer per scope); an acknowledgement stored before a crash restores as `unknown { Restored }` even if this Runtime had cancelled the Attempt (2.7.13's restore row; Stories T7; section 7 item 21) | Adds |
@@ -7383,8 +7384,7 @@ Stories T1–T7 above. SC*n* is the record's C*n*, renamed because a bare C*n* i
 the settle's drain and its constants (`K`, the hop cap, 100,000 deadlines per `advance`); finishing the world before `HostTimeWait` (rule 61); what `Fake`'s words
 spell (W35; the owner has not read them) and how they combine (2.10.4's five rules); `StoryFakeError` and `InvalidInput` as the one value that rejects a run;
 `UnusedWireRule`; `cp.attempt`'s return, `AmbiguousRead`, `cp.lane(address)`, `cp.tabs.b?.inspection`, `SubjectAbsent`; capture of reads at cuts; `whenQuiet`, `PropertyTestFailed`,
-`PropertyDefect`, `result.source`, `domainPropertyOptions`; `Story.Step`, `Story.Frame`; `flow story run` exiting 2 on a rejected run; a fake's `ping` and its first rank; removing
-`latency`, `response` as an Effect and `signal` (W42, W43 confirm those two cuts; the rest of `run`'s surface is proposed); the rows of C69–C84.
+`PropertyDefect`, `result.source`, `domainPropertyOptions`; `Story.Step`, `Story.Frame`; `flow story run` exiting 2 on a rejected run; a fake's `ping` and its first rank; the rest of `run`'s surface; `checkpoint(name, { at })` keeps its word; the rows of C69–C84.
 
 **Proposed: resolved at this merge** ([merged/story-checks/merge-plan.md](merged/story-checks/merge-plan.md) 1.4): the labels SC*n*, SA RV*n*, SA MDL, SA H*n* (MX1); the proposal's "C-new" folded
 into C79 rather than numbered, so merge 6's rows still start after C85 (MX2); this section's pointers to the record's sections 10 and 11 (MX3); section 7 item 22 (MX6).
