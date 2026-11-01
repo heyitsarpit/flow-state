@@ -129,7 +129,7 @@ Rules 1–66 keep their numbers. Rules 67–72 are v3's. New section 2.11, after
 
 | # | Target | Mark | Before | After | Source |
 | --- | --- | --- | --- | --- | --- |
-| ME1 | Status paragraph | small | "Streams (merge 6) is not merged yet; where Stories reads streams, the text is marked *Stream details: merge 6*. The work order" | Streams (merge 6, [merged/streams/proposal-v3.md](merged/streams/proposal-v3.md), [merged/strea … nd tells a clear from a wipe with `fills` (2.11, rules 67–72; decisions S1–S16). The work order | S15, S16 |
+| ME1 | Status paragraph | small | "Streams (merge 6) is not merged yet; where Stories reads streams, the text is marked *Stream details: merge 6*. The work order" | Streams (merge 6, `[merged/streams/proposal-v3.md](merged/streams/proposal-v3.md)`, [merged/strea … nd tells a clear from a wipe with `fills` (2.11, rules 67–72; decisions S1–S16). The work order | S15, S16 |
 | ME2 | Decision order sentence | small | "**Seven decisions.**" | **Eight decisions.** | S15 |
 | ME3 | Decision order sentence | small | "and 5; decision 7 builds on decisions 5 and 6." | and 5; decision 7 builds on decisions 5 and 6; decision 8 builds on decisions 2, 5, 6 and 7. | v3 9 |
 | ME4 | Decisions table, new row 8 | small | "decisions Stories T1–T7, amended by SC1–SC5 and W1–W43 \| Testing … , Package O1, Diagnostics, EntityDomains O2/O4, Persistence O7 \|" | decisions Stories T1–T7, amended by SC1–SC5 and W1–W43 \| Testing O1–O9, V1–V9, Inspection O1/O … rverRendering O2/O3/O5/V3/V5, EntityDomains O1/O4, Inspection O4, CommandLine O5, Package O1 \| | v3 9 |
@@ -172,7 +172,7 @@ Rules 1–66 keep their numbers. Rules 67–72 are v3's. New section 2.11, after
 | ME41 | 2.7.16, flow explain | small | "`READY subscribes issues (Issues.list)`;" | `READY subscribes issues (Issues.list)`; `LIVE subscribes messages (Chat.messages, every, one session per room, fills messages, idle 45s, reconnects by predicate, catches up)`; | v3 8 |
 | ME42 | 2.7.16, handles | small | "a stream's has `subscribe` and `subscribe.each`; a resource's" | a stream's has `subscribe`, `subscribe.each`, `refetch` and `bookmark`; a resource's | v3 2.11.8 |
 | ME43 | 2.8, new 2.8.14 | small | "### 2.9 Operations in fragments" | New "2.8.14 `listen` and connections": rule 72, Streams T7, costs from v3 6.7 | v3 9, 2.8; v3 T7, 6.7 |
-| ME44 | 2.10 intro, citations | small | "v3 is [merge-6-streams/proposal-v3.md](merge-6-streams/proposal-v … ed; inside *Stream details: merge 6* text, T1–T3 are v3's tables." | v3 is [merged/streams/proposal-v3.md](merged/streams/proposal-v3.md), whose design is 2.11; Streams T*n* are 2.11.11's tables. | SA 11; MX1 |
+| ME44 | 2.10 intro, citations | small | "v3 is [merge-6-streams/proposal-v3.md](merge-6-streams/proposal-v … ed; inside *Stream details: merge 6* text, T1–T3 are v3's tables." | v3 is `[merged/streams/proposal-v3.md](merged/streams/proposal-v3.md)`, whose design is 2.11; Streams T*n* are 2.11.11's tables. | SA 11; MX1 |
 | ME45 | 2.10 intro, Removed | small | "merge 6's `.do(…)` (W37) and `story.suspend` (its 2.11; W9)" | earlier streams proposals' `.do(…)` (W37) and `story.suspend` (W9) | SA 11; MX1 |
 | ME46 | 2.10.3, next | small | "and a Story uses `next` [v3 item 7]; *Stream details: merge 6*), `{ actor: Checkout1 }`." | and a Story uses `next` [v3 item 7]; Streams T1), `{ actor: Checkout1 }`. | SA 11 |
 | ME47 | 2.10.6, session record | small | "\| `session` \| stream-session evidence (v3's Inspection; *Stream … cell` per T1 and T3 write (`<State>.<input>`), T2's row and basis" | \| `session` \| stream-session evidence (2.11.13's Inspection) \| `actor`, `instance`, `copy`, … n`, `key`, a `cell` per Streams T1 and T3 write (`<State>.<input>`), Streams T2's row and basis | SA 11; MX1 |
@@ -259,7 +259,7 @@ Rules 1–7, 9–12, 15–19, 21–24, 26–36, 38, 43–46, 48–51, 53–56, 5
 | `ServerRendering.plan` O2, O3, O5, V3, V5 | Rows, partition, digest, sessions | C96–C98 |
 | `EntityDomains.plan` O1, O4 | `listen` gaps, stream faults | C99 |
 | `Inspection.plan` O4, `CommandLine.plan` O5 | Evidence, findings | C100, C101 |
-| `Package.plan` O1, `Diagnostics.plan` | `Feed`'s export; finding names | C102 |
+| `Package.plan` O1, `Diagnostics.plan` | `Feed`'s export; finding names | C102, C103 |
 | The desk and Checkout | Convert feeds to `position`, `reconnect`, `idleTime`, `fills`; `next/http-api.ts` to a seam | v3 item 7 |
 | 2.11.12.5's Story | The LLM case, written out | MX13 |
 | Spikes | req A11: ticker, Supabase, full Ably, graphql-ws, Phoenix, Electric, EventSource, counter and the desk's `features/` need re-running on the final words | v3 7 |
@@ -272,3 +272,20 @@ As 2.5's list. **CLI:** `flow explain` gains its line; `flow check` its findings
 ## 3. What blocks merging
 
 Nothing. Limits and unproven items are section 7 item 23; plan changes are owed (2.7). A fourth High in real code would trigger S15's fallback.
+
+## 4. What the merge check changed
+
+Applied 2026-11-01 from [reviews/streams-merge-check.md](../../reviews/streams-merge-check.md), with the owner's decisions. This section supersedes MX6 and MX7's wording; the rows above stay as written.
+
+- **Samples.** A fixture that needs a sibling is provided it: `ChatSocket.layer.pipe(Layer.provide(ChatFake))`, Testing O3 unchanged. 2.10.18.7's subject is written out: `ChatLog`, `Message` with `seq`, `ChatLogSocket`, `ChatLogDefinition`, `ChatLogRoom`. The bookmark helper has one subject, the desk's.
+- **Rules and text.** Rule 13 adds the tag `Feed`; rule 40 and 2.7.3 except `every` and `listen`; rules 67, 68, 71 mark their clauses; rule 50 and 2.6 add `bookmark`; 2.5 step 6 keeps Streams T3's two conditions; 2.11.6 says where `Interrupted` comes from; 2.11 states what spike and model mean; item 23 corrects trial 2's claim.
+- **Records.** C103 (Diagnostics), so the rows now run C86–C103. 3.6's streams rows, S12's annotation, 2.11's "v3 item *n*" definition and three citations are corrected.
+- **Item 23** gains the flood doubt as unproven: 2.10.9's row is unchanged.
+
+**This plan's own count errors** (Low 7), left as written above:
+
+- 1.1: "22 MD rows, 25 plan rows". v3 section 9 has 25 and 17.
+- 2.1 "Applied in one commit" and 2.6 M7 "Three commits": ME85–ME88 came in a fourth.
+- 2.1 "ME1–ME82 are text replacements" omits ME85–ME88.
+- ME23 names only rule 71's addition; rules 68, 69 and 70 gain text too.
+- ME1 and ME44's quoted links were design-relative: now in backticks.
