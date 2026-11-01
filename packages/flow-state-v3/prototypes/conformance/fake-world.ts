@@ -1,8 +1,8 @@
 // The world, owned by the suite so it survives runtime rewrites: virtual clock, stepping scheduler, fake server,
-// fake storage. A runtime sees only `Host` and `ShopApi`. A "process" is a generation: when it dies, nothing from it
+// fake storage. A runtime sees only `Host` and `Api`. A "process" is a generation: when it dies, nothing from it
 // reaches the next one, without any cooperation from the runtime.
-import { Effect, Scheduler } from "effect";
-import type { Answer, Request, StorageScript, World0 } from "./harness.ts";
+import { Effect, Exit, type Scheduler } from "effect";
+import type { Answer, Outside, Request, World0 } from "./harness.ts";
 
 export type Purpose = "acknowledge" | "capture" | "flush";
 export type Write = { readonly key: string; readonly value: string | undefined }; // undefined deletes
@@ -18,21 +18,21 @@ export type Host = {
     write(writes: readonly Write[], purpose: Purpose, then?: (ok: boolean) => void): void;
   };
 };
-export type ShopApi = {
-  confirm(
-    i: unknown,
-    o: { idempotencyKey: string },
-  ): Effect.Effect<unknown, { readonly _tag: string }>;
-  placeOrder(
-    i: unknown,
-    o: { idempotencyKey: string },
-  ): Effect.Effect<unknown, { readonly _tag: string }>;
-  voidAuthorization(
-    i: unknown,
-    o: { idempotencyKey: string },
-  ): Effect.Effect<unknown, { readonly _tag: string }>;
-  intent(i: unknown): Effect.Effect<unknown, { readonly _tag: string }>;
-  orderFor(i: unknown): Effect.Effect<unknown, { readonly _tag: string }>;
+export type ServerModel = {
+  init(): any;
+  // Applies a write. A `fail` is a definite refusal; nothing changed.
+  apply?(op: string, input: any, s: any): { s: any; value?: unknown; fail?: any };
+  read?(op: string, input: any, s: any, t: World0): unknown;
+};
+type E = Effect.Effect<unknown, any>;
+export type Api = {
+  call(op: string, input: unknown, o?: { idempotencyKey?: string }): E;
+  track(op: string, key: string, body: E): E; // a request whose body is the fixture's own effect
+  confirm(i: unknown, o: { idempotencyKey: string }): E;
+  placeOrder(i: unknown, o: { idempotencyKey: string }): E;
+  voidAuthorization(i: unknown, o: { idempotencyKey: string }): E;
+  intent(i: unknown): E;
+  orderFor(i: unknown): E;
 };
 
 class StepScheduler implements Scheduler.Scheduler {
@@ -40,6 +40,8 @@ class StepScheduler implements Scheduler.Scheduler {
   q: Array<() => void> = [];
   shuffle: number | undefined;
   yieldEvery = 0;
+  picks = 0;
+  choices = 0;
   private ops = 0;
   shouldYield() {
     return this.yieldEvery > 0 && ++this.ops % this.yieldEvery === 0;
@@ -49,6 +51,8 @@ class StepScheduler implements Scheduler.Scheduler {
     return this.d;
   }
   next() {
+    this.picks++;
+    if (this.q.length > 1) this.choices++;
     if (this.shuffle === undefined) return this.q.shift()!;
     this.shuffle = (Math.imul(this.shuffle, 48271) >>> 0) % 2147483647;
     return this.q.splice(this.shuffle % this.q.length, 1)[0]!;
@@ -58,17 +62,14 @@ class StepScheduler implements Scheduler.Scheduler {
 type Held = Request & {
   never?: boolean;
   aborted?: boolean;
-  resume?: ((e: Effect.Effect<unknown, any>) => void) | undefined;
+  lostOpen?: boolean; // the answer was lost and the server has not applied it: it may land late
+  tracked?: boolean;
+  resume?: ((e: E) => void) | undefined;
   process: number;
 };
-const WRITES: Record<string, string> = {
-  confirm: "pay",
-  placeOrder: "place",
-  voidAuthorization: "void",
-  intent: "intent",
-  orderFor: "order",
-};
 const capturable = (v: any) => v?.status === "requires_capture" || v?.status === "succeeded";
+const matches = (input: any, where?: Readonly<Record<string, unknown>>) =>
+  !where || Object.entries(where).every(([k, v]) => input?.[k] === v);
 
 export class FakeWorld {
   now = 0;
@@ -84,6 +85,11 @@ export class FakeWorld {
   readonly acked = new Set<string>();
   readonly placedKeys = new Set<string>();
   readonly voidedKeys = new Set<string>();
+  readonly chargedIntents = new Set<string>();
+  readonly voidedIntents = new Set<string>();
+  readonly placedIntents = new Set<string>();
+  readonly landed = new Map<string, { value?: unknown; fail?: any }>();
+  serverState: any;
   uninterruptible = new Set<string>();
   syncAnswers = new Map<string, Answer>();
   yields = 0;
@@ -97,8 +103,10 @@ export class FakeWorld {
   }> = [];
   constructor(
     readonly seed: number,
-    readonly script: StorageScript = {},
-  ) {}
+    readonly server?: ServerModel,
+  ) {
+    this.serverState = server?.init();
+  }
 
   killProcess() {
     this.process++;
@@ -127,17 +135,16 @@ export class FakeWorld {
       storage: {
         load: () => new Map(this.kv),
         write: (writes, purpose, then) => {
-          const mustHold = then !== undefined || this.script.holdCaptures === true;
           const blocked = writes.some((w) =>
             this.held.some((h) => h.writes.some((x) => x.key === w.key)),
           );
-          if (mustHold || blocked) this.held.push({ writes, purpose, then });
-          else this.land(writes);
+          if (then !== undefined || blocked) this.held.push({ writes, purpose, then });
+          else this.landWrites(writes);
         },
       },
     };
   }
-  private land(writes: readonly Write[]) {
+  private landWrites(writes: readonly Write[]) {
     for (const w of writes) {
       if (w.value === undefined) this.kv.delete(w.key);
       else this.kv.set(w.key, w.value);
@@ -145,21 +152,21 @@ export class FakeWorld {
   }
 
   storageStep(how: "ack" | "refuse" | "hang" | "landNoAck", match?: string) {
-    const matches = (h: (typeof this.held)[number]) =>
+    const eligible = (h: (typeof this.held)[number]) =>
       !h.hung &&
       h.then !== undefined &&
       (match === undefined || h.purpose === match || h.writes.some((w) => w.key.includes(match)));
-    for (const h of this.held.filter(matches)) {
+    for (const h of this.held.filter(eligible)) {
       if (how === "hang") {
         h.hung = true;
       } else if (how === "landNoAck") {
-        this.land(h.writes);
+        this.landWrites(h.writes);
         this.noteAck(h.writes);
         h.hung = true;
       } else {
         this.held.splice(this.held.indexOf(h), 1);
         if (how === "ack") {
-          this.land(h.writes);
+          this.landWrites(h.writes);
           this.noteAck(h.writes);
         }
         h.then?.(how === "ack");
@@ -174,13 +181,13 @@ export class FakeWorld {
   private flushUnblocked() {
     for (let i = 0; i < this.held.length; i++) {
       const h = this.held[i]!;
-      if (h.then !== undefined || this.script.holdCaptures) continue;
+      if (h.then !== undefined) continue;
       const blocked = this.held
         .slice(0, i)
         .some((o) => o.writes.some((x) => h.writes.some((w) => w.key === x.key)));
       if (!blocked) {
         this.held.splice(i--, 1);
-        this.land(h.writes);
+        this.landWrites(h.writes);
       }
     }
   }
@@ -189,15 +196,16 @@ export class FakeWorld {
   }
 
   // ── Fake server
-  readonly api: ShopApi = {
-    confirm: (input, o) => this.call("confirm", input, o.idempotencyKey),
-    placeOrder: (input, o) => this.call("placeOrder", input, o.idempotencyKey),
-    voidAuthorization: (input, o) => this.call("voidAuthorization", input, o.idempotencyKey),
+  readonly api: Api = {
+    call: (op, input, o) => this.call(op, input, o?.idempotencyKey),
+    track: (op, key, body) => this.track(op, key, body),
+    confirm: (input, o) => this.call("pay", input, o.idempotencyKey),
+    placeOrder: (input, o) => this.call("place", input, o.idempotencyKey),
+    voidAuthorization: (input, o) => this.call("void", input, o.idempotencyKey),
     intent: (input) => this.call("intent", input),
-    orderFor: (input) => this.call("orderFor", input),
+    orderFor: (input) => this.call("order", input),
   };
-  private call(name: string, input: unknown, key?: string): Effect.Effect<unknown, any> {
-    const op = WRITES[name]!;
+  private call(op: string, input: unknown, key?: string): E {
     const isRead = key === undefined;
     const r: Held = {
       op,
@@ -208,7 +216,7 @@ export class FakeWorld {
       ...(key === undefined ? {} : { idempotencyKey: key }),
     };
     const sync = this.syncAnswers.get(op);
-    let body: Effect.Effect<unknown, any> = Effect.suspend(() => {
+    let body: E = Effect.suspend(() => {
       this.requests.push(r);
       if (sync) {
         r.answered = true;
@@ -224,42 +232,105 @@ export class FakeWorld {
       body = Effect.yieldNow.pipe(Effect.andThen(Effect.yieldNow), Effect.andThen(body));
     return this.uninterruptible.has(op) ? Effect.uninterruptible(body) : body;
   }
-  private settle(r: Held, a: Answer): Effect.Effect<unknown, any> {
-    const apply = (v: unknown) => {
-      if (r.op === "pay" && capturable(v)) this.charged.add(r.idempotencyKey!);
-      if (r.op === "place") this.placedKeys.add(r.idempotencyKey!);
-      if (r.op === "void") this.voidedKeys.add(r.idempotencyKey!);
+  private track(op: string, key: string, body: E): E {
+    const r: Held = {
+      op,
+      input: {},
+      at: this.now,
+      answered: false,
+      process: this.process,
+      idempotencyKey: key,
+      tracked: true,
     };
+    return Effect.suspend(() => {
+      this.requests.push(r);
+      return body;
+    }).pipe(
+      Effect.onExit((x) =>
+        Effect.sync(() => {
+          r.answered = true;
+          void Exit.isSuccess(x);
+        }),
+      ),
+    );
+  }
+  // Applied once per key, whoever sends it and however many times.
+  private landOnServer(r: Held): { value?: unknown; fail?: any } {
+    const key = r.idempotencyKey;
+    const prior = key === undefined ? undefined : this.landed.get(key);
+    if (prior) return prior;
+    const out = this.server?.apply?.(r.op, r.input, this.serverState) ?? { s: this.serverState };
+    this.serverState = out.s;
+    const result = { ...("value" in out ? { value: out.value } : {}), ...(out.fail ? { fail: out.fail } : {}) };
+    if (key !== undefined) this.landed.set(key, result);
+    return result;
+  }
+  private ledger(r: Held, v: unknown) {
+    const intent = (r.input as any)?.intentId;
+    if (r.op === "pay" && capturable(v)) {
+      this.charged.add(r.idempotencyKey!);
+      this.chargedIntents.add(intent);
+    }
+    if (r.op === "place") {
+      this.placedKeys.add(r.idempotencyKey!);
+      this.placedIntents.add(intent);
+    }
+    if (r.op === "void") {
+      this.voidedKeys.add(r.idempotencyKey!);
+      this.voidedIntents.add(intent);
+    }
+  }
+  private settle(r: Held, a: Answer): E {
     if ("ok" in a) {
-      apply(a.ok);
+      this.ledger(r, a.ok);
       return Effect.succeed(a.ok);
     }
     if ("fail" in a) {
       const { tag, ...rest } = a.fail;
       return Effect.fail({ _tag: tag, ...rest });
     }
-    if ("lost" in a) return Effect.fail({ _tag: "NoResponse" });
+    if ("lost" in a) {
+      r.lostOpen = true;
+      return Effect.fail({ _tag: "NoResponse" });
+    }
     if ("lostButLanded" in a) {
-      apply(a.lostButLanded);
+      this.ledger(r, a.lostButLanded);
       return Effect.fail({ _tag: "NoResponse" });
     }
     if ("die" in a) return Effect.die(a.die);
+    if ("apply" in a || "applyLost" in a) {
+      const out = this.landOnServer(r);
+      if ("applyLost" in a) return Effect.fail({ _tag: "NoResponse" });
+      if (out.fail) return Effect.fail(out.fail);
+      return Effect.succeed(out.value);
+    }
+    if ("truth" in a) {
+      const v = this.server?.read?.(r.op, r.input, this.serverState, this.truth());
+      return Effect.succeed(v);
+    }
     throw new Error("settle: not an answer");
   }
-  private oldest(op: string) {
-    return this.requests.find((r) => r.op === op && !r.answered && !r.never && !r.aborted);
+  private oldest(op: string, where?: Readonly<Record<string, unknown>>) {
+    return this.requests.find(
+      (r) =>
+        r.op === op &&
+        !r.answered &&
+        !r.never &&
+        !r.aborted &&
+        r.process === this.process &&
+        matches(r.input, where),
+    );
   }
   hasOpen(op: string) {
     return this.oldest(op) !== undefined;
   }
-  answer(op: string, a: Answer) {
-    const r = this.oldest(op);
-    if (!r) throw new Error(`answer: no held request for ${op}`);
+  answer(op: string, a: Answer, where?: Readonly<Record<string, unknown>>) {
+    const r = this.oldest(op, where);
+    if (!r) throw new NoHeldRequest(`answer: no held request for ${op}`);
     if ("never" in a) {
       r.never = true;
       return;
     }
-    if ("landLate" in a) throw new Error("landLate: not needed in round 1, lateAnswer covers it");
     r.answered = true;
     const e = this.settle(r, a);
     r.resume?.(e);
@@ -268,11 +339,21 @@ export class FakeWorld {
   // The server's answer finally arrives. If the fiber is gone, or the process, only the truth changes.
   lateAnswer(op: string, a: Answer) {
     const r = this.requests.find((x) => x.op === op && !x.answered && !x.aborted);
-    if (!r) throw new Error(`lateAnswer: no open request for ${op}`);
+    if (!r) throw new NoHeldRequest(`lateAnswer: no open request for ${op}`);
     r.answered = true;
     const e = this.settle(r, a);
     r.resume?.(e);
     r.resume = undefined;
+  }
+  // A request whose answer was lost reaches the server after all. Nobody hears it.
+  landLate(op: string) {
+    const r = this.requests.find((x) => x.op === op && x.lostOpen);
+    if (!r) throw new NoHeldRequest(`landLate: no lost request for ${op}`);
+    r.lostOpen = false;
+    this.landOnServer(r);
+  }
+  canLandLate(op: string) {
+    return this.requests.some((x) => x.op === op && x.lostOpen);
   }
   truth(): World0 {
     return {
@@ -281,6 +362,12 @@ export class FakeWorld {
       acked: [...this.acked],
       placed: this.placedKeys.size,
       voided: this.voidedKeys.size,
+      ledger: {
+        charged: [...this.chargedIntents],
+        voided: [...this.voidedIntents],
+        placed: [...this.placedIntents],
+      },
+      server: this.serverState,
     };
   }
   publicRequests(): readonly Request[] {
@@ -292,11 +379,53 @@ export class FakeWorld {
       ...(idempotencyKey === undefined ? {} : { idempotencyKey }),
     }));
   }
+  outside(): Omit<Outside, "live" | "injections"> {
+    return {
+      open: this.requests
+        .filter((r) => !r.answered && !r.aborted && r.process === this.process)
+        .map((r) => ({
+          op: r.op,
+          never: r.never === true,
+          ...(r.idempotencyKey === undefined ? {} : { key: r.idempotencyKey }),
+        })),
+      storage: this.held.map((h) => ({
+        purpose: h.purpose,
+        keys: h.writes.map((w) => w.key),
+        hung: h.hung === true,
+      })),
+      timers: this.timers.filter((t) => t.process === this.process).map((t) => t.at),
+      lost: this.requests.filter((r) => r.lostOpen).length,
+      scheduler: { picks: this.scheduler.picks, choices: this.scheduler.choices },
+    };
+  }
+  // Everything that decides this world's future, as text. Ids and times are normalised by the runtime's stateText.
+  stateText(): string {
+    return JSON.stringify({
+      open: this.requests
+        .filter((r) => !r.answered && r.process === this.process)
+        .map((r) => [r.op, r.idempotencyKey, r.input, r.never === true, r.aborted === true]),
+      lost: this.requests
+        .filter((r) => r.lostOpen)
+        .map((r) => [r.op, r.idempotencyKey, r.input]),
+      landed: [...this.landed.entries()].sort(([a], [b]) => (a < b ? -1 : 1)),
+      charged: [...this.charged].sort(),
+      acked: [...this.acked].sort(),
+      ledger: this.truth().ledger,
+      server: this.serverState,
+      kv: [...this.kv.entries()]
+        .filter(([k]) => k !== "meta")
+        .sort(([a], [b]) => (a < b ? -1 : 1)),
+      held: this.held.map((h) => [h.writes, h.purpose, h.hung === true, h.then !== undefined]),
+    });
+  }
 
   // ── Settling and time
   settleStep() {
     if (this.scheduler.q.length) this.scheduler.next()();
     else if (this.laters.length) this.laters.shift()!();
+  }
+  hasWork() {
+    return this.scheduler.q.length > 0 || this.laters.length > 0;
   }
   advanceWith(ms: number, settle: () => void) {
     const end = this.now + ms;
@@ -314,3 +443,4 @@ export class FakeWorld {
     settle();
   }
 }
+export class NoHeldRequest extends Error {}

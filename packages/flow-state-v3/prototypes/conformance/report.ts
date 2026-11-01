@@ -1,5 +1,6 @@
-// Parses SCENARIOS.md, convergence-1.md and machine-design.md 2.4, and prints the runner's two reports.
-import { readFileSync } from "node:fs";
+// Parses SCENARIOS.md, the convergences and machine-design 2.4, and prints the runner's reports. D33: a citation counts as
+// tested only when a mutant of that id fails a test citing it.
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 const proto = join(import.meta.dir, "..");
@@ -37,12 +38,14 @@ export const catalog = (): Row[] => {
 };
 
 export const changed = (): Map<string, string[]> => {
-  const text = readFileSync(join(proto, "convergence-1.md"), "utf8");
-  const block = /```decisions-changed\n([\s\S]*?)```/.exec(text)![1]!;
   const m = new Map<string, string[]>();
-  for (const l of block.trim().split("\n")) {
-    const [id, , repl] = l.trim().split(/\s+/);
-    m.set(id!, (repl ?? "").split(","));
+  for (const f of ["convergence-1.md", "convergence-2.md"]) {
+    const text = readFileSync(join(proto, f), "utf8");
+    const block = /```decisions-changed\n([\s\S]*?)```/.exec(text)![1]!;
+    for (const l of block.trim().split("\n")) {
+      const [id, , repl] = l.trim().split(/\s+/);
+      m.set(id!, (repl ?? "").split(","));
+    }
   }
   return m;
 };
@@ -72,7 +75,6 @@ export const laneCells = (): string[] => {
   const out: string[] = [];
   for (const l of lines.slice(start + 2)) {
     if (!l.startsWith("|")) break;
-    // A cell can hold an escaped pipe in code; the table has none in round 1's rows.
     const c = l.split(" | ").map((x) => x.replace(/^\| /, "").trim());
     const m = /\*\*`?([^*`(]+?)`?(?:\([^)]*\))?\*\*/.exec(c[0]!);
     const row = m && names[m[1]!.trim()];
@@ -82,6 +84,20 @@ export const laneCells = (): string[] => {
     });
   }
   return out;
+};
+
+// D33: `sec:` ids must name a real heading (or a labelled part of one).
+export const badSections = (ids: readonly string[]): string[] => {
+  const text = readFileSync(design, "utf8");
+  const heads = new Set(
+    [...text.matchAll(/^#{2,4} (\d+(?:\.\d+)*)/gm)].map((m) => m[1]!),
+  );
+  return ids
+    .filter((x) => x.startsWith("sec:"))
+    .filter((x) => {
+      const m = /^sec:(\d+(?:\.\d+)*)/.exec(x);
+      return !m || !heads.has(m[1]!);
+    });
 };
 
 const allIds = (): string[] => {
@@ -95,55 +111,74 @@ const allIds = (): string[] => {
     const n = /^\s*\*?\*?(N[123])\b/.exec(l);
     if (n) rules.add(n[1]!);
   }
-  const ds = Array.from({ length: 24 }, (_, i) => `D${i + 1}`);
+  const ds = Array.from({ length: 44 }, (_, i) => `D${i + 1}`);
   const ts = Array.from({ length: 9 }, (_, i) => `T${i + 1}`);
   return [...rules, ...laneCells(), ...ts, ...ds];
 };
 
-// Section 11's "In" list. Anything else uncited is out of this round's scope, not owed.
-const ROUND1_ROWS = [
-  "commit",
-  "retry",
-  "cancel",
-  "idle",
-  "retryable",
-  "invoked",
-  "storageRefused",
-  "success",
-  "failure",
-  "unknown",
-  "interrupt",
-  "restore",
-  "runtimeDisposal",
+const ROUND_ROWS = [
+  "commit", "retry", "cancel", "idle", "retryable", "invoked", "storageRefused",
+  "success", "failure", "unknown", "interrupt", "restore", "runtimeDisposal",
 ];
-const ROUND1_DS = ["D1", "D2", "D4", "D5", "D6", "D7", "D8", "D10", "D13", "D14", "D23"];
-const inRound1 = (id: string) => {
+const ROUND_DS = ["D1", "D2", "D3", "D4", "D5", "D6", "D7", "D8", "D23", "D25", "D26", "D27", "D28", "D29", "D30", "D31", "D35", "D39", "D40", "D41", "D42", "D43"];
+const inRound = (id: string) => {
   const m = /^cell:lane\.(\w+)\./.exec(id);
-  return m ? ROUND1_ROWS.includes(m[1]!) : ROUND1_DS.includes(id);
+  return m ? ROUND_ROWS.includes(m[1]!) : ROUND_DS.includes(id);
 };
-
 const cited = (id: string, c: readonly string[]) =>
   c.includes(id) || (/^T\d$/.test(id) && c.some((x) => x.startsWith(`${id}:`)));
 
+// A mutant kills citation X when it fails a test that cites X, and the mutant says it breaks X.
+export type MutantResult = {
+  id: string;
+  kills: readonly string[];
+  killed: boolean;
+  killers: readonly string[];
+  author: string;
+};
+export const proven = (
+  results: readonly MutantResult[],
+  cites: ReadonlyMap<string, readonly string[]>,
+): Set<string> => {
+  const out = new Set<string>();
+  for (const m of results)
+    for (const id of m.kills)
+      if (m.killers.some((k) => cites.get(k.split("/")[0]!)?.includes(id))) out.add(id);
+  return out;
+};
+
 export const printReports = (
   round: number,
-  ran: ReadonlyArray<{ id: string; cites: readonly string[] }>,
+  ran: ReadonlyArray<{ id: string; cites: readonly string[]; near?: readonly string[]; pins?: readonly string[] }>,
   cellsHit: ReadonlySet<string>,
+  mutantsFile: string | undefined,
 ) => {
   const rows = catalog();
   const here = rows.filter((r) => r.R <= round);
-  const citedIds = here.flatMap((r) => r.cites);
+  const citedIds = ran.flatMap((r) => r.cites);
+  const results: MutantResult[] =
+    mutantsFile && existsSync(mutantsFile) ? JSON.parse(readFileSync(mutantsFile, "utf8")) : [];
+  const citesBy = new Map(ran.map((r) => [r.id, r.cites]));
+  const good = proven(results, citesBy);
   const untested = allIds().filter((id) => !cited(id, citedIds));
-  const owed = untested.filter(inRound1);
+  const owed = untested.filter(inRound);
   console.log(`\nUNTESTED     ${untested.length} ids with no scenario in rounds <= ${round}`);
   console.log(`  owed by this round (${owed.length}): ${owed.join(" ")}`);
   console.log(
-    `  not in this round's scope (${untested.length - owed.length}): ${untested.filter((x) => !inRound1(x)).join(" ")}`,
+    `  not in this round's scope (${untested.length - owed.length}): ${untested.filter((x) => !inRound(x)).join(" ")}`,
   );
   const hitNotCited = [...cellsHit].filter((c) => !citedIds.includes(`cell:${c}`));
+  console.log(`  cells hit though no scenario cites them (${hitNotCited.length}): ${hitNotCited.sort().join(" ")}`);
+  const checkable = [
+    ...new Set(citedIds.filter((x) => !x.startsWith("sec:") && x !== "no-decision" && !x.startsWith("S1:") && !x.startsWith("OD:"))),
+  ];
+  const near = checkable.filter((x) => !good.has(x));
   console.log(
-    `  cells hit by a run though no scenario cites them (${hitNotCited.length}): ${hitNotCited.sort().join(" ")}`,
+    `\nCITATIONS (D33)  ${good.size}/${checkable.length} proven by a killing mutant${results.length ? "" : " (no mutants file: run mutate.ts)"}`,
   );
+  console.log(`  near, stays UNTESTED (${near.length}): ${near.sort().join(" ")}`);
+  const bad = badSections([...new Set(citedIds)]);
+  console.log(`  bad sec ids (${bad.length}): ${bad.join(" ")}`);
   const ch = changed();
   console.log("\nOLD-RULE");
   for (const r of ran) {
@@ -156,16 +191,8 @@ export const printReports = (
       );
     }
   }
-  console.log(
-    `\nNO-DECISION  ${rows
-      .filter((r) => r.cites.includes("no-decision"))
-      .map((r) => r.id)
-      .join(" ")}`,
-  );
-  console.log(
-    `THIN         ${here
-      .filter((r) => r.thin)
-      .map((r) => r.id)
-      .join(" ")}`,
-  );
+  console.log(`\nPINNED       ${ran.filter((r) => r.pins?.length).map((r) => `${r.id}:${r.pins!.join("+")}`).join(" ")}`);
+  console.log(`NO-DECISION  ${rows.filter((r) => r.cites.includes("no-decision")).map((r) => r.id).join(" ")}`);
+  console.log(`THIN         ${here.filter((r) => r.thin).map((r) => r.id).join(" ")}`);
+  return { unproven: near };
 };

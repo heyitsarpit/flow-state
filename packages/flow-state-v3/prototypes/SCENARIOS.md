@@ -18,26 +18,30 @@ Round 1 scenarios are in full. Later ones are specified to the line their round 
 
 ## Round 1: Pay (14 + 1 search)
 
-Fixture: `conformance/fixtures/pay.compiled.ts`, see convergence-1 section 11. `A = { actor: "Checkout/Pay", id: "shopper-1" }`. Answers: `req_cap = { ok: { status: "requires_capture", clientSecret: "" } }`. All timers virtual. Fake server's `truth().charges` is keyed by idempotency key, and counts distinct keys, the oracle.
+**Updated in round 2 with `conformance/expected-changes.log`; convergence-2 D29-D36.** Fixture: `conformance/fixtures/pay.compiled.ts`, see convergence-1 section 11. `A = { actor: "Checkout/Pay", id: "shopper-1" }`. Answers: `req_cap = { ok: { status: "requires_capture", clientSecret: "" } }`. All timers virtual. Fake server's `truth().charges` is keyed by idempotency key, and counts distinct keys, the oracle.
 
 | id | R | kind | src | cites | thin | what it shows |
 | --- | --- | --- | --- | --- | --- | --- |
-| PAY-01 | 1 | example | flow | rule:17, rule:21, cell:lane.commit.Idle, cell:lane.success.InFlight, sec:2.7.12, D2, D4 | | `paidFirstTime` |
+| PAY-01 | 1 | example | flow | rule:17, rule:21, cell:lane.commit.Idle, cell:lane.success.InFlight, sec:2.7.12, D4 | | `paidFirstTime` |
 | PAY-02 | 1 | example | flow | rule:16, cell:lane.commit.InFlight, sec:2.7.1.NotSent | | `doubleClicked` |
-| PAY-03 | 1 | example | flow | rule:24, cell:lane.cancel.Held, cell:lane.unknown.InFlight, rule:18, D23 | | `lostConfirm`, it applied |
+| PAY-03 | 1 | example | flow | rule:24, cell:lane.cancel.Held, cell:lane.unknown.InFlight | | `lostConfirm`, it applied |
 | PAY-04 | 1 | example | flow | rule:19, cell:lane.retry.Held, cell:lane.invoked.InFlight, S6 | | `neverArrived`, same id |
 | PAY-05 | 1 | example | table | rule:18, sec:2.7.1.StillUnknown | | definite failure after unknown |
 | PAY-06 | 1 | fault | hostile | D8, D5, S4, rule:25 | | never-answering server, then the answer comes |
 | PAY-07 | 1 | example | flow | rule:14, rule:15, rule:17 | | `leaveMidCharge`: late ending voids |
-| PAY-08 | 1 | example | flow | rule:38, rule:46, cell:lane.restore.InFlight, S10, sec:2.7.15 | | `reloadDuringCharge` |
-| PAY-09 | 1 | fault | hostile | sec:2.7.1.NotSent, cell:lane.restore.InFlight, S7, rule:38 | | reload before ack |
-| PAY-10 | 1 | fault | inject | cell:lane.storageRefused.InFlight, D14, S7 | | storage refuses, storage never answers |
-| PAY-11 | 1 | fault | hostile | rule:12, F3, F6, D10, sec:2.5.1 | | throwing guard: origin named, ending kept |
+| PAY-08 | 1 | example | flow | rule:46, cell:lane.restore.InFlight, S10, sec:2.7.15 | | `reloadDuringCharge` |
+| PAY-09 | 1 | fault | hostile | sec:2.7.1.NotSent, cell:lane.restore.InFlight, S7, rule:46 | | reload before ack |
+| PAY-10 | 1 | fault | inject | cell:lane.storageRefused.InFlight, D30, S7 | | storage refuses, storage never answers |
+| PAY-11 | 1 | fault | hostile | rule:12, F3, F6, D27, sec:2.5 | | throwing guard: origin named, ending kept |
 | PAY-12 | 1 | fault | inject | rule:17, D5, D6, F2, S4 | * | defect, sync completion, duplicated completion, shuffled scheduler. *Thin: one seed list, S2's interleavings only* |
 | PAY-13 | 1 | fault | hostile | D6, L5, cell:lane.runtimeDisposal.InFlight | * | disposal with a hung uninterruptible commit. *Thin: no real finalizer* |
-| PAY-14 | 1 | example | order | S11, D1 | | input-log replay across a whole paid path with a reload |
+| PAY-14 | 1 | example | order | S11 | | input-log replay across a whole paid path with a reload |
+| PAY-16 | 1 | fault | hostile | rule:18, D8, cell:lane.storageRefused.InFlight, rule:16, D23, rule:46, D6, rule:22, rule:24, sec:2.7.1 | | Added in round 2: one case per mutant review H2 found surviving, and H3 |
+| PAY-17 | 1 | fault | inject | D27, L5 | | D27 by input kind (H5), and a fatal core throw |
+| PAY-18 | 1 | fault | hostile | D30, S7, rule:46 | | M3: silence never says "not charged" |
+| PAY-19 | 1 | example | flow | rule:15, rule:14 | | Pins P1 (H4): both orders |
 | PAY-15 | 1 | example | table | cell:lane.commit.Held, cell:lane.cancel.Idle, cell:lane.cancel.InFlight, cell:lane.idle.Idle, cell:lane.failure.InFlight, cell:lane.interrupt.InFlight, cell:lane.restore.Held, cell:lane.runtimeDisposal.Held, cell:lane.retryable.Held | | Added in round 1 from the UNTESTED report: owed cells Pay can reach |
-| SEARCH-PAY | 1 | bounded | order | L3, S4, S5, S6, S7, S11, rule:17, rule:19 | * | below. *Thin: one actor, one intent; depth 8; replay per script* |
+| SEARCH-PAY | 1 | bounded | order | L3, S6, S7, D29, D32 | * | below. *Thin: one actor, two intents; BFS on `stateHash`; the fake answers what the search picks* |
 
 Scripts. `expect` compares only the fields named. Hand-derived from `pay.machine.ts`.
 
@@ -134,19 +138,19 @@ expect: { requests(pay): 0, state: CARD, memory.notice: "Your payment wasn't sen
 id: PAY-10
 variants:
   refuse: { steps: [ensure A, Start, PayRequested, storage refuse], expect: { requests(pay): 0, state: CARD, evidence: StorageFailure } }
-  hang:   { steps: [ensure A, Start, PayRequested, storage hang, advance 10000], expect: { requests(pay): 0, state: CARD, evidence: StorageFailure } }
+  hang:   { steps: [ensure A, Start, PayRequested, storage hang, advance 10000], expect: { requests(pay): 0, state: PAYING, row.pending: true, evidence: StorageSilent } }   # D30
 ```
 
 ```scenario
 id: PAY-11
 steps:
   - [ensure A, Start, PayRequested, storage ack]
-  - fault: { throwIn: "on.Confirmed[1].guard[1]", times: 1 }   # `capturable` throws during the next turn
+  - fault: { throwIn: "states.PAYING.on.Confirmed[1].guard[0]", times: 1 }   # `capturable` throws during the next turn
   - answer: [pay, req_cap]
 expect:
   state: PAYING                                             # the turn is refused
   row(pay,pi1): undefined                                   # the ending's cell is kept: the charge is resolved
-  issues: [{ code: InvalidTurn, origin: "Checkout/Pay on.Confirmed[1].guard[1]", input: { k: mail, event: Confirmed } }]
+  issues: [{ code: InvalidTurn, origin: "Checkout/Pay states.PAYING.on.Confirmed[1].guard[0]", input: { k: mail, event: Confirmed } }]
   next-send-works: true                                     # the Runtime is alive
 ```
 
@@ -156,7 +160,7 @@ variants:
   defect:    { steps: [.., answer pay die boom], expect: { state: UNSURE, evidence.reason: Defect, issues: [Defect] } }
   sync:      { fixture: pay commit succeeds without yielding, expect: { state: PLACING, endings: 1, frames in order } }
   duplicate: { fault: { duplicateCompletion: pay }, expect: { endings: 1, evidence(fence): 1 } }
-  shuffle:   { fault: { schedulerShuffle: [1..8] }, with: leave and cancel at each tick, expect: { sends-with-exactly-one-ending: all } }
+  shuffle:   { fault: { schedulerShuffle: [1..8] }, with: leave and cancel at each tick, two fibers, expect: { sends-with-exactly-one-ending: all, injections-with-a-live-fiber: > 0, picks-with-a-choice: > 0 } }
 ```
 
 ```scenario
@@ -173,9 +177,10 @@ expect: { replay.same: true, frames(seq).monotonic: true }
 
 ```scenario
 id: SEARCH-PAY
-alphabet: [PayRequested, Leave, Start, "advance 3000", "storage ack", "answer pay ok", "answer pay lost", "answer pay lostButLanded", "answer pay CardDeclined", "answer intent requires_capture", "answer intent requires_payment_method", "answer place ok", reload]
+alphabet: conformance/search/pay.search.ts, widened by review M2: storage refuse, hang, landNoAck; pay never, Busy; place lost; void; causal intent and order; a second intent; advance 60000
+method: BFS on Reads.stateHash; stateless replay to reach each state (D32)
 depth: 8
-cap: { scripts: 200000, rss: 1.8GB }
+cap: { states, seconds; rss: 1.8GB by watch.ts }
 oracles:
   - truth.charges(key) never more than 1 for a key, and requests(pay).keys.distinct never grows while row(pay,pi1).uncertain or pending    # S5, S6: never a new charge beside a doubtful one
   - a state of CARD with a reason "not charged" implies truth.charges = 0 for that attempt                                              # "never not charged"
@@ -183,6 +188,7 @@ oracles:
   - each key has at most one ending per send
   - at depth end, after answering everything: a Held lane or terminal state, never a pending lane with nothing outstanding              # L3
 report: completed | inconclusive(depth reached)
+money (M2, independent of the design, at quiescence after drain): placed implies not voided; a placed order has a receipt; a charge is accounted for by a receipt, a void or a live hold; "not charged" implies not charged. Classes pinned to P1-P5 are reported, others fail
 mutants-must-fail: [drop fence, retry mints a new id, invoke before ack, restore as NotSent when acknowledged]
 ```
 
@@ -194,37 +200,37 @@ The last line is the suite's check on itself: the runner applies each as a fault
 
 | id | R | kind | src | cites | thin | scenario |
 | --- | --- | --- | --- | --- | --- | --- |
-| ORDER-01 | 2 | example | order | D1, sec:2.10.17.5 | | `[a1,b1,a2]` runs in arrival order; head insert `x` on `a` runs right after `a1` |
+| ORDER-01 | 2 | example | order | D1, sec:2.10.17 | | `[a1,b1,a2]` runs in arrival order; head insert `x` on `a` runs right after `a1` |
 | ORDER-02 | 2 | bounded | order | D1, L4 | | all orders of 3 sends across 3 actors plus 2 completions: a person's order preserved per actor; same script, same frames |
 | ORDER-03 | 2 | example | table | D2, sec:3.5 | | `send` from a subscriber queues, runs after notify; `send` in idle has published on return |
-| ORDER-04 | 2 | fault | hostile | D13 | | A sends B sends A: `TurnStorm`; page yields; `send` from another actor still lands |
-| ORDER-05 | 2 | example | table | rule:27, sec:2.5 | | one frame between settlement and admission: record confirmed, lane `pending` |
+| ORDER-04 | 2 | fault | hostile | D35 | | A sends B sends A: `TurnStorm`; page yields; `send` from another actor still lands |
+| ORDER-05 | 2 | example | table | rule:27, sec:2.5, S8 | | one frame between settlement and admission: record confirmed, lane `pending` |
 | LIKE-01 | 2 | example | flow | D3, rule:29, rule:31, F1, sec:2.8.2 | | **the like button**: `commit; unknown; repair; commit; retry`: finishes, last toggle wins |
 | LIKE-02 | 2 | example | order | D3, S13, S1:b2-trace | | S1's shortest `b2` cycle trace. Finishes |
 | LIKE-03 | 2 | example | order | D3, S1:f-trace | | S1's two-lane trace. Finishes |
 | LIKE-04 | 2 | example | table | D3, S5 | | other actor's write behind a `Held` entry: not sent, row `waiting`, Inspection names the holder. Holder cancels: it goes |
 | LIKE-05 | 2 | example | order | L2, S1:mint-order | | `c`'s trace (`commit a0; invoke; commit a0; commit a1; end; invoke#2; end; invoke#1`): sent in mint order, last intent holds |
 | LIKE-06 | 2 | example | table | sec:2.7.14, OD:20.F1 | | released unknown lands after a newer write: stated limit, record `uncertain` stays, contested repair |
-| SEARCH-LIKE | 2 | bounded | order | L2, L3, S5, S13, rule:17 | * | stateless S1 sweep through the real runtime: 2 actors, 2 records, 3 commits, masks {1,2,3}, late landing on. *Thin: far fewer states than S1's model reached; S1's 33k states are not reachable by replay. Compare with its counts as a differential once only* |
+| SEARCH-LIKE | 2 | bounded | order | L2, L3, S5, S13, D3 | * | stateless S1 sweep through the real runtime: 2 actors, 2 records, 3 commits, masks {1,2,3}, late landing on. *Thin: far fewer states than S1's model reached; S1's 33k states are not reachable by replay. Compare with its counts as a differential once only* |
 | STORE-01 | 2 | example | table | rule:30, cell:store.success | | success: confirmed fields replace; omitted `unconfirmed` |
-| STORE-02 | 2 | example | table | cell:store.failure | | failure: removed, no repair, `uncertain` unchanged |
+| STORE-02 | 2 | example | table | cell:store.failure, rule:30 | | failure: removed, no repair, `uncertain` unchanged |
 | STORE-03 | 2 | example | table | cell:store.unknown, D3 | | unknown: kept until repair, forced, mark set, entry stays (changed from 2.8.6's table) |
 | STORE-04 | 2 | example | table | cell:notsent.Rejected, cell:notsent.Overloaded, cell:notsent.Superseded, cell:notsent.Cancelled, cell:notsent.Restored, cell:notsent.StorageRefused, cell:notsent.Disposed | | 2.8.5's 8 rows, one variant each |
-| STORE-05 | 2 | example | table | rule:32, sec:2.8.6.E3 | | what clears `uncertain`, per record and Attempt, in order of events |
+| STORE-05 | 2 | example | table | rule:32, sec:2.8.6 | | what clears `uncertain`, per record and Attempt, in order of events |
 | STORE-06 | 2 | example | table | rule:35 | | 65th write: `Overloaded`, no partial join across two records |
-| STORE-07 | 2 | fault | hostile | D12 | | forced repair never answers: queue released at 30 s, mark stays |
+| STORE-07 | 2 | fault | hostile | D40 | | forced repair never answers: queue released at 30 s, mark stays |
 | STORE-08 | 2 | example | table | rule:28 | | one publication: lane row, prediction, queue join; no frame between |
-| STORE-09 | 2 | example | table | rule:38, rule:30 | | predictions not persisted; restored unknown marks and repairs before ready |
-| STORE-10 | 2 | example | flow | rule:36, rule:22 | | `optimistic` reads after memory, captured at start, even if the start waits |
+| STORE-09 | 2 | example | table | rule:38, rule:30, rule:46 | | predictions not persisted; restored unknown marks and repairs before ready |
+| STORE-10 | 2 | example | flow | rule:22, rule:28 | | `optimistic` reads after memory, captured at start, even if the start waits |
 | CART-01 | 2 | example | flow | rule:21, D3 | | Cart `waitsBehindUnsure` from `cart.story.ts` |
 | CART-02 | 2 | example | flow | rule:16, rule:29 | | Cart `setQuantity` stepping (`quantity-stepper.trait.ts` flattened) |
-| REFUND-01 | 2 | example | flow | rule:30, rule:32 | | Refunds: held re-send shows `uncertain` |
+| REFUND-01 | 2 | example | flow | rule:30, rule:32, D43 | | Refunds: held re-send shows `uncertain` |
 | LIB-01 | 2 | example | lib | D3 | * | Query `mutations.test.tsx:431,540`: same scope serial, scopes parallel. *Titles read, not bodies* |
 | LIB-02 | 2 | example | lib | D3 | * | DB `KeyScheduler.test.ts:106,226`: a later ready write does not pass an earlier retry; second runs after first retries and succeeds. *Titles read; DB's scheduler is one FIFO, so this is stricter than a record queue* |
 | LIB-03 | 2 | example | lib | no-decision | * | Query `mutations.test.tsx:1169`: removing one of two observers keeps the write. Finding: nothing says what two observers of one lane mean in Flow, since an actor owns it. *Maps loosely* |
 | DRV-01 | 2 | fault | inject | D5, D6, S4 | | S2's scenario matrix, real driver: cancel and dispose at each tick, 8 seeds, every ending exactly once |
 | DRV-02 | 2 | fault | inject | D6 | | a command whose start throws: rest of the list runs; `Defect` ending |
-| DRV-03 | 2 | fault | inject | D10 | | fault in a module hook: step aborted, value kept |
+| DRV-03 | 2 | fault | inject | D27 | | fault in a module hook: step aborted, value kept |
 | DRV-04 | 2 | example | lib | no-decision | * | XState `actor.test.ts:1300,1341`: sync completion during self-initialisation does not crash; here during `ensure`. Finding: `ensure` mid-drain order unstated. *Title read* |
 | HOST-01 | 2 | fault | hostile | S4:browser | * | S4's run: turn time on this runtime, Chromium, 6x throttle. *Not an acceptance test until a number is agreed. Output is a measurement* |
 

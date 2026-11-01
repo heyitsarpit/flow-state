@@ -1,10 +1,10 @@
 // Flattened by hand from references/checkout/features/Pay/pay.{contracts,definition,machine}.ts, convergence-1 section 11.
 // `at.path` is the path in the real machine, so an index counts the real alternatives (CHALLENGE included).
-// Gaps beyond section 11's list: AbortPay exists only so that lane.cancel.InFlight is reachable (Pay has no such event
-// on the wire); PayRequested's alternatives lost the summary trait's guards.
+// Gaps beyond section 11's list: PayRequested's alternatives lost the summary trait's guards. AbortPay moved out to
+// cells.compiled.ts (review L2), so this is Pay. Confirmed bugs in the real machine stay in: convergence-2 P1-P5.
 import { Effect } from "effect";
 import type { Fixture } from "../harness.ts";
-import type { ShopApi } from "../fake-world.ts";
+import type { Api, ServerModel } from "../fake-world.ts";
 import type { Alternative, Compiled, Member, Node, Op, Slot, TokenGuard } from "./compiled.ts";
 import { deny, Outcome } from "./compiled.ts";
 
@@ -48,6 +48,7 @@ const cartInput = ({ memory }: any) => ({ cartId: memory.cartId, intentId: memor
 const intentInput = ({ memory }: any) => ({ intentId: memory.intentId });
 
 type AltSpec = {
+  index?: number; // the alternative's real index, where the real machine has one this fixture lacks
   target?: string;
   tokens?: readonly TokenGuard[];
   guards?: ReadonlyArray<(g: any) => any>;
@@ -56,7 +57,7 @@ type AltSpec = {
 };
 const alts = (base: string, specs: readonly AltSpec[], firstIndex = 0): readonly Alternative[] =>
   specs.map((s, i) => {
-    const path = `${base}[${i + firstIndex}]`;
+    const path = `${base}[${s.index ?? i + firstIndex}]`;
     return {
       target: s.target ?? "self",
       at: { definition: D, path },
@@ -105,9 +106,6 @@ const rootOn = on("on", {
       members: payCommit,
     },
   ],
-  AbortPay: [
-    { members: (p) => [{ op: "pay", verb: "cancel", key: intentKey(`${p}.actions[0]`) }] },
-  ], // fixture only
   CartLoaded: [{ patch: ({ event }) => ({ totalCents: event.totalCents }) }],
   CardChosen: [{ patch: ({ event }) => ({ paymentMethodId: event.paymentMethodId }) }],
   Leave: [
@@ -306,19 +304,20 @@ const nodes: Record<string, Node> = {
           ],
         },
         {
+          index: 2, // [1] in the real machine is the CHALLENGE alternative, absent here
           target: "PAYING",
           tokens: [
             {
               op: "pay",
               verb: "retryable",
               times: 3,
-              key: intentKey("states.UNSURE.on.IntentRead[1].guard[1]"),
+              key: intentKey("states.UNSURE.on.IntentRead[2].guard[1]"),
             },
           ],
           guards: [({ event }) => event.status === "requires_payment_method" || deny("Moved")],
           members: (p) => [{ op: "pay", verb: "retry", key: intentKey(`${p}.actions[0]`) }],
         },
-        {},
+        { index: 3 },
       ],
       OrderSeen: [
         {
@@ -353,18 +352,18 @@ const nodes: Record<string, Node> = {
 };
 
 const fromPath = (op: string, name: string) => `operations.${op}.${name}`;
-const mapped = (op: string, name: string, event: string, f?: (v: any) => object) => ({
+const mapped = (op: string, name: string, event: string, f?: (v: any, c: any) => object) => ({
   event,
   ...(f ? { from: slot(fromPath(op, name), f) } : {}),
 });
 
-const make = (api: ShopApi): Compiled => {
+const make = (api: Api): Compiled => {
   const ops: Record<string, Op> = {
     pay: {
       id: "pay",
       contract: "Checkout/pay",
       kind: "write",
-      key: (i) => ({ intentId: i.intentId }),
+      key: slot("operations.pay.key", (i: any) => ({ intentId: i.intentId })),
       concurrency: "reject",
       timeoutMs: 60_000, // D8, not in the converted code
       commit: (input, { attempt }) =>
@@ -407,7 +406,7 @@ const make = (api: ShopApi): Compiled => {
       id: "place",
       contract: "Checkout/place-order",
       kind: "write",
-      key: (i) => ({ cartId: i.cartId }),
+      key: slot("operations.place.key", (i: any) => ({ cartId: i.cartId })),
       concurrency: "reject",
       commit: (input, { attempt }) =>
         api.placeOrder(input, { idempotencyKey: attempt.id }).pipe(
@@ -430,7 +429,7 @@ const make = (api: ShopApi): Compiled => {
       id: "void",
       contract: "Checkout/void-authorization",
       kind: "write",
-      key: (i) => ({ intentId: i.intentId }),
+      key: slot("operations.void.key", (i: any) => ({ intentId: i.intentId })),
       concurrency: "reject",
       commit: (input, { attempt }) =>
         api
@@ -451,7 +450,7 @@ const make = (api: ShopApi): Compiled => {
       id: "intent",
       contract: "Checkout/intent-status",
       kind: "read",
-      key: (i) => ({ intentId: i.intentId }),
+      key: slot("operations.intent.key", (i: any) => ({ intentId: i.intentId })),
       concurrency: "reject", // unused for a read: D23
       commit: (input) => api.intent(input) as Effect.Effect<unknown, unknown>,
       outcomes: {
@@ -467,7 +466,7 @@ const make = (api: ShopApi): Compiled => {
       id: "order",
       contract: "Checkout/order-for-cart",
       kind: "read",
-      key: (i) => ({ cartId: i.cartId }),
+      key: slot("operations.order.key", (i: any) => ({ cartId: i.cartId })),
       concurrency: "reject",
       commit: (input) => api.orderFor(input) as Effect.Effect<unknown, unknown>,
       outcomes: {
@@ -504,8 +503,23 @@ const make = (api: ShopApi): Compiled => {
     },
     ops,
     persisted: true,
-    modules: [],
+    uses: [],
   };
 };
 
-export const payFixture: Fixture = { id: D, make };
+// Causal reads (M2): `intent` and `order` answer from what the server now believes.
+const server: ServerModel = {
+  init: () => ({}),
+  read: (op, input, _s, t) =>
+    op === "intent"
+      ? {
+          status: t.ledger.charged.includes(input.intentId)
+            ? "requires_capture"
+            : "requires_payment_method",
+        }
+      : t.placed > 0
+        ? { orderId: "o1" }
+        : null,
+};
+
+export const payFixture: Fixture = { id: D, make, server };

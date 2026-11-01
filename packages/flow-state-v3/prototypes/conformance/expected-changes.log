@@ -12,3 +12,13 @@ PAY-08 | one script | variants reloadDuringCharge (unchanged), reload-while-reco
 PAY-12 | no cancel on the wire | variant cancel-on-wire | Mutant cancelled-reads-interrupted survived | none
 ALL | expected.lock hashed before vp fmt | re-locked after vp fmt and the lines above | Formatter changed function text, no expectation | none
 PAY-15 | absent | new scenario | UNTESTED listed reachable owed cells no script named. Row added to SCENARIOS.md | none
+# Round 2. Format from here: id | old | new | reason | decision. A hash line, `hash:<h>`, exempts that one hash only (D33).
+PAY-10/hang | CARD, StorageFailure, "not charged" | PAYING, pending, StorageSilent | M3: the sentence could be false | D30 changes D14
+PAY-11/module | step aborts, value stays, StepDefect | core result stands, ModuleDefect, module disabled | H5 | D27 changes D10
+PAY-12/shuffle | vacuous: 0 of 1,344 picks had a choice, injections discarded | two fibers, plan survives, asserts injections live and picks with a choice | H1 | none
+PAY-08 | boot frame found by seq > 1e6, rows by op name | second boot frame, rows by op and key | M11: one key per op broke with Cart | D34
+ALL-PAY | cites as round 1 | M6's corrections, see SCENARIOS.md | Citations that did not support their test | D33
+STORE-06..REFUND | LIKE-04: row `waiting` for another actor's queue wait | `pending` true, `waiting` false | 2.7.13's flag table: waiting means W is not empty; B's W is empty. Catalog text wrong | none (scenario text)
+LIKE-06 | record `uncertain` stays, contested repair | mark cleared by the later success, screen stale until a read | Rule 32 clears a released mark on a later success; no response exists to contest | D41, rule 32
+REFUND-01/sixty-five | converted refunds.test.ts: outstanding 64 | outstanding 63 | Rule 35: the record queue's 64 declines the 65th before W fills. Converted test disagrees with the design: finding | none
+STORE-10 | cites rule:36 | near rule:36, cites rule:22, rule:28 | `optimistic` is not in the format; only the queued select's capture is tested | none

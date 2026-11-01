@@ -1,20 +1,23 @@
-// No runtime. The suite's red run: every read is empty, so every scenario fails on its first expectation.
-import type { Harness } from "./harness.ts";
+// No runtime. The suite's red run: every read is empty, so a scenario fails on its first expectation.
+import type { Instance, Port } from "./harness.ts";
 
-export const makeHarness = (): Harness => ({
-  start() {},
-  do() {},
-  read: {
-    state: () => undefined,
-    memory: () => undefined,
-    row: () => undefined,
-    requests: () => [],
-    truth: () => ({ charges: 0, chargedKeys: [], acked: [], placed: 0, voided: 0 }),
-    frames: () => [],
-    issues: () => [],
-    evidence: () => [],
-    stored: () => new Map(),
-    quiet: () => ({ idle: true, waits: [] }),
-    replay: () => ({ same: true }),
-  },
-});
+const nothing: Instance = {
+  ensure() {},
+  send() {},
+  disposeRuntime() {},
+  repeatLastCompletion() {},
+  pending: () => false,
+  live: () => 0,
+  logLength: () => 0,
+  state: () => undefined,
+  memory: () => undefined,
+  row: () => undefined,
+  record: () => undefined,
+  waits: () => [],
+  fatal: () => false,
+  frames: () => [],
+  stateText: (o) => o,
+  replay: () => ({ same: true }),
+  subscribe() {},
+};
+export const port: Port = { boot: () => nothing };

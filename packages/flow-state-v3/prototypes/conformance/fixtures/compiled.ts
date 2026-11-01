@@ -1,4 +1,5 @@
-// The compiled format of convergence-1 section 7, the subset round 1 uses, plus Flow's commit vocabulary (2.7.1).
+// The compiled format of convergence-1 section 7, the subset rounds 1 and 2 use, plus Flow's commit vocabulary (2.7.1).
+// Hand-written until round 6. `uses` and `domain` name a module's data; the core reads neither.
 import { Data, Effect } from "effect";
 
 export type At = { readonly definition: string; readonly path: string };
@@ -35,6 +36,8 @@ export type Alternative = {
   readonly guards: ReadonlyArray<Slot<(g: GuardIn) => true | Denial>>;
   readonly patch?: Slot<(u: GuardIn) => object>;
   readonly members: readonly Member[];
+  // A head insertion: stands for pending resets and adoption deliveries until round 3 (D1, D35).
+  readonly followUps?: ReadonlyArray<Slot<(a: AfterIn) => Ev>>;
 };
 export type ScheduleSpec = {
   readonly id: string;
@@ -49,7 +52,10 @@ export type Node = {
   readonly on: Readonly<Record<string, readonly Alternative[]>>;
   readonly schedules: readonly ScheduleSpec[];
 };
-export type Mapped = { readonly event: string; readonly from?: Slot<(v: any) => object> };
+export type Mapped = {
+  readonly event: string;
+  readonly from?: Slot<(v: any, c: { readonly key: any }) => object>;
+};
 export type CommitCtx = {
   readonly attempt: { readonly id: string; readonly mayHaveApplied: boolean };
 };
@@ -57,8 +63,8 @@ export type Op = {
   readonly id: string;
   readonly contract: string;
   readonly kind: "write" | "read";
-  readonly key: (input: any) => unknown;
-  readonly concurrency: "reject";
+  readonly key: Slot<(input: any) => unknown>;
+  readonly concurrency: "reject" | "latest" | "serialize";
   readonly timeoutMs?: number;
   readonly commit: (input: any, ctx: CommitCtx) => Effect.Effect<unknown, unknown, never>;
   readonly outcomes: {
@@ -75,10 +81,35 @@ export type Compiled = {
   readonly memory: { readonly initial: Slot<(input: unknown) => object> };
   readonly ops: Readonly<Record<string, Op>>;
   readonly persisted: boolean;
-  readonly modules: readonly unknown[]; // the Runtime supplies persistence; section 7 says a contract imports it
-  readonly bounds?: Partial<Bounds>;
+  readonly uses: readonly string[]; // D44: modules this machine's operations import, by name
+  readonly domain?: DomainSpec;
 };
-export type Bounds = { drainMs: number; storageMs: number; disposeMs: number };
+
+// ── What a domain says about records (2.8). Data for the entities module; the core never reads it.
+export type FieldFn = (beneath: any, input: any) => unknown;
+export type Predicted = {
+  readonly ref: string; // `${entity}|${key}`
+  readonly patch?: Readonly<Record<string, unknown>>; // a function value is a field function over the record beneath
+  readonly remove?: true;
+};
+export type Carried = {
+  readonly ref: string;
+  readonly fields?: Readonly<Record<string, unknown>>;
+  readonly removed?: true;
+};
+export type DomainSpec = {
+  readonly writes: Readonly<
+    Record<
+      string,
+      {
+        readonly predicts: Slot<(input: any) => readonly Predicted[]>;
+        readonly confirms?: (value: any, input: any) => readonly Carried[];
+      }
+    >
+  >;
+  readonly reads: Readonly<Record<string, (value: any, input: any) => readonly Carried[]>>;
+  readonly repair: (ref: string) => Effect.Effect<any, any, never>; // a forced repair: the record's fields, or null
+};
 
 // 2.7.1 "How it is built"
 export class OutcomeFailure<R> extends Data.TaggedError("Flow/Failure")<{ readonly reason: R }> {}
