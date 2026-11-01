@@ -21,6 +21,6 @@ Rules:
 | --- | --- | --- |
 | S1 | Is lane plus record queue live? What else can wait forever? | done: [s1-wait-graph/RESULTS.md](s1-wait-graph/RESULTS.md) |
 | S2 | Can one completion per Attempt be guaranteed? | done: [s2-completion/RESULTS.md](s2-completion/RESULTS.md) |
-| S5 | Does a stream session need to live in the world? | not started |
+| S5 | Does a stream session need to live in the world? | done: [s5-session/RESULTS.md](s5-session/RESULTS.md) |
 | S3 | What does persistence cost per commit? | not started |
 | S4 | Does the turn hold on a throttled browser? | not started |
