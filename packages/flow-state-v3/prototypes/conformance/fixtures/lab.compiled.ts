@@ -249,7 +249,9 @@ const formMake = (): Compiled => ({
         {
           name: "osc",
           fragment: "Osc",
-          resetOn: formD.slot("traits.osc.resetOn", ({ memory }: any) => String(memory.spin)),
+          resetOn: formD.slot("traits.osc.resetOn", ({ memory }: any) =>
+            String(memory.spin + memory.kick),
+          ),
           callbacks: {
             onGone: formD.alts("traits.osc.callbacks.onGone", [
               {
@@ -306,7 +308,7 @@ const formMake = (): Compiled => ({
         RefuseChild: [
           { patch: () => ({ moved: true }), raises: [{ to: "check", event: "Refuse" }] },
         ],
-        Spin: [{ patch: ({ memory }: any) => ({ spin: memory.spin + 1, spinning: true }) }],
+        Spin: [{ patch: ({ memory }: any) => ({ kick: memory.kick + 1, spinning: true }) }],
         Go: [{ target: "DONE" }],
         Back: [{ target: "EDIT" }],
       },
@@ -334,6 +336,7 @@ const formMake = (): Compiled => ({
     goneRows: [] as string[],
     dirty: [] as string[],
     spin: 0,
+    kick: 0,
     spinning: false,
     resets: 0,
     flashes: 0,

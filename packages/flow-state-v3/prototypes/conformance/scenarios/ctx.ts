@@ -99,6 +99,7 @@ export const checkEndings = (r: Reads) => {
       case "parked": // rule 53: owed to whoever comes
       case "evidenceOnly": {
         // rule 60, rule 44: nobody is owed it, by declaration
+        if (ended) break;
         const n = owed.get(ko(e)) ?? 0;
         if (n === 0) throw new Mismatch(`${e["kind"]} with no ending: ${ko(e)}`);
         owed.set(ko(e), n - 1);

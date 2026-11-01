@@ -178,6 +178,7 @@ export const fragScenarios: readonly Scenario[] = [
     namedIssues: ["InvalidTurn"],
     run(c) {
       c.ensure();
+      c.send("Spin"); // arms it: whenAbandoned reads before, so the writing starts next time
       c.send("Spin");
       const i = c.r.issues().at(-1);
       c.eq("stopped at the bound", (i?.input as any)?.chain, "FollowUpBound");
@@ -228,7 +229,7 @@ export const fragScenarios: readonly Scenario[] = [
         c.eq("nothing yet", saved(c, "d1")?.status, "clean");
         c.answer("save", { apply: true });
         c.eq("adopted, current", saved(c, "d1")?.status, "clean");
-        c.eq("its Saved ran", saved(c, "d1")?.saved, "d1");
+        c.eq("its Saved ran", saved(c, "d1")?.saved, "mine");
       },
       "a-held-lane-delivers-restored-to-the-new-copy-once"(c) {
         c.ensure();
@@ -335,7 +336,16 @@ export const fragScenarios: readonly Scenario[] = [
         c.advance(0);
         c.eq("one request: the idle guard held", c.reqs("put").length, 1);
         c.do({ fault: { lateAnswer: ["put", { ok: {} }] } });
-        c.eq("adopted: the host hears", c.mem().stored, ["r1"]);
+        c.eq(
+          "the mark cleared: delivered to the new copy",
+          c.inner(["uploads:r1"])?.memory.status,
+          "unsure",
+        );
+        c.eq(
+          "the interrupt it asked for reads unknown: nothing lost",
+          c.lastEnding("put")?.reason,
+          "Cancelled",
+        );
       },
     },
   },
@@ -782,6 +792,7 @@ export const fragScenarios: readonly Scenario[] = [
       c.to(L, "Toggle", { id: "i1", liked: false });
       c.answer("like", { lost: true });
       c.eq("own Attempt released", c.r.evidence("Released").length, 1);
+      c.answer("repair", { truth: true }); // the released entry leaves when its repair settles
       c.eq("the promoted one is untouched and goes", c.reqs("like").length, 2);
     },
   },
@@ -927,7 +938,7 @@ export const fragScenarios: readonly Scenario[] = [
         c.answer("save", { apply: true });
         c.reload();
         c.send("SetDocs", docs("d1"));
-        c.eq("once, and only now", saved(c, "d1")?.saved, "d1");
+        c.eq("once, and only now", saved(c, "d1")?.saved, "mine");
       },
     },
   },

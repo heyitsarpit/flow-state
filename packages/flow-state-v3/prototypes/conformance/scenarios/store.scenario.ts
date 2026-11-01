@@ -557,6 +557,7 @@ export const storeScenarios: readonly Scenario[] = [
       },
       "a-late-repair-is-fenced"(c) {
         opened(c);
+        c.fault({ uninterruptibleHang: "repair" }); // M7: an ordinary one is stopped at the bound; this one cannot be
         toggle(c, true);
         c.answer("like", { lost: true });
         c.fault({ mutateServer: (s: any) => s });

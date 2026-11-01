@@ -143,6 +143,7 @@ export const flowScenarios: readonly Scenario[] = [
         c.eq("replayed over the new base", c.rec(lineRef("l1"))?.data.lineTotalCents, 10000);
         c.eq("still predicted", c.rec(lineRef("l1"))?.predicted, true);
         c.answer("setQuantity", { apply: true });
+        c.answer("repair", { truth: true }); // D47: a newer answer landed while it was out, and it differs: the server decides
         c.eq("confirmed", c.rec(lineRef("l1"))?.data.lineTotalCents, 10000);
         c.eq("settled", c.rec(lineRef("l1"))?.predicted, false);
       },

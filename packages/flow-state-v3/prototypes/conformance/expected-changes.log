@@ -67,3 +67,24 @@ SCENARIOS | FRAG rows as round 1 wrote them | rows corrected to what runs: D13 t
 fake | ledger by intent | ledger by authorization and key | Review M10: two keys on one intent were flagged as one thing | D53
 oracles | S6 trusts lastChannel | S6 reads the fake's mayHave | Review H5: it trusted the very ending that was wrong | D53
 claims | `held` default, `repair` any, `behind` anything | `held` names owner and the suite checks the actor, `repair` names its ref | Review M9 | D49
+# Changes after the red commit d568704e, before and at green.
+STORE-07/a-late-repair-is-fenced | an ordinary repair still answered after its bound | uninterruptible repair | M7: an ordinary one is now stopped at the bound; only an uninterruptible one can answer late, and that is the case the fence is for | D51
+CART-02/repriced-under-pending | setQuantity's answer applied over a newer cart answer | base kept, repair, then the same 10000 | D47: an answer that started before something newer landed, and differs, goes to the server. Same final value, one read more | D47
+FRAG-03, FRAG-04, FRAG-14, FRAG-19, FRAG-06/readd | my derivations: Spin needed arming; Saved carries the body; a released entry leaves after its repair; an interrupt asked for reads unknown | as they run | Scenario bugs, found on first run, before any green | none
+HIGH-01..MED-08, SURV-*, FRAG-* | absent | new | Round 3's scenarios | D45-D56
+PAY-11 hash:d9d8b1bbd78a | D50 and D51: redelivery, ended instead of commit
+PAY-17 hash:893c30b1d510 | D51: commit cut, same input kinds through ended, blocks, prepare
+DRV-03 hash:5da74e12a947 | D46: fail closed
+LIKE-06 hash:b14c34504180 | D55
+STORE-07 hash:39524504097e | M7
+CART-02 hash:a3d697b5cd8d | D47
+file:scenarios/ctx.ts hash:2d8655bcb4d3 | stronger claims and parked accounting (M9, D49)
+file:scenarios/pay.scenario.ts hash:2528a0a8683e | PAY-11, PAY-17 above
+file:scenarios/order.scenario.ts hash:297b99f816a0 | DRV-03 above
+file:scenarios/store.scenario.ts hash:4eb08831de2f | LIKE-06, STORE-07 above
+file:scenarios/flows.scenario.ts hash:9f70612fce60 | CART-02 above
+file:fake-world.ts hash:6ea8690b2fd6 | per-authorization ledger, mayHave, L8
+file:drive.ts hash:8970dd3332ac | dispose, inner, to, corruptStored
+file:fixtures/compiled.ts hash:2cbc492def23 | fragments in the format
+file:fixtures/build.ts hash:3404a3e3ed34 | raises, notify, exit in the helper
+file:fixtures/order.compiled.ts hash:17bf47878f23 | Nest, for SURV-11

@@ -88,6 +88,7 @@ export const moneyAudit = (h: Harness): string[] => {
     const accounted =
       (mine && (leaf === "UNSURE" || leaf === "PLACING" || leaf === "STUCK")) ||
       (mine && m.authorized === true) ||
+      (mine && row?.pending === true) || // a call for it is live: the machine is still waiting for an answer
       told("pending charge") ||
       told("captured") ||
       told("couldn't confirm the hold") ||
@@ -111,7 +112,38 @@ export const moneyAudit = (h: Harness): string[] => {
 
 // D53: a pin is class, state and a script fragment. Each occurrence must match one, so a new bug in a pinned class fails.
 export type Pin = { cls: string; state?: string; via: RegExp; pin: string };
-export const PAY_PINS: readonly Pin[] = [];
+const S = "(?:.* )?";
+export const PAY_PINS: readonly Pin[] = [
+  // P1: Leave during PLACING voids the hold while the order is on the wire.
+  { cls: "placed-and-voided", via: new RegExp(`Leave`), pin: "P1" },
+  // P1, P2: the order lands in LEFT, or is denied LateMayNotLeave, so nobody sees a receipt.
+  { cls: "order-no-receipt", via: new RegExp(`Leave`), pin: "P1,P2" },
+  // P6: Pay pressed again after the first charge, or after a Start that lost track of the first, mints beside it.
+  { cls: "two-keys-one-intent", via: new RegExp(`PayRequested ${S}PayRequested`), pin: "P6" },
+  { cls: "told-not-charged", via: new RegExp(`PayRequested ${S}PayRequested`), pin: "P6" },
+  // P3: a late charge after Leave and a new start: one `authorized` bit, one intent in memory.
+  { cls: "charged-unaccounted", via: new RegExp(`Leave`), pin: "P3" },
+  // P6's other face: Pay in PLACING overwrites what the first charge set.
+  { cls: "charged-unaccounted", via: new RegExp(`PayRequested ${S}PayRequested`), pin: "P6" },
+  // P4: Pay pressed in UNSURE moves to PAYING with the commit Rejected, and PAYING has no reconcile. Reached by a hold.
+  {
+    cls: "held-no-owner",
+    state: "PAYING",
+    via: new RegExp(`PayRequested ${S}PayRequested`),
+    pin: "P4",
+  },
+  // P6 again: the second confirm times out in PLACING, and PAID has no reconcile for the hold it leaves.
+  {
+    cls: "held-no-owner",
+    state: "PAID",
+    via: new RegExp(`PayRequested ${S}PayRequested`),
+    pin: "P6",
+  },
+  // P2 through P6: Pay in PLACING moves to PAYING, which then owns a call, so the Placed that lands is denied.
+  { cls: "order-no-receipt", via: new RegExp(`PayRequested ${S}PayRequested`), pin: "P2,P6" },
+  // P5: after Leave or a reload with a hold, a new Start has no path while the hold lives.
+  { cls: "held-no-owner", via: new RegExp(`Start`), pin: "P5" },
+];
 const pinned = (pins: readonly Pin[], cls: string, script: string) => {
   const [c, state] = cls.split(":");
   return pins.find(
