@@ -9,7 +9,7 @@ example an implementer builds the library against. The design behind it is [REWR
 
 **Status: illustrative.** The library does not exist. Only the files that import nothing but `effect` type-check today
 (see "Status" below). Streams are not merged: they follow
-[merge-6-streams/proposal-v2.md](../explorations/machine-fragments/merge-6-streams/proposal-v2.md) revision 7 ("M6",
+[merged/streams/proposal-v2.md](../explorations/machine-fragments/merged/streams/proposal-v2.md) revision 7 ("M6",
 decisions S1–S10) and are marked **pending merge 6** (PM6).
 
 ## Status
@@ -230,7 +230,7 @@ may import app setup and fakes. Relative `.js` imports refer to `.ts` and `.tsx`
 ## Pending merge 6
 
 Revisit these when merge 6 lands. A PM6 file says so in its header: "written against
-merge-6-streams/proposal-v2.md revision 7".
+merged/streams/proposal-v2.md revision 7".
 
 - **Whole PM6 files:** everything in `features/Tickets/feed/` (`desk-socket.ts`, `feed.contracts.ts`, `feed.domain.ts`,
   `feed.definition.ts`, `feed.machine.ts`, `feed.ref.ts`, `ActivityLog.tsx`, `feed.story.ts`, `feed.test.ts`);

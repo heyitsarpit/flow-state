@@ -2,7 +2,7 @@
 // (`unknown` mapped by tag), `concurrency: "cancel"` (Regenerate interrupts the reply on the wire; its ending is
 // evidence, never an event) and a streamed write's `progress` (M6 2.9).
 // How this module is different (COVERAGE.md 5.1): the desk's only `cancel` lane and only streamed write.
-// Pending merge 6: written against merge-6-streams/proposal-v2.md revision 7.1, 4.4.
+// Pending merge 6: written against merged/streams/proposal-v2.md revision 7.1, 4.4.
 import { Schema } from "effect";
 import { definition, Flow } from "flow-state";
 import { suggestReply } from "./assistant.contracts.js";

@@ -5,8 +5,8 @@ no `.plan` file is touched; every step is its own commit.
 
 ## Read in this order
 
-1. **Streams: decide whether to merge.** `merge-6-streams/proposal-v2.md` revision 7.1 (f055417c), decisions
-   `merge-6-streams/decisions-v2.md` S1–S10. The executable model passes I1–I27 (model/RESULTS.md, 4207e210). Held
+1. ~~**Streams: decide whether to merge.**~~ **Done: merged 2026-11-01, on proposal-v3 (below).** What this item said: `merged/streams/proposal-v2.md` revision 7.1 (f055417c), decisions
+   `merged/streams/decisions-v2.md` S1–S10. The executable model passes I1–I27 (model/RESULTS.md, 4207e210). Held
    because review 5 (`reviews/v2-review-5.md`) still had one High after my two allowed rounds; its fix is S10 + 7.1,
    checked by the model but not re-reviewed by Opus. To merge: one Opus check of 7.1, then the merge (rules 67+).
 2. **Big delegated changes to review** (`delegated-decisions.md`, `merged/stories/decisions-v2.md`):
@@ -26,6 +26,7 @@ no `.plan` file is touched; every step is its own commit.
 
 ## Done since (2026-11-01)
 
+- **Streams merged into machine-design.md** (`merged/streams/merge-plan.md`): proposal-v3, decisions S1–S16 (S15, S16); design 2.11, rules 67–72, rule 25 amended, C86–C102. Limits and what is unproven are section 7 item 23. Still owed: the `.plan` changes and the desk's and Checkout's conversion (the plan's 2.7); S8–S10 below are overturned.
 - **Amended Stories and `Fake` merged into machine-design.md** (`merged/story-checks/merge-plan.md`): decisions SC1–SC5 and W1–W43. So T3's `Story.make` and T5's `expect` below are reversed (W1, SC1), and `Story.inspection` and `expect` here read as `cp.inspection` and the runner's `expect`. Plan changes, the desk and Checkout conversions are owed (its 2.7).
 
 ## Done overnight

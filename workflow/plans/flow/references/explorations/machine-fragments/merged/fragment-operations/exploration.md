@@ -13,7 +13,7 @@ Short names for citations (all under `workflow/plans/flow/references/exploration
 | PR | `principles.md` |
 | IM | `calls-object/impact.md` |
 | OID | `merged/operations/proposal.md` |
-| M3, M4, M6 | `merge-3-stories/proposal.md`, `merged/entities.md`, `merge-6-streams/proposal.md` |
+| M3, M4, M6 | `merge-3-stories/proposal.md`, `merged/entities.md`, `merged/streams/proposal.md` |
 | v2, v3 | `git show 26bf7ab9:<this folder>/proposal-v2.md` and `proposal-v3.md` (removed from the tree; line numbers are those of the commit) |
 | CMP | the same commit's `comparison/README.md`, `comparison/reviews/principles.md`, `comparison/reviews/correctness.md`, `comparison/build-a-v2-amended.md`, and `reviews/v2-principles.md` |
 | RT | `workflow/plans/flow/Runtime.plan` |

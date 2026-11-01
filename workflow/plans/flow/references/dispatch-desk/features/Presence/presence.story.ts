@@ -1,6 +1,6 @@
 // Presence Stories: the watcher alone over the collaboration fake, whose client half is the SDK's own shape.
 // Transcripts; presence.test.ts reads them. Module checkpoints (COVERAGE.md section 6, "PR"): `joined`,
-// `sdk-resumed`, `typing`. Pending merge 6: written against merge-6-streams/proposal-v2.md revision 7.1, S1–S10.
+// `sdk-resumed`, `typing`. Pending merge 6: written against merged/streams/proposal-v2.md revision 7.1, S1–S10.
 import { Story } from "flow-state/testing";
 import { Collab, CollabFake } from "../../testing/presence.fake.js";
 import { Presence } from "./presence.definition.js";

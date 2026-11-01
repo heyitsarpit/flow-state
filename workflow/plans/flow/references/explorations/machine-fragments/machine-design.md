@@ -6461,7 +6461,7 @@ A body end is `Closed`, retried. req V8: a terminator becomes a typed error outs
 
 **Inspection:** per session: state, `drop`, Streams T2 row and basis, each `proof`, losses, bookmark and `filled`, bound, release; counters plus a ring of the last 256. Flags: `ValuesWhileDown`, `RegistrationChurn`, `ReleaseOverdue`, `ProofWithoutPosition`, `PingsWithoutLive`, `IdleWithoutPing`, `DeliveryDenied`, `FillsUntouched`. Stories templates assert no flags.
 
-**The chat Story**, as [stories-amended.md](../merged/story-checks/stories-amended.md) the record's section 11 fixed it. Illustrative; not run.
+**The chat Story**, as [the Stories record](merged/story-checks/stories-amended.md) section 11 fixed it. Illustrative; not run.
 
 ```ts
 const ChatFake = Fake.webSocket(Chat, chatRoutes)   // user-defined: Chat, chatRoutes

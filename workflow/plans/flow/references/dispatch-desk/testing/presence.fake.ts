@@ -6,7 +6,7 @@
 // Controls are the SDK's real sequences: a member enters or leaves; the SDK's connection is suspended and comes back
 // resumed or not; the SDK gives up on a channel; a burst of typing. The attach itself is the stream endpoint's open,
 // so `Collab.channel.hold({ at: "open" })` holds it (Y3).
-// Pending merge 6: written against merge-6-streams/proposal-v2.md revision 7.1, S1–S10.
+// Pending merge 6: written against merged/streams/proposal-v2.md revision 7.1, S1–S10.
 import { Effect, FiberSet, Layer, Schema, Stream } from "effect";
 import { Fake } from "flow-state/testing"; // pending merge 6
 import {

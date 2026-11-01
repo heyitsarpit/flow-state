@@ -1,6 +1,6 @@
 // WATCHING places both sessions for the screen's life. A drop is not a transition (rule 25): the SDK reconnects, the
 // row reads Connecting with its `drop`, and the badges dim. Only a channel the SDK gave up on ends WATCHING.
-// Pending merge 6: written against merge-6-streams/proposal-v2.md revision 7.1, S1–S10.
+// Pending merge 6: written against merged/streams/proposal-v2.md revision 7.1, S1–S10.
 import { machine } from "flow-state";
 import { Presence, TYPING_SHOWN_MS } from "./presence.definition.js";
 

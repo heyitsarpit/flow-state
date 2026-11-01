@@ -1,5 +1,5 @@
 // Who has a ticket open, and who is typing in it, over the collaboration SDK. Pending merge 6: written against
-// merge-6-streams/proposal-v2.md revision 7.1, S1–S10.
+// merged/streams/proposal-v2.md revision 7.1, S1–S10.
 //
 // Two sessions on one channel: the viewers (a state feed: the set, each time) and typing (a fact feed: each message
 // once). The viewers are also copies: one `ViewerBadge` per viewer the SDK reports (F5), whose membership is host

@@ -57,7 +57,7 @@ Sources and the short names used for citations:
 | CLP | `CommandLine.plan` |
 | INS | `Inspection.plan` |
 | M4 | `references/explorations/machine-fragments/merged/entities.md` |
-| M6 | `references/explorations/machine-fragments/merge-6-streams/proposal.md` |
+| M6 | `references/explorations/machine-fragments/merged/streams/proposal.md` |
 | MT | `references/design/multi-tab.md` (MT 8.1: each tab is its own Runtime and store) |
 | DD | `references/dispatch-desk/features/Tickets/ticket.domain.ts` |
 | EO | `node_modules/effect/src/Order.ts` (Effect 4.0.5, at the repository root) |

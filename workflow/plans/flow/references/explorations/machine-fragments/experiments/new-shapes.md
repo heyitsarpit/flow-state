@@ -2,7 +2,7 @@
 
 Status: brainstorm, written 2026-10-31 (open-items 20). **Nothing here is proposed, decided or checked against
 the current design.** I did not read machine-design.md or any proposal. Sources read: principles.md,
-reference/example-apps.md, merged/server-calls/requirements.md (R1-R38, P1-P23), merge-6-streams/brief.md (SR, FC),
+reference/example-apps.md, merged/server-calls/requirements.md (R1-R38, P1-P23), merged/streams/brief.md (SR, FC),
 open-items.md. Prior art is cited from memory and unverified. All code is invented syntax, not Flow's.
 
 Citations: R = server-calls requirement, P = server-calls problem, SR/FC = streams requirement / failure case,

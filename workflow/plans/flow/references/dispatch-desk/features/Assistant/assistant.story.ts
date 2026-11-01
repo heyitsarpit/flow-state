@@ -1,7 +1,7 @@
 // Assistant Stories: tokens, Stop mid-stream, a truncated body, a stall, a refusal, a reload while asking.
 // Each runs the machine over the model fake, paced by wire words, never by injected results. Transcripts;
 // assistant.test.ts reads them. Module checkpoints ("AS"): `streaming`, `regenerated`.
-// Pending merge 6: written against merge-6-streams/proposal-v2.md revision 7.1, 4.4.
+// Pending merge 6: written against merged/streams/proposal-v2.md revision 7.1, 4.4.
 import { Story } from "flow-state/testing";
 import { DeskSetup } from "../../app/setup.js";
 import { Assistant as Model, AssistantFake, textAfter } from "../../testing/assistant.fake.js";

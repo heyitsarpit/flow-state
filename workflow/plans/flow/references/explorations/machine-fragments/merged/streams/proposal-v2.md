@@ -1,6 +1,6 @@
 # Streams, designed from the brief (merge 6, proposal v2, revision 7.1)
 
-Status: **revision 7, written 2026-10-31, for the owner to check before merging.** The owner chose this design (S1)
+Status: **superseded by [proposal-v3.md](proposal-v3.md), which merged 2026-11-01; kept as prior art.** Revision 7, written 2026-10-31, for the owner to check before merging. The owner chose this design (S1)
 and decided S1–S10
 ([decisions-v2.md](decisions-v2.md)): in-band signals (S2), repair in the adapter (S3), the resume position in machine
 memory (S4), and every question of revisions 1–3 as option A (S5–S7), including `Feed.CannotRepair` (S7), review 3's three Highs (S8), review 4's (S9) and review 5's (S10), all delegated. Those are
@@ -12,8 +12,8 @@ convergence"): every requirement, both reviews ([reviews/v2-review-1.md](reviews
 [reviews/v2-review-2.md](reviews/v2-review-2.md) RV2) and both model runs ([model/RESULTS.md](model/RESULTS.md) MDL)
 taken at once, with the parts that still failed redesigned around three principles (section 1). **No public API
 changes in revision 4**: no new word, no new option, no change of code shape; the changes are inside Flow's tables and
-`Feed.reconnect`, plus three preconditions on `catchUp` written down (section 9). Built from [brief.md](brief.md), [../machine-design.md](../machine-design.md) (MD),
-[../merged/operations/decisions.md](../merged/operations/decisions.md) (OD), `workflow/plans/flow/*.plan`, Effect 4.0.5
+`Feed.reconnect`, plus three preconditions on `catchUp` written down (section 9). Built from [brief.md](brief.md), [../../machine-design.md](../../machine-design.md) (MD),
+[../operations/decisions.md](../operations/decisions.md) (OD), `workflow/plans/flow/*.plan`, Effect 4.0.5
 (EFX), the owner's prior-art notes [prior-art-1.md](prior-art-1.md) (PA1) and [prior-art-2.md](prior-art-2.md) (PA2),
 and [comparison.md](comparison.md) (CMP). Code is not compiled as a whole; Effect calls follow the forms CMP
 type-checked (`Effect.map(Service, …)`, `Socket.readerString`, `Stream.fromEffectRepeat`, `Stream.paginate`,
@@ -1758,7 +1758,7 @@ payload (2 lines).
 | S9 | Delegated, from RV4: H1 a session owes from its first registration (internal `announced`, 3.4); `Missed` gains `initial`; an empty-`from` precondition for `fresh`; H2 recipe finalizers remove only their own listeners, a shared Ably channel is never detached, a `detached` listener; M1 release-before-restart waits per (actor, operation, key) across placements |
 | S10 | Delegated, from RV5: `registered` per (memory slice, operation, key), persisted like `heard`, replaces S9's per-session `announced`; `fresh` drops to `live()` once set; `initial = ¬registered`; Ably channels reference-counted; `initial` on `settle(lost)` specified; the ignore guard only for `Unproven` |
 
-Deferred to [../open-items.md](../open-items.md): **16** outbound live state on a session (cursors); **17** one shared
+Deferred to [../../open-items.md](../../open-items.md): **16** outbound live state on a session (cursors); **17** one shared
 session per Runtime; **18** a manual `reconnect` member (parked; this design does not preclude it); **19** `fromRpc`
 streams and `Range` resume. Candidates for **15** (wiring every app writes), not proposed here: machine-level re-open
 with its healthy-reset (2.7), a per-key re-open for `subscribe.each` (4.3), a built-in `live` guard, a close-code

@@ -1,7 +1,7 @@
 # Dispatch Desk review
 
 Reviewed against [machine-design.md](../explorations/machine-fragments/machine-design.md) ("MD") and, for streams,
-[merge-6-streams/proposal-v2.md](../explorations/machine-fragments/merge-6-streams/proposal-v2.md) revision 7.1 ("M6",
+[merged/streams/proposal-v2.md](../explorations/machine-fragments/merged/streams/proposal-v2.md) revision 7.1 ("M6",
 S1–S10). This review is advice to the main session. Nothing in it is decided.
 
 ## Verdict

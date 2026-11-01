@@ -12,7 +12,7 @@ whose last review has no High once T7 is applied ([reviews/v2-review-2.md](revie
 
 Short names: **MD** [machine-design.md](../../machine-design.md); **SP** [proposal-v2.md](proposal-v2.md) (revision 3,
 accepted for merging); **T** [decisions-v2.md](decisions-v2.md) (T1–T7); **MDL** the model's RESULTS; **M6**
-[merge-6-streams/proposal-v2.md](../../merge-6-streams/proposal-v2.md) (held for the owner, **not merged**). The earlier
+[merge-6-streams/proposal-v2.md](../../merged/streams/proposal-v2.md) (held for the owner, **not merged**). The earlier
 [proposal.md](proposal.md) and its reviews stay as prior art. "Before" quotes are copied from MD; "…" only shortens a
 quote, and the edit replaces the whole sentence, row or block it names.
 

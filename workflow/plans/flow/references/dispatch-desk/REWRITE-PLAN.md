@@ -8,8 +8,8 @@ real.
 **Sources.** The design is [machine-design.md](../explorations/machine-fragments/machine-design.md) ("MD"). It contains
 merges 1–5, operations in the definition (2.7, rules 39–47, OD1–OD26), entities (2.8, rules 26–38), fragment
 operations (2.9, rules 48–60, F1–F10) and Stories (2.10, rules 61–66, T1–T7). Streams are **not merged**. They follow
-[merge-6-streams/proposal-v2.md](../explorations/machine-fragments/merge-6-streams/proposal-v2.md) revision 7 ("M6")
-with [decisions-v2.md](../explorations/machine-fragments/merge-6-streams/decisions-v2.md) S1–S10. Every file that uses
+[merged/streams/proposal-v2.md](../explorations/machine-fragments/merged/streams/proposal-v2.md) revision 7 ("M6")
+with [decisions-v2.md](../explorations/machine-fragments/merged/streams/decisions-v2.md) S1–S10. Every file that uses
 them is marked **pending merge 6**. The file must say so in its header comment, and it must be revisited when merge 6
 lands.
 
@@ -259,7 +259,7 @@ Views read `s.operations.<name>` or `X.O.<name>.get(s, k)`. Rules 39–43 and 47
 **Rules for every batch.** One batch is one commit. A batch writes only the files listed for it; no two batches share a
 file. A batch may start once the batches it depends on are committed. Before committing, the batch runs section 4's
 commands on its Effect-only files and the formatter on all of its files. Each file states in its header which rules
-and sections it demonstrates. A PM6 file also says "Pending merge 6: written against merge-6-streams/proposal-v2.md
+and sections it demonstrates. A PM6 file also says "Pending merge 6: written against merged/streams/proposal-v2.md
 revision 7, S1–S10."
 
 | Batch   | Commit (subject)                                                       | Files                                                                                                                                                                                                                                                                                                                                                       | Depends on                                      | Pending merge 6                                                                                        |

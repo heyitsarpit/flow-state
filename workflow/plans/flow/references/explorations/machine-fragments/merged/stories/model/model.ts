@@ -5,7 +5,7 @@
 // The app under the Story is the smallest one that reaches the downstream cells: one write operation `pay` (a write lane, policy OPT.policy),
 // persisted storage (`Fake.storage`, a call endpoint), and one stream (`Chat`, a stream endpoint plus a history call endpoint) read by a
 // session. The lane and session semantics are reduced to the cell level (which row fired in which state); the full models are
-// merged/operations/lane-model and merge-6-streams/model.
+// merged/operations/lane-model and merged/streams/model.
 
 export const CFG = {
   ranksOk: true, //          3.5: ranks 1 world, 2 adapters, 3 Runtime waits, 4 actor schedules

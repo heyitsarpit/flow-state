@@ -2,7 +2,7 @@
 // `concurrency: "cancel"` that interrupts the Attempt on the wire, whose ending is evidence (rule 17), so no
 // handler sees it and nothing is held (O8, T10). Stop cancels the Attempt; its `unknown { Cancelled }` is held
 // for its own ending's turn only (`HeldThisTurn`), so no handler releases anything.
-// Pending merge 6: written against merge-6-streams/proposal-v2.md revision 7.1, 4.4.
+// Pending merge 6: written against merged/streams/proposal-v2.md revision 7.1, 4.4.
 import { deny, machine } from "flow-state";
 import { Assistant } from "./assistant.definition.js";
 

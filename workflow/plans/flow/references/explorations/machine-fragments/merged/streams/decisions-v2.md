@@ -1,7 +1,7 @@
 # Streams (from-scratch design): owner decisions
 
 Decisions on [proposal-v2.md](proposal-v2.md), the design the owner chose to continue (2026-10-30). Revision 3
-(proposal.md) stays as prior art; five of its parts are carried over (comparison.md).
+(proposal.md) stays as prior art; five of its parts are carried over (comparison.md). **Included in [machine-design.md](../../machine-design.md), "Decisions", 2026-11-01, with the rows later ones overturned annotated.**
 
 | # | Decision | Date |
 | --- | --- | --- |
@@ -20,3 +20,4 @@ Decisions on [proposal-v2.md](proposal-v2.md), the design the owner chose to con
 | S13 | The owner delegates the streams design: write a new proposal (`proposal-v3.md`) carrying v2's learnings, taking the best ideas from v2 and the blind design, then three review rounds. Its contents are the main session's proposal, not owner decisions, until the owner reads them. | 2026-11-01 |
 | S14 | Streams' vocabulary and conventions follow Effect's and what `transaction` and `resource` already use. The owner delegates the resulting word choices to the main session. | 2026-11-01 |
 | S15 | Owner confirmed proposal-v3's recommendations, Q1-Q4 of the round: Flow runs connections when the contract declares `reconnect` and `idleTime`, amending rule 25, and never re-opens a session; the default retries while offline and ends `Flapping` after 8 registered flaps; Flow keeps the position, with `fills`, falling back to trimmed v2 if a fourth High appears in real code; the silent-loss cases are documented limits. The word list and spellings stay the main session's proposal (S14). | 2026-11-01 |
+| S16 | Delegated: the owner left the remaining questions to the main session unless they really matter. proposal-v3 merges. Trial 2's page-order finding (C1) is not S15's fourth High: its cause is a missing contract on read order, now stated in v3 3.4, not how the bookmark ties to memory. `Feed` keeps its name; the `Flow` rename and the other absorb-wiring questions stay in that exploration and do not touch this merge. | 2026-11-01 |

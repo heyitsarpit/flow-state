@@ -17,8 +17,8 @@ Short names for citations (all under `workflow/plans/flow/`):
 | OD | `references/explorations/machine-fragments/merged/operations/decisions.md` (OD1–OD26) |
 | M4 | `references/explorations/machine-fragments/merged/entities.md` (merge 4, merged into MD 2.8 and rules 26–38) |
 | M3 | `references/explorations/machine-fragments/merged/stories/` (Stories; **not accepted**) |
-| GAPS | `references/explorations/machine-fragments/merge-6-streams/gaps.md` (findings and the source table; its line citations were not re-verified) |
-| R1, R2 | `references/explorations/machine-fragments/merge-6-streams/reviews/review-1.md`, `review-2.md` |
+| GAPS | `references/explorations/machine-fragments/merged/streams/gaps.md` (findings and the source table; its line citations were not re-verified) |
+| R1, R2 | `references/explorations/machine-fragments/merged/streams/reviews/review-1.md`, `review-2.md` |
 | AUD | `references/explorations/machine-fragments/audit-multiplicity.md` |
 | PB | `references/explorations/playback.md` (accepted; Testing.plan O4 and O9 hold the contract) |
 | OPS, MCH, EDP, PER, RT, TST, INS, SSR | `Operations.plan`, `Machines.plan`, `EntityDomains.plan`, `Persistence.plan`, `Runtime.plan`, `Testing.plan`, `Inspection.plan`, `ServerRendering.plan` |

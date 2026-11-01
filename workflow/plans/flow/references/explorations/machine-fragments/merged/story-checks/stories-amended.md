@@ -15,7 +15,7 @@ It amends the merged Stories design using the owner's decisions in [decisions.md
 | `[fakes-v2]` | **Proposed**: the direction is approved (W35, W36), the spellings are the main session's and the owner has not read them |
 | `[P]` | **Proposed** by this file: a resolution of a hole, or a main-session call from the review. Never read one of these as decided. `RV1 M4`, `RV2 M4`, `RV3 M4` cite a review's finding; `MDL G2` cites a model gap |
 | no mark | **Carried**: unchanged from the merged design. "Stories T*n*" there means delegated, not confirmed by the owner, unless a W row confirms it |
-| `*Stream details: merge 6*` | Depends on `merge-6-streams/proposal-v3.md` ("v3"), which is **not merged** |
+| `*Stream details: merge 6*` | Depends on `merged/streams/proposal-v3.md` ("v3"), which is **not merged** |
 
 Citations carried from the merged design (STR*n*, STF*n*, SG*n*, brief C*n*, SP …) name its brief and proposal under
 `merged/stories/`. They are provenance; nothing here needs them to be read. Effect 4.0.5 and Vitest 5.0.5 are the versions
@@ -153,7 +153,7 @@ Section 1.6 replaces this table's "classified from the world".
 
 ### 1.7 The revision from streams proposal v3
 
-`merge-6-streams/proposal-v3.md`, in its final form, is "v3"; its section 9 lists these changes. All **[P]**. Its 14 items are applied: a fake's heartbeat (`ping`) and its rank, rules and table row; `timer` values; row and `session` fields; reload Stories; jitter; coverage. The addendum's U1–U3 are folded into rule 61, 2.10.4 and 2.10.17. Section 10 lists what v3 asked that needs your eye. Section 11 is rewritten for v3.
+`merged/streams/proposal-v3.md`, in its final form, is "v3"; its section 9 lists these changes. All **[P]**. Its 14 items are applied: a fake's heartbeat (`ping`) and its rank, rules and table row; `timer` values; row and `session` fields; reload Stories; jitter; coverage. The addendum's U1–U3 are folded into rule 61, 2.10.4 and 2.10.17. Section 10 lists what v3 asked that needs your eye. Section 11 is rewritten for v3.
 
 ## 2. Rules
 
@@ -1000,7 +1000,7 @@ FIFO across two actors, a forced repair holding the queue, `uncertain` set and c
 
 #### 2.10.9 Streams (controls decided, W37)
 
-*Stream details: merge 6.* This section reads v3's `Feed`, sessions and rows ([merge-6-streams/proposal-v3.md](../../merge-6-streams/proposal-v3.md)), which are not merged; merge 6 resolves it. v3 runs reconnecting and history from the contract (`reconnect`, `idleTime`, `catchUp`), so an adapter has no combinator and Flow's own sleeps carry the `timer`s. `.do(…)`, `.process()` and checkpoint predicates are gone (C1, C2, W2, W37); section 11 has the list **[P, H22, v3 section 9]**.
+*Stream details: merge 6.* This section reads v3's `Feed`, sessions and rows ([merged/streams/proposal-v3.md](../../merged/streams/proposal-v3.md)), which are not merged; merge 6 resolves it. v3 runs reconnecting and history from the contract (`reconnect`, `idleTime`, `catchUp`), so an adapter has no combinator and Flow's own sleeps carry the `timer`s. `.do(…)`, `.process()` and checkpoint predicates are gone (C1, C2, W2, W37); section 11 has the list **[P, H22, v3 section 9]**.
 
 A stream endpoint is a connection: `Fake.stream({ request, frame, open, ping? })` (2.10.4) [fakes-v2; `ping`, v3]. `open(truth, request)`
 returns `{ frames?, refuse?, end?, truth?, send? }`. Duplex waits for the first duplex fake [P, RV2 section 8]. Any handler or
@@ -2244,7 +2244,9 @@ Decisions were kept as written in every case. These need an owner's eye.
 
 ## 11. What merge 6 must change
 
-[P, RV1 section 6, v3 section 9.] Not merged, and this file does not merge it. Target: `merge-6-streams/proposal-v3.md`, not v2. Items v3 has already done are marked.
+**Done: streams merged 2026-11-01 ([plan](../streams/merge-plan.md) 1.3, MX15). The design's 2.10.9 and 2.11 have it; this section, table included, stays as the conversion record.**
+
+[P, RV1 section 6, v3 section 9.] Not merged, and this file does not merge it. Target: `merged/streams/proposal-v3.md`, not v2. Items v3 has already done are marked.
 
 1. **Rule numbers:** 67–72. Done in v3. "Rule 65" is **One address** here.
 2. **Its old 2.11 and 4.1 Story:** gone; the Story is below. v2's `Feed.reconnect` combinator, `fresh`, `initial`, the handler guard and `cursor` in memory are gone in v3, so nothing here refers to them. Seeds are `initial` on a `Fake.server` or a `world` control; `FakeChatServer({ history })` cannot be.

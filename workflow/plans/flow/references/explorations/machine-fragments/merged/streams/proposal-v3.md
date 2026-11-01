@@ -1,6 +1,6 @@
 # Streams: proposal (merge 6, v3)
 
-Status: **everything here is proposed; nothing is accepted or built.** Only S11 and S12 of [decisions-v2.md](decisions-v2.md) are owner input. Requirement ids (G11, R4, ...) are rows of [requirements-v3.md](requirements-v3.md). Prior art: [proposal-v2.md](proposal-v2.md) (v2), [from-scratch-2/proposal.md](from-scratch-2/proposal.md) (blind), [prior-art-v2-assessment.md](prior-art-v2-assessment.md). Reviews: [RV1](reviews/v3-round-1.md), [RV2](reviews/v3-round-2.md), [RV3](reviews/v3-round-3.md). Trials: [agent trial](trials/agent-trial.md) (AT), [desk trial](trials/desk/RESULTS.md) (DT).
+Status: **merged 2026-11-01 into [machine-design.md](../../machine-design.md) (2.11, rules 67–72; [plan](merge-plan.md)); kept as the record; where it differs from the design, the design wins.** Nothing is built. S11, S12, S15 and S16 of [decisions-v2.md](decisions-v2.md) are owner input; the rest stays proposed. Requirement ids (G11, R4, ...) are rows of [requirements-v3.md](requirements-v3.md). Prior art: [proposal-v2.md](proposal-v2.md) (v2), [from-scratch-2/proposal.md](from-scratch-2/proposal.md) (blind), [prior-art-v2-assessment.md](prior-art-v2-assessment.md). Reviews: [RV1](reviews/v3-round-1.md), [RV2](reviews/v3-round-2.md), [RV3](reviews/v3-round-3.md). Trials: [agent trial](trials/agent-trial.md) (AT), [desk trial](trials/desk/RESULTS.md) (DT).
 
 Marks in code are against v2: `// NEW`, `// RENAMED`, `// existing`, `// user-defined`, `// Effect`.
 
@@ -1213,7 +1213,7 @@ A body end is `Closed`, retried. V8: a terminator becomes a typed error outside 
 
 **Inspection:** per session: state, `drop`, T2 row and basis, each `proof`, losses, bookmark and `filled`, bound, release; counters plus a ring of the last 256. Flags: `ValuesWhileDown`, `RegistrationChurn`, `ReleaseOverdue`, `ProofWithoutPosition`, `PingsWithoutLive`, `IdleWithoutPing`, `DeliveryDenied`, `FillsUntouched`. Stories templates assert no flags.
 
-**The chat Story**, as [stories-amended.md](../merged/story-checks/stories-amended.md) section 11 fixed it. Illustrative; not run.
+**The chat Story**, as [stories-amended.md](../story-checks/stories-amended.md) section 11 fixed it. Illustrative; not run.
 
 ```ts
 const ChatFake = Fake.webSocket(Chat, chatRoutes)                         // existing  // user-defined: Chat, chatRoutes
@@ -1401,7 +1401,7 @@ Read-only: reasons `Closed`, `Overflow`, `Silent`, `Flapping`; findings and flag
 
 ## 11. What ran, and what is unproven
 
-Serial, one process, peak about 1 GB. Files in `merge-6-streams/model/v3/` (`every.ts`, `latest.ts`, `main.ts`, `out.txt`, `clock.ts`, `infer.ts`, `vocab.ts`, `callback-probe.ts`).
+Serial, one process, peak about 1 GB. Files in `merged/streams/model/v3/` (`every.ts`, `latest.ts`, `main.ts`, `out.txt`, `clock.ts`, `infer.ts`, `vocab.ts`, `callback-probe.ts`).
 
 **Model of T1–T4, `every`:** exhaustive BFS, no final drain, oracle per state, cap 120,000. History before first registration is excused only with no `catchUp` or a from-now read. O1 bookmark past an item unheld and not noticed or dismissed; O2 quiet `Live` owes nothing; O3 a live value not past a hole; O4 one notice per registration; O5 no notice on an empty feed with a head; O6 a clear does not come back. Dense positions, buffer 2, page 1, usually 2 or 3 appends, 1 drop, 1 leave.
 

@@ -26,8 +26,8 @@ Short names for citations (all under `workflow/plans/flow/`; `MF` is `references
 | NS | `MF/experiments/new-shapes.md` (ideas #19–#21; brainstorm, nothing decided) |
 | AUD | `MF/audit-multiplicity.md` (N1–N3; F9, F11) |
 | M4 | `MF/merged/entities.md` (merged as MD 2.8, rules 26–38) |
-| M6, M6D, M6B | `MF/merge-6-streams/proposal-v2.md`, `decisions-v2.md` (S1–S7), `brief.md` (SR, FC). Being finished in parallel |
-| LM, SM | `MF/merged/operations/lane-model/`, `MF/merge-6-streams/model/` (executable models; design checks, not test suites) |
+| M6, M6D, M6B | `MF/merged/streams/proposal-v2.md`, `decisions-v2.md` (S1–S7), `brief.md` (SR, FC). Being finished in parallel |
+| LM, SM | `MF/merged/operations/lane-model/`, `MF/merged/streams/model/` (executable models; design checks, not test suites) |
 | RQ | `MF/merged/server-calls/requirements.md` (R1–R38, P1–P23) |
 | SPK | `MF/merged/server-calls/spike/` (`stories.ts`, `flow.ts`) |
 | PB | `references/explorations/playback.md` (accepted; Testing O4 and O9 hold the contract) |

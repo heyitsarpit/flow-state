@@ -11,7 +11,7 @@ type-checked.
 
 It builds on [../machine-design.md](../../machine-design.md) as merged (**MD**; decisions OD1–OD26 in
 [../merged/operations/decisions.md](../operations/decisions.md)). [exploration.md](exploration.md) (**EX**) is
-older prior art. Streams use merge 6's syntax ([../merge-6-streams/proposal.md](../../merge-6-streams/proposal.md),
+older prior art. Streams use merge 6's syntax ([../merged/streams/proposal.md](../../merged/streams/proposal.md),
 **M6**, accepted, not merged).
 
 Marks in code: `// NEW` (a word that does not exist), `// NEW MEANING` (an existing word in a new place),

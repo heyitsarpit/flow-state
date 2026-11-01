@@ -1,6 +1,6 @@
 // "Suggest a reply" with Stop. The text is the row's `progress` while a reply streams and the machine's
 // `last` otherwise, so tokens cost no turn (M6 4.4). "Use as comment" sends the text into the editor's
-// comments composer. Pending merge 6: written against merge-6-streams/proposal-v2.md revision 7.
+// comments composer. Pending merge 6: written against merged/streams/proposal-v2.md revision 7.
 import { check } from "flow-state";
 import { useActorByRef, useView } from "flow-state/react";
 import { Editor } from "../Tickets/editor/editor.definition.js";

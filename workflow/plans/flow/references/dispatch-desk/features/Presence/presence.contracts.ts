@@ -1,5 +1,5 @@
 // Presence and typing on a ticket, over a collaboration SDK (collab-sdk.ts). Pending merge 6: written against
-// merge-6-streams/proposal-v2.md revision 7.1, S1–S10. Every `stream`, `Feed` and `delivers` line is a stream line.
+// merged/streams/proposal-v2.md revision 7.1, S1–S10. Every `stream`, `Feed` and `delivers` line is a stream line.
 //
 // How this module differs from the other desk transports (COVERAGE.md 5.1, "PR"): the only one that is a
 // third-party SDK. The SDK keeps its own connection and reconnects by itself (recipe S, decided S5 Q3), so the

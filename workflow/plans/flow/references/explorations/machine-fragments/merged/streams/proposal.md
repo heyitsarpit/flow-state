@@ -31,8 +31,8 @@ Short names for citations (all under `workflow/plans/flow/`):
 
 | Short name | File |
 | --- | --- |
-| GAPS | `references/explorations/machine-fragments/merge-6-streams/gaps.md` |
-| R1, R2 | `references/explorations/machine-fragments/merge-6-streams/reviews/review-1.md`, `review-2.md` |
+| GAPS | `references/explorations/machine-fragments/merged/streams/gaps.md` |
+| R1, R2 | `references/explorations/machine-fragments/merged/streams/reviews/review-1.md`, `review-2.md` |
 | OPS | `Operations.plan` |
 | MCH | `Machines.plan` |
 | MD | `references/explorations/machine-fragments/machine-design.md` (merges 1, 2, 4, 5 and operations-in-definition) |

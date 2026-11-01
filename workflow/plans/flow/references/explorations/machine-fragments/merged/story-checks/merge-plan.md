@@ -9,7 +9,7 @@ Status: **applied 2026-11-01** (the owner approved the proposal; the `.plan` cha
 Short names: **MD** [machine-design.md](../../machine-design.md); **SA** [stories-amended.md](stories-amended.md);
 **F2** [fakes-v2.md](fakes-v2.md); **C1–C5, W1–W43** [decisions.md](decisions.md); **FI**
 [reviews/final-integration.md](reviews/final-integration.md); **MDL** [model/RESULTS.md](model/RESULTS.md); **v3**
-[merge-6-streams/proposal-v3.md](../../merge-6-streams/proposal-v3.md) (not merged). "Before" quotes are copied from MD by the
+[merge-6-streams/proposal-v3.md](../../merged/streams/proposal-v3.md) (not merged). "Before" quotes are copied from MD by the
 script that applies them; "…" only shortens a quote, and the edit replaces the whole sentence, row or block it names.
 
 Marks: **small** (wording, numbering, a superseded clause), **small†** (a behaviour consequence the decisions leave to the

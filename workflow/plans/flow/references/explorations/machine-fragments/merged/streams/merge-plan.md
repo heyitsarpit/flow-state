@@ -1,8 +1,8 @@
 # Merge plan: streams into machine-design.md
 
-Status: **approved 2026-11-01 (S15, S16); not yet applied.** Written against `machine-design.md` at HEAD `afcc2641`, and [proposal-v3.md](proposal-v3.md) and [decisions-v2.md](decisions-v2.md) as they stand there. Method as in [the amended Stories plan](../merged/story-checks/merge-plan.md).
+Status: **applied 2026-11-01** (S15, S16; the `.plan` changes in 2.7 are still owed). Written against `machine-design.md` at HEAD `afcc2641`, and [proposal-v3.md](proposal-v3.md) and [decisions-v2.md](decisions-v2.md) as they stand there. Method as in [the amended Stories plan](../story-checks/merge-plan.md).
 
-Short names: **MD** [machine-design.md](../machine-design.md); **v3** [proposal-v3.md](proposal-v3.md); **S1–S16** [decisions-v2.md](decisions-v2.md); **SA** [stories-amended.md](../merged/story-checks/stories-amended.md); **FI** [final-integration.md](../merged/story-checks/reviews/final-integration.md); **AT2** [trials/agent-trial-2.md](trials/agent-trial-2.md). "Before" quotes are copied from MD by the script that applies them, each checked to occur exactly once; "…" only shortens a quote here.
+Short names: **MD** [machine-design.md](../../machine-design.md); **v3** [proposal-v3.md](proposal-v3.md); **S1–S16** [decisions-v2.md](decisions-v2.md); **SA** [stories-amended.md](../story-checks/stories-amended.md); **FI** [final-integration.md](../story-checks/reviews/final-integration.md); **AT2** [trials/agent-trial-2.md](trials/agent-trial-2.md). "Before" quotes are copied from MD by the script that applies them, each checked to occur exactly once; "…" only shortens a quote here.
 
 Marks: **small** (wording, numbering, a superseded clause), **small†** (a behaviour consequence no decision settles, carried marked [P, merge]), **owner** (behaviour no decision covers). This plan has **no owner row**: S15 confirmed the behaviour, S14 delegated the words, S16 delegated the rest.
 

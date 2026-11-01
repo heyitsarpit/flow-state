@@ -4,7 +4,7 @@
 // pieces desk.fake.ts spreads into `Desk` (an endpoint, its pushes, four controls) and the client half that
 // binds the real adapter to it.
 //
-// Written against merge-6-streams/proposal-v2.md revision 7.1, S1–S10. Every line here is a stream line.
+// Written against merged/streams/proposal-v2.md revision 7.1, S1–S10. Every line here is a stream line.
 import { Effect, Layer, Schema, Stream } from "effect";
 import { Socket } from "effect/socket";
 import { Fake } from "flow-state/testing"; // pending merge 6

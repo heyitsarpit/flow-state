@@ -180,7 +180,7 @@ author repeats in every app should be in the "it just works" category instead of
 wiring the author must write by hand that the system could do internally, and decide which to absorb. The streams
 example that raised it: each fact-feed handler stores the message and moves the resume position, and the position
 rule is written twice (the contract's `position` and the machine's `cursor: event.message.cursor`); a helper such as
-`Feed.track` was considered and deferred because it fits only "a list plus a cursor" in memory.
+`Feed.track` was considered and deferred because it fits only "a list plus a cursor" in memory. *Absorbed by the streams merge (S15): the bookmark moves the position, and `reconnect`, `idleTime` and `catchUp` are contract data.*
 
 The audit should, for each case: show the wiring as it is written today; say whether it is the same in every app
 (absorb) or a real app decision (keep); and propose the internal behaviour, with no new public word where possible.
@@ -201,8 +201,8 @@ For `listen` entries and connection-limited sources (SSE's six per origin); M6-D
 
 ## 18. A manual `reconnect` member on a stream (parked, 2026-10-30)
 
-Re-open a placement's session from its `input` without leaving the state (merge-6-streams/proposal.md 11.1).
-proposal-v2 does not preclude it.
+Re-open a placement's session from its `input` without leaving the state (merged/streams/proposal.md 11.1).
+The merged design (2.11) does not preclude it; design section 6 lists it. `O.x.refetch` already covers "read now".
 
 ## 19. `fromRpc` streams and download resume with `Range` (deferred by streams S5, 2026-10-30)
 
@@ -292,5 +292,5 @@ runs turns only if a case needs a chain inside a race.
 The owner trimmed the reference code to the dispatch desk plus the Checkout app, dropping the Notebook app
 ([COVERAGE.md](../../COVERAGE.md), section 5.5). Four streams situations had their home there and now have none: the SSE
 recipe with `Last-Event-ID` replay as the proof (M6 4.7), a `Feed.down` caused by the browser going offline, a fact feed's
-cursor resuming across reload in a second app, and `Fake.fetch` with a streamed SSE body (design 2.10.4). Add them, in a
-desk module or a small app, once merge 6 lands and a case needs them.
+cursor resuming across reload in a second app, and `Fake.fetch` with a streamed SSE body (design 2.10.4). Merge 6 has landed (2026-11-01; the SSE recipe is design 2.11.12.8, the cursor is now the bookmark). Add them, in a
+desk module or a small app, when a case needs them.

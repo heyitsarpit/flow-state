@@ -1,8 +1,8 @@
 # Desk trial of proposal-v3 streams: results (second pass, final spec)
 
 Paper test of the final [proposal-v3.md](../../proposal-v3.md) against the desk's `Tickets/feed`, `Presence` and `Assistant`, with
-their fakes, Stories and tests, in the forms of [stories-amended.md](../../../merged/story-checks/stories-amended.md) and
-[fakes-v2.md](../../../merged/story-checks/fakes-v2.md). Nothing outside `trials/desk/` was edited. Everything is **proposed** until the owner reads it.
+their fakes, Stories and tests, in the forms of [stories-amended.md](../../../story-checks/stories-amended.md) and
+[fakes-v2.md](../../../story-checks/fakes-v2.md). Nothing outside `trials/desk/` was edited. Everything is **proposed** until the owner reads it.
 
 **What ran.** `node_modules/.bin/tsc -p trials/desk/tsconfig.json` passes under `tsconfig.base.json`'s flags, with real Effect 4.0.5 and
 my stand-ins (`standin/flow-state.ts`, `standin/testing.ts`, three stubs), rewritten for the final API. No `any` in `features/` or

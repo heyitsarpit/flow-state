@@ -10,7 +10,7 @@ the small conflicts, logging each in delegated-decisions.md marked "delegated". 
 
 Short names: **MD** [machine-design.md](../../machine-design.md); **FP** [proposal.md](proposal.md) (revision 3, accepted
 for merging, F10); **F** [decisions.md](decisions.md) (F1–F10); **EX** [exploration.md](exploration.md) (prior art);
-**RV3** [reviews/review-3.md](reviews/review-3.md); **M6** [merge-6-streams/proposal-v2.md](../../merge-6-streams/proposal-v2.md)
+**RV3** [reviews/review-3.md](reviews/review-3.md); **M6** [merge-6-streams/proposal-v2.md](../../merged/streams/proposal-v2.md)
 (accepted, not merged); **OPP** the operations merge plan. FP's "MD rule *n*" stays MD rule *n* (rules 1–47 keep their
 numbers). FP's FO0–FO12 become **MD rules 48–60** (2.2). "Before" quotes are copied from MD; "…" only shortens a
 quote, and the edit replaces the whole sentence, row or block it names.

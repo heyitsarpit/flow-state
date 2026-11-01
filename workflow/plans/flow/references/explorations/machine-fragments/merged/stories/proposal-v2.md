@@ -16,7 +16,7 @@ microtask-only scheduler (RV2 H1), the stored-acknowledgement restore kept as th
 (RV2 M1), and every Medium and Low (1.2). It adds no big change. Revisions 1 and 2 are kept as prior art outside the
 repository. Built only from [brief.md](brief.md) (SG1–SG7, STR1–STR72, C1–C19, STF1–STF79),
 [../../machine-design.md](../../machine-design.md) (MD), the operations and fragment decisions (OD, F),
-[../../merge-6-streams/proposal-v2.md](../../merge-6-streams/proposal-v2.md) (M6, decisions S1–S7), [../../../playback.md](../../../playback.md)
+[../../merged/streams/proposal-v2.md](../../merged/streams/proposal-v2.md) (M6, decisions S1–S7), [../../../playback.md](../../../playback.md)
 (PB), the plans, and Effect 4.0.5's `effect/testing/TestClock.ts` and `effect/socket/Socket.ts`. The earlier
 `proposal.md` and its reviews were not read.
 

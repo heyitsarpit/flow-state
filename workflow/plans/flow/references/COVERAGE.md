@@ -42,7 +42,7 @@ deferred (section 5.5).
 | --- | --- |
 | MD | [machine-design.md](explorations/machine-fragments/machine-design.md): fragments and the turn (2.1–2.6, rules 1–12), operations (2.7, rules 13–25, N1–N3, 39–47), entities (2.8, rules 26–38, merge 5's M5-D1–D10), fragment operations (2.9, rules 48–60), Stories (2.10, rules 61–66), keywords (3.6) |
 | ED-D | [design/entity-domain.md](design/entity-domain.md): `.alsoChanges`, `.derivedFrom`, `.ignoring`, conditions, `Entity.queue` |
-| M6 | [merge-6-streams/proposal-v2.md](explorations/machine-fragments/merge-6-streams/proposal-v2.md) revision 7.1, [decisions-v2.md](explorations/machine-fragments/merge-6-streams/decisions-v2.md) S1–S10. **Not merged:** every streams row is **PM6** |
+| M6 | [merged/streams/proposal-v2.md](explorations/machine-fragments/merged/streams/proposal-v2.md) revision 7.1, [decisions-v2.md](explorations/machine-fragments/merged/streams/decisions-v2.md) S1–S10. **Not merged:** every streams row is **PM6** |
 | PB | [playback.md](explorations/playback.md): frames, `StoryFrame`, `StoryPlayer`, presentations |
 | DD | [dispatch-desk/](dispatch-desk/): [README.md](dispatch-desk/README.md), [REVIEW.md](dispatch-desk/REVIEW.md), the code |
 | FP | `apps/features/src/pages/*.mdx`: the keyword list per area |
