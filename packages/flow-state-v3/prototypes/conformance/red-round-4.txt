@@ -1,0 +1,74 @@
+== REV4-H1
+FAIL  REV4-H1/a-read-started-during-a-write-does-not-overwrite-it the confirmed write stands: expected true, got false
+FAIL  REV4-H1/the-doubt-outlives-a-failed-repair           threw: Error: answer: no held request for repair     at answer (/Users/arpit/Developer/flow-state/packages/flow-state-v3/prototypes/conforman
+== REV4-H2
+FAIL  REV4-H2/a-confirmed-write-is-shown-during-the-repair-and-stays-marked the answer shows: expected true, got false
+FAIL  REV4-H2/one-failed-repair-does-not-leave-the-screen-wrong-and-clean true to the server, and marked: expected [true,true], got [false,false]
+FAIL  REV4-H2/a-confirms-mapper-that-throws-keeps-the-mark nothing believed: marked: expected true, got false
+== REV4-H3
+FAIL  REV4-H3/leaf-this-release-removed                    boot 1 alive: expected false, got true
+FAIL  REV4-H3/kid-frag-this-release-removed                boot 1 alive: expected false, got true
+FAIL  REV4-H3/kid-leaf-removed                             boot 1 alive: expected false, got true
+FAIL  REV4-H3/placement-removed                            named: expected "RecordQuarantined", got undefined
+FAIL  REV4-H3/no-timers                                    boot 1 alive: expected false, got true
+FAIL  REV4-H3/no-kids                                      boot 1 alive: expected false, got true
+FAIL  REV4-H3/activations-for-a-leaf-gone                  named: expected "RecordQuarantined", got undefined
+FAIL  REV4-H3/timer-of-no-shape                            named: expected "RecordQuarantined", got undefined
+FAIL  REV4-H3/memory-not-an-object                         named: expected "RecordQuarantined", got undefined
+FAIL  REV4-H3/lane-without-w                               alive: expected false, got true
+FAIL  REV4-H3/lane-head-of-no-shape                        named: expected "RecordQuarantined", got undefined
+== REV4-H4
+FAIL  REV4-H4/list-null-repairs-never-refuses              evidence: expected true, got false
+FAIL  REV4-H4/list-five-repairs-never-refuses              alive: expected false, got true
+FAIL  REV4-H4/list-string-repairs-never-refuses            evidence: expected true, got false
+FAIL  REV4-H4/list-nullItem-repairs-never-refuses          alive: expected false, got true
+FAIL  REV4-H4/list-emptyItem-repairs-never-refuses         evidence: expected true, got false
+FAIL  REV4-H4/list-objKey-repairs-never-refuses            evidence: expected true, got false
+FAIL  REV4-H4/a-good-item-beside-a-bad-one-stays           the good one: expected true, got undefined
+FAIL  REV4-H4/reset-value-bigint-refuses-the-turn          alive: expected false, got true
+FAIL  REV4-H4/reset-value-cycle-refuses-the-turn           alive: expected false, got true
+FAIL  REV4-H4/a-success-of-a-bigint-parked-on-a-persisted-lane alive: expected false, got true
+FAIL  REV4-H4/memory-initial-of-a-bigint-on-a-persisted-machine alive: expected false, got true
+FAIL  REV4-H4/a-schedule-of-no-length-refuses-the-turn     state: expected "B", got "BADMS"
+FAIL  REV4-H4/a-mapper-of-no-shape-does-not-disable-the-store named, not a defect: expected ["UserClosure"], got ["ModuleDefect"]
+== REV4-H5
+WATCH peak 507 MB, 0.4 s, exit 137, killed rss
+== REV4-M1
+FAIL  REV4-M1                                              the first was not superseded: it goes: expected 1, got 0
+== REV4-M2
+FAIL  REV4-M2/a-frozen-child-keeps-its-timer-through-a-freeze-above its own return fires it: expected 1, got 0
+== REV4-M3
+FAIL  REV4-M3/a-removed-frozen-copy-has-ended-now          gone at once: expected undefined, got {"state":"root","memory":{"why":null,"put":false,"key":"a","item":"a"}}
+FAIL  REV4-M3/its-release-runs-while-the-host-is-away      evidence, no parked wait: expected 0, got 1
+FAIL  REV4-M3/r60-a-parked-ending-is-evidence-once-marked  gone with the copy: expected 0, got 1
+== REV4-M4
+FAIL  REV4-M4                                              adoption past the bound is not dropped: expected "mine", got null
+== REV4-M5
+FAIL  REV4-M5/a-firing-that-throws-once-comes-again        state: expected "FAR", got "WAIT"
+FAIL  REV4-M5/a-firing-that-always-throws-is-final-and-bounded two issues, no loop: expected 2, got 1
+== REV4-M7
+FAIL  REV4-M7                                              no copies reads as a list: expected [], got undefined
+== REV4-L1
+FAIL  REV4-L1                                              no repair command went out: expected 0, got 1
+== REV4-L2
+== REV4-L4
+FAIL  REV4-L4                                              a thin read keeps the rest: expected ["from a thin row",0], got ["from a thin row",null]
+== REV4-L5
+== REV4-S1
+== REV4-S2
+== REAL-01
+FAIL  REAL-01/own-exit-hands-no-draft-back                 state: expected "CARD", got "ADDRESS"
+== REAL-02
+FAIL  REAL-02/own-exit-no-draft                            no draft: expected [], got ["fixed"]
+FAIL  REAL-02/kept-returns-to-the-exact-step-through-a-nested-exit the dialog's own exit: not abandoned: expected 0, got 1
+FAIL  REAL-02/discarded-fills-the-wizards-own-exit-two-own-exits-in-one-turn no draft: its own exit: expected [], got ["fixed"]
+== REAL-03
+== REAL-04
+FAIL  REAL-04/r53-a-write-that-ends-while-frozen-parks-and-the-thaw-adopts-it adopted: expected ["e1"], got []
+FAIL  REAL-04/r52-the-cut-lookup-comes-before-a-parked-write order: expected ["earlier","pin"], got ["earlier"]
+FAIL  REAL-04/D64-a-changed-ticket-resets-on-return-with-no-frame-of-the-old-subject no frame shows T-1's slice under T-2: expected "T-2", got "T-1"
+== REAL-05
+== SEARCH-ODD-SMALL
+FAIL  SEARCH-ODD-SMALL                                     no oracle failed: expected "none", got "D57: a value stopped the Runtime on list.five"
+WHOLE SUITE, with every REV4 and REAL id:
+SUMMARY  11/11 scenario cases pass; unlogged expectation changes: none; catalog disagreements: none

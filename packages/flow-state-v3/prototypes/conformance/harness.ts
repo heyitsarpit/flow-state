@@ -33,6 +33,7 @@ export type Fault =
   | { uninterruptibleHang: RequestMatch }
   | { syncAnswer: readonly [RequestMatch, Answer] }
   | { throwInModule: string } // D27: the next call of this hook of any module throws
+  | { throwInModuleAfter: string } // L1: the hook runs, makes its effects, then throws
   | { throwInCore: true } // D27: the next step's core code throws. Reached through data: no seam in the core
   | { startThrows: RequestMatch } // DRV-02: building this op's commit throws
   | { afterYield: Step } // runs when the runtime has yielded its drain to the host: a gap between steps
@@ -56,7 +57,6 @@ export type Row = {
   waiting: boolean;
   retryCount: number;
   outstanding: number;
-  stalled?: "storage" | "record" | "module"; // D49. Absent when nothing is stalled
 };
 export type RecordRead = {
   data: any; // undefined when absent or predicted away
@@ -99,8 +99,9 @@ export type Frame = {
   >;
   records: Readonly<Record<string, RecordRead>>;
 };
-// D29: claims, each checkable against what the suite owns.
-export type Wait =
+// D29: claims, each checkable against what the suite owns. D49 (changed): a stall is Inspection's, here, not the row's.
+export type Wait = { stalled?: "storage" | "record" | "module" } & WaitKind;
+type WaitKind =
   | { kind: "wire"; op: string; attempt?: string }
   | { kind: "ack" | "capture"; op: string; attempt: string; key: string }
   | { kind: "queue" | "W"; op: string; attempt: string; mint: number; behind: readonly string[] }
@@ -167,6 +168,7 @@ export type Harness = {
 // ── What a runtime implements.
 export type FaultState = {
   moduleThrows: Map<string, number>; // hook name to count
+  moduleThrowsAfter: Map<string, number>;
   coreThrows: number;
 };
 export type BootArgs = {

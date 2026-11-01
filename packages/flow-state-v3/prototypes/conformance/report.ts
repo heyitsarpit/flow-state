@@ -39,7 +39,7 @@ export const catalog = (): Row[] => {
 
 export const changed = (): Map<string, string[]> => {
   const m = new Map<string, string[]>();
-  for (const f of ["convergence-1.md", "convergence-2.md", "convergence-3.md"]) {
+  for (const f of ["convergence-1.md", "convergence-2.md", "convergence-3.md", "convergence-4.md"]) {
     const text = readFileSync(join(proto, f), "utf8");
     const block = /```decisions-changed\n([\s\S]*?)```/.exec(text)![1]!;
     for (const l of block.trim().split("\n")) {
@@ -109,7 +109,7 @@ const allIds = (): string[] => {
     const n = /^\s*\*?\*?(N[123])\b/.exec(l);
     if (n) rules.add(n[1]!);
   }
-  const ds = Array.from({ length: 56 }, (_, i) => `D${i + 1}`);
+  const ds = Array.from({ length: 64 }, (_, i) => `D${i + 1}`);
   const ts = Array.from({ length: 9 }, (_, i) => `T${i + 1}`);
   return [...rules, ...laneCells(), ...ts, ...ds];
 };
@@ -169,6 +169,12 @@ const ROUND_DS = [
   "D54",
   "D55",
   "D56",
+  "D57",
+  "D58",
+  "D59",
+  "D60",
+  "D61",
+  "D64",
 ];
 const inRound = (id: string) => {
   const m = /^cell:lane\.(\w+)\./.exec(id);

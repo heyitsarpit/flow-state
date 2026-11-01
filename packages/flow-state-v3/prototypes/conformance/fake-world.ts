@@ -64,6 +64,7 @@ type Held = Request & {
   aborted?: boolean;
   lostOpen?: boolean; // the answer was lost and the server has not applied it: it may land late
   landedUnseen?: boolean; // the server applied it; nobody heard
+  refused?: boolean; // a `fail`: rule 18 says the first send may still land, so this decides nothing (M9)
   tracked?: boolean;
   resume?: ((e: E) => void) | undefined;
   process: number;
@@ -136,7 +137,17 @@ export class FakeWorld {
       later: (f) => void this.laters.push(f),
       scheduler: this.scheduler,
       storage: {
-        load: () => new Map(this.kv),
+        // M9: a store has no order. Shuffled per seed and process, for good, so rule 44's order is the runtime's own.
+        load: () => {
+          const out = [...this.kv];
+          let x = (this.seed * 2654435761 + this.process * 40503 + 1) >>> 0;
+          for (let i = out.length - 1; i > 0; i--) {
+            x = (Math.imul(x, 48271) >>> 0) % 2147483647;
+            const j = x % (i + 1);
+            [out[i], out[j]] = [out[j]!, out[i]!];
+          }
+          return new Map(out);
+        },
         write: (writes, purpose, then) => {
           const blocked = writes.some((w) =>
             this.held.some((h) => h.writes.some((x) => x.key === w.key)),
@@ -317,6 +328,7 @@ export class FakeWorld {
     }
     if ("fail" in a) {
       const { tag, ...rest } = a.fail;
+      r.refused = true;
       return Effect.fail({ _tag: tag, ...rest });
     }
     if ("lost" in a) {
@@ -418,9 +430,12 @@ export class FakeWorld {
   // Undecided at the server: never answered (from any process), or its answer was lost. An oracle reads this, not an ending.
   mayHave(): string[] {
     const open = (r: Held) => !r.answered || r.lostOpen === true || r.landedUnseen === true;
+    // A refused send of a key that was also sent before stays undecided through `decided` above.
     const keyed = this.requests.filter((r) => r.idempotencyKey !== undefined);
-    // One key, one write at the server: a definite answer to any send decides it, whatever an older send still shows.
-    const decided = new Set(keyed.filter((r) => !open(r)).map((r) => r.idempotencyKey!));
+    // One key, one write at the server: a success from any send decides it, whatever an older send still shows. A refusal does not.
+    const decided = new Set(
+      keyed.filter((r) => !open(r) && !r.refused).map((r) => r.idempotencyKey!),
+    );
     return [...new Set(keyed.filter(open).map((r) => r.idempotencyKey!))].filter(
       (k) => !decided.has(k),
     );

@@ -17,7 +17,7 @@ const arg = (k: string, d: string) => {
   return i < 0 ? d : process.argv[i + 1]!;
 };
 const here = import.meta.dir;
-const source = resolve(here, arg("--runtime", "../round-3"));
+const source = resolve(here, arg("--runtime", "../round-4"));
 const listFile = resolve(source, arg("--list", "mutants.ts"));
 const out = resolve(source, arg("--out", "mutants.json"));
 const author = arg("--author", "builder");

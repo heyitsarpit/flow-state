@@ -95,3 +95,21 @@ file:scenarios/frag.scenario.ts hash:6e574cd00382 | FRAG-20 added from the secon
 file:fixtures/lab.compiled.ts hash:2eec726a60b0 | Kick, KickAndDrop for FRAG-20
 SEARCH-PAY | mayHave lists a key while an old process's send of it is unanswered | a definite answer to any send of a key decides it | S6 failed at depth 9 on `pay ack reload advance3000 intent.truth ack pay.ok PayRequested ack`: the retry was answered ok, so nothing was undecided. The new id there is P6, pinned. Oracle wrong, not the runtime | D53
 file:fake-world.ts hash:352533d66046 | the mayHave line above
+# Round 4. Every hash line names its own reason. Red commit first; green's changes below it, each with a reason.
+MED-02, MED-04, DRV-03 | row `stalled` | Inspection's `stalled`, from `waits()` | Nothing on a row a machine cannot read should name internals; review's lean, I agree | D49 changed
+SCENARIOS | R 4..7 are streams onward | R 5..8; R 4 is the review's and real shapes | The owner moved streams behind this round | none (scenario text)
+fake | `load` in mint order | shuffled per seed and process | Review M9: the fake's order hid rule 44's test | none
+fake | a `fail` decides a key in mayHave | only a success does | Review M9, rule 18 | D53
+fixtures | Notes SetDocsThen, Comments Pin and React, `byReason` | added | Review M4, H7, M6 | none
+SEARCH-FRAG | one copy, no status check | two copies, one with a key `d2:x/y`, one request per Attempt, a copy's `saved` against the fake | Review M9: the header claimed it | D53
+DRV-03 hash:6896d81c3356 | D49: stalled moved to Inspection
+MED-02 hash:dc298d6ae40f | D49: stalled moved to Inspection
+MED-04 hash:51b91e2aa9fc | D49: stalled moved to Inspection
+file:scenarios/ctx.ts hash:1bbf41f8124d | a `stalled` read from waits
+file:scenarios/order.scenario.ts hash:2afe0ffd382b | D49 above
+file:scenarios/review.scenario.ts hash:9332fdf0752c | D49 above
+file:fake-world.ts hash:6bca0513acc0 | load shuffled; mayHave's refusal (M9)
+file:drive.ts hash:926df4eefff5 | throwInModuleAfter (L1)
+file:fixtures/compiled.ts hash:f7cf704a7201 | byReason, one format (M6)
+file:fixtures/lab.compiled.ts hash:764cadad380a | SetDocsThen (M4)
+file:fixtures/comments.compiled.ts hash:dc0d859ea623 | Pin and React (H7)

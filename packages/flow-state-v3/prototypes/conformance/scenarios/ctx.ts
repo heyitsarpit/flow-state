@@ -198,6 +198,13 @@ export class Ctx {
   endings = (op: string) => this.r.evidence("ending").filter((e) => e["op"] === op);
   lastEnding = (op: string) => this.endings(op).at(-1);
   rec = (ref: string) => this.r.record(ref);
+  // D49 (changed): Inspection's answer about a stall, not the row's.
+  stalled = (op: string, attempt?: unknown) =>
+    this.r
+      .quiet()
+      .waits.find(
+        (w) => "op" in w && w.op === op && w.stalled && (attempt === undefined || (w as any).attempt === attempt),
+      )?.stalled;
   cells = (op: string) =>
     this.r
       .evidence("lane")

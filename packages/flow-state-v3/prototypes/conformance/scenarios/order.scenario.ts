@@ -320,7 +320,7 @@ export const orderScenarios: readonly Scenario[] = [
         c.fault({ throwInModule: "ended" });
         c.answer("like", { apply: true });
         c.eq("B does not go: nobody can say it is its turn", c.reqs("like").length, 1);
-        c.eq("B's row says so", c.r.row(B, "like", { id: "i1" })?.stalled, "module");
+        c.eq("Inspection says so", c.stalled("like"), "module");
         c.to(R, "Work", { n: 1, who: "r" });
         c.eq("a machine not using it goes on", c.reqs("job").length, 1);
       },

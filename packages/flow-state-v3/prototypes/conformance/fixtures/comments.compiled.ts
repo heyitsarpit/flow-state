@@ -36,6 +36,31 @@ const Comments: Fragment = {
         Load: [{ members: t.lookup("thread", ticketKey) }],
         Loaded: [{}],
         LoadFailed: [{}],
+        // comments.trait.ts's Pin and React, as written: a domain write with an idle guard, and a plain write in a machine
+        // that uses the store. `pinned`, the strip, is a subscribe: round 5.
+        Pin: [
+          {
+            tokens: [{ op: "pin", verb: "idle", key: t.slot("on.Pin[0].guard[0]", commentKey) }],
+            members: t.commit("pin", ({ memory, event }: any) => ({
+              ticketId: memory.ticketId,
+              commentId: event.commentId,
+              pinned: event.pinned,
+            })),
+          },
+        ],
+        PinUnsure: [{ members: t.member("pin", "cancel") }],
+        React: [
+          {
+            members: t.commit("react", ({ memory, event }: any) => ({
+              ticketId: memory.ticketId,
+              commentId: event.commentId,
+              emoji: event.emoji,
+              on: event.on,
+            })),
+          },
+        ],
+        Reacted: [{}],
+        ReactUnsure: [{ members: t.member("react", "cancel") }],
         Post: [
           {
             guards: [
@@ -174,6 +199,19 @@ const opsFor = (api: Api): Record<string, Op> => {
       },
       unknown: t.mapped("post", "unknown", "PostUnsure", mine),
     }),
+    pin: write("pin", (i) => ({ ticketId: i.ticketId, commentId: i.commentId }), "reject", {
+      success: { event: "Changed" },
+      failure: {
+        CommentGone: refused("That comment was deleted"),
+        NotSent: refused("Not pinned"),
+      },
+      unknown: { event: "PinUnsure" },
+    }),
+    react: write("react", (i) => ({ ticketId: i.ticketId, commentId: i.commentId }), "reject", {
+      success: { event: "Reacted" },
+      failure: { CommentGone: { event: "Reacted" }, NotSent: { event: "Reacted" } },
+      unknown: { event: "ReactUnsure" },
+    }),
     remove: write("remove", (i) => ({ ticketId: i.ticketId, commentId: i.commentId }), "reject", {
       success: { event: "Changed" },
       failure: {
@@ -205,6 +243,14 @@ const opsFor = (api: Api): Record<string, Op> => {
 const domain = (api: Api): Compiled["domain"] => ({
   writes: {
     post: { predicts: t.slot("domain.post.predicts", () => []) },
+    pin: {
+      predicts: t.slot("domain.pin.predicts", (i: any) => [
+        { ref: commentRef(i.ticketId, i.commentId), patch: { pinned: i.pinned } },
+      ]),
+      confirms: (v: any, i: any) => [
+        { ref: commentRef(i.ticketId, i.commentId), fields: { pinned: v?.pinned ?? i.pinned } },
+      ],
+    },
     remove: {
       predicts: t.slot("domain.remove.predicts", (i: any) => [
         { ref: commentRef(i.ticketId, i.commentId), remove: true },
@@ -251,6 +297,13 @@ const server: ServerModel = {
   apply(op, i, s) {
     if (op === "post")
       return { s: { ...s, posts: [...s.posts, i.text] }, value: { clientId: i.clientId } };
+    if (op === "react") return { s, value: {} };
+    if (op === "pin") {
+      const c = s.comments[i.commentId];
+      if (!c) return { s, fail: { _tag: "CommentGone" } };
+      const row = { ...c, pinned: i.pinned };
+      return { s: { ...s, comments: { ...s.comments, [i.commentId]: row } }, value: row };
+    }
     const cur = s.comments[i.commentId];
     if (!cur) return { s, fail: { _tag: "CommentGone" } };
     if (cur.aged) return { s, fail: { _tag: "EditWindowClosed" } };

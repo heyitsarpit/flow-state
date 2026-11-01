@@ -386,7 +386,7 @@ export const reviewScenarios: readonly Scenario[] = [
           [e[0]?.["holder"], e[0]?.["waiter"]],
           [c.r.evidence("mint")[0]?.["attempt"], c.r.evidence("mint")[1]?.["attempt"]],
         );
-        c.eq("row says it", row(c, "like", B)?.stalled, "record");
+        c.eq("Inspection says it", c.stalled("like"), "record");
         c.advance(3_600_000);
         c.eq(
           "still once, still not sent",
@@ -395,7 +395,7 @@ export const reviewScenarios: readonly Scenario[] = [
         );
         c.to(A, "CancelRename", k);
         c.eq("the holder gives up: it goes", c.reqs("like").length, 1);
-        c.eq("row clears", row(c, "like", B)?.stalled, undefined);
+        c.eq("it clears", c.stalled("like"), undefined);
       },
     },
   },
@@ -468,9 +468,9 @@ export const reviewScenarios: readonly Scenario[] = [
       payTo(c);
       c.do({ storage: "hang" });
       c.advance(9_999);
-      c.eq("not yet", c.r.row(P, "pay", { intentId: "pi1" })?.stalled, undefined);
+      c.eq("not yet", c.stalled("pay"), undefined);
       c.advance(1);
-      c.eq("row says storage", c.r.row(P, "pay", { intentId: "pi1" })?.stalled, "storage");
+      c.eq("Inspection says storage", c.stalled("pay"), "storage");
       c.eq("evidence once", c.r.evidence("StorageSilent").length, 1);
       c.eq("no ending", c.endings("pay").length, 0);
       c.advance(3_600_000);

@@ -499,6 +499,10 @@ const notesMake = (api: Api): Compiled => ({
       ],
       on: {
         SetDocs: [{ patch: ({ event }: any) => ({ docs: event.docs }) }],
+        // Review M4: adoption reached from a follow-up, so a small bound meets it.
+        SetDocsThen: [
+          { followUps: [({ event }: any) => ({ tag: "SetDocs", payload: { docs: event.docs } })] },
+        ],
         SetFiles: [{ patch: ({ event }: any) => ({ files: event.files }) }],
         // Rule 60's order: a commit in a copy the same turn removes.
         KickAndDrop: [

@@ -1,4 +1,4 @@
-// bun packages/flow-state-v3/prototypes/conformance/main.ts --round 3 --runtime ../round-3/adapter.ts
+// bun packages/flow-state-v3/prototypes/conformance/main.ts --round 4 --runtime ../round-4/adapter.ts
 //   [--no-search] [--lock]. Searches run separately: search/run.ts, under watch.ts.
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
@@ -12,6 +12,7 @@ import { fragScenarios } from "./scenarios/frag.scenario.ts";
 import { reviewScenarios } from "./scenarios/review.scenario.ts";
 import { orderScenarios } from "./scenarios/order.scenario.ts";
 import { payScenarios } from "./scenarios/pay.scenario.ts";
+import { round4Scenarios } from "./scenarios/round4.scenario.ts";
 import { storeScenarios } from "./scenarios/store.scenario.ts";
 
 export type RunResult = { id: string; variant?: string; ok: boolean; why?: string; ms: number };
@@ -22,6 +23,7 @@ export const allScenarios: readonly Scenario[] = [
   ...flowScenarios,
   ...reviewScenarios,
   ...fragScenarios,
+  ...round4Scenarios,
 ];
 
 const here = import.meta.dir;
@@ -46,6 +48,7 @@ const SHARED = [
   "scenarios/flows.scenario.ts",
   "scenarios/review.scenario.ts",
   "scenarios/frag.scenario.ts",
+  "scenarios/round4.scenario.ts",
   "fake-world.ts",
   "drive.ts",
   "fixtures/compiled.ts",
@@ -61,6 +64,7 @@ const SHARED = [
   "fixtures/lab.compiled.ts",
   "fixtures/pay-full.compiled.ts",
   "fixtures/comments.compiled.ts",
+  "fixtures/real.compiled.ts",
 ];
 const lockLines = (): string[] => [
   ...allScenarios.map((s) => `${s.id} ${sha(bodyOf(s))}`),
@@ -146,7 +150,7 @@ if (import.meta.main) {
     return i < 0 ? undefined : process.argv[i + 1];
   };
   const has = (k: string) => process.argv.includes(k);
-  const round = Number(arg("--round") ?? 3);
+  const round = Number(arg("--round") ?? 4);
   const runtime = resolve(here, arg("--runtime") ?? "./null-adapter.ts");
   const mod = (await import(runtime)) as RuntimeModule;
   console.log(`runtime: ${runtime}\nbun ${Bun.version}`);

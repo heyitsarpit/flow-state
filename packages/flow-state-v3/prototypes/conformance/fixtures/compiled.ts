@@ -115,7 +115,7 @@ export type Op = {
   readonly outcomes: {
     readonly success?: Mapped;
     readonly failure: Readonly<Record<string, Mapped>>;
-    readonly unknown?: Mapped | Readonly<Record<string, Mapped>>; // one event, or by reason (rule 13)
+    readonly unknown?: Mapped | { readonly byReason: Readonly<Record<string, Mapped>> }; // one event, or by reason (rule 13, M6)
   };
 };
 export type Compiled = {

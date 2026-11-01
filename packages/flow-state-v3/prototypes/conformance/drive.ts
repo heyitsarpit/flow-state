@@ -15,7 +15,7 @@ export const makeHarness = (port: Port) => (): Harness => {
   const instances: Instance[] = [];
   const evidence: Array<Record<string, any>> = [];
   const issues: Array<{ code: string; origin?: string; input?: unknown }> = [];
-  const faults: FaultState = { moduleThrows: new Map(), coreThrows: 0 };
+  const faults: FaultState = { moduleThrows: new Map(), moduleThrowsAfter: new Map(), coreThrows: 0 };
   const throwIn = new Map<string, number>();
   const startThrows = new Set<string>();
   const armed: Array<{ segment: number; at: number; arm: () => void }> = [];
@@ -139,6 +139,8 @@ export const makeHarness = (port: Port) => (): Harness => {
       const liveCore = faults.coreThrows;
       throwIn.clear();
       faults.moduleThrows.clear();
+      const liveAfter = new Map(faults.moduleThrowsAfter);
+      faults.moduleThrowsAfter.clear();
       faults.coreThrows = 0;
       let result: { same: boolean; firstDiff?: unknown } = { same: true };
       for (let si = 0; si < instances.length; si++) {
@@ -154,6 +156,8 @@ export const makeHarness = (port: Port) => (): Harness => {
       for (const [k, v] of liveThrow) throwIn.set(k, v);
       faults.moduleThrows.clear();
       for (const [k, v] of liveModule) faults.moduleThrows.set(k, v);
+      faults.moduleThrowsAfter.clear();
+      for (const [k, v] of liveAfter) faults.moduleThrowsAfter.set(k, v);
       faults.coreThrows = liveCore;
       return result;
     },
@@ -190,6 +194,8 @@ export const makeHarness = (port: Port) => (): Harness => {
         const f = s.fault;
         if ("throwIn" in f) arm(() => void throwIn.set(f.throwIn, f.times ?? 1));
         else if ("throwInModule" in f) arm(() => void faults.moduleThrows.set(f.throwInModule, 1));
+        else if ("throwInModuleAfter" in f)
+          arm(() => void faults.moduleThrowsAfter.set(f.throwInModuleAfter, 1));
         else if ("throwInCore" in f) arm(() => void (faults.coreThrows = 1));
         else if ("startThrows" in f) startThrows.add(f.startThrows);
         else if ("afterYield" in f) yieldPlan = f.afterYield;
