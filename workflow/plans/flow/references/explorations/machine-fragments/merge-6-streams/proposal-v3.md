@@ -15,7 +15,7 @@ Marks in code are against v2: `// NEW`, `// RENAMED`, `// existing`, `// user-de
 3. **Reconnecting and the history read are declared on the contract**, and Flow runs them.
 4. **`Feed.done` needs a `proof`**, the same word as on `Feed.live`, since it claims nothing was missed.
 
-**Cost.** 29 words against v2's 24. Desk trial, code lines: feed 382 to 303 (minus 21 percent), Presence 301 to 307, Assistant unchanged, `desk.fake.ts` about +22.
+**Cost.** 29 words against v2's 24. Desk trial, code lines: feed 382 to 386, Presence 301 to 330, Assistant unchanged, once adapters live in services ([trial](trials/desk/RESULTS.md)). Total code does not shrink: the savings are in the machine and in what an author can get wrong, and the adapters move to their own files.
 
 **Look at these first.**
 
@@ -38,9 +38,13 @@ Marks in code are against v2: `// NEW`, `// RENAMED`, `// existing`, `// user-de
 | A wipe leaving a residue, such as a joined banner | Memory shape | No |
 | `[]` by accident in a handler that stays placed: read as a clear | App bug | Yes: the cursor stays too |
 | A list shortened by your own bug | App bug | Yes |
+| **A list trimmed by arrival order after a newest-first read** (C1, trial 2): `upsertAll(...).slice(-100)` keeps the oldest of the walk, then `done` moves the bookmark to the head | App | **No**: v2 required pages oldest first |
 | A guard denies a value or a page: the bookmark moves past it, with `DeliveryDenied` evidence only (rule 71, Q3) | App | Mostly: the next value moves the cursor past it |
 | `fills` names a wrong field of the right kind: wipes are misread. `FillsUntouched` flags some (3.6) | Memory shape | No |
 | Under `subscribe.each`, an evicted, quiet, empty key reads as first open (T3's bound) | Scale | No |
+| **Any keyed feed without `catchUp`:** T3's 256-entry eviction takes the oldest key's bookmark, which then reads as first open (C4, trial 2) | Scale | No |
+| **A non-persisted reload starts fresh**: a new slice, first open, no notice, and cleared or dismissed items return (C2, trial 2) | Persistence choice | Yes |
+| **Half-open with `idleTime: "Infinity"`**: nothing fires, no notice (C5, trial 2) | Source shape | Yes |
 | A read with `from` set that is not a change log; a false `Feed.done` or `Feed.live` `proof`; a lagging replica; a wrong `through` | Adapter | Yes |
 | A first read that does not reach back to registration, then a reload | Adapter | Yes |
 | An empty read with no head, outside `catchUp`; a from-now feed with no head (the desk's log today) | Source shape | Yes |
@@ -51,7 +55,7 @@ In exchange, trimmed v2 has a silent case this does not: a forgotten `cursor: un
 **Unproven.**
 - No Flow code, Story, vendor SDK or browser has run.
 - **Trial evidence is limited:** the desk code type-checks against stand-ins written from this spec, which shows the spec's words agree, not that Flow can type them. 11 "compile error" claims fire there. The agent's code was not compiled.
-- No agent has re-run on this text.
+- **Trial 2 re-ran on this text (sections 1, 2, 3, 6): 5 of 8 right first time** (`trials/agent-trial-2.md`). It found C1 (page order, 3.4), and C2, C4, C5 above. It was not compiled.
 - Ably's resume event, Phoenix's rejoin and Firestore's `fromCache` are unconfirmed.
 - Freeze, SSR payloads and the Persistence amendments are reasoned.
 - The model is small, and mine (section 11).
@@ -160,7 +164,7 @@ LIVE: {
   activities: [O.messages.subscribe(({ memory }) => ({ roomId: memory.roomId }))],   // existing. First load is catchUp, so LOADING is gone
   on: {
     Message: { target: "self", updateMemory: ({ memory, event }) => ({ messages: upsert(memory.messages, event.message) }) },   // user-defined: upsert. Required: a replay repeats
-    Page: { target: "self", updateMemory: ({ memory, event }) => ({ messages: upsertAll(memory.messages, event.messages) }) },  // user-defined
+    Page: { target: "self", updateMemory: ({ memory, event }) => ({ messages: upsertAll(memory.messages, event.messages) }) },  // user-defined: stores by position (3.4). This server's pages are oldest first
     MayHaveMissed: { target: "self", updateMemory: () => ({ notice: "Some messages may be missing." }) },   // no restartAt line
     SwitchRoom: { target: S.LIVE, updateMemory: ({ event }) => ({ roomId: event.roomId, messages: [] }) },  // releases the session: wiped. Re-read on return
     ClearChat: { target: "self", updateMemory: () => ({ messages: [] }) },   // stays placed: cleared. No flag
@@ -263,6 +267,8 @@ Each `head`, `through`, `restartAt`, `at` is typed `P` and **decoded against the
 | `Feed.done({ items, proof, through? })` | **The server said this read reached `from`.** A required string, like `Feed.live`'s, greppable and shown by Inspection. `through`: where the read ends, even in an empty room. Newest first: the walk's first head |
 | `Feed.gone({ reason, items?, next?, through? })` | The history does not reach `from`: one `missed`, then what is kept. No budget spent |
 
+**Page order (C1, trial 2).** A read's pages reach the machine in the order the server gives them, newest first or oldest first. **A handler must store by position and trim only after sorting.** `upsertAll(...).slice(-100)` after a newest-first walk keeps the oldest of the walk, and `done` then moves the bookmark to the head: silent. The Ably recipe below inserts by position.
+
 **A limit-style or snapshot endpoint must not answer `Feed.done` with `from` set** unless it can prove overlap. This is the most natural silent mistake (AT). The recipe:
 
 ```ts
@@ -316,7 +322,7 @@ catchUp: ({ roomId }, { from, signal }) => latest50(roomId, signal).pipe(Effect.
 | `messages: []` on a root or parent handler, wanting a reload | Cleared | Stays empty. **The one recipe for reload:** `O.messages.refetch(({ memory }) => ({ roomId: memory.roomId }))` |
 
 **Exactly when cleared items return. Each is visible; nothing is lost.**
-1. **A clear, a later message, then a wipe (a room switch).** The message makes the field filled again, so the wipe reads as a wipe and `catchUp` re-reads from the start. **Limit, stated.** If it matters, one line in the app, which knows its own order: `messages: upsert(memory.messages, event.message).filter(after(memory.clearedBefore))`, with `clearedBefore` a memory field the clear sets.
+1. **A clear, a later message, then a wipe (a room switch).** The message (**the user's own sends count**: a sent message that lands in the field is a later message) makes the field filled again, so the wipe reads as a wipe and `catchUp` re-reads from the start. **Limit, stated.** If it matters, one line in the app, which knows its own order: `messages: upsert(memory.messages, event.message).filter(after(memory.clearedBefore))` in `Message`, and the same `.filter(after(memory.clearedBefore))` in `Page`, since a re-read arrives as pages; `clearedBefore` is a memory field the clear sets.
 2. Clear and leave in **one** turn (`ClearAndClose`): read as a wipe. **Recipe for "stays cleared": clear in one turn, leave in the next:** `send(E.Clear); send(E.Close)`. Modelled. (`O.x.refetch` in that turn also works.)
 3. Clear during the wait for a releasing predecessor.
 4. Clear before any position is known (no `head`, no item yet).
@@ -326,7 +332,7 @@ catchUp: ({ roomId }, { from, signal }) => latest50(roomId, signal).pipe(Effect.
 
 **An accidental `[]` is permanent, and silent.** Flow cannot tell a bug from Clear. An `onError: messages: []` is the worst form. In v2 the cursor stays too: the same result.
 
-**`O.x.refetch(k?)`**, existing (`O.issues.refetch`; `machine-design.md` 2.7.3), `k` a selector returning the key fields, as on `retry` and `cancel`; under `subscribe.each`, one key's session. On a stream: forget the bookmark and read now. **`O.x.bookmark(select)`** remains only for stating a position (a read outside `catchUp`), always a selector returning the key fields and `at`.
+**`O.x.refetch(k?)`**, existing (`O.issues.refetch`; `machine-design.md` 2.7.3), `k` a selector returning the key fields, as on `retry` and `cancel`; under `subscribe.each`, one key's session. On a stream: forget the bookmark and read now. **On a feed with no `catchUp`, it empties the bookmark and re-reads nothing, with one `missed Unproven` notice.** **`O.x.bookmark(select)`** remains only for stating a position (a read outside `catchUp`), always a selector returning the key fields and `at`.
 
 ### 3.8 The row
 
@@ -395,7 +401,7 @@ One record. With no record and an empty field: first open, no notice (G10, G13, 
 
 **Convergence, RV2's stepped figures, not a table run.** Gap 20,000, 100 msg/s, 500 reads/s, oldest first with `through`: 3 connections, 50 s. 150/s: 20 connections. 90/s with budget 8: ends by budget. Newest first, frozen, default: never ended. So: **3 repairs in a row that overflow with no bookmark move give up:** the next registration is one `missed Lost`, then `Live`; live values move past what was accepted (M8).
 
-**Newest first (R16).** Older pages are never lost. Limits: V4's exception, and a windowed store (`.slice(-100)`) can evict newest entries when an older page lands: sort and trim after the read. **Reset:** with `catchUp`, after `missed Reset`, read from `restartAt`.
+**Newest first (R16).** Older pages are never lost. Limits: V4's exception, and a windowed store (`.slice(-100)`) can evict newest entries when an older page lands: store by position, trim after sorting (3.4, C1). **Reset:** with `catchUp`, after `missed Reset`, read from `restartAt`.
 
 **A first load is not one turn per item:** `pages` maps a read's page to one event (RV1 Med6). A guard on its handler loses the whole page, with evidence.
 
@@ -959,6 +965,9 @@ catchUp: ({ name }, { from, next, signal }: { from: Serial | undefined; next: Wa
       : p.hasNext && head ? Feed.more({ items, next: { page: p.next, head } })   // no through: pages are newest first
       : Feed.done({ items, proof: "walked back to from", through: head })
   })),
+// the machine's handlers: this walk is newest first, so insert by position, then trim
+Message: { target: "self", updateMemory: ({ memory, event }) => ({ messages: insertByPosition(memory.messages, [event.message]).slice(-100) }) },   // user-defined: insertByPosition sorts by serial
+Page: { target: "self", updateMemory: ({ memory, event }) => ({ messages: insertByPosition(memory.messages, event.messages).slice(-100) }) },   // the trim comes after the sort (3.4)
 ```
 
 ```ts
@@ -1178,9 +1187,9 @@ A body end is `Closed`, retried. V8: a terminator becomes a typed error outside 
 
 | Row | Result |
 | --- | --- |
-| A2 | **Ran once:** 2 of 8 right first time. Not re-run on this text |
+| A2 | **Ran twice:** 2 of 8 right first time on the earlier text; **5 of 8 on this text (trial 2)**, which found C1, C2, C4, C5. Not compiled |
 | A5 | 29, higher than v2 |
-| A6 | DT: feed code lines minus 21 percent; Presence, Assistant flat |
+| A6 | DT: total code flat (feed 382 to 386, Presence 301 to 330, Assistant unchanged); the feed machine 77 to 64 |
 | A8 | Reopen, six-key map, deadlines go |
 | A12 | `proof` required; not prevented |
 | A16 | **Declined:** section 1's table is silent if broken |
@@ -1423,4 +1432,4 @@ Serial, one process, peak about 1 GB. Files in `merge-6-streams/model/v3/` (`eve
 
 **Trials.** Agent: 8 cases from the doc, not compiled, an upper bound: 2 right first time. Desk: 3 features, 5 Stories' worth, type-checks against stand-ins, nothing executed. Their findings are answered in Q8, sections 3.4, 3.6, 3.7; the trials were on the earlier wording.
 
-**Not run:** `idleTime` by me, `pages`, `fills` beyond "list empty" (`count`, `Record`), `FillsUntouched`, O5's amendment, SSR on a payload, freeze, two placements, T7, T8, `callback`'s queue, any Flow code, Story, vendor SDK, browser. RV's figures are theirs. Persistence and SSR text is cited through the reviews. I wrote the tables and the model.
+**Trial 2 found C1** (page order, a trim after a newest-first read): it has no model case and no Story; the Ably recipe and 3.4 are the fix, unproven. **Not run:** `idleTime` by me, `pages`, `fills` beyond "list empty" (`count`, `Record`), `FillsUntouched`, O5's amendment, SSR on a payload, freeze, two placements, T7, T8, `callback`'s queue, any Flow code, Story, vendor SDK, browser. RV's figures are theirs. Persistence and SSR text is cited through the reviews. I wrote the tables and the model.

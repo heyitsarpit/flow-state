@@ -1,9 +1,11 @@
 // TRIAL (stories-amended.md): Feed Stories as transcripts of inputs and checkpoints. The world is the Desk fake; the real
 // `decodeFrame` and the contract's reconnect read the frames. feed.test.ts holds every check.
+import { Layer } from "effect";
 import { Story } from "flow-state/testing";
 import { DeskClient, DeskSetup, SessionRef, queueRef } from "../../../standin/desk-app.js";
 import { Desk, socketClient } from "../../../testing/desk.socket.fake.js";
 import { DeskFeed } from "./feed.definition.js";
+import { DeskFeedSocket } from "./feed.socket.js";
 import { feedRef } from "./feed.ref.js";
 
 const { O } = DeskFeed;
@@ -16,7 +18,10 @@ const rename = (ticketId: string, title: string) =>
   Desk.renameElsewhere({ workspaceId: "north", ticketId, title });
 
 const desk = (id: string) =>
-  Story.app(DeskSetup, { id, fixtures: [DeskClient, socketClient] }) // RENAMED: Story.make -> Story.app
+  Story.app(DeskSetup, {
+    id,
+    fixtures: [DeskClient, DeskFeedSocket.layer.pipe(Layer.provide(socketClient))],
+  }) // RENAMED: Story.make -> Story.app
     .ensure(SessionRef, { input: { userId: "dispatcher-7" } })
     .ensure(FeedNorth, { input: { workspaceId: "north" } });
 
@@ -62,6 +67,23 @@ export const logReset = desk("feed/log-reset")
   .world(Desk.resetLog(), Desk.socket.drop())
   .advance({ next: { operation: O.activity, timer: "backoff" } })
   .checkpoint("reset");
+
+// Eight quick drops end the session `Flapping` (Q5). Plain construction, as proposal-v3 section 8: a loop of `world` and `advance`
+// adds no checkpoint, so the builder's type is unchanged. `base` is a Story past its first registration.
+const base = desk("feed/flapping").checkpoint("live");
+
+export const flapped = Array.from({ length: 7 })
+  .reduce(
+    (story: typeof base) =>
+      story
+        .advance("1 second")
+        .world(Desk.socket.drop())
+        .advance({ next: { operation: O.activity, timer: "backoff" } }),
+    base,
+  )
+  .advance("1 second")
+  .world(Desk.socket.drop()) // the eighth drop ends it: no backoff left
+  .checkpoint("ended");
 
 // The token expires (close 4401): not in `reconnect.while`, so the session fails `SignedOut` and the feed stops in SIGNED_OUT.
 export const tokenExpired = desk("feed/token-expired")

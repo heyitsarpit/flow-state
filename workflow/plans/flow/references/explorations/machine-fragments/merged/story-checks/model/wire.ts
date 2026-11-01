@@ -41,6 +41,16 @@ export const WCFG = {
   finishCloses: true, //       ... closes every open connection as the network would
   finishSettles: true, //      ... settling after each
   finishOnClone: true, //      nothing from the finish phase reaches the evidence
+  finishIgnoresNew: true, //   the finish phase looks only at fibers already parked at the last cut; a fiber it starts is not reported (U3)
+  pendingCountsAsHeld: true, //a request marked to hold, still at the server, is a held item for every form of release (U2)
+  countRequeues: true, //      a count reaching n during a release's own delivery queues the rest again, under any form of release (U1)
+  pingDelivers: true, //       a ping is delivered to an Open connection when due
+  pingNotCounted: true, //     a ping takes no count of hold({ after })
+  pingNotDoubled: true, //     a ping takes no duplicate
+  pingStopsOnHold: true, //    while Silent or Closing no ping is sent
+  pingNoQueue: true, //        ... and none queues
+  pingRankFirst: true, //      a ping ranks before a client's idle deadline at an equal instant
+  pingResumes: true, //        when frames flow again the next ping is every from then
   pruneSpent: true, //         rule 5: a used-up rule is removed unless it still holds an item or silences a connection (N3)
   pruneKeepsHolding: true, //  ...and is kept while it does
   orderCopy: true, //          one outcome order, 1: a copy -> duplicate
@@ -76,21 +86,22 @@ export const WCFG = {
 
 export type Cl = "A" | "B";
 export const CLS: Cl[] = ["A", "B"];
-export const OPT = { dedupe: true };
-const MAXPOST = 3, MAXACK = 2, TURNS = 60;
+export const OPT = { dedupe: true, ping: false };
+const MAXPOST = 3, MAXACK = 2, TURNS = 60, EVERY = 2, IDLE = 2, NOWMAX = 4; // virtual time exists only for the stream's `ping` and a client's idle deadline
+let curNow = 0;
 
 export interface Rule { tgt: string; k: "hold" | "drop" | "dup"; at: "request" | "response" | "open" | "frames"; times: number; after: number; m: string; ord: number }
 export interface Req { arr: number; ep: "post" | "logout" | "ack"; cl: Cl; key: number; st: "Held" | "Server" | "HeldAnswer"; h: boolean; gone: boolean; mark: "" | "hold" | "drop"; copy: boolean; own: string; fail: boolean }
 export interface Cnt { tgt: string; n0: number; cnt: number; got: number }
-export interface Cn { st: "None" | "Opening" | "Open" | "Silent" | "Closing" | "Closed"; code: number; q: number[]; cq: number; own: string; holds: string[]; cnts: Cnt[]; dups: string[]; oarr: number }
+export interface Cn { st: "None" | "Opening" | "Open" | "Silent" | "Closing" | "Closed"; code: number; q: number[]; cq: number; own: string; holds: string[]; rx: number; pn: number; cnts: Cnt[]; dups: string[]; oarr: number }
 export interface Tr { msgs: number[]; boom: boolean; boomOpen: boolean; refuse: boolean; endOpen: boolean }
 export interface W {
-  arrc: number; natt: number; ordc: number; nack: number; oc: number; reqs: Req[]; al: number[]; r1: Rule[]; r2: Rule[]; cn: Record<Cl, Cn>; tr: Tr;
-  rx: { cl: Cl; key: number; hops: number; parked: boolean; kind: "chain" | "conn" | "gate" }[]; chain: number; ferr: number; tab: Record<Cl, boolean>;
+  now: number; arrc: number; natt: number; ordc: number; nack: number; oc: number; reqs: Req[]; al: number[]; r1: Rule[]; r2: Rule[]; cn: Record<Cl, Cn>; tr: Tr;
+  rx: { id: number; cl: Cl; key: number; hops: number; parked: boolean; kind: "chain" | "conn" | "gate" }[]; chain: number; ferr: number; tab: Record<Cl, boolean>;
 }
 export const clone = <X>(x: X): X => JSON.parse(JSON.stringify(x));
-const newCn = (): Cn => ({ st: "None", code: 0, q: [], cq: 0, own: "", holds: [], cnts: [], dups: [], oarr: 0 });
-export const winit = (): W => ({ arrc: 0, natt: 0, ordc: 0, nack: 0, oc: 0, reqs: [], al: [], r1: [], r2: [], cn: { A: newCn(), B: newCn() }, tr: { msgs: [], boom: false, boomOpen: false, refuse: false, endOpen: false }, rx: [], chain: 0, ferr: 0, tab: { A: true, B: true } });
+const newCn = (): Cn => ({ st: "None", code: 0, q: [], cq: 0, own: "", holds: [], rx: 0, pn: -1, cnts: [], dups: [], oarr: 0 });
+export const winit = (): W => ({ now: 0, arrc: 0, natt: 0, ordc: 0, nack: 0, oc: 0, reqs: [], al: [], r1: [], r2: [], cn: { A: newCn(), B: newCn() }, tr: { msgs: [], boom: false, boomOpen: false, refuse: false, endOpen: false }, rx: [], chain: 0, ferr: 0, tab: { A: true, B: true } });
 
 // ---- the 2.10.17.2 and 2.10.17.3 cells (26 and 80 defined) -------------------------------------------------------------------
 export const CALL_CELLS = ["arrive:none", "arrive:hold", "arrive:holdResp", "arrive:drop", "arrive:dropResp", "arrive:dup", "release|Held", "release|Server", "release|HeldAnswer", "releaseMatch|Held", "releaseMatch|Server", "releaseMatch|HeldAnswer",
@@ -99,7 +110,7 @@ export const SUSPENDED = ["Call|suspended|Held", "Call|suspended|Server", "Call|
 const COLS = ["None", "Opening", "Open", "Silent", "Closing", "Closed"];
 const ROWDEF: Record<string, string[]> = {
   "att:none": ["None", "Closed"], "att:hold": ["None", "Closed"], "att:drop": ["None", "Closed"], frames: COLS, close: ["Opening", "Open", "Silent"], end: ["Opening", "Open", "Silent"],
-  hold: COLS, after: COLS, release: COLS, releaseOther: ["Opening", "Open", "Silent", "Closing"], releaseMatch: COLS, releaseDrop: COLS, nth: COLS, drop: COLS, dropTimes: COLS, dup: COLS, cclose: ["Opening", "Open", "Silent", "Closing"],
+  ping: ["Open", "Silent", "Closing"], hold: COLS, after: COLS, release: COLS, releaseOther: ["Opening", "Open", "Silent", "Closing"], releaseMatch: COLS, releaseDrop: COLS, nth: COLS, drop: COLS, dropTimes: COLS, dup: COLS, cclose: ["Opening", "Open", "Silent", "Closing"],
 };
 export const CONN_CELLS = Object.entries(ROWDEF).flatMap(([r, cs]) => cs.map((c) => `Cn|${r}|${c}`));
 export const WERRORS = ["NothingHeld", "NoConnection", "InvalidCommand", "StoryFakeError", "StoryTurnLimit"];
@@ -145,14 +156,14 @@ const connOrder = (S: W, c: Ctx): Cl[] => {
   return l;
 };
 const isLive = (cn: Cn) => cn.st === "Open" || cn.st === "Silent" || cn.st === "Closing";
-const refresh = (cn: Cn) => { if (isLive(cn)) cn.st = cn.holds.length === 0 ? "Open" : cn.cq > 0 ? "Closing" : "Silent"; };
+const refresh = (cn: Cn) => { if (!isLive(cn)) return; const prev = cn.st; cn.st = cn.holds.length === 0 ? "Open" : cn.cq > 0 ? "Closing" : "Silent"; if (cn.st === "Open" && prev !== "Open" && OPT.ping && WCFG.pingResumes) cn.pn = curNow + EVERY; }; // when frames flow again the next ping is `every` from then
 const addHold = (cn: Cn, tgt: string) => { if (!cn.holds.includes(tgt)) cn.holds.push(tgt); refresh(cn); };
 function clientGets(S: W, c: Ctx, cl: Cl, key: number, via: string, fid = 0) { // the client half receives a frame; its reaction fiber is an `ack` call
-  ev(c, "cdel", { cl, key, via, fid });
+  ev(c, "cdel", { cl, key, via, fid }); S.cn[cl].rx = S.now;
   if (S.tab[cl] && S.nack < MAXACK) {
     const code = cl === "A" ? S.chain : 0; S.nack++; // HANDSET: A's fiber kind: 0-5 a promise chain of that many hops; 100 waits for A's connection to close; 101 waits for A's own calls to finish
-    if (code === 100 || code === 101) { S.rx.push({ cl, key, hops: 0, parked: true, kind: code === 100 ? "conn" : "gate" }); ev(c, "spawn", { cl, hops: 0, kind: code === 100 ? "conn" : "gate" }); }
-    else { S.rx.push({ cl, key, hops: code, parked: false, kind: "chain" }); ev(c, "spawn", { cl, hops: code, kind: "chain" }); }
+    if (code === 100 || code === 101) { S.rx.push({ id: S.nack, cl, key, hops: 0, parked: true, kind: code === 100 ? "conn" : "gate" }); ev(c, "spawn", { cl, hops: 0, kind: code === 100 ? "conn" : "gate" }); }
+    else { S.rx.push({ id: S.nack, cl, key, hops: code, parked: false, kind: "chain" }); ev(c, "spawn", { cl, hops: code, kind: "chain" }); }
   }
 }
 function setClosed(S: W, c: Ctx, cl: Cl, code: number, by: string, informClient = true) {
@@ -162,17 +173,17 @@ function setClosed(S: W, c: Ctx, cl: Cl, code: number, by: string, informClient 
 function deliverOne(S: W, c: Ctx, cl: Cl, key: number, via = "direct", count = true, force = false, skip = "") { // 17.3 rows "send frames": delivered if no hold is in effect, else queued
   const cn = S.cn[cl];
   if (cn.holds.length > 0 && !force) { cn.q.push(key); return; }
-  let times = 1; const fid = (c.fid = (c.fid ?? 0) + 1);
+  let times = 1; const fid = (c.fid = (c.fid ?? 0) + 1); const h0 = cn.holds.length;
   const di = WCFG.ownRulesNotApplied ? cn.dups.findIndex((d) => d !== skip) : (cn.dups.length ? 0 : -1);
   if (di >= 0) { if (WCFG.dupEarliestOnly) { cn.dups.splice(di, 1); times = 2; } else { times = 1 + cn.dups.length; cn.dups = []; } } // one frame takes only the earliest armed duplicate
   for (let i = 0; i < times; i++) {
-    if (cn.holds.length > 0 && !force) { cn.q.push(key); continue; } // a count was reached inside a duplicated frame
+    if ((cn.holds.length > 0 && !force) || (force && WCFG.countRequeues && cn.holds.length > h0)) { cn.q.push(key); continue; } // a count was reached inside a duplicated frame
     clientGets(S, c, cl, key, via, fid);
     if (!count) continue;
     const dec = !WCFG.afterDupTwice && i > 0 ? 0 : 1;
     for (const e of cn.cnts) { if (WCFG.ownRulesNotApplied && e.tgt === skip) continue; e.cnt -= dec; e.got += 1; }
     if (!WCFG.afterPerConn) for (const o of CLS) if (o !== cl) for (const e of S.cn[o].cnts) { e.cnt--; e.got++; if (e.cnt <= 0 && !S.cn[o].holds.includes(e.tgt)) { ev(c, "afterHit", { cl: o, n: e.n0, got: e.got }); addHold(S.cn[o], e.tgt); } }
-    for (const e of [...cn.cnts]) if (e.cnt <= 0) { ev(c, "afterHit", { cl, n: e.n0, got: e.got }); cn.cnts = cn.cnts.filter((x) => x !== e); addHold(cn, e.tgt); if (via === "release") gap(c, "U1"); }
+    for (const e of [...cn.cnts]) if (e.cnt <= 0) { ev(c, "afterHit", { cl, n: e.n0, got: e.got }); cn.cnts = cn.cnts.filter((x) => x !== e); addHold(cn, e.tgt); }
   }
   cn.cnts = cn.cnts.filter((e) => e.cnt > 0); refresh(cn);
 }
@@ -221,7 +232,7 @@ function runOpen(S: W, c: Ctx, cl: Cl, skip = "") { // `open` runs, then every s
     chk(c, "W18-refuse", (S.cn[cl].st as string) === "Closed" && S.cn[cl].code === 4403 && c.ev.some((e) => e.t === "refused" && e.cl === cl), `${cl}: refuse: 4403 must close the connection with that code and a refused record`);
     return;
   }
-  cn.st = "Open"; cn.own = ""; cn.oarr = cn.oarr || ++S.oc;
+  cn.st = "Open"; cn.own = ""; cn.oarr = cn.oarr || ++S.oc; cn.rx = S.now; cn.pn = OPT.ping ? S.now + EVERY : -1; curNow = S.now;
   const covering = S.r2.filter((r) => r.times !== 0 && frFit(cl)(r) && !(WCFG.ownRulesNotApplied && skip !== "" && r.tgt === skip)); // rule 3: not the releasing target's own rules
   if (WCFG.framesAllApply) for (const r of covering) applyFrameRule(S, c, cl, r);
   else if (covering[0]) applyFrameRule(S, c, cl, covering[0]);
@@ -348,20 +359,22 @@ function finishWorld(S: W, c: Ctx) {
   for (const t of ["handle", "post", "ack", "logout", "socket"]) { if (WCFG.finishReleases) release(S, c, t, "plain"); if (WCFG.finishSettles) settle(S, c); wakeFibers(S); }
   if (WCFG.finishCloses) { for (const cl of CLS) { const cn = S.cn[cl]; if (cn.st === "Opening") S.cn[cl] = { ...newCn(), oarr: cn.oarr }; else if (isLive(cn)) setClosed(S, c, cl, 1006, "network"); } if (WCFG.finishSettles) settle(S, c); wakeFibers(S); }
 }
-export function endRunDetail(S0: W): { host: boolean; finishLong: boolean } { // host = HostTimeWait: "still parked at the end of the run"
-  if (!S0.rx.some((x) => x.parked)) return { host: false, finishLong: false };
+export function endRunDetail(S0: W): { host: boolean } { // host = HostTimeWait: a fiber parked at the last cut is still parked after the finish (a fiber the phase itself starts is not reported, U3)
+  if (!S0.rx.some((x) => x.parked)) return { host: false };
+  const before = S0.rx.filter((x) => x.parked).map((x) => x.id);
   const S = WCFG.finishOnClone ? clone(S0) : S0;
   const c: Ctx = { rev: false, turns: 0, errs: [], cells: [], viol: [], ev: [], gaps: [], step: "finish", evals: {} };
   finishWorld(S, c);
-  return { host: S.rx.some((x) => x.parked), finishLong: c.ev.some((e) => e.t === "spawn" && e.kind === "chain" && (e.hops as number) > 3) };
+  return { host: S.rx.some((x) => x.parked && (WCFG.finishIgnoresNew ? before.includes(x.id) : true)) };
 }
 export const endRun = (S: W): boolean => endRunDetail(S).host;
-export function oracleEndRun(S: W, finishLong: boolean): boolean { // written separately: finishing wakes a fiber waiting on a held item or a connection, never a chain cut at K or real host work; a long chain started by the finish itself parks too (GAP U3)
-  return S.rx.some((f) => f.parked && f.kind === "chain") || finishLong;
+export function oracleEndRun(S: W): boolean { // written separately: finishing wakes a fiber waiting on a held item or a connection, never a chain cut at K or real host work
+  return S.rx.some((f) => f.parked && f.kind === "chain");
 }
 
 // ---- words ----------------------------------------------------------------------------------------------------------------
-const callHeld = (S: W, tgt: string) => S.reqs.filter((r) => (r.st === "Held" || r.st === "HeldAnswer") && r.own === tgt);
+const pendingMark = (r: Req) => r.st === "Server" && !r.h && r.mark === "hold"; // a request marked to hold, still at the server: a held item for every form of release (U2)
+const callHeld = (S: W, tgt: string) => S.reqs.filter((r) => ((r.st === "Held" || r.st === "HeldAnswer") || (WCFG.pendingCountsAsHeld && pendingMark(r))) && r.own === tgt);
 const connHeld = (S: W, tgt: string) => CLS.filter((cl) => { const cn = S.cn[cl]; return (cn.st === "Opening" && cn.own === tgt) || ((cn.st === "Silent" || cn.st === "Closing") && cn.holds.includes(tgt)); });
 const standing = (S: W, tgt: string): boolean => S.r1.some((r) => r.tgt === tgt) || S.r2.some((r) => r.tgt === tgt) || CLS.some((cl) => S.cn[cl].cnts.some((e) => e.tgt === tgt) || S.cn[cl].dups.includes(tgt));
 function endStanding(S: W, tgt: string) {
@@ -387,10 +400,12 @@ function wakeFibers(S: W) {
 type Mode = "plain" | "drop" | "nth" | "match";
 const wname = (m: Mode) => (m === "drop" ? "releaseDrop" : m === "nth" ? "nth" : m === "match" ? "releaseMatch" : "release");
 function releaseCalls(S: W, c: Ctx, tgt: string, mode: Mode, k: number, match: string) {
-  const items = S.reqs.filter((r) => (r.st === "Held" || r.st === "HeldAnswer") && (WCFG.releaseScoped ? r.own === tgt : true)).sort((a, b) => (WCFG.releaseArrivalOrder ? a.arr - b.arr : b.arr - a.arr));
+  const items = S.reqs.filter((r) => ((r.st === "Held" || r.st === "HeldAnswer") || (WCFG.pendingCountsAsHeld && pendingMark(r))) && (WCFG.releaseScoped ? r.own === tgt : true)).sort((a, b) => (WCFG.releaseArrivalOrder ? a.arr - b.arr : b.arr - a.arr));
   for (const r of S.reqs) if (r.st === "Server" && (tgt === "handle" || r.ep === tgt)) cell(c, `Call|${wname(mode)}|Server`);
   let sel = items;
   if (mode === "match") sel = WCFG.matchOnly ? items.filter((r) => r.cl === match) : items;
+  const pend = sel.filter(pendingMark);
+  for (const r of pend) { cell(c, `Call|${wname(mode)}|Server`); ev(c, "released", { arr: r.arr, own: r.own, tgt, mode, st: "Server", cl: r.cl, match }); if (mode === "drop") r.mark = "drop"; else r.mark = ""; r.own = ""; } // the rule ends for later arrivals; the answer is delivered once ready (dropped under drop)
   const answers = sel.filter((r) => r.st === "HeldAnswer"), reqs = sel.filter((r) => r.st === "Held");
   const kth = mode === "nth" ? items[k - 1] : undefined;
   if (mode === "nth" && kth) { // "first" orders within a kind
@@ -413,7 +428,10 @@ function releaseCalls(S: W, c: Ctx, tgt: string, mode: Mode, k: number, match: s
     else { r.mark = ""; r.own = ""; r.st = "Server"; r.h = true; ev(c, "complete", { arr: r.arr, viaRelease: true }); S.al.push(r.arr); }
   }
 }
-function flushQueue(S: W, c: Ctx, cl: Cl, order: number[], skip: string) { S.cn[cl].q = []; for (const key of order) deliverOne(S, c, cl, key, "release", true, true, skip); } // a frame counts as it is delivered; the releasing target's own rules do not apply
+function flushQueue(S: W, c: Ctx, cl: Cl, order: number[], skip: string) { // delivered while the rule stands; a count reaching n queues the rest again (U1)
+  const cn = S.cn[cl]; cn.q = []; const base = cn.holds.length;
+  for (const key of order) { if (WCFG.countRequeues && cn.holds.length > base) { cn.q.push(key); continue; } deliverOne(S, c, cl, key, "release", true, true, skip); }
+} // a frame counts as it is delivered; the releasing target's own rules do not apply
 function releaseConns(S: W, c: Ctx, tgt: string, mode: Mode, k: number, match: string, hadHold: Record<Cl, boolean>) {
   for (const cl of connOrder(S, c)) {
     const cn = S.cn[cl]; const st = cn.st;
@@ -453,6 +471,7 @@ function releaseConns(S: W, c: Ctx, tgt: string, mode: Mode, k: number, match: s
     ev(c, "releasedConn", { cl, pre, mode, nth: mode === "nth" ? k : 0, seq: c.ev.slice(start).filter((e) => e.cl === cl && (e.t === "cdel" || e.t === "cclose")).map((e) => (e.t === "cdel" ? `f${e.key}` : `c${e.code}`)), after: S.cn[cl].st });
   }
 }
+const heldIt = (r: Req) => r.st === "Held" || r.st === "HeldAnswer" || (r.st === "Server" && !r.h && r.mark === "hold"); // oracle: pending marks count (U2)
 const heldMatching = (S: W, tgt: string, match: string) => callHeld(S, tgt).some((r) => r.cl === match) || connHeld(S, tgt).some((cl) => cl === match);
 function release(S: W, c: Ctx, tgt: string, mode: Mode, k = 0, match = ""): string | null {
   const nCalls = tgt === "socket" ? 0 : callHeld(S, tgt).length, nConns = tgt === "socket" || tgt === "handle" ? connHeld(S, tgt).length : 0;
@@ -465,9 +484,9 @@ function release(S: W, c: Ctx, tgt: string, mode: Mode, k = 0, match = ""): stri
   } else if (nCalls === 0 && nConns === 0 && WCFG.nothingHeld && !standing(S, tgt)) err = "NothingHeld"; // rule 4: it ends no rule and delivers no item
   const pre = wkey(S);
   // oracles, from the state alone: nth needs k in some queue; match needs a held item of the target that matches; a plain release needs something held or a rule, count or armed duplicate of the target to end
-  const heldCall = S.reqs.some((r) => (r.st === "Held" || r.st === "HeldAnswer") && r.own === tgt), heldConn = CLS.some((cl) => (tgt === "socket" || tgt === "handle") && ((S.cn[cl].st === "Opening" && S.cn[cl].own === tgt) || ((S.cn[cl].st === "Silent" || S.cn[cl].st === "Closing") && S.cn[cl].holds.includes(tgt))));
-  const expectErr = mode === "nth" ? (tgt === "socket" ? !CLS.some((cl) => S.cn[cl].holds.includes(tgt) && (S.cn[cl].st === "Silent" || S.cn[cl].st === "Closing") && S.cn[cl].q.length >= k) : S.reqs.filter((r) => (r.st === "Held" || r.st === "HeldAnswer") && r.own === tgt).length < k)
-    : mode === "match" ? !(S.reqs.some((r) => (r.st === "Held" || r.st === "HeldAnswer") && r.own === tgt && r.cl === match) || CLS.some((cl) => cl === match && (tgt === "socket" || tgt === "handle") && ((S.cn[cl].st === "Opening" && S.cn[cl].own === tgt) || ((S.cn[cl].st === "Silent" || S.cn[cl].st === "Closing") && S.cn[cl].holds.includes(tgt)))))
+  const heldCall = S.reqs.some((r) => heldIt(r) && r.own === tgt), heldConn = CLS.some((cl) => (tgt === "socket" || tgt === "handle") && ((S.cn[cl].st === "Opening" && S.cn[cl].own === tgt) || ((S.cn[cl].st === "Silent" || S.cn[cl].st === "Closing") && S.cn[cl].holds.includes(tgt))));
+  const expectErr = mode === "nth" ? (tgt === "socket" ? !CLS.some((cl) => S.cn[cl].holds.includes(tgt) && (S.cn[cl].st === "Silent" || S.cn[cl].st === "Closing") && S.cn[cl].q.length >= k) : S.reqs.filter((r) => heldIt(r) && r.own === tgt).length < k)
+    : mode === "match" ? !(S.reqs.some((r) => heldIt(r) && r.own === tgt && r.cl === match) || CLS.some((cl) => cl === match && (tgt === "socket" || tgt === "handle") && ((S.cn[cl].st === "Opening" && S.cn[cl].own === tgt) || ((S.cn[cl].st === "Silent" || S.cn[cl].st === "Closing") && S.cn[cl].holds.includes(tgt)))))
     : !(heldCall || heldConn || standing(S, tgt));
   chk(c, "W11-nothing-held", (err === "NothingHeld") === expectErr, `${tgt}.release ${mode}${k || ""}${match}: error=${err}, expected ${expectErr}`);
   if (err) return err;
@@ -481,6 +500,7 @@ function release(S: W, c: Ctx, tgt: string, mode: Mode, k = 0, match = ""): stri
   const rel = c.ev.filter((e) => e.t === "released");
   chk(c, "W10-release-scoped", rel.every((e) => e.own === e.tgt), "released an item owned by another target");
   if (mode !== "match") chk(c, "W10-release-ends-own-rules", !S.r1.concat(S.r2).some((r) => r.tgt === tgt) && !CLS.some((cl) => S.cn[cl].cnts.some((e) => e.tgt === tgt) || S.cn[cl].holds.includes(tgt) && S.cn[cl].st !== "Closed"), "a standing rule, count or hold of the target survived its release");
+  if (mode !== "match") chk(c, "W11-no-pending-mark-survives-release", !S.reqs.some((r) => r.st === "Server" && !r.h && r.mark === "hold" && r.own === tgt), `a request marked to hold by ${tgt} still holds after its release`);
   chk(c, "W11-release-did-something", wkey(S) !== pre || mode === "match", `${tgt}.release ${mode} changed nothing and raised nothing`);
   return null;
 }
@@ -586,7 +606,7 @@ export function word(S: W, c: Ctx, tgt: string, verb: string, opts: string[]): s
 
 // ---- steps ----------------------------------------------------------------------------------------------------------------
 export function wapply(S0: W, label: string, rev = false): { s: W; c: Ctx; err?: string } {
-  const S = clone(S0); pending.clear();
+  const S = clone(S0); pending.clear(); curNow = S.now;
   const c: Ctx = { rev, turns: 0, errs: [], cells: [], viol: [], ev: [], gaps: [], step: label, evals: {} };
   const fail = (e: string) => ({ s: S0, c, err: e });
   const finish = () => { if (c.errs.length) return { s: S0, c, err: c.errs[0] }; canonArr(S); return { s: S, c }; };
@@ -605,6 +625,7 @@ export function wapply(S0: W, label: string, rev = false): { s: W; c: Ctx; err?:
     }
     if (w[0] === "connect") { const cl = w[1] as Cl; if (!S.tab[cl]) return "TabClosed"; const st = S.cn[cl].st; if (st !== "None" && st !== "Closed") return "NoMore"; attempt(S, c, cl); return null; }
     if (w[0] === "cclose") { const cl = w[1] as Cl; const st = S.cn[cl].st; if (st === "None" || st === "Closed") return "NoMore"; clientCloses(S, c, cl); return null; }
+    if (w[0] === "advance") return advanceOne(S, c);
     if (w[0] === "w") {
       const [tgt, rest] = w[1]!.split("."); const [verb, ...opts] = rest!.split(":");
       if (tgt === "ctl") {
@@ -625,6 +646,39 @@ export function wapply(S0: W, label: string, rev = false): { s: W; c: Ctx; err?:
     if (e) { if (e !== "NoMore") c.errs.push(e); return fail(e); }
   }
   settle(S, c); prune(S); invariants(S0, S, c); return finish();
+}
+// time exists for the stream's `ping` (rank 1) and a client's idle deadline (a later rank): one tick per `advance 1`
+function advanceOne(S: W, c: Ctx): string | null {
+  if (S.now >= NOWMAX) return "NoMore";
+  S.now++; curNow = S.now;
+  const due: Record<Cl, boolean> = { A: false, B: false };
+  for (const cl of CLS) { const cn = S.cn[cl]; due[cl] = OPT.ping && cn.st === "Open" && cn.pn >= 0 && cn.pn <= S.now; }
+  ev(c, "tick", { due: { ...due } });
+  const pings = () => {
+    for (const cl of connOrder(S, c)) {
+      const cn = S.cn[cl];
+      if (!(isLive(cn) && OPT.ping && cn.pn >= 0 && cn.pn <= S.now)) continue;
+      ccell(c, "ping", cn.st);
+      if (cn.st === "Open") {
+        if (!WCFG.pingDelivers) continue;
+        ev(c, "ping", { cl, st: "Open" }); cn.rx = S.now; cn.pn = S.now + EVERY;
+        if (!WCFG.pingNotCounted) for (const e of cn.cnts) { e.cnt--; e.got++; } // the mutant counts a ping
+        if (!WCFG.pingNotDoubled && cn.dups.length) cn.dups.shift(); // the mutant lets a ping take a duplicate
+      } else {
+        if (!WCFG.pingStopsOnHold) { ev(c, "ping", { cl, st: cn.st }); cn.rx = S.now; }
+        if (!WCFG.pingNoQueue) cn.q.push(0); // the mutant queues a ping
+      }
+      settle(S, c);
+    }
+  };
+  const idles = () => {
+    for (const cl of connOrder(S, c)) {
+      const cn = S.cn[cl];
+      if (isLive(cn) && S.now - cn.rx >= IDLE) { ev(c, "idle", { cl, pingDue: due[cl] }); clientCloses(S, c, cl); settle(S, c); }
+    }
+  };
+  if (WCFG.pingRankFirst) { pings(); idles(); } else { idles(); pings(); }
+  return null;
 }
 function clientCloses(S: W, c: Ctx, cl: Cl) { // 17.3 last row: the client closes (release) or its tab closes
   const cn = S.cn[cl]; if (cn.st === "None" || cn.st === "Closed") return;
@@ -685,6 +739,19 @@ function invariants(S0: W, S: W, c: Ctx) {
     if (pre.otherLeft && mode !== "match") chk(c, "W10-other-hold-state", e.after === pre.st, `${e.cl}: another hold is left, so it must stay ${pre.st}, got ${e.after}`);
     if (mode === "match" && pre.st === "Closing") chk(c, "W25-match-close-waits", e.after === "Closing", `${e.cl}: under release({ match }) the close waits until no hold is left, got ${e.after}`);
   }
+  if (c.step === "advance 1") { // ping (v3): rank first, takes no count and no duplicate, stopped by a hold, resumes `every` from then
+    const tick = E.find((e) => e.t === "tick");
+    for (const cl of CLS) {
+      const a = S0.cn[cl], b = S.cn[cl], pinged = E.some((e) => e.t === "ping" && e.cl === cl), idled = E.some((e) => e.t === "idle" && e.cl === cl);
+      if (tick && (tick.due as Record<Cl, boolean>)[cl]) chk(c, "W26-ping-delivered-when-due", pinged || idled && false, `${cl}: a ping was due on an Open connection and was not delivered`);
+      if (pinged && isLive(b) && !idled && E.filter((e) => e.t === "cdel" && e.cl === cl).length === 0) { chk(c, "W26-ping-not-counted", JSON.stringify(a.cnts) === JSON.stringify(b.cnts), `${cl}: a ping moved a count`); chk(c, "W26-ping-not-doubled", JSON.stringify(a.dups) === JSON.stringify(b.dups), `${cl}: a ping took a duplicate`); }
+      if ((a.st === "Silent" || a.st === "Closing") && isLive(b) && (b.st === a.st)) { chk(c, "W26-ping-stops-on-hold", !pinged, `${cl}: a ping was sent while ${a.st}`); chk(c, "W26-ping-queues-nothing", JSON.stringify(a.q) === JSON.stringify(b.q), `${cl}: a ping queued while ${a.st}`); }
+    }
+    for (const e of E) if (e.t === "idle") chk(c, "W26-ping-ranks-first", !e.pingDue, `${e.cl}: the client's idle deadline fired at an instant when a ping was due: the ping must come first and keep the connection alive`);
+  }
+  if (OPT.ping) for (const cl of CLS) { const a = S0.cn[cl], b = S.cn[cl]; if ((a.st === "Silent" || a.st === "Closing") && b.st === "Open" && c.step !== "advance 1") chk(c, "W26-ping-resumes-every-from-then", b.pn === S.now + EVERY, `${cl}: frames flow again, the next ping is at ${b.pn}, not ${S.now + EVERY}`); }
+  // U1: a count reaching n during a release's own delivery queues the rest again: nothing is delivered by that release to that connection after the count was reached
+  for (const e of E) if (e.t === "releasedConn") { const cl = e.cl as Cl; const hit = E.findIndex((x) => x.t === "afterHit" && x.cl === cl && idx(x) > E.indexOf(e) - 60); const lastRel = E.map((x, i) => (x.t === "cdel" && x.cl === cl && x.via === "release" ? i : -1)).reduce((m, i) => Math.max(m, i), -1); if (hit >= 0 && E[hit]!.t === "afterHit") chk(c, "W8-count-reached-requeues", lastRel < hit || lastRel === -1, `${cl}: a release delivered a frame after a count had reached n`); }
   // one frame is never delivered three times: it takes only the earliest armed duplicate
   for (const cl of CLS) { const per = new Map<number, number>(); for (const e of E) if (e.t === "cdel" && e.cl === cl && (e.fid as number) > 0) per.set(e.fid as number, (per.get(e.fid as number) ?? 0) + 1); for (const [k, n] of per) chk(c, "W8-dup-never-thrice", n <= 2, `client ${cl}: one frame (delivery ${k}) arrived ${n} times`); }
   // a count pauses while the connection is silent: no delivery to it, no movement

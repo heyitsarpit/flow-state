@@ -1,6 +1,8 @@
 // TRIAL (stories-amended.md): Presence Stories, the watcher alone over the collaboration fake. Transcripts; presence.test.ts reads them.
+import { Layer } from "effect";
 import { Story, type Step } from "flow-state/testing";
 import { Collab, CollabFake } from "../../testing/presence.fake.js";
+import { PresenceChannel } from "./presence.channel.js";
 import { Presence } from "./presence.definition.js";
 import { PresenceMachine } from "./presence.machine.js";
 
@@ -13,7 +15,12 @@ const CHANNEL = "ticket:north:T-42";
 export const ben = { id: "dispatcher-3", name: "Ben" };
 
 const watching = (id: string, world: ReadonlyArray<Step> = []) =>
-  Story.machine(PresenceMachine, { id, input: T42, fixtures: [CollabFake], world }); // RENAMED: Story.make -> Story.machine
+  Story.machine(PresenceMachine, {
+    id,
+    input: T42,
+    fixtures: [PresenceChannel.layer.pipe(Layer.provide(CollabFake))],
+    world,
+  }); // RENAMED: Story.make -> Story.machine
 
 // The attach greets with "attached" and the members; a join adds one, and its badge copy flashes.
 export const joined = watching("presence/joined")
@@ -35,10 +42,10 @@ export const sdkGaveUp = watching("presence/sdk-gave-up")
   .world(Collab.fail({ channel: CHANNEL, reason: "token revoked" }))
   .checkpoint("ended");
 
-// Typing, both ways. A burst of 3,000 messages on the 1,024 bound (was 400 on 256): the SDK awaits each listener's promise,
+// Typing, both ways. A burst of 1,025 messages, one past the 1,024 bound (was 400 on 256): the SDK awaits each listener's promise,
 // `emit`'s promise waits for room, so nothing overflows. And this tab's own keystrokes are pings under `allow`.
 export const typing = watching("presence/typing")
-  .world(Collab.typingBurst({ channel: CHANNEL, memberId: "dispatcher-2", count: 3_000 }))
+  .world(Collab.typingBurst({ channel: CHANNEL, memberId: "dispatcher-2", count: 1_025 }))
   .checkpoint("typing")
   .world(Collab.publish.hold({ at: "response" }))
   .send(

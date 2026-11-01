@@ -9,7 +9,7 @@ const env = (k: string) => (typeof process !== "undefined" ? process.env[k] : un
 const QUICK = !!env("QUICK");
 const D = (n: number) => (env("DEPTH") ? Number(env("DEPTH")) : QUICK ? Math.max(3, n - 2) : n);
 
-interface Cfg { name: string; dedupe: boolean; steps: string[]; depth: number; maxStates: number; root?: number }
+interface Cfg { ping?: boolean; name: string; dedupe: boolean; steps: string[]; depth: number; maxStates: number; root?: number }
 const POST = ["post A", "post B"];
 const CALLS = ["w post.hold", "w post.hold:resp", "w post.drop", "w post.drop:resp", "w post.dup", "w post.hold:B", "w post.release", "w post.release:drop", "w post.release:nth2", "w post.release:A"];
 const RECOV = ["w handle.release", "w post.release", "w ack.release", "w socket.release", "cclose A", "cclose B", "w ctl.boom"];
@@ -17,11 +17,12 @@ const CONFIGS: Cfg[] = [
   { name: "Calls[dedupe]", dedupe: true, depth: D(6), maxStates: 200000, steps: [...POST, "cancel A", "closeTab A", "together post A+post B", "together post A+cancel A", "together post A+w post.release", "together post B+w post.release:nth2", "together post A+w post.release:drop", "together post A+w post.release:A", ...CALLS, "w ctl.boom"] },
   { name: "Calls[nodedupe]", dedupe: false, depth: D(5), maxStates: 150000, steps: [...POST, "cancel A", "together post A+post B", "w post.dup", "w post.hold", "w post.release", "w post.drop:resp", "w post.hold:resp", "w post.release:drop", "w handle.dup", "w ctl.boom", "connect B", "closeTab A"] },
   { name: "Calls[ack]", dedupe: true, depth: D(6), maxStates: 200000, steps: ["connect A", "connect B", "post A", "post B", "w ack.hold", "w ack.release", "w ack.drop", "w ack.dup", "w post.hold:resp", "w post.release", "w ack.release:nth2", "together post A+post B", "w ctl.boom", "w ack.hold:resp"] },
-  { name: "Frames", dedupe: true, depth: D(6), maxStates: 200000, steps: ["connect A", "connect B", "post A", "post B", "logout B", "w socket.hold", "w socket.hold:after1", "w socket.hold:after2", "w socket.hold:t1", "w socket.hold:A", "w socket.dup", "w socket.release", "w socket.release:drop", "w socket.release:nth2", "w socket.release:A", "w handle.hold", "w handle.release", "cclose A", "w ctl.finish", "w socket.drop"] },
+  { name: "Frames", dedupe: true, depth: D(6), maxStates: 200000, steps: ["connect A", "connect B", "post A", "post B", "logout B", "w socket.hold", "w socket.hold:after1", "w socket.hold:after2", "w socket.hold:t1", "w socket.hold:A", "w socket.dup", "w socket.release", "w socket.release:drop", "w socket.release:nth2", "w socket.release:A", "w handle.hold", "w handle.release", "w handle.release:A", "together post B+w handle.hold", "cclose A", "w ctl.finish", "w socket.drop"] },
   { name: "Closing", dedupe: true, depth: D(7), maxStates: 200000, steps: ["connect A", "connect B", "post A", "post B", "logout A", "logout B", "w ctl.finish", "w socket.hold", "w socket.release", "w socket.release:drop", "w socket.release:nth2", "w socket.drop", "w socket.dup", "cclose A", "w socket.hold:after1", "w socket.hold:after2", "w socket.release:A", "w handle.hold", "w handle.release"] },
   { name: "Handle", dedupe: true, depth: D(6), maxStates: 200000, steps: ["connect A", "connect B", "post A", "post B", "w handle.hold", "w handle.drop", "w handle.drop:always", "w handle.drop:times2", "w handle.dup", "w handle.release", "w handle.release:drop", "w handle.release:A", "w post.hold", "w post.release", "w socket.hold", "w socket.release", "w socket.release:A", "w socket.hold:open", "w socket.drop:open", "w socket.drop:times2", "w socket.drop", "cclose A", "cclose B"] },
   { name: "Open", dedupe: true, depth: D(6), maxStates: 200000, steps: ["connect A", "connect B", "post A", "post B", "w ctl.refuse", "w ctl.endOpen", "w ctl.boomOpen", "w ctl.boom", "w socket.hold", "w socket.release", "w socket.release:drop", "w socket.hold:open", "w socket.hold:after1", "w socket.drop", "w socket.drop:times2", "cclose A", "cclose B", "w socket.hold:after-1", "w socket.hold:after0", "logout A", "w ctl.finish"] },
   { name: "Nth", dedupe: true, depth: D(8), maxStates: 100000, steps: ["connect A", "connect B", "post A", "w socket.hold:open:A", "w socket.hold", "w socket.release:nth2", "w socket.release", "w socket.drop", "post B"] },
+  { name: "Ping", ping: true, dedupe: true, depth: D(8), maxStates: 120000, steps: ["connect A", "connect B", "post B", "advance 1", "w socket.hold", "w socket.release", "w socket.hold:after1", "w socket.dup", "w handle.hold", "w handle.release", "cclose A", "w socket.release:A", "w socket.hold:A", "logout A"] },
   { name: "Pump", dedupe: true, depth: D(6), maxStates: 200000, steps: ["connect A", "connect B", "post A", "post B", "w ctl.chain:0", "w ctl.chain:1", "w ctl.chain:3", "w ctl.chain:4", "w ctl.chain:5", "w ctl.chain:100", "w ctl.chain:101", "w post.hold:A", "w handle.hold", "w handle.release", "w ack.hold", "w ack.release", "together post A+post B", "w socket.hold", "w socket.release", "w post.hold", "w post.release", "cclose A", "closeTab A"] },
 ];
 
@@ -32,7 +33,7 @@ const cells = new Set<string>(), errors = new Map<string, string[]>(), gaps = ne
 const FAILPAIRS: string[] = [];
 
 function explore(cfg: Cfg): Res {
-  const t0 = performance.now(); OPT.dedupe = cfg.dedupe;
+  const t0 = performance.now(); OPT.dedupe = cfg.dedupe; OPT.ping = !!cfg.ping;
   const seen = new Map<string, number>(), nodes: string[] = [], parent: number[] = [], lab: string[] = [], dep: number[] = []; // nodes are their keys (parsed when expanded): memory
   const myFails = new Map<string, string[]>(); fails.set(cfg.name, myFails);
   const trace = (i: number, last?: string) => { const p: string[] = []; for (let j = i; j > 0; j = parent[j]!) p.push(lab[j]!); p.reverse(); if (last) p.push(last); return p; };
@@ -40,8 +41,7 @@ function explore(cfg: Cfg): Res {
   const add = (s: W, par: number, l: string, d: number): number => {
     const k = wkey(s); const e = seen.get(k); if (e !== undefined) return e; const i = nodes.length;
     { // W24: every state may be the end of a run: HostTimeWait is classified once, there, from the world
-      const before = wkey(s), det = endRunDetail(s), got = det.host, want = oracleEndRun(s, det.finishLong);
-      if (det.finishLong && !gaps.has("U3")) gaps.set("U3", [cfg.name, ...trace(par, l)]);
+      const before = wkey(s), det = endRunDetail(s), got = det.host, want = oracleEndRun(s);
       evals["W24-finish-leaves-no-evidence"] = (evals["W24-finish-leaves-no-evidence"] ?? 0) + 1; if (wkey(s) !== before && !myFails.has("W24-finish-leaves-no-evidence")) myFails.set("W24-finish-leaves-no-evidence", [...trace(par, l), "   [the finish phase changed the state: it must not reach the evidence]"]); evals["W24-end-of-run-classification"] = (evals["W24-end-of-run-classification"] ?? 0) + 1;
       if (s.rx.some((x) => x.parked)) { evals["W24-end-of-run-with-parked-fiber"] = (evals["W24-end-of-run-with-parked-fiber"] ?? 0) + 1; const key = got ? "HostTimeWait" : "parked-but-woken-by-finish"; if (!verdicts.has(key)) verdicts.set(key, [cfg.name, ...trace(par, l)]); }
       if (got !== want && !myFails.has("W24-end-of-run-classification")) myFails.set("W24-end-of-run-classification", [...trace(par, l), `   [classified ${got}, the world says ${want}]`]);

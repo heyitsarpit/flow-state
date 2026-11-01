@@ -18,23 +18,24 @@ export const DeskFeed = definition({
     FeedEnded: {},
     SessionExpired: {},
     Reopen: {},
-    // CUT: Healthy
+    Healthy: {}, // Q5's recipe: the delay's reset is the machine's
   },
   memory: {
     workspaceId: Flow.input(Schema.String),
     activity: Flow.initial(Schema.Array(ActivityEntry), []), // oldest first, stored by id
-    // CUT: cursor, reopenInMs
+    // CUT: cursor
     notice: Flow.initial(Schema.String, ""),
+    reopenInMs: Flow.initial(Schema.Int, 1000), // Q5: escalating re-open stays a machine recipe
   },
   operations: ({ E }) => ({
     changes: TicketFeed.changes.outcomes({
-      failure: { SignedOut: E.SessionExpired, Feed: E.FeedEnded }, // was six entries; SocketDropped is retried by the default
+      failure: { SignedOut: E.SessionExpired, SocketDropped: E.FeedEnded, Feed: E.FeedEnded }, // exhaustive over E; SocketDropped is unreached under the default
     }),
     activity: activity.outcomes({
       value: E.Entry.from((entry) => ({ entry })),
       missed: E.MayHaveMissed,
-      fills: "activity", // NEW: fills. The memory field this feed fills
-      failure: { SignedOut: E.SessionExpired, Feed: E.FeedEnded },
+      fills: "activity", // NEW: fills. A field of this memory, an array: a wrong name does not compile
+      failure: { SignedOut: E.SessionExpired, SocketDropped: E.FeedEnded, Feed: E.FeedEnded },
     }),
   }),
 });

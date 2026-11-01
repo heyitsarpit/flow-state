@@ -39,6 +39,7 @@ export const socket = Fake.stream({
 
     return { frames: [greeting, ...replay] }; // NEW: an object, not [truth, frames, { accept: true }]
   },
+  ping: { every: "20 seconds", frame: { t: "ping" } }, // NEW: ping. The server pings every 20 s, and `idleTime` is 45 s: without it every Story's clock trips `Silent`
 });
 
 // The tail of the log a step appended. A reset restarts at seq 1 and appends nothing.
@@ -47,9 +48,10 @@ const appended = (before: FakeTruth, after: FakeTruth) =>
     ? after.desk.log.filter((item) => item.event.cursor.seq >= before.desk.nextSeq)
     : [];
 
-// NEW: what `pushes` did, now called by each handler or control that appends to the log.
-export const pushed = (before: FakeTruth, after: FakeTruth) =>
-  appended(before, after).map((item) =>
+// NEW: what `pushes` did, as the spec's 6-line helper (Q8): the result a handler returns, `{ truth, send }`. A call adds `response`.
+export const pushed = (before: FakeTruth, after: FakeTruth) => ({
+  truth: after,
+  send: appended(before, after).map((item) =>
     socket.frames(
       (c) => c.workspaceId === item.workspaceId,
       [
@@ -57,7 +59,8 @@ export const pushed = (before: FakeTruth, after: FakeTruth) =>
         { t: "activity", entry: item.entry },
       ],
     ),
-  );
+  ),
+});
 
 const ticketKey = { workspaceId: Schema.String, ticketId: Schema.String };
 
@@ -77,13 +80,13 @@ export const socketControls = {
 };
 
 // One of the controls that spread into `Desk` from desk.fake.ts; the other nine writers (saveTitle, assign, assignBatch, closeMany,
-// postComment, createTicket, changeElsewhere, removeElsewhere, commentsElsewhere) take the same two lines.
+// postComment, createTicket, changeElsewhere, removeElsewhere, commentsElsewhere) take the same one line.
 export const renameElsewhere = Fake.control(
   { ...ticketKey, title: Schema.String, by: Schema.optionalKey(Schema.String) },
   (truth: FakeTruth, { title, by = "dispatcher-2", ...key }) => {
     const next = withDesk(truth, Server.changeElsewhere(truth.desk, key, { title }, by)[0]);
 
-    return { truth: next, send: pushed(truth, next) };
+    return pushed(truth, next); // one line per writer
   },
 );
 

@@ -85,7 +85,7 @@ OK   W matchOnly: release({ match }) leaves the rest held (Calls[dedupe]): a mat
 OK   W releaseAnswersFirst: released answers join before released handlers run (G3) (Calls[dedupe]): a released request's handler runs before a released answer joins
       newly failing: W3-released-answers-before-released-handlers [Calls[dedupe]]
       changed: none
-        e.g. W3-released-answers-before-released-handlers: w post.hold:resp ; together post A+w post.release ; w post.hold ; together post A+w post.release   [a released request's handler ran before a released answer joined the list]
+        e.g. W3-released-answers-before-released-handlers: w post.hold:B ; w post.hold:resp ; post A ; together post B+w post.release:nth2   [a released request's handler ran before a released answer joined the list]
 OK   W nothingHeld: release with nothing held and nothing standing is NothingHeld (Calls[dedupe]): a release with nothing to do is fine
       newly failing: W11-nothing-held [Calls[dedupe]]; W11-release-did-something [Calls[dedupe]]
       changed: none
@@ -109,7 +109,7 @@ OK   W orderHold: marked to hold before gone (G1) (Calls[dedupe]): a hold-marked
 OK   W orderDrop: marked to drop (Calls[dedupe]): a drop-marked answer reaches the client
       newly failing: W12-outcome-order [Calls[dedupe]]
       changed: none
-        e.g. W12-outcome-order: w post.drop:resp ; post A   [answer: copy=false mark=drop gone=false: got list, the one order says dropped]
+        e.g. W12-outcome-order: w post.hold:resp ; together post A+w post.release:drop   [answer: copy=false mark=drop gone=false: got list, the one order says dropped]
 OK   W orderGone: gone is orphan (Calls[dedupe]): a gone client is answered
       newly failing: W12-outcome-order [Calls[dedupe]]
       changed: none
@@ -217,7 +217,7 @@ OK   W dupEarliestOnly: one frame takes only the earliest armed duplicate (N5) (
 OK   W nthWithinKind: nth orders within a kind; answers still join first (N2) (Calls[dedupe]): the k-th Held request's handler runs before the released answers join
       newly failing: W3-released-answers-before-released-handlers [Calls[dedupe]]
       changed: none
-        e.g. W3-released-answers-before-released-handlers: w post.hold:resp ; together post A+w post.release ; w post.hold ; together post B+w post.release:nth2   [a released request's handler ran before a released answer joined the list]
+        e.g. W3-released-answers-before-released-handlers: w post.hold:B ; w post.hold:resp ; post A ; together post B+w post.release:nth2   [a released request's handler ran before a released answer joined the list]
 MISS W handleReleaseOrder: a handle's release reaches queues, then answers, then requests (RV3 L2) (Handle): a handle's release walks calls before connection queues
       newly failing: none
       changed: none
@@ -234,15 +234,54 @@ OK   W finishSettles: the finish phase settles after each step (Pump): released 
       changed: none
         e.g. W24-end-of-run-classification: connect A ; w ctl.chain:101 ; w post.hold:A ; together post A+post B ;    [classified true, the world says false]
 OK   W finishOnClone: nothing from the finish phase reaches the evidence (Pump): the finish phase mutates the run's own state
-      newly failing: W24-finish-leaves-no-evidence [Pump]
+      newly failing: W24-end-of-run-classification [Pump]; W24-finish-leaves-no-evidence [Pump]
       changed: none
-        e.g. W24-finish-leaves-no-evidence: connect A ; w ctl.chain:4 ; post B ;    [the finish phase changed the state: it must not reach the evidence]
+        e.g. W24-end-of-run-classification: connect A ; w ctl.chain:100 ; post B ; w ctl.chain:4 ; w handle.hold ; post B ;    [classified false, the world says true]
+OK   W finishIgnoresNew: the finish phase reports only fibers parked at the last cut (U3) (Pump): a long chain started by the finish phase is reported
+      newly failing: W24-end-of-run-classification [Pump]
+      changed: none
+        e.g. W24-end-of-run-classification: connect A ; w ctl.chain:100 ; post B ; w ctl.chain:4 ; w handle.hold ; post B ;    [classified true, the world says false]
+OK   W pendingCountsAsHeld: a request marked to hold, still at the server, is a held item for every release (U2) (Calls[dedupe]): release() over such a request is NothingHeld or leaves its mark
+      newly failing: W11-no-pending-mark-survives-release [Calls[dedupe]]; W11-nothing-held [Calls[dedupe]]
+      changed: none
+        e.g. W11-no-pending-mark-survives-release: w post.hold:resp ; together post A+w post.release   [a request marked to hold by post still holds after its release]
+MISS W countRequeues: a count reaching n during a release's own delivery queues the rest again (U1) (Frames): release({ match }) delivers past a count reaching n
+      newly failing: none
+      changed: none
+OK   W pingDelivers: a ping is delivered when due (Ping): no ping reaches an Open connection
+      newly failing: W26-ping-delivered-when-due [Ping]; W26-ping-ranks-first [Ping]
+      changed: none
+        e.g. W26-ping-delivered-when-due: connect A ; advance 1 ; advance 1   [A: a ping was due on an Open connection and was not delivered]
+OK   W pingNotCounted: a ping takes no count of hold({ after }) (Ping): a ping counts toward after
+      newly failing: W26-ping-not-counted [Ping]; W8-after-counts-n [Ping]; W8-count-is-per-connection [Ping]
+      changed: none
+        e.g. W26-ping-not-counted: connect A ; advance 1 ; w socket.hold:after1 ; advance 1   [A: a ping moved a count]
+OK   W pingNotDoubled: a ping takes no duplicate (Ping): a ping takes an armed duplicate
+      newly failing: W26-ping-not-doubled [Ping]
+      changed: none
+        e.g. W26-ping-not-doubled: connect A ; advance 1 ; w socket.dup ; advance 1   [A: a ping took a duplicate]
+OK   W pingStopsOnHold: a hold stops pings (Ping): pings reach a Silent or Closing connection
+      newly failing: W26-ping-stops-on-hold [Ping]
+      changed: none
+        e.g. W26-ping-stops-on-hold: connect A ; advance 1 ; w socket.hold ; advance 1   [A: a ping was sent while Silent]
+OK   W pingNoQueue: a ping never queues (Ping): a ping queues behind a hold
+      newly failing: W26-ping-queues-nothing [Ping]
+      changed: none
+        e.g. W26-ping-queues-nothing: connect A ; advance 1 ; post B ; w socket.hold ; advance 1   [A: a ping queued while Silent]
+OK   W pingRankFirst: a ping ranks before a client's idle deadline (Ping): the idle deadline fires first and drops a connection a ping would keep alive
+      newly failing: W26-ping-delivered-when-due [Ping]; W26-ping-ranks-first [Ping]
+      changed: none
+        e.g. W26-ping-delivered-when-due: connect A ; advance 1 ; advance 1   [A: a ping was due on an Open connection and was not delivered]
+OK   W pingResumes: after a hold the next ping is every from then (Ping): the old schedule is kept, so a ping is due at once
+      newly failing: W26-ping-resumes-every-from-then [Ping]
+      changed: none
+        e.g. W26-ping-resumes-every-from-then: connect A ; advance 1 ; w socket.hold ; w socket.release   [A: frames flow again, the next ping is at 2, not 3]
 OK   W pumpK: a chain of K hops completes (K smaller) (Pump): a chain of exactly K hops is cut
-      newly failing: W19-drain-cuts-long-chains [Pump]; W24-end-of-run-classification [Pump]
+      newly failing: W19-drain-cuts-long-chains [Pump]
       changed: none
         e.g. W19-drain-cuts-long-chains: connect A ; w ctl.chain:3 ; post B   [1 fibers parked; 0 chains longer than K=3 were spawned]
 OK   W pumpK: a chain longer than K is cut (K larger) (Pump): a chain of K+1 hops completes
-      newly failing: W19-drain-cuts-long-chains [Pump]; W24-end-of-run-classification [Pump]
+      newly failing: W19-drain-cuts-long-chains [Pump]
       changed: none
         e.g. W19-drain-cuts-long-chains: connect A ; w ctl.chain:4 ; post B   [0 fibers parked; 1 chains longer than K=3 were spawned]
 MISS W idleResets: the idle count resets on any arrival (Pump): idle hops accumulate across activity, so a short chain is cut

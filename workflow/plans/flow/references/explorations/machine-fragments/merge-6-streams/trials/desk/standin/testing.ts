@@ -95,6 +95,8 @@ export declare namespace Fake {
     readonly request: R;
     readonly frame: Schema.Codec<Fr, W>;
     readonly open: (truth: T, request: TypeOf<R>) => OpenResult<NoInfer<T>, NoInfer<Fr>>;
+    // fakes-v2: each open connection gets `frame` every `every`, on the run's Clock. A ping does not register.
+    readonly ping?: { readonly every: Duration.Input; readonly frame: NoInfer<Fr> };
   }): StreamEndpoint<TypeOf<R>, Fr, W>;
 
   function call<const R extends Fields, T = unknown>(config: {
@@ -174,6 +176,17 @@ export declare namespace Fake {
 }
 
 // ---- Story --------------------------------------------------------------------------------------------------------
+export interface SessionRecord {
+  readonly drop?: unknown;
+  readonly ended?: string;
+  readonly answer?: string;
+  readonly basis?: string;
+  readonly kind?: string;
+  readonly bookmark?: {
+    readonly at?: { readonly epoch: number; readonly seq: number };
+    readonly filled: boolean;
+  };
+}
 interface Reads {
   read: {
     <Req>(target: Target<Req>): ReadonlyArray<Logged<Req>>;
@@ -181,10 +194,11 @@ interface Reads {
   };
   // Inspection at this cut. GUESS on the shape beyond `lanes`.
   readonly inspection: { readonly lanes: ReadonlyArray<unknown> };
+  // 3.8: `session` records carry the bookmark with `filled`. GUESS on the other fields.
   records: (
     kind: string,
     filter?: Readonly<Record<string, unknown>>,
-  ) => ReadonlyArray<Readonly<Record<string, unknown>>>;
+  ) => ReadonlyArray<SessionRecord>;
   lane: <B extends Binding<unknown, "write">>(
     op: { readonly brand?: B },
     key?: Readonly<Record<string, string>>,
@@ -192,6 +206,11 @@ interface Reads {
 }
 type SnapOf<M> = M extends Machine<{ readonly snapshotType?: infer Sn }> ? Sn : never;
 export type Checkpoint<M> = SnapOf<M> & Reads;
+// stories-amended 1.1: `Story.Frame<typeof Machine>` annotates a shared helper's checkpoint.
+export declare namespace Story {
+  // GUESS: an app Story has no subject, so `Frame` with no argument is its checkpoint.
+  type Frame<M = never> = [M] extends [never] ? AppCheckpoint : Checkpoint<M>;
+}
 export interface AppCheckpoint extends Reads {
   // The Ticket record as a view reads it. GUESS on `entity`'s argument types.
   entity: (

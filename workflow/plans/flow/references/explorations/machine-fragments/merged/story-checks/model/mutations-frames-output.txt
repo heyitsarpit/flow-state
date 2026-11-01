@@ -1,0 +1,69 @@
+OK   W noConnErr: a stream drop() with nothing matched is NoConnection (Frames): a silent no-op
+      newly failing: W14-no-connection [Frames]
+      changed: none
+        e.g. W14-no-connection: w socket.drop   [NoConnection=false with 0 live connections, times 1]
+OK   W dropCloses: drop() closes matching connections at once (Frames): drop() leaves the connection
+      newly failing: W14-no-connection [Frames]
+      changed: none
+        e.g. W14-no-connection: connect A ; w socket.drop   [NoConnection=true with 1 live connections, times 1]
+OK   W releaseEnds: release() ends its target's rules (Frames): a release leaves its rules
+      newly failing: W10-release-ends-own-rules [Frames]; W11-release-did-something [Frames]; W17-release-order [Frames]; W23-no-deadlock [Frames]; W9-release-closing [Frames]
+      changed: none
+        e.g. W10-release-ends-own-rules: w socket.hold ; w socket.release   [a standing rule, count or hold of the target survived its release]
+OK   W releaseEndsFirst: release ends its rules, then delivers (G16) (Handle): the open a release completes takes the rule being ended
+      newly failing: W17-release-order [Handle]; W22-states [Handle]
+      changed: none
+        e.g. W17-release-order: connect A ; w socket.hold ; post B ; w socket.release   [A: heard , expected f1 (plain)]
+OK   W framesAllApply: frames rules do not compete (G9, G8) (Frames): a new connection takes only the earliest covering frames rule
+      newly failing: W7-frames-rules-effect-at-open [Frames]; W8-after-counts-from-first-frame [Frames]
+      changed: none
+        e.g. W7-frames-rules-effect-at-open: w socket.hold:after1 ; w socket.hold ; connect A   [A: covering socket:hold:1,socket:hold:0, 0 replayed: holds ]
+OK   W holdsJoin: a connection is silent while any hold covering it stands (G2) (Frames): a second hold on a silent connection does not join
+      newly failing: W8-hold-joins-holds [Frames]
+      changed: none
+        e.g. W8-hold-joins-holds: connect A ; w handle.hold ; w socket.hold   [a live connection did not join the hold of socket]
+OK   W pruneKeepsHolding: a used-up rule that still silences a connection is kept (Frames): a used-up hold({ times: 1 }) is removed while its connection is silent
+      newly failing: W7-holding-rule-kept [Frames]
+      changed: none
+        e.g. W7-holding-rule-kept: connect A ; w socket.hold:t1   [A: silenced by socket whose rule is gone]
+OK   W ownRulesNotApplied: a release's own target's frames rules do not apply to what it delivers (RV3 M6) (Frames): release({ match }) delivery takes the releasing target's own counts and duplicates
+      newly failing: W25-match-delivers [Frames]; W8-count-reached-requeues [Frames]
+      changed: reachability [cells]
+        e.g. W25-match-delivers: connect A ; w socket.hold ; post B ; w socket.dup ; w socket.release:A   [A: heard f1 f1, expected f1 (match)]
+OK   W countPausedWhileSilent: a count pauses while the connection is silent (N4) (Frames): queued frames are counted
+      newly failing: W8-after-counts-n [Frames]; W8-count-is-per-connection [Frames]; W8-count-pauses-while-silent [Frames]; W8-count-reached-requeues [Frames]
+      changed: none
+        e.g. W8-after-counts-n: connect A ; w socket.hold:after1 ; together post B+w handle.hold ; w handle.release   [connection A: 2 frames counted, the rule says 1]
+OK   W dupEarliestOnly: one frame takes only the earliest armed duplicate (N5) (Frames): two armed duplicates deliver one frame three times
+      newly failing: W17-release-order [Frames]; W25-match-delivers [Frames]; W8-dup-never-thrice [Frames]; W9-release-closing [Frames]
+      changed: none
+        e.g. W17-release-order: connect A ; w socket.dup ; w socket.dup ; together post B+w handle.hold ; w handle.release   [A: heard f1 f1 f1, expected f1 f1 (plain)]
+OK   W afterPerConn: hold({ after }) counts per connection (Frames): one counter is shared
+      newly failing: W25-match-leaves-rest-held [Frames]; W8-count-is-per-connection [Frames]; W8-count-pauses-while-silent [Frames]
+      changed: none
+        e.g. W25-match-leaves-rest-held: connect A ; connect B ; w socket.hold:after1 ; together post B+w handle.hold ; w handle.release:A   [release({ match }) released a non-matching item]
+OK   W afterFromFirst: a count set before open starts at the first frame (Frames): the replay is not counted
+      newly failing: W7-frames-rules-effect-at-open [Frames]; W8-after-counts-from-first-frame [Frames]
+      changed: none
+        e.g. W7-frames-rules-effect-at-open: post A ; w socket.hold:after1 ; connect A   [A: covering socket:hold:1, 1 replayed: holds ]
+OK   W afterDupTwice: a duplicated frame counts as two (Frames): a duplicated frame counts as one
+      newly failing: W7-frames-rules-effect-at-open [Frames]; W8-after-counts-n [Frames]
+      changed: none
+        e.g. W7-frames-rules-effect-at-open: post A ; w socket.hold:after2 ; w socket.dup ; connect A   [A: covering socket:hold:2,socket:dup:0, 1 replayed: holds ]
+OK   W timesPerConn: times counts connections (Frames): hold({ times: 1 }) silences both
+      newly failing: W8-times-counts-connections [Frames]
+      changed: none
+        e.g. W8-times-counts-connections: connect A ; connect B ; w socket.hold:t1   [2 connections took a times:1 rule]
+OK   W holdSilencesNow: hold() takes effect on an Open connection at once (Frames): hold() waits for the next connection
+      newly failing: W8-hold-joins-holds [Frames]; W8-hold-silences-open-at-once [Frames]
+      changed: reachability [cells]
+        e.g. W8-hold-joins-holds: connect A ; w socket.hold   [a live connection did not join the hold of socket]
+OK   W connOrder: rows reach connections in their open order (G7) (Frames): sends and releases walk the connections in scan order
+      newly failing: W1-determinism [Frames]
+      changed: none
+        e.g. W1-determinism: w ctl.finish
+OK   W countRequeues: a count reaching n during a release's own delivery queues the rest again (U1) (Frames): release({ match }) delivers past a count reaching n
+      newly failing: W8-count-reached-requeues [Frames]
+      changed: none
+        e.g. W8-count-reached-requeues: connect A ; w socket.hold:after1 ; w socket.dup ; together post B+w handle.hold ; w handle.release:A   [A: a release delivered a frame after a count had reached n]
+done

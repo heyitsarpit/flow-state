@@ -1,5 +1,7 @@
-// TRIAL (proposal-v3.md): LIVE places both feeds. A drop is not a transition; the machine hears `missed` and `FeedEnded`.
-import { machine } from "flow-state";
+// TRIAL (proposal-v3.md, final): LIVE places both feeds. A drop is not a transition; the machine hears `missed` and `FeedEnded`.
+// The escalating re-open is Q5's recipe, which the old machine already was; only the cursor and `initial` lines go.
+import { Duration } from "effect";
+import { deny, machine } from "flow-state";
 import { ACTIVITY_KEPT, DeskFeed } from "./feed.definition.js";
 import type { ActivityEntry } from "@desk/features/Tickets/types.js";
 
@@ -10,37 +12,62 @@ const upsert = (list: ReadonlyArray<ActivityEntry>, entry: ActivityEntry) =>
     : [...list, entry]
   ).slice(-ACTIVITY_KEPT);
 
-export const DeskFeedMachine = machine(DeskFeed, ({ S, E, O }) => ({
-  default: S.LIVE,
-  on: {
-    SessionExpired: S.SIGNED_OUT,
-    DismissNotice: { target: "self", updateMemory: () => ({ notice: "" }) },
-  },
-  states: {
-    LIVE: {
-      activities: [
-        O.changes.subscribe(({ memory }) => ({ workspaceId: memory.workspaceId })),
-        O.activity.subscribe(({ memory }) => ({ workspaceId: memory.workspaceId })), // CUT: `after: memory.cursor`
-      ],
-      // CUT: schedules.healthy
-      on: {
-        Entry: {
-          target: "self",
-          updateMemory: ({ memory, event }) => ({ activity: upsert(memory.activity, event.entry) }),
-        }, // CUT: cursor line
-        MayHaveMissed: {
-          target: "self",
-          updateMemory: () => ({ notice: "Some activity may be missing" }),
-        }, // CUT: the guard, the cursor line
-        FeedEnded: S.RETRY_WAIT, // CUT: `slower`
+const BACKOFF_MAX_MS = 30_000;
+
+export const DeskFeedMachine = machine(DeskFeed, ({ S, E, O }) => {
+  const slower = ({ memory }: { memory: { reopenInMs: number } }) => ({
+    reopenInMs: Math.min(BACKOFF_MAX_MS, memory.reopenInMs * 2),
+  });
+
+  const bothLive = ({
+    operations,
+  }: {
+    operations: Record<string, { connection: string } | undefined>;
+  }) =>
+    (operations["changes"]?.connection === "Live" &&
+      operations["activity"]?.connection === "Live") ||
+    deny("NotLive");
+
+  return {
+    default: S.LIVE,
+    on: {
+      SessionExpired: S.SIGNED_OUT,
+      DismissNotice: { target: "self", updateMemory: () => ({ notice: "" }) },
+    },
+    states: {
+      LIVE: {
+        activities: [
+          O.changes.subscribe(({ memory }) => ({ workspaceId: memory.workspaceId })),
+          O.activity.subscribe(({ memory }) => ({ workspaceId: memory.workspaceId })), // CUT: `after: memory.cursor`
+        ],
+        schedules: { healthy: { schedule: "1 minute", send: E.Healthy } },
+        on: {
+          Entry: {
+            target: "self",
+            updateMemory: ({ memory, event }) => ({
+              activity: upsert(memory.activity, event.entry), // CUT: the cursor line
+            }),
+          },
+          MayHaveMissed: {
+            target: "self",
+            updateMemory: () => ({ notice: "Some activity may be missing" }), // CUT: the guard, the cursor line
+          },
+          Healthy: {
+            target: "self",
+            guard: [bothLive],
+            updateMemory: () => ({ reopenInMs: 1000 }), // reset only after a registered minute, never on a value
+          },
+          FeedEnded: { target: S.RETRY_WAIT, updateMemory: slower },
+        },
       },
+      RETRY_WAIT: {
+        // The delay is in memory, so a reload keeps the deadline.
+        schedules: {
+          reopen: { schedule: ({ memory }) => Duration.millis(memory.reopenInMs), send: E.Reopen },
+        },
+        on: { Reopen: S.LIVE },
+      },
+      SIGNED_OUT: {},
     },
-    // GUESS: a session ends only on `Flapping` or a defect now, so a fixed wait replaces the growing one (RESULTS: escalation and
-    // the persisted deadline are gone). C3's recipe in the spec is a `Retry` event instead of an automatic reopen.
-    RETRY_WAIT: {
-      schedules: { reopen: { schedule: "30 seconds", send: E.Reopen } },
-      on: { Reopen: S.LIVE },
-    },
-    SIGNED_OUT: {},
-  },
-}));
+  };
+});

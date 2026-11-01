@@ -51,7 +51,7 @@ test("typing: a burst never overflows, and pings are not held", async () => {
   expect(burst.records("session", { operation: O.typing })).not.toContainEqual(
     expect.objectContaining({ kind: "Overflow" }),
   );
-  expect(burst.memory.typing["dispatcher-2"]).toBe(299_900); // the last of the burst, each delivered once
+  expect(burst.memory.typing["dispatcher-2"]).toBe(102_400); // the last of the burst, each delivered once
   expect(pinging.lane(O.ping, T42)).toMatchObject({ pending: true, outstanding: 1 }); // was O.ping.get(checkpoint, key)
   expect(pinged.read(Collab.publish)).toHaveLength(2);
   expect(pinged.inspection.lanes).toEqual([]);
