@@ -52,7 +52,7 @@ Fault injection: 22 mutants, source edits in a scratch copy, **22/22 killed** in
 
 | # | Finding |
 | --- | --- |
-| F5 | **Press Pay in UNSURE.** `onPay`'s root alternative has no guard and `Pay.tsx` enables the button from `check()`. The checkout moves to PAYING, the commit is `Rejected`, and PAYING has no call and no reconcile: an hour later, zero new requests, showing "pending" text [ran]. Rule 16 already says `flow check` warns. `O.pay.idle` on that alternative is the fix. Search counted 8,725 such endings. |
+| F5 | **Press Pay in UNSURE.** `onPay`'s root alternative has no guard and `Pay.tsx` enables the button from `check()`. The checkout moves to PAYING, the commit is `Rejected`, and PAYING has no call and no reconcile: an hour later, row `uncertain`, zero new requests [ran]. Rule 16 already says `flow check` warns. `O.pay.idle` on that alternative is the fix. Search counted 8,725 such endings. |
 | F6 | **Late `Confirmed` in a new PAYING** (Leave, Start, Pay, then the first confirm lands). Rule 14 routes it to the root's `{ target: "self" }`. Charged, `authorized: false`, no lane, `waits: []`, forever [ran]. Leave would not void it. Same pattern as `lateStaysPaying` in `pay.story.ts`. |
 | F7 | **A throw on an ending's turn loses the money fact** (PAY-11). The cell is kept and the turn dropped, as F3.1 says, and an issue is raised. Then `authorized` is false with a live charge and Leave does not void [ran]. Accepted by the design; worth knowing. |
 | F9 | Mine: generations restarted at each boot, so a re-send after a reload could repeat a send number. Section 3 said `boot` prefixes ids. Search found it at depth 6. |
