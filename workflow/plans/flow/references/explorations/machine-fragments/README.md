@@ -13,7 +13,7 @@ operations-in-definition, so it went first (merged 2026-10-30). Stories was to g
 | 1 | operations-in-definition: merged 2026-10-30 ([merged/operations/merge-plan.md](merged/operations/merge-plan.md)) | done (OD24) |
 | 2 | merges 4 and 5: merged 2026-10-30 ([merge-plan-4-5.md](merge-plan-4-5.md)) | done (OD24) |
 | 3 | operations-in-fragments: merged 2026-10-31 ([merged/fragment-operations/merge-plan.md](merged/fragment-operations/merge-plan.md)) | done (F10; merged before streams, delegated) |
-| 4 | Stories: merged 2026-10-31 ([merged/stories/merge-plan.md](merged/stories/merge-plan.md)) | done (delegated; merged before streams, which is held for the owner) |
+| 4 | Stories: merged 2026-10-31 ([merged/stories/merge-plan.md](merged/stories/merge-plan.md)) | done (delegated; merged before streams, merge 6) |
 | 5 | Stories, amended, with the `Fake` module: merged 2026-11-01 ([merged/story-checks/merge-plan.md](merged/story-checks/merge-plan.md)) | done (owner approved; `.plan` changes still owed, its 2.7) |
 | 6 | streams: merged 2026-11-01 ([merged/streams/merge-plan.md](merged/streams/merge-plan.md)) | done (S15, S16; `.plan` changes still owed, its 2.7) |
 

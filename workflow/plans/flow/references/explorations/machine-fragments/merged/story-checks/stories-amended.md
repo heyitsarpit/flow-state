@@ -15,7 +15,7 @@ It amends the merged Stories design using the owner's decisions in [decisions.md
 | `[fakes-v2]` | **Proposed**: the direction is approved (W35, W36), the spellings are the main session's and the owner has not read them |
 | `[P]` | **Proposed** by this file: a resolution of a hole, or a main-session call from the review. Never read one of these as decided. `RV1 M4`, `RV2 M4`, `RV3 M4` cite a review's finding; `MDL G2` cites a model gap |
 | no mark | **Carried**: unchanged from the merged design. "Stories T*n*" there means delegated, not confirmed by the owner, unless a W row confirms it |
-| `*Stream details: merge 6*` | Depends on `merged/streams/proposal-v3.md` ("v3"), which is **not merged** |
+| `*Stream details: merge 6*` | Depends on `merged/streams/proposal-v3.md` ("v3"), not merged when this was written; merged 2026-11-01 as design 2.11 |
 
 Citations carried from the merged design (STR*n*, STF*n*, SG*n*, brief C*n*, SP …) name its brief and proposal under
 `merged/stories/`. They are provenance; nothing here needs them to be read. Effect 4.0.5 and Vitest 5.0.5 are the versions
