@@ -15,7 +15,7 @@ Rules:
 
 | Spike | Question | State |
 | --- | --- | --- |
-| S1 | Is lane plus record queue live? What else can wait forever? | not started |
+| S1 | Is lane plus record queue live? What else can wait forever? | done: [s1-wait-graph/RESULTS.md](s1-wait-graph/RESULTS.md) |
 | S2 | Can one completion per Attempt be guaranteed? | not started |
 | S5 | Does a stream session need to live in the world? | not started |
 | S6 | Can a real definition compile to the form the runtime wants? | not started |

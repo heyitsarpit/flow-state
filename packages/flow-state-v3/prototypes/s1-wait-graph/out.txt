@@ -1,0 +1,166 @@
+
+== sweep: 3 commits, masks {1,2,3}
+variant readingRetryDuringRepair machine | states depth | stuck cycle/orphan/hold/hold-x(cross-actor)/other | safety S1 S2 S3 S4 | last-intent-lost clean/afterUnk | inversion states clean/afterUnk | N1 states
+a  n full    | 116970 26 | 1992/0/3432/874/0 | . . . . | 0/6 | 0/18408 | 0
+b1 n full    | 206673 26 | 0/0/5574/236/0 | . . X . | 0/9 | 0/35479 | 62789
+b2 n full    | 162955 26 | 0/0/5574/236/0 | . . . . | 0/9 | 0/25089 | 53755
+c  n full    | 134313 26 | 0/0/4566/0/0 | . . . . | 3/9 | 187/26956 | 0
+d  n full    | 33488 22 | 0/0/1140/868/0 | . . . . | 0/0 | 0/0 | 0
+e  n full    | 151901 26 | 0/0/4566/0/0 | . . . . | 3/9 | 139/27968 | 0
+f  n full    | 124873 26 | 80/0/3472/926/0 | . . . . | 0/9 | 0/20109 | 10911
+a  y full    | 166274 25 | 1992/0/3432/874/0 | . . . . | 0/6 | 0/22370 | 0
+b1 y full    | 309525 25 | 32/0/5574/236/0 | . . X . | 0/9 | 0/51739 | 88173
+b2 y full    | 233467 25 | 32/0/5574/236/0 | . . . . | 0/9 | 0/30505 | 74537
+c  y full    | 193325 25 | 0/0/4566/0/0 | . . . . | 3/9 | 253/33772 | 0
+d  y full    | 56084 20 | 0/0/1140/868/0 | . . . . | 0/0 | 0/0 | 0
+e  y full    | 212987 25 | 0/0/4566/0/0 | . . . . | 3/9 | 187/34742 | 0
+f  y full    | 177359 25 | 80/0/3472/926/0 | . . . . | 0/9 | 0/24323 | 14521
+a  n noOwner | 5947 12 | 0/0/792/84/0 | . . . . | 0/0 | 0/0 | 0
+b1 n noOwner | 5947 12 | 0/0/792/84/0 | . . . . | 0/0 | 0/0 | 0
+b2 n noOwner | 5947 12 | 0/0/792/84/0 | . . . . | 0/0 | 0/0 | 0
+c  n noOwner | 7454 12 | 0/0/1044/0/0 | . . . . | 3/0 | 47/130 | 0
+d  n noOwner | 3571 12 | 0/0/324/340/0 | . . . . | 0/0 | 0/0 | 0
+e  n noOwner | 6878 12 | 0/0/1044/0/0 | . . . . | 3/0 | 35/40 | 0
+f  n noOwner | 5947 12 | 0/0/792/84/0 | . . . . | 0/0 | 0/0 | 0
+
+== sweep: 4 commits, masks {1,2}
+variant readingRetryDuringRepair machine | states depth | stuck cycle/orphan/hold/hold-x(cross-actor)/other | safety S1 S2 S3 S4 | last-intent-lost clean/afterUnk | inversion states clean/afterUnk | N1 states
+a  n full    | 495300 35 | 4612/0/11736/2368/0 | . . . . | 0/8 | 0/110936 | 0
+b1 n full    | 500000+CAP 20 | 0/0/14936/753/0 | . . X . | 0/13 | 0/62629 | 159881
+b2 n full    | 500000+CAP 22 | 0/0/17498/756/0 | . . . . | 0/13 | 0/65621 | 176407
+c  n full    | 500000+CAP 24 | 0/0/15108/0/0 | . . . . | 6/14 | 2980/101392 | 0
+d  n full    | 114244 27 | 0/0/4128/1128/0 | . . . . | 0/0 | 0/0 | 0
+e  n full    | 500000+CAP 22 | 0/0/13776/0/0 | . . . . | 6/14 | 2756/78192 | 0
+f  n full    | 500000+CAP 26 | 32/0/13376/2992/0 | . . . . | 0/13 | 0/92802 | 61082
+a  y full    | 500000+CAP 20 | 4362/0/10020/2206/0 | . . . . | 0/8 | 0/34573 | 0
+b1 y full    | 500000+CAP 17 | 0/0/10684/742/0 | . . X . | 0/13 | 0/29214 | 125634
+b2 y full    | 500000+CAP 18 | 0/0/12503/744/0 | . . . . | 0/13 | 0/22120 | 140073
+c  y full    | 500000+CAP 18 | 0/0/11329/0/0 | . . . . | 6/14 | 3416/44604 | 0
+d  y full    | 201400 25 | 0/0/4128/1128/0 | . . . . | 0/0 | 0/0 | 0
+e  y full    | 500000+CAP 18 | 0/0/9891/0/0 | . . . . | 6/14 | 3056/34700 | 0
+f  y full    | 500000+CAP 19 | 32/0/11055/2546/0 | . . . . | 0/12 | 0/30540 | 43746
+
+Shortest traces (reading n, full machine; --detail for every run). Holds are listed only by which actions free them.
+[3c a rdr=f] hold-x | freed by cancel+commit+retry (n=420): commit a0 m1 ; invoke#0 ; end#0:unknown ; repair#0 ; commit a0 m1 ; commit a1 m1
+[3c a rdr=f] cycle | freed by cancel+commit (n=1624): commit a0 m1 ; invoke#0 ; end#0:unknown ; repair#0 ; commit a0 m1 ; retry a0(#0)
+[3c a rdr=f] cycle | freed by cancel+commit+retry (n=368): commit a0 m1 ; invoke#0 ; end#0:unknown ; repair#0 ; commit a0 m1 ; commit a1 m2 ; invoke#2 ; end#2:unknown ; repair#2 ; retry a0(#0)
+[3c a rdr=f] hold-x | freed by cancel+commit (n=454): commit a0 m1 ; invoke#0 ; end#0:unknown ; repair#0 ; commit a0 m2 ; commit a1 m2 ; retry a0(#0) ; invoke#0 ; end#0:failure(StillUnknown) ; repair#0
+[3c a rdr=f] L1 last intent lost (after an unknown) (n=6): commit a0 m1 ; invoke#0 ; end#0:unknown ; repair#0 ; commit a1 m1 ; invoke#1 ; end#1:success ; retry a0(#0) ; invoke#0 ; end#0:success
+[3c b1 rdr=f] hold-x | freed by cancel+commit+retry (n=84): commit a0 m1 ; invoke#0 ; end#0:unknown ; repair#0 ; commit a0 m1 ; commit a1 m1
+[3c b1 rdr=f] hold-x | freed by cancel+commit (n=152): commit a0 m1 ; invoke#0 ; end#0:unknown ; repair#0 ; commit a0 m1 ; commit a1 m1 ; retry a0(#0) ; invoke#0 ; end#0:failure(StillUnknown) ; repair#0
+[3c b1 rdr=f] N1 retry placed ahead of another actor's unsent write (n=1): commit a0 m1 ; invoke#0 ; end#0:unknown ; repair#0 ; commit a1 m1 ; retry a0(#0)
+[3c b1 rdr=f] S3 sent while another write's repair pending (rule 30) (n=8288): commit a0 m1 ; invoke#0 ; end#0:unknown ; repair#0 ; commit a1 m1 ; invoke#1 ; end#1:unknown ; retry a0(#0) ; invoke#0
+[3c b1 rdr=f] L1 last intent lost (after an unknown) (n=9): commit a0 m1 ; invoke#0 ; end#0:unknown ; repair#0 ; commit a1 m1 ; invoke#1 ; end#1:success ; retry a0(#0) ; invoke#0 ; end#0:success
+[3c b2 rdr=f] hold-x | freed by cancel+commit+retry (n=84): commit a0 m1 ; invoke#0 ; end#0:unknown ; repair#0 ; commit a0 m1 ; commit a1 m1
+[3c b2 rdr=f] hold-x | freed by cancel+commit (n=152): commit a0 m1 ; invoke#0 ; end#0:unknown ; repair#0 ; commit a0 m1 ; commit a1 m1 ; retry a0(#0) ; invoke#0 ; end#0:failure(StillUnknown) ; repair#0
+[3c b2 rdr=f] N1 retry placed ahead of another actor's unsent write (n=1): commit a0 m1 ; invoke#0 ; end#0:unknown ; repair#0 ; commit a1 m1 ; retry a0(#0)
+[3c b2 rdr=f] L1 last intent lost (after an unknown) (n=9): commit a0 m1 ; invoke#0 ; end#0:unknown ; repair#0 ; commit a1 m1 ; invoke#1 ; end#1:success ; retry a0(#0) ; invoke#0 ; end#0:success
+[3c c rdr=f] L1 last intent lost (no unknown anywhere) (n=3): commit a0 m1 ; invoke#0 ; commit a0 m1 ; commit a1 m1 ; end#0:success ; invoke#2 ; end#2:success ; invoke#1 ; end#1:success
+[3c c rdr=f] L1 last intent lost (after an unknown) (n=9): commit a0 m1 ; invoke#0 ; end#0:unknown ; repair#0 ; commit a1 m1 ; invoke#1 ; end#1:success ; retry a0(#0) ; invoke#0 ; end#0:success
+[3c d rdr=f] hold-x | freed by cancel+commit+retry (n=434): commit a0 m1 ; invoke#0 ; end#0:unknown ; repair#0 ; commit a1 m1
+[3c d rdr=f] hold-x | freed by cancel+commit (n=434): commit a0 m1 ; invoke#0 ; end#0:unknown ; repair#0 ; commit a1 m1 ; retry a0(#0) ; invoke#0 ; end#0:failure(StillUnknown) ; repair#0
+[3c e rdr=f] L1 last intent lost (no unknown anywhere) (n=3): commit a0 m1 ; invoke#0 ; commit a0 m2 ; commit a1 m2 ; invoke#2 ; end#0:success ; end#2:success ; invoke#1 ; end#1:success
+[3c e rdr=f] L1 last intent lost (after an unknown) (n=9): commit a0 m1 ; invoke#0 ; end#0:unknown ; repair#0 ; commit a1 m1 ; invoke#1 ; end#1:success ; retry a0(#0) ; invoke#0 ; end#0:success
+[3c f rdr=f] hold-x | freed by cancel+commit+retry (n=420): commit a0 m1 ; invoke#0 ; end#0:unknown ; repair#0 ; commit a0 m1 ; commit a1 m1
+[3c f rdr=f] cycle | freed by cancel+commit (n=80): commit a0 m1 ; invoke#0 ; end#0:unknown ; repair#0 ; commit a0 m2 ; commit a1 m3 ; retry a0(#0)
+[3c f rdr=f] hold-x | freed by cancel+commit (n=506): commit a0 m1 ; invoke#0 ; end#0:unknown ; repair#0 ; commit a0 m1 ; commit a1 m1 ; retry a0(#0) ; invoke#0 ; end#0:failure(StillUnknown) ; repair#0
+[3c f rdr=f] N1 retry placed ahead of another actor's unsent write (n=1): commit a0 m1 ; invoke#0 ; end#0:unknown ; repair#0 ; commit a0 m1 ; commit a1 m1 ; retry a0(#0)
+[3c f rdr=f] L1 last intent lost (after an unknown) (n=9): commit a0 m1 ; invoke#0 ; end#0:unknown ; repair#0 ; commit a1 m1 ; invoke#1 ; end#1:success ; retry a0(#0) ; invoke#0 ; end#0:success
+[3c a rdr=t] hold-x | freed by cancel+commit+retry (n=420): commit a0 m1 ; invoke#0 ; end#0:unknown ; repair#0 ; commit a0 m1 ; commit a1 m1
+[3c a rdr=t] cycle | freed by cancel+commit (n=1624): commit a0 m1 ; invoke#0 ; end#0:unknown ; repair#0 ; commit a0 m1 ; retry a0(#0)
+[3c a rdr=t] hold-x | freed by cancel+commit (n=454): commit a0 m1 ; invoke#0 ; end#0:unknown ; commit a0 m1 ; commit a1 m1 ; retry a0(#0) ; invoke#0 ; end#0:failure(StillUnknown) ; repair#0
+[3c a rdr=t] cycle | freed by cancel+commit+retry (n=368): commit a0 m1 ; invoke#0 ; end#0:unknown ; repair#0 ; commit a0 m1 ; commit a1 m2 ; invoke#2 ; end#2:unknown ; repair#2 ; retry a0(#0)
+[3c a rdr=t] L1 last intent lost (after an unknown) (n=6): commit a0 m1 ; invoke#0 ; end#0:unknown ; repair#0 ; commit a1 m1 ; invoke#1 ; end#1:success ; retry a0(#0) ; invoke#0 ; end#0:success
+[3c b1 rdr=t] hold-x | freed by cancel+commit+retry (n=84): commit a0 m1 ; invoke#0 ; end#0:unknown ; repair#0 ; commit a0 m1 ; commit a1 m1
+[3c b1 rdr=t] hold-x | freed by cancel+commit (n=152): commit a0 m1 ; invoke#0 ; end#0:unknown ; commit a0 m1 ; commit a1 m1 ; retry a0(#0) ; invoke#0 ; end#0:failure(StillUnknown) ; repair#0
+[3c b1 rdr=t] cycle | freed by cancel+commit (n=32): commit a0 m3 ; invoke#0 ; end#0:unknown ; repair#0 ; commit a1 m3 ; invoke#1 ; retry a0(#0) ; end#1:unknown ; commit a0 m1 ; retry a1(#1) ; repair#1
+[3c b1 rdr=t] N1 retry placed ahead of another actor's unsent write (n=1): commit a0 m1 ; invoke#0 ; end#0:unknown ; repair#0 ; commit a1 m1 ; retry a0(#0)
+[3c b1 rdr=t] S3 sent while another write's repair pending (rule 30) (n=13352): commit a0 m1 ; invoke#0 ; end#0:unknown ; repair#0 ; commit a1 m1 ; invoke#1 ; end#1:unknown ; retry a0(#0) ; invoke#0
+[3c b1 rdr=t] L1 last intent lost (after an unknown) (n=9): commit a0 m1 ; invoke#0 ; end#0:unknown ; repair#0 ; commit a1 m1 ; invoke#1 ; end#1:success ; retry a0(#0) ; invoke#0 ; end#0:success
+[3c b2 rdr=t] hold-x | freed by cancel+commit+retry (n=84): commit a0 m1 ; invoke#0 ; end#0:unknown ; repair#0 ; commit a0 m1 ; commit a1 m1
+[3c b2 rdr=t] hold-x | freed by cancel+commit (n=152): commit a0 m1 ; invoke#0 ; end#0:unknown ; commit a0 m1 ; commit a1 m1 ; retry a0(#0) ; invoke#0 ; end#0:failure(StillUnknown) ; repair#0
+[3c b2 rdr=t] cycle | freed by cancel+commit (n=32): commit a0 m3 ; invoke#0 ; end#0:unknown ; repair#0 ; commit a1 m3 ; invoke#1 ; end#1:unknown ; retry a0(#0) ; retry a1(#1) ; repair#1 ; commit a0 m1
+[3c b2 rdr=t] N1 retry placed ahead of another actor's unsent write (n=1): commit a0 m1 ; invoke#0 ; end#0:unknown ; repair#0 ; commit a1 m1 ; retry a0(#0)
+[3c b2 rdr=t] L1 last intent lost (after an unknown) (n=9): commit a0 m1 ; invoke#0 ; end#0:unknown ; repair#0 ; commit a1 m1 ; invoke#1 ; end#1:success ; retry a0(#0) ; invoke#0 ; end#0:success
+[3c c rdr=t] L1 last intent lost (no unknown anywhere) (n=3): commit a0 m1 ; invoke#0 ; commit a0 m1 ; commit a1 m1 ; end#0:success ; invoke#2 ; end#2:success ; invoke#1 ; end#1:success
+[3c c rdr=t] L1 last intent lost (after an unknown) (n=9): commit a0 m1 ; invoke#0 ; end#0:unknown ; repair#0 ; commit a1 m1 ; invoke#1 ; end#1:success ; retry a0(#0) ; invoke#0 ; end#0:success
+[3c d rdr=t] hold-x | freed by cancel+commit+retry (n=434): commit a0 m1 ; invoke#0 ; end#0:unknown ; repair#0 ; commit a1 m1
+[3c d rdr=t] hold-x | freed by cancel+commit (n=434): commit a0 m1 ; invoke#0 ; end#0:unknown ; commit a1 m1 ; retry a0(#0) ; invoke#0 ; end#0:failure(StillUnknown) ; repair#0
+[3c e rdr=t] L1 last intent lost (no unknown anywhere) (n=3): commit a0 m1 ; invoke#0 ; commit a0 m2 ; commit a1 m2 ; invoke#2 ; end#0:success ; end#2:success ; invoke#1 ; end#1:success
+[3c e rdr=t] L1 last intent lost (after an unknown) (n=9): commit a0 m1 ; invoke#0 ; end#0:unknown ; repair#0 ; commit a1 m1 ; invoke#1 ; end#1:success ; retry a0(#0) ; invoke#0 ; end#0:success
+[3c f rdr=t] hold-x | freed by cancel+commit+retry (n=420): commit a0 m1 ; invoke#0 ; end#0:unknown ; repair#0 ; commit a0 m1 ; commit a1 m1
+[3c f rdr=t] cycle | freed by cancel+commit (n=80): commit a0 m1 ; invoke#0 ; end#0:unknown ; repair#0 ; commit a0 m2 ; commit a1 m3 ; retry a0(#0)
+[3c f rdr=t] hold-x | freed by cancel+commit (n=506): commit a0 m1 ; invoke#0 ; end#0:unknown ; commit a0 m1 ; commit a1 m1 ; retry a0(#0) ; invoke#0 ; end#0:failure(StillUnknown) ; repair#0
+[3c f rdr=t] N1 retry placed ahead of another actor's unsent write (n=1): commit a0 m1 ; invoke#0 ; end#0:unknown ; repair#0 ; commit a0 m1 ; commit a1 m1 ; retry a0(#0)
+[3c f rdr=t] L1 last intent lost (after an unknown) (n=9): commit a0 m1 ; invoke#0 ; end#0:unknown ; repair#0 ; commit a1 m1 ; invoke#1 ; end#1:success ; retry a0(#0) ; invoke#0 ; end#0:success
+[4c a rdr=f] hold-x | freed by cancel+commit+retry (n=1136): commit a0 m1 ; invoke#0 ; end#0:unknown ; repair#0 ; commit a0 m1 ; commit a1 m1
+[4c a rdr=f] cycle | freed by cancel+commit (n=3308): commit a0 m1 ; invoke#0 ; end#0:unknown ; repair#0 ; commit a0 m1 ; retry a0(#0)
+[4c a rdr=f] cycle | freed by cancel+commit+retry (n=1304): commit a0 m1 ; invoke#0 ; end#0:unknown ; repair#0 ; commit a0 m1 ; commit a1 m2 ; invoke#2 ; end#2:unknown ; repair#2 ; retry a0(#0)
+[4c a rdr=f] hold-x | freed by cancel+commit (n=1232): commit a0 m1 ; invoke#0 ; end#0:unknown ; repair#0 ; commit a0 m2 ; commit a1 m2 ; retry a0(#0) ; invoke#0 ; end#0:failure(StillUnknown) ; repair#0
+[4c a rdr=f] L1 last intent lost (after an unknown) (n=8): commit a0 m1 ; invoke#0 ; end#0:unknown ; repair#0 ; commit a1 m1 ; invoke#1 ; end#1:success ; retry a0(#0) ; invoke#0 ; end#0:success
+[4c b1 rdr=f] hold-x | freed by cancel+commit+retry (n=312): commit a0 m1 ; invoke#0 ; end#0:unknown ; repair#0 ; commit a0 m1 ; commit a1 m1
+[4c b1 rdr=f] hold-x | freed by cancel+commit (n=441): commit a0 m1 ; invoke#0 ; end#0:unknown ; repair#0 ; commit a0 m1 ; commit a1 m1 ; retry a0(#0) ; invoke#0 ; end#0:failure(StillUnknown) ; repair#0
+[4c b1 rdr=f] N1 retry placed ahead of another actor's unsent write (n=1): commit a0 m1 ; invoke#0 ; end#0:unknown ; repair#0 ; commit a1 m1 ; retry a0(#0)
+[4c b1 rdr=f] S3 sent while another write's repair pending (rule 30) (n=18914): commit a0 m1 ; invoke#0 ; end#0:unknown ; repair#0 ; commit a1 m1 ; invoke#1 ; end#1:unknown ; retry a0(#0) ; invoke#0
+[4c b1 rdr=f] L1 last intent lost (after an unknown) (n=13): commit a0 m1 ; invoke#0 ; end#0:unknown ; repair#0 ; commit a1 m1 ; invoke#1 ; end#1:success ; retry a0(#0) ; invoke#0 ; end#0:success
+[4c b2 rdr=f] hold-x | freed by cancel+commit+retry (n=312): commit a0 m1 ; invoke#0 ; end#0:unknown ; repair#0 ; commit a0 m1 ; commit a1 m1
+[4c b2 rdr=f] hold-x | freed by cancel+commit (n=444): commit a0 m1 ; invoke#0 ; end#0:unknown ; repair#0 ; commit a0 m1 ; commit a1 m1 ; retry a0(#0) ; invoke#0 ; end#0:failure(StillUnknown) ; repair#0
+[4c b2 rdr=f] N1 retry placed ahead of another actor's unsent write (n=1): commit a0 m1 ; invoke#0 ; end#0:unknown ; repair#0 ; commit a1 m1 ; retry a0(#0)
+[4c b2 rdr=f] L1 last intent lost (after an unknown) (n=13): commit a0 m1 ; invoke#0 ; end#0:unknown ; repair#0 ; commit a1 m1 ; invoke#1 ; end#1:success ; retry a0(#0) ; invoke#0 ; end#0:success
+[4c c rdr=f] L1 last intent lost (no unknown anywhere) (n=6): commit a0 m1 ; invoke#0 ; commit a0 m1 ; commit a1 m1 ; end#0:success ; invoke#2 ; end#2:success ; invoke#1 ; end#1:success
+[4c c rdr=f] L1 last intent lost (after an unknown) (n=14): commit a0 m1 ; invoke#0 ; end#0:unknown ; repair#0 ; commit a1 m1 ; invoke#1 ; end#1:success ; retry a0(#0) ; invoke#0 ; end#0:success
+[4c d rdr=f] hold-x | freed by cancel+commit+retry (n=564): commit a0 m1 ; invoke#0 ; end#0:unknown ; repair#0 ; commit a1 m1
+[4c d rdr=f] hold-x | freed by cancel+commit (n=564): commit a0 m1 ; invoke#0 ; end#0:unknown ; repair#0 ; commit a1 m1 ; retry a0(#0) ; invoke#0 ; end#0:failure(StillUnknown) ; repair#0
+[4c e rdr=f] L1 last intent lost (no unknown anywhere) (n=6): commit a0 m1 ; invoke#0 ; commit a0 m2 ; commit a1 m2 ; invoke#2 ; end#0:success ; end#2:success ; invoke#1 ; end#1:success
+[4c e rdr=f] L1 last intent lost (after an unknown) (n=14): commit a0 m1 ; invoke#0 ; end#0:unknown ; repair#0 ; commit a1 m1 ; invoke#1 ; end#1:success ; retry a0(#0) ; invoke#0 ; end#0:success
+[4c f rdr=f] hold-x | freed by cancel+commit+retry (n=1352): commit a0 m1 ; invoke#0 ; end#0:unknown ; repair#0 ; commit a0 m1 ; commit a1 m1
+[4c f rdr=f] hold-x | freed by cancel+commit (n=1640): commit a0 m1 ; invoke#0 ; end#0:unknown ; repair#0 ; commit a0 m1 ; commit a1 m1 ; retry a0(#0) ; invoke#0 ; end#0:failure(StillUnknown) ; repair#0
+[4c f rdr=f] cycle | freed by cancel+commit (n=32): commit a0 m1 ; invoke#0 ; end#0:unknown ; repair#0 ; commit a1 m2 ; invoke#1 ; end#1:unknown ; repair#1 ; commit a0 m2 ; commit a1 m1 ; retry a0(#0) ; retry a1(#1)
+[4c f rdr=f] N1 retry placed ahead of another actor's unsent write (n=1): commit a0 m1 ; invoke#0 ; end#0:unknown ; repair#0 ; commit a0 m1 ; commit a1 m1 ; retry a0(#0)
+[4c f rdr=f] L1 last intent lost (after an unknown) (n=13): commit a0 m1 ; invoke#0 ; end#0:unknown ; repair#0 ; commit a1 m1 ; invoke#1 ; end#1:success ; retry a0(#0) ; invoke#0 ; end#0:success
+[4c a rdr=t] hold-x | freed by cancel+commit+retry (n=1092): commit a0 m1 ; invoke#0 ; end#0:unknown ; repair#0 ; commit a0 m1 ; commit a1 m1
+[4c a rdr=t] cycle | freed by cancel+commit (n=3110): commit a0 m1 ; invoke#0 ; end#0:unknown ; repair#0 ; commit a0 m1 ; retry a0(#0)
+[4c a rdr=t] hold-x | freed by cancel+commit (n=1114): commit a0 m1 ; invoke#0 ; end#0:unknown ; commit a0 m1 ; commit a1 m1 ; retry a0(#0) ; invoke#0 ; end#0:failure(StillUnknown) ; repair#0
+[4c a rdr=t] cycle | freed by cancel+commit+retry (n=1252): commit a0 m1 ; invoke#0 ; end#0:unknown ; repair#0 ; commit a0 m1 ; commit a1 m2 ; invoke#2 ; end#2:unknown ; repair#2 ; retry a0(#0)
+[4c a rdr=t] L1 last intent lost (after an unknown) (n=8): commit a0 m1 ; invoke#0 ; end#0:unknown ; repair#0 ; commit a1 m1 ; invoke#1 ; end#1:success ; retry a0(#0) ; invoke#0 ; end#0:success
+[4c b1 rdr=t] hold-x | freed by cancel+commit+retry (n=312): commit a0 m1 ; invoke#0 ; end#0:unknown ; repair#0 ; commit a0 m1 ; commit a1 m1
+[4c b1 rdr=t] hold-x | freed by cancel+commit (n=430): commit a0 m1 ; invoke#0 ; end#0:unknown ; commit a0 m1 ; commit a1 m1 ; retry a0(#0) ; invoke#0 ; end#0:failure(StillUnknown) ; repair#0
+[4c b1 rdr=t] N1 retry placed ahead of another actor's unsent write (n=1): commit a0 m1 ; invoke#0 ; end#0:unknown ; repair#0 ; commit a1 m1 ; retry a0(#0)
+[4c b1 rdr=t] S3 sent while another write's repair pending (rule 30) (n=17995): commit a0 m1 ; invoke#0 ; end#0:unknown ; repair#0 ; commit a1 m1 ; invoke#1 ; end#1:unknown ; retry a0(#0) ; invoke#0
+[4c b1 rdr=t] L1 last intent lost (after an unknown) (n=13): commit a0 m1 ; invoke#0 ; end#0:unknown ; repair#0 ; commit a1 m1 ; invoke#1 ; end#1:success ; retry a0(#0) ; invoke#0 ; end#0:success
+[4c b2 rdr=t] hold-x | freed by cancel+commit+retry (n=312): commit a0 m1 ; invoke#0 ; end#0:unknown ; repair#0 ; commit a0 m1 ; commit a1 m1
+[4c b2 rdr=t] hold-x | freed by cancel+commit (n=432): commit a0 m1 ; invoke#0 ; end#0:unknown ; commit a0 m1 ; commit a1 m1 ; retry a0(#0) ; invoke#0 ; end#0:failure(StillUnknown) ; repair#0
+[4c b2 rdr=t] N1 retry placed ahead of another actor's unsent write (n=1): commit a0 m1 ; invoke#0 ; end#0:unknown ; repair#0 ; commit a1 m1 ; retry a0(#0)
+[4c b2 rdr=t] L1 last intent lost (after an unknown) (n=13): commit a0 m1 ; invoke#0 ; end#0:unknown ; repair#0 ; commit a1 m1 ; invoke#1 ; end#1:success ; retry a0(#0) ; invoke#0 ; end#0:success
+[4c c rdr=t] L1 last intent lost (no unknown anywhere) (n=6): commit a0 m1 ; invoke#0 ; commit a0 m1 ; commit a1 m1 ; end#0:success ; invoke#2 ; end#2:success ; invoke#1 ; end#1:success
+[4c c rdr=t] L1 last intent lost (after an unknown) (n=14): commit a0 m1 ; invoke#0 ; end#0:unknown ; repair#0 ; commit a1 m1 ; invoke#1 ; end#1:success ; retry a0(#0) ; invoke#0 ; end#0:success
+[4c d rdr=t] hold-x | freed by cancel+commit+retry (n=564): commit a0 m1 ; invoke#0 ; end#0:unknown ; repair#0 ; commit a1 m1
+[4c d rdr=t] hold-x | freed by cancel+commit (n=564): commit a0 m1 ; invoke#0 ; end#0:unknown ; commit a1 m1 ; retry a0(#0) ; invoke#0 ; end#0:failure(StillUnknown) ; repair#0
+[4c e rdr=t] L1 last intent lost (no unknown anywhere) (n=6): commit a0 m1 ; invoke#0 ; commit a0 m2 ; commit a1 m2 ; invoke#2 ; end#0:success ; end#2:success ; invoke#1 ; end#1:success
+[4c e rdr=t] L1 last intent lost (after an unknown) (n=14): commit a0 m1 ; invoke#0 ; end#0:unknown ; repair#0 ; commit a1 m1 ; invoke#1 ; end#1:success ; retry a0(#0) ; invoke#0 ; end#0:success
+[4c f rdr=t] hold-x | freed by cancel+commit+retry (n=1296): commit a0 m1 ; invoke#0 ; end#0:unknown ; repair#0 ; commit a0 m1 ; commit a1 m1
+[4c f rdr=t] hold-x | freed by cancel+commit (n=1250): commit a0 m1 ; invoke#0 ; end#0:unknown ; commit a0 m1 ; commit a1 m1 ; retry a0(#0) ; invoke#0 ; end#0:failure(StillUnknown) ; repair#0
+[4c f rdr=t] cycle | freed by cancel+commit (n=32): commit a0 m1 ; invoke#0 ; end#0:unknown ; repair#0 ; commit a1 m2 ; invoke#1 ; end#1:unknown ; repair#1 ; commit a0 m2 ; commit a1 m1 ; retry a0(#0) ; retry a1(#1)
+[4c f rdr=t] N1 retry placed ahead of another actor's unsent write (n=1): commit a0 m1 ; invoke#0 ; end#0:unknown ; repair#0 ; commit a0 m1 ; commit a1 m1 ; retry a0(#0)
+[4c f rdr=t] L1 last intent lost (after an unknown) (n=12): commit a0 m1 ; invoke#0 ; end#0:unknown ; repair#0 ; commit a1 m1 ; invoke#1 ; end#1:success ; retry a0(#0) ; invoke#0 ; end#0:success
+
+Mutation sanity (3 commits, variant b2; each fault must be reported as a kind the clean run lacks):
+noPromote   expects orphan  clean-has-it=false mutant-has-it=true -> CAUGHT
+tailInB     expects cycle   clean-has-it=false mutant-has-it=true -> CAUGHT
+ignoreGate  expects S1      clean-has-it=false mutant-has-it=true -> CAUGHT
+doubleSend  expects S2      clean-has-it=false mutant-has-it=true -> CAUGHT
+noRepair    expects other   clean-has-it=false mutant-has-it=true -> CAUGHT
+
+Timeouts (owner: rule 25 cancelled). 3 commits, masks {1,2,3}, reading n. stuck = no timeout-free progress; T1 = a timeout dropped the user's latest never-sent write.
+a  timeout=undefined states=116970 stuck cycle/orphan/hold/hold-x=1992/0/3432/874 T1=0
+a  timeout=wire      states=116970 stuck cycle/orphan/hold/hold-x=1992/0/3432/874 T1=0
+a  timeout=queue     states=122946 stuck cycle/orphan/hold/hold-x=2020/0/3504/874 T1=5976 e.g. commit a0 m1 ; commit a1 m1 ; TIMEOUT queue #1
+a  timeout=hold      states=116970 stuck cycle/orphan/hold/hold-x=1992/0/3432/874 T1=0
+b2 timeout=undefined states=162955 stuck cycle/orphan/hold/hold-x=0/0/5574/236 T1=0
+b2 timeout=wire      states=162955 stuck cycle/orphan/hold/hold-x=0/0/5574/236 T1=0
+b2 timeout=queue     states=172267 stuck cycle/orphan/hold/hold-x=0/0/5682/236 T1=9312 e.g. commit a0 m1 ; commit a1 m1 ; TIMEOUT queue #1
+b2 timeout=hold      states=162955 stuck cycle/orphan/hold/hold-x=0/0/5574/236 T1=0
+f  timeout=undefined states=124873 stuck cycle/orphan/hold/hold-x=80/0/3472/926 T1=0
+f  timeout=wire      states=124873 stuck cycle/orphan/hold/hold-x=80/0/3472/926 T1=0
+f  timeout=queue     states=131533 stuck cycle/orphan/hold/hold-x=80/0/3572/926 T1=6660 e.g. commit a0 m1 ; commit a1 m1 ; TIMEOUT queue #1
+f  timeout=hold      states=124873 stuck cycle/orphan/hold/hold-x=80/0/3472/926 T1=0
