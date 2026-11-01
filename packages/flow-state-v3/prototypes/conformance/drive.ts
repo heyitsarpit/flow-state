@@ -15,7 +15,11 @@ export const makeHarness = (port: Port) => (): Harness => {
   const instances: Instance[] = [];
   const evidence: Array<Record<string, any>> = [];
   const issues: Array<{ code: string; origin?: string; input?: unknown }> = [];
-  const faults: FaultState = { moduleThrows: new Map(), moduleThrowsAfter: new Map(), coreThrows: 0 };
+  const faults: FaultState = {
+    moduleThrows: new Map(),
+    moduleThrowsAfter: new Map(),
+    coreThrows: 0,
+  };
   const throwIn = new Map<string, number>();
   const startThrows = new Set<string>();
   const armed: Array<{ segment: number; at: number; arm: () => void }> = [];

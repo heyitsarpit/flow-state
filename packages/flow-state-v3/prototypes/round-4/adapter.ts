@@ -23,14 +23,18 @@ const STEP_HOOKS = new Set([
   "dispose",
 ]);
 
-const canon = (v: unknown): unknown => {
-  if (Array.isArray(v)) return v.map(canon);
+// For the suite's hash and replay only. Total: a world may hold what never needed encoding (D57).
+const canon = (v: unknown, up: readonly unknown[] = []): unknown => {
+  if (typeof v === "bigint") return `${v}n`;
   if (typeof v === "function") return undefined;
   if (v === null || typeof v !== "object") return v;
+  if (up.includes(v)) return "(cycle)";
+  const next = [...up, v];
+  if (Array.isArray(v)) return v.map((x) => canon(x, next));
   return Object.fromEntries(
     Object.keys(v)
       .sort()
-      .map((k) => [k, canon((v as Record<string, unknown>)[k])]),
+      .map((k) => [k, canon((v as Record<string, unknown>)[k], next)]),
   );
 };
 // Everything that decides the future, normalised: ids and generations by first occurrence, mints and positions by order, times
@@ -71,7 +75,13 @@ export const port: Port = {
               a.faults.moduleThrows.set(k, n - 1);
               throw new Error(`fault in ${k}`);
             }
-            return v.apply(t, args);
+            const r = v.apply(t, args);
+            const after = a.faults.moduleThrowsAfter.get(k);
+            if (after) {
+              a.faults.moduleThrowsAfter.set(k, after - 1);
+              throw new Error(`fault after ${k}`);
+            }
+            return r;
           };
         },
       });
@@ -171,8 +181,8 @@ export const port: Port = {
             if (e.out === "fatal")
               return { same: false, firstDiff: { step: i, input: e.input.k, was: "fatal" } };
             const same =
-              JSON.stringify([out.commands, out.frame?.seq, out.world]) ===
-              JSON.stringify([e.out.commands, e.out.frame?.seq, e.out.world]);
+              JSON.stringify(canon([out.commands, out.frame?.seq, out.world])) ===
+              JSON.stringify(canon([e.out.commands, e.out.frame?.seq, e.out.world]));
             if (!same) return { same: false, firstDiff: { step: i, input: e.input.k } };
             w = out.world;
           } catch (x) {

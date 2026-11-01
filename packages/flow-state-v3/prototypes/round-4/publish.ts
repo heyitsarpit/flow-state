@@ -1,6 +1,7 @@
 // What the outside reads of a world: rows, views, and claims about every wait (D29, D49). The suite checks the claims against
 // what it owns, so nothing here is trusted.
 import type { Claim, Module } from "./seam.ts";
+import { text } from "./gate.ts";
 import { viewOf, walkIncs } from "./inc.ts";
 import { sameSubject } from "./inc.ts";
 import { laneKey, type Lane, type Machines, type World } from "./world.ts";
@@ -12,10 +13,9 @@ export const rowOf = (w: World, l: Lane | undefined) =>
     waiting: l.w.length > 0,
     retryCount: l.head.retryCount,
     outstanding: l.w.length,
-    ...(w.stalled[l.head.id] ? { stalled: w.stalled[l.head.id] } : {}),
   };
 export const row = (w: World, actor: string, op: string, key: unknown) =>
-  rowOf(w, w.lanes[laneKey(actor, op, key)]);
+  text(key) === undefined ? undefined : rowOf(w, w.lanes[laneKey(actor, op, key)]);
 
 // A view is one complete cut: S1.
 export const view = (w: World) => {
@@ -54,7 +54,12 @@ export const waitsOf = (w: World, modules: readonly Module<any>[], machines: Mac
     for (const p of l.parked) out.push({ kind: "parked", op: l.op, attempt: p.attempt ?? "" });
     const h = l.head;
     if (!h) continue;
-    const base = { op: l.op, attempt: h.id };
+    // D49 (changed): a stall is Inspection's, here. The row does not say it.
+    const base = {
+      op: l.op,
+      attempt: h.id,
+      ...(w.stalled[h.id] ? { stalled: w.stalled[h.id] } : {}),
+    };
     if (w.status !== "live") {
       out.push({ kind: "disposing", ...base });
       continue;

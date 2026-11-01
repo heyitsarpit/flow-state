@@ -203,7 +203,11 @@ export class Ctx {
     this.r
       .quiet()
       .waits.find(
-        (w) => "op" in w && w.op === op && w.stalled && (attempt === undefined || (w as any).attempt === attempt),
+        (w) =>
+          "op" in w &&
+          w.op === op &&
+          w.stalled &&
+          (attempt === undefined || (w as any).attempt === attempt),
       )?.stalled;
   cells = (op: string) =>
     this.r

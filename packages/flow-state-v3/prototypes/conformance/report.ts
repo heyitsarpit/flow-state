@@ -39,7 +39,12 @@ export const catalog = (): Row[] => {
 
 export const changed = (): Map<string, string[]> => {
   const m = new Map<string, string[]>();
-  for (const f of ["convergence-1.md", "convergence-2.md", "convergence-3.md", "convergence-4.md"]) {
+  for (const f of [
+    "convergence-1.md",
+    "convergence-2.md",
+    "convergence-3.md",
+    "convergence-4.md",
+  ]) {
     const text = readFileSync(join(proto, f), "utf8");
     const block = /```decisions-changed\n([\s\S]*?)```/.exec(text)![1]!;
     for (const l of block.trim().split("\n")) {

@@ -2,7 +2,13 @@
 // hand from the rule it cites, or from the real file its fixture copies. D57-D64 are convergence-4's: proposed.
 import { commentRef, editorFixture } from "../fixtures/comments.compiled.ts";
 import { issueRef, issuesFixture } from "../fixtures/issues.compiled.ts";
-import { feedFixture, formFixture, issuesPersisted, issuesThrowing, notesFixture } from "../fixtures/lab.compiled.ts";
+import {
+  feedFixture,
+  formFixture,
+  issuesPersisted,
+  issuesThrowing,
+  notesFixture,
+} from "../fixtures/lab.compiled.ts";
 import {
   addressFixture,
   attachDomainFixture,
@@ -34,7 +40,12 @@ const opened = (c: Ctx) => {
   c.answer("list", { truth: true });
 };
 const server = (c: Ctx) => c.r.truth().server.issues;
-const at = (c0: Ctx, f: Fixture, actor: { actor: string; id: string }, bounds?: Record<string, number>) => {
+const at = (
+  c0: Ctx,
+  f: Fixture,
+  actor: { actor: string; id: string },
+  bounds?: Record<string, number>,
+) => {
   const c = new Ctx(c0.fresh([f], bounds), actor);
   c.namedIssues = c0.namedIssues;
   c.ensure();
@@ -69,19 +80,27 @@ export const round4Scenarios: readonly Scenario[] = [
         c.to(A, "Toggle", { id: "i1", liked: true });
         c.to(A, "Load");
         c.answer("like", { apply: true });
-        c.answer("list", { ok: [{ id: "i1", title: "title i1", slug: "title i1", liked: false, likes: 0 }] });
+        c.answer("list", {
+          ok: [{ id: "i1", title: "title i1", slug: "title i1", liked: false, likes: 0 }],
+        });
         c.eq("the confirmed write stands", c.rec(I1)?.data.liked, true);
         c.eq("marked: a read differed", c.rec(I1)?.uncertain, true);
         c.eq("repair asked", c.reqs("repair").length, 1);
         c.answer("repair", { truth: true });
-        c.eq("a later read settles it", [c.rec(I1)?.data, c.rec(I1)?.uncertain], [server(c).i1, false]);
+        c.eq(
+          "a later read settles it",
+          [c.rec(I1)?.data, c.rec(I1)?.uncertain],
+          [server(c).i1, false],
+        );
       },
       "a-read-started-after-the-write-applies-with-no-extra-read"(c) {
         opened(c);
         c.to(A, "Toggle", { id: "i1", liked: true });
         c.answer("like", { apply: true });
         c.to(A, "Load");
-        c.answer("list", { ok: [{ id: "i1", title: "title i1", slug: "title i1", liked: false, likes: 0 }] });
+        c.answer("list", {
+          ok: [{ id: "i1", title: "title i1", slug: "title i1", liked: false, likes: 0 }],
+        });
         c.eq("believed: it started after", c.rec(I1)?.data.liked, false);
         c.eq("no repair", c.reqs("repair").length, 0);
       },
@@ -90,19 +109,19 @@ export const round4Scenarios: readonly Scenario[] = [
         c.to(A, "Toggle", { id: "i1", liked: true });
         c.to(A, "Load");
         c.answer("like", { apply: true });
-        c.answer("list", { ok: [{ id: "i1", title: "title i1", slug: "title i1", liked: false, likes: 0 }] });
+        c.answer("list", {
+          ok: [{ id: "i1", title: "title i1", slug: "title i1", liked: false, likes: 0 }],
+        });
         c.answer("repair", { fail: { tag: "NoResponse" } });
         c.advance(3_600_000);
-        c.eq("still marked, the write still shown", [c.rec(I1)?.uncertain, c.rec(I1)?.data.liked], [true, true]);
+        c.eq(
+          "still marked, the write still shown",
+          [c.rec(I1)?.uncertain, c.rec(I1)?.data.liked],
+          [true, true],
+        );
         c.to(A, "Load");
         c.answer("list", { truth: true });
         c.eq("a read after it clears it", c.rec(I1)?.uncertain, false);
-      },
-      "a-read-saying-removed-overlapping-a-write-is-doubted"(c) {
-        opened(c);
-        c.to(A, "Toggle", { id: "i1", liked: true });
-        c.answer("like", { apply: true, });
-        c.eq("clean", c.rec(I1)?.uncertain, false);
       },
     },
   },
@@ -135,16 +154,52 @@ export const round4Scenarios: readonly Scenario[] = [
         c.answer("like", { apply: true });
         c.answer("repair", { fail: { tag: "NoResponse" } });
         c.advance(3_600_000);
-        c.eq("true to the server, and marked", [c.rec(I1)?.data.liked, c.rec(I1)?.uncertain], [true, true]);
+        c.eq(
+          "true to the server, and marked",
+          [c.rec(I1)?.data.liked, c.rec(I1)?.uncertain],
+          [true, true],
+        );
         c.eq("server", server(c).i1.liked, true);
       },
+      "a-read-that-started-before-the-doubt-does-not-clear-it"(c) {
+        opened(c);
+        c.to(A, "Toggle", { id: "i1", liked: true });
+        c.answer("like", { lost: true });
+        c.answer("repair", { truth: true });
+        c.to(A, "Load");
+        c.to(A, "ReconcileLike", k);
+        c.answer("like", { apply: true });
+        c.answer("list", { truth: true }); // says the same, and started before the doubt
+        c.eq("still marked", c.rec(I1)?.uncertain, true);
+        c.answer("repair", { truth: true });
+        c.eq("a read after it clears it", c.rec(I1)?.uncertain, false);
+      },
       "a-confirms-mapper-that-throws-keeps-the-mark"(c0) {
-        const c = at(c0, { ...issuesThrowing, make: (api) => {
-          const m = issuesThrowing.make(api);
-          return { ...m, domain: { ...m.domain!, writes: { ...m.domain!.writes, like: {
-            ...m.domain!.writes["like"]!, confirms: () => { throw new Error("odd shape"); },
-          } } } };
-        } }, A);
+        const c = at(
+          c0,
+          {
+            ...issuesThrowing,
+            make: (api) => {
+              const m = issuesThrowing.make(api);
+              return {
+                ...m,
+                domain: {
+                  ...m.domain!,
+                  writes: {
+                    ...m.domain!.writes,
+                    like: {
+                      ...m.domain!.writes["like"]!,
+                      confirms: () => {
+                        throw new Error("odd shape");
+                      },
+                    },
+                  },
+                },
+              };
+            },
+          },
+          A,
+        );
         c0.namedIssues.push("UserClosure");
         c.to(A, "Load");
         c.answer("list", { truth: true });
@@ -169,7 +224,11 @@ export const round4Scenarios: readonly Scenario[] = [
         (
           [
             ["leaf-this-release-removed", "actor/", (r: any) => (r.root.leaf = "REMOVED")],
-            ["kid-frag-this-release-removed", "actor/", (r: any) => (r.root.kids["docs:d1"].frag = "REMOVED")],
+            [
+              "kid-frag-this-release-removed",
+              "actor/",
+              (r: any) => (r.root.kids["docs:d1"].frag = "REMOVED"),
+            ],
             ["kid-leaf-removed", "actor/", (r: any) => (r.root.kids["docs:d1"].leaf = "REMOVED")],
             ["placement-removed", "actor/", (r: any) => (r.root.kids["docs:d1"].name = "nope")],
             ["no-timers", "actor/", (r: any) => delete r.timers],
@@ -177,6 +236,21 @@ export const round4Scenarios: readonly Scenario[] = [
             ["activations-for-a-leaf-gone", "actor/", (r: any) => (r.root.activations = {})],
             ["timer-of-no-shape", "actor/", (r: any) => (r.timers = [{ kind: "schedule" }])],
             ["memory-not-an-object", "actor/", (r: any) => (r.root.memory = 5)],
+            [
+              "kid-frag-is-another-fragment",
+              "actor/",
+              (r: any) => (r.root.kids["docs:d1"].frag = "Upload"),
+            ],
+            [
+              "history-names-a-removed-node",
+              "actor/",
+              (r: any) => (r.root.kids["docs:d1"].history = { root: "GONE" }),
+            ],
+            [
+              "frozen-of-no-shape",
+              "actor/",
+              (r: any) => (r.root.kids["docs:d1"].frozen = { timers: 5 }),
+            ],
           ] as const
         ).map(([name, match, f]) => [
           name,
@@ -196,7 +270,13 @@ export const round4Scenarios: readonly Scenario[] = [
             c.state("READY");
             c.send("SetDocs", { docs: ["d1"] });
             c.eq("the lane is adopted, once", c.inner(["docs:d1"])?.memory.reason, "Restored");
-            c.eq("other work goes on", c.endings("save").filter((e) => e["reason"] === "Restored").length >= 1, true);
+            c.into(["docs:d1"], "Resend");
+            c.ack();
+            c.eq(
+              "a hold stays a hold across both boots: sent again, the same id",
+              [c.reqs("save").length, c.keys("save").length],
+              [2, 1],
+            );
           },
         ]),
       ),
@@ -234,20 +314,27 @@ export const round4Scenarios: readonly Scenario[] = [
     cites: ["D57", "D46", "rule:9"],
     variants: {
       ...Object.fromEntries(
-        ([["null", null], ["five", 5], ["string", "x"], ["nullItem", [null]], ["emptyItem", [{}]], ["objKey", [{ ref: { a: 1 } }]]] as const).map(
-          ([name, v]) => [
-            `list-${name}-repairs-never-refuses`,
-            (c: Ctx) => {
-              c.ensure();
-              c.send("SetFiles", { attachments: v });
-              c.eq("alive", c.r.quiet().fatal, false);
-              c.yes("evidence", c.r.evidence("listRepair").length >= 1);
-              c.eq("no copies, and a list", c.mem().uploads, []);
-              c.send("Touch");
-              c.eq("the machine goes on", c.mem().touched, 1);
-            },
-          ],
-        ),
+        (
+          [
+            ["null", null],
+            ["five", 5],
+            ["string", "x"],
+            ["nullItem", [null]],
+            ["emptyItem", [{}]],
+            ["objKey", [{ ref: { a: 1 } }]],
+          ] as const
+        ).map(([name, v]) => [
+          `list-${name}-repairs-never-refuses`,
+          (c: Ctx) => {
+            c.ensure();
+            c.send("SetFiles", { attachments: v });
+            c.eq("alive", c.r.quiet().fatal, false);
+            c.yes("evidence", c.r.evidence("listRepair").length >= 1);
+            c.eq("no copies, and a list", c.mem().uploads, []);
+            c.send("Touch");
+            c.eq("the machine goes on", c.mem().touched, 1);
+          },
+        ]),
       ),
       "a-good-item-beside-a-bad-one-stays"(c) {
         c.ensure();
@@ -259,7 +346,10 @@ export const round4Scenarios: readonly Scenario[] = [
         (() => {
           const cycle: any = {};
           cycle.self = cycle;
-          return [["bigint", 10n], ["cycle", cycle]] as const;
+          return [
+            ["bigint", 10n],
+            ["cycle", cycle],
+          ] as const;
         })().map(([name, v]) => [
           `reset-value-${name}-refuses-the-turn`,
           (c: Ctx) => {
@@ -288,10 +378,16 @@ export const round4Scenarios: readonly Scenario[] = [
         c.eq("alive after a reload", c.r.quiet().fatal, false);
       },
       "memory-initial-of-a-bigint-on-a-persisted-machine"(c0) {
-        const f: Fixture = { ...notesFixture, make: (api) => {
-          const m = notesFixture.make(api);
-          return { ...m, memory: { initial: { ...m.memory.initial, run: () => ({ big: 10n }) } } };
-        } };
+        const f: Fixture = {
+          ...notesFixture,
+          make: (api) => {
+            const m = notesFixture.make(api);
+            return {
+              ...m,
+              memory: { initial: { ...m.memory.initial, run: () => ({ big: 10n }) } },
+            };
+          },
+        };
         const c = new Ctx(c0.fresh([f]), N);
         c0.namedIssues.push("InvalidTurn");
         c.ensure();
@@ -306,6 +402,12 @@ export const round4Scenarios: readonly Scenario[] = [
         c.state("B");
         c.eq("refused", c.r.issues().at(-1)?.code, "InvalidTurn");
       },
+      "an-address-of-no-shape-is-unhandled"(c) {
+        c.ensure();
+        c.do({ send: AT, event: "Touch", payload: {}, to: 5 as never });
+        c.eq("alive", c.r.quiet().fatal, false);
+        c.eq("not delivered", c.mem().touched, 0);
+      },
       "a-record-field-of-a-bigint-does-not-disable-the-store"(c0) {
         const c = new Ctx(c0.fresh([issuesFixture]), A);
         c.ensure();
@@ -313,21 +415,32 @@ export const round4Scenarios: readonly Scenario[] = [
         c.answer("list", { truth: true });
         c.to(A, "Toggle", { id: "i1", liked: true });
         c.answer("like", { ok: { id: "i1", big: 10n } });
-        c.eq("no defect", c.r.issues().map((i) => i.code), []);
+        c.eq(
+          "no defect",
+          c.r.issues().map((i) => i.code),
+          [],
+        );
         c.to(A, "Toggle", { id: "i2", liked: true });
         c.eq("the store goes on", c.reqs("like").length, 2);
       },
       "a-mapper-of-no-shape-does-not-disable-the-store"(c0) {
-        const f: Fixture = { ...issuesFixture, make: (api) => {
-          const m = issuesFixture.make(api);
-          return { ...m, domain: { ...m.domain!, reads: { list: () => 5 as never } } };
-        } };
+        const f: Fixture = {
+          ...issuesFixture,
+          make: (api) => {
+            const m = issuesFixture.make(api);
+            return { ...m, domain: { ...m.domain!, reads: { list: () => 5 as never } } };
+          },
+        };
         const c = new Ctx(c0.fresh([f]), A);
         c0.namedIssues.push("UserClosure");
         c.ensure();
         c.to(A, "Load");
         c.answer("list", { truth: true });
-        c.eq("named, not a defect", c.r.issues().map((i) => i.code), ["UserClosure"]);
+        c.eq(
+          "named, not a defect",
+          c.r.issues().map((i) => i.code),
+          ["UserClosure"],
+        );
         c.to(A, "Toggle", { id: "i1", liked: true });
         c.eq("the store goes on", c.reqs("like").length, 1);
       },
@@ -356,7 +469,14 @@ export const round4Scenarios: readonly Scenario[] = [
         c.eq("the whole key", c.mem().goneRows, ["user:1"]);
       },
       ...Object.fromEntries(
-        ["gid://shop/Product/1", "a/b", "2026-11-02T00:00:00Z", "with space", "\"quoted\"", "g1.2"].map((key) => [
+        [
+          "gid://shop/Product/1",
+          "a/b",
+          "2026-11-02T00:00:00Z",
+          "with space",
+          '"quoted"',
+          "g1.2",
+        ].map((key) => [
           `key ${key}: armed, sent, stored`,
           (c0: Ctx) => {
             const c = at(c0, attachFixture, AT);
@@ -379,13 +499,14 @@ export const round4Scenarios: readonly Scenario[] = [
         c.eq("the guard saw the lane: one request", c.reqs("pin").length, 1);
         c.eq("no second mint", c.r.evidence("mint").filter((e) => e["op"] === "pin").length, 1);
       },
-      "object-reset-values-are-different-subjects"(c0) {
+      "a-reset-value-is-the-value-not-its-key-order"(c0) {
         const c = at(c0, attachFixture, AT);
-        c.send("SetSubject", { subject: { a: 1 } });
-        const one = c.r.evidence("turn").length;
-        c.send("SetSubject", { subject: { a: 1 } });
-        c.send("SetSubject", { subject: { a: 2 } });
-        c.eq("the same value resets nothing, a new one does", c.r.evidence("turn").length - one, 3);
+        c.send("SetSubject", { subject: { a: 1, b: 2 } });
+        const one = c.mem().resets;
+        c.send("SetSubject", { subject: { b: 2, a: 1 } });
+        c.eq("the same value resets nothing", c.mem().resets, one);
+        c.send("SetSubject", { subject: { a: 1, b: 3 } });
+        c.eq("a new one does", c.mem().resets, one + 1);
       },
     },
   },
@@ -456,11 +577,30 @@ export const round4Scenarios: readonly Scenario[] = [
         c.send("SetRows", { rows: ["a"] });
         c.into(["rows:a"], "Send");
         c.send("Away");
+        c.eq("still on the wire", c.reqs("rowPut").length, 1);
         c.send("SetRows", { rows: [] });
-        c.eq("marked", c.r.row(DP, "rowPut", { key: "a" })?.pending, true);
-        c.answer("rowPut", { apply: true });
-        c.eq("evidence, no parked wait", c.r.quiet().waits.filter((w) => w.kind === "parked").length, 0);
+        c.eq("interrupted, released", c.lastEnding("rowPut")?.reason, "Cancelled");
+        c.eq(
+          "evidence, no parked wait",
+          c.r.quiet().waits.filter((w) => w.kind === "parked").length,
+          0,
+        );
         c.eq("row gone", c.r.row(DP, "rowPut", { key: "a" }), undefined);
+      },
+      "a-thaw-tells-its-own-hold-nothing-new"(c) {
+        c.ensure();
+        c.send("SetRows", { rows: ["a"] });
+        c.into(["rows:a"], "Send");
+        c.answer("rowPut", { lost: true });
+        c.eq("heard once", c.r.evidence("delivered").length, 1);
+        c.send("Away");
+        c.send("Back");
+        c.eq(
+          "still once: no Restored for the life that owned it",
+          c.r.evidence("delivered").length,
+          1,
+        );
+        c.eq("still held", c.r.row(DP, "rowPut", { key: "a" })?.uncertain, true);
       },
       "r60-a-parked-ending-is-evidence-once-marked"(c) {
         c.ensure();
@@ -567,7 +707,11 @@ export const round4Scenarios: readonly Scenario[] = [
         id: "Deep",
         make: (api) => {
           const m = deepAt("HERE").make(api);
-          return { ...m, persisted: true, ops: { ...m.ops, rowPut: { ...m.ops["rowPut"]!, concurrency: "serialize" } } };
+          return {
+            ...m,
+            persisted: true,
+            ops: { ...m.ops, rowPut: { ...m.ops["rowPut"]!, concurrency: "serialize" } },
+          };
         },
       };
       const c = at(c0, f, DP);
@@ -580,7 +724,11 @@ export const round4Scenarios: readonly Scenario[] = [
       c.ack();
       c.eq("one request only", c.reqs("rowPut").length, 1);
       c.eq("one released", c.r.evidence("Released").length, 1);
-      c.eq("no record left", [...c.r.stored().keys()].filter((x) => x.startsWith("lane/")), []);
+      c.eq(
+        "no record left",
+        [...c.r.stored().keys()].filter((x) => x.startsWith("lane/")),
+        [],
+      );
     },
   },
   {
@@ -593,27 +741,11 @@ export const round4Scenarios: readonly Scenario[] = [
       opened(c);
       c.to(A, "Load");
       c.answer("list", { ok: [{ id: "i1", title: "from a thin row" }] });
-      c.eq("a thin read keeps the rest", [c.rec(I1)?.data.title, c.rec(I1)?.data.likes], ["from a thin row", 0]);
-    },
-  },
-  {
-    id: "REV4-L5",
-    kind: "example",
-    fixtures: [notesFixture],
-    actor: N,
-    cites: ["rule:44", "rule:54", "sec:2.7.13"],
-    run(c) {
-      c.ensure();
-      c.send("SetDocs", { docs: ["d1", "d2"] });
-      c.into(["docs:d1"], "Edited", { body: "one" });
-      c.ack();
-      c.into(["docs:d2"], "Edited", { body: "two" });
-      c.ack();
-      c.send("SetDocs", { docs: ["d1"] });
-      c.answer("save", { apply: true }, );
-      c.reload();
-      const seq = c.r.evidence().map((e) => `${e["kind"]}`).filter((x) => x === "unparked" || x === "lane");
-      c.yes("restore ran", seq.length > 0);
+      c.eq(
+        "a thin read keeps the rest",
+        [c.rec(I1)?.data.title, c.rec(I1)?.data.likes],
+        ["from a thin row", 0],
+      );
     },
   },
   // ── H7's survivors, one each.
@@ -711,7 +843,11 @@ export const round4Scenarios: readonly Scenario[] = [
         c.eq("draft", c.mem().addressDraft, a);
         c.send("Go");
         c.eq("resumes it", c.inner(["ADDRESS"])?.memory.address, a);
-        c.eq("at the first field: history is control, of one life", c.inner(["ADDRESS"])?.state, "NAME");
+        c.eq(
+          "at the first field: history is control, of one life",
+          c.inner(["ADDRESS"])?.state,
+          "NAME",
+        );
       },
       "history-returns-to-the-exact-field-not-the-default"(c) {
         c.ensure();
@@ -759,6 +895,7 @@ export const round4Scenarios: readonly Scenario[] = [
         c.state("RESOLVED");
         c.eq("resolved", c.mem().resolved, "fixed");
         c.eq("no draft", c.mem().drafts, []);
+        c.eq("a sibling on the node it left was abandoned", c.mem().sideGone, 1);
       },
       "kept-returns-to-the-exact-step-through-a-nested-exit"(c) {
         c.ensure();
@@ -801,7 +938,11 @@ export const round4Scenarios: readonly Scenario[] = [
       "each-by-and-item"(c) {
         c.ensure();
         files(c, "r1");
-        c.eq("input from the item", [upload(c, "r1")?.ref, upload(c, "r1")?.name], ["r1", "r1.png"]);
+        c.eq(
+          "input from the item",
+          [upload(c, "r1")?.ref, upload(c, "r1")?.name],
+          ["r1", "r1.png"],
+        );
         c.ack();
         c.eq("lane by the field", c.r.row(AT, "put", { ref: "r1" })?.pending, true);
         c.eq("key from `by`", c.reqs("put")[0]?.input, { ref: "r1" });
@@ -824,7 +965,11 @@ export const round4Scenarios: readonly Scenario[] = [
         c.ack();
         c.answer("put", { lost: true });
         c.into(["uploads:r1"], "Cancel");
-        c.eq("stopped, released", [upload(c, "r1")?.status, c.r.evidence("Released").length], ["stopped", 1]);
+        c.eq(
+          "stopped, released",
+          [upload(c, "r1")?.status, c.r.evidence("Released").length],
+          ["stopped", 1],
+        );
         c.advance(60_000);
         c.eq("no resend, no give-up", [c.reqs("put").length, c.mem().failed], [1, []]);
       },
@@ -842,7 +987,11 @@ export const round4Scenarios: readonly Scenario[] = [
         files(c, "r1");
         c.ack();
         c.reload();
-        c.eq("failed, FileGone", [upload(c, "r1")?.status, upload(c, "r1")?.problem], ["failed", "FileGone"]);
+        c.eq(
+          "failed, FileGone",
+          [upload(c, "r1")?.status, upload(c, "r1")?.problem],
+          ["failed", "FileGone"],
+        );
         c.eq("told", c.mem().failed, [["r1", "FileGone"]]);
         c.eq("released", c.r.row(AT, "put", { ref: "r1" }), undefined);
       },
@@ -933,7 +1082,10 @@ export const round4Scenarios: readonly Scenario[] = [
         c.send("OpenTab", { tab: "history" });
         c.eq(
           "order",
-          c.r.evidence("delivered").slice(from).map((e) => e["op"]),
+          c.r
+            .evidence("delivered")
+            .slice(from)
+            .map((e) => e["op"]),
           ["earlier", "pin"],
         );
       },
@@ -946,7 +1098,11 @@ export const round4Scenarios: readonly Scenario[] = [
         c.eq("frozen keeps the old until return", c.inner(["history"])?.memory.ticketId, "T-1");
         const from = c.r.frames().length;
         c.send("OpenTab", { tab: "history" });
-        c.eq("fresh", [c.inner(["history"])?.memory.ticketId, c.inner(["history"])?.memory.highlighted], ["T-2", null]);
+        c.eq(
+          "fresh",
+          [c.inner(["history"])?.memory.ticketId, c.inner(["history"])?.memory.highlighted],
+          ["T-2", null],
+        );
         c.eq("the cut lookup is evidence: not delivered", c.inner(["history"])?.memory.cuts, 0);
         c.eq("told", c.mem().goneFor, ["T-1"]);
         for (const f of c.r.frames().slice(from)) {
@@ -979,7 +1135,13 @@ export const round4Scenarios: readonly Scenario[] = [
         c.answer("pin", { ok: {} });
         corrupt(c, "actor/", (r) => (r.root.memory.ticketId = "T-1"));
         c.reload();
-        const seq = c.r.evidence().filter((e) => e["kind"] === "delivered" || (e["kind"] === "turn" && e["event"] === "PendingReset")).map((e) => e["kind"]);
+        const seq = c.r
+          .evidence()
+          .filter(
+            (e) =>
+              e["kind"] === "delivered" || (e["kind"] === "turn" && e["event"] === "PendingReset"),
+          )
+          .map((e) => e["kind"]);
         c.eq("reset, then the ending it can now reach", seq.slice(-2), ["turn", "delivered"]);
         c.eq("adopted", c.inner(["history"])?.memory.pins, ["e1"]);
       },
@@ -1024,7 +1186,11 @@ export const round4Scenarios: readonly Scenario[] = [
         c.ensure();
         c.into(["comments"], "React", { commentId: "c1", emoji: "+1", on: true });
         c.answer("react", { lost: true });
-        c.eq("released, no repair: it names no record", [c.r.evidence("Released").length, c.reqs("repair").length], [1, 0]);
+        c.eq(
+          "released, no repair: it names no record",
+          [c.r.evidence("Released").length, c.reqs("repair").length],
+          [1, 0],
+        );
       },
     },
   },

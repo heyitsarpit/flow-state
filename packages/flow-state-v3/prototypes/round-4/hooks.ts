@@ -2,31 +2,16 @@
 import type { Slot } from "../conformance/fixtures/compiled.ts";
 import type { Claim, Cx, Module, WriteRef } from "./seam.ts";
 import { armTimer, disarmTimer } from "./timers.ts";
+import { Refused } from "./gate.ts";
 import { issue, nextGen, note, position, type Tx } from "./world.ts";
 
-export class Refused extends Error {
-  constructor(
-    readonly origin: string,
-    cause: unknown,
-  ) {
-    super(String(cause));
-  }
-}
+export { Refused };
 export const run = <A extends unknown[], B>(slot: Slot<(...a: A) => B>, ...a: A): B => {
   try {
     return slot.run(...a);
   } catch (e) {
     if (e instanceof Refused) throw e;
     throw new Refused(`${slot.at.definition} ${slot.at.path}`, e);
-  }
-};
-// Core encodes what closures return. Inside a turn's attempt, so what cannot encode refuses it (H2).
-export const encodable = <A>(v: A, origin: string): A => {
-  try {
-    JSON.stringify(v);
-    return v;
-  } catch (e) {
-    throw new Refused(origin, e);
   }
 };
 const cxFor = (tx: Tx, m: Module<any>): Cx => ({
@@ -139,17 +124,7 @@ export const startAll = (
   prepared: Readonly<Record<string, unknown>>,
 ): string | undefined => {
   for (const m of tx.modules) {
-    if (!uses(tx, w.machine, m)) {
-      if (m.start && active(tx, m))
-        attempt(
-          tx,
-          m,
-          "start",
-          () => undefined,
-          () => undefined,
-        );
-      continue;
-    }
+    if (!uses(tx, w.machine, m)) continue;
     if (!active(tx, m)) return "ModuleDisabled";
     if (!m.start) continue;
     const why = attempt<string | undefined>(

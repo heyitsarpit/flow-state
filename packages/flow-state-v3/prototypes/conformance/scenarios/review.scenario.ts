@@ -270,11 +270,12 @@ export const reviewScenarios: readonly Scenario[] = [
       c.eq("the read shows the newer value", c.rec(I1)?.data.title, "other device");
       c.to(A, "ReconcileLike", k);
       c.answer("like", { apply: true }); // the server replays what it stored
-      c.eq("the old answer did not overwrite", c.rec(I1)?.data.title, "other device");
-      c.eq("the mark is cleared: the Attempt is resolved", c.rec(I1)?.uncertain, false);
+      // D59: a success applies, marked, until a later read. The one case it is wrong it says so.
+      c.eq("marked", c.rec(I1)?.uncertain, true);
       c.eq("a repair runs: the answer differed", c.reqs("repair").length, 2);
       c.answer("repair", { truth: true });
       c.eq("screen equals server", c.rec(I1)?.data, server(c).i1);
+      c.eq("the mark goes with it", c.rec(I1)?.uncertain, false);
     },
   },
   {

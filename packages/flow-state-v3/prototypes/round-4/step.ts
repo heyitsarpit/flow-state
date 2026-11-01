@@ -3,6 +3,7 @@
 import type { Compiled } from "../conformance/fixtures/compiled.ts";
 import { blockedBy, hook, input as moduleInput, inputAll, Refused, run } from "./hooks.ts";
 import { flush, onStorageBound, onStored, restore } from "./durable.ts";
+import { admit, finiteMs } from "./gate.ts";
 import { down, placementsActive, seedKids, up, walkIncs, viewOf, type Started } from "./inc.ts";
 import { cell, parkWaiting, settleSend } from "./lane.ts";
 import { dropReadsOf, takeRead } from "./reads.ts";
@@ -129,7 +130,7 @@ const onTimer = (tx: Tx, i: Extract<Input, { k: "timer" }>) => {
   tx.w = { ...tx.w, timers: without(tx.w.timers, i.timer) };
   switch (t.kind) {
     case "schedule":
-      tx.touchedActors.add(t.actor);
+      // L6: the record is not touched: if the turn never commits, the disk still has this timer.
       return enqueue(tx, {
         k: "fire",
         actor: t.actor,
@@ -266,7 +267,10 @@ const startRoot = (tx: Tx, key: string, machine: string, input: unknown) => {
         const ms =
           "ms" in spec.schedule
             ? spec.schedule.ms
-            : run(spec.schedule, { memory: viewOf(inc), event: {} } as never);
+            : finiteMs(
+                run(spec.schedule, { memory: viewOf(inc), event: {} } as never),
+                `${spec.schedule.at.definition} ${spec.schedule.at.path}`,
+              );
         armTimer(tx, {
           key: scheduleKey(key, inc.id, inc.activations[n]!, spec.id),
           kind: "schedule",
@@ -294,14 +298,18 @@ const startRoot = (tx: Tx, key: string, machine: string, input: unknown) => {
 };
 const onEnsure = (tx: Tx, key: string, machine: string, input: unknown) => {
   if (tx.w.actors[key]) return;
-  const kept = { w: tx.w, commands: tx.commands.length };
+  const kept = { w: tx.w, commands: tx.commands.length, evidence: tx.evidence.length };
   tx.inTurn = true;
   try {
     startRoot(tx, key, machine, input);
+    const a = tx.w.actors[key]!;
+    if (tx.machines[machine]!.persisted) admit(viewOf(a.root), `${machine} persisted memory`); // D57
   } catch (e) {
     if (!(e instanceof Refused)) throw e;
     tx.w = kept.w;
     tx.commands.length = kept.commands;
+    tx.evidence.length = kept.evidence; // L9
+    tx.touchedActors.delete(key);
     issue(tx, { code: "InvalidTurn", origin: e.origin });
   } finally {
     tx.inTurn = false;

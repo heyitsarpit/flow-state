@@ -22,7 +22,8 @@ export const lookup = (
     tx.commands.push({ k: "interrupt", attempt: key, send: old.gen });
   }
   const gen = nextGen(tx);
-  tx.w = { ...tx.w, reads: { ...tx.w.reads, [key]: { ...a, gen, pos: position(tx) } } };
+  const pos = position(tx); // before the spread below reads tx.w: it moves it
+  tx.w = { ...tx.w, reads: { ...tx.w.reads, [key]: { ...a, gen, pos } } };
   note(tx, "invoked", { op: a.op, attempt: key, send: gen });
   tx.commands.push({
     k: "invoke",

@@ -11,16 +11,18 @@ import type {
   Placement,
   Slot,
 } from "../conformance/fixtures/compiled.ts";
-import { encodable, prepareAll, Refused, run } from "./hooks.ts";
+import { admit, encoded, finiteMs, stringKey } from "./gate.ts";
+import { prepareAll, Refused, run } from "./hooks.ts";
 import {
   down,
   kidAt,
-  keyOf,
   membership,
-  nameOf,
+  partOf,
+  partsNamed,
   pathOfId,
   placementOf,
   placementsActive,
+  samePath,
   sameSubject,
   seed,
   seedKids,
@@ -85,6 +87,8 @@ type Walk = {
   late: boolean;
   lateFill?: boolean;
   thawFollows: Mail[];
+  thawed: Path[]; // rule 54: a thawed incarnation adopts what parked while it was frozen
+  exited: Set<string>; // rule 6: who ended by its own exit
 };
 const inView = (inc: Inc, event: unknown) => ({
   memory: viewOf(inc),
@@ -112,7 +116,7 @@ const tokensPass = (w: Walk, path: Path, inc: Inc, alt: Alternative, view: objec
     }
     if ("port" in t) {
       const host = kidAt(w.root0, path.slice(0, -1)) ?? kidAt(w.root, path.slice(0, -1))!;
-      const p = placementOf(w.m, host, path.at(-1)!);
+      const p = placementOf(w.m, host, inc.name!);
       const g = p?.guards?.[t.port];
       if (!g) continue;
       const r = run(g, inView(host, (view as any).event) as never);
@@ -145,8 +149,7 @@ const laneOfToken = (
   t: { op: string; key?: Slot<(a: any) => unknown> },
   view: object,
 ): Lane | undefined => {
-  if (t.key)
-    return w.tx.w.lanes[laneKey(w.a.key, t.op, encodable(run(t.key, view as never), t.op))];
+  if (t.key) return w.tx.w.lanes[laneKey(w.a.key, t.op, admit(run(t.key, view as never), t.op))];
   const it = w.item;
   if (it?.k === "ending" && it.op === t.op && it.attempt) return laneOfAttempt(w.tx.w, it.attempt);
   return undefined;
@@ -265,8 +268,10 @@ const runPart = (
   }
   if (source) doResets(w);
   for (const r of alt.raises ?? []) {
-    const key = r.key ? run(r.key, view as never) : undefined;
-    const part = key === undefined ? r.to : `${r.to}:${key}`;
+    const key = r.key
+      ? stringKey(run(r.key, view as never), `${alt.at.definition} ${alt.at.path}`)
+      : undefined;
+    const part = partOf(r.to, key);
     let child = kidAt(w.root, [...path, part]);
     if (!child && key !== undefined) child = seedIfListed(w, path, r.to, key);
     if (!child) {
@@ -291,7 +296,7 @@ const seedIfListed = (w: Walk, hostPath: Path, name: string, key: string) => {
   if (!p?.each) return undefined;
   const hit = membership(host, p).keys.find((x) => x.key === key);
   if (!hit) return undefined;
-  const part = `${name}:${key}`;
+  const part = partOf(name, key);
   const k = seed(w.tx, w.m, host, p, [...hostPath, part], key, hit.item, w.started);
   w.root = withKid(w.root, hostPath, (i) => ({ ...i, kids: { ...i.kids, [part]: k } }));
   markFresh(w);
@@ -307,11 +312,11 @@ const reach = (
   from: Alternative,
   fused = false,
 ) => {
+  if (path.length === 0) return;
   const hostPath = path.slice(0, -1);
-  const part = path.at(-1);
-  if (part === undefined) return;
+  const kid = (kidAt(w.root, path) ?? kidAt(w.root0, path))!;
   const host = beforeInc(w, hostPath);
-  const p = placementOf(w.m, host, part);
+  const p = placementOf(w.m, host, kid.name!);
   const alts = p?.[kind]?.[n.name];
   if (!alts) {
     if (kind === "exits") throw refused(from.at, `exit ${n.name} is not filled`);
@@ -319,13 +324,14 @@ const reach = (
   }
   const payload = {
     ...(n.from ? run(n.from, view as never) : {}),
-    ...(keyOf(part) === undefined ? {} : { key: keyOf(part) }),
+    ...(kid.key === undefined ? {} : { key: kid.key }),
   };
   const hv = inView(host, payload);
   next: for (const alt of alts) {
     if (!tokensPass(w, hostPath, host, alt, hv).pass) continue;
     for (const g of alt.guards) if (isDenial(run(g, hv as never))) continue next;
     if (w.lateFill && leavesWork(w, host, alt)) continue;
+    if (kind === "exits") w.exited.add(kid.id);
     const node = host.leaf;
     runPart(w, hostPath, { node, alt }, n.name, payload, fused);
     return;
@@ -333,6 +339,11 @@ const reach = (
   throw refused(from.at, `no filling of ${n.name} accepted`);
 };
 
+const resetValue = (host: Inc, p: Placement) =>
+  encoded(
+    run(p.resetOn!, inView(host, {}) as never),
+    `${p.resetOn!.at.definition} ${p.resetOn!.at.path}`,
+  );
 // ── Resets on before-walk (rule 1). Declaration order; `.each` keeps one value for the list.
 const doResets = (w: Walk) => {
   const visit = (path: Path) => {
@@ -340,9 +351,8 @@ const doResets = (w: Walk) => {
     if (!host) return;
     for (const { p } of placementsActive(w.m, host)) {
       if (!p.resetOn) continue;
-      const now = JSON.stringify(run(p.resetOn, inView(host, {}) as never));
-      for (const part of Object.keys(host.kids)) {
-        if (nameOf(part) !== p.name) continue;
+      const now = resetValue(host, p);
+      for (const part of partsNamed(host, p.name)) {
         const kid = host.kids[part]!;
         if (kid.frozen || kid.reset === now) continue;
         endInc(w, path, part, p);
@@ -363,7 +373,7 @@ const endInc = (w: Walk, hostPath: Path, part: string, p: Placement) => {
   const inc = kidAt(w.root, path)!;
   const collect = (i: Inc, pp: Path, pl: Placement, h: Path) => {
     for (const [n, k] of Object.entries(i.kids))
-      collect(k, [...pp, n], placementOf(w.m, i, n)!, pp);
+      collect(k, [...pp, n], placementOf(w.m, i, k.name!)!, pp);
     w.ended.push({ inc: i, path: pp, p: pl, host: h });
   };
   collect(inc, path, p, hostPath);
@@ -376,6 +386,7 @@ const endInc = (w: Walk, hostPath: Path, part: string, p: Placement) => {
 const freezeInc = (w: Walk, hostPath: Path, part: string) => {
   const path = [...hostPath, part];
   const inc = kidAt(w.root, path)!;
+  if (inc.frozen) return; // M2: already paused by its own host's move; a freeze from above changes nothing
   const tx = w.tx;
   const timers = Object.values(tx.w.timers).filter(
     (t): t is FrozenTimer => t.kind === "schedule" && t.inc === inc.id,
@@ -445,7 +456,19 @@ const thawInc = (w: Walk, path: Path) => {
     }
   }
   w.thawFollows.push(...follows);
-  for (const k of Object.keys(rest.kids)) if (rest.kids[k]!.frozen) thawInc(w, [...path, k]);
+  w.thawed.push(path);
+  // M2: a child thaws only if its own placement's node is active. One left by its own host's move stays frozen.
+  const m = fragOf(w.m, rest);
+  const live = up(m, rest.leaf);
+  const onActive = (name: string) =>
+    live.some((n) => {
+      const node = m.nodes[n]!;
+      return node.placements?.some((p) => p.name === name) || node.subroutine?.name === name;
+    });
+  for (const k of Object.keys(rest.kids)) {
+    const kid = rest.kids[k]!;
+    if (kid.frozen && onActive(kid.name!)) thawInc(w, [...path, k]);
+  }
 };
 
 // ── Apply the one state change, then what it starts and ends.
@@ -470,8 +493,7 @@ const applyMove = (w: Walk) => {
   for (const n of exits) {
     const node = frag.nodes[n]!;
     for (const p of [...(node.placements ?? []), ...(node.subroutine ? [node.subroutine] : [])]) {
-      const parts = Object.keys(kidAt(w.root, mv.path)!.kids).filter((x) => nameOf(x) === p.name);
-      for (const part of parts) {
+      for (const part of partsNamed(kidAt(w.root, mv.path)!, p.name)) {
         // Rule 1: "Re-entering X does not refresh it".
         if (p.resumable) {
           if (!enters.includes(n)) freezeInc(w, mv.path, part);
@@ -482,8 +504,12 @@ const applyMove = (w: Walk) => {
   for (const n of enters) {
     for (const part of Object.keys(kidAt(w.root, mv.path)!.kids)) {
       const k = kidAt(w.root, [...mv.path, part])!;
-      if (k.frozen && frag.nodes[n]!.placements?.some((p) => p.name === nameOf(part)))
-        thawInc(w, [...mv.path, part]);
+      const p = frag.nodes[n]!.placements?.find((x) => x.name === k.name);
+      if (!k.frozen || !p) continue;
+      // D64: a thaw checks first. A changed reset value means this life is over: no frame of the old subject (rule 52).
+      if (p.resetOn && resetValue(kidAt(w.root, mv.path)!, p) !== k.reset)
+        endInc(w, mv.path, part, p);
+      else thawInc(w, [...mv.path, part]);
     }
   }
   const cur = kidAt(w.root, mv.path)!;
@@ -497,7 +523,7 @@ const applyPatches = (w: Walk, from: number) => {
   const wrote = new Map<string, Set<string>>();
   w.parts.forEach((part, i) => {
     if (!part.patch) return;
-    const id = part.path.join("/");
+    const id = JSON.stringify(part.path);
     const set = wrote.get(id) ?? new Set<string>();
     for (const k of Object.keys(part.patch)) {
       if (set.has(k)) throw refused(part.alt.at, `OverlappingKeys ${k}`);
@@ -513,24 +539,49 @@ const applyLists = (w: Walk) => {
   const visit = (path: Path) => {
     let host = kidAt(w.root, path);
     if (!host) return;
-    for (const { p } of placementsActive(w.m, host)) {
-      if (!p.each) continue;
+    const active = placementsActive(w.m, host).filter(({ p }) => p.each);
+    for (const { p } of active) {
       const { keys, repairs } = membership(host, p);
-      for (let i = 0; i < repairs; i++) note(w.tx, "listRepair", { field: p.each.of });
+      for (let i = 0; i < repairs; i++) note(w.tx, "listRepair", { field: p.each!.of });
       const want = new Set(keys.map((k) => k.key));
-      for (const part of Object.keys(host.kids)) {
-        if (nameOf(part) !== p.name || want.has(keyOf(part)!)) continue;
+      for (const part of partsNamed(host, p.name)) {
+        if (want.has(host.kids[part]!.key!)) continue;
         endInc(w, path, part, p);
       }
       for (const { key, item } of keys) {
         host = kidAt(w.root, path)!;
-        const part = `${p.name}:${key}`;
+        const part = partOf(p.name, key);
         if (host.kids[part]) continue;
         const k = seed(w.tx, w.m, host, p, [...path, part], key, item, w.started);
         w.root = withKid(w.root, path, (i) => ({ ...i, kids: { ...i.kids, [part]: k } }));
       }
       markFresh(w);
+      // M7: in the field's order.
+      const order = keys.map((k) => partOf(p.name, k.key));
+      const cur = kidAt(w.root, path)!;
+      const now = partsNamed(cur, p.name);
+      if (!samePath(now, order)) {
+        const rest = Object.keys(cur.kids).filter((x) => cur.kids[x]!.name !== p.name);
+        const kids = Object.fromEntries([...rest, ...order].map((x) => [x, cur.kids[x]!]));
+        w.root = withKid(w.root, path, (i) => ({ ...i, kids }));
+      }
     }
+    // M3: frozen copies are reconciled every turn too (rule 9). A removed one has ended; nothing is seeded.
+    const on = new Set(active.map(({ p }) => p.name));
+    for (const p of Object.values(fragOf(w.m, host).nodes).flatMap((n) => n.placements ?? [])) {
+      if (!p.each || on.has(p.name)) continue;
+      host = kidAt(w.root, path)!;
+      const want = new Set(membership(host, p).keys.map((k) => k.key));
+      for (const part of partsNamed(host, p.name))
+        if (host.kids[part]!.frozen && !want.has(host.kids[part]!.key!)) endInc(w, path, part, p);
+    }
+    const names = active.map(({ p }) => p.name);
+    host = kidAt(w.root, path)!;
+    if (!samePath(names, host.each ?? []))
+      w.root = withKid(w.root, path, (i) => {
+        const { each: _e, ...rest } = i;
+        return names.length ? { ...rest, each: names } : rest;
+      });
     for (const part of Object.keys(kidAt(w.root, path)?.kids ?? {})) visit([...path, part]);
   };
   visit([]);
@@ -541,10 +592,11 @@ const applyLeaving = (w: Walk) => {
   const ended = w.ended;
   for (const e of ended) {
     if (w.fresh.has(e.inc.id) && !kidAt(w.root0, e.path)) continue; // created and ended in one turn: never published
+    if (w.exited.has(e.inc.id)) continue; // rule 6: "other than by its own exit". Its descendants were abandoned
     const frag = w.m.fragments![e.inc.frag!]!;
     const wa = frag.whenAbandoned;
     if (!wa) continue;
-    if (kidAt(w.root, e.host) && e.path.length === e.host.length + 1)
+    if (kidAt(w.root, e.host))
       for (const n of wa.notify ?? []) {
         const view = inView(kidAt(w.root0, e.path) ?? e.inc, {});
         const at = { at: { definition: frag.id, path: "whenAbandoned" } } as never;
@@ -557,8 +609,7 @@ const applyLeaving = (w: Walk) => {
 const ownerOf = (w: Walk, part: Part): Owner => {
   const inc = kidAt(w.root, part.path) ?? kidAt(w.root0, part.path)!;
   const frag = fragOf(w.m, inc);
-  const moved =
-    w.move && w.move.path.join("/") === part.path.join("/") && part.alt.target !== "self";
+  const moved = w.move && samePath(w.move.path, part.path) && part.alt.target !== "self";
   const node = moved ? (w.move!.target in frag.nodes ? w.move!.target : inc.leaf) : part.node;
   const at = (n: string) => inc.activations[n] ?? "";
   return {
@@ -580,13 +631,13 @@ const applyMembers = (w: Walk) => {
       const op = w.m.ops[mem.op]!;
       const origin = `${part.alt.at.definition} ${part.alt.at.path}`;
       if (mem.verb === "commit" || mem.verb === "lookup") {
-        const input = encodable(run(mem.input, after as never), origin);
-        const key = encodable(run(op.key, input), origin);
+        const input = admit(run(mem.input, after as never), origin);
+        const key = admit(run(op.key, input), origin);
         const prepared =
           mem.verb === "commit" ? prepareAll(tx, { machine: w.a.machine, op: mem.op, input }) : {};
         return { part, mem, inc, input, key, prepared, owner: ownerOf(w, part) };
       }
-      const key = mem.key ? encodable(run(mem.key, after as never), origin) : undefined;
+      const key = mem.key ? admit(run(mem.key, after as never), origin) : undefined;
       return { part, mem, inc, key, owner: ownerOf(w, part) };
     });
   });
@@ -651,20 +702,26 @@ const collectArmings = (w: Walk, entered: ReadonlyMap<string, readonly string[]>
       const onEntry = spec.armOn.length === 0 || spec.armOn.includes("entry");
       if ((isEntry && onEntry) || spec.armOn.some((t) => tags.includes(t))) {
         const ms =
-          "ms" in spec.schedule ? spec.schedule.ms : run(spec.schedule, inView(inc, {}) as never);
+          "ms" in spec.schedule
+            ? spec.schedule.ms
+            : finiteMs(
+                run(spec.schedule, inView(inc, {}) as never),
+                `${spec.schedule.at.definition} ${spec.schedule.at.path}`,
+              );
         arm.push({ inc, spec, ms });
       }
       if (spec.disarmOn.some((t) => tags.includes(t)))
         disarm.push(scheduleKey(w.a.key, inc.id, inc.activations[n] ?? "", spec.id));
     }
   };
-  const tagsOf = new Map<string, string[]>();
+  const tagsOf = new Map<string, { path: Path; tags: string[] }>();
   for (const part of w.parts) {
-    const id = part.path.join("/");
-    tagsOf.set(id, [...(tagsOf.get(id) ?? []), part.tag]);
+    const id = JSON.stringify(part.path);
+    const e = tagsOf.get(id) ?? { path: part.path, tags: [] };
+    tagsOf.set(id, { path: e.path, tags: [...e.tags, part.tag] });
   }
-  for (const [id, tags] of tagsOf) {
-    const inc = kidAt(w.root, id === "" ? [] : id.split("/"));
+  for (const { path, tags } of tagsOf.values()) {
+    const inc = kidAt(w.root, path);
     if (!inc) continue;
     for (const n of up(fragOf(w.m, inc), inc.leaf)) armAt(inc, n, tags, false);
   }
@@ -693,7 +750,7 @@ const reapTimers = (w: Walk) => {
   }
 };
 // Adoption (rule 54): per lane whose path is its own, parked endings, then a held head's unknown { Restored } once.
-const adoption = (tx: Tx, a: ActorRec, inc: Inc): Mail[] => {
+const adoption = (tx: Tx, a: ActorRec, inc: Inc, thawing = false): Mail[] => {
   const m = machineOf(tx, a);
   const out: Mail[] = [];
   const holds: Mail[] = []; // rule 54: every parked ending first, then each lane's hold
@@ -724,7 +781,8 @@ const adoption = (tx: Tx, a: ActorRec, inc: Inc): Mail[] => {
     }
     if (!next.head && next.parked.length === 0) deleteLane(tx, l.id);
     else if (next !== l) setLane(tx, next);
-    if (l.head?.phase.t === "held" && !had) {
+    // A thawed life is the one that owned this hold: it has heard. Only a new one is told Restored.
+    if (!thawing && l.head?.phase.t === "held" && !had) {
       const e = { ch: "unknown" as const, reason: "Restored" };
       note(tx, "lane", { cell: "lane.rebind.Held", op: l.op, attempt: l.head.id });
       noteEnding(tx, { op: l.op, attempt: l.head.id }, e);
@@ -751,10 +809,9 @@ const recheckResets = (w: Walk): boolean => {
     if (host.frozen) return;
     for (const { p } of placementsActive(w.m, host)) {
       if (!p.resetOn) continue;
-      const now = JSON.stringify(run(p.resetOn, inView(host, {}) as never));
-      for (const part of Object.keys(host.kids))
-        if (nameOf(part) === p.name && !host.kids[part]!.frozen && host.kids[part]!.reset !== now)
-          pending = true;
+      const now = resetValue(host, p);
+      for (const part of partsNamed(host, p.name))
+        if (!host.kids[part]!.frozen && host.kids[part]!.reset !== now) pending = true;
     }
   });
   return pending;
@@ -775,6 +832,8 @@ const newWalk = (tx: Tx, a: ActorRec, item: Mail | undefined, late: boolean): Wa
   item,
   late,
   thawFollows: [],
+  thawed: [],
+  exited: new Set(),
 });
 const finish = (
   w: Walk,
@@ -789,7 +848,7 @@ const finish = (
   const m = w.m;
   // Memory that will not encode refuses the turn, here, rather than killing the Runtime at its capture (H2).
   if (m.persisted)
-    encodable(viewOf(w.root), `${w.parts[0]?.alt.at.definition ?? m.id} persisted memory`);
+    admit(viewOf(w.root), `${w.parts[0]?.alt.at.definition ?? m.id} persisted memory`);
   const follows = w.parts.flatMap((p) =>
     (p.alt.followUps ?? []).map((f) =>
       run(f, inView(kidAt(w.root, p.path) ?? kidAt(w.root0, p.path)!, p.event) as never),
@@ -823,24 +882,29 @@ const finish = (
   });
   tx.visible = true;
   // D1, D35: a follow-up runs next, up to a bound per admitted item. A pending reset first, then adoption (rule 54).
-  const mail: Mail[] = [
-    ...(reset ? [{ k: "recheck" as const, actor: w.a.key }] : []),
+  // M4: the bound drops only what can loop by itself: a send, a recheck. A thaw's or an adoption's ending is a fact (rule 8).
+  const loops: Mail[] = [...(reset ? [{ k: "recheck" as const, actor: w.a.key }] : [])];
+  const sends: Mail[] = follows.map((event: Ev) => ({ k: "send" as const, actor: w.a.key, event }));
+  const facts: Mail[] = [
     ...w.thawFollows,
+    ...w.thawed.flatMap((p) => {
+      const live = kidAt(w.root, p);
+      return live ? adoption(tx, actor, live, true) : [];
+    }),
     ...w.started.flatMap((s) => {
       const live = kidAt(w.root, s.path);
       return live?.id === s.inc.id ? adoption(tx, actor, live) : [];
     }),
-    ...follows.map((event: Ev) => ({ k: "send" as const, actor: w.a.key, event })),
   ];
-  if (mail.length) {
-    if (tx.w.chain >= tx.bounds.followUps) {
-      issue(tx, {
-        code: "InvalidTurn",
-        origin: `${w.parts[0]?.alt.at.definition ?? m.id} ${w.parts[0]?.alt.at.path ?? ""}`,
-        input: { chain: "FollowUpBound", event: ev.tag },
-      });
-    } else tx.w = { ...tx.w, follow: [...mail, ...tx.w.follow] };
-  }
+  const over = tx.w.chain >= tx.bounds.followUps;
+  if (over && loops.length + sends.length > 0)
+    issue(tx, {
+      code: "InvalidTurn",
+      origin: `${w.parts[0]?.alt.at.definition ?? m.id} ${w.parts[0]?.alt.at.path ?? ""}`,
+      input: { chain: "FollowUpBound", event: ev.tag },
+    });
+  const mail = over ? facts : [...loops, ...facts, ...sends];
+  if (mail.length) tx.w = { ...tx.w, follow: [...mail, ...tx.w.follow] };
 };
 const nodeOfSpec = (w: Walk, x: { inc: Inc; spec: { id: string } }) => {
   const frag = fragOf(w.m, x.inc);
@@ -931,7 +995,6 @@ const routeFrom = (tx: Tx, a: ActorRec, item: EndingMail, inc: Inc) => {
   if (item.restored || item.owner.inc !== inc.id) return { start: undefined, late: false }; // adopted, or Restored: current
   if (inc.activations[item.owner.node] === item.owner.activation)
     return { start: undefined, late: false };
-  (void a, tx);
   const near = item.owner.chain.find((x) => inc.activations[x.node] === x.activation);
   return { start: near?.node ?? fragOf(machineOf(tx, a), inc).root, late: true };
 };
@@ -940,7 +1003,7 @@ const admitEnding = (tx: Tx, item: EndingMail): void => {
   if (item.inc) return admitRead(tx, item);
   const before = item.onLane ? laneOfAttempt(tx.w, item.attempt!) : tx.w.lanes[laneId];
   const subject = item.subject ?? before?.subject ?? [];
-  const machine = before?.machine ?? tx.w.actors[item.actor]?.machine;
+  const machine = before?.machine ?? item.machine ?? tx.w.actors[item.actor]?.machine;
   const releasing = before?.releasing === true;
   if (item.onLane && before)
     cell(tx, admitRow(item), before, { ...argsOf(before), ending: item.ending });
@@ -1029,7 +1092,7 @@ const attemptTurn = (tx: Tx, item: Mail, tag: string, f: () => void) => {
     for (const x of kept.touchedA) tx.touchedActors.add(x);
     tx.touchedLanes.clear();
     for (const x of kept.touchedL) tx.touchedLanes.add(x);
-    const again = item.k === "ending" && item.redelivered === true;
+    const again = (item.k === "ending" || item.k === "fire") && item.redelivered === true;
     issue(tx, {
       code: "InvalidTurn",
       origin: e.origin,
@@ -1040,6 +1103,8 @@ const attemptTurn = (tx: Tx, item: Mail, tag: string, f: () => void) => {
       const { onLane: _o, ...rest } = item;
       enqueue(tx, { ...rest, redelivered: true });
     }
+    // D50, M5: a firing is a delivery too (rule 8). `EXPIRED`'s GiveUp is the only way out of it.
+    if (item.k === "fire" && !again) enqueue(tx, { ...item, redelivered: true });
   } finally {
     tx.inTurn = false;
   }
@@ -1071,8 +1136,9 @@ export const onTurn = (tx: Tx) => {
       runTurn(tx, a, path!, item.event, undefined, false, item),
     );
   }
-  const path = item.event.to ?? [];
-  const inc = kidAt(a.root, path);
+  const to = item.event.to;
+  const path = Array.isArray(to) ? (to as Path) : []; // D57
+  const inc = to === undefined || Array.isArray(to) ? kidAt(a.root, path) : undefined;
   if (!inc || inc.frozen) return note(tx, "Unhandled", { event: item.event.tag, to: path });
   attemptTurn(tx, item, item.event.tag, () =>
     runTurn(tx, a, path, item.event, undefined, false, item),

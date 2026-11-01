@@ -302,7 +302,6 @@ The last line is the suite's check on itself: the runner applies each as a fault
 | REV4-L1 | 4 | fault | inject | D46 |  | review L1: a hook that makes effects, then throws |
 | REV4-L2 | 4 | example | table | rule:60 |  | review L2: a mark over a capture, W behind |
 | REV4-L4 | 4 | example | table | D58, sec:2.8.6 |  | review L4: a read merges |
-| REV4-L5 | 4 | example | table | rule:44, rule:54, sec:2.7.13 |  | review L5: restore delivers parked first |
 | REV4-S1 | 4 | example | table | rule:1, F12 |  | survivors: dueAt, re-entry |
 | REV4-S2 | 4 | example | table | rule:14, rule:6, rule:52 |  | survivors: late at depth, pre-turn read, an ended lookup aborts |
 | REAL-01 | 4 | example | flow | rule:6, rule:1, sec:2.9.2 |  | address.subroutine.ts as written |

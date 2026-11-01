@@ -1,6 +1,7 @@
 // The Runtime as one value, and the plumbing of one step. Internal. Plain objects copied on write (D37). Evidence and the log
 // are sinks: nothing here reads them back.
 import type { Compiled, Ev, Fragment } from "../conformance/fixtures/compiled.ts";
+import { canon } from "./gate.ts";
 import type { Module } from "./seam.ts";
 
 export type Owner = {
@@ -95,8 +96,10 @@ export type Inc = {
   readonly history: Readonly<Record<string, string>>;
   readonly subject: readonly string[];
   readonly reset?: string; // JSON of the reset value this incarnation has
+  readonly name?: string; // the placement's. D57: a part is an opaque id; this and `key` are what is read
   readonly key?: string;
   readonly item?: unknown;
+  readonly each?: readonly string[]; // active `.each` placements, so none reads [] (M7)
   readonly frozen?: { readonly timers: readonly FrozenTimer[]; readonly parked: readonly Mail[] };
   readonly kids: Readonly<Record<string, Inc>>; // "summary", "CHALLENGE", "uploads:r1"
 };
@@ -104,6 +107,7 @@ export type ActorRec = { readonly key: string; readonly machine: string; readonl
 export type EndingMail = {
   readonly k: "ending";
   readonly actor: string;
+  readonly machine?: string; // a restored ending may have no lane and no actor left to say it (D61)
   readonly op: string;
   readonly key: unknown;
   readonly owner: Owner;
@@ -124,6 +128,7 @@ export type Mail =
       readonly inc: string;
       readonly activation: string;
       readonly event: Ev;
+      readonly redelivered?: boolean; // D50
     }
   | EndingMail
   | { readonly k: "recheck"; readonly actor: string }; // a pending reset (rule 1)
@@ -279,9 +284,8 @@ export type StepOut = {
   };
 };
 
-// A user's key closure may return what cannot encode: the caller is inside the turn's attempt (D46).
-export const laneKey = (actor: string, op: string, key: unknown) =>
-  `${actor}|${op}|${JSON.stringify(key)}`;
+// A user's key closure may return what cannot encode: the caller has gated it (D57). Written once, never read back.
+export const laneKey = (actor: string, op: string, key: unknown) => `${actor}|${op}|${canon(key)}`;
 export const fragOf = (m: Compiled, inc: Inc): Pick<Fragment, "nodes" | "root" | "memory"> =>
   inc.frag === null ? m : m.fragments![inc.frag]!;
 export const note = (tx: Tx, kind: string, fields: Record<string, unknown> = {}) =>
@@ -292,7 +296,12 @@ export const nextGen = (tx: Tx) => {
   tx.w = { ...tx.w, nextId: n + 1 };
   return `g${tx.w.boot}.${n}`;
 };
-export const position = (tx: Tx) => tx.w.nextId; // D47: one monotonic count, read without moving it
+// D58: a unique tick. Reading one moves it, so an answer's start and what it is compared with can never tie (H1).
+export const position = (tx: Tx) => {
+  const n = tx.w.nextId;
+  tx.w = { ...tx.w, nextId: n + 1 };
+  return n;
+};
 export const without = <V>(
   o: Readonly<Record<string, V>>,
   k: string,

@@ -1,6 +1,7 @@
 // D52: the incarnation tree. An actor's root is an incarnation with path [] and frag null, so there is one code path. Pure
 // helpers over an Inc, plus seeding, which allocates generations. The turn decides when; this says what.
 import type { Compiled, Fragment, Node, Placement } from "../conformance/fixtures/compiled.ts";
+import { encoded, listKey, listOf } from "./gate.ts";
 import { run } from "./hooks.ts";
 import { fragOf, nextGen, type Inc, type Tx } from "./world.ts";
 
@@ -44,11 +45,14 @@ export const down = (frag: { nodes: Readonly<Record<string, Node>> }, node: stri
   while (frag.nodes[n]!.default) n = frag.nodes[n]!.default!;
   return n;
 };
-export const nameOf = (part: string) => part.split(":")[0]!;
-export const keyOf = (part: string) => part.split(":")[1];
+// D57: a part is built once and never parsed. A placement's name has no ":", so this is one way only.
+export const partOf = (name: string, key?: string) => (key === undefined ? name : `${name}:${key}`);
+export const partsNamed = (host: Inc, name: string) =>
+  Object.keys(host.kids).filter((x) => host.kids[x]!.name === name);
+export const samePath = (a: Path, b: Path) =>
+  a.length === b.length && a.every((x, i) => x === b[i]);
 // Where a placement is declared, for a host and an instance name.
-export const placementOf = (m: Compiled, host: Inc, part: string): Placement | undefined => {
-  const name = nameOf(part);
+export const placementOf = (m: Compiled, host: Inc, name: string): Placement | undefined => {
   for (const n of Object.values(fragOf(m, host).nodes)) {
     const p = n.placements?.find((x) => x.name === name);
     if (p) return p;
@@ -60,13 +64,14 @@ export const placementOf = (m: Compiled, host: Inc, part: string): Placement | u
 export const viewOf = (i: Inc): any => {
   const names = Object.keys(i.kids);
   const base = i.key === undefined ? i.memory : { ...i.memory, key: i.key, item: i.item };
-  if (names.length === 0) return base;
+  if (names.length === 0 && !i.each?.length) return base;
   const out: Record<string, unknown> = { ...base };
+  for (const n of i.each ?? []) out[n] = [];
   for (const n of names) {
     const k = i.kids[n]!;
-    const name = nameOf(n);
-    if (n.includes(":")) out[name] = [...((out[name] as unknown[] | undefined) ?? []), viewOf(k)];
-    else out[name] = viewOf(k);
+    if (k.key !== undefined)
+      out[k.name!] = [...((out[k.name!] as unknown[] | undefined) ?? []), viewOf(k)];
+    else out[k.name!] = viewOf(k);
   }
   return out;
 };
@@ -89,10 +94,12 @@ export const seed = (
   const frag: Fragment = m.fragments![p.fragment]!;
   const hv = { memory: viewOf(host), event: {}, ...(key === undefined ? {} : { key, item }) };
   const input = p.input ? run(p.input, hv as never) : {};
-  const reset = p.resetOn ? JSON.stringify(run(p.resetOn, hv as never)) : undefined;
+  const reset = p.resetOn
+    ? encoded(run(p.resetOn, hv as never), `${p.resetOn.at.definition} ${p.resetOn.at.path}`)
+    : undefined;
   const subject = [
     ...host.subject,
-    ...(reset === undefined ? [] : [String(JSON.parse(reset))]),
+    ...(reset === undefined ? [] : [reset]),
     ...(key === undefined ? [] : [key]),
   ];
   const leaf = down(frag, frag.default);
@@ -100,6 +107,7 @@ export const seed = (
   const activations = Object.fromEntries(active.map((n) => [n, nextGen(tx)]));
   const base: Inc = {
     id: nextGen(tx),
+    name: p.name,
     frag: p.fragment,
     leaf,
     memory: run(frag.memory.initial, input as never),
@@ -130,8 +138,9 @@ export const seedKids = (
     const node = frag.nodes[n]!;
     for (const p of [...(node.placements ?? []), ...(node.subroutine ? [node.subroutine] : [])]) {
       if (p.each) {
+        if (!cur.each?.includes(p.name)) cur = { ...cur, each: [...(cur.each ?? []), p.name] };
         for (const { key, item } of membership(cur, p).keys) {
-          const part = `${p.name}:${key}`;
+          const part = partOf(p.name, key);
           if (cur.kids[part]) continue;
           const k = seed(tx, m, cur, p, [...path, part], key, item, started);
           cur = { ...cur, kids: { ...cur.kids, [part]: k } };
@@ -148,13 +157,13 @@ export const seedKids = (
 };
 // Rule 9: membership is host data, repaired and never refused.
 export const membership = (host: Inc, p: Placement) => {
-  const list = (host.memory[p.each!.of] ?? []) as readonly unknown[];
+  const { list, bad } = listOf(host.memory?.[p.each!.of]);
   const seen = new Set<string>();
   const keys: Array<{ key: string; item: unknown }> = [];
-  let repairs = 0;
+  let repairs = bad ? 1 : 0;
   for (const it of list) {
-    const key = String(p.each!.by ? (it as any)[p.each!.by] : it);
-    if (seen.has(key) || keys.length >= p.each!.max) {
+    const key = listKey(it, p.each!.by);
+    if (key === undefined || seen.has(key) || keys.length >= p.each!.max) {
       repairs++;
       continue;
     }

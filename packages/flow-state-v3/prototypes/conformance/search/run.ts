@@ -37,6 +37,6 @@ const r =
           ? searchFrag(make, o)
           : which === "odd"
             ? searchOdd(make, o)
-          : searchLike(make, [s1Fixture], o);
+            : searchLike(make, [s1Fixture], o);
 console.log(JSON.stringify({ search: which, ...r }, null, 1));
 process.exitCode = r.verdict === "failed" ? 1 : 0;

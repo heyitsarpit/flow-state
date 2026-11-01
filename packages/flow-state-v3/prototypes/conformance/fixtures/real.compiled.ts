@@ -6,7 +6,14 @@ import { Effect } from "effect";
 import type { Api, ServerModel } from "../fake-world.ts";
 import type { Fixture } from "../harness.ts";
 import { fixtureOf, unknownWhenLost } from "./build.ts";
-import { deny, type Compiled, type Fragment, type Node, type Op, type ScheduleSpec } from "./compiled.ts";
+import {
+  deny,
+  type Compiled,
+  type Fragment,
+  type Node,
+  type Op,
+  type ScheduleSpec,
+} from "./compiled.ts";
 
 type NodeSpec = {
   parent?: string;
@@ -36,12 +43,19 @@ const tree = (D: string, base: string, spec: Record<string, NodeSpec>) => {
     }),
   );
 };
-const write = (api: Api, id: string, extra: Partial<Op> & Pick<Op, "key" | "concurrency" | "outcomes">): Op => ({
+const write = (
+  api: Api,
+  id: string,
+  extra: Partial<Op> & Pick<Op, "key" | "concurrency" | "outcomes">,
+): Op => ({
   id,
   contract: `real/${id}`,
   kind: "write",
   commit: (input, { attempt }) =>
-    api.call(id, input, { idempotencyKey: attempt.id }).pipe(unknownWhenLost) as Effect.Effect<unknown, unknown>,
+    api.call(id, input, { idempotencyKey: attempt.id }).pipe(unknownWhenLost) as Effect.Effect<
+      unknown,
+      unknown
+    >,
   ...extra,
 });
 
@@ -93,10 +107,15 @@ const AddressStep: Fragment = {
         ],
         Confirm: [
           {
-            guards: [({ memory }: any) => /^[A-Z0-9 ]{5,8}$/.test(memory.address.postcode) || deny("BadPostcode")],
+            guards: [
+              ({ memory }: any) =>
+                /^[A-Z0-9 ]{5,8}$/.test(memory.address.postcode) || deny("BadPostcode"),
+            ],
             exit: {
               name: "Done",
-              from: A.slot("states.POSTCODE.on.Confirm.exit", ({ memory }: any) => ({ address: memory.address })),
+              from: A.slot("states.POSTCODE.on.Confirm.exit", ({ memory }: any) => ({
+                address: memory.address,
+              })),
             },
           },
         ],
@@ -130,10 +149,14 @@ export const addressFixture: Fixture = {
         subroutine: {
           name: "ADDRESS",
           fragment: "AddressStep",
-          input: H.slot("states.ADDRESS.input", ({ memory }: any) => ({ address: memory.addressDraft })),
+          input: H.slot("states.ADDRESS.input", ({ memory }: any) => ({
+            address: memory.addressDraft,
+          })),
           callbacks: {
             onPostcode: H.alts("states.ADDRESS.callbacks.onPostcode", [
-              { patch: ({ memory, event }: any) => ({ quotes: [...memory.quotes, event.postcode] }) },
+              {
+                patch: ({ memory, event }: any) => ({ quotes: [...memory.quotes, event.postcode] }),
+              },
             ]),
             onDraft: H.alts("states.ADDRESS.callbacks.onDraft", [
               { patch: ({ event }: any) => ({ addressDraft: event.address }) },
@@ -167,7 +190,9 @@ const ConfirmDiscard: Fragment = {
   root: "root",
   default: "root",
   nodes: tree("ConfirmDiscard", "", {
-    root: { on: { Keep: [{ exit: { name: "Kept" } }], Discard: [{ exit: { name: "Discarded" } }] } },
+    root: {
+      on: { Keep: [{ exit: { name: "Kept" } }], Discard: [{ exit: { name: "Discarded" } }] },
+    },
   }),
   memory: { initial: CD.slot("memory.initial", () => ({})) },
   whenAbandoned: { notify: [{ name: "onDialogGone" }] },
@@ -193,7 +218,9 @@ const Wizard: Fragment = {
           {
             exit: {
               name: "Resolved",
-              from: W.slot("states.PARTS.on.Submit.exit", ({ memory }: any) => ({ reason: memory.reason })),
+              from: W.slot("states.PARTS.on.Submit.exit", ({ memory }: any) => ({
+                reason: memory.reason,
+              })),
             },
           },
         ],
@@ -214,7 +241,9 @@ const Wizard: Fragment = {
             {
               exit: {
                 name: "Abandoned",
-                from: W.slot("states.DISCARD.exits.Discarded.exit", ({ memory }: any) => ({ reason: memory.reason })),
+                from: W.slot("states.DISCARD.exits.Discarded.exit", ({ memory }: any) => ({
+                  reason: memory.reason,
+                })),
               },
             },
           ]),
@@ -225,9 +254,20 @@ const Wizard: Fragment = {
   memory: { initial: W.slot("memory.initial", () => ({ reason: "", dialogGone: 0 })) },
   whenAbandoned: {
     notify: [
-      { name: "onDraft", from: W.slot("whenAbandoned.onDraft", ({ memory }: any) => ({ reason: memory.reason })) },
+      {
+        name: "onDraft",
+        from: W.slot("whenAbandoned.onDraft", ({ memory }: any) => ({ reason: memory.reason })),
+      },
     ],
   },
+};
+const SideT: Fragment = {
+  id: "SideT",
+  root: "root",
+  default: "root",
+  nodes: tree("SideT", "", { root: {} }),
+  memory: { initial: T.slot("side.memory.initial", () => ({})) },
+  whenAbandoned: { notify: [{ name: "onSideGone" }] },
 };
 export const ticketFixture: Fixture = {
   id: "Desk/Ticket",
@@ -235,13 +275,24 @@ export const ticketFixture: Fixture = {
     id: "Desk/Ticket",
     root: "root",
     default: "OPEN",
-    fragments: { Wizard, ConfirmDiscard },
+    fragments: { Wizard, ConfirmDiscard, SideT },
     nodes: tree("Desk/Ticket", "", {
       root: { on: { Close: [{ target: "CLOSED" }], Resolve: [{ target: "RESOLVING" }] } },
       OPEN: {},
       CLOSED: {},
       RESOLVED: {},
       RESOLVING: {
+        placements: [
+          {
+            name: "side",
+            fragment: "SideT",
+            callbacks: {
+              onSideGone: T.alts("states.RESOLVING.traits.side.callbacks.onSideGone", [
+                { patch: ({ memory }: any) => ({ sideGone: memory.sideGone + 1 }) },
+              ]),
+            },
+          },
+        ],
         subroutine: {
           name: "wizard",
           fragment: "Wizard",
@@ -261,7 +312,12 @@ export const ticketFixture: Fixture = {
         },
       },
     }),
-    memory: T.memory(() => ({ drafts: [] as string[], resolved: null, discarded: null })),
+    memory: T.memory(() => ({
+      drafts: [] as string[],
+      resolved: null,
+      discarded: null,
+      sideGone: 0,
+    })),
     ops: {},
     persisted: false,
     uses: [],
@@ -275,7 +331,10 @@ const E = fixtureOf("Desk/Attach");
 export const MAX_RESENDS = 3;
 const own = ({ memory }: any) => ({ ref: memory.ref });
 const failedNotify = (problem: string) => [
-  { name: "onFailed", from: U.slot(`notify.onFailed.${problem}`, ({ memory }: any) => ({ ref: memory.ref, problem })) },
+  {
+    name: "onFailed",
+    from: U.slot(`notify.onFailed.${problem}`, ({ memory }: any) => ({ ref: memory.ref, problem })),
+  },
 ];
 const AttachmentUpload: Fragment = {
   id: "AttachmentUpload",
@@ -326,7 +385,12 @@ const AttachmentUpload: Fragment = {
         ResendDue: [
           {
             tokens: [
-              { op: "put", verb: "retryable", times: MAX_RESENDS, key: U.slot("on.ResendDue[0].guard[0]", own) },
+              {
+                op: "put",
+                verb: "retryable",
+                times: MAX_RESENDS,
+                key: U.slot("on.ResendDue[0].guard[0]", own),
+              },
             ],
             patch: () => ({ status: "sending" }),
             members: U.member("put", "retry", own),
@@ -343,18 +407,30 @@ const AttachmentUpload: Fragment = {
             notify: [
               {
                 name: "onStored",
-                from: U.slot("on.Stored.notify", ({ memory, event }: any) => ({ ref: memory.ref, url: event.url })),
+                from: U.slot("on.Stored.notify", ({ memory, event }: any) => ({
+                  ref: memory.ref,
+                  url: event.url,
+                })),
               },
             ],
           },
         ],
         TooBig: [
           {
-            patch: ({ event }: any) => ({ status: "failed", problem: "TooLarge", limit: event.limit }),
+            patch: ({ event }: any) => ({
+              status: "failed",
+              problem: "TooLarge",
+              limit: event.limit,
+            }),
             notify: failedNotify("TooLarge"),
           },
         ],
-        Gone: [{ patch: () => ({ status: "failed", problem: "FileGone" }), notify: failedNotify("FileGone") }],
+        Gone: [
+          {
+            patch: () => ({ status: "failed", problem: "FileGone" }),
+            notify: failedNotify("FileGone"),
+          },
+        ],
       },
     },
   }),
@@ -376,6 +452,7 @@ const MarkT: Fragment = {
   default: "root",
   nodes: tree("MarkT", "", { root: {} }),
   memory: { initial: U.slot("mark.memory.initial", () => ({})) },
+  whenAbandoned: { notify: [{ name: "onMarkGone" }] },
 };
 const putOp = (api: Api, omit: readonly string[] = []): Op =>
   write(api, "put", {
@@ -426,13 +503,20 @@ const attachMake =
             name: "uploads",
             fragment: "AttachmentUpload",
             each: { of: "attachments", by: "ref", max: 10 },
-            input: E.slot("traits.uploads.input", ({ item }: any) => ({ ref: item.ref, name: item.name })),
+            input: E.slot("traits.uploads.input", ({ item }: any) => ({
+              ref: item.ref,
+              name: item.name,
+            })),
             callbacks: {
               onStored: E.alts("traits.uploads.callbacks.onStored", [
                 { patch: ({ memory, event }: any) => ({ stored: [...memory.stored, event.ref] }) },
               ]),
               onFailed: E.alts("traits.uploads.callbacks.onFailed", [
-                { patch: ({ memory, event }: any) => ({ failed: [...memory.failed, [event.ref, event.problem]] }) },
+                {
+                  patch: ({ memory, event }: any) => ({
+                    failed: [...memory.failed, [event.ref, event.problem]],
+                  }),
+                },
               ]),
             },
           },
@@ -441,6 +525,11 @@ const attachMake =
             name: "mark",
             fragment: "MarkT",
             resetOn: E.slot("traits.mark.resetOn", ({ memory }: any) => memory.subject),
+            callbacks: {
+              onMarkGone: E.alts("traits.mark.callbacks.onMarkGone", [
+                { patch: ({ memory }: any) => ({ resets: memory.resets + 1 }) },
+              ]),
+            },
           },
         ],
       },
@@ -449,6 +538,7 @@ const attachMake =
     memory: E.memory(() => ({
       attachments: [] as unknown[],
       subject: "s1" as unknown,
+      resets: 0,
       stored: [] as string[],
       failed: [] as unknown[],
       touched: 0,
@@ -464,7 +554,9 @@ const attachMake =
                 predicts: E.slot("domain.put.predicts", (i: any) => [
                   { ref: `File|${i.ref}`, patch: { state: "stored" } },
                 ]),
-                confirms: (v: any, i: any) => [{ ref: `File|${i.ref}`, fields: { state: "stored", url: v?.url ?? "u" } }],
+                confirms: (v: any, i: any) => [
+                  { ref: `File|${i.ref}`, fields: { state: "stored", url: v?.url ?? "u" } },
+                ],
               },
             },
             reads: {},
@@ -481,8 +573,16 @@ const attachServer: ServerModel = {
     return s.uploads.includes(ref) ? { state: "stored", url: `u/${ref}` } : null;
   },
 };
-export const attachFixture: Fixture = { id: "Desk/Attach", make: attachMake([], false), server: attachServer };
-export const attachDomainFixture: Fixture = { id: "Desk/Attach", make: attachMake([], true), server: attachServer };
+export const attachFixture: Fixture = {
+  id: "Desk/Attach",
+  make: attachMake([], false),
+  server: attachServer,
+};
+export const attachDomainFixture: Fixture = {
+  id: "Desk/Attach",
+  make: attachMake([], true),
+  server: attachServer,
+};
 export const attachMissingReason: Fixture = {
   id: "Desk/Attach",
   make: attachMake(["StillUnknown"], false),
@@ -494,7 +594,10 @@ export const attachMissingReason: Fixture = {
 const Hi = fixtureOf("History");
 const Pa = fixtureOf("Desk/Panels");
 const ticket = ({ memory }: any) => ({ ticketId: memory.ticketId });
-const look = Hi.lookup("earlier", ({ memory }: any) => ({ ticketId: memory.ticketId, page: memory.earlier.length }));
+const look = Hi.lookup("earlier", ({ memory }: any) => ({
+  ticketId: memory.ticketId,
+  page: memory.earlier.length,
+}));
 const History: Fragment = {
   id: "History",
   root: "root",
@@ -503,7 +606,9 @@ const History: Fragment = {
     root: {
       on: {
         LoadEarlier: [{ members: look }],
-        EarlierLoaded: [{ patch: ({ memory, event }: any) => ({ earlier: [...memory.earlier, event.entry] }) }],
+        EarlierLoaded: [
+          { patch: ({ memory, event }: any) => ({ earlier: [...memory.earlier, event.entry] }) },
+        ],
         EarlierCut: [{ patch: ({ memory }: any) => ({ cuts: memory.cuts + 1 }), members: look }],
         Highlight: [{ patch: ({ event }: any) => ({ highlighted: event.entryId }) }],
         Pin: [
@@ -526,10 +631,15 @@ const History: Fragment = {
             })),
           },
         ],
-        Pinned: [{ patch: ({ memory, event }: any) => ({ pins: [...memory.pins, event.entryId] }) }],
+        Pinned: [
+          { patch: ({ memory, event }: any) => ({ pins: [...memory.pins, event.entryId] }) },
+        ],
         PinFailed: [{}],
         PinUnsure: [
-          { tokens: [{ op: "pin", verb: "retryable", times: 2 }], members: Hi.member("pin", "retry") },
+          {
+            tokens: [{ op: "pin", verb: "retryable", times: 2 }],
+            members: Hi.member("pin", "retry"),
+          },
           { members: Hi.member("pin", "cancel") },
         ],
       },
@@ -545,7 +655,12 @@ const History: Fragment = {
     })),
   },
   whenAbandoned: {
-    notify: [{ name: "onGone", from: Hi.slot("whenAbandoned.onGone", ({ memory }: any) => ({ ticketId: memory.ticketId })) }],
+    notify: [
+      {
+        name: "onGone",
+        from: Hi.slot("whenAbandoned.onGone", ({ memory }: any) => ({ ticketId: memory.ticketId })),
+      },
+    ],
   },
 };
 const panelsMake = (api: Api): Compiled => ({
@@ -563,8 +678,14 @@ const panelsMake = (api: Api): Compiled => ({
       default: "HISTORY",
       on: {
         OpenTab: [
-          { target: "HISTORY", guards: [({ event }: any) => event.tab === "history" || deny("OtherTab")] },
-          { target: "CUSTOMER", guards: [({ event }: any) => event.tab === "customer" || deny("OtherTab")] },
+          {
+            target: "HISTORY",
+            guards: [({ event }: any) => event.tab === "history" || deny("OtherTab")],
+          },
+          {
+            target: "CUSTOMER",
+            guards: [({ event }: any) => event.tab === "customer" || deny("OtherTab")],
+          },
           { target: "PARTS" },
         ],
       },
@@ -579,10 +700,17 @@ const panelsMake = (api: Api): Compiled => ({
           input: Pa.slot("states.TABS.states.HISTORY.traits.history.input", ({ memory }: any) => ({
             ticketId: memory.ticketId,
           })),
-          resetOn: Pa.slot("states.TABS.states.HISTORY.traits.history.resetOn", ({ memory }: any) => memory.ticketId),
+          resetOn: Pa.slot(
+            "states.TABS.states.HISTORY.traits.history.resetOn",
+            ({ memory }: any) => memory.ticketId,
+          ),
           callbacks: {
             onGone: Pa.alts("states.TABS.states.HISTORY.traits.history.callbacks.onGone", [
-              { patch: ({ memory, event }: any) => ({ goneFor: [...memory.goneFor, event.ticketId] }) },
+              {
+                patch: ({ memory, event }: any) => ({
+                  goneFor: [...memory.goneFor, event.ticketId],
+                }),
+              },
             ]),
           },
         },
@@ -594,9 +722,12 @@ const panelsMake = (api: Api): Compiled => ({
               {
                 to: "history",
                 event: "Highlight",
-                from: Pa.slot("states.TABS.states.HISTORY.on.ShowEntry.raise", ({ event }: any) => ({
-                  entryId: event.entryId,
-                })),
+                from: Pa.slot(
+                  "states.TABS.states.HISTORY.on.ShowEntry.raise",
+                  ({ event }: any) => ({
+                    entryId: event.entryId,
+                  }),
+                ),
               },
             ],
           },
@@ -617,7 +748,9 @@ const panelsMake = (api: Api): Compiled => ({
       concurrency: "reject",
       commit: (i) => api.call("earlier", i) as Effect.Effect<unknown, unknown>,
       outcomes: {
-        success: Pa.mapped("earlier", "success", "EarlierLoaded", (v) => ({ entry: v?.entry ?? "e" })),
+        success: Pa.mapped("earlier", "success", "EarlierLoaded", (v) => ({
+          entry: v?.entry ?? "e",
+        })),
         failure: {
           NoResponse: { event: "EarlierCut" },
           Defect: { event: "EarlierCut" },
@@ -653,7 +786,9 @@ const ChT: Fragment = {
   default: "root",
   nodes: tree("ChT", "", {
     root: {
-      schedules: [{ id: "due", send: "Due", schedule: { ms: 5000 }, armOn: ["entry"], disarmOn: [] }],
+      schedules: [
+        { id: "due", send: "Due", schedule: { ms: 5000 }, armOn: ["entry"], disarmOn: [] },
+      ],
       on: { Due: [{ patch: ({ memory }: any) => ({ due: memory.due + 1 }) }] },
     },
   }),
@@ -700,7 +835,14 @@ const FieldT: Fragment = {
         Typed: [
           {
             patch: ({ event }: any) => ({ value: event.value }),
-            notify: [{ name: "onTyped", from: fixtureOf("FieldT").slot("on.Typed.notify", ({ event }: any) => ({ value: event.value })) }],
+            notify: [
+              {
+                name: "onTyped",
+                from: fixtureOf("FieldT").slot("on.Typed.notify", ({ event }: any) => ({
+                  value: event.value,
+                })),
+              },
+            ],
           },
         ],
       },
@@ -708,7 +850,14 @@ const FieldT: Fragment = {
   }),
   memory: { initial: fixtureOf("FieldT").slot("memory.initial", () => ({ value: "old" })) },
   whenAbandoned: {
-    notify: [{ name: "onGone", from: fixtureOf("FieldT").slot("whenAbandoned.onGone", ({ memory }: any) => ({ value: memory.value })) }],
+    notify: [
+      {
+        name: "onGone",
+        from: fixtureOf("FieldT").slot("whenAbandoned.onGone", ({ memory }: any) => ({
+          value: memory.value,
+        })),
+      },
+    ],
   },
 };
 const deepMake = (api: Api): Compiled => ({
@@ -758,7 +907,11 @@ const deepMake = (api: Api): Compiled => ({
           {
             target: "FAR",
             raises: [
-              { to: "field", event: "Typed", from: D.slot("states.FIELD.on.TypeAndLeave.raise", () => ({ value: "late" })) },
+              {
+                to: "field",
+                event: "Typed",
+                from: D.slot("states.FIELD.on.TypeAndLeave.raise", () => ({ value: "late" })),
+              },
             ],
           },
         ],
@@ -774,8 +927,14 @@ const deepMake = (api: Api): Compiled => ({
     },
     // A firing whose handler throws once (M5): GiveUp is the only way out, as EXPIRED's is.
     WAIT: {
-      schedules: [{ id: "giveUp", send: "GiveUp", schedule: { ms: 1000 }, armOn: ["entry"], disarmOn: [] }],
-      on: { GiveUp: [{ target: "FAR", guards: [({ memory }: any) => memory.pokes >= 0 || deny("Never")] }] },
+      schedules: [
+        { id: "giveUp", send: "GiveUp", schedule: { ms: 1000 }, armOn: ["entry"], disarmOn: [] },
+      ],
+      on: {
+        GiveUp: [
+          { target: "FAR", guards: [({ memory }: any) => memory.pokes >= 0 || deny("Never")] },
+        ],
+      },
     },
     // A schedule whose length is a user's value (D57).
     BADMS: {
@@ -795,7 +954,11 @@ const deepMake = (api: Api): Compiled => ({
     job: write(api, "job", {
       key: D.key("job", () => ({})),
       concurrency: "reject",
-      outcomes: { success: { event: "Done" }, failure: { NotSent: { event: "Failed" } }, unknown: { event: "Unsure" } },
+      outcomes: {
+        success: { event: "Done" },
+        failure: { NotSent: { event: "Failed" } },
+        unknown: { event: "Unsure" },
+      },
     }),
     rowRead: {
       id: "rowRead",
@@ -818,7 +981,11 @@ const deepMake = (api: Api): Compiled => ({
       fragment: "RowT",
       key: D.key("rowPut", (i) => ({ key: i.key })),
       concurrency: "reject",
-      outcomes: { success: { event: "Put" }, failure: { NotSent: { event: "PutNo" } }, unknown: { event: "PutUnsure" } },
+      outcomes: {
+        success: { event: "Put" },
+        failure: { NotSent: { event: "PutNo" } },
+        unknown: { event: "PutUnsure" },
+      },
     }),
   },
   persisted: false,

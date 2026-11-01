@@ -9,6 +9,7 @@
 // codebases/tanstack-query/packages/query-core/src/mutationObserver.ts's cancelQueries convention, here a position compare.
 import type { Carried, Compiled, Predicted, Slot } from "../conformance/fixtures/compiled.ts";
 import type { Claim, Cx, Ended, Module, ReadAnswer } from "./seam.ts";
+import { same } from "./gate.ts";
 import type { Ending } from "./world.ts";
 
 type Entry = {
@@ -28,7 +29,8 @@ type Rec = {
   readonly unconfirmed: readonly string[];
   readonly marks: readonly Mark[];
   readonly queue: readonly string[]; // mint order by construction: mints only grow, a retry never rejoins (S13)
-  readonly changedAt: number; // D47: the position of the last answer applied to `base`
+  readonly changedAt: number; // D58: the tick at which what `base` holds arrived
+  readonly doubt?: number; // D58: the tick a doubt began. Goes only by a read that started after it
 };
 type Repair = {
   readonly gen: string;
@@ -55,7 +57,6 @@ const asSlot = <F>(machine: string, path: string, run: F): Slot<F> => ({
   run,
   at: { definition: machine, path },
 });
-const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
 
 // M8: a field function's throw is the turn's when the prediction is made (`dryRun`), and never a reader's after that.
 const applyPatch = (base: any, p: Predicted, input: unknown) => {
@@ -88,9 +89,9 @@ export const readRecord = (s: Slice, ref: string) => {
       data = safely(() => applyPatch(before, p, e.input), before);
     }
   }
-  if (r.base === undefined && !predicted && r.marks.length === 0 && r.queue.length === 0)
-    return undefined;
-  return { data, predicted, uncertain: r.marks.length > 0, unconfirmed: r.unconfirmed };
+  const uncertain = r.marks.length > 0 || r.doubt !== undefined;
+  if (r.base === undefined && !predicted && !uncertain && r.queue.length === 0) return undefined;
+  return { data, predicted, uncertain, unconfirmed: r.unconfirmed };
 };
 export const readAll = (s: Slice) =>
   Object.fromEntries(
@@ -103,10 +104,11 @@ const startRepair = (s: Slice, ref: string, machine: string, cx: Cx): Slice => {
   const cur = s.repairs[ref];
   if (cur) return { ...s, repairs: { ...s.repairs, [ref]: { ...cur, again: true } } };
   const gen = cx.gen();
+  const pos = cx.pos();
   cx.command({ k: "repair", ref, gen, machine });
   cx.arm(`${TIMER}${ref}`, cx.now + cx.repairMs);
   cx.note("repair", { ref });
-  return { ...s, repairs: { ...s.repairs, [ref]: { gen, machine, again: false, pos: cx.pos() } } };
+  return { ...s, repairs: { ...s.repairs, [ref]: { gen, machine, again: false, pos } } };
 };
 const removeEntry = (s: Slice, attempt: string): Slice => {
   const e = s.entries[attempt];
@@ -129,9 +131,35 @@ const clearMarks = (s: Slice, e: Entry, cx: Cx): Slice => {
   }
   return out;
 };
-// D47: an answer older than what we hold, and different, is not applied. Otherwise it applies and the position moves.
-const staleFields = (r: Rec, fields: Readonly<Record<string, unknown>>, pos: number) =>
-  r.changedAt > pos && !Object.entries(fields).every(([k, v]) => same(r.base?.[k], v));
+// D58: an answer is an interval. What we hold arrived after this started, so their order is unknown; if they differ, doubt.
+const overlaps = (r: Rec, c: Carried, start: number) =>
+  r.changedAt > start &&
+  (c.removed
+    ? r.base !== undefined
+    : !Object.entries(c.fields ?? {}).every(([k, v]) => same(r.base?.[k], v)));
+const doubted = (s: Slice, ref: string, machine: string, cx: Cx): Slice => {
+  const at = cx.pos();
+  return startRepair(
+    withRec(s, ref, (r) => ({ ...r, doubt: at })),
+    ref,
+    machine,
+    cx,
+  );
+};
+// A read that started after the doubt settles it, whatever it says.
+const settled = (r: Rec, start: number): Rec => {
+  if (r.doubt === undefined || start < r.doubt) return r;
+  const { doubt: _d, ...rest } = r;
+  return rest;
+};
+// D57: a mapper's result is a value from outside. What has no shape is dropped and named; it does not stop the store.
+const carriedOf = (v: unknown, cx: Cx, where: string): readonly Carried[] => {
+  const ok = (c: any) =>
+    typeof c?.ref === "string" && (c.removed === true || typeof (c.fields ?? {}) === "object");
+  if (Array.isArray(v) && v.every(ok)) return v;
+  cx.issue("UserClosure", { where, why: "a result of no shape" });
+  return Array.isArray(v) ? v.filter(ok) : [];
+};
 const carry = (s: Slice, ref: string, c: Carried, at: number): Slice =>
   withRec(s, ref, (r) => {
     if (c.removed) {
@@ -149,31 +177,29 @@ const carry = (s: Slice, ref: string, c: Carried, at: number): Slice =>
 const confirm = (s: Slice, e: Entry, value: unknown, sentAt: number, cx: Cx): Slice => {
   const fn = domainOf(cx, e.machine)?.writes[e.op]?.confirms;
   let threw = false;
-  const carried = fn
+  const raw = fn
     ? cx.user(asSlot(e.machine, `domain.${e.op}.confirms`, fn), [value, e.input], () => {
         threw = true;
         return [];
       })
     : [];
   let out = s;
-  // D46: nothing can be believed: the prediction ends, the record is repaired.
+  // D46: nothing can be believed: the prediction ends, the record is in doubt.
   if (threw) {
-    for (const ref of e.refs) out = startRepair(out, ref, e.machine, cx);
+    for (const ref of e.refs) out = doubted(out, ref, e.machine, cx);
     return out;
   }
-  const staleRefs = new Set<string>();
+  const carried = carriedOf(raw, cx, `domain.${e.op}.confirms`);
   for (const c of carried) {
-    const r = recOf(out, c.ref);
-    if (!c.removed && staleFields(r, c.fields ?? {}, sentAt)) {
-      staleRefs.add(c.ref);
-      out = startRepair(out, c.ref, e.machine, cx);
-      continue;
-    }
+    // D59: a success this client just had confirmed is the best evidence it holds, so it applies. If what we hold arrived
+    // since it was sent and differs, the order is unknown: marked until a later read answers.
+    const doubt = overlaps(recOf(out, c.ref), c, sentAt);
     out = carry(out, c.ref, c, cx.pos());
+    if (doubt) out = doubted(out, c.ref, e.machine, cx);
   }
   // Fields predicted and not carried stay, unconfirmed, until a read (2.8.6's success row).
   for (const p of e.predicted) {
-    if (p.remove || !p.patch || staleRefs.has(p.ref)) continue;
+    if (p.remove || !p.patch) continue;
     const c = carried.find((x) => x.ref === p.ref);
     if (c?.removed) continue;
     const r = recOf(out, p.ref);
@@ -244,29 +270,18 @@ const onEnded = (s: Slice, { attempt, how, sentAt }: Ended, cx: Cx): Slice => {
 const onAnswered = (s: Slice, a: ReadAnswer, cx: Cx): Slice => {
   const fn = domainOf(cx, a.machine)?.reads[a.op];
   if (!fn) return s;
-  const carried = cx.user(
-    asSlot(a.machine, `domain.${a.op}.read`, fn),
-    [a.value, a.input],
-    () => [],
-  );
+  const raw = cx.user(asSlot(a.machine, `domain.${a.op}.read`, fn), [a.value, a.input], () => []);
+  const carried = carriedOf(raw, cx, `domain.${a.op}.read`);
   cx.visible();
   let out = s;
   for (const c of carried) {
-    const r = recOf(out, c.ref);
-    if (c.removed) {
-      out = carry(out, c.ref, c, cx.pos());
+    // D59: a read overlapping what we hold, and differing, most likely saw the moment before. Not applied; the server decides.
+    if (overlaps(recOf(out, c.ref), c, a.pos)) {
+      out = doubted(out, c.ref, a.machine, cx);
       continue;
     }
-    if (staleFields(r, c.fields ?? {}, a.pos)) {
-      out = startRepair(out, c.ref, a.machine, cx); // M3: the server decides
-      continue;
-    }
-    out = withRec(out, c.ref, (x) => ({
-      ...x,
-      base: c.fields ?? {},
-      unconfirmed: [],
-      changedAt: cx.pos(),
-    }));
+    // L4: a read merges, as a write does: list rows and detail rows meet. A repair replaces: it is the record.
+    out = withRec(carry(out, c.ref, c, cx.pos()), c.ref, (x) => settled(x, a.pos));
   }
   return out;
 };
@@ -283,23 +298,25 @@ const onRepair = (s: Slice, a: RepairAnswer, cx: Cx): Slice => {
     cx.note("fence", { repair: a.ref });
     return s; // D40: a late answer, after the bound
   }
-  if (!a.ok) {
-    cx.note("RepairFailed", { ref: a.ref });
+  if (!a.ok || (a.value !== null && a.value !== undefined && typeof a.value !== "object")) {
+    cx.note("RepairFailed", { ref: a.ref }); // the doubt and the mark stay
     return endRepair(s, a.ref, cx);
   }
   const r = recOf(s, a.ref);
-  // D47: a repair that started before something newer landed asks again, rather than go backwards.
+  // D58: a repair that started before something newer landed asks again, rather than go backwards.
   if (r.changedAt > cur.pos && !same(r.base ?? null, a.value ?? null)) {
     const { [a.ref]: _g, ...repairs } = s.repairs;
     cx.disarm(`${TIMER}${a.ref}`);
     return startRepair({ ...s, repairs }, a.ref, cur.machine, cx);
   }
-  const out = withRec(s, a.ref, (x) => {
+  const at = cx.pos();
+  const out = withRec(s, a.ref, (x0) => {
+    const x = settled(x0, cur.pos);
     if (a.value === null || a.value === undefined) {
       const { base: _b, ...rest } = x;
-      return { ...rest, unconfirmed: [], changedAt: cx.pos() };
+      return { ...rest, unconfirmed: [], changedAt: at };
     }
-    return { ...x, base: a.value, unconfirmed: [], changedAt: cx.pos() };
+    return { ...x, base: a.value, unconfirmed: [], changedAt: at };
   });
   return endRepair(out, a.ref, cx);
 };

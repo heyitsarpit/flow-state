@@ -1,6 +1,7 @@
 // Write-ahead, in the core (D26). An Attempt writes twice: a capture saying "not acknowledged", then the acknowledgement, which
 // is how a restore tells NotSent { Restored } from unknown { Restored }. D30: silence is not refusal. D46: restore is per record;
 // a record that does not decode, or names what this release removed, is quarantined and the rest boots.
+import { text, validActor, validLane } from "./gate.ts";
 import { hook, saveAll } from "./hooks.ts";
 import { afterAck, cell } from "./lane.ts";
 import { armTimer, disarmTimer } from "./timers.ts";
@@ -17,7 +18,6 @@ import {
   type Attempt,
   type Ending,
   type FrozenTimer,
-  type Inc,
   type Lane,
   type Phase,
   type Tx,
@@ -63,6 +63,13 @@ const saveAttempt = (tx: Tx, a: Attempt) => {
   const ext = saveAll(tx, a.id);
   return { ...rest, held: phase.t === "held", ...(ext ? { ext } : {}) };
 };
+// D57: a server's answer parked here need not encode. The ending stays real; only its value is lost, and only across a reload.
+const storableParked = (tx: Tx, l: Lane) =>
+  l.parked.map((p) => {
+    if (text(p.ending) !== undefined) return p;
+    issue(tx, { code: "UnencodableValue", origin: `${l.machine} ${l.op}` });
+    return { ...p, ending: { ...p.ending, value: { unencodable: true } } };
+  });
 const encodeLane = (tx: Tx, l: Lane, acked: boolean) =>
   JSON.stringify({
     id: l.id,
@@ -73,13 +80,16 @@ const encodeLane = (tx: Tx, l: Lane, acked: boolean) =>
     subject: l.subject,
     ...(l.head ? { head: { ...saveAttempt(tx, l.head), acked } } : {}),
     w: l.w.map((a) => saveAttempt(tx, a)),
-    parked: l.parked,
+    parked: storableParked(tx, l),
     ...(l.releasing ? { releasing: true } : {}),
   });
-const encodeActor = (w: World, key: string) => {
-  const a = w.actors[key]!;
-  const timers = Object.values(w.timers).filter((t) => t.kind === "schedule" && t.actor === key);
-  return JSON.stringify({ ...a, timers });
+const encodeActor = (tx: Tx, key: string): string | undefined => {
+  const a = tx.w.actors[key]!;
+  const timers = Object.values(tx.w.timers).filter((t) => t.kind === "schedule" && t.actor === key);
+  const out = text({ ...a, timers });
+  // The turn gated memory. What is left is a thing nobody gated: named, and the last good record stands.
+  if (out === undefined) issue(tx, { code: "UnencodableValue", origin: `actor ${key}` });
+  return out;
 };
 
 // C: the world decides what is written. A record is written when its encoding differs from the last one sent.
@@ -87,8 +97,10 @@ export const flush = (tx: Tx) => {
   const writes: Write[] = [];
   for (const key of tx.touchedActors) {
     const a = tx.w.actors[key];
-    if (a && tx.machines[a.machine]!.persisted)
-      writes.push({ key: `actor/${key}`, value: encodeActor(tx.w, key) });
+    if (a && tx.machines[a.machine]!.persisted) {
+      const value = encodeActor(tx, key);
+      if (value !== undefined) writes.push({ key: `actor/${key}`, value });
+    }
   }
   let saved = tx.w.savedLanes;
   const put = (id: string, value: string | undefined) => {
@@ -173,6 +185,7 @@ const mail = (
   enqueue(tx, {
     k: "ending",
     actor: l.actor,
+    machine: l.machine,
     op: l.op,
     key: l.key,
     owner: a.owner,
@@ -183,19 +196,13 @@ const mail = (
     ...((a.id ?? a.attempt) ? { attempt: (a.id ?? a.attempt)! } : {}),
     ...(onLane ? { onLane } : {}),
   });
-const goodInc = (i: Inc): boolean =>
-  typeof i?.id === "string" &&
-  typeof i.leaf === "string" &&
-  typeof i.activations === "object" &&
-  Object.values(i.kids ?? {}).every(goodInc);
-
 // The restore row, and rule 44's delivery order: per lane in creation order, before any external event.
 export const restore = (tx: Tx, records: ReadonlyArray<readonly [string, string]>) => {
   const metaText = records.find(([k]) => k === "meta")?.[1];
   const m = metaText
     ? (parse(tx, "meta", metaText) as { boot: number; nextMint: number } | undefined)
     : undefined;
-  let maxMint = (m?.nextMint ?? 1) - 1;
+  let maxMint = (Number.isFinite(m?.nextMint) ? m!.nextMint : 1) - 1;
   const actors: Record<string, ActorRec> = {};
   const timers: FrozenTimer[] = [];
   const lanes: Array<[string, SavedLane]> = [];
@@ -204,8 +211,9 @@ export const restore = (tx: Tx, records: ReadonlyArray<readonly [string, string]
     if (k.startsWith("actor/")) {
       const v = parse(tx, k, text);
       if (!v) continue;
-      if (!tx.machines[v.machine] || !goodInc(v.root)) {
-        quarantine(tx, k, `no machine ${v.machine}, or a bad record`);
+      const mm = tx.machines[v?.machine];
+      if (!mm || !validActor(mm, v)) {
+        quarantine(tx, k, `no machine ${v?.machine}, or a record this release cannot read`);
         continue;
       }
       actors[v.key] = { key: v.key, machine: v.machine, root: v.root };
@@ -213,30 +221,36 @@ export const restore = (tx: Tx, records: ReadonlyArray<readonly [string, string]
     } else if (k.startsWith("lane/")) {
       const v = parse(tx, k, text) as SavedLane | undefined;
       if (!v) continue;
-      if (!tx.machines[v.machine]?.ops[v.op]) {
-        quarantine(tx, k, `no operation ${v.machine} ${v.op}`); // goes to `orphaned` (P19) when that is built
+      if (!tx.machines[v?.machine as string]?.ops[v?.op as string] || !validLane(v as never)) {
+        quarantine(
+          tx,
+          k,
+          `no operation ${v?.machine} ${v?.op}, or a record this release cannot read`,
+        ); // goes to `orphaned` (P19) when that is built
         continue;
       }
       saved[v.id] = text;
       lanes.push([k, v]);
     }
   }
-  tx.w = { ...tx.w, boot: (m?.boot ?? 0) + 1, actors, savedLanes: saved };
+  tx.w = { ...tx.w, boot: (Number.isFinite(m?.boot) ? m!.boot : 0) + 1, actors, savedLanes: saved };
   for (const t of timers) {
     const { gen: _g, ...spec } = t;
     armTimer(tx, spec);
   }
   const mintOf = (l: SavedLane) => l.head?.mint ?? 0;
-  for (const [, l] of lanes.sort(([, a], [, b]) => mintOf(a) - mintOf(b))) {
+  const ordered = lanes.sort(([, a], [, b]) => mintOf(a) - mintOf(b) || (a.id < b.id ? -1 : 1));
+  // Every parked ending first, in saved order, then per lane (2.7.13, L5): each mapped through the current outcomes (OD22).
+  for (const [, l] of ordered)
+    for (const p of l.parked ?? []) {
+      note(tx, "unparked", { op: l.op, attempt: p.attempt ?? "" });
+      mail(tx, l, p, p.ending, false);
+    }
+  for (const [, l] of ordered) {
     for (const x of l.w) maxMint = Math.max(maxMint, x.mint);
     const parked = l.parked ?? [];
     const h = l.head;
     if (h) maxMint = Math.max(maxMint, h.mint);
-    // Parked endings first, in saved order: each mapped through the current outcomes at delivery (OD22).
-    for (const p of parked) {
-      note(tx, "unparked", { op: l.op, attempt: p.attempt ?? "" });
-      mail(tx, l, p, p.ending, false);
-    }
     const base = { ...l, w: [], parked: [] as Lane["parked"] };
     if (!h) {
       deleteOnly(tx, l.id); // delivered next, or parked again with a fresh record
@@ -248,7 +262,11 @@ export const restore = (tx: Tx, records: ReadonlyArray<readonly [string, string]
         ? { ch: "unknown", reason: "Restored" }
         : { ch: "failure", tag: "NotSent", value: { why: "Restored" } };
     if (ownParked) {
-      deleteOnly(tx, l.id);
+      // Delivered from the parked list. A hold stays a hold: rule 17, and a new write beside it would be a second charge.
+      if (h.held) {
+        setLane(tx, { ...base, head: revive(h, { t: "held" }, true), subject: l.subject ?? [] });
+        restoredHook(tx, l, h, { ch: "unknown", reason: "Restored" });
+      } else deleteOnly(tx, l.id);
       continue;
     }
     noteEnding(tx, { op: l.op, attempt: h.id }, ending);
@@ -263,22 +281,7 @@ export const restore = (tx: Tx, records: ReadonlyArray<readonly [string, string]
       deleteOnly(tx, l.id);
     } else {
       setLane(tx, lane);
-      if (unknown && h.ext)
-        hook(tx, "restored", (mod, s, cx) =>
-          mod.restored!(
-            s,
-            {
-              attempt: h.id,
-              mint: h.mint,
-              machine: l.machine,
-              op: l.op,
-              input: h.input,
-              saved: h.ext![mod.id],
-              ending,
-            },
-            cx,
-          ),
-        );
+      if (unknown) restoredHook(tx, l, h, ending);
       mail(tx, l, h, ending, true);
     }
     // W: each ends NotSent { Restored } (C2), or as evidence on a releasing lane.
@@ -290,6 +293,24 @@ export const restore = (tx: Tx, records: ReadonlyArray<readonly [string, string]
     }
   }
   tx.w = { ...tx.w, nextMint: maxMint + 1 };
+};
+const restoredHook = (tx: Tx, l: SavedLane, h: SavedAttempt, ending: Ending) => {
+  if (!h.ext) return;
+  hook(tx, "restored", (mod, s, cx) =>
+    mod.restored!(
+      s,
+      {
+        attempt: h.id,
+        mint: h.mint,
+        machine: l.machine,
+        op: l.op,
+        input: h.input,
+        saved: h.ext![mod.id],
+        ending,
+      },
+      cx,
+    ),
+  );
 };
 const deleteOnly = (tx: Tx, id: string) => {
   const { [id]: _l, ...lanes } = tx.w.lanes;

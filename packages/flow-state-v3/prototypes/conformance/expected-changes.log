@@ -113,3 +113,22 @@ file:drive.ts hash:926df4eefff5 | throwInModuleAfter (L1)
 file:fixtures/compiled.ts hash:f7cf704a7201 | byReason, one format (M6)
 file:fixtures/lab.compiled.ts hash:764cadad380a | SetDocsThen (M4)
 file:fixtures/comments.compiled.ts hash:dc0d859ea623 | Pin and React (H7)
+# Changes after the red commit 185c5142, before and at green.
+LIKE-01, STORE-05/retry-success-clears, HIGH-04 | a success in doubt: base kept, mark cleared | applied, marked until a later read | Review H2: the old middle state hides a confirmed write and one failed repair left it wrong and clean | D59 changes D47
+REV4-H1, REV4-H2, REV4-H3, REV4-H4, REV4-H5, REV4-M3, REAL-02 | my first expectations | as they run, or cases added | Interrupting a wire write settles at once, so its row is gone (M3). A turn count did not tell object resets apart; replaced by a reset count (H5). Cases added from my own mutants' survivors. None relaxed a rule | none
+fixtures/real | Ticket without a sibling, attach without a reset count | SideT, resets | Mutants h6-exit-skips-descendants and my reset case needed something to read | none
+LIKE-01 hash:db7ed4953693 | D59: marked until a later read
+STORE-05 hash:4011567d0f92 | D59: marked until a later read
+HIGH-04 hash:1d7ad41690a4 | D59: a success applies, marked
+REV4-H1 hash:fbf722feecc8 | after red, cases added or trimmed: see above
+REV4-H2 hash:2ad28fbe03b4 | after red, cases added: see above
+REV4-H3 hash:ea362a788b30 | after red, cases added: see above
+REV4-H4 hash:629ae4cab8fa | after red, cases added: see above
+REV4-H5 hash:9d2ff4595b54 | after red: see above
+REV4-M3 hash:56fe8cb6d87b | after red: see above
+REAL-02 hash:425d5e339975 | after red: see above
+file:scenarios/store.scenario.ts hash:2db1b2accaee | D59 above
+file:scenarios/review.scenario.ts hash:9af14424a383 | D59 above
+file:scenarios/round4.scenario.ts hash:1cdb77510f84 | after red: see above
+file:drive.ts hash:4012ed418ae7 | after red: see above
+file:fixtures/real.compiled.ts hash:6d4e058c42e6 | after red: see above

@@ -26,7 +26,13 @@ const ODD_LISTS: ReadonlyArray<readonly [string, unknown]> = [
   ["emptyItem", [{}]],
   ["bigRef", [{ ref: 10n }]],
   ["objRef", [{ ref: { a: 1 } }]],
-  ["dup", [{ ref: "a", name: "n" }, { ref: "a", name: "n" }]],
+  [
+    "dup",
+    [
+      { ref: "a", name: "n" },
+      { ref: "a", name: "n" },
+    ],
+  ],
   ["colon", [{ ref: "user:1", name: "n" }]],
   ["slash", [{ ref: "gid://shop/Product/1", name: "n" }]],
 ];
@@ -38,22 +44,33 @@ const ODD_ANSWERS: ReadonlyArray<readonly [string, Answer]> = [
   ["die", { die: "odd" }],
 ];
 const edit = (f: (r: any) => void) => (raw: string) => {
-  const r = JSON.parse(raw);
-  f(r);
-  return JSON.stringify(r);
+  try {
+    const r = JSON.parse(raw);
+    f(r);
+    return JSON.stringify(r);
+  } catch {
+    return raw; // already junk
+  }
 };
 const CORRUPTIONS: ReadonlyArray<readonly [string, string, (raw: string) => string]> = [
   ["leaf", "actor/", edit((r) => (r.root.leaf = "REMOVED"))],
-  ["frag", "actor/", edit((r) => {
-    const k = Object.keys(r.root.kids)[0];
-    if (k) r.root.kids[k].frag = "REMOVED";
-  })],
+  [
+    "frag",
+    "actor/",
+    edit((r) => {
+      const k = Object.keys(r.root.kids)[0];
+      if (k) r.root.kids[k].frag = "REMOVED";
+    }),
+  ],
   ["timers", "actor/", edit((r) => delete r.timers)],
   ["w", "lane/", edit((r) => delete r.w)],
   ["junk", "lane/", () => "{{{"],
 ];
 const ACTIONS: readonly Action[] = [
-  ...ODD_LISTS.map(([n, v]): Action => ({ name: `list.${n}`, step: send("SetFiles", { attachments: v }) })),
+  ...ODD_LISTS.map(([n, v]): Action => ({
+    name: `list.${n}`,
+    step: send("SetFiles", { attachments: v }),
+  })),
   { name: "list.good", step: send("SetFiles", { attachments: [{ ref: "r1", name: "n" }] }) },
   { name: "subject.big", step: send("SetSubject", { subject: 10n }) },
   { name: "subject.cycle", step: send("SetSubject", { subject: cycle }) },

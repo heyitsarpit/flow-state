@@ -1,0 +1,387 @@
+runtime: /Users/arpit/Developer/flow-state/packages/flow-state-v3/prototypes/round-4/adapter.ts
+bun 1.4.2
+PASS  PAY-01                                               5.8 ms
+PASS  PAY-02                                               1.1 ms
+PASS  PAY-03                                               2.2 ms
+PASS  PAY-04                                               4.2 ms
+PASS  PAY-05                                               1.4 ms
+PASS  PAY-06/interruptible                                 0.9 ms
+PASS  PAY-06/uninterruptible                               1.1 ms
+PASS  PAY-07/leaveMidCharge                                1.2 ms
+PASS  PAY-07/late-in-a-new-PAYING                          0.9 ms
+PASS  PAY-07/late-may-not-leave                            1.4 ms
+PASS  PAY-08/reloadDuringCharge                            1.7 ms
+PASS  PAY-08/reload-while-reconciling                      1.0 ms
+PASS  PAY-09/ack-not-stored                                1.6 ms
+PASS  PAY-09/ack-stored-confirmation-lost                  0.7 ms
+PASS  PAY-10/refuse                                        0.5 ms
+PASS  PAY-10/hang                                          0.7 ms
+PASS  PAY-11/guard                                         0.9 ms
+PASS  PAY-11/guard-twice                                   0.6 ms
+PASS  PAY-11/unknown-handler-throws-once                   0.8 ms
+PASS  PAY-11/refused-after-members                         0.2 ms
+PASS  PAY-11/module                                        0.7 ms
+PASS  PAY-12/defect                                        0.5 ms
+PASS  PAY-12/sync                                          0.5 ms
+PASS  PAY-12/cancel-on-wire                                0.6 ms
+PASS  PAY-12/duplicate                                     0.5 ms
+PASS  PAY-12/shuffle                                       137.2 ms
+PASS  PAY-13/hung-commit                                   0.9 ms
+PASS  PAY-13/waiting-flushed                               0.5 ms
+PASS  PAY-13/waiting-flush-lost                            0.4 ms
+PASS  PAY-14                                               1.5 ms
+PASS  PAY-15/press-pay-while-held                          0.6 ms
+PASS  PAY-15/cancel-idle                                   0.2 ms
+PASS  PAY-15/cancel-on-wire                                0.4 ms
+PASS  PAY-15/busy-then-new-write                           0.6 ms
+PASS  PAY-15/reload-holds-exactly-once                     0.5 ms
+PASS  PAY-15/dispose-held                                  0.5 ms
+PASS  PAY-15/dead-activation-timer                         0.8 ms
+PASS  PAY-15/retry-budget                                  3.5 ms
+PASS  PAY-16/restore-keeps-mayHaveApplied                  1.5 ms
+PASS  PAY-16/timeout-per-send                              1.4 ms
+PASS  PAY-16/resend-refused-capture                        1.7 ms
+PASS  PAY-16/rejected-is-delivered                         0.6 ms
+PASS  PAY-16/retry-count-persists                          1.3 ms
+PASS  PAY-16/settled-during-disposal-parked                0.8 ms
+PASS  PAY-16/stale-send-fenced                             1.2 ms
+PASS  PAY-16/dispose-waiting-resend                        1.0 ms
+PASS  PAY-16/parked-success-is-delivered                   0.5 ms
+PASS  PAY-16/disposal-ends-with-the-last-fiber             0.6 ms
+PASS  PAY-16/schedule-reads-after-memory                   0.7 ms
+PASS  PAY-16/cancelled-does-not-stick                      1.9 ms
+PASS  PAY-16/read-defect-issue                             0.6 ms
+PASS  PAY-16/superseded-read                               0.6 ms
+PASS  PAY-17/hook-throws-on-sent                           0.4 ms
+PASS  PAY-17/hook-throws-on-timer                          0.6 ms
+PASS  PAY-17/hook-throws-on-acked                          0.3 ms
+PASS  PAY-17/hook-throws-on-turn                           0.2 ms
+PASS  PAY-17/core-throw-is-fatal                           0.5 ms
+PASS  PAY-18                                               0.5 ms
+PASS  PAY-19/void-answers-first                            0.7 ms
+PASS  PAY-19/place-answers-first                           0.7 ms
+PASS  ORDER-01                                             0.4 ms
+PASS  ORDER-02                                             25.1 ms
+PASS  ORDER-03                                             0.3 ms
+PASS  ORDER-04/subscriber-ping-pong                        3.5 ms
+PASS  ORDER-04/follow-up-chain                             1.6 ms
+PASS  ORDER-04/a-legitimate-hour-of-polling                28.6 ms
+PASS  ORDER-05                                             2.4 ms
+PASS  DRV-01                                               719.6 ms
+PASS  DRV-02                                               0.9 ms
+PASS  DRV-03/throw-at-settlement                           0.8 ms
+PASS  DRV-03/a-disabled-store-holds-its-queue              0.8 ms
+PASS  DRV-03/a-disabled-store-declines-what-would-join     0.5 ms
+PASS  DRV-03/disabled-survives-a-refused-turn              0.3 ms
+PASS  DRV-04                                               0.3 ms
+PASS  LIKE-01                                              1.4 ms
+PASS  LIKE-02                                              1.4 ms
+PASS  LIKE-03                                              0.9 ms
+PASS  LIKE-04                                              0.8 ms
+PASS  LIKE-05                                              0.7 ms
+PASS  LIKE-06                                              1.0 ms
+PASS  STORE-01                                             0.6 ms
+PASS  STORE-02                                             0.4 ms
+PASS  STORE-03                                             0.7 ms
+PASS  STORE-04/Rejected                                    1.4 ms
+PASS  STORE-04/Overloaded                                  3.3 ms
+PASS  STORE-04/Superseded                                  0.6 ms
+PASS  STORE-04/Superseded-head                             0.6 ms
+PASS  STORE-04/Cancelled                                   0.6 ms
+PASS  STORE-04/Restored                                    0.3 ms
+PASS  STORE-04/Restored-W                                  0.4 ms
+PASS  STORE-04/StorageRefused                              0.2 ms
+PASS  STORE-04/Disposed                                    0.2 ms
+PASS  STORE-04/NothingToResend                             0.2 ms
+PASS  STORE-05/retry-success-clears                        0.7 ms
+PASS  STORE-05/failed-retry-does-not                       0.6 ms
+PASS  STORE-05/a-read-does-not                             0.5 ms
+PASS  STORE-05/a-later-failure-does-not                    0.8 ms
+PASS  STORE-05/an-unresolved-mark-outlives-another-success 0.2 ms
+PASS  STORE-11/a-resend-waits-for-its-repair               0.5 ms
+PASS  STORE-11/cancel-a-waiting-resend                     1.6 ms
+PASS  STORE-11/stillunknown-keeps-its-place                1.0 ms
+PASS  STORE-06                                             89.3 ms
+PASS  STORE-07/released-entry-leaves-at-the-bound          1.2 ms
+PASS  STORE-07/a-live-hold-outranks-the-bound              0.9 ms
+PASS  STORE-07/a-late-repair-is-fenced                     0.5 ms
+PASS  STORE-08                                             0.5 ms
+PASS  STORE-09                                             0.7 ms
+PASS  STORE-10                                             0.7 ms
+PASS  CART-01                                              1.4 ms
+PASS  CART-02/five-taps                                    1.1 ms
+PASS  CART-02/lines-independent                            1.5 ms
+PASS  CART-02/at-most-nine                                 1.5 ms
+PASS  CART-02/remove-asked                                 0.6 ms
+PASS  CART-02/page-and-header                              0.7 ms
+PASS  CART-02/repriced-under-pending                       0.9 ms
+PASS  CART-02/coupon                                       0.9 ms
+PASS  REFUND-01/three-refunds                              1.2 ms
+PASS  REFUND-01/unsure-holds-the-charge                    1.1 ms
+PASS  REFUND-01/reload-mid-refund                          0.7 ms
+PASS  REFUND-01/sixty-five                                 42.0 ms
+PASS  LIB-01                                               0.6 ms
+PASS  LIB-02                                               0.8 ms
+PASS  LIB-03                                               0.2 ms
+PASS  HIGH-01/pay-told-not-charged                         0.5 ms
+PASS  HIGH-01/retry-then-cancel-releases                   0.8 ms
+PASS  HIGH-01/retry-then-commit-queues-behind              1.0 ms
+PASS  HIGH-01/retry-then-refuse-holds                      0.6 ms
+PASS  HIGH-02/lane-does-not-parse                          0.6 ms
+PASS  HIGH-02/lane-names-a-removed-operation               0.4 ms
+PASS  HIGH-02/actor-of-a-removed-machine                   0.7 ms
+PASS  HIGH-02/a-key-closure-returns-what-cannot-encode     0.4 ms
+PASS  HIGH-02/persisted-memory-that-cannot-encode          0.1 ms
+PASS  HIGH-03/confirms-throws-on-a-shape                   0.6 ms
+PASS  HIGH-03/a-read-mapper-throws                         0.2 ms
+PASS  HIGH-04                                              0.7 ms
+PASS  HIGH-04b                                             0.4 ms
+PASS  MED-01/cancel-waits-for-its-ack                      0.4 ms
+PASS  MED-01/cancel-refused-by-storage                     0.4 ms
+PASS  MED-01/landed-without-ack-then-reload                0.5 ms
+PASS  MED-01/latest-replace-waits-for-its-ack              0.5 ms
+PASS  MED-01/other-actor-behind-a-hung-ack                 2.1 ms
+PASS  MED-02/record-held-names-holder-and-waiter           0.8 ms
+PASS  MED-03/stale-read-does-not-overwrite-a-confirmed-write 0.4 ms
+PASS  MED-03/a-read-started-after-the-write-applies        0.3 ms
+PASS  MED-03/stale-repair-runs-again                       0.5 ms
+PASS  MED-04                                               0.4 ms
+PASS  MED-07/repair-stops-at-its-bound                     0.4 ms
+PASS  MED-07/disposal-stops-module-fibers                  0.3 ms
+PASS  MED-07/a-survivor-is-evidence                        0.3 ms
+PASS  MED-08                                               0.3 ms
+PASS  SURV-01                                              0.5 ms
+PASS  SURV-02                                              0.6 ms
+PASS  SURV-03                                              0.7 ms
+PASS  SURV-04                                              0.4 ms
+PASS  SURV-05                                              0.6 ms
+PASS  SURV-06                                              0.4 ms
+PASS  SURV-07                                              0.5 ms
+PASS  SURV-08                                              0.4 ms
+PASS  SURV-09                                              0.1 ms
+PASS  SURV-10                                              0.4 ms
+PASS  SURV-11                                              0.2 ms
+PASS  STORE-12                                             0.4 ms
+PASS  FRAG-01/removed-copy-ends-once                       1.3 ms
+PASS  FRAG-01/repair-never-refuses                         0.2 ms
+PASS  FRAG-01/readd-is-a-new-incarnation                   0.6 ms
+PASS  FRAG-01/removal-and-readd-in-one-patch-changes-nothing 0.5 ms
+PASS  FRAG-01/a-keystroke-for-a-removed-row-is-unhandled   0.1 ms
+PASS  FRAG-01/raise-into-a-key-added-this-turn             0.3 ms
+PASS  FRAG-02/reset-on-a-source-patch                      0.4 ms
+PASS  FRAG-02/a-raise-in-the-resetting-turn-reaches-the-fresh-one 0.2 ms
+PASS  FRAG-02/a-part-writing-the-key-is-a-pending-reset    0.3 ms
+PASS  FRAG-02/a-throwing-reseton-refuses                   0.2 ms
+PASS  FRAG-03                                              6.8 ms
+PASS  FRAG-04/parked-then-adopted-keeps-the-text           1.1 ms
+PASS  FRAG-04/an-inflight-ending-reaches-a-new-copy-when-it-lands 0.6 ms
+PASS  FRAG-04/a-held-lane-delivers-restored-to-the-new-copy-once 0.9 ms
+PASS  FRAG-05                                              0.9 ms
+PASS  FRAG-06/wire-is-interrupted-and-nothing-delivered    0.7 ms
+PASS  FRAG-06/waiting-never-sent-waits-for-its-ack         0.4 ms
+PASS  FRAG-06/held-is-released-now                         0.5 ms
+PASS  FRAG-06/reload-of-a-releasing-lane-delivers-nothing  0.5 ms
+PASS  FRAG-06/readd-before-idle-clears-the-mark-and-adopts 0.7 ms
+PASS  FRAG-07/another-paths-members-are-declined           1.0 ms
+PASS  FRAG-08/persisted-disposed-ending-parked-delivered-once 0.5 ms
+PASS  FRAG-08/rebind-delivers-a-hold-once                  0.5 ms
+PASS  FRAG-08/non-persisted-with-no-return-is-evidence     0.2 ms
+PASS  FRAG-09/reloadWhileConfirming                        2.1 ms
+PASS  FRAG-09/webhookWins                                  2.7 ms
+PASS  FRAG-09/voidLostRace                                 1.6 ms
+PASS  FRAG-09/buyAgain                                     0.9 ms
+PASS  FRAG-09/summary-guard-port-and-denial                0.4 ms
+PASS  FRAG-09/host-guard-port-refuses-for-the-host         0.5 ms
+PASS  FRAG-09/a-double-click-is-rejected-in-a-callback     0.7 ms
+PASS  FRAG-10/lateChallenge                                1.6 ms
+PASS  FRAG-10/lateWhilePaying                              1.5 ms
+PASS  FRAG-10/helpKeepsDeadline                            1.6 ms
+PASS  FRAG-10/history-restores-control-only                1.9 ms
+PASS  FRAG-10/answer-from-the-host-passes-the-exit         1.1 ms
+PASS  FRAG-10/failure-exits-with-its-reason                0.9 ms
+PASS  FRAG-10/host-event-falls-through-the-subroutine      0.9 ms
+PASS  FRAG-10/reload-inside-the-subroutine                 1.6 ms
+PASS  FRAG-11/postedInOrder                                0.8 ms
+PASS  FRAG-11/unconfirmed-head-holds-then-resend           2.0 ms
+PASS  FRAG-11/give-up-releases-the-head                    0.5 ms
+PASS  FRAG-11/deleteRefused                                0.5 ms
+PASS  FRAG-11/a-b-a-adopts-as-the-story-says               0.2 ms
+PASS  FRAG-11/reset-subject-is-in-the-lane-record          0.1 ms
+PASS  FRAG-12/unbound-hold-with-a-waiter-yields            0.8 ms
+PASS  FRAG-12/bound-hold-never-yields                      0.4 ms
+PASS  FRAG-12/unbound-hold-with-no-waiter-stays            0.2 ms
+PASS  FRAG-13                                              0.5 ms
+PASS  FRAG-14                                              0.4 ms
+PASS  FRAG-15                                              397.8 ms
+PASS  FRAG-16/denied-keeps-the-cell-and-promotes           0.5 ms
+PASS  FRAG-17/a-child-that-cannot-react-refuses-the-whole-turn 0.3 ms
+PASS  FRAG-17/raise-into-an-absent-key-refuses-outside-a-delivery 0.2 ms
+PASS  FRAG-17/leaving-cancels-a-node-traits-schedule       0.5 ms
+PASS  FRAG-17/one-publication-per-turn                     0.2 ms
+PASS  FRAG-18/freeze-interrupts-a-lookup-thaw-delivers-it-first 0.7 ms
+PASS  FRAG-18/a-frozen-schedule-keeps-due-and-fires-once   0.4 ms
+PASS  FRAG-18/reload-while-frozen-keeps-the-parked-ending  0.5 ms
+PASS  FRAG-18/a-live-lookup-is-not-persisted               0.2 ms
+PASS  FRAG-19/copies-and-subject-paths-survive-a-reload    0.5 ms
+PASS  FRAG-19/unplaced-parked-survives-a-reload            0.6 ms
+PASS  FRAG-20/release-only-the-ending-subject              0.8 ms
+PASS  FRAG-20/a-commit-in-a-copy-the-same-turn-removes-is-marked 0.3 ms
+PASS  FRAG-20/actor-record-does-not-parse                  1.2 ms
+PASS  FRAG-20/adopted-ending-is-current-from-the-active-leaf 0.2 ms
+PASS  FRAG-20/a-late-ending-may-not-leave-an-active-subroutine 0.6 ms
+PASS  FRAG-20/a-bound-hold-never-yields-an-actor-back-in-time 0.2 ms
+PASS  FRAG-20/no-waiter-left-no-yield                      0.2 ms
+PASS  FRAG-20/local-sent-finishes-to-evidence              0.1 ms
+PASS  FRAG-20/re-entering-does-not-refresh-a-resumable     0.2 ms
+PASS  FRAG-20/a-freeze-is-an-ending-not-a-release          0.1 ms
+PASS  REV4-H1/a-read-started-during-a-write-does-not-overwrite-it 0.5 ms
+PASS  REV4-H1/a-read-started-after-the-write-applies-with-no-extra-read 0.3 ms
+PASS  REV4-H1/the-doubt-outlives-a-failed-repair           0.5 ms
+PASS  REV4-H2/a-confirmed-write-is-shown-during-the-repair-and-stays-marked 0.5 ms
+PASS  REV4-H2/one-failed-repair-does-not-leave-the-screen-wrong-and-clean 0.5 ms
+PASS  REV4-H2/a-read-that-started-before-the-doubt-does-not-clear-it 0.6 ms
+PASS  REV4-H2/a-confirms-mapper-that-throws-keeps-the-mark 0.2 ms
+PASS  REV4-H3/leaf-this-release-removed                    0.8 ms
+PASS  REV4-H3/kid-frag-this-release-removed                0.7 ms
+PASS  REV4-H3/kid-leaf-removed                             0.7 ms
+PASS  REV4-H3/placement-removed                            0.7 ms
+PASS  REV4-H3/no-timers                                    0.7 ms
+PASS  REV4-H3/no-kids                                      0.7 ms
+PASS  REV4-H3/activations-for-a-leaf-gone                  0.7 ms
+PASS  REV4-H3/timer-of-no-shape                            0.8 ms
+PASS  REV4-H3/memory-not-an-object                         0.7 ms
+PASS  REV4-H3/kid-frag-is-another-fragment                 0.7 ms
+PASS  REV4-H3/history-names-a-removed-node                 0.7 ms
+PASS  REV4-H3/frozen-of-no-shape                           0.8 ms
+PASS  REV4-H3/lane-without-w                               1.6 ms
+PASS  REV4-H3/lane-head-of-no-shape                        0.4 ms
+PASS  REV4-H4/list-null-repairs-never-refuses              0.4 ms
+PASS  REV4-H4/list-five-repairs-never-refuses              0.2 ms
+PASS  REV4-H4/list-string-repairs-never-refuses            0.2 ms
+PASS  REV4-H4/list-nullItem-repairs-never-refuses          0.2 ms
+PASS  REV4-H4/list-emptyItem-repairs-never-refuses         0.2 ms
+PASS  REV4-H4/list-objKey-repairs-never-refuses            0.2 ms
+PASS  REV4-H4/a-good-item-beside-a-bad-one-stays           0.2 ms
+PASS  REV4-H4/reset-value-bigint-refuses-the-turn          0.2 ms
+PASS  REV4-H4/reset-value-cycle-refuses-the-turn           911.5 ms
+PASS  REV4-H4/a-success-of-a-bigint-parked-on-a-persisted-lane 0.6 ms
+PASS  REV4-H4/memory-initial-of-a-bigint-on-a-persisted-machine 0.2 ms
+PASS  REV4-H4/a-schedule-of-no-length-refuses-the-turn     0.4 ms
+PASS  REV4-H4/an-address-of-no-shape-is-unhandled          0.2 ms
+PASS  REV4-H4/a-record-field-of-a-bigint-does-not-disable-the-store 1.4 ms
+PASS  REV4-H4/a-mapper-of-no-shape-does-not-disable-the-store 0.3 ms
+PASS  REV4-H5/a-colon-keeps-its-copy                       0.4 ms
+PASS  REV4-H5/removal-tells-the-real-key                   0.3 ms
+PASS  REV4-H5/key gid://shop/Product/1: armed, sent, stored 0.4 ms
+PASS  REV4-H5/key a/b: armed, sent, stored                 0.3 ms
+PASS  REV4-H5/key 2026-11-02T00:00:00Z: armed, sent, stored 0.2 ms
+PASS  REV4-H5/key with space: armed, sent, stored          0.2 ms
+PASS  REV4-H5/key "quoted": armed, sent, stored            0.2 ms
+PASS  REV4-H5/key g1.2: armed, sent, stored                0.2 ms
+PASS  REV4-H5/one-lane-whatever-order-a-key-is-written     0.3 ms
+PASS  REV4-H5/a-reset-value-is-the-value-not-its-key-order 0.2 ms
+PASS  REV4-M1                                              0.4 ms
+PASS  REV4-M2/a-live-child-pauses-and-fires-once           0.4 ms
+PASS  REV4-M2/a-frozen-child-keeps-its-timer-through-a-freeze-above 0.4 ms
+PASS  REV4-M3/a-removed-frozen-copy-has-ended-now          0.3 ms
+PASS  REV4-M3/its-release-runs-while-the-host-is-away      0.4 ms
+PASS  REV4-M3/a-thaw-tells-its-own-hold-nothing-new        0.5 ms
+PASS  REV4-M3/r60-a-parked-ending-is-evidence-once-marked  0.5 ms
+PASS  REV4-M4                                              0.6 ms
+PASS  REV4-M5/a-firing-that-throws-once-comes-again        0.2 ms
+PASS  REV4-M5/a-firing-that-always-throws-is-final-and-bounded 0.1 ms
+PASS  REV4-M7                                              0.4 ms
+PASS  REV4-L1                                              0.4 ms
+PASS  REV4-L2                                              0.3 ms
+PASS  REV4-L4                                              0.2 ms
+PASS  REV4-S1/r1-a-thaw-keeps-its-dueAt                    0.5 ms
+PASS  REV4-S1/r1-reentry-does-not-freeze-what-it-stays-in  0.4 ms
+PASS  REV4-S2/r14-a-late-ending-starts-at-the-nearest-live-ancestor 0.3 ms
+PASS  REV4-S2/r14-with-no-live-ancestor-it-starts-at-the-root 0.2 ms
+PASS  REV4-S2/r6-whenAbandoned-reads-the-pre-turn-memory   0.2 ms
+PASS  REV4-S2/r52-an-ended-incarnation-aborts-its-lookup   0.2 ms
+PASS  REAL-01/own-exit-hands-no-draft-back                 0.4 ms
+PASS  REAL-01/left-any-other-way-hands-it-back-and-the-next-entry-resumes 0.3 ms
+PASS  REAL-01/history-returns-to-the-exact-field-not-the-default 0.3 ms
+PASS  REAL-01/a-denied-guard-keeps-the-field               0.1 ms
+PASS  REAL-01/a-callback-only-where-written                0.4 ms
+PASS  REAL-02/own-exit-no-draft                            0.4 ms
+PASS  REAL-02/kept-returns-to-the-exact-step-through-a-nested-exit 0.3 ms
+PASS  REAL-02/discarded-fills-the-wizards-own-exit-two-own-exits-in-one-turn 0.3 ms
+PASS  REAL-02/left-from-outside-abandons-both-and-hands-the-draft-back 0.3 ms
+PASS  REAL-03/each-by-and-item                             0.4 ms
+PASS  REAL-03/unknown-maps-by-reason-and-resend-arms       0.7 ms
+PASS  REAL-03/r23-disarmOn-stops-the-resend                0.6 ms
+PASS  REAL-03/cancel-on-the-wire-maps-to-stopped-and-releases 1.9 ms
+PASS  REAL-03/a-reload-is-lost-the-bytes-are-gone          0.9 ms
+PASS  REAL-03/gives-up-after-three-resends                 1.4 ms
+PASS  REAL-03/removed-copy-releases-not-delivers           0.6 ms
+PASS  REAL-03/a-reason-the-map-does-not-list-is-named-not-lost 0.3 ms
+PASS  REAL-03/persisted-host-with-the-store                0.4 ms
+PASS  REAL-04/same-ticket-thaws-and-the-cut-lookup-asks-again-first 0.6 ms
+PASS  REAL-04/r53-a-write-that-ends-while-frozen-parks-and-the-thaw-adopts-it 0.6 ms
+PASS  REAL-04/r52-the-cut-lookup-comes-before-a-parked-write 0.8 ms
+PASS  REAL-04/D64-a-changed-ticket-resets-on-return-with-no-frame-of-the-old-subject 0.5 ms
+PASS  REAL-04/a-b-a-the-old-subjects-write-goes-to-the-old-subject 0.5 ms
+PASS  REAL-04/r51-a-reset-a-reload-lost-runs-at-boot       0.2 ms
+PASS  REAL-04/r54-a-pending-reset-runs-before-adoption     0.5 ms
+PASS  REAL-04/a-raise-from-the-host-reaches-the-live-tab   0.1 ms
+PASS  REAL-05/pin-predicts-confirms-and-an-idle-guard-holds 0.5 ms
+PASS  REAL-05/pin-unsure-releases-and-the-look-stays-marked 0.4 ms
+PASS  REAL-05/react-a-plain-write-in-a-store-machine       0.2 ms
+PASS  SEARCH-ODD-SMALL                                     6090.7 ms
+
+UNTESTED     92 ids with no scenario in rounds <= 4
+  owed by this round (24): cell:lane.retry.Idle cell:lane.retry.InFlight cell:lane.idle.InFlight cell:lane.idle.Held cell:lane.dispose.Idle cell:lane.dispose.InFlight cell:lane.dispose.Held cell:lane.rebind.InFlight cell:lane.restore.Idle cell:lane.runtimeDisposal.Idle D7 D25 D26 D27 D28 D29 D31 D41 D42 D52 D53 D54 D56 D60
+  not in this round's scope (68): rule:2 rule:3 rule:4 rule:5 rule:10 rule:11 rule:20 rule:26 rule:33 rule:34 rule:36 rule:37 rule:39 rule:40 rule:41 rule:42 rule:45 rule:47 rule:48 rule:49 rule:50 rule:55 rule:56 rule:57 rule:58 rule:59 rule:61 rule:62 rule:63 rule:64 rule:65 rule:66 rule:67 rule:68 rule:69 rule:70 rule:71 rule:72 cell:lane.ssrHydration.Idle T1 T2 T3 T4 T5 T6 T7 T8 T9 D9 D10 D12 D13 D14 D16 D17 D18 D19 D20 D24 D32 D33 D34 D36 D37 D38 D44 D62 D63
+  cells hit though no scenario cites them (8): lane.idle.Held lane.idle.InFlight lane.release.Held lane.release.Idle lane.release.InFlight lane.retry.Idle lane.retry.InFlight lane.retryable.Idle
+
+CITATIONS (D33, D56)  0/113 covered by at least one killing mutant, which is not proof (no mutants file: run mutate.ts)
+  near, stays UNTESTED (113): D1 D11 D15 D2 D21 D22 D23 D3 D30 D35 D39 D4 D40 D43 D45 D46 D47 D48 D49 D5 D50 D51 D55 D57 D58 D59 D6 D61 D64 D8 F1 F12 F2 F3 F3.2 F6 G1 L2 L3 L4 L5 S10 S11 S13 S4 S5 S6 S7 S8 cell:lane.cancel.Held cell:lane.cancel.Idle cell:lane.cancel.InFlight cell:lane.commit.Held cell:lane.commit.Idle cell:lane.commit.InFlight cell:lane.failure.InFlight cell:lane.idle.Idle cell:lane.interrupt.InFlight cell:lane.invoked.InFlight cell:lane.rebind.Held cell:lane.restore.Held cell:lane.restore.InFlight cell:lane.retry.Held cell:lane.retryable.Held cell:lane.runtimeDisposal.Held cell:lane.runtimeDisposal.InFlight cell:lane.storageRefused.InFlight cell:lane.success.InFlight cell:lane.unknown.InFlight cell:notsent.Cancelled cell:notsent.Disposed cell:notsent.Overloaded cell:notsent.Rejected cell:notsent.Restored cell:notsent.StorageRefused cell:notsent.Superseded cell:store.failure cell:store.success cell:store.unknown rule:1 rule:12 rule:13 rule:14 rule:15 rule:16 rule:17 rule:18 rule:19 rule:21 rule:22 rule:23 rule:24 rule:25 rule:27 rule:28 rule:29 rule:30 rule:31 rule:32 rule:35 rule:38 rule:43 rule:44 rule:46 rule:51 rule:52 rule:53 rule:54 rule:6 rule:60 rule:7 rule:8 rule:9
+  bad sec ids (0): 
+
+OLD-RULE
+  PAY-06 cites rule:25: changed to D8, also cites it: ok
+  PAY-11 cites D46: changed to D57, no replacement cited: FLAG
+  PAY-11 cites D50: changed to D50, also cites it: ok
+  PAY-17 cites D46: changed to D57, no replacement cited: FLAG
+  DRV-03 cites D46: changed to D57, no replacement cited: FLAG
+  LIKE-01 cites rule:29: changed to D3, also cites it: ok
+  LIKE-01 cites rule:31: changed to D3, also cites it: ok
+  STORE-01 cites rule:30: changed to D3,D12, also cites it: ok
+  STORE-02 cites rule:30: changed to D3,D12, also cites it: ok
+  STORE-11 cites rule:30: changed to D3,D12, also cites it: ok
+  STORE-09 cites rule:30: changed to D3,D12, also cites it: ok
+  CART-02 cites rule:29: changed to D3, also cites it: ok
+  REFUND-01 cites rule:30: changed to D3,D12, also cites it: ok
+  HIGH-02 cites D46: changed to D57, no replacement cited: FLAG
+  HIGH-03 cites D46: changed to D57, no replacement cited: FLAG
+  HIGH-04 cites D47: changed to D58,D59, no replacement cited: FLAG
+  HIGH-04 cites rule:31: changed to D3, no replacement cited: FLAG
+  HIGH-04b cites D47: changed to D58,D59, no replacement cited: FLAG
+  MED-02 cites D49: changed to D49, also cites it: ok
+  MED-03 cites D47: changed to D58,D59, no replacement cited: FLAG
+  MED-04 cites D49: changed to D49, also cites it: ok
+  MED-08 cites D46: changed to D57, no replacement cited: FLAG
+  SURV-08 cites rule:30: changed to D3,D12, also cites it: ok
+  SURV-09 cites rule:30: changed to D3,D12, also cites it: ok
+  STORE-12 cites rule:30: changed to D3,D12, also cites it: ok
+  FRAG-11 cites rule:30: changed to D3,D12, also cites it: ok
+  FRAG-12 cites OD:5: changed to D15, also cites it: ok
+  FRAG-14 cites rule:43: changed to D22, also cites it: ok
+  FRAG-19 cites sec:2.9.4: changed to D20, no replacement cited: FLAG
+  FRAG-20 cites D46: changed to D57, no replacement cited: FLAG
+  REV4-H1 cites rule:31: changed to D3, no replacement cited: FLAG
+  REV4-H4 cites D46: changed to D57, also cites it: ok
+  REV4-M1 cites rule:29: changed to D3, no replacement cited: FLAG
+  REV4-M5 cites D50: changed to D50, also cites it: ok
+  REV4-L1 cites D46: changed to D57, no replacement cited: FLAG
+  REAL-05 cites rule:43: changed to D22, no replacement cited: FLAG
+
+PINNED       PAY-07:P2+P3 PAY-15:P4 PAY-19:P1
+NO-DECISION  LIB-03 DRV-04 STREAM-21 CACHE-01 CTX-01 HOSTILE-02 BROWSER-02 BROWSER-03 BROWSER-04
+THIN         PAY-12 PAY-13 SEARCH-PAY SEARCH-LIKE LIB-01 LIB-02 LIB-03 DRV-04 HOST-01 FRAG-06 FRAG-15 SEARCH-FRAG SEARCH-CROSS
+
+SUMMARY  330/330 scenario cases pass; unlogged expectation changes: none; catalog disagreements: none
+
+WATCH peak 225 MB, 8.7 s, exit 0, killed no

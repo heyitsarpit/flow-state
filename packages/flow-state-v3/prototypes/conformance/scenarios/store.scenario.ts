@@ -76,6 +76,12 @@ export const storeScenarios: readonly Scenario[] = [
       c.eq("last toggle wins at the server", server(c).i1.liked, false);
       c.eq("and on screen", c.rec(I1)?.data.liked, false);
       c.eq(
+        "D59: the fresh re-send differed from the repair: marked until a later read",
+        c.rec(I1)?.uncertain,
+        true,
+      );
+      c.answer("repair", { truth: true });
+      c.eq(
         "settled",
         [row(c), c.rec(I1)?.predicted, c.rec(I1)?.uncertain],
         [undefined, false, false],
@@ -416,7 +422,14 @@ export const storeScenarios: readonly Scenario[] = [
         c.to(A, "ReconcileLike", { id: "i1" });
         c.eq("a re-send does not clear", c.rec(I1)?.uncertain, true);
         c.answer("like", { apply: true });
-        c.eq("its success does", c.rec(I1)?.uncertain, false);
+        c.eq(
+          "D59: it shows, marked: a read differed since it was sent",
+          c.rec(I1)?.data.liked,
+          true,
+        );
+        c.eq("marked", c.rec(I1)?.uncertain, true);
+        c.answer("repair", { truth: true });
+        c.eq("a later read clears it", c.rec(I1)?.uncertain, false);
       },
       "failed-retry-does-not"(c) {
         opened(c);

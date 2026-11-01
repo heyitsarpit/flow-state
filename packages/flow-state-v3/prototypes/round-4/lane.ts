@@ -246,15 +246,22 @@ const supersede = (tx: Tx, op: string, x: Attempt) => {
   tellEnded(tx, x.id, "superseded");
 };
 const queueBehind = (tx: Tx, l: Lane, a: CellArgs, policy: string) => {
-  if (policy === "serialize" && l.w.length >= tx.bounds.queueMax)
-    return decline(tx, a, "Overloaded");
+  if (policy === "serialize" && l.w.length >= tx.bounds.queueMax) {
+    decline(tx, a, "Overloaded");
+    return false;
+  }
   const made = newAttempt(tx, a);
-  if ("no" in made) return decline(tx, a, made.no);
+  if ("no" in made) {
+    decline(tx, a, made.no);
+    return false;
+  }
   if (policy === "latest") {
     for (const x of l.w) supersede(tx, a.op, x);
-    return setLane(tx, { ...tx.w.lanes[l.id]!, w: [made.attempt] });
+    setLane(tx, { ...tx.w.lanes[l.id]!, w: [made.attempt] });
+    return true;
   }
   setLane(tx, { ...tx.w.lanes[l.id]!, w: [...l.w, made.attempt] });
+  return true;
 };
 // The ack may be on disk: a NotSent now could restore as unknown after the fact (D48, M1).
 const ackOut = (h: Attempt) => h.phase.t === "durable" && h.phase.on === "ack";
@@ -287,7 +294,10 @@ const dropW = (tx: Tx, l: Lane): Lane => {
     tellEnded(tx, a.id, e);
     note(tx, "evidenceOnly", { op: l.op, attempt: a.id });
   }
-  for (const p of l.parked) note(tx, "evidenceOnly", { op: l.op, attempt: p.attempt ?? "" });
+  for (const p of l.parked) {
+    note(tx, "unparked", { op: l.op, attempt: p.attempt ?? "" });
+    note(tx, "evidenceOnly", { op: l.op, attempt: p.attempt ?? "" });
+  }
   return { ...l, w: [], parked: [] };
 };
 
@@ -313,16 +323,16 @@ const ACTIONS: Readonly<Record<Action, (tx: Tx, lane: Lane | undefined, a: CellA
   busy(tx, l, a) {
     const policy = tx.machines[a.machine]!.ops[a.op]!.concurrency;
     if (policy === "reject") return decline(tx, a, "Rejected");
-    queueBehind(tx, l!, a, policy);
+    void queueBehind(tx, l!, a, policy);
   },
   // OD20 F4: under `latest` a never-sent, never-invoked head is replaced, and W with it. D48: not while its ack is out.
   commitOverWaiting(tx, l, a) {
     const policy = tx.machines[a.machine]!.ops[a.op]!.concurrency;
     if (policy === "reject") return decline(tx, a, "Rejected");
-    if (policy === "serialize") return queueBehind(tx, l!, a, policy);
+    if (policy === "serialize") return void queueBehind(tx, l!, a, policy);
     const old = l!.head!;
     if (ackOut(old) && old.phase.t === "durable") {
-      queueBehind(tx, l!, a, policy);
+      if (!queueBehind(tx, l!, a, policy)) return; // M1: `then` only if the queue took it
       const cur = tx.w.lanes[l!.id]!;
       return setLane(tx, { ...cur, head: { ...old, phase: { ...old.phase, then: "replace" } } });
     }

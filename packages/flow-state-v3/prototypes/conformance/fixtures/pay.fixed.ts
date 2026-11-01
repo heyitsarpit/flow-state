@@ -118,7 +118,10 @@ export const payFixedFixture: Fixture = {
     const notAuthorized = ({ memory }: any) => !memory.authorized || deny("AlreadyAuthorized");
     const pressPayFixed = [
       root.on["PayRequested"]![0]!,
-      { ...pressPay[1]!, guards: [...pressPay[1]!.guards, slot("on.PayRequested[1].guard[1]", notAuthorized)] },
+      {
+        ...pressPay[1]!,
+        guards: [...pressPay[1]!.guards, slot("on.PayRequested[1].guard[1]", notAuthorized)],
+      },
     ];
     // Rule 56's default guard, which the real `start` has only for the shipping quote: one token per operation that holds money.
     const startGuarded = c.nodes["IDLE"]!.on["Start"]!.map((a) => ({
@@ -141,7 +144,9 @@ export const payFixedFixture: Fixture = {
         guards: [({ event }) => event.why === "Restored" || deny("NotRestored")],
         members: voidHoldOf(({ event }) => event.intentId),
       },
-      { patch: () => ({ notice: "We couldn't release the hold on your card. Please contact us." }) },
+      {
+        patch: () => ({ notice: "We couldn't release the hold on your card. Please contact us." }),
+      },
     ]);
     const voidOp = c.ops["void"]!;
     return {

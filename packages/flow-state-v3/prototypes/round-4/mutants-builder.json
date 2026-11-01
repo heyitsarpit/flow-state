@@ -1,0 +1,368 @@
+[
+  {
+    "id": "d58-pos-no-tick",
+    "kills": ["D58"],
+    "killed": true,
+    "killers": [
+      "REV4-H1/a-read-started-during-a-write-does-not-overwrite-it",
+      "REV4-H1/the-doubt-outlives-a-failed-repair"
+    ],
+    "author": "builder",
+    "by": "tests",
+    "peakMb": 237
+  },
+  {
+    "id": "d58-ge",
+    "kills": ["D58"],
+    "killed": false,
+    "killers": [],
+    "author": "builder",
+    "by": "tests",
+    "peakMb": 286
+  },
+  {
+    "id": "d59-read-applies",
+    "kills": ["D59"],
+    "killed": true,
+    "killers": [
+      "MED-03/stale-read-does-not-overwrite-a-confirmed-write",
+      "REV4-H1/a-read-started-during-a-write-does-not-overwrite-it",
+      "REV4-H1/the-doubt-outlives-a-failed-repair"
+    ],
+    "author": "builder",
+    "by": "tests",
+    "peakMb": 227
+  },
+  {
+    "id": "d59-success-no-doubt",
+    "kills": ["D59"],
+    "killed": true,
+    "killers": [
+      "LIKE-01",
+      "STORE-05/retry-success-clears",
+      "CART-02/repriced-under-pending",
+      "HIGH-04",
+      "REV4-H2/a-confirmed-write-is-shown-during-the-repair-and-stays-marked",
+      "REV4-H2/one-failed-repair-does-not-leave-the-screen-wrong-and-clean"
+    ],
+    "author": "builder",
+    "by": "tests",
+    "peakMb": 219
+  },
+  {
+    "id": "d59-success-not-applied",
+    "kills": ["D59"],
+    "killed": true,
+    "killers": [
+      "STORE-05/retry-success-clears",
+      "REV4-H2/a-confirmed-write-is-shown-during-the-repair-and-stays-marked",
+      "REV4-H2/one-failed-repair-does-not-leave-the-screen-wrong-and-clean"
+    ],
+    "author": "builder",
+    "by": "tests",
+    "peakMb": 231
+  },
+  {
+    "id": "d58-doubt-cleared-by-early-read",
+    "kills": ["D58"],
+    "killed": false,
+    "killers": [],
+    "author": "builder",
+    "by": "tests",
+    "peakMb": 265
+  },
+  {
+    "id": "d58-doubt-never-cleared",
+    "kills": ["D58"],
+    "killed": true,
+    "killers": [
+      "LIKE-01",
+      "STORE-05/retry-success-clears",
+      "HIGH-04",
+      "REV4-H1/a-read-started-during-a-write-does-not-overwrite-it",
+      "REV4-H1/the-doubt-outlives-a-failed-repair",
+      "REV4-H2/a-confirmed-write-is-shown-during-the-repair-and-stays-marked"
+    ],
+    "author": "builder",
+    "by": "tests",
+    "peakMb": 237
+  },
+  {
+    "id": "d59-threw-no-doubt",
+    "kills": ["D59"],
+    "killed": true,
+    "killers": ["REV4-H2/a-confirms-mapper-that-throws-keeps-the-mark"],
+    "author": "builder",
+    "by": "tests",
+    "peakMb": 233
+  },
+  {
+    "id": "d57-carried-unchecked",
+    "kills": ["D57"],
+    "killed": true,
+    "killers": ["REV4-H4/a-mapper-of-no-shape-does-not-disable-the-store"],
+    "author": "builder",
+    "by": "tests",
+    "peakMb": 240
+  },
+  {
+    "id": "l4-read-replaces",
+    "kills": ["D58"],
+    "killed": true,
+    "killers": ["REV4-L4"],
+    "author": "builder",
+    "by": "tests",
+    "peakMb": 210
+  },
+  {
+    "id": "d57-canon-unsorted",
+    "kills": ["D57"],
+    "killed": true,
+    "killers": ["REV4-H5/a-reset-value-is-the-value-not-its-key-order"],
+    "author": "builder",
+    "by": "tests",
+    "peakMb": 224
+  },
+  {
+    "id": "d57-list-non-array-throws",
+    "kills": ["D57"],
+    "killed": true,
+    "killers": [
+      "REV4-H4/list-null-repairs-never-refuses",
+      "REV4-H4/list-five-repairs-never-refuses",
+      "REV4-H4/memory-initial-of-a-bigint-on-a-persisted-machine",
+      "SEARCH-ODD-SMALL"
+    ],
+    "author": "builder",
+    "by": "tests",
+    "peakMb": 199
+  },
+  {
+    "id": "d57-list-bad-not-counted",
+    "kills": ["D57"],
+    "killed": true,
+    "killers": [
+      "REV4-H4/list-null-repairs-never-refuses",
+      "REV4-H4/list-five-repairs-never-refuses",
+      "REV4-H4/list-string-repairs-never-refuses"
+    ],
+    "author": "builder",
+    "by": "tests",
+    "peakMb": 211
+  },
+  {
+    "id": "d57-valid-leaf-unchecked",
+    "kills": ["D61"],
+    "killed": false,
+    "killers": [],
+    "author": "builder",
+    "by": "tests",
+    "peakMb": 299
+  },
+  {
+    "id": "d57-valid-kid-frag-unchecked",
+    "kills": ["D61"],
+    "killed": false,
+    "killers": [],
+    "author": "builder",
+    "by": "tests",
+    "peakMb": 259
+  },
+  {
+    "id": "d57-valid-history-unchecked",
+    "kills": ["D61"],
+    "killed": false,
+    "killers": [],
+    "author": "builder",
+    "by": "tests",
+    "peakMb": 282
+  },
+  {
+    "id": "d57-valid-frozen-unchecked",
+    "kills": ["D61"],
+    "killed": false,
+    "killers": [],
+    "author": "builder",
+    "by": "tests",
+    "peakMb": 252
+  },
+  {
+    "id": "d57-parked-not-sanitised",
+    "kills": ["D57"],
+    "killed": true,
+    "killers": ["REV4-H4/a-success-of-a-bigint-parked-on-a-persisted-lane"],
+    "author": "builder",
+    "by": "tests",
+    "peakMb": 226
+  },
+  {
+    "id": "h3-hold-dropped-on-second-boot",
+    "kills": ["rule:46"],
+    "killed": false,
+    "killers": [],
+    "author": "builder",
+    "by": "tests",
+    "peakMb": 256
+  },
+  {
+    "id": "l5-parked-in-lane-order",
+    "kills": ["rule:44"],
+    "killed": true,
+    "killers": [
+      "PAY-13/waiting-flushed",
+      "PAY-16/settled-during-disposal-parked",
+      "PAY-16/parked-success-is-delivered",
+      "FRAG-19/unplaced-parked-survives-a-reload",
+      "REAL-04/r54-a-pending-reset-runs-before-adoption"
+    ],
+    "author": "builder",
+    "by": "tests",
+    "peakMb": 230
+  },
+  {
+    "id": "h6-exit-still-abandons",
+    "kills": ["rule:6"],
+    "killed": true,
+    "killers": [
+      "REAL-01/own-exit-hands-no-draft-back",
+      "REAL-02/own-exit-no-draft",
+      "REAL-02/kept-returns-to-the-exact-step-through-a-nested-exit",
+      "REAL-02/discarded-fills-the-wizards-own-exit-two-own-exits-in-one-turn"
+    ],
+    "author": "builder",
+    "by": "tests",
+    "peakMb": 228
+  },
+  {
+    "id": "h6-exit-skips-descendants",
+    "kills": ["rule:6"],
+    "killed": false,
+    "killers": [],
+    "author": "builder",
+    "by": "tests",
+    "peakMb": 246
+  },
+  {
+    "id": "m2-refreeze",
+    "kills": ["rule:1"],
+    "killed": true,
+    "killers": ["REV4-M2/a-frozen-child-keeps-its-timer-through-a-freeze-above"],
+    "author": "builder",
+    "by": "tests",
+    "peakMb": 236
+  },
+  {
+    "id": "m2-thaw-any",
+    "kills": ["rule:1"],
+    "killed": true,
+    "killers": ["REV4-M2/a-frozen-child-keeps-its-timer-through-a-freeze-above"],
+    "author": "builder",
+    "by": "tests",
+    "peakMb": 230
+  },
+  {
+    "id": "m3-frozen-not-reconciled",
+    "kills": ["rule:9"],
+    "killed": true,
+    "killers": [],
+    "author": "builder",
+    "by": "crash",
+    "peakMb": 42
+  },
+  {
+    "id": "m4-facts-dropped",
+    "kills": ["rule:8"],
+    "killed": true,
+    "killers": ["REV4-M4"],
+    "author": "builder",
+    "by": "tests",
+    "peakMb": 226
+  },
+  {
+    "id": "m4-loops-unbound",
+    "kills": ["D35"],
+    "killed": true,
+    "killers": [],
+    "author": "builder",
+    "by": "rss",
+    "peakMb": 1404
+  },
+  {
+    "id": "m5-fire-not-redelivered",
+    "kills": ["D50"],
+    "killed": true,
+    "killers": [
+      "REV4-M5/a-firing-that-throws-once-comes-again",
+      "REV4-M5/a-firing-that-always-throws-is-final-and-bounded"
+    ],
+    "author": "builder",
+    "by": "tests",
+    "peakMb": 217
+  },
+  {
+    "id": "m7-no-reorder",
+    "kills": ["rule:9"],
+    "killed": true,
+    "killers": ["REV4-M7"],
+    "author": "builder",
+    "by": "tests",
+    "peakMb": 243
+  },
+  {
+    "id": "d64-thaw-no-check",
+    "kills": ["D64"],
+    "killed": true,
+    "killers": ["REAL-04/D64-a-changed-ticket-resets-on-return-with-no-frame-of-the-old-subject"],
+    "author": "builder",
+    "by": "tests",
+    "peakMb": 225
+  },
+  {
+    "id": "r53-thaw-no-adoption",
+    "kills": ["rule:54"],
+    "killed": true,
+    "killers": [
+      "REAL-04/r53-a-write-that-ends-while-frozen-parks-and-the-thaw-adopts-it",
+      "REAL-04/r52-the-cut-lookup-comes-before-a-parked-write"
+    ],
+    "author": "builder",
+    "by": "tests",
+    "peakMb": 235
+  },
+  {
+    "id": "thaw-says-restored",
+    "kills": ["rule:54"],
+    "killed": false,
+    "killers": [],
+    "author": "builder",
+    "by": "tests",
+    "peakMb": 251
+  },
+  {
+    "id": "m1-then-regardless",
+    "kills": ["D48"],
+    "killed": true,
+    "killers": ["REV4-M1"],
+    "author": "builder",
+    "by": "tests",
+    "peakMb": 233
+  },
+  {
+    "id": "l6-fire-touches",
+    "kills": ["rule:8"],
+    "killed": false,
+    "killers": [],
+    "author": "builder",
+    "by": "tests",
+    "peakMb": 267
+  },
+  {
+    "id": "d57-to-unchecked",
+    "kills": ["D57"],
+    "killed": false,
+    "killers": [],
+    "author": "builder",
+    "by": "tests",
+    "peakMb": 277
+  }
+]
