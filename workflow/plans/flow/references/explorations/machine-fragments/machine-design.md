@@ -14,8 +14,7 @@ and act on its own operations (2.9, rules 48–60); write lanes keep their ident
 incarnation that created them.
 Stories (merge 3, [merged/stories/proposal-v2.md](merged/stories/proposal-v2.md), revision 3) was merged on 2026-10-31:
 a Story is a plan of the user's, time's and the world's inputs, run on the production Runtime against fake servers,
-with no ending injected (2.10, rules 61–66). The amended Stories and Fake design ([merged/story-checks/stories-amended.md](merged/story-checks/stories-amended.md), [merged/story-checks/fakes-v2.md](merged/story-checks/fakes-v2.md)) was merged on 2026-11-01: a Story is a transcript of inputs and checkpoints, and a test checks values with its runner's own `expect` (rules 11, 61–66; decisions SC1–SC5, W1–W43). Streams (merge 6) is not merged yet; where Stories reads streams, the text
-is marked *Stream details: merge 6*. The work order is in [the folder README](README.md). It
+with no ending injected (2.10, rules 61–66). The amended Stories and Fake design ([merged/story-checks/stories-amended.md](merged/story-checks/stories-amended.md), [merged/story-checks/fakes-v2.md](merged/story-checks/fakes-v2.md)) was merged on 2026-11-01: a Story is a transcript of inputs and checkpoints, and a test checks values with its runner's own `expect` (rules 11, 61–66; decisions SC1–SC5, W1–W43). Streams (merge 6, [merged/streams/proposal-v3.md](merged/streams/proposal-v3.md), [merged/streams/decisions-v2.md](merged/streams/decisions-v2.md)) was merged on 2026-11-01: a feed's adapter says what the connection did, and Flow runs one session table, keeps the consumer's place in a private bookmark saved with its memory, and tells a clear from a wipe with `fills` (2.11, rules 67–72; decisions S1–S16). The work order is in [the folder README](README.md). It
 **supersedes `proposal-v3.md`** (removed, see [the folder README](README.md)). It is evaluated against
 [principles.md](principles.md). v4 keeps v3's model and adds what the prior-art study found missing (`prior-art/`,
 removed, see [the folder README](README.md)). Where this file and a plan differ, the plan wins. Section 5 lists every
@@ -26,9 +25,9 @@ read, action, event, record and evidence item for how many exist at once, which 
 happens before creation, after deletion and across restores and tabs. Its three general rules are N1–N3 (2.4, after
 rule 25); its changes are marked with this heading's words, and its decisions are D18–D21.
 
-**Seven decisions.** Decision 1 can be accepted alone; decision 2 builds on decision 1's turn (2.5); decision 3 is
+**Eight decisions.** Decision 1 can be accepted alone; decision 2 builds on decision 1's turn (2.5); decision 3 is
 independent; decision 4 builds on decision 2; decision 5 builds on decisions 2 and 4; decision 6 builds on decisions 1
-and 5; decision 7 builds on decisions 5 and 6.
+and 5; decision 7 builds on decisions 5 and 6; decision 8 builds on decisions 2, 5, 6 and 7.
 
 | Decision | What it covers | Plans it touches |
 |---|---|---|
@@ -39,6 +38,7 @@ and 5; decision 7 builds on decisions 5 and 6.
 | **5. Operations in the definition** | 2.7 (rewritten), 2.7.13–2.7.16, rules 13–25 and N1–N3 amended, 26–38 amended, rules 39–47, C31–C53, decisions OD1–OD26 | Operations O1–O7, Machines O1/O4–O6/O8, Runtime O3/O6/V4, Persistence O2–O6, ServerRendering O3/O5, LazyFeatures O3, Inspection O1, React O2/O3, Testing O3/O7, CommandLine O5 |
 | **6. Operations in fragments** | 2.9, rules 48–60, rules 1–4, 6, 8–17, 20–24, 26, 27, 37, 40–47, N1 and N3 amended, C54–C68, decisions F1–F10 | Machines O1/O4–O6/O8, Runtime O3/V4, Persistence O2–O5, Testing O1, Inspection O1, CommandLine O5, React O4, EntityDomains O1, Operations O3/O7 |
 | **7. Stories** | 2.10, rules 61–66, rules 11, 17, 21, 47, 58 amended, 2.4, 2.5, 2.7.2, 2.7.3, 2.7.11, 2.7.13, 2.7.16, 2.8, 3.6, sections 5–7, C69–C85, decisions Stories T1–T7, amended by SC1–SC5 and W1–W43 | Testing O1–O9, V1–V9, Inspection O1/O4/O5, CommandLine O2/O5/O6, Package O1, Diagnostics, EntityDomains O2/O4, Persistence O7 |
+| **8. Streams** | 2.11, rules 67–72, rules 8, 13, 14, 20, 25, 37, 39–42, 47, 52, 57, 65, N3 amended, 2.5, 2.7.3, 2.7.6, 2.7.8, 2.7.10, 2.7.13, 2.7.15, 2.7.16, 2.8.14, 2.10, 3.6, sections 5–7, C57, C79, C86–C102, decisions S1–S16 | Operations O1/O4/O6/V9/Q1, Machines O6, Runtime O4/O6, Persistence O2/O4/O5, ServerRendering O2/O3/O5/V3/V5, EntityDomains O1/O4, Inspection O4, CommandLine O5, Package O1 |
 
 ## 1. The idea
 
@@ -476,7 +476,8 @@ after rule 47, let fragments declare operations (2.9); 61–66, after rule 60, a
      (rule 53), except what rule 17 makes evidence by declaration, a releasing lane's included (rule 60);
    - exit fillings;
    - `whenAbandoned` fillings;
-   - timer-fired handlers.
+   - timer-fired handlers;
+   - stream deliveries of a live session; a released session's undelivered items are discarded with evidence (rule 70).
 
    Each must be handled, ending in an unguarded alternative, in every state where it can arrive.
    Everything those handlers raise or notify must be total by the child's summary. A write lane whose operation
@@ -563,13 +564,13 @@ declarer" (a definition or a fragment), and "binding actor" as "binding incarnat
     ending to one of its declarer's events (a definition's, or a fragment's `internalEvents`, rule 49): for a write `success:`, `failure:` (an exhaustive record over the commit's
     failure tags, plus an optional `NotSent`; or one event for an untagged failure type), and `unknown:` (one event, or
     a record by tag as `failure` is, OD23 Q36; 2.7.13); for a read `success:` (one-off) or `value:` (live) and
-    `failure:` (rule 41). A mapping value is an event (payload-free) or `E.X.from((value, ctx) => payload)`, with `ctx`
+    `failure:` (rule 41); for a stream `value:`, `pages:`, `missed:`, `failure:`, with `fills` beside them as data (rule 67, 2.11.6). A mapping value is an event (payload-free) or `E.X.from((value, ctx) => payload)`, with `ctx`
     `{ input, attempt, progress, key }` for a write and `{ input, key }` for a read or stream; `key` is the contract's
     key record of the call that ended. Several endings may map to one event. Every `unknown:` target is a
     `Flow.uncertain` event. A read's `failure:` carries its tags plus Flow's `Defect` and `Interrupted` (rule 37). An
     author error whose tag is one of Flow's reasons (`NotSent`, `Cancelled`, `Restored`, `Interrupted`, `Defect`,
-    `StillUnknown`, `StorageRefused`) is a type error.
-14. **Owner, current, late, decided at admission.** A commit, lookup or retry of an operation is owned by the activation
+    `StillUnknown`, `StorageRefused`) is a type error; on a stream, so is one of `Feed`'s reasons (`Closed`, `Overflow`, `Silent`, `Flapping`) [P, merge]. A commit's context also gives `progress(p)`, which sets its row's `progress` with no turn (Streams T8).
+14. **Owner, current, late, decided at admission.** Stream deliveries are always current from the active leaf; a session's owner is its placement's activation or incarnation, and release discards rather than routing late (rule 70). Otherwise, a commit, lookup or retry of an operation is owned by the activation
     of the state its transition names (`"self"`: the handler's own state). When the ending's turn is **admitted** (2.5
     step 1), Flow maps the ending through the operation's `outcomes` and tests the owner against the pre-turn snapshot.
     If that activation is alive, the event is **current** and routes from the active leaf. Otherwise it is **late** and
@@ -628,7 +629,7 @@ declarer" (a definition or a fragment), and "binding actor" as "binding incarnat
     late failures matter (sign-in's late `WrongCode` is a strike), so a person decides for each one. **Adopted endings**
     (OD22). Every event a write operation maps (`success`, each `failure` tag, `unknown` or each of its tags) is handled
     totally from every leaf of that operation's new-incarnation arrival set of its declarer (a fragment: its own body, rule 55) (2.7.14); `{ target: "self" }` is the
-    explicit ignore; a missing handler is a `flow check` error naming the event and the leaf. Requirements are read per
+    explicit ignore; a missing handler is a `flow check` error naming the event and the leaf. **Streams:** `value`, `pages`, `missed` and `failure` are handled from every leaf under the placing state, with no late handler; an unmapped required key is `FeedUnhandled` (2.11.6). Requirements are read per
     operation; a bare operation has none.
 21. **The write lane** (2.7.13; decisions OD5–OD7, OD10, OD16, OD19, OD20, OD25). A write lane is (actor identity,
     contract id, key of the input), owned by the Runtime; the live incarnation that receives its endings is its **binding incarnation** (the actor for a
@@ -691,7 +692,7 @@ declarer" (a definition or a fragment), and "binding actor" as "binding incarnat
     nothing, with evidence. It never drops a queued commit silently, except a release on leave the fragment declares, whose cells act on every
     lane of the subject path and end its queued commits as evidence (rule 60). **A settled ending is never rewritten.** A one-off
     read's `cancel` is rule 42's. On a domain write, rule 30 gives each ending's store effects (rule 29).
-25. **No Flow timeout and no Flow retry.** Waiting and trying again are states and schedules of the machine (2.7.6).
+25. **No Flow timeout and no Flow retry, of a session or a call** (amended, S15). Waiting and trying again are states and schedules of the machine (2.7.6). Flow never re-opens a session or a call. Within a session, it re-runs a connection only by the contract's declared `reconnect`, and fails it by the declared `idleTime` (2.11.10, Streams T1). A streaming write keeps its own timeout, in its commit (2.11.12.5).
     **Classification runs outside the fiber it interrupts.**
 
 **Multiplicity** (rules N1–N3). **Revision (multiplicity audit, 2026-10-31).** Every rule above that names "the" lane,
@@ -718,7 +719,7 @@ matrix behind them and a failing sequence for each case they close.
   delivery to something gone has one rule: call endings are never dropped: they reach the binding incarnation, or
   are parked for the lane's subject path or the identity's saved record, routed by owner (rules 8, 14, 17, 20, 44,
   53), unless their lane is releasing (rule 60); raises and timers to a dead copy are dropped
-  with evidence (rule 9); a released stream session's deliveries are discarded with evidence (merge 6). Whatever the
+  with evidence (rule 9); a released stream session's deliveries are discarded with evidence (rule 70). Whatever the
   store keeps for an Attempt (a prediction, an uncertain mark) holds its record (rules 30, 32).
 
 **Entity domains** (2.8). Rules 26–38 are merge 4's ([merged/entities.md](merged/entities.md)); each names its
@@ -786,7 +787,7 @@ decision (E1–E18). Rules 13–25 and N1–N3 still apply.
     `writes` may only invalidate (2.8.9).
 37. **Reads carry confirmed data** (E15). A read operation's `success:` and `value:` see confirmed data only. A read's defect
     or interruption ends on `failure` as `Defect` or `Interrupted`, a lookup cut by a freeze included (rule 52); a tag record must map them (rule 20;
-    2.8.10).
+    2.8.10). On a stream, `failure` maps Flow's reasons by name or by the one key `Feed` (2.11.6); an `every` feed maps `value`, `missed`, `fills` and `failure`, or is a `listen` entry.
 38. **Lanes and predicted keys persist together** (E14; amended by OD20). A domain write's lane record, its Attempt and
     that Attempt's predicted keys are written in one capture, the Attempt's one Persistence O6 acknowledgement before
     its first invocation (rule 46). Prediction values are never persisted.
@@ -797,24 +798,23 @@ decision (E1–E18). Rules 13–25 and N1–N3 still apply.
 39. **Contracts** (OD4, OD11–OD15, OD17 Q18, OD18, OD23 Q37, Q38). A contract (`transaction`, `resource`, `stream`, or a
     domain entry) lives in `*.contracts.ts` and has exactly two schemas, `input` and `output`, flat at its top level,
     each a fields record or a full Schema (an omitted `output` is `Schema.Void`), and its function inline (`commit`,
-    `lookup`, `subscribe`), which calls services whose Layer is the swap point. A transaction's `progress` keeps its own
+    `lookup`, `subscribe`, and a stream's `catchUp`), which calls services whose Layer is the swap point. A transaction's `progress` keeps its own
     schema. `key` is required on every contract, streams included: a list of top-level `input` fields naming which
     server thing a call is about, `[]` for one; a composite key lists every field; its Schema is `input`'s pick; there
     are no derived or nested keys, and no default, domain writes included. On a resource, every `input` field that
-    changes the output is in `key` (`KeyOmitsInput` warns otherwise); a stream's resume position is an input field
-    outside the key. No Rpc inside; a `fromRpc` adapter comes later.
+    changes the output is in `key` (`KeyOmitsInput` warns otherwise); a stream's position is not in `input`: the contract names a field of `output` (`position`), and the bookmark holds it (rule 71; overturns OD12's clause, S15). A session reads `input` once, at start, so a non-key field never restarts it (S11). No Rpc inside; a `fromRpc` adapter comes later.
 40. **Operations** (OD3, OD9 Q4, Q7, OD17 Q15, Q16). A definition or a fragment declares every server interaction once, by name, under
     `operations: ({ E }) => ({ name: contract.outcomes({ … }) | contract })`; an operation holds no select, trigger, key
     or verb, and its mappings live only there. One write operation per write contract **per actor**, counting the definition and every fragment placement in its
     tree (`SharedContract` otherwise; F2), so two placements of one writing fragment are an error;
-    reads and streams are exempt. A **bare** operation maps nothing: a bare write's endings are evidence and its unknown
+    reads and streams are exempt. A **bare** operation (never an `every` stream's, which must map, rule 37) maps nothing: a bare write's endings are evidence and its unknown
     is not retained, so it never holds; `flow check` lists bare writes as info. Each declarer exports `O`, the
     operations' handles (a fragment's, outside it, is read-only; rule 50).
 41. **Verbs and placements** (OD1, OD2, OD9 Q22, Q23, OD17 Q14). Operations are used through `O` with the contract's own
     verbs: `O.x.commit(select)` (write) and `O.x.lookup(select)` (one-off read) in `actions`; `O.x.subscribe(select, {
     when? })` and `O.x.subscribe.each(select)` (one session per distinct key of the selected inputs) in `activities`, a
     list of placements in a state (a subroutine's included) or a trait body, placed for that activation or incarnation
-    (rule 52; *Stream details: merge 6*). The verb decides one-off or live and must agree with the mapping (`success` only with `lookup`,
+    (rule 52). A stream's placement is one session per (actor incarnation, placement path, operation, key) (rule 68). The verb decides one-off or live and must agree with the mapping (`success` only with `lookup`,
     `value` only with `subscribe`); one operation uses one verb (`VerbMismatch`). A live operation is placed in one
     state or trait incarnation at a time unless state tokens in `when` make placements exclusive (`DuplicatePlacement`). Each select is typed
     by its transition.
@@ -826,7 +826,7 @@ decision (E1–E18). Rules 13–25 and N1–N3 still apply.
     callbacks read it with `O.x.get(operations, k)` as views do. `cancel` releases the operation's wait, not the shared
     request. One-off read lanes are not persisted; the one exception is the `Interrupted` ending a freeze parks, which
     persists with the frozen slice (rule 52). A live placement has one lane per placement (per key under
-    `subscribe.each`), `undefined` while not placed, and no replacement rule beyond Operations O4.
+    `subscribe.each`), `undefined` while not placed, and no replacement rule beyond Operations O4 and, for a stream, rule 70.
 43. **Key-less addressing** (OD4, OD8, OD19 Q35). On an unkeyed operation (`key: []`) a key-less member names its one
     lane. On a keyed one, `retry`, `retryable` and `cancel` may omit the key only in a handler of an event that
     operation alone maps, naming that ending's Attempt and, once it is resolved or released, the lane's addressable one
@@ -863,7 +863,7 @@ decision (E1–E18). Rules 13–25 and N1–N3 still apply.
     mark (a flag), both decoding without the machine. A recorded path the placement cannot produce is adopted by key
     equality only when the placement's last subject part is the contract's single key field, else goes to `orphaned`
     (rule 51; 2.9.4). A local identity's lanes are never persisted; one-off read lanes are not persisted (rule 42).
-47. **Mapped events come only from endings** (OD23 Q33). An event an operation maps is never a schedule's `send`, a
+47. **Mapped events come only from endings** (OD23 Q33), and a stream's deliveries count as endings. An event an operation maps is never a schedule's `send`, a
     `raise` or a view's `send`; operations map only `internalEvents`; `flow check` reads all three. Stories produce
     endings only through fakes and lifecycle steps; no ending is injected (Testing O3; rule 62; Stories T2).
 
@@ -940,8 +940,7 @@ decisions (F1–F10).
     - **A live incarnation's lookup is still not persisted** (OD9 Q26, rule 42). A fragment has no restore event, so a
       fragment that waits on a lookup keeps a **recurring** schedule that looks up again (FP 4.2's `resync`,
       `Schedule.spaced`); a recurring schedule persists and ticks after a reload.
-    - **Thawing** places its `activities` again from the thawed memory, as entering a state does, so a stream resumes from
-      the fragment's own position (*Stream details: merge 6*). `Flow.entry` does not fire on thaw (decided, F8).
+    - **Thawing** places its `activities` again from the thawed memory, as entering a state does: the session is placed again from the frozen slice's bookmark. A freeze keeps the partition, and a `latest` row's `last` and `heard`, with the slice (rule 70). `Flow.entry` does not fire on thaw (decided, F8).
     - **A frozen `.each` copy removed from membership** has ended (rule 9 reconciles frozen copies): its parked read
       endings are evidence, rule 60's marks apply, and its writes are unplaced (rule 53) (delegated, FX14).
     - **Against rule 17:** every lookup still delivers exactly one ending; a freeze is not added to rule 17's evidence
@@ -992,7 +991,7 @@ decisions (F1–F10).
 57. **Summaries carry operations and requirements** (refined, FP RV1 M5). Per operation: contract id, kind, verb,
     concurrency, key fields, mapped events, whether it holds, and **whether it releases on leave** (rule 60), including
     its **children's** write operations, so `SharedContract` and rule 56 work at a host above a nested writing trait (an
-    explicit exception to rule 10's "hides the level below" for these facts only). The fragment's
+    explicit exception to rule 10's "hides the level below" for these facts only), and each stream operation's `delivers`, key fields, `missed`'s kind and `fills`. The fragment's
     type carries the union of its contracts' Effect requirements (`R`), so a host or Story missing `DocsApi` is a type
     error. Hosts are checked against summaries only.
 
@@ -1040,7 +1039,7 @@ decisions (F1–F10).
     - `UnresolvedHold` inside the fragment is unchanged; at the host, rule 56 does not apply to an operation that releases.
 
 **Stories** (2.10). Rules 61–66 are Stories' ([merged/stories/proposal-v2.md](merged/stories/proposal-v2.md), amended by
-[merged/story-checks/stories-amended.md](merged/story-checks/stories-amended.md)); each names its decisions (2.10 has the marks). Streams (merge 6) renumbers from rule 67 when it merges.
+[merged/story-checks/stories-amended.md](merged/story-checks/stories-amended.md)); each names its decisions (2.10 has the marks).
 
 61. **Every step settles** (W2, W4; Stories T5 B1, T7; the mechanism is [P, SA RV1 H1, SA RV2 H1, M1]). A run never yields to the host between
     its first step and its cleanup. Every step applies its input, then settles on a microtask-only run scheduler (Effect 4.0.5's
@@ -1074,12 +1073,21 @@ decisions (F1–F10).
     `attempt` read (with the kind field `n`), the `lane` read, record filters, `advance({ next })` (W7) and step targets take it; a request's `via` and
     every record carry the same fields. No ordinal across actors, hosts or tabs. `operation` takes a visible handle (a
     definition's `O.x`, or a fragment's write through `Fragment.O.x`, as a name only, so rule 50 holds); a fragment's read
-    or stream is named by `instance` and the operation's name (2.10.6; delegated, at merge). `timer` names Flow's own session sleeps (*Stream details: merge 6*).
+    or stream is named by `instance` and the operation's name (2.10.6; delegated, at merge). `timer` names Flow's own session sleeps (Streams T1).
 
 66. **The owner decides.** Each behaviour is decided by the declaration that owns it: the stand-in host's placement by
     the fragment's declaration (W30), what a lost request raises by the transport binding, what a server failure looks
     like on the wire by the binding, a hydration source's world by the run it hydrates into (W29), and whether a value is
     right by the test. Never by later steps or by the fake author's Effect code.
+
+**Streams** (2.11). Rules 67–72 are streams' ([merged/streams/proposal-v3.md](merged/streams/proposal-v3.md)). Each is **[P]** but where it cites S11 or S15. **One interruption, one answer** and **freshness is a function of the present** are their principles.
+
+67. **Kinds** (S11). `delivers` is the data's meaning. `every`: never skipped or silenced, one per turn, or one page per turn from a read. `latest`: newest wins, current only while this connection confirmed it.
+68. **One session table** (S15). Streams T1. Flow runs connections by `reconnect` and `idleTime`, sessions only by placement. One session per (actor incarnation, placement path, operation, key); a session reads `input` once, at start (S11).
+69. **Delivery.** Streams T4. Deliveries are outside the mailbox cap: they are bounded by what Flow has pulled, not by Runtime O4's limit.
+70. **Ownership.** A session belongs to its placement's activation. Identity per placement path; the wait for a releasing predecessor per (actor, operation, key) at any path. A released session's undelivered items are discarded with evidence. Two operations on one contract and key are two sessions, with a `DuplicateSession` warning (S11).
+71. **The bookmark** (S15). A Flow-private partition of the slice's saved record, per (operation, key), holding `at` and `filled`. It is not a memory field and has no patch, and no guard reads it, so "memory changes only through `updateMemory`" stays true; it is also not `Flow.private`, which is a memory field a fragment hides (2.2.2) [P, merge]. It says what the consumer was offered: a `Denied` value moves it, with `DeliveryDenied`. Streams T2, T3; `fills` (2.11.7) ties it to memory.
+72. **`listen`.** Streams T7.
 
 ### 2.5 The turn
 
@@ -1105,13 +1113,14 @@ denies `InFlight`.
 1. **Admit** (runtime only).
    - A pending reset from the last commit runs first, as its own follow-up turn (rule 1).
    - Otherwise, take the oldest event from the mailbox. The mailbox is FIFO in admission order: user sends,
-     call endings, timer firings and `onContext` events queue together.
+     call endings, stream deliveries, timer firings and `onContext` events queue together; a session moves one delivery at a time from its own queue (Streams T4, rule 69).
    - **A call's ending is mapped here.** The Attempt's ending was decided at settlement (rules 18, 27), and for a
      domain write its store effects are already published; here the ending's cell is applied to the lane, which may promote the
      next queued commit (rule 21, 2.7.13), the ending is mapped through its operation's `outcomes` (rule 13), and its owner is tested against the pre-turn
      snapshot (rule 14): a current event starts at the active leaf, a late one at the owner's nearest surviving
      ancestor. The test runs inside the binding incarnation; an ending with no binding incarnation is parked for the
      lane's path or, on a releasing lane, applied and released (rules 53, 60).
+   - **A stream delivery's bookmark cell** applies here, in the partition, and is kept through `Denied` and `Unhandled`, not on `InvalidTurn`, which ends the session `Defect` (Streams T3). `check()` starts at step 2, so it touches no bookmark.
    - A timer of a dead activation is discarded here (Machines O5).
    - Firings with the same deadline are separate turns.
    - `whenAbandoned` is never queued, because it is fused. `orphaned` runs on the descriptor, not in an
@@ -1196,6 +1205,7 @@ denies `InFlight`.
    - Evaluate `resetOn` again on the after memory, and queue any pending resets as one
      follow-up turn at the head of the mailbox; after them, queue the adoption deliveries of every incarnation the
      turn started (rule 54).
+   - For each session placed and connected, write the bookmark's `filled` from the field `fills` names, only on a change (Streams T3).
    - Publish once: memory, lane rows and the store revision (step 5's starts and predictions) are one cut. Declines
      are queued as endings (rule 16). After the turn, whatever its outcome, each Attempt minted, promoted or re-sent is invoked
      once its Persistence O6 acknowledgement (once per Attempt), its record queues and, for a persisted re-send, its lane
@@ -1499,7 +1509,7 @@ Per kind (OD3: the declaration is one shape, the rest is per kind):
 | transaction, domain write | `O.x.commit(select)` in `actions` | `success`, `failure`, `unknown` | `retry(k?)`, `cancel(k?)` in `actions`; `idle(k?)`, `retryable(k?, { times })` in `guard` | per contract key: `{ pending, uncertain, waiting, retryCount, progress? }`, the flags defined by lane state (2.7.13, OD10); under `allow`, `{ pending, outstanding }` (no hold) |
 | resource, domain read, used one-off | `O.x.lookup(select)` in `actions` | `success`, `failure` | `idle`, `cancel` (rule 42) | one per operation: OPS O6's resource lane for the entry its latest lookup named, `undefined` before the first lookup (rule 42) |
 | resource, domain read, used live | `O.x.subscribe(select)` or `O.x.subscribe.each(select)` in `activities` | `value`, `failure` | `refetch(k?)` | OPS O6's resource lane per placement, per key under `each`; `undefined` while not placed |
-| stream, domain `listen` | `O.x.subscribe(select)` or `O.x.subscribe.each(select)` in `activities` | `value`, `gap`, `complete`, `failure` (M6 rule 50) | none | M6 4.1.5's stream lane per placement, per key under `each`; `undefined` while not placed |
+| stream, domain `listen` | `O.x.subscribe(select)` or `O.x.subscribe.each(select)` in `activities` | `value`, `pages`, `missed`, `fills`, `failure` (rule 67, 2.11.6); a `listen` entry the domain's | `refetch(k?)`, `bookmark(select)` in `actions` (2.11.8) | 2.11.9's row per placement, per key under `each`; `undefined` while not placed |
 
 **The verb and the mapping must agree** (proposed, follows from OD2). A resource operation that maps `success` can
 only be looked up; one that maps `value` can only be subscribed; one that maps neither (bare, or `failure` only) may
@@ -1553,8 +1563,8 @@ client error to `unknown`, when a real app needs it.
 Consequences, stated (proposed where not in an OD): **persistence** decodes every lane's and persisted entry's key
 with `input`'s pick, and a persisted resource's data with `output` (OPS O1's "persisted resources require result"
 reads `output`); **SSR** transfers `output`-decoded data (ServerRendering O3's "without result" becomes "without
-`output`"); **merge 6** streams gain `input` with the resume position outside the key, so M6 4.1.1's `messages` is
-`input: { roomId, after }, key: ["roomId"]`; **merge 4** domain reads and writes take `input`/`output` from their
+`output`"); **streams** take `input` with no position, so 2.11.2's `messages` is
+`input: { roomId }, key: ["roomId"]`, and `position` names a field of `output` (S15); **merge 4** domain reads and writes take `input`/`output` from their
 contract, and `.predicts` reads `input`; **Stories** build fake contracts with the same two schemas; **`flow check`**
 reads `key` against `input`'s fields as data. OPS O1 is rewritten around `input`, `output` and a required `key`.
 
@@ -1562,8 +1572,7 @@ reads `key` against `input`'s fields as data. OPS O1 is rewritten around `input`
 and a composite key lists every field, `key: ["docId", "field"]`. **`key` is required on resources and transactions,
 with no default** (decided, OD15): one lane or one cache entry is written `key: []`. Decided for streams as well
 (OD23 Q38): required, `key: []` for one session, because a stream's key is its session identity (OPS
-O4) and the same rule on every kind is one rule; a resume position such as `after` is an ordinary input field outside
-the key (OD12). Consequences:
+O4) and the same rule on every kind is one rule. A stream's position is not an input field (rule 71, overturning OD12's clause). Consequences:
 
 - **It has a Schema**: `input`'s pick of those fields, for every kind, so a persisted lane's or entry's key decodes on
   restore (R3 M5) and Inspection prints it without running code. Review 5's Q27 (a read's key Schema) is answered by
@@ -1683,8 +1692,7 @@ FieldEdited: { target: "self", actions: [O.save.commit(({ memory, event }) => ({
   two lanes, R8 M5). Revision 2's `.joins` is removed (R2 A-M1, C-M6): a second kind
   of start is a second `commit` of the same operation with its own select; when the handlers must tell them apart,
   the starting transition records it in memory (9.2's `method`; R3 M6: correct for an unkeyed lane, a known limit for
-  concurrent starts on different keys). Reads and streams are exempt: two reads never charge twice, and two sessions on
-  one key end `DuplicateSession` (M6 rule 47).
+  concurrent starts on different keys). Reads and streams are exempt: two reads never charge twice, and two operations on one stream contract are two sessions; `flow check` warns `DuplicateSession` (rule 70).
 
 **Refusing a second press is explicit.** Under `concurrency: "reject"`, a commit on a busy lane refuses only the
 write: the transition still runs, and the decline arrives as `NotSent { why: "Rejected" }` (rule 16). To refuse the
@@ -1812,7 +1820,7 @@ reconcile: { keys: ({ operations }) => operations.like.filter((l) => l.uncertain
 
 #### 2.7.6 Waiting, trying again and reconciling
 
-Flow has no timeout and no retry (rule 25). Each is a state and a schedule.
+Flow has no timeout and no retry (rule 25). Each is a state and a schedule. A stream's connection is the one thing Flow re-runs, by its contract's declaration (2.11.10).
 
 | Need | Form |
 | --- | --- |
@@ -1986,7 +1994,7 @@ request from overwriting newer data in the entry.
 **Live reads and streams: no replacement rule (unchanged).**
 
 OPS O2 and O4 already say it: a placement that changes identity releases its session before opening another, and a
-released session cannot publish later (M6 rule 44). Nothing new is needed.
+released session cannot publish later (rule 70). Nothing new is needed.
 
 A read operation's `success:` sees confirmed data only, never a prediction (rule 37).
 
@@ -2038,18 +2046,17 @@ select returns a list of inputs, one session per distinct key (rule N1; OD9 Q22)
 
 ```ts
 // definition: the stream's key is ["symbol"]; every mapper receives `key`
-quotes: Market.quote.outcomes({ failure: E.QuoteLost.from((_e, { key }) => ({ symbol: key.symbol })) }),
+quotes: Market.quote.outcomes({ failure: { MarketDropped: E.QuoteEnded.from((_e, { key }) => key), Feed: E.QuoteEnded.from((_e, { key }) => key) } }),   // 2.11.12.3
 // machine
 activities: [O.quotes.subscribe.each(({ memory }) => memory.watchlist.map((symbol) => ({ symbol })))],   // one session per symbol in the after list
 // view
-useView(watch, (s) => List.O.quotes.get(s, { symbol })?.data)               // undefined for a symbol not placed
+useView(watch, (s) => List.O.quotes.get(s, { symbol })?.value)              // undefined for a symbol not placed
 ```
 
 A key's subscription starts when the key first appears in the after list and is released when it leaves; a repeated
 key keeps its first position, with `listRepair` evidence (rule 23). Each key's lane and deliveries behave as one
-ordinary activity's (Machines O6; merge 6 for streams), and a delivery for a key that has left is discarded as a
-released session's is. Two selected inputs with the same key are one session (rule 41); two placements of one key are
-`DuplicateSession` (merge 6 rule 47).
+ordinary activity's (Machines O6; rules 67–70 for streams), and a delivery for a key that has left is discarded as a
+released session's is. Two selected inputs with one key are one session (rule 41); two operations on one contract are two (rule 70).
 
 #### 2.7.11 Batches and Stories
 
@@ -2115,8 +2122,9 @@ citations as in 2.7's introduction).
 | --- | --- | --- |
 | a write lane | from its first commit while it has outstanding work or a retained unknown | cannot happen: the lane outlives its work |
 | a one-off read lane (proposed) | from the operation's first lookup until `cancel`, or the actor (in a fragment, the incarnation) ends; a freeze ends its lookup `Interrupted` (rule 52); it holds its entry until the next lookup or `cancel` (R4 M4) | a released lookup's settlement is evidence only (2.7.9) |
-| a placement's session | the state activation, or the trait incarnation (rule 52; *Stream details: merge 6*) | a released session's delivery is discarded (M6 rule 44) |
+| a placement's session | its activation, or the trait incarnation (rule 52) | a released session's undelivered items are discarded with evidence (rule 70) |
 
+- A row's **`progress`** follows Streams T8: `progress(p)` by the addressable Attempt publishes the row as a Runtime step, a superseded Attempt's is evidence, and a restore clears it.
 - A lane's **status** changes **only in its binding incarnation's turns** (at a commit or lookup in step 5, OD16; at an
   ending's admission, step 1; at a `cancel`), **or in the Runtime's own steps for an unbound or unplaced lane or after a turn**
   (invocation, endings with no binding incarnation, dispose, Runtime disposal; OD19, OD20). No store event and no other
@@ -2561,7 +2569,7 @@ Rule 46 is normative. Per kind (OD3):
   the hold. 8.2's first `SaveUnsure` branch therefore re-sends once after a reload, within its budget, which
   `retryCount` keeps. A persisted waiting commit was never sent, so restore does not replay it; it ends
   `NotSent { why: "Restored" }` (C2, R4 L1), and an autosave that should re-send it re-arms on that ending (8.2).
-- **A live placement** re-opens from its input, and M6 rule 51 restores the data (OPS O4, Persistence O4).
+- **A live placement** re-opens from its restored `input`: a `latest` feed restores `last` and its baseline, and an `every` feed restores its bookmark with the slice (rule 71, Streams T9; OPS O4, Persistence O4).
 - **A one-off read lane is not persisted.** OPS has no restore for finite lookups and the
   lane holds no workflow fact the server does not: on restore the row is `undefined` and nothing is delivered, so a
   state that was waiting for a lookup must look up again (5.1's `READING` does, on its next poll). **Decided (OD9,
@@ -2588,14 +2596,14 @@ Rule 46 is normative. Per kind (OD3):
   `send`, a `raise` or a view's `send` (2.7.3, proposed); a contract without `key` (OD15; a type error first), a key
   field that is not a top-level `input` field; warning **`KeyOmitsInput`** (proposed, R7 K19): a resource's `input`
   has a field outside its `key`, which would alias cache entries (non-key input is read only when the entry opens,
-  OPS O2); streams are exempt, since a resume position is non-key by design (OD12); a paged resource puts its page
+  OPS O2); streams are exempt, since a session reads `input` once, at start (S11); a paged resource puts its page
   cursor in `key`, since each page is its own entry (R8 L4); warning `UnusedOperation`; info: bare writes. Field-list
   keys are data, so `flow check` and Inspection print every lane's key without running code (R10). Rule 20's `NotSent`
   requirement is read per operation, and per placement for a fragment's operation (rule 51). `UnresolvedHold` and rule
-  20 run inside each fragment and gain rule 56's checks at the host; no new finding name. `SharedCopyLane` is deleted. Because the verb at each use is a token, the
+  20 run inside each fragment and gain rule 56's checks at the host; no new finding name. `SharedCopyLane` is deleted. Streams add `FeedUnhandled`, `ListenNeedsEvery`, `DuplicateSession`, `DuplicateListen`, `SharedFills`, `FillsNotPerKey` and, not built, `UnboundedBridge` (2.11.13). Because the verb at each use is a token, the
   one-off or live kind of every resource operation is read from the machine without reading a mapping or a closure.
 - `flow explain`: `Toggle  READY → READY; commits like (Issues.setLike, latest, one lane per Issue key)`;
-  `SearchDue  READY → READY; looks up results (Search.query, one lane)`; `READY subscribes issues (Issues.list)`;
+  `SearchDue  READY → READY; looks up results (Search.query, one lane)`; `READY subscribes issues (Issues.list)`; `LIVE subscribes messages (Chat.messages, every, one session per room, fills messages, idle 45s, reconnects by predicate, catches up)`;
   `docs  SaveDue → commits save (docs/save, reject, one lane per docId, subject = copy key)`. Inspection lists every
   lane with its operation path and subject path, and whether it is unplaced or releasing.
 
@@ -2617,7 +2625,7 @@ Rule 46 is normative. Per kind (OD3):
   in handlers of events that operation alone maps (`KeyRequired` otherwise, OD8). Risk: the handler type must carry its event's
   origin; if TypeScript cannot narrow it in shared handler consts, `flow check` is the fallback.
 - **The handle per kind, the verb at the use** (OD2, OD3): a transaction operation's handle has `commit` and the
-  write members; a stream's has `subscribe` and `subscribe.each`; a resource's has `lookup`, `subscribe`,
+  write members; a stream's has `subscribe`, `subscribe.each`, `refetch` and `bookmark`; a resource's has `lookup`, `subscribe`,
   `subscribe.each`, `refetch`, `idle`, `cancel`. Rule 41 narrows a resource handle by its mapping: mapping `success` drops
   `subscribe`, mapping `value` drops `lookup`, so a mismatch is a type error. "One operation, one verb" for a bare or
   failure-only resource is not typed (it spans transitions); `flow check` reports it from the tokens.
@@ -3275,6 +3283,10 @@ and `check()` still runs steps 2–6 and publishes nothing (2.5): it decides no 
 - **Restore.** Predicted keys come back with their Attempt; the store marks them uncertain and forces their repair
   before readiness, and the ending (`Restored`) is routed by rule 14 after readiness (2.7.12).
 
+#### 2.8.14 `listen` and connections
+
+A domain's `listen` entry is a stream whose values are record changes. It has no bookmark: `from` is the session's own last position, and `listen` ignores a contract's `catchUp` (rule 72, Streams T7; [P]). "Reconnect" means rule 72's gaps: an unproven or reset registration, an `end` or a release starts a refetch of each subscribed answer read earlier, and an answer is current only while every session covering it is `Live` with no gap since its read. The example is 2.11.12.7. Costs: one refetch per subscribed list on re-entry; a change before registration, at most 2 reads; one connection cannot feed both records and a log.
+
 ### 2.9 Operations in fragments
 
 Rules 48–60 are normative; this section is their reading, in the record's terms ([merged/fragment-operations/proposal.md](merged/fragment-operations/proposal.md), revision 3; decisions F1–F10). 2.7.13's table stays the write lane's one normative table: 2.9.3 adds the rows fragments change. Worked examples are in 2.9.6.
@@ -3721,7 +3733,7 @@ because a bare C*n* is a row of section 5). **[P]** is proposed by the amended p
 the owner approved the proposal as a whole, not each of these. No mark means carried from the Stories merge, where "Stories T*n*" is a delegated decision
 (a bare T*n* is a tooling row of section 5). STR*n*, STF*n*, SG*n* and "brief C*n*" are the brief's ([merged/stories/brief.md](merged/stories/brief.md)); SP is the earlier
 proposal, with its reviews (SP RV, SP RV2), model (SP MDL), root causes (SP RC) and new changes (SP N1–N4). SA H*n* is the record's table 1.3; SA RV1–SA RV3 are its
-reviews ([merged/story-checks/reviews/](merged/story-checks/reviews/)); SA MDL is its model; v3 is [merge-6-streams/proposal-v3.md](merge-6-streams/proposal-v3.md), not merged; inside *Stream details: merge 6* text, T1–T3 are v3's tables.
+reviews ([merged/story-checks/reviews/](merged/story-checks/reviews/)); SA MDL is its model; v3 is [merged/streams/proposal-v3.md](merged/streams/proposal-v3.md), whose design is 2.11; Streams T*n* are 2.11.11's tables.
 
 Rules 61–66 are normative; this section shows them, and 2.10.17's tables are normative for the executor. The examples
 are 2.10.18.
@@ -3751,7 +3763,7 @@ the design used here, such as `deny` (SA RV1 L4).
 frame collapse (W22), `run.calls`, `checkpoint.exit` (W34), the checkpoint predicate (SC2, C16), `Story.ending` (never
 adopted, W12), `Story.make` and the lowercase `story.app` / `story.machine` (W1), `.expect`, `StoryExpectationFailed`,
 `Story.property`, the `properties` option on a Story (SC1, W25), `Story.records`, `Story.inspection`, `Story.entity`,
-`Story.attempt`, `Story.now` (W24), merge 6's `.do(…)` (W37) and `story.suspend` (its 2.11; W9), `model()` (W39), `run`'s `signal` (W43) and `frames` (W22; SA RV2 section 8), and
+`Story.attempt`, `Story.now` (W24), earlier streams proposals' `.do(…)` (W37) and `story.suspend` (W9), `model()` (W39), `run`'s `signal` (W43) and `frames` (W22; SA RV2 section 8), and
 Testing O4's `pending` for work.
 
 #### 2.10.1 What a Story is
@@ -3906,7 +3918,7 @@ order uses `together({ advance })`.
 **The next deadline** (W7; STR15, STF23, SP RV M3). `advance({ next: address })` moves to the earliest unfrozen deadline whose
 owner the address matches: `{ schedule: "checkTick" }` (schedule names are type-checked against the subject, so a
 typo is a type error, not a `NoDeadline`), `{ operation: O.messages, timer: "backoff" }` (a session's sleeps are Flow's,
-so they carry `timer`: `backoff`, `page`, `healthy`, `idle` [P, v3 item 4]; `{ timer: "page" }` under the default schedule uses its own copy of it [v3 item 9]; the default is jittered, so a fixed `advance("500 millis")` cannot land on it, and a Story uses `next` [v3 item 7]; *Stream details: merge 6*), `{ actor: Checkout1 }`. An author's own adapter sleeps
+so they carry `timer`: `backoff`, `page`, `healthy`, `idle` [P, v3 item 4]; `{ timer: "page" }` under the default schedule uses its own copy of it [v3 item 9]; the default is jittered, so a fixed `advance("500 millis")` cannot land on it, and a Story uses `next` [v3 item 7]; Streams T1), `{ actor: Checkout1 }`. An author's own adapter sleeps
 (an idle deadline in the adapter's code) are addressed by operation only, the earliest of them. Adding an unrelated timer to the app (a toast, a heartbeat) cannot move the Story. A frozen
 schedule has no sleep (rule 1), so it is never chosen. `advance({ to })` stays for the rare exact instant.
 
@@ -4460,10 +4472,10 @@ kind (STF72; members added in C79). **The table is the kinds `records` takes, 21
 | `listRepair`, `drop` | `.each` or keyed-schedule repair; dropped raise or timer delivery (rule 9). `drop` is not a wire drop: after `Stripe.confirm.drop()` it is `[]`; read the endpoint's log [SA RV1 L2] | `actor`, `instance`, `copy`, `reason` |
 | `schedule` | armed, fired, discarded, retracted by a freeze | owner (an address), `dueAt` |
 | `queue`, `store` | record-queue join, release, removal (`Superseded`, `Cancelled`, `Released`); predictions, confirmations, `uncertain` set or cleared, repairs, skips, tombstones | `entity`, `key`, `attempt`, `reason` |
-| `session` | stream-session evidence (v3's Inspection; *Stream details: merge 6*) | `actor`, `instance`, `copy`, `operation`, `key`, a `cell` per T1 and T3 write (`<State>.<input>`), T2's row and basis in place of `answer`, `proof` on a read, `bookmark` (`{ at, filled }`), `missed`, drops (a record carries `drop` only when one is written [final integration L9]), `Overflow`, `Discarded`, `st`, `ended` (the reason a session ended) [P, v3 item 6] |
+| `session` | stream-session evidence (2.11.13's Inspection) | `actor`, `instance`, `copy`, `operation`, `key`, a `cell` per Streams T1 and T3 write (`<State>.<input>`), Streams T2's row and basis in place of `answer`, `proof` on a read, `bookmark` (`{ at, filled }`), `missed`, drops (a record carries `drop` only when one is written [final integration L9]), `Overflow`, `Discarded`, `st`, `ended` (the reason a session ended) [P, v3 item 6] |
 | `request`, `control` | a fake's request (each phase change) or control | 2.10.4 |
 | `delivery` | a stream frame's delivery [fakes-v2; renamed from `frame`, P, SA RV1 L2] | `endpoint`, `connection`, `phase` (`delivered`, `held`, `lost`), `digest` |
-| `issue`, `diagnostic`, `persistence`, `hydration`, `entry` | as Inspection O4; `UnusedWireRule` is a `diagnostic`: a wire rule that never fired by the end of the run [P, SA RV1 M17]; v3's flags `ValuesWhileDown`, `RegistrationChurn`, `ReleaseOverdue`, `ProofWithoutPosition`, `PingsWithoutLive`, `IdleWithoutPing`, `DeliveryDenied`, `FillsUntouched` are `diagnostic` records (*Stream details: merge 6*) | as Inspection O4 |
+| `issue`, `diagnostic`, `persistence`, `hydration`, `entry` | as Inspection O4; `UnusedWireRule` is a `diagnostic`: a wire rule that never fired by the end of the run [P, SA RV1 M17]; 2.11.13's flags `ValuesWhileDown`, `RegistrationChurn`, `ReleaseOverdue`, `ProofWithoutPosition`, `PingsWithoutLive`, `IdleWithoutPing`, `DeliveryDenied`, `FillsUntouched` are `diagnostic` records | as Inspection O4 |
 
 One shape everywhere: `instance` is a list of placement names (`["likes"]`), `copy` is the `.each` copy's key string,
 `key` is the contract's key record, `subject` is the subject path (STF38). A callback and an exit with the same name
@@ -4514,7 +4526,7 @@ FIFO across two actors, a forced repair holding the queue, `uncertain` set and c
 
 #### 2.10.9 Streams (controls decided, W37)
 
-*Stream details: merge 6.* This section reads v3's `Feed`, sessions and rows ([merge-6-streams/proposal-v3.md](merge-6-streams/proposal-v3.md)), which are not merged; merge 6 resolves it. v3 runs reconnecting and history from the contract (`reconnect`, `idleTime`, `catchUp`), so an adapter has no combinator and Flow's own sleeps carry the `timer`s. `.do(…)`, `.process()` and checkpoint predicates are gone (SC1, SC2, W2, W37); the [record](merged/story-checks/stories-amended.md)'s section 11 has the list **[P, SA H22, v3 section 9]**.
+This section reads 2.11's `Feed`, sessions and rows. Reconnecting and history run from the contract (`reconnect`, `idleTime`, `catchUp`), so an adapter has no combinator and Flow's own sleeps carry the `timer`s. `.do(…)`, `.process()` and checkpoint predicates are gone (SC1, SC2, W2, W37); the [record](merged/story-checks/stories-amended.md)'s section 11 has the conversion from the earlier controls **[P, SA H22]**.
 
 A stream endpoint is a connection: `Fake.stream({ request, frame, open, ping? })` (2.10.4) [fakes-v2; `ping`, v3]. `open(truth, request)`
 returns `{ frames?, refuse?, end?, truth?, send? }`. Duplex waits for the first duplex fake [P, SA RV2 section 8]. Any handler or
@@ -4535,25 +4547,25 @@ real frames (STR36, STF77). Stream controls are ordinary wire steps, with no str
 | a quiet or half-open connection | `hold()` on the socket (frames and pings stop, nothing closes), so a client's `idleTime` ends it with the reason `Silent`, which is `Feed`'s, not the wire state `Silent` |
 | silence after n frames | `hold({ after: 2 })` [fakes-v2] |
 | a server close code (token expiry) | a handler or control with `send: [socket.close(where, 4401, "expired")]` |
-| a clean end of a body | `end: true` on `open`, or `socket.end(where)`. Under `Fake.webSocket` this is close 1000, which Effect's `Socket` fails as `SocketCloseError`, not a stream end; `complete` from a raw socket is adapter code reading code 1000 [SA RV1 M11] |
+| a clean end of a body | `end: true` on `open`, or `socket.end(where)`. Under `Fake.webSocket` this is close 1000, which Effect's `Socket` fails as `SocketCloseError`, not a stream end; Streams T1's `stream completes` from a raw socket is adapter code reading code 1000 [SA RV1 M11] |
 | a log reset, retention shorter than the gap | controls `Chat.resetLog({ epoch })`, `Chat.retain({ last })` |
 | a catch-up page held, answered, failed | the history endpoint under `hold`, `release`, `drop`, **set before the step that reads it**; a failed page's retry is `next: { operation, timer: "page" }` [v3 item 9] |
 | a flood past the buffer | a control that sends `1,024 + 1` frames; a flood is a long list [P, final integration section 2] |
-| reordered frames (merge 6's SR12) | `hold()`, the frames, then `release({ nth })` |
+| reordered frames (the brief's SR12) | `hold()`, the frames, then `release({ nth })` |
 
 **The resume position the server saw** is the socket endpoint's request log, read directly:
 `expect(cp.read(Chat.socket)).toMatchObject([{ input: { from: { epoch: 1, seq: 2 } } }, { input: { from: { epoch: 1, seq: 5 } } }])`.
 The fake keeps no `connections` field by hand (SP RV L4).
 
 Rows (`connection`, `drop`, `failure`, `catchingUp` for `every` [P, v3 item 5]; `value`, `last { value, at }` for `latest`) are snapshot data; the bookmark is in `session` records and Inspection only. They are read with `operations`, or `lane` with an address for one in a fragment (SA RV1 M5); after `FeedEnded` a
-flapping test reads the row as `undefined`, not `Ended` (merge 6's note). T2's row, each `proof` (on `Feed.live` and now `Feed.done`), the bookmark with `filled`, `missed`, drops, `Overflow`, `Discarded`,
+flapping test reads the row as `undefined`, not `Ended`, because `FeedEnded` left the placing state (Streams T1's row). Streams T2's row, each `proof` (on `Feed.live` and `Feed.done`), the bookmark with `filled`, `missed`, drops, `Overflow`, `Discarded`,
 `st`, `ended` and release are `session` records (STR37) [P, v3 item 6]. **Spellings** [P, v3 section 3]: `head` on `Feed.live`, `through` on a read's answer, and `at` only for the bookmark's own place. A test reads it as `cp.records("session", { operation: O.x }).at(-1)?.bookmark?.at`, and `.filled` for "stays cleared". Settling never waits for an open stream (STR38). A streaming
 write's `progress` publishes as Runtime steps, so each token is a frame; Stop mid-stream is the send that cancels while the body is
 open (STR39; SP 4.6). `backoff`, `page`, `healthy`, `idle` and a fake's `ping` run on the run's Clock (brief C12).
 
 **What no transport can produce** (SP RC5; the socket-finalizer finding, SP RV M10). Effect 4.0.5's socket finalizer closes
 with `Effect.sync(() => ws.close(1000))` and does not await the close, so a session's scope closes at once on release.
-`ReleaseOverdue` and v3's T1 `Releasing` cells in which a signal or value arrives after release begins therefore cannot
+`ReleaseOverdue` and Streams T1's `Releasing` cells in which a signal or value arrives after release begins therefore cannot
 be produced through `Fake.webSocket` or any binding whose finalizer does not wait, and SP revision 1's `hold({ at:
 "close" })` is removed. They are reached in **Flow's policy suite**, whose purpose-built `Feed.callback` adapter has a
 finalizer that awaits a gate (2.10.15). An app whose own adapter awaits its close (an SDK `removeChannel`) can reach them
@@ -4668,7 +4680,7 @@ open question 2 stays open (STR57, STF71). Presentations stay typed, name checkp
 - Every record kind is an Inspection O4 member, follows Inspection O5's redaction, and fake truth leaves a process as digests
   (STR60). Request `via` fields are identities and are never redacted.
 - `flow stories --coverage` (T2; W40) also lists write-lane cells (from `lane` records' `cell`), stream cells (from
-  `session` records' `cell`; *Stream details: merge 6*), ending handlers reached current and late (from `ending` records' `route`) and Flow
+  `session` records' `cell`), ending handlers reached current and late (from `ending` records' `route`) and Flow
   reasons reached (STR61). **Coverage says reached, not checked [P, SA H14]**: it reads what Stories ran, and knows nothing about tests.
 - The Story-derived `flow check` warnings read records the trace keeps (STR62): denial codes from `verdict` records,
   repairs and dropped raises, rule 51's declines from `ending` records, and mapper read-after-write from the `turn`
@@ -4706,17 +4718,17 @@ resumable placement; parking in a live actor by removing the copy; the releasing
 a removal in each state, restore by `reload`, and the cleared mark by re-adding the copy before the lane is `Idle`. The
 two hydration cells 2.7.13 calls untestable (G6) stay so.
 
-For streams (v3's T1–T8, STR66; *Stream details: merge 6*) [P, v3 item 11]: T1's signals come from `open`, controls and `ping`, values from `socket.frames`, `down` from
+For streams (Streams T1–T8, STR66) [P, v3 item 11]: Streams T1's signals come from `open`, controls and `ping`, values from `socket.frames`, `down` from
 the adapter reading a `drop`, failure from `socket.close`, completion from `socket.end` or `end: true` on a body or client half (under `Fake.webSocket` close 1000 is adapter code's to read, SA RV1 M11), defect from a malformed frame, `idle` from `hold()`, release from leaving the state;
-its page rows from the history endpoint and a control like `retain`, their delays from `advance({ next })`; T6's
-queue from floods through a `Feed.callback` client half; T8's progress from a streamed body with a superseded
-Attempt. Coverage counts T1 and T3 cells, `<State>.<input>`, from `session` records. **Suite-only cells**: `ReleaseOverdue` and the `Releasing` cells with a late signal or value (2.10.9), T1 and T3's cells for a turn in the wait for a predecessor [v3 item 11], and the
+its page rows from the history endpoint and a control like `retain`, their delays from `advance({ next })`; Streams T6's
+queue from floods through a `Feed.callback` client half; Streams T8's progress from a streamed body with a superseded
+Attempt. Coverage counts Streams T1 and T3 cells, `<State>.<input>`, from `session` records. **Suite-only cells**: `ReleaseOverdue` and the `Releasing` cells with a late signal or value (2.10.9), Streams T1 and T3's cells for a turn in the wait for a predecessor [v3 item 11], and the
 Runtime-disposal cells. The wire's own `interrupt` while in transit or while an answer returns cannot occur under
 rule 61 (both are instantaneous within a step, SP MDL W2), so 2.10.17.2 no longer lists them.
 
 **The policy suite** (STR67, operations merge-plan X33, brief C11). Flow's own suite is Stories over small purpose-built machines and adapters,
 run by the same executor under its Clock. It uses one step apps cannot import, `disposeRuntime()` from
-`flow-state/internal/testing`, and one adapter (a `Feed.callback` client half whose finalizer awaits a gate; *Stream details: merge 6*). The
+`flow-state/internal/testing`, and one adapter (a `Feed.callback` client half whose finalizer awaits a gate). The
 executable lane, stream and Story models remain design checks (brief C1); their invariants become properties of the suite.
 
 **Rule 58's walks, as steps** (STF62). Two copies on one lane, the second declined: two `send`s to two copies whose
@@ -5047,8 +5059,7 @@ without persistence (Persistence O5).
 #### 2.10.18 Examples
 
 Each case starts at the real source, names the fake that stands in for it, and gives the Story and its test in full. Machines are
-the design's (cited), unchanged. The record's chat (SP 4.3) and LLM (SP 4.6) cases run on v3's `Feed` and sessions, which are not
-merged; they port with merge 6 (*Stream details: merge 6*).
+the design's (cited), unchanged. The record's chat case (SP 4.3) is 2.10.18.7 and 2.11.13. The LLM case (SP 4.6) has its contract and machine in 2.11.12.5, and its steps in 2.10.9; its Story is not written out (the plan's 2.7).
 
 Every example is **[P]** in form: SC1's example fixes the shape, and these apply it. Names of fakes, controls, schedules and refs are
 user-defined.
@@ -5559,10 +5570,9 @@ Story.machine(IssuePageMachine, { id: "page/no-fake", input: { issueId: "c7" }, 
 // type error: IssuesApi is missing (LikeButton's R, rule 57)
 ```
 
-##### 2.10.18.7 A chat room over a socket (uncommon; *Stream details: merge 6*)
+##### 2.10.18.7 A chat room over a socket (uncommon)
 
-The fake extends 2.10.4's `Chat` with a resume position and a seed control, reached through the real adapter with `Fake.webSocket`. The machine (`ChatRoom`, `O.messages`) is merge 6's and
-is not merged; the Story's shape is what this case shows. With `ping`, `hold({ after: 2 })` is a real half-open: pings stop too, so a client's `idleTime` ends it [v3]. Fixed from SA RV1 M16: the old example had no messages to deliver, and its `from` was not in `request`.
+The fake extends 2.10.4's `Chat` with a resume position and a seed control, reached through the real adapter with `Fake.webSocket`. The machine is 2.11.2's `ChatRoom`, over a contract with `position: "seq"`, a positive sequence number, and no `catchUp`, since this fake has no history endpoint [P, merge]: each frame is a value, the first registers (Streams T1), and the reconnect owes one `missed Unproven` (Streams T2 row 6). 2.11.13's Story is the same room with history. With `ping`, `hold({ after: 2 })` is a real half-open: pings stop too, so a client's `idleTime` ends it [v3]. Fixed from SA RV1 M16: the old example had no messages to deliver, and its `from` was not in `request`.
 
 ```ts
 const socket = Fake.stream({
@@ -5580,7 +5590,7 @@ export const Chat = Fake.server("Chat", {
 })
 
 export const replayThenDrop = Story.machine(ChatRoom, {
-  id: "chat/replay-then-drop", input: { room: "r1" }, fixtures: [ChatSocket],        // user-defined: ChatSocket = Fake.webSocket(Chat, routes)
+  id: "chat/replay-then-drop", input: { roomId: "r1" }, fixtures: [ChatSocket.layer, ChatFake],   // user-defined: ChatFake = Fake.webSocket(Chat, routes). ChatSocket is 2.11.2's adapter
   world: [Chat.seed({ messages: threeMessages }), Chat.socket.hold({ after: 2 })],  // after. Quiet after two frames  // user-defined: threeMessages
 })
   .checkpoint("quiet")                                                               // a start cut (2.10.6)
@@ -5591,12 +5601,960 @@ export const replayThenDrop = Story.machine(ChatRoom, {
 test("resumes from where it stopped", async () => {
   const { quiet, reconnected } = (await replayThenDrop.run()).checkpoints
   expect(quiet.records("delivery", { endpoint: "socket", phase: "delivered" })).toHaveLength(2)  // the delivery record (SA RV1 L2)
-  expect(reconnected.read(Chat.socket)).toMatchObject([                               // replaces merge 6's expect(…, { connections })
+  expect(reconnected.read(Chat.socket)).toMatchObject([                               // read directly, not a `connections` field (2.10.9)
     { phase: "closed", code: 1006, by: "network" },                                   // plain phase (SA RV1 M11)
     { phase: "open", input: { from: 2 } },                                            // the resume position the server saw
   ])
 })
 ```
+
+### 2.11 Streams
+
+Streams (merge 6, [merged/streams/proposal-v3.md](merged/streams/proposal-v3.md), merged 2026-11-01; decisions S1–S16 in "Decisions"; plan
+[merged/streams/merge-plan.md](merged/streams/merge-plan.md)). Rules 67–72 (2.4) and the tables of 2.11.11 are normative; the rest shows them.
+
+**Marks.** **S15** confirmed four behaviours: Flow runs connections when the contract declares `reconnect` and `idleTime` (rule 25, as amended), and never re-opens a session; the default retries while offline and ends `Flapping` after 8 registered flaps; Flow keeps the position, with `fills`; the silent-loss cases are documented limits (section 7 item 23). **S11** confirmed that a session reads `input` once, `delivers: "every" | "latest"`, and two operations on one contract and key are two sessions with a warning. **S12** kept the spellings `Feed`, `live`, `down`, `proof`, `restartAt`. **S14** delegated the other words, and **S16** the remaining questions. So **everything else in this section, tables included, is [P]**: the proposal's, approved as a whole, not read row by row. **[P, merge]** is a resolution made at this merge (the plan's 1.4).
+
+**Labels.** **Streams T1–T9** are 2.11.11's tables (the record's T*n*; a bare T*n* is a tooling row of section 5, and "Stories T*n*" a Stories decision). **ST Q*n*** is a question of the record's section 4, with its options and evidence. **ST RV1–ST RV3** are its review rounds ([merged/streams/reviews/](merged/streams/reviews/)), **ST AT** and **ST DT** its agent and desk trials ([agent trial](merged/streams/trials/agent-trial.md), [desk trial](merged/streams/trials/desk/RESULTS.md)), and **STC1–STC5** the second agent trial's findings ([trial 2](merged/streams/trials/agent-trial-2.md); the record's C*n*). **req X** is a row of [merged/streams/requirements-v3.md](merged/streams/requirements-v3.md). **v3 item *n*** in 2.10 is a row of the record's section 9 table of what Stories took.
+
+**Where the data comes from.** A live source is a socket, an SDK or a poll, and Flow is not a network library. The author's adapter, an ordinary service or `Feed.callback`, turns what the source says into three things: a value arrived, the server is listening, the connection dropped. Everything else here is what Flow does with those.
+
+#### 2.11.1 Three ideas
+
+**One: a bookmark, saved inside the memory it describes.** "This consumer was offered everything up to here." A Flow-private part of the slice's saved record: not a memory field, no patch, no guard reads it. Fresh memory is a fresh bookmark (`resetOn`, `.each` re-adds, subroutines, dispose then `ensure`). Flow moves it when a value's turn is admitted. Delivery is **at least once**.
+
+**Two: `fills`, data.** Names the memory field this feed fills. A person writes only that. Flow tells three things apart:
+
+| What happened to the field | Next connection |
+| --- | --- |
+| Never filled | Continues from the bookmark. On a first open, reads history, no notice |
+| Emptied in a turn while the session stayed placed: **cleared** | Stays cleared across reconnects and reloads. **After a later message and then a wipe, a `catchUp` re-read can return it, visibly** |
+| Empty because a turn that released the session, or one while not placed, emptied it: **wiped** | Reads with `catchUp`, no notice. Without `catchUp`: `missed` |
+
+**Three: contract data.** `reconnect`, `idleTime`, `catchUp` are declared, and Flow runs one session table. A `latest` contract cannot type-check with `catchUp`, `position` or `restartAt` (req F6).
+
+#### 2.11.2 Chat in full
+
+**Source.** A WebSocket: a greeting `hello`, then messages, a `ping` every 20 s, close 4401 on an expired token. A history endpoint whose pages say `complete` and `truncated`, and `head`, the newest position. The machine is `ChatRoom`, as 2.10.18.7 and 2.11.13 read it.
+
+```ts
+// chat.contracts.ts
+messages: stream({
+  id: "Chat.messages",
+  input: { roomId: Schema.String },
+  output: Message,   // user-defined: Message
+  key: ["roomId"],
+  delivers: "every",   // S11
+  position: "cursor",   // the NAME of a field of `output`. Its Schema comes with it
+  subscribe: ({ roomId }, { from }) => Effect.map(ChatSocket, (chat) => chat.room(roomId, from)).pipe(Stream.unwrap),   // user-defined: ChatSocket, a service, below. As commit calls StripeApi. E is inferred from the service
+  catchUp: ({ roomId }, { from, next, signal }) =>
+    fetchPage(roomId, next ?? from, signal).pipe(Effect.map((p) =>        // user-defined: fetchPage
+      p.truncated ? Feed.gone({ reason: `history starts at ${show(p.oldest)}`, items: p.messages, next: p.next })
+      : p.complete ? Feed.done({ items: p.messages, proof: "server: page.complete", through: p.head })   // proof is required
+      : Feed.more({ items: p.messages, next: p.next, through: p.next }))),   // p.next is the page token and, on this server, also a position
+  reconnect: { while: (e) => e._tag === "ChatDropped" },   // Effect.retry's while and schedule. After subscribe and catchUp, so e is typed
+  idleTime: "45 seconds",   // like staleTime, gcTime. This server pings every 20 s. No ping from your server: "Infinity"
+}),
+// chat.definition.ts
+memory: { roomId: Schema.String, messages: Schema.Array(Message), notice: Schema.optional(Schema.String) },
+internalEvents: { Message: { message: Message }, Page: { messages: Schema.Array(Message) }, MayHaveMissed: {}, FeedEnded: {}, SignedOut: {}, Retry: {} },   // user-defined
+operations: ({ E }) => ({
+  messages: Chat.messages.outcomes({
+    value: E.Message.from((message) => ({ message })),   // at least once: store by id
+    pages: E.Page.from((messages) => ({ messages })),   // optional. A read's page is one turn
+    missed: E.MayHaveMissed,   // type-required
+    fills: "messages",   // a field of THIS memory; a wrong name does not compile here
+    failure: { SignedOut: E.SignedOut, ChatDropped: E.FeedEnded, Feed: E.FeedEnded },   // exhaustive, as on a transaction. Under the default, ChatDropped never ends a session
+  }),
+}),
+// chat.machine.ts
+LIVE: {
+  activities: [O.messages.subscribe(({ memory }) => ({ roomId: memory.roomId }))],   // first load is catchUp, so there is no loading state
+  on: {
+    Message: { target: "self", updateMemory: ({ memory, event }) => ({ messages: upsert(memory.messages, event.message) }) },   // user-defined: upsert. Required: a replay repeats
+    Page: { target: "self", updateMemory: ({ memory, event }) => ({ messages: upsertAll(memory.messages, event.messages) }) },  // user-defined: stores by position (2.11.5). This server's pages are oldest first
+    MayHaveMissed: { target: "self", updateMemory: () => ({ notice: "Some messages may be missing." }) },
+    SwitchRoom: { target: S.LIVE, updateMemory: ({ event }) => ({ roomId: event.roomId, messages: [] }) },  // releases the session: wiped. Re-read on return
+    ClearChat: { target: "self", updateMemory: () => ({ messages: [] }) },   // stays placed: cleared. No flag
+    Refresh: { target: "self", updateMemory: () => ({ messages: [] }),       // user-defined
+      actions: [O.messages.refetch(({ memory }) => ({ roomId: memory.roomId }))] },   // refetch(k?), as O.issues.refetch. On a stream: forget the bookmark and read now
+    FeedEnded: { target: S.ENDED },                                          // user-defined. Only a flapping server or a defect gets here
+    SignedOut: { target: S.SIGNED_OUT },
+  },
+},
+ENDED: { on: { Retry: S.LIVE } },                                            // a bad deploy can reach it in every open tab: show a Retry
+// view
+const row = useView(chat, (s) => s.operations.messages)
+row?.connection === "Live"
+row?.catchingUp   // listening, older items still arriving (req G8)
+```
+
+The socket is a service, as `commit` calls `StripeApi`. **User-defined, shown once; the other recipes in this section name theirs and show the contract.**
+
+```ts
+// chat.socket.ts, user-defined
+export class ChatSocket extends Context.Service<ChatSocket, {
+  readonly room: (roomId: string, from: Cursor | undefined) => Stream.Stream<Message | Feed.Signal, ChatDropped | SignedOut>
+}>()("app/ChatSocket") {
+  static readonly layer = Layer.effect(ChatSocket, Effect.gen(function* () {
+    const open = yield* Socket.WebSocketConstructor   // the seam Stories replace. `new WebSocket` reaches no fake
+    return { room: (roomId, from) => Feed.callback<Message, ChatDropped | SignedOut>((emit) =>   // Stream.callback's shape, with a bound that fails
+      Effect.gen(function* () {
+        const ws = open(roomUrl(roomId, from))                            // user-defined: roomUrl
+        ws.addEventListener("message", (e) => {
+          const f = frameOf(e)                                            // user-defined: decodes WebSocketEvent
+          if (f.t === "hello") emit(f.replayedFrom && sameCursor(f.replayedFrom, from)   // user-defined: sameCursor
+            ? Feed.live({ proof: `server replayed from ${show(from)}` })   // only on the server's echo of this from
+            : Feed.live({ head: f.head }))   // the server's newest position now
+          else if (f.t === "reset") emit(Feed.live({ restartAt: f.start }))
+          else if (f.t === "ping") emit(Feed.ping)   // a sign of life, no value
+          else emit(f.message)
+        })
+        ws.addEventListener("close", (e) => {                             // user-defined classification (req C5)
+          const code = closeCode(e)                                       // user-defined: reads WebSocketEvent
+          emit.fail(code === 4401 ? new SignedOut() : new ChatDropped({ code }))
+        })
+        yield* Effect.addFinalizer(() => Effect.sync(() => ws.close()))
+      })) }
+  }))
+}
+```
+
+#### 2.11.3 The contract
+
+```ts
+stream({
+  id, input, output, key,
+  delivers: "every" | "latest",   // S11
+  subscribe: (input, { from, signal }) => Stream<A | Signal, E, R>,   // from: when position is set
+  // every only (type error on latest):
+  position?: keyof A,                               // the NAME of a field of output, as key names input's
+  catchUp?: (input, { from, next, signal }) => Effect<Feed.more | Feed.done | Feed.gone, E, R>,   // requires position
+  // written last, so `e` is typed:
+  reconnect?: { while?: (e: E) => boolean, schedule?: Schedule },   // Effect.retry's two options. With:
+  idleTime?: Duration.Input,                        // required exactly when reconnect is present. "Infinity": no deadline
+})
+```
+
+**Field rules, in plain words.**
+
+| Word | Rule |
+| --- | --- |
+| `position` | A field name of `output`. `position: "cursor"` means "each message's `cursor` says where it is" |
+| `from` | Where to continue: the bookmark. In `subscribe` and `catchUp` |
+| `E` | Inferred from `subscribe` and `catchUp`, as on `commit` and `lookup`. Where a closure hides it, `Feed.callback<A, E, R>` names it, as `Stream.callback` does |
+| `reconnect` | **Your connection ends on failure (`emit.fail`, or a stream that fails): declare it. An SDK that re-opens by itself and you report `Feed.down`: omit it.** Omitted: one failure, including `Overflow`, is terminal, and the machine must re-open. So EventSource and Supabase's per-channel error declare it, because the adapter closes on error. Socket.IO, Ably, Phoenix omit it |
+| `idleTime` | **Your server must send something within this window: a value, or a heartbeat you pass as `Feed.ping`. No heartbeat: write `"Infinity"`, and a half-open connection is not detected.** `idle` runs from connect, and is re-armed by a registration, a value or a ping. **Until a connection registers, a ping does not extend it**, so a server that pings and never greets ends `Silent` and retries. A source whose only registration is its first value has no time to give: `"Infinity"`, or a server first event |
+
+**Three typing rules.** Write `subscribe`, then `catchUp`, then `reconnect`: earlier, `e` is `unknown` or misses `catchUp`'s errors, a compile error (spike). `Feed.callback` names `<A, E, R>`, as `Stream.callback`, since no closure can infer them. `next` defaults to the position type; a richer token annotates `catchUp`'s second parameter.
+
+**Honest typing costs** (ST DT):
+- A helper returning a mixed array of values and signals needs an annotation naming `Feed.Signal<P>`; `Stream.map` inline does not. A feed with no position has `P = never`, so it cannot share a helper that emits `restartAt` with a positioned one.
+- A mapper hoisted out of `outcomes` annotates its parameter. Inline infers.
+
+#### 2.11.4 Signals
+
+| Signal | Means |
+| --- | --- |
+| `Feed.live()` | Registered: anything said from now reaches me. Nothing proven |
+| `Feed.live({ proof })` | Registered, and nothing was missed. A required string. **On `every`:** at a connection's first registration, the server replays everything after `from`; later, nothing was missed since the last value delivered. **On `latest`:** the value this session confirmed is still current |
+| `Feed.live({ head })` | Registered, and the server's newest position is `head`. Used only when there is no position yet, so a quiet feed still has a place. Every only |
+| `Feed.live({ restartAt })` | The server's log restarted; continue here. One `missed`. Every only |
+| `Feed.down(reason)` | An SDK lost its connection and is healing itself |
+| `Feed.ping` | A sign of life, no value |
+
+Each `head`, `through`, `restartAt`, `at` is typed `P` and **decoded against the position's Schema at intake; a failure is `Defect`**, so one bad frame cannot stop saving (Persistence O5, O2). Undefined means no change.
+
+**`Feed.callback<A, E, R>(register)`:** shaped as `Stream.callback`, returns a Stream. `register(emit)` is a scoped Effect. `emit(x)` offers a value or a signal; `emit.fail(e)` and `emit.end()` match `Queue.fail` and `Queue.end`. Bounded at 1,024; `emit` resolves when there is room (S7 Q20). It reads the session's kind from a `Context.Reference`, so no argument is needed: outside a session it behaves as `every`, which fails rather than drops. A signal offered through it is not checked against the position type at compile time, only at intake. ST Q10 says why it is not `Stream.callback`.
+
+#### 2.11.5 A read's answer
+
+| Answer | Means |
+| --- | --- |
+| `Feed.more({ items, next, through? })` | More to read. `through`: oldest first, nothing before it unread. It moves the bookmark, so a long repair keeps its progress |
+| `Feed.done({ items, proof, through? })` | **The server said this read reached `from`.** A required string, like `Feed.live`'s, greppable and shown by Inspection. `through`: where the read ends, even in an empty room. Newest first: the walk's first head |
+| `Feed.gone({ reason, items?, next?, through? })` | The history does not reach `from`: one `missed`, then what is kept. No budget spent |
+
+**Page order (STC1, trial 2).** A read's pages reach the machine in the order the server gives them, newest first or oldest first. **A handler must store by position and trim only after sorting.** `upsertAll(...).slice(-100)` after a newest-first walk keeps the oldest of the walk, and `done` then moves the bookmark to the head: silent. The Ably recipe below inserts by position.
+
+**A limit-style or snapshot endpoint must not answer `Feed.done` with `from` set** unless it can prove overlap. This is the most natural silent mistake (ST AT). The recipe:
+
+```ts
+// GET /messages?limit=50: the newest 50, no cursor parameter
+catchUp: ({ roomId }, { from, signal }) => latest50(roomId, signal).pipe(Effect.map((p) =>   // user-defined
+  from === undefined ? Feed.done({ items: p.messages, proof: "first load: newest 50", through: p.head })
+  : p.messages.some((m) => sameCursor(m.cursor, from)) ? Feed.done({ items: p.messages, proof: "page overlaps the bookmark", through: p.head })
+  : Feed.gone({ reason: "more than 50 since the bookmark", items: p.messages, through: p.head }))),   // a notice, never a silent gap
+```
+
+**A short page or an empty page is not a proof.** A feed that wants nothing from before now: `from === undefined ? Effect.succeed(Feed.done({ items: [], proof: "nothing before now" }))`, with the greeting's `Feed.live({ head })`.
+
+**Preconditions, unsafe if broken, unchecked.** With `from` defined, the read is a change log, including deletes (req R20). A read sees the log up to registration (no lagging replica). A read with `from` undefined reaches back to registration. A `catchUp` given a position from another log answers `gone`.
+
+#### 2.11.6 Outcomes
+
+| Kind | `value` | `pages` | `missed` | `fills` | `failure` |
+| --- | --- | --- | --- | --- | --- |
+| `every`, machine | required | optional, needs `catchUp` | required | required: a field or `false` | required |
+| `latest` | optional | — | type error | — | required when anything is mapped |
+| `listen` | the domain's | — | the domain's | — | required |
+
+**Delivery is at least once.** A replay, a reload or a repair repeats items. A handler stores by id (`upsert`). **A counter keys by id, with a seen set, or accepts drift:** `unread + 1` over-counts. Do not give a counter `catchUp`: a wipe would re-read and re-count.
+
+**`failure`:** exhaustive over `E`, as on a transaction. `Feed` covers Flow's reasons `Closed`, `Overflow`, `Silent`, `Flapping`, `Defect`, `Interrupted`. A reason may be named, and it beats `Feed`. `Feed.Reason` is tagged. Under the default schedule a tag `while` accepts cannot end a session, so its entry is unreached until you write a `schedule`: a known cost (ST Q9).
+
+**`missed`:** an event, or `.from((m) => ({ why: m.why }))` for `Unproven`, `Lost`, `Reset`. A consumer that does not care writes one handler (req V9: 2 lines). Exactly one notice per interruption.
+
+#### 2.11.7 `fills`
+
+**`fills` names a field of the operation's own memory: an array, a `Record` or a number (0 is empty).** A required field: a string, boolean, closed struct, `Schema.optional` or `NullOr` is not offered, so `fills: "roomId"` does not compile. Checked in the definition, where memory's Schema is known: a misspelling or wrong kind **does not compile**. A wrong field of the right kind still compiles; Inspection's `FillsUntouched` reports a value handled whose turn left the field unchanged.
+
+| Consumer | Line | Note |
+| --- | --- | --- |
+| A list | `fills: "messages"` | The field holds only this feed's items. **Banners and drafts go in another field** |
+| A count | `fills: "unread"` | 0 means empty |
+| Per-key list under `subscribe.each` | `fills: "byRoom"` | A `Record`, indexed by a single-field key. Otherwise `FillsNotPerKey` |
+| Stores nothing, or a short-lived list such as toasts | `fills: false` | Never wiped. Continues from the bookmark |
+| **The list lives in a parent, or a fragment wants a parent's field** | **Not nameable: a compile error.** | **One answer: place the operation in the machine that owns the list, or keep the list in the fragment and expose it.** `fills: false` compiles and is the stated silent limit |
+| Nested in a struct | Lift the list to a top-level field | |
+
+**When is memory saved?** Only for a persisted actor. Not persisted: a reload is a new slice, and the feed starts fresh.
+
+#### 2.11.8 Clear, wipe, refresh
+
+| You write | Flow reads | Result |
+| --- | --- | --- |
+| `messages: []`, session stays placed | **Cleared** | Stays cleared across reconnects and reloads, until a later message and a wipe (below) |
+| `messages: []` with a target that re-enters, or a switch | **Wiped** | Re-reads, no notice. Without `catchUp`, one `missed`. A drop before that read lands: one notice, then the read |
+| Sign-out clears in another state; back later | Wiped | As above |
+| `messages: []` on a root or parent handler, wanting a reload | Cleared | Stays empty. **The one recipe for reload:** `O.messages.refetch(({ memory }) => ({ roomId: memory.roomId }))` |
+
+**Exactly when cleared items return. Each is visible; nothing is lost.**
+1. **A clear, a later message, then a wipe (a room switch).** The message (**the user's own sends count**: a sent message that lands in the field is a later message) makes the field filled again, so the wipe reads as a wipe and `catchUp` re-reads from the start. **Limit, stated.** If it matters, one line in the app, which knows its own order: `messages: upsert(memory.messages, event.message).filter(after(memory.clearedBefore))` in `Message`, and the same `.filter(after(memory.clearedBefore))` in `Page`, since a re-read arrives as pages; `clearedBefore` is a memory field the clear sets.
+2. Clear and leave in **one** turn (`ClearAndClose`): read as a wipe. **Recipe for "stays cleared": clear in one turn, leave in the next:** `send(E.Clear); send(E.Close)`. Modelled. (`O.x.refetch` in that turn also works.)
+3. Clear during the wait for a releasing predecessor.
+4. Clear before any position is known (no `head`, no item yet).
+5. A read in progress: its items, landed or not, may return after a drop or wipe.
+6. A stale duplicate moved the bookmark back just before the clear: one item (model confirms).
+7. After `O.x.refetch`, on purpose.
+
+**An accidental `[]` is permanent, and silent.** Flow cannot tell a bug from Clear. An `onError: messages: []` is the worst form. With a cursor in memory (the record's v2) the cursor stays too: the same result.
+
+**`O.x.refetch(k?)`**, existing (`O.issues.refetch`; 2.7.3), `k` a selector returning the key fields, as on `retry` and `cancel`; under `subscribe.each`, one key's session. On a stream: forget the bookmark and read now. **On a feed with no `catchUp`, it empties the bookmark and re-reads nothing, with one `missed Unproven` notice.** **`O.x.bookmark(select)`** remains only for stating a position (a read outside `catchUp`), always a selector returning the key fields and `at`.
+
+#### 2.11.9 The row
+
+`latest`: `key`, `connection`, `drop`, `failure`, `value`, `last { value, at }`. `value` is empty unless current; to show stale data you write `last`. `every`: `key`, `connection`, `drop`, `failure`, `catchingUp`. `connection` exists on every phase. A fact row has no `value` and no `last`. The bookmark is in `session` records and Inspection, not on the row.
+
+#### 2.11.10 First registration, repair, reconnect
+
+The parts of the record's section 4 that state behaviour. Its options and evidence stay in the record (ST Q1–ST Q10).
+
+**First registration (ST Q2).** One record. With no record and an empty field: first open, no notice (req G10, req G13, req G14). **A read that can be `catchUp` belongs there**: it starts after registration, so no race. A **non-empty read outside it** (a parent, another actor, a resource, `Flow.input`) is found: no record and a filled field owes one notice. **An empty read with no head, outside `catchUp`,** is silent for what was posted before registration.
+
+**SSR is where it must be outside:** an `every` session never opens on a server (ST RV2 Med7). The server reads a resource; `Loaded` writes `O.messages.bookmark(({ memory, event }) => ({ roomId: memory.roomId, at: event.head }))`; the partition transfers; the client's `catchUp` reads from `head`.
+
+**A read landing after `hello`:** Streams T1's cell. Without `catchUp`, a notice at the queue's head. With it, nothing extra: every registration already read (ST RV2 H2, ST RV3 Low2). In every state, queued values stop moving the bookmark and queued `settle`s drop (model).
+
+**A from-now feed with a head** has it settled at `complete`, not registration (ST RV3 H1): a drop between `complete` and that `settle`'s admission, then a reconnect, loses what was posted since the first greeting. One queue turn; a 500 ms backoff outlasts it unless a turn is very slow. **With no head (the desk's `hello` today, ST DT 3.1):** `{ at: undefined }`, one notice per reconnect until the first entry, and the first window's loss. The fix is a protocol field, not Flow's.
+
+**Repair (ST Q3).** The bookmark stays frozen until a read says; live items buffer during a read and flush after its pages; a drop discards the buffer; one page at a time; pages retry with the socket open.
+
+**Convergence, ST RV2's stepped figures, not a table run.** Gap 20,000, 100 msg/s, 500 reads/s, oldest first with `through`: 3 connections, 50 s. 150/s: 20 connections. 90/s with budget 8: ends by budget. Newest first, frozen, default: never ended. So: **3 repairs in a row that overflow with no bookmark move give up:** the next registration is one `missed Lost`, then `Live`; live values move past what was accepted (req M8).
+
+**Newest first (req R16).** Older pages are never lost. Limits: req V4's exception, and a windowed store (`.slice(-100)`) can evict newest entries when an older page lands: store by position, trim after sorting (2.11.5, STC1). **Reset:** with `catchUp`, after `missed Reset`, read from `restartAt`.
+
+**A first load is not one turn per item:** `pages` maps a read's page to one event (ST RV1 Med6). A guard on its handler loses the whole page, with evidence.
+
+**Failure maps (ST Q6).** Author tags are exhaustive, with one `Feed` key. Add `Banned` to what the adapter fails with: compile error at the map (spike, ST DT). `rest:` would hide it.
+
+**Who runs reconnect (ST Q5).** Rule 25 as amended (S15).
+
+**`idleTime`** is armed by Machines O5's rule, "fires once if overdue", compared on the Clock at resume, while a pull is outstanding.
+
+**Default `schedule`.** `exponential("500 millis")`, jittered, then capped at 30 s, in that order, with `Schedule.modifyDelay`. **8 connections in a row that register and die within `healthy` (1 minute) end `Flapping`.** A connection that never registers spends and restores nothing, so offline waits forever at one try per 30 s. **A connection ended by `Silent` is not a flap:** a server with no heartbeat under a duration reconnects each `idle`, flagged `IdleWithoutPing`, and does not end (ST AT 9's trap). `pageSched` is a copy of it, so a 503 forever reads `catchingUp` forever: visible. `healthy` of exactly 1 minute sits on common proxy idle timeouts: docs.
+
+**Escalating re-open stays a machine recipe (ST DT 3.11).** After `Ended`, re-open is states and a schedule, with its delay in memory so a reload keeps the deadline:
+
+```ts
+ENDED: {                                                                  // user-defined
+  schedules: { reopen: { schedule: ({ memory }) => Duration.millis(memory.reopenInMs), send: E.Reopen } },
+  on: { Reopen: S.LIVE, Retry: S.LIVE },
+},
+LIVE: { schedules: { healthy: { schedule: "1 minute", send: E.Healthy } },
+        on: { Healthy: { target: "self", guard: [live], updateMemory: () => ({ reopenInMs: 1000 }) },   // never reset on a value (req C3)
+              FeedEnded: { target: S.ENDED, updateMemory: ({ memory }) => ({ reopenInMs: Math.min(30_000, memory.reopenInMs * 2) }) } } },
+```
+
+**Words (ST Q7).** `at` meant four things (ST AT). **Now:** `head` on `Feed.live`, `through` on a read's answer, `at` only the bookmark's own place, in `O.x.bookmark` and `session` records. **`held` and `void` are internal, renamed `filled` and `wiped`, and absent from author docs**, which say cleared and wiped.
+
+#### 2.11.11 Normative tables
+
+`—` means it cannot occur; a model must check it. Timers on Effect's `Clock`, tagged `backoff`, `page`, `healthy`, `idle`. Flow compares no positions; only `Equal` on `next`.
+
+**One interruption, one answer** and **freshness is a function of the present** are the principles.
+
+##### Streams T1. The session
+
+**Variables.** `st`; `drop`, `dropAt`; `regInConn`; `owed`; `noted`; `claim`; `wiped`; `greeted`; `n`; `flaps`; `stalls`; `liveSince`; `lastRead`. In `Repairing`: `buf`, `cursor`, `prevNext`, `emptyRun`, `pageSched`, `movedHere`.
+
+**Procedures.**
+- `connect`: clear `wiped`, `greeted`, `noted`. If `b` exists, `filled`, and the field is empty: `wiped = true`, `b = { at: undefined, filled: false }` **at once**, so leaving before registering stays owed. `claim = b.at`; `subscribe(input, { from: claim })`; `Connecting`.
+- `register(a)`: `regInConn` read then set; `owed = false`; `noted = false`; `liveSince = now`; `drop = none`; re-arm the deadline; Streams T2. `latest`: Streams T5.
+- `notice(why)`: if not `noted`: queue `missed why`, `noted = true`.
+- `abandon`: interrupt the read, aborting `signal`; `buf = []`; `lastRead = none`.
+- `lose(e)`: `abandon`; read `liveSince`, then **clear it**. If in `Repairing` with `e = Overflow` and not `movedHere`: `stalls += 1`. If `reconnect` and (`e` is Flow's, or `while(e)`, or no `while`): under the default: step `n` for the delay, which never exhausts; unless `e = Silent`, `flaps += 1` if `liveSince` was set and `healthy` had not elapsed; `flaps = 8` ends `Flapping`. A `Silent` end neither adds nor resets `flaps`: 8, none healthy in between. With a written `schedule`: step `n`, exhausted ends `e`. Otherwise `Waiting`, `drop = e`, `dropAt = now`, `regInConn = false`, discard this connection's frames. No `reconnect`, or not retried: `end(e)`.
+- `end(f)`: `Ended { f }`; queue `failure f`.
+- `complete(through?)`: `stalls = 0`; queue `settle(through ?? lastRead ?? greeted)`; if none, it makes `{ at: undefined }` when there is no record; queue each of `buf`; `buf = []`; `Live`.
+
+| Input ↓ / State → | `Connecting` | `Live` | `Repairing` | `Dropped` | `Waiting` | `Ended` | `Releasing` |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `live()`, `live({ head })` | `register` | `register` | `abandon`; restart from `b.at`; one budget step; `RegistrationChurn`; no second notice | `register` | — | — | discard, evidence |
+| `live({ proof })` | `register` | `register` | evidence; stay | `register` | — | — | discard, evidence |
+| `live({ restartAt })` | Streams T2 rows 1, 2 | Streams T2 rows 1, 2 | `abandon`; Streams T2 rows 1, 2 | Streams T2 rows 1, 2 | — | — | discard, evidence |
+| `down(r)` | `Dropped`, `drop = r` | `Dropped`, `drop = r`, `dropAt = now`, `liveSince = none` | `abandon`; as `Live` | `drop = r`, `owed = false` | — | — | discard, evidence |
+| `ping` | evidence, `PingsWithoutLive`. **Does not re-arm** | re-arm the deadline | re-arm | evidence | — | — | discard |
+| value v | `register(live())`, then this row in the new state | re-arm; queue v, moves | re-arm; append to `buf`; at 1,024, stop pulling | no record and empty field: make `{ at: undefined }`, no notice. Else if not `owed`: `noted = false`, `notice(Unproven)`, `owed = true`. Queue v, moves. Stay | — | — | discard, evidence |
+| stream fails e | `lose(e)` | `lose(e)` | `lose(e)` | `lose(e)` | — | — | discard |
+| stream completes | `lose(Closed)` | `lose(Closed)` | `lose(Closed)` | `lose(Closed)` | — | — | discard |
+| defect | `end(Defect)` | `end(Defect)` | `abandon`, `end(Defect)` | `end(Defect)` | `end(Defect)` | — | discard |
+| a position fails to decode | `end(Defect)` | `end(Defect)` | `abandon`, `end(Defect)` | `end(Defect)` | — | — | discard |
+| `idleTime` deadline | `lose(Silent)` | `lose(Silent)` | `lose(Silent)` | not armed | not armed | not armed | not armed |
+| backoff elapsed | — | — | — | — | `connect` | — | — |
+| `healthy` elapsed (1 minute since `liveSince`) | — | reset `n`, `flaps` | reset `n`, `flaps` | — | — | — | — |
+| page: `more(items, c, { through? })` | — | — | queue items, frozen; `lastRead` = last; `through`: queue `settle(through)`, `movedHere`, `stalls = 0`; `c` same as `prevNext`, or second empty page in a row: page failure; else request `c` when no page item is queued | — | — | — | discard |
+| page: `done(items, { proof, through? })` | — | — | queue items, frozen; `lastRead` = last; record `proof`; `complete(through)` | — | — | — | discard |
+| page: `gone(r, { items?, next?, through? })` | — | — | `notice(Lost)`, then items, frozen; `lastRead` = last; `next`: request; else `complete(through)` | — | — | — | discard |
+| page fails e, `while(e)` | — | — | step `pageSched`: delay, retry, socket open; exhausted: `lose(e)` | — | — | — | discard |
+| page fails e, otherwise | — | — | `abandon`, `end(e)` | — | — | — | discard |
+| `O.x.bookmark({ at })`, `at` defined | Streams T3. A later `hello` reaches row 6 | Streams T3. No `catchUp`: `notice(Unproven)` at the queue's head | `abandon`; Streams T3; restart from `at` | as `Live` | Streams T3 | Streams T3 | Streams T3 |
+| `O.x.refetch` | Streams T3 | Streams T3. `catchUp`: `Repairing`, `from` undefined, no notice. Else `notice(Unproven)` at the head | `abandon`; as `Live` | as `Live` | Streams T3 | Streams T3 | Streams T3 |
+| `InvalidTurn` on a delivery | `end(Defect)` | `end(Defect)` | `abandon`, `end(Defect)` | `end(Defect)` | — | — | — |
+| release | `Releasing`, close the scope | same | `abandon`, same | same | cancel the sleep, same | same | stays |
+| scope closed, or 5 s (`ReleaseOverdue`) | — | — | — | — | — | — | `Released` |
+
+**Any `O.x.bookmark` or `O.x.refetch` cell** also makes queued values stop moving and drops queued `settle`s. **With no session placed** (`LOADING`, SSR) it is Streams T3 only.
+
+**The deadline is armed** from connect, re-armed by `register`, a value and a ping, only while a pull is outstanding, so a slow consumer of a pulled source does not look dead, and not in `Dropped`.
+
+**Row.** `connection`: `Connecting` for `Connecting`, `Dropped`, `Waiting`; `Live` for `Live`, `Repairing`; `Ended`; undefined for `Releasing`, `Released`. `catchingUp` = `Repairing`.
+
+##### Streams T2. Registration, `every` with a machine consumer
+
+`b` the bookmark, `E` = the field is empty (`fills: false` is always empty), `first = ¬regInConn`, `C` = has `catchUp`. In order:
+
+| # | Input | State | Result |
+| --- | --- | --- | --- |
+| 1 | reset(`at`) | none, `E` | `b = { at, filled: false }`; no notice. `C`: `Repairing` from `at`. Else `Live` |
+| 2 | reset(`at`) | any | `b.at = at`; `notice(Reset)`. `C`: `Repairing` from `at`. Else `Live` |
+| 3 | any other | none, `E` | **First open.** No notice. `C`: `greeted = head`, nothing written; `Repairing`, `from` undefined; the record is made at `complete`, so an interrupted first read stays first. No `C`: `b = { at: head, filled: false }`, `head` maybe undefined. `Live` |
+| 4 | proof, and `claim` defined or not `first` | any | `Live`. A replay follows and moves `b` |
+| 5 | `wiped`, `first` | | **Wiped.** `C`: `greeted = head`; `Repairing`, `from` undefined, no notice. Else `notice(Unproven)`, `head` applied at its admission if `b.at` is undefined, `Live` |
+| 6 | | `{ at: p }` | `stalls ≥ 3`, three repairs in a row with no move: `notice(Lost)`, `Live`. `C`: `Repairing` from `p`. Else `notice(Unproven)`, `Live` |
+| 7 | | `{ at: undefined }`, or none and not `E` | Make `b`, `filled` = not `E`. `notice(Unproven)`. `C`: `greeted = head`; `Repairing`, `from` undefined. Else `head` applied at the notice's admission, `Live` |
+
+A proof at a first registration with nothing to name a place is not believed: `ProofWithoutPosition`. A stale `from`, as in an SDK self-rejoin, only over-replays.
+
+**`listen`:** no bookmark; `from` is the session's own last position. `fills: false`: `E` always, never `wiped`.
+
+##### Streams T3. The bookmark
+
+| Event | When | Effect |
+| --- | --- | --- |
+| Streams T2 rows 1, 3, 5, 7; `connect`'s wipe | Runtime step, one publication | as stated. **Every write that creates an entry takes `filled` from the field** |
+| Row 2 | at `missed Reset`'s admission | `b.at = at` |
+| A value that moves, admitted | step 1, kept through `Denied`, `Unhandled`; not on `InvalidTurn`, which ends `Defect`. A missing entry is re-created | `at = v[position] ?? at`. No comparison: last delivered wins, may move backward, safe |
+| A frozen item or page, admitted | step 1 | none |
+| `settle(p)` at the queue's head | Runtime step | `at = p`; creates the entry if none |
+| `O.x.bookmark({ at })` | step 5, a member | `b.at = at`, `filled` = field not empty, on after memory |
+| `O.x.refetch` | step 5, a member | `b = { at: undefined, filled: false }` |
+| **Any committed turn whose key's session stays placed and has connected, including `Connecting`, `Waiting`** | end of the turn | `filled` = field not empty. Written only on a change. A session waiting for its predecessor writes nothing. **A releasing turn may raise `filled`, never lower it** |
+| Release, reload, freeze, thaw | — | none |
+| New slice: `resetOn`, new incarnation, `.each` re-add, subroutine, dispose then `ensure` | — | none: the partition is new |
+| A position inside an entry fails to decode | at restore | `{ at: undefined }`: owes. **Persistence O5 must allow this.** A partition failing its own shape discards the scope, as O5. A removed operation's entries are dropped |
+
+**Bound (req M1).** 256 entries per operation in a slice, oldest out. A missing entry reads none: filled, it owes; empty, nothing is held. Under `subscribe.each`, an evicted, quiet, empty key reads first open: req G11 at scale, stated beside req M9. **SSR's total bound binds first** (262,144 bytes).
+
+**`from` is the bookmark at connect.** A queued page may land after: duplicates only. A `missed Reset` not yet admitted at connect asks the old log: one extra notice.
+
+##### Streams T4. Delivery
+
+**`every`.** `Q`, `inFlight`. Flow pulls at turn pace in `Live`. **In `Repairing`** it pulls into `buf` until full, then stops: a pulled source waits (req M2), a pushed one fills `Feed.callback`'s queue, whose bound fails `Overflow`. A pushed source holds at most 2,048.
+
+| Input | `inFlight = none` | `inFlight ≠ none` |
+| --- | --- | --- |
+| queue x | append; move the head to the mailbox (`settle`: apply and continue) | append |
+| turn ends (committed, `Denied`, `Unhandled`) | — | `inFlight = none`; move the next |
+| admission when `Releasing`, `Released` | — | discard, `Discarded { Released }`; clear `Q` |
+
+`pages` mapped: a page is one queue item and one turn. A page's size is the author's, the only unbounded input.
+
+**`latest`.** `slot`, `slotConn`, `queued`, `heard`. `reconcile`: if current, `value` mapped and it differs from `heard`, set the slot; else clear it. At admission the slot must be current and match the connection, or discard (`NotLive`). One value delivery, one `failure`.
+
+##### Streams T5. `latest`
+
+| Connection | Value | `live()` | `proof` |
+| --- | --- | --- | --- |
+| `Connecting` | implicit live; `last = { v, now, own }`, confirmed, reconcile | `Live`, `value` undefined | `Live`; confirmed only if `last.own` |
+| `Live` | `last = { v, now, own }`, confirmed, reconcile. Equal confirms, not heard | not confirmed | confirmed if `last.own` |
+| `Dropped`, `Waiting` | `last = { v, dropAt, not own }`, nothing delivered | `Live`, not confirmed | as `Connecting` |
+| Leaving `Live` | `last.at = now` if confirmed; not confirmed | | |
+
+`value` = `last.value` iff `Live ∧ confirmed`. Age is transferred across reload and SSR and rebased.
+
+##### Streams T6. `Feed.callback`'s queue
+
+**Variables:** `q`, values and signal groups `(down₁?, live?, down₂?)`, with a ping flag; `closing`; `released`; `waiters`. At most 1,024 values and one group between two values.
+
+Group merge: appending `down(r)` sets `down₂ = r` if the group has a `live`, else `down₁ = r`. Appending `live(a)` with a `down₂` moves it to `down₁`, clears `down₂`, and sets `live` to the weaker of the two; without one, the weaker. Pulling a group emits `down₁`, `live`, `down₂`. No merge upgrades an answer or hides a drop.
+
+| Input | Room | Full | `closing ≠ open` or `released` |
+| --- | --- | --- | --- |
+| `emit(value)` | append; a resolved promise, or if this filled the last slot, one that resolves when a pull makes room | `closing = failing Overflow`; drop the value (evidence); a promise that never resolves | no-op, evidence |
+| `emit(signal)` | merge | same | no-op, evidence |
+| `emit.fail(e)` / `emit.end()` | `closing = failing e` / `ending` | same | no-op |
+| pull | take the head; if this made room, resolve the waiter | same | drain `q`, then fail or end |
+| release | run finalizers, awaited; `released = true` | same | run finalizers if not yet run |
+
+**For `latest`: a signal is a fence.** A value before a signal is dropped when another value follows it. At most (signal group, one value); it never overflows.
+
+##### Streams T7. `listen` coverage
+
+Per covered answer r: `readStart[r]`, `landed[r]`, `subscribed[r]`. Per session s: `st`, and `lastGap[s]`. **Gaps** (set `lastGap`, start a refetch of each subscribed r read earlier): an unproven or reset registration, first included; `end`; release. A `down` and a proven registration only change the present state.
+
+```text
+current(r) = landed[r] ∧ every covering s is Live ∧ for every s that covers or covered r: lastGap[s] = none ∨ lastGap[s] < readStart[r]
+```
+
+A released session's `lastGap` is kept until every covered `readStart` is later. `listen` ignores a contract's `catchUp`.
+
+##### Streams T8. Write progress
+
+Per write lane: Attempts with `ended[a]`, `addr`, `prog[a]`. Row `progress = addr ? prog[addr] : undefined`.
+
+| Input | `a = addr ∧ ¬ended[a]` | otherwise |
+| --- | --- | --- |
+| `progress(p)` by Attempt a's commit | `prog[a] = p`; publish the row as a Runtime step | evidence; nothing changes |
+| a's ending admitted | the mapper reads `prog[a]`; `ended[a] = true` | the mapper reads `prog[a]` |
+| promotion | `addr` = the promoted Attempt, `prog` undefined | — |
+| restore | every `prog[a]` undefined | same |
+
+##### Streams T9. Lifecycle
+
+| Edge | Session | Bookmark | Row | Machine | `listen` |
+| --- | --- | --- | --- | --- | --- |
+| Placement starts | waits for a releasing predecessor, then `connect` | loaded | `Connecting`; restored `last` | nothing | stale |
+| Connection change | Streams T1 | Streams T2, Streams T3 | Streams T1 | none unless `missed` | Streams T7 |
+| Ending | `Ended` | kept | `Ended` | `failure` behind queued items | stale |
+| Leave, key gone | `Releasing`, awaited, 5 s | kept | undefined | queued discarded with evidence | stale |
+| Disposal, then `ensure` | same, then new | goes with the slice (Persistence O3) | gone, then `Connecting` | new memory | as start |
+| `resetOn`, `.each` re-add | released, then new, waits | none | `Connecting` | new memory | gap |
+| Restore | new; budget restarts (req C4) | last capture | `Connecting`; `last` from age | no replay | stale |
+| Wake | The deadline by Machines O5's overdue rule. The browser orders a timer and a socket message | unchanged | leaves `Live` at resume | nothing | stale |
+| Freeze, thaw | released, then new | with the frozen slice | undefined, then `Connecting` | discarded, then as start | gap |
+| Second tab | its own | none unpersisted | as new | as new | as new |
+| SSR server | `every`: **never opens**. `latest`: may run, released at capture | as written by `O.x.bookmark`; an omitted actor omits both (SSR O3) | `last` as age | — | as EDP |
+| SSR client | new, never delays settling | hydrated; sensitive position: entry omitted, row 7, one notice | `Connecting`; `last` dim; `heard` stops a double | no replay | one refetch per covered list |
+
+**Rule list (req L12).** 8: deliveries of a live session are never lost; a released session's are discarded with evidence. 14: always current from the active leaf. 20: `value`, `pages`, `missed`, `failure` handled from every leaf under the placement. 25: as ST Q5. 37: `failure` includes `Defect`, `Interrupted`, by name or `Feed`. 47: deliveries count as endings.
+
+#### 2.11.12 Examples
+
+##### 2.11.12.1 Chat's walk
+
+| Step | What happens |
+| --- | --- |
+| First load | Row 3, read, `catchingUp`. `done` with `through` |
+| Drop during first load | No record. Empty field: row 3 again, reads again. After a `more` with no `through` the field is filled: row 7, one notice, reads again |
+| Drop, replay | `Waiting`, banner. `from = b.at`. `hello` echoes: row 4 |
+| Quiet reconnect, empty room | `{ at: head }`, row 6: read from head, nothing, no notice |
+| Server cannot replay | Row 6. Socket buffered, 503 retried with the socket open, `settle`, flush |
+| Drop mid-repair | Buffer discarded. Bookmark at the last `more`'s `through` |
+| Retention | `Feed.gone`: one `missed Lost`, kept pages, flush. No budget spent |
+| Reset | Row 2: one notice, reads the new log |
+| Room A→B→A | Row 3 on B; wiped on A: reads, no notice |
+| Clear chat, then a reconnect or reload | Stays cleared |
+| Clear chat, a message, A→B→A | The wipe re-reads: **cleared items return, visibly** |
+| Refresh | Forgets, reads now |
+| Long outage | Tries every 30 s, row `Connecting` |
+| Flapping | `Flapping` after 8, `Feed`, `S.ENDED` |
+| Token expiry | Not in `while`: `end`, `SIGNED_OUT` |
+
+##### 2.11.12.2 Presence
+
+**Source:** a WebSocket with `presence_state` then diffs. Each connection folds from its own `presence_state`.
+
+```ts
+export const Presence = { room: stream({
+  id: "Presence.room", input: { roomId: Schema.String }, output: Members, key: ["roomId"],   // user-defined: Members
+  delivers: "latest",
+  subscribe: ({ roomId }) => PresenceSocket.frames(roomId).pipe(          // user-defined
+    Stream.mapAccum((): Members | undefined => undefined, (acc, f) =>
+      f.t === "ping" ? [acc, [Feed.ping]] as const                        // a ping is not a value
+      : f.t === "presence_state" ? [f.members, [f.members]] as const
+      : acc === undefined ? [acc, []] as const                            // a diff before the state: nothing to apply it to
+      : [applyDiff(acc, f), [applyDiff(acc, f)]] as const)),
+  reconnect: { while: (e) => e._tag === "PresenceDropped" },
+  idleTime: "45 seconds",   // the server pings
+}) }
+// definition: bare, the data is its row (brief K3)
+operations: ({ E }) => ({ presence: Presence.room }),
+// machine
+ROOM: { activities: [O.presence.subscribe(({ memory }) => ({ roomId: memory.roomId }))] },
+// view
+const row = useView(room, (s) => s.operations.presence)
+const members = row?.value ?? row?.last?.value ?? {}
+```
+
+##### 2.11.12.3 Ticker
+
+**Source:** one app-wide socket multiplexed by the service, ticks `{ symbol, price, asOf }`, pings every 10 s. **Each symbol registers when its subscribe is sent, and the socket's pings must reach every symbol's stream**, or a quiet symbol hits `Silent` at 25 s.
+
+```ts
+export class MarketFeed extends Context.Service<MarketFeed, {   // user-defined
+  readonly frames: (symbol: string) => Stream.Stream<{ t: "subscribed" } | { t: "ping" } | { t: "quote"; quote: Quote }, MarketDropped>   // subscribed when this symbol's subscribe is sent; fans each socket ping out to every symbol
+}>()("app/MarketFeed") {}
+
+export const Market = { quote: stream({
+  id: "Market.quote", input: { symbol: Schema.String }, output: Quote, key: ["symbol"],
+  delivers: "latest",
+  subscribe: ({ symbol }) => Stream.unwrap(Effect.map(MarketFeed, (mf) => mf.frames(symbol).pipe(
+    Stream.map((f) => f.t === "subscribed" ? Feed.live() : f.t === "ping" ? Feed.ping : f.quote)))),   // per symbol. A ping alone does not register
+  reconnect: { while: (e) => e._tag === "MarketDropped" }, idleTime: "25 seconds",
+}) }
+// definition
+internalEvents: { Quoted: { symbol: Schema.String, price: Schema.Number }, QuoteEnded: { symbol: Schema.String } },
+operations: ({ E }) => ({ quotes: Market.quote.outcomes({
+  value: E.Quoted.from((q, { key }) => ({ symbol: key.symbol, price: q.price })),
+  failure: { MarketDropped: E.QuoteEnded.from((_e, { key }) => key), Feed: E.QuoteEnded.from((_e, { key }) => key) },
+}) }),
+// machine
+WATCHING: {
+  activities: [O.quotes.subscribe.each(({ memory }) => memory.watchlist.filter((s) => !memory.ended.includes(s)).map((symbol) => ({ symbol })))],
+  on: {
+    Quoted: [{ target: "self", guard: ({ memory, event }) => event.price > (memory.alerts[event.symbol] ?? Infinity) || deny("BelowAlert"),
+               updateMemory: ({ memory, event }) => ({ fired: [...memory.fired, event.symbol], alerts: omit(memory.alerts, event.symbol) }) },
+             { target: "self" }],
+    QuoteEnded: { target: "self", updateMemory: ({ memory, event }) => ({ ended: [...memory.ended, event.symbol] }) },   // req C10
+    RetryQuote: { target: "self", updateMemory: ({ memory, event }) => ({ ended: memory.ended.filter((s) => s !== event.symbol) }) },
+  },
+},
+// view
+const row = useView(watch, (s) => Watch.O.quotes.get(s, { symbol }))
+row?.value ? <Price value={row.value.price} />
+: row?.last ? <Price dim value={row.last.value.price} note={`as of ${ago(now - row.last.at)}`} />
+: <Price pending />
+```
+
+Quiet market: `Feed.live()` at subscribe registers it, and pings keep it `Live`. Half-open: 25 s, `Silent`, dim with true age. Equal price after reconnect: undimmed, not heard. A queued tick from before a drop is fenced and discarded (req F4, req F5). `subscribe.each` has no cap of its own (req M9).
+
+##### 2.11.12.4 Counter
+
+```ts
+delivers: "every", position: "id",   // no catchUp: history must not be counted
+subscribe: () => notifications(),    // user-defined
+reconnect: { while: (e) => e._tag === "Dropped" }, idleTime: "30 seconds",
+memory: { unread: Schema.Int, seen: Schema.Array(Schema.String) },        // user-defined: seen, the last few ids
+fills: "unread",
+Notification: { target: "self", updateMemory: ({ memory, event }) => memory.seen.includes(event.n.id) ? {} : { unread: memory.unread + 1, seen: [...memory.seen, event.n.id].slice(-256) } },
+MarkRead: { target: "self", updateMemory: () => ({ unread: 0 }) },        // cleared: stays 0
+MayHaveMissed: { target: "self", updateMemory: () => ({ countMayBeLow: true }) },
+```
+
+Or accept drift, and drop `seen`.
+
+##### 2.11.12.5 LLM tokens with Stop
+
+As in the record's v2 4.4: **a streaming write stays a transaction.** Nothing here touches it (req I3).
+
+```ts
+ask: transaction({
+  id: "Assistant.ask", input: { threadId: Schema.String, prompt: Schema.String }, output: Answer, key: ["threadId"],
+  progress: { text: Schema.String }, concurrency: "reject",
+  commit: (input, { attempt, signal, progress }) => Effect.gen(function* () {
+    const http = yield* FetchHttpClient.Fetch   // the seam Fake.fetch binds
+    const res = yield* Effect.tryPromise({
+      try: () => http("/api/ask", { method: "POST", body: JSON.stringify(input), headers: { "Idempotency-Key": attempt.id }, signal }),
+      catch: () => Outcome.unknown(new NoResponse()) })
+    if (!res.ok) return yield* (res.status >= 500 ? Outcome.unknown(new ServerError({ status: res.status })) : Outcome.failure(new Refused({ status: res.status })))
+    let text = ""
+    let done: Usage | undefined
+    yield* Stream.fromReadableStream({ evaluate: () => res.body!, onError: () => new NoResponse() }).pipe(
+      Stream.decodeText(), Stream.splitLines,
+      Stream.timeoutOrElse({ duration: "20 seconds", orElse: () => Stream.fail(new Stalled()) }),   // a stall fails. Rule 25 still governs calls
+      Stream.runForEach((line) => Effect.sync(() => {
+        const f = JSON.parse(line)
+        if (f.t === "token") { text += f.text; progress({ text }) }       // no turn per token
+        if (f.t === "done") done = f.usage
+      })),
+      Effect.catch((e) => Outcome.unknown(e)))
+    if (done === undefined) return yield* Outcome.unknown(new Truncated())
+    return { text, usage: done }
+  }),
+}),
+// machine
+IDLE:   { on: { Ask: { target: S.ASKING, guard: [O.ask.idle], actions: [O.ask.commit(({ memory, event }) => ({ threadId: memory.threadId, prompt: event.prompt }))] } } },
+ASKING: { on: { Stop: { target: "self", actions: [O.ask.cancel] }, Answered: { target: S.IDLE, updateMemory: ({ event }) => ({ last: event.text, incomplete: false }) } } },
+on: { Stopped: { target: S.IDLE, updateMemory: ({ event }) => ({ last: event.partial, incomplete: true }), actions: [O.ask.cancel] } },
+// view
+const text = useView(chat, (s) => s.operations.ask.progress?.text ?? s.memory.last)
+```
+
+req W6: Stop then Ask is admitted once `Stopped` releases the hold; a retry may be charged twice.
+
+##### 2.11.12.6 Upload
+
+As in the record's v2 4.5.
+
+```ts
+put: transaction({
+  id: "Uploads.put", input: { ref: Schema.String, file: Schema.instanceOf(File) }, output: Stored, key: ["ref"],
+  progress: { sent: Schema.Number, total: Schema.Number }, concurrency: "reject",
+  commit: ({ ref, file }, { attempt, signal, progress }) => Effect.callback<Stored, Outcome.Unknown<UploadLost> | Outcome.Failure<TooLarge>>((resume) => {
+    const xhr = new XMLHttpRequest()
+    xhr.upload.onprogress = (e) => { if (e.lengthComputable) progress({ sent: e.loaded, total: e.total }) }
+    xhr.onload = () => resume(xhr.status === 201 ? Effect.succeed(JSON.parse(xhr.responseText)) : xhr.status === 413 ? Outcome.failure(new TooLarge()) : Outcome.unknown(new UploadLost({ status: xhr.status })))
+    xhr.onerror = xhr.ontimeout = () => resume(Outcome.unknown(new UploadLost({ status: 0 })))
+    xhr.onabort = () => resume(Outcome.unknown(new UploadLost({ status: -1 })))
+    signal.addEventListener("abort", () => xhr.abort())
+    xhr.open("PUT", `/uploads/${ref}`); xhr.setRequestHeader("Idempotency-Key", attempt.id); xhr.send(file)
+  }).pipe(Effect.timeoutOrElse({ duration: "10 minutes", orElse: () => Outcome.unknown(new UploadLost({ status: -2 })) })),
+}),
+// view
+const label = !row.pending ? undefined : row.progress && row.progress.sent < row.progress.total ? `Sending ${pct(row.progress)}` : "Waiting for the server…"
+```
+
+##### 2.11.12.7 Entity `listen` (Supabase)
+
+```ts
+export const Tickets = { changes: stream({
+  id: "Tickets.changes", input: { queueId: Schema.String }, output: TicketChange, key: ["queueId"],
+  delivers: "every",
+  subscribe: ({ queueId }) => Effect.map(TicketChannel, (t) => t.changes(queueId)).pipe(Stream.unwrap),   // user-defined: TicketChannel, below
+  reconnect: { while: (e) => e._tag === "ChannelDown" },   // the adapter fails on a channel error, so Flow rejoins
+  idleTime: "Infinity",                                                   // No heartbeat reaches the adapter; status reports
+}) }
+// tickets.domain.ts
+changes: listen(Tickets.changes).as([Ticket], (c) => c.kind === "delete" ? Ticket.delete({ id: c.id }, { version: c.version }) : Ticket.patch({ id: c.id }, c.fields)),
+// queue.definition.ts
+operations: ({ E }) => ({ changes: TicketsDomain.changes.outcomes({ failure: { SignedOut: E.SignedOut, ChannelDown: E.PushEnded, Feed: E.PushEnded } }) }),
+// queue.machine.ts
+QUEUE: { activities: [O.changes.subscribe(({ memory }) => ({ queueId: memory.queueId }))], on: { PushEnded: S.QUEUE_ENDED } },
+```
+
+```ts
+// ticket.channel.ts, user-defined: the adapter, as a service
+export class TicketChannel extends Context.Service<TicketChannel, {
+  readonly changes: (queueId: string) => Stream.Stream<TicketChange | Feed.Signal, ChannelDown | SignedOut>
+}>()("app/TicketChannel") {
+  static readonly layer = Layer.effect(TicketChannel, Effect.map(Supabase, (sb) => ({ changes: (queueId) => Feed.callback<TicketChange, ChannelDown | SignedOut>((emit) => Effect.gen(function* () {
+    const ch = sb.channel(`queue:${queueId}:${crypto.randomUUID()}`)      // a topic of its own, so removing it closes nothing shared
+      .on("postgres_changes", { event: "*", schema: "public", table: "tickets", filter: `queue_id=eq.${queueId}` }, (p) => emit(toChange(p)))
+      .subscribe((status) => {
+        if (status === "SUBSCRIBED") emit(Feed.live())
+        else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") emit.fail(new ChannelDown({ status }))
+      })
+    const off = sb.auth.onAuthStateChange((e) => { if (e === "SIGNED_OUT") emit.fail(new SignedOut()) })
+    yield* Effect.addFinalizer(() => Effect.promise(async () => { off.data.subscription.unsubscribe(); await sb.removeChannel(ch) })
+      .pipe(Effect.timeout("3 seconds"), Effect.ignore))
+  })) })))
+}
+```
+
+**Costs (req E9, req E10, req E11).** One refetch per subscribed list on re-entry. A change before `SUBSCRIBED`: at most 2 reads. One connection cannot feed both records and a log: the desk keeps 2.
+
+##### 2.11.12.8 SDKs by recipe
+
+**Vendor behaviour is from the record's v2, blind and prior-art notes. None was run.** Rule: 2.11.3's `reconnect` row. A finalizer removes only what it created (req L6). Socket.IO, Firestore, polling, `fetch`, a reduced Ably compile in the record's spike (its the record's section 11); the rest in ST RV3's.
+
+| Source | `reconnect`, `idleTime` | req F9 |
+| --- | --- | --- |
+| Raw WebSocket, Presence, ticker | yes, a duration | Yes |
+| Socket.IO, Ably, Phoenix | none | The SDK's |
+| Firestore | none | **No**: half-open stays current. req F10 fails |
+| Supabase | yes, `"Infinity"` | Status from the SDK |
+| graphql-ws | yes, a duration, `keepAlive` on | Yes: pongs. `on("pong")` is client-wide, so it proves the socket, not each subscription |
+| Electric | yes, a duration | Yes: `up-to-date` |
+| EventSource | yes, `"Infinity"` | **No**, unless a named `ping` event. req F10 fails |
+| Polling | yes, a duration | Yes: a hung GET |
+| Streaming `fetch` | yes, a duration | Yes: blank lines |
+
+**Socket.IO** (`every`; no position).
+
+```ts
+delivers: "every",
+subscribe: ({ room }) => Feed.callback<Msg, Rejected | SioDropped>((emit) => Effect.gen(function* () {
+  const s = sio.socket(room)                                              // user-defined: forceNew, reconnectionAttempts: 8
+  s.on("connect", () => emit(s.recovered ? Feed.live({ proof: "socket.io recovered" }) : Feed.live()))
+  s.on("disconnect", (why) => why === "io server disconnect" ? emit.fail(new Rejected({ why })) : emit(Feed.down({ why })))
+  s.io.on("reconnect_failed", () => emit.fail(new SioDropped()))          // the SDK's budget is the budget
+  s.on("chat", (m) => emit(m))
+  yield* Effect.addFinalizer(() => Effect.sync(() => s.disconnect()))
+})),
+```
+
+Streams T2's row 7 covers this. REST history read first: one notice per load. With no `reconnect`, one `Overflow` is terminal: the machine must re-open.
+
+**Ably** (`every`; `RcMap` compiled by ST RV1). **Unconfirmed:** whether a transparent resume emits a channel event, so react to channel states rather than `connection.on`.
+
+```ts
+delivers: "every", position: "serial",
+subscribe: ({ name }) => Effect.map(AblyChannel, (c) => c.messages(name)).pipe(Stream.unwrap),   // user-defined: AblyChannel, below
+catchUp: ({ name }, { from, next, signal }: { from: Serial | undefined; next: Walk | undefined; signal: AbortSignal }) =>   // annotated: a richer token. user-defined: Walk
+  history(name, from, next?.page, signal).pipe(Effect.map((p) => {        // newest first
+    const head = next?.head ?? p.firstSerial                              // the walk's first page: where this read ends
+    const items = [...p.items].reverse()
+    return p.reachedRetention ? Feed.gone({ reason: "past retention", items, through: head })
+      : p.hasNext && head ? Feed.more({ items, next: { page: p.next, head } })   // no through: pages are newest first
+      : Feed.done({ items, proof: "walked back to from", through: head })
+  })),
+// the machine's handlers: this walk is newest first, so insert by position, then trim
+Message: { target: "self", updateMemory: ({ memory, event }) => ({ messages: insertByPosition(memory.messages, [event.message]).slice(-100) }) },   // user-defined: insertByPosition sorts by serial
+Page: { target: "self", updateMemory: ({ memory, event }) => ({ messages: insertByPosition(memory.messages, event.messages).slice(-100) }) },   // the trim comes after the sort (2.11.5)
+```
+
+```ts
+// ably.channel.ts, user-defined: the adapter, as a service
+export class AblyChannel extends Context.Service<AblyChannel, {
+  readonly messages: (name: string) => Stream.Stream<Msg | Feed.Signal, AblyDown | HistoryDown>
+}>()("app/AblyChannel") {
+  static readonly layer = Layer.effect(AblyChannel, Effect.map(Ably, (a) => ({ messages: (name) => Feed.callback<Msg, AblyDown | HistoryDown>((emit) => Effect.gen(function* () {
+    const ch = yield* RcMap.get(a.channels, name)   // released with the scope
+    let first = true
+    const attached = (c: ChannelStateChange) => { emit(c.resumed && !first ? Feed.live({ proof: "ably resumed" }) : Feed.live()); first = false }   // a cached channel's first flag proves nothing (req G6)
+    const update = (c: ChannelStateChange) => { if (!c.resumed) emit(Feed.live()) }
+    const down = (c: ChannelStateChange) => emit(Feed.down({ state: c.current }))
+    const message = (m: InboundMessage) => emit(toMsg(m))   // user-defined: toMsg. Ably's types
+    ch.on("attached", attached); ch.on("update", update); ch.on("detached", down); ch.on("suspended", down); ch.on("failed", (c) => emit.fail(new AblyDown({ reason: c.reason?.message })))
+    yield* Effect.promise(() => ch.subscribe(message))
+    if (ch.state === "attached" && first) { emit(Feed.live()); first = false }
+    yield* Effect.addFinalizer(() => Effect.sync(() => { ch.off(attached); ch.off(update); ch.off(down); ch.unsubscribe(message) }))
+  })) })))
+}
+```
+
+**graphql-ws** (`every`; `retryAttempts: 0`, `keepAlive: 10_000`, which defaults to off).
+
+```ts
+delivers: "every", position: "cursor",   // a Subscribed first event registers within idleTime; a pong before it does not extend it
+subscribe: ({ boardId }, { from }) => Stream.unwrap(Effect.map(Gql, (gql) =>
+  gql.pongsAndEvents({ query: BoardEvents, variables: { boardId, after: from } }).pipe(   // user-defined: iterate merged with on("pong")
+    Stream.map((x) => x.t === "pong" ? Feed.ping
+      : x.ev.__typename === "Subscribed" ? (sameCursor(x.ev.replayedFrom, from) ? Feed.live({ proof: "server replayed" }) : Feed.live({ head: x.ev.head }))
+      : x.ev)))),
+reconnect: { while: (e) => e._tag === "GqlDropped" }, idleTime: "30 seconds",
+```
+
+Cost: with no server first event, registration is the first `next`: write `idleTime: "Infinity"`, and a quiet subscription stays `Connecting` (req FC66), half-open undetected.
+
+**Firestore** (`latest`; a listener error is final).
+
+```ts
+delivers: "latest",
+subscribe: ({ docId }) => Feed.callback<Doc, NoAccess | ListenError>((emit) => Effect.gen(function* () {
+  let cached = false
+  const off = onSnapshot(docId, (snap) => {
+    if (snap.fromCache) { cached = true; emit(Feed.down("served from cache")) }   // the fence keeps the next value from reading current (Streams T6)
+    else if (cached) { cached = false; emit(Feed.live()) }
+    emit(snap.data)
+  }, (err) => emit.fail(err.code === "permission-denied" ? new NoAccess() : new ListenError({ code: err.code })))
+  yield* Effect.addFinalizer(() => Effect.sync(off))
+})),
+```
+
+Costs: an optimistic echo reads current (req F13); req F10 fails; `fromCache` unconfirmed.
+
+**Phoenix** (`every`; `heartbeatIntervalMs` set). **Unconfirmed:** `receive("ok")` firing on a rejoin.
+
+```ts
+delivers: "every", position: "id",
+subscribe: ({ topic }, { from }) => Stream.unwrap(Effect.map(Phoenix, (p) => Feed.callback<Msg, ChannelClosed | JoinRefused>((emit) => Effect.gen(function* () {
+  const ch = p.socket.channel(topic, () => ({ after: from }))
+  ch.on("message", (m) => emit(m))
+  ch.onError(() => emit(Feed.down({ why: "channel error" })))
+  ch.onClose(() => emit.fail(new ChannelClosed()))
+  ch.join().receive("ok", (r) => emit(r.replayed ? Feed.live({ proof: "join replayed" }) : Feed.live({ head: r.head }))).receive("error", (e) => emit.fail(new JoinRefused({ e })))
+  yield* Effect.addFinalizer(() => Effect.sync(() => ch.leave()))
+})))),
+```
+
+An SDK self-rejoin sends the stale `from`: more replay. Safe: duplicates.
+
+**Electric** (`latest`).
+
+```ts
+delivers: "latest",
+subscribe: ({ where }) => Feed.callback<Rows, ElectricDown>((emit) => Effect.gen(function* () {
+  const ctl = new AbortController()
+  const stream = new ShapeStream({ url, params: { table: "tickets", where }, signal: ctl.signal })
+  stream.subscribe((msgs) => { if (msgs.some((m) => m.headers?.control === "up-to-date")) emit(Feed.live({ proof: "electric up-to-date" })) }, (e) => emit.fail(new ElectricDown({ e })))
+  new Shape(stream).subscribe(({ rows }) => emit(rows))
+  yield* Effect.addFinalizer(() => Effect.sync(() => ctl.abort()))
+})),
+reconnect: { while: (e) => e._tag === "ElectricDown" }, idleTime: "45 seconds",
+```
+
+**Cost, stated (ST RV2):** `latest` bans `position`, so offset and handle are not saved: each reconnect and reload re-syncs the whole shape, unless the adapter holds them for the session. `must-refetch` arrives as a new full value (req R21).
+
+**EventSource** (`every`; dense ids, no greeting).
+
+```ts
+delivers: "every", position: "id",
+subscribe: ({ userId }, { from }) => Feed.callback<Note, SseDropped>((emit) => Effect.gen(function* () {
+  const es = (yield* Sse).open(`/notes/stream?user=${userId}${from !== undefined ? `&after=${from}` : ""}`)   // user-defined: Sse, a service; a Story gives a client half over server.socket
+  let decided = false
+  es.onmessage = (m) => {
+    const note = toNote(m)
+    if (!decided) { decided = true; emit(from !== undefined && note.id === from + 1 ? Feed.live({ proof: `ids contiguous after ${from}` }) : Feed.live()) }   // req R15
+    emit(note)
+  }
+  es.onerror = () => emit.fail(new SseDropped())                          // closes, so the browser's Last-Event-ID cannot disagree
+  yield* Effect.addFinalizer(() => Effect.sync(() => es.close()))
+})),
+reconnect: { while: (e) => e._tag === "SseDropped" }, idleTime: "Infinity",
+```
+
+Why `reconnect` here: this adapter closes on error, so the browser's retry never runs. Costs: quiet reconnect stays `Connecting`; sparse ids unproven each time (req FC74); `onerror` hides status, so authenticated SSE uses `fetch` (req C11); six per origin (req L10).
+
+**Polling** (`every`). The desk's technician pulse needs `idleTime` too. A first answer registers; a hung first GET ends `Silent`.
+
+```ts
+delivers: "every", position: "cursor",   // a hung GET: Silent
+subscribe: ({ ticketId }, { from }) => Stream.paginate({ cursor: from ?? "0", first: true }, ({ cursor, first }) => progress(ticketId, cursor).pipe(
+  Effect.map((b) => [
+    [...(first ? [Feed.live({ head: b.cursor })] : []), ...(b.events.length ? b.events : [Feed.ping])],   // ST RV2: the quiet false notice goes
+    Option.some({ cursor: b.cursor, first: false }),
+  ] as const),
+  Effect.delay("1 second"))),
+reconnect: { while: (e) => e._tag === "PollFailed" }, idleTime: "30 seconds",
+```
+
+A poll from `from` sees all, but `head` alone is unproven: a reconnect's first answer is a notice unless the server says so; `Feed.live({ proof: ... })` when `from` is defined and the server's contract is "every event after". `Connecting` until the first answer (req C14). A failed GET keeps the bookmark (req C12).
+
+**Streaming `fetch`** (`every`).
+
+```ts
+delivers: "every", position: "seq",
+subscribe: ({ feedId }, { from, signal }) => Stream.unwrap(Effect.gen(function* () {
+  const http = yield* FetchHttpClient.Fetch   // the seam Fake.fetch binds. A global fetch reaches no fake
+  const res = yield* Effect.tryPromise({ try: () => http(feedUrl(feedId, from), { signal }), catch: () => new BodyDropped() })
+  if (res.status === 401) return yield* new SignedOut()
+  if (!res.ok) return yield* new BodyDropped()
+  const hello = res.headers.get("x-replayed-from") === String(from) ? Feed.live({ proof: "server replayed" }) : Feed.live()
+  return Stream.fromReadableStream({ evaluate: () => res.body!, onError: () => new BodyDropped() }).pipe(
+    Stream.decodeText(), Stream.splitLines,
+    Stream.map((line) => line === "" ? Feed.ping : decodeRow(line)),
+    Stream.prepend([hello]))
+})),
+reconnect: { while: (e) => e._tag === "BodyDropped" }, idleTime: "30 seconds",
+```
+
+A body end is `Closed`, retried. req V8: a terminator becomes a typed error outside `while`.
+
+#### 2.11.13 Tooling and testing
+
+**Single graph, single runtime.** Streams T1 is one Runtime record. `delivers`, `idleTime`, `reconnect`'s presence, `catchUp`'s presence, `position`, `fills`, `failure`'s keys, the action are readable without running a closure. `while` and `schedule` are closures. No new memory writes; `check()` runs steps 2–6, so it touches no bookmark.
+
+**`flow check`:** `FeedUnhandled`, `ListenNeedsEvery`, rule 20 rows, `DuplicateSession`, `DuplicateListen`, `VerbMismatch`, `DuplicatePlacement`, `KeyRequired`, NEW `SharedFills` (two ops, one field), NEW `FillsNotPerKey`, NEW `UnboundedBridge` (source text on `Stream.callback`; not built).
+
+**`flow explain`:** `LIVE subscribes messages (Chat.messages, every, one session per room, fills messages, idle 45s, reconnects by predicate, catches up)`.
+
+**Inspection:** per session: state, `drop`, Streams T2 row and basis, each `proof`, losses, bookmark and `filled`, bound, release; counters plus a ring of the last 256. Flags: `ValuesWhileDown`, `RegistrationChurn`, `ReleaseOverdue`, `ProofWithoutPosition`, `PingsWithoutLive`, `IdleWithoutPing`, `DeliveryDenied`, `FillsUntouched`. Stories templates assert no flags.
+
+**The chat Story**, as [stories-amended.md](../merged/story-checks/stories-amended.md) the record's section 11 fixed it. Illustrative; not run.
+
+```ts
+const ChatFake = Fake.webSocket(Chat, chatRoutes)   // user-defined: Chat, chatRoutes
+export const chat = Story.machine(ChatRoom, {   // [W1]
+  id: "chat/replay-then-reset", input: { roomId: "r1" }, fixtures: [ChatSocket.layer, ChatFake, HistoryFake],   // user-defined. [P, merge] ChatSocket is in R, so its Layer is a fixture; ChatFake binds the constructor it reads
+  world: [Chat.seed({ history: seed })],                                  // user-defined control
+})
+  .checkpoint("live")                                                     // a start cut
+  .world(Chat.greet({ replay: false }), Chat.history.drop({ at: "response" }), Chat.socket.drop())   // [W37]; a page fails once
+  .advance({ next: { operation: O.messages, timer: "backoff" } })   // [W7]; reconnects, reads, the page's answer is lost
+  .advance({ next: { operation: O.messages, timer: "page" } })
+  .checkpoint("caughtUp")
+  .world(Chat.resetLog({ epoch: 9 }), Chat.socket.drop())
+  .advance({ next: { operation: O.messages, timer: "backoff" } })
+  .checkpoint("reset")
+
+test("replay, then reset", async () => {
+  const { live, caughtUp, reset } = (await chat.run()).checkpoints
+  expect(live.operations.messages?.connection).toBe("Live")
+  expect(caughtUp.records("session", { operation: O.messages }).filter((r) => r.drop)).toHaveLength(1)
+  expect(caughtUp.operations.messages?.catchingUp).toBe(false)
+  expect(reset.records("session", { operation: O.messages }).at(-1)?.bookmark?.at?.epoch).toBe(9)
+})
+```
+
+**Reading the bookmark in a test (ST DT 5.1).** This replaces the five weakened assertions: "does not move backwards", the cursor after a catch-up, the cursor after a reload, and the request-log and entry-count stand-ins.
+
+```ts
+const bookmark = (cp: Story.Frame<typeof ChatRoom>) => cp.records("session", { operation: O.activity }).at(-1)?.bookmark
+expect(bookmark(caughtUp)?.at).toEqual({ epoch: 8, seq: 41 })             // the cursor after a catch-up
+expect(bookmark(afterReload)?.at).toEqual({ epoch: 8, seq: 41 })          // the cursor after a reload
+expect(bookmark(afterOlderFrame)?.at).toEqual({ epoch: 8, seq: 40 })      // last delivered wins: it may move backward, on purpose
+expect(afterReload.read(Desk.socket).at(-1)?.input.from).toEqual({ epoch: 8, seq: 41 })   // what the server saw
+expect(bookmark(cleared)?.filled).toBe(false)                             // cleared, no message since
+```
+
+A reload Story is `Story.app`; a record outlives the session, since `session` records are the run's. `Story.Frame` is by subject (2.10.6), so on a `Story.app` cut the helper annotates that setup's frame, not `ChatRoom`'s [P, merge].
+
+**A Flapping Story, by plain construction (ST DT 5.3; `stories-amended.md`'s table).** A loop of `world` and `advance` adds no checkpoint, so the builder's type is unchanged.
+
+```ts
+const flapped = Array.from({ length: 7 }).reduce(                         // plain JavaScript
+  (story: typeof base) => story.advance("1 second").world(Chat.socket.drop()).advance({ next: { operation: O.messages, timer: "backoff" } }),
+  base,                                                                   // user-defined: base, a Story past its first registration
+).advance("1 second").world(Chat.socket.drop())                           // the eighth drop ends it: no backoff left (W7)
+ .checkpoint("ended")
+test("eight quick drops end the session", async () => {
+  const { ended } = (await flapped.run()).checkpoints
+  expect(ended.state).toBe(S.ENDED)                                       // after FeedEnded the row is undefined
+  expect(ended.records("session", { operation: O.messages }).at(-1)?.ended).toBe("Flapping")
+})
+```
+
+**Fakes: `pushes` stays out (ST Q8).**
+
+```ts
+// desk.fake.ts: 6 lines, then one line per handler
+const pushed = (before: Truth, after: Truth) => ({ truth: after, send: [Desk.socket.frames(sameWorkspace(after), newEntries(before, after))] })   // user-defined
+```
+
+#### 2.11.14 Words and cuts
+
+Words an author writes, by v2's method (the word count of ST RV1):
+
+| Tier | Words | Count |
+| --- | --- | --- |
+| Common | `reconnect`, `idleTime`, `position`, `from`, `Feed.callback`, `Feed.live`, `proof`, `Feed.ping`, `missed`, `fills`, `Feed` key, `drop`, `value`, `last`, `connection` literals | **15** |
+| Uncommon | `Feed.down`, `catchUp`, `next`, `Feed.more`, `Feed.done`, `Feed.gone`, `head`, `through`, `pages`, `catchingUp`, `O.x.bookmark` (`at`, a position only), `Feed.Signal` | **12** |
+| Rare | `restartAt`, `why` | **2** |
+| **Total** | | **29** |
+
+Read-only: reasons `Closed`, `Overflow`, `Silent`, `Flapping`; findings and flags. **Not counted:** `O.x.refetch`, existing, so reload costs no word; `items`, `reason` are keys of the answer objects.
+
+**Why 29.** `errors` and `"never"` cut under S14; `at` split in two because it meant four things; `Feed.Signal` is honest (ST DT). `pages` is the only easy cut left; it should stay.
+
+**Cut.**
+
+| Cut | What replaces it |
+| --- | --- |
+| `Feed.reconnect`, 70 cells | Contract data, one session table |
+| `fresh`, `registered`, `announced`, `initial`, the guard, "`from` required with `position`" | The bookmark, `fills` |
+| `after` in `input`, `cursor` in memory, `restartAt` in `missed`'s payload | The bookmark |
+| `seen`, `tail`, `meet`, P0, P1, P3 | The bookmark stays put until a read says |
+| `resetAfter`, `bufferSize` | Constants, 1 minute, 1,024. A flood test sends 1,025 frames |
+| A private clear mark | Stated limit in 2.11.8: more private state for one sequence, and a bug in it would hide items silently |
+| `Feed.CannotRepair`, `continueAt` | `Feed.gone` |
+| `lost` as an option | `Feed.live()`; `Lost` from `Feed.gone` or a stall |
+| `"accept"` | One handler |
+| `errors`, `"never"` | Inferred `E`; `"Infinity"`, Duration.Input's own |
+| The fact row's `last`; hello deadline; prepended `Feed.live()` | Nothing read it; `idleTime`; the first value registers |
+| `RETRY_WAIT` in chat | The default. Escalation stays a recipe |
+| `pushes`, ST RV3's dotted `fills: "room.messages"`, `Feed.finished`, a Flow `merge`, per-repair progress for newest-first pages, a duplex fake | Not taken. req V8: a terminator becomes a typed error outside `while` |
+| Outbound live state, one shared session per Runtime, a `reconnect` member, `fromRpc` streams | Out of scope, open-items 16–19 |
 
 ## 3. Example
 
@@ -6340,10 +7298,12 @@ turn (rule 6).
 | **New, fragments** | `trait`, `subroutine`, `traits` (root and node), `Flow.state`, `.resumable()`, `.each` (`of`, `max`, `by`), `key` / `item` in fillings and copy views, `.key(k)`, `hostEvents`, `guards`, `callbacks`, `exits` (declarations and fillings), `notify`, the `Flow` module (`Flow.Guard`, `Flow.Callback`, `Flow.Exit`, `Flow.optional`, `Flow.uncertain`, `Flow.annotate`, `Flow.input`, `Flow.initial`, `Flow.private`, `Flow.Denial`, `Flow.entry`), `raise`, `resetOn`, `whenAbandoned`, the definition's `handler` / `guard`, state tokens in guard arrays; (operations in fragments) `operations` in a trait or subroutine declaration, `O` in a fragment body, `Fragment.O.<write>.get` / `.idle` / `.retryable` outside it, `activities` in a trait body, `s.operations.<instance>.<name>`, a string `resetOn` on a writing trait, key-less `O.x.cancel` in `whenAbandoned` (existing words, new meanings; no new word) |
 | **New, plans** | `Outcome.success`, `Outcome.failure`, `Outcome.unknown`; Flow's reasons `NotSent { why }` (`Cancelled`, `Restored`, `Rejected`, `Overloaded`, `StorageRefused`, `Disposed`), `Cancelled`, `Restored`, `Interrupted`, `Defect`, `StillUnknown { failure }`, `StorageRefused`; evidence `Superseded`, `Released`, `NothingToResend`, `InFlight`; (operations merge) contracts with `input`, `output` (omitted: `Schema.Void`) and a required `key: [...]` field list, in `*.contracts.ts`; `operations: ({ E }) => ({ … })` with `contract.outcomes({ … })` (`unknown` may be a record by tag); the handles `O.x` with `commit(select)`, `lookup(select)`, `subscribe(select)`, `subscribe.each(select)`, `retry(k?)`, `cancel(k?)`, `idle(k?)` (a partial key allowed), `retryable(k?, { times })`, `refetch`, `get(s, k?)`; the rows `s.operations.<name>` with `pending`, `uncertain`, `waiting`, `retryCount`, `progress`, `outstanding`; the mapper's `{ input, attempt, progress, key }`; the operation's options argument `.outcomes(mapping, { writes })` and the commit's `{ optimistic }` (OD26); `runtime.unsettledWrites()`; the findings `SharedContract`, `DuplicatePlacement`, `VerbMismatch`, `KeyRequired`, `UnresolvedHold`, `KeyOmitsInput`, `UnusedOperation`; the denials `Uncertain`, `RetryLimit`; `DehydrateCommitInFlight`; `attempt.id`, `attempt.retryCount`, `attempt.mayHaveApplied`; `concurrency: "latest"`; the record read `{ data, predicted, uncertain, unconfirmed }` (`predicted` replaces the record's and the resource lane's `pending`); (merge 5) the condition operators `or`, `not`, `gt`, `gte`, `lt`, `lte`, `isNull`, a predicted field's `(beneath, input) => value`, the Runtime option `checkReplays`, the warning `PredictionNotRetained`; the codes `InFlight` and `LateMayNotLeave`; `keys` on keyed schedules (key records); `orphaned`; `.history` (and `.history.child`); `armOn`; `disarmOn`; `s.schedules`; `dueAt` (`model()` and its options are removed: T1, C82) |
 | **New, Stories** | (rules 61–66, 2.10; common) `Story.machine` (`id`, `fixtures`, `world`), `send`, `advance` (settles at every deadline; `{ next: address }`), `checkpoint`, `world`, `run`, `run.checkpoints`, `run.end`, the reads `read`, `lane`, `records` (`since`), `attempt` (`n`), `now` beside the existing `state`, `memory`, `operations`, `schedules`, `Fake.server` (`truth`, `initial`, `endpoints`, `controls`), `Fake.call` (`request`, `handle`, `response`), `Fake.control`, `Fake.Lost`, `hold`, `release`, `drop`, `at`, `times`; (uncommon) `Story.app`, `Story.fragment`, `together` (`{ advance }`), `duplicate`, `match` (`purpose`, `input`), `after`, `Fake.storage`, `Fake.stream` (`frame`, `open`, `ping`, `every`, `frames`, `refuse`, `end`), `send` on a result, `.frames`, `.close`, `.end`, `Fake.webSocket`, `Fake.fetch` (`endpoint`, `input`, `params`, `query`, `body`, `headers`), `Fake.Refused`, `Fake.Closed`, `dispose` (`how`), `reload`, `guards`, `inspection` (`work`, `incarnations`), `tabs`, `entity`, `run.frames` (`truncated`), `advance(…, { suspended })`, `checkpoint(…, { at })` (`settled`, `turn`, `step`), `openTab(…, { from })`, `enter(input, { subject })`, `leave({ end })`; (rare) `advance({ to })`, `reset` (a fragment alone), `release({ nth })`, `storage`, `seed`, `Fake.storage.seed`, `Fake.storage.from(story)`, `propertyTest(story, …)` (`steps`, `properties`, `whenQuiet`, `runs`, `length`, `quietWithin`), `domainPropertyOptions`, the types `Story.Frame`, `Story.Step`; the errors `StoryInvalidCommand`, `NoConnection`, `NoDeadline`, `HostTimeWait`, `AmbiguousRead`, `PropertyTestFailed` (with the reason `PropertyDefect`), `StoryFakeError`, `SubjectAbsent`, the diagnostic `UnusedWireRule`, and the `Fail` reason `FramesTruncated`; twenty-one record kinds that `records` takes (read, not written). Reused: `ensure`, `closeTab`, `setContext`, `dehydrate`, `hydrate`, `within`, `maxBytes`, `label`, `serverView`. The address is a shape, not a word |
+| **New, streams** | (rules 67–72, 2.11; common) `reconnect` (`while`, `schedule`), `idleTime`, `position`, `from`, `Feed.callback` (`emit`, `emit.fail`, `emit.end`), `Feed.live`, `proof`, `Feed.ping`, `missed`, `fills`, the `Feed` key of `failure`, and on the row `drop`, `value`, `last`, `connection`'s literals; (uncommon) `Feed.down`, `catchUp`, `next`, `Feed.more`, `Feed.done`, `Feed.gone`, `head`, `through`, `pages`, `catchingUp`, `O.x.bookmark` (`at`), `Feed.Signal`; (rare) `restartAt`, `why`. 29 in all (2.11.14). Read-only: the reasons `Closed`, `Overflow`, `Silent`, `Flapping`; `progress(p)` in a commit's context. Existing with a new meaning: `delivers`' values `"every" \| "latest"` (S11), `O.x.refetch(k?)` on a stream. New concepts, not words: the **bookmark**, **cleared** and **wiped**, a **connection** within a **session** |
 | **New concepts, not words** | **incarnation** (one life of a fragment instance), **frozen** (a resumable trait while its node is inactive), **summary** (a contract's inferred per-alternative effects), the memory views **before**, **before-walk** and **after** (2.5, rule 22), pending reset, the three **channels** (2.7.1), a **write** (one Attempt) and a **send** (one invocation), a **contract** and an **operation** (rules 39, 40), the **write lane** with its states **`Idle`**, **`InFlight`**, **`Held`** and **`HeldThisTurn`** and its queued commits **`W`** (rule 21, 2.7.13), the **hold**, the lane's **addressable Attempt**, **after lanes**, the **binding incarnation**, an **unbound lane**, an **unplaced lane**, a **releasing lane**, the **subject path** (rules 51, 53, 60), **rebind**, **actor identity**, a **pending mapped outcome** (rule 44), a **keyed list** (rules 21, N1, N2), a call's **owner** and its **current** or **late** ending (rule 14), **late turn** (rule 15), the **Attempt's ending** (rule 18); the **record queue** (per record, across actors, rule 29), the **uncertain mark** (per record and Attempt, rule 32), **settlement** versus **admission** (rule 27), a **create draft** (`creating`, a convention, rule 33); (merge 5) yes / no / maybe, a **carried path**, the **record beneath**, an **uncomputed** prediction, a **prediction fault**, `many` |
 | **Existing** | `definition`, `machine`, `states`, `default`, `events`, `internalEvents`, `input` (caller side only: `ensure`, `useActor`, a host's filling), `memory`, `on`, `target`, `guard`, `updateMemory`, `actions`, `schedules`, `restartOn`, `transaction`, `key`, `concurrency`, `commit`, `outcomes`, `optimistic`, `setData`, the Attempt, `deny`, `check`, `S`, `E`, `O`, `.from`, `payload` |
 | **Removed** (operations merge) | commit values and their `{ outcomes }` option; `writes` as a commit option; `s.calls`; `s.activities` and the `activities` record; `keys` on activities; `read.fetch(key)`; the mapper's `superseded`, `laneKey` and copy `key`; `SharedCopyLane`; the default lane key of a domain write; key closures `key: (i) => …`; `result` and `params` on contracts; `*.operations.ts`; `NotSent { Superseded \| NothingToResend }` as endings |
-| **Removed** (Stories, amended) | `Story.make` and `story.app`, `story.machine` (W1), `.expect`, `StoryExpectationFailed`, `AmbiguousAttempt` (SC1; P), `Story.property`, a Story's `properties` option (W25), `Story.records`, `Story.inspection`, `Story.entity`, `Story.attempt`, `Story.now` (W24), `process()` (W2), `advanceTo`, `advanceToNextTimer`, the `frames` option and frame collapse (W22), `run.calls`, `checkpoint.exit` (W34), the checkpoint predicate `.checkpoint(name, ({ truth }) => …)` (SC2, C16), `Story.ending` (never adopted), `model` and Testing O5 (W39), merge 6's `.do(…)` (W37), `accept`, tuple results, `Fake/Lost`, `{ to, send }` [fakes-v2], `latency`, `response` as an Effect, `headers` on `Fake.stream`, public `run.steps`, `message` on `Fake.stream`, `signal` on `run`, `Fake.storage.from`'s `{ at }`, `services?`, `shape` on a checkpoint read (P), Testing O4's `pending` for work |
+| **Removed** (Stories, amended) | `Story.make` and `story.app`, `story.machine` (W1), `.expect`, `StoryExpectationFailed`, `AmbiguousAttempt` (SC1; P), `Story.property`, a Story's `properties` option (W25), `Story.records`, `Story.inspection`, `Story.entity`, `Story.attempt`, `Story.now` (W24), `process()` (W2), `advanceTo`, `advanceToNextTimer`, the `frames` option and frame collapse (W22), `run.calls`, `checkpoint.exit` (W34), the checkpoint predicate `.checkpoint(name, ({ truth }) => …)` (SC2, C16), `Story.ending` (never adopted), `model` and Testing O5 (W39), earlier streams proposals' `.do(…)` (W37), `accept`, tuple results, `Fake/Lost`, `{ to, send }` [fakes-v2], `latency`, `response` as an Effect, `headers` on `Fake.stream`, public `run.steps`, `message` on `Fake.stream`, `signal` on `run`, `Fake.storage.from`'s `{ at }`, `services?`, `shape` on a checkpoint read (P), Testing O4's `pending` for work |
+| **Removed** (streams) | `Feed.reconnect` and its 70 cells; `fresh`, `registered`, `announced`, `initial`, the handler guard, "`from` required with `position`"; `after` in `input`, `cursor` in memory, `restartAt` in `missed`'s payload; `seen`, `tail`, `meet`; `resetAfter`, `bufferSize`; `Feed.CannotRepair`, `continueAt`; `lost` as an option; `"accept"`; `errors`, `"never"`; `DuplicateStreamSession`; `delivers: "facts" \| "state"`; `persist` on streams (2.11.14 has the list) |
 | **Author-chosen** | every other name (`Field`, `Lockout`, `challenges`, `LOCKED_OUT`, `canEdit`, `onLocked`, …) |
 
 ## 4. Against the problems in principles.md
@@ -6507,7 +7467,7 @@ The fragments merge ([merged/fragment-operations/proposal.md](merged/fragment-op
 | C54 | Machines O1 | A fragment may declare `operations` after `memory` and `traits`, mapped onto its own `internalEvents`; mapped writes only within rule 48's scope (every placement from the root a root trait, an `.each` copy or a `.resumable()` trait, any with a string `resetOn`, no subroutine); acting members only in the declaring fragment; `Fragment.O` exposes its write operations' reads; key-less `O.x.cancel` in `whenAbandoned` releases on leave (rules 48–50, 60) | Amends the fragments row "A fragment declares what a definition declares (…)" |
 | C55 | Machines O4 | A host's guards read a fragment's write lanes with `Fragment.O.x.get`, `idle`, `retryable`; every `updateMemory` receives `operations` (pre-turn lanes, `get` only); inside a fragment `operations` is its own rows (rules 22, 50, 59) | Amends C38 |
 | C56 | Machines O5 | `Flow.entry` does not fire on a thaw; a fragment's keyed schedule reads its own rows (rules 23, 52, 59; F8) | Amends P7, C39 |
-| C57 | Machines O6 | `activities` in a trait body or a subroutine's states, placed for the incarnation's life; a freeze releases them, a thaw places them again (rules 41, 52; *Stream details: merge 6*) | Amends C40 |
+| C57 | Machines O6 | `activities` in a trait body or a subroutine's states, placed for the incarnation's life; a freeze releases them, a thaw places them again (rules 41, 52); a stream placement in a fragment is one session per placement path (rule 68) | Amends C40 |
 | C58 | Machines O8 | The snapshot exposes `s.operations.<instance>.<name>`, `undefined` while inactive, a keyed list of copies under `.each`, each write row listing the lanes of that copy's path (rule 59) | Amends C41 |
 | C59 | Runtime O3, V4 | A write lane's identity is unchanged; it records the creating incarnation's subject path; its binding incarnation is the live incarnation with that path (the actor for a definition's operation); a member from another path is declined; with no binding incarnation in a live actor the ending is parked for the path; a starting incarnation (entry, copy, reset, thaw, rebind, restore) receives its path's parked endings, then held heads' `unknown { Restored }`, then in-flight endings, as follow-up turns (rules 51, 53, 54) | Amends C42 |
 | C60 | Persistence O2 | The lane record carries the subject path (strings) and the releasing mark (a flag); a writing placement's reset value persists with its slice; a frozen slice persists its parked read endings (`Interrupted`) beside its frozen schedules; parked endings of an unplaced path are on the lane record (rules 46, 51, 52, 60) | Amends C44 and the fragments' Persistence O2 row |
@@ -6538,13 +7498,37 @@ Testing O4 and O9.
 | C76 | Testing O9 | The next-action highlight compares the addressed event; a closed tab renders nothing and reports the gap; fragment-alone Stories are not playable (a type error) (2.10.13) | Adds |
 | C77 | Testing O5, V1–V9 | O5 and V5 removed (W39, T1); V1 adds the reads' types; V3 proves rule 61 and the instant order, with the host-primitive matrix, the always-on sentinel and `K` doubling (SA RV3 section 2); V4 proves publication frames, steps and captured reads, and loses "recording and collapse"; V6 proves `propertyTest` judging, including `FramesTruncated` | Applies W39 |
 | C78 | Inspection O1 | `inspect(runtime)` adds `work` (with `waitsFor`) and `incarnations` (`status: active \| frozen`); lanes by identity with `binding` (`bound`, `unbound`, `unplaced`), `releasing` and parked endings; held wire items are not Runtime facts (2.10.6, 2.10.7) | Amends C51, C64 and the fragments' Inspection O1 row |
-| C79 | Inspection O4 | Event kinds gain `ending`, `lane` (with `cell`), `life`, `callback`, `exit`, `listRepair`, `drop`, `session` (with `cell`; *Stream details: merge 6*), and for Story runs `step`, `request`, `control`, `verdict`; `turn` carries the keys its mappers read that it writes; every event gains the run-wide sequence and `tab: { name, open }`; the `delivery` kind [fakes-v2]; `records` takes 21 kinds (2.10.6); the diagnostic `UnusedWireRule` (2.10.4) | Adds |
+| C79 | Inspection O4 | Event kinds gain `ending`, `lane` (with `cell`), `life`, `callback`, `exit`, `listRepair`, `drop`, `session` (with `cell`), and for Story runs `step`, `request`, `control`, `verdict`; `turn` carries the keys its mappers read that it writes; every event gains the run-wide sequence and `tab: { name, open }`; the `delivery` kind [fakes-v2]; `records` takes 21 kinds (2.10.6); the diagnostic `UnusedWireRule` (2.10.4) | Adds |
 | C80 | Inspection O5 | Fake truth and request inputs leave the process as digests; `via` is identity, never redacted | Adds |
 | C81 | CommandLine O2, O5, O6 | `describe` prints subject, options, steps, checkpoints and every fake the plan names (W40); `flow story run` reports what ran, exits 2 on a rejected run, and prints `issue` records and unused wire rules; coverage by cells, handlers (current and late) and Flow reasons, stated as reached; Story-derived warnings from `verdict`, `listRepair`, `drop`, `ending` (rule 51's declines) and `turn` records; rule 20 at a stand-in after a subject change (2.10.12); top-level Stories in `defineConfig` (`appId: null`) (2.10.14) | Amends T2 |
 | C82 | Package O1 | `flow-state/testing` exports `Story`, `Fake`, `propertyTest`, `domainPropertyOptions`, `StoryFrame`, `StoryPlayer`, `definePresentation`, `defineConfig`, `type StoryRun`, the error classes `PropertyTestFailed`, `Fake.Lost`, `Fake.Refused` and `Fake.Closed`; `story` and `model` removed (W39); no test-runner adapter package (proposed; follows from SC2–SC4); `flow-state/internal/testing` (not public) exports `disposeRuntime` for Flow's suite | Amends Package O1 |
 | C83 | Diagnostics | The error names of C75 | Adds |
 | C84 | EntityDomains O2, O4 | `Entity.queue` removals are `queue` records with their reason (`Superseded`, `Cancelled`, `Released`; an `Overloaded` write never joined and is an `ending` record, rule 35); `domainPropertyOptions(domains, inputs)` keeps O4's oracle, quietness (with 2.10.16's line on recurring schedules) and `Inconclusive` rules | Resolves C30's deferred half and delegated-decisions row 3 (K11) |
 | C85 | Persistence O7 | The capture that removes a cancelled Attempt's acknowledgement queues behind that acknowledgement (one writer per scope); an acknowledgement stored before a crash restores as `unknown { Restored }` even if this Runtime had cancelled the Attempt (2.7.13's restore row; Stories T7; section 7 item 21) | Adds |
+
+### For streams
+
+The streams merge ([merged/streams/proposal-v3.md](merged/streams/proposal-v3.md), section 9): **all proposed**, following the decisions cited. The record's Testing O2, O3 and O6 changes are already in C70, C71 and C73.
+
+| # | Plan | Rule | Replaces or adds |
+|---|---|---|---|
+| C86 | Operations O1 | A stream contract is 2.11.3's shape: `delivers`, `position`, `subscribe`, `catchUp`, `reconnect`, `idleTime`; `persist` is removed from streams; `result` reads `output`; a stream's resume position is no longer an input field (rule 39, S15) | Replaces OD12's clause |
+| C87 | Operations O4 | Rewritten from rules 67–72; `DuplicateStreamSession`, "equal values are silent" and "complete … end the session" are replaced | Replaces O4's stream text |
+| C88 | Operations O6 | A stream's tags become 2.11.9's rows | Replaces |
+| C89 | Operations V9, Q1 | V9: Stories prove the Streams tables and the record's section 11 oracles; Q1 is decided by Streams T4 and T6 | Amends |
+| C90 | Machines O6 | The list form of `activities` and rule 67's outcome keys | Adds |
+| C91 | Runtime O4 | "Stream values coalesce" becomes rule 69; "Facts from an ended activation are discarded" becomes rule 70, with evidence | Replaces |
+| C92 | Runtime O6 | Sessions release within the bound (5 s, `ReleaseOverdue`); a new session waits per rule 70 | Adds |
+| C93 | Persistence O2 | The position field's Schema must pass `persist: true`'s type rule; a frozen slice keeps the partition, and a `latest` row's `last` and `heard` | Adds |
+| C94 | Persistence O4 | "running streams retain their selected latest value and count" becomes Streams T5 and T9 | Replaces |
+| C95 | Persistence O5 | A position inside a stream partition entry failing to decode reads `{ at: undefined }`; this is not a partial restore of memory. A partition failing its own shape discards the scope. Persistence O3 is cited, not changed | Amends |
+| C96 | ServerRendering O2, O5, V3, V5 | "latest stream values and counts" becomes a `latest` row's `last` and baseline; "existing stream lanes win" is removed; client rows start `Connecting`; V3 and V5 gain a ticker and a chat feed | Replaces |
+| C97 | ServerRendering O3 | The partition is in the transferred list; the position field's Schema joins the digest; a sensitive position is omitted, and that entry owes one notice (Streams T9) | Amends |
+| C98 | ServerRendering, sessions | `every` sessions never open on a server; their `R` is provided by a layer, or exempt | Adds |
+| C99 | EntityDomains O1, O4 | "Reconnect" means rule 72's gaps; O4 adds stream faults | Amends |
+| C100 | Inspection O4 | Per session: state, `drop`, Streams T2's row and basis, each `proof`, losses, bookmark and `filled`, bound, release; counters and a ring of the last 256; 2.11.13's flags. C79's `session` kind carries them | Adds |
+| C101 | CommandLine O5 | `flow check` and `flow explain` as 2.11.13 | Adds |
+| C102 | Package O1 | `Feed` is exported beside `stream` [P, merge] | Adds |
 
 ### For tooling
 
@@ -6569,11 +7553,12 @@ Testing O4 and O9.
   immediate follow-up turn (a pending reset), so exactly one published snapshot shows the old
   incarnation. Keys that drive resets belong in source transitions, as the issue list's settle is.
 - **Flow timeouts and Flow retries** (rule 25). A timeout is a schedule on the owner state; a retry is a new write or
-  `.retry` from a state the machine enters.
+  `.retry` from a state the machine enters. A stream's declared `reconnect` and `idleTime` re-run a connection, never a session or a call (S15).
 - **Generic I/O fragments** (the exploration's `CommitWithRetry`): rule 13's exhaustive `failure` makes a
   contract-agnostic reconcile fragment unwritable; fragments own concrete operations (2.9). **Mapped writes in
   subroutines and node traits** are phase 2 (F4, F7; [merged/fragment-operations/proposal.md](merged/fragment-operations/proposal.md) section 9).
 - **An Rpc-based contract** (OD13): a `fromRpc` adapter, later, when a real app needs it.
+- **Streams, out of scope** ([open-items.md](open-items.md)): outbound live state on a session (item 16), one shared session per Runtime (17), a manual `reconnect` member (18), `fromRpc` streams and download resume (19).
 - **Per-key fan-out of write members, throttled independent writes, per-item stops on a `serialize` queue** (2.7.13's
   limits): bulk contracts and keyed designs; deferred to [open-items.md](open-items.md).
 
@@ -6634,7 +7619,7 @@ From merge 2 (its section 10, in its order):
    `DELETE` by the Attempt's id.
 8. **Per-item batch results** (2.7.11): one write per item, batched below the commit with Effect's
    `RequestResolver`; not spiked.
-9. **Writes that stream** (LLM generation, upload progress): deferred; to be designed from their browser sources.
+9. ~~**Writes that stream**~~ **Closed (streams merge):** designed as progress on the write lane (`progress(p)`, Streams T8; 2.11.12.5, 2.11.12.6). A streaming write stays a transaction.
 10. ~~**`writes` and `optimistic`**~~ **Closed (merge 4, rule 36).** Was: (Operations O3/O5): not redesigned; options of the commit value, applied to every
     send of it? Rule 22 and C15 already list optimistic and write callbacks as after reads, while this question
     leaves them open; the entity review finds after circular for `writes`, which run at success before the ending's
@@ -6689,8 +7674,40 @@ Found while merging:
     cancel's capture so the restore sees the cancel (the Stories record's Q15, option B).
 22. **Amended Stories, what is unproven** (proposed, 2026-11-01). No Flow code ran: the rewrite has no `Fake`, Story executor or checkpoint reads. The model
     ([merged/story-checks/model/RESULTS.md](merged/story-checks/model/RESULTS.md)) covers the wire within its caps; the desk's trial converted only its feed, Presence and Assistant fakes, and only on paper
-    (`merge-6-streams/trials/desk/RESULTS.md`). The rest of the desk and Checkout still use `Story.make`, `.expect` and `storyTest`. A Story is checked on the engine its tests run on (2.10.2), so playback may
+    (`merged/streams/trials/desk/RESULTS.md`). The rest of the desk and Checkout still use `Story.make`, `.expect` and `storyTest`. A Story is checked on the engine its tests run on (2.10.2), so playback may
     reject what tests accept; no guards on `fetch` were added, so a real `fetch` under its own timeout passes (rule 61's limits). `inspection` and frame memory is unmeasured (2.10.6).
+23. **Streams: where loss stays silent, and what is unproven** (S15 confirmed that these are documented limits; the rows are [P], 2026-11-01). One rule covers most: *the named field holds only this feed's items, in this slice.* "Same in trimmed v2?" compares the fallback S15 keeps (below).
+
+    | Case | Who breaks it | Same in trimmed v2? |
+    | --- | --- | --- |
+    | Two feeds into one field; `subscribe.each` over a plain list (both have findings) | Memory shape | No |
+    | `fills: false` where a list exists | Memory shape | No |
+    | A wipe leaving a residue, such as a joined banner | Memory shape | No |
+    | `[]` by accident in a handler that stays placed: read as a clear | App bug | Yes: the cursor stays too |
+    | A list shortened by your own bug | App bug | Yes |
+    | **A list trimmed by arrival order after a newest-first read** (STC1, trial 2): `upsertAll(...).slice(-100)` keeps the oldest of the walk, then `done` moves the bookmark to the head | App | **No**: v2 required pages oldest first |
+    | A guard denies a value or a page: the bookmark moves past it, with `DeliveryDenied` evidence only (rule 71, ST Q3) | App | Mostly: the next value moves the cursor past it |
+    | `fills` names a wrong field of the right kind: wipes are misread. `FillsUntouched` flags some (2.11.7) | Memory shape | No |
+    | Under `subscribe.each`, an evicted, quiet, empty key reads as first open (Streams T3's bound) | Scale | No |
+    | **Any keyed feed without `catchUp`:** Streams T3's 256-entry eviction takes the oldest key's bookmark, which then reads as first open (STC4, trial 2) | Scale | No |
+    | **A non-persisted reload starts fresh**: a new slice, first open, no notice, and cleared or dismissed items return (STC2, trial 2) | Persistence choice | Yes |
+    | **Half-open with `idleTime: "Infinity"`**: nothing fires, no notice (STC5, trial 2) | Source shape | Yes |
+    | A read with `from` set that is not a change log; a false `Feed.done` or `Feed.live` `proof`; a lagging replica; a wrong `through` | Adapter | Yes |
+    | A first read that does not reach back to registration, then a reload | Adapter | Yes |
+    | An empty read with no head, outside `catchUp`; a from-now feed with no head (the desk's log today) | Source shape | Yes |
+    | A from-now log that drops between its first read's end and that `settle`'s admission | One queue turn | Yes |
+
+    In exchange, trimmed v2 has a silent case this does not: a forgotten `cursor: undefined` on any wipe line. ST RV3 and the main session judged the first agent trial's findings not a fourth High: the accidental `[]`, a counter's duplicates and host-kept lists are the same or worse in v2, or stated limits. Cleared items can come back, visibly, after a clear, a later message and a wipe (2.11.8).
+
+    **Unproven.**
+    - No Flow code, Story, vendor SDK or browser has run.
+    - **Trial evidence is limited:** the desk code type-checks against stand-ins written from this spec, which shows the spec's words agree, not that Flow can type them. 11 "compile error" claims fire there. The agent's code was not compiled.
+    - **Trial 2 re-ran on this text: 5 of 8 right first time** ([merged/streams/trials/agent-trial-2.md](merged/streams/trials/agent-trial-2.md)); the first run had 2 of 8. It found STC1 (page order, 2.11.5), and STC2, STC4, STC5 above. It was not compiled.
+    - Ably's resume event, Phoenix's rejoin and Firestore's `fromCache` are unconfirmed.
+    - Freeze, SSR payloads and the Persistence amendments are reasoned.
+    - The model is small, and its author wrote the tables too ([merged/streams/model/v3/](merged/streams/model/v3/); the record's section 11).
+    - Fourteen requirement rows pass only on a stated condition, chiefly req F9 and req F10 (`"Infinity"` sources detect no half-open connection), req C2 and req C8 (the record's section 7).
+    - **Three review rounds each found a High in how the bookmark ties to memory. If a fourth turns up in real code, S15 falls back to trimmed v2 rather than adding more private state.** S16: trial 2's page-order finding is not that fourth High; its cause is a missing contract on read order, now stated in 2.11.5.
 
 ## Changes from v3
 
@@ -6800,16 +7817,16 @@ From [reviews/design-correctness.md](reviews/design-correctness.md) and [reviews
   fakes, data, cuts, addresses, owners); 2.10 added (its examples in a second change set); rules 11, 17, 21, 47, 58,
   2.4, 2.5, 2.7.2, 2.7.3, 2.7.11, 2.7.13, 2.7.16, 2.8, 3.6, sections 5–7 amended; C16, C27, C30, C51, C53, C63, C64,
   T1 and T2 amended; C69–C85 added; section 7 items 17 and 19 closed, item 21 added; every merge 3 mark for Story reads
-  resolved. Streams (merge 6) is not merged: its rules renumber from 67, and Stories' stream parts are marked *Stream
-  details: merge 6*.
+  resolved. Streams (merge 6) was not merged then; its rules were to renumber from 67, and Stories' stream parts were marked for it.
 - Stories, amended, merged on 2026-11-01 ([merged/story-checks/stories-amended.md](merged/story-checks/stories-amended.md), [merged/story-checks/fakes-v2.md](merged/story-checks/fakes-v2.md); decisions SC1–SC5,
   W1–W43; plan [merged/story-checks/merge-plan.md](merged/story-checks/merge-plan.md)): a Story holds inputs and checkpoints, and tests use the runner's `expect` over checkpoint reads; `Story.app`,
   `Story.machine`, `Story.fragment` replace `Story.make`; rules 11, 61–66 and 2.10 rewritten; rules 21, 58, 2.7.11, 2.8, 3.1, 3.2, 3.6, sections 5 and 7 amended; C16, C63, C69–C75, C77, C79, C81,
-  C82, C84 amended. The `.plan` files are still owed (the plan's 2.7). Streams (merge 6) is still not merged.
+  C82, C84 amended. The `.plan` files are still owed (the plan's 2.7). Streams (merge 6) was still not merged.
+- Streams (merge 6) merged on 2026-11-01 ([merged/streams/proposal-v3.md](merged/streams/proposal-v3.md); decisions S1–S16; plan [merged/streams/merge-plan.md](merged/streams/merge-plan.md)): 2.11 and rules 67–72 added; rule 25 amended (S15); rules 8, 13, 14, 20, 37, 39–42, 47, 52, 57, 65, N3, 2.5, 2.7.3, 2.7.6, 2.7.8, 2.7.10, 2.7.13, 2.7.15, 2.7.16, 2.8, 2.10, 3.6, sections 6 and 7 amended; C57, C79 amended, C86–C102 added; section 7 item 9 closed, item 23 added; every mark for stream text resolved. The `.plan` files are still owed (the plan's 2.7).
 
 ## Decisions
 
-Settled by the owner or under the owner's delegation, with the reason each wins and what was rejected. Merge 2's decisions keep their numbers D1–D17, merge 4's E1–E18, the operations merge's OD1–OD26, operations-in-fragments' F1–F10, Stories' T1–T7 (cited "Stories T*n*"; a bare T*n* is a tooling row of section 5) and amended Stories' SC1–SC5 and W1–W43, which
+Settled by the owner or under the owner's delegation, with the reason each wins and what was rejected. Merge 2's decisions keep their numbers D1–D17, merge 4's E1–E18, the operations merge's OD1–OD26, operations-in-fragments' F1–F10, Stories' T1–T7 (cited "Stories T*n*"; a bare T*n* is a tooling row of section 5) amended Stories' SC1–SC5 and W1–W43, and streams' S1–S16, which
 their rewrites, spikes, models and later proposals cite; they are not the problems D1–D7 of section 4.
 
 ### Outcomes (merge 1, [merged/outcomes.md](merged/outcomes.md))
@@ -6838,7 +7855,7 @@ their rewrites, spikes, models and later proposals cite; they are not the proble
 - **Amended by merge 2** (its 6.4): failure describes one send, and the Attempt's ending is rule 18 (`StillUnknown`);
   `Timeout` is dropped; `NotSent` gains `why`; `failure.NotSent` is optional in the type; `O.x.retry(attempt)` is
   replaced by the commit value's `.retry`, and after a definite failure by a new write; merge 1's automatic
-  `retry: { on }` goes with every Flow retry (rule 25).
+  `retry: { on }` goes with every Flow retry (rule 25). *Rule 25 later allows one thing: a stream's declared connection (S15).*
 
 ### Server calls (merge 2, [merged/server-calls/proposal.md](merged/server-calls/proposal.md))
 
@@ -7151,7 +8168,7 @@ operations-in-fragments, the lane model and the reviews cite them.
   level: one for what goes in and one for what comes out. No nesting under the function, and no third `params` schema.
   `key` names fields of the in-schema; a stream's resume position is an ordinary in-field outside the key; errors stay
   `Schema.TaggedError` classes typed through the function's Effect. Names: `input` and `output` on every kind (`result`
-  renamed to `output`; mapper context `{ params }` becomes `{ input }`). (2026-10-30)
+  renamed to `output`; mapper context `{ params }` becomes `{ input }`). (2026-10-30) *Its stream clause is overturned by S15: a stream's position is Flow's bookmark, not an in-field (rule 71). The rest stands.*
 - **OD13** Effect RPC: the core contract stays `input`/`output` plus its function, with no Rpc inside (Rpc is
   `@stability unstable` in 4.0.5 and adds wire machinery Flow does not need). An opt-in `resource.fromRpc` /
   `transaction.fromRpc` adapter, taking an existing `Rpc` for its schemas and mapping a client error to `unknown`, comes
@@ -7370,7 +8387,7 @@ Stories T1–T7 above. SC*n* is the record's C*n*, renamed because a bare C*n* i
 - **W34** Group 7, Q37 A: `run.calls` and `checkpoint.exit` go; callbacks and exits are records. *Owner-confirmed.* (2026-11-01)
 - **W35** Fake gaps, Q17–Q20: direction approved, final spellings delegated to the main session and an Opus review ([fakes-v2.md](merged/story-checks/fakes-v2.md)). The owner has not yet read the spellings. *Owner-confirmed.* (2026-11-01)
 - **W36** Group 8, Q38 A: `Fake.fetch` and `Fake.webSocket` on Effect's injection points, spelled as in [fakes-v2.md](merged/story-checks/fakes-v2.md). *Owner-confirmed.* (2026-11-01)
-- **W37** Group 8, Q39 A: stream controls are ordinary wire steps, with no stream-specific step words; `.do(…)` goes. Details wait for the streams merge. *Owner-confirmed.* (2026-11-01)
+- **W37** Group 8, Q39 A: stream controls are ordinary wire steps, with no stream-specific step words; `.do(…)` goes. Details wait for the streams merge. *Owner-confirmed.* (2026-11-01) *Streams merged; the details are 2.10.9.*
 - **W38** Group 8, Q40 A: `propertyTest(story, …)` with plain function properties; domains become a preset. *Owner-confirmed.* (2026-11-01)
 - **W39** Group 8, Q41 A: `model()` is removed. Exhaustive paths and shortest counterexamples are given up; one Runtime and one execution path stay (T1 confirmed). *Owner-confirmed.* (2026-11-01)
 - **W40** Group 8, Q42 A: coverage and CLI as walked; `flow story describe` loses its expectation and property lines, and `flow story run` reports what ran, with no pass or fail on correctness. *Owner-confirmed.* (2026-11-01)
@@ -7391,3 +8408,32 @@ into C79 rather than numbered, so merge 6's rows still start after C85 (MX2); th
 
 **Also rejected** (the record's 1.2 and 1.3): `.expect` in a Story and `StoryExpectationFailed` (SC1); `@flow-state/vitest` and `storyTest` (SC2–SC4, and the decisions' proposed list);
 matchers, for now (SC4, `revisit.md`); a callback on `checkpoint` (SC2); an MSW binding, for now (W15); a failure's `{ step, cut, target, path, expected, actual }` shape.
+
+### Streams (merge 6, [merged/streams/decisions-v2.md](merged/streams/decisions-v2.md))
+
+S1–S10 decided [proposal-v2](merged/streams/proposal-v2.md), S11 and S12 are the owner's walkthrough, S13 commissioned [proposal-v3](merged/streams/proposal-v3.md), and S15 and S16 approved it. S12 left S1–S11 open, so the later rows overturn some; each is annotated, not rewritten. Q*n* inside a row is that round's question, not ST Q*n*.
+
+- **S1** Continue with proposal-v2.md; revision 3 is prior art. (2026-10-30)
+- **S2** Q1 A: the adapter reports the connection in-band, as items in its Stream (`Feed.live`, `Feed.down`), ordered with the values. (2026-10-30)
+- **S3** Q4 A: repair lives in the adapter (`Feed.reconnect`'s `catchUp`, a server replay); the machine sees `missed` only when nothing could repair. (2026-10-30) *Overturned: repair is contract data, `catchUp` (S15, proposal-v3).*
+- **S4** Q5 A: the resume position across sessions is an `input` field the machine fills from its memory; Flow stores and compares no position. (2026-10-30) *Overturned by S15: Flow keeps the position, in the bookmark.*
+- **S5** Section 8, the remaining questions, all option A: Q2 (`missed`), Q3 (an SDK's own reconnect policy, wrapped in `Feed.reconnect` by recipe), Q6 (row: `connection`, `drop`, `value` on state feeds, `last { value, at }`), Q7 (`Closed` in `failure`), Q8 (cursors out of scope, to open-items), Q9 (no shared session per Runtime, to open-items), Q10 (drop `persist` on streams), Q11 (`progress(p)`), Q12 (`resetAfter` default 1 minute; `Closed` and `Overflow` retryable), Q13 (`bufferSize` default 1,024), Q14 (finding names as listed). (2026-10-30) *Q12's default is overturned (a fixed 1 minute, Flapping after 8; S15). Q13's option is cut (a constant 1,024) and Q3's recipe goes with `Feed.reconnect`; the record's list names only Q12 [P, merge].*
+- **S6** Round 4, all option A: Q15 (`catchUp` is a page-step function, no `Feed.complete`), Q16 (the row reads `Live` during a catch-up), Q17 (a proof on a state feed re-confirms only a `last` this session confirmed), Q18 (pages retry with a fresh copy of the reconnect `schedule`, no `catchUpSchedule`). (2026-10-30) *Q15 is overturned: `Feed.more`, `Feed.done`, with a `proof`.*
+- **S7** Revision 3 questions, all option A: Q19 (`Feed.CannotRepair`, NEW word: a `catchUp` step fails with it; the start settles lost, `missed Lost`, no budget spent), Q20 (`emit` returns a `Promise<void>` for back-pressure), Q21 (a first start with no position is `fresh` under `Feed.reconnect` only), Q22 (an unhandled fact feed is a type error), Q23 (one `catchUp` step function; first call receives the position, later calls the page token). (2026-10-31) *Q19 is overturned: `Feed.gone`. Q21 is overturned: there is no `fresh`.*
+- **S8** Delegated, from review 3: H1, a start is `fresh` only when `Feed.reconnect` declares `from` and it is empty (amends S7 Q21); H2, session identity includes the fragment subject path (rules 48–60), with freeze, thaw and `resetOn` rows; H3, `catchUp`'s contract requires pages oldest first (P1), and newest-first histories (Ably) page forwards or reverse in the adapter. (2026-10-31) *H1 and H3 are overturned: no `fresh`; pages arrive in the server's order, and 2.11.5 states the contract (S16).*
+- **S9** Delegated, from review 4 (last allowed round): H1, a session owes from its first registration, tracked by an internal `announced` flag (3.4); `Missed` gains a small flag for a first-registration loss (spelled `initial`), with an empty-`from` precondition for `fresh`; H2, transport recipes' finalizers remove only their own listeners (shared Ably channels are never detached by a session), plus a `detached` listener; M1, release-before-restart follows R-Owner across placements of one (actor, operation, key), not only the same path. (2026-10-31) *H1 is overturned: no `announced` or `initial`.*
+- **S10** Delegated, from review 5 (beyond the allowed rounds, so streams is NOT merged tonight): continuity registration is tracked by Flow per (memory slice, operation, key) and persisted like `heard` (`registered`), not per session; `fresh` drops to `live()` once it is set; `initial = not registered` (changes S9). Ably channel accumulation gets a ref count or a stated cost; `initial` on `settle(lost)` is specified; the ignore guard applies only to `Unproven`. Applied as revision 7 for the owner to check before merging. (2026-10-31) *Overturned: no `registered` or `initial`.*
+- **S11** Walkthrough, group 1, owner's answers, for inclusion when streams is next revised: a session reads `input` once, at start, so a non-key field never restarts it; `DuplicateStreamSession` goes, two operations on one contract and key are two sessions, with a `DuplicateSession` warning; one `stream` function, spelled `delivers: "every" \| "latest"` (not `"facts" \| "state"`; those stay as the docs' words for the concepts). (2026-11-01)
+- **S12** Walkthrough, group 2: the owner finds the API acceptable and delegates behaviour to the main session, including re-judging earlier decisions from the ground up (S1–S11 are not binding on that review). Spellings kept for now: signals in-band; `Feed.live({ proof \| lost, restartAt })`, `Feed.down`, names `Feed`, `live`, `down`. (2026-11-01)
+- **S13** The owner delegates the streams design: write a new proposal (`proposal-v3.md`) carrying v2's learnings, taking the best ideas from v2 and the blind design, then three review rounds. Its contents are the main session's proposal, not owner decisions, until the owner reads them. (2026-11-01)
+- **S14** Streams' vocabulary and conventions follow Effect's and what `transaction` and `resource` already use. The owner delegates the resulting word choices to the main session. (2026-11-01)
+- **S15** Owner confirmed proposal-v3's recommendations, Q1-Q4 of the round: Flow runs connections when the contract declares `reconnect` and `idleTime`, amending rule 25, and never re-opens a session; the default retries while offline and ends `Flapping` after 8 registered flaps; Flow keeps the position, with `fills`, falling back to trimmed v2 if a fourth High appears in real code; the silent-loss cases are documented limits. The word list and spellings stay the main session's proposal (S14). (2026-11-01)
+- **S16** Delegated: the owner left the remaining questions to the main session unless they really matter. proposal-v3 merges. Trial 2's page-order finding (C1) is not S15's fourth High: its cause is a missing contract on read order, now stated in v3 3.4, not how the bookmark ties to memory. `Feed` keeps its name; the `Flow` rename and the other absorb-wiring questions stay in that exploration and do not touch this merge. (2026-11-01)
+
+**Earlier rows overturned that are not in this list** (the record's section 1): the brief's M6-D3 (the reconnect combinator), K2's position clause, requirement O8's "no Flow retry", in part (rule 25 as amended), and O5's spelling `lost`. OD12's clause is annotated on its row.
+
+**Proposed: approved only with the proposal as a whole.** Everything marked **[P]** in rules 67–72 and 2.11, chiefly: the Streams tables; the word list (S14); `position` as a field name; `Feed.ping`, `head`, `through`; `pages`; the stall rule; the constants 1 minute, 1,024, 256, 5 s; the findings and flags; `O.x.refetch` on a stream; the recipes.
+
+**Proposed: resolved at this merge** ([merged/streams/merge-plan.md](merged/streams/merge-plan.md) 1.4): the labels (MX1); `ChatSocket.layer` as a fixture (MX6); 2.10.18.7's `roomId`, `ChatFake` and its no-`catchUp` contract (MX6, MX7); an author tag equal to a `Feed` reason is a type error (MX9); `Feed`'s export (MX12); "not `Flow.private`" (MX11); the LLM Story left unwritten (MX13).
+
+**Also rejected** (the record's section 10 and ST Q1–ST Q10): the combinator; a cursor in memory (trimmed v2, S15's fallback); a required `holds` predicate; a separate Flow record for the position; a private clear mark; a whole-feed `"accept"`; `rest:` in `failure`; `Stream.callback` as the documented bridge; `pushes` on a fake; a Flow `merge`; dotted `fills`.
