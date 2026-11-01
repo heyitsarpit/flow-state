@@ -3,3 +3,12 @@ PAY-11 | origin on.Confirmed[1].guard[1] | states.PAYING.on.Confirmed[1].guard[0
 PAY-01 | answer place { order, alreadyPlaced } | answer place { orderId } | placeOrder's commit does the wrapping (pay.contracts.ts); the fake answers what the server would. Expected receipt unchanged | none (scenario text)
 PAY-08 | truth.charges 1 with no step that lands it | added fault lateAnswer after reload | A held request never lands on its own; pay.story.ts `reloadWhileConfirming` releases it explicitly | none (scenario text)
 PAY-11 | "next-send-works" unspecified | Leave moves to LEFT | Which send was unstated; PayRequested would mint a new charge, see RESULTS finding | none (scenario text)
+PAY-13 | variant waiting: reason Disposed after a bare reload | waiting-flushed (ack, then Disposed) and waiting-flush-lost (Restored) | The final capture shares a key with the held acknowledgement, so a FIFO store cannot land it first. My added variant was wrong on the first try; the table's own "last good capture" sentence covers the lost case | none (scenario added after red, before green)
+PAY-12 | shuffle checks one ending per send | also replay per run, and sends > 0 | The null adapter passed it vacuously in the red run; fixed before the red commit | none
+SEARCH-PAY | keys.distinct never grows while uncertain or pending | no key other than the holding Attempt's own appears while it holds | As written it forbids every first send: pending is true from the commit, the request comes after the ack. Oracle text wrong before any code | none (scenario text)
+PAY-06 | fence 1 read after the late answer | fence 1 read before it too | Mutant timeout-no-interrupt survived: an uninterrupted fiber produced the same count later. Tightened, same expected number | none
+PAY-07 | one script | variants leaveMidCharge (unchanged), late-in-a-new-PAYING, late-may-not-leave | Mutants late-treated-as-current and rule15-off survived: nothing distinguished a late route from a current one | none
+PAY-08 | one script | variants reloadDuringCharge (unchanged), reload-while-reconciling | Mutant timers-not-restored survived | none (plan silent: see RESULTS)
+PAY-12 | no cancel on the wire | variant cancel-on-wire | Mutant cancelled-reads-interrupted survived | none
+ALL | expected.lock hashed before vp fmt | re-locked after vp fmt and the lines above | Formatter changed function text, no expectation | none
+PAY-15 | absent | new scenario | UNTESTED listed reachable owed cells no script named. Row added to SCENARIOS.md | none

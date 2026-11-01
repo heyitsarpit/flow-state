@@ -1,5 +1,5 @@
 // No runtime. The suite's red run: every read is empty, so every scenario fails on its first expectation.
-import type { Harness } from "./harness.ts"
+import type { Harness } from "./harness.ts";
 
 export const makeHarness = (): Harness => ({
   start() {},
@@ -17,4 +17,4 @@ export const makeHarness = (): Harness => ({
     quiet: () => ({ idle: true, waits: [] }),
     replay: () => ({ same: true }),
   },
-})
+});

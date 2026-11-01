@@ -36,6 +36,7 @@ Fixture: `conformance/fixtures/pay.compiled.ts`, see convergence-1 section 11. `
 | PAY-12 | 1 | fault | inject | rule:17, D5, D6, F2, S4 | * | defect, sync completion, duplicated completion, shuffled scheduler. *Thin: one seed list, S2's interleavings only* |
 | PAY-13 | 1 | fault | hostile | D6, L5, cell:lane.runtimeDisposal.InFlight | * | disposal with a hung uninterruptible commit. *Thin: no real finalizer* |
 | PAY-14 | 1 | example | order | S11, D1 | | input-log replay across a whole paid path with a reload |
+| PAY-15 | 1 | example | table | cell:lane.commit.Held, cell:lane.cancel.Idle, cell:lane.cancel.InFlight, cell:lane.idle.Idle, cell:lane.failure.InFlight, cell:lane.interrupt.InFlight, cell:lane.restore.Held, cell:lane.runtimeDisposal.Held, cell:lane.retryable.Held | | Added in round 1 from the UNTESTED report: owed cells Pay can reach |
 | SEARCH-PAY | 1 | bounded | order | L3, S4, S5, S6, S7, S11, rule:17, rule:19 | * | below. *Thin: one actor, one intent; depth 8; replay per script* |
 
 Scripts. `expect` compares only the fields named. Hand-derived from `pay.machine.ts`.
