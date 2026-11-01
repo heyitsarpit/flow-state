@@ -27,6 +27,13 @@ const nodes = {
           patch: seen,
         },
       ],
+      WorkBad: [
+        {
+          patch: seen,
+          members: commit("job", ({ event }) => ({ n: event.n, who: event.who })),
+          followUps: [() => ({ tag: "Say", payload: { n: "x" } })],
+        },
+      ],
       Work: [{ members: commit("job", ({ event }) => ({ n: event.n, who: event.who })) }],
       JobDone: [{ patch: ({ memory: m }) => ({ log: [...m.log, "done"] }) }],
       JobUnsure: [{}],
@@ -51,10 +58,9 @@ const make = (api: Api): Compiled => ({
       key: key("job", (i) => ({ n: i.n })),
       concurrency: "reject",
       commit: (input, { attempt }) =>
-        api.call("job", input, { idempotencyKey: attempt.id }).pipe(unknownWhenLost) as Effect.Effect<
-          unknown,
-          unknown
-        >,
+        api
+          .call("job", input, { idempotencyKey: attempt.id })
+          .pipe(unknownWhenLost) as Effect.Effect<unknown, unknown>,
       outcomes: {
         success: { event: "JobDone" },
         failure: { NotSent: { event: "JobRefused" } },

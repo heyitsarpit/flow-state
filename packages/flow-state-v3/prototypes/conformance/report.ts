@@ -89,9 +89,7 @@ export const laneCells = (): string[] => {
 // D33: `sec:` ids must name a real heading (or a labelled part of one).
 export const badSections = (ids: readonly string[]): string[] => {
   const text = readFileSync(design, "utf8");
-  const heads = new Set(
-    [...text.matchAll(/^#{2,4} (\d+(?:\.\d+)*)/gm)].map((m) => m[1]!),
-  );
+  const heads = new Set([...text.matchAll(/^#{2,4} (\d+(?:\.\d+)*)/gm)].map((m) => m[1]!));
   return ids
     .filter((x) => x.startsWith("sec:"))
     .filter((x) => {
@@ -117,10 +115,44 @@ const allIds = (): string[] => {
 };
 
 const ROUND_ROWS = [
-  "commit", "retry", "cancel", "idle", "retryable", "invoked", "storageRefused",
-  "success", "failure", "unknown", "interrupt", "restore", "runtimeDisposal",
+  "commit",
+  "retry",
+  "cancel",
+  "idle",
+  "retryable",
+  "invoked",
+  "storageRefused",
+  "success",
+  "failure",
+  "unknown",
+  "interrupt",
+  "restore",
+  "runtimeDisposal",
 ];
-const ROUND_DS = ["D1", "D2", "D3", "D4", "D5", "D6", "D7", "D8", "D23", "D25", "D26", "D27", "D28", "D29", "D30", "D31", "D35", "D39", "D40", "D41", "D42", "D43"];
+const ROUND_DS = [
+  "D1",
+  "D2",
+  "D3",
+  "D4",
+  "D5",
+  "D6",
+  "D7",
+  "D8",
+  "D23",
+  "D25",
+  "D26",
+  "D27",
+  "D28",
+  "D29",
+  "D30",
+  "D31",
+  "D35",
+  "D39",
+  "D40",
+  "D41",
+  "D42",
+  "D43",
+];
 const inRound = (id: string) => {
   const m = /^cell:lane\.(\w+)\./.exec(id);
   return m ? ROUND_ROWS.includes(m[1]!) : ROUND_DS.includes(id);
@@ -149,7 +181,12 @@ export const proven = (
 
 export const printReports = (
   round: number,
-  ran: ReadonlyArray<{ id: string; cites: readonly string[]; near?: readonly string[]; pins?: readonly string[] }>,
+  ran: ReadonlyArray<{
+    id: string;
+    cites: readonly string[];
+    near?: readonly string[];
+    pins?: readonly string[];
+  }>,
   cellsHit: ReadonlySet<string>,
   mutantsFile: string | undefined,
 ) => {
@@ -168,9 +205,19 @@ export const printReports = (
     `  not in this round's scope (${untested.length - owed.length}): ${untested.filter((x) => !inRound(x)).join(" ")}`,
   );
   const hitNotCited = [...cellsHit].filter((c) => !citedIds.includes(`cell:${c}`));
-  console.log(`  cells hit though no scenario cites them (${hitNotCited.length}): ${hitNotCited.sort().join(" ")}`);
+  console.log(
+    `  cells hit though no scenario cites them (${hitNotCited.length}): ${hitNotCited.sort().join(" ")}`,
+  );
   const checkable = [
-    ...new Set(citedIds.filter((x) => !x.startsWith("sec:") && x !== "no-decision" && !x.startsWith("S1:") && !x.startsWith("OD:"))),
+    ...new Set(
+      citedIds.filter(
+        (x) =>
+          !x.startsWith("sec:") &&
+          x !== "no-decision" &&
+          !x.startsWith("S1:") &&
+          !x.startsWith("OD:"),
+      ),
+    ),
   ];
   const near = checkable.filter((x) => !good.has(x));
   console.log(
@@ -191,8 +238,23 @@ export const printReports = (
       );
     }
   }
-  console.log(`\nPINNED       ${ran.filter((r) => r.pins?.length).map((r) => `${r.id}:${r.pins!.join("+")}`).join(" ")}`);
-  console.log(`NO-DECISION  ${rows.filter((r) => r.cites.includes("no-decision")).map((r) => r.id).join(" ")}`);
-  console.log(`THIN         ${here.filter((r) => r.thin).map((r) => r.id).join(" ")}`);
+  console.log(
+    `\nPINNED       ${ran
+      .filter((r) => r.pins?.length)
+      .map((r) => `${r.id}:${r.pins!.join("+")}`)
+      .join(" ")}`,
+  );
+  console.log(
+    `NO-DECISION  ${rows
+      .filter((r) => r.cites.includes("no-decision"))
+      .map((r) => r.id)
+      .join(" ")}`,
+  );
+  console.log(
+    `THIN         ${here
+      .filter((r) => r.thin)
+      .map((r) => r.id)
+      .join(" ")}`,
+  );
   return { unproven: near };
 };

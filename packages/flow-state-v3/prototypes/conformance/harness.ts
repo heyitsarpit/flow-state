@@ -35,6 +35,7 @@ export type Fault =
   | { throwInModule: string } // D27: the next call of this hook of any module throws
   | { throwInCore: true } // D27: the next step's core code throws. Reached through data: no seam in the core
   | { startThrows: RequestMatch } // DRV-02: building this op's commit throws
+  | { afterYield: Step } // runs when the runtime has yielded its drain to the host: a gap between steps
   | { mutateServer: (s: any) => any }; // the world changes with nobody asking: a price, another device
 
 export type Step =
@@ -157,9 +158,7 @@ export type BootArgs = {
   readonly bounds: Partial<Bounds>;
   readonly faults: FaultState;
   readonly onEvidence: (e: ReadonlyArray<Record<string, any>>) => void;
-  readonly onIssue: (
-    i: ReadonlyArray<{ code: string; origin?: string; input?: unknown }>,
-  ) => void;
+  readonly onIssue: (i: ReadonlyArray<{ code: string; origin?: string; input?: unknown }>) => void;
 };
 export type Instance = {
   ensure(actor: string, machine: string, input: unknown): void;

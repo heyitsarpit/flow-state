@@ -36,7 +36,7 @@ Round 1 scenarios are in full. Later ones are specified to the line their round 
 | PAY-12 | 1 | fault | inject | rule:17, D5, D6, F2, S4 | * | defect, sync completion, duplicated completion, shuffled scheduler. *Thin: one seed list, S2's interleavings only* |
 | PAY-13 | 1 | fault | hostile | D6, L5, cell:lane.runtimeDisposal.InFlight | * | disposal with a hung uninterruptible commit. *Thin: no real finalizer* |
 | PAY-14 | 1 | example | order | S11 | | input-log replay across a whole paid path with a reload |
-| PAY-16 | 1 | fault | hostile | rule:18, D8, cell:lane.storageRefused.InFlight, rule:16, D23, rule:46, D6, rule:22, rule:24, sec:2.7.1 | | Added in round 2: one case per mutant review H2 found surviving, and H3 |
+| PAY-16 | 1 | fault | hostile | D5, rule:18, D8, cell:lane.storageRefused.InFlight, rule:16, D23, rule:46, D6, rule:22, rule:24, sec:2.7.1 | | Added in round 2: one case per mutant review H2 found surviving, and H3 |
 | PAY-17 | 1 | fault | inject | D27, L5 | | D27 by input kind (H5), and a fatal core throw |
 | PAY-18 | 1 | fault | hostile | D30, S7, rule:46 | | M3: silence never says "not charged" |
 | PAY-19 | 1 | example | flow | rule:15, rule:14 | | Pins P1 (H4): both orders |
@@ -212,19 +212,20 @@ The last line is the suite's check on itself: the runner applies each as a fault
 | LIKE-05 | 2 | example | order | L2, S1:mint-order | | `c`'s trace (`commit a0; invoke; commit a0; commit a1; end; invoke#2; end; invoke#1`): sent in mint order, last intent holds |
 | LIKE-06 | 2 | example | table | sec:2.7.14, OD:20.F1 | | released unknown lands after a newer write: stated limit, record `uncertain` stays, contested repair |
 | SEARCH-LIKE | 2 | bounded | order | L2, L3, S5, S13, D3 | * | stateless S1 sweep through the real runtime: 2 actors, 2 records, 3 commits, masks {1,2,3}, late landing on. *Thin: far fewer states than S1's model reached; S1's 33k states are not reachable by replay. Compare with its counts as a differential once only* |
-| STORE-01 | 2 | example | table | rule:30, cell:store.success | | success: confirmed fields replace; omitted `unconfirmed` |
-| STORE-02 | 2 | example | table | cell:store.failure, rule:30 | | failure: removed, no repair, `uncertain` unchanged |
+| STORE-01 | 2 | example | table | rule:30, cell:store.success, D3 | | success: confirmed fields replace; omitted `unconfirmed` |
+| STORE-02 | 2 | example | table | cell:store.failure, rule:30, D3 | | failure: removed, no repair, `uncertain` unchanged |
 | STORE-03 | 2 | example | table | cell:store.unknown, D3 | | unknown: kept until repair, forced, mark set, entry stays (changed from 2.8.6's table) |
 | STORE-04 | 2 | example | table | cell:notsent.Rejected, cell:notsent.Overloaded, cell:notsent.Superseded, cell:notsent.Cancelled, cell:notsent.Restored, cell:notsent.StorageRefused, cell:notsent.Disposed | | 2.8.5's 8 rows, one variant each |
 | STORE-05 | 2 | example | table | rule:32, sec:2.8.6 | | what clears `uncertain`, per record and Attempt, in order of events |
 | STORE-06 | 2 | example | table | rule:35 | | 65th write: `Overloaded`, no partial join across two records |
 | STORE-07 | 2 | fault | hostile | D40 | | forced repair never answers: queue released at 30 s, mark stays |
 | STORE-08 | 2 | example | table | rule:28 | | one publication: lane row, prediction, queue join; no frame between |
-| STORE-09 | 2 | example | table | rule:38, rule:30, rule:46 | | predictions not persisted; restored unknown marks and repairs before ready |
+| STORE-09 | 2 | example | table | rule:38, rule:30, rule:46, D3 | | predictions not persisted; restored unknown marks and repairs before ready |
+| STORE-11 | 2 | example | table | D39, cell:lane.cancel.InFlight, rule:30, D3 | | Added from the second author's survivors: re-send waits for repair; cancel a waiting re-send; StillUnknown keeps its place |
 | STORE-10 | 2 | example | flow | rule:22, rule:28 | | `optimistic` reads after memory, captured at start, even if the start waits |
 | CART-01 | 2 | example | flow | rule:21, D3 | | Cart `waitsBehindUnsure` from `cart.story.ts` |
-| CART-02 | 2 | example | flow | rule:16, rule:29 | | Cart `setQuantity` stepping (`quantity-stepper.trait.ts` flattened) |
-| REFUND-01 | 2 | example | flow | rule:30, rule:32, D43 | | Refunds: held re-send shows `uncertain` |
+| CART-02 | 2 | example | flow | rule:16, rule:29, D3 | | Cart `setQuantity` stepping (`quantity-stepper.trait.ts` flattened) |
+| REFUND-01 | 2 | example | flow | rule:30, rule:32, D43, D3 | | Refunds: held re-send shows `uncertain` |
 | LIB-01 | 2 | example | lib | D3 | * | Query `mutations.test.tsx:431,540`: same scope serial, scopes parallel. *Titles read, not bodies* |
 | LIB-02 | 2 | example | lib | D3 | * | DB `KeyScheduler.test.ts:106,226`: a later ready write does not pass an earlier retry; second runs after first retries and succeeds. *Titles read; DB's scheduler is one FIFO, so this is stricter than a record queue* |
 | LIB-03 | 2 | example | lib | no-decision | * | Query `mutations.test.tsx:1169`: removing one of two observers keeps the write. Finding: nothing says what two observers of one lane mean in Flow, since an actor owns it. *Maps loosely* |

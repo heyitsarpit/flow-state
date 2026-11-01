@@ -22,11 +22,13 @@ const listFile = resolve(source, arg("--list", "mutants.ts"));
 const out = resolve(source, arg("--out", "mutants.json"));
 const author = arg("--author", "builder");
 const only = arg("--only", "");
+const checkOnly = process.argv.includes("--check");
 const { MUTANTS } = (await import(listFile)) as { MUTANTS: readonly Mutant[] };
 const rootModules = resolve(here, "../../../../node_modules");
 const scratch = mkdtempSync(join(tmpdir(), "flow-mut-"));
 symlinkSync(rootModules, join(scratch, "node_modules"));
 const results: unknown[] = [];
+const notApplied: string[] = [];
 let survived = 0;
 const list = only ? MUTANTS.filter((m) => only.split(",").includes(m.id)) : MUTANTS;
 for (const m of list) {
@@ -44,10 +46,18 @@ for (const m of list) {
         .join("\\s*"),
     );
     if (!pattern.test(text)) throw new Error(`${m.id}: edit does not apply to ${file}: ${find}`);
-    writeFileSync(p, text.replace(pattern, () => replace));
+    writeFileSync(
+      p,
+      text.replace(pattern, () => replace),
+    );
   }
   const r = await watched(
-    ["bun", join(dir, "conformance/mutate-one.ts"), "--runtime", `../${basename(source)}/adapter.ts`],
+    [
+      "bun",
+      join(dir, "conformance/mutate-one.ts"),
+      "--runtime",
+      `../${basename(source)}/adapter.ts`,
+    ],
     { rssMb: 1800, seconds: 150, capture: true },
   );
   const line = r.stdout.trim().split("\n").at(-1) ?? "";
@@ -60,11 +70,20 @@ for (const m of list) {
   const killers = parsed?.killers ?? [];
   const killed = r.killed !== null || killers.length > 0 || parsed?.search === "failed" || !parsed;
   if (!killed) survived++;
-  results.push({ id: m.id, kills: m.kills, killed, killers, author, by: r.killed ?? (parsed ? "tests" : "crash"), peakMb: r.peakMb });
+  results.push({
+    id: m.id,
+    kills: m.kills,
+    killed,
+    killers,
+    author,
+    by: r.killed ?? (parsed ? "tests" : "crash"),
+    peakMb: r.peakMb,
+  });
   console.log(
     `${killed ? "KILLED  " : "SURVIVED"} ${m.id.padEnd(36)} ${r.killed ? `watchdog ${r.killed} at ${r.peakMb} MB` : parsed ? `${killers.length} cases: ${killers.slice(0, 4).join(" ")}${killers.length > 4 ? " ..." : ""}${parsed.search === "failed" ? " + search" : ""}` : `crash: ${r.stdout.slice(-200)}`}`,
   );
 }
 rmSync(scratch, { recursive: true, force: true });
 writeFileSync(out, JSON.stringify(results, null, 1));
-console.log(`\n${list.length - survived}/${list.length} killed (${author})`);
+console.log(`\nnot applied (${notApplied.length}):\n${notApplied.join("\n")}`);
+console.log(`\n${results.length - survived}/${results.length} killed (${author})`);

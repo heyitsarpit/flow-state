@@ -22,3 +22,39 @@ STORE-06..REFUND | LIKE-04: row `waiting` for another actor's queue wait | `pend
 LIKE-06 | record `uncertain` stays, contested repair | mark cleared by the later success, screen stale until a read | Rule 32 clears a released mark on a later success; no response exists to contest | D41, rule 32
 REFUND-01/sixty-five | converted refunds.test.ts: outstanding 64 | outstanding 63 | Rule 35: the record queue's 64 declines the 65th before W fills. Converted test disagrees with the design: finding | none
 STORE-10 | cites rule:36 | near rule:36, cites rule:22, rule:28 | `optimistic` is not in the format; only the queued select's capture is tested | none
+# Changes after the red commit 397a2e2c, before green. Each with its reason; hash lines below are the exemptions.
+STORE-06 | r2 chain shows 64 | r2 predicted, no data | E18: a prediction over a record the store does not hold shows nothing. My derivation missed it | none (scenario text)
+PAY-16 | settled-during-disposal only | stale-send, dispose-waiting-resend, parked-success added | second author's survivors | none
+PAY-11 | guard, module | refused-after-members added | builder's survivor: nothing tested a refusal after members applied | none
+STORE-04,STORE-11,REFUND-01,ORDER-04,DRV-03,PAY-15 | | cases and checks added, none relaxed | second author's survivors | none
+STORE-04,STORE-05 | variants on the wrong fixture | same expectations on a fresh harness of the right fixture | scenario bug | none
+DRV-01 | sends in two settled steps: 0 choices | both started before either runs | the assertion against vacuity caught its own scenario | none
+STORE-01,STORE-02,STORE-09,STORE-11,CART-02,REFUND-01 | | cite D3 too | OLD-RULE flagged them: rule 29 and 30 changed by D3 | none
+FIXTURES | root parent defaulted to itself (runaway); wrap dropped a slot's second argument; `on.` path base | fixed | fixture and drive bugs, before any green | none
+PAY-11 hash:d8402e261a75 | see the lines above
+PAY-15 hash:9b876638d112 | see the lines above
+PAY-16 hash:e6a35593a0ca | see the lines above
+ORDER-04 hash:f6267b46e27e | see the lines above
+DRV-01 hash:4c6a96db8e92 | see the lines above
+DRV-03 hash:a03641b94dd8 | see the lines above
+STORE-01 hash:df3ae8dd0d9e | see the lines above
+STORE-02 hash:9dae5b341e32 | see the lines above
+STORE-04 hash:2bd11dc281f4 | see the lines above
+STORE-05 hash:e71449a13038 | see the lines above
+STORE-06 hash:3f19ab01167c | see the lines above
+STORE-07 hash:e6e5a7c6929b | see the lines above
+STORE-09 hash:b63a7ea67221 | see the lines above
+CART-02 hash:16db84ae2c0d | see the lines above
+REFUND-01 hash:978f7f05b4ed | see the lines above
+file:scenarios/ctx.ts hash:5cb6717fc6ff | see the lines above
+file:scenarios/pay.scenario.ts hash:c500350b8300 | see the lines above
+file:scenarios/order.scenario.ts hash:2aea5716ff80 | see the lines above
+file:scenarios/store.scenario.ts hash:74d1ca6a08f1 | see the lines above
+file:scenarios/flows.scenario.ts hash:ab4294dabc16 | see the lines above
+file:fake-world.ts hash:dfe8cb569845 | see the lines above
+file:drive.ts hash:e4d72803683d | see the lines above
+file:fixtures/build.ts hash:646a0f9f6c85 | see the lines above
+file:fixtures/issues.compiled.ts hash:97aa8f05906f | see the lines above
+file:fixtures/cart.compiled.ts hash:09651303f124 | see the lines above
+file:fixtures/order.compiled.ts hash:dd109a9b49b5 | see the lines above
+file:fixtures/drv.compiled.ts hash:52540e910415 | see the lines above

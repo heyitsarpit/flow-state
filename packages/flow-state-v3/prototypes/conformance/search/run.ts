@@ -13,7 +13,9 @@ const arg = (k: string, d: string) => {
   const i = process.argv.indexOf(k);
   return i < 0 ? d : process.argv[i + 1]!;
 };
-const mod = (await import(resolve(import.meta.dir, arg("--runtime", "../round-2/adapter.ts")))) as RuntimeModule;
+const mod = (await import(
+  resolve(import.meta.dir, arg("--runtime", "../../round-2/adapter.ts"))
+)) as RuntimeModule;
 const make = makeHarness(mod.port);
 const o = {
   depth: Number(arg("--depth", "8")),

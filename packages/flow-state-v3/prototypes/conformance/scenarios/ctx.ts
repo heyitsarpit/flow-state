@@ -17,7 +17,9 @@ export const checkClaims = (r: Reads) => {
   for (const w of q.waits) {
     switch (w.kind) {
       case "wire":
-        if (!out.open.some((o) => o.op === w.op && (w.attempt === undefined || o.key === w.attempt)))
+        if (
+          !out.open.some((o) => o.op === w.op && (w.attempt === undefined || o.key === w.attempt))
+        )
           throw new Mismatch(`L3: wire claim for ${w.op} with no request outside`);
         break;
       case "ack":
@@ -32,11 +34,14 @@ export const checkClaims = (r: Reads) => {
       case "queue":
       case "W":
         for (const b of w.behind) {
-          if (!claimed.has(b)) throw new Mismatch(`L3: ${w.op} waits behind ${b}, which waits on nothing`);
+          if (!claimed.has(b))
+            throw new Mismatch(`L3: ${w.op} waits behind ${b}, which waits on nothing`);
           const mine = mints.get(w.attempt);
           const theirs = mints.get(b);
           if (mine !== undefined && theirs !== undefined && theirs >= mine)
-            throw new Mismatch(`L2: ${w.attempt} (mint ${mine}) waits behind ${b} (mint ${theirs})`);
+            throw new Mismatch(
+              `L2: ${w.attempt} (mint ${mine}) waits behind ${b} (mint ${theirs})`,
+            );
         }
         break;
       case "repair":
@@ -72,6 +77,9 @@ export const checkEndings = (r: Reads) => {
         }
         if (!ended) owed.set(ko(e), (owed.get(ko(e)) ?? 0) + 1);
         break;
+      case "unparked": // saved by disposal, owed again by this boot
+        owed.set(ko(e), (owed.get(ko(e)) ?? 0) + 1);
+        break;
       case "delivered": {
         const n = owed.get(ko(e)) ?? 0;
         if (n === 0) throw new Mismatch(`delivered with no ending: ${ko(e)}`);
@@ -99,7 +107,7 @@ export const checkEndings = (r: Reads) => {
   const wires = q.waits.filter((w) => w.kind === "wire");
   for (const k of open) {
     const attempt = k.split("#")[0]!;
-    if (!wires.some((w) => "attempt" in w && (w.attempt === attempt || w.attempt === undefined)) && !ended)
+    if (!wires.some((w) => !("attempt" in w) || w.attempt === attempt) && !ended)
       throw new Mismatch(`a send never ended: ${k}`);
   }
   if (q.idle)
@@ -108,7 +116,7 @@ export const checkEndings = (r: Reads) => {
 
 export class Ctx {
   namedIssues: string[] = [];
-  fresh: (machines?: readonly Fixture[]) => Harness = () => {
+  fresh: (machines?: readonly Fixture[], bounds?: Record<string, number>) => Harness = () => {
     throw new Error("no fresh");
   };
   constructor(

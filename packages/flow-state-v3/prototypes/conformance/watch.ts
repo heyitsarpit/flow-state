@@ -28,7 +28,7 @@ export const watched = async (
   let done = false;
   void child.exited.then(() => (done = true));
   while (!done) {
-    await Bun.sleep(150);
+    await Bun.sleep(40);
     if (done) break;
     const mb = rssMb(child.pid);
     peakMb = Math.max(peakMb, mb);

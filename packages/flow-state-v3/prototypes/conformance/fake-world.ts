@@ -261,7 +261,10 @@ export class FakeWorld {
     if (prior) return prior;
     const out = this.server?.apply?.(r.op, r.input, this.serverState) ?? { s: this.serverState };
     this.serverState = out.s;
-    const result = { ...("value" in out ? { value: out.value } : {}), ...(out.fail ? { fail: out.fail } : {}) };
+    const result = {
+      ...("value" in out ? { value: out.value } : {}),
+      ...(out.fail ? { fail: out.fail } : {}),
+    };
     if (key !== undefined) this.landed.set(key, result);
     return result;
   }
@@ -404,17 +407,13 @@ export class FakeWorld {
       open: this.requests
         .filter((r) => !r.answered && r.process === this.process)
         .map((r) => [r.op, r.idempotencyKey, r.input, r.never === true, r.aborted === true]),
-      lost: this.requests
-        .filter((r) => r.lostOpen)
-        .map((r) => [r.op, r.idempotencyKey, r.input]),
+      lost: this.requests.filter((r) => r.lostOpen).map((r) => [r.op, r.idempotencyKey, r.input]),
       landed: [...this.landed.entries()].sort(([a], [b]) => (a < b ? -1 : 1)),
       charged: [...this.charged].sort(),
       acked: [...this.acked].sort(),
       ledger: this.truth().ledger,
       server: this.serverState,
-      kv: [...this.kv.entries()]
-        .filter(([k]) => k !== "meta")
-        .sort(([a], [b]) => (a < b ? -1 : 1)),
+      kv: [...this.kv.entries()].filter(([k]) => k !== "meta").sort(([a], [b]) => (a < b ? -1 : 1)),
       held: this.held.map((h) => [h.writes, h.purpose, h.hung === true, h.then !== undefined]),
     });
   }
@@ -423,6 +422,9 @@ export class FakeWorld {
   settleStep() {
     if (this.scheduler.q.length) this.scheduler.next()();
     else if (this.laters.length) this.laters.shift()!();
+  }
+  hasLaters() {
+    return this.laters.length > 0;
   }
   hasWork() {
     return this.scheduler.q.length > 0 || this.laters.length > 0;

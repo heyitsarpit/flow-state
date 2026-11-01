@@ -3,7 +3,7 @@
 import { issueRef, issuesFixture } from "../fixtures/issues.compiled.ts";
 import { orderRef, refundsFixture } from "../fixtures/refunds.compiled.ts";
 import { s1Fixture, s1Ref } from "../fixtures/s1.compiled.ts";
-import { Ctx, type Scenario } from "./ctx.ts";
+import { checkClaims, checkEndings, Ctx, type Scenario } from "./ctx.ts";
 
 const A = { actor: "Issues/List", id: "a" };
 const B = { actor: "Issues/List", id: "b" };
@@ -23,10 +23,12 @@ const server = (c: Ctx) => c.r.truth().server.issues;
 const a0 = { actor: "S1", id: "a0" };
 const a1 = { actor: "S1", id: "a1" };
 const S1 = [s1Fixture];
-const commit = (c: Ctx, a: typeof a0, mask: number, v: number) => c.to(a, "Commit", { actor: a.id, mask, v });
+const commit = (c: Ctx, a: typeof a0, mask: number, v: number) =>
+  c.to(a, "Commit", { actor: a.id, mask, v });
 const wOf = (c: Ctx, a: typeof a0, an: any) => c.answer("w", an, { actor: a.id });
 const repairs = (c: Ctx) => {
-  while (c.r.outside().open.some((o) => o.op === "repair" && !o.never)) c.answer("repair", { truth: true });
+  while (c.r.outside().open.some((o) => o.op === "repair" && !o.never))
+    c.answer("repair", { truth: true });
 };
 const records = (c: Ctx) => c.r.truth().server.records;
 const startS1 = (c: Ctx) => (c.ensure(a0), c.ensure(a1));
@@ -36,6 +38,12 @@ const M = { actor: "Checkout/Refunds", id: "merchant-1" };
 const O9 = orderRef("o-9");
 const refund = (c: Ctx, amountCents: number, chargeId = "ch_9") =>
   c.to(M, "RefundAsked", { orderId: "o-9", chargeId, amountCents });
+const inRefunds = (c: Ctx, f: (d: Ctx) => void) => {
+  const d = new Ctx(c.fresh(reR), M);
+  f(d);
+  checkClaims(d.r);
+  checkEndings(d.r);
+};
 const openRefunds = (c: Ctx) => {
   c.ensure(M);
   c.to(M, "Open");
@@ -67,7 +75,11 @@ export const storeScenarios: readonly Scenario[] = [
       c.answer("like", { apply: true });
       c.eq("last toggle wins at the server", server(c).i1.liked, false);
       c.eq("and on screen", c.rec(I1)?.data.liked, false);
-      c.eq("settled", [row(c), c.rec(I1)?.predicted, c.rec(I1)?.uncertain], [undefined, false, false]);
+      c.eq(
+        "settled",
+        [row(c), c.rec(I1)?.predicted, c.rec(I1)?.uncertain],
+        [undefined, false, false],
+      );
     },
   },
   {
@@ -139,10 +151,16 @@ export const storeScenarios: readonly Scenario[] = [
       });
       const held = c.r.quiet().waits.find((w) => w.kind === "held");
       const queued = c.r.quiet().waits.find((w) => w.kind === "queue");
-      c.yes("Inspection names the holder", held && held.kind === "held" && held.actor === "Issues/List/a");
+      c.yes(
+        "Inspection names the holder",
+        held && held.kind === "held" && held.actor === "Issues/List/a",
+      );
       c.yes(
         "and who waits on it",
-        queued && queued.kind === "queue" && held && queued.behind.includes((held as { attempt: string }).attempt),
+        queued &&
+          queued.kind === "queue" &&
+          held &&
+          queued.behind.includes((held as { attempt: string }).attempt),
       );
       c.to(A, "CancelLike", { id: "i1" });
       c.eq("holder cancels: it goes", c.reqs("like").length, 2);
@@ -166,7 +184,11 @@ export const storeScenarios: readonly Scenario[] = [
       wOf(c, a0, { apply: true });
       c.eq("third goes", c.reqs("w").at(-1)?.input.v, 3);
       wOf(c, a1, { apply: true });
-      c.eq("sent in mint order", c.reqs("w").map((r) => r.input.v), [1, 2, 3]);
+      c.eq(
+        "sent in mint order",
+        c.reqs("w").map((r) => r.input.v),
+        [1, 2, 3],
+      );
       c.eq("last intent holds", records(c).r1, 3);
     },
   },
@@ -200,11 +222,15 @@ export const storeScenarios: readonly Scenario[] = [
     kind: "example",
     fixtures: F,
     actor: A,
-    cites: ["rule:30", "cell:store.success"],
+    cites: ["rule:30", "cell:store.success", "D3"],
     run(c) {
       opened(c);
       c.to(A, "Edit", { id: "i1", title: "New" });
-      c.eq("predicted", [c.rec(I1)?.data.title, c.rec(I1)?.data.slug, c.rec(I1)?.predicted], ["New", "new", true]);
+      c.eq(
+        "predicted",
+        [c.rec(I1)?.data.title, c.rec(I1)?.data.slug, c.rec(I1)?.predicted],
+        ["New", "new", true],
+      );
       c.answer("rename", { apply: true });
       c.eq("confirmed field replaced", c.rec(I1)?.data.title, "New");
       c.eq("no live prediction", c.rec(I1)?.predicted, false);
@@ -220,7 +246,7 @@ export const storeScenarios: readonly Scenario[] = [
     kind: "example",
     fixtures: F,
     actor: A,
-    cites: ["cell:store.failure", "rule:30"],
+    cites: ["cell:store.failure", "rule:30", "D3"],
     run(c) {
       opened(c);
       toggle(c, true);
@@ -275,20 +301,39 @@ export const storeScenarios: readonly Scenario[] = [
         c.eq("denied, not rejected: the token sees it", c.r.evidence("Denied").length > 0, true);
       },
       Overloaded(c) {
-        c.ensure(M);
-        for (let i = 0; i < 65; i++) refund(c, 1, `ch${i}`);
-        c.eq("the 65th lane's write is declined", c.lastEnding("refund")?.reason, "Overloaded");
-        c.eq("notice", c.mem(M).notice, "Too many refunds queued on this charge.");
+        inRefunds(c, (d) => {
+          d.ensure(M);
+          for (let i = 0; i < 65; i++) refund(d, 1, `ch${i}`);
+          d.eq("the 65th lane's write is declined", d.lastEnding("refund")?.reason, "Overloaded");
+          d.eq("notice", d.mem(M).notice, "Too many refunds queued on this charge.");
+        });
       },
       Superseded(c) {
         opened(c);
         toggle(c, true);
         toggle(c, false);
         toggle(c, true);
-        c.eq("evidence, one", c.r.evidence("Superseded").filter((e) => e["op"] === "like").length, 1);
-        c.eq("delivered to no handler", c.r.evidence("delivered").filter((e) => e["op"] === "like").length, 0);
+        c.eq(
+          "evidence, one",
+          c.r.evidence("Superseded").filter((e) => e["op"] === "like").length,
+          1,
+        );
+        c.eq(
+          "delivered to no handler",
+          c.r.evidence("delivered").filter((e) => e["op"] === "like").length,
+          0,
+        );
         c.eq("prediction gone, the newer one shows", c.rec(I1)?.data.liked, true);
         c.eq("no repair", c.reqs("repair").length, 0);
+      },
+      // OD20 F4: a head never sent and not yet invoked is replaced too, not queued behind.
+      "Superseded-head"(c) {
+        opened(c, B);
+        toggle(c, true);
+        toggle(c, false, B); // B's head: never sent, waiting in the record queue
+        toggle(c, true, B);
+        c.eq("replaced", c.r.evidence("Superseded").filter((e) => e["op"] === "like").length, 1);
+        c.eq("nothing behind it", row(c, "like", B)?.waiting, false);
       },
       Cancelled(c) {
         opened(c, B);
@@ -300,28 +345,51 @@ export const storeScenarios: readonly Scenario[] = [
         c.eq("toast", c.mem(B).toast, "Could not update");
       },
       Restored(c) {
-        openRefunds(c);
-        refund(c, 100);
-        c.reload(); // never acknowledged
-        c.eq("reason", c.lastEnding("refund")?.reason, "Restored");
-        c.eq("no mark", c.rec(O9), undefined);
-        c.eq("no repair", c.reqs("repair").length, 0);
+        inRefunds(c, (d) => {
+          openRefunds(d);
+          refund(d, 100);
+          d.reload(); // never acknowledged
+          d.eq("reason", d.lastEnding("refund")?.reason, "Restored");
+          d.eq("no mark", d.rec(O9), undefined);
+          d.eq("no repair", d.reqs("repair").length, 0);
+        });
+      },
+      // C2: on a reload each W entry ends too, delivered.
+      "Restored-W"(c) {
+        inRefunds(c, (d) => {
+          openRefunds(d);
+          refund(d, 100);
+          refund(d, 200);
+          d.ack();
+          d.reload();
+          const es = d.endings("refund").map((e) => e["reason"]);
+          d.eq(
+            "the head holds, W ends",
+            [es.includes("Restored"), d.r.row(M, "refund", { chargeId: "ch_9" })?.outstanding],
+            [true, 0],
+          );
+          d.eq("W's ending reached the machine", d.mem(M).notice, "Not sent.");
+        });
       },
       StorageRefused(c) {
-        openRefunds(c);
-        refund(c, 100);
-        c.eq("predicted", c.rec(O9)?.data.refundedCents, 100);
-        c.do({ storage: "refuse" });
-        c.eq("reason", c.lastEnding("refund")?.reason, "StorageRefused");
-        c.eq("removed", c.rec(O9)?.data.refundedCents, 0);
-        c.eq("no mark", c.rec(O9)?.uncertain, false);
+        inRefunds(c, (d) => {
+          openRefunds(d);
+          refund(d, 100);
+          d.eq("predicted", d.rec(O9)?.data.refundedCents, 100);
+          d.do({ storage: "refuse" });
+          d.eq("reason", d.lastEnding("refund")?.reason, "StorageRefused");
+          d.eq("removed", d.rec(O9)?.data.refundedCents, 0);
+          d.eq("no mark", d.rec(O9)?.uncertain, false);
+        });
       },
       Disposed(c) {
-        openRefunds(c);
-        refund(c, 100);
-        c.do({ disposeRuntime: true });
-        c.eq("removed", c.rec(O9)?.data.refundedCents, 0);
-        c.eq("reason", c.lastEnding("refund")?.reason, "Disposed");
+        inRefunds(c, (d) => {
+          openRefunds(d);
+          refund(d, 100);
+          d.do({ disposeRuntime: true });
+          d.eq("removed", d.rec(O9)?.data.refundedCents, 0);
+          d.eq("reason", d.lastEnding("refund")?.reason, "Disposed");
+        });
       },
       NothingToResend(c) {
         opened(c);
@@ -378,16 +446,56 @@ export const storeScenarios: readonly Scenario[] = [
         c.eq("mark stays", c.rec(I1)?.uncertain, true);
       },
       "an-unresolved-mark-outlives-another-success"(c) {
-        // The same record, two records' worth of marks: an unresolved Attempt's mark is not cleared by a success.
-        c.ensure(a0);
-        c.ensure(a1);
-        commit(c, a0, 1, 1);
-        wOf(c, a0, { lost: true });
-        repairs(c);
-        commit(c, a1, 2, 2);
-        wOf(c, a1, { apply: true });
-        c.eq("other record clean", c.rec(s1Ref("r2"))?.uncertain, false);
-        c.eq("this one stays", c.rec(s1Ref("r1"))?.uncertain, true);
+        // A success elsewhere must not clear it, and an older Attempt still unresolved keeps its mark on this record.
+        const d = new Ctx(c.fresh(S1), a0);
+        startS1(d);
+        commit(d, a0, 1, 1);
+        wOf(d, a0, { lost: true });
+        repairs(d);
+        commit(d, a1, 2, 2);
+        wOf(d, a1, { apply: true });
+        d.eq("other record clean", d.rec(s1Ref("r2"))?.uncertain, false);
+        d.eq("this one stays", d.rec(s1Ref("r1"))?.uncertain, true);
+      },
+    },
+  },
+  // Added from the second author's survivors.
+  {
+    id: "STORE-11",
+    kind: "example",
+    fixtures: F,
+    actor: A,
+    cites: ["D39", "cell:lane.cancel.InFlight", "rule:30", "D3"],
+    variants: {
+      "a-resend-waits-for-its-repair"(c) {
+        opened(c);
+        toggle(c, true);
+        c.answer("like", { lost: true });
+        c.to(A, "ReconcileLike", { id: "i1" });
+        c.eq("waits", c.reqs("like").length, 1);
+        c.answer("repair", { truth: true });
+        c.eq("then goes", c.reqs("like").length, 2);
+      },
+      "cancel-a-waiting-resend"(c) {
+        opened(c);
+        toggle(c, true);
+        c.answer("like", { lost: true });
+        c.to(A, "ReconcileLike", { id: "i1" });
+        c.to(A, "CancelLike", { id: "i1" });
+        c.eq("released", c.r.evidence("Released").length, 1);
+        c.eq("gone", row(c), undefined);
+        c.answer("repair", { truth: true });
+        c.eq("never sent again", c.reqs("like").length, 1);
+      },
+      "stillunknown-keeps-its-place"(c) {
+        opened(c, B);
+        toggle(c, true);
+        c.answer("like", { lost: true });
+        c.answer("repair", { truth: true });
+        toggle(c, false, B);
+        c.to(A, "ReconcileLike", { id: "i1" });
+        c.answer("like", { fail: { tag: "Refused" } });
+        c.eq("StillUnknown is unknown, not failure: B still waits", c.reqs("like").length, 2);
       },
     },
   },
@@ -404,7 +512,11 @@ export const storeScenarios: readonly Scenario[] = [
       commit(c, actor(64), 3, 100); // would fit r1, not r2
       c.eq("declined", c.lastEnding("w")?.reason, "Overloaded");
       c.eq("no partial join: r1 shows nothing", c.rec(s1Ref("r1")), undefined);
-      c.eq("r2's chain unchanged", c.rec(s1Ref("r2"))?.data?.v, 64);
+      c.eq(
+        "r2 stays predicted, over no base: E18 shows nothing",
+        c.rec(s1Ref("r2"))?.predicted,
+        true,
+      );
     },
   },
   {
@@ -437,7 +549,7 @@ export const storeScenarios: readonly Scenario[] = [
         c.advance(30_000);
         c.eq("A still holds: D3", row(c)?.uncertain, true);
         c.eq("B still waits", c.reqs("like").length, 1);
-        c.eq("the prediction ended", c.rec(I1)?.data.liked, false === true ? true : c.rec(I1)?.data.liked);
+        c.eq("A's prediction ended; B's shows", c.rec(I1)?.data.liked, false);
         c.to(A, "ReconcileLike", { id: "i1" });
         c.eq("D39: the bound lets the re-send go", c.reqs("like").length, 2);
       },
@@ -448,7 +560,9 @@ export const storeScenarios: readonly Scenario[] = [
         c.fault({ mutateServer: (s: any) => s });
         c.advance(30_000);
         const before = c.rec(I1)?.data.title;
-        c.fault({ lateAnswer: ["repair", { ok: { id: "i1", title: "stale", liked: false, likes: 0 } }] });
+        c.fault({
+          lateAnswer: ["repair", { ok: { id: "i1", title: "stale", liked: false, likes: 0 } }],
+        });
         c.eq("dropped", c.rec(I1)?.data.title, before);
         c.yes("fence evidence", c.r.evidence("fence").length > 0);
       },
@@ -466,7 +580,9 @@ export const storeScenarios: readonly Scenario[] = [
       const n = c.r.frames().length;
       toggle(c, false, B);
       const fs = c.r.frames().slice(n);
-      const with_ = fs.filter((f) => f.records[I1]?.data?.liked === false && f.records[I1]?.predicted);
+      const with_ = fs.filter(
+        (f) => f.records[I1]?.data?.liked === false && f.records[I1]?.predicted,
+      );
       c.eq("the turn is one publication", fs.length, 1);
       c.eq(
         "row and prediction in it",
@@ -481,13 +597,15 @@ export const storeScenarios: readonly Scenario[] = [
     kind: "example",
     fixtures: reR,
     actor: M,
-    cites: ["rule:38", "rule:30", "rule:46"],
+    cites: ["rule:38", "rule:30", "rule:46", "D3"],
     run(c) {
       openRefunds(c);
       refund(c, 2000);
       c.ack();
       c.eq("on the wire", c.reqs("refund").length, 1);
-      const stored = JSON.stringify([...c.r.stored().entries()].filter(([k2]) => k2.startsWith("lane/")));
+      const stored = JSON.stringify(
+        [...c.r.stored().entries()].filter(([k2]) => k2.startsWith("lane/")),
+      );
       c.yes("predicted keys persist with the lane", stored.includes(O9));
       c.eq("prediction values do not", stored.includes("refundedCents"), false);
       c.reload();
@@ -511,7 +629,11 @@ export const storeScenarios: readonly Scenario[] = [
       c.ack();
       c.answer("refund", { apply: true });
       c.ack();
-      c.eq("the queued start kept what its own turn saw", c.reqs("refund").at(-1)?.input.amountCents, 200);
+      c.eq(
+        "the queued start kept what its own turn saw",
+        c.reqs("refund").at(-1)?.input.amountCents,
+        200,
+      );
     },
   },
 ];

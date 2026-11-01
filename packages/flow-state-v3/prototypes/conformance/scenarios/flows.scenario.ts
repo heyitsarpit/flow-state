@@ -18,7 +18,8 @@ const shown = (c: Ctx, withHeader = false) => {
 const inc = (c: Ctx, lineId: string) => c.to(P, "Increment", { lineId });
 const row = (c: Ctx, lineId: string, op = "setQuantity", a = P) => c.r.row(a, op, l(lineId));
 const repairs = (c: Ctx) => {
-  while (c.r.outside().open.some((o) => o.op === "repair" && !o.never)) c.answer("repair", { truth: true });
+  while (c.r.outside().open.some((o) => o.op === "repair" && !o.never))
+    c.answer("repair", { truth: true });
 };
 
 const M = { actor: "Checkout/Refunds", id: "merchant-1" };
@@ -64,14 +65,22 @@ export const flowScenarios: readonly Scenario[] = [
     kind: "example",
     fixtures: C,
     actor: P,
-    cites: ["rule:16", "rule:29"],
+    cites: ["rule:16", "rule:29", "D3"],
     variants: {
       "five-taps"(c) {
         shown(c);
         for (let i = 0; i < 5; i++) inc(c, "l2");
         c.eq("one sent", c.reqs("setQuantity").length, 1);
-        c.eq("total predicted from the price beneath", c.rec(lineRef("l2"))?.data.lineTotalCents, 7 * 500);
-        c.eq("three replaced", c.r.evidence("Superseded").filter((e) => e["op"] === "setQuantity").length, 3);
+        c.eq(
+          "total predicted from the price beneath",
+          c.rec(lineRef("l2"))?.data.lineTotalCents,
+          7 * 500,
+        );
+        c.eq(
+          "three replaced",
+          c.r.evidence("Superseded").filter((e) => e["op"] === "setQuantity").length,
+          3,
+        );
         c.answer("setQuantity", { apply: true });
         c.answer("setQuantity", { apply: true });
         c.eq("two requests for five taps", c.reqs("setQuantity").length, 2);
@@ -123,7 +132,10 @@ export const flowScenarios: readonly Scenario[] = [
         c.fault({
           mutateServer: (s: any) => ({
             ...s,
-            lines: { ...s.lines, l1: { ...s.lines.l1, unitPriceCents: 5000, lineTotalCents: 5000 } },
+            lines: {
+              ...s.lines,
+              l1: { ...s.lines.l1, unitPriceCents: 5000, lineTotalCents: 5000 },
+            },
           }),
         });
         c.to(H, "Remove", { lineId: "l2" });
@@ -135,7 +147,7 @@ export const flowScenarios: readonly Scenario[] = [
         c.eq("settled", c.rec(lineRef("l1"))?.predicted, false);
       },
       // A plain write beside the domain's: the coupon's guess is memory (rule 36).
-      "coupon"(c) {
+      coupon(c) {
         shown(c);
         c.to(P, "ApplyCoupon", { code: "SAVE10" });
         c.eq("guess in memory", c.mem(P).coupon.predictedTotalCents, 2700);
@@ -155,7 +167,7 @@ export const flowScenarios: readonly Scenario[] = [
     kind: "example",
     fixtures: [refundsFixture],
     actor: M,
-    cites: ["rule:30", "rule:32", "D43"],
+    cites: ["rule:30", "rule:32", "D43", "D3"],
     variants: {
       // refunds.test.ts:18
       "three-refunds"(c) {
@@ -174,11 +186,16 @@ export const flowScenarios: readonly Scenario[] = [
         c.ack();
         c.eq("one on the wire", c.reqs("refund").length, 1);
         c.answer("refund", { apply: true });
+        c.eq("a promoted commit waits for its own ack", c.reqs("refund").length, 1);
         c.ack();
         c.answer("refund", { apply: true });
         c.ack();
         c.answer("refund", { apply: true });
-        c.eq("in order", c.reqs("refund").map((r) => r.input.amountCents), [4000, 3000, 5000]);
+        c.eq(
+          "in order",
+          c.reqs("refund").map((r) => r.input.amountCents),
+          [4000, 3000, 5000],
+        );
         c.eq("server", c.r.truth().server.orders["o-9"].refundedCents, 7000);
         c.eq("notice", c.mem(M).notice, "Only $20.00 is left to refund on that charge.");
         c.eq("settled", [c.rec(O9)?.data.refundedCents, c.rec(O9)?.predicted], [7000, false]);
@@ -193,7 +210,11 @@ export const flowScenarios: readonly Scenario[] = [
         c.eq("mark", c.rec(O9)?.uncertain, true);
         c.answer("repair", { truth: true });
         c.ack("capture"); // the re-send's capture
-        c.eq("re-sent", [rrow(c)?.pending, rrow(c)?.retryCount, rrow(c)?.outstanding], [true, 1, 1]);
+        c.eq(
+          "re-sent",
+          [rrow(c)?.pending, rrow(c)?.retryCount, rrow(c)?.outstanding],
+          [true, 1, 1],
+        );
         c.eq("the record stays uncertain during the re-send", c.rec(O9)?.uncertain, true);
         c.answer("refund", { apply: true });
         c.ack();

@@ -36,7 +36,10 @@ const nodes = {
       GoOther: [{ members: commit("other", ({ event }) => event) }],
       GoBoth: [
         {
-          members: (p) => [...commit("job", ({ event }) => event)(p), ...commit("other", ({ event }) => event)(p)],
+          members: (p) => [
+            ...commit("job", ({ event }) => event)(p),
+            ...commit("other", ({ event }) => event)(p),
+          ],
         },
       ],
       Cancel: [{ members: member("job", "cancel", () => ({})) }],

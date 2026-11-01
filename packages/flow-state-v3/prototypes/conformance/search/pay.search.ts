@@ -11,7 +11,8 @@ const CAP = { status: "requires_capture", clientSecret: "" };
 const send = (event: string, payload: unknown = {}): Step => ({ send: A, event, payload });
 const open = (op: string) => (h: Harness) =>
   h.read.outside().open.some((o) => o.op === op && !o.never);
-const storage = (h: Harness) => h.read.outside().storage.some((s) => !s.hung && s.purpose !== "flush");
+const storage = (h: Harness) =>
+  h.read.outside().storage.some((s) => !s.hung && s.purpose !== "flush");
 const ans = (name: string, op: string, a: Answer): Action => ({
   name,
   step: { answer: op, with: a },
@@ -89,6 +90,7 @@ export const moneyAudit = (h: Harness): string[] => {
   }
   if (told("haven't been charged") && t.ledger.charged.includes(m.intentId))
     out.push(`told-not-charged:${leaf}`);
+  if (t.charges > t.ledger.charged.length) out.push(`two-keys-charged-one-intent:${leaf}`);
   const cur = r.row(A, "pay", { intentId: m.intentId });
   if (cur?.uncertain && leaf !== "UNSURE" && leaf !== "LEFT" && leaf !== "STUCK")
     out.push(`held-no-owner:${leaf}`);
@@ -101,12 +103,19 @@ export const PAY_PINS: Readonly<Record<string, string>> = {
   "order-no-receipt": "P1,P2",
   "charged-unaccounted": "P3",
   "held-no-owner": "P4,P5",
+  "told-not-charged": "P6",
+  "two-keys-charged-one-intent": "P6",
 };
 
 export const searchPay = (
   make: () => Harness,
   fixtures: readonly Fixture[],
-  opts: { depth: number; maxStates: number; deadlineMs: number; pins?: Readonly<Record<string, string>> },
+  opts: {
+    depth: number;
+    maxStates: number;
+    deadlineMs: number;
+    pins?: Readonly<Record<string, string>>;
+  },
 ): Report & { unpinned: readonly string[] } => {
   const pins = opts.pins ?? PAY_PINS;
   const boot = () => {
@@ -116,10 +125,6 @@ export const searchPay = (
     h.do(send("Start", CART));
     return h;
   };
-  const mkey = (h: Harness) => {
-    const m = h.read.memory(A);
-    return m ? { intentId: m.intentId } : undefined;
-  };
   const rep = bfs({
     make: boot,
     actions: ALPHABET,
@@ -127,15 +132,30 @@ export const searchPay = (
     maxStates: opts.maxStates,
     deadlineMs: opts.deadlineMs,
     edge(pre, post) {
-      // S6: never a new charge beside a doubtful one on the same intent.
-      const before = new Set(pre.read.requests().filter((x) => x.op === "pay").map((x) => x.idempotencyKey));
-      const k = mkey(pre);
-      const row = k && pre.read.row(A, "pay", k);
-      const holding = row && (row.uncertain || (row.pending && before.size > 0));
-      if (holding)
-        for (const q of post.read.requests())
-          if (q.op === "pay" && !before.has(q.idempotencyKey) && (q.input as any).intentId === k!.intentId)
-            throw new Oracle("S6: a new id while the lane was uncertain or sent");
+      // S6: no new id for an intent while an earlier id for it is unresolved. Resolved means a definite ending or a release.
+      const before = new Set(
+        pre.read
+          .requests()
+          .filter((x) => x.op === "pay")
+          .map((x) => x.idempotencyKey),
+      );
+      const pays = post.read.requests().filter((x) => x.op === "pay");
+      const lastChannel = new Map<unknown, unknown>();
+      for (const e of post.read.evidence("ending"))
+        if (e["op"] === "pay" && e["attempt"] !== undefined)
+          lastChannel.set(e["attempt"], e["channel"]);
+      const released = new Set(post.read.evidence("Released").map((e) => e["attempt"]));
+      for (const q of pays) {
+        if (before.has(q.idempotencyKey)) continue;
+        for (const old of pays) {
+          if (old.idempotencyKey === q.idempotencyKey || old.input.intentId !== q.input.intentId)
+            continue;
+          if (!before.has(old.idempotencyKey)) continue;
+          const c = lastChannel.get(old.idempotencyKey);
+          if (c === "success" || c === "failure" || released.has(old.idempotencyKey)) continue;
+          throw new Oracle(`S6: a new id beside unresolved ${old.idempotencyKey}`);
+        }
+      }
       // S7: no ack, no request.
       const acked = post.read.truth().acked;
       for (const x of post.read.requests())

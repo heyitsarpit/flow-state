@@ -80,12 +80,14 @@ const setQ = (delta: number) =>
     quantity: memory.quantities[event.lineId],
     delta,
   }));
-const bump = (d: number) => ({ memory, event }: any) => ({
-  quantities: {
-    ...memory.quantities,
-    [event.lineId]: (memory.quantities[event.lineId] ?? 1) + d,
-  },
-});
+const bump =
+  (d: number) =>
+  ({ memory, event }: any) => ({
+    quantities: {
+      ...memory.quantities,
+      [event.lineId]: (memory.quantities[event.lineId] ?? 1) + d,
+    },
+  });
 
 const pageNodes = {
   root: node(
@@ -95,9 +97,7 @@ const pageNodes = {
       Loaded: [
         {
           patch: ({ event }) => ({
-            quantities: Object.fromEntries(
-              event.lines.map((l: any) => [l.lineId, l.quantity]),
-            ),
+            quantities: Object.fromEntries(event.lines.map((l: any) => [l.lineId, l.quantity])),
             subtotalCents: event.subtotalCents,
           }),
         },
@@ -107,8 +107,7 @@ const pageNodes = {
         {
           guards: [
             ({ memory, event }) =>
-              (memory.quantities[event.lineId] ?? 1) < MAX_QUANTITY ||
-              deny("AtMost"),
+              (memory.quantities[event.lineId] ?? 1) < MAX_QUANTITY || deny("AtMost"),
           ],
           patch: bump(1),
           members: setQ(1),
@@ -116,7 +115,9 @@ const pageNodes = {
       ],
       Decrement: [
         {
-          guards: [({ memory, event }) => (memory.quantities[event.lineId] ?? 1) > 1 || deny("AtOne")],
+          guards: [
+            ({ memory, event }) => (memory.quantities[event.lineId] ?? 1) > 1 || deny("AtOne"),
+          ],
           patch: bump(-1),
           members: setQ(-1),
         },
@@ -168,7 +169,12 @@ const pageNodes = {
       CouponRefused: [
         {
           patch: ({ event }) => ({
-            coupon: { code: null, status: "refused", predictedTotalCents: null, reason: event.reason },
+            coupon: {
+              code: null,
+              status: "refused",
+              predictedTotalCents: null,
+              reason: event.reason,
+            },
           }),
         },
       ],
@@ -223,7 +229,9 @@ const makePage = (api: Api): Compiled => ({
         CouponRejected: mapped("coupon", "failure.CouponRejected", "CouponRefused", (e) => ({
           reason: e.reason,
         })),
-        NotSent: mapped("coupon", "failure.NotSent", "CouponRefused", () => ({ reason: "Not sent" })),
+        NotSent: mapped("coupon", "failure.NotSent", "CouponRefused", () => ({
+          reason: "Not sent",
+        })),
       },
       unknown: { event: "CouponUnsure" },
     }),

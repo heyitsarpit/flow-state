@@ -54,11 +54,7 @@ export const bfs = (o: {
   };
   const key = (h: Harness, s: readonly Action[]) =>
     Bun.hash(`${h.read.stateHash()}|${o.extra?.(s) ?? ""}`);
-  const done = (
-    verdict: Report["verdict"],
-    depthCompleted: number,
-    failure?: string,
-  ): Report => ({
+  const done = (verdict: Report["verdict"], depthCompleted: number, failure?: string): Report => ({
     verdict,
     perDepth,
     states: seen.size,

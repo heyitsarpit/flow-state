@@ -14,12 +14,10 @@ const hasRepair = (h: Harness) => h.read.outside().open.some((o) => o.op === "re
 
 const ALPHABET: readonly Action[] = [
   ...actors.flatMap((a) => [
-    ...[1, 2, 3].map(
-      (mask): Action => ({
-        name: `commit.${a.id}.m${mask}`,
-        step: { send: a, event: "Commit", payload: { actor: a.id, mask, v: -1 } } as Step,
-      }),
-    ),
+    ...[1, 2, 3].map((mask): Action => ({
+      name: `commit.${a.id}.m${mask}`,
+      step: { send: a, event: "Commit", payload: { actor: a.id, mask, v: -1 } } as Step,
+    })),
     { name: `retry.${a.id}`, step: { send: a, event: "Retry", payload: {} } },
     { name: `cancel.${a.id}`, step: { send: a, event: "Cancel", payload: {} } },
     ...(
@@ -29,13 +27,11 @@ const ALPHABET: readonly Action[] = [
         ["lost", { lost: true }],
         ["landed", { applyLost: true }],
       ] as ReadonlyArray<readonly [string, Answer]>
-    ).map(
-      ([n, an]): Action => ({
-        name: `w.${a.id}.${n}`,
-        step: { answer: "w", with: an, where: { actor: a.id } },
-        on: openW(a.id),
-      }),
-    ),
+    ).map(([n, an]): Action => ({
+      name: `w.${a.id}.${n}`,
+      step: { answer: "w", with: an, where: { actor: a.id } },
+      on: openW(a.id),
+    })),
   ]),
   { name: "repair", step: { answer: "repair", with: { truth: true } }, on: hasRepair },
   { name: "landLate", step: { fault: { landLate: "w" } }, on: (h) => h.read.outside().lost > 0 },
@@ -59,12 +55,15 @@ const commitsIn = (s: readonly Action[]) => s.filter((a) => a.name.startsWith("c
 const drain = (h: Harness) => {
   for (let i = 0; i < 24; i++) {
     const o = h.read.outside();
-    if (o.open.some((x) => x.op === "repair" && !x.never)) h.do({ answer: "repair", with: { truth: true } });
+    if (o.open.some((x) => x.op === "repair" && !x.never))
+      h.do({ answer: "repair", with: { truth: true } });
     else if (o.open.some((x) => x.op === "w")) h.do({ answer: "w", with: { apply: true } });
     else {
       const held = h.read.quiet().waits.filter((w) => w.kind === "held");
       if (held.length === 0) return;
-      for (const w of held) if (w.kind === "held") h.do({ send: { actor: "S1", id: w.actor.split("/")[1]! }, event: "Retry", payload: {} });
+      for (const w of held)
+        if (w.kind === "held")
+          h.do({ send: { actor: "S1", id: w.actor.split("/")[1]! }, event: "Retry", payload: {} });
     }
   }
 };
@@ -88,11 +87,18 @@ export const searchLike = (
     deadlineMs: opts.deadlineMs,
     extra: (s) => `${commitsIn(s)}`,
     edge(pre, post) {
-      // S5: at most one send on the wire per record.
-      const onWire = post.read.requests().filter((r) => r.op === "w" && !r.answered);
+      // S5: at most one Attempt on the wire per record. An interrupted send may still be open at the server; its re-send
+      // has the same id, which is the point of the id.
+      // A released Attempt's request may also still be out there: the stated limit (OD20 F1).
+      const released = new Set(post.read.evidence("Released").map((e) => e["attempt"]));
+      const onWire = post.read
+        .requests()
+        .filter((r) => r.op === "w" && !r.answered && !released.has(r.idempotencyKey));
       for (const rec of [1, 2]) {
-        const n = onWire.filter((r) => (r.input.mask & rec) !== 0);
-        if (n.length > 1) throw new Oracle(`S5: ${n.length} sends on the wire for one record`);
+        const n = new Set(
+          onWire.filter((r) => (r.input.mask & rec) !== 0).map((r) => r.idempotencyKey),
+        );
+        if (n.size > 1) throw new Oracle(`S5: ${n.size} Attempts on the wire for one record`);
       }
       // S13, D3: first sends per record in mint order.
       const mint = new Map(post.read.evidence("mint").map((e) => [e["attempt"], e["mint"]]));
@@ -121,9 +127,7 @@ export const searchLike = (
       checkClaims(h.read);
       if (h.read.truth().server.inverted && h.read.evidence("Released").length === 0)
         throw new Oracle("the server went backwards after drain");
-      const stuck = h.read
-        .quiet()
-        .waits.filter((w) => w.kind !== "timer" && w.kind !== "held");
+      const stuck = h.read.quiet().waits.filter((w) => w.kind !== "timer" && w.kind !== "held");
       if (stuck.length) throw new Oracle(`drain left work: ${JSON.stringify(stuck[0])}`);
     },
   });

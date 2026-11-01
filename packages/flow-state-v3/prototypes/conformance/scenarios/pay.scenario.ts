@@ -1,5 +1,6 @@
 // Round 1's scenarios, worked out by hand from SCENARIOS.md and pay.machine.ts, before any runtime existed.
 import { cellsFixture } from "../fixtures/cells.compiled.ts";
+import { ringFixture } from "../fixtures/order.compiled.ts";
 import { payFixture } from "../fixtures/pay.compiled.ts";
 import { checkEndings, Ctx, type Scenario } from "./ctx.ts";
 
@@ -64,7 +65,14 @@ export const payScenarios: readonly Scenario[] = [
     id: "PAY-01",
     kind: "example",
     fixtures: FIXTURES,
-    cites: ["rule:17", "rule:21", "cell:lane.commit.Idle", "cell:lane.success.InFlight", "sec:2.7.12", "D4"],
+    cites: [
+      "rule:17",
+      "rule:21",
+      "cell:lane.commit.Idle",
+      "cell:lane.success.InFlight",
+      "sec:2.7.12",
+      "D4",
+    ],
     run(c) {
       c.ensure();
       start(c);
@@ -365,6 +373,18 @@ export const payScenarios: readonly Scenario[] = [
         c.send("Leave");
         c.state("LEFT");
       },
+      // A refused turn keeps none of its own members (2.5 step 5). The throw comes after the members applied.
+      "refused-after-members"(c) {
+        const R = { actor: "Ring", id: "a" };
+        const d = new Ctx(c.fresh([ringFixture]), R);
+        d.ensure();
+        d.fault({ throwIn: "on.WorkBad[0].followUp[0]" });
+        d.send("WorkBad", { n: 1, who: "a" });
+        d.eq("issue", d.r.issues().at(-1)?.code, "InvalidTurn");
+        d.eq("no request", d.reqs("job").length, 0);
+        d.eq("no row", d.r.row(R, "job", { n: 1 }), undefined);
+        d.eq("no memory", d.mem().log, []);
+      },
       // D27: a hook's throw disables that module with an issue; the core's own work stands.
       module(c) {
         onWire(c);
@@ -571,6 +591,7 @@ export const payScenarios: readonly Scenario[] = [
         c.send("AbortPay");
         c.state("CARD");
         c.eq("nothing", c.r.evidence("Released").length, 0);
+        c.eq("no evidence either: the cell is nothing", c.r.evidence("NothingToResend").length, 0);
       },
       "cancel-on-wire"(c) {
         onWire(c);
@@ -649,6 +670,7 @@ export const payScenarios: readonly Scenario[] = [
     kind: "fault",
     fixtures: CELLS,
     cites: [
+      "D5",
       "rule:18",
       "D8",
       "cell:lane.storageRefused.InFlight",
@@ -734,6 +756,61 @@ export const payScenarios: readonly Scenario[] = [
         c.eq("parked and delivered", c.lastEnding("pay")?.reason, "Interrupted");
         c.eq("once", c.endings("pay").filter((e) => e["reason"] === "Interrupted").length, 1);
       },
+      // D5: an older send's exit, while its own Attempt's re-send is on the wire, is stale.
+      "stale-send-fenced"(c) {
+        c.ensure();
+        c.fault({ uninterruptibleHang: "pay" });
+        start(c);
+        pay(c);
+        c.ack();
+        c.advance(60_000); // timed out; the fiber cannot be interrupted, so its exit is still to come
+        c.state("UNSURE");
+        c.advance(3000);
+        c.answer("order", { ok: null });
+        c.answer("intent", { ok: { status: "requires_payment_method" } });
+        c.ack();
+        c.eq("re-sent", c.reqs("pay").length, 2);
+        c.fault({ lateAnswer: ["pay", req_cap] }); // the first send's answer
+        c.state("PAYING");
+        c.eq("the re-send still pending", row(c)?.pending, true);
+        c.yes(
+          "fenced",
+          c.r.evidence("fence").some((e) => e["send"] !== undefined),
+        );
+      },
+      // A waiting re-send at disposal returns to Held: its Attempt was sent, so "Disposed" would be a lie.
+      "dispose-waiting-resend"(c) {
+        onWire(c);
+        c.answer("pay", { lost: true });
+        c.advance(3000);
+        c.answer("order", { ok: null });
+        c.answer("intent", { ok: { status: "requires_payment_method" } });
+        c.do({ disposeRuntime: true }); // the capture is still out
+        c.eq(
+          "no Disposed ending",
+          c.endings("pay").some((e) => e["reason"] === "Disposed"),
+          false,
+        );
+      },
+      // The parked ending is what is delivered, not a generic Restored (G3).
+      "parked-success-is-delivered"(c) {
+        // A settled ending in the mail when disposal starts. A drain budget below zero yields after every step, and the
+        // fault lands disposal in that gap.
+        const d = new Ctx(c.fresh(CELLS, { drainMs: -1 }));
+        d.ensure();
+        start(d);
+        pay(d);
+        d.ack();
+        d.fault({ afterYield: { disposeRuntime: true } });
+        d.answer("pay", req_cap);
+        d.reload();
+        d.yes(
+          "it was parked",
+          d.r.evidence("unparked").some((e) => e["op"] === "pay"),
+        );
+        d.state("PLACING");
+        d.eq("no hold", row(d), undefined);
+      },
       // D6: disposal finishes when the set empties, without waiting for the bound.
       "disposal-ends-with-the-last-fiber"(c) {
         c.ensure();
@@ -776,7 +853,11 @@ export const payScenarios: readonly Scenario[] = [
         c.answer("pay", { lost: true });
         c.advance(3000);
         c.answer("intent", { die: "boom" });
-        c.eq("issue", c.r.issues().map((i) => i.code), ["Defect"]);
+        c.eq(
+          "issue",
+          c.r.issues().map((i) => i.code),
+          ["Defect"],
+        );
         c.namedIssues = ["Defect"];
         c.eq("failure", c.lastEnding("intent")?.reason, "Defect");
       },
@@ -788,8 +869,15 @@ export const payScenarios: readonly Scenario[] = [
         c.eq("first", c.reqs("intent").length, 1);
         c.advance(3000); // tick again before any answer: replace latest
         c.eq("second", c.reqs("intent").length, 2);
-        c.eq("older was interrupted", c.r.outside().open.filter((o) => o.op === "intent").length, 1);
-        c.yes("superseded evidence", c.r.evidence("Superseded").some((e) => e["op"] === "intent"));
+        c.eq(
+          "older was interrupted",
+          c.r.outside().open.filter((o) => o.op === "intent").length,
+          1,
+        );
+        c.yes(
+          "superseded evidence",
+          c.r.evidence("Superseded").some((e) => e["op"] === "intent"),
+        );
       },
     },
   },

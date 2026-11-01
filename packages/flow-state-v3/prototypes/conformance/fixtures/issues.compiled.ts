@@ -163,7 +163,13 @@ const make = (api: Api): Compiled => ({
   domain: domain(api),
 });
 
-const row = (id: string) => ({ id, title: `title ${id}`, slug: `title ${id}`, liked: false, likes: 0 });
+const row = (id: string) => ({
+  id,
+  title: `title ${id}`,
+  slug: `title ${id}`,
+  liked: false,
+  likes: 0,
+});
 export const server: ServerModel = {
   init: () => ({ issues: { i1: row("i1"), i2: row("i2") }, writes: [] as string[] }),
   apply(op, i, s) {

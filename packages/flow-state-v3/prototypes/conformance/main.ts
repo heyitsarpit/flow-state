@@ -73,9 +73,9 @@ export const runScenarios = (
     const hitHere = new Set<string>();
     for (const [variant, body] of cases) {
       const t = performance.now();
-      const fresh = (machines = s.fixtures) => {
+      const fresh = (machines = s.fixtures, bounds = s.bounds) => {
         const h = make();
-        h.start({ machines, seed: 1, ...(s.bounds ? { bounds: s.bounds } : {}) });
+        h.start({ machines, seed: 1, ...(bounds ? { bounds } : {}) });
         return h;
       };
       const c = new Ctx(fresh(), s.actor);
@@ -86,14 +86,19 @@ export const runScenarios = (
         body(c);
         const codes = c.r.issues().map((i) => i.code);
         const extra = codes.filter((x) => !c.namedIssues.includes(x));
-        if (extra.length) throw new Mismatch(`issues not named by the scenario: ${extra.join(", ")}`);
+        if (extra.length)
+          throw new Mismatch(`issues not named by the scenario: ${extra.join(", ")}`);
         checkClaims(c.r);
         checkEndings(c.r);
         const rep = c.r.replay();
         if (!rep.same) throw new Mismatch(`S11 replay differs: ${JSON.stringify(rep.firstDiff)}`);
         const minted = new Set(c.r.evidence("mint").map((e) => e["attempt"]));
         for (const q of c.r.requests())
-          if (q.idempotencyKey !== undefined && !q.op.startsWith("drv") && !minted.has(q.idempotencyKey))
+          if (
+            q.idempotencyKey !== undefined &&
+            !q.op.startsWith("drv") &&
+            !minted.has(q.idempotencyKey)
+          )
             throw new Mismatch(`key ${q.idempotencyKey} is no Attempt`);
         for (const e of c.r.evidence("lane")) {
           cellsHit.add(e["cell"]);
@@ -152,7 +157,9 @@ if (import.meta.main) {
     .map(([id]) => id);
   if (has("--lock")) {
     writeFileSync(LOCK, lockLines().join("\n") + "\n");
-    console.log(`expected.lock written, after comparing. Unlogged against the previous lock: ${unlogged.join(" ") || "none"}`);
+    console.log(
+      `expected.lock written, after comparing. Unlogged against the previous lock: ${unlogged.join(" ") || "none"}`,
+    );
   }
 
   const rows = catalog().filter((r) => r.R <= round);
@@ -166,12 +173,22 @@ if (import.meta.main) {
   }
 
   const cells = new Set<string>();
-  const results = runScenarios(makeHarness(mod.port), cells);
+  const only = arg("--only");
+  const results = runScenarios(
+    makeHarness(mod.port),
+    cells,
+    only ? new Set(only.split(",")) : undefined,
+  );
   for (const r of results)
     console.log(
       `${r.ok ? "PASS" : "FAIL"}  ${name(r).padEnd(52)} ${r.ok ? `${r.ms.toFixed(1)} ms` : r.why}`,
     );
-  printReports(round, allScenarios, cells, arg("--mutants") ? resolve(here, arg("--mutants")!) : undefined);
+  printReports(
+    round,
+    allScenarios,
+    cells,
+    arg("--mutants") ? resolve(here, arg("--mutants")!) : undefined,
+  );
   const pass = results.filter((r) => r.ok).length;
   console.log(
     `\nSUMMARY  ${pass}/${results.length} scenario cases pass; unlogged expectation changes: ${unlogged.join(" ") || "none"}; catalog disagreements: ${disagreements.join("; ") || "none"}`,

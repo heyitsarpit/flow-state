@@ -1,6 +1,14 @@
 // Small helpers for hand-written compiled data. Paths name where the real machine has the closure.
 import { Effect } from "effect";
-import type { Alternative, Mapped, Member, Node, ScheduleSpec, Slot, TokenGuard } from "./compiled.ts";
+import type {
+  Alternative,
+  Mapped,
+  Member,
+  Node,
+  ScheduleSpec,
+  Slot,
+  TokenGuard,
+} from "./compiled.ts";
 import { Outcome } from "./compiled.ts";
 
 export type AltSpec = {
@@ -29,30 +37,37 @@ export const fixtureOf = (D: string) => {
       };
     });
   const on = (base: string, t: Record<string, readonly AltSpec[]>) =>
-    Object.fromEntries(Object.entries(t).map(([k, v]) => [k, alts(`${base}.on.${k}`, v)]));
+    Object.fromEntries(
+      Object.entries(t).map(([k, v]) => [k, alts(base ? `${base}.on.${k}` : `on.${k}`, v)]),
+    );
   const node = (
     id: string,
     table: Record<string, readonly AltSpec[]> = {},
     schedules: readonly ScheduleSpec[] = [],
-    parent: string | undefined = "root",
+    _noParent?: undefined,
   ): Node => ({
     id,
-    ...(parent ? { parent } : {}),
+    ...(id === "root" ? {} : { parent: "root" }),
     on: on(id === "root" ? "" : `states.${id}`, table),
     schedules,
   });
-  const commit = (op: string, f: (a: any) => unknown) => (p: string): readonly Member[] => [
-    { op, verb: "commit", input: slot(`${p}.actions[0]`, f) },
-  ];
-  const lookup = (op: string, f: (a: any) => unknown) => (p: string): readonly Member[] => [
-    { op, verb: "lookup", input: slot(`${p}.actions[0]`, f) },
-  ];
-  const member = (op: string, verb: "retry" | "cancel", key?: (a: any) => unknown) => (
-    p: string,
-  ): readonly Member[] => [
-    { op, verb, ...(key ? { key: slot(`${p}.actions[0].key`, key) } : {}) },
-  ];
-  const mapped = (op: string, name: string, event: string, f?: (v: any, c: any) => object): Mapped => ({
+  const commit =
+    (op: string, f: (a: any) => unknown) =>
+    (p: string): readonly Member[] => [{ op, verb: "commit", input: slot(`${p}.actions[0]`, f) }];
+  const lookup =
+    (op: string, f: (a: any) => unknown) =>
+    (p: string): readonly Member[] => [{ op, verb: "lookup", input: slot(`${p}.actions[0]`, f) }];
+  const member =
+    (op: string, verb: "retry" | "cancel", key?: (a: any) => unknown) =>
+    (p: string): readonly Member[] => [
+      { op, verb, ...(key ? { key: slot(`${p}.actions[0].key`, key) } : {}) },
+    ];
+  const mapped = (
+    op: string,
+    name: string,
+    event: string,
+    f?: (v: any, c: any) => object,
+  ): Mapped => ({
     event,
     ...(f ? { from: slot(`operations.${op}.${name}`, f) } : {}),
   });

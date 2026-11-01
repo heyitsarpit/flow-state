@@ -11,7 +11,9 @@ const b = ring("b");
 const c3 = ring("c");
 const R = [ringFixture];
 const turns = (c: Ctx) =>
-  c.r.evidence("turn").map((e) => `${String(e["actor"]).split("/")[1]}:${e["event"]}:${e["n"] ?? ""}`);
+  c.r
+    .evidence("turn")
+    .map((e) => `${String(e["actor"]).split("/")[1]}:${e["event"]}:${e["n"] ?? ""}`);
 
 const issueA = { actor: "Issues/List", id: "a" };
 const perms = <T>(xs: readonly T[]): T[][] =>
@@ -38,11 +40,12 @@ export const orderScenarios: readonly Scenario[] = [
         c.h.send(a, "Say", { n: "a2" });
       });
       c.to(c3, "Say", { n: "ignored" }); // no such actor yet: Unhandled, and it wakes the subscriber
-      c.eq(
-        "one FIFO, follow-up next",
-        turns(c),
-        ["a:SayThenX:a1", "a:Say:x", "b:Say:b1", "a:Say:a2"],
-      );
+      c.eq("one FIFO, follow-up next", turns(c), [
+        "a:SayThenX:a1",
+        "a:Say:x",
+        "b:Say:b1",
+        "a:Say:a2",
+      ]);
       c.eq("a's log", c.mem(a).log, ["a1", "x", "a2"]);
     },
   },
@@ -128,11 +131,24 @@ export const orderScenarios: readonly Scenario[] = [
         });
         c.to(a, "Say", { n: 0 });
         c.namedIssues = ["TurnStorm"];
-        c.eq("storm", c.r.issues().map((i) => i.code), ["TurnStorm"]);
+        c.eq(
+          "storm",
+          c.r.issues().map((i) => i.code),
+          ["TurnStorm"],
+        );
         c.yes("bounded", c.mem(a).log.length + c.mem(b).log.length <= 70);
         bouncing = false;
         c.to(c3, "Say", { n: "click" });
         c.eq("another actor's send lands", c.mem(c3).log, ["click"]);
+        // An outside input resets the chain: a subscriber's single send is fine again.
+        let answered = false;
+        c.h.subscribe(() => {
+          if (answered) return;
+          answered = true;
+          c.h.send(c3, "Say", { n: "reply" });
+        });
+        c.to(c3, "Say", { n: "again" });
+        c.eq("the chain was reset", c.mem(c3).log, ["click", "again", "reply"]);
       },
       "follow-up-chain"(c) {
         c.ensure(a);
@@ -178,7 +194,11 @@ export const orderScenarios: readonly Scenario[] = [
       const rowOf = (f: (typeof fs)[number]) =>
         f.view["Issues/List/a"]?.rows[`like|${JSON.stringify({ id: "i1" })}`];
       const first = fs[0]!;
-      c.eq("settlement publishes alone: record confirmed", first.records[issueRef("i1")]?.predicted, false);
+      c.eq(
+        "settlement publishes alone: record confirmed",
+        first.records[issueRef("i1")]?.predicted,
+        false,
+      );
       c.eq("settlement publishes alone: lane still pending", rowOf(first)?.pending, true);
       c.eq("the turn is the next frame", rowOf(fs[1]!), undefined);
     },
@@ -210,14 +230,17 @@ export const orderScenarios: readonly Scenario[] = [
       for (const behaviour of shapes)
         for (let seed = 1; seed <= 8; seed++)
           for (let tick = 0; tick <= 14; tick++)
-            for (const inject of [{ send: A, event: "Cancel", payload: {} }, { disposeRuntime: true as const }]) {
+            for (const inject of [
+              { send: A, event: "Cancel", payload: {} },
+              { disposeRuntime: true as const },
+            ]) {
               const d = new Ctx(c.fresh([drvFixture]), A);
               d.namedIssues = [];
               d.ensure(A);
               d.ensure(B);
               d.h.do({ fault: { schedulerShuffle: seed, atTick: tick, inject } });
-              d.h.do({ send: A, event: "Go", payload: { behaviour } });
-              d.h.do({ send: B, event: "GoOther", payload: { behaviour: "success" } });
+              d.h.raw({ send: A, event: "Go", payload: { behaviour } }); // both start before either runs: a real choice
+              d.h.raw({ send: B, event: "GoOther", payload: { behaviour: "success" } });
               d.h.do({ advance: 1000 }); // the operation timeout's reach
               d.h.do({ advance: 5000 }); // the dispose bound's reach
               const o = d.r.outside();
@@ -241,7 +264,11 @@ export const orderScenarios: readonly Scenario[] = [
       c.yes("injected with a fiber live", withLive > 0);
       c.yes("injected with a choice of tasks", withChoice > 0);
       c.yes("shuffles had choices", choices > 0);
-      c.eq("only defects raise issues", c.namedIssues.filter((x) => x !== "Defect"), []);
+      c.eq(
+        "only defects raise issues",
+        c.namedIssues.filter((x) => x !== "Defect"),
+        [],
+      );
     },
   },
   {
@@ -278,6 +305,17 @@ export const orderScenarios: readonly Scenario[] = [
         c.eq("issue", c.r.issues().at(-1)?.code, "ModuleDefect");
         c.eq("the lane resolved anyway", c.r.row(c.A, "like", { id: "i1" }), undefined);
         c.eq("ending delivered", c.r.evidence("delivered").at(-1)?.["event"], "Settled");
+      },
+      "a-disabled-store-frees-its-queue"(c) {
+        const B = { actor: "Issues/List", id: "b" };
+        c.ensure();
+        c.ensure(B);
+        c.send("Toggle", { id: "i1", liked: true });
+        c.to(B, "Toggle", { id: "i1", liked: false });
+        c.eq("B waits", c.reqs("like").length, 1);
+        c.fault({ throwInModule: "settled" });
+        c.answer("like", { apply: true });
+        c.eq("B goes: a disabled module blocks nothing", c.reqs("like").length, 2);
       },
       "a-disabled-store-blocks-nothing"(c) {
         const B = { actor: "Issues/List", id: "b" };
