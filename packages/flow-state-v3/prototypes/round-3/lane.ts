@@ -474,7 +474,9 @@ const ACTIONS: Readonly<Record<Action, (tx: Tx, lane: Lane | undefined, a: CellA
     endNeverSent(tx, cur);
   },
   markResend(tx, l) {
-    release(tx, dropW(tx, l!));
+    const cur = dropW(tx, l!);
+    setLane(tx, cur); // W has ended as evidence: the promotion must not see it
+    release(tx, cur);
   },
   markWire(tx, l) {
     const cur = { ...dropW(tx, l!), releasing: true as const };

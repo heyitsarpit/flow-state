@@ -144,7 +144,7 @@ export const port: Port = {
         const s = store(rt.world());
         return s && (reg.read!(s, ref) as never);
       },
-      waits: () => waitsOf(rt.world(), plainModules) as never,
+      waits: () => waitsOf(rt.world(), plainModules, plain) as never,
       fatal: () => rt.fatal(),
       frames: () =>
         frames.map((f) => {

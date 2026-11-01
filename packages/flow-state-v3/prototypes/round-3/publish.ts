@@ -3,7 +3,7 @@
 import type { Claim, Module } from "./seam.ts";
 import { viewOf, walkIncs } from "./inc.ts";
 import { sameSubject } from "./inc.ts";
-import { laneKey, type Lane, type World } from "./world.ts";
+import { laneKey, type Lane, type Machines, type World } from "./world.ts";
 
 export const rowOf = (w: World, l: Lane | undefined) =>
   l?.head && {
@@ -40,7 +40,7 @@ const bound = (w: World, l: Lane) => {
   });
   return found ? ("bound" as const) : ("unplaced" as const);
 };
-export const waitsOf = (w: World, modules: readonly Module<any>[]) => {
+export const waitsOf = (w: World, modules: readonly Module<any>[], machines: Machines) => {
   const out: Array<Record<string, unknown>> = [];
   const mods = modules.filter((m) => !w.disabled[m.id]);
   const blocked = (attempt: string): false | Claim => {
@@ -74,7 +74,7 @@ export const waitsOf = (w: World, modules: readonly Module<any>[]) => {
         break;
       default: {
         const disabled = modules.find(
-          (m) => w.disabled[m.id] && w.ext[m.id] !== undefined && m.id !== "fault",
+          (m) => w.disabled[m.id] && machines[l.machine]?.uses.includes(m.id),
         );
         const b = blocked(h.id);
         if (w.stalled[h.id] === "module" && disabled)

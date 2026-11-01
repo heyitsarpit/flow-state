@@ -389,9 +389,9 @@ export const entities: Module<Slice> = {
   },
   exec(cmd, io) {
     const c = cmd as { k: "repair" | "stop"; ref: string; gen: string; machine: string };
-    if (c.k === "stop") return io.stop(c.gen);
+    if (c.k === "stop") return io.stop(`repair:${c.gen}`);
     const effect = io.machine(c.machine).domain!.repair(c.ref);
-    io.fork(c.gen, effect, (exit) =>
+    io.fork(`repair:${c.gen}`, effect, (exit) =>
       io.input({
         k: "repair",
         ref: c.ref,

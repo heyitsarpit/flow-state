@@ -512,7 +512,7 @@ export const reviewScenarios: readonly Scenario[] = [
         c.advance(5_000);
         c.eq(
           "named",
-          c.r.evidence("AbandonedFiber").some((e) => e["op"] === "repair"),
+          c.r.evidence("AbandonedFiber").some((e) => String(e["op"]).includes("repair")),
           true,
         );
       },

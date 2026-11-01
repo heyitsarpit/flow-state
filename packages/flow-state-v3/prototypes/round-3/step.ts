@@ -107,6 +107,12 @@ const onSent = (tx: Tx, i: Extract<Input, { k: "sent" }>) => {
 const yieldHold = (tx: Tx, attempt: string) => {
   const l = laneOfAttempt(tx.w, attempt);
   if (!l?.head || l.head.phase.t !== "held" || tx.w.actors[l.actor]) return;
+  // "With a waiter": it may have gone in the five minutes. Dispatch arms this again if another comes.
+  const waited = Object.keys(tx.w.ready).some((id) => {
+    const b = blockedBy(tx, tx.w.lanes[id]!.head!.id, tx.w.lanes[id]!.machine);
+    return b && b.on === "queue" && b.behind.includes(attempt);
+  });
+  if (!waited) return;
   const e: Ending = { ch: "unknown", reason: "Abandoned" };
   noteEnding(tx, { op: l.op, attempt }, e);
   note(tx, "parked", { op: l.op, attempt });

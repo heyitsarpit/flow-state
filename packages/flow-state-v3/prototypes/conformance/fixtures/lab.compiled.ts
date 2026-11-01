@@ -468,6 +468,7 @@ const Upload: Fragment = {
             ],
           },
         ],
+        Kick: [{ members: upD.commit("put", ({ memory }: any) => ({ ref: memory.key })) }],
         NotSent: [{}],
         Unsure: [{ patch: () => ({ status: "unsure" }) }],
       },
@@ -499,6 +500,19 @@ const notesMake = (api: Api): Compiled => ({
       on: {
         SetDocs: [{ patch: ({ event }: any) => ({ docs: event.docs }) }],
         SetFiles: [{ patch: ({ event }: any) => ({ files: event.files }) }],
+        // Rule 60's order: a commit in a copy the same turn removes.
+        KickAndDrop: [
+          {
+            patch: () => ({ files: [] }),
+            raises: [
+              {
+                to: "uploads",
+                key: notesD.slot("on.KickAndDrop.key", ({ event }: any) => event.key),
+                event: "Kick",
+              },
+            ],
+          },
+        ],
       },
     },
     READY: {},

@@ -3,6 +3,7 @@
 import { commentRef, editorFixture, queueFixture } from "../fixtures/comments.compiled.ts";
 import { issueRef, issuesFixture } from "../fixtures/issues.compiled.ts";
 import {
+  docsFixture,
   feedFixture,
   formFixture,
   issuesDenySettled,
@@ -939,6 +940,123 @@ export const fragScenarios: readonly Scenario[] = [
         c.reload();
         c.send("SetDocs", docs("d1"));
         c.eq("once, and only now", saved(c, "d1")?.saved, "mine");
+      },
+    },
+  },
+  // From the second author's survivors, after his number was taken (35/50). They do not change that number.
+  {
+    id: "FRAG-20",
+    kind: "fault",
+    fixtures: [notesFixture],
+    actor: N,
+    cites: ["rule:60", "rule:14", "rule:15", "D15", "D21", "D46", "rule:1", "rule:17"],
+    variants: {
+      "release-only-the-ending-subject"(c) {
+        started(c, "r1", "r2");
+        c.ack();
+        c.send("SetFiles", { files: ["r2"] });
+        c.eq("r1 gone", c.r.row(N, "put", { ref: "r1" }), undefined);
+        c.eq("r2 untouched", c.r.row(N, "put", { ref: "r2" })?.pending, true);
+      },
+      "a-commit-in-a-copy-the-same-turn-removes-is-marked"(c) {
+        c.ensure();
+        c.send("SetFiles", { files: ["r1"] });
+        c.send("KickAndDrop", { key: "r1" });
+        c.eq("waiting for its ack, marked", c.r.row(N, "put", { ref: "r1" })?.pending, true);
+        c.ack();
+        c.eq("ended as evidence", c.r.row(N, "put", { ref: "r1" }), undefined);
+        c.eq("never sent", c.reqs("put").length, 0);
+      },
+      "actor-record-does-not-parse"(c0) {
+        const c = new Ctx(c0.fresh([payFixture]), P);
+        c.ensure();
+        c.send("Start", CART);
+        c.fault({ corruptStored: { match: "actor/", edit: () => "{{{" } });
+        c.reload();
+        c.eq("alive", c.r.quiet().fatal, false);
+        c.eq("named", c.r.issues().at(-1)?.code, "RecordQuarantined");
+        c0.namedIssues = ["RecordQuarantined"];
+      },
+      "adopted-ending-is-current-from-the-active-leaf"(c0) {
+        const D = { actor: "Docs", id: "a" };
+        const c = new Ctx(c0.fresh([docsFixture]), D);
+        c.ensure();
+        c.send("Open");
+        c.send("Save", { id: "d1", title: "T" });
+        c.dispose();
+        c.ensure();
+        c.send("Open");
+        c.answer("save", { apply: true });
+        c.eq("current, not late", [c.mem().saved, c.mem().lateSaved], [1, 0]);
+      },
+      "a-late-ending-may-not-leave-an-active-subroutine"(c0) {
+        const c = new Ctx(c0.fresh([payFullFixture]), P);
+        toPaying(c);
+        c.answer("pay", { ok: CAP });
+        c.state("PLACING");
+        c.ack();
+        c.into(["summary"], "PayPressed", { paymentMethodId: "visa" }); // P6's press, on the real machine
+        c.state("PAYING");
+        c.ack();
+        c.answer("pay", { ok: ACT });
+        c.state("CHALLENGE");
+        c.ack();
+        c.answer("place", { ok: { orderId: "o1" } });
+        c.state("CHALLENGE");
+        c.eq("denied", c.r.evidence("Denied").at(-1)?.["reasons"], ["LateMayNotLeave"]);
+      },
+      "a-bound-hold-never-yields-an-actor-back-in-time"(c0) {
+        const c = new Ctx(c0.fresh([issuesFixture]), L);
+        c.ensure(L);
+        c.ensure(B);
+        c.to(L, "Toggle", { id: "i1", liked: true });
+        c.answer("like", { lost: true });
+        c.answer("repair", { truth: true });
+        c.to(B, "Toggle", { id: "i1", liked: false });
+        c.dispose(L);
+        c.ensure(L);
+        c.advance(300_000);
+        c.eq("no release", c.r.evidence("Released").length, 0);
+      },
+      "no-waiter-left-no-yield"(c0) {
+        const c = new Ctx(c0.fresh([issuesFixture]), L);
+        c.ensure(L);
+        c.ensure(B);
+        c.to(L, "Toggle", { id: "i1", liked: true });
+        c.answer("like", { lost: true });
+        c.answer("repair", { truth: true });
+        c.to(B, "Toggle", { id: "i1", liked: false });
+        c.dispose(L);
+        c.to(B, "Delete", { id: "i9" }); // a bystander
+        c.to(B, "CancelLike", { id: "i1" });
+        c.advance(300_000);
+        c.eq("the hold stays", c.r.row(L, "like", K)?.uncertain, true);
+      },
+      "local-sent-finishes-to-evidence"(c0) {
+        const c = new Ctx(c0.fresh([issuesLocal]), L);
+        c.ensure(L);
+        c.to(L, "Toggle", { id: "i1", liked: true });
+        c.dispose(L);
+        c.ensure(L);
+        c.answer("like", { apply: true });
+        c.eq("not delivered to the fresh one", c.r.evidence("delivered").length, 0);
+      },
+      "re-entering-does-not-refresh-a-resumable"(c0) {
+        const X = { actor: "Feed", id: "a" };
+        const c = new Ctx(c0.fresh([feedFixture]), X);
+        c.ensure();
+        c.into(["tail"], "Sync");
+        c.answer("catchUp", { ok: {} });
+        c.send("Live"); // LIVE to LIVE
+        c.eq("same memory", c.inner(["tail"])?.memory.caught, 1);
+      },
+      "a-freeze-is-an-ending-not-a-release"(c0) {
+        const X = { actor: "Feed", id: "a" };
+        const c = new Ctx(c0.fresh([feedFixture]), X);
+        c.ensure();
+        c.into(["tail"], "Sync");
+        c.send("Away");
+        c.eq("not Superseded", c.r.evidence("Superseded").length, 0);
       },
     },
   },

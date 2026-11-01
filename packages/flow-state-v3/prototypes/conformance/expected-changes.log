@@ -88,3 +88,8 @@ file:drive.ts hash:8970dd3332ac | dispose, inner, to, corruptStored
 file:fixtures/compiled.ts hash:2cbc492def23 | fragments in the format
 file:fixtures/build.ts hash:3404a3e3ed34 | raises, notify, exit in the helper
 file:fixtures/order.compiled.ts hash:17bf47878f23 | Nest, for SURV-11
+MED-07 | AbandonedFiber names op "repair" | names a key containing repair | The driver named a module; a core file must not. Same check | D51
+MED-07 hash:f559a57fe31a | the line above: the driver must not name a module
+file:scenarios/review.scenario.ts hash:1e829f156552 | MED-07 above
+file:scenarios/frag.scenario.ts hash:6e574cd00382 | FRAG-20 added from the second author, after his number
+file:fixtures/lab.compiled.ts hash:2eec726a60b0 | Kick, KickAndDrop for FRAG-20

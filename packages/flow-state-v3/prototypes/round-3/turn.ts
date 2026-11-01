@@ -80,12 +80,11 @@ type Walk = {
   fresh: Set<string>;
   started: Started[];
   ended: Array<{ inc: Inc; path: Path; p: Placement; host: Path }>;
-  froze: Inc[];
   releases: Array<{ op: string; subject: readonly string[] }>;
   item: Mail | undefined;
   late: boolean;
+  lateFill?: boolean;
   thawFollows: Mail[];
-  partDepth?: number; // rule 15 applies to the source's selection only
 };
 const inView = (inc: Inc, event: unknown) => ({
   memory: viewOf(inc),
@@ -221,7 +220,7 @@ const select = (w: Walk, path: Path, ev: Ev, start?: string): Selected => {
           continue next;
         }
       }
-      if (w.late && path.length === (w.partDepth ?? path.length) && leavesWork(w, inc, alt)) {
+      if (w.late && leavesWork(w, inc, alt)) {
         reasons.push("LateMayNotLeave");
         continue;
       }
@@ -326,6 +325,7 @@ const reach = (
   next: for (const alt of alts) {
     if (!tokensPass(w, hostPath, host, alt, hv).pass) continue;
     for (const g of alt.guards) if (isDenial(run(g, hv as never))) continue next;
+    if (w.lateFill && leavesWork(w, host, alt)) continue;
     const node = host.leaf;
     runPart(w, hostPath, { node, alt }, n.name, payload, fused);
     return;
@@ -400,9 +400,9 @@ const freezeInc = (w: Walk, hostPath: Path, part: string) => {
     return true;
   };
   tx.w = { ...tx.w, mail: tx.w.mail.filter(keep), follow: tx.w.follow.filter(keep) };
-  const parked: Mail[] = dropReadsOf(tx, inc.id).map((r) => {
+  const parked: Mail[] = dropReadsOf(tx, inc.id, false).map((r) => {
     const e = { ch: "failure" as const, tag: "Interrupted", value: {} };
-    noteEnding(tx, { op: r.op, attempt: `read/${r.actor}/${r.inc}/${r.op}` }, e);
+    noteEnding(tx, { op: r.op, attempt: `read/${r.actor}/${r.inc}/${r.op}`, send: r.gen }, e);
     note(tx, "parked", { op: r.op, attempt: `read/${r.actor}/${r.inc}/${r.op}` });
     return {
       k: "ending",
@@ -420,6 +420,7 @@ const freezeInc = (w: Walk, hostPath: Path, part: string) => {
     ...i,
     frozen: { timers: [...timers, ...queued], parked },
   }));
+  for (const k of Object.keys(kidAt(w.root, path)!.kids)) freezeInc(w, path, k); // a child's life pauses with its host
 };
 const thawInc = (w: Walk, path: Path) => {
   const inc = kidAt(w.root, path)!;
@@ -444,6 +445,7 @@ const thawInc = (w: Walk, path: Path) => {
     }
   }
   w.thawFollows.push(...follows);
+  for (const k of Object.keys(rest.kids)) if (rest.kids[k]!.frozen) thawInc(w, [...path, k]);
 };
 
 // ── Apply the one state change, then what it starts and ends.
@@ -470,9 +472,9 @@ const applyMove = (w: Walk) => {
     for (const p of [...(node.placements ?? []), ...(node.subroutine ? [node.subroutine] : [])]) {
       const parts = Object.keys(kidAt(w.root, mv.path)!.kids).filter((x) => nameOf(x) === p.name);
       for (const part of parts) {
+        // Rule 1: "Re-entering X does not refresh it".
         if (p.resumable) {
           if (!enters.includes(n)) freezeInc(w, mv.path, part);
-          else endInc(w, mv.path, part, p);
         } else endInc(w, mv.path, part, p);
       }
     }
@@ -545,28 +547,8 @@ const applyLeaving = (w: Walk) => {
     if (kidAt(w.root, e.host) && e.path.length === e.host.length + 1)
       for (const n of wa.notify ?? []) {
         const view = inView(kidAt(w.root0, e.path) ?? e.inc, {});
-        const r = w.root;
-        const fakePath = e.path;
-        const saved = kidAt(r, fakePath);
-        if (!saved)
-          w.root = withKid(w.root, e.host, (i) => ({
-            ...i,
-            kids: { ...i.kids, [e.path.at(-1)!]: e.inc },
-          }));
-        reach(
-          w,
-          e.path,
-          n,
-          view,
-          "callbacks",
-          { at: { definition: frag.id, path: "whenAbandoned" } } as never,
-          true,
-        );
-        if (!saved)
-          w.root = withKid(w.root, e.host, (i) => {
-            const { [e.path.at(-1)!]: _g, ...kids } = i.kids;
-            return { ...i, kids };
-          });
+        const at = { at: { definition: frag.id, path: "whenAbandoned" } } as never;
+        reach(w, e.path, n, view, "callbacks", at, true);
       }
     for (const op of wa.release ?? []) w.releases.push({ op, subject: e.inc.subject });
   }
@@ -609,7 +591,7 @@ const applyMembers = (w: Walk) => {
     });
   });
   for (const r of reads) {
-    const { mem, inc, part } = r;
+    const { mem, inc } = r;
     const op = w.m.ops[mem.op]!;
     const base = { actor: w.a.key, machine: w.a.machine, op: mem.op, owner: r.owner };
     if (mem.verb === "lookup") {
@@ -651,7 +633,6 @@ const applyMembers = (w: Walk) => {
       continue;
     }
     cell(tx, mem.verb, lane, { ...base, key: lane?.key ?? r.key });
-    void part;
   }
   // Rule 60: after every member.
   for (const { op, subject } of w.releases)
@@ -790,7 +771,6 @@ const newWalk = (tx: Tx, a: ActorRec, item: Mail | undefined, late: boolean): Wa
   fresh: new Set(),
   started: [],
   ended: [],
-  froze: [],
   releases: [],
   item,
   late,
@@ -878,11 +858,11 @@ const runTurn = (
   item: Mail | undefined,
 ) => {
   const w = newWalk(tx, a, item, late);
-  w.partDepth = path.length;
   const sel = select(w, path, ev, start);
   if ("denied" in sel)
     return note(tx, sel.denied ? "Denied" : "Unhandled", { event: ev.tag, reasons: sel.reasons });
-  w.partDepth = -1;
+  w.late = false; // the source is chosen; below, only a filling's own target can still leave (rule 15 in step 3)
+  w.lateFill = late;
   runPart(w, path, sel, ev.tag, ev.payload);
   const { entered } = applyMove(w);
   applyPatches(w, 0);

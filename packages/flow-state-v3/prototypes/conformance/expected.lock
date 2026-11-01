@@ -58,7 +58,7 @@ MED-01 5f1046384e9b
 MED-02 9ce005e2279d
 MED-03 dd15dbe7df4d
 MED-04 fa07c04c1155
-MED-07 ddc82e743d5a
+MED-07 f559a57fe31a
 MED-08 c7f90c222899
 SURV-01 c516b4ec42b2
 SURV-02 130c247daf19
@@ -91,13 +91,14 @@ FRAG-16 05cf8f8d95b8
 FRAG-17 ce5f345cd32e
 FRAG-18 b2b3b85c8686
 FRAG-19 39e3617206d6
+FRAG-20 105614e6b7f5
 file:scenarios/ctx.ts 2d8655bcb4d3
 file:scenarios/pay.scenario.ts 2528a0a8683e
 file:scenarios/order.scenario.ts 297b99f816a0
 file:scenarios/store.scenario.ts 4eb08831de2f
 file:scenarios/flows.scenario.ts 9f70612fce60
-file:scenarios/review.scenario.ts 5216fbcb4a0c
-file:scenarios/frag.scenario.ts 3480621177ec
+file:scenarios/review.scenario.ts 1e829f156552
+file:scenarios/frag.scenario.ts 6e574cd00382
 file:fake-world.ts 6ea8690b2fd6
 file:drive.ts 8970dd3332ac
 file:fixtures/compiled.ts 2cbc492def23
@@ -110,6 +111,6 @@ file:fixtures/cart.compiled.ts 09651303f124
 file:fixtures/refunds.compiled.ts 3a896301dd4b
 file:fixtures/order.compiled.ts 17bf47878f23
 file:fixtures/drv.compiled.ts 52540e910415
-file:fixtures/lab.compiled.ts e437b541feed
+file:fixtures/lab.compiled.ts 2eec726a60b0
 file:fixtures/pay-full.compiled.ts b52aaeb77a83
 file:fixtures/comments.compiled.ts 101339afcb5f

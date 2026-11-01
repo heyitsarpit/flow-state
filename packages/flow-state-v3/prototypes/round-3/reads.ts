@@ -43,12 +43,12 @@ export const cancelRead = (tx: Tx, actor: string, inc: string, op: string) => {
   note(tx, "Superseded", { op, attempt: key, send: old.gen });
 };
 // Every read of an incarnation, for what ends it (rule 52) or freezes it. Returns them; the caller says what becomes of them.
-export const dropReadsOf = (tx: Tx, inc: string) => {
+export const dropReadsOf = (tx: Tx, inc: string, released = true) => {
   const out = Object.entries(tx.w.reads).filter(([, r]) => r.inc === inc);
   for (const [key, r] of out) {
     tx.commands.push({ k: "interrupt", attempt: key, send: r.gen });
     tx.w = { ...tx.w, reads: without(tx.w.reads, key) };
-    note(tx, "Superseded", { op: r.op, attempt: key, send: r.gen });
+    if (released) note(tx, "Superseded", { op: r.op, attempt: key, send: r.gen }); // a freeze produces an ending instead (rule 52)
   }
   return out.map(([, r]) => r);
 };

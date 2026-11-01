@@ -159,14 +159,7 @@ export const createRuntime = (cfg: {
   const watchDisposal = () =>
     void host.setTimer(host.now() + bounds.disposeMs, () => {
       const left = [...fibers.keys()].filter((k) => k.startsWith("module/"));
-      guarded(() =>
-        cfg.onEvidence(
-          left.map((k) => ({
-            kind: "AbandonedFiber",
-            op: k.split("/")[1] === "entities" ? "repair" : k,
-          })),
-        ),
-      );
+      guarded(() => cfg.onEvidence(left.map((k) => ({ kind: "AbandonedFiber", op: k }))));
     });
   const pump = () => {
     if (running || fatal) return;

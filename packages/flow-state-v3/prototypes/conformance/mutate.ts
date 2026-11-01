@@ -17,7 +17,7 @@ const arg = (k: string, d: string) => {
   return i < 0 ? d : process.argv[i + 1]!;
 };
 const here = import.meta.dir;
-const source = resolve(here, arg("--runtime", "../round-2"));
+const source = resolve(here, arg("--runtime", "../round-3"));
 const listFile = resolve(source, arg("--list", "mutants.ts"));
 const out = resolve(source, arg("--out", "mutants.json"));
 const author = arg("--author", "builder");
@@ -58,7 +58,7 @@ for (const m of list) {
       "--runtime",
       `../${basename(source)}/adapter.ts`,
     ],
-    { rssMb: 1800, seconds: 150, capture: true },
+    { rssMb: 1400, seconds: 120, capture: true },
   );
   const line = r.stdout.trim().split("\n").at(-1) ?? "";
   let parsed: { killers: string[]; search: string } | undefined;
