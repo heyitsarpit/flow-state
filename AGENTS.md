@@ -3,7 +3,8 @@
 ## Where things live
 - `workflow/plans/flow/` — current plans. Proposals are in `references/explorations/`.
 - `workflow/plans/archive/`, `reference/`, Beads — historical. Read-only.
-- `packages/flow-state-rewrite/` — the rewrite. `packages/flow-state/` — frozen, never edit.
+- `packages/flow-state-v3/` — the current build; runtime first. Prototypes are in its `prototypes/` and never become production code.
+- `packages/flow-state-rewrite/`, `packages/flow-state/` — frozen, never edit.
 - `apps/docs/`, `apps/features/` — docs. Generated files are produced by commands; don't hand-edit them.
 - `codebases/effect-v4/` — Effect reference. Installed packages are what's authoritative.
 
