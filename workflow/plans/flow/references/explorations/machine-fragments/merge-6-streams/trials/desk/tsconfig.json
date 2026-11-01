@@ -1,0 +1,15 @@
+{
+  "extends": "../../../../../../../../../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "declaration": false,
+    "declarationMap": false,
+    "plugins": [],
+    "paths": {
+      "flow-state": ["./standin/flow-state.ts"],
+      "flow-state/testing": ["./standin/testing.ts"],
+      "@desk/*": ["../../../../../dispatch-desk/*"]
+    }
+  },
+  "include": ["../../../../../../../../../types/vite-plus-test.d.ts", "standin/**/*.ts", "features/**/*.ts", "testing/**/*.ts", "checks/**/*.ts"]
+}

@@ -1,0 +1,303 @@
+OK   3.5 ranks: world, adapters, setup fibers, Runtime waits, actor schedules (Eq): equal instants fire in arming order only, so an actor retain timer (Runtime wait) fires before a later-armed setup-scoped SDK tick that is due at the same instant
+      newly failing: 6-conformance:T:rank-order [Eq[auto]]
+      changed: none
+        e.g. 6-conformance:T:rank-order: life dispose a ; advance 1 ; send a Sub ; advance 1   [T:rank-order:retain@2 before rank 3]
+OK   3.5 'then by arming' is the last key (Eq): two equal-keyed deadlines (the suite adapter's close bound and a Runtime retain timer of one tab at one instant) have no order, so it depends on scan order
+      newly failing: 1-determinism [Eq[suite]]
+      changed: none
+        e.g. 1-determinism: send a Sub ; world chat.hold:close ; send a Unsub ; life dispose a ; advance next
+OK   3.1 suspended: the tab runs nothing (S[reconnect]): advance(d, { suspended }) lets the tab's reconnect timer fire inside the window
+      newly failing: 6-conformance:T:suspended-tab-fired [S[reconnect]]
+      changed: none
+        e.g. 6-conformance:T:suspended-tab-fired: send a Sub ; advance 1 suspended   [T:suspended-tab-fired:sdk]
+OK   3.1 world/together/advance settle after each control (W[reject]): a release leaves the handler runnable after the step
+      newly failing: 2-settling [W[reject]]
+      changed: 4-reachability [3.2 request on the wire]; 4-reachability [write progress (M6 3.5)]
+        e.g. 2-settling: world pay.hold ; send a Pay ; world pay.release   [left runnable: handler pay/commit]
+OK   3.2 NothingHeld (W[reject]): release with nothing held is silently fine, so the error row is unreachable
+      newly failing: 4-reachability [errors]
+      changed: none
+        e.g. 4-reachability: NothingHeld, StoryTurnLimit
+OK   2.6 a Held lane is left by retry or cancel (W[reject]): retry and cancel ignore a Held lane, so it can never be left
+      newly failing: 5-deadlock [W[reject]]
+      changed: none
+        e.g. 5-deadlock: world pay.drop:always:handle ; send a Pay
+OK   3.2 release() also removes standing rules (the old release()/NothingHeld deadlock) (W[reject]): release with nothing held is an error even if a drop(always) stands, so the rule can never end (revision 1's contradiction)
+      newly failing: 5-deadlock [W[reject]]
+      changed: none
+        e.g. 5-deadlock: world pay.hold
+OK   3.2 release() ends only its own target's standing rules (W[reject]): a handle release also ends an endpoint rule
+      newly failing: 6-conformance:W:release-ended-other-target [W[reject]]
+      changed: none
+        e.g. 6-conformance:W:release-ended-other-target: world pay.hold ; world pay.drop:always:handle ; world pay.release   [W:release-ended-other-target]
+OK   T2/C3 no step names an ending (W[reject]): an `inject unknown` step exists
+      newly failing: 3-injected [W[reject]]; 6-conformance:L:stale-commit-answer [W[reject]]
+      changed: none
+        e.g. 3-injected: world pay.hold ; send a Pay ; inject unknown   [C3:injected:unknown{Injected}]
+OK   3.2 a request of a gone client stays in transit (W[reject]): a held request of a cancelled or closed client is removed instead of travelling
+      newly failing: none
+      changed: 4-reachability [3.2 request on the wire]
+        e.g. 4-reachability: Wire|release|Held:orphan, Wire|release|Server, Wire|releaseDrop|Server, Wire|nth|Server, Wire|cancel|Server, Wire|suspended|Held, Wire|suspended|Server, Wire|suspended|HeldAnswer
+OK   3.2 cancel with the request on the wire interrupts the client (W[reject]): cancel leaves a wire-stage Attempt alone
+      newly failing: 4-reachability [write lane (2.7.13 holding table)]; 5-deadlock [W[reject]]
+      changed: none
+        e.g. 4-reachability: W|interrupt|InFlight
+OK   2.5 the acknowledgement write gates the send (W[reject]): a persisted Attempt is sent without waiting for its acknowledgement
+      newly failing: 4-reachability [3.6 write at Fake.storage]; 4-reachability [write lane (2.7.13 holding table)]
+      changed: 4-reachability [write progress (M6 3.5)]
+        e.g. 4-reachability: Sto|arrive:holdResp, Sto|release|HeldConfirm, Sto|releaseDrop|HeldConfirm, Sto|close|HeldConfirm
+OK   2.10 only an awaiting finalizer makes a close wait (suite) (S[suite,callback]): the suite adapter's close never waits, so the release bound is unreachable
+      newly failing: none
+      changed: 4-reachability [stream session (M6 3.1)]
+        e.g. 4-reachability: S|Opening|fresh, S|Opening|pending, S|Dropped|fresh, S|Dropped|pending, S|Live|fresh, S|Live|pending, S|Live|settleP, S|Live|settleL, S|Releasing|fresh, S|Releasing|pending, S|Releasing|settleP, S|Releasing|settleL, S|Releasing|de
+MISS 3.2 release({ drop }) of a Held request makes it Lost (W[reject]): release({ drop: true }) serves the request instead
+      newly failing: none
+      changed: none
+OK   3.3 drop({ at: open }) refuses the attempt (S[reconnect]): a dropped open is accepted
+      newly failing: 4-reachability [3.3 connection]
+      changed: none
+        e.g. 4-reachability: Conn|att:drop|None, Conn|att:drop|Closed
+OK   3.2 duplicate(): the client sees the first answer only (W[reject]): the duplicate's answer also reaches the client
+      newly failing: 6-conformance:L:stale-commit-answer [W[reject]]
+      changed: none
+        e.g. 6-conformance:L:stale-commit-answer: world pay.dup ; send a Pay   [L:stale-commit-answer]
+OK   3.2 the answer of a gone client goes nowhere (W[reject]): an orphan's answer is applied to the lane
+      newly failing: 6-conformance:L:stale-commit-answer [W[reject]]
+      changed: none
+        e.g. 6-conformance:L:stale-commit-answer: world pay.dup ; send a Pay   [L:stale-commit-answer]
+OK   3.4 leave() of a resumable fragment freezes it (Eq): a resumable fragment is abandoned on leave
+      newly failing: 4-reachability [3.4 stand-in host]
+      changed: none
+        e.g. 4-reachability: Host|enter|Frozen, Host|leave|Frozen, Host|leaveEnd|Frozen, Host|reset|Frozen, Host|guards|Frozen, Host|send|Frozen
+OK   3.6 ghost restore (revision 1): writes of a tab are FIFO (Wreload): the capture that removes a cancelled Attempt's record no longer queues behind its held acknowledgement, which then lands late
+      newly failing: 6-conformance:R:late-ack-restored#1 [Wreload[reject]]; 6-conformance:R:late-ack-restored#2 [Wreload[reject]]; 6-conformance:R:late-ack-restored#3 [Wreload[reject]]
+      changed: 4-reachability [3.6 write at Fake.storage]
+        e.g. 6-conformance:R:late-ack-restored#1: world sto.hold:ack ; send a Pay ; send a Cancel ; world sto.release ; life reload a   [R:late-ack-restored#1]
+OK   3.6 ghost restore (revision 1): a Held write is aborted with its tab (Wreload): a held acknowledgement survives closeTab and lands after the reload
+      newly failing: 2-settling [Wreload[reject]]
+      changed: none
+        e.g. 2-settling: world sto.hold:ack:response ; send a Pay ; send a Cancel ; life reload a   [left runnable: write clear not started]
+OK   3.6 ghost restore (revision 1): an ended Attempt queues a capture that removes its record (Wreload): nothing removes a cancelled Attempt's record, so its late acknowledgement is restored
+      newly failing: 6-conformance:R:late-ack-restored#1 [Wreload[reject]]; 6-conformance:R:late-ack-restored#2 [Wreload[reject]]; 6-conformance:R:late-ack-restored#3 [Wreload[reject]]
+      changed: none
+        e.g. 6-conformance:R:late-ack-restored#1: world sto.hold:ack ; send a Pay ; send a Cancel ; world sto.release ; life reload a   [R:late-ack-restored#1]
+OK   W fifoAnswers: one FIFO answer list, drained when nothing else is runnable (Calls[ack]): each answer is delivered inside its handler's turn, before the next arrived request has run
+      newly failing: W6-no-nested-answer [Calls[ack]]
+      changed: none
+        e.g. W6-no-nested-answer: together post A+post B   [answer 1 delivered while a handler or client fiber was runnable]
+OK   W answerFifoOrder: the oldest answer is delivered first (Calls[ack]): the list is a stack
+      newly failing: W3-fifo-answers [Calls[ack]]
+      changed: none
+        e.g. W3-fifo-answers: together post A+post B   [delivered 2,1, joined 1,2]
+OK   W framesBeforeAnswer: a handler's sends are delivered before the next answer (Calls[ack]): B's frames are delivered only at B's turn, after A's answer
+      newly failing: W15-frames-not-discarded [Calls[ack]]; W5-frames-before-answer [Calls[ack]]; W6-no-nested-answer [Calls[ack]]
+      changed: none
+        e.g. W15-frames-not-discarded: w post.hold:resp ; post A   [handler 1 (copy or gone client) lost its frames]
+OK   W arrivalOrder: handlers run in arrival order (Calls[dedupe]): the later arrival's handler runs first
+      newly failing: W4-arrival-order [Calls[dedupe]]
+      changed: none
+        e.g. W4-arrival-order: together post A+post B   [ran arr 2 while arr 1 was runnable]
+OK   W connOrder: rows reach connections in their open order (G7) (Frames): sends and releases walk the connections in scan order
+      newly failing: W1-determinism [Frames]
+      changed: none
+        e.g. W1-determinism: w ctl.finish
+OK   W earliestWins: the earliest-set arrival rule wins (Calls[dedupe]): the latest-set rule wins
+      newly failing: W7-combination [Calls[dedupe]]
+      changed: none
+        e.g. W7-combination: w post.hold ; w post.hold ; post A   [arrival: oracle ord 1 taken 2, consumed 0]
+OK   W oneRule: arrivals consume only the winning rule (Calls[dedupe]): every covering rule's times drops
+      newly failing: W7-combination [Calls[dedupe]]
+      changed: none
+        e.g. W7-combination: w post.drop ; w post.drop ; post A   [arrival: oracle ord 1 taken 1, consumed 2]
+OK   W attemptSkipsDup: a duplicate means nothing to an attempt (G5) (Handle): an attempt takes a handle's duplicate and consumes it
+      newly failing: W7-combination [Handle]
+      changed: none
+        e.g. W7-combination: w handle.dup ; connect A   [arrival: oracle ord - taken 1, consumed 1]
+OK   W handleCoversAttempts: a hold or drop on a handle covers the next attempt (G4) (Handle): a handle's hold or drop covers calls only
+      newly failing: W7-combination [Handle]
+      changed: none
+        e.g. W7-combination: w handle.hold ; connect A   [arrival: oracle 0 but none taken]
+OK   W spentStays: a used-up rule is not ended; only release ends it (Calls[dedupe]): a rule is removed at zero
+      newly failing: W7-spent-rule-stays [Calls[dedupe]]
+      changed: none
+        e.g. W7-spent-rule-stays: w post.drop ; post A   [a used-up rule was removed: only release ends it (2.10.4)]
+OK   W framesAllApply: frames rules do not compete (G9, G8) (Frames): a new connection takes only the earliest covering frames rule
+      newly failing: W7-frames-rules-effect-at-open [Frames]; W8-after-counts-from-first-frame [Frames]
+      changed: none
+        e.g. W7-frames-rules-effect-at-open: w socket.hold:after1 ; w socket.hold ; connect A   [A: covering socket:hold:1,socket:hold:0, 0 replayed: holds ]
+OK   W holdsJoin: a connection is silent while any hold covering it stands (G2) (Frames): a second hold on a silent connection does not join
+      newly failing: W8-hold-joins-holds [Frames]
+      changed: none
+        e.g. W8-hold-joins-holds: connect A ; w handle.hold ; w socket.hold   [a live connection did not join the hold of socket]
+OK   W handleBoth: a word on a handle is two rules (Handle): handle.hold() does not silence open connections
+      newly failing: W8-hold-silences-open-at-once [Handle]
+      changed: none
+        e.g. W8-hold-silences-open-at-once: connect A ; w handle.hold   [Open connection A still Open after hold on handle]
+OK   W offline: drop() with times above 1 or always also stands (Handle): the next attempt gets through
+      newly failing: W14-offline-means-offline [Handle]; W14-stands-iff [Handle]
+      changed: none
+        e.g. W14-offline-means-offline: w handle.drop:always   [no standing rule makes handle offline for attempts after drop(times -1)]
+OK   W dropStandsIfNone: default drop() stands only when no connection matched (Handle): a handle drop() both closes and stands
+      newly failing: W14-stands-iff [Handle]
+      changed: none
+        e.g. W14-stands-iff: connect A ; w handle.drop   [handle drop(times 1) with 1 live connections: a rule was added = true]
+OK   W noConnErr: a stream drop() with nothing matched is NoConnection (Frames): a silent no-op
+      newly failing: W14-no-connection [Frames]
+      changed: none
+        e.g. W14-no-connection: w socket.drop   [NoConnection=false with 0 live connections, times 1]
+OK   W dropCloses: drop() closes matching connections at once (Frames): drop() leaves the connection
+      newly failing: W14-no-connection [Frames]
+      changed: none
+        e.g. W14-no-connection: connect A ; w socket.drop   [NoConnection=true with 1 live connections, times 1]
+OK   W releaseScoped: release() delivers only its own rules' items (Handle): post.release() delivers what a handle's hold held
+      newly failing: W10-release-scoped [Handle]
+      changed: none
+        e.g. W10-release-scoped: w handle.hold ; post A ; w post.hold ; w post.release   [released an item owned by another target]
+OK   W releaseEnds: release() ends its target's rules (Frames): a release leaves its rules
+      newly failing: W10-release-ends-own-rules [Frames]; W10-release-ends-rules-first [Frames]; W11-release-did-something [Frames]; W23-no-deadlock [Frames]
+      changed: reachability [cells]
+        e.g. W10-release-ends-own-rules: w socket.hold ; w socket.release   [a standing rule, count or hold of the target survived its release]
+OK   W releaseEndsFirst: release ends its rules, then delivers (G16) (Handle): the open a release completes takes the rule being ended
+      newly failing: W10-release-ends-rules-first [Handle]; W22-states [Handle]
+      changed: none
+        e.g. W10-release-ends-rules-first: w handle.hold ; connect A ; w handle.release   [A: the open that release completed took the rule release was ending]
+OK   W releaseMatch: release({ match }) is its own word (Calls[dedupe]): a matching release also ends the rule
+      newly failing: W25-match-leaves-rest-held [Calls[dedupe]]; W25-match-rule-stays [Calls[dedupe]]
+      changed: reachability [cells]
+        e.g. W25-match-leaves-rest-held: w post.hold ; post B ; together post A+w post.release:A   [release({ match }) released a non-matching item]
+OK   W matchOnly: release({ match }) leaves the rest held (Calls[dedupe]): a matching release delivers everything
+      newly failing: W25-match-leaves-rest-held [Calls[dedupe]]
+      changed: none
+        e.g. W25-match-leaves-rest-held: w post.hold ; post B ; together post A+w post.release:A   [release({ match }) released a non-matching item]
+OK   W releaseAnswersFirst: released answers join before released handlers run (G3) (Calls[dedupe]): a released request's handler runs before a released answer joins
+      newly failing: W3-released-answers-before-released-handlers [Calls[dedupe]]
+      changed: reachability [cells]
+        e.g. W3-released-answers-before-released-handlers: w post.hold:resp ; together post A+w post.release ; w post.hold ; together post A+w post.release   [a released request's handler ran before a released answer joined the list]
+OK   W nothingHeld: release with nothing held and nothing standing is NothingHeld (Calls[dedupe]): a release with nothing to do is fine
+      newly failing: W11-nothing-held [Calls[dedupe]]; W11-release-did-something [Calls[dedupe]]
+      changed: none
+        e.g. W11-nothing-held: together post A+w post.release   [post.release plain: error=null, expected true]
+OK   W nthCallError: nth with fewer than k held is NothingHeld (Calls[dedupe]): release({ nth: 2 }) with one held releases it
+      newly failing: W11-nothing-held [Calls[dedupe]]; W11-release-did-something [Calls[dedupe]]
+      changed: none
+        e.g. W11-nothing-held: together post B+w post.release:nth2   [post.release nth2: error=null, expected true]
+OK   W releaseArrivalOrder: held items go in arrival order (Calls[dedupe]): held items are delivered newest first
+      newly failing: W17-call-release-order [Calls[dedupe]]
+      changed: none
+        e.g. W17-call-release-order: w post.hold ; post A ; together post A+w post.release   [answers  (want ), requests 2,1 (want 1,2) (plain)]
+OK   W orderCopy: one outcome order, a copy first (G1) (Calls[dedupe]): a copy is answered
+      newly failing: W12-outcome-order [Calls[dedupe]]
+      changed: none
+        e.g. W12-outcome-order: w post.dup ; post A   [answer: copy=true mark= gone=false: got list, the one order says duplicate]
+OK   W orderHold: marked to hold before gone (G1) (Calls[dedupe]): a hold-marked gone request is an orphan, not HeldAnswer
+      newly failing: W12-outcome-order [Calls[dedupe]]
+      changed: reachability [cells]
+        e.g. W12-outcome-order: w post.hold:resp ; post A   [answer: copy=false mark=hold gone=false: got list, the one order says HeldAnswer]
+OK   W orderDrop: marked to drop (Calls[dedupe]): a drop-marked answer reaches the client
+      newly failing: W12-outcome-order [Calls[dedupe]]
+      changed: none
+        e.g. W12-outcome-order: w post.drop:resp ; post A   [answer: copy=false mark=drop gone=false: got list, the one order says dropped]
+OK   W orderGone: gone is orphan (Calls[dedupe]): a gone client is answered
+      newly failing: W12-outcome-order [Calls[dedupe]]
+      changed: none
+        e.g. W12-outcome-order: together post A+cancel A   [answer: copy=false mark= gone=true: got list, the one order says orphan]
+OK   W crashAtomic: a crashed handler commits no truth and sends no frames (Calls[dedupe]): a crashed post still commits and sends
+      newly failing: W12-crash-atomic [Calls[dedupe]]; W12-crash-no-frames [Calls[dedupe]]
+      changed: none
+        e.g. W12-crash-atomic: w ctl.boom ; post A   [a crashed handler changed truth]
+OK   W copyDiscarded: the copy's answer is discarded (Calls[dedupe]): the duplicate's answer reaches the client
+      newly failing: W12-outcome-order [Calls[dedupe]]; W15-copy-answer-discarded [Calls[dedupe]]
+      changed: none
+        e.g. W12-outcome-order: w post.dup ; post A   [answer: copy=true mark= gone=false: got list, the one order says duplicate]
+OK   W copyFrames: the copy's frames are not discarded (Calls[nodedupe]): the copy's send list is dropped
+      newly failing: W15-frames-not-discarded [Calls[nodedupe]]
+      changed: none
+        e.g. W15-frames-not-discarded: w post.dup ; post A   [handler 2 (copy or gone client) lost its frames]
+OK   W goneFrames: an orphan's frames still go (Calls[nodedupe]): a released request whose client has gone sends no frames
+      newly failing: W15-frames-not-discarded [Calls[nodedupe]]
+      changed: none
+        e.g. W15-frames-not-discarded: w post.hold ; post A ; cancel A ; w post.release   [handler 1 (copy or gone client) lost its frames]
+OK   W closeLast: a server close under hold is queued last (Closing): the close lands at once and loses the queue
+      newly failing: W9-close-queued-last [Closing]
+      changed: reachability [cells]
+        e.g. W9-close-queued-last: connect A ; w socket.hold ; logout A   [A: a close on a Silent connection must be queued last (Closing), got Closed]
+OK   W closeDropped: release({ drop }) of Closing is close 1006 (Closing): the server's code is delivered
+      newly failing: W9-release-closing [Closing]
+      changed: none
+        e.g. W9-release-closing: connect A ; w socket.hold ; logout A ; w socket.release:drop   [A: heard c4401, expected c1006 (drop)]
+OK   W closeUncounted: release({ nth }) does not count the close (Closing): the close takes a turn in the reorder
+      newly failing: W9-release-closing [Closing]
+      changed: none
+        e.g. W9-release-closing: connect A ; w socket.hold ; post B ; post B ; logout A ; w socket.release   [A: heard f2 f1 c4401, expected f1 f2 c4401 (plain)]
+OK   W closingNoSend: a send to a Closing connection reaches nothing (Closing): frames queue behind a queued close
+      newly failing: W9-closed-receives-nothing [Closing]
+      changed: none
+        e.g. W9-closed-receives-nothing: connect A ; w socket.hold ; logout A ; post B   [a send reached a Closing connection (queued)]
+OK   W afterPerConn: hold({ after }) counts per connection (Frames): one counter is shared
+      newly failing: W25-match-leaves-rest-held [Frames]; W8-after-counts-n [Frames]; W8-count-is-per-connection [Frames]
+      changed: none
+        e.g. W25-match-leaves-rest-held: connect A ; connect B ; w socket.hold:after1 ; w socket.hold:t1 ; post B ; w socket.release:A   [release({ match }) released a non-matching item]
+OK   W afterFromFirst: a count set before open starts at the first frame (Frames): the replay is not counted
+      newly failing: W7-frames-rules-effect-at-open [Frames]; W8-after-counts-from-first-frame [Frames]
+      changed: none
+        e.g. W7-frames-rules-effect-at-open: post A ; w socket.hold:after1 ; connect A   [A: covering socket:hold:1, 1 replayed: holds ]
+OK   W afterDupTwice: a duplicated frame counts as two (Frames): a duplicated frame counts as one
+      newly failing: W7-frames-rules-effect-at-open [Frames]; W8-after-counts-n [Frames]
+      changed: none
+        e.g. W7-frames-rules-effect-at-open: post A ; w socket.hold:after2 ; w socket.dup ; connect A   [A: covering socket:hold:2,socket:dup:0, 1 replayed: holds ]
+OK   W timesPerConn: times counts connections (Frames): hold({ times: 1 }) silences both
+      newly failing: W8-times-counts-connections [Frames]
+      changed: none
+        e.g. W8-times-counts-connections: connect A ; connect B ; w socket.hold:t1   [2 connections took a times:1 rule]
+OK   W nthPerConn: release({ nth }) is per queue (Nth): nth on a connection releases in order
+      newly failing: W17-release-order [Nth]
+      changed: none
+        e.g. W17-release-order: connect A ; w socket.hold ; post B ; post B ; w socket.release:nth2   [A: heard f1 f2, expected f2 f1 (nth)]
+OK   W endOnOpen: end: true on open is frames, then close 1000 (Open): end: true is ignored
+      newly failing: W18-end-on-open [Open]
+      changed: none
+        e.g. W18-end-on-open: w ctl.endOpen ; connect A   [A: end: true must end the connection (frames, then close 1000)]
+OK   W refuseCode: refuse is Closed { code } (Open): a refused open closes with the crash code
+      newly failing: W18-refuse [Open]
+      changed: none
+        e.g. W18-refuse: w ctl.refuse ; connect A   [A: refuse: 4403 must close the connection with that code and a refused record]
+OK   W holdSilencesNow: hold() takes effect on an Open connection at once (Frames): hold() waits for the next connection
+      newly failing: W8-hold-joins-holds [Frames]; W8-hold-silences-open-at-once [Frames]
+      changed: reachability [cells]
+        e.g. W8-hold-joins-holds: connect A ; w socket.hold   [a live connection did not join the hold of socket]
+OK   W afterNegErr: a negative hold({ after }) is StoryInvalidCommand (Open): after: -1 is accepted
+      newly failing: W8-negative-after-is-invalid [Open]
+      changed: none
+        e.g. W8-negative-after-is-invalid: w socket.hold:after-1   [a negative hold({ after }) was not StoryInvalidCommand]
+OK   W openCrashCode: a crashed open is Closed { 1011 } (Open): a crashed open reads as a network loss
+      newly failing: W12-open-crash-1011 [Open]
+      changed: none
+        e.g. W12-open-crash-1011: w ctl.boomOpen ; connect A   [a crashed open must be Closed { 1011 }, got 1006]
+OK   W dropHeldLost: release({ drop }) of a Held request is lost before the server (Calls[dedupe]): the dropped request is served
+      newly failing: W13-release-drop-held-is-lost [Calls[dedupe]]
+      changed: none
+        e.g. W13-release-drop-held-is-lost: w post.hold ; together post A+w post.release:drop   [held request 1: release({ drop: true }) must lose it before the server]
+OK   W pumpK: a chain of K hops completes (K smaller) (Pump): a chain of exactly K hops is cut
+      newly failing: W19-drain-cuts-long-chains [Pump]
+      changed: none
+        e.g. W19-drain-cuts-long-chains: connect A ; w ctl.chain:3 ; post B   [1 fibers parked; 0 chains longer than K=3 were spawned]
+OK   W pumpK: a chain longer than K is cut (K larger) (Pump): a chain of K+1 hops completes
+      newly failing: W19-drain-cuts-long-chains [Pump]
+      changed: none
+        e.g. W19-drain-cuts-long-chains: connect A ; w ctl.chain:4 ; post B   [0 fibers parked; 1 chains longer than K=3 were spawned]
+MISS W idleResets: the idle count resets on any arrival (Pump): idle hops accumulate across activity, so a short chain is cut
+      newly failing: none
+      changed: none
+OK   W eorOnce: HostTimeWait is classified once, at the end of the run (Pump): a settle rejects the parked fiber at once
+      newly failing: W19-no-per-settle-host-wait [Pump]
+      changed: none
+        e.g. W19-no-per-settle-host-wait: connect A ; w ctl.chain:4 ; post B   [a settle rejected as HostTimeWait; it is classified once, at the end of the run]
+OK   W eorHeld: a held item could wake a parked fiber (Pump): a held item does not excuse a parked fiber
+      newly failing: W24-end-of-run-classification [Pump]
+      changed: none
+        e.g. W24-end-of-run-classification: connect A ; connect B ; w ctl.chain:4 ; post B ; w socket.hold ; cclose A ;    [classified true, the world says false]
+OK   W eorConn: an open connection its owner opened could wake it (Pump): the owner's open connection does not excuse a parked fiber
+      newly failing: W24-end-of-run-classification [Pump]
+      changed: none
+        e.g. W24-end-of-run-classification: connect A ; w ctl.chain:4 ; post B ;    [classified true, the world says false]
+exit=1
