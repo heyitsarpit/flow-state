@@ -262,6 +262,8 @@ A fragment has no restore event, so a fragment waiting on a live lookup keeps a 
 
 ## 28. A `Fake.fetch` route-table helper (deferred by Stories, 2026-10-31)
 
+**Closed (amended Stories, 2026-11-01):** W16 adds the route table (design 2.10.4).
+
 `Fake.fetch(server, route)` takes a function from a web `Request` to an endpoint and input (design 2.10.4). A helper
 that maps method and path to an endpoint would remove that function for most REST fakes. Not needed for correctness.
 

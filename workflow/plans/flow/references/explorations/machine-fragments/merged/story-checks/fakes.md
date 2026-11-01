@@ -12,7 +12,7 @@ and 2.10.9. Nothing is merged. Decisions W11–W17 are in [decisions.md](decisio
 
 ## The gaps this fills
 
-From the dispatch desk and Checkout fakes (`../../../dispatch-desk/REVIEW.md` gaps 32, 33, 36, 37, 38, and `route` notes
+From the dispatch desk and Checkout fakes (`../../../../dispatch-desk/REVIEW.md` gaps 32, 33, 36, 37, 38, and `route` notes
 in the `testing/*.fake.ts` files; open item 28):
 
 1. How a write or a control reaches open connections.

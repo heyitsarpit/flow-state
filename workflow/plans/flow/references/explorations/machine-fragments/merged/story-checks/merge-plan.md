@@ -1,15 +1,15 @@
 # Merge plan: amended Stories and Fake into machine-design.md
 
-Status: **approved by the owner 2026-11-01** (no further approval needed for the merge). Written against
+Status: **applied 2026-11-01** (the owner approved the proposal; the `.plan` changes in 2.7 are still owed). Written against
 `machine-design.md` at HEAD `8865ab1c` (last changed in `0ca7d93b`, the Stories merge check) and
 [stories-amended.md](stories-amended.md) and [fakes-v2.md](fakes-v2.md) as committed there. Method as in
-[merged/stories/merge-plan.md](../merged/stories/merge-plan.md) and
-[merged/fragment-operations/merge-plan.md](../merged/fragment-operations/merge-plan.md).
+[merged/stories/merge-plan.md](../stories/merge-plan.md) and
+[merged/fragment-operations/merge-plan.md](../fragment-operations/merge-plan.md).
 
-Short names: **MD** [machine-design.md](../machine-design.md); **SA** [stories-amended.md](stories-amended.md);
+Short names: **MD** [machine-design.md](../../machine-design.md); **SA** [stories-amended.md](stories-amended.md);
 **F2** [fakes-v2.md](fakes-v2.md); **C1–C5, W1–W43** [decisions.md](decisions.md); **FI**
 [reviews/final-integration.md](reviews/final-integration.md); **MDL** [model/RESULTS.md](model/RESULTS.md); **v3**
-[merge-6-streams/proposal-v3.md](../merge-6-streams/proposal-v3.md) (not merged). "Before" quotes are copied from MD by the
+[merge-6-streams/proposal-v3.md](../../merge-6-streams/proposal-v3.md) (not merged). "Before" quotes are copied from MD by the
 script that applies them; "…" only shortens a quote, and the edit replaces the whole sentence, row or block it names.
 
 Marks: **small** (wording, numbering, a superseded clause), **small†** (a behaviour consequence the decisions leave to the
@@ -75,7 +75,7 @@ Anchors were checked against today's MD; all are clean.
 
 | # | Conflict | Mark | Resolution (each **proposed**) |
 | --- | --- | --- | --- |
-| MX1 | **Label clashes.** decisions.md's C1–C5 against MD's C rows; SA's RV1–RV3, MDL and H*n* against MD's section 4 rows H*n* and the record's other reviews | small | In MD: **SC*n*** for decisions.md's C*n*; **SA RV*n***, **SA MDL**, **SA H*n***. W*n* is unique in MD once 2.10 is replaced. Precedent: the Stories plan's SX2 |
+| MX1 | **Label clashes.** decisions.md's C1–C5 against MD's C rows; SA's RV1–RV3, MDL and H*n* against MD's section 4 rows H*n* and the record's other reviews | small | In MD: **SC*n*** for decisions.md's C*n*; **SA RV*n***, **SA MDL**, **SA H*n***. W*n* is unique in MD once 2.10 is replaced. SA's bare T*n* in rule 63 and 2.10.2 reads "Stories T*n*", and 2.10's intro says T1–T3 in stream text are v3's. Precedent: the Stories plan's SX2 |
 | MX2 | **SA section 4's "C-new"** has no number; v3 and FI put merge 6's new C rows "after C85" | small† | Folded into C79, the row it says it adds to, so C85 stays last and merge 6's numbering holds |
 | MX3 | **SA's "section *n*" inside section 3** would read as MD's own sections | small | "section 7" → "3.6"; "Section 10 lists the change to Testing O8" → "C75 lists"; "section 10 flags" → "as W42 amends it"; item 13's and section 11's pointers name the record. `(../merge-6-streams/…)` becomes MD-relative |
 | MX4 | **2.10.17's intro says the model "has not been done"**, against MDL's final run | small | Reworded from MDL, with its caps and what it does not model |

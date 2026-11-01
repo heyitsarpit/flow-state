@@ -25,7 +25,7 @@ Companion: [prior-art-v2-assessment.md](prior-art-v2-assessment.md).
 
 Source codes: **SR** brief requirement, **FC** brief failure case, **DG** brief design goal, **RV1–RV5** the v2 reviews,
 **R1, R2** the earlier reviews, **MDL** the model, **CMP** comparison.md, **AUD** the multiplicity audit, **S** owner
-decision in decisions-v2.md, **SC** `story-checks/stories-amended.md` section 11, **DESK** the dispatch desk's code and
+decision in decisions-v2.md, **SC** `merged/story-checks/stories-amended.md` section 11, **DESK** the dispatch desk's code and
 REVIEW, **PA** prior art.
 
 Kinds: **B** behaviour, **A** API property, **C** cost limit.

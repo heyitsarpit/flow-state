@@ -15,12 +15,13 @@ operations-in-definition, so it went first (merged 2026-10-30). Stories was to g
 | 2 | merges 4 and 5: merged 2026-10-30 ([merge-plan-4-5.md](merge-plan-4-5.md)) | done (OD24) |
 | 3 | operations-in-fragments: merged 2026-10-31 ([merged/fragment-operations/merge-plan.md](merged/fragment-operations/merge-plan.md)) | done (F10; merged before streams, delegated) |
 | 4 | Stories: merged 2026-10-31 ([merged/stories/merge-plan.md](merged/stories/merge-plan.md)) | done (delegated; merged before streams, which is held for the owner) |
-| 5 | [merge-6-streams/proposal-v2.md](merge-6-streams/proposal-v2.md) | **held for the owner**; after fragments and Stories, its new rules renumber from 67 |
+| 5 | Stories, amended, with the `Fake` module: merged 2026-11-01 ([merged/story-checks/merge-plan.md](merged/story-checks/merge-plan.md)) | done (owner approved; `.plan` changes still owed, its 2.7) |
+| 6 | [merge-6-streams/proposal-v2.md](merge-6-streams/proposal-v2.md) | **held for the owner**; after fragments and Stories, its new rules renumber from 67 |
 
 ## The design and what merges into it
 
 [machine-design.md](machine-design.md) is the one design (formerly `proposal-v4.md`; "v4" in its text and in the
-other documents names it). Merges 1, 2, 4, 5, operations-in-definition (2026-10-30), operations-in-fragments (2026-10-31) and Stories (2026-10-31) are merged into it. What is left merges in the work order above (folder numbers are the order they were written, not the merge order):
+other documents names it). Merges 1, 2, 4, 5, operations-in-definition (2026-10-30), operations-in-fragments (2026-10-31), Stories (2026-10-31) and amended Stories (2026-11-01) are merged into it. What is left merges in the work order above (folder numbers are the order they were written, not the merge order):
 
 | Order | File | Status | Depends on |
 | --- | --- | --- | --- |
@@ -39,11 +40,9 @@ Merged proposals move to [merged/](merged/) with their evidence, as the record b
 | [merged/operations/proposal.md](merged/operations/proposal.md) | operations, 2026-10-30 | server interaction declared once under `operations`; the Runtime's write lanes (design 2.7, 2.7.13–2.7.16, rules 39–47, C31–C53, decisions OD1–OD26) |
 | [merged/fragment-operations/proposal.md](merged/fragment-operations/proposal.md) | operations in fragments, 2026-10-31 | fragments declare and own operations; subject paths on write lanes; release on leave (design 2.9, rules 48–60, C54–C68, decisions F1–F10) |
 | [merged/stories/proposal-v2.md](merged/stories/proposal-v2.md) | Stories (merge 3), 2026-10-31 | Stories as plans of user, time and world inputs on the production Runtime; fakes; no ending injected (design 2.10, rules 61–66, C69–C85, Stories T1–T7) |
+| [merged/story-checks/stories-amended.md](merged/story-checks/stories-amended.md) | amended Stories and `Fake`, 2026-11-01 | a Story is a transcript of inputs and checkpoints; tests use the runner's `expect` over checkpoint reads; `Story.app`, `Story.machine`, `Story.fragment`; the final `Fake` (design 2.10, rules 11, 61–66, decisions SC1–SC5, W1–W43) |
 
-[story-checks/decisions.md](story-checks/decisions.md) (2026-11-01) records accepted decisions on how tests check Stories,
-not yet included in the design; deferred items are in [revisit.md](revisit.md). The amended Stories and Fake design is
-[story-checks/stories-amended.md](story-checks/stories-amended.md) and [story-checks/fakes-v2.md](story-checks/fakes-v2.md),
-proposed. Streams' current proposal is [merge-6-streams/proposal-v3.md](merge-6-streams/proposal-v3.md), proposed, which
+Deferred items are in [revisit.md](revisit.md). Streams' current proposal is [merge-6-streams/proposal-v3.md](merge-6-streams/proposal-v3.md), proposed, which
 supersedes proposal-v2 once the owner accepts it; its requirements are
 [merge-6-streams/requirements-v3.md](merge-6-streams/requirements-v3.md).
 
@@ -70,6 +69,7 @@ merge 5's are listed in its section 4.
 | [merged/entity-analysis/spike/](merged/entity-analysis/spike/) | merge 5: `tsc -p .`, then `bun main.ts` |
 | [merged/operations/lane-model/](merged/operations/lane-model/RESULTS.md) | operations: the write-lane model, `tsc -p .`, then `bun main.ts`; `python3 mutations.py` |
 | [merged/stories/model/](merged/stories/model/RESULTS.md) | Stories: the Story executor model, `tsc -p .`, then `bun main.ts`; `python3 mutations.py` |
+| [merged/story-checks/model/](merged/story-checks/model/RESULTS.md) | amended Stories: the same, plus the wire model, `bun wire-main.ts` |
 | [spikes/outcome-channels/](spikes/outcome-channels/) | merge 1: the `Outcome` API |
 | [spikes/schedule-triggers/](spikes/schedule-triggers/RESULTS.md) | the design's schedule `armOn` / `disarmOn` typing |
 | [spikes/server-calls-draft/](spikes/server-calls-draft/) | the data flow of the first in-machine calls draft (superseded by merge 2) |

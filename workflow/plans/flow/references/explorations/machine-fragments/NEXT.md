@@ -24,6 +24,10 @@ no `.plan` file is touched; every step is its own commit.
 4. **Coverage build gaps** (63, in the two READMEs) plus the three cells built differently (see below).
 5. **Small design gaps** (10, same table, class b): each has a proposed one-line answer for machine-design.md.
 
+## Done since (2026-11-01)
+
+- **Amended Stories and `Fake` merged into machine-design.md** (`merged/story-checks/merge-plan.md`): decisions SC1–SC5 and W1–W43. So T3's `Story.make` and T5's `expect` below are reversed (W1, SC1), and `Story.inspection` and `expect` here read as `cp.inspection` and the runner's `expect`. Plan changes, the desk and Checkout conversions are owed (its 2.7).
+
 ## Done overnight
 
 - **Merged into machine-design.md:** operations in fragments (rules 48–60), Stories (rules 61–66, section 2.10), each

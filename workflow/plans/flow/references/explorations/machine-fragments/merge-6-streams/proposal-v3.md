@@ -1204,7 +1204,7 @@ A body end is `Closed`, retried. V8: a terminator becomes a typed error outside 
 
 **Inspection:** per session: state, `drop`, T2 row and basis, each `proof`, losses, bookmark and `filled`, bound, release; counters plus a ring of the last 256. Flags: `ValuesWhileDown`, `RegistrationChurn`, `ReleaseOverdue`, `ProofWithoutPosition`, `PingsWithoutLive`, `IdleWithoutPing`, `DeliveryDenied`, `FillsUntouched`. Stories templates assert no flags.
 
-**The chat Story**, as [stories-amended.md](../story-checks/stories-amended.md) section 11 fixed it. Illustrative; not run.
+**The chat Story**, as [stories-amended.md](../merged/story-checks/stories-amended.md) section 11 fixed it. Illustrative; not run.
 
 ```ts
 const ChatFake = Fake.webSocket(Chat, chatRoutes)                         // existing  // user-defined: Chat, chatRoutes
@@ -1268,7 +1268,7 @@ const pushed = (before: Truth, after: Truth) => ({ truth: after, send: [Desk.soc
 ## 9. Changes needed elsewhere (none applied)
 
 **Order, no conflicts this way.** Stories first, because `stories-amended.md` section 8's lines are today's.
-1. In `story-checks/`: re-run the Stories executor model; convert the desk's fakes.
+1. In `merged/story-checks/`: re-run the Stories executor model; convert the desk's fakes.
 2. Owner accepts Stories and the Fake spellings. Apply `stories-amended.md` sections 3, 4, 7, 8. `fakes-v2.md` is not merged on its own.
 3. Owner accepts this. Apply the tables below: rules 67–72 after 66, no overlap with Stories' rules 11, 58, 61–66. Shared places are additive: 3.6 (two rows), section 5 (new C rows after C85), Inspection O4.
 4. Remove the `*Stream details: merge 6*` marks in 2.10.9, 2.10.15, 2.10.18.7, and `stories-amended.md` section 11's table. Update `revisit.md`, `open-items.md`, `NEXT.md`.

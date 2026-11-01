@@ -1,6 +1,6 @@
 # Stories, amended
 
-**Status: proposed, revised from review rounds 1 to 3 ([reviews/round-1.md](reviews/round-1.md), [reviews/round-2.md](reviews/round-2.md), [reviews/round-3.md](reviews/round-3.md)) and the model's gaps ([model/RESULTS.md](model/RESULTS.md)). Nothing is merged.** Once accepted this file replaces `machine-design.md` section 2.10, rules 11 and
+**Status: proposed, revised from review rounds 1 to 3 ([reviews/round-1.md](reviews/round-1.md), [reviews/round-2.md](reviews/round-2.md), [reviews/round-3.md](reviews/round-3.md)) and the model's gaps ([model/RESULTS.md](model/RESULTS.md)). Merged into `machine-design.md` on 2026-11-01 ([merge-plan.md](merge-plan.md)); kept as the record behind it, and where they differ, the design wins.** Section 11 stays until merge 6. As written: this file replaces `machine-design.md` section 2.10, rules 11 and
 61–66, the Stories row of section 3.6, the "Removed" row of the Stories merge, and the matching rows of section 5. Section
 8 lists every other line that then has to change. No `.plan` file, app or other proposal was edited.
 
@@ -1000,7 +1000,7 @@ FIFO across two actors, a forced repair holding the queue, `uncertain` set and c
 
 #### 2.10.9 Streams (controls decided, W37)
 
-*Stream details: merge 6.* This section reads v3's `Feed`, sessions and rows ([merge-6-streams/proposal-v3.md](../merge-6-streams/proposal-v3.md)), which are not merged; merge 6 resolves it. v3 runs reconnecting and history from the contract (`reconnect`, `idleTime`, `catchUp`), so an adapter has no combinator and Flow's own sleeps carry the `timer`s. `.do(…)`, `.process()` and checkpoint predicates are gone (C1, C2, W2, W37); section 11 has the list **[P, H22, v3 section 9]**.
+*Stream details: merge 6.* This section reads v3's `Feed`, sessions and rows ([merge-6-streams/proposal-v3.md](../../merge-6-streams/proposal-v3.md)), which are not merged; merge 6 resolves it. v3 runs reconnecting and history from the contract (`reconnect`, `idleTime`, `catchUp`), so an adapter has no combinator and Flow's own sleeps carry the `timer`s. `.do(…)`, `.process()` and checkpoint predicates are gone (C1, C2, W2, W37); section 11 has the list **[P, H22, v3 section 9]**.
 
 A stream endpoint is a connection: `Fake.stream({ request, frame, open, ping? })` (2.10.4) [fakes-v2; `ping`, v3]. `open(truth, request)`
 returns `{ frames?, refuse?, end?, truth?, send? }`. Duplex waits for the first duplex fake [P, RV2 section 8]. Any handler or

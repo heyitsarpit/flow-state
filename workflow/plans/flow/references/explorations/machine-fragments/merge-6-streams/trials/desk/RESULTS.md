@@ -1,7 +1,7 @@
 # Desk trial of proposal-v3 streams: results
 
 Paper test of [proposal-v3.md](../../proposal-v3.md) against the desk's `Tickets/feed`, `Presence` and `Assistant`, with their fakes,
-Stories and tests, in the forms of [stories-amended.md](../../../story-checks/stories-amended.md) and [fakes-v2.md](../../../story-checks/fakes-v2.md).
+Stories and tests, in the forms of [stories-amended.md](../../../merged/story-checks/stories-amended.md) and [fakes-v2.md](../../../merged/story-checks/fakes-v2.md).
 Nothing outside `trials/desk/` was edited. Every claim is **proposed** until the owner reads it; nothing here is decided.
 
 **What ran.** `node_modules/.bin/tsc -p trials/desk/tsconfig.json` passes clean under `tsconfig.base.json`'s flags, with real Effect

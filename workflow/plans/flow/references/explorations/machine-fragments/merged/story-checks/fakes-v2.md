@@ -1,9 +1,8 @@
 # Fakes v2: the `Fake` module, finalized from review 1, revised from Stories reviews 1 and 2 and the model
 
-**Status: proposed. The owner approved the direction (2026-11-01) and delegated the review's calls; the spellings below
-have not been reviewed by the owner.** Amends `machine-design.md` 2.10.4, 2.10.9 and 2.10.17 when Stories is revised.
+**Status: merged into `machine-design.md` on 2026-11-01, through [stories-amended.md](stories-amended.md); kept as the record behind it.** Where they differ, the design wins. The owner approved the direction (W35) and the proposal as a whole; the spellings below stay marked [fakes-v2] in the design.
 Agrees with [stories-amended.md](stories-amended.md) 2.10.4, which has the full text; if they differ, that file wins. "RV1", "RV2" are
-[reviews/round-1.md](reviews/round-1.md), [reviews/round-2.md](reviews/round-2.md), and "MDL" is [model/RESULTS.md](model/RESULTS.md); their changes here, and "RV3" [reviews/round-3.md](reviews/round-3.md)'s, are the main session's calls, **[P]**. Nothing is merged. [fakes.md](fakes.md) stays as prior art; [fakes-review-1.md](fakes-review-1.md) has the evidence.
+[reviews/round-1.md](reviews/round-1.md), [reviews/round-2.md](reviews/round-2.md), and "MDL" is [model/RESULTS.md](model/RESULTS.md); their changes here, and "RV3" [reviews/round-3.md](reviews/round-3.md)'s, are the main session's calls, **[P]**. [fakes.md](fakes.md) stays as prior art; [fakes-review-1.md](fakes-review-1.md) has the evidence.
 
 ## 1. The one rule behind it
 
@@ -100,7 +99,7 @@ Awake, a fast ping against a long `advance` hits `StoryTurnLimit { Advance }`: w
 **Dropped:** `accept`, every tuple result, `{ to, send }`, `Fake/Lost` as a string, a handler that is an Effect; `latency`, `response` as an Effect and `headers` on `Fake.stream` (RV1 M1, section 8; main session's cuts); `message` on `Fake.stream` (RV2 section 8).
 
 **Not added:** `pushes` (approved out; the desk's conversion is its test), a `closed` handler, `release({ take })`, a duplex
-client half, `HttpApi` derivation ([revisit.md](../revisit.md)); `headers` on `Fake.stream`, until the first SSE adapter checks a content type; `message`, until the first duplex fake. A stream is server-to-client for now: a client's frame through `Fake.webSocket`'s socket is ignored and logged.
+client half, `HttpApi` derivation ([revisit.md](../../revisit.md)); `headers` on `Fake.stream`, until the first SSE adapter checks a content type; `message`, until the first duplex fake. A stream is server-to-client for now: a client's frame through `Fake.webSocket`'s socket is ignored and logged.
 
 ## 3. Rules
 

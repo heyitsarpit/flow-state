@@ -1,15 +1,13 @@
 # Story checks: owner decisions
 
-How a test checks a Story. Accepted 2026-11-01, for inclusion later: **nothing is amended yet.** `machine-design.md` still
-has `.expect` (2.10.6, Stories T5 B3), and the owner has not finished walking the Stories proposal. Include these during
-or after that walk.
+How a test checks a Story. Accepted 2026-11-01. **Merged into `machine-design.md` on 2026-11-01** ([merge-plan.md](merge-plan.md)), where C*n* is cited as SC*n*; kept as the record behind it. The sections below stay as written at the time.
 
 | # | Decision | Date |
 | --- | --- | --- |
 | C1 | A Story is a transcript of inputs and checkpoints. Flow owns no assertions: `.expect` leaves the Story, and tests use the runner's own `expect`. | 2026-11-01 |
 | C2 | Keep the word `checkpoints`. No `at` until it does something extra; no callback form. | 2026-11-01 |
 | C3 | Q1 B: short reads on a checkpoint, for every runner. `lane(O.x, key)` is `undefined` when the lane does not exist; `records(kind, filter?)` is NEW on a checkpoint. | 2026-11-01 |
-| C4 | Q2 A: no matchers for now. `toHaveLane`, `toHaveRecord` and `toBeIn` are deferred ([revisit.md](../revisit.md)). | 2026-11-01 |
+| C4 | Q2 A: no matchers for now. `toHaveLane`, `toHaveRecord` and `toBeIn` are deferred ([revisit.md](../../revisit.md)). | 2026-11-01 |
 | C5 | Q3 A: checkpoint names are camelCase by convention, so destructuring works. | 2026-11-01 |
 
 ```ts
@@ -50,7 +48,7 @@ Owner's answers while walking the merged Stories design group by group. Also for
 | W12 | Group 3, Q11 A: no ending injection (T2 confirmed). | 2026-11-01 |
 | W13 | Group 3, Q12 A: `world` as an option and a step, with controls as data. | 2026-11-01 |
 | W14 | Group 3, Q13 A: `handle` returns `{ truth, response }`, so order cannot be confused (Effect's `Ref.modify` is `[result, next]`, the reverse of the merged tuple). | 2026-11-01 |
-| W15 | Group 3, Q14 A: no MSW binding now ([revisit.md](../revisit.md)). | 2026-11-01 |
+| W15 | Group 3, Q14 A: no MSW binding now ([revisit.md](../../revisit.md)). | 2026-11-01 |
 | W16 | Group 3, Q15 A: `Fake.fetch` routes by method and path, such as `{ "POST /confirm": "confirm" }`; the function stays for unusual cases. Spelling to check against the desk's five fakes. | 2026-11-01 |
 | W17 | `Fake` stands alone with its own narrow set of capabilities. A mocking library is optional, and goes inside a handler or a plain Layer if a user wants one. | 2026-11-01 |
 | W18 | Group 4, Q21 A: `hold`, `release`, `drop` and `duplicate` as a Story-owned wire layer. | 2026-11-01 |
@@ -88,7 +86,7 @@ Owner's answers while walking the merged Stories design group by group. Also for
 
 ## To settle when this is included
 
-- T5 B3 (`expect` makes `run()` reject) and `StoryExpectationFailed` go; `run()` should still reject on a real Story error, so typed checkpoints are always present ([Testing.plan](../../../../Testing.plan) O5 keeps earlier checkpoints after a failed capture).
+- T5 B3 (`expect` makes `run()` reject) and `StoryExpectationFailed` go; `run()` should still reject on a real Story error, so typed checkpoints are always present ([Testing.plan](../../../../../Testing.plan) O5 keeps earlier checkpoints after a failed capture).
 - Reads over a whole run, such as "this never shows": `Story.property` or a frames read.
 - What leaves with `expect`: its five matching rules. Check how vitest's `toMatchObject` treats a key listed as `undefined`; `Story.attempt` needs a plain read (a desk design gap).
 - What `expect` was used for elsewhere: `.expect` lines in `machine-design.md`, streams (`expect(…, { connections })`), and the Stories in the desk and Checkout (hyphenated names, `storyTest`).
