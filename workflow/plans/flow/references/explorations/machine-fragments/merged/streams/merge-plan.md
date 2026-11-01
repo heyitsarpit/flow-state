@@ -211,6 +211,10 @@ Rules 1–66 keep their numbers. Rules 67–72 are v3's. New section 2.11, after
 | ME80 | OD12, annotated | small | "renamed to `output`; mapper context `{ params }` becomes `{ input }`). (2026-10-30)" | renamed to `output`; mapper context `{ params }` becomes `{ input }`). (2026-10-30) *Its stream … ed by S15: a stream's position is Flow's bookmark, not an in-field (rule 71). The rest stands.* | v3 1, Decisions overturned |
 | ME81 | Merge 1 note, annotated | small | "`retry: { on }` goes with every Flow retry (rule 25)." | `retry: { on }` goes with every Flow retry (rule 25). *Rule 25 later allows one thing: a stream's declared connection (S15).* | v3 1, Decisions overturned |
 | ME82 | W37, annotated | small | "`.do(…)` goes. Details wait for the streams merge. *Owner-confirmed.* (2026-11-01)" | `.do(…)` goes. Details wait for the streams merge. *Owner-confirmed.* (2026-11-01) *Streams merged; the details are 2.10.9.* | SA 11 |
+| ME85 | C70 | small | "L2; *Stream details: merge 6* for a session's timers)" | L2; Streams T1 for a session's timers) | SA 11; applied in a follow-up commit, missed by the first pass |
+| ME86 | T2 | small | "stream cells (*Stream details: merge 6*) and Flow reasons" | stream cells (Streams T1, T3) and Flow reasons | as ME85 |
+| ME87 | 2.10.9, spellings | small | "**Spellings** [P, v3 section 3]:" | **Spellings** [P, 2.11.4, 2.11.5]: | as ME85 |
+| ME88 | Status paragraph | small | "It **supersedes `proposal-v3.md`** (removed," | This design **supersedes the earlier design `proposal-v3.md`**, not streams' file of that name (removed, | MX1: "v3" also names the design's own earlier version |
 | ME83 | New 2.11, before "## 3. Example" | small† | "## 3. Example" | 2.4's build | v3 2, 3, parts of 4, 5, 6, 8, 10 |
 | ME84 | Decisions, new subsection at the end of the file | small | "…a failure's `{ step, cut, target, path, expected, actual }` shape." | "### Streams": S1–S16 verbatim, with annotations; rows not in MD; "Proposed"; "Also rejected" | S1–S16; v3 1, 10 |
 
