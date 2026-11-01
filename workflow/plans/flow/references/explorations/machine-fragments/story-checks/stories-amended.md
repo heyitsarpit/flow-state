@@ -153,7 +153,7 @@ Section 1.6 replaces this table's "classified from the world".
 
 ### 1.7 The revision from streams proposal v3
 
-`merge-6-streams/proposal-v3.md` section 10 is "v3". All **[P]**. Its 12 changes are applied: a fake's heartbeat (`ping`) and its rank, rules and table row; `timer` values; row and `session` fields; reload Stories; jitter; coverage. The addendum's U1–U3 are folded into rule 61, 2.10.4 and 2.10.17. Section 10 lists what v3 asked that needs your eye. Section 11 is rewritten for v3.
+`merge-6-streams/proposal-v3.md`, in its final form, is "v3"; its section 9 lists these changes. All **[P]**. Its 14 items are applied: a fake's heartbeat (`ping`) and its rank, rules and table row; `timer` values; row and `session` fields; reload Stories; jitter; coverage. The addendum's U1–U3 are folded into rule 61, 2.10.4 and 2.10.17. Section 10 lists what v3 asked that needs your eye. Section 11 is rewritten for v3.
 
 ## 2. Rules
 
@@ -381,7 +381,7 @@ production does if d passes with nothing else happening: each deadline fires at 
 and a timer they re-arm inside the window fires too, so the dispatch desk's `lockedOut` runs its whole chain (STF20).
 
 **A total order at equal instants** (W8; STR14, STF22). Every sleep has an owner, attached by Flow to the fiber that sleeps;
-2.10.17.5 is normative. At one instant the sleeps wake one at a time, settling after each, by rank: **a fake's `ping`, so a tie with a client's `idle` keeps the connection alive** (by server name, then connection open order) [P, v3 item 1]; adapters (by tab, actor, operation, key), **setup-scoped fibers** (an SDK
+2.10.17.5 is normative. At one instant the sleeps wake one at a time, settling after each, by rank: **a fake's `ping`, so a tie with a client's `idleTime` keeps a registered connection alive** (by server name, then connection open order) [P, v3 item 1]; adapters (by tab, actor, operation, key), **setup-scoped fibers** (an SDK
 client's heartbeat or backoff forked at layer build, a rate limiter: by layer order), the Runtime's own waits, then
 actor schedules (by tab, actor, instance path in placement order, copy in list order, schedule key in list order).
 Ties within an owner go by arming order. "Outside before inside" is a documented choice; a Story that needs the other
@@ -392,7 +392,7 @@ order uses `together({ advance })`.
 **The next deadline** (W7; STR15, STF23, SP RV M3). `advance({ next: address })` moves to the earliest unfrozen deadline whose
 owner the address matches: `{ schedule: "checkTick" }` (schedule names are type-checked against the subject, so a
 typo is a type error, not a `NoDeadline`), `{ operation: O.messages, timer: "backoff" }` (a session's sleeps are Flow's,
-so they carry `timer`: `backoff`, `page`, `healthy`, `idle` [P, v3 item 4]; `{ timer: "page" }` under the default schedule uses its own copy of it [v3 item 9]; the default is jittered, so a fixed `advance("500 millis")` cannot land on it, and a Story uses `next` [v3 item 11]; *Stream details: merge 6*), `{ actor: Checkout1 }`. An author's own adapter sleeps
+so they carry `timer`: `backoff`, `page`, `healthy`, `idle` [P, v3 item 4]; `{ timer: "page" }` under the default schedule uses its own copy of it [v3 item 9]; the default is jittered, so a fixed `advance("500 millis")` cannot land on it, and a Story uses `next` [v3 item 7]; *Stream details: merge 6*), `{ actor: Checkout1 }`. An author's own adapter sleeps
 (an idle deadline in the adapter's code) are addressed by operation only, the earliest of them. Adding an unrelated timer to the app (a toast, a heartbeat) cannot move the Story. A frozen
 schedule has no sleep (rule 1), so it is never chosen. `advance({ to })` stays for the rare exact instant.
 
@@ -539,12 +539,12 @@ read. A standalone `Fake.call` or `Fake.control` that reads `truth` annotates it
 `Fake.server` constrains `endpoints` by its truth Schema, so another server's `Truth` is rejected. `input`'s result is typed loosely, since `request`
 decodes it and invalid input is `StoryFakeError`; `query` values are `string | undefined` under the repo's `noUncheckedIndexedAccess` [P, RV1 M8].
 
-**A heartbeat** [P, v3 items 1–3, 10]. `Fake.stream({ …, ping: { every, frame } })`: on each open connection, the fake delivers `frame` every `every`, on the run's Clock, so a client's `idle` has something real to see. It is data, like `open`, and runs no handler; it reads no truth. `frame` encodes by the stream's `frame` Schema.
+**A heartbeat** [P, v3 items 1–3, 10]. `Fake.stream({ …, ping: { every, frame } })`: on each open connection, the fake delivers `frame` every `every`, on the run's Clock, so a client's `idleTime` has something real to see. It is data, like `open`, and runs no handler; it reads no truth. `frame` encodes by the stream's `frame` Schema. NDJSON has no codec: `frame` is `Schema.String`, and `end: true` must be written [P, v3 item 13].
 
 - It takes no count: `hold({ after: n })` does not count a ping, and a `duplicate` does not take one.
 - A hold stops pings: while `Silent` or `Closing`, none is sent and none queues, so a half-open connection is really silent. When frames flow again, the next is `every` from then.
 - Each is one `delivery` record, with `ping: true`.
-- While the tab is suspended, pings **coalesce** to one at wake, after the tab's overdue deadlines: a week at 10 s would be 60,480 frames. So a client's overdue `idle` fires first, as Machines O5's overdue rule says.
+- While the tab is suspended, pings **coalesce** to one at wake, after the tab's overdue deadlines: a week at 10 s would be 60,480 frames. So a client's overdue `idleTime` fires first, as Machines O5's overdue rule says.
 - It is not an operation's deadline: quiet ignores it, and it does not hold a run open. It counts toward an `advance`'s 100,000 deadlines (section 10).
 
 `Fake.webSocket`'s `addEventListener("close")` gives a `code` [v3].
@@ -946,10 +946,10 @@ kind (STF72; members added in C79). **The table is the kinds `records` takes, 21
 | `listRepair`, `drop` | `.each` or keyed-schedule repair; dropped raise or timer delivery (rule 9). `drop` is not a wire drop: after `Stripe.confirm.drop()` it is `[]`; read the endpoint's log [RV1 L2] | `actor`, `instance`, `copy`, `reason` |
 | `schedule` | armed, fired, discarded, retracted by a freeze | owner (an address), `dueAt` |
 | `queue`, `store` | record-queue join, release, removal (`Superseded`, `Cancelled`, `Released`); predictions, confirmations, `uncertain` set or cleared, repairs, skips, tombstones | `entity`, `key`, `attempt`, `reason` |
-| `session` | stream-session evidence (v3's Inspection; *Stream details: merge 6*) | `actor`, `instance`, `copy`, `operation`, `key`, a `cell` per T1 and T3 write (`<State>.<input>`), T2's row and basis in place of `answer`, `bookmark`, `held`, `missed`, drops, `Overflow`, `Discarded`, `st` [P, v3 item 6] |
+| `session` | stream-session evidence (v3's Inspection; *Stream details: merge 6*) | `actor`, `instance`, `copy`, `operation`, `key`, a `cell` per T1 and T3 write (`<State>.<input>`), T2's row and basis in place of `answer`, `proof` on a read, `bookmark` (`{ at, filled }`), `missed`, drops (a record carries `drop` only when one is written [final integration L9]), `Overflow`, `Discarded`, `st`, `ended` (the reason a session ended) [P, v3 item 6] |
 | `request`, `control` | a fake's request (each phase change) or control | 2.10.4 |
 | `delivery` | a stream frame's delivery [fakes-v2; RENAMED from `frame`, P, RV1 L2] | `endpoint`, `connection`, `phase` (`delivered`, `held`, `lost`), `digest` |
-| `issue`, `diagnostic`, `persistence`, `hydration`, `entry` | as Inspection O4; `UnusedWireRule` is a `diagnostic`: a wire rule that never fired by the end of the run [P, RV1 M17]; v3's flags `ValuesWhileDown`, `RegistrationChurn`, `ReleaseOverdue`, `ProofWithoutPosition`, `PingsWithoutLive`, `DeliveryDenied`, `FillsUntouched` are `diagnostic` records (*Stream details: merge 6*) | as Inspection O4 |
+| `issue`, `diagnostic`, `persistence`, `hydration`, `entry` | as Inspection O4; `UnusedWireRule` is a `diagnostic`: a wire rule that never fired by the end of the run [P, RV1 M17]; v3's flags `ValuesWhileDown`, `RegistrationChurn`, `ReleaseOverdue`, `ProofWithoutPosition`, `PingsWithoutLive`, `IdleWithoutPing`, `DeliveryDenied`, `FillsUntouched` are `diagnostic` records (*Stream details: merge 6*) | as Inspection O4 |
 
 One shape everywhere: `instance` is a list of placement names (`["likes"]`), `copy` is the `.each` copy's key string,
 `key` is the contract's key record, `subject` is the subject path (STF38). A callback and an exit with the same name
@@ -1000,7 +1000,7 @@ FIFO across two actors, a forced repair holding the queue, `uncertain` set and c
 
 #### 2.10.9 Streams (controls decided, W37)
 
-*Stream details: merge 6.* This section reads v3's `Feed`, sessions and rows ([merge-6-streams/proposal-v3.md](../merge-6-streams/proposal-v3.md)), which are not merged; merge 6 resolves it. v3 runs reconnecting and history from the contract (`reconnect`, `idle`, `catchUp`), so an adapter has no combinator and Flow's own sleeps carry the `timer`s. `.do(…)`, `.process()` and checkpoint predicates are gone (C1, C2, W2, W37); section 11 has the list **[P, H22, v3 section 10]**.
+*Stream details: merge 6.* This section reads v3's `Feed`, sessions and rows ([merge-6-streams/proposal-v3.md](../merge-6-streams/proposal-v3.md)), which are not merged; merge 6 resolves it. v3 runs reconnecting and history from the contract (`reconnect`, `idleTime`, `catchUp`), so an adapter has no combinator and Flow's own sleeps carry the `timer`s. `.do(…)`, `.process()` and checkpoint predicates are gone (C1, C2, W2, W37); section 11 has the list **[P, H22, v3 section 9]**.
 
 A stream endpoint is a connection: `Fake.stream({ request, frame, open, ping? })` (2.10.4) [fakes-v2; `ping`, v3]. `open(truth, request)`
 returns `{ frames?, refuse?, end?, truth?, send? }`. Duplex waits for the first duplex fake [P, RV2 section 8]. Any handler or
@@ -1013,18 +1013,18 @@ real frames (STR36, STF77). Stream controls are ordinary wire steps, with no str
 | Real sequence | Story step |
 | --- | --- |
 | a greeting that proves a replay, or registers without one | `open` returns the author's `frames`; a control `Chat.greet({ replay: false })` changes truth, which `open` reads |
-| a drop, then a reconnect from the bookmark | `world(Chat.socket.drop())`, then `advance({ next: { operation: O.messages, timer: "backoff" } })`; `next` only, since the default is jittered [v3 item 11] |
+| a drop, then a reconnect from the bookmark | `world(Chat.socket.drop())`, then `advance({ next: { operation: O.messages, timer: "backoff" } })`; `next` only, since the default is jittered [v3 item 7] |
 | a reload that keeps the bookmark | a `Story.app`, since `reload` is a type error on `Story.machine` [v3 item 7] |
 | network-refused attempts, a flap | `drop({ at: "open", times: 3 })`; a loop of drop and advance |
 | a server refusal | `open` returns `refuse: 4403`; under `Fake.webSocket` the client sees an error, then close 1006, as a browser does, and the code is only in the log (2.10.4) |
-| a server's heartbeat | `ping: { every, frame }` on the stream [v3 item 1] |
-| a quiet or half-open connection | `hold()` on the socket (frames and pings stop, nothing closes), so a client's `idle` ends it with `Silent` |
+| a server's heartbeat | `ping: { every, frame }` on the stream [v3 item 1]. A ping does not register: `open` still sends the greeting [P, final integration L3] |
+| a quiet or half-open connection | `hold()` on the socket (frames and pings stop, nothing closes), so a client's `idleTime` ends it with the reason `Silent`, which is `Feed`'s, not the wire state `Silent` |
 | silence after n frames | `hold({ after: 2 })` [fakes-v2] |
 | a server close code (token expiry) | a handler or control with `send: [socket.close(where, 4401, "expired")]` |
 | a clean end of a body | `end: true` on `open`, or `socket.end(where)`. Under `Fake.webSocket` this is close 1000, which Effect's `Socket` fails as `SocketCloseError`, not a stream end; `complete` from a raw socket is adapter code reading code 1000 [RV1 M11] |
 | a log reset, retention shorter than the gap | controls `Chat.resetLog({ epoch })`, `Chat.retain({ last })` |
 | a catch-up page held, answered, failed | the history endpoint under `hold`, `release`, `drop`, **set before the step that reads it**; a failed page's retry is `next: { operation, timer: "page" }` [v3 item 9] |
-| a flood past the buffer, a constant 1,024 [v3] | a control that sends n frames |
+| a flood past the buffer | a control that sends `1,024 + 1` frames; a flood is a long list [P, final integration section 2] |
 | reordered frames (merge 6's SR12) | `hold()`, the frames, then `release({ nth })` |
 
 **The resume position the server saw** is the socket endpoint's request log, read directly:
@@ -1032,8 +1032,8 @@ real frames (STR36, STF77). Stream controls are ordinary wire steps, with no str
 The fake keeps no `connections` field by hand (SP RV L4).
 
 Rows (`connection`, `drop`, `failure`, `catchingUp` for `every` [P, v3 item 5]; `value`, `last { value, at }` for `latest`) are snapshot data; the bookmark is in `session` records and Inspection only. They are read with `operations`, or `lane` with an address for one in a fragment (RV1 M5); after `FeedEnded` a
-flapping test reads the row as `undefined`, not `Ended` (merge 6's note). T2's row, the bookmark, `held`, `missed`, drops, `Overflow`, `Discarded`,
-`st` and release are `session` records (STR37). Settling never waits for an open stream (STR38). A streaming
+flapping test reads the row as `undefined`, not `Ended` (merge 6's note). T2's row, each `proof` (on `Feed.live` and now `Feed.done`), the bookmark with `filled`, `missed`, drops, `Overflow`, `Discarded`,
+`st`, `ended` and release are `session` records (STR37) [P, v3 item 6]. **Spellings** [P, v3 section 3]: `head` on `Feed.live`, `through` on a read's answer, and `at` only for the bookmark's own place. A test reads it as `cp.records("session", { operation: O.x }).at(-1)?.bookmark?.at`, and `.filled` for "stays cleared". Settling never waits for an open stream (STR38). A streaming
 write's `progress` publishes as Runtime steps, so each token is a frame; Stop mid-stream is the send that cancels while the body is
 open (STR39; SP 4.6). `backoff`, `page`, `healthy`, `idle` and a fake's `ping` run on the run's Clock (brief C12).
 
@@ -1041,7 +1041,7 @@ open (STR39; SP 4.6). `backoff`, `page`, `healthy`, `idle` and a fake's `ping` r
 with `Effect.sync(() => ws.close(1000))` and does not await the close, so a session's scope closes at once on release.
 `ReleaseOverdue` and v3's T1 `Releasing` cells in which a signal or value arrives after release begins therefore cannot
 be produced through `Fake.webSocket` or any binding whose finalizer does not wait, and SP revision 1's `hold({ at:
-"close" })` is removed. They are reached in **Flow's policy suite**, whose purpose-built `callback` adapter has a
+"close" })` is removed. They are reached in **Flow's policy suite**, whose purpose-built `Feed.callback` adapter has a
 finalizer that awaits a gate (2.10.15). An app whose own adapter awaits its close (an SDK `removeChannel`) can reach them
 through its own client half; the cells stay listed as suite cells.
 
@@ -1192,17 +1192,17 @@ resumable placement; parking in a live actor by removing the copy; the releasing
 a removal in each state, restore by `reload`, and the cleared mark by re-adding the copy before the lane is `Idle`. The
 two hydration cells 2.7.13 calls untestable (G6) stay so.
 
-For streams (v3's T1–T8, STR66; *Stream details: merge 6*) [P, v3 item 12]: T1's signals come from `open`, controls and `ping`, values from `socket.frames`, `down` from
+For streams (v3's T1–T8, STR66; *Stream details: merge 6*) [P, v3 item 11]: T1's signals come from `open`, controls and `ping`, values from `socket.frames`, `down` from
 the adapter reading a `drop`, failure from `socket.close`, completion from `socket.end` or `end: true` on a body or client half (under `Fake.webSocket` close 1000 is adapter code's to read, RV1 M11), defect from a malformed frame, `idle` from `hold()`, release from leaving the state;
 its page rows from the history endpoint and a control like `retain`, their delays from `advance({ next })`; T6's
-queue from floods through a `callback` client half; T8's progress from a streamed body with a superseded
-Attempt. Coverage counts T1 and T3 cells, `<State>.<input>`, from `session` records. **Suite-only cells**: `ReleaseOverdue` and the `Releasing` cells with a late signal or value (2.10.9), T1 and T3's cells for a turn in the wait for a predecessor [v3 item 12], and the
+queue from floods through a `Feed.callback` client half; T8's progress from a streamed body with a superseded
+Attempt. Coverage counts T1 and T3 cells, `<State>.<input>`, from `session` records. **Suite-only cells**: `ReleaseOverdue` and the `Releasing` cells with a late signal or value (2.10.9), T1 and T3's cells for a turn in the wait for a predecessor [v3 item 11], and the
 Runtime-disposal cells. The wire's own `interrupt` while in transit or while an answer returns cannot occur under
 rule 61 (both are instantaneous within a step, SP MDL W2), so 2.10.17.2 no longer lists them.
 
 **The policy suite** (STR67, operations merge-plan X33, brief C11). Flow's own suite is Stories over small purpose-built machines and adapters,
 run by the same executor under its Clock. It uses one step apps cannot import, `disposeRuntime()` from
-`flow-state/internal/testing`, and one adapter (a `callback` client half whose finalizer awaits a gate; *Stream details: merge 6*). The
+`flow-state/internal/testing`, and one adapter (a `Feed.callback` client half whose finalizer awaits a gate; *Stream details: merge 6*). The
 executable lane, stream and Story models remain design checks (brief C1); their invariants become properties of the suite.
 
 **Rule 58's walks, as steps** (STF62). Two copies on one lane, the second declined: two `send`s to two copies whose
@@ -1482,7 +1482,7 @@ Placement per 2.10.12's table. `subject` is the Story's subject value; "same" an
 | 4 | the Runtime's own waits | tab order, actor creation, arming |
 | 5 | actor schedules | tab order, actor creation, instance path in placement order, copy in list order, schedule key in list order, arming |
 
-A handler is pure and takes no time (RV1 M1), so a fake's only sleep is its `ping`. It ranks first so a tie with a client's `idle` keeps the connection alive; without this rank, RV3 got `Silent` at 45 s or 90 s by arming order. A client half's own sleep ranks as an adapter under an operation, otherwise as setup-scoped. A hydration source's tab `"server"` ranks before every tab (RV1 M13).
+A handler is pure and takes no time (RV1 M1), so a fake's only sleep is its `ping`. It ranks first so a tie with a client's `idleTime` keeps a registered connection alive; without this rank, RV3 got `Silent` at 45 s or 90 s by arming order. A client half's own sleep ranks as an adapter under an operation, otherwise as setup-scoped. A hydration source's tab `"server"` ranks before every tab (RV1 M13).
 
 At one instant one sleep wakes, the Runtime settles, then the next. "Tab order" is each name's first-open order; a
 reloaded tab keeps its rank (SP RV2 L5). Inside a settle: tabs take turns one at a time in tab order; invoked Attempts reach fakes in invocation order (tab order, then the turn that promoted them); fake
@@ -2049,7 +2049,7 @@ Story.machine(IssuePageMachine, { id: "page/no-fake", input: { issueId: "c7" }, 
 ##### 2.10.18.7 A chat room over a socket (uncommon; *Stream details: merge 6*)
 
 The fake extends 2.10.4's `Chat` with a resume position and a seed control, reached through the real adapter with `Fake.webSocket`. The machine (`ChatRoom`, `O.messages`) is merge 6's and
-is not merged; the Story's shape is what this case shows. With `ping`, `hold({ after: 2 })` is a real half-open: pings stop too, so a client's `idle` ends it [v3]. Fixed from RV1 M16: the old example had no messages to deliver, and its `from` was not in `request`.
+is not merged; the Story's shape is what this case shows. With `ping`, `hold({ after: 2 })` is a real half-open: pings stop too, so a client's `idleTime` ends it [v3]. Fixed from RV1 M16: the old example had no messages to deliver, and its `from` was not in `request`.
 
 ```ts
 const socket = Fake.stream({                                                         // existing: Fake.stream
@@ -2235,27 +2235,31 @@ Decisions were kept as written in every case. These need an owner's eye.
 9. **`checkpoint(…, { at })`** keeps 3 words with 0 real uses, as you said. Named frames still need on-demand full capture (2.10.6).
 10. **Guards on `fetch`** [RV3 M7]. Merge 6's global `fetch` in its 4.4 makes a real network call, parks, and is woken by its own stall deadline, so a stall test passes reaching no fake. v3's samples now read `FetchHttpClient.Fetch` and an `Sse` service, so section 11 item 9 is its check. No classifier sees this; guards would. You said no guards; this is the case they would catch.
 11. **The finish phase is the owner's call in substance** [RV3 M1]: handlers run after the last cut, and "nothing reaches evidence" must hold in the executor. The smaller alternative keeps the old rule and all its false rejections.
-12. **v3's ping rank is a real choice** [v3 item 1]. Scenario: `ping: { every: "45 seconds" }` against `idle: "45 seconds"`. With rank 1 the ping lands first and the connection lives; without it, `Silent` at 45 s or 90 s by arming order. Taken. It brings back a fake's sleep, which RV1 M1's cut had removed; `handle` stays pure and synchronous.
+12. **v3's ping rank is a real choice** [v3 item 1]. Scenario: `ping: { every: "45 seconds" }` against `idleTime: "45 seconds"`. With rank 1 the ping lands first and the registered connection lives; without it, `Silent` at 45 s or 90 s by arming order. Taken. It brings back a fake's sleep, which RV1 M1's cut had removed; `handle` stays pure and synchronous.
 13. **Ping against the deadline limit** [v3 items 1, 3; RV3 M2]. Coalescing is only while suspended. Scenario: a 1 s `ping` under an awake `advance("1 week")` is 604,800 deadlines: `StoryTurnLimit { Advance }`, and a 10 s one is 60,480 settles, about 48 s in Chromium. The limit is kept. An author writes `suspended`, or a slower `ping`.
-14. **v3's Story cannot run as written** [v3 section 10, wire tables]. It sets `Chat.history.drop({ at: "response" })` after the `advance` that reconnects. That settle has already read history, so the rule waits for nothing (`UnusedWireRule`), and `advance({ next: { timer: "page" } })` is `NoDeadline`, which rejects. Tables kept; section 11's Story sets the drop first. v3 should copy it.
+14. **v3's chat Story** set the history drop too late; v3 has now taken section 11's fix. Done.
 15. **v3's other asks.** Its `session` reads and row fields compose with C1 and C3: no decision conflicts. Rule 25's change and its plan amendments are v3's, not applied here. v3 is still unrun: no Story in this file's merge 6 parts has executed.
+16. **v3's three sample conflicts: closed** [final integration M5]. v3's fixes are `S.ENDED`, `Story.Frame<typeof ChatRoom>`, and a Flapping loop of seven rounds whose eighth stops at the `drop`. Decisions kept.
+17. **`bufferSize`: closed.** v3 cuts it, and a flood test sends `1,024 + 1` frames, so no production bound is set for a test. Deferred to `revisit.md`, not edited here.
 
 ## 11. What merge 6 must change
 
-[P, RV1 section 6, v3 section 10.] Not merged, and this file does not merge it. Target: `merge-6-streams/proposal-v3.md`, not v2. Items v3 has already done are marked.
+[P, RV1 section 6, v3 section 9.] Not merged, and this file does not merge it. Target: `merge-6-streams/proposal-v3.md`, not v2. Items v3 has already done are marked.
 
 1. **Rule numbers:** 67–72. Done in v3. "Rule 65" is **One address** here.
 2. **Its old 2.11 and 4.1 Story:** gone; the Story is below. v2's `Feed.reconnect` combinator, `fresh`, `initial`, the handler guard and `cursor` in memory are gone in v3, so nothing here refers to them. Seeds are `initial` on a `Fake.server` or a `world` control; `FakeChatServer({ history })` cannot be.
 3. **`lane` for a stream in a fragment** uses `cp.lane(address)` (RV1 M5).
 4. **Sleep tags:** Flow's own: `backoff`, `page`, `healthy`, `idle`, on the run's Clock, by Clock owner. `resetAfter` is gone.
-5. **`session` records:** cells `<State>.<input>`, T2's row, bookmark, `held`, as 2.10.6's row has them.
-6. **`Feed.callback`'s awaiting finalizer** becomes a `callback` client half, suite-only, as 2.10.9 says.
+5. **`session` records:** cells `<State>.<input>`, T2's row, `proof`, `bookmark` with `filled`, `ended`, as 2.10.6's row has them; v3 renamed `held` to `filled` [v3 item 6, final integration L2].
+6. **`Feed.callback`'s awaiting finalizer** becomes a `Feed.callback` client half, suite-only, as 2.10.9 says.
 7. **Clean-end wording.** Close 1000 under `Fake.webSocket` is `SocketCloseError`; T1's `stream completes` from a raw socket is adapter code reading code 1000.
 8. **A streaming write's commit fiber** waits on an open body with nothing sent (T8). Rule 61's finish phase closes that connection, which wakes it [RV2 section 9, RV3 section 5]. A flood past the buffer under `Fake.fetch` relies on a connection's pull counting as an arrival, or it cuts at `K`.
-9. **Global `fetch`** [RV3 M7]. Stands as a check: every sample reads `FetchHttpClient.Fetch` or an `Sse` service, since a global `fetch` has no seam. Its stall test would otherwise pass reaching no fake.
+9. **Global `fetch`** [RV3 M7]. Stands as a check: every sample reads `FetchHttpClient.Fetch` or an `Sse` service, since a global `fetch` has no seam. Its stall test would otherwise pass reaching no fake. The desk's `next/http-api.ts` still calls the global, so its fake needs a client half until that changes [v3 item 8].
 10. **The word "pump":** dropped in v3; here it is "the settle's drain" [RV2 L12].
 11. **`fake.send` from a client frame** has no form: `message` is cut. A duplex feed waits for it [RV2 section 8].
-12. **Reload Stories** are `Story.app` [v3 item 7]; **`pageSched`** is `{ timer: "page" }` [v3 item 9]; **no fixed `advance` onto a jittered default** [v3 item 11].
+12. **Reload Stories** are `Story.app` [v3 item 7]; **`pageSched`** is `{ timer: "page" }` [v3 item 9]; **no fixed `advance` onto a jittered default** [v3 item 7].
+13. **Spellings:** `head`, `through`, `at` as 2.10.9 says; `proof` on `Feed.done`; `bufferSize` and the private `clearedAt` are cut. Done in v3.
+14. **Its 3 Story fixes** are done (section 10 item 16).
 
 | Merge 6's control | Now |
 | --- | --- |
@@ -2298,3 +2302,13 @@ test("replay, then reset", async () => {
   expect(reset.records("session", { operation: O.messages }).at(-1)?.bookmark?.at?.epoch).toBe(9)   // NEW: bookmark [v3 item 6]
 })
 ```
+
+## 12. Merge order
+
+[P, final integration section 4.] Stories first, because section 8's lines are today's; `decisions.md` agrees. No conflicts in this order.
+
+1. **Preconditions, in `story-checks/`:** re-run the Stories executor model (sections 6, 10 item 6); convert the desk's fakes (fakes-v2 section 6).
+2. **The owner accepts** Stories and the Fake spellings. Apply sections 3, 4, 7, 8 here to `machine-design.md` and to `Testing.plan`, `Package.plan`, `Diagnostics.plan`, `EntityDomains.plan`, `Inspection.plan`, `CommandLine.plan`. fakes-v2 is not merged on its own: 2.10.4 has its text.
+3. **The owner accepts** v3, with its self-contained change table. Apply it: rules 67–72 after 66, with no overlap with rules 11, 58, 61–66. The shared places are additive: 3.6, section 5's new C rows after C85, Inspection O4. Testing O2, O3, O6 need nothing further.
+4. **Then remove** the `*Stream details: merge 6*` marks in 2.10.9, 2.10.15, 2.10.18.7, take section 11's table out, and update `revisit.md`, `open-items.md`, `NEXT.md`.
+5. **The one dependency:** 2.10.9 assumes v3 (`catchingUp`, `bookmark`, `backoff`, `page`, `healthy`, `idle`). If the owner falls back to trimmed v2, 2.10.9 and section 11 need revising; the rest of Stories stands, `ping` included.

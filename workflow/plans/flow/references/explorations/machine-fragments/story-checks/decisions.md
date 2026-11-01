@@ -77,6 +77,8 @@ Owner's answers while walking the merged Stories design group by group. Also for
 | W39 | Group 8, Q41 A: `model()` is removed. Exhaustive paths and shortest counterexamples are given up; one Runtime and one execution path stay (T1 confirmed). | 2026-11-01 |
 | W40 | Group 8, Q42 A: coverage and CLI as walked; `flow story describe` loses its expectation and property lines, and `flow story run` reports what ran, with no pass or fail on correctness. | 2026-11-01 |
 | W41 | Process: amend Stories into a new proposal, then two rounds of Opus deep review covering Stories, fakes and how they integrate; a third round is allowed for major issues. | 2026-11-01 |
+| W42 | Owner confirmed: `latency` and `response` as an Effect are cut, so a slow answer is `hold`, `advance`, `release`; this changes W17, where an async library goes in the client half. | 2026-11-01 |
+| W43 | Owner confirmed: `run({ signal })` is removed, changing Testing O8; a run never yields to the host. | 2026-11-01 |
 
 ## Proposed, not decided
 

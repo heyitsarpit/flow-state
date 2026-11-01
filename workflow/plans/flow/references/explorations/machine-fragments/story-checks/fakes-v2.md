@@ -29,7 +29,8 @@ const socket = Fake.stream({                                       // existing: 
     // or: refuse: 4403                                            // NEW: refuse, replaces accept
     // and, for a finished body: end: true                         // NEW: end, this connection, after its frames
   }),
-  ping: { every: "10 seconds", frame: { room: "", text: "", from: "" } },   // NEW: ping, every [P, v3 section 10]. Optional
+  // NEW: ping: { every: "10 seconds", frame: pingFrame } [P, v3 section 9]. Optional. frame must be encodable by `frame`: declare a union
+  // with a ping frame the adapter reads as Feed.ping; a blank Message would reach the app as a value [final integration L3]
 })
 
 export const Chat = Fake.server("Chat", {                          // existing: Fake.server
@@ -92,7 +93,9 @@ Story.machine(Room, { id: "chat/mid-stream", world: [Chat.socket.hold({ after: 2
 read. A standalone `Fake.call` or `Fake.control` that reads `truth` annotates it (`Truth`), since it infers as `unknown`;
 `Fake.server` constrains `endpoints` by its truth Schema, so another server's `Truth` is rejected. `input`'s result is typed loosely, since `request` decodes it (RV1 M8).
 
-**Added from `merge-6-streams/proposal-v3.md` section 10 [P]:** `ping: { every, frame }` on `Fake.stream`: each open connection gets `frame` every `every`, on the run's Clock, running no handler. It ranks first at an equal instant, so a tie with a client's `idle` keeps the connection alive. A ping does not count toward `hold({ after })` and takes no `duplicate`. A hold stops pings, and none queues; the next is `every` after frames flow again. While a tab is suspended, pings coalesce to one at wake, after its overdue deadlines. Each is a `delivery` record with `ping: true`. `Fake.webSocket`'s `addEventListener("close")` gives a `code`.
+**Added from `merge-6-streams/proposal-v3.md` section 9 [P]:** `ping: { every, frame }` on `Fake.stream`: each open connection gets `frame` every `every`, on the run's Clock, running no handler. It ranks first at an equal instant, so a tie with a client's `idleTime` keeps a registered connection alive; a ping does not register, so `open` still sends the greeting [final integration L3]. A ping does not count toward `hold({ after })` and takes no `duplicate`. A hold stops pings, and none queues; the next is `every` after frames flow again. While a tab is suspended, pings coalesce to one at wake, after its overdue deadlines. Each is a `delivery` record with `ping: true`. `Fake.webSocket`'s `addEventListener("close")` gives a `code`.
+
+Awake, a fast ping against a long `advance` hits `StoryTurnLimit { Advance }`: write `suspended`, or a slower `ping` [v3 item 3]. NDJSON has no codec: `frame` is `Schema.String`, and `end: true` must be written [v3 item 13]. To check in the type spike: inline frames in `open` may widen `t`, possibly a stand-in artifact [v3 item 14].
 
 **Dropped:** `accept`, every tuple result, `{ to, send }`, `Fake/Lost` as a string, a handler that is an Effect; `latency`, `response` as an Effect and `headers` on `Fake.stream` (RV1 M1, section 8; main session's cuts); `message` on `Fake.stream` (RV2 section 8).
 
@@ -173,7 +176,7 @@ to the gate in that order, even from an async route function.
 **Streams under `Fake.fetch`.** Open is a 200 streamed body, `refuse` a status, `end` body done, a close a body error.
 
 **The log** records the mapped `input` and `via`, never the `Request` or its headers: `init.headers` carries random `b3` and
-`traceparent` values. A `delivery` record, `{ endpoint, connection, phase: "delivered" | "held" | "lost", digest }`, is a new
+`traceparent` values. A `delivery` record, `{ endpoint, connection, phase: "delivered" | "held" | "lost", digest, ping? }`, is a new
 Inspection O4 kind, redacted like `input`. `phase` on a logged request is always a plain string; a close has `code` and `by: "server" | "network" | "client"`; a network-refused attempt is `lost` (RV1 M11). A rule that never fires is the `UnusedWireRule` diagnostic (RV1 M17).
 
 **`match: { input }`.** Listed keys must be equal to the logged request's.
