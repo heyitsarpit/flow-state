@@ -1,0 +1,86 @@
+RUN Calls[dedupe] states=180033 depth=6 (bounded by depth/state cap) transitions=620424 8130 ms
+RUN Calls[nodedupe] states=18104 depth=5 (bounded by depth/state cap) transitions=46396 715 ms
+RUN Calls[ack] states=99347 depth=6 (bounded by depth/state cap) transitions=249158 3532 ms
+RUN Frames states=201082 depth=5 (bounded by depth/state cap) transitions=507300 7498 ms
+RUN Closing states=200689 depth=6 (bounded by depth/state cap) transitions=601597 8630 ms
+RUN Handle states=201993 depth=5 (bounded by depth/state cap) transitions=454457 6023 ms
+RUN Open states=84134 depth=6 (bounded by depth/state cap) transitions=379911 4147 ms
+RUN Nth states=10861 depth=8 (bounded by depth/state cap) transitions=42597 597 ms
+RUN Pump states=201856 depth=5 (bounded by depth/state cap) transitions=773168 9560 ms
+RESULT W1-determinism PASS evaluations=3675008
+RESULT W10-other-hold-keeps-it-held PASS evaluations=23412
+RESULT W10-other-hold-state PASS evaluations=26582
+RESULT W10-release-ends-own-rules PASS evaluations=438689
+RESULT W10-release-ends-rules-first PASS evaluations=10470
+RESULT W10-release-scoped PASS evaluations=466800
+RESULT W11-nothing-held PASS evaluations=853690
+RESULT W11-release-did-something PASS evaluations=466800
+RESULT W12-crash-atomic PASS evaluations=46780
+RESULT W12-crash-no-frames PASS evaluations=46780
+RESULT W12-fake-error PASS evaluations=39571
+RESULT W12-open-crash-1011 PASS evaluations=2809
+RESULT W12-outcome-order PASS evaluations=482623
+RESULT W13-one-terminal PASS evaluations=505411
+RESULT W13-release-drop-held-is-lost PASS evaluations=18372
+RESULT W14-drop-closes PASS evaluations=196738
+RESULT W14-no-connection PASS evaluations=137461
+RESULT W14-offline-means-offline PASS evaluations=77368
+RESULT W14-stands-iff PASS evaluations=59277
+RESULT W15-copy-answer-discarded PASS evaluations=35188
+RESULT W15-frames-not-discarded PASS evaluations=353044
+RESULT W16-gone-gets-no-answer PASS evaluations=27049
+RESULT W17-call-release-order PASS evaluations=268813
+RESULT W17-release-order PASS evaluations=32476
+RESULT W18-end-after-frames PASS evaluations=877
+RESULT W18-end-closing-iff-hold PASS evaluations=1614
+RESULT W18-end-on-open PASS evaluations=1614
+RESULT W18-refuse PASS evaluations=1956
+RESULT W18-refuse-no-frames PASS evaluations=1956
+RESULT W19-drain-cuts-long-chains PASS evaluations=2856008
+RESULT W19-no-per-settle-host-wait PASS evaluations=2856008
+RESULT W2-settling PASS evaluations=2856008
+RESULT W20-client-close-clears PASS evaluations=51292
+RESULT W22-states PASS evaluations=5712016
+RESULT W23-no-deadlock PASS evaluations=6731
+RESULT W24-end-of-run-classification PASS evaluations=1198099
+RESULT W24-end-of-run-with-parked-fiber PASS evaluations=11112
+RESULT W24-finish-leaves-no-evidence PASS evaluations=1198099
+RESULT W25-match-close-waits PASS evaluations=1721
+RESULT W25-match-delivers PASS evaluations=12504
+RESULT W25-match-delivers-matching PASS evaluations=28111
+RESULT W25-match-leaves-rest-held PASS evaluations=28111
+RESULT W25-match-rule-stays PASS evaluations=28111
+RESULT W3-fifo-answers PASS evaluations=51182
+RESULT W3-released-answers-before-released-handlers PASS evaluations=284566
+RESULT W4-arrival-order PASS evaluations=482623
+RESULT W5-frames-before-answer PASS evaluations=367624
+RESULT W6-no-nested-answer PASS evaluations=367624
+RESULT W7-combination PASS evaluations=950983
+RESULT W7-frames-rules-all-apply PASS evaluations=102719
+RESULT W7-frames-rules-effect-at-open PASS evaluations=101105
+RESULT W7-holding-rule-kept PASS evaluations=1790175
+RESULT W7-used-up-rule-removed PASS evaluations=287370
+RESULT W8-after-counts-from-first-frame PASS evaluations=13614
+RESULT W8-after-counts-n PASS evaluations=11786
+RESULT W8-count-is-per-connection PASS evaluations=276799
+RESULT W8-count-pauses-while-silent PASS evaluations=162781
+RESULT W8-dup-never-thrice PASS evaluations=91728
+RESULT W8-hold-joins-holds PASS evaluations=176683
+RESULT W8-hold-silences-open-at-once PASS evaluations=287086
+RESULT W8-negative-after-is-invalid PASS evaluations=18091
+RESULT W8-times-counts-connections PASS evaluations=25365
+RESULT W9-close-delivers-on-open PASS evaluations=13918
+RESULT W9-close-queued-last PASS evaluations=37373
+RESULT W9-closed-receives-nothing PASS evaluations=404335
+RESULT W9-nothing-after-close PASS evaluations=86942
+RESULT W9-release-closing PASS evaluations=7472
+RESULT W9-release-drop-silent PASS evaluations=13952
+RESULT reachability PASS call cells 23/23 (+3 suspended: not modelled), connection cells 80/80
+INFO errors reached: InvalidCommand, NoConnection, NothingHeld, StoryFakeError, TabClosed
+INFO errors not reached: StoryTurnLimit
+GAP G1ok reached in Calls[dedupe]: w post.hold:resp ; together post A+cancel A
+GAP U3 reached in Pump: connect A ; w ctl.chain:4 ; post B ; w handle.hold ; post B
+INFO end-of-run HostTimeWait: Pump: connect A ; w ctl.chain:4 ; post B
+INFO end-of-run parked-but-woken-by-finish: Pump: connect A ; w ctl.chain:100 ; post B
+INFO StoryFakeError: Calls[dedupe]: w ctl.boom ; post A
+INFO total search time 48.8 s, 1198099 states; 0 failing invariant instances; WCFG pumpK=3

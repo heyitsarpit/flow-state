@@ -40,6 +40,13 @@ Merged proposals move to [merged/](merged/) with their evidence, as the record b
 | [merged/fragment-operations/proposal.md](merged/fragment-operations/proposal.md) | operations in fragments, 2026-10-31 | fragments declare and own operations; subject paths on write lanes; release on leave (design 2.9, rules 48–60, C54–C68, decisions F1–F10) |
 | [merged/stories/proposal-v2.md](merged/stories/proposal-v2.md) | Stories (merge 3), 2026-10-31 | Stories as plans of user, time and world inputs on the production Runtime; fakes; no ending injected (design 2.10, rules 61–66, C69–C85, Stories T1–T7) |
 
+[story-checks/decisions.md](story-checks/decisions.md) (2026-11-01) records accepted decisions on how tests check Stories,
+not yet included in the design; deferred items are in [revisit.md](revisit.md). The amended Stories and Fake design is
+[story-checks/stories-amended.md](story-checks/stories-amended.md) and [story-checks/fakes-v2.md](story-checks/fakes-v2.md),
+proposed. Streams' current proposal is [merge-6-streams/proposal-v3.md](merge-6-streams/proposal-v3.md), proposed, which
+supersedes proposal-v2 once the owner accepts it; its requirements are
+[merge-6-streams/requirements-v3.md](merge-6-streams/requirements-v3.md).
+
 [principles.md](principles.md) is what every proposal is judged against.
 [audit-multiplicity.md](audit-multiplicity.md) (2026-10-31) audits every design document for how many of each thing exist,
 which one each reference names, and what exists when; its changes are marked in the design and merges 3, 4 and 6, and
