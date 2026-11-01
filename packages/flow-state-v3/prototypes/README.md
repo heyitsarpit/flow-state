@@ -9,7 +9,7 @@ Everything is proposed. Context: `workflow/plans/flow/references/explorations/ru
 Rules:
 
 - Name entry files `main.ts`, not `*.test.ts`, because `vp test` covers `packages/**`.
-- One process at a time, under 2 GB.
+- One process at a time, under 2 GB. Run every search and mutation under `conformance/watch.ts`.
 - No new dependencies. `effect` resolves from the workspace root (4.0.5).
 - A result claims only what ran.
 - Runtime only: feed in realistic data that is already compiled and validated. Build no definition layer or outside world.
@@ -23,5 +23,6 @@ Rules:
 | S2 | Can one completion per Attempt be guaranteed? | done: [s2-completion/RESULTS.md](s2-completion/RESULTS.md) |
 | S5 | Does a stream session need to live in the world? | done: [s5-session/RESULTS.md](s5-session/RESULTS.md) |
 | Round 1 | Does Pay run on one pure step under its suite? | done: [round-1/RESULTS.md](round-1/RESULTS.md) |
+| Round 2 | Does the shape hold with two actors, `latest` and the store module? | done: [round-2/RESULTS.md](round-2/RESULTS.md), decisions in [convergence-2.md](convergence-2.md) |
 | S3 | What does persistence cost per commit? | deferred: run with the persistence round, on the real runtime |
-| S4 | Does the turn hold on a throttled browser? | deferred: run on round 1's real runtime, not a synthetic loop |
+| S4 | Does the turn hold on a throttled browser? | done for Chromium headless at 6x on round 2: [round-2/RESULTS.md](round-2/RESULTS.md). Not a phone |

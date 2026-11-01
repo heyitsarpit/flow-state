@@ -1,0 +1,370 @@
+[
+  {
+    "id": "commit-over-hold-mints",
+    "kills": ["cell:lane.commit.Held"],
+    "killed": true,
+    "killers": ["PAY-15/press-pay-while-held", "LIKE-01", "LIKE-03"],
+    "author": "second",
+    "by": "tests",
+    "peakMb": 132
+  },
+  {
+    "id": "latest-never-sent-head-not-replaced",
+    "kills": ["cell:lane.commit.InFlight"],
+    "killed": true,
+    "killers": ["STORE-04/Superseded-head"],
+    "author": "second",
+    "by": "tests",
+    "peakMb": 135
+  },
+  {
+    "id": "latest-replaced-w-not-withdrawn",
+    "kills": ["rule:29"],
+    "killed": true,
+    "killers": ["STORE-04/Superseded", "CART-02/five-taps"],
+    "author": "second",
+    "by": "tests",
+    "peakMb": 121
+  },
+  {
+    "id": "serialize-w-is-lifo",
+    "kills": ["cell:lane.commit.InFlight"],
+    "killed": true,
+    "killers": ["REFUND-01/three-refunds"],
+    "author": "second",
+    "by": "tests",
+    "peakMb": 137
+  },
+  {
+    "id": "reject-is-evidence-not-ending",
+    "kills": ["rule:16"],
+    "killed": true,
+    "killers": ["PAY-02", "PAY-15/press-pay-while-held", "PAY-16/rejected-is-delivered"],
+    "author": "second",
+    "by": "tests",
+    "peakMb": 122
+  },
+  {
+    "id": "retry-count-at-retry-not-invoked",
+    "kills": ["cell:lane.invoked.InFlight"],
+    "killed": true,
+    "killers": ["PAY-16/resend-refused-capture"],
+    "author": "second",
+    "by": "tests",
+    "peakMb": 125
+  },
+  {
+    "id": "cancel-held-drops-waiting",
+    "kills": ["rule:24"],
+    "killed": true,
+    "killers": [],
+    "author": "second",
+    "by": "tests",
+    "peakMb": 187
+  },
+  {
+    "id": "cancel-resend-not-released",
+    "kills": ["cell:lane.cancel.InFlight"],
+    "killed": true,
+    "killers": ["STORE-11/cancel-a-waiting-resend"],
+    "author": "second",
+    "by": "tests",
+    "peakMb": 125
+  },
+  {
+    "id": "refused-resend-ends-not-sent",
+    "kills": ["cell:lane.storageRefused.InFlight"],
+    "killed": true,
+    "killers": ["PAY-16/resend-refused-capture"],
+    "author": "second",
+    "by": "tests",
+    "peakMb": 134
+  },
+  {
+    "id": "dispose-resend-as-never-sent",
+    "kills": ["cell:lane.runtimeDisposal.InFlight"],
+    "killed": true,
+    "killers": ["PAY-16/dispose-waiting-resend"],
+    "author": "second",
+    "by": "tests",
+    "peakMb": 126
+  },
+  {
+    "id": "rule18-first-retry-failure-definite",
+    "kills": ["rule:18"],
+    "killed": true,
+    "killers": [
+      "PAY-05",
+      "PAY-16/restore-keeps-mayHaveApplied",
+      "STORE-05/failed-retry-does-not",
+      "STORE-11/stillunknown-keeps-its-place"
+    ],
+    "author": "second",
+    "by": "tests",
+    "peakMb": 137
+  },
+  {
+    "id": "owner-tested-by-node-not-activation",
+    "kills": ["rule:14"],
+    "killed": true,
+    "killers": ["PAY-07/late-in-a-new-PAYING"],
+    "author": "second",
+    "by": "tests",
+    "peakMb": 136
+  },
+  {
+    "id": "late-routes-from-leaf",
+    "kills": ["rule:14"],
+    "killed": true,
+    "killers": ["PAY-07/late-in-a-new-PAYING"],
+    "author": "second",
+    "by": "tests",
+    "peakMb": 124
+  },
+  {
+    "id": "restored-takes-owner-test",
+    "kills": ["rule:14"],
+    "killed": true,
+    "killers": ["PAY-08/reload-while-reconciling"],
+    "author": "second",
+    "by": "tests",
+    "peakMb": 124
+  },
+  {
+    "id": "late-may-leave",
+    "kills": ["rule:15"],
+    "killed": true,
+    "killers": ["PAY-07/late-may-not-leave", "PAY-19/place-answers-first"],
+    "author": "second",
+    "by": "tests",
+    "peakMb": 125
+  },
+  {
+    "id": "commit-select-reads-before",
+    "kills": ["rule:22"],
+    "killed": true,
+    "killers": ["CART-01", "CART-02/five-taps", "CART-02/repriced-under-pending"],
+    "author": "second",
+    "by": "tests",
+    "peakMb": 134
+  },
+  {
+    "id": "ending-admitted-after-its-turn",
+    "kills": ["rule:22"],
+    "killed": true,
+    "killers": [
+      "PAY-11/guard",
+      "CART-01",
+      "REFUND-01/unsure-holds-the-charge",
+      "REFUND-01/reload-mid-refund"
+    ],
+    "author": "second",
+    "by": "tests",
+    "peakMb": 127
+  },
+  {
+    "id": "invalid-turn-rolls-back-ending-cell",
+    "kills": ["rule:21"],
+    "killed": true,
+    "killers": ["PAY-11/guard"],
+    "author": "second",
+    "by": "tests",
+    "peakMb": 135
+  },
+  {
+    "id": "promoted-skips-acknowledgement",
+    "kills": ["rule:46"],
+    "killed": true,
+    "killers": ["REFUND-01/three-refunds"],
+    "author": "second",
+    "by": "tests",
+    "peakMb": 137
+  },
+  {
+    "id": "capture-omits-predicted-keys",
+    "kills": ["rule:38"],
+    "killed": true,
+    "killers": ["STORE-09", "REFUND-01/reload-mid-refund"],
+    "author": "second",
+    "by": "tests",
+    "peakMb": 134
+  },
+  {
+    "id": "queue-blocks-on-first-record-only",
+    "kills": ["D3"],
+    "killed": true,
+    "killers": [],
+    "author": "second",
+    "by": "tests",
+    "peakMb": 185
+  },
+  {
+    "id": "repair-end-removes-live-hold",
+    "kills": ["D40"],
+    "killed": true,
+    "killers": [
+      "LIKE-01",
+      "LIKE-02",
+      "LIKE-04",
+      "LIKE-06",
+      "STORE-03",
+      "STORE-05/retry-success-clears",
+      "STORE-11/stillunknown-keeps-its-place",
+      "STORE-07/a-live-hold-outranks-the-bound",
+      "REFUND-01/reload-mid-refund",
+      "LIB-02"
+    ],
+    "author": "second",
+    "by": "tests",
+    "peakMb": 136
+  },
+  {
+    "id": "resend-does-not-wait-for-repair",
+    "kills": ["D39"],
+    "killed": true,
+    "killers": ["STORE-11/a-resend-waits-for-its-repair", "STORE-11/cancel-a-waiting-resend"],
+    "author": "second",
+    "by": "tests",
+    "peakMb": 127
+  },
+  {
+    "id": "still-unknown-takes-failure-row",
+    "kills": ["cell:store.unknown"],
+    "killed": true,
+    "killers": ["STORE-11/stillunknown-keeps-its-place"],
+    "author": "second",
+    "by": "tests",
+    "peakMb": 124
+  },
+  {
+    "id": "later-success-clears-unresolved-mark",
+    "kills": ["rule:32"],
+    "killed": false,
+    "killers": [],
+    "author": "second",
+    "by": "tests",
+    "peakMb": 188
+  },
+  {
+    "id": "overflow-only-if-every-queue-full",
+    "kills": ["rule:35"],
+    "killed": true,
+    "killers": ["STORE-06"],
+    "author": "second",
+    "by": "tests",
+    "peakMb": 124
+  },
+  {
+    "id": "acknowledged-restores-not-sent",
+    "kills": ["cell:lane.restore.InFlight"],
+    "killed": true,
+    "killers": [
+      "PAY-08/reloadDuringCharge",
+      "PAY-09/ack-stored-confirmation-lost",
+      "PAY-13/hung-commit",
+      "PAY-14",
+      "PAY-16/restore-keeps-mayHaveApplied",
+      "PAY-17/core-throw-is-fatal",
+      "PAY-18",
+      "STORE-04/Restored-W",
+      "STORE-09",
+      "REFUND-01/reload-mid-refund"
+    ],
+    "author": "second",
+    "by": "tests",
+    "peakMb": 124
+  },
+  {
+    "id": "restore-ignores-parked-ending",
+    "kills": ["cell:lane.restore.InFlight"],
+    "killed": true,
+    "killers": ["PAY-16/parked-success-is-delivered"],
+    "author": "second",
+    "by": "tests",
+    "peakMb": 129
+  },
+  {
+    "id": "silent-storage-refuses",
+    "kills": ["D30"],
+    "killed": true,
+    "killers": ["PAY-10/hang", "PAY-18"],
+    "author": "second",
+    "by": "tests",
+    "peakMb": 133
+  },
+  {
+    "id": "send-deferred-when-idle",
+    "kills": ["D2"],
+    "killed": true,
+    "killers": ["ORDER-03"],
+    "author": "second",
+    "by": "tests",
+    "peakMb": 125
+  },
+  {
+    "id": "sync-commit-throw-sends-nothing",
+    "kills": ["D6"],
+    "killed": true,
+    "killers": ["DRV-02"],
+    "author": "second",
+    "by": "tests",
+    "peakMb": 124
+  },
+  {
+    "id": "hook-throw-is-fatal",
+    "kills": ["D27"],
+    "killed": true,
+    "killers": [
+      "PAY-11/module",
+      "PAY-17/hook-throws-on-sent",
+      "PAY-17/hook-throws-on-timer",
+      "PAY-17/hook-throws-on-acked",
+      "PAY-17/hook-throws-on-turn",
+      "DRV-03/throw-at-settlement",
+      "DRV-03/a-disabled-store-frees-its-queue"
+    ],
+    "author": "second",
+    "by": "tests",
+    "peakMb": 139
+  },
+  {
+    "id": "notify-chain-never-resets",
+    "kills": ["D35"],
+    "killed": true,
+    "killers": ["ORDER-04/subscriber-ping-pong"],
+    "author": "second",
+    "by": "tests",
+    "peakMb": 122
+  },
+  {
+    "id": "superseded-read-answer-accepted",
+    "kills": ["D23"],
+    "killed": true,
+    "killers": [
+      "PAY-15/dead-activation-timer",
+      "PAY-16/superseded-read",
+      "PAY-17/hook-throws-on-timer"
+    ],
+    "author": "second",
+    "by": "tests",
+    "peakMb": 134
+  },
+  {
+    "id": "stale-send-exit-accepted",
+    "kills": ["D5"],
+    "killed": true,
+    "killers": ["PAY-16/stale-send-fenced"],
+    "author": "second",
+    "by": "tests",
+    "peakMb": 127
+  },
+  {
+    "id": "follow-up-joins-tail",
+    "kills": ["D1"],
+    "killed": true,
+    "killers": [],
+    "author": "second",
+    "by": "rss",
+    "peakMb": 1938
+  }
+]
