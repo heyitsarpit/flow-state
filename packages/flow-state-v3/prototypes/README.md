@@ -22,5 +22,6 @@ Rules:
 | S1 | Is lane plus record queue live? What else can wait forever? | done: [s1-wait-graph/RESULTS.md](s1-wait-graph/RESULTS.md) |
 | S2 | Can one completion per Attempt be guaranteed? | done: [s2-completion/RESULTS.md](s2-completion/RESULTS.md) |
 | S5 | Does a stream session need to live in the world? | done: [s5-session/RESULTS.md](s5-session/RESULTS.md) |
+| Round 1 | Does Pay run on one pure step under its suite? | done: [round-1/RESULTS.md](round-1/RESULTS.md) |
 | S3 | What does persistence cost per commit? | deferred: run with the persistence round, on the real runtime |
 | S4 | Does the turn hold on a throttled browser? | deferred: run on round 1's real runtime, not a synthetic loop |
