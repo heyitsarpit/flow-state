@@ -1,0 +1,5 @@
+# scenario-id | old | new | reason | decision it changes. A change to a scenario's expectation needs a line here.
+PAY-11 | origin on.Confirmed[1].guard[1] | states.PAYING.on.Confirmed[1].guard[0] | From leaf PAYING the root's on.Confirmed never runs; the guard that runs is PAYING's capturable, a single guard. SCENARIOS.md's path was wrong before any code | none (scenario text)
+PAY-01 | answer place { order, alreadyPlaced } | answer place { orderId } | placeOrder's commit does the wrapping (pay.contracts.ts); the fake answers what the server would. Expected receipt unchanged | none (scenario text)
+PAY-08 | truth.charges 1 with no step that lands it | added fault lateAnswer after reload | A held request never lands on its own; pay.story.ts `reloadWhileConfirming` releases it explicitly | none (scenario text)
+PAY-11 | "next-send-works" unspecified | Leave moves to LEFT | Which send was unstated; PayRequested would mint a new charge, see RESULTS finding | none (scenario text)

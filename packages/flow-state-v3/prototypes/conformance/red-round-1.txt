@@ -1,0 +1,39 @@
+runtime: /Users/arpit/Developer/flow-state/packages/flow-state-v3/prototypes/conformance/null-adapter.ts
+bun 1.4.2
+expected.lock written
+FAIL  PAY-01                                   state: expected "CARD", got undefined
+FAIL  PAY-02                                   state: expected "PAYING", got undefined
+FAIL  PAY-03                                   state: expected "UNSURE", got undefined
+FAIL  PAY-04                                   state: expected "UNSURE", got undefined
+FAIL  PAY-05                                   state: expected "UNSURE", got undefined
+FAIL  PAY-06/interruptible                     state: expected "PAYING", got undefined
+FAIL  PAY-06/uninterruptible                   state: expected "UNSURE", got undefined
+FAIL  PAY-07                                   state: expected "LEFT", got undefined
+FAIL  PAY-08                                   after boot, saved leaf: expected "PAYING", got undefined
+FAIL  PAY-09/ack-not-stored                    state: expected "CARD", got undefined
+FAIL  PAY-09/ack-stored-confirmation-lost      state: expected "UNSURE", got undefined
+FAIL  PAY-10/refuse                            state: expected "CARD", got undefined
+FAIL  PAY-10/hang                              state: expected "PAYING", got undefined
+FAIL  PAY-11/guard                             state: expected "PAYING", got undefined
+FAIL  PAY-11/module                            state: expected "PAYING", got undefined
+FAIL  PAY-12/defect                            state: expected "UNSURE", got undefined
+FAIL  PAY-12/sync                              state: expected "PLACING", got undefined
+FAIL  PAY-12/duplicate                         state: expected "PLACING", got undefined
+FAIL  PAY-12/shuffle                           some sends happened: expected true, got false
+FAIL  PAY-13/hung-commit                       disposed: expected 1, got 0
+FAIL  PAY-13/waiting                           disposed at once: expected 1, got 0
+FAIL  PAY-14                                   after boot, saved leaf: expected "PAYING", got undefined
+SKIP  SEARCH-PAY  scenarios are red; its result would say nothing
+
+UNTESTED     104 ids with no scenario in rounds <= 1
+  owed by this round (16): cell:lane.commit.Held cell:lane.retry.Idle cell:lane.retry.InFlight cell:lane.cancel.Idle cell:lane.cancel.InFlight cell:lane.idle.Idle cell:lane.idle.InFlight cell:lane.idle.Held cell:lane.failure.InFlight cell:lane.interrupt.InFlight cell:lane.restore.Idle cell:lane.restore.Held cell:lane.runtimeDisposal.Idle cell:lane.runtimeDisposal.Held D7 D13
+  not in this round's scope (88): rule:1 rule:2 rule:3 rule:4 rule:5 rule:6 rule:7 rule:8 rule:9 rule:10 rule:11 rule:13 rule:20 rule:22 rule:23 rule:26 rule:27 rule:28 rule:29 rule:30 rule:31 rule:32 rule:33 rule:34 rule:35 rule:36 rule:37 rule:39 rule:40 rule:41 rule:42 rule:43 rule:44 rule:45 rule:47 rule:48 rule:49 rule:50 rule:51 rule:52 rule:53 rule:54 rule:55 rule:56 rule:57 rule:58 rule:59 rule:60 rule:61 rule:62 rule:63 rule:64 rule:65 rule:66 rule:67 rule:68 rule:69 rule:70 rule:71 rule:72 cell:lane.dispose.Idle cell:lane.dispose.InFlight cell:lane.dispose.Held cell:lane.rebind.InFlight cell:lane.rebind.Held cell:lane.ssrHydration.Idle T1 T2 T3 T4 T5 T6 T7 T8 T9 D3 D9 D11 D12 D15 D16 D17 D18 D19 D20 D21 D22 D24
+  cells hit by a run though no scenario cites them (0): 
+
+OLD-RULE
+  PAY-06 cites rule:25: changed to D8, also cites it: ok
+
+NO-DECISION  LIB-03 DRV-04 STREAM-21 CACHE-01 CTX-01 HOSTILE-02 BROWSER-02 BROWSER-03 BROWSER-04
+THIN         PAY-12 PAY-13 SEARCH-PAY
+
+SUMMARY  0/22 scenario cases pass; search not run; unlogged expectation changes: none; catalog disagreements: none
