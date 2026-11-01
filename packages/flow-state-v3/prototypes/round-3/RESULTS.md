@@ -98,7 +98,7 @@ My budget accounted fragments' share of `turn.ts` after the fact, stated in conv
 
 Streams, or any paper hook. `flow check`. `cancel`, `allow`. Keyed schedules. S4 (no browser question this round; L1's watchdog print waits for the next S4). A real `fetch`, IndexedDB, Node, Safari. `pay.scenario`-sized reread of old tests against their citations. `tsc` strict: I ran one `tsc` on `round-3/adapter.ts` during the build and its output filtered to `round-3` was empty; `nub run verify` not run. A review by Opus of this round: owed.
 
-Lint: see below, not chased.
+Lint on `round-3` and `conformance`: 612 errors, 2646 warnings, not chased.
 
 ## Limits
 
