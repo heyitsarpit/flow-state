@@ -93,3 +93,5 @@ MED-07 hash:f559a57fe31a | the line above: the driver must not name a module
 file:scenarios/review.scenario.ts hash:1e829f156552 | MED-07 above
 file:scenarios/frag.scenario.ts hash:6e574cd00382 | FRAG-20 added from the second author, after his number
 file:fixtures/lab.compiled.ts hash:2eec726a60b0 | Kick, KickAndDrop for FRAG-20
+SEARCH-PAY | mayHave lists a key while an old process's send of it is unanswered | a definite answer to any send of a key decides it | S6 failed at depth 9 on `pay ack reload advance3000 intent.truth ack pay.ok PayRequested ack`: the retry was answered ok, so nothing was undecided. The new id there is P6, pinned. Oracle wrong, not the runtime | D53
+file:fake-world.ts hash:352533d66046 | the mayHave line above

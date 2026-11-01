@@ -6,7 +6,7 @@
     "killers": ["FRAG-03"],
     "author": "second",
     "by": "tests",
-    "peakMb": 163
+    "peakMb": 159
   },
   {
     "id": "s-select-reads-before",
@@ -15,7 +15,7 @@
     "killers": ["CART-01", "CART-02/five-taps", "CART-02/repriced-under-pending"],
     "author": "second",
     "by": "tests",
-    "peakMb": 158
+    "peakMb": 164
   },
   {
     "id": "s-no-reset-before-walk",
@@ -36,11 +36,12 @@
       "FRAG-10/answer-from-the-host-passes-the-exit",
       "FRAG-10/failure-exits-with-its-reason",
       "FRAG-10/host-event-falls-through-the-subroutine",
-      "FRAG-10/reload-inside-the-subroutine"
+      "FRAG-10/reload-inside-the-subroutine",
+      "FRAG-20/a-late-ending-may-not-leave-an-active-subroutine"
     ],
     "author": "second",
     "by": "tests",
-    "peakMb": 158
+    "peakMb": 160
   },
   {
     "id": "s-pending-reset-after-adoption",
@@ -49,7 +50,7 @@
     "killers": [],
     "author": "second",
     "by": "tests",
-    "peakMb": 237
+    "peakMb": 235
   },
   {
     "id": "s-each-ignores-max",
@@ -58,7 +59,7 @@
     "killers": ["FRAG-01/repair-never-refuses"],
     "author": "second",
     "by": "tests",
-    "peakMb": 158
+    "peakMb": 164
   },
   {
     "id": "s-abandoned-reads-final-memory",
@@ -67,16 +68,16 @@
     "killers": [],
     "author": "second",
     "by": "tests",
-    "peakMb": 223
+    "peakMb": 236
   },
   {
     "id": "s-adopted-ending-routes-late",
     "kills": ["rule:14", "rule:54"],
-    "killed": false,
-    "killers": [],
+    "killed": true,
+    "killers": ["FRAG-20/adopted-ending-is-current-from-the-active-leaf"],
     "author": "second",
     "by": "tests",
-    "peakMb": 231
+    "peakMb": 161
   },
   {
     "id": "s-late-leaves-subroutine",
@@ -85,7 +86,7 @@
     "killers": [],
     "author": "second",
     "by": "tests",
-    "peakMb": 237
+    "peakMb": 228
   },
   {
     "id": "s-late-filling-may-leave",
@@ -94,7 +95,7 @@
     "killers": [],
     "author": "second",
     "by": "tests",
-    "peakMb": 226
+    "peakMb": 239
   },
   {
     "id": "s-commit-from-other-path-joins",
@@ -103,7 +104,7 @@
     "killers": [],
     "author": "second",
     "by": "tests",
-    "peakMb": 239
+    "peakMb": 242
   },
   {
     "id": "s-queued-firing-not-retracted",
@@ -112,25 +113,25 @@
     "killers": [],
     "author": "second",
     "by": "tests",
-    "peakMb": 231
+    "peakMb": 235
   },
   {
     "id": "s-release-every-subject",
     "kills": ["rule:60"],
-    "killed": false,
-    "killers": [],
+    "killed": true,
+    "killers": ["FRAG-20/release-only-the-ending-subject"],
     "author": "second",
     "by": "tests",
-    "peakMb": 239
+    "peakMb": 160
   },
   {
     "id": "s-release-before-members",
     "kills": ["rule:60", "sec:2.9.3", "sec:2.5"],
-    "killed": false,
-    "killers": [],
+    "killed": true,
+    "killers": ["FRAG-20/a-commit-in-a-copy-the-same-turn-removes-is-marked"],
     "author": "second",
     "by": "tests",
-    "peakMb": 236
+    "peakMb": 161
   },
   {
     "id": "s-rebind-keeps-releasing",
@@ -139,16 +140,20 @@
     "killers": ["FRAG-06/readd-before-idle-clears-the-mark-and-adopts"],
     "author": "second",
     "by": "tests",
-    "peakMb": 163
+    "peakMb": 165
   },
   {
     "id": "s-releasing-ending-delivered",
     "kills": ["rule:60", "rule:17", "sec:2.9.3"],
     "killed": true,
-    "killers": ["FRAG-06/wire-is-interrupted-and-nothing-delivered"],
+    "killers": [
+      "FRAG-06/wire-is-interrupted-and-nothing-delivered",
+      "FRAG-20/release-only-the-ending-subject",
+      "FRAG-20/local-sent-finishes-to-evidence"
+    ],
     "author": "second",
     "by": "tests",
-    "peakMb": 156
+    "peakMb": 159
   },
   {
     "id": "s-adoption-holds-before-parked",
@@ -157,7 +162,7 @@
     "killers": ["FRAG-05"],
     "author": "second",
     "by": "tests",
-    "peakMb": 158
+    "peakMb": 160
   },
   {
     "id": "s-unplaced-ending-is-evidence",
@@ -171,7 +176,7 @@
     ],
     "author": "second",
     "by": "tests",
-    "peakMb": 160
+    "peakMb": 158
   },
   {
     "id": "s-unbound-ending-never-parks",
@@ -180,7 +185,7 @@
     "killers": ["FRAG-08/persisted-disposed-ending-parked-delivered-once"],
     "author": "second",
     "by": "tests",
-    "peakMb": 161
+    "peakMb": 159
   },
   {
     "id": "s-restore-forgets-history",
@@ -195,7 +200,7 @@
     ],
     "author": "second",
     "by": "tests",
-    "peakMb": 162
+    "peakMb": 156
   },
   {
     "id": "s-outside-closure-is-fatal",
@@ -204,7 +209,7 @@
     "killers": ["HIGH-03/confirms-throws-on-a-shape", "HIGH-03/a-read-mapper-throws"],
     "author": "second",
     "by": "tests",
-    "peakMb": 164
+    "peakMb": 157
   },
   {
     "id": "s-disabled-store-admits",
@@ -213,7 +218,7 @@
     "killers": ["DRV-03/disabled-survives-a-refused-turn"],
     "author": "second",
     "by": "tests",
-    "peakMb": 160
+    "peakMb": 156
   },
   {
     "id": "s-disabled-store-sends",
@@ -222,7 +227,7 @@
     "killers": ["DRV-03/a-disabled-store-holds-its-queue"],
     "author": "second",
     "by": "tests",
-    "peakMb": 161
+    "peakMb": 160
   },
   {
     "id": "s-defect-keeps-effects",
@@ -231,7 +236,7 @@
     "killers": [],
     "author": "second",
     "by": "tests",
-    "peakMb": 235
+    "peakMb": 233
   },
   {
     "id": "s-bad-record-reaches-boot",
@@ -240,7 +245,7 @@
     "killers": [],
     "author": "second",
     "by": "tests",
-    "peakMb": 245
+    "peakMb": 238
   },
   {
     "id": "s-answers-have-no-position",
@@ -253,7 +258,7 @@
     ],
     "author": "second",
     "by": "tests",
-    "peakMb": 156
+    "peakMb": 166
   },
   {
     "id": "s-stale-ignores-differs",
@@ -262,7 +267,7 @@
     "killers": ["HIGH-04b"],
     "author": "second",
     "by": "tests",
-    "peakMb": 163
+    "peakMb": 162
   },
   {
     "id": "s-cancel-does-not-wait-for-ack",
@@ -276,7 +281,7 @@
     ],
     "author": "second",
     "by": "tests",
-    "peakMb": 158
+    "peakMb": 161
   },
   {
     "id": "s-ack-forgets-then",
@@ -285,11 +290,12 @@
     "killers": [
       "MED-01/cancel-waits-for-its-ack",
       "MED-01/latest-replace-waits-for-its-ack",
-      "FRAG-06/waiting-never-sent-waits-for-its-ack"
+      "FRAG-06/waiting-never-sent-waits-for-its-ack",
+      "FRAG-20/a-commit-in-a-copy-the-same-turn-removes-is-marked"
     ],
     "author": "second",
     "by": "tests",
-    "peakMb": 159
+    "peakMb": 156
   },
   {
     "id": "s-row-hides-stalled",
@@ -302,7 +308,7 @@
     ],
     "author": "second",
     "by": "tests",
-    "peakMb": 160
+    "peakMb": 159
   },
   {
     "id": "s-silence-is-refusal",
@@ -311,7 +317,7 @@
     "killers": ["PAY-10/hang", "PAY-18", "MED-04"],
     "author": "second",
     "by": "tests",
-    "peakMb": 157
+    "peakMb": 165
   },
   {
     "id": "s-redelivery-jumps-mail",
@@ -320,7 +326,7 @@
     "killers": [],
     "author": "second",
     "by": "tests",
-    "peakMb": 234
+    "peakMb": 226
   },
   {
     "id": "s-redelivery-second-cell",
@@ -329,25 +335,25 @@
     "killers": ["PAY-11/unknown-handler-throws-once"],
     "author": "second",
     "by": "tests",
-    "peakMb": 162
+    "peakMb": 159
   },
   {
     "id": "s-bound-hold-yields",
     "kills": ["D15", "D3", "OD:6"],
-    "killed": false,
-    "killers": [],
+    "killed": true,
+    "killers": ["FRAG-20/a-bound-hold-never-yields-an-actor-back-in-time"],
     "author": "second",
     "by": "tests",
-    "peakMb": 226
+    "peakMb": 156
   },
   {
     "id": "s-local-sent-not-evidence",
     "kills": ["D21"],
-    "killed": false,
-    "killers": [],
+    "killed": true,
+    "killers": ["FRAG-20/local-sent-finishes-to-evidence"],
     "author": "second",
     "by": "tests",
-    "peakMb": 231
+    "peakMb": 158
   },
   {
     "id": "s-given-clear-no-repair",
@@ -356,7 +362,7 @@
     "killers": ["LIKE-06"],
     "author": "second",
     "by": "tests",
-    "peakMb": 161
+    "peakMb": 158
   },
   {
     "id": "s-dispose-leaves-repair-fiber",
@@ -365,7 +371,7 @@
     "killers": ["MED-07/disposal-stops-module-fibers"],
     "author": "second",
     "by": "tests",
-    "peakMb": 160
+    "peakMb": 164
   },
   {
     "id": "s-no-still-unknown",
@@ -380,7 +386,7 @@
     ],
     "author": "second",
     "by": "tests",
-    "peakMb": 157
+    "peakMb": 159
   },
   {
     "id": "s-settle-forgets-unknown",
@@ -402,7 +408,7 @@
     ],
     "author": "second",
     "by": "tests",
-    "peakMb": 157
+    "peakMb": 155
   },
   {
     "id": "s-retry-count-at-retry",
@@ -424,7 +430,7 @@
     ],
     "author": "second",
     "by": "tests",
-    "peakMb": 157
+    "peakMb": 160
   },
   {
     "id": "s-failure-forces-repair",
@@ -433,7 +439,7 @@
     "killers": ["STORE-02", "FRAG-11/deleteRefused"],
     "author": "second",
     "by": "tests",
-    "peakMb": 157
+    "peakMb": 156
   },
   {
     "id": "s-released-mark-not-given",
@@ -442,7 +448,7 @@
     "killers": ["LIKE-06"],
     "author": "second",
     "by": "tests",
-    "peakMb": 164
+    "peakMb": 163
   },
   {
     "id": "s-new-write-heads-queue",
@@ -481,7 +487,7 @@
     ],
     "author": "second",
     "by": "tests",
-    "peakMb": 159
+    "peakMb": 157
   },
   {
     "id": "s-restore-unsorted",
@@ -490,7 +496,7 @@
     "killers": [],
     "author": "second",
     "by": "tests",
-    "peakMb": 234
+    "peakMb": 278
   },
   {
     "id": "s-acked-restores-notsent",
@@ -517,7 +523,7 @@
     ],
     "author": "second",
     "by": "tests",
-    "peakMb": 160
+    "peakMb": 157
   },
   {
     "id": "s-cancel-reads-interrupted",
@@ -530,7 +536,7 @@
     ],
     "author": "second",
     "by": "tests",
-    "peakMb": 158
+    "peakMb": 160
   },
   {
     "id": "s-cancel-resend-says-notsent",
@@ -548,7 +554,7 @@
     "killers": ["LIKE-01", "LIKE-03"],
     "author": "second",
     "by": "tests",
-    "peakMb": 163
+    "peakMb": 158
   },
   {
     "id": "s-refused-capture-says-notsent",
@@ -570,6 +576,6 @@
     "killers": ["STORE-06"],
     "author": "second",
     "by": "tests",
-    "peakMb": 153
+    "peakMb": 157
   }
 ]

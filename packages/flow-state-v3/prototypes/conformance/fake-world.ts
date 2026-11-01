@@ -417,12 +417,13 @@ export class FakeWorld {
   }
   // Undecided at the server: never answered (from any process), or its answer was lost. An oracle reads this, not an ending.
   mayHave(): string[] {
-    const keys = this.requests
-      .filter(
-        (r) => r.idempotencyKey !== undefined && (!r.answered || r.lostOpen || r.landedUnseen),
-      )
-      .map((r) => r.idempotencyKey!);
-    return [...new Set(keys)];
+    const open = (r: Held) => !r.answered || r.lostOpen === true || r.landedUnseen === true;
+    const keyed = this.requests.filter((r) => r.idempotencyKey !== undefined);
+    // One key, one write at the server: a definite answer to any send decides it, whatever an older send still shows.
+    const decided = new Set(keyed.filter((r) => !open(r)).map((r) => r.idempotencyKey!));
+    return [...new Set(keyed.filter(open).map((r) => r.idempotencyKey!))].filter(
+      (k) => !decided.has(k),
+    );
   }
   outside(): Omit<Outside, "live" | "injections"> {
     return {

@@ -1,0 +1,97 @@
+{
+ "search": "payFixed",
+ "verdict": "failed",
+ "perDepth": [
+  1,
+  2,
+  10,
+  30,
+  96,
+  257,
+  753,
+  2344,
+  7191
+ ],
+ "states": 10684,
+ "edges": 33848,
+ "steps": 799558,
+ "depthCompleted": 8,
+ "classes": {
+  "charged-unaccounted:UNSURE": {
+   "count": 111,
+   "witness": "PayRequested Leave Start2 ack advance60000"
+  },
+  "charged-unaccounted:CARD": {
+   "count": 309,
+   "witness": "PayRequested Leave ack pay.ok Start hang"
+  },
+  "held-no-owner:CARD": {
+   "count": 240,
+   "witness": "PayRequested Leave ack reload Start"
+  },
+  "charged-unaccounted:LEFT": {
+   "count": 214,
+   "witness": "PayRequested Leave ack pay.ok reload"
+  },
+  "charged-unaccounted:PAID": {
+   "count": 217,
+   "witness": "PayRequested Leave Start ack pay.ok PayRequested"
+  },
+  "two-keys-one-intent:PAID": {
+   "count": 74,
+   "witness": "PayRequested Leave Start ack pay.ok PayRequested"
+  },
+  "placed-and-voided:PAID": {
+   "count": 35,
+   "witness": "PayRequested Leave ack pay.ok Start PayRequested"
+  },
+  "two-keys-one-intent:LEFT": {
+   "count": 22,
+   "witness": "PayRequested Leave Start ack pay.ok PayRequested Leave"
+  },
+  "told-not-charged:CARD": {
+   "count": 5,
+   "witness": "PayRequested Leave Start ack pay.ok PayRequested reload"
+  },
+  "charged-unaccounted:PAYING": {
+   "count": 61,
+   "witness": "PayRequested Leave Start2 ack PayRequested pay.ok hang"
+  },
+  "two-keys-one-intent:CARD": {
+   "count": 4,
+   "witness": "PayRequested Leave Start ack pay.ok PayRequested Leave Start"
+  },
+  "charged-unaccounted:PLACING": {
+   "count": 6,
+   "witness": "PayRequested Leave Start2 PayRequested ack pay.ok pay.ok hang"
+  },
+  "told-not-charged:LEFT": {
+   "count": 1,
+   "witness": "PayRequested Leave ack pay.ok Start PayRequested reload Leave"
+  },
+  "placed-and-voided:LEFT": {
+   "count": 1,
+   "witness": "PayRequested ack pay.ok ack place.ok Start PayRequested Leave"
+  }
+ },
+ "ms": 25311,
+ "peakRssMb": 221,
+ "unpinned": [
+  "charged-unaccounted:UNSURE via PayRequested Leave Start2 ack advance60000",
+  "charged-unaccounted:CARD via PayRequested Leave ack advance60000 Start",
+  "held-no-owner:CARD via PayRequested Leave ack advance60000 Start",
+  "charged-unaccounted:LEFT via PayRequested Leave ack pay.ok reload",
+  "charged-unaccounted:PAID via PayRequested Leave Start ack pay.ok PayRequested",
+  "two-keys-one-intent:PAID via PayRequested Leave Start ack pay.ok PayRequested",
+  "placed-and-voided:PAID via PayRequested Leave ack pay.ok Start PayRequested",
+  "two-keys-one-intent:LEFT via PayRequested Leave Start ack pay.ok PayRequested Leave",
+  "told-not-charged:CARD via PayRequested Leave Start ack pay.ok PayRequested reload",
+  "charged-unaccounted:PAYING via PayRequested Leave Start2 PayRequested ack pay.lostLanded pay.never",
+  "two-keys-one-intent:CARD via PayRequested Leave Start ack pay.ok PayRequested Leave Start",
+  "charged-unaccounted:PLACING via PayRequested Leave Start2 PayRequested ack pay.ok pay.ok reload",
+  "told-not-charged:LEFT via PayRequested Leave ack pay.ok Start PayRequested reload Leave",
+  "placed-and-voided:LEFT via PayRequested ack pay.ok ack place.ok Start PayRequested Leave"
+ ]
+}
+
+WATCH peak 211 MB, 25.4 s, exit 1, killed no
