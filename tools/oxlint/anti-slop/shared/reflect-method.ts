@@ -14,10 +14,26 @@ function resolveVariable(
 }
 
 function isGlobalReflect(sourceCode: SourceCode, expression: ESTree.Expression): boolean {
-  if (expression.type !== "Identifier" || expression.name !== "Reflect") return false;
-  if (sourceCode.isGlobalReference(expression)) return true;
-  const variable = resolveVariable(sourceCode, expression);
-  return variable === null || variable.defs.length === 0;
+	if (expression.type === "Identifier" && expression.name === "Reflect") {
+		if (sourceCode.isGlobalReference(expression)) return true;
+		const variable = resolveVariable(sourceCode, expression);
+		return variable === null || variable.defs.length === 0;
+	}
+	if (
+		expression.type !== "MemberExpression" ||
+		expression.object.type !== "Identifier" ||
+		(
+			(!expression.computed &&
+				(expression.property.type !== "Identifier" || expression.property.name !== "Reflect")) ||
+			(expression.computed &&
+				(expression.property.type !== "Literal" || expression.property.value !== "Reflect"))
+		)
+	) return false;
+	const globalObject = expression.object;
+	if (globalObject.name !== "globalThis" && globalObject.name !== "global") return false;
+	if (sourceCode.isGlobalReference(globalObject)) return true;
+	const variable = resolveVariable(sourceCode, globalObject);
+	return variable === null || variable.defs.length === 0;
 }
 
 /** Reports whether a call target names one method on the global Reflect object. */

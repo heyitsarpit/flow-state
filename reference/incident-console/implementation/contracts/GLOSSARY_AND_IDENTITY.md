@@ -1,35 +1,48 @@
 
 # Glossary and identity contract
 
-Status: locked
+Status: historical reference only; not active authority.
 
-This file owns Flow terminology and durable/concurrent identity. Other active contracts reference
-these rules; they do not redefine them. The active clauses in this contract pack are authoritative.
-The revision specification, accepted decisions, proposals, and archived records preserve provenance
-only and do not override a contract clause. The corresponding file under `contracts/provenance/` is
-the current semantic source and provenance record for this restoration; it is not a competing active
-authority, and its transferred wording and IDs MUST NOT be erased by the enhanced shape below.
+Current requirements live in [Workflow plans](../../../../workflow/plans/);
+current task status lives in [Rewrite tasks](../../../../workflow/tasks/Rewrite/).
+
+This file recorded Flow terminology and durable/concurrent identity. Sibling source contracts referenced
+these rules rather than redefining them; the clauses were authoritative within the historical contract pack.
+The revision specification, accepted decisions, proposals, and archived records preserved provenance only
+and did not override a contract clause. The corresponding file under `contracts/provenance/` was the
+historical semantic source and provenance record for this restoration; it was not a competing authority,
+and its transferred wording and IDs MUST NOT be erased by the enhanced shape below.
 Affected removed or replaced surfaces defer to `DEL-001` through `DEL-011`; a `REPLACE` entry removes
 the old surface and does not permit an alias, overload, adapter, or compatibility wrapper.
-Explicitly retained boundaries remain authoritative under `RET-001` through `RET-005`.
+Explicitly retained boundaries were recorded under `RET-001` through `RET-005`.
 
 ## GLO-01 — Definition
 
 ### Surface
 
-- One immutable value: explicit machine identity; named state/event schemas; input; readonly
-  provider selectors; pure initial-memory factory; flat named operation catalogue.
+- One value: explicit machine identity; named state/event schemas; input; provider selectors; pure
+  initial-memory factory; flat named operation catalogue.
 - Declares one complete static actor family; owns no transition or activity behavior.
 
 ### Rule
 
 - Context is pure derived data from an exact provider actor; mutable actor-local domain data is memory.
+- Definition authoring is a trusted in-process TypeScript boundary. One package-private Effect Schema
+  synchronously decodes the ordinary authored object before the library constructs nominal definition,
+  state-token, event-token, event-envelope, and context-selector values. Authors continue to declare events
+  with callbacks or `null`; they do not import or supply Schema values.
 - Authored IDs and local state/event names preserve spelling; each is non-empty and at most 256 UTF-8
-  bytes, with no C0 control, DEL, lone surrogate, or NUL code point.
+  bytes, with no C0 control, DEL, lone surrogate, or NUL code point. These constraints are enforced at
+  runtime before the value becomes definition-derived or durable identity; compile-time inference
+  preserves exact authored literals but does not encode UTF-8 or reject by encoded byte length.
 - No Unicode normalization or locale-sensitive comparison. Composite IDs use
   `<utf8ByteLength>:<segment>` plus a fixed namespace tag; delimiter concatenation is forbidden.
+- Runtime validation and length-prefixing MUST produce identical results in every supported package host.
+  Shared code uses the host-neutral WHATWG UTF-8 semantics exposed by `TextEncoder`; lone surrogates
+  are rejected before encoding with `String.prototype.isWellFormed` when available or an equivalent
+  small fallback check. Node-only `Buffer` APIs are not part of the package contract.
 - Durable stable refs use `actor:` plus machine-ID then authored-ID segments. Opaque refs are
-  runtime-local and have no durable encoding. State tokens preserve complete paths, for example
+  runtime-local and have no durable encoding. State tokens preserve complete paths, such as
   `S.ACTIVE.S.EDITING`; events use one machine-wide protocol.
 
 ### Accepts
@@ -39,8 +52,12 @@ Explicitly retained boundaries remain authoritative under `RET-001` through `RET
 
 ### Rejects
 
-- Invalid names, normalization-dependent identity, locale ordering, raw delimiter IDs, and partial
-  or duplicate declarations.
+- Invalid names, normalization-dependent identity, locale ordering, raw delimiter IDs, partial or duplicate
+  declarations, excess top-level fields, invalid declaration kinds, and event payload objects that are arrays,
+  custom-prototype instances, or contain an authored `type` field.
+- No stable rejection or error-translation contract exists for proxies, throwing getters, descriptor tricks,
+  symbols, sparse arrays, custom container prototypes, or mutation during construction. These are not a
+  security boundary for a library authoring API controlled by the caller.
 
 ### Observable guarantee
 
@@ -49,7 +66,10 @@ Explicitly retained boundaries remain authoritative under `RET-001` through `RET
 
 ### Proof
 
-- Definition, recursive-token, event-nominality, name-bound, and stable-ref compile/runtime proofs.
+- Definition Schema, ordinary malformed-definition, recursive-token, event-nominality, exact-name, runtime
+  name-bound, stable-ref, and artifact-codec proofs. Compile-time proofs preserve exact literal spelling and
+  structural name closure; UTF-8 byte arithmetic, lone-surrogate rejection, and the depth bound are
+  runtime-owner proofs.
 
 ### Trace
 
@@ -59,7 +79,7 @@ Explicitly retained boundaries remain authoritative under `RET-001` through `RET
 
 ### Surface
 
-- A machine is reusable immutable behavior bound to one definition.
+- A machine is reusable behavior bound to one definition.
 - An actor is one live instance with its own ref, mailbox, state, memory, context, operation
   ownership, publications, and lifecycle.
 
@@ -99,7 +119,7 @@ Explicitly retained boundaries remain authoritative under `RET-001` through `RET
 
 - Input is supplied once to fresh actor creation. `memory: ({ input }) => Memory` is the sole source
   for `InputOf` and `MemoryOf`; omitting its argument fixes input to `void`.
-- Memory is actor-local mutable domain state. Context is inherited readonly projection from exact
+- Memory is actor-local mutable domain state. Context is inherited projection from exact
   provider refs.
 
 ### Rule
@@ -113,7 +133,7 @@ Explicitly retained boundaries remain authoritative under `RET-001` through `RET
 
 ### Accepts
 
-- Fresh input once; persisted memory on restore; exact readonly provider projections.
+- Fresh input once; persisted memory on restore; exact provider projections.
 
 ### Rejects
 
@@ -172,16 +192,16 @@ Explicitly retained boundaries remain authoritative under `RET-001` through `RET
 
 ### Surface
 
-- `P` is complete immutable executable input retained by live lookup, transaction attempt, or stream
+- `P` is complete executable input retained by live lookup, transaction attempt, or stream
   subscription. It may contain clients/functions and is never identity.
-- `K` is the synchronously projected ordered readonly canonical tuple. Resource/transaction identity
+- `K` is the synchronously projected ordered canonical tuple. Resource/transaction identity
   is descriptor ID plus `K`; a live stream also retains its declaration slot.
 
 ### Rule
 
 - Service dependencies belong to inferred `R`; runtime-owned capabilities remain outside `P`.
 - Canonicalization accepts ordinary dense arrays/plain records, copies into Flow-owned containers,
-  recursively freezes them, freezes the top-level tuple, sorts record keys, normalizes `-0` to `0`,
+  sorts record keys, normalizes `-0` to `0`,
   rejects hostile reflection/unsupported values, and uses the bounded UTF-8 `KBytes` grammar.
 - Capability, tenant, account, network, permission, session, and every result-changing discriminator
   must be in `K`; runtime partitioning is not a substitute.
@@ -201,7 +221,7 @@ Explicitly retained boundaries remain authoritative under `RET-001` through `RET
 
 ### Proof
 
-- Canonical grammar, defensive-copy/freeze, bounds, reflection, and identity proofs in
+- Canonical grammar, defensive copying, bounds, reflection, and identity proofs in
   `PUBLIC_API.md` `API-005` and `TYPE_SYSTEM.md` `TYPE-005`.
 
 ### Trace
@@ -252,7 +272,7 @@ Explicitly retained boundaries remain authoritative under `RET-001` through `RET
 ### Surface
 
 - A module is inert tooling metadata with unique app-local ID and exact keyed `machines`.
-- An app has explicit ID, persistence version, ordered unaliased modules, and immutable compiled
+- An app has explicit ID, persistence version, ordered unaliased modules, and compiled
   `AppPlan`; `App.M` is the complete machine/operation admission universe.
 
 ### Rule
@@ -277,7 +297,7 @@ Explicitly retained boundaries remain authoritative under `RET-001` through `RET
 
 ### Observable guarantee
 
-- `App.M` and `AppPlan` are closed and immutable for the runtime lifetime.
+- `App.M` and `AppPlan` are closed for the runtime lifetime.
 
 ### Proof
 
@@ -378,7 +398,7 @@ Explicitly retained boundaries remain authoritative under `RET-001` through `RET
 
 ### Surface
 
-- A generation orders attempts for one runtime identity. A revision identifies an immutable published
+- A generation orders attempts for one runtime identity. A revision identifies a published
   canonical store or actor snapshot. A turn is one serialized actor mailbox command.
 
 ### Rule
@@ -386,7 +406,7 @@ Explicitly retained boundaries remain authoritative under `RET-001` through `RET
 - Generation checks fence stale completions even when interruption is requested.
 - Canonical store revision increments for canonical values, generations, freshness, invalidation,
   hydration, eviction. Actor preview apply/remove/replay advances only initiating publication/overlay.
-- Private actor `publicationRevision` increments every immutable snapshot publication; private
+- Private actor `publicationRevision` increments every snapshot publication; private
   `machineTurnRevision` only on committed machine turns. Public `snapshot.revision` is publication
   revision; no second public revision field.
 - Prepared actor/store revisions start at 0; first generation/value revision/global evidence sequence
@@ -426,7 +446,7 @@ Explicitly retained boundaries remain authoritative under `RET-001` through `RET
 
 - `TurnPlan` is the pure result of applying one command to one actor snapshot and stabilizing redirects.
   It contains intended state, memory, receipt intents, and activity changes. `CommitPlan` is package-private
-  reconciliation commands. `TurnRecord` is immutable actual-fact evidence; `LifecycleRecord` is private
+  reconciliation commands. `TurnRecord` is actual-fact evidence; `LifecycleRecord` is private
   lifecycle evidence.
 
 ### Rule
@@ -453,7 +473,7 @@ Explicitly retained boundaries remain authoritative under `RET-001` through `RET
 
 ### Observable guarantee
 
-- Acknowledged commands have an ordered immutable evidence prefix independent of later sink processing.
+- Acknowledged commands have an ordered evidence prefix independent of later sink processing.
 
 ### Proof
 
@@ -467,7 +487,7 @@ Explicitly retained boundaries remain authoritative under `RET-001` through `RET
 
 ### Surface
 
-- One immutable public publication contains active leaf state, memory, inherited context, lifecycle,
+- One public publication contains active leaf state, memory, inherited context, lifecycle,
   issues, `snapshot.revision`, and observed store revision.
 - `state.matches(token)` recognizes leaf and active ancestors; nested state values are not exposed.
 - Snapshot-bound `O` is passive named-family projection. Receipts are not snapshot fields.
@@ -483,7 +503,7 @@ Explicitly retained boundaries remain authoritative under `RET-001` through `RET
 
 ### Accepts
 
-- Lifecycle `prepared | active | suspended | disposed` and readonly passive snapshot projection.
+- Lifecycle `prepared | active | suspended | disposed` and passive snapshot projection.
 
 ### Rejects
 
@@ -544,7 +564,7 @@ Explicitly retained boundaries remain authoritative under `RET-001` through `RET
 ### Surface
 
 - Issue is current structured failure/defect/interruption/cleanup/invariant information.
-- Receipt is immutable causal evidence of accepted, started, published, rejected, interrupted, or
+- Receipt is causal evidence of accepted, started, published, rejected, interrupted, or
   finalized work. `pendingWork` is test/tooling inventory, not actor state or settlement.
 
 ### Rule
@@ -576,7 +596,7 @@ Explicitly retained boundaries remain authoritative under `RET-001` through `RET
 
 ### Surface
 
-- A reusable view is an ordinary selector. `useView(actor, selector)` receives atomic state, readonly
+- A reusable view is an ordinary selector. `useView(actor, selector)` receives atomic state,
   memory/context, lifecycle, issues, `can(event)`, and passive snapshot-bound `O`.
 - `MachineObserver` is package-private exact-actor subscription/sharing adapter.
 
@@ -614,11 +634,11 @@ Explicitly retained boundaries remain authoritative under `RET-001` through `RET
 
 ### Surface
 
-- Story plans are immutable/inert until `run()`. Recipes are deeply frozen exact-machine/fresh-input/
+- Story plans are inert until `run()`. Recipes are exact-machine/fresh-input/
   exact-binding descriptions with no runtime, mailbox, snapshot, state, operation binding, lease, or handle.
 - App Stories target exact recipe or app-owned stable ref. Machine Stories own one implicit fresh actor,
   target-free commands, selected initial context, and `setContext`.
-- Fixture is immutable directly referenced per-run environment. Checkpoint is immediate frozen capture.
+- Fixture is directly referenced per-run environment. Checkpoint is immediate capture.
 
 ### Rule
 
@@ -644,7 +664,7 @@ Explicitly retained boundaries remain authoritative under `RET-001` through `RET
 
 ### Observable guarantee
 
-- Checkpoints and successful `run.end` are deeply frozen production read cuts; failed execution retains
+- Checkpoints and successful `run.end` are production read cuts; failed execution retains
   completed checkpoints and reports cleanup/cancellation/evidence diagnostics without false success.
 
 ### Proof
@@ -659,7 +679,7 @@ Explicitly retained boundaries remain authoritative under `RET-001` through `RET
 
 ### Surface
 
-- Boot is package-private immutable runtime-constructor data carrying Flow structural data and opaque
+- Boot is package-private runtime-constructor data carrying Flow structural data and opaque
   application payloads. Artifact is explicitly exported versioned behavior/trace envelope.
 
 ### Rule

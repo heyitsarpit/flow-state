@@ -2,6 +2,8 @@
 
 Source: [Effect v4 `Pool` API](https://www.effect.website/docs/v4/api/effect/Pool). Examples assume `import { Duration, Effect, Pool } from "effect"`.
 
+`Pool` manages a bounded set of reusable resources, acquiring, leasing, invalidating, and shutting them down under concurrent demand.
+
 ## API index
 
 1. [Pool.make](#poolmake)

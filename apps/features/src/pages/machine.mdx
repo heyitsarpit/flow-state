@@ -1,0 +1,282 @@
+# Machine
+
+`machine(definition, body)` gives a definition its behaviour: the handlers, guards, memory updates and server calls that run, one turn at a time, when an event arrives.
+
+## Example: two-factor sign-in
+
+The definition is the two-factor `SignIn` of machine-design 3.1; this machine leaves out the lockout and the resend handlers to stay short.
+
+```ts
+import { deny, machine } from "flow-state"
+import { SignIn } from "./signin.definition"
+
+export const SignInMachine = machine(SignIn, ({ S, E, O }) => {
+  const thisChallenge = ({ memory }) => ({ challengeId: memory.challengeId })   // user-defined: the verify lane's key
+
+  return {
+    default: S.PASSWORD,                                   // the start state, at the root
+
+    on: {
+      // Root handlers apply in every state. A late ending lands here (late, rule 14), so each one is total.
+      CodeAccepted: { target: "self" },                    // "self": the state stays, nothing exits
+      CodeExpired: { target: "self" },
+      CodeWrong: { target: "self" },                       // explicit ignore: this example drops a late wrong code
+      CodeUnchecked: [
+        { target: "self", guard: [O.verify.retryable({ times: 2 })], actions: [O.verify.retry] },
+        { target: "self", actions: [O.verify.cancel] },    // release the lane, so the next Submit passes idle
+      ],
+    },
+
+    states: {
+      PASSWORD: {
+        on: {
+          PasswordAccepted: {
+            target: S.TWO_FACTOR,
+            updateMemory: ({ event }) => ({ challengeId: event.challengeId, error: null }),
+          },
+        },
+      },
+
+      TWO_FACTOR: {
+        default: S.TWO_FACTOR.ENTERING,
+        traits: {
+          code: { input: () => ({ value: "" }) },          // the host supplies the field's start
+          resendCooldown: {},
+        },
+        on: { BackToPassword: S.PASSWORD },                // a bare state token is shorthand for { target }
+        states: {
+          ENTERING: {
+            on: {
+              Submit: {
+                target: S.TWO_FACTOR.VERIFYING,
+                guard: [
+                  ({ memory }) => memory.challengeId !== "" || deny("NoChallenge"),   // before: pre-turn memory
+                  O.verify.idle(thisChallenge),                                       // one guess in flight per challenge
+                ],
+                updateMemory: () => ({ error: null }),
+                actions: [O.verify.commit(({ memory }) => ({ challengeId: memory.challengeId }))],   // after: the commit's select
+              },
+            },
+          },
+          VERIFYING: {
+            on: {
+              CodeAccepted: { target: S.SIGNED_IN },
+              CodeWrong: {
+                target: S.TWO_FACTOR.ENTERING,
+                updateMemory: () => ({ error: "Wrong code, try again" }),
+                raise: [E.code.Reset],                     // into the direct child code (rule 10)
+              },
+              CodeExpired: S.TWO_FACTOR.ENTERING,
+              CodeUnchecked: { target: S.TWO_FACTOR.ENTERING, actions: [O.verify.cancel] },
+            },
+          },
+        },
+      },
+
+      SIGNED_IN: {},
+    },
+  }
+})
+```
+
+## Example: a field's handlers
+
+A trait's body takes the same handlers: this is `Field` from machine-design 3.1, complete, so a guard port and `notify` sit in one place.
+
+```ts
+import { Flow, trait, type Denial } from "flow-state";
+import { Schema } from "effect";
+
+export const Field = <V, I>(value: Schema.Codec<V, I>, p: { validate?: (v: V) => true | Denial } = {}) => {
+  const errorOf = (v: V) => {
+    const verdict = p.validate?.(v) ?? true;
+    return verdict === true ? null : verdict;
+  };
+  return trait(
+    {
+      id: "Field",
+      events: { Changed: { value } },
+      hostEvents: { Reset: {} },
+      guards: { canEdit: Flow.optional(Flow.Guard) },
+      callbacks: { onChanged: Flow.optional(Flow.Callback({ value })) },
+      memory: {
+        value: Flow.input(value),
+        start: Flow.private(Flow.initial(value, ({ value }) => value)),
+        error: Flow.initial(Schema.NullOr(Flow.Denial), ({ value }) => errorOf(value)),
+        touched: Flow.initial(Schema.Boolean, false),
+      },
+    },
+    ({ guards, callbacks }) => ({
+      on: {
+        Changed: {
+          target: "self",
+          guard: guards.canEdit,
+          updateMemory: ({ event }) => ({ value: event.value, error: errorOf(event.value), touched: true }),
+          notify: [callbacks.onChanged.from(({ event }) => ({ value: event.value }))],
+        },
+        Reset: {
+          target: "self",
+          updateMemory: ({ memory }) => ({ value: memory.start, error: errorOf(memory.start), touched: false }),
+        },
+      },
+    }),
+  );
+};
+```
+
+## Keywords
+
+### machine
+
+**What:** `machine(definition, ({ S, E, O }) => body)` pairs a definition with a body that returns its handlers and states, where `S`, `E` and `O` are the definition's state tokens, events and operation handles.
+
+**Why it exists:** The body is kept apart from the definition, so `flow check` can test each handler against the states and events the definition declares.
+
+- The body's keys follow the order in machine-design 2.6: `default`, `activities`, `schedules`, `traits`, `on`, `states`, `whenAbandoned`.
+
+<small>Source: machine-design 2.6 · 3.1</small>
+
+### default
+
+**What:** `default` names the start state: the root's `default` starts the machine, and a compound state's `default` names the child it enters.
+
+**Why it exists:** An entry has to end at a leaf, and `default` names that leaf on the node being entered.
+
+<small>Source: machine-design 2.6 · 3.1</small>
+
+### on
+
+**What:** `on` maps each event name to a handler, which is one transition or an array of alternatives tried in order.
+
+**Why it exists:** A handler per event per node says what that event does in that state, and a node that declines passes the event to its ancestor.
+
+- An alternative is selected when all its guards pass, and the first one selected wins.
+
+<small>Source: machine-design 2.5 step 2 · 3.1</small>
+
+### late
+
+**What:** A late event is the ending of a call whose owning state was left before it arrived, and it routes from the nearest strict ancestor of the owner that was alive when the call started (the root at worst); an owner still alive makes the ending current, routed from the active leaf (rule 14).
+
+**Why it exists:** A server's answer can arrive after the user has left the state that asked, and the answer still has to be handled rather than dropped (rule 8).
+
+- A late turn may not exit a state that owns another pending call, or an active subroutine; `LateMayNotLeave` denies it (rule 15).
+- Every late event needs a handler at a strict ancestor of its owner, and `{ target: "self" }` is the explicit ignore (rule 20).
+
+<small>Source: rule 14 · rule 15 · rule 20</small>
+
+### target
+
+**What:** `target` names the state a transition moves to: a state token such as `S.TWO_FACTOR.VERIFYING`, or `"self"`.
+
+**Why it exists:** Each selected alternative fixes its target, so the turn's one state change, and every exit and entry it implies, is known before commit (machine-design 2.5 step 3).
+
+- A turn may have only one state changer among its selected parts; two fail validation (2.5 step 5).
+
+<small>Source: machine-design 2.5 steps 3 and 5</small>
+
+### "self"
+
+**What:** `target: "self"` keeps the state the handler is written in: nothing exits, and the transition's other members still run as written.
+
+**Why it exists:** It is the explicit ignore that a late event needs (rule 20), and it lets a handler update memory or act without leaving its state.
+
+- Only a transition that exits a subroutine's state abandons it; an ancestor's `"self"` does not (rule 6).
+
+<small>Source: rule 6 · rule 20 · machine-design 2.5 step 2</small>
+
+### guard
+
+**What:** `guard` is a function, or an array of them, that must all pass for an alternative to be selected, and each returns `true` or a denial.
+
+**Why it exists:** A guard lets an alternative decline, so the next alternative, or an ancestor, decides instead.
+
+- A state token in a guard array tests the current state, and `flow check` prunes alternatives that cannot both apply from those tokens (rule 12).
+- Guards read the before memory, the last published snapshot (rule 22).
+
+<small>Source: machine-design 2.5 · rule 12 · rule 22</small>
+
+### actions
+
+**What:** `actions` lists a transition's operation members: `commit`, `retry` and `cancel` on a write lane.
+
+**Why it exists:** Server work starts and releases only from a transition, so the lane changes inside the same turn as the event that asked for it (rule 21).
+
+- The lane tests `idle(k?)` and `retryable(k?, { times })` go in `guard`, not `actions` (rule 21).
+
+<small>Source: rule 21 · machine-design 3.1</small>
+
+### states
+
+**What:** `states` lists a node's child states, each with its own `default`, `traits`, `on` and `states`.
+
+**Why it exists:** A handler written on a parent covers all its children, because an event a child declines falls through to the parent.
+
+<small>Source: machine-design 2.5 step 2 · rule 1 · 3.1</small>
+
+### updateMemory
+
+**What:** `updateMemory` returns a partial memory patch, computed from the before memory and the event, that the turn publishes.
+
+**Why it exists:** Memory is what guards and views read next, so every change to it is one patch of the turn (machine-design 2.5).
+
+<small>Source: machine-design 2.5 · rule 22 · rule 26</small>
+
+### deny
+
+**What:** `deny(code, context?)` is a guard's refusal, which names why an alternative declined.
+
+**Why it exists:** `check()` reports the reasons, so a view can disable a control and say why, without running the transition (machine-design 2.5 step 5).
+
+<small>Source: machine-design 2.5 step 5 · 3.1</small>
+
+### raise
+
+**What:** `raise` sends a direct child's host event, such as `E.code.Reset`, in the same turn, so the child reacts before the turn commits.
+
+**Why it exists:** A parent can drive its child through one transition without a second event, so the whole change stays one step.
+
+- Only `hostEvents` can be raised, and only into direct children (rules 2 and 10).
+- A child with no handler for the raised event refuses the whole turn; the parent never falls through to its next alternative (machine-design 2.5 step 3).
+
+<small>Source: rule 2 · rule 10 · machine-design 2.5 step 3</small>
+
+### before and after
+
+**What:** A memory read in a turn sees either the before value, the last published snapshot, or the after value, the memory this turn publishes.
+
+**Why it exists:** A guard or mapper decides what the turn does, so it cannot read the turn's own result, while an effect that only starts work must see the value being published (rule 22).
+
+- Commit selects, schedule functions, `keys`, `restartOn` and placement selects read after; `resetOn` and `input` read before-walk memory, since they decide incarnations before the walk (rule 22).
+- `flow check` warns when one transition reads a key in both views and also writes it (decision D16).
+
+<small>Source: rule 22 · machine-design 2.5</small>
+
+### notify
+
+**What:** `notify` sends a trait's callback to its host, with a payload mapped from the event by `.from`.
+
+**Why it exists:** A callback asks the host and never moves it out of the trait's placement, so the host keeps its own decisions (rule 6).
+
+- The host fills a callback with transitions of its own, as `onLocked` does in machine-design 3.1.
+<small>Source: rule 6 · 3.1</small>
+
+### the turn
+
+**What:** One transition, with everything it raises, notifies, exits, resets and leaves, runs as one turn in six steps:
+
+```text
+1 admit     take the next event; map a call's ending and test its owner (rule 14)
+2 select    from the active leaf, take the first alternative whose guards all pass
+3 parts     walk raises, child transitions, notifies and exits, depth first
+4 compute   seed new incarnations; compute payloads from before or initial memory
+5 validate  repair lists; one state changer; lane cells; after memory
+6 commit    apply exits, then entries; publish memory and lane rows once
+```
+
+**Why it exists:** Memory, lane rows and the store revision publish as one cut, so no snapshot shows half of a turn (machine-design 2.5 step 6).
+
+- `check(snapshot, event)` runs steps 2 to 6 and publishes nothing (machine-design 2.5).
+- A pending reset from the last commit runs first, as its own follow-up turn (rule 1).
+
+<small>Source: machine-design 2.5 · rule 1 · rule 14</small>

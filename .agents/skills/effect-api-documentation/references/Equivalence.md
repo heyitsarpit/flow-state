@@ -2,6 +2,8 @@
 
 Source: [Effect v4 `Equivalence` API](https://www.effect.website/docs/v4/api/effect/Equivalence). Examples assume `import { Equivalence } from "effect"`.
 
+`Equivalence` defines reusable equality relations so values can be compared according to domain semantics instead of one hard-coded notion of equality.
+
 ## API index
 
 1. [Equivalence.Equivalence](#equivalenceequivalence)

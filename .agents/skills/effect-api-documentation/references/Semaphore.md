@@ -2,6 +2,8 @@
 
 Source: [Effect v4 `Semaphore` API](https://www.effect.website/docs/v4/api/effect/Semaphore). Examples assume `import { Effect, Semaphore } from "effect"`.
 
+`Semaphore` bounds concurrent work with permits that effects acquire and release; it limits admission without owning a resource pool or mailbox.
+
 ## API index
 
 1. [Semaphore.Semaphore](#semaphoresemaphore)

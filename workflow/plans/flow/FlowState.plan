@@ -1,0 +1,105 @@
+plan FlowState
+title   Flow State: entry plan and build order
+status  proposed
+goal
+    Flow State combines statechart actors and keyed network data in one Runtime for applications
+    written primarily by AI coding agents. A correct app preserves edits, keeps shared records
+    coherent, publishes consistent views, isolates users and requests, and reports uncertain remote
+    writes honestly. Its behaviour can be inspected structurally and replayed deterministically.
+
+    Capability plans own their contracts, decisions and proofs:
+    Machines — states, turns, guards and continuing work (@plan.Machines.O1).
+    Runtime — apps, readiness, actors, messaging and context (@plan.Runtime.O1).
+    Operations — reads, commits, streams, writes and lanes (@plan.Operations.O1).
+    EntityDomains — coherent records, repair and predictions (@plan.EntityDomains.O1).
+    Persistence — capture, restore and second-tab refusal (@plan.Persistence.O1).
+    ServerRendering — request isolation and SSR hydration (@plan.ServerRendering.O1).
+    LazyFeatures — deferred adoption and dormant durable data (@plan.LazyFeatures.O1).
+    React — attachment, consistent views and component lifetime (@plan.React.O1).
+    Testing — Stories, fixtures, checkpoints, models and properties (@plan.Testing.O1).
+    Diagnostics — FlowError, codes and actionable failures (@plan.Diagnostics.O1).
+    CommandLine — installed commands, checks and process behaviour (@plan.CommandLine.O1).
+    Inspection — structural and live inspection, traces and safe evidence (@plan.Inspection.O1).
+    Package — routes, dependency identity and installed consumers (@plan.Package.O1).
+
+    references/dispatch-desk is the worked example built against these contracts, including a
+    Next.js App Router host for hydration, reload restore, lazy features and second-tab refusal.
+outcomes
+    O1  Code disposition
+        Rebuild packages/flow-state-rewrite in place. Port useful algorithms and behavioural test
+        vectors, not superseded authoring surfaces or compatibility shims. packages/flow-state stays
+        frozen; product cutover requires a separate gate.
+    O2  Build stages
+        Each prerequisite gate must pass before its dependent work starts. A proof that exercises a
+        capability from a later stage (persistence, hydration, lazy adoption, exported evidence)
+        runs at that later stage's gate, never earlier. Every stage gate includes the
+        packed-consumer check in @plan.Package.O4 for the routes available at that stage.
+
+        S1 Type spike — authoring types; needs none; gate @V1.
+        S2 Foundation — diagnostics and structural compilation; needs S1; gate @V2.
+        S3 Runtime — turns, actors, context and lifecycle; needs S2; gate @V3.
+        S4 Operations — reads, commits, streams and lanes; needs S3; gate @V4.
+        S5 Entity domains and property tests — needs S4 and S7; gate @V5.
+        S6 Persistence — core actor and resource persistence needs S4; entity persistence needs S5;
+        gate @V6.
+        S7 Stories — Story, fixture, checkpoint and model infrastructure; needs S3; gate @V7.
+        S8 React — attachment and consistent views; needs S3; gate @V8.
+        S9 Inspection and CLI — needs S5 and S7; lazy-entry proofs run in S10; gate @V9.
+        S10 SSR, lazy features and proving app — needs S6, S8 and S9; gate @V10.
+        S11 Story playback — needs S7 and S8; follows the version 1 gates; gate @V11.
+
+decisions
+    D1  Structure is data and compiles to one representation
+        Targets, operations, outcome edges and dependencies are declared as data; callbacks compute
+        values. Inspection and tools read the same compiled structure without running app behaviour.
+    D2  One canonical form per concept
+        A concept has one authoring form and one meaning across runtime, tools and tests.
+    D3  Agents are the primary authors
+        Likely authoring mistakes become type errors, check findings or actionable diagnostics;
+        failures preserve valid application state.
+    D4  Effect 4.0.5 is the authority; services are Layers
+        Use its Schema, Layer, Duration, Schedule, Stream and KeyValueStore where applicable.
+        Runtime services and Story fixtures are Effect Layers.
+    D5  Authoring returns values and throws one FlowError
+        Authoring calls return their values directly; invalid construction throws FlowError as
+        specified by @plan.Diagnostics.O1.
+    D6  Sensitive values never leave the Runtime raw
+        A value is sensitive when its Schema is annotated sensitive: true or is Schema.Redacted, at
+        any depth, entity fields included. Sensitive values are omitted from server-rendering
+        payloads (@plan.ServerRendering.O3) and digested in exported evidence (@plan.Inspection.O5);
+        in-process reads and persisted storage keep them faithfully (@plan.Persistence.D1).
+constraints
+    C1  Archived Plans are provenance only
+        Nothing under workflow/plans/archive or workflow/tasks/archive establishes a requirement.
+        Silence in a current plan does not import an archived rule; unresolved behaviour belongs in
+        the owning capability plan.
+    C2  Version 1 scope
+        Include Next.js SSR hydration, lazy features and persistence with second-tab refusal
+        (@plan.Persistence.O7). Exclude React Suspense, multi-tab sharing, sync engines and
+        cross-origin sync.
+    C3  Toolchain
+        Use Node 22.18+, pinned nub@0.7.5, TypeScript 7.0.2, Vite Plus and Effect 4.0.5. No unpinned
+        dependencies or erasure of public type information to satisfy proofs.
+verification
+    V1  S1: authoring type proofs pass (@plan.Machines.V1, @plan.Operations.V1,
+        @plan.EntityDomains.V1, @plan.Testing.V1).
+    V2  S2: diagnostics and structural proofs pass (@plan.Diagnostics.V1 to V4, @plan.Machines.V2).
+    V3  S3: turn, actor, context and lifecycle proofs pass (@plan.Machines.V3 to V9,
+        @plan.Runtime.V1 to V7).
+    V4  S4: read, commit, stream and lane proofs pass (@plan.Operations.V2 to V10).
+    V5  S5: entity domain and property-test proofs pass (@plan.EntityDomains.V2 to V5,
+        @plan.Testing.V6).
+    V6  S6: persistence proofs pass (@plan.Persistence.V1 to V9).
+    V7  S7: Story, fixture, checkpoint and model proofs pass (@plan.Testing.V2 to V5, V8).
+    V8  S8: React proofs pass (@plan.React.V1 to V5).
+    V9  S9: inspection and CLI proofs pass (@plan.Diagnostics.V5, @plan.Inspection.V1 to V7,
+        @plan.CommandLine.V1 to V7).
+    V10  S10: SSR, lazy-feature, property and installed-consumer proofs pass
+        (@plan.ServerRendering.V1 to V10, @plan.React.V6, @plan.LazyFeatures.V1 to V7,
+        @plan.Testing.V7, @plan.Package.V1 to V4).
+    V11  S11: playback proofs pass (@plan.Testing.V9).
+questions
+    Q1  Deferred to build time
+        Algorithm port selection and module layout. Stage task breakdown and scheduling of the S7
+        infrastructure gate. Performance measurements and budgets within the owning capability
+        contracts.

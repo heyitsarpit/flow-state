@@ -2,6 +2,8 @@
 
 Source: [Effect v4 `Stream` API](https://www.effect.website/docs/v4/api/effect/Stream). Examples assume `import { Effect, Stream } from "effect"`.
 
+`Stream` represents a resource-safe sequence of values over time, combining incremental pulls, backpressure, effects, failure, interruption, and cleanup.
+
 ## API index
 
 1. [Stream.Stream](#streamstream)
@@ -143,7 +145,7 @@ yield* Stream.runForEach(Stream.make("a", "b"), (value) => Effect.log(value));
 Use the consumer as the final stage of a filtered event pipeline when each accepted event has an effectful side effect.
 
 ```ts
-const persist = (event: { readonly kind: string }) =>
+const persist = (event: { kind: string }) =>
   Effect.log(`persisting ${event.kind}`);
 
 yield* Stream.fromIterable([

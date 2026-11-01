@@ -2,6 +2,8 @@
 
 Source: [Effect v4 `Clock` API](https://www.effect.website/docs/v4/api/effect/Clock). Examples assume `import { Clock, Effect } from "effect"`.
 
+`Clock` provides current-time and sleep operations as an injectable service, keeping time-dependent programs replaceable in deterministic tests.
+
 ## API index
 
 1. [Clock.Clock](#clockclock)

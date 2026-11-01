@@ -2,6 +2,8 @@
 
 Source: [Effect v4 `Chunk` API](https://www.effect.website/docs/v4/api/effect/Chunk). Examples assume `import { Chunk } from "effect"`.
 
+`Chunk` is an immutable, efficient sequence for batching, transforming, and traversing values without exposing its internal representation.
+
 ## API index
 
 1. [Chunk.Chunk](#chunkchunk)

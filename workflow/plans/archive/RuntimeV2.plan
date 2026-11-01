@@ -1,0 +1,812 @@
+plan RuntimeV2
+title   Runtime ownership and actor lifecycle
+status  archived
+goal
+    Realize the migrated vNext requirements in one managed runtime with closed application
+    admission, explicit identity, ordered actor publication, and lifecycle-safe host
+    integration. This Plan owns migrated semantics under @plan.Verification.D1; source
+    contracts supply provenance and trace IDs. The rewrite is incomplete, so this Plan
+    claims no implementation or product cutover; see @plan.Cutover.O3 and @plan.Cutover.V7.
+outcomes
+    O1  Definitions, machine behavior, input, and state
+        Definition is the trusted in-process TypeScript boundary for authoring one machine.
+        It includes explicit identity, named state/event schemas, input, provider selectors,
+        a pure initial-memory factory, and a flat named operation catalogue. Definition
+        describes one complete static actor family and contains no transition or activity
+        behavior. A package-private Effect Schema synchronously decodes the
+        ordinary authored object before nominal definition, state-token, event-token,
+        event-envelope, and context-selector values are constructed. Authors use
+        callbacks or null for events; they do not import or supply Schema values.
+
+        Authored IDs and local state/event names retain exact spelling. Each is
+        non-empty and at most 256 UTF-8 bytes; reject C0 controls, DEL, lone surrogates,
+        and NUL before a value becomes definition-derived or durable identity. Static
+        types preserve exact literals but do not claim UTF-8-byte validation. Do not
+        normalize Unicode or use locale comparison. Composite IDs use a fixed namespace
+        tag and length-prefixed UTF-8 segments of the form <utf8ByteLength>:<segment>;
+        delimiter concatenation is not identity. Use host-neutral WHATWG UTF-8 via
+        TextEncoder. Reject lone surrogates with String.prototype.isWellFormed when
+        available or a small equivalent fallback. Keep Node Buffer outside the package
+        contract. Supported hosts must produce identical validation and encoding. Stable
+        actor refs use actor: followed by length-prefixed machine-ID and authored-ID
+        segments; opaque refs are runtime-local with no durable form.
+        State tokens preserve complete paths such as S.ACTIVE.S.EDITING; events use
+        one machine-wide protocol.
+
+        Accept only complete definition-derived tokens and stable-ref encoding. Reject
+        invalid names, normalization-dependent identity, locale ordering, raw delimiter
+        IDs, partial or duplicate declarations, excess top-level fields, and invalid
+        declaration kinds. Reject event payloads that are arrays, have custom prototypes,
+        or contain an authored type field.
+        The authoring boundary makes no stable rejection or error-translation promise for
+        proxies, throwing getters, descriptor tricks, or symbols. The same limit applies
+        to sparse arrays, custom container prototypes, and mutation during construction.
+        This boundary is not a security boundary against the caller.
+        Equal source spellings are equal only by exact spelling; composed and decomposed
+        spellings remain distinct.
+
+        A machine is reusable behavior bound to one definition. One actor is one live
+        instance with its own ref, mailbox, state, memory, context, operation ownership,
+        publications, and lifecycle. Machine behavior owns transition legality,
+        guards, memory updates, redirects, timers, activities, compound behavior, and
+        context-to-event registrations. Recursive substates share the actor memory,
+        context, event protocol, mailbox, operations, and lifetime; they have no actor,
+        input, completion, snapshot, or address. Machine states are mutually exclusive
+        durable modes; resource, transaction, stream, and timer statuses are overlapping
+        operation lifecycles, not a Cartesian state product. Any number of independent
+        actors may use one machine. Child actors, child inputs/completions/addresses,
+        and operation statuses as machine states are excluded.
+
+        Input is supplied once when a fresh actor is created. The sole source for
+        InputOf and MemoryOf is memory: ({ input }) => Memory; omitting its argument
+        fixes input to void. Memory is actor-local mutable domain data, changed only by
+        accepted machine transitions; it is not cache, server projection, operation
+        status, or an escape hatch. Context is a pure inherited projection from exact
+        provider refs. Restored actors retain serialized memory and never replay input
+        or invoke the initializer. Input never changes on a running actor and does not
+        classify local versus shared actors.
+
+        Ordered context turns may change context. When context identifies another domain
+        instance, the host replaces or re-keys the actor. It does not retain memory across
+        that identity change.
+
+        Definition construction decodes static shape once and returns Result.
+        Machine construction consumes that typed success value, tokens, selectors,
+        operations,
+        and retained initializer. It does not import the private Schema, re-decode
+        configuration, or repeat definition validation. A fresh actor invokes the pure
+        memory factory exactly once with input, or materializes canonical empty memory.
+        Root and entered compound defaults resolve to one exact leaf; redirects stabilize
+        outermost-to-innermost without intermediate publication or work. Restore installs
+        materialized memory without initialization or input replay. Machine behavior
+        thereafter receives memory, context, state, and events, not original input.
+        Initializer/selector/redirect defects abort admission without partial actor
+        escape.
+
+        State declarations are recursive, exact, and at most ten levels deep. A leaf is
+        a string; a compound is a single-key object with an ordered state list. Root and
+        compound configuration requires default and exact nested states. Public state is one
+        definition-derived active-leaf token. `matches` accepts that
+        leaf or an active ancestor. `reenter` names an exact active boundary. It releases
+        that boundary's active path and re-enters its target inside it. Inactive, foreign,
+        or non-containing boundaries reject. Redirects stabilize outermost-to-leaf and preserve
+        authored order per node. Terminal-looking leaves remain ordinary leaves: no final kind,
+        parent completion, final output, auto-disposal, stream completion, or mailbox
+        shutdown. Compound activities/timers own active lifetimes. AppPlan cannot grow
+        after construction.
+    O2  Closed application graph and durable identity
+        A module is inert tooling metadata with a unique app-local ID and exact keyed
+        machines. An app has an explicit ID, persistence version, ordered unaliased
+        modules, and AppPlan. Flattening preserves machine property names. Duplicate
+        durable machine IDs, machine values, or tooling owners fail even where property
+        names differ. App IDs are explicit and collision-free. A machine's explicit id
+        is durable machine/artifact identity; an App.M property is only an ergonomic
+        TypeScript key. Module IDs group CLI slicing, traces, inspection, behavior
+        artifacts, and module diffs, but are not machine, actor, persistence, context,
+        runtime, or operation identity. Renaming/moving tooling ownership is
+        artifact-breaking: use a different group/path and no silent compare/alias;
+        runtime/persistence identity stays compatible and history needs migration.
+        Local, shared, and Story-local creation may use only machines listed in App.M.
+
+        Operation descriptors are inert reusable configuration for one named resource,
+        transaction, or stream family. Definitions admit them through flat named
+        operations; machines receive exact actor-bound families through O. Descriptor
+        ID names a family, never parameterized work. Declaring/reading a descriptor,
+        projecting a key, or constructing an unreturned plan starts no work. The named
+        catalogue is closed: descriptor-specific key, passive getData/getState,
+        resource lookup/subscribe/refetch/setData/actor-owned cancel, transaction
+        commit/cancel, and stream subscribe only. No generic registry, operation
+        reference, bound entry, or public enumeration.
+
+        P is complete executable input retained by a live lookup, transaction attempt,
+        or stream subscription; it may contain clients/functions and is never identity.
+        K is the synchronously projected ordered canonical tuple. Resource/transaction
+        identity is descriptor ID plus K; a live stream also retains its declaration
+        slot. Service dependencies belong to inferred R; runtime-owned capabilities
+        stay outside P. Canonicalization accepts ordinary dense arrays and plain records,
+        then copies them into Flow-owned containers. It sorts record keys and normalizes
+        -0 to 0. It rejects hostile reflection and unsupported values, then uses the
+        bounded UTF-8 KBytes grammar. Capability, tenant, account, network, permission,
+        session, and every
+        result-changing discriminator must be in K; runtime partitioning is not a
+        substitute. Do not treat P as identity, reconstruct P from K, add a second
+        identity projection/custom equality/hash, or omit result-changing discriminators.
+        Equal canonical keys mean equivalent canonical results only within one runtime
+        identity domain. Exact identity laws are owned once by @O2 and are referenced by
+        @plan.OperationsV2.O1, @plan.OperationsV2.O2,
+        @plan.OperationsV2.O3, and @plan.OperationsV2.O4.
+
+        Keep machine, actor, operation, Story, and recipe identities separate:
+
+        - Each actor has exact `ActorRef<M>`. Stable refs are durable and shared; opaque
+        refs are local to one Runtime.
+        - Operation identity is descriptor ID plus K. P need not be reconstructible.
+        - A Story recipe uses object identity within one run. It carries exact machine,
+        fresh input, and compatible bindings, but no Runtime or live owner.
+        - `RunLocalId` identifies a Story run/recipe. `ActorIncarnationId` identifies one
+        Runtime lifetime; one recipe may create multiple incarnations.
+        - Descriptor IDs follow definition-name grammar and validate during pure app
+        compilation.
+
+        Proposed module/app example from CONTRACT.md §4 (provenance only; not a new API
+        commitment):
+        ```ts
+        const CoreModule = module({ id: "core", machines: { router: routerMachine, auth: authMachine } });
+        const TodoApp = app({
+          id: "todo-app",
+          persistenceVersion: "1",
+          modules: [CoreModule, TodosModule],
+        });
+        TodoApp.M.router;
+        ```
+    O3  Runtime construction, readiness, and admission
+        Readiness is private state exposed only by runtime.ready(). It starts bootstrap
+        at most once and caches its terminal Exit. No real handle, lease, or command
+        escapes before graph seal and readiness; the sole exception is an inert prepared
+        React handle. The phase table lists constructed, booting, ready, failed, and
+        disposed. Do not publish a phase
+        union or second readiness API. Failure closes admission; disposal during
+        construction/bootstrap wins, cancels bootstrap, reverses acquired ownership,
+        and terminalizes. Private readiness state never becomes a machine event.
+
+        Phase boundary table for the private runtime lifecycle:
+
+        | Phase | Admission | Required boundary |
+        | --- | --- | --- |
+        | constructed | none | service-free shell only |
+        | booting | bootstrap/activation | prepare, Implementation, install, ensure, seal |
+        | ready | ordinary work | all attached actors crossed activation barrier |
+        | failed | closed | cleanup only |
+        | disposed | closed | terminal |
+
+        `runtime.ready()` follows the selected restore order:
+
+        1. Read, decode, and validate v2 records; prepare detached resource, overlay,
+           and actor data. Do not install StoreKernel state, initialize or register
+           actors, or restore operations.
+        2. Acquire Implementation services.
+        3. Install prepared store state, declared persistable actors, and operations;
+           restore provider actors before consumers.
+        4. Complete initial ensures and resolve exact context bindings.
+        5. Seal the graph, then activate actors.
+        6. Expose handles only after activation.
+
+        Mutable post-start hydration is forbidden. A capture cut is context-closed, between
+        completed propagation waves, and retains exact binding refs/provider revisions.
+        Reject missing, foreign, duplicate, or cyclic providers before activation. Reject
+        partial graph escape and opaque local provider promotion, recreation, substitution,
+        or rebinding. Reject capture mismatch. ConcurrentDehydrate is retryable;
+        NonDurableContextProvider is not.
+
+        runtimeSetup names an app and complete Implementation when inferred requirements
+        are not never. Resource, transaction, stream, machine, module, and app types keep
+        the complete inferred environment. Runtime removes only Flow-owned Scope.Scope;
+        descriptor R remains raw. Omitted Implementation is valid only for never
+        requirements. Implementation acquisition failure is readiness failure, never
+        an operation outcome; services are installed only at the runtime boundary.
+        Definition/machine compilation exposes Schema-backed Diagnostic through Result;
+        expected failures use no feature-owned Error class or Data.TaggedError carrier.
+
+        Runtime construction example:
+        ```ts
+        import { Effect } from "effect";
+        
+        const setup = flow.runtimeSetup({
+          app: TodoApp,
+          implementation: TodoLive,
+          persistence: persistence({ storage, scope: "user:42" }),
+        });
+        
+        const runtime = setup.construct();
+        await Effect.runPromise(runtime.ready());
+        const lease = runtime.ensureActor(TodoRefs.primary, {
+          input: { userId: "user-42" },
+          contextBindings,
+        });
+        lease.actor.send(Todo.E.RefreshRequested());
+        ```
+        RuntimeSetup discovery is synchronous/inert; construct returns the runtime handle.
+        Detached preparation, Implementation acquisition, prepared-state installation,
+        initial admission, graph sealing, and activation occur at ready. ready is the
+        only public readiness Effect.
+        Only a Runtime bridge or final host adapter executes it. Host ingress and bridge
+        ownership are detailed in @plan.Hosts.O2. Internal services and
+        workflows return Effects with Diagnostic as expected failure and preserve Cause
+        for defects/interruption. Convert each foreign Promise API once in a named
+        Effect.tryPromise({ try, catch }) adapter; do not nest conversion or runners.
+
+        Stable actor refs are inert and machine-branded. `actorRef(machine, id,
+        { persist?: boolean })` contains identity only. Its wire form is `actor:` plus
+        length-prefixed UTF-8 machine-ID and authored stable-ID segments.
+
+        - `ensureActor` restores or creates one shared actor and returns `{ actor, dispose }`.
+        - Concurrent ensures join one construction.
+        - `getActor` is lookup-only; it never creates, adopts, leases, or grants disposal.
+        - `createActor` always makes a fresh local actor with an opaque ref and no stable ID.
+        - A ref is branded to its exact machine, not one app. Runtime app identity
+          qualifies persisted actor identity.
+        - Each stable ref per runtime incarnation has one shared lease and lifetime.
+          There are no per-caller refcounts.
+        - Boot-restored actors receive the runtime lease before handles escape.
+        - If Runtime does not ensure a stable actor, runtime ownership lasts until explicit
+          disposal or runtime shutdown.
+        - Stable disposal tombstones that ref until runtime shutdown. Another runtime may
+          reuse it.
+
+        Exact context bindings map each declared slot to one provider ref. Missing,
+        ambiguous, foreign, mismatched, disposed, tombstoned, cyclic, or opaque-provider
+        cases fail before side effects. Admission validates the complete binding graph
+        atomically and rolls back in reverse order.
+
+        Dehydration includes every registered, non-disposed, durable stable actor,
+        including suspended and boot-restored actors. It also includes their transitive
+        stable-provider closure. It excludes local, disposed, and tombstoned actors.
+        Opaque providers fail closed.
+
+        Post-bootstrap `ensureActor` and `createActor` follow this admission sequence:
+
+        1. Validate app/plan provenance, machine/ref identity, input, bindings, providers,
+           tombstones, duplicate instance identity, and cycles before registry or
+           StoreState mutation.
+        2. Install a silent context baseline and logical edges. Attach and activate before
+           exposing the lease.
+
+        Concurrent ensures for one stable identity join one terminal owner admission.
+        Failure before lease visibility reverses staged work, edges, mailbox, registration,
+        and prepared actor. Failure after visibility uses production disposal and retains
+        cleanup truth. No partial handle, snapshot, generation, or evidence may escape.
+
+        Persistence provider configuration and codec/storage ownership belong to
+        @plan.Artifacts.O1. Runtime sequences that provider with actor restoration.
+        Persistence is one inert RuntimeSetup host provider. It owns storage, codec,
+        restoration, observation, ordered writes, and cleanup. `persist` is declaration
+        metadata on stable refs or named resource, transaction, and stream descriptors.
+        It defaults to false and is not identity.
+
+        Persistable actors capture complete stable snapshots. Operations contribute only
+        their defined family facts. Persistence does not choose the durable app set. An
+        identity-only filter may exclude declared entries but cannot select undeclared
+        entries. The codec encodes and decodes application values. Its default accepts
+        bounded JSON-safe values and rejects unsupported values without silent coercion.
+        Persistence is not part of RequirementsOf<App>.
+        Runtime readiness validates providers, codecs, AppPlan, refs, input, bindings,
+        requirements, tombstones, cycles, persisted identity/versions/bounds, and context
+        closure before activation/handle escape.
+
+        CONTRACT.md §§4–5 are unaccepted proposal provenance and do not override this Plan.
+        Its module/app example is retained under @O2. Its actor/lease usage is future
+        target only; the proposal says its temporary shell has only app, construct(),
+        and ready(). The proposal's temporary `ready` lazily acquires complete
+        Implementation providers
+        sequentially once per shell. Each shell caches its first terminal Exit exactly
+        once: success, typed ImplementationError failure, defect, or interruption. The
+        proposal preserves typed failure, defect, and interruption in Cause. That
+        shell has no persistence, actors, Effect bridges, lifecycle, disposal, or
+        Diagnostic mapping. This is proposal provenance, not a claim about current code
+        or an accepted replacement for this Plan's requirements. Keep the complete future target
+        separate. Readiness maps provider, storage, codec, and restoration failures to
+        Effect<void, Diagnostic>. It includes Runtime bridges, actor methods, and
+        asynchronous disposal.
+
+        CONTRACT.md §4 future-target actor/lease illustration (proposal provenance):
+        ```ts
+        const ref = actorRef(editorMachine, "primary-editor", { persist: true });
+        const sharedLease = runtime.ensureActor(ref, { input, contextBindings });
+        const sharedActor = runtime.getActor(ref);
+        const localLease = runtime.createActor(editorMachine, { input, contextBindings });
+        await sharedLease.dispose();
+        ```
+
+        The ordinary actor handle exposes only `actor.ref`, `actor.send(event): void`,
+        `getSnapshot()`, and `actor.snapshots`. It grants no disposal, ownership, mailbox,
+        receipt, raw Cause, or operation-registry authority.
+
+        `send` synchronously admits the exact typed event to the production mailbox and
+        returns void. It yields no Promise, Effect, Fiber, snapshot, actor, acknowledgment,
+        or subscription. A synchronous admission error is reported before work. Only an
+        owner lease or whole-runtime disposal owns actor disposal.
+
+        CONTRACT.md §5 proposed Implementation illustration and surface:
+        ```ts
+        const TodoLive = Implementation.succeed(
+          TodoGateway,
+          TodoGateway.of({
+            list: ({ listId }, { signal }) => fetchTodos(listId, { signal }),
+            add: ({ listId, title }, { signal }) => createTodo(listId, title, { signal }),
+          }),
+        );
+        const TodoStory = Implementation.succeed(
+          TodoGateway,
+          TodoGateway.of({
+            list: () => Effect.succeed(initialTodos),
+            add: ({ title }) => Effect.succeed({ id: "todo-1", title, completed: false }),
+          }),
+        );
+        const TodoWithClock = Implementation.merge(TodoLive, ClockLive);
+        ```
+        The proposal allows exactly three namespace methods: `succeed`, `effect`, and
+        `merge`.
+
+        - `succeed` is a complete synchronous, non-failing provider.
+        - `effect` acquires at most once per Runtime. Its typed error is an implementation
+          readiness failure. Runtime owns its scope and finalizer.
+        - `merge` composes providers without changing service identity.
+
+        Complete generic signatures for `effect` and `merge` remain unpublished. The
+        proposal allows no further method. Duplicate service identity rejects, and order
+        never selects a winner. These details remain proposal provenance unless an
+        owning Plan confirms them.
+
+        CONTRACT.md §5 proposed runtimeSetup signatures:
+        ```ts
+        function runtimeSetup<A extends App>(options: {
+          app: A;
+          // Deferred until the Persistence owner lands; retained for restoration.
+          // persistence?: Persistence;
+        }): RuntimeSetup<A, never>;
+        function runtimeSetup<A extends App, ImplementationError>(options: {
+          app: A;
+          implementation: Implementation<RequirementsOf<A>, ImplementationError>;
+          // Deferred until the Persistence owner lands; retained for restoration.
+          // persistence?: Persistence;
+        }): RuntimeSetup<A, ImplementationError>;
+        ```
+        Proposed accepted-call examples:
+        ```ts
+        runtimeSetup({ app: PublicApp });
+        runtimeSetup({ app: ProjectApp, implementation: ProjectLive });
+        ```
+        The proposal limits the first overload to never requirements and otherwise
+        closes Implementation over RequirementsOf<App>. Its temporary ready error is
+        ImplementationError, not Diagnostic. Do not equate that proposal with the
+        normative future target.
+
+        CONTRACT.md §5 proposed future complete-runtime usage:
+        ```ts
+        const setup = flow.runtimeSetup({
+          app: TodoApp,
+          implementation: TodoLive,
+          persistence: persistence({ storage, scope: "user:42" }),
+        });
+        
+        const runtime = setup.construct();
+        await Effect.runPromise(runtime.ready());
+        const lease = runtime.ensureActor(TodoRefs.primary, {
+          input: { userId: "user-42" },
+          contextBindings,
+        });
+        lease.actor.send(Todo.E.RefreshRequested());
+        ```
+        Proposed future readiness validates all inputs before activation or handle escape:
+
+        - Validate providers, codecs, AppPlan, refs, input, bindings, requirements,
+          tombstones, and cycles.
+        - Validate persisted identity, versions, bounds, and context closure.
+        - Restore providers before consumers, install derived context silently, and seal
+          the graph.
+        - Activate actors before exposing handles.
+
+        Stories, React, SSR, requests, live hosts, and CLI use these same owners. Private
+        phases, Effect runtime composition, cells, queues, and shell layout are not
+        compatibility surfaces when these conditions hold:
+
+        - Construction stays inert.
+        - Readiness starts at most once and caches terminal Exit.
+        - No usable handle escapes early.
+        - Failure, interruption, and disposal release each acquired owner exactly once,
+          without partial graph or evidence.
+    O4  Actor turns, publication, and failure truth
+        Each accepted event/timer macrostep follows this order:
+
+        1. Select one transition and evaluate its guard.
+        2. Evaluate `updateMemory`, then actions. Apply target and memory, then stabilize
+           redirects.
+        3. Materialize and validate the complete finite-action batch. Stage actor/store
+           changes.
+        4. Commit and publish, then start or join asynchronous work.
+
+        The first authored eligible transition wins. No winning transition is a no-op
+        without issue or transition. `updateMemory` shallow-merges once against pre-turn
+        memory; redirects do not rerun it.
+
+        Redirects read candidate state, memory, and snapshot, never the original event.
+        They preserve authored transition order and re-enter only their declared boundary.
+        Compound redirects remain applicable while a descendant is active, including
+        after descendant transitions or memory updates. Active-path compound redirects run
+        outermost to leaf, preserving authored order within each node.
+
+        `can(event)` performs the same pure eligibility query. It does not mutate, publish
+        issues, redirect, materialize actions, or admit operations.
+        First-declined guards stop later callbacks. Candidate reads are unavailable to
+        actions. A complete invalid batch leaves no valid prefix. Microstep 101, duplicate
+        ancestor/descendant handlers, and timer-inferred finite actions reject. Planning
+        defects discard the whole candidate with no state, memory, activity, occurrence,
+        store, or external-work residue.
+
+        Timer guards/updates receive state, memory, snapshot, and timer { name,
+        startedAt, dueAt }. Timers target explicit events only; an after timer may target
+        an explicit refresh event, never finite actions directly. Timer-owned actions
+        are not inferred. The timer turn and its explicit target event are separate FIFO
+        macrosteps, each with its own pre-turn memory and one optional shallow-merged update.
+        Append the target event after timer publication; already queued work may intervene.
+        Accepted actions materialize finite plans only after guard
+        acceptance; onMemory reconciles continuing plans separately. User Effects never
+        run during planning or before the actor snapshot. One private CommitPlan holds
+        store changes, desired state-activity ownership, primitive facts, mapped-operation
+        intentions, and issues. Commit reserves generations, applies atomic actor/store
+        changes, stages work, then starts/stops Effects only from post-publication
+        reconciliation queued on the same mailbox. Projection-only facts reread
+        authoritative state and publish one full snapshot without transition evaluation;
+        mapped events are later ordinary turns. No second mutable plan owner exists.
+
+        | Stage | Reads | May publish/acquire |
+        | --- | --- | --- |
+        | plan | one pre-turn snapshot + causal event | nothing |
+        | candidate | target, updated memory, redirects | nothing until valid |
+        | validate | complete finite-action batch | nothing on failure |
+        | commit | staged actor/store facts | one atomic publication |
+        | reconcile | committed plan | async work after publication |
+
+        A successful turn exposes one atomic committed actor/store cut. No observer sees
+        an initiating store revision without its corresponding committed actor snapshot.
+        Accepted evidence corresponds only to the committed cut and is globally ordered.
+        Acknowledgment follows actor/store publication and evidence acceptance but never
+        waits for user Effects. StoreFanout preserves causal order. Permit/reservation/
+        queue/gate choreography is private. Issue-only publication advances only actor
+        publication revision; ordinary machine publication advances actor publication
+        and machine-turn revisions. Sequence overflow after mutation, inline sinks,
+        acknowledgment after user Effect settlement, disposal interrupting half a
+        published turn, and stale/partial fanout are forbidden. Runtime owns actor
+        publication; Store commit ownership and the capture barrier are in
+        @plan.OperationsV2.O1.
+
+        Public send(event): void admits synchronously and returns void; it does not await
+        Implementation, a turn, or async work. It returns no Promise, Effect, Fiber,
+        snapshot, actor, acknowledgment, or subscription. Internal/Story dispatch creates
+        one private acknowledgment synchronously. For publishing turns it resolves after
+        publication and TurnRecord acceptance, before sink processing or later work.
+        A no-handler or all-guards-decline event completes its ordered eligibility decision
+        as a silent no-op, with no publication, issue, TurnRecord, or associated revision.
+        Its acknowledgment still settles once; unused reservations return without replay.
+        Story send waits
+        only for that acknowledgment; contained-defect acknowledgment follows its
+        issue-only publication/TurnRecord. No direct transition invocation, unrelated
+        ready-work draining, or acknowledgment for discarded candidate work.
+
+        Each public snapshot comes from one published turn. It contains:
+
+        - Exact active leaf state, memory, inherited context, lifecycle, and issues.
+        - Safe-integer public revision and observed store revision.
+        - Typed named-operation readers and resource, transaction, and stream projections.
+        - Timer state.
+
+        Callback state is the exact active leaf token. `matches` may recognize that leaf
+        or an active ancestor. Every machine-turn snapshot is complete. Projection-only,
+        lifecycle-only, and issue-only snapshots are also complete and follow their own
+        revision effects. Private machine-turn revision is not a second public field.
+        `getSnapshot` and snapshot streams expose one value per publication.
+
+        Streams replay the latest truth to late subscribers. Prepared subscriptions replay
+        prepared, then become live at activation. Suspended subscriptions replay suspended
+        once and complete. Disposed subscriptions replay terminal state, then complete.
+        Disposed streams emit through terminal state and complete. Lifecycle snapshot is
+        published before lifecycle evidence. Do not expose receipts, diagnostics, pending
+        outcomes, handled, errors, raw Cause, child
+        projections, nested XState-style state, final-node kind, actor output, or a second
+        public revision. Terminal-looking leaves do not complete actor, stream, or
+        mailbox.
+
+        Retain Exit and full Cause through classification with Effect.exit/onExit. Public
+        diagnostic precedence is defect, typed failure, then interruption-only; empty or
+        unclassifiable failure is invariant defect. Only FlowDisposeError and
+        FlowStoryExecutionError preserve complete Cause.Cause<unknown>. Squash only at
+        intentionally lossy JS throw/rejection boundaries. Do not use Effect.result as
+        complete truth, Cause.squash internally, or expose raw Cause in actor snapshots.
+        Runtime bridges and final host adapters are the only runner edges. Reusable
+        workflows, services, or adapters do not call runPromise*, runSync*, or related
+        runners. Effect.promise is forbidden. Map Promise rejections in a named
+        Effect.tryPromise({ try, catch }) adapter.
+
+        For a callback defect before commit, discard the candidate and retain prior
+        state/memory/bindings/store revision. Publish one issue-only active snapshot and
+        private ordered stable diagnostics; admit no occurrence/work/store change and do
+        not retry. Invariant defect closes admission, fails current/buffered acknowledgments,
+        finalizes work, and publishes disposed fatal/cleanup truth. After commit,
+        publication uses non-failing primitives; abandoning it is invariant failure.
+        Guard, redirect, timer, memory, binding, key, target, and selector failures share
+        the prior-truth rule. Do not publish a partial candidate, retry issue-only work,
+        or claim committed StoreState was rolled back because snapshot publication failed.
+    O5  Actor lifecycle and context
+        Lifecycle is exactly prepared | active | suspended | disposed. Only an explicit
+        owner lease disposes an actor individually. Disposal is asynchronous, idempotent,
+        and terminal. It closes admission before cleanup; Runtime disposal subsumes leases.
+        Stable shared disposal leaves a Runtime-incarnation tombstone until Runtime
+        disposal. Reject disposal while active or suspended consumers remain bound, and
+        name dependent refs and keys.
+
+        React cleanup is genuine suspension:
+
+        - Preserve the ref, handle, state, memory, context, operation records, cursors, and
+          absolute deadlines.
+        - Close command admission at one linearization point.
+        - Drain pre-close commands FIFO.
+        - Detach registrations, subscriptions, activities, and timers.
+        - Interrupt unsettled finite work. Close streams and retain cursors/pending truth.
+        - Publish suspended only after cleanup.
+
+        React attachment details belong to @plan.Hosts.O3. Resume waits for
+        finalizers, reacquires continuing work, reinstalls
+        absolute timers, performs at most one overdue refresh, and routes provider changes
+        through one ordinary context wave. It never replays input, initialization,
+        committed events, finite actions, or emissions. Resume after a cleanup defect is
+        blocked until owner/runtime disposal. Suspended actors retain logical context
+        edges and no live attachment resources. Lifecycle transitions:
+
+        | From | Allowed transition | Meaning |
+        | --- | --- | --- |
+        | prepared | active | attach/activate same prepared actor |
+        | active | suspended | serialized attachment cleanup |
+        | suspended | active | resume after cleanup/finalizers |
+        | any non-disposed | disposed | owner/runtime terminal disposal |
+        | disposed | none | terminal |
+
+        CONTRACT.md §4's lifecycle/attachment table is proposal provenance only. It does
+        not promote that proposed API surface over this Plan's requirements:
+
+        | Lifecycle | Commands | Attachments |
+        | --- | --- | --- |
+        | prepared | Buffer >=64; exact limit is implementation-defined | Live on activation |
+        | active | Admit | Remain live |
+        | suspended | Reject; do not buffer | Release attachments; retain continuity |
+        | disposed | Reject | Terminal snapshot/replay; complete |
+
+        A handle rejects after disposal. Stable tombstones reject getActor/ensureActor
+        for that Runtime incarnation. Disposal is reverse-dependency ordered and blocked
+        by active/suspended dependents with precise diagnostics.
+
+        React preparation, attachment, command buffering, `useActor`, `useActorByRef`,
+        `useView`, selector equality, and MachineObserver behavior belong to
+        @plan.Hosts.O3. Runtime supplies the prepared actor lifecycle and publications
+        consumed by that host boundary. Operation-reader behavior belongs to
+        @plan.OperationsV2.O4.
+
+        Issue is current structured failure/defect/interruption/cleanup/invariant
+        information. Receipt is causal evidence of accepted/started/published/rejected/
+        interrupted/finalized work; pendingWork is test/tooling inventory, not actor
+        state or settlement. Operational issue identity includes actor incarnation when
+        present. Clearing an owner retains actor incarnation, source, and binding, but omits attempt
+        generation. Later generation success or release by the same owner clears earlier
+        operational occurrences. Later actor lifetimes cannot clear, inherit, or republish
+        them. Invariant/cleanup issues may survive disposed snapshot; private
+        stable diagnostics survive operational-summary clearing. Never treat receipt as
+        actor state or pending inventory as settlement.
+    O6  Stories, evidence, and capture
+        Story construction and command grammar belong to @plan.PublicSurface.O5.
+        Story evidence and capture belong to @plan.Artifacts.O3 and @plan.Artifacts.O7.
+        Runtime owns the production execution path those stories exercise.
+
+        Stories use typed RuntimeSetup, production Runtime, fixture Implementation,
+        exact app refs, Story-local recipes, acknowledged dispatch, and Effect TestClock.
+
+        - Materialize providers before consumers.
+        - Expose handles through leases.
+        - Dispose leases in reverse dependency order on every exit. App
+        Stories use production RuntimeSetup/Runtime and do not inject context directly.
+        Pure model exploration owns its candidate events and contains no Effect.run*,
+        transaction commit, or stream subscription; fixtures may provide static seeds
+        only. App Story cross-actor orchestration uses the real Runtime. Live proof is
+        path.story.run(); do not confuse it with one predicted machine model. Story plans
+        are inert until run(). Recipes are exact-machine/fresh-input/exact-binding
+        descriptions with no runtime, mailbox, snapshot, state, operation binding, lease,
+        or handle. App Stories target exact recipe or app-owned stable ref. Machine
+        Stories own one implicit fresh actor, target-free commands, selected initial
+        context, and setContext. Fixture is per-run environment. Commands are process,
+        advance, advanceTo, advanceToNextTimer, checkpoint, run, and
+        send. setContext appears only on machine Stories. process drains ready work without
+        moving time. Clock movement does not process implicitly. run() is the sole execution
+        boundary. Story plans
+        inject no operation results; complete Implementations supply external behavior.
+        Evidence captures exact actor lookup, runtime.now, runtime.pendingWork, and
+        automatic run.end. Capture does not progress, move time, create/dispose/restore,
+        or perform external work; run.end does not imply completion. Checkpoint is
+        immediate capture. Reject bare app/live runtime Story input, focused
+        boot/memory/state/snapshot overrides, extra actors, direct app-Story context
+        injection, result injection, and package-private mechanisms.
+
+        Evidence hub orders TurnRecord and LifecycleRecord before command acknowledgment.
+        TurnPlan is pure: it applies one command to one actor snapshot and stabilizes
+        redirects. It records intended state/memory, receipt intents, and activity changes.
+        It makes no Effect or completed-Effect claims. Actions materialize finite
+        plans only after guard acceptance; onMemory reconciles continuing plans separately.
+        CommitPlan is package-private reconciliation commands. Both plans remain private.
+        TurnRecord records actual committed facts; LifecycleRecord is private lifecycle
+        evidence, not a machine turn. Runtime-global evidence is ordered before
+        acknowledgment, sinks process asynchronously after ack and never reread mutable
+        actor state or mutate runtime truth. Every successful turn exposes one atomic
+        actor/store cut. Accepted evidence corresponds only to committed cuts. Lifecycle
+        record includes full lifecycle snapshot, actor/app/plan provenance, from/to/cause,
+        publication revision, machine-turn revision, timestamp, and evidence sequence.
+        Allocation/locking/release choreography is private. Sinks are bounded and
+        observational, use one global sequence for lifecycle and machine records, and
+        may truncate only their retained prefix. No inline sink invocation, separate
+        mutable histories, post-publication sequence exhaustion, overflow that blocks or
+        rolls back publication, or synthetic terminal TurnRecord. Acknowledgment follows
+        publication/evidence acceptance without awaiting user Effects; lifecycle snapshot
+        precedes its event. Disposal drains accepted evidence after terminal lifecycle
+        records. Permit/reservation/queue/gate choreography is private.
+
+        A behaviorally visible phased remote lease belongs to an explicitly owned
+        AppPlan actor. A purely operational continuing lease may be Effect.acquireRelease
+        in a scoped stream activity. Normal completion/interruption/release failure are
+        distinct and release occurs exactly once. No child-machine owner, new lifetime
+        registry, hidden cancellation channel, or child-equivalent primitive.
+
+        Public timestamps are integer epoch milliseconds from the Runtime Effect Clock;
+        Stories/evidence use TestClock. Flow copies every envelope, record, array,
+        canonical argument/key copy, reader, issue vector, and snapshot container.
+        Application-owned opaque values retain identity. Checkpoint capture excludes
+        unrelated actors, performs no live lookup from actor(...), releases read leases
+        after `run.end` is captured, and captures `run.end` before cleanup. A Story
+        checkpoint and successful `run.end` share one DehydrateBarrier cut of committed
+        published state. The cut includes static Story closure, one StoreState revision,
+        published actor snapshots, pending work, time, and accepted evidence prefix. Then
+        release leases.
+
+        Capture cannot perform these actions:
+
+        - Mutate prior snapshots or look up a live actor.
+        - Move time or create, restore, or dispose actors.
+        - Perform external work or serialize selected context as a second truth source.
+        FlowStoryExecutionError retains checkpoints/end evidence, failure boundary,
+        ordered cleanup diagnostics, cancellation evidence, and sequence facts;
+        declared Flow errors retain complete Cause. Actor snapshots do not expose Cause;
+        capture and hydration follow @plan.Artifacts.O3.
+
+        Boot is package-private RuntimeSetup data with Flow structural data and opaque
+        application payloads. Persistence produces/consumes it; consumers cannot provide
+        boot, decode, or hydrate. Flow validates structure/identity; applications validate
+        opaque values through codec. Artifacts/CLI represent accepted app Stories, exact
+        actor evidence lookup, run.end, module ownership, compound states, context
+        requirements, lifecycle records, and operation identities. Public boot payloads,
+        decoders, hydration calls, or artifacts omitting required identity/evidence are
+        excluded. Artifact and CLI disposition follows @plan.Cutover.O2; host writes follow
+        @plan.Hosts.O2.
+
+
+        | Owner | Owns | Must not be duplicated by |
+        | --- | --- | --- |
+        | AppPlan | graph; IDs; requirements; ownership; reachability | runtime/adapter/Story/CLI |
+        | RuntimeShell | boot; providers; scopes; readiness; cleanup | React/Story/host callback |
+        | ActorEngine | mailbox, state, publish, cursors, activity reconcile | StoreKernel, React |
+        | StoreKernel | StoreState; generations; overlays; revisions | actor cache/RcMap/adapter |
+        | StoreFanout | revision delivery to actor mailbox | direct StoreState subscription |
+        | owner lease | individual actor disposal | actor handle/ActorRef/React |
+        | host adapter | managed Flow entry | sync runSync mutation |
+
+decisions
+    D1  One compiled graph owner
+        AppPlan resolves the closed graph once for admission, operation ownership, inspection, 
+        fixtures, and tooling. Runtime and hosts consume those indexes.
+    D2  One runtime lifecycle owner
+        RuntimeShell owns bootstrap, readiness, scopes, and cleanup. ActorEngine owns one actor 
+        mailbox and publication; StoreKernel ownership is @plan.OperationsV2.O1.
+    D3  Selected restore order
+        Prepare and validate detached persistence data before acquiring Implementation;
+        install prepared StoreKernel state, actors, and operations after acquisition.
+        WIRE-004–006 provide source traceability. ARCH-008's earlier order is
+        historical and superseded by this selected Workflow order; it creates no open
+        behavior or source-reconciliation question.
+constraints
+    C1  Keep identity and executable input separate
+        Use exact machine, actor, operation, Story, and recipe identity domains. Keep complete 
+        executable P separate from canonical K; @plan.OperationsV2.O1 owns store consequences.
+    C2  Limit Effect execution to host edges
+        Only the Runtime bridge or final host adapter runs Effects. Internal workflows return 
+        Effects and preserve typed failures, defects, and interruption.
+questions
+    Q1  Pinned Effect composition remains open
+        Which Effect rc.112 composition satisfies readiness, actor, and cleanup ownership?
+        Keep recommended service/layer/helper topology nonnormative. Verify APIs before
+        implementation claims.
+verification
+    V1  Definitions and state scope
+        Establish @O1 when these scenarios pass:
+
+        - Compile exact state, event, input, context, and memory literals.
+        - Reject invalid names at byte and control-character boundaries.
+        - Accept state depth ten and reject depth eleven.
+        - Initialize fresh actors once; restore and resume without replay.
+        - Resolve defaults, redirects, and reentry to exact active leaves.
+        - Prove recursive substates share one actor identity and lifetime.
+
+        Candidate paths: `facade.compile.ts`, `actors.test.ts`, and `turns.test.ts` under
+        `packages/flow-state-rewrite/src/runtime-next/test/`.
+        UTF-8, full Schema, and state-depth matrices remain unverified.
+    V2  Closed graph and identity
+        Establish @O2 when these scenarios pass:
+
+        - Preserve exact machine keys when flattening ordered modules.
+        - Reject duplicate machine IDs, machine values, and tooling owners.
+        - Keep module identity separate from machine and durable actor identity.
+        - Resolve descriptors per runtime and reject hostile P/K inputs before work.
+
+        Candidate paths: `assembly.test.ts`, `admission.test.ts`, `facade.compile.ts`,
+        and `structural-copy-owner.test.ts` under
+        `packages/flow-state-rewrite/src/runtime-next/test/`.
+        Exact collision, cross-runtime, and canonical-key cases remain pending.
+    V3  Construction and admission
+        Establish @O3 when these scenarios pass:
+
+        - Keep construction inert and cache one terminal readiness result.
+        - Restore providers before consumers and validate exact context closure.
+        - Join concurrent ensures and roll back invisible admission in reverse order.
+        - Preserve cleanup truth after lease visibility and retain stable tombstones.
+        - Dispose during pending acquisition without leaking partial graph state.
+        - Preserve typed failure, defect, and interruption separately.
+
+        Candidate tests live under `packages/flow-state-rewrite/src/runtime-next/test/`:
+
+        - `runtime-shell-owner.test.ts`, `readiness.test.ts`, and `admission.test.ts`.
+        - `actor-admission.test.ts`, `actor-lease-owner.test.ts`, and `context.test.ts`.
+        Full persistence, codec, and restore coverage remains pending.
+    V4  Turn publication and failure
+        Establish @O4 when these scenarios pass:
+
+        - Order commands, timers, StoreFanout facts, and context facts through one mailbox.
+        - Discard invalid candidates without partial state, memory, store, or work changes.
+        - Return from public send synchronously; acknowledge Stories after publication.
+        - Replay the latest snapshot and complete streams after terminal publication.
+        - Preserve typed failure, defect, and interruption while settling every acknowledgment.
+
+        Candidate paths: `turns.test.ts`, `turn-plan-owner.test.ts`, `actors.test.ts`,
+        `lifecycle.test.ts`, and `actor-evidence.test.ts` under
+        `packages/flow-state-rewrite/src/runtime-next/test/`.
+        Atomic operation/store behavior remains owned by @plan.OperationsV2.O1.
+    V5  Lifecycle and context
+        Establish @O5 when these scenarios pass:
+
+        - Propagate provider waves atomically; reject invalid bindings before side effects.
+        - Preserve actor state and logical context edges across suspension.
+        - Reject suspended commands and never replay input or finite work on resume.
+        - Wait for finalizers before resuming; report dependent-disposal diagnostics.
+        - Replace selector dependencies after evaluation and rerun on matching publications.
+        - Keep passive reads free of actor creation, ownership, and work.
+
+        Candidate tests live under `packages/flow-state-rewrite/src/runtime-next/test/`:
+
+        - `context.test.ts`, `context-wave-owner.test.ts`, and `context-lineage-owner.test.ts`.
+        - `lifecycle.test.ts`, `actor-lease-owner.test.ts`, `copies.test.ts`, and `actors.test.ts`.
+        Host and React proofs remain pending.
+    V6  Stories and evidence
+        Establish @O6 when these scenarios pass:
+
+        - Run live and Story commands through the same production owners.
+        - Keep pure model exploration free of production Effects.
+        - Reject reentrant host mutation and accept evidence before acknowledgment.
+        - Drain accepted evidence during disposal and capture one committed checkpoint cut.
+        - Perform no external work during capture; copy containers and retain opaque values.
+
+        Candidate paths: `evidence.test.ts`, `actor-evidence.test.ts`,
+        `evidence-journal-owner.test.ts`, and `copies.test.ts` under
+        `packages/flow-state-rewrite/src/runtime-next/test/`.
+        Story, host, artifact, persistence, and checkpoint integration proofs remain pending.

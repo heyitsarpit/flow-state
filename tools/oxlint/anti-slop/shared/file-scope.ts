@@ -19,3 +19,17 @@ export function isTestSupportFile(filename: string): boolean {
 		normalized.includes("/test/")
 	);
 }
+
+export function isEffectHostBoundaryFile(filename: string): boolean {
+	const normalized = normalizedFilename(filename);
+	return (
+		isTestSupportFile(filename) ||
+		normalized.includes("/src/runtime/") ||
+		normalized.includes("/src/core/runtime/") ||
+		normalized.includes("/src/cli/") ||
+		normalized.includes("/src/react/") ||
+		normalized.includes("/src/server/") ||
+		normalized.includes("/src/testing/") ||
+		/\/src\/(?:bin|inspect|react-entry|server|testing)\.ts$/u.test(normalized)
+	);
+}

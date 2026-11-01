@@ -1,52 +1,88 @@
-
 # Type-system contract
 
-Status: normative vNext contract
+Status: historical reference only; not active authority.
 
-This file owns inference, variance, `Effect<A, E, R>` propagation, canonical operation typing,
+Current requirements live in [Workflow plans](../../../../workflow/plans/);
+current task status lives in [Rewrite tasks](../../../../workflow/tasks/Rewrite/).
+
+This file recorded inference, variance, `Effect<A, E, R>` propagation, canonical operation typing,
 Implementation closure, actor/ref/lease typing, host selector typing, Story typing, and compile proofs.
-Public authoring shapes are owned by [PUBLIC_API.md](./PUBLIC_API.md); terminology and identity by
+Public authoring shapes were recorded in [PUBLIC_API.md](./PUBLIC_API.md); terminology and identity in
 [GLOSSARY_AND_IDENTITY.md](./GLOSSARY_AND_IDENTITY.md).
+
+## TYPE-000 — Canonical failure channels
+
+- Pure definition and machine authoring carries expected validation and compilation failures as
+  `Result<A, Diagnostic>`. The `Diagnostic` type is the Schema-backed `Schema.TaggedError` class owned by
+  [`ERRORS.ts`](./ERRORS.ts); no feature-owned expected Error or `Data.TaggedError` carrier is permitted.
+- `definition(config)` returns the direct Effect `Result.Result<DefinitionFromConfig<Config>, ReturnType<typeof Diagnostic.Failure>>` value,
+  and each event token call returns `Result.Result<EventEnvelope<...>, ReturnType<typeof Diagnostic.Failure>>`. `EventOf<Definition>` extracts
+  the successful envelope union;
+  it is not a union of Result wrappers.
+- Effectful runtime operations preserve `Effect<A, Diagnostic, R>` at the owning boundary. `Diagnostic`
+  values may be yielded directly or supplied to `Effect.fail`; defects and interruption remain in `Cause`
+  until final classification. Convenience JS throws and Promise rejections are terminal host projections.
+- A foreign Promise conversion is one named adapter using `Effect.tryPromise({ try, catch })`; its `catch`
+  maps `unknown` exactly once to an owned `Diagnostic` and forwards `AbortSignal` when supported. `Effect.promise`
+  and nested runtime runners are not valid reusable implementation patterns.
 
 ## TYPE-001 — Definition literals
 
-~~~ts
-const Todo = definition({
+```ts
+import { Result } from "effect";
+import { definition, Diagnostic } from "flow-state";
+
+type EventResultValue<Value> = Value extends Result.Result<infer Success, ReturnType<typeof Diagnostic.Failure>> ? Success : never;
+
+const TodoResult = definition({
   id: "Todos/Editor",
   states: ["READY", { SAVING: ["REQUESTED", "COMMITTING"] }],
   events: {
     SaveRequested: (title: string) => ({ title }),
-    SaveCompleted: null,
+    SaveCompleted: "bare",
   },
   operations: {
     todo: todoResource,
   },
 });
-type _State = Expect<
-  Equal<
-    StateOf<typeof Todo>,
-    typeof Todo.S.READY | typeof Todo.S.SAVING.S.REQUESTED | typeof Todo.S.SAVING.S.COMMITTING
-  >
->;
-type _Event = Expect<
-  Equal<
-    EventOf<typeof Todo>,
-    ReturnType<typeof Todo.E.SaveRequested> | ReturnType<typeof Todo.E.SaveCompleted>
-  >
->;
-~~~
+if (Result.isFailure(TodoResult)) {
+  // handle TodoResult.failure
+} else {
+  const Todo = TodoResult.success;
+  type _State = Expect<
+    Equal<
+      StateOf<typeof Todo>,
+      typeof Todo.S.READY | typeof Todo.S.SAVING.S.REQUESTED | typeof Todo.S.SAVING.S.COMMITTING
+    >
+  >;
+  type _Event = Expect<
+    Equal<
+      EventOf<typeof Todo>,
+      | EventResultValue<ReturnType<typeof Todo.E.SaveRequested>>
+      | EventResultValue<ReturnType<typeof Todo.E.SaveCompleted>>
+    >
+  >;
+}
+```
+
+Here `EventResultValue<Value>` is the success-value projection of the direct Effect `Result.Result` value. The
+`definition` result is checked before its success value is used; `machine(definitionResult, callback)` performs the
+same internal `Result.match` and does not invoke the callback on a Definition failure.
 
 ### Surface
 
-- `definition` preserves literal ID, recursive exact state tokens, event names/parameter tuples/result
-  payloads, context values, named operation families, input, and memory without `as const`.
+- `definition` returns a direct Effect `Result.Result` while preserving literal ID, recursive exact state tokens,
+  event names/parameter tuples/result payloads, context values, named operation families, input, and memory
+  without `as const`.
 
 ### Rule
 
 - Use const type parameters or equivalently precise package-owned inference. User code needs no `as const`,
   `satisfies`, explicit generics, or wrapper to prevent widening.
 - Event tokens are nominal; structurally similar functions/objects are not assignable. `StateOf` and
-  `EventOf` accept definition or machine and return same exact unions. Ten-level bound is shared runtime/type.
+  `EventOf` accept definition or machine and return same exact unions. The private definition Schema validates
+  the ten-level bound synchronously during definition construction; the public authoring type does not encode
+  recursive depth arithmetic.
 
 ### Accepts
 
@@ -54,7 +90,7 @@ type _Event = Expect<
 
 ### Rejects
 
-- Widened IDs/tokens, structural event impostors, and depth eleven.
+- Widened IDs/tokens and structural event impostors at compile time; depth eleven at construction.
 
 ### Observable guarantee
 
@@ -62,7 +98,9 @@ type _Event = Expect<
 
 ### Proof
 
-- Exact positive token/event and depth-bound compile fixtures.
+- Exact positive token/event compile fixtures and runtime depth-bound fixtures, including exact preservation
+  of accepted non-ASCII literals. UTF-8 byte validity and lone-surrogate rejection are runtime proofs owned
+  by `GLOSSARY_AND_IDENTITY.md` `GLO-01`.
 
 ### Trace
 
@@ -70,16 +108,17 @@ type _Event = Expect<
 
 ## TYPE-002 — Definition-anchored machine inference
 
-~~~ts
-machine(Todo, ({ S, E, O, onContext, onMemory }) => ({
+```ts
+machine(TodoResult, ({ S, E, O, onContext, onMemory }) => ({
   default: S.READY,
   states: { READY: { on: { SaveRequested: { target: S.SAVING.S.REQUESTED } } } },
 }));
-~~~
+```
 
 ### Surface
 
-- `machine(definition, callback)` anchors all inference to the first argument and supplies exact `S`,
+- `machine(definitionResult, callback)` matches the upstream Definition Result before callback execution,
+  anchors all inference to its successful value, and supplies exact `S`,
   `E`, `O`, `onContext`, `onMemory`, `invalidate`, `clear`.
 
 ### Rule
@@ -111,24 +150,30 @@ machine(Todo, ({ S, E, O, onContext, onMemory }) => ({
 
 ## TYPE-003 — One input/memory inference path
 
-~~~ts
-const Editor = definition({
-  id: "Todos/Editor", states: ["READY", "SAVING"], events: { SaveRequested: null },
-  memory: ({ input }: { readonly input: { readonly todoId: string } }) => ({
-    todoId: input.todoId, draft: "",
+```ts
+const EditorResult = definition({
+  id: "Todos/Editor",
+  states: ["READY", "SAVING"],
+  events: { SaveRequested: "bare" },
+  memory: ({ input }: { input: { todoId: string } }) => ({
+    todoId: input.todoId,
+    draft: "",
   }),
 });
-type _Input = Expect<Equal<InputOf<typeof Editor>, { readonly todoId: string }>>;
-type _Memory = Expect<Equal<MemoryOf<typeof Editor>, { todoId: string; draft: string }>>;
-~~~
+if (Result.isSuccess(EditorResult)) {
+  const Editor = EditorResult.success;
+  type _Input = Expect<Equal<InputOf<typeof Editor>, { todoId: string }>>;
+  type _Memory = Expect<Equal<MemoryOf<typeof Editor>, { todoId: string; draft: string }>>;
+}
+```
 
 ### Surface
 
-- Input/memory infer from exactly `memory: ({ input }: { readonly input: Input }) => Memory`.
+- Input/memory infer from exactly `memory: ({ input }: { input: Input }) => Memory`.
 
 ### Rule
 
-- Omitting argument fixes `Input=void`; absent initializer fixes input void and readonly empty memory.
+- Omitting argument fixes `Input=void`; absent initializer fixes input void and empty memory.
 - Input is supplied once to fresh actor and only initializer consumes it; behavior receives memory/context/
   state/events, not original input. Restore installs memory without initializer/input replay. App.M admission
   is independent of input and app compilation creates no actor.
@@ -156,18 +201,18 @@ type _Memory = Expect<Equal<MemoryOf<typeof Editor>, { todoId: string; draft: st
 
 ## TYPE-004 — Causal event narrowing
 
-~~~ts
+```ts
 SaveRequested: {
   target: S.SAVING,
   updateMemory: ({ event }) => ({ draft: event.title }),
   actions: ({ event, memory }) => [O.save.commit({ title: event.title, id: memory.id })],
   reenter: S.SAVING,
 }
-~~~
+```
 
 ### Surface
 
-- Event transition callbacks receive exact causal event and readonly state/memory/snapshot/primitive
+- Event transition callbacks receive exact causal event and state/memory/snapshot/primitive
   registries.
 
 ### Rule
@@ -185,7 +230,7 @@ SaveRequested: {
 
 ### Observable guarantee
 
-- Callback types describe one immutable pre-turn causal input.
+- Callback types describe one pre-turn causal input.
 
 ### Proof
 
@@ -197,10 +242,10 @@ SaveRequested: {
 
 ## TYPE-005 — Resource `P`/`K`/`A`/`E`/`R`
 
-~~~ts
+```ts
 const project = resource({
   id: "projects.by-id",
-  key: ({ id }: Readonly<{ id: string }>) => [id] as const,
+  key: ({ id }: { id: string }) => [id],
   lookup: ({ id }, { signal }): Effect.Effect<Project, "missing", ProjectRepo> =>
     Effect.gen(function* () {
       const repo = yield* ProjectRepo;
@@ -208,7 +253,7 @@ const project = resource({
     }),
 });
 project.getData(project.key({ id: "project-1" }));
-~~~
+```
 
 ### Surface
 
@@ -218,7 +263,7 @@ project.getData(project.key({ id: "project-1" }));
 
 - Lookup/config/plans preserve P; key/getData/getState use K. No resource ref, second key, custom hash,
   or equality. `persist` false by default; true opts committed canonical entries into Persistence.
-- K uses `PUBLIC_API.md#API-005` exact copied/frozen canonical containers, grammar, discriminator, bounds,
+- K uses `PUBLIC_API.md#API-005` exact copied canonical containers, grammar, discriminator, bounds,
   and diagnostics; no type layer adds another interpretation.
 
 ### Accepts
@@ -243,12 +288,12 @@ project.getData(project.key({ id: "project-1" }));
 
 ## TYPE-006 — Transaction inference independent of parent
 
-~~~ts
-type SaveParams = Readonly<{ id: string; title: string }>;
+```ts
+type SaveParams = { id: string; title: string };
 
 const save = transaction({
   id: "projects.save",
-  key: ({ id }: SaveParams) => [id] as const,
+  key: ({ id }: SaveParams) => [id],
   commit: ({ id, title }: SaveParams, { signal }): Effect.Effect<Project, SaveError, ProjectRepo> =>
     ProjectRepo.save(id, title, { signal }),
 });
@@ -262,7 +307,7 @@ O.save.commit(
     },
   },
 );
-~~~
+```
 
 ### Surface
 
@@ -299,19 +344,19 @@ O.save.commit(
 
 ## TYPE-007 — Stream inference
 
-~~~ts
-type ProgressInput = Readonly<{ submissionId: string }>;
+```ts
+type ProgressInput = { submissionId: string };
 
 const progress = stream({
   id: "projects.progress",
-  key: ({ submissionId }: ProgressInput) => [submissionId] as const,
+  key: ({ submissionId }: ProgressInput) => [submissionId],
   subscribe: ({ submissionId }: ProgressInput, { signal }) =>
     Effect.gen(function* () {
       const progressClient = yield* ProgressClient;
       return yield* progressClient.progress(submissionId, { signal });
     }),
 });
-~~~
+```
 
 ### Surface
 
@@ -351,10 +396,10 @@ const progress = stream({
 
 ## TYPE-008 — Cause classification
 
-~~~ts
-const exit = yield* Effect.exit(operation);
+```ts
+const exit = yield * Effect.exit(operation);
 // defect > typed failure > interruption-only
-~~~
+```
 
 ### Surface
 
@@ -387,10 +432,10 @@ const exit = yield* Effect.exit(operation);
 
 ## TYPE-009 — Transitive requirements
 
-~~~ts
+```ts
 type _MachineR = Expect<Equal<RequirementsOf<typeof projectMachine>, ProjectRepo | AuditLog>>;
 type _AppR = Expect<Equal<RequirementsOf<typeof ProjectApp>, ProjectRepo | AuditLog>>;
-~~~
+```
 
 ### Surface
 
@@ -429,9 +474,9 @@ type _AppR = Expect<Equal<RequirementsOf<typeof ProjectApp>, ProjectRepo | Audit
 The following is private schematic/non-exported notation for the inferred carrier boundary; it is not a
 required public export.
 
-~~~ts
-type NormalizedCarrier<R> = Readonly<{ readonly _requirements?: (r: R) => R }>;
-~~~
+```ts
+type NormalizedCarrier<R> = { _requirements?: (r: R) => R };
+```
 
 ### Surface
 
@@ -453,11 +498,11 @@ type NormalizedCarrier<R> = Readonly<{ readonly _requirements?: (r: R) => R }>;
 
 ### Observable guarantee
 
-- App compilation/inference cost is bounded by normalized static graph.
+- App inference reads the normalized static graph without recursive carrier expansion.
 
 ### Proof
 
-- Acyclic carrier and inference-cost proof `TYPE-P03`.
+- Acyclic carrier and inference correctness proof `TYPE-P03`.
 
 ### Trace
 
@@ -465,21 +510,27 @@ type NormalizedCarrier<R> = Readonly<{ readonly _requirements?: (r: R) => R }>;
 
 ## TYPE-009B — Inert Implementations
 
-~~~ts
-const TodoLive = Implementation.succeed(TodoGateway, TodoGateway.of({
-  list: ({ listId }, { signal }) => fetchTodos(listId, { signal }),
-  add: ({ listId, title }, { signal }) => createTodo(listId, title, { signal }),
-}));
-const TodoStory = Implementation.succeed(TodoGateway, TodoGateway.of({
-  list: () => Effect.succeed(initialTodos),
-  add: ({ title }) => Effect.succeed({ id: "todo-1", title, completed: false }),
-}));
+```ts
+const TodoLive = Implementation.succeed(
+  TodoGateway,
+  TodoGateway.of({
+    list: ({ listId }, { signal }) => fetchTodos(listId, { signal }),
+    add: ({ listId, title }, { signal }) => createTodo(listId, title, { signal }),
+  }),
+);
+const TodoStory = Implementation.succeed(
+  TodoGateway,
+  TodoGateway.of({
+    list: () => Effect.succeed(initialTodos),
+    add: ({ title }) => Effect.succeed({ id: "todo-1", title, completed: false }),
+  }),
+);
 const TodoWithClock = Implementation.merge(TodoLive, ClockLive);
-~~~
+```
 
 ### Surface
 
-- Public `Implementation` is immutable typed provider graph under namespace `Implementation`.
+- Public `Implementation` is a typed provider graph under namespace `Implementation`.
 
 ### Rule
 
@@ -512,51 +563,62 @@ const TodoWithClock = Implementation.merge(TodoLive, ClockLive);
 
 ## TYPE-010 — Runtime requirement closure
 
-~~~ts
+```ts
 function runtimeSetup<A extends App>(options: {
-  readonly app: A; readonly persistence?: Persistence;
+  app: A;
+  // Deferred until the Persistence owner lands; retained for restoration.
+  // persistence?: Persistence;
 }): RuntimeSetup<A, never>;
 function runtimeSetup<A extends App, ImplementationError>(options: {
-  readonly app: A;
-  readonly implementation: Implementation<RequirementsOf<A>, ImplementationError>;
-  readonly persistence?: Persistence;
+  app: A;
+  implementation: Implementation<RequirementsOf<A>, ImplementationError>;
+  // Deferred until the Persistence owner lands; retained for restoration.
+  // persistence?: Persistence;
 }): RuntimeSetup<A, ImplementationError>;
-~~~
+```
 
 ### Surface
 
-- `RuntimeSetup` is inert carrier. `construct()` makes shell/no I/O. `ready(): Effect<void,
-  ImplementationError | FlowPersistenceError>` performs bootstrap/restoration once and caches terminal result.
+- The temporary `RuntimeSetup`/`Runtime` shell is an inert carrier with only `app`, `construct()`, and `ready()`.
+  `construct()` is synchronous/inert. `ready(): Effect<void, ImplementationError>` lazily acquires complete
+  Implementation providers sequentially once per shell. Each shell caches the first terminal `Exit` exactly
+  once—success, typed `ImplementationError` failure, defect, or interruption—and later runs reuse that `Exit`
+  without retry. Its `Cause` preserves typed failure, defect, and interruption as separate meanings. The temporary
+  shell has no persistence, actors, Effect bridges, lifecycle, or disposal behavior; no Diagnostic mapping is invented
+  for its error channel.
+- The complete bootstrap, restoration, persistence, actor, bridge, lifecycle, and disposal behavior described by
+  the future Runtime clauses remains a target only and is not claimed implemented by this shell.
 
 ### Rule
 
 - First overload applies only when requirements are never; second requires complete Implementation.
-  Strict superset providers are valid only with no remaining inputs. Persistence is host capability and
-  does not enter RequirementsOf/App Implementation closure. Runtime create/ensure accept exact App.M machines;
-  lookup is ref-only/no create/adopt.
-- `persistence(options)` returns an inert `Persistence`; storage is a host capability, codec defaults to
-  the package JSON-safe codec, and its filter can only exclude declaration-owned entries. Persistence does
-  not contribute to RequirementsOf<App> or change Implementation closure.
+  Strict superset providers are valid only with no remaining inputs. The commented persistence option and its
+  provider/storage rules are future target notation; they do not enter the temporary shell.
+- Future target only: Runtime create/ensure accept exact App.M machines; lookup is ref-only/no create/adopt, and
+  `persistence(options)` returns an inert `Persistence` without changing Implementation closure.
 
 ### Accepts
 
-~~~ts
+```ts
 runtimeSetup({ app: PublicApp });
 runtimeSetup({ app: ProjectApp, implementation: ProjectLive });
-~~~
+```
 
 ### Rejects
 
-~~~ts
+```ts
 // @ts-expect-error ProjectRepo remains unsatisfied
 runtimeSetup({ app: ProjectApp });
 // @ts-expect-error remaining DatabaseConfig requirement
 runtimeSetup({ app: ProjectApp, implementation: ProjectImplementationRequiringConfig });
-~~~
+```
 
 ### Observable guarantee
 
-- Readiness is one idempotent cached boundary; implementation acquisition errors remain `ImplementationError`.
+- Temporary readiness is one per-shell idempotent cached boundary: the first terminal `Exit`—success, typed
+  `ImplementationError` failure, defect, or interruption—is reused exactly once with no retry. Its `Cause` keeps
+  typed failure, defect, and interruption distinct, and typed provider failures remain the exact `ImplementationError`
+  value. Full Diagnostic mapping and Runtime ownership remain future target behavior.
 
 ### Proof
 
@@ -568,17 +630,23 @@ runtimeSetup({ app: ProjectApp, implementation: ProjectImplementationRequiringCo
 
 ## TYPE-011 — Runtime Effect bridge
 
+**Future target only:** the temporary Runtime shell has no Effect bridge. The bridge, runtime runner, and
+acquisition-Exit clauses below remain preserved target specifications, not current implementation claims.
+
 The following is private schematic/non-exported notation for the runtime result shape; it is not a
 required public export.
 
-~~~ts
+```ts
 type Result<A, E, IE> = Promise<Exit.Exit<A, E | IE>>;
-~~~
+```
 
 ### Surface
 
 - For `Runtime<App, ImplementationError>`, `runPromise`/`runPromiseExit` accept only Effects satisfied
   by installed application Context.
+- `runPromise*`, `runSync*`, and related Effect runners are legal only in the Runtime bridge, final
+  process/framework/CLI host adapters, tests, or explicitly owned shutdown code. Reusable services,
+  workflows, and foreign adapters return their Effect and preserve its `A`, `E`, and `R` channels.
 
 ### Rule
 
@@ -599,7 +667,7 @@ type Result<A, E, IE> = Promise<Exit.Exit<A, E | IE>>;
 
 ### Proof
 
-- Historical/reference negative proof from the frozen package: `packages/flow-state/src/public-api-types.test.ts:287-333`.
+- Historical/reference negative proof from the reference package: `packages/flow-state/src/public-api-types.test.ts:287-333`.
   The replacement proof belongs under `packages/flow-state-rewrite/`, per `IMPLEMENTATION_WORKFLOW.md:26-28`.
 
 ### Trace
@@ -608,12 +676,17 @@ type Result<A, E, IE> = Promise<Exit.Exit<A, E | IE>>;
 
 ## TYPE-012 — Exact actor family
 
-~~~ts
-const actor: Actor<Machine> = runtime.getActor(ref);
-actor.ref satisfies ActorRef<Machine>;
-actor.send(/* EventOf<Machine> */);
-actor.getSnapshot();
-~~~
+The inert `ActorRef` identity is current. The actor handle, snapshot, lease, and lifecycle family below is a future
+target; deferred `ActorSnapshot` remains commented out of the active public type list for restoration. The temporary
+Runtime shell has no actor methods.
+
+```ts
+// Future target only; unavailable on the temporary shell:
+// const actor: Actor<Machine> = runtime.getActor(ref);
+// actor.ref satisfies ActorRef<Machine>;
+// actor.send(/* EventOf<Machine> */);
+// actor.getSnapshot();
+```
 
 ### Surface
 
@@ -651,14 +724,14 @@ actor.getSnapshot();
 
 ## TYPE-013 — Passive React selectors
 
-~~~ts
+```ts
 const selected = useView(projectActor, ({ state, O }) => ({
   state,
   project: O.project.getData(O.project.key({ id: "project-1" })),
 }));
 // @ts-expect-error machine is not actor handle
 useView(projectMachine, ({ state }) => state);
-~~~
+```
 
 ### Surface
 
@@ -667,7 +740,7 @@ useView(projectMachine, ({ state }) => state);
 ### Rule
 
 - useActor creates fresh local/no stable ID; by-ref lookup-only/no lease. useView requires exact actor
-  handle. Selector receives atomic passive state/readonly memory/context/lifecycle/issues/bound can/O.
+  handle. Selector receives atomic passive state/memory/context/lifecycle/issues/bound can/O.
   Result preserves exact Value, without implicit null/undefined. O only key/getData/getState; no comparator.
 - Scalar/non-record equality complete-value Object.is; named records fixed-key field-by-field Object.is.
 
@@ -686,7 +759,7 @@ useView(projectMachine, ({ state }) => state);
 
 ### Proof
 
-- React type and runtime passive-selector proofs, including the negative example.
+- React type and runtime passive-selector proofs, including the negative case.
 
 ### Trace
 
@@ -699,32 +772,32 @@ specification notation and need not be exported:
 
 ```ts
 type InputOptions<M> =
-  InputOf<M> extends void ? { readonly input?: never } : { readonly input: InputOf<M> };
+  InputOf<M> extends void ? { input?: never } : { input: InputOf<M> };
 
 type SelectedContextOptions<M> = keyof SelectedContextOf<M> extends never
-  ? { readonly context?: never }
-  : { readonly context: SelectedContextOf<M> };
+  ? { context?: never }
+  : { context: SelectedContextOf<M> };
 
 type ContextBindingOptions<M> = keyof SelectedContextOf<M> extends never
-  ? { readonly contextBindings?: never }
-  : { readonly contextBindings: StoryContextBindingsOf<M> };
+  ? { contextBindings?: never }
+  : { contextBindings: StoryContextBindingsOf<M> };
 
 type StoryContextBindingsOf<M> = {
-  readonly [K in keyof SelectedContextOf<M>]:
+  [K in keyof SelectedContextOf<M>]:
     ActorRef<ProviderMachineAt<M, K>> | StoryActorRecipe<ProviderMachineAt<M, K>>;
 };
 
 type FixtureOptions<Owner> =
   RequirementsOf<Owner> extends never
-    ? { readonly fixtures?: readonly FixtureDefinition[] }
+    ? { fixtures?: FixtureDefinition[] }
     : {
-        readonly fixtures: FixtureTupleClosing<RequirementsOf<Owner>>;
+        fixtures: FixtureTupleClosing<RequirementsOf<Owner>>;
       };
 ```
 
 `StoryContextBindingsOf`, `ProviderMachineAt`, and `StoryActorRecipe` describe the exact contextual
 type relationship; they do not require public helper exports. In this notation, `FixtureDefinition`
-denotes an immutable value returned by `fixture({ id, implementation, seeds? })`. Its `implementation`
+  denotes a value returned by `fixture({ id, implementation, seeds? })`. Its `implementation`
 provides the complete service identities required by the owner; its optional `seeds` are preloaded
 Runtime-owned resource state and do not satisfy a missing service requirement. A Fixture Implementation
 overrides an App Implementation for the same service identity, while duplicate Fixture providers are
@@ -736,25 +809,89 @@ satisfy `Output` and whose acquisition may fail with `ImplementationError`; it i
 implementation-layer boundary, not a second testing runtime or a required public helper constructor. An
 Implementation supplies complete service functions. It does not replace resource, transaction, or stream
 operation kernels, and the Story does not install argument/output matchers or a control registry. The
-`FixtureTupleClosing<R>` denotes a readonly tuple whose combined provider outputs satisfy `R`; neither
+  `FixtureTupleClosing<R>` denotes a tuple whose combined provider outputs satisfy `R`; neither
 needs to be an exported alias.
 
 The three complete option shapes are:
 
 ```ts
 type AppStoryOptions<App> = FixtureOptions<App> & {
-  readonly maxTurns?: number;
-  readonly title?: string;
-  readonly description?: string;
-  readonly tags?: readonly string[];
+  maxTurns?: number;
+  title?: string;
+  description?: string;
+  tags?: string[];
 };
-type MachineStoryOptions<M> = InputOptions<M> & SelectedContextOptions<M> & FixtureOptions<M> & {
-  readonly maxTurns?: number;
-  readonly title?: string;
-  readonly description?: string;
-  readonly tags?: readonly string[];
-};
+type MachineStoryOptions<M> = InputOptions<M> &
+  SelectedContextOptions<M> &
+  FixtureOptions<M> & {
+    maxTurns?: number;
+    title?: string;
+    description?: string;
+    tags?: string[];
+  };
 type ActorRecipeOptions<M> = InputOptions<M> & ContextBindingOptions<M>;
+```
+
+Checkpoint-name accumulation uses the following specification-only notation. `CheckpointEvidence` and
+`EndEvidence` stand for the existing App- or Machine-Story evidence shapes; these aliases do not require new
+public exports:
+
+```ts
+type NewCheckpointName<Names extends string, Name extends string> = string extends Name
+  ? never
+  : Extract<Name, Names> extends never
+    ? Name
+    : never;
+
+interface StoryPlan<Names extends string = never> {
+  checkpoint<const Name extends string>(
+    name: NewCheckpointName<Names, Name>,
+  ): StoryPlan<Names | Name>;
+  run(options?: { signal?: AbortSignal }): Promise<StoryRun<Names>>;
+}
+
+type StoryRun<Names extends string> = {
+  checkpoints: {
+    [Name in Names]: CheckpointEvidence;
+  };
+  end: EndEvidence;
+};
+```
+
+Every other builder command preserves `Names` while returning a new plan value. A literal checkpoint name or
+known string union extends `Names`; a widened `string` is rejected and MUST NOT erase already known names.
+
+```ts
+const common = story
+  .machine(editorMachine, options)
+  .send(Editor.E.Opened())
+  .process()
+  .checkpoint("opened");
+
+const saved = common.send(Editor.E.SaveRequested()).process().checkpoint("saved");
+const discarded = common.send(Editor.E.Discarded()).checkpoint("discarded");
+const cancelled = common.send(Editor.E.Cancelled()).checkpoint("cancelled");
+
+const savedRun = await saved.run();
+const discardedRun = await discarded.run();
+savedRun.checkpoints.opened; // valid
+savedRun.checkpoints.saved; // valid
+savedRun.checkpoints.typo; // TypeScript error
+
+// @ts-expect-error duplicate literal checkpoint name
+common.checkpoint("opened");
+
+declare const runtimeName: string;
+// @ts-expect-error widened string cannot erase the known-name map
+common.checkpoint(runtimeName);
+
+// Specification notation for the package-private defensive path only.
+declare function lookupCheckpointInternal<Names extends string>(
+  run: StoryRun<Names>,
+  name: string,
+): CheckpointEvidence;
+declare const untrustedCheckpointName: string;
+lookupCheckpointInternal(savedRun, untrustedCheckpointName); // unknown own key throws existing FlowUsageError
 ```
 
 ### Surface
@@ -766,18 +903,29 @@ type ActorRecipeOptions<M> = InputOptions<M> & ContextBindingOptions<M>;
 
 - Required input required; void input rejects authored input; focused context exact/required when declared;
   fixtures close requirements; Persistence only RuntimeSetup; maxTurns default 100.
-- Plans immutable/inert until run. Checkpoint names accumulate immutably, and duplicate literal names fail
-  while the plan is built. Both Story kinds: process/advance/advanceTo/advanceToNextTimer/
-  checkpoint/run; app adds target-taking send; machine adds target-free send/setContext. No implicit process.
+- Plans are inert until run. Checkpoint names accumulate, and duplicate literal names fail
+  while the plan is built. Every builder command returns a new plan and leaves its prefix unchanged. Derived
+  plans replay that prefix independently in fresh isolated production Runtimes; this is static plan branching,
+  never a live Runtime fork, and no live state, handle, or Runtime is shared between runs. Both Story kinds:
+  process/advance/advanceTo/advanceToNextTimer/checkpoint/run; app adds target-taking send; machine adds
+  target-free send/setContext. No implicit process.
+- Checkpoints are evidence cuts only, never resumable Runtime snapshots. `run().checkpoints` is a
+  mapped type keyed exactly by accumulated literal names; known names compile and unknown literal
+  indexing fails while the existing evidence shape, `run.end`, and failure behavior remain unchanged.
+- Package-private runtime-string lookup for JavaScript, CLI, or untrusted input checks own-key membership and
+  rejects unknown names with existing `FlowUsageError` semantics. It adds no public dynamic-string getter or
+  new error type.
 
 ### Accepts
 
-- Exact conditional option closure, immutable checkpoints, command types, and run.end.
+- Exact conditional option closure, checkpoints, command types, and run.end.
 
 ### Rejects
 
 - Bare app/live runtime, focused boot/memory/state/snapshot overrides, machine-family targets, and old
-  perform/deliver/receive/flush/settle/setTime/replay/run.final surfaces.
+  perform/deliver/receive/flush/settle/setTime/replay/run.final surfaces; duplicate checkpoint literals;
+  widened-string checkpoint names; unknown literal checkpoint indexing; `fork`, `restore`, `fromCheckpoint`,
+  public dynamic-string checkpoint lookup, and shared live state/handles/Runtimes between derived runs.
 
 ### Observable guarantee
 
@@ -785,7 +933,8 @@ type ActorRecipeOptions<M> = InputOptions<M> & ContextBindingOptions<M>;
 
 ### Proof
 
-- Positive/negative Story option, target, command, checkpoint, and run.end fixtures.
+- Positive/negative Story option, target, command, exact checkpoint-name accumulation/run-key inference,
+  duplicate-name, widened-string, unknown-index, prefix, fresh-run isolation, and run.end fixtures.
 
 ### Trace
 
@@ -793,13 +942,13 @@ type ActorRecipeOptions<M> = InputOptions<M> & ContextBindingOptions<M>;
 
 ## TYPE-015 — Story-local recipes
 
-~~~ts
+```ts
 const recipe = story.actor(machine, { input, contextBindings });
-~~~
+```
 
 ### Surface
 
-- Recipe is deeply frozen inert exact machine/input/bindings; no runtime/mailbox/snapshot/operation/
+- Recipe is an inert exact machine/input/bindings value; no runtime/mailbox/snapshot/operation/
   disposal/live handle.
 
 ### Rule
@@ -832,13 +981,13 @@ const recipe = story.actor(machine, { input, contextBindings });
 
 ## TYPE-016 — Fixture Implementation closure
 
-~~~ts
+```ts
 const fixtureDef = fixture({ id: "test-api", implementation: TestApi, seeds });
-~~~
+```
 
 ### Surface
 
-- Fixture is immutable/inert and its Implementation closes complete App/focused-machine services.
+- Fixture is inert and its Implementation closes complete App/focused-machine services.
 
 ### Rule
 
@@ -871,9 +1020,9 @@ const fixtureDef = fixture({ id: "test-api", implementation: TestApi, seeds });
 
 ## TYPE-017 — Pure model base
 
-~~~ts
+```ts
 const modelDef = model(machineStory, { stateKey: ({ value, memory }) => [value.id, memory] });
-~~~
+```
 
 ### Surface
 
@@ -885,7 +1034,7 @@ const modelDef = model(machineStory, { stateKey: ({ value, memory }) => [value.i
 - Reject app Story, boot, extra command, non-fresh restoration, non-pure stateKey. Candidate events are
   per traversal call. Expose only `getShortestPaths`/`getSimplePaths`; no Effects, async route synthesis,
   replay/provide/clock helpers, or parallel named path/result classes. `FlowStoryExecutionError` is sole
-  named testing runtime class, with package-owned frozen envelope accepted by REV-TEST-006/008 including
+  named testing runtime class, with a package-owned envelope accepted by REV-TEST-006/008 including
   complete public `Cause.Cause<unknown>`. Snapshots/inferred values still hide raw Cause.
 
 ### Accepts
@@ -913,9 +1062,9 @@ const modelDef = model(machineStory, { stateKey: ({ value, memory }) => [value.i
 
 The following union is schematic local proof-index notation and is not a required public export.
 
-~~~ts
+```ts
 type TypeProof = "TYPE-P01" | "TYPE-P02" | "TYPE-P03" | "TYPE-P04";
-~~~
+```
 
 ### TYPE-P01 — Positive proofs
 
@@ -936,15 +1085,21 @@ Compile fixtures MUST prove:
 - exact actor refs, local/shared owner leases, context-binding keys, and four lifecycle states;
 - passive actor-bound useView, exact selector values, and command-only useActor/useActorByRef;
 - app and machine Story option closure, exact Story targets, operation outcomes, command types,
-  immutable checkpoints, run.end, and command-empty model bases;
+  checkpoints, run.end, and command-empty model bases;
 - strict, isolated-modules, isolated-declarations, packed package, React 18, and React 19 consumer modes.
 
 ### TYPE-P02 — Negative proofs
 
+The compile-time portion of this proof does not require conditional types to perform UTF-8 byte
+arithmetic or lone-surrogate validation. Those are runtime definition/codec failures owned and
+proved by the relevant production boundary; compile fixtures still prove exact literal spelling and
+the structural name closure required by the public API.
+
 Compile fixtures using `@ts-expect-error` MUST prove rejection of:
 
 - unknown states, compound nodes, events, targets, payloads, memory fields, timer targets, non-direct
-  defaults, depth eleven, ambiguous ancestor/descendant handlers, Boolean reentry, and timer actions;
+  defaults, ambiguous ancestor/descendant handlers, Boolean reentry, and timer actions; depth eleven remains
+  a synchronous runtime construction rejection rather than type-level recursive arithmetic;
 - a type-only memory marker, separate initialMemory, or a memory property returned from machine behavior;
 - implicit input classification, an authored input for a void machine, and automatic-root admission;
 - inconsistent resource P/K callbacks, noncanonical key inputs, resource refs, custom equality/hash, and
@@ -971,15 +1126,15 @@ Compile fixtures using `@ts-expect-error` MUST prove rejection of:
 - any or assertion-based erasure in provider, runtime, descriptor, actor, selector, Story, fixture, or
   model boundaries.
 
-### TYPE-P03 — Acyclic carrier and inference-cost proof
+### TYPE-P03 — Acyclic carrier and inference correctness proof
 
-Phase 1 MUST compile an isolated private-vNext consumer with at least 25 named module-root machines, 100
-total resource/transaction/stream descriptors, cross-module shared descriptors, exact actor-bound passive
-views, and strict and isolated-declarations modes. The proof MUST assert exact RequirementsOf<App> and
-declaration emit, run `tsc --extendedDiagnostics`, and record a baseline tied to the checked-in TypeScript
-version. Instantiation count MUST remain within 10% of the approved baseline, and a paired fixture that
-doubles only unrelated roots MUST remain below 2.25 times the smaller fixture. Peak memory is trend evidence
-only. A negative fixture MUST reject recursive carrier expansion without an excessive-instantiation error.
+Phase 1 MUST compile representative small and medium isolated consumers covering every public inference family,
+cross-module shared descriptors, exact actor-bound passive views, strict mode, and isolated declarations. The
+proof MUST assert exact RequirementsOf<App> and declaration emit using the checked-in TypeScript version. The medium
+fixture compiles once and fails on any compiler error, including excessive-instantiation or declaration errors.
+A negative fixture MUST reject recursive carrier expansion without an excessive-instantiation error. The proof
+MUST NOT include type-level UTF-8 encoders, exhaustive Unicode code-unit unions, or encoded-byte tuple counters.
+Runtime `GLO-01` validation is outside this inference correctness proof.
 
 ### TYPE-P04 — Production-owner declaration proof
 

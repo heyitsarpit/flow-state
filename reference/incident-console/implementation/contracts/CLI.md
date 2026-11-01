@@ -1,18 +1,21 @@
 # Command-line interface contract
 
-Status: normative target vNext contract; not shipped
+Status: historical reference only; not active authority.
+
+Current requirements live in [Workflow plans](../../../../workflow/plans/);
+current task status lives in [Rewrite tasks](../../../../workflow/tasks/Rewrite/).
 
 The CLI is a process host over the compiled behavior, shared Story executor, bounded artifact codecs,
 inspection/trace projections, and file/stream I/O. It owns grammar, gateway selection, formatting,
 files, signals, and exit status. It does not own machine semantics, actors, schedulers, stores,
 transition evaluation, runtime history, artifact schemas, or a competing Story/runtime model.
-`PERSISTENCE_AND_ARTIFACTS.md` is the sole semantic and schema authority for the WIRE-020A/B/C artifact
-boundary. `ARTIFACT_WIRE.md` is its package-private notation mirror for Story, CLI, and the share encoder;
-`REV-MIG-005` is provenance only. Executable gates still prove the implementation.
+`PERSISTENCE_AND_ARTIFACTS.md` was the source pack's sole semantic and schema authority for the
+WIRE-020A/B/C artifact boundary. `ARTIFACT_WIRE.md` was a package-private pointer with no independent
+schema; `REV-MIG-005` was provenance only. Executable gates were still required to prove the implementation.
 
 ## Grammar and gateway
 
-~~~text
+```text
 flow-state behavior build --output <path> [--overwrite] [--project-root <dir>] --gateway <path> [--format text|json]
 flow-state behavior render <artifact|-> [--section contract|coverage] [--module <id>] [--format text|json]
 flow-state behavior diff <left> <right> [--module <id>] [--format text|json]
@@ -25,9 +28,9 @@ flow-state story run <story-id> [--project-root <dir>] --gateway <path> [--trace
 flow-state trace summarize <artifact|-> [--format text|json]
 flow-state trace proof <artifact|-> --selector <selector> [--format text|json]
 flow-state trace diff <left> <right> [--section <section>] [--format text|json]
-~~~
+```
 
-~~~ts
+```ts
 const BehaviorGateway = behavior({
   app: IncidentApp,
   stories: {
@@ -35,7 +38,7 @@ const BehaviorGateway = behavior({
     "machine-model": incidentMachineStory,
   },
 });
-~~~
+```
 
 `behavior check` is the only new vNext leaf. It builds the live behavior in memory and compares
 its canonical artifact with the supplied expected artifact through the same diff projection as
@@ -80,22 +83,17 @@ Selector parsing MUST NOT load a gateway or evaluate application code.
 - Rule: project-root must be an existing directory, canonicalized, with the exact manifest at
   canonical-root/package.json. gateway must be an existing regular .ts or .mts file remaining inside
   root after symlink resolution. Loading is trusted local code; it may bundle into an OS temp directory
-  but never writes project files. Gateway discovery MUST reject computed dynamic imports and non-literal
-  require before evaluating any module, undeclared transitive bare imports even when an ancestor
-  `node_modules` can resolve them, and Flow or Effect package-identity mismatch before accessing the
-  compiled registry.
-- Accepts: Relative static imports resolving through real paths inside root; bare imports declared by
-  dependencies, devDependencies, peerDependencies, or optionalDependencies; the executing CLI's exact
-  flow-state routes and effect package instances; a branded BehaviorGateway from behavior({ app, stories }).
-- Rejects: computed dynamic imports, non-literal require, path escape, undeclared transitive bare imports,
-  package-identity mismatch, structural lookalikes, empty keys, mixed apps, missing app, empty stories,
-  foreign machines/Stories, and any second app identity or registry.
+  but never writes project files. Loading uses normal host or bundler module resolution. Flow or Effect
+  package-identity mismatch rejects before accessing the compiled registry.
+- Accepts: Imports supported by the selected host or bundler; the executing CLI's exact flow-state routes
+  and effect package instances; a branded BehaviorGateway from behavior({ app, stories }).
+- Rejects: path escape, package-identity mismatch, structural lookalikes, empty keys, mixed apps, missing
+  app, empty stories, foreign machines/Stories, and any second app identity or registry.
 - Observable guarantee: Temporary files are scoped and removed after success, failure, or interruption.
   Only behavior.build, behavior.check, story.list, story.describe, and story.run load gateway code;
   artifact-only commands never execute application code. Read-only means Flow's loader/bundler writes
   only; trusted gateway code is not sandboxed.
-- Proof: Root containment, manifest, import policy, package identity, brand, mixed-app, temp cleanup,
-  and inert discovery tests.
+- Proof: Root containment, manifest, package identity, brand, mixed-app, temp cleanup, and inert discovery tests.
 - Trace: CLI-003.
 
 Gateway discovery MUST NOT maintain a second shape validator, application compiler, or Story registry.
@@ -114,7 +112,7 @@ foreign machine or Story. No focused plan creates a second public app identity.
 - Surface: Discovery/execution ownership and Story/CLI parity.
 - Rule: behavior.build/check and story.list/describe acquire no Implementation, Runtime, fixture,
   actor, sink, or executor. story.run uses the same package-private executor as StoryPlan.run().
-  It produces the same checkpoints, run.end, failure, ordered CauseProjection, cleanup truth, and
+  It produces the same checkpoints, run.end, failure, ordered stable diagnostics, cleanup truth, and
   package-private decoded evidence model.
 - Accepts: One supplied App identity; machine Stories admitted by that app, executed through a focused
   package-private AppPlan without a second public identity; app Stories use the supplied app's
@@ -188,13 +186,13 @@ projection; CLI does not sanitize, summarize, diff, prove, compress, or otherwis
 ### Rule card — CLI-007, CLI-008
 
 - Surface: Result model, text/JSON projection, stdout/stderr.
-- Rule: Every executed leaf creates one immutable package-private flow-state/cli-result.v2 result;
+- Rule: Every executed leaf creates one package-private flow-state/cli-result.v2 result;
   both text and JSON derive from it. The command is exactly behavior.build, behavior.render,
   behavior.diff, behavior.check, story.list, story.describe, story.run, trace.summarize, trace.proof,
   or trace.diff. Help/version are unversioned conventional text.
-- Accepts: Canonical JSON or deterministic UTF-8 text where each line is path = scalar, paths use dot
-  and zero-based [index] segments, strings use JSON escaping, and field/collection order follows
-  WIRE-020B.
+- Accepts: Canonical JSON or deterministic UTF-8 text derived from the same result. Text is readable,
+  actionable, newline-terminated, and free of ANSI when non-interactive; its prose, whitespace, and
+  human-field order may evolve.
 - Rejects: a public FlowCli result/diagnostic hierarchy, Scenario vocabulary, expected-state/matcher
   output, ANSI in JSON/non-TTY text, nondeterministic order, or duplicate nested schema authorities.
 - Observable guarantee: Success/comparison writes exactly one newline-terminated document to stdout and
@@ -202,13 +200,13 @@ projection; CLI does not sanitize, summarize, diff, prove, compress, or otherwis
   without recursive writes. Typed product failures and contained defects remain product evidence;
   execution/cancellation/cleanup/trace-write failures are CliError. Each stream is constructed as one
   complete buffer and attempted with one write.
-- Proof: Byte-stable repeated runs, text/JSON parity, stream ownership, EPIPE, and WIRE-020B projection
-  tests.
+- Proof: Canonical JSON stability, text/JSON semantic parity, stream ownership, EPIPE, and WIRE-020B
+  projection tests. Human prose and whitespace are not snapshot compatibility surfaces.
 - Trace: CLI-007, CLI-008; WIRE-020B.
 
 The private JSON result retains the exact leaf-command discriminant:
 
-~~~ts
+```ts
 type CliCommand =
   | "behavior.build"
   | "behavior.render"
@@ -220,7 +218,7 @@ type CliCommand =
   | "trace.summarize"
   | "trace.proof"
   | "trace.diff";
-~~~
+```
 
 The private result data remains closed by command and follows the WIRE-020B model. The CLI MUST NOT export
 another public `FlowCli*` result or diagnostic hierarchy, reconstruct Scenario or matcher vocabulary, or
@@ -229,7 +227,7 @@ define a second result/data/outcome/diagnostic schema.
 ### Rule card — CLI-009, CLI-010
 
 - Surface: Process exit and signals.
-- Rule: One process owner maps the immutable result after the CLI Effect runtime and owned resources
+- Rule: One process owner maps the result after the CLI Effect runtime and owned resources
   dispose. Handlers do not mutate process.exitCode or call process.exit. Exit status is:
   0 for completed non-comparison, incomplete trace summarize, or complete equal comparison;
   1 for different behavior comparisons, different trace comparisons, or incomplete trace diff;
@@ -290,6 +288,6 @@ rejected legacy Story/scenario flags and MUST NOT use a CLI-only artifact decode
 
 Prove a newly built and installed binary against a read-only consumer, including package identity,
 declaration/export absence for deleted surfaces, source/packed parity, temporary-file cleanup, and the
-current examples and root gate. A checked-in or stale `dist` artifact MUST NOT satisfy this proof. Exact
+current consumers and root gate. A checked-in or stale `dist` artifact MUST NOT satisfy this proof. Exact
 artifact envelope, version, nested field, Cause, and diagnostic choices are fixed by WIRE-020B; this proof
 verifies the fresh implementation against that model.

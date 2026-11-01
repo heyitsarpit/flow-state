@@ -16,17 +16,12 @@ narrow workflow model fit your application.
 | CLI           | Installed `flow-state` bin with `behavior`, `story`, and `trace` command families                                     |
 | Server        | Request-scoped boot payloads, resource hydration, actor restore, and isolation                                        |
 
-The five recipe applications prove focused features. Incident Console proves the
-combined client/server path over real HTTP and SSE, including optimistic 409
-reconciliation, reconnect/replay, child workflows, teardown, and API restart.
-
 ## Public Surface Boundaries
 
 The public contract is the five package entrypoints above and the installed CLI
 families `behavior`, `story`, and `trace`. Local CLI proof surfaces are real, but
-repository helpers under `packages/flow-state/scripts/**` and the maintained
-recipe matrix in `examples/FEATURE_COVERAGE.md` remain repository-owned evidence,
-not additional package APIs.
+repository helpers under `packages/flow-state/scripts/**` remain repository-owned
+evidence, not additional package APIs.
 
 ## Known alpha limits
 
@@ -60,5 +55,4 @@ for one Effect-typed runtime whose resource, workflow, test, and inspection owne
 share scoped lifecycle and exact Effect requirements. Choose it for that unified
 ownership model, not for API compatibility with either project.
 
-For the executable path, start with [Getting Started](/getting-started). For the
-real network boundary, run [Incident Console](/examples#incident-console).
+For the executable path, start with [Getting Started](/getting-started).

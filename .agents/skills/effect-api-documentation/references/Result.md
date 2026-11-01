@@ -2,6 +2,8 @@
 
 Source: [Effect v4 `Result` API](https://www.effect.website/docs/v4/api/effect/Result). Examples assume `import { Result } from "effect"`.
 
+`Result` carries a pure computation's success or failure as a value when introducing an Effect runtime would add no useful semantics.
+
 ## API index
 
 1. [Result.Result](#resultresult)

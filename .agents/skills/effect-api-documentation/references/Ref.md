@@ -2,6 +2,8 @@
 
 Source: [Effect v4 `Ref` API](https://www.effect.website/docs/v4/api/effect/Ref). Examples assume `import { Ref } from "effect"` and an enclosing `Effect.gen`.
 
+`Ref` is an effect-safe mutable cell for atomic reads and updates of shared state.
+
 ## API index
 
 1. [Ref.Ref](#refref)

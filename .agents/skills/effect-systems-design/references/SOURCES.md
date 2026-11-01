@@ -10,7 +10,7 @@ what this workspace can actually import.
 
 | Source | Version or status | Authority |
 | --- | --- | --- |
-| Flow State consuming package ([`package.json`](../../../../package.json)) | `effect` `4.0.0-beta.86` | Export surface and installed behavior for Flow State. |
+| Flow State consuming package ([`package.json`](../../../../package.json)) | `effect` `4.0.0-rc.112` | Export surface and installed behavior for Flow State. |
 | Vendored [`effect-v4` package](../../../../codebases/effect-v4/packages/effect/package.json) | `4.0.0-beta.98`, snapshot commit `3a1128c7684e04d34d9f541f77adaac38a513056` | Usage and source evidence only; this snapshot is not shipped behavior. |
 | Other local consumers | May pin another or patched version | Evidence only; inspect that consumer's package file before reusing an API. |
 

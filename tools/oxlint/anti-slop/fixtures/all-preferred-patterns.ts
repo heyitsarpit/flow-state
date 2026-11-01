@@ -1,16 +1,21 @@
+// anti-slop-fixture: text-only
 /**
  * Accepted anti-slop examples.
  *
- * This file is a teaching fixture, not a production module. The RuleTester
- * valid cases are the executable rule proof; this file keeps the preferred
- * forms visible beside all-failing-patterns.ts.
+ * This file is an intentionally raw teaching corpus, not a compilable
+ * production module. The RuleTester valid cases are the executable rule proof;
+ * this file keeps the preferred forms visible beside the individual rule
+ * tests. The fixture sweep loads it as source text and verifies the marker.
  */
 
 import {
 	Context,
+	Clock,
+	Data,
 	Deferred,
 	Duration,
 	Effect,
+	Exit,
 	Fiber,
 	Layer,
 	Option,
@@ -21,43 +26,54 @@ import {
 	Scope,
 } from "effect";
 
-type AccountId = string & { readonly AccountId: unique symbol };
-type Account = { readonly id: AccountId };
-type AccountNotFound = { readonly _tag: "AccountNotFound"; readonly accountId: AccountId };
+class DataValue extends Data.Class<{ id: string }> {}
+type DataState = Data.TaggedEnum<{
+	Loading: { startedAt: number };
+	Ready: { value: string };
+}>;
+type AccountId = string & { AccountId: unique symbol };
+type Account = { id: AccountId };
+type AccountNotFound = { _tag: "AccountNotFound"; accountId: AccountId };
 function accountNotFound(accountId: AccountId) {
 	return Effect.fail({ _tag: "AccountNotFound", accountId } satisfies AccountNotFound);
 }
 type AccountEffect = ReturnType<typeof accountNotFound>;
-type ResourceId = string & { readonly ResourceId: unique symbol };
-type Resource = { readonly id: ResourceId };
-type DomainItem = { readonly id: string };
-type DomainValue = { readonly id: string };
-type Snapshot = { readonly id: string };
-type App = { readonly start: () => void };
-type Value = { readonly id: string };
+type ResourceId = string & { ResourceId: unique symbol };
+type Resource = { id: ResourceId };
+type DomainItem = { id: string };
+type DomainValue = { id: string };
+type Snapshot = { id: string };
+type App = { start: () => void };
+type Value = { id: string };
 
-type ParsedValue = { readonly id: string };
+type ParsedValue = { id: string };
+type IsUnknown<T> = unknown extends T ? true : false;
 type Status = "ready" | "blocked";
 type GenericValue<T = string> = T;
-type AppOptions = { readonly id: string };
+type AppOptions = { id: string };
 type MaybeDomainValue = Option.Option<DomainValue>;
 
 const publicValue = "owned export";
 export { publicValue };
 
-declare const raw: unknown;
+declare const raw: string;
 declare const input: DomainValue;
 declare const iterable: Iterable<DomainItem>;
 declare const first: boolean;
 declare const second: boolean;
-declare const inventory: { readonly id: string };
-declare const items: readonly DomainItem[];
+declare const inventory: { id: string };
+declare const items: DomainItem[];
 const processItem = (item: DomainItem) =>
 	Effect.try({
 		try: () => item.id,
 		catch: (error) => error,
 	});
-declare const client: { fetchAccount: (id: AccountId) => Promise<Account> };
+declare const client: {
+	fetchAccount: (
+		id: AccountId,
+		options: { signal: AbortSignal },
+	) => Promise<Account>;
+};
 declare const id: AccountId;
 declare const resource: Resource;
 declare const callback: (value: DomainItem) => string;
@@ -70,9 +86,10 @@ type Expect = {
 declare const expect: Expect;
 declare const condition: boolean;
 declare const runtime: { dispose: () => Promise<void> };
-declare const record: { readonly key: string };
+declare const release: (scope: Scope.Closeable, exit: Exit.Exit<void, Error>) => Effect.Effect<void>;
+declare const record: { key: string };
 declare const foreignCall: () => string;
-declare const cause: unknown;
+declare const cause: Error;
 declare const fiber: Fiber.Fiber<void, never>;
 declare const maybeDomainValue: MaybeDomainValue;
 declare const domainResult: Result.Result<DomainValue, Error>;
@@ -94,11 +111,11 @@ const decoded = Schema.decodeUnknownSync(
 
 const resources = {
 	[resource.id]: resource,
-} satisfies Readonly<Record<ResourceId, Resource>>;
-const values: readonly Value[] = [{ id: "value" }];
-const stableInventory: Readonly<typeof inventory> = { ...inventory };
+	} satisfies Record<ResourceId, Resource>;
+const values: Value[] = [{ id: "value" }];
+const stableInventory: typeof inventory = { ...inventory };
 
-const options = {} satisfies { readonly input?: string };
+const options = {} satisfies { input?: string };
 const namedResult: DomainValue = { id: decoded.id };
 const namedAlias: DomainValue = namedResult;
 
@@ -132,6 +149,16 @@ function validateDomainValue(value: DomainValue): Result.Result<DomainValue, Err
 
 const dynamicValue = record.key;
 const callbackValue = callback(items[0]);
+const projectedItems = items.flatMap((item) => item.id.length > 0 ? [item.id] : []);
+const reducedIds = items.reduce<string[]>((accumulator, item) => {
+	accumulator.push(item.id);
+	return accumulator;
+}, []);
+const selectedOption = Option.some(input.id);
+const selectedOptionValue = Option.match(selectedOption, {
+	onNone: () => "none",
+	onSome: (value) => value,
+});
 
 const parsedValue: ParsedValue = { id: "parsed" };
 const inferredGeneric: GenericValue = "value";
@@ -152,26 +179,35 @@ function branch(value: boolean): string {
 }
 
 interface AccountRepositoryContract {
-	readonly findById: (accountId: AccountId) => AccountEffect;
+	findById: (accountId: AccountId) => AccountEffect;
 }
 
 class AccountRepository extends Context.Service<AccountRepository, AccountRepositoryContract>()(
 	"AccountRepository",
 ) {}
 
-class AccountRequestFailed extends Schema.TaggedErrorClass<AccountRequestFailed>()(
-	"AccountRequestFailed",
-	{ cause: Schema.Unknown },
-) {}
-
+// FLOW_STATE_ALLOW_EFFECT_TRY_PROMISE: external client exposes only Promise and accepts an AbortSignal.
 const loadAccount = Effect.tryPromise({
-	try: () => client.fetchAccount(id),
-	catch: (error) => new AccountRequestFailed({ cause: error }),
+	try: (signal) => client.fetchAccount(id, { signal }),
+	catch: String,
 });
 
 const normalized = input.id.trim();
 const explicitSchedule = Schedule.exponential(Duration.millis(100));
 const explicitSleep = Duration.seconds(1);
+
+const inertEffectFactory = (value: DomainValue) =>
+	Effect.suspend(() => Effect.succeed(value.id));
+const deferredMutation = Effect.sync(() => input.id);
+const constantProjection = Effect.succeed(input).pipe(Effect.as(false));
+const emptyContext = Context.empty();
+const concreteResourceConfig = {
+	staleTime: Schema.DurationFromMillis,
+	gcTime: Schema.Number,
+};
+const admittedObjectValues = Object.values({ value: raw }).map((value) =>
+	Schema.decodeUnknownSync(Schema.Struct({ id: Schema.String }))(value),
+);
 
 const coordinated = Effect.forEach(items, processItem, { concurrency: 1 });
 const parallel = Effect.forEach(items, processItem, { concurrency: 8 });
@@ -192,12 +228,22 @@ const atomicRefUpdate = Effect.gen(function* () {
 
 const managedScope = Effect.acquireRelease(Scope.make(), release);
 
+const phaseCursor = (values: string[]) => {
+	let cursor = 0;
+	cursor += 1;
+	return values[cursor];
+};
+
+const suppliedClock = Effect.gen(function* () {
+	return yield* Clock.currentTimeMillis;
+});
+
 interface RequiredDomainProperties {
-	readonly maybeValue: Option.Option<string>;
+	maybeValue: Option.Option<string>;
 }
 
 class RequiredDomainClass {
-	readonly maybeValue: Option.Option<string> = Option.none();
+	maybeValue: Option.Option<string> = Option.none();
 }
 
 const safeFiberOperation = Effect.gen(function* () {
@@ -215,14 +261,14 @@ test("conditional assertions remain non-vacuous", () => {
 	if (condition) expect(condition).toBe(true);
 });
 
-const optionsProjection = { id: input.id } satisfies { readonly id: string };
+const optionsProjection = { id: input.id } satisfies { id: string };
 
 type Handler<Input> = (input: Input) => void;
 const handler: Handler<DomainItem> = (item) => void project(item);
 
 import type { DomainItem as ImportedDomainItem } from "./domain-types.js";
 export type { ImportedDomainItem };
-type ConsistentFields = { readonly id: string };
+type ConsistentFields = { id: string };
 for (const item of items) {
 	void processItem(item);
 }
@@ -242,6 +288,8 @@ const assertedValue = (() => {
 })();
 
 void inlineSnapshot;
+void phaseCursor;
+void suppliedClock;
 void projected;
 void conditionalItems;
 void projectedObject;
@@ -259,6 +307,12 @@ void callbackValue;
 void normalized;
 void explicitSchedule;
 void explicitSleep;
+void inertEffectFactory;
+void deferredMutation;
+void constantProjection;
+void emptyContext;
+void concreteResourceConfig;
+void admittedObjectValues;
 void coordinated;
 void parallel;
 void unbounded;

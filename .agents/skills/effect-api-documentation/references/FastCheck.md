@@ -2,6 +2,8 @@
 
 Source: [Effect v4 `FastCheck` API](https://www.effect.website/docs/v4/api/effect/testing/FastCheck). `FastCheck` is imported from `effect/testing` and re-exports the `fast-check` package.
 
+`FastCheck` exposes property-based generators and assertions so pure laws and boundary cases can be tested across many generated inputs.
+
 ## API index
 
 1. [FastCheck.FastCheck](#fastcheckfastcheck)

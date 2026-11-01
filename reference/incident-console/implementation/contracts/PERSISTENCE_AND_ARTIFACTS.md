@@ -1,16 +1,20 @@
 # Persistence and artifacts contract
 
-Status: normative target vNext contract; not shipped
+Status: historical reference only; not active authority.
 
-This file is the single Flow-owned semantic and schema authority for persistence, boot, capture/hydration,
-publication, artifact boundaries, Story evidence timing, the package-private model handoff, and the exact
-nested WIRE-020A/B/C rules. `ARTIFACT_WIRE.md` is the enhanced-format relocated notation mirror used by Story,
-CLI, and the share-export encoder; it does not extend or override this file, and any mismatch resolves to this file. This file does not
-define CLI transport or duplicate runtime, operation, or public API contracts.
-The corresponding file under `contracts/provenance/` is the current semantic source and provenance record
-for this restoration; it is retained for traceability, not as a competing active authority. Its transferred
-wording and WIRE-* clause IDs remain represented by this file and `ARTIFACT_WIRE.md`. Historical records,
-retired fixtures, and unrelated provenance notes add no semantics. BEH-033 is closed by REV-MIG-005: the
+Current requirements live in [Workflow plans](../../../../workflow/plans/);
+current task status lives in [Rewrite tasks](../../../../workflow/tasks/Rewrite/).
+
+This file was the single Flow-owned semantic and schema authority in the historical contract pack for
+persistence, boot, capture/hydration, publication, artifact boundaries, Story evidence timing, the
+package-private model handoff, and the exact nested WIRE-020A/B/C rules. `ARTIFACT_WIRE.md` was a
+package-private pointer used by Story, CLI, and the share-export encoder; it contained no independent schema
+or notation, and mismatches resolved to this file under that pack. This file did not define CLI transport or
+duplicate runtime, operation, or public API contracts.
+The corresponding file under `contracts/provenance/` was the historical semantic source and provenance record
+for this restoration; it was retained for traceability, not as a competing authority. Its transferred wording
+and WIRE-* clause IDs remain here as historical references; `ARTIFACT_WIRE.md` pointed to this source. Historical
+records, retired fixtures, and unrelated provenance notes added no semantics. BEH-033 was closed by REV-MIG-005: the
 v2 model is package-private, not a public type.
 
 ## Persistence provider and declarations
@@ -67,12 +71,12 @@ The public notation is:
       remove(): Effect.Effect<void, PersistenceStorageError>;
     };
 
-    type Persistence = Readonly<{
+    type Persistence = {
       storage: PersistenceStorage;
       scope: string;
       codec: PersistenceCodec;
       filter?: (entry: PersistenceEntry) => boolean;
-    }>;
+    };
 
     declare function webStorage(storage: Storage): PersistenceStorage;
     declare function indexedDbStorage(storage: IndexedDBStorage): PersistenceStorage;
@@ -102,7 +106,7 @@ rejection.
 
     const todos = resource({
       id: "todo.todos",
-      key: ({ listId }: { readonly listId: string }) => [listId] as const,
+      key: ({ listId }: { listId: string }) => [listId],
       lookup: loadTodos,
       persist: true,
     });
@@ -111,11 +115,11 @@ rejection.
 ### Rule card — WIRE-001, WIRE-001A, WIRE-002, WIRE-003
 
 - Surface: Operation identity, canonical values, persisted operation facts, and validation ownership.
-- Rule: P is the complete immutable executable input retained by a live binding/generation. K is the
-  ordered readonly synchronous result of key(P); descriptor ID plus K is identity, and P is never
+- Rule: P is the complete executable input retained by a live binding/generation. K is the
+  ordered synchronous result of key(P); descriptor ID plus K is identity, and P is never
   reconstructed from K. Flow validates structure and the application codec validates opaque domain
   values. Receiving-app AppPlan compatibility is required; there is no generic identity migration API.
-- Accepts: Dense arrays and plain records copied into Flow-owned frozen containers; sorted record keys,
+- Accepts: Dense arrays and plain records copied into Flow-owned containers; sorted record keys,
   normalized -0 to numeric 0 before the general artifact walker, exact KBytes UTF-8 encoding, and capability/tenant/account/network/session
   discriminators in K. Persisted resources use descriptor ID plus K in the one canonical store.
   Transaction and stream records retain only accepted descriptor, actor, binding, generation, occurrence,
@@ -139,7 +143,7 @@ executable work. The deleted subordinate-machine persistence surface has no repl
 ### Rule card — WIRE-004, WIRE-005, WIRE-006
 
 - Surface: Runtime boot and provider restoration.
-- Rule: Provider data is immutable runtime input. Readiness validates the record, acquires the
+- Rule: Provider data is runtime input. Readiness validates the record, acquires the
   Implementation, installs declared persistable actors and the one canonical resource store, completes
   initial ensureActor calls, resolves exact context refs, seals the graph, and only then activates or
   exposes handles. Boot retains app ID, application-owned persistenceVersion, and durable identity facts
@@ -175,6 +179,8 @@ behavior/trace fingerprint is owned and verified by WIRE-020B during artifact co
 - Accepts: Registered non-disposed stable actors, including suspended ones, and the transitive exact
   context-provider closure. Stable actor wire identity uses the actor: namespace and GLO-01 length-
   prefixed machine and authored-ID segments.
+- The length prefix and segment bytes use the shared portable UTF-8 boundary from the implementation
+  workflow; stable-ref behavior never depends on Node-only `Buffer` APIs or UTF-16 string length.
 - Rejects: opaque refs in boot, dehydration, artifacts, or CLI selectors; automatic roots, dynamic
   actors, subordinate-machine or parent-child persistence; mailbox, queue, fiber, Scope, callback,
   service, cursor, transport, buffered emission, or pending command serialization; implicit durable
@@ -259,39 +265,45 @@ Terminal transaction state restores only through the accepted production operati
 collection and retained-value behavior follow `PUBLIC_API.md` API-006; this contract chooses no restored
 idle countdown or new `gcTime` default.
 
-## Artifact path, bounds, history, and Cause
+## Artifact path, bounds, history, and diagnostics
 
     type NonNegative = number; // accepted only when Number.isSafeInteger(value) && value >= 0
-    type CauseProjection = {
-      reasons: readonly (
-        | { _tag: "Fail"; error: CanonicalCarrier }
-        | { _tag: "Die"; defect: CanonicalCarrier | { _tag: "Error"; name: string; message: string } }
-        | { _tag: "Interrupt"; fiberOrdinal: NonNegative }
-      )[];
-    };
+
+`DiagnosticProjection` was the serialization alias of the sole typed diagnostic contract in
+[`ERRORS.ts`](./ERRORS.ts). It is not a second schema: `Diagnostic` owns the stable
+`classification`/`code`/`path`/`details` fields, evolving `summary`/`help`, and the safe projection/rendering
+rules. Artifact and trace encoders may order and bound those fields according to this contract's wire rules,
+but they MUST NOT introduce another diagnostic type or mirror the Effect Cause tree.
 
 ### Rule card — WIRE-014, WIRE-015, WIRE-016
 
 - Surface: Persistence/artifact validation and failure categories.
 - Rule: Restoration and artifact import/export share one Flow-owned structural validation and encoding
-  path and produce the same package-private v2 decoded model. Flow validates versions, identities,
-  descriptors, tokens, revisions, and bounds; the application codec validates opaque values before
-  runtime construction. DiagnosticCode is closed and failures retain structural, bound, identity,
-  decompression, external-input, application, cleanup, interruption, I/O, or invariant ownership.
+  path and produce the same package-private v2 decoded model. Public bytes pass through strict UTF-8,
+  at most one supported compression member, decompressed-byte limits, JSON parsing, and one package-private
+  Effect Schema decoder into fresh package-owned canonical data. Flow validates versions, identities,
+  descriptors, tokens, revisions, and bounds; the application codec validates opaque values before runtime
+  construction. DiagnosticCode is closed and failures retain structural, bound, identity, decompression,
+  external-input, application, cleanup, interruption, I/O, or invariant ownership.
 - Accepts: Stable-key UTF-8 JSON or exactly one gzip member; bounded canonical carriers; non-negative
   safe integer revisions, generations, sequences, timestamps, and counts; strict UTF-8 without lone
   surrogates.
-- Rejects: raw parser failures escaping Flow, unsupported prototypes, accessors, symbol keys, sparse
-  arrays, cycles, reserved prototype keys, throwing proxies, negative zero in serialized artifact carriers,
-  non-finite numbers,
-  duplicate keys, concatenated gzip members, trailing bytes, and any envelope exceeding:
+- Canonical encoding and byte ordering use the shared portable `TextEncoder` boundary and reject
+  lone surrogates before encoding; this is a runtime codec obligation, not a compile-time UTF-8 type
+  calculation.
+- Rejects: raw parser failures escaping Flow, malformed or cyclic decoded data, negative zero in serialized
+  artifact carriers, non-finite numbers, duplicate keys when the parser can detect them, concatenated gzip
+  members, trailing bytes, and any envelope exceeding:
   depth 32 (root zero), 10,000 visited nodes, array length 4,096, one string/key 262,144 UTF-8 bytes,
   or 2,097,152 decompressed/canonical bytes. A boot counter at MAX_SAFE_INTEGER is invalid because
   terminal-publication and runtime-cleanup credits must remain available.
 - Observable guarantee: A bound diagnostic reports its limit and path separately from version, identity,
   decompression, and application validation. No failure becomes undefined or a generic corrupt-artifact
-  result. Raw Effect Cause never enters a carrier.
-- Proof: Hostile carrier, gzip, duplicate-key, bound, application-codec, and cause-projection tests.
+  result. Raw Effect Cause never enters a carrier. Behavior of proxies, getters, custom prototypes,
+  descriptors, symbol properties, sparse arrays, or concurrent mutation supplied directly to private
+  decoder functions is unspecified.
+- Proof: Public byte-path UTF-8, gzip, detectable duplicate-key, bound, Schema, application-codec, and
+  diagnostic-projection tests.
 - Trace: WIRE-014, WIRE-015, WIRE-016.
 
 Internal restoration and artifact import/export use one Flow-owned validation and encoding path. Artifact
@@ -307,46 +319,44 @@ decompression, and application-domain failures.
 ### Rule card — WIRE-017, WIRE-018, WIRE-019, WIRE-020
 
 - Surface: Committed runtime evidence, bounded inspection, and export.
-- Rule: One immutable TurnRecord is accepted after actor publication and before acknowledgement and
-  StoreFanout release, using one runtime-global sequence behind a release gate. The global commit permit
-  and next sequence reservation are acquired before StoreState mutation; publication/capture, TurnRecord
-  acceptance, acknowledgement, gate opening, and StoreFanout release then occur in that order. Lifecycle records are
+- Rule: Every successful turn exposes one atomic committed actor/store cut. Accepted evidence uses one
+  runtime-global sequence, corresponds only to committed cuts, and is globally ordered. Story
+  acknowledgement completes after actor/store publication and evidence acceptance without waiting for user
+  Effects. StoreFanout preserves causal order with the initiating publication. Lifecycle records are
   inspection evidence, not machine turns. Inspection buffering is explicit, bounded, and attach-once;
-  capacity defaults to 256 and zero retains no records but preserves truncation. Runtime observation is
-  not persistence; only explicit export makes records durable.
-- Accepts: Frozen inspection-sink snapshots with records and `truncatedBeforeSequence`; attachment drain/dispose
+  public caller-supplied capacity is honored exactly, the default remains 256, and zero retains no records
+  while preserving truncation. Runtime observation is not persistence; only explicit export makes records
+  durable. Permit, reservation, queue, gate, attachment, and drain algorithms are implementation details.
+- Accepts: Inspection-sink snapshots with records and `truncatedBeforeSequence`; attachment drain/dispose
   ordered through the accepted prefix; changed refs as revision-local hints; late attachment markers set
   to the greatest unseen runtime-global sequence.
 - Rejects: a second mutable history, inline sink processing that delays StoreFanout, silent dropping,
   mixed-runtime attachment, actor-owned retention, persisted inspection buffers, or treating a skipped
   revision-local hint as a complete historical diff.
 - Observable guarantee: Inspection-buffer snapshots expose `truncatedBeforeSequence` as the greatest
-  dropped or explicitly cleared runtime-global sequence; this WIRE-018 inspection marker is not the
-  WIRE-020B `TraceArtifact` marker. Clear does not reset sequence. Sink failure cannot roll back runtime
-  state and is isolated to that attachment. `clear()` advances only through the retained tail; accepted
-  queued records may arrive afterward. Attachment uses one CAS, attaches once, and drains only its accepted
-  prefix before detaching. Disposal drains accepted evidence before detaching. A fresh snapshot starts at
+  omitted or explicitly cleared runtime-global sequence. Clear does not reset sequence. Sink failure cannot
+  roll back runtime state and is isolated to that attachment. `clear()` advances only through the retained
+  tail; accepted queued records may arrive afterward. One sink attaches once and drain/disposal wait through
+  their accepted prefixes before detaching. A fresh snapshot starts at
   publication revision zero; hydration restores persisted publication and machine-turn revisions.
   actor:start, actor:restore, actor:suspend, actor:resume, and actor:dispose are lifecycle evidence only,
   never machine revisions or TurnRecords. The exact sink surface is snapshot() plus clear(); one sink
-  attaches once to one Runtime. After the release gate opens, receipt, inspection, trace, CLI, and optional
+  attaches once to one Runtime. After the commit is accepted, receipt, inspection, trace, CLI, and optional
   artifact sinks may process the record; sink processing or failure never delays StoreFanout or mutates
-  committed state. The buffer surface is exactly `snapshot(): { records: readonly InspectionRecord[];
+  committed state. The buffer surface is exactly `snapshot(): { records: InspectionRecord[];
   truncatedBeforeSequence: number | null }` and `clear(): void`; a pre-attachment snapshot is empty with a
   null marker. A late attachment marks the current runtime-global sequence as missing unless that sequence
   is zero. Attachment drain and disposal wait only through their accepted prefixes, and a sink callback
   failure is isolated to that attachment. Actor admission and ordinary commits preflight the changing
   actor, store, and sequence reserves required by the cleanup contract. Runtime disposal preserves
   reverse-dependency cleanup ordering and never manufactures a terminal actor-disposal turn.
-- Truncation boundary: Inspection-buffer and trace-artifact truncation markers are different surfaces and
-  are not interchangeable. `TraceArtifact.truncatedBeforeSequence` is null exactly when the trace contains
-  the complete retained prefix; otherwise it is the first omitted runtime-global sequence. An export MUST
-  derive the trace marker from the first sequence omitted by the trace's retained prefix rather than copy
-  the inspection marker or apply a fixed increment/decrement; the contract defines no arithmetic conversion
-  between the two fields. A WIRE-020B decoder MUST interpret its field using the first-omitted rule and
-  reject a marker inconsistent with the trace's retained prefix.
-- Proof: Publication ordering, lifecycle/turn distinction, capacity/truncation, late attachment,
-  sink failure, drain, and explicit-export tests.
+- Truncation boundary: Inspection buffers and trace artifacts use the same convention.
+  `truncatedBeforeSequence` is null exactly when no accepted evidence was omitted; otherwise it is the
+  greatest omitted runtime-global sequence. `trace proof` rejects every non-null marker. A WIRE-020B decoder
+  rejects a marker inconsistent with the retained records.
+- Proof: Atomic-cut ordering, lifecycle/turn distinction, caller-supplied capacity and truncation, late
+  attachment, sink failure, drain, and explicit-export tests. Tests do not assert private CAS, queue, gate,
+  or drain choreography.
 - Trace: WIRE-017, WIRE-018, WIRE-019, WIRE-020.
 
 TurnRecords become durable only when a caller explicitly exports records from a configured sink. Ordinary
@@ -359,11 +369,11 @@ an incomplete latest hint into a historical diff.
 
 ### Rule card — WIRE-020A, WIRE-020B
 
-- Surface: BehaviorArtifact, TraceArtifact, Story evidence, Cause projection, and CliResult; the complete
-  nested wire model is mirrored in `ARTIFACT_WIRE.md`.
+- Surface: BehaviorArtifact, TraceArtifact, Story evidence, stable diagnostic projection, and CliResult; the complete
+  nested wire model is defined by this contract. `ARTIFACT_WIRE.md` is a pointer only.
 - Rule: Behavior and trace artifacts use one exact package-private schema. Canonical JSON sorts object
   keys by UTF-8 bytes, sorts ID-indexed declaration arrays and requirement lists by the same comparator,
-  preserves authored child/event/checkpoint/record/Cause/fact order, uses JSON.stringify finite numbers,
+  preserves authored child/event/checkpoint/record/diagnostic/fact order, uses JSON.stringify finite numbers,
   performs no Unicode normalization, and adds exactly one trailing newline only at the file boundary.
   The shared decoded model is the only handoff to Story and CLI; text, JSON, and file publication are
   projections, not schemas. `CLI.md` `CLI-008` owns deterministic text/JSON formatting and this contract
@@ -390,17 +400,17 @@ an incomplete latest hint into a historical diff.
 - Proof: Exact canonical encoding, fingerprint, schema rejection, operation-fact discriminants,
   lifecycle tuples, Story evidence invariants, and direct Story/CLI decoded-model parity.
 - Trace: WIRE-020A, WIRE-020B; exact unions, nullable fields, bounds, and diagnostic codes are owned by
-  this file and mirrored by `ARTIFACT_WIRE.md`; BEH-033 closed by REV-MIG-005.
+  this file; `ARTIFACT_WIRE.md` is a pointer only. BEH-033 closed by REV-MIG-005.
 
 ### Rule card — WIRE-020C
 
 ```ts
-type ArtifactCanonicalPath = readonly (string | number)[];
+type ArtifactCanonicalPath = (string | number)[];
 type ArtifactValuePath =
-  | readonly ["records", number, "snapshot", "memory" | "context", ...ArtifactCanonicalPath]
-  | readonly ["records", number, "facts", number, "data" | "value" | "error" | "defect" | "latest", ...ArtifactCanonicalPath]
-  | readonly ["checkpoints", number, "actors", number, "snapshot", "memory" | "context", ...ArtifactCanonicalPath]
-  | readonly ["checkpoints", number, "snapshot", "memory" | "context", ...ArtifactCanonicalPath];
+  | ["records", number, "snapshot", "memory" | "context", ...ArtifactCanonicalPath]
+  | ["records", number, "facts", number, "data" | "value" | "error" | "defect" | "latest", ...ArtifactCanonicalPath]
+  | ["checkpoints", number, "actors", number, "snapshot", "memory" | "context", ...ArtifactCanonicalPath]
+  | ["checkpoints", number, "snapshot", "memory" | "context", ...ArtifactCanonicalPath];
 
 type TraceShareArtifactBase = {
   kind: "trace-share-artifact";
@@ -411,13 +421,13 @@ type TraceShareArtifactBase = {
   appPlanFingerprint: string;
   capturedAt: NonNegative;
   truncatedBeforeSequence: Nullable<NonNegative>;
-  records: readonly TraceRecord[];
-  checkpoints: readonly Checkpoint[];
-  redactions: readonly ArtifactValuePath[];
+  records: TraceRecord[];
+  checkpoints: Checkpoint[];
+  redactions: ArtifactValuePath[];
 };
 type TraceShareArtifact =
   | (TraceShareArtifactBase & { outcome: "completed"; end: Checkpoint; failure: null; cleanup: { status: "complete" } })
-  | (TraceShareArtifactBase & { outcome: "failed"; end: Nullable<Checkpoint>; failure: StoryFailure; cleanup: { status: "complete" } | { status: "failed"; diagnostics: readonly Diagnostic[] } });
+  | (TraceShareArtifactBase & { outcome: "failed"; end: Nullable<Checkpoint>; failure: StoryFailure; cleanup: { status: "complete" } | { status: "failed"; diagnostics: Diagnostic[] } });
 ```
 
 - Surface: The exact export-only privacy-reduced projection produced by a non-empty AMEND-API-003 redaction
@@ -465,11 +475,11 @@ inconsistent end/failure/cleanup evidence uses `InvalidStoryEvidence`. A valid a
 category, path, and bound details for the selected diagnostic rather than collapsing the failure to
 `undefined` or a generic corrupt-artifact result.
 
-The complete local wire notation, including nested behavior declarations, lifecycle records, StoryFailure,
-operation-fact unions, diagnostics, CLI result/error unions, and the export-only TraceShareArtifact, is mirrored
-in `ARTIFACT_WIRE.md` for Story, CLI, and the share encoder. That file does not extend or override this contract;
-any mismatch resolves to this file, which remains the semantic and schema authority for WIRE-020A/B/C, capture,
-and publication.
+The complete local wire model, including nested behavior declarations, lifecycle records, StoryFailure,
+operation-fact unions, diagnostics, CLI result/error unions, and the export-only TraceShareArtifact, was defined
+in this contract for Story, CLI, and the share encoder. `ARTIFACT_WIRE.md` was a pointer only and did not extend
+or override this contract, which served as the semantic and schema authority for WIRE-020A/B/C, capture, and
+publication within the historical source pack.
 
 Resource facts are missing, pending, ready, refreshing, failure, defect, or interrupted; transaction
 facts are idle, pending, success, failure, defect, interrupted, or unknown with reconcileRequired true;
@@ -486,8 +496,10 @@ facts match but either trace is truncated; trace.summarize uses completed or inc
 requires complete evidence. Story-run execution, cancellation, cleanup, and trace-write failures use
 CliError with partial Story failure primary and ordered secondary diagnostics. Only in-process
 FlowDisposeError and FlowStoryExecutionError retain complete Effect Cause.Cause<unknown>; serialized
-Cause is the ordered CauseProjection above, preserving Effect v4 traversal order and multiplicity.
-FlowStoryExecutionError carries one deeply frozen package-owned envelope with completed checkpoints,
+evidence contains ordered `DiagnosticProjection` values and does not mirror Effect Cause tree shape,
+traversal order, or fiber ordinals. Full Cause remains internal until classification and cleanup aggregation
+complete. Independently actionable cleanup diagnostics preserve order and multiplicity.
+FlowStoryExecutionError carries one package-owned envelope with completed checkpoints,
 optional end, failure boundary, primary diagnostic, ordered cleanup diagnostics, cancellation evidence,
 accepted/drained evidence-sequence facts, and the complete public Cause. A cleanup failure retains end
 when it was captured but never returns successful Story evidence; failure before end capture never
@@ -504,7 +516,7 @@ manufactures run.end.
   and fails. Success implies complete disposal; run.end is evidence, not actor finality. Pure model
   artifacts accept only a command-empty fresh story.machine plan and contain no executable Effect. They do
   not stand in for app Story cross-actor orchestration or persist fixture-declared outcomes.
-- Accepts: Deeply frozen named checkpoints and end, actor issues in snapshots, runtime.now and
+- Accepts: Named checkpoints and end, actor issues in snapshots, runtime.now and
   runtime.pendingWork, completed-checkpoint/failure-boundary/cleanup/evidence-sequence facts, and
   canonical pure state-key projections.
 - Rejects: work processing, time movement, actor creation, restoration, live lookup, external work,

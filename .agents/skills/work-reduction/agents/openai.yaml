@@ -1,0 +1,6 @@
+interface:
+  display_name: "Work Reduction"
+  short_description: "Remove work and verify how reductions compose"
+  default_prompt: "Use $work-reduction to find work we can remove and assess how reductions compose."
+policy:
+  allow_implicit_invocation: false

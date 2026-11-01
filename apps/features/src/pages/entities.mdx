@@ -1,0 +1,223 @@
+# Entities
+
+Entity domains hold the records that several screens share: the store keeps one copy of each record, predicts a write against it, and drops the prediction if the server refuses the write.
+
+## Example: an Issues domain
+
+The contracts are plain structs in `issues.contracts.ts` (machine-design 2.8.2); this file names the records and the operations over them.
+
+```ts
+// issues.domain.ts
+import { asc, desc, domain, entity, eq, read, write } from "flow-state"
+import { IssueRow } from "./issues-api"
+import { createIssue, issuesInProject, removeIssue, renameIssue, setLike } from "./issues.contracts"
+
+// The record: one per key, shared by every actor and view in the Runtime
+export const Issue = entity({ id: "issues/Issue", fields: IssueRow.fields, primaryKey: ["id"] })
+
+export const Issues = domain("issues", {
+  // A list read: the answer names the records; the condition and order are applied to them
+  list: read(issuesInProject)
+    .list(Issue, ({ output }) => output.issues)
+    .where(({ input, record }) => eq(record.projectId, input.projectId))
+    .orderBy(({ record }) => [desc(record.number), asc(record.id)]),
+
+  // A write of one record: its prediction is applied when the write starts
+  setLike: write(setLike).one(Issue).predicts(({ input }) => Issue.patch({ id: input.id }, {
+    liked: input.liked,
+    // a field function: (beneath, input) => value, with the real input
+    likes: (i, input) => i.likes + (input.liked === i.liked ? 0 : input.liked ? 1 : -1),
+  })),
+  rename: write(renameIssue).one(Issue).predicts(({ input }) => Issue.patch({ id: input.id }, { title: input.title })),
+
+  // A delete: the prediction removes the record by key
+  remove: write(removeIssue).predicts(({ input }) => Issue.delete({ id: input.id })),
+
+  // A create with no prediction: the server's row is the only one shown
+  create: write(createIssue).one(Issue),
+})
+```
+
+## Example: a row that shows its own state
+
+The view reads the record from the store and this actor's write from its lane, never from a copy in memory.
+
+```tsx
+// useView, list, Issue and List come from the List machine's module (machine-design 2.8.2)
+const row = useView(list, (s) => Issue.get(s, { id }, Issue.pick("title", "liked", "likes")))
+// row = { data, predicted, uncertain, unconfirmed }
+
+const saving = useView(list, (s) => List.O.like.get(s, { id }).pending)
+// true while this actor's like write is InFlight; "Saving…" reads this
+```
+
+## Keywords
+
+### `entity({ id, fields, primaryKey })`
+
+**What** Declares a record type: its fields, and the key fields that identify one record.
+
+**Why it exists** The store keeps one confirmed copy per key, so every actor and view sees a record the moment the server's answer lands.
+
+- Machine memory never mirrors a record field; a view reads the store (rule 26).
+
+<small>Source: machine-design 2.8.1 · 2.8.2 · rule 26</small>
+
+### domain(...)
+
+**What** Groups the reads and writes that share one store under one name, with one entry per operation.
+
+**Why it exists** The domain, not each operation, owns the prediction, confirmation, rollback, repair, record queue and `uncertain` marks for its records (rule 26).
+
+- An operation in a domain cannot take `optimistic` or `setData`; both are type errors (rule 26).
+- A fragment's domain write registers the domain for its actor (rule 49).
+
+<small>Source: machine-design 2.8.3 · rule 26</small>
+
+### read(contract).list(Entity, ...)
+
+**What** A read operation whose answer names records of an entity; the mapper picks them out of the output.
+
+**Why it exists** The list keeps no rows of its own: the answer decides membership, and each row's fields come from the store.
+
+- A read carries confirmed data only; predictions never reach its mapper (rule 37).
+- A list holds only records the server returned, so no temporary id enters it (rule 33).
+
+<small>Source: machine-design 2.8.2 · 2.8.7 · rules 33, 37</small>
+
+### .where(...)
+
+**What** Says which records of the read's output belong in the list, as a condition over `input` and `record`.
+
+**Why it exists** When a field the condition reads changes, the client repairs the list only if the answer could differ (M5-D8).
+
+- Each condition answers yes, no or maybe, with a cause (M5-D8).
+- The operators are `eq`, `oneOf`, `contains`, `between`, `overlaps`, `gt`/`gte`/`lt`/`lte`, `isNull`, `and`, `or`, `not` and `serverMatches`; there is no `when` or `coalesce` (M5-D7).
+
+<small>Source: machine-design 2.8.2 · Entity analysis M5-D7, M5-D8</small>
+
+### eq(field, value)
+
+**What** The condition operator that is true when a record's field equals a value.
+
+**Why it exists** A condition the client evaluates differently could skip a refetch the list needs, so the client's evaluation must be exact (M5-D1).
+
+- The exactness is checked by a conformance table the client evaluator runs on itself, not by agreement with the server (M5-D3).
+
+<small>Source: machine-design 2.8.2 · Entity analysis M5-D1, M5-D3</small>
+
+### .orderBy(...)
+
+**What** Gives the list's rows an order, as an array of sort keys built with `desc` and `asc`.
+
+**Why it exists** Client-side ordering uses Effect's `Order` comparators, so a row's place is decided the same way each time (M5-D2).
+
+- Schema `Date` fields compare by time; date strings compare by equality only (M5-D4).
+- A sort pair whose key is `null` is skipped, not an error (M5-D4).
+
+<small>Source: machine-design 2.8.2 · Entity analysis M5-D2, M5-D4</small>
+
+### desc(field)
+
+**What** The descending sort key for one record field; an ordering helper used inside `.orderBy`, imported from `flow-state` as the example shows.
+
+**Why it exists** Each sort key carries its own direction, so the order is declared with the list rather than set elsewhere (2.8.2).
+
+<small>Source: machine-design 2.8.2 · Entity analysis M5-D2</small>
+
+### asc(field)
+
+**What** The ascending sort key for one record field, the other half of `desc`.
+
+**Why it exists** A list often breaks ties on a second key, and each key has its own direction (2.8.2).
+
+<small>Source: machine-design 2.8.2</small>
+
+### write(contract).one(Entity).predicts(...)
+
+**What** A write operation that changes one record of an entity, and states how that change is predicted before the server answers.
+
+**Why it exists** The domain applies the prediction when the write starts, so the record shows the change at once, and the store rolls it back on a definite failure (rules 28, 30).
+
+- `.predicts` runs once, at construction, to learn the structure; its field functions run with the real input at start and on each replay (M5-D5, 2.8.1).
+- A write states `key` on its contract; `flow check` warns when a one-record write's key is not the key its predicted record reads (rule 34).
+
+<small>Source: machine-design 2.8.1 · 2.8.2 · 2.8.8 · rules 28, 34</small>
+
+### Entity.patch(key, fields)
+
+**What** A prediction that sets the named fields of the record with that key; a field can be a function of the record beneath and the input.
+
+**Why it exists** The prediction names only what the write changes, and the server's answer later replaces those fields with confirmed values (rule 30).
+
+- A patch over a record the store does not hold shows nothing and waits for a base (rule 30, E18).
+- A success that omits a predicted field leaves it `unconfirmed` until a confirming read (2.8.6).
+
+<small>Source: machine-design 2.8.2 · 2.8.6 · rule 30</small>
+
+### Entity.delete(key)
+
+**What** A prediction that removes the record with that key from every view of the store.
+
+**Why it exists** The list stops showing the record at once, and a definite failure removes the prediction, so the record comes back (rule 30).
+
+- `remove` has no `.one(Entity)`; its prediction names the record itself with `Issue.delete`.
+- An unknown delete keeps the record predicted and marks it `uncertain` until a forced repair lands (rule 30).
+
+<small>Source: machine-design 2.8.2 · rule 30</small>
+
+### Entity.get(s, key, shape)
+
+**What** Reads one record from the store as `{ data, predicted, uncertain, unconfirmed }`; the shape, here `Issue.pick(...)`, selects its fields.
+
+**Why it exists** The store is shared truth, so a view reads the record rather than a copy in memory (2.8.1, rule 26).
+
+- The record's flag is `predicted`. EntityDomains.plan (EDP:130) calls it `pending`; the design renames it (2.8.12), so `pending` means only that this actor's write is in flight. `Issue.get(s, k).uncertain` is the store's mark; `List.O.like.get(s, k).uncertain` is this actor's lane.
+- The shape may be left out, as `Issue.get(s, key)` in 2.7.5; the design writes the shape as `Issue.pick(...)`, and `pick` is not otherwise defined there.
+
+<small>Source: machine-design 2.8.1 · 2.8.12 · rule 26</small>
+
+### the record queue
+
+**What** The per-record order in which writes from every actor are sent. A write joins it at start or retry, and leaves it at settlement, or after the forced repair for an unknown.
+
+**Why it exists** One write per record is in flight at a time, so a later write never goes out over an unrepaired unknown (rule 29).
+
+```text
+// Toggle(true)   A starts: joins the record queue [R, A]; the record shows liked
+// Toggle(false)  B starts: joins [R, A, B]; B's prediction replays over A's
+// Toggle(true)   C replaces B: B is removed as Superseded, no repair; queue [R, A, C]
+```
+
+- A retry joins the tail with no new prediction, and its response takes the position of the first send (rule 31).
+- A queued write behind a held lane can hold up other actors' writes to the same record; this is a stated limit (2.8.5).
+
+<small>Source: machine-design 2.8.1 · 2.8.5 · rules 29, 31</small>
+
+### settlement versus admission
+
+**What** Two moments for one ending. At settlement the store applies it and releases the record queue. At admission the actor's machine maps it and updates the lane.
+
+**Why it exists** Shared data changes when the answer lands, not when one actor's mailbox reaches it, and the lane changes only once the actor has handled the ending (rule 27).
+
+```text
+settlement  the store applies the ending and releases the record queue, in one publication
+            the ending is queued in the actor's mailbox; pending stays true
+admission   the machine maps the ending, tests its owner, and updates the lane
+```
+
+- Between the two, `row.predicted` is already false while `saving` is still true; that is correct (2.8.1).
+- Store effects never depend on whether the ending routes as current or late (rule 27).
+
+<small>Source: machine-design 2.8.4 · rule 27</small>
+
+### listen
+
+**What** The design's name for a stream read in a domain, subscribed in `activities`; its events are `value`, `gap`, `complete` and `failure` (merge 6 rule 50, not the design's own rule 50).
+
+**Why it exists** Not stated in section 2.8; see machine-design 2.7.3 and merge 6 (rule 50).
+
+- Its lane is per placement, and per key under `each`; it is `undefined` while the stream is not placed (2.7.3).
+- Section 2.8 does not cover `listen`; read 2.7.3 before relying on it.
+
+<small>Source: machine-design 2.7.3 (the verb table) · merge 6 rule 50</small>

@@ -1,32 +1,35 @@
 # Compatibility and deletion contract
 
-Status: normative target overlay; not shipped runtime behavior
+Status: historical reference only; not active authority.
 
-Implementation status: target only. This vNext contract describes the intended replacement, not shipped
-package source, public API, or runtime behavior. It MUST NOT be cited as evidence that vNext is implemented
-or promoted. It remains a target until the coordinated migration and proof gate required by `REV-MIG-002`,
-`REV-MIG-003`, and `REV-MIG-004` passes, including all accepted closure amendments under the normative
-revision specification.
+Current requirements live in [Workflow plans](../../../../workflow/plans/);
+current task status lives in [Rewrite tasks](../../../../workflow/tasks/Rewrite/).
 
-This contract applies the integrated vNext decisions to the former compatibility and deletion surface.
-`REV-MIG-001` keeps accepted public decisions closed while behavioral gaps are resolved; `REV-MIG-002`
-requires contracts, public types, artifacts, and proofs to move as one replacement; `REV-MIG-003` requires
-proofs through the production owners; and this contract owns the transferred exhaustive old-surface
-disposition. The contract clauses here are authoritative. Archived revision chapters are provenance only
-and do not override or supplement this file.
+Historical implementation status: target-only. This vNext source described the intended replacement, not
+shipped package source, public API, or runtime behavior. It was not evidence that vNext was implemented or
+promoted. The source required the coordinated migration and proof gates in `REV-MIG-002`, `REV-MIG-003`, and
+`REV-MIG-004` before promotion, including accepted closure amendments under the then-current revision
+specification.
 
-The corresponding file under `contracts/provenance/` is retained as the current semantic source and
-provenance record for this transfer. It supplies the wording and IDs restored here, but is not a competing
-active authority.
+This contract recorded the integrated vNext decisions for the former compatibility and deletion surface.
+`REV-MIG-001` kept accepted public decisions closed while behavioral gaps were resolved; `REV-MIG-002`
+required contracts, public types, artifacts, and proofs to move as one replacement; `REV-MIG-003` required
+proofs through the production owners; and this contract carried the transferred exhaustive old-surface
+disposition. Its clauses were authoritative within the historical contract pack. Archived revision chapters
+were provenance only and did not override or supplement this file.
+
+The corresponding file under `contracts/provenance/` was retained as a historical semantic source and
+provenance record for this transfer. It supplied the wording and IDs restored here, but was not a competing
+authority within that source pack.
 
 All inherited entries in the historical behavior register indexed by
-[`../revision-spec/README.md`](../revision-spec/README.md) are now closed by accepted revisions. Migration is
-still not mechanically complete until the named implementation proofs pass. A future proof failure may reopen
-only its disproved guarantee; it is never permission to add a public API, default, exception, alias, or proof
-requirement that the revision specification did not accept.
+[`../revision-spec/README.md`](../revision-spec/README.md) were recorded as closed by accepted revisions.
+Migration was not mechanically complete until the named implementation proofs passed. A proof failure could
+reopen only its disproved guarantee; it did not permit adding a public API, default, exception, alias, or proof
+requirement that the revision specification had not accepted.
 
-Active clauses contain the transferred `DEL-*`, `RET-*`, and `CUT-*` owners. Legacy IDs remain trace labels in
-the disposition and history below; they do not replace the active rules.
+The historical clauses contain the transferred `DEL-*`, `RET-*`, and `CUT-*` owners. Legacy IDs remain trace
+labels in the disposition and history below; they did not replace those rules.
 
 ## Compatibility policy
 
@@ -56,7 +59,7 @@ the disposition and history below; they do not replace the active rules.
 
 ### CUT-003 — Removed values fail closed
 
-- Surface: every `DELETE`/`REPLACE` value, type, overload, property, deep import, file registry, example,
+- Surface: every `DELETE`/`REPLACE` value, type, overload, property, deep import, file registry, consumer,
   proof, and task reference.
 - Rule: remove it from active authority or classify it in the ledger.
 - Accepts: negative absence proofs, ledgers, and historical provenance.
@@ -72,7 +75,7 @@ the disposition and history below; they do not replace the active rules.
 - Surface: deleted authoring shapes and implementation support kept only for them.
 - Rule: the runtime does not translate a deleted shape into an accepted one.
 - Accepts: a deleted name in a ledger, historical provenance, or negative absence proof.
-- Rejects: supported API or replacement guidance, active glossary definitions, positive examples, aliases,
+- Rejects: supported API or replacement guidance, active glossary definitions, positive usages, aliases,
   adapters, registries, translators, parser branches, and implementation files kept solely for compatibility.
 - Observable guarantee: deleted terminology has no positive active path.
 - Proof: `CUT-P03`, `CUT-P05`, `CUT-P06`, `PROOF-017`.
@@ -142,18 +145,19 @@ Every affected old public or authoring surface has exactly one disposition:
 
 - `DELETE`: no replacement; disappear completely.
 - `REPLACE`: disappear completely; capability continues under the accepted replacement.
-- `RETAIN`: old clause remains authoritative and is unchanged here.
+- `RETAIN`: old clause remained authoritative under the historical overlay and was unchanged here.
 - `HISTORICAL`: may remain only in Git history or an explicitly historical location, never as active authority.
 
 `REPLACE` is hard deletion. It permits no alias, overload, adapter, compatibility namespace, parser branch, or
-deprecated wrapper. Environmental compatibility is retained only by an explicit `RETAIN` row. An unassigned
-old clause remains authoritative under the overlay rule; migration cannot be promoted until every affected
-clause, symbol, overload, registry, example, proof, and task reference is classified or recorded unchanged.
+deprecated wrapper. Environmental compatibility was retained only by an explicit `RETAIN` row. Under the
+historical overlay rule, an unassigned old clause remained authoritative; migration could not be promoted
+until every affected clause, symbol, overload, registry, consumer, proof, and task reference was classified
+or recorded unchanged.
 
 Deleted names may occur only in this ledger, the non-normative rejected/deferred record, historical provenance,
 or a negative absence proof—not as supported API, replacement guidance, active glossary definition, or positive
-example. The ledger does not remove a `RETAIN` row. Reference examples must rewrite deleted consumers; selector
-files may be redistributed and unused host examples removed or promoted, but folder layout is not a public
+consumer. The ledger does not remove a `RETAIN` row. Reference consumers must rewrite deleted calls; selector
+files may be redistributed and unused host fixtures removed or promoted, but folder layout is not a public
 deletion rule.
 
 ### Disposition table
@@ -191,7 +195,7 @@ clauses in this contract.
 
 For every `DELETE` or `REPLACE` entry, migration MUST prove all of the following:
 
-1. Active contracts, glossaries, examples, Stories, fixtures, tests, and task files use only accepted or
+1. Active contracts, glossaries, consumers, Stories, fixtures, tests, and task files use only accepted or
    explicitly retained surfaces.
 2. Runtime export proofs show the deleted value or namespace absent.
 3. Declaration proofs reject deleted types, overloads, properties, deep imports, and authoring shapes.
@@ -199,14 +203,14 @@ For every `DELETE` or `REPLACE` entry, migration MUST prove all of the following
    publication, external work, or evidence.
 5. No alias, adapter, registry, translator, parser branch, or implementation file remains solely for deletion
    compatibility.
-6. Live examples and Stories exercise replacements through production owners; source scans may support but
+6. Live consumers and Stories exercise replacements through production owners; source scans may support but
    cannot replace runtime or declaration absence proofs.
 
 The old contract name may occur in a negative absence proof only when testing unavailability. It may not occur
-in a positive example, supported overload, active glossary definition, compatibility recommendation, or
+in a positive usage, supported overload, active glossary definition, compatibility recommendation, or
 replacement recipe. The deletion ledger MUST NOT be interpreted to remove a `RETAIN` row. A retained boundary
-remains authoritative unless a later accepted revision gives it a new disposition. The reference examples MUST
-remove or rewrite consumers of deleted surfaces; selector files may be redistributed and an unused host example
+was treated as authoritative unless a later accepted revision gave it a new disposition. The reference consumers MUST
+remove or rewrite uses of deleted surfaces; selector files may be redistributed and an unused host fixture
 may be removed or promoted into a tested host, but folder layout itself is not a public deletion rule.
 
 ## Required cutover proofs

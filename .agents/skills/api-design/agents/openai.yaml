@@ -1,4 +1,4 @@
 interface:
   display_name: "API Design"
   short_description: "Design APIs with Bloch’s maxims"
-  default_prompt: "Use $api-design to review this API design against Joshua Bloch’s maxims."
+  default_prompt: "Use $api-design to shape or review this API's public surface, usability, and compatibility against Joshua Bloch's maxims."

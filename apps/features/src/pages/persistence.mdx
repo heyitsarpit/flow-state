@@ -1,0 +1,185 @@
+# Persistence
+
+Persistence keeps one app's confirmed data, actor state and write lanes across a reload within one app, scope and version, and never repeats a remote write.
+
+## Example: reload mid-charge
+
+A shared checkout reloads while its charge is on the wire: the restored write is `unknown`, and no second charge is sent.
+
+```ts
+// checkout.story.ts
+import { Story } from "flow-state/testing"
+import { CheckoutSetup } from "./checkout.setup"       // user-defined: the app setup, with persistence on
+import { CheckoutP1 } from "./checkout.refs"           // user-defined: a shared actor ref
+import { E, O } from "./checkout.definition"
+import { Stripe, StripeFake } from "./stripe.fake"     // user-defined (2.10.4)
+
+const checkout = (id: string) => Story.make(CheckoutSetup, { id, fixtures: [StripeFake] })
+
+export const reloadMidCharge = checkout("checkout/reload-mid-charge")
+  .ensure(CheckoutP1, { input: { intentId: "pi_1" } })  // a persisted actor (ref made with persist: true, per Persistence.plan O2; see the Runtime page)
+  .world(Stripe.confirm.hold())                         // the Attempt is acknowledged in storage before it is sent
+  .send(CheckoutP1, E.Pay({ paymentMethodId: "pm_card" }))  // its lane record holds the Attempt
+  .reload()                                             // closes the tab, reopens it and ensures CheckoutP1 again
+  .expect(Story.records("ending", { operation: O.pay }), [
+    { reason: { _tag: "Restored" } },                   // unknown { Restored }: the Attempt was acknowledged once
+  ])
+```
+
+## Example: a focused machine Story
+
+A focused machine Story runs a local actor, so its reload is refused before the test runs.
+
+```ts
+// checkout.story.ts
+import { Story } from "flow-state/testing"
+import { CheckoutMachine } from "./checkout.machine"   // user-defined: the machine under test
+import { E } from "./checkout.definition"
+import { StripeFake } from "./stripe.fake"             // user-defined (2.10.4)
+
+export const localReload = Story.make(CheckoutMachine, {
+  id: "checkout/local",
+  input: { intentId: "pi_1" },
+  fixtures: [StripeFake],
+})
+  .send(E.Pay({ paymentMethodId: "pm_card" }))
+  .reload()   // type error: a local identity's lanes are never persisted (2.10.10)
+```
+
+## Example: a second tab
+
+A second tab on the same app and scope runs without persistence instead of writing over the first.
+
+```ts
+// checkout.story.ts
+import { Story } from "flow-state/testing"
+import { CheckoutSetup } from "./checkout.setup"       // user-defined
+import { CheckoutP1 } from "./checkout.refs"           // user-defined
+import { E } from "./checkout.definition"
+import { StripeFake } from "./stripe.fake"             // user-defined
+
+export const twoTabs = Story.make(CheckoutSetup, { id: "checkout/two-tabs", fixtures: [StripeFake] })
+  .ensure(CheckoutP1, { input: { intentId: "pi_1" } })
+  .send(CheckoutP1, E.Pay({ paymentMethodId: "pm_card" }))
+  .openTab("b", { from: "main" })                      // tab b ensures CheckoutP1 too, with its own store
+  .expect(Story.inspection({ tab: "b" }), { persistence: { status: "SecondTabNoPersistence" } })
+```
+
+## Keywords
+
+### persisted actor and its saved record
+
+**What:** A persisted shared actor's saved record holds its state, memory, issues and pending outcomes, and never its write lanes.
+
+**Why it exists:** A write must outlive the actor that started it, so a reload or a disposed actor cannot lose a held or unacknowledged write.
+
+- `persist: true` on `actorRef` is stated only in Persistence.plan (the design says "persisted identity" without spelling the option).
+- The design replaces two plan sentences: "pending writes follow their actor" (Persistence O2) and "explicitly disposed durable actors disappear from the next capture" (O3). Lane records are Runtime records, and a disposed actor's live lanes stay as unbound records. The design wins.
+- Also replaced by the design: "saved records for an undeclared machine id are discarded" (Persistence O5), which becomes lane records decoding on their own.
+
+<small>Source: Persistence O2, O3, O5 · machine-design 2.7.13 ("Lanes are Runtime records for persistence too"), C44, C45, C47</small>
+
+### captures and acknowledgement, per lane and per Attempt
+
+**What:** A capture saves a whole, consistent view of the persisted actors and their non-`Idle` lanes, and storage acknowledges each Attempt once, before its first send.
+
+**Why it exists:** After a crash, a restored Attempt can be reported honestly as unknown, and no remote write runs without a durable record of it.
+
+- A failed acknowledgement ends `NotSent { StorageRefused }` and the adapter is never called. The plan's "settles through interrupt with StorageFailure" (Persistence O6) is replaced by the design (C48).
+- A persisted re-send waits for its lane record's capture before it is invoked. Acknowledgement is not repeated for it.
+
+<small>Source: Persistence O3, O6 · machine-design 2.7.13 (the invoked and storage refused rows), C45, C48, P15</small>
+
+### lane records, keyed by contract id and key
+
+**What:** A write lane is stored as a Runtime record under (actor identity, contract id, key), holding its Attempts with their `retryCount` and whether each was acknowledged.
+
+**Why it exists:** A hold belongs to one write target, so a reload restores the same lane for the same key and never sends a newer write past an unresolved one.
+
+```ts
+// one lane per Issue: key ["id"] on the contract (OD15)
+operations: ({ E }) => ({
+  like: Issues.setLike.outcomes({
+    success: E.Settled,
+    failure: { Gone: E.IssueGone, NotSent: E.Failed.from(() => ({ message: "Could not update" })) },
+    unknown: E.LikeUnsure.from((_r, { key }) => ({ id: key.id })),
+  }),
+}),
+```
+
+- A contract whose key fields change is a persistence break: its lane records go to `orphaned` (P19), as changing an entity's `primaryKey` does.
+- Renaming an operation changes nothing persisted. The lane is keyed by contract id, not by the operation's name (2.7.15).
+
+<small>Source: Persistence O2 · machine-design 2.7.13 ("A lane's identity is"), 2.7.15, OD20</small>
+
+### restore and reload
+
+**What:** `ready()` restores each persisted actor in its saved leaf, then delivers its lane endings in a fixed order, before any external event.
+
+**Why it exists:** A reload continues the work that was there. It never runs the actor's start again or replays old input or turns.
+
+- The delivery order is: parked endings in saved order; then per lane in creation order, a held head's `unknown { Restored }`, or `NotSent { Restored }` for work never acknowledged, then each waiting entry's `NotSent { Restored }`. An in-flight lane's ending is delivered when it lands.
+- The restored incarnation is new, so its handlers have not seen the hold and receive `unknown { Restored }` once.
+
+<small>Source: Persistence O4 · machine-design 2.7.13 (the delivery order; restore row), 2.7.15, C46</small>
+
+### `unknown { Restored }` and `NotSent { Restored }`
+
+**What:** `unknown { Restored }` is the outcome of an Attempt acknowledged before the reload; `NotSent { Restored }` is the outcome of an Attempt never acknowledged, and of each queued commit behind a held head.
+
+**Why it exists:** The page reloaded mid-call, so Flow cannot tell whether the adapter ran. Only a `Restored` label on an acknowledged Attempt lets the author decide to re-send, relying on the idempotency key.
+
+```ts
+// the author maps both; NotSent carries its reason in why
+unknown: E.LikeUnsure.from((_r, { key }) => ({ id: key.id })),   // unknown { Restored } lands here
+failure: { NotSent: E.Failed.from(() => ({ message: "Could not update" })) },   // NotSent { Restored } lands here
+```
+
+- A restored Attempt that was acknowledged but never invoked is also `unknown { Restored }`, so `retry` may be its first send. The idempotency key makes that safe.
+- A restore that ends a never-acknowledged head `NotSent { Restored }` promotes nothing, so the lane becomes `Idle` once its waiting entries end.
+
+<small>Source: Persistence O6 · machine-design 2.7.13 (restore row; the `NotSent` reasons), 2.10.18.2's reload table, C2, C17</small>
+
+### pending mapped outcomes
+
+**What:** A pending mapped outcome is a lane ending that settled while no incarnation could receive it. It is saved with its record and delivered once after reload.
+
+**Why it exists:** An ending that lands during a disposal or between turns must not be lost, or replaced by `unknown { Restored }` after the fact.
+
+- Endings are saved raw: the contract's outcome, the Attempt and the lane state. They are mapped through the current `outcomes` when delivered, so a changed machine still receives them.
+- If an Attempt's outcome is already saved, that outcome is delivered once in place of `unknown { Restored }`.
+
+<small>Source: Persistence O2, O4 · machine-design 2.7.13 (OD21, OD22, G3), C44, C46</small>
+
+### local actors
+
+**What:** A local actor, from `createActor` or a local React actor, is the stated exception: its write lanes are never persisted.
+
+**Why it exists:** A local actor has no stable shared identity to save under. Making it persist would need one, so the design states the gap instead.
+
+- A write sent by a local actor before a reload leaves no lane afterwards, so its ending is not seen and its hold is lost. A newer write on that key can then be sent past an unresolved one. The remedy is a persisted identity, or a version precondition (`basedOn` as `If-Match`).
+- A local identity is (machine id, input compared by `Equal.equals`), so a remounted local actor with the same input adopts its predecessor's lanes, and those are not persisted.
+
+<small>Source: Persistence O2 · machine-design 2.7.13 (principle 2; "Lanes are Runtime records"; G4), 2.10.10</small>
+
+### two tabs
+
+**What:** Two tabs on the same app and scope are two Runtimes. Only the owner persists. The second runs without restore, capture or writes and reports `SecondTabNoPersistence`.
+
+**Why it exists:** Two Runtimes cannot order each other's writes, so one writer per scope is the only rule the design can keep honest.
+
+- Cross-tab ordering is the server's job, through a version precondition, or a shared actor's. Tab 1's held "A" can still apply over tab 2's "X".
+- There is no tab sharing or handover. A second Runtime stays without persistence even after the owner closes; a new Runtime may try again (Persistence O7).
+
+<small>Source: Persistence O7 · machine-design 2.7.13 ("Across Runtimes", OD19), 2.10.10</small>
+
+### SSR hydration
+
+**What:** Lanes never hydrate: only resource entries come from the server. A commit in flight at dehydration is reported as evidence, and no client lane is created for it.
+
+**Why it exists:** A server render cannot carry a client's unacknowledged write, so the client never receives a hold it cannot resolve.
+
+- `DehydrateCommitInFlight` names the actor, its state and, for a fragment's operation, its instance path. The transferred actor gets no ending for it, so a state that waits for one waits for its own timers or for the user.
+- A later client write to that key is unordered with the server's write. This is a stated limit, not a bug.
+
+<small>Source: ServerRendering O3, O5 · machine-design 2.7.13 (SSR hydration row), C49</small>

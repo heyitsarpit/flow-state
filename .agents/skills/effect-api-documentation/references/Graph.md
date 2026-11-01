@@ -2,6 +2,8 @@
 
 Source: [Effect v4 `Graph` API](https://www.effect.website/docs/v4/api/effect/Graph). Examples assume `import { Graph } from "effect"`.
 
+`Graph` models immutable directed or undirected nodes and edges, with utilities for construction, transformation, and traversal.
+
 ## API index
 
 1. [Graph.Graph](#graphgraph)

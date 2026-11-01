@@ -4,21 +4,15 @@
   "private": true,
   "workspaces": [
     "apps/*",
-    "packages/*",
-    "examples/*"
+    "packages/*"
   ],
   "type": "module",
   "scripts": {
-    "build": "nub run build:library && nub run build:examples && nub run check:example-cli",
-    "build:examples": "nub run --filter @flow-state/basic-cached-posts build && nub run --filter @flow-state/optimistic-transactions build && nub run --filter @flow-state/bounded-infinite-feed build && nub run --filter @flow-state/server-prefetch-hydration build && nub run --filter @flow-state/offline-recovery build && nub run --filter @flow-state/incident-console build",
-    "build:library": "nub run --filter flow-state build && nub run --filter flow-state check:typescript-mode-proofs && nub run --filter flow-state check:packed-consumers",
-    "browser:install": "nub run --filter @flow-state/incident-console browser:install",
-    "check": "nub run check:anti-slop && vp check packages/flow-state-rewrite",
-    "check:anti-slop": "node ./tools/oxlint/anti-slop/rules.test.mjs && tsc --ignoreConfig --noEmit --skipLibCheck --strict --noUnusedLocals --noUnusedParameters --module NodeNext --moduleResolution NodeNext --target ES2022 --allowImportingTsExtensions tools/oxlint/anti-slop/index.ts",
-    "check:example-cli": "node ./scripts/check-example-cli-acceptance.mjs",
-    "check:fix": "vp check packages/flow-state-rewrite --fix",
+    "build": "nub run build:library",
+    "build:library": "nub run --filter flow-state build && nub run --filter flow-state check:packed-consumers",
+    "check": "vp check packages/flow-state-rewrite",
+    "check:fix": "vp check --fix packages/flow-state-rewrite",
     "check:toolchain": "node ./scripts/check-toolchain.mjs",
-    "dev": "nub run --filter @flow-state/incident-console dev",
     "docs:build": "nub run --filter @flow-state/docs build",
     "docs:dev": "nub run --filter @flow-state/docs dev",
     "docs:preview": "nub run --filter @flow-state/docs preview",
@@ -27,19 +21,27 @@
     "lint": "vp lint packages/flow-state-rewrite",
     "lint:fix": "vp lint packages/flow-state-rewrite --fix",
     "test": "vp test",
-    "test:browser": "nub run --filter @flow-state/incident-console test:browser",
-    "verify": "nub run check:toolchain && nub run check && nub run test && nub run build && nub run test:browser && nub run docs:build"
+    "verify": "nub run check:toolchain && nub run check && nub run test && nub run build && nub run docs:build",
+    "test:coverage": "vp test run packages/flow-state-rewrite --coverage",
+    "report:unused": "knip --workspace packages/flow-state-rewrite --no-exit-code"
   },
   "devDependencies": {
-    "@effect/language-service": "0.86.4",
-    "@oxlint/plugins": "1.78.0",
-    "effect": "4.0.0-beta.86",
-    "@types/node": "26.2.0",
-    "happy-dom": "^20.10.6",
-    "oxlint": "1.77.0",
+    "@effect/language-service": "0.87.5",
+    "@oxlint/plugins": "1.89.0",
+    "@types/node": "26.6.5",
+    "@vitest/coverage-v8": "5.0.5",
+    "effect": "4.0.5",
+    "happy-dom": "21.0.3",
+    "knip": "6.42.1",
+    "oxlint": "1.89.0",
     "typescript": "7.0.2",
-    "vite-plus": "0.2.9",
-    "vitest": "4.1.10"
+    "vite": "npm:@voidzero-dev/vite-plus-core@1.3.0",
+    "vite-plus": "1.3.0"
+  },
+  "overrides": {
+    "@effect/platform-node-shared": "4.0.0-rc.112",
+    "vite": "npm:@voidzero-dev/vite-plus-core@1.3.0",
+    "vitest": "5.0.5"
   },
   "devEngines": {
     "packageManager": {

@@ -1,0 +1,380 @@
+import { Result, Schema } from "effect";
+
+import { canonicalizeKey } from "./key.js";
+import { CallableSchema, firstConfigurationField } from "./configuration.js";
+import { AuthoredName } from "../internal/authored-name.js";
+
+import { RequirementsTypeId, operationPlan, publishOperation, requirements } from "./operation.js";
+import type {
+  CacheWritePlan,
+  CancellationPlan,
+  FiniteOutcomes,
+  OperationDescriptor,
+  OperationDefect,
+  OperationErrorOf,
+  OperationOptions,
+  OperationPlan,
+  OperationProgram,
+  OperationRequirementsOf,
+  OperationValueOf,
+  PlanOptions,
+  ValidOperationProgram,
+} from "./operation.js";
+import type { OperationKey, CanonicalKeyValue } from "./key.js";
+
+/*
+ * Transactions:
+ *
+ * Public contracts and overload constraints
+ *   ParameterlessTransactionConfig, TransactionImplementationConfig,
+ *   TransactionKeyedAuthoringConfig, TransactionParameterlessAuthoringConfig,
+ *   transaction overloads and implementation constraints
+ *
+ * Configuration capture and Schema admission
+ *   TransactionConfigurationSchema, decodeTransactionConfiguration,
+ *   transactionConfigurationError, admitTransactionConfiguration
+ *
+ * Normalized construction
+ *   TransactionConstructionConfig, createTransaction
+ *
+ * Bound methods
+ *   key, commit, getState, cancel
+ *
+ * Descriptor publication
+ *   transactionValue, publishOperation
+ *
+ * Assembly
+ *   transaction overloads and implementation
+ */
+
+type ParameterlessTransactionConfig<Id extends string, Program> = ({
+  id: Id;
+  commit: (options: OperationOptions) => Program & ValidOperationProgram<Program>;
+} & TransactionPolicy) &
+  Partial<{ key: never }>;
+
+export type TransactionState<A, E, K extends OperationKey> =
+  | { status: "idle"; key: K }
+  | { status: "pending"; key: K; generation: number }
+  | { status: "success"; key: K; generation: number; value: A }
+  | { status: "failure"; key: K; generation: number; error: E }
+  | {
+      status: "defect";
+      key: K;
+      generation: number;
+      defect: OperationDefect;
+    }
+  | { status: "interrupted"; key: K; generation: number }
+  | {
+      status: "unknown";
+      key: K;
+      generation: number;
+      reconcileRequired: true;
+    };
+
+// FLOW_STATE_ALLOW_UNKNOWN: Transaction writes cross resource value types, so each resource owns the concrete cache value contract.
+type OpaqueCacheWriteValue = unknown;
+
+export type TransactionCommitOptions<P, A, E, O = unknown> = Partial<{
+  outcomes: FiniteOutcomes<A, E, O>;
+  writes: (context: {
+    params: P;
+    value: A;
+  }) => CacheWritePlan<string, OperationKey, OpaqueCacheWriteValue>[];
+}>;
+
+export type TransactionCommitPlan<
+  Id extends string,
+  P,
+  K extends OperationKey,
+  Options = never,
+> = OperationPlan<"transaction-commit", Id, P, K, Options>;
+
+export type TransactionCommitAdapter<P, A, E, R> = [P] extends [undefined]
+  ? (options: OperationOptions) => OperationProgram<A, E, R>
+  : (params: P, options: OperationOptions) => OperationProgram<A, E, R>;
+
+type TransactionCommit<Id extends string, P, K extends OperationKey, A, E> = <
+  const O extends TransactionCommitOptions<P, A, E> | undefined = undefined,
+>(
+  params: P,
+  options?: O,
+) => TransactionCommitPlan<Id, P, K, PlanOptions<O>>;
+
+export type Transaction<
+  Id extends string = string,
+  P = never,
+  K extends OperationKey = OperationKey,
+  A = never,
+  E = never,
+  R = never,
+> = OperationDescriptor<"transaction", Id, P, K, R> & {
+  getState: (key: K) => TransactionState<A, E, K>;
+  commit: TransactionCommit<Id, P, K, A, E>;
+  cancel: (key: K) => CancellationPlan<Id, K, "transaction">;
+  persist: boolean;
+  concurrency: TransactionConcurrency;
+};
+
+export type TransactionConcurrency = "reject" | "cancel" | "allow" | "serialize";
+
+export type TransactionConfig<Id extends string, P, K extends OperationKey, A, E, R> = {
+  id: Id;
+  key: (params: P) => K;
+  commit: TransactionCommitAdapter<P, A, E, R>;
+} & TransactionPolicy;
+
+type TransactionImplementationConfig =
+  | ({
+      id: string;
+      commit: (options: OperationOptions) => TransactionImplementationProgram;
+    } & TransactionPolicy)
+  | ({
+      id: string;
+      key: (params: never) => OperationKey;
+      commit: (params: never, options: OperationOptions) => TransactionImplementationProgram;
+    } & TransactionPolicy);
+
+type TransactionImplementationProgram =
+  | Record<never, never>
+  | string
+  | number
+  | boolean
+  | bigint
+  | symbol
+  | null;
+
+type TransactionImplementationResult = {
+  kind: "transaction";
+  id: string;
+};
+
+type TransactionKeyedAuthoringConfig<Id extends string, P, K extends OperationKey, Program> = {
+  id: Id;
+  key: (params: P) => K;
+  commit: (...args: never[]) => Program;
+} & TransactionPolicy;
+
+type TransactionParameterlessAuthoringConfig<Id extends string, Program> = {
+  id: Id;
+  commit: (...args: never[]) => Program;
+} & TransactionPolicy;
+
+const TransactionConfigurationSchema = Schema.Struct({
+  id: AuthoredName,
+  key: Schema.optionalKey(CallableSchema),
+  commit: CallableSchema,
+  persist: Schema.optional(Schema.Boolean),
+  concurrency: Schema.optional(Schema.Literals(["reject", "cancel", "allow", "serialize"])),
+});
+
+type TransactionConfiguration = typeof TransactionConfigurationSchema.Type;
+
+const decodeTransactionConfiguration = Schema.decodeUnknownResult(TransactionConfigurationSchema, {
+  onExcessProperty: "error",
+});
+
+type TransactionPolicy = Partial<Pick<TransactionConfiguration, "persist" | "concurrency">>;
+
+type TransactionConfigurationInput = Parameters<typeof decodeTransactionConfiguration>[0];
+
+const transactionConfigurationError = (failure: Schema.SchemaError) => {
+  const field = firstConfigurationField(failure.issue);
+
+  if (field === "id") return new TypeError("Operation id must be a valid authored name");
+
+  if (field === "key") return new TypeError("Transaction key must be callable");
+
+  if (field === "commit") return new TypeError("Transaction commit adapter must be callable");
+
+  return new TypeError("Invalid Transaction configuration");
+};
+
+function admitTransactionConfiguration<
+  const Id extends string,
+  P,
+  const K extends OperationKey,
+  Program,
+>(
+  config: TransactionKeyedAuthoringConfig<Id, P, K, Program>,
+): TransactionKeyedAuthoringConfig<Id, P, K, Program>;
+function admitTransactionConfiguration<const Id extends string, Program>(
+  config: TransactionParameterlessAuthoringConfig<Id, Program>,
+): TransactionParameterlessAuthoringConfig<Id, Program>;
+
+function admitTransactionConfiguration(
+  input: TransactionConfigurationInput,
+): TransactionConfiguration;
+function admitTransactionConfiguration(input: TransactionConfigurationInput) {
+  return decodeTransactionConfiguration(input).pipe(
+    Result.getOrThrowWith(transactionConfigurationError),
+  );
+}
+
+type TransactionConstructionConfig<Id extends string, P, K extends OperationKey, Program> = {
+  id: Id;
+  key: (params: P) => K;
+  commit: (...args: never[]) => Program;
+} & TransactionPolicy;
+
+const createTransaction = <Id extends string, P, K extends OperationKey, Program>(
+  config: TransactionConstructionConfig<Id, P, K, Program>,
+) => {
+  // Normalized construction
+  type A = OperationValueOf<Program>;
+
+  type E = OperationErrorOf<Program>;
+
+  type R = OperationRequirementsOf<Program>;
+
+  type CanonicalK = CanonicalKeyValue<K>;
+
+  const { id, key: projectKey, commit: commitAdapter, persist, concurrency } = config;
+
+  // Bound methods
+  const key = (params: P) => {
+    return canonicalizeKey(projectKey(params));
+  };
+
+  const commit = <const O extends TransactionCommitOptions<P, A, E> | undefined = undefined>(
+    params: P,
+    options?: O,
+  ) => operationPlan("transaction-commit", id, projectKey, params, options);
+
+  const getState = (keyValue: CanonicalKeyValue<K>) => ({
+    status: "idle" as const,
+    key: canonicalizeKey<K>(keyValue),
+  });
+
+  const cancel = (keyValue: CanonicalKeyValue<K>) => ({
+    kind: "cancel" as const,
+    family: "transaction" as const,
+    descriptor: id,
+    key: canonicalizeKey<K>(keyValue),
+  });
+
+  // Descriptor publication
+  const transactionValue: Transaction<Id, P, CanonicalK, A, E, R> = {
+    kind: "transaction",
+    id,
+    key,
+    getState,
+    commit,
+    cancel,
+    persist: persist ?? false,
+    concurrency: concurrency ?? "cancel",
+    [RequirementsTypeId]: requirements<R>,
+  };
+
+  return publishOperation(transactionValue, commitAdapter);
+};
+
+export function transaction<
+  const Id extends string,
+  const K extends OperationKey,
+  const Key extends (params: never) => OperationKey,
+  Program,
+>(
+  config: {
+    id: Id;
+    key: Key & ((params: Parameters<Key>[0]) => K);
+    commit: Parameters<Key> extends []
+      ? never
+      : (
+          params: NoInfer<Parameters<Key>[0]>,
+          options: OperationOptions,
+        ) => Program & ValidOperationProgram<Program>;
+  } & TransactionPolicy,
+): Transaction<
+  Id,
+  Parameters<Key>[0],
+  CanonicalKeyValue<K>,
+  OperationValueOf<Program>,
+  OperationErrorOf<Program>,
+  OperationRequirementsOf<Program>
+>;
+
+export function transaction<const Id extends string, const K extends OperationKey, Program>(
+  config: {
+    id: Id;
+    key: () => K;
+    commit: (options: OperationOptions) => Program & ValidOperationProgram<Program>;
+  } & TransactionPolicy,
+): Transaction<
+  Id,
+  undefined,
+  CanonicalKeyValue<K>,
+  OperationValueOf<Program>,
+  OperationErrorOf<Program>,
+  OperationRequirementsOf<Program>
+>;
+
+export function transaction<const Id extends string, Program>(
+  config: ParameterlessTransactionConfig<Id, Program>,
+): Transaction<
+  Id,
+  undefined,
+  [],
+  OperationValueOf<Program>,
+  OperationErrorOf<Program>,
+  OperationRequirementsOf<Program>
+>;
+
+// RETURN_TYPE: Preserves overload compatibility between keyed and parameterless transaction constructors; removal produced TS2394.
+export function transaction(
+  config: TransactionImplementationConfig,
+): TransactionImplementationResult {
+  if ("key" in config) {
+    const captured = {
+      id: config.id,
+      key: config.key,
+      commit: config.commit,
+      persist: config.persist,
+      concurrency: config.concurrency,
+    };
+
+    if (
+      Reflect.ownKeys(config).some(
+        (property) =>
+          property !== "id" &&
+          property !== "key" &&
+          property !== "commit" &&
+          property !== "persist" &&
+          property !== "concurrency",
+      )
+    )
+      Object.defineProperty(captured, "extra", { enumerable: true, value: true });
+
+    const admitted = admitTransactionConfiguration(captured);
+    const { id, key, commit, persist, concurrency } = admitted;
+    const normalizedConfig = { id, key, commit, persist, concurrency };
+
+    return createTransaction(normalizedConfig);
+  }
+
+  const captured = {
+    id: config.id,
+    commit: config.commit,
+    persist: config.persist,
+    concurrency: config.concurrency,
+  };
+
+  if (
+    Reflect.ownKeys(config).some(
+      (property) =>
+        property !== "id" &&
+        property !== "key" &&
+        property !== "commit" &&
+        property !== "persist" &&
+        property !== "concurrency",
+    )
+  )
+    Object.defineProperty(captured, "extra", { enumerable: true, value: true });
+
+  const admitted = admitTransactionConfiguration(captured);
+  const { id, commit, persist, concurrency } = admitted;
+  const key = () => [] as const;
+  const normalizedConfig = { id, key, commit, persist, concurrency };
+
+  return createTransaction(normalizedConfig);
+}

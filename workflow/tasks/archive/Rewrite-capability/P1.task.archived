@@ -1,0 +1,239 @@
+phase P1
+title Static foundation
+
+tasks
+    T101
+        title        Build exact Definition grammar and identity
+        status       open
+        priority     medium
+        derives_from [@plan.Statecharts.O1, @plan.Statecharts.V1]
+        satisfies    [@plan.Statecharts.O1]
+        description
+            Implement the inert Definition value, closed authored-name rules, exact 
+            event/input/memory inference, recursive state declarations, and flat operation 
+            catalogue fields. Keep construction synchronous and free of runtime work. This 
+            establishes the source types consumed by Machine and App compilation.
+        acceptance
+            Positive and negative type/runtime vectors prove exact literal identity, accepted names 
+            and byte lengths, nested states through depth 10, exact events/input/memory, and the 
+            one supported memory source. Reject depth 11, malformed or duplicate states, unknown 
+            fields, invalid names, malformed payloads, structural event lookalikes, and authored 
+            void input before side effects. Construction invokes no initializer, selector, actor, 
+            service, storage, or Effect. Run `nub run --filter flow-state-rewrite check:types` and 
+            `nubx vp test packages/flow-state-rewrite/src/definition/test/definition.test.ts`; both 
+            pass. Write scope: `packages/flow-state-rewrite/src/definition/**` and 
+            `packages/flow-state-rewrite/src/internal/authored-name.ts` plus focused fixtures. 
+            Evidence: `packages/flow-state-rewrite/src/definition/test/definition.test.ts` and type 
+            fixtures.
+
+    T102
+        title        Compile the closed recursive Machine grammar
+        status       open
+        priority     medium
+        blocked_by   [@T101]
+        derives_from [@plan.Statecharts.O2, @plan.Statecharts.V2]
+        satisfies    [@plan.Statecharts.O2]
+        description
+            Compile accepted Definition values into inert machine tables with exact recursive 
+            states, defaults, paths, event handlers, targets, redirects, reentry, and tokens. 
+            Consume the nominal Definition from T101 without decoding or validating it again. 
+            Runtime turns and continuing work belong to later Tasks.
+        acceptance
+            Positive and negative type/runtime vectors prove exact state and event inference, 
+            recursive paths, direct-child defaults, transition selection, redirects, and reentry. 
+            Reject missing, extra, misplaced, duplicate, non-direct, or over-depth nodes before 
+            work; prove definition failure is propagated unchanged and the machine callback is not 
+            called. Construction invokes no transition callback, actor, Effect, service, or 
+            operation. Run `nub run --filter flow-state-rewrite check:types` and `nubx vp test 
+            packages/flow-state-rewrite/src/machine/test/machine.test.ts`; both pass. Write scope: 
+            `packages/flow-state-rewrite/src/machine/**` and focused fixtures. Evidence: 
+            `packages/flow-state-rewrite/src/machine/test/machine.test.ts` plus compile fixtures.
+
+    T103
+        title        Compile the closed application graph and stable identities
+        status       open
+        priority     medium
+        blocked_by   [@T102, @T106]
+        derives_from [@plan.ApplicationsAndActors.O1, @plan.ApplicationsAndActors.V1]
+        satisfies    [@plan.ApplicationsAndActors.O1]
+        description
+            Compile ordered modules, exact keyed App.M, immutable application identity, admitted 
+            machines and descriptor graph edges. Preserve machine property names and exact 
+            authored-name identity from T101/T102. Keep compilation inert and reject graph growth 
+            after compilation.
+        acceptance
+            Positive and negative graph/type vectors prove every listed machine and descriptor 
+            contributes to the closed graph and exact requirement traversal. Reject duplicate 
+            module IDs, property names, machine values, descriptor ownership collisions, foreign or 
+            unadmitted descriptors, and post-compile additions before actor or work creation. ASCII 
+            and multibyte app/machine/ref identity vectors use UTF-8 byte lengths and preserve 
+            spelling. Run `nub run --filter flow-state-rewrite check:types` and `nubx vp test 
+            packages/flow-state-rewrite/src/app/test/app.test.ts 
+            packages/flow-state-rewrite/src/app/test/graph.test.ts`; both pass. Write scope: 
+            `packages/flow-state-rewrite/src/app/**` and focused app/type fixtures. Evidence: app 
+            and graph tests plus compile fixtures.
+
+    T104
+        title        Preserve exact RequirementsOf and Implementation closure
+        status       open
+        priority     medium
+        blocked_by   [@T103, @T106]
+        derives_from [@plan.ApplicationsAndActors.O2, @plan.ApplicationsAndActors.V2]
+        description
+            Implement covariant requirement carriers and inert typed Implementations. Preserve raw 
+            descriptor requirements, remove only Flow-owned Scope, and compose the exact machine, 
+            module, app, and provider unions. Provider construction remains inert; Runtime 
+            acquisition belongs to P2.
+        acceptance
+            Positive and negative isolated type fixtures prove exact R propagation, covariance, 
+            cross-module unions, raw descriptor R, fixture/Story/model carrier preservation where 
+            available, and removal of only Flow-owned Scope. Reject missing/surplus/duplicate 
+            providers and recursive expansion without excessive instantiation. Provider 
+            constructors acquire no services or Scope and preserve success/failure/environment 
+            types without assertions. This Task proves the static app/machine/module/Implementation 
+            carrier base; Story, fixture, and model carrier closure is checked with their P5 
+            owners. Run `nub run --filter flow-state-rewrite check:types` and `nubx vp test 
+            packages/flow-state-rewrite/src/implementation/test/implementation.test.ts`; both pass. 
+            Write scope: `packages/flow-state-rewrite/src/implementation/**`, 
+            `packages/flow-state-rewrite/src/app/requirements.ts`, and focused type fixtures. App 
+            graph ownership remains T103; Story, fixture, and model carrier closure remains with 
+            P5. Evidence: implementation tests and compile fixtures.
+
+    T105
+        title        Establish canonical Diagnostics and safe rendering
+        status       open
+        priority     medium
+        derives_from [
+                     @plan.DiagnosticsContract.O1,
+                     @plan.DiagnosticsContract.O2,
+                     @plan.DiagnosticsContract.O3,
+                     @plan.DiagnosticsContract.O4,
+                     @plan.DiagnosticsContract.O5,
+                     @plan.DiagnosticsContract.V1,
+                     @plan.DiagnosticsContract.V2,
+                     @plan.DiagnosticsContract.V3,
+                     @plan.DiagnosticsContract.V5,
+                     @plan.DiagnosticsContract.O6
+                     ]
+        satisfies    [
+                     @plan.DiagnosticsContract.O1,
+                     @plan.DiagnosticsContract.O2,
+                     @plan.DiagnosticsContract.O3,
+                     @plan.DiagnosticsContract.O4,
+                     @plan.DiagnosticsContract.O5,
+                     @plan.DiagnosticsContract.O6
+                     ]
+        description
+            Implement the sole Diagnostic schema, closed usage/diagnostic codes, reusable 
+            typed-failure and complete-Cause mapping boundary, FlowUsageError projection, and 
+            shared safe renderer. Keep host formatting separate, preserve exact success/environment 
+            channels, and retain Failure/Die/Interrupt distinctions until cleanup/evidence 
+            aggregation is complete. Persistence and Story/Dispose terminal-error ownership remain 
+            with T401, T203, and T508.
+        acceptance
+            Positive: schema/type fixtures prove exact tags, classifications, fields, finite 
+            path/detail domains, closed codes, the 19 maintained usage-remediation rows, and stable 
+            FlowUsageError code/path/details. Structural decode translates SchemaError once; 
+            semantic validation remains Result data; typed failure mapping preserves A and R. 
+            Complete Cause survives cleanup aggregation and classifies defect before typed failure 
+            before interruption-only. Check: diagnostic schema/mapping tests, focused Cause tests, 
+            and check:types; expected: exact channels and precedence. Failure: reject unknown 
+            codes, malformed paths/details, missing fields, non-finite numbers, and unsupported 
+            terminal Error projections. Renderer tests cover all classifications and hostile text 
+            while excluding raw input, stack, ANSI, fabricated locations, and Cause. Expected: only 
+            Failure plus FlowUsageCode becomes FlowUsageError; no Cause escapes. Run nub run 
+            --filter flow-state-rewrite check:types and nubx vp test 
+            packages/flow-state-rewrite/src/diagnostic/test/diagnostic.test.ts; both pass. Write 
+            scope: packages/flow-state-rewrite/src/diagnostic/** and focused fixtures. Evidence: 
+            schema, mapping/Cause, usage projection, and renderer tests.
+
+    T106
+        title        Settle operation types and canonical-key seams
+        status       open
+        priority     medium
+        blocked_by   [@T101, @T105, @T107]
+        derives_from [
+                     @plan.Transactions.O1,
+                     @plan.Transactions.V1,
+                     @plan.Resources.O1,
+                     @plan.Resources.V1,
+                     @plan.Streams.O1,
+                     @plan.Streams.V1,
+                     @plan.InspectionAndArtifacts.O2,
+                     @plan.ProjectDelivery.O2
+                     ]
+        description
+            Implement exact settled descriptor, input, operation-family, and canonical-key types 
+            needed by App and Runtime. Keep unresolved resource/stream authoring forms and omitted 
+            freshness policy local to their Questions; do not infer aliases, containers, callbacks, 
+            or defaults.
+        acceptance
+            Type fixtures retain exact P/K/A/E/R and transaction states/options across descriptors 
+            and consumers; prove canonical-key accepted values, UTF-8 identity and bounds through 
+            the shared codec. Reject widened/missing inputs, wrong key/result relationships, 
+            unsupported key structures, and extra public methods. Constructor proofs run no 
+            adapters or work. This Task owns only the settled operation/key type seam; P3 T306 owns 
+            the complete `Transactions.O1`/`V1` proof; `Resources.Q1` and `Streams.Q1`-bound forms 
+            remain explicitly assigned to P3 decision/authoring Tasks. Run `nub run --filter 
+            flow-state-rewrite check:types` and `nubx vp test 
+            packages/flow-state-rewrite/src/operation/test/operation.test.ts 
+            packages/flow-state-rewrite/src/operation/test/key.test.ts`; both pass. Write scope: 
+            `packages/flow-state-rewrite/src/operation/input.ts`, `key.ts`, `configuration.ts`, 
+            `operation.ts`, their focused tests, and canonical-value type fixtures. P3 owns 
+            resource/transaction/stream implementations and runtime policy. Evidence: operation/key 
+            tests and compile fixtures.
+
+    T107
+        title        Build the shared portable structural codec core
+        status       open
+        priority     medium
+        blocked_by   [@T101, @T105]
+        derives_from [
+                     @plan.InspectionAndArtifacts.O2,
+                     @plan.InspectionAndArtifacts.V2,
+                     @plan.ProjectDelivery.O2
+                     ]
+        satisfies    [@plan.InspectionAndArtifacts.O2]
+        description
+            Implement one bounded, portable structural walker and private Schema decoding boundary 
+            for persistence and artifact import/export, including canonical UTF-8 handling. Define 
+            the initial private evidence-record contract consumed by Runtime; do not add artifact 
+            envelopes or duplicate schema owners here.
+        acceptance
+            Positive and negative byte/structure vectors cover ASCII and multibyte UTF-8, malformed 
+            UTF-8, surrogate rejection, exact depth/node/array/string/property-key/byte bounds, 
+            malformed JSON, duplicate keys where detectable, cycles, negative zero, non-finite 
+            values, and one versus concatenated gzip members. Pass only when malformed or 
+            over-bound bytes reject before mutation/work with the bounded failure path and 
+            category, canonical bytes are stable across supported hosts, and no Buffer/parser 
+            exception/raw Cause leaks. Evidence contract is private and version-neutral at this 
+            stage; no public turn/evidence type is added. Run `nub run --filter flow-state-rewrite 
+            check:types` and focused tests under `packages/flow-state-rewrite/src/wire/tests`; both 
+            pass. Write scope: `packages/flow-state-rewrite/src/wire/**`, 
+            `packages/flow-state-rewrite/src/internal/utf8.ts`, and focused fixtures. Evidence: 
+            wire tests, byte vectors, and compile fixtures.
+
+    T108
+        title        Establish initial routes and close the static-foundation gate
+        status       open
+        priority     medium
+        blocked_by   [@T103, @T104, @T105, @T106, @T107]
+        derives_from [@plan.PackageContract.O1, @plan.PackageContract.O2, @plan.ProjectDelivery.O2]
+        description
+            Create and verify the initial internal public-surface facades and route/type fixtures 
+            used by capability Tasks. Close the P1 static-foundation gate by checking completed 
+            predecessor proofs for definitions, machine grammar, App graph, requirements, 
+            diagnostics, operation/key seams, and portable codec. Keep route declarations and 
+            fixtures local under src/public; T601 alone owns package.json and the four final 
+            package entrypoint files. Leave final public absence cleanup and packed-consumer 
+            cutover to P6.
+        acceptance
+            Positive consumer fixtures import the supported internal public facades and their 
+            initially owned names. Negative fixtures reject undeclared internal/private names and 
+            route cross-contamination. Confirm T101–T107 focused proofs and the pinned compiler 
+            fixture pass as the P1 exit gate. The check does not claim final package absence, fresh 
+            packed behavior, or cutover. Run `nub run --filter flow-state-rewrite check:types` and 
+            `nubx vp test packages/flow-state-rewrite/src/public/test/public-routes.test.ts`; both 
+            pass. Write scope: `packages/flow-state-rewrite/src/public/**` and route/type fixtures 
+            only. T601 owns `package.json`, `src/index.ts`, `src/react-entry.ts`, `src/testing.ts`, 
+            and `src/inspect.ts`. Evidence: public route tests and compile fixtures.

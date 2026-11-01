@@ -2,6 +2,8 @@
 
 Source: [Effect v4 `Struct` API](https://www.effect.website/docs/v4/api/effect/Struct). Examples use `Struct` from `effect`.
 
+`Struct` provides immutable helpers for constructing, selecting, omitting, assigning, and transforming record-like object values.
+
 ## API index
 
 1. [Struct.assign](#structassign)

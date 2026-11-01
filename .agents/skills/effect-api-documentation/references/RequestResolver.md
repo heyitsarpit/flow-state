@@ -2,6 +2,8 @@
 
 Source: [Effect v4 `RequestResolver` API](https://www.effect.website/docs/v4/api/effect/RequestResolver). Examples assume `import { Effect, Exit, Request, RequestResolver } from "effect"` and a request type named `MyRequest`.
 
+`RequestResolver` owns the execution policy for typed requests, including batching, grouping, delay, caching, concurrency, and completion.
+
 ## API index
 
 1. [RequestResolver.RequestResolver](#requestresolverrequestresolver)

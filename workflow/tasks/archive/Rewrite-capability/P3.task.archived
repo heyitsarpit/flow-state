@@ -1,0 +1,542 @@
+phase P3
+title Operation kernels
+
+tasks
+    T301
+        title        ResourceKeyIdentity
+        status       open
+        priority     high
+        blocked_by   [@task.Rewrite.T106, @task.Rewrite.T107]
+        derives_from [@plan.Resources.O1, @plan.Resources.V1, @plan.Resources.C1]
+        satisfies    [@plan.Resources.O1]
+        description
+            Deliver the settled canonical resource key boundary: exact key family, defensive 
+            validation/copying, canonical byte identity, ordering, and key diagnostics. Ordered 
+            work: (1) consume P1 T106 operation/key seams and T107 UTF-8/structural policy; (2) 
+            implement only the settled key grammar and identity; (3) pin key vectors at the owning 
+            test boundary. Permitted paths: packages/flow-state-rewrite/src/operation/key.ts and 
+            operation/test/key.test.ts (or the existing equivalent owner); touch shared structural 
+            codec only through its agreed T107 interface. Shared-write boundary: do not author 
+            descriptor forms, freshness defaults, stores, or the codec core. Evidence: 
+            operation/test/key.test.ts.
+        acceptance
+            Positive: compile and runtime vectors for equal canonical key bytes, defensive input 
+            copying, ordering, and exact accepted key depth/node/byte limits behave according to 
+            Resources.O1. Check: packages/flow-state-rewrite/src/operation/test/key.test.ts plus 
+            `nub run --filter flow-state-rewrite check:types`; expected: exact key inference 
+            compiles and equal keys share identity.
+
+            Failure: malformed key shapes, excessive bounds, invalid UTF-8 names, and lone 
+            surrogates reject before ownership or work with the canonical key diagnostic. Check: 
+            operation/test/key.test.ts; expected: each invalid boundary rejects without installing 
+            or mutating key state.
+
+    T302
+        title        ResourceAuthoringForms
+        status       draft
+        priority     medium
+        blocked_by   [
+                     @task.Rewrite.T106,
+                     @task.Rewrite.T102,
+                     @task.Rewrite.T103,
+                     @T315
+                     ]
+        derives_from [
+                     @plan.Resources.O1,
+                     @plan.Resources.V1,
+                     @plan.Resources.Q1,
+                     @plan.Resources.C1
+                     ]
+        satisfies    [@plan.Resources.O1]
+        description
+            Deliver only the public resource descriptor, mapper-container, K-derived tag, and 
+            placeholder forms left open by Resources.Q1, after its owner decision. Ordered work: 
+            (1) record the accepted fields and exact inference for resource(config); (2) preserve 
+            P/K/A/E/R through descriptor, requirement, implementation, machine, App, Runtime, 
+            fixture, and Story; (3) add positive/negative compile fixtures. Permitted paths: 
+            operation/resource-types.ts, operation/test/resource-types.test.ts, and owning 
+            declaration/route files needed for the accepted form. Shared-write boundary: T301 owns 
+            canonical key mechanics; T314 owns freshness/collection policy. This task remains draft 
+            and must not be interpreted as deciding Q1.
+        acceptance
+            Positive: after the approved Resources.Q1 decision, exact resource fields, mapper 
+            containers, tag/placeholder forms and callback types preserve P/K/A/E/R across the 
+            named public graph. Check: operation/test/resource-types.test.ts and focused rewrite 
+            type check; expected: only approved forms compile without widening or aliases.
+
+            Failure: unsupported descriptor fields/forms and mismatched mapper, tag, or placeholder 
+            types fail compilation. Construction performs no work. Check: 
+            operation/test/resource-types.test.ts; expected: every negative fixture is rejected 
+            before adapter start.
+
+    T303
+        title        CanonicalStoreAndPassiveReaders
+        status       open
+        priority     high
+        blocked_by   [@T301, @task.Rewrite.T201, @task.Rewrite.T202]
+        derives_from [@plan.Resources.O2, @plan.Resources.V2, @plan.Resources.D2]
+        satisfies    [@plan.Resources.O2]
+        description
+            Deliver one Runtime-owned canonical resource view and actor-bound passive readers over 
+            it. Ordered work: (1) consume T301 key identity; (2) provide bounded canonical storage 
+            and stable snapshots; (3) bind passive reads to the current actor cut; (4) prove 
+            equal-key sharing and external-store behavior. Permitted paths: 
+            operation/resource-store.ts, operation/resource-readers.ts, 
+            operation/test/resource-store.test.ts, and focused runtime assembly wiring if required. 
+            Shared-write boundary: coordinate the store port with P2 actor publication; T313 owns 
+            the integrated actor/store/evidence commit cut. Do not implement host adapters or 
+            operation work admission. Evidence: operation/test/resource-store.test.ts.
+        acceptance
+            Positive: two actors using the same canonical key observe one data view; passive reads 
+            are stable, actor-bound, and perform no lookup or mutation. Check: 
+            operation/test/resource-store.test.ts; expected: equal keys share committed data and 
+            repeated reads are pure.
+
+            Failure: wrong-actor or stale-cut readers cannot observe or publish another actor's 
+            mutable data; structural copies do not alias caller values. Check: 
+            operation/test/resource-store.test.ts; expected: rejected reads leave store and actor 
+            snapshots unchanged.
+
+            Q1-bound deferral: T318 proves placeholder projection purity after Resources.Q1 and its 
+            authoring form are accepted; this Task keeps canonical reads passive and does not 
+            create placeholder writes or outcomes.
+
+    T304
+        title        ResourceAcquisitionLifecycle
+        status       open
+        priority     high
+        blocked_by   [@T301, @T303, @task.Rewrite.T202, @task.Rewrite.T203]
+        derives_from [@plan.Resources.O3, @plan.Resources.V3, @plan.Resources.C1]
+        satisfies    [@plan.Resources.O3]
+        description
+            Deliver the settled resource acquisition kernel: finite admission, deduplication, 
+            cancellation, current ownership, stale-result fencing, and disposal lifecycle. Ordered 
+            work: (1) use T301 identity and T303 storage; (2) integrate with P2 admission and actor 
+            lifecycle; (3) exercise settle/cancel/release races. Permitted paths: 
+            operation/resource-lifecycle.ts and operation/test/resource-lifecycle.test.ts. 
+            Shared-write boundary: freshness and collection type/default policy is T314 and remains 
+            excluded until Resources.Q1 is decided; do not create omitted freshness defaults. 
+            Evidence: operation/test/resource-lifecycle.test.ts.
+        acceptance
+            Positive: admitted lookup work is finite, equal-key consumers share only the permitted 
+            in-flight occurrence, and current consumers receive a fenced settled result. Check: 
+            operation/test/resource-lifecycle.test.ts; expected: current generation publishes once 
+            and release/disposal is bounded.
+
+            Failure: stale completion, cancellation, capacity refusal, or disposed ownership cannot 
+            publish or mutate canonical state. Check: operation/test/resource-lifecycle.test.ts; 
+            expected: rejected/stale work leaves the committed value and actor snapshot unchanged.
+
+    T305
+        title        ResourceWritesAndInvalidation
+        status       open
+        priority     high
+        blocked_by   [@T301, @T303, @task.Rewrite.T207, @task.Rewrite.T208]
+        derives_from [
+                     @plan.Resources.O4,
+                     @plan.Resources.V4,
+                     @plan.ProjectDelivery.O2,
+                     @plan.ProjectDelivery.O3
+                     ]
+        satisfies    [@plan.Resources.O4]
+        description
+            Deliver authoritative explicit resource writes and bounded invalidation through the 
+            single actor/store publication path. Ordered work: (1) consume the settled 
+            construction-owned setData authority seam; (2) apply exact-key write and invalidation 
+            batches to the canonical store; (3) publish accepted updates atomically through actor 
+            actions; (4) prove overflow and stale authority failures. Permitted paths: 
+            operation/resource-writes.ts, operation/test/resource-writes.test.ts, and the agreed 
+            write-owner seam. Shared-write boundary: do not implement React/host adapters; 
+            coordinate the shared publication integration with T313. Evidence: 
+            operation/test/resource-writes.test.ts.
+        acceptance
+            Positive: explicit writes and bounded invalidation update the intended canonical keys 
+            and publish one accepted actor/store result. Check: 
+            operation/test/resource-writes.test.ts; expected: committed value, generation, and 
+            actor snapshot agree after success.
+
+            Failure: invalid authority, invalid key, capacity overflow, or rejected batch has no 
+            partial effects. Check: operation/test/resource-writes.test.ts; expected: the prior 
+            store value and actor/evidence sequence remain unchanged.
+
+            Q1-bound deferral: K-derived tag expansion and its exact invalidation targets are owned 
+            by T318; this Task covers exact-key, family, and other settled target forms.
+
+    T306
+        title        TransactionTypes
+        status       open
+        priority     high
+        blocked_by   [
+                     @task.Rewrite.T106,
+                     @task.Rewrite.T105,
+                     @task.Rewrite.T102,
+                     @task.Rewrite.T103
+                     ]
+        derives_from [@plan.Transactions.O1, @plan.Transactions.V1, @plan.Transactions.C1]
+        satisfies    [@plan.Transactions.O1]
+        description
+            Deliver exact finite transaction declarations, keyed inputs/results, and implementation 
+            requirement closure, without selecting an omitted concurrency default. Ordered work: 
+            (1) consume P1 operation-type, diagnostic, and App seams; (2) preserve exact 
+            transaction input/key/success/error/service types; (3) add compile-time positive and 
+            negative vectors. Permitted paths: operation/transaction-types.ts and 
+            operation/test/transaction-types.test.ts. Shared-write boundary: explicit/omitted 
+            policy execution belongs to T307/T308; do not edit runtime policy or preview 
+            implementation. Evidence: operation/test/transaction-types.test.ts.
+        acceptance
+            Positive: finite transaction implementation preserves exact P, K, A, E, and R through 
+            its named operation and implementation route. Check: 
+            operation/test/transaction-types.test.ts; expected: accepted examples compile with no 
+            widened requirement or result types.
+
+            Failure: mismatched implementation, key, effect error, service requirement, or 
+            unsupported family fails the compile fixture. Check: 
+            operation/test/transaction-types.test.ts; expected: every negative fixture is rejected.
+
+    T307
+        title        ExplicitConcurrencyPolicies
+        status       open
+        priority     high
+        blocked_by   [@T306, @T303, @task.Rewrite.T202, @task.Rewrite.T203]
+        derives_from [@plan.Transactions.O2, @plan.Transactions.V2, @plan.Transactions.D1]
+        satisfies    [@plan.Transactions.O2]
+        description
+            Deliver actor-local exact-key transaction occurrences for each explicitly authored 
+            concurrency policy. Ordered work: (1) consume T306 transaction types and T303 canonical 
+            store; (2) apply the explicitly selected policy to same-key operations; (3) prove 
+            serialization/fencing, lifecycle release, and distinct-key independence. Permitted 
+            paths: operation/transaction-concurrency.ts and 
+            operation/test/transaction-concurrency.test.ts. Shared-write boundary: do not pick the 
+            omitted default; T308 owns Q2. Do not integrate persistence reconciliation here; 
+            T310/T404 own the local/remote uncertainty distinction. Evidence: 
+            operation/test/transaction-concurrency.test.ts.
+        acceptance
+            Positive: explicit policies produce their specified same-key ordering and distinct-key 
+            independence while keeping occurrences actor-local. Check: 
+            operation/test/transaction-concurrency.test.ts; expected: each authored policy settles 
+            in its defined order and only its current occurrence publishes.
+
+            Failure: cancellation, stale generation, actor disposal, and replacement do not let an 
+            older occurrence overwrite the current result. Check: 
+            operation/test/transaction-concurrency.test.ts; expected: prior/current state follows 
+            the authored policy and no stale publication occurs.
+
+    T308
+        title        OmittedConcurrencyDefault
+        status       draft
+        priority     medium
+        blocked_by   [@T307, @T316]
+        derives_from [@plan.Transactions.O2, @plan.Transactions.V2, @plan.Transactions.Q2]
+        satisfies    [@plan.Transactions.O2]
+        description
+            After Transactions.Q2 is decided, implement and verify the default used when a 
+            transaction omits its optional concurrency policy. Ordered work: (1) encode the 
+            approved default as a closed type/runtime rule; (2) show omitted and explicit forms are 
+            distinguished exactly; (3) add behavior vectors for same-key, distinct-key, and 
+            cancellation cases. Permitted paths: transaction policy owner and 
+            operation/test/transaction-concurrency.test.ts. Shared-write boundary: does not block 
+            explicit policy work in T307 or settled store/preview work. This task remains draft and 
+            must not infer Q2 from existing source. This Task remains draft until the local 
+            Transactions.Q2 decision Task T316 resolves the omitted-field policy.
+        acceptance
+            Positive: omitted policy follows only the approved Transactions.Q2 default, while every 
+            explicit policy retains its own behavior. Check: 
+            operation/test/transaction-concurrency.test.ts; expected: omitted-policy cases match 
+            the decision table.
+
+            Failure: invalid policy values or forms reject before admission or mutation. Check: 
+            operation/test/transaction-concurrency.test.ts plus transaction type fixtures; 
+            expected: no operation starts and canonical diagnostic/type rejection is observed.
+
+    T309
+        title        TransactionPreviewsAndCAS
+        status       open
+        priority     high
+        blocked_by   [@T303, @T305, @T306]
+        derives_from [
+                     @plan.Transactions.O3,
+                     @plan.Transactions.V3,
+                     @plan.Resources.O2,
+                     @plan.Resources.O4
+                     ]
+        satisfies    [@plan.Transactions.O3]
+        description
+            Deliver isolated transaction previews and canonical compare-and-set settlement. Ordered 
+            work: (1) read an immutable actor/store basis; (2) produce preview output without 
+            committing; (3) settle explicit writes only through CAS against the captured 
+            generation; (4) prove stacked previews and losing races. Permitted paths: 
+            operation/transaction-preview.ts and operation/test/transaction-preview.test.ts. 
+            Shared-write boundary: compose with T303 store and T305 write owner; previews must not 
+            mutate data or publish evidence. Do not choose omitted concurrency default. Evidence: 
+            operation/test/transaction-preview.test.ts.
+        acceptance
+            Positive: previews see committed basis and return isolated results; a winning CAS 
+            publishes once through the canonical store. Check: 
+            operation/test/transaction-preview.test.ts; expected: preview leaves committed data 
+            unchanged and the accepted write advances the intended generation.
+
+            Failure: stale generation, failed transaction, or losing CAS changes no canonical value 
+            and emits no partial publication. Check: operation/test/transaction-preview.test.ts; 
+            expected: prior data/snapshot remain intact and the losing outcome is explicit.
+
+    T310
+        title        RemoteCancellationTruth
+        status       open
+        priority     high
+        blocked_by   [@T307, @T309, @task.Rewrite.T203]
+        derives_from [@plan.Transactions.O4, @plan.Transactions.V4, @plan.Transactions.D2]
+        satisfies    [@plan.Transactions.O4]
+        description
+            Deliver truthful cancellation and uncertainty at the remote-effect boundary. Ordered 
+            work: (1) distinguish queued work from a started remote invocation; (2) cancel queued 
+            work without side effects; (3) retain unknown/reconcile-required truth when an invoked 
+            remote effect may have committed; (4) fence stale completion and preserve current actor 
+            state. Permitted paths: operation/transaction-remote.ts and 
+            operation/test/transaction-remote.test.ts. Shared-write boundary: persistence 
+            normalization on restore belongs to T404; coordinate the status facts consumed there. 
+            No replay is permitted. Evidence: operation/test/transaction-remote.test.ts.
+        acceptance
+            Positive: queued cancellation leaves state untouched; a started remote invocation 
+            reports success/failure only when known, otherwise exposes the specified 
+            unknown/reconcile-required state. Check: operation/test/transaction-remote.test.ts; 
+            expected: outcome reflects the invocation boundary.
+
+            Failure: late completion after cancel/replacement/disposal cannot publish stale local 
+            data or claim a remote rollback. Check: operation/test/transaction-remote.test.ts; 
+            expected: current state remains fenced and remote uncertainty remains explicit.
+
+            Remote-journal gate: for an invoked adapter, distinguish adapter invocation from remote 
+            dispatch. A pending or failed independent durable journal acknowledgment prevents any 
+            remote request; after acknowledgment, cancellation remains unknown/reconcileRequired 
+            unless the adapter evidence rules out dispatch. Check: 
+            operation/test/transaction-remote.test.ts; expected: request count is zero before/after 
+            failed acknowledgment, and no Flow Persistence provider or persist:false transaction 
+            changes that journal rule.
+
+    T311
+        title        StreamSessionsAndRelease
+        status       open
+        priority     high
+        blocked_by   [
+                     @task.Rewrite.T106,
+                     @task.Rewrite.T102,
+                     @task.Rewrite.T202,
+                     @task.Rewrite.T203,
+                     @task.Rewrite.T209
+                     ]
+        derives_from [@plan.Streams.O2, @plan.Streams.V2, @plan.Streams.D1]
+        satisfies    [@plan.Streams.O2, @plan.Statecharts.O4]
+        description
+            Deliver stream session identity, latest projections, actor/runtime ownership, and 
+            release behavior independent of the unresolved public mapper container. Ordered work: 
+            (1) consume operation/action and Statechart lifecycle seams; (2) bind one declared 
+            stream occurrence to its current actor ownership; (3) publish latest values through 
+            accepted actions; (4) prove replacement, terminal, and disposal release. Permitted 
+            paths: operation/stream-lifecycle.ts and operation/test/stream-lifecycle.test.ts. 
+            Shared-write boundary: T312 owns authoring form; T414 owns durable 
+            projection/hydration; stream session work must not wait for either. Evidence: 
+            operation/test/stream-lifecycle.test.ts.
+        acceptance
+            Positive: equal declaration identity acquires and publishes the current stream 
+            projection under the declared lifetime, and release occurs on 
+            replacement/terminal/disposal. Check: operation/test/stream-lifecycle.test.ts; 
+            expected: one current session and deterministic release.
+
+            Failure: replaced or released sessions cannot publish later values or retain 
+            Runtime/actor ownership. Check: operation/test/stream-lifecycle.test.ts; expected: late 
+            emissions are ignored and disposal completes without leaked session activity.
+
+    T312
+        title        StreamAuthoringForms
+        status       draft
+        priority     medium
+        blocked_by   [
+                     @task.Rewrite.T106,
+                     @task.Rewrite.T102,
+                     @task.Rewrite.T103,
+                     @task.Rewrite.T108,
+                     @T317
+                     ]
+        derives_from [@plan.Streams.O1, @plan.Streams.V1, @plan.Streams.Q1, @plan.Streams.C1]
+        satisfies    [@plan.Streams.O1]
+        description
+            After Streams.Q1 is decided, implement only the approved stream descriptor, adapter 
+            return, and mapper-container forms. Ordered work: (1) record accepted exact P/K/V/E/R 
+            types and named projections; (2) preserve them through machine/App/Runtime/fixtures; 
+            (3) pin positive and negative fixtures. Permitted paths: operation/stream-types.ts, 
+            operation/test/stream-types.test.ts, and public declaration routes for the approved 
+            forms. Shared-write boundary: T311 session lifetime behavior proceeds independently; no 
+            guessed adapter or mapper form. This task remains draft. The local Streams.Q1 decision 
+            is recorded in T317; this Task does not select a form.
+        acceptance
+            Positive: approved declaration and adapter forms preserve exact P/K/V/E/R inference 
+            through named routes. Check: operation/test/stream-types.test.ts and focused type 
+            check; expected: only the approved forms compile.
+
+            Failure: unsupported return/container forms or mismatched event/data/error/requirement 
+            types reject. Check: operation/test/stream-types.test.ts; expected: negative fixtures 
+            fail with no added public aliases.
+
+    T313
+        title        ActorStoreEvidencePublicationCut
+        status       open
+        priority     high
+        blocked_by   [@task.Rewrite.T210, @T303, @T305, @T307, @T309, @T310, @T311]
+        derives_from [
+                     @plan.ProjectDelivery.O2,
+                     @plan.ProjectDelivery.O3,
+                     @plan.Resources.O2,
+                     @plan.Resources.O4,
+                     @plan.Transactions.O2,
+                     @plan.Transactions.O3,
+                     @plan.Transactions.O4,
+                     @plan.Streams.O2,
+                     @plan.ApplicationsAndActors.O7,
+                     @plan.Statecharts.O3,
+                     @plan.InspectionAndArtifacts.O3,
+                     @plan.InspectionAndArtifacts.V3
+                     ]
+        satisfies    [
+                     @plan.ApplicationsAndActors.O7,
+                     @plan.Statecharts.O3,
+                     @plan.ProjectDelivery.O3
+                     ]
+        description
+            Integrate actor turns, canonical resource/transaction/stream changes, and evidence 
+            acceptance at one production publication owner. This is the P3 cut, not a persistence 
+            implementation. Ordered work: (1) align actor action and T303 store preparation; (2) 
+            include T305 write settlement, T307/T309/T310 transaction facts, and T311 stream facts; 
+            (3) make one committed current cut observable to store readers and evidence; (4) prove 
+            acknowledgment follows evidence acceptance and failures roll back only prepared state. 
+            Permitted paths: runtime-next actor/store publication owner and 
+            runtime-next/test/operation-publication-cut.test.ts. Shared-write boundary: this is the 
+            only P3 integration writer for the cut; operation owners provide their seams without 
+            parallel actor/store/evidence semantics. No P2 T205 dependency unless acceptance 
+            expands to causal context-wave behavior. Evidence: operation-publication-cut.test.ts.
+        acceptance
+            Positive: one operation action commits actor snapshot, canonical store projection, and 
+            evidence at the same sequence/cut; acknowledgment occurs after evidence acceptance. 
+            Check: runtime-next/test/operation-publication-cut.test.ts; expected: readers, 
+            snapshots, and accepted evidence describe the same commit.
+
+            Failure: pre-commit validation, store prepare, capacity, or evidence rejection leaves 
+            actor and store at the previous cut and emits no acknowledgment; post-commit listener 
+            failure cannot roll back a committed cut. Check: 
+            runtime-next/test/operation-publication-cut.test.ts; expected: failure lane and 
+            sequence match the commit boundary.
+
+            Integration coverage includes one resource write, one transaction settlement, one 
+            stream projection/release, and passive reads from the integrated production owner. 
+            Check: runtime-next/test/operation-publication-cut.test.ts; expected: each operation 
+            uses the same actor/store/evidence authority.
+
+            Explicit Q1 deferral: placeholder projection and K-derived tag expansion are owned by 
+            T318 after Resources.Q1; this gate proves settled store/write/publication paths and 
+            does not imply those metadata forms are complete.
+
+    T314
+        title        ResourceFreshnessPolicy
+        status       draft
+        priority     medium
+        blocked_by   [@T301, @T303, @T304, @T315]
+        derives_from [@plan.Resources.O3, @plan.Resources.V3, @plan.Resources.Q1]
+        satisfies    [@plan.Resources.O3]
+        description
+            After Resources.Q1 is decided, implement the exact staleTime/gcTime domains and omitted 
+            freshness/collection behavior. Ordered work: (1) encode only the accepted descriptor 
+            types and defaults; (2) apply them to acquisition/retention without changing settled 
+            identity or passive reader semantics; (3) prove freshness, collection, and replacement 
+            races. Permitted paths: resource descriptor/lifecycle owner and 
+            operation/test/resource-lifecycle.test.ts. Shared-write boundary: T304 must remain 
+            runnable without these defaults; this task does not block store, writes, or transaction 
+            tasks. This task remains draft and must not infer Q1 from old source. The local 
+            Resources.Q1 decision is recorded in T315; this Task does not invent a default.
+        acceptance
+            Positive: authored freshness/collection values and omitted forms follow the approved 
+            Resources.Q1 decision across acquisition and retention. Check: 
+            operation/test/resource-lifecycle.test.ts; expected: generation and retention 
+            transitions match the decision table.
+
+            Failure: invalid durations or stale acquisition cannot replace current data. Check: 
+            operation/test/resource-lifecycle.test.ts; expected: rejection occurs before 
+            mutation/work and the last committed value remains.
+
+    T315
+        title        Resolve resource metadata and freshness authoring forms
+        status       draft
+        priority     medium
+        derives_from [@plan.Resources.Q1, @plan.ProjectDelivery.O4]
+        description
+            Resolve every Resources.Q1 clause in the owning capability Plan: accepted K-derived tag 
+            and placeholder fields/containers/callbacks, finite and continuing mapper containers, 
+            staleTime/gcTime input domains, Infinity, and omitted policy behavior. Preserve 
+            already-settled descriptor, key, passive-reader, and explicit-write commitments. This 
+            is a local decision task; unrelated resource key/store/acquisition work continues.
+        acceptance
+            Record an explicit owner-approved answer for each Q1 clause, with exact 
+            positive/negative API consequences, before T302/T314 implementation. Do not infer 
+            defaults or legacy forms. No source implementation belongs to this decision Task.
+
+    T316
+        title        Resolve the omitted transaction concurrency policy
+        status       draft
+        priority     medium
+        derives_from [@plan.Transactions.Q2, @plan.ProjectDelivery.O4]
+        description
+            Obtain the explicit decision for Transactions.Q2: the behavior when the optional 
+            concurrency field is omitted. Keep explicit-policy kernels and unrelated 
+            resource/stream work independent of this local default choice.
+        acceptance
+            Record the approved omitted-field policy and its admission/settlement consequences in 
+            the owning Plan before T308 implementation. Do not infer a default from examples or 
+            previous code. No runtime implementation belongs to this decision Task.
+
+    T317
+        title        Resolve the stream authoring and adapter forms
+        status       draft
+        priority     medium
+        derives_from [@plan.Streams.Q1, @plan.ProjectDelivery.O4]
+        description
+            Resolve Streams.Q1 locally: exact stream adapter return form, mapper containers, and 
+            callback inputs/results. Stream sessions and lifecycle work remain independently 
+            implementable while authoring forms are unresolved.
+        acceptance
+            Record an explicit owner-approved answer for each Streams.Q1 clause, including exact 
+            positive/negative forms, before T312/T414 implementation. Do not invent aliases, 
+            containers, or return shapes. No runtime implementation belongs to this decision Task.
+
+    T318
+        title        Resource metadata projection and tag invalidation
+        status       draft
+        priority     medium
+        blocked_by   [@T302, @T303, @T305, @T315]
+        derives_from [
+                     @plan.Resources.O2,
+                     @plan.Resources.V2,
+                     @plan.Resources.O4,
+                     @plan.Resources.V4,
+                     @plan.ProjectDelivery.O2
+                     ]
+        satisfies    [@plan.Resources.O2, @plan.Resources.O4]
+        description
+            After Resources.Q1 and T302 settle the exact metadata forms, integrate K-derived tags 
+            and descriptor-owned placeholders without changing settled store/acquisition/write 
+            authority. Ordered work: (1) project placeholders purely from descriptor metadata with 
+            no canonical write, family, or mapped outcome; (2) index accepted tags from canonical 
+            keys; (3) validate and expand tag invalidation against one pre-mutation index in stable 
+            insertion order under the existing batch bound. Permitted paths: 
+            operation/resource-types.ts, operation/resource-store.ts, operation/resource-writes.ts, 
+            and focused resource type/store/write tests. Shared-write boundary: T302 owns authoring 
+            forms; T303 owns canonical base/readers; T305 owns exact/family writes and the 
+            actor/store commit path. This Task stays draft pending T315 and local tag/placeholder 
+            decisions.
+        acceptance
+            Positive: approved placeholder metadata projects to passive reads without canonical 
+            storage, family, revision, or mapped outcome; K-derived tags expand to the exact 
+            matching identities in stable first-seen order. Check: resource type/store/write tests; 
+            expected: projection is pure and expansion uses the accepted pre-mutation index.
+
+            Failure: malformed or unauthorized tag target, conflicting mixed target, or expansion 
+            above 256 identities rejects the whole action before mutation/work; caller mutation 
+            cannot change indexed tags or projected values. Check: resource write tests; expected: 
+            no partial invalidation and prior canonical data remains unchanged.

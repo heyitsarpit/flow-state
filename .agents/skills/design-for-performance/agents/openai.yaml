@@ -1,0 +1,6 @@
+interface:
+  display_name: "Design for Performance"
+  short_description: "Design around workloads, cost models, and resource budgets"
+  default_prompt: "Use $design-for-performance to review this architecture and propose a performance design."
+policy:
+  allow_implicit_invocation: false

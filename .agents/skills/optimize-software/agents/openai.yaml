@@ -1,0 +1,6 @@
+interface:
+  display_name: "Optimize Software"
+  short_description: "Select and verify bounded software performance improvements"
+  default_prompt: "Use $optimize-software to find and validate performance improvements in this project."
+policy:
+  allow_implicit_invocation: false
