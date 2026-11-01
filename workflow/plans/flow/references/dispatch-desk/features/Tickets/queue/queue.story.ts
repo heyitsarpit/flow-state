@@ -3,9 +3,11 @@
 // 2.10.1; `setContext` is a step). Transcripts: inputs and named checkpoints; queue.test.ts reads them.
 // Wire words, never injected results (2.10.5).
 //
-// Module checkpoints (COVERAGE.md section 6): `filtered`, `left-unassigned`, `created`, `archived` here;
-// `toggled`, `toggled-while-unsure`, `bulk-queued`, `bulk-partly-failed`, `sla-breached` with the bulk and toggle
-// Stories (queue.bulk.story.ts); the technician panel's in technicians/technicians.story.ts.
+// Module checkpoints (COVERAGE.md section 6): `filtered`, `leftUnassigned`, `created`, `archived` here;
+// `toggled`, `toggledWhileUnsure`, `bulkQueued`, `bulkPartlyFailed`, `slaBreached` with the bulk and toggle
+// Stories (queue.bulk.story.ts); the technician panel's in technicians/technicians.story.ts. A checkpoint
+// and the Story that names it share a spelling for `filtered`, `leftUnassigned`, `created`, `archived`, `toggled`
+// and `toggledWhileUnsure`: queue.test.ts reads those under an alias.
 import { Story } from "flow-state/testing";
 import { Desk, DeskClient } from "../../../testing/desk.fake.js";
 import { Queue } from "./queue.definition.js";
@@ -15,8 +17,8 @@ const { E } = Queue;
 
 export const north = { workspaceId: "north" };
 
-export const queue = (id: string, world: ReadonlyArray<unknown> = []) =>
-  Story.make(QueueMachine, {
+export const queue = (id: string, world: ReadonlyArray<Story.Step> = []) =>
+  Story.machine(QueueMachine, {
     id,
     input: north,
     context: { userId: "dispatcher-7" },
@@ -32,7 +34,7 @@ export const toggle = (ticketId: string, assignee: string | null = "dispatcher-7
 
 // "Lobby " and "lobby" are one key because the queue lowercases and trims before it builds the input, so the
 // second search reuses the cached page: the endpoint's log has the first load and one search lookup.
-export const searched = queue("queue/search-key")
+export const searchDebounced = queue("queue/search-key")
   .send(E.SearchChanged({ search: "Lobby " }))
   .send(E.SearchChanged({ search: "lobby" }))
   .send(E.SearchChanged({ search: "  LOBBY" }))
@@ -46,20 +48,20 @@ export const mineOnly = queue("queue/mine-only")
   .send(E.MineOnlyToggled())
   .checkpoint("mine")
   .setContext({ userId: "dispatcher-8" })
-  .checkpoint("someone-else");
+  .checkpoint("someoneElse");
 
 // Paging: 20 tickets a page, 45 in all. LoadMore appends while a next page exists, then its guard declines.
 export const paged = queue("queue/paged")
   .send(E.LoadMore())
-  .checkpoint("second-page")
+  .checkpoint("secondPage")
   .send(E.LoadMore())
-  .checkpoint("last-page")
+  .checkpoint("lastPage")
   .send(E.LoadMore())
-  .checkpoint("no-more");
+  .checkpoint("noMore");
 
 // The list cannot load: the queue degrades, and polling backs off (5 seconds with jitter) instead of
 // hammering the server. When the outage ends, the next poll loads and the queue is healthy again.
-export const degraded = queue("queue/degraded", [Desk.listOutage({ on: true })])
+export const queueDegraded = queue("queue/degraded", [Desk.listOutage({ on: true })])
   .advance({ next: { schedule: "poll" } })
   .checkpoint("degraded")
   .world(Desk.listOutage({ on: false }))
@@ -72,8 +74,8 @@ export const degraded = queue("queue/degraded", [Desk.listOutage({ on: true })])
 export const filtered = queue("queue/triage")
   .send(E.TabChosen({ tab: "triage" }))
   .checkpoint("filtered")
-  .advance("2 days") // the routine deadlines are a day and some minutes in
-  .checkpoint("overdue-joined");
+  .advance("25 hours") // the routine deadlines are a day and up to 44 minutes in
+  .checkpoint("overdueJoined");
 
 // Assigning from the "Unassigned" tab predicts `assignee`, so the ticket no longer meets `isNull(assignee)`: it
 // leaves the list in the starting turn's publication, before the server answers (E4), and the "mine" filter
@@ -84,7 +86,8 @@ export const leftUnassigned = queue("queue/left-unassigned", [
   .send(E.TabChosen({ tab: "unassigned" }))
   .checkpoint("unassigned")
   .send(toggle("T-43"))
-  .checkpoint("left-unassigned")
+  .advance("10 millis") // the resolver's window: the batched assign leaves
+  .checkpoint("leftUnassigned")
   .world(Desk.assignBatch.release())
   .checkpoint("confirmed");
 
@@ -92,13 +95,13 @@ export const leftUnassigned = queue("queue/left-unassigned", [
 // assignment is on the wire, the poll reads the list again, and the record shows the server's priority under the
 // still-predicted assignee. `checkReplays` (on in every Story) runs each predicted field function twice over the
 // new base and fails the run if they disagree.
-export const replayedOverPush = queue("queue/replayed-over-push", [
+export const predictionReplayed = queue("queue/replayed-over-push", [
   Desk.assignBatch.hold({ at: "response" }),
 ])
   .send(toggle("T-43"))
   .world(Desk.changeElsewhere({ ...key("T-43"), priority: 0 }))
   .advance({ next: { schedule: "poll" } })
-  .checkpoint("replayed-over-push")
+  .checkpoint("replayedOverPush")
   .world(Desk.assignBatch.release())
   .checkpoint("settled");
 
@@ -117,7 +120,7 @@ export const created = queue("queue/created", [Desk.createTicket.hold({ at: "res
 // archives.
 export const archived = queue("queue/archived", [Desk.archiveTicket.hold({ at: "response" })])
   .send(E.Archive({ ticketId: "T-42" }), E.Archive({ ticketId: "T-101" }))
-  .checkpoint("archive-predicted")
+  .checkpoint("archivePredicted")
   .world(Desk.archiveTicket.release())
   .checkpoint("archived");
 
@@ -127,10 +130,12 @@ export const archived = queue("queue/archived", [Desk.archiveTicket.hold({ at: "
 // status and assignee are condition fields.
 export const toggled = queue("queue/toggled", [Desk.assignBatch.hold({ at: "response" })])
   .send(toggle("T-43"))
+  .advance("10 millis") // the resolver's window: the first assign leaves
   .checkpoint("assigning")
   .send(toggle("T-43", null), toggle("T-43"))
   .checkpoint("toggled")
   .world(Desk.assignBatch.release())
+  .advance("10 millis") // the promoted tap's window
   .checkpoint("assigned");
 
 // A tap while the row's assignment is unsure waits behind the hold (O5). The first answer is lost; the copy asks
@@ -141,10 +146,13 @@ export const toggledWhileUnsure = queue("queue/toggled-while-unsure", [
   Desk.assignBatch.hold({ at: "response" }),
 ])
   .send(toggle("T-43"))
+  .advance("10 millis") // the first assign leaves and its answer is lost
+  .advance("10 millis") // the re-send's window
   .send(toggle("T-43", null))
-  .checkpoint("toggled-while-unsure")
+  .checkpoint("toggledWhileUnsure")
   .world(Desk.assignBatch.release())
-  .checkpoint("caught-up");
+  .advance("10 millis") // the queued tap's window
+  .checkpoint("caughtUp");
 
 // Two rows at once are two lanes, two commits and two Attempts, sent as ONE request: the adapter's `RequestResolver`
 // batches below the commit and completes each from its own item (O19, O2). T-43 is free; T-42 is someone else's, so
@@ -154,7 +162,7 @@ export const bulkAssigned = queue("queue/bulk-assigned", [
 ])
   .send(toggle("T-43"), toggle("T-42"))
   .advance("10 millis") // the resolver's window
-  .checkpoint("bulk-partly-failed");
+  .checkpoint("bulkPartlyFailed");
 
 // "A, B, A" through the queue's own filling: a post held for A while the drawer previews B is parked, B's thread is
 // separate, and previewing A again adopts A's ending (the Comments Story walks the same cell alone).
@@ -163,7 +171,7 @@ export const previewABA = queue("queue/preview-a-b-a")
   .world(Desk.postComment.hold({ at: "response" }))
   .send(E.preview.Post({ clientId: "a1", text: "For A" }))
   .send(E.PreviewOpened({ ticketId: "T-43" }))
-  .checkpoint("previewing-b")
+  .checkpoint("previewingB")
   .world(Desk.postComment.release()) // A's answer lands and is parked for ["T-42"]
   .send(E.PreviewOpened({ ticketId: "T-42" }))
-  .checkpoint("back-on-a");
+  .checkpoint("backOnA");

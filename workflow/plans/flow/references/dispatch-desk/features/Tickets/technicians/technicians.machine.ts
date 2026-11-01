@@ -1,6 +1,6 @@
 // The panel's behaviour. Its reads live at the root for the actor's life; the pulse sessions follow `shown`, one per
 // key: a technician who leaves the team's list releases its session, one who joins opens one (rule 23).
-// Pending merge 6 for the pulse placement.
+//
 import { machine, send } from "flow-state";
 import { Toasts } from "../../Toasts/toasts.definition.js";
 import { ToastsRef } from "../../Toasts/toasts.ref.js";
@@ -24,7 +24,7 @@ export const TechniciansMachine = machine(Technicians, ({ S, O }) => {
       })),
       O.pulse.subscribe.each(({ memory }) =>
         memory.shown.map((technicianId) => ({ workspaceId: memory.workspaceId, technicianId })),
-      ), // pending merge 6
+      ),
       O.breaks.subscribe(({ memory }) => ({ workspaceId: memory.workspaceId })),
     ],
     on: {

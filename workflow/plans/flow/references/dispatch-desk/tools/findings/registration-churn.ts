@@ -1,18 +1,18 @@
 // Deliberately wrong. Excluded from the app (app/app.ts lists no machine from here) and
 // from every Story glob (flow.config.ts), so it never runs; `flow check` reads it as data and must report the line
 // below, which findings.test.ts asserts.
-// flow check: diagnostic RegistrationChurn  Findings/wrong-churn (session): more than three starts per drop over ten starts: the adapter re-registers without dropping (M6 2.12). pending merge 6
+// flow check: diagnostic RegistrationChurn  Findings/wrong-churn (session): more than three starts per drop over ten starts: the adapter re-registers without dropping.
 import { Schema, Stream } from "effect";
 import { Feed, stream } from "flow-state";
 
-// pending merge 6. WRONG at runtime: an adapter that emits `Feed.live()` before every value, so every value looks
+// WRONG at runtime: an adapter that emits `Feed.live()` before every value, so every value looks
 // like a fresh registration and every one lowers the covered answers.
 export const wrongChurn = stream({
   id: "Findings/wrong-churn",
   input: { roomId: Schema.String },
   output: Schema.String,
   key: ["roomId"],
-  delivers: "facts",
+  delivers: "every",
   subscribe: () =>
     Stream.make("a", "b", "c").pipe(Stream.flatMap((v) => Stream.make(Feed.live(), v))),
 });

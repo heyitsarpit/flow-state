@@ -1,23 +1,26 @@
-// App Stories across actors (2.10.1 "an app setup"): Session, Toasts, the queue and the lazy editors run in one
+// App Stories across actors (`Story.app`, 2.10.1): Session, Toasts, the queue and the lazy editors run in one
 // Runtime of `DeskSetup`, over the Desk fake (`DeskClient`). Each Story is a transcript: sends, wire words,
 // lifecycle steps and named checkpoints; desk.test.tsx reads them. No ending is injected (2.10.5). What they show that a machine Story cannot:
 //   - one write repairs another actor's list and count (the shared Ticket record, rules 27-30);
 //   - a permission change reaches an editor through its context, and a stop releases at once (rule 44);
 //   - a save outlives its screen and the next incarnation adopts it (rule 44);
 //   - a sign-out refuses nothing by itself: the Runtime lists what is unsettled (C64) and `forget` drops it.
-// `desk/pushed-rename` needs the workspace feed and is pending merge 6.
+// `desk/pushed-rename` runs the workspace feed too, so it adds the feed's socket adapter as a fixture.
 //
 // `dispose(ref, { how: "now" })` (2.10.10) ends the actor at once (`disposeActor`). A plain `dispose(Editor42)`
 // keeps it for its `retain`, expiring with `advance`, so a Story of "no actor when the answer lands" disposes `now`.
 // `DeskSetup` has no persistence, so an ending that lands with no actor is evidence (rule 44). The adopted ending
 // of a persisted identity is the app Story in editor/editor.tabs.story.ts (`outlivesClose`).
+import { Layer } from "effect";
 import { Story } from "flow-state/testing";
 import { DeskSetup } from "../../app/setup.js";
 import { Desk, DeskClient } from "../../testing/desk.fake.js";
+import { socketClient } from "../../testing/desk.socket.fake.js";
 import { Session } from "../Session/session.definition.js";
 import { SessionRef } from "../Session/session.ref.js";
 import { ToastsRef } from "../Toasts/toasts.ref.js";
-import { feedRef } from "./feed/feed.ref.js"; // pending merge 6
+import { DeskFeedSocket } from "./feed/feed.socket.js";
+import { feedRef } from "./feed/feed.ref.js";
 import { Editor } from "./editor/editor.definition.js";
 import { editorRef } from "./editor/editor.ref.js";
 import { Editor42, FIRST, T42 } from "./editor/editor.story.js";
@@ -36,10 +39,16 @@ export const Editor43 = editorRef({ workspaceId: "north", ticketId: "T-43" });
 
 export const key = (ticketId: string) => ({ workspaceId: "north", ticketId });
 
+type World = NonNullable<Parameters<typeof Story.app>[1]["world"]>;
+
 // The signed-in dispatcher, the toast stack, the north queue and the editor of T-42, all open. The queue loads
 // its list and open count first, so each Story's request log starts with those two reads.
-const desk = (id: string, world: ReadonlyArray<unknown> = []) =>
-  Story.make(DeskSetup, { id, fixtures: [DeskClient], world })
+const desk = (
+  id: string,
+  world: World = [],
+  fixtures: Parameters<typeof Story.app>[1]["fixtures"] = [DeskClient],
+) =>
+  Story.app(DeskSetup, { id, fixtures, world })
     .ensure(SessionRef, { input: { userId: "dispatcher-7" } })
     .ensure(ToastsRef)
     .ensure(North, { input: { workspaceId: "north" } })
@@ -50,7 +59,7 @@ const desk = (id: string, world: ReadonlyArray<unknown> = []) =>
 // and only what can be wrong is read again: the list reads `title` and `updatedAt`, so it refetches; the open
 // count reads only `status`, so it does not (rule 29).
 export const saveRepairsQueue = desk("desk/save-repairs-queue", [Desk.saveTitle.hold()])
-  .checkpoint("desk-open")
+  .checkpoint("deskOpen")
   .send(Editor42, E.TitleChanged({ title: FIRST }), E.SaveRequested())
   .checkpoint("saving")
   .world(Desk.saveTitle.release())
@@ -64,6 +73,7 @@ export const assignRepairs = desk("desk/assign-repairs", [
 ])
   .ensure(Editor43, { input: key("T-43") })
   .send(North, Queue.E.toggles.key("T-43").Toggle({ assignee: "dispatcher-7" }))
+  .advance("10 millis") // the resolver's window: the batched assign leaves
   .checkpoint("assigning")
   .world(Desk.assignBatch.release())
   .checkpoint("assigned");
@@ -79,7 +89,7 @@ export const revokedMidSave = desk("desk/revoked-mid-save", [Desk.saveTitle.hold
   .send(SessionRef, Session.E.PermissionChanged({ canEdit: false }))
   .checkpoint("revoked")
   .world(Desk.saveTitle.release())
-  .checkpoint("landed-unheard");
+  .checkpoint("landedUnheard");
 
 // A write that outlives the screen. Close and dispose cancel nothing (rule 44): the Runtime owns the lane, and
 // the listing a host's `beforeunload` reads shows it, unbound. The answer lands with no actor, and in this setup
@@ -91,7 +101,7 @@ export const closedMidSave = desk("desk/closed-mid-save", [Desk.saveTitle.hold()
   .dispose(Editor42, { how: "now" }) // the screen is gone and so is the actor
   .checkpoint("unbound")
   .world(Desk.saveTitle.release())
-  .checkpoint("settled-unbound")
+  .checkpoint("settledUnbound")
   .ensure(Editor42, { input: T42 })
   .checkpoint("reopened");
 
@@ -101,25 +111,29 @@ export const closedMidSave = desk("desk/closed-mid-save", [Desk.saveTitle.hold()
 // no actor.
 export const signOut = desk("desk/sign-out", [Desk.saveTitle.hold()])
   .send(Editor42, E.TitleChanged({ title: FIRST }), E.SaveRequested())
-  .checkpoint("sign-out-refused") // what app/host.ts `signOut` lists and asks about before going on
+  .checkpoint("signOutRefused") // what app/host.ts `signOut` lists and asks about before going on
   .send(SessionRef, Session.E.SignedOut())
-  .checkpoint("signed-out")
+  .checkpoint("signedOut")
   .dispose(SessionRef, { how: "forget" })
   .checkpoint("forgotten");
 
-// PM6. Another dispatcher renames two tickets, and the feed pushes each change. The push updates the one Ticket
+// Another dispatcher renames two tickets, and the feed pushes each change. The push updates the one Ticket
 // record everywhere: the clean editor of T-42 takes the new title as its draft, the editor of T-43 with an
 // unsaved edit keeps its draft and moves only `saved`, and the queue's list repairs once per change (it reads
 // `title`). The open count reads only `status` and never refetches. (feed/pushed-rename checks the feed's
 // own side: the activity line.)
-export const pushedRename = desk("desk/pushed-rename") // pending merge 6
-  .ensure(feedRef("north"), { input: { workspaceId: "north" } }) // pending merge 6
+export const pushedRename = desk(
+  "desk/pushed-rename",
+  [],
+  [DeskClient, DeskFeedSocket.layer.pipe(Layer.provide(socketClient(Desk)))],
+)
+  .ensure(feedRef("north"), { input: { workspaceId: "north" } })
   .ensure(Editor43, { input: key("T-43") })
   .send(Editor43, E.TitleChanged({ title: "My own wording" }))
   .world(Desk.renameElsewhere({ ...key("T-42"), title: "Replace lobby light, east" }))
-  .checkpoint("pushed-rename")
+  .checkpoint("pushedRename")
   .world(Desk.renameElsewhere({ ...key("T-43"), title: "Dock door, second try" }))
-  .checkpoint("pushed-over-draft");
+  .checkpoint("pushedOverDraft");
 
 // One comment on two screens (E7): the editor of T-42 shows its thread, and the queue previews the same ticket.
 // An edit made in the preview is predicted in the one `Comment` record, so the editor's thread shows the new text
@@ -130,9 +144,9 @@ export const editedInPreview = desk("desk/edited-in-preview", [
 ])
   .send(North, Queue.E.PreviewOpened({ ticketId: "T-42" }))
   .send(North, Queue.E.preview.Edit({ commentId: "c-1", text: "Bulb is 40 W, not 60" }))
-  .checkpoint("edited-in-preview")
+  .checkpoint("editedInPreview")
   .world(Desk.editComment.release())
-  .checkpoint("edit-confirmed");
+  .checkpoint("editConfirmed");
 
 // A FIFO of N and one save meet on one record (E8). The editor's title save on T-42 is on the wire; the queue's bulk
 // close lists T-42 too. Both predict at once, but the record queue orders their sends across actors (rule 29): the
@@ -140,15 +154,14 @@ export const editedInPreview = desk("desk/edited-in-preview", [
 export const bulkVsSave = desk("desk/bulk-vs-save", [Desk.saveTitle.hold({ at: "response" })])
   .send(Editor42, E.TitleChanged({ title: FIRST }), E.SaveRequested())
   .send(North, Queue.E.Select({ ticketId: "T-42", selected: true }), Queue.E.CloseSelected())
-  .checkpoint("bulk-behind-save")
+  .checkpoint("bulkBehindSave")
   .world(Desk.saveTitle.release())
-  .checkpoint("both-landed");
+  .checkpoint("bothLanded");
 
 // Two dispatchers, two tabs, the same ticket, the same instant (Y5: `together` states that both arrived before
 // either ran). Each tab's row copy commits; the server takes the first and refuses the second (409), which that
 // tab's copy reports. One Runtime per tab, one server.
-// design gap: how `together` names a send's target in an app Story. 2.10.2 shows bare events and controls (a
-// machine Story); written here as `{ send: [target, event] }`.
+// `together` takes a send's data form, `{ send: [target, event] }` (2.10.1).
 export const twoDispatchers = desk("desk/two-dispatchers")
   .openTab("b", { from: "main" })
   .together(
@@ -161,7 +174,7 @@ export const twoDispatchers = desk("desk/two-dispatchers")
     },
   )
   .advance("10 millis")
-  .checkpoint("one-wins");
+  .checkpoint("oneWins");
 
 // One technician on two screens (E7, E8): the admin renames Ana on the roster while the queue's technician panel
 // shows her, and the panel dispatches T-43 to her before the rename answers. The rename shows on the panel at once
@@ -178,6 +191,6 @@ export const renameMeetsDispatch = desk("desk/rename-meets-dispatch", [
     techniciansRef("north"),
     Technicians.E.Dispatch({ ticketId: "T-43", technicianId: "tech-ana" }),
   )
-  .checkpoint("rename-and-dispatch-queued")
+  .checkpoint("renameAndDispatchQueued")
   .world(Desk.renameTechnician.release())
-  .checkpoint("both-landed-in-order");
+  .checkpoint("bothLandedInOrder");

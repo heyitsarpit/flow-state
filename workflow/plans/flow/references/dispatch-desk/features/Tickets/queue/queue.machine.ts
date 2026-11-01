@@ -117,7 +117,7 @@ export const QueueMachine = machine(Queue, ({ S, E, O }) => ({
     ),
     O.viewers.subscribe.each(({ memory }) =>
       memory.visibleRows.map((ticketId) => ({ workspaceId: memory.workspaceId, ticketId })),
-    ), // pending merge 6
+    ),
   ],
 
   // The drawer, the row toggles and the flashes. The preview's reset value is the subject path, so a post held for

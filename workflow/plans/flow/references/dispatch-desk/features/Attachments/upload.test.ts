@@ -1,9 +1,8 @@
-// The upload copy's checks, read from its Stories' checkpoints (`@flow-state/vitest`, proposed; COVERAGE.md
-// section 6 and features/Tickets/editor/editor.test.ts say what `at` is). A fragment-alone Story's cut carries
-// the fragment's own snapshot, re-rooted at it (2.10.12): `at.x.memory`, `at.x.operations.put`.
-import { storyTest } from "@flow-state/vitest"; // NEW (proposed)
-import { Story } from "flow-state/testing";
-import { expect } from "vite-plus/test";
+// The upload copy's checks, read from its Stories' checkpoints (2.10.6): each test runs its Story once and
+// destructures what it names. A fragment-alone Story's cut carries the fragment's own snapshot, re-rooted at it
+// (2.10.12): `cp.memory`, `cp.operations.put`, `cp.lane(O.put, key)`. The last two Stories are app Stories over the
+// editor, so their cuts are reads of an actor.
+import { expect, test } from "vite-plus/test";
 import { Desk } from "../../testing/desk.fake.js";
 import {
   cancelled,
@@ -22,70 +21,83 @@ import { AttachmentUpload } from "./upload.trait.js";
 
 const { O } = AttachmentUpload;
 
+const r1 = { ref: "r-1" };
+
 // design gap: the full bar. The client half reports half then all of the bytes before the request is held, so
 // the row reads 100% while the server has nothing: "Waiting for the server…" (gap 30).
-storyTest(uploaded, ({ at }) => {
-  expect(at["full-bar"].memory.status).toBe("sending");
-  expect(at["full-bar"].operations.put).toMatchObject([
-    { key: { ref: "r-1" }, pending: true, progress: { sent: 40_000, total: 40_000 } },
-  ]);
-  expect(at.stored.memory).toMatchObject({ status: "stored", url: "/uploads/r-1" });
-  expect(at.stored.operations.put).toEqual([]); // settled: the lane is gone
-  expect(at.stored.read(Desk).desk.files["r-1"]).toMatchObject({ name: "r-1.jpg", size: 40_000 });
-});
+test("the bar reads full while the server has nothing, then the file is stored", async () => {
+  const { fullBar, stored } = (await uploaded.run()).checkpoints;
 
-storyTest(cancelled, ({ at }) => {
-  expect(at.stopped.memory.status).toBe("stopped");
-  expect(at.stopped.read(Story.inspection).lanes).toEqual([]); // nothing held
-  expect(at.orphaned.read(Desk.putFile)).toMatchObject([{ phase: "orphan" }]);
-});
-
-storyTest(lostThenResent, ({ at }) => {
-  expect(at.unsure.memory.status).toBe("unsure");
-  expect(at.unsure.operations.put).toMatchObject([{ key: { ref: "r-1" }, uncertain: true }]);
-  expect(at.stored.memory.status).toBe("stored");
-  const attempt = at.stored.read(Story.attempt(O.put));
-  expect(at.stored.read(Desk.putFile).map((request) => request.input.key)).toEqual([
-    attempt,
-    attempt,
-  ]);
-});
-
-storyTest(gaveUp, ({ at }) => {
-  expect(at["gave-up"].memory).toMatchObject({ status: "failed", problem: "GaveUp" });
-  expect(at["gave-up"].read(Story.inspection).lanes).toEqual([]);
-});
-
-storyTest(tooLarge, ({ at }) => {
-  expect(at.refused.memory).toMatchObject({
-    status: "failed",
-    problem: "TooLarge",
-    limit: 5_000_000,
+  expect(fullBar.memory.status).toBe("sending");
+  expect(fullBar.lane(O.put, r1)).toMatchObject({
+    pending: true,
+    progress: { sent: 40_000, total: 40_000 },
   });
+  expect(stored.memory).toMatchObject({ status: "stored", url: "/uploads/r-1" });
+  expect(stored.lane(O.put, r1)).toBeUndefined(); // settled: the lane is gone
+  expect(stored.read(Desk).desk.files["r-1"]).toMatchObject({ name: "r-1.jpg", size: 40_000 });
 });
 
-storyTest(fileGone, ({ at }) => {
-  expect(at["file-gone"].memory).toMatchObject({ status: "failed", problem: "FileGone" });
-  expect(at["file-gone"].read(Desk.putFile)).toEqual([]); // definite and local: nothing was sent
+test("cancel on the wire stops the row, and the server may still store the file", async () => {
+  const { stopped, orphaned } = (await cancelled.run()).checkpoints;
+
+  expect(stopped.memory.status).toBe("stopped");
+  expect(stopped.inspection.lanes).toEqual([]); // nothing held
+  expect(orphaned.read(Desk.putFile)).toMatchObject([{ phase: "orphan" }]);
 });
 
-storyTest(removedWhileUploading, ({ at }) => {
-  expect(at.released.read(Story.inspection).lanes).toEqual([]); // rule 60: released, nothing parked
+test("a lost answer is sent again with the same key, and the server stores it once", async () => {
+  const { unsure, stored } = (await lostThenResent.run()).checkpoints;
+
+  expect(unsure.memory.status).toBe("unsure");
+  expect(unsure.lane(O.put, r1)).toMatchObject({ uncertain: true });
+  expect(stored.memory.status).toBe("stored");
+  const attempt = stored.attempt(O.put);
+  expect(stored.read(Desk.putFile).map((request) => request.input.key)).toEqual([attempt, attempt]);
 });
 
-storyTest(removedUploadingThenReload, ({ at }) => {
-  expect(at.reopened.read(Story.inspection).lanes).toEqual([]);
+test("nothing arrives: three re-sends, then it gives up and releases the lane", async () => {
+  const { gaveUp: gone } = (await gaveUp.run()).checkpoints;
+
+  expect(gone.memory).toMatchObject({ status: "failed", problem: "GaveUp" });
+  expect(gone.inspection.lanes).toEqual([]);
 });
 
-storyTest(removeRefused, ({ at }) => {
-  expect(at["remove-predicted"].read(Story.entity(Attachment, { ref: "r-old" }))).toBeUndefined(); // hidden at once
-  expect(
-    at["remove-refused-restored"].read(Story.entity(Attachment, { ref: "r-old" })),
-  ).toMatchObject({
+test("a file over the limit is refused", async () => {
+  const { refused } = (await tooLarge.run()).checkpoints;
+
+  expect(refused.memory).toMatchObject({ status: "failed", problem: "TooLarge", limit: 5_000_000 });
+});
+
+test("a restored draft with no bytes fails FileGone before anything is sent", async () => {
+  const { fileGone: gone } = (await fileGone.run()).checkpoints;
+
+  expect(gone.memory).toMatchObject({ status: "failed", problem: "FileGone" });
+  expect(gone.read(Desk.putFile)).toEqual([]); // definite and local: nothing was sent
+});
+
+test("removing while uploading releases the lane and parks nothing", async () => {
+  const { released } = (await removedWhileUploading.run()).checkpoints;
+
+  expect(released.inspection.lanes).toEqual([]); // rule 60: released, nothing parked
+});
+
+test("removing while uploading, then a reload, leaves nothing behind", async () => {
+  const { reopened } = (await removedUploadingThenReload.run()).checkpoints;
+
+  expect(reopened.inspection?.lanes).toEqual([]);
+});
+
+test("a refused remove of a stored file brings the record back in place", async () => {
+  const { removePredicted, removeRefusedRestored } = (await removeRefused.run()).checkpoints;
+  const old = { ref: "r-old" };
+
+  expect(removePredicted.entity(Attachment, old)).toBeUndefined(); // hidden at once
+  expect(removeRefusedRestored.entity(Attachment, old)).toMatchObject({
     data: { name: "before.jpg", uploadedBy: "dispatcher-2" },
     predicted: false,
   });
-  expect(at["remove-refused-restored"].read(Editor42)?.memory.error).toBe(
+  expect(removeRefusedRestored.read(Editor42)?.memory.error).toBe(
     "Only dispatcher-2 can remove that file",
   );
 });

@@ -6,7 +6,7 @@
 // requests supply the authenticated token. Tokens never enter actor memory, dehydrated payloads or
 // a URL, so the sockets (opened in the browser only) rely on the cookie.
 //
-// Pending merge 6: the socket and assistant ports (M6 4.1, 4.4). Presence is not here: it is a collaboration SDK's
+// 1, 4.4). Presence is not here: it is a collaboration SDK's
 // client (next/collab.ts), not an HTTP port.
 import { Effect, Layer, Schema, Stream } from "effect";
 import { Socket } from "effect/socket";
@@ -230,7 +230,7 @@ export const HttpDeskApi = (token?: string, origin = "http://localhost:3000") =>
         return yield* body(TicketRow, response);
       }),
     // A catch-up page. Any answer but a page is "no response" here: the feed retries it with the
-    // socket still open (M6 4.1), so a 5xx and a dropped request look the same.
+    // socket still open, so a 5xx and a dropped request look the same.
     eventsSince: ({ workspaceId, after }, { signal }) =>
       Effect.gen(function* () {
         const query = new URLSearchParams({
@@ -445,7 +445,7 @@ export const HttpDeskApi = (token?: string, origin = "http://localhost:3000") =>
       }),
   });
 
-  // `fetch` reports no upload progress, so uploads use XMLHttpRequest (M6 4.5). The callback always
+  // `fetch` reports no upload progress, so uploads use XMLHttpRequest. The callback always
   // resumes: success, an HTTP answer, a network error, a timeout or an abort. `signal` is the one
   // Effect gives the callback; interrupting the fiber aborts the request.
   const attachments = AttachmentsApi.of({
@@ -514,8 +514,8 @@ export const HttpDeskApi = (token?: string, origin = "http://localhost:3000") =>
 
   // The socket as a Stream of text frames, over Effect's `Socket` (REVIEW S-H1). `highWaterMark` bounds what
   // the browser may buffer: a flood past it fails the socket with a `SocketReadError`, which the adapter
-  // reads as a transient drop, so `Feed.reconnect` reconnects and catches up instead of the page buffering
-  // without bound (M6 2.3, 2.4 recipe P; 4.1). The Scope owns the WebSocket: ending or interrupting the
+  // reads as a transient drop, so `stream reconnect and catch up instead of the page buffering
+  // without bound. The Scope owns the WebSocket: ending or interrupting the
   // stream closes it. A close fails the stream with the adapter's classification of its code.
   const socketText = (path: string, params: Record<string, string>) => {
     const url = new URL(path, origin);
@@ -536,7 +536,7 @@ export const HttpDeskApi = (token?: string, origin = "http://localhost:3000") =>
           ? closedWith(error.reason.code)
           : new SocketDropped({ why: error.reason._tag }),
       ),
-      // An idle deadline on every frame; the server pings every 20 s (M6 4.1).
+      // An idle deadline on every frame; the server pings every 20 s.
       Stream.timeoutOrElse({
         duration: "45 seconds",
         orElse: () => Stream.fail(new SocketDropped({ why: "Silent" })),

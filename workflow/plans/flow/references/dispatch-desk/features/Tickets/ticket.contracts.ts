@@ -1,6 +1,6 @@
 // The ticket contracts: plain requests with no entity or domain imports (adopting entities edits only
 // ticket.domain.ts). Every contract states `input`, `output` and `key` (rule 39). The live feeds are not
-// here: `ticketChanges` and `activity` are in feed/feed.contracts.ts (pending merge 6).
+// here: `ticketChanges` and `activity` are in feed/feed.contracts.ts.
 import { Schema } from "effect";
 import { resource, transaction } from "flow-state";
 import { unknownWhenLost } from "../shared/outcomes.js";

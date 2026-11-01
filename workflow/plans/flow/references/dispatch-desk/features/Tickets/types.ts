@@ -72,7 +72,7 @@ export const TicketPage = Schema.Struct({
 export type TicketPage = typeof TicketPage.Type;
 
 // A position in one workspace's event log. A reset of the log starts a new epoch, so { 8, 41 } and
-// { 9, 41 } are different events (pending merge 6: M6 4.1 uses the same shape for a chat).
+// { 9, 41 } are different events.
 export const Cursor = Schema.Struct({ epoch: Schema.Int, seq: Schema.Int });
 
 export type Cursor = typeof Cursor.Type;
@@ -160,7 +160,7 @@ export class ServerError extends Schema.TaggedError<ServerError>()("ServerError"
   status: Schema.Number,
 }) {}
 
-// The workspace socket ended and a retry may succeed (pending merge 6: the adapter's transient failure).
+// The workspace socket ended and a retry may succeed (the adapter's transient failure).
 export class SocketDropped extends Schema.TaggedError<SocketDropped>()("SocketDropped", {
   why: Schema.String,
 }) {}

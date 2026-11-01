@@ -1,4 +1,4 @@
-// The activity list, the connection badge and the "may be missing" notice. Pending merge 6 (M6 2.6):
+// The activity list, the connection badge and the "may be missing" notice. 6):
 // the badge reads the activity operation's row, `connection` and `drop`, which exist on every phase.
 import { useActorByRef, useView } from "flow-state/react"; // existing
 import { DeskFeed } from "./feed.definition.js";
@@ -10,9 +10,9 @@ export function ActivityLog({ workspaceId }: { workspaceId: string }) {
   const feed = useActorByRef(feedRef(workspaceId), { input: { workspaceId } });
   const entries = useView(feed, (s) => s.memory.activity);
   const notice = useView(feed, (s) => s.memory.notice);
-  const row = useView(feed, (s) => s.operations.activity); // pending merge 6: the stream row; undefined while the feed is not placed
+  const row = useView(feed, (s) => s.operations.activity); // the stream row; undefined while the feed is not placed
 
-  // pending merge 6: `connection` is Live or Connecting on a placed row; `drop` tells a
+  // `connection` is Live or Connecting on a placed row; `drop` tells a
   // first "Connecting..." from a "Reconnecting" after the socket went away.
   const signedOut = useView(feed, (s) => DeskFeed.S.SIGNED_OUT.is(s));
 

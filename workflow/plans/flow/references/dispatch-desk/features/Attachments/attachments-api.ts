@@ -42,8 +42,8 @@ export class RemoveRefused extends Schema.TaggedError<RemoveRefused>()("RemoveRe
 export class AttachmentsApi extends Context.Service<
   AttachmentsApi,
   {
-    // `onProgress` is a plain callback: the adapter wires it to the XHR event (M6 4.5), and the
-    // commit forwards it to the lane's `progress` setter (pending merge 6, S5 Q11).
+    // `onProgress` is a plain callback: the adapter wires it to the XHR event, and the
+    // commit forwards it to the lane's `progress` setter (S5 Q11).
     files: (
       ticket: TicketKey,
       options: { signal: AbortSignal },

@@ -1,5 +1,5 @@
 // The technician panel beside the queue: who is free, busy or on a break, how recently each phone reported, and
-// a ticket dragged onto a card dispatches it. Pending merge 6 for its pulse feeds.
+// a ticket dragged onto a card dispatches it.
 //
 // How this module is different (COVERAGE.md 5.1, "QU techs"): all keyed state feeds. One pulse session per shown
 // technician (`subscribe.each`), `TechCard` copies over the same live keys, `allow` nudges toasted one by one, a
@@ -52,7 +52,7 @@ export const Technicians = definition({
       })),
       failure: { NoResponse: E.RosterFailed, Defect: E.RosterFailed, Interrupted: E.RosterFailed },
     }),
-    pulse: technicianPulse, // pending merge 6: bare state feed: the card reads its row (`value`, `last.at`, `drop`)
+    pulse: technicianPulse, // bare state feed: the card reads its row (`value`, `last.at`, `drop`)
     breaks: breaksOf, // bare: the switch reads the row, optimistic while a toggle is on its way
     setBreak: setBreak.outcomes({
       success: E.BreakSet,

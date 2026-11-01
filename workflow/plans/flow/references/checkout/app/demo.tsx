@@ -4,19 +4,23 @@
 // replayed (X6). The player records each Story once on mount and then only renders frames; the shop is rendered
 // below the player's Flow context, so `ShopPages` builds no FlowProvider of its own.
 //
-// design gap: playback.md 8 names failure replay of "the Story a property test emits" as a follow-up. Assumed:
-// `propertyTest`'s `counterexample` option writes the shrunk run as a Story module under
-// testing/__counterexamples__/, exporting `counterexample`, which this page imports when it exists.
+// A counterexample is a Story the author pastes: `PropertyTestFailed`'s `result.source` is the appended steps,
+// chained from `payMoney` (machine-design 2.10.16). `regressions` below holds those pasted Stories; empty while the
+// properties hold, and each one is played under its own heading.
 import { useEffect, useState } from "react";
 import { StoryPlayer } from "flow-state/testing";
 import { CartScreen } from "../features/Cart/Cart.js";
 import { MiniCartBadge } from "../features/Cart/MiniCart.js";
 import { CheckoutScreen } from "../features/Pay/Pay.js";
-import { paid } from "../features/Pay/pay.story.js";
+import { paidFirstTime } from "../features/Pay/pay.story.js";
 import { RefundsScreen } from "../features/Refunds/Refunds.js";
 import { paySafely } from "./presentation.js";
 
-type Run = Awaited<ReturnType<typeof paid.run>>;
+type Run = Awaited<ReturnType<typeof paidFirstTime.run>>;
+
+// Paste `result.source` here, e.g.
+//   export const chargedTwice = payMoney.world(Stripe.confirm.drop({ at: "response" })).send(...)
+const regressions: ReadonlyArray<{ readonly run: () => Promise<Run> }> = [];
 
 function ShopPages() {
   return (
@@ -31,13 +35,10 @@ function ShopPages() {
 
 export function CheckoutDemo() {
   const [part, setPart] = useState(0);
-  const [failure, setFailure] = useState<Run | null>(null);
+  const [failures, setFailures] = useState<ReadonlyArray<Run>>([]);
 
   useEffect(() => {
-    import("../testing/__counterexamples__/pay-property-counterexample.story.js").then(
-      (m) => m.counterexample.run().then(setFailure),
-      () => setFailure(null), // the property held: nothing to replay
-    );
+    Promise.all(regressions.map((story) => story.run())).then(setFailures); // none: the properties held
   }, []);
 
   return (
@@ -49,14 +50,14 @@ export function CheckoutDemo() {
       <button disabled={part + 1 >= paySafely.length} onClick={() => setPart(part + 1)}>
         Next part
       </button>
-      {failure !== null && (
-        <section aria-label="Property counterexample">
-          <h2>The property test's shrunk failure</h2>
+      {failures.map((failure, i) => (
+        <section key={i} aria-label="Property counterexample">
+          <h2>A shrunk failure of the property test</h2>
           <StoryPlayer run={failure}>
             <ShopPages />
           </StoryPlayer>
         </section>
-      )}
+      ))}
     </main>
   );
 }

@@ -189,5 +189,5 @@ export const TicketsDomain = domain("tickets", {
     .predicts(({ input }) => Ticket.patch(input.tickets, { status: "closed" })),
 
   // Other dispatchers' changes are not here: the push `listen` entry moved to a second domain over the
-  // same entity, TicketFeed in feed/feed.domain.ts (pending merge 6).
+  // same entity, TicketFeed in feed/feed.domain.ts.
 });

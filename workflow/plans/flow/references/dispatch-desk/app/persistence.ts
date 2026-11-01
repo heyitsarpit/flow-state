@@ -30,7 +30,7 @@ export const browserSetup = (userId: string) =>
  * - Memory decodes through Editor.Memory, the Schema the definition already declares. A record
  *   that fails to decode, or was written under another version, is discarded with a diagnostic.
  * - Schedules: autosave keeps its deadline; an overdue one fires once after ready().
- * - Pending merge 6 (M6 2.10): the DeskFeed (persist: true) restores its memory: the activity list, the
+ * - 10): the DeskFeed (persist: true) restores its memory: the activity list, the
  *   stored cursor, the notice and the backoff, with the stream's `registered` mark. The socket session
  *   starts again from that cursor and catches up. The AssistantMachine restores ASKING with the held
  *   Attempt as `unknown { Restored }`, which ends `Cut` with no partial text. The watcher is not

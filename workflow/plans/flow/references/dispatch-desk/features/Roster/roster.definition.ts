@@ -3,7 +3,7 @@
 // How this module is different (COVERAGE.md 5.2): several related entities in one domain; a merge that writes
 // across two entities and N tickets, confirmed by a subroutine whose exit carries the survivor; deletes restored
 // on a 409; an `allow` lane (invite emails) and an unkeyed one (rebuild index); invitations batched below the
-// commit; and a change log polled with a cursor beside the roster read (pending merge 6).
+// commit; and a change log polled with a cursor beside the roster read.
 //
 // Its actions exist only for an admin: the Session's `isAdmin` is context (F22), and every write's guard reads it,
 // so `check()` tells a dispatcher why the buttons are disabled.
@@ -73,7 +73,7 @@ export const Roster = definition({
     RebuildIndex: {},
     DismissNotice: {},
     Refresh: {}, // read the teams and the roster again
-    ResumeFeed: {}, // pending merge 6
+    ResumeFeed: {},
   },
   internalEvents: {
     Changed: {}, // a write landed: the store shows it, memory has nothing to write
@@ -92,13 +92,9 @@ export const Roster = definition({
     EmailUnsure: Flow.uncertain({}),
     IndexRebuilt: {},
     IndexUnsure: Flow.uncertain({}),
-    // pending merge 6: the audit log's facts, the gap notice and the polled sessions' ends
+    // the audit log's facts, the gap notice and the polled sessions' ends
     Change: { change: RosterChange },
-    MayHaveMissed: {
-      why: Schema.Literals(["Unproven", "Lost", "Reset"]),
-      restartAt: Schema.optional(Schema.Int),
-      initial: Schema.Boolean,
-    },
+    MayHaveMissed: { why: Schema.Literals(["Unproven", "Lost", "Reset"]) },
     FeedEnded: {},
   },
   context: {
@@ -117,9 +113,8 @@ export const Roster = definition({
       Schema.NullOr(Schema.Struct({ first: Schema.String, second: Schema.String })),
       null,
     ),
-    audit: Flow.initial(Schema.Array(RosterChange), []), // pending merge 6: the newest changes, by `seq`
-    cursor: Schema.optional(Schema.Int), // pending merge 6: the resume position, advanced only by a fact's turn (S4)
-    feedPaused: Flow.initial(Schema.Boolean, false), // pending merge 6: the polled sessions ended; Resume places them
+    audit: Flow.initial(Schema.Array(RosterChange), []), // the newest changes, by `seq`
+    feedPaused: Flow.initial(Schema.Boolean, false), // the polled sessions ended; Resume places them
   },
   operations: ({ E }) => {
     const refused = (notice: string) => E.Refused.from(() => ({ notice }));
@@ -131,7 +126,7 @@ export const Roster = definition({
       teamSizes: RosterDomain.teamSizes,
       customers: RosterDomain.customers,
       // Online dots per row: the collaboration SDK's presence, one session per technician shown (`subscribe.each`,
-      // T6), the same SDK contract the ticket watcher uses, placed per row (T7). Pending merge 6: bare state feed.
+      // T6), the same SDK contract the ticket watcher uses, placed per row (T7).
       online: technicianOnline,
       // What a merge re-points: the tickets of the customer that goes, one placement per open merge dialog.
       mergedTickets: TicketsDomain.byCustomer,
@@ -216,31 +211,16 @@ export const Roster = definition({
         },
       ),
 
-      // pending merge 6: the change log, twice. Into the store (a `listen` entry maps only `failure`, SR26), and
+      // the change log, twice. Into the store (a `listen` entry maps only `failure`, SR26), and
       // into the audit log in memory (a fact feed maps `value`, `missed` and `failure`).
       changes: RosterFeed.changes.outcomes({
-        failure: {
-          PollFailed: E.FeedEnded,
-          Closed: E.FeedEnded,
-          Overflow: E.FeedEnded,
-          Defect: E.FeedEnded,
-          Interrupted: E.FeedEnded,
-        },
+        failure: { PollFailed: E.FeedEnded, Feed: E.FeedEnded },
       }),
       audit: rosterEvents.outcomes({
         value: E.Change.from((change) => ({ change })),
-        missed: E.MayHaveMissed.from((m) => ({
-          why: m.why,
-          restartAt: m.restartAt,
-          initial: m.initial,
-        })),
-        failure: {
-          PollFailed: E.FeedEnded,
-          Closed: E.FeedEnded,
-          Overflow: E.FeedEnded,
-          Defect: E.FeedEnded,
-          Interrupted: E.FeedEnded,
-        },
+        missed: E.MayHaveMissed.from((m) => ({ why: m.why })),
+        fills: "audit",
+        failure: { PollFailed: E.FeedEnded, Feed: E.FeedEnded },
       }),
     };
   },

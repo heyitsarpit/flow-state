@@ -46,7 +46,7 @@ export const Reactions = Schema.Record(Schema.String, Schema.Record(Schema.Strin
 
 export type Reactions = typeof Reactions.Type;
 
-// A change the workspace socket pushes for a comment (pending merge 6: feed.domain.ts `listen`s to them).
+// A change the workspace socket pushes for a comment (feed.domain.ts `listen`s to them).
 export const CommentEvent = Schema.Union([
   Schema.TaggedStruct("CommentSaved", { cursor: Cursor, comment: CommentRow }),
   Schema.TaggedStruct("CommentRemoved", {

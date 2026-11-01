@@ -11,8 +11,9 @@ import { queueRef } from "./queue.ref.js";
 
 export const North = queueRef("north");
 
-// A source Story sets no `world` (2.10.11); it runs on the destination run's truth, the Desk's seed.
-export const queuePage = Story.make(DeskSetup, {
+// A source Story sets no `world`, neither the option nor a step (2.10.11, W29): it runs at the `hydrate` step on the
+// destination run's fake servers, the Desk's seed. Its fixtures are its own; its server is the destination's.
+export const queuePage = Story.app(DeskSetup, {
   id: "queue/ssr-server",
   fixtures: [DeskClient],
 })
@@ -20,11 +21,11 @@ export const queuePage = Story.make(DeskSetup, {
   .ensure(North, { input: { workspaceId: "north" } })
   .dehydrate("page", { within: "1500 millis" }); // DeskSetup has no scope; the browser side matches
 
-export const queueHydrated = Story.make(DeskSetup, {
+export const queueHydrated = Story.app(DeskSetup, {
   id: "queue/ssr-browser",
   fixtures: [DeskClient],
 })
   .hydrate(queuePage, "page") // a leading command: before bootstrap, as on initial page load
   .checkpoint("active")
   .advance("1 second") // still inside the payload's freshness: still nothing from the browser
-  .checkpoint("still-fresh");
+  .checkpoint("stillFresh");

@@ -12,13 +12,12 @@ import { DeskSetup } from "../../../app/setup.js";
 import { Effect, Layer } from "effect";
 import { TicketApi } from "../ticket-api.js";
 import { QueueList } from "./QueueList.js";
-import { storyTest } from "@flow-state/vitest"; // NEW (proposed): COVERAGE.md section 6
 import { Desk } from "../../../testing/desk.fake.js";
 import { Queue } from "./queue.definition.js";
 import { North, queueHydrated, queuePage } from "./queue.ssr.story.js";
 
-// The Stories are transcripts; their checks are below, through the proposed test adapter. The render test below is React's: one string
-// from `renderToString`, the same markup from `hydrateRoot`, no recoverable error.
+// The Stories are transcripts; their checks are below, read from their checkpoints (2.10.6). The render test below
+// is React's: one string from `renderToString`, the same markup from `hydrateRoot`, no recoverable error.
 
 // A small counting Layer over the demo API: how many list and count lookups the browser tab sends.
 const countingTicketApi = () => {
@@ -52,11 +51,13 @@ const countingTicketApi = () => {
 // again, at activation or a second later.
 const serverOnly = [{ via: { tab: { name: "server" } }, phase: "answered" }];
 
-storyTest(queueHydrated, ({ at }) => {
-  expect(at.active.read(North)?.state).toBe(Queue.S.HEALTHY);
-  expect(at.active.read(Desk.list)).toMatchObject(serverOnly);
-  expect(at.active.read(Desk.openCount)).toMatchObject(serverOnly);
-  expect(at["still-fresh"].read(Desk.list)).toMatchObject(serverOnly);
+test("a hydrated tab does not read what the server render already read", async () => {
+  const { active, stillFresh } = (await queueHydrated.run()).checkpoints;
+
+  expect(active.read(North)?.state).toBe(Queue.S.HEALTHY);
+  expect(active.read(Desk.list)).toMatchObject(serverOnly);
+  expect(active.read(Desk.openCount)).toMatchObject(serverOnly);
+  expect(stillFresh.read(Desk.list)).toMatchObject(serverOnly);
 });
 
 test("renderToString and hydrateRoot agree before browser activation", async () => {

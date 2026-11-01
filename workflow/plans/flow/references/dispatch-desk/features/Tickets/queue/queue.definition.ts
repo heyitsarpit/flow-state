@@ -135,7 +135,7 @@ export const Queue = definition({
     // The assignee's name comes from its own record (E1): one technician read per distinct assignee shown.
     assignees: RosterDomain.technicianById, // bare: rows read `Technician.get`
     // Who is viewing each visible ticket: one SDK session per row, keys following the visible rows (T6).
-    viewers: ticketViewers, // pending merge 6: bare state feed
+    viewers: ticketViewers, // bare state feed
     create: TicketsDomain.create.outcomes({
       success: E.Created.from((ticket, { key }) => ({
         draftId: key.draftId,

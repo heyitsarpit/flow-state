@@ -1,5 +1,5 @@
-// The raw workspace socket, as a Stream of decoded frames. Pending merge 6 (M6 4.1): feed.contracts.ts
-// wraps `DeskSocket.frames` in `Feed.reconnect` and turns `hello` / `reset` into `Feed.live`. This
+// The raw workspace socket, as a Stream of decoded frames. 1): feed.contracts.ts
+// wraps `DeskSocket.frames` in `reconnect` and turns `hello` / `reset` into `Feed.live`. This
 // file knows the wire only: it names no Flow API, so it type-checks with Effect alone.
 //
 // Protocol: the server's first frame is its registration, either `hello` (it registered the

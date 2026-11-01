@@ -1,11 +1,11 @@
 // Deliberately wrong. Excluded from the app (app/app.ts lists no machine from here) and
 // from every Story glob (flow.config.ts), so it never runs; `flow check` reads it as data and must report the line
 // below, which findings.test.ts asserts.
-// flow check: warning DuplicateSession  WrongSessions.viewers, WrongSessions.watchers: two operations on `DispatchDesk/ticket-viewers` can be placed at once with equal keys (M6 2.5). pending merge 6
+// flow check: warning DuplicateSession  WrongSessions.viewers, WrongSessions.watchers: two operations on `DispatchDesk/ticket-viewers` can be placed at once with equal keys.
 import { definition, machine } from "flow-state";
 import { ticketViewers } from "../../features/Presence/presence.contracts.js";
 
-// pending merge 6. WRONG: two sessions of one stream on one key in one actor, both live: twice the traffic.
+// WRONG: two sessions of one stream on one key in one actor, both live: twice the traffic.
 export const WrongSessions = definition({
   id: "Findings/WrongSessions",
   states: ["OPEN"],

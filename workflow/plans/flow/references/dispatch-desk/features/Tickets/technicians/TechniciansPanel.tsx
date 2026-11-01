@@ -1,6 +1,6 @@
 // Who is free. Three columns by the Technician record's status, so a dispatch's prediction moves a card at once;
 // each card's pulse row says how fresh it is: live, live but quiet ("seen 2 min ago", from the phone's own time),
-// or dimmed with the drop's reason while the poller reconnects. Pending merge 6 for the pulse rows.
+// or dimmed with the drop's reason while the poller reconnects.
 import { useActorByRef, useNow, useView } from "flow-state/react";
 import { Technician } from "../../Roster/roster.domain.js";
 import { STALE_AFTER_MS, Technicians } from "./technicians.definition.js";

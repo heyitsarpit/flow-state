@@ -5,7 +5,7 @@
 // and say so (a move `.alsoChanges` both teams' counts; a merge predicts a delete, a patch and N re-pointed tickets
 // across two entities); a condition that admits a null (`isNull(teamId)`: the unplaced technicians); a derived
 // read (technicians per team); and pushes that arrive from a polled log, not a socket.
-import { and, asc, domain, entity, eq, isNull, listen, or, read, write } from "flow-state"; // pending merge 6: listen
+import { and, asc, domain, entity, eq, isNull, listen, or, read, write } from "flow-state"; // listen
 import { Ticket } from "../Tickets/ticket.domain.js";
 import { CustomerRow, TeamRow, TechnicianRow } from "./roster-api.js";
 import {
@@ -147,7 +147,7 @@ export const RosterDomain = domain("roster", {
   invite: write(inviteTechnician).one(Technician),
 });
 
-// The polled change log, into the store (pending merge 6, M6 2.8). Versions decide duplicates: the poll replays
+// The polled change log, into the store. Versions decide duplicates: the poll replays
 // from its start on every session, and a change the client already holds changes nothing.
 export const RosterFeed = domain("roster-feed", {
   changes: listen(technicianChanges).as([Technician], (change) =>

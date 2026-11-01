@@ -16,14 +16,14 @@ export const cliExamples = [
   },
   // I2 C: why a challenge's answer, arriving after `TimedOut`, placed the order in one run and not in another.
   {
-    command: "flow explain pay/late-challenge --at paid-after-timeout --operation authenticate",
+    command: "flow explain pay/late-challenge --at paidAfterTimeout --operation authenticate",
     expected:
       "authenticate (owner CHALLENGE) ended success after the owner was left by exit TimedOut: late, routed to the root; " +
       "root Authenticated alternative 1 (guard S.CARD) taken: CARD owns no pending call, so the late turn may leave it (rule 15)",
     exit: 0,
   },
   {
-    command: "flow explain pay/late-while-paying --at late-stays-paying --operation authenticate",
+    command: "flow explain pay/late-while-paying --at lateStaysPaying --operation authenticate",
     expected:
       'late success routed to the root; alternative 1 denied (S.CARD: active leaf PAYING); alternative 3 taken ("self"); ' +
       "a target out of PAYING here would be LateMayNotLeave: PAYING owns pay { intentId: pi_1 }",

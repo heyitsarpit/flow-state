@@ -1,4 +1,4 @@
-// Pending merge 6 (M6 4.4): the assistant port. `suggest` posts the request and returns the NDJSON
+// 4): the assistant port. `suggest` posts the request and returns the NDJSON
 // body as a Stream of `token` / `done` frames. The commit in assistant.contracts.ts runs it,
 // forwarding each token to the lane's `progress`, so no turn is taken per token.
 //

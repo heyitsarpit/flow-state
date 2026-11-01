@@ -4,7 +4,7 @@
 // Where the data comes from: roster-api.ts, an adapter on Effect's `HttpClient` (and, under it, `fetch`), with
 // invitations batched by `RequestResolver` below the commit (MD 2.7.11), and a change log polled after a cursor.
 import { Duration, Effect, Option, Schedule, Schema, Stream } from "effect";
-import { Feed, resource, stream, transaction } from "flow-state"; // pending merge 6: Feed, stream
+import { Feed, resource, stream, transaction } from "flow-state";
 import { unknownWhenLost } from "../shared/outcomes.js";
 import {
   ChangeBatch,
@@ -194,62 +194,71 @@ export const rebuildIndex = transaction({
     ),
 });
 
-// --- the change log, polled (pending merge 6) ------------------------------------------------------------
+// --- the change log, polled ------------------------------------------------------------------------------
 
-// Polling with a cursor (M6 4.7, recipe P): every connection is a loop of GETs from the cursor, one a second. A
-// failed GET is a typed drop (`PollFailed`), not a defect, and the resume position survives it. The proof is the
-// server's contract ("the poll returns every change after the cursor"), prepended before the first answer, so an
-// offline device reads `Live` until that GET fails: polling has no registration to wait for (stated, RV3 L5).
-const poll = (workspaceId: string) => (from: number | undefined) =>
-  Stream.paginate(from ?? 0, (cursor: number) =>
-    RosterApi.use((api) =>
-      Effect.acquireUseRelease(
-        Effect.sync(() => new AbortController()),
-        (controller) => api.changes({ workspaceId, after: cursor }, { signal: controller.signal }),
-        (controller) => Effect.sync(() => controller.abort()),
+// Polling with a cursor (MD 2.11.12.8, "Polling"): every connection is a loop of GETs from `from`, one a second. A failed
+// GET is a typed drop (`PollFailed`), not a defect, and the bookmark survives it. The first answer is the registration,
+// so an offline device stays `Connecting` and never counts as a flap. A quiet answer is a `Feed.ping`, so a quiet log is
+// not `Silent` and a hung GET is.
+const poll = <P>(
+  workspaceId: string,
+  from: number | undefined,
+  registered: (cursor: number) => Feed.Signal<P>,
+  signal: AbortSignal,
+) =>
+  Stream.paginate({ cursor: from ?? 0, first: true }, ({ cursor, first }) =>
+    RosterApi.use((api) => api.changes({ workspaceId, after: cursor }, { signal })).pipe(
+      Effect.map(
+        (batch: ChangeBatch) =>
+          [
+            [
+              ...(first ? [registered(batch.cursor)] : []),
+              ...(batch.changes.length > 0 ? batch.changes : [Feed.ping]),
+            ],
+            Option.some({ cursor: batch.cursor, first: false }),
+          ] as const,
       ),
-    ).pipe(
-      Effect.map((batch: ChangeBatch) => [batch.changes, Option.some(batch.cursor)] as const),
       Effect.delay(Duration.seconds(1)),
     ),
-  ).pipe(
-    Stream.prepend([
-      Feed.live({ proof: `the poll returns every change after ${String(from ?? 0)}` }),
-    ]), // pending merge 6
   );
 
 const pollSchedule = Schedule.spaced("5 seconds").pipe(Schedule.upTo({ times: 12 }));
 
-// The roster's audit log: a fact feed into the admin screen's memory, resuming from the cursor it stored (S4). A
-// first registration on an empty roster log is `fresh` (no `from`), and its `missed` carries `initial` (S10).
+// The roster's audit log: an `every` feed into the admin screen's memory. Flow keeps the position in the bookmark. On a
+// reconnect the proof is the server's contract, "the poll returns every change after the position"; on a first open the
+// answer's cursor is the head, so a quiet log still has a place.
 export const rosterEvents = stream({
-  // pending merge 6
   id: "DispatchDesk/roster-events",
-  input: { ...workspace, after: Schema.optional(Schema.Int) },
+  input: workspace,
   output: RosterChange,
   key: ["workspaceId"],
-  delivers: "facts",
-  subscribe: ({ workspaceId, after }) =>
-    Feed.reconnect(poll(workspaceId), {
-      from: after,
-      position: (change) => change.seq,
-      while: (error) => error._tag === "PollFailed",
-      schedule: pollSchedule,
-    }),
+  delivers: "every",
+  position: "seq",
+  subscribe: ({ workspaceId }, { from, signal }) =>
+    poll(
+      workspaceId,
+      from,
+      (head) =>
+        from === undefined
+          ? Feed.live({ head })
+          : Feed.live({ proof: `the poll returns every change after ${String(from)}` }),
+      signal,
+    ),
+  reconnect: { while: (error) => error._tag === "PollFailed", schedule: pollSchedule },
+  idleTime: "30 seconds",
 });
 
 // The same log, consumed by the store: technician records change in place for every screen, and the answers that
-// hold technicians are lowered on every start (a `listen` session starts fresh and keeps no position, M6 2.7).
+// hold technicians are lowered on every registration. No position, so nothing can be proven (a proof here is
+// `ProofWithoutPosition`) and each connection replays from the start; versions decide duplicates.
 export const technicianChanges = stream({
-  // pending merge 6
   id: "DispatchDesk/technician-changes",
   input: workspace,
   output: RosterChange,
   key: ["workspaceId"],
-  delivers: "facts",
-  subscribe: ({ workspaceId }) =>
-    Feed.reconnect(poll(workspaceId), {
-      while: (error: PollFailed) => error._tag === "PollFailed",
-      schedule: pollSchedule,
-    }),
+  delivers: "every",
+  subscribe: ({ workspaceId }, { signal }) =>
+    poll(workspaceId, undefined, () => Feed.live(), signal),
+  reconnect: { while: (error) => error._tag === "PollFailed", schedule: pollSchedule },
+  idleTime: "30 seconds",
 });

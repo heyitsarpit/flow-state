@@ -2,58 +2,91 @@
 // challenge, the order and the void, and whatever the shopper presses,
 //   1. no intent is ever charged twice (at most one authorization per intent in the Stripe fake's truth), and
 //   2. once the run settles, every authorization is captured (an order exists) or voided: none is left on a card.
-// A failing run is shrunk and emitted as a Story (`counterexample`), which app/demo.tsx plays (X6).
-// design gap: the generators' spellings (`Generate.*`), as in the desk's comments.test.ts (REVIEW gap 39).
-// design gap: `frame.settled` and the `counterexample` option are assumed; playback.md 8 names failure replay of
-// "the Story a property test emits" as a follow-up without its spelling.
-import { Generate, propertyTest, Story } from "flow-state/testing";
+// A failing run is shrunk and reported as `PropertyTestFailed` with `result.source`, the appended steps chained from
+// `payMoney`. Pasted as a Story, it is the regression, and app/demo.tsx plays it (machine-design 2.10.16).
+import { propertyTest, type Story } from "flow-state/testing";
 import { test } from "vite-plus/test";
-import { CART_1, signedIn } from "../features/Pay/pay.story.js";
 import { Pay } from "../features/Pay/pay.definition.js";
-import { PayMachine } from "../features/Pay/pay.machine.js";
-import { Stripe, StripeFake } from "./stripe.fake.js";
+import type { PayMachine } from "../features/Pay/pay.machine.js";
+import { CART_1, payMoney, VISA } from "../features/Pay/pay.story.js";
+import { Stripe } from "./stripe.fake.js";
 
-const chargedOnce = Story.property("an intent is charged at most once", (frame) => {
+type PayFrame = Story.Frame<typeof PayMachine>;
+
+const chargedOnce = (frame: PayFrame) => {
   const truth = frame.read(Stripe);
-  const twice = truth.shop.intents.filter(
-    (i) => truth.shop.charges.filter((c) => c.intentId === i.intentId).length > 1,
+  const twice = truth.shop.charges.filter(
+    (c, i) => truth.shop.charges.findIndex((d) => d.intentId === c.intentId) !== i,
   );
   return twice.length > 0 ? twice : undefined;
-});
+};
 
-// Only meaningful when nothing is left to happen: `frame.settled` is the end of a run with no lane, timer or held
-// request left.
-const noneLeftOnACard = Story.property("every authorization is captured or voided", (frame) => {
-  if (!frame.settled) return undefined;
-  const left = frame.read(Stripe).shop.charges.filter((c) => c.status === "authorized");
+// Checked once, at the quiet point: no lane in flight, no held request, no deadline an operation owns.
+const noneLeftOnACard = (cut: PayFrame) => {
+  const left = cut.read(Stripe).shop.charges.filter((c) => c.status === "authorized");
   return left.length > 0 ? left : undefined;
-});
+};
 
-export const moneyRuns = Story.make(PayMachine, {
-  id: "pay/property-money",
-  context: signedIn,
-  fixtures: [StripeFake],
-  properties: [chargedOnce, noneLeftOnACard],
-}).send(Pay.E.Start(CART_1));
+const cart = { cartId: CART_1.cartId, intentId: CART_1.intentId };
 
 test("the card is charged once, and never left authorized", () =>
-  propertyTest(moneyRuns, {
+  propertyTest(payMoney, {
     steps: [
-      Generate.sends(Pay, {
-        only: [Pay.E.summary.PayPressed, Pay.E.Leave, Pay.E.CHALLENGE.BankShown, Pay.E.CheckAgain],
-      }),
-      Generate.wire(Stripe.confirm), // hold, release, drop (request and response), duplicate, release({ nth })
-      Generate.wire(Stripe.nextAction),
-      Generate.wire(Stripe.placeOrder),
-      Generate.wire(Stripe.voidAuthorization),
-      Generate.wire(Stripe.intent),
-      Generate.controls(Stripe, {
-        only: ["busy", "challenge", "completeChallenge", "webhookTwice", "captureElsewhere"],
-      }),
-      Generate.advance(["2 seconds", "3 seconds", "5 minutes"]),
+      [
+        Pay.E.summary.PayPressed({ paymentMethodId: VISA }),
+        Pay.E.Leave(),
+        Pay.E.CHALLENGE.BankShown(),
+        Pay.E.CheckAgain(),
+      ],
+      // Every wire word on each endpoint the checkout reaches: hold, release, drop (request and response), duplicate.
+      [
+        Stripe.confirm.hold(),
+        Stripe.confirm.release(),
+        Stripe.confirm.release({ nth: 1 }),
+        Stripe.confirm.drop({ at: "request" }),
+        Stripe.confirm.drop({ at: "response" }),
+        Stripe.confirm.duplicate(),
+      ],
+      [
+        Stripe.nextAction.hold(),
+        Stripe.nextAction.release(),
+        Stripe.nextAction.drop({ at: "request" }),
+        Stripe.nextAction.drop({ at: "response" }),
+        Stripe.nextAction.duplicate(),
+      ],
+      [
+        Stripe.placeOrder.hold(),
+        Stripe.placeOrder.release(),
+        Stripe.placeOrder.drop({ at: "request" }),
+        Stripe.placeOrder.drop({ at: "response" }),
+        Stripe.placeOrder.duplicate(),
+      ],
+      [
+        Stripe.voidAuthorization.hold(),
+        Stripe.voidAuthorization.release(),
+        Stripe.voidAuthorization.drop({ at: "request" }),
+        Stripe.voidAuthorization.drop({ at: "response" }),
+        Stripe.voidAuthorization.duplicate(),
+      ],
+      [
+        Stripe.intent.hold(),
+        Stripe.intent.release(),
+        Stripe.intent.drop({ at: "request" }),
+        Stripe.intent.drop({ at: "response" }),
+        Stripe.intent.duplicate(),
+      ],
+      [
+        Stripe.busy({ times: 1 }),
+        Stripe.challenge({ on: true }),
+        Stripe.completeChallenge({ passed: true }),
+        Stripe.webhookTwice(cart),
+        Stripe.captureElsewhere({ intentId: CART_1.intentId }),
+      ],
+      [{ advance: "2 seconds" }, { advance: "3 seconds" }, { advance: "5 minutes" }],
     ],
+    properties: { chargedOnce },
+    whenQuiet: { noneLeftOnACard },
     seed: 11,
     runs: 200,
     length: 30,
-    counterexample: { id: "pay/property-counterexample" }, // the shrunk failing run, as a Story with this id
   }));

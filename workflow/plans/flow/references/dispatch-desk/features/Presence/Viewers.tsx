@@ -1,6 +1,6 @@
-// "Also viewing: Dana (typing…)". The state row of M6 2.6: `value` is what the current attach confirmed, `last` the
+// "Also viewing: Dana (typing…)". The state row of: `value` is what the current attach confirmed, `last` the
 // previous one, dimmed with the drop's reason while the SDK reconnects. Badges are the `ViewerBadge` copies: a new
-// arrival flashes. Pending merge 6.
+// arrival flashes.
 import { useActorByRef, useNow, useView } from "flow-state/react";
 import type { TicketKey } from "../Tickets/types.js";
 import { TYPING_SHOWN_MS } from "./presence.definition.js";

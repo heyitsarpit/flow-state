@@ -6,9 +6,9 @@ import { useState } from "react";
 import { FlowProvider, useActorByRef, useView } from "flow-state/react";
 import { Session } from "../features/Session/session.definition.js";
 import { SessionRef } from "../features/Session/session.ref.js";
-import { AssistantPanel } from "../features/Assistant/AssistantPanel.js"; // pending merge 6
-import { Viewers } from "../features/Presence/Viewers.js"; // pending merge 6
-import { ActivityLog } from "../features/Tickets/feed/ActivityLog.js"; // pending merge 6
+import { AssistantPanel } from "../features/Assistant/AssistantPanel.js";
+import { Viewers } from "../features/Presence/Viewers.js";
+import { ActivityLog } from "../features/Tickets/feed/ActivityLog.js";
 import { QueueList } from "../features/Tickets/queue/QueueList.js";
 import type { TicketPanel } from "../features/Tickets/editor/TicketPanel.js";
 import type { TicketKey } from "../features/Tickets/types.js";
@@ -29,12 +29,14 @@ export function renderDesk(runtime: ReturnType<typeof DeskSetup.construct>, user
 // traits), the watcher (shared with the queue row), the assistant and the workspace feed. Each reads its
 // own actor, so none re-renders for another's change.
 export function TicketScreen({ ticket, Panel }: { ticket: TicketKey; Panel: PanelComponent }) {
+  const me = useView(useActorByRef(SessionRef), (s) => s.memory.userId);
+
   return (
     <div className="ticket-screen">
       <Panel ticket={ticket} />
-      <Viewers ticket={ticket} /> {/* pending merge 6 */}
-      <AssistantPanel ticket={ticket} /> {/* pending merge 6 */}
-      <ActivityLog workspaceId={ticket.workspaceId} /> {/* pending merge 6 */}
+      <Viewers ticket={ticket} me={me} />
+      <AssistantPanel ticket={ticket} />
+      <ActivityLog workspaceId={ticket.workspaceId} />
     </div>
   );
 }

@@ -9,7 +9,7 @@ export const cliExamples = [
   {
     command: "flow story list",
     expected:
-      "desk/save-repairs-queue, desk/revoked-mid-save, editor/saved, queue/assign, comments/posted (appId null), …; nothing runs",
+      "desk/save-repairs-queue, desk/revoked-mid-save, editor/saved, queue/toggled, comments/posted-in-order (appId null), …; nothing runs",
     exit: 0,
   },
   {
@@ -73,7 +73,7 @@ export const cliExamples = [
     exit: 0,
   },
   {
-    command: "flow check --finding FeedUnhandled", // pending merge 6
+    command: "flow check --finding FeedUnhandled",
     expected:
       "a fact feed that does not map `value`, `missed` and `failure`; DeskFeed maps all three, so none",
     exit: 0,
@@ -129,7 +129,7 @@ export const cliExamples = [
     exit: 0,
   },
 
-  // Coverage: write-lane cells, ending routes, Flow reasons, and stream cells (PM6) reached by the Stories
+  // Coverage: write-lane cells, ending routes, Flow reasons, and stream cells  reached by the Stories
   {
     command: "flow stories --coverage",
     expected:
@@ -143,7 +143,7 @@ export const cliExamples = [
     exit: 0,
   },
   {
-    command: "flow stories --coverage --kind session", // pending merge 6
+    command: "flow stories --coverage --kind session",
     expected: "stream cells reached by feed/* and presence/*: drop, reconnect, catch-up, missed",
     exit: 0,
   },

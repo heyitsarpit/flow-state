@@ -9,7 +9,7 @@ import { Realtime } from "@collab/realtime"; // illustrative SDK
 import { CollabClient, type CollabChannel } from "../features/Presence/collab-sdk.js";
 
 export const CollabLive = (token: () => Promise<string>) =>
-  Layer.scoped(
+  Layer.effect(
     CollabClient,
     Effect.gen(function* () {
       const client = yield* Effect.acquireRelease(

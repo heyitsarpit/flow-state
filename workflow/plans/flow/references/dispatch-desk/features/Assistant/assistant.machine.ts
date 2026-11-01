@@ -2,7 +2,7 @@
 // `concurrency: "cancel"` that interrupts the Attempt on the wire, whose ending is evidence (rule 17), so no
 // handler sees it and nothing is held (O8, T10). Stop cancels the Attempt; its `unknown { Cancelled }` is held
 // for its own ending's turn only (`HeldThisTurn`), so no handler releases anything.
-// Pending merge 6: written against merged/streams/proposal-v2.md revision 7.1, 4.4.
+// md revision 7.1, 4.4.
 import { deny, machine } from "flow-state";
 import { Assistant } from "./assistant.definition.js";
 
@@ -15,7 +15,7 @@ export const AssistantMachine = machine(Assistant, ({ S, O }) => {
   return {
     default: S.IDLE,
     // Endings are handled at the root: an adopted ending (a reload while asking) is delivered to any leaf
-    // of the arrival set (rule 20), and M6 4.4 puts them here.
+    // of the arrival set (rule 20), and puts them here.
     on: {
       Answered: {
         target: S.IDLE,

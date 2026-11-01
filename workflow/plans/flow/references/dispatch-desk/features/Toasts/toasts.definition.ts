@@ -7,5 +7,5 @@ export const Toasts = definition({
   states: ["EMPTY", "SHOWING"],
   events: { Push: { text: Schema.String }, Dismiss: {} },
   internalEvents: { Expire: {} },
-  memory: { messages: Flow.initial(Schema.Array(Schema.String), []) }, // NEW: constant start
+  memory: { messages: Flow.initial(Schema.Array(Schema.String), []) },
 });

@@ -1,5 +1,5 @@
 // The exports of flow-state/inspect (Inspection.plan). Observation never starts work. In Stories the same
-// listing is `Story.inspection` (2.10.6): `expect(Story.inspection, { lanes: [...] })`.
+// listing is `cp.inspection` (2.10.6): `expect(cp.inspection, { lanes: [...] })`.
 import { readFile } from "node:fs/promises";
 import { attachInspector, inspect, render, trace } from "flow-state/inspect";
 import { DeskApp } from "../app/app.js";
@@ -57,13 +57,12 @@ export function listWrites(runtime: ReturnType<typeof DeskSetup.construct>) {
   };
 }
 
-// PM6 (merge 6, 2.12). Streams are not write lanes and never appear in `lanes`; each open stream is a session,
+// Streams are not write lanes and never appear in `lanes`; each open stream is a session,
 // listed per actor, operation and key with its `connection`, the last drop, each start's answer and basis
-// (`pending`, then `proven` or `lost`, or `abandoned`), `Feed.reconnect`'s phase, `missed` reports, the bound and
+// (`pending`, then `proven` or `lost`, or `abandoned`), `reconnect`'s phase, `missed` reports, the bound and
 // the release state; a ring of the last 256 entries per session. Flags: UnprovenValues, RegistrationChurn,
 // ReleaseOverdue. Stream values are redacted like any other.
 export function listSessions(runtime: ReturnType<typeof DeskSetup.construct>) {
-  // pending merge 6
   return inspect(runtime).sessions.map((session) => ({
     actor: session.actor, // DeskFeed:north, Presence:north/T-42, Assistant:north/T-42
     operation: session.operation,

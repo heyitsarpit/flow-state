@@ -14,8 +14,8 @@ export const Session = definition({
     SignedOut: {},
   },
   memory: {
-    userId: Flow.input(Schema.String), // NEW: supplied by the creator, ensure(SessionRef, { input: { userId } })
-    canEdit: Flow.initial(Schema.Boolean, true), // NEW: constant start
+    userId: Flow.input(Schema.String),
+    canEdit: Flow.initial(Schema.Boolean, true),
     isAdmin: Flow.initial(Schema.Boolean, false), // the roster's actions exist only for an admin (F22)
   },
 });

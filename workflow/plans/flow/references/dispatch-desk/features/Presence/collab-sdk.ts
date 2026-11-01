@@ -1,7 +1,7 @@
 // The collaboration SDK, as the desk uses it: a structural subset of a hosted realtime service's client (Ably,
 // Liveblocks, Supabase Realtime all have this shape). Effect-only: no Flow API, so it type-checks with Effect alone.
 //
-// Recipe S (M6 2.4): the SDK owns ONE app-wide connection, its reconnect and its backoff. Each Flow session is a
+// Recipe S: the SDK owns ONE app-wide connection, its reconnect and its backoff. Each Flow session is a
 // subscription on a channel the client service hands out by name and reference-counts, so a session's finalizer
 // releases only its own listeners and never detaches a channel another session holds (S9).
 //

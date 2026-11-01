@@ -1,25 +1,17 @@
-// The editor's checks, read from its Stories' checkpoints. A Story is a transcript (editor.story.ts); every
-// check lives here, through the test adapter.
-//
-// PROPOSED, not designed: `@flow-state/vitest` (COVERAGE.md section 6, decided Q4 A). `storyTest(story, fn)`
-// runs the Story once and hands `fn` the checkpoints as `at`, typed by the Story's own names, so `at.saaved` is a
-// type error. `at.<name>` is that checkpoint's step cut (2.10.6): for a machine Story it carries the subject's
-// snapshot (`state`, `memory`, `operations`, `schedules`), and `read(target)` is 2.10.6's one read for
-// everything else (a fake, an endpoint's log, `Story.records`, `Story.inspection`, `Story.entity`).
-// design gap: `Story.attempt(op)` is an expectation matcher in 2.10.6. Outside `expect` this file reads it as a
-// target, `at.x.read(Story.attempt(O.save))`, whose value is that Attempt's id; the design names no such read.
-import { storyTest } from "@flow-state/vitest"; // NEW (proposed): the test adapter
-import { Story } from "flow-state/testing";
-import { expect } from "vite-plus/test";
+// The editor's checks, read from its Stories' checkpoints (2.10.6). A Story is a transcript (editor.story.ts);
+// every check lives here. Each test runs its Story once and destructures the checkpoints it reads. `cut.lane` reads
+// a write that is in progress and is `undefined` once it settles; `cut.operations.save` is the keyed list of the
+// lanes that exist (2.10.7), so a settled save reads `[]` there as well.
+import { expect, test } from "vite-plus/test";
 import { Desk } from "../../../testing/desk.fake.js";
 import { Editor } from "./editor.definition.js";
 import {
-  attached,
-  autosaved,
+  autosavePaused,
   editedWhileSaving,
   emptyTitle,
   escaped,
   FIRST,
+  fileAttached,
   heldLaneReadopted,
   lockedOut,
   lockLifts,
@@ -27,8 +19,8 @@ import {
   reopenedInFlight,
   reopenedUnsure,
   saved,
+  saveStopped,
   SEEDED,
-  stopped,
   T42,
   unsureGaveUp,
   unsureResend,
@@ -36,131 +28,169 @@ import {
 
 const { S, E, O } = Editor;
 
-storyTest(saved, ({ at }) => {
-  expect(at.opened.memory).toMatchObject({ saved: SEEDED, draft: SEEDED });
-  expect(at.draft.state).toBe(S.OPEN.EDITING);
-  expect(at.saving.state).toBe(S.OPEN.SAVING);
-  expect(O.save.get(at.saving, T42)).toMatchObject({ pending: true, uncertain: false });
-  expect(at.saved.state).toBe(S.OPEN.SAVED);
-  expect(at.saved.memory).toMatchObject({ saved: FIRST, draft: FIRST });
-  expect(at.saved.operations.save).toEqual([]); // a keyed list of the lanes that exist (2.10.7)
-  expect(at.saved.read(Desk.saveTitle)).toMatchObject([
-    { phase: "answered", via: { attempts: [at.saved.read(Story.attempt(O.save))] } },
+test("a save: predicted while on the wire, then confirmed once", async () => {
+  // `saved` is also a checkpoint's name, so the Story's own is read under an alias.
+  const { opened, draft, saving, saved: confirmed } = (await saved.run()).checkpoints;
+
+  expect(opened.memory).toMatchObject({ saved: SEEDED, draft: SEEDED });
+  expect(draft.state).toBe(S.OPEN.EDITING);
+  expect(saving.state).toBe(S.OPEN.SAVING);
+  expect(saving.lane(O.save, T42)).toMatchObject({ pending: true, uncertain: false });
+  expect(confirmed.state).toBe(S.OPEN.SAVED);
+  expect(confirmed.memory).toMatchObject({ saved: FIRST, draft: FIRST });
+  expect(confirmed.operations.save).toEqual([]); // a keyed list of the lanes that exist (2.10.7)
+  expect(confirmed.read(Desk.saveTitle)).toMatchObject([
+    { phase: "answered", via: { attempts: [confirmed.attempt(O.save)] } },
   ]);
 });
 
-storyTest(autosaved, ({ at }) => {
-  expect(at.restarted.state).toBe(S.OPEN.EDITING);
-  expect(at.restarted.read(Desk.saveTitle)).toEqual([]);
-  expect(at.autosaved.state).toBe(S.OPEN.SAVED);
-  expect(at.autosaved.memory.saved).toBe(FIRST);
+test("autosave is a debounce: only the pause after the last edit saves", async () => {
+  const { restarted, autosaved } = (await autosavePaused.run()).checkpoints;
+
+  expect(restarted.state).toBe(S.OPEN.EDITING);
+  expect(restarted.read(Desk.saveTitle)).toEqual([]);
+  expect(autosaved.state).toBe(S.OPEN.SAVED);
+  expect(autosaved.memory.saved).toBe(FIRST);
 });
 
-storyTest(editedWhileSaving, ({ at }) => {
-  expect(at["moved-on"].state).toBe(S.OPEN.EDITING);
-  expect(at["moved-on"].memory).toMatchObject({ saved: FIRST, draft: `${FIRST}s` });
-  expect(at["caught-up"].state).toBe(S.OPEN.SAVED);
-  expect(at["caught-up"].read(Desk.saveTitle)).toMatchObject([
+test("typing during a save is kept and saved without another keystroke", async () => {
+  const { movedOn, caughtUp } = (await editedWhileSaving.run()).checkpoints;
+
+  expect(movedOn.state).toBe(S.OPEN.EDITING);
+  expect(movedOn.memory).toMatchObject({ saved: FIRST, draft: `${FIRST}s` });
+  expect(caughtUp.state).toBe(S.OPEN.SAVED);
+  expect(caughtUp.read(Desk.saveTitle)).toMatchObject([
     { phase: "answered" },
     { phase: "answered" },
   ]);
 });
 
-storyTest(emptyTitle, ({ at }) => {
-  expect(at.denied.read(Story.records("verdict", { event: E.SaveRequested }))).toMatchObject([
+test("an empty title is denied before any commit", async () => {
+  const { denied } = (await emptyTitle.run()).checkpoints;
+
+  expect(denied.records("verdict", { event: E.SaveRequested })).toMatchObject([
     { result: { _tag: "Denied", reasons: [{ code: "EmptyTitle" }] } },
   ]);
-  expect(at.denied.read(Desk.saveTitle)).toEqual([]); // denied before any commit
+  expect(denied.read(Desk.saveTitle)).toEqual([]); // denied before any commit
 });
 
-storyTest(escaped, ({ at }) => {
-  expect(at.discarded.state).toBe(S.OPEN.EDITING);
-  expect(at.discarded.memory.draft).toBe(SEEDED);
-  expect(at.closed.state).toBe(S.CLOSED);
+test("escape discards edits, then closes", async () => {
+  const { discarded, closed } = (await escaped.run()).checkpoints;
+
+  expect(discarded.state).toBe(S.OPEN.EDITING);
+  expect(discarded.memory.draft).toBe(SEEDED);
+  expect(closed.state).toBe(S.CLOSED);
 });
 
-storyTest(readonly, ({ at }) => {
-  expect(at.denied.read(Story.records("verdict", { event: E.SaveRequested }))).toMatchObject([
+test("a read-only editor denies the save", async () => {
+  const { denied } = (await readonly.run()).checkpoints;
+
+  expect(denied.records("verdict", { event: E.SaveRequested })).toMatchObject([
     { result: { _tag: "Denied", reasons: [{ code: "NoPermission" }] } },
   ]);
 });
 
-storyTest(lockedOut, ({ at }) => {
-  expect(at.locked.state).toBe(S.OPEN.LOCKED);
-  expect(at.locked.memory.error).toBe("Locked by dispatcher-2");
-  expect(at["first-retry"].memory.lockRetries).toBe(1);
-  expect(at["gave-up-on-lock"].state).toBe(S.OPEN.FAILED);
+test("a lock backs off and retries, each retry its own Attempt, then fails", async () => {
+  const { locked, firstRetry, gaveUpOnLock } = (await lockedOut.run()).checkpoints;
+
+  expect(locked.state).toBe(S.OPEN.LOCKED);
+  expect(locked.memory.error).toBe("Locked by dispatcher-2");
+  expect(firstRetry.memory.lockRetries).toBe(1);
+  expect(gaveUpOnLock.state).toBe(S.OPEN.FAILED);
   // The first send and five retries, each its own Attempt: a definite failure is never the same write.
-  const sends = at["gave-up-on-lock"].read(Desk.saveTitle);
+  const sends = gaveUpOnLock.read(Desk.saveTitle);
   expect(sends).toHaveLength(6);
   expect(new Set(sends.map((request) => request.input.key)).size).toBe(6);
 });
 
-storyTest(lockLifts, ({ at }) => {
-  expect(at.saved.state).toBe(S.OPEN.SAVED);
-  expect(at.saved.memory).toMatchObject({ saved: FIRST, lockRetries: 0 });
+test("a lock that lifts: a later retry saves", async () => {
+  const { saved: confirmed } = (await lockLifts.run()).checkpoints;
+
+  expect(confirmed.state).toBe(S.OPEN.SAVED);
+  expect(confirmed.memory).toMatchObject({ saved: FIRST, lockRetries: 0 });
 });
 
-storyTest(unsureResend, ({ at }) => {
-  expect(at.unsure.state).toBe(S.OPEN.UNSURE);
-  expect(O.save.get(at.unsure, T42)).toMatchObject({
+test("an unsure save is re-sent as the same Attempt and the server stores it once", async () => {
+  const { unsure, resending, saved: confirmed } = (await unsureResend.run()).checkpoints;
+
+  expect(unsure.state).toBe(S.OPEN.UNSURE);
+  expect(unsure.lane(O.save, T42)).toMatchObject({
     pending: false,
     uncertain: true,
     retryCount: 0,
   });
-  expect(at.resending.state).toBe(S.OPEN.UNSURE);
-  expect(O.save.get(at.resending, T42)).toMatchObject({ uncertain: true, retryCount: 1 });
-  expect(at.saved.state).toBe(S.OPEN.SAVED);
-  expect(at.saved.operations.save).toEqual([]);
+  expect(resending.state).toBe(S.OPEN.UNSURE);
+  expect(resending.lane(O.save, T42)).toMatchObject({ uncertain: true, retryCount: 1 });
+  expect(confirmed.state).toBe(S.OPEN.SAVED);
+  expect(confirmed.operations.save).toEqual([]);
   // One Attempt in all four requests; the server stored it once.
-  const attempt = at.saved.read(Story.attempt(O.save));
-  expect(at.saved.read(Desk.saveTitle).map((request) => request.input.key)).toEqual([
+  const attempt = confirmed.attempt(O.save);
+  expect(confirmed.read(Desk.saveTitle).map((request) => request.input.key)).toEqual([
     attempt,
     attempt,
     attempt,
     attempt,
   ]);
-  expect(at.saved.read(Desk).desk.nextSeq).toBe(2); // one change in the log
+  expect(confirmed.read(Desk).desk.nextSeq).toBe(2); // one change in the log
 });
 
-storyTest(unsureGaveUp, ({ at }) => {
-  expect(at["gave-up"].state).toBe(S.OPEN.FAILED);
-  expect(at["gave-up"].memory.error).toBe("We couldn't confirm your last save");
-  expect(at["gave-up"].operations.save).toEqual([]);
-  expect(at["gave-up"].read(Story.inspection).lanes).toEqual([]); // no hold without an owner
-  expect(at["gave-up"].read(Desk.saveTitle)).toHaveLength(4); // the first send and three re-sends
+test("an unsure save that is never answered gives up and leaves no hold", async () => {
+  const { gaveUp } = (await unsureGaveUp.run()).checkpoints;
+
+  expect(gaveUp.state).toBe(S.OPEN.FAILED);
+  expect(gaveUp.memory.error).toBe("We couldn't confirm your last save");
+  expect(gaveUp.operations.save).toEqual([]);
+  expect(gaveUp.lane(O.save, T42)).toBeUndefined();
+  expect(gaveUp.inspection.lanes).toEqual([]); // no hold without an owner
+  expect(gaveUp.read(Desk.saveTitle)).toHaveLength(4); // the first send and three re-sends
 });
 
-storyTest(stopped, ({ at }) => {
-  expect(at.stopped.state).toBe(S.OPEN.EDITING);
-  expect(at.stopped.operations.save).toEqual([]);
-  expect(at.stopped.read(Story.inspection).lanes).toEqual([]);
+test("cancelling a save on the wire returns to editing and releases the lane", async () => {
+  const { stopped } = (await saveStopped.run()).checkpoints;
+
+  expect(stopped.state).toBe(S.OPEN.EDITING);
+  expect(stopped.operations.save).toEqual([]);
+  expect(stopped.inspection.lanes).toEqual([]);
 });
 
-storyTest(heldLaneReadopted, ({ at }) => {
-  expect(at["closed-while-saving"].state).toBe(S.CLOSED);
-  expect(O.save.get(at["closed-while-saving"], T42).uncertain).toBe(true);
-  expect(at.disposed.read(Story.inspection).lanes).toMatchObject([
+test("a held lane is found again by a rebind of the same identity", async () => {
+  const {
+    closedWhileSaving,
+    disposed,
+    readopted,
+    saved: confirmed,
+  } = (await heldLaneReadopted.run()).checkpoints;
+
+  expect(closedWhileSaving.state).toBe(S.CLOSED);
+  expect(closedWhileSaving.lane(O.save, T42)).toMatchObject({ uncertain: true });
+  expect(disposed.inspection.lanes).toMatchObject([
     { contract: "DispatchDesk/save-title", state: "Held", binding: "unbound" },
   ]);
-  expect(at.readopted.state).toBe(S.OPEN.UNSURE); // `unknown { Restored }`, current from the active leaf
-  expect(at.saved.state).toBe(S.OPEN.SAVED);
+  expect(readopted.state).toBe(S.OPEN.UNSURE); // `unknown { Restored }`, current from the active leaf
+  expect(confirmed.state).toBe(S.OPEN.SAVED);
 });
 
-storyTest(reopenedUnsure, ({ at }) => {
-  expect(at["closed-while-saving"].state).toBe(S.CLOSED);
-  expect(at["reopened-unsure"].state).toBe(S.OPEN.UNSURE);
+test("reopening a closed editor that holds an unsure save goes to UNSURE", async () => {
+  // `reopenedUnsure` is also a checkpoint's name, so that one is read under an alias.
+  const { closedWhileSaving, reopenedUnsure: reopened } = (await reopenedUnsure.run()).checkpoints;
+
+  expect(closedWhileSaving.state).toBe(S.CLOSED);
+  expect(reopened.state).toBe(S.OPEN.UNSURE);
 });
 
-storyTest(reopenedInFlight, ({ at }) => {
-  expect(at.reopened.state).toBe(S.OPEN.EDITING); // OPEN's default leaf, never SAVING (M2)
-  expect(O.save.get(at.reopened, T42).pending).toBe(true);
-  expect(at["settled-late"].memory.saved).toBe(FIRST);
-  expect(at["settled-late"].operations.save).toEqual([]);
+test("reopening while the save is on the wire settles late, never into SAVING", async () => {
+  const { reopened, settledLate } = (await reopenedInFlight.run()).checkpoints;
+
+  expect(reopened.state).toBe(S.OPEN.EDITING); // OPEN's default leaf, never SAVING (M2)
+  expect(reopened.lane(O.save, T42)).toMatchObject({ pending: true });
+  expect(settledLate.memory.saved).toBe(FIRST);
+  expect(settledLate.operations.save).toEqual([]);
 });
 
-storyTest(attached, ({ at }) => {
-  expect(at.attached.memory.uploads).toMatchObject([{ key: "r-1" }]); // a copy's public memory (rule 9)
-  expect(at.removed.memory).toMatchObject({ attachments: [], uploads: [] });
-  expect(at.removed.read(Story.inspection).lanes).toEqual([]);
+test("a dropped file becomes an upload copy, and removing it releases the lane", async () => {
+  const { attached, removed } = (await fileAttached.run()).checkpoints;
+
+  expect(attached.memory.uploads).toMatchObject([{ key: "r-1" }]); // a copy's public memory (rule 9)
+  expect(removed.memory).toMatchObject({ attachments: [], uploads: [] });
+  expect(removed.inspection.lanes).toEqual([]);
 });

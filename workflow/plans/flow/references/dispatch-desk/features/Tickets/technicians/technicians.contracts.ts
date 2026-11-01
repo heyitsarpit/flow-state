@@ -1,41 +1,39 @@
 // The technician panel's contracts. Every contract states `input`, `output` and `key` (rule 39).
 //
-// How this differs from the desk's other feeds (COVERAGE.md 5.1, "QU techs"): KEYED state feeds over polling. One
-// session per shown technician (`subscribe.each`, T6), each a loop of GETs that `Feed.reconnect` restarts after a
-// failed one (recipe P, M6 4.7). A state feed, not facts: only the latest pulse matters, and the row's `last.at`
-// says how old it is (T5). Compare the roster's polled feed, which carries facts from a cursor.
-import { Duration, Schedule, Schema, Stream } from "effect";
-import { Feed, resource, stream, transaction } from "flow-state"; // pending merge 6: Feed, stream
+// How this differs from the desk's other feeds (COVERAGE.md 5.1, "QU techs"): KEYED `latest` feeds over polling. One
+// session per shown technician (`subscribe.each`, T6), each a loop of GETs that Flow reconnects after a failed one
+// (`reconnect`, MD 2.11.3). Only the latest pulse matters, and the row's `last.at` says how old it is (T5). Compare the roster's polled feed, which carries facts from a cursor.
+import { Duration, Effect, Schema, Stream } from "effect";
+import { Feed, resource, stream, transaction } from "flow-state";
 import { unknownWhenLost } from "../../shared/outcomes.js";
 import { TicketRow } from "../types.js";
 import { Breaks, Pulse, TechniciansApi } from "./technicians-api.js";
 
 const technician = { workspaceId: Schema.String, technicianId: Schema.String };
 
-// One technician's pulse, every ten seconds. Each GET's answer is the current value; a failed GET fails the
-// connection, which `Feed.reconnect` turns into `Feed.down` (the row dims, T4) and reconnects after its schedule. Its
-// budget returns once a connection has been live for `resetAfter` (S5 Q12). No proof: a poll registers nothing, so
-// each first answer after a drop is the value that confirms the row again (M6 2.3, state).
+// One technician's pulse, every ten seconds. Each GET's answer is the current value, and the first answer is the
+// registration (MD 2.11.12.8, "Polling"): `Feed.live()` comes after it, never before. A poll that claimed Live before its
+// first GET would register and die on every offline retry, which counts as a flap and ends the session `Flapping`
+// after 8 (MD 2.11.10); this way an offline device stays `Connecting`, trying every 30 s. A failed GET fails the
+// connection and the row reads `Connecting` with a `drop` (the card dims); `idleTime` catches a hung GET.
 export const technicianPulse = stream({
-  // pending merge 6
   id: "DispatchDesk/technician-pulse",
   input: technician,
   output: Pulse,
   key: ["workspaceId", "technicianId"],
-  delivers: "state",
-  subscribe: (key) =>
-    Feed.reconnect(
-      () =>
-        Stream.fromEffect(TechniciansApi.use((api) => api.pulse(key))).pipe(
-          Stream.repeat(Schedule.spaced(Duration.seconds(10))),
-          Stream.prepend([Feed.live()]), // pending merge 6: a poll has no registration; live from the start
-        ),
-      {
-        while: (error) => error._tag === "PollFailed",
-        schedule: Schedule.exponential("2 seconds").pipe(Schedule.upTo({ times: 6 })),
-        resetAfter: "1 minute",
-      },
-    ),
+  delivers: "latest",
+  subscribe: (key) => {
+    const get = TechniciansApi.use((api) => api.pulse(key));
+
+    return Stream.fromEffect(get).pipe(
+      Stream.flatMap((first) => Stream.make(Feed.live(), first)),
+      Stream.concat(
+        Stream.fromEffect(get.pipe(Effect.delay(Duration.seconds(10)))).pipe(Stream.forever),
+      ),
+    );
+  },
+  reconnect: { while: (error) => error._tag === "PollFailed" },
+  idleTime: "30 seconds",
 });
 
 // Who is on a break: a plain resource (no domain), the target of the break toggle's `optimistic` look.

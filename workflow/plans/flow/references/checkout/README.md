@@ -5,7 +5,7 @@ A storefront cart and checkout, and a merchant's refunds page, written against t
 blind re-send is the bug, because it could charge a card twice.
 
 Nothing here runs yet: Flow State's runtime is the design. The Effect-only files (`adapters/`) type-check with
-`nubx tsc -p workflow/plans/flow/references/checkout/tsconfig.effect-only.json`.
+`nubx tsc -p workflow/plans/flow/references/checkout/tsconfig.effect-only.json`. Every file type-checks against stand-ins with `typecheck/tsconfig.checkout.json`; ../CONVERSION.md says what that proves.
 
 ## Where the data comes from
 
@@ -27,7 +27,7 @@ Nothing here runs yet: Flow State's runtime is the design. The Effect-only files
 | Shopper | `features/Shopper/`       | the shared actor the checkout reads as context                                                                                                                                                                                                                                                                                                                                                          |
 | App     | `app/`, `next/`, `tools/` | persisted browser setup with a version (orphaned lanes re-sent), SSR of the cart page with a commit in flight, Inspection of unknown charges, `flow explain` of a late challenge                                                                                                                                                                                                                        |
 
-Stories are transcripts (`*.story.ts`); their checks are in `*.test.ts` through `@flow-state/vitest` (proposed).
+Stories are transcripts (`*.story.ts`); their checks are in `*.test.ts` with the test runner's `expect` over checkpoint reads.
 The property test (`testing/checkout.property.test.ts`) checks that no intent is charged twice and none is left
 authorized.
 
@@ -55,21 +55,18 @@ it in a `StoryPlayer`, and replays the property test's shrunk counterexample whe
 
 ## Design gaps
 
-Every `// design gap:` comment in this folder's code (grep `design gap:`). 14 gaps; the text is the comment's.
+Every `// design gap:` comment in this folder's code (grep `design gap:`). 11 gaps; the text is the comment's. Findings against the design from the conversion are in [../CONVERSION.md](../CONVERSION.md).
 
-| #   | File                                  | Gap                                                                                                                                                                                                                                                                                       |
-| --- | ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | `app/demo.tsx`                        | playback.md 8 names failure replay of "the Story a property test emits" as a follow-up. Assumed: `propertyTest`'s `counterexample` option writes the shrunk run as a Story module under testing/**counterexamples**/, exporting `counterexample`, which this page imports when it exists. |
-| 2   | `app/presentation.ts`                 | as in the desk's app/presentation.ts, `definePresentation` is assumed to come from "flow-state/testing", and a list of presentations stands in for a playlist.                                                                                                                            |
-| 3   | `features/Cart/cart.domain.ts`        | on a READ, `.one` beside `.list` is assumed to be allowed the same way).                                                                                                                                                                                                                  |
-| 4   | `features/Cart/cart.test.ts`          | `checkReplays` reports a "prediction fault" (M5-D10 9.9); its record code is not named, so `PredictionFault` is assumed.                                                                                                                                                                  |
-| 5   | `features/Cart/cart.test.ts`          | a queue entry's fields beyond `entity` are not shown (merge 5 names the queue, not its row); `key` and `items` (the Attempts in order) are assumed.                                                                                                                                       |
-| 6   | `features/Pay/Pay.tsx`                | an `unsettledWrites()` entry's shape is not in the design; `contract` is assumed, as in the desk host.                                                                                                                                                                                    |
-| 7   | `features/Pay/order-summary.trait.ts` | under `cancel`, a key-less `O.shipping.cancel` in an ending's handler is assumed to release that ending's Attempt only (rule N2 states this for `allow`), not the newer quote on the wire.                                                                                                |
-| 8   | `features/Pay/pay.story.ts`           | COVERAGE P4 C says "refused by the intent's `reject`"; a lane is per Runtime, so `reject` cannot see another tab's confirm; the refusal is Stripe's.                                                                                                                                      |
-| 9   | `features/Pay/pay.story.ts`           | a seeded lane's shape is the Persistence plan's (as in the desk's editor.tabs.story.ts); `version` and `operation` on it are assumed, to say which build stored it.                                                                                                                       |
-| 10  | `features/Pay/three-ds.subroutine.ts` | F11 B names "a subroutine that owns a write"; under rule 48 the reference keeps the write in the host and lets its ending arrive after the exit, as the desk's Resolve wizard does.                                                                                                       |
-| 11  | `testing/checkout.property.test.ts`   | `frame.settled` and the `counterexample` option are assumed; playback.md 8 names failure replay of "the Story a property test emits" as a follow-up without its spelling.                                                                                                                 |
-| 12  | `testing/checkout.property.test.ts`   | the generators' spellings (`Generate.*`), as in the desk's comments.test.ts (REVIEW gap 39).                                                                                                                                                                                              |
-| 13  | `testing/stripe.fake.ts`              | `route` reads the request's JSON body, so it is async here; 2.10.4 shows only a URL being read.                                                                                                                                                                                           |
-| 14  | `tools/inspection.ts`                 | a lane entry's field names follow 2.10.7's list, as in the desk's tools/inspection.ts.                                                                                                                                                                                                    |
+| #   | File                                  | Gap                                                                                                                                                                                        |
+| --- | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 1   | `features/Cart/cart.domain.ts`        | on a READ, `.one` beside `.list` is assumed to be allowed the same way).                                                                                                                   |
+| 2   | `features/Cart/cart.story.ts`         | that the destination's standing wire rule covers a request made by the `"server"` tab is implied by "one world" (W29) but not stated; see findings-checkout.md.                            |
+| 3   | `features/Cart/cart.test.ts`          | a queue entry's fields beyond `entity` are not shown (merge 5 names the queue, not its row); `key` and `items` (the Attempts in order) are assumed.                                        |
+| 4   | `features/Cart/cart.test.ts`          | `checkReplays` reports a "prediction fault" (M5-D10 9.9); its record code is not named, so `PredictionFault` is assumed.                                                                   |
+| 5   | `features/Pay/Pay.tsx`                | an `unsettledWrites()` entry's shape is not in the design; `contract` is assumed, as in the desk host.                                                                                     |
+| 6   | `features/Pay/order-summary.trait.ts` | under `cancel`, a key-less `O.shipping.cancel` in an ending's handler is assumed to release that ending's Attempt only (rule N2 states this for `allow`), not the newer quote on the wire. |
+| 7   | `features/Pay/pay.story.ts`           | COVERAGE P4 C says "refused by the intent's `reject`"; a lane is per Runtime, so `reject` cannot see another tab's confirm; the refusal is Stripe's.                                       |
+| 8   | `features/Pay/pay.story.ts`           | a seeded lane's shape is the Persistence plan's; `version` and `operation` on it are assumed, to say which build stored it.                                                                |
+| 9   | `features/Pay/pay.test.ts`            | a Story reads a fragment's private fields (2.2.2), so F19's "private stays out of every host's reach" has no Story read; the nearest is to say the Story sees the counter.                 |
+| 10  | `features/Pay/three-ds.subroutine.ts` | F11 B names "a subroutine that owns a write"; under rule 48 the reference keeps the write in the host and lets its ending arrive after the exit, as the desk's Resolve wizard does.        |
+| 11  | `tools/inspection.ts`                 | a lane entry's field names follow 2.10.7's list, as in the desk's tools/inspection.ts.                                                                                                     |

@@ -1,11 +1,11 @@
-// The Desk fake, in the shape of machine-design 2.10.4. This file is merged code only; the socket endpoint,
-// its pushes, its controls and its client half are in desk.socket.fake.ts (pending merge 6). Two halves
-// with two lifetimes:
+// The Desk fake, in the shape of machine-design 2.10.4. The socket endpoint, its controls and its client half are in
+// desk.socket.fake.ts, and the roster, details, technician and visit halves in their own files; all of them are spread
+// into the one server below, because they share its truth. Two halves with two lifetimes:
 //
 //   `Desk`        the server: typed truth, a request log per endpoint, handlers, controls. One per run,
 //                 shared by every tab and reload. It holds the dispatch desk's whole truth.
 //   `DeskClient`  the client half: one Layer per tab that provides every port by calling the server's
-//                 endpoints, and says what a lost request raises (`Fake/Lost` -> `NoResponse`).
+//                 endpoints, and says what a lost request raises (`FakeLost` -> `NoResponse`).
 //
 // Every rule is app/desk-server.ts, the one implementation the demo Layers and the entity property
 // test (desk.property.test.ts) also call. This file adds only what a fake adds: wire statuses, the
@@ -16,7 +16,13 @@
 //   LockedSave         -> Desk.lock({ ..., times: "always" })
 //   UnavailableQueue   -> Desk.listOutage({ on: true })
 //   RenamedElsewhere   -> Desk.renameElsewhere({ ... })   (pushes on the socket)
-//   countingTicketApi  -> expect(Desk.list, [...])        (the endpoint's request log)
+//   countingTicketApi  -> cp.read(Desk.list)              (the endpoint's request log)
+//
+// Writers that append to the event log say `{ ...pushed(truth, next), response }` (a call) or `pushed(truth, next)` (a
+// control), from desk.socket.fake.ts. There are fourteen: the endpoints saveTitle, assign, assignBatch, closeMany, postComment,
+// removeComment, createTicket, archiveTicket, resolve (desk.visit.fake.ts) and dispatch (desk.technicians.fake.ts), and the
+// controls renameElsewhere, changeElsewhere, removeElsewhere and commentsElsewhere. Each is a writer whose core function
+// reaches `update` or `record` in app/desk-server.ts. Every other writer leaves the log alone and returns `step(...)`.
 import { Fake } from "flow-state/testing";
 import { Effect, Layer, Schema } from "effect";
 import * as Server from "../app/desk-server.js";
@@ -63,7 +69,7 @@ import {
 import { visitClient, visitEndpoints } from "./desk.visit.fake.js";
 import { rosterClient, rosterControls, rosterEndpoints } from "./desk.roster.fake.js";
 import { CollabFake } from "./presence.fake.js";
-import { socketClient, socketControls, socketEndpoints, socketPushes } from "./desk.socket.fake.js";
+import { pushed, socket, socketClient, socketControls } from "./desk.socket.fake.js";
 
 // --- the wire --------------------------------------------------------------------------------
 
@@ -109,16 +115,18 @@ export const toWire = <A, E extends { readonly _tag: keyof typeof STATUS }>(
 // The client half's reading of a response: decode a 200's body with the port's Schema (a body it
 // cannot decode is an adapter bug: a `Defect`, 2.10.5), rebuild a known 4xx as its tagged failure,
 // and turn a 5xx into `ServerError` (the commit makes that `unknown`).
-export const fromWire = <A, E>(
+type Rebuilt<R> = { [K in keyof R]: R[K] extends (body: any) => infer X ? X : never }[keyof R];
+
+export const fromWire = <A, R extends Readonly<Record<number, (body: any) => unknown>>>(
   wire: Wire,
   ok: Schema.Decoder<A>,
-  refused: Readonly<Record<number, (body: any) => E>>,
-): Effect.Effect<A, E | ServerError> => {
+  refused: R,
+): Effect.Effect<A, Rebuilt<R> | ServerError> => {
   if (wire.status === 200) return Schema.decodeUnknownEffect(ok)(wire.body).pipe(Effect.orDie);
 
   const rebuild = refused[wire.status];
 
-  if (rebuild) return Effect.fail(rebuild(wire.body));
+  if (rebuild) return Effect.fail(rebuild(wire.body) as Rebuilt<R>);
 
   if (wire.status >= 500) return Effect.fail(new ServerError({ status: wire.status }));
 
@@ -127,10 +135,27 @@ export const fromWire = <A, E>(
 
 // A lost request or answer, for a read or a write: every port declares `NoResponse`, which is what `fetch`
 // rejecting becomes in the real adapter (REVIEW gap 34: a lost read is a network fact, never a `Defect`).
-export const lost = Effect.catchTag("Fake/Lost", () => Effect.fail(new NoResponse()));
+export const lost = <A, E extends { readonly _tag: string }, R>(self: Effect.Effect<A, E, R>) =>
+  self.pipe(
+    Effect.catchIf(
+      (error): error is Extract<E, Fake.Lost> => error._tag === "FakeLost",
+      () => Effect.fail(new NoResponse()),
+    ),
+  );
 
 // A read's 5xx is "nothing came back" too (the real adapter's `readBody`): the read's handler decides.
-export const readFailed = Effect.catchTag("ServerError", () => Effect.fail(new NoResponse()));
+export const readFailed = <A, E extends { readonly _tag: string }, R>(
+  self: Effect.Effect<A, E, R>,
+) =>
+  self.pipe(
+    Effect.catchIf(
+      (error): error is Extract<E, ServerError> => error._tag === "ServerError",
+      () => Effect.fail(new NoResponse()),
+    ),
+  );
+
+// The Idempotency-Key header a write carries, for the route tables of the fetch halves.
+export const idempotency = (headers: Headers) => headers.get("Idempotency-Key") ?? "";
 
 // --- truth -----------------------------------------------------------------------------------
 
@@ -153,11 +178,14 @@ export const withDesk = (truth: FakeTruth, desk: Server.DeskTruth): FakeTruth =>
   desk,
 });
 
-// A write through the core: the next truth and the response.
+// A write through the core: the next truth and the response. It leaves the log's pushes to the caller (`pushed`).
 export const step = <A, E extends { readonly _tag: keyof typeof STATUS }>(
   truth: FakeTruth,
   [desk, result]: Server.Step<A, E>,
-): readonly [FakeTruth, Wire] => [withDesk(truth, desk), toWire(result)];
+): { readonly truth: FakeTruth; readonly response: Wire } => ({
+  truth: withDesk(truth, desk),
+  response: toWire(result),
+});
 
 // A lock whose budget is spent has lifted: the core sees no lock. Otherwise a refusal spends one.
 const effectiveLocks = (truth: FakeTruth, key: string): FakeTruth => {
@@ -206,13 +234,11 @@ export const Desk = Fake.server("Desk", {
   },
   initial: { desk: Server.seed(), outage: false, replay: true, budget: {}, pulseDown: false },
 
-  pushes: socketPushes, // pending merge 6: desk.socket.fake.ts (gap 36)
-
   endpoints: {
     // --- reads ---
     load: Fake.call({
       request: ticketKey,
-      handle: (truth, req) => [truth, toWire(Server.loadTicket(truth.desk, req))],
+      handle: (truth: FakeTruth, req) => ({ response: toWire(Server.loadTicket(truth.desk, req)) }),
     }),
     list: Fake.call({
       request: {
@@ -222,24 +248,26 @@ export const Desk = Fake.server("Desk", {
         search: Schema.optional(Schema.String),
         page: Schema.optional(Schema.Int),
       },
-      handle: (truth, req) =>
-        truth.outage
-          ? [truth, { status: 503, body: { retryAfter: 5 } }]
-          : [truth, { status: 200, body: Server.listTickets(truth.desk, req) }],
+      handle: (truth: FakeTruth, req) => ({
+        response: truth.outage
+          ? { status: 503, body: { retryAfter: 5 } }
+          : { status: 200, body: Server.listTickets(truth.desk, req) },
+      }),
     }),
     openCount: Fake.call({
       request: { workspaceId: Schema.String },
-      handle: (truth, req) => [
-        truth,
-        { status: 200, body: Server.openCount(truth.desk, req.workspaceId) },
-      ],
+      handle: (truth: FakeTruth, req) => ({
+        response: { status: 200, body: Server.openCount(truth.desk, req.workspaceId) },
+      }),
     }),
     eventsSince: Fake.call({
       request: { workspaceId: Schema.String, after: Cursor },
-      handle: (truth, req) => [
-        truth,
-        { status: 200, body: Server.eventsSince(truth.desk, req.workspaceId, req.after) },
-      ],
+      handle: (truth: FakeTruth, req) => ({
+        response: {
+          status: 200,
+          body: Server.eventsSince(truth.desk, req.workspaceId, req.after),
+        },
+      }),
     }),
     comments: Fake.call({
       request: {
@@ -247,56 +275,70 @@ export const Desk = Fake.server("Desk", {
         pinned: Schema.optional(Schema.Boolean),
         before: Schema.optional(Schema.String),
       },
-      handle: (truth, req) => [truth, toWire(Server.listThread(truth.desk, req))],
+      handle: (truth: FakeTruth, req) => ({ response: toWire(Server.listThread(truth.desk, req)) }),
     }),
     mentions: Fake.call({
       request: { workspaceId: Schema.String, me: Schema.String },
-      handle: (truth, req) => [truth, { status: 200, body: Server.listMentions(truth.desk, req) }],
+      handle: (truth: FakeTruth, req) => ({
+        response: { status: 200, body: Server.listMentions(truth.desk, req) },
+      }),
     }),
     reactions: Fake.call({
       request: ticketKey,
-      handle: (truth, req) => [truth, { status: 200, body: Server.reactionsOf(truth.desk, req) }],
+      handle: (truth: FakeTruth, req) => ({
+        response: { status: 200, body: Server.reactionsOf(truth.desk, req) },
+      }),
     }),
     files: Fake.call({
       request: ticketKey,
-      handle: (truth, req) => [truth, { status: 200, body: Server.listFiles(truth.desk, req) }],
+      handle: (truth: FakeTruth, req) => ({
+        response: { status: 200, body: Server.listFiles(truth.desk, req) },
+      }),
     }),
     unassigned: Fake.call({
       request: { workspaceId: Schema.String, page: Schema.optional(Schema.Int) },
-      handle: (truth, req) => [
-        truth,
-        { status: 200, body: Server.listUnassigned(truth.desk, req) },
-      ],
+      handle: (truth: FakeTruth, req) => ({
+        response: { status: 200, body: Server.listUnassigned(truth.desk, req) },
+      }),
     }),
     byCustomer: Fake.call({
       request: { workspaceId: Schema.String, customerId: Schema.String },
-      handle: (truth, req) => [
-        truth,
-        { status: 200, body: Server.ticketsOfCustomer(truth.desk, req) },
-      ],
+      handle: (truth: FakeTruth, req) => ({
+        response: { status: 200, body: Server.ticketsOfCustomer(truth.desk, req) },
+      }),
     }),
     triage: Fake.call({
       request: { workspaceId: Schema.String, now: Schema.Number },
-      handle: (truth, req) => [truth, { status: 200, body: Server.listTriage(truth.desk, req) }],
+      handle: (truth: FakeTruth, req) => ({
+        response: { status: 200, body: Server.listTriage(truth.desk, req) },
+      }),
     }),
 
-    // --- writes: `key` is the idempotency key the client put on the wire (rule 19) ---
+    // --- writes: `key` is the idempotency key the client put on the wire (rule 19). A write that appends to the log is
+    // marked "logs": it returns `pushed`, so the socket gets the event. ---
     saveTitle: Fake.call({
+      // logs
       request: { ...ticketKey, title: Schema.String, key: Schema.String },
-      handle: (truth, req) => {
+      handle: (truth: FakeTruth, req) => {
         const lock = Server.keyOf(req);
         const ready = effectiveLocks(truth, lock);
-        const [next, wire] = step(ready, Server.saveTitle(ready.desk, req, req.key));
+        const { truth: next, response } = step(ready, Server.saveTitle(ready.desk, req, req.key));
 
-        return [spendLock(next, lock, wire), wire];
+        return { ...pushed(truth, spendLock(next, lock, response)), response };
       },
     }),
     assign: Fake.call({
+      // logs
       request: { ...ticketKey, assignee: Schema.String, key: Schema.String },
-      handle: (truth, req) => step(truth, Server.assign(truth.desk, req, req.key)),
+      handle: (truth: FakeTruth, req) => {
+        const { truth: next, response } = step(truth, Server.assign(truth.desk, req, req.key));
+
+        return { ...pushed(truth, next), response };
+      },
     }),
     // One request for many assignments; each item answered on its own (MD 2.7.11).
     assignBatch: Fake.call({
+      // logs
       request: {
         items: Schema.Array(
           Schema.Struct({
@@ -305,35 +347,56 @@ export const Desk = Fake.server("Desk", {
           }),
         ),
       },
-      handle: (truth, req) => {
+      handle: (truth: FakeTruth, req) => {
         const [desk, results] = Server.assignBatch(truth.desk, req.items);
 
-        return [withDesk(truth, desk), { status: 200, body: results }];
+        return {
+          ...pushed(truth, withDesk(truth, desk)),
+          response: { status: 200, body: results },
+        };
       },
     }),
     closeMany: Fake.call({
+      // logs
       request: {
         workspaceId: Schema.String,
         tickets: Schema.Array(Schema.Struct(ticketKey)),
         key: Schema.String,
       },
-      handle: (truth, req) => step(truth, Server.closeMany(truth.desk, req, req.key)),
+      handle: (truth: FakeTruth, req) => {
+        const { truth: next, response } = step(truth, Server.closeMany(truth.desk, req, req.key));
+
+        return { ...pushed(truth, next), response };
+      },
     }),
     postComment: Fake.call({
+      // logs: the ticket's `commentCount` changes
       request: { ...ticketKey, clientId: Schema.String, text: Schema.String, key: Schema.String },
-      handle: (truth, req) => step(truth, Server.postComment(truth.desk, req, req.key)),
+      handle: (truth: FakeTruth, req) => {
+        const { truth: next, response } = step(truth, Server.postComment(truth.desk, req, req.key));
+
+        return { ...pushed(truth, next), response };
+      },
     }),
     editComment: Fake.call({
       request: { ...commentKey, text: Schema.String, key: Schema.String },
-      handle: (truth, req) => step(truth, Server.editComment(truth.desk, req, req.key)),
+      handle: (truth: FakeTruth, req) => step(truth, Server.editComment(truth.desk, req, req.key)),
     }),
     removeComment: Fake.call({
+      // logs: the ticket's `commentCount` changes
       request: { ...commentKey, key: Schema.String },
-      handle: (truth, req) => step(truth, Server.removeComment(truth.desk, req, req.key)),
+      handle: (truth: FakeTruth, req) => {
+        const { truth: next, response } = step(
+          truth,
+          Server.removeComment(truth.desk, req, req.key),
+        );
+
+        return { ...pushed(truth, next), response };
+      },
     }),
     pinComment: Fake.call({
       request: { ...commentKey, pinned: Schema.Boolean, key: Schema.String },
-      handle: (truth, req) => step(truth, Server.pinComment(truth.desk, req, req.key)),
+      handle: (truth: FakeTruth, req) => step(truth, Server.pinComment(truth.desk, req, req.key)),
     }),
     markRead: Fake.call({
       request: {
@@ -342,11 +405,11 @@ export const Desk = Fake.server("Desk", {
         at: Schema.Number,
         key: Schema.String,
       },
-      handle: (truth, req) => step(truth, Server.markRead(truth.desk, req, req.key)),
+      handle: (truth: FakeTruth, req) => step(truth, Server.markRead(truth.desk, req, req.key)),
     }),
     react: Fake.call({
       request: { ...commentKey, emoji: Schema.String, on: Schema.Boolean, key: Schema.String },
-      handle: (truth, req) => step(truth, Server.react(truth.desk, req, req.key)),
+      handle: (truth: FakeTruth, req) => step(truth, Server.react(truth.desk, req, req.key)),
     }),
     putFile: Fake.call({
       request: {
@@ -356,13 +419,14 @@ export const Desk = Fake.server("Desk", {
         size: Schema.Int,
         key: Schema.String,
       },
-      handle: (truth, req) => step(truth, Server.putFile(truth.desk, req, req.key)),
+      handle: (truth: FakeTruth, req) => step(truth, Server.putFile(truth.desk, req, req.key)),
     }),
     removeFile: Fake.call({
       request: { ...ticketKey, ref: Schema.String, key: Schema.String },
-      handle: (truth, req) => step(truth, Server.removeFile(truth.desk, req, req.key)),
+      handle: (truth: FakeTruth, req) => step(truth, Server.removeFile(truth.desk, req, req.key)),
     }),
     createTicket: Fake.call({
+      // logs
       request: {
         workspaceId: Schema.String,
         draftId: Schema.String,
@@ -371,11 +435,26 @@ export const Desk = Fake.server("Desk", {
         dueAt: Schema.NullOr(Schema.Number),
         key: Schema.String,
       },
-      handle: (truth, req) => step(truth, Server.createTicket(truth.desk, req, req.key)),
+      handle: (truth: FakeTruth, req) => {
+        const { truth: next, response } = step(
+          truth,
+          Server.createTicket(truth.desk, req, req.key),
+        );
+
+        return { ...pushed(truth, next), response };
+      },
     }),
     archiveTicket: Fake.call({
+      // logs: the archive removes the ticket through `removeElsewhere`
       request: { ...ticketKey, key: Schema.String },
-      handle: (truth, req) => step(truth, Server.archiveTicket(truth.desk, req, req.key)),
+      handle: (truth: FakeTruth, req) => {
+        const { truth: next, response } = step(
+          truth,
+          Server.archiveTicket(truth.desk, req, req.key),
+        );
+
+        return { ...pushed(truth, next), response };
+      },
     }),
 
     ...rosterEndpoints, // desk.roster.fake.ts: the roster's endpoints, reached through `Fake.fetch`
@@ -383,58 +462,68 @@ export const Desk = Fake.server("Desk", {
     ...techniciansEndpoints, // desk.technicians.fake.ts: pulses, breaks, nudges, dispatch, through `Fake.fetch`
     ...visitEndpoints, // desk.visit.fake.ts: find, parts, signatures, resolutions, through `Fake.fetch`
 
-    ...socketEndpoints, // pending merge 6: desk.socket.fake.ts
+    socket, // desk.socket.fake.ts: the workspace socket
   },
 
   // Controls: the author's typed messages to the server. Their arguments are Schemas, so a property
-  // test can generate them (STF16). `Desk.renameElsewhere(...)` changes a ticket through the same
-  // core a client write uses; `pushes` then sends the logged event.
+  // test can generate them (STF16). `Desk.changeElsewhere(...)` changes a ticket through the same
+  // core a client write uses and returns `pushed`, so the socket sends the logged event.
   controls: {
     lock: Fake.control(
       { ...ticketKey, by: Schema.String, times: Schema.optionalKey(Budget) },
-      (truth, { by, times = "always", ...key }) => ({
-        ...withDesk(truth, Server.lock(truth.desk, key, by)),
-        budget: { ...truth.budget, [Server.keyOf(key)]: times },
+      (truth: FakeTruth, { by, times = "always", ...key }) => ({
+        truth: {
+          ...withDesk(truth, Server.lock(truth.desk, key, by)),
+          budget: { ...truth.budget, [Server.keyOf(key)]: times },
+        },
       }),
     ),
-    unlock: Fake.control(ticketKey, (truth, key) => {
+    unlock: Fake.control(ticketKey, (truth: FakeTruth, key) => {
       const { [Server.keyOf(key)]: _spent, ...budget } = truth.budget;
 
-      return { ...withDesk(truth, Server.unlock(truth.desk, key)), budget };
+      return { truth: { ...withDesk(truth, Server.unlock(truth.desk, key)), budget } };
     }),
-    listOutage: Fake.control({ on: Schema.Boolean }, (truth, { on }) => ({ ...truth, outage: on })),
+    listOutage: Fake.control({ on: Schema.Boolean }, (truth: FakeTruth, { on }) => ({
+      truth: { ...truth, outage: on },
+    })),
 
-    renameElsewhere: Fake.control(
-      { ...ticketKey, title: Schema.String, by: Schema.optionalKey(Schema.String) },
-      (truth, { title, by = "dispatcher-2", ...key }) =>
-        withDesk(truth, Server.changeElsewhere(truth.desk, key, { title }, by)[0]),
-    ),
+    // logs
     changeElsewhere: Fake.control(
       { ...ticketKey, ...edit, by: Schema.optionalKey(Schema.String) },
-      (truth, { by = "dispatcher-2", ...rest }) => {
+      (truth: FakeTruth, { by = "dispatcher-2", ...rest }) => {
         const { workspaceId, ticketId, ...change } = rest;
 
-        return withDesk(
+        const next = withDesk(
           truth,
           Server.changeElsewhere(truth.desk, { workspaceId, ticketId }, change, by)[0],
         );
+
+        return pushed(truth, next);
       },
     ),
+    // logs
     removeElsewhere: Fake.control(
       { ...ticketKey, by: Schema.optionalKey(Schema.String) },
-      (truth, { by = "dispatcher-2", ...key }) =>
-        withDesk(truth, Server.removeElsewhere(truth.desk, key, by)[0]),
+      (truth: FakeTruth, { by = "dispatcher-2", ...key }) => {
+        const next = withDesk(truth, Server.removeElsewhere(truth.desk, key, by)[0]);
+
+        return pushed(truth, next);
+      },
     ),
 
     // A comment past its author's fifteen-minute window: edits and deletes are refused (403) from now on.
-    ageComment: Fake.control({ commentId: Schema.String }, (truth, { commentId }) =>
-      withDesk(truth, { ...truth.desk, closedForEdit: [...truth.desk.closedForEdit, commentId] }),
-    ),
+    ageComment: Fake.control({ commentId: Schema.String }, (truth: FakeTruth, { commentId }) => ({
+      truth: withDesk(truth, {
+        ...truth.desk,
+        closedForEdit: [...truth.desk.closedForEdit, commentId],
+      }),
+    })),
     // Someone else writes `count` comments on a ticket, through the same rule a client post uses.
+    // logs
     commentsElsewhere: Fake.control(
       { ...ticketKey, count: Schema.Int },
-      (truth, { count, ...key }) =>
-        withDesk(
+      (truth: FakeTruth, { count, ...key }) => {
+        const next = withDesk(
           truth,
           Array.from({ length: count }).reduce<Server.DeskTruth>(
             (desk, _, n) =>
@@ -445,22 +534,25 @@ export const Desk = Fake.server("Desk", {
               )[0],
             truth.desk,
           ),
-        ),
+        );
+
+        return pushed(truth, next);
+      },
     ),
 
     ...rosterControls, // desk.roster.fake.ts
     ...detailsControls, // desk.details.fake.ts
     ...techniciansControls, // desk.technicians.fake.ts
 
-    ...socketControls, // pending merge 6: greet, resetLog, retain, expireToken (desk.socket.fake.ts)
+    ...socketControls, // desk.socket.fake.ts: greet, resetLog, retain, expireToken, renameElsewhere
   },
 });
 
-const SocketOverDesk = socketClient(Desk); // pending merge 6
+const SocketOverDesk = socketClient(Desk);
 
 // --- the client half -------------------------------------------------------------------------
 
-// Each port is the adapter's job over the server's endpoints. `Fake/Lost` is what the wire raises
+// Each port is the adapter's job over the server's endpoints. `FakeLost` is what the wire raises
 // for a lost request; what it means is said here, per port.
 
 const TicketsOverDesk = Layer.effect(
@@ -690,7 +782,7 @@ const AttachmentsOverDesk = Layer.effect(
 // Every port the editor, queue, comments, upload and feed use, over the run's server. The assistant has its
 // own server (assistant.fake.ts).
 // A tab builds this again on reload; it holds no state (STF15). Presence has its own server
-// (presence.fake.ts, PM6). `PendingFiles` is tab memory, so setup provides it, not the fake.
+// (presence.fake.ts). `PendingFiles` is tab memory, so setup provides it, not the fake.
 export const DeskClient = Layer.mergeAll(
   TicketsOverDesk,
   CommentsOverDesk,
@@ -701,6 +793,6 @@ export const DeskClient = Layer.mergeAll(
   visitClient(Desk), // desk.visit.fake.ts: the real `FindHttp` and `ResolveHttp` adapters over `Fake.fetch`
   // The collaboration SDK is its own service with its own server (presence.fake.ts): who is on a channel is not desk
   // truth. It is in the desk's fixture because the queue and the roster place its sessions.
-  CollabFake, // pending merge 6
-  SocketOverDesk, // pending merge 6: desk.socket.fake.ts
+  CollabFake,
+  SocketOverDesk,
 );

@@ -1,6 +1,6 @@
 // "Suggest a reply" with Stop. The text is the row's `progress` while a reply streams and the machine's
-// `last` otherwise, so tokens cost no turn (M6 4.4). "Use as comment" sends the text into the editor's
-// comments composer. Pending merge 6: written against merged/streams/proposal-v2.md revision 7.
+// `last` otherwise, so tokens cost no turn. "Use as comment" sends the text into the editor's
+// comments composer. md revision 7.
 import { check } from "flow-state";
 import { useActorByRef, useView } from "flow-state/react";
 import { Editor } from "../Tickets/editor/editor.definition.js";
@@ -18,7 +18,7 @@ export function AssistantPanel({ ticket }: { ticket: TicketKey }) {
   // The contract is keyed by workspace and ticket, so the view reads its lane with `get` (MD 2.7.15).
   const text = useView(
     assistant,
-    (s) => Assistant.O.suggest.get(s, ticket).progress?.text ?? s.memory.last, // pending merge 6: `progress`
+    (s) => Assistant.O.suggest.get(s, ticket).progress?.text ?? s.memory.last, // `progress`
   );
   const asking = useView(assistant, (s) => Assistant.O.suggest.get(s, ticket).pending); // the lane, not a state name
   const incomplete = useView(assistant, (s) => s.memory.incomplete);

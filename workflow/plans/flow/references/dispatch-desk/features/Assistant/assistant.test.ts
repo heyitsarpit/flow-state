@@ -1,7 +1,5 @@
-// Assistant checks (`@flow-state/vitest`, proposed). Pending merge 6.
-import { storyTest } from "@flow-state/vitest"; // NEW (proposed)
-import { Story } from "flow-state/testing";
-import { expect } from "vite-plus/test";
+// Assistant checks, in the runner's own `expect`.
+import { expect, test } from "vite-plus/test";
 import { Assistant as Model, textAfter } from "../../testing/assistant.fake.js";
 import { Assistant } from "./assistant.definition.js";
 import { assistantRef } from "./assistant.ref.js";
@@ -20,63 +18,79 @@ import {
 
 const { S, O } = Assistant;
 
-storyTest(answered, ({ at }) => {
-  expect(at.answered).toMatchObject({
-    state: S.IDLE,
-    memory: { last: textAfter(10), incomplete: false },
-  });
-  expect(at.answered.operations.suggest).toEqual([]);
-  expect(at.answered.read(Model.suggest)).toMatchObject([{ phase: "closed", code: 1000 }]);
+test("answered", async () => {
+  const { answered: cp } = (await answered.run()).checkpoints;
+
+  expect(cp.state).toBe(S.IDLE);
+  expect(cp.memory).toMatchObject({ last: textAfter(10), incomplete: false });
+  expect(cp.operations.suggest).toEqual([]);
+  expect(cp.read(Model.suggest)).toMatchObject([{ phase: "closed", code: 1000 }]);
 });
 
-storyTest(streaming, ({ at }) => {
-  expect(at.streaming.state).toBe(S.ASKING);
-  expect(O.suggest.get(at.streaming, T42)).toMatchObject({
+test("streaming: tokens are the row's progress, never a turn", async () => {
+  const { streaming: cp } = (await streaming.run()).checkpoints;
+
+  expect(cp.state).toBe(S.ASKING);
+  expect(cp.lane(O.suggest, T42)).toMatchObject({
     pending: true,
     progress: { text: textAfter(2) },
-  });
-  expect(at.streaming.memory.last).toBe(""); // tokens are the row's `progress`, never a turn (SR29)
+  }); // was O.suggest.get(checkpoint, key)
+  expect(cp.memory.last).toBe("");
 });
 
-storyTest(regenerated, ({ at }) => {
-  // The interrupted Attempt's ending is evidence: no event, and the new one's progress starts empty (FC30).
-  expect(O.suggest.get(at.regenerating, T42)).toMatchObject({ pending: true, progress: undefined });
-  expect(at.regenerated.read(Story.records("ending", { operation: O.suggest }))).toMatchObject([
+test("regenerate: the interrupted Attempt's ending is evidence", async () => {
+  const { regenerating, regenerated: done } = (await regenerated.run()).checkpoints;
+
+  const row = regenerating.lane(O.suggest, T42);
+  expect(row).toMatchObject({ pending: true });
+  expect(row?.progress).toBeUndefined();
+  expect(done.records("ending", { operation: O.suggest })).toMatchObject([
     { channel: "unknown", reason: { _tag: "Cancelled" }, disposition: "evidence" },
     { channel: "success" },
   ]);
-  expect(at.regenerated.memory).toMatchObject({ last: textAfter(10), incomplete: false });
-  expect(at.regenerated.read(Model.suggest)).toHaveLength(2);
+  expect(done.memory).toMatchObject({ last: textAfter(10), incomplete: false });
+  expect(done.read(Model.suggest)).toHaveLength(2);
 });
 
-storyTest(stopped, ({ at }) => {
-  expect(at.stopped).toMatchObject({
-    state: S.IDLE,
-    memory: { last: textAfter(2), incomplete: true },
-  });
-  expect(at.stopped.read(Story.inspection).lanes).toEqual([]); // nothing held past the ending's own turn
+test("stop: partial kept as incomplete, nothing held", async () => {
+  const { stopped: cp } = (await stopped.run()).checkpoints;
+
+  expect(cp.state).toBe(S.IDLE);
+  expect(cp.memory).toMatchObject({ last: textAfter(2), incomplete: true });
+  expect(cp.inspection.lanes).toEqual([]);
 });
 
-storyTest(askedAgain, ({ at }) => {
-  expect(at["answered-again"].memory).toMatchObject({ last: textAfter(10), incomplete: false });
+test("asked again after a stop", async () => {
+  const { answeredAgain } = (await askedAgain.run()).checkpoints;
+
+  expect(answeredAgain.memory).toMatchObject({ last: textAfter(10), incomplete: false });
 });
 
-storyTest(truncated, ({ at }) => {
-  expect(at.cut.memory).toMatchObject({ last: textAfter(4), incomplete: true });
+test("a body without done is cut", async () => {
+  const { cut } = (await truncated.run()).checkpoints;
+
+  expect(cut.memory).toMatchObject({ last: textAfter(4), incomplete: true });
 });
 
-storyTest(stalled, ({ at }) => {
-  expect(at.cut).toMatchObject({ state: S.IDLE, memory: { last: textAfter(2), incomplete: true } });
+test("a stall is cut", async () => {
+  const { cut } = (await stalled.run()).checkpoints;
+
+  expect(cut.state).toBe(S.IDLE);
+  expect(cut.memory).toMatchObject({ last: textAfter(2), incomplete: true });
 });
 
-storyTest(refused, ({ at }) => {
-  expect(at.refused.memory).toMatchObject({ last: "", incomplete: false, refused: true });
+test("a 4xx is a refusal", async () => {
+  const { refused: cp } = (await refused.run()).checkpoints;
+
+  expect(cp.memory).toMatchObject({ last: "", incomplete: false, refused: true });
 });
 
-storyTest(reloaded, ({ at }) => {
-  expect(at.reloaded.read(assistantRef(T42))).toMatchObject({
-    state: S.IDLE,
-    memory: { last: "", incomplete: true },
-  });
-  expect(at.reloaded.read(Model.suggest)).toMatchObject([{ phase: "closed", code: 1001 }]); // the server may finish
+test("a reload while asking restores an incomplete reply", async () => {
+  const { reloaded: cp } = (await reloaded.run()).checkpoints;
+
+  const restored = cp.read(assistantRef(T42));
+  expect(restored?.state).toBe(S.IDLE);
+  expect(restored?.memory).toMatchObject({ last: "", incomplete: true });
+  // was `code: 1001` (going away). the fake logs a client close as code 1000, by "client"; 1001 is not expressible.
+  expect(cp.read(Model.suggest)).toMatchObject([{ phase: "closed", by: "client" }]);
 });

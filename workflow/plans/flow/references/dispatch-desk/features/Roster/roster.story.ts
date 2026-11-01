@@ -1,15 +1,15 @@
-// Roster Stories: app Stories over `DeskSetup` (the Session's `isAdmin` is the roster's context), with the Desk
+// Roster Stories: app Stories (`Story.app`) over `DeskSetup` (the Session's `isAdmin` is the roster's context), with the Desk
 // fake. The roster's port runs the real `RosterHttp` adapter over `Fake.fetch` (testing/desk.roster.fake.ts), so
 // every status the adapter reads is one the fake's handler returned (Y6). Transcripts: inputs and named
 // checkpoints; roster.test.ts reads them.
 //
-// Module checkpoints (COVERAGE.md section 6): `roster`, `moved-team`, `merge-predicted`, `merge-refused-restored`,
-// `remove-refused-restored`.
+// Module checkpoints (COVERAGE.md section 6): `roster`, `movedTeam`, `mergePredicted`, `mergeRefusedRestored`,
+// `removeRefusedRestored`.
 import { Story } from "flow-state/testing";
 import { browserSetup } from "../../app/persistence.js";
 import { DeskSetup } from "../../app/setup.js";
 import { Desk, DeskClient } from "../../testing/desk.fake.js";
-import { Collab } from "../../testing/presence.fake.js"; // pending merge 6
+import { Collab } from "../../testing/presence.fake.js";
 import { Session } from "../Session/session.definition.js";
 import { SessionRef } from "../Session/session.ref.js";
 import { Roster } from "./roster.definition.js";
@@ -21,8 +21,10 @@ export const North = rosterRef("north");
 
 export const ana = { technicianId: "tech-ana" };
 
-const admin = (id: string, world: ReadonlyArray<unknown> = [], isAdmin = true) =>
-  Story.make(DeskSetup, { id, fixtures: [DeskClient], world })
+type World = NonNullable<Parameters<typeof Story.app>[1]["world"]>;
+
+const admin = (id: string, world: World = [], isAdmin = true) =>
+  Story.app(DeskSetup, { id, fixtures: [DeskClient], world })
     .ensure(SessionRef, { input: { userId: "dispatcher-7" } })
     .send(SessionRef, Session.E.RoleChanged({ isAdmin }))
     .ensure(North, { input: { workspaceId: "north" } });
@@ -38,9 +40,9 @@ export const browse = admin("roster/browse")
 // which the response does not carry (`.alsoChanges`), are confirmed by a read.
 export const movedTeam = admin("roster/moved-team", [Desk.moveTechnician.hold({ at: "response" })])
   .send(North, E.Move({ ...ana, from: "team-east", to: "team-west" }))
-  .checkpoint("moved-team")
+  .checkpoint("movedTeam")
   .world(Desk.moveTechnician.release())
-  .checkpoint("move-confirmed");
+  .checkpoint("moveConfirmed");
 
 // The counts replay over a new base (E11). While Ana's move is on the wire another admin moves Dee to East, and
 // the admin refreshes: the teams' new counts are the base, and the predicted -1 and +1 are applied over them.
@@ -56,7 +58,7 @@ export const countReplayed = admin("roster/count-replayed", [
     }),
   )
   .send(North, E.Refresh())
-  .checkpoint("count-replayed")
+  .checkpoint("countReplayed")
   .world(Desk.moveTechnician.release())
   .checkpoint("settled");
 
@@ -72,9 +74,9 @@ export const removeRefused = admin("roster/remove-refused", [
   Desk.removeTechnician.hold({ at: "response" }),
 ])
   .send(North, E.Remove({ technicianId: "tech-ben" }))
-  .checkpoint("remove-predicted")
+  .checkpoint("removePredicted")
   .world(Desk.removeTechnician.release())
-  .checkpoint("remove-refused-restored");
+  .checkpoint("removeRefusedRestored");
 
 // The merge: the dialog compares Acme and ACME Ltd, the admin keeps Acme, and the exit carries the survivor
 // (F10). The commit predicts across two entities and many records (E2): ACME Ltd is deleted, Acme's count grows
@@ -84,7 +86,7 @@ export const merged = admin("roster/merged", [Desk.mergeCustomers.hold({ at: "re
   .checkpoint("comparing")
   .send(North, E.MERGING.Confirm()) // denied: nothing picked yet
   .send(North, E.MERGING.Pick({ survivorId: "acme" }), E.MERGING.Confirm())
-  .checkpoint("merge-predicted")
+  .checkpoint("mergePredicted")
   .world(Desk.mergeCustomers.release())
   .checkpoint("merged");
 
@@ -98,7 +100,7 @@ export const mergeRefused = admin("roster/merge-refused", [
   .world(Desk.changeElsewhere({ workspaceId: "north", ticketId: "T-42", customerId: "acme-ltd" }))
   .send(North, E.MERGING.Pick({ survivorId: "acme" }), E.MERGING.Confirm())
   .world(Desk.mergeCustomers.release())
-  .checkpoint("merge-refused-restored");
+  .checkpoint("mergeRefusedRestored");
 
 // Both answers are lost: the first send's and its one re-send's. The merge may have happened, so all of it stays
 // predicted until the forced repair lands, every record it touched is marked uncertain across both entities (E17),
@@ -108,12 +110,12 @@ export const mergeUnsure = admin("roster/merge-unsure", [
 ])
   .send(North, E.MergeRequested({ first: "acme", second: "acme-ltd" }))
   .send(North, E.MERGING.Pick({ survivorId: "acme" }), E.MERGING.Confirm())
-  .checkpoint("merge-uncertain");
+  .checkpoint("mergeUncertain");
 
 // A merge outlives the admin screen (O14). The admin confirms and leaves; the roster is disposed with the request
 // on the wire. `rosterRef` persists, so the answer that lands with no actor is parked for the identity, and the
 // next roster screen adopts it before any event: the notice says it merged. Retained for a minute meanwhile (P2).
-export const mergeOutlivesScreen = Story.make(browserSetup("dispatcher-7"), {
+export const mergeOutlivesScreen = Story.app(browserSetup("dispatcher-7"), {
   id: "roster/merge-outlives-screen",
   fixtures: [DeskClient],
   world: [Desk.mergeCustomers.hold({ at: "response" })],
@@ -125,10 +127,10 @@ export const mergeOutlivesScreen = Story.make(browserSetup("dispatcher-7"), {
   .send(North, E.MERGING.Pick({ survivorId: "acme" }), E.MERGING.Confirm())
   .dispose(North) // kept for its `retain`
   .advance("2 minutes") // the retain expires: no actor
-  .checkpoint("left-mid-merge")
+  .checkpoint("leftMidMerge")
   .world(Desk.mergeCustomers.release()) // lands unbound; parked for the persisted identity
   .ensure(North, { input: { workspaceId: "north" } })
-  .checkpoint("merge-adopted");
+  .checkpoint("mergeAdopted");
 
 // Three invites in one turn's window: three commits, three Attempts, three lanes, and one HTTP request, because the
 // adapter's `RequestResolver` batches below the commit (O19). Each completes from its own item: two are created,
@@ -154,9 +156,9 @@ export const inviteEmails = admin("roster/invite-emails", [
     E.ResendInviteEmail(ana),
     E.ResendInviteEmail({ technicianId: "tech-cy" }),
   )
-  .checkpoint("emails-in-flight")
+  .checkpoint("emailsInFlight")
   .world(Desk.inviteEmail.release())
-  .checkpoint("emails-sent");
+  .checkpoint("emailsSent");
 
 // One rebuild per workspace: an unkeyed lane, so `idle` and `commit` name it with no key (O18). A second press while
 // it runs is refused before anything is sent.
@@ -175,11 +177,11 @@ export const notAdmin = admin("roster/not-admin", [], false)
 // callback; the host writes its own list (rule 9). Saving predicts the technician's skills.
 export const skills = admin("roster/skills")
   .send(North, E.EditSkills(ana), E.AddSkill({ skill: "ladders" }), E.AddSkill({ skill: "keys" }))
-  .checkpoint("two-chips")
+  .checkpoint("twoChips")
   .send(North, E.chips.key("ladders").Remove())
-  .checkpoint("one-chip")
+  .checkpoint("oneChip")
   .send(North, E.SaveSkills())
-  .checkpoint("skills-saved");
+  .checkpoint("skillsSaved");
 
 // A rename whose answer is lost is held: the row shows a retry chip (E9), and nothing re-sends it until the admin
 // presses it. The same Attempt goes again and the server dedupes.
@@ -187,11 +189,11 @@ export const renameUnsure = admin("roster/rename-unsure", [
   Desk.renameTechnician.drop({ at: "response", times: 1 }),
 ])
   .send(North, E.Rename({ ...ana, name: "Ana Lopez" }))
-  .checkpoint("rename-uncertain")
+  .checkpoint("renameUncertain")
   .send(North, E.RetryRename(ana))
-  .checkpoint("rename-confirmed");
+  .checkpoint("renameConfirmed");
 
-// pending merge 6. A technician's device goes on a break: the poll a second later carries the change into the
+// A technician's device goes on a break: the poll a second later carries the change into the
 // Technician record (the `listen` entry) and into the audit log (the fact feed), each once. The first registration
 // on an empty log was `fresh`, so no notice (T2).
 export const audited = admin("roster/audited")
@@ -201,23 +203,23 @@ export const audited = admin("roster/audited")
   .checkpoint("audited");
 
 // SSR (P7): the roster page renders on the server and hydrates in the browser. The polled sessions run on the server
-// only until capture, where they are released (M6 2.10); the browser opens its own.
-export const rosterPage = Story.make(DeskSetup, { id: "roster/ssr-server", fixtures: [DeskClient] })
+// only until capture, where they are released (2.10.11); the browser opens its own.
+export const rosterPage = Story.app(DeskSetup, { id: "roster/ssr-server", fixtures: [DeskClient] })
   .ensure(SessionRef, { input: { userId: "dispatcher-7" } })
   .ensure(North, { input: { workspaceId: "north" } })
   .dehydrate("roster", { within: "1500 millis" });
 
-export const rosterHydrated = Story.make(DeskSetup, {
+export const rosterHydrated = Story.app(DeskSetup, {
   id: "roster/ssr-browser",
   fixtures: [DeskClient],
 })
   .hydrate(rosterPage, "roster")
   .checkpoint("hydrated");
 
-// pending merge 6. Online dots: one SDK session per technician on the page (`subscribe.each`, T6), the same
+// Online dots: one SDK session per technician on the page (`subscribe.each`, T6), the same
 // collaboration contract the ticket watcher uses, placed per row (T7). Ana's phone joins her channel.
 export const onlineDots = admin("roster/online-dots")
   .world(
     Collab.join({ channel: "technician:north:tech-ana", member: { id: "tech-ana", name: "Ana" } }),
   )
-  .checkpoint("ana-online");
+  .checkpoint("anaOnline");

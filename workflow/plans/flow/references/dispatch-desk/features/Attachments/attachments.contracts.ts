@@ -23,7 +23,7 @@ export const putAttachment = transaction({
           api.put(ticket, ref, file, {
             idempotencyKey: attempt.id, // a re-send of this Attempt carries the same key (rule 19)
             signal,
-            onProgress: (p) => progress(p), // pending merge 6: the commit context's `progress(p)` setter (S5 Q11)
+            onProgress: (p) => progress(p), // the commit context's `progress(p)` setter (S5 Q11)
           }),
         ),
       ),

@@ -1,12 +1,13 @@
 // Machine Stories (2.10.1): the editor alone, its context supplied, its world the `Desk` fake. A Story is a
 // transcript: the user's, time's and the world's inputs, and named checkpoints (COVERAGE.md section 6, decided
-// Q4 A). It states no expectation: editor.test.ts reads each checkpoint through `@flow-state/vitest`. No ending
-// is injected (2.10.5): a lost answer is `Desk.saveTitle.drop({ at: "response" })`, a lock is `Desk.lock(...)`,
-// a slow save is `Desk.saveTitle.hold()`. Each exported Story builds its own id; importing runs nothing.
+// Q4 A). It states no expectation: editor.test.ts reads each checkpoint (2.10.6). No ending is injected
+// (2.10.5): a lost answer is `Desk.saveTitle.drop({ at: "response" })`, a lock is `Desk.lock(...)`, a slow save is
+// `Desk.saveTitle.hold()`. A wire rule is set before the step that sends its request. Each exported Story builds
+// its own id; importing runs nothing.
 //
 // The title save is the one home of the hand-written hold (COVERAGE.md section 3): the same Attempt re-sent on
 // a schedule with `retryable`, then `cancel`. Its checkpoints are the module's named ones: `draft`, `saving`,
-// `unsure`, `resending`, `gave-up`, `closed-while-saving`, `reopened-unsure`.
+// `unsure`, `resending`, `gaveUp`, `closedWhileSaving`, `reopenedUnsure`.
 //
 // design gap: what a machine Story does with the editor's `send(ToastsRef, ...)` when no Toasts actor exists is
 // not specified (plan section 6, item 8). Assumed: the send is dropped as evidence. The app Stories (desk.story.ts)
@@ -33,8 +34,11 @@ export const SEEDED = "Replace lobby light"; // the ticket's title in `Server.se
 export const FIRST = "Replace foyer light";
 
 // The ticket's seeded title is loaded into the draft when the editor opens; every Story names that moment.
-const editor = (id: string, options: { world?: ReadonlyArray<unknown>; canEdit?: boolean } = {}) =>
-  Story.make(EditorMachine, {
+const editor = (
+  id: string,
+  options: { world?: ReadonlyArray<Story.Step>; canEdit?: boolean } = {},
+) =>
+  Story.machine(EditorMachine, {
     id,
     input: T42,
     context: { canEdit: options.canEdit ?? true },
@@ -54,7 +58,7 @@ export const saved = editor("editor/saved", { world: [Desk.saveTitle.hold()] })
   .checkpoint("saved");
 
 // A debounce: each edit restarts the 2-second autosave; only the pause after the last one saves.
-export const autosaved = editor("editor/autosave")
+export const autosavePaused = editor("editor/autosave")
   .send(rename("Replace foyer"))
   .advance("1 second")
   .send(rename(FIRST))
@@ -70,9 +74,9 @@ export const editedWhileSaving = editor("editor/edit-while-saving", {
 })
   .send(rename(FIRST), E.SaveRequested(), rename(`${FIRST}s`))
   .world(Desk.saveTitle.release())
-  .checkpoint("moved-on")
+  .checkpoint("movedOn")
   .advance("2 seconds") // the autosave debounce, restarted by the edit made during the save
-  .checkpoint("caught-up");
+  .checkpoint("caughtUp");
 
 export const emptyTitle = editor("editor/empty-title")
   .send(rename(""), E.SaveRequested())
@@ -97,9 +101,9 @@ export const lockedOut = editor("editor/locked-out", {
   .send(rename(FIRST), E.SaveRequested())
   .checkpoint("locked")
   .advance({ next: { schedule: "retry" } })
-  .checkpoint("first-retry")
+  .checkpoint("firstRetry")
   .advance("10 minutes") // runs the whole chain
-  .checkpoint("gave-up-on-lock");
+  .checkpoint("gaveUpOnLock");
 
 // A lock that lifts: the third retry succeeds.
 export const lockLifts = editor("editor/lock-lifts", {
@@ -129,11 +133,11 @@ export const unsureGaveUp = editor("editor/unsure-gave-up", {
 })
   .send(rename(FIRST), E.SaveRequested())
   .advance("12 seconds") // ticks at 3, 6, 9 re-send; the one at 12 gives up
-  .checkpoint("gave-up");
+  .checkpoint("gaveUp");
 
 // Cancel while it is on the wire: the fetch is interrupted (`unknown { Cancelled }`), the root's SaveStopped
 // releases it at once, and the editor is back to EDITING. The request may still have reached the server.
-export const stopped = editor("editor/stopped", { world: [Desk.saveTitle.hold()] })
+export const saveStopped = editor("editor/stopped", { world: [Desk.saveTitle.hold()] })
   .send(rename(FIRST), E.SaveRequested(), E.CancelSave())
   .checkpoint("stopped");
 
@@ -144,7 +148,7 @@ export const heldLaneReadopted = editor("editor/held-lane-readopted", {
   world: [Desk.saveTitle.drop({ at: "response", times: 1 })],
 })
   .send(rename(FIRST), E.SaveRequested(), E.Close())
-  .checkpoint("closed-while-saving")
+  .checkpoint("closedWhileSaving")
   .dispose()
   .checkpoint("disposed")
   .ensure()
@@ -157,9 +161,9 @@ export const reopenedUnsure = editor("editor/reopened-unsure", {
   world: [Desk.saveTitle.drop({ at: "response", times: "always" })],
 })
   .send(rename(FIRST), E.SaveRequested(), E.Close())
-  .checkpoint("closed-while-saving")
+  .checkpoint("closedWhileSaving")
   .send(E.Reopen())
-  .checkpoint("reopened-unsure");
+  .checkpoint("reopenedUnsure");
 
 // Reopening while the save is still on the wire goes to OPEN, not to SAVING: the old SAVING has ended, so the
 // ending is late and lands on the root or OPEN handlers (M2). Save stays disabled by the lane; the ending then
@@ -170,11 +174,11 @@ export const reopenedInFlight = editor("editor/reopened-in-flight", {
   .send(rename(FIRST), E.SaveRequested(), E.Close(), E.Reopen())
   .checkpoint("reopened")
   .world(Desk.saveTitle.release())
-  .checkpoint("settled-late");
+  .checkpoint("settledLate");
 
 // A file dropped in the editor: the editor adds the entry, the `uploads` placement makes a copy, and the copy
 // uploads itself. The bytes were kept first (the hook does it); a removed entry releases the lane (rule 60).
-export const attached = editor("editor/attached")
+export const fileAttached = editor("editor/attached")
   .send(E.AttachFile({ ref: "r-1", name: "photo.jpg", size: 40_000 }))
   .checkpoint("attached")
   .send(E.RemoveAttachment({ ref: "r-1" }))

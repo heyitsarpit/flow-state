@@ -54,21 +54,16 @@ export const RosterMachine = machine(Roster, ({ S, E, O }) => {
       O.teams.subscribe(workspace),
       O.teamSizes.subscribe(workspace),
       O.customers.subscribe(workspace),
-      // pending merge 6: one SDK session per technician on the loaded pages; keys follow paging and team changes
+      // one SDK session per technician on the loaded pages; keys follow paging and team changes
       O.online.subscribe.each(({ memory, operations }) =>
         (operations.roster?.data?.flatMap((page) => page.technicians) ?? []).map((t) => ({
           workspaceId: memory.workspaceId,
           technicianId: t.technicianId,
         })),
       ),
-      // pending merge 6: both readers of the polled change log, for the actor's life
+      // both readers of the polled change log, for the actor's life
       O.changes.subscribe(workspace, { when: ({ memory }) => !memory.feedPaused }),
-      O.audit.subscribe(
-        ({ memory }) => ({ workspaceId: memory.workspaceId, after: memory.cursor }),
-        {
-          when: ({ memory }) => !memory.feedPaused,
-        },
-      ),
+      O.audit.subscribe(workspace, { when: ({ memory }) => !memory.feedPaused }),
     ],
 
     on: {
@@ -240,30 +235,20 @@ export const RosterMachine = machine(Roster, ({ S, E, O }) => {
       IndexRebuilt: { target: "self" },
       IndexUnsure: { target: "self", actions: [O.rebuild.cancel] }, // unkeyed: names the one lane
 
-      // pending merge 6: the audit log. A fact's own turn stores it and moves the cursor (S4).
+      // the audit log. Delivery is at least once, so it stores by `seq`.
       Change: {
         target: "self",
         updateMemory: ({ memory, event }) => ({
           audit: [...memory.audit.filter((c) => c.seq !== event.change.seq), event.change].slice(
             -AUDIT_KEPT,
           ),
-          cursor: event.change.seq,
         }),
       },
-      // A first registration on an empty audit log owes nothing: ignore `Unproven` only when it is `initial` and
-      // memory holds nothing (S10, T2). A `Lost` or `Reset` never is ignored.
-      MayHaveMissed: [
-        {
-          target: "self",
-          guard: ({ memory, event }) =>
-            (event.why === "Unproven" && event.initial && memory.audit.length === 0) ||
-            deny("HoldsOrRejoined"),
-        },
-        {
-          target: "self",
-          updateMemory: () => ({ notice: "Some roster changes may be missing from the log" }),
-        },
-      ],
+      // A first open owes nothing (Streams T2), so this is a real gap: `Unproven`, `Lost` or `Reset`.
+      MayHaveMissed: {
+        target: "self",
+        updateMemory: () => ({ notice: "Some roster changes may be missing from the log" }),
+      },
       // The poll's budget is spent. The desk feed waits and re-opens on a timer (its RETRY_WAIT); the roster asks the
       // admin instead: its placements are switched off by `when`, and Resume places them again (rule 25: Flow
       // never re-opens a session; a placement that starts again does).

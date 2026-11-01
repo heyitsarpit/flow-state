@@ -14,8 +14,8 @@ export default defineConfig({
         "features/Roster/*.story.ts",
         "features/Find/*.story.ts",
         "features/Resolve/*.story.ts", // the wizard alone has no app; its Story prints `appId: null` as the others do
-        "features/Presence/*.story.ts", // pending merge 6
-        "features/Assistant/*.story.ts", // pending merge 6
+        "features/Presence/*.story.ts",
+        "features/Assistant/*.story.ts",
       ],
     },
   ],

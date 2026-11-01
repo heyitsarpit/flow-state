@@ -2,11 +2,10 @@
 // a FlowError with a closed `code`, diagnostics, an optional cause and, for Story failures, the partial evidence
 // (completed checkpoints, how far the run got, cleanup). Branch on `code` and `path`, never on text.
 import { FlowError } from "flow-state";
-import type { Story } from "flow-state/testing";
 
 // What a Story run can reject with in this app (2.10.1, 2.10.2). The run keeps its evidence up to the failing
 // boundary, so a failed Story still plays back.
-export async function runStory(story: Story) {
+export async function runStory(story: { readonly run: () => Promise<unknown> }) {
   try {
     return await story.run();
   } catch (failure) {

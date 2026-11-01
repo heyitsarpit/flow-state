@@ -6,7 +6,7 @@ import { SessionRef } from "../features/Session/session.ref.js";
 import { Editor } from "../features/Tickets/editor/editor.definition.js";
 import { EditorMachine } from "../features/Tickets/editor/editor.machine.js";
 import { editorRef } from "../features/Tickets/editor/editor.ref.js";
-import { feedRef } from "../features/Tickets/feed/feed.ref.js"; // pending merge 6
+import { feedRef } from "../features/Tickets/feed/feed.ref.js";
 import { queueRef } from "../features/Tickets/queue/queue.ref.js";
 import { TicketApi } from "../features/Tickets/ticket-api.js";
 import { ToastsRef } from "../features/Toasts/toasts.ref.js";
@@ -22,8 +22,7 @@ export async function runDeskHost() {
     runtime.ensureActor(SessionRef, { input: { userId: "dispatcher-7" } });
     runtime.ensureActor(ToastsRef);
     runtime.ensureActor(queueRef("north"), { input: { workspaceId: "north" } });
-    runtime.ensureActor(feedRef("north"), { input: { workspaceId: "north" } }); // pending merge 6
-
+    runtime.ensureActor(feedRef("north"), { input: { workspaceId: "north" } });
     // The same ref twice names the same actor; the first accepted input wins.
     const editor = runtime.ensureActor(editorRef({ workspaceId: "north", ticketId: "T-42" }), {
       input: { workspaceId: "north", ticketId: "T-42" },
@@ -50,7 +49,9 @@ export async function runDeskHost() {
     await runtime.runPromise(
       editor.snapshots.pipe(
         Stream.take(1),
-        Stream.runForEach((snapshot) => Effect.sync(() => console.log(snapshot.state))),
+        Stream.runForEach((snapshot: { readonly state: string }) =>
+          Effect.sync(() => console.log(snapshot.state)),
+        ),
       ),
     );
 

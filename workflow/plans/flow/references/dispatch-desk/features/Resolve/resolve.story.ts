@@ -1,7 +1,7 @@
-// Resolving on site. The wizard alone, in the stand-in host (Y1: a subroutine alone), and the visit screen that
-// hosts it, over the Desk fake (the real `ResolveHttp` adapter over `Fake.fetch`). Transcripts; resolve.test.ts
-// reads them. Module checkpoints (COVERAGE.md section 6, "RW"): `reason`, `parts`, `back-to-reason`,
-// `confirm-discard`, `resolved`, `left-mid-resolve`, `parts-released`.
+// Resolving on site. The wizard alone, in the stand-in host (`Story.fragment`, Y1: a subroutine alone), and the visit
+// screen that hosts it (`Story.machine`), over the Desk fake (the real `ResolveHttp` adapter over `Fake.fetch`).
+// Transcripts; resolve.test.ts reads them. Module checkpoints (COVERAGE.md section 6, "RW"): `reason`, `parts`,
+// `backToReason`, `confirmDiscard`, `resolved`, `leftMidResolve`, `partsReleased`.
 import { Layer } from "effect";
 import { deny } from "flow-state";
 import { Story } from "flow-state/testing";
@@ -26,7 +26,7 @@ const Signed = Layer.effectDiscard(
 
 // The steps, Back, and the nested dialog. Keep returns to the exact step it came from (`.history`, F9); the dialog's
 // exit is recorded at its own instance path inside the wizard (F8).
-export const wizardAlone = Story.make(ResolveWizard, {
+export const wizardAlone = Story.fragment(ResolveWizard, {
   id: "resolve/wizard-alone",
   fixtures: [DeskClient, Signed],
 })
@@ -36,9 +36,9 @@ export const wizardAlone = Story.make(ResolveWizard, {
   .send(W.AddPart({ partNumber: "BULB-40W" }))
   .checkpoint("parts")
   .send(W.Back())
-  .checkpoint("back-to-reason")
+  .checkpoint("backToReason")
   .send(W.Next(), W.Cancel())
-  .checkpoint("confirm-discard")
+  .checkpoint("confirmDiscard")
   .send(W.DISCARD.Keep())
   .checkpoint("kept")
   .send(W.Next())
@@ -48,7 +48,7 @@ export const wizardAlone = Story.make(ResolveWizard, {
   .checkpoint("exited");
 
 // The host's guard port refuses with an annotated denial (F15, F19): `check()` gives the reason and its text.
-export const wizardRefused = Story.make(ResolveWizard, {
+export const wizardRefused = Story.fragment(ResolveWizard, {
   id: "resolve/wizard-refused",
   fixtures: [DeskClient, Signed],
 })
@@ -60,8 +60,10 @@ export const wizardRefused = Story.make(ResolveWizard, {
 
 // --- the visit screen ---------------------------------------------------------------------------------------
 
-const visit = (id: string, world: ReadonlyArray<unknown> = []) =>
-  Story.make(VisitMachine, {
+type World = NonNullable<Parameters<typeof Story.machine>[1]["world"]>;
+
+const visit = (id: string, world: World = []) =>
+  Story.machine(VisitMachine, {
     id,
     input: { ...T42, assignee: "dispatcher-7" },
     context: { me: "dispatcher-7" },
@@ -93,7 +95,7 @@ export const signatureMissing = throughParts(
   visit("resolve/signature-missing", [Desk.signature.drop({ times: 1 })]),
 )
   .send(E.RESOLVING.Next(), E.RESOLVING.signature.Signed({ ref: "sig-1" }), E.RESOLVING.Submit())
-  .checkpoint("sign-again");
+  .checkpoint("signAgain");
 
 // The step bar jumps (F16): the host raises the wizard's host event, and the wizard decides.
 export const steppedBack = throughParts(visit("resolve/stepped-back"))
@@ -104,13 +106,13 @@ export const steppedBack = throughParts(visit("resolve/stepped-back"))
 // host releases them (compensation, O20).
 export const partsReleased = throughParts(visit("resolve/parts-released"))
   .send(E.RESOLVING.Cancel(), E.RESOLVING.DISCARD.Discard())
-  .checkpoint("parts-released");
+  .checkpoint("partsReleased");
 
 // Called away mid-resolve: the host's transition leaves RESOLVING, the wizard is abandoned (no exit), and its
 // `whenAbandoned` hands the draft back in the same turn (F14). Starting again resumes it.
 export const leftMidResolve = throughParts(visit("resolve/left-mid-resolve"))
   .send(E.CalledAway())
-  .checkpoint("left-mid-resolve")
+  .checkpoint("leftMidResolve")
   .send(E.StartResolve())
   .checkpoint("resumed");
 

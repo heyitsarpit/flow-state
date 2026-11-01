@@ -1,8 +1,8 @@
 // The editor's description fields and body: machine Stories over the editor, its world the Desk fake (the details
 // port is the real `DetailsHttp` adapter over `Fake.fetch`). Transcripts; fields.test.ts reads them.
 //
-// Module checkpoints (COVERAGE.md section 6, "ED fields and tabs"): `typing-summary`, `summary-superseded`,
-// `body-conflict` here; `reloaded-mid-autosave`, `second-tab`, `quota-refused` in editor.tabs.story.ts.
+// Module checkpoints (COVERAGE.md section 6, "ED fields and tabs"): `typingSummary`, `summarySuperseded`,
+// `bodyConflict` here; `reloadedMidAutosave`, `secondTab`, `quotaRefused` in editor.tabs.story.ts.
 import { Story } from "flow-state/testing";
 import { PendingFilesLive } from "../../Attachments/attachments-api.js";
 import { Desk, DeskClient } from "../../../testing/desk.fake.js";
@@ -12,8 +12,8 @@ import { T42 } from "./editor.story.js";
 
 const { E } = Editor;
 
-const editor = (id: string, world: ReadonlyArray<unknown> = []) =>
-  Story.make(EditorMachine, {
+const editor = (id: string, world: ReadonlyArray<Story.Step> = []) =>
+  Story.machine(EditorMachine, {
     id,
     input: T42,
     context: { canEdit: true },
@@ -34,15 +34,15 @@ export const summarySuperseded = editor("editor/summary-superseded", [
   Desk.saveField.hold({ at: "response" }),
 ])
   .send(type("summary", "Lobby light"))
-  .checkpoint("typing-summary")
+  .checkpoint("typingSummary")
   .advance("800 millis") // the field's debounce fires; `Flush` raised into its copy
   .send(type("summary", "Lobby light, flickering"))
   .advance("800 millis") // a newer value, queued behind the one on the wire
   .send(type("summary", "Lobby light, flickering, east wing"))
   .advance("800 millis") // replaces the queued one: it was never sent
-  .checkpoint("summary-superseded")
+  .checkpoint("summarySuperseded")
   .world(Desk.saveField.release())
-  .checkpoint("summary-saved");
+  .checkpoint("summarySaved");
 
 // Two fields are two lanes: neither waits for the other (key `["workspaceId", "ticketId", "field"]`).
 export const fieldsIndependent = editor("editor/fields-independent", [
@@ -50,9 +50,9 @@ export const fieldsIndependent = editor("editor/fields-independent", [
 ])
   .send(type("summary", "Lobby light"), type("locationNote", "Front desk"))
   .advance("800 millis")
-  .checkpoint("both-on-the-wire")
+  .checkpoint("bothOnTheWire")
   .world(Desk.saveField.release())
-  .checkpoint("both-saved");
+  .checkpoint("bothSaved");
 
 // A field edit waits behind that field's unsure save (O5): the first answer is lost, so the lane holds its Attempt;
 // the next value is committed and waits (`waiting`) until the re-send answers, then goes.
@@ -63,9 +63,9 @@ export const waitsBehindUnsure = editor("editor/field-waits-behind-unsure", [
   .advance("800 millis")
   .send(type("summary", "Lobby light, east"))
   .advance("800 millis")
-  .checkpoint("waiting-behind-unsure")
+  .checkpoint("waitingBehindUnsure")
   .advance("2 seconds") // the copy's `resend`: the same Attempt; then the waiting value is sent
-  .checkpoint("caught-up");
+  .checkpoint("caughtUp");
 
 // A value the server refuses (an access code is digits): the copy says why, and the field stays dirty.
 export const accessCodeRejected = editor("editor/access-code-rejected")
@@ -81,9 +81,9 @@ export const bodyConflict = editor("editor/body-conflict", [
 ])
   .send(E.body.Edited({ body: "Ladder needed; bulb is a 40 W." }))
   .advance("1 second")
-  .checkpoint("body-conflict")
+  .checkpoint("bodyConflict")
   .send(E.body.KeepMine())
-  .checkpoint("kept-mine");
+  .checkpoint("keptMine");
 
 // The hold with a version on the wire (O1). The first send is lost on the way out (nothing applied), then someone
 // saves: the re-send of the same Attempt carries the old `If-Match` and meets 412. After an unknown send a definite
@@ -93,10 +93,10 @@ export const bodyUnsureThenConflict = editor("editor/body-unsure-then-conflict",
 ])
   .send(E.body.Edited({ body: "Ladder needed." }))
   .advance("1 second")
-  .checkpoint("body-unsure")
+  .checkpoint("bodyUnsure")
   .world(Desk.editBodyElsewhere({ ...T42, body: "Done by the day shift." }))
   .advance("2 seconds") // the re-send
-  .checkpoint("body-unsure-conflict");
+  .checkpoint("bodyUnsureConflict");
 
 // Typing during a body save is coalesced in the trait and sent after the answer, with the etag that answer returned.
 export const bodyCoalesced = editor("editor/body-coalesced", [

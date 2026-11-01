@@ -13,7 +13,7 @@ export const Pulse = Schema.Struct({
   online: Schema.Boolean,
   location: Schema.String,
   battery: Schema.Int,
-  reportedAt: Schema.Number, // the phone's own clock: the quiet-feed recipe compares it with `useNow` (M6 4.3)
+  reportedAt: Schema.Number, // the phone's own clock: the quiet-feed recipe compares it with `useNow`
 });
 
 export type Pulse = typeof Pulse.Type;

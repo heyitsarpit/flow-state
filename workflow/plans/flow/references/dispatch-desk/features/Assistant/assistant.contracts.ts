@@ -1,6 +1,6 @@
-// "Suggest a reply": a streamed write. Demonstrates M6 2.9 and 4.4 (a transaction whose commit reports
+// "Suggest a reply": a streamed write. Demonstrates (a transaction whose commit reports
 // `progress(p)` as the body arrives) and rule 39 (a contract states input, output and key).
-// Pending merge 6: written against merged/streams/proposal-v2.md revision 7.1, S5 Q11.
+// md revision 7.1, S5 Q11.
 import { Effect, Schema, Stream } from "effect";
 import { Outcome, transaction } from "flow-state";
 import { AssistantApi, Usage } from "./assistant-api.js";
@@ -16,7 +16,6 @@ export const Reply = Schema.Struct({ text: Schema.String, usage: Usage });
 
 export type Reply = typeof Reply.Type;
 
-// pending merge 6
 export const suggestReply = transaction({
   id: "DispatchDesk/suggest-reply",
   input: { workspaceId: Schema.String, ticketId: Schema.String, prompt: Schema.String },
@@ -44,7 +43,7 @@ export const suggestReply = transaction({
           Effect.sync(() => {
             if (frame.t === "token") {
               text += frame.text;
-              progress({ text }); // pending merge 6: no turn per token (SR29); the row's `progress` updates
+              progress({ text });
             } else {
               usage = frame.usage;
             }

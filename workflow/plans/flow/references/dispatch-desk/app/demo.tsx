@@ -38,11 +38,11 @@ const demos = {
   "Two tabs, one ticket": twoTabsOneTicket,
   "Panels remember": panelsRemember,
   "Bulk close fifty tickets": bulkCloseFifty,
-  "Who is free": whoIsFree, // pending merge 6
+  "Who is free": whoIsFree,
   "Find anything": findAnything,
   "Resolve on site": resolveOnSite,
   "Merge two customers": mergeTwoCustomers,
-  "Live desk": liveDesk, // pending merge 6
+  "Live desk": liveDesk,
 } as const;
 
 type Demo = keyof typeof demos;

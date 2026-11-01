@@ -7,7 +7,8 @@ import { Fake } from "flow-state/testing";
 import * as Server from "../app/desk-server.js";
 import { FindHttp } from "../features/Find/find-api.js";
 import { ResolveHttp } from "../features/Resolve/resolve-api.js";
-import { type Desk, type FakeTruth, step, toWire, withDesk } from "./desk.fake.js";
+import { idempotency, step, toWire, withDesk, type Desk, type FakeTruth } from "./desk.fake.js";
+import { pushed } from "./desk.socket.fake.js";
 
 const ORIGIN = "http://desk.test";
 
@@ -16,17 +17,15 @@ const ticket = { workspaceId: Schema.String, ticketId: Schema.String };
 export const visitEndpoints = {
   find: Fake.call({
     request: { workspaceId: Schema.String, q: Schema.String },
-    handle: (truth: FakeTruth, req) => [
-      truth,
-      { status: 200, body: Server.search(truth.desk, req) },
-    ],
+    handle: (truth: FakeTruth, req) => ({
+      response: { status: 200, body: Server.search(truth.desk, req) },
+    }),
   }),
   part: Fake.call({
     request: { partNumber: Schema.String },
-    handle: (truth: FakeTruth, req) => [
-      truth,
-      toWire(Server.partByNumber(truth.desk, req.partNumber)),
-    ],
+    handle: (truth: FakeTruth, req) => ({
+      response: toWire(Server.partByNumber(truth.desk, req.partNumber)),
+    }),
   }),
   reservePart: Fake.call({
     request: { ...ticket, partNumber: Schema.String, key: Schema.String },
@@ -35,18 +34,19 @@ export const visitEndpoints = {
   releaseParts: Fake.call({
     request: { ...ticket, partNumbers: Schema.Array(Schema.String), key: Schema.String },
     handle: (truth: FakeTruth, req) => {
-      const [next] = step(truth, Server.releaseParts(truth.desk, req, req.key));
+      const { truth: next } = step(truth, Server.releaseParts(truth.desk, req, req.key));
 
-      return [next, { status: 204, body: null }];
+      return { truth: next, response: { status: 204 } };
     },
   }),
   signature: Fake.call({
     request: { ref: Schema.String },
-    handle: (truth: FakeTruth, req) => [
-      withDesk(truth, Server.uploadSignature(truth.desk, req.ref)),
-      { status: 201, body: null },
-    ],
+    handle: (truth: FakeTruth, req) => ({
+      truth: withDesk(truth, Server.uploadSignature(truth.desk, req.ref)),
+      response: { status: 201 },
+    }),
   }),
+  // A resolution closes the ticket, which appends to the log: the socket pushes it.
   resolve: Fake.call({
     request: {
       ...ticket,
@@ -55,47 +55,56 @@ export const visitEndpoints = {
       signatureRef: Schema.String,
       key: Schema.String,
     },
-    handle: (truth: FakeTruth, req) => step(truth, Server.resolveTicket(truth.desk, req, req.key)),
+    handle: (truth: FakeTruth, req) => {
+      const { truth: next, response } = step(truth, Server.resolveTicket(truth.desk, req, req.key));
+
+      return { ...pushed(truth, next), response };
+    },
   }),
 };
 
-// design gap: `route` reads the request's JSON body, so it is async here; 2.10.4 shows only a URL being read.
-const route = async (request: Request) => {
-  const url = new URL(request.url);
-  const parts = url.pathname
-    .split("/")
-    .filter((p) => p !== "")
-    .map(decodeURIComponent);
-  const body =
-    request.method === "GET" || request.method === "PUT"
-      ? {}
-      : ((await request.json()) as Record<string, unknown>);
-  const key = request.headers.get("Idempotency-Key") ?? "";
-
-  if (parts[1] === "parts") return { endpoint: "part", input: { partNumber: parts[2] } };
-
-  if (parts[1] === "signatures") return { endpoint: "signature", input: { ref: parts[2] } };
-
-  const [, , workspaceId, what, ticketId, action] = parts;
-
-  if (what === "find")
-    return { endpoint: "find", input: { workspaceId, q: url.searchParams.get("q") ?? "" } };
-
-  const at = { workspaceId, ticketId };
-
-  if (action === "parts")
-    return { endpoint: "reservePart", input: { ...at, partNumber: body.partNumber, key } };
-
-  if (action === "parts:release")
-    return { endpoint: "releaseParts", input: { ...at, partNumbers: body.partNumbers, key } };
-
-  if (action === "resolve") return { endpoint: "resolve", input: { ...at, ...body, key } };
-
-  return undefined;
-};
-
+// The URL space the adapters use, as the real server would route it. `:release` is a literal colon, spelled `::` in a key. The
+// signature upload is a PUT of image bytes, so its `input` names only the ref: the short form would spread the body.
 export const visitClient = (desk: typeof Desk) =>
   Layer.mergeAll(FindHttp(ORIGIN), ResolveHttp(ORIGIN)).pipe(
     Layer.provide(FetchHttpClient.layer),
-    Layer.provide(Fake.fetch(desk, route)),
+    Layer.provide(
+      Fake.fetch(desk, {
+        "GET /api/parts/:partNumber": "part",
+        "PUT /api/signatures/:ref": {
+          endpoint: "signature",
+          input: ({ params }) => ({ ref: params.ref }),
+        },
+        "GET /api/workspaces/:workspaceId/find": {
+          endpoint: "find",
+          input: ({ params, query }) => ({ ...params, q: query["q"] ?? "" }),
+        },
+        "POST /api/workspaces/:workspaceId/tickets/:ticketId/parts": {
+          endpoint: "reservePart",
+          input: ({ params, body, headers }) => ({
+            ...params,
+            partNumber: body.partNumber,
+            key: idempotency(headers),
+          }),
+        },
+        "POST /api/workspaces/:workspaceId/tickets/:ticketId/parts::release": {
+          endpoint: "releaseParts",
+          input: ({ params, body, headers }) => ({
+            ...params,
+            partNumbers: body.partNumbers,
+            key: idempotency(headers),
+          }),
+        },
+        "POST /api/workspaces/:workspaceId/tickets/:ticketId/resolve": {
+          endpoint: "resolve",
+          input: ({ params, body, headers }) => ({
+            ...params,
+            reason: body.reason,
+            parts: body.parts,
+            signatureRef: body.signatureRef,
+            key: idempotency(headers),
+          }),
+        },
+      }),
+    ),
   );

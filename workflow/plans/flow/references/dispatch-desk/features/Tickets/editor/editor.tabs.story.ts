@@ -4,7 +4,10 @@
 // (Persistence.plan O7): only the first tab persists, and a second cannot take a save over.
 //
 // design gap: `browserSetup` brings `layerIndexedDb`; in a Story the run's `Fake.storage` stands in for the
-// store (2.10.4 says "one per run, used by every tab"), so no `storage` option is written.
+// store (2.10.4 says "one per run, used by every tab"), so the `storage` option is written only to seed it.
+//
+// Checkpoint names are camelCase. `secondTab`, `reloadedMidAutosave` and `quotaRefused` are also the names of
+// the Stories that hold them, so a test that destructures one of them from its own Story reads it under an alias.
 import { Fake, Story } from "flow-state/testing";
 import { browserSetup } from "../../../app/persistence.js";
 import { Desk, DeskClient } from "../../../testing/desk.fake.js";
@@ -15,8 +18,8 @@ import { Editor42, FIRST, T42 } from "./editor.story.js";
 
 const { E } = Editor;
 
-const desk = (id: string, world: ReadonlyArray<unknown>) =>
-  Story.make(browserSetup("dispatcher-7"), { id, fixtures: [DeskClient], world })
+const desk = (id: string, world: ReadonlyArray<Story.Step>) =>
+  Story.app(browserSetup("dispatcher-7"), { id, fixtures: [DeskClient], world })
     .ensure(SessionRef, { input: { userId: "dispatcher-7" } })
     .ensure(ToastsRef)
     .ensure(Editor42, { input: T42 });
@@ -27,13 +30,13 @@ export const inB = { actor: Editor42, tab: "b" } as const;
 // b's own lane carries it. The held save is released after main is gone.
 export const secondTab = desk("editor/second-tab", [Desk.saveTitle.hold()])
   .openTab("b", { from: "main" })
-  .checkpoint("second-tab")
+  .checkpoint("secondTab")
   .send(inB, E.TitleChanged({ title: "Only in tab b" }), E.SaveRequested())
-  .checkpoint("b-saving")
+  .checkpoint("bSaving")
   .closeTab("main")
-  .checkpoint("main-closed") // no handover: b's save is still b's
+  .checkpoint("mainClosed") // no handover: b's save is still b's
   .world(Desk.saveTitle.release())
-  .checkpoint("b-saved");
+  .checkpoint("bSaved");
 
 // A save that outlives a closed ticket, on a persisted identity. Close and dispose cancel nothing (rule 44): the
 // Runtime owns the lane, the listing a host's `beforeunload` reads shows it unbound, and the answer lands with no
@@ -41,20 +44,25 @@ export const secondTab = desk("editor/second-tab", [Desk.saveTitle.hold()])
 // the next incarnation adopts it at the root before any event: the toast says so, and nothing is left unsettled.
 export const outlivesClose = desk("editor/outlives-close", [Desk.saveTitle.hold()])
   .send(Editor42, E.TitleChanged({ title: FIRST }), E.SaveRequested(), E.Close())
-  .checkpoint("closed-while-saving")
+  .checkpoint("closedWhileSaving")
   .dispose(Editor42, { how: "now" })
   .checkpoint("unbound")
   .world(Desk.saveTitle.release()) // handled; the ending is parked for the identity's saved record
   .ensure(Editor42, { input: T42 })
   .checkpoint("adopted");
 
+// The title save acknowledged and on the wire, before any reload. It is a prefix: `reloadMidSave` continues it, and
+// `continuedFromReload` below takes the storage this prefix leaves (`Fake.storage.from` takes the storage a run
+// leaves, so a mid-run store is `from(thatPrefix)`, 2.10.4).
+const titleOnTheWire = desk("editor/reload-mid-save", [Desk.saveTitle.hold()])
+  .send(Editor42, E.TitleChanged({ title: FIRST }), E.SaveRequested())
+  .checkpoint("saving");
+
 // Reload mid-save, the request on the wire. The acknowledged Attempt is stored, so the reopened editor finds
 // its lane `Held` and delivers `unknown { Restored }` (rule 46): UNSURE, with no second invocation. The
 // orphaned request is released (the server handles it, nobody hears), then the re-send carries the SAME
 // Attempt and the server dedupes: one change in the log.
-export const reloadMidSave = desk("editor/reload-mid-save", [Desk.saveTitle.hold()])
-  .send(Editor42, E.TitleChanged({ title: FIRST }), E.SaveRequested())
-  .checkpoint("saving")
+export const reloadMidSave = titleOnTheWire
   .reload()
   .checkpoint("reloaded")
   .world(Desk.saveTitle.release())
@@ -69,7 +77,7 @@ export const reloadAckHeld = desk("editor/reload-ack-held", [
   Fake.storage.write.hold({ match: { purpose: "acknowledge" } }),
 ])
   .send(Editor42, E.TitleChanged({ title: FIRST }), E.SaveRequested())
-  .checkpoint("waiting-for-ack")
+  .checkpoint("waitingForAck")
   .reload()
   .checkpoint("reloaded");
 
@@ -96,7 +104,7 @@ export const fieldsInTwoTabs = desk("editor/fields-in-two-tabs", [])
   .openTab("b", { from: "main" })
   .send(inB, typeSummary("Lobby light, from tab b"))
   .advance("800 millis")
-  .checkpoint("second-tab");
+  .checkpoint("secondTab");
 
 // Reload mid-autosave (P3, O12). One value is on the wire, a newer one waits behind it (`latest`'s queued commit).
 // The reload restores the acknowledged head as `unknown { Restored }`: the copy re-sends the same Attempt. The
@@ -107,12 +115,12 @@ export const reloadedMidAutosave = desk("editor/reloaded-mid-autosave", [Desk.sa
   .advance("800 millis")
   .send(Editor42, typeSummary("Lobby light, east"))
   .advance("800 millis")
-  .checkpoint("head-and-waiting")
+  .checkpoint("headAndWaiting")
   .reload()
-  .checkpoint("reloaded-mid-autosave")
+  .checkpoint("reloadedMidAutosave")
   .world(Desk.saveField.release())
   .advance("3 seconds")
-  .checkpoint("settled-after-reload");
+  .checkpoint("settledAfterReload");
 
 // Storage refused (P5, O11): the quota is full, so the field save's acknowledgement cannot be written. The commit
 // never leaves the device: `NotSent { StorageRefused }`. The field stays dirty; nothing reached the server.
@@ -121,25 +129,26 @@ export const quotaRefused = desk("editor/quota-refused", [
 ])
   .send(Editor42, typeSummary("Lobby light"))
   .advance("800 millis")
-  .checkpoint("quota-refused");
+  .checkpoint("quotaRefused");
 
-// A run that starts from storage another Story left (Y7, rare): the reload Story's storage at its "saving"
-// checkpoint holds an acknowledged title save. Opening the editor restores it as `unknown { Restored }`: UNSURE.
-// design gap: `Fake.storage.from(story, { at })` takes a checkpoint name; 2.10.10 shows `{ at? }` without its type.
-export const continuedFromReload = Story.make(browserSetup("dispatcher-7"), {
+// A run that starts from storage another Story left (Y7, rare): the storage `titleOnTheWire` leaves holds an
+// acknowledged title save. Opening the editor restores it as `unknown { Restored }`: UNSURE. The new run's server
+// starts at its own `initial`, so nothing of that save reached it.
+export const continuedFromReload = Story.app(browserSetup("dispatcher-7"), {
   id: "editor/continued-from-storage",
   fixtures: [DeskClient],
-  storage: Fake.storage.from(reloadMidSave, { at: "saving" }),
+  storage: Fake.storage.from(titleOnTheWire),
 })
   .ensure(SessionRef, { input: { userId: "dispatcher-7" } })
   .ensure(Editor42, { input: T42 })
-  .checkpoint("restored-unsure");
+  .checkpoint("restoredUnsure");
 
 // Seeded storage with a stale lane (Y7): a lane record under the editor's identity for a save-title Attempt that
 // this server never saw. Restore validates and adopts it; the re-send is its first request.
-// design gap: the encoded shape of a seeded lane record is the Persistence plan's, not shown in 2.10.4; the fields
-// below name the lane's identity (actor, contract, key) and its Attempt.
-export const seededStaleLane = Story.make(browserSetup("dispatcher-7"), {
+// design gap: the encoded shape of a seeded lane record is the Persistence plan's, and 2.10.4 says `from` is the only
+// form an app can rely on until it is public; the fields below name the lane's identity (actor, contract, key) and
+// its Attempt.
+export const seededStaleLane = Story.app(browserSetup("dispatcher-7"), {
   id: "editor/seeded-stale-lane",
   fixtures: [DeskClient],
   storage: Fake.storage.seed([
@@ -172,6 +181,6 @@ export const reloadMidCommentEdit = desk("editor/reload-mid-comment-edit", [
 ])
   .send(Editor42, E.comments.Edit({ commentId: "c-1", text: "Note 1, corrected" }))
   .reload()
-  .checkpoint("comment-uncertain")
+  .checkpoint("commentUncertain")
   .world(Desk.editComment.release())
-  .checkpoint("comment-repaired");
+  .checkpoint("commentRepaired");

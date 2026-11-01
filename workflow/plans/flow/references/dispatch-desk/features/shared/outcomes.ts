@@ -10,8 +10,11 @@ export const unknownWhenLost = <A, E extends { readonly _tag: string }, R>(
   write: Effect.Effect<A, E, R>,
 ) =>
   write.pipe(
-    Effect.catchTags({
-      NoResponse: (e) => Outcome.unknown(e),
-      ServerError: (e) => Outcome.unknown(e),
-    }),
+    Effect.catch((e) =>
+      Effect.gen(function* () {
+        if (e._tag === "NoResponse" || e._tag === "ServerError") return yield* Outcome.unknown(e);
+
+        return yield* Effect.fail(e);
+      }),
+    ),
   );

@@ -87,7 +87,7 @@ export class TicketApi extends Context.Service<
       options: Write,
     ) => Effect.Effect<void, TicketNotFound | ArchiveRefused | NoResponse | ServerError>;
     // One page of the workspace's activity after a position: the catch-up behind the socket's
-    // `activity` frames (pending merge 6: feed.contracts.ts pages it from `catchUp`).
+    // `activity` frames (feed.contracts.ts pages it from `catchUp`).
     eventsSince: (
       input: { workspaceId: string; after: Cursor },
       options: Read,

@@ -1,7 +1,6 @@
 // Bulk close and SLA deadlines: machine Stories over the queue, its world the Desk fake. Transcripts;
-// queue.bulk.test.ts reads them. Module checkpoints: `bulk-queued`, `bulk-partly-failed` (also the per-row 409 in
-// queue.story.ts), `sla-breached`.
-import { Story } from "flow-state/testing";
+// queue.bulk.test.ts reads them. Module checkpoints: `bulkQueued`, `bulkPartlyFailed` (also the per-row 409 in
+// queue.story.ts), `slaBreached`. `bulkQueued` and `slaBreached` are also Story names, read under an alias.
 import { Desk } from "../../../testing/desk.fake.js";
 import { Queue } from "./queue.definition.js";
 import { key, queue } from "./queue.story.js";
@@ -18,9 +17,9 @@ const select = (...ids: ReadonlyArray<string>) =>
 export const bulkQueued = queue("queue/bulk-queued", [Desk.closeMany.hold({ at: "response" })])
   .send(...select("T-101", "T-102", "T-42"), E.CloseSelected())
   .send(...select("T-103", "T-104"), E.CloseSelected())
-  .checkpoint("bulk-queued")
+  .checkpoint("bulkQueued")
   .world(Desk.closeMany.release())
-  .checkpoint("bulk-partly-failed");
+  .checkpoint("bulkPartlyFailed");
 
 // Sixty-four bulk operations wait behind the one on the wire; the next is declined `NotSent { Overloaded }` with no
 // prediction and no queue join (rule 35, O11), and the notice says so.
@@ -44,13 +43,13 @@ export const bulkUnsure = queue("queue/bulk-unsure", [
   Desk.closeMany.drop({ at: "response", times: 1 }),
 ])
   .send(...select("T-101", "T-102"), E.CloseSelected())
-  .checkpoint("bulk-resolved");
+  .checkpoint("bulkResolved");
 
 // A deadline per open row (a keyed schedule): T-43's is at one hour. Jump to just past it (`advance({ to })`, Y5):
 // its timer fires once, the notice says so, and the timer is gone while the others still wait.
 export const slaBreached = queue("queue/sla-breached")
-  .checkpoint("sla-armed")
+  .checkpoint("slaArmed")
   .advance({ to: 3_600_001 })
-  .checkpoint("sla-breached");
+  .checkpoint("slaBreached");
 
 export const T43 = key("T-43");

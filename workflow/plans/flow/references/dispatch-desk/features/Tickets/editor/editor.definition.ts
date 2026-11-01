@@ -51,7 +51,7 @@ export const Editor = definition({
     Escape: {},
     Close: {},
     Reopen: {},
-    AttachFile: AttachmentDraft.fields, // NEW: the hook has already put the bytes in PendingFiles
+    AttachFile: AttachmentDraft.fields,
     RemoveAttachment: { ref: Schema.String }, // NEW
     RemoveStoredFile: { ref: Schema.String }, // a file already on the server (the ticket's file list)
   },

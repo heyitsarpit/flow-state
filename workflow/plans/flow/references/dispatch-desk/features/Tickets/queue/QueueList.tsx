@@ -231,7 +231,7 @@ function TicketRowItem({
         ).data?.name
       : id;
   });
-  const viewers = useView(queue, (s) => Object.keys(O.viewers.get(s, row)?.value ?? {}).length); // pending merge 6
+  const viewers = useView(queue, (s) => Object.keys(O.viewers.get(s, row)?.value ?? {}).length);
   const flashing = useView(queue, (s) =>
     s.memory.flashes.some((copy) => copy.key === row.ticketId),
   );

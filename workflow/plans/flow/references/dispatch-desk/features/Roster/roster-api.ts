@@ -12,7 +12,7 @@
 //     commit with its own Attempt, and the resolver sends one `POST /invites:batch` and completes each entry from
 //     the per-item statuses the server returns;
 //   - `changes(after)` is one GET of the roster's change log after a cursor, which the polling recipe loops
-//     (pending merge 6, M6 4.7 "Polling with a cursor": roster.contracts.ts).
+//    .
 import { Context, Effect, Exit, Layer, Request, RequestResolver, Schema } from "effect";
 import { HttpClient, HttpClientRequest, HttpClientResponse } from "effect/http";
 import { NoResponse, ServerError, type TicketKey } from "../Tickets/types.js";
@@ -109,7 +109,7 @@ export class TechnicianGone extends Schema.TaggedError<TechnicianGone>()("Techni
   technicianId: Schema.String,
 }) {}
 
-// A failed poll. Transient by definition: the polling recipe retries it (M6 4.7).
+// A failed poll. Transient by definition: the polling recipe retries it.
 export class PollFailed extends Schema.TaggedError<PollFailed>()("PollFailed", {}) {}
 
 type Read = { signal: AbortSignal };
@@ -348,7 +348,7 @@ export const RosterHttp = (origin: string) =>
             `/api/workspaces/${encodeURIComponent(workspaceId)}/customers`,
             signal,
           ),
-        // A failed poll, whatever the cause, is `PollFailed`: transient, retried by the recipe (M6 4.7).
+        // A failed poll, whatever the cause, is `PollFailed`: transient, retried by the recipe.
         changes: ({ workspaceId, after }, { signal }) =>
           read(
             ChangeBatch,

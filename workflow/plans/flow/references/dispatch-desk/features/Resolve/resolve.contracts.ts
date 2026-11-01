@@ -58,7 +58,7 @@ export const uploadSignature = transaction({
             api.uploadSignature(
               { ref, image },
               { idempotencyKey: attempt.id, signal, onProgress: (p) => progress(p) },
-            ), // pending merge 6: progress(p)
+            ), // progress(p)
         ),
       ),
       unknownWhenLost,
