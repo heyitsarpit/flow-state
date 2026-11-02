@@ -1,4 +1,4 @@
-# Round 8 status, checkpoint 1
+# Round 8 status, checkpoint 2
 
 Status: proposed, in flux. Everything here is the builder's own reading; RESULTS comes last.
 
@@ -6,7 +6,9 @@ Status: proposed, in flux. Everything here is the builder's own reading; RESULTS
 
 **Why the builder's three search-only kills did not reproduce [ran].** At `30d3290f`, the commit the mutants ran on, `flush.pay.tight` fails on the *unmutated* code, in 15 s. `f4b13887` then pinned that class (P4). So every mutant that reached the search "died". All three survive at `f4b13887`. `mutate.ts` now runs a control first.
 
-**In flux.** `mutate-one` rewritten, not yet run across the survivor list. CLI pins for `Rule20NotSent` and `UnknownEvent` not added. H3 not started. `run-plants.sh` not rerun.
+**H3 [ran]: what deletes it is Chrome's own recovery.** 12 of 12 natural wipes with Chrome's log: `Corruption: checksum mismatch`, then `IndexedDB recovering from a corrupted (and deleted) database`. The bytes: a bare 7-byte record header, then a whole record from the next process. Planted bytes, no kill timing: 12/12 wipe at the second open, also after a clean exit; control 0/12. Not main-only: `killTree` 5/71, `Browser.crash` 2/64, under a strict write loop.
+
+**Mutants [ran, builder-written].** 48 listed; 5 still to read closely (`driver.credit-kept`, `durable.ticket-not-fenced`, `turn.refusal-keeps-asks`, equivalents by reading). `run-plants.sh` not rerun; searches not rerun past the directed one.
 
 **What I doubt.**
 - `REV8-H1`'s restored state: on `serialize`, `W`'s `NotSent` moves the state out of `U` over a hold (A, with the row uncertain). True and old, but an author's reading of it is untested.

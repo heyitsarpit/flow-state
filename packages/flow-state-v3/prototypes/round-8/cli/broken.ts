@@ -144,3 +144,27 @@ export const readBadFixture: Fixture = {
     uses: [],
   }),
 };
+
+// Review's two rules with no pin: a write that does not map `NotSent`, and an event nothing declares.
+const G = "Lab/Gaps";
+const g = fixtureOf(G);
+const gapMachine = (ops: object, on: object, events: object) => ({
+  id: G,
+  root: "root",
+  default: "A",
+  nodes: {
+    root: { ...g.node("root", { Go: [{ target: "A", members: g.commit("charge", () => ({})) }], Ok: [{}], No: [{}], Unsure: [{}], ...on }), default: "A" },
+    A: g.node("A", {}),
+  },
+  memory: g.memory(() => ({})),
+  ops: ops as never,
+  persisted: true,
+  uses: [],
+  events: events as never,
+});
+const gapOp = (failure: object) => ({
+  charge: { id: "charge", contract: "lab/charge", kind: "write" as const, key: g.key("charge", () => ({})), keyFields: [], concurrency: "reject" as const, commit: () => Effect.void as Effect.Effect<unknown, unknown>, outcomes: { success: { event: "Ok" }, failure, unknown: { event: "Unsure" } } },
+});
+const evs = (...extra: string[]) => ({ external: ["Go"], internal: ["Ok", "No", "Unsure", ...extra] });
+export const noNotSentFixture: Fixture = { id: G, make: () => gapMachine(gapOp({}), {}, evs()) as never };
+export const unknownEventFixture: Fixture = { id: G, make: () => gapMachine(gapOp({ NotSent: { event: "No" } }), { Nobody: [{}] }, evs()) as never };

@@ -19,6 +19,8 @@ eq("keyless", rules("keyless"), { code: 1, rules: ["error:KeyRequired", "warn:Un
 eq("dup-session", rules("dup-session"), { code: 0, rules: ["warn:DuplicateSession"], callbacks: 0, complete: false });
 eq("no-owner", rules("no-owner"), { code: 1, rules: ["error:UnresolvedHold"], callbacks: 0, complete: false });
 eq("no-owner-unreachable", rules("no-owner-unreachable"), { code: 0, rules: ["warn:UnresolvedHold"], callbacks: 0, complete: false });
+eq("no-notsent: a persisted write must map NotSent", rules("no-notsent").rules.includes("error:Rule20NotSent"), true);
+eq("unknown-event: a handled event nothing declares", rules("unknown-event").rules.includes("error:UnknownEvent"), true);
 const rb = rules("read-bad");
 eq("read-bad", rb.rules.includes("error:Rule20Current") && rb.rules.includes("error:Rule20Read"), true);
 // Review H4: `place` kept in STUCK has no owner once PlaceUnsure is spent.

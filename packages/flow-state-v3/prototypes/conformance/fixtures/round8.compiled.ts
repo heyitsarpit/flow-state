@@ -157,6 +157,7 @@ const IdCopy: Fragment = {
       Load: [{ members: cp.lookup("load", ({ event }: any) => ({ tag: event.tag })) }],
       Loaded: [{ patch: ({ event }: any) => ({ got: event.value }) }],
       LoadFailed: [{}],
+      Set: [{ patch: () => ({ got: "raised" }) }],
     }),
   },
   memory: { initial: cp.slot("memory.initial", () => ({ got: null })) },
@@ -173,6 +174,7 @@ export const copiesFixture: Fixture = {
         ...cs.node("root", {
           Add: [{ patch: ({ memory, event }: any) => ({ ids: [...memory.ids, event.id] }) }],
           Note: [{ patch: ({ event }: any) => ({ note: event.text }) }],
+          RaiseTwice: [{ raises: [{ to: "c", key: cs.slot("on.RaiseTwice.raises[0]", () => "x"), event: "Set" }, { to: "c", key: cs.slot("on.RaiseTwice.raises[1]", () => "x"), event: "Set" }] }],
         }),
         placements: [{ name: "c", fragment: "IdCopy", each: { of: "ids", max: 16 } }],
       },

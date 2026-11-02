@@ -1,0 +1,68 @@
+// Round 8's mutants, by the names in round 7's review where it gave one, written from those names and from reading the code. Builder-written, to find gaps: not an independent number.
+const m = (id: string, kills: string, file: string, find: string, replace = "") => ({
+  id,
+  kills: [kills],
+  edits: [[file, find, replace]] as ReadonlyArray<readonly [string, string, string]>,
+});
+const m2 = (id: string, kills: string, file: string, a: readonly [string, string], b: readonly [string, string]) => ({
+  id,
+  kills: [kills],
+  edits: [[file, a[0], a[1]], [file, b[0], b[1]]] as ReadonlyArray<readonly [string, string, string]>,
+});
+export const MUTANTS = [
+  // The edge
+  m("edge.poison-holds-lanes", "D89", "edge.ts", "const goes = encoded !== undefined || (w.record === undefined && w.value !== undefined);", "const goes = encoded !== undefined;"),
+  m("edge.poison-deletes", "D89", "edge.ts", "const goes = encoded !== undefined || (w.record === undefined && w.value !== undefined);", "const goes = encoded !== undefined || w.record === undefined;"),
+  m("edge.hide-first-scope-only", "D80", "edge.ts", "for (const [scope, s] of slots) if (!s.out && s.dirty.size > 0) issue(scope, s);", "for (const [scope, s] of slots) if (!s.out && s.dirty.size > 0) { issue(scope, s); break; }"),
+  m("edge.no-retry-cap", "D83", "edge.ts", "Math.min(o.retryMaxMs, 1000 * 2 ** (s.failures - 1))", "1000 * 2 ** (s.failures - 1)"),
+  m("edge.backoff-overridden", "D83", "edge.ts", "if (!inBackoff && at < s.due)", "if (at < s.due)"),
+  m("edge.hidden-not-issued", "D97", "edge.ts", "|| (host.isHidden() && s.failures === 0)", ""),
+  m("edge.hidden-spins", "D97", "edge.ts", "(host.isHidden() && s.failures === 0)", "host.isHidden()"),
+  m("edge.silent-for-ticket-too", "D83", "edge.ts", "tickets.length > 0\n          ? () => {}\n          :", "false ? () => {} :"),
+  m("edge.failure-issue-every-try", "D83", "edge.ts", "if (s.failures === 1 && out.tickets.length === 0)", "if (out.tickets.length === 0)"),
+  // The driver
+  m("driver.after-drain-ignores-work", "D84", "driver.ts", "if (work()) return void host.later(runAfterDrain); // still draining, past a yield", ""),
+  m("driver.fatal-still-counts-mail", "D98", "driver.ts", "!fatal &&\n    (inbox.length > 0 ||", "(inbox.length > 0 ||"),
+  m("driver.fatal-keeps-fibers", "D98", "driver.ts", "fatal = true;\n    for (const f of fibers.values()) f.interruptUnsafe();", "fatal = true;"),
+  m("driver.credit-kept", "D71", "driver.ts", "credits.delete(key); // L6", ""),
+  // Durable
+  m("durable.head-restores-not-sent", "D96", "durable.ts", 'const ending: Ending = { ch: "unknown", reason: "Restored" }; // D96', 'const ending: Ending = { ch: "failure", tag: "NotSent", value: { why: "Restored" } };'),
+  m("durable.w-restores-unknown", "D96", "durable.ts", 'const e: Ending = { ch: "failure", tag: "NotSent", value: { why: "Restored" } };', 'const e: Ending = { ch: "unknown", reason: "Restored" };'),
+  m("durable.ticket-not-fenced", "D96", "durable.ts", 'if (!l || p?.t !== "durable" || p.ticket !== i.ticket)', 'if (!l || p?.t !== "durable")'),
+  m("durable.owed-record-deleted", "D72", "durable.ts", "if (owed.has(id) || saved[id] === value) return;", "if (saved[id] === value) return;"),
+  m("durable.firing-not-saved", "L6", "durable.ts", "const timers = live ? [...armed, ...firing] : (a.timers ?? []);", "const timers = live ? [...armed] : (a.timers ?? []);"),
+  m2("durable.mint-floor-from-meta-only", "D83", "durable.ts", ["for (const x of l.w) maxMint = Math.max(maxMint, x.mint);", ""], ["if (h) maxMint = Math.max(maxMint, h.mint);", ""]),
+  m("durable.memory-decode-failure-ignored", "D46", "durable.ts", "const decoded = restoredMemory(mm, v.root);", "const decoded = restoredMemory(mm, v.root) ?? v.root;"),
+  m("durable.boot-floor-from-meta-only", "D99", "durable.ts", "boot: maxBoot + 1,", "boot: (Number.isFinite(m?.boot) ? m!.boot : 0) + 1,"),
+  m("durable.actor-boot-unread", "D99", "durable.ts", "if (!v) continue;\n      floorBoot(v);", "if (!v) continue;"),
+  m("durable.meta-not-now", "D80", "durable.ts", 'now.add("meta");', ""),
+  m("durable.deadline-not-now", "D80", "durable.ts", "if (record.retired || tx.armedDeadline) now.add(key);", "if (record.retired) now.add(key);"),
+  m("durable.lane-not-now", "D84", "durable.ts", "now.add(scope); // D84", ""),
+  // The gate
+  m("gate.lane-id-unchecked", "D88", "gate.ts", 'v["id"] === `${v["actor"]}|${v["op"]}|${canon(v["key"])}` &&', ""),
+  m("gate.nan-is-null", "D65", "gate.ts", 'if (typeof x === "number" && !Number.isFinite(x)) return `$${String(x)}`;', ""),
+  m("gate.map-is-object", "D89", "gate.ts", 'if (typeof x === "function" || x instanceof Map || x instanceof Set)', 'if (typeof x === "function")'),
+  m("gate.schedule-unbounded", "L10", "gate.ts", "|| v > 2_147_483_647", ""),
+  m("gate.unknown-closure-allowed", "D77", "gate.ts", "throw new Error(`SealUnknownClosure: ${where}.${k}`);", "void 0;"),
+  // The turn
+  m("turn.keyless-idle-ignores-quarantine", "D88", "turn.ts", "if (Object.keys(w.tx.w.quarantined).some((id) => id.startsWith(prefix)))\n        return { pass: false, reasons };", ""),
+  m("turn.refusal-keeps-asks", "D50", "turn.ts", "tx.asks.length = kept.asks;", ""),
+  m("turn.overlap-allowed", "D50", "turn.ts", "if (set.has(k)) throw refused(part.alt.at, `OverlappingKeys ${k}`);", ""),
+  m("turn.timers-not-reaped", "rule:1", "turn.ts", "reapTimers(w);", ""),
+  m("turn.guard-key-refuses", "D100", "turn.ts", 'return { pass: false, reasons: ["Unencodable"] };', 'throw new Refused("guard", "a key");'),
+  m("turn.guard-key-silent", "D100", "turn.ts", 'issue(w.tx, { code: "UnencodableValue", origin: `${w.a.machine} ${t.op}` });', ""),
+  m("turn.lookup-no-ending", "D100", "turn.ts", 'if (r.unencodable && mem.verb === "lookup") {', "if (false) {"),
+  m("turn.module-value-silent", "D100", "turn.ts", 'if (r.unencodable && mem.verb !== "commit") {\n      issue(tx, { code: "UnencodableValue", origin: `${w.a.machine} ${mem.op}` });', 'if (r.unencodable && mem.verb !== "commit") {'),
+  m("reads.bad-lookup-keeps-old", "D100", "reads.ts", "cancelRead(tx, a.actor, a.inc, a.op);\n  issue(tx,", "issue(tx,"),
+  // The lane
+  m("lane.queue-unbounded", "D29", "lane.ts", 'if (policy === "serialize" && l.w.length >= tx.bounds.queueMax) {', "if (false) {"),
+  m("lane.ackout-false", "D48", "lane.ts", 'const ackOut = (h: Attempt) => h.phase.t === "durable" && h.phase.on === "ack";', "const ackOut = (_h: Attempt) => false;"),
+  m("lane.promote-skips-durable", "D26", "lane.ts", 'setLane(tx, { ...lane, head: { ...next, phase: requestDurable(tx, lane, next, "ack") }, w });', 'setLane(tx, { ...lane, head: { ...next, phase: { t: "ready" } }, w });'),
+  // Typed: killed only by `--swap`, compare or the date check. Round 7's review read 0/11 here because the runner ran none of them.
+  m("typed.flip-a-target", "D91", "typed/pay.typed.ts", "target: S.CARD,", "target: S.LEFT,"),
+  m("typed.json-not-schema", "D89", "record.ts", "return canon(m && r.root ? { ...r, root: walk(m, r.root) } : record);", "return canon(record);"),
+  m("typed.restore-ignores-codec", "D89", "typed/flow.ts", "? Schema.decodeUnknownSync(jsonCodec(f))(s[k])", "? s[k]"),
+  // The CLI: pins only.
+  m("cli.notsent-off", "D92", "cli/check.ts", 'push({ severity: "error", rule: "Rule20NotSent",', 'void ({ severity: "error", rule: "Rule20NotSent",'),
+  m("cli.unknown-event-off", "D92", "cli/check.ts", 'push({ severity: "error", rule: "UnknownEvent", machine: c.id, path: `on.${e}`,', 'void ({ severity: "error", rule: "UnknownEvent", machine: c.id, path: `on.${e}`,'),
+];

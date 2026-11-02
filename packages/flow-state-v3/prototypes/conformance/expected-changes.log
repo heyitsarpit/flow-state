@@ -251,3 +251,9 @@ file:scenarios/round7.scenario.ts hash:3e8de4d7057c | round 8: carries REV7-H1 a
 file:scenarios/ctx.ts hash:5bc104c45863 | round 8, D106: a wire claim may name a request whose key is a business key (`business:`), since by design it is no Attempt's. Attempt keys are checked as before
 file:fake-world.ts hash:776dedd6a167 | round 8, D104: wipe, slowAfterAck, a log of batches; `claim` on the close timer (the tsc error); oracle (g)'s exemption for `meta` removed, since `meta` is one scope and needs none. No expected result moves
 file:drive.ts hash:8f6a7e5ebec8 | round 8: steps for the above; a kill can run at a yield, as `afterYield` with a list; `throwInCoreAfter`. Kill body moved to `die`, unchanged
+REV8-M2 hash:3051245341c8 | round 8's own case: the M2 trace first written did not reproduce M2, shown by a survivor; now the later Note is visible and the hide finds a batch out, and it fails on round 7
+REV8-FATAL hash:6d47a47887cb | round 8's own case: fibers case answered first, so nothing was left to stop, shown by a survivor; the fatal now comes on another event with the send on the wire
+REV8-PINS hash:c8c38e6a5cbe | round 8's own case: added firing behind queued mail, reaped schedule, overlapping raises, full queue; the lane-id case now edits the key, since the old edit was caught by the check beside it
+file:drive.ts hash:9cb44294a916 | round 8: advanceNow and nextYield for a kill two yields on; no expected result moves
+file:scenarios/round8.scenario.ts hash:58a198ee0a44 | round 8: carries REV8-M2, REV8-FATAL, REV8-PINS above
+file:fixtures/round8.compiled.ts hash:73804d8f606f | round 8: RaiseTwice and Set on the copies fixture, for overlapping raises only

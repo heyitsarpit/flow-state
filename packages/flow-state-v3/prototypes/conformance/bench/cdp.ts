@@ -38,6 +38,7 @@ export type Browser = {
   kill(): Promise<void>; // `killMain`, under the name round 7's folder calls it
   killTree(): Promise<void>; // SIGKILL of the main process and every child, one `ps` later. The profile stays
   crashBrowser(): Promise<void>; // CDP `Browser.crash`: the browser's own crash path, the profile stays
+  quit(): Promise<void>; // CDP `Browser.close`: a clean exit. The profile stays
   restart(): Promise<void>; // the same profile, a new process
   close(): Promise<void>; // and the profile goes
 };
@@ -188,6 +189,18 @@ export const launch = async (
         try {
           process.kill(c, 9);
         } catch {}
+      await proc.exited;
+    },
+    quit: async () => {
+      const v = (await (await fetch(`http://127.0.0.1:${port}/json/version`)).json()) as any;
+      const ws = new WebSocket(v.webSocketDebuggerUrl);
+      await new Promise((res, rej) => {
+        ws.onopen = res;
+        ws.onerror = rej;
+      });
+      ws.send(JSON.stringify({ id: 1, method: "Browser.close", params: {} }));
+      await Promise.race([proc.exited, Bun.sleep(8000)]);
+      proc.kill(9);
       await proc.exited;
     },
     crashBrowser: async () => {

@@ -99,6 +99,7 @@ const SHARED = [
   "scenarios/round8.scenario.ts",
   "fixtures/round8.compiled.ts",
 ];
+const splitLock = (l: string): [string, string] => [l.slice(0, l.lastIndexOf(" ")), l.slice(l.lastIndexOf(" ") + 1)]; // a variant's name may hold spaces
 const lockLines = (): string[] => [
   ...allScenarios.map((s) => `${s.id} ${sha(bodyOf(s))}`),
   // D103: a variant is an expected result too. Its text is in its scenario's hash; this line is so that one gone is seen by name.
@@ -201,7 +202,7 @@ if (import.meta.main) {
         readFileSync(LOCK, "utf8")
           .trim()
           .split("\n")
-          .map((l) => l.split(" ") as [string, string]),
+          .map(splitLock),
       )
     : new Map<string, string>();
   const log = existsSync(LOG) ? readFileSync(LOG, "utf8") : "";
@@ -212,7 +213,7 @@ if (import.meta.main) {
   for (const l of logLines) uses.set(reasonOf(l), (uses.get(reasonOf(l)) ?? 0) + 1);
   const logged = (id: string, h: string) =>
     logLines.some((l) => l.startsWith(`${id} hash:${h}`) && reasonOf(l).length > 0 && uses.get(reasonOf(l))! <= BULK);
-  const now = lockLines().map((l) => l.split(" ") as [string, string]);
+  const now = lockLines().map(splitLock);
   const unlogged = now.filter(([id, h]) => old.has(id) && old.get(id) !== h && !logged(id, h)).map(([id]) => id);
   // D103: an id or a variant the lock had and the suite does not is a failure until a `removed:` line names it.
   const nowIds = new Set(now.map(([id]) => id));
@@ -248,7 +249,7 @@ if (import.meta.main) {
     console.log(
       `${r.ok ? "PASS" : "FAIL"}  ${name(r).padEnd(52)} ${r.ok ? `${r.ms.toFixed(1)} ms` : r.why}${r.trace ? `\n      ${r.trace}` : ""}`,
     );
-  printReports(
+  if (!has("--no-catalog")) printReports(
     round,
     allScenarios,
     cells,

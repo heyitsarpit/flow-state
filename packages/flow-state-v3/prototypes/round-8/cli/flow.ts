@@ -11,7 +11,7 @@ import { refundsFixture } from "../../conformance/fixtures/refunds.compiled.ts";
 import type { Fixture } from "../../conformance/harness.ts";
 import { typedPayFixture } from "../typed/pay.typed.ts";
 import { check, type Finding } from "./check.ts";
-import { brokenFixture, dupSessionFixture, keylessFixture, noOwnerFixture, readBadFixture } from "./broken.ts";
+import { brokenFixture, dupSessionFixture, keylessFixture, noNotSentFixture, noOwnerFixture, readBadFixture, unknownEventFixture } from "./broken.ts";
 import { explain, explainText, overview } from "./explain.ts";
 
 const api = new Proxy({}, { get: () => () => undefined }) as Api;
@@ -34,6 +34,8 @@ export const TARGETS: Readonly<Record<string, Fixture>> = {
   "no-owner": noOwnerFixture(false),
   "no-owner-unreachable": noOwnerFixture(true),
   "read-bad": readBadFixture,
+  "no-notsent": noNotSentFixture,
+  "unknown-event": unknownEventFixture,
 };
 const fail = (reason: string, operand: string): never => {
   process.stderr.write(`${JSON.stringify({ error: "InvalidOperand", reason, operand })}\n`);

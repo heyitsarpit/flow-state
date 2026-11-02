@@ -132,6 +132,8 @@ export const makeHarness = (port: Port) => (): Harness => {
     else if ("freeze" in s) fake.freezeTimers = s.freeze;
     else if ("holdPlain" in s) fake.holdPlain = s.holdPlain;
     else if ("slowAfterAck" in s) fake.slowAfterAck = true;
+    else if ("advanceNow" in s) fake.advanceWith(s.advanceNow, () => {});
+    else if ("nextYield" in s) yieldPlan = s.nextYield;
     else if ("storeWide" in s) fake.storeWide = s.storeWide;
     else if ("feed" in s) {
       fake.feedStep(s.feed, s);

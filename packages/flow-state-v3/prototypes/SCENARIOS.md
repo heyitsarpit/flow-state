@@ -463,4 +463,4 @@ Convergence-8. Old unbuilt rows (`STORY-ALL`, `BROWSER-*`, `SSR-01`) renumbered 
 | REV8-M3 | 8 | fault | hostile | D99 |  | review M3: a boot lost apart from its records repeats no id; a read reaches its own copy |
 | REV8-M9 | 8 | fault | hostile | D100, O5 |  | review M9's doors: a guard key denies, a lookup ends failed, a module value drops, a member's key does nothing |
 | REV8-WIPE | 8 | fault | hostile | D106, O6 |  | a wiped origin and a hold, in both key forms |
-| REV8-PINS | 8 | fault | hostile | D102, D80, D84, D88, D72, D83, D89, L6 |  | survivors of the round 7 reviews: hide on two actors, after-drain, poison's lanes, and every survivor reported twice |
+| REV8-PINS | 8 | fault | hostile | D102, D80, D84, D88, D72, D83, D89, D29, L6 |  | survivors of the round 7 reviews: hide on two actors, after-drain, poison's lanes, and every survivor reported twice |

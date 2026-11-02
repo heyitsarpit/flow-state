@@ -173,9 +173,9 @@ export const round8Scenarios: readonly Scenario[] = [
         c.do({ hide: true }); // the actor's first record is not in this
         c.send("Note", { text: "out" });
         c.do({ holdPlain: true });
-        c.do({ hide: true, stay: true });
-        c.send("Note", { text: "newest" });
-        c.do({ hide: true, stay: true });
+        c.do({ hide: true }); // `out` is out; the page is visible again
+        c.send("Note", { text: "newest" }); // visible: its window starts
+        c.do({ hide: true, stay: true }); // the page goes, with a batch out, so this hide cannot issue
         c.do({ holdPlain: false });
         c.do({ storage: "ack" });
         c.eq("no timer waited", noteOn(c), "newest");
@@ -230,7 +230,7 @@ export const round8Scenarios: readonly Scenario[] = [
         c.ack();
         c.eq("one on the wire", c.r.outside().live, 1);
         c.fault({ throwInCore: true });
-        c.answer("charge", { ok: {} });
+        c.send("Note", { text: "x" }); // the turn's core code throws, with the send still on the wire
         c.yes("fatal", c.r.quiet().fatal);
         c.eq("none left", c.r.outside().live, 0);
       },
@@ -431,7 +431,7 @@ export const round8Scenarios: readonly Scenario[] = [
     kind: "fault",
     fixtures: [serialBareFixture()],
     actor: A,
-    cites: ["D102", "D80", "D84", "D88", "D72", "D83", "D89", "L6"],
+    cites: ["D102", "D80", "D84", "D88", "D72", "D83", "D89", "D29", "L6"],
     namedIssues: ["UnencodableValue", "StorageFailure", "RecordQuarantined", "InvalidTurn"],
     variants: {
       // edge.ticket-batch-carries-only-its-own: a hide with two actors.
@@ -490,15 +490,36 @@ export const round8Scenarios: readonly Scenario[] = [
         c.eq("both boots owed it", c.r.evidence("unparked").length, 2);
       },
       // durable.firing-not-saved: a firing still in mail has not committed. The disk keeps it.
+      // The record is written only by what else happens: a `Note` ahead of the firing in mail, and a hide and a kill right after that `Note`'s turn.
       "L6-a-firing-before-its-turn-survives-a-kill"(c0) {
-        const c = on(c0, serialBareFixture(), { drainMs: -1 });
+        const c = on(c0, serialBareFixture(), { drainMs: -1, captureMs: 0 });
         c.send("Arm");
         c.state("T");
-        c.fault({ afterYield: [{ hide: true }, { reload: true }] });
-        c.advance(1_000);
+        c.h.raw({ send: A, event: "Note", payload: { text: "ahead" } }); // in mail, its turn not run
+        c.fault({ afterYield: [{ advanceNow: 1_000 }, { nextYield: [{ hide: true }, { reload: true }] }] });
         c.advance(0);
         c.state("A");
         c.eq("once", c.mem().fired, 1);
+      },
+      // turn.timers-not-reaped: rule 1, a left state's schedules are cancelled, not only fenced when they fire.
+      "rule1-a-left-states-schedule-is-gone"(c0) {
+        const c = on(c0, serialBareFixture(), { captureMs: 0 });
+        const before = c.r.outside().timers.length;
+        c.send("Arm");
+        c.eq("armed", c.r.outside().timers.length, before + 1);
+        c.send("No");
+        c.state("A");
+        c.eq("gone", c.r.outside().timers.length, before);
+      },
+      // turn.overlap-allowed: two parts of one turn writing one key of one copy.
+      "D57-two-raises-writing-one-key-refuse-the-turn"(c0) {
+        const X = { actor: CopiesId, id: "a" };
+        const c = new Ctx(c0.fresh([copiesFixture], { captureMs: 0 }), X);
+        c.namedIssues = c0.namedIssues;
+        c.ensure();
+        c.send("RaiseTwice");
+        c.yes("refused", c.r.issues().some((i) => i.code === "InvalidTurn"));
+        c.eq("neither wrote", c.inner(["c:x"])?.memory.got, null);
       },
       // turn.keyless-idle-ignores-quarantine.
       "D88-a-keyless-idle-sees-a-quarantined-hold"(c0) {
@@ -510,12 +531,12 @@ export const round8Scenarios: readonly Scenario[] = [
         c.send("IfIdleK");
         c.eq("denied", c.mem().peeks, 0);
       },
-      // gate.lane-id-unchecked: the record's body names the id its key says.
+      // gate.lane-id-unchecked: the id must be what `laneKey` makes of the key. A body whose key moved would make an idle guard miss the hold.
       "D88-a-lane-record-whose-id-disagrees-is-quarantined"(c0) {
         const c = on(c0, serialBareFixture());
         c.send("Go");
         c.ack();
-        c.fault({ corruptStored: { match: "|charge|", edit: (raw: string) => raw.replace(/"id":"[^"]*\|charge\|/, `"id":"x|charge|`) } });
+        c.fault({ corruptStored: { match: "|charge|", edit: (raw: string) => raw.replace(`"key":{}`, `"key":{"a":1}`) } });
         c.reload();
         c.yes("named", c.r.issues().some((i) => i.code === "RecordQuarantined"));
         c.send("IfIdleK");
@@ -581,6 +602,15 @@ export const round8Scenarios: readonly Scenario[] = [
         const mints = c.r.evidence("mint").map((e) => e["mint"]);
         c.eq("two mints", mints.length, 2);
         c.yes("the newer is later", mints[1]! > mints[0]!);
+      },
+      // lane.queue-unbounded: `W` has a bound, and past it a commit declines.
+      "D29-a-full-queue-declines"(c0) {
+        const c = on(c0, serialBareFixture(), { captureMs: 0, queueMax: 2 });
+        c.send("Go"); // head
+        c.send("Go");
+        c.send("Go"); // behind it, two
+        c.send("Go");
+        c.eq("the third behind is declined", c.lastEnding("charge")?.["reason"], "Overloaded");
       },
       // durable.memory-decode-failure-ignored: memory this release cannot decode is quarantined, not fatal.
       "D46-memory-that-cannot-decode-is-quarantined"(c0) {

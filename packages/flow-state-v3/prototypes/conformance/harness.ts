@@ -59,6 +59,8 @@ export type Step =
   | { storage: "ack" | "refuse" | "hang" | "landNoAck" | "failLate" | "loadOk" | "loadFail"; match?: string }
   | { clockBack: number } // round 7: the wall clock is set back
   | { freeze: boolean } // round 7: a frozen tab's timers do not fire
+  | { advanceNow: number } // round 8, inside `afterYield`: time passes and timers fire, with no settling: a firing behind mail already queued
+  | { nextYield: Step | readonly Step[] } // round 8, inside `afterYield`: and this at the next yield
   | { holdPlain: boolean } // round 7: plain successes stay in flight until a `storage` step
   | { slowAfterAck: true } // D104: the store goes slow at the next `ack`, so what follows it stays in flight
   | { storeWide: boolean } // round 7: one store: only the oldest batch can be answered

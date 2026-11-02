@@ -159,12 +159,12 @@ REV7-EDGE 44395b8cc143
 REV7-SEARCH-FAKE 6090e7763d43
 REV7-CHAT 6f845a85cc7f
 REV8-H1 ccbc20119f06
-REV8-M2 41e029591a71
-REV8-FATAL f26c7e84fa35
+REV8-M2 3051245341c8
+REV8-FATAL 6d47a47887cb
 REV8-M3 cf4f9e8f3f65
 REV8-M9 70a6f5226c30
 REV8-WIPE b3e3780686c8
-REV8-PINS c596a2bd2578
+REV8-PINS c8c38e6a5cbe
 variant:PAY-06/interruptible present
 variant:PAY-06/uninterruptible present
 variant:PAY-07/leaveMidCharge present
@@ -700,6 +700,8 @@ variant:REV8-PINS/D89-poison-lanes-go-ahead-of-the-record present
 variant:REV8-PINS/D89-poison-holds-a-delete-back-so-a-hold-is-kept present
 variant:REV8-PINS/D72-a-parked-ending-survives-a-kill-before-delivery present
 variant:REV8-PINS/L6-a-firing-before-its-turn-survives-a-kill present
+variant:REV8-PINS/rule1-a-left-states-schedule-is-gone present
+variant:REV8-PINS/D57-two-raises-writing-one-key-refuse-the-turn present
 variant:REV8-PINS/D88-a-keyless-idle-sees-a-quarantined-hold present
 variant:REV8-PINS/D88-a-lane-record-whose-id-disagrees-is-quarantined present
 variant:REV8-PINS/D65-NaN-is-not-null present
@@ -708,6 +710,7 @@ variant:REV8-PINS/L10-a-schedule-past-the-bound-is-refused present
 variant:REV8-PINS/D83-a-retry-is-capped present
 variant:REV8-PINS/D83-a-new-write-does-not-jump-the-backoff present
 variant:REV8-PINS/D83-a-lost-meta-does-not-reuse-a-mint present
+variant:REV8-PINS/D29-a-full-queue-declines present
 variant:REV8-PINS/D46-memory-that-cannot-decode-is-quarantined present
 variant:REV8-PINS/D77-a-closure-the-seal-does-not-know-is-an-error present
 file:scenarios/ctx.ts 5bc104c45863
@@ -719,7 +722,7 @@ file:scenarios/review.scenario.ts f74534a2bd4a
 file:scenarios/frag.scenario.ts 6e574cd00382
 file:scenarios/round4.scenario.ts 8bac160577c0
 file:fake-world.ts 776dedd6a167
-file:drive.ts 8f6a7e5ebec8
+file:drive.ts 9cb44294a916
 file:fixtures/compiled.ts c3ca3a333cb1
 file:fixtures/build.ts 3404a3e3ed34
 file:fixtures/pay.compiled.ts b02dba2beb5e
@@ -745,5 +748,5 @@ file:scenarios/round6.scenario.ts ea6c85e13efa
 file:fixtures/round6.compiled.ts 1ae414ffbb3b
 file:scenarios/round7.scenario.ts 3e8de4d7057c
 file:fixtures/round7.compiled.ts 4dbffb93f0d9
-file:scenarios/round8.scenario.ts 4265190ab0f0
-file:fixtures/round8.compiled.ts 2170922a55bb
+file:scenarios/round8.scenario.ts 58a198ee0a44
+file:fixtures/round8.compiled.ts 73804d8f606f

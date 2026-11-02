@@ -5,7 +5,7 @@ import { join, resolve } from "node:path";
 
 const i = process.argv.indexOf("--runtime");
 const runtime = process.argv[i + 1] ?? "../round-8/adapter.ts";
-const p = Bun.spawnSync(["bun", join(import.meta.dir, "main.ts"), "--round", "8", "--runtime", runtime], {
+const p = Bun.spawnSync(["bun", join(import.meta.dir, "main.ts"), "--round", "8", "--no-catalog", "--runtime", runtime], {
   env: { ...process.env, FLOW_RUNTIME_DEFAULT: "1", FLOW_TEST_FLUSH: "reads,faults" },
 });
 const out = p.stdout.toString();

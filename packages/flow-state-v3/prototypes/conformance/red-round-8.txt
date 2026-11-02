@@ -17,3 +17,5 @@ FAIL REV8-M9/a-module-value-that-cannot-encode-is-dropped-and-named no refused t
 FAIL REV8-M9/a-members-key-that-cannot-encode-does-nothing-and-the-turn-runs cancel: the turn ran: expected 1, got 0
 SUMMARY 592/607 scenario cases pass; unlogged expectation changes: file:scenarios/ctx.ts file:fake-world.ts file:drive.ts; catalog disagreements: none
 WATCH peak 260 MB, 9.4 s, exit 1, killed no
+# Added after the first red run: REV8-M2/an-answer-to-a-hidden-page-issues-at-once as first written passed on round 7's code, so it did not reproduce M2. A survivor showed it. Rewritten, then seen failing on round 7:
+FAIL REV8-M2/an-answer-to-a-hidden-page-issues-at-once no timer waited: expected "newest", got "out"
