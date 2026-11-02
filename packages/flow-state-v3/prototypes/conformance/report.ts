@@ -45,6 +45,7 @@ export const changed = (): Map<string, string[]> => {
     "convergence-3.md",
     "convergence-4.md",
     "convergence-5.md",
+    "convergence-6.md",
   ]) {
     const text = readFileSync(join(proto, f), "utf8");
     const block = /```decisions-changed\n([\s\S]*?)```/.exec(text)![1]!;

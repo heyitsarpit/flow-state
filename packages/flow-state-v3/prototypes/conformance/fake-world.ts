@@ -2,6 +2,7 @@
 // fake storage. A runtime sees only `Host` and `Api`. A "process" is a generation: when it dies, nothing from it
 // reaches the next one, without any cooperation from the runtime.
 import { Cause, Effect, Exit, Queue, Stream, type Scheduler } from "effect";
+import type { FeedCallback } from "./fixtures/compiled.ts";
 import type { Answer, Outside, Request, World0 } from "./harness.ts";
 
 export type Purpose = "acknowledge" | "capture" | "flush";
@@ -14,8 +15,14 @@ export type Host = {
   scheduler: Scheduler.Scheduler;
   storage: {
     load(): ReadonlyMap<string, string>;
-    // `then` makes the write awaited: the fake holds it until a `storage` step. Others land at once.
-    write(writes: readonly Write[], purpose: Purpose, then?: (ok: boolean) => void): void;
+    // `then` makes the write awaited: the fake holds it until a `storage` step. Others land at once. `failed`: a plain write that
+    // did not land (review M7). A real store says so; silence is not landing. The batch is atomic: this is the contract D80 relies on.
+    write(
+      writes: readonly Write[],
+      purpose: Purpose,
+      then?: (ok: boolean) => void,
+      failed?: (why: string) => void,
+    ): void;
   };
 };
 export type ServerModel = {
@@ -34,7 +41,8 @@ export type Api = {
   intent(i: unknown): E;
   orderFor(i: unknown): E;
   socket(op: string, input: unknown, from: unknown): unknown; // Stream of what the server pushes, until a `feed` step ends it
-  pulled(op: string, input: unknown, from: unknown, bound?: number): unknown; // hands over one backlog item per pull (T4). `bound`: T6's queue, full fails Overflow
+  pulled(op: string, input: unknown, from: unknown): unknown; // hands over one backlog item per pull (T4)
+  feed(op: string, input: unknown, from: unknown, bound?: number): FeedCallback; // T6: what `Feed.callback` compiles to. The queue is the runtime's
 };
 type Conn = {
   op: string;
@@ -45,7 +53,6 @@ type Conn = {
   closing?: boolean; // we asked; a real close is a handshake and awaited finalizers
   pulled: number; // items a pulled source has handed over: T4's "at turn pace" is seen here
   backlog: unknown[]; // a pulled source's items, waiting at the server
-  bound?: number;
   ended?: boolean;
   failing?: { e: unknown };
   wake?: (() => void) | undefined;
@@ -79,6 +86,7 @@ class StepScheduler implements Scheduler.Scheduler {
 }
 
 type Held = Request & {
+  startState?: unknown; // review H6: what the server held when this request started
   never?: boolean;
   aborted?: boolean;
   lostOpen?: boolean; // the answer was lost and the server has not applied it: it may land late
@@ -118,6 +126,8 @@ export class FakeWorld {
   yields = 0;
 
   readonly kv = new Map<string, string>();
+  plainFails = 0; // review M7: the next n plain writes fail, and say so
+  private lastBatch: Array<{ key: string; before: string | undefined }> = [];
   private held: Array<{
     writes: readonly Write[];
     purpose: Purpose;
@@ -171,6 +181,11 @@ export class FakeWorld {
           const blocked = writes.some((w) =>
             this.held.some((h) => h.writes.some((x) => x.key === w.key)),
           );
+          if (then === undefined && !blocked && this.plainFails > 0) {
+            this.plainFails--;
+            failed?.("a plain write failed");
+            return;
+          }
           if (then !== undefined || blocked) this.held.push({ writes, purpose, then });
           else this.landWrites(writes);
         },
@@ -180,7 +195,16 @@ export class FakeWorld {
   corrupt(match: string, edit: (raw: string) => string) {
     for (const [k, v] of this.kv) if (k.includes(match)) this.kv.set(k, edit(v));
   }
+  // Review M7: a store with no atomic batch. Only the first `keep` writes of the last batch really landed. Real IndexedDB cannot do this.
+  tearLast(keep: number) {
+    for (const { key, before } of this.lastBatch.slice(keep)) {
+      if (before === undefined) this.kv.delete(key);
+      else this.kv.set(key, before);
+    }
+    this.lastBatch = [];
+  }
   private landWrites(writes: readonly Write[]) {
+    this.lastBatch = writes.map((w) => ({ key: w.key, before: this.kv.get(w.key) }));
     for (const w of writes) {
       if (w.value === undefined) this.kv.delete(w.key);
       else this.kv.set(w.key, w.value);
@@ -268,9 +292,8 @@ export class FakeWorld {
       );
     },
     // A pulled source: nothing moves until the consumer asks. `backlog` is what the server has.
-    pulled: (op, input, from, bound) => {
+    pulled: (op, input, from) => {
       const c = this.newConn(op, input, from);
-      if (bound !== undefined) c.bound = bound;
       const END = {};
       c.end = () => {
         c.ended = true;
@@ -301,6 +324,20 @@ export class FakeWorld {
         Stream.takeWhile((x) => x !== END),
         Stream.ensuring(Effect.suspend(() => this.closeConn(c))),
       );
+    },
+    // T6's far side. The fake holds no queue: `emit` is the runtime's, so what bounds a pushed source is runtime code (review M5).
+    feed: (op, input, from, bound) => {
+      const c = this.newConn(op, input, from);
+      return {
+        _tag: "Feed.callback",
+        ...(bound === undefined ? {} : { bound }),
+        start: (emit) => {
+          c.push = (f) => void emit(f);
+          c.end = () => emit.end();
+          c.fail = (e) => emit.fail(e);
+          return () => this.closeConn(c);
+        },
+      };
     },
   };
   readonly conns: Conn[] = [];
@@ -357,11 +394,6 @@ export class FakeWorld {
       if (c.push) for (const f of items) c.push(f);
       else
         for (const f of items) {
-          if (c.bound !== undefined && c.backlog.length >= c.bound) {
-            c.failing ??= { e: { _tag: "Overflow" } }; // T6: full: `failing Overflow`; the value is dropped. Drain, then fail
-            c.wake?.();
-            continue;
-          }
           c.backlog.push(f);
           c.wake?.();
         }
@@ -379,6 +411,7 @@ export class FakeWorld {
     };
     const sync = this.syncAnswers.get(op);
     let body: E = Effect.suspend(() => {
+      r.startState = this.serverState;
       this.requests.push(r);
       if (sync) {
         r.answered = true;
@@ -483,6 +516,11 @@ export class FakeWorld {
     }
     if ("truth" in a) {
       const v = this.server?.read?.(r.op, r.input, this.serverState, this.truth());
+      return Effect.succeed(v);
+    }
+    if ("atStart" in a) {
+      // Review H6: a read of a real server's snapshot, older than its landing whenever anything happened in between.
+      const v = this.server?.read?.(r.op, r.input, r.startState, this.truth());
       return Effect.succeed(v);
     }
     throw new Error("settle: not an answer");

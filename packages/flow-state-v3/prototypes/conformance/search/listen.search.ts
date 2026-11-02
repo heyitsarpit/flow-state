@@ -30,6 +30,9 @@ const ACTIONS: readonly Action[] = [
   { name: "Reconcile", step: { send: T, event: "Reconcile", payload: { id: "t1" } } },
   { name: "list.truth", step: { answer: "list", with: { truth: true } }, on: open("list") },
   { name: "repair.truth", step: { answer: "repair", with: { truth: true } }, on: open("repair") },
+  // Review H6: a read answers what the server held when it started.
+  { name: "list.start", step: { answer: "list", with: { atStart: true } }, on: open("list") },
+  { name: "repair.start", step: { answer: "repair", with: { atStart: true } }, on: open("repair") },
   {
     name: "repair.fail",
     step: { answer: "repair", with: { fail: { tag: "NoResponse" } } },
@@ -57,21 +60,31 @@ const ACTIONS: readonly Action[] = [
   },
   { name: "t30s", step: { advance: 30_000 } },
 ];
-// With no version a frame that arrives out of its server's order is silently applied: the search found it at depth 3 (hello other
-// frame.now frame.was). D67's stated limit for an unversioned entity, and the owner's question: so there it counts as being behind.
-const bumps = (s: readonly Action[], shape: "version" | "none") => {
-  // How many moves the server made since the feed last told all, as the search can see it: `other` moved it, `frame.now` told it.
+// How many moves the server made since the feed last told all, as the search can see it: `other` moved it; `frame.now` and a read
+// that answers from now told it. A read that answers from its start tells nothing about `other`.
+const bumps = (s: readonly Action[]) => {
   let behind = 0;
   for (const a of s) {
-    if (a.name === "other" || (shape === "none" && a.name === "frame.was")) behind++;
+    if (a.name === "other") behind++;
     if (a.name === "frame.now" || a.name === "list.truth" || a.name === "repair.truth") behind = 0;
   }
   return behind;
+};
+// The stated limit, and only it (D74 (b)): with no version a frame out of its server's order applies, until a later frame or read. It
+// excuses a record that shows exactly what that frame said. Anything else wrong after it is a failure (review H6).
+const afterWas = (s: readonly Action[]) => {
+  let was = false;
+  for (const a of s) {
+    if (a.name === "frame.was") was = true;
+    if (a.name === "frame.now" || a.name === "list.truth" || a.name === "repair.truth") was = false;
+  }
+  return was;
 };
 export const searchListen = (
   make: () => Harness,
   shape: "version" | "none",
   o: { depth: number; maxStates: number; deadlineMs: number },
+  first: "load" | "none" = "load", // review H6: `load` is what hid H1: the record was always already held
 ): Report => {
   const fixture = shape === "version" ? deskListenFixture : deskListenNoVersionFixture;
   const boot = () => {
@@ -90,11 +103,14 @@ export const searchListen = (
     };
     h.start({ machines: [fixture], seed: 1 });
     inner({ ensure: T });
-    inner({ send: T, event: "Load" });
-    inner({ answer: "list", with: { truth: true } });
+    if (first === "load") {
+      inner({ send: T, event: "Load" });
+      inner({ answer: "list", with: { truth: true } });
+    }
     return h;
   };
   let behindNow = 0;
+  let wasNow = false;
   return bfs({
     make: boot,
     actions: ACTIONS,
@@ -102,8 +118,9 @@ export const searchListen = (
     maxStates: o.maxStates,
     deadlineMs: o.deadlineMs,
     extra: (s) => {
-      behindNow = bumps(s, shape);
-      return `${behindNow}`;
+      behindNow = bumps(s);
+      wasNow = shape === "none" && afterWas(s);
+      return `${behindNow}|${wasNow}`;
     },
     edge(_pre, post) {
       if (post.read.quiet().fatal) throw new Oracle("fatal");
@@ -126,7 +143,8 @@ export const searchListen = (
         q.waits.some((w) => w.kind !== "timer");
       if (r && !busy && !r.predicted && !r.uncertain && behindNow === 0) {
         const t = h.read.truth().server.tickets.t1;
-        if (t && (r.data?.archived !== t.archived || r.data?.title !== t.title))
+        const excused = wasNow && r.data?.title === "title t1" && r.data?.archived === false;
+        if (t && !excused && (r.data?.archived !== t.archived || r.data?.title !== t.title))
           throw new Oracle(
             `silently wrong: shows ${JSON.stringify(r.data)}, server ${JSON.stringify(t)}`,
           );

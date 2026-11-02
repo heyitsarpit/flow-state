@@ -322,6 +322,18 @@ Convergence-5. Fixtures: `desk.compiled.ts`, copied from the desk's domains (`pr
 
 | id | R | kind | src | cites | thin | what it shows |
 | -- | --- | ---- | --- | ----- | ---- | ------------- |
+| REV6-H1 | 6 | example | flow | D74, D76, sec:2.8.6 |  | review H1: frames and successes before the first row |
+| REV6-H2 | 6 | example | flow | D74, sec:2.8.6, rule:32 |  | review H2, L7: three ways to undo a confirmed fact |
+| REV6-H3 | 6 | example | flow | D75, sec:2.8.6 |  | review H3: a version's order is declared |
+| REV6-TWOFEEDS | 6 | example | flow | D74, sec:2.8.14 |  | two feeds on one entity |
+| REV6-H4 | 6 | fault | hostile | D77, D46, D65 |  | review H4, M4, M11, L5: every closure gated |
+| REV6-H5 | 6 | fault | hostile | D78, rule:17, rule:46 |  | review H5: a release that changes a key |
+| REV6-H7 | 6 | example | table | D79, T1, T2, T6 |  | review H7, M5: a read that never answers; T6 in the runtime |
+| REV6-STREAMS | 6 | example | table | D79, D71, T1, T3, T4 |  | review M1-M3, L2, L4, M13 |
+| REV6-M7 | 6 | fault | hostile | D80, O5, O3 |  | review M7: a plain write can fail |
+| REV6-TEAR | 6 | fault | hostile | D80, O3 |  | a store with no atomic batch |
+| REV6-M8 | 6 | fault | hostile | D82, D50, O5 |  | review M8: restored memory |
+| REV6-L3 | 6 | fault | hostile | D57, D61, rule:46 |  | review L3: stored names |
 | REV5-H1 | 5 | fault | hostile | D65, D57, rule:12 |  | review H1: prototype names at every door, an event of no shape, an unknown machine |
 | SEARCH-ODD-ALL | 5 | bounded | hostile | D65, D57 |  | every closure kind crossed with every odd value: by machine, not by value |
 | REV5-H2 | 5 | fault | hostile | D65, D61, rule:46, P19 |  | review H2: a frozen ending of a removed operation, stored prototype names, junk in frozen |

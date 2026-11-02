@@ -201,6 +201,7 @@ export const makeHarness = (port: Port) => (): Harness => {
       }
       if ("reload" in s) {
         plan = undefined;
+        if (s.tear !== undefined) fake.tearLast(s.tear);
         noteLost();
         fake.killProcess();
         boot();
@@ -222,6 +223,7 @@ export const makeHarness = (port: Port) => (): Harness => {
         else if ("afterYield" in f) yieldPlan = f.afterYield;
         else if ("mutateServer" in f) fake.serverState = f.mutateServer(fake.serverState);
         else if ("socketClose" in f) fake.closeMs = f.socketClose;
+        else if ("storageFails" in f) fake.plainFails = f.storageFails;
         else if ("corruptStored" in f) {
           // A record edited on disk may be quarantined, and an Attempt in it with it: rule 46, named by an issue.
           const hit = [...fake.kv]

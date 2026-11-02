@@ -137,7 +137,10 @@ export type Compiled = {
   readonly nodes: Readonly<Record<string, Node>>;
   readonly root: string;
   readonly default: string;
-  readonly memory: { readonly initial: Slot<(input: unknown) => object> };
+  readonly memory: {
+    readonly initial: Slot<(input: unknown) => object>;
+    readonly restore?: Slot<(stored: any) => object>; // D82: a stand-in for Schema decode with defaults, at restore
+  };
   readonly ops: Readonly<Record<string, Op>>;
   readonly persisted: boolean;
   readonly uses: readonly string[]; // D44: modules this machine's operations import, by name
@@ -173,6 +176,7 @@ export type DomainSpec = {
   readonly reads: Readonly<Record<string, (value: any, input: any) => readonly Carried[]>>;
   readonly repair: (ref: string) => Effect.Effect<any, any, never>; // a forced repair: the record's fields, or null
   readonly version?: (ref: string) => string | undefined; // D67: the entity's `version: "revision"`, the name of the field, per record
+  readonly versionOrder?: "lexical" | ((a: unknown, b: unknown) => number); // D75: numbers order. A string orders only if declared
   readonly listens?: Readonly<Record<string, (value: any) => readonly Carried[]>>; // a domain's `listen(...).as(...)`: a stream's values as changes
 };
 
@@ -186,6 +190,17 @@ export type Signal =
     }
   | { readonly _feed: "ping" }
   | { readonly _feed: "down"; readonly reason: string };
+// T6: what `Feed.callback` compiles to. `subscribe` returns a Stream, or this. It is a value so that the Runtime owns the queue (D79).
+export type Emit = {
+  (v: unknown): void; // a value or a signal
+  readonly fail: (e: unknown) => void;
+  readonly end: () => void;
+};
+export type FeedCallback = {
+  readonly _tag: "Feed.callback";
+  readonly bound?: number; // 1,024 by default
+  readonly start: (emit: Emit) => void | (() => unknown); // a finalizer may return an Effect, awaited
+};
 export type StreamSpec = {
   readonly id: string;
   readonly delivers?: "every" | "latest"; // absent: every
@@ -209,7 +224,7 @@ export type StreamSpec = {
     c: { readonly from: unknown; readonly next?: unknown },
   ) => unknown; // Effect<more | done | gone>
   readonly pageRetryWhile?: (e: any) => boolean;
-  readonly callbackBound?: number; // T6: `Feed.callback`'s bound, 1,024 by default
+  readonly callbackBound?: number; // T4: `buf`'s bound in Repairing, 1,024 by default
 };
 export type PageAnswer =
   | {

@@ -20,7 +20,7 @@ const arg = (k: string, d: string) => {
   return i < 0 ? d : process.argv[i + 1]!;
 };
 const mod = (await import(
-  resolve(import.meta.dir, arg("--runtime", "../../round-5/adapter.ts"))
+  resolve(import.meta.dir, arg("--runtime", "../../round-6/adapter.ts"))
 )) as RuntimeModule;
 const make = makeHarness(mod.port);
 const o = {
@@ -54,7 +54,7 @@ const r =
             : which === "session"
               ? searchSession(make, o)
               : which.startsWith("listen.")
-                ? searchListen(make, which.split(".")[1] as never, o)
+                ? searchListen(make, which.split(".")[1] as never, o, which.endsWith(".noload") ? "none" : "load")
                 : which === "repairing"
                   ? searchRepairing(make, o)
                   : which.startsWith("fragstore.")

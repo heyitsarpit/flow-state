@@ -29,6 +29,8 @@ const ACTIONS: readonly Action[] = [
     on: open("put"),
   })),
   { name: "fetch.truth", step: { answer: "fetch", with: { truth: true } }, on: open("fetch") },
+  { name: "fetch.start", step: { answer: "fetch", with: { atStart: true } }, on: open("fetch") },
+  { name: "repair.start", step: { answer: "repair", with: { atStart: true } }, on: open("repair") },
   { name: "repair.truth", step: { answer: "repair", with: { truth: true } }, on: open("repair") },
   {
     name: "repair.fail",

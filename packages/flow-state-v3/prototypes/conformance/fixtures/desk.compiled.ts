@@ -246,6 +246,39 @@ export const deskNoVersionFixture: Fixture = { id: D, make: make(false), server:
 const f_ = f;
 export const deskListenFixture = withListen(deskFixture);
 export const deskListenNoVersionFixture = withListen(deskNoVersionFixture);
+// D75: a string version with a declared order.
+export const deskListenLexicalFixture: Fixture = {
+  ...deskListenFixture,
+  make: (api) => {
+    const c = deskListenFixture.make(api);
+    return { ...c, domain: { ...c.domain!, versionOrder: "lexical" } };
+  },
+};
+// Review, item 3: two feeds on one entity, each its own connection. Frames may cross.
+const withSecondFeed = (fx: Fixture): Fixture => ({
+  ...fx,
+  make: (api) => {
+    const c = fx.make(api);
+    const second = { ...changesSpec(api), id: "changes2", subscribe: (i: unknown, x: { from: unknown }) => api.socket("changes2", i, x.from) };
+    return {
+      ...c,
+      nodes: {
+        ...c.nodes,
+        READY: {
+          ...c.nodes["READY"]!,
+          activities: [
+            ...c.nodes["READY"]!.activities!,
+            { op: "changes2", input: f_.slot("states.READY.activities[1]", () => ({})) },
+          ],
+        },
+      },
+      streams: { ...c.streams, changes2: second },
+      domain: { ...c.domain!, listens: { ...c.domain!.listens, changes2: listens.changes } },
+    };
+  },
+});
+export const deskTwoFeedsFixture = withSecondFeed(deskListenFixture);
+export const deskTwoFeedsNoVersionFixture = withSecondFeed(deskListenNoVersionFixture);
 
 // ── A persisted trait with a write. `.resumable()` on its tab. For rebind and reload (review H5, H6).
 const TW = "Lab/TraitWrite";

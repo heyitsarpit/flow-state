@@ -22,7 +22,8 @@ export type Answer =
   | { never: true }
   | { apply: true } // the server model applies it and answers, or refuses. Idempotent per key
   | { applyLost: true } // the server model applies it; the answer is lost
-  | { truth: true }; // a read, answered from what the server now believes (M2's causal fake)
+  | { truth: true } // a read, answered from what the server now believes (M2's causal fake)
+  | { atStart: true }; // a read, answered from what the server held when it started (review H6)
 
 export type Fault =
   | { throwIn: SlotPath; times?: number }
@@ -39,6 +40,7 @@ export type Fault =
   | { afterYield: Step } // runs when the runtime has yielded its drain to the host: a gap between steps
   | { mutateServer: (s: any) => any } // the world changes with nobody asking: a price, another device
   | { socketClose: number } // how long a close takes from now on. Infinity never finishes
+  | { storageFails: number } // review M7: the next n plain writes fail
   | { corruptStored: { readonly match: string; readonly edit: (raw: string) => string } }; // a record on disk changed: a bad write, a release
 
 export type Step =
@@ -47,7 +49,8 @@ export type Step =
   | { dispose: ActorRef } // the actor's life ends. Its lanes stay the Runtime's (OD19)
   | { advance: number }
   | { answer: RequestMatch; with: Answer; where?: Readonly<Record<string, unknown>> }
-  | { reload: true; crashAfterBoot?: true } // crashAfterBoot: the first boot dies with its mail undelivered (review M1). Needs drainMs -1
+  // crashAfterBoot: the first boot dies with its mail undelivered (review M1). Needs drainMs -1. tear: only the first n writes of the last batch landed
+  | { reload: true; crashAfterBoot?: true; tear?: number }
   | { storage: "ack" | "refuse" | "hang" | "landNoAck"; match?: string }
   // A stream's server says something. `frames`: a burst, with no settling between them. `fail`: the connection fails with this.
   | { feed: string; frame?: unknown; frames?: readonly unknown[]; end?: true; fail?: unknown }
@@ -169,6 +172,7 @@ export type Bounds = {
   followUps: number;
   notifyChain: number;
   queueMax: number;
+  pageMs: number;
 };
 export type Harness = {
   start(cfg: { machines: readonly Fixture[]; seed: number; bounds?: Partial<Bounds> }): void;

@@ -177,3 +177,8 @@ file:scenarios/streams5.scenario.ts hash:cd02fce2dc47 | round 5: cases from the 
 file:fixtures/desk.compiled.ts hash:92b07cdbcf6c | round 5: cases from the last mutant pass; nothing relaxed
 file:fixtures/oddall.compiled.ts hash:4a2848127639 | round 5: cases from the last mutant pass; nothing relaxed
 file:fixtures/chat.compiled.ts hash:5edfa84545d1 | round 5: cases from the last mutant pass; nothing relaxed
+file:fake-world.ts hash:ef103bbb6f0a | round 6: suite repaired (review H6, M5, M7): a read that answers from its start, failing plain writes, T6 moved out of the fake; no expected result relaxed
+file:drive.ts hash:4d347ef44239 | round 6: suite repaired (review H6, M5, M7): a read that answers from its start, failing plain writes, T6 moved out of the fake; no expected result relaxed
+file:fixtures/compiled.ts hash:cd3068bfc36c | round 6: suite repaired (review H6, M5, M7): a read that answers from its start, failing plain writes, T6 moved out of the fake; no expected result relaxed
+file:fixtures/desk.compiled.ts hash:fe9f74ab3802 | round 6: suite repaired (review H6, M5, M7): a read that answers from its start, failing plain writes, T6 moved out of the fake; no expected result relaxed
+file:fixtures/chat.compiled.ts hash:6c01e9cf0790 | round 6: suite repaired (review H6, M5, M7): a read that answers from its start, failing plain writes, T6 moved out of the fake; no expected result relaxed

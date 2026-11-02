@@ -1,11 +1,11 @@
 // Streams beyond the thin spike. Chat is 2.11.2's walk: `every`, `position`, `fills`, `catchUp`, in three source shapes: a pushed socket,
 // a pulled source (T4), `Feed.callback`'s bounded queue (T6). Presence is 2.11.12.2's `latest`. A value is { id, cursor }; a frame that
 // is already a signal passes through, as an adapter's would.
-import { Effect } from "effect";
+import { Effect, Stream } from "effect";
 import type { Api } from "../fake-world.ts";
 import type { Fixture } from "../harness.ts";
 import { fixtureOf } from "./build.ts";
-import type { Compiled, StreamSpec } from "./compiled.ts";
+import { deny, type Compiled, type StreamSpec } from "./compiled.ts";
 
 const D = "Lab/Chat";
 const f = fixtureOf(D);
@@ -13,6 +13,9 @@ const upsert = (list: readonly any[], e: any) =>
   list.some((x) => x.id === e.id) ? list.map((x) => (x.id === e.id ? e : x)) : [...list, e];
 export type ChatOpts = {
   source?: "socket" | "pulled" | "callback";
+  // A box a scenario flips: each named closure throws, or returns what it holds. Review H4, L5.
+  odd?: { backoff?: unknown; reconnectWhile?: unknown; pageRetryWhile?: unknown; key?: unknown; subscribe?: unknown };
+  dies?: boolean; // M4: the stream dies
   catchUp?: boolean;
   pages?: boolean;
   reconnect?: boolean;
@@ -20,24 +23,39 @@ export type ChatOpts = {
 };
 const spec = (api: Api, o: ChatOpts): StreamSpec => ({
   id: "messages",
-  key: (i) => ({ roomId: i.roomId }),
+  key: (i) => {
+    if (o.odd?.key) throw new Error("key");
+    return { roomId: i.roomId };
+  },
   position: "cursor",
   fills: "messages",
   reconnect: o.reconnect ?? true,
   idleMs: 45_000,
   healthyMs: 60_000,
-  backoff: (n) => Math.min(30_000, 1000 * 2 ** n),
-  subscribe: (i, { from }) =>
-    o.source === "pulled" || o.source === "callback"
-      ? api.pulled("messages", i, from, o.source === "callback" ? (o.bound ?? 4) : undefined)
-      : api.socket("messages", i, from),
+  backoff: (n) => {
+    if (o.odd?.backoff === "throw") throw new Error("backoff");
+    if (o.odd?.backoff !== undefined) return o.odd.backoff as number;
+    return Math.min(30_000, 1000 * 2 ** n);
+  },
+  subscribe: (i, { from }) => {
+    if (o.odd?.subscribe) throw new Error("subscribe");
+    if (o.dies) return Stream.die("a stream died");
+    return o.source === "pulled"
+      ? api.pulled("messages", i, from)
+      : o.source === "callback"
+        ? api.feed("messages", i, from, o.bound ?? 4)
+        : api.socket("messages", i, from);
+  },
   value: f.mapped("messages", "value", "Message", (message) => ({ message })),
   missed: f.mapped("messages", "missed", "Missed", (_v) => ({})),
   failure: f.mapped("messages", "failure", "Ended", (v) => ({ why: v.why })),
   failureBy: {
     Banned: f.mapped("messages", "failureBy.Banned", "Banned", () => ({})),
   },
-  reconnectWhile: (e) => e?._tag !== "Banned",
+  reconnectWhile: (e) => {
+    if (o.odd?.reconnectWhile) throw new Error("reconnectWhile");
+    return e?._tag !== "Banned";
+  },
   ...(o.bound !== undefined ? { callbackBound: o.bound } : {}),
   ...(o.pages ? { pages: f.mapped("messages", "pages", "Page", (items) => ({ items })) } : {}),
   ...(o.catchUp
@@ -47,7 +65,10 @@ const spec = (api: Api, o: ChatOpts): StreamSpec => ({
             unknown,
             unknown
           >,
-        pageRetryWhile: (e) => e?._tag === "PageBusy",
+        pageRetryWhile: (e) => {
+          if (o.odd?.pageRetryWhile) throw new Error("pageRetryWhile");
+          return e?._tag === "PageBusy";
+        },
       }
     : {}),
 });
@@ -105,6 +126,9 @@ export const chatFixture = (o: ChatOpts = {}): Fixture => ({
         ...f.node("OPEN", {
           Message: [
             {
+              guards: [
+                ({ event }: any) => (event.message.id === "denied" ? deny("Nope") : true),
+              ],
               patch: ({ memory, event }: any) => {
                 if (event.message.id === "boom") throw new Error("cannot read this");
                 return { messages: upsert(memory.messages, event.message) };

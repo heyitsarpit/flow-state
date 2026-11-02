@@ -1,4 +1,4 @@
-// bun packages/flow-state-v3/prototypes/conformance/main.ts --round 5 --runtime ../round-5/adapter.ts
+// bun packages/flow-state-v3/prototypes/conformance/main.ts --round 6 --runtime ../round-6/adapter.ts
 //   [--no-search] [--lock]. Searches run separately: search/run.ts, under watch.ts.
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
@@ -15,6 +15,7 @@ import {
   type Scenario,
 } from "./scenarios/ctx.ts";
 import { round5Scenarios } from "./scenarios/round5.scenario.ts";
+import { round6Scenarios } from "./scenarios/round6.scenario.ts";
 import { streams5Scenarios } from "./scenarios/streams5.scenario.ts";
 import { flowScenarios } from "./scenarios/flows.scenario.ts";
 import { fragScenarios } from "./scenarios/frag.scenario.ts";
@@ -37,6 +38,7 @@ export const allScenarios: readonly Scenario[] = [
   ...streamScenarios,
   ...round5Scenarios,
   ...streams5Scenarios,
+  ...round6Scenarios,
 ];
 
 const here = import.meta.dir;
@@ -85,6 +87,8 @@ const SHARED = [
   "fixtures/desk.compiled.ts",
   "fixtures/oddall.compiled.ts",
   "fixtures/chat.compiled.ts",
+  "scenarios/round6.scenario.ts",
+  "fixtures/round6.compiled.ts",
 ];
 const lockLines = (): string[] => [
   ...allScenarios.map((s) => `${s.id} ${sha(bodyOf(s))}`),
@@ -171,7 +175,7 @@ if (import.meta.main) {
     return i < 0 ? undefined : process.argv[i + 1];
   };
   const has = (k: string) => process.argv.includes(k);
-  const round = Number(arg("--round") ?? 5);
+  const round = Number(arg("--round") ?? 6);
   const runtime = resolve(here, arg("--runtime") ?? "./null-adapter.ts");
   const mod = (await import(runtime)) as RuntimeModule;
   console.log(`runtime: ${runtime}\nbun ${Bun.version}`);
