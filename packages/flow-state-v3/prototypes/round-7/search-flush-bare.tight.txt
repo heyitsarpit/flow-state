@@ -3,32 +3,24 @@
  "verdict": "inconclusive",
  "perDepth": [
   1,
-  3,
-  9,
-  26,
-  61,
-  140,
-  290,
-  558,
-  983,
-  1648,
-  2654,
-  4062,
-  6098,
-  9017,
-  13111,
-  19117
+  7,
+  32,
+  141,
+  550,
+  1980,
+  6941,
+  22708
  ],
- "states": 82025,
- "edges": 322372,
- "steps": 11064538,
- "depthCompleted": 15,
+ "states": 48211,
+ "edges": 147712,
+ "steps": 2217711,
+ "depthCompleted": 7,
  "classes": {},
- "ms": 150001,
- "peakRssMb": 287,
+ "ms": 90002,
+ "peakRssMb": 227,
  "unpinned": [],
- "exceptions": 0,
- "noLane": 0
+ "lanesAhead": 35,
+ "lanesAheadWitness": "NoteBad Go ack KILL => A [\"charge|{}\"]"
 }
 
-WATCH peak 274 MB, 150.1 s, exit 0, killed no
+WATCH peak 219 MB, 90.1 s, exit 0, killed no

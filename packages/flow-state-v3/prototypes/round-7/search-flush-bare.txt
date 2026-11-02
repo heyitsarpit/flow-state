@@ -3,26 +3,22 @@
  "verdict": "inconclusive",
  "perDepth": [
   1,
-  8,
-  38,
-  199,
-  861,
-  3265,
-  11539,
-  38160
+  11,
+  68,
+  408,
+  2255,
+  10838
  ],
- "states": 117728,
- "edges": 458771,
- "steps": 7277810,
- "depthCompleted": 7,
+ "states": 33896,
+ "edges": 134249,
+ "steps": 1522045,
+ "depthCompleted": 5,
  "classes": {},
- "ms": 150001,
- "peakRssMb": 298,
+ "ms": 55001,
+ "peakRssMb": 220,
  "unpinned": [],
- "exceptions": 4,
- "exceptionWitness": "failNext Go Note FLUSH failHeld refuse KILL => {\"rows\":{},\"state\":\"W\"}",
- "noLane": 4,
- "noLaneWitness": "failNext Go Note FLUSH failHeld refuse KILL => W"
+ "lanesAhead": 15,
+ "lanesAheadWitness": "NoteBad Go ack KILL => A [\"charge|{}\"]"
 }
 
-WATCH peak 285 MB, 150.1 s, exit 0, killed no
+WATCH peak 209 MB, 55.1 s, exit 0, killed no

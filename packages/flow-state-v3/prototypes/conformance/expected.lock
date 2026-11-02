@@ -166,7 +166,7 @@ file:scenarios/flows.scenario.ts 9f70612fce60
 file:scenarios/review.scenario.ts f74534a2bd4a
 file:scenarios/frag.scenario.ts 6e574cd00382
 file:scenarios/round4.scenario.ts 8bac160577c0
-file:fake-world.ts 8bd1a2ef00c5
+file:fake-world.ts a39f93dc92e1
 file:drive.ts c0a5c3c6ace6
 file:fixtures/compiled.ts c3ca3a333cb1
 file:fixtures/build.ts 3404a3e3ed34

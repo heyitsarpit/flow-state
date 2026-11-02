@@ -99,10 +99,11 @@ const matches = (input: any, where?: Readonly<Record<string, unknown>>) =>
   !where || Object.entries(where).every(([k, v]) => input?.[k] === v);
 
 export class FakeWorld {
-  now = 0;
+  now = 0; // monotonic: what timers run on
+  clockOffset = 0; // how far the wall clock the host reads has been set back
   process = 0;
   private idSeq = 0;
-  private timers: Array<{ at: number; seq: number; f: () => void; process: number }> = [];
+  private timers: Array<{ at: number; claim: number; seq: number; f: () => void; process: number }> = [];
   private timerSeq = 0;
   readonly scheduler = new StepScheduler();
   private laters: Array<() => void> = [];
@@ -174,10 +175,11 @@ export class FakeWorld {
   host(): Host {
     const process = this.process;
     return {
-      now: () => this.now,
+      now: () => this.now - this.clockOffset,
       id: () => `att-${this.seed}-${++this.idSeq}`,
       setTimer: (at, f) => {
-        const t = { at, seq: ++this.timerSeq, f, process };
+        // A real timer is relative: asked for "at" on the wall clock as it reads now. `claim` is that wall-clock time, what the world says.
+        const t = { at: at + this.clockOffset, claim: at, seq: ++this.timerSeq, f, process };
         this.timers.push(t);
         return () => {
           this.timers = this.timers.filter((x) => x !== t);
@@ -249,8 +251,7 @@ export class FakeWorld {
   }
   // Round 7: the wall clock moves back. A real timer is relative, so what is armed fires as it would have; only `now` lies.
   clockBack(ms: number) {
-    this.now -= ms;
-    for (const t of this.timers) t.at -= ms;
+    this.clockOffset += ms;
   }
   corrupt(match: string, edit: (raw: string) => string) {
     for (const [k, v] of this.kv) if (k.includes(match)) this.kv.set(k, edit(v));
@@ -662,7 +663,7 @@ export class FakeWorld {
         hung: h.hung === true,
       })),
       ],
-      timers: this.timers.filter((t) => t.process === this.process).map((t) => t.at),
+      timers: this.timers.filter((t) => t.process === this.process).map((t) => t.claim),
       lost: this.requests.filter((r) => r.lostOpen).length,
       feeds: this.conns
         .filter((c) => c.process === this.process)

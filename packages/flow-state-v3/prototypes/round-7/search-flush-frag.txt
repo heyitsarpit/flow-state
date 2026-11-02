@@ -3,25 +3,22 @@
  "verdict": "inconclusive",
  "perDepth": [
   1,
-  7,
-  30,
-  146,
-  583,
-  1999,
-  6295,
-  18569,
-  52328
+  9,
+  49,
+  274,
+  1376,
+  5936,
+  23173
  ],
- "states": 101425,
- "edges": 457972,
- "steps": 7727557,
- "depthCompleted": 8,
+ "states": 38800,
+ "edges": 171424,
+ "steps": 2127535,
+ "depthCompleted": 6,
  "classes": {},
- "ms": 150001,
- "peakRssMb": 297,
+ "ms": 55001,
+ "peakRssMb": 226,
  "unpinned": [],
- "exceptions": 0,
- "noLane": 0
+ "lanesAhead": 0
 }
 
-WATCH peak 283 MB, 150.1 s, exit 0, killed no
+WATCH peak 216 MB, 55.1 s, exit 0, killed no

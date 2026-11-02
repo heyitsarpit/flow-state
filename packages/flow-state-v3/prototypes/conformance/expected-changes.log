@@ -244,3 +244,4 @@ file:fake-world.ts hash:8bd1a2ef00c5 | round 7: search and fake additions; REV7-
 file:drive.ts hash:c0a5c3c6ace6 | round 7: search and fake additions; REV7-EDGE and REV7-H1 own cases follow the edge (ack filter on 'late'; encoding off the turn pinned). No older expectation changed
 file:scenarios/round7.scenario.ts hash:8811d1384497 | round 7: search and fake additions; REV7-EDGE and REV7-H1 own cases follow the edge (ack filter on 'late'; encoding off the turn pinned). No older expectation changed
 file:fixtures/round7.compiled.ts hash:4dbffb93f0d9 | round 7: search and fake additions; REV7-EDGE and REV7-H1 own cases follow the edge (ack filter on 'late'; encoding off the turn pinned). No older expectation changed
+file:fake-world.ts hash:a39f93dc92e1 | round 7: the fake's clock back keeps a monotonic base; no expected result

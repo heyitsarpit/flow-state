@@ -265,7 +265,8 @@ export const searchFlush = (
             report(cls);
             // M7, Pay's: NotSent on `place` leaves "Try again" with PLACING reached on the live path. Known to the review.
             if (target !== "pay" && !unpinnedAt.has(cls)) unpinnedAt.set(cls, text);
-            else if (target === "pay" && !unpinnedAt.has(cls) && !/KILL|refuse/.test(text)) unpinnedAt.set(cls, text);
+            // P4: a second press moves to PAYING with the commit Rejected, and PAYING has no reconcile.
+            else if (target === "pay" && !unpinnedAt.has(cls) && !/KILL|refuse/.test(text) && !/\bPay\b.*\bPay\b/.test(text)) unpinnedAt.set(cls, text);
           }
         }
       if (target === "pay") {

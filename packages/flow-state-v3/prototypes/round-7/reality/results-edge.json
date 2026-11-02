@@ -1,0 +1,5546 @@
+{
+ "browser": "Chrome/146.0.7680.76",
+ "round-7:order": {
+  "cycles": 10,
+  "onDisk": {
+   "new": 10
+  }
+ },
+ "round-7:bare": {
+  "cycles": 48,
+  "states": {
+   "B": 48
+  },
+  "held": 0,
+  "byKill": {
+   "crash 0: B": 4,
+   "crash 5: B": 4,
+   "crash 20: B": 4,
+   "crash 50: B": 4,
+   "crash 80: B": 4,
+   "crash 150: B": 4,
+   "sigkill 0: B": 4,
+   "sigkill 5: B": 4,
+   "sigkill 20: B": 4,
+   "sigkill 50: B": 4,
+   "sigkill 80: B": 4,
+   "sigkill 150: B": 4
+  }
+ },
+ "round-7:tabs2": {
+  "secondOwner": false,
+  "state": "CARD",
+  "notice": "Your payment wasn't sent. You haven't been charged.",
+  "endings": [
+   "failure:NoPersistence"
+  ],
+  "keys": 0
+ },
+ "round-7:spy": {
+  "txs": [
+   {
+    "durability": "strict",
+    "commit": false
+   },
+   {
+    "durability": "relaxed",
+    "commit": true
+   },
+   {
+    "durability": "relaxed",
+    "commit": true
+   },
+   {
+    "durability": "relaxed",
+    "commit": true
+   },
+   {
+    "durability": "relaxed",
+    "commit": true
+   },
+   {
+    "durability": "strict",
+    "commit": true
+   },
+   {
+    "durability": "relaxed",
+    "commit": true
+   }
+  ],
+  "commitAlways": false
+ },
+ "peakMb": 701,
+ "round-7:e2": {
+  "cycles": 72,
+  "waitsForNothing": 0,
+  "by": {
+   "awaited A lanes=0": 35,
+   "awaited null lanes=0": 1,
+   "plain A lanes=0": 10,
+   "plain null lanes=0": 2,
+   "plain U lanes=1": 5,
+   "plain B lanes=0": 19
+  }
+ },
+ "round-7:kills": {
+  "cycles": 40,
+  "doubleCharge": 0,
+  "chargedNoLane": 1,
+  "toldNotChargedAndCharged": 0,
+  "fatal": 0,
+  "unsettled": 0,
+  "notSentRestored": 0,
+  "unknownRestored": 21,
+  "replays": 0,
+  "restored": {
+   "UNSURE": 21,
+   "PAID": 10,
+   "null": 9
+  },
+  "final": {
+   "PAID": 31,
+   "null": 9
+  },
+  "issues": [],
+  "lost": [
+   {
+    "how": "sigkill",
+    "killMs": 3,
+    "payDelay": 40,
+    "marker": true,
+    "restored": null,
+    "lanes": 0,
+    "final": null,
+    "ended": true,
+    "keys": 1,
+    "replays": 0,
+    "placeKeys": 0,
+    "fatal": false,
+    "notSent": false,
+    "unknown": false,
+    "issues": [],
+    "told": false
+   }
+  ],
+  "rows": [
+   {
+    "how": "crash",
+    "killMs": 0,
+    "payDelay": 40,
+    "marker": true,
+    "restored": "UNSURE",
+    "lanes": 1,
+    "final": "PAID",
+    "ended": true,
+    "keys": 1,
+    "replays": 0,
+    "placeKeys": 1,
+    "fatal": false,
+    "notSent": false,
+    "unknown": true,
+    "issues": [],
+    "told": false
+   },
+   {
+    "how": "crash",
+    "killMs": 3,
+    "payDelay": 40,
+    "marker": true,
+    "restored": "UNSURE",
+    "lanes": 1,
+    "final": "PAID",
+    "ended": true,
+    "keys": 1,
+    "replays": 0,
+    "placeKeys": 1,
+    "fatal": false,
+    "notSent": false,
+    "unknown": true,
+    "issues": [],
+    "told": false
+   },
+   {
+    "how": "crash",
+    "killMs": 8,
+    "payDelay": 40,
+    "marker": true,
+    "restored": "UNSURE",
+    "lanes": 1,
+    "final": "PAID",
+    "ended": true,
+    "keys": 1,
+    "replays": 0,
+    "placeKeys": 1,
+    "fatal": false,
+    "notSent": false,
+    "unknown": true,
+    "issues": [],
+    "told": false
+   },
+   {
+    "how": "crash",
+    "killMs": 15,
+    "payDelay": 40,
+    "marker": true,
+    "restored": "UNSURE",
+    "lanes": 1,
+    "final": "PAID",
+    "ended": true,
+    "keys": 1,
+    "replays": 0,
+    "placeKeys": 1,
+    "fatal": false,
+    "notSent": false,
+    "unknown": true,
+    "issues": [],
+    "told": false
+   },
+   {
+    "how": "crash",
+    "killMs": 30,
+    "payDelay": 200,
+    "marker": true,
+    "restored": "UNSURE",
+    "lanes": 1,
+    "final": "PAID",
+    "ended": true,
+    "keys": 1,
+    "replays": 0,
+    "placeKeys": 1,
+    "fatal": false,
+    "notSent": false,
+    "unknown": true,
+    "issues": [],
+    "told": false
+   },
+   {
+    "how": "crash",
+    "killMs": 60,
+    "payDelay": 200,
+    "marker": true,
+    "restored": "UNSURE",
+    "lanes": 1,
+    "final": "PAID",
+    "ended": true,
+    "keys": 1,
+    "replays": 0,
+    "placeKeys": 1,
+    "fatal": false,
+    "notSent": false,
+    "unknown": true,
+    "issues": [],
+    "told": false
+   },
+   {
+    "how": "crash",
+    "killMs": 120,
+    "payDelay": 40,
+    "marker": true,
+    "restored": "PAID",
+    "lanes": 0,
+    "final": "PAID",
+    "ended": true,
+    "keys": 1,
+    "replays": 0,
+    "placeKeys": 1,
+    "fatal": false,
+    "notSent": false,
+    "unknown": false,
+    "issues": [],
+    "told": false
+   },
+   {
+    "how": "crash",
+    "killMs": 200,
+    "payDelay": 300,
+    "marker": true,
+    "restored": "UNSURE",
+    "lanes": 1,
+    "final": "PAID",
+    "ended": true,
+    "keys": 1,
+    "replays": 0,
+    "placeKeys": 1,
+    "fatal": false,
+    "notSent": false,
+    "unknown": true,
+    "issues": [],
+    "told": false
+   },
+   {
+    "how": "crash",
+    "killMs": 5,
+    "payDelay": 0,
+    "marker": true,
+    "restored": "PAID",
+    "lanes": 0,
+    "final": "PAID",
+    "ended": true,
+    "keys": 1,
+    "replays": 0,
+    "placeKeys": 1,
+    "fatal": false,
+    "notSent": false,
+    "unknown": false,
+    "issues": [],
+    "told": false
+   },
+   {
+    "how": "crash",
+    "killMs": 20,
+    "payDelay": 0,
+    "marker": true,
+    "restored": "PAID",
+    "lanes": 0,
+    "final": "PAID",
+    "ended": true,
+    "keys": 1,
+    "replays": 0,
+    "placeKeys": 1,
+    "fatal": false,
+    "notSent": false,
+    "unknown": false,
+    "issues": [],
+    "told": false
+   },
+   {
+    "how": "crash",
+    "killMs": 40,
+    "payDelay": 0,
+    "marker": true,
+    "restored": "PAID",
+    "lanes": 0,
+    "final": "PAID",
+    "ended": true,
+    "keys": 1,
+    "replays": 0,
+    "placeKeys": 1,
+    "fatal": false,
+    "notSent": false,
+    "unknown": false,
+    "issues": [],
+    "told": false
+   },
+   {
+    "how": "crash",
+    "killMs": 80,
+    "payDelay": 0,
+    "marker": true,
+    "restored": "PAID",
+    "lanes": 0,
+    "final": "PAID",
+    "ended": true,
+    "keys": 1,
+    "replays": 0,
+    "placeKeys": 1,
+    "fatal": false,
+    "notSent": false,
+    "unknown": false,
+    "issues": [],
+    "told": false
+   },
+   {
+    "how": "crash",
+    "killMs": -1,
+    "payDelay": 40,
+    "marker": true,
+    "restored": null,
+    "lanes": 0,
+    "final": null,
+    "ended": true,
+    "keys": 0,
+    "replays": 0,
+    "placeKeys": 0,
+    "fatal": false,
+    "notSent": false,
+    "unknown": false,
+    "issues": [],
+    "told": false
+   },
+   {
+    "how": "crash",
+    "killMs": -1,
+    "payDelay": 40,
+    "marker": true,
+    "restored": null,
+    "lanes": 0,
+    "final": null,
+    "ended": true,
+    "keys": 0,
+    "replays": 0,
+    "placeKeys": 0,
+    "fatal": false,
+    "notSent": false,
+    "unknown": false,
+    "issues": [],
+    "told": false
+   },
+   {
+    "how": "crash",
+    "killMs": -1,
+    "payDelay": 40,
+    "marker": true,
+    "restored": null,
+    "lanes": 0,
+    "final": null,
+    "ended": true,
+    "keys": 0,
+    "replays": 0,
+    "placeKeys": 0,
+    "fatal": false,
+    "notSent": false,
+    "unknown": false,
+    "issues": [],
+    "told": false
+   },
+   {
+    "how": "crash",
+    "killMs": -2,
+    "payDelay": 40,
+    "marker": true,
+    "restored": "UNSURE",
+    "lanes": 1,
+    "final": "PAID",
+    "ended": true,
+    "keys": 1,
+    "replays": 0,
+    "placeKeys": 1,
+    "fatal": false,
+    "notSent": false,
+    "unknown": true,
+    "issues": [],
+    "told": false
+   },
+   {
+    "how": "crash",
+    "killMs": -2,
+    "payDelay": 40,
+    "marker": true,
+    "restored": "UNSURE",
+    "lanes": 1,
+    "final": "PAID",
+    "ended": true,
+    "keys": 1,
+    "replays": 0,
+    "placeKeys": 1,
+    "fatal": false,
+    "notSent": false,
+    "unknown": true,
+    "issues": [],
+    "told": false
+   },
+   {
+    "how": "crash",
+    "killMs": -3,
+    "payDelay": 40,
+    "marker": true,
+    "restored": "UNSURE",
+    "lanes": 1,
+    "final": "PAID",
+    "ended": true,
+    "keys": 1,
+    "replays": 0,
+    "placeKeys": 1,
+    "fatal": false,
+    "notSent": false,
+    "unknown": true,
+    "issues": [],
+    "told": false
+   },
+   {
+    "how": "crash",
+    "killMs": -3,
+    "payDelay": 40,
+    "marker": true,
+    "restored": "UNSURE",
+    "lanes": 1,
+    "final": "PAID",
+    "ended": true,
+    "keys": 1,
+    "replays": 0,
+    "placeKeys": 1,
+    "fatal": false,
+    "notSent": false,
+    "unknown": true,
+    "issues": [],
+    "told": false
+   },
+   {
+    "how": "crash",
+    "killMs": -4,
+    "payDelay": 40,
+    "marker": true,
+    "restored": "UNSURE",
+    "lanes": 1,
+    "final": "PAID",
+    "ended": true,
+    "keys": 1,
+    "replays": 0,
+    "placeKeys": 1,
+    "fatal": false,
+    "notSent": false,
+    "unknown": true,
+    "issues": [],
+    "told": false
+   },
+   {
+    "how": "sigkill",
+    "killMs": 0,
+    "payDelay": 40,
+    "marker": true,
+    "restored": null,
+    "lanes": 0,
+    "final": null,
+    "ended": true,
+    "keys": 0,
+    "replays": 0,
+    "placeKeys": 0,
+    "fatal": false,
+    "notSent": false,
+    "unknown": false,
+    "issues": [],
+    "told": false
+   },
+   {
+    "how": "sigkill",
+    "killMs": 3,
+    "payDelay": 40,
+    "marker": true,
+    "restored": null,
+    "lanes": 0,
+    "final": null,
+    "ended": true,
+    "keys": 1,
+    "replays": 0,
+    "placeKeys": 0,
+    "fatal": false,
+    "notSent": false,
+    "unknown": false,
+    "issues": [],
+    "told": false
+   },
+   {
+    "how": "sigkill",
+    "killMs": 8,
+    "payDelay": 40,
+    "marker": true,
+    "restored": "UNSURE",
+    "lanes": 1,
+    "final": "PAID",
+    "ended": true,
+    "keys": 1,
+    "replays": 0,
+    "placeKeys": 1,
+    "fatal": false,
+    "notSent": false,
+    "unknown": true,
+    "issues": [],
+    "told": false
+   },
+   {
+    "how": "sigkill",
+    "killMs": 15,
+    "payDelay": 40,
+    "marker": true,
+    "restored": "UNSURE",
+    "lanes": 1,
+    "final": "PAID",
+    "ended": true,
+    "keys": 1,
+    "replays": 0,
+    "placeKeys": 1,
+    "fatal": false,
+    "notSent": false,
+    "unknown": true,
+    "issues": [],
+    "told": false
+   },
+   {
+    "how": "sigkill",
+    "killMs": 30,
+    "payDelay": 200,
+    "marker": true,
+    "restored": "UNSURE",
+    "lanes": 1,
+    "final": "PAID",
+    "ended": true,
+    "keys": 1,
+    "replays": 0,
+    "placeKeys": 1,
+    "fatal": false,
+    "notSent": false,
+    "unknown": true,
+    "issues": [],
+    "told": false
+   },
+   {
+    "how": "sigkill",
+    "killMs": 60,
+    "payDelay": 200,
+    "marker": true,
+    "restored": "UNSURE",
+    "lanes": 1,
+    "final": "PAID",
+    "ended": true,
+    "keys": 1,
+    "replays": 0,
+    "placeKeys": 1,
+    "fatal": false,
+    "notSent": false,
+    "unknown": true,
+    "issues": [],
+    "told": false
+   },
+   {
+    "how": "sigkill",
+    "killMs": 120,
+    "payDelay": 40,
+    "marker": true,
+    "restored": "PAID",
+    "lanes": 0,
+    "final": "PAID",
+    "ended": true,
+    "keys": 1,
+    "replays": 0,
+    "placeKeys": 1,
+    "fatal": false,
+    "notSent": false,
+    "unknown": false,
+    "issues": [],
+    "told": false
+   },
+   {
+    "how": "sigkill",
+    "killMs": 200,
+    "payDelay": 300,
+    "marker": true,
+    "restored": "UNSURE",
+    "lanes": 1,
+    "final": "PAID",
+    "ended": true,
+    "keys": 1,
+    "replays": 0,
+    "placeKeys": 1,
+    "fatal": false,
+    "notSent": false,
+    "unknown": true,
+    "issues": [],
+    "told": false
+   },
+   {
+    "how": "sigkill",
+    "killMs": 5,
+    "payDelay": 0,
+    "marker": true,
+    "restored": "PAID",
+    "lanes": 0,
+    "final": "PAID",
+    "ended": true,
+    "keys": 1,
+    "replays": 0,
+    "placeKeys": 1,
+    "fatal": false,
+    "notSent": false,
+    "unknown": false,
+    "issues": [],
+    "told": false
+   },
+   {
+    "how": "sigkill",
+    "killMs": 20,
+    "payDelay": 0,
+    "marker": true,
+    "restored": "PAID",
+    "lanes": 0,
+    "final": "PAID",
+    "ended": true,
+    "keys": 1,
+    "replays": 0,
+    "placeKeys": 1,
+    "fatal": false,
+    "notSent": false,
+    "unknown": false,
+    "issues": [],
+    "told": false
+   },
+   {
+    "how": "sigkill",
+    "killMs": 40,
+    "payDelay": 0,
+    "marker": true,
+    "restored": "PAID",
+    "lanes": 0,
+    "final": "PAID",
+    "ended": true,
+    "keys": 1,
+    "replays": 0,
+    "placeKeys": 1,
+    "fatal": false,
+    "notSent": false,
+    "unknown": false,
+    "issues": [],
+    "told": false
+   },
+   {
+    "how": "sigkill",
+    "killMs": 80,
+    "payDelay": 0,
+    "marker": true,
+    "restored": "PAID",
+    "lanes": 0,
+    "final": "PAID",
+    "ended": true,
+    "keys": 1,
+    "replays": 0,
+    "placeKeys": 1,
+    "fatal": false,
+    "notSent": false,
+    "unknown": false,
+    "issues": [],
+    "told": false
+   },
+   {
+    "how": "sigkill",
+    "killMs": -1,
+    "payDelay": 40,
+    "marker": true,
+    "restored": null,
+    "lanes": 0,
+    "final": null,
+    "ended": true,
+    "keys": 0,
+    "replays": 0,
+    "placeKeys": 0,
+    "fatal": false,
+    "notSent": false,
+    "unknown": false,
+    "issues": [],
+    "told": false
+   },
+   {
+    "how": "sigkill",
+    "killMs": -1,
+    "payDelay": 40,
+    "marker": true,
+    "restored": null,
+    "lanes": 0,
+    "final": null,
+    "ended": true,
+    "keys": 0,
+    "replays": 0,
+    "placeKeys": 0,
+    "fatal": false,
+    "notSent": false,
+    "unknown": false,
+    "issues": [],
+    "told": false
+   },
+   {
+    "how": "sigkill",
+    "killMs": -1,
+    "payDelay": 40,
+    "marker": true,
+    "restored": null,
+    "lanes": 0,
+    "final": null,
+    "ended": true,
+    "keys": 0,
+    "replays": 0,
+    "placeKeys": 0,
+    "fatal": false,
+    "notSent": false,
+    "unknown": false,
+    "issues": [],
+    "told": false
+   },
+   {
+    "how": "sigkill",
+    "killMs": -2,
+    "payDelay": 40,
+    "marker": true,
+    "restored": null,
+    "lanes": 0,
+    "final": null,
+    "ended": true,
+    "keys": 0,
+    "replays": 0,
+    "placeKeys": 0,
+    "fatal": false,
+    "notSent": false,
+    "unknown": false,
+    "issues": [],
+    "told": false
+   },
+   {
+    "how": "sigkill",
+    "killMs": -2,
+    "payDelay": 40,
+    "marker": true,
+    "restored": "UNSURE",
+    "lanes": 1,
+    "final": "PAID",
+    "ended": true,
+    "keys": 1,
+    "replays": 0,
+    "placeKeys": 1,
+    "fatal": false,
+    "notSent": false,
+    "unknown": true,
+    "issues": [],
+    "told": false
+   },
+   {
+    "how": "sigkill",
+    "killMs": -3,
+    "payDelay": 40,
+    "marker": true,
+    "restored": "UNSURE",
+    "lanes": 1,
+    "final": "PAID",
+    "ended": true,
+    "keys": 1,
+    "replays": 0,
+    "placeKeys": 1,
+    "fatal": false,
+    "notSent": false,
+    "unknown": true,
+    "issues": [],
+    "told": false
+   },
+   {
+    "how": "sigkill",
+    "killMs": -3,
+    "payDelay": 40,
+    "marker": true,
+    "restored": "UNSURE",
+    "lanes": 1,
+    "final": "PAID",
+    "ended": true,
+    "keys": 1,
+    "replays": 0,
+    "placeKeys": 1,
+    "fatal": false,
+    "notSent": false,
+    "unknown": true,
+    "issues": [],
+    "told": false
+   },
+   {
+    "how": "sigkill",
+    "killMs": -4,
+    "payDelay": 40,
+    "marker": true,
+    "restored": "UNSURE",
+    "lanes": 1,
+    "final": "PAID",
+    "ended": true,
+    "keys": 1,
+    "replays": 0,
+    "placeKeys": 1,
+    "fatal": false,
+    "notSent": false,
+    "unknown": true,
+    "issues": [],
+    "told": false
+   }
+  ]
+ },
+ "round-7:h3-true": {
+  "marker": {
+   "cycles": 120,
+   "charged": 73,
+   "chargedNoLane": 1,
+   "doubleCharge": 0,
+   "states": {
+    "IDLE": 28,
+    "UNSURE": 49,
+    "null": 2,
+    "PLACING": 22,
+    "PAID": 19
+   }
+  },
+  "noMarker": {
+   "cycles": 0,
+   "charged": 0,
+   "chargedNoLane": 0,
+   "doubleCharge": 0,
+   "states": {}
+  },
+  "reopen": {
+   "cycles": 0,
+   "charged": 0,
+   "chargedNoLane": 0,
+   "doubleCharge": 0,
+   "states": {}
+  },
+  "rows": [
+   {
+    "marker": true,
+    "keys": 0,
+    "lanes": 0,
+    "state": "IDLE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 0,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-2\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 0,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-3\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 1,
+    "lanes": 0,
+    "state": null,
+    "charged": true,
+    "onDisk": []
+   },
+   {
+    "marker": true,
+    "keys": 1,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-5\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 1,
+    "lanes": 1,
+    "state": "PLACING",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|place|{\"cartId\":\"c-round-7-h3-6\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 1,
+    "lanes": 0,
+    "state": "PAID",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 1,
+    "lanes": 1,
+    "state": "PLACING",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|place|{\"cartId\":\"c-round-7-h3-8\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 0,
+    "lanes": 0,
+    "state": "IDLE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 0,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-10\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 0,
+    "lanes": 0,
+    "state": null,
+    "charged": false,
+    "onDisk": []
+   },
+   {
+    "marker": true,
+    "keys": 0,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-12\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 1,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-13\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 1,
+    "lanes": 1,
+    "state": "PLACING",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|place|{\"cartId\":\"c-round-7-h3-14\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 1,
+    "lanes": 1,
+    "state": "PLACING",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|place|{\"cartId\":\"c-round-7-h3-15\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 1,
+    "lanes": 1,
+    "state": "PLACING",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|place|{\"cartId\":\"c-round-7-h3-16\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 0,
+    "lanes": 0,
+    "state": "IDLE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 0,
+    "lanes": 0,
+    "state": "IDLE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 0,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-19\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 1,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-20\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 1,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-21\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 1,
+    "lanes": 1,
+    "state": "PLACING",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|place|{\"cartId\":\"c-round-7-h3-22\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 1,
+    "lanes": 0,
+    "state": "PAID",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 1,
+    "lanes": 0,
+    "state": "PAID",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 0,
+    "lanes": 0,
+    "state": "IDLE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 0,
+    "lanes": 0,
+    "state": "IDLE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 0,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-27\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 1,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-28\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 1,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-29\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 1,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-30\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 1,
+    "lanes": 0,
+    "state": "PAID",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 1,
+    "lanes": 0,
+    "state": "PAID",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 0,
+    "lanes": 0,
+    "state": "IDLE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 0,
+    "lanes": 0,
+    "state": "IDLE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 0,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-35\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 1,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-36\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 1,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-37\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 1,
+    "lanes": 1,
+    "state": "PLACING",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|place|{\"cartId\":\"c-round-7-h3-38\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 1,
+    "lanes": 1,
+    "state": "PLACING",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|place|{\"cartId\":\"c-round-7-h3-39\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 1,
+    "lanes": 0,
+    "state": "PAID",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 0,
+    "lanes": 0,
+    "state": "IDLE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 0,
+    "lanes": 0,
+    "state": "IDLE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 0,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-43\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 1,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-44\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 1,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-45\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 1,
+    "lanes": 1,
+    "state": "PLACING",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|place|{\"cartId\":\"c-round-7-h3-46\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 1,
+    "lanes": 1,
+    "state": "PLACING",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|place|{\"cartId\":\"c-round-7-h3-47\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 1,
+    "lanes": 0,
+    "state": "PAID",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 0,
+    "lanes": 0,
+    "state": "IDLE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 0,
+    "lanes": 0,
+    "state": "IDLE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 0,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-51\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 1,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-52\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 1,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-53\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 1,
+    "lanes": 1,
+    "state": "PLACING",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|place|{\"cartId\":\"c-round-7-h3-54\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 1,
+    "lanes": 0,
+    "state": "PAID",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 1,
+    "lanes": 1,
+    "state": "PLACING",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|place|{\"cartId\":\"c-round-7-h3-56\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 0,
+    "lanes": 0,
+    "state": "IDLE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 0,
+    "lanes": 0,
+    "state": "IDLE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 0,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-59\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 1,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-60\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 1,
+    "lanes": 1,
+    "state": "PLACING",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|place|{\"cartId\":\"c-round-7-h3-61\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 1,
+    "lanes": 1,
+    "state": "PLACING",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|place|{\"cartId\":\"c-round-7-h3-62\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 1,
+    "lanes": 0,
+    "state": "PAID",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 1,
+    "lanes": 0,
+    "state": "PAID",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 0,
+    "lanes": 0,
+    "state": "IDLE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 0,
+    "lanes": 0,
+    "state": "IDLE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 0,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-67\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 1,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-68\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 1,
+    "lanes": 1,
+    "state": "PAID",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|place|{\"cartId\":\"c-round-7-h3-69\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 1,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-70\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 1,
+    "lanes": 1,
+    "state": "PLACING",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|place|{\"cartId\":\"c-round-7-h3-71\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 1,
+    "lanes": 0,
+    "state": "PAID",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 0,
+    "lanes": 0,
+    "state": "IDLE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 0,
+    "lanes": 0,
+    "state": "IDLE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 0,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-75\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 1,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-76\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 1,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-77\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 1,
+    "lanes": 0,
+    "state": "PAID",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 1,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-79\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 1,
+    "lanes": 0,
+    "state": "PAID",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 0,
+    "lanes": 0,
+    "state": "IDLE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 0,
+    "lanes": 0,
+    "state": "IDLE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 0,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-83\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 0,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-84\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 1,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-85\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 1,
+    "lanes": 1,
+    "state": "PLACING",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|place|{\"cartId\":\"c-round-7-h3-86\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 1,
+    "lanes": 1,
+    "state": "PLACING",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|place|{\"cartId\":\"c-round-7-h3-87\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 1,
+    "lanes": 1,
+    "state": "PLACING",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|place|{\"cartId\":\"c-round-7-h3-88\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 0,
+    "lanes": 0,
+    "state": "IDLE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 0,
+    "lanes": 0,
+    "state": "IDLE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 0,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-91\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 1,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-92\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 1,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-93\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 1,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-94\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 1,
+    "lanes": 0,
+    "state": "PAID",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 1,
+    "lanes": 0,
+    "state": "PAID",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 0,
+    "lanes": 0,
+    "state": "IDLE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 0,
+    "lanes": 0,
+    "state": "IDLE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 0,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-99\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 0,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-100\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 1,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-101\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 1,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-102\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 1,
+    "lanes": 1,
+    "state": "PLACING",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|place|{\"cartId\":\"c-round-7-h3-103\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 1,
+    "lanes": 0,
+    "state": "PAID",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 0,
+    "lanes": 0,
+    "state": "IDLE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 0,
+    "lanes": 0,
+    "state": "IDLE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 1,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-107\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 1,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-108\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 1,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-109\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 1,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-110\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 1,
+    "lanes": 1,
+    "state": "PLACING",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|place|{\"cartId\":\"c-round-7-h3-111\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 1,
+    "lanes": 0,
+    "state": "PAID",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 0,
+    "lanes": 0,
+    "state": "IDLE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 0,
+    "lanes": 0,
+    "state": "IDLE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 0,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-115\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 1,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-116\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 1,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-117\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 1,
+    "lanes": 1,
+    "state": "PLACING",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|place|{\"cartId\":\"c-round-7-h3-118\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 1,
+    "lanes": 1,
+    "state": "PLACING",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|place|{\"cartId\":\"c-round-7-h3-119\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": true,
+    "keys": 1,
+    "lanes": 0,
+    "state": "PAID",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "meta"
+    ]
+   }
+  ]
+ },
+ "round-7:h3-aged": {
+  "marker": {
+   "cycles": 0,
+   "charged": 0,
+   "chargedNoLane": 0,
+   "doubleCharge": 0,
+   "states": {}
+  },
+  "noMarker": {
+   "cycles": 0,
+   "charged": 0,
+   "chargedNoLane": 0,
+   "doubleCharge": 0,
+   "states": {}
+  },
+  "reopen": {
+   "cycles": 0,
+   "charged": 0,
+   "chargedNoLane": 0,
+   "doubleCharge": 0,
+   "states": {}
+  },
+  "rows": [
+   {
+    "marker": "aged",
+    "keys": 0,
+    "lanes": 0,
+    "state": "IDLE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 0,
+    "lanes": 0,
+    "state": "IDLE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 0,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-3\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 0,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-4\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 0,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-5\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 1,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-6\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 0,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-7\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 1,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-8\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 0,
+    "lanes": 0,
+    "state": "IDLE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 0,
+    "lanes": 0,
+    "state": "IDLE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 0,
+    "lanes": 0,
+    "state": "IDLE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 1,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-12\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 0,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-13\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 1,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-14\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 1,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-15\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 1,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-16\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 0,
+    "lanes": 0,
+    "state": "IDLE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 0,
+    "lanes": 0,
+    "state": "IDLE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 0,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-19\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 0,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-20\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 1,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-21\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 1,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-22\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 1,
+    "lanes": 1,
+    "state": "PLACING",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|place|{\"cartId\":\"c-round-7-h3-23\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 1,
+    "lanes": 1,
+    "state": "PLACING",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|place|{\"cartId\":\"c-round-7-h3-24\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 0,
+    "lanes": 0,
+    "state": "IDLE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 0,
+    "lanes": 0,
+    "state": "IDLE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 0,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-27\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 0,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-28\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 0,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-29\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 1,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-30\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 0,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-31\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 1,
+    "lanes": 1,
+    "state": "PLACING",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|place|{\"cartId\":\"c-round-7-h3-32\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 0,
+    "lanes": 0,
+    "state": "IDLE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 0,
+    "lanes": 0,
+    "state": "IDLE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 0,
+    "lanes": 0,
+    "state": "IDLE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 0,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-36\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 0,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-37\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 0,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-38\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 1,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-39\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 1,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-40\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 0,
+    "lanes": 0,
+    "state": "IDLE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 0,
+    "lanes": 0,
+    "state": "IDLE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 0,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-43\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 0,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-44\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 0,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-45\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 0,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-46\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 1,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-47\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 1,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-48\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 0,
+    "lanes": 0,
+    "state": "IDLE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 0,
+    "lanes": 0,
+    "state": "IDLE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 0,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-51\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 0,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-52\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 1,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-53\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 0,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-54\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 1,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-55\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 1,
+    "lanes": 1,
+    "state": "PLACING",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|place|{\"cartId\":\"c-round-7-h3-56\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 0,
+    "lanes": 0,
+    "state": "IDLE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 0,
+    "lanes": 0,
+    "state": "IDLE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 1,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-59\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 0,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-60\"}",
+     "meta"
+    ]
+   }
+  ]
+ },
+ "round-7:hide-commit-100": {
+  "failedCycles": 0,
+  "tbl": {
+   "100 kill-only 20": {
+    "cycles": 6,
+    "newest": 0,
+    "older": 6,
+    "nothing": 0,
+    "beacon": 0
+   },
+   "100 navigate none": {
+    "cycles": 6,
+    "newest": 6,
+    "older": 0,
+    "nothing": 0,
+    "beacon": 6
+   },
+   "100 reload none": {
+    "cycles": 6,
+    "newest": 6,
+    "older": 0,
+    "nothing": 0,
+    "beacon": 6
+   },
+   "100 navigate at-beacon": {
+    "cycles": 6,
+    "newest": 6,
+    "older": 0,
+    "nothing": 0,
+    "beacon": 6
+   },
+   "100 navigate 0": {
+    "cycles": 6,
+    "newest": 0,
+    "older": 6,
+    "nothing": 0,
+    "beacon": 0
+   },
+   "100 navigate 2": {
+    "cycles": 6,
+    "newest": 0,
+    "older": 6,
+    "nothing": 0,
+    "beacon": 0
+   },
+   "100 navigate 5": {
+    "cycles": 6,
+    "newest": 0,
+    "older": 6,
+    "nothing": 0,
+    "beacon": 0
+   },
+   "100 navigate 10": {
+    "cycles": 6,
+    "newest": 0,
+    "older": 6,
+    "nothing": 0,
+    "beacon": 0
+   },
+   "100 navigate 25": {
+    "cycles": 6,
+    "newest": 0,
+    "older": 6,
+    "nothing": 0,
+    "beacon": 0
+   },
+   "100 navigate 50": {
+    "cycles": 6,
+    "newest": 0,
+    "older": 6,
+    "nothing": 0,
+    "beacon": 0
+   },
+   "100 newTab none": {
+    "cycles": 6,
+    "newest": 6,
+    "older": 0,
+    "nothing": 0,
+    "beacon": 6
+   },
+   "100 newTab at-beacon": {
+    "cycles": 6,
+    "newest": 6,
+    "older": 0,
+    "nothing": 0,
+    "beacon": 6
+   },
+   "100 crash-now none": {
+    "cycles": 6,
+    "newest": 0,
+    "older": 6,
+    "nothing": 0,
+    "beacon": 0
+   },
+   "100 closeTab none": {
+    "cycles": 6,
+    "newest": 6,
+    "older": 0,
+    "nothing": 0,
+    "beacon": 6
+   }
+  },
+  "rows": [
+   {
+    "trigger": "kill-only",
+    "killMs": 20,
+    "size": 100,
+    "count": 0,
+    "ms": 1460,
+    "fired": null,
+    "beacons": 0
+   },
+   {
+    "trigger": "kill-only",
+    "killMs": 20,
+    "size": 100,
+    "count": 0,
+    "ms": 1453,
+    "fired": null,
+    "beacons": 0
+   },
+   {
+    "trigger": "kill-only",
+    "killMs": 20,
+    "size": 100,
+    "count": 0,
+    "ms": 1472,
+    "fired": null,
+    "beacons": 0
+   },
+   {
+    "trigger": "kill-only",
+    "killMs": 20,
+    "size": 100,
+    "count": 0,
+    "ms": 1499,
+    "fired": null,
+    "beacons": 0
+   },
+   {
+    "trigger": "kill-only",
+    "killMs": 20,
+    "size": 100,
+    "count": 0,
+    "ms": 1462,
+    "fired": null,
+    "beacons": 0
+   },
+   {
+    "trigger": "kill-only",
+    "killMs": 20,
+    "size": 100,
+    "count": 0,
+    "ms": 1448,
+    "fired": null,
+    "beacons": 0
+   },
+   {
+    "trigger": "navigate",
+    "killMs": "none",
+    "size": 100,
+    "count": 3,
+    "ms": 1538,
+    "fired": null,
+    "beacons": 2
+   },
+   {
+    "trigger": "navigate",
+    "killMs": "none",
+    "size": 100,
+    "count": 3,
+    "ms": 1006,
+    "fired": null,
+    "beacons": 2
+   },
+   {
+    "trigger": "navigate",
+    "killMs": "none",
+    "size": 100,
+    "count": 3,
+    "ms": 999,
+    "fired": null,
+    "beacons": 2
+   },
+   {
+    "trigger": "navigate",
+    "killMs": "none",
+    "size": 100,
+    "count": 3,
+    "ms": 995,
+    "fired": null,
+    "beacons": 2
+   },
+   {
+    "trigger": "navigate",
+    "killMs": "none",
+    "size": 100,
+    "count": 3,
+    "ms": 1009,
+    "fired": null,
+    "beacons": 2
+   },
+   {
+    "trigger": "navigate",
+    "killMs": "none",
+    "size": 100,
+    "count": 3,
+    "ms": 1005,
+    "fired": null,
+    "beacons": 2
+   },
+   {
+    "trigger": "reload",
+    "killMs": "none",
+    "size": 100,
+    "count": 3,
+    "ms": 959,
+    "fired": {
+     "hidden": 0,
+     "pagehide": 0,
+     "visibility": []
+    },
+    "beacons": 2
+   },
+   {
+    "trigger": "reload",
+    "killMs": "none",
+    "size": 100,
+    "count": 3,
+    "ms": 973,
+    "fired": {
+     "hidden": 0,
+     "pagehide": 0,
+     "visibility": []
+    },
+    "beacons": 2
+   },
+   {
+    "trigger": "reload",
+    "killMs": "none",
+    "size": 100,
+    "count": 3,
+    "ms": 975,
+    "fired": {
+     "hidden": 0,
+     "pagehide": 0,
+     "visibility": []
+    },
+    "beacons": 2
+   },
+   {
+    "trigger": "reload",
+    "killMs": "none",
+    "size": 100,
+    "count": 3,
+    "ms": 968,
+    "fired": {
+     "hidden": 0,
+     "pagehide": 0,
+     "visibility": []
+    },
+    "beacons": 2
+   },
+   {
+    "trigger": "reload",
+    "killMs": "none",
+    "size": 100,
+    "count": 3,
+    "ms": 1001,
+    "fired": {
+     "hidden": 0,
+     "pagehide": 0,
+     "visibility": []
+    },
+    "beacons": 2
+   },
+   {
+    "trigger": "reload",
+    "killMs": "none",
+    "size": 100,
+    "count": 3,
+    "ms": 967,
+    "fired": {
+     "hidden": 0,
+     "pagehide": 0,
+     "visibility": []
+    },
+    "beacons": 2
+   },
+   {
+    "trigger": "navigate",
+    "killMs": "at-beacon",
+    "size": 100,
+    "count": 3,
+    "ms": 2556,
+    "fired": null,
+    "beacons": 2
+   },
+   {
+    "trigger": "navigate",
+    "killMs": "at-beacon",
+    "size": 100,
+    "count": 3,
+    "ms": 2002,
+    "fired": null,
+    "beacons": 2
+   },
+   {
+    "trigger": "navigate",
+    "killMs": "at-beacon",
+    "size": 100,
+    "count": 3,
+    "ms": 2477,
+    "fired": null,
+    "beacons": 2
+   },
+   {
+    "trigger": "navigate",
+    "killMs": "at-beacon",
+    "size": 100,
+    "count": 3,
+    "ms": 1457,
+    "fired": null,
+    "beacons": 2
+   },
+   {
+    "trigger": "navigate",
+    "killMs": "at-beacon",
+    "size": 100,
+    "count": 3,
+    "ms": 1992,
+    "fired": null,
+    "beacons": 2
+   },
+   {
+    "trigger": "navigate",
+    "killMs": "at-beacon",
+    "size": 100,
+    "count": 3,
+    "ms": 2002,
+    "fired": null,
+    "beacons": 2
+   },
+   {
+    "trigger": "navigate",
+    "killMs": 0,
+    "size": 100,
+    "count": 0,
+    "ms": 1950,
+    "fired": null,
+    "beacons": 0
+   },
+   {
+    "trigger": "navigate",
+    "killMs": 0,
+    "size": 100,
+    "count": 0,
+    "ms": 2439,
+    "fired": null,
+    "beacons": 0
+   },
+   {
+    "trigger": "navigate",
+    "killMs": 0,
+    "size": 100,
+    "count": 0,
+    "ms": 2444,
+    "fired": null,
+    "beacons": 0
+   },
+   {
+    "trigger": "navigate",
+    "killMs": 0,
+    "size": 100,
+    "count": 0,
+    "ms": 1926,
+    "fired": null,
+    "beacons": 0
+   },
+   {
+    "trigger": "navigate",
+    "killMs": 0,
+    "size": 100,
+    "count": 0,
+    "ms": 1941,
+    "fired": null,
+    "beacons": 0
+   },
+   {
+    "trigger": "navigate",
+    "killMs": 0,
+    "size": 100,
+    "count": 0,
+    "ms": 1941,
+    "fired": null,
+    "beacons": 0
+   },
+   {
+    "trigger": "navigate",
+    "killMs": 2,
+    "size": 100,
+    "count": 0,
+    "ms": 1417,
+    "fired": null,
+    "beacons": 0
+   },
+   {
+    "trigger": "navigate",
+    "killMs": 2,
+    "size": 100,
+    "count": 0,
+    "ms": 1941,
+    "fired": null,
+    "beacons": 0
+   },
+   {
+    "trigger": "navigate",
+    "killMs": 2,
+    "size": 100,
+    "count": 0,
+    "ms": 1932,
+    "fired": null,
+    "beacons": 0
+   },
+   {
+    "trigger": "navigate",
+    "killMs": 2,
+    "size": 100,
+    "count": 0,
+    "ms": 1933,
+    "fired": null,
+    "beacons": 0
+   },
+   {
+    "trigger": "navigate",
+    "killMs": 2,
+    "size": 100,
+    "count": 0,
+    "ms": 1932,
+    "fired": null,
+    "beacons": 0
+   },
+   {
+    "trigger": "navigate",
+    "killMs": 2,
+    "size": 100,
+    "count": 0,
+    "ms": 1439,
+    "fired": null,
+    "beacons": 0
+   },
+   {
+    "trigger": "navigate",
+    "killMs": 5,
+    "size": 100,
+    "count": 0,
+    "ms": 1952,
+    "fired": null,
+    "beacons": 0
+   },
+   {
+    "trigger": "navigate",
+    "killMs": 5,
+    "size": 100,
+    "count": 0,
+    "ms": 2481,
+    "fired": null,
+    "beacons": 0
+   },
+   {
+    "trigger": "navigate",
+    "killMs": 5,
+    "size": 100,
+    "count": 0,
+    "ms": 2436,
+    "fired": null,
+    "beacons": 0
+   },
+   {
+    "trigger": "navigate",
+    "killMs": 5,
+    "size": 100,
+    "count": 0,
+    "ms": 1924,
+    "fired": null,
+    "beacons": 0
+   },
+   {
+    "trigger": "navigate",
+    "killMs": 5,
+    "size": 100,
+    "count": 0,
+    "ms": 2432,
+    "fired": null,
+    "beacons": 0
+   },
+   {
+    "trigger": "navigate",
+    "killMs": 5,
+    "size": 100,
+    "count": 0,
+    "ms": 1938,
+    "fired": null,
+    "beacons": 0
+   },
+   {
+    "trigger": "navigate",
+    "killMs": 10,
+    "size": 100,
+    "count": 0,
+    "ms": 2454,
+    "fired": null,
+    "beacons": 0
+   },
+   {
+    "trigger": "navigate",
+    "killMs": 10,
+    "size": 100,
+    "count": 0,
+    "ms": 1934,
+    "fired": null,
+    "beacons": 0
+   },
+   {
+    "trigger": "navigate",
+    "killMs": 10,
+    "size": 100,
+    "count": 0,
+    "ms": 1437,
+    "fired": null,
+    "beacons": 0
+   },
+   {
+    "trigger": "navigate",
+    "killMs": 10,
+    "size": 100,
+    "count": 0,
+    "ms": 1923,
+    "fired": null,
+    "beacons": 0
+   },
+   {
+    "trigger": "navigate",
+    "killMs": 10,
+    "size": 100,
+    "count": 0,
+    "ms": 1919,
+    "fired": null,
+    "beacons": 0
+   },
+   {
+    "trigger": "navigate",
+    "killMs": 10,
+    "size": 100,
+    "count": 0,
+    "ms": 1939,
+    "fired": null,
+    "beacons": 0
+   },
+   {
+    "trigger": "navigate",
+    "killMs": 25,
+    "size": 100,
+    "count": 0,
+    "ms": 2487,
+    "fired": null,
+    "beacons": 0
+   },
+   {
+    "trigger": "navigate",
+    "killMs": 25,
+    "size": 100,
+    "count": 0,
+    "ms": 1946,
+    "fired": null,
+    "beacons": 0
+   },
+   {
+    "trigger": "navigate",
+    "killMs": 25,
+    "size": 100,
+    "count": 0,
+    "ms": 1961,
+    "fired": null,
+    "beacons": 0
+   },
+   {
+    "trigger": "navigate",
+    "killMs": 25,
+    "size": 100,
+    "count": 0,
+    "ms": 1928,
+    "fired": null,
+    "beacons": 0
+   },
+   {
+    "trigger": "navigate",
+    "killMs": 25,
+    "size": 100,
+    "count": 0,
+    "ms": 1926,
+    "fired": null,
+    "beacons": 0
+   },
+   {
+    "trigger": "navigate",
+    "killMs": 25,
+    "size": 100,
+    "count": 0,
+    "ms": 2481,
+    "fired": null,
+    "beacons": 0
+   },
+   {
+    "trigger": "navigate",
+    "killMs": 50,
+    "size": 100,
+    "count": 0,
+    "ms": 1480,
+    "fired": null,
+    "beacons": 0
+   },
+   {
+    "trigger": "navigate",
+    "killMs": 50,
+    "size": 100,
+    "count": 0,
+    "ms": 2503,
+    "fired": null,
+    "beacons": 0
+   },
+   {
+    "trigger": "navigate",
+    "killMs": 50,
+    "size": 100,
+    "count": 0,
+    "ms": 1460,
+    "fired": null,
+    "beacons": 0
+   },
+   {
+    "trigger": "navigate",
+    "killMs": 50,
+    "size": 100,
+    "count": 0,
+    "ms": 2499,
+    "fired": null,
+    "beacons": 0
+   },
+   {
+    "trigger": "navigate",
+    "killMs": 50,
+    "size": 100,
+    "count": 0,
+    "ms": 2498,
+    "fired": null,
+    "beacons": 0
+   },
+   {
+    "trigger": "navigate",
+    "killMs": 50,
+    "size": 100,
+    "count": 0,
+    "ms": 2502,
+    "fired": null,
+    "beacons": 0
+   },
+   {
+    "trigger": "newTab",
+    "killMs": "none",
+    "size": 100,
+    "count": 3,
+    "ms": 1667,
+    "fired": {
+     "hidden": 1,
+     "pagehide": 0,
+     "visibility": [
+      "hidden"
+     ]
+    },
+    "beacons": 1
+   },
+   {
+    "trigger": "newTab",
+    "killMs": "none",
+    "size": 100,
+    "count": 3,
+    "ms": 1662,
+    "fired": {
+     "hidden": 1,
+     "pagehide": 0,
+     "visibility": [
+      "hidden"
+     ]
+    },
+    "beacons": 1
+   },
+   {
+    "trigger": "newTab",
+    "killMs": "none",
+    "size": 100,
+    "count": 3,
+    "ms": 1698,
+    "fired": {
+     "hidden": 1,
+     "pagehide": 0,
+     "visibility": [
+      "hidden"
+     ]
+    },
+    "beacons": 1
+   },
+   {
+    "trigger": "newTab",
+    "killMs": "none",
+    "size": 100,
+    "count": 3,
+    "ms": 1676,
+    "fired": {
+     "hidden": 1,
+     "pagehide": 0,
+     "visibility": [
+      "hidden"
+     ]
+    },
+    "beacons": 1
+   },
+   {
+    "trigger": "newTab",
+    "killMs": "none",
+    "size": 100,
+    "count": 3,
+    "ms": 1673,
+    "fired": {
+     "hidden": 1,
+     "pagehide": 0,
+     "visibility": [
+      "hidden"
+     ]
+    },
+    "beacons": 1
+   },
+   {
+    "trigger": "newTab",
+    "killMs": "none",
+    "size": 100,
+    "count": 3,
+    "ms": 1918,
+    "fired": {
+     "hidden": 1,
+     "pagehide": 0,
+     "visibility": [
+      "hidden"
+     ]
+    },
+    "beacons": 1
+   },
+   {
+    "trigger": "newTab",
+    "killMs": "at-beacon",
+    "size": 100,
+    "count": 3,
+    "ms": 2480,
+    "fired": null,
+    "beacons": 1
+   },
+   {
+    "trigger": "newTab",
+    "killMs": "at-beacon",
+    "size": 100,
+    "count": 3,
+    "ms": 2505,
+    "fired": null,
+    "beacons": 1
+   },
+   {
+    "trigger": "newTab",
+    "killMs": "at-beacon",
+    "size": 100,
+    "count": 3,
+    "ms": 2491,
+    "fired": null,
+    "beacons": 1
+   },
+   {
+    "trigger": "newTab",
+    "killMs": "at-beacon",
+    "size": 100,
+    "count": 3,
+    "ms": 3013,
+    "fired": null,
+    "beacons": 1
+   },
+   {
+    "trigger": "newTab",
+    "killMs": "at-beacon",
+    "size": 100,
+    "count": 3,
+    "ms": 2484,
+    "fired": null,
+    "beacons": 1
+   },
+   {
+    "trigger": "newTab",
+    "killMs": "at-beacon",
+    "size": 100,
+    "count": 3,
+    "ms": 3001,
+    "fired": null,
+    "beacons": 1
+   },
+   {
+    "trigger": "crash-now",
+    "killMs": "none",
+    "size": 100,
+    "count": 0,
+    "ms": 1998,
+    "fired": null,
+    "beacons": 0
+   },
+   {
+    "trigger": "crash-now",
+    "killMs": "none",
+    "size": 100,
+    "count": 0,
+    "ms": 2008,
+    "fired": null,
+    "beacons": 0
+   },
+   {
+    "trigger": "crash-now",
+    "killMs": "none",
+    "size": 100,
+    "count": 0,
+    "ms": 2001,
+    "fired": null,
+    "beacons": 0
+   },
+   {
+    "trigger": "crash-now",
+    "killMs": "none",
+    "size": 100,
+    "count": 0,
+    "ms": 2009,
+    "fired": null,
+    "beacons": 0
+   },
+   {
+    "trigger": "crash-now",
+    "killMs": "none",
+    "size": 100,
+    "count": 0,
+    "ms": 2013,
+    "fired": null,
+    "beacons": 0
+   },
+   {
+    "trigger": "crash-now",
+    "killMs": "none",
+    "size": 100,
+    "count": 0,
+    "ms": 2002,
+    "fired": null,
+    "beacons": 0
+   },
+   {
+    "trigger": "closeTab",
+    "killMs": "none",
+    "size": 100,
+    "count": 3,
+    "ms": 993,
+    "fired": null,
+    "beacons": 2
+   },
+   {
+    "trigger": "closeTab",
+    "killMs": "none",
+    "size": 100,
+    "count": 3,
+    "ms": 999,
+    "fired": null,
+    "beacons": 2
+   },
+   {
+    "trigger": "closeTab",
+    "killMs": "none",
+    "size": 100,
+    "count": 3,
+    "ms": 1001,
+    "fired": null,
+    "beacons": 2
+   },
+   {
+    "trigger": "closeTab",
+    "killMs": "none",
+    "size": 100,
+    "count": 3,
+    "ms": 999,
+    "fired": null,
+    "beacons": 2
+   },
+   {
+    "trigger": "closeTab",
+    "killMs": "none",
+    "size": 100,
+    "count": 3,
+    "ms": 993,
+    "fired": null,
+    "beacons": 2
+   },
+   {
+    "trigger": "closeTab",
+    "killMs": "none",
+    "size": 100,
+    "count": 3,
+    "ms": 1001,
+    "fired": null,
+    "beacons": 2
+   }
+  ]
+ },
+ "round-7:hide-commit-10000": {
+  "failedCycles": 0,
+  "tbl": {
+   "10000 kill-only 20": {
+    "cycles": 6,
+    "newest": 0,
+    "older": 6,
+    "nothing": 0,
+    "beacon": 0
+   },
+   "10000 navigate none": {
+    "cycles": 6,
+    "newest": 6,
+    "older": 0,
+    "nothing": 0,
+    "beacon": 6
+   },
+   "10000 reload none": {
+    "cycles": 6,
+    "newest": 0,
+    "older": 6,
+    "nothing": 0,
+    "beacon": 6
+   },
+   "10000 navigate at-beacon": {
+    "cycles": 6,
+    "newest": 0,
+    "older": 6,
+    "nothing": 0,
+    "beacon": 6
+   },
+   "10000 navigate 0": {
+    "cycles": 6,
+    "newest": 0,
+    "older": 6,
+    "nothing": 0,
+    "beacon": 0
+   },
+   "10000 navigate 2": {
+    "cycles": 6,
+    "newest": 0,
+    "older": 6,
+    "nothing": 0,
+    "beacon": 0
+   },
+   "10000 navigate 5": {
+    "cycles": 6,
+    "newest": 0,
+    "older": 6,
+    "nothing": 0,
+    "beacon": 0
+   },
+   "10000 navigate 10": {
+    "cycles": 6,
+    "newest": 0,
+    "older": 6,
+    "nothing": 0,
+    "beacon": 0
+   },
+   "10000 navigate 25": {
+    "cycles": 6,
+    "newest": 0,
+    "older": 6,
+    "nothing": 0,
+    "beacon": 0
+   },
+   "10000 navigate 50": {
+    "cycles": 6,
+    "newest": 0,
+    "older": 6,
+    "nothing": 0,
+    "beacon": 0
+   },
+   "10000 newTab none": {
+    "cycles": 6,
+    "newest": 6,
+    "older": 0,
+    "nothing": 0,
+    "beacon": 6
+   },
+   "10000 newTab at-beacon": {
+    "cycles": 6,
+    "newest": 6,
+    "older": 0,
+    "nothing": 0,
+    "beacon": 6
+   },
+   "10000 crash-now none": {
+    "cycles": 6,
+    "newest": 0,
+    "older": 6,
+    "nothing": 0,
+    "beacon": 0
+   },
+   "10000 closeTab none": {
+    "cycles": 6,
+    "newest": 6,
+    "older": 0,
+    "nothing": 0,
+    "beacon": 6
+   }
+  },
+  "rows": [
+   {
+    "trigger": "kill-only",
+    "killMs": 20,
+    "size": 10000,
+    "count": 0,
+    "ms": 1491,
+    "fired": null,
+    "beacons": 0
+   },
+   {
+    "trigger": "kill-only",
+    "killMs": 20,
+    "size": 10000,
+    "count": 0,
+    "ms": 1483,
+    "fired": null,
+    "beacons": 0
+   },
+   {
+    "trigger": "kill-only",
+    "killMs": 20,
+    "size": 10000,
+    "count": 0,
+    "ms": 1491,
+    "fired": null,
+    "beacons": 0
+   },
+   {
+    "trigger": "kill-only",
+    "killMs": 20,
+    "size": 10000,
+    "count": 0,
+    "ms": 1481,
+    "fired": null,
+    "beacons": 0
+   },
+   {
+    "trigger": "kill-only",
+    "killMs": 20,
+    "size": 10000,
+    "count": 0,
+    "ms": 1488,
+    "fired": null,
+    "beacons": 0
+   },
+   {
+    "trigger": "kill-only",
+    "killMs": 20,
+    "size": 10000,
+    "count": 0,
+    "ms": 1497,
+    "fired": null,
+    "beacons": 0
+   },
+   {
+    "trigger": "navigate",
+    "killMs": "none",
+    "size": 10000,
+    "count": 3,
+    "ms": 1571,
+    "fired": null,
+    "beacons": 2
+   },
+   {
+    "trigger": "navigate",
+    "killMs": "none",
+    "size": 10000,
+    "count": 3,
+    "ms": 1027,
+    "fired": null,
+    "beacons": 2
+   },
+   {
+    "trigger": "navigate",
+    "killMs": "none",
+    "size": 10000,
+    "count": 3,
+    "ms": 1030,
+    "fired": null,
+    "beacons": 2
+   },
+   {
+    "trigger": "navigate",
+    "killMs": "none",
+    "size": 10000,
+    "count": 3,
+    "ms": 1018,
+    "fired": null,
+    "beacons": 2
+   },
+   {
+    "trigger": "navigate",
+    "killMs": "none",
+    "size": 10000,
+    "count": 3,
+    "ms": 1027,
+    "fired": null,
+    "beacons": 2
+   },
+   {
+    "trigger": "navigate",
+    "killMs": "none",
+    "size": 10000,
+    "count": 3,
+    "ms": 1032,
+    "fired": null,
+    "beacons": 2
+   },
+   {
+    "trigger": "reload",
+    "killMs": "none",
+    "size": 10000,
+    "count": 0,
+    "ms": 977,
+    "fired": {
+     "hidden": 0,
+     "pagehide": 0,
+     "visibility": []
+    },
+    "beacons": 2
+   },
+   {
+    "trigger": "reload",
+    "killMs": "none",
+    "size": 10000,
+    "count": 0,
+    "ms": 1015,
+    "fired": {
+     "hidden": 0,
+     "pagehide": 0,
+     "visibility": []
+    },
+    "beacons": 2
+   },
+   {
+    "trigger": "reload",
+    "killMs": "none",
+    "size": 10000,
+    "count": 0,
+    "ms": 1007,
+    "fired": {
+     "hidden": 0,
+     "pagehide": 0,
+     "visibility": []
+    },
+    "beacons": 2
+   },
+   {
+    "trigger": "reload",
+    "killMs": "none",
+    "size": 10000,
+    "count": 0,
+    "ms": 983,
+    "fired": {
+     "hidden": 0,
+     "pagehide": 0,
+     "visibility": []
+    },
+    "beacons": 2
+   },
+   {
+    "trigger": "reload",
+    "killMs": "none",
+    "size": 10000,
+    "count": 0,
+    "ms": 1026,
+    "fired": {
+     "hidden": 0,
+     "pagehide": 0,
+     "visibility": []
+    },
+    "beacons": 2
+   },
+   {
+    "trigger": "reload",
+    "killMs": "none",
+    "size": 10000,
+    "count": 0,
+    "ms": 994,
+    "fired": {
+     "hidden": 0,
+     "pagehide": 0,
+     "visibility": []
+    },
+    "beacons": 2
+   },
+   {
+    "trigger": "navigate",
+    "killMs": "at-beacon",
+    "size": 10000,
+    "count": 0,
+    "ms": 2070,
+    "fired": null,
+    "beacons": 1
+   },
+   {
+    "trigger": "navigate",
+    "killMs": "at-beacon",
+    "size": 10000,
+    "count": 0,
+    "ms": 2520,
+    "fired": null,
+    "beacons": 1
+   },
+   {
+    "trigger": "navigate",
+    "killMs": "at-beacon",
+    "size": 10000,
+    "count": 0,
+    "ms": 2540,
+    "fired": null,
+    "beacons": 1
+   },
+   {
+    "trigger": "navigate",
+    "killMs": "at-beacon",
+    "size": 10000,
+    "count": 0,
+    "ms": 2533,
+    "fired": null,
+    "beacons": 1
+   },
+   {
+    "trigger": "navigate",
+    "killMs": "at-beacon",
+    "size": 10000,
+    "count": 0,
+    "ms": 2001,
+    "fired": null,
+    "beacons": 1
+   },
+   {
+    "trigger": "navigate",
+    "killMs": "at-beacon",
+    "size": 10000,
+    "count": 0,
+    "ms": 1994,
+    "fired": null,
+    "beacons": 1
+   },
+   {
+    "trigger": "navigate",
+    "killMs": 0,
+    "size": 10000,
+    "count": 0,
+    "ms": 1967,
+    "fired": null,
+    "beacons": 0
+   },
+   {
+    "trigger": "navigate",
+    "killMs": 0,
+    "size": 10000,
+    "count": 0,
+    "ms": 1951,
+    "fired": null,
+    "beacons": 0
+   },
+   {
+    "trigger": "navigate",
+    "killMs": 0,
+    "size": 10000,
+    "count": 0,
+    "ms": 1928,
+    "fired": null,
+    "beacons": 0
+   },
+   {
+    "trigger": "navigate",
+    "killMs": 0,
+    "size": 10000,
+    "count": 0,
+    "ms": 2454,
+    "fired": null,
+    "beacons": 0
+   },
+   {
+    "trigger": "navigate",
+    "killMs": 0,
+    "size": 10000,
+    "count": 0,
+    "ms": 1443,
+    "fired": null,
+    "beacons": 0
+   },
+   {
+    "trigger": "navigate",
+    "killMs": 0,
+    "size": 10000,
+    "count": 0,
+    "ms": 1945,
+    "fired": null,
+    "beacons": 0
+   },
+   {
+    "trigger": "navigate",
+    "killMs": 2,
+    "size": 10000,
+    "count": 0,
+    "ms": 1435,
+    "fired": null,
+    "beacons": 0
+   },
+   {
+    "trigger": "navigate",
+    "killMs": 2,
+    "size": 10000,
+    "count": 0,
+    "ms": 2442,
+    "fired": null,
+    "beacons": 0
+   },
+   {
+    "trigger": "navigate",
+    "killMs": 2,
+    "size": 10000,
+    "count": 0,
+    "ms": 1923,
+    "fired": null,
+    "beacons": 0
+   },
+   {
+    "trigger": "navigate",
+    "killMs": 2,
+    "size": 10000,
+    "count": 0,
+    "ms": 1422,
+    "fired": null,
+    "beacons": 0
+   },
+   {
+    "trigger": "navigate",
+    "killMs": 2,
+    "size": 10000,
+    "count": 0,
+    "ms": 1445,
+    "fired": null,
+    "beacons": 0
+   },
+   {
+    "trigger": "navigate",
+    "killMs": 2,
+    "size": 10000,
+    "count": 0,
+    "ms": 1951,
+    "fired": null,
+    "beacons": 0
+   },
+   {
+    "trigger": "navigate",
+    "killMs": 5,
+    "size": 10000,
+    "count": 0,
+    "ms": 1462,
+    "fired": null,
+    "beacons": 0
+   },
+   {
+    "trigger": "navigate",
+    "killMs": 5,
+    "size": 10000,
+    "count": 0,
+    "ms": 1418,
+    "fired": null,
+    "beacons": 0
+   },
+   {
+    "trigger": "navigate",
+    "killMs": 5,
+    "size": 10000,
+    "count": 0,
+    "ms": 1940,
+    "fired": null,
+    "beacons": 0
+   },
+   {
+    "trigger": "navigate",
+    "killMs": 5,
+    "size": 10000,
+    "count": 0,
+    "ms": 1951,
+    "fired": null,
+    "beacons": 0
+   },
+   {
+    "trigger": "navigate",
+    "killMs": 5,
+    "size": 10000,
+    "count": 0,
+    "ms": 1943,
+    "fired": null,
+    "beacons": 0
+   },
+   {
+    "trigger": "navigate",
+    "killMs": 5,
+    "size": 10000,
+    "count": 0,
+    "ms": 1967,
+    "fired": null,
+    "beacons": 0
+   },
+   {
+    "trigger": "navigate",
+    "killMs": 10,
+    "size": 10000,
+    "count": 0,
+    "ms": 1960,
+    "fired": null,
+    "beacons": 0
+   },
+   {
+    "trigger": "navigate",
+    "killMs": 10,
+    "size": 10000,
+    "count": 0,
+    "ms": 1949,
+    "fired": null,
+    "beacons": 0
+   },
+   {
+    "trigger": "navigate",
+    "killMs": 10,
+    "size": 10000,
+    "count": 0,
+    "ms": 1979,
+    "fired": null,
+    "beacons": 0
+   },
+   {
+    "trigger": "navigate",
+    "killMs": 10,
+    "size": 10000,
+    "count": 0,
+    "ms": 2495,
+    "fired": null,
+    "beacons": 0
+   },
+   {
+    "trigger": "navigate",
+    "killMs": 10,
+    "size": 10000,
+    "count": 0,
+    "ms": 1953,
+    "fired": null,
+    "beacons": 0
+   },
+   {
+    "trigger": "navigate",
+    "killMs": 10,
+    "size": 10000,
+    "count": 0,
+    "ms": 1935,
+    "fired": null,
+    "beacons": 0
+   },
+   {
+    "trigger": "navigate",
+    "killMs": 25,
+    "size": 10000,
+    "count": 0,
+    "ms": 1989,
+    "fired": null,
+    "beacons": 0
+   },
+   {
+    "trigger": "navigate",
+    "killMs": 25,
+    "size": 10000,
+    "count": 0,
+    "ms": 2498,
+    "fired": null,
+    "beacons": 0
+   },
+   {
+    "trigger": "navigate",
+    "killMs": 25,
+    "size": 10000,
+    "count": 0,
+    "ms": 1458,
+    "fired": null,
+    "beacons": 0
+   },
+   {
+    "trigger": "navigate",
+    "killMs": 25,
+    "size": 10000,
+    "count": 0,
+    "ms": 1944,
+    "fired": null,
+    "beacons": 0
+   },
+   {
+    "trigger": "navigate",
+    "killMs": 25,
+    "size": 10000,
+    "count": 0,
+    "ms": 1456,
+    "fired": null,
+    "beacons": 0
+   },
+   {
+    "trigger": "navigate",
+    "killMs": 25,
+    "size": 10000,
+    "count": 0,
+    "ms": 1452,
+    "fired": null,
+    "beacons": 0
+   },
+   {
+    "trigger": "navigate",
+    "killMs": 50,
+    "size": 10000,
+    "count": 0,
+    "ms": 2510,
+    "fired": null,
+    "beacons": 0
+   },
+   {
+    "trigger": "navigate",
+    "killMs": 50,
+    "size": 10000,
+    "count": 0,
+    "ms": 1488,
+    "fired": null,
+    "beacons": 0
+   },
+   {
+    "trigger": "navigate",
+    "killMs": 50,
+    "size": 10000,
+    "count": 0,
+    "ms": 1994,
+    "fired": null,
+    "beacons": 0
+   },
+   {
+    "trigger": "navigate",
+    "killMs": 50,
+    "size": 10000,
+    "count": 0,
+    "ms": 2000,
+    "fired": null,
+    "beacons": 0
+   },
+   {
+    "trigger": "navigate",
+    "killMs": 50,
+    "size": 10000,
+    "count": 0,
+    "ms": 1493,
+    "fired": null,
+    "beacons": 0
+   },
+   {
+    "trigger": "navigate",
+    "killMs": 50,
+    "size": 10000,
+    "count": 0,
+    "ms": 1992,
+    "fired": null,
+    "beacons": 0
+   },
+   {
+    "trigger": "newTab",
+    "killMs": "none",
+    "size": 10000,
+    "count": 3,
+    "ms": 1708,
+    "fired": {
+     "hidden": 1,
+     "pagehide": 0,
+     "visibility": [
+      "hidden"
+     ]
+    },
+    "beacons": 1
+   },
+   {
+    "trigger": "newTab",
+    "killMs": "none",
+    "size": 10000,
+    "count": 3,
+    "ms": 1687,
+    "fired": {
+     "hidden": 1,
+     "pagehide": 0,
+     "visibility": [
+      "hidden"
+     ]
+    },
+    "beacons": 1
+   },
+   {
+    "trigger": "newTab",
+    "killMs": "none",
+    "size": 10000,
+    "count": 3,
+    "ms": 1671,
+    "fired": {
+     "hidden": 1,
+     "pagehide": 0,
+     "visibility": [
+      "hidden"
+     ]
+    },
+    "beacons": 1
+   },
+   {
+    "trigger": "newTab",
+    "killMs": "none",
+    "size": 10000,
+    "count": 3,
+    "ms": 1697,
+    "fired": {
+     "hidden": 1,
+     "pagehide": 0,
+     "visibility": [
+      "hidden"
+     ]
+    },
+    "beacons": 1
+   },
+   {
+    "trigger": "newTab",
+    "killMs": "none",
+    "size": 10000,
+    "count": 3,
+    "ms": 1709,
+    "fired": {
+     "hidden": 1,
+     "pagehide": 0,
+     "visibility": [
+      "hidden"
+     ]
+    },
+    "beacons": 1
+   },
+   {
+    "trigger": "newTab",
+    "killMs": "none",
+    "size": 10000,
+    "count": 3,
+    "ms": 1696,
+    "fired": {
+     "hidden": 1,
+     "pagehide": 0,
+     "visibility": [
+      "hidden"
+     ]
+    },
+    "beacons": 1
+   },
+   {
+    "trigger": "newTab",
+    "killMs": "at-beacon",
+    "size": 10000,
+    "count": 3,
+    "ms": 1996,
+    "fired": null,
+    "beacons": 1
+   },
+   {
+    "trigger": "newTab",
+    "killMs": "at-beacon",
+    "size": 10000,
+    "count": 3,
+    "ms": 3010,
+    "fired": null,
+    "beacons": 1
+   },
+   {
+    "trigger": "newTab",
+    "killMs": "at-beacon",
+    "size": 10000,
+    "count": 3,
+    "ms": 1986,
+    "fired": null,
+    "beacons": 1
+   },
+   {
+    "trigger": "newTab",
+    "killMs": "at-beacon",
+    "size": 10000,
+    "count": 3,
+    "ms": 2512,
+    "fired": null,
+    "beacons": 1
+   },
+   {
+    "trigger": "newTab",
+    "killMs": "at-beacon",
+    "size": 10000,
+    "count": 3,
+    "ms": 3017,
+    "fired": null,
+    "beacons": 1
+   },
+   {
+    "trigger": "newTab",
+    "killMs": "at-beacon",
+    "size": 10000,
+    "count": 3,
+    "ms": 2494,
+    "fired": null,
+    "beacons": 1
+   },
+   {
+    "trigger": "crash-now",
+    "killMs": "none",
+    "size": 10000,
+    "count": 0,
+    "ms": 2028,
+    "fired": null,
+    "beacons": 0
+   },
+   {
+    "trigger": "crash-now",
+    "killMs": "none",
+    "size": 10000,
+    "count": 0,
+    "ms": 2041,
+    "fired": null,
+    "beacons": 0
+   },
+   {
+    "trigger": "crash-now",
+    "killMs": "none",
+    "size": 10000,
+    "count": 0,
+    "ms": 2021,
+    "fired": null,
+    "beacons": 0
+   },
+   {
+    "trigger": "crash-now",
+    "killMs": "none",
+    "size": 10000,
+    "count": 0,
+    "ms": 2027,
+    "fired": null,
+    "beacons": 0
+   },
+   {
+    "trigger": "crash-now",
+    "killMs": "none",
+    "size": 10000,
+    "count": 0,
+    "ms": 2034,
+    "fired": null,
+    "beacons": 0
+   },
+   {
+    "trigger": "crash-now",
+    "killMs": "none",
+    "size": 10000,
+    "count": 0,
+    "ms": 2014,
+    "fired": null,
+    "beacons": 0
+   },
+   {
+    "trigger": "closeTab",
+    "killMs": "none",
+    "size": 10000,
+    "count": 3,
+    "ms": 1024,
+    "fired": null,
+    "beacons": 2
+   },
+   {
+    "trigger": "closeTab",
+    "killMs": "none",
+    "size": 10000,
+    "count": 3,
+    "ms": 1026,
+    "fired": null,
+    "beacons": 2
+   },
+   {
+    "trigger": "closeTab",
+    "killMs": "none",
+    "size": 10000,
+    "count": 3,
+    "ms": 1011,
+    "fired": null,
+    "beacons": 2
+   },
+   {
+    "trigger": "closeTab",
+    "killMs": "none",
+    "size": 10000,
+    "count": 3,
+    "ms": 1017,
+    "fired": null,
+    "beacons": 2
+   },
+   {
+    "trigger": "closeTab",
+    "killMs": "none",
+    "size": 10000,
+    "count": 3,
+    "ms": 1025,
+    "fired": null,
+    "beacons": 2
+   },
+   {
+    "trigger": "closeTab",
+    "killMs": "none",
+    "size": 10000,
+    "count": 3,
+    "ms": 1024,
+    "fired": null,
+    "beacons": 2
+   }
+  ]
+ },
+ "round-7:cost": {
+  "rows": [
+   {
+    "rate": 1,
+    "size": 1000,
+    "n": 240,
+    "gapMs": 16,
+    "captureMs": 0,
+    "turnMedianMs": 0.1,
+    "turnP99Ms": 0.3,
+    "writes": 240,
+    "writeSyncMs": 0.19,
+    "commitMs": 0.59,
+    "mbWritten": 41.3,
+    "longTasks": 0,
+    "longTasksOnlyInTakeRecords": 0,
+    "seconds": 4.5,
+    "busyPct": 10,
+    "mbPerSec": 9.2
+   },
+   {
+    "rate": 1,
+    "size": 1000,
+    "n": 240,
+    "gapMs": 16,
+    "captureMs": 100,
+    "turnMedianMs": 0.1,
+    "turnP99Ms": 0.3,
+    "writes": 35,
+    "writeSyncMs": 0.25,
+    "commitMs": 0.72,
+    "mbWritten": 6.1,
+    "longTasks": 0,
+    "longTasksOnlyInTakeRecords": 0,
+    "seconds": 4.5,
+    "busyPct": 2,
+    "mbPerSec": 1.4
+   },
+   {
+    "rate": 1,
+    "size": 1000,
+    "n": 240,
+    "gapMs": 16,
+    "captureMs": 500,
+    "turnMedianMs": 0.1,
+    "turnP99Ms": 0.3,
+    "writes": 9,
+    "writeSyncMs": 0.29,
+    "commitMs": 0.71,
+    "mbWritten": 1.6,
+    "longTasks": 0,
+    "longTasksOnlyInTakeRecords": 0,
+    "seconds": 5.3,
+    "busyPct": 1,
+    "mbPerSec": 0.3
+   },
+   {
+    "rate": 1,
+    "size": 1000,
+    "n": 960,
+    "gapMs": 16,
+    "captureMs": 5000,
+    "turnMedianMs": 0.1,
+    "turnP99Ms": 0.2,
+    "writes": 4,
+    "writeSyncMs": 0.27,
+    "commitMs": 0.6,
+    "mbWritten": 1,
+    "longTasks": 0,
+    "longTasksOnlyInTakeRecords": 0,
+    "seconds": 27.1,
+    "busyPct": 0,
+    "mbPerSec": 0
+   },
+   {
+    "rate": 1,
+    "size": 10000,
+    "n": 240,
+    "gapMs": 16,
+    "captureMs": 0,
+    "turnMedianMs": 0.1,
+    "turnP99Ms": 0.2,
+    "writes": 240,
+    "writeSyncMs": 0.93,
+    "commitMs": 2.61,
+    "mbWritten": 379.2,
+    "longTasks": 0,
+    "longTasksOnlyInTakeRecords": 0,
+    "seconds": 4.2,
+    "busyPct": 44,
+    "mbPerSec": 90.3
+   },
+   {
+    "rate": 1,
+    "size": 10000,
+    "n": 240,
+    "gapMs": 16,
+    "captureMs": 100,
+    "turnMedianMs": 0.1,
+    "turnP99Ms": 0.2,
+    "writes": 35,
+    "writeSyncMs": 1.47,
+    "commitMs": 3.95,
+    "mbWritten": 55.3,
+    "longTasks": 0,
+    "longTasksOnlyInTakeRecords": 0,
+    "seconds": 4.5,
+    "busyPct": 10,
+    "mbPerSec": 12.3
+   },
+   {
+    "rate": 1,
+    "size": 10000,
+    "n": 240,
+    "gapMs": 16,
+    "captureMs": 500,
+    "turnMedianMs": 0.1,
+    "turnP99Ms": 0.3,
+    "writes": 9,
+    "writeSyncMs": 1.54,
+    "commitMs": 4.38,
+    "mbWritten": 14.3,
+    "longTasks": 0,
+    "longTasksOnlyInTakeRecords": 0,
+    "seconds": 5.3,
+    "busyPct": 3,
+    "mbPerSec": 2.7
+   },
+   {
+    "rate": 1,
+    "size": 10000,
+    "n": 960,
+    "gapMs": 16,
+    "captureMs": 5000,
+    "turnMedianMs": 0.1,
+    "turnP99Ms": 0.2,
+    "writes": 4,
+    "writeSyncMs": 1.7,
+    "commitMs": 5.17,
+    "mbWritten": 6.7,
+    "longTasks": 0,
+    "longTasksOnlyInTakeRecords": 0,
+    "seconds": 27.1,
+    "busyPct": 1,
+    "mbPerSec": 0.2
+   },
+   {
+    "rate": 6,
+    "size": 1000,
+    "n": 240,
+    "gapMs": 16,
+    "captureMs": 0,
+    "turnMedianMs": 0,
+    "turnP99Ms": 0.9,
+    "writes": 240,
+    "writeSyncMs": 0.5,
+    "commitMs": 1.18,
+    "mbWritten": 41.3,
+    "longTasks": 0,
+    "longTasksOnlyInTakeRecords": 0,
+    "seconds": 4.1,
+    "busyPct": 24,
+    "mbPerSec": 10.1
+   },
+   {
+    "rate": 6,
+    "size": 1000,
+    "n": 240,
+    "gapMs": 16,
+    "captureMs": 100,
+    "turnMedianMs": 0,
+    "turnP99Ms": 0.2,
+    "writes": 35,
+    "writeSyncMs": 0.68,
+    "commitMs": 1.48,
+    "mbWritten": 6.1,
+    "longTasks": 0,
+    "longTasksOnlyInTakeRecords": 0,
+    "seconds": 4.2,
+    "busyPct": 4,
+    "mbPerSec": 1.5
+   },
+   {
+    "rate": 6,
+    "size": 1000,
+    "n": 240,
+    "gapMs": 16,
+    "captureMs": 500,
+    "turnMedianMs": 0,
+    "turnP99Ms": 0.1,
+    "writes": 8,
+    "writeSyncMs": 0.82,
+    "commitMs": 1.58,
+    "mbWritten": 1.4,
+    "longTasks": 0,
+    "longTasksOnlyInTakeRecords": 0,
+    "seconds": 5,
+    "busyPct": 1,
+    "mbPerSec": 0.3
+   },
+   {
+    "rate": 6,
+    "size": 1000,
+    "n": 960,
+    "gapMs": 16,
+    "captureMs": 5000,
+    "turnMedianMs": 0,
+    "turnP99Ms": 0.1,
+    "writes": 4,
+    "writeSyncMs": 1.47,
+    "commitMs": 2.25,
+    "mbWritten": 1,
+    "longTasks": 0,
+    "longTasksOnlyInTakeRecords": 0,
+    "seconds": 26,
+    "busyPct": 0,
+    "mbPerSec": 0
+   },
+   {
+    "rate": 6,
+    "size": 10000,
+    "n": 240,
+    "gapMs": 16,
+    "captureMs": 0,
+    "turnMedianMs": 0.1,
+    "turnP99Ms": 1.6,
+    "writes": 240,
+    "writeSyncMs": 5.38,
+    "commitMs": 7.61,
+    "mbWritten": 379.2,
+    "longTasks": 4,
+    "longTasksOnlyInTakeRecords": 0,
+    "seconds": 10,
+    "busyPct": 96,
+    "mbPerSec": 37.9
+   },
+   {
+    "rate": 6,
+    "size": 10000,
+    "n": 240,
+    "gapMs": 16,
+    "captureMs": 100,
+    "turnMedianMs": 0,
+    "turnP99Ms": 0.4,
+    "writes": 35,
+    "writeSyncMs": 5.65,
+    "commitMs": 7.9,
+    "mbWritten": 55.3,
+    "longTasks": 0,
+    "longTasksOnlyInTakeRecords": 0,
+    "seconds": 5,
+    "busyPct": 28,
+    "mbPerSec": 11.1
+   },
+   {
+    "rate": 6,
+    "size": 10000,
+    "n": 240,
+    "gapMs": 16,
+    "captureMs": 500,
+    "turnMedianMs": 0,
+    "turnP99Ms": 0.2,
+    "writes": 8,
+    "writeSyncMs": 5.8,
+    "commitMs": 8.5,
+    "mbWritten": 12.7,
+    "longTasks": 0,
+    "longTasksOnlyInTakeRecords": 0,
+    "seconds": 5.2,
+    "busyPct": 6,
+    "mbPerSec": 2.4
+   },
+   {
+    "rate": 6,
+    "size": 10000,
+    "n": 960,
+    "gapMs": 16,
+    "captureMs": 5000,
+    "turnMedianMs": 0,
+    "turnP99Ms": 0.2,
+    "writes": 4,
+    "writeSyncMs": 5.93,
+    "commitMs": 9.7,
+    "mbWritten": 6.7,
+    "longTasks": 0,
+    "longTasksOnlyInTakeRecords": 0,
+    "seconds": 26.1,
+    "busyPct": 1,
+    "mbPerSec": 0.3
+   }
+  ],
+  "longTaskCheck": [
+   {
+    "size": 10000,
+    "n": 60,
+    "gapMs": 16,
+    "captureMs": 100,
+    "turnMedianMs": 0,
+    "turnP99Ms": 0.8,
+    "writes": 9,
+    "writeSyncMs": 5.76,
+    "commitMs": 8.18,
+    "mbWritten": 14.1,
+    "longTasks": 0,
+    "longTasksOnlyInTakeRecords": 0,
+    "seconds": 1.4
+   },
+   {
+    "size": 10000,
+    "n": 240,
+    "gapMs": 16,
+    "captureMs": 100,
+    "turnMedianMs": 0,
+    "turnP99Ms": 1.3,
+    "writes": 35,
+    "writeSyncMs": 5.65,
+    "commitMs": 7.92,
+    "mbWritten": 55.3,
+    "longTasks": 0,
+    "longTasksOnlyInTakeRecords": 0,
+    "seconds": 5
+   }
+  ]
+ },
+ "round-7:hideout": {
+  "cycles": 40,
+  "hold": 0,
+  "by": {
+   "navigate 0ms B lane=false": 5,
+   "navigate 2ms B lane=false": 5,
+   "navigate 10ms B lane=false": 5,
+   "navigate 50ms B lane=false": 5,
+   "tab+kill 0ms B lane=false": 5,
+   "tab+kill 2ms B lane=false": 5,
+   "tab+kill 10ms B lane=false": 5,
+   "tab+kill 50ms B lane=false": 5
+  }
+ },
+ "round-7:h1-plain": {
+  "cycles": 12,
+  "twoCharges": 0,
+  "toldNotCharged": 0,
+  "failuresSeen": 12,
+  "restored": {
+   "UNSURE": 12
+  },
+  "final": {
+   "PAID": 12
+  },
+  "rows": [
+   {
+    "failures": 1,
+    "restored": "UNSURE",
+    "notice": "",
+    "final": "PAID",
+    "keys": 1
+   },
+   {
+    "failures": 1,
+    "restored": "UNSURE",
+    "notice": "",
+    "final": "PAID",
+    "keys": 1
+   },
+   {
+    "failures": 1,
+    "restored": "UNSURE",
+    "notice": "",
+    "final": "PAID",
+    "keys": 1
+   },
+   {
+    "failures": 1,
+    "restored": "UNSURE",
+    "notice": "",
+    "final": "PAID",
+    "keys": 1
+   },
+   {
+    "failures": 1,
+    "restored": "UNSURE",
+    "notice": "",
+    "final": "PAID",
+    "keys": 1
+   },
+   {
+    "failures": 1,
+    "restored": "UNSURE",
+    "notice": "",
+    "final": "PAID",
+    "keys": 1
+   },
+   {
+    "failures": 1,
+    "restored": "UNSURE",
+    "notice": "",
+    "final": "PAID",
+    "keys": 1
+   },
+   {
+    "failures": 1,
+    "restored": "UNSURE",
+    "notice": "",
+    "final": "PAID",
+    "keys": 1
+   },
+   {
+    "failures": 1,
+    "restored": "UNSURE",
+    "notice": "",
+    "final": "PAID",
+    "keys": 1
+   },
+   {
+    "failures": 1,
+    "restored": "UNSURE",
+    "notice": "",
+    "final": "PAID",
+    "keys": 1
+   },
+   {
+    "failures": 1,
+    "restored": "UNSURE",
+    "notice": "",
+    "final": "PAID",
+    "keys": 1
+   },
+   {
+    "failures": 1,
+    "restored": "UNSURE",
+    "notice": "",
+    "final": "PAID",
+    "keys": 1
+   }
+  ]
+ },
+ "round-7:h1-awaited": {
+  "cycles": 12,
+  "twoCharges": 0,
+  "toldNotCharged": 12,
+  "failuresSeen": 0,
+  "restored": {
+   "CARD": 12
+  },
+  "final": {
+   "PAID": 12
+  },
+  "rows": [
+   {
+    "failures": 0,
+    "restored": "CARD",
+    "notice": "Your payment wasn't sent. You haven't been charged.",
+    "final": "PAID",
+    "keys": 1
+   },
+   {
+    "failures": 0,
+    "restored": "CARD",
+    "notice": "Your payment wasn't sent. You haven't been charged.",
+    "final": "PAID",
+    "keys": 1
+   },
+   {
+    "failures": 0,
+    "restored": "CARD",
+    "notice": "Your payment wasn't sent. You haven't been charged.",
+    "final": "PAID",
+    "keys": 1
+   },
+   {
+    "failures": 0,
+    "restored": "CARD",
+    "notice": "Your payment wasn't sent. You haven't been charged.",
+    "final": "PAID",
+    "keys": 1
+   },
+   {
+    "failures": 0,
+    "restored": "CARD",
+    "notice": "Your payment wasn't sent. You haven't been charged.",
+    "final": "PAID",
+    "keys": 1
+   },
+   {
+    "failures": 0,
+    "restored": "CARD",
+    "notice": "Your payment wasn't sent. You haven't been charged.",
+    "final": "PAID",
+    "keys": 1
+   },
+   {
+    "failures": 0,
+    "restored": "CARD",
+    "notice": "Your payment wasn't sent. You haven't been charged.",
+    "final": "PAID",
+    "keys": 1
+   },
+   {
+    "failures": 0,
+    "restored": "CARD",
+    "notice": "Your payment wasn't sent. You haven't been charged.",
+    "final": "PAID",
+    "keys": 1
+   },
+   {
+    "failures": 0,
+    "restored": "CARD",
+    "notice": "Your payment wasn't sent. You haven't been charged.",
+    "final": "PAID",
+    "keys": 1
+   },
+   {
+    "failures": 0,
+    "restored": "CARD",
+    "notice": "Your payment wasn't sent. You haven't been charged.",
+    "final": "PAID",
+    "keys": 1
+   },
+   {
+    "failures": 0,
+    "restored": "CARD",
+    "notice": "Your payment wasn't sent. You haven't been charged.",
+    "final": "PAID",
+    "keys": 1
+   },
+   {
+    "failures": 0,
+    "restored": "CARD",
+    "notice": "Your payment wasn't sent. You haven't been charged.",
+    "final": "PAID",
+    "keys": 1
+   }
+  ]
+ }
+}

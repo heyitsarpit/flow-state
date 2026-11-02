@@ -10,13 +10,13 @@
   3914,
   16070
  ],
- "states": 40561,
- "edges": 116497,
- "steps": 1666667,
+ "states": 29881,
+ "edges": 83745,
+ "steps": 1145941,
  "depthCompleted": 6,
  "classes": {},
- "ms": 40002,
- "peakRssMb": 237
+ "ms": 30001,
+ "peakRssMb": 234
 }
 
-WATCH peak 226 MB, 40.1 s, exit 0, killed no
+WATCH peak 224 MB, 30.1 s, exit 0, killed no

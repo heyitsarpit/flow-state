@@ -1,5 +1,7 @@
 # Round 7: mid-round status
 
+**Superseded by RESULTS.md. Kept as the checkpoint the review read.**
+
 Checkpoint for review. Proposed, throwaway. RESULTS.md is not written. Marks: [ran], [read], [reasoning]. Decided: D80's 5 s and hide flush (owner); M9/D89, M2/D87, H2 option A (relayed delegation). Everything else proposed.
 
 **Done:** H1 (D83), M1 (D84), D80, M2, M8, M9, M11, M13 (D90), L1-L4, typed Pay and ThreeDS/Countdown, `flow check`, static `flow explain`, cli-outputs.md. New in-round: D93 (retired record flushes now), D94 (an awaited write waits for its actor's unanswered plain batch and carries what it owes), SEARCH-FLUSH.

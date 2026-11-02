@@ -142,6 +142,8 @@ export const PAY_PINS: readonly Pin[] = [
     via: new RegExp(`(?:Leave|pay\\.\\w+) ${S}(?:Leave|Start)`),
     pin: "P3",
   },
+  // P7, new in round 7 (proposed): `void`'s NotSent maps to Voided, so a refused ack says "released" with the hold there. pay.definition.ts. Was hidden behind a pinned path by the state dedupe.
+  { cls: "charged-unaccounted", via: new RegExp(`Leave ${S}refuse`), pin: "P7" },
   // P5: a void a reload took, on a charge that landed after Leave. Seen once the oracle stopped reading the machine's belief (M11).
   { cls: "charged-unaccounted", via: new RegExp(`Leave ${S}pay\\.\\w+ ${S}reload`), pin: "P5" },
   // P6's other face: Pay in PLACING overwrites what the first charge set.

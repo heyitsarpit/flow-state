@@ -1,24 +1,23 @@
 {
  "search": "frag",
- "verdict": "failed",
+ "verdict": "inconclusive",
  "perDepth": [
   1,
   3,
   6,
-  24,
-  100,
-  407,
-  1391,
-  4625
+  27,
+  95,
+  346,
+  1312,
+  4865
  ],
- "states": 6899,
- "edges": 20271,
- "steps": 309900,
+ "states": 24465,
+ "edges": 68059,
+ "steps": 1173342,
  "depthCompleted": 7,
- "failure": "a definite ending after unknown: Restored on enter edit leave both edit2 ack drop reload",
  "classes": {},
- "ms": 9576,
- "peakRssMb": 206
+ "ms": 30001,
+ "peakRssMb": 236
 }
 
-WATCH peak 198 MB, 9.6 s, exit 1, killed no
+WATCH peak 225 MB, 30.1 s, exit 0, killed no

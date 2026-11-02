@@ -1,6 +1,6 @@
 # Convergence 7: the persistence edge, then `Compiled`
 
-Status: **proposed, throwaway**, except D80's interval and hide flush, which the owner accepted (relayed by the coordinator during this round). Written before the code; "Corrections after building" at the end says what the code changed. Input: [round-6/review.md](round-6/review.md), advice. H1, H3, M1 were reproduced by the reviewer. **H2 is out of this round:** its traces stay known-failing, recorded in `round-7/known-failing-h2.ts`, and are not counted as passing.
+Status: **proposed, throwaway**, except where marked decided. D83, D94, D95's mechanics are replaced by the edge: their sentences stay as what the edge must do. D85's marker did not help (RESULTS). Written before the code; "Corrections after building" at the end says what the code changed. Input: [round-6/review.md](round-6/review.md), advice. H1, H3, M1 were reproduced by the reviewer. **H2 is out of this round:** its traces stay known-failing, recorded in `round-7/known-failing-h2.ts`, and are not counted as passing.
 
 **Decided during the round, by the coordinator under the owner's delegation:** M9: O5, encoding never fails the turn and D57's refusal goes (D89). M2: queue until boot with O5's bound (D87). H2: per-field versions, option A, redesigned from scratch in round 8; round 7 stays out, and `Carried` gains an optional `evidence: "whole" | "partial"`, additive and unread, so the typed path is not shaped against it. D80's interval and hide flush: accepted by the owner. RESULTS says plainly where evidence argues back.
 
@@ -78,3 +78,11 @@ Status: the invariant, `now` for lanes, retired identities and armed deadlines, 
 2. `StorageFailed` kept its existing name, `StorageFailure`. Both it and `StorageSilent` are issued only for a batch with no ticket, because a ticket's machine already hears it: otherwise every refused ack would add an issue no expected result names.
 3. The proposal's `plain` test in the fake looks at `purpose`; a merged batch with a ticket is not plain, so `failNext` skips first sends. Scenarios that meant "the first plain write fails" moved to a `Note` before the `Go`. Reported per case in `expected-changes.log`.
 4. Rejected nothing. **The real step does not break the invariant** [read]. The check that it does not is (e) and (f) on the real runtime, below in RESULTS.
+
+## Corrections after building
+
+- **Decided after review-mid, by the coordinator under delegation:** the edge replaces the driver's persist path; a tab with no persistence declines a persisted machine's commit (`NotSent { NoPersistence }`, D26); a business key is the documented form for at-most-once writes; hidden pages do not wait; `now` covers lanes, retired identities, armed deadlines and, found by the 5 s pass, `meta`.
+- D86: tried, not taken, then **taken by the invariant.**
+- D89 built for memory and commits; a lookup's input, a guard's key and a module value still refuse. Reported.
+- D85: the marker does not close H3 (3/240 against 2/240, then 1/120 on the edge).
+- Typed `memory.encode` is `Schema.toCodecJson`, so review H2 is closed for typed machines.

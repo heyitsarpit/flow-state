@@ -2,30 +2,30 @@
  "s4": "ran",
  "browser": "Chrome/146.0.7680.76",
  "headless": true,
- "peakMb": 958,
+ "peakMb": 956,
  "results": [
   {
    "order": "fresh",
    "rate": 1,
    "actors": 1,
-   "plainMeanUs": 3.1,
+   "plainMeanUs": 3.2,
    "plainTurn": {
     "n": 2000,
     "medianUs": 0,
     "p99Us": 100,
-    "maxUs": 300
+    "maxUs": 200
    },
    "click": {
     "n": 300,
-    "medianUs": 0,
+    "medianUs": 100,
     "p99Us": 200,
     "maxUs": 700
    },
    "clickToSettled": {
     "n": 300,
-    "medianUs": 5100,
+    "medianUs": 5200,
     "p99Us": 5600,
-    "maxUs": 5700
+    "maxUs": 5800
    },
    "issues": []
   },
@@ -33,7 +33,7 @@
    "order": "fresh",
    "rate": 1,
    "actors": 1000,
-   "plainMeanUs": 3.3,
+   "plainMeanUs": 3.4,
    "plainTurn": {
     "n": 2000,
     "medianUs": 0,
@@ -49,8 +49,8 @@
    "clickToSettled": {
     "n": 300,
     "medianUs": 5100,
-    "p99Us": 5400,
-    "maxUs": 5600
+    "p99Us": 5600,
+    "maxUs": 5900
    },
    "issues": []
   },
@@ -58,24 +58,24 @@
    "order": "fresh",
    "rate": 1,
    "actors": 3000,
-   "plainMeanUs": 4.1,
+   "plainMeanUs": 4.2,
    "plainTurn": {
     "n": 2000,
     "medianUs": 0,
     "p99Us": 100,
-    "maxUs": 200
+    "maxUs": 600
    },
    "click": {
     "n": 300,
     "medianUs": 100,
     "p99Us": 200,
-    "maxUs": 1000
+    "maxUs": 700
    },
    "clickToSettled": {
     "n": 300,
     "medianUs": 5200,
-    "p99Us": 5600,
-    "maxUs": 6000
+    "p99Us": 5500,
+    "maxUs": 6200
    },
    "issues": []
   },
@@ -84,8 +84,8 @@
    "rate": 1,
    "grow": "atOnce",
    "size": 1000,
-   "medianMs": 0.6,
-   "p99Ms": 1.2
+   "medianMs": 0,
+   "p99Ms": 0.6
   },
   {
    "order": "fresh",
@@ -100,8 +100,8 @@
    "rate": 1,
    "grow": "atOnce",
    "size": 10000,
-   "medianMs": 5.4,
-   "p99Ms": 7.3
+   "medianMs": 0.1,
+   "p99Ms": 1.1
   },
   {
    "order": "fresh",
@@ -109,13 +109,38 @@
    "grow": "coalesced",
    "size": 10000,
    "medianMs": 0,
-   "p99Ms": 0.5
+   "p99Ms": 0.9
   },
   {
    "order": "polluted",
    "rate": 1,
    "actors": 1000,
-   "plainMeanUs": 2.8,
+   "plainMeanUs": 4.5,
+   "plainTurn": {
+    "n": 2000,
+    "medianUs": 0,
+    "p99Us": 100,
+    "maxUs": 300
+   },
+   "click": {
+    "n": 300,
+    "medianUs": 0,
+    "p99Us": 200,
+    "maxUs": 200
+   },
+   "clickToSettled": {
+    "n": 300,
+    "medianUs": 5100,
+    "p99Us": 5400,
+    "maxUs": 5500
+   },
+   "issues": []
+  },
+  {
+   "order": "polluted",
+   "rate": 1,
+   "actors": 3000,
+   "plainMeanUs": 5.1,
    "plainTurn": {
     "n": 2000,
     "medianUs": 0,
@@ -131,33 +156,8 @@
    "clickToSettled": {
     "n": 300,
     "medianUs": 5100,
-    "p99Us": 5400,
-    "maxUs": 5500
-   },
-   "issues": []
-  },
-  {
-   "order": "polluted",
-   "rate": 1,
-   "actors": 3000,
-   "plainMeanUs": 3.9,
-   "plainTurn": {
-    "n": 2000,
-    "medianUs": 0,
-    "p99Us": 100,
-    "maxUs": 400
-   },
-   "click": {
-    "n": 300,
-    "medianUs": 0,
-    "p99Us": 200,
-    "maxUs": 200
-   },
-   "clickToSettled": {
-    "n": 300,
-    "medianUs": 5100,
-    "p99Us": 5400,
-    "maxUs": 5500
+    "p99Us": 5300,
+    "maxUs": 5400
    },
    "issues": []
   },
@@ -165,24 +165,24 @@
    "order": "fresh",
    "rate": 6,
    "actors": 1,
-   "plainMeanUs": 17.1,
+   "plainMeanUs": 17.6,
    "plainTurn": {
     "n": 2000,
     "medianUs": 0,
-    "p99Us": 1200,
-    "maxUs": 2100
+    "p99Us": 1000,
+    "maxUs": 2400
    },
    "click": {
     "n": 300,
     "medianUs": 0,
-    "p99Us": 800,
-    "maxUs": 3400
+    "p99Us": 900,
+    "maxUs": 3700
    },
    "clickToSettled": {
     "n": 300,
     "medianUs": 4700,
-    "p99Us": 5800,
-    "maxUs": 7700
+    "p99Us": 6000,
+    "maxUs": 6800
    },
    "issues": []
   },
@@ -190,24 +190,24 @@
    "order": "fresh",
    "rate": 6,
    "actors": 1000,
-   "plainMeanUs": 18.6,
+   "plainMeanUs": 19.5,
    "plainTurn": {
     "n": 2000,
     "medianUs": 0,
     "p99Us": 1000,
-    "maxUs": 1800
+    "maxUs": 1600
    },
    "click": {
     "n": 300,
     "medianUs": 0,
-    "p99Us": 700,
+    "p99Us": 500,
     "maxUs": 3600
    },
    "clickToSettled": {
     "n": 300,
     "medianUs": 4700,
-    "p99Us": 6000,
-    "maxUs": 7100
+    "p99Us": 5800,
+    "maxUs": 6500
    },
    "issues": []
   },
@@ -215,24 +215,24 @@
    "order": "fresh",
    "rate": 6,
    "actors": 3000,
-   "plainMeanUs": 19.9,
+   "plainMeanUs": 20.2,
    "plainTurn": {
     "n": 2000,
     "medianUs": 0,
-    "p99Us": 1000,
+    "p99Us": 1100,
     "maxUs": 1500
    },
    "click": {
     "n": 300,
     "medianUs": 0,
-    "p99Us": 800,
-    "maxUs": 3900
+    "p99Us": 700,
+    "maxUs": 3800
    },
    "clickToSettled": {
     "n": 300,
     "medianUs": 4600,
-    "p99Us": 5800,
-    "maxUs": 7600
+    "p99Us": 5900,
+    "maxUs": 8100
    },
    "issues": []
   },
@@ -241,8 +241,8 @@
    "rate": 6,
    "grow": "atOnce",
    "size": 1000,
-   "medianMs": 3.3,
-   "p99Ms": 5.9
+   "medianMs": 0,
+   "p99Ms": 1.6
   },
   {
    "order": "fresh",
@@ -250,15 +250,15 @@
    "grow": "coalesced",
    "size": 1000,
    "medianMs": 0,
-   "p99Ms": 3.3
+   "p99Ms": 1.7
   },
   {
    "order": "fresh",
    "rate": 6,
    "grow": "atOnce",
    "size": 10000,
-   "medianMs": 32.2,
-   "p99Ms": 35.4
+   "medianMs": 0,
+   "p99Ms": 3.2
   },
   {
    "order": "fresh",
@@ -266,30 +266,30 @@
    "grow": "coalesced",
    "size": 10000,
    "medianMs": 0.1,
-   "p99Ms": 3.1
+   "p99Ms": 2.3
   },
   {
    "order": "polluted",
    "rate": 6,
    "actors": 1000,
-   "plainMeanUs": 17.6,
+   "plainMeanUs": 94.1,
    "plainTurn": {
     "n": 2000,
     "medianUs": 0,
-    "p99Us": 900,
-    "maxUs": 1500
+    "p99Us": 1200,
+    "maxUs": 22800
    },
    "click": {
     "n": 300,
-    "medianUs": 0,
-    "p99Us": 200,
-    "maxUs": 300
+    "medianUs": 400,
+    "p99Us": 6300,
+    "maxUs": 17800
    },
    "clickToSettled": {
     "n": 300,
-    "medianUs": 4600,
-    "p99Us": 5700,
-    "maxUs": 5900
+    "medianUs": 5500,
+    "p99Us": 19900,
+    "maxUs": 22700
    },
    "issues": []
   },
@@ -297,24 +297,24 @@
    "order": "polluted",
    "rate": 6,
    "actors": 3000,
-   "plainMeanUs": 17.8,
+   "plainMeanUs": 173.9,
    "plainTurn": {
     "n": 2000,
     "medianUs": 0,
-    "p99Us": 700,
-    "maxUs": 1600
+    "p99Us": 1800,
+    "maxUs": 5500
    },
    "click": {
     "n": 300,
-    "medianUs": 0,
-    "p99Us": 200,
-    "maxUs": 500
+    "medianUs": 600,
+    "p99Us": 3600,
+    "maxUs": 7500
    },
    "clickToSettled": {
     "n": 300,
-    "medianUs": 4600,
-    "p99Us": 5800,
-    "maxUs": 6000
+    "medianUs": 5500,
+    "p99Us": 10600,
+    "maxUs": 11900
    },
    "issues": []
   }

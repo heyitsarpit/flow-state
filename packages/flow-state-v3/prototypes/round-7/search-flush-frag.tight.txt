@@ -1,39 +1,26 @@
 {
  "search": "flush.frag.tight",
- "verdict": "completed",
+ "verdict": "inconclusive",
  "perDepth": [
   1,
-  3,
-  8,
-  20,
-  43,
-  79,
-  135,
-  226,
-  341,
-  493,
-  720,
-  989,
-  1348,
-  1825,
-  2401,
-  3206,
-  4201,
-  5477,
-  7188,
-  9280,
-  12033
+  6,
+  21,
+  82,
+  276,
+  848,
+  2523,
+  6908,
+  17528
  ],
- "states": 50017,
- "edges": 224129,
- "steps": 9402233,
- "depthCompleted": 20,
+ "states": 54415,
+ "edges": 199871,
+ "steps": 3529122,
+ "depthCompleted": 8,
  "classes": {},
- "ms": 120285,
- "peakRssMb": 252,
+ "ms": 90001,
+ "peakRssMb": 257,
  "unpinned": [],
- "exceptions": 0,
- "noLane": 0
+ "lanesAhead": 0
 }
 
-WATCH peak 240 MB, 120.3 s, exit 0, killed no
+WATCH peak 245 MB, 90.1 s, exit 0, killed no

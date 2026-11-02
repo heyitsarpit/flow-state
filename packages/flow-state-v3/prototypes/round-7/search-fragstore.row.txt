@@ -4,20 +4,19 @@
  "perDepth": [
   1,
   5,
-  22,
-  91,
-  368,
-  1467,
-  5617,
-  20338
+  25,
+  98,
+  387,
+  1567,
+  6160
  ],
- "states": 35232,
- "edges": 116576,
- "steps": 2017833,
- "depthCompleted": 7,
+ "states": 26584,
+ "edges": 89438,
+ "steps": 1459527,
+ "depthCompleted": 6,
  "classes": {},
- "ms": 40001,
- "peakRssMb": 246
+ "ms": 30001,
+ "peakRssMb": 242
 }
 
-WATCH peak 234 MB, 40.1 s, exit 0, killed no
+WATCH peak 231 MB, 30.1 s, exit 0, killed no

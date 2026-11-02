@@ -96,7 +96,8 @@ try {
       await p.evaluate(`__ensure(${J(A)}, "Checkout/Pay")`);
       await p.evaluate(`__send(${J(A)}, "Start", ${J({ cartId: `c-${id}`, intentId })})`);
       await Bun.sleep(250);
-      await p.evaluate(`__faults.abortPlain = 1`);
+      // On the edge a first send is one awaited batch, so "plain" aborts the next plain batch, and "awaited" aborts the first send itself.
+      await p.evaluate(arg("--abort", "plain") === "awaited" ? `__faults.abortAwaited = 1` : `__faults.abortPlain = 1`);
       await p.evaluate(`__send(${J(A)}, "PayRequested", { paymentMethodId: "visa" })`);
       await Bun.sleep(1400); // the retry would have fired by now
       const failures = await p.evaluate(`__issues().filter(x => x.code === "StorageFailure").length`);
@@ -116,7 +117,7 @@ try {
       const keys = keysOf(await truth(), intentId);
       rows.push({ failures, restored: restored?.state, notice, final, keys: keys.length });
     }
-    say("h1", {
+    say(`h1-${arg("--abort", "plain")}`, {
       cycles: rows.length,
       twoCharges: rows.filter((r) => r.keys > 1).length,
       toldNotCharged: rows.filter((r) => r.keys > 0 && /haven't been charged/.test(r.notice ?? "")).length,
@@ -408,7 +409,7 @@ try {
           await p.evaluate(`__wait('__view(${J(B)})?.state === "B"', 3000)`);
           await Bun.sleep(lag);
           let killed = false;
-          if (how === "navigate") void p.send("Page.navigate", { url: "about:blank" });
+          if (how === "navigate") void p.send("Page.navigate", { url: "about:blank" }).catch(() => {});
           else {
             onHiddenHook = () => {
               beacons++;
@@ -417,8 +418,9 @@ try {
                 void browser.kill();
               }
             };
-            const other = await browser.newPage("about:blank").catch(() => undefined);
-            await other?.send("Page.bringToFront").catch(() => {});
+            // Bounded: the kill can land while this tab is still connecting.
+            const other = await Promise.race([browser.newPage("about:blank").catch(() => undefined), Bun.sleep(800).then(() => undefined)]);
+            if (other) void other.send("Page.bringToFront").catch(() => {});
           }
           await Bun.sleep(how === "navigate" ? 300 : 400);
           onHiddenHook = undefined;
@@ -428,6 +430,7 @@ try {
           } else if (how !== "navigate") p.close();
           const q = await open();
           const d = await q.evaluate(`__disk(${J(db)})`);
+          console.log(how, lag, Object.keys(d).length);
           q.close();
           const rec = d[`actor/${B}`] ? JSON.parse(d[`actor/${B}`]) : null;
           rows.push({ how, lag, leaf: rec?.root?.leaf, lane: Object.keys(d).some((x) => x.startsWith("lane/")) });

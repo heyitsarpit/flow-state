@@ -1,48 +1,39 @@
-SURVIVED d83-reenter-all                      0 cases: 
-KILLED   d83-no-dirty-check                   4 cases: REV7-H1/a-batch-that-fails-after-a-newer-one-landed-stays-dead REV7-H1/E1-what-the-failed-batch-owed-goes-in-the-ack REV7-H1/E2-a-later-batch-does-not-land-ahead-of-an-unanswered-one REV7-H1/a-newer-value-is-not-replaced-by-a-retry-of-an-older-one
-SURVIVED d83-awaited-keeps-dirty              0 cases: 
-SURVIVED d83-awaited-no-stamp                 0 cases: 
-KILLED   d94-does-not-wait                    1 cases: REV7-H1/a-failed-batch-re-enters-only-keys-it-was-newest-of
-SURVIVED d94-owed-not-carried                 0 cases: 
-KILLED   d94-waits-for-any-actor              1 cases: MED-01/other-actor-behind-a-hung-ack
-KILLED   d83-plain-no-stamp                   4 cases: REV6-M7/a-failed-plain-write-is-not-believed REV7-H1/a-failed-batch-re-enters-only-keys-it-was-newest-of REV7-H1/L2-a-landing-resets-backoff-and-says-once REV7-H1/backoff-grows-on-a-late-failure
-SURVIVED d83-saved-believes-refused           0 cases: 
-SURVIVED d83-saved-undefined-loses-delete     0 cases: 
-KILLED   l2-backoff-resets-on-issue           1 cases: REV7-H1/backoff-grows-on-a-late-failure
-KILLED   l2-no-landed-reset                   1 cases: REV7-H1/L2-a-landing-resets-backoff-and-says-once
-KILLED   l2-report-every-time                 1 cases: REV7-H1/L2-a-landing-resets-backoff-and-says-once
-KILLED   d95-no-per-key-hold                  2 cases: REV7-H1/a-batch-that-fails-after-a-newer-one-landed-stays-dead REV7-H1/E2-a-later-batch-does-not-land-ahead-of-an-unanswered-one
-KILLED   d95-held-key-never-flushed           2 cases: STORE-04/Restored-W REV7-H1/a-batch-that-fails-after-a-newer-one-landed-stays-dead
-KILLED   d84-lane-coalesces                   1 cases: REV7-M1/a-success-does-not-come-back-as-a-hold
-KILLED   d93-retired-coalesces                1 cases: REV7-D80/D93-a-dispose-is-not-lost-to-a-kill
-KILLED   d84-everything-at-once               6 cases: REV6-CAPTURE/plain-writes-coalesce-to-the-newest REV6-CAPTURE/a-crash-loses-plain-memory-and-only-that REV7-M1/only-lane-free-memory-waits REV7-D80/the-default-is-five-seconds ...
-KILLED   d80-no-hidden-flush                  4 cases: REV7-H1/a-newer-value-is-not-replaced-by-a-retry-of-an-older-one REV7-D80/many-values-one-write REV7-D80/hidden-flushes-at-once REV7-D80/a-kill-before-any-flush-loses-only-plain-memory
-KILLED   d80-default-not-5s                   1 cases: REV7-D80/the-default-is-five-seconds
-KILLED   l3-dispose-no-flush                  1 cases: REV7-D80/dispose-runtime-flushes
+KILLED   e-two-out                            33 cases: PAY-03 PAY-07/late-may-not-leave PAY-10/hang PAY-12/shuffle ...
+KILLED   e-old-wins                           3 cases: REV7-H1/a-batch-that-fails-after-a-newer-one-landed-stays-dead REV7-H1/E1-what-the-failed-batch-owed-goes-in-the-ack REV7-H1/a-newer-value-is-not-replaced-by-a-retry-of-an-older-one
+KILLED   e-no-merge                           3 cases: REV6-M7/a-failed-plain-write-is-not-believed REV7-H1/L2-a-landing-resets-backoff-and-says-once REV7-H1/backoff-grows-on-a-late-failure
+KILLED   e-poison-deletes                     3 cases: REV7-M9/an-ending-with-a-bad-value-is-not-lost REV7-M9/a-skipped-batch-waits-for-an-encodable-state REV7-EDGE/poison-a-hold-is-kept-not-lost
+KILLED   e-poison-blocks-lanes                0 cases:  + search
+KILLED   e-debounce                           1 cases: REV7-EDGE/a-steady-stream-still-lands-within-the-window
+KILLED   e-ignores-now                        2 cases: REV7-M1/a-success-does-not-come-back-as-a-hold REV7-D80/D93-a-dispose-is-not-lost-to-a-kill
+KILLED   e-hidden-waits                       2 cases: REV7-EDGE/a-hidden-page-does-not-wait REV7-EDGE/a-hidden-page-in-a-frozen-tab-still-does-not-need-a-timer
+KILLED   e-no-silent                          1 cases: REV7-EDGE/k-a-plain-batch-that-never-answers-is-loud
+KILLED   e-no-failure-issue                   crash: 
+KILLED   e-no-backoff                         1 cases: REV7-H1/backoff-grows-on-a-late-failure
+KILLED   e-no-reset                           1 cases: REV7-H1/L2-a-landing-resets-backoff-and-says-once
+KILLED   e-ticket-unanswered                  176 cases: PAY-01 PAY-02 PAY-03 PAY-04 ...
+KILLED   e-told-ok-always                     7 cases: PAY-10/refuse PAY-16/resend-refused-capture STORE-04/StorageRefused HIGH-01/pay-told-not-charged ...
+KILLED   e-hide-noop                          6 cases: REV7-H1/a-newer-value-is-not-replaced-by-a-retry-of-an-older-one REV7-D80/many-values-one-write REV7-D80/hidden-flushes-at-once REV7-D80/a-kill-before-any-flush-loses-only-plain-memory ...
+KILLED   drain-not-waited                     0 cases:  + search
+KILLED   flush-lane-not-now                   1 cases: REV7-M1/a-success-does-not-come-back-as-a-hold
+KILLED   flush-retired-not-now                1 cases: REV7-D80/D93-a-dispose-is-not-lost-to-a-kill
+KILLED   flush-deadline-not-now               0 cases:  + search
+KILLED   d26-sends-anyway                     1 cases: REV7-EDGE/D26-a-tab-with-no-disk-declines-a-persisted-commit
+KILLED   d26-writes-anyway                    1 cases: REV7-M2/a-failed-read-runs-empty-and-writes-nothing
 KILLED   d87-no-bound                         1 cases: REV7-M2/a-read-that-never-answers-gets-an-issue-and-the-queue-runs
 KILLED   d87-late-answer-boots-again          1 cases: REV7-M2/a-read-that-never-answers-gets-an-issue-and-the-queue-runs
-KILLED   d87-failed-read-keeps-persist        1 cases: REV7-M2/a-failed-read-runs-empty-and-writes-nothing
 KILLED   d87-queue-unbounded                  1 cases: REV7-M2/the-queue-has-a-bound
-KILLED   d87-queue-silent                     1 cases: REV7-M2/the-queue-has-a-bound
 KILLED   d88-no-hold-on-bad-body              1 cases: REV7-M8/commit-declines-while-it-stands-and-the-record-stays
-KILLED   d88-no-hold-on-invalid               1 cases: REV7-M8/a-quarantined-lane-refuses-a-second-attempt
 KILLED   d88-commit-passes                    2 cases: REV7-M8/a-quarantined-lane-refuses-a-second-attempt REV7-M8/commit-declines-while-it-stands-and-the-record-stays
 KILLED   d88-idle-passes                      1 cases: REV7-M8/a-quarantined-lane-refuses-a-second-attempt
 KILLED   d88-row-silent                       1 cases: REV7-M8/a-quarantined-lane-refuses-a-second-attempt
-KILLED   d88-cancel-keeps-record              1 cases: REV7-M8/a-quarantined-lane-refuses-a-second-attempt
-KILLED   d89-skip-one-record                  2 cases: REV7-M9/an-ending-with-a-bad-value-is-not-lost REV7-M9/a-skipped-batch-waits-for-an-encodable-state
-SURVIVED d89-batch-dropped-not-kept           0 cases: 
-KILLED   d89-report-every-time                1 cases: REV7-M9/a-skipped-batch-waits-for-an-encodable-state
-SURVIVED m11-spread-unguarded                 0 cases: 
 KILLED   d90-delete-keeps-bucket              8 cases: FRAG-08/persisted-disposed-ending-parked-delivered-once FRAG-08/rebind-delivers-a-hold-once FRAG-12/unbound-hold-with-a-waiter-yields FRAG-20/adopted-ending-is-current-from-the-active-leaf ...
-KILLED   d90-hash-collides-rows               541 cases: PAY-01 PAY-02 PAY-03 PAY-04 ...
 KILLED   d90-changed-misses-removed           1 cases: SPIKE-04/dispose-then-ensure-brings-both-back
-SURVIVED d90-all-unsorted-drops-one           0 cases: 
 KILLED   l4-duplicate-machine-allowed         1 cases: REV7-M2/two-machines-under-one-id-is-an-error
+KILLED   h2-json-only                         1 cases: REV7-EDGE/encoding-happens-off-the-turn
 
 not applied (0):
 
 
-32/41 killed (builder)
+32/32 killed (builder)
 
-WATCH peak 44 MB, 578.8 s, exit 0, killed no
+WATCH peak 44 MB, 321.1 s, exit 0, killed no
