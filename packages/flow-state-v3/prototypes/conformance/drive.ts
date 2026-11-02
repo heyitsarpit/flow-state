@@ -142,7 +142,10 @@ export const makeHarness = (port: Port) => (): Harness => {
     frames: () => instances.flatMap((i) => i.frames()),
     issues: () => issues,
     evidence: (kind) => (kind ? evidence.filter((e) => e["kind"] === kind) : evidence),
-    stored: () => new Map([...fake.kv].map(([k, v]) => [k, JSON.parse(v)])),
+    stored: () => {
+      if (TEST_FLUSH.includes("reads")) fake.hide();
+      return new Map([...fake.kv].map(([k, v]) => [k, JSON.parse(v)]));
+    },
     quiet: () => ({
       idle: !inst.pending() && !fake.hasWork(),
       fatal: inst.fatal(),
@@ -205,6 +208,12 @@ export const makeHarness = (port: Port) => (): Harness => {
       if ("reload" in s) {
         plan = undefined;
         if (s.tear !== undefined) fake.tearLast(s.tear);
+        if (TEST_FLUSH.includes("kills")) fake.hide();
+        // Round 7: what a kill took, for classifying. The tail of the state text is what the runtime held back.
+        if (process.env["FLOW_KILL_TRACE"])
+          ((globalThis as any).__kills ??= []).push(
+            `kill: held back ${inst.stateText("").split("|").at(-1)}; on disk ${[...fake.kv.keys()].filter((k) => k !== "meta" && k !== "host/ready").join(",") || "nothing"}`,
+          );
         noteLost();
         fake.killProcess();
         if (s.load) fake.loadMode = s.load;
@@ -231,6 +240,7 @@ export const makeHarness = (port: Port) => (): Harness => {
         else if ("storageFailsLate" in f) fake.plainFailsLate = f.storageFailsLate;
         else if ("storageFailsHeld" in f) fake.plainFailsHeld = f.storageFailsHeld;
         else if ("corruptStored" in f) {
+          if (TEST_FLUSH.includes("faults")) fake.hide();
           // A record edited on disk may be quarantined, and an Attempt in it with it: rule 46, named by an issue.
           const hit = [...fake.kv]
             .filter(([k]) => k.includes(f.corruptStored.match))
@@ -269,6 +279,8 @@ export const makeHarness = (port: Port) => (): Harness => {
     read: reads,
   };
 };
+// Round 7: classifying what fails at D80's interval. A flush, through the host's own hide, before a disk read, or before a kill. Off in a normal run.
+const TEST_FLUSH = process.env["FLOW_TEST_FLUSH"] ?? "";
 // Round 7: the same scenario on another way of building the same machine (`main.ts --swap`). By identity, so nothing else with its id is touched.
 const swaps = new Map<Fixture_, Fixture_>();
 export const swapFixtures = (m: ReadonlyMap<Fixture_, Fixture_>) => {

@@ -1,0 +1,115 @@
+{
+ "search": "flush.pay",
+ "verdict": "inconclusive",
+ "perDepth": [
+  1,
+  5,
+  22,
+  102,
+  403,
+  1500,
+  5529,
+  20160
+ ],
+ "states": 58013,
+ "edges": 175603,
+ "steps": 3277450,
+ "depthCompleted": 7,
+ "classes": {
+  "charged-unaccounted:PAYING": {
+   "count": 5151,
+   "witness": "Pay Leave Pay"
+  },
+  "charged-unaccounted:PAID": {
+   "count": 1669,
+   "witness": "Pay ack pay.ok Pay"
+  },
+  "two-keys-one-intent:PAID": {
+   "count": 3780,
+   "witness": "Pay ack pay.ok Pay"
+  },
+  "placed-and-voided:LEFT": {
+   "count": 1880,
+   "witness": "Pay ack pay.ok Leave"
+  },
+  "order-no-receipt:LEFT": {
+   "count": 2212,
+   "witness": "Pay ack pay.ok Leave"
+  },
+  "held-no-owner:PAYING": {
+   "count": 3940,
+   "witness": "Pay ack KILL Pay"
+  },
+  "placed-and-voided:PAID": {
+   "count": 2761,
+   "witness": "Pay Leave ack pay.ok Pay"
+  },
+  "charged-unaccounted:LEFT": {
+   "count": 412,
+   "witness": "Pay Leave ack pay.ok KILL"
+  },
+  "two-keys-one-intent:LEFT": {
+   "count": 983,
+   "witness": "Pay ack pay.ok Pay Leave"
+  },
+  "told-not-charged:CARD": {
+   "count": 179,
+   "witness": "Pay ack pay.ok Pay KILL"
+  },
+  "order-no-receipt:PAYING": {
+   "count": 341,
+   "witness": "Pay ack pay.ok failHeld Pay"
+  },
+  "two-keys-one-intent:PLACING": {
+   "count": 458,
+   "witness": "Pay ack pay.ok landNoAck Pay"
+  },
+  "charged-unaccounted:CARD": {
+   "count": 45,
+   "witness": "Pay Leave ack pay.ok Pay KILL"
+  },
+  "held-no-owner:PAID": {
+   "count": 391,
+   "witness": "Pay ack pay.ok Pay ack KILL"
+  },
+  "placed-and-voided:PAYING": {
+   "count": 111,
+   "witness": "Pay ack pay.ok Leave failHeld Pay"
+  },
+  "told-not-charged:PAID": {
+   "count": 54,
+   "witness": "Pay ack pay.ok ack Pay KILL"
+  },
+  "two-keys-one-intent:PAYING": {
+   "count": 30,
+   "witness": "Pay ack pay.ok KILL Pay Leave Pay"
+  },
+  "told-not-charged:LEFT": {
+   "count": 48,
+   "witness": "Pay Leave ack pay.ok Pay KILL Leave"
+  },
+  "order-no-receipt:PLACING": {
+   "count": 36,
+   "witness": "Pay ack pay.ok Pay failHeld ack place.ok"
+  },
+  "order-no-receipt:CARD": {
+   "count": 4,
+   "witness": "Pay ack pay.ok ack Pay place.ok KILL"
+  },
+  "placed-and-voided:PLACING": {
+   "count": 4,
+   "witness": "Pay ack pay.ok Leave Pay failHeld ack place.ok"
+  },
+  "placed-and-voided:CARD": {
+   "count": 2,
+   "witness": "Pay ack pay.ok Leave ack Pay place.ok KILL"
+  }
+ },
+ "ms": 120001,
+ "peakRssMb": 260,
+ "unpinned": [],
+ "exceptions": 247,
+ "exceptionWitness": "failHeld Pay Pay FLUSH KILL => {\"rows\":{},\"state\":\"PAYING\"}"
+}
+
+WATCH peak 248 MB, 120.1 s, exit 0, killed no

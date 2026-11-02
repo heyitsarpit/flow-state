@@ -1,0 +1,22 @@
+{
+ "search": "cross",
+ "verdict": "inconclusive",
+ "perDepth": [
+  1,
+  4,
+  35,
+  245,
+  1547,
+  7790,
+  33808
+ ],
+ "states": 53275,
+ "edges": 135075,
+ "steps": 2399590,
+ "depthCompleted": 6,
+ "classes": {},
+ "ms": 50001,
+ "peakRssMb": 254
+}
+
+WATCH peak 242 MB, 50.1 s, exit 0, killed no

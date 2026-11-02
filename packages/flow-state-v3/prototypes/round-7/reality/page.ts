@@ -58,10 +58,19 @@ const lockFor = (name: string): Promise<boolean> =>
   });
 g.__boot = async (kind: string, o: any = {}) => {
   const api = realApi();
-  const db = await openDb(o.db ?? "flow");
   beacon = !!o.beacon;
-  if (o.marker !== false) await strictMarker(db); // D85
+  faults.noExplicitCommit = !!o.noExplicitCommit;
+  // O7, review L8: the lock first. A second tab opens nothing.
   const owner = o.persist === false ? false : await lockFor(`flow-scope-${o.db ?? "flow"}`);
+  let db = owner ? await openDb(o.db ?? "flow") : (undefined as unknown as IDBDatabase);
+  if (owner && o.marker !== false) await strictMarker(db); // D85
+  if (owner && o.marker === "aged") await new Promise((r) => setTimeout(r, 1500)); // review: a database 1.2 s old lost nothing in 59
+  if (owner && o.marker === "reopen") {
+    // A stronger try, H3: the database closed and reopened after the marker.
+    db.close();
+    db = await openDb(o.db ?? "flow");
+    await strictMarker(db);
+  }
   const machine =
     kind === "pay"
       ? payFixture.make(api)
@@ -80,7 +89,7 @@ g.__boot = async (kind: string, o: any = {}) => {
     onEvidence: (e: any[]) => void evidence.push(...e),
     onIssue: (i: any[]) => void issues.push(...i),
   });
-  g.__dbName = db.name;
+  g.__dbName = db?.name;
   return { owner, locks: !!navigator.locks };
 };
 g.__ensure = (a: string, m: string, input?: unknown) =>

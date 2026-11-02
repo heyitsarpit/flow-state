@@ -1,0 +1,24 @@
+{
+ "search": "crash",
+ "verdict": "inconclusive",
+ "perDepth": [
+  1,
+  5,
+  22,
+  88,
+  319,
+  1113,
+  3732,
+  12365,
+  40343
+ ],
+ "states": 62894,
+ "edges": 205682,
+ "steps": 3377316,
+ "depthCompleted": 8,
+ "classes": {},
+ "ms": 50001,
+ "peakRssMb": 237
+}
+
+WATCH peak 226 MB, 50.1 s, exit 0, killed no

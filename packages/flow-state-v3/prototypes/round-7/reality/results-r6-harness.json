@@ -1,0 +1,272 @@
+{
+ "browser": "Chrome/146.0.7680.76",
+ "atom": [
+  {
+   "how": "crash",
+   "durability": "relaxed",
+   "cycles": 14,
+   "torn": 0,
+   "lostAcked": 0,
+   "maxLag": 0
+  },
+  {
+   "how": "crash",
+   "durability": "strict",
+   "cycles": 14,
+   "torn": 0,
+   "lostAcked": 0,
+   "maxLag": 0
+  },
+  {
+   "how": "sigkill",
+   "durability": "relaxed",
+   "cycles": 14,
+   "torn": 0,
+   "lostAcked": 0,
+   "maxLag": 0
+  },
+  {
+   "how": "sigkill",
+   "durability": "strict",
+   "cycles": 14,
+   "torn": 0,
+   "lostAcked": 0,
+   "maxLag": 0
+  }
+ ],
+ "tabs": {
+  "locksAvailable": true,
+  "a": true,
+  "b": false,
+  "bStartsEmpty": true,
+  "bEvidence": 1,
+  "afterACrashNewTab": true,
+  "diskStillA": "ti",
+  "bStillOpenWhenCOpened": true
+ },
+ "desk": [
+  {
+   "name": "first-load-with-a-feed-open",
+   "honest": true,
+   "unresolved": false,
+   "shows": {
+    "title": "from another device",
+    "archived": false,
+    "revision": 2,
+    "uncertain": false,
+    "predicted": false
+   },
+   "server": {
+    "title": "from another device",
+    "archived": false,
+    "revision": 2
+   },
+   "repairs": 0,
+   "lists": 1,
+   "aborted": [],
+   "replayed": 0,
+   "issues": [],
+   "journal": "",
+   "endings": [
+    "list::success"
+   ]
+  },
+  {
+   "name": "archive-204-beside-a-slow-list",
+   "honest": true,
+   "unresolved": false,
+   "shows": {
+    "title": "title t1",
+    "archived": true,
+    "revision": 2,
+    "uncertain": false,
+    "predicted": false
+   },
+   "server": {
+    "title": "title t1",
+    "archived": true,
+    "revision": 2
+   },
+   "repairs": 0,
+   "lists": 2,
+   "aborted": [],
+   "replayed": 0,
+   "issues": [],
+   "journal": "archive:arrived archive:applied archive:answered 204",
+   "endings": [
+    "list::success",
+    "archive::success",
+    "list::success"
+   ]
+  },
+  {
+   "name": "two-lists-answer-out-of-order",
+   "honest": true,
+   "unresolved": false,
+   "shows": {
+    "title": "second",
+    "archived": false,
+    "revision": 2,
+    "uncertain": false,
+    "predicted": false
+   },
+   "server": {
+    "title": "second",
+    "archived": false,
+    "revision": 2
+   },
+   "repairs": 0,
+   "lists": 2,
+   "aborted": [
+    "list"
+   ],
+   "replayed": 0,
+   "issues": [],
+   "journal": "",
+   "endings": [
+    "list::success"
+   ]
+  },
+  {
+   "name": "a-204-whose-body-dies-then-a-replay",
+   "honest": true,
+   "unresolved": false,
+   "shows": {
+    "title": "title t1",
+    "archived": true,
+    "revision": 2,
+    "uncertain": false,
+    "predicted": false
+   },
+   "server": {
+    "title": "title t1",
+    "archived": true,
+    "revision": 2
+   },
+   "repairs": 2,
+   "lists": 1,
+   "aborted": [],
+   "replayed": 1,
+   "issues": [],
+   "journal": "archive:arrived archive:applied archive:response-dropped repair:arrived repair:answered 200 archive:arrived archive:replayed archive:answered 204 repair:arrived repair:answered 200",
+   "endings": [
+    "list::success",
+    "archive::NoResponse",
+    "archive::success"
+   ],
+   "extra": {
+    "markedWhileUnknown": true
+   }
+  },
+  {
+   "name": "a-reset-the-browser-replays-the-post-itself",
+   "honest": true,
+   "unresolved": false,
+   "shows": {
+    "title": "title t1",
+    "archived": true,
+    "revision": 2,
+    "uncertain": false,
+    "predicted": false
+   },
+   "server": {
+    "title": "title t1",
+    "archived": true,
+    "revision": 2
+   },
+   "repairs": 0,
+   "lists": 1,
+   "aborted": [],
+   "replayed": 1,
+   "issues": [],
+   "journal": "archive:arrived archive:applied archive:reset-before-any-byte archive:arrived archive:replayed archive:answered 204",
+   "endings": [
+    "list::success",
+    "archive::success"
+   ]
+  },
+  {
+   "name": "an-actor-disposed-aborts-its-read-a-write-is-not-aborted",
+   "honest": false,
+   "unresolved": false,
+   "shows": {
+    "title": "title t1",
+    "archived": true,
+    "revision": 1,
+    "uncertain": false,
+    "predicted": false
+   },
+   "server": {
+    "title": "title t1",
+    "archived": true,
+    "revision": 2
+   },
+   "repairs": 0,
+   "lists": 3,
+   "aborted": [
+    "list"
+   ],
+   "replayed": 0,
+   "issues": [],
+   "journal": "archive:arrived archive:applied archive:answered 204",
+   "endings": [
+    "list::success",
+    "archive::success"
+   ]
+  },
+  {
+   "name": "the-feed-dies-and-comes-back",
+   "honest": true,
+   "unresolved": false,
+   "shows": {
+    "title": "while down",
+    "archived": false,
+    "revision": 2,
+    "uncertain": false,
+    "predicted": false
+   },
+   "server": {
+    "title": "while down",
+    "archived": false,
+    "revision": 2
+   },
+   "repairs": 0,
+   "lists": 3,
+   "aborted": [],
+   "replayed": 0,
+   "issues": [],
+   "journal": "",
+   "endings": [
+    "list::success"
+   ]
+  },
+  {
+   "name": "a-busy-feed-beside-a-rename",
+   "honest": true,
+   "unresolved": false,
+   "shows": {
+    "title": "mine",
+    "archived": false,
+    "revision": 42,
+    "uncertain": false,
+    "predicted": false
+   },
+   "server": {
+    "title": "mine",
+    "archived": false,
+    "revision": 42
+   },
+   "repairs": 0,
+   "lists": 1,
+   "aborted": [],
+   "replayed": 0,
+   "issues": [],
+   "journal": "rename:arrived rename:applied rename:answered 200",
+   "endings": [
+    "list::success",
+    "rename::success"
+   ]
+  }
+ ],
+ "peakMb": 848
+}

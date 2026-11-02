@@ -303,14 +303,15 @@ try {
       const rec = (await p.evaluate(`__records()[${JSON.stringify(T1)}]`)) as any;
       const t = await truth();
       const row = t.tickets.t1;
-      const honest =
-        !rec || rec.uncertain || rec.predicted || !row
-          ? rec?.uncertain || rec?.predicted || !!row === !!rec?.data
-          : rec.data?.archived === row.archived && rec.data?.title === row.title;
+      // Review M4 (c): every field, and a mark at the end is not honest, it is unresolved. H2's family may fail here: known, not patched.
+      const fieldsSame = !!rec?.data && !!row && Object.keys(row).every((k) => rec.data[k] === row[k]);
+      const honest = fieldsSame || (!rec?.data && !row);
+      const unresolved = !!rec?.uncertain || !!rec?.predicted;
       const issues = await p.evaluate(`__issues()`);
       const out_ = {
         name,
         honest,
+        unresolved,
         shows: rec && {
           title: rec.data?.title,
           archived: rec.data?.archived,

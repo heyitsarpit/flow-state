@@ -25,7 +25,7 @@ export const strictMarker = (db: IDBDatabase): Promise<void> =>
     tx.onabort = () => rej(tx.error);
   });
 // Round 7: a real `tx.abort()`, as a quota failure gives; the answer comes by `onabort`, later. Counted down by the page.
-export type Faults = { abortPlain: number; abortAwaited: number };
+export type Faults = { abortPlain: number; abortAwaited: number; noExplicitCommit?: boolean };
 export const idbStorage = (db: IDBDatabase, stats?: Stats, faults?: Faults) => ({
   load: (): Promise<ReadonlyMap<string, string>> =>
     new Promise((res, rej) => {
@@ -80,7 +80,7 @@ export const idbStorage = (db: IDBDatabase, stats?: Stats, faults?: Faults) => (
       } else if (faults && then && faults.abortAwaited > 0) {
         faults.abortAwaited--;
         tx.abort();
-      }
+      } else if (!faults?.noExplicitCommit) tx.commit(); // D80: see RESULTS. A page being destroyed loses a transaction that was only due to auto-commit
     } catch (e) {
       say(String(e));
     }

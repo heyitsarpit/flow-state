@@ -12,7 +12,7 @@ import type {
   Placement,
   Slot,
 } from "../conformance/fixtures/compiled.ts";
-import { admit, encoded, own } from "./gate.ts";
+import { admit, encoded, own, text } from "./gate.ts";
 import { told as moduleTold, prepareAll, Refused, run } from "./hooks.ts";
 import {
   down,
@@ -637,6 +637,13 @@ const applyMembers = (w: Walk) => {
     return part.alt.members.map((mem: Member) => {
       const op = w.m.ops[mem.op]!;
       const origin = `${part.alt.at.definition} ${part.alt.at.path}`;
+      // D89, decided (O5): encoding never fails the turn. A commit that cannot be written ahead cannot be sent, so it declines and the transition runs.
+      if (mem.verb === "commit") {
+        const raw = run(mem.input, after as never);
+        const rawKey = text(raw) === undefined ? undefined : run(op.key, raw);
+        if (text(raw) === undefined || text(rawKey) === undefined)
+          return { part, mem, inc, unencodable: true, input: undefined, key: null, owner: ownerOf(w, part) };
+      }
       if (mem.verb === "commit" || mem.verb === "lookup") {
         const input = admit(run(mem.input, after as never), origin);
         const key = admit(run(op.key, input), origin);
@@ -677,6 +684,11 @@ const applyMembers = (w: Walk) => {
       continue;
     }
     const subject = op.fragment ? inc.subject : [];
+    if (r.unencodable) {
+      issue(tx, { code: "UnencodableValue", origin: `${w.a.machine} ${mem.op}` });
+      decline(tx, { ...base, key: r.key, input: r.input, subject }, "StorageRefused");
+      continue;
+    }
     if (mem.verb === "commit") {
       const lane = tx.w.lanes[laneKey(w.a.key, mem.op, r.key)];
       if (lane && !sameSubject(lane.subject, subject)) {

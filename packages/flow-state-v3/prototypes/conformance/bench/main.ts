@@ -136,6 +136,9 @@ out["valueMs"] = {
   persistedCoalesced: Object.fromEntries(
     sizes.map((s) => [s, encodeCost(s, true, { captureMs: 100 }).ms]),
   ),
+  persistedAt5s: Object.fromEntries(
+    sizes.map((s) => [s, encodeCost(s, true, { captureMs: 5000 }).ms]),
+  ),
 };
 
 // ── Bundles: bun build --minify, gzip, effect external.

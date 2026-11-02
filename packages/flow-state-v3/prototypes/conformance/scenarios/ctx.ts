@@ -24,7 +24,8 @@ export const checkClaims = (r: Reads) => {
         break;
       case "ack":
       case "capture":
-        if (!out.storage.some((s) => s.keys.includes(w.key)))
+        // Round 7, D94: it may also wait for a plain batch of its actor whose answer has not come.
+        if (!out.storage.some((s) => s.keys.includes(w.key)) && out.failing === 0)
           throw new Mismatch(`L3: ${w.kind} claim for ${w.op} with no write outside`);
         break;
       case "timer":

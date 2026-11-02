@@ -190,12 +190,13 @@ export const reviewScenarios: readonly Scenario[] = [
         c.ensure();
         c.ensure(Y);
         c.send("BadKey");
-        c.eq("refused, by its origin", c.r.issues().at(-1)?.code, "InvalidTurn");
+        // Round 7, D89, decided: a commit that cannot be keyed declines; the turn is not refused.
+        c.eq("named", c.r.issues().at(-1)?.code, "UnencodableValue");
         c.eq("alive", c.r.quiet().fatal, false);
         c.to(Y, "Fine");
         c.eq("others go on", c.r.memory(Y).n, 1);
-        c.namedIssues = ["InvalidTurn"];
-        c0.namedIssues = ["InvalidTurn"];
+        c.namedIssues = ["UnencodableValue"];
+        c0.namedIssues = ["UnencodableValue"];
       },
       "persisted-memory-that-cannot-encode"(c0) {
         const X = { actor: "Odd", id: "x" };

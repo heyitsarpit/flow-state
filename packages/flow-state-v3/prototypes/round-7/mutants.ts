@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { REPLACED, ROUND5 } from "./mutants-r5.ts";
 import { ROUND6 } from "./mutants-r6.ts";
+import { ROUND7 } from "./mutants-r7.ts";
 const OLD = [
   {
     id: "d58-pos-no-tick",
@@ -366,10 +367,14 @@ const gone = new Set(
     : ""
   ).split("\n"),
 );
-export const MUTANTS = [...old.filter((x) => !gone.has(x.id)), ...ROUND6];
+// Round 7: what no longer applies is replaced code, listed in replaced-r7.txt, not silently dropped.
+const stillApplies = (x: { edits: readonly unknown[] }) => x.edits.every((e: any) => applies(e));
+export const MUTANTS = [...old.filter((x) => !gone.has(x.id)), ...ROUND6].filter(stillApplies).concat(ROUND7 as never);
 if (import.meta.main) {
   const dead = old.filter((x) => !x.edits.every((e: any) => applies(e))).map((x) => x.id);
-  await Bun.write(join(import.meta.dir, "replaced-r6.txt"), dead.join("\n") + "\n");
+  const all = [...old, ...ROUND6].filter((x) => !stillApplies(x)).map((x) => x.id);
+  await Bun.write(join(import.meta.dir, "replaced-r7.txt"), all.join("\n") + "\n");
+  console.log(`no longer apply: ${all.length}. Round 7 that do not apply: ${ROUND7.filter((x) => !stillApplies(x)).map((x) => x.id).join(" ") || "none"}`);
   const bad = ROUND6.filter((x) => !x.edits.every((e: any) => applies(e as any))).map((x) => x.id);
   console.log(
     `replaced: ${dead.length} of ${old.length}. Round 6 that do not apply: ${bad.join(" ") || "none"}`,

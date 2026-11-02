@@ -181,7 +181,7 @@ export const flush = (tx: Tx) => {
       k: "persist",
       writes: [{ key: `lane/${a.lane}`, value }],
       purpose: a.on === "ack" ? "acknowledge" : "capture",
-      ticket: { attempt: l.head!.id, ticket: a.ticket },
+      ticket: { attempt: l.head!.id, ticket: a.ticket, actor: l.actor },
     });
     armTimer(tx, {
       key: `storage/${l.head!.id}`,

@@ -58,8 +58,8 @@ export const round7Scenarios: readonly Scenario[] = [
         const c = fresh(c0);
         c.fault({ storageFailsHeld: 1 });
         c.send("Go"); // actor + lane: fail later. The awaited write is newer for the lane; the actor is newest here
+        c.do({ storage: "failLate" }); // D94: only now does the ack go out, with what the batch owed
         c.ack();
-        c.do({ storage: "failLate" });
         c.advance(5_000);
         c.eq("the actor came back", disk(c, ACTOR).root.leaf, "W");
         c.eq("the lane did not", disk(c, KEY)?.head?.acked, true);
@@ -72,10 +72,23 @@ export const round7Scenarios: readonly Scenario[] = [
         c.fault({ storageFailsHeld: 1 });
         c.answer("charge", { lost: true }); // plain: { held: true }. Fails, nobody says so yet
         c.send("Retry");
+        c.do({ storage: "failLate" }); // D94: the capture waits for this answer
         c.ack(); // the re-send's capture, retryCount 1
-        c.do({ storage: "failLate" });
         c.advance(5_000);
         c.eq("the newer record stands", disk(c, KEY)?.head?.retryCount, 1);
+      },
+      // D94, E1: Pay's trace on the bare machine. The next write's ack does not land ahead of a failed batch that removed a lane.
+      "E1-a-failed-batch-goes-with-the-next-ack"(c0) {
+        const c = fresh(c0);
+        c.send("Go");
+        c.ack();
+        c.fault({ storageFailsLate: 1 });
+        c.answer("charge", { ok: {} }); // B, and the lane's removal: this batch fails
+        c.send("Go"); // the next Attempt's ack carries what that batch owed
+        c.ack();
+        c.reload();
+        c.eq("no ending says the finished write is unknown", c.endings("charge").filter((e) => e["channel"] === "unknown").length <= 1, true);
+        c.eq("one lane on disk, the new one", [...c.r.stored().keys()].filter((k) => k.startsWith("lane/")).length, 1);
       },
       // The sync failure: a re-entry happens before the awaited write exists. The awaited write must take its keys out of `dirty`.
       "a-sync-failure-too"(c0) {
@@ -180,6 +193,13 @@ export const round7Scenarios: readonly Scenario[] = [
         c.reload();
         c.eq("lost: stated by D80", c.mem().note, "");
         c.eq("not stopped", c.r.quiet().fatal, false);
+      },
+      // The sweep at 5 s (RESULTS): a dispose lost to a kill woke the actor. A retired identity is not plain memory.
+      "D93-a-dispose-is-not-lost-to-a-kill"(c0) {
+        const c = fresh(c0, { captureMs: 5_000 });
+        c.dispose();
+        c.reload();
+        c.eq("not woken", c.r.state(A), undefined);
       },
       "dispose-runtime-flushes"(c0) {
         const c = fresh(c0, { captureMs: 5_000 });
@@ -302,6 +322,22 @@ export const round7Scenarios: readonly Scenario[] = [
         c.send("Go");
         c.eq("no mint beside it", c.reqs("charge").length, n);
       },
+      "M11-a-throwing-getter-from-a-patch-is-a-refusal-not-fatal"(c0) {
+        c0.namedIssues.push("InvalidTurn");
+        const c = fresh(c0);
+        c.send("Note", { text: "good" });
+        c.send("NoteGetter");
+        c.eq("not fatal", c.r.quiet().fatal, false);
+        c.eq("refused", c.mem().note, "good");
+      },
+      "a-commit-that-cannot-be-written-ahead-declines-and-the-transition-runs"(c0) {
+        const c = fresh(c0);
+        c.send("GoBad");
+        c.eq("nothing sent", c.reqs("charge").length, 0);
+        c.eq("the ending", c.lastEnding("charge")?.["reason"], "StorageRefused");
+        c.state("A"); // moved to W, then NotSent moved it back
+        c.eq("named", c.r.issues().some((i) => i.code === "UnencodableValue"), true);
+      },
       "memory-that-cannot-encode-does-not-refuse-the-turn"(c0) {
         const c = fresh(c0);
         c.send("Note", { text: "good" });
@@ -310,6 +346,25 @@ export const round7Scenarios: readonly Scenario[] = [
         c.eq("the last good capture", noteOn(c), "good");
         c.send("Note", { text: "better" });
         c.eq("an encodable state captures again", noteOn(c), "better");
+      },
+    },
+  },
+  {
+    id: "REV7-SEARCH-FAKE",
+    kind: "example",
+    fixtures: [bareFixture()],
+    actor: A,
+    cites: ["D83"],
+    variants: {
+      "the-fake-really-says-it-late"(c0) {
+        const c = fresh(c0);
+        c.namedIssues.push("StorageFailure");
+        c.fault({ storageFailsHeld: 1 });
+        c.send("Note", { text: "x" });
+        c.eq("nothing said yet", c.r.issues().length, 0);
+        c.eq("one report owed", c.r.outside().failing, 1);
+        c.do({ storage: "failLate" });
+        c.eq("said", c.r.issues().length, 1);
       },
     },
   },

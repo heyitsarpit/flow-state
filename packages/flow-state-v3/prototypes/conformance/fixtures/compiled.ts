@@ -168,6 +168,7 @@ export type Carried = {
   readonly fields?: Readonly<Record<string, unknown>>;
   readonly removed?: true;
   readonly version?: unknown; // a tombstone's: `Ticket.delete(key, { version })`. A row's comes from its fields, by the entity's field
+  readonly evidence?: "whole" | "partial"; // Round 7: additive, unread until round 8's per-field versions. Evidence can say what it speaks for
 };
 export type DomainSpec = {
   readonly writes: Readonly<

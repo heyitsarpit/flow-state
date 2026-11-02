@@ -1,0 +1,26 @@
+{
+ "search": "flush.frag",
+ "verdict": "inconclusive",
+ "perDepth": [
+  1,
+  7,
+  30,
+  145,
+  583,
+  2063,
+  6764,
+  21115,
+  63394
+ ],
+ "states": 94701,
+ "edges": 403378,
+ "steps": 6519744,
+ "depthCompleted": 8,
+ "classes": {},
+ "ms": 120001,
+ "peakRssMb": 284,
+ "unpinned": [],
+ "exceptions": 0
+}
+
+WATCH peak 271 MB, 120.1 s, exit 0, killed no

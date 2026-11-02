@@ -156,6 +156,7 @@ const sealNode = (n: Node): Node => ({
   ...(n.subroutine ? { subroutine: sealPlacement(n.subroutine) } : {}),
 });
 const sealOp = (o: Op, definition: string): Op => {
+  known(o, OP_CLOSURES, `${definition} ops.${o.id}`); // L4
   const u = o.outcomes.unknown;
   return {
     ...o,
@@ -200,6 +201,8 @@ const STREAM_CLOSURES = new Set([
   "catchUp",
 ]);
 const DOMAIN_CLOSURES = new Set(["repair", "version", "versionOrder"]);
+const OP_CLOSURES = new Set(["commit"]);
+const WRITE_CLOSURES = new Set(["confirms"]);
 const known = (o: object, names: ReadonlySet<string>, where: string) => {
   for (const [k, v] of Object.entries(o))
     if (typeof v === "function" && !names.has(k))
@@ -264,6 +267,7 @@ const sealDomain = (id: string, d: DomainSpec): SealedDomain => {
   return {
     ...d,
     writes: table(d.writes, (w) => {
+      known(w, WRITE_CLOSURES, `${id} domain.writes`); // L4
       return {
         ...w,
         ...(w.confirms ? { confirms: slotted(w.confirms, id, "domain.confirms") } : {}),
@@ -300,8 +304,13 @@ export const seal = (c: Compiled): Compiled => {
   sealedAlready.add(out);
   return out;
 };
-export const sealAll = (list: readonly Compiled[]): Readonly<Record<string, Compiled>> =>
-  table(Object.fromEntries(list.map((c) => [c.id, c])), seal);
+export const sealAll = (list: readonly Compiled[]): Readonly<Record<string, Compiled>> => {
+  // L4: two machines under one id is a wiring error, not a last-one-wins.
+  const ids = list.map((c) => c.id);
+  const dup = ids.find((id, i) => ids.indexOf(id) !== i);
+  if (dup !== undefined) throw new Error(`DuplicateMachine: ${dup}`);
+  return table(Object.fromEntries(list.map((c) => [c.id, c])), seal);
+};
 
 // ── Stored records, against the release that is running. Anything that fails is quarantined, per record (D46, D61).
 const isStr = (v: unknown): v is string => typeof v === "string";

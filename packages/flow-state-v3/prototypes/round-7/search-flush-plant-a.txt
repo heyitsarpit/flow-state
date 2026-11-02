@@ -1,0 +1,31 @@
+{
+ "search": "flush.bare.tight",
+ "verdict": "inconclusive",
+ "perDepth": [
+  1,
+  3,
+  9,
+  26,
+  63,
+  154,
+  339,
+  701,
+  1373,
+  2557,
+  4611,
+  8009,
+  13610
+ ],
+ "states": 46843,
+ "edges": 158116,
+ "steps": 4414988,
+ "depthCompleted": 12,
+ "classes": {},
+ "ms": 60001,
+ "peakRssMb": 226,
+ "unpinned": [],
+ "exceptions": 2528,
+ "exceptionWitness": "failHeld Go Note FLUSH KILL => {\"rows\":{},\"state\":\"W\"}"
+}
+
+WATCH peak 215 MB, 60.1 s, exit 0, killed no

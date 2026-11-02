@@ -248,7 +248,7 @@ export type Command =
       readonly k: "persist";
       readonly writes: readonly Write[];
       readonly purpose: "acknowledge" | "capture" | "flush";
-      readonly ticket?: { readonly attempt: string; readonly ticket: string };
+      readonly ticket?: { readonly attempt: string; readonly ticket: string; readonly actor: string };
     }
   | { readonly k: "module"; readonly m: string; readonly cmd: unknown };
 

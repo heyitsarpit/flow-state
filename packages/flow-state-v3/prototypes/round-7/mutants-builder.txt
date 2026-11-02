@@ -1,0 +1,32 @@
+KILLED   d83-reenter-all                      1 cases: REV7-H1/a-batch-that-fails-after-a-newer-one-landed-stays-dead
+SURVIVED d83-no-dirty-check                   0 cases: 
+SURVIVED d83-awaited-keeps-dirty              0 cases: 
+SURVIVED d83-awaited-no-stamp                 0 cases: 
+SURVIVED d94-does-not-wait                    0 cases: 
+SURVIVED d94-owed-not-carried                 0 cases: 
+KILLED   d94-waits-for-any-actor              1 cases: MED-01/other-actor-behind-a-hung-ack
+KILLED   d83-plain-no-stamp                   3 cases: REV6-M7/a-failed-plain-write-is-not-believed REV7-H1/a-failed-batch-re-enters-only-keys-it-was-newest-of REV7-H1/backoff-grows-on-a-late-failure
+SURVIVED d83-saved-believes-refused           0 cases: 
+SURVIVED d83-saved-undefined-loses-delete     0 cases: 
+KILLED   l2-backoff-resets-on-issue           1 cases: REV7-H1/backoff-grows-on-a-late-failure
+SURVIVED l2-no-landed-reset                   0 cases: 
+SURVIVED l2-report-every-time                 0 cases: 
+KILLED   d84-lane-coalesces                   1 cases: REV7-M1/a-success-does-not-come-back-as-a-hold
+SURVIVED d93-retired-coalesces                0 cases: 
+KILLED   d84-everything-at-once               6 cases: REV6-CAPTURE/plain-writes-coalesce-to-the-newest REV6-CAPTURE/a-crash-loses-plain-memory-and-only-that REV7-M1/only-lane-free-memory-waits REV7-D80/the-default-is-five-seconds ...
+KILLED   d80-no-hidden-flush                  3 cases: REV7-D80/many-values-one-write REV7-D80/hidden-flushes-at-once REV7-D80/a-kill-before-any-flush-loses-only-plain-memory
+SURVIVED d80-default-not-5s                   0 cases: 
+KILLED   l3-dispose-no-flush                  1 cases: REV7-D80/dispose-runtime-flushes
+KILLED   d87-no-bound                         1 cases: REV7-M2/a-read-that-never-answers-gets-an-issue-and-the-queue-runs
+KILLED   d87-late-answer-boots-again          1 cases: REV7-M2/a-read-that-never-answers-gets-an-issue-and-the-queue-runs
+KILLED   d87-failed-read-keeps-persist        1 cases: REV7-M2/a-failed-read-runs-empty-and-writes-nothing
+KILLED   d87-queue-unbounded                  1 cases: REV7-M2/the-queue-has-a-bound
+KILLED   d87-queue-silent                     1 cases: REV7-M2/the-queue-has-a-bound
+KILLED   d88-no-hold-on-bad-body              1 cases: REV7-M8/commit-declines-while-it-stands-and-the-record-stays
+KILLED   d88-no-hold-on-invalid               1 cases: REV7-M8/a-quarantined-lane-refuses-a-second-attempt
+KILLED   d88-commit-passes                    2 cases: REV7-M8/a-quarantined-lane-refuses-a-second-attempt REV7-M8/commit-declines-while-it-stands-and-the-record-stays
+SURVIVED d88-idle-passes                      0 cases: 
+SURVIVED d88-row-silent                       0 cases: 
+KILLED   d88-cancel-keeps-record              1 cases: REV7-M8/a-quarantined-lane-refuses-a-second-attempt
+KILLED   d89-skip-one-record                  1 cases: REV7-M9/an-ending-with-a-bad-value-is-not-lost
+SURVIVED d89-batch-dropped-not-kept           0 cases: 

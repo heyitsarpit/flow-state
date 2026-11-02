@@ -27,7 +27,7 @@ import { round4Scenarios } from "./scenarios/round4.scenario.ts";
 import { storeScenarios } from "./scenarios/store.scenario.ts";
 import { streamScenarios } from "./scenarios/stream.scenario.ts";
 
-export type RunResult = { id: string; variant?: string; ok: boolean; why?: string; ms: number };
+export type RunResult = { id: string; variant?: string; ok: boolean; why?: string; ms: number; trace?: string };
 export const allScenarios: readonly Scenario[] = [
   ...payScenarios,
   ...orderScenarios,
@@ -114,6 +114,7 @@ export const runScenarios = (
     const hitHere = new Set<string>();
     for (const [variant, body] of cases) {
       const t = performance.now();
+      (globalThis as any).__kills = [];
       const fresh = (machines = s.fixtures, bounds = s.bounds) => {
         const h = make();
         h.start({ machines, seed: 1, ...(bounds ? { bounds } : {}) });
@@ -157,6 +158,7 @@ export const runScenarios = (
             e instanceof Mismatch
               ? e.message
               : `threw: ${(e as Error).stack?.split("\n").slice(0, 3).join(" ")}`,
+          ...((globalThis as any).__kills?.length ? { trace: (globalThis as any).__kills.join(" ; ") } : {}),
           ms: performance.now() - t,
         });
       }
@@ -229,7 +231,7 @@ if (import.meta.main) {
   );
   for (const r of results)
     console.log(
-      `${r.ok ? "PASS" : "FAIL"}  ${name(r).padEnd(52)} ${r.ok ? `${r.ms.toFixed(1)} ms` : r.why}`,
+      `${r.ok ? "PASS" : "FAIL"}  ${name(r).padEnd(52)} ${r.ok ? `${r.ms.toFixed(1)} ms` : r.why}${r.trace ? `\n      ${r.trace}` : ""}`,
     );
   printReports(
     round,

@@ -1,0 +1,47 @@
+{
+ "search": "payFixed",
+ "verdict": "failed",
+ "perDepth": [
+  1,
+  2,
+  10,
+  28,
+  83,
+  195,
+  528,
+  1535,
+  4382
+ ],
+ "states": 9684,
+ "edges": 33699,
+ "steps": 836330,
+ "depthCompleted": 8,
+ "classes": {
+  "two-keys-one-intent:PAID": {
+   "count": 8,
+   "witness": "PayRequested ack pay.ok ack place.ok Start PayRequested"
+  },
+  "placed-and-voided:LEFT": {
+   "count": 1,
+   "witness": "PayRequested ack pay.ok ack place.ok Start PayRequested Leave"
+  },
+  "two-keys-one-intent:LEFT": {
+   "count": 2,
+   "witness": "PayRequested ack pay.ok ack place.ok Start PayRequested Leave"
+  },
+  "told-not-charged:CARD": {
+   "count": 1,
+   "witness": "PayRequested ack pay.ok ack place.ok Start PayRequested reload"
+  }
+ },
+ "ms": 50001,
+ "peakRssMb": 224,
+ "unpinned": [
+  "two-keys-one-intent:PAID via PayRequested ack pay.ok ack place.ok Start PayRequested",
+  "placed-and-voided:LEFT via PayRequested ack pay.ok ack place.ok Start PayRequested Leave",
+  "two-keys-one-intent:LEFT via PayRequested ack pay.ok ack place.ok Start PayRequested Leave",
+  "told-not-charged:CARD via PayRequested ack pay.ok ack place.ok Start PayRequested reload"
+ ]
+}
+
+WATCH peak 214 MB, 50.1 s, exit 1, killed no

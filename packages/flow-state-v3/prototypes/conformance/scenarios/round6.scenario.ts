@@ -655,7 +655,8 @@ export const round6Scenarios: readonly Scenario[] = [
     namedIssues: ["InvalidTurn"],
     variants: {
       "M1-a-read-banks-no-credit"(c0) {
-        const c = chat(c0, { catchUp: true, source: "pulled", reconnect: false });
+        // Review L1, round 7: `drainMs: -1`, or the turn drains the pulls before the bug can show, and `m1-banks-credit` survives.
+        const c = chat(c0, { catchUp: true, source: "pulled", reconnect: false }, { drainMs: -1 });
         f(c, live());
         c.answer("history", { ok: done([]) });
         for (let i = 0; i < 5; i++) {

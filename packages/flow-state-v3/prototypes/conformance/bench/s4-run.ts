@@ -41,29 +41,39 @@ try {
   done({ s4: "not run", why: String(e) }, 1);
 }
 const b = browser!;
-const page = await b.newPage("about:blank");
-await page.evaluate(code);
 const results: unknown[] = [];
 const timer = setTimeout(async () => {
   await b.close();
-  done({ s4: "not run", why: "no answer in 240 s", results }, 1);
-}, 240_000);
-for (const rate of [1, 6]) {
+  done({ s4: "not run", why: "no answer in 280 s", results }, 1);
+}, 280_000);
+// Review, round 6: a number here depends on what ran earlier in the page, since V8's object spread goes megamorphic. So each measure gets a fresh page, and one
+// deliberately polluted run says what a page that has seen many shapes pays. Every row says which.
+const fresh = async (rate: number) => {
+  const page = await b.newPage("about:blank");
+  await page.evaluate(code);
   await page.send("Emulation.setCPUThrottlingRate", { rate });
-  for (const actors of [1, 1000])
-    results.push({ rate, ...(await page.evaluate(`__run(${actors})`)) });
-  for (const size of [1000, 10_000]) {
-    results.push({
-      rate,
-      grow: "atOnce",
-      ...(await page.evaluate(`__grow(${size}, { captureMs: 0 })`)),
-    });
-    results.push({
-      rate,
-      grow: "coalesced",
-      ...(await page.evaluate(`__grow(${size}, { captureMs: 100 })`)),
-    });
+  return page;
+};
+const fiveSec = arg("--capture", "5000");
+for (const rate of [1, 6]) {
+  for (const actors of [1, 1000, 3000]) {
+    const p = await fresh(rate);
+    results.push({ order: "fresh", rate, ...(await p.evaluate(`__run(${actors})`)) });
+    p.close();
   }
+  for (const size of [1000, 10_000])
+    for (const [grow, captureMs] of [["atOnce", 0], ["coalesced", Number(fiveSec)]] as const) {
+      const p = await fresh(rate);
+      results.push({ order: "fresh", rate, grow, ...(await p.evaluate(`__grow(${size}, { captureMs: ${captureMs} })`)) });
+      p.close();
+    }
+  // Polluted: what round 6's S4 did by accident. Growth and smaller runs first, on one page.
+  const p = await fresh(rate);
+  for (const a of [1, 10, 100, 300]) await p.evaluate(`__run(${a})`);
+  await p.evaluate(`__grow(1000, { captureMs: 0 })`);
+  for (const actors of [1000, 3000])
+    results.push({ order: "polluted", rate, ...(await p.evaluate(`__run(${actors})`)) });
+  p.close();
 }
 clearTimeout(timer);
 const peak = b.peakMb();

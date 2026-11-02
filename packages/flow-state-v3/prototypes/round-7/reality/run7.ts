@@ -245,6 +245,7 @@ try {
         ended,
         keys: keys.length,
         replays: myJ.filter((j: any) => j.what === "replayed").length,
+        placeKeys: new Set(t.journal.filter((j: any) => j.op === "place" && j.what === "applied").map((j: any) => j.key)).size > 0 ? t.orders.filter(([c]: [string]) => c === cartId).length : 0,
         fatal,
         notSent: endings.some((e: string) => /Restored/.test(e) && e.startsWith("failure")),
         unknown: endings.some((e: string) => /Restored/.test(e) && e.startsWith("unknown")),
@@ -277,7 +278,7 @@ try {
   if (only.includes("h3")) {
     const rows: any[] = [];
     const n = 60 * scale;
-    for (const marker of [true, false])
+    for (const marker of (arg("--markers", "true,false").split(",").map((x) => (x === "true" ? true : x === "false" ? false : x)) as boolean[]))
       for (let i = 0; i < n; i++) {
         const id = `${driver}-h3-${++run}`;
         const db = `db-${id}`;
@@ -289,19 +290,22 @@ try {
         void p.send("Runtime.evaluate", { expression: `__send(${J(A)}, "Start", ${J({ cartId: `c-${id}`, intentId })}), __send(${J(A)}, "PayRequested", { paymentMethodId: "visa" })` });
         await Bun.sleep(1 + (i % 8));
         await sigkill(p);
+        const q0 = await open();
+        const onDisk = Object.keys(await q0.evaluate(`__disk(${J(db)})`));
+        q0.close();
         const q = (await bootPay(db, { marker })).p;
         const lanes = await q.evaluate(`__lanes()`);
         const state = await q.evaluate(`__view(${J(A)})?.state`);
         q.close();
         await Bun.sleep(20);
         const keys = keysOf(await truth(), intentId);
-        rows.push({ marker, keys: keys.length, lanes: lanes.length, state: state ?? null, charged: keys.length > 0 });
+        rows.push({ marker, keys: keys.length, lanes: lanes.length, state: state ?? null, charged: keys.length > 0, onDisk });
       }
-    const of = (m: boolean) => {
+    const of = (m: unknown) => {
       const r = rows.filter((x) => x.marker === m);
       return { cycles: r.length, charged: r.filter((x) => x.charged).length, chargedNoLane: r.filter((x) => x.charged && x.lanes === 0 && x.state !== "PAID" && x.state !== "PLACING").length, doubleCharge: r.filter((x) => x.keys > 1).length, states: count(r, (x) => x.state) };
     };
-    say("h3", { marker: of(true), noMarker: of(false), rows });
+    say(`h3-${arg("--markers", "both")}`, { marker: of(true), noMarker: of(false), reopen: of("reopen"), rows });
   }
   // ── M1: a machine with no reconcile. Killed right after a success. Live B; does it come back as a hold?
   if (only.includes("bare")) {
@@ -365,10 +369,13 @@ try {
   if (only.includes("hide")) {
     const G = "Bench/Grow/a";
     const rows: any[] = [];
+    const noCommit = process.argv.includes("--no-explicit-commit");
     const cycle = async (trigger: string, killMs: number | "at-beacon" | "none", size: number) => {
+      let beacons = 0;
+      onHiddenHook = () => void beacons++;
       const db = `db-${driver}-hide-${++run}`;
       const p = await open();
-      await p.evaluate(`__boot("grow", ${J({ db, size, beacon: killMs === "at-beacon", captureMs: 5000 })})`);
+      await p.evaluate(`__boot("grow", ${J({ db, size, beacon: true, captureMs: 5000, noExplicitCommit: noCommit })})`);
       await p.evaluate(`__wait("__booted()")`);
       await p.evaluate(`__ensure(${J(G)}, "Bench/Grow")`);
       await p.evaluate(`__flush()`); // the actor's first record, so a loss reads as a count
@@ -381,14 +388,16 @@ try {
         killed = true;
         await browser.kill();
       };
-      if (killMs === "at-beacon") onHiddenHook = () => void doKill();
+      if (killMs === "at-beacon") onHiddenHook = () => (beacons++, void doKill());
       // The real triggers.
       let fired: any = null;
       if (trigger === "navigate") void p.send("Page.navigate", { url: "about:blank" });
+      else if (trigger === "reload") void p.send("Page.reload");
       else if (trigger === "closeTab") p.close();
       else if (trigger === "newTab") {
-        const other = await browser.newPage("about:blank");
-        await other.send("Page.bringToFront").catch(() => {});
+        // The hidden event can kill the browser while this tab is still connecting: that is the point of the case.
+        const other = await browser.newPage("about:blank").catch(() => undefined);
+        await other?.send("Page.bringToFront").catch(() => {});
         (p as any)._other = other;
       } else if (trigger === "kill-only") {
         /* nothing: the baseline */
@@ -405,7 +414,11 @@ try {
         p.close();
         await browser.restart();
       } else if (trigger !== "closeTab") {
-        try { fired = await p.evaluate(`typeof __seen === "undefined" ? null : __seen`, 800); } catch {}
+        // A crashed target never answers: bounded here, or the run hangs.
+        fired = await Promise.race([
+          p.evaluate(`typeof __seen === "undefined" ? null : __seen`, 800).catch(() => null),
+          Bun.sleep(1000).then(() => null),
+        ]);
         (p as any)._other?.close();
         p.close();
       }
@@ -413,32 +426,42 @@ try {
       const disk = await q.evaluate(`__disk(${J(db)})`);
       q.close();
       const rec = disk[`actor/${G}`] ? JSON.parse(disk[`actor/${G}`]) : null;
-      rows.push({ trigger, killMs, size, count: rec?.root?.memory?.count ?? null, ms: Date.now() - started, fired });
+      rows.push({ trigger, killMs, size, count: rec?.root?.memory?.count ?? null, ms: Date.now() - started, fired, beacons });
     };
     const N = 6 * scale;
+    let failedCycles = 0;
+    const guarded = cycle;
+    const safe = async (...a: Parameters<typeof cycle>) => {
+      try {
+        await guarded(...a);
+      } catch {
+        failedCycles++; // the harness lost the page; the cycle says nothing, and is counted
+        await browser.restart().catch(() => {});
+      }
+    };
     for (const size of arg("--sizes", "100,10000").split(",").map(Number)) {
-      for (let i = 0; i < N; i++) await cycle("kill-only", 20, size);
-      for (let i = 0; i < N; i++) await cycle("navigate", "none", size);
-      for (let i = 0; i < N; i++) await cycle("navigate", "at-beacon", size);
+      for (let i = 0; i < N; i++) await safe("kill-only", 20, size);
+      for (let i = 0; i < N; i++) await safe("navigate", "none", size);
+      for (let i = 0; i < N; i++) await safe("reload", "none", size);
+      for (let i = 0; i < N; i++) await safe("navigate", "at-beacon", size);
       for (const k of [0, 2, 5, 10, 25, 50])
-        for (let i = 0; i < N; i++) await cycle("navigate", k, size);
-      for (let i = 0; i < N; i++) await cycle("newTab", "none", size);
-      for (let i = 0; i < N; i++) await cycle("newTab", "at-beacon", size);
-      for (let i = 0; i < N; i++) await cycle("crash-now", "none", size);
-      for (let i = 0; i < N; i++) await cycle("closeTab", "none", size);
+        for (let i = 0; i < N; i++) await safe("navigate", k, size);
+      for (let i = 0; i < N; i++) await safe("newTab", "none", size);
+      for (let i = 0; i < N; i++) await safe("newTab", "at-beacon", size);
+      for (let i = 0; i < N; i++) await safe("crash-now", "none", size);
+      for (let i = 0; i < N; i++) await safe("closeTab", "none", size);
     }
     const tbl: Record<string, any> = {};
     for (const r of rows) {
       const k = `${r.size} ${r.trigger} ${r.killMs}`;
-      const t = (tbl[k] ??= { cycles: 0, newest: 0, older: 0, nothing: 0, firedHidden: 0, firedPagehide: 0 });
+      const t = (tbl[k] ??= { cycles: 0, newest: 0, older: 0, nothing: 0, beacon: 0 });
       t.cycles++;
       if (r.count === 3) t.newest++;
       else if (r.count === null) t.nothing++;
       else t.older++;
-      if (r.fired?.hidden) t.firedHidden++;
-      if (r.fired?.pagehide) t.firedPagehide++;
+      if (r.beacons > 0) t.beacon++;
     }
-    say(`hide-${arg("--sizes", "all")}`, { tbl, rows });
+    say(`hide-${noCommit ? "autocommit-" : "commit-"}${arg("--sizes", "all")}`, { failedCycles, tbl, rows });
   }
 } catch (e) {
   say("error", String((e as Error).stack ?? e));

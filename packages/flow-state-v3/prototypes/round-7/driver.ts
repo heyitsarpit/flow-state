@@ -169,7 +169,50 @@ export const createRuntime = (cfg: {
     dirty.clear();
     if (encoded.length === 0) return;
     const n = stamp(batch);
-    host.storage.write(encoded, dirtyPurpose, undefined, (why) => failedBatch(batch, n, why), landed);
+    const out = { keys: encoded.map((w) => w.key) };
+    plainOut.add(out);
+    host.storage.write(
+      encoded,
+      dirtyPurpose,
+      undefined,
+      (why) => {
+        failedBatch(batch, n, why);
+        plainAnswered(out);
+      },
+      () => {
+        landed();
+        plainAnswered(out);
+      },
+    );
+  };
+  // D94: an awaited write never lands ahead of a batch before it. It waits for that batch's answer, and if the batch failed, what the batch still owes goes in its transaction.
+  // So "the next lane's ack is on disk and the record it followed is not" cannot occur (E1). One commit's wait, and only behind a batch still out.
+  // Per actor: another actor's stuck write holds nobody here (2.7.13's table; MED-01).
+  const plainOut = new Set<{ keys: readonly string[] }>();
+  const behind = (actor: string) =>
+    [...plainOut].some((b) => b.keys.some((k) => k === `actor/${actor}` || k.startsWith(`lane/${actor}|`)));
+  let waitingAwaited: Array<{ actor: string; go: () => void }> = [];
+  const plainAnswered = (b: { keys: readonly string[] }) => {
+    plainOut.delete(b);
+    const ready = waitingAwaited.filter((w) => !behind(w.actor));
+    waitingAwaited = waitingAwaited.filter((w) => behind(w.actor));
+    for (const w of ready) w.go();
+  };
+  const issueAwaited = (c: Extract<Command, { k: "persist" }>, t: NonNullable<Extract<Command, { k: "persist" }>["ticket"]>) => {
+    for (const w of c.writes) dirty.delete(w.key); // D83: a retry waiting here is older than this
+    const owed = [...dirty.values()];
+    const carried = owed.length ? encodeAll(owed) : [];
+    if (carried?.length) {
+      dirty.clear();
+      captureOff?.();
+      captureOff = undefined;
+    }
+    const taken = carried?.length ? owed : [];
+    const n = stamp([...taken, ...c.writes]);
+    host.storage.write([...(carried ?? []), ...(encodeAll(c.writes) ?? [])], c.purpose, (ok) => {
+      if (!ok && taken.length) failedBatch(taken, n, "an awaited write refused");
+      input({ k: "stored", attempt: t.attempt, ticket: t.ticket, ok });
+    });
   };
   const armCapture = (ms: number) => {
     captureOff?.();
@@ -181,8 +224,10 @@ export const createRuntime = (cfg: {
   const capture = (writes: readonly Write[], purpose: typeof dirtyPurpose) => {
     for (const w of writes) dirty.set(w.key, w);
     dirtyPurpose = purpose;
-    if (bounds.captureMs <= 0 || writes.some((w) => w.key.startsWith("lane/")))
-      return flushCapture();
+    // D84: a lane does not wait. D93: nor does a retired identity: "this actor sleeps" is not plain memory, and a kill must not wake it.
+    const now = (w: Write) =>
+      w.key.startsWith("lane/") || (w.record as { retired?: boolean } | undefined)?.retired === true;
+    if (bounds.captureMs <= 0 || writes.some(now)) return flushCapture();
     if (!captureOff) armCapture(bounds.captureMs);
   };
   host.onHidden?.(() => flushCapture());
@@ -223,11 +268,8 @@ export const createRuntime = (cfg: {
         if (!t) return capture(c.writes, c.purpose);
         // O3, O6: an awaited write is never coalesced, and what waits goes first, so a lane cannot outrun its actor.
         flushCapture();
-        for (const w of c.writes) dirty.delete(w.key); // D83: a retry waiting here is older than this
-        stamp(c.writes);
-        return host.storage.write(encodeAll(c.writes) ?? [], c.purpose, (ok) =>
-          input({ k: "stored", attempt: t.attempt, ticket: t.ticket, ok }),
-        );
+        if (behind(t.actor)) return void waitingAwaited.push({ actor: t.actor, go: () => issueAwaited(c, t) });
+        return issueAwaited(c, t);
       }
       case "module": {
         const m = modules.find((x) => x.id === c.m);
@@ -403,7 +445,7 @@ export const createRuntime = (cfg: {
     flushNow: flushCapture,
     booted: () => booted,
     // For the suite's hash: what the driver holds decides the future too.
-    edgeText: () => JSON.stringify([[...dirty.keys()].sort(), booted, waitingBoot.length, retryN]),
+    edgeText: () => JSON.stringify([[...dirty.keys()].sort(), booted, waitingBoot.length, retryN, plainOut.size, waitingAwaited.length]),
     sealed,
     world: () => world,
     pending: () => !fatal && (work() || running),

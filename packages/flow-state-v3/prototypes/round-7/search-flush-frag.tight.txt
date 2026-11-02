@@ -1,0 +1,34 @@
+{
+ "search": "flush.frag.tight",
+ "verdict": "completed",
+ "perDepth": [
+  1,
+  3,
+  8,
+  20,
+  43,
+  83,
+  145,
+  244,
+  384,
+  590,
+  904,
+  1303,
+  1854,
+  2593,
+  3525,
+  4858,
+  6521
+ ],
+ "states": 23079,
+ "edges": 98935,
+ "steps": 3292356,
+ "depthCompleted": 16,
+ "classes": {},
+ "ms": 43868,
+ "peakRssMb": 211,
+ "unpinned": [],
+ "exceptions": 0
+}
+
+WATCH peak 202 MB, 43.9 s, exit 0, killed no

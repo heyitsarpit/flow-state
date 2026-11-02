@@ -133,6 +133,7 @@ export class FakeWorld {
   // Review H1: a real store answers later. `Late`: said on the next tick. `Held`: said only at a `failLate` storage step, after whatever came next.
   plainFailsLate = 0;
   plainFailsHeld = 0;
+  private laterFailing = 0;
   private lateReports: Array<() => void> = [];
   loadMode: "now" | "hang" | "fail" = "now"; // round 7: the next boot's read
   private pendingLoad: { ok: (m: ReadonlyMap<string, string>) => void; no: (e: unknown) => void } | undefined;
@@ -158,6 +159,7 @@ export class FakeWorld {
     this.scheduler.q = [];
     this.laters = [];
     this.lateReports = [];
+    this.laterFailing = 0;
     this.pendingLoad = undefined;
     this.held = []; // an unconfirmed write dies with its process. `landNoAck` is how a landed one is modelled.
     for (const r of this.requests) r.resume = undefined;
@@ -207,7 +209,11 @@ export class FakeWorld {
           }
           if (then === undefined && !blocked && this.plainFailsLate > 0) {
             this.plainFailsLate--;
-            this.laters.push(() => failed?.("a plain write failed, said later"));
+            this.laterFailing++;
+            this.laters.push(() => {
+              this.laterFailing--;
+              failed?.("a plain write failed, said later");
+            });
             return;
           }
           if (then === undefined && !blocked && this.plainFailsHeld > 0) {
@@ -685,7 +691,7 @@ export class FakeWorld {
           backlog: c.backlog.length,
         })),
       scheduler: { picks: this.scheduler.picks, choices: this.scheduler.choices },
-      failing: this.lateReports.length,
+      failing: this.lateReports.length + this.laterFailing,
     };
   }
   // Everything that decides this world's future, as text. Ids and times are normalised by the runtime's stateText.
