@@ -7,8 +7,10 @@ import { checkClaims, checkEndings, checkMints } from "../scenarios/ctx.ts";
 import { bfs, Oracle, type Action, type Report } from "./engine.ts";
 
 const A = { actor: "Lab/TraitStore", id: "a" };
-const open = (op: string) => (h: Harness) => h.read.outside().open.some((o) => o.op === op && !o.never);
-const storage = (h: Harness) => h.read.outside().storage.some((s) => !s.hung && s.purpose !== "flush");
+const open = (op: string) => (h: Harness) =>
+  h.read.outside().open.some((o) => o.op === op && !o.never);
+const storage = (h: Harness) =>
+  h.read.outside().storage.some((s) => !s.hung && s.purpose !== "flush");
 const COMMITS = 3;
 const answers: ReadonlyArray<readonly [string, Answer]> = [
   ["ok", { apply: true }],
@@ -21,10 +23,18 @@ const ACTIONS: readonly Action[] = [
   { name: "Resend", step: { send: A, event: "Resend", to: ["t"] } },
   { name: "GiveUp", step: { send: A, event: "GiveUp", to: ["t"] } },
   { name: "Fetch", step: { send: A, event: "Fetch", to: ["t"] } },
-  ...answers.map(([n, a]): Action => ({ name: `put.${n}`, step: { answer: "put", with: a }, on: open("put") })),
+  ...answers.map(([n, a]): Action => ({
+    name: `put.${n}`,
+    step: { answer: "put", with: a },
+    on: open("put"),
+  })),
   { name: "fetch.truth", step: { answer: "fetch", with: { truth: true } }, on: open("fetch") },
   { name: "repair.truth", step: { answer: "repair", with: { truth: true } }, on: open("repair") },
-  { name: "repair.fail", step: { answer: "repair", with: { fail: { tag: "NoResponse" } } }, on: open("repair") },
+  {
+    name: "repair.fail",
+    step: { answer: "repair", with: { fail: { tag: "NoResponse" } } },
+    on: open("repair"),
+  },
   { name: "ack", step: { storage: "ack" }, on: storage },
   { name: "refuse", step: { storage: "refuse" }, on: storage },
   { name: "Away", step: { send: A, event: "Away" } },
@@ -60,9 +70,7 @@ export const searchFragStore = (
       return h;
     }),
     actions: ACTIONS.map((a) =>
-      a.name === "Go"
-        ? { ...a, on: (h: Harness) => h.read.evidence("mint").length < COMMITS }
-        : a,
+      a.name === "Go" ? { ...a, on: (h: Harness) => h.read.evidence("mint").length < COMMITS } : a,
     ),
     depth: o.depth,
     maxStates: o.maxStates,
@@ -70,7 +78,9 @@ export const searchFragStore = (
     extra: (s) => `${s.filter((a) => a.name === "Go").length}`,
     edge(_pre, post) {
       if (post.read.quiet().fatal) throw new Oracle("fatal");
-      const i = post.read.issues().find((x) => x.code === "Fatal" || x.code === "ModuleDefect" || x.code === "CannotOccur");
+      const i = post.read
+        .issues()
+        .find((x) => x.code === "Fatal" || x.code === "ModuleDefect" || x.code === "CannotOccur");
       if (i) throw new Oracle(`${i.code} ${i.origin ?? ""} ${String(i.input ?? "")}`);
     },
     state(h) {
@@ -81,10 +91,16 @@ export const searchFragStore = (
       const out = h.read.outside();
       const q = h.read.quiet();
       // Outstanding: a request open, one that may still land, a lane anybody could still resolve.
-      const busy = out.open.length > 0 || out.lost > 0 || out.mayHave.length > 0 || q.waits.some((w) => w.kind !== "timer");
+      const busy =
+        out.open.length > 0 ||
+        out.lost > 0 ||
+        out.mayHave.length > 0 ||
+        q.waits.some((w) => w.kind !== "timer");
       if (r && !busy && !r.predicted && !r.uncertain) {
         if (r.data?.v !== h.read.truth().server.thing.v)
-          throw new Oracle(`silently wrong: shows ${JSON.stringify(r.data)}, server ${JSON.stringify(h.read.truth().server.thing)}`);
+          throw new Oracle(
+            `silently wrong: shows ${JSON.stringify(r.data)}, server ${JSON.stringify(h.read.truth().server.thing)}`,
+          );
       }
     },
   });

@@ -28,10 +28,18 @@ const withValues = (make: () => Harness) => () => {
 const ACTIONS: readonly Action[] = [
   { name: "hello", step: { feed: OP, frame: { t: "hello" } }, on: anyOpen },
   { name: "value", step: { feed: OP, frame: { t: "activity" } }, on: anyOpen },
-  { name: "value.nopos", step: { feed: OP, frame: { t: "activity", noPosition: true } }, on: anyOpen },
+  {
+    name: "value.nopos",
+    step: { feed: OP, frame: { t: "activity", noPosition: true } },
+    on: anyOpen,
+  },
   { name: "reset", step: { feed: OP, frame: { t: "reset", epoch: 2 } }, on: anyOpen },
   { name: "ping", step: { feed: OP, frame: { t: "ping" } }, on: anyOpen },
-  { name: "down", step: { feed: OP, frame: { t: "signal", signal: { _feed: "down", reason: "x" } } }, on: anyOpen },
+  {
+    name: "down",
+    step: { feed: OP, frame: { t: "signal", signal: { _feed: "down", reason: "x" } } },
+    on: anyOpen,
+  },
   { name: "end", step: { feed: OP, end: true }, on: anyOpen },
   { name: "Away", step: { send: R, event: "Away" } },
   { name: "Back", step: { send: R, event: "Back" } },
@@ -61,7 +69,9 @@ export const searchSession = (
     deadlineMs: o.deadlineMs,
     edge(_pre, post) {
       if (post.read.quiet().fatal) throw new Oracle("a session stopped the Runtime");
-      const i = post.read.issues().find((x) => x.code === "Fatal" || x.code === "ModuleDefect" || x.code === "CannotOccur");
+      const i = post.read
+        .issues()
+        .find((x) => x.code === "Fatal" || x.code === "ModuleDefect" || x.code === "CannotOccur");
       if (i) throw new Oracle(`${i.code} ${i.origin ?? ""} ${String(i.input ?? "")}`);
       // Rule 70: one connection per key, a closing one included, until its overdue.
       if (!post.read.evidence("ReleaseOverdue").length) {
@@ -105,9 +115,27 @@ const REPAIR: readonly Action[] = [
   { name: "value", step: { feed: M, frame: { id: "v", cursor: 100 } }, on: openM },
   { name: "end", step: { feed: M, end: true }, on: openM },
   { name: "over", step: { feed: M, fail: { _tag: "Overflow" } }, on: openM },
-  { name: "done", step: { answer: "history", with: { ok: { _feed: "done", items: [{ id: "a", cursor: 1 }], proof: "p", through: 2 } } }, on: hist },
-  { name: "more", step: { answer: "history", with: { ok: { _feed: "more", items: [{ id: "b", cursor: 3 }], next: "n" } } }, on: hist },
-  { name: "gone", step: { answer: "history", with: { ok: { _feed: "gone", reason: "r", through: 5 } } }, on: hist },
+  {
+    name: "done",
+    step: {
+      answer: "history",
+      with: { ok: { _feed: "done", items: [{ id: "a", cursor: 1 }], proof: "p", through: 2 } },
+    },
+    on: hist,
+  },
+  {
+    name: "more",
+    step: {
+      answer: "history",
+      with: { ok: { _feed: "more", items: [{ id: "b", cursor: 3 }], next: "n" } },
+    },
+    on: hist,
+  },
+  {
+    name: "gone",
+    step: { answer: "history", with: { ok: { _feed: "gone", reason: "r", through: 5 } } },
+    on: hist,
+  },
   { name: "page.fail", step: { answer: "history", with: { fail: { tag: "PageBusy" } } }, on: hist },
   { name: "page.bad", step: { answer: "history", with: { ok: 5 } }, on: hist },
   { name: "Jump", step: { send: C, event: "Jump", payload: { at: 50 } } },
@@ -135,13 +163,17 @@ export const searchRepairing = (
     deadlineMs: o.deadlineMs,
     edge(_pre, post) {
       if (post.read.quiet().fatal) throw new Oracle("fatal");
-      const i = post.read.issues().find((x) => x.code === "Fatal" || x.code === "ModuleDefect" || x.code === "CannotOccur");
+      const i = post.read
+        .issues()
+        .find((x) => x.code === "Fatal" || x.code === "ModuleDefect" || x.code === "CannotOccur");
       if (i) throw new Oracle(`${i.code} ${i.origin ?? ""} ${String(i.input ?? "")}`);
       if (post.read.peakDeliveriesInMail() > 1) throw new Oracle("rule 69");
       const per = post.read.outside().feeds.filter((f) => f.open).length;
-      if (per > 1 && !post.read.evidence("ReleaseOverdue").length) throw new Oracle("rule 70: two connections");
+      if (per > 1 && !post.read.evidence("ReleaseOverdue").length)
+        throw new Oracle("rule 70: two connections");
       // At most one read of history outstanding: T1's "one page at a time".
-      if (post.read.outside().open.filter((x) => x.op === "history").length > 1) throw new Oracle("two reads");
+      if (post.read.outside().open.filter((x) => x.op === "history").length > 1)
+        throw new Oracle("two reads");
     },
     state(h) {
       checkClaims(h.read);

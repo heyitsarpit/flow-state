@@ -232,8 +232,7 @@ const withoutRead = (x: Session): Session => {
   const { rid: _r, lastRead: _l, prevNext: _p, wantNext: _w, greeted: _g, from: _f, ...rest } = x;
   return { ...rest, buf: [], emptyRun: 0, pageN: 0, movedHere: false };
 };
-const gap = (x: Session, cx: Cx) =>
-  cx.tell("entities", { k: "gap", machine: x.machine, op: x.op });
+const gap = (x: Session, cx: Cx) => cx.tell("entities", { k: "gap", machine: x.machine, op: x.op });
 const requestPage = (
   s: SessionsSlice,
   x: Session,
@@ -348,7 +347,11 @@ const reconcile = (s: SessionsSlice, x0: Session, spec: StreamSpec, cx: Cx): Ses
   let x = x0;
   const current = x.st === "Live" && x.confirmed && x.last !== undefined;
   const t = current ? text(x.last!.v) : undefined;
-  if (x.inFlight && x.inFlight.item.kind === "value" && (!current || text(x.inFlight.item.v) !== t)) {
+  if (
+    x.inFlight &&
+    x.inFlight.item.kind === "value" &&
+    (!current || text(x.inFlight.item.v) !== t)
+  ) {
     cx.retract(x.inFlight.tag);
     cx.note("discarded", { op: x.op, item: "value", why: "NotLive" });
     x = (({ inFlight: _i, ...r }) => r)(x);
@@ -454,7 +457,8 @@ const lose = (
     why !== "Silent" && x.liveSince !== undefined && cx.now - x.liveSince < spec.healthyMs
       ? x.flaps + 1
       : x.flaps;
-  const stalls = x.st === "Repairing" && why === "Overflow" && !x.movedHere ? x.stalls + 1 : x.stalls;
+  const stalls =
+    x.st === "Repairing" && why === "Overflow" && !x.movedHere ? x.stalls + 1 : x.stalls;
   if (!retried || flaps >= 8) {
     const y: Session = closedAlready ? { ...x, st: "Waiting" } : x;
     return end(s, y, spec, cx, retried ? "Flapping" : why, e);
@@ -520,7 +524,9 @@ const afterMember = (
     const owed = x.st === "Live" || x.st === "Dropped";
     out = put(out, {
       ...x,
-      ...(x.inFlight ? { inFlight: { ...x.inFlight, item: { ...x.inFlight.item, moves: false } } } : {}),
+      ...(x.inFlight
+        ? { inFlight: { ...x.inFlight, item: { ...x.inFlight.item, moves: false } } }
+        : {}),
       queue:
         owed && !x.noted ? [{ kind: "missed", why: "Unproven", moves: false }, ...queue] : queue,
       noted: x.noted || owed,
@@ -569,8 +575,13 @@ const onActors = (s0: SessionsSlice, changed: readonly ActorChange[], cx: Cx): S
       const when = p.activity.when;
       if (!when) return true;
       // T9, proposed: a `when` throw keeps the session as it is, with one issue. It cannot refuse a turn that has committed.
-      return cx.user(when as never, [{ memory: cx.slice(a.key, p.inc)?.memory, event: {} }] as never, (() =>
-        own(s.sessions, idOf(a.key, p)) !== undefined) as never) === true;
+      return (
+        cx.user(
+          when as never,
+          [{ memory: cx.slice(a.key, p.inc)?.memory, event: {} }] as never,
+          (() => own(s.sessions, idOf(a.key, p)) !== undefined) as never,
+        ) === true
+      );
     });
     const ids = new Set(here.map((p) => idOf(a.key, p)));
     // Members of this turn, on after memory, in action order (T3). The turn is committed; no guard read them.
@@ -580,7 +591,11 @@ const onActors = (s0: SessionsSlice, changed: readonly ActorChange[], cx: Cx): S
       if (!cx.slice(a.key, p.inc)) continue; // L5: its life ended in that turn
       const spec = specOf(cx, a.machine, p.slot.slice(0, p.slot.indexOf("|")));
       const E = fieldEmpty(spec, cx.slice(a.key, p.inc)?.memory);
-      writeMark(cx, { actor: a.key, inc: p.inc, slot: p.slot }, p.name === "bookmark" ? { at: p.at, filled: !E } : { at: undefined, filled: false });
+      writeMark(
+        cx,
+        { actor: a.key, inc: p.inc, slot: p.slot },
+        p.name === "bookmark" ? { at: p.at, filled: !E } : { at: undefined, filled: false },
+      );
       s = afterMember(s, a.key, p.inc, p.slot, p.name === "bookmark" ? p.at : undefined, cx);
     }
     // T3: a releasing turn may raise `filled`, never lower it. Then it goes.
@@ -642,7 +657,8 @@ const onTurned = (s: SessionsSlice, t: Extract<Told, { k: "turned" }>, cx: Cx): 
     writeMark(cx, x, { at: it.at.at, filled: markOf(cx, x)?.filled ?? false }); // T3 row 2
   if (it.kind === "value" && it.moves && spec.position) {
     const at = (it.v as Record<string, unknown>)?.[spec.position];
-    if (at !== undefined && text(at) === undefined) return end(s, { ...next, queue: [] }, spec, cx, "Defect");
+    if (at !== undefined && text(at) === undefined)
+      return end(s, { ...next, queue: [] }, spec, cx, "Defect");
     const b = markOf(cx, x);
     writeMark(cx, x, { at: at ?? b?.at, filled: b?.filled ?? false }); // T3: `v[position] ?? at`, re-created if missing
   }
@@ -707,7 +723,8 @@ const onFrame = (
   }
   // T7: a change, in order, in a store publication, never through a turn. `from` is the session's own last position.
   if (spec.listen) {
-    const y0 = x.st === "Connecting" ? register(s, x, { _feed: "live" }, spec, cx).sessions[x.id]! : x;
+    const y0 =
+      x.st === "Connecting" ? register(s, x, { _feed: "live" }, spec, cx).sessions[x.id]! : x;
     cx.tell("entities", { k: "pushed", machine: x.machine, op: x.op, value: f });
     const at = spec.position ? (f as any)?.[spec.position] : undefined;
     armIdle(cx, y0, spec);
@@ -716,7 +733,8 @@ const onFrame = (
   }
   // T5.
   if (spec.delivers === "latest") {
-    const y0 = x.st === "Connecting" ? { ...x, st: "Live" as const, regInConn: true, liveSince: cx.now } : x;
+    const y0 =
+      x.st === "Connecting" ? { ...x, st: "Live" as const, regInConn: true, liveSince: cx.now } : x;
     armIdle(cx, y0, spec);
     cx.command({ k: "pull", conn: y0.conn });
     const live = y0.st === "Live";
@@ -731,7 +749,8 @@ const onFrame = (
     armIdle(cx, x, spec);
     const buf = [...x.buf, { kind: "value" as const, v: f, moves: true }];
     // T4: at the bound it stops pulling: a pulled source waits, a pushed one fills its own queue.
-    if (buf.length >= (spec.callbackBound ?? 1024)) return put(s, { ...x, buf, waitingForPull: true });
+    if (buf.length >= (spec.callbackBound ?? 1024))
+      return put(s, { ...x, buf, waitingForPull: true });
     cx.command({ k: "pull", conn: x.conn });
     return put(s, { ...x, buf });
   }
@@ -759,7 +778,11 @@ const onFrame = (
     cx,
   );
 };
-const onClosed = (s: SessionsSlice, p: Extract<DriverFrame, { k: "closed" }>, cx: Cx): SessionsSlice => {
+const onClosed = (
+  s: SessionsSlice,
+  p: Extract<DriverFrame, { k: "closed" }>,
+  cx: Cx,
+): SessionsSlice => {
   const c = own(s.closing, p.conn);
   if (c) {
     cx.disarm(`overdue/${p.conn}`);
@@ -864,7 +887,10 @@ export const sessions: Module<SessionsSlice> = {
     if (c.k === "abandon") return io.stop(`read:${c.rid}`);
     if (c.k === "read") {
       const sp = io.machine(c.machine).streams![c.op]!;
-      const eff = sp.catchUp!(c.input, { from: c.from, next: c.next }) as Effect.Effect<unknown, unknown>;
+      const eff = sp.catchUp!(c.input, { from: c.from, next: c.next }) as Effect.Effect<
+        unknown,
+        unknown
+      >;
       return io.fork(`read:${c.rid}`, eff, (exit) => io.input({ k: "page", rid: c.rid, exit }));
     }
     const spec = io.machine(c.machine).streams![c.op]!;
@@ -881,7 +907,9 @@ export const sessions: Module<SessionsSlice> = {
         k: "closed",
         conn: c.conn,
         failed: exit.t !== "ok",
-        ...(exit.t === "failure" ? { e: exit.reason, why: (exit.reason as any)?._tag ?? "Failed" } : {}),
+        ...(exit.t === "failure"
+          ? { e: exit.reason, why: (exit.reason as any)?._tag ?? "Failed" }
+          : {}),
       } satisfies DriverFrame),
     );
   },

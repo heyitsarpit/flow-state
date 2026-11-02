@@ -39,7 +39,12 @@ const oldRow = (over: object = {}) => ({
   revision: 1,
   ...over,
 });
-const at = (c0: Ctx, f: Fixture, actor: { actor: string; id: string }, bounds?: Record<string, number>) => {
+const at = (
+  c0: Ctx,
+  f: Fixture,
+  actor: { actor: string; id: string },
+  bounds?: Record<string, number>,
+) => {
   const c = new Ctx(c0.fresh([f], bounds), actor);
   c.namedIssues = c0.namedIssues;
   c.ensure();
@@ -74,11 +79,15 @@ const stopped = (c: Ctx) => {
 
 // ── Sessions' helpers.
 const cur = (seq: number, epoch = 1): Cursor => ({ epoch, seq });
-const entry = (id: string, seq?: number) => ({ id, ...(seq === undefined ? {} : { cursor: cur(seq) }) });
+const entry = (id: string, seq?: number) => ({
+  id,
+  ...(seq === undefined ? {} : { cursor: cur(seq) }),
+});
 const frame = (c: Ctx, f: unknown) => c.do({ feed: OP, frame: f });
 const hello = (c: Ctx, replayedFrom?: Cursor) =>
   frame(c, { t: "hello", ...(replayedFrom ? { replayedFrom } : {}) });
-const value = (c: Ctx, id: string, seq?: number) => frame(c, { t: "activity", entry: entry(id, seq) });
+const value = (c: Ctx, id: string, seq?: number) =>
+  frame(c, { t: "activity", entry: entry(id, seq) });
 const conns = (c: Ctx) => c.r.outside().feeds;
 const lastFrom = (c: Ctx) => conns(c).at(-1)?.from;
 const row = (c: Ctx, a = F) => c.r.module("sessions", `${a.actor}/${a.id}|${OP}`);
@@ -150,7 +159,8 @@ const oddOne = (make: () => Harness, kind: string, v: unknown) => {
   const check = (at: string) => {
     if (h.read.quiet().fatal) throw new Mismatch(`D65: ${label} stopped the Runtime at ${at}`);
     const i = h.read.issues().find((x) => x.code === "Fatal" || x.code === "ModuleDefect");
-    if (i) throw new Mismatch(`D65: ${label}: ${i.code} ${i.origin ?? ""} at ${at}: ${String(i.input)}`);
+    if (i)
+      throw new Mismatch(`D65: ${label}: ${i.code} ${i.origin ?? ""} at ${at}: ${String(i.input)}`);
     checkClaims(h.read);
     checkEndings(h.read);
     checkMints(h.read);
@@ -163,7 +173,10 @@ const oddOne = (make: () => Harness, kind: string, v: unknown) => {
     try {
       h.do(step);
     } catch (e) {
-      if (!(e instanceof NoHeldRequest)) throw new Mismatch(`D65: ${label} threw at ${JSON.stringify(Object.keys(step))}: ${String(e)}`);
+      if (!(e instanceof NoHeldRequest))
+        throw new Mismatch(
+          `D65: ${label} threw at ${JSON.stringify(Object.keys(step))}: ${String(e)}`,
+        );
     }
     if ("reload" in step) {
       const q = h.read.quiet();
@@ -216,7 +229,14 @@ export const round5Scenarios: readonly Scenario[] = [
           ["exitFrom", 5, [{ send: O, event: "RaiseLeave" }]],
           ["portGuard", 5, [{ send: O, event: "PortHit" }]],
           ["fragInitial", 5, [{ send: O, event: "Arm" }, { advance: 2000 }]],
-          ["success", 5, [{ send: O, event: "Commit" }, { answer: "w", with: { ok: {} } }]],
+          [
+            "success",
+            5,
+            [
+              { send: O, event: "Commit" },
+              { answer: "w", with: { ok: {} } },
+            ],
+          ],
         ];
         for (const [kind, value, script] of cases) {
           const h = c0.fresh([oddAllFixture]);
@@ -229,8 +249,7 @@ export const round5Scenarios: readonly Scenario[] = [
       },
       "ensure-of-an-unknown-machine"(c0) {
         const c = at(c0, deskFixture, T);
-        for (const m of ["Nope", "constructor"])
-          c.do({ ensure: { actor: m, id: "x" } });
+        for (const m of ["Nope", "constructor"]) c.do({ ensure: { actor: m, id: "x" } });
         c.eq("named", c.r.issues().filter((i) => i.code === "InvalidTurn").length, 2);
         stopped(c);
       },
@@ -245,7 +264,14 @@ export const round5Scenarios: readonly Scenario[] = [
     run(c) {
       const make = () => c.fresh([oddAllFixture]);
       // In the suite, one value of each class. All of them: search/run.ts --which oddall.
-      const some = [undefined, 5, "constructor", [null], { tag: "constructor", payload: null }, [{ ref: "constructor", fields: { a: 1 } }]];
+      const some = [
+        undefined,
+        5,
+        "constructor",
+        [null],
+        { tag: "constructor", payload: null },
+        [{ ref: "constructor", fields: { a: 1 } }],
+      ];
       for (const kind of ODD_KINDS) for (const v of some) oddOne(make, kind, v);
     },
   },
@@ -318,7 +344,11 @@ export const round5Scenarios: readonly Scenario[] = [
           c.ack();
           corrupt(c, match, f);
           c.reload();
-          c.eq(`quarantined ${String(f)}`, c.r.issues().some((i) => i.code === "RecordQuarantined"), true);
+          c.eq(
+            `quarantined ${String(f)}`,
+            c.r.issues().some((i) => i.code === "RecordQuarantined"),
+            true,
+          );
           stopped(c);
         }
       },
@@ -352,7 +382,11 @@ export const round5Scenarios: readonly Scenario[] = [
         c.eq("marked", c.rec(T1)?.uncertain, true);
         c.eq("asks", repairs(c), 1);
         c.answer("repair", { truth: true });
-        c.eq("settled", [c.rec(T1)?.data.archived, c.rec(T1)?.uncertain, c.rec(T1)?.unconfirmed], [true, false, []]);
+        c.eq(
+          "settled",
+          [c.rec(T1)?.data.archived, c.rec(T1)?.uncertain, c.rec(T1)?.unconfirmed],
+          [true, false, []],
+        );
       },
       "version-the-same-read-cannot-show-the-write-and-does-not-undo-it"(c0) {
         const c = on(c0, deskFixture);
@@ -360,12 +394,20 @@ export const round5Scenarios: readonly Scenario[] = [
         c.to(T, "Load");
         c.answer("archive", { apply: true });
         c.answer("list", { ok: [oldRow()] });
-        c.eq("the write stands, placed, unconfirmed", [c.rec(T1)?.data.archived, c.rec(T1)?.unconfirmed], [true, ["archived"]]);
+        c.eq(
+          "the write stands, placed, unconfirmed",
+          [c.rec(T1)?.data.archived, c.rec(T1)?.unconfirmed],
+          [true, ["archived"]],
+        );
         c.eq("no doubt: the version places it", c.rec(T1)?.uncertain, false);
         c.eq("no read spent", repairs(c), 0);
         c.to(T, "Load");
         c.answer("list", { truth: true });
-        c.eq("a later version confirms it", [c.rec(T1)?.data.archived, c.rec(T1)?.unconfirmed], [true, []]);
+        c.eq(
+          "a later version confirms it",
+          [c.rec(T1)?.data.archived, c.rec(T1)?.unconfirmed],
+          [true, []],
+        );
       },
       "a-resend-with-nothing-carried-and-no-prediction-doubts"(c0) {
         for (const f of [deskFixture, deskNoVersionFixture]) {
@@ -377,7 +419,11 @@ export const round5Scenarios: readonly Scenario[] = [
           c.send("Reconcile", { id: "t1" });
           c.answer("archive", { apply: true });
           c.eq("it landed; we cannot say what it did", c.rec(T1)?.uncertain, true);
-          c.eq("no request left unasked", c.r.outside().open.some((o) => o.op === "repair"), true);
+          c.eq(
+            "no request left unasked",
+            c.r.outside().open.some((o) => o.op === "repair"),
+            true,
+          );
           c.answer("repair", { truth: true });
           c.eq("truth", [c.rec(T1)?.data.archived, c.rec(T1)?.uncertain], [true, false]);
         }
@@ -416,7 +462,11 @@ export const round5Scenarios: readonly Scenario[] = [
         c.into(["t"], "Go");
         c.reload();
         c.reload();
-        c.eq("D72: once, not again at the next boot", got(c).filter((x: string) => x === "no:a:Restored").length, 1);
+        c.eq(
+          "D72: once, not again at the next boot",
+          got(c).filter((x: string) => x === "no:a:Restored").length,
+          1,
+        );
       },
       "many-records-one-write"(c0) {
         for (const f of [deskFixture, deskNoVersionFixture]) {
@@ -463,7 +513,11 @@ export const round5Scenarios: readonly Scenario[] = [
         c.send("Rename", { id: "t1", title: "Mine" });
         c.answer("rename", { apply: true });
         c.answer("list", { ok: [oldRow({ title: "Theirs", revision: 7 })] });
-        c.eq("the version places it; no read", [c.rec(T1)?.data.title, c.rec(T1)?.uncertain, repairs(c)], ["Theirs", false, 0]);
+        c.eq(
+          "the version places it; no read",
+          [c.rec(T1)?.data.title, c.rec(T1)?.uncertain, repairs(c)],
+          ["Theirs", false, 0],
+        );
       },
       "a-success-older-than-what-we-hold-drops"(c0) {
         const c = on(c0, deskFixture);
@@ -498,7 +552,10 @@ export const round5Scenarios: readonly Scenario[] = [
           const c = on(c0, deskFixture);
           c.to(T, "Load");
           c.answer("list", { ok: [oldRow({ revision: bad, title: "odd" })] });
-          c.yes("named", c.r.issues().some((i) => i.code === "UserClosure"));
+          c.yes(
+            "named",
+            c.r.issues().some((i) => i.code === "UserClosure"),
+          );
           c.eq("applied by position", c.rec(T1)?.data.title, "odd");
           stopped(c);
         }
@@ -538,7 +595,11 @@ export const round5Scenarios: readonly Scenario[] = [
         c.answer("put", { lost: true });
         c.ensure();
         c.eq("once", got(c), ["unsure:a:NoResponse"]);
-        c.eq("a hold with an owner", c.r.quiet().waits.find((w) => w.kind === "held")?.owner, "bound");
+        c.eq(
+          "a hold with an owner",
+          c.r.quiet().waits.find((w) => w.kind === "held")?.owner,
+          "bound",
+        );
       },
       "a-hold-heard-before-disposal-is-restored-to-the-rebound-life"(c0) {
         const c = at(c0, traitWriteFixture, TW);
@@ -572,7 +633,14 @@ export const round5Scenarios: readonly Scenario[] = [
         c.send("Back");
         c.yes("the first", got(c).includes("unsure:a:NoResponse"));
         c.yes("the second", got(c).includes("no:a:Restored"));
-        c.eq("two mints, two endings", [c.r.evidence("mint").length, new Set(c.r.evidence("ending").map((e) => e["attempt"])).size], [2, 2]);
+        c.eq(
+          "two mints, two endings",
+          [
+            c.r.evidence("mint").length,
+            new Set(c.r.evidence("ending").map((e) => e["attempt"])).size,
+          ],
+          [2, 2],
+        );
         c.eq("the hold stayed", c.r.quiet().waits.filter((w) => w.kind === "held").length, 1);
       },
       "a-disposed-identity-sleeps-through-a-reload"(c0) {
@@ -622,7 +690,11 @@ export const round5Scenarios: readonly Scenario[] = [
         c.answer("put", { ok: {} });
         c.reload();
         c.ensure();
-        c.eq("the lane is off the disk", [...c.r.stored().keys()].filter((k) => k.startsWith("lane/")), []);
+        c.eq(
+          "the lane is off the disk",
+          [...c.r.stored().keys()].filter((k) => k.startsWith("lane/")),
+          [],
+        );
       },
     },
   },
@@ -638,7 +710,11 @@ export const round5Scenarios: readonly Scenario[] = [
       c.eq("two copies", [before.state, c.mem().c.length], ["root", 2]);
       c.into(["c:x"], "Bump");
       c.eq("reseeded in the pending reset's own turn", c.mem().c.length, 2);
-      c.eq("fresh", c.mem().c.map((x: any) => x.fresh), [true, true]);
+      c.eq(
+        "fresh",
+        c.mem().c.map((x: any) => x.fresh),
+        [true, true],
+      );
     },
   },
   {
@@ -668,7 +744,13 @@ export const round5Scenarios: readonly Scenario[] = [
       "a-burst-keeps-one-in-mail"(c0) {
         const c = at(c0, deskFeedFixture, F);
         hello(c);
-        c.do({ feed: OP, frames: Array.from({ length: 12 }, (_, i) => ({ t: "activity", entry: entry(`e${i}`, i + 1) })) });
+        c.do({
+          feed: OP,
+          frames: Array.from({ length: 12 }, (_, i) => ({
+            t: "activity",
+            entry: entry(`e${i}`, i + 1),
+          })),
+        });
         c.eq("all", ids(c).length, 12);
         c.eq("in order", ids(c).slice(0, 2), ["e0", "e1"]);
         c.eq("never two", c.r.peakDeliveriesInMail(), 1);
@@ -678,7 +760,14 @@ export const round5Scenarios: readonly Scenario[] = [
         hello(c);
         value(c, "a", 1);
         c.reload();
-        c.do({ feed: OP, frames: [{ t: "hello" }, { t: "activity", entry: entry("b", 2) }, { t: "activity", entry: entry("c", 3) }] });
+        c.do({
+          feed: OP,
+          frames: [
+            { t: "hello" },
+            { t: "activity", entry: entry("b", 2) },
+            { t: "activity", entry: entry("c", 3) },
+          ],
+        });
         c.eq("all", [ids(c), c.mem().notices], [["a", "b", "c"], 1]);
         c.eq("never two", c.r.peakDeliveriesInMail(), 1);
       },
@@ -794,7 +883,10 @@ export const round5Scenarios: readonly Scenario[] = [
       "end-delivers-what-is-queued-first"(c0) {
         const c = at(c0, deskFeedNoReconnect, F);
         hello(c);
-        c.do({ feed: OP, frames: [1, 2, 3].map((i) => ({ t: "activity", entry: entry(`e${i}`, i) })) });
+        c.do({
+          feed: OP,
+          frames: [1, 2, 3].map((i) => ({ t: "activity", entry: entry(`e${i}`, i) })),
+        });
         c.do({ feed: OP, end: true });
         c.eq("T9: the failure behind queued items", ids(c), ["e1", "e2", "e3"]);
         c.state("RETRY_WAIT");
@@ -804,11 +896,20 @@ export const round5Scenarios: readonly Scenario[] = [
         hello(c);
         value(c, "a", 1);
         c.reload();
-        c.do({
-          feed: OP,
-          frames: [{ t: "hello" }, { t: "activity", entry: entry("b", 2) }],
-        });
-        c.eq("delivered", ids(c), ["a", "b"]);
+        c.h.raw({ feed: OP, frames: [{ t: "hello" }, { t: "activity", entry: entry("b", 2) }] });
+        c.do({ feed: OP, end: true });
+        c.eq("T9: the failure behind what is queued", ids(c), ["a", "b"]);
+        c.state("RETRY_WAIT");
+      },
+      "under-pull-a-drop-cannot-overtake-a-value-already-taken"(c0) {
+        const c = at(c0, deskFeedFixture, F, { drainMs: -1 });
+        hello(c);
+        value(c, "a", 1);
+        c.reload();
+        c.h.raw({ feed: OP, frames: [{ t: "hello" }, { t: "activity", entry: entry("b", 2) }] });
+        c.do({ feed: OP, end: true });
+        c.eq("told", c.mem().notices, 1);
+        c.eq("D71: the end waits behind it", [ids(c), bookmark(c)?.at], [["a", "b"], cur(2)]);
       },
       "a-reset-mark-does-not-outlive-its-notice"(c0) {
         const c = at(c0, deskFeedFixture, F);
@@ -884,7 +985,11 @@ export const round5Scenarios: readonly Scenario[] = [
         c.ack();
         c.answer("put", { lost: true });
         c.into(["t"], "Resend");
-        c.eq("D26: an awaited capture", c.r.outside().storage.some((s) => s.purpose === "capture"), true);
+        c.eq(
+          "D26: an awaited capture",
+          c.r.outside().storage.some((s) => s.purpose === "capture"),
+          true,
+        );
         c.eq("no second request yet", c.reqs("put").length, 1);
         c.ack();
         c.eq("the same key", [c.reqs("put").length, c.keys("put").length], [2, 1]);

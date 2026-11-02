@@ -224,14 +224,15 @@ export const makeHarness = (port: Port) => (): Harness => {
         else if ("socketClose" in f) fake.closeMs = f.socketClose;
         else if ("corruptStored" in f) {
           // A record edited on disk may be quarantined, and an Attempt in it with it: rule 46, named by an issue.
-          const hit = [...fake.kv].filter(([k]) => k.includes(f.corruptStored.match)).map(([, v]) => v);
+          const hit = [...fake.kv]
+            .filter(([k]) => k.includes(f.corruptStored.match))
+            .map(([, v]) => v);
           const inHit = evidence
             .filter((e) => e["kind"] === "mint" && hit.some((v) => v.includes(e["attempt"])))
             .map((e) => ({ kind: "lostWithProcess", attempt: e["attempt"] }));
           evidence.push(...inHit);
           fake.corrupt(f.corruptStored.match, f.corruptStored.edit);
-        }
-        else if ("uninterruptibleHang" in f) fake.uninterruptible.add(f.uninterruptibleHang);
+        } else if ("uninterruptibleHang" in f) fake.uninterruptible.add(f.uninterruptibleHang);
         else if ("syncAnswer" in f) fake.syncAnswers.set(f.syncAnswer[0], f.syncAnswer[1]);
         else if ("lateAnswer" in f) fake.lateAnswer(f.lateAnswer[0], f.lateAnswer[1]);
         else if ("landLate" in f) fake.landLate(f.landLate);

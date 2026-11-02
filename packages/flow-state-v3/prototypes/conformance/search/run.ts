@@ -55,10 +55,10 @@ const r =
               ? searchSession(make, o)
               : which.startsWith("listen.")
                 ? searchListen(make, which.split(".")[1] as never, o)
-              : which === "repairing"
-                ? searchRepairing(make, o)
-              : which.startsWith("fragstore.")
-                ? searchFragStore(make, which.split(".")[1] as never, o)
-            : searchLike(make, [s1Fixture], o);
+                : which === "repairing"
+                  ? searchRepairing(make, o)
+                  : which.startsWith("fragstore.")
+                    ? searchFragStore(make, which.split(".")[1] as never, o)
+                    : searchLike(make, [s1Fixture], o);
 console.log(JSON.stringify({ search: which, ...r }, null, 1));
 process.exitCode = r.verdict === "failed" ? 1 : 0;

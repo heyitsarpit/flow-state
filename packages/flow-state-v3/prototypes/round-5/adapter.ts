@@ -14,6 +14,7 @@ import { defaultBounds, emptyWorld, type Machines, type World } from "./world.ts
 
 const REGISTRY: Readonly<Record<string, Module<any>>> = { entities, sessions };
 const DRAIN = process.env["FLOW_DRAIN_MS"];
+const FREEZE = process.env["FLOW_DEEP_FREEZE"] === "1";
 const STEP_HOOKS = new Set([
   "prepare",
   "start",
@@ -113,6 +114,15 @@ export const port: Port = {
       },
     });
     const log: StepRecord[] = [];
+    // The purity check: world, inputs and outputs frozen around every step. A step that writes in place throws, and that is Fatal.
+    const deepFreeze = (v: any, seen = new Set<unknown>()): void => {
+      if (v === null || typeof v !== "object" || seen.has(v) || Object.isFrozen(v)) return;
+      const proto = Object.getPrototypeOf(v);
+      if (proto !== Object.prototype && proto !== Array.prototype) return; // plain objects only
+      seen.add(v);
+      Object.freeze(v);
+      for (const k of Object.keys(v)) deepFreeze(v[k], seen);
+    };
     // Rule 69: the suite's read. A session's deliveries are named `${session}#n`.
     let peakInMail = 0;
     const countMail = (w: World) => {
@@ -133,6 +143,10 @@ export const port: Port = {
       modules,
       bounds,
       onStep: (r) => {
+        if (FREEZE) {
+          deepFreeze(r.input);
+          if (r.out !== "fatal") deepFreeze(r.out);
+        }
         log.push(r);
         if (r.out !== "fatal") countMail(r.out.world);
         if (r.input.k === "sent") lastCompletion = r.input;

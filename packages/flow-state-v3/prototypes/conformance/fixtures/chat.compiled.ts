@@ -43,7 +43,10 @@ const spec = (api: Api, o: ChatOpts): StreamSpec => ({
   ...(o.catchUp
     ? {
         catchUp: (i, c) =>
-          api.call("history", { ...i, from: c.from, next: c.next }) as Effect.Effect<unknown, unknown>,
+          api.call("history", { ...i, from: c.from, next: c.next }) as Effect.Effect<
+            unknown,
+            unknown
+          >,
         pageRetryWhile: (e) => e?._tag === "PageBusy",
       }
     : {}),
@@ -121,7 +124,9 @@ export const chatFixture = (o: ChatOpts = {}): Fixture => ({
         activities: [
           {
             op: "messages",
-            input: f.slot("states.OPEN.activities[0]", ({ memory }: any) => ({ roomId: memory.roomId })),
+            input: f.slot("states.OPEN.activities[0]", ({ memory }: any) => ({
+              roomId: memory.roomId,
+            })),
             when: f.slot("states.OPEN.activities[0].when", ({ memory }: any) => {
               if (memory.whenThrows) throw new Error("when");
               return memory.muted !== true;
@@ -163,7 +168,9 @@ export const presenceFixture: Fixture = {
       }),
       ON: {
         ...pf.node("ON"),
-        activities: [{ op: "who", input: pf.slot("states.ON.activities[0]", () => ({ room: "r" })) }],
+        activities: [
+          { op: "who", input: pf.slot("states.ON.activities[0]", () => ({ room: "r" })) },
+        ],
       },
       OFF: pf.node("OFF"),
     },

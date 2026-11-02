@@ -243,7 +243,12 @@ const take = (r: Rec, ev: Evidence, at: number, keep: readonly string[] = []): R
   const version = ev.version ?? r.version;
   if (c.removed) {
     const { base: _b, version: _v, ...rest } = r;
-    return { ...rest, unconfirmed: [], changedAt: at, ...(version === undefined ? {} : { version }) };
+    return {
+      ...rest,
+      unconfirmed: [],
+      changedAt: at,
+      ...(version === undefined ? {} : { version }),
+    };
   }
   const fields = Object.fromEntries(
     Object.entries(c.fields ?? {}).filter(([k]) => !keep.includes(k)),
@@ -417,7 +422,8 @@ const onAnswered = (s: Slice, a: ReadAnswer, cx: Cx): Slice => {
       },
     },
   };
-  for (const c of carried) out = admit(out, evidenceOf("read", c, a.pos, a.machine, cx), a.machine, cx).s;
+  for (const c of carried)
+    out = admit(out, evidenceOf("read", c, a.pos, a.machine, cx), a.machine, cx).s;
   return out;
 };
 type Reread = {
@@ -444,7 +450,9 @@ const onRepair = (s: Slice, a: RepairAnswer, cx: Cx): Slice => {
   }
   if (
     !a.ok ||
-    (a.value !== null && a.value !== undefined && (typeof a.value !== "object" || Array.isArray(a.value)))
+    (a.value !== null &&
+      a.value !== undefined &&
+      (typeof a.value !== "object" || Array.isArray(a.value)))
   ) {
     cx.note("RepairFailed", { ref: a.ref }); // the doubt and the mark stay
     return endRepair(s, a.ref, cx);
@@ -490,7 +498,11 @@ const onPushed = (s: Slice, p: PushedFrame, cx: Cx): Slice => {
   cx.visible();
   for (const c of carriedOf(raw, cx, `domain.${p.op}.listen`)) {
     const ev = evidenceOf("frame", c, undefined, p.machine, cx);
-    if (!c.removed && recOf(out, c.ref).base === undefined && recOf(out, c.ref).queue.length === 0) {
+    if (
+      !c.removed &&
+      recOf(out, c.ref).base === undefined &&
+      recOf(out, c.ref).queue.length === 0
+    ) {
       cx.note("NotHeld", { ref: c.ref });
       continue;
     }
@@ -503,7 +515,14 @@ const onGap = (s: Slice, g: { machine: string }, cx: Cx): Slice => {
   const at = cx.pos();
   for (const a of Object.values(s.answers)) {
     if (a.machine !== g.machine || a.start > at) continue;
-    cx.command({ k: "reread", gen: cx.gen(), machine: a.machine, op: a.op, input: a.input, pos: cx.pos() });
+    cx.command({
+      k: "reread",
+      gen: cx.gen(),
+      machine: a.machine,
+      op: a.op,
+      input: a.input,
+      pos: cx.pos(),
+    });
   }
   return s;
 };
@@ -530,7 +549,9 @@ export const entities: Module<Slice> = {
           v.every(
             (p: any) =>
               typeof p?.ref === "string" &&
-              (p.remove === true || p.patch === undefined || (typeof p.patch === "object" && p.patch !== null)),
+              (p.remove === true ||
+                p.patch === undefined ||
+                (typeof p.patch === "object" && p.patch !== null)),
           );
         if (!fine) throw new Error("a prediction of no shape");
         return v as readonly Predicted[];
@@ -609,7 +630,18 @@ export const entities: Module<Slice> = {
     if (p.k === "repair") return onRepair(s, p, cx);
     if (p.k === "reread")
       return p.ok
-        ? onAnswered(s, { k: "answered", machine: p.machine, op: p.op, input: p.input, value: p.value, pos: p.pos }, cx)
+        ? onAnswered(
+            s,
+            {
+              k: "answered",
+              machine: p.machine,
+              op: p.op,
+              input: p.input,
+              value: p.value,
+              pos: p.pos,
+            },
+            cx,
+          )
         : s;
     const ref = p.key.slice(TIMER.length);
     cx.note("RepairOverdue", { ref }); // the mark stays

@@ -6,7 +6,14 @@ import { Effect, Stream } from "effect";
 import type { Api, ServerModel } from "../fake-world.ts";
 import type { Fixture } from "../harness.ts";
 import { fixtureOf, unknownWhenLost } from "./build.ts";
-import { deny, type Compiled, type DomainSpec, type Fragment, type Op, type StreamSpec } from "./compiled.ts";
+import {
+  deny,
+  type Compiled,
+  type DomainSpec,
+  type Fragment,
+  type Op,
+  type StreamSpec,
+} from "./compiled.ts";
 
 const D = "Desk/Tickets";
 const f = fixtureOf(D);
@@ -64,7 +71,10 @@ const domain = (api: Api, versioned: boolean): DomainSpec => ({
         { ref: ticketRef(i.id), patch: { title: i.title, slug: i.title.toLowerCase() } },
       ]),
       confirms: (v: any, i: any) => [
-        { ref: ticketRef(i.id), fields: { title: v.title, ...(versioned ? { revision: v.revision } : {}) } },
+        {
+          ref: ticketRef(i.id),
+          fields: { title: v.title, ...(versioned ? { revision: v.revision } : {}) },
+        },
       ],
     },
     // A delete that answers with the tombstone's version: `Ticket.delete(key, { version })`.
@@ -137,7 +147,9 @@ const make =
         Archive: [{ members: f.commit("archive", ({ event }) => ({ id: event.id })) }],
         Remove: [{ members: f.commit("remove", ({ event }) => ({ id: event.id })) }],
         Purge: [{ members: f.commit("purge", ({ event }) => ({ id: event.id })) }],
-        MarkRead: [{ members: f.commit("markRead", ({ event }) => ({ ids: event.ids, at: event.at })) }],
+        MarkRead: [
+          { members: f.commit("markRead", ({ event }) => ({ ids: event.ids, at: event.at })) },
+        ],
         Rename: [
           { members: f.commit("rename", ({ event }) => ({ id: event.id, title: event.title })) },
         ],
@@ -203,7 +215,8 @@ export const deskServer: ServerModel = {
   apply(op, i, s) {
     if (op === "markRead") {
       const tickets = { ...s.tickets };
-      for (const id of i.ids) tickets[id] = { ...tickets[id], readAt: i.at, revision: tickets[id].revision + 1 };
+      for (const id of i.ids)
+        tickets[id] = { ...tickets[id], readAt: i.at, revision: tickets[id].revision + 1 };
       return { s: { tickets } };
     }
     const cur = s.tickets[i.id];
@@ -238,7 +251,9 @@ export const deskListenNoVersionFixture = withListen(deskNoVersionFixture);
 const TW = "Lab/TraitWrite";
 const tw = fixtureOf(TW);
 const tt = fixtureOf("TW");
-const push = (s: string) => ({ memory }: any) => ({ got: [...memory.got, s] });
+const push =
+  (s: string) =>
+  ({ memory }: any) => ({ got: [...memory.got, s] });
 const Trait: Fragment = {
   id: "TW",
   root: "root",
@@ -248,16 +263,26 @@ const Trait: Fragment = {
       Go: [
         {
           members: (p) => [
-            { op: "put", verb: "commit", input: tt.slot(`${p}.actions[0]`, ({ event }: any) => ({ k: event.k ?? "a" })) },
+            {
+              op: "put",
+              verb: "commit",
+              input: tt.slot(`${p}.actions[0]`, ({ event }: any) => ({ k: event.k ?? "a" })),
+            },
           ],
         },
       ],
       Resend: [
-        { members: (p) => [{ op: "put", verb: "retry", key: tt.slot(`${p}.actions[0].key`, () => ({ k: "a" })) }] },
+        {
+          members: (p) => [
+            { op: "put", verb: "retry", key: tt.slot(`${p}.actions[0].key`, () => ({ k: "a" })) },
+          ],
+        },
       ],
       Ok: [{ patch: ({ memory, event }: any) => push(`ok:${event.k}`)({ memory }) }],
       No: [{ patch: ({ memory, event }: any) => push(`no:${event.k}:${event.why}`)({ memory }) }],
-      Unsure: [{ patch: ({ memory, event }: any) => push(`unsure:${event.k}:${event.why}`)({ memory }) }],
+      Unsure: [
+        { patch: ({ memory, event }: any) => push(`unsure:${event.k}:${event.why}`)({ memory }) },
+      ],
     }),
   },
   memory: { initial: tt.slot("memory.initial", () => ({ got: [] as string[] })) },
@@ -287,17 +312,19 @@ const traitMake =
         key: tw.key("put", (i: any) => ({ k: i.k })),
         concurrency: policy,
         commit: (input, { attempt }) =>
-          api.call("put", input, { idempotencyKey: attempt.id }).pipe(unknownWhenLost) as Effect.Effect<
-            unknown,
-            unknown
-          >,
+          api
+            .call("put", input, { idempotencyKey: attempt.id })
+            .pipe(unknownWhenLost) as Effect.Effect<unknown, unknown>,
         outcomes: {
           success: tw.mapped("put", "success", "Ok", (_v, c) => ({ k: c.key.k })),
           failure: {
             Refused: tw.mapped("put", "failure", "No", (_v, c) => ({ k: c.key.k, why: "Refused" })),
             NotSent: tw.mapped("put", "failure", "No", (v, c) => ({ k: c.key.k, why: v.why })),
           },
-          unknown: tw.mapped("put", "unknown", "Unsure", (_v, c) => ({ k: c.key.k, why: c.reason })),
+          unknown: tw.mapped("put", "unknown", "Unsure", (_v, c) => ({
+            k: c.key.k,
+            why: c.reason,
+          })),
         },
       },
     },
@@ -319,7 +346,11 @@ const Copy: Fragment = {
       Go: [
         {
           members: (p) => [
-            { op: "put", verb: "commit", input: ec.slot(`${p}.actions[0]`, () => ({ k: "shared" })) },
+            {
+              op: "put",
+              verb: "commit",
+              input: ec.slot(`${p}.actions[0]`, () => ({ k: "shared" })),
+            },
           ],
         },
       ],
@@ -466,13 +497,35 @@ const TStore: Fragment = {
       Go: [
         {
           members: (p) => [
-            { op: "put", verb: "commit", input: tk.slot(`${p}.actions[0]`, ({ event }: any) => ({ v: event.v })) },
+            {
+              op: "put",
+              verb: "commit",
+              input: tk.slot(`${p}.actions[0]`, ({ event }: any) => ({ v: event.v })),
+            },
           ],
         },
       ],
-      Resend: [{ members: (p) => [{ op: "put", verb: "retry", key: tk.slot(`${p}.actions[0].key`, () => ({})) }] }],
-      GiveUp: [{ members: (p) => [{ op: "put", verb: "cancel", key: tk.slot(`${p}.actions[0].key`, () => ({})) }] }],
-      Fetch: [{ members: (p) => [{ op: "fetch", verb: "lookup", input: tk.slot(`${p}.actions[0]`, () => ({})) }] }],
+      Resend: [
+        {
+          members: (p) => [
+            { op: "put", verb: "retry", key: tk.slot(`${p}.actions[0].key`, () => ({})) },
+          ],
+        },
+      ],
+      GiveUp: [
+        {
+          members: (p) => [
+            { op: "put", verb: "cancel", key: tk.slot(`${p}.actions[0].key`, () => ({})) },
+          ],
+        },
+      ],
+      Fetch: [
+        {
+          members: (p) => [
+            { op: "fetch", verb: "lookup", input: tk.slot(`${p}.actions[0]`, () => ({})) },
+          ],
+        },
+      ],
       Fetched: [{}],
       Ok: [{}],
       No: [{}],
@@ -511,10 +564,9 @@ export const traitStoreFixture = (shape: StoreShape): Fixture => ({
         key: ts.key("put", () => ({})),
         concurrency: "serialize",
         commit: (input, { attempt }) =>
-          api.call("put", input, { idempotencyKey: attempt.id }).pipe(unknownWhenLost) as Effect.Effect<
-            unknown,
-            unknown
-          >,
+          api
+            .call("put", input, { idempotencyKey: attempt.id })
+            .pipe(unknownWhenLost) as Effect.Effect<unknown, unknown>,
         outcomes: {
           success: { event: "Ok" },
           failure: { Refused: { event: "No" }, NotSent: { event: "No" } },
@@ -531,7 +583,11 @@ export const traitStoreFixture = (shape: StoreShape): Fixture => ({
         commit: (i) => api.call("fetch", i) as Effect.Effect<unknown, unknown>,
         outcomes: {
           success: { event: "Fetched" },
-          failure: { NoResponse: { event: "Fetched" }, Defect: { event: "Fetched" }, Interrupted: { event: "Fetched" } },
+          failure: {
+            NoResponse: { event: "Fetched" },
+            Defect: { event: "Fetched" },
+            Interrupted: { event: "Fetched" },
+          },
         },
       },
     },
@@ -540,8 +596,12 @@ export const traitStoreFixture = (shape: StoreShape): Fixture => ({
     domain: {
       writes: {
         put: {
-          predicts: ts.slot("domain.put.predicts", (i: any) => [{ ref: thingRef, patch: { v: i.v } }]),
-          ...(shape === "nothing" ? {} : { confirms: (row: any) => [{ ref: thingRef, fields: row }] }),
+          predicts: ts.slot("domain.put.predicts", (i: any) => [
+            { ref: thingRef, patch: { v: i.v } },
+          ]),
+          ...(shape === "nothing"
+            ? {}
+            : { confirms: (row: any) => [{ ref: thingRef, fields: row }] }),
         },
       },
       reads: { fetch: (row: any) => [{ ref: thingRef, fields: row }] },

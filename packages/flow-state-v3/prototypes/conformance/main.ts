@@ -6,7 +6,14 @@ import { join, resolve } from "node:path";
 import { makeHarness } from "./drive.ts";
 import type { Harness, RuntimeModule } from "./harness.ts";
 import { catalog, printReports } from "./report.ts";
-import { checkClaims, checkEndings, checkMints, Ctx, Mismatch, type Scenario } from "./scenarios/ctx.ts";
+import {
+  checkClaims,
+  checkEndings,
+  checkMints,
+  Ctx,
+  Mismatch,
+  type Scenario,
+} from "./scenarios/ctx.ts";
 import { round5Scenarios } from "./scenarios/round5.scenario.ts";
 import { streams5Scenarios } from "./scenarios/streams5.scenario.ts";
 import { flowScenarios } from "./scenarios/flows.scenario.ts";
@@ -185,7 +192,8 @@ if (import.meta.main) {
     .map(([id]) => id);
   if (has("--hashes"))
     for (const [id, h] of now)
-      if (old.has(id) && old.get(id) !== h && !log.includes(`hash:${h}`)) console.log(`HASH ${id} hash:${h}`);
+      if (old.has(id) && old.get(id) !== h && !log.includes(`hash:${h}`))
+        console.log(`HASH ${id} hash:${h}`);
   if (has("--lock")) {
     writeFileSync(LOCK, lockLines().join("\n") + "\n");
     console.log(

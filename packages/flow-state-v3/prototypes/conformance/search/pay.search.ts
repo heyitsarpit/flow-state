@@ -135,7 +135,11 @@ export const PAY_PINS: readonly Pin[] = [
   { cls: "two-keys-one-intent", via: new RegExp(`PayRequested ${S}PayRequested`), pin: "P6" },
   { cls: "told-not-charged", via: new RegExp(`PayRequested ${S}PayRequested`), pin: "P6" },
   // P3: a late charge after Leave and a new start: one `authorized` bit, one intent in memory.
-  { cls: "charged-unaccounted", via: new RegExp(`(?:Leave|pay\\.\\w+) ${S}(?:Leave|Start)`), pin: "P3" },
+  {
+    cls: "charged-unaccounted",
+    via: new RegExp(`(?:Leave|pay\\.\\w+) ${S}(?:Leave|Start)`),
+    pin: "P3",
+  },
   // P5: a void a reload took, on a charge that landed after Leave. Seen once the oracle stopped reading the machine's belief (M11).
   { cls: "charged-unaccounted", via: new RegExp(`Leave ${S}pay\\.\\w+ ${S}reload`), pin: "P5" },
   // P6's other face: Pay in PLACING overwrites what the first charge set.

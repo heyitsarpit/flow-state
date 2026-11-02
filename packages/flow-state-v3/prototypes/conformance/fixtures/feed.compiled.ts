@@ -247,7 +247,11 @@ const feedMake =
         commit: () => api.call("peek", {}) as Effect.Effect<unknown, unknown>,
         outcomes: {
           success: { event: "Peeked" },
-          failure: { NoResponse: { event: "Peeked" }, Defect: { event: "Peeked" }, Interrupted: { event: "Peeked" } },
+          failure: {
+            NoResponse: { event: "Peeked" },
+            Defect: { event: "Peeked" },
+            Interrupted: { event: "Peeked" },
+          },
         },
       },
     },

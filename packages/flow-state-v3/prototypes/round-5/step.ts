@@ -1,7 +1,15 @@
 // One function: step(world, input, env, system) returns a new value, at most one publication, and commands. Pure: time and ids
 // come through `env`, every closure is a compiled Slot. A throw from core code escapes: fatal (D46).
 import type { Compiled } from "../conformance/fixtures/compiled.ts";
-import { blockedBy, hook, input as moduleInput, Refused, run, told as moduleTold, toldAll } from "./hooks.ts";
+import {
+  blockedBy,
+  hook,
+  input as moduleInput,
+  Refused,
+  run,
+  told as moduleTold,
+  toldAll,
+} from "./hooks.ts";
 import { flush, onStorageBound, onStored, restore } from "./durable.ts";
 import { admit, own } from "./gate.ts";
 import { down, placementsActive, seedKids, up, walkIncs, viewOf, type Started } from "./inc.ts";

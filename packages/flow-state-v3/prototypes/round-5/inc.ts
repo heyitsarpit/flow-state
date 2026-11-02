@@ -1,6 +1,12 @@
 // D52: the incarnation tree. An actor's root is an incarnation with path [] and frag null, so there is one code path. Pure
 // helpers over an Inc, plus seeding, which allocates generations. The turn decides when; this says what.
-import type { Activity, Compiled, Fragment, Node, Placement } from "../conformance/fixtures/compiled.ts";
+import type {
+  Activity,
+  Compiled,
+  Fragment,
+  Node,
+  Placement,
+} from "../conformance/fixtures/compiled.ts";
 import { encoded, listKey, listOf, own } from "./gate.ts";
 import { run } from "./hooks.ts";
 import { fragOf, nextGen, type Inc, type Tx } from "./world.ts";

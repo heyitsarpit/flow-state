@@ -1,6 +1,10 @@
 // Streams beyond the spike: a pulled source, catchUp and Repairing, Flapping, Overflow, `listen` on the version answer, `latest`. Worked
 // out by hand from Streams T1-T7. Thin where it says so.
-import { deskListenFixture, deskListenNoVersionFixture, ticketRef } from "../fixtures/desk.compiled.ts";
+import {
+  deskListenFixture,
+  deskListenNoVersionFixture,
+  ticketRef,
+} from "../fixtures/desk.compiled.ts";
 import { chatFixture, presenceFixture } from "../fixtures/chat.compiled.ts";
 import type { Fixture } from "../harness.ts";
 import { Ctx, type Scenario } from "./ctx.ts";
@@ -10,7 +14,12 @@ const P = { actor: "Lab/Presence", id: "a" };
 const T = { actor: "Desk/Tickets", id: "a" };
 const T1 = ticketRef("t1");
 const M = "messages";
-const at = (c0: Ctx, f: Fixture, a: { actor: string; id: string }, bounds?: Record<string, number>) => {
+const at = (
+  c0: Ctx,
+  f: Fixture,
+  a: { actor: string; id: string },
+  bounds?: Record<string, number>,
+) => {
   const c = new Ctx(c0.fresh([f], bounds), a);
   c.namedIssues = c0.namedIssues;
   c.ensure();
@@ -24,7 +33,9 @@ const lastFrom = (c: Ctx) => feeds(c).at(-1)?.from;
 const row = (c: Ctx) => c.r.module("sessions", `${C.actor}/${C.id}|${M}`);
 const ids = (c: Ctx) => c.mem().messages.map((m: any) => m.id);
 const mark = (c: Ctx): any =>
-  Object.values((c.r.stored().get(`actor/${C.actor}/${C.id}`) as any)?.root?.partition?.sessions ?? {})[0];
+  Object.values(
+    (c.r.stored().get(`actor/${C.actor}/${C.id}`) as any)?.root?.partition?.sessions ?? {},
+  )[0];
 const hist = (c: Ctx, ok: object) => c.answer("history", { ok });
 const done = (items: readonly unknown[], through?: number) => ({
   _feed: "done",
@@ -51,7 +62,10 @@ export const streams5Scenarios: readonly Scenario[] = [
       "a-pulled-source-waits-for-the-turn"(c0) {
         const c = at(c0, chatFixture({ source: "pulled", reconnect: false }), C);
         f(c, live());
-        c.do({ feed: M, frames: [msg("a", 1), msg("boom", 2), msg("c", 3), msg("d", 4), msg("e", 5)] });
+        c.do({
+          feed: M,
+          frames: [msg("a", 1), msg("boom", 2), msg("c", 3), msg("d", 4), msg("e", 5)],
+        });
         c.eq("the second turn refused: end(Defect)", c.mem().ended, "Defect");
         c.eq("only what was asked for left the server", feeds(c)[0]!.backlog, 3);
         c.eq("delivered", ids(c), ["a"]);
@@ -109,7 +123,11 @@ export const streams5Scenarios: readonly Scenario[] = [
         c.advance(1000);
         c.eq("from the bookmark", lastFrom(c), 7);
         f(c, live());
-        c.eq("T2 row 6, with C: no notice, it reads", [c.mem().notices, row(c).catchingUp], [0, true]);
+        c.eq(
+          "T2 row 6, with C: no notice, it reads",
+          [c.mem().notices, row(c).catchingUp],
+          [0, true],
+        );
         hist(c, more([msg("b", 8)], "p2"));
         c.eq("frozen", mark(c)?.at, 7);
         c.eq("the next page is asked for", c.reqs("history").at(-1)?.input.next, "p2");
@@ -209,7 +227,11 @@ export const streams5Scenarios: readonly Scenario[] = [
         f(c, live());
         hist(c, done([msg("a", 1)], 1));
         c.send("Refetch");
-        c.eq("from nothing", [row(c).catchingUp, c.reqs("history").at(-1)?.input.from], [true, undefined]);
+        c.eq(
+          "from nothing",
+          [row(c).catchingUp, c.reqs("history").at(-1)?.input.from],
+          [true, undefined],
+        );
         hist(c, done([msg("a", 1)], 1));
         c.eq("again", ids(c), ["a"]);
       },
@@ -281,6 +303,10 @@ export const streams5Scenarios: readonly Scenario[] = [
         c.advance(30_000);
         c.do({ feed: M, end: true });
         c.eq("not ended", c.mem().ended, "");
+        c.advance(1000);
+        f(c, live());
+        c.do({ feed: M, end: true });
+        c.eq("and counting starts again", c.mem().ended, "");
       },
       "silence-is-not-a-flap"(c0) {
         const c = at(c0, chatFixture(), C);
@@ -304,14 +330,22 @@ export const streams5Scenarios: readonly Scenario[] = [
         c.eq("waiting", row(c).st, "Waiting");
       },
       "overflow-with-no-reconnect-ends-it"(c0) {
-        const c = at(c0, chatFixture({ source: "callback", bound: 2, reconnect: false, catchUp: true }), C);
+        const c = at(
+          c0,
+          chatFixture({ source: "callback", bound: 2, reconnect: false, catchUp: true }),
+          C,
+        );
         f(c, live());
         c.do({ feed: M, frames: [msg("a", 1), msg("b", 2)] });
         // Repairing: the buffer holds 2, so the pull stops; the source's queue fills and fails.
         c.do({ feed: M, frames: [msg("c", 3), msg("d", 4), msg("e", 5)] });
         c.eq("not seen while nothing pulls: a finding", c.mem().ended, "");
         hist(c, done([], 0));
-        c.eq("T6: drained, then failed", [ids(c), c.mem().ended], [["a", "b", "c", "d"], "Overflow"]);
+        c.eq(
+          "T6: drained, then failed",
+          [ids(c), c.mem().ended],
+          [["a", "b", "c", "d"], "Overflow"],
+        );
       },
       "when-places-and-releases-level-triggered"(c0) {
         const c = at(c0, chatFixture(), C);
@@ -336,16 +370,39 @@ export const streams5Scenarios: readonly Scenario[] = [
         c.to(T, "Load");
         c.answer("list", { truth: true });
         c.do({ feed: "changes", frame: { _feed: "live", proof: "resumed" } });
-        const row = (over: object) => ({ id: "t1", title: "x", slug: "x", archived: false, readAt: null, ...over });
-        c.do({ feed: "changes", frame: { _tag: "TicketUpdated", ticket: row({ title: "v5", revision: 5 }) } });
+        const row = (over: object) => ({
+          id: "t1",
+          title: "x",
+          slug: "x",
+          archived: false,
+          readAt: null,
+          ...over,
+        });
+        c.do({
+          feed: "changes",
+          frame: { _tag: "TicketUpdated", ticket: row({ title: "v5", revision: 5 }) },
+        });
         c.eq("newer applies", c.rec(T1)?.data.title, "v5");
-        c.do({ feed: "changes", frame: { _tag: "TicketUpdated", ticket: row({ title: "v3", revision: 3 }) } });
+        c.do({
+          feed: "changes",
+          frame: { _tag: "TicketUpdated", ticket: row({ title: "v3", revision: 3 }) },
+        });
         c.eq("older drops", c.rec(T1)?.data.title, "v5");
-        c.do({ feed: "changes", frame: { _tag: "TicketUpdated", ticket: row({ title: "v5", revision: 5 }) } });
-        c.eq("a replay changes nothing", [c.rec(T1)?.data.title, c.rec(T1)?.uncertain], ["v5", false]);
+        c.do({
+          feed: "changes",
+          frame: { _tag: "TicketUpdated", ticket: row({ title: "v5", revision: 5 }) },
+        });
+        c.eq(
+          "a replay changes nothing",
+          [c.rec(T1)?.data.title, c.rec(T1)?.uncertain],
+          ["v5", false],
+        );
         c.do({ feed: "changes", frame: { _tag: "TicketRemoved", ticketId: "t1", revision: 8 } });
         c.eq("a tombstone", c.rec(T1), undefined);
-        c.do({ feed: "changes", frame: { _tag: "TicketUpdated", ticket: row({ title: "v6", revision: 6 }) } });
+        c.do({
+          feed: "changes",
+          frame: { _tag: "TicketUpdated", ticket: row({ title: "v6", revision: 6 }) },
+        });
         c.eq("older than the tombstone stays gone", c.rec(T1), undefined);
       },
       "a-frame-before-a-confirmed-write-does-not-silently-undo-it"(c0) {
@@ -358,7 +415,10 @@ export const streams5Scenarios: readonly Scenario[] = [
           c.answer("archive", { apply: true });
           c.do({
             feed: "changes",
-            frame: { _tag: "TicketUpdated", ticket: { id: "t1", archived: false, title: "other", revision: 5 } },
+            frame: {
+              _tag: "TicketUpdated",
+              ticket: { id: "t1", archived: false, title: "other", revision: 5 },
+            },
           });
           c.eq("not overwritten", c.rec(T1)?.data.archived, true);
           c.eq("and marked", c.rec(T1)?.uncertain, true);
@@ -373,10 +433,38 @@ export const streams5Scenarios: readonly Scenario[] = [
         c.do({ feed: "changes", frame: { _feed: "live", proof: "resumed" } });
         c.send("Archive", { id: "t1" });
         c.answer("archive", { apply: true });
-        c.do({ feed: "changes", frame: { _tag: "TicketUpdated", ticket: { id: "t1", archived: true } } });
+        c.do({
+          feed: "changes",
+          frame: { _tag: "TicketUpdated", ticket: { id: "t1", archived: true } },
+        });
         c.eq("no read", c.reqs("repair").length, 0);
-        c.do({ feed: "changes", frame: { _tag: "TicketUpdated", ticket: { id: "t1", title: "theirs" } } });
-        c.eq("then a frame applies", [c.rec(T1)?.data.title, c.rec(T1)?.uncertain], ["theirs", false]);
+        c.do({
+          feed: "changes",
+          frame: { _tag: "TicketUpdated", ticket: { id: "t1", title: "theirs" } },
+        });
+        c.eq(
+          "then a frame applies",
+          [c.rec(T1)?.data.title, c.rec(T1)?.uncertain],
+          ["theirs", false],
+        );
+      },
+      "a-write-with-a-row-and-no-version-stands-unplaced-too"(c0) {
+        const c = at(c0, deskListenNoVersionFixture, T);
+        c.to(T, "Load");
+        c.answer("list", { truth: true });
+        c.do({ feed: "changes", frame: { _feed: "live", proof: "resumed" } });
+        c.send("Rename", { id: "t1", title: "Mine" });
+        c.answer("rename", { apply: true });
+        c.do({
+          feed: "changes",
+          frame: { _tag: "TicketUpdated", ticket: { id: "t1", title: "before" } },
+        });
+        c.eq(
+          "not overwritten, marked",
+          [c.rec(T1)?.data.title, c.rec(T1)?.uncertain],
+          ["Mine", true],
+        );
+        c.answer("repair", { truth: true });
       },
       "a-version-bump-alone-is-an-echo"(c0) {
         const c = at(c0, deskListenFixture, T);
@@ -385,7 +473,10 @@ export const streams5Scenarios: readonly Scenario[] = [
         c.do({ feed: "changes", frame: { _feed: "live", proof: "resumed" } });
         c.send("Archive", { id: "t1" });
         c.answer("archive", { apply: true });
-        c.do({ feed: "changes", frame: { _tag: "TicketUpdated", ticket: { id: "t1", archived: true, revision: 2 } } });
+        c.do({
+          feed: "changes",
+          frame: { _tag: "TicketUpdated", ticket: { id: "t1", archived: true, revision: 2 } },
+        });
         c.eq("no read", [c.reqs("repair").length, c.rec(T1)?.data.revision], [0, 2]);
       },
       "with-no-write-a-frame-just-applies-no-read"(c0) {
@@ -393,13 +484,19 @@ export const streams5Scenarios: readonly Scenario[] = [
         c.to(T, "Load");
         c.answer("list", { truth: true });
         c.do({ feed: "changes", frame: { _feed: "live", proof: "resumed" } });
-        c.do({ feed: "changes", frame: { _tag: "TicketUpdated", ticket: { id: "t1", title: "theirs" } } });
+        c.do({
+          feed: "changes",
+          frame: { _tag: "TicketUpdated", ticket: { id: "t1", title: "theirs" } },
+        });
         c.eq("applied", [c.rec(T1)?.data.title, c.reqs("repair").length], ["theirs", 0]);
       },
       "a-patch-of-a-record-nobody-holds-changes-nothing"(c0) {
         const c = at(c0, deskListenFixture, T);
         c.do({ feed: "changes", frame: { _feed: "live", proof: "resumed" } });
-        c.do({ feed: "changes", frame: { _tag: "TicketUpdated", ticket: { id: "t9", title: "x", revision: 1 } } });
+        c.do({
+          feed: "changes",
+          frame: { _tag: "TicketUpdated", ticket: { id: "t9", title: "x", revision: 1 } },
+        });
         c.eq("feed.domain.ts's gap", c.rec(ticketRef("t9")), undefined);
       },
       "an-unproven-registration-rereads-what-was-read-earlier"(c0) {
@@ -409,7 +506,13 @@ export const streams5Scenarios: readonly Scenario[] = [
         c.eq("one read", c.reqs("list").length, 1);
         c.do({ feed: "changes", frame: { _feed: "live" } });
         c.eq("a gap: read again", c.reqs("list").length, 2);
-        c.do({ fault: { mutateServer: (s: any) => ({ tickets: { ...s.tickets, t1: { ...s.tickets.t1, title: "moved", revision: 9 } } }) } });
+        c.do({
+          fault: {
+            mutateServer: (s: any) => ({
+              tickets: { ...s.tickets, t1: { ...s.tickets.t1, title: "moved", revision: 9 } },
+            }),
+          },
+        });
         c.answer("list", { truth: true });
         c.eq("landed", c.rec(T1)?.data.title, "moved");
       },
@@ -425,7 +528,10 @@ export const streams5Scenarios: readonly Scenario[] = [
         c.to(T, "Load");
         c.answer("list", { truth: true });
         c.do({ feed: "changes", frame: { _feed: "live", proof: "x" } });
-        c.do({ feed: "changes", frame: { _tag: "TicketUpdated", revision: 4, ticket: { id: "t1", revision: 4 } } });
+        c.do({
+          feed: "changes",
+          frame: { _tag: "TicketUpdated", revision: 4, ticket: { id: "t1", revision: 4 } },
+        });
         c.do({ feed: "changes", end: true });
         c.advance(1000);
         c.eq("resumes", c.r.outside().feeds.at(-1)?.from, 4);
@@ -449,8 +555,8 @@ export const streams5Scenarios: readonly Scenario[] = [
       "newest-wins-while-a-turn-is-behind"(c0) {
         const c = at(c0, presenceFixture, P, { drainMs: -1 });
         c.do({ feed: "who", frames: ["a", "b", "c"] });
-        c.eq("the last is what the machine has", c.mem().seen.at(-1), "c");
-        c.yes("said for what it skipped, or it did not skip", c.mem().seen.length + c.r.evidence("discarded").length >= 3);
+        c.eq("what was behind never turned", c.mem().seen, ["c"]);
+        c.eq("said", c.r.evidence("discarded").length, 2);
       },
       "an-equal-value-confirms-and-is-not-heard-again"(c0) {
         const c = at(c0, presenceFixture, P);

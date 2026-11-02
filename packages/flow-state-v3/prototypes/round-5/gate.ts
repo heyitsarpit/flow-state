@@ -110,8 +110,7 @@ const table = <A, B>(o: Readonly<Record<string, A>> | undefined, f: (a: A) => B)
   return out;
 };
 const same_ = <A>(a: A) => a;
-const sealMapped = (m: Mapped): Mapped =>
-  m.from ? { ...m, from: gated(m.from, plain) } : m;
+const sealMapped = (m: Mapped): Mapped => (m.from ? { ...m, from: gated(m.from, plain) } : m);
 const sealAlt = (a: Alternative): Alternative => ({
   ...a,
   guards: a.guards.map((g) => gated(g, verdict)),

@@ -204,14 +204,33 @@ export type StreamSpec = {
   readonly failureBy?: Readonly<Record<string, Mapped>>; // 2.11.6: by the adapter's tag. `failure` is `Feed`'s key
   readonly reconnectWhile?: (e: any) => boolean; // `reconnect.while`
   readonly pages?: Mapped; // a read's page, one event
-  readonly catchUp?: (input: any, c: { readonly from: unknown; readonly next?: unknown }) => unknown; // Effect<more | done | gone>
+  readonly catchUp?: (
+    input: any,
+    c: { readonly from: unknown; readonly next?: unknown },
+  ) => unknown; // Effect<more | done | gone>
   readonly pageRetryWhile?: (e: any) => boolean;
   readonly callbackBound?: number; // T6: `Feed.callback`'s bound, 1,024 by default
 };
 export type PageAnswer =
-  | { readonly _feed: "more"; readonly items: readonly unknown[]; readonly next: unknown; readonly through?: unknown }
-  | { readonly _feed: "done"; readonly items: readonly unknown[]; readonly proof: string; readonly through?: unknown }
-  | { readonly _feed: "gone"; readonly reason: string; readonly items?: readonly unknown[]; readonly next?: unknown; readonly through?: unknown };
+  | {
+      readonly _feed: "more";
+      readonly items: readonly unknown[];
+      readonly next: unknown;
+      readonly through?: unknown;
+    }
+  | {
+      readonly _feed: "done";
+      readonly items: readonly unknown[];
+      readonly proof: string;
+      readonly through?: unknown;
+    }
+  | {
+      readonly _feed: "gone";
+      readonly reason: string;
+      readonly items?: readonly unknown[];
+      readonly next?: unknown;
+      readonly through?: unknown;
+    };
 
 // 2.7.1 "How it is built"
 export class OutcomeFailure<R> extends Data.TaggedError("Flow/Failure")<{ readonly reason: R }> {}

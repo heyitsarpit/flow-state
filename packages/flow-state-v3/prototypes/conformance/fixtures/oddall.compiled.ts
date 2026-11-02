@@ -34,7 +34,8 @@ export const ODD_KINDS = [
   "repair",
 ] as const;
 export type OddKind = (typeof ODD_KINDS)[number];
-const pick = (odd: any, kind: OddKind, normal: unknown) => (odd?.kind === kind ? odd.value : normal);
+const pick = (odd: any, kind: OddKind, normal: unknown) =>
+  odd?.kind === kind ? odd.value : normal;
 const D = "Odd/All";
 const f = fixtureOf(D);
 const k = fixtureOf("OddKid");
@@ -46,12 +47,24 @@ const Kid: Fragment = {
     root: k.node("root", {
       Poked: [
         {
-          notify: [{ name: "Told", from: k.slot("notify.Told.from", ({ event }: any) => pick(event.odd, "notifyFrom", {})) }],
+          notify: [
+            {
+              name: "Told",
+              from: k.slot("notify.Told.from", ({ event }: any) =>
+                pick(event.odd, "notifyFrom", {}),
+              ),
+            },
+          ],
         },
       ],
       Guarded: [{ tokens: [{ port: "go" }] }],
       Leave: [
-        { exit: { name: "Out", from: k.slot("exit.Out.from", ({ event }: any) => pick(event.odd, "exitFrom", {})) } },
+        {
+          exit: {
+            name: "Out",
+            from: k.slot("exit.Out.from", ({ event }: any) => pick(event.odd, "exitFrom", {})),
+          },
+        },
       ],
     }),
   },
@@ -75,12 +88,27 @@ const op = (api: Api, id: string): Op => ({
   commit: (input, { attempt }) =>
     api.call(id, input, { idempotencyKey: attempt.id }) as Effect.Effect<unknown, unknown>,
   outcomes: {
-    success: f.mapped(id, "success", "Done", (_v, c) => pick(c.input?.odd, "success", {}) as object),
+    success: f.mapped(
+      id,
+      "success",
+      "Done",
+      (_v, c) => pick(c.input?.odd, "success", {}) as object,
+    ),
     failure: {
-      Refused: f.mapped(id, "failure", "Done", (_v, c) => pick(c.input?.odd, "failure", {}) as object),
+      Refused: f.mapped(
+        id,
+        "failure",
+        "Done",
+        (_v, c) => pick(c.input?.odd, "failure", {}) as object,
+      ),
       NotSent: { event: "Done" },
     },
-    unknown: f.mapped(id, "unknown", "Done", (_v, c) => pick(c.input?.odd, "unknown", {}) as object),
+    unknown: f.mapped(
+      id,
+      "unknown",
+      "Done",
+      (_v, c) => pick(c.input?.odd, "unknown", {}) as object,
+    ),
   },
 });
 const make = (api: Api): Compiled => ({
@@ -95,7 +123,9 @@ const make = (api: Api): Compiled => ({
       Guard: [{ guards: [({ memory }: any) => pick(memory.odd, "guard", true)] }],
       Follow: [
         {
-          followUps: [({ memory }: any) => pick(memory.odd, "followUp", { tag: "Done", payload: {} }) as any],
+          followUps: [
+            ({ memory }: any) => pick(memory.odd, "followUp", { tag: "Done", payload: {} }) as any,
+          ],
         },
       ],
       Raise: [
@@ -103,7 +133,10 @@ const make = (api: Api): Compiled => ({
           raises: [
             {
               to: "each",
-              key: f.slot("on.Raise.key", ({ memory }: any) => pick(memory.odd, "raiseKey", "x") as string),
+              key: f.slot(
+                "on.Raise.key",
+                ({ memory }: any) => pick(memory.odd, "raiseKey", "x") as string,
+              ),
               event: "Hit",
               from: f.slot("on.Raise.from", ({ memory }: any) => pick(memory.odd, "raiseFrom", {})),
             },
@@ -118,7 +151,11 @@ const make = (api: Api): Compiled => ({
       RaiseLeave: [
         {
           raises: [
-            { to: "kid", event: "Leave", from: f.slot("on.RaiseLeave", ({ memory }: any) => ({ odd: memory.odd })) },
+            {
+              to: "kid",
+              event: "Leave",
+              from: f.slot("on.RaiseLeave", ({ memory }: any) => ({ odd: memory.odd })),
+            },
           ],
         },
       ],
@@ -126,17 +163,23 @@ const make = (api: Api): Compiled => ({
       Back: [{ target: "ON" }],
       Commit: [
         {
-          members: f.commit("w", ({ memory }) => pick(memory.odd, "commitInput", { odd: memory.odd })),
+          members: f.commit("w", ({ memory }) =>
+            pick(memory.odd, "commitInput", { odd: memory.odd }),
+          ),
         },
       ],
       Lookup: [
         {
-          members: f.lookup("r", ({ memory }) => pick(memory.odd, "lookupInput", { odd: memory.odd })),
+          members: f.lookup("r", ({ memory }) =>
+            pick(memory.odd, "lookupInput", { odd: memory.odd }),
+          ),
         },
       ],
       Cancel: [
         {
-          members: f.member("w", "cancel", ({ memory }) => pick(memory.odd, "memberKey", { id: "x" })),
+          members: f.member("w", "cancel", ({ memory }) =>
+            pick(memory.odd, "memberKey", { id: "x" }),
+          ),
         },
       ],
       TokenGo: [
@@ -145,13 +188,23 @@ const make = (api: Api): Compiled => ({
             {
               op: "w",
               verb: "idle",
-              key: f.slot("on.TokenGo.key", ({ memory }: any) => pick(memory.odd, "tokenKey", { id: "x" })),
+              key: f.slot("on.TokenGo.key", ({ memory }: any) =>
+                pick(memory.odd, "tokenKey", { id: "x" }),
+              ),
             },
           ],
         },
       ],
       PortHit: [
-        { raises: [{ to: "kid", event: "Guarded", from: f.slot("on.PortHit", ({ memory }: any) => ({ odd: memory.odd })) }] },
+        {
+          raises: [
+            {
+              to: "kid",
+              event: "Guarded",
+              from: f.slot("on.PortHit", ({ memory }: any) => ({ odd: memory.odd })),
+            },
+          ],
+        },
       ],
       Done: [{}],
       Read: [{}],
@@ -168,9 +221,14 @@ const make = (api: Api): Compiled => ({
           input: f.slot("placement.input", ({ memory }: any) =>
             memory.odd?.kind === "placementInput" ? memory.odd.value : { odd: memory.odd },
           ),
-          resetOn: f.slot("placement.resetOn", ({ memory }: any) => pick(memory.odd, "resetOn", "same")),
+          resetOn: f.slot("placement.resetOn", ({ memory }: any) =>
+            pick(memory.odd, "resetOn", "same"),
+          ),
           guards: {
-            go: f.slot("placement.guard", ({ memory }: any) => pick(memory.odd, "portGuard", true) as any),
+            go: f.slot(
+              "placement.guard",
+              ({ memory }: any) => pick(memory.odd, "portGuard", true) as any,
+            ),
           },
           callbacks: { Told: f.alts("cb.Told", [{}]) },
           exits: { Out: f.alts("exit.Out", [{ target: "TIMED" }]) },
@@ -182,7 +240,10 @@ const make = (api: Api): Compiled => ({
       {
         id: "tick",
         send: "Tock",
-        schedule: f.slot("schedule.tick", ({ memory }: any) => pick(memory.odd, "schedule", 1000) as number),
+        schedule: f.slot(
+          "schedule.tick",
+          ({ memory }: any) => pick(memory.odd, "schedule", 1000) as number,
+        ),
         armOn: ["entry"],
         disarmOn: [],
       },
@@ -200,7 +261,11 @@ const make = (api: Api): Compiled => ({
       commit: (i) => api.call("r", i) as Effect.Effect<unknown, unknown>,
       outcomes: {
         success: { event: "Read" },
-        failure: { NoResponse: { event: "Read" }, Defect: { event: "Read" }, Interrupted: { event: "Read" } },
+        failure: {
+          NoResponse: { event: "Read" },
+          Defect: { event: "Read" },
+          Interrupted: { event: "Read" },
+        },
       },
     },
   },
@@ -209,10 +274,12 @@ const make = (api: Api): Compiled => ({
   domain: {
     writes: {
       w: {
-        predicts: f.slot("domain.w.predicts", (i: any) =>
-          pick(i?.odd, "predicts", [{ ref: "Odd|x", patch: { n: 1 } }]) as never,
+        predicts: f.slot(
+          "domain.w.predicts",
+          (i: any) => pick(i?.odd, "predicts", [{ ref: "Odd|x", patch: { n: 1 } }]) as never,
         ),
-        confirms: (_v: any, i: any) => pick(i?.odd, "confirms", [{ ref: "Odd|x", fields: { n: 1 } }]) as never,
+        confirms: (_v: any, i: any) =>
+          pick(i?.odd, "confirms", [{ ref: "Odd|x", fields: { n: 1 } }]) as never,
       },
     },
     reads: {

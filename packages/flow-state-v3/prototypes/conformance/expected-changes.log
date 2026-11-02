@@ -166,3 +166,14 @@ REV5-SESS hash:3d01efdd0cc9 | round 5: cases added after the first mutant pass, 
 file:fake-world.ts hash:f1b3d94bd173 | round 5: cases added after the first mutant pass, streams' fake and fixtures; nothing relaxed
 file:scenarios/round5.scenario.ts hash:55c19719bcfc | round 5: cases added after the first mutant pass, streams' fake and fixtures; nothing relaxed
 file:fixtures/desk.compiled.ts hash:0ad942b6b5b3 | round 5: cases added after the first mutant pass, streams' fake and fixtures; nothing relaxed
+REV5-SESS hash:f8ea6888be98 | round 5: cases from the last mutant pass; nothing relaxed
+STREAM5-LOSE hash:3c405ae10e47 | round 5: cases from the last mutant pass; nothing relaxed
+STREAM5-LISTEN hash:ea5da8305797 | round 5: cases from the last mutant pass; nothing relaxed
+STREAM5-LATEST hash:769801283b85 | round 5: cases from the last mutant pass; nothing relaxed
+file:fixtures/compiled.ts hash:0e6791c87c24 | round 5: cases from the last mutant pass; nothing relaxed
+file:fixtures/feed.compiled.ts hash:23ce32186051 | round 5: cases from the last mutant pass; nothing relaxed
+file:scenarios/round5.scenario.ts hash:6e385ce5953d | round 5: cases from the last mutant pass; nothing relaxed
+file:scenarios/streams5.scenario.ts hash:cd02fce2dc47 | round 5: cases from the last mutant pass; nothing relaxed
+file:fixtures/desk.compiled.ts hash:92b07cdbcf6c | round 5: cases from the last mutant pass; nothing relaxed
+file:fixtures/oddall.compiled.ts hash:4a2848127639 | round 5: cases from the last mutant pass; nothing relaxed
+file:fixtures/chat.compiled.ts hash:5edfa84545d1 | round 5: cases from the last mutant pass; nothing relaxed
