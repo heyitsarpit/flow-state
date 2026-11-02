@@ -18,11 +18,18 @@ From the repo root:
 
 ## State
 
-Suite 621/621, all at `round-8/`. Lane core stable. H1, M2, M3, M9's doors, the fatal check closed; `acked` and `meta` gone. H3's cause found: Chrome's own recovery on a torn log. `Compiled` is not settled: typed machines still boot only a part of the suite. **Round 8 has no final independent review:** the mid-session one read checkpoint 1, before the second pass (D107-D113). One is owed, with mutants written first. Its D108, D109, D110 are new and only builder-tested.
+Suite 621/621, all at `round-8/`. Lane core stable. H1, M2, M3, M9's doors, the fatal check closed; `acked` and `meta` gone. H3's cause found: Chrome's own recovery on a torn log. `Compiled` is not settled: typed machines still boot only a part of the suite. Round 8's final review is `round-8/review.md`: money path holds, H3 established, one High (D110's budget silently cuts correct programs), and its tamper and oracle gaps are open.
 
 ## Round 8: done
 
 See `round-8/RESULTS.md`. Left from it, for later: `input` through its Schema with `keyFields` (the second codec's gap), stale names after D96 (`Purpose`, `byEnding`'s dead branch), design-doc lines listed in the mid review, a superseded bad lookup's generation.
+
+## Order changed after round 8's review (coordinator, proposed)
+
+- Round 9 first fixes `round-8/review.md`'s "What round 9 must do first", items 1-3 and 5. Why: entities are bulk writes, which hit D110's budget first, and the tests must see a missing ending before they judge entities.
+- Items 4 and 6 (a kept firing, `row` when undelivered, a server key on a contract) are decided by the builder under delegation and listed for Arpit's read. They don't wait for him.
+- Step 9 (phone or Safari, real quota) moves before step 8's compile prototypes. Why: H3's path differs on low-end devices per Chromium's code, and D97 and D110's numbers are unmeasured there, so it could change the edge that compile output must match.
+- `keyFields` with Schemas moves into round 9's typing of `domain`, since a typed `Schema.BigInt` key reaches the fault today.
 
 ## Round 9: entities and types
 
