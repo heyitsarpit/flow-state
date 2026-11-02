@@ -6,81 +6,82 @@
   2,
   5,
   11,
-  24,
-  52,
-  104,
-  194,
-  372,
-  700,
-  1325,
-  2525,
-  4798,
-  9111,
-  17365
+  23,
+  46,
+  89,
+  159,
+  283,
+  521,
+  963,
+  1818,
+  3456,
+  6568,
+  12487
  ],
- "states": 44376,
- "edges": 115789,
- "steps": 3821530,
+ "states": 49214,
+ "edges": 129089,
+ "steps": 4466703,
  "depthCompleted": 14,
  "classes": {
   "charged-unaccounted:PAID": {
-   "count": 18566,
+   "count": 22343,
    "witness": "Pay ack pay.ok Pay"
   },
   "two-keys-one-intent:PAID": {
-   "count": 19651,
+   "count": 24088,
    "witness": "Pay ack pay.ok Pay"
   },
   "held-no-owner:PAYING": {
-   "count": 3257,
+   "count": 2543,
    "witness": "Pay ack KILL Pay"
   },
   "told-not-charged:CARD": {
-   "count": 467,
+   "count": 772,
    "witness": "Pay ack pay.ok Pay KILL"
   },
   "order-no-receipt:PAYING": {
-   "count": 1134,
+   "count": 563,
    "witness": "Pay ack pay.ok failHeld Pay"
   },
   "charged-unaccounted:PAYING": {
-   "count": 362,
+   "count": 153,
    "witness": "Pay failHeld ack pay.ok KILL Pay"
   },
   "held-no-owner:PAID": {
-   "count": 12356,
+   "count": 18828,
    "witness": "Pay ack pay.ok Pay ack KILL"
   },
   "two-keys-one-intent:PLACING": {
-   "count": 1970,
+   "count": 1917,
    "witness": "Pay ack pay.ok KILL Pay failHeld"
   },
   "told-not-charged:PAID": {
-   "count": 959,
+   "count": 1671,
    "witness": "Pay ack pay.ok ack Pay KILL"
   },
   "two-keys-one-intent:PAYING": {
-   "count": 1870,
+   "count": 1535,
    "witness": "Pay ack pay.ok Pay failHeld ack pay.ok Pay"
   },
   "two-keys-one-intent:CARD": {
-   "count": 198,
+   "count": 407,
    "witness": "Pay ack pay.ok KILL Pay ack pay.ok Pay KILL"
   },
   "told-not-charged:STUCK": {
-   "count": 19,
+   "count": 46,
    "witness": "Pay ack pay.ok ack Pay KILL ack KILL ack KILL ack KILL"
   },
   "two-keys-one-intent:STUCK": {
-   "count": 8,
+   "count": 38,
    "witness": "Pay ack pay.ok Pay ack pay.ok KILL ack KILL ack KILL ack KILL"
   }
  },
- "ms": 120001,
- "peakRssMb": 235,
+ "ms": 150001,
+ "peakRssMb": 258,
  "unpinned": [],
- "exceptions": 4115,
- "exceptionWitness": "failHeld Pay Pay FLUSH KILL => {\"rows\":{},\"state\":\"PAYING\"}"
+ "exceptions": 379,
+ "exceptionWitness": "Pay ack pay.ok ack KILL failHeld ack Pay failHeld KILL => {\"rows\":{\"pay|{\\\"intentId\\\":\\\"pi1\\\"}\":{\"outstanding\":0,\"pending\":true,\"retryCount\":0,\"uncertain\":false,\"waiting\":false},\"place|{\\\"cartId\\\":\\\"c1\\\"}\":{\"outstanding\":0,\"pending\":true,\"retryCount\":0,\"uncertain\":false,\"waiting\":false}},\"state\":\"PAYING\"}",
+ "noLane": 0
 }
 
-WATCH peak 224 MB, 120.1 s, exit 0, killed no
+WATCH peak 246 MB, 150.1 s, exit 0, killed no

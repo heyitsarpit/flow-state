@@ -4,24 +4,27 @@
   "kills": [
    "D83"
   ],
-  "killed": true,
-  "killers": [
-   "REV7-H1/a-batch-that-fails-after-a-newer-one-landed-stays-dead"
-  ],
+  "killed": false,
+  "killers": [],
   "author": "builder",
   "by": "tests",
-  "peakMb": 245
+  "peakMb": 354
  },
  {
   "id": "d83-no-dirty-check",
   "kills": [
    "D83"
   ],
-  "killed": false,
-  "killers": [],
+  "killed": true,
+  "killers": [
+   "REV7-H1/a-batch-that-fails-after-a-newer-one-landed-stays-dead",
+   "REV7-H1/E1-what-the-failed-batch-owed-goes-in-the-ack",
+   "REV7-H1/E2-a-later-batch-does-not-land-ahead-of-an-unanswered-one",
+   "REV7-H1/a-newer-value-is-not-replaced-by-a-retry-of-an-older-one"
+  ],
   "author": "builder",
   "by": "tests",
-  "peakMb": 361
+  "peakMb": 237
  },
  {
   "id": "d83-awaited-keeps-dirty",
@@ -32,7 +35,7 @@
   "killers": [],
   "author": "builder",
   "by": "tests",
-  "peakMb": 354
+  "peakMb": 355
  },
  {
   "id": "d83-awaited-no-stamp",
@@ -43,18 +46,20 @@
   "killers": [],
   "author": "builder",
   "by": "tests",
-  "peakMb": 365
+  "peakMb": 359
  },
  {
   "id": "d94-does-not-wait",
   "kills": [
    "D94"
   ],
-  "killed": false,
-  "killers": [],
+  "killed": true,
+  "killers": [
+   "REV7-H1/a-failed-batch-re-enters-only-keys-it-was-newest-of"
+  ],
   "author": "builder",
   "by": "tests",
-  "peakMb": 342
+  "peakMb": 253
  },
  {
   "id": "d94-owed-not-carried",
@@ -65,7 +70,7 @@
   "killers": [],
   "author": "builder",
   "by": "tests",
-  "peakMb": 352
+  "peakMb": 341
  },
  {
   "id": "d94-waits-for-any-actor",
@@ -78,7 +83,7 @@
   ],
   "author": "builder",
   "by": "tests",
-  "peakMb": 274
+  "peakMb": 252
  },
  {
   "id": "d83-plain-no-stamp",
@@ -89,11 +94,12 @@
   "killers": [
    "REV6-M7/a-failed-plain-write-is-not-believed",
    "REV7-H1/a-failed-batch-re-enters-only-keys-it-was-newest-of",
+   "REV7-H1/L2-a-landing-resets-backoff-and-says-once",
    "REV7-H1/backoff-grows-on-a-late-failure"
   ],
   "author": "builder",
   "by": "tests",
-  "peakMb": 250
+  "peakMb": 244
  },
  {
   "id": "d83-saved-believes-refused",
@@ -104,7 +110,7 @@
   "killers": [],
   "author": "builder",
   "by": "tests",
-  "peakMb": 374
+  "peakMb": 361
  },
  {
   "id": "d83-saved-undefined-loses-delete",
@@ -115,7 +121,7 @@
   "killers": [],
   "author": "builder",
   "by": "tests",
-  "peakMb": 336
+  "peakMb": 354
  },
  {
   "id": "l2-backoff-resets-on-issue",
@@ -128,29 +134,61 @@
   ],
   "author": "builder",
   "by": "tests",
-  "peakMb": 245
+  "peakMb": 251
  },
  {
   "id": "l2-no-landed-reset",
   "kills": [
    "D83"
   ],
-  "killed": false,
-  "killers": [],
+  "killed": true,
+  "killers": [
+   "REV7-H1/L2-a-landing-resets-backoff-and-says-once"
+  ],
   "author": "builder",
   "by": "tests",
-  "peakMb": 345
+  "peakMb": 244
  },
  {
   "id": "l2-report-every-time",
   "kills": [
    "D83"
   ],
-  "killed": false,
-  "killers": [],
+  "killed": true,
+  "killers": [
+   "REV7-H1/L2-a-landing-resets-backoff-and-says-once"
+  ],
   "author": "builder",
   "by": "tests",
-  "peakMb": 327
+  "peakMb": 246
+ },
+ {
+  "id": "d95-no-per-key-hold",
+  "kills": [
+   "D95"
+  ],
+  "killed": true,
+  "killers": [
+   "REV7-H1/a-batch-that-fails-after-a-newer-one-landed-stays-dead",
+   "REV7-H1/E2-a-later-batch-does-not-land-ahead-of-an-unanswered-one"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 259
+ },
+ {
+  "id": "d95-held-key-never-flushed",
+  "kills": [
+   "D95"
+  ],
+  "killed": true,
+  "killers": [
+   "STORE-04/Restored-W",
+   "REV7-H1/a-batch-that-fails-after-a-newer-one-landed-stays-dead"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 253
  },
  {
   "id": "d84-lane-coalesces",
@@ -163,18 +201,20 @@
   ],
   "author": "builder",
   "by": "tests",
-  "peakMb": 247
+  "peakMb": 248
  },
  {
   "id": "d93-retired-coalesces",
   "kills": [
    "D93"
   ],
-  "killed": false,
-  "killers": [],
+  "killed": true,
+  "killers": [
+   "REV7-D80/D93-a-dispose-is-not-lost-to-a-kill"
+  ],
   "author": "builder",
   "by": "tests",
-  "peakMb": 337
+  "peakMb": 241
  },
  {
   "id": "d84-everything-at-once",
@@ -192,7 +232,7 @@
   ],
   "author": "builder",
   "by": "tests",
-  "peakMb": 254
+  "peakMb": 248
  },
  {
   "id": "d80-no-hidden-flush",
@@ -201,24 +241,27 @@
   ],
   "killed": true,
   "killers": [
+   "REV7-H1/a-newer-value-is-not-replaced-by-a-retry-of-an-older-one",
    "REV7-D80/many-values-one-write",
    "REV7-D80/hidden-flushes-at-once",
    "REV7-D80/a-kill-before-any-flush-loses-only-plain-memory"
   ],
   "author": "builder",
   "by": "tests",
-  "peakMb": 268
+  "peakMb": 255
  },
  {
   "id": "d80-default-not-5s",
   "kills": [
    "D80"
   ],
-  "killed": false,
-  "killers": [],
+  "killed": true,
+  "killers": [
+   "REV7-D80/the-default-is-five-seconds"
+  ],
   "author": "builder",
   "by": "tests",
-  "peakMb": 352
+  "peakMb": 245
  },
  {
   "id": "l3-dispose-no-flush",
@@ -231,7 +274,7 @@
   ],
   "author": "builder",
   "by": "tests",
-  "peakMb": 248
+  "peakMb": 260
  },
  {
   "id": "d87-no-bound",
@@ -244,7 +287,7 @@
   ],
   "author": "builder",
   "by": "tests",
-  "peakMb": 240
+  "peakMb": 241
  },
  {
   "id": "d87-late-answer-boots-again",
@@ -257,7 +300,7 @@
   ],
   "author": "builder",
   "by": "tests",
-  "peakMb": 249
+  "peakMb": 250
  },
  {
   "id": "d87-failed-read-keeps-persist",
@@ -270,7 +313,7 @@
   ],
   "author": "builder",
   "by": "tests",
-  "peakMb": 252
+  "peakMb": 244
  },
  {
   "id": "d87-queue-unbounded",
@@ -296,7 +339,7 @@
   ],
   "author": "builder",
   "by": "tests",
-  "peakMb": 256
+  "peakMb": 250
  },
  {
   "id": "d88-no-hold-on-bad-body",
@@ -309,7 +352,7 @@
   ],
   "author": "builder",
   "by": "tests",
-  "peakMb": 241
+  "peakMb": 260
  },
  {
   "id": "d88-no-hold-on-invalid",
@@ -322,7 +365,7 @@
   ],
   "author": "builder",
   "by": "tests",
-  "peakMb": 242
+  "peakMb": 248
  },
  {
   "id": "d88-commit-passes",
@@ -336,29 +379,33 @@
   ],
   "author": "builder",
   "by": "tests",
-  "peakMb": 253
+  "peakMb": 251
  },
  {
   "id": "d88-idle-passes",
   "kills": [
    "D88"
   ],
-  "killed": false,
-  "killers": [],
+  "killed": true,
+  "killers": [
+   "REV7-M8/a-quarantined-lane-refuses-a-second-attempt"
+  ],
   "author": "builder",
   "by": "tests",
-  "peakMb": 343
+  "peakMb": 259
  },
  {
   "id": "d88-row-silent",
   "kills": [
    "D88"
   ],
-  "killed": false,
-  "killers": [],
+  "killed": true,
+  "killers": [
+   "REV7-M8/a-quarantined-lane-refuses-a-second-attempt"
+  ],
   "author": "builder",
   "by": "tests",
-  "peakMb": 366
+  "peakMb": 266
  },
  {
   "id": "d88-cancel-keeps-record",
@@ -371,7 +418,7 @@
   ],
   "author": "builder",
   "by": "tests",
-  "peakMb": 251
+  "peakMb": 247
  },
  {
   "id": "d89-skip-one-record",
@@ -380,11 +427,12 @@
   ],
   "killed": true,
   "killers": [
-   "REV7-M9/an-ending-with-a-bad-value-is-not-lost"
+   "REV7-M9/an-ending-with-a-bad-value-is-not-lost",
+   "REV7-M9/a-skipped-batch-waits-for-an-encodable-state"
   ],
   "author": "builder",
   "by": "tests",
-  "peakMb": 248
+  "peakMb": 239
  },
  {
   "id": "d89-batch-dropped-not-kept",
@@ -395,18 +443,20 @@
   "killers": [],
   "author": "builder",
   "by": "tests",
-  "peakMb": 332
+  "peakMb": 346
  },
  {
   "id": "d89-report-every-time",
   "kills": [
    "D89"
   ],
-  "killed": false,
-  "killers": [],
+  "killed": true,
+  "killers": [
+   "REV7-M9/a-skipped-batch-waits-for-an-encodable-state"
+  ],
   "author": "builder",
   "by": "tests",
-  "peakMb": 351
+  "peakMb": 246
  },
  {
   "id": "m11-spread-unguarded",
@@ -417,7 +467,7 @@
   "killers": [],
   "author": "builder",
   "by": "tests",
-  "peakMb": 328
+  "peakMb": 353
  },
  {
   "id": "d90-delete-keeps-bucket",
@@ -432,11 +482,12 @@
    "FRAG-20/adopted-ending-is-current-from-the-active-leaf",
    "SPIKE-04/dispose-then-ensure-brings-both-back",
    "REV5-H5H6/a-hold-heard-before-disposal-is-restored-to-the-rebound-life",
-   "REV5-H5H6/a-disposed-identity-sleeps-through-a-reload"
+   "REV5-H5H6/a-disposed-identity-sleeps-through-a-reload",
+   "REV7-D80/D93-a-dispose-is-not-lost-to-a-kill"
   ],
   "author": "builder",
   "by": "tests",
-  "peakMb": 243
+  "peakMb": 253
  },
  {
   "id": "d90-hash-collides-rows",
@@ -959,6 +1010,10 @@
    "REV7-H1/a-failed-batch-re-enters-only-keys-it-was-newest-of",
    "REV7-H1/a-re-send-capture-is-not-undone-by-an-older-hold-record",
    "REV7-H1/E1-a-failed-batch-goes-with-the-next-ack",
+   "REV7-H1/E1-what-the-failed-batch-owed-goes-in-the-ack",
+   "REV7-H1/E2-a-later-batch-does-not-land-ahead-of-an-unanswered-one",
+   "REV7-H1/a-newer-value-is-not-replaced-by-a-retry-of-an-older-one",
+   "REV7-H1/L2-a-landing-resets-backoff-and-says-once",
    "REV7-H1/a-sync-failure-too",
    "REV7-H1/a-refused-ack-does-not-leave-saved-believing-it",
    "REV7-H1/backoff-grows-on-a-late-failure",
@@ -976,6 +1031,7 @@
    "REV7-M8/a-quarantined-lane-refuses-a-second-attempt",
    "REV7-M8/commit-declines-while-it-stands-and-the-record-stays",
    "REV7-M9/an-ending-with-a-bad-value-is-not-lost",
+   "REV7-M9/a-skipped-batch-waits-for-an-encodable-state",
    "REV7-M9/M11-a-throwing-getter-from-a-patch-is-a-refusal-not-fatal",
    "REV7-M9/a-commit-that-cannot-be-written-ahead-declines-and-the-transition-runs",
    "REV7-M9/memory-that-cannot-encode-does-not-refuse-the-turn",
@@ -984,7 +1040,7 @@
   ],
   "author": "builder",
   "by": "tests",
-  "peakMb": 120
+  "peakMb": 118
  },
  {
   "id": "d90-changed-misses-removed",
@@ -997,7 +1053,7 @@
   ],
   "author": "builder",
   "by": "tests",
-  "peakMb": 257
+  "peakMb": 255
  },
  {
   "id": "d90-all-unsorted-drops-one",
@@ -1008,17 +1064,19 @@
   "killers": [],
   "author": "builder",
   "by": "tests",
-  "peakMb": 336
+  "peakMb": 348
  },
  {
   "id": "l4-duplicate-machine-allowed",
   "kills": [
    "D77"
   ],
-  "killed": false,
-  "killers": [],
+  "killed": true,
+  "killers": [
+   "REV7-M2/two-machines-under-one-id-is-an-error"
+  ],
   "author": "builder",
   "by": "tests",
-  "peakMb": 351
+  "peakMb": 246
  }
 ]

@@ -6,21 +6,23 @@
   8,
   38,
   199,
-  876,
-  3478,
-  13152,
-  47604
+  861,
+  3265,
+  11539,
+  38160
  ],
- "states": 118866,
- "edges": 433585,
- "steps": 6733526,
+ "states": 117728,
+ "edges": 458771,
+ "steps": 7277810,
  "depthCompleted": 7,
  "classes": {},
- "ms": 120001,
- "peakRssMb": 296,
+ "ms": 150001,
+ "peakRssMb": 298,
  "unpinned": [],
- "exceptions": 299,
- "exceptionWitness": "failHeld Go Note FLUSH KILL => {\"rows\":{},\"state\":\"W\"}"
+ "exceptions": 4,
+ "exceptionWitness": "failNext Go Note FLUSH failHeld refuse KILL => {\"rows\":{},\"state\":\"W\"}",
+ "noLane": 4,
+ "noLaneWitness": "failNext Go Note FLUSH failHeld refuse KILL => W"
 }
 
-WATCH peak 283 MB, 120.1 s, exit 0, killed no
+WATCH peak 285 MB, 150.1 s, exit 0, killed no

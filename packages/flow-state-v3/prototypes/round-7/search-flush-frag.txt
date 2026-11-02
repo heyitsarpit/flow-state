@@ -5,22 +5,23 @@
   1,
   7,
   30,
-  145,
+  146,
   583,
-  2063,
-  6764,
-  21115,
-  63394
+  1999,
+  6295,
+  18569,
+  52328
  ],
- "states": 94701,
- "edges": 403378,
- "steps": 6519744,
+ "states": 101425,
+ "edges": 457972,
+ "steps": 7727557,
  "depthCompleted": 8,
  "classes": {},
- "ms": 120001,
- "peakRssMb": 284,
+ "ms": 150001,
+ "peakRssMb": 297,
  "unpinned": [],
- "exceptions": 0
+ "exceptions": 0,
+ "noLane": 0
 }
 
-WATCH peak 271 MB, 120.1 s, exit 0, killed no
+WATCH peak 283 MB, 150.1 s, exit 0, killed no

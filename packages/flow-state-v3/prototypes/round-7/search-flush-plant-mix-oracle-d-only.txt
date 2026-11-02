@@ -1,0 +1,34 @@
+{
+ "search": "flush.bare.tight",
+ "verdict": "inconclusive",
+ "perDepth": [
+  1,
+  3,
+  9,
+  26,
+  62,
+  146,
+  307,
+  604,
+  1100,
+  1907,
+  3186,
+  5040,
+  7861,
+  12009
+ ],
+ "states": 44483,
+ "edges": 164597,
+ "steps": 4913133,
+ "depthCompleted": 13,
+ "classes": {},
+ "ms": 80001,
+ "peakRssMb": 228,
+ "unpinned": [],
+ "exceptions": 7158,
+ "exceptionWitness": "Go Go Note FLUSH KILL => {\"rows\":{\"charge|{}\":{\"outstanding\":0,\"pending\":true,\"retryCount\":0,\"uncertain\":false,\"waiting\":false}},\"state\":\"A\"}",
+ "noLane": 1743,
+ "noLaneWitness": "Go Go Note ack ok KILL => B"
+}
+
+WATCH peak 217 MB, 80.1 s, exit 0, killed no

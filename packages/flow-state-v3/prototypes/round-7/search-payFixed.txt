@@ -12,9 +12,9 @@
   1535,
   4382
  ],
- "states": 9684,
- "edges": 33699,
- "steps": 836330,
+ "states": 7973,
+ "edges": 27361,
+ "steps": 666792,
  "depthCompleted": 8,
  "classes": {
   "two-keys-one-intent:PAID": {
@@ -34,8 +34,8 @@
    "witness": "PayRequested ack pay.ok ack place.ok Start PayRequested reload"
   }
  },
- "ms": 50001,
- "peakRssMb": 224,
+ "ms": 40002,
+ "peakRssMb": 220,
  "unpinned": [
   "two-keys-one-intent:PAID via PayRequested ack pay.ok ack place.ok Start PayRequested",
   "placed-and-voided:LEFT via PayRequested ack pay.ok ack place.ok Start PayRequested Leave",
@@ -44,4 +44,4 @@
  ]
 }
 
-WATCH peak 214 MB, 50.1 s, exit 1, killed no
+WATCH peak 210 MB, 40.1 s, exit 1, killed no

@@ -5,20 +5,20 @@
   1,
   5,
   22,
-  88,
-  319,
-  1113,
-  3732,
-  12365,
-  40343
+  91,
+  323,
+  988,
+  2833,
+  7910,
+  21606
  ],
- "states": 62894,
- "edges": 205682,
- "steps": 3377316,
+ "states": 40618,
+ "edges": 158077,
+ "steps": 2645839,
  "depthCompleted": 8,
  "classes": {},
- "ms": 50001,
- "peakRssMb": 237
+ "ms": 40001,
+ "peakRssMb": 208
 }
 
-WATCH peak 226 MB, 50.1 s, exit 0, killed no
+WATCH peak 199 MB, 40.1 s, exit 0, killed no

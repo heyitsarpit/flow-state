@@ -241,45 +241,27 @@
  "round-7:kills": {
   "cycles": 40,
   "doubleCharge": 0,
-  "chargedNoLane": 1,
+  "chargedNoLane": 0,
   "toldNotChargedAndCharged": 0,
   "fatal": 0,
   "unsettled": 0,
   "notSentRestored": 3,
-  "unknownRestored": 18,
+  "unknownRestored": 19,
   "replays": 0,
   "restored": {
-   "UNSURE": 18,
-   "PAID": 10,
-   "null": 9,
-   "CARD": 3
+   "UNSURE": 19,
+   "PAID": 9,
+   "null": 8,
+   "CARD": 3,
+   "PLACING": 1
   },
   "final": {
-   "PAID": 28,
-   "null": 9,
+   "PAID": 29,
+   "null": 8,
    "CARD": 3
   },
   "issues": [],
-  "lost": [
-   {
-    "how": "sigkill",
-    "killMs": -3,
-    "payDelay": 40,
-    "marker": true,
-    "restored": null,
-    "lanes": 0,
-    "final": null,
-    "ended": true,
-    "keys": 1,
-    "replays": 0,
-    "placeKeys": 0,
-    "fatal": false,
-    "notSent": false,
-    "unknown": false,
-    "issues": [],
-    "told": false
-   }
-  ],
+  "lost": [],
   "rows": [
    {
     "how": "crash",
@@ -790,8 +772,8 @@
     "killMs": 5,
     "payDelay": 0,
     "marker": true,
-    "restored": "PAID",
-    "lanes": 0,
+    "restored": "PLACING",
+    "lanes": 1,
     "final": "PAID",
     "ended": true,
     "keys": 1,
@@ -970,16 +952,16 @@
     "killMs": -3,
     "payDelay": 40,
     "marker": true,
-    "restored": null,
-    "lanes": 0,
-    "final": null,
+    "restored": "UNSURE",
+    "lanes": 1,
+    "final": "PAID",
     "ended": true,
     "keys": 1,
     "replays": 0,
-    "placeKeys": 0,
+    "placeKeys": 1,
     "fatal": false,
     "notSent": false,
-    "unknown": false,
+    "unknown": true,
     "issues": [],
     "told": false
    },
@@ -12293,6 +12275,778 @@
     "ms": 1021,
     "fired": null,
     "beacons": 2
+   }
+  ]
+ },
+ "round-7:h3-aged": {
+  "marker": {
+   "cycles": 0,
+   "charged": 0,
+   "chargedNoLane": 0,
+   "doubleCharge": 0,
+   "states": {}
+  },
+  "noMarker": {
+   "cycles": 0,
+   "charged": 0,
+   "chargedNoLane": 0,
+   "doubleCharge": 0,
+   "states": {}
+  },
+  "reopen": {
+   "cycles": 0,
+   "charged": 0,
+   "chargedNoLane": 0,
+   "doubleCharge": 0,
+   "states": {}
+  },
+  "rows": [
+   {
+    "marker": "aged",
+    "keys": 0,
+    "lanes": 0,
+    "state": "IDLE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 0,
+    "lanes": 0,
+    "state": "CARD",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 0,
+    "lanes": 0,
+    "state": "CARD",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 0,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-4\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 0,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-5\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 0,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-6\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 1,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-7\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 1,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-8\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 0,
+    "lanes": 0,
+    "state": "IDLE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 0,
+    "lanes": 0,
+    "state": "CARD",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 0,
+    "lanes": 0,
+    "state": "CARD",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 0,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-12\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 1,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-13\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 1,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-14\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 1,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-15\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 1,
+    "lanes": 1,
+    "state": "PLACING",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|place|{\"cartId\":\"c-round-7-h3-16\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 0,
+    "lanes": 0,
+    "state": "IDLE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 0,
+    "lanes": 0,
+    "state": "CARD",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 0,
+    "lanes": 0,
+    "state": "CARD",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 0,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-20\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 0,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-21\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 0,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-22\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 1,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-23\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 1,
+    "lanes": 0,
+    "state": "PAID",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 0,
+    "lanes": 0,
+    "state": "IDLE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 0,
+    "lanes": 0,
+    "state": "CARD",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 0,
+    "lanes": 0,
+    "state": "CARD",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 0,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-28\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 1,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-29\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 1,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-30\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 1,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-31\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 1,
+    "lanes": 1,
+    "state": "PLACING",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|place|{\"cartId\":\"c-round-7-h3-32\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 0,
+    "lanes": 0,
+    "state": "IDLE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 0,
+    "lanes": 0,
+    "state": "CARD",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 0,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-35\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 0,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-36\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 0,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-37\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 1,
+    "lanes": 1,
+    "state": "PLACING",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|place|{\"cartId\":\"c-round-7-h3-38\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 1,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-39\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 1,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-40\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 0,
+    "lanes": 0,
+    "state": "IDLE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 0,
+    "lanes": 0,
+    "state": "CARD",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 0,
+    "lanes": 0,
+    "state": "CARD",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 0,
+    "lanes": 0,
+    "state": null,
+    "charged": false,
+    "onDisk": []
+   },
+   {
+    "marker": "aged",
+    "keys": 0,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-45\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 0,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-46\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 1,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-47\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 1,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-48\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 0,
+    "lanes": 0,
+    "state": "IDLE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 0,
+    "lanes": 0,
+    "state": "IDLE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 0,
+    "lanes": 0,
+    "state": "CARD",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 0,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-52\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 0,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-53\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 1,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-54\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 1,
+    "lanes": 1,
+    "state": "PLACING",
+    "charged": true,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|place|{\"cartId\":\"c-round-7-h3-55\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 1,
+    "lanes": 0,
+    "state": null,
+    "charged": true,
+    "onDisk": []
+   },
+   {
+    "marker": "aged",
+    "keys": 0,
+    "lanes": 0,
+    "state": "IDLE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 0,
+    "lanes": 0,
+    "state": "CARD",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 0,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-59\"}",
+     "meta"
+    ]
+   },
+   {
+    "marker": "aged",
+    "keys": 0,
+    "lanes": 1,
+    "state": "UNSURE",
+    "charged": false,
+    "onDisk": [
+     "actor/Checkout/Pay/shopper",
+     "host/ready",
+     "lane/Checkout/Pay/shopper|pay|{\"intentId\":\"pi-round-7-h3-60\"}",
+     "meta"
+    ]
    }
   ]
  }
