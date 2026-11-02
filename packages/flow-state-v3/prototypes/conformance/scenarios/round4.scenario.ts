@@ -351,14 +351,15 @@ export const round4Scenarios: readonly Scenario[] = [
             ["cycle", cycle],
           ] as const;
         })().map(([name, v]) => [
-          `reset-value-${name}-refuses-the-turn`,
+          `reset-value-${name}-resets-nothing`,
           (c: Ctx) => {
-            c.namedIssues.push("InvalidTurn");
+            c.namedIssues.push("UnencodableValue");
             c.ensure();
             c.send("SetSubject", { subject: v });
             c.eq("alive", c.r.quiet().fatal, false);
-            c.eq("refused, named", c.r.issues().at(-1)?.code, "InvalidTurn");
-            c.eq("no patch", c.mem().subject, "s1");
+            c.eq("named, not refused", c.r.issues().map((i) => i.code).includes("InvalidTurn"), false);
+            c.yes("named", c.r.issues().some((i) => i.code === "UnencodableValue"));
+            c.yes("the patch ran", c.mem().subject === v);
           },
         ]),
       ),

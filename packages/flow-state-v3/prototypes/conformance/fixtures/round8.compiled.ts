@@ -81,6 +81,20 @@ export const doorsFixture: Fixture = {
         CancelBad: [{ patch: () => ({ cancels: 1 }), members: d.member("other", "cancel", badKey) }],
         RetryBad: [{ patch: () => ({ retries: 1 }), members: d.member("other", "retry", badKey) }],
         GoOther: [{ members: d.commit("other", ({ event }: any) => ({ k: event.v })) }],
+        // A success whose handler throws on this value: the turn refuses, twice. The server did it.
+        GoBoom: [{ target: "W", members: d.commit("boom", () => ({})) }],
+        BoomDone: [{ target: "B", patch: ({ event }: any) => { if (event.v === "boom" && !(globalThis as any).__healed) throw new Error("this value"); return { last: "delivered" }; } }],
+        BoomNo: [{ target: "A" }],
+        BoomUnsure: [{ target: "A" }],
+        ReadBoom: [{ members: d.lookup("readBoom", () => ({ v: "x" })) }],
+        ReadBoomed: [{ patch: () => { throw new Error("this value"); } }],
+        ReadBoomFailed: [{}],
+        // The spin: a failure with no I/O, and a handler that asks again.
+        LoopLook: [{ members: d.lookup("readLoop", () => ({ v: 1n })) }],
+        LoopFailed: [{ patch: ({ memory }: any) => ({ loops: (memory.loops ?? 0) + 1 }), members: d.lookup("readLoop", () => ({ v: 1n })) }],
+        Looped: [{}],
+        // And a good lookup after it, for what the budget lets through later.
+        LoopGood: [{ members: d.lookup("readLoop", () => ({ v: "fine" })) }],
         OtherOk: [{}],
         OtherNo: [{}],
         OtherUnsure: [{}],
@@ -124,6 +138,43 @@ export const doorsFixture: Fixture = {
         outcomes: {
           success: { event: "Looked", from: d.slot("operations.read.success", (v: any) => ({ value: v })) },
           failure: { NoResponse: { event: "LookFailed" }, Defect: { event: "LookFailed" }, Interrupted: { event: "LookFailed" } },
+        },
+      },
+      boom: {
+        id: "boom",
+        contract: "lab/boom",
+        kind: "write",
+        key: d.key("boom", () => ({})),
+        concurrency: "reject",
+        commit: (input, { attempt }) => api.call("boom", input, { idempotencyKey: attempt.id }).pipe(unknownWhenLost) as Effect.Effect<unknown, unknown>,
+        outcomes: {
+          success: { event: "BoomDone", from: d.slot("operations.boom.success", (v: any) => ({ v: v?.v })) },
+          failure: { NotSent: { event: "BoomNo" } },
+          unknown: { event: "BoomUnsure" },
+        },
+      },
+      readBoom: {
+        id: "readBoom",
+        contract: "lab/readBoom",
+        kind: "read",
+        key: d.key("readBoom", () => ({})),
+        concurrency: "reject",
+        commit: (i) => api.call("readBoom", i) as Effect.Effect<unknown, unknown>,
+        outcomes: {
+          success: { event: "ReadBoomed" },
+          failure: { NoResponse: { event: "ReadBoomFailed" }, Defect: { event: "ReadBoomFailed" }, Interrupted: { event: "ReadBoomFailed" } },
+        },
+      },
+      readLoop: {
+        id: "readLoop",
+        contract: "lab/readLoop",
+        kind: "read",
+        key: d.key("readLoop", () => ({})),
+        concurrency: "reject",
+        commit: (i) => api.call("readLoop", i) as Effect.Effect<unknown, unknown>,
+        outcomes: {
+          success: { event: "Looped" },
+          failure: { NoResponse: { event: "LoopFailed" }, Defect: { event: "LoopFailed" }, Interrupted: { event: "LoopFailed" } },
         },
       },
       readKey: {
@@ -174,9 +225,13 @@ export const copiesFixture: Fixture = {
         ...cs.node("root", {
           Add: [{ patch: ({ memory, event }: any) => ({ ids: [...memory.ids, event.id] }) }],
           Note: [{ patch: ({ event }: any) => ({ note: event.text }) }],
+          BadReset: [{ patch: () => ({ bad: 1n }) }],
           RaiseTwice: [{ raises: [{ to: "c", key: cs.slot("on.RaiseTwice.raises[0]", () => "x"), event: "Set" }, { to: "c", key: cs.slot("on.RaiseTwice.raises[1]", () => "x"), event: "Set" }] }],
         }),
-        placements: [{ name: "c", fragment: "IdCopy", each: { of: "ids", max: 16 } }],
+        placements: [
+          { name: "c", fragment: "IdCopy", each: { of: "ids", max: 16 } },
+          { name: "r", fragment: "IdCopy", resetOn: cs.slot("traits.r.resetOn", ({ memory }: any) => memory.bad ?? "same") },
+        ],
       },
     },
     memory: cs.memory(() => ({ ids: ["x"], note: "" })),
@@ -196,6 +251,43 @@ export const copiesFixture: Fixture = {
       },
     },
     persisted: true,
+    uses: [],
+  }),
+};
+
+// A commit that fails with no I/O, and a handler that commits again: `Rejected`, behind its own hold, for ever (review M5).
+export const LoopId = "Lab/Loop";
+const lp = fixtureOf(LoopId);
+export const loopFixture: Fixture = {
+  id: LoopId,
+  make: () => ({
+    id: LoopId,
+    root: "root",
+    default: "A",
+    nodes: {
+      root: lp.node("root", {
+        Go: [{ members: lp.commit("w", () => ({})) }],
+        Ok: [{}],
+        No: [{ patch: ({ memory }: any) => ({ loops: memory.loops + 1 }), members: lp.commit("w", () => ({})) }],
+        Unsure: [{ members: lp.commit("w", () => ({})) }],
+      }),
+      A: lp.node("A", {}),
+    },
+    memory: lp.memory(() => ({ loops: 0 })),
+    ops: {
+      w: {
+        id: "w",
+        contract: "lab/w",
+        kind: "write",
+        key: lp.key("w", () => ({})),
+        concurrency: "reject",
+        commit: () => {
+          throw new Error("at once");
+        },
+        outcomes: { success: { event: "Ok" }, failure: { NotSent: { event: "No" } }, unknown: { event: "Unsure" } },
+      },
+    },
+    persisted: false,
     uses: [],
   }),
 };

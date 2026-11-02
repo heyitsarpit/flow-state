@@ -31,6 +31,7 @@ export const round7Scenarios: readonly Scenario[] = [
       "a-late-failure-does-not-unsay-an-acknowledgement"(c0) {
         const c = fresh(c0);
         c.fault({ storageFailsLate: 1 });
+        c.send("Note", { text: "t" });
         c.send("Go");
         c.ack();
         c.eq("sent", c.reqs("charge").length, 1);
@@ -108,8 +109,9 @@ export const round7Scenarios: readonly Scenario[] = [
       "E2-a-later-batch-does-not-land-ahead-of-an-unanswered-one"(c0) {
         const c = fresh(c0);
         c.fault({ storageFailsHeld: 1 });
-        c.send("Go"); // actor W + lane: fails, unsaid
-        c.send("Note", { text: "t" }); // a later batch for the same actor
+        c.send("Note", { text: "s" }); // fails, unsaid
+        c.send("Go"); // waits: one out per actor
+        c.send("Note", { text: "t" }); // a later write of the same actor
         c.eq("actor not on disk ahead of its lane", disk(c, ACTOR)?.root.leaf, "A");
         c.do({ storage: "failLate" });
         c.ack();
@@ -407,7 +409,7 @@ export const round7Scenarios: readonly Scenario[] = [
         const c = fresh(c0);
         c.send("GoBad");
         c.eq("nothing sent", c.reqs("charge").length, 0);
-        c.eq("the ending", c.lastEnding("charge")?.["reason"], "StorageRefused");
+        c.eq("the ending", c.lastEnding("charge")?.["reason"], "Unencodable");
         c.state("A"); // moved to W, then NotSent moved it back
         c.eq("named", c.r.issues().some((i) => i.code === "UnencodableValue"), true);
       },

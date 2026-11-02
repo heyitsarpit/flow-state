@@ -7,9 +7,9 @@ import type {
   Node,
   Placement,
 } from "../conformance/fixtures/compiled.ts";
-import { encoded, listKey, listOf, own } from "./gate.ts";
+import { entered, listKey, listOf, own, text } from "./gate.ts";
 import { run } from "./hooks.ts";
-import { fragOf, nextGen, type Inc, type Tx } from "./world.ts";
+import { fragOf, issue, nextGen, type Inc, type Tx } from "./world.ts";
 
 export type Path = readonly string[];
 export const kidAt = (root: Inc, path: Path): Inc | undefined => {
@@ -87,6 +87,13 @@ export const sameSubject = sameList;
 
 export type Started = { path: Path; inc: Inc; entered: readonly string[] };
 // A new incarnation (rule 1). Its Input from the host's view as the caller holds it; then its children, active by default.
+// D108: a reset value that cannot encode is one constant, so nothing resets on it. A fragment's identity needs a name, and "this value has none" is the honest one.
+export const resetValue = (tx: Tx, slot: NonNullable<Placement["resetOn"]>, view: object): string => {
+  const got = entered(() => run(slot, view as never));
+  if (got.ok) return text(got.v)!;
+  issue(tx, { code: "UnencodableValue", origin: `${slot.at.definition} ${slot.at.path}` });
+  return "$unencodable";
+};
 export const seed = (
   tx: Tx,
   m: Compiled,
@@ -100,9 +107,7 @@ export const seed = (
   const frag: Fragment = m.fragments![p.fragment]!;
   const hv = { memory: viewOf(host), event: {}, ...(key === undefined ? {} : { key, item }) };
   const input = p.input ? run(p.input, hv as never) : {};
-  const reset = p.resetOn
-    ? encoded(run(p.resetOn, hv as never), `${p.resetOn.at.definition} ${p.resetOn.at.path}`)
-    : undefined;
+  const reset = p.resetOn ? resetValue(tx, p.resetOn, hv) : undefined;
   const subject = [
     ...host.subject,
     ...(reset === undefined ? [] : [reset]),

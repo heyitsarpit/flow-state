@@ -46,7 +46,7 @@ const canon = (v: unknown, up: readonly unknown[] = []): unknown => {
 // Everything that decides the future, normalised: ids and generations by first occurrence, mints and positions by order, times
 // from now. Saved records are in (L9): what storage last heard changes what a capture writes.
 const normalise = (w: World, now: number, outside: string): string => {
-  const { nextId: _i, nextMint: _m, seq: _s, boot: _b, savedMeta: _t, ...rest } = w;
+  const { nextId: _i, nextMint: _m, seq: _s, boot: _b, asked: _t, ...rest } = w;
   let text = `${JSON.stringify(canon(rest))}|${outside}`;
   text = text.replace(/(\\?"dueAt\\?":)(\d+)/g, (_x, k, n) => `${k}${Number(n) - now}`);
   const ranked = (re: RegExp) => {

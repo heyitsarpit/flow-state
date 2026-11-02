@@ -257,3 +257,20 @@ REV8-PINS hash:c8c38e6a5cbe | round 8's own case: added firing behind queued mai
 file:drive.ts hash:9cb44294a916 | round 8: advanceNow and nextYield for a kill two yields on; no expected result moves
 file:scenarios/round8.scenario.ts hash:58a198ee0a44 | round 8: carries REV8-M2, REV8-FATAL, REV8-PINS above
 file:fixtures/round8.compiled.ts hash:73804d8f606f | round 8: RaiseTwice and Set on the copies fixture, for overlapping raises only
+removed:variant:REV4-H4/reset-value-bigint-refuses-the-turn | round 8, D108: a reset value with no text no longer refuses; now `reset-value-bigint-resets-nothing`
+removed:variant:REV4-H4/reset-value-cycle-refuses-the-turn | round 8, D108: same, for a cycle; now `reset-value-cycle-resets-nothing`
+removed:variant:REV8-M3/an-unreadable-meta-repeats-no-boot | round 8, D111: `meta` is gone, so there is nothing to be unreadable
+removed:variant:REV8-PINS/D83-a-lost-meta-does-not-reuse-a-mint | round 8, D111: same; replaced by D111-a-restored-lane-floors-the-mints, which also pins `W`'s mints
+REV4-H4 hash:2ff959c6c88a | round 8, D108: a reset value with no text is one constant: named, the patch runs, nothing resets. It refused before. Weaker in that a turn no longer stops; asked for by 'never fails the turn'
+REV7-H1 hash:9ff76e280a6b | round 8, D111: with `meta` gone a first send has no plain batch, so the fault of these two cases missed. A `Note` comes first, so a plain batch is what fails, which is what their comments always said
+REV7-M9 hash:35ba33e1d678 | round 8, D108: a commit that cannot encode declines `Unencodable`, not `StorageRefused`: the store was never asked. Round 7's review and the mid review both said so
+REV8-H1 hash:e90158a77878 | round 8's own: D107 changes which ending is last, so the read finds the head's by attempt; adds a-restored-hold-is-the-last-route
+REV8-M3 hash:6693a478a456 | round 8's own, D111: unreadable meta case gone; lane-alone floor and no-rewrite cases added
+REV8-M9 hash:fe1847516ddb | round 8's own: D108's reason, the reset door, and the module case reads the origin, since the edge's poison report satisfied it (mid review M6)
+REV8-PINS hash:492db616e0a4 | round 8's own, D111: the mint case uses lanes alone and pins W
+file:scenarios/ctx.ts hash:f22f074897a7 | round 8, D112: oracle (h) moves into checkClaims, in every step of every case and search
+file:scenarios/round4.scenario.ts hash:f7a6c4c962e3 | round 8: carries REV4-H4 above
+file:drive.ts hash:657ee2b122d5 | round 8, D112: writeAheadLies, and what a wipe or an edit excuses
+file:scenarios/round7.scenario.ts hash:0a0e78871e18 | round 8: carries REV7-H1, REV7-M9 above
+file:scenarios/round8.scenario.ts hash:e604b2f1b4dc | round 8: carries REV8 lines above, adds REV8-KEPT and REV8-STORM
+file:fixtures/round8.compiled.ts hash:12135ddc379e | round 8: boom, readBoom, readLoop, a looping commit, a reset placement

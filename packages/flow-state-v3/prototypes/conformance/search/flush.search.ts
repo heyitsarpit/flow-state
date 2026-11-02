@@ -7,7 +7,7 @@
 //   (e) the disk moves forward only, and is whole: lanes on disk belong with that memory. Allowed, counted, stated: lanes ahead of memory by puts (`lanesAhead`). Never: memory ahead of a lane
 //   (f) a waiting state has something that can end it
 //   (g) one batch out per actor: the fake throws
-//   (h) write-ahead: a keyed request's Attempt is the head of a lane on disk when it starts. Round 8 reads the record: `includes(key)` also matched `W`, and could not see H1
+//   (h) write-ahead: now `checkClaims` in every state (D112): whatever may be at the server, undecided and unreleased, is the head of a lane on disk. `includes(key)` also matched `W`, and could not see H1
 import { fragPairFixture, FragPairId, bareFixture, BareId } from "../fixtures/round7.compiled.ts";
 import { payFixture } from "../fixtures/pay.compiled.ts";
 import { serialBareFixture } from "../fixtures/round8.compiled.ts";
@@ -76,6 +76,8 @@ export const searchFlush = (
     { name: "hang", step: { storage: "hang" }, on: storage },
     { name: "holdPlain", step: { holdPlain: true } },
     { name: "slowAfterAck", step: { slowAfterAck: true } },
+    // D109: the next success's turn refuses, and its redelivery too. Oracle (f) then asks what can end the waiting state.
+    { name: "refuseOk", step: { fault: { throwIn: "on.Ok[0].updateMemory", times: 2 } } },
     { name: "freeze", step: { freeze: true } },
     { name: "thaw", step: { freeze: false } },
     { name: "clockBack", step: { clockBack: 60_000 } },
@@ -109,7 +111,7 @@ export const searchFlush = (
         ]
       : c.actors.flatMap((w, i) => body(w, i === 0 ? "" : ".b"));
   const tightNames = /^(Go|Note|Set|NoteBad|Peek|Forget|failHeld|sayFailed|ack|FLUSH|KILL|lost|ok|Pay|pay\.ok|pay\.lost)/;
-  const directedNames = directed === "queue" ? /^(Go|ok|lost|Forget|ack|landNoAck|KILL)$/ : /^(Go|Note$|holdPlain|FLUSH|ack|KILL)$/;
+  const directedNames = directed === "queue" ? /^(Go|ok|lost|Retry|Forget|ack|landNoAck|KILL|refuseOk)$/ : /^(Go|Note$|holdPlain|FLUSH|ack|KILL)$/;
   let lanesAhead = 0;
   let lanesAheadWitness: string | undefined;
   const unpinnedAt = new Map<string, string>();
@@ -200,15 +202,12 @@ export const searchFlush = (
         : [...actions, ...edge],
     ...o,
     edge(pre, post) {
-      const onDisk = [...post.read.stored()];
-      const heads = new Set(onDisk.filter(([k]) => k.startsWith("lane/")).map(([, v]) => (v as any)?.head?.id));
       const seen = new Set(pre.read.requests().filter((x) => x.op === c.op).map((x) => x.idempotencyKey));
       const mayHave = new Set(pre.read.outside().mayHave);
       const released = new Set(post.read.evidence("Released").map((e) => e["attempt"]));
       const all = post.read.requests().filter((x) => x.op === c.op);
       for (const q of all) {
         if (seen.has(q.idempotencyKey)) continue;
-        if (q.idempotencyKey && !heads.has(q.idempotencyKey)) throw new Oracle(`(h) request ${q.idempotencyKey} is not the head of a lane on disk`);
         for (const old of all)
           if (
             old.idempotencyKey !== q.idempotencyKey &&

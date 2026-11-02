@@ -26,3 +26,5 @@ REV7-EDGE/M2-a-released-hold-does-not-come-back | its failing fault reaches the 
 REV7-SEARCH-FAKE/the-fake-really-says-it-late | the window: the failing batch is not out yet, so no report is owed | one report owed: expected 1, got 0
 REV7-CHAT/a-chat-stream-still-coalesces | names 5 s and passes at it; the gate's flush-on-read defeats it | waits: expected false, got true
 REV8-M2/a-visible-page-still-waits-its-window | names 5 s and passes at it; the gate's flush-on-read defeats it | waits: expected "out", got "newest"
+REV7-H1/a-late-failure-does-not-unsay-an-acknowledgement | the window: `Note`'s batch is not out when `Go` comes, so it joins the ticket's batch and no plain batch fails to report | said: expected 1, got 0
+REV7-H1/E2-a-later-batch-does-not-land-ahead-of-an-unanswered-one | the gate's read flush finds a batch out, so its hide cannot issue, and `t` then waits its window | then all of it: expected "t", got "s"

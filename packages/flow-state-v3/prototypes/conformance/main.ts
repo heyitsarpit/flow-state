@@ -2,7 +2,7 @@
 //   [--no-search] [--lock]. Searches run separately: search/run.ts, under watch.ts.
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { makeHarness, swapFixtures } from "./drive.ts";
 import type { Harness, RuntimeModule } from "./harness.ts";
 import { catalog, printReports } from "./report.ts";
@@ -98,13 +98,28 @@ const SHARED = [
   "fixtures/round7.compiled.ts",
   "scenarios/round8.scenario.ts",
   "fixtures/round8.compiled.ts",
+  // D113: what the round's gates depend on is an expected result too.
+  "search/engine.ts",
+  "search/flush.search.ts",
+  "search/pay.search.ts",
+  "search/crash.search.ts",
+  "search/cross.search.ts",
+  "gate5s.ts",
+  "gate-5s-expected.txt",
+  "mutate.ts",
+  "mutate-one.ts",
+  "harness.ts",
 ];
+// And the round's own: CLI pins, typed checks, the adapter's normaliser. Named by what they are, so a new round logs the move once.
+const ROUND_FILES = ["cli/main.ts", "typed/compare.ts", "typed/date-check.ts", "typed/swaps.ts", "adapter.ts"];
+let roundDir: string | undefined;
 const splitLock = (l: string): [string, string] => [l.slice(0, l.lastIndexOf(" ")), l.slice(l.lastIndexOf(" ") + 1)]; // a variant's name may hold spaces
 const lockLines = (): string[] => [
   ...allScenarios.map((s) => `${s.id} ${sha(bodyOf(s))}`),
   // D103: a variant is an expected result too. Its text is in its scenario's hash; this line is so that one gone is seen by name.
   ...allScenarios.flatMap((s) => Object.keys(s.variants ?? {}).map((v) => `variant:${s.id}/${v} present`)),
   ...SHARED.map((f) => `file:${f} ${sha(readFileSync(join(here, f), "utf8"))}`),
+  ...(roundDir ? ROUND_FILES.filter((f) => existsSync(join(roundDir!, f))).map((f) => `round:${f} ${sha(readFileSync(join(roundDir!, f), "utf8"))}`) : []),
 ];
 
 export const runScenarios = (
@@ -192,6 +207,7 @@ if (import.meta.main) {
   const has = (k: string) => process.argv.includes(k);
   const round = Number(arg("--round") ?? 8);
   const runtime = resolve(here, arg("--runtime") ?? "./null-adapter.ts");
+  roundDir = dirname(runtime);
   const mod = (await import(runtime)) as RuntimeModule;
   if (arg("--swap")) swapFixtures((await import(resolve(here, arg("--swap")!))).swaps);
   console.log(`runtime: ${runtime}\nbun ${Bun.version}`);
@@ -217,10 +233,15 @@ if (import.meta.main) {
   const unlogged = now.filter(([id, h]) => old.has(id) && old.get(id) !== h && !logged(id, h)).map(([id]) => id);
   // D103: an id or a variant the lock had and the suite does not is a failure until a `removed:` line names it.
   const nowIds = new Set(now.map(([id]) => id));
-  const gone = [...old.keys()].filter((id) => !nowIds.has(id) && !log.split("\n").some((l) => l.startsWith(`removed:${id} | `)));
+  const gone = [...old.keys()].filter((id) => !nowIds.has(id) && !log.split("\n").some((l) => l.startsWith(`removed:${id} | `) && l.split(" | ")[1]!.trim().length > 0));
   if (has("--hashes"))
     for (const [id, h] of now) if (old.has(id) && old.get(id) !== h && !logged(id, h)) console.log(`HASH ${id} hash:${h}`);
   if (has("--lock")) {
+    // D113: the lock follows the log, never the other way. Review: weaken a case, `--lock`, and the next run is clean with no line.
+    if (unlogged.length || gone.length) {
+      console.log(`LOCK REFUSED. Log these first: ${[...unlogged, ...gone].join(" ")}`);
+      process.exit(1);
+    }
     writeFileSync(LOCK, lockLines().join("\n") + "\n");
     console.log(
       `expected.lock written, after comparing. Unlogged against the previous lock: ${unlogged.join(" ") || "none"}; removed with no log line: ${gone.join(" ") || "none"}`,

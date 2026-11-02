@@ -144,7 +144,10 @@ export const makeHarness = (port: Port) => (): Harness => {
   const die = (s: Extract<Step, { reload: true }>) => {
     plan = undefined;
     if (s.tear !== undefined) fake.tearLast(s.tear);
-    if (s.wipe) fake.wipe();
+    if (s.wipe) {
+      fake.wipe();
+      for (const k of fake.mayHave()) excused.add(k);
+    }
     if (TEST_FLUSH.includes("kills")) {
       fake.hide();
       settle();
@@ -163,7 +166,24 @@ export const makeHarness = (port: Port) => (): Harness => {
       boot();
     }
   };
+  const excused = new Set<string>(); // D112: what a wipe or an edited record took. Nothing else may leave a key undecided with no head on disk
   const reads: Harness["read"] = {
+    writeAheadLies: () => {
+      const undecided = fake.mayHave();
+      if (undecided.length === 0) return [];
+      const heads = new Set<string>();
+      for (const [k, v] of fake.kv)
+        if (k.startsWith("lane/"))
+          try {
+            heads.add(JSON.parse(v)?.head?.id);
+          } catch {}
+      const writes = new Set(compiled.filter((c) => c.persisted).flatMap((c) => Object.values(c.ops).filter((o) => o.kind === "write").map((o) => o.id)));
+      const released = new Set(evidence.filter((e) => e["kind"] === "Released").map((e) => e["attempt"]));
+      return undecided.filter((key) => {
+        const q = fake.requests.find((r) => r.idempotencyKey === key)!;
+        return writes.has(q.op) && !heads.has(key) && !released.has(key) && !excused.has(key) && !key.startsWith("business:");
+      });
+    },
     state: (a) => inst.state(actorKey(a)),
     memory: (a) => inst.memory(actorKey(a)),
     inner: (a, p) => inst.inner(actorKey(a), p),
@@ -290,6 +310,7 @@ export const makeHarness = (port: Port) => (): Harness => {
             .map((e) => ({ kind: "lostWithProcess", attempt: e["attempt"] }));
           evidence.push(...inHit);
           fake.corrupt(f.corruptStored.match, f.corruptStored.edit);
+          for (const k of fake.mayHave()) excused.add(k);
         } else if ("uninterruptibleHang" in f) fake.uninterruptible.add(f.uninterruptibleHang);
         else if ("syncAnswer" in f) fake.syncAnswers.set(f.syncAnswer[0], f.syncAnswer[1]);
         else if ("lateAnswer" in f) fake.lateAnswer(f.lateAnswer[0], f.lateAnswer[1]);

@@ -9,6 +9,9 @@ export const checkClaims = (r: Reads) => {
   const q = r.quiet();
   if (q.fatal) return;
   if (!q.idle) throw new Mismatch("do() returned with work runnable");
+  // D112, oracle (h), in every step of every case and search: a request at the server has its Attempt as the head on disk, until it is decided or released.
+  const lies = r.writeAheadLies();
+  if (lies.length) throw new Mismatch(`(h) may be at the server, and no head on disk says so: ${lies.join(" ")}`);
   const out = r.outside();
   const mints = new Map<string, number>();
   for (const e of r.evidence("mint")) mints.set(e["attempt"], e["mint"]);

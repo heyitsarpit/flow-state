@@ -1,6 +1,6 @@
 // D57: a value from outside may not name, shape or stop the core. D65: enforced at the boundary. `seal` is the only way compiled data
 // reaches the core: its tables have no prototype and each closure's result is checked by what kind of closure it is, so a new call
-// site cannot forget. A failure has one effect per place: in a turn a closure that throws refuses, and a value that cannot encode refuses only as a `resetOn` (D89, D100); a list repairs; a stored record quarantines; outside
+// site cannot forget. A failure has one effect per place: in a turn a closure that throws refuses, and a value that cannot encode never does (D89, D108); a list repairs; a stored record quarantines; outside
 // a turn the caller gives a default. No file parses meaning out of a string it built from a user's value.
 import type {
   Alternative,
@@ -57,11 +57,19 @@ export const same = (a: unknown, b: unknown) => {
   const t = text(a);
   return t !== undefined && t === text(b);
 };
-// D100: what is left of the old rule. A `resetOn` value is a fragment's identity: with no text there is nothing to enter, and nothing to compare. It still refuses; RESULTS says so.
-export const encoded = (v: unknown, origin: string): string => {
-  const t = text(v);
-  if (t === undefined) throw new Refused(origin, "a value that cannot be encoded");
-  return t;
+// D108: the one door. A Slot whose result becomes a key, an input or a module value is gated by `encodable` at seal, so a new call site cannot forget. `entered` says whether it came in.
+export class Unencodable extends Refused {}
+export const encodable = (v: unknown, origin: string): unknown => {
+  if (text(v) === undefined) throw new Unencodable(origin, "a value that cannot be encoded");
+  return v;
+};
+export const entered = <A>(f: () => A): { readonly ok: true; readonly v: A } | { readonly ok: false } => {
+  try {
+    return { ok: true, v: f() };
+  } catch (e) {
+    if (e instanceof Unencodable) return { ok: false };
+    throw e;
+  }
 };
 // L10: past 2^31 - 1 a browser's setTimeout fires at once.
 export const finiteMs = (v: unknown, origin: string): number => {
@@ -118,8 +126,21 @@ const table = <A, B>(o: Readonly<Record<string, A>> | undefined, f: (a: A) => B)
 };
 const same_ = <A>(a: A) => a;
 const sealMapped = (m: Mapped): Mapped => (m.from ? { ...m, from: gated(m.from, plain) } : m);
+const sealMember = (m: Alternative["members"][number]): Alternative["members"][number] => {
+  const x = m as { input?: Slot<(a: any) => unknown>; key?: Slot<(a: any) => unknown>; value?: Slot<(a: any) => unknown> };
+  return {
+    ...m,
+    ...(x.input ? { input: gated(x.input, encodable) } : {}),
+    ...(x.key ? { key: gated(x.key, encodable) } : {}),
+    ...(x.value ? { value: gated(x.value, encodable) } : {}),
+  } as Alternative["members"][number];
+};
+const sealToken = (t: Alternative["tokens"][number]): Alternative["tokens"][number] =>
+  "key" in t && t.key ? ({ ...t, key: gated(t.key as Slot<(a: any) => unknown>, encodable) } as typeof t) : t;
 const sealAlt = (a: Alternative): Alternative => ({
   ...a,
+  tokens: a.tokens.map(sealToken),
+  members: a.members.map(sealMember),
   guards: a.guards.map((g) => gated(g, verdict)),
   ...(a.patch ? { patch: gated(a.patch, plain) } : {}),
   ...(a.followUps ? { followUps: a.followUps.map((f) => gated(f, anEvent)) } : {}),
@@ -141,6 +162,7 @@ const sealAlts = (o: Readonly<Record<string, readonly Alternative[]>> | undefine
   table(o, (l) => l.map(sealAlt));
 const sealPlacement = (p: Placement): Placement => ({
   ...p,
+  ...(p.resetOn ? { resetOn: gated(p.resetOn, encodable) } : {}),
   ...(p.guards ? { guards: table(p.guards, (g) => gated(g, verdict)) } : {}),
   ...(p.callbacks ? { callbacks: sealAlts(p.callbacks) } : {}),
   ...(p.exits ? { exits: sealAlts(p.exits) } : {}),
@@ -159,6 +181,7 @@ const sealOp = (o: Op, definition: string): Op => {
   const u = o.outcomes.unknown;
   return {
     ...o,
+    key: gated(o.key, encodable),
     commit: typeof o.commit === "function" ? slotted(o.commit, definition, `operations.${o.id}.commit`) : o.commit, // D91
     outcomes: {
       ...(o.outcomes.success ? { success: sealMapped(o.outcomes.success) } : {}),

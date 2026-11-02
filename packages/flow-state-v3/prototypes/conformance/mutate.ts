@@ -51,12 +51,15 @@ const results: unknown[] = [];
   })();
   rmSync(dir, { recursive: true, force: true });
   if (killedBy !== null || r.killed !== null) {
+    rmSync(scratch, { recursive: true, force: true });
     console.log(`CONTROL FAILED: the unmutated code is killed by ${r.killed ?? killedBy}: ${line.slice(0, 400)}`);
     process.exit(2);
   }
   console.log(`control: the unmutated code passes every gate (${(r.ms / 1000).toFixed(0)} s)`);
 }
 const notApplied: string[] = [];
+const invalid: string[] = [];
+const byWatchdog: string[] = [];
 let survived = 0;
 const list = only ? MUTANTS.filter((m) => only.split(",").includes(m.id)) : MUTANTS;
 for (const m of list) {
@@ -79,6 +82,21 @@ for (const m of list) {
       text.replace(pattern, () => replace),
     );
   }
+  // D113: a mutant that does not parse says nothing about the tests.
+  const unparsed = m.edits.flatMap(([file]) => {
+    try {
+      new Bun.Transpiler({ loader: "ts" }).scan(readFileSync(join(dir, basename(source), file), "utf8"));
+      return [];
+    } catch (e) {
+      return [`${file}: ${String(e).slice(0, 120)}`];
+    }
+  });
+  if (unparsed.length) {
+    invalid.push(m.id);
+    console.log(`INVALID  ${m.id.padEnd(36)} does not parse: ${unparsed[0]}`);
+    results.push({ id: m.id, kills: m.kills, killed: false, killers: [], author, by: "invalid", peakMb: 0 });
+    continue;
+  }
   const r = await watched(
     [
       "bun",
@@ -97,7 +115,15 @@ for (const m of list) {
     parsed = undefined;
   }
   const killers = parsed?.killers ?? [];
-  const killed = r.killed !== null || (parsed?.killedBy ?? null) !== null || !parsed;
+  // A run with no answer: it did not load, or it died. Not a kill by a test: `INVALID`. A watchdog's kill is a kill, counted apart, since load can make one.
+  if (!parsed && r.killed === null) {
+    invalid.push(m.id);
+    console.log(`INVALID  ${m.id.padEnd(36)} no answer: ${r.stdout.slice(-160).replace(/\n/g, " ")}`);
+    results.push({ id: m.id, kills: m.kills, killed: false, killers: [], author, by: "invalid", peakMb: r.peakMb });
+    continue;
+  }
+  if (r.killed !== null) byWatchdog.push(m.id);
+  const killed = r.killed !== null || (parsed?.killedBy ?? null) !== null;
   if (!killed) survived++;
   results.push({
     id: m.id,
@@ -115,4 +141,4 @@ for (const m of list) {
 rmSync(scratch, { recursive: true, force: true });
 writeFileSync(out, JSON.stringify(results, null, 1));
 console.log(`\nnot applied (${notApplied.length}):\n${notApplied.join("\n")}`);
-console.log(`\n${results.length - survived}/${results.length} killed (${author})`);
+console.log(`\n${results.length - survived - invalid.length}/${results.length - invalid.length} killed (${author}); by the watchdog: ${byWatchdog.join(" ") || "none"}; invalid: ${invalid.join(" ") || "none"}`);

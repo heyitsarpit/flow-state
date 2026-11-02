@@ -161,6 +161,7 @@ export type Outside = {
   injections: { planned: number; done: number; withLive: number; withChoice: number };
 };
 export type Reads = {
+  writeAheadLies(): readonly string[]; // D112: keys the server may hold, on a persisted write, unreleased, that no lane's head on disk names
   state(a: ActorRef): string | undefined;
   memory(a: ActorRef): any;
   inner(a: ActorRef, path: readonly string[]): { state: string; memory: any } | undefined; // a fragment instance, undefined while inactive (N3)

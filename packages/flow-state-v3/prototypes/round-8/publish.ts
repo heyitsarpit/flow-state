@@ -55,6 +55,7 @@ export const waitsOf = (w: World, modules: readonly Module<any>[], machines: Mac
     }
     return false;
   };
+  for (const x of Object.values(w.stranded)) out.push({ kind: "stranded", op: x.op }); // D109, D110
   for (const l of Object.values(w.lanes)) {
     for (const p of l.parked) out.push({ kind: "parked", op: l.op, attempt: p.attempt ?? "" });
     const h = l.head;

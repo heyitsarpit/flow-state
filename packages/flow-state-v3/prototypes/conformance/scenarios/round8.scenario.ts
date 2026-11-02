@@ -3,7 +3,7 @@ import { Effect } from "effect";
 import { chatFixture } from "../fixtures/chat.compiled.ts";
 import { refundsFixture } from "../fixtures/refunds.compiled.ts";
 import { bareFixture, BareId } from "../fixtures/round7.compiled.ts";
-import { businessKeyFixture, copiesFixture, CopiesId, doorsFixture, DoorsId, serialBareFixture } from "../fixtures/round8.compiled.ts";
+import { businessKeyFixture, copiesFixture, CopiesId, doorsFixture, DoorsId, loopFixture, LoopId, serialBareFixture } from "../fixtures/round8.compiled.ts";
 import type { Fixture } from "../harness.ts";
 import { Ctx, type Scenario } from "./ctx.ts";
 
@@ -49,7 +49,7 @@ export const round8Scenarios: readonly Scenario[] = [
         c.eq("at the server", c.reqs("charge").length, 1);
         c.reload();
         c.eq("a hold", held(c), true);
-        c.eq("unknown, not NotSent", c.endings("charge").at(-2)?.["channel"] ?? "", "unknown");
+        c.eq("unknown, not NotSent", c.endings("charge").find((e) => e["attempt"] === c.reqs("charge")[0]!.idempotencyKey && e["reason"] === "Restored")?.["channel"], "unknown");
         c.do({ holdPlain: false });
         c.send("Go");
         c.do({ storage: "ack" });
@@ -132,6 +132,16 @@ export const round8Scenarios: readonly Scenario[] = [
         c.eq("the one behind went", c.reqs("charge").length, 1);
       },
       // Pessimistic, stated: the batch landed and nobody heard. Sent or not, nobody knows.
+      // D107, review M1: `Go Go ack KILL`. `W`'s answer ran over the hold's prompt, and left `U`.
+      "a-restored-hold-is-the-last-route"(c0) {
+        const c = on(c0, serialBareFixture());
+        c.send("Go");
+        c.send("Go");
+        c.ack();
+        c.reload();
+        c.state("U");
+        c.eq("a hold", held(c), true);
+      },
       "a-landed-ticket-nobody-heard-is-a-hold"(c0) {
         const c = on(c0, serialBareFixture(), LATER);
         c.send("Go");
@@ -280,19 +290,29 @@ export const round8Scenarios: readonly Scenario[] = [
         const seq = c.r.frames().map((f) => f.seq);
         c.eq("no repeat", new Set(seq).size, seq.length);
       },
-      // Unreadable `meta` is the same case with no timing at all.
-      "an-unreadable-meta-repeats-no-boot"(c0) {
-        const X = { actor: CopiesId, id: "a" };
-        const c = new Ctx(c0.fresh([copiesFixture], { captureMs: 0 }), X);
-        c.namedIssues = c0.namedIssues;
-        c.ensure();
+      // D99's other half: a poison actor's record stays back, and only its lane says which boot wrote it.
+      "a-lane-alone-still-floors-the-boot"(c0) {
+        c0.namedIssues.push("UnencodableValue");
+        const c = on(c0, serialBareFixture(), { captureMs: 0 });
         c.reload();
-        c.send("Note", { text: "n" });
-        c.fault({ corruptStored: { match: "meta", edit: () => "not json" } });
+        c.send("NoteBad");
+        c.send("Go");
+        c.ack();
         c.reload();
-        c.send("Note", { text: "m" });
         const seq = c.r.frames().map((f) => f.seq);
         c.eq("no repeat", new Set(seq).size, seq.length);
+      },
+      // D111: a hold's record is rewritten only when it changes.
+      "a-hold-does-not-rewrite-per-boot"(c0) {
+        const c = on(c0, serialBareFixture(), { captureMs: 0 });
+        c.send("Go");
+        c.ack();
+        c.answer("charge", { lost: true });
+        c.reload();
+        const n = batches(c).filter((b) => b.writes.some((w) => w.key === KEY)).length;
+        c.reload();
+        c.reload();
+        c.eq("two more boots, no write of the lane", batches(c).filter((b) => b.writes.some((w) => w.key === KEY)).length, n);
       },
     },
   },
@@ -364,6 +384,25 @@ export const round8Scenarios: readonly Scenario[] = [
         c.ensure();
         c.send("Jump", { at: 1n });
         c.eq("no refused turn", c.r.issues().filter((i) => i.code === "InvalidTurn").length, 0);
+        c.yes("named by the operation, not the edge's poison report", c.r.issues().some((i) => i.code === "UnencodableValue" && i.origin === "Lab/Chat messages"));
+      },
+      // D108: a commit that cannot encode was refused by nobody's store. Its reason says what happened.
+      "a-commit-that-cannot-encode-says-so"(c0) {
+        const D = { actor: DoorsId, id: "a" };
+        const c = on(c0, doorsFixture, undefined, D);
+        c.send("GoOther", { v: 1n });
+        c.eq("the reason", c.lastEnding("other")?.["reason"], "Unencodable");
+        c.eq("nothing sent", c.reqs("other").length, 0);
+      },
+      // D108: the door `resetOn` was. A value with no text is one constant: nothing resets, and it is named.
+      "a-reset-value-that-cannot-encode-resets-nothing"(c0) {
+        const X = { actor: CopiesId, id: "a" };
+        const c = new Ctx(c0.fresh([copiesFixture], { captureMs: 0 }), X);
+        c.namedIssues = c0.namedIssues;
+        c.ensure();
+        c.send("BadReset");
+        c.eq("no refused turn", c.r.issues().filter((i) => i.code === "InvalidTurn").length, 0);
+        c.yes("the turn ran", c.mem().bad === 1n);
         c.yes("named", c.r.issues().some((i) => i.code === "UnencodableValue"));
       },
       // A fourth door, found reading the first three: a key on `cancel` or `retry`. No lane can have a key with no text.
@@ -375,6 +414,97 @@ export const round8Scenarios: readonly Scenario[] = [
         c.send("RetryBad", { v: 1n });
         c.eq("retry: the turn ran", c.mem().retries, 1);
         c.eq("no refused turn", c.r.issues().filter((i) => i.code === "InvalidTurn").length, 0);
+      },
+    },
+  },
+  {
+    id: "REV8-KEPT",
+    kind: "fault",
+    fixtures: [doorsFixture],
+    actor: { actor: DoorsId, id: "a" },
+    cites: ["D109", "D50"],
+    namedIssues: ["InvalidTurn"],
+    variants: {
+      // Review M4: a charge that succeeded, a handler that throws on this value. `InvalidTurn` twice, state `W`, `waits: []`, for good.
+      "a-refused-ending-is-kept-named-and-delivered-at-the-next-boot"(c0) {
+        const D = { actor: DoorsId, id: "a" };
+        const c = on(c0, doorsFixture, { captureMs: 0 }, D);
+        c.send("GoBoom");
+        c.ack();
+        c.answer("boom", { ok: { v: "boom" } });
+        c.state("W");
+        c.eq("refused twice", c.r.issues().filter((i) => i.code === "InvalidTurn").length, 2);
+        c.yes("a wait says so", c.r.quiet().waits.some((w) => w.kind === "parked" && (w as any).op === "boom"));
+        c.do({ hide: true });
+        (globalThis as any).__healed = true; // a release that fixes the closure
+        try {
+          c.reload();
+        } finally {
+          (globalThis as any).__healed = false;
+        }
+        c.state("B");
+        c.eq("delivered", c.mem().last, "delivered");
+        c.eq("no wait left", c.r.quiet().waits.filter((w) => w.kind === "parked").length, 0);
+      },
+      "a-hold-needs-nothing-kept-its-lane-holds-it"(c0) {
+        const c = on(c0, serialBareFixture(), { captureMs: 0 });
+        c.send("Go");
+        c.ack();
+        c.do({ fault: { throwIn: "on.Unsure[0]", times: 2 } });
+        c.answer("charge", { lost: true });
+        c.eq("held", held(c), true);
+      },
+      "a-reads-refused-ending-is-a-stranded-wait"(c0) {
+        const D = { actor: DoorsId, id: "a" };
+        const c = on(c0, doorsFixture, { captureMs: 0 }, D);
+        c.send("ReadBoom");
+        c.answer("readBoom", { ok: {} });
+        c.yes("a wait says so", c.r.quiet().waits.some((w) => w.kind === "stranded" && (w as any).op === "readBoom"));
+        c.send("ReadBoom");
+        c.eq("the next ask clears it", c.r.quiet().waits.filter((w) => w.kind === "stranded").length, 0);
+      },
+    },
+  },
+  {
+    id: "REV8-STORM",
+    kind: "fault",
+    fixtures: [doorsFixture],
+    actor: { actor: DoorsId, id: "a" },
+    cites: ["D110"],
+    namedIssues: ["TurnStorm", "UnencodableValue", "Defect"],
+    variants: {
+      // Review M5: 1.8 GB in 1.6 s. A failure with no I/O and a handler that asks again.
+      "a-lookup-that-fails-at-once-and-asks-again-stops"(c0) {
+        const D = { actor: DoorsId, id: "a" };
+        const c = on(c0, doorsFixture, { captureMs: 0, askMax: 16 }, D);
+        c.send("LoopLook");
+        c.yes("settled, so it stopped", c.r.quiet().idle);
+        c.eq("named once", c.r.issues().filter((i) => i.code === "TurnStorm").length, 1);
+        c.yes("a wait says so", c.r.quiet().waits.some((w) => w.kind === "stranded" && (w as any).op === "readLoop"));
+        c.eq("bounded", c.mem().loops, 16);
+      },
+      "a-commit-that-throws-at-once-and-asks-again-stops"(c0) {
+        const L = { actor: LoopId, id: "a" };
+        const c = on(c0, loopFixture, { askMax: 16 }, L);
+        c.send("Go");
+        c.yes("settled, so it stopped", c.r.quiet().idle);
+        c.eq("named once", c.r.issues().filter((i) => i.code === "TurnStorm").length, 1);
+        c.yes("bounded", c.mem().loops <= 16);
+      },
+      "the-budget-comes-back-with-time"(c0) {
+        const D = { actor: DoorsId, id: "a" };
+        const c = on(c0, doorsFixture, { captureMs: 0, askMax: 16 }, D);
+        c.send("LoopLook");
+        c.advance(1_000);
+        c.send("LoopGood");
+        c.eq("it goes", c.reqs("readLoop").length, 1);
+        c.eq("no stranded wait", c.r.quiet().waits.filter((w) => w.kind === "stranded").length, 0);
+      },
+      "the-default-budget-lets-an-ordinary-burst-through"(c0) {
+        const D = { actor: DoorsId, id: "a" };
+        const c = on(c0, doorsFixture, { captureMs: 0 }, D);
+        for (let i = 0; i < 200; i++) c.send("Look", { v: `v${i}` });
+        c.eq("all asked", c.reqs("read").length, 200);
       },
     },
   },
@@ -591,17 +721,18 @@ export const round8Scenarios: readonly Scenario[] = [
         c.advance(1_000);
         c.eq("then the newest", noteOn(c), "y");
       },
-      // durable.mint-floor-from-meta-only: `meta` is only a floor.
-      "D83-a-lost-meta-does-not-reuse-a-mint"(c0) {
+      // D111: the lanes on disk are the mint floor, `W` too.
+      "D111-a-restored-lane-floors-the-mints"(c0) {
         const c = on(c0, serialBareFixture());
         c.send("Go");
+        c.send("Go");
         c.ack();
-        c.fault({ corruptStored: { match: "meta", edit: () => '{"boot":1,"nextMint":1}' } });
+        c.do({ hide: true });
         c.reload();
         c.send("Go");
         const mints = c.r.evidence("mint").map((e) => e["mint"]);
-        c.eq("two mints", mints.length, 2);
-        c.yes("the newer is later", mints[1]! > mints[0]!);
+        c.eq("three mints", mints.length, 3);
+        c.yes("the newest is past the one in W", mints[2]! > mints[1]!);
       },
       // lane.queue-unbounded: `W` has a bound, and past it a commit declines.
       "D29-a-full-queue-declines"(c0) {

@@ -167,7 +167,8 @@ export type World = {
   readonly persistence: boolean; // D26, review H3: false: this tab read no disk and writes none. A persisted machine's commit declines
   readonly quarantined: Readonly<Record<string, true>>; // D88: a lane whose record this release cannot read. Its id still holds
   readonly rekeyed: Readonly<Record<string, string>>; // D78: new lane id -> old id still on disk
-  readonly savedMeta: string;
+  readonly asked: Readonly<Record<string, { readonly at: number; readonly n: number }>>; // D110: asks in the current window, per actor and operation
+  readonly stranded: Readonly<Record<string, { readonly op: string }>>; // D109, D110: nothing outstanding, and something did not happen. A wait says so
   readonly disabled: Readonly<Record<string, true>>;
   readonly stalled: Readonly<Record<string, "storage" | "record" | "module">>; // D49, by Attempt
   readonly ext: Readonly<Record<string, unknown>>;
@@ -192,7 +193,8 @@ export const emptyWorld: World = {
   persistence: true,
   quarantined: {},
   rekeyed: {},
-  savedMeta: "",
+  asked: {},
+  stranded: {},
   disabled: {},
   stalled: {},
   ext: {},
@@ -266,6 +268,8 @@ export type Bounds = {
   readonly captureMs: number; // D80 (accepted): plain memory coalesces this long, flushed on hide. 0: at once. D84: a batch touching a lane never waits
   readonly bootMs: number; // D87: a read of the disk that has not answered by now is O5's StorageFailure. A guess
   readonly retryMaxMs: number;
+  readonly askMax: number; // D110: asks per actor and operation per window. A guess
+  readonly askWindowMs: number;
   readonly bootQueue: number; // D87: inputs held until boot; past this, dropped with evidence
   readonly followUps: number;
   readonly notifyChain: number;
@@ -282,6 +286,8 @@ export const defaultBounds: Bounds = {
   captureMs: 5_000,
   bootMs: 10_000,
   retryMaxMs: 30_000,
+  askMax: 256,
+  askWindowMs: 1_000,
   bootQueue: 1_024,
   followUps: 64,
   notifyChain: 64,
@@ -329,6 +335,15 @@ export const fragOf = (m: Compiled, inc: Inc): Pick<Fragment, "nodes" | "root" |
 export const note = (tx: Tx, kind: string, fields: Record<string, unknown> = {}) =>
   void tx.evidence.push({ kind, ...fields });
 export const issue = (tx: Tx, i: Issue) => void tx.issues.push(i);
+export const strand = (tx: Tx, key: string, op: string) => {
+  tx.w = { ...tx.w, stranded: { ...tx.w.stranded, [key]: { op } } };
+  tx.visible = true;
+};
+export const clearStranded = (tx: Tx, key: string) => {
+  if (!tx.w.stranded[key]) return;
+  const { [key]: _gone, ...stranded } = tx.w.stranded;
+  tx.w = { ...tx.w, stranded };
+};
 export const nextGen = (tx: Tx) => {
   const n = tx.w.nextId;
   tx.w = { ...tx.w, nextId: n + 1 };

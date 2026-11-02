@@ -1,6 +1,6 @@
 // The thin read lane (D23, rules 42, 52): no cache, no resources, no hold, not persisted. One lane per (actor, incarnation,
 // operation); replace latest; a read's generation drops a superseded answer. D47: it carries the position it started at.
-import { enqueue, issue, nextGen, note, noteEnding, position, without, type Ending, type Owner, type Tx } from "./world.ts";
+import { enqueue, nextGen, note, noteEnding, position, without, type Ending, type Owner, type Tx } from "./world.ts";
 
 const keyOf = (actor: string, inc: string, op: string) => `read/${actor}/${inc}/${op}`;
 export const lookup = (
@@ -35,13 +35,12 @@ export const lookup = (
     ctx: { id: key, mayHaveApplied: false },
   });
 };
-// D100: a read that cannot be named cannot go. It ends as a failure through its own outcomes, as a defect would, and replaces what was open: the newest ask is what is wanted.
+// D108: a read that cannot be named cannot go. It ends as a failure through its own outcomes, as a defect would, and replaces what was open: the newest ask is what is wanted.
 export const lookupUnencodable = (
   tx: Tx,
   a: { actor: string; machine: string; op: string; owner: Owner; inc: string },
 ) => {
   cancelRead(tx, a.actor, a.inc, a.op);
-  issue(tx, { code: "UnencodableValue", origin: `${a.machine} ${a.op}` });
   const ending: Ending = { ch: "failure", tag: "Defect", value: { why: "Unencodable" } };
   noteEnding(tx, { op: a.op }, ending);
   enqueue(tx, { k: "ending", actor: a.actor, op: a.op, key: null, owner: a.owner, ending, input: undefined, inc: a.inc });

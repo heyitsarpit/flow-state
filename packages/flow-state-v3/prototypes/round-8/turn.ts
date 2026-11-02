@@ -12,9 +12,9 @@ import type {
   Placement,
   Slot,
 } from "../conformance/fixtures/compiled.ts";
-import { encoded, own, text } from "./gate.ts";
+import { entered, own, text } from "./gate.ts";
 import { told as moduleTold, prepareAll, Refused, run } from "./hooks.ts";
-import {
+import { resetValue,
   down,
   kidAt,
   membership,
@@ -56,6 +56,8 @@ import {
   type Mail,
   type Owner,
   type Tx,
+  clearStranded,
+  strand,
 } from "./world.ts";
 
 const isDenial = (v: unknown): v is { deny: string } =>
@@ -135,12 +137,13 @@ const tokensPass = (w: Walk, path: Path, inc: Inc, alt: Alternative, view: objec
         return { pass: false, reasons };
       continue;
     }
-    // D100: a key with no text names no lane. This alternative is denied; a later one may match. The issue says why, for a guard's reader.
-    const key = t.key ? run(t.key, view as never) : undefined;
-    if (t.key && text(key) === undefined) {
+    // D108: a key with no text names no lane. This alternative is denied; a later one may match. The issue says why, for a guard's reader.
+    const named = t.key ? entered(() => run(t.key!, view as never)) : { ok: true as const, v: undefined };
+    if (!named.ok) {
       issue(w.tx, { code: "UnencodableValue", origin: `${w.a.machine} ${t.op}` });
       return { pass: false, reasons: ["Unencodable"] };
     }
+    const key = named.v;
     const lane = laneOfToken(w, t, key);
     // Rule 51: `retryable` from another path denies NothingToResend. `idle` denies by the lane's state, below.
     if (
@@ -347,11 +350,6 @@ const reach = (
   throw refused(from.at, `no filling of ${n.name} accepted`);
 };
 
-const resetValue = (host: Inc, p: Placement) =>
-  encoded(
-    run(p.resetOn!, inView(host, {}) as never),
-    `${p.resetOn!.at.definition} ${p.resetOn!.at.path}`,
-  );
 // ── Resets on before-walk (rule 1). Declaration order; `.each` keeps one value for the list.
 const doResets = (w: Walk) => {
   const visit = (path: Path) => {
@@ -359,7 +357,7 @@ const doResets = (w: Walk) => {
     if (!host) return;
     for (const { p } of placementsActive(w.m, host)) {
       if (!p.resetOn) continue;
-      const now = resetValue(host, p);
+      const now = resetValue(w.tx, p.resetOn!, inView(host, {}));
       for (const part of partsNamed(host, p.name)) {
         const kid = host.kids[part]!;
         if (kid.frozen || kid.reset === now) continue;
@@ -515,7 +513,7 @@ const applyMove = (w: Walk) => {
       const p = frag.nodes[n]!.placements?.find((x) => x.name === k.name);
       if (!k.frozen || !p) continue;
       // D64: a thaw checks first. A changed reset value means this life is over: no frame of the old subject (rule 52).
-      if (p.resetOn && resetValue(kidAt(w.root, mv.path)!, p) !== k.reset)
+      if (p.resetOn && resetValue(w.tx, p.resetOn, inView(kidAt(w.root, mv.path)!, {})) !== k.reset)
         endInc(w, mv.path, part, p);
       else thawInc(w, [...mv.path, part]);
     }
@@ -629,6 +627,22 @@ const ownerOf = (w: Walk, part: Part): Owner => {
       .map((n) => ({ node: n, activation: at(n) })),
   };
 };
+const mayAsk = (tx: Tx, actor: string, machine: string, op: string) => {
+  const key = `${actor}|${op}`;
+  const cur = own(tx.w.asked, key);
+  const fresh = !cur || tx.env.now - cur.at >= tx.bounds.askWindowMs;
+  const n = fresh ? 1 : cur.n + 1;
+  tx.w = { ...tx.w, asked: { ...tx.w.asked, [key]: { at: fresh ? tx.env.now : cur.at, n } } };
+  if (n <= tx.bounds.askMax) {
+    clearStranded(tx, key);
+    return true;
+  }
+  if (n === tx.bounds.askMax + 1) {
+    issue(tx, { code: "TurnStorm", origin: `${machine} ${op}`, input: { asks: tx.bounds.askMax, inMs: tx.bounds.askWindowMs } });
+    strand(tx, key, op);
+  }
+  return false;
+};
 // P5 first: every select runs before any cell, so a throw leaves no cell behind. P6 then applies in action order.
 const applyMembers = (w: Walk) => {
   const tx = w.tx;
@@ -638,37 +652,32 @@ const applyMembers = (w: Walk) => {
     return part.alt.members.map((mem: Member) => {
       const op = w.m.ops[mem.op]!;
       const owner = ownerOf(w, part);
-      // D89, D100 (O5): encoding never fails the turn, at any door. What cannot encode does not happen; the transition runs. What each does instead is below.
-      const unencodable = { part, mem, inc, unencodable: true, input: undefined, key: null, owner };
-      if (mem.verb === "commit" || mem.verb === "lookup") {
-        const input = run(mem.input, after as never);
-        const key = text(input) === undefined ? undefined : run(op.key, input);
-        if (text(input) === undefined || text(key) === undefined) return unencodable;
-        const prepared =
-          mem.verb === "commit" ? prepareAll(tx, { machine: w.a.machine, op: mem.op, input }) : {};
-        return { part, mem, inc, input, key, prepared, owner };
-      }
-      if (mem.verb === "module") {
-        const value = mem.value ? run(mem.value, after as never) : undefined;
-        if (text(value) === undefined) return unencodable;
-        return { part, mem, inc, value, owner };
-      }
-      const key = mem.key ? run(mem.key, after as never) : undefined;
-      if (text(key) === undefined) return unencodable;
-      return { part, mem, inc, key, owner };
+      // D108: one reader. What each verb does with a value that did not enter is `UNENCODABLE`, below.
+      const got = entered(() => {
+        if (mem.verb === "commit" || mem.verb === "lookup") {
+          const input = run(mem.input, after as never);
+          return { input, key: run(op.key, input), value: undefined };
+        }
+        if (mem.verb === "module") return { input: undefined, key: undefined, value: mem.value ? run(mem.value, after as never) : undefined };
+        return { input: undefined, key: mem.key ? run(mem.key, after as never) : undefined, value: undefined };
+      });
+      if (!got.ok) return { part, mem, inc, unencodable: true, input: undefined, key: null, value: undefined, prepared: undefined, owner };
+      const prepared = mem.verb === "commit" ? prepareAll(tx, { machine: w.a.machine, op: mem.op, input: got.v.input }) : {};
+      return { part, mem, inc, unencodable: false, ...got.v, prepared, owner };
     });
   });
   for (const r of reads) {
     const { mem, inc } = r;
     const op = w.m.ops[mem.op]!;
     const base = { actor: w.a.key, machine: w.a.machine, op: mem.op, owner: r.owner };
-    if (r.unencodable && mem.verb === "lookup") {
-      lookupUnencodable(tx, { ...base, inc: inc.id });
-      continue;
-    }
-    // A module's value goes nowhere. A `retry` or `cancel` key names no lane, since no lane has a key with no text.
-    if (r.unencodable && mem.verb !== "commit") {
+    // D110: a failure with no I/O and a handler that asks again would spin. The ask does not start, and an ending is never what is dropped.
+    if ((mem.verb === "commit" || mem.verb === "lookup" || mem.verb === "retry") && !mayAsk(tx, w.a.key, w.a.machine, mem.op)) continue;
+    if (r.unencodable) {
       issue(tx, { code: "UnencodableValue", origin: `${w.a.machine} ${mem.op}` });
+      // D108: by verb. A module's value goes nowhere. A `retry` or `cancel` key names no lane, since no lane has a key with no text.
+      if (mem.verb === "lookup") lookupUnencodable(tx, { ...base, inc: inc.id });
+      else if (mem.verb === "commit")
+        decline(tx, { ...base, key: null, input: undefined, subject: op.fragment ? inc.subject : [] }, "Unencodable");
       continue;
     }
     if (mem.verb === "module") {
@@ -692,11 +701,6 @@ const applyMembers = (w: Walk) => {
       continue;
     }
     const subject = op.fragment ? inc.subject : [];
-    if (r.unencodable) {
-      issue(tx, { code: "UnencodableValue", origin: `${w.a.machine} ${mem.op}` });
-      decline(tx, { ...base, key: r.key, input: r.input, subject }, "StorageRefused");
-      continue;
-    }
     if (mem.verb === "commit") {
       // D26, review H3: this machine declared write-ahead, and this tab cannot do it. It declines, as an ending; nothing goes out.
       if (w.m.persisted && !tx.w.persistence) {
@@ -860,7 +864,7 @@ const recheckResets = (w: Walk): boolean => {
     if (host.frozen) return;
     for (const { p } of placementsActive(w.m, host)) {
       if (!p.resetOn) continue;
-      const now = resetValue(host, p);
+      const now = resetValue(w.tx, p.resetOn!, inView(host, {}));
       for (const part of partsNamed(host, p.name))
         if (!host.kids[part]!.frozen && host.kids[part]!.reset !== now) pending = true;
     }
@@ -1007,14 +1011,25 @@ const bindingOf = (
   });
   return found;
 };
+// D109: a hold's lane already holds it. A read has no lane and no disk, so a wait says it. A write's goes where a parked ending goes: on disk, delivered at the next boot or adoption.
+const keepEnding = (tx: Tx, item: EndingMail) => {
+  const lane = tx.w.lanes[laneKey(item.actor, item.op, item.key)];
+  note(tx, "EndingKept", { op: item.op, attempt: item.attempt ?? "" });
+  if (item.inc) return strand(tx, `${item.actor}|${item.op}`, item.op);
+  if (lane?.head?.id === item.attempt) return;
+  const machine = lane?.machine ?? getActor(tx.w.actors, item.actor)?.machine ?? item.machine;
+  if (machine === undefined || !tx.machines[machine]?.persisted) return strand(tx, `${item.actor}|${item.op}`, item.op);
+  parkEnding(tx, item, lane, item.subject ?? lane?.subject ?? [], machine, false);
+};
 const parkEnding = (
   tx: Tx,
   item: EndingMail,
   lane: Lane | undefined,
   subject: readonly string[],
   machine: string,
+  say = true, // kept after a refused turn: its `delivered` is already said, so nothing further is owed in evidence
 ) => {
-  note(tx, "parked", { op: item.op, attempt: item.attempt ?? "" });
+  if (say) note(tx, "parked", { op: item.op, attempt: item.attempt ?? "" });
   const parked = {
     ...(item.attempt ? { attempt: item.attempt } : {}),
     ending: item.ending,
@@ -1157,6 +1172,8 @@ const attemptTurn = (tx: Tx, item: Mail, tag: string, f: () => void): boolean =>
       const { onLane: _o, ...rest } = item;
       enqueue(tx, { ...rest, redelivered: true });
     }
+    // D109: and then it is kept. A turn can never lose a completion.
+    if (item.k === "ending" && again) keepEnding(tx, item);
     // D50, M5: a firing is a delivery too (rule 8). `EXPIRED`'s GiveUp is the only way out of it.
     if (item.k === "fire" && !again) enqueue(tx, { ...item, redelivered: true });
     return false;

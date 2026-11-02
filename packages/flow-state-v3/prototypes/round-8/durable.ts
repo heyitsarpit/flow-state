@@ -2,7 +2,7 @@
 // unknown { Restored }. `W` never left, and restores NotSent { Restored }. D30: silence is not refusal. D46: restore is per record;
 // a record that does not decode, or names what this release removed, is quarantined and the rest boots.
 import { getActor, setActor, noActors, type Actors } from "./actors.ts";
-import { text, own, validActor, validLane } from "./gate.ts";
+import { text, own, Unencodable, validActor, validLane } from "./gate.ts";
 import type { Compiled } from "../conformance/fixtures/compiled.ts";
 import { hook, saveAll } from "./hooks.ts";
 import { afterAck, cell } from "./lane.ts";
@@ -75,9 +75,9 @@ const storableParked = (tx: Tx, l: Lane) =>
     issue(tx, { code: "UnencodableValue", origin: `${l.machine} ${l.op}` });
     return { ...p, ending: { ...p.ending, value: { unencodable: true } } };
   });
-const encodeLane = (tx: Tx, l: Lane) =>
+// D111: `saved` compares these bytes. The stamp goes on when they are written, so a lane unchanged in a later boot is not rewritten, and keeps the older stamp, which is still true of its ids.
+const laneBody = (tx: Tx, l: Lane) =>
   JSON.stringify({
-    boot: tx.w.boot, // D99: every id in this record was minted at or before this boot
     id: l.id,
     actor: l.actor,
     machine: l.machine,
@@ -89,6 +89,7 @@ const encodeLane = (tx: Tx, l: Lane) =>
     parked: storableParked(tx, l),
     ...(l.releasing ? { releasing: true } : {}),
   });
+const stamped = (tx: Tx, body: string) => `{"boot":${tx.w.boot},${body.slice(1)}`; // D99
 // D80: a reference, not bytes. The world is immutable, so this is already a whole publication; the driver encodes it when it writes.
 const actorRecord = (tx: Tx, key: string): unknown => {
   const live = getActor(tx.w.actors, key);
@@ -144,7 +145,7 @@ export const flush = (tx: Tx) => {
   );
   const put = (scope: string, id: string, value: string | undefined) => {
     if (owed.has(id) || saved[id] === value) return;
-    add(scope, { key: `lane/${id}`, value });
+    add(scope, { key: `lane/${id}`, value: value === undefined ? undefined : stamped(tx, value) });
     now.add(scope); // D84
     if (value === undefined) {
       const { [id]: _gone, ...rest } = saved;
@@ -159,7 +160,7 @@ export const flush = (tx: Tx) => {
       if (!tx.machines[l.machine]!.persisted) continue;
       const ask = tx.asks.find((x) => x.lane === id);
       if (ask) continue; // the awaited write says it
-      put(actor, id, encodeLane(tx, l));
+      put(actor, id, laneBody(tx, l));
     }
     // D78: the old name goes in the same batch that writes the new one, so a crash leaves one or the other.
     const old = tx.w.rekeyed[id];
@@ -169,26 +170,17 @@ export const flush = (tx: Tx) => {
       tx.w = { ...tx.w, rekeyed };
     }
   }
-  const persisted = writes.size > 0 || tx.asks.length > 0;
-  const meta = JSON.stringify({ boot: tx.w.boot, nextMint: tx.w.nextMint });
-  if (persisted && meta !== tx.w.savedMeta) {
-    // Its own scope: it belongs to no actor, and restore needs it only as a floor (it takes the max with the lanes').
-    // `now`: found by the 5 s pass (PAY-14): a coalesced `boot` lost to a kill repeats the next boot's number, and frames' seq with it.
-    add("meta", { key: "meta", value: meta });
-    now.add("meta");
-    tx.w = { ...tx.w, savedMeta: meta };
-  }
   for (const [scope, w] of writes) tx.commands.push({ k: "persist", scope, writes: w, now: now.has(scope) });
   for (const a of tx.asks) {
     const l = tx.w.lanes[a.lane];
     const p = l?.head?.phase;
     if (!l || p?.t !== "durable" || p.ticket !== a.ticket) continue; // replaced in this same step
-    const value = encodeLane(tx, l);
+    const value = laneBody(tx, l);
     saved = { ...saved, [a.lane]: value };
     tx.commands.push({
       k: "persist",
       scope: l.actor,
-      writes: [{ key: `lane/${a.lane}`, value }],
+      writes: [{ key: `lane/${a.lane}`, value: stamped(tx, value) }],
       now: true,
       ticket: {
         attempt: l.head!.id,
@@ -248,13 +240,9 @@ const mail = (
   });
 // The restore row, and rule 44's delivery order: per lane in creation order, before any external event.
 export const restore = (tx: Tx, records: ReadonlyArray<readonly [string, string]>) => {
-  const metaText = records.find(([k]) => k === "meta")?.[1];
-  const m = metaText
-    ? (parse(tx, "meta", metaText) as { boot: number; nextMint: number } | undefined)
-    : undefined;
-  let maxMint = (Number.isFinite(m?.nextMint) ? m!.nextMint : 1) - 1;
-  // D99: `meta` may land apart, or not read. An id on disk is never repeated: the floor is the largest boot any record says it was written in.
-  let maxBoot = Number.isFinite(m?.boot) ? m!.boot : 0;
+  let maxMint = 0;
+  // D99, D111: an id on disk is never repeated: the floor is the largest boot any record says it was written in. With nothing on disk no id can repeat, so a number may.
+  let maxBoot = 0;
   const floorBoot = (v: { boot?: unknown } | undefined) => {
     if (Number.isSafeInteger(v?.boot)) maxBoot = Math.max(maxBoot, v!.boot as number);
   };
@@ -313,7 +301,8 @@ export const restore = (tx: Tx, records: ReadonlyArray<readonly [string, string]
         hold();
         continue;
       }
-      saved[v.id] = text;
+      const { boot: _stamp, ...body } = v;
+      saved[v.id] = JSON.stringify(body);
       lanes.push([k, rekeyLane(tx, v, lanes)]);
     }
   }
@@ -348,6 +337,13 @@ export const restore = (tx: Tx, records: ReadonlyArray<readonly [string, string]
       deleteOnly(tx, l.id, l.actor); // delivered next, or parked again with a fresh record
       continue;
     }
+    // D107: W first. Each ends NotSent { Restored } (C2), or as evidence on a releasing lane. The head's ending comes last, so a hold's route is the one the machine ends on.
+    for (const a of l.w) {
+      const e: Ending = { ch: "failure", tag: "NotSent", value: { why: "Restored" } };
+      noteEnding(tx, { op: l.op, attempt: a.id }, e);
+      if (l.releasing) note(tx, "evidenceOnly", { op: l.op, attempt: a.id });
+      else mail(tx, l, a, e, false);
+    }
     const ownParked = parked.some((p) => p.attempt === h.id);
     const ending: Ending = { ch: "unknown", reason: "Restored" }; // D96
     if (ownParked) {
@@ -372,13 +368,6 @@ export const restore = (tx: Tx, records: ReadonlyArray<readonly [string, string]
         mail(tx, l, h, ending, true);
       }
     }
-    // W: each ends NotSent { Restored } (C2), or as evidence on a releasing lane.
-    for (const a of l.w) {
-      const e: Ending = { ch: "failure", tag: "NotSent", value: { why: "Restored" } };
-      noteEnding(tx, { op: l.op, attempt: a.id }, e);
-      if (l.releasing) note(tx, "evidenceOnly", { op: l.op, attempt: a.id });
-      else mail(tx, l, a, e, false);
-    }
   }
   tx.w = { ...tx.w, nextMint: maxMint + 1 };
 };
@@ -393,6 +382,7 @@ const rekeyLane = (
   try {
     fresh = tx.machines[v.machine]!.ops[v.op]!.key.run(v.head.input);
   } catch (e) {
+    if (e instanceof Unencodable) return v; // no new name to move to
     issue(tx, { code: "UserClosure", origin: `${v.machine} ${v.op} key`, input: String(e) });
     return v;
   }
