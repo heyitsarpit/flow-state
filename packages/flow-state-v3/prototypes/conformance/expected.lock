@@ -161,7 +161,7 @@ REV7-CHAT 6f845a85cc7f
 REV8-H1 e90158a77878
 REV8-M2 3051245341c8
 REV8-FATAL 6d47a47887cb
-REV8-M3 6693a478a456
+REV8-M3 568dda8d58be
 REV8-M9 fe1847516ddb
 REV8-KEPT d4510b371d8a
 REV8-STORM ba92e33bfb1a
@@ -761,7 +761,7 @@ file:scenarios/round6.scenario.ts ea6c85e13efa
 file:fixtures/round6.compiled.ts 1ae414ffbb3b
 file:scenarios/round7.scenario.ts 0a0e78871e18
 file:fixtures/round7.compiled.ts 4dbffb93f0d9
-file:scenarios/round8.scenario.ts e604b2f1b4dc
+file:scenarios/round8.scenario.ts 6e7e6c0a53b0
 file:fixtures/round8.compiled.ts 12135ddc379e
 file:search/engine.ts c367415eccc9
 file:search/flush.search.ts bce34e172153

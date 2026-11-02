@@ -4,57 +4,58 @@
  "perDepth": [
   1,
   2,
-  4,
-  10,
-  21,
-  41,
+  3,
+  6,
+  13,
+  29,
+  53,
   73,
-  108,
-  143,
-  209,
-  330,
-  521,
-  855,
-  1417
+  100,
+  142,
+  195,
+  285,
+  449,
+  706,
+  1133
  ],
- "states": 5377,
- "edges": 17058,
- "steps": 504723,
- "depthCompleted": 13,
+ "states": 3579,
+ "edges": 10919,
+ "steps": 344281,
+ "depthCompleted": 14,
  "classes": {
   "charged-unaccounted:PAID": {
-   "count": 2560,
+   "count": 1385,
    "witness": "Pay ack pay.ok Pay"
   },
   "two-keys-one-intent:PAID": {
-   "count": 2560,
+   "count": 1385,
    "witness": "Pay ack pay.ok Pay"
   },
   "held-no-owner:PAYING": {
-   "count": 410,
+   "count": 467,
    "witness": "Pay ack KILL Pay"
   },
   "charged-unaccounted:PAYING": {
-   "count": 78,
+   "count": 104,
    "witness": "Pay ack pay.ok KILL Pay"
   },
   "held-no-owner:PAID": {
-   "count": 2368,
+   "count": 1727,
    "witness": "Pay ack pay.ok Pay ack ack KILL"
   },
   "two-keys-one-intent:PLACING": {
-   "count": 7,
+   "count": 19,
    "witness": "Pay ack pay.ok ack KILL ack KILL ack KILL ack KILL Pay"
   },
   "two-keys-one-intent:STUCK": {
-   "count": 2,
+   "count": 7,
    "witness": "Pay ack pay.ok Pay ack ack pay.ok KILL ack KILL ack KILL ack KILL"
   }
  },
- "ms": 45001,
- "peakRssMb": 204,
+ "ms": 30001,
+ "peakRssMb": 206,
  "unpinned": [],
  "lanesAhead": 0
 }
 
-WATCH peak 196 MB, 45.1 s, exit 0, killed no
+WATCH peak 196 MB, 30.1 s, exit 0, killed no

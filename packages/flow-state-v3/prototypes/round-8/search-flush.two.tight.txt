@@ -4,20 +4,20 @@
  "perDepth": [
   1,
   13,
-  101,
-  671,
-  4036
+  99,
+  631,
+  3620
  ],
- "states": 20884,
- "edges": 57558,
- "steps": 560112,
+ "states": 15153,
+ "edges": 43536,
+ "steps": 417842,
  "depthCompleted": 4,
  "classes": {},
- "ms": 45002,
- "peakRssMb": 211,
+ "ms": 30001,
+ "peakRssMb": 208,
  "unpinned": [],
- "lanesAhead": 6,
+ "lanesAhead": 7,
  "lanesAheadWitness": "NoteBad Go ack KILL => A [\"charge|{}\"]"
 }
 
-WATCH peak 201 MB, 45.1 s, exit 0, killed no
+WATCH peak 198 MB, 30.1 s, exit 0, killed no

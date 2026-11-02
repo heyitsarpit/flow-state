@@ -17,7 +17,7 @@
    "B": 12
   }
  },
- "peakMb": 703,
+ "peakMb": 792,
  "round-7:h1store-refunds-hold400": {
   "cycles": 12,
   "arrived": 12,
@@ -43,10 +43,10 @@
   },
   "twoKeysBesideAnUndecidedFirst": 0,
   "restored": {
-   "A": 12
+   "U": 12
   },
   "endings": {
-   "unknown,failure": 12
+   "failure,unknown": 12
   },
   "final": {
    "W": 12
@@ -63,7 +63,7 @@
    "READY": 12
   },
   "endings": {
-   "unknown,failure": 12
+   "failure,unknown": 12
   },
   "final": {
    "READY": 12

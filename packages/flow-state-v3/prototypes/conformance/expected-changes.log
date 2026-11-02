@@ -274,3 +274,5 @@ file:drive.ts hash:657ee2b122d5 | round 8, D112: writeAheadLies, and what a wipe
 file:scenarios/round7.scenario.ts hash:0a0e78871e18 | round 8: carries REV7-H1, REV7-M9 above
 file:scenarios/round8.scenario.ts hash:e604b2f1b4dc | round 8: carries REV8 lines above, adds REV8-KEPT and REV8-STORM
 file:fixtures/round8.compiled.ts hash:12135ddc379e | round 8: boom, readBoom, readLoop, a looping commit, a reset placement
+REV8-M3 hash:568dda8d58be | round 8's own: the lane-alone case now really has a lane stamped past its actor, shown by a survivor
+file:scenarios/round8.scenario.ts hash:6e7e6c0a53b0 | round 8: carries REV8-M3 above: a failed boot write before the poison

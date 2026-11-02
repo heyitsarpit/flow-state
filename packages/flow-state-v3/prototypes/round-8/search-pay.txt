@@ -6,82 +6,81 @@
   2,
   12,
   48,
-  202,
-  795,
-  3063,
-  11695
+  205,
+  821,
+  3216
  ],
- "states": 19965,
- "edges": 49761,
- "steps": 1090666,
- "depthCompleted": 7,
+ "states": 14021,
+ "edges": 33737,
+ "steps": 707203,
+ "depthCompleted": 6,
  "classes": {
   "charged-unaccounted:PAYING": {
-   "count": 1534,
+   "count": 945,
    "witness": "PayRequested Leave PayRequested"
   },
   "charged-unaccounted:CARD": {
-   "count": 913,
+   "count": 489,
    "witness": "PayRequested Leave Start"
   },
   "charged-unaccounted:PAID": {
-   "count": 1117,
+   "count": 605,
    "witness": "PayRequested ack pay.ok PayRequested"
   },
   "charged-unaccounted:LEFT": {
-   "count": 652,
+   "count": 250,
    "witness": "PayRequested Leave Start2 Leave"
   },
   "held-no-owner:PAYING": {
-   "count": 1532,
+   "count": 1302,
    "witness": "PayRequested ack reload PayRequested"
   },
   "two-keys-one-intent:PAID": {
-   "count": 862,
+   "count": 626,
    "witness": "PayRequested ack pay.ok PayRequested"
   },
   "placed-and-voided:LEFT": {
-   "count": 232,
+   "count": 183,
    "witness": "PayRequested ack pay.ok Leave"
   },
   "order-no-receipt:LEFT": {
-   "count": 250,
+   "count": 199,
    "witness": "PayRequested ack pay.ok Leave"
   },
   "charged-unaccounted:UNSURE": {
-   "count": 102,
+   "count": 67,
    "witness": "PayRequested Leave Start2 ack advance60000"
   },
   "held-no-owner:CARD": {
-   "count": 167,
+   "count": 161,
    "witness": "PayRequested Leave ack reload Start"
   },
   "placed-and-voided:PAID": {
-   "count": 631,
+   "count": 511,
    "witness": "PayRequested ack pay.ok Leave Leave"
   },
   "two-keys-one-intent:LEFT": {
-   "count": 163,
+   "count": 117,
    "witness": "PayRequested ack pay.ok PayRequested Leave"
   },
   "told-not-charged:PAID": {
-   "count": 10,
+   "count": 9,
    "witness": "PayRequested ack pay.ok PayRequested ack refuse"
   },
   "order-no-receipt:PAYING": {
-   "count": 23,
+   "count": 21,
    "witness": "PayRequested ack pay.ok PayRequested ack hang"
   },
   "told-not-charged:CARD": {
-   "count": 26,
+   "count": 14,
    "witness": "PayRequested ack pay.ok PayRequested refuse refuse"
   },
   "two-keys-one-intent:PAYING": {
-   "count": 7,
+   "count": 5,
    "witness": "PayRequested Leave ack pay.ok PayRequested Leave PayRequested"
   },
   "two-keys-one-intent:CARD": {
-   "count": 16,
+   "count": 10,
    "witness": "PayRequested Leave ack pay.ok PayRequested Leave Start"
   },
   "held-no-owner:PAID": {
@@ -95,15 +94,11 @@
   "placed-and-voided:CARD": {
    "count": 2,
    "witness": "PayRequested ack pay.ok Leave ack place.ok Start"
-  },
-  "told-not-charged:LEFT": {
-   "count": 2,
-   "witness": "PayRequested Leave Start ack pay.ok PayRequested refuse Leave"
   }
  },
- "ms": 45001,
- "peakRssMb": 231,
+ "ms": 30001,
+ "peakRssMb": 230,
  "unpinned": []
 }
 
-WATCH peak 220 MB, 45.1 s, exit 0, killed no
+WATCH peak 219 MB, 30.1 s, exit 0, killed no

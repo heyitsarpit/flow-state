@@ -1,6 +1,6 @@
 # Handoff: Flow State v3 buildout
 
-Written at the end of round 7, at `b423af26`. Everything here is proposed unless marked decided. The grouping into rounds is rough; only round 8's list comes from a review.
+Written at the end of round 7, at `b423af26`; state and round 8 updated at the end of round 8. Everything here is proposed unless marked decided. The grouping into rounds is rough.
 
 Continue the Flow State v3 runtime prototype in `/Users/arpit/Developer/flow-state`, branch `flow-rewrite`. Read `AGENTS.md` and the memory index first; memory holds the working rules. You have delegated authority for design calls: make them, record the reasons, report them for Arpit to overrule. Editing `.plan` files and `machine-design.md` waits for the merge. Commit locally, never push, no next-step buttons.
 
@@ -8,10 +8,9 @@ Continue the Flow State v3 runtime prototype in `/Users/arpit/Developer/flow-sta
 
 Under `packages/flow-state-v3/prototypes/`:
 
-1. `round-7/review.md`: final review. Advice; you decide.
-2. `round-7/RESULTS.md`: where it disagrees with the review, trust neither until rerun.
-3. `round-7/review-mid.md`: assumptions table.
-4. `convergence-7.md`, `round-7/edge-proposal.md`
+1. `round-8/RESULTS.md`, `round-8/review-mid.md`: where they disagree, trust neither until rerun.
+2. `convergence-8.md`: what replaced what, and why.
+3. `round-7/review.md`, `convergence-7.md`, `round-7/edge-proposal.md` for the edge's reasoning.
 
 From the repo root:
 
@@ -19,16 +18,11 @@ From the repo root:
 
 ## State
 
-Suite 563/563. Lane core stable. Edge rule unbroken, but H1, M2 and M3 are open. `Compiled` is not settled: 84 of 563 cases boot typed machines. Nothing from the review is applied.
+Suite 621/621, all at `round-8/`. Lane core stable. H1, M2, M3, M9's doors, the fatal check closed; `acked` and `meta` gone. H3's cause found: Chrome's own recovery on a torn log. `Compiled` is not settled: typed machines still boot only a part of the suite. **Round 8 has no final independent review:** the mid-session one read checkpoint 1, before the second pass (D107-D113). One is owed, with mutants written first. Its D108, D109, D110 are new and only builder-tested.
 
-## Round 8: make the edge and the tests trustworthy
+## Round 8: done
 
-1. H1 at `round-7/durable.ts:161`: apply the fix, or remove `acked` if that is the root cause. Add a case in `conformance/scenarios/`, and a `serialize` target and alphabet in `conformance/search/flush.search.ts`; oracle (h) must read the record. Rerun on real IndexedDB with the slowed store, and confirm on `Checkout/Refunds`, which the review only read.
-2. `edge.ts:147`: issue when hidden (M2). `driver.ts:115`: fatal check. `durable.ts:176`: `meta` (M3).
-3. M9's three doors, `gate.ts` and `turn.ts`, one codec.
-4. Harness: `conformance/mutate-one.ts` gets `--swap`, CLI pins, gate. Pin the survivors, starting with hide on two actors, after-drain, poison's lanes. Find why no search kills a core mutant, and why the builder's 3 search-only kills did not reproduce.
-5. `conformance/fake-world.ts`: a wipe step, a slow store after an ack, fix the `claim` type error at line 401. `conformance/bench/cdp.ts`: name the kill kinds.
-6. H3: the origin is deleted on a main-process kill. Find what deletes it, and test a normal profile and a real crash. Design for a wiped origin regardless.
+See `round-8/RESULTS.md`. Left from it, for later: `input` through its Schema with `keyFields` (the second codec's gap), stale names after D96 (`Purpose`, `byEnding`'s dead branch), design-doc lines listed in the mid review, a superseded bad lookup's generation.
 
 ## Round 9: entities and types
 
@@ -67,7 +61,7 @@ Move `conformance/` out of `prototypes/`, add fast parts to `nub run verify`, ke
 
 ## Limits
 
-- Weekly usage 55% at handover, hard stop 90%. The memory note `v3-prototype-handover` still says 55%; 90% is the later figure.
+- Weekly usage: hard stop 90%.
 - Run under `conformance/watch.ts`, one process under 2 GB. Never run from `codebases/`.
 - Pay stays pinned. Entities optional, not up for cutting.
 - Leave `.claude/launch.json` and `machine-fragments/explorations/` uncommitted.

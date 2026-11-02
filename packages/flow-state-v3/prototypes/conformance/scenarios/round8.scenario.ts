@@ -292,12 +292,14 @@ export const round8Scenarios: readonly Scenario[] = [
       },
       // D99's other half: a poison actor's record stays back, and only its lane says which boot wrote it.
       "a-lane-alone-still-floors-the-boot"(c0) {
-        c0.namedIssues.push("UnencodableValue");
+        c0.namedIssues.push("UnencodableValue", "StorageFailure");
         const c = on(c0, serialBareFixture(), { captureMs: 0 });
+        c.fault({ storageFails: 1 }); // the new boot's first actor write fails, so its record never says this boot
         c.reload();
-        c.send("NoteBad");
+        c.send("NoteBad"); // and from here it cannot go
         c.send("Go");
         c.ack();
+        c.yes("the lane says this boot", disk(c, KEY)?.boot > disk(c, ACTOR)?.boot);
         c.reload();
         const seq = c.r.frames().map((f) => f.seq);
         c.eq("no repeat", new Set(seq).size, seq.length);
