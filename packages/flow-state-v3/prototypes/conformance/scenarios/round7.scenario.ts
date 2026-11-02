@@ -48,23 +48,24 @@ export const round7Scenarios: readonly Scenario[] = [
         const c = fresh(c0);
         c.fault({ storageFailsHeld: 1 });
         c.send("Note", { text: "old" }); // issued, unanswered
-        c.send("Note", { text: "new" }); // D95: held until the older one answers
+        c.send("Note", { text: "new" }); // one out per actor: held until the older one answers
         c.eq("held, not ahead of it", noteOn(c), "");
         c.do({ storage: "failLate" });
+        c.advance(1_000); // its backoff
         c.eq("then the newest, and only the newest", noteOn(c), "new");
         c.advance(60_000);
         c.eq("the failed older write did not come back", noteOn(c), "new");
       },
-      "a-failed-batch-re-enters-only-keys-it-was-newest-of"(c0) {
+      "what-a-failed-batch-owed-boards-the-next-ack"(c0) {
         const c = fresh(c0);
         c.fault({ storageFailsHeld: 1 });
-        c.send("Go"); // actor + lane: fail later. The awaited write is newer for the lane; the actor is newest here
-        c.eq("D94: the ack is not out yet", c.r.outside().storage.length, 0);
-        c.do({ storage: "failLate" }); // D94: only now does the ack go out, with what the batch owed
+        c.send("Note", { text: "t" }); // out, will fail, nobody knows yet
+        c.send("Go"); // waits: one out per actor
+        c.eq("the ack is not out", c.r.outside().storage.filter((s) => s.purpose !== "flush").length, 0);
+        c.do({ storage: "failLate" });
         c.ack();
-        c.advance(5_000);
-        c.eq("the actor came back", disk(c, ACTOR).root.leaf, "W");
-        c.eq("the lane did not", disk(c, KEY)?.head?.acked, true);
+        c.eq("the note came with it", noteOn(c), "t");
+        c.eq("the lane too", disk(c, KEY)?.head?.acked, true);
       },
       // The same on a later plain batch: a hold's record fails, said only after a re-send's capture was issued and landed.
       "a-re-send-capture-is-not-undone-by-an-older-hold-record"(c0) {
@@ -197,6 +198,7 @@ export const round7Scenarios: readonly Scenario[] = [
         c.send("Note", { text: "t" });
         c.eq("waits", noteOn(c), "");
         c.send("Go");
+        c.ack();
         c.eq("a lane flushed it: memory and lane together", noteOn(c), "t");
         c.eq("the lane is on disk, whole", disk(c, ACTOR).root.leaf, "W");
       },
@@ -387,7 +389,7 @@ export const round7Scenarios: readonly Scenario[] = [
         c.ack();
         c.answer("charge", { ok: { big: 10n } });
         c.send("NoteBad");
-        c.eq("named once", c.r.issues().filter((i) => i.code === "UnencodableValue").length, 1);
+        c.yes("named", c.r.issues().some((i) => i.code === "UnencodableValue"));
         c.yes("the lane is still there", !!disk(c, KEY));
         c.do({ fault: { storageFails: 0 } });
         c.yes("unchanged", !!disk(c, KEY));

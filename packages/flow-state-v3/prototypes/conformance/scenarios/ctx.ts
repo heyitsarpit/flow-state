@@ -24,10 +24,11 @@ export const checkClaims = (r: Reads) => {
         break;
       case "ack":
       case "capture":
-        // Round 7, D94: it may also wait for a plain batch of its actor whose answer has not come: one failing unsaid, or one queued behind a held write of that actor.
+        // Round 7, the edge: a write may wait for the one batch its actor has out. So: a write outside for this actor, and no other reading of "outside".
         if (
-          !out.storage.some((s) => s.keys.some((k) => k === w.key || k.endsWith(w.key.split("|")[0]!.slice(5)))) &&
-          out.failing === 0
+          !out.storage.some((s) =>
+            s.keys.some((k) => k === w.key || k === `actor/${w.key.split("|")[0]!.slice(5)}` || k.startsWith(`${w.key.split("|")[0]!}|`)),
+          )
         )
           throw new Mismatch(`L3: ${w.kind} claim for ${w.op} with no write outside`);
         break;

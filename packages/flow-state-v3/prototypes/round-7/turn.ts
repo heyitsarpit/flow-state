@@ -690,6 +690,11 @@ const applyMembers = (w: Walk) => {
       continue;
     }
     if (mem.verb === "commit") {
+      // D26, review H3: this machine declared write-ahead, and this tab cannot do it. It declines, as an ending; nothing goes out.
+      if (w.m.persisted && !tx.w.persistence) {
+        decline(tx, { ...base, key: r.key, input: r.input, subject }, "NoPersistence");
+        continue;
+      }
       const lane = tx.w.lanes[laneKey(w.a.key, mem.op, r.key)];
       if (lane && !sameSubject(lane.subject, subject)) {
         decline(tx, { ...base, key: r.key, input: r.input, subject }, "Rejected"); // rule 51
@@ -1053,7 +1058,7 @@ const admitEnding = (tx: Tx, item: EndingMail): void => {
     return;
   }
   // D72: this restored ending is now mail no more. The record on disk may follow.
-  if (item.restored) tx.touchedLanes.add(laneId);
+  if (item.restored) tx.touchedLanes.set(laneId, item.actor);
   const a = getActor(tx.w.actors, item.actor);
   const lane = tx.w.lanes[laneId];
   if (!a) {
@@ -1116,7 +1121,7 @@ const attemptTurn = (tx: Tx, item: Mail, tag: string, f: () => void): boolean =>
     evidence: tx.evidence.length,
     asks: tx.asks.length,
     touchedA: new Set(tx.touchedActors),
-    touchedL: new Set(tx.touchedLanes),
+    touchedL: new Map(tx.touchedLanes),
   };
   tx.inTurn = true;
   try {
@@ -1132,7 +1137,7 @@ const attemptTurn = (tx: Tx, item: Mail, tag: string, f: () => void): boolean =>
     tx.touchedActors.clear();
     for (const x of kept.touchedA) tx.touchedActors.add(x);
     tx.touchedLanes.clear();
-    for (const x of kept.touchedL) tx.touchedLanes.add(x);
+    for (const [x, a] of kept.touchedL) tx.touchedLanes.set(x, a);
     const again = (item.k === "ending" || item.k === "fire") && item.redelivered === true;
     issue(tx, {
       code: "InvalidTurn",

@@ -15,17 +15,12 @@ export type Host = {
   scheduler: Scheduler.Scheduler;
   // Round 7, D80: when the page stops being seen: `visibilitychange` to hidden, `pagehide`. A host may not have one.
   onHidden?(f: () => void): void;
+  isHidden?(): boolean; // while hidden nothing waits for `captureMs` (review M3)
   storage: {
     load(): ReadonlyMap<string, string> | PromiseLike<ReadonlyMap<string, string>>; // round 7: a real read takes time, or never answers
     // `then` makes the write awaited: the fake holds it until a `storage` step. Others land at once. `failed`: a plain write that
     // did not land (review M7). A real store says so; silence is not landing. The batch is atomic: this is the contract D80 relies on.
-    write(
-      writes: readonly Write[],
-      purpose: Purpose,
-      then?: (ok: boolean) => void,
-      failed?: (why: string) => void,
-      landed?: () => void, // round 7: a plain write's success, since a backoff cannot reset on silence (review L2)
-    ): void;
+    write(writes: readonly Write[], purpose: Purpose, answer: (ok: boolean, why?: string) => void): void; // an answer comes later, never inside
   };
 };
 export type ServerModel = {
@@ -134,16 +129,26 @@ export class FakeWorld {
   plainFailsLate = 0;
   plainFailsHeld = 0;
   private laterFailing = 0;
-  private lateReports: Array<() => void> = [];
+  private lateReports: Array<{ writes: readonly Write[]; go: () => void }> = [];
+  holdPlain = false; // a plain success in flight: answered by a `storage` step (review, assumption 14)
+  storeWide = false; // one IndexedDB store: only the oldest batch is answerable, so a hang holds everyone
+  hidden = false;
+  freezeTimers = false; // a frozen tab: nothing fires until thaw
+  private outKeys = (): Set<string> =>
+    new Set([...this.held.flatMap((h) => h.writes), ...this.lateReports.flatMap((r) => r.writes)].map((w) => w.key));
+  private oneOutPerKey(writes: readonly Write[]) {
+    const out = this.outKeys();
+    for (const w of writes)
+      if (out.has(w.key) && w.key !== "meta") throw new Error(`(g) a second write out for ${w.key}`);
+  }
   loadMode: "now" | "hang" | "fail" = "now"; // round 7: the next boot's read
   private pendingLoad: { ok: (m: ReadonlyMap<string, string>) => void; no: (e: unknown) => void } | undefined;
-  private hidden: Array<{ f: () => void; process: number }> = [];
+  private hiders: Array<{ f: () => void; process: number }> = [];
   private lastBatch: Array<{ key: string; before: string | undefined }> = [];
   private held: Array<{
     writes: readonly Write[];
     purpose: Purpose;
-    then?: ((ok: boolean) => void) | undefined;
-    landed?: (() => void) | undefined;
+    answer: (ok: boolean, why?: string) => void;
     hung?: boolean;
   }> = [];
   constructor(
@@ -180,7 +185,8 @@ export class FakeWorld {
       },
       later: (f) => void this.laters.push(f),
       scheduler: this.scheduler,
-      onHidden: (f) => void this.hidden.push({ f, process }),
+      onHidden: (f) => void this.hiders.push({ f, process }),
+      isHidden: () => this.hidden,
       storage: {
         // M9: a store has no order. Shuffled per seed and process, for good, so rule 44's order is the runtime's own.
         load: () => {
@@ -198,33 +204,30 @@ export class FakeWorld {
             }) as never,
           } as PromiseLike<ReadonlyMap<string, string>>;
         },
-        write: (writes, purpose, then, failed, landed) => {
-          const blocked = writes.some((w) =>
-            this.held.some((h) => h.writes.some((x) => x.key === w.key)),
-          );
-          if (then === undefined && !blocked && this.plainFails > 0) {
+        write: (writes, purpose, answer) => {
+          this.oneOutPerKey(writes); // oracle (g): the edge's invariant, seen from the store
+          const plain = purpose === "flush";
+          if (plain && this.plainFails > 0) {
             this.plainFails--;
-            failed?.("a plain write failed");
-            return;
-          }
-          if (then === undefined && !blocked && this.plainFailsLate > 0) {
+            this.laters.push(() => answer(false, "a plain write failed"));
+          } else if (plain && this.plainFailsLate > 0) {
             this.plainFailsLate--;
             this.laterFailing++;
             this.laters.push(() => {
               this.laterFailing--;
-              failed?.("a plain write failed, said later");
+              answer(false, "a plain write failed, said later");
             });
-            return;
-          }
-          if (then === undefined && !blocked && this.plainFailsHeld > 0) {
+          } else if (plain && this.plainFailsHeld > 0) {
             this.plainFailsHeld--;
-            this.lateReports.push(() => failed?.("a plain write failed, said much later"));
-            return;
-          }
-          if (then !== undefined || blocked) this.held.push({ writes, purpose, then, landed });
-          else {
+            this.lateReports.push({
+              writes,
+              go: () => answer(false, "a plain write failed, said much later"),
+            });
+          } else if (!plain || this.holdPlain) {
+            this.held.push({ writes, purpose, answer });
+          } else {
             this.landWrites(writes);
-            landed?.();
+            this.laters.push(() => answer(true));
           }
         },
       },
@@ -232,7 +235,7 @@ export class FakeWorld {
   }
   // Round 7, D80: the page stops being seen. What the runtime starts here runs; what a kill then takes is the test's business.
   hide() {
-    for (const h of this.hidden) if (h.process === this.process) h.f();
+    for (const h of this.hiders) if (h.process === this.process) h.f();
   }
   private readAll(): ReadonlyMap<string, string> {
           const out = [...this.kv];
@@ -243,6 +246,11 @@ export class FakeWorld {
             [out[i], out[j]] = [out[j]!, out[i]!];
           }
           return new Map(out);
+  }
+  // Round 7: the wall clock moves back. A real timer is relative, so what is armed fires as it would have; only `now` lies.
+  clockBack(ms: number) {
+    this.now -= ms;
+    for (const t of this.timers) t.at -= ms;
   }
   corrupt(match: string, edit: (raw: string) => string) {
     for (const [k, v] of this.kv) if (k.includes(match)) this.kv.set(k, edit(v));
@@ -265,7 +273,7 @@ export class FakeWorld {
 
   storageStep(how: "ack" | "refuse" | "hang" | "landNoAck" | "failLate" | "loadOk" | "loadFail", match?: string) {
     if (how === "failLate") {
-      for (const f of this.lateReports.splice(0)) f();
+      for (const r of this.lateReports.splice(0)) r.go();
       return;
     }
     if (how === "loadOk" || how === "loadFail") {
@@ -275,16 +283,11 @@ export class FakeWorld {
       else p?.no(new Error("the read failed"));
       return;
     }
-    // L8: per key FIFO. A write behind a hung one for its key cannot be answered.
-    const behindHung = (h: (typeof this.held)[number]) =>
-      this.held
-        .slice(0, this.held.indexOf(h))
-        .some((o) => o.hung && o.writes.some((x) => h.writes.some((w) => w.key === x.key)));
     const eligible = (h: (typeof this.held)[number]) =>
       !h.hung &&
-      h.then !== undefined &&
-      !behindHung(h) &&
+      (!this.storeWide || h === this.held[0]) &&
       (match === undefined || h.purpose === match || h.writes.some((w) => w.key.includes(match)));
+    const answers: Array<() => void> = []; // one storage step answers in one task, as it did before answers came later
     for (const h of this.held.filter(eligible)) {
       if (how === "hang") {
         h.hung = true;
@@ -298,39 +301,18 @@ export class FakeWorld {
           this.landWrites(h.writes);
           this.noteAck(h.writes);
         }
-        h.then?.(how === "ack");
+        answers.push(() => h.answer(how === "ack"));
       }
+      if (this.storeWide) break;
     }
-    this.flushUnblocked();
+    if (answers.length) this.laters.push(() => answers.forEach((a) => a()));
   }
   private noteAck(writes: readonly Write[]) {
     for (const w of writes) if (w.value !== undefined) this.acked.add(w.value); // opaque: the oracle looks for the id in it
   }
-  // Writes queued behind a settled one, in order, per key (a KeyValueStore's FIFO). A hung write keeps blocking its key.
-  private flushUnblocked() {
-    for (let i = 0; i < this.held.length; i++) {
-      const h = this.held[i]!;
-      if (h.then !== undefined) continue;
-      const blocked = this.held
-        .slice(0, i)
-        .some((o) => o.writes.some((x) => h.writes.some((w) => w.key === x.key)));
-      if (!blocked) {
-        this.held.splice(i--, 1);
-        this.landWrites(h.writes);
-        h.landed?.();
-      }
-    }
-  }
   // What a `storage` step could answer now: the search asks this rather than guessing (L8).
   answerable() {
-    return this.held.some(
-      (h) =>
-        h.then !== undefined &&
-        !h.hung &&
-        !this.held
-          .slice(0, this.held.indexOf(h))
-          .some((o) => o.hung && o.writes.some((x) => h.writes.some((w) => w.key === x.key))),
-    );
+    return this.held.some((h) => !h.hung && (!this.storeWide || h === this.held[0]));
   }
 
   // ── Fake server
@@ -672,11 +654,14 @@ export class FakeWorld {
           ...(r.idempotencyKey === undefined ? {} : { key: r.idempotencyKey }),
         })),
       mayHave: this.mayHave(),
-      storage: this.held.map((h) => ({
+      storage: [
+        ...this.lateReports.map((r) => ({ purpose: "flush", keys: r.writes.map((w) => w.key), hung: false })),
+        ...this.held.map((h) => ({
         purpose: h.purpose,
         keys: h.writes.map((w) => w.key),
         hung: h.hung === true,
       })),
+      ],
       timers: this.timers.filter((t) => t.process === this.process).map((t) => t.at),
       lost: this.requests.filter((r) => r.lostOpen).length,
       feeds: this.conns
@@ -714,8 +699,11 @@ export class FakeWorld {
         .map((c) => [c.op, c.input, c.from, c.open, c.closing === true, c.backlog.length]),
       closeMs: this.closeMs,
       fails: [this.plainFails, this.plainFailsLate, this.plainFailsHeld, this.lateReports.length],
+      hidden: this.hidden,
+      frozen: this.freezeTimers,
+      holdPlain: this.holdPlain,
       kv: [...this.kv.entries()].filter(([k]) => k !== "meta").sort(([a], [b]) => (a < b ? -1 : 1)),
-      held: this.held.map((h) => [h.writes, h.purpose, h.hung === true, h.then !== undefined]),
+      held: this.held.map((h) => [h.writes, h.purpose, h.hung === true]),
     });
   }
 
@@ -734,6 +722,7 @@ export class FakeWorld {
     const end = this.now + ms;
     for (;;) {
       settle();
+      if (this.freezeTimers) break; // a frozen tab: nothing fires until thaw
       const due = this.timers
         .filter((t) => t.at <= end)
         .sort((a, b) => a.at - b.at || a.seq - b.seq)[0];

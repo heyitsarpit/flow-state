@@ -224,3 +224,18 @@ file:scenarios/ctx.ts hash:e8c685e9c155 | round 7: D95 (proposed) holds a batch 
 file:drive.ts hash:b2f6b924c2a5 | round 7: D95 (proposed) holds a batch behind an unanswered one; REV7-H1 follows; pins for what builder mutants showed unpinned; claims may wait on a plain batch of their actor. Nothing else relaxed
 file:scenarios/round7.scenario.ts hash:c23c337d5fe7 | round 7: D95 (proposed) holds a batch behind an unanswered one; REV7-H1 follows; pins for what builder mutants showed unpinned; claims may wait on a plain batch of their actor. Nothing else relaxed
 file:fixtures/round7.compiled.ts hash:13b964722f4d | round 7: D95 (proposed) holds a batch behind an unanswered one; REV7-H1 follows; pins for what builder mutants showed unpinned; claims may wait on a plain batch of their actor. Nothing else relaxed
+PAY-09 hash:cc2b95a95ab7 | round 7: the edge: a first send's capture and ack are one batch, so a kill before it lands leaves no record of the click; CARD with no notice replaces NotSent { Restored }. Charges still 0. Cost stated in convergence-7; 2.10.15's row is the owner's
+PAY-13 hash:c9ab980c20eb | round 7: same cause: nothing of the Attempt reached disk, so the last ending is the disposal's Disposed, not a restored one. No send after boot still pinned
+STORE-04 hash:ada081e88a9f | round 7: same cause, a domain write: no ending from disk for an unacked first send; no mark and no repair still pinned; Restored-W unchanged
+REV6-CAPTURE hash:2c8a1d6ac47d | round 7: same cause: actor and lane are one batch, so asserts the batch's keys instead of an unacked lane on disk before the answer
+REV7-H1 hash:db84a6580631 | round 7: round 7's own case: follows one batch out per actor. A held older batch delays the newer until its answer plus backoff; 'newest wins' still asserted
+REV7-M1 hash:88953a1310c7 | round 7: round 7's own case: memory and lane land together when the batch's ack does, so it reads after ack
+REV7-M9 hash:6edc85591eda | round 7: round 7's own case: UnencodableValue reported per try (proposal's cost 5), not deduped; lane-held assertions unchanged
+file:scenarios/ctx.ts hash:b0871db0f1bd | round 7: claim L3 narrowed for the edge: a write may wait only for a batch of its own actor; review's Low removed the any-actor 'failing' pass
+file:scenarios/pay.scenario.ts hash:e16a6c58b675 | round 7: carries PAY-09, PAY-13 above
+file:scenarios/store.scenario.ts hash:c3429d7a2498 | round 7: carries STORE-04 above
+file:fake-world.ts hash:cdf8ff5a37d2 | round 7: edge's host contract: one answer, later; holdPlain, storeWide, hidden, freeze, clockBack; blocked and FIFO paths gone, keys cannot overlap in flight; oracle (g)
+file:drive.ts hash:d83f806b3e64 | round 7: steps for the above; no expected result
+file:fixtures/compiled.ts hash:c3ca3a333cb1 | round 7: memory.encode added; additive
+file:scenarios/round6.scenario.ts hash:ea6c85e13efa | round 7: carries REV6-CAPTURE above
+file:scenarios/round7.scenario.ts hash:63fddaf41aef | round 7: carries REV7 lines above

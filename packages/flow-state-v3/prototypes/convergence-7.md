@@ -58,3 +58,23 @@ D80          amended   D80,D84  5 s, flush on hide (owner accepted); lanes flush
 D57          replaced  D89      decided: encoding never fails a turn
 D26          changed   D83      the write-ahead protocol stands; its store contract is now stated
 ```
+
+## The edge: section 8's questions, answered from the code (round 7, after review-mid)
+
+Status: the invariant, `now` for lanes, retired identities and armed deadlines, and the hide window are the coordinator's decisions under delegation. These answers are mine, from `step.ts`, `turn.ts`, `durable.ts`, `lane.ts`, `world.ts` [read], then [ran] where marked.
+
+| # | Question | Answer | Consequence |
+| --- | --- | --- | --- |
+| 1 | Every record has one scope? | Actor records and lanes yes. **A deleted lane had no scope to hand:** `flush` saw only an id. `meta` belongs to nobody | `touchedLanes` became a Map to the actor. `meta` is its own scope; restore takes the max with the lanes' mints, so it may land apart |
+| 2 | A write with a ticket is a non-empty put? | Yes: `flush`'s asks always encode the lane and bypass `saved`'s dedupe | A ticket always answers, unless its batch hangs |
+| 3 | `stored { ok: false }` emits a lane write that supersedes it? | Yes: `refuseFirst`/`refuseResend` set the lane, whose encoding differs in `acked` or `held`, so `saved` does not swallow it | The `""` case goes, as proposed |
+| 4 | A `stored` for a gone Attempt is ignored? | Yes: `onStored` fences on the phase and ticket | |
+| 5 | **Does a turn publish a state and create its lane in a later step?** | **Not for a commit on its own transition:** `applyMembers` runs in the turn and `flush` in the same step. **Yes through mail:** a `followUp`, a raise delivered as mail, adoption and a restored ending run in later steps, with a published state between | **Batches go after the drain,** as the proposal said they would have to. `driver.ts` wraps `later`, and re-defers while `work()`. A hide event can still fire across a drain's yield: a true state, a step boundary |
+| 6 | `meta` apart from actors? | See 1. Boot and mints only, and `host/ready` is the host's | |
+
+**Where the proposal and the code disagree; I followed the code.**
+
+1. **"Capture and ack: two transactions, always" (its section 8, req 8) names different things from the code.** Its capture is the pre-send write and its ack is the answer's. Here `flush` emits, in one step, a plain `lane { acked: false }` and an awaited `lane { acked: true }`, both before the request. On one `dirty` they merge, so **a first send is one batch**. That is the D86 I tried and did not take. Its cost is the same four expected results: `PAY-09`, `PAY-13`, `STORE-04/Restored`, `REV6-CAPTURE`. A kill before that batch lands now restores the state before the click, with no `NotSent { Restored }` and no notice. A `W` entry still ends `Restored`. To keep the old row I would have to park the acked write beside `dirty`, which is M2's zombie again. **Taken, as the invariant's consequence. 2.10.15's row is the owner's to change.**
+2. `StorageFailed` kept its existing name, `StorageFailure`. Both it and `StorageSilent` are issued only for a batch with no ticket, because a ticket's machine already hears it: otherwise every refused ack would add an issue no expected result names.
+3. The proposal's `plain` test in the fake looks at `purpose`; a merged batch with a ticket is not plain, so `failNext` skips first sends. Scenarios that meant "the first plain write fails" moved to a `Note` before the `Go`. Reported per case in `expected-changes.log`.
+4. Rejected nothing. **The real step does not break the invariant** [read]. The check that it does not is (e) and (f) on the real runtime, below in RESULTS.

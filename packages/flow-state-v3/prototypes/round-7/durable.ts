@@ -44,8 +44,6 @@ export const onStored = (tx: Tx, i: { attempt: string; ticket: string; ok: boole
   disarmTimer(tx, `storage/${i.attempt}`);
   clearStall(tx, i.attempt);
   if (!i.ok) {
-    // D83: what `saved` holds never landed. Whatever is written next must not be skipped as already there.
-    tx.w = { ...tx.w, savedLanes: { ...tx.w.savedLanes, [l.id]: "" } };
     return cell(tx, "storageRefused", l, {
       actor: l.actor,
       machine: l.machine,
@@ -118,13 +116,23 @@ const actorRecord = (tx: Tx, key: string): unknown => {
   return { ...a, timers, ...(live ? {} : { retired: true }) };
 };
 
-// C: the world decides what is written. A record is written when its encoding differs from the last one sent.
+// C: the world decides what is written. A record is written when its encoding differs from the last one emitted. One persist per scope; the edge keeps each scope whole.
 export const flush = (tx: Tx) => {
-  const writes: Write[] = [];
+  if (!tx.w.persistence) return; // D26: this tab read no disk, and writes none
+  const writes = new Map<string, Write[]>();
+  const now = new Set<string>();
+  const add = (scope: string, w: Write) => {
+    const l = writes.get(scope);
+    if (l) l.push(w);
+    else writes.set(scope, [w]);
+  };
   for (const key of tx.touchedActors) {
     const a = getActor(tx.w.actors, key) ?? own(tx.w.retired, key);
-    if (a && tx.machines[a.machine]!.persisted)
-      writes.push({ key: `actor/${key}`, record: actorRecord(tx, key) });
+    if (a && tx.machines[a.machine]!.persisted) {
+      const record = actorRecord(tx, key) as { retired?: boolean };
+      add(key, { key: `actor/${key}`, record });
+      if (record.retired || tx.armedDeadline) now.add(key); // D93, D80: a retired identity and an armed deadline are more than plain memory
+    }
   }
   let saved = tx.w.savedLanes;
   // D72: a restored ending is still only on disk until it is delivered. Mail is not persisted, so the record stays until then.
@@ -133,44 +141,41 @@ export const flush = (tx: Tx) => {
       m.k === "ending" && m.restored ? [laneKey(m.actor, m.op, m.key)] : [],
     ),
   );
-  const put = (id: string, value: string | undefined) => {
+  const put = (scope: string, id: string, value: string | undefined) => {
     if (owed.has(id) || saved[id] === value) return;
-    writes.push({ key: `lane/${id}`, value });
+    add(scope, { key: `lane/${id}`, value });
+    now.add(scope); // D84
     if (value === undefined) {
       const { [id]: _gone, ...rest } = saved;
       saved = rest;
     } else saved = { ...saved, [id]: value };
   };
-  for (const id of tx.touchedLanes) {
+  for (const [id, actor] of tx.touchedLanes) {
     const l = tx.w.lanes[id];
     if (!l) {
-      put(id, undefined);
+      put(actor, id, undefined);
     } else {
       if (!tx.machines[l.machine]!.persisted) continue;
       const ask = tx.asks.find((x) => x.lane === id);
-      if (ask?.on === "capture") continue; // a re-send's capture goes out only as its awaited write
-      put(id, encodeLane(tx, l, l.head?.acked ?? false));
+      if (ask) continue; // the awaited write says it
+      put(actor, id, encodeLane(tx, l, l.head?.acked ?? false));
     }
     // D78: the old name goes in the same batch that writes the new one, so a crash leaves one or the other.
     const old = tx.w.rekeyed[id];
     if (old !== undefined && !owed.has(id)) {
-      put(old, undefined);
+      put(actor, old, undefined);
       const { [id]: _d, ...rekeyed } = tx.w.rekeyed;
       tx.w = { ...tx.w, rekeyed };
     }
   }
-  const persisted = writes.length > 0 || tx.asks.length > 0;
+  const persisted = writes.size > 0 || tx.asks.length > 0;
   const meta = JSON.stringify({ boot: tx.w.boot, nextMint: tx.w.nextMint });
   if (persisted && meta !== tx.w.savedMeta) {
-    writes.push({ key: "meta", value: meta });
+    // Its own scope: it belongs to no actor, and restore needs it only as a floor (it takes the max with the lanes').
+    add("meta", { key: "meta", value: meta });
     tx.w = { ...tx.w, savedMeta: meta };
   }
-  if (writes.length)
-    tx.commands.push({
-      k: "persist",
-      writes,
-      purpose: tx.w.status === "live" ? "capture" : "flush",
-    });
+  for (const [scope, w] of writes) tx.commands.push({ k: "persist", scope, writes: w, now: now.has(scope) });
   for (const a of tx.asks) {
     const l = tx.w.lanes[a.lane];
     const p = l?.head?.phase;
@@ -179,9 +184,14 @@ export const flush = (tx: Tx) => {
     saved = { ...saved, [a.lane]: value };
     tx.commands.push({
       k: "persist",
+      scope: l.actor,
       writes: [{ key: `lane/${a.lane}`, value }],
-      purpose: a.on === "ack" ? "acknowledge" : "capture",
-      ticket: { attempt: l.head!.id, ticket: a.ticket, actor: l.actor },
+      now: true,
+      ticket: {
+        attempt: l.head!.id,
+        ticket: a.ticket,
+        purpose: a.on === "ack" ? "acknowledge" : "capture",
+      },
     });
     armTimer(tx, {
       key: `storage/${l.head!.id}`,
@@ -324,7 +334,7 @@ export const restore = (tx: Tx, records: ReadonlyArray<readonly [string, string]
     if (h) maxMint = Math.max(maxMint, h.mint);
     const base = { ...l, w: [], parked: [] as Lane["parked"] };
     if (!h) {
-      deleteOnly(tx, l.id); // delivered next, or parked again with a fresh record
+      deleteOnly(tx, l.id, l.actor); // delivered next, or parked again with a fresh record
       continue;
     }
     const ownParked = parked.some((p) => p.attempt === h.id);
@@ -337,7 +347,7 @@ export const restore = (tx: Tx, records: ReadonlyArray<readonly [string, string]
       if (h.held) {
         setLane(tx, { ...base, head: revive(h, { t: "held" }, true), subject: l.subject ?? [] });
         restoredHook(tx, l, h, { ch: "unknown", reason: "Restored" });
-      } else deleteOnly(tx, l.id);
+      } else deleteOnly(tx, l.id, l.actor);
     } else {
       noteEnding(tx, { op: l.op, attempt: h.id }, ending);
       const unknown = ending.ch === "unknown";
@@ -348,7 +358,7 @@ export const restore = (tx: Tx, records: ReadonlyArray<readonly [string, string]
         // 2.9.3: applied, then Released evidence; nothing delivered or parked.
         note(tx, "evidenceOnly", { op: l.op, attempt: h.id });
         if (unknown) note(tx, "Released", { op: l.op, attempt: h.id });
-        deleteOnly(tx, l.id);
+        deleteOnly(tx, l.id, l.actor);
       } else {
         setLane(tx, lane);
         if (unknown) restoredHook(tx, l, h, ending);
@@ -391,10 +401,17 @@ const rekeyLane = (
 };
 // D82: a stand-in for Schema decode with defaults. Undefined: this record cannot be read by this release.
 const restoredMemory = (m: Compiled, root: Inc): Inc | undefined => {
-  const dec = m.memory.restore;
-  if (!dec) return root;
+  // A fragment's memory by its own Schema, since encodeRecord wrote it so.
+  const walk = (i: Inc): Inc => {
+    const dec = i.frag ? m.fragments?.[i.frag]?.memory.restore : m.memory.restore;
+    return {
+      ...i,
+      memory: dec ? dec.run(i.memory) : i.memory,
+      kids: Object.fromEntries(Object.entries(i.kids).map(([k, v]) => [k, walk(v)])),
+    };
+  };
   try {
-    return { ...root, memory: dec.run(root.memory) };
+    return walk(root);
   } catch {
     return undefined;
   }
@@ -429,8 +446,8 @@ const restoredHook = (tx: Tx, l: SavedLane, h: SavedAttempt, ending: Ending) => 
     ),
   );
 };
-const deleteOnly = (tx: Tx, id: string) => {
+const deleteOnly = (tx: Tx, id: string, actor: string) => {
   const { [id]: _l, ...lanes } = tx.w.lanes;
   tx.w = { ...tx.w, lanes };
-  tx.touchedLanes.add(id);
+  tx.touchedLanes.set(id, actor);
 };

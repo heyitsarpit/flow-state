@@ -136,11 +136,8 @@ export const round6Scenarios: readonly Scenario[] = [
         c.advance(50);
         c.send("Go");
         c.yes("the lane is out", c.r.outside().storage.length === 1);
-        c.yes("the actor is on disk already", c.r.stored().has(`actor/${A.actor}/${A.id}`));
-        c.yes(
-          "and the lane, unacknowledged, with it",
-          [...c.r.stored().keys()].some((k) => k.startsWith("lane/")),
-        );
+        // Round 7, the edge: all of it is in that one batch, so none of it is on disk before the answer.
+        c.yes("the batch holds the actor and the lane", c.r.outside().storage[0]!.keys.length >= 2);
         c.reload();
         c.eq("never sent", c.reqs("charge").length, 0);
       },

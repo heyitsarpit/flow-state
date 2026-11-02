@@ -38,6 +38,7 @@ const onHidden = (f: () => void) => {
 };
 const host = (storage: any) => ({
   onHidden,
+  isHidden: () => document.visibilityState === "hidden",
   now: () => Date.now(),
   id: () => `att-${crypto.randomUUID()}`,
   setTimer: (at: number, f: () => void) => {
@@ -82,7 +83,7 @@ g.__boot = async (kind: string, o: any = {}) => {
   if (!owner) evidence.push({ kind: "SecondTabNoPersistence" });
   rt = createRuntime({
     host: host(idbStorage(db, stats, faults)) as never,
-    machines: { [machine.id]: machine },
+    machines: { [machine.id]: o.persist === false && kind === "desk" ? { ...machine, persisted: false } : machine },
     modules: [entities, sessions],
     bounds: { ...(o.captureMs === undefined ? {} : { captureMs: o.captureMs }), ...o.bounds },
     persistence: owner,

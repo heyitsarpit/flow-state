@@ -1,3 +1,4 @@
+d65-frag-initial-unchecked
 d67-older-applies
 d67-equal-takes-unconfirmed
 d67-newer-by-position
@@ -13,6 +14,7 @@ d66-doubt-never-settles
 d66-read-replaces
 d67-tombstone-forgets
 d67-version-field-compared
+m1-never-off-disk
 d73-retired-wakes
 t1-member-values-keep-moving
 s-stalls-not-counted
@@ -20,10 +22,14 @@ s-while-ignored
 s-buffer-unbounded
 e-frame-patch-creates
 m11-no-copy
+d78-old-id-stays
 d80-failed-not-retried
 d80-retry-overwrites-newer
+d80-no-issue
 d80-awaited-does-not-flush
 d80-coalesce-ignored
 d80-gate-skips-memory
 d80-cycle-passes
 d80-bigint-passes
+d80-persist-off-ignored
+d82-restore-ignored

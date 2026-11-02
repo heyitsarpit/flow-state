@@ -123,7 +123,14 @@ export const makeHarness = (port: Port) => (): Harness => {
     else if ("dispose" in s) inst.dispose(actorKey(s.dispose));
     else if ("answer" in s) fake.answer(s.answer, s.with, s.where);
     else if ("storage" in s) fake.storageStep(s.storage, s.match);
-    else if ("hide" in s) fake.hide();
+    else if ("hide" in s) {
+      fake.hidden = true; // review M3: what follows while hidden does not wait
+      fake.hide();
+      if (!s.stay) fake.hidden = false; // a flush event, the common use here. `stay`: the page stays hidden
+    } else if ("clockBack" in s) fake.clockBack(s.clockBack);
+    else if ("freeze" in s) fake.freezeTimers = s.freeze;
+    else if ("holdPlain" in s) fake.holdPlain = s.holdPlain;
+    else if ("storeWide" in s) fake.storeWide = s.storeWide;
     else if ("feed" in s) {
       fake.feedStep(s.feed, s);
     } else if ("disposeRuntime" in s) inst.disposeRuntime();
@@ -147,6 +154,7 @@ export const makeHarness = (port: Port) => (): Harness => {
     evidence: (kind) => (kind ? evidence.filter((e) => e["kind"] === kind) : evidence),
     stored: () => {
       if (TEST_FLUSH.includes("reads")) fake.hide();
+      settle();
       return new Map([...fake.kv].map(([k, v]) => [k, JSON.parse(v)]));
     },
     quiet: () => ({
@@ -216,7 +224,10 @@ export const makeHarness = (port: Port) => (): Harness => {
       if ("reload" in s) {
         plan = undefined;
         if (s.tear !== undefined) fake.tearLast(s.tear);
-        if (TEST_FLUSH.includes("kills")) fake.hide();
+        if (TEST_FLUSH.includes("kills")) {
+          fake.hide();
+          settle();
+        }
         // Round 7: what a kill took, for classifying. The tail of the state text is what the runtime held back.
         if (process.env["FLOW_KILL_TRACE"])
           ((globalThis as any).__kills ??= []).push(

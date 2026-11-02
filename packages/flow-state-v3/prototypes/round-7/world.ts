@@ -163,8 +163,9 @@ export type World = {
   readonly follow: readonly Mail[];
   readonly chain: number;
   readonly status: "live" | "disposing" | "disposed";
-  // D83: for each key, a value that has landed, is in flight, or is dirty in the driver. A refused awaited write is the one case where none holds: "" there.
+  // Last value emitted per lane. The edge loses nothing it accepted, so this is only a diff.
   readonly savedLanes: Readonly<Record<string, string>>;
+  readonly persistence: boolean; // D26, review H3: false: this tab read no disk and writes none. A persisted machine's commit declines
   readonly quarantined: Readonly<Record<string, true>>; // D88: a lane whose record this release cannot read. Its id still holds
   readonly rekeyed: Readonly<Record<string, string>>; // D78: new lane id -> old id still on disk
   readonly savedMeta: string;
@@ -189,6 +190,7 @@ export const emptyWorld: World = {
   chain: 0,
   status: "live",
   savedLanes: {},
+  persistence: true,
   quarantined: {},
   rekeyed: {},
   savedMeta: "",
@@ -204,7 +206,7 @@ export type SendExit =
   | { readonly t: "defect"; readonly cause: unknown }
   | { readonly t: "interrupted"; readonly cause: unknown };
 export type Input =
-  | { readonly k: "boot"; readonly records: ReadonlyArray<readonly [string, string]> }
+  | { readonly k: "boot"; readonly records: ReadonlyArray<readonly [string, string]>; readonly persistence?: boolean }
   | { readonly k: "sent"; readonly attempt: string; readonly send: string; readonly exit: SendExit }
   | { readonly k: "timer"; readonly timer: string; readonly gen: string }
   | {
@@ -246,9 +248,10 @@ export type Command =
   | { readonly k: "disarm"; readonly timer: string }
   | {
       readonly k: "persist";
+      readonly scope: string; // the actor's key. `meta` is its own
       readonly writes: readonly Write[];
-      readonly purpose: "acknowledge" | "capture" | "flush";
-      readonly ticket?: { readonly attempt: string; readonly ticket: string; readonly actor: string };
+      readonly now: boolean; // does not wait for `captureMs`: a lane, a retired identity, an armed deadline
+      readonly ticket?: { readonly attempt: string; readonly ticket: string; readonly purpose: "capture" | "acknowledge" };
     }
   | { readonly k: "module"; readonly m: string; readonly cmd: unknown };
 
@@ -263,6 +266,7 @@ export type Bounds = {
   readonly pageMs: number; // D79: a read's page deadline. Proposed for T1
   readonly captureMs: number; // D80 (accepted): plain memory coalesces this long, flushed on hide. 0: at once. D84: a batch touching a lane never waits
   readonly bootMs: number; // D87: a read of the disk that has not answered by now is O5's StorageFailure. A guess
+  readonly retryMaxMs: number;
   readonly bootQueue: number; // D87: inputs held until boot; past this, dropped with evidence
   readonly followUps: number;
   readonly notifyChain: number;
@@ -278,6 +282,7 @@ export const defaultBounds: Bounds = {
   pageMs: 30_000,
   captureMs: 5_000,
   bootMs: 10_000,
+  retryMaxMs: 30_000,
   bootQueue: 1_024,
   followUps: 64,
   notifyChain: 64,
@@ -298,7 +303,8 @@ export type Tx = System & {
   readonly evidence: Evidence[];
   readonly issues: Issue[];
   readonly touchedActors: Set<string>;
-  readonly touchedLanes: Set<string>;
+  readonly touchedLanes: Map<string, string>; // lane id -> its actor: the scope a deleted lane's write belongs to
+  armedDeadline: boolean; // a schedule was armed this step: an armed deadline does not wait for captureMs
   readonly asks: Array<{ lane: string; on: "ack" | "capture"; ticket: string }>;
   visible: boolean;
   inTurn: boolean; // D46: is a user closure's throw a refusal, or an issue with a default?
@@ -360,7 +366,7 @@ export const setLane = (tx: Tx, lane: Lane) => {
         : { ...tx.w.ready, [lane.id]: true as const }
       : without(tx.w.ready, lane.id);
   tx.w = { ...tx.w, lanes: { ...tx.w.lanes, [lane.id]: lane }, byAttempt, ready };
-  tx.touchedLanes.add(lane.id);
+  tx.touchedLanes.set(lane.id, lane.actor);
   tx.visible = true;
 };
 export const deleteLane = (tx: Tx, id: string) => {
@@ -372,7 +378,7 @@ export const deleteLane = (tx: Tx, id: string) => {
     byAttempt: prev.head ? without(tx.w.byAttempt, prev.head.id) : tx.w.byAttempt,
     ready: without(tx.w.ready, id),
   };
-  tx.touchedLanes.add(id);
+  tx.touchedLanes.set(id, prev.actor);
   tx.visible = true;
 };
 export const enqueue = (tx: Tx, m: Mail) => {

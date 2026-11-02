@@ -38,23 +38,26 @@ export const idbStorage = (db: IDBDatabase, stats?: Stats, faults?: Faults) => (
       tx.onerror = () => rej(tx.error);
       tx.onabort = () => rej(tx.error);
     }),
+  // The edge's host half: one transaction per batch, `commit()` always, so a page that is going away still commits what it issued. The answer is `oncomplete` or `onabort`.
   write: (
     writes: ReadonlyArray<{ key: string; value: string | undefined }>,
-    _purpose: string,
-    then?: (ok: boolean) => void,
-    failed?: (why: string) => void,
-    landed?: () => void,
+    purpose: string,
+    answer: (ok: boolean, why?: string) => void,
   ) => {
     const t0 = performance.now();
-    const say = (why: string) => {
-      if (stats) stats.failed++;
-      if (then) then(false);
-      else failed?.(why);
-    };
+    let tx: IDBTransaction | undefined;
     try {
-      // O6: an awaited write is strict: it must be on disk when it says so. A plain one is relaxed.
-      const tx = db.transaction("kv", "readwrite", { durability: then ? "strict" : "relaxed" });
-      const s = tx.objectStore("kv");
+      tx = db.transaction("kv", "readwrite", { durability: purpose === "flush" ? "relaxed" : "strict" });
+      const started = tx;
+      started.oncomplete = () => {
+        if (stats) stats.commitMs += performance.now() - t0;
+        answer(true);
+      };
+      started.onabort = () => {
+        if (stats) stats.failed++;
+        answer(false, started.error?.name ?? "aborted");
+      };
+      const s = started.objectStore("kv");
       for (const w of writes) {
         if (w.value === undefined) s.delete(w.key);
         else s.put(w.value, w.key);
@@ -67,22 +70,17 @@ export const idbStorage = (db: IDBDatabase, stats?: Stats, faults?: Faults) => (
         stats.writes++;
         stats.syncMs += performance.now() - t0;
       }
-      tx.oncomplete = () => {
-        if (stats) stats.commitMs += performance.now() - t0;
-        then?.(true);
-        landed?.();
-      };
-      tx.onabort = () => say(String(tx.error));
-      tx.onerror = () => undefined; // onabort follows
-      if (faults && !then && faults.abortPlain > 0) {
+      const plain = purpose === "flush";
+      if (faults && plain && faults.abortPlain > 0) {
         faults.abortPlain--;
-        tx.abort();
-      } else if (faults && then && faults.abortAwaited > 0) {
+        started.abort();
+      } else if (faults && !plain && faults.abortAwaited > 0) {
         faults.abortAwaited--;
-        tx.abort();
-      } else if (!faults?.noExplicitCommit) tx.commit(); // D80: see RESULTS. A page being destroyed loses a transaction that was only due to auto-commit
+        started.abort();
+      } else if (!faults?.noExplicitCommit) started.commit();
     } catch (e) {
-      say(String(e));
+      if (tx !== undefined) tx.abort();
+      else setTimeout(() => answer(false, String(e)), 0);
     }
   },
 });

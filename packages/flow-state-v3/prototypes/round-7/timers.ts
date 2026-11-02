@@ -6,6 +6,7 @@ export const armTimer = (tx: Tx, t: Spec): string => {
   const gen = nextGen(tx);
   tx.w = { ...tx.w, timers: { ...tx.w.timers, [t.key]: { ...t, gen } as Timer } };
   tx.commands.push({ k: "arm", timer: t.key, gen, at: t.dueAt });
+  if (t.kind === "schedule") tx.armedDeadline = true;
   return t.key;
 };
 export const disarmTimer = (tx: Tx, key: string) => {

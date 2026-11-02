@@ -7,7 +7,9 @@ import { OutcomeFailure, OutcomeUnknown, type Compiled, type Op, type Slot } fro
 
 type CommitFn = Extract<Op["commit"], (...a: never[]) => unknown>;
 import type { Host } from "../conformance/fake-world.ts";
-import { sealAll, text } from "./gate.ts";
+import { encodeRecord } from "./record.ts";
+import { makeEdge } from "./edge.ts";
+import { sealAll } from "./gate.ts";
 import type { Module } from "./seam.ts";
 import { step } from "./step.ts";
 import {
@@ -65,9 +67,7 @@ export const createRuntime = (cfg: {
       ? (cfg.machines as readonly Compiled[])
       : Object.values(cfg.machines as Machines),
   );
-  const unpersist = (t: Machines): Machines =>
-    Object.fromEntries(Object.entries(t).map(([k, m]) => [k, { ...m, persisted: false }]));
-  const sealed: Machines = cfg.persistence === false ? unpersist(sealedList) : sealedList;
+  const sealed: Machines = sealedList;
   const machines = cfg.around ? cfg.around(sealed) : sealed;
   const bounds = { ...defaultBounds, ...cfg.bounds };
   const sys: System = { machines, modules, bounds };
@@ -109,136 +109,35 @@ export const createRuntime = (cfg: {
       done(readExit(exit));
     });
   };
-  // ── D80, D83: the only place a record becomes bytes. Newest per key; one batch. A failed batch stays dirty only where it is still the newest word.
-  // The store's contract: a batch is atomic, batches commit in issue order, and an answer may come any time later. So: **per key, a later write
-  // wins, whatever order the answers come in.** `issued` is the only thing that makes that true here. D84: a batch touching a lane does not wait.
-  const dirty = new Map<string, Write>();
-  const issued = new Map<string, number>();
-  let issueN = 0;
-  const stamp = (writes: readonly { key: string }[]) => {
-    const n = ++issueN;
-    for (const w of writes) issued.set(w.key, n);
-    return n;
+  // ── The edge: edge.ts. The only place a record becomes bytes. A batch goes after the drain (convergence-7, section 8, question 5), so one drain is one cut.
+  let afterDrain: Array<() => void> = [];
+  const runAfterDrain = () => {
+    if (work()) return void host.later(runAfterDrain); // still draining, past a yield
+    const due = afterDrain;
+    afterDrain = [];
+    for (const f of due) f();
   };
-  let dirtyPurpose: Write extends never ? never : Parameters<Host["storage"]["write"]>[1] = "flush";
-  let captureOff: (() => void) | undefined;
-  let retryN = 0;
-  let reportedFailure = false;
-  let reportedEncoding = false;
-  let flushWanted = false;
-  // D89: all or nothing. A bad record keeps the whole batch back, in `dirty`, so a lane's removal can't land without what it goes with: O5's last good capture.
-  const encodeAll = (writes: readonly Write[]) => {
-    const out: Array<{ key: string; value: string | undefined }> = [];
-    for (const w of writes) {
-      if (w.record === undefined) {
-        out.push({ key: w.key, value: w.value });
-        continue;
-      }
-      const value = text(w.record);
-      if (value === undefined) {
-        if (!reportedEncoding)
-          guarded(() =>
-            cfg.onIssue([{ code: "UnencodableValue", origin: `actor ${w.key.slice(6)}` }]),
-          );
-        reportedEncoding = true;
-        return undefined;
-      }
-      out.push({ key: w.key, value });
-    }
-    reportedEncoding = false;
-    return out;
-  };
-  const failedBatch = (batch: readonly Write[], n: number, why: string) => {
-    if (!reportedFailure) {
-      reportedFailure = true;
-      guarded(() => cfg.onIssue([{ code: "StorageFailure", input: why }]));
-    }
-    for (const w of batch) if (issued.get(w.key) === n && !dirty.has(w.key)) dirty.set(w.key, w);
-    if (dirty.size > 0) armCapture(Math.min(30_000, 1000 * 2 ** retryN++));
-  };
-  const landed = () => {
-    retryN = 0;
-    reportedFailure = false;
-  };
-  const flushCapture = () => {
-    captureOff?.();
-    captureOff = undefined;
-    if (dirty.size === 0) return;
-    // D95 (E2): per key, one plain write out at a time. A key whose last batch has not answered waits for that answer, so a later batch cannot land a record ahead of what an
-    // earlier one might still fail to land.
-    const out = new Set([...plainOut].flatMap((b) => b.keys));
-    // All of it waits, not just those keys: splitting a batch would land a lane's removal without the actor that went with it.
-    const batch = [...dirty.values()];
-    flushWanted = batch.some((w) => out.has(w.key));
-    if (flushWanted) return;
-    const encoded = encodeAll(batch);
-    if (!encoded) return;
-    for (const w of batch) dirty.delete(w.key);
-    if (encoded.length === 0) return;
-    const n = stamp(batch);
-    const sent = { keys: encoded.map((w) => w.key) };
-    plainOut.add(sent);
-    host.storage.write(
-      encoded,
-      dirtyPurpose,
-      undefined,
-      (why) => {
-        failedBatch(batch, n, why);
-        plainAnswered(sent);
+  const edge = makeEdge(
+    {
+      now: () => host.now(),
+      later: (f) => {
+        if (afterDrain.length === 0) host.later(runAfterDrain);
+        afterDrain.push(f);
       },
-      () => {
-        landed();
-        plainAnswered(sent);
-      },
-    );
-  };
-  // D94: an awaited write never lands ahead of a batch before it. It waits for that batch's answer, and if the batch failed, what the batch still owes goes in its transaction.
-  // So "the next lane's ack is on disk and the record it followed is not" cannot occur (E1). One commit's wait, and only behind a batch still out.
-  // Per actor: another actor's stuck write holds nobody here (2.7.13's table; MED-01).
-  const plainOut = new Set<{ keys: readonly string[] }>();
-  const behind = (actor: string) =>
-    [...plainOut].some((b) => b.keys.some((k) => k === `actor/${actor}` || k.startsWith(`lane/${actor}|`)));
-  let waitingAwaited: Array<{ actor: string; go: () => void }> = [];
-  const plainAnswered = (b: { keys: readonly string[] }) => {
-    plainOut.delete(b);
-    const ready = waitingAwaited.filter((w) => !behind(w.actor));
-    waitingAwaited = waitingAwaited.filter((w) => behind(w.actor));
-    for (const w of ready) w.go();
-    if (flushWanted) flushCapture();
-  };
-  const issueAwaited = (c: Extract<Command, { k: "persist" }>, t: NonNullable<Extract<Command, { k: "persist" }>["ticket"]>) => {
-    for (const w of c.writes) dirty.delete(w.key); // D83: a retry waiting here is older than this
-    const owed = [...dirty.values()];
-    const carried = owed.length ? encodeAll(owed) : [];
-    if (carried?.length) {
-      dirty.clear();
-      captureOff?.();
-      captureOff = undefined;
-    }
-    const taken = carried?.length ? owed : [];
-    const n = stamp([...taken, ...c.writes]);
-    host.storage.write([...(carried ?? []), ...(encodeAll(c.writes) ?? [])], c.purpose, (ok) => {
-      if (!ok && taken.length) failedBatch(taken, n, "an awaited write refused");
-      input({ k: "stored", attempt: t.attempt, ticket: t.ticket, ok });
-    });
-  };
-  const armCapture = (ms: number) => {
-    captureOff?.();
-    captureOff = host.setTimer(host.now() + ms, () => {
-      captureOff = undefined;
-      flushCapture();
-    });
-  };
-  const capture = (writes: readonly Write[], purpose: typeof dirtyPurpose) => {
-    for (const w of writes) dirty.set(w.key, w);
-    dirtyPurpose = purpose;
-    // D84: a lane does not wait. D93: nor does a retired identity: "this actor sleeps" is not plain memory, and a kill must not wake it.
-    const now = (w: Write) =>
-      w.key.startsWith("lane/") || (w.record as { retired?: boolean } | undefined)?.retired === true;
-    if (bounds.captureMs <= 0 || writes.some(now)) return flushCapture();
-    if (!captureOff) armCapture(bounds.captureMs);
-  };
-  host.onHidden?.(() => flushCapture());
+      setTimer: (at, f) => host.setTimer(at, f),
+      isHidden: () => host.isHidden?.() ?? false,
+      storage: host.storage,
+    },
+    {
+      captureMs: bounds.captureMs,
+      storageMs: bounds.storageMs,
+      retryMaxMs: bounds.retryMaxMs,
+      encode: (record) => encodeRecord(machines, record),
+      stored: (t, ok) => input({ k: "stored", attempt: t.attempt, ticket: t.ticket, ok }),
+      report: (i) => guarded(() => cfg.onIssue([i])),
+    },
+  );
+  host.onHidden?.(() => edge.hide());
   const invoke = (c: Extract<Command, { k: "invoke" }>) => {
     try {
       const effect = (machines[c.machine]!.ops[c.op]!.commit as Slot<CommitFn>).run(c.input, { attempt: c.ctx });
@@ -271,14 +170,8 @@ export const createRuntime = (cfg: {
         hostTimers.delete(c.timer);
         return;
       }
-      case "persist": {
-        const t = c.ticket;
-        if (!t) return capture(c.writes, c.purpose);
-        // O3, O6: an awaited write is never coalesced, and what waits goes first, so a lane cannot outrun its actor.
-        flushCapture();
-        if (behind(t.actor)) return void waitingAwaited.push({ actor: t.actor, go: () => issueAwaited(c, t) });
-        return issueAwaited(c, t);
-      }
+      case "persist":
+        return edge.accept(c);
       case "module": {
         const m = modules.find((x) => x.id === c.m);
         // M7: a module's fibers have a key, a stop and an owner. Disposal reports survivors.
@@ -369,7 +262,7 @@ export const createRuntime = (cfg: {
         guarded(() => cfg.onEvidence(out.evidence));
         if (out.issues.length) guarded(() => cfg.onIssue(out.issues));
         if (i.k === "disposeRuntime") {
-          flushCapture(); // L3
+          edge.hide(); // L3
           watchDisposal();
         }
         if (performance.now() - t0 > bounds.drainMs && work()) {
@@ -416,9 +309,9 @@ export const createRuntime = (cfg: {
   let booted = false;
   const waitingBoot: Input[] = [];
   const realInput = input;
-  const boot = (records: ReadonlyMap<string, string>) => {
+  const boot = (records: ReadonlyMap<string, string>, persistence: boolean) => {
     booted = true;
-    realInput({ k: "boot", records: [...records] });
+    realInput({ k: "boot", records: [...records], persistence });
     for (const i of waitingBoot.splice(0)) realInput(i);
   };
   const outer = (i: Input) => {
@@ -427,7 +320,7 @@ export const createRuntime = (cfg: {
     guarded(() => cfg.onEvidence([{ kind: "dropped", input: i.k }]));
   };
   const loaded = cfg.persistence === false ? new Map<string, string>() : host.storage.load();
-  if (loaded instanceof Map) boot(loaded);
+  if (loaded instanceof Map) boot(loaded, cfg.persistence !== false);
   else {
     let settled = false;
     const noRead = (why: unknown) => {
@@ -435,8 +328,7 @@ export const createRuntime = (cfg: {
       settled = true;
       offBound();
       guarded(() => cfg.onIssue([{ code: "StorageFailure", input: String(why) }]));
-      sys.machines = unpersist(sys.machines);
-      boot(new Map());
+      boot(new Map(), false); // D26: a persisted machine then declines its commits: NoPersistence
     };
     const offBound = host.setTimer(host.now() + bounds.bootMs, () =>
       noRead(`no answer from storage in ${bounds.bootMs} ms`),
@@ -445,15 +337,15 @@ export const createRuntime = (cfg: {
       if (settled) return;
       settled = true;
       offBound();
-      boot(records);
+      boot(records, true);
     }, noRead);
   }
   return {
     input: outer,
-    flushNow: flushCapture,
+    flushNow: () => edge.hide(),
     booted: () => booted,
     // For the suite's hash: what the driver holds decides the future too.
-    edgeText: () => JSON.stringify([[...dirty.keys()].sort(), booted, waitingBoot.length, retryN, plainOut.size, waitingAwaited.length]),
+    edgeText: () => `${edge.text()}${JSON.stringify([booted, waitingBoot.length])}`,
     sealed,
     world: () => world,
     pending: () => !fatal && (work() || running),

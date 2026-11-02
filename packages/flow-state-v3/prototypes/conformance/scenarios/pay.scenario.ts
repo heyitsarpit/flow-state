@@ -302,7 +302,8 @@ export const payScenarios: readonly Scenario[] = [
         c.reload();
         c.eq("requests", c.reqs("pay").length, 0);
         c.state("CARD");
-        c.eq("notice", c.mem().notice, NOT_CHARGED);
+        // Round 7, the edge: the capture and its ack are one batch, so before it lands nothing of the click is on disk. An earlier true state, with no notice. 2.10.15's row: see convergence-7.
+        c.eq("no notice: the click is gone with its process", c.mem().notice, "");
         c.eq("charges", c.r.truth().charges, 0);
         c.eq("row", row(c), undefined);
       },
@@ -567,7 +568,8 @@ export const payScenarios: readonly Scenario[] = [
         c.do({ disposeRuntime: true });
         c.reload();
         c.state("CARD");
-        c.eq("reason", c.lastEnding("pay")?.reason, "Restored");
+        // Round 7, the edge: nothing of it was on disk, so no `Restored`; the disposal's own ending is the last.
+        c.eq("reason", c.lastEnding("pay")?.reason, "Disposed");
         c.eq("no send after boot", c.reqs("pay").length, 0);
       },
     },

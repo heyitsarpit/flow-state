@@ -79,7 +79,11 @@ export type Fragment = {
   readonly nodes: Readonly<Record<string, Node>>;
   readonly root: string;
   readonly default: string; // the root node when it has no states
-  readonly memory: { readonly initial: Slot<(input: any) => object> };
+  readonly memory: {
+    readonly initial: Slot<(input: any) => object>;
+    readonly restore?: Slot<(stored: any) => object>;
+    readonly encode?: Slot<(memory: any) => object>; // Round 7, review H2: the memory's Schema, so reading and writing are one format
+  };
   readonly whenAbandoned?: {
     readonly notify?: readonly Notify[];
     readonly release?: readonly string[]; // rule 60: a key-less O.x.cancel listed there
@@ -144,6 +148,7 @@ export type Compiled = {
   readonly memory: {
     readonly initial: Slot<(input: unknown) => object>;
     readonly restore?: Slot<(stored: any) => object>; // D82: a stand-in for Schema decode with defaults, at restore
+    readonly encode?: Slot<(memory: any) => object>; // Round 7, review H2: the memory's Schema, used by the driver off the turn
   };
   readonly ops: Readonly<Record<string, Op>>;
   readonly persisted: boolean;

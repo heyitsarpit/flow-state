@@ -55,7 +55,11 @@ export type Step =
   // load: round 7, the new boot's read hangs until a `loadOk`/`loadFail` storage step, or fails.
   | { reload: true; crashAfterBoot?: true; tear?: number; load?: "hang" | "fail" }
   | { storage: "ack" | "refuse" | "hang" | "landNoAck" | "failLate" | "loadOk" | "loadFail"; match?: string }
-  | { hide: true } // round 7, D80: `visibilitychange` to hidden, or `pagehide`
+  | { clockBack: number } // round 7: the wall clock is set back
+  | { freeze: boolean } // round 7: a frozen tab's timers do not fire
+  | { holdPlain: boolean } // round 7: plain successes stay in flight until a `storage` step
+  | { storeWide: boolean } // round 7: one store: only the oldest batch can be answered
+  | { hide: true; stay?: true } // round 7, D80: `visibilitychange` to hidden, or `pagehide`
   // A stream's server says something. `frames`: a burst, with no settling between them. `fail`: the connection fails with this.
   | { feed: string; frame?: unknown; frames?: readonly unknown[]; end?: true; fail?: unknown }
   | { fault: Fault }

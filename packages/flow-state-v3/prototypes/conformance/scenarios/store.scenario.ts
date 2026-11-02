@@ -357,7 +357,8 @@ export const storeScenarios: readonly Scenario[] = [
           openRefunds(d);
           refund(d, 100);
           d.reload(); // never acknowledged
-          d.eq("reason", d.lastEnding("refund")?.reason, "Restored");
+          // Round 7, the edge: a first send's capture and ack are one batch: nothing on disk, so nothing to end. `Restored-W` still ends one.
+          d.eq("no ending from the disk", d.lastEnding("refund")?.reason, undefined);
           d.eq("no mark", d.rec(O9), undefined);
           d.eq("no repair", d.reqs("repair").length, 0);
         });

@@ -324,11 +324,16 @@ const onEnsure = (tx: Tx, key: string, machine: string, input: unknown) => {
   }
 };
 
-const onBoot = (tx: Tx, records: ReadonlyArray<readonly [string, string]>) => {
+const onBoot = (
+  tx: Tx,
+  records: ReadonlyArray<readonly [string, string]>,
+  persistence: boolean,
+) => {
   note(tx, "boot", {});
   tx.w = {
     ...tx.w,
     boot: 1,
+    persistence,
     ext: Object.fromEntries(tx.modules.map((m) => [m.id, m.init()])),
   };
   restore(tx, records);
@@ -410,7 +415,8 @@ export const step = (world: World, input: Input, env: Env, sys: System): StepOut
     evidence: [],
     issues: [],
     touchedActors: new Set(),
-    touchedLanes: new Set(),
+    touchedLanes: new Map(),
+    armedDeadline: false,
     asks: [],
     visible: false,
     inTurn: false,
@@ -422,7 +428,7 @@ export const step = (world: World, input: Input, env: Env, sys: System): StepOut
   }
   switch (input.k) {
     case "boot":
-      onBoot(tx, input.records);
+      onBoot(tx, input.records, input.persistence ?? true);
       break;
     case "ensure":
       onEnsure(tx, input.actor, input.machine, input.input);

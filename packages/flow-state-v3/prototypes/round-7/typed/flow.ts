@@ -70,8 +70,20 @@ const restoreOf = (definition: string, m: MemoryFields) =>
       Object.entries(m).map(([k, f]) => [
         k,
         k in s
-          ? Schema.decodeUnknownSync(f.schema as unknown as Schema.Codec<unknown>)(s[k])
+          ? Schema.decodeUnknownSync(jsonCodec(f))(s[k])
           : f.value,
+      ]),
+    );
+  });
+// Review H2: written and read by one codec. `toCodecJson` is what makes a Date or a NaN a JSON value and back.
+const jsonCodec = (f: MemorySpec) => Schema.toCodecJson(f.schema as unknown as Schema.Codec<unknown, unknown>);
+const encodeOf = (definition: string, m: MemoryFields) =>
+  slotOf<(memory: unknown) => object>(definition, "memory.encode", (memory: unknown) => {
+    const v = memory as Record<string, unknown>;
+    return Object.fromEntries(
+      Object.keys(v).map((k) => [
+        k,
+        m[k] ? Schema.encodeUnknownSync(jsonCodec(m[k]!))(v[k]) : v[k],
       ]),
     );
   });
@@ -571,7 +583,11 @@ export const machine = <
       nodes: compileNodes(d.id, d.states, {}, b as never),
       root: "root",
       default: b.default.node,
-      memory: { initial: initialOf(d.id, d.memory), restore: restoreOf(d.id, d.memory) },
+      memory: {
+        initial: initialOf(d.id, d.memory),
+        restore: restoreOf(d.id, d.memory),
+        encode: encodeOf(d.id, d.memory),
+      },
       ops: Object.fromEntries(
         Object.entries(d.ops).map(([k, x]) => [k, compileOp(d.id, k, x)]),
       ),
@@ -659,7 +675,11 @@ export const fragment = <
     root: "root",
     default: d.default ?? "root",
     nodes: compileNodes(d.id, tree, fragmentIds, b as never),
-    memory: { initial: initialOf(d.id, (d.memory ?? {}) as M) },
+    memory: {
+      initial: initialOf(d.id, (d.memory ?? {}) as M),
+      restore: restoreOf(d.id, (d.memory ?? {}) as M),
+      encode: encodeOf(d.id, (d.memory ?? {}) as M),
+    },
   };
   return {
     id: d.id,

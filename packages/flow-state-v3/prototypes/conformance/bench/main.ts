@@ -28,10 +28,10 @@ const host = (writes: { n: number; bytes: number }) => ({
   scheduler: new Scheduler.MixedScheduler(),
   storage: {
     load: () => new Map(),
-    write: (w: ReadonlyArray<{ value?: string }>, _p: unknown, then?: (ok: boolean) => void) => {
+    write: (w: ReadonlyArray<{ value?: string }>, _p: unknown, answer: (ok: boolean) => void) => {
       writes.n++;
       for (const x of w) writes.bytes += x.value?.length ?? 0;
-      then?.(true);
+      queueMicrotask(() => answer(true));
     },
   },
 });

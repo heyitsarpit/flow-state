@@ -173,7 +173,11 @@ const sealOp = (o: Op, definition: string): Op => {
 const sealFrag = (f: Fragment): Fragment => ({
   ...f,
   nodes: table(f.nodes, sealNode),
-  memory: { initial: gated(f.memory.initial, plain) },
+  memory: {
+    initial: gated(f.memory.initial, plain),
+    ...(f.memory.restore ? { restore: gated(f.memory.restore, plain) } : {}),
+    ...(f.memory.encode ? { encode: f.memory.encode } : {}),
+  },
   ...(f.whenAbandoned?.notify
     ? {
         whenAbandoned: {
@@ -289,6 +293,7 @@ export const seal = (c: Compiled): Compiled => {
     memory: {
       initial: gated(c.memory.initial, plain),
       ...(c.memory.restore ? { restore: gated(c.memory.restore, plain) } : {}),
+      ...(c.memory.encode ? { encode: c.memory.encode } : {}),
     },
     ops: table(c.ops, (o: Op) => sealOp(o, c.id)),
     ...(c.fragments ? { fragments: table(c.fragments, sealFrag) } : {}),

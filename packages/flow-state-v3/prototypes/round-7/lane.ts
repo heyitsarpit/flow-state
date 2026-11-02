@@ -513,7 +513,7 @@ export const cell = (tx: Tx, row: Row, lane: Lane | undefined, a: CellArgs) => {
     if (row === "cancel") {
       const { [id]: _gone, ...quarantined } = tx.w.quarantined;
       tx.w = { ...tx.w, quarantined };
-      tx.touchedLanes.add(id);
+      tx.touchedLanes.set(id, a.actor);
     }
     return;
   }
