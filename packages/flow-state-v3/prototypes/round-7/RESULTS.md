@@ -74,7 +74,7 @@ Status: proposed, throwaway. Ran on 2026-11-02, Bun 1.4.2, Effect 4.0.5, Chrome 
 | No marker | 240 | 137 | 2 |
 | Marker, close and reopen | 180 | 107 | 2 |
 | **Marker, on the edge** | 120 | 73 | **1** |
-| Pay table on the edge, 40 mixed | 40 | 31 | **1** (SIGKILL at about 2 ms) |
+| Pay table on the edge, 40 mixed | 40 | 32 | **1** (SIGKILL at about 2 ms) |
 | Database 1.5 s old | 60 | 20 | 0. Too few to claim anything |
 
 `onDisk` was `[]`: the marker gone too, so the whole database, and `oncomplete` of a `strict` transaction had fired [ran]. D85's marker does not help; I drop it as a remedy. **Chrome's cause is not established.** "0 acknowledged writes lost" is false and I do not restate it. It needs a first visit and a whole-browser kill within milliseconds. 0 double charges in those runs, because nobody pressed again; a press would be a second key.
@@ -109,7 +109,7 @@ Status: proposed, throwaway. Ran on 2026-11-02, Bun 1.4.2, Effect 4.0.5, Chrome 
 | Navigate away | 6/6 | 6/6 |
 | **Reload** | 6/6 | **0/6** |
 | **Navigate, kill at the beacon** | 6/6 | **0/6** |
-| Kill or crash before the event reaches the page | 0/54 | 0/54 |
+| Kill or crash before the event reaches the page | 0/48 | 0/48 |
 
 **So the hide flush is reliable for ordinary records and unreliable for a large one on the way out,** though safe: an older whole state. Cause of reload against navigate at 10,000 is not established. Throttled timers change nothing here: hide does not wait for one.
 
@@ -296,7 +296,7 @@ Edge list: none of 32. **That list is mine, written with the code.** The review'
 
 | Part | Round 6 | Now |
 | --- | --- | --- |
-| Step, turn, world, seam, hooks, gate, inc | 3,065 | 2,950, plus `actors.ts` 61, `record.ts` 24 |
+| Step, turn, world, seam, hooks, gate, inc | 3,065 | 3,092, plus `actors.ts` 61, `record.ts` 24 |
 | Lane, reads, timers | 649 | 664 |
 | Write-ahead | 421 | 455 |
 | Driver | 370 | 359 |
