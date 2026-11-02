@@ -1,0 +1,10 @@
+FAIL  PAY-09/ack-not-stored                                notice: expected "Your payment wasn't sent. You haven't been charged.", got ""
+FAIL  PAY-10/refuse                                        issues not named by the scenario: StorageFailure
+FAIL  PAY-13/waiting-flush-lost                            reason: expected "Restored", got "Disposed"
+FAIL  PAY-16/resend-refused-capture                        issues not named by the scenario: StorageFailure
+FAIL  STORE-04/Restored                                    reason: expected "Restored", got undefined
+FAIL  HIGH-01/retry-then-refuse-holds                      issues not named by the scenario: StorageFailure
+FAIL  MED-01/cancel-refused-by-storage                     issues not named by the scenario: StorageFailure
+FAIL  REV6-CAPTURE/an-awaited-write-carries-what-waits-with-it and the lane, unacknowledged, with it: expected true, got false
+FAIL  REV7-H1/a-late-failure-does-not-unsay-an-acknowledgement said: expected 1, got 0
+FAIL  REV7-M1/only-lane-free-memory-waits                  a lane flushed it: memory and lane together: expected "t", got ""

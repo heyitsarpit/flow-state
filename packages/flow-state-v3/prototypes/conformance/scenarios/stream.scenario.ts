@@ -347,7 +347,7 @@ export const streamScenarios: readonly Scenario[] = [
         c.eq("a reload replays from there", lastFrom(c), cur(1));
       },
       "a-position-that-cannot-be-saved-ends-the-session"(c) {
-        c.namedIssues.push("InvalidTurn");
+        c.namedIssues.push("InvalidTurn", "UnencodableValue");
         c.ensure();
         hello(c);
         c.do({ feed: OP, frame: { t: "activity", entry: { id: "x", cursor: 10n } } });

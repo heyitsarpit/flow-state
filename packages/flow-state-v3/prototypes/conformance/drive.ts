@@ -122,6 +122,7 @@ export const makeHarness = (port: Port) => (): Harness => {
     else if ("dispose" in s) inst.dispose(actorKey(s.dispose));
     else if ("answer" in s) fake.answer(s.answer, s.with, s.where);
     else if ("storage" in s) fake.storageStep(s.storage, s.match);
+    else if ("hide" in s) fake.hide();
     else if ("feed" in s) {
       fake.feedStep(s.feed, s);
     } else if ("disposeRuntime" in s) inst.disposeRuntime();
@@ -181,7 +182,8 @@ export const makeHarness = (port: Port) => (): Harness => {
   return {
     start(cfg) {
       fake = new FakeWorld(cfg.seed, cfg.machines.find((m) => m.server)?.server);
-      bounds = cfg.bounds ?? {};
+      // Round 7: the older cases were written with plain writes landing at once. D80's 5 s is the runtime's default; a case that means it says so.
+      bounds = { captureMs: 0, ...cfg.bounds };
       compiled = cfg.machines.map((m) => wrap(m.make(fake.api)));
       boot();
     },
@@ -204,6 +206,7 @@ export const makeHarness = (port: Port) => (): Harness => {
         if (s.tear !== undefined) fake.tearLast(s.tear);
         noteLost();
         fake.killProcess();
+        if (s.load) fake.loadMode = s.load;
         boot();
         if (s.crashAfterBoot) {
           fake.killProcess();
@@ -224,6 +227,8 @@ export const makeHarness = (port: Port) => (): Harness => {
         else if ("mutateServer" in f) fake.serverState = f.mutateServer(fake.serverState);
         else if ("socketClose" in f) fake.closeMs = f.socketClose;
         else if ("storageFails" in f) fake.plainFails = f.storageFails;
+        else if ("storageFailsLate" in f) fake.plainFailsLate = f.storageFailsLate;
+        else if ("storageFailsHeld" in f) fake.plainFailsHeld = f.storageFailsHeld;
         else if ("corruptStored" in f) {
           // A record edited on disk may be quarantined, and an Attempt in it with it: rule 46, named by an issue.
           const hit = [...fake.kv]

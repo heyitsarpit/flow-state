@@ -13,8 +13,10 @@ export type Host = {
   setTimer(at: number, f: () => void): () => void;
   later(f: () => void): void;
   scheduler: Scheduler.Scheduler;
+  // Round 7, D80: when the page stops being seen: `visibilitychange` to hidden, `pagehide`. A host may not have one.
+  onHidden?(f: () => void): void;
   storage: {
-    load(): ReadonlyMap<string, string>;
+    load(): ReadonlyMap<string, string> | PromiseLike<ReadonlyMap<string, string>>; // round 7: a real read takes time, or never answers
     // `then` makes the write awaited: the fake holds it until a `storage` step. Others land at once. `failed`: a plain write that
     // did not land (review M7). A real store says so; silence is not landing. The batch is atomic: this is the contract D80 relies on.
     write(
@@ -22,6 +24,7 @@ export type Host = {
       purpose: Purpose,
       then?: (ok: boolean) => void,
       failed?: (why: string) => void,
+      landed?: () => void, // round 7: a plain write's success, since a backoff cannot reset on silence (review L2)
     ): void;
   };
 };
@@ -127,11 +130,19 @@ export class FakeWorld {
 
   readonly kv = new Map<string, string>();
   plainFails = 0; // review M7: the next n plain writes fail, and say so
+  // Review H1: a real store answers later. `Late`: said on the next tick. `Held`: said only at a `failLate` storage step, after whatever came next.
+  plainFailsLate = 0;
+  plainFailsHeld = 0;
+  private lateReports: Array<() => void> = [];
+  loadMode: "now" | "hang" | "fail" = "now"; // round 7: the next boot's read
+  private pendingLoad: { ok: (m: ReadonlyMap<string, string>) => void; no: (e: unknown) => void } | undefined;
+  private hidden: Array<{ f: () => void; process: number }> = [];
   private lastBatch: Array<{ key: string; before: string | undefined }> = [];
   private held: Array<{
     writes: readonly Write[];
     purpose: Purpose;
     then?: ((ok: boolean) => void) | undefined;
+    landed?: (() => void) | undefined;
     hung?: boolean;
   }> = [];
   constructor(
@@ -146,6 +157,8 @@ export class FakeWorld {
     this.timers = [];
     this.scheduler.q = [];
     this.laters = [];
+    this.lateReports = [];
+    this.pendingLoad = undefined;
     this.held = []; // an unconfirmed write dies with its process. `landNoAck` is how a landed one is modelled.
     for (const r of this.requests) r.resume = undefined;
   }
@@ -165,19 +178,25 @@ export class FakeWorld {
       },
       later: (f) => void this.laters.push(f),
       scheduler: this.scheduler,
+      onHidden: (f) => void this.hidden.push({ f, process }),
       storage: {
         // M9: a store has no order. Shuffled per seed and process, for good, so rule 44's order is the runtime's own.
         load: () => {
-          const out = [...this.kv];
-          let x = (this.seed * 2654435761 + this.process * 40503 + 1) >>> 0;
-          for (let i = out.length - 1; i > 0; i--) {
-            x = (Math.imul(x, 48271) >>> 0) % 2147483647;
-            const j = x % (i + 1);
-            [out[i], out[j]] = [out[j]!, out[i]!];
-          }
-          return new Map(out);
+          const read = () => this.readAll();
+          if (this.loadMode === "now") return read();
+          const mode = this.loadMode;
+          this.loadMode = "now";
+          return {
+            then: ((ok: never, no: never) => {
+              this.pendingLoad = {
+                ok: () => (ok as (m: unknown) => void)(read()),
+                no: (e) => (no as (e: unknown) => void)(e),
+              };
+              if (mode === "fail") this.laters.push(() => this.storageStep("loadFail"));
+            }) as never,
+          } as PromiseLike<ReadonlyMap<string, string>>;
         },
-        write: (writes, purpose, then, failed) => {
+        write: (writes, purpose, then, failed, landed) => {
           const blocked = writes.some((w) =>
             this.held.some((h) => h.writes.some((x) => x.key === w.key)),
           );
@@ -186,11 +205,38 @@ export class FakeWorld {
             failed?.("a plain write failed");
             return;
           }
-          if (then !== undefined || blocked) this.held.push({ writes, purpose, then });
-          else this.landWrites(writes);
+          if (then === undefined && !blocked && this.plainFailsLate > 0) {
+            this.plainFailsLate--;
+            this.laters.push(() => failed?.("a plain write failed, said later"));
+            return;
+          }
+          if (then === undefined && !blocked && this.plainFailsHeld > 0) {
+            this.plainFailsHeld--;
+            this.lateReports.push(() => failed?.("a plain write failed, said much later"));
+            return;
+          }
+          if (then !== undefined || blocked) this.held.push({ writes, purpose, then, landed });
+          else {
+            this.landWrites(writes);
+            landed?.();
+          }
         },
       },
     };
+  }
+  // Round 7, D80: the page stops being seen. What the runtime starts here runs; what a kill then takes is the test's business.
+  hide() {
+    for (const h of this.hidden) if (h.process === this.process) h.f();
+  }
+  private readAll(): ReadonlyMap<string, string> {
+          const out = [...this.kv];
+          let x = (this.seed * 2654435761 + this.process * 40503 + 1) >>> 0;
+          for (let i = out.length - 1; i > 0; i--) {
+            x = (Math.imul(x, 48271) >>> 0) % 2147483647;
+            const j = x % (i + 1);
+            [out[i], out[j]] = [out[j]!, out[i]!];
+          }
+          return new Map(out);
   }
   corrupt(match: string, edit: (raw: string) => string) {
     for (const [k, v] of this.kv) if (k.includes(match)) this.kv.set(k, edit(v));
@@ -211,7 +257,18 @@ export class FakeWorld {
     }
   }
 
-  storageStep(how: "ack" | "refuse" | "hang" | "landNoAck", match?: string) {
+  storageStep(how: "ack" | "refuse" | "hang" | "landNoAck" | "failLate" | "loadOk" | "loadFail", match?: string) {
+    if (how === "failLate") {
+      for (const f of this.lateReports.splice(0)) f();
+      return;
+    }
+    if (how === "loadOk" || how === "loadFail") {
+      const p = this.pendingLoad;
+      this.pendingLoad = undefined;
+      if (how === "loadOk") p?.ok(new Map());
+      else p?.no(new Error("the read failed"));
+      return;
+    }
     // L8: per key FIFO. A write behind a hung one for its key cannot be answered.
     const behindHung = (h: (typeof this.held)[number]) =>
       this.held
@@ -254,6 +311,7 @@ export class FakeWorld {
       if (!blocked) {
         this.held.splice(i--, 1);
         this.landWrites(h.writes);
+        h.landed?.();
       }
     }
   }
@@ -627,6 +685,7 @@ export class FakeWorld {
           backlog: c.backlog.length,
         })),
       scheduler: { picks: this.scheduler.picks, choices: this.scheduler.choices },
+      failing: this.lateReports.length,
     };
   }
   // Everything that decides this world's future, as text. Ids and times are normalised by the runtime's stateText.
@@ -648,6 +707,7 @@ export class FakeWorld {
         .filter((c) => c.process === this.process)
         .map((c) => [c.op, c.input, c.from, c.open, c.closing === true, c.backlog.length]),
       closeMs: this.closeMs,
+      fails: [this.plainFails, this.plainFailsLate, this.plainFailsHeld, this.lateReports.length],
       kv: [...this.kv.entries()].filter(([k]) => k !== "meta").sort(([a], [b]) => (a < b ? -1 : 1)),
       held: this.held.map((h) => [h.writes, h.purpose, h.hung === true, h.then !== undefined]),
     });

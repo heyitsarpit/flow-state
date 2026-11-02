@@ -389,10 +389,12 @@ export const round4Scenarios: readonly Scenario[] = [
           },
         };
         const c = new Ctx(c0.fresh([f]), N);
-        c0.namedIssues.push("InvalidTurn");
+        // Round 7, D89: the actor starts; its record does not reach disk, and that is named.
+        c0.namedIssues.push("UnencodableValue");
         c.ensure();
         c.eq("alive", c.r.quiet().fatal, false);
-        c.eq("no actor", c.r.state(N), undefined);
+        c.yes("an actor", c.r.state(N) !== undefined);
+        c.eq("no record", c.r.stored().has(`actor/${N.actor}/${N.id}`), false);
       },
       "a-schedule-of-no-length-refuses-the-turn"(c0) {
         const c = at(c0, deepAt("A"), DP);

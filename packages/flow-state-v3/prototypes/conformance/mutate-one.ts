@@ -5,6 +5,7 @@ import { payFixture } from "./fixtures/pay.compiled.ts";
 import { s1Fixture } from "./fixtures/s1.compiled.ts";
 import type { RuntimeModule } from "./harness.ts";
 import { runScenarios } from "./main.ts";
+import { searchCrash } from "./search/crash.search.ts";
 import { searchCross } from "./search/cross.search.ts";
 import { searchFragStore } from "./search/fragstore.search.ts";
 import { searchLike } from "./search/like.search.ts";
@@ -29,6 +30,7 @@ if (killers.length === 0) {
   const g = f.verdict === "failed" ? f : searchListen(make, "version", o);
   const j = g.verdict === "failed" ? g : searchRepairing(make, o);
   const k = j.verdict === "failed" ? j : searchListen(make, "version", o, "none");
-  search = k.verdict;
+  const l = k.verdict === "failed" ? k : searchCrash(make, o);
+  search = l.verdict;
 }
 console.log(JSON.stringify({ killers, search }));

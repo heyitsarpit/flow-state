@@ -7,6 +7,7 @@ import { payFixedFixture } from "../fixtures/pay.fixed.ts";
 import { s1Fixture } from "../fixtures/s1.compiled.ts";
 import type { RuntimeModule } from "../harness.ts";
 import { searchCross } from "./cross.search.ts";
+import { searchCrash } from "./crash.search.ts";
 import { searchFrag } from "./frag.search.ts";
 import { searchFragStore } from "./fragstore.search.ts";
 import { searchListen } from "./listen.search.ts";
@@ -45,6 +46,10 @@ const r =
     ? searchPay(make, [payFixture], o)
     : which === "payFixed"
       ? searchPay(make, [payFixedFixture], { ...o, pins: [] })
+      : which === "crash"
+        ? searchCrash(make, o)
+      : which === "crash5s"
+        ? searchCrash(make, o, { captureMs: 5000 })
       : which === "cross"
         ? searchCross(make, o)
         : which === "frag"

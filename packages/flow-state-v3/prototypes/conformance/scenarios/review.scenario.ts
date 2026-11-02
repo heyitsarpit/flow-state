@@ -202,13 +202,16 @@ export const reviewScenarios: readonly Scenario[] = [
         const c = new Ctx(c0.fresh([oddFixture]), X);
         c.ensure();
         c.send("BadMemory");
-        c.eq("refused", c.r.issues().at(-1)?.code, "InvalidTurn");
-        c.eq("memory untouched", c.mem().big, undefined);
+        // Round 7, D89, O5 over D57: the turn commits; the driver keeps the batch back and names it. The disk keeps the last good capture.
+        c.eq("named", c.r.issues().at(-1)?.code, "UnencodableValue");
+        c.eq("committed", typeof c.mem().big, "bigint");
+        c.reload();
+        c.eq("the last good capture", c.mem().big, undefined);
         c.send("Fine");
         c.reload();
         c.eq("the record is good", c.mem().n, 1);
-        c.namedIssues = ["InvalidTurn"];
-        c0.namedIssues = ["InvalidTurn"];
+        c.namedIssues = ["UnencodableValue"];
+        c0.namedIssues = ["UnencodableValue"];
       },
     },
   },

@@ -41,6 +41,8 @@ export type Fault =
   | { mutateServer: (s: any) => any } // the world changes with nobody asking: a price, another device
   | { socketClose: number } // how long a close takes from now on. Infinity never finishes
   | { storageFails: number } // review M7: the next n plain writes fail
+  | { storageFailsLate: number } // review H1: they fail, and it is said on the next tick
+  | { storageFailsHeld: number } // and it is said at a `failLate` storage step
   | { corruptStored: { readonly match: string; readonly edit: (raw: string) => string } }; // a record on disk changed: a bad write, a release
 
 export type Step =
@@ -50,8 +52,10 @@ export type Step =
   | { advance: number }
   | { answer: RequestMatch; with: Answer; where?: Readonly<Record<string, unknown>> }
   // crashAfterBoot: the first boot dies with its mail undelivered (review M1). Needs drainMs -1. tear: only the first n writes of the last batch landed
-  | { reload: true; crashAfterBoot?: true; tear?: number }
-  | { storage: "ack" | "refuse" | "hang" | "landNoAck"; match?: string }
+  // load: round 7, the new boot's read hangs until a `loadOk`/`loadFail` storage step, or fails.
+  | { reload: true; crashAfterBoot?: true; tear?: number; load?: "hang" | "fail" }
+  | { storage: "ack" | "refuse" | "hang" | "landNoAck" | "failLate" | "loadOk" | "loadFail"; match?: string }
+  | { hide: true } // round 7, D80: `visibilitychange` to hidden, or `pagehide`
   // A stream's server says something. `frames`: a burst, with no settling between them. `fail`: the connection fails with this.
   | { feed: string; frame?: unknown; frames?: readonly unknown[]; end?: true; fail?: unknown }
   | { fault: Fault }
@@ -143,6 +147,7 @@ export type Outside = {
   }>;
   live: number;
   scheduler: { picks: number; choices: number };
+  failing: number; // plain writes whose failure has not been said yet
   injections: { planned: number; done: number; withLive: number; withChoice: number };
 };
 export type Reads = {

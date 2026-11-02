@@ -16,6 +16,7 @@ import {
 } from "./scenarios/ctx.ts";
 import { round5Scenarios } from "./scenarios/round5.scenario.ts";
 import { round6Scenarios } from "./scenarios/round6.scenario.ts";
+import { round7Scenarios } from "./scenarios/round7.scenario.ts";
 import { streams5Scenarios } from "./scenarios/streams5.scenario.ts";
 import { flowScenarios } from "./scenarios/flows.scenario.ts";
 import { fragScenarios } from "./scenarios/frag.scenario.ts";
@@ -39,6 +40,7 @@ export const allScenarios: readonly Scenario[] = [
   ...round5Scenarios,
   ...streams5Scenarios,
   ...round6Scenarios,
+  ...round7Scenarios,
 ];
 
 const here = import.meta.dir;
@@ -89,6 +91,8 @@ const SHARED = [
   "fixtures/chat.compiled.ts",
   "scenarios/round6.scenario.ts",
   "fixtures/round6.compiled.ts",
+  "scenarios/round7.scenario.ts",
+  "fixtures/round7.compiled.ts",
 ];
 const lockLines = (): string[] => [
   ...allScenarios.map((s) => `${s.id} ${sha(bodyOf(s))}`),
@@ -175,7 +179,7 @@ if (import.meta.main) {
     return i < 0 ? undefined : process.argv[i + 1];
   };
   const has = (k: string) => process.argv.includes(k);
-  const round = Number(arg("--round") ?? 6);
+  const round = Number(arg("--round") ?? 7);
   const runtime = resolve(here, arg("--runtime") ?? "./null-adapter.ts");
   const mod = (await import(runtime)) as RuntimeModule;
   console.log(`runtime: ${runtime}\nbun ${Bun.version}`);
