@@ -84,7 +84,7 @@ export const searchListen = (
   make: () => Harness,
   shape: "version" | "none",
   o: { depth: number; maxStates: number; deadlineMs: number },
-  first: "load" | "none" = "load", // review H6: `load` is what hid H1: the record was always already held
+  firstLoad: "load" | "none" = "load", // review H6: `load` is what hid H1: the record was always already held
 ): Report => {
   const fixture = shape === "version" ? deskListenFixture : deskListenNoVersionFixture;
   const boot = () => {
@@ -103,7 +103,7 @@ export const searchListen = (
     };
     h.start({ machines: [fixture], seed: 1 });
     inner({ ensure: T });
-    if (first === "load") {
+    if (firstLoad === "load") {
       inner({ send: T, event: "Load" });
       inner({ answer: "list", with: { truth: true } });
     }
@@ -143,8 +143,10 @@ export const searchListen = (
         q.waits.some((w) => w.kind !== "timer");
       if (r && !busy && !r.predicted && !r.uncertain && behindNow === 0) {
         const t = h.read.truth().server.tickets.t1;
-        const excused = wasNow && r.data?.title === "title t1" && r.data?.archived === false;
-        if (t && !excused && (r.data?.archived !== t.archived || r.data?.title !== t.title))
+        // Field by field: only a value that frame said is excused.
+        const wrong = (f: "archived" | "title", was: unknown) =>
+          t && r.data?.[f] !== t[f] && !(wasNow && r.data?.[f] === was);
+        if (wrong("archived", false) || wrong("title", "title t1"))
           throw new Oracle(
             `silently wrong: shows ${JSON.stringify(r.data)}, server ${JSON.stringify(t)}`,
           );

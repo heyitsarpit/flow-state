@@ -162,7 +162,8 @@ export type World = {
   readonly follow: readonly Mail[];
   readonly chain: number;
   readonly status: "live" | "disposing" | "disposed";
-  readonly savedLanes: Readonly<Record<string, string>>;
+  readonly savedLanes: Readonly<Record<string, string>>; // what was asked for. Only a diff: the driver's dirty map owns landing (M7)
+  readonly rekeyed: Readonly<Record<string, string>>; // D78: new lane id -> old id still on disk
   readonly savedMeta: string;
   readonly disabled: Readonly<Record<string, true>>;
   readonly stalled: Readonly<Record<string, "storage" | "record" | "module">>; // D49, by Attempt
@@ -185,6 +186,7 @@ export const emptyWorld: World = {
   chain: 0,
   status: "live",
   savedLanes: {},
+  rekeyed: {},
   savedMeta: "",
   disabled: {},
   stalled: {},
@@ -219,7 +221,12 @@ export type Input =
   | { readonly k: "turn" }
   | { readonly k: "disposeRuntime" };
 
-export type Write = { readonly key: string; readonly value: string | undefined };
+// D80: `record` is an actor's record, unencoded: the driver encodes it when it writes. `value`: already bytes, or undefined to delete.
+export type Write = {
+  readonly key: string;
+  readonly value?: string | undefined;
+  readonly record?: unknown;
+};
 export type Command =
   | {
       readonly k: "invoke";
@@ -249,6 +256,8 @@ export type Bounds = {
   readonly storageMs: number;
   readonly disposeMs: number;
   readonly repairMs: number;
+  readonly pageMs: number; // D79: a read's page deadline. Proposed for T1
+  readonly captureMs: number; // D80: plain writes coalesce this long. 0: at once
   readonly followUps: number;
   readonly notifyChain: number;
   readonly queueMax: number;
@@ -260,6 +269,8 @@ export const defaultBounds: Bounds = {
   storageMs: 10_000,
   disposeMs: 5_000,
   repairMs: 30_000,
+  pageMs: 30_000,
+  captureMs: 0,
   followUps: 64,
   notifyChain: 64,
   queueMax: 64,

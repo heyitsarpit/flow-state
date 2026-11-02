@@ -14,7 +14,13 @@ const upsert = (list: readonly any[], e: any) =>
 export type ChatOpts = {
   source?: "socket" | "pulled" | "callback";
   // A box a scenario flips: each named closure throws, or returns what it holds. Review H4, L5.
-  odd?: { backoff?: unknown; reconnectWhile?: unknown; pageRetryWhile?: unknown; key?: unknown; subscribe?: unknown };
+  odd?: {
+    backoff?: unknown;
+    reconnectWhile?: unknown;
+    pageRetryWhile?: unknown;
+    key?: unknown;
+    subscribe?: unknown;
+  };
   dies?: boolean; // M4: the stream dies
   catchUp?: boolean;
   pages?: boolean;
@@ -126,9 +132,7 @@ export const chatFixture = (o: ChatOpts = {}): Fixture => ({
         ...f.node("OPEN", {
           Message: [
             {
-              guards: [
-                ({ event }: any) => (event.message.id === "denied" ? deny("Nope") : true),
-              ],
+              guards: [({ event }: any) => (event.message.id === "denied" ? deny("Nope") : true)],
               patch: ({ memory, event }: any) => {
                 if (event.message.id === "boom") throw new Error("cannot read this");
                 return { messages: upsert(memory.messages, event.message) };

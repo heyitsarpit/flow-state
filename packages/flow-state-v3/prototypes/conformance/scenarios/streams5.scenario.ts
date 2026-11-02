@@ -339,13 +339,9 @@ export const streams5Scenarios: readonly Scenario[] = [
         c.do({ feed: M, frames: [msg("a", 1), msg("b", 2)] });
         // Repairing: the buffer holds 2, so the pull stops; the source's queue fills and fails.
         c.do({ feed: M, frames: [msg("c", 3), msg("d", 4), msg("e", 5)] });
-        c.eq("not seen while nothing pulls: a finding", c.mem().ended, "");
-        hist(c, done([], 0));
-        c.eq(
-          "T6: drained, then failed",
-          [ids(c), c.mem().ended],
-          [["a", "b", "c", "d"], "Overflow"],
-        );
+        // Round 6, D79, a logged finding: T1's new row. The failing queue is heard with the pull stopped, not when the read answers.
+        c.eq("heard out of band", c.mem().ended, "Overflow");
+        c.eq("no longer catching up", row(c).catchingUp, false);
       },
       "when-places-and-releases-level-triggered"(c0) {
         const c = at(c0, chatFixture(), C);

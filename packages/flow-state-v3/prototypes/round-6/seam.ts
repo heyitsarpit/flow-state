@@ -28,6 +28,7 @@ export type Cx = {
   readonly now: number;
   readonly queueMax: number;
   readonly repairMs: number;
+  readonly pageMs: number;
   gen(): string;
   pos(): number; // D47
   arm(key: string, dueAt: number): void; // comes back through `input` as { k: "timer", key }
@@ -36,7 +37,7 @@ export type Cx = {
   note(kind: string, f?: Record<string, unknown>): void;
   issue(code: string, f?: Record<string, unknown>): void;
   visible(): void;
-  machine(id: string): Compiled;
+  machine(id: string): Compiled; // sealed: every closure in it is a Slot
   user<A extends unknown[], B>(slot: Slot<(...a: A) => B>, args: A, fallback: () => B): B;
   deliver(m: {
     actor: string;
@@ -52,18 +53,27 @@ export type Cx = {
   machineOf(actor: string): string | undefined;
   placed(actor: string): readonly PlacedActivity[];
   slice(actor: string, inc: string): SliceView | undefined;
-  tell(module: string, payload: unknown): void; // another module hears it now, as a fact: how a push reaches the store
+  publish(fact: StoreFact): void; // D81: every module with `store: true` hears it now. No module names another
 };
 export type SliceView = {
   readonly memory: any;
   readonly partition: unknown; // this module's own
 };
 export type ActorChange = { readonly key: string; readonly machine: string };
+// What a stream says to whichever store exists (D81): a change, in order; or a gap in coverage (T7).
+export type StoreFact =
+  | {
+      readonly k: "pushed";
+      readonly machine: string;
+      readonly op: string;
+      readonly value: unknown;
+    }
+  | { readonly k: "gap"; readonly machine: string; readonly op: string };
 // What `told` receives from the core. Closed: an unlisted kind cannot arrive.
 export type Told =
   | { readonly k: "actors"; readonly changed: readonly ActorChange[] }
   | ReadAnswer
-  | { readonly k: "module"; readonly from: string; readonly payload: unknown }
+  | StoreFact
   | { readonly k: "turned"; readonly tag: string; readonly outcome: "ran" | "invalid" | "fenced" }
   | {
       readonly k: "member";
@@ -92,6 +102,7 @@ export type Module<S> = {
   readonly id: string;
   readonly rank: number;
   readonly observes?: true; // wants { k: "actors" }, level-triggered
+  readonly store?: true; // D81: hears what a stream publishes
   init(): S;
   prepare?(s: S, w: Omit<WriteRef, "attempt" | "mint">, cx: Cx): unknown; // P5: dry
   start?(s: S, w: WriteRef, prepared: unknown, cx: Cx): { readonly s: S; readonly ok: boolean }; // P6

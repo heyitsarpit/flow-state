@@ -1,8 +1,8 @@
 // The world, owned by the suite so it survives runtime rewrites: virtual clock, stepping scheduler, fake server,
 // fake storage. A runtime sees only `Host` and `Api`. A "process" is a generation: when it dies, nothing from it
 // reaches the next one, without any cooperation from the runtime.
-import { Cause, Effect, Exit, Queue, Stream, type Scheduler } from "effect";
-import type { FeedCallback } from "./fixtures/compiled.ts";
+import { Effect, Exit, Stream, type Scheduler } from "effect";
+import { feedCallback } from "./fixtures/compiled.ts";
 import type { Answer, Outside, Request, World0 } from "./harness.ts";
 
 export type Purpose = "acknowledge" | "capture" | "flush";
@@ -42,7 +42,7 @@ export type Api = {
   orderFor(i: unknown): E;
   socket(op: string, input: unknown, from: unknown): unknown; // Stream of what the server pushes, until a `feed` step ends it
   pulled(op: string, input: unknown, from: unknown): unknown; // hands over one backlog item per pull (T4)
-  feed(op: string, input: unknown, from: unknown, bound?: number): FeedCallback; // T6: what `Feed.callback` compiles to. The queue is the runtime's
+  feed(op: string, input: unknown, from: unknown, bound?: number): unknown; // T6: a `Feed.callback`. The queue is the runtime's
 };
 type Conn = {
   op: string;
@@ -177,7 +177,7 @@ export class FakeWorld {
           }
           return new Map(out);
         },
-        write: (writes, purpose, then) => {
+        write: (writes, purpose, then, failed) => {
           const blocked = writes.some((w) =>
             this.held.some((h) => h.writes.some((x) => x.key === w.key)),
           );
@@ -278,19 +278,8 @@ export class FakeWorld {
     voidAuthorization: (input, o) => this.call("void", input, o.idempotencyKey),
     intent: (input) => this.call("intent", input),
     orderFor: (input) => this.call("order", input),
-    socket: (op, input, from) => {
-      const c = this.newConn(op, input, from);
-      return Stream.callback<unknown, unknown>((q) =>
-        Effect.acquireRelease(
-          Effect.sync(() => {
-            c.push = (f) => void Queue.offerUnsafe(q, f);
-            c.end = () => void Queue.endUnsafe(q);
-            c.fail = (e) => void Queue.failCauseUnsafe(q, Cause.fail(e));
-          }),
-          () => this.closeConn(c),
-        ),
-      );
-    },
+    // D79: a pushed source is a `Feed.callback`, so what bounds it is the runtime's queue. An unbounded `Stream.callback` here was review M5.
+    socket: (op, input, from) => this.api.feed(op, input, from),
     // A pulled source: nothing moves until the consumer asks. `backlog` is what the server has.
     pulled: (op, input, from) => {
       const c = this.newConn(op, input, from);
@@ -328,8 +317,7 @@ export class FakeWorld {
     // T6's far side. The fake holds no queue: `emit` is the runtime's, so what bounds a pushed source is runtime code (review M5).
     feed: (op, input, from, bound) => {
       const c = this.newConn(op, input, from);
-      return {
-        _tag: "Feed.callback",
+      return feedCallback({
         ...(bound === undefined ? {} : { bound }),
         start: (emit) => {
           c.push = (f) => void emit(f);
@@ -337,7 +325,7 @@ export class FakeWorld {
           c.fail = (e) => emit.fail(e);
           return () => this.closeConn(c);
         },
-      };
+      });
     },
   };
   readonly conns: Conn[] = [];

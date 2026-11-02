@@ -11,7 +11,7 @@ import {
   toldAll,
 } from "./hooks.ts";
 import { flush, onStorageBound, onStored, restore } from "./durable.ts";
-import { admit, own } from "./gate.ts";
+import { admitted, own } from "./gate.ts";
 import { down, placementsActive, seedKids, up, walkIncs, viewOf, type Started } from "./inc.ts";
 import { cell, parkWaiting, settleSend } from "./lane.ts";
 import { dropReadsOf, takeRead } from "./reads.ts";
@@ -312,7 +312,7 @@ const onEnsure = (tx: Tx, key: string, machine: string, input: unknown) => {
   try {
     startRoot(tx, key, machine, input);
     const a = tx.w.actors[key]!;
-    if (tx.machines[machine]!.persisted) admit(viewOf(a.root), `${machine} persisted memory`); // D57
+    if (tx.machines[machine]!.persisted) admitted(viewOf(a.root), `${machine} persisted memory`); // D57
   } catch (e) {
     if (!(e instanceof Refused)) throw e;
     tx.w = kept.w;

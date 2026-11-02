@@ -10,6 +10,8 @@ import {
   ticketRef,
 } from "../fixtures/desk.compiled.ts";
 import {
+  engineFixture,
+  engineRef,
   getterFixture,
   keyReleaseFixture,
   memoryReleaseFixture,
@@ -47,8 +49,7 @@ const noRev = (over: object = {}) => {
   return r;
 };
 const updated = (ticket: object) => ({ _tag: "TicketUpdated", ticket });
-const hello = (c: Ctx, op = "changes") =>
-  c.do({ feed: op, frame: { _feed: "live", proof: "x" } });
+const hello = (c: Ctx, op = "changes") => c.do({ feed: op, frame: { _feed: "live", proof: "x" } });
 const fr = (c: Ctx, frame: unknown, op = "changes") => c.do({ feed: op, frame });
 const repairs = (c: Ctx) => c.reqs("repair").length;
 const loaded = (c0: Ctx, f: Fixture) => {
@@ -72,7 +73,8 @@ const honest = (c: Ctx, field: string) => {
   if (r && !r.uncertain && !r.predicted)
     c.eq(`unmarked ${field} is the server's`, r.data?.[field], t?.[field]);
 };
-const chat = (c0: Ctx, o: ChatOpts, bounds?: Record<string, number>) => at(c0, chatFixture(o), C, bounds);
+const chat = (c0: Ctx, o: ChatOpts, bounds?: Record<string, number>) =>
+  at(c0, chatFixture(o), C, bounds);
 const live = (o: object = {}) => ({ _feed: "live", ...o });
 const f = (c: Ctx, frame: unknown) => c.do({ feed: M, frame });
 const msg = (id: string, cursor?: number) => ({ id, ...(cursor === undefined ? {} : { cursor }) });
@@ -90,7 +92,135 @@ const done = (items: readonly unknown[], through?: number) => ({
   ...(through === undefined ? {} : { through }),
 });
 
+const ER = engineRef("t1");
+const EA = { actor: "Lab/Engine", id: "a" };
+const eng = (c: Ctx, ref = ER) => c.r.module("engine", ref);
+const poke = (
+  c: Ctx,
+  base: number,
+  cookie: number,
+  lmid: readonly string[],
+  rows: readonly object[],
+) => c.do({ feed: "changes", frame: { _tag: "Poke", base, cookie, lmid, rows } });
+
 export const round6Scenarios: readonly Scenario[] = [
+  {
+    id: "REV6-CAPTURE",
+    kind: "example",
+    fixtures: [chatFixture()],
+    actor: C,
+    cites: ["D80", "O3", "O6"],
+    bounds: { captureMs: 50 },
+    variants: {
+      "plain-writes-coalesce-to-the-newest"(c0) {
+        const c = chat(c0, {}, { captureMs: 50 });
+        c.advance(50);
+        const disk = () => (c.r.stored().get(`actor/${C.actor}/${C.id}`) as any)?.root.memory.muted;
+        c.send("Mute");
+        c.eq("not yet", disk(), false);
+        c.send("Unmute");
+        c.send("Mute");
+        c.advance(50);
+        c.eq("the newest", disk(), true);
+      },
+      "a-crash-loses-plain-memory-and-only-that"(c0) {
+        const c = chat(c0, {}, { captureMs: 50 });
+        c.advance(50);
+        c.send("Mute");
+        c.reload();
+        c.eq("the last good capture", c.mem().muted, false);
+      },
+      "an-awaited-write-carries-what-waits-with-it"(c0) {
+        const A = { actor: "Lab/KeyRelease", id: "a" };
+        const c = at(c0, keyReleaseFixture({ v: 1 }), A, { captureMs: 50 });
+        c.advance(50);
+        c.send("Go");
+        c.yes("the lane is out", c.r.outside().storage.length === 1);
+        c.yes("the actor is on disk already", c.r.stored().has(`actor/${A.actor}/${A.id}`));
+        c.yes(
+          "and the lane, unacknowledged, with it",
+          [...c.r.stored().keys()].some((k) => k.startsWith("lane/")),
+        );
+        c.reload();
+        c.eq("never sent", c.reqs("charge").length, 0);
+      },
+    },
+  },
+  {
+    id: "REV6-ENGINE",
+    kind: "example",
+    fixtures: [engineFixture],
+    actor: EA,
+    cites: ["D81"],
+    variants: {
+      "a-poke-is-atomic-one-publication"(c0) {
+        const c = at(c0, engineFixture, EA);
+        c.do({ feed: "changes", frame: { _feed: "live", proof: "x" } });
+        const before = c.r.frames().length;
+        poke(
+          c,
+          0,
+          1,
+          [],
+          [
+            { ref: ER, fields: { title: "a" } },
+            { ref: engineRef("t2"), fields: { title: "b" } },
+          ],
+        );
+        c.eq("both", [eng(c).data.title, eng(c, engineRef("t2")).data.title], ["a", "b"]);
+        c.yes(
+          "no frame shows one without the other",
+          c.r
+            .frames()
+            .slice(before)
+            .every((f) => Object.keys(f.records).length === 0),
+        );
+        c.eq("no store in the world but its own", c.rec(ER), undefined);
+      },
+      "confirmed-and-visible-cannot-disagree"(c0) {
+        const c = at(c0, engineFixture, EA);
+        poke(c, 0, 1, [], [{ ref: ER, fields: { title: "a" } }]);
+        c.send("Rename", { id: "t1", title: "mine" });
+        c.eq("predicted", [eng(c).data.title, eng(c).predicted], ["mine", true]);
+        const key = c.reqs("rename")[0]!.idempotencyKey!;
+        c.answer("rename", { ok: {} });
+        c.eq("a response is not evidence: still predicted", eng(c).predicted, true);
+        poke(c, 1, 2, [key], [{ ref: ER, fields: { title: "mine" } }]);
+        c.eq(
+          "the snapshot says both at once",
+          [eng(c).data.title, eng(c).predicted],
+          ["mine", false],
+        );
+      },
+      "blocks-false-drops-D3-the-server-orders"(c0) {
+        const c = at(c0, engineFixture, EA);
+        poke(c, 0, 1, [], [{ ref: ER, fields: { title: "a" } }]);
+        c.send("Rename", { id: "t1", title: "x" });
+        c.send("Rename", { id: "t1", title: "y" });
+        c.eq("both on the wire", c.reqs("rename").length, 2);
+        c.eq("replayed in order on top", eng(c).data.title, "y");
+      },
+      "an-older-cookie-changes-nothing-a-hole-asks-again"(c0) {
+        const c = at(c0, engineFixture, EA);
+        poke(c, 0, 2, [], [{ ref: ER, fields: { title: "two" } }]);
+        poke(c, 0, 1, [], [{ ref: ER, fields: { title: "one" } }]);
+        c.eq("a replay is nothing", eng(c).data.title, "two");
+        poke(c, 5, 6, [], [{ ref: ER, fields: { title: "six" } }]);
+        c.eq("not applied on another base", eng(c).data.title, "two");
+        c.eq("asked", c.reqs("pull").length, 1);
+        c.answer("pull", {
+          ok: {
+            _tag: "Poke",
+            base: 2,
+            cookie: 6,
+            lmid: [],
+            rows: [{ ref: ER, fields: { title: "six" } }],
+          },
+        });
+        c.eq("then it lands", eng(c).data.title, "six");
+      },
+    },
+  },
   {
     id: "REV6-H1",
     kind: "example",
@@ -441,7 +571,10 @@ export const round6Scenarios: readonly Scenario[] = [
         c.answer("charge", { lost: true });
         rel.v = 2;
         c.reload();
-        c.yes("still held on disk under the new id", [...c.r.stored().keys()].some((k) => k.includes('"key":"a"')));
+        c.yes(
+          "still held on disk under the new id",
+          [...c.r.stored().keys()].some((k) => k.includes('"key":"a"')),
+        );
         c.yes("the old id is gone", ![...c.r.stored().keys()].some((k) => k.includes('"k":"a"')));
       },
     },
@@ -462,7 +595,11 @@ export const round6Scenarios: readonly Scenario[] = [
           c.advance(20_000);
           if (feeds(c).at(-1)?.open) f(c, { _feed: "ping" });
         }
-        c.eq("no longer waiting on that read", session(c).catchingUp === true && c.reqs("history").length === 1, false);
+        c.eq(
+          "no longer waiting on that read",
+          session(c).catchingUp === true && c.reqs("history").length === 1,
+          false,
+        );
         c.yes("said", c.r.evidence("PageSilent").length >= 1);
       },
       "three-silent-reads-make-one-lost"(c0) {
@@ -527,7 +664,11 @@ export const round6Scenarios: readonly Scenario[] = [
         }
         c.do({
           feed: M,
-          frames: [msg("a", 1), msg("boom", 2), ...Array.from({ length: 6 }, (_x, i) => msg(`z${i}`, 3 + i))],
+          frames: [
+            msg("a", 1),
+            msg("boom", 2),
+            ...Array.from({ length: 6 }, (_x, i) => msg(`z${i}`, 3 + i)),
+          ],
         });
         c.eq("only what was asked for left the server", feeds(c)[0]!.backlog, 6);
       },
@@ -669,7 +810,10 @@ export const round6Scenarios: readonly Scenario[] = [
         c.ack();
         rel.v = 2;
         c.reload();
-        c.yes("D50, stated", c.r.issues().some((i) => i.code === "InvalidTurn"));
+        c.yes(
+          "D50, stated",
+          c.r.issues().some((i) => i.code === "InvalidTurn"),
+        );
       },
     },
   },
@@ -695,7 +839,10 @@ export const round6Scenarios: readonly Scenario[] = [
         });
         c.reload();
         c.eq("not stopped", c.r.quiet().fatal, false);
-        c.yes("named", c.r.issues().some((i) => i.code === "RecordQuarantined"));
+        c.yes(
+          "named",
+          c.r.issues().some((i) => i.code === "RecordQuarantined"),
+        );
       },
       "a-stored-key-of-proto-quarantines"(c0) {
         const c = chat(c0, {});
@@ -711,7 +858,10 @@ export const round6Scenarios: readonly Scenario[] = [
         });
         c.reload();
         c.eq("not stopped", c.r.quiet().fatal, false);
-        c.yes("named", c.r.issues().some((i) => i.code === "RecordQuarantined"));
+        c.yes(
+          "named",
+          c.r.issues().some((i) => i.code === "RecordQuarantined"),
+        );
       },
     },
   },

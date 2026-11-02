@@ -322,6 +322,8 @@ Convergence-5. Fixtures: `desk.compiled.ts`, copied from the desk's domains (`pr
 
 | id | R | kind | src | cites | thin | what it shows |
 | -- | --- | ---- | --- | ----- | ---- | ------------- |
+| REV6-CAPTURE | 6 | example | table | D80, O3, O6 |  | plain writes coalesce; an awaited one is never coalesced |
+| REV6-ENGINE | 6 | example | flow | D81 |  | a small sync engine behind the seam |
 | REV6-H1 | 6 | example | flow | D74, D76, sec:2.8.6 |  | review H1: frames and successes before the first row |
 | REV6-H2 | 6 | example | flow | D74, sec:2.8.6, rule:32 |  | review H2, L7: three ways to undo a confirmed fact |
 | REV6-H3 | 6 | example | flow | D75, sec:2.8.6 |  | review H3: a version's order is declared |

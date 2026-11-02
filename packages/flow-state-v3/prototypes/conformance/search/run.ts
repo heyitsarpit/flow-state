@@ -54,7 +54,12 @@ const r =
             : which === "session"
               ? searchSession(make, o)
               : which.startsWith("listen.")
-                ? searchListen(make, which.split(".")[1] as never, o, which.endsWith(".noload") ? "none" : "load")
+                ? searchListen(
+                    make,
+                    which.split(".")[1] as never,
+                    o,
+                    which.endsWith(".noload") ? "none" : "load",
+                  )
                 : which === "repairing"
                   ? searchRepairing(make, o)
                   : which.startsWith("fragstore.")

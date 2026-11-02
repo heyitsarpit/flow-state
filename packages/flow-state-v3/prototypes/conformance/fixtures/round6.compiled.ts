@@ -141,3 +141,79 @@ export const getterFixture: Fixture = {
     uses: [],
   }),
 };
+
+// D81's check: a machine on a sync engine, through the same fixture shapes. The feed carries pokes; the write's response says nothing.
+const E = "Lab/Engine";
+const e = fixtureOf(E);
+export const engineRef = (id: string) => `Ticket|${id}`;
+export const engineFixture: Fixture = {
+  id: E,
+  make: (api: Api) => ({
+    id: E,
+    root: "root",
+    default: "ON",
+    nodes: {
+      root: e.node("root", {
+        Rename: [
+          {
+            members: e.commit("rename", ({ event }: any) => ({ id: event.id, title: event.title })),
+          },
+        ],
+        Done: [{}],
+        No: [{}],
+        Unsure: [{}],
+      }),
+      ON: {
+        ...e.node("ON"),
+        activities: [{ op: "changes", input: e.slot("states.ON.activities[0]", () => ({})) }],
+      },
+    },
+    memory: e.memory(() => ({})),
+    ops: {
+      rename: {
+        id: "rename",
+        contract: "lab/rename",
+        kind: "write",
+        key: e.key("rename", (i: any) => ({ id: i.id, n: i.title })),
+        concurrency: "reject",
+        commit: (input, { attempt }) =>
+          api
+            .call("rename", input, { idempotencyKey: attempt.id })
+            .pipe(unknownWhenLost) as Effect.Effect<unknown, unknown>,
+        outcomes: {
+          success: { event: "Done" },
+          failure: { NotSent: { event: "No" } },
+          unknown: { event: "Unsure" },
+        },
+      },
+    },
+    streams: {
+      changes: {
+        id: "changes",
+        listen: true,
+        key: () => ({}),
+        reconnect: true,
+        idleMs: Infinity,
+        healthyMs: 60_000,
+        backoff: (n) => Math.min(30_000, 1000 * 2 ** n),
+        subscribe: (i, { from }) => api.socket("changes", i, from),
+        value: { event: "Done" },
+        missed: { event: "Done" },
+        failure: { event: "No" },
+      },
+    },
+    persisted: false,
+    uses: ["engine", "sessions"],
+    domain: {
+      writes: {
+        rename: {
+          predicts: e.slot("domain.rename.predicts", (i: any) => [
+            { ref: engineRef(i.id), patch: { title: i.title } },
+          ]),
+        },
+      },
+      reads: {},
+      repair: (ref) => api.call("pull", { ref }) as Effect.Effect<any, any, never>,
+    },
+  }),
+};

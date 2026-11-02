@@ -5,6 +5,7 @@
 import { Cause, Effect, Exit, type Fiber } from "effect";
 import { OutcomeFailure, OutcomeUnknown, type Compiled } from "../conformance/fixtures/compiled.ts";
 import type { Host } from "../conformance/fake-world.ts";
+import { sealAll, text } from "./gate.ts";
 import type { Module } from "./seam.ts";
 import { step } from "./step.ts";
 import {
@@ -17,6 +18,8 @@ import {
   type Input,
   type Issue,
   type Machines,
+  type System,
+  type Write,
   type SendExit,
   type StepOut,
   type World,
@@ -45,16 +48,27 @@ export type StepRecord = {
 };
 export const createRuntime = (cfg: {
   host: Host;
-  machines: Machines;
+  machines: Machines | readonly Compiled[]; // D77: sealed here. A new host cannot forget
+  around?: (sealed: Machines) => Machines; // a test build's own read of the sealed table
+  persistence?: boolean; // false: O7's second tab, or a refused store. Machines run unpersisted, and nothing is read or written
   modules: readonly Module<any>[];
   bounds?: Partial<Bounds>;
   onStep?: (r: StepRecord) => void;
   onEvidence: (e: readonly Evidence[]) => void;
   onIssue: (i: readonly Issue[]) => void;
 }) => {
-  const { host, modules, machines } = cfg;
+  const { host, modules } = cfg;
+  const sealedList = sealAll(
+    Array.isArray(cfg.machines)
+      ? (cfg.machines as readonly Compiled[])
+      : Object.values(cfg.machines as Machines),
+  );
+  const unpersist = (t: Machines): Machines =>
+    Object.fromEntries(Object.entries(t).map(([k, m]) => [k, { ...m, persisted: false }]));
+  const sealed: Machines = cfg.persistence === false ? unpersist(sealedList) : sealedList;
+  const machines = cfg.around ? cfg.around(sealed) : sealed;
   const bounds = { ...defaultBounds, ...cfg.bounds };
-  const sys = { machines, modules, bounds };
+  const sys: System = { machines, modules, bounds };
   let world: World = emptyWorld;
   let running = false;
   let yielded = false;
@@ -88,8 +102,68 @@ export const createRuntime = (cfg: {
     fibers.set(key, fiber);
     fiber.addObserver((exit) => {
       fibers.delete(key);
+      credits.delete(key); // L6
+      waiting.delete(key);
       done(readExit(exit));
     });
+  };
+  // ── D80: the only place a record becomes bytes. Newest per key; one batch; a failed plain batch stays dirty and is retried (M7, O3, O5).
+  const dirty = new Map<string, Write>();
+  let dirtyPurpose: Write extends never ? never : Parameters<Host["storage"]["write"]>[1] = "flush";
+  let captureOff: (() => void) | undefined;
+  let retryN = 0;
+  let reported = false;
+  let lastFailed = false;
+  const encodeAll = (writes: readonly Write[]) => {
+    const out: Array<{ key: string; value: string | undefined }> = [];
+    for (const w of writes) {
+      if (w.record === undefined) {
+        out.push({ key: w.key, value: w.value });
+        continue;
+      }
+      const value = text(w.record);
+      // The turn gated memory. What is left is a thing nobody gated: named, and the last good record stands.
+      if (value === undefined)
+        guarded(() =>
+          cfg.onIssue([{ code: "UnencodableValue", origin: `actor ${w.key.slice(6)}` }]),
+        );
+      else out.push({ key: w.key, value });
+    }
+    return out;
+  };
+  const flushCapture = () => {
+    captureOff?.();
+    captureOff = undefined;
+    if (dirty.size === 0) return;
+    const batch = [...dirty.values()];
+    dirty.clear();
+    if (!lastFailed) reported = false;
+    lastFailed = false;
+    const encoded = encodeAll(batch);
+    if (encoded.length === 0) return;
+    host.storage.write(encoded, dirtyPurpose, undefined, (why) => {
+      lastFailed = true;
+      if (!reported) {
+        reported = true;
+        guarded(() => cfg.onIssue([{ code: "StorageFailure", input: why }]));
+      }
+      for (const w of batch) if (!dirty.has(w.key)) dirty.set(w.key, w); // a newer value wins
+      armCapture(Math.min(30_000, 1000 * 2 ** retryN++));
+    });
+    if (!lastFailed) retryN = 0;
+  };
+  const armCapture = (ms: number) => {
+    captureOff?.();
+    captureOff = host.setTimer(host.now() + ms, () => {
+      captureOff = undefined;
+      flushCapture();
+    });
+  };
+  const capture = (writes: readonly Write[], purpose: typeof dirtyPurpose) => {
+    for (const w of writes) dirty.set(w.key, w);
+    dirtyPurpose = purpose;
+    if (bounds.captureMs <= 0) return flushCapture();
+    if (!captureOff) armCapture(bounds.captureMs);
   };
   const invoke = (c: Extract<Command, { k: "invoke" }>) => {
     try {
@@ -125,10 +199,11 @@ export const createRuntime = (cfg: {
       }
       case "persist": {
         const t = c.ticket;
-        return host.storage.write(
-          c.writes,
-          c.purpose,
-          t && ((ok) => input({ k: "stored", attempt: t.attempt, ticket: t.ticket, ok })),
+        if (!t) return capture(c.writes, c.purpose);
+        // O3, O6: an awaited write is never coalesced, and what waits goes first, so a lane cannot outrun its actor.
+        flushCapture();
+        return host.storage.write(encodeAll(c.writes), c.purpose, (ok) =>
+          input({ k: "stored", attempt: t.attempt, ticket: t.ticket, ok }),
         );
       }
       case "module": {
@@ -260,9 +335,29 @@ export const createRuntime = (cfg: {
     inbox.push(i);
     pump();
   }
-  input({ k: "boot", records: [...host.storage.load()] });
+  // O4: `load` may be a promise. What arrives before it waits, in order, boot first. Reported: 2.10.17.6 says `ActorAbsent` (convergence-6).
+  let booted = false;
+  const waitingBoot: Input[] = [];
+  const realInput = input;
+  const boot = (records: ReadonlyMap<string, string>) => {
+    booted = true;
+    realInput({ k: "boot", records: [...records] });
+    for (const i of waitingBoot.splice(0)) realInput(i);
+  };
+  const outer = (i: Input) => (booted ? realInput(i) : void waitingBoot.push(i));
+  const loaded = cfg.persistence === false ? new Map<string, string>() : host.storage.load();
+  if (loaded instanceof Promise)
+    void loaded.then(boot, (e) => {
+      // O5: a read that failed disables persistence, so unread data is never overwritten.
+      guarded(() => cfg.onIssue([{ code: "StorageFailure", input: String(e) }]));
+      sys.machines = unpersist(sys.machines);
+      boot(new Map());
+    });
+  else boot(loaded);
   return {
-    input,
+    input: outer,
+    flushNow: flushCapture,
+    sealed,
     world: () => world,
     pending: () => !fatal && (work() || running),
     live: () => fibers.size,

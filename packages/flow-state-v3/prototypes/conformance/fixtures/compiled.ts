@@ -1,6 +1,6 @@
 // The compiled format of convergence-1 section 7, the subset rounds 1 and 2 use, plus Flow's commit vocabulary (2.7.1).
 // Hand-written until round 6. `uses` and `domain` name a module's data; the core reads neither.
-import { Data, Effect } from "effect";
+import { Context, Data, Effect, Stream } from "effect";
 
 export type At = { readonly definition: string; readonly path: string };
 export type Slot<F> = { readonly run: F; readonly at: At };
@@ -190,17 +190,27 @@ export type Signal =
     }
   | { readonly _feed: "ping" }
   | { readonly _feed: "down"; readonly reason: string };
-// T6: what `Feed.callback` compiles to. `subscribe` returns a Stream, or this. It is a value so that the Runtime owns the queue (D79).
+// T6: what `Feed.callback` takes.
 export type Emit = {
   (v: unknown): void; // a value or a signal
   readonly fail: (e: unknown) => void;
   readonly end: () => void;
 };
 export type FeedCallback = {
-  readonly _tag: "Feed.callback";
   readonly bound?: number; // 1,024 by default
   readonly start: (emit: Emit) => void | (() => unknown); // a finalizer may return an Effect, awaited
 };
+// `Feed.callback(...)` is a Stream an author may `.pipe`, and it asks the Runtime it runs under for the queue. So T6 is runtime code, and
+// the Runtime can hear a failing queue with its pull stopped (D79). The suite holds only this name; a Runtime provides it.
+export class FeedQueue extends Context.Service<
+  FeedQueue,
+  { readonly make: (cb: FeedCallback) => Stream.Stream<unknown, unknown> }
+>()("Flow/FeedQueue") {}
+export const feedCallback = (cb: FeedCallback): Stream.Stream<unknown, unknown> =>
+  Stream.unwrap(Effect.map(Effect.service(FeedQueue), (q) => q.make(cb))) as Stream.Stream<
+    unknown,
+    unknown
+  >;
 export type StreamSpec = {
   readonly id: string;
   readonly delivers?: "every" | "latest"; // absent: every

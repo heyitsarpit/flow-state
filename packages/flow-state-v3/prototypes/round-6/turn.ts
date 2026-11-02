@@ -11,7 +11,7 @@ import type {
   Placement,
   Slot,
 } from "../conformance/fixtures/compiled.ts";
-import { admit, encoded, own } from "./gate.ts";
+import { admit, admitted, encoded, own } from "./gate.ts";
 import { told as moduleTold, prepareAll, Refused, run } from "./hooks.ts";
 import {
   down,
@@ -865,7 +865,7 @@ const finish = (
   const m = w.m;
   // Memory that will not encode refuses the turn, here, rather than killing the Runtime at its capture (H2).
   if (m.persisted)
-    admit(viewOf(w.root), `${w.parts[0]?.alt.at.definition ?? m.id} persisted memory`);
+    admitted(viewOf(w.root), `${w.parts[0]?.alt.at.definition ?? m.id} persisted memory`);
   const follows = w.parts.flatMap((p) =>
     (p.alt.followUps ?? []).map((f) =>
       run(f, inView(kidAt(w.root, p.path) ?? kidAt(w.root0, p.path)!, p.event) as never),

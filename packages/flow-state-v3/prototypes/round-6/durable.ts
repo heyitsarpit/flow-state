@@ -1,7 +1,7 @@
 // Write-ahead, in the core (D26). An Attempt writes twice: a capture saying "not acknowledged", then the acknowledgement, which
 // is how a restore tells NotSent { Restored } from unknown { Restored }. D30: silence is not refusal. D46: restore is per record;
 // a record that does not decode, or names what this release removed, is quarantined and the rest boots.
-import { own, text, validActor, validLane } from "./gate.ts";
+import { text, own, validActor, validLane } from "./gate.ts";
 import type { Compiled } from "../conformance/fixtures/compiled.ts";
 import { hook, saveAll } from "./hooks.ts";
 import { afterAck, cell } from "./lane.ts";
@@ -86,7 +86,8 @@ const encodeLane = (tx: Tx, l: Lane, acked: boolean) =>
     parked: storableParked(tx, l),
     ...(l.releasing ? { releasing: true } : {}),
   });
-const encodeActor = (tx: Tx, key: string): string | undefined => {
+// D80: a reference, not bytes. The world is immutable, so this is already a whole publication; the driver encodes it when it writes.
+const actorRecord = (tx: Tx, key: string): unknown => {
   const live = own(tx.w.actors, key);
   // D73: a retired identity's record says so, and carries the timers it left with.
   const a = (live ?? own(tx.w.retired, key))! as ActorRec & { timers?: readonly FrozenTimer[] };
@@ -110,10 +111,7 @@ const encodeActor = (tx: Tx, key: string): string | undefined => {
       : [],
   );
   const timers = live ? [...armed, ...firing] : (a.timers ?? []);
-  const out = text({ ...a, timers, ...(live ? {} : { retired: true }) });
-  // The turn gated memory. What is left is a thing nobody gated: named, and the last good record stands.
-  if (out === undefined) issue(tx, { code: "UnencodableValue", origin: `actor ${key}` });
-  return out;
+  return { ...a, timers, ...(live ? {} : { retired: true }) };
 };
 
 // C: the world decides what is written. A record is written when its encoding differs from the last one sent.
@@ -121,10 +119,8 @@ export const flush = (tx: Tx) => {
   const writes: Write[] = [];
   for (const key of tx.touchedActors) {
     const a = own(tx.w.actors, key) ?? own(tx.w.retired, key);
-    if (a && tx.machines[a.machine]!.persisted) {
-      const value = encodeActor(tx, key);
-      if (value !== undefined) writes.push({ key: `actor/${key}`, value });
-    }
+    if (a && tx.machines[a.machine]!.persisted)
+      writes.push({ key: `actor/${key}`, record: actorRecord(tx, key) });
   }
   let saved = tx.w.savedLanes;
   // D72: a restored ending is still only on disk until it is delivered. Mail is not persisted, so the record stays until then.
@@ -145,12 +141,19 @@ export const flush = (tx: Tx) => {
     const l = tx.w.lanes[id];
     if (!l) {
       put(id, undefined);
-      continue;
+    } else {
+      if (!tx.machines[l.machine]!.persisted) continue;
+      const ask = tx.asks.find((x) => x.lane === id);
+      if (ask?.on === "capture") continue; // a re-send's capture goes out only as its awaited write
+      put(id, encodeLane(tx, l, l.head?.acked ?? false));
     }
-    if (!tx.machines[l.machine]!.persisted) continue;
-    const ask = tx.asks.find((x) => x.lane === id);
-    if (ask?.on === "capture") continue; // a re-send's capture goes out only as its awaited write
-    put(id, encodeLane(tx, l, l.head?.acked ?? false));
+    // D78: the old name goes in the same batch that writes the new one, so a crash leaves one or the other.
+    const old = tx.w.rekeyed[id];
+    if (old !== undefined && !owed.has(id)) {
+      put(old, undefined);
+      const { [id]: _d, ...rekeyed } = tx.w.rekeyed;
+      tx.w = { ...tx.w, rekeyed };
+    }
   }
   const persisted = writes.length > 0 || tx.asks.length > 0;
   const meta = JSON.stringify({ boot: tx.w.boot, nextMint: tx.w.nextMint });
@@ -233,8 +236,9 @@ export const restore = (tx: Tx, records: ReadonlyArray<readonly [string, string]
     ? (parse(tx, "meta", metaText) as { boot: number; nextMint: number } | undefined)
     : undefined;
   let maxMint = (Number.isFinite(m?.nextMint) ? m!.nextMint : 1) - 1;
-  const actors: Record<string, ActorRec> = {};
-  const retired: Record<string, ActorRec> = {};
+  // L3: built by entries, so a stored "__proto__" is a name like any other.
+  const actors: Array<[string, ActorRec]> = [];
+  const retired: Array<[string, ActorRec]> = [];
   const timers: FrozenTimer[] = [];
   const lanes: Array<[string, SavedLane]> = [];
   const saved: Record<string, string> = {};
@@ -243,14 +247,20 @@ export const restore = (tx: Tx, records: ReadonlyArray<readonly [string, string]
       const v = parse(tx, k, text);
       if (!v) continue;
       const mm = typeof v?.machine === "string" ? tx.machines[v.machine] : undefined;
-      if (!mm || !validActor(mm, v)) {
+      if (!mm || !validActor(mm, v, k)) {
         quarantine(tx, k, `no machine ${v?.machine}, or a record this release cannot read`);
         continue;
       }
-      const root = orphanFrozen(tx, mm, v.root);
-      if (v.retired) retired[v.key] = { key: v.key, machine: v.machine, root, timers: v.timers };
+      const decoded = restoredMemory(mm, v.root);
+      if (!decoded) {
+        quarantine(tx, k, "memory this release cannot decode");
+        continue;
+      }
+      const root = orphanFrozen(tx, mm, decoded);
+      if (v.retired)
+        retired.push([v.key, { key: v.key, machine: v.machine, root, timers: v.timers }]);
       else {
-        actors[v.key] = { key: v.key, machine: v.machine, root };
+        actors.push([v.key, { key: v.key, machine: v.machine, root }]);
         timers.push(...v.timers);
       }
     } else if (k.startsWith("lane/")) {
@@ -260,7 +270,7 @@ export const restore = (tx: Tx, records: ReadonlyArray<readonly [string, string]
         typeof v?.machine !== "string" ||
         typeof v?.op !== "string" ||
         !tx.machines[v.machine]?.ops[v.op] ||
-        !validLane(v as never)
+        !validLane(v as never, k)
       ) {
         quarantine(
           tx,
@@ -270,14 +280,14 @@ export const restore = (tx: Tx, records: ReadonlyArray<readonly [string, string]
         continue;
       }
       saved[v.id] = text;
-      lanes.push([k, v]);
+      lanes.push([k, rekeyLane(tx, v, lanes)]);
     }
   }
   tx.w = {
     ...tx.w,
     boot: (Number.isFinite(m?.boot) ? m!.boot : 0) + 1,
-    actors,
-    retired,
+    actors: Object.fromEntries(actors),
+    retired: Object.fromEntries(retired),
     savedLanes: saved,
   };
   for (const t of timers) {
@@ -339,6 +349,40 @@ export const restore = (tx: Tx, records: ReadonlyArray<readonly [string, string]
     }
   }
   tx.w = { ...tx.w, nextMint: maxMint + 1 };
+};
+// D78: a hold is a claim about the outside world; its key is only our name for it. The name moves with the release, the hold never does.
+const rekeyLane = (
+  tx: Tx,
+  v: SavedLane,
+  so_far: ReadonlyArray<readonly [string, SavedLane]>,
+): SavedLane => {
+  if (!v.head) return v;
+  let fresh: unknown;
+  try {
+    fresh = tx.machines[v.machine]!.ops[v.op]!.key.run(v.head.input);
+  } catch (e) {
+    issue(tx, { code: "UserClosure", origin: `${v.machine} ${v.op} key`, input: String(e) });
+    return v;
+  }
+  if (text(fresh) === undefined || text(fresh) === text(v.key)) return v;
+  const id = laneKey(v.actor, v.op, fresh);
+  if (so_far.some(([, o]) => o.id === id)) {
+    issue(tx, { code: "LaneRekeyCollision", origin: `${v.machine} ${v.op}`, input: id });
+    return v;
+  }
+  note(tx, "LaneRekeyed", { op: v.op, from: v.id, to: id });
+  tx.w = { ...tx.w, rekeyed: { ...tx.w.rekeyed, [id]: v.id } };
+  return { ...v, id, key: fresh };
+};
+// D82: a stand-in for Schema decode with defaults. Undefined: this record cannot be read by this release.
+const restoredMemory = (m: Compiled, root: Inc): Inc | undefined => {
+  const dec = m.memory.restore;
+  if (!dec) return root;
+  try {
+    return { ...root, memory: dec.run(root.memory) };
+  } catch {
+    return undefined;
+  }
 };
 // H2: a frozen ending of an operation this release removed is rule 46's `orphaned`, thin: evidence, and the actor keeps its memory.
 const orphanFrozen = (tx: Tx, m: Compiled, i: Inc): Inc => {

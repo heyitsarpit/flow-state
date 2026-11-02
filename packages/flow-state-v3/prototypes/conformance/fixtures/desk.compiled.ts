@@ -259,7 +259,11 @@ const withSecondFeed = (fx: Fixture): Fixture => ({
   ...fx,
   make: (api) => {
     const c = fx.make(api);
-    const second = { ...changesSpec(api), id: "changes2", subscribe: (i: unknown, x: { from: unknown }) => api.socket("changes2", i, x.from) };
+    const second = {
+      ...changesSpec(api),
+      id: "changes2",
+      subscribe: (i: unknown, x: { from: unknown }) => api.socket("changes2", i, x.from),
+    };
     return {
       ...c,
       nodes: {

@@ -4,7 +4,7 @@ import type { Compiled } from "../conformance/fixtures/compiled.ts";
 import type { BootArgs, Instance, Port } from "../conformance/harness.ts";
 import { createRuntime, type StepRecord } from "./driver.ts";
 import { entities, readAll, type Slice } from "./entities.ts";
-import { sealAll } from "./gate.ts";
+import { engine } from "./engine-spike.ts";
 import { sessions } from "./sessions.ts";
 import { kidAt, viewOf } from "./inc.ts";
 import { row as rowOf, view, waitsOf } from "./publish.ts";
@@ -12,7 +12,7 @@ import type { Module } from "./seam.ts";
 import { step } from "./step.ts";
 import { defaultBounds, emptyWorld, type Machines, type World } from "./world.ts";
 
-const REGISTRY: Readonly<Record<string, Module<any>>> = { entities, sessions };
+const REGISTRY: Readonly<Record<string, Module<any>>> = { entities, sessions, engine };
 const DRAIN = process.env["FLOW_DRAIN_MS"];
 const FREEZE = process.env["FLOW_DEEP_FREEZE"] === "1";
 const STEP_HOOKS = new Set([
@@ -55,7 +55,7 @@ const normalise = (w: World, now: number, outside: string): string => {
     text = text.replace(re, (_x, k, n) => `${k}${Number(n) === 0 ? "z" : seen.indexOf(Number(n))}`);
   };
   ranked(/(\\?"mint\\?":)(\d+)/g);
-  ranked(/(\\?"(?:sentAt|changedAt|pos|doubt|unechoed)\\?":)(\d+)/g);
+  ranked(/(\\?"(?:sentAt|landedAt|pos|doubt|since)\\?":)(\d+)/g);
   const ranks = new Map<string, number>();
   return text.replace(/att-\d+-\d+|g\d+\.\d+/g, (tok) => {
     let r = ranks.get(tok);
@@ -102,17 +102,17 @@ export const port: Port = {
     const used = [...new Set(a.compiled.flatMap((c) => c.uses))].map((u) => REGISTRY[u]!);
     const plainModules = [...used, faultModule].sort((x, y) => x.rank - y.rank);
     const modules = plainModules.map(faulted);
-    const plain: Machines = sealAll(a.compiled); // D65: the only way compiled data reaches the core
     // A core bug, reached through data: the next read of the machines throws, inside core code.
-    const machines: Machines = new Proxy(plain, {
-      get(t, k, r) {
-        if (a.faults.coreThrows > 0) {
-          a.faults.coreThrows--;
-          throw new Error("fault in core");
-        }
-        return Reflect.get(t, k, r);
-      },
-    });
+    const faultedMachines = (t0: Machines): Machines =>
+      new Proxy(t0, {
+        get(t, k, r) {
+          if (a.faults.coreThrows > 0) {
+            a.faults.coreThrows--;
+            throw new Error("fault in core");
+          }
+          return Reflect.get(t, k, r);
+        },
+      });
     const log: StepRecord[] = [];
     // The purity check: world, inputs and outputs frozen around every step. A step that writes in place throws, and that is Fatal.
     const deepFreeze = (v: any, seen = new Set<unknown>()): void => {
@@ -139,7 +139,8 @@ export const port: Port = {
     const bounds = { ...a.bounds, ...(DRAIN === undefined ? {} : { drainMs: Number(DRAIN) }) };
     const rt = createRuntime({
       host: a.host,
-      machines,
+      machines: a.compiled, // D77: createRuntime seals
+      around: faultedMachines,
       modules,
       bounds,
       onStep: (r) => {
@@ -155,6 +156,8 @@ export const port: Port = {
       onEvidence: (e) => a.onEvidence(e),
       onIssue: (i) => a.onIssue(i),
     });
+    const machines = rt.sys.machines;
+    const plain: Machines = rt.sealed;
     const sys = { machines, modules, bounds: { ...defaultBounds, ...bounds } };
     const store = (w: World) => w.ext["entities"] as Slice | undefined;
     const reg = REGISTRY["entities"]!;
@@ -186,7 +189,7 @@ export const port: Port = {
       },
       module: (id, ref) => {
         const s = rt.world().ext[id];
-        return s === undefined ? undefined : REGISTRY[id]!.read!(s, ref);
+        return s === undefined ? undefined : REGISTRY[id]?.read!(s, ref);
       },
       peakDeliveriesInMail: () => peakInMail,
       waits: () => waitsOf(rt.world(), plainModules, plain) as never,

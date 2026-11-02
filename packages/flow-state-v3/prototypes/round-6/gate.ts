@@ -4,13 +4,16 @@
 // a turn the caller gives a default. No file parses meaning out of a string it built from a user's value.
 import type {
   Alternative,
+  Carried,
   Compiled,
+  DomainSpec,
   Fragment,
   Mapped,
   Node,
   Op,
   Placement,
   Slot,
+  StreamSpec,
 } from "../conformance/fixtures/compiled.ts";
 
 export class Refused extends Error {
@@ -61,6 +64,39 @@ export const encoded = (v: unknown, origin: string): string => {
   return t;
 };
 export const admit = <A>(v: A, origin: string): A => (encoded(v, origin), v);
+// D80: the same refusals as `text`, walking only what no earlier turn verified, so a turn pays for what it changed. It trusts a committed
+// value not to be mutated later; if one is, the driver's encoding is what fails, with a name, and the last good capture stands.
+const verified = new WeakSet<object>();
+const encodable = (v: unknown, up: Set<object>): boolean => {
+  if (typeof v === "bigint" || typeof v === "function") return false;
+  if (v === null || typeof v !== "object") return true;
+  if (verified.has(v)) return true;
+  if (up.has(v)) return false;
+  const array = Array.isArray(v);
+  const proto = array ? null : Object.getPrototypeOf(v);
+  if (!array && proto !== Object.prototype && proto !== null) {
+    if (text(v) === undefined) return false; // a Date, a class with toJSON: its own business
+    verified.add(v);
+    return true;
+  }
+  up.add(v);
+  const ok = array
+    ? (v as readonly unknown[]).every((x) => encodable(x, up))
+    : Object.values(v).every((x) => encodable(x, up));
+  up.delete(v);
+  if (ok) verified.add(v);
+  return ok;
+};
+export const admitted = <A>(v: A, origin: string): A => {
+  let ok = false;
+  try {
+    ok = encodable(v, new Set());
+  } catch {
+    ok = false; // a throwing getter
+  }
+  if (!ok) throw new Refused(origin, "a value that cannot be encoded");
+  return v;
+};
 // L10: past 2^31 - 1 a browser's setTimeout fires at once.
 export const finiteMs = (v: unknown, origin: string): number => {
   if (typeof v !== "number" || !Number.isFinite(v) || v < 0 || v > 2_147_483_647)
@@ -86,8 +122,10 @@ export const listKey = (item: unknown, by: string | undefined): string | undefin
 
 // ── D65: what a real compile step would do. One walk, one table of slot kinds.
 type Check = (v: unknown, origin: string) => unknown;
+// M11: copied here, so a lazy getter throws where a throw means a refusal. A Proxy becomes a plain value.
 const plain: Check = (v, origin) => {
   if (!isObject(v)) throw new Refused(origin, `a closure returned ${typeof v}, not an object`);
+  if (Object.getPrototypeOf(v) === Object.prototype) return { ...v };
   return v;
 };
 const verdict: Check = (v, origin) => {
@@ -175,35 +213,122 @@ const sealFrag = (f: Fragment): Fragment => ({
       }
     : {}),
 });
-export const seal = (c: Compiled): Compiled => ({
-  ...c,
-  nodes: table(c.nodes, sealNode),
-  memory: { initial: gated(c.memory.initial, plain) },
-  ops: table(c.ops, sealOp),
-  ...(c.fragments ? { fragments: table(c.fragments, sealFrag) } : {}),
-  ...(c.streams
-    ? {
-        streams: table(c.streams, (x) => ({
-          ...x,
-          value: sealMapped(x.value),
-          missed: sealMapped(x.missed),
-          failure: sealMapped(x.failure),
-          ...(x.pages ? { pages: sealMapped(x.pages) } : {}),
-          ...(x.failureBy ? { failureBy: table(x.failureBy, sealMapped) } : {}),
-        })),
+// D77: every closure in `Compiled` is a Slot once sealed. A bare function stays legal on input until the typed front end; here it gets
+// its origin. A function under a name this list does not know is an error, so the next new closure cannot slip past the seal.
+const slotted = <F extends (...a: any[]) => any>(
+  f: F,
+  definition: string,
+  path: string,
+): Slot<F> => ({ run: f, at: { definition, path } });
+const STREAM_CLOSURES = new Set([
+  "key",
+  "backoff",
+  "subscribe",
+  "reconnectWhile",
+  "pageRetryWhile",
+  "catchUp",
+]);
+const DOMAIN_CLOSURES = new Set(["repair", "version", "versionOrder"]);
+const known = (o: object, names: ReadonlySet<string>, where: string) => {
+  for (const [k, v] of Object.entries(o))
+    if (typeof v === "function" && !names.has(k))
+      throw new Error(`SealUnknownClosure: ${where}.${k}`);
+};
+const encodableKey: Check = (v, origin) => {
+  if (text(v) === undefined) throw new Refused(origin, "a key that cannot be encoded");
+  return v;
+};
+const truthy: Check = (v) => v === true || (v !== false && v !== undefined && v !== null);
+const anEffect: Check = (v) => v; // what an Effect is cannot be told here; a throw building one is the caller's defect
+export type SealedStream = Omit<
+  StreamSpec,
+  "key" | "backoff" | "subscribe" | "reconnectWhile" | "pageRetryWhile" | "catchUp"
+> & {
+  readonly key: Slot<StreamSpec["key"]>;
+  readonly backoff: Slot<StreamSpec["backoff"]>;
+  readonly subscribe: Slot<StreamSpec["subscribe"]>;
+  readonly reconnectWhile?: Slot<NonNullable<StreamSpec["reconnectWhile"]>>;
+  readonly pageRetryWhile?: Slot<NonNullable<StreamSpec["pageRetryWhile"]>>;
+  readonly catchUp?: Slot<NonNullable<StreamSpec["catchUp"]>>;
+};
+const sealStream = (id: string, op: string, x: StreamSpec): SealedStream => {
+  known(x, STREAM_CLOSURES, `${id} streams.${op}`);
+  const at = (n: string) => `streams.${op}.${n}`;
+  const g = <F extends (...a: any[]) => any>(f: F, n: string, check: Check) =>
+    gated(slotted(f, id, at(n)), check);
+  return {
+    ...x,
+    key: g(x.key, "key", encodableKey),
+    backoff: g(x.backoff, "backoff", finiteMs),
+    subscribe: g(x.subscribe, "subscribe", anEffect),
+    ...(x.reconnectWhile ? { reconnectWhile: g(x.reconnectWhile, "reconnect.while", truthy) } : {}),
+    ...(x.pageRetryWhile ? { pageRetryWhile: g(x.pageRetryWhile, "page.while", truthy) } : {}),
+    ...(x.catchUp ? { catchUp: g(x.catchUp, "catchUp", anEffect) } : {}),
+    value: sealMapped(x.value),
+    missed: sealMapped(x.missed),
+    failure: sealMapped(x.failure),
+    ...(x.pages ? { pages: sealMapped(x.pages) } : {}),
+    ...(x.failureBy ? { failureBy: table(x.failureBy, sealMapped) } : {}),
+  };
+};
+export type SealedDomain = Pick<DomainSpec, "writes"> & {
+  readonly writes: Readonly<
+    Record<
+      string,
+      {
+        readonly predicts: DomainSpec["writes"][string]["predicts"];
+        readonly confirms?: Slot<(value: any, input: any) => readonly Carried[]>;
       }
-    : {}),
-  ...(c.domain
-    ? {
-        domain: {
-          ...c.domain,
-          writes: table(c.domain.writes, same_),
-          reads: table(c.domain.reads, same_),
-          ...(c.domain.listens ? { listens: table(c.domain.listens, same_) } : {}),
-        },
-      }
-    : {}),
-});
+    >
+  >;
+  readonly reads: Readonly<Record<string, Slot<(value: any, input: any) => readonly Carried[]>>>;
+  readonly listens?: Readonly<Record<string, Slot<(value: any) => readonly Carried[]>>>;
+  readonly repair: Slot<DomainSpec["repair"]>;
+  readonly version?: Slot<NonNullable<DomainSpec["version"]>>;
+  readonly versionOrder?: "lexical" | Slot<(a: unknown, b: unknown) => number>;
+};
+const sealDomain = (id: string, d: DomainSpec): SealedDomain => {
+  known(d, DOMAIN_CLOSURES, `${id} domain`);
+  const vo = d.versionOrder;
+  return {
+    ...d,
+    writes: table(d.writes, (w) => {
+      return {
+        ...w,
+        ...(w.confirms ? { confirms: slotted(w.confirms, id, "domain.confirms") } : {}),
+      };
+    }),
+    reads: table(d.reads, (f) => slotted(f, id, "domain.read")),
+    ...(d.listens ? { listens: table(d.listens, (f) => slotted(f, id, "domain.listen")) } : {}),
+    repair: slotted(d.repair, id, "domain.repair"),
+    ...(d.version ? { version: slotted(d.version, id, "domain.version") } : {}),
+    ...(typeof vo === "function" ? { versionOrder: slotted(vo, id, "domain.versionOrder") } : {}),
+  } as SealedDomain;
+};
+const sealedAlready = new WeakSet<object>();
+export const seal = (c: Compiled): Compiled => {
+  if (sealedAlready.has(c)) return c;
+  const out = {
+    ...c,
+    nodes: table(c.nodes, sealNode),
+    memory: {
+      initial: gated(c.memory.initial, plain),
+      ...(c.memory.restore ? { restore: gated(c.memory.restore, plain) } : {}),
+    },
+    ops: table(c.ops, sealOp),
+    ...(c.fragments ? { fragments: table(c.fragments, sealFrag) } : {}),
+    ...(c.streams
+      ? {
+          streams: Object.fromEntries(
+            Object.entries(c.streams).map(([k, x]) => [k, sealStream(c.id, k, x)]),
+          ),
+        }
+      : {}),
+    ...(c.domain ? { domain: sealDomain(c.id, c.domain) } : {}),
+  } as unknown as Compiled;
+  sealedAlready.add(out);
+  return out;
+};
 export const sealAll = (list: readonly Compiled[]): Readonly<Record<string, Compiled>> =>
   table(Object.fromEntries(list.map((c) => [c.id, c])), seal);
 
@@ -271,8 +396,11 @@ export const validInc = (m: Compiled, i: unknown, frag: string | null): boolean 
     return p !== undefined && k["frag"] === p.fragment && validInc(m, k, p.fragment);
   });
 };
-export const validActor = (m: Compiled, v: Record<string, unknown>) =>
+export const validActor = (m: Compiled, v: Record<string, unknown>, k: string) =>
   isStr(v["key"]) &&
+  k === `actor/${v["key"]}` && // L3: the body says who it is, and the record's key agrees
+  isObject(v["root"]) &&
+  (v["root"]["frag"] === null || v["root"]["frag"] === undefined) &&
   Array.isArray(v["timers"]) &&
   v["timers"].every(validTimer) &&
   validInc(m, v["root"], null);
@@ -288,8 +416,9 @@ const validParked = (p: unknown) =>
   validOwner(p["owner"]) &&
   isObject(p["ending"]) &&
   ["success", "failure", "unknown"].includes(p["ending"]["ch"] as string);
-export const validLane = (v: Record<string, unknown>) =>
+export const validLane = (v: Record<string, unknown>, k: string) =>
   isStr(v["id"]) &&
+  k === `lane/${v["id"]}` &&
   isStr(v["actor"]) &&
   text(v["key"]) !== undefined &&
   v["id"] === `${v["actor"]}|${v["op"]}|${canon(v["key"])}` && // what `laneKey` wrote: a release must not make an idle guard miss a hold

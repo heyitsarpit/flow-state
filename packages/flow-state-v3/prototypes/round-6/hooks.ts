@@ -19,9 +19,17 @@ const cxFor = (tx: Tx, m: Module<any>): Cx => ({
   now: tx.env.now,
   queueMax: tx.bounds.queueMax,
   repairMs: tx.bounds.repairMs,
+  pageMs: tx.bounds.pageMs,
   gen: () => nextGen(tx),
   pos: () => position(tx),
-  arm: (key, dueAt) => void armTimer(tx, { key, kind: "module", module: m.id, dueAt }),
+  // L5: a module's timers go through the same gate as a schedule's. Past the bound it is not armed, and named.
+  arm: (key, dueAt) => {
+    if (!Number.isFinite(dueAt) || dueAt - tx.env.now > 2_147_483_647) {
+      if (dueAt !== Infinity) note(tx, "TimerRefused", { key });
+      return;
+    }
+    armTimer(tx, { key, kind: "module", module: m.id, dueAt });
+  },
   disarm: (key) => disarmTimer(tx, key),
   command: (cmd) => void tx.commands.push({ k: "module", m: m.id, cmd }),
   note: (kind, f) => note(tx, kind, f ?? {}),
@@ -44,7 +52,9 @@ const cxFor = (tx: Tx, m: Module<any>): Cx => ({
     const i = path && kidAt(a!.root, path);
     return i && { memory: viewOf(i), partition: i.partition?.[m.id] };
   },
-  tell: (id, payload) => told(tx, id, { k: "module", from: m.id, payload }),
+  publish: (fact) => {
+    for (const x of tx.modules) if (x.store) told(tx, x.id, fact);
+  },
   partition: (actor, inc, f) => {
     const a = own(tx.w.actors, actor);
     const path = a && pathOfId(a.root, inc);

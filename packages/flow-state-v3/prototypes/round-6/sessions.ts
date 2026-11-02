@@ -3,8 +3,9 @@
 // `cx.slice`. D70: a releasing session has left `sessions`; the wait for it is a fact per (actor, slot), `closing`. D71: a session
 // pulls, one value per go-ahead. Prior art: S5's formA.ts (the table); desk feed.socket.ts, feed.machine.ts (the fixture's shape).
 import { Effect, Stream } from "effect";
-import type { Signal, StreamSpec } from "../conformance/fixtures/compiled.ts";
-import { own, text } from "./gate.ts";
+import { FeedQueue, type Signal } from "../conformance/fixtures/compiled.ts";
+import { feedStream } from "./feed.ts";
+import { own, text, type SealedStream } from "./gate.ts";
 import type { PlacedActivity } from "./inc.ts";
 import type { ActorChange, Cx, Module, Told } from "./seam.ts";
 
@@ -16,7 +17,8 @@ type Item = {
   readonly moves: boolean;
 };
 type St = "Queued" | "Connecting" | "Live" | "Repairing" | "Dropped" | "Waiting" | "Ended";
-const FLOW_REASONS: ReadonlySet<string> = new Set(["Closed", "Overflow", "Silent"]); // always retried under `reconnect`
+type StreamSpec = SealedStream; // D77: every closure a Slot
+const FLOW_REASONS: ReadonlySet<string> = new Set(["Closed", "Overflow", "Silent", "PageSilent"]); // always retried under `reconnect`
 type Session = {
   readonly id: string;
   readonly actor: string;
@@ -25,6 +27,7 @@ type Session = {
   readonly activation: string;
   readonly op: string;
   readonly slot: string; // op|key: the partition's entry, and the wait for a predecessor (rule 70)
+  readonly key: unknown; // read once, at start, with `input`
   readonly input: unknown; // read once, at start (rule 68)
   readonly st: St;
   readonly conn: string;
@@ -76,9 +79,16 @@ export type SessionsSlice = {
 };
 const empty: SessionsSlice = { sessions: {}, closing: {}, pending: [] };
 const specOf = (cx: Cx, machine: string, op: string): StreamSpec =>
-  cx.machine(machine).streams![op]!;
-const isSignal = (f: any): f is Signal => typeof f === "object" && f !== null && "_feed" in f;
-const slotOf = (spec: StreamSpec, input: unknown) => `${spec.id}|${text(spec.key(input))}`;
+  cx.machine(machine).streams![op] as unknown as SealedStream;
+// L4: one of three known words. A value with a field of that name is a value.
+const isSignal = (f: any): f is Signal =>
+  typeof f === "object" &&
+  f !== null &&
+  (f._feed === "live" || f._feed === "ping" || f._feed === "down");
+const slotOfKey = (spec: StreamSpec, key: unknown) => `${spec.id}|${text(key)}`;
+// The design's capped schedule stands in for a `backoff` that says nothing usable (D77, L5).
+const delayOf = (spec: StreamSpec, n: number, cx: Cx) =>
+  cx.user(spec.backoff, [n], () => Math.min(30_000, 1000 * 2 ** n));
 const put = (s: SessionsSlice, x: Session): SessionsSlice => ({
   ...s,
   sessions: { ...s.sessions, [x.id]: x },
@@ -112,6 +122,7 @@ const disarmAll = (cx: Cx, x: Session) => {
   cx.disarm(`idle/${x.id}`);
   cx.disarm(`healthy/${x.id}`);
   cx.disarm(`backoff/${x.id}`);
+  cx.disarm(`pageSilent/${x.id}`);
 };
 const busy = (s: SessionsSlice, actor: string, slot: string) =>
   Object.values(s.closing).some((c) => c.actor === actor && c.slot === slot);
@@ -165,7 +176,7 @@ const pump = (s: SessionsSlice, x0: Session, spec: StreamSpec, cx: Cx): Sessions
         m.from as never,
         [
           item.kind === "failure" ? { why: item.why, ...(item.v as object) } : item.v,
-          { key: spec.key(x0.input), input: x0.input },
+          { key: x0.key, input: x0.input },
         ] as never,
         (() => {
           threw = true;
@@ -177,7 +188,7 @@ const pump = (s: SessionsSlice, x0: Session, spec: StreamSpec, cx: Cx): Sessions
       : {};
   if (threw) {
     if (item.kind === "failure") return put(s, { ...x0, queue }); // nothing more can be said
-    return end(s, { ...x0, queue: [] }, spec, cx, "Defect"); // D46: a value mapper's throw is T1's end(Defect)
+    return end(s, emptied({ ...x0, queue }, cx), spec, cx, "Defect"); // D46: a value mapper's throw is T1's end(Defect)
   }
   cx.deliver({
     actor: x0.actor,
@@ -197,6 +208,12 @@ const notice = (x: Session, why: string, at?: { at: unknown }): Session =>
         noted: true,
         queue: [...x.queue, { kind: "missed", why, moves: false, ...(at ? { at } : {}) }],
       };
+// M2: what an `end` stops is named, item by item.
+const emptied = (x: Session, cx: Cx): Session => {
+  for (const q of x.queue)
+    if (q.kind !== "settle") cx.note("discarded", { op: x.op, item: q.kind, why: "Ended" });
+  return { ...x, queue: [] };
+};
 // T1 `end`; T9: `failure` behind queued items.
 const end = (
   s: SessionsSlice,
@@ -227,12 +244,13 @@ const end = (
 const abandon = (x: Session, cx: Cx) => {
   if (x.rid) cx.command({ k: "abandon", rid: x.rid });
   cx.disarm(`page/${x.id}`);
+  cx.disarm(`pageSilent/${x.id}`);
 };
 const withoutRead = (x: Session): Session => {
   const { rid: _r, lastRead: _l, prevNext: _p, wantNext: _w, greeted: _g, from: _f, ...rest } = x;
   return { ...rest, buf: [], emptyRun: 0, pageN: 0, movedHere: false };
 };
-const gap = (x: Session, cx: Cx) => cx.tell("entities", { k: "gap", machine: x.machine, op: x.op });
+const gap = (x: Session, cx: Cx) => cx.publish({ k: "gap", machine: x.machine, op: x.op });
 const requestPage = (
   s: SessionsSlice,
   x: Session,
@@ -250,6 +268,7 @@ const requestPage = (
     from: x.from?.at,
     next,
   });
+  cx.arm(`pageSilent/${x.id}`, cx.now + cx.pageMs); // D79: no read waits for ever. A stall, as T2 row 6 counts one
   return put(s, { ...x, rid, prevNext: { next } });
 };
 const repairFrom = (
@@ -283,7 +302,8 @@ const complete = (
     ...withoutRead(x),
     st: "Live",
     stalls: 0,
-    waitingForPull: true,
+    // M1: a pull is owed only if a value is holding the source. A read that buffered nothing banks no credit.
+    waitingForPull: x.waitingForPull,
     queue: [...x.queue, { kind: "settle", at: { at }, moves: false }, ...buf],
   };
   return pump(s, y, spec, cx);
@@ -309,9 +329,14 @@ const onPage = (
     return s;
   }
   const spec = specOf(cx, x.machine, x.op);
+  cx.disarm(`pageSilent/${x.id}`);
   if (p.exit.t !== "ok") {
-    if (p.exit.t === "failure" && spec.pageRetryWhile?.(p.exit.reason)) {
-      cx.arm(`page/${x.id}`, cx.now + spec.backoff(x.pageN)); // the socket stays open
+    if (
+      p.exit.t === "failure" &&
+      spec.pageRetryWhile &&
+      cx.user(spec.pageRetryWhile, [p.exit.reason], () => false) // D77: a throw means not retried
+    ) {
+      cx.arm(`page/${x.id}`, cx.now + delayOf(spec, x.pageN, cx)); // the socket stays open
       return put(s, { ...x, pageN: x.pageN + 1 });
     }
     return end(s, x, spec, cx, p.exit.reason?._tag ?? "Defect", p.exit.reason);
@@ -452,19 +477,24 @@ const lose = (
   cx.disarm(`healthy/${x.id}`);
   abandon(x, cx);
   const retried =
-    spec.reconnect && (FLOW_REASONS.has(why) || !spec.reconnectWhile || spec.reconnectWhile(e));
+    spec.reconnect &&
+    (FLOW_REASONS.has(why) ||
+      !spec.reconnectWhile ||
+      cx.user(spec.reconnectWhile, [e], () => false)); // D77: a throw means not retried, one issue
   const flaps =
     why !== "Silent" && x.liveSince !== undefined && cx.now - x.liveSince < spec.healthyMs
       ? x.flaps + 1
       : x.flaps;
   const stalls =
-    x.st === "Repairing" && why === "Overflow" && !x.movedHere ? x.stalls + 1 : x.stalls;
+    x.st === "Repairing" && (why === "Overflow" || why === "PageSilent") && !x.movedHere
+      ? x.stalls + 1
+      : x.stalls;
   if (!retried || flaps >= 8) {
     const y: Session = closedAlready ? { ...x, st: "Waiting" } : x;
     return end(s, y, spec, cx, retried ? "Flapping" : why, e);
   }
   if (spec.listen) gap(x, cx);
-  cx.arm(`backoff/${x.id}`, cx.now + spec.backoff(x.n));
+  cx.arm(`backoff/${x.id}`, cx.now + delayOf(spec, x.n, cx));
   const out = closedAlready ? s : closeConn(s, x, cx);
   // T1: this connection's frames are discarded. Notices stay: one interruption, one answer.
   const { liveSince: _l, ...rest } = withoutRead(x);
@@ -517,16 +547,17 @@ const afterMember = (
     const queue = x.queue.filter((q) => q.kind !== "settle").map((q) => ({ ...q, moves: false }));
     const spec = specOf(cx, x.machine, x.op);
     // T1: with `catchUp` it reads, from there, and owes no notice.
+    const frozen = x.inFlight
+      ? { inFlight: { ...x.inFlight, item: { ...x.inFlight.item, moves: false } } }
+      : {};
     if (spec.catchUp && (x.st === "Live" || x.st === "Repairing" || x.st === "Dropped")) {
-      out = repairFrom(out, { ...x, queue, st: "Live" }, at, spec, cx);
+      out = repairFrom(out, { ...x, ...frozen, queue, st: "Live" }, at, spec, cx); // M3
       continue;
     }
     const owed = x.st === "Live" || x.st === "Dropped";
     out = put(out, {
       ...x,
-      ...(x.inFlight
-        ? { inFlight: { ...x.inFlight, item: { ...x.inFlight.item, moves: false } } }
-        : {}),
+      ...frozen,
       queue:
         owed && !x.noted ? [{ kind: "missed", why: "Unproven", moves: false }, ...queue] : queue,
       noted: x.noted || owed,
@@ -537,14 +568,21 @@ const afterMember = (
 
 // ── The level-triggered fact: which sessions should exist is a function of this actor's tree. D69: the core says what is placed.
 const idOf = (a: string, p: PlacedActivity) => `${a}/${p.inc}/${p.activation}/${p.activity.op}`;
-const fresh = (a: ActorChange, p: PlacedActivity, input: unknown, spec: StreamSpec): Session => ({
+const fresh = (
+  a: ActorChange,
+  p: PlacedActivity,
+  input: unknown,
+  key: unknown,
+  spec: StreamSpec,
+): Session => ({
   id: idOf(a.key, p),
   actor: a.key,
   machine: a.machine,
   inc: p.inc,
   activation: p.activation,
   op: p.activity.op,
-  slot: slotOf(spec, input),
+  slot: slotOfKey(spec, key),
+  key,
   input,
   st: "Queued",
   conn: "",
@@ -618,7 +656,10 @@ const onActors = (s0: SessionsSlice, changed: readonly ActorChange[], cx: Cx): S
         (() => undefined) as never,
       );
       if (input === undefined || text(input) === undefined) continue;
-      const x = fresh(a, p, input, spec);
+      const KEY_FAILED = {};
+      const key = cx.user(spec.key, [input], () => KEY_FAILED); // D77: no session, one issue
+      if (key === KEY_FAILED) continue;
+      const x = fresh(a, p, input, key, spec);
       s = busy(s, a.key, x.slot) ? put(s, x) : connect(s, x, spec, cx);
     }
     // T3: end of any committed turn whose session stays placed and has connected: `filled` is the field. On a change only.
@@ -647,7 +688,7 @@ const onTurned = (s: SessionsSlice, t: Extract<Told, { k: "turned" }>, cx: Cx): 
     return reconcile(s, { ...next, heard: text(it.v) ?? "" }, spec, cx);
   if (t.outcome === "invalid") {
     if (it.kind === "failure") return pump(s, next, spec, cx); // D50 has redelivered it
-    return end(s, { ...next, queue: [] }, spec, cx, "Defect");
+    return end(s, emptied(next, cx), spec, cx, "Defect");
   }
   if (t.outcome === "fenced") {
     cx.note("discarded", { op: x.op, item: it.kind });
@@ -658,7 +699,7 @@ const onTurned = (s: SessionsSlice, t: Extract<Told, { k: "turned" }>, cx: Cx): 
   if (it.kind === "value" && it.moves && spec.position) {
     const at = (it.v as Record<string, unknown>)?.[spec.position];
     if (at !== undefined && text(at) === undefined)
-      return end(s, { ...next, queue: [] }, spec, cx, "Defect");
+      return end(s, emptied(next, cx), spec, cx, "Defect");
     const b = markOf(cx, x);
     writeMark(cx, x, { at: at ?? b?.at, filled: b?.filled ?? false }); // T3: `v[position] ?? at`, re-created if missing
   }
@@ -674,7 +715,9 @@ type DriverFrame =
       readonly failed: boolean;
       readonly e?: unknown;
       readonly why?: string;
-    };
+      readonly defect?: boolean;
+    }
+  | { readonly k: "failing"; readonly conn: string; readonly why: string };
 const bad = (v: unknown) => v !== undefined && text(v) === undefined;
 const onFrame = (
   s: SessionsSlice,
@@ -700,6 +743,7 @@ const onFrame = (
     }
     if (f._feed === "down") {
       cx.disarm(`idle/${x.id}`);
+      cx.disarm(`healthy/${x.id}`); // L2: T1's `—`
       abandon(x, cx);
       const { liveSince: _l, ...rest } = withoutRead(x);
       const y: Session = { ...rest, st: "Dropped", owed: false, confirmed: false };
@@ -725,7 +769,7 @@ const onFrame = (
   if (spec.listen) {
     const y0 =
       x.st === "Connecting" ? register(s, x, { _feed: "live" }, spec, cx).sessions[x.id]! : x;
-    cx.tell("entities", { k: "pushed", machine: x.machine, op: x.op, value: f });
+    cx.publish({ k: "pushed", machine: x.machine, op: x.op, value: f });
     const at = spec.position ? (f as any)?.[spec.position] : undefined;
     armIdle(cx, y0, spec);
     cx.command({ k: "pull", conn: y0.conn });
@@ -749,8 +793,10 @@ const onFrame = (
     armIdle(cx, x, spec);
     const buf = [...x.buf, { kind: "value" as const, v: f, moves: true }];
     // T4: at the bound it stops pulling: a pulled source waits, a pushed one fills its own queue.
-    if (buf.length >= (spec.callbackBound ?? 1024))
+    if (buf.length >= (spec.callbackBound ?? 1024)) {
+      cx.disarm(`idle/${x.id}`); // T1, literally: armed only while a pull is outstanding. The page deadline covers this read
       return put(s, { ...x, buf, waitingForPull: true });
+    }
     cx.command({ k: "pull", conn: x.conn });
     return put(s, { ...x, buf });
   }
@@ -792,6 +838,8 @@ const onClosed = (
   const gone = Object.values(s.sessions).find((y) => y.conn === p.conn);
   if (!gone || gone.st === "Ended" || gone.st === "Waiting" || gone.st === "Queued") return s;
   const spec = specOf(cx, gone.machine, gone.op);
+  // M4: T1's defect row. A stream that dies, or a `subscribe` that throws, ends; it does not reconnect.
+  if (p.defect) return end(s, { ...gone, st: "Waiting" }, spec, cx, "Defect");
   return lose(s, gone, spec, cx, p.why ?? (p.failed ? "Failed" : "Closed"), true, p.e);
 };
 
@@ -809,11 +857,12 @@ export const sessions: Module<SessionsSlice> = {
       case "member": {
         const { input, at } = fact.value as { input: unknown; at?: unknown };
         const spec = specOf(cx, cx.machineOf(fact.actor)!, fact.op);
+        const key = cx.user(spec.key, [input], () => undefined);
         return {
           ...s,
           pending: [
             ...s.pending,
-            { actor: fact.actor, inc: fact.inc, slot: slotOf(spec, input), name: fact.name, at },
+            { actor: fact.actor, inc: fact.inc, slot: slotOfKey(spec, key), name: fact.name, at },
           ],
         };
       }
@@ -829,6 +878,14 @@ export const sessions: Module<SessionsSlice> = {
     if (p.k === "frame") return onFrame(s, p, cx);
     if (p.k === "page") return onPage(s, p, cx);
     if (p.k === "closed") return onClosed(s, p, cx);
+    if (p.k === "failing") {
+      // D79, proposed for T1: a stopped pull cannot hear a failure at the end of a queue it is not reading.
+      const y = Object.values(s.sessions).find((z) => z.conn === p.conn);
+      if (!y || y.st !== "Repairing" || !y.waitingForPull) return s;
+      cx.note("Overflowed", { op: y.op });
+      return lose(s, y, specOf(cx, y.machine, y.op), cx, p.why, false, { _tag: p.why });
+    }
+    if (p.k !== "timer") return s;
     // Its own timers. The kind is this module's name, never a user's value.
     const kind = p.key.slice(0, p.key.indexOf("/"));
     const id = p.key.slice(kind.length + 1);
@@ -843,6 +900,11 @@ export const sessions: Module<SessionsSlice> = {
     if (!x) return s;
     const spec = specOf(cx, x.machine, x.op);
     if (kind === "idle") return lose(s, x, spec, cx, "Silent", false);
+    if (kind === "pageSilent") {
+      if (x.st !== "Repairing") return s;
+      cx.note("PageSilent", { op: x.op });
+      return lose(s, x, spec, cx, "PageSilent", false);
+    }
     if (kind === "healthy") return put(s, { ...x, n: 0, flaps: 0 });
     if (kind === "page") return requestPage(s, x, x.prevNext?.next, spec, cx);
     if (kind === "backoff") {
@@ -886,15 +948,31 @@ export const sessions: Module<SessionsSlice> = {
     if (c.k === "pull") return io.open(c.conn);
     if (c.k === "abandon") return io.stop(`read:${c.rid}`);
     if (c.k === "read") {
-      const sp = io.machine(c.machine).streams![c.op]!;
-      const eff = sp.catchUp!(c.input, { from: c.from, next: c.next }) as Effect.Effect<
-        unknown,
-        unknown
-      >;
+      const sp = io.machine(c.machine).streams![c.op] as unknown as SealedStream;
+      const eff = Effect.suspend(
+        () =>
+          sp.catchUp!.run(c.input, { from: c.from, next: c.next }) as Effect.Effect<
+            unknown,
+            unknown
+          >,
+      );
       return io.fork(`read:${c.rid}`, eff, (exit) => io.input({ k: "page", rid: c.rid, exit }));
     }
-    const spec = io.machine(c.machine).streams![c.op]!;
-    const stream = spec.subscribe(c.input, { from: c.from }) as Stream.Stream<unknown, unknown>;
+    const spec = io.machine(c.machine).streams![c.op] as unknown as SealedStream;
+    // D79: a `Feed.callback` asks this Runtime for its queue, so a failing one can be heard with the pull stopped. A throw building it: T1's defect.
+    const stream = Stream.unwrap(
+      Effect.sync(
+        () => spec.subscribe.run(c.input, { from: c.from }) as Stream.Stream<unknown, unknown>,
+      ),
+    ).pipe(
+      Stream.provideService(FeedQueue, {
+        make: (cb) =>
+          feedStream(cb, {
+            latest: spec.delivers === "latest",
+            onFailing: (why) => io.input({ k: "failing", conn: c.conn, why }),
+          }),
+      }),
+    );
     // D71: a signal flows; a value waits for its go-ahead, so a pulled source waits with it.
     const run = Stream.runForEach(stream, (f) =>
       Effect.suspend(() => {
@@ -907,6 +985,7 @@ export const sessions: Module<SessionsSlice> = {
         k: "closed",
         conn: c.conn,
         failed: exit.t !== "ok",
+        ...(exit.t === "defect" ? { defect: true } : {}),
         ...(exit.t === "failure"
           ? { e: exit.reason, why: (exit.reason as any)?._tag ?? "Failed" }
           : {}),
