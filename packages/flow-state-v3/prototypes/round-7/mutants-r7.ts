@@ -19,6 +19,8 @@ export const ROUND7 = [
   m("l2-backoff-resets-on-issue", "D83", "driver.ts", "armCapture(Math.min(30_000, 1000 * 2 ** retryN++));", "armCapture(1000);"),
   m("l2-no-landed-reset", "D83", "driver.ts", "const landed = () => {\n    retryN = 0;", "const landed = () => {"),
   m("l2-report-every-time", "D83", "driver.ts", "if (!reportedFailure) {", "if (true) {"),
+  m("d95-no-per-key-hold", "D95", "driver.ts", "flushWanted = batch.some((w) => out.has(w.key));", "flushWanted = false;"),
+  m("d95-held-key-never-flushed", "D95", "driver.ts", "if (flushWanted) flushCapture();", ""),
   // D84.
   m("d84-lane-coalesces", "D84", "driver.ts", 'w.key.startsWith("lane/") || (w.record', "(w.record"),
   m("d93-retired-coalesces", "D93", "driver.ts", '(w.record as { retired?: boolean } | undefined)?.retired === true', "false"),
@@ -42,7 +44,7 @@ export const ROUND7 = [
   m("d88-cancel-keeps-record", "D88", "lane.ts", "tx.touchedLanes.add(id);\n    }\n    return;", "}\n    return;"),
   // D89.
   m("d89-skip-one-record", "D89", "driver.ts", "reportedEncoding = true;\n        return undefined;", "reportedEncoding = true;\n        continue;"),
-  m("d89-batch-dropped-not-kept", "D89", "driver.ts", "if (!encoded) return;\n    dirty.clear();", "dirty.clear();\n    if (!encoded) return;"),
+  m("d89-batch-dropped-not-kept", "D89", "driver.ts", "if (!encoded) return;\n    for (const w of batch) dirty.delete(w.key);", "for (const w of batch) dirty.delete(w.key);\n    if (!encoded) return;"),
   m("d89-report-every-time", "D89", "driver.ts", "if (!reportedEncoding)", "if (true)"),
   m("m11-spread-unguarded", "D65", "gate.ts", "try {\n    return { ...v }; // M11: a class instance too: a throwing own getter is this closure's refusal, not the Runtime's\n  } catch (e) {\n    throw new Refused(origin, e);\n  }", "return { ...v };"),
   // D90.

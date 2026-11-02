@@ -125,6 +125,7 @@ export const createRuntime = (cfg: {
   let retryN = 0;
   let reportedFailure = false;
   let reportedEncoding = false;
+  let flushWanted = false;
   // D89: all or nothing. A bad record keeps the whole batch back, in `dirty`, so a lane's removal can't land without what it goes with: O5's last good capture.
   const encodeAll = (writes: readonly Write[]) => {
     const out: Array<{ key: string; value: string | undefined }> = [];
@@ -163,25 +164,31 @@ export const createRuntime = (cfg: {
     captureOff?.();
     captureOff = undefined;
     if (dirty.size === 0) return;
+    // D95 (E2): per key, one plain write out at a time. A key whose last batch has not answered waits for that answer, so a later batch cannot land a record ahead of what an
+    // earlier one might still fail to land.
+    const out = new Set([...plainOut].flatMap((b) => b.keys));
+    // All of it waits, not just those keys: splitting a batch would land a lane's removal without the actor that went with it.
     const batch = [...dirty.values()];
+    flushWanted = batch.some((w) => out.has(w.key));
+    if (flushWanted) return;
     const encoded = encodeAll(batch);
     if (!encoded) return;
-    dirty.clear();
+    for (const w of batch) dirty.delete(w.key);
     if (encoded.length === 0) return;
     const n = stamp(batch);
-    const out = { keys: encoded.map((w) => w.key) };
-    plainOut.add(out);
+    const sent = { keys: encoded.map((w) => w.key) };
+    plainOut.add(sent);
     host.storage.write(
       encoded,
       dirtyPurpose,
       undefined,
       (why) => {
         failedBatch(batch, n, why);
-        plainAnswered(out);
+        plainAnswered(sent);
       },
       () => {
         landed();
-        plainAnswered(out);
+        plainAnswered(sent);
       },
     );
   };
@@ -197,6 +204,7 @@ export const createRuntime = (cfg: {
     const ready = waitingAwaited.filter((w) => !behind(w.actor));
     waitingAwaited = waitingAwaited.filter((w) => behind(w.actor));
     for (const w of ready) w.go();
+    if (flushWanted) flushCapture();
   };
   const issueAwaited = (c: Extract<Command, { k: "persist" }>, t: NonNullable<Extract<Command, { k: "persist" }>["ticket"]>) => {
     for (const w of c.writes) dirty.delete(w.key); // D83: a retry waiting here is older than this

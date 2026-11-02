@@ -30,3 +30,17 @@ SURVIVED d88-row-silent                       0 cases:
 KILLED   d88-cancel-keeps-record              1 cases: REV7-M8/a-quarantined-lane-refuses-a-second-attempt
 KILLED   d89-skip-one-record                  1 cases: REV7-M9/an-ending-with-a-bad-value-is-not-lost
 SURVIVED d89-batch-dropped-not-kept           0 cases: 
+SURVIVED d89-report-every-time                0 cases: 
+SURVIVED m11-spread-unguarded                 0 cases: 
+KILLED   d90-delete-keeps-bucket              7 cases: FRAG-08/persisted-disposed-ending-parked-delivered-once FRAG-08/rebind-delivers-a-hold-once FRAG-12/unbound-hold-with-a-waiter-yields FRAG-20/adopted-ending-is-current-from-the-active-leaf ...
+KILLED   d90-hash-collides-rows               536 cases: PAY-01 PAY-02 PAY-03 PAY-04 ...
+KILLED   d90-changed-misses-removed           1 cases: SPIKE-04/dispose-then-ensure-brings-both-back
+SURVIVED d90-all-unsorted-drops-one           0 cases: 
+SURVIVED l4-duplicate-machine-allowed         0 cases: 
+
+not applied (0):
+
+
+21/39 killed (builder)
+
+WATCH peak 44 MB, 749.4 s, exit 0, killed no

@@ -24,8 +24,11 @@ export const checkClaims = (r: Reads) => {
         break;
       case "ack":
       case "capture":
-        // Round 7, D94: it may also wait for a plain batch of its actor whose answer has not come.
-        if (!out.storage.some((s) => s.keys.includes(w.key)) && out.failing === 0)
+        // Round 7, D94: it may also wait for a plain batch of its actor whose answer has not come: one failing unsaid, or one queued behind a held write of that actor.
+        if (
+          !out.storage.some((s) => s.keys.some((k) => k === w.key || k.endsWith(w.key.split("|")[0]!.slice(5)))) &&
+          out.failing === 0
+        )
           throw new Mismatch(`L3: ${w.kind} claim for ${w.op} with no write outside`);
         break;
       case "timer":

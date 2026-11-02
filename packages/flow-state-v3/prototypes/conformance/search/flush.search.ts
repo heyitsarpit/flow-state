@@ -141,6 +141,8 @@ export const searchFlush = (
         ];
   let exceptions = 0;
   let exceptionWitness: string | undefined;
+  let noLane = 0;
+  let noLaneWitness: string | undefined;
   const logs = new WeakMap<object, string[]>();
   const innerBad = new WeakMap<object, string>();
   const keyOf = `${A.actor}/${A.id}`;
@@ -208,10 +210,14 @@ export const searchFlush = (
       for (const f of frames) {
         const cut = cutOf(f);
         if (f.cause === "boot" && cut) {
-          if (!earlier.has(cut)) throw new Oracle(`(b) restored a cut never published: ${cut.slice(0, 200)}`);
+          if (!earlier.has(cut) && !process.env["FLOW_ORACLE_OFF"]?.includes("b")) throw new Oracle(`(b) restored a cut never published: ${cut.slice(0, 200)}`);
           const v = f.view[keyOf];
           if (!earlierRows.has(canon({ cut, r: v.rows }))) {
             exceptions++;
+            if (Object.keys(v.rows).length === 0) {
+              noLane++;
+              noLaneWitness ??= `${script.join(" ")} => ${v.state}`;
+            }
             exceptionWitness ??= `${script.join(" ")} => ${canon({ state: v.state, rows: v.rows })}`;
           }
         }
@@ -272,6 +278,8 @@ export const searchFlush = (
     unpinned,
     exceptions,
     ...(exceptionWitness ? { exceptionWitness } : {}),
+    noLane,
+    ...(noLaneWitness ? { noLaneWitness } : {}),
     verdict: rep.verdict !== "failed" && unpinned.length ? "failed" : rep.verdict,
     ...(rep.verdict !== "failed" && unpinned.length ? { failure: unpinned[0]! } : {}),
   };

@@ -6,10 +6,7 @@
   ],
   "killed": true,
   "killers": [
-   "REV7-H1/a-late-failure-does-not-unsay-an-acknowledgement",
-   "REV7-H1/a-batch-that-fails-after-a-newer-one-landed-stays-dead",
-   "REV7-H1/a-failed-batch-re-enters-only-keys-it-was-newest-of",
-   "REV7-H1/a-re-send-capture-is-not-undone-by-an-older-hold-record"
+   "REV7-H1/a-batch-that-fails-after-a-newer-one-landed-stays-dead"
   ],
   "author": "builder",
   "by": "tests",
@@ -24,7 +21,7 @@
   "killers": [],
   "author": "builder",
   "by": "tests",
-  "peakMb": 339
+  "peakMb": 361
  },
  {
   "id": "d83-awaited-keeps-dirty",
@@ -35,21 +32,53 @@
   "killers": [],
   "author": "builder",
   "by": "tests",
-  "peakMb": 356
+  "peakMb": 354
  },
  {
   "id": "d83-awaited-no-stamp",
   "kills": [
    "D83"
   ],
+  "killed": false,
+  "killers": [],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 365
+ },
+ {
+  "id": "d94-does-not-wait",
+  "kills": [
+   "D94"
+  ],
+  "killed": false,
+  "killers": [],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 342
+ },
+ {
+  "id": "d94-owed-not-carried",
+  "kills": [
+   "D94"
+  ],
+  "killed": false,
+  "killers": [],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 352
+ },
+ {
+  "id": "d94-waits-for-any-actor",
+  "kills": [
+   "D94"
+  ],
   "killed": true,
   "killers": [
-   "REV7-H1/a-late-failure-does-not-unsay-an-acknowledgement",
-   "REV7-H1/a-failed-batch-re-enters-only-keys-it-was-newest-of"
+   "MED-01/other-actor-behind-a-hung-ack"
   ],
   "author": "builder",
   "by": "tests",
-  "peakMb": 247
+  "peakMb": 274
  },
  {
   "id": "d83-plain-no-stamp",
@@ -64,7 +93,7 @@
   ],
   "author": "builder",
   "by": "tests",
-  "peakMb": 249
+  "peakMb": 250
  },
  {
   "id": "d83-saved-believes-refused",
@@ -75,7 +104,7 @@
   "killers": [],
   "author": "builder",
   "by": "tests",
-  "peakMb": 355
+  "peakMb": 374
  },
  {
   "id": "d83-saved-undefined-loses-delete",
@@ -86,7 +115,7 @@
   "killers": [],
   "author": "builder",
   "by": "tests",
-  "peakMb": 346
+  "peakMb": 336
  },
  {
   "id": "l2-backoff-resets-on-issue",
@@ -99,7 +128,7 @@
   ],
   "author": "builder",
   "by": "tests",
-  "peakMb": 232
+  "peakMb": 245
  },
  {
   "id": "l2-no-landed-reset",
@@ -110,7 +139,7 @@
   "killers": [],
   "author": "builder",
   "by": "tests",
-  "peakMb": 344
+  "peakMb": 345
  },
  {
   "id": "l2-report-every-time",
@@ -121,7 +150,7 @@
   "killers": [],
   "author": "builder",
   "by": "tests",
-  "peakMb": 330
+  "peakMb": 327
  },
  {
   "id": "d84-lane-coalesces",
@@ -134,7 +163,18 @@
   ],
   "author": "builder",
   "by": "tests",
-  "peakMb": 249
+  "peakMb": 247
+ },
+ {
+  "id": "d93-retired-coalesces",
+  "kills": [
+   "D93"
+  ],
+  "killed": false,
+  "killers": [],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 337
  },
  {
   "id": "d84-everything-at-once",
@@ -152,7 +192,7 @@
   ],
   "author": "builder",
   "by": "tests",
-  "peakMb": 252
+  "peakMb": 254
  },
  {
   "id": "d80-no-hidden-flush",
@@ -167,7 +207,7 @@
   ],
   "author": "builder",
   "by": "tests",
-  "peakMb": 248
+  "peakMb": 268
  },
  {
   "id": "d80-default-not-5s",
@@ -178,7 +218,7 @@
   "killers": [],
   "author": "builder",
   "by": "tests",
-  "peakMb": 353
+  "peakMb": 352
  },
  {
   "id": "l3-dispose-no-flush",
@@ -191,7 +231,7 @@
   ],
   "author": "builder",
   "by": "tests",
-  "peakMb": 234
+  "peakMb": 248
  },
  {
   "id": "d87-no-bound",
@@ -204,7 +244,7 @@
   ],
   "author": "builder",
   "by": "tests",
-  "peakMb": 246
+  "peakMb": 240
  },
  {
   "id": "d87-late-answer-boots-again",
@@ -217,7 +257,7 @@
   ],
   "author": "builder",
   "by": "tests",
-  "peakMb": 247
+  "peakMb": 249
  },
  {
   "id": "d87-failed-read-keeps-persist",
@@ -230,7 +270,7 @@
   ],
   "author": "builder",
   "by": "tests",
-  "peakMb": 250
+  "peakMb": 252
  },
  {
   "id": "d87-queue-unbounded",
@@ -243,7 +283,7 @@
   ],
   "author": "builder",
   "by": "tests",
-  "peakMb": 238
+  "peakMb": 247
  },
  {
   "id": "d87-queue-silent",
@@ -256,7 +296,7 @@
   ],
   "author": "builder",
   "by": "tests",
-  "peakMb": 245
+  "peakMb": 256
  },
  {
   "id": "d88-no-hold-on-bad-body",
@@ -269,7 +309,7 @@
   ],
   "author": "builder",
   "by": "tests",
-  "peakMb": 243
+  "peakMb": 241
  },
  {
   "id": "d88-no-hold-on-invalid",
@@ -296,7 +336,7 @@
   ],
   "author": "builder",
   "by": "tests",
-  "peakMb": 238
+  "peakMb": 253
  },
  {
   "id": "d88-idle-passes",
@@ -307,7 +347,7 @@
   "killers": [],
   "author": "builder",
   "by": "tests",
-  "peakMb": 363
+  "peakMb": 343
  },
  {
   "id": "d88-row-silent",
@@ -318,7 +358,7 @@
   "killers": [],
   "author": "builder",
   "by": "tests",
-  "peakMb": 351
+  "peakMb": 366
  },
  {
   "id": "d88-cancel-keeps-record",
@@ -331,7 +371,7 @@
   ],
   "author": "builder",
   "by": "tests",
-  "peakMb": 263
+  "peakMb": 251
  },
  {
   "id": "d89-skip-one-record",
@@ -344,7 +384,7 @@
   ],
   "author": "builder",
   "by": "tests",
-  "peakMb": 245
+  "peakMb": 248
  },
  {
   "id": "d89-batch-dropped-not-kept",
@@ -355,7 +395,7 @@
   "killers": [],
   "author": "builder",
   "by": "tests",
-  "peakMb": 345
+  "peakMb": 332
  },
  {
   "id": "d89-report-every-time",
@@ -366,7 +406,7 @@
   "killers": [],
   "author": "builder",
   "by": "tests",
-  "peakMb": 347
+  "peakMb": 351
  },
  {
   "id": "m11-spread-unguarded",
@@ -377,7 +417,7 @@
   "killers": [],
   "author": "builder",
   "by": "tests",
-  "peakMb": 365
+  "peakMb": 328
  },
  {
   "id": "d90-delete-keeps-bucket",
@@ -396,7 +436,7 @@
   ],
   "author": "builder",
   "by": "tests",
-  "peakMb": 252
+  "peakMb": 243
  },
  {
   "id": "d90-hash-collides-rows",
@@ -918,6 +958,7 @@
    "REV7-H1/a-batch-that-fails-after-a-newer-one-landed-stays-dead",
    "REV7-H1/a-failed-batch-re-enters-only-keys-it-was-newest-of",
    "REV7-H1/a-re-send-capture-is-not-undone-by-an-older-hold-record",
+   "REV7-H1/E1-a-failed-batch-goes-with-the-next-ack",
    "REV7-H1/a-sync-failure-too",
    "REV7-H1/a-refused-ack-does-not-leave-saved-believing-it",
    "REV7-H1/backoff-grows-on-a-late-failure",
@@ -943,7 +984,7 @@
   ],
   "author": "builder",
   "by": "tests",
-  "peakMb": 119
+  "peakMb": 120
  },
  {
   "id": "d90-changed-misses-removed",
@@ -956,7 +997,7 @@
   ],
   "author": "builder",
   "by": "tests",
-  "peakMb": 251
+  "peakMb": 257
  },
  {
   "id": "d90-all-unsorted-drops-one",
@@ -967,7 +1008,7 @@
   "killers": [],
   "author": "builder",
   "by": "tests",
-  "peakMb": 351
+  "peakMb": 336
  },
  {
   "id": "l4-duplicate-machine-allowed",
@@ -978,6 +1019,6 @@
   "killers": [],
   "author": "builder",
   "by": "tests",
-  "peakMb": 348
+  "peakMb": 351
  }
 ]

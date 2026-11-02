@@ -48,9 +48,10 @@ export const round7Scenarios: readonly Scenario[] = [
         const c = fresh(c0);
         c.fault({ storageFailsHeld: 1 });
         c.send("Note", { text: "old" }); // issued, unanswered
-        c.send("Note", { text: "new" }); // landed
-        c.eq("newest on disk", noteOn(c), "new");
+        c.send("Note", { text: "new" }); // D95: held until the older one answers
+        c.eq("held, not ahead of it", noteOn(c), "");
         c.do({ storage: "failLate" });
+        c.eq("then the newest, and only the newest", noteOn(c), "new");
         c.advance(60_000);
         c.eq("the failed older write did not come back", noteOn(c), "new");
       },
@@ -58,6 +59,7 @@ export const round7Scenarios: readonly Scenario[] = [
         const c = fresh(c0);
         c.fault({ storageFailsHeld: 1 });
         c.send("Go"); // actor + lane: fail later. The awaited write is newer for the lane; the actor is newest here
+        c.eq("D94: the ack is not out yet", c.r.outside().storage.length, 0);
         c.do({ storage: "failLate" }); // D94: only now does the ack go out, with what the batch owed
         c.ack();
         c.advance(5_000);
@@ -89,6 +91,50 @@ export const round7Scenarios: readonly Scenario[] = [
         c.reload();
         c.eq("no ending says the finished write is unknown", c.endings("charge").filter((e) => e["channel"] === "unknown").length <= 1, true);
         c.eq("one lane on disk, the new one", [...c.r.stored().keys()].filter((k) => k.startsWith("lane/")).length, 1);
+      },
+      "E1-what-the-failed-batch-owed-goes-in-the-ack"(c0) {
+        const c = fresh(c0);
+        c.send("Go");
+        c.ack();
+        c.fault({ storageFailsHeld: 1 });
+        c.answer("charge", { ok: {} }); // B and the lane's removal: fails, unsaid
+        c.send("Go"); // the next ack waits
+        c.do({ storage: "failLate" });
+        c.ack();
+        c.eq("the actor came with the ack, no retry needed", disk(c, ACTOR).root.leaf, "W");
+      },
+      "E2-a-later-batch-does-not-land-ahead-of-an-unanswered-one"(c0) {
+        const c = fresh(c0);
+        c.fault({ storageFailsHeld: 1 });
+        c.send("Go"); // actor W + lane: fails, unsaid
+        c.send("Note", { text: "t" }); // a later batch for the same actor
+        c.eq("actor not on disk ahead of its lane", disk(c, ACTOR)?.root.leaf, "A");
+        c.do({ storage: "failLate" });
+        c.ack();
+        c.eq("then all of it", disk(c, ACTOR).root.memory.note, "t");
+      },
+      "a-newer-value-is-not-replaced-by-a-retry-of-an-older-one"(c0) {
+        const c = fresh(c0, { captureMs: 5_000 });
+        c.do({ hide: true });
+        c.fault({ storageFailsHeld: 1 });
+        c.send("Note", { text: "old" });
+        c.do({ hide: true });
+        c.send("Note", { text: "new" });
+        c.do({ storage: "failLate" });
+        c.do({ hide: true });
+        c.eq("newest", noteOn(c), "new");
+      },
+      "L2-a-landing-resets-backoff-and-says-once"(c0) {
+        const c = fresh(c0);
+        c.fault({ storageFailsLate: 2 });
+        c.send("Note", { text: "x" });
+        c.advance(3_000); // 1 s, 2 s: lands
+        c.eq("landed", noteOn(c), "x");
+        c.eq("said once", c.r.issues().filter((i) => i.code === "StorageFailure").length, 1);
+        c.fault({ storageFailsLate: 1 });
+        c.send("Note", { text: "y" });
+        c.advance(1_000);
+        c.eq("1 s again: the landing reset it", noteOn(c), "y");
       },
       // The sync failure: a re-entry happens before the awaited write exists. The awaited write must take its keys out of `dirty`.
       "a-sync-failure-too"(c0) {
@@ -164,8 +210,7 @@ export const round7Scenarios: readonly Scenario[] = [
     cites: ["D80", "O3"],
     variants: {
       "the-default-is-five-seconds"(c0) {
-        // No bound named: the suite's own default is 0, so this reads the runtime's by asking for it.
-        const c = fresh(c0, { captureMs: 5_000 });
+        const c = fresh(c0, { runtimeDefault: 1 });
         c.send("Note", { text: "t" });
         c.advance(4_999);
         c.eq("not yet", noteOn(c), "");
@@ -197,6 +242,7 @@ export const round7Scenarios: readonly Scenario[] = [
       // The sweep at 5 s (RESULTS): a dispose lost to a kill woke the actor. A retired identity is not plain memory.
       "D93-a-dispose-is-not-lost-to-a-kill"(c0) {
         const c = fresh(c0, { captureMs: 5_000 });
+        c.do({ hide: true }); // its record exists, so only the dispose can be lost
         c.dispose();
         c.reload();
         c.eq("not woken", c.r.state(A), undefined);
@@ -247,6 +293,15 @@ export const round7Scenarios: readonly Scenario[] = [
         c.send("Note", { text: "new" });
         c.eq("unread data not overwritten", noteOn(c), "old");
       },
+      "two-machines-under-one-id-is-an-error"(c0) {
+        let threw = "";
+        try {
+          c0.fresh([bareFixture(), bareFixture()]);
+        } catch (e) {
+          threw = String(e);
+        }
+        c0.yes("L4", threw.includes("DuplicateMachine"));
+      },
       "the-queue-has-a-bound"(c0) {
         const c = fresh(c0, { bootQueue: 2 });
         c.do({ reload: true, load: "hang" });
@@ -276,6 +331,10 @@ export const round7Scenarios: readonly Scenario[] = [
         c.fault({ corruptStored: { match: "lane/", edit: () => '{"head":"junk"}' } });
         c.reload();
         c.eq("named", c.r.issues().filter((i) => i.code === "RecordQuarantined").length, 1);
+        c.eq("the row says uncertain", c.r.row(A, "charge", {})?.uncertain, true);
+        const p = c.mem().peeks;
+        c.send("IfIdle");
+        c.eq("idle denies", c.mem().peeks, p);
         c.send("Go");
         c.eq("a commit declines", c.lastEnding("charge")?.["reason"], "Rejected");
         c.send("Forget"); // U's owner: clears it, and the record goes
@@ -321,6 +380,17 @@ export const round7Scenarios: readonly Scenario[] = [
         const n = c.reqs("charge").length;
         c.send("Go");
         c.eq("no mint beside it", c.reqs("charge").length, n);
+      },
+      "a-skipped-batch-waits-for-an-encodable-state"(c0) {
+        const c = fresh(c0);
+        c.send("Go");
+        c.ack();
+        c.answer("charge", { ok: { big: 10n } });
+        c.send("NoteBad");
+        c.eq("named once", c.r.issues().filter((i) => i.code === "UnencodableValue").length, 1);
+        c.yes("the lane is still there", !!disk(c, KEY));
+        c.do({ fault: { storageFails: 0 } });
+        c.yes("unchanged", !!disk(c, KEY));
       },
       "M11-a-throwing-getter-from-a-patch-is-a-refusal-not-fatal"(c0) {
         c0.namedIssues.push("InvalidTurn");

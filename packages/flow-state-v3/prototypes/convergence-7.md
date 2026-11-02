@@ -35,6 +35,8 @@ Status: **proposed, throwaway**, except D80's interval and hide flush, which the
 | **D93** | **A retired identity flushes at once.** Found by the sweep at 5 s: a dispose lost to a kill woke the actor | One write per dispose | Driver |
 | **D94** | **An awaited write waits for the answer of any plain batch of its actor still out; what that batch owes goes in its transaction.** Found by SEARCH-FLUSH (E1): a failed batch, the next ack landed, a kill: a completed `pay` came back held, and Pay reached placed-and-voided. D86's benefit without losing `NotSent { Restored }` | One commit's wait, only behind a batch still out, and a hung plain batch stalls its actor's acks | Driver |
 
+| **D95** | **Per key, one plain write out at a time.** A key whose batch has not answered waits; what is held flushes on the answer. Found by SEARCH-FLUSH (E2): a later batch landed an actor ahead of a lane that then failed: restored in a waiting state with nothing owed | A hung batch holds its keys, as a store's FIFO would | Driver |
+
 ### M9: O5 or D57
 
 **O5** says "encoding failure never fails the turn". **D57** refused the turn, so that a bad value never reaches disk. The review's trace settles it for endings: refusing cannot undo the world. The server did it, the lane is gone, the state stays `A`, and `Go` mints again. The question for the Schema is what the refusal buys once memory is typed. With a memory Schema the type stops almost everything at compile time, and what is left is a value the Schema's encode rejects at run time. Then a refusal punishes the user for something a failed write handles anyway: last good capture, named issue, retry when encodable.

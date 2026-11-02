@@ -140,7 +140,10 @@ export const makeHarness = (port: Port) => (): Harness => {
     requests: () => fake.publicRequests(),
     truth: () => fake.truth(),
     frames: () => instances.flatMap((i) => i.frames()),
-    issues: () => issues,
+    issues: () => {
+      if (TEST_FLUSH.includes("probes")) fake.hide();
+      return issues;
+    },
     evidence: (kind) => (kind ? evidence.filter((e) => e["kind"] === kind) : evidence),
     stored: () => {
       if (TEST_FLUSH.includes("reads")) fake.hide();
@@ -151,7 +154,10 @@ export const makeHarness = (port: Port) => (): Harness => {
       fatal: inst.fatal(),
       waits: inst.waits(),
     }),
-    outside: () => ({ ...fake.outside(), live: inst.live(), injections }),
+    outside: () => {
+      if (TEST_FLUSH.includes("probes")) fake.hide();
+      return { ...fake.outside(), live: inst.live(), injections };
+    },
     stateHash: () => inst.stateText(fake.stateText()),
     // S11: pure re-execution of each boot's input log, with its logged draws, against what was published.
     replay: () => {
@@ -187,7 +193,9 @@ export const makeHarness = (port: Port) => (): Harness => {
     start(cfg) {
       fake = new FakeWorld(cfg.seed, cfg.machines.find((m) => m.server)?.server);
       // Round 7: the older cases were written with plain writes landing at once. D80's 5 s is the runtime's default; a case that means it says so.
-      bounds = { captureMs: 0, ...cfg.bounds };
+      // `runtimeDefault`: a case that reads the runtime's own default says so, and is given no bound at all.
+      const { runtimeDefault, ...named } = (cfg.bounds ?? {}) as Record<string, number>;
+      bounds = runtimeDefault ? named : { captureMs: 0, ...named };
       compiled = cfg.machines.map((m) => wrap((swaps.get(m) ?? m).make(fake.api)));
       boot();
     },
@@ -236,9 +244,12 @@ export const makeHarness = (port: Port) => (): Harness => {
         else if ("afterYield" in f) yieldPlan = f.afterYield;
         else if ("mutateServer" in f) fake.serverState = f.mutateServer(fake.serverState);
         else if ("socketClose" in f) fake.closeMs = f.socketClose;
-        else if ("storageFails" in f) fake.plainFails = f.storageFails;
-        else if ("storageFailsLate" in f) fake.plainFailsLate = f.storageFailsLate;
-        else if ("storageFailsHeld" in f) fake.plainFailsHeld = f.storageFailsHeld;
+        else if ("storageFails" in f || "storageFailsLate" in f || "storageFailsHeld" in f) {
+          if (TEST_FLUSH.includes("faults")) fake.hide();
+          if ("storageFails" in f) fake.plainFails = f.storageFails;
+          else if ("storageFailsLate" in f) fake.plainFailsLate = f.storageFailsLate;
+          else fake.plainFailsHeld = f.storageFailsHeld;
+        }
         else if ("corruptStored" in f) {
           if (TEST_FLUSH.includes("faults")) fake.hide();
           // A record edited on disk may be quarantined, and an Attempt in it with it: rule 46, named by an issue.

@@ -19,6 +19,14 @@ export const bareFixture = (o: { persisted?: boolean } = {}): Fixture => ({
         ...b.node("root", {
           Go: [{ target: "W", members: b.commit("charge", () => ({})) }],
           GoBad: [{ target: "W", members: b.commit("charge", () => ({ big: 1n })) }],
+          // A real guard on the lane: `idle`, so a quarantined lane's hold is read by a token (D88).
+          IfIdle: [
+            {
+              tokens: [{ op: "charge", verb: "idle", key: b.slot("on.IfIdle[0].guard[0]", () => ({})) }],
+              patch: ({ memory }: any) => ({ peeks: memory.peeks + 1 }),
+            },
+            {},
+          ],
           Retry: [{ members: b.member("charge", "retry", () => ({})) }],
           Forget: [{ target: "A", members: b.member("charge", "cancel", () => ({})) }],
           Note: [{ patch: ({ event }: any) => ({ note: event.text, noteCopy: event.text }) }],
