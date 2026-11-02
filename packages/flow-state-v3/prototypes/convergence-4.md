@@ -176,3 +176,7 @@ D50          changed   D50      also applies to a firing
 ## What this does not verify
 
 Written before round 4's code. Nothing on a real server, browser or disk. D60 is paper unless `listen` runs, and it will not. D58 assumes a read served after a confirmed write reflects it: replicas break that, and only a version fixes it.
+
+## Corrections after building
+
+Listed in `round-4/RESULTS.md`. M4: rechecks stay under the bound, since one can loop by itself (FRAG-03); only thaws and adoptions always run. D63: a module also needs `cx.actor`, a read of the tree, because a frame must read the field and the bookmark. T3's "dispose then `ensure`: the partition is new" does not hold for a persisted identity, whose record returns whole. L5, L6: fixed with no scenario that reaches them. REV4-L5 and one old-connection case were removed from the suite because neither could fail.
