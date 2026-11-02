@@ -1,11 +1,14 @@
-// S4's page: this runtime, real timers, real microtasks, real fibers, in a browser. Bundled by s4-run.ts into about:blank.
+// S4's page: a runtime given by --runtime, real timers, real microtasks, real fibers, in a browser. Bundled by s4-run.ts into about:blank.
 // No suite, no fake: a commit answers on the next macrotask. Turn time is `send` to its return, since D2 runs it there.
 import { Effect, Scheduler } from "effect";
-import { issuesFixture, server as serverModel } from "../conformance/fixtures/issues.compiled.ts";
-import { ringFixture } from "../conformance/fixtures/order.compiled.ts";
-import type { Api } from "../conformance/fake-world.ts";
-import { createRuntime } from "./driver.ts";
-import { entities } from "./entities.ts";
+import { issuesFixture, server as serverModel } from "../fixtures/issues.compiled.ts";
+import { ringFixture } from "../fixtures/order.compiled.ts";
+import type { Api } from "../fake-world.ts";
+// @ts-expect-error: resolved by s4-run.ts's plugin to the runtime under test
+import { createRuntime } from "flow-runtime/driver";
+// @ts-expect-error: as above
+import { entities } from "flow-runtime/entities";
+import { growActor, growMachine, message } from "./fixture.ts";
 
 let state = serverModel.init();
 let ids = 0;
@@ -46,6 +49,42 @@ const newRuntime = () =>
       for (const x of i) (globalThis as any).__issues.push(x.code);
     },
   });
+// Persisted memory at size: a value's whole turn on this main thread, writes going nowhere. Only the cost of the turn.
+(globalThis as any).__grow = (size: number, bounds: object) => {
+  const m = growMachine(size, true);
+  const rt = createRuntime({
+    host: {
+      now: () => performance.now(),
+      id: () => `att-${++ids}`,
+      setTimer: () => () => {},
+      later: (f: () => void) => void setTimeout(f, 0),
+      scheduler: new Scheduler.MixedScheduler(),
+      storage: { load: () => new Map(), write: () => {} },
+    },
+    machines: { [m.id]: m },
+    modules: [],
+    bounds,
+    onEvidence: () => {},
+    onIssue: () => {},
+  });
+  rt.input({ k: "ensure", actor: growActor, machine: m.id, input: {} });
+  const turns = size >= 10_000 ? 30 : 100;
+  const xs: number[] = [];
+  for (let i = 0; i < turns; i++) {
+    const t = performance.now();
+    rt.input({
+      k: "send",
+      actor: growActor,
+      event: { tag: "Add", payload: { message: message(size + i) } },
+    });
+    xs.push(performance.now() - t);
+  }
+  return {
+    size,
+    medianMs: Math.round(pct(xs, 0.5) * 100) / 100,
+    p99Ms: Math.round(pct(xs, 0.99) * 100) / 100,
+  };
+};
 const pct = (xs: number[], p: number) =>
   [...xs].sort((a, b) => a - b)[Math.floor((xs.length - 1) * p)]!;
 const stats = (xs: number[]) => ({

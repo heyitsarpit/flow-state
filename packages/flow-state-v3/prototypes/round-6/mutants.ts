@@ -1,5 +1,8 @@
 // Builder-written, to find gaps only. Not an independent number (owner's instruction). Each breaks one line .
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import { REPLACED, ROUND5 } from "./mutants-r5.ts";
+import { ROUND6 } from "./mutants-r6.ts";
 const OLD = [
   {
     id: "d58-pos-no-tick",
@@ -343,4 +346,32 @@ const OLD = [
     ],
   },
 ] as const;
-export const MUTANTS = [...OLD.filter((x) => !REPLACED.includes(x.id)), ...ROUND5];
+// Round 6 redid the confirm path, the driver's persist and parts of the seal. A mutant whose edit no longer applies names replaced code; it
+// goes, by name, in `replaced-r6.txt`, written by `bun mutants.ts --sweep`, so the list cannot rot silently and nothing is dropped unseen.
+const applies = (e: readonly [string, string, string]) => {
+  const p = join(import.meta.dir, e[0]);
+  if (!existsSync(p)) return false;
+  const re = new RegExp(
+    e[1]
+      .split(/\s+/)
+      .map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+      .join("\\s*"),
+  );
+  return re.test(readFileSync(p, "utf8"));
+};
+const old = [...OLD.filter((x) => !REPLACED.includes(x.id)), ...ROUND5];
+const gone = new Set(
+  (existsSync(join(import.meta.dir, "replaced-r6.txt"))
+    ? readFileSync(join(import.meta.dir, "replaced-r6.txt"), "utf8")
+    : ""
+  ).split("\n"),
+);
+export const MUTANTS = [...old.filter((x) => !gone.has(x.id)), ...ROUND6];
+if (import.meta.main) {
+  const dead = old.filter((x) => !x.edits.every((e: any) => applies(e))).map((x) => x.id);
+  await Bun.write(join(import.meta.dir, "replaced-r6.txt"), dead.join("\n") + "\n");
+  const bad = ROUND6.filter((x) => !x.edits.every((e: any) => applies(e as any))).map((x) => x.id);
+  console.log(
+    `replaced: ${dead.length} of ${old.length}. Round 6 that do not apply: ${bad.join(" ") || "none"}`,
+  );
+}

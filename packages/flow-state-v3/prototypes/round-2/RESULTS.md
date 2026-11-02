@@ -82,6 +82,8 @@ Driver share 11%, trigger 35%. Under budget is not evidence of a small system: n
 
 ## S4
 
+The code moved to `conformance/bench/` in round 6 (`s4-page.ts`, `s4-run.ts`).
+
 **Ran**, unattended, Chrome 146 headless, raw CDP over a WebSocket, throwaway profile, no new dependency. `s4.ts` is this runtime with real timers, real fibers and `MixedScheduler`, no suite. Commits answer on the next macrotask. `performance.now` is clamped to 100 us here, so medians read 0 and only the batch mean and tails say anything.
 
 | CPU throttle | Actors | Plain turn, batch mean | Plain turn p99, max | Click p99, max | Click to settled, median |
