@@ -28,6 +28,7 @@ if (killers.length === 0) {
   const f = e.verdict === "failed" ? e : searchSession(make, o);
   const g = f.verdict === "failed" ? f : searchListen(make, "version", o);
   const j = g.verdict === "failed" ? g : searchRepairing(make, o);
-  search = j.verdict;
+  const k = j.verdict === "failed" ? j : searchListen(make, "version", o, "none");
+  search = k.verdict;
 }
 console.log(JSON.stringify({ killers, search }));
