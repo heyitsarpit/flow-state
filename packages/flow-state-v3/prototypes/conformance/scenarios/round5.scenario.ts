@@ -224,7 +224,6 @@ export const round5Scenarios: readonly Scenario[] = [
           ["patch", 5, [{ send: O, event: "Patch" }]],
           ["guard", 5, [{ send: O, event: "Guard" }]],
           ["raiseFrom", 5, [{ send: O, event: "Raise" }]],
-          ["raiseKey", {}, [{ send: O, event: "Raise" }]],
           ["notifyFrom", 5, [{ send: O, event: "Raise" }]],
           ["exitFrom", 5, [{ send: O, event: "RaiseLeave" }]],
           ["portGuard", 5, [{ send: O, event: "PortHit" }]],

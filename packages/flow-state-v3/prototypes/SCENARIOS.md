@@ -466,3 +466,9 @@ Convergence-8. Old unbuilt rows (`STORY-ALL`, `BROWSER-*`, `SSR-01`) renumbered 
 | REV8-STORM | 8 | fault | hostile | D110 |  | review M5: a failure with no I/O and a handler that asks again stops, named; the budget returns with time |
 | REV8-WIPE | 8 | fault | hostile | D106, O6 |  | a wiped origin and a hold, in both key forms |
 | REV8-PINS | 8 | fault | hostile | D102, D80, D84, D88, D72, D83, D89, D29, L6 |  | survivors of the round 7 reviews: hide on two actors, after-drain, poison's lanes, and every survivor reported twice |
+| REV9-M1 | 9 | fault | hostile | D114, D109 |  | review M1: a decline carries its input; a refused `NotSent` is parked, not read as a hold; a hold parks nothing |
+| REV9-BURST | 9 | fault | hostile | D115, H1 |  | review H1, M4: 300 sends, 300 rows, a queue over a local source, a clock set back: all end, no storm |
+| REV9-SPIN | 9 | fault | hostile | D115, H1 |  | a chain of endings with no I/O waits, named once, backs off; a press and a real answer are not part of it; a kill and a dispose end it |
+| REV9-KEPT | 9 | fault | hostile | D118, D109, D50 |  | review M2, M3: a refused deadline stays on the record; a kept ending is on the row, blocks its key, can be let go; a raise with no name; a refused turn's commands |
+| REV9-STREAM | 9 | fault | hostile | D118, D50 |  | review M2: a stream's failure no turn could take is a stranded wait |
+| REV9-NAMES | 9 | fault | hostile | D119, D108, M5 |  | review M5: a bigint names a lane and a reset; it still cannot be carried; two values with no name are one |

@@ -47,6 +47,7 @@ export type Fault =
   | { corruptStored: { readonly match: string; readonly edit: (raw: string) => string } }; // a record on disk changed: a bad write, a release
 
 export type Step =
+  | { burst: ActorRef; event: string; n: number } // round 9: many sends in one tick, as a bulk flow does
   | { ensure: ActorRef; input?: unknown }
   | { send: ActorRef; event: string; payload?: unknown; to?: readonly string[] }
   | { dispose: ActorRef } // the actor's life ends. Its lanes stay the Runtime's (OD19)
@@ -138,7 +139,9 @@ type WaitKind =
   | { kind: "timer"; key: string; at: number }
   | { kind: "disposing"; op: string; attempt: string }
   | { kind: "disabled"; op: string; attempt: string; module: string } // D46: a module holds it, having failed
-  | { kind: "parked"; op: string; attempt: string }; // rule 53: an ending waits for an incarnation of its path
+  | { kind: "parked"; op: string; attempt: string } // rule 53: an ending waits for an incarnation of its path
+  | { kind: "paced"; op: string; attempt?: string } // D115: an ending with no I/O since its ask waits its turn
+  | { kind: "stranded"; op: string }; // D118: a read's answer or a stream's failure no turn could take
 export type Outside = {
   open: ReadonlyArray<{ op: string; key?: string; never: boolean; input: any }>;
   mayHave: readonly string[]; // keys the fake says may be at the server, undecided: open, or lost
@@ -161,6 +164,7 @@ export type Outside = {
   injections: { planned: number; done: number; withLive: number; withChoice: number };
 };
 export type Reads = {
+  missingEndings(): readonly string[]; // D117, oracle (j): what a committed turn asked for and nothing became; an ending refused twice with no wait
   writeAheadLies(): readonly string[]; // D112: keys the server may hold, on a persisted write, unreleased, that no lane's head on disk names
   state(a: ActorRef): string | undefined;
   memory(a: ActorRef): any;

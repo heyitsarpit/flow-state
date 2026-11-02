@@ -31,6 +31,31 @@ export const makeHarness = (port: Port) => (): Harness => {
   const injections = { planned: 0, done: 0, withLive: 0, withChoice: 0 };
 
   // Compiled data is plain data: wrapping its Slots is what a test build would do, and the core cannot tell.
+  // D117, oracle (j): what a turn asked for. By operation, per step: a committed turn's asks must each become something.
+  let asking: string[] = [];
+  let replaying = false;
+  const missing: string[] = [];
+  const lastKept = new Map<string, string>();
+  const askedFor = (op: string, slot: any) => ({
+    ...slot,
+    run: (...a: unknown[]) => {
+      const r = slot.run(...a);
+      if (!replaying) asking.push(op);
+      return r;
+    },
+  });
+  const judgeAsks = (e: readonly Record<string, any>[]) => {
+    const asks = asking;
+    asking = [];
+    if (!e.some((x) => x["kind"] === "turn")) return; // a refused turn asked for nothing
+    const left = new Map<string, number>();
+    for (const op of asks) left.set(op, (left.get(op) ?? 0) + 1);
+    for (const x of e) {
+      const became = x["kind"] === "mint" || (x["kind"] === "invoked" && String(x["attempt"]).startsWith("read/")) || (x["kind"] === "ending" && x["attempt"] === undefined);
+      if (became && left.get(x["op"])) left.set(x["op"], left.get(x["op"])! - 1);
+    }
+    for (const [op, n] of left) if (n > 0) missing.push(`(j) ${n} ask(s) of ${op} in a committed turn became nothing`);
+  };
   const wrap = (v: any): any => {
     if (Array.isArray(v)) return v.map(wrap);
     if (v === null || typeof v !== "object") return v;
@@ -52,6 +77,7 @@ export const makeHarness = (port: Port) => (): Harness => {
     return Object.fromEntries(
       Object.entries(v).map(([k, x]) => {
         if (k === "domain") return [k, x]; // opaque to the core; the module wraps nothing of it here
+        if (k === "input" && (v.verb === "commit" || v.verb === "lookup")) return [k, askedFor(v.op, wrap(x))];
         if (k === "commit" && typeof x === "function")
           return [
             k,
@@ -73,7 +99,10 @@ export const makeHarness = (port: Port) => (): Harness => {
       compiled,
       bounds,
       faults,
-      onEvidence: (e) => void evidence.push(...e),
+      onEvidence: (e) => {
+        judgeAsks(e);
+        evidence.push(...e);
+      },
       onIssue: (i) => void issues.push(...i),
     });
     for (const f of listeners) inst.subscribe(f);
@@ -114,6 +143,7 @@ export const makeHarness = (port: Port) => (): Harness => {
   };
   const run = (s: Step) => {
     if ("ensure" in s) inst.ensure(actorKey(s.ensure), s.ensure.actor, s.input);
+    else if ("burst" in s) for (let i = 0; i < s.n; i++) inst.send(actorKey(s.burst), { tag: s.event, payload: {} });
     else if ("send" in s)
       inst.send(actorKey(s.send), {
         tag: s.event,
@@ -167,7 +197,21 @@ export const makeHarness = (port: Port) => (): Harness => {
     }
   };
   const excused = new Set<string>(); // D112: what a wipe or an edited record took. Nothing else may leave a key undecided with no head on disk
+  const keptSeen = { n: 0 };
   const reads: Harness["read"] = {
+    missingEndings: () => {
+      // The second half: an ending refused twice leaves a wait, unless a boot has since taken it. Reads the suite's own issues against the runtime's claims.
+      const q = inst.waits();
+      const told = issues.filter((i) => i.code === "InvalidTurn" && (i.input as any)?.redelivered === true);
+      const seen = keptSeen.n;
+      keptSeen.n = told.length;
+      const out = [...missing];
+      if (told.length > seen && !q.some((w) => w.kind === "parked" || w.kind === "stranded" || w.kind === "held")) {
+        // A delivery after the refusal, or one in its own lane still deciding, would show as a state moved. A refused second time with nothing to show is what this catches.
+        out.push(`(j) an ending refused twice left no wait: ${(told.at(-1)!.input as any).event}`);
+      }
+      return out;
+    },
     writeAheadLies: () => {
       const undecided = fake.mayHave();
       if (undecided.length === 0) return [];
@@ -216,6 +260,7 @@ export const makeHarness = (port: Port) => (): Harness => {
     stateHash: () => inst.stateText(fake.stateText()),
     // S11: pure re-execution of each boot's input log, with its logged draws, against what was published.
     replay: () => {
+      replaying = true;
       const liveThrow = new Map(throwIn);
       const liveModule = new Map(faults.moduleThrows);
       const liveCore = faults.coreThrows;
@@ -241,6 +286,7 @@ export const makeHarness = (port: Port) => (): Harness => {
       faults.moduleThrowsAfter.clear();
       for (const [k, v] of liveAfter) faults.moduleThrowsAfter.set(k, v);
       faults.coreThrows = liveCore;
+      replaying = false;
       return result;
     },
   };

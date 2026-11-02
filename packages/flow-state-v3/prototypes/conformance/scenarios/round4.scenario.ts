@@ -347,7 +347,7 @@ export const round4Scenarios: readonly Scenario[] = [
           const cycle: any = {};
           cycle.self = cycle;
           return [
-            ["bigint", 10n],
+            ["set", new Set()], // D119: a bigint has a name now, so it resets: REV9-NAMES
             ["cycle", cycle],
           ] as const;
         })().map(([name, v]) => [

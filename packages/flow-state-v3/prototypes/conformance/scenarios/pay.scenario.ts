@@ -380,7 +380,7 @@ export const payScenarios: readonly Scenario[] = [
         c.fault({ throwIn: "states.PAYING.on.Confirmed[1].guard[0]", times: 2 });
         c.answer("pay", req_cap);
         c.state("PAYING");
-        c.eq("cell kept", row(c), undefined);
+        c.eq("cell kept, and the row says so", (row(c) as any)?.undelivered, 1); // D118
         const i = c.r.issues();
         c.eq("two issues", i.length, 2);
         c.eq("second says it was the redelivery", i[1]?.input, {

@@ -1,7 +1,7 @@
 // bun packages/flow-state-v3/prototypes/conformance/main.ts --round 6 --runtime ../round-6/adapter.ts
 //   [--no-search] [--lock]. Searches run separately: search/run.ts, under watch.ts.
 import { createHash } from "node:crypto";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { makeHarness, swapFixtures } from "./drive.ts";
 import type { Harness, RuntimeModule } from "./harness.ts";
@@ -18,6 +18,7 @@ import { round5Scenarios } from "./scenarios/round5.scenario.ts";
 import { round6Scenarios } from "./scenarios/round6.scenario.ts";
 import { round7Scenarios } from "./scenarios/round7.scenario.ts";
 import { round8Scenarios } from "./scenarios/round8.scenario.ts";
+import { round9Scenarios } from "./scenarios/round9.scenario.ts";
 import { streams5Scenarios } from "./scenarios/streams5.scenario.ts";
 import { flowScenarios } from "./scenarios/flows.scenario.ts";
 import { fragScenarios } from "./scenarios/frag.scenario.ts";
@@ -43,6 +44,7 @@ export const allScenarios: readonly Scenario[] = [
   ...round6Scenarios,
   ...round7Scenarios,
   ...round8Scenarios,
+  ...round9Scenarios,
 ];
 
 const here = import.meta.dir;
@@ -60,58 +62,26 @@ const bodyOf = (s: Scenario) =>
     JSON.stringify(s.cites),
     JSON.stringify(s.pins ?? []),
   ].join("\n");
+// D113, D116: what the suite and its gates lean on is an expected result too. By walking, so a new file cannot be forgotten.
+const walked = (root: string, dir: string, ext: RegExp) =>
+  existsSync(join(root, dir)) ? readdirSync(join(root, dir)).filter((f) => ext.test(f)).sort().map((f) => `${dir}/${f}`) : [];
 const SHARED = [
-  "scenarios/ctx.ts",
-  "scenarios/pay.scenario.ts",
-  "scenarios/order.scenario.ts",
-  "scenarios/store.scenario.ts",
-  "scenarios/flows.scenario.ts",
-  "scenarios/review.scenario.ts",
-  "scenarios/frag.scenario.ts",
-  "scenarios/round4.scenario.ts",
-  "fake-world.ts",
-  "drive.ts",
-  "fixtures/compiled.ts",
-  "fixtures/build.ts",
-  "fixtures/pay.compiled.ts",
-  "fixtures/cells.compiled.ts",
-  "fixtures/issues.compiled.ts",
-  "fixtures/s1.compiled.ts",
-  "fixtures/cart.compiled.ts",
-  "fixtures/refunds.compiled.ts",
-  "fixtures/order.compiled.ts",
-  "fixtures/drv.compiled.ts",
-  "fixtures/lab.compiled.ts",
-  "fixtures/pay-full.compiled.ts",
-  "fixtures/comments.compiled.ts",
-  "fixtures/real.compiled.ts",
-  "fixtures/feed.compiled.ts",
-  "scenarios/stream.scenario.ts",
-  "scenarios/round5.scenario.ts",
-  "scenarios/streams5.scenario.ts",
-  "fixtures/desk.compiled.ts",
-  "fixtures/oddall.compiled.ts",
-  "fixtures/chat.compiled.ts",
-  "scenarios/round6.scenario.ts",
-  "fixtures/round6.compiled.ts",
-  "scenarios/round7.scenario.ts",
-  "fixtures/round7.compiled.ts",
-  "scenarios/round8.scenario.ts",
-  "fixtures/round8.compiled.ts",
-  // D113: what the round's gates depend on is an expected result too.
-  "search/engine.ts",
-  "search/flush.search.ts",
-  "search/pay.search.ts",
-  "search/crash.search.ts",
-  "search/cross.search.ts",
+  ...walked(here, "scenarios", /\.ts$/),
+  ...walked(here, "search", /\.ts$/),
+  ...walked(here, "fixtures", /\.ts$/),
+  "main.ts",
+  "report.ts",
+  "watch.ts",
   "gate5s.ts",
   "gate-5s-expected.txt",
   "mutate.ts",
   "mutate-one.ts",
   "harness.ts",
+  "drive.ts",
+  "fake-world.ts",
 ];
 // And the round's own: CLI pins, typed checks, the adapter's normaliser. Named by what they are, so a new round logs the move once.
-const ROUND_FILES = ["cli/main.ts", "typed/compare.ts", "typed/date-check.ts", "typed/swaps.ts", "adapter.ts"];
+const roundFiles = (root: string) => [...walked(root, "cli", /\.ts$/), ...walked(root, "typed", /\.ts$/), "adapter.ts"];
 let roundDir: string | undefined;
 const splitLock = (l: string): [string, string] => [l.slice(0, l.lastIndexOf(" ")), l.slice(l.lastIndexOf(" ") + 1)]; // a variant's name may hold spaces
 const lockLines = (): string[] => [
@@ -119,7 +89,7 @@ const lockLines = (): string[] => [
   // D103: a variant is an expected result too. Its text is in its scenario's hash; this line is so that one gone is seen by name.
   ...allScenarios.flatMap((s) => Object.keys(s.variants ?? {}).map((v) => `variant:${s.id}/${v} present`)),
   ...SHARED.map((f) => `file:${f} ${sha(readFileSync(join(here, f), "utf8"))}`),
-  ...(roundDir ? ROUND_FILES.filter((f) => existsSync(join(roundDir!, f))).map((f) => `round:${f} ${sha(readFileSync(join(roundDir!, f), "utf8"))}`) : []),
+  ...(roundDir ? roundFiles(roundDir).filter((f) => existsSync(join(roundDir!, f))).map((f) => `round:${f} ${sha(readFileSync(join(roundDir!, f), "utf8"))}`) : []),
 ];
 
 export const runScenarios = (
@@ -205,7 +175,7 @@ if (import.meta.main) {
     return i < 0 ? undefined : process.argv[i + 1];
   };
   const has = (k: string) => process.argv.includes(k);
-  const round = Number(arg("--round") ?? 8);
+  const round = Number(arg("--round") ?? 9);
   const runtime = resolve(here, arg("--runtime") ?? "./null-adapter.ts");
   roundDir = dirname(runtime);
   const mod = (await import(runtime)) as RuntimeModule;
@@ -213,14 +183,12 @@ if (import.meta.main) {
   console.log(`runtime: ${runtime}\nbun ${Bun.version}`);
 
   // A diff touching expectations with no log line fails the run. Compared first, before any lock (review M7).
-  const old = existsSync(LOCK)
-    ? new Map(
-        readFileSync(LOCK, "utf8")
-          .trim()
-          .split("\n")
-          .map(splitLock),
-      )
-    : new Map<string, string>();
+  // D116, review M7: no lock is not a first run. Only `--first-lock` says it is.
+  if (!existsSync(LOCK) && !has("--first-lock")) {
+    console.log(`NO LOCK at ${LOCK}. Nothing can be compared, so nothing can pass. Restore it from git; \`--first-lock\` only for a new suite.`);
+    process.exit(1);
+  }
+  const old = new Map(existsSync(LOCK) ? readFileSync(LOCK, "utf8").trim().split("\n").map(splitLock) : []);
   const log = existsSync(LOG) ? readFileSync(LOG, "utf8") : "";
   // D103: a hash counts only on a line that names its own id and gives a reason, and a reason that is not a bulk one. Review: 94 lines shared one, and any hash anywhere passed.
   const logLines = log.split("\n").filter((l) => l.includes(" hash:"));
@@ -230,12 +198,15 @@ if (import.meta.main) {
   const logged = (id: string, h: string) =>
     logLines.some((l) => l.startsWith(`${id} hash:${h}`) && reasonOf(l).length > 0 && uses.get(reasonOf(l))! <= BULK);
   const now = lockLines().map(splitLock);
-  const unlogged = now.filter(([id, h]) => old.has(id) && old.get(id) !== h && !logged(id, h)).map(([id]) => id);
+  // D116: an id the lock does not have needs a line too, so deleting lines from the lock launders nothing. A variant's text is in its scenario's hash, so its presence line needs none.
+  const firstLock = !existsSync(LOCK);
+  const needsLine = ([id, h]: [string, string]) => old.get(id) !== h && !firstLock && !id.startsWith("variant:") && !logged(id, h);
+  const unlogged = now.filter(needsLine).map(([id]) => id);
   // D103: an id or a variant the lock had and the suite does not is a failure until a `removed:` line names it.
   const nowIds = new Set(now.map(([id]) => id));
   const gone = [...old.keys()].filter((id) => !nowIds.has(id) && !log.split("\n").some((l) => l.startsWith(`removed:${id} | `) && l.split(" | ")[1]!.trim().length > 0));
   if (has("--hashes"))
-    for (const [id, h] of now) if (old.has(id) && old.get(id) !== h && !logged(id, h)) console.log(`HASH ${id} hash:${h}`);
+    for (const e of now) if (needsLine(e)) console.log(`HASH ${e[0]} hash:${e[1]}`);
   if (has("--lock")) {
     // D113: the lock follows the log, never the other way. Review: weaken a case, `--lock`, and the next run is clean with no line.
     if (unlogged.length || gone.length) {

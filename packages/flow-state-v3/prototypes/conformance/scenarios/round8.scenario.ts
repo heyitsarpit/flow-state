@@ -332,7 +332,7 @@ export const round8Scenarios: readonly Scenario[] = [
         const c = on(c0, doorsFixture, undefined, D);
         c.send("Go");
         c.ack();
-        c.answer("charge", { ok: { v: 1n } });
+        c.answer("charge", { ok: { v: new Set() } });
         c.state("C");
         c.eq("no refused turn", c.r.issues().filter((i) => i.code === "InvalidTurn").length, 0);
         c.yes("named", c.r.issues().some((i) => i.code === "UnencodableValue"));
@@ -340,7 +340,7 @@ export const round8Scenarios: readonly Scenario[] = [
       "a-guard-key-with-no-other-alternative-stays"(c0) {
         const D = { actor: DoorsId, id: "a" };
         const c = on(c0, doorsFixture, undefined, D);
-        c.send("OnlyKeyed", { v: 1n });
+        c.send("OnlyKeyed", { v: new Set() });
         c.state("A");
         c.eq("no refused turn", c.r.issues().filter((i) => i.code === "InvalidTurn").length, 0);
       },
@@ -404,16 +404,16 @@ export const round8Scenarios: readonly Scenario[] = [
         c.ensure();
         c.send("BadReset");
         c.eq("no refused turn", c.r.issues().filter((i) => i.code === "InvalidTurn").length, 0);
-        c.yes("the turn ran", c.mem().bad === 1n);
+        c.yes("the turn ran", c.mem().bad instanceof Set);
         c.yes("named", c.r.issues().some((i) => i.code === "UnencodableValue"));
       },
       // A fourth door, found reading the first three: a key on `cancel` or `retry`. No lane can have a key with no text.
       "a-members-key-that-cannot-encode-does-nothing-and-the-turn-runs"(c0) {
         const D = { actor: DoorsId, id: "a" };
         const c = on(c0, doorsFixture, undefined, D);
-        c.send("CancelBad", { v: 1n });
+        c.send("CancelBad", { v: new Set() });
         c.eq("cancel: the turn ran", c.mem().cancels, 1);
-        c.send("RetryBad", { v: 1n });
+        c.send("RetryBad", { v: new Set() });
         c.eq("retry: the turn ran", c.mem().retries, 1);
         c.eq("no refused turn", c.r.issues().filter((i) => i.code === "InvalidTurn").length, 0);
       },
@@ -478,35 +478,33 @@ export const round8Scenarios: readonly Scenario[] = [
       // Review M5: 1.8 GB in 1.6 s. A failure with no I/O and a handler that asks again.
       "a-lookup-that-fails-at-once-and-asks-again-stops"(c0) {
         const D = { actor: DoorsId, id: "a" };
-        const c = on(c0, doorsFixture, { captureMs: 0, askMax: 16 }, D);
+        const c = on(c0, doorsFixture, { captureMs: 0, endingChain: 16 }, D);
         c.send("LoopLook");
         c.yes("settled, so it stopped", c.r.quiet().idle);
         c.eq("named once", c.r.issues().filter((i) => i.code === "TurnStorm").length, 1);
-        c.yes("a wait says so", c.r.quiet().waits.some((w) => w.kind === "stranded" && (w as any).op === "readLoop"));
+        c.yes("a wait says so", c.r.quiet().waits.some((w) => w.kind === "paced" && (w as any).op === "readLoop"));
         c.eq("bounded", c.mem().loops, 16);
       },
       "a-commit-that-throws-at-once-and-asks-again-stops"(c0) {
         const L = { actor: LoopId, id: "a" };
-        const c = on(c0, loopFixture, { askMax: 16 }, L);
+        const c = on(c0, loopFixture, { endingChain: 16 }, L);
         c.send("Go");
         c.yes("settled, so it stopped", c.r.quiet().idle);
         c.eq("named once", c.r.issues().filter((i) => i.code === "TurnStorm").length, 1);
         c.yes("bounded", c.mem().loops <= 16);
       },
-      "the-budget-comes-back-with-time"(c0) {
+      "a-press-after-a-spin-goes"(c0) {
         const D = { actor: DoorsId, id: "a" };
-        const c = on(c0, doorsFixture, { captureMs: 0, askMax: 16 }, D);
+        const c = on(c0, doorsFixture, { captureMs: 0, endingChain: 16 }, D);
         c.send("LoopLook");
-        c.advance(1_000);
         c.send("LoopGood");
         c.eq("it goes", c.reqs("readLoop").length, 1);
-        c.eq("no stranded wait", c.r.quiet().waits.filter((w) => w.kind === "stranded").length, 0);
       },
-      "the-default-budget-lets-an-ordinary-burst-through"(c0) {
+      "an-ordinary-burst-goes-through"(c0) {
         const D = { actor: DoorsId, id: "a" };
         const c = on(c0, doorsFixture, { captureMs: 0 }, D);
-        for (let i = 0; i < 200; i++) c.send("Look", { v: `v${i}` });
-        c.eq("all asked", c.reqs("read").length, 200);
+        for (let i = 0; i < 1_000; i++) c.send("Look", { v: `v${i}` });
+        c.eq("all asked", c.reqs("read").length, 1_000);
       },
     },
   },

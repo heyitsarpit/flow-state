@@ -9,6 +9,9 @@ export const checkClaims = (r: Reads) => {
   const q = r.quiet();
   if (q.fatal) return;
   if (!q.idle) throw new Mismatch("do() returned with work runnable");
+  // D117, oracle (j): what a committed turn asked for became something, and what no turn could take left a wait.
+  const gone = r.missingEndings();
+  if (gone.length) throw new Mismatch(gone.join("; "));
   // D112, oracle (h), in every step of every case and search: a request at the server has its Attempt as the head on disk, until it is decided or released.
   const lies = r.writeAheadLies();
   if (lies.length) throw new Mismatch(`(h) may be at the server, and no head on disk says so: ${lies.join(" ")}`);
@@ -142,6 +145,11 @@ export const checkEndings = (r: Reads) => {
     const attempt = k.split("#")[0]!;
     if (!wires.some((w) => !("attempt" in w) || w.attempt === attempt) && !ended)
       throw new Mismatch(`a send never ended: ${k}`);
+  }
+  // D115: a paced ending is owed, and a wait says when.
+  for (const w of q.waits) if (w.kind === "paced") {
+    const k = `${w.op}/${("attempt" in w && w.attempt) || ""}`;
+    owed.set(k, (owed.get(k) ?? 0) - 1);
   }
   if (q.idle)
     for (const [k, n] of owed) if (n > 0) throw new Mismatch(`an ending was never delivered: ${k}`);

@@ -53,7 +53,7 @@ export const searchFlush = (
   o: { depth: number; maxStates: number; deadlineMs: number },
   tight = false,
   wide = false, // one store: only the oldest batch can answer, so a hang holds everyone
-  directed: false | "store" | "queue" = false, // a small alphabet for one risk. "store": a ticket beside a slow store; review: finds in 44 s what the wide one misses in 110 s. "queue": what waits behind a head
+  directed: false | "store" | "queue" | "burst" | "wipe" = false, // a small alphabet for one risk. "store": a ticket beside a slow store; review: finds in 44 s what the wide one misses in 110 s. "queue": what waits behind a head
 ): Report & { unpinned: readonly string[]; lanesAhead: number; lanesAheadWitness?: string } => {
   const c = CFG[target];
   const send = (w: Who, event: string, payload: unknown = {}): Step => ({ send: w, event, payload, ...(c.to ? { to: c.to } : {}) });
@@ -78,6 +78,11 @@ export const searchFlush = (
     { name: "slowAfterAck", step: { slowAfterAck: true } },
     // D109: the next success's turn refuses, and its redelivery too. Oracle (f) then asks what can end the waiting state.
     { name: "refuseOk", step: { fault: { throwIn: "on.Ok[0].updateMemory", times: 2 } } },
+    // Round 9, D117: what oracle (j) is for. A burst past the queue's bound, a mapper that throws on a decline, and the origin gone.
+    { name: "refuseNo", step: { fault: { throwIn: "operations.charge.NotSent", times: 2 } } },
+    { name: "Burst", step: { burst: c.actors[0]!, event: "Go", n: 70 } },
+    { name: "WIPE", step: { reload: true, wipe: true } },
+    { name: "Ensure", step: { ensure: c.actors[0]!, input: { who: c.actors[0]!.id } } },
     { name: "freeze", step: { freeze: true } },
     { name: "thaw", step: { freeze: false } },
     { name: "clockBack", step: { clockBack: 60_000 } },
@@ -111,11 +116,16 @@ export const searchFlush = (
         ]
       : c.actors.flatMap((w, i) => body(w, i === 0 ? "" : ".b"));
   const tightNames = /^(Go|Note|Set|NoteBad|Peek|Forget|failHeld|sayFailed|ack|FLUSH|KILL|lost|ok|Pay|pay\.ok|pay\.lost)/;
-  const directedNames = directed === "queue" ? /^(Go|ok|lost|Retry|Forget|ack|landNoAck|KILL|refuseOk)$/ : /^(Go|Note$|holdPlain|FLUSH|ack|KILL)$/;
+  const directedNames =
+    directed === "queue" ? /^(Go|ok|lost|Retry|Forget|ack|landNoAck|KILL|refuseOk|refuseNo)$/
+    : directed === "burst" ? /^(Burst|Go|ok|ack|refuse|refuseNo|refuseOk|KILL)$/
+    : directed === "wipe" ? /^(Go|Note$|ok|lost|ack|KILL|WIPE|Ensure|Forget|FLUSH)$/
+    : /^(Go|Note$|holdPlain|FLUSH|ack|KILL)$/;
   let lanesAhead = 0;
   let lanesAheadWitness: string | undefined;
   const unpinnedAt = new Map<string, string>();
   const logs = new WeakMap<object, string[]>();
+  const wiped = new WeakSet<object>();
   const keyOf = (w: Who) => `${w.actor}/${w.id}`;
   const cut = (v: any) => canon({ s: v.state, m: v.memory });
   // (e) The disk's pointer into each actor's published cuts. It only moves forward.
@@ -190,6 +200,10 @@ export const searchFlush = (
       record();
       inner.do = (st: Step) => {
         raw(st);
+        if ("reload" in st && st.wipe) {
+          pointers.set(inner, new Map()); // the disk starts over, by design
+          wiped.add(inner);
+        }
         record(st);
         if (!bad.has(inner)) checkDisk(inner);
       };
@@ -201,7 +215,12 @@ export const searchFlush = (
         ? [...actions, ...edge].filter((a) => tightNames.test(a.name))
         : [...actions, ...edge],
     ...o,
-    edge(pre, post) {
+    edge(pre, post, last) {
+      if (directed === "wipe") {
+        // The stated limit (REV8-WIPE): with the Attempt's key a wiped hold gives a second key. So (a) reads only what the disk still knew.
+        void last;
+        if (post.read.evidence("boot").length > 0 && wiped.has(post)) return;
+      }
       const seen = new Set(pre.read.requests().filter((x) => x.op === c.op).map((x) => x.idempotencyKey));
       const mayHave = new Set(pre.read.outside().mayHave);
       const released = new Set(post.read.evidence("Released").map((e) => e["attempt"]));
@@ -250,7 +269,9 @@ export const searchFlush = (
     drain(h, script, report) {
       h.do({ freeze: false });
       h.do({ holdPlain: false });
-      for (let i = 0; i < 24; i++) {
+      // Review's false alarm: 24 was too short past depth 12, so a `Forget` met a wire. What is outstanding says how long.
+      const rounds = 24 + 3 * script.length + 3 * h.read.quiet().waits.length;
+      for (let i = 0; i < rounds; i++) {
         const out = h.read.outside();
         const has = (op: string) => out.open.some((x) => x.op === op && !x.never);
         if (out.storage.some((s) => !s.hung && s.purpose !== "late") && !out.failing) h.do({ storage: "ack" });

@@ -32,7 +32,17 @@ export const serialBareFixture = (): Fixture => ({
         T: b.node("T", {}, [{ id: "t", send: "Fired", schedule: { ms: 1000 }, armOn: ["entry"], disarmOn: [] }]),
         TF: b.node("TF", {}, [{ id: "f", send: "Fired", schedule: b.slot("states.TF.schedule", () => 3_000_000_000), armOn: ["entry"], disarmOn: [] }]),
       },
-      ops: { charge: { ...m.ops["charge"]!, concurrency: "serialize" } },
+      // Round 9: a mapper a search can make throw. It reads the input, as a real one does.
+      ops: {
+        charge: {
+          ...m.ops["charge"]!,
+          concurrency: "serialize",
+          outcomes: {
+            ...m.ops["charge"]!.outcomes,
+            failure: { NotSent: { event: "No", from: b.slot("operations.charge.NotSent", (v: any, c: any) => ({ why: v?.why, who: c.input?.who })) } },
+          },
+        },
+      },
     };
   },
 });
@@ -181,7 +191,7 @@ export const doorsFixture: Fixture = {
         id: "readKey",
         contract: "lab/readKey",
         kind: "read",
-        key: d.key("readKey", () => 1n),
+        key: d.key("readKey", () => new Set()),
         concurrency: "reject",
         commit: (i) => api.call("readKey", i) as Effect.Effect<unknown, unknown>,
         outcomes: {
@@ -225,7 +235,7 @@ export const copiesFixture: Fixture = {
         ...cs.node("root", {
           Add: [{ patch: ({ memory, event }: any) => ({ ids: [...memory.ids, event.id] }) }],
           Note: [{ patch: ({ event }: any) => ({ note: event.text }) }],
-          BadReset: [{ patch: () => ({ bad: 1n }) }],
+          BadReset: [{ patch: () => ({ bad: new Set() }) }],
           RaiseTwice: [{ raises: [{ to: "c", key: cs.slot("on.RaiseTwice.raises[0]", () => "x"), event: "Set" }, { to: "c", key: cs.slot("on.RaiseTwice.raises[1]", () => "x"), event: "Set" }] }],
         }),
         placements: [

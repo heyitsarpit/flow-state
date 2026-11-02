@@ -276,3 +276,54 @@ file:scenarios/round8.scenario.ts hash:e604b2f1b4dc | round 8: carries REV8 line
 file:fixtures/round8.compiled.ts hash:12135ddc379e | round 8: boom, readBoom, readLoop, a looping commit, a reset placement
 REV8-M3 hash:568dda8d58be | round 8's own: the lane-alone case now really has a lane stamped past its actor, shown by a survivor
 file:scenarios/round8.scenario.ts hash:6e7e6c0a53b0 | round 8: carries REV8-M3 above: a failed boot write before the poison
+removed:variant:REV4-H4/reset-value-bigint-resets-nothing | round 9, D119: a bigint has a name now, so it resets. Moved to a Set; REV9-NAMES pins the bigint
+PAY-11 hash:ec45029288bc | round 9, D118: a kept ending is on the row now, so `row` reads undelivered, not undefined
+REV4-H4 hash:34ef27021dc4 | round 9, D119: a bigint has a name now and resets; the variant moves to a Set
+REV5-H1 hash:4f1b91efaf84 | round 9, D118: a raise key of no shape reaches nobody and the turn runs; pinned in REV9-KEPT
+REV8-M9 hash:cb7f72ff0a25 | round 9, D119: `1n` has a name, so these doors' pins move to a Set. What they pin is unchanged
+REV8-STORM hash:9b050a3ddb3d | round 9, D115 replaces D110: no budget, so a paced wait instead of a stranded one, `endingChain` for `askMax`; the burst goes from 200 to 1,000 as the review asked
+REV9-M1 hash:f7fe75c68e3e | round 9: new, D114
+REV9-BURST hash:f2c12e2c0f4f | round 9: new, D115
+REV9-SPIN hash:229c7419d709 | round 9: new, D115
+REV9-KEPT hash:10e689bcd0de | round 9: new, D118
+REV9-STREAM hash:e89d4fe4d19c | round 9: new, D118
+REV9-NAMES hash:23a461d139ac | round 9: new, D119
+file:scenarios/ctx.ts hash:c351f92ab98e | round 9, D117: checkClaims reads oracle (j); D115: a paced ending is owed, and a wait says when
+file:scenarios/pay.scenario.ts hash:52bdc4dbc8a6 | round 9: carries PAY-11 above
+file:scenarios/round4.scenario.ts hash:0e0d4203b920 | round 9: carries REV4-H4 above
+file:scenarios/round5.scenario.ts hash:ecd88539544c | round 9: carries REV5-H1 above
+file:scenarios/round8.scenario.ts hash:892969f0311f | round 9: carries REV8-M9 and REV8-STORM above
+file:scenarios/round9.scenario.ts hash:b723c11250fb | round 9: the new scenario file
+file:search/flush.search.ts hash:bf6868495ba8 | round 9, D117: burst and wipe alphabets, a mapper's throw; drain long enough for what is outstanding, the review's false alarm
+file:search/frag.search.ts hash:e4bb203b6a50 | round 9, D116: first hashed, or its round-9 path comment: file:search/frag.search.ts
+file:search/fragstore.search.ts hash:4f3523a6e708 | round 9, D116: first hashed, or its round-9 path comment: file:search/fragstore.search.ts
+file:search/like.search.ts hash:c369456a039b | round 9, D116: first hashed, or its round-9 path comment: file:search/like.search.ts
+file:search/listen.search.ts hash:b3fbfe9f7acf | round 9, D116: first hashed, or its round-9 path comment: file:search/listen.search.ts
+file:search/odd.search.ts hash:e9c3e925c5a3 | round 9, D116: first hashed, or its round-9 path comment: file:search/odd.search.ts
+file:search/run.ts hash:5745199190ec | round 9, D116: first hashed. `.burst`, `.wipe`
+file:search/session.search.ts hash:fae2b6dd0bd5 | round 9, D116: first hashed, or its round-9 path comment: file:search/session.search.ts
+file:fixtures/compiled.ts hash:d88f3107f8b3 | round 9, D120: keyFieldsNoJson
+file:fixtures/pay.fixed.ts hash:2b4376598e3b | round 9, D116: first hashed, or its round-9 path comment: file:fixtures/pay.fixed.ts
+file:fixtures/round8.compiled.ts hash:3253c650d4bc | round 9, D119: a Set where 1n meant no text; a mapper on serialBare a search can make throw
+file:fixtures/round9.compiled.ts hash:977a0714f50f | round 9: the new fixture file
+file:main.ts hash:5eae2a664e45 | round 9, D116: first hashed. No lock fails, a line missing from the lock needs a log line, files found by walking
+file:report.ts hash:6558e2efe90e | round 9, D116: first hashed, or its round-9 path comment: file:report.ts
+file:watch.ts hash:9428c48c59a1 | round 9, D116: first hashed, or its round-9 path comment: file:watch.ts
+file:gate5s.ts hash:c41f57ae8e45 | round 9: the default runtime and round move on
+file:harness.ts hash:2c594c798d1d | round 9: burst step, paced and stranded waits, oracle (j)'s read
+file:drive.ts hash:bb39d4f7a8b5 | round 9, D117: oracle (j), the burst step
+round:cli/broken.ts hash:16c90029748b | round 9, D120: bigint-key
+round:cli/check.ts hash:86a11081fefd | round 9, D120: the KeyFieldForm lint
+round:cli/explain.ts hash:f8eccadefebf | round 9, D116: first hashed, or its round-9 path comment: round:cli/explain.ts
+round:cli/flow.ts hash:016fd3ec663f | round 9, D120: bigint-key; the path in its comment moves
+round:cli/main.ts hash:8aa4c4dc1d89 | round 9, D120: KeyFieldForm's pins; the path in its comment moves
+round:typed/bare-closures.ts hash:9023a9d30e54 | round 9, D116: first hashed, or its round-9 path comment: round:typed/bare-closures.ts
+round:typed/compare.ts hash:28bd184f713c | round 9, D116: first hashed, or its round-9 path comment: round:typed/compare.ts
+round:typed/date-check.ts hash:256c4b8a43f5 | round 9, D116: first hashed, or its round-9 path comment: round:typed/date-check.ts
+round:typed/flow.ts hash:0a89cfb7169d | round 9, D120: keyFieldsNoJson, hasJsonForm
+round:typed/pay.typed.ts hash:35378b5adb8b | round 9, D116: first hashed, or its round-9 path comment: round:typed/pay.typed.ts
+round:typed/swaps.ts hash:0c3adfa12da1 | round 9, D116: first hashed, or its round-9 path comment: round:typed/swaps.ts
+round:typed/threeds.typed.ts hash:7881c856c1d7 | round 9, D116: first hashed, or its round-9 path comment: round:typed/threeds.typed.ts
+round:typed/type-tests.ts hash:936683197532 | round 9, D116: first hashed, or its round-9 path comment: round:typed/type-tests.ts
+removed:variant:REV8-STORM/the-budget-comes-back-with-time | round 9, D115: no budget. Replaced by a-press-after-a-spin-goes and REV9-SPIN's backoff
+removed:variant:REV8-STORM/the-default-budget-lets-an-ordinary-burst-through | round 9, D115: no budget. Renamed an-ordinary-burst-goes-through, at 1,000 as the review asked
