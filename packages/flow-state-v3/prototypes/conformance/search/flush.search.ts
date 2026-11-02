@@ -1,10 +1,13 @@
-// SEARCH-FLUSH (owner's concern: does an interval expose a consistency bug?). Flush timing is an ACTION, not a duration: the timer is out of reach (`captureMs` huge), and a plain
-// flush (the host's hide), a late failure and a kill can each happen at any step. Oracles read Reads and the fake only, and no interval:
-//   (a) no second Attempt for a key while an earlier may be at the server, unreleased;
-//   (b) a restored actor is a cut the actor really published. EXCEPTION, precisely: the actor's cut is always a past one, but paired with a lane the cut never saw, when a plain
-//       batch failed and the lane's ack landed, or the lane's batch went without it. Counted as class `lane-ahead-of-memory`, not a failure;
-//   (c) nothing stays held for good: after everything is answered and time passes, the machine's owner action clears a hold;
-//   (d) a guard never sees two turns' memory: a whole past cut, and pairs that change together are equal.
+// SEARCH-FLUSH: does the disk hold together, whatever the store and the timers do? Flush timing is an ACTION, not a duration: the timer is out of reach, and a plain flush, a late failure,
+// a held success, a kill, a frozen tab and a clock set back can each happen at any step. Oracles read Reads and the fake only, and no interval:
+//   (a) no second Attempt for a key while an earlier may be at the server, unreleased
+//   (b) a restored actor is a cut it really published
+//   (c) nothing stays held for good, once the owner acts
+//   (d) a guard never sees two turns' memory
+//   (e) the disk moves forward only, and is whole: lanes on disk belong with that memory. Allowed, counted, stated: lanes ahead of memory by puts (`lanesAhead`). Never: memory ahead of a lane
+//   (f) a waiting state has something that can end it
+//   (g) one batch out per actor: the fake throws
+//   (h) write-ahead: a keyed request's Attempt is on disk when it starts
 import { fragPairFixture, FragPairId, bareFixture, BareId } from "../fixtures/round7.compiled.ts";
 import { payFixture } from "../fixtures/pay.compiled.ts";
 import type { Answer, Fixture, Harness, Step } from "../harness.ts";
@@ -12,7 +15,7 @@ import { checkClaims, checkEndings } from "../scenarios/ctx.ts";
 import { bfs, Oracle, type Action, type Report } from "./engine.ts";
 import { moneyAudit, PAY_PINS } from "./pay.search.ts";
 
-type Target = "pay" | "bare" | "frag";
+export type Target = "pay" | "bare" | "frag" | "two";
 const canon = (v: unknown): string =>
   JSON.stringify(v, (_k, x) =>
     x && typeof x === "object" && !Array.isArray(x)
@@ -21,7 +24,6 @@ const canon = (v: unknown): string =>
         ? `${x}n`
         : x,
   ) ?? "undefined";
-// The suite's own wrap: every guard logs the memory it was shown. Compiled is plain data, so this needs no runtime.
 const logGuards = (v: any, log: string[]): any => {
   if (Array.isArray(v)) return v.map((x) => logGuards(x, log));
   if (v === null || typeof v !== "object") return v;
@@ -29,76 +31,35 @@ const logGuards = (v: any, log: string[]): any => {
   return Object.fromEntries(
     Object.entries(v).map(([k, x]) => {
       if (k === "guards" && Array.isArray(x))
-        return [
-          k,
-          x.map((g: any) => ({
-            ...g,
-            run: (a: any) => {
-              log.push(canon(a.memory));
-              return g.run(a);
-            },
-          })),
-        ];
+        return [k, x.map((g: any) => ({ ...g, run: (a: any) => (log.push(canon(a.memory)), g.run(a)) }))];
       if (typeof x === "function" || k === "commit") return [k, x];
       return [k, logGuards(x, log)];
     }),
   );
 };
-const CFG: Record<
-  Target,
-  {
-    fixture: Fixture;
-    actor: { actor: string; id: string };
-    op: string;
-    to?: readonly string[];
-    pair?: (m: any) => boolean;
-    actions: readonly Action[];
-    boot?: (h: Harness) => void;
-    owners: readonly string[];
-  }
-> = {
-  pay: {
-    fixture: payFixture,
-    actor: { actor: "Checkout/Pay", id: "shopper-1" },
-    op: "pay",
-    owners: [],
-    actions: [],
-  },
-  bare: {
-    fixture: bareFixture(),
-    actor: { actor: BareId, id: "a" },
-    op: "charge",
-    pair: (m) => m.note === m.noteCopy,
-    owners: ["Forget"],
-    actions: [],
-  },
-  frag: {
-    fixture: fragPairFixture,
-    actor: { actor: FragPairId, id: "a" },
-    op: "put",
-    to: ["t"],
-    pair: (m) => m.a === m.b,
-    owners: ["Forget"],
-    actions: [],
-  },
+type Who = { actor: string; id: string };
+const CFG: Record<Target, { fixture: Fixture; actors: readonly Who[]; op: string; to?: readonly string[]; pair?: (m: any) => boolean; owners: readonly string[]; waiting: readonly string[] }> = {
+  pay: { fixture: payFixture, actors: [{ actor: "Checkout/Pay", id: "shopper-1" }], op: "pay", owners: [], waiting: ["PAYING", "PLACING"] },
+  bare: { fixture: bareFixture(), actors: [{ actor: BareId, id: "a" }], op: "charge", pair: (m) => m.note === m.noteCopy, owners: ["Forget"], waiting: ["W"] },
+  two: { fixture: bareFixture(), actors: [{ actor: BareId, id: "a" }, { actor: BareId, id: "b" }], op: "charge", pair: (m) => m.note === m.noteCopy, owners: ["Forget"], waiting: ["W"] },
+  frag: { fixture: fragPairFixture, actors: [{ actor: FragPairId, id: "a" }], op: "put", to: ["t"], pair: (m) => m.a === m.b, owners: ["Forget"], waiting: [] },
 };
 export const searchFlush = (
   make: () => Harness,
   target: Target,
   o: { depth: number; maxStates: number; deadlineMs: number },
-  tight = false, // a small alphabet, to reach depth: what a late failure, a flush and a kill can do to one write
-): Report & { unpinned: readonly string[]; exceptions: number; exceptionWitness?: string } => {
+  tight = false,
+  wide = false, // one store: only the oldest batch can answer, so a hang holds everyone
+): Report & { unpinned: readonly string[]; lanesAhead: number; lanesAheadWitness?: string } => {
   const c = CFG[target];
-  const A = c.actor;
-  const send = (event: string, payload: unknown = {}): Step => ({
-    send: A,
-    event,
-    payload,
-    ...(c.to ? { to: c.to } : {}),
-  });
+  const send = (w: Who, event: string, payload: unknown = {}): Step => ({ send: w, event, payload, ...(c.to ? { to: c.to } : {}) });
   const open = (op: string) => (h: Harness) => h.read.outside().open.some((x) => x.op === op && !x.never);
-  const storage = (h: Harness) => h.read.outside().storage.some((s) => !s.hung && s.purpose !== "flush");
-  const ans = (name: string, op: string, a: Answer): Action => ({ name, step: { answer: op, with: a }, on: open(op) });
+  const storage = (h: Harness) => h.read.outside().storage.some((s) => !s.hung && s.purpose !== "late");
+  const ans = (name: string, op: string, a: Answer, where?: Record<string, unknown>): Action => ({
+    name,
+    step: { answer: op, with: a, ...(where ? { where } : {}) },
+    on: (h) => h.read.outside().open.some((x) => x.op === op && !x.never && (!where || Object.entries(where).every(([k, v]) => x.input?.[k] === v))),
+  });
   const edge: readonly Action[] = [
     { name: "FLUSH", step: { hide: true } },
     { name: "KILL", step: { reload: true } },
@@ -108,15 +69,31 @@ export const searchFlush = (
     { name: "ack", step: { storage: "ack" }, on: storage },
     { name: "refuse", step: { storage: "refuse" }, on: storage },
     { name: "landNoAck", step: { storage: "landNoAck" }, on: storage },
-    { name: "tick", step: { advance: 1100 } }, // a retry's backoff; the capture timer is out of reach
+    { name: "hang", step: { storage: "hang" }, on: storage },
+    { name: "holdPlain", step: { holdPlain: true } },
+    { name: "freeze", step: { freeze: true } },
+    { name: "thaw", step: { freeze: false } },
+    { name: "clockBack", step: { clockBack: 60_000 } },
+    { name: "tick", step: { advance: 1100 } },
   ];
   const CAP = { status: "requires_capture", clientSecret: "" };
-  const body: readonly Action[] =
+  const body = (w: Who, s: string): readonly Action[] => [
+    { name: `Go${s}`, step: send(w, "Go") },
+    target === "frag" ? { name: "Set", step: send(w, "Set", { n: 1 }) } : { name: `Note${s}`, step: send(w, "Note", { text: "x" }) },
+    target === "frag" ? { name: "Set2", step: send(w, "Set", { n: 2 }) } : { name: `Note2${s}`, step: send(w, "Note", { text: "y" }) },
+    ...(target === "frag" ? [] : [{ name: `NoteBad${s}`, step: send(w, "NoteBad") }]),
+    { name: `Peek${s}`, step: send(w, "Peek") },
+    { name: `Retry${s}`, step: send(w, "Retry") },
+    { name: `Forget${s}`, step: send(w, "Forget") },
+    ans(`ok${s}`, c.op, { ok: {} }, target === "two" ? { who: w.id } : undefined),
+    ans(`lost${s}`, c.op, { lost: true }, target === "two" ? { who: w.id } : undefined),
+  ];
+  const actions: readonly Action[] =
     target === "pay"
       ? [
-          { name: "Pay", step: send("PayRequested", { paymentMethodId: "visa" }) },
-          { name: "Leave", step: send("Leave") },
-          { name: "Choose", step: send("CardChosen", { paymentMethodId: "amex" }) },
+          { name: "Pay", step: send(c.actors[0]!, "PayRequested", { paymentMethodId: "visa" }) },
+          { name: "Leave", step: send(c.actors[0]!, "Leave") },
+          { name: "Choose", step: send(c.actors[0]!, "CardChosen", { paymentMethodId: "amex" }) },
           { name: "tick3s", step: { advance: 3000 } },
           ans("pay.ok", "pay", { ok: CAP }),
           ans("pay.lost", "pay", { lost: true }),
@@ -125,33 +102,57 @@ export const searchFlush = (
           ans("place.ok", "place", { ok: { orderId: "o1" } }),
           ans("void.ok", "void", { ok: {} }),
         ]
-      : [
-          { name: "Go", step: send("Go") },
-          target === "bare"
-            ? { name: "Note", step: send("Note", { text: "x" }) }
-            : { name: "Set", step: send("Set", { n: 1 }) },
-          target === "bare"
-            ? { name: "Note2", step: send("Note", { text: "y" }) }
-            : { name: "Set2", step: send("Set", { n: 2 }) },
-          { name: "Peek", step: send("Peek") },
-          { name: "Retry", step: send("Retry") },
-          { name: "Forget", step: send("Forget") },
-          ans("ok", c.op, { ok: {} }),
-          ans("lost", c.op, { lost: true }),
-        ];
-  let exceptions = 0;
-  let exceptionWitness: string | undefined;
-  let noLane = 0;
-  let noLaneWitness: string | undefined;
-  const logs = new WeakMap<object, string[]>();
-  const innerBad = new WeakMap<object, string>();
-  const keyOf = `${A.actor}/${A.id}`;
-  const cutOf = (f: any) => {
-    const v = f.view[keyOf];
-    return v && canon({ s: v.state, m: v.memory });
-  };
-  const seenPairs = (h: Harness) => h.read.frames();
+      : c.actors.flatMap((w, i) => body(w, i === 0 ? "" : ".b"));
+  const tightNames = /^(Go|Note|Set|NoteBad|Peek|Forget|failHeld|sayFailed|ack|FLUSH|KILL|lost|ok|Pay|pay\.ok|pay\.lost)/;
+  let lanesAhead = 0;
+  let lanesAheadWitness: string | undefined;
   const unpinnedAt = new Map<string, string>();
+  const logs = new WeakMap<object, string[]>();
+  const keyOf = (w: Who) => `${w.actor}/${w.id}`;
+  const cut = (v: any) => canon({ s: v.state, m: v.memory });
+  // (e) The disk's pointer into each actor's published cuts. It only moves forward.
+  const pointers = new WeakMap<object, Map<string, number>>();
+  const bad = new WeakMap<object, string>();
+  const innerLogs = new WeakMap<object, string[]>();
+  const poisoned = (m: unknown) => /\d+n"/.test(canon(m));
+  const checkDisk = (h: Harness) => {
+    const frames = h.read.frames() as any[];
+    const stored = h.read.stored();
+    const ptr = pointers.get(h)!;
+    for (const w of c.actors) {
+      const k = keyOf(w);
+      const rec = stored.get(`actor/${k}`) as any;
+      if (!rec || rec.retired) continue;
+      if (c.to) {
+        // A fragment's memory: frames show the root's view, so its own published list is kept by the wrapper below.
+        const list = innerLogs.get(h)!;
+        const kid = rec.root.kids?.[c.to[0]!]?.memory;
+        if (kid === undefined) continue;
+        const from = ptr.get(k) ?? 0;
+        const i = list.indexOf(canon(kid), from);
+        if (i >= 0) ptr.set(k, i);
+        else if (list.includes(canon(kid))) bad.set(h, `(e) a fragment's disk went back: ${canon(kid)}`);
+        else if (list.length) bad.set(h, `(b) a fragment on disk, never published: ${canon(kid)}`);
+        continue;
+      }
+      const diskCut = canon({ s: rec.root.leaf, m: rec.root.memory });
+      const from = ptr.get(k) ?? 0;
+      let i = frames.findIndex((f, n) => n >= from && f.view[k] && cut(f.view[k]) === diskCut);
+      if (i < 0) {
+        const anywhere = frames.findIndex((f) => f.view[k] && cut(f.view[k]) === diskCut);
+        if (anywhere >= 0) bad.set(h, `(e) the disk went back: ${diskCut.slice(0, 120)}`);
+        else if (!frames.some((f) => f.view[k] && poisoned(f.view[k].memory)))
+          bad.set(h, `(b) on disk, a cut never published: ${diskCut.slice(0, 160)}`);
+        continue;
+      }
+      ptr.set(k, i);
+      // Memory ahead of a lane: every frame of this cut has a lane this disk lacks.
+      const lanes = new Set([...stored.keys()].filter((x) => x.startsWith(`lane/${k}|`) && (stored.get(x) as any)?.head));
+      const same = frames.filter((f) => f.view[k] && cut(f.view[k]) === diskCut);
+      if (lanes.size === 0 && same.length > 0 && same.every((f) => Object.keys(f.view[k].rows).length > 0))
+        bad.set(h, `(e) memory ahead of its lane: ${diskCut.slice(0, 120)}`);
+    }
+  };
   const rep = bfs({
     make: () => {
       const inner = make();
@@ -159,93 +160,91 @@ export const searchFlush = (
       const fx: Fixture = { ...c.fixture, make: (api) => logGuards(c.fixture.make(api), log) };
       inner.start({ machines: [fx], seed: 1, bounds: { captureMs: 2_000_000_000 } });
       logs.set(inner, log);
-      // (b) for a fragment: frames show the root's memory only, so its inner memory is read after each action and at each kill.
-      if (c.to) {
-        const innerSeen = new Set<string>();
-        const raw = inner.do.bind(inner);
-        const read = () => {
-          const m = inner.read.inner(A, c.to!)?.memory;
-          return m === undefined ? undefined : canon(m);
-        };
-        inner.do = (st: Step) => {
-          raw(st);
-          const m = read();
-          if (!m) return;
-          if ("reload" in st && !innerSeen.has(m)) innerBad.set(inner, m);
-          innerSeen.add(m);
-        };
-      }
-      inner.do({ ensure: A });
-      if (target === "pay") inner.do({ send: A, event: "Start", payload: { cartId: "c1", intentId: "pi1" } });
-      inner.do({ hide: true }); // the first record: a search of what comes after, not of first-visit loss
+      pointers.set(inner, new Map());
+      if (wide) inner.do({ storeWide: true });
+      for (const w of c.actors) inner.do({ ensure: w, input: { who: w.id } });
+      if (target === "pay") inner.do({ send: c.actors[0]!, event: "Start", payload: { cartId: "c1", intentId: "pi1" } });
+      inner.do({ hide: true });
+      const raw = inner.do.bind(inner);
+      const innerSeen = new Set<string>();
+      const list: string[] = [];
+      innerLogs.set(inner, list);
+      const record = (st?: Step) => {
+        if (!c.to) return;
+        const m = inner.read.inner(c.actors[0]!, c.to)?.memory;
+        const t = m === undefined ? undefined : canon(m);
+        if (t && st && "reload" in st && !innerSeen.has(t)) bad.set(inner, `(b) a fragment restored memory it never had: ${t}`);
+        if (t) {
+          innerSeen.add(t);
+          if (list.at(-1) !== t) list.push(t);
+        }
+      };
+      record();
+      inner.do = (st: Step) => {
+        raw(st);
+        record(st);
+        if (!bad.has(inner)) checkDisk(inner);
+      };
       return inner;
     },
-    actions: tight
-      ? [...body, ...edge].filter((a) =>
-          ["Go", "Note", "Set", "failHeld", "sayFailed", "ack", "FLUSH", "KILL", "lost", "ok", "Pay", "pay.ok", "pay.lost"].includes(a.name),
-        )
-      : [...body, ...edge],
+    actions: tight ? [...actions, ...edge].filter((a) => tightNames.test(a.name)) : [...actions, ...edge],
     ...o,
     edge(pre, post) {
-      // (a)
+      const stored = JSON.stringify([...post.read.stored()]);
       const seen = new Set(pre.read.requests().filter((x) => x.op === c.op).map((x) => x.idempotencyKey));
       const mayHave = new Set(pre.read.outside().mayHave);
       const released = new Set(post.read.evidence("Released").map((e) => e["attempt"]));
-      for (const q of post.read.requests().filter((x) => x.op === c.op)) {
+      const all = post.read.requests().filter((x) => x.op === c.op);
+      for (const q of all) {
         if (seen.has(q.idempotencyKey)) continue;
-        for (const old of seen)
-          if (mayHave.has(old!) && !released.has(old))
-            throw new Oracle(`(a) a second Attempt ${q.idempotencyKey} beside undecided ${old}`);
+        if (q.idempotencyKey && !stored.includes(q.idempotencyKey)) throw new Oracle(`(h) request ${q.idempotencyKey} with nothing on disk`);
+        for (const old of all)
+          if (
+            old.idempotencyKey !== q.idempotencyKey &&
+            seen.has(old.idempotencyKey) &&
+            canon(old.input?.who) === canon(q.input?.who) &&
+            canon(old.input?.intentId) === canon(q.input?.intentId) &&
+            mayHave.has(old.idempotencyKey!) &&
+            !released.has(old.idempotencyKey)
+          )
+            throw new Oracle(`(a) a second Attempt ${q.idempotencyKey} beside undecided ${old.idempotencyKey}`);
       }
     },
     state(h, script) {
       checkClaims(h.read);
       checkEndings(h.read);
-      const bad = innerBad.get(h);
-      if (bad) throw new Oracle(`(b) a fragment restored memory it never had: ${bad}`);
-      const frames = seenPairs(h) as any[];
-      // (b) Every boot's cut is an earlier cut. Rows compared separately: the lane may be ahead of the memory.
-      const earlier = new Set<string>();
-      const earlierRows = new Set<string>();
-      for (const f of frames) {
-        const cut = cutOf(f);
-        if (f.cause === "boot" && cut) {
-          if (!earlier.has(cut) && !process.env["FLOW_ORACLE_OFF"]?.includes("b")) throw new Oracle(`(b) restored a cut never published: ${cut.slice(0, 200)}`);
-          const v = f.view[keyOf];
-          if (!earlierRows.has(canon({ cut, r: v.rows }))) {
-            exceptions++;
-            if (Object.keys(v.rows).length === 0) {
-              noLane++;
-              noLaneWitness ??= `${script.join(" ")} => ${v.state}`;
-            }
-            exceptionWitness ??= `${script.join(" ")} => ${canon({ state: v.state, rows: v.rows })}`;
+      const b = bad.get(h);
+      if (b) throw new Oracle(b);
+      const frames = h.read.frames() as any[];
+      if (script.at(-1) === "KILL") {
+        // Each boot once, here: a state's script ends in its kill.
+        const boot = frames.filter((f) => f.cause === "boot").at(-1);
+        for (const w of c.actors) {
+          const v = boot?.view[keyOf(w)];
+          if (!v) continue;
+          const rowsAt = new Set(frames.filter((f) => f !== boot && f.view[keyOf(w)] && cut(f.view[keyOf(w)]) === cut(v)).map((f) => canon(Object.keys(f.view[keyOf(w)].rows).sort())));
+          if (rowsAt.size && !rowsAt.has(canon(Object.keys(v.rows).sort()))) {
+            lanesAhead++;
+            lanesAheadWitness ??= `${script.join(" ")} => ${v.state} ${canon(Object.keys(v.rows))}`;
           }
         }
-        if (cut) {
-          earlier.add(cut);
-          earlierRows.add(canon({ cut, r: f.view[keyOf].rows }));
-        }
       }
-      // (d)
-      const memories = new Set(frames.map((f) => f.view[keyOf]?.memory).filter(Boolean).map(canon));
-      const initial = target === "frag" ? undefined : undefined;
-      void initial;
+      const seenMem = new Set(frames.flatMap((f) => c.actors.map((w) => f.view[keyOf(w)]?.memory)).filter(Boolean).map(canon));
       for (const m of logs.get(h) ?? []) {
         const parsed = JSON.parse(m);
         if (c.pair && !c.pair(parsed)) throw new Oracle(`(d) a guard saw two turns: ${m}`);
-        if (target !== "frag" && !memories.has(m) && frames.length > 0) {
-          // a guard runs before its own frame exists, so what it saw is a cut only if the state it was shown is the live one or an earlier one
-          const live = canon(h.read.memory(A));
-          if (m !== live) throw new Oracle(`(d) a guard saw memory no cut has: ${m.slice(0, 200)}`);
-        }
+        if (target !== "frag" && !seenMem.has(m) && !c.actors.some((w) => canon(h.read.memory(w)) === m))
+          throw new Oracle(`(d) a guard saw memory no cut has: ${m.slice(0, 160)}`);
       }
     },
     drain(h, script, report) {
-      // (c) Everything is answered, time passes, the disk catches up, a last kill.
-      for (let i = 0; i < 14; i++) {
+      h.do({ freeze: false });
+      h.do({ holdPlain: false });
+      for (let i = 0; i < 24; i++) {
         const out = h.read.outside();
         const has = (op: string) => out.open.some((x) => x.op === op && !x.never);
-        if (h.read.outside().storage.some((s) => !s.hung && s.purpose !== "flush")) h.do({ storage: "ack" });
+        if (out.storage.some((s) => !s.hung && s.purpose !== "late") && !out.failing) h.do({ storage: "ack" });
+        else if (out.failing) h.do({ storage: "failLate" });
         else if (has(c.op)) h.do({ answer: c.op, with: target === "pay" ? { ok: CAP } : { ok: {} } });
         else if (has("place")) h.do({ answer: "place", with: { ok: { orderId: "o1" } } });
         else if (has("void")) h.do({ answer: "void", with: { ok: {} } });
@@ -253,33 +252,47 @@ export const searchFlush = (
         else if (has("order")) h.do({ answer: "order", with: { truth: true } });
         else h.do({ advance: 3000 });
       }
+      const text = script.join(" ");
+      const hung = h.read.outside().storage.some((s) => s.hung);
+      // (f)
+      if (!hung)
+        for (const w of c.actors) {
+          const leaf = h.read.state(w);
+          if (!leaf || !c.waiting.includes(leaf)) continue;
+          const lane = h.read.quiet().waits.some((x) => x.kind !== "timer");
+          if (!lane) {
+            const cls = `waits-for-nothing:${leaf}`;
+            report(cls);
+            // M7, Pay's: NotSent on `place` leaves "Try again" with PLACING reached on the live path. Known to the review.
+            if (target !== "pay" && !unpinnedAt.has(cls)) unpinnedAt.set(cls, text);
+            else if (target === "pay" && !unpinnedAt.has(cls) && !/KILL|refuse/.test(text)) unpinnedAt.set(cls, text);
+          }
+        }
       if (target === "pay") {
         for (const cls of moneyAudit(h)) {
           report(cls);
           const [k, st] = cls.split(":");
-          const text = script.join(" ");
-          const pin = PAY_PINS.find((p) => p.cls === k && (p.state === undefined || p.state === st) && p.via.test(text.replace(/\bPay\b/g, "PayRequested").replace(/\bKILL\b/g, "reload")));
-          // P7, new here (proposed): Pay maps `void`'s NotSent to Voided, so a refused ack says "released" with the hold still there. pay.definition.ts: `NotSent: E.Voided`. Same at capture 0.
+          const t2 = text.replace(/\bPay\b/g, "PayRequested").replace(/\bKILL\b/g, "reload");
+          const pin = PAY_PINS.find((p) => p.cls === k && (p.state === undefined || p.state === st) && p.via.test(t2));
           const p7 = k === "charged-unaccounted" && /\brefuse\b/.test(text) && /Leave/.test(text);
           if (!pin && !p7 && !unpinnedAt.has(cls)) unpinnedAt.set(cls, text);
         }
         return;
       }
-      for (const e of c.owners) h.do(send(e));
+      if (hung) return;
+      for (const w of c.actors) for (const e of c.owners) h.do(send(w, e));
       for (let i = 0; i < 6; i++) h.do({ advance: 3000 });
       const held = h.read.quiet().waits.filter((w) => w.kind === "held");
-      if (held.length) report(`(c) held for good: ${held.map((w) => ("op" in w ? w.op : "")).join()}`);
-      if (held.length && !unpinnedAt.has("(c)")) unpinnedAt.set("(c)", script.join(" "));
+      if (held.length) report(`(c) held for good`);
+      if (held.length && !unpinnedAt.has("(c)")) unpinnedAt.set("(c)", text);
     },
   });
   const unpinned = [...unpinnedAt].map(([k, w]) => `${k} via ${w}`);
   return {
     ...rep,
     unpinned,
-    exceptions,
-    ...(exceptionWitness ? { exceptionWitness } : {}),
-    noLane,
-    ...(noLaneWitness ? { noLaneWitness } : {}),
+    lanesAhead,
+    ...(lanesAheadWitness ? { lanesAheadWitness } : {}),
     verdict: rep.verdict !== "failed" && unpinned.length ? "failed" : rep.verdict,
     ...(rep.verdict !== "failed" && unpinned.length ? { failure: unpinned[0]! } : {}),
   };

@@ -44,7 +44,7 @@ const say = (k: string, v: unknown) => {
   console.log(k, JSON.stringify(v));
   if (dest) writeFileSync(dest, JSON.stringify(out, null, 1) + "\n");
 };
-const browser: Browser = await launch();
+const browser: Browser = await launch({ throttled: process.argv.includes("--throttled") });
 out["browser"] = browser.version;
 const open = async (b: Browser = browser): Promise<Page> => {
   const p = await b.newPage(srv.url);
@@ -364,6 +364,130 @@ try {
     await p.send("Emulation.setCPUThrottlingRate", { rate: 1 });
     p.close();
     say("cost", { rows, longTaskCheck: lt });
+  }
+  // ── The edge's real table. E2 at the review's 72 cycles: a batch aborts, memory moves on, a kill at each offset. W with no lane is the bug.
+  if (only.includes("e2")) {
+    const rows: any[] = [];
+    for (const mode of ["awaited", "plain"] as const)
+      for (const k of [0, 2, 5, 10, 25, 50])
+        for (let i = 0; i < 6; i++) {
+          const db = `db-e2-${++run}`;
+          const p = await open();
+          await p.evaluate(`__boot("bare", ${J({ db, captureMs: 0 })})`);
+          await p.evaluate(`__wait("__booted()")`);
+          await p.evaluate(`__ensure(${J(B)}, "Lab/Bare")`);
+          await Bun.sleep(30);
+          await p.evaluate(mode === "awaited" ? `__faults.abortAwaited = 1` : `__faults.abortPlain = 1`);
+          void p.send("Runtime.evaluate", { expression: `__send(${J(B)}, "Go", {}), __send(${J(B)}, "Note", {text:"x"})` });
+          await Bun.sleep(k);
+          await sigkill(p);
+          const q = await open();
+          await q.evaluate(`__boot("bare", ${J({ db })})`);
+          await q.evaluate(`__wait("__booted()")`);
+          const s = await q.evaluate(`__view(${J(B)})?.state`);
+          const l = await q.evaluate(`__lanes()`);
+          q.close();
+          rows.push({ mode, k, state: s ?? null, lanes: l.length });
+        }
+    say("e2", { cycles: rows.length, waitsForNothing: rows.filter((r) => r.state === "W" && r.lanes === 0).length, by: count(rows, (r) => `${r.mode} ${r.state} lanes=${r.lanes}`) });
+  }
+  // ── H3's question on the edge: a batch out at hide can cost an ack. How often does a charge become a hold? Measured at the worst moment: hide right when the success turn runs.
+  if (only.includes("hideout")) {
+    const rows: any[] = [];
+    for (const how of ["navigate", "tab+kill"] as const)
+      for (const lag of [0, 2, 10, 50])
+        for (let i = 0; i < 5; i++) {
+          const db = `db-ho-${++run}`;
+          let beacons = 0;
+          const p = await open();
+          await p.evaluate(`__boot("bare", ${J({ db, beacon: true })})`);
+          await p.evaluate(`__wait("__booted()")`);
+          await p.evaluate(`__ensure(${J(B)}, "Lab/Bare")`);
+          await p.evaluate(`__flush()`);
+          await p.evaluate(`__send(${J(B)}, "Go", {})`);
+          await p.evaluate(`__wait('__view(${J(B)})?.state === "B"', 3000)`);
+          await Bun.sleep(lag);
+          let killed = false;
+          if (how === "navigate") void p.send("Page.navigate", { url: "about:blank" });
+          else {
+            onHiddenHook = () => {
+              beacons++;
+              if (!killed) {
+                killed = true;
+                void browser.kill();
+              }
+            };
+            const other = await browser.newPage("about:blank").catch(() => undefined);
+            await other?.send("Page.bringToFront").catch(() => {});
+          }
+          await Bun.sleep(how === "navigate" ? 300 : 400);
+          onHiddenHook = undefined;
+          if (killed) {
+            p.close();
+            await browser.restart();
+          } else if (how !== "navigate") p.close();
+          const q = await open();
+          const d = await q.evaluate(`__disk(${J(db)})`);
+          q.close();
+          const rec = d[`actor/${B}`] ? JSON.parse(d[`actor/${B}`]) : null;
+          rows.push({ how, lag, leaf: rec?.root?.leaf, lane: Object.keys(d).some((x) => x.startsWith("lane/")) });
+          if (how === "navigate") p.close();
+        }
+    say("hideout", { cycles: rows.length, hold: rows.filter((r) => r.lane).length, by: count(rows, (r) => `${r.how} ${r.lag}ms ${r.leaf} lane=${r.lane}`) });
+  }
+  // ── Two tabs, D26: the second tab declines a persisted commit. And a frozen owner.
+  if (only.includes("tabs2")) {
+    const db = `db-t2-${++run}`;
+    const intentId = "pi-t2";
+    const a = await open();
+    await a.evaluate(`__boot("pay", ${J({ db })})`);
+    await a.evaluate(`__wait("__booted()")`);
+    await a.evaluate(`__ensure(${J(A)}, "Checkout/Pay")`);
+    await a.evaluate(`__send(${J(A)}, "Start", ${J({ cartId: "t2", intentId })})`);
+    await a.evaluate(`__flush()`);
+    const b = await open();
+    const bb = await b.evaluate(`__boot("pay", ${J({ db })})`);
+    await b.evaluate(`__wait("__booted()")`);
+    await b.evaluate(`__ensure(${J(A)}, "Checkout/Pay")`);
+    await b.evaluate(`__send(${J(A)}, "Start", ${J({ cartId: "t2", intentId })})`);
+    await b.evaluate(`__send(${J(A)}, "PayRequested", { paymentMethodId: "visa" })`);
+    await Bun.sleep(400);
+    const view = await b.evaluate(`__view(${J(A)})`);
+    const end = await b.evaluate(`__ev("ending").map(e => (e.channel ?? e.ch) + ":" + (e.reason ?? e.tag))`);
+    const t = await truth();
+    a.close();
+    b.close();
+    say("tabs2", { secondOwner: bb.owner, state: view?.state, notice: view?.memory?.notice, endings: end, keys: keysOf(t, intentId).length });
+  }
+  // ── The two plants a fake cannot see: every batch commits, and durability follows the ticket.
+  if (only.includes("spy")) {
+    const p = await open();
+    const r = await p.evaluate(`(async () => {
+      const seen = [];
+      const make = IDBDatabase.prototype.transaction;
+      IDBDatabase.prototype.transaction = function (...a) {
+        const tx = make.apply(this, a);
+        const row = { durability: a[2]?.durability, commit: false };
+        seen.push(row);
+        const c = tx.commit.bind(tx);
+        tx.commit = () => { row.commit = true; return c(); };
+        return tx;
+      };
+      await __boot("bare", { db: "db-spy-${++run}" });
+      await __wait("__booted()");
+      __ensure(${J(B)}, "Lab/Bare");
+      __flush();
+      await new Promise((r) => setTimeout(r, 40));
+      __send(${J(B)}, "Note", { text: "x" });
+      __flush();
+      await new Promise((r) => setTimeout(r, 40));
+      __send(${J(B)}, "Go", {});
+      await new Promise((r) => setTimeout(r, 200));
+      IDBDatabase.prototype.transaction = make;
+      return seen;
+    })()`);
+    p.close();
+    say("spy", { txs: r.filter((x: any) => x.durability), commitAlways: r.filter((x: any) => x.durability).every((x: any) => x.commit) });
   }
   // ── D80's flush. What survives when the page goes hidden, or leaves, and is killed then. See cli notes in RESULTS.
   if (only.includes("hide")) {

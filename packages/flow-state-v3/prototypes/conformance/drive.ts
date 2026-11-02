@@ -203,7 +203,8 @@ export const makeHarness = (port: Port) => (): Harness => {
       // Round 7: the older cases were written with plain writes landing at once. D80's 5 s is the runtime's default; a case that means it says so.
       // `runtimeDefault`: a case that reads the runtime's own default says so, and is given no bound at all.
       const { runtimeDefault, ...named } = (cfg.bounds ?? {}) as Record<string, number>;
-      bounds = runtimeDefault ? named : { captureMs: 0, ...named };
+      // The second pass (gate5s.ts): no bound named means the runtime's own default.
+      bounds = runtimeDefault || process.env["FLOW_RUNTIME_DEFAULT"] ? named : { captureMs: 0, ...named };
       compiled = cfg.machines.map((m) => wrap((swaps.get(m) ?? m).make(fake.api)));
       boot();
     },

@@ -39,7 +39,7 @@ export type Browser = {
 };
 let nextPort = 9400 + Math.floor(Math.random() * 400);
 export const launch = async (
-  o: { rssLimitMb?: number; profile?: string } = {},
+  o: { rssLimitMb?: number; profile?: string; throttled?: boolean } = {},
 ): Promise<Browser> => {
   const profile = o.profile ?? mkdtempSync(join(tmpdir(), "flow-cdp-"));
   const port = nextPort++;
@@ -54,7 +54,7 @@ export const launch = async (
         `--user-data-dir=${profile}`,
         "--no-first-run",
         "--no-default-browser-check",
-        "--disable-background-timer-throttling",
+        ...(o.throttled ? [] : ["--disable-background-timer-throttling"]), // review: real tabs are throttled, so a hide run keeps it on
         "--disable-gpu",
         "--disable-extensions",
         "about:blank",

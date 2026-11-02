@@ -1,5 +1,6 @@
 // D91: the thin typed path. A typed definition compiles to `Compiled`, and the runtime cannot tell. Not a front end: enough for real Pay and the real ThreeDS and
-// Countdown fragments. No `any` here. All types are erased at exactly one function, `erased`. Shapes follow machine-design 2.7; where this differs, RESULTS says so.
+// Countdown fragments. No literal `any`. A closure's types are erased by `erased`, and more than there: this file holds other casts, mostly `as never` where a mapped token table
+// meets the body's types, and `pay.typed.ts` has more where a fake meets the service's types. Counted in RESULTS. Review: the earlier "exactly one function" was false. Shapes follow machine-design 2.7; where this differs, RESULTS says so.
 import { Duration, Effect, Schema, type Context } from "effect";
 import {
   deny,

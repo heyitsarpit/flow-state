@@ -1,6 +1,7 @@
 // Round 7: the persistence edge. Worked out by hand from the review's traces and convergence-7's decisions. D83-D89 are proposed; D80's 5 s is accepted.
 import { bareFixture, BareId } from "../fixtures/round7.compiled.ts";
 import { chatFixture } from "../fixtures/chat.compiled.ts";
+import type { Fixture } from "../harness.ts";
 import { Ctx, type Scenario } from "./ctx.ts";
 
 const A = { actor: BareId, id: "a" };
@@ -61,7 +62,7 @@ export const round7Scenarios: readonly Scenario[] = [
         c.fault({ storageFailsHeld: 1 });
         c.send("Note", { text: "t" }); // out, will fail, nobody knows yet
         c.send("Go"); // waits: one out per actor
-        c.eq("the ack is not out", c.r.outside().storage.filter((s) => s.purpose !== "flush").length, 0);
+        c.eq("the ack is not out", c.r.outside().storage.filter((s) => s.purpose !== "late").length, 0);
         c.do({ storage: "failLate" });
         c.ack();
         c.eq("the note came with it", noteOn(c), "t");
@@ -418,6 +419,150 @@ export const round7Scenarios: readonly Scenario[] = [
         c.eq("the last good capture", noteOn(c), "good");
         c.send("Note", { text: "better" });
         c.eq("an encodable state captures again", noteOn(c), "better");
+      },
+    },
+  },
+  {
+    id: "REV7-EDGE",
+    kind: "fault",
+    fixtures: [bareFixture()],
+    actor: A,
+    cites: ["D83", "D80", "D84", "D89", "D26"],
+    namedIssues: ["UnencodableValue", "StorageFailure", "StorageSilent"],
+    variants: {
+      // Oracle (m), review's drv-timer-reset-debounce: the 5 s is from first dirty, not last.
+      "a-steady-stream-still-lands-within-the-window"(c0) {
+        const c = fresh(c0, { captureMs: 5_000 });
+        c.do({ hide: true });
+        for (let i = 0; i < 6; i++) {
+          c.send("Note", { text: `t${i}` });
+          c.advance(1_000);
+        }
+        c.yes("landed although values kept coming", noteOn(c) !== "");
+      },
+      "encoding-happens-off-the-turn"(c0) {
+        let encodes = 0;
+        const counted: Fixture = {
+          ...bareFixture(),
+          make: (api) => {
+            const m = bareFixture().make(api);
+            const slot = {
+              run: (x: object) => (encodes++, x),
+              at: { definition: BareId, path: "memory.encode" },
+            };
+            return { ...m, memory: { ...m.memory, encode: slot } };
+          },
+        };
+        const c = new Ctx(c0.fresh([counted], { captureMs: 5_000 }), A);
+        c.namedIssues = c0.namedIssues;
+        c.ensure();
+        c.do({ hide: true });
+        const n = encodes;
+        c.send("Note", { text: "t" });
+        c.send("Note", { text: "u" });
+        c.eq("no encoder ran on the turn", encodes, n);
+        c.do({ hide: true });
+        c.eq("once, for both", encodes, n + 1);
+      },
+      "a-hidden-page-does-not-wait"(c0) {
+        const c = fresh(c0, { captureMs: 5_000 });
+        c.do({ hide: true, stay: true });
+        c.send("Note", { text: "t" });
+        c.eq("at once", noteOn(c), "t");
+      },
+      "a-hidden-page-in-a-frozen-tab-still-does-not-need-a-timer"(c0) {
+        const c = fresh(c0, { captureMs: 5_000 });
+        c.do({ hide: true, stay: true });
+        c.do({ freeze: true });
+        c.send("Note", { text: "t" });
+        c.eq("no timer needed", noteOn(c), "t");
+      },
+      // A deadline is more than plain memory: FRAG-10's.
+      "a-lost-clock-does-not-strand-a-flush"(c0) {
+        const c = fresh(c0, { captureMs: 5_000 });
+        c.do({ hide: true });
+        c.send("Note", { text: "t" });
+        c.do({ clockBack: 3_600_000 });
+        c.advance(5_000);
+        c.eq("the armed wake fires by time passed, not by the clock", noteOn(c), "t");
+      },
+      "k-a-plain-batch-that-never-answers-is-loud"(c0) {
+        const c = fresh(c0, { storageMs: 10_000 });
+        c.do({ holdPlain: true });
+        c.send("Note", { text: "t" });
+        c.do({ storage: "hang" });
+        c.advance(10_000);
+        c.eq("said", c.r.issues().filter((i) => i.code === "StorageSilent").length, 1);
+      },
+      "k-a-ticket-with-its-batch-held-gets-StorageSilent-evidence"(c0) {
+        const c = fresh(c0, { storageMs: 10_000 });
+        c.send("Go");
+        c.advance(10_000);
+        c.yes("evidence", c.r.evidence("StorageSilent").length > 0);
+      },
+      "M2-a-released-hold-does-not-come-back"(c0) {
+        const c = fresh(c0);
+        c.send("Go");
+        c.ack();
+        c.answer("charge", { lost: true });
+        c.fault({ storageFailsHeld: 1 });
+        c.send("Note", { text: "t" });
+        c.send("Retry");
+        c.send("Forget");
+        c.do({ storage: "failLate" });
+        c.ack();
+        c.reload();
+        c.eq("no lane", c.r.row(A, "charge", {})?.uncertain ?? false, false);
+      },
+      "H1-one-actors-bad-record-stops-nobody-else"(c0) {
+        const h = c0.fresh([bareFixture()]);
+        const B = { actor: BareId, id: "b" };
+        const c = new Ctx(h, A);
+        c.namedIssues = c0.namedIssues;
+        c.do({ ensure: A });
+        c.do({ ensure: B });
+        c.send("NoteBad");
+        c.to(B, "Note", { text: "t" });
+        c.to(B, "Go");
+        c.ack();
+        c.answer("charge", { ok: {} });
+        const bLane = () => c.r.stored().get(`lane/${BareId}/b|charge|{}`);
+        c.eq("b's lane removal landed", bLane(), undefined);
+        c.reload();
+        c.eq("b is where it was", c.r.state(B), "B");
+        c.eq("no hold", c.r.row(B, "charge", {})?.uncertain ?? false, false);
+      },
+      "poison-a-hold-is-kept-not-lost"(c0) {
+        const c = fresh(c0);
+        c.send("Go");
+        c.ack();
+        c.send("NoteBad");
+        c.answer("charge", { ok: {} });
+        c.yes("the lane's delete stays with the memory", !!disk(c, KEY));
+        c.reload();
+        c.eq("honest", c.lastEnding("charge")?.["channel"], "unknown");
+      },
+      "D26-a-tab-with-no-disk-declines-a-persisted-commit"(c0) {
+        const c = fresh(c0);
+        c.do({ reload: true, load: "fail" });
+        c.ensure();
+        c.send("Go");
+        c.eq("nothing left", c.reqs("charge").length, 0);
+        c.eq("said", c.lastEnding("charge")?.["reason"], "NoPersistence");
+        c.send("Note", { text: "live" });
+        c.eq("plain memory works", c.mem().note, "live");
+      },
+      "m-a-store-wide-hang-holds-and-is-safe"(c0) {
+        const c = fresh(c0, { storageMs: 10_000 });
+        c.do({ storeWide: true });
+        const B = { actor: BareId, id: "b" };
+        c.do({ ensure: B });
+        c.send("Go");
+        c.do({ storage: "hang" });
+        c.to(B, "Go");
+        c.advance(10_000);
+        c.eq("no request left", c.reqs("charge").length, 0);
+        c.eq("not stopped", c.r.quiet().fatal, false);
       },
     },
   },

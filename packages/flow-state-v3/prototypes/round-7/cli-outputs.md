@@ -7,9 +7,8 @@ The prototype takes machines by name (`bun round-7/cli/flow.ts check pay`), sinc
 ## `flow check`, success
 
 ```text
-$ flow check typed-pay
-flow check: 1 machine, 0 errors, 0 warnings, 2 info
-  info  BareWrite          Checkout/Pay  void: maps nothing ...
+$ flow check refunds
+flow check: 1 machine, 0 errors, 0 warnings, 0 info
 callbacks run: 0
 complete: yes
 ```
@@ -17,7 +16,7 @@ complete: yes
 Exit 0.
 
 ```json
-{"command":"check","machines":["Checkout/Pay"],"summary":{"errors":0,"warnings":0,"info":2},"findings":[],"callbacksRun":0,"complete":true,"incomplete":[]}
+{"command":"check","machines":["Checkout/Refunds"],"summary":{"errors":0,"warnings":0,"info":0},"findings":[],"callbacksRun":0,"complete":true,"incomplete":[]}
 ```
 
 ## `flow check`, failure

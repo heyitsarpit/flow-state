@@ -187,6 +187,8 @@ const checkBody = (b: Body, machine: string, push: (f: Finding) => void, persist
           push({ severity: "error", rule: "Rule20Adopted", machine, path: `states.${leaf}`, op: name, event: e, state: leaf, message: `\`${e}\` from \`${name}\` can be adopted in ${leaf} (a new incarnation while the lane is open), and nothing handles it totally`, help: "handle it at the root; adopted endings arrive in any leaf reachable while the lane is unresolved" });
     const owns = (w: { alt: Alternative; event: string }, from: string): boolean => {
       if (!mem(w.alt, "retry", name) && !mem(w.alt, "cancel", name)) return false;
+      // Review H4: the unknown event has been spent by the branch that kept the hold. A retry that lives behind that event cannot fire again unless something re-raises it.
+      if (U.includes(w.event)) return false;
       if (!hasTok(w.alt, "retryable", name)) return true;
       // R6 M2: behind `retryable`, it counts only if the same event has a later alternative that reaches an owner.
       const same = altsAt(b, from, w.event).map((x) => x.alt);
@@ -199,8 +201,12 @@ const checkBody = (b: Body, machine: string, push: (f: Finding) => void, persist
       for (const u of U) {
         const here = altsAt(b, leaf, u);
         const targets: Array<{ to: string[]; how: string; path: string }> = [];
-        for (const { alt } of here) {
-          const keeps = (!mem(alt, "retry", name) && !mem(alt, "cancel", name)) || (mem(alt, "retry", name) && hasTok(alt, "retryable", name));
+        // 2.7.14: a branch keeps the hold if it has neither member, or only a retry behind `retryable` whose fallback keeps the hold.
+        const releases = (a: Alternative) => (mem(a, "cancel", name) || mem(a, "retry", name)) && !hasTok(a, "retryable", name);
+        for (const [i, { alt }] of here.entries()) {
+          const keeps =
+            (!mem(alt, "retry", name) && !mem(alt, "cancel", name)) ||
+            (mem(alt, "retry", name) && hasTok(alt, "retryable", name) && !here.slice(i + 1).some((x) => releases(x.alt)));
           if (keeps) targets.push({ to: destLeaves(b, alt, leaf), how: "branch", path: alt.at.path });
         }
         if (here.length === 0) targets.push({ to: [leaf], how: "unhandled", path: `states.${leaf}` });

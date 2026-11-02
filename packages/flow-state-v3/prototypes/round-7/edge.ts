@@ -67,7 +67,7 @@ export const makeEdge = (host: EdgeHost, o: EdgeOptions) => {
       at === Infinity || at <= host.now()
         ? undefined
         : host.setTimer(at, () => {
-            s.due = 0;
+            s.due = -Infinity; // fired means due, whatever the clock says now
             pump(scope);
           });
   };

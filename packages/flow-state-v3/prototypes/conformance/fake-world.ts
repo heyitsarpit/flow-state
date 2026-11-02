@@ -655,7 +655,7 @@ export class FakeWorld {
         })),
       mayHave: this.mayHave(),
       storage: [
-        ...this.lateReports.map((r) => ({ purpose: "flush", keys: r.writes.map((w) => w.key), hung: false })),
+        ...this.lateReports.map((r) => ({ purpose: "late", keys: r.writes.map((w) => w.key), hung: false })),
         ...this.held.map((h) => ({
         purpose: h.purpose,
         keys: h.writes.map((w) => w.key),

@@ -6,6 +6,7 @@ import { s1Fixture } from "./fixtures/s1.compiled.ts";
 import type { RuntimeModule } from "./harness.ts";
 import { runScenarios } from "./main.ts";
 import { searchCrash } from "./search/crash.search.ts";
+import { searchFlush } from "./search/flush.search.ts";
 import { searchCross } from "./search/cross.search.ts";
 import { searchFragStore } from "./search/fragstore.search.ts";
 import { searchLike } from "./search/like.search.ts";
@@ -31,6 +32,8 @@ if (killers.length === 0) {
   const j = g.verdict === "failed" ? g : searchRepairing(make, o);
   const k = j.verdict === "failed" ? j : searchListen(make, "version", o, "none");
   const l = k.verdict === "failed" ? k : searchCrash(make, o);
-  search = l.verdict;
+  // Review: the persistence edge is the worst pinned part. This search kills what the suite does not.
+  const n = l.verdict === "failed" ? l : searchFlush(make, "pay", { depth: 16, maxStates: 60_000, deadlineMs: 30_000 }, true);
+  search = n.verdict;
 }
 console.log(JSON.stringify({ killers, search }));

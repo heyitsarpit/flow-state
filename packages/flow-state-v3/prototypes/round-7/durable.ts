@@ -172,7 +172,9 @@ export const flush = (tx: Tx) => {
   const meta = JSON.stringify({ boot: tx.w.boot, nextMint: tx.w.nextMint });
   if (persisted && meta !== tx.w.savedMeta) {
     // Its own scope: it belongs to no actor, and restore needs it only as a floor (it takes the max with the lanes').
+    // `now`: found by the 5 s pass (PAY-14): a coalesced `boot` lost to a kill repeats the next boot's number, and frames' seq with it.
     add("meta", { key: "meta", value: meta });
+    now.add("meta");
     tx.w = { ...tx.w, savedMeta: meta };
   }
   for (const [scope, w] of writes) tx.commands.push({ k: "persist", scope, writes: w, now: now.has(scope) });

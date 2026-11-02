@@ -21,7 +21,8 @@ eq("no-owner", rules("no-owner"), { code: 1, rules: ["error:UnresolvedHold"], ca
 eq("no-owner-unreachable", rules("no-owner-unreachable"), { code: 0, rules: ["warn:UnresolvedHold"], callbacks: 0, complete: false });
 const rb = rules("read-bad");
 eq("read-bad", rb.rules.includes("error:Rule20Current") && rb.rules.includes("error:Rule20Read"), true);
-eq("typed Pay is complete, runs nothing, and has only rule 16's warnings", rules("typed-pay"), { code: 0, rules: ["warn:Rule16"], callbacks: 0, complete: true });
+// Review H4: `place` kept in STUCK has no owner once PlaceUnsure is spent.
+eq("typed Pay: complete, runs nothing, rule 16's warnings and place's stranded hold", rules("typed-pay"), { code: 0, rules: ["warn:Rule16", "warn:UnresolvedHold"], callbacks: 0, complete: true });
 const unknownState = run("explain", "typed-pay", "--state", "NOPE", "--event", "Leave");
 eq("unknown selector exits 2 on stderr", [unknownState.code, JSON.parse(unknownState.err).reason, unknownState.out], [2, "UnknownSelector", ""]);
 const ex = JSON.parse(run("explain", "typed-pay", "--state", "UNSURE", "--event", "IntentRead", "--json").out);

@@ -86,7 +86,9 @@ export const moneyAudit = (h: Harness): string[] => {
     const mine = m.intentId === a.intent;
     const row = r.row(A, "pay", { intentId: a.intent });
     const accounted =
-      (mine && (leaf === "UNSURE" || leaf === "PLACING" || leaf === "STUCK")) ||
+      (mine && (leaf === "UNSURE" || leaf === "STUCK")) ||
+      // Review H4: PLACING accounts for a charge only with `place` live. With nothing open it is stranded, and that is what this oracle is for.
+      (mine && leaf === "PLACING" && (r.row(A, "place", { cartId: m.cartId }) !== undefined || r.requests().some((q) => q.op === "place" && !q.answered))) ||
       (mine && m.authorized === true && leaf !== "LEFT") || // review M11: a hold stranded in LEFT is what this oracle exists for
       r.row(A, "void", { intentId: a.intent })?.pending === true || // a void for it is live, whoever's belief says what
       (mine && row?.pending === true) || // a call for it is live: the machine is still waiting for an answer

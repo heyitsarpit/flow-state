@@ -445,6 +445,7 @@ Convergence-7. Old unbuilt rows (`STREAM-*`, `POLICY-*`, `CACHE-*`, `CTX-*`, `PE
 | REV7-M2 | 7 | fault | hostile | D87, O5, O4 |  | review M2: a read that hangs, fails or answers late; the queue's bound |
 | REV7-M8 | 7 | fault | hostile | D88, rule:46, rule:17 |  | review M8: a quarantined lane holds its id |
 | REV7-M9 | 7 | fault | hostile | D89, O5, D57 |  | review M9: encoding never fails a turn, and a skipped batch keeps its hold |
+| REV7-EDGE | 7 | fault | hostile | D83, D80, D84, D89, D26 |  | the edge: the window from first dirty, hidden, frozen, clock back, loud, M2, H1, poison, no persistence, a store-wide hang |
 | REV7-SEARCH-FAKE | 7 | example | hostile | D83 |  | the fake's late failure is late |
 | REV7-CHAT | 7 | example | table | D80, D84 |  | a lane-free stream still coalesces |
 | SEARCH-FLUSH | 7 | bounded | hostile | D80, D83, D84, D93, S6 |  | flush, late failure and kill as actions at any step; four oracles independent of the interval |

@@ -239,3 +239,8 @@ file:drive.ts hash:d83f806b3e64 | round 7: steps for the above; no expected resu
 file:fixtures/compiled.ts hash:c3ca3a333cb1 | round 7: memory.encode added; additive
 file:scenarios/round6.scenario.ts hash:ea6c85e13efa | round 7: carries REV6-CAPTURE above
 file:scenarios/round7.scenario.ts hash:63fddaf41aef | round 7: carries REV7 lines above
+REV7-H1 hash:62b7f974ab5e | round 7: search and fake additions; REV7-EDGE and REV7-H1 own cases follow the edge (ack filter on 'late'; encoding off the turn pinned). No older expectation changed
+file:fake-world.ts hash:8bd1a2ef00c5 | round 7: search and fake additions; REV7-EDGE and REV7-H1 own cases follow the edge (ack filter on 'late'; encoding off the turn pinned). No older expectation changed
+file:drive.ts hash:c0a5c3c6ace6 | round 7: search and fake additions; REV7-EDGE and REV7-H1 own cases follow the edge (ack filter on 'late'; encoding off the turn pinned). No older expectation changed
+file:scenarios/round7.scenario.ts hash:8811d1384497 | round 7: search and fake additions; REV7-EDGE and REV7-H1 own cases follow the edge (ack filter on 'late'; encoding off the turn pinned). No older expectation changed
+file:fixtures/round7.compiled.ts hash:4dbffb93f0d9 | round 7: search and fake additions; REV7-EDGE and REV7-H1 own cases follow the edge (ack filter on 'late'; encoding off the turn pinned). No older expectation changed

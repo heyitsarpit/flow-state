@@ -1,5 +1,5 @@
 // bun round-7/cli/flow.ts check <name...> [--json]   |   explain <name> [--state S --event E] [--json]
-// Machines by name, since config discovery (CommandLine O6) is not built. Exit codes: CommandLine O3. Outputs: cli-outputs.md.
+// Machines by name, from this prototype's fixture list, since config discovery (CommandLine O6) is not built; so this file reaches fixtures directly, not a project. Exit codes: CommandLine O3. Outputs: cli-outputs.md.
 import type { Api } from "../../conformance/fake-world.ts";
 import { cartFixture, miniCartFixture } from "../../conformance/fixtures/cart.compiled.ts";
 import type { Compiled } from "../../conformance/fixtures/compiled.ts";
