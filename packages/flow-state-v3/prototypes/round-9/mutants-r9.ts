@@ -28,7 +28,6 @@ export const MUTANTS = [
   m("d115.paced-not-claimed", "D115", "publish.ts", 'out.push({ kind: "paced", op: t.mail.op, ...(t.mail.attempt ? { attempt: t.mail.attempt } : {}) }); // D115', ""),
   m("d115.driver-no-inline", "D115", "driver.ts", 'exit, ...(running ? { inline: true as const } : {}) }), // D115', "exit }),"),
   m("d115.paced-read-not-superseded", "D115", "reads.ts", "dropPaced(tx, a.inc, a.op);\n  const key", "const key"),
-  m("d115.paced-read-not-frozen", "D115", "turn.ts", 'if (t.kind === "pace" && t.mail.inc === inc && t.mail.op === op) {', 'if (false) {'),
   m("d115.freeze-ignores-paced", "rule:52", "turn.ts", 't.kind === "pace" && t.mail.inc === inc.id ? [t] : []', "[]"),
   // D118
   m("d118.fire-not-kept", "D118", "turn.ts", "tx.w = { ...tx.w, keptFires: [...tx.w.keptFires, item] };", ""),

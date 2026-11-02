@@ -1,0 +1,59 @@
+control: the unmutated code passes every gate (12 s)
+KILLED   d114.decline-no-input                suite: 4: REV9-M1/a-decline-carries-what-the-turn-asked-to-send REV9-M1/a-refused-not-sent-is-parked-and-the-wait-says-so REV9-M1/a-kept-decline-whose-input-cannot-be-carried-still-lands REV9-M1/a-key-with-no-name-still-carries-the-input
+KILLED   d114.key-door-loses-input            suite: 1: REV9-M1/a-key-with-no-name-still-carries-the-input
+KILLED   d114.hold-test-back                  suite: 3: REV9-M1/a-refused-not-sent-is-parked-and-the-wait-says-so REV9-M1/a-kept-decline-whose-input-cannot-be-carried-still-lands REV9-KEPT/a-fragments-kept-decline-keeps-its-subject
+KILLED   d109.hold-parked-too                 suite: 1: REV9-M1/a-hold-parks-nothing
+KILLED   d114.input-not-replaced              suite: 1: REV9-M1/a-kept-decline-whose-input-cannot-be-carried-still-lands
+KILLED   d114.whole-stand-in                  suite: 2: REV9-M1/a-refused-not-sent-is-parked-and-the-wait-says-so REV9-M1/a-kept-decline-whose-input-cannot-be-carried-still-lands
+KILLED   d115.no-pace                         watchdog rss at 1412 MB
+KILLED   d115.drop-instead                    suite: 7: REV8-STORM/a-lookup-that-fails-at-once-and-asks-again-stops REV9-BURST/a-queue-over-a-local-source-finishes REV9-SPIN/a-spin-stops-spinning-and-its-ending-is-not-lost REV9-SPIN/a-paced-failure-backs-off ...
+KILLED   d115.ask-dropped                     suite: 1: REV9-BURST/300-sends-in-one-tick-all-end
+KILLED   d115.success-storms                  suite: 1: REV9-BURST/a-queue-over-a-local-source-finishes
+KILLED   d115.no-backoff                      suite: 1: REV9-SPIN/a-paced-failure-backs-off
+KILLED   d115.no-cap                          suite: 1: REV9-SPIN/a-paced-failure-backs-off
+KILLED   d115.named-each                      suite: 1: REV9-SPIN/a-paced-failure-backs-off
+KILLED   d115.not-named                       suite: 6: REV8-STORM/a-lookup-that-fails-at-once-and-asks-again-stops REV8-STORM/a-commit-that-throws-at-once-and-asks-again-stops REV9-SPIN/a-spin-stops-spinning-and-its-ending-is-not-lost REV9-SPIN/a-paced-failure-backs-off ...
+KILLED   d115.press-keeps-depth               watchdog rss at 1402 MB
+KILLED   d115.depth-always                    suite: 3: REV9-BURST/300-sends-in-one-tick-all-end REV9-BURST/300-rows-each-asking-once-all-end REV9-SPIN/a-paced-failure-backs-off
+KILLED   d115.inline-ignored                  suite: 1: REV9-BURST/a-queue-over-a-local-source-finishes
+KILLED   d115.turn-ignored                    watchdog rss at 1424 MB
+KILLED   d115.paced-not-claimed               suite: 5: REV8-STORM/a-lookup-that-fails-at-once-and-asks-again-stops REV9-BURST/a-queue-over-a-local-source-finishes REV9-SPIN/a-spin-stops-spinning-and-its-ending-is-not-lost REV9-SPIN/a-commit-that-throws-at-once-and-asks-again-is-paced ...
+KILLED   d115.driver-no-inline                suite: 1: REV9-BURST/a-queue-over-a-local-source-finishes
+KILLED   d115.paced-read-not-superseded       suite: 1: REV9-SPIN/a-newer-ask-replaces-a-paced-read
+KILLED   d115.freeze-ignores-paced            suite: 1: REV9-SPIN/a-freeze-interrupts-a-paced-read
+KILLED   d118.fire-not-kept                   suite: 5: REV4-M5/a-firing-that-always-throws-is-final-and-bounded SEARCH-ODD-ALL REV9-KEPT/a-refused-deadline-stays-on-the-record REV9-KEPT/a-kept-deadline-goes-with-its-activation ...
+KILLED   d118.fire-not-saved                  suite: 1: REV9-KEPT/a-refused-deadline-stays-on-the-record
+KILLED   d118.fire-not-reaped                 suite: 1: REV9-KEPT/a-kept-deadline-goes-with-its-activation
+KILLED   d118.dispose-loses-fire              suite: 1: REV9-KEPT/a-kept-deadline-goes-with-a-disposed-actor-and-comes-back
+KILLED   d118.stream-silent                   suite: 1: REV9-STREAM/a-refused-stream-failure-is-a-stranded-wait
+KILLED   d118.strand-invisible                suite: 2: REV8-KEPT/a-reads-refused-ending-is-a-stranded-wait REV9-STREAM/a-refused-stream-failure-is-a-stranded-wait
+KILLED   d118.strand-never-clears             suite: 1: REV8-KEPT/a-reads-refused-ending-is-a-stranded-wait
+KILLED   d118.kept-is-idle                    suite: 2: REV9-KEPT/a-kept-success-is-visible-and-blocks-its-key REV9-KEPT/cancel-lets-a-kept-ending-go
+KILLED   d118.not-marked-kept                 suite: 5: PAY-11/guard-twice REV9-KEPT/a-kept-success-is-visible-and-blocks-its-key REV9-KEPT/cancel-lets-a-kept-ending-go REV9-KEPT/still-broken-at-boot-is-kept-again ...
+KILLED   d118.row-silent                      suite: 4: PAY-11/guard-twice REV9-KEPT/a-kept-success-is-visible-and-blocks-its-key REV9-KEPT/still-broken-at-boot-is-kept-again REV9-KEPT/unpersisted-keeps-it-on-the-lane
+KILLED   d118.row-gone                        suite: 4: PAY-11/guard-twice REV9-KEPT/a-kept-success-is-visible-and-blocks-its-key REV9-KEPT/still-broken-at-boot-is-kept-again REV9-KEPT/unpersisted-keeps-it-on-the-lane
+KILLED   d118.let-go-keeps                    suite: 1: REV9-KEPT/cancel-lets-a-kept-ending-go
+KILLED   d118.commit-beside-kept              suite: 1: REV9-KEPT/a-kept-success-is-visible-and-blocks-its-key
+KILLED   d118.idle-passes                     suite: 1: REV9-KEPT/a-kept-success-is-visible-and-blocks-its-key
+KILLED   d118.unpersisted-strands             suite: 1: REV9-KEPT/unpersisted-keeps-it-on-the-lane
+KILLED   d118.subject-lost                    suite: 1: REV9-KEPT/a-fragments-kept-decline-keeps-its-subject
+KILLED   d118.raise-refuses                   suite: 1: REV9-KEPT/a-raise-with-no-name-reaches-nobody-and-the-turn-runs
+KILLED   gate.raise-key-ungated               suite: 1: REV9-KEPT/a-raise-with-no-name-reaches-nobody-and-the-turn-runs
+KILLED   gate.stream-key-ungated              suite: 1: REV9-STREAM/a-stream-key-with-no-name-is-named-and-opens-nothing
+KILLED   hooks.stream-key-user                suite: 1: REV9-STREAM/a-stream-key-with-no-name-is-named-and-opens-nothing
+KILLED   d119.bigint-no-name                  suite: 3: REV9-NAMES/a-bigint-key-names-a-lane-and-sends REV9-NAMES/a-bigint-key-survives-a-reload REV9-NAMES/a-bigint-reset-resets
+KILLED   d119.bigint-carried                  suite: 16: HIGH-02/a-key-closure-returns-what-cannot-encode REV7-M9/a-commit-that-cannot-be-written-ahead-declines-and-the-transition-runs REV8-M9/a-lookup-whose-input-cannot-encode-ends-as-a-failure REV8-M9/a-bad-lookup-replaces-an-open-one ...
+KILLED   d119.record-names                    suite: 1: REV8-PINS/D89-a-map-is-poison-not-an-empty-object
+KILLED   d119.lane-key-raw                    suite: 2: REV9-NAMES/a-bigint-key-names-a-lane-and-sends REV9-NAMES/a-bigint-key-survives-a-reload
+KILLED   d108.reset-not-constant              suite: 4: REV4-H4/reset-value-set-resets-nothing REV4-H4/reset-value-cycle-resets-nothing REV8-M9/a-reset-value-that-cannot-encode-resets-nothing REV9-NAMES/two-reset-values-with-no-name-are-one
+KILLED   d108.guard-no-reason                 suite: 1: REV9-NAMES/a-guard-key-with-no-name-says-why
+SURVIVED gate.lane-key-unchecked              nothing: 0: 
+SURVIVED gate.cycle-unchecked                 nothing: 0: 
+KILLED   turn.refusal-keeps-commands          suite: 1: REV9-KEPT/a-refused-turn-takes-its-commands
+
+not applied (0):
+
+
+49/51 killed (builder); by the watchdog: d115.no-pace d115.press-keeps-depth d115.turn-ignored; invalid: none
+
+WATCH peak 42 MB, 218.7 s, exit 0, killed no
