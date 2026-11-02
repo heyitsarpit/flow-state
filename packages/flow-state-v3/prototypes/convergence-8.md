@@ -58,3 +58,19 @@ D89          amended   D89,D100 "never fails the turn" now holds for a guard key
 
 - Oracle (h) reads the record: at the moment a keyed request starts, the Attempt is the **head** of a lane on disk. `stored.includes(key)` also matched `W`.
 - A `serialize` target and a directed alphabet in `flush.search.ts`, so a depth-11 trace is in reach.
+
+## Corrections after building
+
+- **D96: taken, the removal, not the line.** Across 563 cases, the only expected results that moved were five reads of the field itself. `W` keeps `NotSent { Restored }`, a refusal leaves no hold, and a landed ticket nobody heard stays a hold, each pinned. Words left behind: the phase `on: "ack" | "capture"` and the ticket's `purpose` now mean "first send" and "resend", and `purpose` only picks the store's durability hint. Not renamed in this round, so the diff stays readable.
+- **D97: the guard was needed.** Written without `failures === 0`, a mutant shows a hidden page spinning 50 tries with no time passing.
+- **D99: the harm is real, not only a repeated frame.** On round 7's code a read's ending reached another copy (`pathOfId` finds the first match). Also covers an unreadable `meta`.
+- **D100: a fourth door, a member's key on `retry` or `cancel`,** found reading the first three. Same family, done. **A fifth, `resetOn`, stays a refusal:** a reset value is a fragment's identity, so there is nothing to enter and nothing to compare. A throw in any closure also stays a refusal, and a refused ending still leaves its actor where it was (D50): that is the stuck `W` with a cause that is the author's, and it is not this round's.
+- **D101: changed by what ran.** Round 7's three search-only kills were false: `flush.pay.tight` failed on the unmutated code at the commit they ran on. So `mutate.ts` runs a control first and stops if it fails, and searches left the default gates. See RESULTS.
+- **D105, D106: H3's cause is established, and it overturns the review's kill table.** Chrome's own corruption recovery, on a log with a bare record header in it. Not main-only. See RESULTS. Nothing in the runtime changes for it: the design already says only a key the server recognises prevents duplicates.
+- **Oracle (g)'s exemption for `meta` removed.** `meta` is one scope, so it never needed one. The suite and searches pass without it.
+- **The gate's allow list now holds how a case fails,** a thing the review worried about and D101 did not list.
+- **The first M2 case did not reproduce M2:** written with the later `Note` hidden, which sets `due` to 0. A survivor showed it. Rewritten, then seen failing on round 7. Three other first-draft pins were vacuous the same way (fibers, lane id, firing) and were caught the same way.
+
+```decisions-added
+D96 D97 D98 D99 D100 D101 D102 D103 D104 D105 D106
+```

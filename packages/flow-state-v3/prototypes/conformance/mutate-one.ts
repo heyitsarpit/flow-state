@@ -29,6 +29,14 @@ const done = (killedBy: string | null, killers: readonly string[], search = "not
   console.log(JSON.stringify({ killedBy, killers, search }));
   process.exit(0);
 };
+// Round 8's question: what does a search see on its own? No scenario first, so a mutant a scenario would kill still reaches it. By a state budget, so a busy machine changes nothing.
+if (process.argv.includes("--search-only")) {
+  const o = { depth: 12, maxStates: 3_000, deadlineMs: 100_000 };
+  const a = searchFlush(make, "serialize", o, false, false, "store");
+  const q = a.verdict === "failed" ? a : searchFlush(make, "serialize", o, false, false, "queue");
+  const b = q.verdict === "failed" ? q : searchFlush(make, "bare", o, true);
+  done(b.verdict === "failed" ? "search" : null, b.verdict === "failed" ? [b.failure ?? ""] : [], b.verdict);
+}
 const suite = runScenarios(make)
   .filter((r) => !r.ok)
   .map(name);
@@ -48,7 +56,7 @@ if (existsSync(join(round, "cli/main.ts"))) {
 const g = spawn("gate5s.ts", "--runtime", runtimeArg);
 if (g.code !== 0) done("gate", [g.out.trim().slice(0, 300) || g.err.slice(0, 200)]);
 if (process.argv.includes("--search")) {
-  const r = searchFlush(make, "serialize", { depth: 11, maxStates: 8_000, deadlineMs: 100_000 }, false, false, true);
+  const r = searchFlush(make, "serialize", { depth: 11, maxStates: 8_000, deadlineMs: 100_000 }, false, false, "store");
   if (r.verdict === "failed") done("search", [r.failure ?? ""], r.verdict);
   done(null, [], r.verdict);
 }

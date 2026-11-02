@@ -24,6 +24,8 @@ const author = arg("--author", "builder");
 const only = arg("--only", "");
 const checkOnly = process.argv.includes("--check");
 const withSearch = process.argv.includes("--search");
+const searchOnly = process.argv.includes("--search-only");
+const extra = [...(withSearch ? ["--search"] : []), ...(searchOnly ? ["--search-only"] : [])];
 const { MUTANTS } = (await import(listFile)) as { MUTANTS: readonly Mutant[] };
 const rootModules = resolve(here, "../../../../node_modules");
 const scratch = mkdtempSync(join(tmpdir(), "flow-mut-"));
@@ -34,7 +36,7 @@ const results: unknown[] = [];
   const dir = join(scratch, "control");
   cpSync(here, join(dir, "conformance"), { recursive: true });
   cpSync(source, join(dir, basename(source)), { recursive: true });
-  const r = await watched(["bun", join(dir, "conformance/mutate-one.ts"), "--runtime", `../${basename(source)}/adapter.ts`, ...(withSearch ? ["--search"] : [])], {
+  const r = await watched(["bun", join(dir, "conformance/mutate-one.ts"), "--runtime", `../${basename(source)}/adapter.ts`, ...extra], {
     rssMb: 1400,
     seconds: 240,
     capture: true,
@@ -83,7 +85,7 @@ for (const m of list) {
       join(dir, "conformance/mutate-one.ts"),
       "--runtime",
       `../${basename(source)}/adapter.ts`,
-      ...(withSearch ? ["--search"] : []),
+      ...extra,
     ],
     { rssMb: 1400, seconds: 240, capture: true },
   );

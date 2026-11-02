@@ -53,7 +53,7 @@ export const searchFlush = (
   o: { depth: number; maxStates: number; deadlineMs: number },
   tight = false,
   wide = false, // one store: only the oldest batch can answer, so a hang holds everyone
-  directed = false, // a small alphabet for one risk: a ticket beside a slow store. Review: finds in 44 s what the wide one misses in 110 s
+  directed: false | "store" | "queue" = false, // a small alphabet for one risk. "store": a ticket beside a slow store; review: finds in 44 s what the wide one misses in 110 s. "queue": what waits behind a head
 ): Report & { unpinned: readonly string[]; lanesAhead: number; lanesAheadWitness?: string } => {
   const c = CFG[target];
   const send = (w: Who, event: string, payload: unknown = {}): Step => ({ send: w, event, payload, ...(c.to ? { to: c.to } : {}) });
@@ -109,7 +109,7 @@ export const searchFlush = (
         ]
       : c.actors.flatMap((w, i) => body(w, i === 0 ? "" : ".b"));
   const tightNames = /^(Go|Note|Set|NoteBad|Peek|Forget|failHeld|sayFailed|ack|FLUSH|KILL|lost|ok|Pay|pay\.ok|pay\.lost)/;
-  const directedNames = /^(Go|Note$|holdPlain|FLUSH|ack|KILL)$/;
+  const directedNames = directed === "queue" ? /^(Go|ok|lost|Forget|ack|landNoAck|KILL)$/ : /^(Go|Note$|holdPlain|FLUSH|ack|KILL)$/;
   let lanesAhead = 0;
   let lanesAheadWitness: string | undefined;
   const unpinnedAt = new Map<string, string>();
