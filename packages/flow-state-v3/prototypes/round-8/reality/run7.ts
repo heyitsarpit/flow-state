@@ -98,6 +98,9 @@ try {
       await Bun.sleep(250);
       // On the edge a first send is one awaited batch, so "plain" aborts the next plain batch, and "awaited" aborts the first send itself.
       await p.evaluate(arg("--abort", "plain") === "awaited" ? `__faults.abortAwaited = 1` : `__faults.abortPlain = 1`);
+      // Round 8, D111: with `meta` gone a first send has no plain batch for the abort to hit. Round 7's abort hit `meta`'s. So a plain write of the card goes first, and fails.
+      await p.evaluate(`__send(${J(A)}, "CardChosen", { paymentMethodId: "amex" })`);
+      await Bun.sleep(150);
       await p.evaluate(`__send(${J(A)}, "PayRequested", { paymentMethodId: "visa" })`);
       await Bun.sleep(1400); // the retry would have fired by now
       const failures = await p.evaluate(`__issues().filter(x => x.code === "StorageFailure").length`);

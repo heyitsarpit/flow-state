@@ -16,8 +16,8 @@ Status: proposed, throwaway. Ran on 2026-11-03, Bun 1.4.2, Effect 4.0.5, Chrome 
 | --- | --- |
 | Red | First pass on round 7's code: 15 new cases failed, the rest pin what was already true. Second pass on the code before D107-D111: 6 failed, and `REV8-STORM` was killed by the watchdog at 1,573 MB in 1.6 s. One case had to be rewritten to fail at all (below) [ran] |
 | Suite | See "Final runs" |
-| **H1, real IndexedDB, store slowed 400 ms by a real second transaction, renderer crash once the request arrived, then a press** | `serialize` bare: round 7 **12/12** second key beside an undecided first; round 8 **0/12**. **`Checkout/Refunds`: round 7 12/12; round 8 0/12** [ran]. On Refunds round 8 still shows 2 keys in 12/12: the restored head resends under its own key, is answered, and only then does the new press go. Two refunds somebody asked for, not H1 |
-| Pay's H1 on real IndexedDB, plain abort | 12 cycles: 0 two charges, restored `UNSURE` 12, final `PAID` 12 [ran] |
+| **H1, real IndexedDB, store slowed 400 ms by a real second transaction, renderer crash once the request arrived, then a press** | `serialize` bare: round 7 **12/12** second key beside an undecided first; round 8 **0/12**. **`Checkout/Refunds`: round 7 12/12; round 8 0/12** [ran]. On Refunds round 8 still shows 2 keys in 12/12: the restored head resends under its own key, is answered, and only then does the new press go. Two refunds somebody asked for, not H1. Bare restores `U` 12/12 since D107 (it was `A`) |
+| Pay's H1 on real IndexedDB, plain abort | 12 cycles, 12 failures seen: 0 two charges, restored `UNSURE` 12, final `PAID` 12 [ran]. **Round 7's run of this aborted `meta`'s batch.** With `meta` gone a first send has no plain batch, so a first rerun fired no abort at all (failures seen 0), and a plain write of the card now goes first. Two fake cases had the same blind spot |
 | Directed search `flush.serialize.directed` | **Round 7: finds H1 at depth 11 in 43 s,** the review's own trace, by oracle (a). Round 8: complete to depth 12, 26,279 states, clean, before the second pass [ran] |
 | `tsc --strict` on typed | 0 errors. `fake-world.ts`'s `claim` fixed [ran] |
 | `known-failing-h2.ts` | Still shows its traces, not counted. Not changed [ran] |
@@ -37,7 +37,7 @@ Status: proposed, throwaway. Ran on 2026-11-03, Bun 1.4.2, Effect 4.0.5, Chrome 
 
 ### Mutants. **Builder-written, not independent.** [ran]
 
-64 listed, by the review's names where it gave one. Each kill by a gate: `mutants-builder.txt`. Totals at the end. Survivors, each with a reason:
+**60/64 killed, 1 of them by the watchdog,** by the review's names where it gave one, control green, 0 invalid. Each kill by its gate: `mutants-builder.txt`. Survivors, each with a reason:
 
 | Survivor | Reason |
 | --- | --- |
@@ -185,8 +185,33 @@ Runtime about 60 lines larger: `gate` +20, `durable` about 0 (`meta` out, stamp 
 
 ## Final runs
 
-FINAL_RUNS
+On the final commit's runtime and harness [ran]:
+
+| Gate | Result |
+| --- | --- |
+| Suite | **621/621,** exit 0, nothing unlogged, nothing removed unlogged, catalog agrees, 269 MB, 12.8 s |
+| `--swap` typed | 621/621, exit 0 |
+| 5 s gate | 29 failed, 29 expected, none failing differently. **Means "nothing new", not "nothing lost"** |
+| CLI pins | all pass |
+| `tsc --strict` on typed | 0 errors |
+| Typed date check | pass. Data diff typed vs hand: 52 |
+| Pay | `pay.compiled.ts` no diff from `397a2e2c` |
+
+Searches on the second pass, 30 s each, all stopped by time, none failed, no unpinned class [ran]:
+
+| Search | Depth | States |
+| --- | --- | --- |
+| `flush.serialize.directed` | 12 | 10,160 |
+| `flush.serialize.queue` (a hold, a retry, a refused turn) | 9 | 12,644 |
+| `flush.bare.tight` | 6 | 17,790 |
+| `flush.two.tight` | 4 | 15,153 |
+| `flush.frag.tight` | 8 | 20,543 |
+| `flush.pay.tight` | 14 | 3,579 |
+| SEARCH-PAY, pins | 6 | 14,021 |
+| CRASH | 8 | 28,643 |
+
+Slower per state than before, since oracle (h) now parses the disk in every state. **Real runs on the second pass:** H1 bare and Refunds, Pay's H1 [ran]. H3's runs are of Chrome, not the runtime, so not repeated. Peak about 900 MB Chrome. **Overlap:** the mid-session reviewer's runs overlapped mine, by its own report. Mine were serial, apart from one leftover Chrome tree: a 100 s watchdog hit Pay's H1 run, left a throwaway tree orphaned for 2.5 minutes, removed by exact profile path; none left.
 
 ## Not run
 
-Safari, Firefox, a phone, power loss, real quota, real clock change, headed Chrome, a user's own long-lived profile. S4 and S3 benches on round 8. Other real-browser sections of `run7.ts` beyond `h1`, `h1store`. Old mutant list. `flow graph`, `story`, `trace`. A typed program reaching the doors: hand fixtures only. `nub run verify`, repo lint and formatter: throwaway files, as in past rounds. Plants, `cross`, `like`, `frag`, `odd` after the second pass. An independent review of the second pass.
+Safari, Firefox, a phone, power loss, real quota, real clock change, headed Chrome, a user's own long-lived profile. S4 and S3 benches on round 8. Other real-browser sections of `run7.ts` beyond `h1`, `h1store`. Old mutant list. `flow graph`, `story`, `trace`. A typed program reaching the doors: hand fixtures only. `nub run verify`, repo lint and formatter: throwaway files, as in past rounds. Plants, `cross`, `like`, `frag`, `odd`, `session`, `listen` after the second pass. An independent review of the second pass.
