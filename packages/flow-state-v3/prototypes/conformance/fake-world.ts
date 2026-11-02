@@ -132,6 +132,7 @@ export class FakeWorld {
   private laterFailing = 0;
   private lateReports: Array<{ writes: readonly Write[]; go: () => void }> = [];
   holdPlain = false; // a plain success in flight: answered by a `storage` step (review, assumption 14)
+  slowAfterAck = false; // D104: the store goes slow at the next `ack`: what is issued after it stays in flight. H1's real shape (review: held 400 ms after the ack)
   storeWide = false; // one IndexedDB store: only the oldest batch is answerable, so a hang holds everyone
   hidden = false;
   freezeTimers = false; // a frozen tab: nothing fires until thaw
@@ -140,8 +141,10 @@ export class FakeWorld {
   private oneOutPerKey(writes: readonly Write[]) {
     const out = this.outKeys();
     for (const w of writes)
-      if (out.has(w.key) && w.key !== "meta") throw new Error(`(g) a second write out for ${w.key}`);
+      if (out.has(w.key)) throw new Error(`(g) a second write out for ${w.key}`);
   }
+  // What was asked of the store, in order, whatever became of it: an oracle's own record, so a case can see a cut, a retry's gap, or a batch that should not exist.
+  readonly batches: Array<{ at: number; purpose: Purpose; writes: readonly Write[] }> = [];
   loadMode: "now" | "hang" | "fail" = "now"; // round 7: the next boot's read
   private pendingLoad: { ok: (m: ReadonlyMap<string, string>) => void; no: (e: unknown) => void } | undefined;
   private hiders: Array<{ f: () => void; process: number }> = [];
@@ -208,6 +211,7 @@ export class FakeWorld {
         },
         write: (writes, purpose, answer) => {
           this.oneOutPerKey(writes); // oracle (g): the edge's invariant, seen from the store
+          this.batches.push({ at: this.now, purpose, writes });
           const plain = purpose === "flush";
           if (plain && this.plainFails > 0) {
             this.plainFails--;
@@ -252,6 +256,11 @@ export class FakeWorld {
   // Round 7: the wall clock moves back. A real timer is relative, so what is armed fires as it would have; only `now` lies.
   clockBack(ms: number) {
     this.clockOffset += ms;
+  }
+  // D104, H3: at the next open the browser has recreated the origin's IndexedDB. Everything goes, older committed records too. The server remembers what it did.
+  wipe() {
+    this.kv.clear();
+    this.lastBatch = [];
   }
   corrupt(match: string, edit: (raw: string) => string) {
     for (const [k, v] of this.kv) if (k.includes(match)) this.kv.set(k, edit(v));
@@ -301,6 +310,10 @@ export class FakeWorld {
         if (how === "ack") {
           this.landWrites(h.writes);
           this.noteAck(h.writes);
+          if (this.slowAfterAck) {
+            this.slowAfterAck = false;
+            this.holdPlain = true;
+          }
         }
         answers.push(() => h.answer(how === "ack"));
       }
@@ -400,6 +413,7 @@ export class FakeWorld {
       const process = c.process;
       this.timers.push({
         at: this.now + ms,
+        claim: this.now + ms - this.clockOffset,
         seq: ++this.timerSeq,
         process,
         f: () => {
@@ -678,6 +692,7 @@ export class FakeWorld {
         })),
       scheduler: { picks: this.scheduler.picks, choices: this.scheduler.choices },
       failing: this.lateReports.length + this.laterFailing,
+      batches: this.batches,
     };
   }
   // Everything that decides this world's future, as text. Ids and times are normalised by the runtime's stateText.
@@ -703,6 +718,7 @@ export class FakeWorld {
       hidden: this.hidden,
       frozen: this.freezeTimers,
       holdPlain: this.holdPlain,
+      slowAfterAck: this.slowAfterAck,
       kv: [...this.kv.entries()].filter(([k]) => k !== "meta").sort(([a], [b]) => (a < b ? -1 : 1)),
       held: this.held.map((h) => [h.writes, h.purpose, h.hung === true]),
     });

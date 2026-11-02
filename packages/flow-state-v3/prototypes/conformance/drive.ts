@@ -27,7 +27,7 @@ export const makeHarness = (port: Port) => (): Harness => {
   const listeners: Array<() => void> = [];
   let dup: string | undefined;
   let plan: { at: number; inject: Step } | undefined;
-  let yieldPlan: Step | undefined;
+  let yieldPlan: Step | readonly Step[] | undefined;
   const injections = { planned: 0, done: 0, withLive: 0, withChoice: 0 };
 
   // Compiled data is plain data: wrapping its Slots is what a test build would do, and the core cannot tell.
@@ -92,7 +92,7 @@ export const makeHarness = (port: Port) => (): Harness => {
       if (yieldPlan && fake.hasLaters()) {
         const inject = yieldPlan;
         yieldPlan = undefined;
-        run(inject);
+        for (const x of Array.isArray(inject) ? (inject as readonly Step[]) : [inject as Step]) run(x);
       }
       const had = fake.hasWork();
       fake.settleStep();
@@ -122,6 +122,7 @@ export const makeHarness = (port: Port) => (): Harness => {
       });
     else if ("dispose" in s) inst.dispose(actorKey(s.dispose));
     else if ("answer" in s) fake.answer(s.answer, s.with, s.where);
+    else if ("reload" in s) die(s);
     else if ("storage" in s) fake.storageStep(s.storage, s.match);
     else if ("hide" in s) {
       fake.hidden = true; // review M3: what follows while hidden does not wait
@@ -130,11 +131,35 @@ export const makeHarness = (port: Port) => (): Harness => {
     } else if ("clockBack" in s) fake.clockBack(s.clockBack);
     else if ("freeze" in s) fake.freezeTimers = s.freeze;
     else if ("holdPlain" in s) fake.holdPlain = s.holdPlain;
+    else if ("slowAfterAck" in s) fake.slowAfterAck = true;
     else if ("storeWide" in s) fake.storeWide = s.storeWide;
     else if ("feed" in s) {
       fake.feedStep(s.feed, s);
     } else if ("disposeRuntime" in s) inst.disposeRuntime();
     else throw new Error(`raw: not a plain step: ${Object.keys(s)[0]}`);
+  };
+  // A kill and the next boot. `do` settles after it; a kill at a yield is already inside a settle.
+  const die = (s: Extract<Step, { reload: true }>) => {
+    plan = undefined;
+    if (s.tear !== undefined) fake.tearLast(s.tear);
+    if (s.wipe) fake.wipe();
+    if (TEST_FLUSH.includes("kills")) {
+      fake.hide();
+      settle();
+    }
+    // Round 7: what a kill took, for classifying. The tail of the state text is what the runtime held back.
+    if (process.env["FLOW_KILL_TRACE"])
+      ((globalThis as any).__kills ??= []).push(
+        `kill: held back ${inst.stateText("").split("|").at(-1)}; on disk ${[...fake.kv.keys()].filter((k) => k !== "meta" && k !== "host/ready").join(",") || "nothing"}`,
+      );
+    noteLost();
+    fake.killProcess();
+    if (s.load) fake.loadMode = s.load;
+    boot();
+    if (s.crashAfterBoot) {
+      fake.killProcess();
+      boot();
+    }
   };
   const reads: Harness["read"] = {
     state: (a) => inst.state(actorKey(a)),
@@ -223,25 +248,7 @@ export const makeHarness = (port: Port) => (): Harness => {
         return;
       }
       if ("reload" in s) {
-        plan = undefined;
-        if (s.tear !== undefined) fake.tearLast(s.tear);
-        if (TEST_FLUSH.includes("kills")) {
-          fake.hide();
-          settle();
-        }
-        // Round 7: what a kill took, for classifying. The tail of the state text is what the runtime held back.
-        if (process.env["FLOW_KILL_TRACE"])
-          ((globalThis as any).__kills ??= []).push(
-            `kill: held back ${inst.stateText("").split("|").at(-1)}; on disk ${[...fake.kv.keys()].filter((k) => k !== "meta" && k !== "host/ready").join(",") || "nothing"}`,
-          );
-        noteLost();
-        fake.killProcess();
-        if (s.load) fake.loadMode = s.load;
-        boot();
-        if (s.crashAfterBoot) {
-          fake.killProcess();
-          boot();
-        }
+        die(s);
         settle();
         return;
       }
@@ -252,6 +259,14 @@ export const makeHarness = (port: Port) => (): Harness => {
         else if ("throwInModuleAfter" in f)
           arm(() => void faults.moduleThrowsAfter.set(f.throwInModuleAfter, 1));
         else if ("throwInCore" in f) arm(() => void (faults.coreThrows = 1));
+        else if ("throwInCoreAfter" in f) {
+          const at = inst.logLength() + f.throwInCoreAfter;
+          const go = () => void (faults.coreThrows = 1);
+          armed.push({ segment: instances.length - 1, at, arm: go });
+          faults.onLogged = (n) => {
+            if (n === at) go();
+          };
+        }
         else if ("startThrows" in f) startThrows.add(f.startThrows);
         else if ("afterYield" in f) yieldPlan = f.afterYield;
         else if ("mutateServer" in f) fake.serverState = f.mutateServer(fake.serverState);

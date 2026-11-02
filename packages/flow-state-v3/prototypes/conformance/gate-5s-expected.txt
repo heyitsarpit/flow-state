@@ -1,27 +1,28 @@
-# The 5 s pass (gate5s.ts): what may fail, and why. Anything else fails the gate; anything here that passes is reported.
-PAY-09/ack-not-stored | UNCLASSIFIED
-PAY-13/waiting-flush-lost | UNCLASSIFIED
-HIGH-02/persisted-memory-that-cannot-encode | reads the issue on the turn; it comes at the flush, off the turn
-FRAG-18/reload-while-frozen-keeps-the-parked-ending | kill loses plain memory within the window; on a true earlier state. Traced with FLOW_KILL_TRACE: a parked read's ending lives in the actor record
-SPIKE-02/a-reload-restores-memory-and-bookmark-together | kill loses plain memory within the window; on a true earlier state. Traced with FLOW_KILL_TRACE: a value and its bookmark, whole, both older
-SPIKE-04/a-frozen-partition-survives-a-reload | kill loses plain memory within the window; on a true earlier state. Traced with FLOW_KILL_TRACE
-SPIKE-05/a-position-that-cannot-be-saved-ends-the-session | reads the record; the bad value joined the first record in the window, so the actor is not on disk yet (poison)
-REV5-SESS/a-notice-and-a-value-at-once-are-still-one-at-a-time | kill loses plain memory within the window; on a true earlier state. Traced with FLOW_KILL_TRACE: the case needs the bookmark on disk
-REV5-SESS/a-proof-with-nothing-claimed-is-not-believed | kill loses plain memory within the window; on a true earlier state. Traced with FLOW_KILL_TRACE
-REV5-SESS/end-behind-a-queued-value-under-a-slow-drain | kill loses plain memory within the window; on a true earlier state. Traced with FLOW_KILL_TRACE
-REV5-SESS/under-pull-a-drop-cannot-overtake-a-value-already-taken | kill loses plain memory within the window; on a true earlier state. Traced with FLOW_KILL_TRACE
-STREAM5-REPAIR/a-reload-during-a-read-reads-again | kill loses plain memory within the window; on a true earlier state. Traced with FLOW_KILL_TRACE
-REV6-CAPTURE/plain-writes-coalesce-to-the-newest | the gate's flush-on-read defeats what this case measures; it names its own bound and passes without the gate's flush
-REV6-STREAMS/L2-down-disarms-healthy-and-idle | counts timers; the wake and the storage silence timer are the edge's, not the session's
-REV6-TEAR/a-store-with-no-atomic-batch-strands-nothing-silently | kill loses plain memory within the window; on a true earlier state. Traced with FLOW_KILL_TRACE: the tear has nothing to tear
-REV7-H1/what-a-failed-batch-owed-boards-the-next-ack | same: the plain batch it fails is not out yet
-REV7-H1/L2-a-landing-resets-backoff-and-says-once | same
-REV7-H1/backoff-grows-on-a-late-failure | same
-REV7-M1/only-lane-free-memory-waits | names 5 s and passes at it; the gate's flush-on-read defeats it
-REV7-D80/the-default-is-five-seconds | same
-REV7-M2/a-failed-read-runs-empty-and-writes-nothing | kill loses plain memory within the window; on a true earlier state. Traced with FLOW_KILL_TRACE: 'old' never landed
-REV7-M9/memory-that-cannot-encode-does-not-refuse-the-turn | asserts a capture before the bad value; in the window that capture has not happened
-REV7-EDGE/k-a-plain-batch-that-never-answers-is-loud | holdPlain needs a batch out; in the window there is none yet
-REV7-EDGE/M2-a-released-hold-does-not-come-back | its failing fault reaches the delete's batch here; a kill before that delete lands is the stated pessimistic hold
-REV7-SEARCH-FAKE/the-fake-really-says-it-late | same as REV7-H1's fault cases
-REV7-CHAT/a-chat-stream-still-coalesces | same
+# The 5 s pass (gate5s.ts): what may fail, why, and how: `id | reason | what its failure starts with`. Anything else fails the gate, and so does a listed case failing differently. Anything here that passes is reported.
+PAY-09/ack-not-stored | kill before the actor's first record landed (D80, first-record loss): on disk nothing, no actor restored, state undefined. Not a late read | state: expected "CARD", got undefined
+PAY-13/waiting-flush-lost | kill before the actor's first record landed (D80, first-record loss): on disk nothing, no actor restored, state undefined. Not a late read | state: expected "CARD", got undefined
+HIGH-02/persisted-memory-that-cannot-encode | reads the issue on the turn; it comes at the flush, off the turn | named: expected "UnencodableValue", got undefine
+FRAG-18/reload-while-frozen-keeps-the-parked-ending | kill loses plain memory within the window; on a true earlier state. Traced with FLOW_KILL_TRACE: a parked read's ending lives in the actor record | delivered after a reload: expected ["Interrupted
+SPIKE-02/a-reload-restores-memory-and-bookmark-together | kill loses plain memory within the window; on a true earlier state. Traced with FLOW_KILL_TRACE: a value and its bookmark, whole, both older | memory: expected ["a"], got []
+SPIKE-04/a-frozen-partition-survives-a-reload | kill before the actor's first record landed (D80, first-record loss): on disk nothing, no actor restored, state undefined. Not a late read | same place: expected {"epoch":1,"seq":1}, got un
+SPIKE-05/a-position-that-cannot-be-saved-ends-the-session | reads the record; the bad value joined the first record in the window, so the actor is not on disk yet (poison) | not moved: expected {"filled":false}, got undefi
+REV5-SESS/a-notice-and-a-value-at-once-are-still-one-at-a-time | kill loses plain memory within the window; on a true earlier state. Traced with FLOW_KILL_TRACE: the case needs the bookmark on disk | all: expected [["a","b","c"],1], got [["b","c"],
+REV5-SESS/a-proof-with-nothing-claimed-is-not-believed | kill loses plain memory within the window; on a true earlier state. Traced with FLOW_KILL_TRACE | T2: row 7, with a notice: expected 1, got 0
+REV5-SESS/end-behind-a-queued-value-under-a-slow-drain | kill loses plain memory within the window; on a true earlier state. Traced with FLOW_KILL_TRACE | T9: the failure behind what is queued: expected 
+REV5-SESS/under-pull-a-drop-cannot-overtake-a-value-already-taken | kill loses plain memory within the window; on a true earlier state. Traced with FLOW_KILL_TRACE | told: expected 1, got 0
+STREAM5-REPAIR/a-reload-during-a-read-reads-again | kill before the actor's first record landed (D80, first-record loss): on disk nothing, no actor restored, state undefined. Not a late read | from the bookmark: expected 2, got undefined
+REV6-CAPTURE/plain-writes-coalesce-to-the-newest | the gate's flush-on-read defeats what this case measures; it names its own bound and passes without the gate's flush | not yet: expected false, got true
+REV6-STREAMS/L2-down-disarms-healthy-and-idle | counts timers; the wake and the storage silence timer are the edge's, not the session's | no timer left for this session: expected 0, got 
+REV6-TEAR/a-store-with-no-atomic-batch-strands-nothing-silently | the first record is still in its window when `Go`'s ticket is held, so they are one batch and the kill finds nothing to tear: no actor restored, `Go` reaches nobody. Fails with kills flushed too: not plain memory | threw: Error: answer: no held request for charge
+REV7-H1/what-a-failed-batch-owed-boards-the-next-ack | the window: `Note`'s batch is not out, so nothing is ahead of `Go`, and the ack does go out. The case needs a plain batch out | the ack is not out: expected 0, got 1
+REV7-H1/L2-a-landing-resets-backoff-and-says-once | the clock: the case counts retries from the first try, and at 5 s the first try has not left at 3 s | landed: expected "x", got ""
+REV7-H1/backoff-grows-on-a-late-failure | the gate's flush-on-fault lands the plain batch before the fault is armed, so the fault takes no batch and it lands early | still waiting at 6 s: expected "", got "x"
+REV7-M1/only-lane-free-memory-waits | names 5 s and passes at it; the gate's flush-on-read defeats it | waits: expected "", got "t"
+REV7-D80/the-default-is-five-seconds | names 5 s and passes at it; the gate's flush-on-read defeats it | not yet: expected "", got "t"
+REV7-M2/a-failed-read-runs-empty-and-writes-nothing | kill before the actor's first record landed (D80, first-record loss): on disk nothing, no actor restored, state undefined. Not a late read: 'old' never landed | unread data not overwritten: expected "old", got
+REV7-M9/memory-that-cannot-encode-does-not-refuse-the-turn | asserts a capture before the bad value; in the window that capture has not happened | the last good capture: expected "good", got ""
+REV7-EDGE/k-a-plain-batch-that-never-answers-is-loud | holdPlain needs a batch out; in the window there is none yet | said: expected 1, got 0
+REV7-EDGE/M2-a-released-hold-does-not-come-back | its failing fault reaches the delete's batch here; a kill before that delete lands is the stated pessimistic hold | no lane: expected false, got true
+REV7-SEARCH-FAKE/the-fake-really-says-it-late | the window: the failing batch is not out yet, so no report is owed | one report owed: expected 1, got 0
+REV7-CHAT/a-chat-stream-still-coalesces | names 5 s and passes at it; the gate's flush-on-read defeats it | waits: expected false, got true
+REV8-M2/a-visible-page-still-waits-its-window | names 5 s and passes at it; the gate's flush-on-read defeats it | waits: expected "out", got "newest"

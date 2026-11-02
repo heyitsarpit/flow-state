@@ -18,7 +18,7 @@ export const checkClaims = (r: Reads) => {
     switch (w.kind) {
       case "wire":
         if (
-          !out.open.some((o) => o.op === w.op && (w.attempt === undefined || o.key === w.attempt))
+          !out.open.some((o) => o.op === w.op && (w.attempt === undefined || o.key === w.attempt || o.key?.startsWith("business:"))) // D106: a key the server recognises
         )
           throw new Mismatch(`L3: wire claim for ${w.op} with no request outside`);
         break;

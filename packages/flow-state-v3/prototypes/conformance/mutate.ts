@@ -23,11 +23,37 @@ const out = resolve(source, arg("--out", "mutants.json"));
 const author = arg("--author", "builder");
 const only = arg("--only", "");
 const checkOnly = process.argv.includes("--check");
+const withSearch = process.argv.includes("--search");
 const { MUTANTS } = (await import(listFile)) as { MUTANTS: readonly Mutant[] };
 const rootModules = resolve(here, "../../../../node_modules");
 const scratch = mkdtempSync(join(tmpdir(), "flow-mut-"));
 symlinkSync(rootModules, join(scratch, "node_modules"));
 const results: unknown[] = [];
+// D101: the control. A gate that fails on the unmutated code kills every mutant that reaches it: that is what round 7's three search-only kills were (RESULTS). So it runs first, and a failure stops the run.
+{
+  const dir = join(scratch, "control");
+  cpSync(here, join(dir, "conformance"), { recursive: true });
+  cpSync(source, join(dir, basename(source)), { recursive: true });
+  const r = await watched(["bun", join(dir, "conformance/mutate-one.ts"), "--runtime", `../${basename(source)}/adapter.ts`, ...(withSearch ? ["--search"] : [])], {
+    rssMb: 1400,
+    seconds: 240,
+    capture: true,
+  });
+  const line = r.stdout.trim().split("\n").at(-1) ?? "";
+  const killedBy = (() => {
+    try {
+      return JSON.parse(line).killedBy as string | null;
+    } catch {
+      return "no answer";
+    }
+  })();
+  rmSync(dir, { recursive: true, force: true });
+  if (killedBy !== null || r.killed !== null) {
+    console.log(`CONTROL FAILED: the unmutated code is killed by ${r.killed ?? killedBy}: ${line.slice(0, 400)}`);
+    process.exit(2);
+  }
+  console.log(`control: the unmutated code passes every gate (${(r.ms / 1000).toFixed(0)} s)`);
+}
 const notApplied: string[] = [];
 let survived = 0;
 const list = only ? MUTANTS.filter((m) => only.split(",").includes(m.id)) : MUTANTS;
@@ -57,18 +83,19 @@ for (const m of list) {
       join(dir, "conformance/mutate-one.ts"),
       "--runtime",
       `../${basename(source)}/adapter.ts`,
+      ...(withSearch ? ["--search"] : []),
     ],
-    { rssMb: 1400, seconds: 120, capture: true },
+    { rssMb: 1400, seconds: 240, capture: true },
   );
   const line = r.stdout.trim().split("\n").at(-1) ?? "";
-  let parsed: { killers: string[]; search: string } | undefined;
+  let parsed: { killedBy: string | null; killers: string[]; search: string } | undefined;
   try {
     parsed = JSON.parse(line);
   } catch {
     parsed = undefined;
   }
   const killers = parsed?.killers ?? [];
-  const killed = r.killed !== null || killers.length > 0 || parsed?.search === "failed" || !parsed;
+  const killed = r.killed !== null || (parsed?.killedBy ?? null) !== null || !parsed;
   if (!killed) survived++;
   results.push({
     id: m.id,
@@ -76,11 +103,11 @@ for (const m of list) {
     killed,
     killers,
     author,
-    by: r.killed ?? (parsed ? "tests" : "crash"),
+    by: r.killed ?? (parsed ? (parsed.killedBy ?? "survived") : "crash"),
     peakMb: r.peakMb,
   });
   console.log(
-    `${killed ? "KILLED  " : "SURVIVED"} ${m.id.padEnd(36)} ${r.killed ? `watchdog ${r.killed} at ${r.peakMb} MB` : parsed ? `${killers.length} cases: ${killers.slice(0, 4).join(" ")}${killers.length > 4 ? " ..." : ""}${parsed.search === "failed" ? " + search" : ""}` : `crash: ${r.stdout.slice(-200)}`}`,
+    `${killed ? "KILLED  " : "SURVIVED"} ${m.id.padEnd(36)} ${r.killed ? `watchdog ${r.killed} at ${r.peakMb} MB` : parsed ? `${parsed.killedBy ?? "nothing"}: ${killers.length}: ${killers.slice(0, 4).join(" ")}${killers.length > 4 ? " ..." : ""}` : `crash: ${r.stdout.slice(-200)}`}`,
   );
 }
 rmSync(scratch, { recursive: true, force: true });

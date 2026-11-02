@@ -7,15 +7,16 @@
 //   (e) the disk moves forward only, and is whole: lanes on disk belong with that memory. Allowed, counted, stated: lanes ahead of memory by puts (`lanesAhead`). Never: memory ahead of a lane
 //   (f) a waiting state has something that can end it
 //   (g) one batch out per actor: the fake throws
-//   (h) write-ahead: a keyed request's Attempt is on disk when it starts
+//   (h) write-ahead: a keyed request's Attempt is the head of a lane on disk when it starts. Round 8 reads the record: `includes(key)` also matched `W`, and could not see H1
 import { fragPairFixture, FragPairId, bareFixture, BareId } from "../fixtures/round7.compiled.ts";
 import { payFixture } from "../fixtures/pay.compiled.ts";
+import { serialBareFixture } from "../fixtures/round8.compiled.ts";
 import type { Answer, Fixture, Harness, Step } from "../harness.ts";
 import { checkClaims, checkEndings } from "../scenarios/ctx.ts";
 import { bfs, Oracle, type Action, type Report } from "./engine.ts";
 import { moneyAudit, PAY_PINS } from "./pay.search.ts";
 
-export type Target = "pay" | "bare" | "frag" | "two";
+export type Target = "pay" | "bare" | "frag" | "two" | "serialize";
 const canon = (v: unknown): string =>
   JSON.stringify(v, (_k, x) =>
     x && typeof x === "object" && !Array.isArray(x)
@@ -41,6 +42,8 @@ type Who = { actor: string; id: string };
 const CFG: Record<Target, { fixture: Fixture; actors: readonly Who[]; op: string; to?: readonly string[]; pair?: (m: any) => boolean; owners: readonly string[]; waiting: readonly string[] }> = {
   pay: { fixture: payFixture, actors: [{ actor: "Checkout/Pay", id: "shopper-1" }], op: "pay", owners: [], waiting: ["PAYING", "PLACING"] },
   bare: { fixture: bareFixture(), actors: [{ actor: BareId, id: "a" }], op: "charge", pair: (m) => m.note === m.noteCopy, owners: ["Forget"], waiting: ["W"] },
+  // Review H1: a commit can queue behind a ticket, so a plain write of that lane can exist beside it.
+  serialize: { fixture: serialBareFixture(), actors: [{ actor: BareId, id: "a" }], op: "charge", pair: (m) => m.note === m.noteCopy, owners: ["Forget"], waiting: ["W"] },
   two: { fixture: bareFixture(), actors: [{ actor: BareId, id: "a" }, { actor: BareId, id: "b" }], op: "charge", pair: (m) => m.note === m.noteCopy, owners: ["Forget"], waiting: ["W"] },
   frag: { fixture: fragPairFixture, actors: [{ actor: FragPairId, id: "a" }], op: "put", to: ["t"], pair: (m) => m.a === m.b, owners: ["Forget"], waiting: [] },
 };
@@ -50,6 +53,7 @@ export const searchFlush = (
   o: { depth: number; maxStates: number; deadlineMs: number },
   tight = false,
   wide = false, // one store: only the oldest batch can answer, so a hang holds everyone
+  directed = false, // a small alphabet for one risk: a ticket beside a slow store. Review: finds in 44 s what the wide one misses in 110 s
 ): Report & { unpinned: readonly string[]; lanesAhead: number; lanesAheadWitness?: string } => {
   const c = CFG[target];
   const send = (w: Who, event: string, payload: unknown = {}): Step => ({ send: w, event, payload, ...(c.to ? { to: c.to } : {}) });
@@ -71,6 +75,7 @@ export const searchFlush = (
     { name: "landNoAck", step: { storage: "landNoAck" }, on: storage },
     { name: "hang", step: { storage: "hang" }, on: storage },
     { name: "holdPlain", step: { holdPlain: true } },
+    { name: "slowAfterAck", step: { slowAfterAck: true } },
     { name: "freeze", step: { freeze: true } },
     { name: "thaw", step: { freeze: false } },
     { name: "clockBack", step: { clockBack: 60_000 } },
@@ -104,6 +109,7 @@ export const searchFlush = (
         ]
       : c.actors.flatMap((w, i) => body(w, i === 0 ? "" : ".b"));
   const tightNames = /^(Go|Note|Set|NoteBad|Peek|Forget|failHeld|sayFailed|ack|FLUSH|KILL|lost|ok|Pay|pay\.ok|pay\.lost)/;
+  const directedNames = /^(Go|Note$|holdPlain|FLUSH|ack|KILL)$/;
   let lanesAhead = 0;
   let lanesAheadWitness: string | undefined;
   const unpinnedAt = new Map<string, string>();
@@ -187,17 +193,22 @@ export const searchFlush = (
       };
       return inner;
     },
-    actions: tight ? [...actions, ...edge].filter((a) => tightNames.test(a.name)) : [...actions, ...edge],
+    actions: directed
+      ? [...actions, ...edge].filter((a) => directedNames.test(a.name))
+      : tight
+        ? [...actions, ...edge].filter((a) => tightNames.test(a.name))
+        : [...actions, ...edge],
     ...o,
     edge(pre, post) {
-      const stored = JSON.stringify([...post.read.stored()]);
+      const onDisk = [...post.read.stored()];
+      const heads = new Set(onDisk.filter(([k]) => k.startsWith("lane/")).map(([, v]) => (v as any)?.head?.id));
       const seen = new Set(pre.read.requests().filter((x) => x.op === c.op).map((x) => x.idempotencyKey));
       const mayHave = new Set(pre.read.outside().mayHave);
       const released = new Set(post.read.evidence("Released").map((e) => e["attempt"]));
       const all = post.read.requests().filter((x) => x.op === c.op);
       for (const q of all) {
         if (seen.has(q.idempotencyKey)) continue;
-        if (q.idempotencyKey && !stored.includes(q.idempotencyKey)) throw new Oracle(`(h) request ${q.idempotencyKey} with nothing on disk`);
+        if (q.idempotencyKey && !heads.has(q.idempotencyKey)) throw new Oracle(`(h) request ${q.idempotencyKey} is not the head of a lane on disk`);
         for (const old of all)
           if (
             old.idempotencyKey !== q.idempotencyKey &&

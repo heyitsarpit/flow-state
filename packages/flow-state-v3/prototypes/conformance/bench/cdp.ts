@@ -33,18 +33,23 @@ export type Browser = {
   pid: number;
   peakMb(): number;
   newPage(url: string): Promise<Page>;
-  kill(): Promise<void>; // SIGKILL, the profile stays
+  // D105: what dies, by name. Round 7 called the first a "whole-browser kill"; the review showed it is not, and that only it has been seen to wipe an origin.
+  killMain(): Promise<void>; // SIGKILL of the main process only. Its children outlive it for a moment. The profile stays
+  kill(): Promise<void>; // `killMain`, under the name round 7's folder calls it
+  killTree(): Promise<void>; // SIGKILL of the main process and every child, one `ps` later. The profile stays
+  crashBrowser(): Promise<void>; // CDP `Browser.crash`: the browser's own crash path, the profile stays
   restart(): Promise<void>; // the same profile, a new process
   close(): Promise<void>; // and the profile goes
 };
 let nextPort = 9400 + Math.floor(Math.random() * 400);
 export const launch = async (
-  o: { rssLimitMb?: number; profile?: string; throttled?: boolean } = {},
+  o: { rssLimitMb?: number; profile?: string; throttled?: boolean; args?: readonly string[]; logFile?: string } = {},
 ): Promise<Browser> => {
   const profile = o.profile ?? mkdtempSync(join(tmpdir(), "flow-cdp-"));
   const port = nextPort++;
   let proc: ReturnType<typeof Bun.spawn>;
   let peak = 0;
+  let starts = 0;
   const start = async () => {
     proc = Bun.spawn(
       [
@@ -55,11 +60,12 @@ export const launch = async (
         "--no-first-run",
         "--no-default-browser-check",
         ...(o.throttled ? [] : ["--disable-background-timer-throttling"]), // review: real tabs are throttled, so a hide run keeps it on
+        ...(o.args ?? []),
         "--disable-gpu",
         "--disable-extensions",
         "about:blank",
       ],
-      { stdout: "ignore", stderr: "ignore" },
+      { stdout: "ignore", stderr: o.logFile ? Bun.file(`${o.logFile}.${++starts}`) : "ignore" },
     );
     for (let i = 0; i < 80; i++) {
       await Bun.sleep(150);
@@ -154,7 +160,45 @@ export const launch = async (
       };
       return page;
     },
+    killMain: async () => {
+      proc.kill(9);
+      await proc.exited;
+    },
     kill: async () => {
+      proc.kill(9);
+      await proc.exited;
+    },
+    killTree: async () => {
+      const out = Bun.spawnSync(["ps", "-A", "-o", "pid=,ppid="]).stdout.toString();
+      const kids = new Map<number, number[]>();
+      for (const l of out.trim().split("\n")) {
+        const [p, pp] = l.trim().split(/\s+/).map(Number) as [number, number];
+        (kids.get(pp) ?? kids.set(pp, []).get(pp)!).push(p);
+      }
+      const all: number[] = [];
+      const walk = (p: number) => {
+        for (const c of kids.get(p) ?? []) {
+          all.push(c);
+          walk(c);
+        }
+      };
+      walk(proc.pid);
+      proc.kill(9);
+      for (const c of all)
+        try {
+          process.kill(c, 9);
+        } catch {}
+      await proc.exited;
+    },
+    crashBrowser: async () => {
+      const v = (await (await fetch(`http://127.0.0.1:${port}/json/version`)).json()) as any;
+      const ws = new WebSocket(v.webSocketDebuggerUrl);
+      await new Promise((res, rej) => {
+        ws.onopen = res;
+        ws.onerror = rej;
+      });
+      ws.send(JSON.stringify({ id: 1, method: "Browser.crash", params: {} }));
+      await Promise.race([proc.exited, Bun.sleep(5000)]);
       proc.kill(9);
       await proc.exited;
     },

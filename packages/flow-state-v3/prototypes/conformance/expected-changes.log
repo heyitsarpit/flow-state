@@ -245,3 +245,9 @@ file:drive.ts hash:c0a5c3c6ace6 | round 7: search and fake additions; REV7-EDGE 
 file:scenarios/round7.scenario.ts hash:8811d1384497 | round 7: search and fake additions; REV7-EDGE and REV7-H1 own cases follow the edge (ack filter on 'late'; encoding off the turn pinned). No older expectation changed
 file:fixtures/round7.compiled.ts hash:4dbffb93f0d9 | round 7: search and fake additions; REV7-EDGE and REV7-H1 own cases follow the edge (ack filter on 'late'; encoding off the turn pinned). No older expectation changed
 file:fake-world.ts hash:a39f93dc92e1 | round 7: the fake's clock back keeps a monotonic base; no expected result
+REV7-H1 hash:a2220da1f876 | round 8, D96: `head.acked` is gone from the record. Four reads of it now assert the head is on disk, which is what they meant: the hold's evidence. No behaviour expected differently
+REV7-M9 hash:3823247c0e08 | round 8, D96: same one read in `an-ending-with-a-bad-value-is-not-lost`: the lane is still on disk with its head
+file:scenarios/round7.scenario.ts hash:3e8de4d7057c | round 8: carries REV7-H1 and REV7-M9 above, no other change
+file:scenarios/ctx.ts hash:5bc104c45863 | round 8, D106: a wire claim may name a request whose key is a business key (`business:`), since by design it is no Attempt's. Attempt keys are checked as before
+file:fake-world.ts hash:776dedd6a167 | round 8, D104: wipe, slowAfterAck, a log of batches; `claim` on the close timer (the tsc error); oracle (g)'s exemption for `meta` removed, since `meta` is one scope and needs none. No expected result moves
+file:drive.ts hash:8f6a7e5ebec8 | round 8: steps for the above; a kill can run at a yield, as `afterYield` with a list; `throwInCoreAfter`. Kill body moved to `die`, unchanged

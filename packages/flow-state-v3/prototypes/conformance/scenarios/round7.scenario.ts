@@ -36,7 +36,7 @@ export const round7Scenarios: readonly Scenario[] = [
         c.eq("sent", c.reqs("charge").length, 1);
         c.eq("said", c.r.issues().filter((i) => i.code === "StorageFailure").length, 1);
         c.advance(5_000); // the retry fires
-        c.eq("still acknowledged on disk", disk(c, KEY)?.head?.acked, true);
+        c.eq("still acknowledged on disk", !!disk(c, KEY)?.head, true);
         c.reload();
         c.eq("no second Attempt can be minted", c.r.row(A, "charge", {})?.uncertain, true);
         c.eq("a hold, not NotSent", c.lastEnding("charge")?.["reason"], "Restored");
@@ -66,7 +66,7 @@ export const round7Scenarios: readonly Scenario[] = [
         c.do({ storage: "failLate" });
         c.ack();
         c.eq("the note came with it", noteOn(c), "t");
-        c.eq("the lane too", disk(c, KEY)?.head?.acked, true);
+        c.eq("the lane too", !!disk(c, KEY)?.head, true);
       },
       // The same on a later plain batch: a hold's record fails, said only after a re-send's capture was issued and landed.
       "a-re-send-capture-is-not-undone-by-an-older-hold-record"(c0) {
@@ -145,7 +145,7 @@ export const round7Scenarios: readonly Scenario[] = [
         c.send("Go");
         c.ack();
         c.advance(5_000);
-        c.eq("acknowledged", disk(c, KEY)?.head?.acked, true);
+        c.eq("acknowledged", !!disk(c, KEY)?.head, true);
       },
       // `saved` had the refused value: a later identical record must still be written.
       "a-refused-ack-does-not-leave-saved-believing-it"(c0) {
@@ -156,7 +156,7 @@ export const round7Scenarios: readonly Scenario[] = [
         c.eq("nothing was sent", c.reqs("charge").length, 0);
         c.send("Go");
         c.ack();
-        c.eq("the second try is on disk", disk(c, KEY)?.head?.acked, true);
+        c.eq("the second try is on disk", !!disk(c, KEY)?.head, true);
         c.eq("and sent", c.reqs("charge").length, 1);
       },
       // L2: backoff grows on a store that says so later, and resets on a landing.
@@ -377,7 +377,7 @@ export const round7Scenarios: readonly Scenario[] = [
         c.answer("charge", { ok: { big: 10n } });
         c.state("B");
         c.eq("named", c.r.issues().some((i) => i.code === "UnencodableValue"), true);
-        c.eq("the whole batch skipped: lane still on disk", disk(c, KEY)?.head?.acked, true);
+        c.eq("the whole batch skipped: lane still on disk", !!disk(c, KEY)?.head, true);
         c.reload();
         c.eq("honest: a hold, not a second Attempt", c.lastEnding("charge")?.["channel"], "unknown");
         const n = c.reqs("charge").length;

@@ -17,6 +17,7 @@ import {
 import { round5Scenarios } from "./scenarios/round5.scenario.ts";
 import { round6Scenarios } from "./scenarios/round6.scenario.ts";
 import { round7Scenarios } from "./scenarios/round7.scenario.ts";
+import { round8Scenarios } from "./scenarios/round8.scenario.ts";
 import { streams5Scenarios } from "./scenarios/streams5.scenario.ts";
 import { flowScenarios } from "./scenarios/flows.scenario.ts";
 import { fragScenarios } from "./scenarios/frag.scenario.ts";
@@ -41,11 +42,13 @@ export const allScenarios: readonly Scenario[] = [
   ...streams5Scenarios,
   ...round6Scenarios,
   ...round7Scenarios,
+  ...round8Scenarios,
 ];
 
 const here = import.meta.dir;
 const LOCK = join(here, "expected.lock");
 const LOG = join(here, "expected-changes.log");
+const BULK = 3; // one reason on more lines than this is a bulk reason
 
 // D33: a scenario's hash covers its body and every file its expected result leans on; whitespace-blind, so `vp fmt` is free.
 const norm = (s: string) => s.replace(/\s+/g, "");
@@ -93,9 +96,13 @@ const SHARED = [
   "fixtures/round6.compiled.ts",
   "scenarios/round7.scenario.ts",
   "fixtures/round7.compiled.ts",
+  "scenarios/round8.scenario.ts",
+  "fixtures/round8.compiled.ts",
 ];
 const lockLines = (): string[] => [
   ...allScenarios.map((s) => `${s.id} ${sha(bodyOf(s))}`),
+  // D103: a variant is an expected result too. Its text is in its scenario's hash; this line is so that one gone is seen by name.
+  ...allScenarios.flatMap((s) => Object.keys(s.variants ?? {}).map((v) => `variant:${s.id}/${v} present`)),
   ...SHARED.map((f) => `file:${f} ${sha(readFileSync(join(here, f), "utf8"))}`),
 ];
 
@@ -141,6 +148,7 @@ export const runScenarios = (
           if (
             q.idempotencyKey !== undefined &&
             !q.op.startsWith("drv") &&
+            !q.idempotencyKey.startsWith("business:") && // D106: a key the server recognises, by design no Attempt's
             !minted.has(q.idempotencyKey)
           )
             throw new Mismatch(`key ${q.idempotencyKey} is no Attempt`);
@@ -181,7 +189,7 @@ if (import.meta.main) {
     return i < 0 ? undefined : process.argv[i + 1];
   };
   const has = (k: string) => process.argv.includes(k);
-  const round = Number(arg("--round") ?? 7);
+  const round = Number(arg("--round") ?? 8);
   const runtime = resolve(here, arg("--runtime") ?? "./null-adapter.ts");
   const mod = (await import(runtime)) as RuntimeModule;
   if (arg("--swap")) swapFixtures((await import(resolve(here, arg("--swap")!))).swaps);
@@ -197,22 +205,29 @@ if (import.meta.main) {
       )
     : new Map<string, string>();
   const log = existsSync(LOG) ? readFileSync(LOG, "utf8") : "";
+  // D103: a hash counts only on a line that names its own id and gives a reason, and a reason that is not a bulk one. Review: 94 lines shared one, and any hash anywhere passed.
+  const logLines = log.split("\n").filter((l) => l.includes(" hash:"));
+  const reasonOf = (l: string) => l.split(" | ").slice(1).join(" | ").trim();
+  const uses = new Map<string, number>();
+  for (const l of logLines) uses.set(reasonOf(l), (uses.get(reasonOf(l)) ?? 0) + 1);
+  const logged = (id: string, h: string) =>
+    logLines.some((l) => l.startsWith(`${id} hash:${h}`) && reasonOf(l).length > 0 && uses.get(reasonOf(l))! <= BULK);
   const now = lockLines().map((l) => l.split(" ") as [string, string]);
-  const unlogged = now
-    .filter(([id, h]) => old.has(id) && old.get(id) !== h && !log.includes(`hash:${h}`))
-    .map(([id]) => id);
+  const unlogged = now.filter(([id, h]) => old.has(id) && old.get(id) !== h && !logged(id, h)).map(([id]) => id);
+  // D103: an id or a variant the lock had and the suite does not is a failure until a `removed:` line names it.
+  const nowIds = new Set(now.map(([id]) => id));
+  const gone = [...old.keys()].filter((id) => !nowIds.has(id) && !log.split("\n").some((l) => l.startsWith(`removed:${id} | `)));
   if (has("--hashes"))
-    for (const [id, h] of now)
-      if (old.has(id) && old.get(id) !== h && !log.includes(`hash:${h}`))
-        console.log(`HASH ${id} hash:${h}`);
+    for (const [id, h] of now) if (old.has(id) && old.get(id) !== h && !logged(id, h)) console.log(`HASH ${id} hash:${h}`);
   if (has("--lock")) {
     writeFileSync(LOCK, lockLines().join("\n") + "\n");
     console.log(
-      `expected.lock written, after comparing. Unlogged against the previous lock: ${unlogged.join(" ") || "none"}`,
+      `expected.lock written, after comparing. Unlogged against the previous lock: ${unlogged.join(" ") || "none"}; removed with no log line: ${gone.join(" ") || "none"}`,
     );
   }
 
-  const rows = catalog().filter((r) => r.R <= round);
+  // The mutation runner's `--swap` pass: scenarios only. The catalog is the plain pass's business.
+  const rows = has("--no-catalog") ? [] : catalog().filter((r) => r.R <= round);
   const disagreements: string[] = [];
   for (const r of rows) {
     if (r.id.startsWith("SEARCH-") || r.id.startsWith("HOST-")) continue;
@@ -241,7 +256,7 @@ if (import.meta.main) {
   );
   const pass = results.filter((r) => r.ok).length;
   console.log(
-    `\nSUMMARY  ${pass}/${results.length} scenario cases pass; unlogged expectation changes: ${unlogged.join(" ") || "none"}; catalog disagreements: ${disagreements.join("; ") || "none"}`,
+    `\nSUMMARY  ${pass}/${results.length} scenario cases pass; unlogged expectation changes: ${unlogged.join(" ") || "none"}; removed with no log line: ${gone.join(" ") || "none"}; catalog disagreements: ${disagreements.join("; ") || "none"}`,
   );
-  process.exitCode = pass === results.length && !unlogged.length && !disagreements.length ? 0 : 1;
+  process.exitCode = pass === results.length && !unlogged.length && !gone.length && !disagreements.length ? 0 : 1;
 }

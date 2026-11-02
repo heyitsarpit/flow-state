@@ -36,8 +36,9 @@ export type Fault =
   | { throwInModule: string } // D27: the next call of this hook of any module throws
   | { throwInModuleAfter: string } // L1: the hook runs, makes its effects, then throws
   | { throwInCore: true } // D27: the next step's core code throws. Reached through data: no seam in the core
+  | { throwInCoreAfter: number } // the same, after this many more steps: a fatal with mail left and a batch pending
   | { startThrows: RequestMatch } // DRV-02: building this op's commit throws
-  | { afterYield: Step } // runs when the runtime has yielded its drain to the host: a gap between steps
+  | { afterYield: Step | readonly Step[] } // runs when the runtime has yielded its drain to the host: a gap between steps. Round 8: `hide`, then `reload`, is a kill mid-drain
   | { mutateServer: (s: any) => any } // the world changes with nobody asking: a price, another device
   | { socketClose: number } // how long a close takes from now on. Infinity never finishes
   | { storageFails: number } // review M7: the next n plain writes fail
@@ -53,11 +54,13 @@ export type Step =
   | { answer: RequestMatch; with: Answer; where?: Readonly<Record<string, unknown>> }
   // crashAfterBoot: the first boot dies with its mail undelivered (review M1). Needs drainMs -1. tear: only the first n writes of the last batch landed
   // load: round 7, the new boot's read hangs until a `loadOk`/`loadFail` storage step, or fails.
-  | { reload: true; crashAfterBoot?: true; tear?: number; load?: "hang" | "fail" }
+  // wipe: D104, H3: the origin's IndexedDB is gone at the next open, older records too.
+  | { reload: true; crashAfterBoot?: true; tear?: number; load?: "hang" | "fail"; wipe?: true }
   | { storage: "ack" | "refuse" | "hang" | "landNoAck" | "failLate" | "loadOk" | "loadFail"; match?: string }
   | { clockBack: number } // round 7: the wall clock is set back
   | { freeze: boolean } // round 7: a frozen tab's timers do not fire
   | { holdPlain: boolean } // round 7: plain successes stay in flight until a `storage` step
+  | { slowAfterAck: true } // D104: the store goes slow at the next `ack`, so what follows it stays in flight
   | { storeWide: boolean } // round 7: one store: only the oldest batch can be answered
   | { hide: true; stay?: true } // round 7, D80: `visibilitychange` to hidden, or `pagehide`
   // A stream's server says something. `frames`: a burst, with no settling between them. `fail`: the connection fails with this.
@@ -152,6 +155,7 @@ export type Outside = {
   live: number;
   scheduler: { picks: number; choices: number };
   failing: number; // plain writes whose failure has not been said yet
+  batches: ReadonlyArray<{ at: number; purpose: string; writes: ReadonlyArray<{ key: string; value: string | undefined }> }>; // every batch asked of the store, in order
   injections: { planned: number; done: number; withLive: number; withChoice: number };
 };
 export type Reads = {
@@ -197,6 +201,7 @@ export type FaultState = {
   moduleThrows: Map<string, number>; // hook name to count
   moduleThrowsAfter: Map<string, number>;
   coreThrows: number;
+  onLogged?: (n: number) => void; // a step was logged: `throwInCoreAfter` counts these
 };
 export type BootArgs = {
   readonly host: Host;

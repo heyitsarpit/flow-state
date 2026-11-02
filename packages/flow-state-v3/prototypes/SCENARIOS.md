@@ -405,12 +405,12 @@ Convergence-5. Fixtures: `desk.compiled.ts`, copied from the desk's domains (`pr
 
 | id         | R   | kind    | src     | cites                                                  | thin | scenario                                                                                          |
 | ---------- | --- | ------- | ------- | ------------------------------------------------------ | ---- | ------------------------------------------------------------------------------------------------- |
-| STORY-ALL  | 8   | example | flow    | rule:58, rule:61, rule:62, rule:63                     |      | Checkout's and desk's Stories through a real executor                                             |
-| BROWSER-01 | 8   | fault   | hostile | sec:2.10.2                                             |      | settle on Chromium, Firefox, Safari; timer throttling, tab freeze, wake                           |
-| BROWSER-02 | 8   | example | flow    | no-decision                                            |      | React: 200 subscribers, one settlement, uSES tearing check under transitions. Review 2.3's item 3 |
-| BROWSER-03 | 8   | fault   | hostile | no-decision                                            | *    | real `fetch` abort racing a landed response. _Only a sample of real behaviour_                    |
-| BROWSER-04 | 8   | fault   | hostile | no-decision                                            |      | retained snapshots on a long-lived tab: heap slope                                                |
-| SSR-01     | 8   | example | table   | cell:lane.ssrHydration.Idle, sec:2.10.11, CONVERSION:2 |      | `DehydrateCommitInFlight`; settle bound                                                           |
+| STORY-ALL  | 99  | example | flow    | rule:58, rule:61, rule:62, rule:63                     |      | Checkout's and desk's Stories through a real executor                                             |
+| BROWSER-01 | 99  | fault   | hostile | sec:2.10.2                                             |      | settle on Chromium, Firefox, Safari; timer throttling, tab freeze, wake                           |
+| BROWSER-02 | 99  | example | flow    | no-decision                                            |      | React: 200 subscribers, one settlement, uSES tearing check under transitions. Review 2.3's item 3 |
+| BROWSER-03 | 99  | fault   | hostile | no-decision                                            | *    | real `fetch` abort racing a landed response. _Only a sample of real behaviour_                    |
+| BROWSER-04 | 99  | fault   | hostile | no-decision                                            |      | retained snapshots on a long-lived tab: heap slope                                                |
+| SSR-01     | 99  | example | table   | cell:lane.ssrHydration.Idle, sec:2.10.11, CONVERSION:2 |      | `DehydrateCommitInFlight`; settle bound                                                           |
 
 ---
 
@@ -450,3 +450,17 @@ Convergence-7. Old unbuilt rows (`STREAM-*`, `POLICY-*`, `CACHE-*`, `CTX-*`, `PE
 | REV7-CHAT | 7 | example | table | D80, D84 |  | a lane-free stream still coalesces |
 | SEARCH-FLUSH | 7 | bounded | hostile | D80, D83, D84, D93, S6 |  | flush, late failure and kill as actions at any step; four oracles independent of the interval |
 | SEARCH-CRASH | 7 | bounded | hostile | D83, O3, S6 |  | late-failing plain writes, kills: no second Attempt beside an undecided one |
+
+## Round 8 (R8)
+
+Convergence-8. Old unbuilt rows (`STORY-ALL`, `BROWSER-*`, `SSR-01`) renumbered to 99, as round 7 did, so `--round 8` can check cites. Fixture: `round8.compiled.ts`.
+
+| id | R | kind | src | cites | thin | what it shows |
+| -- | --- | ---- | --- | ----- | ---- | ------------- |
+| REV8-H1 | 8 | fault | hostile | D96, D26, O6 |  | review H1: a plain write beside a ticket; a head on disk may have been sent; `W` stays `NotSent`; a refusal leaves no hold |
+| REV8-M2 | 8 | fault | hostile | D97, D80 |  | review M2: an answer to a hidden page issues at once; backoff still holds |
+| REV8-FATAL | 8 | fault | hostile | D98 |  | a fatal with mail left and a batch pending does not spin; the batch lands |
+| REV8-M3 | 8 | fault | hostile | D99 |  | review M3: a boot lost apart from its records repeats no id; a read reaches its own copy |
+| REV8-M9 | 8 | fault | hostile | D100, O5 |  | review M9's doors: a guard key denies, a lookup ends failed, a module value drops, a member's key does nothing |
+| REV8-WIPE | 8 | fault | hostile | D106, O6 |  | a wiped origin and a hold, in both key forms |
+| REV8-PINS | 8 | fault | hostile | D102, D80, D84, D88, D72, D83, D89, L6 |  | survivors of the round 7 reviews: hide on two actors, after-drain, poison's lanes, and every survivor reported twice |

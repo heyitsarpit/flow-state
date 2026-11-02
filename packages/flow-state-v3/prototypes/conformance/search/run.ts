@@ -49,7 +49,7 @@ const r =
     : which === "payFixed"
       ? searchPay(make, [payFixedFixture], { ...o, pins: [] })
       : which.startsWith("flush.")
-        ? searchFlush(make, which.split(".")[1] as never, o, which.includes(".tight"), which.includes(".wide"))
+        ? searchFlush(make, which.split(".")[1] as never, o, which.includes(".tight"), which.includes(".wide"), which.includes(".directed"))
       : which === "crash"
         ? searchCrash(make, o)
       : which === "crash5s"

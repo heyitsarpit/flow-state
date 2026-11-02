@@ -1,39 +1,55 @@
-// One mutant's run: scenarios, then a small search only if they all pass. Prints one JSON line. Spawned by mutate.ts.
-import { resolve } from "node:path";
+// One mutant's run, or the control: the round's gates in order, stopping at the first that kills. Prints one JSON line. Spawned by mutate.ts.
+// D101: suite, `--swap`, typed compare and date check, CLI pins, the 5 s gate. These are what the round claims, so they are what a mutant must get past. `killedBy` says which.
+// A search runs only with `--search`, directed, by a state budget and no deadline that matters, so its answer does not depend on how busy the machine is. Round 8 found why searches
+// killed nothing and why three kills did not reproduce: RESULTS. A search hunts new traces; it is not a regression gate.
+import { existsSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
 import { makeHarness } from "./drive.ts";
-import { payFixture } from "./fixtures/pay.compiled.ts";
-import { s1Fixture } from "./fixtures/s1.compiled.ts";
 import type { RuntimeModule } from "./harness.ts";
 import { runScenarios } from "./main.ts";
-import { searchCrash } from "./search/crash.search.ts";
 import { searchFlush } from "./search/flush.search.ts";
-import { searchCross } from "./search/cross.search.ts";
-import { searchFragStore } from "./search/fragstore.search.ts";
-import { searchLike } from "./search/like.search.ts";
-import { searchListen } from "./search/listen.search.ts";
-import { searchRepairing, searchSession } from "./search/session.search.ts";
-import { searchPay } from "./search/pay.search.ts";
 
 const i = process.argv.indexOf("--runtime");
-const mod = (await import(resolve(import.meta.dir, process.argv[i + 1]!))) as RuntimeModule;
+const runtimeArg = process.argv[i + 1]!;
+const round = resolve(import.meta.dir, dirname(runtimeArg));
+const mod = (await import(resolve(import.meta.dir, runtimeArg))) as RuntimeModule;
 const make = makeHarness(mod.port);
-const killers = runScenarios(make)
+const name = (r: { id: string; variant?: string }) => (r.variant ? `${r.id}/${r.variant}` : r.id);
+const failed = (out: string) =>
+  out
+    .split("\n")
+    .filter((l) => l.startsWith("FAIL"))
+    .map((l) => l.split(/\s+/)[1]!);
+const spawn = (...cmd: string[]) => {
+  const p = Bun.spawnSync(["bun", ...cmd], { cwd: import.meta.dir, env: process.env });
+  return { code: p.exitCode, out: p.stdout.toString(), err: p.stderr.toString() };
+};
+
+const done = (killedBy: string | null, killers: readonly string[], search = "not run") => {
+  console.log(JSON.stringify({ killedBy, killers, search }));
+  process.exit(0);
+};
+const suite = runScenarios(make)
   .filter((r) => !r.ok)
-  .map((r) => (r.variant ? `${r.id}/${r.variant}` : r.id));
-let search = "skipped";
-if (killers.length === 0) {
-  const o = { depth: 6, maxStates: 3000, deadlineMs: 8_000 };
-  const a = searchPay(make, [payFixture], o);
-  const b = a.verdict === "failed" ? a : searchLike(make, [s1Fixture], o);
-  const d = b.verdict === "failed" ? b : searchCross(make, o);
-  const e = d.verdict === "failed" ? d : searchFragStore(make, "nothing", o);
-  const f = e.verdict === "failed" ? e : searchSession(make, o);
-  const g = f.verdict === "failed" ? f : searchListen(make, "version", o);
-  const j = g.verdict === "failed" ? g : searchRepairing(make, o);
-  const k = j.verdict === "failed" ? j : searchListen(make, "version", o, "none");
-  const l = k.verdict === "failed" ? k : searchCrash(make, o);
-  // Review: the persistence edge is the worst pinned part. This search kills what the suite does not.
-  const n = l.verdict === "failed" ? l : searchFlush(make, "pay", { depth: 16, maxStates: 60_000, deadlineMs: 30_000 }, true);
-  search = n.verdict;
+  .map(name);
+if (suite.length) done("suite", suite);
+if (existsSync(join(round, "typed/swaps.ts"))) {
+  const s = spawn("main.ts", "--round", "99", "--no-catalog", "--swap", join(round, "typed/swaps.ts"), "--runtime", runtimeArg);
+  if (failed(s.out).length || !s.out.includes("SUMMARY")) done("swap", failed(s.out).length ? failed(s.out) : ["could not run"]);
+  for (const f of ["typed/compare.ts", "typed/date-check.ts"]) {
+    const t = spawn(join(round, f));
+    if (t.code !== 0) done(f, [t.out.split("\n").filter((l) => /FAIL|differ/i.test(l))[0] ?? `exit ${t.code}`]);
+  }
 }
-console.log(JSON.stringify({ killers, search }));
+if (existsSync(join(round, "cli/main.ts"))) {
+  const c = spawn(join(round, "cli/main.ts"));
+  if (c.code !== 0) done("cli", failed(c.out).length ? c.out.split("\n").filter((l) => l.startsWith("FAIL")).map((l) => l.slice(6, 70)) : [`exit ${c.code}`]);
+}
+const g = spawn("gate5s.ts", "--runtime", runtimeArg);
+if (g.code !== 0) done("gate", [g.out.trim().slice(0, 300) || g.err.slice(0, 200)]);
+if (process.argv.includes("--search")) {
+  const r = searchFlush(make, "serialize", { depth: 11, maxStates: 8_000, deadlineMs: 100_000 }, false, false, true);
+  if (r.verdict === "failed") done("search", [r.failure ?? ""], r.verdict);
+  done(null, [], r.verdict);
+}
+done(null, []);

@@ -1,0 +1,72 @@
+{
+ "browser": "Chrome/146.0.7680.76",
+ "round-7:h1store-bareSerial-hold400": {
+  "cycles": 12,
+  "arrived": 12,
+  "keysAtAll": {
+   "2": 12
+  },
+  "twoKeysBesideAnUndecidedFirst": 12,
+  "restored": {
+   "A": 12
+  },
+  "endings": {
+   "failure,failure": 12
+  },
+  "final": {
+   "B": 12
+  }
+ },
+ "peakMb": 792,
+ "round-7:h1store-refunds-hold400": {
+  "cycles": 12,
+  "arrived": 12,
+  "keysAtAll": {
+   "2": 12
+  },
+  "twoKeysBesideAnUndecidedFirst": 12,
+  "restored": {
+   "READY": 12
+  },
+  "endings": {
+   "failure,failure": 12
+  },
+  "final": {
+   "READY": 12
+  }
+ },
+ "round-8:h1store-bareSerial-hold400": {
+  "cycles": 12,
+  "arrived": 12,
+  "keysAtAll": {
+   "1": 12
+  },
+  "twoKeysBesideAnUndecidedFirst": 0,
+  "restored": {
+   "A": 12
+  },
+  "endings": {
+   "unknown,failure": 12
+  },
+  "final": {
+   "W": 12
+  }
+ },
+ "round-8:h1store-refunds-hold400": {
+  "cycles": 12,
+  "arrived": 12,
+  "keysAtAll": {
+   "2": 12
+  },
+  "twoKeysBesideAnUndecidedFirst": 0,
+  "restored": {
+   "READY": 12
+  },
+  "endings": {
+   "unknown,failure": 12
+  },
+  "final": {
+   "READY": 12
+  }
+ }
+}
