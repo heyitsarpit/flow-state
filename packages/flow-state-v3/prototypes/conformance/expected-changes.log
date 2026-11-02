@@ -157,3 +157,12 @@ file:drive.ts hash:21547fe27f8f | round 5: review H4, H7, H9, M4; see the lines 
 file:fixtures/compiled.ts hash:1ca86e066120 | round 5: review H4, H7, H9, M4; see the lines above
 file:fixtures/feed.compiled.ts hash:0e1f4242245c | round 5: review H4, H7, H9, M4; see the lines above
 file:scenarios/stream.scenario.ts hash:9690a3d81fe1 | round 5: review H4, H7, H9, M4; see the lines above
+# Round 5, streams and the mutants' first pass.
+REV5-H1 REV5-H3 REV5-H8 REV5-SESS | cases added | The first mutant pass showed `nothing stops` cannot see a gate that believes a closure; a new case says each kind refuses. Others from survivors | D65
+REV5-H1 hash:93f410dee0bb | round 5: cases added after the first mutant pass, streams' fake and fixtures; nothing relaxed
+REV5-H3 hash:d1d210fbc7c7 | round 5: cases added after the first mutant pass, streams' fake and fixtures; nothing relaxed
+REV5-H8 hash:c383092d8def | round 5: cases added after the first mutant pass, streams' fake and fixtures; nothing relaxed
+REV5-SESS hash:3d01efdd0cc9 | round 5: cases added after the first mutant pass, streams' fake and fixtures; nothing relaxed
+file:fake-world.ts hash:f1b3d94bd173 | round 5: cases added after the first mutant pass, streams' fake and fixtures; nothing relaxed
+file:scenarios/round5.scenario.ts hash:55c19719bcfc | round 5: cases added after the first mutant pass, streams' fake and fixtures; nothing relaxed
+file:fixtures/desk.compiled.ts hash:0ad942b6b5b3 | round 5: cases added after the first mutant pass, streams' fake and fixtures; nothing relaxed

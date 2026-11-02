@@ -1,4 +1,4 @@
-// Stream sessions: Form A (S5). Session state is in the slice, the connection handle in the driver. Built from Streams T1, T2, T3, T4,
+// Stream sessions, all three kinds: `every`, `latest` (T5), `listen` (T7, thin): Form A (S5). Session state is in the slice, the connection handle in the driver. Built from Streams T1, T2, T3, T4,
 // T9, rule 68-71, as the design names them. No file of the core imports this. D69: it reads the tree only through `cx.placed` and
 // `cx.slice`. D70: a releasing session has left `sessions`; the wait for it is a fact per (actor, slot), `closing`. D71: a session
 // pulls, one value per go-ahead. Prior art: S5's formA.ts (the table); desk feed.socket.ts, feed.machine.ts (the fixture's shape).
@@ -9,13 +9,14 @@ import type { PlacedActivity } from "./inc.ts";
 import type { ActorChange, Cx, Module, Told } from "./seam.ts";
 
 type Item = {
-  readonly kind: "value" | "missed" | "failure";
+  readonly kind: "value" | "missed" | "failure" | "settle" | "page";
   readonly v?: unknown;
   readonly why?: string;
   readonly at?: { readonly at: unknown }; // a Reset's place, moved at its notice's admission (T3 row 2)
   readonly moves: boolean;
 };
-type St = "Queued" | "Connecting" | "Live" | "Dropped" | "Waiting" | "Ended";
+type St = "Queued" | "Connecting" | "Live" | "Repairing" | "Dropped" | "Waiting" | "Ended";
+const FLOW_REASONS: ReadonlySet<string> = new Set(["Closed", "Overflow", "Silent"]); // always retried under `reconnect`
 type Session = {
   readonly id: string;
   readonly actor: string;
@@ -38,6 +39,26 @@ type Session = {
   readonly queue: readonly Item[];
   readonly inFlight?: { readonly tag: string; readonly item: Item };
   readonly tags: number;
+  readonly flaps: number;
+  readonly liveSince?: number;
+  // T1's Repairing variables.
+  readonly rid?: string;
+  readonly buf: readonly Item[];
+  readonly stalls: number;
+  readonly movedHere: boolean;
+  readonly greeted?: { readonly at: unknown };
+  readonly lastRead?: { readonly at: unknown };
+  readonly prevNext?: { readonly next: unknown };
+  readonly wantNext?: { readonly next: unknown };
+  readonly emptyRun: number;
+  readonly from?: { readonly at: unknown };
+  readonly pageN: number;
+  // T5.
+  readonly last?: { readonly v: unknown; readonly at: number; readonly own: boolean };
+  readonly confirmed: boolean;
+  readonly heard?: string;
+  // T7: "`from` is the session's own last position".
+  readonly listenAt?: unknown;
 };
 type Mark = { readonly at: unknown; readonly filled: boolean }; // the bookmark
 type Pending = {
@@ -103,7 +124,13 @@ const closeConn = (s: SessionsSlice, x: Session, cx: Cx): SessionsSlice => {
   };
 };
 const mapperOf = (spec: StreamSpec, it: Item) =>
-  it.kind === "value" ? spec.value : it.kind === "missed" ? spec.missed : failureMap(spec, it);
+  it.kind === "value"
+    ? spec.value
+    : it.kind === "missed"
+      ? spec.missed
+      : it.kind === "page"
+        ? spec.pages!
+        : failureMap(spec, it);
 const failureMap = (spec: StreamSpec, it: Item) =>
   (it.why !== undefined && spec.failureBy?.[it.why]) || spec.failure;
 
@@ -111,7 +138,18 @@ const failureMap = (spec: StreamSpec, it: Item) =>
 const pump = (s: SessionsSlice, x0: Session, spec: StreamSpec, cx: Cx): SessionsSlice => {
   if (x0.inFlight) return put(s, x0);
   const [item, ...queue] = x0.queue;
+  if (item?.kind === "settle") {
+    // T4: apply and continue. T3: creates the entry if none.
+    const b = markOf(cx, x0);
+    if (item.at?.at !== undefined || !b)
+      writeMark(cx, x0, { at: item.at?.at ?? b?.at, filled: b?.filled ?? !emptyFor(spec, cx, x0) });
+    return pump(s, { ...x0, queue }, spec, cx);
+  }
   if (!item) {
+    if (x0.st === "Repairing" && x0.wantNext) {
+      const { wantNext, ...rest } = x0;
+      return requestPage(s, rest, wantNext.next, spec, cx); // T1: the next page only when no page item is queued
+    }
     if (x0.waitingForPull && (x0.st === "Live" || x0.st === "Dropped")) {
       cx.command({ k: "pull", conn: x0.conn });
       if (x0.st === "Live") armIdle(cx, x0, spec); // T1: armed only while a pull is outstanding
@@ -169,12 +207,15 @@ const end = (
   v?: unknown,
 ): SessionsSlice => {
   disarmAll(cx, x);
+  abandon(x, cx);
+  if (spec.listen) gap(x, cx);
   const closed = x.st === "Waiting" || x.st === "Queued" ? s : closeConn(s, x, cx);
   return pump(
     closed,
     {
-      ...x,
+      ...withoutRead(x),
       st: "Ended",
+      confirmed: false,
       queue: [...x.queue, { kind: "failure", why, v, moves: false }],
     },
     spec,
@@ -183,8 +224,149 @@ const end = (
 };
 
 // ── T1's procedures.
+const abandon = (x: Session, cx: Cx) => {
+  if (x.rid) cx.command({ k: "abandon", rid: x.rid });
+  cx.disarm(`page/${x.id}`);
+};
+const withoutRead = (x: Session): Session => {
+  const { rid: _r, lastRead: _l, prevNext: _p, wantNext: _w, greeted: _g, from: _f, ...rest } = x;
+  return { ...rest, buf: [], emptyRun: 0, pageN: 0, movedHere: false };
+};
+const gap = (x: Session, cx: Cx) =>
+  cx.tell("entities", { k: "gap", machine: x.machine, op: x.op });
+const requestPage = (
+  s: SessionsSlice,
+  x: Session,
+  next: unknown,
+  _spec: StreamSpec,
+  cx: Cx,
+): SessionsSlice => {
+  const rid = cx.gen();
+  cx.command({
+    k: "read",
+    rid,
+    machine: x.machine,
+    op: x.op,
+    input: x.input,
+    from: x.from?.at,
+    next,
+  });
+  return put(s, { ...x, rid, prevNext: { next } });
+};
+const repairFrom = (
+  s: SessionsSlice,
+  x0: Session,
+  from: unknown,
+  spec: StreamSpec,
+  cx: Cx,
+): SessionsSlice => {
+  const greeted = x0.greeted;
+  abandon(x0, cx);
+  const x: Session = {
+    ...withoutRead(x0),
+    st: "Repairing",
+    from: { at: from },
+    ...(greeted ? { greeted } : {}),
+  };
+  return requestPage(s, x, undefined, spec, cx);
+};
+// T1 `complete`: `settle(through ?? lastRead ?? greeted)`, then what the socket said meanwhile, moving.
+const complete = (
+  s: SessionsSlice,
+  x: Session,
+  through: unknown,
+  spec: StreamSpec,
+  cx: Cx,
+): SessionsSlice => {
+  const at = through ?? x.lastRead?.at ?? x.greeted?.at;
+  const buf = x.buf;
+  const y: Session = {
+    ...withoutRead(x),
+    st: "Live",
+    stalls: 0,
+    waitingForPull: true,
+    queue: [...x.queue, { kind: "settle", at: { at }, moves: false }, ...buf],
+  };
+  return pump(s, y, spec, cx);
+};
+const pageItems = (spec: StreamSpec, items: readonly unknown[]): Item[] =>
+  items.length === 0
+    ? []
+    : spec.pages
+      ? [{ kind: "page", v: items, moves: false }]
+      : items.map((v) => ({ kind: "value" as const, v, moves: false }));
+const lastOf = (x: Session, spec: StreamSpec, items: readonly unknown[]) => {
+  const at = spec.position ? (items.at(-1) as any)?.[spec.position] : undefined;
+  return at === undefined ? x.lastRead : { at };
+};
+const onPage = (
+  s: SessionsSlice,
+  p: { rid: string; exit: { t: string; value?: any; reason?: any } },
+  cx: Cx,
+): SessionsSlice => {
+  const x = Object.values(s.sessions).find((y) => y.rid === p.rid);
+  if (!x || x.st !== "Repairing") {
+    cx.note("fence", { page: p.rid });
+    return s;
+  }
+  const spec = specOf(cx, x.machine, x.op);
+  if (p.exit.t !== "ok") {
+    if (p.exit.t === "failure" && spec.pageRetryWhile?.(p.exit.reason)) {
+      cx.arm(`page/${x.id}`, cx.now + spec.backoff(x.pageN)); // the socket stays open
+      return put(s, { ...x, pageN: x.pageN + 1 });
+    }
+    return end(s, x, spec, cx, p.exit.reason?._tag ?? "Defect", p.exit.reason);
+  }
+  const a = p.exit.value;
+  const items: readonly unknown[] = Array.isArray(a?.items) ? a.items : [];
+  // T1: a position fails to decode: Defect. An answer of no shape is the same.
+  if (!["more", "done", "gone"].includes(a?._feed) || bad(a.through) || bad(a.next))
+    return end(s, x, spec, cx, "Defect");
+  const lastRead = lastOf(x, spec, items);
+  let y: Session = { ...x, ...(lastRead ? { lastRead } : {}), pageN: 0 };
+  if (a._feed === "gone") y = notice({ ...y, noted: false }, "Lost");
+  y = { ...y, queue: [...y.queue, ...pageItems(spec, items)] };
+  if (a.through !== undefined && a._feed !== "done")
+    y = {
+      ...y,
+      movedHere: true,
+      stalls: 0,
+      queue: [...y.queue, { kind: "settle", at: { at: a.through }, moves: false }],
+    };
+  if (a._feed === "done") {
+    cx.note("Proof", { op: x.op, proof: a.proof });
+    return complete(s, y, a.through, spec, cx);
+  }
+  if (a.next === undefined) return complete(s, y, a.through, spec, cx);
+  const repeated = x.prevNext !== undefined && text(x.prevNext.next) === text(a.next);
+  const emptyRun = items.length === 0 ? y.emptyRun + 1 : 0;
+  if (repeated || emptyRun >= 2) return end(s, y, spec, cx, "PageStalled");
+  return pump(s, { ...y, emptyRun, wantNext: { next: a.next } }, spec, cx);
+};
+// T5: `value` is the last value iff Live and confirmed. Newest wins: what is in mail and no longer current is taken back.
+const reconcile = (s: SessionsSlice, x0: Session, spec: StreamSpec, cx: Cx): SessionsSlice => {
+  let x = x0;
+  const current = x.st === "Live" && x.confirmed && x.last !== undefined;
+  const t = current ? text(x.last!.v) : undefined;
+  if (x.inFlight && x.inFlight.item.kind === "value" && (!current || text(x.inFlight.item.v) !== t)) {
+    cx.retract(x.inFlight.tag);
+    cx.note("discarded", { op: x.op, item: "value", why: "NotLive" });
+    x = (({ inFlight: _i, ...r }) => r)(x);
+  }
+  if (current && t !== x.heard && !x.inFlight)
+    x = { ...x, queue: [{ kind: "value", v: x.last!.v, moves: false }] };
+  else if (x.inFlight === undefined) x = { ...x, queue: x.queue.filter((q) => q.kind !== "value") };
+  return pump(s, x, spec, cx);
+};
 const connect = (s: SessionsSlice, x0: Session, spec: StreamSpec, cx: Cx): SessionsSlice => {
   let x: Session = { ...x0, wiped: false, noted: false, connected: true, waitingForPull: false };
+  if (spec.listen || spec.delivers === "latest") {
+    const conn = cx.gen();
+    const from = spec.listen ? x.listenAt : undefined;
+    cx.command({ k: "open", conn, machine: x.machine, op: x.op, input: x.input, from });
+    armIdle(cx, x, spec);
+    return put(s, { ...x, conn, st: "Connecting", regInConn: false });
+  }
   let b = markOf(cx, x);
   if (b?.filled && emptyFor(spec, cx, x)) {
     x = { ...x, wiped: true };
@@ -205,25 +387,54 @@ const register = (
   cx: Cx,
 ): SessionsSlice => {
   const first = !x0.regInConn;
-  let x: Session = { ...x0, regInConn: true, owed: false, noted: false, st: "Live" };
+  let x: Session = {
+    ...x0,
+    regInConn: true,
+    owed: false,
+    noted: false,
+    st: "Live",
+    liveSince: cx.now,
+  };
   cx.arm(`healthy/${x.id}`, cx.now + spec.healthyMs);
   armIdle(cx, x, spec);
+  if (spec.listen) {
+    if (!sig.proof) gap(x, cx); // T7: an unproven registration, the first included
+    return put(s, x);
+  }
+  if (spec.delivers === "latest") {
+    x = { ...x, confirmed: sig.proof !== undefined && x.last?.own === true };
+    return reconcile(s, x, spec, cx);
+  }
   const b = markOf(cx, x);
   const E = emptyFor(spec, cx, x);
+  const C = spec.catchUp !== undefined;
+  const greet = (y: Session): Session =>
+    sig.head === undefined ? y : { ...y, greeted: { at: sig.head } };
   if (sig.restartAt !== undefined) {
     if (!b && E) writeMark(cx, x, { at: sig.restartAt, filled: false }); // row 1
     else x = notice(x, "Reset", { at: sig.restartAt }); // row 2: at missed Reset's admission
-    return put(s, x);
+    return C ? repairFrom(s, x, sig.restartAt, spec, cx) : put(s, x);
   }
   if (!b && E) {
+    if (C) return repairFrom(s, greet(x), undefined, spec, cx); // row 3: the record is made at `complete`
     writeMark(cx, x, { at: sig.head, filled: false }); // row 3: first open
     return put(s, x);
   }
   if (sig.proof && (x.claim !== undefined || !first)) return put(s, x); // row 4
-  if (x.wiped && first) return put(s, notice(x, "Unproven")); // row 5
-  if (b && b.at !== undefined) return put(s, notice(x, "Unproven")); // row 6
+  if (sig.proof) cx.note("ProofWithoutPosition", { op: x.op });
+  if (x.wiped && first)
+    return C ? repairFrom(s, greet(x), undefined, spec, cx) : put(s, notice(x, "Unproven")); // row 5
+  if (b && b.at !== undefined) {
+    // row 6. S5's finding, read as 2.11.10 says: with `C`, no notice unless three repairs in a row made no move.
+    if (x.stalls >= 3) {
+      x = notice(x, "Lost");
+      return put(s, { ...x, stalls: 0 });
+    }
+    return C ? repairFrom(s, x, b.at, spec, cx) : put(s, notice(x, "Unproven"));
+  }
   if (!b) writeMark(cx, x, { at: sig.head, filled: !E }); // row 7
-  return put(s, notice(x, "Unproven"));
+  x = notice(x, "Unproven");
+  return C ? repairFrom(s, greet(x), undefined, spec, cx) : put(s, x);
 };
 const lose = (
   s: SessionsSlice,
@@ -236,22 +447,37 @@ const lose = (
 ): SessionsSlice => {
   cx.disarm(`idle/${x.id}`);
   cx.disarm(`healthy/${x.id}`);
-  const retried = spec.reconnect && (e === undefined || !spec.reconnectWhile || spec.reconnectWhile(e));
-  if (!retried) {
+  abandon(x, cx);
+  const retried =
+    spec.reconnect && (FLOW_REASONS.has(why) || !spec.reconnectWhile || spec.reconnectWhile(e));
+  const flaps =
+    why !== "Silent" && x.liveSince !== undefined && cx.now - x.liveSince < spec.healthyMs
+      ? x.flaps + 1
+      : x.flaps;
+  const stalls = x.st === "Repairing" && why === "Overflow" && !x.movedHere ? x.stalls + 1 : x.stalls;
+  if (!retried || flaps >= 8) {
     const y: Session = closedAlready ? { ...x, st: "Waiting" } : x;
-    return end(s, y, spec, cx, why, e);
+    return end(s, y, spec, cx, retried ? "Flapping" : why, e);
   }
+  if (spec.listen) gap(x, cx);
   cx.arm(`backoff/${x.id}`, cx.now + spec.backoff(x.n));
   const out = closedAlready ? s : closeConn(s, x, cx);
   // T1: this connection's frames are discarded. Notices stay: one interruption, one answer.
-  return put(out, {
-    ...x,
+  const { liveSince: _l, ...rest } = withoutRead(x);
+  const last = x.last && x.confirmed ? { last: { ...x.last, at: cx.now } } : {};
+  const y: Session = {
+    ...rest,
+    ...last,
     st: "Waiting",
     n: x.n + 1,
+    flaps,
+    stalls,
+    confirmed: false,
     regInConn: false,
     waitingForPull: false,
-    queue: x.queue.filter((q) => !q.moves),
-  });
+    queue: x.queue.filter((q) => !q.moves && q.kind !== "settle"),
+  };
+  return spec.delivers === "latest" ? reconcile(out, y, spec, cx) : put(out, y);
 };
 // Rule 70: undelivered items are discarded with evidence. D70: it leaves the table now; whoever comes next waits on `closing`.
 const release = (s: SessionsSlice, x: Session, cx: Cx): SessionsSlice => {
@@ -259,6 +485,8 @@ const release = (s: SessionsSlice, x: Session, cx: Cx): SessionsSlice => {
   for (const q of [...x.queue, ...(x.inFlight ? [x.inFlight.item] : [])])
     cx.note("discarded", { op: x.op, item: q.kind });
   disarmAll(cx, x);
+  abandon(x, cx);
+  if (cx.machine(x.machine).streams?.[x.op]?.listen) gap(x, cx); // T7: a release is a gap
   const out = drop(s, x.id);
   return x.st === "Waiting" || x.st === "Queued" || x.st === "Ended" ? out : closeConn(out, x, cx);
 };
@@ -271,11 +499,24 @@ const woken = (s: SessionsSlice, gone: Closing, cx: Cx): SessionsSlice => {
   return next ? connect(s, next, specOf(cx, next.machine, next.op), cx) : s;
 };
 // T1's member cells: what is queued or in mail stops moving; Live and Dropped owe a notice, at the head.
-const afterMember = (s: SessionsSlice, a: string, inc: string, slot: string): SessionsSlice => {
+const afterMember = (
+  s: SessionsSlice,
+  a: string,
+  inc: string,
+  slot: string,
+  at: unknown,
+  cx: Cx,
+): SessionsSlice => {
   let out = s;
   for (const x of Object.values(s.sessions)) {
     if (x.actor !== a || x.inc !== inc || x.slot !== slot) continue;
-    const queue = x.queue.map((q) => ({ ...q, moves: false }));
+    const queue = x.queue.filter((q) => q.kind !== "settle").map((q) => ({ ...q, moves: false }));
+    const spec = specOf(cx, x.machine, x.op);
+    // T1: with `catchUp` it reads, from there, and owes no notice.
+    if (spec.catchUp && (x.st === "Live" || x.st === "Repairing" || x.st === "Dropped")) {
+      out = repairFrom(out, { ...x, queue, st: "Live" }, at, spec, cx);
+      continue;
+    }
     const owed = x.st === "Live" || x.st === "Dropped";
     out = put(out, {
       ...x,
@@ -311,6 +552,13 @@ const fresh = (a: ActorChange, p: PlacedActivity, input: unknown, spec: StreamSp
   waitingForPull: false,
   queue: [],
   tags: 0,
+  flaps: 0,
+  buf: [],
+  stalls: 0,
+  movedHere: false,
+  emptyRun: 0,
+  pageN: 0,
+  confirmed: false,
 });
 const onActors = (s0: SessionsSlice, changed: readonly ActorChange[], cx: Cx): SessionsSlice => {
   let s = s0;
@@ -333,7 +581,7 @@ const onActors = (s0: SessionsSlice, changed: readonly ActorChange[], cx: Cx): S
       const spec = specOf(cx, a.machine, p.slot.slice(0, p.slot.indexOf("|")));
       const E = fieldEmpty(spec, cx.slice(a.key, p.inc)?.memory);
       writeMark(cx, { actor: a.key, inc: p.inc, slot: p.slot }, p.name === "bookmark" ? { at: p.at, filled: !E } : { at: undefined, filled: false });
-      s = afterMember(s, a.key, p.inc, p.slot);
+      s = afterMember(s, a.key, p.inc, p.slot, p.name === "bookmark" ? p.at : undefined, cx);
     }
     // T3: a releasing turn may raise `filled`, never lower it. Then it goes.
     for (const x of Object.values(s.sessions)) {
@@ -380,6 +628,8 @@ const onTurned = (s: SessionsSlice, t: Extract<Told, { k: "turned" }>, cx: Cx): 
   const spec = specOf(cx, x.machine, x.op);
   const next: Session = (({ inFlight: _i, ...r }) => r)(x);
   const it = x.inFlight!.item;
+  if (it.kind === "value" && spec.delivers === "latest" && t.outcome === "ran")
+    return reconcile(s, { ...next, heard: text(it.v) ?? "" }, spec, cx);
   if (t.outcome === "invalid") {
     if (it.kind === "failure") return pump(s, next, spec, cx); // D50 has redelivered it
     return end(s, { ...next, queue: [] }, spec, cx, "Defect");
@@ -417,7 +667,7 @@ const onFrame = (
 ): SessionsSlice => {
   const x = Object.values(s.sessions).find((y) => y.conn === p.conn);
   if (!x || x.st === "Ended" || x.st === "Waiting" || x.st === "Queued") {
-    cx.note("fence", { conn: p.conn });
+    cx.note("fence", { conn: p.conn }); // and a value's go-ahead never comes; the fiber is being closed
     return s;
   }
   const spec = specOf(cx, x.machine, x.op);
@@ -434,12 +684,56 @@ const onFrame = (
     }
     if (f._feed === "down") {
       cx.disarm(`idle/${x.id}`);
-      return put(s, { ...x, st: "Dropped", owed: false });
+      abandon(x, cx);
+      const { liveSince: _l, ...rest } = withoutRead(x);
+      const y: Session = { ...rest, st: "Dropped", owed: false, confirmed: false };
+      return spec.delivers === "latest" ? reconcile(s, y, spec, cx) : put(s, y);
     }
     // T1: a position fails to decode at intake: Defect, so one bad frame cannot stop saving.
     if (bad(f.head) || bad(f.restartAt)) return end(s, x, spec, cx, "Defect");
-    const r = register(s, x, f, spec, cx);
-    return pump(r, r.sessions[x.id]!, spec, cx);
+    if (x.st === "Repairing" && f.restartAt === undefined) {
+      if (f.proof) {
+        cx.note("ProofWhileRepairing", { op: x.op }); // T1: evidence; stay
+        return s;
+      }
+      cx.note("RegistrationChurn", { op: x.op }); // T1: restart from b.at; no second notice
+      armIdle(cx, x, spec);
+      return repairFrom(s, x, markOf(cx, x)?.at, spec, cx);
+    }
+    if (x.st === "Repairing") abandon(x, cx);
+    const r = register(s, x.st === "Repairing" ? withoutRead(x) : x, f, spec, cx);
+    const nowX = r.sessions[x.id]!;
+    return nowX.st === "Repairing" ? r : pump(r, nowX, spec, cx);
+  }
+  // T7: a change, in order, in a store publication, never through a turn. `from` is the session's own last position.
+  if (spec.listen) {
+    const y0 = x.st === "Connecting" ? register(s, x, { _feed: "live" }, spec, cx).sessions[x.id]! : x;
+    cx.tell("entities", { k: "pushed", machine: x.machine, op: x.op, value: f });
+    const at = spec.position ? (f as any)?.[spec.position] : undefined;
+    armIdle(cx, y0, spec);
+    cx.command({ k: "pull", conn: y0.conn });
+    return put(s, at === undefined ? y0 : { ...y0, listenAt: at });
+  }
+  // T5.
+  if (spec.delivers === "latest") {
+    const y0 = x.st === "Connecting" ? { ...x, st: "Live" as const, regInConn: true, liveSince: cx.now } : x;
+    armIdle(cx, y0, spec);
+    cx.command({ k: "pull", conn: y0.conn });
+    const live = y0.st === "Live";
+    const y: Session = {
+      ...y0,
+      last: { v: f, at: cx.now, own: live },
+      confirmed: live,
+    };
+    return reconcile(s, y, spec, cx);
+  }
+  if (x.st === "Repairing") {
+    armIdle(cx, x, spec);
+    const buf = [...x.buf, { kind: "value" as const, v: f, moves: true }];
+    // T4: at the bound it stops pulling: a pulled source waits, a pushed one fills its own queue.
+    if (buf.length >= (spec.callbackBound ?? 1024)) return put(s, { ...x, buf, waitingForPull: true });
+    cx.command({ k: "pull", conn: x.conn });
+    return put(s, { ...x, buf });
   }
   // A value. Connecting: `register(live())`, then this row in the new state.
   let cur = s;
@@ -505,8 +799,12 @@ export const sessions: Module<SessionsSlice> = {
     }
   },
   input(s, payload, cx) {
-    const p = payload as DriverFrame | { k: "timer"; key: string };
+    const p = payload as
+      | DriverFrame
+      | { k: "page"; rid: string; exit: { t: string } }
+      | { k: "timer"; key: string };
     if (p.k === "frame") return onFrame(s, p, cx);
+    if (p.k === "page") return onPage(s, p, cx);
     if (p.k === "closed") return onClosed(s, p, cx);
     // Its own timers. The kind is this module's name, never a user's value.
     const kind = p.key.slice(0, p.key.indexOf("/"));
@@ -522,7 +820,8 @@ export const sessions: Module<SessionsSlice> = {
     if (!x) return s;
     const spec = specOf(cx, x.machine, x.op);
     if (kind === "idle") return lose(s, x, spec, cx, "Silent", false);
-    if (kind === "healthy") return put(s, { ...x, n: 0 });
+    if (kind === "healthy") return put(s, { ...x, n: 0, flaps: 0 });
+    if (kind === "page") return requestPage(s, x, x.prevNext?.next, spec, cx);
     if (kind === "backoff") {
       if (busy(s, x.actor, x.slot)) return put(s, { ...x, st: "Queued" });
       return connect(s, x, spec, cx);
@@ -532,8 +831,18 @@ export const sessions: Module<SessionsSlice> = {
   read(s, ref) {
     const x = Object.values(s.sessions).find((y) => `${y.actor}|${y.op}` === ref);
     if (!x) return undefined;
-    const c = x.st === "Live" ? "Live" : x.st === "Ended" ? "Ended" : "Connecting";
-    return { connection: c, st: x.st, queued: x.queue.length, inFlight: x.inFlight !== undefined };
+    const c =
+      x.st === "Live" || x.st === "Repairing" ? "Live" : x.st === "Ended" ? "Ended" : "Connecting";
+    return {
+      connection: c,
+      st: x.st,
+      queued: x.queue.length,
+      inFlight: x.inFlight !== undefined,
+      catchingUp: x.st === "Repairing",
+      buffered: x.buf.length,
+      value: x.st === "Live" && x.confirmed ? x.last?.v : undefined,
+      ...(x.last ? { last: { value: x.last.v, at: x.last.at } } : {}),
+    };
   },
   dispose(s, cx) {
     for (const x of Object.values(s.sessions)) if (x.conn) cx.command({ k: "close", conn: x.conn });
@@ -541,7 +850,9 @@ export const sessions: Module<SessionsSlice> = {
   },
   exec(cmd, io) {
     const c = cmd as {
-      k: "open" | "close" | "pull";
+      k: "open" | "close" | "pull" | "read" | "abandon";
+      rid: string;
+      next: unknown;
       conn: string;
       machine: string;
       op: string;
@@ -550,6 +861,12 @@ export const sessions: Module<SessionsSlice> = {
     };
     if (c.k === "close") return io.stop(c.conn);
     if (c.k === "pull") return io.open(c.conn);
+    if (c.k === "abandon") return io.stop(`read:${c.rid}`);
+    if (c.k === "read") {
+      const sp = io.machine(c.machine).streams![c.op]!;
+      const eff = sp.catchUp!(c.input, { from: c.from, next: c.next }) as Effect.Effect<unknown, unknown>;
+      return io.fork(`read:${c.rid}`, eff, (exit) => io.input({ k: "page", rid: c.rid, exit }));
+    }
     const spec = io.machine(c.machine).streams![c.op]!;
     const stream = spec.subscribe(c.input, { from: c.from }) as Stream.Stream<unknown, unknown>;
     // D71: a signal flows; a value waits for its go-ahead, so a pulled source waits with it.

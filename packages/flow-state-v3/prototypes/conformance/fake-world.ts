@@ -34,7 +34,7 @@ export type Api = {
   intent(i: unknown): E;
   orderFor(i: unknown): E;
   socket(op: string, input: unknown, from: unknown): unknown; // Stream of what the server pushes, until a `feed` step ends it
-  pulled(op: string, input: unknown, from: unknown): unknown; // Stream that hands over one backlog item per pull (T4)
+  pulled(op: string, input: unknown, from: unknown, bound?: number): unknown; // hands over one backlog item per pull (T4). `bound`: T6's queue, full fails Overflow
 };
 type Conn = {
   op: string;
@@ -45,6 +45,9 @@ type Conn = {
   closing?: boolean; // we asked; a real close is a handshake and awaited finalizers
   pulled: number; // items a pulled source has handed over: T4's "at turn pace" is seen here
   backlog: unknown[]; // a pulled source's items, waiting at the server
+  bound?: number;
+  ended?: boolean;
+  failing?: { e: unknown };
   wake?: (() => void) | undefined;
   push?: (f: unknown) => void;
   end?: () => void;
@@ -265,18 +268,39 @@ export class FakeWorld {
       );
     },
     // A pulled source: nothing moves until the consumer asks. `backlog` is what the server has.
-    pulled: (op, input, from) => {
+    pulled: (op, input, from, bound) => {
       const c = this.newConn(op, input, from);
-      const next = Effect.callback<unknown>((resume) => {
+      if (bound !== undefined) c.bound = bound;
+      const END = {};
+      c.end = () => {
+        c.ended = true;
+        c.wake?.();
+      };
+      c.fail = (e) => {
+        c.failing = { e };
+        c.wake?.();
+      };
+      const next = Effect.callback<unknown, unknown>((resume) => {
         const give = () => {
           c.wake = undefined;
-          c.pulled++;
-          resume(Effect.succeed(c.backlog.shift()));
+          if (c.backlog.length > 0) {
+            c.pulled++;
+            resume(Effect.succeed(c.backlog.shift()));
+          } else if (c.failing) {
+            c.open = false;
+            resume(Effect.fail(c.failing.e));
+          } else if (c.ended) {
+            c.open = false;
+            resume(Effect.succeed(END));
+          }
         };
-        if (c.backlog.length > 0) give();
+        if (c.backlog.length > 0 || c.failing || c.ended) give();
         else c.wake = give;
       });
-      return Stream.fromEffectRepeat(next).pipe(Stream.ensuring(this.closeConn(c)));
+      return Stream.fromEffectRepeat(next).pipe(
+        Stream.takeWhile((x) => x !== END),
+        Stream.ensuring(Effect.suspend(() => this.closeConn(c))),
+      );
     },
   };
   readonly conns: Conn[] = [];
@@ -323,18 +347,24 @@ export class FakeWorld {
     );
     if (!c) throw new NoHeldRequest(`feed: no open connection for ${op}`);
     if (s.end) {
-      c.open = false;
+      if (c.push) c.open = false;
       c.end?.();
     } else if (s.fail !== undefined) {
-      c.open = false;
+      if (c.push) c.open = false;
       c.fail?.(s.fail);
     } else {
       const items = s.frames ?? [s.frame];
       if (c.push) for (const f of items) c.push(f);
-      else {
-        c.backlog.push(...items);
-        c.wake?.();
-      }
+      else
+        for (const f of items) {
+          if (c.bound !== undefined && c.backlog.length >= c.bound) {
+            c.failing ??= { e: { _tag: "Overflow" } }; // T6: full: `failing Overflow`; the value is dropped. Drain, then fail
+            c.wake?.();
+            continue;
+          }
+          c.backlog.push(f);
+          c.wake?.();
+        }
     }
   }
   private call(op: string, input: unknown, key?: string): E {

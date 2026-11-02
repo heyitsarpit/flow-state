@@ -1,5 +1,6 @@
-// Builder-written, to find gaps only. Not an independent number (owner's instruction). Each breaks one line of round 4's new code.
-export const MUTANTS = [
+// Builder-written, to find gaps only. Not an independent number (owner's instruction). Each breaks one line .
+import { REPLACED, ROUND5 } from "./mutants-r5.ts";
+const OLD = [
   {
     id: "d58-pos-no-tick",
     kills: ["D58"],
@@ -342,3 +343,4 @@ export const MUTANTS = [
     ],
   },
 ] as const;
+export const MUTANTS = [...OLD.filter((x) => !REPLACED.includes(x.id)), ...ROUND5];

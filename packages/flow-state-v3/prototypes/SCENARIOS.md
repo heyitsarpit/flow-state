@@ -333,6 +333,11 @@ Convergence-5. Fixtures: `desk.compiled.ts`, copied from the desk's domains (`pr
 | REV5-H4 | 5 | example | table | D68 |  | review H4: a stream and a read on one machine |
 | REV5-SESS | 5 | example | table | rule:69, rule:70, rule:68, T1, T2:4, T3:bookmark, T3:filled, T9, D70 |  | review H7, H9, M3-M7: spike cases that can fail, with a slow close |
 | REV5-S | 5 | example | table | rule:51, rule:15, D26, D50 |  | review's core survivors |
+| STREAM5-PULL | 5 | example | table | D71, T4:every, rule:69 |  | a pulled source waits for the turn |
+| STREAM5-REPAIR | 5 | example | table | T1:Repairing, T2:3, T2:6, T3:settle, T4:every, rule:71 |  | catchUp, Repairing, pages, stalls |
+| STREAM5-LOSE | 5 | example | table | T1:Live.fail, T6, sec:2.11.10, T9 | * | Flapping, tags, Overflow, `when`. _Thin: T6's signal groups are not built_ |
+| STREAM5-LISTEN | 5 | example | table | D67, T7, rule:72, sec:2.8.14 | * | frames on the version answer. _Thin: no cache; a gap reruns the read's commit; `current(r)` not published_ |
+| STREAM5-LATEST | 5 | example | table | T5, T4:latest, rule:67 |  | `latest` |
 
 ## Round 5: streams
 

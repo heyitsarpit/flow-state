@@ -9,7 +9,8 @@ import type { RuntimeModule } from "../harness.ts";
 import { searchCross } from "./cross.search.ts";
 import { searchFrag } from "./frag.search.ts";
 import { searchFragStore } from "./fragstore.search.ts";
-import { searchSession } from "./session.search.ts";
+import { searchListen } from "./listen.search.ts";
+import { searchRepairing, searchSession } from "./session.search.ts";
 import { searchLike } from "./like.search.ts";
 import { searchOdd } from "./odd.search.ts";
 import { searchPay } from "./pay.search.ts";
@@ -52,6 +53,10 @@ const r =
             ? searchOdd(make, o)
             : which === "session"
               ? searchSession(make, o)
+              : which.startsWith("listen.")
+                ? searchListen(make, which.split(".")[1] as never, o)
+              : which === "repairing"
+                ? searchRepairing(make, o)
               : which.startsWith("fragstore.")
                 ? searchFragStore(make, which.split(".")[1] as never, o)
             : searchLike(make, [s1Fixture], o);

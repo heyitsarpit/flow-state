@@ -8,6 +8,7 @@ import type { Harness, RuntimeModule } from "./harness.ts";
 import { catalog, printReports } from "./report.ts";
 import { checkClaims, checkEndings, checkMints, Ctx, Mismatch, type Scenario } from "./scenarios/ctx.ts";
 import { round5Scenarios } from "./scenarios/round5.scenario.ts";
+import { streams5Scenarios } from "./scenarios/streams5.scenario.ts";
 import { flowScenarios } from "./scenarios/flows.scenario.ts";
 import { fragScenarios } from "./scenarios/frag.scenario.ts";
 import { reviewScenarios } from "./scenarios/review.scenario.ts";
@@ -28,6 +29,7 @@ export const allScenarios: readonly Scenario[] = [
   ...round4Scenarios,
   ...streamScenarios,
   ...round5Scenarios,
+  ...streams5Scenarios,
 ];
 
 const here = import.meta.dir;
@@ -72,8 +74,10 @@ const SHARED = [
   "fixtures/feed.compiled.ts",
   "scenarios/stream.scenario.ts",
   "scenarios/round5.scenario.ts",
+  "scenarios/streams5.scenario.ts",
   "fixtures/desk.compiled.ts",
   "fixtures/oddall.compiled.ts",
+  "fixtures/chat.compiled.ts",
 ];
 const lockLines = (): string[] => [
   ...allScenarios.map((s) => `${s.id} ${sha(bodyOf(s))}`),

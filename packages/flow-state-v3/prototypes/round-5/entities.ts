@@ -9,7 +9,7 @@
 // codebases/tanstack-query/packages/query-core/src/mutationObserver.ts's cancelQueries convention, here a position compare.
 import type { Carried, Compiled, Predicted, Slot } from "../conformance/fixtures/compiled.ts";
 import type { Claim, Cx, Ended, Module, ReadAnswer, Told } from "./seam.ts";
-import { own, same } from "./gate.ts";
+import { own, same, text } from "./gate.ts";
 import type { Ending } from "./world.ts";
 
 type Entry = {
@@ -44,10 +44,18 @@ export type Slice = {
   readonly records: Readonly<Record<string, Rec>>;
   readonly entries: Readonly<Record<string, Entry>>;
   readonly repairs: Readonly<Record<string, Repair>>;
+  // T7, thin: answers landed, so a gap can re-read what was read before it. No cache here: it reruns the read's own commit.
+  readonly answers: Readonly<Record<string, Answered>>;
+};
+type Answered = {
+  readonly machine: string;
+  readonly op: string;
+  readonly input: unknown;
+  readonly start: number;
 };
 const NONE: Rec = { unconfirmed: [], marks: [], queue: [], changedAt: 0 };
 // D65: `ref` comes from a closure: "constructor" is a name like any other.
-const empty: Slice = { records: {}, entries: {}, repairs: {} };
+const empty: Slice = { records: {}, entries: {}, repairs: {}, answers: {} };
 const recOf = (s: Slice, ref: string): Rec => own(s.records, ref) ?? NONE;
 const withRec = (s: Slice, ref: string, f: (r: Rec) => Rec): Slice => ({
   ...s,
@@ -397,9 +405,29 @@ const onAnswered = (s: Slice, a: ReadAnswer, cx: Cx): Slice => {
   const raw = cx.user(asSlot(a.machine, `domain.${a.op}.read`, fn), [a.value, a.input], () => []);
   const carried = carriedOf(raw, cx, `domain.${a.op}.read`);
   cx.visible();
-  let out = s;
+  let out: Slice = {
+    ...s,
+    answers: {
+      ...s.answers,
+      [`${a.machine}|${a.op}|${text(a.input)}`]: {
+        machine: a.machine,
+        op: a.op,
+        input: a.input,
+        start: a.pos,
+      },
+    },
+  };
   for (const c of carried) out = admit(out, evidenceOf("read", c, a.pos, a.machine, cx), a.machine, cx).s;
   return out;
+};
+type Reread = {
+  readonly k: "reread";
+  readonly machine: string;
+  readonly op: string;
+  readonly input: unknown;
+  readonly pos: number;
+  readonly ok: boolean;
+  readonly value?: unknown;
 };
 type RepairAnswer = {
   readonly k: "repair";
@@ -469,6 +497,15 @@ const onPushed = (s: Slice, p: PushedFrame, cx: Cx): Slice => {
     out = admit(out, ev, p.machine, cx).s;
   }
   return out;
+};
+// T7: a gap starts a refetch of each answer read earlier. One at a time per answer: its generation fences a slow one.
+const onGap = (s: Slice, g: { machine: string }, cx: Cx): Slice => {
+  const at = cx.pos();
+  for (const a of Object.values(s.answers)) {
+    if (a.machine !== g.machine || a.start > at) continue;
+    cx.command({ k: "reread", gen: cx.gen(), machine: a.machine, op: a.op, input: a.input, pos: cx.pos() });
+  }
+  return s;
 };
 export type PushedFrame = {
   readonly k: "pushed";
@@ -563,11 +600,17 @@ export const entities: Module<Slice> = {
     if (fact.k === "answered") return onAnswered(s, fact, cx);
     if (fact.k === "module" && (fact.payload as PushedFrame)?.k === "pushed")
       return onPushed(s, fact.payload as PushedFrame, cx);
+    if (fact.k === "module" && (fact.payload as { k?: string })?.k === "gap")
+      return onGap(s, fact.payload as { machine: string }, cx);
     return s;
   },
   input(s, payload, cx) {
-    const p = payload as RepairAnswer | { k: "timer"; key: string };
+    const p = payload as RepairAnswer | Reread | { k: "timer"; key: string };
     if (p.k === "repair") return onRepair(s, p, cx);
+    if (p.k === "reread")
+      return p.ok
+        ? onAnswered(s, { k: "answered", machine: p.machine, op: p.op, input: p.input, value: p.value, pos: p.pos }, cx)
+        : s;
     const ref = p.key.slice(TIMER.length);
     cx.note("RepairOverdue", { ref }); // the mark stays
     cx.command({ k: "stop", ref, gen: own(s.repairs, ref)?.gen });
@@ -588,8 +631,32 @@ export const entities: Module<Slice> = {
     return { ...s, repairs: {} };
   },
   exec(cmd, io) {
-    const c = cmd as { k: "repair" | "stop"; ref: string; gen: string; machine: string };
+    const c = cmd as {
+      k: "repair" | "stop" | "reread";
+      ref: string;
+      gen: string;
+      machine: string;
+      op: string;
+      input: unknown;
+      pos: number;
+    };
     if (c.k === "stop") return io.stop(`repair:${c.gen}`);
+    if (c.k === "reread") {
+      const eff = io
+        .machine(c.machine)
+        .ops[c.op]!.commit(c.input, { attempt: { id: c.gen, mayHaveApplied: false } });
+      return io.fork(`reread:${c.gen}`, eff, (exit) =>
+        io.input({
+          k: "reread",
+          machine: c.machine,
+          op: c.op,
+          input: c.input,
+          pos: c.pos,
+          ok: exit.t === "ok",
+          ...(exit.t === "ok" ? { value: exit.value } : {}),
+        } satisfies Reread),
+      );
+    }
     const effect = io.machine(c.machine).domain!.repair(c.ref);
     io.fork(`repair:${c.gen}`, effect, (exit) =>
       io.input({

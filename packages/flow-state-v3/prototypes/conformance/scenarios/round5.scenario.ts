@@ -205,6 +205,28 @@ export const round5Scenarios: readonly Scenario[] = [
         c.eq("named", c.r.issues().filter((i) => i.code === "InvalidTurn").length, 2);
         stopped(c);
       },
+      "each-closure-kind-of-no-shape-refuses-its-turn"(c0) {
+        // Not only "nothing stops": the gate says so. Script per kind; InvalidTurn is the effect in a turn.
+        const cases: ReadonlyArray<readonly [string, unknown, readonly Step[]]> = [
+          ["patch", 5, [{ send: O, event: "Patch" }]],
+          ["guard", 5, [{ send: O, event: "Guard" }]],
+          ["raiseFrom", 5, [{ send: O, event: "Raise" }]],
+          ["raiseKey", {}, [{ send: O, event: "Raise" }]],
+          ["notifyFrom", 5, [{ send: O, event: "Raise" }]],
+          ["exitFrom", 5, [{ send: O, event: "RaiseLeave" }]],
+          ["portGuard", 5, [{ send: O, event: "PortHit" }]],
+          ["fragInitial", 5, [{ send: O, event: "Arm" }, { advance: 2000 }]],
+          ["success", 5, [{ send: O, event: "Commit" }, { answer: "w", with: { ok: {} } }]],
+        ];
+        for (const [kind, value, script] of cases) {
+          const h = c0.fresh([oddAllFixture]);
+          h.do({ ensure: O });
+          h.do({ send: O, event: "Set", payload: { odd: { kind, value } } });
+          for (const st of script) h.do(st);
+          if (!h.read.issues().some((i) => i.code === "InvalidTurn"))
+            throw new Mismatch(`D65: ${kind} of no shape was believed`);
+        }
+      },
       "ensure-of-an-unknown-machine"(c0) {
         const c = at(c0, deskFixture, T);
         for (const m of ["Nope", "constructor"])
@@ -387,6 +409,15 @@ export const round5Scenarios: readonly Scenario[] = [
         v.answer("list", { ok: [oldRow()] });
         v.eq("version: dropped", [v.rec(T1), repairs(v)], [undefined, 0]);
       },
+      "w-is-off-the-disk-once-it-has-ended"(c0) {
+        const c = at(c0, traitWriteFixture, TW);
+        c.into(["t"], "Go");
+        c.ack();
+        c.into(["t"], "Go");
+        c.reload();
+        c.reload();
+        c.eq("D72: once, not again at the next boot", got(c).filter((x: string) => x === "no:a:Restored").length, 1);
+      },
       "many-records-one-write"(c0) {
         for (const f of [deskFixture, deskNoVersionFixture]) {
           const c = on(c0, f);
@@ -425,6 +456,14 @@ export const round5Scenarios: readonly Scenario[] = [
         c.answer("list", { ok: [oldRow()] });
         c.eq("D58", [c.rec(T1)?.data.title, c.rec(T1)?.uncertain, repairs(c)], ["New", true, 1]);
         c.answer("repair", { truth: true });
+      },
+      "a-newer-version-applies-whatever-overlaps"(c0) {
+        const c = on(c0, deskFixture);
+        c.to(T, "Load");
+        c.send("Rename", { id: "t1", title: "Mine" });
+        c.answer("rename", { apply: true });
+        c.answer("list", { ok: [oldRow({ title: "Theirs", revision: 7 })] });
+        c.eq("the version places it; no read", [c.rec(T1)?.data.title, c.rec(T1)?.uncertain, repairs(c)], ["Theirs", false, 0]);
       },
       "a-success-older-than-what-we-hold-drops"(c0) {
         const c = on(c0, deskFixture);
@@ -635,7 +674,7 @@ export const round5Scenarios: readonly Scenario[] = [
         c.eq("never two", c.r.peakDeliveriesInMail(), 1);
       },
       "a-notice-and-a-value-at-once-are-still-one-at-a-time"(c0) {
-        const c = at(c0, deskFeedFixture, F);
+        const c = at(c0, deskFeedFixture, F, { drainMs: -1 });
         hello(c);
         value(c, "a", 1);
         c.reload();
@@ -697,8 +736,9 @@ export const round5Scenarios: readonly Scenario[] = [
         c.send("Refetch");
         c.reload();
         c.eq("no claim", lastFrom(c), undefined);
+        const before = c.mem().notices;
         frame(c, { t: "signal", signal: { _feed: "live", proof: "I replayed" } });
-        c.eq("T2: row 7, with a notice", c.mem().notices >= 1, true);
+        c.eq("T2: row 7, with a notice", c.mem().notices, before + 1);
       },
       "a-healthy-minute-resets-the-backoff"(c0) {
         const c = at(c0, deskFeedFixture, F);
@@ -758,6 +798,17 @@ export const round5Scenarios: readonly Scenario[] = [
         c.do({ feed: OP, end: true });
         c.eq("T9: the failure behind queued items", ids(c), ["e1", "e2", "e3"]);
         c.state("RETRY_WAIT");
+      },
+      "end-behind-a-queued-value-under-a-slow-drain"(c0) {
+        const c = at(c0, deskFeedNoReconnect, F, { drainMs: -1 });
+        hello(c);
+        value(c, "a", 1);
+        c.reload();
+        c.do({
+          feed: OP,
+          frames: [{ t: "hello" }, { t: "activity", entry: entry("b", 2) }],
+        });
+        c.eq("delivered", ids(c), ["a", "b"]);
       },
       "a-reset-mark-does-not-outlive-its-notice"(c0) {
         const c = at(c0, deskFeedFixture, F);

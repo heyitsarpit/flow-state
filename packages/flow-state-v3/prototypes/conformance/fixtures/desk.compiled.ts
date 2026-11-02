@@ -6,7 +6,7 @@ import { Effect, Stream } from "effect";
 import type { Api, ServerModel } from "../fake-world.ts";
 import type { Fixture } from "../harness.ts";
 import { fixtureOf, unknownWhenLost } from "./build.ts";
-import { deny, type Compiled, type DomainSpec, type Fragment, type Op } from "./compiled.ts";
+import { deny, type Compiled, type DomainSpec, type Fragment, type Op, type StreamSpec } from "./compiled.ts";
 
 const D = "Desk/Tickets";
 const f = fixtureOf(D);
@@ -82,6 +82,46 @@ const domain = (api: Api, versioned: boolean): DomainSpec => ({
   },
   repair: (ref) => api.call("repair", { ref }) as Effect.Effect<any, any, never>,
   ...(versioned ? { version: () => "revision" } : {}),
+});
+// feed.domain.ts as written: `listen(ticketChanges).as([Ticket], ...)`. One session placed for the screen's life.
+const changesSpec = (api: Api): StreamSpec => ({
+  id: "changes",
+  listen: true,
+  key: () => ({}),
+  position: "revision",
+  reconnect: true,
+  idleMs: Number.MAX_SAFE_INTEGER / 2,
+  healthyMs: 60_000,
+  backoff: (n) => Math.min(30_000, 1000 * 2 ** n),
+  subscribe: (i, { from }) => api.socket("changes", i, from),
+  value: { event: "Unused" },
+  missed: { event: "Unused" },
+  failure: { event: "Failed" },
+});
+const listens = {
+  changes: (e: any) =>
+    e._tag === "TicketRemoved"
+      ? [{ ref: ticketRef(e.ticketId), removed: true as const, version: e.revision }]
+      : [{ ref: ticketRef(e.ticket.id), fields: e.ticket }],
+};
+const withListen = (f: Fixture): Fixture => ({
+  ...f,
+  make: (api) => {
+    const c = f.make(api);
+    return {
+      ...c,
+      nodes: {
+        ...c.nodes,
+        READY: {
+          ...c.nodes["READY"]!,
+          activities: [{ op: "changes", input: f_.slot("states.READY.activities[0]", () => ({})) }],
+        },
+      },
+      streams: { changes: changesSpec(api) },
+      uses: ["entities", "sessions"],
+      domain: { ...c.domain!, listens },
+    };
+  },
 });
 const make =
   (versioned: boolean) =>
@@ -190,6 +230,9 @@ export const deskServer: ServerModel = {
 };
 export const deskFixture: Fixture = { id: D, make: make(true), server: deskServer };
 export const deskNoVersionFixture: Fixture = { id: D, make: make(false), server: deskServer };
+const f_ = f;
+export const deskListenFixture = withListen(deskFixture);
+export const deskListenNoVersionFixture = withListen(deskNoVersionFixture);
 
 // ── A persisted trait with a write. `.resumable()` on its tab. For rebind and reload (review H5, H6).
 const TW = "Lab/TraitWrite";
