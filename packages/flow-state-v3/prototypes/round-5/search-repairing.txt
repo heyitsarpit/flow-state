@@ -1,0 +1,21 @@
+{
+ "search": "repairing",
+ "verdict": "inconclusive",
+ "perDepth": [
+  1,
+  9,
+  61,
+  407,
+  2368,
+  12431
+ ],
+ "states": 50003,
+ "edges": 123056,
+ "steps": 1482472,
+ "depthCompleted": 5,
+ "classes": {},
+ "ms": 65001,
+ "peakRssMb": 234
+}
+
+WATCH peak 223 MB, 65.1 s, exit 0, killed no

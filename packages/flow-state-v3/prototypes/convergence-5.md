@@ -219,3 +219,7 @@ D62          kept      D62      the bookmark on the incarnation: the review's be
 ## What this does not verify
 
 Written before round 5's code. Nothing on a real server, browser, disk or phone. Versions on a real server are a reading of the fixtures' `revision`, and a fake that bumps by one. `seal`'s per-call cost is not measured. D67's limits above are reasoning.
+
+## Corrections after building
+
+Listed in `round-5/RESULTS.md`. `desk.compiled.ts` holds the real writes and `listen`; the failure by tag, `reconnect.while` and `when` went on `chat.compiled.ts`; `bothLive` and `.slice(-ACTIVITY_KEPT)` were not built, since a guard's view has no rows. L6 needed no world field: the record's write reads firings from mail. `latest`'s reconcile did run on `told actors` and retract-by-tag: the review's "needs a new mail check" did not hold.

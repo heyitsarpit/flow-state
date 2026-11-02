@@ -97,8 +97,8 @@ export const ROUND5 = [
     "d65-mapped-unchecked",
     "D65",
     "gate.ts",
-    "m.from ? { ...m, from: gated(m.from, plain) } : m;",
-    "m;",
+    "m.from ? { ...m, from: gated(m.from, plain) } : m",
+    "m",
   ),
   m(
     "d65-port-guard-unchecked",
@@ -282,8 +282,8 @@ export const ROUND5 = [
     "d67-tombstone-forgets",
     "D67",
     "entities.ts",
-    "return { ...rest, unconfirmed: [], changedAt: at, ...(version === undefined ? {} : { version }) };",
-    "return { ...rest, unconfirmed: [], changedAt: at };",
+    "unconfirmed: [], changedAt: at, ...(version === undefined ? {} : { version }),",
+    "unconfirmed: [], changedAt: at,",
   ),
   m(
     "d67-version-field-compared",
@@ -664,8 +664,8 @@ export const ROUND5 = [
     "s-when-ignored",
     "D69",
     "sessions.ts",
-    "return cx.user(when as never,",
-    "return true || cx.user(when as never,",
+    "cx.user( when as never,",
+    "true || cx.user( when as never,",
   ),
   m(
     "e-frame-patch-creates",
@@ -678,6 +678,6 @@ export const ROUND5 = [
     "e-gap-ignored",
     "T7",
     "entities.ts",
-    'cx.command({ k: "reread", gen: cx.gen(), machine: a.machine, op: a.op, input: a.input, pos: cx.pos() });',
+    'cx.command({ k: "reread", gen: cx.gen(), machine: a.machine, op: a.op, input: a.input, pos: cx.pos(), });',
   ),
 ];
