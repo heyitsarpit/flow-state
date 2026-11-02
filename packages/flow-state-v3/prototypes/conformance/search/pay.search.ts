@@ -115,9 +115,21 @@ export type Pin = { cls: string; state?: string; via: RegExp; pin: string };
 const S = "(?:.* )?";
 export const PAY_PINS: readonly Pin[] = [
   // P1: Leave during PLACING voids the hold while the order is on the wire.
-  { cls: "placed-and-voided", via: new RegExp(`Leave`), pin: "P1" },
+  { cls: "placed-and-voided", via: new RegExp(`pay\\.(?:ok|lostLanded) ${S}Leave`), pin: "P1" },
   // P1, P2: the order lands in LEFT, or is denied LateMayNotLeave, so nobody sees a receipt.
-  { cls: "order-no-receipt", via: new RegExp(`Leave`), pin: "P1,P2" },
+  // P1 and P6 together: a charge landing after Leave, then Pay pressed in LEFT on that intent. Found by narrowing the pin (M9).
+  {
+    cls: "placed-and-voided",
+    via: new RegExp(`Leave ${S}pay\\.(?:ok|lostLanded) ${S}PayRequested`),
+    pin: "P1,P6",
+  },
+  // P1 and P3: a charge landing after Leave, then a new Start beside it (depth 9).
+  {
+    cls: "placed-and-voided",
+    via: new RegExp(`Leave ${S}pay\\.(?:ok|lostLanded) ${S}Start`),
+    pin: "P1,P3",
+  },
+  { cls: "order-no-receipt", via: new RegExp(`pay\\.(?:ok|lostLanded) ${S}Leave`), pin: "P1,P2" },
   // P6: Pay pressed again after the first charge, or after a Start that lost track of the first, mints beside it.
   { cls: "two-keys-one-intent", via: new RegExp(`PayRequested ${S}PayRequested`), pin: "P6" },
   { cls: "told-not-charged", via: new RegExp(`PayRequested ${S}PayRequested`), pin: "P6" },
@@ -142,7 +154,13 @@ export const PAY_PINS: readonly Pin[] = [
   // P2 through P6: Pay in PLACING moves to PAYING, which then owns a call, so the Placed that lands is denied.
   { cls: "order-no-receipt", via: new RegExp(`PayRequested ${S}PayRequested`), pin: "P2,P6" },
   // P5: after Leave or a reload with a hold, a new Start has no path while the hold lives.
-  { cls: "held-no-owner", via: new RegExp(`Start`), pin: "P5" },
+  { cls: "held-no-owner", via: new RegExp(`(?:Leave|reload) ${S}Start`), pin: "P5" },
+  // P5 through P6: a second press leaves the first charge's lane held with nobody watching it, then a Start.
+  {
+    cls: "held-no-owner",
+    via: new RegExp(`PayRequested ${S}PayRequested ${S}Start`),
+    pin: "P5,P6",
+  },
 ];
 const pinned = (pins: readonly Pin[], cls: string, script: string) => {
   const [c, state] = cls.split(":");

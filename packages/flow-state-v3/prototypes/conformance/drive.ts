@@ -114,7 +114,9 @@ export const makeHarness = (port: Port) => (): Harness => {
     else if ("dispose" in s) inst.dispose(actorKey(s.dispose));
     else if ("answer" in s) fake.answer(s.answer, s.with, s.where);
     else if ("storage" in s) fake.storageStep(s.storage, s.match);
-    else if ("disposeRuntime" in s) inst.disposeRuntime();
+    else if ("feed" in s) {
+      fake.feedStep(s.feed, s);
+    } else if ("disposeRuntime" in s) inst.disposeRuntime();
     else throw new Error(`raw: not a plain step: ${Object.keys(s)[0]}`);
   };
   const reads: Harness["read"] = {
@@ -123,6 +125,7 @@ export const makeHarness = (port: Port) => (): Harness => {
     inner: (a, p) => inst.inner(actorKey(a), p),
     row: (a, op, key) => inst.row(actorKey(a), op, key ?? {}),
     record: (ref) => inst.record(ref),
+    module: (id, ref) => inst.module(id, ref),
     requests: () => fake.publicRequests(),
     truth: () => fake.truth(),
     frames: () => instances.flatMap((i) => i.frames()),

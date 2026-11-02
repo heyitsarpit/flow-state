@@ -1,6 +1,6 @@
 {
  "search": "frag",
- "verdict": "completed",
+ "verdict": "inconclusive",
  "perDepth": [
   1,
   3,
@@ -12,13 +12,13 @@
   6281,
   25509
  ],
- "states": 33860,
- "edges": 85123,
- "steps": 1488712,
+ "states": 75336,
+ "edges": 186297,
+ "steps": 3587662,
  "depthCompleted": 8,
  "classes": {},
- "ms": 36568,
- "peakRssMb": 228
+ "ms": 90001,
+ "peakRssMb": 253
 }
 
-WATCH peak 218 MB, 36.6 s, exit 0, killed no
+WATCH peak 241 MB, 90.1 s, exit 0, killed no

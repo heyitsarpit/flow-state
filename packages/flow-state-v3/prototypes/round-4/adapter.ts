@@ -4,13 +4,14 @@ import type { Compiled } from "../conformance/fixtures/compiled.ts";
 import type { BootArgs, Instance, Port } from "../conformance/harness.ts";
 import { createRuntime, type StepRecord } from "./driver.ts";
 import { entities, readAll, type Slice } from "./entities.ts";
+import { sessions } from "./sessions.ts";
 import { kidAt, viewOf } from "./inc.ts";
 import { row as rowOf, view, waitsOf } from "./publish.ts";
 import type { Module } from "./seam.ts";
 import { step } from "./step.ts";
 import { defaultBounds, emptyWorld, type Machines, type World } from "./world.ts";
 
-const REGISTRY: Readonly<Record<string, Module<any>>> = { entities };
+const REGISTRY: Readonly<Record<string, Module<any>>> = { entities, sessions };
 const DRAIN = process.env["FLOW_DRAIN_MS"];
 const STEP_HOOKS = new Set([
   "prepare",
@@ -22,6 +23,7 @@ const STEP_HOOKS = new Set([
   "restored",
   "dispose",
 ]);
+export { sessions };
 
 // For the suite's hash and replay only. Total: a world may hold what never needed encoding (D57).
 const canon = (v: unknown, up: readonly unknown[] = []): unknown => {
@@ -153,6 +155,10 @@ export const port: Port = {
       record: (ref) => {
         const s = store(rt.world());
         return s && (reg.read!(s, ref) as never);
+      },
+      module: (id, ref) => {
+        const s = rt.world().ext[id];
+        return s === undefined ? undefined : REGISTRY[id]!.read!(s, ref);
       },
       waits: () => waitsOf(rt.world(), plainModules, plain) as never,
       fatal: () => rt.fatal(),

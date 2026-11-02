@@ -12,7 +12,7 @@ import type {
   Slot,
 } from "../conformance/fixtures/compiled.ts";
 import { admit, encoded, finiteMs, stringKey } from "./gate.ts";
-import { prepareAll, Refused, run } from "./hooks.ts";
+import { input as moduleInput, prepareAll, Refused, run } from "./hooks.ts";
 import {
   down,
   kidAt,
@@ -637,6 +637,10 @@ const applyMembers = (w: Walk) => {
           mem.verb === "commit" ? prepareAll(tx, { machine: w.a.machine, op: mem.op, input }) : {};
         return { part, mem, inc, input, key, prepared, owner: ownerOf(w, part) };
       }
+      if (mem.verb === "module") {
+        const value = mem.value ? admit(run(mem.value, after as never), origin) : undefined;
+        return { part, mem, inc, value, owner: ownerOf(w, part) };
+      }
       const key = mem.key ? admit(run(mem.key, after as never), origin) : undefined;
       return { part, mem, inc, key, owner: ownerOf(w, part) };
     });
@@ -645,6 +649,18 @@ const applyMembers = (w: Walk) => {
     const { mem, inc } = r;
     const op = w.m.ops[mem.op]!;
     const base = { actor: w.a.key, machine: w.a.machine, op: mem.op, owner: r.owner };
+    if (mem.verb === "module") {
+      // M8: in action order. A refused turn restores tx.w, the module's slice with it.
+      moduleInput(tx, mem.module, {
+        k: "member",
+        actor: w.a.key,
+        inc: inc.id,
+        op: mem.op,
+        name: mem.name,
+        value: r.value,
+      });
+      continue;
+    }
     if (mem.verb === "lookup") {
       lookup(tx, { ...base, input: r.input, key: r.key, inc: inc.id });
       continue;
@@ -1048,7 +1064,7 @@ const deliver = (tx: Tx, a: ActorRec, path: Path, item: EndingMail) => {
       origin: `${a.machine} operations.${item.op}`,
       input: item.ending,
     });
-  attemptTurn(tx, item, mapped.event, () => {
+  void attemptTurn(tx, item, mapped.event, () => {
     const e = item.ending;
     const value = "value" in e ? e.value : undefined;
     const ev = {
@@ -1069,7 +1085,7 @@ const deliver = (tx: Tx, a: ActorRec, path: Path, item: EndingMail) => {
     runTurn(tx, a, path, ev, start, late, item);
   });
 };
-const attemptTurn = (tx: Tx, item: Mail, tag: string, f: () => void) => {
+const attemptTurn = (tx: Tx, item: Mail, tag: string, f: () => void): boolean => {
   const kept = {
     w: tx.w,
     commands: tx.commands.length,
@@ -1081,6 +1097,7 @@ const attemptTurn = (tx: Tx, item: Mail, tag: string, f: () => void) => {
   tx.inTurn = true;
   try {
     f();
+    return true;
   } catch (e) {
     if (!(e instanceof Refused)) throw e;
     // F3: the ending's cell stays; the turn's own members are dropped. L6: `disabled` only grows.
@@ -1105,6 +1122,7 @@ const attemptTurn = (tx: Tx, item: Mail, tag: string, f: () => void) => {
     }
     // D50, M5: a firing is a delivery too (rule 8). `EXPIRED`'s GiveUp is the only way out of it.
     if (item.k === "fire" && !again) enqueue(tx, { ...item, redelivered: true });
+    return false;
   } finally {
     tx.inTurn = false;
   }
@@ -1126,13 +1144,31 @@ export const onTurn = (tx: Tx) => {
   if (item.k === "ending") return admitEnding(tx, item); // A0: kept whatever the turn does
   const a = tx.w.actors[item.actor];
   if (!a) return note(tx, "unbound", { actor: item.actor });
-  if (item.k === "recheck") return attemptTurn(tx, item, "PendingReset", () => runRecheck(tx, a));
+  if (item.k === "recheck")
+    return void attemptTurn(tx, item, "PendingReset", () => runRecheck(tx, a));
+  if (item.k === "deliver") {
+    const path = pathOfId(a.root, item.inc);
+    const inc = path && kidAt(a.root, path);
+    if (!inc || inc.frozen) {
+      note(tx, "fence", { dead: item.inc });
+      return moduleInput(tx, item.module, { k: "turned", tag: item.tag, outcome: "fenced" });
+    }
+    const ran = attemptTurn(tx, item, item.event.tag, () =>
+      runTurn(tx, a, path!, item.event, undefined, false, item),
+    );
+    if (!ran && item.ending && !item.redelivered) enqueue(tx, { ...item, redelivered: true }); // D50
+    return moduleInput(tx, item.module, {
+      k: "turned",
+      tag: item.tag,
+      outcome: ran ? "ran" : "invalid",
+    });
+  }
   if (item.k === "fire") {
     const path = pathOfId(a.root, item.inc);
     const inc = path && kidAt(a.root, path);
     if (!inc || inc.frozen || !Object.values(inc.activations).includes(item.activation))
       return note(tx, "fence", { dead: item.activation }); // a timer of a dead activation (2.5 step 1)
-    return attemptTurn(tx, item, item.event.tag, () =>
+    return void attemptTurn(tx, item, item.event.tag, () =>
       runTurn(tx, a, path!, item.event, undefined, false, item),
     );
   }
@@ -1140,7 +1176,7 @@ export const onTurn = (tx: Tx) => {
   const path = Array.isArray(to) ? (to as Path) : []; // D57
   const inc = to === undefined || Array.isArray(to) ? kidAt(a.root, path) : undefined;
   if (!inc || inc.frozen) return note(tx, "Unhandled", { event: item.event.tag, to: path });
-  attemptTurn(tx, item, item.event.tag, () =>
+  void attemptTurn(tx, item, item.event.tag, () =>
     runTurn(tx, a, path, item.event, undefined, false, item),
   );
 };

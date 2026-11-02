@@ -3,7 +3,8 @@ import type { Slot } from "../conformance/fixtures/compiled.ts";
 import type { Claim, Cx, Module, WriteRef } from "./seam.ts";
 import { armTimer, disarmTimer } from "./timers.ts";
 import { Refused } from "./gate.ts";
-import { issue, nextGen, note, position, type Tx } from "./world.ts";
+import { pathOfId, withKid } from "./inc.ts";
+import { enqueue, issue, nextGen, note, position, type Mail, type Tx } from "./world.ts";
 
 export { Refused };
 export const run = <A extends unknown[], B>(slot: Slot<(...a: A) => B>, ...a: A): B => {
@@ -27,6 +28,27 @@ const cxFor = (tx: Tx, m: Module<any>): Cx => ({
   issue: (code, f) => issue(tx, { code, origin: m.id, input: f }),
   visible: () => void (tx.visible = true),
   machine: (id) => tx.machines[id]!,
+  deliver: (d) => enqueue(tx, { k: "deliver", module: m.id, ...d }),
+  retract: (tag) => {
+    const keep = (x: Mail) => !(x.k === "deliver" && x.tag === tag);
+    tx.w = { ...tx.w, mail: tx.w.mail.filter(keep), follow: tx.w.follow.filter(keep) };
+  },
+  actor: (key) => {
+    const a = tx.w.actors[key];
+    return a && { key, machine: a.machine, root: a.root };
+  },
+  partition: (actor, inc, f) => {
+    const a = tx.w.actors[actor];
+    const path = a && pathOfId(a.root, inc);
+    if (!a || !path) return;
+    const root = withKid(a.root, path, (i) => ({
+      ...i,
+      partition: { ...i.partition, [m.id]: f(i.partition?.[m.id]) },
+    }));
+    tx.w = { ...tx.w, actors: { ...tx.w.actors, [actor]: { ...a, root } } };
+    tx.touchedActors.add(actor);
+    tx.visible = true;
+  },
   user: (slot, args, fallback) => {
     if (tx.inTurn) return run(slot, ...args);
     try {

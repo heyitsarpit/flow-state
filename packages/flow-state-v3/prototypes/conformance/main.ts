@@ -14,6 +14,7 @@ import { orderScenarios } from "./scenarios/order.scenario.ts";
 import { payScenarios } from "./scenarios/pay.scenario.ts";
 import { round4Scenarios } from "./scenarios/round4.scenario.ts";
 import { storeScenarios } from "./scenarios/store.scenario.ts";
+import { streamScenarios } from "./scenarios/stream.scenario.ts";
 
 export type RunResult = { id: string; variant?: string; ok: boolean; why?: string; ms: number };
 export const allScenarios: readonly Scenario[] = [
@@ -24,6 +25,7 @@ export const allScenarios: readonly Scenario[] = [
   ...reviewScenarios,
   ...fragScenarios,
   ...round4Scenarios,
+  ...streamScenarios,
 ];
 
 const here = import.meta.dir;
@@ -65,6 +67,8 @@ const SHARED = [
   "fixtures/pay-full.compiled.ts",
   "fixtures/comments.compiled.ts",
   "fixtures/real.compiled.ts",
+  "fixtures/feed.compiled.ts",
+  "scenarios/stream.scenario.ts",
 ];
 const lockLines = (): string[] => [
   ...allScenarios.map((s) => `${s.id} ${sha(bodyOf(s))}`),

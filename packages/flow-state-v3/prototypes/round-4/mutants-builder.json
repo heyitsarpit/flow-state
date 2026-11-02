@@ -9,7 +9,7 @@
     ],
     "author": "builder",
     "by": "tests",
-    "peakMb": 237
+    "peakMb": 228
   },
   {
     "id": "d58-ge",
@@ -43,11 +43,12 @@
       "CART-02/repriced-under-pending",
       "HIGH-04",
       "REV4-H2/a-confirmed-write-is-shown-during-the-repair-and-stays-marked",
-      "REV4-H2/one-failed-repair-does-not-leave-the-screen-wrong-and-clean"
+      "REV4-H2/one-failed-repair-does-not-leave-the-screen-wrong-and-clean",
+      "REV4-H2/a-read-that-started-before-the-doubt-does-not-clear-it"
     ],
     "author": "builder",
     "by": "tests",
-    "peakMb": 219
+    "peakMb": 229
   },
   {
     "id": "d59-success-not-applied",
@@ -60,16 +61,16 @@
     ],
     "author": "builder",
     "by": "tests",
-    "peakMb": 231
+    "peakMb": 215
   },
   {
     "id": "d58-doubt-cleared-by-early-read",
     "kills": ["D58"],
-    "killed": false,
-    "killers": [],
+    "killed": true,
+    "killers": ["REV4-H2/a-read-that-started-before-the-doubt-does-not-clear-it"],
     "author": "builder",
     "by": "tests",
-    "peakMb": 265
+    "peakMb": 213
   },
   {
     "id": "d58-doubt-never-cleared",
@@ -81,11 +82,12 @@
       "HIGH-04",
       "REV4-H1/a-read-started-during-a-write-does-not-overwrite-it",
       "REV4-H1/the-doubt-outlives-a-failed-repair",
-      "REV4-H2/a-confirmed-write-is-shown-during-the-repair-and-stays-marked"
+      "REV4-H2/a-confirmed-write-is-shown-during-the-repair-and-stays-marked",
+      "REV4-H2/a-read-that-started-before-the-doubt-does-not-clear-it"
     ],
     "author": "builder",
     "by": "tests",
-    "peakMb": 237
+    "peakMb": 226
   },
   {
     "id": "d59-threw-no-doubt",
@@ -94,7 +96,7 @@
     "killers": ["REV4-H2/a-confirms-mapper-that-throws-keeps-the-mark"],
     "author": "builder",
     "by": "tests",
-    "peakMb": 233
+    "peakMb": 230
   },
   {
     "id": "d57-carried-unchecked",
@@ -103,7 +105,7 @@
     "killers": ["REV4-H4/a-mapper-of-no-shape-does-not-disable-the-store"],
     "author": "builder",
     "by": "tests",
-    "peakMb": 240
+    "peakMb": 218
   },
   {
     "id": "l4-read-replaces",
@@ -112,7 +114,7 @@
     "killers": ["REV4-L4"],
     "author": "builder",
     "by": "tests",
-    "peakMb": 210
+    "peakMb": 238
   },
   {
     "id": "d57-canon-unsorted",
@@ -121,7 +123,7 @@
     "killers": ["REV4-H5/a-reset-value-is-the-value-not-its-key-order"],
     "author": "builder",
     "by": "tests",
-    "peakMb": 224
+    "peakMb": 223
   },
   {
     "id": "d57-list-non-array-throws",
@@ -135,7 +137,7 @@
     ],
     "author": "builder",
     "by": "tests",
-    "peakMb": 199
+    "peakMb": 195
   },
   {
     "id": "d57-list-bad-not-counted",
@@ -148,7 +150,7 @@
     ],
     "author": "builder",
     "by": "tests",
-    "peakMb": 211
+    "peakMb": 242
   },
   {
     "id": "d57-valid-leaf-unchecked",
@@ -157,34 +159,34 @@
     "killers": [],
     "author": "builder",
     "by": "tests",
-    "peakMb": 299
+    "peakMb": 283
   },
   {
     "id": "d57-valid-kid-frag-unchecked",
     "kills": ["D61"],
-    "killed": false,
-    "killers": [],
+    "killed": true,
+    "killers": ["REV4-H3/kid-frag-is-another-fragment"],
     "author": "builder",
     "by": "tests",
-    "peakMb": 259
+    "peakMb": 222
   },
   {
     "id": "d57-valid-history-unchecked",
     "kills": ["D61"],
-    "killed": false,
-    "killers": [],
+    "killed": true,
+    "killers": ["REV4-H3/history-names-a-removed-node"],
     "author": "builder",
     "by": "tests",
-    "peakMb": 282
+    "peakMb": 214
   },
   {
     "id": "d57-valid-frozen-unchecked",
     "kills": ["D61"],
-    "killed": false,
-    "killers": [],
+    "killed": true,
+    "killers": ["REV4-H3/frozen-of-no-shape"],
     "author": "builder",
     "by": "tests",
-    "peakMb": 252
+    "peakMb": 229
   },
   {
     "id": "d57-parked-not-sanitised",
@@ -193,16 +195,29 @@
     "killers": ["REV4-H4/a-success-of-a-bigint-parked-on-a-persisted-lane"],
     "author": "builder",
     "by": "tests",
-    "peakMb": 226
+    "peakMb": 224
   },
   {
     "id": "h3-hold-dropped-on-second-boot",
     "kills": ["rule:46"],
-    "killed": false,
-    "killers": [],
+    "killed": true,
+    "killers": [
+      "REV4-H3/leaf-this-release-removed",
+      "REV4-H3/kid-frag-this-release-removed",
+      "REV4-H3/kid-leaf-removed",
+      "REV4-H3/placement-removed",
+      "REV4-H3/no-timers",
+      "REV4-H3/no-kids",
+      "REV4-H3/activations-for-a-leaf-gone",
+      "REV4-H3/timer-of-no-shape",
+      "REV4-H3/memory-not-an-object",
+      "REV4-H3/kid-frag-is-another-fragment",
+      "REV4-H3/history-names-a-removed-node",
+      "REV4-H3/frozen-of-no-shape"
+    ],
     "author": "builder",
     "by": "tests",
-    "peakMb": 256
+    "peakMb": 231
   },
   {
     "id": "l5-parked-in-lane-order",
@@ -217,7 +232,7 @@
     ],
     "author": "builder",
     "by": "tests",
-    "peakMb": 230
+    "peakMb": 218
   },
   {
     "id": "h6-exit-still-abandons",
@@ -231,16 +246,16 @@
     ],
     "author": "builder",
     "by": "tests",
-    "peakMb": 228
+    "peakMb": 225
   },
   {
     "id": "h6-exit-skips-descendants",
     "kills": ["rule:6"],
-    "killed": false,
-    "killers": [],
+    "killed": true,
+    "killers": ["REAL-02/own-exit-no-draft"],
     "author": "builder",
     "by": "tests",
-    "peakMb": 246
+    "peakMb": 235
   },
   {
     "id": "m2-refreeze",
@@ -249,7 +264,7 @@
     "killers": ["REV4-M2/a-frozen-child-keeps-its-timer-through-a-freeze-above"],
     "author": "builder",
     "by": "tests",
-    "peakMb": 236
+    "peakMb": 222
   },
   {
     "id": "m2-thaw-any",
@@ -258,7 +273,7 @@
     "killers": ["REV4-M2/a-frozen-child-keeps-its-timer-through-a-freeze-above"],
     "author": "builder",
     "by": "tests",
-    "peakMb": 230
+    "peakMb": 244
   },
   {
     "id": "m3-frozen-not-reconciled",
@@ -267,7 +282,7 @@
     "killers": [],
     "author": "builder",
     "by": "crash",
-    "peakMb": 42
+    "peakMb": 44
   },
   {
     "id": "m4-facts-dropped",
@@ -276,7 +291,7 @@
     "killers": ["REV4-M4"],
     "author": "builder",
     "by": "tests",
-    "peakMb": 226
+    "peakMb": 231
   },
   {
     "id": "m4-loops-unbound",
@@ -297,7 +312,7 @@
     ],
     "author": "builder",
     "by": "tests",
-    "peakMb": 217
+    "peakMb": 222
   },
   {
     "id": "m7-no-reorder",
@@ -306,7 +321,7 @@
     "killers": ["REV4-M7"],
     "author": "builder",
     "by": "tests",
-    "peakMb": 243
+    "peakMb": 224
   },
   {
     "id": "d64-thaw-no-check",
@@ -315,7 +330,7 @@
     "killers": ["REAL-04/D64-a-changed-ticket-resets-on-return-with-no-frame-of-the-old-subject"],
     "author": "builder",
     "by": "tests",
-    "peakMb": 225
+    "peakMb": 232
   },
   {
     "id": "r53-thaw-no-adoption",
@@ -327,16 +342,16 @@
     ],
     "author": "builder",
     "by": "tests",
-    "peakMb": 235
+    "peakMb": 230
   },
   {
     "id": "thaw-says-restored",
     "kills": ["rule:54"],
-    "killed": false,
-    "killers": [],
+    "killed": true,
+    "killers": ["REV4-M3/a-thaw-tells-its-own-hold-nothing-new"],
     "author": "builder",
     "by": "tests",
-    "peakMb": 251
+    "peakMb": 265
   },
   {
     "id": "m1-then-regardless",
@@ -345,7 +360,7 @@
     "killers": ["REV4-M1"],
     "author": "builder",
     "by": "tests",
-    "peakMb": 233
+    "peakMb": 250
   },
   {
     "id": "l6-fire-touches",
@@ -363,6 +378,80 @@
     "killers": [],
     "author": "builder",
     "by": "tests",
-    "peakMb": 277
+    "peakMb": 258
+  },
+  {
+    "id": "seam-deliver-unfenced",
+    "kills": ["T9"],
+    "killed": false,
+    "killers": [],
+    "author": "builder",
+    "by": "tests",
+    "peakMb": 286
+  },
+  {
+    "id": "seam-no-retract",
+    "kills": ["rule:70"],
+    "killed": false,
+    "killers": [],
+    "author": "builder",
+    "by": "tests",
+    "peakMb": 288
+  },
+  {
+    "id": "seam-member-applied-at-once",
+    "kills": ["F3"],
+    "killed": false,
+    "killers": [],
+    "author": "builder",
+    "by": "tests",
+    "peakMb": 292
+  },
+  {
+    "id": "seam-actor-not-told-on-gone",
+    "kills": ["T9"],
+    "killed": true,
+    "killers": ["SPIKE-04/dispose-then-ensure-brings-both-back"],
+    "author": "builder",
+    "by": "tests",
+    "peakMb": 240
+  },
+  {
+    "id": "seam-bookmark-not-on-denied",
+    "kills": ["T3:filled"],
+    "killed": true,
+    "killers": [
+      "SPIKE-01/a-value-and-its-bookmark-are-one-write",
+      "SPIKE-01/a-denied-value-still-moves-the-bookmark",
+      "SPIKE-02/a-reload-restores-memory-and-bookmark-together",
+      "SPIKE-02/the-servers-echo-is-proof-no-notice",
+      "SPIKE-02/a-drop-reconnects-from-the-bookmark-on-the-backoff",
+      "SPIKE-03/a-refused-turn-takes-its-member-with-it",
+      "SPIKE-04/a-freeze-releases-and-a-thaw-comes-back-from-the-same-place",
+      "SPIKE-04/a-frozen-partition-survives-a-reload",
+      "SPIKE-04/dispose-then-ensure-brings-both-back",
+      "SPIKE-05/a-module-defect-fails-closed-and-no-value-is-lost"
+    ],
+    "author": "builder",
+    "by": "tests",
+    "peakMb": 235
+  },
+  {
+    "id": "seam-filled-stuck",
+    "kills": ["T3:filled"],
+    "killed": true,
+    "killers": ["SPIKE-01/a-value-and-its-bookmark-are-one-write"],
+    "author": "builder",
+    "by": "tests",
+    "peakMb": 234
+  },
+  {
+    "id": "seam-old-conn-unfenced",
+    "kills": ["D5"],
+    "killed": false,
+    "killers": [],
+    "author": "builder",
+    "by": "tests",
+    "peakMb": 263
   }
 ]

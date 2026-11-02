@@ -123,7 +123,7 @@ export const MUTANTS = [
   {
     id: "d57-valid-frozen-unchecked",
     kills: ["D61"],
-    edits: [["gate.ts", "if (fz !== undefined &&", "if (false &&"]],
+    edits: [["gate.ts", "fz !== undefined &&", "false &&"]],
   },
   {
     id: "d57-parked-not-sanitised",
@@ -274,6 +274,70 @@ export const MUTANTS = [
         "turn.ts",
         "const path = Array.isArray(to) ? (to as Path) : [];",
         "const path = (to ?? []) as Path;",
+      ],
+    ],
+  },
+  // The spike's seam.
+  {
+    id: "seam-deliver-unfenced",
+    kills: ["T9"],
+    edits: [
+      [
+        "turn.ts",
+        'if (!inc || inc.frozen) { note(tx, "fence", { dead: item.inc });',
+        'if (false) { note(tx, "fence", { dead: item.inc });',
+      ],
+    ],
+  },
+  {
+    id: "seam-no-retract",
+    kills: ["rule:70"],
+    edits: [["sessions.ts", "if (x.inFlight) cx.retract(x.inFlight.tag);", ""]],
+  },
+  {
+    id: "seam-member-applied-at-once",
+    kills: ["F3"],
+    edits: [
+      [
+        "hooks.ts",
+        "const a = tx.w.actors[actor]; const path = a && pathOfId(a.root, inc);",
+        "const a = tx.w.actors[actor]; const path = a && pathOfId(a.root, inc); if (tx.inTurn) return;",
+      ],
+    ],
+  },
+  {
+    id: "seam-actor-not-told-on-gone",
+    kills: ["T9"],
+    edits: [
+      [
+        "step.ts",
+        "const now = tx.w.actors; const was = before.actors;",
+        "const now = tx.w.actors; const was = {} as typeof now;",
+      ],
+    ],
+  },
+  {
+    id: "seam-bookmark-not-on-denied",
+    kills: ["T3:filled"],
+    edits: [
+      ["sessions.ts", 'if (it.kind === "value" && it.moves && spec.position) {', "if (false) {"],
+    ],
+  },
+  {
+    id: "seam-filled-stuck",
+    kills: ["T3:filled"],
+    edits: [
+      ["sessions.ts", "if (b && b.filled !== filled) writeMark(cx, x, { ...b, filled });", ""],
+    ],
+  },
+  {
+    id: "seam-old-conn-unfenced",
+    kills: ["D5"],
+    edits: [
+      [
+        "sessions.ts",
+        'const x = Object.values(s.sessions).find((y) => y.conn === p.conn); if (!x || x.st === "Releasing" || x.st === "Ended" || x.st === "Waiting") {',
+        "const x = Object.values(s.sessions)[0]; if (!x) {",
       ],
     ],
   },

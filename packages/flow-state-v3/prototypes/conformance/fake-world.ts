@@ -1,7 +1,7 @@
 // The world, owned by the suite so it survives runtime rewrites: virtual clock, stepping scheduler, fake server,
 // fake storage. A runtime sees only `Host` and `Api`. A "process" is a generation: when it dies, nothing from it
 // reaches the next one, without any cooperation from the runtime.
-import { Effect, Exit, type Scheduler } from "effect";
+import { Effect, Exit, Queue, Stream, type Scheduler } from "effect";
 import type { Answer, Outside, Request, World0 } from "./harness.ts";
 
 export type Purpose = "acknowledge" | "capture" | "flush";
@@ -33,6 +33,16 @@ export type Api = {
   voidAuthorization(i: unknown, o: { idempotencyKey: string }): E;
   intent(i: unknown): E;
   orderFor(i: unknown): E;
+  socket(op: string, input: unknown, from: unknown): unknown; // Stream of what the server pushes, until a `feed` step ends it
+};
+type Conn = {
+  op: string;
+  input: unknown;
+  from: unknown;
+  process: number;
+  open: boolean;
+  push?: (f: unknown) => void;
+  end?: () => void;
 };
 
 class StepScheduler implements Scheduler.Scheduler {
@@ -235,7 +245,30 @@ export class FakeWorld {
     voidAuthorization: (input, o) => this.call("void", input, o.idempotencyKey),
     intent: (input) => this.call("intent", input),
     orderFor: (input) => this.call("order", input),
+    socket: (op, input, from) => {
+      const c: Conn = { op, input, from, process: this.process, open: true };
+      this.conns.push(c);
+      return Stream.callback<unknown, unknown>((q) =>
+        Effect.acquireRelease(
+          Effect.sync(() => {
+            c.push = (f) => void Queue.offerUnsafe(q, f);
+            c.end = () => void Queue.endUnsafe(q);
+          }),
+          () => Effect.sync(() => void (c.open = false)),
+        ),
+      );
+    },
   };
+  readonly conns: Conn[] = [];
+  // What a `feed` step does: the newest open connection of this op says something, or ends.
+  feedStep(op: string, s: { frame?: unknown; end?: true }) {
+    const c = this.conns.findLast((x) => x.op === op && x.open && x.process === this.process);
+    if (!c) throw new NoHeldRequest(`feed: no open connection for ${op}`);
+    if (s.end) {
+      c.open = false;
+      c.end?.();
+    } else c.push?.(s.frame);
+  }
   private call(op: string, input: unknown, key?: string): E {
     const isRead = key === undefined;
     const r: Held = {
@@ -458,6 +491,9 @@ export class FakeWorld {
       })),
       timers: this.timers.filter((t) => t.process === this.process).map((t) => t.at),
       lost: this.requests.filter((r) => r.lostOpen).length,
+      feeds: this.conns
+        .filter((c) => c.process === this.process)
+        .map((c) => ({ op: c.op, input: c.input, from: c.from, open: c.open })),
       scheduler: { picks: this.scheduler.picks, choices: this.scheduler.choices },
     };
   }

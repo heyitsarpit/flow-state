@@ -379,6 +379,25 @@ const dispatch = (tx: Tx) => {
   }
 };
 
+// D63: lifecycle is level-triggered, as dispatch is (D4). A session is a function of the tree, so start, dispose, restore, rebind,
+// freeze, thaw and reset all reach a module the one way: this actor changed, here it is.
+const tell = (tx: Tx, before: World) => {
+  if (tx.w.status !== "live") return;
+  const watching = tx.modules.filter((m) => m.observes);
+  if (watching.length === 0) return;
+  const now = tx.w.actors;
+  const was = before.actors;
+  const changed = [...new Set([...Object.keys(now), ...Object.keys(was)])].filter(
+    (k) => now[k] !== was[k],
+  );
+  if (changed.length === 0) return;
+  const view = changed.map((k) => {
+    const a = now[k] ?? was[k]!;
+    return { key: k, machine: a.machine, ...(now[k] ? { root: now[k]!.root } : {}) };
+  });
+  for (const m of watching) moduleInput(tx, m.id, { k: "actors", changed: view });
+};
+
 export const step = (world: World, input: Input, env: Env, sys: System): StepOut => {
   const tx: Tx = {
     ...sys,
@@ -431,6 +450,7 @@ export const step = (world: World, input: Input, env: Env, sys: System): StepOut
       onDisposeRuntime(tx);
       break;
   }
+  tell(tx, world);
   dispatch(tx);
   if (tx.w.status === "disposing" && wires(tx.w).length === 0 && input.k !== "disposeRuntime")
     finishDisposal(tx);

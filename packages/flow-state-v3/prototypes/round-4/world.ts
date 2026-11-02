@@ -100,6 +100,8 @@ export type Inc = {
   readonly key?: string;
   readonly item?: unknown;
   readonly each?: readonly string[]; // active `.each` placements, so none reads [] (M7)
+  // D62: a module's private partition of the slice's saved record (rule 71). Opaque to core; it lives and dies with this life.
+  readonly partition?: Readonly<Record<string, unknown>>;
   readonly frozen?: { readonly timers: readonly FrozenTimer[]; readonly parked: readonly Mail[] };
   readonly kids: Readonly<Record<string, Inc>>; // "summary", "CHALLENGE", "uploads:r1"
 };
@@ -131,7 +133,18 @@ export type Mail =
       readonly redelivered?: boolean; // D50
     }
   | EndingMail
-  | { readonly k: "recheck"; readonly actor: string }; // a pending reset (rule 1)
+  | { readonly k: "recheck"; readonly actor: string } // a pending reset (rule 1)
+  // A module's delivery (rule 69), current from the active leaf, fenced by incarnation as a firing is (M8).
+  | {
+      readonly k: "deliver";
+      readonly actor: string;
+      readonly inc: string;
+      readonly event: Ev;
+      readonly module: string;
+      readonly tag: string;
+      readonly ending: boolean; // a `failure` is an ending too (rule 47): D50 applies. A value is T1's end(Defect)
+      readonly redelivered?: boolean;
+    };
 export type World = {
   readonly boot: number;
   readonly nextId: number;

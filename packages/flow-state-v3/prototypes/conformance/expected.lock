@@ -114,6 +114,11 @@ REAL-03 24c8335fade4
 REAL-04 960e920567cc
 REAL-05 40d12514938e
 SEARCH-ODD-SMALL 2f098b7e3e14
+SPIKE-01 d66d0808c8ae
+SPIKE-02 74b27c17e065
+SPIKE-03 43a7f3e653a7
+SPIKE-04 b747a7e0ad80
+SPIKE-05 779229887a6b
 file:scenarios/ctx.ts 1bbf41f8124d
 file:scenarios/pay.scenario.ts 2528a0a8683e
 file:scenarios/order.scenario.ts 2afe0ffd382b
@@ -122,9 +127,9 @@ file:scenarios/flows.scenario.ts 9f70612fce60
 file:scenarios/review.scenario.ts 9af14424a383
 file:scenarios/frag.scenario.ts 6e574cd00382
 file:scenarios/round4.scenario.ts 1cdb77510f84
-file:fake-world.ts 6bca0513acc0
-file:drive.ts 4012ed418ae7
-file:fixtures/compiled.ts f7cf704a7201
+file:fake-world.ts 2c0e68069958
+file:drive.ts 921e9d3221e8
+file:fixtures/compiled.ts 0620d1e42893
 file:fixtures/build.ts 3404a3e3ed34
 file:fixtures/pay.compiled.ts b02dba2beb5e
 file:fixtures/cells.compiled.ts ecfa2dbc7783
@@ -138,3 +143,5 @@ file:fixtures/lab.compiled.ts 764cadad380a
 file:fixtures/pay-full.compiled.ts b52aaeb77a83
 file:fixtures/comments.compiled.ts dc0d859ea623
 file:fixtures/real.compiled.ts 6d4e058c42e6
+file:fixtures/feed.compiled.ts 35c486704fdf
+file:scenarios/stream.scenario.ts ffbe37bad7f1

@@ -310,6 +310,11 @@ The last line is the suite's check on itself: the runner applies each as a fault
 | REAL-04 | 4 | example | flow | rule:1, rule:52, rule:53, rule:54, D64 |  | panels.machine.ts, history.trait.ts as written |
 | REAL-05 | 4 | example | flow | rule:21, rule:43, sec:2.8.6 |  | comments.trait.ts: pin and react |
 | SEARCH-ODD-SMALL | 4 | bounded | hostile | D57 |  | SEARCH-ODD at depth 2, in the suite |
+| SPIKE-01 | 4 | example | table | rule:68, rule:69, rule:71, T1:Connecting.live, T1:Live.value, T2:3, T3:filled | * | thin streams spike: first open, a value and its bookmark, one in mail. _Thin: no catchUp, `latest`, `listen`_ |
+| SPIKE-02 | 4 | example | table | T2:6, T2:4, T2:2, T1:Live.fail, rule:71 | * | thin spike: reload, proof, drop, idle, server reset. _Thin: no catchUp, `latest`, `listen`_ |
+| SPIKE-03 | 4 | example | table | T3:bookmark, T3:refetch, rule:71, F3 | * | thin spike: `O.x.bookmark`, `O.x.refetch` as members. _Thin: no catchUp, `latest`, `listen`_ |
+| SPIKE-04 | 4 | example | table | T9, rule:70, rule:1, rule:52, D62 | * | thin spike: a session on an incarnation; reset, freeze, thaw, dispose. _Thin: no catchUp, `latest`, `listen`_ |
+| SPIKE-05 | 4 | example | table | T1:Live.defect, D50, D46, D57, rule:8 | * | thin spike: refusals, a module's defect, an odd position. _Thin: no catchUp, `latest`, `listen`_ |
 
 ## Round 5: streams
 

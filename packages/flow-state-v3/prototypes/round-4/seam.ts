@@ -5,9 +5,10 @@
 // closure goes through `cx.user`, which says what its throw means here: inside a turn it refuses the turn; outside one it is an
 // issue with its origin and the given default. Never a disable, never a kill.
 //
-// On paper for round 4, in convergence-3, not built: reconcile, turned, cx.deliver, cx.retract, cx.tell, cx.actor.
-import type { Compiled, Slot } from "../conformance/fixtures/compiled.ts";
-import type { Ending, SendExit } from "./world.ts";
+// D63: a module hears lifecycle, its members and its deliveries' turns through `input`, as facts, in the step. No hook was added.
+// A module with `observes` gets { k: "actors", changed } after any step that changed an actor. `cx.tell` is not built: no `listen`.
+import type { Compiled, Ev, Slot } from "../conformance/fixtures/compiled.ts";
+import type { Ending, Inc, SendExit } from "./world.ts";
 
 export type WriteRef = {
   readonly attempt: string;
@@ -35,7 +36,24 @@ export type Cx = {
   visible(): void;
   machine(id: string): Compiled;
   user<A extends unknown[], B>(slot: Slot<(...a: A) => B>, args: A, fallback: () => B): B;
+  deliver(m: { actor: string; inc: string; event: Ev; tag: string; ending: boolean }): void;
+  retract(tag: string): void; // mail and follow-ups alike
+  partition(actor: string, inc: string, f: (old: unknown) => unknown): void; // D62
+  actor(key: string): ActorView | undefined; // a read of the tree: a frame needs the field and the bookmark
 };
+export type ActorView = { readonly key: string; readonly machine: string; readonly root?: Inc };
+// What `input` receives from the core. Its own payloads are its own.
+export type Told =
+  | { readonly k: "actors"; readonly changed: readonly ActorView[] }
+  | { readonly k: "turned"; readonly tag: string; readonly outcome: "ran" | "invalid" | "fenced" }
+  | {
+      readonly k: "member";
+      readonly actor: string;
+      readonly inc: string;
+      readonly op: string;
+      readonly name: string;
+      readonly value: unknown;
+    };
 export type DriverIo = {
   fork(key: string, effect: unknown, done: (exit: SendExit) => void): void;
   stop(key: string): void; // M7: a module's fiber has an owner
@@ -51,6 +69,7 @@ export type Ended = {
 export type Module<S> = {
   readonly id: string;
   readonly rank: number;
+  readonly observes?: true; // wants { k: "actors" }, level-triggered
   init(): S;
   prepare?(s: S, w: Omit<WriteRef, "attempt" | "mint">, cx: Cx): unknown; // P5: dry
   start?(s: S, w: WriteRef, prepared: unknown, cx: Cx): { readonly s: S; readonly ok: boolean }; // P6

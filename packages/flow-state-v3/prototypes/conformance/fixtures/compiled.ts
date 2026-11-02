@@ -28,7 +28,15 @@ export type Member =
       readonly verb: "retry" | "cancel";
       readonly key?: Slot<(a: AfterIn) => unknown>;
     }
-  | { readonly op: string; readonly verb: "lookup"; readonly input: Slot<(a: AfterIn) => unknown> };
+  | { readonly op: string; readonly verb: "lookup"; readonly input: Slot<(a: AfterIn) => unknown> }
+  // A module's member (M8, D63): `O.x.bookmark`, `O.x.refetch`. In action order, with the turn's rollback.
+  | {
+      readonly op: string;
+      readonly verb: "module";
+      readonly module: string;
+      readonly name: string;
+      readonly value?: Slot<(a: AfterIn) => unknown>;
+    };
 
 export type Alternative = {
   readonly target: string; // a node id, or "self"
@@ -92,7 +100,9 @@ export type Node = {
   readonly default?: string; // a compound state's initial child
   readonly placements?: readonly Placement[]; // traits at this node
   readonly subroutine?: Placement; // the fragment this state goes into
+  readonly activities?: readonly Activity[]; // data for a sessions module; the core reads none of it
 };
+export type Activity = { readonly op: string; readonly input: Slot<(a: AfterIn) => unknown> };
 export type Mapped = {
   readonly event: string;
   // rule 13's ctx: `input` and `key` of the call that ended; `reason` for an unknown; `key` absent never
@@ -130,6 +140,7 @@ export type Compiled = {
   readonly domain?: DomainSpec;
   readonly fragments?: Readonly<Record<string, Fragment>>;
   readonly local?: true; // a local identity: lanes never adopted (D21)
+  readonly streams?: Readonly<Record<string, StreamSpec>>; // data for a sessions module
 };
 
 // ── What a domain says about records (2.8). Data for the entities module; the core never reads it.
@@ -156,6 +167,31 @@ export type DomainSpec = {
   >;
   readonly reads: Readonly<Record<string, (value: any, input: any) => readonly Carried[]>>;
   readonly repair: (ref: string) => Effect.Effect<any, any, never>; // a forced repair: the record's fields, or null
+};
+
+// ── A stream contract, compiled (2.11.3). The thin spike's subset: no catchUp, no `latest`.
+export type Signal =
+  | {
+      readonly _feed: "live";
+      readonly proof?: string;
+      readonly restartAt?: unknown;
+      readonly head?: unknown;
+    }
+  | { readonly _feed: "ping" }
+  | { readonly _feed: "down"; readonly reason: string };
+export type StreamSpec = {
+  readonly id: string;
+  readonly key: (input: any) => unknown;
+  readonly position?: string; // the NAME of a field of the output
+  readonly fills?: string; // the memory field (2.11.7)
+  readonly reconnect: boolean;
+  readonly idleMs: number;
+  readonly healthyMs: number;
+  readonly backoff: (n: number) => number;
+  readonly subscribe: (input: any, c: { readonly from: unknown }) => unknown; // Stream<value | Signal, E>
+  readonly value: Mapped;
+  readonly missed: Mapped;
+  readonly failure: Mapped;
 };
 
 // 2.7.1 "How it is built"

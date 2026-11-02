@@ -48,6 +48,7 @@ export type Step =
   | { answer: RequestMatch; with: Answer; where?: Readonly<Record<string, unknown>> }
   | { reload: true }
   | { storage: "ack" | "refuse" | "hang" | "landNoAck"; match?: string }
+  | { feed: string; frame?: unknown; end?: true } // a stream's server says something
   | { fault: Fault }
   | { disposeRuntime: true };
 
@@ -126,6 +127,7 @@ export type Outside = {
   storage: ReadonlyArray<{ purpose: string; keys: readonly string[]; hung: boolean }>;
   timers: readonly number[];
   lost: number; // requests whose answer was lost and which may still land
+  feeds: ReadonlyArray<{ op: string; input: any; from: unknown; open: boolean }>;
   live: number;
   scheduler: { picks: number; choices: number };
   injections: { planned: number; done: number; withLive: number; withChoice: number };
@@ -145,6 +147,7 @@ export type Reads = {
   quiet(): { idle: boolean; fatal: boolean; waits: readonly Wait[] };
   outside(): Outside;
   stateHash(): string; // opaque; equal means the same future under the same steps
+  module(id: string, ref: string): any; // a module's `read`: a stream's row
   replay(): { same: boolean; firstDiff?: unknown };
 };
 export type Bounds = {
@@ -193,6 +196,7 @@ export type Instance = {
   inner(actor: string, path: readonly string[]): { state: string; memory: any } | undefined;
   row(actor: string, op: string, key: unknown): Row | undefined;
   record(ref: string): RecordRead | undefined;
+  module(id: string, ref: string): any;
   waits(): readonly Wait[];
   fatal(): boolean;
   frames(): readonly Frame[];

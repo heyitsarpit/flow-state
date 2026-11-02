@@ -132,3 +132,9 @@ file:scenarios/review.scenario.ts hash:9af14424a383 | D59 above
 file:scenarios/round4.scenario.ts hash:1cdb77510f84 | after red: see above
 file:drive.ts hash:4012ed418ae7 | after red: see above
 file:fixtures/real.compiled.ts hash:6d4e058c42e6 | after red: see above
+SEARCH-PAY | pins: `Leave`, `Start` alone | a pin names the steps that make the bug: after a charge, then Leave; Leave or a reload, then Start. Two new pins for what narrowing showed: P1 with P6, P5 with P6 | Review M9. They are compositions of named bugs in Pay, which is unchanged | D53
+SPIKE-01..05 | absent | new | The thin streams spike | D62, D63
+FAKE | no socket | `api.socket`, `feed` step, `outside.feeds` | The spike's fixture needs a server that pushes | none
+file:fake-world.ts hash:2c0e68069958 | socket and feed step for the spike
+file:drive.ts hash:921e9d3221e8 | feed step for the spike
+file:fixtures/compiled.ts hash:0620d1e42893 | activities, streams, a module member for the spike
