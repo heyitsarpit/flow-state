@@ -1,7 +1,7 @@
 // bun search/run.ts --which pay|payFixed|like --runtime ../round-2/adapter.ts --depth 8 --states 400000 --seconds 500
 // Run under watch.ts. One process at a time.
 import { resolve } from "node:path";
-import { makeHarness } from "../drive.ts";
+import { makeHarness, swapFixtures } from "../drive.ts";
 import { payFixture } from "../fixtures/pay.compiled.ts";
 import { payFixedFixture } from "../fixtures/pay.fixed.ts";
 import { s1Fixture } from "../fixtures/s1.compiled.ts";
@@ -23,6 +23,7 @@ const arg = (k: string, d: string) => {
 const mod = (await import(
   resolve(import.meta.dir, arg("--runtime", "../../round-6/adapter.ts"))
 )) as RuntimeModule;
+if (arg("--swap", "")) swapFixtures((await import(resolve(import.meta.dir, arg("--swap", "")))).swaps);
 const make = makeHarness(mod.port);
 const o = {
   depth: Number(arg("--depth", "8")),

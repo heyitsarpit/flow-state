@@ -125,7 +125,11 @@ export type Op = {
   readonly concurrency: "reject" | "latest" | "serialize";
   readonly timeoutMs?: number;
   readonly fragment?: string; // the declaring fragment (rule 49). Absent: the machine. One per actor (rule 51)
-  readonly commit: (input: any, ctx: CommitCtx) => Effect.Effect<unknown, unknown, never>;
+  // Round 7, D91: a Slot from the typed path, and after the seal always. A bare function is the hand-written fixtures' spelling.
+  readonly commit:
+    | ((input: any, ctx: CommitCtx) => Effect.Effect<unknown, unknown, never>)
+    | Slot<(input: any, ctx: CommitCtx) => Effect.Effect<unknown, unknown, never>>;
+  readonly keyFields?: readonly string[]; // Round 7, D91: rule 39's field list, as data. Hand-written fixtures have a closure only
   readonly outcomes: {
     readonly success?: Mapped;
     readonly failure: Readonly<Record<string, Mapped>>;
@@ -148,6 +152,8 @@ export type Compiled = {
   readonly fragments?: Readonly<Record<string, Fragment>>;
   readonly local?: true; // a local identity: lanes never adopted (D21)
   readonly streams?: Readonly<Record<string, StreamSpec>>; // data for a sessions module
+  // Round 7, D91, rule 47: what a typed definition declares. Absent on hand-written fixtures, so `flow check` infers it and says so.
+  readonly events?: { readonly external: readonly string[]; readonly internal: readonly string[] };
 };
 
 // ── What a domain says about records (2.8). Data for the entities module; the core never reads it.

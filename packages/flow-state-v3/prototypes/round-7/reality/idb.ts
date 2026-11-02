@@ -16,7 +16,17 @@ export type Stats = {
   keys: number;
   bytes: number;
 };
-export const idbStorage = (db: IDBDatabase, stats?: Stats) => ({
+// D85: a host commits this, strictly, and waits, before it says ready. H3: an acknowledged write vanished on a database moments old. The cause is not established.
+export const strictMarker = (db: IDBDatabase): Promise<void> =>
+  new Promise((res, rej) => {
+    const tx = db.transaction("kv", "readwrite", { durability: "strict" });
+    tx.objectStore("kv").put(String(Date.now()), "host/ready");
+    tx.oncomplete = () => res();
+    tx.onabort = () => rej(tx.error);
+  });
+// Round 7: a real `tx.abort()`, as a quota failure gives; the answer comes by `onabort`, later. Counted down by the page.
+export type Faults = { abortPlain: number; abortAwaited: number };
+export const idbStorage = (db: IDBDatabase, stats?: Stats, faults?: Faults) => ({
   load: (): Promise<ReadonlyMap<string, string>> =>
     new Promise((res, rej) => {
       const tx = db.transaction("kv", "readonly");
@@ -33,6 +43,7 @@ export const idbStorage = (db: IDBDatabase, stats?: Stats) => ({
     _purpose: string,
     then?: (ok: boolean) => void,
     failed?: (why: string) => void,
+    landed?: () => void,
   ) => {
     const t0 = performance.now();
     const say = (why: string) => {
@@ -59,9 +70,17 @@ export const idbStorage = (db: IDBDatabase, stats?: Stats) => ({
       tx.oncomplete = () => {
         if (stats) stats.commitMs += performance.now() - t0;
         then?.(true);
+        landed?.();
       };
       tx.onabort = () => say(String(tx.error));
       tx.onerror = () => undefined; // onabort follows
+      if (faults && !then && faults.abortPlain > 0) {
+        faults.abortPlain--;
+        tx.abort();
+      } else if (faults && then && faults.abortAwaited > 0) {
+        faults.abortAwaited--;
+        tx.abort();
+      }
     } catch (e) {
       say(String(e));
     }

@@ -1,5 +1,6 @@
 // Turns a runtime's `Port` into a Harness. Settling, faults, plans and the fake live here, so a rewrite replaces only the
 // port. Faults reach a runtime through what production has: compiled data (Slots), a Host, and its own input port.
+import type { Fixture as Fixture_ } from "./harness.ts";
 import type { Compiled } from "./fixtures/compiled.ts";
 import { FakeWorld, NoHeldRequest } from "./fake-world.ts";
 import type { FaultState, Harness, Instance, Port, Step } from "./harness.ts";
@@ -184,7 +185,7 @@ export const makeHarness = (port: Port) => (): Harness => {
       fake = new FakeWorld(cfg.seed, cfg.machines.find((m) => m.server)?.server);
       // Round 7: the older cases were written with plain writes landing at once. D80's 5 s is the runtime's default; a case that means it says so.
       bounds = { captureMs: 0, ...cfg.bounds };
-      compiled = cfg.machines.map((m) => wrap(m.make(fake.api)));
+      compiled = cfg.machines.map((m) => wrap((swaps.get(m) ?? m).make(fake.api)));
       boot();
     },
     raw: run,
@@ -267,5 +268,10 @@ export const makeHarness = (port: Port) => (): Harness => {
     },
     read: reads,
   };
+};
+// Round 7: the same scenario on another way of building the same machine (`main.ts --swap`). By identity, so nothing else with its id is touched.
+const swaps = new Map<Fixture_, Fixture_>();
+export const swapFixtures = (m: ReadonlyMap<Fixture_, Fixture_>) => {
+  for (const [a, b] of m) swaps.set(a, b);
 };
 export { NoHeldRequest };

@@ -9,7 +9,7 @@ const rowOf = (id: string) => ({
   readAt: null as number | null,
   revision: 1,
 });
-export const startServer = (pageJs: string, port = 0) => {
+export const startServer = (pageJs: string, port = 0, hooks: { hidden?: (why: string) => void } = {}) => {
   const fresh = () => ({
     journal: [] as J[],
     stored: new Map<string, { status: number; body: unknown }>(),
@@ -64,6 +64,9 @@ export const startServer = (pageJs: string, port = 0) => {
           body: { intentId: i.intentId, status: "requires_capture", clientSecret: "" },
         };
       }
+      case "charge":
+        S.charged.set(key, { intent: "bare", key });
+        return { status: 200, body: { n: 1 } };
       case "place": {
         const old = S.orders.get(i.cartId);
         if (old) return { status: 409, body: { _tag: "OrderExists", order: { orderId: old } } };
@@ -123,6 +126,10 @@ export const startServer = (pageJs: string, port = 0) => {
       if (u.pathname === "/page.js")
         return new Response(pageJs, { headers: { "content-type": "text/javascript" } });
       if (u.pathname === "/favicon.ico") return new Response(null, { status: 204 });
+      if (u.pathname === "/_hidden") {
+        hooks.hidden?.(u.searchParams.get("why") ?? "");
+        return new Response(null, { status: 204 });
+      }
       if (u.pathname === "/_ack") {
         const k = u.searchParams.get("k")!;
         S.acks[k] = Math.max(S.acks[k] ?? 0, Number(u.searchParams.get("n")));

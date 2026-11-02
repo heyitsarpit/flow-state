@@ -4,11 +4,12 @@ import { Scheduler } from "effect";
 import { growMachine, growActor, message } from "../../conformance/bench/fixture.ts";
 import { deskListenFixture, deskFixture } from "../../conformance/fixtures/desk.compiled.ts";
 import { payFixture } from "../../conformance/fixtures/pay.compiled.ts";
+import { bareFixture } from "../../conformance/fixtures/round7.compiled.ts";
 import { createRuntime } from "../driver.ts";
 import { entities, readAll } from "../entities.ts";
 import { sessions } from "../sessions.ts";
 import { viewOf } from "../inc.ts";
-import { idbStorage, openDb, type Stats } from "./idb.ts";
+import { idbStorage, openDb, strictMarker, type Faults, type Stats } from "./idb.ts";
 import { realApi } from "./real-api.ts";
 
 const g = globalThis as any;
@@ -17,7 +18,26 @@ const issues: any[] = [];
 let rt: any;
 const stats: Stats = { writes: 0, syncMs: 0, commitMs: 0, failed: 0, keys: 0, bytes: 0 };
 // What a real host must be, and the fake was not. Time and ids survive a reload there; here `performance.now` restarts and a counter repeats.
+const faults: Faults = { abortPlain: 0, abortAwaited: 0 };
+g.__faults = faults;
+let beacon = false;
+const seen = { hidden: 0, pagehide: 0, visibility: [] as string[] };
+g.__seen = seen;
+// D80: what `Host.onHidden` is on a page. The beacon says when, before the flush starts, so run.ts can kill during it.
+const onHidden = (f: () => void) => {
+  const fire = (why: string) => {
+    if (beacon) navigator.sendBeacon(`/_hidden?why=${why}`);
+    (seen as any)[why === "pagehide" ? "pagehide" : "hidden"]++;
+    f();
+  };
+  document.addEventListener("visibilitychange", () => {
+    seen.visibility.push(document.visibilityState);
+    if (document.visibilityState === "hidden") fire("hidden");
+  });
+  addEventListener("pagehide", () => fire("pagehide"));
+};
 const host = (storage: any) => ({
+  onHidden,
   now: () => Date.now(),
   id: () => `att-${crypto.randomUUID()}`,
   setTimer: (at: number, f: () => void) => {
@@ -39,24 +59,28 @@ const lockFor = (name: string): Promise<boolean> =>
 g.__boot = async (kind: string, o: any = {}) => {
   const api = realApi();
   const db = await openDb(o.db ?? "flow");
+  beacon = !!o.beacon;
+  if (o.marker !== false) await strictMarker(db); // D85
   const owner = o.persist === false ? false : await lockFor(`flow-scope-${o.db ?? "flow"}`);
   const machine =
     kind === "pay"
       ? payFixture.make(api)
       : kind === "desk"
         ? (o.listen === false ? deskFixture : deskListenFixture).make(api)
-        : growMachine(o.size ?? 1000, true);
+        : kind === "bare"
+          ? bareFixture().make(api)
+          : growMachine(o.size ?? 1000, true);
   if (!owner) evidence.push({ kind: "SecondTabNoPersistence" });
   rt = createRuntime({
-    host: host(idbStorage(db, stats)) as never,
+    host: host(idbStorage(db, stats, faults)) as never,
     machines: { [machine.id]: machine },
     modules: [entities, sessions],
-    bounds: { captureMs: o.captureMs ?? 100, ...o.bounds },
+    bounds: { ...(o.captureMs === undefined ? {} : { captureMs: o.captureMs }), ...o.bounds },
     persistence: owner,
     onEvidence: (e: any[]) => void evidence.push(...e),
     onIssue: (i: any[]) => void issues.push(...i),
   });
-  addEventListener("pagehide", () => rt.flushNow());
+  g.__dbName = db.name;
   return { owner, locks: !!navigator.locks };
 };
 g.__ensure = (a: string, m: string, input?: unknown) =>
@@ -67,7 +91,7 @@ g.__dispose = (a: string) => rt.input({ k: "dispose", actor: a });
 g.__flush = () => rt.flushNow();
 g.__view = (a: string) => {
   const w = rt.world();
-  const r = getActor(w.actors, a)?.root;
+  const r = (Array.isArray(w.actors) ? getActor(w.actors, a) : w.actors[a])?.root; // a control may run an older runtime's plain table
   return r ? { state: r.leaf, memory: viewOf(r) } : undefined;
 };
 g.__booted = () => rt.world().boot > 0;
@@ -96,6 +120,13 @@ g.__wait = async (cond: string, ms = 5000) => {
   return false;
 };
 
+// What the disk holds, read by a fresh connection: the oracle, not the runtime's belief.
+g.__disk = async (name: string) => {
+  const db = await openDb(name);
+  const m = await idbStorage(db).load();
+  db.close();
+  return Object.fromEntries(m);
+};
 // ── S3 at the store: what a commit costs, no runtime.
 const medianOf = (xs: number[]) => [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)]!;
 const p99 = (xs: number[]) => [...xs].sort((a, b) => a - b)[Math.floor(xs.length * 0.99)]!;
@@ -204,6 +235,7 @@ g.__s3runtime = async (o: { size: number; n: number; gapMs: number; captureMs: n
   const turns: number[] = [];
   let long = 0;
   const po = new PerformanceObserver((l) => void (long += l.getEntries().length));
+  let longLate = 0;
   try {
     po.observe({ type: "longtask" });
   } catch {}
@@ -220,6 +252,8 @@ g.__s3runtime = async (o: { size: number; n: number; gapMs: number; captureMs: n
   }
   await new Promise((res) => setTimeout(res, Math.max(50, o.captureMs * 2)));
   const secs = (performance.now() - t0) / 1000;
+  longLate = po.takeRecords().length; // M3: what `disconnect` would have thrown away
+  long += longLate;
   po.disconnect();
   db.close();
   await new Promise((res) => {
@@ -235,6 +269,7 @@ g.__s3runtime = async (o: { size: number; n: number; gapMs: number; captureMs: n
     commitMs: Math.round((st.commitMs / Math.max(1, st.writes)) * 100) / 100,
     mbWritten: Math.round((st.bytes / 1e6) * 10) / 10,
     longTasks: long,
+    longTasksOnlyInTakeRecords: longLate,
     seconds: Math.round(secs * 10) / 10,
   };
 };

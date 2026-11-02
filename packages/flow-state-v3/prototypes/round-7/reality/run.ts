@@ -164,7 +164,7 @@ try {
         p.close();
         await browser.restart();
       }
-      await Bun.sleep(payDelay + 50); // the server finishes what it had, or never heard it
+      // M4 (a): no wait here. The server may still be working when the page comes back: that is the point.
       await control({ delay: { pay: 0 } });
       p = await open();
       await p.evaluate(`__boot("pay", ${JSON.stringify({ db })})`);
@@ -178,6 +178,7 @@ try {
       const fatal = await p.evaluate(`__fatal()`);
       const lanes = await p.evaluate(`__lanes()`);
       p.close();
+      await Bun.sleep(payDelay + 50); // now the server has finished, for counting only
       const t = await truth();
       const keys = t.charged.filter((c: any) => c.intent === intentId).map((c: any) => c.key);
       const myKeys = t.journal.filter((j: any) => j.op === "pay" && keys.includes(j.key));
@@ -198,6 +199,7 @@ try {
         fatal,
         issues: issues.map((x: any) => x.code),
         lanes,
+        notSent: await (async () => false)(),
       };
     };
     let i = 0;
@@ -229,6 +231,8 @@ try {
     say("crashSummary", {
       cycles: rows.length,
       doubleCharge: rows.filter((r) => r.keys > 1).length,
+      chargedNoLane: rows.filter((r) => r.keys > 0 && r.restored === null).length, // H3's oracle
+      notSent: rows.filter((r) => r.notSent).length,
       fatal: rows.filter((r) => r.fatal).length,
       unsettled: rows.filter((r) => !r.settled).length,
       byRestored: rows.reduce(

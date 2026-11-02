@@ -3,7 +3,9 @@
 // Prior art, read: drain then defer, codebases/xstate/packages/core/src/createActor.ts:280-299; runFork starts now,
 // node_modules/effect/src/internal/effect.ts:5680-5690.
 import { Cause, Effect, Exit, type Fiber } from "effect";
-import { OutcomeFailure, OutcomeUnknown, type Compiled } from "../conformance/fixtures/compiled.ts";
+import { OutcomeFailure, OutcomeUnknown, type Compiled, type Op, type Slot } from "../conformance/fixtures/compiled.ts";
+
+type CommitFn = Extract<Op["commit"], (...a: never[]) => unknown>;
 import type { Host } from "../conformance/fake-world.ts";
 import { sealAll, text } from "./gate.ts";
 import type { Module } from "./seam.ts";
@@ -186,7 +188,7 @@ export const createRuntime = (cfg: {
   host.onHidden?.(() => flushCapture());
   const invoke = (c: Extract<Command, { k: "invoke" }>) => {
     try {
-      const effect = machines[c.machine]!.ops[c.op]!.commit(c.input, { attempt: c.ctx });
+      const effect = (machines[c.machine]!.ops[c.op]!.commit as Slot<CommitFn>).run(c.input, { attempt: c.ctx });
       fork(`${c.attempt}#${c.send}`, effect, (exit) =>
         input({ k: "sent", attempt: c.attempt, send: c.send, exit }),
       );

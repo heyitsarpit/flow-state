@@ -3,7 +3,7 @@
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { makeHarness } from "./drive.ts";
+import { makeHarness, swapFixtures } from "./drive.ts";
 import type { Harness, RuntimeModule } from "./harness.ts";
 import { catalog, printReports } from "./report.ts";
 import {
@@ -182,6 +182,7 @@ if (import.meta.main) {
   const round = Number(arg("--round") ?? 7);
   const runtime = resolve(here, arg("--runtime") ?? "./null-adapter.ts");
   const mod = (await import(runtime)) as RuntimeModule;
+  if (arg("--swap")) swapFixtures((await import(resolve(here, arg("--swap")!))).swaps);
   console.log(`runtime: ${runtime}\nbun ${Bun.version}`);
 
   // A diff touching expectations with no log line fails the run. Compared first, before any lock (review M7).

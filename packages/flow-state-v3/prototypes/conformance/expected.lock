@@ -165,8 +165,8 @@ file:scenarios/review.scenario.ts 1050c8bff98a
 file:scenarios/frag.scenario.ts 6e574cd00382
 file:scenarios/round4.scenario.ts 8bac160577c0
 file:fake-world.ts 2bdb094dc6f7
-file:drive.ts 66b70261bc8e
-file:fixtures/compiled.ts e94397adad20
+file:drive.ts d1bd4d96113b
+file:fixtures/compiled.ts e709a0a68dd7
 file:fixtures/build.ts 3404a3e3ed34
 file:fixtures/pay.compiled.ts b02dba2beb5e
 file:fixtures/cells.compiled.ts ecfa2dbc7783

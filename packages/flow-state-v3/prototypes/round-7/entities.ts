@@ -809,7 +809,7 @@ export const entities: Module<Slice> = {
     if (c.k === "stop") return io.stop(`repair:${c.gen}`);
     if (c.k === "reread") {
       const eff = Effect.suspend(() =>
-        io.machine(c.machine).ops[c.op]!.commit(c.input, {
+        (io.machine(c.machine).ops[c.op]!.commit as Slot<(i: unknown, c: unknown) => Effect.Effect<unknown, unknown>>).run(c.input, {
           attempt: { id: c.gen, mayHaveApplied: false },
         }),
       );

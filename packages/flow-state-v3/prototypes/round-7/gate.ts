@@ -155,10 +155,11 @@ const sealNode = (n: Node): Node => ({
   ...(n.placements ? { placements: n.placements.map(sealPlacement) } : {}),
   ...(n.subroutine ? { subroutine: sealPlacement(n.subroutine) } : {}),
 });
-const sealOp = (o: Op): Op => {
+const sealOp = (o: Op, definition: string): Op => {
   const u = o.outcomes.unknown;
   return {
     ...o,
+    commit: typeof o.commit === "function" ? slotted(o.commit, definition, `operations.${o.id}.commit`) : o.commit, // D91
     outcomes: {
       ...(o.outcomes.success ? { success: sealMapped(o.outcomes.success) } : {}),
       failure: table(o.outcomes.failure, sealMapped),
@@ -285,7 +286,7 @@ export const seal = (c: Compiled): Compiled => {
       initial: gated(c.memory.initial, plain),
       ...(c.memory.restore ? { restore: gated(c.memory.restore, plain) } : {}),
     },
-    ops: table(c.ops, sealOp),
+    ops: table(c.ops, (o: Op) => sealOp(o, c.id)),
     ...(c.fragments ? { fragments: table(c.fragments, sealFrag) } : {}),
     ...(c.streams
       ? {
