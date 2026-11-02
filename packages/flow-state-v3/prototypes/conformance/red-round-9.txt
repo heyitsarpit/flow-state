@@ -1,0 +1,49 @@
+# Round 9, part one: every new case, on round 8's runtime (the review's commit's turn.ts, gate.ts and the rest), under watch.ts. Rule each cites, by scenario:
+# REV9-M1 D114, D109
+# REV9-BURST D115, H1
+# REV9-SPIN D115, H1
+# REV9-KEPT D118, D109, D50
+# REV9-STREAM D118, D50
+# REV9-NAMES D119, D108, M5
+# A PASS here pins what was already true, or what only the new code must keep: not seen failing.
+FAIL  REV9-M1/a-decline-carries-what-the-turn-asked-to-send (j) an ending refused twice left no wait: SaveNo
+FAIL  REV9-M1/a-refused-not-sent-is-parked-and-the-wait-says-so (j) an ending refused twice left no wait: SaveNo
+FAIL  REV9-M1/a-kept-decline-whose-input-cannot-be-carried-still-lands (j) an ending refused twice left no wait: SaveNo
+PASS  REV9-M1/a-refused-rejected-is-kept-too               4.3 ms
+PASS  REV9-M1/a-hold-parks-nothing                         1.3 ms
+FAIL  REV9-M1/a-key-with-no-name-still-carries-the-input   (j) an ending refused twice left no wait: OddNo
+FAIL  REV9-BURST/300-sends-in-one-tick-all-end             (j) 1 ask(s) of del in a committed turn became nothing
+FAIL  REV9-BURST/300-rows-each-asking-once-all-end         (j) 1 ask(s) of rowRead in a committed turn became nothing; (j) 1 ask(s) of rowRead in a committed turn became nothing; (j) 1 ask(s
+FAIL  REV9-BURST/a-queue-over-a-local-source-finishes      a yield says so: expected true, got false
+FAIL  REV9-BURST/a-clock-set-back-stops-nothing            (j) 1 ask(s) of read in a committed turn became nothing
+FAIL  REV9-SPIN/a-spin-stops-spinning-and-its-ending-is-not-lost (j) 1 ask(s) of readLoop in a committed turn became nothing
+FAIL  REV9-SPIN/a-paced-failure-backs-off                  (j) 1 ask(s) of readLoop in a committed turn became nothing
+FAIL  REV9-SPIN/a-press-beside-a-spin-goes-at-once         (j) 1 ask(s) of readLoop in a committed turn became nothing
+PASS  REV9-SPIN/a-real-answer-breaks-the-chain             1.2 ms
+FAIL  REV9-SPIN/a-commit-that-throws-at-once-and-asks-again-is-paced (j) 1 ask(s) of w in a committed turn became nothing
+FAIL  REV9-SPIN/listeners-hear-a-spin                      (j) 1 ask(s) of readLoop in a committed turn became nothing
+FAIL  REV9-SPIN/a-spin-with-the-clock-set-back-is-still-paced (j) 1 ask(s) of readLoop in a committed turn became nothing
+FAIL  REV9-SPIN/a-newer-ask-replaces-a-paced-read          (j) 1 ask(s) of readLoop in a committed turn became nothing
+FAIL  REV9-SPIN/a-freeze-interrupts-a-paced-read           (j) 1 ask(s) of spinRead in a committed turn became nothing
+FAIL  REV9-SPIN/a-kill-while-paced-boots-clean             (j) 1 ask(s) of readLoop in a committed turn became nothing
+FAIL  REV9-SPIN/a-dispose-while-paced-ends-it              (j) 1 ask(s) of readLoop in a committed turn became nothing
+FAIL  REV9-KEPT/a-refused-deadline-stays-on-the-record     (j) an ending refused twice left no wait: GiveUp
+FAIL  REV9-KEPT/a-kept-deadline-goes-with-its-activation   (j) an ending refused twice left no wait: GiveUp
+FAIL  REV9-KEPT/a-kept-deadline-goes-with-a-disposed-actor-and-comes-back (j) an ending refused twice left no wait: GiveUp
+FAIL  REV9-KEPT/a-kept-success-is-visible-and-blocks-its-key the row says so: expected 1, got undefined
+FAIL  REV9-KEPT/cancel-lets-a-kept-ending-go               no wait: expected 0, got 1
+PASS  REV9-KEPT/a-kept-ending-delivered-at-boot-frees-its-key 1.2 ms
+FAIL  REV9-KEPT/still-broken-at-boot-is-kept-again         the row: expected 1, got undefined
+FAIL  REV9-KEPT/unpersisted-keeps-it-on-the-lane           a wait: expected 1, got 0
+FAIL  REV9-KEPT/a-fragments-kept-decline-keeps-its-subject (j) an ending refused twice left no wait: KidNo
+FAIL  REV9-KEPT/a-raise-with-no-name-reaches-nobody-and-the-turn-runs no refusal: expected 0, got 1
+PASS  REV9-KEPT/a-refused-turn-takes-its-commands          0.3 ms
+FAIL  REV9-STREAM/a-refused-stream-failure-is-a-stranded-wait a wait says so: expected 1, got 0
+FAIL  REV9-STREAM/a-stream-key-with-no-name-is-named-and-opens-nothing named: expected true, got false
+FAIL  REV9-NAMES/a-bigint-key-names-a-lane-and-sends       sent: expected 1, got 0
+FAIL  REV9-NAMES/a-bigint-key-survives-a-reload            a hold, under its name: expected true, got undefined
+FAIL  REV9-NAMES/a-bigint-reset-resets                     the kid is new: expected null, got "customer-1 secret"
+FAIL  REV9-NAMES/a-bigint-input-still-cannot-be-carried    (j) an ending refused twice left no wait: SaveNo
+PASS  REV9-NAMES/two-reset-values-with-no-name-are-one     0.5 ms
+PASS  REV9-NAMES/a-guard-key-with-no-name-says-why         0.2 ms
+WATCH peak 158 MB, 0.9 s, exit 1, killed no

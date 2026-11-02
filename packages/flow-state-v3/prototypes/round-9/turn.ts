@@ -424,7 +424,14 @@ const freezeInc = (w: Walk, hostPath: Path, part: string) => {
     return true;
   };
   tx.w = { ...tx.w, mail: tx.w.mail.filter(keep), follow: tx.w.follow.filter(keep) };
-  const parked: Mail[] = dropReadsOf(tx, inc.id, false).map((r) => {
+  // D115: a read's ending waiting its turn is a read of this life, and rule 52 interrupts it.
+  const pacedReads = Object.values(tx.w.timers).flatMap((t) => (t.kind === "pace" && t.mail.inc === inc.id ? [t] : []));
+  const pacedParked: Mail[] = pacedReads.map((t) => {
+    disarmTimer(tx, t.key);
+    const { depth: _d, ...mail } = (t as Extract<typeof t, { kind: "pace" }>).mail;
+    return { ...mail, ending: { ch: "failure" as const, tag: "Interrupted", value: {} } };
+  });
+  const parked: Mail[] = [...pacedParked, ...dropReadsOf(tx, inc.id, false).map((r): Mail => {
     const e = { ch: "failure" as const, tag: "Interrupted", value: {} };
     noteEnding(tx, { op: r.op, attempt: `read/${r.actor}/${r.inc}/${r.op}`, send: r.gen }, e);
     note(tx, "parked", { op: r.op, attempt: `read/${r.actor}/${r.inc}/${r.op}` });
@@ -439,7 +446,7 @@ const freezeInc = (w: Walk, hostPath: Path, part: string) => {
       attempt: `read/${r.actor}/${r.inc}/${r.op}`,
       inc: r.inc,
     };
-  });
+  })];
   w.root = withKid(w.root, path, (i) => ({
     ...i,
     frozen: { timers: [...timers, ...queued], parked },
@@ -1179,8 +1186,7 @@ const attemptTurn = (tx: Tx, item: Mail, tag: string, f: () => void): boolean =>
     // D118: and then it stays on the record, so a reload fires it again.
     if (item.k === "fire" && again) {
       tx.w = { ...tx.w, keptFires: [...tx.w.keptFires, item] };
-      tx.touchedActors.add(item.actor);
-      tx.visible = true;
+      tx.visible = true; // the record on disk already has its timer; a later write keeps it
     }
     return false;
   } finally {

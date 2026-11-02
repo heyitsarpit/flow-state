@@ -10,7 +10,7 @@ const arg = (k: string, d: string) => {
   return i < 0 ? d : process.argv[i + 1]!;
 };
 const only = arg("--only", "h1").split(",");
-const driver = arg("--driver", "round-8"); // a control: the same page on an older runtime
+const driver = arg("--driver", "round-9"); // a control: the same page on an older runtime
 const scale = Number(arg("--n", "1"));
 const dest = arg("--out", "");
 const built = await Bun.build({
@@ -18,7 +18,7 @@ const built = await Bun.build({
   target: "browser",
   format: "iife",
   plugins:
-    driver === "round-8"
+    driver === "round-9"
       ? []
       : [
           {
@@ -375,7 +375,7 @@ try {
         for (let i = 0; i < 4 * scale; i++) {
           const id = `${driver}-b-${++run}`;
           const db = `db-${id}`;
-          const cap = driver === "round-8" ? {} : { captureMs: 100 };
+          const cap = driver === "round-9" ? {} : { captureMs: 100 };
           const p = await open();
           await p.evaluate(`__boot("bare", ${J({ db, ...cap })})`);
           await p.evaluate(`__wait("__booted()")`);

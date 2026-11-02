@@ -84,14 +84,21 @@ export const round9Scenarios: readonly Scenario[] = [
       },
       // Review's survivor `d109.hold-parked-too`: a hold's lane already holds it, so nothing is parked.
       "a-hold-parks-nothing"(c0) {
-        const c = on(c0, serialBareFixture(), A);
+        const c = on(c0, keptFixture(), K);
         c.send("Go");
         c.ack();
-        c.do({ fault: { throwIn: "on.Unsure[0]", times: 2 } });
-        c.answer("charge", { lost: true });
-        c.eq("held", c.r.row(A, "charge", {})?.uncertain, true);
+        c.do({ fault: { throwIn: "operations.save.unknown", times: 2 } });
+        c.answer("save", { lost: true });
+        c.eq("refused twice", refusals(c), 2);
+        c.eq("held", (c.r.row(K, "save", { id: "a" }) as any)?.uncertain, true);
         c.eq("no parked wait", waits(c, "parked").length, 0);
-        c.eq("no parked entry", (c.r.stored().get(`lane/${BareId}/a|charge|{}`) as any).parked.length, 0);
+        c.eq("no parked entry", lane(c).parked.length, 0);
+      },
+      // A key door refuses after the input was fine: the mapper still reads the input.
+      "a-key-with-no-name-still-carries-the-input"(c0) {
+        const c = on(c0, keptFixture(), K);
+        c.send("GoOddKey");
+        c.eq("the mapper read it", c.mem().last, "odd:kept");
       },
     },
   },
@@ -223,6 +230,29 @@ export const round9Scenarios: readonly Scenario[] = [
         c.advance(1_000);
         c.eq("one more", c.mem().loops, 17);
       },
+      // `latest`: an older answer waiting its turn goes when a newer ask comes, as one on the wire does.
+      "a-newer-ask-replaces-a-paced-read"(c0) {
+        const c = on(c0, doorsFixture, D, { endingChain: 16 });
+        c.send("LoopLook");
+        c.send("LoopGood");
+        c.eq("no wait", waits(c, "paced").length, 0);
+        c.advance(60_000);
+        c.eq("the loop is over", c.mem().loops, 16);
+        c.answer("readLoop", { ok: {} });
+      },
+      // Rule 52: a freeze interrupts a read, and one waiting its turn is a read.
+      "a-freeze-interrupts-a-paced-read"(c0) {
+        const c = on(c0, keptFixture(), K, { endingChain: 2 });
+        c.send("ToP");
+        c.into(["rz"], "Spin");
+        c.eq("paced", waits(c, "paced").length, 1);
+        c.send("Leave");
+        c.eq("frozen, nothing waits", waits(c, "paced").length, 0);
+        c.advance(60_000);
+        c.eq("no more", (c.r.inner(K, ["rz"]) as any)?.memory.n, 2);
+        c.send("ToP");
+        c.eq("it heard, at the thaw", (c.r.inner(K, ["rz"]) as any)?.memory.stopped, true);
+      },
       "a-kill-while-paced-boots-clean"(c0) {
         const c = on(c0, doorsFixture, D, { endingChain: 16 });
         c.send("LoopLook");
@@ -279,6 +309,19 @@ export const round9Scenarios: readonly Scenario[] = [
           c.advance(5_000);
         });
         c.eq("it did not run", c.mem().gaveUp, undefined);
+      },
+      // A retired identity carries its timers. A kept firing is one.
+      "a-kept-deadline-goes-with-a-disposed-actor-and-comes-back"(c0) {
+        const c = on(c0, keptFixture(), K);
+        c.send("Arm");
+        c.advance(1_500);
+        c.dispose();
+        c.eq("nothing kept for nobody", waits(c, "parked").length, 0);
+        healed(() => {
+          c.ensure();
+          c.advance(5_000);
+        });
+        c.eq("it ran", c.mem().gaveUp, true);
       },
       // M3: is `W` a stuck state? Yes. So the app can read it, and leave it.
       "a-kept-success-is-visible-and-blocks-its-key"(c0) {
@@ -381,6 +424,14 @@ export const round9Scenarios: readonly Scenario[] = [
         c.eq("a wait says so", waits(c, "stranded").length, 1);
         c.reload();
         c.eq("a reload reopens it, and the wait goes", waits(c, "stranded").length, 0);
+      },
+      // The review's Low: a stream key with no name read `UserClosure`, with `waits: []`. It is the same door as any other.
+      "a-stream-key-with-no-name-is-named-and-opens-nothing"(c0) {
+        const C = { actor: "Lab/Chat", id: "a" };
+        const c = on(c0, chatFixture({ odd: { keyValue: new Set() } }), C);
+        c.yes("named", code(c, "UnencodableValue") > 0);
+        c.eq("not a closure's fault", code(c, "UserClosure"), 0);
+        c.eq("no connection", c.r.outside().open.filter((o) => o.op === "messages").length, 0);
       },
     },
   },

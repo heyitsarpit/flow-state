@@ -123,16 +123,37 @@ const Kid: Fragment = {
   },
   memory: { initial: kid.slot("memory.initial", () => ({ heard: null, got: null })) },
 };
+// A resumable life with a read that fails at once, and a handler that asks again.
+const sp = fixtureOf("Spinny");
+const Spinny: Fragment = {
+  id: "Spinny",
+  root: "root",
+  default: "root",
+  nodes: {
+    root: sp.node("root", {
+      Spin: [{ members: sp.lookup("spinRead", () => ({ v: new Set() })) }],
+      SpinNo: [{ patch: ({ memory }: any) => ({ n: memory.n + 1 }), members: sp.lookup("spinRead", () => ({ v: new Set() })) }],
+      SpinOk: [{}],
+      SpinStop: [{ patch: () => ({ stopped: true }) }],
+    }),
+  },
+  memory: { initial: sp.slot("memory.initial", () => ({ n: 0, stopped: false })) },
+};
 export const keptFixture = (o: { persisted?: boolean } = {}): Fixture => ({
   id: KeptId,
   make: (api: Api) => ({
     id: KeptId,
     root: "root",
     default: "A",
-    fragments: { Kid },
+    fragments: { Kid, Spinny },
     nodes: {
       root: {
         ...k.node("root", {
+          ToP: [{ target: "P" }],
+          GoOddKey: [{ members: k.commit("oddKey", () => ({ id: "kept" })) }],
+          OddOk: [{}],
+          OddNo: [{ patch: ({ event }: any) => ({ last: `odd:${event.id}` }) }],
+          OddUnsure: [{}],
           // M1: a commit whose input has no carried form, and a mapper that reads it.
           Go: [{ target: "W", members: k.commit("save", ({ event }: any) => ({ id: event.id ?? "a", at: event.at ?? "fine" })) }],
           Saved: [{ target: "B", patch: ({ event }: any) => { if (event.v === "boom" && !heal()) throw new Error("this value"); return { last: "delivered" }; } }],
@@ -169,6 +190,7 @@ export const keptFixture = (o: { persisted?: boolean } = {}): Fixture => ({
       A: k.node("A", {}),
       W: k.node("W", {}),
       B: k.node("B", {}),
+      P: { ...k.node("P", {}), placements: [{ name: "rz", fragment: "Spinny", resumable: true }] },
       T: k.node("T", {}, [{ id: "t", send: "GiveUp", schedule: { ms: 1000 }, armOn: ["entry"], disarmOn: [] }]),
     },
     memory: k.memory(() => ({ presses: 0, ids: ["x"], who: "1" })),
@@ -183,8 +205,31 @@ export const keptFixture = (o: { persisted?: boolean } = {}): Fixture => ({
         outcomes: {
           success: { event: "Saved", from: k.slot("operations.save.success", (v: any) => ({ v: v?.v })) },
           failure: { NotSent: { event: "SaveNo", from: k.slot("operations.save.NotSent", (v: any, c: any) => ({ id: c.input.id, why: v?.why })) } },
-          unknown: { event: "SaveUnsure" },
+          unknown: { event: "SaveUnsure", from: k.slot("operations.save.unknown", () => ({})) },
         },
+      },
+      oddKey: {
+        id: "oddKey",
+        contract: "lab/oddKey",
+        kind: "write",
+        key: k.key("oddKey", () => new Set()),
+        concurrency: "reject",
+        commit: () => Effect.void as Effect.Effect<unknown, unknown>,
+        outcomes: {
+          success: { event: "OddOk" },
+          failure: { NotSent: { event: "OddNo", from: k.slot("operations.oddKey.NotSent", (_v: any, c: any) => ({ id: c.input.id })) } },
+          unknown: { event: "OddUnsure" },
+        },
+      },
+      spinRead: {
+        id: "spinRead",
+        contract: "lab/spinRead",
+        fragment: "Spinny",
+        kind: "read",
+        key: k.key("spinRead", () => ({})),
+        concurrency: "reject",
+        commit: () => Effect.void as Effect.Effect<unknown, unknown>,
+        outcomes: { success: { event: "SpinOk" }, failure: { NoResponse: { event: "SpinNo" }, Defect: { event: "SpinNo" }, Interrupted: { event: "SpinStop" } } },
       },
       look: {
         id: "look",

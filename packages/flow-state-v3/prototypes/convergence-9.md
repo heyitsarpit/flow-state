@@ -38,6 +38,17 @@ Considered for D115 and not chosen:
 - Entities: bulk writes hit no bound. A `.confirms` over a local source is a success chain: it yields and is not cut.
 - Streams: a `deliver` starts at depth 0. A module's own loop is bounded by its backoff, not by this.
 
+## Corrections after building
+
+- **Why `odd` reached depth 1, traced:** not the alphabet. `subject.cycle` cost 1.8 s a step, and every later script replays it. `canon`'s replacer sorted by copying, which defeated JSON's cycle check, so each look at a cycle overflowed the stack, and a stack overflow is an ordinary "no text". A real cost too: any cycle from a server took seconds a turn. `canon` now walks with its own check. `odd` went from 139 states in 120 s to 3,000 in 3 s; the suite from 13 s to 3.5 s.
+- **D114: per field, not whole.** A parked input keeps what can be carried, so a mapper's `input.id` still reads after a reload; only the field that cannot be carried stands in.
+- **D115: `latest` and freezing.** Reading my own design: a paced read could arrive after a newer ask, and into a frozen life. So a newer ask supersedes it, and a freeze interrupts it (rule 52). So a press beside a spinning read also ends that spin.
+- **D115, a limit:** the failure name fires when `over === 1`. A chain of successes that turns into failures past the bound backs off at once, unnamed; the `paced` wait still says so.
+- **D118: `EndingKept` evidence removed:** nothing read it (review's Low). A stream key with no name reads `UnencodableValue`, no session; no wait is added for it: that door is at open, and the issue names it.
+- **My first pin of `a-hold-parks-nothing` was vacuous:** it copied the round-8 case's `throwIn: "on.Unsure[0]"`, a path with no Slot, so nothing threw. That is why the review's survivor survived there too. A survivor showed it; now it throws in the `unknown` mapper, and refusals are read.
+- **`d118.fire-not-touched` led to removing a line:** the record on disk already has the timer. **A survivor kept for its reason:** `gate.lane-key-unchecked`: parsed JSON always has a name. `gate.cycle-unchecked`: only speed changes.
+- **Not done, stated:** a kept ending is still redelivered every boot, two more `InvalidTurn` each, wherever the machine then is. `wipe` is in one directed alphabet, on `serialize`: not sessions, not entities. Oracle (a) is off after a wipe in that alphabet, since a second key is the stated limit. A reset with no name still issues per evaluation. `canon` puts a lane's key to its normal form; `input` through Schema with `keyFields` stays for typing `domain`.
+
 ## For Arpit's read
 
 1. A kept ending blocks a new commit on that key (`Rejected`), and `cancel` lets it go: D118.

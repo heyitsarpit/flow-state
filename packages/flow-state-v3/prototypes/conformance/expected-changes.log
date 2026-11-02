@@ -327,3 +327,10 @@ round:typed/threeds.typed.ts hash:7881c856c1d7 | round 9, D116: first hashed, or
 round:typed/type-tests.ts hash:936683197532 | round 9, D116: first hashed, or its round-9 path comment: round:typed/type-tests.ts
 removed:variant:REV8-STORM/the-budget-comes-back-with-time | round 9, D115: no budget. Replaced by a-press-after-a-spin-goes and REV9-SPIN's backoff
 removed:variant:REV8-STORM/the-default-budget-lets-an-ordinary-burst-through | round 9, D115: no budget. Renamed an-ordinary-burst-goes-through, at 1,000 as the review asked
+REV9-M1 hash:795284c647b2 | round 9: survivors pinned, D114 and a hold, not vacuous now
+REV9-SPIN hash:e749c4e5cb7a | round 9: a newer ask and a freeze against a paced read
+REV9-KEPT hash:62ccaec5faff | round 9: a kept deadline and a disposed actor
+REV9-STREAM hash:0cbd3798e0ef | round 9: a stream key with no name
+file:scenarios/round9.scenario.ts hash:24e504b3c4f4 | round 9: carries the REV9 pins above
+file:fixtures/chat.compiled.ts hash:a416dfd32789 | round 9, D118: odd.keyValue, a stream key with no name
+file:fixtures/round9.compiled.ts hash:0057c35fe4d6 | round 9: Spinny, oddKey, an unknown mapper on save

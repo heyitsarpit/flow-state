@@ -1,6 +1,6 @@
 # The proposal's plants, on the real runtime. Each edits a scratch copy; run-plants.sh runs the suite and a search on it. Reality's two are in run7 --only spy.
 import sys
-k=sys.argv[1]; p='round-8-plant/'
+k=sys.argv[1]; p='round-9-plant/'
 def sub(f,a,b):
     s=open(p+f).read(); assert a in s,a; open(p+f,'w').write(s.replace(a,b))
 E='edge.ts'

@@ -167,11 +167,11 @@ REV8-KEPT d4510b371d8a
 REV8-STORM 9b050a3ddb3d
 REV8-WIPE b3e3780686c8
 REV8-PINS 492db616e0a4
-REV9-M1 f7fe75c68e3e
+REV9-M1 795284c647b2
 REV9-BURST f2c12e2c0f4f
-REV9-SPIN 229c7419d709
-REV9-KEPT 10e689bcd0de
-REV9-STREAM e89d4fe4d19c
+REV9-SPIN e749c4e5cb7a
+REV9-KEPT 62ccaec5faff
+REV9-STREAM 0cbd3798e0ef
 REV9-NAMES 23a461d139ac
 variant:PAY-06/interruptible present
 variant:PAY-06/uninterruptible present
@@ -737,6 +737,7 @@ variant:REV9-M1/a-refused-not-sent-is-parked-and-the-wait-says-so present
 variant:REV9-M1/a-kept-decline-whose-input-cannot-be-carried-still-lands present
 variant:REV9-M1/a-refused-rejected-is-kept-too present
 variant:REV9-M1/a-hold-parks-nothing present
+variant:REV9-M1/a-key-with-no-name-still-carries-the-input present
 variant:REV9-BURST/300-sends-in-one-tick-all-end present
 variant:REV9-BURST/300-rows-each-asking-once-all-end present
 variant:REV9-BURST/a-queue-over-a-local-source-finishes present
@@ -748,10 +749,13 @@ variant:REV9-SPIN/a-real-answer-breaks-the-chain present
 variant:REV9-SPIN/a-commit-that-throws-at-once-and-asks-again-is-paced present
 variant:REV9-SPIN/listeners-hear-a-spin present
 variant:REV9-SPIN/a-spin-with-the-clock-set-back-is-still-paced present
+variant:REV9-SPIN/a-newer-ask-replaces-a-paced-read present
+variant:REV9-SPIN/a-freeze-interrupts-a-paced-read present
 variant:REV9-SPIN/a-kill-while-paced-boots-clean present
 variant:REV9-SPIN/a-dispose-while-paced-ends-it present
 variant:REV9-KEPT/a-refused-deadline-stays-on-the-record present
 variant:REV9-KEPT/a-kept-deadline-goes-with-its-activation present
+variant:REV9-KEPT/a-kept-deadline-goes-with-a-disposed-actor-and-comes-back present
 variant:REV9-KEPT/a-kept-success-is-visible-and-blocks-its-key present
 variant:REV9-KEPT/cancel-lets-a-kept-ending-go present
 variant:REV9-KEPT/a-kept-ending-delivered-at-boot-frees-its-key present
@@ -761,6 +765,7 @@ variant:REV9-KEPT/a-fragments-kept-decline-keeps-its-subject present
 variant:REV9-KEPT/a-raise-with-no-name-reaches-nobody-and-the-turn-runs present
 variant:REV9-KEPT/a-refused-turn-takes-its-commands present
 variant:REV9-STREAM/a-refused-stream-failure-is-a-stranded-wait present
+variant:REV9-STREAM/a-stream-key-with-no-name-is-named-and-opens-nothing present
 variant:REV9-NAMES/a-bigint-key-names-a-lane-and-sends present
 variant:REV9-NAMES/a-bigint-key-survives-a-reload present
 variant:REV9-NAMES/a-bigint-reset-resets present
@@ -778,7 +783,7 @@ file:scenarios/round5.scenario.ts ecd88539544c
 file:scenarios/round6.scenario.ts ea6c85e13efa
 file:scenarios/round7.scenario.ts 0a0e78871e18
 file:scenarios/round8.scenario.ts 892969f0311f
-file:scenarios/round9.scenario.ts b723c11250fb
+file:scenarios/round9.scenario.ts 24e504b3c4f4
 file:scenarios/store.scenario.ts c3429d7a2498
 file:scenarios/stream.scenario.ts b9ef148f6c7d
 file:scenarios/streams5.scenario.ts 940f856f3a04
@@ -797,7 +802,7 @@ file:search/session.search.ts fae2b6dd0bd5
 file:fixtures/build.ts 3404a3e3ed34
 file:fixtures/cart.compiled.ts 09651303f124
 file:fixtures/cells.compiled.ts ecfa2dbc7783
-file:fixtures/chat.compiled.ts b7235faedb79
+file:fixtures/chat.compiled.ts a416dfd32789
 file:fixtures/comments.compiled.ts dc0d859ea623
 file:fixtures/compiled.ts d88f3107f8b3
 file:fixtures/desk.compiled.ts aa1539d5fc83
@@ -815,7 +820,7 @@ file:fixtures/refunds.compiled.ts 3a896301dd4b
 file:fixtures/round6.compiled.ts 1ae414ffbb3b
 file:fixtures/round7.compiled.ts 4dbffb93f0d9
 file:fixtures/round8.compiled.ts 3253c650d4bc
-file:fixtures/round9.compiled.ts 977a0714f50f
+file:fixtures/round9.compiled.ts 0057c35fe4d6
 file:fixtures/s1.compiled.ts 6615792575f6
 file:main.ts 5eae2a664e45
 file:report.ts 6558e2efe90e

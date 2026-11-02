@@ -19,6 +19,7 @@ export type ChatOpts = {
     reconnectWhile?: unknown;
     pageRetryWhile?: unknown;
     key?: unknown;
+    keyValue?: unknown; // round 9: a key the closure returns, with no name
     subscribe?: unknown;
   };
   dies?: boolean; // M4: the stream dies
@@ -31,6 +32,7 @@ const spec = (api: Api, o: ChatOpts): StreamSpec => ({
   id: "messages",
   key: (i) => {
     if (o.odd?.key) throw new Error("key");
+    if (o.odd?.keyValue) return o.odd.keyValue as never;
     return { roomId: i.roomId };
   },
   position: "cursor",
