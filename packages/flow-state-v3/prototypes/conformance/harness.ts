@@ -38,6 +38,7 @@ export type Fault =
   | { startThrows: RequestMatch } // DRV-02: building this op's commit throws
   | { afterYield: Step } // runs when the runtime has yielded its drain to the host: a gap between steps
   | { mutateServer: (s: any) => any } // the world changes with nobody asking: a price, another device
+  | { socketClose: number } // how long a close takes from now on. Infinity never finishes
   | { corruptStored: { readonly match: string; readonly edit: (raw: string) => string } }; // a record on disk changed: a bad write, a release
 
 export type Step =
@@ -46,9 +47,10 @@ export type Step =
   | { dispose: ActorRef } // the actor's life ends. Its lanes stay the Runtime's (OD19)
   | { advance: number }
   | { answer: RequestMatch; with: Answer; where?: Readonly<Record<string, unknown>> }
-  | { reload: true }
+  | { reload: true; crashAfterBoot?: true } // crashAfterBoot: the first boot dies with its mail undelivered (review M1). Needs drainMs -1
   | { storage: "ack" | "refuse" | "hang" | "landNoAck"; match?: string }
-  | { feed: string; frame?: unknown; end?: true } // a stream's server says something
+  // A stream's server says something. `frames`: a burst, with no settling between them. `fail`: the connection fails with this.
+  | { feed: string; frame?: unknown; frames?: readonly unknown[]; end?: true; fail?: unknown }
   | { fault: Fault }
   | { disposeRuntime: true };
 
@@ -127,7 +129,15 @@ export type Outside = {
   storage: ReadonlyArray<{ purpose: string; keys: readonly string[]; hung: boolean }>;
   timers: readonly number[];
   lost: number; // requests whose answer was lost and which may still land
-  feeds: ReadonlyArray<{ op: string; input: any; from: unknown; open: boolean }>;
+  feeds: ReadonlyArray<{
+    op: string;
+    input: any;
+    from: unknown;
+    open: boolean;
+    closing: boolean;
+    pulled: number;
+    backlog: number;
+  }>;
   live: number;
   scheduler: { picks: number; choices: number };
   injections: { planned: number; done: number; withLive: number; withChoice: number };
@@ -148,6 +158,7 @@ export type Reads = {
   outside(): Outside;
   stateHash(): string; // opaque; equal means the same future under the same steps
   module(id: string, ref: string): any; // a module's `read`: a stream's row
+  peakDeliveriesInMail(): number; // rule 69: the most a single session has ever had in mail at once, over every step
   replay(): { same: boolean; firstDiff?: unknown };
 };
 export type Bounds = {
@@ -197,6 +208,7 @@ export type Instance = {
   row(actor: string, op: string, key: unknown): Row | undefined;
   record(ref: string): RecordRead | undefined;
   module(id: string, ref: string): any;
+  peakDeliveriesInMail(): number;
   waits(): readonly Wait[];
   fatal(): boolean;
   frames(): readonly Frame[];

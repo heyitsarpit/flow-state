@@ -1,4 +1,4 @@
-// bun packages/flow-state-v3/prototypes/conformance/main.ts --round 4 --runtime ../round-4/adapter.ts
+// bun packages/flow-state-v3/prototypes/conformance/main.ts --round 5 --runtime ../round-5/adapter.ts
 //   [--no-search] [--lock]. Searches run separately: search/run.ts, under watch.ts.
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
@@ -6,7 +6,8 @@ import { join, resolve } from "node:path";
 import { makeHarness } from "./drive.ts";
 import type { Harness, RuntimeModule } from "./harness.ts";
 import { catalog, printReports } from "./report.ts";
-import { checkClaims, checkEndings, Ctx, Mismatch, type Scenario } from "./scenarios/ctx.ts";
+import { checkClaims, checkEndings, checkMints, Ctx, Mismatch, type Scenario } from "./scenarios/ctx.ts";
+import { round5Scenarios } from "./scenarios/round5.scenario.ts";
 import { flowScenarios } from "./scenarios/flows.scenario.ts";
 import { fragScenarios } from "./scenarios/frag.scenario.ts";
 import { reviewScenarios } from "./scenarios/review.scenario.ts";
@@ -26,6 +27,7 @@ export const allScenarios: readonly Scenario[] = [
   ...fragScenarios,
   ...round4Scenarios,
   ...streamScenarios,
+  ...round5Scenarios,
 ];
 
 const here = import.meta.dir;
@@ -69,6 +71,9 @@ const SHARED = [
   "fixtures/real.compiled.ts",
   "fixtures/feed.compiled.ts",
   "scenarios/stream.scenario.ts",
+  "scenarios/round5.scenario.ts",
+  "fixtures/desk.compiled.ts",
+  "fixtures/oddall.compiled.ts",
 ];
 const lockLines = (): string[] => [
   ...allScenarios.map((s) => `${s.id} ${sha(bodyOf(s))}`),
@@ -108,6 +113,7 @@ export const runScenarios = (
           throw new Mismatch(`issues not named by the scenario: ${extra.join(", ")}`);
         checkClaims(c.r);
         checkEndings(c.r);
+        checkMints(c.r);
         const rep = c.r.replay();
         if (!rep.same) throw new Mismatch(`S11 replay differs: ${JSON.stringify(rep.firstDiff)}`);
         const minted = new Set(c.r.evidence("mint").map((e) => e["attempt"]));
@@ -154,7 +160,7 @@ if (import.meta.main) {
     return i < 0 ? undefined : process.argv[i + 1];
   };
   const has = (k: string) => process.argv.includes(k);
-  const round = Number(arg("--round") ?? 4);
+  const round = Number(arg("--round") ?? 5);
   const runtime = resolve(here, arg("--runtime") ?? "./null-adapter.ts");
   const mod = (await import(runtime)) as RuntimeModule;
   console.log(`runtime: ${runtime}\nbun ${Bun.version}`);

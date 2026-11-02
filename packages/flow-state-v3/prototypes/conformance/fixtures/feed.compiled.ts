@@ -1,7 +1,7 @@
 // The thin streams spike's fixture. desk Tickets/feed: `activitySignals` is feed.socket.ts's, as written. DeskFeed is feed.machine.ts
 // with the `activity` session only: no `changes` (`listen`), no `catchUp`, and `Healthy` without `bothLive` (rows are not in a
 // guard's view here). `Room` is the same session in a trait under `resetOn` and `.resumable()`: T9's cases.
-import { Stream } from "effect";
+import { Effect, Stream } from "effect";
 import type { Api } from "../fake-world.ts";
 import type { Fixture } from "../harness.ts";
 import { fixtureOf } from "./build.ts";
@@ -19,6 +19,7 @@ export type DeskFrame =
   | { readonly t: "hello"; readonly replayedFrom?: Cursor }
   | { readonly t: "reset"; readonly epoch: number }
   | { readonly t: "ping" }
+  | { readonly t: "signal"; readonly signal: Signal } // a wire with a head or a proof of its own: other adapters' `Feed.live`
   | { readonly t: "activity"; readonly entry: { readonly id: string; readonly cursor: unknown } };
 const sameCursor = (a: Cursor | undefined, b: Cursor | undefined) =>
   a !== undefined && b !== undefined && a.epoch === b.epoch && a.seq === b.seq;
@@ -36,6 +37,8 @@ const activitySignals =
         return [{ _feed: "live", restartAt: { epoch: f.epoch, seq: 0 } } satisfies Signal];
       case "ping":
         return [{ _feed: "ping" } satisfies Signal];
+      case "signal":
+        return [f.signal];
       case "activity":
         return [f.entry];
     }
@@ -137,7 +140,23 @@ const feedMake =
             },
           ],
           Clear: [{ patch: () => ({ activity: [] }) }],
+          // 2.11.8: clear and leave in one turn reads as a wipe.
+          ClearAndLeave: [{ target: "SIGNED_OUT", patch: () => ({ activity: [] }) }],
+          // Review H4: a machine with both a stream and a read.
+          Peek: [
+            {
+              members: (p) => [
+                {
+                  op: "peek",
+                  verb: "lookup",
+                  input: feed.slot(`${p}.actions[0]`, () => ({})),
+                },
+              ],
+            },
+          ],
+          Peeked: [{}],
           SignOut: [{ target: "SIGNED_OUT" }],
+          BreakInput: [{ patch: () => ({ inputThrows: true }) }],
           Open: [{ target: "LIVE" }],
           Entry: [{}],
           MayHaveMissed: [{}],
@@ -186,7 +205,15 @@ const feedMake =
             },
           ],
         ),
-        activities: [{ op: "activity", input: feed.slot("states.LIVE.activities[0]", inputOf) }],
+        activities: [
+          {
+            op: "activity",
+            input: feed.slot("states.LIVE.activities[0]", ({ memory }: any) => {
+              if (memory.inputThrows) throw new Error("input read after start"); // review M4: rule 68 reads it once
+              return inputOf({ memory });
+            }),
+          },
+        ],
       } as Node,
       RETRY_WAIT: feed.node("RETRY_WAIT", { Reopen: [{ target: "LIVE" }] }, [
         {
@@ -210,7 +237,20 @@ const feedMake =
       reopenInMs: 1000,
       endedElsewhere: false,
     })),
-    ops: {},
+    ops: {
+      peek: {
+        id: "peek",
+        contract: "desk/peek",
+        kind: "read",
+        key: feed.key("peek", () => ({})),
+        concurrency: "reject",
+        commit: () => api.call("peek", {}) as Effect.Effect<unknown, unknown>,
+        outcomes: {
+          success: { event: "Peeked" },
+          failure: { NoResponse: { event: "Peeked" }, Defect: { event: "Peeked" }, Interrupted: { event: "Peeked" } },
+        },
+      },
+    },
     streams: { activity: activitySpec(api, D, reconnect) },
     persisted: true,
     uses: ["sessions"],

@@ -1,7 +1,7 @@
 // The world, owned by the suite so it survives runtime rewrites: virtual clock, stepping scheduler, fake server,
 // fake storage. A runtime sees only `Host` and `Api`. A "process" is a generation: when it dies, nothing from it
 // reaches the next one, without any cooperation from the runtime.
-import { Effect, Exit, Queue, Stream, type Scheduler } from "effect";
+import { Cause, Effect, Exit, Queue, Stream, type Scheduler } from "effect";
 import type { Answer, Outside, Request, World0 } from "./harness.ts";
 
 export type Purpose = "acknowledge" | "capture" | "flush";
@@ -34,15 +34,21 @@ export type Api = {
   intent(i: unknown): E;
   orderFor(i: unknown): E;
   socket(op: string, input: unknown, from: unknown): unknown; // Stream of what the server pushes, until a `feed` step ends it
+  pulled(op: string, input: unknown, from: unknown): unknown; // Stream that hands over one backlog item per pull (T4)
 };
 type Conn = {
   op: string;
   input: unknown;
   from: unknown;
   process: number;
-  open: boolean;
+  open: boolean; // the server's side: until a close has finished, or the server ended it
+  closing?: boolean; // we asked; a real close is a handshake and awaited finalizers
+  pulled: number; // items a pulled source has handed over: T4's "at turn pace" is seen here
+  backlog: unknown[]; // a pulled source's items, waiting at the server
+  wake?: (() => void) | undefined;
   push?: (f: unknown) => void;
   end?: () => void;
+  fail?: (e: unknown) => void;
 };
 
 class StepScheduler implements Scheduler.Scheduler {
@@ -246,28 +252,90 @@ export class FakeWorld {
     intent: (input) => this.call("intent", input),
     orderFor: (input) => this.call("order", input),
     socket: (op, input, from) => {
-      const c: Conn = { op, input, from, process: this.process, open: true };
-      this.conns.push(c);
+      const c = this.newConn(op, input, from);
       return Stream.callback<unknown, unknown>((q) =>
         Effect.acquireRelease(
           Effect.sync(() => {
             c.push = (f) => void Queue.offerUnsafe(q, f);
             c.end = () => void Queue.endUnsafe(q);
+            c.fail = (e) => void Queue.failCauseUnsafe(q, Cause.fail(e));
           }),
-          () => Effect.sync(() => void (c.open = false)),
+          () => this.closeConn(c),
         ),
       );
     },
+    // A pulled source: nothing moves until the consumer asks. `backlog` is what the server has.
+    pulled: (op, input, from) => {
+      const c = this.newConn(op, input, from);
+      const next = Effect.callback<unknown>((resume) => {
+        const give = () => {
+          c.wake = undefined;
+          c.pulled++;
+          resume(Effect.succeed(c.backlog.shift()));
+        };
+        if (c.backlog.length > 0) give();
+        else c.wake = give;
+      });
+      return Stream.fromEffectRepeat(next).pipe(Stream.ensuring(this.closeConn(c)));
+    },
   };
   readonly conns: Conn[] = [];
+  closeMs = 20; // review H7: a real close takes time. `Infinity` never finishes (`ReleaseOverdue`)
+  private newConn(op: string, input: unknown, from: unknown): Conn {
+    const c: Conn = {
+      op,
+      input,
+      from,
+      process: this.process,
+      open: true,
+      pulled: 0,
+      backlog: [],
+    };
+    this.conns.push(c);
+    return c;
+  }
+  // A server's end needs no handshake. Ours does.
+  private closeConn(c: Conn): Effect.Effect<void> {
+    if (!c.open) return Effect.void;
+    c.closing = true;
+    const ms = this.closeMs;
+    return Effect.callback<void>((resume) => {
+      if (ms === Infinity) return;
+      const process = c.process;
+      this.timers.push({
+        at: this.now + ms,
+        seq: ++this.timerSeq,
+        process,
+        f: () => {
+          c.open = false;
+          resume(Effect.void);
+        },
+      });
+    });
+  }
   // What a `feed` step does: the newest open connection of this op says something, or ends.
-  feedStep(op: string, s: { frame?: unknown; end?: true }) {
-    const c = this.conns.findLast((x) => x.op === op && x.open && x.process === this.process);
+  feedStep(
+    op: string,
+    s: { frame?: unknown; frames?: readonly unknown[]; end?: true; fail?: unknown },
+  ) {
+    const c = this.conns.findLast(
+      (x) => x.op === op && x.open && !x.closing && x.process === this.process,
+    );
     if (!c) throw new NoHeldRequest(`feed: no open connection for ${op}`);
     if (s.end) {
       c.open = false;
       c.end?.();
-    } else c.push?.(s.frame);
+    } else if (s.fail !== undefined) {
+      c.open = false;
+      c.fail?.(s.fail);
+    } else {
+      const items = s.frames ?? [s.frame];
+      if (c.push) for (const f of items) c.push(f);
+      else {
+        c.backlog.push(...items);
+        c.wake?.();
+      }
+    }
   }
   private call(op: string, input: unknown, key?: string): E {
     const isRead = key === undefined;
@@ -493,7 +561,15 @@ export class FakeWorld {
       lost: this.requests.filter((r) => r.lostOpen).length,
       feeds: this.conns
         .filter((c) => c.process === this.process)
-        .map((c) => ({ op: c.op, input: c.input, from: c.from, open: c.open })),
+        .map((c) => ({
+          op: c.op,
+          input: c.input,
+          from: c.from,
+          open: c.open,
+          closing: c.closing === true,
+          pulled: c.pulled,
+          backlog: c.backlog.length,
+        })),
       scheduler: { picks: this.scheduler.picks, choices: this.scheduler.choices },
     };
   }
@@ -512,6 +588,10 @@ export class FakeWorld {
       acked: [...this.acked].sort(),
       ledger: this.truth().ledger,
       server: this.serverState,
+      conns: this.conns
+        .filter((c) => c.process === this.process)
+        .map((c) => [c.op, c.input, c.from, c.open, c.closing === true, c.backlog.length]),
+      closeMs: this.closeMs,
       kv: [...this.kv.entries()].filter(([k]) => k !== "meta").sort(([a], [b]) => (a < b ? -1 : 1)),
       held: this.held.map((h) => [h.writes, h.purpose, h.hung === true, h.then !== undefined]),
     });

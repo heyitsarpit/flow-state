@@ -102,7 +102,11 @@ export type Node = {
   readonly subroutine?: Placement; // the fragment this state goes into
   readonly activities?: readonly Activity[]; // data for a sessions module; the core reads none of it
 };
-export type Activity = { readonly op: string; readonly input: Slot<(a: AfterIn) => unknown> };
+export type Activity = {
+  readonly op: string;
+  readonly input: Slot<(a: AfterIn) => unknown>;
+  readonly when?: Slot<(a: AfterIn) => boolean>; // 2.7.3's `when`: placed while true. Read on each change (level-triggered)
+};
 export type Mapped = {
   readonly event: string;
   // rule 13's ctx: `input` and `key` of the call that ended; `reason` for an unknown; `key` absent never
@@ -154,6 +158,7 @@ export type Carried = {
   readonly ref: string;
   readonly fields?: Readonly<Record<string, unknown>>;
   readonly removed?: true;
+  readonly version?: unknown; // a tombstone's: `Ticket.delete(key, { version })`. A row's comes from its fields, by the entity's field
 };
 export type DomainSpec = {
   readonly writes: Readonly<
@@ -167,6 +172,7 @@ export type DomainSpec = {
   >;
   readonly reads: Readonly<Record<string, (value: any, input: any) => readonly Carried[]>>;
   readonly repair: (ref: string) => Effect.Effect<any, any, never>; // a forced repair: the record's fields, or null
+  readonly version?: (ref: string) => string | undefined; // D67: the entity's `version: "revision"`, the name of the field, per record
 };
 
 // ── A stream contract, compiled (2.11.3). The thin spike's subset: no catchUp, no `latest`.

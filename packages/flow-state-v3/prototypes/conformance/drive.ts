@@ -99,6 +99,14 @@ export const makeHarness = (port: Port) => (): Harness => {
     }
     throw new Error("settle: did not quiesce");
   };
+  // The oracle's exemption, from what the suite owns: an Attempt no write of which reached the disk dies with its process.
+  const noteLost = () => {
+    const disk = [...fake.kv.values()].join("\n");
+    const gone = evidence
+      .filter((e) => e["kind"] === "mint" && !disk.includes(e["attempt"]))
+      .map((e) => ({ kind: "lostWithProcess", attempt: e["attempt"] }));
+    evidence.push(...gone);
+  };
   const arm = (f: () => void) => {
     armed.push({ segment: instances.length - 1, at: inst.logLength(), arm: f });
     f();
@@ -126,6 +134,7 @@ export const makeHarness = (port: Port) => (): Harness => {
     row: (a, op, key) => inst.row(actorKey(a), op, key ?? {}),
     record: (ref) => inst.record(ref),
     module: (id, ref) => inst.module(id, ref),
+    peakDeliveriesInMail: () => Math.max(0, ...instances.map((i) => i.peakDeliveriesInMail())),
     requests: () => fake.publicRequests(),
     truth: () => fake.truth(),
     frames: () => instances.flatMap((i) => i.frames()),
@@ -192,8 +201,13 @@ export const makeHarness = (port: Port) => (): Harness => {
       }
       if ("reload" in s) {
         plan = undefined;
+        noteLost();
         fake.killProcess();
         boot();
+        if (s.crashAfterBoot) {
+          fake.killProcess();
+          boot();
+        }
         settle();
         return;
       }
@@ -207,7 +221,16 @@ export const makeHarness = (port: Port) => (): Harness => {
         else if ("startThrows" in f) startThrows.add(f.startThrows);
         else if ("afterYield" in f) yieldPlan = f.afterYield;
         else if ("mutateServer" in f) fake.serverState = f.mutateServer(fake.serverState);
-        else if ("corruptStored" in f) fake.corrupt(f.corruptStored.match, f.corruptStored.edit);
+        else if ("socketClose" in f) fake.closeMs = f.socketClose;
+        else if ("corruptStored" in f) {
+          // A record edited on disk may be quarantined, and an Attempt in it with it: rule 46, named by an issue.
+          const hit = [...fake.kv].filter(([k]) => k.includes(f.corruptStored.match)).map(([, v]) => v);
+          const inHit = evidence
+            .filter((e) => e["kind"] === "mint" && hit.some((v) => v.includes(e["attempt"])))
+            .map((e) => ({ kind: "lostWithProcess", attempt: e["attempt"] }));
+          evidence.push(...inHit);
+          fake.corrupt(f.corruptStored.match, f.corruptStored.edit);
+        }
         else if ("uninterruptibleHang" in f) fake.uninterruptible.add(f.uninterruptibleHang);
         else if ("syncAnswer" in f) fake.syncAnswers.set(f.syncAnswer[0], f.syncAnswer[1]);
         else if ("lateAnswer" in f) fake.lateAnswer(f.lateAnswer[0], f.lateAnswer[1]);

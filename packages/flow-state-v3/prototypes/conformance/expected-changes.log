@@ -138,3 +138,10 @@ FAKE | no socket | `api.socket`, `feed` step, `outside.feeds` | The spike's fixt
 file:fake-world.ts hash:2c0e68069958 | socket and feed step for the spike
 file:drive.ts hash:921e9d3221e8 | feed step for the spike
 file:fixtures/compiled.ts hash:0620d1e42893 | activities, streams, a module member for the spike
+# Round 5, before red.
+FAKE | a close finishes at once | a close takes 20 ms, `socketClose`; a burst `frames`; a pulled source; a `fail` on a connection | Review H7, H9: an instant close made `one-connection-at-a-time` unable to fail | D70, D71
+SPIKE-02, SPIKE-03, SPIKE-04 | `released` read right after the leave | after the close | Review H7: the fake's close takes time now. Nothing relaxed; one case gains a check | D70
+oracle | endings owed from evidence | also: every mint ends, is live, or never reached the disk | Review H6 | D72
+HARNESS | no peak read | `peakDeliveriesInMail`, `crashAfterBoot`, `lostWithProcess` evidence | Review H9, M1, H6 | D72
+SCENARIOS.md | STREAM-* at R 5 | R 6 | Round 5 is the review first; streams as far as they go are REV5-S* | none
+fixtures/feed | no `signal` frame, no `Peek`, no `ClearAndLeave`, no input throw | added | Review H4, H9, M4 | none

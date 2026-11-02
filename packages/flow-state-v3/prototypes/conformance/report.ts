@@ -44,6 +44,7 @@ export const changed = (): Map<string, string[]> => {
     "convergence-2.md",
     "convergence-3.md",
     "convergence-4.md",
+    "convergence-5.md",
   ]) {
     const text = readFileSync(join(proto, f), "utf8");
     const block = /```decisions-changed\n([\s\S]*?)```/.exec(text)![1]!;
@@ -114,7 +115,7 @@ const allIds = (): string[] => {
     const n = /^\s*\*?\*?(N[123])\b/.exec(l);
     if (n) rules.add(n[1]!);
   }
-  const ds = Array.from({ length: 64 }, (_, i) => `D${i + 1}`);
+  const ds = Array.from({ length: 73 }, (_, i) => `D${i + 1}`);
   const ts = Array.from({ length: 9 }, (_, i) => `T${i + 1}`);
   return [...rules, ...laneCells(), ...ts, ...ds];
 };

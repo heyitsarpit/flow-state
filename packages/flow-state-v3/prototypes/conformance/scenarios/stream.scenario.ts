@@ -22,6 +22,7 @@ const value = (c: Ctx, id: string, seq: number) =>
 const conns = (c: Ctx) => c.r.outside().feeds;
 const lastFrom = (c: Ctx) => conns(c).at(-1)?.from;
 const openConns = (c: Ctx) => conns(c).filter((x) => x.open).length;
+const closes = (c: Ctx) => c.do({ advance: 20 }); // review H7: the fake's close takes time
 const row = (c: Ctx, a = F) => c.r.module("sessions", `${a.actor}/${a.id}|${OP}`);
 const ids = (c: Ctx) => c.mem().activity.map((e: any) => e.id);
 // Rule 71: read what the disk holds, not what the runtime says.
@@ -223,6 +224,7 @@ export const streamScenarios: readonly Scenario[] = [
         hello(c);
         value(c, "a", 1);
         c.send("SignOut");
+        closes(c);
         c.eq("released", openConns(c), 0);
         c.send("Jump", { at: cur(9) });
         c.eq("written all the same: the partition is the slice's", bookmark(c)?.at, cur(9));
@@ -244,6 +246,7 @@ export const streamScenarios: readonly Scenario[] = [
         hello(c);
         value(c, "a", 1);
         c.send("ShowRoom", { roomId: "w2" });
+        closes(c);
         c.eq(
           "one connection, the new one",
           [openConns(c), conns(c).at(-1)?.input],
@@ -267,6 +270,7 @@ export const streamScenarios: readonly Scenario[] = [
         hello(c);
         value(c, "a", 1);
         c.send("Away");
+        closes(c);
         c.eq("released", openConns(c), 0);
         c.eq("the slice stays", c.inner(["room"])?.memory.activity.length, 1);
         c.send("Back");
@@ -288,6 +292,7 @@ export const streamScenarios: readonly Scenario[] = [
         hello(c);
         value(c, "a", 1);
         c.dispose();
+        closes(c);
         c.eq("released", openConns(c), 0);
         c.ensure();
         c.eq("the record came back whole, bookmark with memory", lastFrom(c), cur(1));
@@ -298,6 +303,8 @@ export const streamScenarios: readonly Scenario[] = [
         c.send("Away");
         c.send("Back");
         c.eq("never two", openConns(c), 1);
+        closes(c);
+        c.eq("still one, the new one", [openConns(c), conns(c).length], [1, 2]);
       },
     },
   },

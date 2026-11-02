@@ -139,6 +139,25 @@ export const checkEndings = (r: Reads) => {
     for (const [k, n] of owed) if (n > 0) throw new Mismatch(`an ending was never delivered: ${k}`);
 };
 
+// Review H6: every minted Attempt ends, or is live, or never reached the disk. The harness says the last, at the kill. An
+// oracle that counted endings owed from evidence could not see a commit that silently vanished.
+export const checkMints = (r: Reads) => {
+  const q = r.quiet();
+  if (q.fatal || !q.idle) return;
+  const accounted = new Set<unknown>();
+  let disposed = false;
+  for (const e of r.evidence()) {
+    if (e["kind"] === "DisposeStart") disposed = true;
+    if (["ending", "Superseded", "Released", "lostWithProcess"].includes(e["kind"]))
+      accounted.add(e["attempt"]);
+  }
+  if (disposed) return;
+  for (const w of q.waits) if ("attempt" in w) accounted.add(w.attempt);
+  for (const e of r.evidence("mint"))
+    if (!accounted.has(e["attempt"]))
+      throw new Mismatch(`a minted Attempt vanished: ${e["op"]} ${e["attempt"]}`);
+};
+
 export class Ctx {
   namedIssues: string[] = [];
   fresh: (machines?: readonly Fixture[], bounds?: Record<string, number>) => Harness = () => {
@@ -158,6 +177,7 @@ export class Ctx {
     void a;
     this.h.do(step);
     checkClaims(this.r);
+    checkMints(this.r);
   }
   eq(label: string, actual: unknown, expected: unknown) {
     const x = JSON.stringify(actual);
