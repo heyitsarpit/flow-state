@@ -11,8 +11,8 @@ import type {
   Placement,
   Slot,
 } from "../conformance/fixtures/compiled.ts";
-import { admit, encoded, finiteMs, stringKey } from "./gate.ts";
-import { input as moduleInput, prepareAll, Refused, run } from "./hooks.ts";
+import { admit, encoded, own } from "./gate.ts";
+import { told as moduleTold, prepareAll, Refused, run } from "./hooks.ts";
 import {
   down,
   kidAt,
@@ -268,9 +268,7 @@ const runPart = (
   }
   if (source) doResets(w);
   for (const r of alt.raises ?? []) {
-    const key = r.key
-      ? stringKey(run(r.key, view as never), `${alt.at.definition} ${alt.at.path}`)
-      : undefined;
+    const key = r.key ? run(r.key, view as never) : undefined;
     const part = partOf(r.to, key);
     let child = kidAt(w.root, [...path, part]);
     if (!child && key !== undefined) child = seedIfListed(w, path, r.to, key);
@@ -651,7 +649,7 @@ const applyMembers = (w: Walk) => {
     const base = { actor: w.a.key, machine: w.a.machine, op: mem.op, owner: r.owner };
     if (mem.verb === "module") {
       // M8: in action order. A refused turn restores tx.w, the module's slice with it.
-      moduleInput(tx, mem.module, {
+      moduleTold(tx, mem.module, {
         k: "member",
         actor: w.a.key,
         inc: inc.id,
@@ -718,12 +716,7 @@ const collectArmings = (w: Walk, entered: ReadonlyMap<string, readonly string[]>
       const onEntry = spec.armOn.length === 0 || spec.armOn.includes("entry");
       if ((isEntry && onEntry) || spec.armOn.some((t) => tags.includes(t))) {
         const ms =
-          "ms" in spec.schedule
-            ? spec.schedule.ms
-            : finiteMs(
-                run(spec.schedule, inView(inc, {}) as never),
-                `${spec.schedule.at.definition} ${spec.schedule.at.path}`,
-              );
+          "ms" in spec.schedule ? spec.schedule.ms : run(spec.schedule, inView(inc, {}) as never);
         arm.push({ inc, spec, ms });
       }
       if (spec.disarmOn.some((t) => tags.includes(t)))
@@ -766,7 +759,7 @@ const reapTimers = (w: Walk) => {
   }
 };
 // Adoption (rule 54): per lane whose path is its own, parked endings, then a held head's unknown { Restored } once.
-const adoption = (tx: Tx, a: ActorRec, inc: Inc, thawing = false): Mail[] => {
+export const adoption = (tx: Tx, a: ActorRec, inc: Inc, thawing = false): Mail[] => {
   const m = machineOf(tx, a);
   const out: Mail[] = [];
   const holds: Mail[] = []; // rule 54: every parked ending first, then each lane's hold
@@ -819,6 +812,14 @@ const adoption = (tx: Tx, a: ActorRec, inc: Inc, thawing = false): Mail[] => {
   return [...out, ...holds];
 };
 export const startActor = (tx: Tx, a: ActorRec) => adoption(tx, a, a.root);
+// H5: a rebind is an adoption of every life in the tree that is awake. A frozen one adopts at its thaw (rule 54).
+export const rebindActor = (tx: Tx, a: ActorRec): Mail[] => {
+  const out: Mail[] = [];
+  walkIncs(a.root, (i) => {
+    if (!i.frozen) out.push(...adoption(tx, a, i));
+  });
+  return out;
+};
 const recheckResets = (w: Walk): boolean => {
   let pending = false;
   walkIncs(w.root, (host) => {
@@ -954,6 +955,7 @@ const runTurn = (
 const runRecheck = (tx: Tx, a: ActorRec) => {
   const w = newWalk(tx, a, undefined, false);
   doResets(w);
+  applyLists(w); // M2: an `.each` whose reset was pending reseeds in this turn
   applyLeaving(w);
   finish(w, new Map(), { tag: "PendingReset" }, a.root.leaf);
 };
@@ -1000,7 +1002,8 @@ const parkEnding = (
   setLane(tx, { ...base, parked: [...base.parked, parked] });
 };
 const mappedFor = (m: Compiled, item: EndingMail) => {
-  const op = m.ops[item.op]!;
+  const op = m.ops[item.op];
+  if (!op) return undefined; // removed by this release: `UnmappedEnding` tells the owner
   const e = item.ending;
   if (e.ch === "success") return op.outcomes.success;
   if (e.ch === "failure") return op.outcomes.failure[e.tag];
@@ -1030,7 +1033,9 @@ const admitEnding = (tx: Tx, item: EndingMail): void => {
       cell(tx, "cancel", cur, argsOf(cur)); // a release: its evidence is the cell's
     return;
   }
-  const a = tx.w.actors[item.actor];
+  // D72: this restored ending is now mail no more. The record on disk may follow.
+  if (item.restored) tx.touchedLanes.add(laneId);
+  const a = own(tx.w.actors, item.actor);
   const lane = tx.w.lanes[laneId];
   if (!a) {
     // Rule 44: parked if a record of the identity survives; evidence otherwise. D15's Abandoned parks either way.
@@ -1038,7 +1043,7 @@ const admitEnding = (tx: Tx, item: EndingMail): void => {
     const keep =
       !local &&
       machine !== undefined &&
-      (tx.w.retired[item.actor] !== undefined || tx.machines[machine]?.persisted);
+      (own(tx.w.retired, item.actor) !== undefined || tx.machines[machine]?.persisted);
     if (keep) return parkEnding(tx, item, lane, subject, machine);
     return note(tx, "evidenceOnly", { op: item.op, attempt: item.attempt ?? "" });
   }
@@ -1047,7 +1052,7 @@ const admitEnding = (tx: Tx, item: EndingMail): void => {
   deliver(tx, a, path, item);
 };
 const admitRead = (tx: Tx, item: EndingMail) => {
-  const a = tx.w.actors[item.actor];
+  const a = own(tx.w.actors, item.actor);
   const path = a && pathOfId(a.root, item.inc!);
   if (!a || !path) return note(tx, "evidenceOnly", { op: item.op, attempt: item.attempt ?? "" });
   deliver(tx, a, path, item);
@@ -1142,22 +1147,23 @@ export const onTurn = (tx: Tx) => {
         ? "reset"
         : `event:${item.event.tag}`;
   if (item.k === "ending") return admitEnding(tx, item); // A0: kept whatever the turn does
-  const a = tx.w.actors[item.actor];
+  const a = own(tx.w.actors, item.actor);
   if (!a) return note(tx, "unbound", { actor: item.actor });
   if (item.k === "recheck")
     return void attemptTurn(tx, item, "PendingReset", () => runRecheck(tx, a));
   if (item.k === "deliver") {
     const path = pathOfId(a.root, item.inc);
     const inc = path && kidAt(a.root, path);
-    if (!inc || inc.frozen) {
+    // Rule 70: the placement's activation, not only the incarnation's.
+    if (!inc || inc.frozen || !Object.values(inc.activations).includes(item.activation)) {
       note(tx, "fence", { dead: item.inc });
-      return moduleInput(tx, item.module, { k: "turned", tag: item.tag, outcome: "fenced" });
+      return moduleTold(tx, item.module, { k: "turned", tag: item.tag, outcome: "fenced" });
     }
     const ran = attemptTurn(tx, item, item.event.tag, () =>
       runTurn(tx, a, path!, item.event, undefined, false, item),
     );
     if (!ran && item.ending && !item.redelivered) enqueue(tx, { ...item, redelivered: true }); // D50
-    return moduleInput(tx, item.module, {
+    return moduleTold(tx, item.module, {
       k: "turned",
       tag: item.tag,
       outcome: ran ? "ran" : "invalid",

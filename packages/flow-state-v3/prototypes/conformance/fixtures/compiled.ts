@@ -173,6 +173,7 @@ export type DomainSpec = {
   readonly reads: Readonly<Record<string, (value: any, input: any) => readonly Carried[]>>;
   readonly repair: (ref: string) => Effect.Effect<any, any, never>; // a forced repair: the record's fields, or null
   readonly version?: (ref: string) => string | undefined; // D67: the entity's `version: "revision"`, the name of the field, per record
+  readonly listens?: Readonly<Record<string, (value: any) => readonly Carried[]>>; // a domain's `listen(...).as(...)`: a stream's values as changes
 };
 
 // ── A stream contract, compiled (2.11.3). The thin spike's subset: no catchUp, no `latest`.
@@ -187,6 +188,8 @@ export type Signal =
   | { readonly _feed: "down"; readonly reason: string };
 export type StreamSpec = {
   readonly id: string;
+  readonly delivers?: "every" | "latest"; // absent: every
+  readonly listen?: true; // a domain's `listen`: its values are record changes, its consumer the store (T7)
   readonly key: (input: any) => unknown;
   readonly position?: string; // the NAME of a field of the output
   readonly fills?: string; // the memory field (2.11.7)
@@ -198,7 +201,17 @@ export type StreamSpec = {
   readonly value: Mapped;
   readonly missed: Mapped;
   readonly failure: Mapped;
+  readonly failureBy?: Readonly<Record<string, Mapped>>; // 2.11.6: by the adapter's tag. `failure` is `Feed`'s key
+  readonly reconnectWhile?: (e: any) => boolean; // `reconnect.while`
+  readonly pages?: Mapped; // a read's page, one event
+  readonly catchUp?: (input: any, c: { readonly from: unknown; readonly next?: unknown }) => unknown; // Effect<more | done | gone>
+  readonly pageRetryWhile?: (e: any) => boolean;
+  readonly callbackBound?: number; // T6: `Feed.callback`'s bound, 1,024 by default
 };
+export type PageAnswer =
+  | { readonly _feed: "more"; readonly items: readonly unknown[]; readonly next: unknown; readonly through?: unknown }
+  | { readonly _feed: "done"; readonly items: readonly unknown[]; readonly proof: string; readonly through?: unknown }
+  | { readonly _feed: "gone"; readonly reason: string; readonly items?: readonly unknown[]; readonly next?: unknown; readonly through?: unknown };
 
 // 2.7.1 "How it is built"
 export class OutcomeFailure<R> extends Data.TaggedError("Flow/Failure")<{ readonly reason: R }> {}

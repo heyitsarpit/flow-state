@@ -139,6 +139,7 @@ export type Mail =
       readonly k: "deliver";
       readonly actor: string;
       readonly inc: string;
+      readonly activation: string; // rule 70: a session belongs to its placement's activation
       readonly event: Ev;
       readonly module: string;
       readonly tag: string;

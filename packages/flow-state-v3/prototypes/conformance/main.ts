@@ -179,6 +179,9 @@ if (import.meta.main) {
   const unlogged = now
     .filter(([id, h]) => old.has(id) && old.get(id) !== h && !log.includes(`hash:${h}`))
     .map(([id]) => id);
+  if (has("--hashes"))
+    for (const [id, h] of now)
+      if (old.has(id) && old.get(id) !== h && !log.includes(`hash:${h}`)) console.log(`HASH ${id} hash:${h}`);
   if (has("--lock")) {
     writeFileSync(LOCK, lockLines().join("\n") + "\n");
     console.log(

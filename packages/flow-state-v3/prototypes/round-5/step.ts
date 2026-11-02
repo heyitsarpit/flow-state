@@ -1,14 +1,14 @@
 // One function: step(world, input, env, system) returns a new value, at most one publication, and commands. Pure: time and ids
 // come through `env`, every closure is a compiled Slot. A throw from core code escapes: fatal (D46).
 import type { Compiled } from "../conformance/fixtures/compiled.ts";
-import { blockedBy, hook, input as moduleInput, inputAll, Refused, run } from "./hooks.ts";
+import { blockedBy, hook, input as moduleInput, Refused, run, told as moduleTold, toldAll } from "./hooks.ts";
 import { flush, onStorageBound, onStored, restore } from "./durable.ts";
-import { admit, finiteMs } from "./gate.ts";
+import { admit, own } from "./gate.ts";
 import { down, placementsActive, seedKids, up, walkIncs, viewOf, type Started } from "./inc.ts";
 import { cell, parkWaiting, settleSend } from "./lane.ts";
 import { dropReadsOf, takeRead } from "./reads.ts";
 import { armTimer, disarmTimer, scheduleKey } from "./timers.ts";
-import { onTurn, startActor } from "./turn.ts";
+import { onTurn, rebindActor, startActor } from "./turn.ts";
 import {
   clearStall,
   enqueue,
@@ -81,7 +81,7 @@ const onSent = (tx: Tx, i: Extract<Input, { k: "sent" }>) => {
     const e = readEnding(i.exit);
     noteEnding(tx, { op: r.op, attempt: i.attempt, send: i.send }, e);
     if (e.ch === "success")
-      inputAll(tx, {
+      toldAll(tx, {
         k: "answered",
         machine: r.machine,
         op: r.op,
@@ -200,7 +200,7 @@ const onDisposeRuntime = (tx: Tx) => {
 
 // ── An actor's life. D21: a local identity's hold releases at once and is never adopted. Otherwise the lanes stay the Runtime's.
 const onDisposeActor = (tx: Tx, key: string) => {
-  const a = tx.w.actors[key];
+  const a = own(tx.w.actors, key);
   if (!a) return;
   const m = tx.machines[a.machine]!;
   walkIncs(a.root, (i) => void dropReadsOf(tx, i.id));
@@ -221,12 +221,13 @@ const onDisposeActor = (tx: Tx, key: string) => {
         cell(tx, "cancel", l, { actor: key, machine: l.machine, op: l.op, key: l.key });
       else setLane(tx, { ...l, releasing: true });
     }
+  if (m.persisted) tx.touchedActors.add(key); // D73: the disk says it sleeps
   note(tx, "disposed", { actor: key });
   tx.visible = true;
 };
 const startRoot = (tx: Tx, key: string, machine: string, input: unknown) => {
   const m: Compiled = tx.machines[machine]!;
-  const retired = tx.w.retired[key];
+  const retired = own(tx.w.retired, key);
   if (retired) {
     const { timers, ...rec } = retired as ActorRec & { timers: readonly FrozenTimer[] };
     tx.w = {
@@ -238,7 +239,9 @@ const startRoot = (tx: Tx, key: string, machine: string, input: unknown) => {
       const { gen: _g, ...spec } = t;
       armTimer(tx, spec);
     }
-    tx.w = { ...tx.w, follow: [...startActor(tx, rec), ...tx.w.follow] };
+    // Computed first: `{ ...tx.w, follow: [...adoption()] }` spreads a world before adoption's own writes, and loses them.
+    const adopted = rebindActor(tx, rec);
+    tx.w = { ...tx.w, follow: [...adopted, ...tx.w.follow] };
     tx.touchedActors.add(key);
     tx.visible = true;
     return;
@@ -267,10 +270,7 @@ const startRoot = (tx: Tx, key: string, machine: string, input: unknown) => {
         const ms =
           "ms" in spec.schedule
             ? spec.schedule.ms
-            : finiteMs(
-                run(spec.schedule, { memory: viewOf(inc), event: {} } as never),
-                `${spec.schedule.at.definition} ${spec.schedule.at.path}`,
-              );
+            : run(spec.schedule, { memory: viewOf(inc), event: {} } as never);
         armTimer(tx, {
           key: scheduleKey(key, inc.id, inc.activations[n]!, spec.id),
           kind: "schedule",
@@ -297,7 +297,8 @@ const startRoot = (tx: Tx, key: string, machine: string, input: unknown) => {
   tx.w = { ...tx.w, follow: [...adopted, ...tx.w.follow] };
 };
 const onEnsure = (tx: Tx, key: string, machine: string, input: unknown) => {
-  if (tx.w.actors[key]) return;
+  if (own(tx.w.actors, key)) return;
+  if (!tx.machines[machine]) return issue(tx, { code: "InvalidTurn", origin: `ensure ${machine}` }); // L8
   const kept = { w: tx.w, commands: tx.commands.length, evidence: tx.evidence.length };
   tx.inTurn = true;
   try {
@@ -391,11 +392,8 @@ const tell = (tx: Tx, before: World) => {
     (k) => now[k] !== was[k],
   );
   if (changed.length === 0) return;
-  const view = changed.map((k) => {
-    const a = now[k] ?? was[k]!;
-    return { key: k, machine: a.machine, ...(now[k] ? { root: now[k]!.root } : {}) };
-  });
-  for (const m of watching) moduleInput(tx, m.id, { k: "actors", changed: view });
+  const view = changed.map((k) => ({ key: k, machine: (now[k] ?? was[k]!).machine }));
+  for (const m of watching) moduleTold(tx, m.id, { k: "actors", changed: view });
 };
 
 export const step = (world: World, input: Input, env: Env, sys: System): StepOut => {
@@ -441,6 +439,8 @@ export const step = (world: World, input: Input, env: Env, sys: System): StepOut
       break;
     case "send":
       if (tx.w.status !== "live") note(tx, "dropped", { input: "send" });
+      else if (typeof input.event?.tag !== "string")
+        issue(tx, { code: "InvalidTurn", origin: `send ${input.actor}` }); // D65: what enters mail has a shape
       else enqueue(tx, { k: "send", actor: input.actor, event: input.event });
       break;
     case "turn":

@@ -124,8 +124,14 @@ export const payFixedFixture: Fixture = {
       },
     ];
     // Rule 56's default guard, which the real `start` has only for the shipping quote: one token per operation that holds money.
+    // Review M10: one guard. Starting again while a hold has no receipt forgets the hold: refused. Its cost is product's: a shopper
+    // with a stranded hold cannot start again.
+    const holdUnaccounted = slot("on.Start[0].guard[0]", ({ memory }: any) =>
+      !(memory.authorized === true && !memory.receipt) || deny("HoldUnaccounted"),
+    );
     const startGuarded = c.nodes["IDLE"]!.on["Start"]!.map((a) => ({
       ...a,
+      guards: [...a.guards, holdUnaccounted],
       tokens: [
         { op: "pay", verb: "idle" as const },
         { op: "void", verb: "idle" as const },
@@ -141,7 +147,11 @@ export const payFixedFixture: Fixture = {
     // The root of what SEARCH-PAY reports: a void lost by a reload is not "released". It goes again.
     const voidNotSent = alts("on.VoidNotSent", [
       {
-        guards: [({ event }) => event.why === "Restored" || deny("NotRestored")],
+        // Review M10: any void that did not finish goes again; storage refusing it too.
+        guards: [
+          ({ event }) =>
+            event.why === "Restored" || event.why === "StorageRefused" || deny("NotRetryable"),
+        ],
         members: voidHoldOf(({ event }) => event.intentId),
       },
       {

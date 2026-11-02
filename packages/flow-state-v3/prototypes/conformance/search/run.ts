@@ -28,6 +28,17 @@ const o = {
   deadlineMs: Number(arg("--seconds", "280")) * 1000,
 };
 const which = arg("--which", "pay");
+if (which === "oddall") {
+  const { searchOddAll } = await import("../scenarios/round5.scenario.ts");
+  const { oddAllFixture } = await import("../fixtures/oddall.compiled.ts");
+  const n = searchOddAll(() => {
+    const h = make();
+    h.start({ machines: [oddAllFixture], seed: 1 });
+    return h;
+  });
+  console.log(JSON.stringify({ search: which, verdict: "completed", combinations: n }));
+  process.exit(0);
+}
 const r =
   which === "pay"
     ? searchPay(make, [payFixture], o)

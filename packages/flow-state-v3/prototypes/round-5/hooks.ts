@@ -1,9 +1,9 @@
 // Runs a module's hook in its own attempt, and gives a throw its owner (D46).
 import type { Slot } from "../conformance/fixtures/compiled.ts";
-import type { Claim, Cx, Module, WriteRef } from "./seam.ts";
+import type { Claim, Cx, Module, Told, WriteRef } from "./seam.ts";
 import { armTimer, disarmTimer } from "./timers.ts";
-import { Refused } from "./gate.ts";
-import { pathOfId, withKid } from "./inc.ts";
+import { own, Refused } from "./gate.ts";
+import { activitiesOf, kidAt, pathOfId, viewOf, withKid } from "./inc.ts";
 import { enqueue, issue, nextGen, note, position, type Mail, type Tx } from "./world.ts";
 
 export { Refused };
@@ -33,12 +33,20 @@ const cxFor = (tx: Tx, m: Module<any>): Cx => ({
     const keep = (x: Mail) => !(x.k === "deliver" && x.tag === tag);
     tx.w = { ...tx.w, mail: tx.w.mail.filter(keep), follow: tx.w.follow.filter(keep) };
   },
-  actor: (key) => {
-    const a = tx.w.actors[key];
-    return a && { key, machine: a.machine, root: a.root };
+  machineOf: (key) => own(tx.w.actors, key)?.machine ?? own(tx.w.retired, key)?.machine,
+  placed: (key) => {
+    const a = own(tx.w.actors, key);
+    return a ? activitiesOf(tx.machines[a.machine]!, a.root) : [];
   },
+  slice: (key, inc) => {
+    const a = own(tx.w.actors, key);
+    const path = a && pathOfId(a.root, inc);
+    const i = path && kidAt(a!.root, path);
+    return i && { memory: viewOf(i), partition: i.partition?.[m.id] };
+  },
+  tell: (id, payload) => told(tx, id, { k: "module", from: m.id, payload }),
   partition: (actor, inc, f) => {
-    const a = tx.w.actors[actor];
+    const a = own(tx.w.actors, actor);
     const path = a && pathOfId(a.root, inc);
     if (!a || !path) return;
     const root = withKid(a.root, path, (i) => ({
@@ -122,8 +130,22 @@ export const input = (tx: Tx, id: string, payload: unknown) => {
     () => undefined,
   );
 };
-export const inputAll = (tx: Tx, payload: unknown) => {
-  for (const m of tx.modules) input(tx, m.id, payload);
+export const told = (tx: Tx, id: string, fact: Told) => {
+  const m = tx.modules.find((x) => x.id === id);
+  if (!m?.told || !active(tx, m)) return;
+  attempt(
+    tx,
+    m,
+    "told",
+    () => {
+      const s = m.told!(tx.w.ext[m.id], fact, cxFor(tx, m));
+      tx.w = { ...tx.w, ext: { ...tx.w.ext, [m.id]: s } };
+    },
+    () => undefined,
+  );
+};
+export const toldAll = (tx: Tx, fact: Told) => {
+  for (const m of tx.modules) told(tx, m.id, fact);
 };
 export const prepareAll = (tx: Tx, w: { machine: string; op: string; input: unknown }) => {
   const out: Record<string, unknown> = {};

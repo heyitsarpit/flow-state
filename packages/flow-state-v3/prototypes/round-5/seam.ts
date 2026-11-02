@@ -5,10 +5,12 @@
 // closure goes through `cx.user`, which says what its throw means here: inside a turn it refuses the turn; outside one it is an
 // issue with its origin and the given default. Never a disable, never a kill.
 //
-// D63: a module hears lifecycle, its members and its deliveries' turns through `input`, as facts, in the step. No hook was added.
-// A module with `observes` gets { k: "actors", changed } after any step that changed an actor. `cx.tell` is not built: no `listen`.
+// D68: two doors, each with one meaning. `told` is what the core says, a closed union: lifecycle, members, a delivery's turn, a read's
+// answer. `input` is only what this module's own driver half and own timers send, so nothing it does not own can arrive there.
+// A module with `observes` gets { k: "actors", changed } after any step that changed an actor (level-triggered, D63).
 import type { Compiled, Ev, Slot } from "../conformance/fixtures/compiled.ts";
-import type { Ending, Inc, SendExit } from "./world.ts";
+import type { PlacedActivity } from "./inc.ts";
+import type { Ending, SendExit } from "./world.ts";
 
 export type WriteRef = {
   readonly attempt: string;
@@ -28,7 +30,7 @@ export type Cx = {
   readonly repairMs: number;
   gen(): string;
   pos(): number; // D47
-  arm(key: string, dueAt: number): void; // comes back through `input` as { timer: key }
+  arm(key: string, dueAt: number): void; // comes back through `input` as { k: "timer", key }
   disarm(key: string): void;
   command(cmd: unknown): void; // goes to this module's own `exec`
   note(kind: string, f?: Record<string, unknown>): void;
@@ -36,15 +38,32 @@ export type Cx = {
   visible(): void;
   machine(id: string): Compiled;
   user<A extends unknown[], B>(slot: Slot<(...a: A) => B>, args: A, fallback: () => B): B;
-  deliver(m: { actor: string; inc: string; event: Ev; tag: string; ending: boolean }): void;
+  deliver(m: {
+    actor: string;
+    inc: string;
+    activation: string;
+    event: Ev;
+    tag: string;
+    ending: boolean;
+  }): void;
   retract(tag: string): void; // mail and follow-ups alike
   partition(actor: string, inc: string, f: (old: unknown) => unknown): void; // D62
-  actor(key: string): ActorView | undefined; // a read of the tree: a frame needs the field and the bookmark
+  // D69: what a module may read of the tree. Never an `Inc`.
+  machineOf(actor: string): string | undefined;
+  placed(actor: string): readonly PlacedActivity[];
+  slice(actor: string, inc: string): SliceView | undefined;
+  tell(module: string, payload: unknown): void; // another module hears it now, as a fact: how a push reaches the store
 };
-export type ActorView = { readonly key: string; readonly machine: string; readonly root?: Inc };
-// What `input` receives from the core. Its own payloads are its own.
+export type SliceView = {
+  readonly memory: any;
+  readonly partition: unknown; // this module's own
+};
+export type ActorChange = { readonly key: string; readonly machine: string };
+// What `told` receives from the core. Closed: an unlisted kind cannot arrive.
 export type Told =
-  | { readonly k: "actors"; readonly changed: readonly ActorView[] }
+  | { readonly k: "actors"; readonly changed: readonly ActorChange[] }
+  | ReadAnswer
+  | { readonly k: "module"; readonly from: string; readonly payload: unknown }
   | { readonly k: "turned"; readonly tag: string; readonly outcome: "ran" | "invalid" | "fenced" }
   | {
       readonly k: "member";
@@ -58,6 +77,9 @@ export type DriverIo = {
   fork(key: string, effect: unknown, done: (exit: SendExit) => void): void;
   stop(key: string): void; // M7: a module's fiber has an owner
   input(payload: unknown): void;
+  // D71: a wait a command can open. `credit(k)` is an Effect that finishes once `open(k)` has been called; counted, so order is free.
+  credit(key: string): unknown;
+  open(key: string): void;
   machine(id: string): Compiled;
 };
 // `how` is rule 30's ending, or what is not an ending: replaced, or given up.
@@ -75,7 +97,8 @@ export type Module<S> = {
   start?(s: S, w: WriteRef, prepared: unknown, cx: Cx): { readonly s: S; readonly ok: boolean }; // P6
   ended?(s: S, e: Ended, cx: Cx): S; // N: rule 27. Before any routing
   blocks?(s: S, attempt: string): false | Claim; // D
-  input?(s: S, payload: unknown, cx: Cx): S; // its driver half, its timers, a read's answer
+  told?(s: S, fact: Told, cx: Cx): S; // D68: the core's facts
+  input?(s: S, payload: unknown, cx: Cx): S; // D68: its own driver half and its own timers, nothing else
   save?(s: S, attempt: string): unknown;
   restored?(s: S, w: WriteRef & { readonly saved: unknown; readonly ending: Ending }, cx: Cx): S;
   read?(s: S, ref: string): unknown;

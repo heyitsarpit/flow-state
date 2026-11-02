@@ -1,20 +1,20 @@
 // D52: the incarnation tree. An actor's root is an incarnation with path [] and frag null, so there is one code path. Pure
 // helpers over an Inc, plus seeding, which allocates generations. The turn decides when; this says what.
-import type { Compiled, Fragment, Node, Placement } from "../conformance/fixtures/compiled.ts";
-import { encoded, listKey, listOf } from "./gate.ts";
+import type { Activity, Compiled, Fragment, Node, Placement } from "../conformance/fixtures/compiled.ts";
+import { encoded, listKey, listOf, own } from "./gate.ts";
 import { run } from "./hooks.ts";
 import { fragOf, nextGen, type Inc, type Tx } from "./world.ts";
 
 export type Path = readonly string[];
 export const kidAt = (root: Inc, path: Path): Inc | undefined => {
   let cur: Inc | undefined = root;
-  for (const p of path) cur = cur?.kids[p];
+  for (const p of path) cur = cur && own(cur.kids, p);
   return cur;
 };
 export const withKid = (root: Inc, path: Path, f: (i: Inc) => Inc | undefined): Inc => {
   if (path.length === 0) return f(root) ?? root;
   const [p, ...rest] = path;
-  const kid = root.kids[p!];
+  const kid = own(root.kids, p!);
   if (!kid) return root;
   const next = rest.length === 0 ? f(kid) : withKid(kid, rest, f);
   if (next === undefined) {
@@ -180,5 +180,23 @@ export const placementsActive = (m: Compiled, inc: Inc) => {
     for (const p of node.placements ?? []) out.push({ p, node: n });
     if (node.subroutine) out.push({ p: node.subroutine, node: n });
   }
+  return out;
+};
+// D69: what a module may know of the tree. The active activities of this actor, by placement: not the tree.
+export type PlacedActivity = {
+  readonly inc: string;
+  readonly node: string;
+  readonly activation: string;
+  readonly activity: Activity;
+};
+export const activitiesOf = (m: Compiled, root: Inc): PlacedActivity[] => {
+  const out: PlacedActivity[] = [];
+  walkIncs(root, (i) => {
+    if (i.frozen) return;
+    const f = fragOf(m, i);
+    for (const n of up(f, i.leaf))
+      for (const activity of f.nodes[n]!.activities ?? [])
+        out.push({ inc: i.id, node: n, activation: i.activations[n] ?? "", activity });
+  });
   return out;
 };

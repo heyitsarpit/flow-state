@@ -502,7 +502,7 @@ export const traitStoreFixture = (shape: StoreShape): Fixture => ({
         },
       },
       reads: { fetch: (row: any) => [{ ref: thingRef, fields: row }] },
-      repair: () => api.call("repair", {}) as Effect.Effect<any, any, never>,
+      repair: () => api.call("repair", { ref: thingRef }) as Effect.Effect<any, any, never>,
       ...(shape === "noVersion" ? {} : { version: () => "revision" }),
     },
   }),

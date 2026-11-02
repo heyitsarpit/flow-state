@@ -1,7 +1,8 @@
 // Write-ahead, in the core (D26). An Attempt writes twice: a capture saying "not acknowledged", then the acknowledgement, which
 // is how a restore tells NotSent { Restored } from unknown { Restored }. D30: silence is not refusal. D46: restore is per record;
 // a record that does not decode, or names what this release removed, is quarantined and the rest boots.
-import { text, validActor, validLane } from "./gate.ts";
+import { own, text, validActor, validLane } from "./gate.ts";
+import type { Compiled } from "../conformance/fixtures/compiled.ts";
 import { hook, saveAll } from "./hooks.ts";
 import { afterAck, cell } from "./lane.ts";
 import { armTimer, disarmTimer } from "./timers.ts";
@@ -9,6 +10,7 @@ import {
   clearStall,
   enqueue,
   issue,
+  laneKey,
   laneOfAttempt,
   nextGen,
   note,
@@ -18,6 +20,7 @@ import {
   type Attempt,
   type Ending,
   type FrozenTimer,
+  type Inc,
   type Lane,
   type Phase,
   type Tx,
@@ -84,9 +87,30 @@ const encodeLane = (tx: Tx, l: Lane, acked: boolean) =>
     ...(l.releasing ? { releasing: true } : {}),
   });
 const encodeActor = (tx: Tx, key: string): string | undefined => {
-  const a = tx.w.actors[key]!;
-  const timers = Object.values(tx.w.timers).filter((t) => t.kind === "schedule" && t.actor === key);
-  const out = text({ ...a, timers });
+  const live = own(tx.w.actors, key);
+  // D73: a retired identity's record says so, and carries the timers it left with.
+  const a = (live ?? own(tx.w.retired, key))! as ActorRec & { timers?: readonly FrozenTimer[] };
+  const armed = Object.values(tx.w.timers).filter((t) => t.kind === "schedule" && t.actor === key);
+  // L6: a firing still in mail has not committed; the disk keeps it until its turn does.
+  const firing = [...tx.w.mail, ...tx.w.follow].flatMap((m): FrozenTimer[] =>
+    m.k === "fire" && m.actor === key
+      ? [
+          {
+            key: `fired/${m.inc}/${m.event.tag}`,
+            gen: "",
+            dueAt: tx.env.now,
+            kind: "schedule",
+            actor: m.actor,
+            inc: m.inc,
+            activation: m.activation,
+            send: m.event.tag,
+            id: m.event.tag,
+          },
+        ]
+      : [],
+  );
+  const timers = live ? [...armed, ...firing] : (a.timers ?? []);
+  const out = text({ ...a, timers, ...(live ? {} : { retired: true }) });
   // The turn gated memory. What is left is a thing nobody gated: named, and the last good record stands.
   if (out === undefined) issue(tx, { code: "UnencodableValue", origin: `actor ${key}` });
   return out;
@@ -96,15 +120,21 @@ const encodeActor = (tx: Tx, key: string): string | undefined => {
 export const flush = (tx: Tx) => {
   const writes: Write[] = [];
   for (const key of tx.touchedActors) {
-    const a = tx.w.actors[key];
+    const a = own(tx.w.actors, key) ?? own(tx.w.retired, key);
     if (a && tx.machines[a.machine]!.persisted) {
       const value = encodeActor(tx, key);
       if (value !== undefined) writes.push({ key: `actor/${key}`, value });
     }
   }
   let saved = tx.w.savedLanes;
+  // D72: a restored ending is still only on disk until it is delivered. Mail is not persisted, so the record stays until then.
+  const owed = new Set(
+    [...tx.w.mail, ...tx.w.follow].flatMap((m) =>
+      m.k === "ending" && m.restored ? [laneKey(m.actor, m.op, m.key)] : [],
+    ),
+  );
   const put = (id: string, value: string | undefined) => {
-    if (saved[id] === value) return;
+    if (owed.has(id) || saved[id] === value) return;
     writes.push({ key: `lane/${id}`, value });
     if (value === undefined) {
       const { [id]: _gone, ...rest } = saved;
@@ -204,6 +234,7 @@ export const restore = (tx: Tx, records: ReadonlyArray<readonly [string, string]
     : undefined;
   let maxMint = (Number.isFinite(m?.nextMint) ? m!.nextMint : 1) - 1;
   const actors: Record<string, ActorRec> = {};
+  const retired: Record<string, ActorRec> = {};
   const timers: FrozenTimer[] = [];
   const lanes: Array<[string, SavedLane]> = [];
   const saved: Record<string, string> = {};
@@ -211,17 +242,26 @@ export const restore = (tx: Tx, records: ReadonlyArray<readonly [string, string]
     if (k.startsWith("actor/")) {
       const v = parse(tx, k, text);
       if (!v) continue;
-      const mm = tx.machines[v?.machine];
+      const mm = typeof v?.machine === "string" ? tx.machines[v.machine] : undefined;
       if (!mm || !validActor(mm, v)) {
         quarantine(tx, k, `no machine ${v?.machine}, or a record this release cannot read`);
         continue;
       }
-      actors[v.key] = { key: v.key, machine: v.machine, root: v.root };
-      timers.push(...v.timers);
+      const root = orphanFrozen(tx, mm, v.root);
+      if (v.retired) retired[v.key] = { key: v.key, machine: v.machine, root, timers: v.timers };
+      else {
+        actors[v.key] = { key: v.key, machine: v.machine, root };
+        timers.push(...v.timers);
+      }
     } else if (k.startsWith("lane/")) {
       const v = parse(tx, k, text) as SavedLane | undefined;
       if (!v) continue;
-      if (!tx.machines[v?.machine as string]?.ops[v?.op as string] || !validLane(v as never)) {
+      if (
+        typeof v?.machine !== "string" ||
+        typeof v?.op !== "string" ||
+        !tx.machines[v.machine]?.ops[v.op] ||
+        !validLane(v as never)
+      ) {
         quarantine(
           tx,
           k,
@@ -233,7 +273,13 @@ export const restore = (tx: Tx, records: ReadonlyArray<readonly [string, string]
       lanes.push([k, v]);
     }
   }
-  tx.w = { ...tx.w, boot: (Number.isFinite(m?.boot) ? m!.boot : 0) + 1, actors, savedLanes: saved };
+  tx.w = {
+    ...tx.w,
+    boot: (Number.isFinite(m?.boot) ? m!.boot : 0) + 1,
+    actors,
+    retired,
+    savedLanes: saved,
+  };
   for (const t of timers) {
     const { gen: _g, ...spec } = t;
     armTimer(tx, spec);
@@ -267,22 +313,22 @@ export const restore = (tx: Tx, records: ReadonlyArray<readonly [string, string]
         setLane(tx, { ...base, head: revive(h, { t: "held" }, true), subject: l.subject ?? [] });
         restoredHook(tx, l, h, { ch: "unknown", reason: "Restored" });
       } else deleteOnly(tx, l.id);
-      continue;
-    }
-    noteEnding(tx, { op: l.op, attempt: h.id }, ending);
-    const unknown = ending.ch === "unknown";
-    const phase: Phase = h.held ? { t: "held" } : { t: "settled", ending };
-    const head = revive(h, phase, h.mayHaveApplied || unknown);
-    const lane: Lane = { ...base, head, subject: l.subject ?? [] };
-    if (l.releasing) {
-      // 2.9.3: applied, then Released evidence; nothing delivered or parked.
-      note(tx, "evidenceOnly", { op: l.op, attempt: h.id });
-      if (unknown) note(tx, "Released", { op: l.op, attempt: h.id });
-      deleteOnly(tx, l.id);
     } else {
-      setLane(tx, lane);
-      if (unknown) restoredHook(tx, l, h, ending);
-      mail(tx, l, h, ending, true);
+      noteEnding(tx, { op: l.op, attempt: h.id }, ending);
+      const unknown = ending.ch === "unknown";
+      const phase: Phase = h.held ? { t: "held" } : { t: "settled", ending };
+      const head = revive(h, phase, h.mayHaveApplied || unknown);
+      const lane: Lane = { ...base, head, subject: l.subject ?? [] };
+      if (l.releasing) {
+        // 2.9.3: applied, then Released evidence; nothing delivered or parked.
+        note(tx, "evidenceOnly", { op: l.op, attempt: h.id });
+        if (unknown) note(tx, "Released", { op: l.op, attempt: h.id });
+        deleteOnly(tx, l.id);
+      } else {
+        setLane(tx, lane);
+        if (unknown) restoredHook(tx, l, h, ending);
+        mail(tx, l, h, ending, true);
+      }
     }
     // W: each ends NotSent { Restored } (C2), or as evidence on a releasing lane.
     for (const a of l.w) {
@@ -293,6 +339,18 @@ export const restore = (tx: Tx, records: ReadonlyArray<readonly [string, string]
     }
   }
   tx.w = { ...tx.w, nextMint: maxMint + 1 };
+};
+// H2: a frozen ending of an operation this release removed is rule 46's `orphaned`, thin: evidence, and the actor keeps its memory.
+const orphanFrozen = (tx: Tx, m: Compiled, i: Inc): Inc => {
+  const parked = i.frozen?.parked.filter((p) => {
+    if (p.k !== "ending" || m.ops[p.op]) return true;
+    note(tx, "Orphaned", { op: p.op, attempt: p.attempt ?? "" });
+    return false;
+  });
+  const kids = Object.fromEntries(
+    Object.entries(i.kids).map(([k, v]) => [k, orphanFrozen(tx, m, v)]),
+  );
+  return { ...i, kids, ...(i.frozen ? { frozen: { ...i.frozen, parked: parked! } } : {}) };
 };
 const restoredHook = (tx: Tx, l: SavedLane, h: SavedAttempt, ending: Ending) => {
   if (!h.ext) return;

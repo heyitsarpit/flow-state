@@ -4,6 +4,7 @@ import type { Compiled } from "../conformance/fixtures/compiled.ts";
 import type { BootArgs, Instance, Port } from "../conformance/harness.ts";
 import { createRuntime, type StepRecord } from "./driver.ts";
 import { entities, readAll, type Slice } from "./entities.ts";
+import { sealAll } from "./gate.ts";
 import { sessions } from "./sessions.ts";
 import { kidAt, viewOf } from "./inc.ts";
 import { row as rowOf, view, waitsOf } from "./publish.ts";
@@ -19,6 +20,7 @@ const STEP_HOOKS = new Set([
   "ended",
   "blocks",
   "input",
+  "told",
   "save",
   "restored",
   "dispose",
@@ -52,7 +54,7 @@ const normalise = (w: World, now: number, outside: string): string => {
     text = text.replace(re, (_x, k, n) => `${k}${Number(n) === 0 ? "z" : seen.indexOf(Number(n))}`);
   };
   ranked(/(\\?"mint\\?":)(\d+)/g);
-  ranked(/(\\?"(?:sentAt|changedAt|pos)\\?":)(\d+)/g);
+  ranked(/(\\?"(?:sentAt|changedAt|pos|doubt|unechoed)\\?":)(\d+)/g);
   const ranks = new Map<string, number>();
   return text.replace(/att-\d+-\d+|g\d+\.\d+/g, (tok) => {
     let r = ranks.get(tok);
@@ -99,7 +101,7 @@ export const port: Port = {
     const used = [...new Set(a.compiled.flatMap((c) => c.uses))].map((u) => REGISTRY[u]!);
     const plainModules = [...used, faultModule].sort((x, y) => x.rank - y.rank);
     const modules = plainModules.map(faulted);
-    const plain: Machines = Object.fromEntries(a.compiled.map((c) => [c.id, c]));
+    const plain: Machines = sealAll(a.compiled); // D65: the only way compiled data reaches the core
     // A core bug, reached through data: the next read of the machines throws, inside core code.
     const machines: Machines = new Proxy(plain, {
       get(t, k, r) {

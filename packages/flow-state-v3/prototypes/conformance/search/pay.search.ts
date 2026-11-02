@@ -87,7 +87,8 @@ export const moneyAudit = (h: Harness): string[] => {
     const row = r.row(A, "pay", { intentId: a.intent });
     const accounted =
       (mine && (leaf === "UNSURE" || leaf === "PLACING" || leaf === "STUCK")) ||
-      (mine && m.authorized === true) ||
+      (mine && m.authorized === true && leaf !== "LEFT") || // review M11: a hold stranded in LEFT is what this oracle exists for
+      r.row(A, "void", { intentId: a.intent })?.pending === true || // a void for it is live, whoever's belief says what
       (mine && row?.pending === true) || // a call for it is live: the machine is still waiting for an answer
       told("pending charge") ||
       told("captured") ||
@@ -134,7 +135,9 @@ export const PAY_PINS: readonly Pin[] = [
   { cls: "two-keys-one-intent", via: new RegExp(`PayRequested ${S}PayRequested`), pin: "P6" },
   { cls: "told-not-charged", via: new RegExp(`PayRequested ${S}PayRequested`), pin: "P6" },
   // P3: a late charge after Leave and a new start: one `authorized` bit, one intent in memory.
-  { cls: "charged-unaccounted", via: new RegExp(`Leave`), pin: "P3" },
+  { cls: "charged-unaccounted", via: new RegExp(`(?:Leave|pay\\.\\w+) ${S}(?:Leave|Start)`), pin: "P3" },
+  // P5: a void a reload took, on a charge that landed after Leave. Seen once the oracle stopped reading the machine's belief (M11).
+  { cls: "charged-unaccounted", via: new RegExp(`Leave ${S}pay\\.\\w+ ${S}reload`), pin: "P5" },
   // P6's other face: Pay in PLACING overwrites what the first charge set.
   { cls: "charged-unaccounted", via: new RegExp(`PayRequested ${S}PayRequested`), pin: "P6" },
   // P4: Pay pressed in UNSURE moves to PAYING with the commit Rejected, and PAYING has no reconcile. Reached by a hold.

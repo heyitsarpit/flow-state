@@ -135,6 +135,15 @@ const ODD_SCRIPT: ReadonlyArray<Step | (() => Step)> = [
   { send: O, event: "Back" },
   { reload: true },
 ];
+export const searchOddAll = (make: () => Harness) => {
+  let n = 0;
+  for (const kind of ODD_KINDS)
+    for (const v of ODD_VALUES) {
+      oddOne(make, kind, v);
+      n++;
+    }
+  return n;
+};
 const oddOne = (make: () => Harness, kind: string, v: unknown) => {
   const h = make();
   const label = `${kind}=${String(typeof v === "object" ? JSON.stringify(v, (_k, x) => (typeof x === "bigint" ? "big" : x === cycle ? "cycle" : x)) : v)}`;
@@ -213,7 +222,9 @@ export const round5Scenarios: readonly Scenario[] = [
     cites: ["D65", "D57"],
     run(c) {
       const make = () => c.fresh([oddAllFixture]);
-      for (const kind of ODD_KINDS) for (const v of ODD_VALUES) oddOne(make, kind, v);
+      // In the suite, one value of each class. All of them: search/run.ts --which oddall.
+      const some = [undefined, 5, "constructor", [null], { tag: "constructor", payload: null }, [{ ref: "constructor", fields: { a: 1 } }]];
+      for (const kind of ODD_KINDS) for (const v of some) oddOne(make, kind, v);
     },
   },
   {
@@ -701,7 +712,9 @@ export const round5Scenarios: readonly Scenario[] = [
         c.advance(1);
         c.eq("again", conns(c).length, 3);
         hello(c);
-        c.advance(60_000);
+        c.advance(30_000);
+        frame(c, { t: "ping" });
+        c.advance(30_000);
         c.do({ feed: OP, end: true });
         c.advance(1000);
         c.eq("back to one second", conns(c).length, 4);

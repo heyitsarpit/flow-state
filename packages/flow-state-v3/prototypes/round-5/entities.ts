@@ -8,8 +8,8 @@
 // codebases/db/packages/db/src/collection/state.ts:580. A stale read must not win over a confirmed write:
 // codebases/tanstack-query/packages/query-core/src/mutationObserver.ts's cancelQueries convention, here a position compare.
 import type { Carried, Compiled, Predicted, Slot } from "../conformance/fixtures/compiled.ts";
-import type { Claim, Cx, Ended, Module, ReadAnswer } from "./seam.ts";
-import { same } from "./gate.ts";
+import type { Claim, Cx, Ended, Module, ReadAnswer, Told } from "./seam.ts";
+import { own, same } from "./gate.ts";
 import type { Ending } from "./world.ts";
 
 type Entry = {
@@ -31,6 +31,8 @@ type Rec = {
   readonly queue: readonly string[]; // mint order by construction: mints only grow, a retry never rejoins (S13)
   readonly changedAt: number; // D58: the tick at which what `base` holds arrived
   readonly doubt?: number; // D58: the tick a doubt began. Goes only by a read that started after it
+  readonly version?: string | number; // D67: from the entity's declared field, or a tombstone's
+  readonly unechoed?: number; // D67: the tick of a confirmed write this record's version and position cannot place yet
 };
 type Repair = {
   readonly gen: string;
@@ -44,8 +46,9 @@ export type Slice = {
   readonly repairs: Readonly<Record<string, Repair>>;
 };
 const NONE: Rec = { unconfirmed: [], marks: [], queue: [], changedAt: 0 };
+// D65: `ref` comes from a closure: "constructor" is a name like any other.
 const empty: Slice = { records: {}, entries: {}, repairs: {} };
-const recOf = (s: Slice, ref: string): Rec => s.records[ref] ?? NONE;
+const recOf = (s: Slice, ref: string): Rec => own(s.records, ref) ?? NONE;
 const withRec = (s: Slice, ref: string, f: (r: Rec) => Rec): Slice => ({
   ...s,
   records: { ...s.records, [ref]: f(recOf(s, ref)) },
@@ -75,7 +78,7 @@ const safely = <A>(f: () => A, fallback: A): A => {
   }
 };
 export const readRecord = (s: Slice, ref: string) => {
-  const r = s.records[ref];
+  const r = own(s.records, ref);
   if (!r) return undefined;
   let data: any = r.base;
   let predicted = false;
@@ -101,7 +104,7 @@ export const readAll = (s: Slice) =>
   );
 
 const startRepair = (s: Slice, ref: string, machine: string, cx: Cx): Slice => {
-  const cur = s.repairs[ref];
+  const cur = own(s.repairs, ref);
   if (cur) return { ...s, repairs: { ...s.repairs, [ref]: { ...cur, again: true } } };
   const gen = cx.gen();
   const pos = cx.pos();
@@ -131,12 +134,45 @@ const clearMarks = (s: Slice, e: Entry, cx: Cx): Slice => {
   }
   return out;
 };
-// D58: an answer is an interval. What we hold arrived after this started, so their order is unknown; if they differ, doubt.
-const overlaps = (r: Rec, c: Carried, start: number) =>
-  r.changedAt > start &&
-  (c.removed
-    ? r.base !== undefined
-    : !Object.entries(c.fields ?? {}).every(([k, v]) => same(r.base?.[k], v)));
+// ── D66: one judge for all evidence. D67: the version places it if it and the record have one and no write stands unplaced; otherwise
+// when it started; and what cannot be placed either way never overwrites silently. A table: convergence-5.
+type Ver = number | string;
+type Evidence = {
+  readonly kind: "read" | "success" | "frame" | "repair";
+  readonly start?: number; // a frame has none
+  readonly carried: Carried;
+  readonly version?: Ver;
+  readonly versionField?: string;
+};
+type Verdict = "apply" | "keepUnconfirmed" | "stale" | "doubt" | "applyDoubt" | "again";
+const older = (a: Ver, b: Ver) =>
+  typeof a === typeof b ? (a === b ? 0 : a < b ? -1 : 1) : undefined;
+const differs = (r: Rec, ev: Evidence) => {
+  const c = ev.carried;
+  if (c.removed) return r.base !== undefined;
+  if (r.base === undefined) return true;
+  return !Object.entries(c.fields ?? {}).every(
+    ([k, v]) => k === ev.versionField || same(r.base?.[k], v),
+  );
+};
+const judge = (r: Rec, ev: Evidence): Verdict => {
+  const order =
+    ev.version !== undefined && r.version !== undefined ? older(ev.version, r.version) : undefined;
+  const placed = r.unechoed === undefined;
+  if (order !== undefined && order < 0)
+    return ev.kind === "repair" && ev.start !== undefined && r.changedAt > ev.start
+      ? "again"
+      : "stale";
+  if (order === 0) {
+    if (placed) return "apply";
+    return r.base === undefined ? "stale" : "keepUnconfirmed"; // an equal version cannot show a write that moved it
+  }
+  if (order !== undefined && placed) return "apply";
+  // By position.
+  const overlap = ev.start === undefined ? !placed : r.changedAt > ev.start;
+  if (!overlap || !differs(r, ev)) return "apply";
+  return ev.kind === "success" ? "applyDoubt" : ev.kind === "repair" ? "again" : "doubt";
+};
 const doubted = (s: Slice, ref: string, machine: string, cx: Cx): Slice => {
   const at = cx.pos();
   return startRepair(
@@ -146,34 +182,104 @@ const doubted = (s: Slice, ref: string, machine: string, cx: Cx): Slice => {
     cx,
   );
 };
-// A read that started after the doubt settles it, whatever it says.
-const settled = (r: Rec, start: number): Rec => {
-  if (r.doubt === undefined || start < r.doubt) return r;
-  const { doubt: _d, ...rest } = r;
-  return rest;
+// What a judged answer settles: a doubt or an unplaced write older than when it started.
+const settled = (r: Rec, ev: Evidence, matched: boolean): Rec => {
+  let out = r;
+  if (ev.kind === "success") return out; // only a read says what is true now
+  if (ev.start !== undefined && out.doubt !== undefined && ev.start >= out.doubt) {
+    const { doubt: _d, ...rest } = out;
+    out = rest;
+  }
+  if (
+    out.unechoed !== undefined &&
+    (matched || (ev.start !== undefined && ev.start > out.unechoed))
+  ) {
+    const { unechoed: _u, ...rest } = out;
+    out = rest;
+  }
+  return out;
+};
+// A row's version comes by the entity's field; a tombstone's by `Carried.version`. A value of no shape is no version, with an issue.
+const versionOf = (c: Carried, machine: string, cx: Cx) => {
+  const fn = domainOf(cx, machine)?.version;
+  const field = fn
+    ? cx.user(asSlot(machine, "domain.version", fn), [c.ref], () => undefined)
+    : undefined;
+  if (typeof field !== "string" && !(c.removed && c.version !== undefined))
+    return { field: undefined, version: undefined };
+  const v = c.removed ? c.version : c.fields?.[field as string];
+  if (v === undefined) return { field, version: undefined };
+  if ((typeof v === "number" && Number.isFinite(v)) || typeof v === "string")
+    return { field, version: v as Ver };
+  cx.issue("UserClosure", { where: `version of ${c.ref}`, why: "a version of no shape" });
+  return { field, version: undefined };
+};
+const evidenceOf = (
+  kind: Evidence["kind"],
+  c: Carried,
+  start: number | undefined,
+  machine: string,
+  cx: Cx,
+): Evidence => {
+  const { field, version } = versionOf(c, machine, cx);
+  return {
+    kind,
+    carried: c,
+    ...(start === undefined ? {} : { start }),
+    ...(version === undefined ? {} : { version }),
+    ...(field === undefined ? {} : { versionField: field as string }),
+  };
+};
+const take = (r: Rec, ev: Evidence, at: number, keep: readonly string[] = []): Rec => {
+  const c = ev.carried;
+  const version = ev.version ?? r.version;
+  if (c.removed) {
+    const { base: _b, version: _v, ...rest } = r;
+    return { ...rest, unconfirmed: [], changedAt: at, ...(version === undefined ? {} : { version }) };
+  }
+  const fields = Object.fromEntries(
+    Object.entries(c.fields ?? {}).filter(([k]) => !keep.includes(k)),
+  );
+  return {
+    ...r,
+    changedAt: at,
+    base: { ...r.base, ...fields },
+    unconfirmed: r.unconfirmed.filter((f) => !(f in fields)),
+    ...(version === undefined ? {} : { version }),
+  };
+};
+// The one way evidence touches a record. Returns what it did, for a success's own remainder.
+const admit = (s: Slice, ev: Evidence, machine: string, cx: Cx): { s: Slice; v: Verdict } => {
+  const ref = ev.carried.ref;
+  const r = recOf(s, ref);
+  const v = judge(r, ev);
+  if (v === "stale") {
+    cx.note("Stale", { ref, of: ev.kind });
+    return { s, v };
+  }
+  if (v === "again") return { s, v };
+  if (v === "doubt") return { s: doubted(s, ref, machine, cx), v };
+  const matched = !differs(r, ev);
+  const at = cx.pos();
+  let next = take(r, ev, at, v === "keepUnconfirmed" ? r.unconfirmed : []);
+  next = settled(next, ev, matched);
+  // D67's success row: the version places it, or it stands unplaced until an echo.
+  if (ev.kind === "success" && ev.version === undefined) next = { ...next, unechoed: at };
+  const out = withRec(s, ref, () => next);
+  return { s: v === "applyDoubt" ? doubted(out, ref, machine, cx) : out, v };
 };
 // D57: a mapper's result is a value from outside. What has no shape is dropped and named; it does not stop the store.
 const carriedOf = (v: unknown, cx: Cx, where: string): readonly Carried[] => {
   const ok = (c: any) =>
-    typeof c?.ref === "string" && (c.removed === true || typeof (c.fields ?? {}) === "object");
+    typeof c?.ref === "string" &&
+    (c.removed === true ||
+      c.fields === undefined ||
+      (typeof c.fields === "object" && c.fields !== null && !Array.isArray(c.fields)));
   if (Array.isArray(v) && v.every(ok)) return v;
   cx.issue("UserClosure", { where, why: "a result of no shape" });
   return Array.isArray(v) ? v.filter(ok) : [];
 };
-const carry = (s: Slice, ref: string, c: Carried, at: number): Slice =>
-  withRec(s, ref, (r) => {
-    if (c.removed) {
-      const { base: _b, ...rest } = r;
-      return { ...rest, unconfirmed: [], changedAt: at };
-    }
-    const fields = c.fields ?? {};
-    return {
-      ...r,
-      changedAt: at,
-      base: { ...r.base, ...fields },
-      unconfirmed: r.unconfirmed.filter((f) => !(f in fields)),
-    };
-  });
+// D66: a success moves the record whatever it carried. The table's five rows.
 const confirm = (s: Slice, e: Entry, value: unknown, sentAt: number, cx: Cx): Slice => {
   const fn = domainOf(cx, e.machine)?.writes[e.op]?.confirms;
   let threw = false;
@@ -190,34 +296,52 @@ const confirm = (s: Slice, e: Entry, value: unknown, sentAt: number, cx: Cx): Sl
     return out;
   }
   const carried = carriedOf(raw, cx, `domain.${e.op}.confirms`);
+  const verdicts = new Map<string, Verdict>();
   for (const c of carried) {
-    // D59: a success this client just had confirmed is the best evidence it holds, so it applies. If what we hold arrived
-    // since it was sent and differs, the order is unknown: marked until a later read answers.
-    const doubt = overlaps(recOf(out, c.ref), c, sentAt);
-    out = carry(out, c.ref, c, cx.pos());
-    if (doubt) out = doubted(out, c.ref, e.machine, cx);
+    const r = admit(out, evidenceOf("success", c, sentAt, e.machine, cx), e.machine, cx);
+    out = r.s;
+    verdicts.set(c.ref, r.v);
   }
-  // Fields predicted and not carried stay, unconfirmed, until a read (2.8.6's success row).
-  for (const p of e.predicted) {
-    if (p.remove || !p.patch) continue;
-    const c = carried.find((x) => x.ref === p.ref);
-    if (c?.removed) continue;
-    const r = recOf(out, p.ref);
-    if (r.base === undefined) continue;
-    const held = Object.keys(p.patch).filter((f) => !(c?.fields && f in c.fields));
-    if (held.length === 0) continue;
-    const applied = safely(() => applyPatch(r.base, p, e.input), r.base) as any;
-    out = withRec(out, p.ref, (x) => ({
-      ...x,
-      base: { ...x.base, ...Object.fromEntries(held.map((f) => [f, applied?.[f]])) },
-      unconfirmed: [...new Set([...x.unconfirmed, ...held])],
-    }));
+  for (const ref of e.refs) {
+    if (verdicts.get(ref) === "stale") continue; // what we hold is newer than this write's own answer
+    const c = carried.find((x) => x.ref === ref);
+    const live = e.predicted.filter((p) => p.ref === ref);
+    if (!c && live.length === 0) {
+      out = doubted(out, ref, e.machine, cx); // it landed and we cannot say what it did: a re-send, a restore
+      continue;
+    }
+    for (const p of live) {
+      if (c?.removed) continue;
+      if (p.remove) {
+        if (!c) {
+          const at = cx.pos();
+          out = withRec(out, ref, (x) => ({
+            ...take(x, { kind: "success", carried: { ref, removed: true } }, at),
+            unechoed: at,
+          }));
+        }
+        continue;
+      }
+      if (!p.patch) continue;
+      const r = recOf(out, ref);
+      if (r.base === undefined) continue;
+      const held = Object.keys(p.patch).filter((f) => !(c?.fields && f in c.fields));
+      if (held.length === 0) continue;
+      const applied = safely(() => applyPatch(r.base, p, e.input), r.base) as any;
+      const at = cx.pos();
+      out = withRec(out, ref, (x) => ({
+        ...x,
+        ...(c ? {} : { changedAt: at, unechoed: at }),
+        base: { ...x.base, ...Object.fromEntries(held.map((f) => [f, applied?.[f]])) },
+        unconfirmed: [...new Set([...x.unconfirmed, ...held])],
+      }));
+    }
   }
   return out;
 };
 // A repair has ended, however: the held Attempts' predictions on this record go, released entries may leave, the queue moves.
 const endRepair = (s: Slice, ref: string, cx: Cx): Slice => {
-  const cur = s.repairs[ref];
+  const cur = own(s.repairs, ref);
   if (!cur) return s;
   cx.disarm(`${TIMER}${ref}`);
   const { [ref]: _gone, ...repairs } = s.repairs;
@@ -227,7 +351,7 @@ const endRepair = (s: Slice, ref: string, cx: Cx): Slice => {
     if (!e?.unknown) continue;
     const predicted = e.predicted.filter((p) => p.ref !== ref);
     out = { ...out, entries: { ...out.entries, [id]: { ...e, predicted } } };
-    if (e.released && !e.refs.some((x) => out.repairs[x])) out = removeEntry(out, id);
+    if (e.released && !e.refs.some((x) => own(out.repairs, x))) out = removeEntry(out, id);
   }
   cx.visible();
   return cur.again ? startRepair(out, ref, cur.machine, cx) : out;
@@ -257,7 +381,7 @@ const onEnded = (s: Slice, { attempt, how, sentAt }: Ended, cx: Cx): Slice => {
         ...r,
         marks: r.marks.map((m) => (m.attempt === attempt ? { ...m, given: true } : m)),
       }));
-    return e.refs.some((r) => s.repairs[r])
+    return e.refs.some((r) => own(s.repairs, r))
       ? { ...out, entries: { ...out.entries, [attempt]: { ...e, released: true } } }
       : removeEntry(out, attempt);
   }
@@ -274,15 +398,7 @@ const onAnswered = (s: Slice, a: ReadAnswer, cx: Cx): Slice => {
   const carried = carriedOf(raw, cx, `domain.${a.op}.read`);
   cx.visible();
   let out = s;
-  for (const c of carried) {
-    // D59: a read overlapping what we hold, and differing, most likely saw the moment before. Not applied; the server decides.
-    if (overlaps(recOf(out, c.ref), c, a.pos)) {
-      out = doubted(out, c.ref, a.machine, cx);
-      continue;
-    }
-    // L4: a read merges, as a write does: list rows and detail rows meet. A repair replaces: it is the record.
-    out = withRec(carry(out, c.ref, c, cx.pos()), c.ref, (x) => settled(x, a.pos));
-  }
+  for (const c of carried) out = admit(out, evidenceOf("read", c, a.pos, a.machine, cx), a.machine, cx).s;
   return out;
 };
 type RepairAnswer = {
@@ -293,32 +409,72 @@ type RepairAnswer = {
   readonly value?: any;
 };
 const onRepair = (s: Slice, a: RepairAnswer, cx: Cx): Slice => {
-  const cur = s.repairs[a.ref];
+  const cur = own(s.repairs, a.ref);
   if (!cur || cur.gen !== a.gen) {
     cx.note("fence", { repair: a.ref });
     return s; // D40: a late answer, after the bound
   }
-  if (!a.ok || (a.value !== null && a.value !== undefined && typeof a.value !== "object")) {
+  if (
+    !a.ok ||
+    (a.value !== null && a.value !== undefined && (typeof a.value !== "object" || Array.isArray(a.value)))
+  ) {
     cx.note("RepairFailed", { ref: a.ref }); // the doubt and the mark stay
     return endRepair(s, a.ref, cx);
   }
+  const gone = a.value === null || a.value === undefined;
+  const c: Carried = gone ? { ref: a.ref, removed: true } : { ref: a.ref, fields: a.value };
+  const ev = evidenceOf("repair", c, cur.pos, cur.machine, cx);
   const r = recOf(s, a.ref);
+  const whole = !same(r.base ?? null, a.value ?? null);
+  const v = judge(r, ev);
   // D58: a repair that started before something newer landed asks again, rather than go backwards.
-  if (r.changedAt > cur.pos && !same(r.base ?? null, a.value ?? null)) {
+  if (v === "again" && whole) {
     const { [a.ref]: _g, ...repairs } = s.repairs;
     cx.disarm(`${TIMER}${a.ref}`);
     return startRepair({ ...s, repairs }, a.ref, cur.machine, cx);
   }
+  if (v === "stale") return endRepair(s, a.ref, cx);
   const at = cx.pos();
   const out = withRec(s, a.ref, (x0) => {
-    const x = settled(x0, cur.pos);
-    if (a.value === null || a.value === undefined) {
+    const { unechoed: _u, ...x } = settled(x0, ev, true);
+    const version = ev.version ?? x.version;
+    if (gone) {
       const { base: _b, ...rest } = x;
       return { ...rest, unconfirmed: [], changedAt: at };
     }
-    return { ...x, base: a.value, unconfirmed: [], changedAt: at };
+    return {
+      ...x,
+      base: a.value,
+      unconfirmed: [],
+      changedAt: at,
+      ...(version === undefined ? {} : { version }),
+    };
   });
   return endRepair(out, a.ref, cx);
+};
+// A push (2.8.14): "applied in order as they arrive, in a store publication, never through a turn". A patch of a record no list
+// holds changes nothing (feed.domain.ts's stated gap); a tombstone is kept, so an older row cannot come back.
+const onPushed = (s: Slice, p: PushedFrame, cx: Cx): Slice => {
+  const fn = domainOf(cx, p.machine)?.listens?.[p.op];
+  if (!fn) return s;
+  const raw = cx.user(asSlot(p.machine, `domain.${p.op}.listen`, fn), [p.value], () => []);
+  let out = s;
+  cx.visible();
+  for (const c of carriedOf(raw, cx, `domain.${p.op}.listen`)) {
+    const ev = evidenceOf("frame", c, undefined, p.machine, cx);
+    if (!c.removed && recOf(out, c.ref).base === undefined && recOf(out, c.ref).queue.length === 0) {
+      cx.note("NotHeld", { ref: c.ref });
+      continue;
+    }
+    out = admit(out, ev, p.machine, cx).s;
+  }
+  return out;
+};
+export type PushedFrame = {
+  readonly k: "pushed";
+  readonly machine: string;
+  readonly op: string;
+  readonly value: unknown;
 };
 
 export const entities: Module<Slice> = {
@@ -328,7 +484,23 @@ export const entities: Module<Slice> = {
   prepare(s, w, cx) {
     const write = domainOf(cx, w.machine)?.writes[w.op];
     if (!write) return undefined;
-    const predicted = cx.user(write.predicts, [w.input], () => []);
+    // D57: `predicts` is a closure like any other. A result of no shape refuses this turn, where the turn can say so.
+    const predicted = cx.user(
+      asSlot(w.machine, write.predicts.at.path, (i: unknown) => {
+        const v = write.predicts.run(i);
+        const fine =
+          Array.isArray(v) &&
+          v.every(
+            (p: any) =>
+              typeof p?.ref === "string" &&
+              (p.remove === true || p.patch === undefined || (typeof p.patch === "object" && p.patch !== null)),
+          );
+        if (!fine) throw new Error("a prediction of no shape");
+        return v as readonly Predicted[];
+      }),
+      [w.input],
+      () => [] as readonly Predicted[],
+    );
     // Rule 28: a field function's throw refuses this turn. A prediction over nothing has none to run yet (E18).
     for (const p of predicted) {
       const base = recOf(s, p.ref).base;
@@ -363,12 +535,18 @@ export const entities: Module<Slice> = {
       if (at > 0) return { on: "queue", behind: q.slice(0, at) };
     }
     // D39, narrowed by D47: a re-send waits for its own repair. A new write need not: a repair it overtakes answers stale.
-    if (e.unknown) for (const ref of e.refs) if (s.repairs[ref]) return { on: "repair", ref };
+    if (e.unknown) for (const ref of e.refs) if (own(s.repairs, ref)) return { on: "repair", ref };
     return false;
   },
   save: (s, attempt) => s.entries[attempt]?.refs,
   restored(s, w, cx) {
-    const refs = (w.saved as readonly string[] | undefined) ?? [];
+    // D57: what is on disk is a value from outside. This module's own to check.
+    const saved = w.saved;
+    if (saved !== undefined && !(Array.isArray(saved) && saved.every((x) => typeof x === "string")))
+      cx.issue("UserClosure", { where: "a saved entry", why: "a value of no shape" });
+    const refs: readonly string[] = Array.isArray(saved)
+      ? saved.filter((x): x is string => typeof x === "string")
+      : [];
     const e: Entry = { ...w, refs, predicted: [], unknown: true, released: false };
     let out: Slice = { ...s, entries: { ...s.entries, [w.attempt]: e } };
     for (const ref of refs) {
@@ -381,13 +559,18 @@ export const entities: Module<Slice> = {
     }
     return out;
   },
+  told(s, fact: Told, cx) {
+    if (fact.k === "answered") return onAnswered(s, fact, cx);
+    if (fact.k === "module" && (fact.payload as PushedFrame)?.k === "pushed")
+      return onPushed(s, fact.payload as PushedFrame, cx);
+    return s;
+  },
   input(s, payload, cx) {
-    const p = payload as RepairAnswer | ReadAnswer | { k: "timer"; key: string };
-    if (p.k === "answered") return onAnswered(s, p, cx);
+    const p = payload as RepairAnswer | { k: "timer"; key: string };
     if (p.k === "repair") return onRepair(s, p, cx);
     const ref = p.key.slice(TIMER.length);
     cx.note("RepairOverdue", { ref }); // the mark stays
-    cx.command({ k: "stop", ref, gen: s.repairs[ref]?.gen });
+    cx.command({ k: "stop", ref, gen: own(s.repairs, ref)?.gen });
     return endRepair(s, ref, cx);
   },
   read: readRecord,

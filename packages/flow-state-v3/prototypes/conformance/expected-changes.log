@@ -145,3 +145,15 @@ oracle | endings owed from evidence | also: every mint ends, is live, or never r
 HARNESS | no peak read | `peakDeliveriesInMail`, `crashAfterBoot`, `lostWithProcess` evidence | Review H9, M1, H6 | D72
 SCENARIOS.md | STREAM-* at R 5 | R 6 | Round 5 is the review first; streams as far as they go are REV5-S* | none
 fixtures/feed | no `signal` frame, no `Peek`, no `ClearAndLeave`, no input throw | added | Review H4, H9, M4 | none
+# Round 5, at green.
+SEARCH-PAY | `moneyAudit` counted `mine && authorized` | not in LEFT; a live void counts | Review M11: the oracle read the machine's belief. A new composition pinned: P5 on a late charge | D53
+SEARCH-PAY | `charged-unaccounted` pinned by /Leave/ | by the steps that make it | Review M11 | D53
+pay.fixed | no guard on Start for a stranded hold | guard; a void refused by storage goes again | Review M10. Pay as written unchanged | none
+SPIKE-03 hash:37db0b6c47da | round 5: review H4, H7, H9, M4; see the lines above
+SPIKE-04 hash:e02f9277fa01 | round 5: review H4, H7, H9, M4; see the lines above
+file:scenarios/ctx.ts hash:6f12fb4ece49 | round 5: review H4, H7, H9, M4; see the lines above
+file:fake-world.ts hash:9e2d1c9cb293 | round 5: review H4, H7, H9, M4; see the lines above
+file:drive.ts hash:21547fe27f8f | round 5: review H4, H7, H9, M4; see the lines above
+file:fixtures/compiled.ts hash:1ca86e066120 | round 5: review H4, H7, H9, M4; see the lines above
+file:fixtures/feed.compiled.ts hash:0e1f4242245c | round 5: review H4, H7, H9, M4; see the lines above
+file:scenarios/stream.scenario.ts hash:9690a3d81fe1 | round 5: review H4, H7, H9, M4; see the lines above

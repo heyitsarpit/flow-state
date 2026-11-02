@@ -218,7 +218,7 @@ const make = (api: Api): Compiled => ({
     reads: {
       r: (_v: any, i: any) => pick(i?.odd, "reads", [{ ref: "Odd|x", fields: { n: 2 } }]) as never,
     },
-    repair: () => api.call("repair", {}) as Effect.Effect<any, any, never>,
+    repair: (ref) => api.call("repair", { ref }) as Effect.Effect<any, any, never>,
   },
 });
 export const oddAllFixture: Fixture = { id: D, make };

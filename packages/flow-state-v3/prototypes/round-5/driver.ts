@@ -65,6 +65,8 @@ export const createRuntime = (cfg: {
   const inbox: Input[] = [];
   const fibers = new Map<string, Fiber.Fiber<unknown, unknown>>();
   const hostTimers = new Map<string, () => void>();
+  const credits = new Map<string, number>();
+  const waiting = new Map<string, () => void>();
   const listeners = new Set<() => void>();
   const guarded = (f: () => void) => {
     try {
@@ -139,6 +141,26 @@ export const createRuntime = (cfg: {
           stop: (key) => fibers.get(named(key))?.interruptUnsafe(),
           input: (payload) => input({ k: "module", m: c.m, payload }),
           machine: (id) => machines[id]!,
+          // D71: counted, so a go-ahead and the wait for it may come in either order. Interrupted with its fiber.
+          credit: (key) =>
+            Effect.callback<void>((resume) => {
+              const k = named(key);
+              const n = credits.get(k) ?? 0;
+              if (n > 0) {
+                credits.set(k, n - 1);
+                resume(Effect.void);
+                return;
+              }
+              waiting.set(k, () => resume(Effect.void));
+            }),
+          open: (key) => {
+            const k = named(key);
+            const w = waiting.get(k);
+            if (w) {
+              waiting.delete(k);
+              w();
+            } else credits.set(k, (credits.get(k) ?? 0) + 1);
+          },
         });
       }
     }
