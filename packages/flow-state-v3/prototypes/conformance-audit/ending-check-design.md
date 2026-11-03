@@ -94,6 +94,7 @@ Red by (j) with `--no-output`, in `falsify --part lies` (D10 in `--part mutants`
 | L6 A serial moved by a spread of a nested restored object (10j, Low) | `patch: ({ memory }) => ({ ...memory.extra })` | Resolved by where the scan finds it; not a wrong pass alone |
 | L7 A copy's binding at a boot is judged when its restored ending runs, not at the boot. Only a definition's op is "bound at the boot" | A copy's restored ending parked after a waiting input removed the copy | A lost `resetOn` reset legitimately runs before restored endings (rule 1) and can unplace them, so the boot's own state does not decide a copy's binding |
 | L8 Timer and follow-up credits are per actor and live until the kill (10h) | A timer's later firing pays a wrong run of the same event in that actor | A credit per firing needs the timer's identity, which only the runtime holds |
+| L9 D11's order is seen at the ear, so only for a send of an event some op maps; a send of any other event is ordered by what its run does next | A runtime that runs a waiting `Review` before the restored `Unsure` | R10-BOOT-ORDER still sees it by its state and memory asserts (a in REVIEW hears `Unsure` there); a guard on every alternative would close it, at A2's cost (L5) |
 
 ## 5. What this design drops, against the old (j) (read after sections 1-4)
 

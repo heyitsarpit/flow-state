@@ -276,3 +276,20 @@ The class: the suite could not read the runtime during its boot, so it held the 
 Stated limits: a Port must answer its published reads during its own boot (D180). Objects of an actor record that are not memories carry a serial too (never published). A follow-up still pays a run in any copy of its actor; timer and unspent send credits still live across batches; a stale serial resolves to the current life (re-check 10h, section 2).
 
 Gates on the stage J commits: see `STATUS.md`.
+
+## Stage K: oracle (j) converged once (re-checks 10c-10j; D184-D187, proposed)
+
+Eight re-checks failed (j) one dimension further each time. `../conformance-audit/ending-check-design.md` lists the thirteen dimensions of "an ending reaches exactly the right recipient" (who: actor, copy, life; once, not zero; once, not twice; supersede; at a reload: who, routing state, restored state, restored memory; order where promised; the suite's own causes; identity), each with its source and lie, and answers them with one rule: one ledger, matched both ways, at the cause's time. What the old (j) lacked were two anchors: the expected state at a boot came from the runtime's own decode (10j S1′), and a restored ending's excuses were judged when it ran, not when it was due (10j, the boot order).
+
+| Finding | Answer | Shown by (`--no-output`) |
+| --- | --- | --- |
+| S1′ a row restored in the state its owner sent from | D184: the boot's published state checked against the record on disk (`DiskCodec.leaves`) | `h.restore-at-send` red by `(j) restored in` in 17 of 17 failing cases (probe: 19 at 10j); was 0 by (j) |
+| An input waiting on a slow load stepped before the restored endings (Medium) | D185: restored endings judged at the boot; D186: R10-BOOT-ORDER | `h.boot-order` red by `before the restored endings` in 1 of 1 (R10-BOOT-ORDER); its probe fired in no case at 10j |
+| `checkMints` at a slow load with a write in flight | D187: `quiet().loading` | R10-BOOT-ORDER green |
+| A boot's own flag and count | D184: dropped | RECIPIENTS: restored states checked against their record 1,071 |
+
+`RECIPIENTS` over 741 cases: observed 45,648; restored states checked against their record 1,071; ambiguous 0; unplaceable 0; one serial in two places 0; unobserved (A2) 143; paid by the suite's sends 175; left over 0.
+
+Stated limits (`ending-check-design.md`, section 4, L1-L9): a codec and a restore that agree on a wrong leaf; the published leaf between anchors; order among one incarnation's restored endings and across actors; A2; a serial moved by a spread; a copy's binding at a boot judged at its run; timer and follow-up credits per actor; the order of a send of an unmapped event.
+
+Gates on the stage K commits: see `STATUS.md`.
