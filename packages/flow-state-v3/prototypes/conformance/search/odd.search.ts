@@ -1,7 +1,7 @@
 // SEARCH-ODD (D57, review H3, H4): every crossing of a value from outside, fed odd values, on a persisted host with `.each` by a
 // field, a `resetOn`, lanes and the store. One oracle above the usual: no value may name, shape or stop the core. So no Fatal and
 // no ModuleDefect, whatever is fed. A new call site that trusts a value fails here, rather than waiting for a review.
-import { attachDomainFixture } from "../fixtures/real.compiled.ts";
+import { attachDomainFixture } from "../typed/real.ts";
 import type { Answer, Harness, Step } from "../harness.ts";
 import { checkClaims, checkEndings } from "../scenarios/ctx.ts";
 import { bfs, Oracle, type Action, type Report } from "./engine.ts";

@@ -5,8 +5,9 @@ import { Effect, Schema } from "effect";
 import { definition, Flow, machine, transaction } from "./flow.ts";
 import { fixture, write } from "./lab.ts";
 
-export { engineFixture, engineRef, keyReleaseFixture, type Release } from "../fixtures/round6.compiled.ts";
-import type { Release } from "../fixtures/round6.compiled.ts";
+export { engineRef, keyReleaseFixture, type Release } from "../fixtures/round6.compiled.ts";
+import { engineRef, type Release } from "../fixtures/round6.compiled.ts";
+import type { Api } from "../fake-world.ts";
 
 const S = Schema;
 const M = "Lab/MemoryRelease";
@@ -58,6 +59,49 @@ export const rowMoveFixture = fixture(
     },
   })),
 );
+
+// D81's check: a machine on a sync engine. The feed carries pokes; the write's response says nothing. Domain and stream in `Compiled`'s shape (D209).
+// Finding F2: the hand key renamed a field (`{ id, n: i.title }`); a key is the contract's fields (rule 39), so here it is `{ id, title }`.
+// `idleMs: Infinity`, as the hand fixture has it: in-process (D194) it is a number like any other; the data view names it a loss (`codec/codec.ts`).
+const rename = transaction({ id: "lab/rename", input: { id: S.Unknown, title: S.Unknown }, key: ["id", "title"], concurrency: "reject", commit: write("rename") });
+const engine = (api: Api) =>
+  machine(
+    definition({
+      id: "Lab/Engine",
+      states: { ON: {} },
+      events: { Rename: { id: S.Unknown, title: S.Unknown } },
+      internalEvents: { Done: {}, No: {}, Unsure: {} },
+      memory: {},
+      persisted: false,
+      uses: ["engine", "sessions"],
+      domain: {
+        writes: { rename: { predicts: (i: { readonly id: string; readonly title: unknown }) => [{ ref: engineRef(i.id), patch: { title: i.title } }] } },
+        repair: (ref: string) => api.call("pull", { ref }) as Effect.Effect<unknown, unknown, never>,
+      },
+      streams: ({ E }) => ({
+        changes: {
+          id: "changes",
+          listen: true,
+          key: () => ({}),
+          reconnect: true,
+          idleMs: Infinity,
+          healthyMs: 60_000,
+          backoff: (n: number) => Math.min(30_000, 1000 * 2 ** n),
+          subscribe: (i: unknown, { from }: { readonly from: unknown }) => api.socket("changes", i, from),
+          value: E.Done,
+          missed: E.Done,
+          failure: E.No,
+        },
+      }),
+      operations: ({ E }) => ({ rename: rename.outcomes({ success: E.Done, failure: { NotSent: E.No }, unknown: E.Unsure }) }),
+    }),
+    ({ S: St, O }) => ({
+      default: St.ON,
+      on: { Rename: { actions: [O.rename.commit(({ event }) => ({ id: event.id, title: event.title }))] }, Done: {}, No: {}, Unsure: {} },
+      states: { ON: { activities: [{ op: "changes", input: () => ({}) }] } },
+    }),
+  );
+export const engineFixture = fixture(engine);
 
 const G = "Lab/Getter";
 // M11: a patch with a throwing getter: a lazy class instance, a Proxy. Not a memory value any Schema decodes, so only a cast writes it (finding F1).

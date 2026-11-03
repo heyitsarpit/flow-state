@@ -5,7 +5,8 @@ import { definition, deny, Flow, fragment, machine, resource, transaction } from
 import { call, fixture, write } from "./lab.ts";
 import { attachFixture as handAttach } from "../fixtures/real.compiled.ts";
 
-export { attachDomainFixture, emptyAddress, MAX_RESENDS } from "../fixtures/real.compiled.ts";
+export { emptyAddress, MAX_RESENDS } from "../fixtures/real.compiled.ts";
+import type { Api } from "../fake-world.ts";
 import { emptyAddress, MAX_RESENDS } from "../fixtures/real.compiled.ts";
 
 const S = Schema;
@@ -201,10 +202,25 @@ const upload = (omit: readonly string[]) =>
     },
   );
 const MarkT = fragment({ id: "MarkT", callbacks: { onMarkGone: Flow.Callback({}) } }, ({ callbacks }) => ({ whenAbandoned: [callbacks.onMarkGone] }));
-const attach = (omit: readonly string[]) => {
+// `store`: attachDomain, the same with a domain in `Compiled`'s shape (D209), so a persisted host has entities.
+const attach = (omit: readonly string[], store?: Api) => {
   const Upload = upload(omit);
   const d = definition({
     id: "Desk/Attach",
+    uses: store ? ["entities"] : [],
+    ...(store
+      ? {
+          domain: {
+            writes: {
+              put: {
+                predicts: (i: { readonly ref: string }) => [{ ref: `File|${i.ref}`, patch: { state: "stored" } }],
+                confirms: (v: { readonly url?: string } | undefined, i: { readonly ref: string }) => [{ ref: `File|${i.ref}`, fields: { state: "stored", url: v?.url ?? "u" } }],
+              },
+            },
+            repair: (ref: string) => store.call("repair", { ref }) as Effect.Effect<unknown, unknown, never>,
+          },
+        }
+      : {}),
     states: { EDIT: {} },
     events: { SetFiles: { attachments: S.Array(U) }, SetSubject: { subject: U }, Touch: {} },
     internalEvents: {},
@@ -239,6 +255,7 @@ const attach = (omit: readonly string[]) => {
 };
 export const attachFixture = fixture(attach([]), handAttach.server);
 export const attachMissingReason = fixture(attach(["StillUnknown"]), handAttach.server);
+export const attachDomainFixture = fixture((api: Api) => attach([], api), handAttach.server);
 
 // ── History under Panels, as written: resumable + resetOn on a tab node; a lookup a freeze cuts; a write that outlives it; a raise from the host.
 const earlier = resource({ id: "real/historyOf", input: { ticketId: U, page: U }, key: ["ticketId"], commit: (i) => call<{ readonly entry?: unknown }, "NoResponse">("earlier")(i) });

@@ -1,5 +1,5 @@
 // Real flows: Cart (cart.story.ts), Refunds (refunds.story.ts), and other libraries' behaviours (LIB-*).
-import { cartFixture, cartRef, lineRef, miniCartFixture } from "../fixtures/cart.compiled.ts";
+import { cartFixture, cartRef, lineRef, miniCartFixture } from "../typed/cart.ts";
 import { issueRef, issuesFixture } from "../typed/issues.ts";
 import { orderRef, refundsFixture } from "../typed/stores.ts";
 import { Ctx, type Scenario } from "./ctx.ts";

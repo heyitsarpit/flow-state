@@ -30,6 +30,10 @@ import * as TF from "../../conformance/typed/feed.ts";
 import * as HRF from "../../conformance/fixtures/refunds.compiled.ts";
 import * as HS1 from "../../conformance/fixtures/s1.compiled.ts";
 import * as TS from "../../conformance/typed/stores.ts";
+import * as HCa from "../../conformance/fixtures/cart.compiled.ts";
+import * as TCa from "../../conformance/typed/cart.ts";
+import * as HCo from "../../conformance/fixtures/comments.compiled.ts";
+import * as TCo from "../../conformance/typed/comments.ts";
 // Stated for Pay: nothing yet; filled from the first run's differences, each read.
 const payIndex = /^$/;
 
@@ -86,6 +90,12 @@ export const pairs: readonly Pair[] = [
   { name: "S1", hand: HS1.s1Fixture, typed: TS.s1Fixture },
   { name: "S1 persisted", hand: HL.s1Persisted, typed: TS.s1Persisted },
   { name: "Docs", hand: HL.docsFixture, typed: TS.docsFixture },
+  { name: "Checkout/Cart", hand: HCa.cartFixture, typed: TCa.cartFixture },
+  { name: "Checkout/MiniCart", hand: HCa.miniCartFixture, typed: TCa.miniCartFixture },
+  { name: "Desk/Editor", hand: HCo.editorFixture, typed: TCo.editorFixture },
+  { name: "Desk/Queue", hand: HCo.queueFixture, typed: TCo.queueFixture },
+  { name: "Desk/Attach domain", hand: HR.attachDomainFixture, typed: TR.attachDomainFixture },
+  { name: "Lab/Engine", hand: H6.engineFixture, typed: T6.engineFixture },
   ...(["deskFixture", "deskNoVersionFixture", "deskListenFixture", "deskListenNoVersionFixture", "deskListenLexicalFixture", "deskTwoFeedsFixture", "deskTwoFeedsNoVersionFixture"] as const).map((k) => ({ name: `Desk/Tickets ${k}`, hand: HD[k], typed: TD[k] })),
   { name: "Drv", hand: HV.drvFixture, typed: TO.drvFixture },
 ];

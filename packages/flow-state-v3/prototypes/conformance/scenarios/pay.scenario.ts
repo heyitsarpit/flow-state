@@ -1,5 +1,5 @@
 // Round 1's scenarios, worked out by hand from SCENARIOS.md and pay.machine.ts, before any runtime existed.
-import { cellsFixture } from "../fixtures/cells.compiled.ts";
+import { cellsFixture } from "../typed/cells.ts";
 import { ringFixture } from "../typed/order.ts";
 import { payFixture } from "../typed/pay.ts";
 import { checkEndings, Ctx, type Scenario } from "./ctx.ts";
