@@ -27,5 +27,5 @@ const nothing: Instance = {
 // It writes nothing, so its codec knows nothing.
 export const port: Port = {
   boot: () => nothing,
-  disk: { kind: () => "other", scope: () => undefined, heads: () => [], parked: () => [], decode: (_k, v) => JSON.parse(v) },
+  disk: { kind: () => "other", scope: () => undefined, heads: () => [], parked: () => [], decode: (_k, v) => JSON.parse(v), leaves: () => undefined },
 };

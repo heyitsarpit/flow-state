@@ -103,6 +103,18 @@ const disk: Port["disk"] = {
   heads: (kv) => lanes(kv).flatMap((l) => (typeof l?.head?.id === "string" ? [l.head.id] : [])),
   parked: (kv) => lanes(kv).flatMap((l) => (Array.isArray(l?.parked) ? l.parked.map((p: any) => ({ op: String(l.op), attempt: p?.attempt ?? "" })) : [])),
   decode: (_k, v) => JSON.parse(v),
+  // Stage K: an actor record is `{ key, machine, root, timers, retired? }`; an incarnation `{ leaf, kids, frozen? }`, kids by path part.
+  leaves: (kv, actor) => {
+    const r = json(kv.get(`actor/${actor}`) ?? "");
+    if (!r || typeof r !== "object" || r.retired || typeof r.root?.leaf !== "string") return undefined;
+    const out: Array<{ path: readonly string[]; leaf: string }> = [];
+    const walk = (i: any, p: readonly string[]) => {
+      if (typeof i?.leaf === "string" && !i.frozen) out.push({ path: p, leaf: i.leaf });
+      for (const [k, v] of Object.entries(i?.kids ?? {})) walk(v, [...p, k]);
+    };
+    walk(r.root, []);
+    return out;
+  },
 };
 export const port: Port = {
   disk,

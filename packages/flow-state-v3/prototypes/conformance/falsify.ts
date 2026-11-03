@@ -328,7 +328,17 @@ try {
       ["h.boot-stale", "a restored ending is routed from the node its owner sent from, not the current leaf (S1)", [["turn.ts", ROUTE, "const fr0 = fragOf(machineOf(tx, a), inc); const { start, late } = item.restored && item.owner?.node && fr0.nodes[item.owner.node] ? { start: item.owner.node, late: false } : routeFrom(tx, a, item, inc);"]], "a state its recipient"],
       ["h.boot-state", "a restored ending runs the handler of a node outside the leaf's chain (S1)", [["turn.ts", ROUTE, `const wr = (() => { if (!item.restored) return undefined; const fr = fragOf(machineOf(tx, a), inc); const anc = new Set(up(fr, inc.leaf)); return Object.keys(fr.nodes).find((n) => !anc.has(n) && fr.nodes[n]!.on[ev.tag] !== undefined); })(); const { start, late } = wr !== undefined ? { start: wr, late: false } : routeFrom(tx, a, item, inc);`]], "a state its recipient"],
     ];
-    const ALL = [...LIES, ...LIES10D, ...LIES10F, ...LIES10G, ...LIES10H, ...LIES10I];
+    // Stage K: the stage J re-check's lies (`re-check-round-10j.md`), as it wrote them. A restored row put back in the state its owner sent
+    // from, published and routed by that (S1′), and inputs that waited on a slow load stepped before the restored endings. Red by the one
+    // ledger's anchor to the record on disk, and by its judging a restored ending at the boot (`ending-check-design.md`, D9 and D11).
+    const END = "tx.w = { ...tx.w, nextMint: maxMint + 1 };";
+    const AT_SEND = `${END} for (const m of [...(tx.w.mail as any)] as any[]) { if (m.k !== "ending" || !m.restored || !m.owner?.node) continue; const r = getActor(tx.w.actors, m.actor); if (!r) continue; let hit = false; const fix = (i: any): any => i.id === m.owner.inc ? (i.leaf !== m.owner.node ? ((hit = true), { ...i, leaf: m.owner.node }) : i) : { ...i, kids: Object.fromEntries(Object.entries(i.kids).map(([k, v]) => [k, fix(v)])) }; const root = fix(r.root); if (hit) { tx.w = { ...tx.w, actors: setActor(tx.w.actors, m.actor, { ...r, root }) }; } }`;
+    const BOOTIN = "realInput({ k: \"boot\", records: [...records], persistence });";
+    const LIES10K: ReadonlyArray<readonly [string, string, Edits, string]> = [
+      ["h.restore-at-send", "a restored row is put back in the state its owner sent from, and published and routed by it (S1′)", [["durable.ts", END, AT_SEND]], "(j) restored in"],
+      ["h.boot-order", "inputs that waited on a slow load step before the restored endings", [["driver.ts", BOOTIN, "inbox.push({ k: \"boot\", records: [...records], persistence } as any, ...waitingBoot.splice(0)); pump();"]], "before the restored endings"],
+    ];
+    const ALL = [...LIES, ...LIES10D, ...LIES10F, ...LIES10G, ...LIES10H, ...LIES10I, ...LIES10K];
     // `--slice i/n`: the i-th of n parts (each fits a 5-minute command).
     const sl = process.argv.indexOf("--slice");
     const [si, sn] = sl < 0 ? [1, 1] : process.argv[sl + 1]!.split("/").map(Number) as [number, number];

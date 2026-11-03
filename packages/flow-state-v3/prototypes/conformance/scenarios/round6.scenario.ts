@@ -856,6 +856,35 @@ export const round6Scenarios: readonly Scenario[] = [
       },
     },
   },
+  // Stage K (re-check 10j, D11 of `ending-check-design.md`): the store loads slowly, as IndexedDB does. Two rows reload with a write in
+  // flight each; while the load hangs, the suite sends a to a state it is not in yet and disposes b. Rule 44: each row receives its restored
+  // ending before any later input addressed to it, so a hears its `Unsure` in SAVING first and b hears its own before its dispose.
+  {
+    id: "R10-BOOT-ORDER",
+    kind: "fault",
+    fixtures: [rowMoveFixture],
+    actor: { actor: "Lab/RowMove", id: "a" },
+    cites: ["rule:44", "rule:54", "O4"],
+    variants: {
+      "inputs-that-wait-on-a-slow-load-run-after-the-restored-endings"(c0) {
+        const A = { actor: "Lab/RowMove", id: "a" };
+        const B = { actor: "Lab/RowMove", id: "b" };
+        const c = at(c0, rowMoveFixture, A);
+        c.send("Go");
+        c.ensure(B);
+        c.to(B, "Go");
+        c.ack();
+        c.do({ reload: true, load: "hang" });
+        c.h.do({ send: A, event: "Review" }); // SAVING handles it, EDITING does not: it must find a in EDITING
+        c.h.do({ dispose: B });
+        c.do({ storage: "loadOk" });
+        c.eq("a heard its restored ending in SAVING, before the waiting send", c.mem(A), { inEditing: 0, inSaving: 1, inReview: 0 });
+        c.state("EDITING", A);
+        c.eq("b heard its own before the waiting dispose", c.r.evidence("delivered").filter((e) => e["op"] === "put").length, 2);
+        c.eq("b is disposed", c.r.state(B), undefined);
+      },
+    },
+  },
   {
     id: "REV6-M8",
     kind: "fault",

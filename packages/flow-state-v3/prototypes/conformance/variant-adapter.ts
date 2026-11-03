@@ -24,6 +24,7 @@ export const port: Port = {
     heads: (kv) => base.port.disk.heads(inner(kv)),
     parked: (kv) => base.port.disk.parked(inner(kv)),
     decode: (k, v) => base.port.disk.decode(back(k), unwrap(v)),
+    leaves: (kv, actor) => base.port.disk.leaves(inner(kv), actor),
   },
   boot(a) {
     const storage = a.host.storage;

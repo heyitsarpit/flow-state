@@ -648,3 +648,13 @@ round:adapter.ts hash:1e322c7d7e0d | D180: the published reads answer from the l
 output:FRAG-24/two-copies-reload-each-hears-its-own-restored-unknown hash:2cc22a5760a0 | D182: its output, new (two copies at a boot)
 output:R10-BOOT-STATE/a-row-that-moved-takes-its-current-states-handler hash:d5f717656889 | D182: its output, new (a row moved before the reload)
 file:gate-5s-expected.txt hash:076d1f268376 | D182: R10-BOOT-STATE at D80's 5 s, a move never captured restores the earlier state
+R10-BOOT-ORDER hash:4579d74ff78d | D186: new case, two rows reload with a write in flight each while the load hangs; a send and a dispose wait for it
+file:scenarios/round6.scenario.ts hash:6e561136d978 | D186: R10-BOOT-ORDER added after R10-BOOT-STATE
+file:scenarios/ctx.ts hash:5764df0aae94 | D187: checkMints waits for the boot while a slow load has not answered
+file:main.ts hash:c2c157111dd0 | D184: RECIPIENTS counts restored states checked against their record, not boot placements
+file:falsify.ts hash:62907919f416 | D186: h.restore-at-send and h.boot-order in --part lies
+file:null-adapter.ts hash:08e834229edc | D184: the null codec answers disk.leaves with nothing
+file:harness.ts hash:15a4f639be60 | D184, D187: DiskCodec.leaves, the leaf each record holds; quiet().loading
+file:drive.ts hash:c9de943d2d64 | D184, D185: one ledger at the cause's time; a boot anchored to its records, restored endings judged at the reload, the booting flag dropped
+round:adapter.ts hash:d83b02fba9d4 | D184: the codec's leaves reader, the record's root and live copies with their leaf
+output:R10-BOOT-ORDER/inputs-that-wait-on-a-slow-load-run-after-the-restored-endings hash:fcecca1c5358 | D186: its output, new (inputs that wait on a slow load)

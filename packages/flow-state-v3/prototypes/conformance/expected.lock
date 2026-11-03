@@ -154,6 +154,7 @@ REV6-M7 4aba3b7fcf2b
 REV6-TEAR 2fcc9a74fcad
 R10-BOOT-ROWS dc4a389b473f
 R10-BOOT-STATE 214aa65f562b
+R10-BOOT-ORDER 4579d74ff78d
 REV6-M8 5e2ab7747492
 REV6-L3 05986fc464dc
 REV7-H1 86e4ac5c74ae
@@ -651,6 +652,7 @@ variant:REV6-TEAR/a-store-with-no-atomic-batch-strands-nothing-silently present
 variant:R10-BOOT-ROWS/two-rows-with-a-restore-each-hear-their-own-ending present
 variant:R10-BOOT-ROWS/two-rows-without-a-restore-each-keep-their-memory present
 variant:R10-BOOT-STATE/a-row-that-moved-takes-its-current-states-handler present
+variant:R10-BOOT-ORDER/inputs-that-wait-on-a-slow-load-run-after-the-restored-endings present
 variant:REV6-M8/a-declared-decode-gives-the-new-field-its-default present
 variant:REV6-M8/without-one-the-refusal-is-as-designed present
 variant:REV6-L3/a-stored-frag-of-no-shape-quarantines present
@@ -863,7 +865,7 @@ variant:R10-RUNTIME/a-clock-set-back-is-another-state present
 variant:R10-AUDIT/a-stale-timer-under-a-newer-one-is-fenced present
 variant:R10-AUDIT-ENDINGS/a-failure-beside-another-actors-mail-is-heard present
 variant:R10-AUDIT-ENDINGS/a-failure-beside-one-send-is-heard present
-file:scenarios/ctx.ts 041466da4ebc
+file:scenarios/ctx.ts 5764df0aae94
 file:scenarios/flows.scenario.ts 609988df9d0b
 file:scenarios/frag.scenario.ts cb1f4bf29c5b
 file:scenarios/order.scenario.ts 808eaa809f06
@@ -872,7 +874,7 @@ file:scenarios/review.scenario.ts 973830d14300
 file:scenarios/round10.scenario.ts 698640b18494
 file:scenarios/round4.scenario.ts 5ef7c0f29ba0
 file:scenarios/round5.scenario.ts c89c276b56cb
-file:scenarios/round6.scenario.ts e683a006e35e
+file:scenarios/round6.scenario.ts 6e561136d978
 file:scenarios/round7.scenario.ts 0435bee1fc7f
 file:scenarios/round8.scenario.ts 73ca63b5c51b
 file:scenarios/round9.scenario.ts d8c59221b1f4
@@ -924,19 +926,19 @@ file:bench/main.ts 7c2e411b7451
 file:bench/s4-page.ts 4d9780fd71ee
 file:bench/s4-run.ts 78b684022f52
 file:reference/model.ts f2d10ce05bca
-file:main.ts b6d25add06c5
+file:main.ts c2c157111dd0
 file:output.ts 0b15041b194e
-file:falsify.ts c8b3f278d6f3
+file:falsify.ts 62907919f416
 file:broken-adapter.ts a255b41105c6
-file:null-adapter.ts 295792b7b6be
+file:null-adapter.ts 08e834229edc
 file:report.ts 7e305fd3110b
 file:watch.ts eabed1da1c20
 file:gate5s.ts 9ca8fbc3f284
 file:gate-5s-expected.txt 076d1f268376
 file:mutate.ts bd0623c0a5c3
 file:mutate-one.ts 14f130df7310
-file:harness.ts c15a0beab511
-file:drive.ts 071e5b126d09
+file:harness.ts 15a4f639be60
+file:drive.ts c9de943d2d64
 file:fake-world.ts 683d3534c270
 round:cli/broken.ts 10d0ce602315
 round:cli/check.ts 9b5b5f6c07d4
@@ -979,7 +981,7 @@ round:mutants-r9.ts b9904f5525b2
 round:mutants-r9b.ts b166469a099b
 round:mutants.ts 9ced0df5e862
 round:run-plants.sh cb7f2b68d5b2
-round:adapter.ts 1e322c7d7e0d
+round:adapter.ts d83b02fba9d4
 output:CART-01 cfd438e7ae1b
 output:CART-02/at-most-nine fd17f07a683d
 output:CART-02/coupon cffb0eef99f3
@@ -1185,6 +1187,7 @@ output:R10-AUDIT-ENDINGS/a-failure-beside-another-actors-mail-is-heard 54048aef7
 output:R10-AUDIT-ENDINGS/a-failure-beside-one-send-is-heard bde99ddb2072
 output:R10-AUDIT-READS 498d8c401132
 output:R10-AUDIT/a-stale-timer-under-a-newer-one-is-fenced e7b3faba899a
+output:R10-BOOT-ORDER/inputs-that-wait-on-a-slow-load-run-after-the-restored-endings fcecca1c5358
 output:R10-BOOT-ROWS/two-rows-with-a-restore-each-hear-their-own-ending 2ee4a58b8288
 output:R10-BOOT-ROWS/two-rows-without-a-restore-each-keep-their-memory 6b9c20fd46c4
 output:R10-BOOT-STATE/a-row-that-moved-takes-its-current-states-handler d5f717656889

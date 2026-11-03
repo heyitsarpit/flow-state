@@ -9,8 +9,9 @@ import type { FaultState, Harness, Instance, Port, Step } from "./harness.ts";
 
 // Stage G: how each delivery's recipient was settled, over the whole run (printed by `main.ts`). `unobserved` is allowance A2's remainder.
 // Stage H: `ambiguous` (a view with no suite identity, or one no incarnation publishes) must be 0; `bySend` are runs paid by the suite's own sends.
-// Stage I: `atBoot` are placed like any other (resolved once `port.boot` returns); `shared` counts serials found in two places (red).
-export const recipients = { observed: 0, ambiguous: 0, unobserved: 0, unplaceable: 0, noCopy: 0, atBoot: 0, bySend: 0, leftover: 0, shared: 0 };
+// Stage I: `shared` counts serials found in two places (red). Stage K (`conformance-audit/ending-check-design.md`): a boot has no rule
+// and no count of its own; `anchored` counts the restored incarnations whose first published state was checked against their record.
+export const recipients = { observed: 0, ambiguous: 0, unobserved: 0, unplaceable: 0, noCopy: 0, anchored: 0, bySend: 0, leftover: 0, shared: 0 };
 // Stage H: the suite's identity of an incarnation. Minted once per memory the compiled data makes; never in any published text.
 const WHO = Symbol("flow-suite incarnation");
 let serials = 0;
@@ -232,7 +233,8 @@ export const makeHarness = (port: Port) => (): Harness => {
   // Stage H (re-check 10g: equal views): identity is the suite's own, not a view's likeness. Every incarnation's memory, root or copy,
   // carries a serial the suite mints where the memory is made (the compiled `memory.initial`, and `memory.restore` at a boot). A symbol
   // key: no canon, JSON, disk, hash or output sees it, and a patch (`{ ...memory, ...patch }`) keeps it. Two views never share one.
-  type Ear = { ev: string; machine: string; node: string; frag: string | undefined; serial: number | undefined; who: Who | undefined; boot: boolean };
+  type Ear = { ev: string; machine: string; node: string; frag: string | undefined; serial: number | undefined; who: Who | undefined; seq: number };
+  let earSeq = 0; // the order the suite heard runs in, across batches: D11's order is judged by it
   let ears: Ear[] = [];
   const seenViews = new WeakSet<object>();
   const innerOf = (actor: string) => (p: readonly string[]) => {
@@ -288,8 +290,8 @@ export const makeHarness = (port: Port) => (): Harness => {
   };
   const say = (w: Who) => `${w.actor} life ${w.life} [${w.path.join(" / ")}]`;
   // Stage J (re-check 10i S1): a boot is not a special case. The runtime's published reads answer from its first evidence (`BootArgs.reads`),
-  // so a boot's runs are placed by serial and their state checked at the ear, as they happen, like any other run. `booting` only counts them.
-  let booting = false;
+  // so a boot's runs are placed by serial and their state checked at the ear, as they happen, like any other run. Stage K: the published
+  // state the ear checks against is anchored at the boot to the record on disk (`anchor`), so it is a claim checked at both ends.
   const listen = (c: any): any => {
     const evs = new Set(Object.keys(c.ops ?? {}).flatMap((op) => {
       const o = c.ops[op];
@@ -310,7 +312,7 @@ export const makeHarness = (port: Port) => (): Harness => {
         const serial = typeof g.memory?.[WHO] === "number" ? (g.memory[WHO] as number) : undefined;
         const who = serial === undefined ? undefined : resolve(serial);
         if (who && !inState(c, frag, node, who)) missing.push(`(j) a handler of ${ev} ran at ${frag ?? c.id}.${node}, a state its recipient ${say(who)} does not publish`);
-        ears.push({ ev, machine: c.id, node, frag, serial, who, boot: booting });
+        ears.push({ ev, machine: c.id, node, frag, serial, who, seq: earSeq++ });
         return true;
       },
     });
@@ -359,7 +361,16 @@ export const makeHarness = (port: Port) => (): Harness => {
     for (const [ev, from] of evs) if ([...from].some((o) => o !== op && o !== `reload:${att}`) && reaches(ev) && refm().cancelsOn(machineOf(actor), op, ev, leafPrev.get(actor) ?? leafOf(actor)) !== "no") return true;
     return false;
   };
+  // Stage K, D9 and D11 (`conformance-audit/ending-check-design.md`): a restored ending is due at the boot, before any input the suite drove
+  // after the reload began (rule 44, rule 54). Its excuses are judged at that time: "the life is over" as the owner was at the reload, and
+  // whether the owner was live and bound it, as the boot's own published state says once it is anchored to the record on disk. So an
+  // input that waited on a slow load (a `dispose`) and was stepped first excuses nothing. Kept until the ledger settles the ending.
+  const due = new Map<string, { actor: string; key: string; over: boolean; bound: boolean }>(); // attempt -> as at the boot
+  let lifeAtReload = new Map<string, number>();
+  let bootSeen = false; // this instance's `boot` evidence has come
   const lifeOver = (att: string) => {
+    const d = due.get(att);
+    if (d) return d.over;
     const actor = attemptActor.get(att);
     if (actor === undefined) return undefined;
     if (attemptLife.get(att) !== (lifeOf.get(actor) ?? 0)) return true; // the life that asked is over; a new one is owed nothing (rule 44)
@@ -397,8 +408,43 @@ export const makeHarness = (port: Port) => (): Harness => {
     if (actor !== undefined ? seen(actor) : [...(declineOwners.get(op) ?? [])].some(seen)) return true;
     return batch.some((y) => y["kind"] === "kept" && y["op"] === x["op"]);
   };
+  // Stage K, D9 (re-check 10j S1'): at a boot's own step, before any run, every actor and live copy with a record on disk must publish the
+  // leaf that record holds, read from the suite's bytes by the declared codec (`disk.leaves`). The runtime's decode is a claim; after this,
+  // each run is checked against the published leaf at the ear, so the expectation is anchored at both ends. A leaf this release no longer
+  // has, a record not restored (quarantined, retired) and a copy not live are rule 46's other rows, not this one's.
+  const anchor = () => {
+    for (const k of fake.kv.keys()) {
+      if (port.disk.kind(k) !== "actor") continue;
+      const actor = port.disk.scope(k);
+      const m = actor === undefined ? undefined : refm().machine(machineOf(actor));
+      const ls = actor === undefined || !m ? undefined : port.disk.leaves(fake.kv, actor);
+      if (!ls) continue;
+      for (const { path, leaf } of ls) {
+        const got = path.length === 0 ? leafOf(actor!) : innerOf(actor!)(path)?.state;
+        const known = path.length === 0 ? m!.nodes[leaf] !== undefined : Object.values(m!.fragments ?? {}).some((f) => f.nodes[leaf] !== undefined);
+        if (got === undefined || !known) continue;
+        recipients.anchored++;
+        if (got !== leaf) missing.push(`(j) restored in ${got}, but its record on disk holds ${leaf}: ${actor} [${path.join(" / ")}]`);
+      }
+    }
+  };
   const ledger = (e: readonly Record<string, any>[]) => {
     unpaid = [];
+    if (e.some((x) => x["kind"] === "boot")) bootSeen = true;
+    if (e.some((x) => x["kind"] === "boot") && !ledgerOff) {
+      anchor();
+      for (const x of e) {
+        if ((x["kind"] !== "ending" && x["kind"] !== "unparked") || x["attempt"] === undefined || x["attempt"] === "") continue;
+        const att = String(x["attempt"]);
+        const owner = attemptActor.get(att);
+        if (owner === undefined) continue;
+        const m = refm().machine(machineOf(owner));
+        const over = attemptLife.get(att) !== (lifeAtReload.get(owner) ?? 0) || leafOf(owner) === undefined;
+        // Bound at the boot: a definition's op is bound while its actor lives (rule 53). A copy's binding can change before its restored
+        // endings legitimately (a lost reset runs first, rule 1), so it is judged at its run, as before (stated limit L7).
+        due.set(att, { actor: owner, key: ledgerKey(x), over, bound: !over && m?.ops[String(x["op"])] !== undefined && m.ops[String(x["op"])]!.fragment === undefined });
+      }
+    }
     // Stage H: a view made in this batch is published only now; place what the ear could not.
     const heardNow = ears.map((o) => ({ ...o, who: o.who ?? (o.serial === undefined ? undefined : resolve(o.serial)), used: false }));
     ears = [];
@@ -557,7 +603,6 @@ export const makeHarness = (port: Port) => (): Harness => {
               recipients.unobserved++;
               wanted.push({ op, att: att!, evs, want: want!, copied: copy !== undefined });
             } else {
-              if (ob.boot) recipients.atBoot++; // placed by serial once `port.boot` returned
               recipients.observed++;
               if (!copy) recipients.noCopy++;
             }
@@ -580,7 +625,12 @@ export const makeHarness = (port: Port) => (): Harness => {
           // Stage F (M1'''): a keyed, nested or resumable copy is answered by the copy the suite recorded for the attempt, not `unknown`.
           // A decline has no attempt: its copy is the one the suite drove the declining turn in.
           const op = String(x["op"]);
-          if (owner !== undefined && !ledgerOff && !runtimeDisposed && !lifeOver(att) && !moveLetsGo(owner, op, att) && bindsCopy(owner, op, attemptCopy.get(att)) === "yes")
+          const d = due.get(att);
+          // Stage K, D11: a restored ending whose owner was live and bound it at the boot, parked because the owner went since: it went
+          // before its restored endings, which rule 44 puts first. The owner gone now is no excuse; it is judged at the boot.
+          if (d && d.bound && !ledgerOff && !runtimeDisposed && leafOf(d.actor) === undefined)
+            missing.push(`(j) a restored ending parked, and its owner was live and bound it at the boot: ${op} ${att} in ${d.actor}; an input ran before the restored endings (rule 44)`);
+          else if (owner !== undefined && !ledgerOff && !runtimeDisposed && !lifeOver(att) && !moveLetsGo(owner, op, att) && bindsCopy(owner, op, attemptCopy.get(att)) === "yes")
             missing.push(`(j) parked, and its live owner binds it (reference): ${op} ${att} in ${owner} at ${leafOf(owner)}`);
           const dc = att === "" ? declineCopy.get(op) : undefined;
           if (dc) (declineOwners.get(op) ?? declineOwners.set(op, new Set()).get(op)!).add(dc.actor);
@@ -663,21 +713,26 @@ export const makeHarness = (port: Port) => (): Harness => {
       }
       if (!o.who) {
         recipients.unplaceable++;
-        missing.push(`(j) a handler of ${o.ev} ran in an incarnation no actor or copy the suite drove publishes (${o.machine}.${o.node}${o.boot ? ", at a boot" : ""})`);
+        missing.push(`(j) a handler of ${o.ev} ran in an incarnation no actor or copy the suite drove publishes (${o.machine}.${o.node})`);
         continue;
       }
       const c = credits.find((k) => k.n > 0 && k.ev === o.ev && k.actor === o.who!.actor && (k.path === null || samePath(k.path, o.who!.path)));
       if (c) {
         c.n--;
         recipients.bySend++;
+        // Stage K, D11: a run of the suite's own send (a credit with a path; timers and follow-ups have none) in an actor whose restored
+        // endings are still owed ran before them.
+        const ahead = c.path !== null && !ledgerOff ? [...due.values()].find((d) => d.actor === o.who!.actor && told.has(d.key)) : undefined;
+        if (ahead) missing.push(`(j) a driven event ran before the restored endings: ${o.ev} in ${say(o.who)}, while ${ahead.key} is owed from the boot`);
         continue;
       }
       if (ledgerOff || runtimeDisposed) continue;
       recipients.leftover++;
       const w = wanted.find((d) => d.evs.includes(o.ev));
-      if (w) missing.push(`(j) delivered to the wrong recipient: ${w.op} ${w.att} ran in ${o.who ? say(o.who) : "a booting view"}; the suite expects ${w.copied ? say(w.want) : `${w.want.actor} life ${w.want.life} (copy not recorded: made before this boot)`}`);
-      else missing.push(`(j) a handler run nothing accounts for: ${o.ev} in ${o.who ? say(o.who) : "a booting view"}, with no send of the suite's and no ending owed there`);
+      if (w) missing.push(`(j) delivered to the wrong recipient: ${w.op} ${w.att} ran in ${say(o.who)}; the suite expects ${w.copied ? say(w.want) : `${w.want.actor} life ${w.want.life} (copy not recorded: made before this boot)`}`);
+      else missing.push(`(j) a handler run nothing accounts for: ${o.ev} in ${say(o.who)}, with no send of the suite's and no ending owed there`);
     }
+    for (const [a, d] of due) if (!told.has(d.key)) due.delete(a); // settled: judged from now on as any other attempt
   };
   // What the disk holds of a parked ending is owed at this boot. What was only in memory went with the process.
   const owedAtBoot = () => {
@@ -685,6 +740,7 @@ export const makeHarness = (port: Port) => (): Harness => {
     parkedOwed.clear();
     bootOwed.clear();
     tryAgain.clear();
+    due.clear();
     keptNow = [];
     keptNames = [];
     for (const p of port.disk.parked(fake.kv)) bump(bootOwed, `${p.op} ${p.attempt}`); // D142: the runtime's codec says what is parked
@@ -763,7 +819,7 @@ export const makeHarness = (port: Port) => (): Harness => {
   const armedAtBoot: Array<{ throwIn: Map<string, number>; module: Map<string, number>; after: Map<string, number>; core: number }> = [];
   const boot = () => {
     armedAtBoot.push({ throwIn: new Map(throwIn), module: new Map(faults.moduleThrows), after: new Map(faults.moduleThrowsAfter), core: faults.coreThrows });
-    booting = instances.length > 0; // the first boot restores nothing
+    bootSeen = false;
     const onEvidence = (e: readonly Record<string, any>[]) => {
       judgeAsks(e);
       ledger(e);
@@ -795,7 +851,6 @@ export const makeHarness = (port: Port) => (): Harness => {
       onIssue,
     });
     inst = next;
-    booting = false;
     for (const f of listeners) inst.subscribe(f);
     instances.push(inst);
   };
@@ -925,6 +980,7 @@ export const makeHarness = (port: Port) => (): Harness => {
     noteLost();
     if (s.wipe || s.tear !== undefined) ledgerOff = true;
     credits = []; // mail dies with the process: a send not yet run pays nothing after the kill
+    lifeAtReload = new Map(lifeOf); // stage K: the lives a restored ending is owed to, as at the reload the suite drove
     owedAtBoot();
     fake.killProcess();
     fake.freezeTimers = false; // D146: a discard of a frozen tab, and the next life is a new page
@@ -1001,6 +1057,7 @@ export const makeHarness = (port: Port) => (): Harness => {
       waits: inst.waits(),
       ...(spinning ? { spinning: true } : {}),
       ...(fake.freezeTimers ? { frozen: true } : {}), // D146: nothing settled to claim until a thaw
+      ...(bootSeen ? {} : { loading: true }), // stage K: a slow load; the next boot's evidence has not come
     }),
     tasks: () => fake.tasks,
     now: () => fake.now,

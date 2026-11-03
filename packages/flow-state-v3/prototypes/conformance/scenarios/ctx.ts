@@ -163,7 +163,7 @@ export const checkEndings = (r: Reads) => {
 // oracle that counted endings owed from evidence could not see a commit that silently vanished.
 export const checkMints = (r: Reads) => {
   const q = r.quiet();
-  if (q.fatal || !q.idle) return;
+  if (q.fatal || !q.idle || q.loading) return; // stage K: before a slow load answers, what was in flight is on disk only
   const accounted = new Set<unknown>();
   let disposed = false;
   for (const e of r.evidence()) {

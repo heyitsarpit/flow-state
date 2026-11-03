@@ -193,7 +193,8 @@ export type Reads = {
   diskScope(key: string): string | undefined; // D142
   releaseSeen(attempt: string): boolean; // D158: the ledger saw a cause for this attempt's release (D154)
   actorKey(a: ActorRef): string; // D158: the id the suite names an actor by to the runtime, which `diskScope` answers in. One spelling, the suite's
-  quiet(): { idle: boolean; fatal: boolean; waits: readonly Wait[]; spinning?: boolean; frozen?: boolean };
+  // Stage K: `loading`, the runtime has not booted yet (a slow `storage.load`). What it will restore is on disk only, and nothing waits on it
+  quiet(): { idle: boolean; fatal: boolean; waits: readonly Wait[]; spinning?: boolean; frozen?: boolean; loading?: boolean };
   tasks(): number; // D122: how many tasks the page has had
   now(): number; // the virtual clock: what a correct bulk must not need
   outside(): Outside;
@@ -273,6 +274,10 @@ export type DiskCodec = {
   heads(entries: ReadonlyMap<string, string>): readonly string[]; // Attempt ids that are a lane's head on disk
   parked(entries: ReadonlyMap<string, string>): ReadonlyArray<{ op: string; attempt: string }>; // parked endings on disk
   decode(key: string, value: string): unknown; // a stored value, as a value
+  // Stage K (re-check 10j S1'): the leaf an actor's record holds, for its root (`[]`) and every live copy in it, by path (the same path
+  // form as `Instance.inner`). Undefined when the actor has no live record. A boot's first published state is checked against this, so
+  // what a restored row is in is read from the suite's bytes, not from the runtime's decode of them.
+  leaves(entries: ReadonlyMap<string, string>, actor: string): ReadonlyArray<{ path: readonly string[]; leaf: string }> | undefined;
 };
 export type Port = { boot(a: BootArgs): Instance; disk: DiskCodec };
 export type RuntimeModule = { port: Port };
