@@ -119,6 +119,14 @@ export class FakeWorld {
   readonly voidedIntents = new Set<string>();
   readonly placedIntents = new Set<string>();
   readonly landed = new Map<string, { value?: unknown; fail?: any }>();
+  readonly landedBody = new Map<string, string>();
+  readonly applications = new Map<string, number>(); // D145: real applications per key; more than one is money moved twice
+  bodyMismatches = 0;
+  // D145, assumptions #2: the server prunes what it remembers of keys. The next send of an old key is a new request.
+  forgetKeys() {
+    this.landed.clear();
+    this.landedBody.clear();
+  }
   readonly auths: Array<{ key: string; intent: string; voided: boolean; placed: boolean }> = [];
   readonly orders: string[] = [];
   serverState: any;
@@ -515,13 +523,26 @@ export class FakeWorld {
       ),
     );
   }
-  // Applied once per key, whoever sends it and however many times.
+  // Applied once per key, whoever sends it and however many times, while the server remembers the key (D145: `forgetKeys` is Stripe's pruning after 24 hours).
+  // D145, assumptions #5: the same key with another body is refused, as Stripe does; nothing lands.
   private landOnServer(r: Held): { value?: unknown; fail?: any } {
     const key = r.idempotencyKey;
     const prior = key === undefined ? undefined : this.landed.get(key);
-    if (prior) return prior;
+    if (prior) {
+      const first = this.landedBody.get(key!);
+      if (first !== undefined && first !== JSON.stringify(r.input ?? null)) {
+        this.bodyMismatches++;
+        return { fail: { _tag: "IdempotencyMismatch", status: 400 } };
+      }
+      return prior;
+    }
     const out = this.server?.apply?.(r.op, r.input, this.serverState) ?? { s: this.serverState };
+    if (key !== undefined) {
+      this.applications.set(key, (this.applications.get(key) ?? 0) + 1); // D145: what really happened at the server, counted
+      this.landedBody.set(key, JSON.stringify(r.input ?? null));
+    }
     this.serverState = out.s;
+    if (!out.fail) this.ledger(r, "value" in out ? out.value : undefined); // bugs M5: a landing the client never heard is still money; the ledger counts every application
     const result = {
       ...("value" in out ? { value: out.value } : {}),
       ...(out.fail ? { fail: out.fail } : {}),
@@ -571,6 +592,21 @@ export class FakeWorld {
       return Effect.fail({ _tag: "NoResponse" });
     }
     if ("die" in a) return Effect.die(a.die);
+    // D145, assumptions #3: Stripe refuses a send of a key while an earlier one is executing (409), saves nothing, and may still land the first.
+    if ("inFlight" in a) {
+      const earlier = this.requests.some((x) => x !== r && x.idempotencyKey === r.idempotencyKey && x.idempotencyKey !== undefined && !x.answered && !x.never);
+      if (!earlier) throw new Error("inFlight: no earlier send of this key is still open");
+      r.refused = true;
+      return Effect.fail({ _tag: "Conflict", status: 409 });
+    }
+    // D145, assumptions #4: it lands, answers a failure, and that failure is what every retry of the key hears (Stripe saves a 500 too).
+    if ("applyFail" in a) {
+      this.landOnServer(r);
+      const fail = { _tag: a.applyFail.tag, status: a.applyFail.status ?? 500 };
+      if (r.idempotencyKey !== undefined) this.landed.set(r.idempotencyKey, { fail });
+      r.landedUnseen = true;
+      return Effect.fail(fail);
+    }
     if ("apply" in a || "applyLost" in a) {
       const out = this.landOnServer(r);
       if ("applyLost" in a) {

@@ -31,11 +31,15 @@ const rootModules = resolve(here, "../../../../node_modules");
 const scratch = mkdtempSync(join(tmpdir(), "flow-mut-"));
 symlinkSync(rootModules, join(scratch, "node_modules"));
 const results: unknown[] = [];
+// Round 10: one snapshot of the sources at the start. Copying the live folder per mutant let an edit made during a run reach the later mutants: the first rerun of stage A's list was killed by 605 cases of a half-made edit.
+const pristine = join(scratch, "pristine");
+cpSync(here, join(pristine, "conformance"), { recursive: true });
+cpSync(source, join(pristine, basename(source)), { recursive: true });
 // D101: the control. A gate that fails on the unmutated code kills every mutant that reaches it: that is what round 7's three search-only kills were (RESULTS). So it runs first, and a failure stops the run.
 {
   const dir = join(scratch, "control");
-  cpSync(here, join(dir, "conformance"), { recursive: true });
-  cpSync(source, join(dir, basename(source)), { recursive: true });
+  cpSync(join(pristine, "conformance"), join(dir, "conformance"), { recursive: true });
+  cpSync(join(pristine, basename(source)), join(dir, basename(source)), { recursive: true });
   const r = await watched(["bun", join(dir, "conformance/mutate-one.ts"), "--runtime", `../${basename(source)}/adapter.ts`, ...extra], {
     rssMb: 1700,
     seconds: 240,
@@ -64,8 +68,8 @@ const list = only ? MUTANTS.filter((m) => only.split(",").includes(m.id)) : MUTA
 for (const m of list) {
   const dir = join(scratch, "m");
   rmSync(dir, { recursive: true, force: true });
-  cpSync(here, join(dir, "conformance"), { recursive: true });
-  cpSync(source, join(dir, basename(source)), { recursive: true });
+  cpSync(join(pristine, "conformance"), join(dir, "conformance"), { recursive: true });
+  cpSync(join(pristine, basename(source)), join(dir, basename(source)), { recursive: true });
   for (const [file, find, replace] of m.edits) {
     const p = join(dir, basename(source), file);
     const text = readFileSync(p, "utf8");

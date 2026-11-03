@@ -300,6 +300,12 @@ export const searchFlush = (
       }
     },
     drain(h, script, report) {
+      // Review part two: (p) asked about a self-loop, and BFS drops self-loops, so `noMerge` lived. As a probe on every new state: a long quiet, then ask.
+      if (directed === "capture") {
+        h.do({ freeze: false });
+        h.do({ advance: 40_000 });
+        checkCapture(h, [...script, "tickLong"]);
+      }
       h.do({ freeze: false });
       h.do({ holdPlain: false });
       // Review's false alarm: 24 was too short past depth 12, so a `Forget` met a wire. What is outstanding says how long.

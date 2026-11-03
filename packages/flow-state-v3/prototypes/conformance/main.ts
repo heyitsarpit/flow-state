@@ -58,7 +58,7 @@ const LOCK = join(here, "expected.lock");
 const LOG = join(here, "expected-changes.log");
 const BULK = 3; // one reason on more lines than this is a bulk reason
 const BASELINE = join(here, "expected.baseline");
-const BASELINE_SHA = "74fc630e198e8c28e4906b0d4e35fe1aa79508a6";
+const BASELINE_SHA = "e4c9a86d26fc0b84a47696bd5844a3e534da6cba";
 const SCHEME = "--- hash scheme 2 (D135):";
 
 // D33, D135: a hash reads tokens, so `vp fmt` and comments are free, and code and strings are not. A joined line cannot swallow an oracle: what a comment swallowed is gone from the tokens. What does not parse is hashed by its bytes.
@@ -110,6 +110,7 @@ const SHARED = [
 const roundFiles = (root: string) => [
   ...walked(root, "cli", /\.ts$/),
   ...walked(root, "typed", /\.ts$/),
+  ...walked(root, "checks", /\.ts$/),
   ...walked(root, "reality", /\.ts$/),
   ...walked(root, ".", /^(mutants.*\.ts|run-plants\.sh|edge-plants\.py)$/).map((f) => f.slice(2)),
   "adapter.ts",
@@ -136,6 +137,8 @@ const lockLines = (): string[] => [
   ...[...outputs()].map(([k, v]) => `output:${k} ${sha(v)}`),
 ];
 
+// The store failing, the core failing, a listener's storm: none has a closure or a turn to name. Surveyed (FLOW_ORIGIN_SURVEY=1): these three only.
+const NO_ORIGIN = new Set(process.env["FLOW_ORIGIN_SURVEY"] ? [] : ["Fatal", "StorageFailure", "TurnStorm"]);
 export const runScenarios = (
   make: () => Harness,
   cellsHit: Set<string> = new Set(),
@@ -212,9 +215,18 @@ export const runScenarios = (
           const r = h.read;
           const extra = r.issues().map((i) => i.code).filter((x) => !named.includes(x));
           if (extra.length) throw new Mismatch(`issues not named by the scenario: ${extra.join(", ")}`);
+          // Rule 12, under-specification A07: an issue says where it came from. Only what has no closure or turn behind it may come without: the codes below, by what they are.
+          const noOrigin = r.issues().filter((i) => !i.origin && !NO_ORIGIN.has(i.code)).map((i) => i.code);
+          if (noOrigin.length) throw new Mismatch(`rule 12: an issue with no origin: ${[...new Set(noOrigin)].join(", ")}`);
           checkClaims(r);
           checkEndings(r);
           checkMints(r);
+          // D145: money moved twice is never right by accident. A case that shows the hazard on purpose names it.
+          const twice = r.appliedTwice();
+          if (twice.length && !named.includes("AppliedTwice")) throw new Mismatch(`a key the server applied twice: ${twice.join(" ")}`);
+          // D145: a resend of a key must be the same request. Another body is a refusal in production and a bug here.
+          if (r.frozenDrops() > 0) throw new Mismatch(`D146: ${r.frozenDrops()} step(s) a frozen page cannot take`);
+          if (r.bodyMismatches() > 0) throw new Mismatch(`a key resent with another body, ${r.bodyMismatches()} time(s)`);
           const rep = r.replay();
           if (!rep.same) throw new Mismatch(`S11 replay differs: ${JSON.stringify(rep.firstDiff)}`);
           const minted = new Set(r.evidence("mint").map((e) => e["attempt"]));
@@ -384,6 +396,8 @@ if (import.meta.main) {
   if (collect) {
     const merged = outputs();
     for (const [k, v] of collect) merged.set(k, v);
+    // A full run knows every case: a line for a case no longer in the suite goes, and the lock's `removed:` rule asks why.
+    if (!onlySet) for (const k of [...merged.keys()]) if (!collect.has(k)) merged.delete(k);
     writeFileSync(OUTPUTS, [...merged].sort(([a], [b]) => (a < b ? -1 : 1)).map(([k, v]) => `${k}\t${v}`).join("\n") + "\n");
     console.log(`expected-output.txt written: ${collect.size} cases`);
   }

@@ -1025,4 +1025,41 @@ export const payScenarios: readonly Scenario[] = [
       },
     },
   },
+  // D145: a server as strict as Stripe's. Each answer here is one the fake could not give before round 10.
+  {
+    id: "PAY-20",
+    kind: "fault",
+    fixtures: FIXTURES,
+    cites: ["D145", "rule:19"],
+    variants: {
+      // assumptions #4. Round 9 sent no ServerError at all. It lands, answers 500, and the retry hears the same 500.
+      // A machine that retried the same key on unknown would hear 500 for ever here. Pay reads the intent, as the server holds it, and goes on.
+      "a-500-that-landed-is-unknown-and-pay-reads-the-intent"(c) {
+        onWire(c);
+        c.answer("pay", { applyFail: { tag: "ServerError" } });
+        c.state("UNSURE");
+        c.eq("unknown, not a failure", c.lastEnding("pay")?.["reason"] !== undefined || c.r.quiet().waits.some((w) => w.kind === "held"), true);
+        c.eq("it was charged", c.r.truth().charges, 1);
+        c.advance(3000);
+        c.answer("order", { ok: null });
+        c.answer("intent", { truth: true });
+        c.state("PLACING");
+        c.eq("no second pay", c.reqs("pay").length, 1);
+        c.eq("once at the server", c.r.appliedTwice().length, 0);
+      },
+      // assumptions #2. A key the server has pruned is a new request, so a resend on it would charge twice, and Flow cannot see that. Pay does not resend before it has read the intent, so the hazard does not reach it.
+      // Contract for authors (D145): a resend on an old key needs what the server holds first, as Pay does. Flow has no key age.
+      "a-pruned-key-does-not-charge-twice-since-pay-reads-first"(c) {
+        onWire(c);
+        c.answer("pay", { applyLost: true });
+        c.fault({ forgetKeys: true });
+        c.advance(3000);
+        c.answer("order", { ok: null });
+        c.answer("intent", { truth: true });
+        c.state("PLACING");
+        c.eq("no second pay", c.reqs("pay").length, 1);
+        c.eq("once at the server", c.r.appliedTwice().length, 0);
+      },
+    },
+  },
 ];

@@ -6,6 +6,7 @@ const base = (await import(process.env["FLOW_BROKEN_BASE"] ?? "../round-10/adapt
 export const BROKEN = ["constantHash", "lyingFatal", "noEvidence", "noWaits", "bogusIssue", "lyingReplay", "junkDiskKey", "extraRequest"] as const;
 
 export const port: Port = {
+  disk: base.port.disk,
   boot(a) {
     const args = {
       ...a,

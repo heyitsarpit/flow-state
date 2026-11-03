@@ -447,3 +447,70 @@ file:mutate-one.ts hash:1da239be5ff3 | D134: output is its own gate, last and ap
 R10-RUNTIME hash:859d58c2bccf | stage A survivors pinned: H2 inside the pump, and a mailbox branch; new, D136-D141: one pin each for H1, H2, M3, x/y, self, Symbol, NaN, a burst, a hash of values
 file:scenarios/round10.scenario.ts hash:bea394f0d96b | new file, R10-RUNTIME, with both survivors pinned
 output:R10-RUNTIME/a-branch-of-the-mailbox-does-not-share-its-tail hash:97d170e1550e | new, D134: the whole output of a-branch-of-the-mailbox-does-not-share-its-tail
+removed:variant:R10-RUNTIME/a-branch-of-the-mailbox-does-not-share-its-tail | it passed on the null runtime (falsify.ts): a unit of MailQ never reaches a port. Now round-10/checks/mailq-check.ts, gated by mutate-one
+removed:output:R10-RUNTIME/a-branch-of-the-mailbox-does-not-share-its-tail | its case moved out of the suite, above
+R10-RUNTIME hash:7cf73489a941 | the mailbox branch case moved to checks/mailq-check.ts, since no runtime was needed to pass it
+file:scenarios/round10.scenario.ts hash:4004d73268f8 | holds R10-RUNTIME's move, and drops the MailQ import
+file:main.ts hash:3609912f3975 | round `checks/` are in the lock; a full --write-output drops lines of cases gone
+file:mutate-one.ts hash:74311d52cf62 | every round's `checks/*.ts` is a gate
+round:checks/mailq-check.ts hash:ea7e7b354b07 | new: MailQ's own contract, branches, order, the restored count
+outputs: D142 changed what `truth` holds in an output: `acked` was the bytes the store acked, so the format, and is now their count. 711 lines differed in truth and nothing else (checked case by case before the rebase); expected.baseline's output lines rebased with it. Ids with their own line in this log are logged below
+file:scenarios/ctx.ts hash:61c08e485aef | D142: L3's ack claim asks the codec whose a key is, and no longer splits `actor/` or `lane/`
+file:main.ts hash:1e0f248c7b3d | BASELINE_SHA after the output rebase of D142
+file:output.ts hash:0b15041b194e | D142: disk counted by the codec's kind; truth's acked bytes counted, not compared
+file:broken-adapter.ts hash:a255b41105c6 | D142: passes its base's codec through
+file:null-adapter.ts hash:295792b7b6be | D142: a codec that knows nothing, since it writes nothing
+file:mutate.ts hash:bd0623c0a5c3 | one snapshot of the sources at the start, after an edit during a run reached later mutants
+file:harness.ts hash:084be74a2cfc | D142: `Port.disk`, the runtime's codec; diskKind, diskScope reads
+file:drive.ts hash:d4b2cb4a05f6 | D142: heads, parked and stored() through the codec; `|` escaped in an actor's id
+round:adapter.ts hash:8369e8c36f05 | D142: this runtime's codec, said by the runtime
+output:R10-RUNTIME/a-burst-is-served-in-order-across-slices hash:d250c6d8bcce | D142 truth: a burst served in order, acked bytes now a count
+output:R10-RUNTIME/a-clock-set-back-is-another-state hash:d250c6d8bcce | D142 truth: the clock set back, acked bytes now a count
+output:R10-RUNTIME/a-listener-that-costs-is-on-the-bill hash:d250c6d8bcce | D142 truth: the costly listener, acked bytes now a count
+output:R10-RUNTIME/a-listener-that-sends-across-slices-loses-nothing hash:d250c6d8bcce | D142 truth: the sending listener, acked bytes now a count
+output:R10-RUNTIME/a-quiet-end-is-still-heard hash:d250c6d8bcce | D142 truth: the quiet end, acked bytes now a count
+output:R10-RUNTIME/a-storm-in-one-stack-is-still-cut hash:c3dc589398fc | D142 truth: the one-stack storm, acked bytes now a count
+output:R10-RUNTIME/a-symbol-in-an-input-declines-and-stops-nothing hash:e3980ce81d14 | D142 truth: a Symbol in input, acked bytes now a count
+output:R10-RUNTIME/a-symbol-or-nan-in-memory-is-named-and-the-last-capture-stays hash:78d15bdf9cfd | D142 truth: Symbol and NaN in memory, acked bytes now a count
+output:R10-RUNTIME/ensure-of-a-live-key-with-another-machine-is-named hash:e2ecc4bb5be4 | D142 truth: the machine mismatch, acked bytes now a count
+output:R10-RUNTIME/one-notify-per-task hash:d250c6d8bcce | D142 truth: one notify per task, acked bytes now a count
+output:R10-RUNTIME/two-dates-are-two-states hash:1b7a3f3c6e93 | D142 truth: two dates, acked bytes now a count
+output:R10-RUNTIME/x-slash-y-is-not-a-second-machines-actor hash:c2b2d654fa3b | D142 truth: x/y and M/x, acked bytes now a count
+output:REV7-EDGE/a-lost-clock-does-not-strand-a-flush hash:0a7f7310166c | D142 truth: the lost clock's flush, acked bytes now a count
+output:REV8-PINS/D65-NaN-is-not-null hash:96d6e4567160 | D142 truth: NaN declined, acked bytes now a count
+output:REV9-BURST/a-clock-set-back-stops-nothing hash:30e67afdbca9 | D142 truth: a burst past a set-back clock, acked bytes now a count
+PAY-20 hash:82c7bb2d3bfc | new, D145: a 500 that landed, read through the intent; a pruned key, and no second charge
+FRAG-08 hash:71fde3effb6e | blind-derivation: the rebind's last check was vacuous; it now counts the re-send, requests 2
+REV7-EDGE hash:b5623302734e | D146: the frozen tab case pressed a frozen page; replaced by two true ones, a hidden write survives a discard, a visible wait does not
+removed:variant:REV7-EDGE/a-hidden-page-in-a-frozen-tab-still-does-not-need-a-timer | D146: it pinned a press on a frozen page, which no browser allows (assumptions #6)
+removed:output:REV7-EDGE/a-hidden-page-in-a-frozen-tab-still-does-not-need-a-timer | its case went, above
+R10-PINS hash:e9742bf8a1a4 | new: letgo-takes-all from review part two, and A07's refused ensure with its origin
+R10-RUNTIME hash:cfc9c7910749 | D143: a user field the normaliser used to rank keeps two states
+file:scenarios/ctx.ts hash:79cb8b54fd55 | D143 Ctx.eq compares values; D146 a frozen page claims nothing
+file:scenarios/frag.scenario.ts hash:c54ce4ee763b | holds FRAG-08's re-send count
+file:scenarios/pay.scenario.ts hash:eaf8d25270a1 | holds PAY-20
+file:scenarios/round10.scenario.ts hash:be2deea6f8e6 | holds R10-PINS and the D143 pin
+file:scenarios/round7.scenario.ts hash:8d42a46c1c39 | holds REV7-EDGE's two freeze cases
+file:search/chain.search.ts hash:fbad2e48d77e | review M4: two actions send to both actors with no settle between
+file:search/flush.search.ts hash:ccccb6e67ada | review part two: (p) is a probe in drain, a long quiet then ask; the plant noMerge now fails at depth 2
+file:fixtures/pay.compiled.ts hash:39629a55407e | D145: Pay's server model answers `apply`, so a landing nobody heard is in the ledger
+file:main.ts hash:cca70d9baa88 | D145 a key applied twice and a resend with another body fail a case; D146 a frozen page's dropped step; rule 12 an issue names its origin
+file:mutate-one.ts hash:14f130df7310 | --search also runs chain, for M4; vacuous counts as a kill
+file:harness.ts hash:fd9183e7818e | D145 inFlight, applyFail, forgetKeys, appliedTwice, bodyMismatches; D146 frozen; sendMany
+file:drive.ts hash:99be15d9aac6 | D146 a freeze stops all and drops page input; M5 delivered pays only with a turn, a denial, unhandled, refusal or its issue; sendMany
+file:fake-world.ts hash:96aa3fa99f9a | D145: applications per key, key pruning, a body mismatch refused, 409 in flight, a replayed 500; every landing in the ledger (bugs M5)
+round:checks/score-check.ts hash:c700202d013f | new, D144: the scorer fails what it says it fails
+round:reality/h3.ts hash:87ca84205094 | D144: scored exit; a wipe is H3's result, a harness error fails
+round:reality/run.ts hash:ebefc8bf66fb | D144: scored exit, not exit 0 in finally
+round:reality/run7.ts hash:345b4b694890 | D144: run7 is scored the same way
+round:reality/score.ts hash:05f2b7dc4fe6 | new, D144: what must be zero in a real run
+round:reality/spin.ts hash:aa245e389f65 | D144: a page that never answered fails the spin run
+round:mutants-r10.ts hash:b33f543d803a | stage B: D142, D143, and review part two's M4 and M5 survivors on round 10's mailbox
+round:adapter.ts hash:177734217500 | D143: a user's memory, payload, input and value are opaque to the ranks
+output:PAY-20/a-500-that-landed-is-unknown-and-pay-reads-the-intent hash:956b64183beb | new, D134: whole output of PAY-20's 500
+output:PAY-20/a-pruned-key-does-not-charge-twice-since-pay-reads-first hash:ca5f0aabacf3 | new, D134: whole output of PAY-20's pruned key
+output:R10-PINS/a-hosts-cancel-lets-go-the-ordinary-and-keeps-the-kept hash:40f24c090a76 | new, D134: whole output of the let-go pin
+output:R10-PINS/a-refused-ensure-rolls-back-and-names-its-origin hash:72738bdc4909 | new, D134: whole output of the refused ensure
+output:R10-RUNTIME/a-user-field-the-normaliser-ranks-keeps-two-states hash:a3c864d2c356 | new, D134: whole output of the D143 pin
+output:REV7-EDGE/a-hidden-page-in-a-frozen-tab-loses-nothing-to-a-discard hash:3615dd897e65 | new, D134: whole output, a hidden write before a freeze
+output:REV7-EDGE/a-visible-change-waiting-for-its-interval-is-lost-to-freeze-and-discard hash:c2d1035ca097 | new, D134: whole output, a visible wait lost to a discard

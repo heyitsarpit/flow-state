@@ -55,7 +55,17 @@ const canon = (v: unknown, up: readonly unknown[] = []): unknown => {
 // from now. Saved records are in (L9): what storage last heard changes what a capture writes.
 const normalise = (w: World, now: number, outside: string): string => {
   const { nextId: _i, nextMint: _m, seq: _s, boot: _b, asked: _t, ...rest } = w;
-  let text = `${JSON.stringify(canon(rest))}|${outside}`;
+  // D143, over-assumptions F2: the ranks below are for the runtime's own fields. A user's memory, payload, input or value is theirs: written with no `"`, so no rank can reach a `pos` or a `since` in it, and `{pos:1}` and `{pos:2}` stay two states.
+  // Its copies inside the edge's bytes and the fake's open requests are still ranked; one exact copy in the world is enough to keep the two states apart.
+  const USER = new Set(["memory", "payload", "input", "value"]);
+  const opaque = (v: unknown): unknown => {
+    if (Array.isArray(v)) return v.map(opaque);
+    if (v === null || typeof v !== "object") return v;
+    return Object.fromEntries(
+      Object.entries(v).map(([k, x]) => [k, USER.has(k) && x !== null && typeof x === "object" ? `$user:${JSON.stringify(x).replaceAll('"', "'")}` : opaque(x)]),
+    );
+  };
+  let text = `${JSON.stringify(opaque(canon(rest)))}|${outside}`;
   text = text.replace(/(\\?"dueAt\\?":)(\d+)/g, (_x, k, n) => `${k}${Number(n) - now}`);
   const ranked = (re: RegExp) => {
     const seen = [...new Set([...text.matchAll(re)].map((m) => Number(m[2])))].sort(
@@ -77,7 +87,24 @@ const normalise = (w: World, now: number, outside: string): string => {
   });
 };
 
+// D142: this runtime's format, said by the runtime. `actor/<key>` holds an actor's record; `lane/<actor>|<op>|<key>` a lane, with its head and parked endings.
+const json = (v: string): any => {
+  try {
+    return JSON.parse(v);
+  } catch {
+    return undefined;
+  }
+};
+const lanes = (kv: ReadonlyMap<string, string>) => [...kv].filter(([k]) => k.startsWith("lane/")).map(([, v]) => json(v));
+const disk: Port["disk"] = {
+  kind: (k) => (k.startsWith("actor/") ? "actor" : k.startsWith("lane/") ? "lane" : k === "meta" ? "meta" : k.startsWith("host/") ? "host" : "other"),
+  scope: (k) => (k.startsWith("actor/") ? k.slice(6) : k.startsWith("lane/") ? k.slice(5, k.indexOf("|") < 0 ? undefined : k.indexOf("|")) : undefined),
+  heads: (kv) => lanes(kv).flatMap((l) => (typeof l?.head?.id === "string" ? [l.head.id] : [])),
+  parked: (kv) => lanes(kv).flatMap((l) => (Array.isArray(l?.parked) ? l.parked.map((p: any) => ({ op: String(l.op), attempt: p?.attempt ?? "" })) : [])),
+  decode: (_k, v) => JSON.parse(v),
+};
 export const port: Port = {
+  disk,
   boot(a: BootArgs): Instance {
     const faulted = <S>(m: Module<S>): Module<S> =>
       new Proxy(m, {

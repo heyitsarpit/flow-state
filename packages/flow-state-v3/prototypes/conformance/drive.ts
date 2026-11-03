@@ -7,7 +7,8 @@ import type { FaultState, Harness, Instance, Port, Step } from "./harness.ts";
 
 export const rowKey = (op: string, key: unknown) => `${op}|${JSON.stringify(key)}`;
 // D137: the id is escaped, so `M` + `x/y` and `M/x` + `y` are two actors. The last `/` always ends the machine.
-const actorKey = (a: { actor: string; id: string }) => `${a.actor}/${a.id.replaceAll("%", "%25").replaceAll("/", "%2F")}`;
+// `|` too: a lane's id starts with its actor's key and a `|`, so an id holding one would name another actor's lane.
+const actorKey = (a: { actor: string; id: string }) => `${a.actor}/${a.id.replaceAll("%", "%25").replaceAll("/", "%2F").replaceAll("|", "%7C")}`;
 
 export const makeHarness = (port: Port) => (): Harness => {
   let fake: FakeWorld;
@@ -50,7 +51,17 @@ export const makeHarness = (port: Port) => (): Harness => {
     else m.delete(k);
   };
   const ledgerKey = (e: Record<string, any>) => `${e["op"]} ${e["attempt"] ?? ""}`;
+  // A step's deliveries no turn took. A step's issues come after its evidence: an `UnmappedEnding` or an `InvalidTurn` of that step says what became of them, and pays them.
+  let unpaid: string[] = [];
+  const payByIssue = (code: string) => {
+    if (code !== "UnmappedEnding" && code !== "InvalidTurn") return;
+    for (const k of unpaid) bump(told, k, -1);
+    unpaid = [];
+  };
   const ledger = (e: readonly Record<string, any>[]) => {
+    unpaid = [];
+    // Review M5: `delivered` is the runtime's word. It pays only if the same step shows the machine took it: a turn, a denial, an unhandled, or a refusal. Otherwise the debt stays.
+    const heard = e.some((x) => x["kind"] === "turn" || x["kind"] === "Denied" || x["kind"] === "Unhandled" || x["kind"] === "refused");
     for (const x of e) {
       const k = ledgerKey(x);
       switch (x["kind"]) {
@@ -58,6 +69,9 @@ export const makeHarness = (port: Port) => (): Harness => {
           bump(told, k);
           break;
         case "delivered":
+          if (heard) bump(told, k, -1);
+          else unpaid.push(k);
+          break;
         case "evidenceOnly":
           bump(told, k, -1);
           break;
@@ -106,12 +120,7 @@ export const makeHarness = (port: Port) => (): Harness => {
     tryAgain.clear();
     keptNow = [];
     keptNames = [];
-    for (const [k, v] of fake.kv)
-      if (k.startsWith("lane/"))
-        try {
-          const l = JSON.parse(v);
-          for (const p of l?.parked ?? []) bump(bootOwed, `${l.op} ${p.attempt ?? ""}`);
-        } catch {}
+    for (const p of port.disk.parked(fake.kv)) bump(bootOwed, `${p.op} ${p.attempt}`); // D142: the runtime's codec says what is parked
   };
   const refusal = (i: { code: string; input?: unknown }) => {
     if (i.code !== "InvalidTurn") return;
@@ -194,7 +203,10 @@ export const makeHarness = (port: Port) => (): Harness => {
         evidence.push(...e);
       },
       onIssue: (i) => {
-        for (const x of i) refusal(x);
+        for (const x of i) {
+          payByIssue(x.code);
+          refusal(x);
+        }
         issues.push(...i);
       },
     });
@@ -208,6 +220,8 @@ export const makeHarness = (port: Port) => (): Harness => {
     const t0 = Date.now();
     spinning = false;
     for (let guard = 0; ; guard++) {
+      // D146, assumptions #6: a frozen page runs nothing. No task, no microtask, no answer heard, no storage answer, until a thaw or a kill.
+      if (fake.freezeTimers) return;
       if (tasksPerStep !== null && fake.tasks - firstTask >= tasksPerStep) {
         spinning = true;
         return;
@@ -245,7 +259,14 @@ export const makeHarness = (port: Port) => (): Harness => {
     armed.push({ segment: instances.length - 1, at: inst.logLength(), arm: f });
     f();
   };
+  // D146: what needs the page's own JS cannot happen on a frozen page: a press, a hide event, an ensure. It is dropped and counted, and a case that drops one is told so at its end.
+  let frozenDrops = 0;
+  const PAGE_INPUT = ["ensureAs", "ensure", "burst", "send", "sendMany", "dispose", "hide", "disposeRuntime", "advanceNow", "nextYield"];
   const run = (s: Step) => {
+    if (fake.freezeTimers && PAGE_INPUT.some((k) => k in s)) {
+      frozenDrops++;
+      return;
+    }
     if ("ensureAs" in s) inst.ensure(actorKey(s.ensureAs.key), s.ensureAs.machine); // D137: a key and a machine that do not agree, as a host's bug would give
     else if ("ensure" in s) inst.ensure(actorKey(s.ensure), s.ensure.actor, s.input);
     else if ("burst" in s) for (let i = 0; i < s.n; i++) inst.send(actorKey(s.burst), { tag: s.event, payload: {} });
@@ -266,6 +287,7 @@ export const makeHarness = (port: Port) => (): Harness => {
     } else if ("clockBack" in s) fake.clockBack(s.clockBack);
     else if ("freeze" in s) fake.freezeTimers = s.freeze;
     else if ("chargeWork" in s) fake.work += s.chargeWork;
+    else if ("sendMany" in s) for (const [a, tag, payload] of s.sendMany) inst.send(actorKey(a), { tag, payload: payload ?? {} });
     else if ("tasksPerStep" in s) tasksPerStep = s.tasksPerStep;
     else if ("holdPlain" in s) fake.holdPlain = s.holdPlain;
     else if ("slowAfterAck" in s) fake.slowAfterAck = true;
@@ -298,6 +320,7 @@ export const makeHarness = (port: Port) => (): Harness => {
     if (s.wipe || s.tear !== undefined) ledgerOff = true;
     owedAtBoot();
     fake.killProcess();
+    fake.freezeTimers = false; // D146: a discard of a frozen tab, and the next life is a new page
     if (s.load) fake.loadMode = s.load;
     boot();
     if (s.crashAfterBoot) {
@@ -329,12 +352,7 @@ export const makeHarness = (port: Port) => (): Harness => {
     writeAheadLies: () => {
       const undecided = fake.mayHave();
       if (undecided.length === 0) return [];
-      const heads = new Set<string>();
-      for (const [k, v] of fake.kv)
-        if (k.startsWith("lane/"))
-          try {
-            heads.add(JSON.parse(v)?.head?.id);
-          } catch {}
+      const heads = new Set(port.disk.heads(fake.kv)); // D142
       const writes = new Set(compiled.filter((c) => c.persisted).flatMap((c) => Object.values(c.ops).filter((o) => o.kind === "write").map((o) => o.id)));
       const released = new Set(evidence.filter((e) => e["kind"] === "Released").map((e) => e["attempt"]));
       return undecided.filter((key) => {
@@ -360,14 +378,20 @@ export const makeHarness = (port: Port) => (): Harness => {
     stored: () => {
       if (TEST_FLUSH.includes("reads")) fake.hide();
       settle();
-      return new Map([...fake.kv].map(([k, v]) => [k, JSON.parse(v)]));
+      return new Map([...fake.kv].map(([k, v]) => [k, port.disk.decode(k, v)])); // D142: a value, by the runtime's codec. Its keys are still the runtime's: a case that names one pins the format, and says so by naming it
     },
     diskKeys: () => [...fake.kv.keys()], // D134: what is on disk now, with no settle
+    diskKind: (k) => port.disk.kind(k),
+    appliedTwice: () => [...fake.applications].filter(([, n]) => n > 1).map(([k]) => k), // D145
+    bodyMismatches: () => fake.bodyMismatches,
+    frozenDrops: () => frozenDrops,
+    diskScope: (k) => port.disk.scope(k),
     quiet: () => ({
       idle: !inst.pending() && !fake.hasWork(),
       fatal: inst.fatal(),
       waits: inst.waits(),
       ...(spinning ? { spinning: true } : {}),
+      ...(fake.freezeTimers ? { frozen: true } : {}), // D146: nothing settled to claim until a thaw
     }),
     tasks: () => fake.tasks,
     now: () => fake.now,
@@ -509,6 +533,7 @@ export const makeHarness = (port: Port) => (): Harness => {
         }
         else if ("lateAnswer" in f) fake.lateAnswer(f.lateAnswer[0], f.lateAnswer[1]);
         else if ("landLate" in f) fake.landLate(f.landLate);
+        else if ("forgetKeys" in f) fake.forgetKeys();
         else if ("duplicateCompletion" in f) dup = f.duplicateCompletion;
         else if ("schedulerShuffle" in f) {
           fake.scheduler.shuffle = f.schedulerShuffle;

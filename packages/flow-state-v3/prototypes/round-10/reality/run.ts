@@ -4,6 +4,7 @@ import { writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { launch, type Browser, type Page } from "../../conformance/bench/cdp.ts";
 import { startServer } from "./server.ts";
+import { exitScored } from "./score.ts";
 
 const arg = (k: string, d: string) => {
   const i = process.argv.indexOf(k);
@@ -437,5 +438,5 @@ try {
   const dest = arg("--out", "");
   if (dest) writeFileSync(resolve(process.cwd(), dest), JSON.stringify(out, null, 1) + "\n");
   console.log("peakMb", out["peakMb"]);
-  process.exit(0);
+  exitScored(out); // D144
 }

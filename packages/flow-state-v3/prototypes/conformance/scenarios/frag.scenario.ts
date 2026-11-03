@@ -419,6 +419,8 @@ export const fragScenarios: readonly Scenario[] = [
         c.eq("fresh memory", c.mem().toast, null);
         c.to(L, "ReconcileLike", K);
         c.eq("the new incarnation owns it", c.keys("like").length, 1);
+        // blind-derivation: the line above stayed true with `ReconcileLike` removed. The re-send is the proof: a second request on the one key.
+        c.eq("and re-sends on it", c.reqs("like").length, 2);
       },
       "non-persisted-with-no-return-is-evidence"(c) {
         c.ensure(L);

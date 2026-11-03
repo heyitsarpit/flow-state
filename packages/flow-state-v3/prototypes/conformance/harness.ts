@@ -23,7 +23,9 @@ export type Answer =
   | { apply: true } // the server model applies it and answers, or refuses. Idempotent per key
   | { applyLost: true } // the server model applies it; the answer is lost
   | { truth: true } // a read, answered from what the server now believes (M2's causal fake)
-  | { atStart: true }; // a read, answered from what the server held when it started (review H6)
+  | { atStart: true } // a read, answered from what the server held when it started (review H6)
+  | { inFlight: true } // D145: 409, an earlier send of this key is still executing. Nothing lands from this one
+  | { applyFail: { tag: string; status?: number } }; // D145: lands, answers a failure, and replays that failure to every retry
 
 export type Fault =
   | { throwIn: SlotPath; times?: number }
@@ -31,6 +33,7 @@ export type Fault =
   | { schedulerShuffle: number; atTick?: number; inject?: Step }
   | { lateAnswer: readonly [RequestMatch, Answer] } // the server's answer finally arrives
   | { landLate: RequestMatch } // a lost request lands at the server, unseen
+  | { forgetKeys: true } // D145: the server prunes the keys it remembers (Stripe, after 24 hours)
   | { uninterruptibleHang: RequestMatch }
   | { syncAnswer: readonly [RequestMatch, Answer | ((input: any) => Answer)] }
   | { microAnswer: readonly [RequestMatch, Answer | ((input: any) => Answer)] } // D122: as a resolved promise: after the pump, before any task
@@ -62,6 +65,7 @@ export type Step =
   | { clockBack: number } // round 7: the wall clock is set back
   | { freeze: boolean } // round 7: a frozen tab's timers do not fire
   | { ensureAs: { key: ActorRef; machine: string } } // D137
+  | { sendMany: ReadonlyArray<readonly [ActorRef, string, unknown]> } // review M4: sends with no settle between them
   | { chargeWork: number } // D136: a listener's or a commit's tail's time, on the work clock (ms)
   | { advanceNow: number } // round 8, inside `afterYield`: time passes and timers fire, with no settling: a firing behind mail already queued
   | { nextYield: Step | readonly Step[] } // round 8, inside `afterYield`: and this at the next yield
@@ -181,7 +185,12 @@ export type Reads = {
   evidence(kind?: string): ReadonlyArray<Record<string, any>>;
   stored(): ReadonlyMap<string, unknown>;
   diskKeys(): readonly string[];
-  quiet(): { idle: boolean; fatal: boolean; waits: readonly Wait[]; spinning?: boolean };
+  diskKind(key: string): string; // D142
+  appliedTwice(): readonly string[]; // D145: keys the server really applied more than once
+  bodyMismatches(): number; // D145: resends of a key with another body, which the server refused
+  frozenDrops(): number; // D146: steps a frozen page could not take
+  diskScope(key: string): string | undefined; // D142
+  quiet(): { idle: boolean; fatal: boolean; waits: readonly Wait[]; spinning?: boolean; frozen?: boolean };
   tasks(): number; // D122: how many tasks the page has had
   now(): number; // the virtual clock: what a correct bulk must not need
   outside(): Outside;
@@ -248,6 +257,14 @@ export type Instance = {
   replay(before: (step: number) => void): { same: boolean; firstDiff?: unknown };
   subscribe(f: () => void): void;
 };
-export type Port = { boot(a: BootArgs): Instance };
+// D142, over-assumptions F1: what the disk means, asked of the runtime's own codec. The suite owns the bytes (it tears, wipes and edits them) and no longer parses them: a runtime with another format answers these and passes.
+export type DiskCodec = {
+  kind(key: string): string; // what a stored key is: "actor", "lane", or the runtime's own word. Output counts keys by it
+  scope(key: string): string | undefined; // the actor a stored key, or a wait's key, belongs to
+  heads(entries: ReadonlyMap<string, string>): readonly string[]; // Attempt ids that are a lane's head on disk
+  parked(entries: ReadonlyMap<string, string>): ReadonlyArray<{ op: string; attempt: string }>; // parked endings on disk
+  decode(key: string, value: string): unknown; // a stored value, as a value
+};
+export type Port = { boot(a: BootArgs): Instance; disk: DiskCodec };
 export type RuntimeModule = { port: Port };
 export type { Host };

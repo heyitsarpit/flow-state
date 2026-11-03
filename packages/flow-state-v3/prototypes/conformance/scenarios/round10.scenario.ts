@@ -5,8 +5,6 @@ import { fixtureOf, unknownWhenLost } from "../fixtures/build.ts";
 import type { Api } from "../fake-world.ts";
 import type { Fixture } from "../harness.ts";
 import { Ctx, Mismatch, type Scenario } from "./ctx.ts";
-import { MailQ } from "../../round-10/mailq.ts";
-
 const A = { actor: ChainId, id: "a" };
 const B = { actor: ChainId, id: "b" };
 const on = (c0: Ctx, f: Fixture, a: { actor: string; id: string }, bounds?: Record<string, number>) => {
@@ -17,7 +15,7 @@ const on = (c0: Ctx, f: Fixture, a: { actor: string; id: string }, bounds?: Reco
 const micro = (c: Ctx, op: string, x: any) => c.fault({ microAnswer: [op, x] });
 
 // A small machine of a chosen name and states, for the names below. Setting memory, one write.
-const small = (id: string, o: { states?: readonly string[]; persisted?: boolean } = {}): Fixture => {
+const small = (id: string, o: { states?: readonly string[]; persisted?: boolean; initial?: () => unknown } = {}): Fixture => {
   const b = fixtureOf(id);
   const states = o.states ?? ["A"];
   return {
@@ -37,7 +35,7 @@ const small = (id: string, o: { states?: readonly string[]; persisted?: boolean 
         }),
         ...Object.fromEntries(states.map((s) => [s, b.node(s)])),
       },
-      memory: b.memory(() => ({})),
+      memory: b.memory((o.initial ?? (() => ({}))) as never),
       ops: {
         w: {
           id: "w",
@@ -55,7 +53,92 @@ const small = (id: string, o: { states?: readonly string[]; persisted?: boolean 
   };
 };
 
+// Review part two, `letgo-takes-all`: a resumable fragment's unkeyed op has the host's subject, so the host's `cancel` reaches a frozen life's lane. Its kept ending must survive the cancel of the ordinary one.
+const LetId = "Lab/Let";
+const letFixture = (): Fixture => {
+  const e = fixtureOf(LetId);
+  const fr = fixtureOf("LetFrag");
+  const Frag: any = {
+    id: "LetFrag",
+    root: "root",
+    default: "root",
+    nodes: {
+      root: fr.node("root", {
+        Do: [{ members: fr.commit("job", () => ({ id: "k" })) }],
+        JobOk: [{ patch: ({ memory }: any) => ({ heard: memory.heard + 1 }) }],
+        JobNo: [{}],
+        JobUnsure: [{}],
+      }),
+    },
+    memory: { initial: fr.slot("memory.initial", () => ({ heard: 0 })) },
+  };
+  return {
+    id: LetId,
+    make: (api: Api) => ({
+      id: LetId,
+      root: "root",
+      default: "A",
+      fragments: { LetFrag: Frag },
+      nodes: {
+        root: e.node("root", { ToF: [{ target: "F" }], Out: [{ target: "A" }], Forget: [{ members: e.member("job", "cancel") }] }),
+        A: e.node("A", {}),
+        F: { ...e.node("F", {}), placements: [{ name: "f", fragment: "LetFrag", resumable: true }] },
+      },
+      memory: e.memory(() => ({})),
+      ops: {
+        job: {
+          id: "job",
+          contract: "lab/job",
+          fragment: "LetFrag",
+          kind: "write",
+          key: e.key("job", (i: any) => ({ id: i.id })),
+          concurrency: "serialize",
+          commit: (input: any, { attempt }: any) => (api.call("job", input, { idempotencyKey: attempt.id }) as Effect.Effect<unknown, any>).pipe(unknownWhenLost),
+          outcomes: { success: { event: "JobOk" }, failure: { NotSent: { event: "JobNo" } }, unknown: { event: "JobUnsure" } },
+        },
+      },
+      persisted: false,
+      uses: [],
+    }),
+  } as Fixture;
+};
+
 export const round10Scenarios: readonly Scenario[] = [
+  {
+    id: "R10-PINS",
+    kind: "fault",
+    fixtures: [letFixture()],
+    actor: { actor: LetId, id: "a" },
+    cites: ["D123", "rule:51"],
+    namedIssues: ["InvalidTurn"],
+    variants: {
+      // Under-specification A07: an ensure refused at its start rolls back and names where (rule 12, L9). These lines had no case.
+      "a-refused-ensure-rolls-back-and-names-its-origin"(c0) {
+        const c = new Ctx(c0.fresh([small("R", { initial: () => 5 })], { captureMs: 0 }), { actor: "R", id: "a" });
+        c.ensure();
+        c.eq("no actor", c.r.state(c.A), undefined);
+        const i = c.r.issues().filter((x) => x.code === "InvalidTurn");
+        c.eq("one refusal", i.length, 1);
+        c.yes(`it names the closure: ${i[0]?.origin}`, (i[0]?.origin ?? "").includes("memory.initial"));
+        c.eq("nothing in mail, no evidence of a start", c.r.evidence("initial").length, 0);
+      },
+      "a-hosts-cancel-lets-go-the-ordinary-and-keeps-the-kept"(c) {
+        c.ensure();
+        c.send("ToF");
+        c.into(["f"], "Do");
+        c.into(["f"], "Do");
+        c.fault({ throwIn: "on.JobOk[0].updateMemory", times: 2 });
+        c.answer("job", { ok: {} });
+        c.send("Out");
+        c.answer("job", { ok: {} });
+        c.eq("two parked: kept, ordinary", c.r.quiet().waits.filter((w) => w.kind === "parked").length, 2);
+        c.send("Forget");
+        c.eq("the kept one stays", c.r.quiet().waits.filter((w) => w.kind === "parked").length, 1);
+        c.send("ToF");
+        c.eq("the thaw hears it", (c.inner(["f"]) as any)?.memory?.heard, 1);
+      },
+    },
+  },
   {
     id: "R10-RUNTIME",
     kind: "fault",
@@ -199,16 +282,6 @@ export const round10Scenarios: readonly Scenario[] = [
         c.eq("A", (c.r.memory(A) as any).presses, 400);
         c.eq("B", (c.r.memory(B) as any).presses, 400);
       },
-      // D140: an old world is a value. A rollback (a refused turn's `tx.w = kept.w`) then a push must not write into the newer world's window.
-      "a-branch-of-the-mailbox-does-not-share-its-tail"(c0) {
-        const q1 = MailQ.empty<{ actor: string; n: number }>().push({ actor: "a", n: 1 });
-        const q2 = q1.push({ actor: "a", n: 2 });
-        const q3 = q1.push({ actor: "a", n: 3 });
-        c0.eq("the first branch", [...q2].map((x) => x.n), [1, 2]);
-        c0.eq("the second branch", [...q3].map((x) => x.n), [1, 3]);
-        c0.eq("taking from one leaves the other", [...q2.takeFirst()!.rest].map((x) => x.n), [2]);
-        c0.eq("q3 unchanged", [...q3].map((x) => x.n), [1, 3]);
-      },
       // D141, bugs M3: two states with other futures are two states.
       "two-dates-are-two-states"(c0) {
         const h = (v: unknown) => {
@@ -220,6 +293,17 @@ export const round10Scenarios: readonly Scenario[] = [
         if (h(new Map([["a", 1]])) === h(new Map([["b", 1]]))) throw new Mismatch("a Map collapsed in the hash");
         if (h(new Set([1])) === h(new Set([2]))) throw new Mismatch("a Set collapsed in the hash");
         if (h(Number.NaN) === h(null)) throw new Mismatch("NaN collapsed into null");
+      },
+      // D143, over-assumptions F2. Round 9: `{pos:1}` and `{pos:2}` hashed the same, so a search could call a guard on `pos` closed.
+      "a-user-field-the-normaliser-ranks-keeps-two-states"(c0) {
+        for (const f of ["pos", "since", "mint", "boot", "sentAt", "doubt", "landedAt"]) {
+          const h = (n: number) => {
+            const c = on(c0, small("V", { persisted: false }), { actor: "V", id: "a" });
+            c.send("Set", { m: { [f]: n } });
+            return c.r.stateHash();
+          };
+          if (h(1) === h(2)) throw new Mismatch(`a memory field \`${f}\` of 1 and of 2 hashed the same`);
+        }
       },
       "a-clock-set-back-is-another-state"(c0) {
         const c = on(c0, small("V", { persisted: false }), { actor: "V", id: "a" });

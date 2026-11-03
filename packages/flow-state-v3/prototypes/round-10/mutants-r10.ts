@@ -14,4 +14,12 @@ export const MUTANTS: readonly Mutant[] = [
   m("d140.branch-shares-buffer", "D140", "mailq.ts", "const buf = last.buf.length === last.end ? last.buf : last.buf.slice(last.start, last.end);", "const buf = last.buf;"),
   m("d141.date-collapses", "D141", "adapter.ts", "if (v instanceof Date) return `$date:${v.getTime()}`;", ""),
   m("audit.A02-junk-key", "rule:46", "edge.ts", "host.storage.write(writes, purpose,", 'host.storage.write([...writes, { key: "junk/x", value: "1" }], purpose,'),
+  // Stage B. D142: a codec that lies about heads must be seen by (h). D143: user fields ranked again.
+  m("d142.heads-lie", "D142", "adapter.ts", 'heads: (kv) => lanes(kv).flatMap((l) => (typeof l?.head?.id === "string" ? [l.head.id] : [])),', "heads: () => [],"),
+  m("d143.user-ranked", "D143", "adapter.ts", "let text = `${JSON.stringify(opaque(canon(rest)))}|${outside}`;", "let text = `${JSON.stringify(canon(rest))}|${outside}`;"),
+  // Review part two's survivors, on round 10's mailbox. M4: endings beside another actor's mail. M5: paid on the runtime's word.
+  m("g125.second-try-lost-if-mail", "M4", "turn.ts", 'if (item.k === "ending" && !again) { const { onLane: _o, ...rest } = item;', 'if (item.k === "ending" && !again && tx.w.mail.length === 0) { const { onLane: _o, ...rest } = item;'),
+  m("g125.read-ending-lost-if-other-actor", "M4", "step.ts", 'return enqueue(tx, { k: "ending", actor: r.actor, op: r.op,', 'if ([...tx.w.mail].some((x) => x.actor !== r.actor)) return; return enqueue(tx, { k: "ending", actor: r.actor, op: r.op,'),
+  m("g125.delivered-then-nothing", "M5", "turn.ts", "if (!item.redelivered) countFailure(tx, item);", 'if (!item.redelivered) countFailure(tx, item); if (item.ending.ch !== "success" && [...tx.w.mail].some((x) => x.actor !== a.key)) return;'),
+  m("g125.laundered-as-evidence", "M5", "turn.ts", "const a = getActor(tx.w.actors, item.actor); const lane = tx.w.lanes[laneId];", 'const a = getActor(tx.w.actors, item.actor); const lane = tx.w.lanes[laneId]; if (item.ending.ch !== "success" && [...tx.w.mail].some((x) => x.actor !== item.actor)) return note(tx, "evidenceOnly", { op: item.op, attempt: item.attempt ?? "" });'),
 ];

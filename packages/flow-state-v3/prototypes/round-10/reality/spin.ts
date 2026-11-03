@@ -2,6 +2,7 @@
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { launch } from "../../conformance/bench/cdp.ts";
+import { exitScored } from "./score.ts";
 
 const arg = (k: string, d: string) => {
   const i = process.argv.indexOf(k);
@@ -71,4 +72,5 @@ try {
   await browser.close();
   server.stop(true);
   writeFileSync(arg("--out", join(import.meta.dir, "results-spin.json")), JSON.stringify(out, null, 1));
+  exitScored(out); // D144: a page that never answered fails the run
 }

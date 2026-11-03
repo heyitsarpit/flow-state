@@ -510,6 +510,8 @@ const make = (api: Api): Compiled => {
 // Causal reads (M2): `intent` and `order` answer from what the server now believes.
 const server: ServerModel = {
   init: () => ({}),
+  // D145: what `apply` lands, as the server would answer it, so a landing nobody heard is in the ledger (bugs M5).
+  apply: (op, _input, s) => ({ s, value: op === "pay" ? { status: "requires_capture", clientSecret: "" } : op === "place" ? { orderId: "o1" } : {} }),
   read: (op, input, _s, t) =>
     op === "intent"
       ? {

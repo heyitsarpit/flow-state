@@ -472,12 +472,24 @@ export const round7Scenarios: readonly Scenario[] = [
         c.send("Note", { text: "t" });
         c.eq("at once", noteOn(c), "t");
       },
-      "a-hidden-page-in-a-frozen-tab-still-does-not-need-a-timer"(c0) {
+      // D146, assumptions #6: this case used to press a frozen page, which no browser allows. What is true: a hidden page wrote at once, so a freeze and a discard (a kill with no pagehide) lose nothing.
+      "a-hidden-page-in-a-frozen-tab-loses-nothing-to-a-discard"(c0) {
         const c = fresh(c0, { captureMs: 5_000 });
         c.do({ hide: true, stay: true });
-        c.do({ freeze: true });
         c.send("Note", { text: "t" });
-        c.eq("no timer needed", noteOn(c), "t");
+        c.do({ freeze: true });
+        c.advance(60_000);
+        c.reload();
+        c.eq("on disk before the freeze", noteOn(c), "t");
+      },
+      // And a visible page's change, waiting for its interval, is lost to a freeze and a discard: nothing runs to write it. The fake used to write it anyway.
+      "a-visible-change-waiting-for-its-interval-is-lost-to-freeze-and-discard"(c0) {
+        const c = fresh(c0, { captureMs: 5_000 });
+        c.send("Note", { text: "t" });
+        c.do({ freeze: true });
+        c.advance(60_000);
+        c.reload();
+        c.eq("not on disk: the timer never ran", noteOn(c), "");
       },
       // A deadline is more than plain memory: FRAG-10's.
       "a-lost-clock-does-not-strand-a-flush"(c0) {

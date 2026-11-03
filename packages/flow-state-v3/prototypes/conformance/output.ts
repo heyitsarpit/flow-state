@@ -58,7 +58,7 @@ export const outputOf = (t: Tracked): Record<Section, unknown> => {
   const seq = reqs.map((q) => `${q.op}:${q.idempotencyKey ?? "-"}:${canonText(q.input)}`).map(rank);
   const requests = seq.length <= 6 ? seq.map(brief) : { n: seq.length, ops: counts(reqs.map((q) => q.op)), keys: new Set(reqs.map((q) => q.idempotencyKey)).size, seq: shortSha(seq.join("\n")) };
   const issues = counts(r.issues().map((i) => `${i.code}${i.origin ? "@" : ""}`));
-  const disk = counts(r.diskKeys().map((k) => (k.includes("/") ? k.slice(0, k.indexOf("/")) : k)));
+  const disk = counts(r.diskKeys().map((k) => r.diskKind(k))); // D142: by what a key is, not how it is spelled
   const actors = Object.fromEntries(
     [...t.actors].sort().map(([k, a]) => [k, { state: r.state(a) ?? null, memory: brief(rank(canonText(r.memory(a)))) }]),
   );
@@ -73,7 +73,8 @@ export const outputOf = (t: Tracked): Record<Section, unknown> => {
     evidence,
     frames: r.frames().length,
     waits,
-    truth: brief(rank(canonText(r.truth()))),
+    // D142: `acked` is the bytes the store acked, so it is the format. How many, not what.
+    truth: brief(rank(canonText({ ...r.truth(), acked: r.truth().acked.length }))),
     outside: { open: o.open.length, storage: o.storage.length, timers: o.timers.length, live: o.live },
     hashes: t.hashes.size,
     fatal: r.quiet().fatal,

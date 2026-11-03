@@ -4,6 +4,7 @@
 import { cpSync, existsSync, mkdirSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { launch } from "../../conformance/bench/cdp.ts";
+import { exitScored } from "./score.ts";
 
 const arg = (k: string, d: string) => {
   const i = process.argv.indexOf(k);
@@ -152,5 +153,6 @@ try {
   server.stop(true);
   say();
   console.log(JSON.stringify({ ...res, wipes: res.wipes.length, peakMb: browser.peakMb() }));
-  process.exit(0);
+  // D144: H3 measures Chrome's own wipes, with no runtime in the page. A wipe is its result, not a failure; an error in the harness is.
+  exitScored({ ...(res.errors > 0 ? { error: `${res.errors} harness errors` } : {}) });
 }

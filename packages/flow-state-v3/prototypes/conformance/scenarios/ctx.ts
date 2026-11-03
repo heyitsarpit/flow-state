@@ -1,6 +1,7 @@
 // What every scenario uses: the driver of one harness, and the checks that run after every step (SCENARIOS.md, D29).
 import type { ActorRef, Answer, Fixture, Harness, Reads, Step } from "../harness.ts";
 import { NoHeldRequest } from "../fake-world.ts";
+import { canonText } from "../output.ts";
 
 export class Mismatch extends Error {}
 
@@ -18,7 +19,7 @@ const checkFatal = (r: Reads) => {
 export const checkClaims = (r: Reads) => {
   const q = r.quiet();
   if (q.fatal) checkFatal(r);
-  if (q.fatal || q.spinning) return; // D122: a spin has nothing settled to claim. A case that ends it is read after
+  if (q.fatal || q.spinning || q.frozen) return; // D122: a spin has nothing settled to claim. A case that ends it is read after. D146: nor a frozen page
   if (!q.idle) throw new Mismatch("do() returned with work runnable");
   // D117, oracle (j): what a committed turn asked for became something, and what no turn could take left a wait.
   const gone = r.missingEndings();
@@ -42,11 +43,8 @@ export const checkClaims = (r: Reads) => {
       case "ack":
       case "capture":
         // Round 7, the edge: a write may wait for the one batch its actor has out. So: a write outside for this actor, and no other reading of "outside".
-        if (
-          !out.storage.some((s) =>
-            s.keys.some((k) => k === w.key || k === `actor/${w.key.split("|")[0]!.slice(5)}` || k.startsWith(`${w.key.split("|")[0]!}|`)),
-          )
-        )
+        // D142: whose a stored key is, the runtime's codec says. The suite no longer parses `actor/` or `lane/`.
+        if (!out.storage.some((s) => s.keys.some((k) => k === w.key || (r.diskScope(k) !== undefined && r.diskScope(k) === r.diskScope(w.key)))))
           throw new Mismatch(`L3: ${w.kind} claim for ${w.op} with no write outside`);
         break;
       case "timer":
@@ -150,7 +148,7 @@ export const checkEndings = (r: Reads) => {
     }
   }
   const q = r.quiet();
-  if (q.fatal || q.spinning) return;
+  if (q.fatal || q.spinning || q.frozen) return;
   const wires = q.waits.filter((w) => w.kind === "wire");
   for (const k of open) {
     const attempt = k.split("#")[0]!;
@@ -208,9 +206,10 @@ export class Ctx {
     checkClaims(this.r);
     checkMints(this.r);
   }
+  // D143, over-assumptions F3: values, not JSON text. Field order is no difference; a Date is not its ISO text, NaN is not null, a Map is not {}, undefined is not absent.
   eq(label: string, actual: unknown, expected: unknown) {
-    const x = JSON.stringify(actual);
-    const e = JSON.stringify(expected);
+    const x = canonText(actual);
+    const e = canonText(expected);
     if (x !== e) throw new Mismatch(`${label}: expected ${e}, got ${x}`);
   }
   yes(label: string, v: unknown) {

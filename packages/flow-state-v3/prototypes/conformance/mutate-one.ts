@@ -2,10 +2,11 @@
 // D101: suite, `--swap`, typed compare and date check, CLI pins, the 5 s gate. These are what the round claims, so they are what a mutant must get past. `killedBy` says which.
 // A search runs only with `--search`, directed, by a state budget and no deadline that matters, so its answer does not depend on how busy the machine is. Round 8 found why searches
 // killed nothing and why three kills did not reproduce: RESULTS. A search hunts new traces; it is not a regression gate.
-import { existsSync } from "node:fs";
+import { existsSync, readdirSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { makeHarness } from "./drive.ts";
 import type { RuntimeModule } from "./harness.ts";
+import { searchChain } from "./search/chain.search.ts";
 import { searchFlush } from "./search/flush.search.ts";
 
 const i = process.argv.indexOf("--runtime");
@@ -55,12 +56,21 @@ if (existsSync(join(round, "cli/main.ts"))) {
   const c = spawn(join(round, "cli/main.ts"));
   if (c.code !== 0) done("cli", failed(c.out).length ? c.out.split("\n").filter((l) => l.startsWith("FAIL")).map((l) => l.slice(6, 70)) : [`exit ${c.code}`]);
 }
+// Round-local unit checks of what no port reaches: a mailbox's own contract (D140). Each exits 1 on failure.
+if (existsSync(join(round, "checks")))
+  for (const f of readdirSync(join(round, "checks")).filter((x) => x.endsWith(".ts")).sort()) {
+    const t = spawn(join(round, "checks", f));
+    if (t.code !== 0) done(`checks/${f}`, [t.out.split("\n").find((l) => l.startsWith("FAIL")) ?? `exit ${t.code}`]);
+  }
 const g = spawn("gate5s.ts", "--runtime", runtimeArg);
 if (g.code !== 0) done("gate", [g.out.trim().slice(0, 300) || g.err.slice(0, 200)]);
 if (outputOnly.length) done("output", outputOnly);
 if (process.argv.includes("--search")) {
   const r = searchFlush(make, "serialize", { depth: 11, maxStates: 8_000, deadlineMs: 100_000 }, false, false, "store");
-  if (r.verdict === "failed") done("search", [r.failure ?? ""], r.verdict);
-  done(null, [], r.verdict);
+  if (r.verdict === "failed" || r.verdict === "vacuous") done("search", [r.failure ?? r.verdict], r.verdict);
+  // Review M4: the rota's own search, with sends to both actors and no settle between. By a state budget, so load changes nothing.
+  const k = searchChain(make, { depth: 4, maxStates: 6_000, deadlineMs: 100_000 });
+  if (k.verdict === "failed" || k.verdict === "vacuous") done("search", [k.failure ?? k.verdict], k.verdict);
+  done(null, [], `${r.verdict}, chain ${k.verdict}`);
 }
 done(null, []);

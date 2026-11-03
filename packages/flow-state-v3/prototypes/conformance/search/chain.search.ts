@@ -19,6 +19,9 @@ const ACTIONS: readonly Action[] = [
   { name: "Stop", step: send(A, "Stop") },
   { name: "Press.b", step: send(B, "Press") },
   { name: "Pw.b", step: send(B, "Pw") },
+  // Review M4: with a settle after every action, an ending never lands while another actor has mail. These send to both in one go, so it does.
+  { name: "Rows+Pw.b", step: { sendMany: [[A, "Rows", { n: 6 }], [B, "Pw", {}], [B, "Press", {}]] } },
+  { name: "Pw.b+Spin+Press.b", step: { sendMany: [[B, "Pw", {}], [A, "Spin", {}], [B, "Press", {}]] } },
   { name: "pw.ok", step: { answer: "pw", with: { ok: {} } }, on: open("pw") },
   { name: "ack", step: { storage: "ack" }, on: storage },
   { name: "FLUSH", step: { hide: true } },
