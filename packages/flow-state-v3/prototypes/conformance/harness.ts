@@ -1,5 +1,6 @@
 // The whole contract between the suite and any runtime (convergence-1 section 12, D34). Internals stay invisible.
 // A runtime implements `Port` (drive.ts turns it into a Harness), so settling, faults and the fake stay in the suite.
+import type { Context } from "effect";
 import type { Compiled, Ev } from "./fixtures/compiled.ts";
 import type { Api, Host, ServerModel } from "./fake-world.ts";
 
@@ -11,6 +12,9 @@ export type Fixture = {
   readonly id: string;
   readonly make: (api: Api) => Compiled; // compiled data has commits, so it closes over the fake's API
   readonly server?: ServerModel; // what the fake server believes, for answers that come from truth
+  // Round 11 (D211): the services this machine's Slots ask for, given to the Runtime at boot, as production gives it a Layer. A typed fixture's commits ask
+  // for the fake by its service (`typed/lab.ts`); a hand fixture closes over it and has none.
+  readonly services?: (api: Api) => Context.Context<never>;
 };
 
 export type Answer =
@@ -240,6 +244,9 @@ export type BootArgs = {
   // Stage J (S1): an Instance's published reads answer from its first evidence, a boot's included: what it has published so far. Given
   // before the runtime boots, so a boot's runs are judged as they happen, by the same reads as any other batch's.
   readonly reads?: (r: BootReads) => void;
+  // Round 11 (D211): what the machines' Slots require, merged. The Runtime runs every Effect a Slot returns with these, at the fiber's root, so no Slot
+  // needs `Effect.provide` around it (finding F10: that wrapper is a step a scheduler can see).
+  readonly services?: Context.Context<never>;
 };
 export type BootReads = Pick<Instance, "state" | "binding" | "memory" | "inner">;
 export type Instance = {

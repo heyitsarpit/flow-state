@@ -222,6 +222,7 @@ export const port: Port = {
     const rt = createRuntime({
       host: a.host,
       machines: a.compiled, // D77: createRuntime seals
+      ...(a.services ? { services: a.services } : {}), // D211
       around: faultedMachines,
       modules,
       bounds,

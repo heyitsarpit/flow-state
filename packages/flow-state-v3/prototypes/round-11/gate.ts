@@ -233,7 +233,7 @@ const sealOp = (o: Op, definition: string): Op => {
   return {
     ...o,
     key: gated(o.key, nameable),
-    commit: typeof o.commit === "function" ? slotted(o.commit, definition, `operations.${o.id}.commit`) : o.commit, // D91
+    commit: asSlot(o.commit, definition, `operations.${o.id}.commit`), // D91, D207: a Slot always
     outcomes: {
       ...(o.outcomes.success ? { success: sealMapped(o.outcomes.success) } : {}),
       failure: table(o.outcomes.failure, sealMapped),
@@ -298,10 +298,36 @@ export type SealedStream = Omit<
   readonly pageRetryWhile?: Slot<NonNullable<StreamSpec["pageRetryWhile"]>>;
   readonly catchUp?: Slot<NonNullable<StreamSpec["catchUp"]>>;
 };
-// Round 11 (D207): a stream's and a domain's closures come from the front end as Slots, with their own paths. A bare function is the hand fixtures' spelling, slotted
-// here under a path of its own place (before, `domain.read` for every read: the duplicate paths of round 7's review).
-const asSlot = <F extends (...a: any[]) => any>(f: F | Slot<F>, id: string, path: string): Slot<F> =>
-  typeof f === "function" ? slotted(f, id, path) : f;
+// Round 11 (D207): every closure in `Compiled` is a Slot, from the compiler, with its own path. The seal no longer slots a bare function: `checkSlots` below refuses
+// one anywhere, and a hand fixture's bare closures are slotted by the suite before boot (`conformance/legacy.ts`), each under the path of its own place.
+const asSlot = <F extends (...a: any[]) => any>(f: F | Slot<F>, id: string, path: string): Slot<F> => {
+  if (typeof f === "function") throw new Error(`SealUnknownClosure: ${id} ${path}`);
+  return f;
+};
+// D207: one walk of the whole table. A function that is not a Slot's `run` is refused by its path, whatever name it sits under (before: `known` looked two
+// levels into ops, streams and domain only). Two Slots of one definition at one path are refused too: a path is how faults, Stories and tools address a
+// closure, so it must name one (round 7 review: 13 duplicate paths in the hand fixtures).
+const checkSlots = (c: Compiled) => {
+  const paths = new Map<string, unknown>();
+  const seen = new Set<object>();
+  const walk = (v: unknown, p: string) => {
+    if (typeof v === "function") throw new Error(`SealUnknownClosure: ${c.id} ${p}`);
+    if (v === null || typeof v !== "object" || seen.has(v)) return;
+    seen.add(v);
+    if (Array.isArray(v)) return v.forEach((x, i) => walk(x, `${p}[${i}]`));
+    const o = v as Record<string, unknown>;
+    if (typeof o["run"] === "function" && isObject(o["at"])) {
+      const at = o["at"] as { definition: string; path: string };
+      const k = `${at.definition}\u0000${at.path}`;
+      const had = paths.get(k);
+      if (had !== undefined && had !== o["run"]) throw new Error(`SealDuplicatePath: ${c.id} ${at.definition} ${at.path}`);
+      paths.set(k, o["run"]);
+      return;
+    }
+    for (const k of Object.keys(o)) walk(o[k], p ? `${p}.${k}` : k);
+  };
+  walk(c, "");
+};
 const sealStream = (id: string, op: string, x: StreamSpec): SealedStream => {
   known(x, STREAM_CLOSURES, `${id} streams.${op}`);
   const at = (n: string) => `streams.${op}.${n}`;
@@ -362,6 +388,7 @@ const checkNames = (id: string, nodes: Readonly<Record<string, unknown>>) => {
 };
 export const seal = (c: Compiled): Compiled => {
   if (sealedAlready.has(c)) return c;
+  checkSlots(c);
   checkNames(c.id, c.nodes);
   for (const [k, f] of Object.entries(c.fragments ?? {})) checkNames(`${c.id} ${k}`, f.nodes);
   const out = {

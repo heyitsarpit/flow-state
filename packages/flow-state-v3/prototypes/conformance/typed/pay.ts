@@ -463,8 +463,10 @@ const shopFrom = (api: Api) =>
 export const typedPayFixture: Fixture & { readonly typed: true } = {
   id: handPay.id,
   ...(handPay.server ? { server: handPay.server } : {}),
-  make: (api) => provide(PayMachine, shopFrom(api)),
+  make: () => PayMachine.compiled,
+  services: (api) => shopFrom(api) as Context.Context<never>, // D211: given to the Runtime at boot
   typed: true,
 };
+void provide;
 // Round 11: the scenarios' name for Pay, so a scenario file switches by its import path alone (D195).
 export const payFixture = typedPayFixture;

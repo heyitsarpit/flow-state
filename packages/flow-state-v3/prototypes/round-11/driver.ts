@@ -2,7 +2,7 @@
 // addObserver + a set the Runtime owns. One obligation: at least one `sent` per invoke. A core throw is fatal (D46).
 // Prior art, read: drain then defer, codebases/xstate/packages/core/src/createActor.ts:280-299; runFork starts now,
 // node_modules/effect/src/internal/effect.ts:5680-5690.
-import { Cause, Effect, Exit, type Fiber } from "effect";
+import { Cause, Effect, Exit, type Context, type Fiber } from "effect";
 import { OutcomeFailure, OutcomeUnknown, type Compiled, type Op, type Slot } from "../conformance/fixtures/compiled.ts";
 
 type CommitFn = Extract<Op["commit"], (...a: never[]) => unknown>;
@@ -60,6 +60,8 @@ export const createRuntime = (cfg: {
   onStep?: (r: StepRecord) => void;
   onEvidence: (e: readonly Evidence[]) => void;
   onIssue: (i: readonly Issue[]) => void;
+  // D211: what the machines' Slots require. Every fiber runs with these at its root: no `Effect.provide` around a commit.
+  services?: Context.Context<never>;
 }) => {
   const { host, modules } = cfg;
   const sealedList = sealAll(
@@ -99,7 +101,9 @@ export const createRuntime = (cfg: {
     effect: Effect.Effect<unknown, unknown>,
     done: (x: SendExit) => void,
   ) => {
-    const fiber = Effect.runFork(effect, { scheduler: host.scheduler });
+    const fiber = cfg.services
+      ? Effect.runForkWith(cfg.services)(effect, { scheduler: host.scheduler })
+      : Effect.runFork(effect, { scheduler: host.scheduler });
     fibers.set(key, fiber);
     fiber.addObserver((exit) => {
       fibers.delete(key);

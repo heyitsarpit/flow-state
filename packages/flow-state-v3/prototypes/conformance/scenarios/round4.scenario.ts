@@ -708,6 +708,7 @@ export const round4Scenarios: readonly Scenario[] = [
     run(c0) {
       const f: Fixture = {
         id: "Deep",
+        ...(deepAt("HERE").services ? { services: deepAt("HERE").services! } : {}), // round 11, D211: an edited fixture carries its services
         make: (api) => {
           const m = deepAt("HERE").make(api);
           return {

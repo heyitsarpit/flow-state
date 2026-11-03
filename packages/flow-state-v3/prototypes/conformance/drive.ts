@@ -1,9 +1,11 @@
 // Turns a runtime's `Port` into a Harness. Settling, faults, plans and the fake live here, so a rewrite replaces only the
 // port. Faults reach a runtime through what production has: compiled data (Slots), a Host, and its own input port.
+import { Context } from "effect";
 import type { Fixture as Fixture_ } from "./harness.ts";
 import type { Compiled } from "./fixtures/compiled.ts";
 import { FakeWorld, NoHeldRequest } from "./fake-world.ts";
 import { canonText } from "./output.ts";
+import { legacySlots } from "./legacy.ts";
 import { machineOfKey, Reference } from "./reference/model.ts";
 import type { FaultState, Harness, Instance, Port, Step } from "./harness.ts";
 
@@ -42,6 +44,7 @@ const actorKey = (a: { actor: string; id: string }) => `${a.actor}/${a.id.replac
 export const makeHarness = (port: Port) => (): Harness => {
   let fake: FakeWorld;
   let compiled: Compiled[] = [];
+  let services: Context.Context<never> | undefined; // D211
   let bounds = {};
   let inst: Instance;
   const instances: Instance[] = [];
@@ -1163,6 +1166,7 @@ export const makeHarness = (port: Port) => (): Harness => {
       compiled,
       bounds,
       faults,
+      ...(services ? { services } : {}),
       reads: (r) => void (inst = { ...inst, ...r }),
       onEvidence,
       onIssue,
@@ -1516,7 +1520,11 @@ export const makeHarness = (port: Port) => (): Harness => {
       const { runtimeDefault, ...named } = (cfg.bounds ?? {}) as Record<string, number>;
       // The second pass (gate5s.ts): no bound named means the runtime's own default.
       bounds = runtimeDefault || process.env["FLOW_RUNTIME_DEFAULT"] ? named : { captureMs: 0, ...named };
-      compiled = cfg.machines.map((m) => listen(wrap((swaps.get(m) ?? m).make(fake.api))));
+      // D207: a hand fixture's bare closures are slotted here, by the suite, since the Runtime's seal takes only Slots. Typed output passes unchanged.
+      compiled = cfg.machines.map((m) => listen(wrap(legacySlots((swaps.get(m) ?? m).make(fake.api)))));
+      // D211: the machines' services, merged, for the Runtime's boot. Built once per start, from this world's fake.
+      const given = cfg.machines.map((m) => (swaps.get(m) ?? m).services?.(fake.api)).filter((x): x is Context.Context<never> => x !== undefined);
+      services = given.length ? given.reduce((a, b) => Context.merge(a, b)) : undefined;
       // Review L5: rule 47, no schedule sends an event an op maps; so a timer's credit can never pay an ending's run (limit L8 is vacuous).
       for (const c of compiled) {
         const sched = new Set(refm().scheduleEvents(c.id));

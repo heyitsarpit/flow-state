@@ -30,9 +30,11 @@ export const write =
   <A = unknown, T extends string = never>(op: string) =>
   (input: unknown, c: { readonly attempt: { readonly id: string } }) =>
     unknownWhenLost(call<A, T | "NoResponse" | "ServerError">(op)(input, c.attempt.id));
-// A fixture from a typed machine: the fake given as the service. Every Compiled the suite boots from here went through `machine()`, the compile.
+// A fixture from a typed machine. Every Compiled the suite boots from here went through `machine()`, the compile, and nothing else touched it: the fake is
+// given to the Runtime at boot as the service the commits ask for (D211), not wrapped around each commit (`provide`, finding F10).
 export const fixture = (typed: Typed<unknown> | ((api: Api) => Typed<unknown>), server?: ServerModel): Fixture & { readonly typed: true } => {
-  const make = (api: Api): Compiled => provide(typeof typed === "function" ? typed(api) : typed, Context.make(FakeApi, api) as never);
+  const make = (api: Api): Compiled => (typeof typed === "function" ? typed(api) : typed).compiled;
   const id = (typeof typed === "function" ? typed(new Proxy({}, { get: () => () => undefined }) as Api) : typed).compiled.id;
-  return { id, make, typed: true, ...(server ? { server } : {}) };
+  return { id, make, services: (api) => Context.make(FakeApi, api) as Context.Context<never>, typed: true, ...(server ? { server } : {}) };
 };
+void provide;

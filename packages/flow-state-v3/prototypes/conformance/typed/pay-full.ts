@@ -301,9 +301,11 @@ const PayFullMachine = machine(PayFull, ({ S: St, E, O }) => {
 export const typedPayFullFixture = {
   id: handPayFull.id,
   ...(handPayFull.server ? { server: handPayFull.server } : {}),
-  make: (api: Api) => provide(PayFullMachine, Context.merge(shopFrom(api), Context.make(FakeApi, api)) as never),
+  make: () => PayFullMachine.compiled,
+  services: (api: Api) => Context.merge(shopFrom(api), Context.make(FakeApi, api)) as Context.Context<never>, // D211
   typed: true as const,
 };
+void provide;
 export const payFullFixture = typedPayFullFixture;
 export { LENGTH_MS } from "../fixtures/pay-full.compiled.ts";
 void call;
