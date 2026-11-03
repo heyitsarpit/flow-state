@@ -1,5 +1,5 @@
 // Round 9, part one: what round 8's final review found. Each case was seen failing on round 8's code, or says why it pins what was already true: red-round-9.txt. D114-D120 are proposed.
-import { chatFixture } from "../fixtures/chat.compiled.ts";
+import { chatFixture } from "../typed/chat.ts";
 import { doorsFixture, DoorsId } from "../typed/round8.ts";
 import { BareId } from "../typed/round7.ts";
 import { bulkFixture, BulkId, keptFixture, KeptId } from "../typed/round9.ts";

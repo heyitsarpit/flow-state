@@ -1,8 +1,8 @@
 // The record queue, predictions, marks, repair: LIKE-*, STORE-*. Worked out by hand from rules 27-32, 35, 2.8.5, 2.8.6, D3,
 // D12/D40. `A` and `B` are two actors of one list; records are shared.
-import { issueRef, issuesFixture } from "../fixtures/issues.compiled.ts";
-import { orderRef, refundsFixture } from "../fixtures/refunds.compiled.ts";
-import { s1Fixture, s1Ref } from "../fixtures/s1.compiled.ts";
+import { issueRef, issuesFixture } from "../typed/issues.ts";
+import { orderRef, refundsFixture } from "../typed/stores.ts";
+import { s1Fixture, s1Ref } from "../typed/stores.ts";
 import { checkClaims, checkEndings, Ctx, type Scenario } from "./ctx.ts";
 
 const A = { actor: "Issues/List", id: "a" };

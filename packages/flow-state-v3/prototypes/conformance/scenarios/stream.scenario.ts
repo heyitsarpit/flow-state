@@ -5,7 +5,7 @@ import {
   deskFeedNoReconnect,
   roomsFixture,
   type Cursor,
-} from "../fixtures/feed.compiled.ts";
+} from "../typed/feed.ts";
 import type { Scenario } from "./ctx.ts";
 import { Ctx } from "./ctx.ts";
 

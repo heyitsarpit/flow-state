@@ -4,7 +4,7 @@ import { resolve } from "node:path";
 import { makeHarness, swapFixtures } from "../drive.ts";
 import { payFixture } from "../typed/pay.ts";
 import { payFixedFixture } from "../fixtures/pay.fixed.ts";
-import { s1Fixture } from "../fixtures/s1.compiled.ts";
+import { s1Fixture } from "../typed/stores.ts";
 import type { RuntimeModule } from "../harness.ts";
 import { searchChain } from "./chain.search.ts";
 import { searchCross } from "./cross.search.ts";

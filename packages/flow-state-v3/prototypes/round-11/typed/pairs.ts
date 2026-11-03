@@ -21,6 +21,15 @@ import * as HV from "../../conformance/fixtures/drv.compiled.ts";
 import * as TO from "../../conformance/typed/order.ts";
 import * as HPF from "../../conformance/fixtures/pay-full.compiled.ts";
 import * as TPF from "../../conformance/typed/pay-full.ts";
+import * as HI from "../../conformance/fixtures/issues.compiled.ts";
+import * as TI from "../../conformance/typed/issues.ts";
+import * as HC from "../../conformance/fixtures/chat.compiled.ts";
+import * as TC from "../../conformance/typed/chat.ts";
+import * as HF from "../../conformance/fixtures/feed.compiled.ts";
+import * as TF from "../../conformance/typed/feed.ts";
+import * as HRF from "../../conformance/fixtures/refunds.compiled.ts";
+import * as HS1 from "../../conformance/fixtures/s1.compiled.ts";
+import * as TS from "../../conformance/typed/stores.ts";
 // Stated for Pay: nothing yet; filled from the first run's differences, each read.
 const payIndex = /^$/;
 
@@ -62,5 +71,21 @@ export const pairs: readonly Pair[] = [
   { name: "Lab/Getter", hand: H6.getterFixture, typed: T6.getterFixture },
   { name: "Ring", hand: HO.ringFixture, typed: TO.ringFixture },
   { name: "Checkout/Pay full", hand: HPF.payFullFixture, typed: TPF.payFullFixture, stated: [payIndex] },
+  { name: "Issues/List", hand: HI.issuesFixture, typed: TI.issuesFixture },
+  { name: "Issues/List persisted", hand: HL.issuesPersisted, typed: TI.issuesPersisted },
+  { name: "Issues/List local", hand: HL.issuesLocal, typed: TI.issuesLocal },
+  { name: "Issues/List throwing", hand: HL.issuesThrowing, typed: TI.issuesThrowing },
+  { name: "Issues/List double cancel", hand: HL.issuesDoubleCancel, typed: TI.issuesDoubleCancel },
+  { name: "Issues/List deny settled", hand: HL.issuesDenySettled, typed: TI.issuesDenySettled },
+  ...[{}, { catchUp: true, pages: true, bound: 2 }, { source: "pulled" as const, reconnect: false }].map((o) => ({ name: `Lab/Chat ${JSON.stringify(o)}`, hand: HC.chatFixture(o), typed: TC.chatFixture(o) })),
+  { name: "Lab/Presence", hand: HC.presenceFixture, typed: TC.presenceFixture },
+  { name: "DeskFeed", hand: HF.deskFeedFixture, typed: TF.deskFeedFixture },
+  { name: "DeskFeed no reconnect", hand: HF.deskFeedNoReconnect, typed: TF.deskFeedNoReconnect },
+  { name: "Desk/Rooms", hand: HF.roomsFixture, typed: TF.roomsFixture },
+  { name: "Checkout/Refunds", hand: HRF.refundsFixture, typed: TS.refundsFixture },
+  { name: "S1", hand: HS1.s1Fixture, typed: TS.s1Fixture },
+  { name: "S1 persisted", hand: HL.s1Persisted, typed: TS.s1Persisted },
+  { name: "Docs", hand: HL.docsFixture, typed: TS.docsFixture },
+  ...(["deskFixture", "deskNoVersionFixture", "deskListenFixture", "deskListenNoVersionFixture", "deskListenLexicalFixture", "deskTwoFeedsFixture", "deskTwoFeedsNoVersionFixture"] as const).map((k) => ({ name: `Desk/Tickets ${k}`, hand: HD[k], typed: TD[k] })),
   { name: "Drv", hand: HV.drvFixture, typed: TO.drvFixture },
 ];

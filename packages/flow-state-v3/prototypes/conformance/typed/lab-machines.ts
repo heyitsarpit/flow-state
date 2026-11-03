@@ -5,16 +5,8 @@ import { definition, deny, Flow, fragment, machine, resource, transaction } from
 import { call, fixture, write } from "./lab.ts";
 import { notesFixture as handNotes } from "../fixtures/lab.compiled.ts";
 
-export {
-  docRef,
-  docsFixture,
-  s1Persisted,
-  issuesPersisted,
-  issuesLocal,
-  issuesThrowing,
-  issuesDoubleCancel,
-  issuesDenySettled,
-} from "../fixtures/lab.compiled.ts";
+export { docRef, docsFixture, s1Persisted } from "./stores.ts";
+export { issuesPersisted, issuesLocal, issuesThrowing, issuesDoubleCancel, issuesDenySettled } from "./issues.ts";
 
 const S = Schema;
 const U = S.Unknown;

@@ -1,28 +1,125 @@
 // Round 11: `fixtures/desk.compiled.ts`, written in the public API where it has no `domain`: TraitWrite, EachWrite, LateFill, EachReset. Desk/Tickets and
 // TraitStore carry a `domain` (and Tickets streams) and wait for the entity step (finding F5): re-exported hand.
-import { Schema } from "effect";
+import { Effect, Schema } from "effect";
+import type { Api } from "../fake-world.ts";
 import type { Op } from "../fixtures/compiled.ts";
-import { definition, Flow, fragment, machine, transaction } from "./flow.ts";
+import { definition, Flow, fragment, machine, resource, transaction } from "./flow.ts";
 import { call, fixture, write } from "./lab.ts";
 
-export {
-  ticketRef,
-  deskServer,
-  deskFixture,
-  deskNoVersionFixture,
-  deskListenFixture,
-  deskListenNoVersionFixture,
-  deskListenLexicalFixture,
-  deskTwoFeedsFixture,
-  deskTwoFeedsNoVersionFixture,
-  thingRef,
-  traitStoreFixture,
-  type StoreShape,
-} from "../fixtures/desk.compiled.ts";
+export { ticketRef, deskServer, thingRef, traitStoreFixture, type StoreShape } from "../fixtures/desk.compiled.ts";
+import { deskServer, ticketRef } from "../fixtures/desk.compiled.ts";
 
 const S = Schema;
 const U = S.Unknown;
 const Strs = S.Array(S.String);
+
+// ── Desk/Tickets: the confirm path's real shapes (review H3, H8, M14), the machine in the public API and the domain and feed in `Compiled`'s shape (D209).
+// `markRead` has no `id`: the hand key was `{ id: i.id ?? "many" }`, a key no field list makes (finding F2), so here it is one lane by an empty key list.
+type DeskOpts = { readonly versioned: boolean; readonly listen?: boolean; readonly lexical?: boolean; readonly twoFeeds?: boolean };
+const deskWrite = (id: string, concurrency: Op["concurrency"], input: Readonly<Record<string, Schema.Top>>, key: readonly string[]) =>
+  transaction({ id: `tickets/${id}`, input, key: key as never, concurrency, commit: write<unknown, "Refused">(id) });
+const deskList = resource({ id: "tickets/list", input: {}, key: [], commit: (i) => call<unknown, "NoResponse">("list")(i) });
+const changes = (api: Api, id: string, E: { readonly Unused: { readonly tag: "Unused" }; readonly Failed: { readonly tag: "Failed" } }) => ({
+  id,
+  listen: true as const,
+  key: () => ({}),
+  position: "revision",
+  reconnect: true,
+  idleMs: Number.MAX_SAFE_INTEGER / 2,
+  healthyMs: 60_000,
+  backoff: (n: number) => Math.min(30_000, 1000 * 2 ** n),
+  subscribe: (i: unknown, { from }: { readonly from: unknown }) => api.socket(id, i, from),
+  value: E.Unused,
+  missed: E.Unused,
+  failure: E.Failed,
+});
+type Change = { readonly _tag: string; readonly ticketId: string; readonly revision: unknown; readonly ticket: { readonly id: string } };
+const listen = (e: Change) =>
+  e._tag === "TicketRemoved" ? [{ ref: ticketRef(e.ticketId), removed: true as const, version: e.revision }] : [{ ref: ticketRef(e.ticket.id), fields: e.ticket }];
+const desk = (o: DeskOpts) => (api: Api) => {
+  const ops = {
+    archive: deskWrite("archive", "reject", { id: U }, ["id"]),
+    remove: deskWrite("remove", "reject", { id: U }, ["id"]),
+    purge: deskWrite("purge", "reject", { id: U }, ["id"]),
+    markRead: deskWrite("markRead", "reject", { ids: U, at: U }, []),
+    rename: deskWrite("rename", "latest", { id: U, title: U }, ["id"]),
+    retitle: deskWrite("retitle", "latest", { id: U, title: U }, ["id"]),
+  };
+  type I = { readonly id: string; readonly title: string; readonly ids: readonly string[]; readonly at: unknown };
+  type V = { readonly id: string; readonly title: string; readonly revision: unknown };
+  const d = definition({
+    id: "Desk/Tickets",
+    states: { READY: {} },
+    events: { Load: {}, Archive: { id: U }, Remove: { id: U }, Purge: { id: U }, MarkRead: { ids: U, at: U }, Rename: { id: U, title: U }, Retitle: { id: U, title: U }, Reconcile: { id: U } },
+    internalEvents: { Listed: {}, ListFailed: {}, Settled: {}, Failed: {}, Unsure: { id: U, op: U }, Unused: {} },
+    memory: {},
+    persisted: false,
+    uses: o.listen ? ["entities", "sessions"] : ["entities"],
+    domain: {
+      writes: {
+        // ticket.domain.ts's archive, attachments.domain.ts's remove, comments.domain.ts's markRead: no `.one`.
+        archive: { predicts: (i: I) => [{ ref: ticketRef(i.id), patch: { archived: true } }] },
+        remove: { predicts: (i: I) => [{ ref: ticketRef(i.id), remove: true }] },
+        markRead: { predicts: (i: I) => i.ids.map((id) => ({ ref: ticketRef(id), patch: { readAt: i.at } })) },
+        // comments.domain.ts's edit: `.one(Comment)`, the whole row.
+        rename: { predicts: (i: I) => [{ ref: ticketRef(i.id), patch: { title: i.title, slug: i.title.toLowerCase() } }], confirms: (v: V) => [{ ref: ticketRef(v.id), fields: v }] },
+        // A response with part of the row: the title and the new revision. `slug` stays unconfirmed.
+        retitle: {
+          predicts: (i: I) => [{ ref: ticketRef(i.id), patch: { title: i.title, slug: i.title.toLowerCase() } }],
+          confirms: (v: V, i: I) => [{ ref: ticketRef(i.id), fields: { title: v.title, ...(o.versioned ? { revision: v.revision } : {}) } }],
+        },
+        // A delete that answers with the tombstone's version: `Ticket.delete(key, { version })`.
+        purge: { predicts: (i: I) => [{ ref: ticketRef(i.id), remove: true }], confirms: (v: V, i: I) => [{ ref: ticketRef(i.id), removed: true, version: o.versioned ? v.revision : undefined }] },
+      },
+      reads: { list: (v: readonly { readonly id: string }[]) => v.map((row) => ({ ref: ticketRef(row.id), fields: row })) },
+      ...(o.listen ? { listens: { changes: listen, ...(o.twoFeeds ? { changes2: listen } : {}) } } : {}),
+      repair: (ref: string) => api.call("repair", { ref }) as Effect.Effect<unknown, unknown, never>,
+      ...(o.versioned ? { version: () => "revision" } : {}),
+      ...(o.lexical ? { versionOrder: "lexical" as const } : {}),
+    },
+    ...(o.listen ? { streams: ({ E }) => ({ changes: changes(api, "changes", E), ...(o.twoFeeds ? { changes2: changes(api, "changes2", E) } : {}) }) } : {}),
+    operations: ({ E }) => {
+      const outcomes = (id: string) => ({ success: E.Settled, failure: { Refused: E.Failed, NotSent: E.Failed }, unknown: E.Unsure.from((_v, c) => ({ id: (c.key as { readonly id?: unknown }).id, op: id })) });
+      return {
+        archive: ops.archive.outcomes(outcomes("archive")),
+        remove: ops.remove.outcomes(outcomes("remove")),
+        purge: ops.purge.outcomes(outcomes("purge")),
+        markRead: ops.markRead.outcomes(outcomes("markRead")),
+        rename: ops.rename.outcomes(outcomes("rename")),
+        retitle: ops.retitle.outcomes(outcomes("retitle")),
+        list: deskList.outcomes({ success: E.Listed, failure: { NoResponse: E.ListFailed, Defect: E.ListFailed, Interrupted: E.ListFailed } }),
+      };
+    },
+  });
+  return machine(d, ({ S: St, O }) => ({
+    default: St.READY,
+    on: {
+      Load: { actions: [O.list.lookup(() => ({}))] },
+      Listed: {},
+      ListFailed: {},
+      Archive: { actions: [O.archive.commit(({ event }) => ({ id: event.id }))] },
+      Remove: { actions: [O.remove.commit(({ event }) => ({ id: event.id }))] },
+      Purge: { actions: [O.purge.commit(({ event }) => ({ id: event.id }))] },
+      MarkRead: { actions: [O.markRead.commit(({ event }) => ({ ids: event.ids, at: event.at }))] },
+      Rename: { actions: [O.rename.commit(({ event }) => ({ id: event.id, title: event.title }))] },
+      Retitle: { actions: [O.retitle.commit(({ event }) => ({ id: event.id, title: event.title }))] },
+      Reconcile: { actions: [O.archive.retry.key(({ event }) => ({ id: event.id }))] },
+      Settled: {},
+      Failed: {},
+      Unsure: {},
+    },
+    states: o.listen ? { READY: { activities: [{ op: "changes", input: () => ({}) }, ...(o.twoFeeds ? [{ op: "changes2", input: () => ({}) }] : [])] } } : {},
+  }));
+};
+export const deskFixture = fixture(desk({ versioned: true }), deskServer);
+export const deskNoVersionFixture = fixture(desk({ versioned: false }), deskServer);
+export const deskListenFixture = fixture(desk({ versioned: true, listen: true }), deskServer);
+export const deskListenNoVersionFixture = fixture(desk({ versioned: false, listen: true }), deskServer);
+// D75: a string version with a declared order.
+export const deskListenLexicalFixture = fixture(desk({ versioned: true, listen: true, lexical: true }), deskServer);
+// Review, item 3: two feeds on one entity, each its own connection. Frames may cross.
+export const deskTwoFeedsFixture = fixture(desk({ versioned: true, listen: true, twoFeeds: true }), deskServer);
+export const deskTwoFeedsNoVersionFixture = fixture(desk({ versioned: false, listen: true, twoFeeds: true }), deskServer);
 
 // ── A persisted trait with a write. `.resumable()` on its tab. For rebind and reload (review H5, H6).
 const TW = "Lab/TraitWrite";

@@ -1,7 +1,7 @@
 // Round 8: make the edge and the tests trustworthy. Worked out by hand from the review's traces, reproduced before they were believed, and convergence-8's decisions. D96-D106 are proposed.
 import { Effect } from "effect";
-import { chatFixture } from "../fixtures/chat.compiled.ts";
-import { refundsFixture } from "../fixtures/refunds.compiled.ts";
+import { chatFixture } from "../typed/chat.ts";
+import { refundsFixture } from "../typed/stores.ts";
 import { bareFixture, BareId } from "../typed/round7.ts";
 import { businessKeyFixture, copiesFixture, CopiesId, doorsFixture, DoorsId, loopFixture, LoopId, serialBareFixture } from "../typed/round8.ts";
 // Round 11, finding F2: a lane key no field list makes (`() => new Set()`) has no public form (rule 39). That case keeps the hand machine.

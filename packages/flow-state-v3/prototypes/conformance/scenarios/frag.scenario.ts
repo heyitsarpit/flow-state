@@ -1,7 +1,7 @@
 // Fragments: rules 1, 6, 9, 44, 48-60, 2.5, 2.9.2, 2.9.3. Flows are from pay.story.ts, comments.story.ts and upload.trait.ts,
 // on compiled data flattened as each fixture says. Worked out by hand from the rule each case names.
 import { commentRef, editorFixture, queueFixture } from "../fixtures/comments.compiled.ts";
-import { issueRef, issuesFixture } from "../fixtures/issues.compiled.ts";
+import { issueRef, issuesFixture } from "../typed/issues.ts";
 import {
   docsFixture,
   feedFixture,

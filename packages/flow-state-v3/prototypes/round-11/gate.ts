@@ -171,6 +171,11 @@ const table = <A, B>(o: Readonly<Record<string, A>> | undefined, f: (a: A) => B)
   return out;
 };
 const same_ = <A>(a: A) => a;
+const tableK = <A, B>(o: Readonly<Record<string, A>> | undefined, f: (k: string, a: A) => B) => {
+  const out: Record<string, B> = Object.create(null);
+  for (const k of Object.keys(o ?? {})) out[k] = f(k, o![k]!);
+  return out;
+};
 const sealMapped = (m: Mapped): Mapped => (m.from ? { ...m, from: gated(m.from, plain) } : m);
 const sealMember = (m: Alternative["members"][number]): Alternative["members"][number] => {
   const x = m as { input?: Slot<(a: any) => unknown>; key?: Slot<(a: any) => unknown>; value?: Slot<(a: any) => unknown> };
@@ -293,11 +298,15 @@ export type SealedStream = Omit<
   readonly pageRetryWhile?: Slot<NonNullable<StreamSpec["pageRetryWhile"]>>;
   readonly catchUp?: Slot<NonNullable<StreamSpec["catchUp"]>>;
 };
+// Round 11 (D207): a stream's and a domain's closures come from the front end as Slots, with their own paths. A bare function is the hand fixtures' spelling, slotted
+// here under a path of its own place (before, `domain.read` for every read: the duplicate paths of round 7's review).
+const asSlot = <F extends (...a: any[]) => any>(f: F | Slot<F>, id: string, path: string): Slot<F> =>
+  typeof f === "function" ? slotted(f, id, path) : f;
 const sealStream = (id: string, op: string, x: StreamSpec): SealedStream => {
   known(x, STREAM_CLOSURES, `${id} streams.${op}`);
   const at = (n: string) => `streams.${op}.${n}`;
   const g = <F extends (...a: any[]) => any>(f: F, n: string, check: Check) =>
-    gated(slotted(f, id, at(n)), check);
+    gated(asSlot(f, id, at(n)), check);
   return {
     ...x,
     key: g(x.key, "key", nameable),
@@ -334,18 +343,15 @@ const sealDomain = (id: string, d: DomainSpec): SealedDomain => {
   const vo = d.versionOrder;
   return {
     ...d,
-    writes: table(d.writes, (w) => {
+    writes: tableK(d.writes, (op, w) => {
       known(w, WRITE_CLOSURES, `${id} domain.writes`); // L4
-      return {
-        ...w,
-        ...(w.confirms ? { confirms: slotted(w.confirms, id, "domain.confirms") } : {}),
-      };
+      return { ...w, ...(w.confirms ? { confirms: asSlot(w.confirms, id, `domain.writes.${op}.confirms`) } : {}) };
     }),
-    reads: table(d.reads, (f) => slotted(f, id, "domain.read")),
-    ...(d.listens ? { listens: table(d.listens, (f) => slotted(f, id, "domain.listen")) } : {}),
-    repair: slotted(d.repair, id, "domain.repair"),
-    ...(d.version ? { version: slotted(d.version, id, "domain.version") } : {}),
-    ...(typeof vo === "function" ? { versionOrder: slotted(vo, id, "domain.versionOrder") } : {}),
+    reads: tableK(d.reads, (op, f) => asSlot(f, id, `domain.reads.${op}`)),
+    ...(d.listens ? { listens: tableK(d.listens, (op, f) => asSlot(f, id, `domain.listens.${op}`)) } : {}),
+    repair: asSlot(d.repair, id, "domain.repair"),
+    ...(d.version ? { version: asSlot(d.version, id, "domain.version") } : {}),
+    ...(vo !== undefined && vo !== "lexical" ? { versionOrder: asSlot(vo as (a: unknown, b: unknown) => number, id, "domain.versionOrder") } : {}),
   } as SealedDomain;
 };
 const sealedAlready = new WeakSet<object>();

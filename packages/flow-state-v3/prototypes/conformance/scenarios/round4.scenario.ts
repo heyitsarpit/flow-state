@@ -1,7 +1,7 @@
 // Round 4: the review's findings as scenarios, and the real shapes it asked for (review H7). Each expected result is worked out by
 // hand from the rule it cites, or from the real file its fixture copies. D57-D64 are convergence-4's: proposed.
 import { commentRef, editorFixture } from "../fixtures/comments.compiled.ts";
-import { issueRef, issuesFixture } from "../fixtures/issues.compiled.ts";
+import { issueRef, issuesFixture } from "../typed/issues.ts";
 import {
   feedFixture,
   formFixture,

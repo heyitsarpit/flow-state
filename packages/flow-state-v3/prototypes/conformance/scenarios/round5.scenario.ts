@@ -14,7 +14,7 @@ import {
   deskFeedNoReconnect,
   roomsFixture,
   type Cursor,
-} from "../fixtures/feed.compiled.ts";
+} from "../typed/feed.ts";
 import { issuesPersisted } from "../typed/lab-machines.ts";
 import { ODD_KINDS, oddAllFixture } from "../fixtures/oddall.compiled.ts";
 import type { Fixture, Harness, Step } from "../harness.ts";

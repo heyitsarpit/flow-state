@@ -14,6 +14,8 @@ import {
   type Denial,
   type Fragment,
   type Mapped,
+  type DomainSpec,
+  type StreamSpec,
   type Member,
   type Node,
   type Op,
@@ -221,7 +223,10 @@ type PortTok = { readonly port: string };
 type Guard<M, Ev> = StateTok | OpGuard | PortTok | GuardFn<M, Ev>;
 type Act =
   | { readonly member: "commit" | "lookup"; readonly op: string; readonly f: unknown }
-  | { readonly member: "retry" | "cancel"; readonly op: string; readonly keyFn?: unknown };
+  | { readonly member: "retry" | "cancel"; readonly op: string; readonly keyFn?: unknown }
+  // Round 11 (D208): a module's member (M8, D63: `O.x.bookmark`, `O.x.refetch`), written as its data until the sessions module has handles (finding F3).
+  | { readonly member: "module"; readonly op: string; readonly module: string; readonly name: string; readonly f?: unknown };
+export const moduleMember = <M = never, Ev = never>(op: string, module: string, name: string, f?: (a: In<M, Ev>) => unknown): Act => ({ member: "module", op, module, name, ...(f ? { f } : {}) });
 // What `O.x` offers, narrowed by kind as the design's handles are. `M`: this machine's memory, so a selector is typed by the state it reads.
 type WriteHandle<I extends Fields, K extends keyof I, M> = {
   readonly commit: <Ev>(f: (a: In<M, Ev>) => TypeOf<I>) => Act;
@@ -337,6 +342,9 @@ type StateBody<M, All> = {
   readonly default?: StateTok;
   readonly on?: On<M, All>;
   readonly schedules?: Readonly<Record<string, SchedSpec<string>>>;
+  // Round 11 (D208): 2.7.3's `activities`, a stream's session placed while the state is active and `when` holds. By the stream's name, until the sessions
+  // module has handles (`O.x.subscribe(select)` in the design).
+  readonly activities?: ReadonlyArray<{ readonly op: string; readonly input: (a: In<M, unknown>) => unknown; readonly when?: (a: In<M, unknown>) => boolean }>;
   readonly traits?: Readonly<Record<string, Placed<M, All>>>;
   // A subroutine's instance is named by its state; `name` says otherwise (round 11: the hand Desk/Ticket names RESOLVING's wizard `wizard`, and its cases address it so).
   readonly into?: Placed<M, All> & { readonly fragment: FragRef; readonly name?: string };
@@ -415,6 +423,7 @@ const compileAlt = <M, Ev>(
     const p = `${path}.actions[${i}]`;
     if (a.member === "commit" || a.member === "lookup")
       return { op: a.op, verb: a.member, input: slotOf(definition, p, a.f) };
+    if (a.member === "module") return { op: a.op, verb: "module", module: a.module, name: a.name, ...(a.f ? { value: slotOf(definition, p, a.f) } : {}) };
     const keyFn = "keyFn" in a ? a.keyFn : undefined;
     return { op: a.op, verb: a.member, ...(keyFn ? { key: slotOf(definition, p, keyFn) } : {}) };
   });
@@ -524,8 +533,19 @@ const compilePlaced = <M, All>(
       }
     : {}),
 });
+const compileActivities = (definition: string, base: string, list: StateBody<unknown, unknown>["activities"]) =>
+  list?.length
+    ? {
+        activities: list.map((x, i) => ({
+          op: x.op,
+          input: slotOf<(a: unknown) => unknown>(definition, `${base}activities[${i}]`, x.input),
+          ...(x.when ? { when: slotOf<(a: unknown) => boolean>(definition, `${base}activities[${i}].when`, x.when) } : {}),
+        })),
+      }
+    : {};
 type BodyShape<M, All> = {
   readonly on?: On<M, All>;
+  readonly activities?: StateBody<M, All>["activities"];
   readonly schedules?: StateBody<M, All>["schedules"];
   readonly traits?: StateBody<M, All>["traits"];
   readonly states?: Readonly<Record<string, StateBody<M, All>>>;
@@ -557,6 +577,7 @@ const compileNodes = <M, All>(
     id: "root",
     on: compileOn(definition, "", body.on),
     schedules: compileSchedules(definition, "", body.schedules as never),
+    ...compileActivities(definition, "", body.activities as never),
     ...(root.length ? { placements: root } : {}),
   };
   const walk = (t: StateTree, parent: string, prefix: string) => {
@@ -571,6 +592,7 @@ const compileNodes = <M, All>(
         parent,
         on: compileOn(definition, path, b.on),
         schedules: compileSchedules(definition, path, b.schedules as never),
+        ...compileActivities(definition, `${path}.`, b.activities as never),
         ...(b.default ? { default: b.default.node } : {}),
         ...(placements.length ? { placements } : {}),
         ...(into ? { subroutine: into } : {}),
@@ -693,6 +715,72 @@ const collect = (roots: readonly FragmentValue[]) => {
   return [...out.values()];
 };
 
+// ── Round 11 (D209): the entity and session modules' data, in `Compiled`'s own shape, with plain closures that this front end makes Slots under their own
+// paths. NOT the design's entity API (2.8) or stream contract (2.11): those front ends are the entity step and the compile prototypes (HANDOFF, plan cut).
+// What this proves is that `Compiled` carries them as Slots; what it does not is that the design's API compiles to them (finding F5).
+type Fn = (...a: never[]) => unknown;
+export type DomainIn = {
+  readonly writes: Readonly<Record<string, { readonly predicts: Fn; readonly confirms?: Fn }>>;
+  readonly reads?: Readonly<Record<string, Fn>>;
+  readonly listens?: Readonly<Record<string, Fn>>;
+  readonly repair: Fn;
+  readonly version?: Fn;
+  readonly versionOrder?: "lexical" | Fn;
+};
+const compileDomain = (id: string, d: DomainIn): DomainSpec =>
+  ({
+    writes: Object.fromEntries(
+      Object.entries(d.writes).map(([op, w]) => [
+        op,
+        { predicts: slotOf(id, `domain.writes.${op}.predicts`, w.predicts), ...(w.confirms ? { confirms: slotOf(id, `domain.writes.${op}.confirms`, w.confirms) } : {}) },
+      ]),
+    ),
+    reads: Object.fromEntries(Object.entries(d.reads ?? {}).map(([op, f]) => [op, slotOf(id, `domain.reads.${op}`, f)])),
+    ...(d.listens ? { listens: Object.fromEntries(Object.entries(d.listens).map(([op, f]) => [op, slotOf(id, `domain.listens.${op}`, f)])) } : {}),
+    repair: slotOf(id, "domain.repair", d.repair),
+    ...(d.version ? { version: slotOf(id, "domain.version", d.version) } : {}),
+    ...(d.versionOrder === undefined ? {} : { versionOrder: d.versionOrder === "lexical" ? "lexical" : slotOf(id, "domain.versionOrder", d.versionOrder) }),
+  }) as unknown as DomainSpec;
+type MappedIn = { readonly tag: string; readonly fromFn?: unknown };
+export type StreamIn = Omit<StreamSpec, "key" | "backoff" | "subscribe" | "reconnectWhile" | "pageRetryWhile" | "catchUp" | "value" | "missed" | "failure" | "failureBy" | "pages"> & {
+  readonly key: Fn;
+  readonly backoff: Fn;
+  readonly subscribe: Fn;
+  readonly reconnectWhile?: Fn;
+  readonly pageRetryWhile?: Fn;
+  readonly catchUp?: Fn;
+  readonly value: MappedIn;
+  readonly missed: MappedIn;
+  readonly failure: MappedIn;
+  readonly failureBy?: Readonly<Record<string, MappedIn>>;
+  readonly pages?: MappedIn;
+};
+const streamMapped = (id: string, op: string, name: string, t: MappedIn): Mapped => ({ event: t.tag, ...(t.fromFn ? { from: slotOf(id, `streams.${op}.${name}`, t.fromFn) } : {}) });
+const compileStreams = (id: string, s: Readonly<Record<string, StreamIn>>): Readonly<Record<string, StreamSpec>> =>
+  Object.fromEntries(
+    Object.entries(s).map(([op, x]) => {
+      const sl = (n: string, f: Fn | undefined) => (f ? { [n]: slotOf(id, `streams.${op}.${n === "reconnectWhile" ? "reconnect.while" : n === "pageRetryWhile" ? "page.while" : n}`, f) } : {});
+      const { key, backoff, subscribe, reconnectWhile, pageRetryWhile, catchUp, value, missed, failure, failureBy, pages, ...data } = x;
+      return [
+        op,
+        {
+          ...data,
+          ...sl("key", key),
+          ...sl("backoff", backoff),
+          ...sl("subscribe", subscribe),
+          ...sl("reconnectWhile", reconnectWhile),
+          ...sl("pageRetryWhile", pageRetryWhile),
+          ...sl("catchUp", catchUp),
+          value: streamMapped(id, op, "value", value),
+          missed: streamMapped(id, op, "missed", missed),
+          failure: streamMapped(id, op, "failure", failure),
+          ...(failureBy ? { failureBy: Object.fromEntries(Object.entries(failureBy).map(([k, t]) => [k, streamMapped(id, op, `failureBy.${k}`, t)])) } : {}),
+          ...(pages ? { pages: streamMapped(id, op, "pages", pages) } : {}),
+        } as unknown as StreamSpec,
+      ];
+    }),
+  );
+
 // ── The definition, then the machine. Two calls, as the design has them, so `E` is known before the operations and `S`, `O` before the body.
 export const definition = <
   T extends StateTree,
@@ -712,6 +800,8 @@ export const definition = <
   readonly uses?: readonly string[]; // the modules its operations import, by name (D44)
   readonly places?: P; // round 11: the fragments it places, by instance name, as a fragment's `places`; `E.<name>.<HostEvent>` raises into one
   readonly operations: (t: { readonly E: EventsOf<In_> }) => O;
+  readonly domain?: DomainIn; // D209
+  readonly streams?: (t: { readonly E: EventsOf<In_> }) => Readonly<Record<string, StreamIn>>; // D209
 }) => ({
   ...d,
   ops: d.operations({ E: tokens(d.internalEvents) }),
@@ -749,6 +839,7 @@ export const machine = <
     readonly on?: On<MemoryOf<M>, EventPayloads<Ev & In_>>;
     readonly traits?: Readonly<Record<string, Placed<MemoryOf<M>, EventPayloads<Ev & In_>>>>;
     readonly schedules?: Readonly<Record<string, SchedSpec<string>>>;
+    readonly activities?: StateBody<MemoryOf<M>, EventPayloads<Ev & In_>>["activities"];
     readonly states?: {
       readonly [K in keyof T]?: StateBody<MemoryOf<M>, EventPayloads<Ev & In_>>;
     };
@@ -785,6 +876,8 @@ export const machine = <
       persisted: d.persisted ?? true,
       ...(d.local ? { local: true as const } : {}),
       uses: d.uses ?? [],
+      ...(d.domain ? { domain: compileDomain(d.id, d.domain) } : {}),
+      ...(d.streams ? { streams: compileStreams(d.id, d.streams({ E: tokens(d.internalEvents) })) } : {}),
       events: { external: Object.keys(d.events), internal: Object.keys(d.internalEvents) },
     },
   };
@@ -842,6 +935,7 @@ export const fragment = <
     readonly on?: On<MemoryOf<M>, EventPayloads<Ev & Host & In_>>;
     readonly schedules?: Readonly<Record<string, SchedSpec<string>>>;
     readonly traits?: Readonly<Record<string, Placed<MemoryOf<M>, EventPayloads<Ev & Host & In_>>>>;
+    readonly activities?: StateBody<MemoryOf<M>, EventPayloads<Ev & Host & In_>>["activities"]; // rule 41, 52: a trait body may hold activities
     readonly states?: {
       readonly [K in string]?: StateBody<MemoryOf<M>, EventPayloads<Ev & Host & In_>>;
     };

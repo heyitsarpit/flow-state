@@ -1,5 +1,5 @@
 // Round 6: the review's findings as scenarios. Worked out by hand from convergence-6's tables and traces, or from the rule cited. D74-D82 are proposed.
-import { chatFixture, type ChatOpts } from "../fixtures/chat.compiled.ts";
+import { chatFixture, type ChatOpts } from "../typed/chat.ts";
 import {
   deskFixture,
   deskListenFixture,

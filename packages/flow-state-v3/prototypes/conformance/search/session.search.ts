@@ -1,8 +1,8 @@
 // SEARCH-SESSION: sessions crossed with what they have been crossed with least: reload, freeze, reset, dispose, a slow close and one
 // that never finishes, ahead of a value in mail. Oracles read what the suite owns: the fake's connections, and the disk. Review H7,
 // H9. Values are numbered as sent, so an edge can say which it was; their positions rise, so the disk can be checked (rule 71).
-import { chatFixture } from "../fixtures/chat.compiled.ts";
-import { roomsFixture } from "../fixtures/feed.compiled.ts";
+import { chatFixture } from "../typed/chat.ts";
+import { roomsFixture } from "../typed/feed.ts";
 import type { Harness, Step } from "../harness.ts";
 import { checkClaims, checkEndings, checkMints } from "../scenarios/ctx.ts";
 import { bfs, Oracle, type Action, type Report } from "./engine.ts";
