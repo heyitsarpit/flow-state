@@ -463,12 +463,13 @@ Convergence-8. Old unbuilt rows (`STORY-ALL`, `BROWSER-*`, `SSR-01`) renumbered 
 | REV8-M3 | 8 | fault | hostile | D99 |  | review M3: a boot lost apart from its records repeats no id; a read reaches its own copy |
 | REV8-M9 | 8 | fault | hostile | D100, O5 |  | review M9's doors: a guard key denies, a lookup ends failed, a module value drops, a member's key does nothing |
 | REV8-KEPT | 8 | fault | hostile | D109, D50 |  | review M4: a refused ending is kept, named, delivered at the next boot; a read's is a stranded wait |
-| REV8-STORM | 8 | fault | hostile | D110 |  | review M5: a failure with no I/O and a handler that asks again stops, named; the budget returns with time |
+| REV8-STORM | 8 | fault | hostile | D110, D122 |  | review M5: a failure with no I/O and a handler that asks again yields each slice, and is named; a press goes beside it |
 | REV8-WIPE | 8 | fault | hostile | D106, O6 |  | a wiped origin and a hold, in both key forms |
 | REV8-PINS | 8 | fault | hostile | D102, D80, D84, D88, D72, D83, D89, D29, L6 |  | survivors of the round 7 reviews: hide on two actors, after-drain, poison's lanes, and every survivor reported twice |
 | REV9-M1 | 9 | fault | hostile | D114, D109 |  | review M1: a decline carries its input; a refused `NotSent` is parked, not read as a hold; a hold parks nothing |
 | REV9-BURST | 9 | fault | hostile | D115, H1 |  | review H1, M4: 300 sends, 300 rows, a queue over a local source, a clock set back: all end, no storm |
-| REV9-SPIN | 9 | fault | hostile | D115, H1 |  | a chain of endings with no I/O waits, named once, backs off; a press and a real answer are not part of it; a kill and a dispose end it |
+| REV9-LOOP | 9 | fault | hostile | D122, H1, M1, M2 |  | a spin over any answer never freezes the page; a correct bulk needs no timer; failure is not a spin; another actor is not delayed; a press, a kill, a dispose and a freeze end it |
+| REV9-EDGE | 9 | fault | hostile | D123, M3, M4, M5 |  | what a turn refused twice stays with what owes it and ends with that: key-less guards and cancels, declines on their own key, one try per boot, local lives, stranded by life |
 | REV9-KEPT | 9 | fault | hostile | D118, D109, D50 |  | review M2, M3: a refused deadline stays on the record; a kept ending is on the row, blocks its key, can be let go; a raise with no name; a refused turn's commands |
 | REV9-STREAM | 9 | fault | hostile | D118, D50 |  | review M2: a stream's failure no turn could take is a stranded wait |
 | REV9-NAMES | 9 | fault | hostile | D119, D108, M5 |  | review M5: a bigint names a lane and a reset; it still cannot be carried; two values with no name are one |

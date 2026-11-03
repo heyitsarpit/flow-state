@@ -1,4 +1,106 @@
-# Round 9, part one: a runtime and tests entities can trust
+# Round 9: a runtime and tests entities can trust
+
+Status: proposed, throwaway. **Part two first, part one below it. Part one's numbers stand as history; its D115, D117's second half, D118's table and D120 are replaced.**
+
+## Part two: self-looping and what a turn cannot take
+
+Ran 2026-11-03, Bun 1.4.2, Chrome headless, this Mac. Decisions: [../convergence-9.md](../convergence-9.md), D122-D128, all proposed. Input: [review-fixes.md](review-fixes.md), advice. **No independent review of this; mutants are mine.** Another agent's work ran in this tree at the same time, so load overlapped; search depths are lower bounds.
+
+**Verdict.** H1, M1-M8 answered, by two rules. **Self-looping: a slice of work, however it arrived, then a task for the page; mail served actor by actor; nothing paced, dropped or cut.** The pacing machinery is deleted: `depth`, `inline`, `noIo`, `endingChain`, the `pace` timer, the `paced` wait. **What a turn cannot take: it stays with what owes it, and ends with that.** Fit to build entities on, by my reading: yes, with the one price below.
+
+**The price, for Arpit: a spin is never stopped or slowed.** It runs at task rate, 280,000 turns a second here, one core, in a hidden tab too, until a press or a move ends it. Named at run time only for the same input failing 64 times, and by `flow check`'s `AsksForever` when no handler has a way out. A handler retrying a failing server at once hammers it at the network's rate, as it would under Effect. Part one had no protection there either. If you want a backoff, it belongs on an explicit retry, not on a guess at shape.
+
+### Real Chrome [ran]: `reality/results-spin.json`
+
+| Run | Part one | Part two |
+| --- | --- | --- |
+| Spin over a resolved promise, 2 s | **Never returned; no timer fired** | 561,805 turns; timer fired; interval p50 17 ms, max 27 ms |
+| The same, failing | Never returned | 355,645 turns; max 27 ms; named once |
+| Spin answered in the pump | 1,547 in 2 s | 593,951; max 24 ms |
+| Press on another actor, beside a spin, 50 times | | p50 17 ms, max 19 ms |
+| 1,000 rows, promise / in the pump | 4.8 s by the review | **19 ms / 21 ms.** With yielding off: 25 ms / 23 ms, first run |
+| 5,000 rows | | 47 ms; off, 52 ms, first run |
+| 200 rows, one duplicate / 300, every 10th / 200, all | 30 s / 12 min / 66 min in the fake | 13 ms / 17 ms / 10 ms; first run for the first two |
+| 5,000 rows, page frozen for 1 s in the middle | | Done at 1,146 ms: 1 s frozen. Reports `hidden` while frozen |
+
+**Hidden tabs are not measured.** Headless stayed `visible`; only a lifecycle freeze was run. `Host.later` is a `MessageChannel` post, which by what I know is not timer-throttled: reasoning, not shown. A host with only `setTimeout` gets each slice at the browser's floor.
+
+### What ran on the final runtime [ran]
+
+| Gate | Result |
+| --- | --- |
+| Suite | **703/703**, exit 0, nothing unlogged, catalog agrees, about 330 MB, 3.8 s |
+| `--swap` typed | 703/703, exit 0 |
+| 5 s gate | 29 failed, 29 expected; unexpected: none; failing differently: none; expected but passed: none |
+| CLI pins | all pass. `flow check` end to end from a Schema: 12 machines |
+| `tsc --strict` on typed | exit 0 |
+| Typed compare, date check | 52 differences as before; pass |
+| Pay | `pay.compiled.ts`, `pay.typed.ts`: no diff |
+| Red | New cases on part one: 42 failed, 7 passed, in `red-round-9.txt`. Of the 7, `a-bulk-does-not-stand...` passes there only since part one's real clock never yields in a fake: `d122.mail-fifo` is what shows it is real. The 4 cases added after that first red pass (`listeners...never-leaves-the-pump`, `a-new-life-tries...once`, `a-sleeping-actors...`, `a-key-less-cancel-stays...`) were not run on part one |
+| Mutants, **builder-written** | **45/47,** 1 by the watchdog (`d122.no-yield-in-loop`, a hot pump), control green, 0 invalid. `mutants-r9b.ts` |
+| Lost endings | **29/29 named by oracle (j)**, each kind. `j-named.txt`. Review: 5 kinds of 26 |
+
+**Survivors, each with a reason.** `d122.redelivery-counts`: a refused failure counts twice toward a name, so it is named early; nothing else changes. Left. `d123.letgo-takes-all`: `cancel` taking an ordinary parked ending too. I reason it cannot happen: an ordinary ending parks only with no life of its subject, a `cancel` needs one, and adoption empties first.
+
+**First mutant pass: 9 survivors.** Two showed code that did nothing: a check at `pump`'s start and a `yielding` guard. Removed, so the rule is one line. Others are pinned now. `d122.slice-per-pump` is H1 itself, written after the removal, and dies by (k).
+
+### Searches: 40 s each, serial, under load [ran]
+
+| Search | Depth | States | Result |
+| --- | --- | --- | --- |
+| **`chain`, new** | 5 | 15,557 | clean |
+| `cross` | 5 | 40,057 | clean |
+| `like` | 6 | 42,602 | clean |
+| `frag` | 7 | 26,381 | clean |
+| `session` | 5 | 34,371 | clean |
+| `listen.none` | 5 | 41,004 | clean |
+| `odd` | 4 | 22,469 | clean |
+| `pay` | 6 | 16,828 | clean |
+| `crash` | 8 | 36,999 | clean |
+| `flush.serialize.directed` | 11 | 9,153 | clean |
+| `flush.serialize.queue` | 8 | 10,120 | clean |
+| `flush.serialize.burst` | 5 | 430 | clean |
+| `flush.serialize.wipe` | 8 | 10,047 | clean |
+| `flush.bare.tight` | 6 | 17,684 | clean |
+| `flush.two.tight` | 4 | 15,401 | clean |
+| `flush.frag.tight` | 7 | 21,547 | clean |
+| `flush.pay.tight` | 12 | 3,389 | clean |
+| **`flush.bare.capture`, new** | 8 | 15,548 | clean |
+| `listen.load` | 3 | 1,026 | **Fails, as on rounds 7, 8 and part one.** H2 class, for entities |
+| `fragstore.row` | 7 | 84,812 | **Fails, as on rounds 7, 8 and part one.** H2 class, for entities |
+
+`fragstore.row` ran 170 s, the rest 40 s. Clean means clean to that depth: all timed out, inconclusive by time.
+
+### Plants [ran]: `plants.txt`
+
+Suite 13/13. **Correction: part one said 5 inconclusive; it was 6, `noMerge` too, as the review read.** Now `capture` catches 3 of the 6: `ignoresNow` (r), `noSilent` (s), `hiddenWaits` (q). **Three stay suite-only, with reasons:** `debounce`: a state's hash reads time relative to now, so `Note tick Note tick` folds into a state already seen, and the search never sees a change getting older. A time-history key would see it; not built. `encodeOnTurn`: same states, only where the encode ran differs. `noMerge`: suite-only, and I did not trace why (p) stays quiet on it.
+
+### Tampers [ran part]
+
+`--first-lock --lock` with the lock moved away: **refused**, no lock written, on a copy. Weaken a case, hand-paste both hashes: still green, stated. Delete the log too: gets through. `git diff expected.lock` stays the check.
+
+### For Arpit's read
+
+Made under delegation, overrule any:
+
+1. **A spin is not stopped or slowed.** Above.
+2. **Mail order across actors is no longer global.** Within an actor, unchanged. Entities must not assume otherwise.
+3. **A cut can fall between a turn and the next mail,** not between a turn and its follow-ups. Under a long bulk the disk gets one batch a slice, not one at the end. Any step boundary was already a legal cut for `hide`.
+4. **A decline stays parked, not stranded,** against the review: stranded would leave a persisted `W` with no wait for good. It blocks nothing, one per lane.
+5. **A kept ending is tried once per boot or new life,** and says what was thrown: `cause`.
+6. **A boot forgets a stranded wait.** "A reload asks again" is withdrawn. A lint for a lookup with no recurring schedule is yours to call: not built.
+7. **`a-real-answer-breaks-the-chain` is removed, not fixed:** no chain. Same for survivors `d115.press-keeps-depth`, `follow-resets-depth`, `cancel-keeps-paced`.
+
+### Not run, and open
+
+- Hidden tab, throttled timers, intensive throttling. Safari, phones.
+- A real server, persisted bulk through real IndexedDB under D122: `page.ts` has the new `later`, but `run.ts`, H1 real, H3, S3, S4 were **not rerun**, so a batch per slice is unmeasured on a real store.
+- Old mutant lists, `mutants-r9.ts`: they name removed code. `flow graph`, `story`, `trace`. `nub run verify`, repo lint and formatter: throwaway files, as in past rounds.
+- `carried` overclaiming on `NaN`, boxed primitives, a `Date`: review's Lows, unchanged. A reset with no name still issues per evaluation.
+
+---
+
+# Part one
 
 Status: proposed, throwaway. Ran 2026-11-03, Bun 1.4.2, Chrome 146 headless, this Mac. Decisions: [../convergence-9.md](../convergence-9.md), D114-D121, all proposed. Input: [../round-8/review.md](../round-8/review.md), advice. Marks: **[ran]**, **[read]**, **[reasoning]**. Outputs here: `mutants-builder.txt`, `mutants-r9.ts`, `search-*.txt`, `plants.txt`, `reality/results-*.json`; red: `../conformance/red-round-9.txt`. Entities not started.
 
@@ -53,7 +155,7 @@ Oracle (j) is in every one. **It has not caught a new bug here;** it kills `d115
 
 ### Plants [ran]
 
-Suite 13/13. Search, 30 s on `flush.bare.tight` or `two.tight`: `plants.txt`. `debounce`, `ignoresNow`, `noSilent`, `encodeOnTurn`, `hiddenWaits`: inconclusive, as in round 8. Overlap: my swap, gate and CLI runs overlapped the first plants; the tampers overlapped the first mutant pass; the final mutants, searches and real runs were serial.
+Suite 13/13. Search, 30 s on `flush.bare.tight` or `two.tight`: `plants.txt`. `debounce`, `ignoresNow`, `noSilent`, `encodeOnTurn`, `hiddenWaits`, `noMerge`: inconclusive, as in round 8. (Corrected in part two: this said 5.) Overlap: my swap, gate and CLI runs overlapped the first plants; the tampers overlapped the first mutant pass; the final mutants, searches and real runs were serial.
 
 ### Tampers, on a copy [ran]
 

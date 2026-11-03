@@ -1,74 +1,74 @@
 {
  "browser": "Chrome/146.0.7680.76",
  "spin.promise": {
-  "spun": 599569,
+  "spun": 561805,
   "fired": true,
-  "heard": 599593,
+  "heard": 562040,
   "gaps": {
-   "ticks": 106,
-   "p50": 17.30000001192093,
-   "max": 28.299999952316284
+   "ticks": 103,
+   "p50": 17.299999952316284,
+   "max": 26.899999976158142
   },
   "storm": 0,
   "visibility": "visible",
   "stopped": true
  },
  "spin.promise.failing": {
-  "spun": 403662,
+  "spun": 355645,
   "fired": true,
-  "heard": 403686,
+  "heard": 355881,
   "gaps": {
-   "ticks": 103,
-   "p50": 17.30000001192093,
-   "max": 26.299999952316284
+   "ticks": 106,
+   "p50": 17.19999998807907,
+   "max": 26.80000001192093
   },
   "storm": 1,
   "visibility": "visible",
   "stopped": true
  },
  "spin.sync": {
-  "spun": 639458,
+  "spun": 593951,
   "fired": true,
-  "heard": 249,
+  "heard": 470,
   "gaps": {
    "ticks": 106,
    "p50": 16.200000047683716,
-   "max": 24.5
+   "max": 24.399999976158142
   },
   "storm": 0,
   "visibility": "visible",
   "stopped": true
  },
  "spin.sync.failing": {
-  "spun": 591235,
+  "spun": 545833,
   "fired": true,
-  "heard": 249,
+  "heard": 468,
   "gaps": {
-   "ticks": 108,
+   "ticks": 106,
    "p50": 16.200000047683716,
-   "max": 24.5
+   "max": 28.5
   },
   "storm": 1,
   "visibility": "visible",
   "stopped": true
  },
  "spin.promise.setTimeoutHost": {
-  "spun": 357182,
+  "spun": 339403,
   "fired": true,
-  "heard": 357197,
+  "heard": 339555,
   "gaps": {
-   "ticks": 195,
-   "p50": 12.400000035762787,
-   "max": 24.30000001192093
+   "ticks": 196,
+   "p50": 12.099999964237213,
+   "max": 24.80000001192093
   },
   "storm": 0,
   "visibility": "visible",
   "stopped": true
  },
  "press.beside.spin": {
-  "p50": 17,
-  "max": 18.19999998807907,
-  "spun": 360147
+  "p50": 17.100000023841858,
+  "max": 19.099999964237213,
+  "spun": 339140
  },
  "rows.1000.promise": {
   "n": 1000,
@@ -76,8 +76,8 @@
   "ms": 19,
   "gaps": {
    "ticks": 1,
-   "p50": 19.30000001192093,
-   "max": 19.30000001192093
+   "p50": 19.200000047683716,
+   "max": 19.200000047683716
   },
   "m": {
    "ok": 1000,
@@ -89,7 +89,7 @@
  "rows.1000.sync": {
   "n": 1000,
   "done": true,
-  "ms": 20,
+  "ms": 21,
   "gaps": {
    "ticks": 0,
    "p50": -1,
@@ -105,7 +105,7 @@
  "rows.1000.promise.noYield": {
   "n": 1000,
   "done": true,
-  "ms": 25,
+  "ms": 21,
   "gaps": {
    "ticks": 0,
    "p50": -1,
@@ -121,7 +121,7 @@
  "rows.1000.sync.noYield": {
   "n": 1000,
   "done": true,
-  "ms": 23,
+  "ms": 19,
   "gaps": {
    "ticks": 0,
    "p50": -1,
@@ -137,11 +137,11 @@
  "rows.1000.promise.setTimeoutHost": {
   "n": 1000,
   "done": true,
-  "ms": 21,
+  "ms": 20,
   "gaps": {
    "ticks": 1,
-   "p50": 20.799999952316284,
-   "max": 20.799999952316284
+   "p50": 20.099999964237213,
+   "max": 20.099999964237213
   },
   "m": {
    "ok": 1000,
@@ -153,11 +153,11 @@
  "rows.5000.promise": {
   "n": 5000,
   "done": true,
-  "ms": 53,
+  "ms": 47,
   "gaps": {
-   "ticks": 3,
-   "p50": 17,
-   "max": 24.400000035762787
+   "ticks": 2,
+   "p50": 24.900000035762787,
+   "max": 24.900000035762787
   },
   "m": {
    "ok": 5000,
@@ -169,7 +169,7 @@
  "rows.5000.promise.noYield": {
   "n": 5000,
   "done": true,
-  "ms": 52,
+  "ms": 45,
   "gaps": {
    "ticks": 0,
    "p50": -1,
@@ -185,7 +185,7 @@
  "rows.200.one.dup": {
   "n": 200,
   "done": true,
-  "ms": 13,
+  "ms": 11,
   "gaps": {
    "ticks": 0,
    "p50": -1,
@@ -201,11 +201,11 @@
  "rows.300.tenth.dup": {
   "n": 300,
   "done": true,
-  "ms": 17,
+  "ms": 13,
   "gaps": {
-   "ticks": 1,
-   "p50": 16.899999976158142,
-   "max": 16.899999976158142
+   "ticks": 0,
+   "p50": -1,
+   "max": -1
   },
   "m": {
    "ok": 270,
@@ -217,7 +217,7 @@
  "rows.200.all.dup": {
   "n": 200,
   "done": true,
-  "ms": 13,
+  "ms": 10,
   "gaps": {
    "ticks": 0,
    "p50": -1,
@@ -249,11 +249,11 @@
  "writes.1000.promise": {
   "n": 1000,
   "done": true,
-  "ms": 35,
+  "ms": 32,
   "gaps": {
-   "ticks": 2,
-   "p50": 23.899999976158142,
-   "max": 23.899999976158142
+   "ticks": 1,
+   "p50": 24.400000035762787,
+   "max": 24.400000035762787
   },
   "m": {
    "ok": 1000,
@@ -265,11 +265,11 @@
  "rows.5000.frozen1s": {
   "n": 5000,
   "done": true,
-  "ms": 1156,
+  "ms": 1146,
   "gaps": {
-   "ticks": 8,
-   "p50": 23.19999998807907,
-   "max": 1011.6999999880791
+   "ticks": 7,
+   "p50": 24.399999976158142,
+   "max": 1011.8000000119209
   },
   "m": {
    "ok": 5000,
