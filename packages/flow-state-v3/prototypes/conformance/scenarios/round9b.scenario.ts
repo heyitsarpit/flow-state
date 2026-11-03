@@ -317,6 +317,18 @@ export const round9bScenarios: readonly Scenario[] = [
         c.eq("the row of its key", (c.r.row(E, "save", { id: "a" }) as any)?.undelivered, 1);
         c.eq("no lane with no name", lane(c, "null"), undefined);
       },
+      // Stage G (re-check: a decline's let-go excused by any actor's move): a kept decline of one actor stays while ANOTHER actor of the
+      // same machine moves. Only its own owner's cause may let it go.
+      "a-kept-decline-stays-while-another-actor-moves"(c0) {
+        const c = on(c0, edgeFixture(), E);
+        const E2 = { actor: E.actor, id: "b" };
+        c.ensure(E2);
+        c.do({ fault: { throwIn: "operations.save.NotSent", times: 2 } });
+        c.send("Go", { id: "a", at: new Set() });
+        c.eq("kept on its key", (c.r.row(E, "save", { id: "a" }) as any)?.undelivered, 1);
+        c.to(E2, "Q");
+        c.eq("the other actor moved, and it is still kept", (c.r.row(E, "save", { id: "a" }) as any)?.undelivered, 1);
+      },
       "cancel-of-its-own-key-lets-a-decline-go"(c0) {
         const c = on(c0, edgeFixture(), E);
         c.do({ fault: { throwIn: "operations.save.NotSent", times: 2 } });

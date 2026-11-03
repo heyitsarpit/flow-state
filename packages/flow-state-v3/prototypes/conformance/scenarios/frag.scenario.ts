@@ -983,6 +983,61 @@ export const fragScenarios: readonly Scenario[] = [
       },
     },
   },
+  // Stage G (re-check H1''''): the entity shape. Two actors of one machine, three keyed copies each, every copy's memory its own (so the
+  // suite's observed recipient is one actor and one copy). Endings of one actor's copy must reach that copy of that actor only.
+  {
+    id: "FRAG-22",
+    kind: "example",
+    fixtures: [notesFixture],
+    actor: N,
+    cites: ["rule:51", "rule:53", "rule:14"],
+    variants: {
+      "two-actors-three-copies-each-ending-reaches-its-own"(c) {
+        const B = { actor: "Notes", id: "b" };
+        for (const a of [N, B]) {
+          c.ensure(a);
+          c.to(a, "SetDocs", docs("d1", "d2", "d3"));
+          for (const d of ["d1", "d2", "d3"]) {
+            c.into([`docs:${d}`], "Edited", { body: `${a.id}-${d}` }, a);
+            c.ack();
+          }
+        }
+        c.answer("save", { lost: true }, { docId: "d2", body: "a-d2" });
+        c.eq("a's second copy heard its unknown", c.inner(["docs:d2"], N)?.memory.status, "unsure");
+        c.eq("b's second copy heard nothing", c.inner(["docs:d2"], B)?.memory.status, "saving");
+        c.answer("save", { fail: { tag: "Conflict" } }, { docId: "d2", body: "b-d2" });
+        c.eq("b's second copy heard its conflict", c.inner(["docs:d2"], B)?.memory.status, "conflict");
+        c.eq("a's second copy kept its unknown", c.inner(["docs:d2"], N)?.memory.status, "unsure");
+        c.answer("save", { apply: true }, { docId: "d3", body: "b-d3" });
+        c.eq("b's third copy saved its own text", c.inner(["docs:d3"], B)?.memory.saved, "b-d3");
+        for (const d of ["d1", "d3"]) c.eq(`a's ${d} heard nothing`, c.inner([`docs:${d}`], N)?.memory.status, "saving");
+        c.eq("b's first heard nothing", c.inner(["docs:d1"], B)?.memory.status, "saving");
+      },
+      // A keyed copy's failure, admitted in the same batch as another copy's own turn and another actor's: two lanes answered in one
+      // `do`, and a send to a third copy. (j) must see each ending land in its own copy, and pay no let-go for the moving copy beside it.
+      "keyed-failure-beside-another-copys-turn-in-one-batch"(c) {
+        const B = { actor: "Notes", id: "b" };
+        for (const a of [N, B]) {
+          c.ensure(a);
+          c.to(a, "SetDocs", docs("d1", "d2", "d3"));
+          for (const d of ["d1", "d2"]) {
+            c.into([`docs:${d}`], "Edited", { body: `${a.id}-${d}` }, a);
+            c.ack();
+          }
+        }
+        c.h.raw({ answer: "save", with: { fail: { tag: "Conflict" } }, where: { docId: "d1", body: "a-d1" } });
+        c.h.raw({ answer: "save", with: { lost: true }, where: { docId: "d2", body: "b-d2" } });
+        c.h.raw({ send: N, event: "Edited", payload: { body: "a-d3" }, to: ["docs:d3"] });
+        c.h.raw({ send: B, event: "Edited", payload: { body: "b-d3" }, to: ["docs:d3"] });
+        c.h.do({ advance: 0 });
+        c.eq("a's first copy heard its conflict", c.inner(["docs:d1"], N)?.memory.status, "conflict");
+        c.eq("b's second copy heard its unknown", c.inner(["docs:d2"], B)?.memory.status, "unsure");
+        c.eq("a's second copy heard nothing", c.inner(["docs:d2"], N)?.memory.status, "saving");
+        c.eq("b's first copy heard nothing", c.inner(["docs:d1"], B)?.memory.status, "saving");
+        c.eq("each third copy took its own edit", [c.inner(["docs:d3"], N)?.memory.body, c.inner(["docs:d3"], B)?.memory.body], ["a-d3", "b-d3"]);
+      },
+    },
+  },
   // From the second author's survivors, after his number was taken (35/50). They do not change that number.
   {
     id: "FRAG-20",

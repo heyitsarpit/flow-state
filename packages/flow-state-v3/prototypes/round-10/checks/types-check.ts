@@ -1,7 +1,7 @@
 // Re-audit H2: D91's compile-time pins are a gate. `tsc` on `typed/tsconfig.json`: every `@ts-expect-error` must be an error, and the
 // typed front end must compile. Re-check M1', D156: each directive is found as TypeScript finds one, by comment token (a comment that only
 // mentions the words is no directive), and each is pinned by its own text, so "which refusal" is part of the gate, not only "how many".
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, symlinkSync, unlinkSync } from "node:fs";
 import { dirname, join } from "node:path";
 
 const typed = join(import.meta.dir, "../typed");
@@ -9,9 +9,20 @@ let dir = import.meta.dir;
 while (!existsSync(join(dir, "node_modules/.bin/tsc")) && dirname(dir) !== dir) dir = dirname(dir);
 let tsc = join(dir, "node_modules/.bin/tsc");
 // Re-check L2 (stage F): a fresh worktree has no `node_modules`; then the main checkout's, by git's common dir, as `falsify.ts` finds it.
+// Re-check L1 (stage G): and its modules too. `tsc` resolves `effect` by walking up from each importing file, so the worktree's root gets a
+// `node_modules` link to the main checkout's for this run, the same packages `tsc` itself came from, and loses it at exit.
+let linked: string | undefined;
 if (!existsSync(tsc)) {
   const common = Bun.spawnSync(["git", "rev-parse", "--path-format=absolute", "--git-common-dir"], { cwd: import.meta.dir, stdin: "ignore" }).stdout.toString().trim();
   if (common) tsc = join(dirname(common), "node_modules/.bin/tsc");
+  const top = Bun.spawnSync(["git", "rev-parse", "--show-toplevel"], { cwd: import.meta.dir, stdin: "ignore" }).stdout.toString().trim();
+  if (common && top && existsSync(tsc) && !existsSync(join(top, "node_modules"))) {
+    symlinkSync(join(dirname(common), "node_modules"), join(top, "node_modules"));
+    linked = join(top, "node_modules");
+    process.on("exit", () => {
+      if (linked) unlinkSync(linked);
+    });
+  }
 }
 if (!existsSync(tsc)) {
   console.log("FAIL  types: no tsc found");

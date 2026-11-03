@@ -3,7 +3,7 @@
 import { createHash } from "node:crypto";
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
-import { makeHarness, swapFixtures } from "./drive.ts";
+import { makeHarness, recipients, swapFixtures } from "./drive.ts";
 import type { Harness, RuntimeModule } from "./harness.ts";
 import { caseOutput, diffOutput, type Section, type Tracked } from "./output.ts";
 import { catalog, printReports } from "./report.ts";
@@ -422,5 +422,7 @@ if (import.meta.main) {
   console.log(
     `\nSUMMARY  ${pass}/${results.length} scenario cases pass;${nothing} of the rest, by output alone: ${results.filter((r) => r.ok && r.output).length}; unlogged expectation changes: ${unlogged.join(" ") || "none"}; removed with no log line: ${gone.join(" ") || "none"}; stale lock: ${stale.length}; catalog disagreements: ${disagreements.join("; ") || "none"}`,
   );
+  // Stage G: how each delivery's recipient was settled (drive.ts `ears`). After SUMMARY, so a reader of the summary line is unchanged.
+  console.log(`RECIPIENTS  observed ${recipients.observed}; among equal views ${recipients.indistinct}; with no copy recorded ${recipients.noCopy}; unplaceable ${recipients.unplaceable}; at a boot, no pre-kill view matched ${recipients.atBoot}; unobserved (allowance A2) ${recipients.unobserved}`);
   process.exitCode = results.length > 0 && pass === results.length && !unlogged.length && !gone.length && !stale.length && !disagreements.length ? 0 : 1;
 }

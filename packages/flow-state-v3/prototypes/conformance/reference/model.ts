@@ -67,6 +67,7 @@ export class Reference {
     const m = this.byId.get(machine);
     const out: Array<{ path: string[]; resets: string[] }> = [];
     if (!m || leaf === undefined) return out;
+    const seen = new Set<string>();
     const walk = (nodes: Readonly<Record<string, Node>>, at: string, mem: any, here: string[], resets: string[], depth: number) => {
       if (depth > 8) return;
       const chain: Node[] = [];
@@ -94,6 +95,9 @@ export class Reference {
           const got = inner(path);
           if (!got) continue;
           const rs = reset === undefined ? resets : [...resets, reset];
+          // Re-check G1: two members with one key are one incarnation (rule 51), so one copy, not two that leave the suite undecided.
+          if (seen.has(JSON.stringify(path))) continue;
+          seen.add(JSON.stringify(path));
           if (p.fragment === frag) out.push({ path, resets: rs });
           const f = m.fragments?.[p.fragment];
           if (f) walk(f.nodes, got.state, got.memory, path, rs, depth + 1);

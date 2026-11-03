@@ -607,3 +607,16 @@ file:reference/model.ts hash:4864a6ed409c | D165: `copies` enumerates live copie
 file:main.ts hash:6b42c9aab034 | D167: `reference/` walked into the lock (re-check M2''')
 file:falsify.ts hash:fd7dda51fba5 | D167, D164-D166: the reference tamper; seven stage F lies in `--part lies`
 round:checks/types-check.ts hash:278fb66812c7 | D168: `tsc` found from a fresh worktree through git's common dir (re-check L2)
+FRAG-22 hash:ab070bae521b | D169: the entity shape, two actors of one machine with three keyed copies each, endings and a keyed failure beside another copy's turn in one batch (re-check H1'''')
+file:scenarios/frag.scenario.ts hash:f7c42305394b | D169: FRAG-22 added
+output:FRAG-22/keyed-failure-beside-another-copys-turn-in-one-batch hash:bf525cd4c2e3 | D169: FRAG-22's output, new
+output:FRAG-22/two-actors-three-copies-each-ending-reaches-its-own hash:d51e502cf025 | D169: FRAG-22's output, new
+file:reference/model.ts hash:f2d10ce05bca | D171: `copies` de-duplicated by path (re-check G1: two members with one key are one incarnation)
+file:main.ts hash:52265018ac80 | D169: a RECIPIENTS line after SUMMARY, how each delivery's recipient was settled
+file:falsify.ts hash:8838a1c71e1a | D169, D170: five stage G lies in `--part lies` (wrong actor, unknown and failure; wrong copy with the right `at`, 2+ and 3+ copies; a decline let go on another actor's turn); `--lie` to rerun named ones
+file:drive.ts hash:00957489425c | D169, D170: (j) observes each ending's recipient by a guard of its own on every alternative of a mapped event, placed by published views; the `at` check and its missing-`at` check deleted; `moveLetsGo` and `cancelsOn` per copy; a decline's let-go owed its own owners
+REV9-EDGE hash:5334b6fbc335 | D170: a kept decline stays while another actor of the machine moves (the decline let-go lie's case)
+file:scenarios/round9b.scenario.ts hash:11fab3b40ac1 | D170: REV9-EDGE's new variant
+output:REV9-EDGE/a-kept-decline-stays-while-another-actor-moves hash:e59d3b3210aa | D170: its output, new
+round:checks/types-check.ts hash:8d8514892e0a | D172: from a fresh worktree, `effect` resolves through a `node_modules` link to the main checkout's for the run (re-check L1)
+file:drive.ts hash:e67a14876b08 | D169, D170: a kept decline's owners are the actors the suite drove into its refused turn

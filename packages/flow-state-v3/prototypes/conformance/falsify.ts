@@ -272,8 +272,8 @@ try {
     const FIRST = `(() => { let s: any; walkIncs(a.root, (i: any) => { if (i.frag === tx.machines[a.machine]!.ops[item.op]?.fragment && !i.frozen) s ??= i.subject; }); return s ?? subject; })()`;
     const BIND = "const path = bindingOf(tx, a, item.op, subject);";
     const LIES10F: ReadonlyArray<readonly [string, string, Edits, string]> = [
-      ["e2.subject-fan-fail-att", "the copy: a failure to the first of 2+ copies (H1''')", [["turn.ts", BIND, `const path = item.attempt && ${FAIL} && ${FAN} ? bindingOf(tx, a, item.op, ${FIRST}) : bindingOf(tx, a, item.op, subject);`]], "(j) delivered to the wrong copy"],
-      ["e2.subject-fan-att", "the copy: every ending to the first of 2+ copies", [["turn.ts", BIND, `const path = item.attempt && ${FAN} ? bindingOf(tx, a, item.op, ${FIRST}) : bindingOf(tx, a, item.op, subject);`]], "(j) delivered to the wrong copy"],
+      ["e2.subject-fan-fail-att", "the copy: a failure to the first of 2+ copies (H1''')", [["turn.ts", BIND, `const path = item.attempt && ${FAIL} && ${FAN} ? bindingOf(tx, a, item.op, ${FIRST}) : bindingOf(tx, a, item.op, subject);`]], "(j) delivered to the wrong recipient"],
+      ["e2.subject-fan-att", "the copy: every ending to the first of 2+ copies", [["turn.ts", BIND, `const path = item.attempt && ${FAN} ? bindingOf(tx, a, item.op, ${FIRST}) : bindingOf(tx, a, item.op, subject);`]], "(j) delivered to the wrong recipient"],
       ["e1.park-keyed", "parked, keyed copies (M1''')", [["turn.ts", G125, at(`${FRAG} && ${KEYED}`, PARK)]], "(j) parked"],
       ["e1.park-keyed-fan-att", "parked, keyed, 2+ copies, attempts (M1''')", [["turn.ts", G125, at(`item.attempt && ${FRAG} && ${KEYED} && ${FAN}`, PARK)]], "(j) parked"],
       ["a3p.park-decline", "a decline parked on its live owner (M1''')", [["turn.ts", G125, at("!item.attempt", PARK)]], "(j) a decline parked"],
@@ -281,11 +281,30 @@ try {
       ["ref.binding-first-copy", "the runtime's `binding` ignores the subject; delivery is right", [["adapter.ts", "return r && bindingIn(byId, r, op, subject);", "return r && bindingIn(byId, r, op, []) !== undefined ? bindingIn(byId, r, op, []) : r && (() => { let s: any; walkIncs(r.root, (i: any) => { if (i.frag === byId[r.machine]!.ops[op]?.fragment && !i.frozen) s ??= i.subject; }); return s ? bindingIn(byId, r, op, s) : bindingIn(byId, r, op, subject); })();"], ["adapter.ts", 'import { bindingIn } from "./turn.ts";', 'import { bindingIn } from "./turn.ts"; import { walkIncs } from "./inc.ts";']], "(ref) binding with subject"],
     ];
     const flex = (find: string) => new RegExp(find.trim().split(/\s+/).map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("\\s*"));
-    const ALL = [...LIES, ...LIES10D, ...LIES10F];
+    // Stage G: the stage F re-check's lies (`conformance-audit/recheck10f-scripts/run-mut.ts`). Each is red by the observed recipient, not
+    // by anything the runtime says of the delivery: the wrong actor with `at: []` said truthfully, and the wrong copy with the right `at`.
+    const WA = (cond: string) => `const a0 = getActor(tx.w.actors, item.actor); const other = a0 && item.attempt && ${cond} ? (tx.w.actors as any).flat().filter(Boolean).flatMap((b: any) => Object.values(b)).find((x: any) => x.machine === a0.machine && x.key !== a0.key) : undefined; const a = other ?? a0; const lane = tx.w.lanes[laneId];`;
+    const RUNT = "runTurn(tx, a, path, ev, start, late, item);";
+    const FIRSTPATH = `(() => { let s: any; walkIncs(a.root, (i: any, p: any) => { if (i.frag === tx.machines[a.machine]!.ops[item.op]?.fragment && !i.frozen) s ??= p; }); return s ?? path; })()`;
+    const FAN3 = `(() => { let n = 0; walkIncs(a.root, (i: any) => { if (i.frag === tx.machines[a.machine]!.ops[item.op]?.fragment && !i.frozen) n++; }); return n >= 3; })()`;
+    // A decline parked on one actor, let go when ANOTHER actor of the batch takes a turn (re-check: a decline's let-go by any actor's move).
+    const WALK = "const w = newWalk(tx, a, item, late);";
+    const LETGO_OTHERS = `for (const l of Object.values(tx.w.lanes) as any[]) if (l && l.actor !== a.key && l.parked.some((p: any) => !p.attempt)) { for (const p of l.parked) if (!p.attempt) note(tx, "ParkedLetGo", { op: l.op, attempt: "" }); setLane(tx, { ...l, parked: l.parked.filter((p: any) => p.attempt) }); } ${WALK}`;
+    const LIES10G: ReadonlyArray<readonly [string, string, Edits, string]> = [
+      ["e8.wa-unknown", "the actor: an unknown ending runs in another live actor of the machine (H1'''')", [["turn.ts", G125, WA('item.ending.ch === "unknown"')]], "(j) delivered to the wrong recipient"],
+      ["e8.wa-failure", "the actor: a failure ending runs in another live actor (H1'''' twin)", [["turn.ts", G125, WA('item.ending.ch === "failure"')]], "(j) delivered to the wrong recipient"],
+      ["e5.at-intent-fail", "the copy: a failure runs in the first of 2+ copies, `at` names the right one (M1'''')", [["turn.ts", RUNT, `runTurn(tx, a, item.attempt && ${FAIL} && ${FAN} ? ${FIRSTPATH} : path, ev, start, late, item);`]], "(j) delivered to the wrong recipient"],
+      ["e5.at-intent-fail-3", "the copy: the same, with 3+ copies", [["turn.ts", RUNT, `runTurn(tx, a, item.attempt && ${FAIL} && ${FAN3} ? ${FIRSTPATH} : path, ev, start, late, item);`]], "(j) delivered to the wrong recipient"],
+      ["g.decline-letgo-other-actor", "a parked decline let go on another actor's turn", [["turn.ts", WALK, LETGO_OTHERS]], "(j) parked, and no wait says so"],
+    ];
+    const ALL = [...LIES, ...LIES10D, ...LIES10F, ...LIES10G];
     // `--slice i/n`: the i-th of n parts (each fits a 5-minute command).
     const sl = process.argv.indexOf("--slice");
     const [si, sn] = sl < 0 ? [1, 1] : process.argv[sl + 1]!.split("/").map(Number) as [number, number];
-    const chosen = quick ? ALL.slice(0, 3) : ALL.filter((_, i) => i % sn === si - 1);
+    // `--lie a,b`: only these (a rerun of named lies; a full gate run uses `--slice`).
+    const li = process.argv.indexOf("--lie");
+    const only = li < 0 ? undefined : new Set(process.argv[li + 1]!.split(","));
+    const chosen = quick ? ALL.slice(0, 3) : only ? ALL.filter(([id]) => only.has(id)) : ALL.filter((_, i) => i % sn === si - 1);
     if (chosen.length === 0) say(false, `lies: the slice ${si}/${sn} holds no lie`); // an empty part is no pass
     const named = async (edits: Edits) => {
       reset();
