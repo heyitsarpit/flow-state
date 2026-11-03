@@ -70,7 +70,7 @@ The rule (D154): **an oracle excuses only for a cause the suite observed.** A se
 
 | Finding | Fix | Shown by |
 | --- | --- | --- |
-| H1': `Released`, `lane.release.*`, the no-attempt wildcard | D154: a release names; the cause must be seen: a dispose, the owner gone, the owner's published state moving with a releasable op, or a cancel the suite drove (sent, or mapped from its answer, timer or reload) | `falsify.ts --part lies`: `lie.released`, `lie.lane-cell`, `lie.lane-cell-noatt` red by (j) in 2 cases each; **`lie.like2nc-released` red by (j) in 1 (it passed 727/727)**; `lie.save-released` by (j) in 19 (was 0) |
+| H1': `Released`, `lane.release.*`, the no-attempt wildcard | D154: a release names; the cause must be seen: a dispose, the owner gone, the owner's published state moving with a releasable op, or a cancel the suite drove (sent, or mapped from its timer, a reload, or an answer of another op; an answer's own event never excuses its own op's ending) | `falsify.ts --part lies`: `lie.released`, `lie.lane-cell`, `lie.lane-cell-noatt` red by (j) in 1 case each (R10-AUDIT-ENDINGS; MED-01 sees them only by output); **`lie.like2nc-released` red by (j) in 1, STORE-05 (it passed 727/727)**; `lie.save-released` by (j) in 19 (was 0) |
 | M3': a wrong supersede | D154: an oracle. A write needs `latest` and a newer attempt by the owner; a lookup a newer send, a newer ask, or the owner moving | `lie.serialize-as-latest` red by `(j) superseded` in 3 cases (was direct asserts only) |
 | More of the class | D158: `DisposeStart` turns (j) off only after a driven `disposeRuntime`; `Released` excuses (h) and `checkMints` only with a seen cause | `lie.dispose-start`, `lie.settled-released` |
 | M1': the text count | D156: directives by comment token, pinned by their words (8, not 9) | The re-check's tamper is red by its words |
@@ -93,6 +93,21 @@ No new runtime bug in the named paths. Exposed instead: replay limits that hid S
 - Whole output is a change detector: it says something changed, not that it is right. A search stopped by depth or budget needs only half its actions to have moved. A log reason can still be poor.
 
 ## Gates on the final commit
+
+Stage D, on the commit after `4bb9e52f` (the gates on its code, before the last `drive.ts` fix, then the suite and the lies part again after it):
+
+| Gate | Result |
+| --- | --- |
+| Suite, `--round 10` with catalog | 727/727; catalog disagreements none; 749 MB, 20 s |
+| `mutate-one.ts` on round 10 (suite, `--swap`, typed compare, date check, CLI, every `checks/` file, 5 s gate) | not killed: all green, 62 s |
+| `falsify.ts --part suite` | null 0/727; constant hash 61; lying fatal 0; no evidence 36; no waits 179; injected issue 5; lying replay 2; junk key 255; D130 checks ok |
+| `--part search` | 42 checks ok |
+| `--part tamper` | 10 checks ok, the directive-made-mention tamper among them |
+| `--part mutants` | 3 killed by named oracles |
+| `--part lies` (after the last fix) | **11 of 11 lies red by the named oracle** |
+| `--part watch` | ok |
+
+Not run in stage D: the variant adapter's 73/26 counts, real-browser modes, the 18 builder mutants through `mutate.ts`, `nub run verify`, `vp fmt`.
 
 Run on `c6ef01c1` and the log line after it, each under `watch.ts` or a time limit. Bun 1.4.2, Chrome headless, this Mac. One process tree at a time.
 

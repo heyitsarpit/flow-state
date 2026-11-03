@@ -127,7 +127,9 @@ export const makeHarness = (port: Port) => (): Harness => {
     return (cancelsOn = out);
   };
   const drivenTo = new Map<string, Set<string>>(); // actor -> events the suite sent it in this `do`
-  const drivenAny = new Set<string>(); // events an answer or a timer of this `do` maps to, by the compiled data; owner not known to the suite
+  const drivenAny = new Set<string>(); // events a timer or a driven reload of this `do` maps to, by the compiled data; owner not known to the suite
+  const mappedFrom = new Map<string, Set<string>>(); // event -> the ops whose answer in this `do` maps to it
+  const mapFrom = (ev: string, op: string) => void (mappedFrom.get(ev) ?? mappedFrom.set(ev, new Set()).get(ev)!).add(op);
   const known = new Set<string>(); // every actor the suite addressed: their published state is read after each batch
   const drive = (actor: string, ev: string) => {
     known.add(actor);
@@ -163,6 +165,8 @@ export const makeHarness = (port: Port) => (): Harness => {
   const cancelSeen = (actor: string, op: string) => {
     const c = cancels();
     for (const ev of [...(drivenTo.get(actor) ?? []), ...drivenAny]) if (c.get(ev)?.has(op)) return true;
+    // An ending's own mapped event is no cause for that same op's ending: an ending hidden as evidence would excuse itself (lie.like2nc-released).
+    for (const [ev, from] of mappedFrom) if (c.get(ev)?.has(op) && [...from].some((o) => o !== op)) return true;
     return false;
   };
   const lifeOver = (att: string) => {
@@ -465,7 +469,7 @@ export const makeHarness = (port: Port) => (): Harness => {
     // D154: what the suite drives, by event, for the ledger's seen causes.
     if ("burst" in s || "send" in s) drive(actorKey((s as any).burst ?? (s as any).send), (s as any).event);
     if ("sendMany" in s) for (const [a, tag] of s.sendMany) drive(actorKey(a), tag);
-    if ("answer" in s) for (const ev of mappedEvents(s.answer)) drivenAny.add(ev);
+    if ("answer" in s) for (const ev of mappedEvents(s.answer)) mapFrom(ev, s.answer);
     if ("advanceNow" in s) for (const ev of scheduleEvents()) drivenAny.add(ev);
     if ("ensure" in s) known.add(actorKey(s.ensure));
     if ("ensureAs" in s) inst.ensure(actorKey(s.ensureAs.key), s.ensureAs.machine); // D137: a key and a machine that do not agree, as a host's bug would give
@@ -510,6 +514,7 @@ export const makeHarness = (port: Port) => (): Harness => {
   const die = (s: Extract<Step, { reload: true }>) => {
     plan = undefined;
     // D154: a reload the suite drove. What was in flight restores as an ending, which the compiled data maps to events: those count as driven.
+    // The reload is the seen cause here, not the ending, so a restored ending's event may let its own op go.
     for (const c of compiled) for (const op of Object.keys(c.ops)) for (const ev of mappedEvents(op)) drivenAny.add(ev);
     if (s.tear !== undefined) fake.tearLast(s.tear);
     if (s.wipe) {
@@ -691,6 +696,7 @@ export const makeHarness = (port: Port) => (): Harness => {
     do(s) {
       drivenTo.clear();
       drivenAny.clear();
+      mappedFrom.clear();
       if ("advance" in s) for (const ev of scheduleEvents()) drivenAny.add(ev);
       if ("advance" in s) {
         settle();

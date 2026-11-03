@@ -590,3 +590,5 @@ file:scenarios/ctx.ts hash:041466da4ebc | D158: `checkMints` accounts a `Release
 file:falsify.ts hash:72037239a8e0 | D155: two more lies, a `DisposeStart` with no dispose and a settled head said `Released`
 file:harness.ts hash:0e469f632dfd | D158: `Reads.releaseSeen`
 file:drive.ts hash:7f3bb78d87fd | D158: `DisposeStart` turns (j) off only after a driven `disposeRuntime`; (h) takes a `Released` only with a seen cause; a driven reload maps restored endings to events (D154)
+file:drive.ts hash:cc718aec49e2 | D154: an answer's mapped event is no cause for its own op's ending, which `lie.like2nc-released` used to excuse itself
+file:falsify.ts hash:339f64abcbe0 | D155: `lie.settled-released` is read by any named oracle, since (j) sees it before `checkMints`
