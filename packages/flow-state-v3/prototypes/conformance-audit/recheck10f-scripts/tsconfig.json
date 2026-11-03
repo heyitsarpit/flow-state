@@ -1,0 +1,9 @@
+{
+  "extends": "../wt/packages/flow-state-v3/prototypes/round-10/typed/tsconfig.json",
+  "compilerOptions": {
+    "paths": {
+      "effect": ["/Users/arpit/Developer/flow-state/node_modules/effect"],
+      "effect/*": ["/Users/arpit/Developer/flow-state/node_modules/effect/*"]
+    }
+  }
+}
