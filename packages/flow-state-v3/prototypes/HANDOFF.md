@@ -41,7 +41,14 @@ Arpit's condition: each remaining prototype step must directly inform production
 4. **Entity store proven on the runtime,** from `round-9/entity-proposal-2.md`, test first. `listen.load` and `fragstore.row` must pass. **No TanStack DB integration** (Arpit, 2026-11-03). Its compile stays thin, and so does the outside world's: one real fetch or SDK path each.
 5. **"For Arpit's read".**
 
-- **Safari, 2026-11-04 02:25: not run, needs Arpit.** The agent ran `/Applications/Safari.app/Contents/MacOS/Safari --version`, which started a second Safari instance on his profile (pid 79627, under a stray shell, pid 79626). It was left alone, since agents must not kill Safari processes. Arpit: quit pid 79627 in Activity Monitor; "Quit Safari" might close your main instance, pid 3613. Then re-dispatch the run as briefed. First test whether a WebDriver session keeps website data between sessions.
+- **Safari, done 2026-11-04 (`safari/RESULTS.md`, `9b2e14e5`).** Production host adapter requirements, proposed:
+  - A batch answers "landed" only if every request succeeded. On Safari, `oncomplete` fires after `InvalidStateError` for a batch written while entering bfcache.
+  - No batch is left open into bfcache, because it blocks the next owner's reads (12/12 hangs).
+  - The lock is lost while cached, so reload on return (D148) is required.
+  - A tab close loses the last batch on Safari (0/6), so the 5 s interval is the real loss window there.
+  - Not measurable through WebDriver: quota and disk durability, since its store is in memory.
+  The fake should also learn the bfcache-blocked store and the lying `oncomplete`.
+- **Safari, 2026-11-04 02:25 (resolved, kept for the record):** The agent ran `/Applications/Safari.app/Contents/MacOS/Safari --version`, which started a second Safari instance on his profile (pid 79627, under a stray shell, pid 79626). It was left alone, since agents must not kill Safari processes. Arpit: quit pid 79627 in Activity Monitor; "Quit Safari" might close your main instance, pid 3613. Then re-dispatch the run as briefed. First test whether a WebDriver session keeps website data between sessions.
 - **Safari:** one short run of the edge's store contract on macOS Safari, now that `safaridriver` is enabled: atomic batches, issue order, quota errors, a lost connection, bfcache with the lock. It informs production's host adapter. It runs after step 1, by one agent, and is not a gate. Phones and iOS are production tasks.
 - **Moved to production:** the sweep of old findings (step 10), performance budgets, typing streams beyond what compile needs, and a full TanStack DB integration.
 
