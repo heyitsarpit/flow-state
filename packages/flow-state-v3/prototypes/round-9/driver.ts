@@ -226,26 +226,21 @@ export const createRuntime = (cfg: {
       const left = [...fibers.keys()].filter((k) => k.startsWith("module/"));
       guarded(() => cfg.onEvidence(left.map((k) => ({ kind: "AbandonedFiber", op: k }))));
     });
-  // D122: one rule. A slice of work, however it arrived, then a task for the page. `spent` counts only work, and only a yield refills it, so an answer arriving in a microtask, which no task separates from the last, is on the same bill.
+  // D122: one rule. A slice of work, however it arrived, then a task for the page. `spent` counts only work, and only a yield refills it, so an answer arriving in a microtask, which no task separates from the last, is on the same bill: it gets its one step, and what that step asks for waits for the task.
   const clock = () => host.workClock?.() ?? performance.now();
   let spent = 0;
-  let steps = 0;
   let yielding = false;
-  const overSlice = () => steps > 0 && spent > bounds.drainMs;
   const yieldToPage = () => {
     if (yielding) return;
     yielding = true;
     host.later(() => {
       yielding = false;
       spent = 0;
-      steps = 0;
       pump();
     });
   };
   const pump = () => {
     if (running || fatal) return;
-    if (yielding) return;
-    if (overSlice()) return yieldToPage();
     running = true;
     let mark = clock();
     try {
@@ -287,8 +282,7 @@ export const createRuntime = (cfg: {
         const t = clock();
         spent += t - mark;
         mark = t;
-        steps++;
-        if (overSlice() && work()) {
+        if (spent > bounds.drainMs && work()) {
           yieldToPage();
           break;
         }

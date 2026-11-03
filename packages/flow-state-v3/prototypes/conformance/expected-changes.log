@@ -376,3 +376,7 @@ removed:variant:REV9-SPIN/a-newer-ask-replaces-a-paced-read | round 9b, D122: no
 removed:variant:REV9-SPIN/a-freeze-interrupts-a-paced-read | round 9b: REV9-LOOP/a-freeze-ends-a-spin, stricter: any answer in mail
 removed:variant:REV9-SPIN/a-kill-while-paced-boots-clean | round 9b: REV9-LOOP/a-kill-during-a-spin-boots-clean
 removed:variant:REV9-SPIN/a-dispose-while-paced-ends-it | round 9b: REV9-LOOP/a-dispose-during-a-spin-ends-it
+REV9-LOOP hash:0a14707091ea | round 9b, D122: new. H1, M1, M2 as traces, every row of the review's tables (survivors pinned)
+REV9-EDGE hash:9a3510e07bea | round 9b, D123: new. M3, M4, M5, M6, and the review's survivors (survivors pinned)
+file:scenarios/round9b.scenario.ts hash:b57111a3d121 | round 9b: the new scenarios, REV9-LOOP and REV9-EDGE (survivors pinned)
+file:fixtures/round9b.compiled.ts hash:5c6ac803c141 | round 9b: the chain and edge machines (survivors pinned)

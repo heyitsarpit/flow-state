@@ -92,6 +92,15 @@ export const round9bScenarios: readonly Scenario[] = [
         c.yes("more than once", heard >= 10);
       },
       // What the drain's end used to gate: a spin must not starve the disk.
+      "listeners-hear-a-spin-that-never-leaves-the-pump"(c0) {
+        const c = on(c0, chainFixture(), A);
+        c.fault({ syncAnswer: ["spin", OK] });
+        spinning(c, 10);
+        let heard = 0;
+        c.h.subscribe(() => void heard++);
+        c.send("Spin");
+        c.yes("at each slice", heard >= 10);
+      },
       "a-batch-lands-during-a-spin"(c0) {
         const c = on(c0, chainFixture({ persisted: true }), A);
         micro(c, "spin", OK);
@@ -393,6 +402,38 @@ export const round9bScenarios: readonly Scenario[] = [
         healed(() => c.ensure());
         c.state("B");
       },
+      "a-new-life-tries-a-kept-ending-once"(c0) {
+        const c = on(c0, edgeFixture(), E);
+        c.send("Go");
+        c.ack();
+        c.answer("save", { ok: { v: "boom" } });
+        const n = code(c, "InvalidTurn").length;
+        c.dispose();
+        c.ensure();
+        c.eq("one more", code(c, "InvalidTurn").length, n + 1);
+      },
+      "a-sleeping-actors-kept-ending-stays-kept-through-a-boot"(c0) {
+        const c = on(c0, edgeFixture(), E);
+        c.send("Go");
+        c.ack();
+        c.answer("save", { ok: { v: "boom" } });
+        c.dispose();
+        c.reload();
+        c.eq("still on the row", (c.r.row(E, "save", { id: "a" }) as any)?.undelivered, 1);
+      },
+      // Two rows' writes share an op and a key, and each life lets go only of its own.
+      "a-key-less-cancel-stays-in-its-own-life"(c0) {
+        const c = on(c0, edgeFixture(), E);
+        c.send("Set", { ids: ["r1", "r2"] });
+        c.into(["r:r1"], "DoRow");
+        c.ack();
+        c.answer("rowSave", { ok: {} });
+        c.eq("kept", waits(c, "parked").length, 1);
+        c.into(["r:r2"], "ForgetRow");
+        c.eq("not this row's to let go", waits(c, "parked").length, 1);
+        c.into(["r:r1"], "ForgetRow");
+        c.eq("its own", waits(c, "parked").length, 0);
+      },
       // M5: one row's ask cleared another's wait.
       "another-rows-ask-leaves-a-stranded-wait"(c0) {
         const c = on(c0, edgeFixture(), E);
@@ -522,7 +563,7 @@ export const round9bScenarios: readonly Scenario[] = [
       "a-reads-decline-carries-its-input"(c0) {
         const c = on(c0, edgeFixture(), E);
         c.send("Look", { at: new Set() });
-        c.eq("the mapper read it", c.mem().last, "look:x");
+        c.eq("the mapper read it, and its key", c.mem().last, "look:x:x");
         c.eq("no refusal", code(c, "InvalidTurn").length, 0);
       },
     },

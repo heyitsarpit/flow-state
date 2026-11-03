@@ -115,6 +115,11 @@ const EdgeRow: Fragment = {
       Ask: [{ members: row.lookup("rowRead", ({ key }: any) => ({ id: key })) }],
       RowGot: [{ target: "D", patch: boom("this row", {}) }],
       RowNo: [{}],
+      DoRow: [{ members: row.commit("rowSave", ({ key }: any) => ({ id: "same" , row: key })) }],
+      RowSaved: [{ patch: boom("this row's save", {}) }],
+      RowSaveNo: [{}],
+      RowSaveUnsure: [{}],
+      ForgetRow: [{ members: row.member("rowSave", "cancel") }],
     }),
     L: row.node("L", {}),
     D: row.node("D", {}),
@@ -183,7 +188,7 @@ export const edgeFixture = (o: { persisted?: boolean; local?: boolean } = {}): F
           // A read whose failure mapper reads its input.
           Look: [{ members: e.lookup("look", ({ event }: any) => ({ id: "x", at: event.at })) }],
           Looked: [{}],
-          LookNo: [{ patch: ({ event }: any) => ({ last: `look:${event.id}` }) }],
+          LookNo: [{ patch: ({ event }: any) => ({ last: `look:${event.id}:${event.k}` }) }],
           Set: [{ patch: ({ event }: any) => ({ ids: event.ids }) }],
           ToRel: [{ target: "R" }],
           // D119, by another door: a member's key is a name. `1n` and "1" are two lanes.
@@ -254,7 +259,7 @@ export const edgeFixture = (o: { persisted?: boolean; local?: boolean } = {}): F
         key: e.key("look", (i: any) => ({ id: i.id })),
         concurrency: "reject",
         commit: (i) => api.call("look", i) as Effect.Effect<unknown, unknown>,
-        outcomes: { success: { event: "Looked" }, failure: { Defect: { event: "LookNo", from: e.slot("operations.look.Defect", (_v: any, x: any) => ({ id: x.input.id })) }, NoResponse: { event: "LookNo", from: e.slot("operations.look.NoResponse", (_v: any, x: any) => ({ id: x.input.id })) }, Interrupted: { event: "LookNo", from: e.slot("operations.look.Interrupted", (_v: any, x: any) => ({ id: x.input.id })) } } },
+        outcomes: { success: { event: "Looked" }, failure: { Defect: { event: "LookNo", from: e.slot("operations.look.Defect", (_v: any, x: any) => ({ id: x.input.id, k: x.key?.id })) }, NoResponse: { event: "LookNo", from: e.slot("operations.look.NoResponse", (_v: any, x: any) => ({ id: x.input.id })) }, Interrupted: { event: "LookNo", from: e.slot("operations.look.Interrupted", (_v: any, x: any) => ({ id: x.input.id })) } } },
       },
       rowRead: {
         id: "rowRead",
@@ -265,6 +270,16 @@ export const edgeFixture = (o: { persisted?: boolean; local?: boolean } = {}): F
         concurrency: "reject",
         commit: (i) => api.call("rowRead", i) as Effect.Effect<unknown, unknown>,
         outcomes: { success: { event: "RowGot" }, failure: { NoResponse: { event: "RowNo" }, Defect: { event: "RowNo" }, Interrupted: { event: "RowNo" } } },
+      },
+      rowSave: {
+        id: "rowSave",
+        contract: "lab/edgeRowSave",
+        fragment: "EdgeRow",
+        kind: "write",
+        key: e.key("rowSave", (i: any) => ({ id: i.id })),
+        concurrency: "reject",
+        commit: (input, { attempt }) => api.call("rowSave", input, { idempotencyKey: attempt.id }).pipe(unknownWhenLost) as Effect.Effect<unknown, unknown>,
+        outcomes: { success: { event: "RowSaved" }, failure: { NotSent: { event: "RowSaveNo" } }, unknown: { event: "RowSaveUnsure" } },
       },
       job: {
         id: "job",

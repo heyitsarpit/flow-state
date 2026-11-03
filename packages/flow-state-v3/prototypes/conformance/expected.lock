@@ -172,8 +172,8 @@ REV9-BURST bb2210684f2a
 REV9-KEPT cb61397c4c48
 REV9-STREAM 0cbd3798e0ef
 REV9-NAMES 23a461d139ac
-REV9-LOOP 93b65540691f
-REV9-EDGE c4283825abf3
+REV9-LOOP 0a14707091ea
+REV9-EDGE 9a3510e07bea
 variant:PAY-06/interruptible present
 variant:PAY-06/uninterruptible present
 variant:PAY-07/leaveMidCharge present
@@ -767,6 +767,7 @@ variant:REV9-LOOP/a-failing-promise-spin-never-freezes present
 variant:REV9-LOOP/a-spin-answered-inside-the-pump-yields-too present
 variant:REV9-LOOP/a-commit-that-throws-at-once-and-asks-again-yields present
 variant:REV9-LOOP/listeners-hear-a-spin-while-it-runs present
+variant:REV9-LOOP/listeners-hear-a-spin-that-never-leaves-the-pump present
 variant:REV9-LOOP/a-batch-lands-during-a-spin present
 variant:REV9-LOOP/a-press-on-the-same-actor-ends-its-spin present
 variant:REV9-LOOP/a-kill-during-a-spin-boots-clean present
@@ -797,6 +798,9 @@ variant:REV9-EDGE/a-boot-tries-a-kept-ending-once present
 variant:REV9-EDGE/a-refusal-says-what-was-thrown present
 variant:REV9-EDGE/a-new-local-life-hears-nothing-of-the-old present
 variant:REV9-EDGE/a-new-persisted-life-does-hear-it present
+variant:REV9-EDGE/a-new-life-tries-a-kept-ending-once present
+variant:REV9-EDGE/a-sleeping-actors-kept-ending-stays-kept-through-a-boot present
+variant:REV9-EDGE/a-key-less-cancel-stays-in-its-own-life present
 variant:REV9-EDGE/another-rows-ask-leaves-a-stranded-wait present
 variant:REV9-EDGE/two-rows-stranded-are-two-waits present
 variant:REV9-EDGE/its-own-next-ask-clears-it present
@@ -823,7 +827,7 @@ file:scenarios/round6.scenario.ts ea6c85e13efa
 file:scenarios/round7.scenario.ts 0a0e78871e18
 file:scenarios/round8.scenario.ts c6bcae650cb8
 file:scenarios/round9.scenario.ts 9919794af76f
-file:scenarios/round9b.scenario.ts 5ca77826528c
+file:scenarios/round9b.scenario.ts b57111a3d121
 file:scenarios/store.scenario.ts c3429d7a2498
 file:scenarios/stream.scenario.ts b9ef148f6c7d
 file:scenarios/streams5.scenario.ts 513703763ddf
@@ -862,7 +866,7 @@ file:fixtures/round6.compiled.ts 1ae414ffbb3b
 file:fixtures/round7.compiled.ts 4dbffb93f0d9
 file:fixtures/round8.compiled.ts 3253c650d4bc
 file:fixtures/round9.compiled.ts 0057c35fe4d6
-file:fixtures/round9b.compiled.ts e4dd4ab9dcb1
+file:fixtures/round9b.compiled.ts 5c6ac803c141
 file:fixtures/s1.compiled.ts 6615792575f6
 file:main.ts 78e4c7becfd6
 file:report.ts 6558e2efe90e
