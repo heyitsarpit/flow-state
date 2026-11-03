@@ -488,5 +488,5 @@ try {
   const dest = arg("--out", "");
   if (dest) writeFileSync(resolve(process.cwd(), dest), JSON.stringify(out, null, 1) + "\n");
   console.log("peakMb", out["peakMb"]);
-  exitScored(out); // D144
+  exitScored(out, {}, only); // D144; re-audit M1: each mode asked for must have reported
 }

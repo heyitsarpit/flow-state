@@ -134,10 +134,43 @@ try {
   edit(join(conf, "expected-changes.log"), (s) => s + ids.map((i) => `${i} hash:000000000000 | same words\n`).join(""));
   const k = await scratchSuite("PAY-01");
   say(k.code !== 0, "log: a line whose hash is not the current one is red");
+  // Re-audit H2: D91's type pins. A directive removed and its refusal widened with `as any` compiles; the check and the lock must both see it.
+  const typesCheck = () => run(["bun", join(round, "checks/types-check.ts")], {}, conf);
+  reset();
+  edit(join(round, "typed/type-tests.ts"), (s) => s.replace(/\/\/ @ts-expect-error a key names a field that is not the input's\n(.*)key: \["b"\],/, '$1key: ["b"] as any,'));
+  say((await typesCheck()).code !== 0, "types: a pin removed with its refusal widened is red");
+  const w = await scratchSuite("PAY-01");
+  say(w.code !== 0 && /unlogged expectation changes: [^;]*round:typed\/type-tests\.ts/.test(w.stdout), "lock: a type-only change to typed/ is red");
+  reset();
+  edit(join(round, "typed/type-tests.ts"), (s) => s.replace("// @ts-expect-error a key names a field that is not the input's\n", ""));
+  const d = await typesCheck();
+  say(d.code !== 0 && /tsc exit/.test(d.stdout), "types: a refusal with no directive fails tsc");
+  reset();
+  const tc = await typesCheck();
+  say(tc.code === 0, "control: the types check is green untampered", tc.code === 0 ? "" : tc.stdout.slice(-300));
   // A green control in the same copy, so the reds above are about the tamper.
   reset();
   const ctl = await scratchSuite("PAY-01");
   say(ctl.code === 0, "control: the copy is green untampered", ctl.code === 0 ? "" : ctl.stdout.slice(-300));
+  }
+  // ── Re-audit H1, M3: named oracles alone (`--no-output`) must kill these, each in at least `min` cases.
+  if (part("mutants")) {
+  const { MUTANTS } = (await import(join(roundDir, "mutants-r10.ts"))) as { MUTANTS: ReadonlyArray<{ id: string; edits: ReadonlyArray<readonly [string, string, string]> }> };
+  const laundered = MUTANTS.find((m) => m.id === "g125.laundered-as-evidence")!;
+  const NAMED: ReadonlyArray<readonly [string, ReadonlyArray<readonly [string, string, string]>, number]> = [
+    [laundered.id, laundered.edits, 2],
+    ["step.timer-fence-off", [["step.ts", "if (!t || t.gen !== i.gen) return", "if (!t) return"]], 1],
+    ["step.dispose-reads-not-aborted", [["step.ts", "    tx.commands.push({ k: \"interrupt\", attempt: k, send: r.gen });\n    note(tx, \"Superseded\", { op: r.op, attempt: k, send: r.gen });\n  }\n  tx.w = { ...tx.w, reads: {} };", "    note(tx, \"Superseded\", { op: r.op, attempt: k, send: r.gen });\n  }\n  tx.w = { ...tx.w, reads: {} };"]], 1],
+  ];
+  for (const [id, edits, min] of NAMED) {
+    reset();
+    // As mutate.ts reads a find: whitespace-insensitive, so `vp fmt` does not rot the list.
+    const flex = (find: string) => new RegExp(find.trim().split(/\s+/).map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("\\s*"));
+    for (const [f, find, rep] of edits) edit(join(round, f), (s) => s.replace(flex(find), () => rep));
+    const r = await run(["bun", "main.ts", "--round", "99", "--no-catalog", "--no-output", "--runtime", `../${basename(roundDir)}/adapter.ts`], {}, conf);
+    const named = r.stdout.split("\n").filter((l) => l.startsWith("FAIL") && !l.split("\t")[1]?.startsWith("output:")).map((l) => l.slice(4).split("\t")[0]!.trim());
+    say(summary(r.stdout) !== null && named.length >= min, `mutant ${id}: killed by named oracles in ${min}+ case(s)`, `${named.length}: ${named.slice(0, 4).join(" ")}`);
+  }
   }
 } finally {
   rmSync(scratch, { recursive: true, force: true });

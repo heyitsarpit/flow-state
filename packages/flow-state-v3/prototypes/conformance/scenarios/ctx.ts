@@ -118,7 +118,7 @@ export const checkEndings = (r: Reads) => {
         break;
       case "parked": // rule 53: owed to whoever comes
       case "evidenceOnly": {
-        // rule 60, rule 44: nobody is owed it, by declaration
+        // rule 60, rule 44: nobody is owed it. Here only counted; whether it may be evidence is the ledger's call, from what the suite sees (drive.ts, re-audit H1)
         if (ended) break;
         const n = owed.get(ko(e)) ?? 0;
         if (n === 0) throw new Mismatch(`${e["kind"]} with no ending: ${ko(e)}`);
@@ -199,6 +199,15 @@ export class Ctx {
   ) {}
   get r() {
     return this.h.read;
+  }
+  // Re-audit M2: what is stored, by the runtime's codec, not by its spelling. A case that names a key pins the format; these do not.
+  record(a: ActorRef = this.A): any {
+    const scope = `${a.actor}/${a.id.replaceAll("%", "%25").replaceAll("/", "%2F").replaceAll("|", "%7C")}`;
+    for (const [k, v] of this.r.stored()) if (this.r.diskKind(k) === "actor" && this.r.diskScope(k) === scope) return v;
+    return undefined;
+  }
+  laneKeys(): string[] {
+    return [...this.r.stored().keys()].filter((k) => this.r.diskKind(k) === "lane");
   }
   do(step: Step, a?: ActorRef) {
     void a;

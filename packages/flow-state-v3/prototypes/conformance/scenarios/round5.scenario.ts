@@ -92,7 +92,7 @@ const conns = (c: Ctx) => c.r.outside().feeds;
 const lastFrom = (c: Ctx) => conns(c).at(-1)?.from;
 const row = (c: Ctx, a = F) => c.r.module("sessions", `${a.actor}/${a.id}|${OP}`);
 const ids = (c: Ctx) => c.mem().activity.map((e: any) => e.id);
-const saved = (c: Ctx, a = F) => c.r.stored().get(`actor/${a.actor}/${a.id}`) as any;
+const saved = (c: Ctx, a = F) => c.record(a);
 const bookmark = (c: Ctx, a = F): any =>
   Object.values((saved(c, a)?.root?.partition?.sessions ?? {}) as Record<string, unknown>)[0];
 
@@ -696,7 +696,7 @@ export const round5Scenarios: readonly Scenario[] = [
         c.ensure();
         c.eq(
           "the lane is off the disk",
-          [...c.r.stored().keys()].filter((k) => k.startsWith("lane/")),
+          c.laneKeys(),
           [],
         );
       },

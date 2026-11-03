@@ -93,7 +93,7 @@ export const round7Scenarios: readonly Scenario[] = [
         c.ack();
         c.reload();
         c.eq("no ending says the finished write is unknown", c.endings("charge").filter((e) => e["channel"] === "unknown").length <= 1, true);
-        c.eq("one lane on disk, the new one", [...c.r.stored().keys()].filter((k) => k.startsWith("lane/")).length, 1);
+        c.eq("one lane on disk, the new one", c.laneKeys().length, 1);
       },
       "E1-what-the-failed-batch-owed-goes-in-the-ack"(c0) {
         const c = fresh(c0);
@@ -610,7 +610,7 @@ export const round7Scenarios: readonly Scenario[] = [
         const c = new Ctx(c0.fresh([chatFixture()], { captureMs: 5_000 }), C);
         c.ensure();
         c.send("Mute");
-        const disk0 = () => (c.r.stored().get(`actor/${C.actor}/${C.id}`) as any)?.root.memory.muted;
+        const disk0 = () => c.record(C)?.root.memory.muted;
         c.eq("waits", disk0() ?? false, false);
         c.advance(5_000);
         c.eq("then lands", disk0(), true);

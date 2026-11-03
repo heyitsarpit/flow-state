@@ -83,7 +83,7 @@ const feeds = (c: Ctx) => c.r.outside().feeds;
 const ids = (c: Ctx) => c.mem().messages.map((m: any) => m.id);
 const mark = (c: Ctx): any =>
   Object.values(
-    (c.r.stored().get(`actor/${C.actor}/${C.id}`) as any)?.root?.partition?.sessions ?? {},
+    c.record(C)?.root?.partition?.sessions ?? {},
   )[0];
 const done = (items: readonly unknown[], through?: number) => ({
   _feed: "done",
@@ -115,7 +115,7 @@ export const round6Scenarios: readonly Scenario[] = [
       "plain-writes-coalesce-to-the-newest"(c0) {
         const c = chat(c0, {}, { captureMs: 50 });
         c.advance(50);
-        const disk = () => (c.r.stored().get(`actor/${C.actor}/${C.id}`) as any)?.root.memory.muted;
+        const disk = () => c.record(C)?.root.memory.muted;
         c.send("Mute");
         c.eq("not yet", disk(), false);
         c.send("Unmute");
@@ -735,7 +735,7 @@ export const round6Scenarios: readonly Scenario[] = [
         c.fault({ storageFails: 1 });
         c.send("Mute");
         c.eq("the turn committed", c.mem().muted, true);
-        const disk = () => (c.r.stored().get(`actor/${C.actor}/${C.id}`) as any)?.root.memory.muted;
+        const disk = () => c.record(C)?.root.memory.muted;
         c.eq("the last good capture stands", disk(), false);
         c.eq("said", c.r.issues().filter((i) => i.code === "StorageFailure").length, 1);
         c.advance(5_000);
@@ -747,7 +747,7 @@ export const round6Scenarios: readonly Scenario[] = [
         c.send("Mute");
         c.send("Unmute");
         c.advance(5_000);
-        const disk = () => (c.r.stored().get(`actor/${C.actor}/${C.id}`) as any)?.root.memory.muted;
+        const disk = () => c.record(C)?.root.memory.muted;
         c.eq("newest", disk(), false);
       },
       "a-failed-write-survives-a-reload-as-the-last-good-capture"(c0) {

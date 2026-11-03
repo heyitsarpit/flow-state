@@ -24,7 +24,8 @@ const ACTIONS: readonly Action[] = [
   { name: "edit2", step: send("Edited", { body: "c" }, ["docs:d2:x/y"]), on: has("d2:x/y") },
   { name: "leave", step: send("SetDocs", { docs: [] }) },
   { name: "edit", step: send("Edited", { body: "b" }, ["docs:d1"]), on: has("d1") },
-  { name: "resend", step: send("Resend", {}, ["docs:d1"]), on: has("d1") },
+  // Re-audit M4: a resend has something to resend only after a save ended unsure. Guarded so, it is tried only where it can move.
+  { name: "resend", step: send("Resend", {}, ["docs:d1"]), on: (h) => has("d1")(h) && h.read.evidence("ending").some((e) => e["op"] === "save" && e["channel"] === "unknown") },
   { name: "drop", step: send("Drop", {}, ["docs:d1"]), on: has("d1") },
   { name: "ack", step: { storage: "ack" }, on: storage },
   { name: "landNoAck", step: { storage: "landNoAck" }, on: storage },

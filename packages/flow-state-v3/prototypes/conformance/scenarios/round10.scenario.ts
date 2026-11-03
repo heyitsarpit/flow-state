@@ -2,10 +2,13 @@
 import { Effect } from "effect";
 import { ChainId, chainFixture } from "../fixtures/round9b.compiled.ts";
 import { fixtureOf, unknownWhenLost } from "../fixtures/build.ts";
+import { feedFixture } from "../fixtures/lab.compiled.ts";
+import { payFixture } from "../fixtures/pay.compiled.ts";
 import type { Api } from "../fake-world.ts";
 import type { Fixture } from "../harness.ts";
 import { Ctx, Mismatch, type Scenario } from "./ctx.ts";
 const A = { actor: ChainId, id: "a" };
+const PAY_A = { actor: "Checkout/Pay", id: "shopper-1" };
 const B = { actor: ChainId, id: "b" };
 const on = (c0: Ctx, f: Fixture, a: { actor: string; id: string }, bounds?: Record<string, number>) => {
   const c = new Ctx(c0.fresh([f], { captureMs: 0, drainMs: 1, ...bounds }), a);
@@ -325,6 +328,81 @@ export const round10Scenarios: readonly Scenario[] = [
         c.do({ clockBack: 5_000 });
         if (before === c.r.stateHash()) throw new Mismatch("a clock set back hashed the same");
       },
+    },
+  },
+  {
+    // Round 10 stage C, from the re-audit's M3: two runtime rules no case reached.
+    id: "R10-AUDIT",
+    kind: "fault",
+    fixtures: [payFixture],
+    actor: PAY_A,
+    cites: ["D8", "rule:25"],
+    variants: {
+      // `step.ts` fences a timer by its generation. A cancel that loses the race (the task was queued) fires the old timer under a key a newer
+      // one now holds: the first send's timeout, while its resend waits. The resend must keep its own 60 s.
+      "a-stale-timer-under-a-newer-one-is-fenced"(c) {
+        c.ensure();
+        c.send("Start", { cartId: "c1", intentId: "pi1" });
+        c.send("PayRequested", { paymentMethodId: "visa" });
+        c.ack();
+        const sentAt = c.r.now();
+        c.fault({ lateCancel: 1 });
+        c.answer("pay", { lost: true });
+        c.state("UNSURE");
+        c.advance(3000);
+        c.answer("order", { ok: null });
+        c.answer("intent", { ok: { status: "requires_payment_method" } });
+        c.ack();
+        c.eq("re-sent", c.reqs("pay").length, 2);
+        c.advance(sentAt + 60_000 + 500 - c.r.now()); // past the first send's timeout, before the resend's
+        c.state("PAYING");
+        c.yes("the old timer fired and was fenced", c.r.evidence("fence").some((e) => String(e["timer"]).startsWith("timeout/")));
+        c.advance(4000);
+        c.state("UNSURE");
+        c.eq("then the resend's own timeout", c.lastEnding("pay")?.reason, "TimedOut");
+      },
+    },
+  },
+  {
+    // Re-audit H1: an ending to a live actor is heard, whoever else has mail. The suite, not the runtime, says when it may go as evidence.
+    id: "R10-AUDIT-ENDINGS",
+    kind: "fault",
+    fixtures: [chainFixture()],
+    actor: A,
+    cites: ["rule:44", "D125"],
+    variants: {
+      "a-failure-beside-another-actors-mail-is-heard"(c0) {
+        const c = on(c0, chainFixture(), A);
+        c.ensure(B);
+        micro(c, "pw", { fail: { tag: "NotSent" } });
+        c.h.raw({ burst: B, event: "Press", n: 300 });
+        c.do({ sendMany: [[A, "Pw", {}]] });
+        c.yes("A heard its failure", c.r.evidence("turn").some((e) => e["actor"] === `${A.actor}/${A.id}` && e["event"] === "PwNo"));
+      },
+      // The same with no burst: two sends in one tick, so B's press is mail when A's failure lands.
+      "a-failure-beside-one-send-is-heard"(c0) {
+        const c = on(c0, chainFixture(), A);
+        c.ensure(B);
+        micro(c, "pw", { fail: { tag: "NotSent" } });
+        c.do({ sendMany: [[A, "Pw", {}], [B, "Press", {}], [B, "Press", {}]] });
+        c.yes("A heard its failure", c.r.evidence("turn").some((e) => e["actor"] === `${A.actor}/${A.id}` && e["event"] === "PwNo"));
+        c.eq("B pressed twice", (c.r.memory(B) as any).presses, 2);
+      },
+    },
+  },
+  {
+    // The other: disposing the runtime aborts a read in flight. The server sees the signal; nothing is left open at the outside.
+    id: "R10-AUDIT-READS",
+    kind: "fault",
+    fixtures: [feedFixture],
+    actor: { actor: "Feed", id: "a" },
+    cites: ["rule:52"],
+    run(c) {
+      c.ensure();
+      c.into(["tail"], "Sync");
+      c.yes("a read in flight", c.r.outside().open.some((r) => r.op === "catchUp"));
+      c.do({ disposeRuntime: true });
+      c.eq("aborted at the server by disposal", c.r.outside().open.filter((r) => r.op === "catchUp").length, 0);
     },
   },
 ];

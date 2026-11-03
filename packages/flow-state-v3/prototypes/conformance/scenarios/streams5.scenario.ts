@@ -34,7 +34,7 @@ const row = (c: Ctx) => c.r.module("sessions", `${C.actor}/${C.id}|${M}`);
 const ids = (c: Ctx) => c.mem().messages.map((m: any) => m.id);
 const mark = (c: Ctx): any =>
   Object.values(
-    (c.r.stored().get(`actor/${C.actor}/${C.id}`) as any)?.root?.partition?.sessions ?? {},
+    c.record(C)?.root?.partition?.sessions ?? {},
   )[0];
 const hist = (c: Ctx, ok: object) => c.answer("history", { ok });
 const done = (items: readonly unknown[], through?: number) => ({

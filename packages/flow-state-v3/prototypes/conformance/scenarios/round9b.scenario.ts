@@ -110,7 +110,7 @@ export const round9bScenarios: readonly Scenario[] = [
         micro(c, "spin", OK);
         spinning(c);
         c.send("Spin");
-        const saved = c.r.stored().get(`actor/${ChainId}/a`) as any;
+        const saved = c.record({ actor: ChainId, id: "a" });
         c.yes("memory reached the disk, mid-spin", saved?.root.memory.spun > 0);
       },
       "a-press-on-the-same-actor-ends-its-spin"(c0) {

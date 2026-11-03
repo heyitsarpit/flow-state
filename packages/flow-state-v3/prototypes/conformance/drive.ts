@@ -58,8 +58,60 @@ export const makeHarness = (port: Port) => (): Harness => {
     for (const k of unpaid) bump(told, k, -1);
     unpaid = [];
   };
+  // Re-audit H1: `evidenceOnly` is the runtime's word too. The suite decides when an ending may go as evidence, from what it can see itself:
+  // the actor that asked for the attempt is not alive, or the attempt's lane is being let go (a release or a cancel of it, this step or one
+  // still open). The actor is the suite's own attribution: the turn whose step minted or invoked the attempt. Otherwise the debt stays for (j).
+  const attemptActor = new Map<string, string>(); // attempt -> actor key, by the turn that made it; attempts outlive a boot
+  const attemptLife = new Map<string, number>(); // attempt -> the life of its actor it was made in
+  const lifeOf = new Map<string, number>(); // actor key -> lives ended by a `dispose` step
+  const lettingGo = new Set<string>(); // attempts whose lane the suite has seen being let go
+  const attribute = (a: string, actor: string) => {
+    attemptActor.set(a, actor);
+    attemptLife.set(a, lifeOf.get(actor) ?? 0);
+  };
+  const mayBeEvidence = (x: Record<string, any>, batch: readonly Record<string, any>[]) => {
+    const att = String(x["attempt"] ?? "");
+    if (lettingGo.has(att)) return true;
+    const actor = attemptActor.get(att);
+    if (actor === undefined) return false;
+    if (attemptLife.get(att) !== (lifeOf.get(actor) ?? 0)) return true; // the life that asked is over; a new one is owed nothing (rule 44)
+    let alive: string | undefined;
+    try {
+      alive = inst.state(actor);
+    } catch {
+      alive = undefined;
+    }
+    if (alive === undefined) return true;
+    // A lane let go this step: its queued commits and parked endings go as evidence (rule 60). Seen as a Released or a Cancelled ending of the same op.
+    // Of the same actor, when the suite knows whose the let-go lane's head is.
+    const same = (y: Record<string, any>) => y["attempt"] === undefined || (attemptActor.get(String(y["attempt"])) ?? actor) === actor;
+    return batch.some((y) => y["op"] === x["op"] && same(y) && (y["kind"] === "Released" || (y["kind"] === "lane" && String(y["cell"]).startsWith("lane.release."))));
+  };
+  const mayLetGo = (x: Record<string, any>, batch: readonly Record<string, any>[]) => {
+    if (mayBeEvidence(x, batch)) return true;
+    const actor = attemptActor.get(String(x["attempt"] ?? ""));
+    return batch.some((y) => (y["kind"] === "turn" && (actor === undefined || y["actor"] === actor)) || (y["kind"] === "kept" && y["op"] === x["op"]));
+  };
   const ledger = (e: readonly Record<string, any>[]) => {
     unpaid = [];
+    // Attribution: a mint or an invoke belongs to the turn before it in the step, or, if none came before, the turn after it.
+    let turnActor: string | undefined;
+    const pending: string[] = [];
+    for (const x of e) {
+      if (x["kind"] === "turn") {
+        turnActor = String(x["actor"]);
+        for (const a of pending.splice(0)) if (!attemptActor.has(a)) attribute(a, turnActor);
+      }
+      if (x["kind"] === "mint" || x["kind"] === "invoked") {
+        const a = String(x["attempt"]);
+        if (attemptActor.has(a)) continue;
+        if (turnActor !== undefined) attribute(a, turnActor);
+        else pending.push(a);
+      }
+      // A lane let go: the head named now, and every later ending of it, may go as evidence (rule 60, 2.9.3).
+      if (x["kind"] === "Released" || (x["kind"] === "lane" && String(x["cell"]).startsWith("lane.release.") && x["attempt"] !== undefined))
+        lettingGo.add(String(x["attempt"]));
+    }
     // Review M5: `delivered` is the runtime's word. It pays only if the same step shows the machine took it: a turn, a denial, an unhandled, or a refusal. Otherwise the debt stays.
     const heard = e.some((x) => x["kind"] === "turn" || x["kind"] === "Denied" || x["kind"] === "Unhandled" || x["kind"] === "refused");
     for (const x of e) {
@@ -73,7 +125,8 @@ export const makeHarness = (port: Port) => (): Harness => {
           else unpaid.push(k);
           break;
         case "evidenceOnly":
-          bump(told, k, -1);
+          if (mayBeEvidence(x, e)) bump(told, k, -1);
+          else if (process.env["FLOW_DEBUG_EO"]) console.error("EO-UNPAID", JSON.stringify(x), attemptActor.get(String(x["attempt"])), e.map((y) => y["kind"]).join(","));
           break;
         case "parked":
           bump(told, k, -1);
@@ -91,7 +144,9 @@ export const makeHarness = (port: Port) => (): Harness => {
           break;
         case "KeptLetGo":
         case "ParkedLetGo":
-          bump(parkedOwed, k, -1);
+          // The same question for a let-go: a cause the suite sees. The owner's turn this step (a cancel, an ended fragment), a newer keep of the op, or its life over.
+          if (mayLetGo(x, e)) bump(parkedOwed, k, -1);
+          else if (process.env["FLOW_DEBUG_EO"]) console.error("LG-UNPAID", JSON.stringify(x), attemptActor.get(String(x["attempt"])), e.map((y) => y["kind"]).join(","));
           break;
         case "refused":
           bump(tryAgain, String(x["event"]));
@@ -276,7 +331,10 @@ export const makeHarness = (port: Port) => (): Harness => {
         payload: s.payload ?? {},
         ...(s.to ? { to: s.to } : {}),
       });
-    else if ("dispose" in s) inst.dispose(actorKey(s.dispose));
+    else if ("dispose" in s) {
+      lifeOf.set(actorKey(s.dispose), (lifeOf.get(actorKey(s.dispose)) ?? 0) + 1); // the suite's own: this life of the actor is over
+      inst.dispose(actorKey(s.dispose));
+    }
     else if ("answer" in s) fake.answer(s.answer, s.with, s.where);
     else if ("reload" in s) die(s);
     else if ("storage" in s) fake.storageStep(s.storage, s.match);
@@ -506,6 +564,7 @@ export const makeHarness = (port: Port) => (): Harness => {
         else if ("afterYield" in f) yieldPlan = f.afterYield;
         else if ("mutateServer" in f) fake.serverState = f.mutateServer(fake.serverState);
         else if ("socketClose" in f) fake.closeMs = f.socketClose;
+        else if ("lateCancel" in f) fake.lateCancels = f.lateCancel;
         else if ("storageFails" in f || "storageFailsLate" in f || "storageFailsHeld" in f) {
           if (TEST_FLUSH.includes("faults")) fake.hide();
           if ("storageFails" in f) fake.plainFails = f.storageFails;

@@ -58,10 +58,13 @@ export const bfs = (o: {
     Bun.hash(`${h.read.stateHash()}|${o.extra?.(s) ?? ""}`);
   // D131: `closed` means no new hash appeared, and that alone is what a dead runtime or a constant hash looks like. A verdict needs every action to have moved the state on some edge. A guard that never let it run counts the same.
   const moved = new Set<string>();
+  const tried = new Set<string>(); // re-audit M4: an action the search ran, from at least one state
   const done = (v: Report["verdict"], depthCompleted: number, failure?: string): Report => {
     const dead = v === "failed" ? [] : o.actions.filter((a) => !moved.has(a.name) && a.idle === undefined).map((a) => a.name);
     // `closed` says the space is exhausted, so an action that never moved it must be named `idle`. A depth or a budget that ended first may simply not have reached an action: at least half must have moved, or nothing was searched.
-    const verdict = v === "failed" ? v : (v === "closed" ? dead.length > 0 : dead.length * 2 > o.actions.length) ? "vacuous" : v;
+    // Re-audit M4: and a budget is no excuse for an action that ran and never moved anything. Only one never reached may be unmoved, and only half of all.
+    const ranDead = dead.filter((a) => tried.has(a));
+    const verdict = v === "failed" ? v : (v === "closed" ? dead.length > 0 : ranDead.length > 0 || dead.length * 2 > o.actions.length) ? "vacuous" : v;
     return {
     verdict,
     ...(dead.length ? { deadActions: dead } : {}),
@@ -93,6 +96,7 @@ export const bfs = (o: {
           if (out()) return done("inconclusive", depthCompleted);
           const pre = run(script);
           if (a.on && !a.on(pre)) continue;
+          tried.add(a.name);
           edges++;
           const s = [...script, a];
           const post = run(script);

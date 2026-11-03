@@ -540,7 +540,7 @@ export const payScenarios: readonly Scenario[] = [
         c.eq("abandoned", c.r.evidence("AbandonedFiber").length, 1);
         c.eq(
           "lane stored",
-          [...c.r.stored().keys()].some((k) => k.startsWith("lane/")),
+          c.laneKeys().length > 0,
           true,
         );
         c.reload(); // next boot delivers Restored

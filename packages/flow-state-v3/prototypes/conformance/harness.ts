@@ -45,6 +45,7 @@ export type Fault =
   | { afterYield: Step | readonly Step[] } // runs when the runtime has yielded its drain to the host: a gap between steps. Round 8: `hide`, then `reload`, is a kill mid-drain
   | { mutateServer: (s: any) => any } // the world changes with nobody asking: a price, another device
   | { socketClose: number } // how long a close takes from now on. Infinity never finishes
+  | { lateCancel: number } // re-audit M3: the next n timer cancels lose the race (the task was already queued), and the old timer fires anyway
   | { storageFails: number } // review M7: the next n plain writes fail
   | { storageFailsLate: number } // review H1: they fail, and it is said on the next tick
   | { storageFailsHeld: number } // and it is said at a `failLate` storage step

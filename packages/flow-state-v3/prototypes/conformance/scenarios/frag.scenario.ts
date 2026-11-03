@@ -324,7 +324,7 @@ export const fragScenarios: readonly Scenario[] = [
         c.eq("no delivery", c.r.evidence("delivered").filter((e) => e["op"] === "put").length, 0);
         c.eq(
           "no record",
-          [...c.r.stored().keys()].some((k) => k.startsWith("lane/")),
+          c.laneKeys().length > 0,
           false,
         );
       },

@@ -395,7 +395,7 @@ export const round4Scenarios: readonly Scenario[] = [
         c.ensure();
         c.eq("alive", c.r.quiet().fatal, false);
         c.yes("an actor", c.r.state(N) !== undefined);
-        c.eq("no record", c.r.stored().has(`actor/${N.actor}/${N.id}`), false);
+        c.eq("no record", c.record(N) !== undefined, false);
       },
       "a-schedule-of-no-length-refuses-the-turn"(c0) {
         const c = at(c0, deepAt("A"), DP);
@@ -729,7 +729,7 @@ export const round4Scenarios: readonly Scenario[] = [
       c.eq("one released", c.r.evidence("Released").length, 1);
       c.eq(
         "no record left",
-        [...c.r.stored().keys()].filter((x) => x.startsWith("lane/")),
+        c.laneKeys(),
         [],
       );
     },

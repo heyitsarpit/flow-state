@@ -142,6 +142,7 @@ export class FakeWorld {
 
   readonly kv = new Map<string, string>();
   plainFails = 0; // review M7: the next n plain writes fail, and say so
+  lateCancels = 0; // re-audit M3: the next n timer cancels come too late
   // Review H1: a real store answers later. `Late`: said on the next tick. `Held`: said only at a `failLate` storage step, after whatever came next.
   plainFailsLate = 0;
   plainFailsHeld = 0;
@@ -203,6 +204,7 @@ export class FakeWorld {
         const t = { at: at + this.clockOffset, claim: at, seq: ++this.timerSeq, f, process };
         this.timers.push(t);
         return () => {
+          if (this.lateCancels > 0) return void this.lateCancels--; // re-audit M3: too late, the old timer still fires at its time
           this.timers = this.timers.filter((x) => x !== t);
         };
       },

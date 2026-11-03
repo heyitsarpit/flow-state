@@ -477,3 +477,6 @@ Convergence-8. Old unbuilt rows (`STORY-ALL`, `BROWSER-*`, `SSR-01`) renumbered 
 | PAY-20 | 10 | fault | hostile | D145, rule:19 |  | a server as strict as Stripe's: a 500 that landed and replays, a key the server pruned |
 | R10-PINS | 10 | fault | hostile | D123, rule:51 |  | review part two's survivors pinned: a host's cancel and a frozen life's kept ending |
 | R10-RUNTIME | 10 | fault | hostile | D136, D137, D138, D139, D140, D141 |  | the slice's bill, one notify per task, one machine per key, reserved state names, values with no form, a linear burst, a hash of values |
+| R10-AUDIT | 10 | fault | hostile | D8, rule:25 |  | re-audit M3: a timer cancel that loses the race fires under a newer timer's key, and is fenced |
+| R10-AUDIT-ENDINGS | 10 | fault | hostile | rule:44, D125 |  | re-audit H1: a failure to a live actor beside another actor's mail is heard, not evidence |
+| R10-AUDIT-READS | 10 | fault | hostile | rule:52 |  | re-audit M3: disposing the runtime aborts a read in flight at the server |

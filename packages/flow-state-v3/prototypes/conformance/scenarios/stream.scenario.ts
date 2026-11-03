@@ -26,7 +26,7 @@ const closes = (c: Ctx) => c.do({ advance: 20 }); // review H7: the fake's close
 const row = (c: Ctx, a = F) => c.r.module("sessions", `${a.actor}/${a.id}|${OP}`);
 const ids = (c: Ctx) => c.mem().activity.map((e: any) => e.id);
 // Rule 71: read what the disk holds, not what the runtime says.
-const saved = (c: Ctx, a = F) => c.r.stored().get(`actor/${a.actor}/${a.id}`) as any;
+const saved = (c: Ctx, a = F) => c.record(a);
 const bookmark = (c: Ctx, a = F): any =>
   Object.values((saved(c, a)?.root?.partition?.sessions ?? {}) as Record<string, unknown>)[0];
 

@@ -524,3 +524,53 @@ R10-PINS hash:c9d7301a2549 | the final mutant run's survivor, second-try-lost-if
 file:scenarios/round10.scenario.ts hash:8339b773034b | holds the second-try pin
 output:R10-PINS/a-second-try-beside-another-actors-mail-is-not-lost hash:28f5b1df8505 | new, D134: whole output of the second-try pin
 file:falsify.ts hash:0727178edeac | the swallowing tamper finds its line by the oracle it hides, since D146 changed the comment's words and the old edit refused to run
+PAY-13 hash:ddd5a14e0bdb | D152, re-audit M2: asks the codec whether a lane is on disk, not the spelling `lane/`
+FRAG-06 hash:66c59adf7585 | D152: a lane on disk, by the codec's kind
+REV4-H4 hash:21c5927eafc6 | D152: the actor's record found by the codec's kind and scope
+REV4-L2 hash:ec4a59797447 | D152: the lanes on disk, by kind, in round 4's lane count
+REV5-M1 hash:32aeccb9ee1a | D152: round 5's `saved` helper reads the record through the codec
+REV6-CAPTURE hash:88bfe7a457c3 | D152: round 6's disk reads of the muted field go through `c.record`
+REV6-M7 hash:4aba3b7fcf2b | D152: round 6, the record by codec in the failure-surfacing case
+REV7-H1 hash:86e4ac5c74ae | D152: round 7's lane count and record read by codec
+REV7-CHAT hash:9b66acbd039b | D152: round 7's chat sessions bookmark read from the record by codec
+REV9-LOOP hash:b3087efbe2a0 | D152: round 9b reads the chain actor's record by codec
+R10-AUDIT hash:1bd3d0bcb1ae | new, D151, re-audit M3: a stale timer under a newer one under the same key is fenced
+R10-AUDIT-ENDINGS hash:dd8cb9c65c91 | new, D149, re-audit H1: an ending to a live actor beside another's mail is heard
+R10-AUDIT-READS hash:a94287a877f3 | new, D151, re-audit M3: disposal aborts a read in flight at the server
+file:scenarios/ctx.ts hash:2132f08162c9 | D152: `record` and `laneKeys` read the disk through the runtime's codec
+file:scenarios/frag.scenario.ts hash:99fead9ff111 | D152: frag's lane-on-disk check by kind
+file:scenarios/pay.scenario.ts hash:ab1e3ac509a9 | D152: pay's lane-on-disk check by kind
+file:scenarios/round10.scenario.ts hash:698640b18494 | stage C: the audit's cases for H1 and M3
+file:scenarios/round4.scenario.ts hash:5ef7c0f29ba0 | D152: round 4 by codec in two cases
+file:scenarios/round5.scenario.ts hash:c89c276b56cb | D152: round 5 by codec in its helper and a lane list
+file:scenarios/round6.scenario.ts hash:fab49f62d0c7 | D152: round 6, five record reads by codec
+file:scenarios/round7.scenario.ts hash:0435bee1fc7f | D152: round 7, a lane count and a record read by codec
+file:scenarios/round9b.scenario.ts hash:b11f3d311088 | D152: round 9b's chain record by codec
+file:scenarios/stream.scenario.ts hash:fae352c5af14 | D152: the stream helper `saved` by codec
+file:scenarios/streams5.scenario.ts hash:5dd8d659eb96 | D152: the streams bookmark helper by codec
+file:search/engine.ts hash:8f7d9b0cbe98 | D150, re-audit M4: an action a budget-stopped search ran and that never moved anything makes it vacuous
+file:search/frag.search.ts hash:a1cfed2187f3 | D150: `resend` guarded to where it can move, a lost save; it moves at depth 6
+file:main.ts hash:1c070060b898 | D149b, re-audit H2: typed/ hashes its text, whitespace collapsed, so types and directives count
+file:falsify.ts hash:0465edc2e221 | stage C: tampers for the type pins, and a mutants part read by named oracles alone
+file:harness.ts hash:e89f36ce139e | D151: a `lateCancel` fault, a timer cancel that loses the race
+file:fake-world.ts hash:683d3534c270 | D151: the fake host's late cancel
+file:drive.ts hash:cf08ec6e46bc | D149, re-audit H1: the ledger decides when an ending may be evidence or let go, by attribution, lives and releases it sees
+round:typed/bare-closures.ts hash:8609615421fe | D149b: the scheme for typed/ changed; the text did not
+round:typed/compare.ts hash:82f3faf54352 | D149b: typed/ rehashed with types kept; compare.ts unchanged
+round:typed/date-check.ts hash:942071aa695a | D149b: rehash only, date-check.ts unchanged
+round:typed/flow.ts hash:3f462dea6509 | D149b: flow.ts now hashed with its types, which are D91's front end
+round:typed/form.typed.ts hash:eac615e0b854 | D149b: form.typed.ts with its types, no text change
+round:typed/pay.typed.ts hash:240105943e9e | D149b: pay.typed.ts's annotations now count
+round:typed/swaps.ts hash:93aa9b728f96 | D149b: swaps.ts rehashed, unchanged
+round:typed/threeds.typed.ts hash:13eca5608cb8 | D149b: threeds.typed.ts rehashed with types
+round:typed/type-tests.ts hash:c59a5f992e9e | D149b: the nine `@ts-expect-error` pins now in the hash
+round:checks/score-check.ts hash:64634e0f6ddc | D153, re-audit M1, L5: an empty run, a bad count, a misspelled counter, a bfcache not cached: red
+round:checks/search-vacuity-check.ts hash:64d0d2313347 | new, D150: a budget-stopped search with one dead action is vacuous
+round:checks/types-check.ts hash:2f7bf29f3d05 | new, D149b: tsc on typed/, and the pin count
+round:reality/run.ts hash:80cfaacdd6ee | D153: the modes asked for are scored as asked
+round:reality/score.ts hash:4a4fa80a5738 | D153: each mode declares its sections and counters; a non-number counter fails
+output:FRAG-15 hash:976f73894c01 | D150: SEARCH-FRAG explores fewer edges, since `resend` runs only after a lost save
+output:R10-AUDIT-ENDINGS/a-failure-beside-another-actors-mail-is-heard hash:54048aef744a | new, D134: whole output of the H1 burst case
+output:R10-AUDIT-ENDINGS/a-failure-beside-one-send-is-heard hash:bde99ddb2072 | new, D134: whole output of the H1 two-sends case
+output:R10-AUDIT-READS hash:498d8c401132 | new, D134: whole output of the read abort
+output:R10-AUDIT/a-stale-timer-under-a-newer-one-is-fenced hash:e7b3faba899a | new, D134: whole output of the timer fence
