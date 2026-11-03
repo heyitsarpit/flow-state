@@ -306,6 +306,16 @@ Stated limits (`ending-check-design.md`, section 4):
 - L12 two incarnations at one path
 - L13 an empty boot after the runtime's own load bound
 
+### Stage L, addendum: H7 for a late ending (from `conformance-audit/gate-close-check.md`; proposed)
+
+The gate-close check of stage L found one blocker. H7's no-run check (a delivery said `delivered`, paid by the batch's `Unhandled`, with no run, red where a token-free alternative handles the event) ran only for a current start (`drive.ts`, `s && !s.late && freeHandler(...)`). A late ending (rule 14) lost and said `Unhandled` was green: the commonest late shape, a screen left while a payment or save is in flight. L4 and D4 said it was red. Nothing else in `drive.ts` splits late from current for an excuse: the start-node check judges both, and rule 15 is a check only a late turn owes.
+
+| Id | Decision | Costs | Changes |
+| --- | --- | --- | --- |
+| **D193** | **The no-run check runs for a late start too.** A late delivery is judged on the chain from rule 14's late start node, the one the start-node check already trusts. `g.late-unhandled` (rule 14's late route lost, the runtime says `Unhandled`) is in `falsify --part lies`, red by `(j) delivered, and no handler ran`. Stated limits revised: L4's reason (current or late), L7's named case (REV8-H1/a-refused-head-promotes-what-waits) and its one-sided error (a false red only when an ancestor leaves and comes back inside one batch, loud), L10 (stream runs are placed, not counted). Two low trusts are now stated: L14 (a resend is the runtime's `invoked` word, and an unknown owner skips the start-node and no-run checks) and L15 (`restoreThrew` is one flag for the whole case) | A false red is possible under L7's sampling; none in the suite | `drive.ts`, `falsify.ts`, `conformance-audit/ending-check-design.md` |
+
+Counts at the addendum: the control is unchanged, 742/742, RECIPIENTS equal to `expected-recipients.txt`. `g.late-unhandled`, `--no-output`: 16 of 17 failing cases red by the mark (FRAG-09/voidLostRace throws in the fake first); before D193, (j) saw 1 of 11 (REV8-H1, only because L7 takes its late ending for current).
+
 ## Design edits owed at merge
 
 `machine-design.md` is not edited in this round. Owed:

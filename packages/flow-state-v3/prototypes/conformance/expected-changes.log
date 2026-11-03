@@ -668,3 +668,5 @@ file:drive.ts hash:606fd7ce8eb0 | D188-D191: alive and owed from the suite's own
 file:fake-world.ts hash:3da685e6cff6 | D188, D191: the fake counts the loads it answered and says one is pending; a tear returns its batch's keys
 round:adapter.ts hash:a1a07ba13109 | D190: the codec's parked reader names the lane record each ending is parked on
 output:FRAG-24/a-dispose-waiting-on-a-slow-load-runs-after-both-copies-restored-endings hash:d2142ca65e56 | D192: its output, new (copies at a slow-load boot)
+file:drive.ts hash:d4e2b5933d2c | D193: H7's no-run check runs for a late start too; a late ending said delivered and Unhandled, run nowhere, was green (gate-close check)
+file:falsify.ts hash:efd67bf95af5 | D193: g.late-unhandled in --part lies, red by (j) delivered, and no handler ran (gate-close check)

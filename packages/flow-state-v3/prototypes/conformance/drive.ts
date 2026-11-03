@@ -844,11 +844,13 @@ export const makeHarness = (port: Port) => (): Harness => {
               recipients.unobserved++;
               wanted.push({ op, att: att!, evs, all, want: want!, copied: copy !== undefined, owed });
               // Review H7: a delivery no run answered is red when the recipient's state handles the owed event with an alternative no
-              // token guards: its guard, which carries the ear, would have run. Only a token-gated or unhandled event is A2's.
+              // token guards: its guard, which carries the ear, would have run. Only a token-gated or unhandled event is A2's. Current and
+              // late alike (gate-close check): a late start's chain is the one the start-node check trusts, and limit L7's live set is a
+              // superset of the true one, so the split can only red loudly, never go green on a lost late ending.
               const leaf = want!.path.length === 0 ? (leafPrev.get(owner!) ?? leafOf(owner!)) : innerOf(owner!)(want!.path)?.state;
               const s = leaf === undefined || owed === undefined || refusedEvs.has(owed) ? undefined : startOf(att!, want!, leaf);
               const f = refm().machine(machineOf(owner!))?.ops[op]?.fragment;
-              if (s && !s.late && freeHandler(machineOf(owner!), want!.path.length === 0 ? undefined : f, s.node, owed!) !== undefined)
+              if (s && freeHandler(machineOf(owner!), want!.path.length === 0 ? undefined : f, s.node, owed!) !== undefined)
                 missing.push(`(j) delivered, and no handler ran, though its recipient ${say(want!)} handles ${owed} from ${s.node} with no token: ${op} ${att}`);
             } else {
               recipients.observed++;

@@ -25,7 +25,15 @@ Stage L (review of stage K, D188-D192, proposed): (j)'s single revision, from `.
 - `--part lies --slice 1/32` to `32/32` (74 lies, the review's 18 among them; at most 194 s a slice): every one `ok`, and `FALSIFY every gate fails on what it should` in all 32.
 - The review's lies, by (j): `k.no-leaves+at-send` 107/107, `k.held-silent` 8/8, `k.drop-row` 62/68, `k.drop-copy` 9/9, `k.vanish-live` 80/85, `k.ghost-life` 9/9, `k.late-as-current` 5/6, `k.restored-from-root` 13/15, `k.claim-unhandled` 49/56, `k.ev-late+at-send` 17/17, `k.no-boot-ev+at-send` 149/152, `k.no-boot-ev+boot-order` 149/152, `k.restored-as-success` 57/60, `k.failure-as-success` 90/96, `k.send-ahead` 1/2, `k.parked-every-boot-silent` 24/25, `k.parked-reversed` 1/1, `k.supersede-head` 11/13.
 
-Stated limits L1-L13 are in `ending-check-design.md`, section 4; `k.stream-other` is L10. The prototype is outside `nub run check`'s paths, so no formatter was run.
+Stage L, addendum (gate-close check, D193, proposed): `../conformance-audit/gate-close-check.md` blocked on H7 for a late ending: a late ending said `delivered` and `Unhandled`, run nowhere, was green. The no-run check now runs for late starts too (`conformance/drive.ts`), and `g.late-unhandled` is in `falsify --part lies`. Limits L4, L7, L10 revised; L14 (a resend is the runtime's `invoked` word) and L15 (`restoreThrew` per case) added. Gates on the addendum's code, one command at a time:
+- Suite: 742/742 with output and catalog at round 10, stale lock 0, unlogged none, RECIPIENTS equal to the lock (unchanged).
+- 5 s gate: 30 failed, 30 expected; unexpected none.
+- `mutate-one.ts` on the control: `{"killedBy":null}`, 191 s.
+- `--part suite1` (72 s), `suite2` (216 s), `suite3` (100 s), `tamper` (12 ok): all ok.
+- `--part mutants`: 4 of 4 killed by named oracles (`h.restore-absent-lost` in 96), 248 s.
+- `--part lies --slice 11/32` (the slice holding the new lie): 3 of 3 ok; `g.late-unhandled` 16 of 17 by `(j) delivered, and no handler ran`. The other 31 slices hold the same lies as before and were not rerun.
+
+Stated limits L1-L15 are in `ending-check-design.md`, section 4; `k.stream-other` is L10. The prototype is outside `nub run check`'s paths, so no formatter was run.
 
 Left undone, in order of what makes green mean more:
 

@@ -368,6 +368,9 @@ try {
       ["k.parked-every-boot-silent", "a delivered parked ending's record is never deleted, so each boot delivers it again (M6)", [["durable.ts", "if (!l) { put(actor, id, undefined); }", 'if (!l) { if (!/"parked":\\[\\{/.test(saved[id] ?? "")) put(actor, id, undefined); }']], "(rule 17)"],
       ["k.parked-reversed", "parked endings restored in reverse saved order (M7)", [["durable.ts", "for (const p of l.parked ?? []) {", "for (const p of [...(l.parked ?? [])].reverse()) {"]], "(j) parked endings out of their saved order"],
       ["k.supersede-head", "under latest, the sent head is said Superseded too (L1)", [["lane.ts", "if (policy === \"latest\") { for (const x of l.w) supersede(tx, a.op, x);", "if (policy === \"latest\") { if (l.head && l.head.phase.t !== \"settled\") supersede(tx, a.op, l.head); for (const x of l.w) supersede(tx, a.op, x);"]], "(j) superseded after it was sent"],
+      // The gate-close check (`conformance-audit/gate-close-check.md`): H7 for a late ending. Rule 14's late route lost, and the runtime
+      // says Unhandled, a legitimate word when no handler exists. Red only since the free-handler check runs for a late start too.
+      ["g.late-unhandled", "a late ending said delivered and Unhandled, run nowhere (H7, late)", [["turn.ts", `${ROUTE} ${RUNT}`, `${ROUTE} if (late) { note(tx, "Unhandled", { event: ev.tag }); return; } ${RUNT}`]], "(j) delivered, and no handler ran"],
     ];
     const ALL = [...LIES, ...LIES10D, ...LIES10F, ...LIES10G, ...LIES10H, ...LIES10I, ...LIES10K, ...LIES10L];
     // `--slice i/n`: the i-th of n parts (each fits a 5-minute command).
