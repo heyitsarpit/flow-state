@@ -1221,4 +1221,28 @@ export const fragScenarios: readonly Scenario[] = [
       },
     },
   },
+  // Stage J (re-check 10i): two `.each` copies of one actor, each with a write in flight, reload. Each restored unknown runs in its own
+  // copy, placed by the serial the Host's decode minted on that copy's memory in the record.
+  {
+    id: "FRAG-24",
+    kind: "example",
+    fixtures: [notesFixture],
+    actor: N,
+    cites: ["rule:44", "rule:53", "D176"],
+    variants: {
+      "two-copies-reload-each-hears-its-own-restored-unknown"(c) {
+        c.ensure();
+        c.send("SetDocs", docs("d1", "d2"));
+        edit(c, "d1", "one");
+        c.ack();
+        edit(c, "d2", "two");
+        c.ack();
+        c.eq("two writes out", c.reqs("save").length, 2);
+        c.reload();
+        c.eq("d1 heard Restored", saved(c, "d1")?.reason, "Restored");
+        c.eq("d2 heard Restored", saved(c, "d2")?.reason, "Restored");
+        c.eq("each once", c.endings("save").filter((e) => e["reason"] === "Restored").length, 2);
+      },
+    },
+  },
 ];

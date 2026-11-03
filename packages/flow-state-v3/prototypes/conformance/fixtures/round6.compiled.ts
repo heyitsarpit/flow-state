@@ -111,6 +111,54 @@ export const memoryReleaseFixture = (rel: Release, decode: boolean): Fixture => 
   }),
 });
 
+const RM = "Lab/RowMove";
+const rm = fixtureOf(RM);
+// Stage J (re-check 10i S1): a row moves while its write is out. Each state handles the write's unknown its own way, so a restored ending
+// that takes the handler of the state its owner sent from, or of any state the row is not in, is seen.
+export const rowMoveFixture: Fixture = {
+  id: RM,
+  make: (api: Api) => ({
+    id: RM,
+    root: "root",
+    default: "EDITING",
+    nodes: {
+      root: rm.node("root", { Ok: [{}], No: [{}] }),
+      EDITING: rm.node("EDITING", {
+        Go: [{ members: rm.commit("put", () => ({})), target: "SAVING" }],
+        Unsure: [{ patch: ({ memory }: any) => ({ inEditing: memory.inEditing + 1 }) }],
+      }),
+      SAVING: rm.node("SAVING", {
+        Review: [{ target: "REVIEW" }],
+        Unsure: [{ patch: ({ memory }: any) => ({ inSaving: memory.inSaving + 1 }), target: "EDITING" }],
+      }),
+      REVIEW: rm.node("REVIEW", {
+        Unsure: [{ patch: ({ memory }: any) => ({ inReview: memory.inReview + 1 }) }],
+      }),
+    },
+    memory: rm.memory(() => ({ inEditing: 0, inSaving: 0, inReview: 0 })),
+    ops: {
+      put: {
+        id: "put",
+        contract: "lab/put",
+        kind: "write",
+        key: rm.key("put", () => ({})),
+        concurrency: "reject",
+        commit: (input, { attempt }) =>
+          api
+            .call("put", input, { idempotencyKey: attempt.id })
+            .pipe(unknownWhenLost) as Effect.Effect<unknown, unknown>,
+        outcomes: {
+          success: { event: "Ok" },
+          failure: { NotSent: { event: "No" } },
+          unknown: { event: "Unsure" },
+        },
+      },
+    },
+    persisted: true,
+    uses: [],
+  }),
+};
+
 const G = "Lab/Getter";
 const g = fixtureOf(G);
 // M11: a patch with a throwing getter: a lazy class instance, a Proxy.

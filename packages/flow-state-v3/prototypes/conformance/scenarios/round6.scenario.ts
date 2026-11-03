@@ -15,6 +15,7 @@ import {
   getterFixture,
   keyReleaseFixture,
   memoryReleaseFixture,
+  rowMoveFixture,
   type Release,
 } from "../fixtures/round6.compiled.ts";
 import type { Fixture } from "../harness.ts";
@@ -822,6 +823,35 @@ export const round6Scenarios: readonly Scenario[] = [
         c.reload();
         c.eq("each row kept its own memory past the runtime's own decode", [c.mem(A).oks, c.mem(B).oks], [1, 0]);
         c.eq("both restored endings were delivered", c.r.evidence("delivered").filter((e) => e["op"] === "put").length, 3);
+        c.eq("no refusal", c.r.issues().length, 0);
+      },
+    },
+  },
+  // Stage J (re-check 10i S1): two rows reload with a write in flight each; one moved to another state while its write was out. Each
+  // restored unknown takes its row's current state's handler, and (j)'s ear checks that state at the boot as at any batch.
+  {
+    id: "R10-BOOT-STATE",
+    kind: "fault",
+    fixtures: [rowMoveFixture],
+    actor: { actor: "Lab/RowMove", id: "a" },
+    cites: ["rule:44", "rule:14", "D176"],
+    variants: {
+      "a-row-that-moved-takes-its-current-states-handler"(c0) {
+        const A = { actor: "Lab/RowMove", id: "a" };
+        const B = { actor: "Lab/RowMove", id: "b" };
+        const c = at(c0, rowMoveFixture, A);
+        c.send("Go");
+        c.ensure(B);
+        c.to(B, "Go");
+        c.ack();
+        c.send("Review"); // a moves while its write is out; b stays in SAVING
+        c.state("REVIEW", A);
+        c.state("SAVING", B);
+        c.reload();
+        c.eq("a heard it in REVIEW", c.mem(A), { inEditing: 0, inSaving: 0, inReview: 1 });
+        c.eq("b heard it in SAVING", c.mem(B), { inEditing: 0, inSaving: 1, inReview: 0 });
+        c.state("REVIEW", A);
+        c.state("EDITING", B);
         c.eq("no refusal", c.r.issues().length, 0);
       },
     },

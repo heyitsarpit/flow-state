@@ -15,12 +15,12 @@ export const recipients = { observed: 0, ambiguous: 0, unobserved: 0, unplaceabl
 const WHO = Symbol("flow-suite incarnation");
 let serials = 0;
 const tag = (m: any) => (m !== null && typeof m === "object" && !Array.isArray(m) && Object.getPrototypeOf(m) === Object.prototype ? { ...m, [WHO]: ++serials } : m);
-// Stage I (re-check 10h T1): a memory with no `memory.restore` comes back from the runtime's own decode of its record, by the runtime's own
-// branch (`durable.ts`: `dec ? dec.run(i.memory) : i.memory`). The suite adds no Slot there. It mints that incarnation's serial where the
-// object is made: while the runtime runs (a boot, a settle step), each plain object `JSON.parse` returns gets a serial, in place, under the
-// same symbol key, before the runtime holds it. The platform is instrumented, not the program, so the runtime takes the same path. A
-// runtime with another codec mints nothing, and its views are `ambiguous`: red, loudly.
-const parse0 = JSON.parse;
+// Stage J (re-check 10i, D177 retired): a memory with no `memory.restore` comes back from the runtime's own decode of its record, by the
+// runtime's own branch (`durable.ts`: `dec ? dec.run(i.memory) : i.memory`). The suite adds no Slot there and instruments no platform
+// global. The record's text is decoded by the Host the suite gives the runtime (`Host.decode`, the store's codec): every plain object of an
+// actor record (by the runtime's own `disk.kind`) gets a serial there, in place, before the runtime holds it. A keyed or nested copy's
+// memory is an object in that record, so it has its own; a spread of it (`viewOf`) keeps the symbol key. A runtime that decodes by another
+// means mints nothing, and its views are `ambiguous`: red, loudly.
 const mintIn = (v: any, depth = 0): void => {
   if (v === null || typeof v !== "object" || depth > 64) return;
   if (Array.isArray(v)) {
@@ -30,20 +30,6 @@ const mintIn = (v: any, depth = 0): void => {
   if (Object.getPrototypeOf(v) !== Object.prototype || Object.isFrozen(v)) return;
   if (v[WHO] === undefined) v[WHO] = ++serials;
   for (const k of Object.keys(v)) mintIn(v[k], depth + 1);
-};
-let minting = 0;
-const whileRuntimeRuns = <T,>(f: () => T): T => {
-  if (minting++ === 0)
-    JSON.parse = ((t: string, r?: (k: string, v: unknown) => unknown) => {
-      const v = parse0(t, r as never);
-      mintIn(v);
-      return v;
-    }) as typeof JSON.parse;
-  try {
-    return f();
-  } finally {
-    if (--minting === 0) JSON.parse = parse0;
-  }
 };
 export const rowKey =(op: string, key: unknown) => `${op}|${JSON.stringify(key)}`;
 // D137: the id is escaped, so `M` + `x/y` and `M/x` + `y` are two actors. The last `/` always ends the machine.
@@ -301,9 +287,8 @@ export const makeHarness = (port: Port) => (): Harness => {
     return false;
   };
   const say = (w: Who) => `${w.actor} life ${w.life} [${w.path.join(" / ")}]`;
-  // A boot delivers restored endings before `port.boot` returns, so the new instance cannot be read yet. Stage I (H1⁶): a boot is not a
-  // special case. Its batches are held, each with its own ears, and judged in order once `port.boot` returns; each run is then placed by its
-  // serial (minted by the restore the compiled data has, or at the decode) like any other. Only the state check waits: the leaf has moved.
+  // Stage J (re-check 10i S1): a boot is not a special case. The runtime's published reads answer from its first evidence (`BootArgs.reads`),
+  // so a boot's runs are placed by serial and their state checked at the ear, as they happen, like any other run. `booting` only counts them.
   let booting = false;
   const listen = (c: any): any => {
     const evs = new Set(Object.keys(c.ops ?? {}).flatMap((op) => {
@@ -323,7 +308,7 @@ export const makeHarness = (port: Port) => (): Harness => {
         if (replaying || g === null || typeof g !== "object" || seenViews.has(g)) return true;
         seenViews.add(g); // one walk, one view: the alternatives after the first see the same object
         const serial = typeof g.memory?.[WHO] === "number" ? (g.memory[WHO] as number) : undefined;
-        const who = booting || serial === undefined ? undefined : resolve(serial);
+        const who = serial === undefined ? undefined : resolve(serial);
         if (who && !inState(c, frag, node, who)) missing.push(`(j) a handler of ${ev} ran at ${frag ?? c.id}.${node}, a state its recipient ${say(who)} does not publish`);
         ears.push({ ev, machine: c.id, node, frag, serial, who, boot: booting });
         return true;
@@ -348,7 +333,7 @@ export const makeHarness = (port: Port) => (): Harness => {
         : {};
     const nodes = (ns: Record<string, any>, frag?: string) =>
       Object.fromEntries(Object.entries(ns ?? {}).map(([id, n]) => [id, n.on ? { ...n, on: Object.fromEntries(Object.entries(n.on).map(([ev, alts]) => [ev, (alts as any[]).map((alt) => ({ ...alt, ...follow(alt), ...(evs.has(ev) ? { guards: [ear(ev, alt.at, id, frag), ...(alt.guards ?? [])] } : {}) }))])) } : n]));
-    // Stage I (T1): only the Slots the compiled data has are wrapped. A restore that is absent stays absent (see `whileRuntimeRuns`).
+    // Stage I (T1): only the Slots the compiled data has are wrapped. A restore that is absent stays absent (see `mintIn`).
     const tagged = (mem: any) => ({
       ...mem,
       initial: { ...mem.initial, run: (i: unknown) => tag(mem.initial.run(i)) },
@@ -791,38 +776,32 @@ export const makeHarness = (port: Port) => (): Harness => {
       }
       issues.push(...i);
     };
-    // Stage I (H1⁶): what a boot says before `port.boot` returns is held, in order, each batch with its own ears, and judged after.
-    const held: Array<() => void> = [];
-    let ready = false;
-    const next = whileRuntimeRuns(() =>
-      port.boot({
-        host: fake.host(),
-        compiled,
-        bounds,
-        faults,
-        onEvidence: (e) => {
-          if (ready || !booting) return onEvidence(e);
-          const mine = ears;
-          ears = [];
-          held.push(() => {
-            ears = mine;
-            onEvidence(e);
-          });
-        },
-        onIssue: (i) => (ready || !booting ? onIssue(i) : void held.push(() => onIssue(i))),
-      }),
-    );
+    // Stage J (S1): judged as it happens. Until `port.boot` returns, the new runtime's own published reads (none given: nothing is
+    // published, and every run there is unplaceable, red); never the killed instance's.
+    const none = () => undefined;
+    inst = { state: none, memory: none, inner: none } as unknown as Instance;
+    const host = fake.host();
+    const next = port.boot({
+      host: { ...host, decode: (k: string, t: string) => {
+        const v = JSON.parse(t);
+        if (port.disk.kind(k) === "actor") mintIn(v);
+        return v;
+      } },
+      compiled,
+      bounds,
+      faults,
+      reads: (r) => void (inst = { ...inst, ...r }),
+      onEvidence,
+      onIssue,
+    });
     inst = next;
-    ready = true;
     booting = false;
-    for (const h of held) h();
     for (const f of listeners) inst.subscribe(f);
     instances.push(inst);
   };
   let tasksPerStep: number | null = null;
   let spinning = false;
-  const settle = () => whileRuntimeRuns(settle_);
-  const settle_ = () => {
+  const settle = () => {
     const firstTask = fake.tasks;
     const t0 = Date.now();
     spinning = false;
@@ -869,8 +848,7 @@ export const makeHarness = (port: Port) => (): Harness => {
   // D146: what needs the page's own JS cannot happen on a frozen page: a press, a hide event, an ensure. It is dropped and counted, and a case that drops one is told so at its end.
   let frozenDrops = 0;
   const PAGE_INPUT = ["ensureAs", "ensure", "burst", "send", "sendMany", "dispose", "hide", "disposeRuntime", "advanceNow", "nextYield"];
-  const run = (s: Step) => whileRuntimeRuns(() => run_(s));
-  const run_ = (s: Step) => {
+  const run = (s: Step) => {
     if (fake.freezeTimers && PAGE_INPUT.some((k) => k in s)) {
       frozenDrops++;
       return;

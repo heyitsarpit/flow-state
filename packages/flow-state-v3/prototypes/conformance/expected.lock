@@ -96,6 +96,7 @@ FRAG-21 9fd008aefa5a
 FRAG-22 ab070bae521b
 FRAG-23 75a76bd85e5d
 FRAG-20 71365391e864
+FRAG-24 d1629e3ef8ba
 REV4-H1 d22230626e38
 REV4-H2 b392b6ba7ad9
 REV4-H3 881eb9130d72
@@ -152,6 +153,7 @@ REV6-STREAMS a96d396fe54c
 REV6-M7 4aba3b7fcf2b
 REV6-TEAR 2fcc9a74fcad
 R10-BOOT-ROWS dc4a389b473f
+R10-BOOT-STATE 214aa65f562b
 REV6-M8 5e2ab7747492
 REV6-L3 05986fc464dc
 REV7-H1 86e4ac5c74ae
@@ -376,6 +378,7 @@ variant:FRAG-20/no-waiter-left-no-yield present
 variant:FRAG-20/local-sent-finishes-to-evidence present
 variant:FRAG-20/re-entering-does-not-refresh-a-resumable present
 variant:FRAG-20/a-freeze-is-an-ending-not-a-release present
+variant:FRAG-24/two-copies-reload-each-hears-its-own-restored-unknown present
 variant:REV4-H1/a-read-started-during-a-write-does-not-overwrite-it present
 variant:REV4-H1/a-read-started-after-the-write-applies-with-no-extra-read present
 variant:REV4-H1/the-doubt-outlives-a-failed-repair present
@@ -647,6 +650,7 @@ variant:REV6-M7/a-failed-write-survives-a-reload-as-the-last-good-capture presen
 variant:REV6-TEAR/a-store-with-no-atomic-batch-strands-nothing-silently present
 variant:R10-BOOT-ROWS/two-rows-with-a-restore-each-hear-their-own-ending present
 variant:R10-BOOT-ROWS/two-rows-without-a-restore-each-keep-their-memory present
+variant:R10-BOOT-STATE/a-row-that-moved-takes-its-current-states-handler present
 variant:REV6-M8/a-declared-decode-gives-the-new-field-its-default present
 variant:REV6-M8/without-one-the-refusal-is-as-designed present
 variant:REV6-L3/a-stored-frag-of-no-shape-quarantines present
@@ -861,14 +865,14 @@ variant:R10-AUDIT-ENDINGS/a-failure-beside-another-actors-mail-is-heard present
 variant:R10-AUDIT-ENDINGS/a-failure-beside-one-send-is-heard present
 file:scenarios/ctx.ts 041466da4ebc
 file:scenarios/flows.scenario.ts 609988df9d0b
-file:scenarios/frag.scenario.ts e4815faef358
+file:scenarios/frag.scenario.ts cb1f4bf29c5b
 file:scenarios/order.scenario.ts 808eaa809f06
 file:scenarios/pay.scenario.ts ab1e3ac509a9
 file:scenarios/review.scenario.ts 973830d14300
 file:scenarios/round10.scenario.ts 698640b18494
 file:scenarios/round4.scenario.ts 5ef7c0f29ba0
 file:scenarios/round5.scenario.ts c89c276b56cb
-file:scenarios/round6.scenario.ts 6006df615f43
+file:scenarios/round6.scenario.ts e683a006e35e
 file:scenarios/round7.scenario.ts 0435bee1fc7f
 file:scenarios/round8.scenario.ts 73ca63b5c51b
 file:scenarios/round9.scenario.ts d8c59221b1f4
@@ -907,7 +911,7 @@ file:fixtures/pay.compiled.ts 39629a55407e
 file:fixtures/pay.fixed.ts c0d438f66aa8
 file:fixtures/real.compiled.ts ac7cc254f1f2
 file:fixtures/refunds.compiled.ts b6b198f1e5e7
-file:fixtures/round6.compiled.ts 0f4606ef5359
+file:fixtures/round6.compiled.ts 41ebd8a9e557
 file:fixtures/round7.compiled.ts c71362ffec27
 file:fixtures/round8.compiled.ts 10a48ef13d49
 file:fixtures/round9.compiled.ts 9225ebc0fcbb
@@ -922,7 +926,7 @@ file:bench/s4-run.ts 78b684022f52
 file:reference/model.ts f2d10ce05bca
 file:main.ts b6d25add06c5
 file:output.ts 0b15041b194e
-file:falsify.ts b1808116e681
+file:falsify.ts c8b3f278d6f3
 file:broken-adapter.ts a255b41105c6
 file:null-adapter.ts 295792b7b6be
 file:report.ts 7e305fd3110b
@@ -931,8 +935,8 @@ file:gate5s.ts 9ca8fbc3f284
 file:gate-5s-expected.txt 7995923439b2
 file:mutate.ts bd0623c0a5c3
 file:mutate-one.ts 14f130df7310
-file:harness.ts daf1e0674f88
-file:drive.ts 0bb4dee519e3
+file:harness.ts c15a0beab511
+file:drive.ts 071e5b126d09
 file:fake-world.ts 683d3534c270
 round:cli/broken.ts 10d0ce602315
 round:cli/check.ts 9b5b5f6c07d4
@@ -975,7 +979,7 @@ round:mutants-r9.ts b9904f5525b2
 round:mutants-r9b.ts b166469a099b
 round:mutants.ts 9ced0df5e862
 round:run-plants.sh cb7f2b68d5b2
-round:adapter.ts 1da58b03b964
+round:adapter.ts 1e322c7d7e0d
 output:CART-01 cfd438e7ae1b
 output:CART-02/at-most-nine fd17f07a683d
 output:CART-02/coupon cffb0eef99f3
@@ -1071,6 +1075,7 @@ output:FRAG-23/an-ending-beside-the-suites-own-send-of-its-event-to-another-acto
 output:FRAG-23/equal-memory-actors-in-one-state-an-ending-reaches-one 36a0137d4d1f
 output:FRAG-23/equal-memory-actors-in-two-states-an-ending-reaches-the-live-one 948be704d755
 output:FRAG-23/two-equal-copies-in-two-actors-an-ending-reaches-one 36dfc154d0f6
+output:FRAG-24/two-copies-reload-each-hears-its-own-restored-unknown 2cc22a5760a0
 output:HIGH-01/pay-told-not-charged 02b546ae0dde
 output:HIGH-01/retry-then-cancel-releases bfb328e45e36
 output:HIGH-01/retry-then-commit-queues-behind e3d23b3ef219
@@ -1182,6 +1187,7 @@ output:R10-AUDIT-READS 498d8c401132
 output:R10-AUDIT/a-stale-timer-under-a-newer-one-is-fenced e7b3faba899a
 output:R10-BOOT-ROWS/two-rows-with-a-restore-each-hear-their-own-ending 2ee4a58b8288
 output:R10-BOOT-ROWS/two-rows-without-a-restore-each-keep-their-memory 6b9c20fd46c4
+output:R10-BOOT-STATE/a-row-that-moved-takes-its-current-states-handler d5f717656889
 output:R10-PINS/a-hosts-cancel-lets-go-the-ordinary-and-keeps-the-kept 40f24c090a76
 output:R10-PINS/a-refused-ensure-rolls-back-and-names-its-origin 72738bdc4909
 output:R10-PINS/a-second-try-beside-another-actors-mail-is-not-lost 28f5b1df8505

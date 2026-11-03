@@ -37,20 +37,24 @@ if (part("watch")) {
 const suite = (rt: string, env: Record<string, string> = {}, extra: string[] = []) =>
   run(["bun", "main.ts", "--round", "99", "--no-catalog", "--runtime", rt, ...extra], env);
 const summary = (out: string) => /SUMMARY\s+(\d+)\/(\d+)/.exec(out);
-if (part("suite")) {
+// Stage J: `--part suite` is twelve suite runs, about 7 minutes. `suite1` (null, three broken), `suite2` (four broken) and `suite3` (the
+// no-output oracles and `--only` of nothing) each fit a 5-minute command; `suite` is still all three.
+const BROKEN = ["constantHash", "lyingFatal", "noEvidence", "noWaits", "bogusIssue", "lyingReplay", "junkDiskKey"];
+const suitePart = (n: 1 | 2 | 3) => part("suite") || part(`suite${n}`);
+if (suitePart(1)) {
   const n = await suite("./null-adapter.ts");
   const m = summary(n.stdout);
   const passed = n.stdout.split("\n").filter((l) => l.startsWith("PASS")).map((l) => l.slice(4).split("\t")[0]!.trim());
   say(n.code !== 0 && m !== null, "suite: red on null, with a verdict", m ? `${m[1]}/${m[2]} pass` : "no SUMMARY");
   say(passed.length === 0, "suite: no case passes on no runtime", passed.join(" "));
 }
-const BROKEN = ["constantHash", "lyingFatal", "noEvidence", "noWaits", "bogusIssue", "lyingReplay", "junkDiskKey"];
-if (part("suite")) for (const k of quick ? BROKEN.slice(0, 2) : BROKEN) {
+for (const [i, k] of (quick ? BROKEN.slice(0, 2) : BROKEN).entries()) {
+  if (!suitePart(i < 3 ? 1 : 2)) continue;
   const r = await suite("./broken-adapter.ts", { FLOW_BROKEN: k, FLOW_BROKEN_BASE: runtime });
   const m = summary(r.stdout);
   say(r.code !== 0 && m !== null && m[1] !== m[2], `suite: red on ${k}`, m ? `${m[1]}/${m[2]} pass` : "no SUMMARY");
 }
-if (part("suite")) {
+if (suitePart(3)) {
   // A named oracle must see these too, not only the output: run with no output compare, and count.
   // The stated exceptions. A search keeps its own oracle. Three cases boot nothing: the seal refuses, and that is what they pin.
   const SEARCHES_OWN = ["SEARCH-ODD-SMALL", "SEARCH-ODD-ALL"];
@@ -62,7 +66,7 @@ if (part("suite")) {
     say(summary(r.stdout) !== null && extra.length === 0, `oracles: every case sees ${k} (D130)`, extra.join(" "));
   }
 }
-if (part("suite")) {
+if (suitePart(3)) {
   const r = await suite("./broken-adapter.ts", { FLOW_BROKEN: "x", FLOW_BROKEN_BASE: join(here, "null-adapter.ts") }, ["--only", "NOPE-99"]);
   say(r.code !== 0, "suite: --only of nothing is red");
 }
@@ -314,10 +318,15 @@ try {
     // actor of its machine, in another unfrozen copy of its fragment, or in its owner and another actor. Each is placed by its serial after
     // `port.boot` returns, like any other batch.
     const SIB = `(() => { const t = kidAt(a.root, path); let s: any; if (t && path.length > 0) walkIncs(a.root, (i: any, p: any) => { if (p.length > 0 && !samePath(p, path) && i.frag === t.frag && !i.frozen) s ??= p; }); return s; })()`;
+    const ROUTE = "const { start, late } = routeFrom(tx, a, item, inc);";
     const LIES10I: ReadonlyArray<readonly [string, string, Edits, string]> = [
       ["h.boot-other", "a restored ending runs, at a boot, in another live actor (H1⁶)", [["turn.ts", G125, WAX("item.restored", "true")]], "(j) delivered to the wrong recipient"],
       ["h.boot-copy", "a restored ending runs, at a boot, in another unfrozen copy (H1⁶)", [["turn.ts", RUNT, `runTurn(tx, a, item.attempt && item.restored ? (${SIB} ?? path) : path, ev, start, late, item);`]], "(j) delivered to the wrong recipient"],
       ["h.boot-dup", "a restored ending runs in its owner and in another actor (H1⁶)", [["turn.ts", DUPFIND, `${DUPFIND} { const o = item.attempt && item.restored ? ${ACTORS}.find((x: any) => x.machine === a.machine && x.key !== a.key) : undefined; const p2 = o && bindingOf(tx, o, item.op, subject); if (o && p2) deliver(tx, o, p2, { ...item, redelivered: true, kept: false } as any); }`]], "(j) a handler run nothing accounts for"],
+      // Stage J: the stage I re-check's state lies (`re-check-round-10i.md`, S1). A restored ending in its own actor and copy, from a state
+      // it is not in: the node its owner sent from, or any node outside the leaf's chain that handles the event. Red by the ear's state check.
+      ["h.boot-stale", "a restored ending is routed from the node its owner sent from, not the current leaf (S1)", [["turn.ts", ROUTE, "const fr0 = fragOf(machineOf(tx, a), inc); const { start, late } = item.restored && item.owner?.node && fr0.nodes[item.owner.node] ? { start: item.owner.node, late: false } : routeFrom(tx, a, item, inc);"]], "a state its recipient"],
+      ["h.boot-state", "a restored ending runs the handler of a node outside the leaf's chain (S1)", [["turn.ts", ROUTE, `const wr = (() => { if (!item.restored) return undefined; const fr = fragOf(machineOf(tx, a), inc); const anc = new Set(up(fr, inc.leaf)); return Object.keys(fr.nodes).find((n) => !anc.has(n) && fr.nodes[n]!.on[ev.tag] !== undefined); })(); const { start, late } = wr !== undefined ? { start: wr, late: false } : routeFrom(tx, a, item, inc);`]], "a state its recipient"],
     ];
     const ALL = [...LIES, ...LIES10D, ...LIES10F, ...LIES10G, ...LIES10H, ...LIES10I];
     // `--slice i/n`: the i-th of n parts (each fits a 5-minute command).

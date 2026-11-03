@@ -17,6 +17,8 @@ export type Host = {
   // Round 7, D80: when the page stops being seen: `visibilitychange` to hidden, `pagehide`. A host may not have one.
   onHidden?(f: () => void): void;
   isHidden?(): boolean; // while hidden nothing waits for `captureMs` (review M3)
+  // Stage J: the store's codec, a stored record's text as a value. Not given: `JSON.parse`. Production's store and codec live here too.
+  decode?(key: string, text: string): unknown;
   storage: {
     load(): ReadonlyMap<string, string> | PromiseLike<ReadonlyMap<string, string>>; // round 7: a real read takes time, or never answers
     // `then` makes the write awaited: the fake holds it until a `storage` step. Others land at once. `failed`: a plain write that

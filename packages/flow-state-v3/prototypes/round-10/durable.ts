@@ -211,7 +211,7 @@ const quarantine = (tx: Tx, key: string, why: string) =>
   issue(tx, { code: "RecordQuarantined", origin: "restore", input: `${key}: ${why}` });
 const parse = (tx: Tx, key: string, text: string) => {
   try {
-    return JSON.parse(text);
+    return tx.decode ? tx.decode(key, text) : JSON.parse(text);
   } catch (e) {
     quarantine(tx, key, String(e));
     return undefined;

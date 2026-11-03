@@ -636,3 +636,14 @@ file:falsify.ts hash:b1808116e681 | D179: h.boot-other, h.boot-copy, h.boot-dup 
 file:drive.ts hash:0bb4dee519e3 | D176, D177, D178: a boot's batches held and placed by serial after port.boot; no restore added; a serial minted at decode; one place per serial
 output:R10-BOOT-ROWS/two-rows-with-a-restore-each-hear-their-own-ending hash:2ee4a58b8288 | D176: its output, new (through the compiled restore)
 output:R10-BOOT-ROWS/two-rows-without-a-restore-each-keep-their-memory hash:6b9c20fd46c4 | D177: its output, new (the runtime's own branch for no restore)
+FRAG-24 hash:d1629e3ef8ba | D182: new case, two .each copies of one actor reload with a write in flight each
+R10-BOOT-STATE hash:214aa65f562b | D182: new case, two rows reload with a write in flight each, one moved to another state first
+file:scenarios/frag.scenario.ts hash:cb1f4bf29c5b | D182: FRAG-24 added at the end
+file:scenarios/round6.scenario.ts hash:e683a006e35e | D182: R10-BOOT-STATE added after R10-BOOT-ROWS
+file:fixtures/round6.compiled.ts hash:41ebd8a9e557 | D182: Lab/RowMove, a row whose states each handle its write's unknown their own way
+file:falsify.ts hash:c8b3f278d6f3 | D182, D183: h.boot-stale and h.boot-state in --part lies; --part suite split into suite1, suite2, suite3
+file:harness.ts hash:c15a0beab511 | D180: BootArgs.reads, an Instance's published reads from its first evidence
+file:drive.ts hash:071e5b126d09 | D180, D181: a boot judged as it happens with the state check; serials minted by the Host's record decode, the JSON.parse hook removed
+round:adapter.ts hash:1e322c7d7e0d | D180: the published reads answer from the last logged step's world until createRuntime returns
+output:FRAG-24/two-copies-reload-each-hears-its-own-restored-unknown hash:2cc22a5760a0 | D182: its output, new (two copies at a boot)
+output:R10-BOOT-STATE/a-row-that-moved-takes-its-current-states-handler hash:d5f717656889 | D182: its output, new (a row moved before the reload)

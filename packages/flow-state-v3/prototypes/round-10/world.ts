@@ -306,6 +306,7 @@ export type System = {
   readonly machines: Machines;
   readonly modules: readonly Module<any>[];
   readonly bounds: Bounds;
+  readonly decode?: (key: string, text: string) => unknown; // stage J: the Host's codec for a stored record. Not given: `JSON.parse`
 };
 export type Tx = System & {
   w: World;

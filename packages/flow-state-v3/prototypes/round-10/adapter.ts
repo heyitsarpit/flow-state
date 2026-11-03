@@ -182,6 +182,28 @@ export const port: Port = {
     };
     const byId: Record<string, Compiled> = {};
     for (const c of a.compiled) byId[c.id] ??= c;
+    // Stage J (S1): what is published, from the first step on. Before `createRuntime` returns (a boot's own pump), the world of the last
+    // step logged; after, the runtime's. The same reads either way, so a boot's runs are read like any other.
+    let early: World = emptyWorld;
+    let up = false;
+    const cur = (): World => (up ? rt.world() : early);
+    const reads = {
+      state: (x: string) => getActor(cur().actors, x)?.root.leaf,
+      binding: (x: string, op: string, subject: readonly string[]) => {
+        const r = getActor(cur().actors, x);
+        return r && bindingIn(byId, r, op, subject); // the sealed data as booted, not `rt.sys.machines`: a read there is a core fault's trigger
+      },
+      memory: (x: string) => {
+        const r = getActor(cur().actors, x)?.root;
+        return r && viewOf(r);
+      },
+      inner: (x: string, path: readonly string[]) => {
+        const r = getActor(cur().actors, x)?.root;
+        const i = r && kidAt(r, path);
+        return i && { state: i.leaf, memory: viewOf(i) };
+      },
+    };
+    a.reads?.(reads);
     const rt = createRuntime({
       host: a.host,
       machines: a.compiled, // D77: createRuntime seals
@@ -196,12 +218,14 @@ export const port: Port = {
         log.push(r);
         a.faults.onLogged?.(log.length);
         if (r.out !== "fatal") countMail(r.out.world);
+        if (r.out !== "fatal") early = r.out.world;
         if (r.input.k === "sent") lastCompletion = r.input;
         if (r.out !== "fatal" && r.out.frame) frames.push(r.out.frame);
       },
       onEvidence: (e) => a.onEvidence(e),
       onIssue: (i) => a.onIssue(i),
     });
+    up = true;
     const plain: Machines = rt.sealed;
     const sys = {
       get machines() {
@@ -223,20 +247,7 @@ export const port: Port = {
       pending: () => rt.pending(),
       live: () => rt.live(),
       logLength: () => log.length,
-      state: (x) => getActor(rt.world().actors, x)?.root.leaf,
-      binding: (x, op, subject) => {
-        const r = getActor(rt.world().actors, x);
-        return r && bindingIn(byId, r, op, subject); // the sealed data as booted, not `rt.sys.machines`: a read there is a core fault's trigger
-      },
-      memory: (x) => {
-        const r = getActor(rt.world().actors, x)?.root;
-        return r && viewOf(r);
-      },
-      inner: (x, path) => {
-        const r = getActor(rt.world().actors, x)?.root;
-        const i = r && kidAt(r, path);
-        return i && { state: i.leaf, memory: viewOf(i) };
-      },
+      ...reads,
       row: (x, op, key) => rowOf(rt.world(), x, op, key),
       record: (ref) => {
         const s = store(rt.world());

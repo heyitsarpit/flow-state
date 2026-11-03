@@ -236,7 +236,11 @@ export type BootArgs = {
   readonly faults: FaultState;
   readonly onEvidence: (e: ReadonlyArray<Record<string, any>>) => void;
   readonly onIssue: (i: ReadonlyArray<{ code: string; origin?: string; input?: unknown }>) => void;
+  // Stage J (S1): an Instance's published reads answer from its first evidence, a boot's included: what it has published so far. Given
+  // before the runtime boots, so a boot's runs are judged as they happen, by the same reads as any other batch's.
+  readonly reads?: (r: BootReads) => void;
 };
+export type BootReads = Pick<Instance, "state" | "binding" | "memory" | "inner">;
 export type Instance = {
   ensure(actor: string, machine: string, input: unknown): void;
   send(actor: string, event: Ev): void;

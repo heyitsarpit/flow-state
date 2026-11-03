@@ -70,7 +70,7 @@ export const createRuntime = (cfg: {
   const sealed: Machines = sealedList;
   const machines = cfg.around ? cfg.around(sealed) : sealed;
   const bounds = { ...defaultBounds, ...cfg.bounds };
-  const sys: System = { machines, modules, bounds };
+  const sys: System = { machines, modules, bounds, ...(host.decode ? { decode: (k: string, t: string) => host.decode!(k, t) } : {}) };
   let world: World = emptyWorld;
   let running = false;
   let fatal = false;
