@@ -65,6 +65,67 @@ One root cause under H1, H2, M1 and M4: **a gate that takes a self-report at its
 | **D152** | **Disk is read through the codec where a key's spelling is not the point.** `Ctx.record(actor)` and `Ctx.laneKeys()` ask the runtime's codec for kind and scope. Renamed keys: **112 failing before, 73 now**; an envelope: 30 before, 26 now. What stays, and why: `corruptStored` edits (a corrupt record is written in the runtime's own format; that is what they pin), `storage` steps matched by key (the fake's batch filter), and lane helpers reading one lane by its full key (round 7, 8, 9, 9b): **not yet moved**, and not justified as pins | The 73 are not marked as pins. Stated in RESULTS | `ctx.ts`, ten scenario files |
 | **D153** | **A real run is scored by the modes it was asked for.** Each mode of `reality/run.ts` declares its sections and counters; a mode not reporting, a section empty, a counter missing or not a finite number fails. `--only nothing-here` is red. Re-audit L5 with it: bfcache's green arm must show `cached:true` and `back:"reload"`. `checks/score-check.ts` holds eleven new cases | `run7.ts`, `h3.ts`, `spin.ts` still score the old way | `reality/score.ts`, `reality/run.ts`, `checks/score-check.ts` |
 
+### Stage D: every input every oracle reads (from `conformance-audit/re-check-round-10c.md`)
+
+The gate failed twice on one class: an oracle excused a missing obligation because the runtime said why. Stage C fixed `evidenceOnly`; the re-check showed `Released` one hop further. So this stage lists every input, not the next hop.
+
+Kinds:
+
+- **Observed**: the suite drove it, answered it, disposed it, owns its bytes, or read it from what the runtime publishes (`state`, `memory`, the compiled data it holds, its own wrapped Slots).
+- **Debt**: a self-report that only adds an obligation. A lie in it can only make a run redder.
+- **Names**: a self-report that only says which attempt or op; why must be observed.
+- **Checked**: a self-report used as an excuse, and itself cross-checked against something observed.
+- **Allowance**: a self-report used as an excuse, not yet checked. Each is listed, so none is an oracle default by silence.
+
+| # | Oracle | Input | Kind | What it may do now |
+| --- | --- | --- | --- | --- |
+| 1 | ledger (j) | `dispose` steps, life count | Observed | Ends a life: its endings may go as evidence |
+| 2 | ledger (j) | `inst.state` / `inst.memory` before and after each batch | Observed | Owner gone, or owner moved (D154) |
+| 3 | ledger (j) | compiled `cancel` members, `whenAbandoned.release`, op `concurrency`, outcome mappings, schedules | Observed (the suite holds the compiled data) | Says whether a move or an event can release, cancel or supersede the op |
+| 4 | ledger (j) | events the suite sent; events its answers and timers map to | Observed | A cancel the suite drove (D154) |
+| 5 | ledger (j) | asks, by the suite's wrap of `commit`/`lookup` input Slots | Observed | Debt (`judgeAsks`); a newer ask supersedes a lookup |
+| 6 | ledger (j) | disk bytes at a kill, read by the runtime's codec | Observed bytes, codec reading | Debt (`bootOwed`) |
+| 7 | ledger (j) | `corruptStored`, `wipe`, `tear` steps | Observed | Turns (j) off for the case (rule 46). A corruption that matches nothing is now red (D158) |
+| 8 | ledger (j) | `ending`, `unparked`, `refused` | Debt | Adds what is owed |
+| 9 | ledger (j) | `mint`, `invoked`, `turn`'s actor | Names | Attributes an attempt to an actor. **Allowance A1**: a lie that attributes to a dead actor would excuse its ending; no case shows one |
+| 10 | ledger (j) | `evidenceOnly` | Names (D149, D154) | Pays only for rows 1-4 |
+| 11 | ledger (j) | `Released`, `lane.release.*` cell | Names (D154) | Says a release of the op happened. Pays only if THIS attempt's owner has a cause from rows 1-4. No attempt: no wildcard |
+| 12 | ledger (j) | `KeptLetGo`, `ParkedLetGo` | Names (D154) | Pays for rows 1-4, or a newer `kept` (row 15) |
+| 13 | ledger (j) | `Superseded` | Names (D154, new oracle) | Owed a dispose, the owner gone, or (write) `latest` and a newer attempt of the op by the owner, or (lookup) a newer send, a newer ask, or the owner moved |
+| 14 | ledger (j) | `delivered` | Checked against `turn`/`Denied`/`Unhandled`/`refused` in the batch | **Allowance A2**: the check is another self-report. A machine turn is observable only through Slots a turn may not run |
+| 15 | ledger (j) | `parked`, `kept` | Checked: each must be named by a wait (`inst.waits()`) | **Allowance A3**: a wait is the runtime's inspection; for `parked`/`kept` waits nothing outside backs it |
+| 16 | ledger (j) | `turn`/`Denied`/`Unhandled` pay a refusal; `fence`/`unbound` clear refusals | Self-report excuse | **Allowance A4** |
+| 17 | ledger (j) | `UnmappedEnding`, `InvalidTurn` issues pay a batch's unheard deliveries | Self-report excuse | **Allowance A5**. A case that does not name the issue still fails (D130) |
+| 18 | ledger (j), `checkEndings`, `checkMints` | `DisposeStart` | Checked (D158): turns (j) off only after a dispose step the suite drove | Was an allowance |
+| 19 | (h) `writeAheadLies` | `fake.mayHave`, `excused` | Observed | Debt |
+| 20 | (h) | heads on disk by the codec | Observed bytes, codec reading | Pays |
+| 21 | (h), `checkMints` | `Released` | Names (D158): pays only if the ledger saw a cause (row 11) | Was taken at its word |
+| 22 | `checkMints` | `ending`, `lostWithProcess` (the suite's own, at a kill) | Debt / Observed | Accounts a mint |
+| 23 | `checkMints` | `Superseded` | Checked by row 13 | Accounts a mint |
+| 24 | `checkMints` | a wait naming the attempt | Checked for `wire`/`ack`/`capture`/`timer` by L3 against the fake's outside | **Allowance A3** for other kinds |
+| 25 | `checkEndings` | `invoked`, `ending` | Debt | |
+| 26 | `checkEndings` | `Superseded`, `AbandonedFiber` close a send | `Superseded` checked (row 13); **Allowance A6** for `AbandonedFiber` | |
+| 27 | L3 `checkClaims` | `wire`, `ack`, `capture`, `timer`, `repair` waits | Checked against the fake's open requests, writes and timers | |
+| 28 | L3 | `held` waits | Checked against published state | |
+| 29 | L3 | `disabled` waits | Checked against a `ModuleDefect` issue | **Allowance A7**: two self-reports |
+| 30 | L3, D133 | `fatal` | Checked: a `Fatal` issue, named by the case | Per-case allowance, as it should be |
+| 31 | L3 | `quiet().idle` | `inst.pending()` and the fake's own work | A lie only makes it redder (not idle fails) |
+| 32 | S11 replay | the runtime's logged draws | Self-report, compared with what was published | Consistency; `lyingReplay` in `falsify.ts` |
+| 33 | searches | `stateText` for dedupe | Self-report | Prunes; `constantHash` in `falsify.ts` |
+| 34 | searches (odd, listen, fragstore) | published records against the fake server's truth | Observed | |
+
+**Counts: 34 inputs. 11 observed (1-7, 19, 20, 22, 34), 3 debt-only (8, 25, 31), 6 names-only (9-13, 21), 12 checked (14, 15, 18, 23, 24, 26-30, 32, 33), 2 excuses at the runtime's word (16, 17). 7 allowances in all (A1-A7): the two excuses, and five rows whose name or check rests on another self-report.** Rows 10, 11, 12, 13, 18, 21 were excuses at the runtime's word before this stage. Every row has a lie in `falsify.ts` except the allowances.
+
+### Stage D decisions (all proposed)
+
+| Id | Decision | Costs | Changes |
+| --- | --- | --- | --- |
+| **D154** | **An oracle may excuse a missing obligation only for a cause the suite observed itself.** A self-report may say which attempt, never why. The causes: a `dispose` the suite drove (a life over); the owner gone from what it publishes; the owner's published state or memory moving in the batch while the compiled machine can let the op go (a `cancel` member, or a `whenAbandoned.release`); an event the suite drove to the owner (sent, or mapped by the compiled data from its answer, its timer, or a restored ending after a reload it drove) on which some alternative cancels the op. `Released` and `lane.release.*` name a release; THIS attempt's owner must have a cause. The no-attempt wildcard is gone. `Superseded` gets an oracle: a write needs `latest` and a newer attempt of the op by the same owner; a lookup needs a newer send, a newer ask (seen by the wrapped input Slot), or the owner moving | The cancel cause is by event, not by alternative: an event with a cancel member under a guard that refused still counts. A memory change of the owner beside a lie, with a releasable op, still excuses. A let-go with no attempt takes any actor's cause | `drive.ts` |
+| **D155** | **Lying runtimes are a standing part of `falsify.ts` (`--part lies`).** One per self-report the oracles read as an excuse: `evidenceOnly`, `Released`, a `lane.release.*` cell with and without an attempt, the narrowest `like2nc` and `save` lies with `Released`, a settled head said `Superseded`, a `serialize` queue said superseded, a `DisposeStart` with no dispose, a settled head said `Released` (`checkMints`), a cancel letting go every parked ending. Eleven. Each must go red by a named oracle with no output compare, and by the oracle named (`(j)`, `(j) superseded`) | The allowances A1-A7 have no lie yet | `falsify.ts` |
+| **D156** | **`types-check` finds directives as TypeScript does, by comment token (`^//\/?\s*@ts-expect-error`), skipping strings and block comments, and pins each by its words.** Eight, not the nine the text count held (one was the header). The re-check's tamper (a directive made a mention, `as any`) is red by its words, in `falsify.ts`. The installed TypeScript is 7, with no JS scanner, so the token scan is ours | A directive's words need a check edit when they change | `checks/types-check.ts`, `falsify.ts` |
+| **D157** | **Every real-run mode declares its row counters.** `s3`, `desk`, `crash` rows and `tabs` have them. Cycles and `n` must be above zero; no count may be negative; a key not declared by a declared mode fails, so a misspelt counter beside the real one is red. Each re-check attack is a case in `checks/score-check.ts`, beside a green per mode | `run7.ts`, `h3.ts`, `spin.ts` still not by mode (D153). A new row field needs a declaration | `reality/score.ts`, `checks/score-check.ts` |
+| **D158** | **The rest of the re-check's M4'.** `corruptStored` that matches no key throws; `odd`'s corruptions are tried only where their match is on disk. `Ctx.record` takes the actor's id from `Reads.actorKey`, the suite's one spelling, which `diskScope` answers in. REV9-KEPT's two "nothing on disk" absences go through `Ctx.lanesOf` (kind and scope by the codec). `DisposeStart` turns the ledger off only after a dispose step the suite drove; `Released` excuses (h) and `checkMints` only when the ledger saw its cause | Lane helpers reading one lane by its full key are still literal for presence checks | `drive.ts`, `harness.ts`, `ctx.ts`, `round9.scenario.ts`, `odd.search.ts` |
+
 ## Design edits owed at merge
 
 `machine-design.md` is not edited in this round. Owed:

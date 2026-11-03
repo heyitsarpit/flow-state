@@ -60,6 +60,25 @@ Commit `32c4b7af` and this file's commit. One root cause under H1, H2, M1, M4: a
 
 Not closed: M2's remaining 73/26 (lane helpers that read one lane by full key, `corruptStored` edits, `storage` matches; not marked as pins); L1-L4, L6, L7; `checkMints` still counts `Released`/`Superseded` on the runtime's word; the ledger reads `lane.release.*` cell names as a release's sign.
 
+## Stage D: the class, not the next hop (`../conformance-audit/re-check-round-10c.md`)
+
+Commits `795ebaf9`, `d2758d47`, `9b87842e`, and this file's commit. Decisions D154-D158, proposed.
+
+The gate failed twice on one class: an oracle excused a missing obligation because the runtime said why. So every input every oracle reads is now listed and classified (`../convergence-10.md`, "Stage D"): **34 inputs: 11 observed, 3 debt-only, 6 names-only, 12 checked, 2 excuses at the runtime's word; 7 allowances in all (A1-A7)**. Six were excuses at the runtime's word before this stage, and are now names or checked.
+
+The rule (D154): **an oracle excuses only for a cause the suite observed.** A self-report may say which attempt, never why.
+
+| Finding | Fix | Shown by |
+| --- | --- | --- |
+| H1': `Released`, `lane.release.*`, the no-attempt wildcard | D154: a release names; the cause must be seen: a dispose, the owner gone, the owner's published state moving with a releasable op, or a cancel the suite drove (sent, or mapped from its answer, timer or reload) | `falsify.ts --part lies`: `lie.released`, `lie.lane-cell`, `lie.lane-cell-noatt` red by (j) in 2 cases each; **`lie.like2nc-released` red by (j) in 1 (it passed 727/727)**; `lie.save-released` by (j) in 19 (was 0) |
+| M3': a wrong supersede | D154: an oracle. A write needs `latest` and a newer attempt by the owner; a lookup a newer send, a newer ask, or the owner moving | `lie.serialize-as-latest` red by `(j) superseded` in 3 cases (was direct asserts only) |
+| More of the class | D158: `DisposeStart` turns (j) off only after a driven `disposeRuntime`; `Released` excuses (h) and `checkMints` only with a seen cause | `lie.dispose-start`, `lie.settled-released` |
+| M1': the text count | D156: directives by comment token, pinned by their words (8, not 9) | The re-check's tamper is red by its words |
+| M2': empty rows | D157: row counters per mode, cycles above zero, no negatives, no undeclared key | 12 new attacks in `checks/score-check.ts`, red, beside a green per mode |
+| M4': `corruptStored` on nothing, literal absences, a spelled scope | D158: a corruption that matches nothing throws; REV9-KEPT's absences through `Ctx.lanesOf`; `Ctx.record` by `Reads.actorKey` | Suite 727/727 |
+
+Not closed: the allowances A1-A7 (attribution by the step's turn; `delivered` checked by a `turn`; `parked`/`kept` waits; refusal pay by `turn`/`fence`; issues paying deliveries; `AbandonedFiber`; `disabled` by `ModuleDefect`) have no lie runtimes yet. D154's limits: the cancel cause is by event, not by the alternative taken; an owner's memory move beside a lie on a releasable op still excuses. M2's 73/26 literal-key presence checks; L1-L4.
+
 ## What the new oracles exposed
 
 No new runtime bug in the named paths. Exposed instead: replay limits that hid S11 on kept endings and releases; a case pinning an impossible frozen page; a vacuous FRAG-08; HIGH-03 delivering `Listed`; the real bfcache gap (a link click made the next page a second tab); and four holes in this round's own tools (the token hash, a case passing on null, mutate copying live sources, the `truth` section holding disk bytes).
