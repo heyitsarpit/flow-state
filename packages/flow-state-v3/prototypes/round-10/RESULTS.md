@@ -256,3 +256,23 @@ The class: the suite treated a boot as a step it may only count, and gave the ru
 Stated limits: the state check is not made for a boot's runs (the leaf has moved by the time the boot returns). A runtime that decodes memory by anything but `JSON.parse` mints no serial and is red as ambiguous. The ear is a guard the suite adds; no branch in round 10 counts guards. A follow-up still pays a run in any copy of its actor; timer and unspent send credits still live across batches (re-check 10h, section 2).
 
 Gates on the stage I code commit: see `STATUS.md`.
+
+## Stage J: a boot judged as it happens, and no platform hook (re-check 10i; D180-D183, proposed)
+
+The class: the suite could not read the runtime during its boot, so it held the boot's batches (and skipped their state check, S1), and it reached for the platform to carry identity in (D177's `JSON.parse` swap). The runtime's published reads now answer from its first evidence (`BootArgs.reads`), and the serial of a decoded memory is minted by the Host's record decode, the store codec the suite hands the runtime (`../convergence-10.md`, stage J, with why B and the disk-based A were not taken).
+
+| Finding | Answer | Shown by (`--no-output`) |
+| --- | --- | --- |
+| S1 a restored ending from the node its owner sent from | D180: a boot's runs are state-checked at the ear, live | `h.boot-stale` red by the state check in 5 of 5 failing cases (PAY-08, PAY-15 ×2 named; 4 before R10-BOOT-STATE was added, so presumably it is the fifth, not listed by name); was 0 by (j) |
+| S1 a restored ending from any node outside the leaf's chain | D180 | `h.boot-state` red in 15 of 15; was 0 by (j) |
+| A row moved before the reload, a named case | D182: R10-BOOT-STATE | green; at 5 s it restores the uncaptured earlier state, listed in `gate-5s-expected.txt` |
+| Copies at a boot on one case | D182: FRAG-24, two copies reload | `h.boot-copy` red in 2 of 2 (FRAG-15, FRAG-24) |
+| D177 a process-wide hook | D181: `Host.decode`; the hook is deleted | at a boot, placed 264, ambiguous 0 |
+| `d154.moved-save-released` vacuous | D182: FRAG-24 has two restored `save` endings of one actor in mail at once | red by (j) 1 of 1 |
+| `--part suite` over 295 s | D183: `suite1`, `suite2`, `suite3` | see `STATUS.md` |
+
+`RECIPIENTS` over 740 cases: observed 45,646; at a boot, placed 264; ambiguous 0; unplaceable 0; one serial in two places 0; unobserved (A2) 143; paid by the suite's sends 175; left over 0.
+
+Stated limits: a Port must answer its published reads during its own boot (D180). Objects of an actor record that are not memories carry a serial too (never published). A follow-up still pays a run in any copy of its actor; timer and unspent send credits still live across batches; a stale serial resolves to the current life (re-check 10h, section 2).
+
+Gates on the stage J commits: see `STATUS.md`.
