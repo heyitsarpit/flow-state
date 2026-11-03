@@ -1,7 +1,7 @@
 // FRAG-15, SEARCH-FRAG: enter, leave, end, reload over two writing copies, with S1's system model's concerns: L3, every ending
 // delivered or parked or evidence, one request per Attempt, a copy's `saved` never contradicting the fake. Review M9: the header
 // said so; now the code does too.
-import { notesFixture } from "../fixtures/lab.compiled.ts";
+import { notesFixture } from "../typed/lab-machines.ts";
 import type { Harness, Step } from "../harness.ts";
 import { checkClaims, checkEndings } from "../scenarios/ctx.ts";
 import { bfs, Oracle, type Action, type Report } from "./engine.ts";

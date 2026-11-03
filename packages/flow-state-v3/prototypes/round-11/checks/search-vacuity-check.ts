@@ -1,7 +1,7 @@
 // Re-audit M4: a search stopped by its budget is not green when an action it ran never moved the state. Before, half the actions could be dead.
 // Real runtime, real fixture, one action that runs everywhere and does nothing (an empty advance), and a budget that ends the search first.
 import { makeHarness } from "../../conformance/drive.ts";
-import { notesFixture } from "../../conformance/fixtures/lab.compiled.ts";
+import { notesFixture } from "../../conformance/typed/lab-machines.ts";
 import { bfs, type Action } from "../../conformance/search/engine.ts";
 import { port } from "../adapter.ts";
 

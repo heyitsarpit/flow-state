@@ -8,7 +8,7 @@ import {
   deskTwoFeedsFixture,
   deskTwoFeedsNoVersionFixture,
   ticketRef,
-} from "../fixtures/desk.compiled.ts";
+} from "../typed/desk.ts";
 import {
   engineFixture,
   engineRef,
@@ -17,7 +17,7 @@ import {
   memoryReleaseFixture,
   rowMoveFixture,
   type Release,
-} from "../fixtures/round6.compiled.ts";
+} from "../typed/round6.ts";
 import type { Fixture } from "../harness.ts";
 import { Ctx, type Scenario } from "./ctx.ts";
 

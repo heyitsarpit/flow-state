@@ -1,8 +1,8 @@
-import { issuesThrowing } from "../fixtures/lab.compiled.ts";
+import { issuesThrowing } from "../typed/lab-machines.ts";
 // Turn order, the bounds and the driver: ORDER-*, DRV-*. Expected results from D1, D2, D13/D35, D5, D6, D27, rule 27.
-import { drvFixture } from "../fixtures/drv.compiled.ts";
+import { drvFixture } from "../typed/order.ts";
 import { issueRef, issuesFixture } from "../fixtures/issues.compiled.ts";
-import { ringFixture } from "../fixtures/order.compiled.ts";
+import { ringFixture } from "../typed/order.ts";
 import { payFixture } from "../typed/pay.ts";
 import { checkEndings, Ctx, type Scenario } from "./ctx.ts";
 

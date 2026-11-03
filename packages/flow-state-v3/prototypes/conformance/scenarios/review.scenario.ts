@@ -7,9 +7,9 @@ import {
   issuesPersisted,
   issuesThrowing,
   oddFixture,
-} from "../fixtures/lab.compiled.ts";
+} from "../typed/lab-machines.ts";
 import { issueRef, issuesFixture } from "../fixtures/issues.compiled.ts";
-import { ringFixture } from "../fixtures/order.compiled.ts";
+import { ringFixture } from "../typed/order.ts";
 import { payFixture } from "../typed/pay.ts";
 import type { Scenario } from "./ctx.ts";
 import { Ctx } from "./ctx.ts";

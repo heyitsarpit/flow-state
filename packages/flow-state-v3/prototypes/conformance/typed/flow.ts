@@ -91,20 +91,26 @@ const initialOf = (definition: string, m: MemoryFields) => {
   });
 };
 // D82's stand-in becomes real: a stored record decodes by the memory's Schema. A field a release added takes its initial value.
-const restoreOf = (definition: string, m: MemoryFields) =>
-  slotOf<(stored: unknown) => object>(definition, "memory.restore", (stored: unknown) => {
+// Round 11: a field missing from the record takes, in order, its Schema's decoding default for a missing key (what D82's stand-in meant: "a Schema with a
+// default"), its constant initial, or stays absent when it starts absent.
+const restoreOf = (definition: string, m: MemoryFields) => {
+  const defaults = new Map(Object.entries(m).map(([k, f]) => [k, missingDefault(k, f.schema)]));
+  return slotOf<(stored: unknown) => object>(definition, "memory.restore", (stored: unknown) => {
     const s = stored as Record<string, unknown>;
     return Object.fromEntries(
       Object.entries(m)
-        .filter(([k, f]) => k in s || f.from !== "absent")
+        .filter(([k, f]) => k in s || defaults.get(k)!.has || f.from !== "absent")
         .map(([k, f]) => [
           k,
           k in s
             ? Schema.decodeUnknownSync(jsonCodec(f))(s[k])
-            : f.value,
+            : defaults.get(k)!.has
+              ? defaults.get(k)!.v
+              : f.value,
         ]),
     );
   });
+};
 // Review H2: written and read by one codec. `toCodecJson` is what makes a Date or a NaN a JSON value and back.
 const jsonCodec = (f: MemorySpec) => Schema.toCodecJson(f.schema as unknown as Schema.Codec<unknown, unknown>);
 const encodeOf = (definition: string, m: MemoryFields) =>
@@ -208,7 +214,7 @@ const statesOf = <T extends StateTree>(t: T): StatesOf<T> =>
   ) as StatesOf<T>;
 
 // Round 11: `key`, a copy's own key inside an `.each` (rule 9: "`key` and `item` are" the copy's). Absent outside one.
-type In<M, Ev> = { readonly memory: M; readonly event: Ev; readonly key?: string };
+type In<M, Ev> = { readonly memory: M; readonly event: Ev; readonly key?: string; readonly item?: unknown };
 type GuardFn<M, Ev> = (g: In<M, Ev>) => true | Denial;
 type OpGuard = { readonly opGuard: TokenGuard; readonly keyFn?: unknown };
 type PortTok = { readonly port: string };
@@ -298,6 +304,7 @@ type AltSpec<M, Ev> = {
   // Round 11 (D203): NOT public API. A head insertion of the machine's own event, which the design leaves to the runtime (pending resets, adoption, rule 54). Hand fixtures
   // drive the runtime's mechanism with it directly (ORDER-*, Notes, Kept); kept as a named seam so those cases still boot from this front end, and counted apart.
   readonly labFollowUps?: ReadonlyArray<(a: In<M, Ev>) => { readonly tag: string; readonly payload: unknown }>;
+  readonly exit?: NotifyTok<M, Ev>; // round 11: an exit behind a guard, in one alternative (`exits.X.from(f).exit`)
 };
 // Round 11 (D204): a raise names its child; `.key(f)` for one copy of an `.each`, `.from(f)` for its payload. machine-design 2.2's `E.pager.Jump.from(f)`, 2.4 rule 9's keyed raise.
 type RaiseTok = {
@@ -331,7 +338,8 @@ type StateBody<M, All> = {
   readonly on?: On<M, All>;
   readonly schedules?: Readonly<Record<string, SchedSpec<string>>>;
   readonly traits?: Readonly<Record<string, Placed<M, All>>>;
-  readonly into?: Placed<M, All> & { readonly fragment: FragRef };
+  // A subroutine's instance is named by its state; `name` says otherwise (round 11: the hand Desk/Ticket names RESOLVING's wizard `wizard`, and its cases address it so).
+  readonly into?: Placed<M, All> & { readonly fragment: FragRef; readonly name?: string };
 };
 // A placed fragment, by the value `fragment()` returned (the machine collects it and every fragment it places) or by id for a fragment the host names elsewhere.
 export type FragmentValue = {
@@ -368,7 +376,7 @@ const compileAlt = <M, Ev>(
   one: OneAlt<M, Ev>,
 ): Alternative => {
   const at: At = { definition, path };
-  if ("exit" in one) {
+  if ("exit" in one && one.exit && Object.keys(one).length === 1) {
     const { name, f } = one.exit;
     return {
       target: "self",
@@ -429,6 +437,7 @@ const compileAlt = <M, Ev>(
       ? { followUps: one.labFollowUps.map((f, i) => slotOf<(a: unknown) => never>(definition, `${path}.followUp[${i}]`, f)) }
       : {}),
     ...(raises.length ? { raises } : {}),
+    ...(one.exit ? { exit: { name: one.exit.name, ...(one.exit.f ? { from: slotOf(definition, `${path}.exit`, one.exit.f) } : {}) } } : {}),
     ...(one.notify?.length
       ? {
           notify: one.notify.map((n, i) => ({
@@ -556,7 +565,7 @@ const compileNodes = <M, All>(
       const b = (body.states?.[id] ?? {}) as StateBody<M, All>;
       const placements = placedAt(`${path}.`, b);
       note(b.into?.fragment);
-      const into = b.into && compilePlaced(definition, path, id, idOf(b.into.fragment), b.into);
+      const into = b.into && compilePlaced(definition, path, b.into.name ?? id, idOf(b.into.fragment), b.into);
       nodes[id] = {
         id,
         parent,
@@ -711,14 +720,15 @@ export const definition = <
 type EventPayloads<Ev extends Readonly<Record<string, Fields>>> = {
   readonly [K in keyof Ev]: TypeOf<Ev[K]>;
 };
+// A host raises any event its child takes: its `hostEvents` (only the host may) and its `events` (anyone may). Round 11: hand fixtures raise both.
 type PlaceToksOf<P extends Readonly<Record<string, PlacedFrag>>> = {
-  readonly [K in keyof P]: { readonly [H in keyof P[K]["hostEvents"]]: RaiseBuilder };
+  readonly [K in keyof P]: { readonly [H in keyof P[K]["hostEvents"] | keyof NonNullable<P[K]["events"]>]: RaiseBuilder };
 };
 const placeToksOf = (places: Readonly<Record<string, PlacedFrag>>) =>
   Object.fromEntries(
     Object.entries(places).map(([name, p]) => [
       name,
-      Object.fromEntries(Object.keys(p.hostEvents).map((e) => [e, raiseTok({ to: name, event: e })])),
+      Object.fromEntries(Object.keys({ ...p.events, ...p.hostEvents }).map((e) => [e, raiseTok({ to: name, event: e })])),
     ]),
   );
 export const machine = <
@@ -783,7 +793,7 @@ export const machine = <
 // ── A fragment: its own ports, its body over them. The nested fragment is named in `places`, so `E.countdown.Shown` is checked.
 type Ports = Readonly<Record<string, { readonly fields: Fields }>>;
 type GuardPorts = Readonly<Record<string, { readonly guard: true }>>;
-type PlacedFrag = { readonly id: string; readonly hostEvents: Readonly<Record<string, Fields>> };
+type PlacedFrag = { readonly id: string; readonly hostEvents: Readonly<Record<string, Fields>>; readonly events?: Readonly<Record<string, Fields>> };
 export const fragment = <
   T extends StateTree = {},
   Ev extends Readonly<Record<string, Fields>> = {},
@@ -814,7 +824,7 @@ export const fragment = <
   body: (t: {
     readonly S: StatesOf<T>;
     readonly E: EventsOf<Ev & Host & In_> & {
-      readonly [K in keyof P]: { readonly [H in keyof P[K]["hostEvents"]]: RaiseBuilder };
+      readonly [K in keyof P]: { readonly [H in keyof P[K]["hostEvents"] | keyof NonNullable<P[K]["events"]>]: RaiseBuilder };
     };
     readonly exits: {
       readonly [K in keyof X]: ExitTok<MemoryOf<M>, unknown> & {
@@ -840,12 +850,7 @@ export const fragment = <
   },
 ) => {
   const places = (d.places ?? {}) as P;
-  const placeToks = Object.fromEntries(
-    Object.entries(places).map(([name, p]) => [
-      name,
-      Object.fromEntries(Object.keys(p.hostEvents).map((e) => [e, raiseTok({ to: name, event: e })])),
-    ]),
-  );
+  const placeToks = placeToksOf(places);
   const exitToks = Object.fromEntries(
     Object.keys(d.exits ?? {}).map((name) => [
       name,
@@ -903,6 +908,7 @@ export const fragment = <
   return {
     ...value,
     hostEvents: (d.hostEvents ?? {}) as Host,
+    events: (d.events ?? {}) as Ev,
     resumable: () => ({ resumable: true as const }),
   };
 };

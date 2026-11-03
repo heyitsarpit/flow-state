@@ -4,7 +4,7 @@ import {
   deskListenFixture,
   deskListenNoVersionFixture,
   ticketRef,
-} from "../fixtures/desk.compiled.ts";
+} from "../typed/desk.ts";
 import { chatFixture, presenceFixture } from "../fixtures/chat.compiled.ts";
 import type { Fixture } from "../harness.ts";
 import { Ctx, type Scenario } from "./ctx.ts";

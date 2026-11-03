@@ -8,14 +8,14 @@ import {
   lateFillFixture,
   ticketRef,
   traitWriteFixture,
-} from "../fixtures/desk.compiled.ts";
+} from "../typed/desk.ts";
 import {
   deskFeedFixture,
   deskFeedNoReconnect,
   roomsFixture,
   type Cursor,
 } from "../fixtures/feed.compiled.ts";
-import { issuesPersisted } from "../fixtures/lab.compiled.ts";
+import { issuesPersisted } from "../typed/lab-machines.ts";
 import { ODD_KINDS, oddAllFixture } from "../fixtures/oddall.compiled.ts";
 import type { Fixture, Harness, Step } from "../harness.ts";
 import { NoHeldRequest } from "../fake-world.ts";

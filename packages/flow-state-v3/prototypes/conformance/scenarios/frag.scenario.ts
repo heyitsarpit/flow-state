@@ -10,8 +10,8 @@ import {
   issuesDoubleCancel,
   issuesLocal,
   notesFixture,
-} from "../fixtures/lab.compiled.ts";
-import { LENGTH_MS, payFullFixture } from "../fixtures/pay-full.compiled.ts";
+} from "../typed/lab-machines.ts";
+import { LENGTH_MS, payFullFixture } from "../typed/pay-full.ts";
 import { payFixture } from "../typed/pay.ts";
 import { searchFrag } from "../search/frag.search.ts";
 import type { Scenario } from "./ctx.ts";

@@ -1114,17 +1114,18 @@ export const makeHarness = (port: Port) => (): Harness => {
       Object.entries(v).map(([k, x]) => {
         if (k === "domain") return [k, x]; // opaque to the core; the module wraps nothing of it here
         if (k === "input" && (v.verb === "commit" || v.verb === "lookup")) return [k, askedFor(v.op, wrap(x))];
-        if (k === "commit" && typeof x === "function")
-          return [
-            k,
-            (i: unknown, c: unknown) => {
-              if (startThrows.has(v.id)) {
-                startThrows.delete(v.id);
-                throw new Error(`start fault in ${v.id}`);
-              }
-              return (x as (i: unknown, c: unknown) => unknown)(i, c);
-            },
-          ];
+        // Round 11: a Slot commit too. Before, `startThrows` reached only a bare function, so DRV-02's fault never fired on a typed machine (finding F9).
+        if (k === "commit" && (typeof x === "function" || (x && typeof x.run === "function"))) {
+          const inner = typeof x === "function" ? (x as (i: unknown, c: unknown) => unknown) : (wrap(x).run as (i: unknown, c: unknown) => unknown);
+          const guarded = (i: unknown, c: unknown) => {
+            if (startThrows.has(v.id)) {
+              startThrows.delete(v.id);
+              throw new Error(`start fault in ${v.id}`);
+            }
+            return inner(i, c);
+          };
+          return [k, typeof x === "function" ? guarded : { ...x, run: guarded }];
+        }
         return [k, wrap(x)];
       }),
     );

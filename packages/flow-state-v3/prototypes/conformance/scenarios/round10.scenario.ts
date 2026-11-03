@@ -2,8 +2,9 @@
 import { Effect } from "effect";
 import { ChainId, chainFixture } from "../typed/round9b.ts";
 import { fixtureOf, unknownWhenLost } from "../fixtures/build.ts";
-import { feedFixture } from "../fixtures/lab.compiled.ts";
+import { feedFixture } from "../typed/lab-machines.ts";
 import { payFixture } from "../typed/pay.ts";
+import { letFixture as typedLet } from "../typed/round10.ts";
 import type { Api } from "../fake-world.ts";
 import type { Fixture } from "../harness.ts";
 import { Ctx, Mismatch, type Scenario } from "./ctx.ts";
@@ -58,7 +59,9 @@ const small = (id: string, o: { states?: readonly string[]; persisted?: boolean;
 
 // Review part two, `letgo-takes-all`: a resumable fragment's unkeyed op has the host's subject, so the host's `cancel` reaches a frozen life's lane. Its kept ending must survive the cancel of the ordinary one.
 const LetId = "Lab/Let";
-const letFixture = (): Fixture => {
+// Round 11: the same machine from the public API (`../typed/round10.ts`). The hand one stays below as prior art.
+const letFixture = (): Fixture => typedLet;
+export const handLetFixture = (): Fixture => {
   const e = fixtureOf(LetId);
   const fr = fixtureOf("LetFrag");
   const Frag: any = {

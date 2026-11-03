@@ -447,6 +447,9 @@ export const compilePay = (id: string = Pay.id) => machine({ ...Pay, id }, ({ S,
 const PayMachine = compilePay();
 export const payCompiled = PayMachine;
 export { shopFrom };
+// Round 11: for `pay-full.ts`, the real Pay with its summary trait and 3-D Secure, which shares these.
+export { pay, placeOrder, voidAuthorization, intentStatus, orderForCart, Address, Receipt, emptyAddress, savedAddress, capturable, MAX_BUSY_TRIES };
+export type { CardDeclined, Busy, AlreadyCaptured, Intent };
 
 // The fixture's seam: the fake's untyped `Api` given the service's types, here and nowhere else. Real code gets a real Layer.
 const shopFrom = (api: Api) =>

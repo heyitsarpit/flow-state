@@ -8,6 +8,21 @@ import * as H9 from "../../conformance/fixtures/round9.compiled.ts";
 import * as T9 from "../../conformance/typed/round9.ts";
 import * as H8 from "../../conformance/fixtures/round8.compiled.ts";
 import * as T8 from "../../conformance/typed/round8.ts";
+import * as HL from "../../conformance/fixtures/lab.compiled.ts";
+import * as TL from "../../conformance/typed/lab-machines.ts";
+import * as HR from "../../conformance/fixtures/real.compiled.ts";
+import * as TR from "../../conformance/typed/real.ts";
+import * as HD from "../../conformance/fixtures/desk.compiled.ts";
+import * as TD from "../../conformance/typed/desk.ts";
+import * as H6 from "../../conformance/fixtures/round6.compiled.ts";
+import * as T6 from "../../conformance/typed/round6.ts";
+import * as HO from "../../conformance/fixtures/order.compiled.ts";
+import * as HV from "../../conformance/fixtures/drv.compiled.ts";
+import * as TO from "../../conformance/typed/order.ts";
+import * as HPF from "../../conformance/fixtures/pay-full.compiled.ts";
+import * as TPF from "../../conformance/typed/pay-full.ts";
+// Stated for Pay: nothing yet; filled from the first run's differences, each read.
+const payIndex = /^$/;
 
 export type Pair = { readonly name: string; readonly hand: Fixture; readonly typed: Fixture; readonly stated?: readonly RegExp[] };
 // Stated across pairs: a hand root's `default`, redundant with `Compiled.default`, which is what the runtime starts from (inc.ts `down`); the pinned Pay has none.
@@ -27,4 +42,25 @@ export const pairs: readonly Pair[] = [
   { name: "Lab/Doors", hand: H8.doorsFixture, typed: T8.doorsFixture, stated: [rootDefault] },
   { name: "Lab/Copies", hand: H8.copiesFixture, typed: T8.copiesFixture },
   { name: "Lab/Loop", hand: H8.loopFixture, typed: T8.loopFixture, stated: [rootDefault] },
+  { name: "Form", hand: HL.formFixture, typed: TL.formFixture, stated: [rootDefault] },
+  { name: "Notes", hand: HL.notesFixture, typed: TL.notesFixture, stated: [rootDefault] },
+  { name: "Feed", hand: HL.feedFixture, typed: TL.feedFixture, stated: [rootDefault] },
+  { name: "Odd", hand: HL.oddFixture, typed: TL.oddFixture, stated: [rootDefault] },
+  { name: "Checkout/Addr", hand: HR.addressFixture, typed: TR.addressFixture },
+  { name: "Desk/Ticket", hand: HR.ticketFixture, typed: TR.ticketFixture },
+  { name: "Desk/Attach", hand: HR.attachFixture, typed: TR.attachFixture },
+  { name: "Desk/Attach missing", hand: HR.attachMissingReason, typed: TR.attachMissingReason },
+  { name: "Desk/Panels", hand: HR.panelsFixture, typed: TR.panelsFixture },
+  ...["A", "FIELD", "HERE", "MID", "WAIT", "BADMS"].map((s) => ({ name: `Deep ${s}`, hand: HR.deepAt(s), typed: TR.deepAt(s) })),
+  { name: "Lab/TraitWrite", hand: HD.traitWriteFixture, typed: TD.traitWriteFixture },
+  { name: "Lab/EachWrite", hand: HD.eachWriteFixture, typed: TD.eachWriteFixture },
+  { name: "Lab/LateFill", hand: HD.lateFillFixture, typed: TD.lateFillFixture },
+  { name: "Lab/EachReset", hand: HD.eachResetFixture, typed: TD.eachResetFixture },
+  // Stated: the hand restore was a closure (D82's stand-in); typed, it is the memory Schema's, which `memory.restore` is on every typed machine.
+  ...[true, false].map((decode) => ({ name: `Lab/MemoryRelease decode ${decode}`, hand: H6.memoryReleaseFixture({ v: 1 }, decode), typed: T6.memoryReleaseFixture({ v: 1 }, decode) })),
+  { name: "Lab/RowMove", hand: H6.rowMoveFixture, typed: T6.rowMoveFixture },
+  { name: "Lab/Getter", hand: H6.getterFixture, typed: T6.getterFixture },
+  { name: "Ring", hand: HO.ringFixture, typed: TO.ringFixture },
+  { name: "Checkout/Pay full", hand: HPF.payFullFixture, typed: TPF.payFullFixture, stated: [payIndex] },
+  { name: "Drv", hand: HV.drvFixture, typed: TO.drvFixture },
 ];

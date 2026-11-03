@@ -8,7 +8,7 @@ import {
   issuesPersisted,
   issuesThrowing,
   notesFixture,
-} from "../fixtures/lab.compiled.ts";
+} from "../typed/lab-machines.ts";
 import {
   addressFixture,
   attachDomainFixture,
@@ -18,7 +18,7 @@ import {
   emptyAddress,
   panelsFixture,
   ticketFixture,
-} from "../fixtures/real.compiled.ts";
+} from "../typed/real.ts";
 import type { Fixture } from "../harness.ts";
 import { searchOdd } from "../search/odd.search.ts";
 import type { Scenario } from "./ctx.ts";

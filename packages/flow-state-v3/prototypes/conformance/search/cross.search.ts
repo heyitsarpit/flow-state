@@ -1,7 +1,7 @@
 // SEARCH-CROSS (review H5, D56): the store crossed with persistence. S1 persisted, 2 actors, 3 commits; reload, ack, refuse,
 // landNoAck, advance, repair ok/fail/never, late landing. Oracles read the fake's truth, or endings only to compare them
 // with what came before, never to trust one. From review H5's scratch search.
-import { s1Persisted } from "../fixtures/lab.compiled.ts";
+import { s1Persisted } from "../typed/lab-machines.ts";
 import type { Answer, Harness, Step } from "../harness.ts";
 import { checkClaims, checkEndings } from "../scenarios/ctx.ts";
 import { bfs, Oracle, type Action, type Report } from "./engine.ts";

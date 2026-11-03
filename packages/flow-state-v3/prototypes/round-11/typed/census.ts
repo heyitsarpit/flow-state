@@ -20,15 +20,19 @@ const make = (): Harness => {
   return h;
 };
 // Round 11: a case boots typed output when every machine it started came from `machine()` (a fixture marked `typed` by `conformance/typed/lab.ts`).
-const caseTyped = new Map<string, boolean>();
+// A fixture with no mark whose `Compiled` has `events` is typed output a case edited (a tampered memory, a mutated op), counted apart. Hand data has no `events`.
+const api0 = new Proxy({}, { get: () => () => undefined }) as Api;
+const kind = (f: Fixture): "typed" | "edited" | "hand" =>
+  (f as { typed?: boolean }).typed === true ? "typed" : (() => { try { return f.make(api0).events ? "edited" : "hand"; } catch { return "hand"; } })();
+const caseKind = new Map<string, "typed" | "edited" | "hand">();
 const untypedIds = new Map<string, number>();
 runScenarios(make, new Set(), undefined, {
   onResult: (r) => {
     const name = r.variant ? `${r.id}/${r.variant}` : r.id;
     for (const f of bucket) (seen.get(f) ?? seen.set(f, new Set()).get(f)!).add(name);
-    const all = bucket.length > 0 && bucket.every((f) => (f as { typed?: boolean }).typed === true);
-    caseTyped.set(name, all);
-    if (!all) for (const id of new Set(bucket.filter((f) => !(f as { typed?: boolean }).typed).map((f) => f.id))) untypedIds.set(id, (untypedIds.get(id) ?? 0) + 1);
+    const kinds = bucket.map(kind);
+    caseKind.set(name, bucket.length === 0 || kinds.includes("hand") ? "hand" : kinds.includes("edited") ? "edited" : "typed");
+    for (const id of new Set(bucket.filter((_f, i) => kinds[i] === "hand").map((f) => f.id))) untypedIds.set(id, (untypedIds.get(id) ?? 0) + 1);
     bucket = [];
   },
 });
@@ -115,7 +119,7 @@ for (const r of rows)
   console.log(`${r.fixture.padEnd(28)} ${String(r.cases).padStart(4)} cases  slots ${String(r.slots).padStart(3)}  bare ${String(r.bare.length).padStart(3)}  dups ${r.dups.length}  inf ${r.infinities.length}  ${byId.get(r.fixture)! > 1 ? "(same id, other object) " : ""}${r.features.join(" ")}`);
 const t = (k: "slots") => rows.reduce((a, r) => a + r[k], 0);
 console.log(`fixture objects ${rows.length}; distinct ids ${byId.size}; slots ${t("slots")}; bare ${rows.reduce((a, r) => a + r.bare.length, 0)}; duplicate paths ${rows.reduce((a, r) => a + r.dups.length, 0)}; non-finite numbers ${rows.reduce((a, r) => a + r.infinities.length, 0)}`);
-const typedCases = [...caseTyped.values()].filter(Boolean).length;
-console.log(`TYPED  ${typedCases}/${caseTyped.size} cases boot only typed output; hand machines still booted, by cases: ${[...untypedIds].sort((a, b) => b[1] - a[1]).map(([k, n]) => `${k} ${n}`).join(", ") || "none"}`);
+const count = (k: string) => [...caseKind.values()].filter((x) => x === k).length;
+console.log(`TYPED  ${count("typed")}/${caseKind.size} cases boot only typed output; ${count("edited")} more boot typed output a case edits; ${count("hand")} boot a hand machine. Hand machines, by cases: ${[...untypedIds].sort((a, b) => b[1] - a[1]).map(([k, n]) => `${k} ${n}`).join(", ") || "none"}`);
 const i = process.argv.indexOf("--json");
 if (i > 0) await Bun.write(process.argv[i + 1]!, JSON.stringify(rows, null, 1));
