@@ -176,3 +176,22 @@ Stage C, on `32c4b7af` (code unchanged after it; docs only):
 Not rerun in stage C: the 18 builder mutants through `mutate.ts` (about 20 minutes; the three that matter here are in `falsify.ts`), the other real-browser modes, `nub run verify`, `vp fmt`.
 
 Not run on the final commit: the other real-browser modes (`s3`, `atom`, `crash`, `tabs`, `desk`, `run7`, `h3`, `spin`), which are now scored but cost minutes of Chrome each; `tsc` on `typed/type-tests.ts`; the older mutant lists; `nub run verify`.
+
+## Stage F: who received each ending (re-check 10e; D164-D168, proposed)
+
+The class: (j) checked how many endings were delivered, and excused what the reference could not see, but never checked who received each one. The fix is to check the recipient, not the next hop.
+
+| Finding | Fix | Shown by (`--no-output`) |
+|---|---|---|
+| H1''' wrong copy | D164: the suite records each attempt's copy from what it drove (a send's `to`; a delivered attempt's own copy for the turn it runs; `[]` for a definition's op; else the one live copy on that path, using the `.each` key its wrapped input Slot saw). `delivered` carries `at`, the copy path it ran in. A delivery that names no copy, or a copy other than the recorded one, or one the suite could not place, is red | `e2.subject-fan-fail-att` red by (j) in 4 (FRAG-15, FRAG-21, REV4-M3, REV4-L2), was 0/727; `e2.subject-fan-att` 4 |
+| M1''' keyed and decline parks | D165: `Reference.copies` lists live copies from the published leaf, `.each` membership, each copy's published state (`inner`) and its `resetOn` values (the compiled slot on the host's published memory). A park is red if the attempt's own copy is live with the same reset values; a decline's park is checked the same way, with the copy of the turn that declined | `e1.park-keyed` 46 by (j) (was 0), `e1.park-keyed-fan-att` 7 (was 0), `a3p.park-decline` 42 (was 0) |
+| (ref) never fired | D166: every open attempt of a `.each` copy is asked with its real subject; the answer must be the recorded copy | `ref.binding-first-copy` (the adapter's `binding` answers the first copy; delivery stays right) red by (ref) in 11, only by (ref) |
+| M2''' lock | D167: `reference/` is walked into the lock | tamper `lock: a one-token change to reference/model.ts is red` |
+| A4', L2 | D168: a `turn` pays a refusal only if a Slot of that event ran after it, as D162 does for `Denied`; `types-check` finds `tsc` through git's common dir | `a4p.refused-turn` 44 by (j) (was 0) |
+| L1 | Not done. FRAG-21's second variant (a keyed failure with sends to the same actor in one tick) misses the trigger: the probe fires in no case | |
+
+Unknowns left: no delivery and no park of the suite's cases is undecided (an undecided delivery is now red). The reference still answers `unknown` in `moveLetsGo` and `cancelsOn` (whole-actor, not per copy), so a move or a fragment's cancel can still excuse a keyed let-go. A `resetOn` copy is asked by (j) only, not by (ref), since its subject part is the runtime's encoding of a value.
+
+Inventory: row 14 (`delivered`) is now checked against the suite's own copy record, not only a turn in the batch; row 15 (`parked`) is checked per copy, so A3' is closed; row 16's `turn` now pays only with a seen Slot run, so A4' is closed; row 35 ((ref)) asks per copy. Allowances: A2 (that the machine took it), A5, A6, A7.
+
+Gates at stage F: suite 729/729 with output and catalog; `falsify --part lies` 42: 39 red by the named oracle, 3 vacuous (as before); `--part tamper` all ok; 5 s gate `29 failed, 29 expected; unexpected: none`. Not rerun at stage F: `--swap`, CLI pins, `checks/`, `--part search`, `--part mutants`, `--part watch`.

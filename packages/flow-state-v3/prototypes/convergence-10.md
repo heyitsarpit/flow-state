@@ -153,6 +153,16 @@ Inventory changes (the stage D table, rows by number):
 | **D162** | **A1 closed and A4 narrowed**, as rows 9 and 16 say | A `turn` still pays a refusal | `drive.ts` |
 | **D163** | **`types-check` pins each directive's error, by code and words, on a copy with the directives stripped (re-check L1); `falsify.ts --part lies` holds the 24 stage D lies beside the 11 (`--slice i/n` keeps each command under 5 minutes; a lie whose trigger fires in no case must show its probe firing nowhere); `falsify.ts` finds `node_modules` from a fresh worktree through git's common dir** | A changed error message needs a check edit | `checks/types-check.ts`, `falsify.ts` |
 
+### Stage F decisions (from `conformance-audit/re-check-round-10e.md`; all proposed)
+
+| Id | Decision | Costs | Changes |
+| --- | --- | --- | --- |
+| **D164** | **(j) checks who received each ending, not how many.** The suite records each attempt's copy from what it drove; `delivered` names the copy it ran in (`at`); a mismatch, a missing `at`, or a delivery the suite cannot place is red | A runtime must publish the delivery's path. Placement from a root event with 2+ copies rests on the `.each` key the wrapped input Slot saw | `drive.ts`, `round-10/turn.ts` (evidence only), FRAG-21 |
+| **D165** | **The reference is answered per copy** (`Reference.copies`: published leaf, `.each` membership, published copy state, `resetOn` values). The park check and a decline's park use the attempt's or decline's own copy. A3' closed | `moveLetsGo`/`cancelsOn` still whole-actor | `reference/model.ts`, `drive.ts` |
+| **D166** | **(ref) asks with the real subject** for every open `.each` copy attempt; a lie in the runtime's `binding` alone is red | `resetOn` copies are not asked by (ref) | `drive.ts`, `falsify.ts` |
+| **D167** | **`reference/` is under the lock**, with a tamper in `falsify.ts` | | `main.ts`, `falsify.ts` |
+| **D168** | **A `turn` pays a refusal only with a seen Slot run** (A4' closed); `types-check` finds `tsc` through git's common dir | A refused event whose alternatives run no Slot could not be paid by a turn; none in the suite | `drive.ts`, `checks/types-check.ts` |
+
 ## Design edits owed at merge
 
 `machine-design.md` is not edited in this round. Owed:
