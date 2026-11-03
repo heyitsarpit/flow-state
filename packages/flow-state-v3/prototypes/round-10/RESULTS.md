@@ -195,3 +195,20 @@ Unknowns left: no delivery and no park of the suite's cases is undecided (an und
 Inventory: row 14 (`delivered`) is now checked against the suite's own copy record, not only a turn in the batch; row 15 (`parked`) is checked per copy, so A3' is closed; row 16's `turn` now pays only with a seen Slot run, so A4' is closed; row 35 ((ref)) asks per copy. Allowances: A2 (that the machine took it), A5, A6, A7.
 
 Gates at stage F: suite 729/729 with output and catalog; `falsify --part lies` 42: 39 red by the named oracle, 3 vacuous (as before); `--part tamper` all ok; 5 s gate `29 failed, 29 expected; unexpected: none`. Not rerun at stage F: `--swap`, CLI pins, `checks/`, `--part search`, `--part mutants`, `--part watch`.
+
+## Stage G: the recipient, observed (re-check 10f; D169-D172, proposed)
+
+The convergence rule, applied to (j)'s six failures on one path: the suite now observes who ran each ending's handler, instead of reading what the runtime says about the delivery. A guard of the suite's own, first on every alternative of a mapped event, is run by the runtime with the recipient's view; the suite places that view into one actor, life and copy by published memory, and compares it with the recipient it expects from its own driving (`../convergence-10.md`, stage G).
+
+| Finding | Answer | Shown by |
+| --- | --- | --- |
+| H1'''' wrong actor | D169 | `e8.wa-unknown` red by `(j) delivered to the wrong recipient` (3 of 4 named fails: PAY-12/shuffle, DRV-01, FRAG-22); `e8.wa-failure` 5 of 7. Both were 0/729 |
+| M1'''' `at` a self-report | D169: `at` is no longer read | `e5.at-intent-fail` red 5 of 6 (FRAG-15, FRAG-21, FRAG-22); `e5.at-intent-fail-3` (3+ copies) red 1 of 2 (FRAG-22). Both were 0 by (j) |
+| G1 duplicate keys | D171 | `falsify --part search`: every search ok, `odd` green on the real runtime |
+| Item 3, per-copy let-go | D170 | per copy in `moveLetsGo` and `cancelsOn`; FRAG-22's second variant is the case (a keyed failure beside another copy's turn and another actor's ending in one batch) |
+| Decline let-go by any actor | D170 | `g.decline-letgo-other-actor` red by `(j) parked, and no wait says so` in REV9-EDGE's new variant |
+| L1 `types-check` in a fresh worktree | D172 | `TYPES PASS  tsc clean, 8 directives` from a detached worktree; the link is gone after |
+
+Deleted: D164's `at` comparison and its "names no copy" check in `drive.ts`; an observed delivery is paid by its observation, not by any `turn` in the batch. Reference and runtime disagreed nowhere: 732/732, `unplaceable 0`.
+
+Gates on the final commit: see `STATUS.md`.
