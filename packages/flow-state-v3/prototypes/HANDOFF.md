@@ -31,6 +31,18 @@ See `round-8/RESULTS.md`. Left from it, for later: `input` through its Schema wi
 - Step 9 (phone or Safari, real quota) moves before step 8's compile prototypes. Why: H3's path differs on low-end devices per Chromium's code, and D97 and D110's numbers are unmeasured there, so it could change the edge that compile output must match.
 - `keyFields` with Schemas moves into round 9's typing of `domain`, since a typed `Schema.BigInt` key reaches the fault today.
 
+## Plan cut to what informs production (agreed with Arpit, 2026-11-03)
+
+Arpit's condition: each remaining prototype step must directly inform production work. This supersedes the numbered steps below where they differ, which stay as prior art.
+
+1. **Test gate passes:** round 10, stage F and its re-check.
+2. **Entity store proven on the runtime,** from `round-9/entity-proposal-2.md`, test first. `listen.load` and `fragstore.row` must pass. Plus one thin real TanStack DB path, as a test of the seam.
+3. **`Compiled` settled by compiling:** the typed suite through JSON with a code table, then compile prototypes for machine, fragment and operations from the public API, with the suite passing on compiled output. Entity and outside world thin: one real fetch or SDK path each.
+4. **"For Arpit's read".**
+
+- **Safari:** one short run of the edge's store contract on macOS Safari, now that `safaridriver` is enabled: atomic batches, issue order, quota errors, a lost connection, bfcache with the lock. It informs production's host adapter. It runs after step 1, by one agent, and is not a gate. Phones and iOS are production tasks.
+- **Moved to production:** the sweep of old findings (step 10), performance budgets, typing streams beyond what compile needs, and a full TanStack DB integration.
+
 ## Round 9: entities and types
 
 7. H2 entity redesign from scratch: per-field versions (decided), top-level entity table, using `round-7/known-failing-h2.ts`. Then type `domain` and streams. One real TanStack DB integration.
