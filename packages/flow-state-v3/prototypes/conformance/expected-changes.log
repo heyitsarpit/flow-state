@@ -520,3 +520,6 @@ file:gate-5s-expected.txt hash:7995923439b2 | D143: six expected messages print 
 round:reality/page.ts hash:f1e8103ff5c2 | D148: the lock is held while the page is live; into the cache it goes, a return reloads
 round:reality/run.ts hash:fefd0817847f | D148: `--only bfcache`, scored, with `--no-contract` as its red control
 round:reality/score.ts hash:9a75735fb7fd | D148: bfcacheZombie must be zero
+R10-PINS hash:c9d7301a2549 | the final mutant run's survivor, second-try-lost-if-mail: a second try beside another actor's burst; (j) kills it
+file:scenarios/round10.scenario.ts hash:8339b773034b | holds the second-try pin
+output:R10-PINS/a-second-try-beside-another-actors-mail-is-not-lost hash:28f5b1df8505 | new, D134: whole output of the second-try pin

@@ -122,6 +122,19 @@ export const round10Scenarios: readonly Scenario[] = [
         c.yes(`it names the closure: ${i[0]?.origin}`, (i[0]?.origin ?? "").includes("memory.initial"));
         c.eq("nothing in mail, no evidence of a start", c.r.evidence("initial").length, 0);
       },
+      // Review M4, the survivor `second-try-lost-if-mail`: an ending refused once gets its second try even while another actor has mail.
+      "a-second-try-beside-another-actors-mail-is-not-lost"(c0) {
+        const c = on(c0, chainFixture(), A);
+        c.ensure(B);
+        micro(c, "pw", { ok: {} });
+        c.fault({ throwIn: "on.PwOk[0].updateMemory", times: 1 });
+        // B's burst is served across slices, so its mail is still there when A's ending lands and is refused.
+        c.h.raw({ burst: B, event: "Press", n: 300 });
+        c.do({ sendMany: [[A, "Pw", {}]] });
+        c.eq("refused once", c.r.issues().filter((i) => i.code === "InvalidTurn").length, 1);
+        c.eq("heard on its second try", (c.r.memory(A) as any).heard, true);
+        c.eq("B's mail all heard too", (c.r.memory(B) as any).presses, 300);
+      },
       "a-hosts-cancel-lets-go-the-ordinary-and-keeps-the-kept"(c) {
         c.ensure();
         c.send("ToF");

@@ -175,7 +175,7 @@ REV9-STREAM 3c4a7f9158e9
 REV9-NAMES 0d14853819eb
 REV9-LOOP 0bf7cddaaa45
 REV9-EDGE 24f8ec12d6b7
-R10-PINS e9742bf8a1a4
+R10-PINS c9d7301a2549
 R10-RUNTIME cfc9c7910749
 variant:PAY-06/interruptible present
 variant:PAY-06/uninterruptible present
@@ -822,6 +822,7 @@ variant:REV9-EDGE/a-bigint-and-its-digits-are-two-lanes present
 variant:REV9-EDGE/a-function-in-an-input-declines present
 variant:REV9-EDGE/a-reads-decline-carries-its-input present
 variant:R10-PINS/a-refused-ensure-rolls-back-and-names-its-origin present
+variant:R10-PINS/a-second-try-beside-another-actors-mail-is-not-lost present
 variant:R10-PINS/a-hosts-cancel-lets-go-the-ordinary-and-keeps-the-kept present
 variant:R10-RUNTIME/a-listener-that-costs-is-on-the-bill present
 variant:R10-RUNTIME/a-listener-that-sends-across-slices-loses-nothing present
@@ -843,7 +844,7 @@ file:scenarios/frag.scenario.ts c54ce4ee763b
 file:scenarios/order.scenario.ts 808eaa809f06
 file:scenarios/pay.scenario.ts eaf8d25270a1
 file:scenarios/review.scenario.ts 973830d14300
-file:scenarios/round10.scenario.ts be2deea6f8e6
+file:scenarios/round10.scenario.ts 8339b773034b
 file:scenarios/round4.scenario.ts 8d487cf341e4
 file:scenarios/round5.scenario.ts d24c459227a2
 file:scenarios/round6.scenario.ts aa97d23b1f5f
@@ -1145,6 +1146,7 @@ output:PAY-20/a-500-that-landed-is-unknown-and-pay-reads-the-intent 956b64183beb
 output:PAY-20/a-pruned-key-does-not-charge-twice-since-pay-reads-first ca5f0aabacf3
 output:R10-PINS/a-hosts-cancel-lets-go-the-ordinary-and-keeps-the-kept 40f24c090a76
 output:R10-PINS/a-refused-ensure-rolls-back-and-names-its-origin 72738bdc4909
+output:R10-PINS/a-second-try-beside-another-actors-mail-is-not-lost 28f5b1df8505
 output:R10-RUNTIME/a-burst-is-served-in-order-across-slices d250c6d8bcce
 output:R10-RUNTIME/a-clock-set-back-is-another-state d250c6d8bcce
 output:R10-RUNTIME/a-listener-that-costs-is-on-the-bill d250c6d8bcce
