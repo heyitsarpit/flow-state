@@ -89,9 +89,10 @@ const onSent = (tx: Tx, i: Extract<Input, { k: "sent" }>) => {
   const r = takeRead(tx, i.attempt, i.send);
   if (r) {
     if (i.exit.t === "defect") issue(tx, { code: "Defect", origin: `${r.actor} ${r.op}` });
-    const e = readEnding(i.exit);
-    noteEnding(tx, { op: r.op, attempt: i.attempt, send: i.send }, e);
-    if (e.ch === "success")
+    let e = readEnding(i.exit);
+    if (e.ch === "success") {
+      // D147, HIGH-03 decided: the domain's read mapper is the user's code turning this answer into records. If it throws, or returns what has no shape, the store has nothing, and the machine must not hear `Listed`: the read's ending is a failure, `Defect` (rule 37). The store's issue says why.
+      const before = tx.issues.length;
       toldAll(tx, {
         k: "answered",
         machine: r.machine,
@@ -100,6 +101,9 @@ const onSent = (tx: Tx, i: Extract<Input, { k: "sent" }>) => {
         value: e.value,
         pos: r.pos,
       });
+      if (tx.issues.slice(before).some((x) => x.code === "UserClosure")) e = { ch: "failure", tag: "Defect", value: {} };
+    }
+    noteEnding(tx, { op: r.op, attempt: i.attempt, send: i.send }, e);
     return enqueue(tx, {
       k: "ending",
       actor: r.actor,

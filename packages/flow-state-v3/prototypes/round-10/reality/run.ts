@@ -249,6 +249,56 @@ try {
     });
   }
   // ── Two tabs: O7.
+  // D148, assumptions #1: a same-origin link and back, in one tab. Before: the next page was a second tab (no persistence), and the cached page came back holding stale memory and wrote over the newer value.
+  if (only.includes("bfcache")) {
+    const db = "bfcache";
+    const p = await open();
+    const ready = async () => {
+      for (let i = 0; i < 100; i++) {
+        const r = await p.send("Runtime.evaluate", { expression: "typeof __boot" }).catch(() => undefined);
+        if (r?.result?.result?.value === "function") return;
+        await Bun.sleep(30);
+      }
+      throw new Error("page did not load");
+    };
+    // Each page starts its own actor, so what B wrote is B's alone: a stale page could not have it in memory, and a fresh boot reads it from disk.
+    const bootHere = async (intent: string) => {
+      const who = `${A}-${intent || "A"}`;
+      if (process.argv.includes("--no-contract")) await p.evaluate("globalThis.__noContract = true"); // the red control: without D148 this must fail
+      const b = await p.evaluate(`__boot("pay", ${JSON.stringify({ db })})`);
+      await p.evaluate(`__wait("__booted()")`);
+      await p.evaluate(`__ensure(${JSON.stringify(who)}, "Checkout/Pay")`);
+      if (intent) await p.evaluate(`__send(${JSON.stringify(who)}, "Start", { cartId: ${JSON.stringify(intent)}, intentId: ${JSON.stringify(intent)} })`);
+      await p.evaluate(`__flush()`);
+      await Bun.sleep(150);
+      return b.owner as boolean;
+    };
+    const aOwner = await bootHere("A");
+    await p.send("Page.navigate", { url: `${srv.url}/?b` });
+    await Bun.sleep(400);
+    await ready();
+    const bOwner = await bootHere("B");
+    const h = await p.send("Page.getNavigationHistory");
+    await p.send("Page.navigateToHistoryEntry", { entryId: h.result.entries[h.result.currentIndex - 1].id });
+    await Bun.sleep(800);
+    await ready();
+    const cached = await p.evaluate(`sessionStorage.getItem("flow.leftIntoCache")`);
+    const back = await p.evaluate(`performance.getEntriesByType("navigation")[0]?.type ?? null`);
+    const backOwner = await bootHere("");
+    await p.evaluate(`__ensure(${JSON.stringify(`${A}-B`)}, "Checkout/Pay")`);
+    await Bun.sleep(100);
+    const backSees = await p.evaluate(`__view(${JSON.stringify(`${A}-B`)})?.memory?.intentId ?? null`);
+    say("bfcache", {
+      aOwner,
+      bOwner,
+      cached: cached !== null,
+      back,
+      backOwner,
+      backSees,
+      // What must be zero: the next page not the owner, or the page that came back not seeing B's newer value.
+      bfcacheZombie: (bOwner ? 0 : 1) + (backSees === "B" ? 0 : 1),
+    });
+  }
   if (only.includes("tabs")) {
     const db = "tabs";
     const a = await open();

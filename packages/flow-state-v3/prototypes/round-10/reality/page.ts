@@ -52,14 +52,32 @@ const host = (storage: any) => ({
   scheduler: new Scheduler.MixedScheduler(),
   storage,
 });
+// D148: held while this page is the live one, not for the life of the page. A page that enters the back-forward cache is not live.
+let releaseLock: (() => void) | undefined;
 const lockFor = (name: string): Promise<boolean> =>
   new Promise((res) => {
     if (!navigator.locks) return res(true); // no Web Locks: the plan's O7 asks for a refusal; here we report it
     void navigator.locks.request(name, { ifAvailable: true }, (lock) => {
       res(lock !== null);
-      return lock ? new Promise(() => {}) : undefined; // held for the life of the page
+      return lock ? new Promise<void>((r) => void (releaseLock = r)) : undefined;
     });
   });
+// D148, assumptions #1: the host contract for the back-forward cache. A same-origin link left this page alive in the cache, holding the lock, so the next page was a second tab, and going back let the stale page write over the newer one.
+// Leaving into the cache: the runtime's own `pagehide` flush runs first (registered before this), then the lock goes. Coming back: a return is a new boot, so the page reloads, re-reads the disk and asks for the lock again. A page that is not cached never comes back, and needs nothing.
+const bfcacheContract = () => {
+  addEventListener("pagehide", (ev) => {
+    if (!(ev as PageTransitionEvent).persisted) return;
+    releaseLock?.();
+    releaseLock = undefined;
+    g.__leftIntoCache = true;
+    try {
+      sessionStorage.setItem("flow.leftIntoCache", String(Date.now())); // for run.ts only: the tab's own record that this page went into the cache
+    } catch {}
+  });
+  addEventListener("pageshow", (ev) => {
+    if ((ev as PageTransitionEvent).persisted && g.__leftIntoCache) location.reload();
+  });
+};
 // H1's real shape, from the review: a store slowed behind a ticket's batch. A real second readwrite transaction, issued right after that batch and kept open by its own requests, so what follows queues behind it.
 let holdMs = 0;
 g.__holdAfterTicket = (ms: number) => void (holdMs = ms);
@@ -118,6 +136,7 @@ g.__boot = async (kind: string, o: any = {}) => {
     onIssue: (i: any[]) => void issues.push(...i),
   });
   g.__dbName = db?.name;
+  if (!g.__noContract) bfcacheContract(); // after createRuntime, so its pagehide flush is heard first. `__noContract`: run.ts's red control
   return { owner, locks: !!navigator.locks };
 };
 g.__ensure = (a: string, m: string, input?: unknown) =>

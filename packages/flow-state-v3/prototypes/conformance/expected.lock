@@ -52,7 +52,7 @@ LIB-02 50f37028a9e7
 LIB-03 d2d9a157da8b
 HIGH-01 50bfb4d2092d
 HIGH-02 4ad8c4a4dd14
-HIGH-03 98001d26e980
+HIGH-03 6f4a4da88e48
 HIGH-04 1d69e61afe5b
 HIGH-04b 30815ae3718c
 MED-01 4c17269c08f6
@@ -842,7 +842,7 @@ file:scenarios/flows.scenario.ts 609988df9d0b
 file:scenarios/frag.scenario.ts c54ce4ee763b
 file:scenarios/order.scenario.ts 808eaa809f06
 file:scenarios/pay.scenario.ts eaf8d25270a1
-file:scenarios/review.scenario.ts dd857bcc83a1
+file:scenarios/review.scenario.ts 973830d14300
 file:scenarios/round10.scenario.ts be2deea6f8e6
 file:scenarios/round4.scenario.ts 8d487cf341e4
 file:scenarios/round5.scenario.ts d24c459227a2
@@ -905,7 +905,7 @@ file:null-adapter.ts 295792b7b6be
 file:report.ts 7e305fd3110b
 file:watch.ts eabed1da1c20
 file:gate5s.ts 9ca8fbc3f284
-file:gate-5s-expected.txt b841e6e888cd
+file:gate-5s-expected.txt 7995923439b2
 file:mutate.ts bd0623c0a5c3
 file:mutate-one.ts 14f130df7310
 file:harness.ts fd9183e7818e
@@ -930,11 +930,11 @@ round:checks/score-check.ts c700202d013f
 round:reality/h3-plant.ts 00c84949a985
 round:reality/h3.ts 87ca84205094
 round:reality/idb.ts bcc1040c4f58
-round:reality/page.ts 55b856c0c77b
+round:reality/page.ts f1e8103ff5c2
 round:reality/real-api.ts bf1458354c12
-round:reality/run.ts ebefc8bf66fb
+round:reality/run.ts fefd0817847f
 round:reality/run7.ts 345b4b694890
-round:reality/score.ts 05f2b7dc4fe6
+round:reality/score.ts 9a75735fb7fd
 round:reality/server.ts 5c2e2c703823
 round:reality/spin-page.ts 02e65021c549
 round:reality/spin.ts aa245e389f65

@@ -1,7 +1,7 @@
 // D144, bugs M7: a real run's result is scored, and its exit says so. Before, every run exited 0 in `finally`, and an error was a line in a JSON file.
 // What must be zero wherever it appears: money moved twice, a told-not-charged that charged, a fatal, an unsettled page, a charge with no lane.
 // `known` names a counter a run reports on purpose and must not fail on (H3's wipes, a stated Chrome limit), with why.
-export const MUST_BE_ZERO = ["twoCharges", "doubleCharge", "toldNotChargedAndCharged", "chargedNoLane", "fatal", "unsettled", "twoKeysBesideAnUndecidedFirst", "lostAcked"] as const;
+export const MUST_BE_ZERO = ["twoCharges", "doubleCharge", "toldNotChargedAndCharged", "chargedNoLane", "fatal", "unsettled", "twoKeysBesideAnUndecidedFirst", "lostAcked", "bfcacheZombie"] as const;
 
 export const score = (out: unknown, known: Readonly<Record<string, string>> = {}): { code: 0 | 1; bad: string[] } => {
   const bad: string[] = [];

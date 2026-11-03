@@ -514,3 +514,9 @@ output:R10-PINS/a-refused-ensure-rolls-back-and-names-its-origin hash:72738bdc49
 output:R10-RUNTIME/a-user-field-the-normaliser-ranks-keeps-two-states hash:a3c864d2c356 | new, D134: whole output of the D143 pin
 output:REV7-EDGE/a-hidden-page-in-a-frozen-tab-loses-nothing-to-a-discard hash:3615dd897e65 | new, D134: whole output, a hidden write before a freeze
 output:REV7-EDGE/a-visible-change-waiting-for-its-interval-is-lost-to-freeze-and-discard hash:c2d1035ca097 | new, D134: whole output, a visible wait lost to a discard
+HIGH-03 hash:6f4a4da88e48 | D147: a read whose mapper throws ends in failure Defect, and the case says so; it asserted no ending before
+file:scenarios/review.scenario.ts hash:973830d14300 | holds HIGH-03's ending
+file:gate-5s-expected.txt hash:7995923439b2 | D143: six expected messages print `undefined` as "$undefined" now that Ctx.eq compares values; the same six cases, failing the same way
+round:reality/page.ts hash:f1e8103ff5c2 | D148: the lock is held while the page is live; into the cache it goes, a return reloads
+round:reality/run.ts hash:fefd0817847f | D148: `--only bfcache`, scored, with `--no-contract` as its red control
+round:reality/score.ts hash:9a75735fb7fd | D148: bfcacheZombie must be zero

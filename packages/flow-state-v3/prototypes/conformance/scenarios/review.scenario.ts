@@ -245,6 +245,8 @@ export const reviewScenarios: readonly Scenario[] = [
         c.to(A, "Load");
         c.answer("list", { ok: null }); // reads.list does v.map
         c.eq("issue", c.r.issues().at(-1)?.code, "UserClosure");
+        // D147: the machine does not hear `Listed` for a list the store could not take. Blind derivation's loose end.
+        c.eq("the read's ending is its Defect", [c.lastEnding("list")?.["channel"], c.lastEnding("list")?.["reason"]], ["failure", "Defect"]);
         toggle(c, true);
         c.eq("the store lives", c.reqs("like").length, 1);
       },

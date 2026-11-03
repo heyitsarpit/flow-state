@@ -48,6 +48,8 @@ One principle answers causes 1-4: **a green must be a claim about a run, and a b
 | **D143** | **A user's data is opaque to the hash's ranks.** Memory, payload, input, value are written with no `"`, so no regex reaches a `pos` in them. `Ctx.eq` compares values (`canonText`): field order free, `Date`, `NaN`, `Map`, `undefined` themselves | The edge's bytes and the fake's open requests still hold ranked copies; one exact copy in the world keeps the states apart | `adapter.ts`, `ctx.ts` |
 | **D144** | **A real run is scored, and exits by its score.** `reality/score.ts`: errors, `NO ANSWER`, and `twoCharges`, `doubleCharge`, `toldNotChargedAndCharged`, `chargedNoLane`, `fatal`, `unsettled` must be zero. `checks/score-check.ts` proves it fails what it says. Not run in Chrome this round | `bench/main.ts` still only measures | `reality/*.ts` |
 | **D145** | **The fake server is as strict as Stripe's.** Keys can be pruned (`forgetKeys`), a send while the key executes answers 409 (`inFlight`), a landed 500 replays to every retry (`applyFail`), another body on a key is refused. Every application is counted: **a key applied twice fails any case** that did not name `AppliedTwice`, and a resend with another body fails any case. Every landing is in the ledger. **Contract for authors:** a resend on an old key reads what the server holds first, as Pay does; Flow keeps no key age | 409 is an answer to choose, not the default | `fake-world.ts`, `main.ts`, Pay's server model |
+| **D147, HIGH-03 decided** | **A read whose domain mapper throws, or returns what has no shape, ends in failure `Defect`** (rule 37), and the store's `UserClosure` says why. The machine no longer hears `Listed` for a list the store could not take. Correctness: a machine must not believe it has data nobody stored | A mapper bug moves the machine to its failure path, not its success path | `step.ts`, HIGH-03 |
+| **D148** | **Host contract for the back-forward cache: a page holds the lock while it is the live page, not for its life.** On `pagehide` with `persisted`, after the runtime's own flush, the host releases the lock. On `pageshow` with `persisted`, the host reloads: **a return is a new boot**, which re-reads the disk and asks for the lock again. **Verified in Chrome** (`reality/run.ts --only bfcache`, scored): the next page is the owner, the page went into the cache, the return reloaded and sees B's newer value. Without the contract (`--no-contract`) the run fails: the next page is not the owner. Rejected: keep the lock and restore the cached page in place (a second writer with stale memory); opt out of the cache (`Cache-Control: no-store` is a hint Chrome is moving away from) | A Flow page loses the instant back. The fake has no `leave`/`return`: under this contract a cached page holds nothing, so a return is a kill and a boot, which the fake has | `reality/page.ts`, `reality/run.ts` |
 | **D146** | **A frozen page runs nothing.** No task, microtask, answer heard or storage answer until a thaw; a kill thaws (a discard). A step needing the page's JS on a frozen page is dropped, and a case that drops one fails. The round 7 case that pressed a frozen page is replaced by two true ones | | `drive.ts`, `ctx.ts`, `round7.scenario.ts` |
 
 ## Design edits owed at merge
@@ -58,7 +60,26 @@ One principle answers causes 1-4: **a green must be a claim about a run, and a b
 2. Rule 25: a carve-out or a new rule for the repair's own 30 s bound (STORE-07, D40).
 3. Rule 8, 2.5: a turn refused twice stays with what owes it (REV9-EDGE, D109, D118, D123).
 4. `machine-design.md:1115`, `:3865`, the ordering rule (R M1), the four lines: follow-ups first and global, up to the bound; else one mail from the next actor in rota, oldest first within that actor; an actor joins the rota at its first mail and goes to the back after each; nothing orders two actors' turns unless a turn links them.
-5. Rule 37 and 27: a read mapper's throw (HIGH-03). Decision in stage B.
+5. Rule 37 and 27: a read mapper's throw, or a result of no shape, ends the read in failure `Defect` (D147, HIGH-03).
+6. Host contract (2.10 or the host section): the lock is held while the page is live; a page that enters the back-forward cache releases it after its flush, and a return from the cache is a new boot (D148).
+7. Rule 25: a frozen page runs nothing, so no deadline, backoff or capture fires until a thaw; a discard is a kill with no `pagehide` (D146).
+8. Author contract for server keys (rule 19's neighbourhood): a server may prune a key; a resend on an old key reads what the server holds first. Flow keeps no key age (D145).
+
+## For Arpit: the hidden-tab spin (review M2), recorded, not changed
+
+Decided by correctness, under delegation: **leave it as named, option A.** 5,535 failing requests a second from a hidden tab is a cost, not a wrong answer: no work is dropped, no money moves twice, and requirement 7 (no wall-clock number decides *what*) rules out a cut. Option B (a `setTimeout` yield past 2 s hidden) would put a correct bulk import back at 8 ms a second, which is requirement 6's failure. The real fix is an explicit retry with a delay, which needs an API; it goes with `retry`. Until then the cost is stated: a spin burns a core and hits the server at task rate, hidden or not, and `TurnStorm` names only same-input failures. Yours to overrule.
+
+## Rule 37 and the rules no case cites
+
+The audit's list, by what would test each. Added this round: **rule 37's read defect** (HIGH-03, D147), **rule 12's origin** for every issue (an oracle, not a case), **rule 51**'s cancel against a kept ending (`letgo-takes-all`).
+
+| Needs | Rules | State |
+| --- | --- | --- |
+| A runtime case, and it matters | 47 (mapped events only from endings), 50 (only the fragment acts), 56 (a host that ends a holding placement can start it again), 59 (a fragment's rows while its incarnation is absent) | **Owed, next round.** 47 and 59 first: both are runtime-visible and unpinned |
+| Entities | 26, 33, 34, 36, 37's confirmed-data half | With entities |
+| Types or compile, with `tsc` as a gate | 2, 3, 4, 5, 10, 39, 40, 41, 48, 49, 57 | `typed/type-tests.ts` is not a gate yet; owed |
+| `flow check` pins | 20 (has pins), 55 (none: `Rule20Adopted`, `BareWrite` unpinned) | 55 owed |
+| Stories, `flow graph`, `story`, `trace` | 11, 58, 61, 62, 63, 64, 65, 66 | **No code exists.** Stated, not built
 
 ## Traces of the failures D130 exposes
 
