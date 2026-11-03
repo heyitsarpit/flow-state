@@ -211,4 +211,8 @@ The convergence rule, applied to (j)'s six failures on one path: the suite now o
 
 Deleted: D164's `at` comparison and its "names no copy" check in `drive.ts`; an observed delivery is paid by its observation, not by any `turn` in the batch. Reference and runtime disagreed nowhere: 732/732, `unplaceable 0`.
 
+Earlier lies rerun under the new oracle: `e2.subject-fan-fail-att` and `e2.subject-fan-att` 5 of 6 by `(j) delivered to the wrong recipient` (they were red by the deleted `at` check); `e1.park-keyed` 47 of 66 by `(j) parked`; `a3p.park-decline` 43 of 45 by `(j) a decline parked`; `lie.evidence-only` 2 of 2 by (j); `e1.park-keyed-fan-att` 8 of 10 by `(j) parked`; `a4p.refused-turn` 45 of 45 by `(j) refused once`; `ref.binding-first-copy` red by `(ref) binding with subject`. 13 of 47 lies rerun in all, every one red by its named oracle; 34 not rerun (about 60 s each).
+
+Stated limit, not closed: `e8.wa-unknown` fires in 20 cases (re-check probe) and is red in 3. In the rest the wrong actor's view is most likely equal to the owner's (the 1,364 equal views), where the suite cannot tell them apart; not verified case by case. What would close it: actors in those cases with distinct memory, or an effect check on which candidate's published view the handler changed.
+
 Gates on the final commit: see `STATUS.md`.
