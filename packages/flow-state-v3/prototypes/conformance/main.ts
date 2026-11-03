@@ -104,6 +104,7 @@ const SHARED = [
   "watch.ts",
   "gate5s.ts",
   "gate-5s-expected.txt",
+  "expected-recipients.txt", // stage L (review M8): the coverage counts of (j)
   "mutate.ts",
   "mutate-one.ts",
   "harness.ts",
@@ -423,6 +424,15 @@ if (import.meta.main) {
     `\nSUMMARY  ${pass}/${results.length} scenario cases pass;${nothing} of the rest, by output alone: ${results.filter((r) => r.ok && r.output).length}; unlogged expectation changes: ${unlogged.join(" ") || "none"}; removed with no log line: ${gone.join(" ") || "none"}; stale lock: ${stale.length}; catalog disagreements: ${disagreements.join("; ") || "none"}`,
   );
   // Stage G: how each delivery's recipient was settled (drive.ts `ears`). After SUMMARY, so a reader of the summary line is unchanged.
-  console.log(`RECIPIENTS  observed ${recipients.observed}; ambiguous ${recipients.ambiguous}; with no copy recorded ${recipients.noCopy}; unplaceable ${recipients.unplaceable}; restored states checked against their record ${recipients.anchored}; one serial in two places (red) ${recipients.shared}; unobserved (allowance A2) ${recipients.unobserved}; runs paid by the suite's sends ${recipients.bySend}; left over (red) ${recipients.leftover}; start node checked ${recipients.started}; stream deliveries placed ${recipients.streams}`);
-  process.exitCode = results.length > 0 && pass === results.length && !unlogged.length && !gone.length && !stale.length && !disagreements.length ? 0 : 1;
+  const recLine = `RECIPIENTS  observed ${recipients.observed}; ambiguous ${recipients.ambiguous}; with no copy recorded ${recipients.noCopy}; unplaceable ${recipients.unplaceable}; restored states checked against their record ${recipients.anchored}; one serial in two places (red) ${recipients.shared}; unobserved (allowance A2) ${recipients.unobserved}; runs paid by the suite's sends ${recipients.bySend}; left over (red) ${recipients.leftover}; start node checked ${recipients.started}; stream deliveries placed ${recipients.streams}`;
+  console.log(recLine);
+  // Stage L (review M8): the counts that say a class of (j) still runs are under the lock. A full plain run (or `--no-output`) of the runtime
+  // the file was written for must print exactly this line; a change is red until the file and a log line say why. A sweep, a swap, a
+  // subset, a broken or mutated runtime differs by design and is told so, without changing what this run's FAIL lines say.
+  const REC = join(here, "expected-recipients.txt");
+  const recWant = existsSync(REC) ? readFileSync(REC, "utf8").trim() : "";
+  const recAsked = !onlySet && !arg("--swap") && !process.env["FLOW_RUNTIME_DEFAULT"] && !process.env["FLOW_CAPTURE_MS"] && !process.env["FLOW_DRAIN_MS"] && recWant !== "";
+  const recMoved = recAsked && recWant !== recLine.trim();
+  if (recMoved) console.log(`RECIPIENTS-LOCK  moved; expected-recipients.txt says\n${recWant}`);
+  process.exitCode = results.length > 0 && pass === results.length && !unlogged.length && !gone.length && !stale.length && !disagreements.length && !recMoved ? 0 : 1;
 }

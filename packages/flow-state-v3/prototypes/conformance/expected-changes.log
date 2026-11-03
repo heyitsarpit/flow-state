@@ -658,3 +658,13 @@ file:harness.ts hash:15a4f639be60 | D184, D187: DiskCodec.leaves, the leaf each 
 file:drive.ts hash:c9de943d2d64 | D184, D185: one ledger at the cause's time; a boot anchored to its records, restored endings judged at the reload, the booting flag dropped
 round:adapter.ts hash:d83b02fba9d4 | D184: the codec's leaves reader, the record's root and live copies with their leaf
 output:R10-BOOT-ORDER/inputs-that-wait-on-a-slow-load-run-after-the-restored-endings hash:fcecca1c5358 | D186: its output, new (inputs that wait on a slow load)
+FRAG-24 hash:848cbbf502c7 | D192: a variant added, a dispose waiting on a slow load runs after both copies' restored endings
+file:scenarios/frag.scenario.ts hash:54d797fd7c51 | D192: FRAG-24's slow-load dispose variant (review H4, entity rows as copies)
+file:main.ts hash:a360bb48ea92 | D191: RECIPIENTS prints the start and stream counts and is held to expected-recipients.txt
+file:falsify.ts hash:69760b0a9e58 | D192: the review of stage K's lies in --part lies; --cases and FALSIFY_LIST for diagnosis
+file:expected-recipients.txt hash:ea4f5b5184bb | D191: new, the coverage counts of (j) under the lock (review M8)
+file:harness.ts hash:f361c2bb159d | D188, D190: DiskCodec.parked names its lane; leaves' contract says no answer is red
+file:drive.ts hash:606fd7ce8eb0 | D188-D191: alive and owed from the suite's own facts; a cause's event and start node; once across boots; scoped excuses
+file:fake-world.ts hash:3da685e6cff6 | D188, D191: the fake counts the loads it answered and says one is pending; a tear returns its batch's keys
+round:adapter.ts hash:a1a07ba13109 | D190: the codec's parked reader names the lane record each ending is parked on
+output:FRAG-24/a-dispose-waiting-on-a-slow-load-runs-after-both-copies-restored-endings hash:d2142ca65e56 | D192: its output, new (copies at a slow-load boot)
