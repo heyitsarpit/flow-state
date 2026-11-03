@@ -272,11 +272,14 @@ export type DiskCodec = {
   kind(key: string): string; // what a stored key is: "actor", "lane", or the runtime's own word. Output counts keys by it
   scope(key: string): string | undefined; // the actor a stored key, or a wait's key, belongs to
   heads(entries: ReadonlyMap<string, string>): readonly string[]; // Attempt ids that are a lane's head on disk
-  parked(entries: ReadonlyMap<string, string>): ReadonlyArray<{ op: string; attempt: string }>; // parked endings on disk
+  // Parked endings on disk. Stage L (review M7): `lane` names the lane record each is parked on, and each lane's list is in its saved order.
+  parked(entries: ReadonlyMap<string, string>): ReadonlyArray<{ op: string; attempt: string; lane: string }>;
   decode(key: string, value: string): unknown; // a stored value, as a value
   // Stage K (re-check 10j S1'): the leaf an actor's record holds, for its root (`[]`) and every live copy in it, by path (the same path
   // form as `Instance.inner`). Undefined when the actor has no live record. A boot's first published state is checked against this, so
-  // what a restored row is in is read from the suite's bytes, not from the runtime's decode of them.
+  // what a restored row is in is read from the suite's bytes, not from the runtime's decode of them. Stage L (review H1, L7): no answer for
+  // a record the runtime restores is red, not a skip; and a Port must implement this reader apart from its restore's own decode, or D9 is
+  // only a consistency check (limit L1).
   leaves(entries: ReadonlyMap<string, string>, actor: string): ReadonlyArray<{ path: readonly string[]; leaf: string }> | undefined;
 };
 export type Port = { boot(a: BootArgs): Instance; disk: DiskCodec };

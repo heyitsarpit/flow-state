@@ -338,7 +338,39 @@ try {
       ["h.restore-at-send", "a restored row is put back in the state its owner sent from, and published and routed by it (S1′)", [["durable.ts", END, AT_SEND]], "(j) restored in"],
       ["h.boot-order", "inputs that waited on a slow load step before the restored endings", [["driver.ts", BOOTIN, "inbox.push({ k: \"boot\", records: [...records], persistence } as any, ...waitingBoot.splice(0)); pump();"]], "before the restored endings"],
     ];
-    const ALL = [...LIES, ...LIES10D, ...LIES10F, ...LIES10G, ...LIES10H, ...LIES10I, ...LIES10K];
+    // Stage L: the review of stage K's lies (`conformance-audit/review-k-scripts/run-mut.ts`), as it wrote them. Each is the runtime's
+    // silence taken as an excuse (R6) or a cause that named its recipient but not its event or start (R7). Red by (j) alone.
+    const atSend: Edits = [["durable.ts", END, AT_SEND]];
+    const EV = "guarded(() => cfg.onEvidence(out.evidence));";
+    const evLate: Edits = [
+      ["driver.ts", EV, `{ const H = ((globalThis as any).__heldEv ??= []); if (i.k === "boot") H.push(...out.evidence); else { const ev = [...H.splice(0), ...out.evidence]; guarded(() => cfg.onEvidence(ev)); } }`],
+      ["driver.ts", "} finally { running = false; } notify();", "} finally { running = false; } { const H = (globalThis as any).__heldEv; if (H?.length) { const ev = H.splice(0); guarded(() => cfg.onEvidence(ev)); } } notify();"],
+    ];
+    const noBootEv: Edits = [["step.ts", 'note(tx, "boot", {});', ""]];
+    const MAPPED = "const mapped = mappedFor(m, item);";
+    const STREAMRUN = "const ran = attemptTurn(tx, item, item.event.tag, () => runTurn(tx, a, path!, item.event, undefined, false, item), );";
+    const LIES10L: ReadonlyArray<readonly [string, string, Edits, string]> = [
+      ["k.no-leaves+at-send", "the codec reads no leaf, and a row is restored in its asking state (H1)", [["adapter.ts", "leaves: (kv, actor) => {", "leaves: (kv, actor) => { if (kv) return undefined;"], ...atSend], "(j) the codec reads no leaf"],
+      ["k.held-silent", "a held head's Restored is neither said nor delivered (H2)", [["durable.ts", "noteEnding(tx, { op: l.op, attempt: h.id }, ending); const phase: Phase", "if (!h.held) noteEnding(tx, { op: l.op, attempt: h.id }, ending); const phase: Phase"], ["durable.ts", "restoredHook(tx, l, h, ending); mail(tx, l, h, ending, true);", "restoredHook(tx, l, h, ending); if (!h.held) mail(tx, l, h, ending, true);"]], "(j) on disk at the reload, and the boot said no ending"],
+      ["k.drop-row", "a row with a restored ending is silently not restored (H3)", [["durable.ts", 'import { getActor, setActor, noActors, type Actors } from "./actors.ts";', 'import { getActor, setActor, noActors, deleteActor, type Actors } from "./actors.ts";'], ["durable.ts", END, `${END} for (const m of [...(tx.w.mail as any)] as any[]) if (m.k === "ending" && m.restored && getActor(tx.w.actors, m.actor)) tx.w = { ...tx.w, actors: deleteActor(tx.w.actors, m.actor) };`]], "(j) not restored"],
+      ["k.drop-copy", "the copy a restored ending belongs to is dropped at restore (H3)", [["durable.ts", END, `${END} for (const m of [...(tx.w.mail as any)] as any[]) { if (m.k !== "ending" || !m.restored || !m.owner?.inc) continue; const r = getActor(tx.w.actors, m.actor); if (!r || r.root.id === m.owner.inc) continue; const cut = (i: any): any => ({ ...i, kids: Object.fromEntries(Object.entries(i.kids).filter(([, v]: any) => v.id !== m.owner.inc).map(([k, v]: any) => [k, cut(v)])) }); tx.w = { ...tx.w, actors: setActor(tx.w.actors, m.actor, { ...r, root: cut(r.root) }) }; }`]], "(j) a copy on disk was not restored"],
+      ["k.vanish-live", "an actor silently vanishes when a failure lands (H3)", [["turn.ts", 'import { getActor, setActor, type Actors } from "./actors.ts";', 'import { getActor, setActor, deleteActor, type Actors } from "./actors.ts";'], ["turn.ts", G125, `if (item.ending.ch === "failure" && getActor(tx.w.actors, item.actor)) tx.w = { ...tx.w, actors: deleteActor(tx.w.actors, item.actor) }; ${G125}`]], "(j)"],
+      ["k.ghost-life", "a disposed actor's ending runs in its retired record (H5)", [["turn.ts", G125, "const a = getActor(tx.w.actors, item.actor) ?? (own(tx.w.retired, item.actor) as any); const lane = tx.w.lanes[laneId];"]], "(j)"],
+      ["k.late-as-current", "every ending routed current from the active leaf (H6)", [["turn.ts", ROUTE, "const { start, late } = { start: undefined as string | undefined, late: false };"]], "rule 14 starts it"],
+      ["k.restored-from-root", "a restored ending routed late from the root (H6)", [["turn.ts", ROUTE, "const { start, late } = item.restored ? { start: fragOf(machineOf(tx, a), inc).root as string | undefined, late: true } : routeFrom(tx, a, item, inc);"]], "(j)"],
+      ["k.claim-unhandled", "a failure said delivered and Unhandled, run nowhere (H7)", [["turn.ts", "if (!item.redelivered) countFailure(tx, item);", 'if (!item.redelivered) countFailure(tx, item); if (item.ending.ch === "failure" && item.attempt) return note(tx, "Unhandled", { event: mapped.event });']], "(j) delivered, and no handler ran"],
+      ["k.ev-late+at-send", "the boot's evidence after its restored turns, and a row restored in its asking state (M1)", [...evLate, ...atSend], "(j) restored in"],
+      ["k.no-boot-ev+at-send", "no boot evidence, and a row restored in its asking state (M2)", [...noBootEv, ...atSend], "(j)"],
+      ["k.no-boot-ev+boot-order", "no boot evidence, and waiting inputs before the restored endings (M2)", [...noBootEv, ["driver.ts", BOOTIN, "inbox.push({ k: \"boot\", records: [...records], persistence } as any, ...waitingBoot.splice(0)); pump();"]], "(j)"],
+      ["k.restored-as-success", "a restored unknown runs the success event (M3)", [["turn.ts", MAPPED, "const mapped = item.restored && item.ending.ch === \"unknown\" && m.ops[item.op]?.outcomes.success ? m.ops[item.op]!.outcomes.success : mappedFor(m, item);"]], "(j) delivered as"],
+      ["k.failure-as-success", "a failure runs the success event (M3)", [["turn.ts", MAPPED, "const mapped = item.ending.ch === \"failure\" && m.ops[item.op]?.outcomes.success ? m.ops[item.op]!.outcomes.success : mappedFor(m, item);"]], "(j) delivered as"],
+      ["k.send-ahead", "a send that waited on a slow load steps ahead of the restored endings (M4)", [["driver.ts", BOOTIN, 'inbox.push({ k: "boot", records: [...records], persistence } as any, ...waitingBoot.filter((x: any) => x.k === "send")); { const rest = waitingBoot.filter((x: any) => x.k !== "send"); waitingBoot.splice(0, waitingBoot.length, ...rest); } pump();'], ["step.ts", 'else enqueue(tx, { k: "send", actor: input.actor, event: input.event });', 'else if ((tx.w.mail as any).restored > 0 && [...tx.w.mail].some((x: any) => x.restored && x.actor === input.actor)) tx.w = { ...tx.w, mail: (tx.w.mail as any).constructor.of([{ k: "send", actor: input.actor, event: input.event }, ...tx.w.mail]), rota: [input.actor, ...tx.w.rota.filter((x: string) => x !== input.actor)] }; else enqueue(tx, { k: "send", actor: input.actor, event: input.event });']], "moved before its restored endings"],
+      ["k.stream-other", "a session's delivery runs in another live actor with an incarnation at the same path (M5)", [["turn.ts", STREAMRUN, "const o2 = (tx.w.actors as any).flat().filter(Boolean).flatMap((b: any) => Object.values(b)).find((x: any) => x.machine === a.machine && x.key !== a.key && kidAt(x.root, path!)); const ran = attemptTurn(tx, item, item.event.tag, () => runTurn(tx, o2 ?? a, path!, item.event, undefined, false, item));"]], "(j) a stream's delivery"],
+      ["k.parked-every-boot-silent", "a delivered parked ending's record is never deleted, so each boot delivers it again (M6)", [["durable.ts", "if (!l) { put(actor, id, undefined); }", 'if (!l) { if (!/"parked":\\[\\{/.test(saved[id] ?? "")) put(actor, id, undefined); }']], "(j) delivered once, and restored again"],
+      ["k.parked-reversed", "parked endings restored in reverse saved order (M7)", [["durable.ts", "for (const p of l.parked ?? []) {", "for (const p of [...(l.parked ?? [])].reverse()) {"]], "(j) parked endings out of their saved order"],
+      ["k.supersede-head", "under latest, the sent head is said Superseded too (L1)", [["lane.ts", "if (policy === \"latest\") { for (const x of l.w) supersede(tx, a.op, x);", "if (policy === \"latest\") { if (l.head && l.head.phase.t !== \"settled\") supersede(tx, a.op, l.head); for (const x of l.w) supersede(tx, a.op, x);"]], "(j) superseded after it was sent"],
+    ];
+    const ALL = [...LIES, ...LIES10D, ...LIES10F, ...LIES10G, ...LIES10H, ...LIES10I, ...LIES10K, ...LIES10L];
     // `--slice i/n`: the i-th of n parts (each fits a 5-minute command).
     const sl = process.argv.indexOf("--slice");
     const [si, sn] = sl < 0 ? [1, 1] : process.argv[sl + 1]!.split("/").map(Number) as [number, number];
@@ -350,7 +382,10 @@ try {
     const named = async (edits: Edits) => {
       reset();
       for (const [f, find, rep] of edits) edit(join(round, f), (s) => s.replace(flex(find), () => rep));
-      const r = await run(["bun", "main.ts", "--round", "99", "--no-catalog", "--no-output", "--runtime", `../${basename(roundDir)}/adapter.ts`], {}, conf);
+      // `--cases A,B`: only these cases (a diagnosis, never a gate run). Prints their FAIL lines too.
+      const ci = process.argv.indexOf("--cases");
+      const r = await run(["bun", "main.ts", "--round", "99", "--no-catalog", "--no-output", ...(ci < 0 ? [] : ["--only", process.argv[ci + 1]!]), "--runtime", `../${basename(roundDir)}/adapter.ts`], {}, conf);
+      if (ci >= 0 || process.env["FALSIFY_LIST"]) console.log(r.stdout.split("\n").filter((l) => l.startsWith("FAIL")).map((l) => l.slice(0, 300)).join("\n"));
       return { r, fails: r.stdout.split("\n").filter((l) => l.startsWith("FAIL") && !l.split("\t")[1]?.startsWith("output:")) };
     };
     for (const [id, about, edits, mark] of chosen) {

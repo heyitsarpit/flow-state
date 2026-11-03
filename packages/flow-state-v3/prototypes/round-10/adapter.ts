@@ -101,7 +101,10 @@ const disk: Port["disk"] = {
   kind: (k) => (k.startsWith("actor/") ? "actor" : k.startsWith("lane/") ? "lane" : k === "meta" ? "meta" : k.startsWith("host/") ? "host" : "other"),
   scope: (k) => (k.startsWith("actor/") ? k.slice(6) : k.startsWith("lane/") ? k.slice(5, k.indexOf("|") < 0 ? undefined : k.indexOf("|")) : undefined),
   heads: (kv) => lanes(kv).flatMap((l) => (typeof l?.head?.id === "string" ? [l.head.id] : [])),
-  parked: (kv) => lanes(kv).flatMap((l) => (Array.isArray(l?.parked) ? l.parked.map((p: any) => ({ op: String(l.op), attempt: p?.attempt ?? "" })) : [])),
+  parked: (kv) => [...kv].filter(([k]) => k.startsWith("lane/")).flatMap(([k, v]) => {
+    const l = json(v);
+    return Array.isArray(l?.parked) ? l.parked.map((p: any) => ({ op: String(l.op), attempt: p?.attempt ?? "", lane: k })) : [];
+  }),
   decode: (_k, v) => JSON.parse(v),
   // Stage K: an actor record is `{ key, machine, root, timers, retired? }`; an incarnation `{ leaf, kids, frozen? }`, kids by path part.
   leaves: (kv, actor) => {

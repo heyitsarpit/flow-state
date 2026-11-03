@@ -1243,6 +1243,21 @@ export const fragScenarios: readonly Scenario[] = [
         c.eq("d2 heard Restored", saved(c, "d2")?.reason, "Restored");
         c.eq("each once", c.endings("save").filter((e) => e["reason"] === "Restored").length, 2);
       },
+      // Stage L (review H4): entity rows are copies. The store loads slowly and a dispose of the actor waits for it; each copy still hears
+      // its own restored unknown first (rule 44), and (j) judges both at the reload.
+      "a-dispose-waiting-on-a-slow-load-runs-after-both-copies-restored-endings"(c) {
+        c.ensure();
+        c.send("SetDocs", docs("d1", "d2"));
+        edit(c, "d1", "one");
+        c.ack();
+        edit(c, "d2", "two");
+        c.ack();
+        c.do({ reload: true, load: "hang" });
+        c.h.do({ dispose: N });
+        c.do({ storage: "loadOk" });
+        c.eq("both copies heard Restored before the dispose", c.r.evidence("delivered").filter((e) => e["op"] === "save" && e["attempt"]).length, 2);
+        c.eq("disposed", c.r.state(N), undefined);
+      },
     },
   },
 ];

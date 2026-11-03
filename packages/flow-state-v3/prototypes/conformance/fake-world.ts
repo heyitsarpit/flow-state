@@ -166,6 +166,10 @@ export class FakeWorld {
   readonly batches: Array<{ at: number; purpose: Purpose; writes: readonly Write[] }> = [];
   loadMode: "now" | "hang" | "fail" = "now"; // round 7: the next boot's read
   private pendingLoad: { ok: (m: ReadonlyMap<string, string>) => void; no: (e: unknown) => void } | undefined;
+  loadAnswered = 0; // stage L: loads answered with the records, over the run
+  get loadPending() {
+    return this.pendingLoad !== undefined; // a slow load the suite has not answered
+  }
   private hiders: Array<{ f: () => void; process: number }> = [];
   private lastBatch: Array<{ key: string; before: string | undefined }> = [];
   private held: Array<{
@@ -218,7 +222,11 @@ export class FakeWorld {
       storage: {
         // M9: a store has no order. Shuffled per seed and process, for good, so rule 44's order is the runtime's own.
         load: () => {
-          const read = () => this.readAll();
+          // Stage L (review M2): the suite's own fact of whether, and how often, a boot was given the records. Not the runtime's word.
+          const read = () => {
+            this.loadAnswered++;
+            return this.readAll();
+          };
           if (this.loadMode === "now") return read();
           const mode = this.loadMode;
           this.loadMode = "now";
@@ -289,12 +297,14 @@ export class FakeWorld {
     for (const [k, v] of this.kv) if (k.includes(match)) this.kv.set(k, edit(v));
   }
   // Review M7: a store with no atomic batch. Only the first `keep` writes of the last batch really landed. Real IndexedDB cannot do this.
-  tearLast(keep: number) {
+  tearLast(keep: number): string[] {
     for (const { key, before } of this.lastBatch.slice(keep)) {
       if (before === undefined) this.kv.delete(key);
       else this.kv.set(key, before);
     }
+    const keys = this.lastBatch.map((w) => w.key); // stage L (review M9): the batch's keys, landed or not, so the suite can scope its excuse
     this.lastBatch = [];
+    return keys;
   }
   private landWrites(writes: readonly Write[]) {
     this.lastBatch = writes.map((w) => ({ key: w.key, before: this.kv.get(w.key) }));
