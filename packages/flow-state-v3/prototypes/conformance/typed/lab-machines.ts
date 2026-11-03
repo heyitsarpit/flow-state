@@ -254,7 +254,7 @@ const odd = definition({
   states: { READY: {} },
   events: { BadKey: {}, BadMemory: {}, Fine: {} },
   internalEvents: { Done: {} },
-  memory: { n: Flow.initial(S.Number, 0), big: Flow.absent(U) },
+  memory: { n: Flow.initial(S.Number, 0), big: S.optionalKey(U) },
   operations: ({ E }) => ({ bad: bad.outcomes({ success: E.Done, failure: { NotSent: E.Done }, unknown: E.Done }) }),
 });
 export const oddFixture = fixture(

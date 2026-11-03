@@ -134,7 +134,7 @@ const kept = (persisted: boolean) => {
     },
     memory: {
       presses: Flow.initial(S.Number, 0), ids: Flow.initial(S.Array(S.String), ["x"]), who: Flow.initial(U, "1"),
-      last: Flow.absent(U), gaveUp: Flow.absent(U), note: Flow.absent(U), raised: Flow.absent(U), whoOdd: Flow.absent(U),
+      last: S.optionalKey(U), gaveUp: S.optionalKey(U), note: S.optionalKey(U), raised: S.optionalKey(U), whoOdd: S.optionalKey(U),
     },
     persisted,
     places: { c: Kid, s: Kid, z: Kid },

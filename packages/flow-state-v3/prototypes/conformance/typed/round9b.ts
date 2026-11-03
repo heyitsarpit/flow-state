@@ -1,7 +1,7 @@
 // Round 11: `fixtures/round9b.compiled.ts`, written in the public API. A queue over any source, one ask per ending (review M1); a spin that only a press ends;
 // a machine for every edge of what a turn cannot take (D123).
 import { Schema } from "effect";
-import { definition, deny, Flow, fragment, machine, resource, transaction } from "./flow.ts";
+import { definition, deny, Flow, fragment, labHostOp, machine, resource, transaction } from "./flow.ts";
 import { call, fixture, write } from "./lab.ts";
 
 const S = Schema;
@@ -159,7 +159,7 @@ const edge = (persisted: boolean, local: boolean) => {
       Saved: { v: U }, SaveNo: { id: U, why: U, boom: U }, SaveUnsure: {}, QOk: { v: U }, QNo: {}, QUnsure: {}, Looked: {}, LookNo: { id: U, k: U },
       BigOk: {}, BigNo: {}, BigUnsure: {},
     },
-    memory: { presses: Flow.initial(S.Number, 0), ids: Flow.initial(S.Array(S.String), []), last: Flow.initial(U, null), qd: Flow.absent(S.Boolean) },
+    memory: { presses: Flow.initial(S.Number, 0), ids: Flow.initial(S.Array(S.String), []), last: Flow.initial(U, null), qd: S.optionalKey(S.Boolean) },
     persisted,
     ...(local ? { local: true as const } : {}),
     operations: ({ E }) => ({
@@ -207,7 +207,7 @@ const edge = (persisted: boolean, local: boolean) => {
       SaveUnsure: St.A,
       IfAny: [{ guard: [O.save.idle], updateMemory: idle }, {}],
       IfA: [{ guard: [O.save.idle(() => ({ id: "a" }))], updateMemory: idle }, {}],
-      IfJob: [{ guard: [{ opGuard: { op: "job", verb: "idle" } }], updateMemory: idle }, {}], // a fragment's op, asked by the host: no handle for it here (finding F3)
+      IfJob: [{ guard: [labHostOp("job").idle], updateMemory: idle }, {}], // a fragment's op, asked by the host: rule 50 forbids it, a named seam (D212, F3)
       ForgetAny: { actions: [O.save.cancel] },
       ForgetA: { actions: [O.save.cancel.key(() => ({ id: "a" }))] },
       // A queue on one key, so a kept ending can sit beside a head.

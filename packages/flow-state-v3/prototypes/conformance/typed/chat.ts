@@ -22,7 +22,7 @@ const chat = (o: ChatOpts) => (api: Api) => {
     internalEvents: { Message: { message: U }, Page: { items: S.Array(U) }, Missed: {}, Ended: { why: U }, Banned: {} },
     memory: {
       roomId: Flow.initial(U, "r1"), messages: Flow.initial(S.Array(U), []), notices: Flow.initial(S.Number, 0), pagesSeen: Flow.initial(S.Number, 0),
-      ended: Flow.initial(U, ""), muted: Flow.initial(S.Boolean, false), whenThrows: Flow.absent(S.Boolean),
+      ended: Flow.initial(U, ""), muted: Flow.initial(S.Boolean, false), whenThrows: S.optionalKey(S.Boolean),
     },
     uses: ["sessions"],
     operations: () => ({}),

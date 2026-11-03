@@ -22,7 +22,7 @@ const serial = definition({
   states: { A: {}, W: {}, B: {}, U: {}, T: {}, TF: {} },
   events: { ...bareEvents, Two: {}, NoteMap: {}, IfIdleK: {}, Arm: {}, ArmFar: {} },
   internalEvents: { Ok: { value: U }, No: { why: U, who: U }, Unsure: {}, Fired: {} },
-  memory: { ...bareMemory, fired: Flow.absent(S.Number) },
+  memory: { ...bareMemory, fired: S.optionalKey(S.Number) },
   operations: ({ E }) => ({
     charge: serialCharge.outcomes({
       success: E.Ok.from((v: unknown) => ({ value: v })),
@@ -139,7 +139,7 @@ const doors = definition({
     Done: { v: U }, Failed: {}, Unsure: {}, Looked: { value: U }, LookFailed: {}, BoomDone: { v: U }, BoomNo: {}, BoomUnsure: {}, ReadBoomed: {}, ReadBoomFailed: {},
     LoopFailed: {}, Looped: {}, OtherOk: {}, OtherNo: {}, OtherUnsure: {},
   },
-  memory: { looked: Flow.initial(S.Boolean, false), last: Flow.initial(U, null), cancels: Flow.initial(S.Number, 0), retries: Flow.initial(S.Number, 0), loops: Flow.absent(S.Number) },
+  memory: { looked: Flow.initial(S.Boolean, false), last: Flow.initial(U, null), cancels: Flow.initial(S.Number, 0), retries: Flow.initial(S.Number, 0), loops: S.optionalKey(S.Number) },
   operations: ({ E }) => ({
     charge: dCharge.outcomes({ success: E.Done.from((v) => ({ v: v?.v })), failure: { NotSent: E.Failed }, unknown: E.Unsure }),
     other: other.outcomes({ success: E.OtherOk, failure: { NotSent: E.OtherNo }, unknown: E.OtherUnsure }),
@@ -229,7 +229,7 @@ const copies = definition({
   states: {},
   events: { Add: { id: S.String }, Note: { text: U }, BadReset: {}, RaiseTwice: {} },
   internalEvents: {},
-  memory: { ids: Flow.initial(S.Array(S.String), ["x"]), note: Flow.initial(U, ""), bad: Flow.absent(U) },
+  memory: { ids: Flow.initial(S.Array(S.String), ["x"]), note: Flow.initial(U, ""), bad: S.optionalKey(U) },
   places: { c: IdCopy, r: IdCopy },
   operations: () => ({}),
 });

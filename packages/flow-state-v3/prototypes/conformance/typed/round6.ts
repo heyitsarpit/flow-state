@@ -22,7 +22,7 @@ const memoryRelease = (rel: Release, decode: boolean) => {
     internalEvents: { Ok: {}, No: {}, Unsure: {} },
     memory: {
       oks: Flow.initial(S.Number, 0),
-      extra: Flow.absent(decode ? Extra.pipe(S.withDecodingDefaultKey(Effect.succeed({ n: 0 }))) : Extra),
+      extra: decode ? Extra.pipe(S.withDecodingDefaultKey(Effect.succeed({ n: 0 }))) : S.optionalKey(Extra),
     },
     operations: ({ E }) => ({ put: put.outcomes({ success: E.Ok, failure: { NotSent: E.No }, unknown: E.Unsure }) }),
   });

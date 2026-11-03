@@ -7,7 +7,7 @@ import { watched } from "./watch.ts";
 
 const here = import.meta.dir;
 const argIdx = process.argv.indexOf("--runtime");
-const runtimeArg = argIdx < 0 ? "../round-10/adapter.ts" : process.argv[argIdx + 1]!;
+const runtimeArg = argIdx < 0 ? "../round-11/adapter.ts" : process.argv[argIdx + 1]!;
 const runtime = resolve(here, runtimeArg);
 const roundDir = dirname(runtime);
 const quick = process.argv.includes("--quick");
@@ -118,9 +118,15 @@ const scratchSuite = (only: string) => run(["bun", "main.ts", "--round", "99", "
 try {
   if (part("tamper")) {
   reset();
-  edit(join(round, "typed/pay.typed.ts"), (s) => s.replace("target: S.CARD", "target: S.IDLE"));
+  // Round 11 (D205): typed Pay lives in `conformance/typed/`, beside every typed fixture.
+  edit(join(conf, "typed/pay.ts"), (s) => s.replace("target: S.CARD", "target: S.IDLE"));
   const t = await run(["bun", join(round, "typed/compare.ts")], {}, conf);
   say(t.code !== 0, "typed compare: red on a changed target");
+  // Round 11, review H2: the typed fixtures the suite boots are under the lock. A one-token change to one is red by the lock.
+  reset();
+  edit(join(conf, "typed/round7.ts"), (s) => s.replace("Go: { target: St.W,", "Go: { target: St.B,"));
+  const ty = await scratchSuite("PAY-01");
+  say(ty.code !== 0 && /unlogged expectation changes: [^;]*file:typed\/round7\.ts/.test(ty.stdout), "lock: a one-token change to a typed fixture is red");
 
   // H4: weaken a case, paste the hash the run prints, into the lock. No log line.
   reset();

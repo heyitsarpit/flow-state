@@ -59,14 +59,19 @@ export const Flow = {
       : { schema, from: "initial", value: value as S["Type"] },
   input: <S extends Schema.Top>(schema: S): MemorySpec<S> => ({ schema, from: "input" }),
   private: <S extends Schema.Top>(m: MemorySpec<S>): MemorySpec<S> => ({ ...m, private: true }),
-  // machine-design 2.2.2's "an optional key starts absent" (`Schema.optionalKey` as a field). Round 11 names it, so every field has a `Flow` source (D200).
-  absent: <S extends Schema.Top>(schema: S): MemorySpec<S> => ({ schema, from: "absent" }),
   Exit: <F extends Fields>(fields: F) => ({ fields }),
   Callback: <F extends Fields>(fields: F) => ({ fields }),
   Guard: { guard: true } as const, // machine-design 2.2: a predicate the host writes
 };
-type MemoryFields = Readonly<Record<string, MemorySpec>>;
-type MemoryOf<M extends MemoryFields> = { readonly [K in keyof M]: M[K]["schema"]["Type"] };
+// machine-design 2.2.2: "an optional key starts absent", written as the bare Schema (`Schema.optionalKey(Schema.String)`), with no `Flow` marker. Round 11's
+// first spelling was `Flow.absent(schema)`; the review (M5) asked for the design's, so it is gone. A decoding default on it applies at restore only.
+type MemoryField = MemorySpec | Schema.Top;
+type MemoryFields = Readonly<Record<string, MemoryField>>;
+type MemoryOf<M extends MemoryFields> = {
+  readonly [K in keyof M]: M[K] extends MemorySpec ? M[K]["schema"]["Type"] : M[K] extends Schema.Top ? M[K]["Type"] | undefined : never;
+};
+const specOf = (f: MemoryField): MemorySpec => (Schema.isSchema(f) ? { schema: f, from: "absent" } : (f as MemorySpec));
+const specs = (m: MemoryFields): Readonly<Record<string, MemorySpec>> => Object.fromEntries(Object.entries(m).map(([k, f]) => [k, specOf(f)]));
 const missingDefault = (k: string, s: Schema.Top): { readonly has: boolean; readonly v?: unknown } => {
   try {
     const out = Schema.decodeUnknownSync(Schema.Struct({ [k]: s }) as unknown as Schema.Codec<Record<string, unknown>, unknown>)({});
@@ -75,9 +80,17 @@ const missingDefault = (k: string, s: Schema.Top): { readonly has: boolean; read
     return { has: false };
   }
 };
-const initialOf = (definition: string, m: MemoryFields) => {
-  const defaults = new Map(Object.entries(m).filter(([, s]) => s.from === "input").map(([k, s]) => [k, missingDefault(k, s.schema)]));
+// Round 11: the per-field defaults and codecs are built on first use, not at `machine()`: the compile is the app's load cost (D194), and most machines never
+// restore at a given boot.
+const lazy = <A>(f: () => A) => {
+  let v: A | undefined;
+  return () => (v ??= f());
+};
+const initialOf = (definition: string, fields: MemoryFields) => {
+  const m = specs(fields);
+  const defaultsOf = lazy(() => new Map(Object.entries(m).filter(([, s]) => s.from === "input").map(([k, s]) => [k, missingDefault(k, s.schema)])));
   return slotOf<(input: unknown) => object>(definition, "memory.initial", (input: unknown) => {
+    const defaults = defaultsOf();
     const given = (input ?? {}) as Record<string, unknown>;
     const out: Record<string, unknown> = {};
     for (const [k, s] of Object.entries(m)) {
@@ -95,9 +108,14 @@ const initialOf = (definition: string, m: MemoryFields) => {
 // D82's stand-in becomes real: a stored record decodes by the memory's Schema. A field a release added takes its initial value.
 // Round 11: a field missing from the record takes, in order, its Schema's decoding default for a missing key (what D82's stand-in meant: "a Schema with a
 // default"), its constant initial, or stays absent when it starts absent.
-const restoreOf = (definition: string, m: MemoryFields) => {
-  const defaults = new Map(Object.entries(m).map(([k, f]) => [k, missingDefault(k, f.schema)]));
+const restoreOf = (definition: string, fields: MemoryFields) => {
+  const m = specs(fields);
+  const built = lazy(() => ({
+    defaults: new Map(Object.entries(m).map(([k, f]) => [k, missingDefault(k, f.schema)])),
+    codecs: new Map(Object.entries(m).map(([k, f]) => [k, jsonCodec(k, f)])),
+  }));
   return slotOf<(stored: unknown) => object>(definition, "memory.restore", (stored: unknown) => {
+    const { defaults, codecs } = built();
     const s = stored as Record<string, unknown>;
     return Object.fromEntries(
       Object.entries(m)
@@ -105,7 +123,7 @@ const restoreOf = (definition: string, m: MemoryFields) => {
         .map(([k, f]) => [
           k,
           k in s
-            ? Schema.decodeUnknownSync(jsonCodec(f))(s[k])
+            ? (Schema.decodeUnknownSync(codecs.get(k)!)({ [k]: s[k] }) as Record<string, unknown>)[k]
             : defaults.get(k)!.has
               ? defaults.get(k)!.v
               : f.value,
@@ -113,18 +131,20 @@ const restoreOf = (definition: string, m: MemoryFields) => {
     );
   });
 };
-// Review H2: written and read by one codec. `toCodecJson` is what makes a Date or a NaN a JSON value and back.
-const jsonCodec = (f: MemorySpec) => Schema.toCodecJson(f.schema as unknown as Schema.Codec<unknown, unknown>);
-const encodeOf = (definition: string, m: MemoryFields) =>
-  slotOf<(memory: unknown) => object>(definition, "memory.encode", (memory: unknown) => {
+// Review H2: written and read by one codec. `toCodecJson` is what makes a Date or a NaN a JSON value and back. Round 11: each field as a one-field struct, so
+// a key modifier (`optionalKey`, a decoding default) means what it means in a struct.
+const jsonCodec = (k: string, f: MemorySpec) => Schema.toCodecJson(Schema.Struct({ [k]: f.schema }) as unknown as Schema.Codec<unknown, unknown>);
+const encodeOf = (definition: string, fields: MemoryFields) => {
+  const m = specs(fields);
+  const codecsOf = lazy(() => new Map(Object.entries(m).map(([k, f]) => [k, jsonCodec(k, f)])));
+  return slotOf<(memory: unknown) => object>(definition, "memory.encode", (memory: unknown) => {
+    const codecs = codecsOf();
     const v = memory as Record<string, unknown>;
     return Object.fromEntries(
-      Object.keys(v).map((k) => [
-        k,
-        m[k] ? Schema.encodeUnknownSync(jsonCodec(m[k]!))(v[k]) : v[k],
-      ]),
+      Object.keys(v).map((k) => [k, codecs.has(k) ? (Schema.encodeUnknownSync(codecs.get(k)!)({ [k]: v[k] }) as Record<string, unknown>)[k] : v[k]]),
     );
   });
+};
 
 // ── Contracts: a key is a field list (rule 39, R10), so it is data. The commit's `R` is what it needs; `provide` closes it.
 type Reason<E> =
@@ -150,8 +170,9 @@ type Outcomes<O, E> = {
     readonly Defect?: Target<unknown>;
     readonly Interrupted?: Target<unknown>;
   };
-  // Round 11 (D201): rule 13's unknown by its reason, as `Compiled` has had since M6.
-  readonly unknown?: Target<unknown> | { readonly byReason: Readonly<Record<string, Target<unknown>>> };
+  // Round 11 (D201, revised after review M5): rule 13's unknown, one event or a record by reason, as `failure` is by tag (design C6). `Compiled`'s
+  // `byReason` is the compiled form; it does not leak into the definition.
+  readonly unknown?: Target<unknown> | Readonly<Record<string, Target<unknown>>>;
 };
 type ContractSpec<I extends Fields, K extends keyof I, A, E, R> = {
   readonly id: string;
@@ -226,25 +247,31 @@ type Act =
   | { readonly member: "retry" | "cancel"; readonly op: string; readonly keyFn?: unknown }
   // Round 11 (D208): a module's member (M8, D63: `O.x.bookmark`, `O.x.refetch`), written as its data until the sessions module has handles (finding F3).
   | { readonly member: "module"; readonly op: string; readonly module: string; readonly name: string; readonly f?: unknown };
-export const moduleMember = <M = never, Ev = never>(op: string, module: string, name: string, f?: (a: In<M, Ev>) => unknown): Act => ({ member: "module", op, module, name, ...(f ? { f } : {}) });
+// Round 11 (D212, review M5): NOT public API. A host asking or cancelling its placed fragment's operation, which rule 50 forbids (only the fragment acts on its
+// operations). Three hand fixtures do it (Edge's IfJob, pay-full's shipping guard, Let's Forget); a named seam, as `labFollowUps` is, and counted apart.
+export const labHostOp = (op: string): { readonly idle: OpGuard; readonly cancel: Act } => ({ idle: { opGuard: { op, verb: "idle" } }, cancel: { member: "cancel", op } });
+export const moduleMember =<M = never, Ev = never>(op: string, module: string, name: string, f?: (a: In<M, Ev>) => unknown): Act => ({ member: "module", op, module, name, ...(f ? { f } : {}) });
+// Round 11 (review H1): a selector's event, when its handler's event cannot reach it. A handle is made once for the whole body, so it does not know which event
+// it sits under; its selector reads the event's fields as `unknown`, and the contract's input decides what it may return.
+type AnyEvent = { readonly [k: string]: unknown };
 // What `O.x` offers, narrowed by kind as the design's handles are. `M`: this machine's memory, so a selector is typed by the state it reads.
 type WriteHandle<I extends Fields, K extends keyof I, M> = {
-  readonly commit: <Ev>(f: (a: In<M, Ev>) => TypeOf<I>) => Act;
+  readonly commit: <Ev = AnyEvent>(f: (a: In<M, Ev>) => TypeOf<I>) => Act;
   // Round 11 (D202): `idle` with no key asks of every lane of the operation, as `Compiled`'s key-less token always meant.
-  readonly idle: (<Ev>(key: (a: In<M, Ev>) => { readonly [F in K]: TypeOf<I>[F] }) => OpGuard) & OpGuard;
-  readonly retryable: <Ev>(o: {
+  readonly idle: (<Ev = AnyEvent>(key: (a: In<M, Ev>) => { readonly [F in K]: TypeOf<I>[F] }) => OpGuard) & OpGuard;
+  readonly retryable: <Ev = AnyEvent>(o: {
     readonly times: number;
     readonly key?: (a: In<M, Ev>) => { readonly [F in K]: TypeOf<I>[F] };
   }) => OpGuard;
   readonly retry: Act & {
-    readonly key: <Ev>(key: (a: In<M, Ev>) => { readonly [F in K]: TypeOf<I>[F] }) => Act;
+    readonly key: <Ev = AnyEvent>(key: (a: In<M, Ev>) => { readonly [F in K]: TypeOf<I>[F] }) => Act;
   };
   readonly cancel: Act & {
-    readonly key: <Ev>(key: (a: In<M, Ev>) => { readonly [F in K]: TypeOf<I>[F] }) => Act;
+    readonly key: <Ev = AnyEvent>(key: (a: In<M, Ev>) => { readonly [F in K]: TypeOf<I>[F] }) => Act;
   };
 };
 type ReadHandle<I extends Fields, M> = {
-  readonly lookup: <Ev>(f: (a: In<M, Ev>) => TypeOf<I>) => Act;
+  readonly lookup: <Ev = AnyEvent>(f: (a: In<M, Ev>) => TypeOf<I>) => Act;
   readonly cancel: Act;
 };
 // `never` for a bound's unused slots, so each one's own types stay out of the handle's.
@@ -378,13 +405,15 @@ const isOpGuard = (g: unknown): g is OpGuard =>
 const isPort = (g: unknown): g is PortTok =>
   typeof g === "object" && g !== null && "port" in g;
 
+// An exit token alone (`exits.Done`, `exits.Done.from(f)`), not an alternative that also exits behind a guard.
+const isExitTok = <M, Ev>(x: OneAlt<M, Ev>): x is ExitTok<M, Ev> => "exit" in x && x.exit !== undefined && Object.keys(x).length === 1;
 const compileAlt = <M, Ev>(
   definition: string,
   path: string,
   one: OneAlt<M, Ev>,
 ): Alternative => {
   const at: At = { definition, path };
-  if ("exit" in one && one.exit && Object.keys(one).length === 1) {
+  if (isExitTok(one)) {
     const { name, f } = one.exit;
     return {
       target: "self",
@@ -417,7 +446,8 @@ const compileAlt = <M, Ev>(
         ...g.opGuard,
         ...(g.keyFn ? { key: slotOf(definition, `${path}.guard[${position}]`, g.keyFn) } : {}),
       } as TokenGuard);
-    else closures.push(slotOf(definition, `${path}.guard[${closures.length}]`, g));
+    // Review M1: a closure is named by its place in the guard array, as a token's key is, so two Slots of one array cannot share a path (D206).
+    else closures.push(slotOf(definition, `${path}.guard[${position}]`, g));
   });
   const members: Member[] = (one.actions ?? []).map((a, i): Member => {
     const p = `${path}.actions[${i}]`;
@@ -437,6 +467,8 @@ const compileAlt = <M, Ev>(
   );
   return {
     target: one.target === undefined || one.target === "self" ? "self" : one.target.node,
+    // Review H3: the history token as an object's target, decided as the bare token's is (`=== true`, since every state token carries `.history`).
+    ...(one.target !== undefined && one.target !== "self" && one.target.history === true ? { history: true as const } : {}),
     at,
     tokens: toks,
     guards: closures,
@@ -647,7 +679,8 @@ const compileOp = (definition: string, name: string, b: AnyBound, fragment?: str
   const m = b.mapped;
   const keyFields = c.key.map(String);
   const inputNotCarried = Object.entries(c.input as Record<string, { ast: Ast }>).flatMap(([f, s]) => notCarried(s.ast, f));
-  const u = m.unknown as { readonly byReason?: Readonly<Record<string, unknown>> } | undefined;
+  const u0 = m.unknown as Readonly<Record<string, unknown>> | undefined;
+  const u = u0 === undefined ? undefined : typeof u0["tag"] === "string" ? u0 : { byReason: u0 }; // a token's `tag` is a string; a reason's value is a token
   return {
     ...(inputNotCarried.length ? { inputNotCarried } : {}), // D124
     id: name,
@@ -670,8 +703,8 @@ const compileOp = (definition: string, name: string, b: AnyBound, fragment?: str
         ]),
       ),
       ...(u
-        ? u.byReason
-          ? { unknown: { byReason: Object.fromEntries(Object.entries(u.byReason).map(([k, v]) => [k, compileMapped(definition, name, `unknown.${k}`, v)])) } }
+        ? "byReason" in u
+          ? { unknown: { byReason: Object.fromEntries(Object.entries(u.byReason as Readonly<Record<string, unknown>>).map(([k, v]) => [k, compileMapped(definition, name, `unknown.${k}`, v)])) } }
           : { unknown: compileMapped(definition, name, "unknown", u) }
         : {}),
     },
@@ -829,7 +862,8 @@ export const machine = <
   O extends Readonly<Record<string, AnyBound>>,
   P extends Readonly<Record<string, PlacedFrag>> = {},
 >(
-  d: ReturnType<typeof definition<T, Ev, In_, M, O, P>>,
+  // Review H1: `P` from its own property, so it does not take part in inferring the rest (with `P` inside `ReturnType`, event payloads were lost).
+  d: ReturnType<typeof definition<T, Ev, In_, M, O>> & { readonly places?: P },
   body: (t: {
     readonly S: StatesOf<T>;
     readonly E: EventsOf<Ev & In_> & PlaceToksOf<P>;
@@ -877,7 +911,10 @@ export const machine = <
       ...(d.local ? { local: true as const } : {}),
       uses: d.uses ?? [],
       ...(d.domain ? { domain: compileDomain(d.id, d.domain) } : {}),
-      ...(d.streams ? { streams: compileStreams(d.id, d.streams({ E: tokens(d.internalEvents) })) } : {}),
+      ...(() => {
+        const s = d.streams ? compileStreams(d.id, d.streams({ E: tokens(d.internalEvents) })) : {};
+        return Object.keys(s).length ? { streams: s } : {};
+      })(),
       events: { external: Object.keys(d.events), internal: Object.keys(d.internalEvents) },
     },
   };

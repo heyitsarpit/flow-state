@@ -20,7 +20,7 @@ export const call =
 export const unknownWhenLost = <A, T extends string, R>(
   write: Effect.Effect<A, Tag<T>, R>,
 ): Effect.Effect<A, Tag<Exclude<T, "NoResponse" | "ServerError">> | OutcomeUnknown<Tag<"NoResponse" | "ServerError">>, R> =>
-  Effect.catch(write, (e: Tag<T>) =>
+  Effect.catch(write, (e: Tag<T>): Effect.Effect<never, Tag<Exclude<T, "NoResponse" | "ServerError">> | OutcomeUnknown<Tag<"NoResponse" | "ServerError">>> =>
     e._tag === "NoResponse" || e._tag === "ServerError"
       ? Outcome.unknown(e as unknown as Tag<"NoResponse" | "ServerError">)
       : Effect.fail(e as Tag<Exclude<T, "NoResponse" | "ServerError">>),
@@ -32,7 +32,7 @@ export const write =
     unknownWhenLost(call<A, T | "NoResponse" | "ServerError">(op)(input, c.attempt.id));
 // A fixture from a typed machine. Every Compiled the suite boots from here went through `machine()`, the compile, and nothing else touched it: the fake is
 // given to the Runtime at boot as the service the commits ask for (D211), not wrapped around each commit (`provide`, finding F10).
-export const fixture = (typed: Typed<unknown> | ((api: Api) => Typed<unknown>), server?: ServerModel): Fixture & { readonly typed: true } => {
+export const fixture = <R>(typed: Typed<R> | ((api: Api) => Typed<R>), server?: ServerModel): Fixture & { readonly typed: true } => {
   const make = (api: Api): Compiled => (typeof typed === "function" ? typed(api) : typed).compiled;
   const id = (typeof typed === "function" ? typed(new Proxy({}, { get: () => () => undefined }) as Api) : typed).compiled.id;
   return { id, make, services: (api) => Context.make(FakeApi, api) as Context.Context<never>, typed: true, ...(server ? { server } : {}) };

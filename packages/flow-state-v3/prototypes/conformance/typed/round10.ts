@@ -2,7 +2,7 @@
 // host's subject, so the host's `cancel` reaches a frozen life's lane. Its kept ending must survive the cancel of the ordinary one.
 // Not here: round 10's `small(...)` machines (V, M, S, R, N, M/x), whose `Set` writes any key into memory: an open record has no field list (finding F11).
 import { Schema } from "effect";
-import { definition, Flow, fragment, machine, transaction } from "./flow.ts";
+import { definition, Flow, fragment, labHostOp, machine, transaction } from "./flow.ts";
 import { fixture, write } from "./lab.ts";
 
 const job = transaction({ id: "lab/job", input: { id: Schema.Unknown }, key: ["id"], concurrency: "serialize", commit: write("job") });
@@ -28,11 +28,11 @@ const d = definition({
   places: { f: LetFrag },
   operations: () => ({}),
 });
-// The host's `cancel` of its fragment's op: the host has no handle for it (finding F3), so the member is written as its data.
+// The host's `cancel` of its fragment's op: rule 50 forbids it, so it is the named seam `labHostOp` (D212, finding F3).
 export const letFixture = fixture(
   machine(d, ({ S: St }) => ({
     default: St.A,
-    on: { ToF: St.F, Out: St.A, Forget: { actions: [{ member: "cancel", op: "job" }] } },
+    on: { ToF: St.F, Out: St.A, Forget: { actions: [labHostOp("job").cancel] } },
     states: { F: { traits: { f: { resumable: true } } } },
   })),
 );

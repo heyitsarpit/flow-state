@@ -8,7 +8,8 @@ const api = new Proxy({}, { get: () => () => undefined }) as never;
 const { seal } = await import("../gate.ts");
 const t1 = performance.now(); // the runtime's own module, the same for every option
 let c: unknown;
-if (mode === "hand") c = (await import("../../conformance/fixtures/pay.compiled.ts")).payFixture.make(api);
+// D207: the seal takes only Slots, so the hand Pay is slotted first, as the suite does before boot.
+if (mode === "hand") c = (await import("../../conformance/legacy.ts")).legacySlots((await import("../../conformance/fixtures/pay.compiled.ts")).payFixture.make(api));
 else {
   const m = await import("../../conformance/typed/pay.ts");
   const { provide } = await import("../../conformance/typed/flow.ts");

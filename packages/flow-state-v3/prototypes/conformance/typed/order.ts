@@ -73,9 +73,10 @@ const drvMachine = (api: Api) => {
   return machine(drv, ({ S: St, O }) => ({
     default: St.READY,
     on: {
-      Go: { actions: [O.job.commit(({ event }) => event)] },
-      GoOther: { actions: [O.other.commit(({ event }) => event)] },
-      GoBoth: { actions: [O.job.commit(({ event }) => event), O.other.commit(({ event }) => event)] },
+      // The commit's input is the event as sent, as the hand fixture's.
+      Go: { actions: [O.job.commit(({ event }) => event as never)] },
+      GoOther: { actions: [O.other.commit(({ event }) => event as never)] },
+      GoBoth: { actions: [O.job.commit(({ event }) => event as never), O.other.commit(({ event }) => event as never)] },
       Cancel: { actions: [O.job.cancel.key(() => ({}))] },
       Ended: { updateMemory: ({ memory, event }) => ({ ends: [...memory.ends, event.how] }) },
     },

@@ -4,7 +4,7 @@
 import { Context, Schema } from "effect";
 import type { Api } from "../fake-world.ts";
 import { payFullFixture as handPayFull } from "../fixtures/pay-full.compiled.ts";
-import { definition, deny, Flow, fragment, machine, provide, transaction } from "./flow.ts";
+import { definition, deny, Flow, fragment, labHostOp, machine, provide, transaction } from "./flow.ts";
 import { call, FakeApi, write } from "./lab.ts";
 import {
   Address,
@@ -55,7 +55,7 @@ const OrderSummary = fragment(
   },
   ({ O, guards, callbacks }) => ({
     on: {
-      Quote: { updateMemory: () => ({ shipping: null, problem: null }), actions: [O.shipping.commit(({ memory, event }) => ({ cartId: memory.cartId, postcode: event.postcode }))] },
+      Quote: { updateMemory: () => ({ shipping: null, problem: null }), actions: [O.shipping.commit(({ memory, event }: { readonly memory: { readonly cartId: string }; readonly event: { readonly postcode: string } }) => ({ cartId: memory.cartId, postcode: event.postcode }))] },
       Quoted: { updateMemory: ({ event }) => ({ shipping: event.slot }) },
       NotDeliverable: { updateMemory: ({ event }) => ({ problem: `We don't deliver to ${String(event.postcode)}` }) },
       QuoteFailed: { updateMemory: () => ({ problem: "Couldn't get delivery options" }) },
@@ -161,7 +161,7 @@ const intent = ({ memory }: { readonly memory: M }) => ({ intentId: memory.inten
 const cart = ({ memory }: { readonly memory: M }) => ({ cartId: memory.cartId, intentId: memory.intentId });
 const PayFullMachine = machine(PayFull, ({ S: St, E, O }) => {
   // The summary trait's write, asked by the host: the host has no handle for its fragment's op (finding F3), so the token is written as its data.
-  const shippingIdle = { opGuard: { op: "shipping", verb: "idle" as const } };
+  const shippingIdle = labHostOp("shipping").idle; // rule 50 forbids it; a named seam (D212, F3)
   const start = [
     {
       target: St.CARD,
@@ -239,7 +239,7 @@ const PayFullMachine = machine(PayFull, ({ S: St, E, O }) => {
               target: St.CHALLENGE,
               guard: [({ event }) => event.status === "requires_action" || deny("NoChallenge")],
               updateMemory: ({ event }) => ({ clientSecret: event.clientSecret }),
-              actions: [O.authenticate.commit(({ memory, event }) => ({ intentId: memory.intentId, clientSecret: event.clientSecret }))],
+              actions: [O.authenticate.commit(({ memory, event }: { readonly memory: M; readonly event: { readonly clientSecret: string } }) => ({ intentId: memory.intentId, clientSecret: event.clientSecret }))],
             },
             { target: St.PLACING, guard: [capturable], updateMemory: ({ event }) => ({ authorized: true, afterUnsure: event.afterUnsure, notice: "" }), actions: [O.place.commit(cart)] },
             { target: St.CARD, updateMemory: () => ({ notice: "Your bank didn't authorize the payment." }) },

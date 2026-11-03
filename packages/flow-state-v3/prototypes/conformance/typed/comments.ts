@@ -2,12 +2,34 @@
 // Comments/comments.trait.ts's post and delete paths, flattened. Two hosts as the real one: the editor's root trait (path []) and the queue's preview with
 // `resetOn` (path [ticketId], rule 51).
 import { Effect, Schema } from "effect";
-import type { Api } from "../fake-world.ts";
-import { commentRef, editorFixture as handEditor } from "../fixtures/comments.compiled.ts";
+import type { Api, ServerModel } from "../fake-world.ts";
 import { definition, deny, Flow, fragment, machine, resource, transaction, type DomainIn } from "./flow.ts";
 import { call, fixture, write } from "./lab.ts";
 
-export { commentRef } from "../fixtures/comments.compiled.ts";
+// The ref and the fake server's model, copied from the hand file: that file does not type-check under the types gate's options (`exactOptionalPropertyTypes`),
+// and the gate follows imports. The world's model is not a machine.
+export const commentRef = (ticket: string, id: string) => `Comment|${ticket}/${id}`;
+type CS = { readonly posts: readonly string[]; readonly comments: Readonly<Record<string, { readonly commentId: string; readonly aged?: boolean; readonly [k: string]: unknown }>> };
+const server: ServerModel = {
+  init: () => ({ posts: [] as string[], comments: { c1: { commentId: "c1", text: "one", aged: false }, c2: { commentId: "c2", text: "two", aged: true } } }),
+  apply(op, i, s: CS) {
+    if (op === "post") return { s: { ...s, posts: [...s.posts, i.text] }, value: { clientId: i.clientId } };
+    if (op === "react") return { s, value: {} };
+    if (op === "pin") {
+      const c = s.comments[i.commentId];
+      if (!c) return { s, fail: { _tag: "CommentGone" } };
+      const row = { ...c, pinned: i.pinned };
+      return { s: { ...s, comments: { ...s.comments, [i.commentId]: row } }, value: row };
+    }
+    const cur = s.comments[i.commentId];
+    if (!cur) return { s, fail: { _tag: "CommentGone" } };
+    if (cur.aged) return { s, fail: { _tag: "EditWindowClosed" } };
+    const { [i.commentId]: _gone, ...rest } = s.comments;
+    return { s: { ...s, comments: rest }, value: {} };
+  },
+  read: (op, i, s: CS) => (op === "thread" ? Object.values(s.comments) : (s.comments[(i.ref as string).split("/")[1]!] ?? null)),
+};
+const handEditor = { server };
 const S = Schema;
 const U = S.Unknown;
 type Draft = { readonly clientId: string; readonly problem: string | null; readonly [k: string]: unknown };

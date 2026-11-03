@@ -1,31 +1,31 @@
 # Load, Pay (typed): 10 nodes, 72 Slots, data 16.1 KB as JSON, losses 0
-in-process   machine() + provide        0.027 ms
-in-process   + seal                     0.038 ms
+in-process   machine() + provide        0.035 ms
+in-process   + seal                     0.075 ms
 data         JSON.parse                 0.023 ms
-data         JSON.parse + rebind        0.046 ms
-data         + seal                     0.058 ms
-data         the table, from machine()  0.055 ms  (what data and module still pay: the closures come from evaluating the definition)
-schema       contract on data           0.119 ms
-schema       contract on loaded         0.121 ms
-schema       codec, data to Compiled    0.166 ms
+data         JSON.parse + rebind        0.037 ms
+data         + seal                     0.073 ms
+data         the table, from machine()  0.061 ms  (what data and module still pay: the closures come from evaluating the definition)
+schema       contract on data           0.115 ms
+schema       contract on loaded         0.112 ms
+schema       codec, data to Compiled    0.178 ms
 hand fixture make()                     0.002 ms  (bare commit: not loadable by data or schema)
 
 # Load, 50 machines
-in-process   50× machine()               1.092 ms
-data         50× parse + rebind          1.894 ms
-schema       50× contract on data        4.632 ms
+in-process   50× machine()               1.705 ms
+data         50× parse + rebind          1.962 ms
+schema       50× contract on data        4.653 ms
 
 # Load, pay-full (hand, 2 fragments): 110 Slots, data 25.5 KB, losses 7 (bare closure)
-data         JSON.parse + rebind        0.063 ms
-hand fixture make()                     0.009 ms
+data         JSON.parse + rebind        0.056 ms
+hand fixture make()                     0.006 ms
 
 # Generated module, Pay: source 20.1 KB, gzip 2.4 KB
-module       first import (transpile + evaluate)  0.175 ms
+module       first import (transpile + evaluate)  0.171 ms
 module       same shape as in-process: true
 
 # Bundle, Pay, minified, gzip (effect excluded)
 hand fixture (pay.compiled.ts)           9.2 KB raw, 3.1 KB gzip
-in-process: definition + front end      24.1 KB raw, 7.1 KB gzip (front end alone 2.9 KB gzip)
+in-process: definition + front end      29.0 KB raw, 8.7 KB gzip (front end alone 4.7 KB gzip)
 data: in-process + the JSON              + 1.9 KB gzip of JSON (16.1 KB raw)
 module: in-process + the generated file  + 2.4 KB gzip
 

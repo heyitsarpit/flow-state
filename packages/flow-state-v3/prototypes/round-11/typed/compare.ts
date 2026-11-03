@@ -46,6 +46,9 @@ const legitimate = (l: string) => {
   if (/\.memory\.encode$/.test(m[1]!)) return m[2] === "undefined";
   if (l.startsWith("Pay.ops.order.outcomes.success.from.slot:")) return m[2] === '"operations.order.value"' && m[3] === '"operations.order.success"';
   if (/^ThreeDS\.nodes\.root\.on\.(Answered|Failed)\.0\.exit\.from\.slot:/.test(l)) return m[2]!.replace(".exit", "[0].exit") === m[3];
+  // (4) Round 11 (review M1): a guard closure is named by its place in the guard array, as a token's key is. Pay's two `[S.X, capturable]` guards: hand
+  // `guard[0]` among closures, typed `guard[1]` by place. The same closure.
+  if (/^Pay\.nodes\.root\.on\.Confirmed\.[01]\.guards\.0\.slot:/.test(l)) return m[2]!.replace("on.on.", "on.").replace("guard[0]", "guard[1]") === m[3];
   return m[2]!.replace("on.on.", "on.") === m[3];
 };
 const unexplained = out.filter((l) => !legitimate(l));

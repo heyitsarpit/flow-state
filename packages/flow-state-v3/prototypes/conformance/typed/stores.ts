@@ -54,7 +54,7 @@ const refunds = (api: Api) =>
       operations: ({ E }) => ({
         refund: refund.outcomes({
           success: E.Refunded.from((r) => ({ orderId: r.orderId })),
-          failure: { OverRefund: E.OverRefund.from((e) => ({ leftCents: (e as { readonly leftCents: number }).leftCents })), NotSent: E.RefundNotSent.from((e) => ({ why: e.why })) },
+          failure: { OverRefund: E.OverRefund.from((e) => ({ leftCents: (e as unknown as { readonly leftCents: number }).leftCents })), NotSent: E.RefundNotSent.from((e) => ({ why: e.why })) },
           unknown: E.RefundUnsure,
         }),
         orders: orders.outcomes({ success: E.Listed, failure: { NoResponse: E.ListFailed, Defect: E.ListFailed, Interrupted: E.ListFailed } }),
@@ -66,7 +66,7 @@ const refunds = (api: Api) =>
         Open: { actions: [O.orders.lookup(() => ({}))] },
         Listed: {},
         ListFailed: {},
-        RefundAsked: { updateMemory: () => ({ notice: "" }), actions: [O.refund.commit(({ event }) => event)] },
+        RefundAsked: { updateMemory: () => ({ notice: "" }), actions: [O.refund.commit(({ event }) => event as never)] }, // the commit's input is the event as sent, as the hand fixture's
         Refunded: { updateMemory: () => ({ notice: "Refunded" }) },
         OverRefund: { updateMemory: ({ event }) => ({ notice: `Only ${money(event.leftCents)} is left to refund on that charge.` }) },
         RefundNotSent: { updateMemory: ({ event }) => ({ notice: event.why === "Overloaded" ? "Too many refunds queued on this charge." : "Not sent." }) },
@@ -106,7 +106,7 @@ const s1 = (persisted: boolean) => (api: Api) =>
     ({ S: St, O }) => ({
       default: St.READY,
       on: {
-        Commit: { actions: [O.w.commit(({ event }) => event)] },
+        Commit: { actions: [O.w.commit(({ event }) => event as never)] }, // the event as sent, as the hand fixture's
         Retry: { actions: [O.w.retry.key(() => ({}))] },
         Cancel: { actions: [O.w.cancel.key(() => ({}))] },
         Done: {},

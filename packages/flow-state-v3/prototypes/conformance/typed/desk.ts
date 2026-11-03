@@ -16,8 +16,8 @@ const Strs = S.Array(S.String);
 // ── Desk/Tickets: the confirm path's real shapes (review H3, H8, M14), the machine in the public API and the domain and feed in `Compiled`'s shape (D209).
 // `markRead` has no `id`: the hand key was `{ id: i.id ?? "many" }`, a key no field list makes (finding F2), so here it is one lane by an empty key list.
 type DeskOpts = { readonly versioned: boolean; readonly listen?: boolean; readonly lexical?: boolean; readonly twoFeeds?: boolean };
-const deskWrite = (id: string, concurrency: Op["concurrency"], input: Readonly<Record<string, Schema.Top>>, key: readonly string[]) =>
-  transaction({ id: `tickets/${id}`, input, key: key as never, concurrency, commit: write<unknown, "Refused">(id) });
+const deskWrite = <I extends Readonly<Record<string, Schema.Top>>, K extends keyof I>(id: string, concurrency: Op["concurrency"], input: I, key: readonly K[]) =>
+  transaction({ id: `tickets/${id}`, input, key, concurrency, commit: write<unknown, "Refused">(id) });
 const deskList = resource({ id: "tickets/list", input: {}, key: [], commit: (i) => call<unknown, "NoResponse">("list")(i) });
 const changes = (api: Api, id: string, E: { readonly Unused: { readonly tag: "Unused" }; readonly Failed: { readonly tag: "Failed" } }) => ({
   id,
@@ -77,7 +77,7 @@ const desk = (o: DeskOpts) => (api: Api) => {
       ...(o.versioned ? { version: () => "revision" } : {}),
       ...(o.lexical ? { versionOrder: "lexical" as const } : {}),
     },
-    ...(o.listen ? { streams: ({ E }) => ({ changes: changes(api, "changes", E), ...(o.twoFeeds ? { changes2: changes(api, "changes2", E) } : {}) }) } : {}),
+    streams: ({ E }) => (o.listen ? { changes: changes(api, "changes", E), ...(o.twoFeeds ? { changes2: changes(api, "changes2", E) } : {}) } : {}),
     operations: ({ E }) => {
       const outcomes = (id: string) => ({ success: E.Settled, failure: { Refused: E.Failed, NotSent: E.Failed }, unknown: E.Unsure.from((_v, c) => ({ id: (c.key as { readonly id?: unknown }).id, op: id })) });
       return {

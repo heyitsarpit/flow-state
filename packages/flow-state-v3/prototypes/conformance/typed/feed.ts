@@ -63,7 +63,7 @@ const deskFeed = (reconnect: boolean) => (api: Api) => {
       notices: Flow.initial(S.Number, 0),
       reopenInMs: Flow.initial(S.Number, 1000),
       endedElsewhere: Flow.initial(S.Boolean, false),
-      inputThrows: Flow.absent(S.Boolean),
+      inputThrows: S.optionalKey(S.Boolean),
     },
     uses: ["sessions"],
     operations: ({ E }) => ({ peek: peek.outcomes({ success: E.Peeked, failure: { NoResponse: E.Peeked, Defect: E.Peeked, Interrupted: E.Peeked } }) }),

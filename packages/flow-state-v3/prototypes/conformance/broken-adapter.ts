@@ -2,7 +2,7 @@
 import type { Port, RuntimeModule } from "./harness.ts";
 
 const kind = process.env["FLOW_BROKEN"] ?? "";
-const base = (await import(process.env["FLOW_BROKEN_BASE"] ?? "../round-10/adapter.ts")) as RuntimeModule;
+const base = (await import(process.env["FLOW_BROKEN_BASE"] ?? "../round-11/adapter.ts")) as RuntimeModule;
 export const BROKEN = ["constantHash", "lyingFatal", "noEvidence", "noWaits", "bogusIssue", "lyingReplay", "junkDiskKey", "extraRequest"] as const;
 
 export const port: Port = {

@@ -160,7 +160,7 @@ const upload = (omit: readonly string[]) =>
         put: put.outcomes({
           success: E.Stored.from((v) => ({ url: v?.url ?? "u" })),
           failure: { TooLarge: E.TooBig.from((r) => ({ limit: (r as { readonly limit?: unknown }).limit })), FileGone: E.Gone, NotSent: E.NotSent },
-          unknown: { byReason: Object.fromEntries(Object.entries(REASONS).filter(([r]) => !omit.includes(r)).map(([r, ev]) => [r, E[ev]])) },
+          unknown: Object.fromEntries(Object.entries(REASONS).filter(([r]) => !omit.includes(r)).map(([r, ev]) => [r, E[ev]])),
         }),
       }),
     },
