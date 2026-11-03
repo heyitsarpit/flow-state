@@ -574,3 +574,5 @@ output:R10-AUDIT-ENDINGS/a-failure-beside-another-actors-mail-is-heard hash:5404
 output:R10-AUDIT-ENDINGS/a-failure-beside-one-send-is-heard hash:bde99ddb2072 | new, D134: whole output of the H1 two-sends case
 output:R10-AUDIT-READS hash:498d8c401132 | new, D134: whole output of the read abort
 output:R10-AUDIT/a-stale-timer-under-a-newer-one-is-fenced hash:e7b3faba899a | new, D134: whole output of the timer fence
+file:drive.ts hash:1b225eb54269 | D154, re-check H1' M3': a release, a let-go and a supersede pay only for a cause the suite saw (a dispose, the owner gone or moved, a cancel it drove, a newer attempt); no wildcard
+file:falsify.ts hash:17cf6fd9c34c | D155: a lies part, one lying runtime per self-report the oracles read, each red by its named oracle

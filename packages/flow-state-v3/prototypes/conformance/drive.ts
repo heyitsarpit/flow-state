@@ -3,6 +3,7 @@
 import type { Fixture as Fixture_ } from "./harness.ts";
 import type { Compiled } from "./fixtures/compiled.ts";
 import { FakeWorld, NoHeldRequest } from "./fake-world.ts";
+import { canonText } from "./output.ts";
 import type { FaultState, Harness, Instance, Port, Step } from "./harness.ts";
 
 export const rowKey = (op: string, key: unknown) => `${op}|${JSON.stringify(key)}`;
@@ -35,6 +36,7 @@ export const makeHarness = (port: Port) => (): Harness => {
   // Compiled data is plain data: wrapping its Slots is what a test build would do, and the core cannot tell.
   // D117, D125, oracle (j): no ending goes missing. Its first half, what a turn asked for: by operation, per step, a committed turn's asks must each become something.
   let asking: string[] = [];
+  let askedNow: string[] = []; // this batch's asks, seen by the wrapped input Slots
   let replaying = false;
   const missing: string[] = [];
   // Its second half, a ledger of every ending, from the evidence the runtime gives and the disk the suite owns. An ending said is owed until it is heard (`delivered`), goes as evidence, is parked, or is let go. What is parked is owed until it is unparked, and a wait must name it, op and Attempt. A refusal is owed its second try, and a second refusal is owed a keep. What is on disk at a kill is owed at the boot.
@@ -65,32 +67,135 @@ export const makeHarness = (port: Port) => (): Harness => {
   const attemptLife = new Map<string, number>(); // attempt -> the life of its actor it was made in
   const lifeOf = new Map<string, number>(); // actor key -> lives ended by a `dispose` step
   const lettingGo = new Set<string>(); // attempts whose lane the suite has seen being let go
+  const made = new Map<string, number>(); // attempt -> order of its first mint or invoke
+  const madeOp = new Map<string, string>();
+  const sends = new Map<string, string[]>(); // attempt -> the send gens the suite saw invoked, in order
   const attribute = (a: string, actor: string) => {
     attemptActor.set(a, actor);
     attemptLife.set(a, lifeOf.get(actor) ?? 0);
+  };
+  // D154: an oracle excuses a missing obligation only for a cause the suite observed itself. A `Released` or a `lane.release.*` cell says WHICH
+  // attempt is let go (a self-report, checked); WHY must be seen: the owner's life over (a `dispose` the suite drove), the owner gone from what
+  // it publishes, or the owner's published state or memory moving in this batch while the compiled machine has a way to let the op go
+  // (a `cancel` member of it, or a fragment's `whenAbandoned.release` naming it). The suite holds the compiled data, so that half is its own too.
+  const published = new Map<string, string>(); // actor -> what it published at the end of the last batch
+  let moved = new Set<string>(); // actors whose published state or memory changed in this batch
+  const publishedNow = (actor: string) => {
+    try {
+      const s = inst.state(actor);
+      return s === undefined ? undefined : JSON.stringify([s, canonText(inst.memory(actor))]);
+    } catch {
+      return undefined;
+    }
+  };
+  let releasableOps: Set<string> | undefined;
+  const releasable = (op: string) => {
+    if (!releasableOps) {
+      const out = new Set<string>();
+      const seen = new Set<unknown>();
+      const walk = (v: any) => {
+        if (v === null || typeof v !== "object" || seen.has(v)) return;
+        seen.add(v);
+        if (Array.isArray(v)) return void v.forEach(walk);
+        if (v.verb === "cancel" && typeof v.op === "string") out.add(v.op);
+        if (v.whenAbandoned?.release) for (const o of v.whenAbandoned.release) out.add(o);
+        for (const [k, x] of Object.entries(v)) if (k !== "domain" && typeof x === "object") walk(x);
+      };
+      walk(compiled);
+      releasableOps = out;
+    }
+    return releasableOps.has(op);
+  };
+  // D154: the other seen cause, a cancel that changes nothing published. The suite drove an event to the owner in this `do` (a send, or an
+  // answer or a timer whose compiled mapping names the event), and the compiled machine has an alternative on that event with a `cancel` of the op.
+  let cancelsOn: Map<string, Set<string>> | undefined; // event -> ops some alternative on it cancels
+  const cancels = () => {
+    if (cancelsOn) return cancelsOn;
+    const out = new Map<string, Set<string>>();
+    const seen = new Set<unknown>();
+    const walk = (v: any) => {
+      if (v === null || typeof v !== "object" || seen.has(v)) return;
+      seen.add(v);
+      if (Array.isArray(v)) return void v.forEach(walk);
+      if (v.on && typeof v.on === "object" && v.id !== undefined)
+        for (const [ev, alts] of Object.entries(v.on as Record<string, any[]>))
+          for (const alt of alts ?? []) for (const m of alt.members ?? []) if (m.verb === "cancel") (out.get(ev) ?? out.set(ev, new Set()).get(ev)!).add(m.op);
+      for (const [k, x] of Object.entries(v)) if (k !== "domain" && typeof x === "object") walk(x);
+    };
+    walk(compiled);
+    return (cancelsOn = out);
+  };
+  const drivenTo = new Map<string, Set<string>>(); // actor -> events the suite sent it in this `do`
+  const drivenAny = new Set<string>(); // events an answer or a timer of this `do` maps to, by the compiled data; owner not known to the suite
+  const known = new Set<string>(); // every actor the suite addressed: their published state is read after each batch
+  const drive = (actor: string, ev: string) => {
+    known.add(actor);
+    (drivenTo.get(actor) ?? drivenTo.set(actor, new Set()).get(actor)!).add(ev);
+  };
+  const mappedEvents = (op: string) => {
+    const out: string[] = [];
+    for (const c of compiled) {
+      const o = c.ops[op] as any;
+      if (!o) continue;
+      const add = (m: any) => m?.event && out.push(m.event);
+      add(o.outcomes.success);
+      for (const m of Object.values(o.outcomes.failure ?? {})) add(m);
+      const u = o.outcomes.unknown;
+      if (u?.byReason) for (const m of Object.values(u.byReason)) add(m);
+      else add(u);
+    }
+    return out;
+  };
+  const scheduleEvents = () => {
+    const out: string[] = [];
+    const seen = new Set<unknown>();
+    const walk = (v: any) => {
+      if (v === null || typeof v !== "object" || seen.has(v)) return;
+      seen.add(v);
+      if (Array.isArray(v)) return void v.forEach(walk);
+      if (Array.isArray(v.schedules)) for (const s of v.schedules) if (typeof s.send === "string") out.push(s.send);
+      for (const [k, x] of Object.entries(v)) if (k !== "domain" && typeof x === "object") walk(x);
+    };
+    walk(compiled);
+    return out;
+  };
+  const cancelSeen = (actor: string, op: string) => {
+    const c = cancels();
+    for (const ev of [...(drivenTo.get(actor) ?? []), ...drivenAny]) if (c.get(ev)?.has(op)) return true;
+    return false;
+  };
+  const lifeOver = (att: string) => {
+    const actor = attemptActor.get(att);
+    if (actor === undefined) return undefined;
+    if (attemptLife.get(att) !== (lifeOf.get(actor) ?? 0)) return true; // the life that asked is over; a new one is owed nothing (rule 44)
+    return publishedNow(actor) === undefined;
+  };
+  // A release of `att`'s lane, said by the runtime, has a cause the suite saw. No attempt named: no actor known, no pay (re-check H1': no wildcard).
+  const releaseSeen = (op: string, att: string | undefined) => {
+    if (att === undefined) return false;
+    const actor = attemptActor.get(att);
+    if (actor === undefined) return false;
+    return lifeOver(att) === true || (moved.has(actor) && releasable(op)) || cancelSeen(actor, op);
   };
   const mayBeEvidence = (x: Record<string, any>, batch: readonly Record<string, any>[]) => {
     const att = String(x["attempt"] ?? "");
     if (lettingGo.has(att)) return true;
     const actor = attemptActor.get(att);
     if (actor === undefined) return false;
-    if (attemptLife.get(att) !== (lifeOf.get(actor) ?? 0)) return true; // the life that asked is over; a new one is owed nothing (rule 44)
-    let alive: string | undefined;
-    try {
-      alive = inst.state(actor);
-    } catch {
-      alive = undefined;
-    }
-    if (alive === undefined) return true;
-    // A lane let go this step: its queued commits and parked endings go as evidence (rule 60). Seen as a Released or a Cancelled ending of the same op.
-    // Of the same actor, when the suite knows whose the let-go lane's head is.
-    const same = (y: Record<string, any>) => y["attempt"] === undefined || (attemptActor.get(String(y["attempt"])) ?? actor) === actor;
-    return batch.some((y) => y["op"] === x["op"] && same(y) && (y["kind"] === "Released" || (y["kind"] === "lane" && String(y["cell"]).startsWith("lane.release."))));
+    if (lifeOver(att)) return true;
+    // A lane let go this batch: its queued commits and parked endings go as evidence (rule 60). The runtime names the head; the suite needs its cause.
+    // The sign says a release of the op happened; the cause is checked against THIS attempt's owner, so a sign from anyone's lane pays nothing alone.
+    return batch.some((y) => y["op"] === x["op"] && (y["kind"] === "Released" || (y["kind"] === "lane" && String(y["cell"]).startsWith("lane.release.")))) && releaseSeen(String(x["op"]), att);
   };
   const mayLetGo = (x: Record<string, any>, batch: readonly Record<string, any>[]) => {
     if (mayBeEvidence(x, batch)) return true;
+    const op = String(x["op"]);
     const actor = attemptActor.get(String(x["attempt"] ?? ""));
-    return batch.some((y) => (y["kind"] === "turn" && (actor === undefined || y["actor"] === actor)) || (y["kind"] === "kept" && y["op"] === x["op"]));
+    // D154: the owner's published state moved this batch, or the suite drove it a cancel of the op (seen), or a newer keep of the op, which
+    // `missingEndings` holds to a wait naming it. A let-go with no attempt (a decline) has no owner the suite knows: any actor's seen cause of the op.
+    const seen = (a: string) => moved.has(a) || cancelSeen(a, op);
+    if (actor !== undefined ? seen(actor) : [...known].some(seen) || cancelSeen("", op)) return true;
+    return batch.some((y) => y["kind"] === "kept" && y["op"] === x["op"]);
   };
   const ledger = (e: readonly Record<string, any>[]) => {
     unpaid = [];
@@ -104,14 +209,45 @@ export const makeHarness = (port: Port) => (): Harness => {
       }
       if (x["kind"] === "mint" || x["kind"] === "invoked") {
         const a = String(x["attempt"]);
+        if (x["send"] !== undefined) (sends.get(a) ?? sends.set(a, []).get(a)!).push(String(x["send"]));
+        if (!made.has(a)) {
+          made.set(a, made.size);
+          madeOp.set(a, String(x["op"]));
+        }
         if (attemptActor.has(a)) continue;
         if (turnActor !== undefined) attribute(a, turnActor);
         else pending.push(a);
       }
-      // A lane let go: the head named now, and every later ending of it, may go as evidence (rule 60, 2.9.3).
-      if (x["kind"] === "Released" || (x["kind"] === "lane" && String(x["cell"]).startsWith("lane.release.") && x["attempt"] !== undefined))
-        lettingGo.add(String(x["attempt"]));
     }
+    // D154: whose published state moved in this batch, by the suite's own reading before and after it.
+    moved = new Set();
+    for (const actor of new Set([...known, ...attemptActor.values()])) {
+      const now = publishedNow(actor);
+      if (published.has(actor) && published.get(actor) !== now) moved.add(actor);
+      if (now === undefined) published.delete(actor);
+      else published.set(actor, now);
+    }
+    // Re-check M3', D154: `Superseded` is the runtime's word. It is owed a seen cause: the owner's life over (or a dispose this batch, which the
+    // suite drove), or the compiled op supersedes (`latest`) and this batch holds a newer attempt of the same op by the same owner.
+    const disposing = e.some((x) => x["kind"] === "DisposeStart");
+    for (const x of e) {
+      if (x["kind"] !== "Superseded" || disposing) continue;
+      const att = String(x["attempt"] ?? "");
+      if (lifeOver(att)) continue;
+      const policy = compiled.map((c) => (c.ops as any)[x["op"]]?.concurrency).find((p) => p !== undefined);
+      const owner = attemptActor.get(att);
+      const mine = made.get(att) ?? Infinity;
+      const newer = [...made].some(([a, n]) => n > mine && madeOp.get(a) === x["op"] && attemptActor.get(a) === owner);
+      // A lookup (`read/`) is bound to its activation: superseded by a newer lookup, or by its owner's published state moving (rule 52).
+      const order = sends.get(att) ?? [];
+      // A newer send of the same lookup, seen invoked; or a newer ask of it, seen by the suite's own wrap of its input Slot (D108's unencodable ask)
+      const resent = order.indexOf(String(x["send"])) < order.length - 1 || askedNow.includes(String(x["op"]));
+      if (att.startsWith("read/") ? !(newer || resent || (owner !== undefined && moved.has(owner))) : policy !== "latest" || !newer) missing.push(`(j) superseded with no newer attempt under a policy that supersedes: ${x["op"]} ${att} (${policy})`);
+    }
+    for (const x of e)
+      // A lane let go: the head named now, and every later ending of it, may go as evidence (rule 60, 2.9.3). Only with a cause the suite saw (D154).
+      if ((x["kind"] === "Released" || (x["kind"] === "lane" && String(x["cell"]).startsWith("lane.release."))) && releaseSeen(String(x["op"]), x["attempt"] === undefined ? undefined : String(x["attempt"])))
+        lettingGo.add(String(x["attempt"]));
     // Review M5: `delivered` is the runtime's word. It pays only if the same step shows the machine took it: a turn, a denial, an unhandled, or a refusal. Otherwise the debt stays.
     const heard = e.some((x) => x["kind"] === "turn" || x["kind"] === "Denied" || x["kind"] === "Unhandled" || x["kind"] === "refused");
     for (const x of e) {
@@ -196,6 +332,7 @@ export const makeHarness = (port: Port) => (): Harness => {
   });
   const judgeAsks = (e: readonly Record<string, any>[]) => {
     const asks = asking;
+    askedNow = asks;
     asking = [];
     if (!e.some((x) => x["kind"] === "turn")) return; // a refused turn asked for nothing
     const left = new Map<string, number>();
@@ -322,6 +459,12 @@ export const makeHarness = (port: Port) => (): Harness => {
       frozenDrops++;
       return;
     }
+    // D154: what the suite drives, by event, for the ledger's seen causes.
+    if ("burst" in s || "send" in s) drive(actorKey((s as any).burst ?? (s as any).send), (s as any).event);
+    if ("sendMany" in s) for (const [a, tag] of s.sendMany) drive(actorKey(a), tag);
+    if ("answer" in s) for (const ev of mappedEvents(s.answer)) drivenAny.add(ev);
+    if ("advanceNow" in s) for (const ev of scheduleEvents()) drivenAny.add(ev);
+    if ("ensure" in s) known.add(actorKey(s.ensure));
     if ("ensureAs" in s) inst.ensure(actorKey(s.ensureAs.key), s.ensureAs.machine); // D137: a key and a machine that do not agree, as a host's bug would give
     else if ("ensure" in s) inst.ensure(actorKey(s.ensure), s.ensure.actor, s.input);
     else if ("burst" in s) for (let i = 0; i < s.n; i++) inst.send(actorKey(s.burst), { tag: s.event, payload: {} });
@@ -532,9 +675,13 @@ export const makeHarness = (port: Port) => (): Harness => {
       inst.subscribe(f);
     },
     send(a, event, payload) {
+      drive(actorKey(a), event);
       inst.send(actorKey(a), { tag: event, payload: payload ?? {} });
     },
     do(s) {
+      drivenTo.clear();
+      drivenAny.clear();
+      if ("advance" in s) for (const ev of scheduleEvents()) drivenAny.add(ev);
       if ("advance" in s) {
         settle();
         fake.advanceWith(s.advance, settle);

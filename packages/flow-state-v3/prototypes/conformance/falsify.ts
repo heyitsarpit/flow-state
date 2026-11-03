@@ -172,6 +172,36 @@ try {
     say(summary(r.stdout) !== null && named.length >= min, `mutant ${id}: killed by named oracles in ${min}+ case(s)`, `${named.length}: ${named.slice(0, 4).join(" ")}`);
   }
   }
+  // ── D155: lying runtimes, a standing part. For each self-report an oracle reads (convergence-10's inventory), a runtime that says it falsely
+  // must go red by the named oracle, with no output compare. From the re-check of stage C (`conformance-audit/recheck10c-scripts/run-mut.ts`).
+  if (part("lies")) {
+    const G125 = "const a = getActor(tx.w.actors, item.actor); const lane = tx.w.lanes[laneId];";
+    const other = (extra: string) => `${G125} if (item.ending.ch !== "success" && [...tx.w.mail].some((x) => x.actor !== item.actor)) { ${extra} return note(tx, "evidenceOnly", { op: item.op, attempt: item.attempt ?? "" }); }`;
+    const when = (cond: string, extra: string) => `${G125} if (a && ${cond}) { ${extra} return note(tx, "evidenceOnly", { op: item.op, attempt: item.attempt ?? "" }); }`;
+    const REL = 'note(tx, "Released", { op: item.op, attempt: item.attempt ?? "" });';
+    const LIKE2NC = 'item.ending.ch !== "success" && item.op === "like" && String(item.attempt).endsWith("-2") && (item.ending as any).value?.why !== "Cancelled"';
+    // [id, self-report lied about, edits, the named oracle's mark in a FAIL line]
+    const LIES: ReadonlyArray<readonly [string, string, ReadonlyArray<readonly [string, string, string]>, string]> = [
+      ["lie.evidence-only", "evidenceOnly", [["turn.ts", G125, other("")]], "(j)"],
+      ["lie.released", "Released", [["turn.ts", G125, other(REL)]], "(j)"],
+      ["lie.lane-cell", "lane.release.* cell", [["turn.ts", G125, other('note(tx, "lane", { cell: "lane.release.busy", op: item.op, attempt: item.attempt ?? "" });')]], "(j)"],
+      ["lie.lane-cell-noatt", "lane.release.* cell, no attempt", [["turn.ts", G125, other('note(tx, "lane", { cell: "lane.release.busy", op: item.op });')]], "(j)"],
+      ["lie.like2nc-released", "Released, narrowest", [["turn.ts", G125, when(LIKE2NC, REL)]], "(j)"],
+      ["lie.save-released", "Released, keyed rows", [["turn.ts", G125, when('item.ending.ch !== "success" && item.op === "save"', REL)]], "(j)"],
+      ["lie.settled-superseded", "Superseded, a settled head", [["lane.ts", "  settleHead(tx, next, final);", '  note(tx, "Superseded", { op: next.op, attempt: next.head?.id }); setLane(tx, next);']], "(j)"],
+      ["lie.serialize-as-latest", "Superseded, a serialize queue", [["lane.ts", 'if (policy === "latest") { for (const x of l.w) supersede(tx, a.op, x);', 'if (policy === "latest" || policy === "serialize") { for (const x of l.w) supersede(tx, a.op, x);']], "(j) superseded"],
+      ["lie.letgo-all-parked-on-cancel", "ParkedLetGo", [["lane.ts", 'for (const p of l.parked) if (p.kept) note(tx, "KeptLetGo", { op: l.op, attempt: p.attempt ?? "" }); return withParked(tx, l, l.parked.filter((p) => !p.kept));', 'for (const p of l.parked) note(tx, p.kept ? "KeptLetGo" : "ParkedLetGo", { op: l.op, attempt: p.attempt ?? "" }); return withParked(tx, l, []);']], ""],
+    ];
+    const flex = (find: string) => new RegExp(find.trim().split(/\s+/).map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("\\s*"));
+    for (const [id, about, edits, mark] of quick ? LIES.slice(0, 3) : LIES) {
+      reset();
+      for (const [f, find, rep] of edits) edit(join(round, f), (s) => s.replace(flex(find), () => rep));
+      const r = await run(["bun", "main.ts", "--round", "99", "--no-catalog", "--no-output", "--runtime", `../${basename(roundDir)}/adapter.ts`], {}, conf);
+      const fails = r.stdout.split("\n").filter((l) => l.startsWith("FAIL") && !l.split("\t")[1]?.startsWith("output:"));
+      const by = fails.filter((l) => l.includes(mark));
+      say(summary(r.stdout) !== null && by.length > 0, `lie ${id} (${about}): red by ${mark || "a named oracle"}`, `${by.length} of ${fails.length}: ${by.slice(0, 3).map((l) => l.slice(4).split("\t")[0]!.trim()).join(" ")}`);
+    }
+  }
 } finally {
   rmSync(scratch, { recursive: true, force: true });
 }
