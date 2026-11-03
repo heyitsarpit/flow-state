@@ -670,3 +670,79 @@ round:adapter.ts hash:a1a07ba13109 | D190: the codec's parked reader names the l
 output:FRAG-24/a-dispose-waiting-on-a-slow-load-runs-after-both-copies-restored-endings hash:d2142ca65e56 | D192: its output, new (copies at a slow-load boot)
 file:drive.ts hash:d4e2b5933d2c | D193: H7's no-run check runs for a late start too; a late ending said delivered and Unhandled, run nowhere, was green (gate-close check)
 file:falsify.ts hash:efd67bf95af5 | D193: g.late-unhandled in --part lies, red by (j) delivered, and no handler ran (gate-close check)
+REV4-L2 hash:1514763d22a3 | round 11, D211: the case's edited Deep carries the typed Deep's services, which the Runtime now takes at boot
+REV8-M9 hash:eb6a19d7fa6b | round 11, F2: the lookup keyed by a Set boots the hand Doors, since no field list makes that key
+REV9-M1 hash:9631c2c61942 | round 11, F2: the Set-keyed oddKey variant boots the hand Kept; no field list makes a Set key
+REV9-KEPT hash:d31d294e2e83 | round 11, D206: its fault addresses a failure's mapper by the compiled path, operations.save.failure.NotSent
+REV9-NAMES hash:9448b06a74ce | round 11, F2: the two bigint-key variants boot the hand Kept, whose key is BigInt(i.o) off a string input
+REV9-EDGE hash:d08d30ff1b03 | round 11, D206 and F2: fault paths by the compiled place; the two bigint-key variants boot the hand Edge
+file:scenarios/flows.scenario.ts hash:e329300beea5 | round 11, D195: imports Issues, Refunds and the carts from their typed definitions
+file:scenarios/frag.scenario.ts hash:6d6d772e6c42 | round 11, D195: imports Pay, pay-full, Issues, Comments and the lab machines typed
+file:scenarios/order.scenario.ts hash:d19740ca00ce | round 11, D195: imports Pay, Ring, Drv, Issues and issuesThrowing typed
+file:scenarios/pay.scenario.ts hash:73232f476cba | round 11, D195: imports Pay, Ring and the cells variant on typed Pay
+file:scenarios/review.scenario.ts hash:8fdcdc5094d6 | round 11, D195: imports Pay, Ring, Issues and the lab variants typed
+file:scenarios/round10.scenario.ts hash:9a79cf927e08 | round 11, D195: Chain, Pay, Feed and Lab/Let from typed definitions; small() stays hand (F11)
+file:scenarios/round4.scenario.ts hash:df05c4ce4d50 | round 11, D195, D211: real.ts, comments, issues typed; REV4-L2's Deep keeps its services
+file:scenarios/round5.scenario.ts hash:6e3fae94bc6c | round 11, D195: imports DeskFeed, Rooms, desk and issuesPersisted typed
+file:scenarios/round6.scenario.ts hash:72e2a778f2b5 | round 11, D195: imports Chat, the desk machines and round 6's lab machines typed
+file:scenarios/round7.scenario.ts hash:89ab6c1b5e7e | round 11, D195: imports Lab/Bare and Chat from their typed definitions
+file:scenarios/round8.scenario.ts hash:267deb9a88e5 | round 11, D195 and F2: round 8's machines typed, the Set-keyed Doors variant hand
+file:scenarios/round9.scenario.ts hash:9e0b650ea261 | round 11, D195, D206, F2: Kept and Bulk typed, its fault path compiled, bigint variants hand
+file:scenarios/round9b.scenario.ts hash:bb4f1bca1aaa | round 11, D195, D206, F2: Chain, Edge, Kept, Loop typed; Edge's bigint variants hand
+file:scenarios/store.scenario.ts hash:70d755b69795 | round 11, D195: imports Issues, Refunds and S1 from their typed definitions
+file:scenarios/stream.scenario.ts hash:441599eb6662 | round 11, D195: imports DeskFeed and Rooms from their typed definitions
+file:scenarios/streams5.scenario.ts hash:9034691ad29f | round 11, D195: imports Chat, Presence and the desk feeds typed
+file:search/chain.search.ts hash:e1447fca8708 | round 11, D195: the chain search on the typed Lab/Chain
+file:search/crash.search.ts hash:c6677852d117 | round 11, D195: the crash search on the typed Lab/Bare
+file:search/cross.search.ts hash:63d42ad51784 | round 11, D195: the crossed search on the typed persisted S1
+file:search/flush.search.ts hash:3f9969317a20 | round 11, D195, D206: flush on typed Pay and Bare; refuseNo's path is the compiled one
+file:search/frag.search.ts hash:69c949cc767d | round 11, D195: the fragment search on the typed Notes
+file:search/odd.search.ts hash:eb4f9a886013 | round 11, D195: the odd search's store part on the typed attachDomain
+file:search/run.ts hash:be137ccc7737 | round 11, D195: the search runner's Pay and S1 typed; pay.fixed stays hand, derived from hand Pay
+file:search/session.search.ts hash:a1586955f9a3 | round 11, D195: the session search on typed Chat and Rooms
+file:typed/cart.ts hash:8946c552cb0f | round 11, review H2: new under the lock, Cart and MiniCart typed, domain in Compiled's shape (D209)
+file:typed/cells.ts hash:c8dfb2d3f9be | round 11, review H2: new under the lock, typed Pay plus AbortPay, edited as the hand cells is
+file:typed/chat.ts hash:542ec0a60af3 | round 11, review H2: new under the lock, Chat and Presence typed, streams in Compiled's shape
+file:typed/comments.ts hash:e35bdb114e2a | round 11, review H2: new under the lock, Editor and Queue with the typed Comments trait
+file:typed/desk.ts hash:c7724b424ceb | round 11, review H2: new under the lock, Desk/Tickets and the lab desk machines typed
+file:typed/feed.ts hash:6cd2bb6f32f9 | round 11, review H2: new under the lock, DeskFeed and Rooms typed
+file:typed/flow.ts hash:34a2b8c2a303 | round 11, review H2: the fixture front end, moved from round-10/typed (D205) and grown (D199-D212)
+file:typed/form.ts hash:eac615e0b854 | round 11, review H2: round 10's form machines (D124), moved under the lock
+file:typed/issues.ts hash:d45a600d2919 | round 11, review H2: new under the lock, Issues/List and its five lab variants typed
+file:typed/lab-machines.ts hash:ba9e178d499b | round 11, review H2: new under the lock, Form, Notes, Feed, Odd typed
+file:typed/lab.ts hash:bd5ccdebffc2 | round 11, review H2: new under the lock, FakeApi as a service and the fixture() helper (D211)
+file:typed/order.ts hash:791104e420fc | round 11, review H2: new under the lock, Ring and Drv typed (F8: Drv's commits start eagerly)
+file:typed/pay-full.ts hash:43615ec001c5 | round 11, review H2: new under the lock, the real Pay with summary trait and 3-D Secure
+file:typed/pay.ts hash:d0a9aebb5b17 | round 11, review H2: typed Pay moved from round-10/typed; services at boot (D211)
+file:typed/real.ts hash:88b5242f3c8e | round 11, review H2: new under the lock, Addr, Ticket, Attach, Panels, Deep typed
+file:typed/round10.ts hash:8f84a03ffc87 | round 11, review H2: new under the lock, round 10's Lab/Let typed
+file:typed/round6.ts hash:bf6e8626539f | round 11, review H2: new under the lock, MemoryRelease, RowMove, Getter, Engine typed
+file:typed/round7.ts hash:173c400a5883 | round 11, review H2: new under the lock, Lab/Bare and Lab/FragPair typed
+file:typed/round8.ts hash:230b6e86a972 | round 11, review H2: new under the lock, serial Bare, business key, Doors, Copies, Loop
+file:typed/round9.ts hash:1fa818e5ca11 | round 11, review H2: new under the lock, Lab/Bulk and Lab/Kept typed
+file:typed/round9b.ts hash:6dd420214560 | round 11, review H2: new under the lock, Lab/Chain and Lab/Edge typed
+file:typed/stores.ts hash:bd56c7bd043a | round 11, review H2: new under the lock, Refunds, S1 and Docs typed
+file:typed/threeds.ts hash:13eca5608cb8 | round 11, review H2: typed ThreeDS and Countdown moved from round-10/typed
+file:legacy.ts hash:b712a1417071 | round 11, D207: new, the hand fixtures' bare closures slotted by the suite before boot
+file:main.ts hash:6d4f8ede3d8c | round 11, review H2: typed/ and legacy.ts walked into the lock
+file:falsify.ts hash:1b71b7bb1f77 | round 11, review H2: a tamper of a typed fixture is red by the lock; typed Pay's new place; round 11 default
+file:broken-adapter.ts hash:d6d995253a8e | round 11: the broken runtimes wrap round 11 by default
+file:gate5s.ts hash:93b5f6a0f34d | round 11: the 5 s gate runs round 11 by default
+file:harness.ts hash:57e2c01c3d37 | round 11, D211: Fixture.services and BootArgs.services, what a machine's Slots require, given at boot
+file:drive.ts hash:5d58e4a0ab03 | round 11, D207, D211, F9: legacySlots before boot; services merged at start; startThrows reaches a Slot commit
+round:cli/flow.ts hash:1b7c391cf973 | round 11, D195: flow check and explain targets from typed definitions; pay stays the pinned hand Pay
+round:typed/census.ts hash:f5e3412db4ec | round 11: new, what the suite boots, by fixture, and which cases boot only typed output
+round:typed/compare-all.ts hash:c9426bb821da | round 11: new, every typed fixture against its hand twin, as data
+round:typed/compare.ts hash:e36b8600e631 | round 11, review M1: imports from conformance/typed; Pay's guard closures named by place, stated
+round:typed/date-check.ts hash:660184e80d29 | round 11: imports the front end from conformance/typed (D205)
+round:typed/pairs.ts hash:f383f0e39a5d | round 11: new, each typed fixture beside the hand one it replaces, with stated differences
+round:typed/swaps.ts hash:3c7c8b8b8356 | round 11, D196: --swap turned around, boots the pinned hand Pay and pay-full
+round:typed/type-tests.ts hash:5e666e4ec099 | round 11: imports the front end from conformance/typed (D205); its pins unchanged
+round:checks/front-check.ts hash:26df654dc03f | round 11, review H3, M1, M3, M6: front-end pins and CompiledData on every typed machine
+round:checks/search-vacuity-check.ts hash:b04a7b97a185 | round 11: the vacuity check's Notes from its typed definition
+round:adapter.ts hash:8b8a1f470bf4 | round 11, D211: the Runtime takes the machines' services at boot
+output:PAY-12/shuffle hash:89ffd5721ddf | round 11, F8: typed Pay's commit starts its request when its Effect runs, so a seeded shuffle sends pi2 first
+removed:round:typed/flow.ts | round 11, D205: the front end moved to conformance/typed/flow.ts, under the lock there
+removed:round:typed/form.typed.ts | round 11, D205: moved to conformance/typed/form.ts
+removed:round:typed/pay.typed.ts | round 11, D205: moved to conformance/typed/pay.ts
+removed:round:typed/threeds.typed.ts | round 11, D205: moved to conformance/typed/threeds.ts

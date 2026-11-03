@@ -1,16 +1,17 @@
 // bun round-9/cli/flow.ts check <name...> [--json]   |   explain <name> [--state S --event E] [--json]
 // Machines by name, from this prototype's fixture list, since config discovery (CommandLine O6) is not built; so this file reaches fixtures directly, not a project. Exit codes: CommandLine O3. Outputs: cli-outputs.md.
 import type { Api } from "../../conformance/fake-world.ts";
-import { cartFixture, miniCartFixture } from "../../conformance/fixtures/cart.compiled.ts";
+// Round 11: the machines from their typed definitions (D195), as the suite boots them. `pay` stays the pinned hand Pay, beside `typed-pay`.
+import { cartFixture, miniCartFixture } from "../../conformance/typed/cart.ts";
 import type { Compiled } from "../../conformance/fixtures/compiled.ts";
-import { deskFixture, deskListenFixture } from "../../conformance/fixtures/desk.compiled.ts";
-import { payFullFixture } from "../../conformance/fixtures/pay-full.compiled.ts";
+import { deskFixture, deskListenFixture } from "../../conformance/typed/desk.ts";
+import { payFullFixture } from "../../conformance/typed/pay-full.ts";
 import { payFixture } from "../../conformance/fixtures/pay.compiled.ts";
-import { addressFixture, attachFixture, panelsFixture, ticketFixture } from "../../conformance/fixtures/real.compiled.ts";
-import { refundsFixture } from "../../conformance/fixtures/refunds.compiled.ts";
+import { addressFixture, attachFixture, panelsFixture, ticketFixture } from "../../conformance/typed/real.ts";
+import { refundsFixture } from "../../conformance/typed/stores.ts";
 import type { Fixture } from "../../conformance/harness.ts";
-import { loopFixture } from "../../conformance/fixtures/round8.compiled.ts";
-import { bulkFixture } from "../../conformance/fixtures/round9.compiled.ts";
+import { loopFixture } from "../../conformance/typed/round8.ts";
+import { bulkFixture } from "../../conformance/typed/round9.ts";
 import { formFixtures } from "../../conformance/typed/form.ts";
 import { typedPayFixture } from "../../conformance/typed/pay.ts";
 import { check, type Finding } from "./check.ts";
