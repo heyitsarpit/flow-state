@@ -1,0 +1,15 @@
+start, two sessions            store {"title":"first","n":1,"present":true} pending false mark false engine first 1 doubts 0
+predicted                      store {"title":"mine","n":1,"present":true} pending true mark false engine mine 1 doubts 0
+frame while persisting         store {"title":"mine","n":1,"present":true} pending true mark false engine mine 1 doubts 0
+settled                        store {"title":"mine","n":2,"present":true} pending false mark false engine mine 2 doubts 0
+commit timed out: unknown      store {"title":"mine","n":2,"present":true} pending false mark true engine mine 2 doubts 0
+  exit 1, lane ended (give up):
+  released                     store {"title":"mine","n":2,"present":true} pending false mark false engine mine 2 doubts 0
+  exit 2, next statement       store {"title":"mine","n":3,"present":true} pending false mark false engine mine 3 doubts 0
+predicted 2                    store {"title":"doomed","n":3,"present":true} pending true mark false engine doomed 3 doubts 0
+refused: rolled back           store {"title":"mine","n":3,"present":true} pending false mark false engine mine 3 doubts 0
+moved to p2, unfiltered        store {"title":"mine","n":3,"present":true} pending false mark false engine mine 3 doubts 0
+a FILTERED subscription, same move: insert:t1 | delete:t1 <- why a sourced listen must not filter
+store after, unfiltered        store {"title":"mine","n":3,"present":true} pending false mark false engine mine 3 doubts 0
+deleted by source              store {"title":"-","n":"-","present":false} pending false mark false engine undefined undefined doubts 0
+doubts raised on one engine, two sessions: 0
