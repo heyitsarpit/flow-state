@@ -1,7 +1,9 @@
 // Round 9, part two: the review's H1, M1-M8, as traces. Each was seen failing on part one's runtime, or says why it pins what was already true: red-round-9.txt. D122-D128 are proposed.
-import { ChainId, chainFixture, EdgeId, edgeFixture } from "../fixtures/round9b.compiled.ts";
-import { keptFixture, KeptId } from "../fixtures/round9.compiled.ts";
-import { loopFixture, LoopId } from "../fixtures/round8.compiled.ts";
+import { ChainId, chainFixture, EdgeId, edgeFixture } from "../typed/round9b.ts";
+// Round 11, finding F2: a lane key that is not a projection of the input (`BigInt(i.o)`) has no public form (rule 39), so these two keep the hand machine.
+import { edgeFixture as handEdgeFixture } from "../fixtures/round9b.compiled.ts";
+import { keptFixture, KeptId } from "../typed/round9.ts";
+import { loopFixture, LoopId } from "../typed/round8.ts";
 import type { Fixture } from "../harness.ts";
 import { Ctx, type Scenario } from "./ctx.ts";
 
@@ -312,7 +314,7 @@ export const round9bScenarios: readonly Scenario[] = [
       // A decline sent nothing. It tells the machine, it is kept until it can, and it blocks nothing.
       "a-decline-names-its-own-key"(c0) {
         const c = on(c0, edgeFixture(), E);
-        c.do({ fault: { throwIn: "operations.save.NotSent", times: 2 } });
+        c.do({ fault: { throwIn: "operations.save.failure.NotSent", times: 2 } });
         c.send("Go", { id: "a", at: new Set() });
         c.eq("the row of its key", (c.r.row(E, "save", { id: "a" }) as any)?.undelivered, 1);
         c.eq("no lane with no name", lane(c, "null"), undefined);
@@ -323,7 +325,7 @@ export const round9bScenarios: readonly Scenario[] = [
         const c = on(c0, edgeFixture(), E);
         const E2 = { actor: E.actor, id: "b" };
         c.ensure(E2);
-        c.do({ fault: { throwIn: "operations.save.NotSent", times: 2 } });
+        c.do({ fault: { throwIn: "operations.save.failure.NotSent", times: 2 } });
         c.send("Go", { id: "a", at: new Set() });
         c.eq("kept on its key", (c.r.row(E, "save", { id: "a" }) as any)?.undelivered, 1);
         c.to(E2, "Q");
@@ -331,7 +333,7 @@ export const round9bScenarios: readonly Scenario[] = [
       },
       "cancel-of-its-own-key-lets-a-decline-go"(c0) {
         const c = on(c0, edgeFixture(), E);
-        c.do({ fault: { throwIn: "operations.save.NotSent", times: 2 } });
+        c.do({ fault: { throwIn: "operations.save.failure.NotSent", times: 2 } });
         c.send("Go", { id: "a", at: new Set() });
         c.send("ForgetA");
         c.eq("no wait", waits(c, "parked").length, 0);
@@ -339,7 +341,7 @@ export const round9bScenarios: readonly Scenario[] = [
       },
       "a-kept-decline-blocks-nothing"(c0) {
         const c = on(c0, edgeFixture(), E);
-        c.do({ fault: { throwIn: "operations.save.NotSent", times: 2 } });
+        c.do({ fault: { throwIn: "operations.save.failure.NotSent", times: 2 } });
         c.send("Go", { id: "a", at: new Set() });
         c.send("IfA");
         c.eq("idle", c.mem().presses, 1);
@@ -353,7 +355,7 @@ export const round9bScenarios: readonly Scenario[] = [
       "kept-declines-do-not-pile-up"(c0) {
         const c = on(c0, edgeFixture(), E);
         for (let i = 0; i < 5; i++) {
-          c.do({ fault: { throwIn: "operations.save.NotSent", times: 2 } });
+          c.do({ fault: { throwIn: "operations.save.failure.NotSent", times: 2 } });
           c.send("Go", { id: "a", at: new Set() });
         }
         c.eq("one", waits(c, "parked").length, 1);
@@ -367,7 +369,7 @@ export const round9bScenarios: readonly Scenario[] = [
         c.ack();
         c.answer("save", { ok: { v: "boom" } });
         for (let i = 0; i < 5; i++) {
-          c.do({ fault: { throwIn: "operations.save.NotSent", times: 2 } });
+          c.do({ fault: { throwIn: "operations.save.failure.NotSent", times: 2 } });
           c.send("Go");
         }
         c.eq("the ending, and one decline", waits(c, "parked").length, 2);
@@ -527,7 +529,7 @@ export const round9bScenarios: readonly Scenario[] = [
         c.send("Go");
         c.ack();
         c.answer("save", { ok: { v: "boom" } });
-        c.do({ fault: { throwIn: "operations.save.NotSent", times: 2 } });
+        c.do({ fault: { throwIn: "operations.save.failure.NotSent", times: 2 } });
         c.send("Go");
         c.eq("two", waits(c, "parked").length, 2);
         healed(c, () => c.reload());
@@ -557,14 +559,14 @@ export const round9bScenarios: readonly Scenario[] = [
       },
       // Review's survivors: `cancel` by a bigint key, and `1n` and "1" as one lane.
       "a-cancel-by-a-bigint-key-reaches-its-lane"(c0) {
-        const c = on(c0, edgeFixture(), E);
+        const c = on(c0, handEdgeFixture(), E);
         c.send("GoBig");
         c.ack();
         c.send("ForgetBig");
         c.eq("no row", (c.r.row(E, "big", { o: 1n }) as any)?.pending ?? false, false);
       },
       "a-bigint-and-its-digits-are-two-lanes"(c0) {
-        const c = on(c0, edgeFixture(), E);
+        const c = on(c0, handEdgeFixture(), E);
         c.send("GoBig");
         c.ack();
         c.send("IfBig1");

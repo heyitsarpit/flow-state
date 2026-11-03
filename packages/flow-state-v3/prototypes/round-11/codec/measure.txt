@@ -1,0 +1,38 @@
+# Load, Pay (typed): 10 nodes, 72 Slots, data 16.1 KB as JSON, losses 0
+in-process   machine() + provide        0.027 ms
+in-process   + seal                     0.038 ms
+data         JSON.parse                 0.023 ms
+data         JSON.parse + rebind        0.046 ms
+data         + seal                     0.058 ms
+data         the table, from machine()  0.055 ms  (what data and module still pay: the closures come from evaluating the definition)
+schema       contract on data           0.119 ms
+schema       contract on loaded         0.121 ms
+schema       codec, data to Compiled    0.166 ms
+hand fixture make()                     0.002 ms  (bare commit: not loadable by data or schema)
+
+# Load, 50 machines
+in-process   50× machine()               1.092 ms
+data         50× parse + rebind          1.894 ms
+schema       50× contract on data        4.632 ms
+
+# Load, pay-full (hand, 2 fragments): 110 Slots, data 25.5 KB, losses 7 (bare closure)
+data         JSON.parse + rebind        0.063 ms
+hand fixture make()                     0.009 ms
+
+# Generated module, Pay: source 20.1 KB, gzip 2.4 KB
+module       first import (transpile + evaluate)  0.175 ms
+module       same shape as in-process: true
+
+# Bundle, Pay, minified, gzip (effect excluded)
+hand fixture (pay.compiled.ts)           9.2 KB raw, 3.1 KB gzip
+in-process: definition + front end      24.1 KB raw, 7.1 KB gzip (front end alone 2.9 KB gzip)
+data: in-process + the JSON              + 1.9 KB gzip of JSON (16.1 KB raw)
+module: in-process + the generated file  + 2.4 KB gzip
+
+# Fidelity probe: Infinity, bigint, undefined, Date, shared identity, a stray closure
+toData names: non-finite number, undefined value, bare closure, bigint, Date, shared object
+after JSON:   Infinity -> {"ms":null}; bigint -> undefined; Date -> undefined; stray -> undefined; timeoutMs key present: false; shared: false
+schema contract on the probe (loaded):  refuses (Expected a finite number)
+seal on the probe:                      refuses (SealUnknownClosure: Checkout/Pay ops.pay.stray)
+
+# Tools: check on data = check in-process: true; explain on data = in-process: true

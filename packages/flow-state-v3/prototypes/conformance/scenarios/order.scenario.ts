@@ -3,7 +3,7 @@ import { issuesThrowing } from "../fixtures/lab.compiled.ts";
 import { drvFixture } from "../fixtures/drv.compiled.ts";
 import { issueRef, issuesFixture } from "../fixtures/issues.compiled.ts";
 import { ringFixture } from "../fixtures/order.compiled.ts";
-import { payFixture } from "../fixtures/pay.compiled.ts";
+import { payFixture } from "../typed/pay.ts";
 import { checkEndings, Ctx, type Scenario } from "./ctx.ts";
 
 const ring = (id: string) => ({ actor: "Ring", id });

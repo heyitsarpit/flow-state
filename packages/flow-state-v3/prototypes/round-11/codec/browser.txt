@@ -1,0 +1,7 @@
+Chrome Chrome/146.0.7680.76, headless, this Mac. Median ms. put: [main thread, until complete], relaxed durability.
+1x n=100 (18 KB): stringify 0.000, parse 0.000, clone object 0.000, clone string 0.000; put string 0.00/0.10, put object 0.00/0.10; get+parse string 0.100, get object 0.100
+1x n=1000 (177 KB): stringify 0.100, parse 0.200, clone object 0.300, clone string 0.000; put string 0.10/0.20, put object 0.20/0.30; get+parse string 0.300, get object 0.200
+1x n=10000 (1774 KB): stringify 0.700, parse 1.700, clone object 3.300, clone string 0.200; put string 1.40/2.40, put object 2.10/3.10; get+parse string 2.000, get object 2.000
+6x n=100 (18 KB): stringify 0.000, parse 0.000, clone object 0.100, clone string 0.000; put string 0.00/0.70, put object 0.00/0.80; get+parse string 0.100, get object 0.100
+6x n=1000 (177 KB): stringify 1.000, parse 1.200, clone object 1.700, clone string 0.000; put string 0.70/1.30, put object 1.20/1.70; get+parse string 1.600, get object 1.400
+6x n=10000 (1774 KB): stringify 9.600, parse 9.900, clone object 19.800, clone string 1.600; put string 9.30/11.40, put object 13.90/16.20; get+parse string 13.000, get object 12.600

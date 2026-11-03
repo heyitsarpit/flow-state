@@ -1,8 +1,10 @@
 // Round 9, part one: what round 8's final review found. Each case was seen failing on round 8's code, or says why it pins what was already true: red-round-9.txt. D114-D120 are proposed.
 import { chatFixture } from "../fixtures/chat.compiled.ts";
-import { doorsFixture, DoorsId } from "../fixtures/round8.compiled.ts";
-import { BareId } from "../fixtures/round7.compiled.ts";
-import { bulkFixture, BulkId, keptFixture, KeptId } from "../fixtures/round9.compiled.ts";
+import { doorsFixture, DoorsId } from "../typed/round8.ts";
+import { BareId } from "../typed/round7.ts";
+import { bulkFixture, BulkId, keptFixture, KeptId } from "../typed/round9.ts";
+// Round 11, finding F2: lane keys that are not a projection of the input (`() => new Set()`, `BigInt(i.o)`) have no public form (rule 39). These cases keep the hand machine.
+import { keptFixture as handKeptFixture } from "../fixtures/round9.compiled.ts";
 import type { Fixture } from "../harness.ts";
 import { Ctx, type Scenario } from "./ctx.ts";
 
@@ -28,7 +30,7 @@ const healed = (c: Ctx, f: () => void) => {
     c.h.release(set(false), set(true));
   }
 };
-const SAVE_NOT_SENT = "operations.save.NotSent";
+const SAVE_NOT_SENT = "operations.save.failure.NotSent"; // round 11, D206: the compiled path of a failure's mapper
 const lane = (c: Ctx, id = '{"id":"a"}') => c.r.stored().get(`lane/${KeptId}/a|save|${id}`) as any;
 
 export const round9Scenarios: readonly Scenario[] = [
@@ -97,7 +99,7 @@ export const round9Scenarios: readonly Scenario[] = [
       },
       // A key door refuses after the input was fine: the mapper still reads the input.
       "a-key-with-no-name-still-carries-the-input"(c0) {
-        const c = on(c0, keptFixture(), K);
+        const c = on(c0, handKeptFixture(), K);
         c.send("GoOddKey");
         c.eq("the mapper read it", c.mem().last, "odd:kept");
       },
@@ -267,7 +269,7 @@ export const round9Scenarios: readonly Scenario[] = [
       // Review's `d108.commit-subject-lost`: a fragment's kept decline reaches its own incarnation.
       "a-fragments-kept-decline-keeps-its-subject"(c0) {
         const c = on(c0, keptFixture(), K);
-        c.do({ fault: { throwIn: "operations.kidSave.NotSent", times: 2 } });
+        c.do({ fault: { throwIn: "operations.kidSave.failure.NotSent", times: 2 } });
         c.into(["c:x"], "Save");
         c.eq("refused twice", refusals(c), 2);
         c.eq("a wait", waits(c, "parked").length, 1);
@@ -330,7 +332,7 @@ export const round9Scenarios: readonly Scenario[] = [
     variants: {
       // M5: a typed `Schema.BigInt` key could never send.
       "a-bigint-key-names-a-lane-and-sends"(c0) {
-        const c = on(c0, keptFixture(), K);
+        const c = on(c0, handKeptFixture(), K);
         c.send("GoKey", { o: "7" });
         c.ack();
         c.eq("sent", c.reqs("keyed").length, 1);
@@ -341,7 +343,7 @@ export const round9Scenarios: readonly Scenario[] = [
         c.eq("another key is another lane", c.mem().presses, 1);
       },
       "a-bigint-key-survives-a-reload"(c0) {
-        const c = on(c0, keptFixture(), K);
+        const c = on(c0, handKeptFixture(), K);
         c.send("GoKey", { o: "7" });
         c.ack();
         c.reload();

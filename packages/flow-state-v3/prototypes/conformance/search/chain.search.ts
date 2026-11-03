@@ -2,7 +2,7 @@
 //   (l) a press on another actor is heard in its step, whatever a spin is doing
 //   (m) a queue left alone finishes, or a wait or a refusal says why
 //   (n) a stopped spin stays stopped
-import { ChainId, chainFixture } from "../fixtures/round9b.compiled.ts";
+import { ChainId, chainFixture } from "../typed/round9b.ts";
 import type { Harness, Step } from "../harness.ts";
 import { checkClaims, checkEndings } from "../scenarios/ctx.ts";
 import { bfs, Oracle, type Action, type Report } from "./engine.ts";

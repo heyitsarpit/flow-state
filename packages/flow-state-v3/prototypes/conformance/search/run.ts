@@ -2,7 +2,7 @@
 // Run under watch.ts. One process at a time.
 import { resolve } from "node:path";
 import { makeHarness, swapFixtures } from "../drive.ts";
-import { payFixture } from "../fixtures/pay.compiled.ts";
+import { payFixture } from "../typed/pay.ts";
 import { payFixedFixture } from "../fixtures/pay.fixed.ts";
 import { s1Fixture } from "../fixtures/s1.compiled.ts";
 import type { RuntimeModule } from "../harness.ts";

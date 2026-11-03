@@ -8,9 +8,9 @@
 //   (f) a waiting state has something that can end it
 //   (g) one batch out per actor: the fake throws
 //   (h) write-ahead: now `checkClaims` in every state (D112): whatever may be at the server, undecided and unreleased, is the head of a lane on disk. `includes(key)` also matched `W`, and could not see H1
-import { fragPairFixture, FragPairId, bareFixture, BareId } from "../fixtures/round7.compiled.ts";
-import { payFixture } from "../fixtures/pay.compiled.ts";
-import { serialBareFixture } from "../fixtures/round8.compiled.ts";
+import { fragPairFixture, FragPairId, bareFixture, BareId } from "../typed/round7.ts";
+import { payFixture } from "../typed/pay.ts";
+import { serialBareFixture } from "../typed/round8.ts";
 import type { Answer, Fixture, Harness, Step } from "../harness.ts";
 import { checkClaims, checkEndings } from "../scenarios/ctx.ts";
 import { bfs, Oracle, type Action, type Report } from "./engine.ts";
@@ -79,7 +79,7 @@ export const searchFlush = (
     // D109: the next success's turn refuses, and its redelivery too. Oracle (f) then asks what can end the waiting state.
     { name: "refuseOk", step: { fault: { throwIn: "on.Ok[0].updateMemory", times: 2 } } },
     // Round 9, D117: what oracle (j) is for. A burst past the queue's bound, a mapper that throws on a decline, and the origin gone.
-    { name: "refuseNo", step: { fault: { throwIn: "operations.charge.NotSent", times: 2 } } },
+    { name: "refuseNo", step: { fault: { throwIn: "operations.charge.failure.NotSent", times: 2 } } },
     { name: "Burst", step: { burst: c.actors[0]!, event: "Go", n: 70 } },
     { name: "WIPE", step: { reload: true, wipe: true } },
     { name: "Ensure", step: { ensure: c.actors[0]!, input: { who: c.actors[0]!.id } } },

@@ -1,6 +1,6 @@
 // SEARCH-CRASH (review H1): a persisted write machine with no reconcile, plain writes that fail and say so late, kills. The oracle reads only the
 // server and the store: a second Attempt while an earlier one may be at the server and was never released. On the fake with sync failure this could not fail.
-import { bareFixture, BareId } from "../fixtures/round7.compiled.ts";
+import { bareFixture, BareId } from "../typed/round7.ts";
 import type { Harness, Step } from "../harness.ts";
 import { checkClaims, checkEndings } from "../scenarios/ctx.ts";
 import { bfs, Oracle, type Action, type Report } from "./engine.ts";

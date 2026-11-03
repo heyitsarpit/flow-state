@@ -1,9 +1,9 @@
 // Round 10, stage A: the small runtime fixes, each with a pin. Each case says what it would see on round 9's runtime.
 import { Effect } from "effect";
-import { ChainId, chainFixture } from "../fixtures/round9b.compiled.ts";
+import { ChainId, chainFixture } from "../typed/round9b.ts";
 import { fixtureOf, unknownWhenLost } from "../fixtures/build.ts";
 import { feedFixture } from "../fixtures/lab.compiled.ts";
-import { payFixture } from "../fixtures/pay.compiled.ts";
+import { payFixture } from "../typed/pay.ts";
 import type { Api } from "../fake-world.ts";
 import type { Fixture } from "../harness.ts";
 import { Ctx, Mismatch, type Scenario } from "./ctx.ts";

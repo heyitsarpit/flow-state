@@ -2,8 +2,10 @@
 import { Effect } from "effect";
 import { chatFixture } from "../fixtures/chat.compiled.ts";
 import { refundsFixture } from "../fixtures/refunds.compiled.ts";
-import { bareFixture, BareId } from "../fixtures/round7.compiled.ts";
-import { businessKeyFixture, copiesFixture, CopiesId, doorsFixture, DoorsId, loopFixture, LoopId, serialBareFixture } from "../fixtures/round8.compiled.ts";
+import { bareFixture, BareId } from "../typed/round7.ts";
+import { businessKeyFixture, copiesFixture, CopiesId, doorsFixture, DoorsId, loopFixture, LoopId, serialBareFixture } from "../typed/round8.ts";
+// Round 11, finding F2: a lane key no field list makes (`() => new Set()`) has no public form (rule 39). That case keeps the hand machine.
+import { doorsFixture as handDoorsFixture } from "../fixtures/round8.compiled.ts";
 import type { Fixture } from "../harness.ts";
 import { Ctx, type Scenario } from "./ctx.ts";
 
@@ -364,7 +366,7 @@ export const round8Scenarios: readonly Scenario[] = [
       },
       "a-lookup-whose-key-cannot-encode-ends-as-a-failure"(c0) {
         const D = { actor: DoorsId, id: "a" };
-        const c = on(c0, doorsFixture, undefined, D);
+        const c = on(c0, handDoorsFixture, undefined, D);
         c.send("LookKeyBad");
         c.eq("nothing went out", c.reqs("readKey").length, 0);
         c.eq("through its outcomes", c.mem().last, "failed");

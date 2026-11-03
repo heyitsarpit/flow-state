@@ -1,7 +1,7 @@
 // Round 1's scenarios, worked out by hand from SCENARIOS.md and pay.machine.ts, before any runtime existed.
 import { cellsFixture } from "../fixtures/cells.compiled.ts";
 import { ringFixture } from "../fixtures/order.compiled.ts";
-import { payFixture } from "../fixtures/pay.compiled.ts";
+import { payFixture } from "../typed/pay.ts";
 import { checkEndings, Ctx, type Scenario } from "./ctx.ts";
 
 export const A = { actor: "Checkout/Pay", id: "shopper-1" };

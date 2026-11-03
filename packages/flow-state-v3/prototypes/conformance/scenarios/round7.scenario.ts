@@ -1,5 +1,5 @@
 // Round 7: the persistence edge. Worked out by hand from the review's traces and convergence-7's decisions. D83-D89 are proposed; D80's 5 s is accepted.
-import { bareFixture, BareId } from "../fixtures/round7.compiled.ts";
+import { bareFixture, BareId } from "../typed/round7.ts";
 import { chatFixture } from "../fixtures/chat.compiled.ts";
 import type { Fixture } from "../harness.ts";
 import { Ctx, type Scenario } from "./ctx.ts";

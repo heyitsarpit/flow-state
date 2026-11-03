@@ -10,7 +10,7 @@ import {
 } from "../fixtures/lab.compiled.ts";
 import { issueRef, issuesFixture } from "../fixtures/issues.compiled.ts";
 import { ringFixture } from "../fixtures/order.compiled.ts";
-import { payFixture } from "../fixtures/pay.compiled.ts";
+import { payFixture } from "../typed/pay.ts";
 import type { Scenario } from "./ctx.ts";
 import { Ctx } from "./ctx.ts";
 

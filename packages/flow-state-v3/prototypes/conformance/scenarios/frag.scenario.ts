@@ -12,7 +12,7 @@ import {
   notesFixture,
 } from "../fixtures/lab.compiled.ts";
 import { LENGTH_MS, payFullFixture } from "../fixtures/pay-full.compiled.ts";
-import { payFixture } from "../fixtures/pay.compiled.ts";
+import { payFixture } from "../typed/pay.ts";
 import { searchFrag } from "../search/frag.search.ts";
 import type { Scenario } from "./ctx.ts";
 import { Ctx } from "./ctx.ts";
