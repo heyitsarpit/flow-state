@@ -216,3 +216,23 @@ Earlier lies rerun under the new oracle: `e2.subject-fan-fail-att` and `e2.subje
 Stated limit, not closed: `e8.wa-unknown` fires in 20 cases (re-check probe) and is red in 3. In the rest the wrong actor's view is most likely equal to the owner's (the 1,364 equal views), where the suite cannot tell them apart; not verified case by case. What would close it: actors in those cases with distinct memory, or an effect check on which candidate's published view the handler changed.
 
 Gates on the final commit: see `STATUS.md`.
+
+## Stage H: conservation, on a total identity (re-check 10g; D173-D175, proposed)
+
+The class: (j) asked "did each delivery run in its recipient?" and never "is every run it saw accounted for?" (H1⁵), and it found the recipient by memory equality (equal views). One root: no ledger of observed runs. Replaced, not patched (`../convergence-10.md`, stage H).
+
+| Finding | Answer | Shown by (`--no-output`) |
+| --- | --- | --- |
+| H1⁵ an ending also run in another actor | D173: every observed run is paid once, by an expected delivery to that recipient or a send, follow-up, timer or retry the suite saw; a run left over is red | `q3.dup-other` red by `(j) a handler run nothing accounts for` in 33 of 34 named fails (PAY-12/shuffle, ORDER-02, DRV-01, ...); was 0 |
+| H1⁵ an ending also run in another copy | D173 | `q3.dup-copy` red 9 of 11 (FRAG-07, FRAG-15, FRAG-21, ...); was 0 |
+| Equal views | D173: a suite serial in every incarnation's memory, under a symbol key no published text sees; the ear's node checks the state. Memory-equality placement deleted | `q1.wa-eq-any` red by `(j) delivered to the wrong recipient` 25 of 28 (ORDER-02, DRV-01, DRV-03, ...); was 1 of 26 |
+| A wrong delivery paid by the suite's own send (reasoned) | D173: a send pays only a run in the actor it was sent to | `q5.send-stolen` red 2 of 2 (R10-PINS, R10-AUDIT-ENDINGS) |
+| A named equal-view case | D174, FRAG-23: equal-memory actors in one state and in two states, two equal copies across two actors, an ending beside the suite's own send of its event | 4 variants green on round 10 |
+
+`RECIPIENTS` over 736 cases: observed 45,380; **ambiguous 0**; unplaceable 0; at a boot, counted not placed 256; unobserved (A2) 143; paid by the suite's sends 175; left over 0. Every identity is carried: no fixture failed to carry the serial (a memory that is not a plain object, or made by a Slot other than `initial`/`restore`, would show as ambiguous, and none did).
+
+Deleted: `placeView`, `placeAtBoot`, the structural `same`, the `indistinct` count, and the pairing of a delivery with the first observation of any of its events.
+
+Stated limits: a boot's runs are counted by event, not placed (the booting runtime is unreadable until `port.boot` returns; its restored memory carries a fresh serial). A follow-up pays a run in any copy of its actor. A serial published by two incarnations would not be counted (the last scanned wins); no runtime path copies one, but the scan does not check it. Delivery with no run (A2, 143) is still paid by the batch's turn.
+
+Lies on the final code commit, one slice at a time: see `STATUS.md`.
