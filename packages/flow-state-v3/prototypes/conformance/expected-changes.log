@@ -620,3 +620,12 @@ file:scenarios/round9b.scenario.ts hash:11fab3b40ac1 | D170: REV9-EDGE's new var
 output:REV9-EDGE/a-kept-decline-stays-while-another-actor-moves hash:e59d3b3210aa | D170: its output, new
 round:checks/types-check.ts hash:8d8514892e0a | D172: from a fresh worktree, `effect` resolves through a `node_modules` link to the main checkout's for the run (re-check L1)
 file:drive.ts hash:e67a14876b08 | D169, D170: a kept decline's owners are the actors the suite drove into its refused turn
+FRAG-23 hash:75a76bd85e5d | D174: equal-memory actors in one state and in two states, two equal copies, and an ending beside the suite's own send of its event (re-check 10g, equal views)
+file:scenarios/frag.scenario.ts hash:e4815faef358 | D174: FRAG-23, the equal-view cases
+file:main.ts hash:1d8e3a2964b8 | D173: RECIPIENTS prints ambiguity (must be 0), runs paid by the suite's sends, and the left-over count
+file:falsify.ts hash:8241113b88c4 | D175: the stage G re-check's lies q3.dup-other, q3.dup-copy, q1.wa-eq-any, and q5.send-stolen in --part lies
+file:drive.ts hash:7916e2f590ce | D173: conservation, each observed handler run paid once by an expected delivery or a send of the suite's; identity by a suite serial in every incarnation's memory; memory-equality placement deleted
+output:FRAG-23/an-ending-beside-the-suites-own-send-of-its-event-to-another-actor hash:e6507111c4d7 | D174: its output, new (the send-stolen case)
+output:FRAG-23/equal-memory-actors-in-one-state-an-ending-reaches-one hash:36a0137d4d1f | D174: its output, new (equal actors, one state)
+output:FRAG-23/equal-memory-actors-in-two-states-an-ending-reaches-the-live-one hash:948be704d755 | D174: its output, new (equal actors, two states)
+output:FRAG-23/two-equal-copies-in-two-actors-an-ending-reaches-one hash:36dfc154d0f6 | D174: its output, new (two equal copies)

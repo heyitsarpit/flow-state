@@ -297,7 +297,20 @@ try {
       ["e5.at-intent-fail-3", "the copy: the same, with 3+ copies", [["turn.ts", RUNT, `runTurn(tx, a, item.attempt && ${FAIL} && ${FAN3} ? ${FIRSTPATH} : path, ev, start, late, item);`]], "(j) delivered to the wrong recipient"],
       ["g.decline-letgo-other-actor", "a parked decline let go on another actor's turn", [["turn.ts", WALK, LETGO_OTHERS]], "(j) parked, and no wait says so"],
     ];
-    const ALL = [...LIES, ...LIES10D, ...LIES10F, ...LIES10G];
+    // Stage H: the stage G re-check's lies (`conformance-audit/re-check-round-10g.md`), as it wrote them, and the stolen send it reasoned about.
+    // An ending that ALSO runs in another actor or copy (one `delivered` said), in an actor whose memory equals the owner's, or in an actor
+    // the suite itself sent work to in the same batch. Each is red by conservation: a handler run nothing accounts for.
+    const ACTORS = "(tx.w.actors as any).flat().filter(Boolean).flatMap((b: any) => Object.values(b))";
+    const WAX = (when: string, cond: string) => `const a0 = getActor(tx.w.actors, item.actor); const other = a0 && item.attempt && ${when} ? ${ACTORS}.find((x: any) => x.machine === a0.machine && x.key !== a0.key && ${cond}) : undefined; const a = other ?? a0; const lane = tx.w.lanes[laneId];`;
+    const DUPFIND = "if (!path) return parkEnding(tx, item, lane, subject, a.machine); deliver(tx, a, path, item);";
+    const MEMEQ = "JSON.stringify(x.root.memory) === JSON.stringify(a0.root.memory)";
+    const LIES10H: ReadonlyArray<readonly [string, string, Edits, string]> = [
+      ["q3.dup-other", "an ending runs in its owner and again in another live actor (H1⁵)", [["turn.ts", DUPFIND, `${DUPFIND} { const o = item.attempt ? ${ACTORS}.find((x: any) => x.machine === a.machine && x.key !== a.key) : undefined; const p2 = o && bindingOf(tx, o, item.op, subject); if (o && p2) deliver(tx, o, p2, { ...item, redelivered: true, kept: false } as any); }`]], "(j) a handler run nothing accounts for"],
+      ["q3.dup-copy", "an ending runs in its copy and again in another copy (H1⁵)", [["turn.ts", RUNT, `${RUNT} { let s: any; if (item.attempt && path.length > 0) { const t = kidAt(a.root, path); walkIncs(a.root, (i: any, p: any) => { if (t && p.length > 0 && !samePath(p, path) && i.frag === t.frag && !i.frozen) s ??= p; }); } if (s) { const a2 = getActor(tx.w.actors, item.actor); if (a2 && kidAt(a2.root, s)) runTurn(tx, a2, s, ev, start, late, item); } }`]], "(j) a handler run nothing accounts for"],
+      ["q1.wa-eq-any", "an ending runs in another actor whose memory equals the owner's (equal views)", [["turn.ts", G125, WAX("true", MEMEQ)]], "(j) delivered to the wrong recipient"],
+      ["q5.send-stolen", "an ending runs in another actor the suite sent mail to in the same batch", [["turn.ts", G125, WAX("true", '[...tx.w.mail].some((m: any) => m.k === "send" && m.actor === x.key)')]], "(j) delivered to the wrong recipient"],
+    ];
+    const ALL = [...LIES, ...LIES10D, ...LIES10F, ...LIES10G, ...LIES10H];
     // `--slice i/n`: the i-th of n parts (each fits a 5-minute command).
     const sl = process.argv.indexOf("--slice");
     const [si, sn] = sl < 0 ? [1, 1] : process.argv[sl + 1]!.split("/").map(Number) as [number, number];

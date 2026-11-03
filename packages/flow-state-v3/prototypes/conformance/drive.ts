@@ -8,7 +8,12 @@ import { machineOfKey, Reference } from "./reference/model.ts";
 import type { FaultState, Harness, Instance, Port, Step } from "./harness.ts";
 
 // Stage G: how each delivery's recipient was settled, over the whole run (printed by `main.ts`). `unobserved` is allowance A2's remainder.
-export const recipients = { observed: 0, indistinct: 0, unobserved: 0, unplaceable: 0, noCopy: 0, atBoot: 0 };
+// Stage H: `ambiguous` (a view with no suite identity, or one no incarnation publishes) must be 0; `bySend` are runs paid by the suite's own sends.
+export const recipients = { observed: 0, ambiguous: 0, unobserved: 0, unplaceable: 0, noCopy: 0, atBoot: 0, bySend: 0, leftover: 0 };
+// Stage H: the suite's identity of an incarnation. Minted once per memory the compiled data makes; never in any published text.
+const WHO = Symbol("flow-suite incarnation");
+let serials = 0;
+const tag = (m: any) => (m !== null && typeof m === "object" && !Array.isArray(m) && Object.getPrototypeOf(m) === Object.prototype ? { ...m, [WHO]: ++serials } : m);
 export const rowKey =(op: string, key: unknown) => `${op}|${JSON.stringify(key)}`;
 // D137: the id is escaped, so `M` + `x/y` and `M/x` + `y` are two actors. The last `/` always ends the machine.
 // `|` too: a lane's id starts with its actor's key and a `|`, so an id holding one would name another actor's lane.
@@ -129,7 +134,17 @@ export const makeHarness = (port: Port) => (): Harness => {
   const drivenTo = new Map<string, Map<string, Set<string>>>(); // actor -> event -> what drove it ("" for a send, an op for its answer)
   const known = new Set<string>(); // every actor the suite addressed: their published state is read after each batch
   const drivenPath = new Map<string, Map<string, Set<string>>>(); // actor -> event -> the copy paths it was sent to ("" for the root)
+  // Stage H, conservation: what the suite itself sent, by recipient. Each send pays at most one handler run of its event in that recipient
+  // (a refused turn's retry, one more); a timer pays any number (an `advance` may fire it often). Kept across `do`s, cleared at a kill.
+  let credits: Array<{ actor: string; ev: string; path: readonly string[] | null; n: number }> = [];
+  const credit = (actor: string, ev: string, path: readonly string[] | null, n = 1) => {
+    const c = credits.find((x) => x.actor === actor && x.ev === ev && (x.path === null ? path === null : path !== null && samePath(x.path, path)));
+    if (c) c.n += n;
+    else credits.push({ actor, ev, path, n });
+  };
   const drive = (actor: string, ev: string, from = "", to?: readonly string[]) => {
+    if (from === "") credit(actor, ev, to ?? []);
+    if (from === "timer") credit(actor, ev, null, Infinity);
     known.add(actor);
     const m = drivenTo.get(actor) ?? drivenTo.set(actor, new Map()).get(actor)!;
     (m.get(ev) ?? m.set(ev, new Set()).get(ev)!).add(from);
@@ -197,7 +212,11 @@ export const makeHarness = (port: Port) => (): Harness => {
   // `Reference.copies`) whose published memory is that view. A delivery is then paired with its own observation, in order, by the events
   // the compiled data maps its op to. Nothing the runtime says about the delivery (`at`, a `turn`'s actor) is in that loop.
   type Who = { actor: string; life: number; path: string[] };
-  let ears: Array<{ ev: string; who: Who[]; boot: boolean }> = [];
+  // Stage H (re-check 10g: equal views): identity is the suite's own, not a view's likeness. Every incarnation's memory, root or copy,
+  // carries a serial the suite mints where the memory is made (the compiled `memory.initial`, and `memory.restore` at a boot). A symbol
+  // key: no canon, JSON, disk, hash or output sees it, and a patch (`{ ...memory, ...patch }`) keeps it. Two views never share one.
+  type Ear = { ev: string; machine: string; node: string; frag: string | undefined; serial: number | undefined; who: Who | undefined; boot: boolean };
+  let ears: Ear[] = [];
   const seenViews = new WeakSet<object>();
   const innerOf = (actor: string) => (p: readonly string[]) => {
     try {
@@ -206,53 +225,40 @@ export const makeHarness = (port: Port) => (): Harness => {
       return undefined;
     }
   };
-  // Structural equality of two published views, exiting at the first difference (a view is plain data: D143's values).
-  const same = (a: any, b: any): boolean => {
-    if (a === b) return true;
-    if (typeof a !== typeof b || a === null || b === null || typeof a !== "object") return typeof a === "number" && Number.isNaN(a) && Number.isNaN(b);
-    if (Array.isArray(a) !== Array.isArray(b)) return false;
-    if (Object.getPrototypeOf(a) !== Object.getPrototypeOf(b)) return false;
-    if (Object.getPrototypeOf(a) !== Object.prototype && !Array.isArray(a)) return canonText(a) === canonText(b);
-    const ka = Object.keys(a).filter((k) => a[k] !== undefined);
-    const kb = Object.keys(b).filter((k) => b[k] !== undefined);
-    return ka.length === kb.length && ka.every((k) => Object.prototype.hasOwnProperty.call(b, k) && same(a[k], b[k]));
-  };
-  const placeView = (machine: string, g: any): Who[] => {
-    if (g?.memory === undefined) return [];
-    const key = g?.key === undefined ? undefined : String(g.key);
-    const out: Who[] = [];
-    const m = refm().machine(machine);
-    const frags = Object.keys(m?.fragments ?? {});
+  const whereOf = new Map<number, { actor: string; path: string[] }>(); // serial -> the incarnation that publishes it, by the suite's reads
+  const scanIds = () => {
     for (const actor of new Set([...known, ...attemptActor.values()])) {
-      if (machineOf(actor) !== machine) continue;
-      const life = lifeOf.get(actor) ?? 0;
       const mem = memoryOf(actor);
       if (mem === undefined) continue;
-      if (key === undefined && same(mem, g.memory)) out.push({ actor, life, path: [] });
-      if (frags.length === 0) continue;
+      if (typeof mem[WHO] === "number") whereOf.set(mem[WHO], { actor, path: [] });
+      const m = refm().machine(machineOf(actor));
       const leaf = leafOf(actor);
-      for (const f of frags)
-        for (const c of refm().copies(machine, f, leaf, mem, innerOf(actor))) {
-          const last = c.path.at(-1)!;
-          const k = last.includes(":") ? last.slice(last.indexOf(":") + 1) : undefined;
-          if (k === key && same(innerOf(actor)(c.path)?.memory, g.memory)) out.push({ actor, life, path: c.path });
+      for (const f of Object.keys(m?.fragments ?? {}))
+        for (const c of refm().copies(m!.id, f, leaf, mem, innerOf(actor))) {
+          const s = innerOf(actor)(c.path)?.memory?.[WHO];
+          if (typeof s === "number") whereOf.set(s, { actor, path: c.path });
         }
     }
-    return out;
   };
-  // A boot delivers restored endings before `port.boot` returns, so the new instance cannot be read yet. There the suite places a view
-  // by what each actor published before the kill (the root's memory; a keyed copy's view at boot is a stated reason, not a placement).
-  let booting = false;
-  const placeAtBoot = (machine: string, g: any): Who[] => {
-    if (g?.key !== undefined || g?.memory === undefined) return [];
-    const want = canonText(g.memory);
-    const out: Who[] = [];
-    for (const actor of new Set([...known, ...attemptActor.values()])) {
-      const p = published.get(actor);
-      if (machineOf(actor) === machine && p !== undefined && (JSON.parse(p) as [string, string])[1] === want) out.push({ actor, life: lifeOf.get(actor) ?? 0, path: [] });
+  const resolve = (s: number): Who | undefined => {
+    if (!whereOf.has(s)) scanIds();
+    const w = whereOf.get(s);
+    return w && { actor: w.actor, life: lifeOf.get(w.actor) ?? 0, path: w.path };
+  };
+  // The ear sits on one node, so it names the recipient's state too: that node is its published leaf or an ancestor of it.
+  const inState = (c: any, frag: string | undefined, node: string, who: Who) => {
+    if ((frag === undefined) !== (who.path.length === 0)) return false;
+    const nodes = frag === undefined ? c.nodes : c.fragments?.[frag]?.nodes;
+    let leaf = who.path.length === 0 ? leafOf(who.actor) : innerOf(who.actor)(who.path)?.state;
+    for (let i = 0; leaf !== undefined && i < 64; i++) {
+      if (leaf === node) return true;
+      leaf = nodes?.[leaf]?.parent;
     }
-    return out;
+    return false;
   };
+  const say = (w: Who) => `${w.actor} life ${w.life} [${w.path.join(" / ")}]`;
+  // A boot delivers restored endings before `port.boot` returns, so the new instance cannot be read yet: a boot's views are counted, not placed.
+  let booting = false;
   const listen = (c: any): any => {
     const evs = new Set(Object.keys(c.ops ?? {}).flatMap((op) => {
       const o = c.ops[op];
@@ -265,18 +271,48 @@ export const makeHarness = (port: Port) => (): Harness => {
       else add(u);
       return out;
     }));
-    const ear = (ev: string, at: any) => ({
+    const ear = (ev: string, at: any, node: string, frag: string | undefined) => ({
       at: { definition: at?.definition ?? c.id, path: `${at?.path ?? ""}#heard` },
       run: (g: any) => {
         if (replaying || g === null || typeof g !== "object" || seenViews.has(g)) return true;
         seenViews.add(g); // one walk, one view: the alternatives after the first see the same object
-        ears.push({ ev, who: booting ? placeAtBoot(c.id, g) : placeView(c.id, g), boot: booting });
+        const serial = typeof g.memory?.[WHO] === "number" ? (g.memory[WHO] as number) : undefined;
+        const who = booting || serial === undefined ? undefined : resolve(serial);
+        if (who && !inState(c, frag, node, who)) missing.push(`(j) a handler of ${ev} ran at ${frag ?? c.id}.${node}, a state its recipient ${say(who)} does not publish`);
+        ears.push({ ev, machine: c.id, node, frag, serial, who, boot: booting });
         return true;
       },
     });
-    const nodes = (ns: Record<string, any>) =>
-      Object.fromEntries(Object.entries(ns ?? {}).map(([id, n]) => [id, n.on ? { ...n, on: Object.fromEntries(Object.entries(n.on).map(([ev, alts]) => [ev, evs.has(ev) ? (alts as any[]).map((alt) => ({ ...alt, guards: [ear(ev, alt.at), ...(alt.guards ?? [])] })) : alts])) } : n]));
-    return { ...c, nodes: nodes(c.nodes), ...(c.fragments ? { fragments: Object.fromEntries(Object.entries(c.fragments).map(([id, f]: [string, any]) => [id, { ...f, nodes: nodes(f.nodes) }])) } : {}) };
+    // A follow-up is the compiled data's own mail, seen by the suite as its Slot returns it: it pays one run of its event in the actor
+    // whose turn made it (any copy of that actor's: the follow-up's own `to` is the runtime's to route).
+    const follow = (alt: any) =>
+      alt.followUps
+        ? {
+            followUps: alt.followUps.map((f: any) => ({
+              ...f,
+              run: (a: any) => {
+                const ev = f.run(a);
+                const s = a?.memory?.[WHO];
+                const who = !replaying && typeof s === "number" ? resolve(s) : undefined;
+                if (who && typeof ev?.tag === "string") credit(who.actor, ev.tag, null);
+                return ev;
+              },
+            })),
+          }
+        : {};
+    const nodes = (ns: Record<string, any>, frag?: string) =>
+      Object.fromEntries(Object.entries(ns ?? {}).map(([id, n]) => [id, n.on ? { ...n, on: Object.fromEntries(Object.entries(n.on).map(([ev, alts]) => [ev, (alts as any[]).map((alt) => ({ ...alt, ...follow(alt), ...(evs.has(ev) ? { guards: [ear(ev, alt.at, id, frag), ...(alt.guards ?? [])] } : {}) }))])) } : n]));
+    const tagged = (mem: any, where: string) => ({
+      ...mem,
+      initial: { ...mem.initial, run: (i: unknown) => tag(mem.initial.run(i)) },
+      restore: mem.restore ? { ...mem.restore, run: (s: unknown) => tag(mem.restore.run(s)) } : { at: { definition: where, path: "memory#restore" }, run: (s: unknown) => tag(s) },
+    });
+    return {
+      ...c,
+      memory: tagged(c.memory, c.id),
+      nodes: nodes(c.nodes),
+      ...(c.fragments ? { fragments: Object.fromEntries(Object.entries(c.fragments).map(([id, f]: [string, any]) => [id, { ...f, memory: tagged(f.memory, id), nodes: nodes(f.nodes, id) }])) } : {}),
+    };
   };
   const ended = new Set<string>(); // attempts with an `ending` said
   const openAttempts = (op?: string) => [...attemptActor].filter(([a]) => !ended.has(a) && (op === undefined || madeOp.get(a) === op));
@@ -331,7 +367,8 @@ export const makeHarness = (port: Port) => (): Harness => {
   };
   const ledger = (e: readonly Record<string, any>[]) => {
     unpaid = [];
-    const heardNow = ears.map((o) => ({ ...o, used: false }));
+    // Stage H: a view made in this batch is published only now; place what the ear could not.
+    const heardNow = ears.map((o) => ({ ...o, who: o.who ?? (o.boot || o.serial === undefined ? undefined : resolve(o.serial)), used: false }));
     ears = [];
     // Attribution: a mint or an invoke belongs to the turn before it in the step, or, if none came before, the turn after it.
     let turnActor: string | undefined;
@@ -452,6 +489,7 @@ export const makeHarness = (port: Port) => (): Harness => {
       }
     // Review M5: `delivered` is the runtime's word. It pays only if the same step shows the machine took it: a turn, a denial, an unhandled, or a refusal. Otherwise the debt stays.
     const heard = e.some((x) => x["kind"] === "turn" || x["kind"] === "Denied" || x["kind"] === "Unhandled" || x["kind"] === "refused");
+    const wanted: Array<{ op: string; att: string; evs: readonly string[]; want: Who; copied: boolean }> = []; // expected deliveries no run of their recipient answered
     for (const x of e) {
       const k = ledgerKey(x);
       switch (x["kind"]) {
@@ -466,28 +504,31 @@ export const makeHarness = (port: Port) => (): Harness => {
           const att = x["attempt"] ? String(x["attempt"]) : undefined;
           const op = String(x["op"]);
           const owner = att === undefined ? undefined : attemptActor.get(att);
-          const evs = owner === undefined ? [] : refm().mappedEvents(machineOf(owner), op);
-          const ob = evs.length === 0 ? undefined : heardNow.find((o) => !o.used && evs.includes(o.ev));
+          // A decline (no attempt) is owed the actor, and copy, whose turn declined it, as the suite placed that turn.
+          const dc = att === undefined ? declineCopy.get(op) : undefined;
+          const evs = owner !== undefined ? refm().mappedEvents(machineOf(owner), op) : dc ? refm().mappedEvents(machineOf(dc.actor), op) : [...new Set(compiled.flatMap((c) => (c.ops as any)[op] ? refm().mappedEvents(c.id, op) : []))];
+          // Stage H: the expected recipient is total (owner, its current life, the copy recorded from what the suite drove; a copy made
+          // before this boot is not recorded, so actor and life only). A delivery takes the one observation of THAT recipient; a run
+          // anywhere else is left over, and the conservation check below names it.
+          const checked = att !== undefined && owner !== undefined && !ledgerOff && refm().machine(machineOf(owner))?.ops[op] !== undefined;
+          const copy = att === undefined ? undefined : attemptCopy.get(att);
+          const want: Who | undefined = checked ? { actor: owner!, life: lifeOf.get(owner!) ?? 0, path: copy?.path ?? [] } : undefined;
+          const fits = (o: (typeof heardNow)[number]) =>
+            o.boot ||
+            (dc ? o.who !== undefined && o.who.actor === dc.actor && (!dc.copy || samePath(o.who.path, dc.copy.path)) : !want || (o.who !== undefined && o.who.actor === want.actor && o.who.life === want.life && (!copy || samePath(o.who.path, want.path))));
+          const ob = evs.length === 0 ? undefined : heardNow.find((o) => !o.used && evs.includes(o.ev) && fits(o));
           if (ob) ob.used = true;
-          if (att !== undefined && owner !== undefined && !ledgerOff && refm().machine(machineOf(owner))?.ops[op]) {
-            const copy = attemptCopy.get(att);
-            const want: Who | undefined = copy ? { actor: owner, life: lifeOf.get(owner) ?? 0, path: copy.path } : undefined;
-            const say = (w: Who) => `${w.actor} life ${w.life} [${w.path.join(" / ")}]`;
+          if (checked) {
             if (copy === null) {
               unplaced++;
               missing.push(`(j) delivered, and the suite could not decide its copy from what it drove: ${op} ${att} of ${owner}`);
-            } else if (!ob) recipients.unobserved++;
-            else if (ob.who.length === 0 && ob.boot) recipients.atBoot++; // stated: the booting runtime is not readable, and no pre-kill view matches
-            else if (ob.who.length === 0) {
-              // The view matches nothing published: a copy or actor the suite does not know of. The runtime ran it somewhere.
-              recipients.unplaceable++;
-              missing.push(`(j) delivered into a view no actor or copy the suite drove publishes: ${op} ${att}; the suite expects ${want ? say(want) : owner}`);
-            } else {
-              const hit = ob.who.filter((w) => w.actor === owner && w.life === (lifeOf.get(owner) ?? 0) && (!want || samePath(w.path, want.path)));
-              if (hit.length === 0) missing.push(`(j) delivered to the wrong recipient: ${op} ${att} ran in ${ob.who.map(say).join(" or ")}; the suite expects ${want ? say(want) : `${owner} (copy not recorded: made before this boot)`}`);
-              else if (ob.who.length > 1) recipients.indistinct++;
-              else recipients.observed++;
-              if (!want) recipients.noCopy++;
+            } else if (!ob) {
+              recipients.unobserved++;
+              wanted.push({ op, att: att!, evs, want: want!, copied: copy !== undefined });
+            } else if (ob.boot) recipients.atBoot++; // stated: the booting runtime is not readable; the count is still conserved below
+            else {
+              recipients.observed++;
+              if (!copy) recipients.noCopy++;
             }
           }
           // An observed delivery is heard by its own observation. Allowance A2, narrowed: one no guard of the suite could see (an event no
@@ -573,6 +614,38 @@ export const makeHarness = (port: Port) => (): Harness => {
           break;
         default:
       }
+    }
+    // Stage H, conservation (re-check 10g, H1⁵): every handler run the suite observed in this batch is accounted for exactly once, by an
+    // expected delivery to that recipient (above) or by a send the suite itself made to it. A run left over is red: an ending that also
+    // ran elsewhere, an ending that ran in the wrong recipient, or one that took a send's place. A refused turn's retry may run once more.
+    for (const x of e)
+      if (x["kind"] === "refused") {
+        const o = heardNow.find((h) => h.used && h.ev === String(x["event"]) && (h.who || h.boot));
+        if (o) credit(o.who?.actor ?? "", o.ev, o.who?.path ?? null); // "": a booting view's retry, counted by event only
+      }
+    for (const o of heardNow) {
+      if (o.used) continue;
+      if (!o.boot && o.serial === undefined) {
+        recipients.ambiguous++;
+        missing.push(`(j) a handler of ${o.ev} ran on a view with no suite identity (${o.machine}.${o.node})`);
+        continue;
+      }
+      if (!o.boot && !o.who) {
+        recipients.unplaceable++;
+        missing.push(`(j) a handler of ${o.ev} ran in an incarnation no actor or copy the suite drove publishes (${o.machine}.${o.node})`);
+        continue;
+      }
+      const c = credits.find((k) => k.n > 0 && k.ev === o.ev && (o.boot || (k.actor === o.who!.actor && (k.path === null || samePath(k.path, o.who!.path)))));
+      if (c) {
+        c.n--;
+        recipients.bySend++;
+        continue;
+      }
+      if (ledgerOff || runtimeDisposed) continue;
+      recipients.leftover++;
+      const w = wanted.find((d) => d.evs.includes(o.ev));
+      if (w) missing.push(`(j) delivered to the wrong recipient: ${w.op} ${w.att} ran in ${o.who ? say(o.who) : "a booting view"}; the suite expects ${w.copied ? say(w.want) : `${w.want.actor} life ${w.want.life} (copy not recorded: made before this boot)`}`);
+      else missing.push(`(j) a handler run nothing accounts for: ${o.ev} in ${o.who ? say(o.who) : "a booting view"}, with no send of the suite's and no ending owed there`);
     }
   };
   // What the disk holds of a parked ending is owed at this boot. What was only in memory went with the process.
@@ -738,6 +811,7 @@ export const makeHarness = (port: Port) => (): Harness => {
     }
     // D154: what the suite drives, by event, for the ledger's seen causes.
     if ("burst" in s || "send" in s) drive(actorKey((s as any).burst ?? (s as any).send), (s as any).event, "", (s as any).to);
+    if ("burst" in s && s.n > 1) credit(actorKey(s.burst), s.event, [], s.n - 1);
     if ("sendMany" in s) for (const [a, tag] of s.sendMany) drive(actorKey(a), tag);
     // An answer drives the events of its op's mapping to the owners of that op's open attempts, from that op (never a cause for itself).
     if ("answer" in s) for (const [, owner] of openAttempts(s.answer)) for (const ev of refm().mappedEvents(machineOf(owner), s.answer)) drive(owner, ev, s.answer);
@@ -806,6 +880,7 @@ export const makeHarness = (port: Port) => (): Harness => {
       );
     noteLost();
     if (s.wipe || s.tear !== undefined) ledgerOff = true;
+    credits = []; // mail dies with the process: a send not yet run pays nothing after the kill
     owedAtBoot();
     fake.killProcess();
     fake.freezeTimers = false; // D146: a discard of a frozen tab, and the next life is a new page

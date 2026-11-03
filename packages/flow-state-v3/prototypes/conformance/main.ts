@@ -423,6 +423,6 @@ if (import.meta.main) {
     `\nSUMMARY  ${pass}/${results.length} scenario cases pass;${nothing} of the rest, by output alone: ${results.filter((r) => r.ok && r.output).length}; unlogged expectation changes: ${unlogged.join(" ") || "none"}; removed with no log line: ${gone.join(" ") || "none"}; stale lock: ${stale.length}; catalog disagreements: ${disagreements.join("; ") || "none"}`,
   );
   // Stage G: how each delivery's recipient was settled (drive.ts `ears`). After SUMMARY, so a reader of the summary line is unchanged.
-  console.log(`RECIPIENTS  observed ${recipients.observed}; among equal views ${recipients.indistinct}; with no copy recorded ${recipients.noCopy}; unplaceable ${recipients.unplaceable}; at a boot, no pre-kill view matched ${recipients.atBoot}; unobserved (allowance A2) ${recipients.unobserved}`);
+  console.log(`RECIPIENTS  observed ${recipients.observed}; ambiguous ${recipients.ambiguous}; with no copy recorded ${recipients.noCopy}; unplaceable ${recipients.unplaceable}; at a boot, counted not placed ${recipients.atBoot}; unobserved (allowance A2) ${recipients.unobserved}; runs paid by the suite's sends ${recipients.bySend}; left over (red) ${recipients.leftover}`);
   process.exitCode = results.length > 0 && pass === results.length && !unlogged.length && !gone.length && !stale.length && !disagreements.length ? 0 : 1;
 }

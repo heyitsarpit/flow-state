@@ -1038,6 +1038,72 @@ export const fragScenarios: readonly Scenario[] = [
       },
     },
   },
+  // Stage H (re-check 10g, equal views): actors and copies whose published views are EQUAL, the entity shape with identity in the key only.
+  // (j) places a recipient by the suite's own identity of each incarnation, not by its view, so each ending must land in its own.
+  {
+    id: "FRAG-23",
+    kind: "example",
+    fixtures: [feedFixture, notesFixture],
+    actor: { actor: "Feed", id: "a" },
+    cites: ["rule:51", "rule:53", "rule:14"],
+    variants: {
+      "equal-memory-actors-in-one-state-an-ending-reaches-one"(c) {
+        const A = { actor: "Feed", id: "a" };
+        const B = { actor: "Feed", id: "b" };
+        c.ensure(A);
+        c.ensure(B);
+        c.into(["tail"], "Sync", undefined, A);
+        c.into(["tail"], "Sync", undefined, B);
+        c.eq("equal views before", c.inner(["tail"], A)?.memory, c.inner(["tail"], B)?.memory);
+        c.eq("one state", [c.r.state(A), c.r.state(B)], ["LIVE", "LIVE"]);
+        c.answer("catchUp", { ok: {} });
+        c.eq("exactly one tail heard its ending", [c.inner(["tail"], A)?.memory.caught, c.inner(["tail"], B)?.memory.caught].sort(), [0, 1]);
+      },
+      "equal-memory-actors-in-two-states-an-ending-reaches-the-live-one"(c) {
+        const A = { actor: "Feed", id: "a" };
+        const B = { actor: "Feed", id: "b" };
+        c.ensure(A);
+        c.ensure(B);
+        c.to(B, "Away");
+        c.into(["tail"], "Sync", undefined, A);
+        c.eq("equal root memory", c.r.memory(A), c.r.memory(B));
+        c.eq("two states", [c.r.state(A), c.r.state(B)], ["LIVE", "AWAY"]);
+        c.answer("catchUp", { ok: {} });
+        c.eq("a's tail heard it", c.inner(["tail"], A)?.memory.caught, 1);
+        c.to(B, "Live");
+        c.eq("b's tail heard nothing", c.inner(["tail"], B)?.memory.caught, 0);
+      },
+      "two-equal-copies-in-two-actors-an-ending-reaches-one"(c) {
+        const A = { actor: "Notes", id: "a" };
+        const B = { actor: "Notes", id: "b" };
+        for (const a of [A, B]) {
+          c.ensure(a);
+          c.to(a, "SetDocs", docs("d1"));
+          c.into(["docs:d1"], "Edited", { body: "same" }, a);
+          c.ack();
+        }
+        c.eq("equal copy views", c.inner(["docs:d1"], A)?.memory, c.inner(["docs:d1"], B)?.memory);
+        c.answer("save", { lost: true }, { docId: "d1", body: "same" });
+        c.eq("exactly one copy heard its unknown", [c.inner(["docs:d1"], A)?.memory.status, c.inner(["docs:d1"], B)?.memory.status].sort(), ["saving", "unsure"]);
+      },
+      // The suite's own send of an ending's event, to another actor, in the batch the ending lands in: the send pays b's run, never a's.
+      "an-ending-beside-the-suites-own-send-of-its-event-to-another-actor"(c) {
+        const A = { actor: "Notes", id: "a" };
+        const B = { actor: "Notes", id: "b" };
+        for (const a of [A, B]) {
+          c.ensure(a);
+          c.to(a, "SetDocs", docs("d1"));
+          c.into(["docs:d1"], "Edited", { body: a.id }, a);
+          c.ack();
+        }
+        c.h.raw({ send: B, event: "Unsure", payload: { reason: "Lost" }, to: ["docs:d1"] });
+        c.h.raw({ answer: "save", with: { lost: true }, where: { docId: "d1", body: "a" } });
+        c.h.do({ advance: 0 });
+        c.eq("a's copy heard its unknown", c.inner(["docs:d1"], A)?.memory.status, "unsure");
+        c.eq("b's copy took the suite's send", c.inner(["docs:d1"], B)?.memory.status, "unsure");
+      },
+    },
+  },
   // From the second author's survivors, after his number was taken (35/50). They do not change that number.
   {
     id: "FRAG-20",

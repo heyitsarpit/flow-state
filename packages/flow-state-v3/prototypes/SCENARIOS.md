@@ -476,6 +476,7 @@ Convergence-8. Old unbuilt rows (`STORY-ALL`, `BROWSER-*`, `SSR-01`) renumbered 
 | FRAG-20 | 3 | example | table | rule:60, rule:14, rule:15, D15, D21, D46, rule:1, rule:17 |  | a freeze is an ending, not a release; an actor record that does not parse |
 | FRAG-21 | 10 | example | table | rule:51, rule:53 |  | two live copies, a failure on the second reaches only it (D164) |
 | FRAG-22 | 10 | example | table | rule:51, rule:53, rule:14 |  | two actors of one machine, three copies each: each ending reaches its own actor and copy, also beside another copy's turn in one batch (D169) |
+| FRAG-23 | 10 | example | table | rule:51, rule:53, rule:14 |  | equal views: actors with equal memory in one state and in two states, two equal copies, and an ending beside the suite's own send of its event; each lands in its own incarnation (D173, D174) |
 | PAY-20 | 10 | fault | hostile | D145, rule:19 |  | a server as strict as Stripe's: a 500 that landed and replays, a key the server pruned |
 | R10-PINS | 10 | fault | hostile | D123, rule:51 |  | review part two's survivors pinned: a host's cancel and a frozen life's kept ending |
 | R10-RUNTIME | 10 | fault | hostile | D136, D137, D138, D139, D140, D141 |  | the slice's bill, one notify per task, one machine per key, reserved state names, values with no form, a linear burst, a hash of values |

@@ -94,6 +94,7 @@ FRAG-18 340505cc22a8
 FRAG-19 8a1eeb080154
 FRAG-21 9fd008aefa5a
 FRAG-22 ab070bae521b
+FRAG-23 75a76bd85e5d
 FRAG-20 71365391e864
 REV4-H1 d22230626e38
 REV4-H2 b392b6ba7ad9
@@ -360,6 +361,10 @@ variant:FRAG-21/a-failure-on-the-second-copy-reaches-only-it present
 variant:FRAG-21/a-keyed-failure-and-sends-in-one-tick present
 variant:FRAG-22/two-actors-three-copies-each-ending-reaches-its-own present
 variant:FRAG-22/keyed-failure-beside-another-copys-turn-in-one-batch present
+variant:FRAG-23/equal-memory-actors-in-one-state-an-ending-reaches-one present
+variant:FRAG-23/equal-memory-actors-in-two-states-an-ending-reaches-the-live-one present
+variant:FRAG-23/two-equal-copies-in-two-actors-an-ending-reaches-one present
+variant:FRAG-23/an-ending-beside-the-suites-own-send-of-its-event-to-another-actor present
 variant:FRAG-20/release-only-the-ending-subject present
 variant:FRAG-20/a-commit-in-a-copy-the-same-turn-removes-is-marked present
 variant:FRAG-20/actor-record-does-not-parse present
@@ -853,7 +858,7 @@ variant:R10-AUDIT-ENDINGS/a-failure-beside-another-actors-mail-is-heard present
 variant:R10-AUDIT-ENDINGS/a-failure-beside-one-send-is-heard present
 file:scenarios/ctx.ts 041466da4ebc
 file:scenarios/flows.scenario.ts 609988df9d0b
-file:scenarios/frag.scenario.ts f7c42305394b
+file:scenarios/frag.scenario.ts e4815faef358
 file:scenarios/order.scenario.ts 808eaa809f06
 file:scenarios/pay.scenario.ts ab1e3ac509a9
 file:scenarios/review.scenario.ts 973830d14300
@@ -912,9 +917,9 @@ file:bench/main.ts 7c2e411b7451
 file:bench/s4-page.ts 4d9780fd71ee
 file:bench/s4-run.ts 78b684022f52
 file:reference/model.ts f2d10ce05bca
-file:main.ts 52265018ac80
+file:main.ts 1d8e3a2964b8
 file:output.ts 0b15041b194e
-file:falsify.ts 8838a1c71e1a
+file:falsify.ts 8241113b88c4
 file:broken-adapter.ts a255b41105c6
 file:null-adapter.ts 295792b7b6be
 file:report.ts 7e305fd3110b
@@ -924,7 +929,7 @@ file:gate-5s-expected.txt 7995923439b2
 file:mutate.ts bd0623c0a5c3
 file:mutate-one.ts 14f130df7310
 file:harness.ts daf1e0674f88
-file:drive.ts e67a14876b08
+file:drive.ts 7916e2f590ce
 file:fake-world.ts 683d3534c270
 round:cli/broken.ts 10d0ce602315
 round:cli/check.ts 9b5b5f6c07d4
@@ -1059,6 +1064,10 @@ output:FRAG-21/a-failure-on-the-second-copy-reaches-only-it e76f56270b2d
 output:FRAG-21/a-keyed-failure-and-sends-in-one-tick 7d4a76513d69
 output:FRAG-22/keyed-failure-beside-another-copys-turn-in-one-batch bf525cd4c2e3
 output:FRAG-22/two-actors-three-copies-each-ending-reaches-its-own d51e502cf025
+output:FRAG-23/an-ending-beside-the-suites-own-send-of-its-event-to-another-actor e6507111c4d7
+output:FRAG-23/equal-memory-actors-in-one-state-an-ending-reaches-one 36a0137d4d1f
+output:FRAG-23/equal-memory-actors-in-two-states-an-ending-reaches-the-live-one 948be704d755
+output:FRAG-23/two-equal-copies-in-two-actors-an-ending-reaches-one 36dfc154d0f6
 output:HIGH-01/pay-told-not-charged 02b546ae0dde
 output:HIGH-01/retry-then-cancel-releases bfb328e45e36
 output:HIGH-01/retry-then-commit-queues-behind e3d23b3ef219
