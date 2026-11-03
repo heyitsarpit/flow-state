@@ -36,9 +36,9 @@ See `round-8/RESULTS.md`. Left from it, for later: `input` through its Schema wi
 Arpit's condition: each remaining prototype step must directly inform production work. This supersedes the numbered steps below where they differ, which stay as prior art.
 
 1. **Test gate passes:** round 10, stage F and its re-check.
-2. **Typed suite through JSON,** with a code table (Arpit, 2026-11-03: this goes before entities).
-3. **Entity store proven on the runtime,** from `round-9/entity-proposal-2.md`, test first. `listen.load` and `fragstore.row` must pass. **No TanStack DB integration** (Arpit, 2026-11-03).
-4. **Compile prototypes** for machine, fragment and operations from the public API, with the suite passing on compiled output. Entity and outside world thin: one real fetch or SDK path each.
+2. **Typed suite on the emitted module,** before entities (Arpit, 2026-11-03). The codec strategy is in `codec/RESULTS.md` (2026-11-04, proposed): `Compiled` is a generated TypeScript module with Slots as imports, a `Compiled` Schema is the contract, and records stay JSON strings. This replaces "through JSON with a code table".
+3. **Compile prototypes** for machine, fragment and operations from the public API, with the suite passing on compiled output (Arpit, 2026-11-04: moved ahead of entities).
+4. **Entity store proven on the runtime,** from `round-9/entity-proposal-2.md`, test first. `listen.load` and `fragstore.row` must pass. **No TanStack DB integration** (Arpit, 2026-11-03). Its compile stays thin, and so does the outside world's: one real fetch or SDK path each.
 5. **"For Arpit's read".**
 
 - **Safari:** one short run of the edge's store contract on macOS Safari, now that `safaridriver` is enabled: atomic batches, issue order, quota errors, a lost connection, bfcache with the lock. It informs production's host adapter. It runs after step 1, by one agent, and is not a gate. Phones and iOS are production tasks.
