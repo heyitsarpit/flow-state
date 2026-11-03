@@ -44,6 +44,22 @@ Five audits and a review found the suite much weaker than it read: 394 of 703 ca
 - **D148** bfcache: the lock is held while live, released into the cache, and a return reloads. **Verified in Chrome**, with a red control.
 - Pins: `letgo-takes-all`; FRAG-08's vacuous check (now counts the re-send); M4 (chain sends to both actors with no settle); M5 (`delivered` pays only with a turn or a named issue); (p) as a probe (the plant `noMerge` now dies at depth 2); A07 (rule 12: every issue has an origin, except three stated codes); A02 (whole output).
 
+## Stage C: the re-audit's findings (`../conformance-audit/re-audit-round-10.md`)
+
+Commit `32c4b7af` and this file's commit. One root cause under H1, H2, M1, M4: a gate took a self-report at its word. Decisions D149-D153, proposed.
+
+| Finding | Fix | Shown by |
+| --- | --- | --- |
+| H1: the ledger trusts `evidenceOnly` | D149: the suite attributes Attempts to an actor's life and decides itself; `KeptLetGo`/`ParkedLetGo` too | `g125.laundered-as-evidence`: 0 named cases before, 2 now (`falsify.ts --part mutants`, `--no-output`) |
+| H2: type pins run by nothing | D149b: `checks/types-check.ts` (`tsc` + pin count), run by `mutate-one.ts`; `typed/` hashed with types | Three tampers in `falsify.ts`: widened refusal red on count and lock; bare refusal red on `tsc`; control green |
+| M1: a run that ran nothing passes | D153: modes declare sections and counters | `--only nothing-here` now `SCORE FAIL`; 11 new cases in `checks/score-check.ts`; bfcache green arm still `SCORE PASS` in Chrome |
+| M4: half the actions dead under a budget | D150: any action run and never moving is vacuous | `checks/search-vacuity-check.ts`; `frag`'s `resend` guarded, moves at depth 6; 14 searches still red on null and constant hash, green on round 10 |
+| M3: timer fence, disposal's read abort | D151: fault `lateCancel`; `R10-AUDIT`, `R10-AUDIT-READS` | Both mutants killed by named cases (`falsify.ts --part mutants`) |
+| M2: disk read by literal key | D152: `Ctx.record`, `Ctx.laneKeys` by codec in ten files | Renamed keys 112 → 73 failing; envelope 30 → 26 (`--no-output`) |
+| L5 | With D153 | bfcache requires `cached:true`, `back:"reload"` |
+
+Not closed: M2's remaining 73/26 (lane helpers that read one lane by full key, `corruptStored` edits, `storage` matches; not marked as pins); L1-L4, L6, L7; `checkMints` still counts `Released`/`Superseded` on the runtime's word; the ledger reads `lane.release.*` cell names as a release's sign.
+
 ## What the new oracles exposed
 
 No new runtime bug in the named paths. Exposed instead: replay limits that hid S11 on kept endings and releases; a case pinning an impossible frozen page; a vacuous FRAG-08; HIGH-03 delivering `Listed`; the real bfcache gap (a link click made the next page a second tab); and four holes in this round's own tools (the token hash, a case passing on null, mutate copying live sources, the `truth` section holding disk bytes).
@@ -73,5 +89,20 @@ Run on `c6ef01c1` and the log line after it, each under `watch.ts` or a time lim
 | `falsify.ts`, all four parts | every gate fails on what it should. Null 0/723; constant hash 61; lying fatal 0; no evidence 36; no waits 176; injected issue 5 (stated); lying replay 2 (stated); junk key 253; 14 searches red on null and on a constant hash, green on round 10, `listen.load` failing as known |
 | `reality/run.ts --only bfcache` | pass with the contract; **fail without it** (next page not the owner) |
 | Mutants | 18/18 killed, above |
+
+Stage C, on `32c4b7af` (code unchanged after it; docs only):
+
+| Gate | Result |
+| --- | --- |
+| Suite, with catalog | 727/727; unlogged none; removed none; stale lock 0; catalog disagreements none; 775 MB, 19 s |
+| `--swap` | 727/727 |
+| 5 s gate | 29 failed, 29 expected; none unexpected or different |
+| CLI pins, typed compare, date check, `checks/` (mailq, score, types, search-vacuity) | all exit 0 |
+| `bench/burst.ts` | 10,000 in 42 ms, 100,000 in 236 ms, ratio 5.6, pass |
+| `falsify.ts`, all five parts | every gate fails on what it should. Null 0/727; constant hash 61; lying fatal 0; no evidence 36; no waits 179; injected issue 5; lying replay 2; junk key 255; 42 search checks ok; 9 tamper checks ok; 3 mutants killed by named oracles |
+| `reality/run.ts --only bfcache` | `SCORE PASS`, `cached:true`, `back:"reload"`; `--only nothing-here` `SCORE FAIL` |
+| Variants, `--no-output` | `diskKeys` 654/727, `envelope` 701/727 |
+
+Not rerun in stage C: the 18 builder mutants through `mutate.ts` (about 20 minutes; the three that matter here are in `falsify.ts`), the other real-browser modes, `nub run verify`, `vp fmt`.
 
 Not run on the final commit: the other real-browser modes (`s3`, `atom`, `crash`, `tabs`, `desk`, `run7`, `h3`, `spin`), which are now scored but cost minutes of Chrome each; `tsc` on `typed/type-tests.ts`; the older mutant lists; `nub run verify`.
