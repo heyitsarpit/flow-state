@@ -47,6 +47,7 @@ export const makeHarness = (port: Port) => (): Harness => {
   let keptNow: Array<{ op: string; attempt: string }> = [];
   let keptNames: Array<{ op: string; attempt: string }> = [];
   let ledgerOff = false; // a disposed runtime, or a disk edited or wiped by the case
+  let runtimeDisposed = false; // the suite's own: it drove a `disposeRuntime` step
   const bump = (m: Map<string, number>, k: string, by = 1) => {
     const n = (m.get(k) ?? 0) + by;
     if (n > 0) m.set(k, n);
@@ -297,7 +298,9 @@ export const makeHarness = (port: Port) => (): Harness => {
           tryAgain.clear();
           break;
         case "DisposeStart":
-          ledgerOff = true;
+          // D158: the ledger turns off only for a dispose the suite drove. Said with none, it is a lie that would excuse every debt.
+          if (runtimeDisposed) ledgerOff = true;
+          else missing.push("(j) DisposeStart, and the suite disposed no runtime");
           break;
         default:
       }
@@ -497,12 +500,17 @@ export const makeHarness = (port: Port) => (): Harness => {
     else if ("storeWide" in s) fake.storeWide = s.storeWide;
     else if ("feed" in s) {
       fake.feedStep(s.feed, s);
-    } else if ("disposeRuntime" in s) inst.disposeRuntime();
+    } else if ("disposeRuntime" in s) {
+      runtimeDisposed = true;
+      inst.disposeRuntime();
+    }
     else throw new Error(`raw: not a plain step: ${Object.keys(s)[0]}`);
   };
   // A kill and the next boot. `do` settles after it; a kill at a yield is already inside a settle.
   const die = (s: Extract<Step, { reload: true }>) => {
     plan = undefined;
+    // D154: a reload the suite drove. What was in flight restores as an ending, which the compiled data maps to events: those count as driven.
+    for (const c of compiled) for (const op of Object.keys(c.ops)) for (const ev of mappedEvents(op)) drivenAny.add(ev);
     if (s.tear !== undefined) fake.tearLast(s.tear);
     if (s.wipe) {
       fake.wipe();
@@ -555,7 +563,7 @@ export const makeHarness = (port: Port) => (): Harness => {
       if (undecided.length === 0) return [];
       const heads = new Set(port.disk.heads(fake.kv)); // D142
       const writes = new Set(compiled.filter((c) => c.persisted).flatMap((c) => Object.values(c.ops).filter((o) => o.kind === "write").map((o) => o.id)));
-      const released = new Set(evidence.filter((e) => e["kind"] === "Released").map((e) => e["attempt"]));
+      const released = new Set(evidence.filter((e) => e["kind"] === "Released" && lettingGo.has(String(e["attempt"]))).map((e) => e["attempt"])); // D158: a release the ledger saw a cause for
       return undecided.filter((key) => {
         const q = fake.requests.find((r) => r.idempotencyKey === key)!;
         return writes.has(q.op) && !heads.has(key) && !released.has(key) && !excused.has(key) && !key.startsWith("business:");
@@ -588,6 +596,7 @@ export const makeHarness = (port: Port) => (): Harness => {
     frozenDrops: () => frozenDrops,
     diskScope: (k) => port.disk.scope(k),
     actorKey: (a) => actorKey(a),
+    releaseSeen: (attempt) => lettingGo.has(attempt),
     quiet: () => ({
       idle: !inst.pending() && !fake.hasWork(),
       fatal: inst.fatal(),

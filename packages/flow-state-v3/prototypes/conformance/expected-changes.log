@@ -586,3 +586,7 @@ round:checks/score-check.ts hash:96fddc8d1c66 | D157, re-check M2': the re-check
 round:checks/types-check.ts hash:bcb3ce3334fe | D156, re-check M1': directives found by comment token and pinned by their words, eight, not a text count of nine
 round:reality/score.ts hash:2a48533cd408 | D157: every mode declares its row counters; cycles above zero; no negative; no undeclared key in a declared mode
 file:falsify.ts hash:4f6f26ab777c | D156: a tamper that turns a directive into a mention, read by its words
+file:scenarios/ctx.ts hash:041466da4ebc | D158: `checkMints` accounts a `Released` only with a cause the ledger saw
+file:falsify.ts hash:72037239a8e0 | D155: two more lies, a `DisposeStart` with no dispose and a settled head said `Released`
+file:harness.ts hash:0e469f632dfd | D158: `Reads.releaseSeen`
+file:drive.ts hash:7f3bb78d87fd | D158: `DisposeStart` turns (j) off only after a driven `disposeRuntime`; (h) takes a `Released` only with a seen cause; a driven reload maps restored endings to events (D154)

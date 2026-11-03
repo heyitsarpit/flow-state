@@ -191,6 +191,7 @@ export type Reads = {
   bodyMismatches(): number; // D145: resends of a key with another body, which the server refused
   frozenDrops(): number; // D146: steps a frozen page could not take
   diskScope(key: string): string | undefined; // D142
+  releaseSeen(attempt: string): boolean; // D158: the ledger saw a cause for this attempt's release (D154)
   actorKey(a: ActorRef): string; // D158: the id the suite names an actor by to the runtime, which `diskScope` answers in. One spelling, the suite's
   quiet(): { idle: boolean; fatal: boolean; waits: readonly Wait[]; spinning?: boolean; frozen?: boolean };
   tasks(): number; // D122: how many tasks the page has had

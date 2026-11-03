@@ -168,7 +168,8 @@ export const checkMints = (r: Reads) => {
   let disposed = false;
   for (const e of r.evidence()) {
     if (e["kind"] === "DisposeStart") disposed = true;
-    if (["ending", "Superseded", "Released", "lostWithProcess"].includes(e["kind"]))
+    // D158: `Released` accounts only with a cause the ledger saw; `Superseded` is held to its own oracle there (D154).
+    if (["ending", "Superseded", "lostWithProcess"].includes(e["kind"]) || (e["kind"] === "Released" && r.releaseSeen(String(e["attempt"]))))
       accounted.add(e["attempt"]);
   }
   if (disposed) return;

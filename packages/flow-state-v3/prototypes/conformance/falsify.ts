@@ -195,6 +195,8 @@ try {
       ["lie.save-released", "Released, keyed rows", [["turn.ts", G125, when('item.ending.ch !== "success" && item.op === "save"', REL)]], "(j)"],
       ["lie.settled-superseded", "Superseded, a settled head", [["lane.ts", "  settleHead(tx, next, final);", '  note(tx, "Superseded", { op: next.op, attempt: next.head?.id }); setLane(tx, next);']], "(j)"],
       ["lie.serialize-as-latest", "Superseded, a serialize queue", [["lane.ts", 'if (policy === "latest") { for (const x of l.w) supersede(tx, a.op, x);', 'if (policy === "latest" || policy === "serialize") { for (const x of l.w) supersede(tx, a.op, x);']], "(j) superseded"],
+      ["lie.dispose-start", "DisposeStart, no dispose", [["turn.ts", G125, other('note(tx, "DisposeStart", {});')]], "(j) DisposeStart"],
+      ["lie.settled-released", "Released, a settled head (checkMints)", [["lane.ts", "  settleHead(tx, next, final);", '  note(tx, "Released", { op: next.op, attempt: next.head?.id }); setLane(tx, next);']], "vanished"],
       ["lie.letgo-all-parked-on-cancel", "ParkedLetGo", [["lane.ts", 'for (const p of l.parked) if (p.kept) note(tx, "KeptLetGo", { op: l.op, attempt: p.attempt ?? "" }); return withParked(tx, l, l.parked.filter((p) => !p.kept));', 'for (const p of l.parked) note(tx, p.kept ? "KeptLetGo" : "ParkedLetGo", { op: l.op, attempt: p.attempt ?? "" }); return withParked(tx, l, []);']], ""],
     ];
     const flex = (find: string) => new RegExp(find.trim().split(/\s+/).map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("\\s*"));
