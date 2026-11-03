@@ -647,3 +647,4 @@ file:drive.ts hash:071e5b126d09 | D180, D181: a boot judged as it happens with t
 round:adapter.ts hash:1e322c7d7e0d | D180: the published reads answer from the last logged step's world until createRuntime returns
 output:FRAG-24/two-copies-reload-each-hears-its-own-restored-unknown hash:2cc22a5760a0 | D182: its output, new (two copies at a boot)
 output:R10-BOOT-STATE/a-row-that-moved-takes-its-current-states-handler hash:d5f717656889 | D182: its output, new (a row moved before the reload)
+file:gate-5s-expected.txt hash:076d1f268376 | D182: R10-BOOT-STATE at D80's 5 s, a move never captured restores the earlier state
