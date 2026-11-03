@@ -576,3 +576,13 @@ output:R10-AUDIT-READS hash:498d8c401132 | new, D134: whole output of the read a
 output:R10-AUDIT/a-stale-timer-under-a-newer-one-is-fenced hash:e7b3faba899a | new, D134: whole output of the timer fence
 file:drive.ts hash:1b225eb54269 | D154, re-check H1' M3': a release, a let-go and a supersede pay only for a cause the suite saw (a dispose, the owner gone or moved, a cancel it drove, a newer attempt); no wildcard
 file:falsify.ts hash:17cf6fd9c34c | D155: a lies part, one lying runtime per self-report the oracles read, each red by its named oracle
+REV9-KEPT hash:50c68b117097 | D158, re-check M4': two "nothing on disk" absences read through the codec (no lane of the actor by kind and scope), not one literal key
+file:scenarios/ctx.ts hash:cfc0121daaef | D158: `record` takes the actor's id from the harness's one spelling; `lanesOf`, an absence through the codec
+file:scenarios/round9.scenario.ts hash:d8c59221b1f4 | D158: REV9-KEPT's two absences through `lanesOf`
+file:search/odd.search.ts hash:042aaf97f4c4 | D158: a corruption is tried only where its match is on disk, since one that matches nothing is now red
+file:harness.ts hash:b4d5b346a791 | D158: `Reads.actorKey`, the suite's one spelling of an actor's id
+file:drive.ts hash:b9d1eba46c04 | D158: `actorKey` read; `corruptStored` matching nothing throws
+round:checks/score-check.ts hash:96fddc8d1c66 | D157, re-check M2': the re-check's score attacks, each red, beside a green per mode
+round:checks/types-check.ts hash:bcb3ce3334fe | D156, re-check M1': directives found by comment token and pinned by their words, eight, not a text count of nine
+round:reality/score.ts hash:2a48533cd408 | D157: every mode declares its row counters; cycles above zero; no negative; no undeclared key in a declared mode
+file:falsify.ts hash:4f6f26ab777c | D156: a tamper that turns a directive into a mention, read by its words

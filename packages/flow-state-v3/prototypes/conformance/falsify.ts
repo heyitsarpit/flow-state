@@ -145,6 +145,11 @@ try {
   edit(join(round, "typed/type-tests.ts"), (s) => s.replace("// @ts-expect-error a key names a field that is not the input's\n", ""));
   const d = await typesCheck();
   say(d.code !== 0 && /tsc exit/.test(d.stdout), "types: a refusal with no directive fails tsc");
+  // Re-check M1', D156: the directive's words moved into a comment that only mentions them, and its refusal widened. The count is kept; the words are not.
+  reset();
+  edit(join(round, "typed/type-tests.ts"), (s) => s.replace(/\/\/ @ts-expect-error a key names a field that is not the input's\n(.*)key: \["b"\],/, '// see the @ts-expect-error notes below\n$1key: ["b"] as any,'));
+  const moved = await typesCheck();
+  say(moved.code !== 0 && /no @ts-expect-error directive pins: a key names/.test(moved.stdout), "types: a directive turned into a mention is red, by its words");
   reset();
   const tc = await typesCheck();
   say(tc.code === 0, "control: the types check is green untampered", tc.code === 0 ? "" : tc.stdout.slice(-300));

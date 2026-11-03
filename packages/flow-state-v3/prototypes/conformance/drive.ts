@@ -587,6 +587,7 @@ export const makeHarness = (port: Port) => (): Harness => {
     bodyMismatches: () => fake.bodyMismatches,
     frozenDrops: () => frozenDrops,
     diskScope: (k) => port.disk.scope(k),
+    actorKey: (a) => actorKey(a),
     quiet: () => ({
       idle: !inst.pending() && !fake.hasWork(),
       fatal: inst.fatal(),
@@ -724,6 +725,8 @@ export const makeHarness = (port: Port) => (): Harness => {
           const hit = [...fake.kv]
             .filter(([k]) => k.includes(f.corruptStored.match))
             .map(([, v]) => v);
+          // Re-check M4', D158: a corruption that edits nothing tests nothing, and would still turn (j) off for the case. Red.
+          if (hit.length === 0) throw new Error(`corruptStored: "${f.corruptStored.match}" matches no stored key`);
           const inHit = evidence
             .filter((e) => e["kind"] === "mint" && hit.some((v) => v.includes(e["attempt"])))
             .map((e) => ({ kind: "lostWithProcess", attempt: e["attempt"] }));

@@ -170,7 +170,7 @@ REV8-WIPE a290ee2493f8
 REV8-PINS a17306b2f126
 REV9-M1 49956b953ecf
 REV9-BURST ba66c1ece0d0
-REV9-KEPT 4b3406d55d9f
+REV9-KEPT 50c68b117097
 REV9-STREAM 3c4a7f9158e9
 REV9-NAMES 0d14853819eb
 REV9-LOOP b3087efbe2a0
@@ -844,7 +844,7 @@ variant:R10-RUNTIME/a-clock-set-back-is-another-state present
 variant:R10-AUDIT/a-stale-timer-under-a-newer-one-is-fenced present
 variant:R10-AUDIT-ENDINGS/a-failure-beside-another-actors-mail-is-heard present
 variant:R10-AUDIT-ENDINGS/a-failure-beside-one-send-is-heard present
-file:scenarios/ctx.ts 2132f08162c9
+file:scenarios/ctx.ts cfc0121daaef
 file:scenarios/flows.scenario.ts 609988df9d0b
 file:scenarios/frag.scenario.ts 99fead9ff111
 file:scenarios/order.scenario.ts 808eaa809f06
@@ -856,7 +856,7 @@ file:scenarios/round5.scenario.ts c89c276b56cb
 file:scenarios/round6.scenario.ts fab49f62d0c7
 file:scenarios/round7.scenario.ts 0435bee1fc7f
 file:scenarios/round8.scenario.ts 73ca63b5c51b
-file:scenarios/round9.scenario.ts 9daf87e6c97d
+file:scenarios/round9.scenario.ts d8c59221b1f4
 file:scenarios/round9b.scenario.ts b11f3d311088
 file:scenarios/store.scenario.ts 139932921f16
 file:scenarios/stream.scenario.ts fae352c5af14
@@ -870,7 +870,7 @@ file:search/frag.search.ts a1cfed2187f3
 file:search/fragstore.search.ts 9f1c76891862
 file:search/like.search.ts 021352ae6112
 file:search/listen.search.ts efa96fafcd36
-file:search/odd.search.ts bf83ac3dddeb
+file:search/odd.search.ts 042aaf97f4c4
 file:search/pay.search.ts fa32b3b0d5c4
 file:search/run.ts a26d48f4195a
 file:search/session.search.ts 963b02dbb1d0
@@ -906,7 +906,7 @@ file:bench/s4-page.ts 4d9780fd71ee
 file:bench/s4-run.ts 78b684022f52
 file:main.ts 1c070060b898
 file:output.ts 0b15041b194e
-file:falsify.ts 17cf6fd9c34c
+file:falsify.ts 4f6f26ab777c
 file:broken-adapter.ts a255b41105c6
 file:null-adapter.ts 295792b7b6be
 file:report.ts 7e305fd3110b
@@ -915,8 +915,8 @@ file:gate5s.ts 9ca8fbc3f284
 file:gate-5s-expected.txt 7995923439b2
 file:mutate.ts bd0623c0a5c3
 file:mutate-one.ts 14f130df7310
-file:harness.ts e89f36ce139e
-file:drive.ts 1b225eb54269
+file:harness.ts b4d5b346a791
+file:drive.ts b9d1eba46c04
 file:fake-world.ts 683d3534c270
 round:cli/broken.ts 10d0ce602315
 round:cli/check.ts 9b5b5f6c07d4
@@ -933,9 +933,9 @@ round:typed/swaps.ts 93aa9b728f96
 round:typed/threeds.typed.ts 13eca5608cb8
 round:typed/type-tests.ts c59a5f992e9e
 round:checks/mailq-check.ts ea7e7b354b07
-round:checks/score-check.ts 64634e0f6ddc
+round:checks/score-check.ts 96fddc8d1c66
 round:checks/search-vacuity-check.ts 64d0d2313347
-round:checks/types-check.ts 2f7bf29f3d05
+round:checks/types-check.ts bcb3ce3334fe
 round:reality/h3-plant.ts 00c84949a985
 round:reality/h3.ts 87ca84205094
 round:reality/idb.ts bcc1040c4f58
@@ -943,7 +943,7 @@ round:reality/page.ts f1e8103ff5c2
 round:reality/real-api.ts bf1458354c12
 round:reality/run.ts 80cfaacdd6ee
 round:reality/run7.ts 345b4b694890
-round:reality/score.ts 4a4fa80a5738
+round:reality/score.ts 2a48533cd408
 round:reality/server.ts 5c2e2c703823
 round:reality/spin-page.ts 02e65021c549
 round:reality/spin.ts aa245e389f65

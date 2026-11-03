@@ -230,7 +230,7 @@ export const round9Scenarios: readonly Scenario[] = [
         c.send("Forget");
         c.eq("no row", c.r.row(K, "save", { id: "a" }), undefined);
         c.eq("no wait", waits(c, "parked").length, 0);
-        c.eq("nothing on disk", lane(c), undefined);
+        c.eq("nothing on disk", c.lanesOf(K), []); // D158: through the codec
         c.send("IfIdle");
         c.eq("idle again", c.mem().presses, 1);
       },
@@ -262,7 +262,7 @@ export const round9Scenarios: readonly Scenario[] = [
         c.answer("save", { ok: { v: "boom" } });
         c.eq("a wait", waits(c, "parked").length, 1);
         c.eq("the row", (c.r.row(K, "save", { id: "a" }) as any)?.undelivered, 1);
-        c.eq("nothing on disk", lane(c), undefined);
+        c.eq("nothing on disk", c.lanesOf(K), []); // D158: through the codec
       },
       // Review's `d108.commit-subject-lost`: a fragment's kept decline reaches its own incarnation.
       "a-fragments-kept-decline-keeps-its-subject"(c0) {

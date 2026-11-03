@@ -202,9 +202,13 @@ export class Ctx {
   }
   // Re-audit M2: what is stored, by the runtime's codec, not by its spelling. A case that names a key pins the format; these do not.
   record(a: ActorRef = this.A): any {
-    const scope = `${a.actor}/${a.id.replaceAll("%", "%25").replaceAll("/", "%2F").replaceAll("|", "%7C")}`;
+    const scope = this.r.actorKey(a); // D158: the suite's one spelling of the actor's id; the codec maps a key to it
     for (const [k, v] of this.r.stored()) if (this.r.diskKind(k) === "actor" && this.r.diskScope(k) === scope) return v;
     return undefined;
+  }
+  // D158, re-check M4': an absence through the codec. No lane of this actor on disk, whatever the format spells its keys.
+  lanesOf(a: ActorRef = this.A): string[] {
+    return this.laneKeys().filter((k) => this.r.diskScope(k) === this.r.actorKey(a));
   }
   laneKeys(): string[] {
     return [...this.r.stored().keys()].filter((k) => this.r.diskKind(k) === "lane");

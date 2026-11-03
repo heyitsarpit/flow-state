@@ -93,6 +93,7 @@ const ACTIONS: readonly Action[] = [
   ...CORRUPTIONS.map(([n, match, f]): Action => ({
     name: `corrupt.${n}`,
     step: { fault: { corruptStored: { match, edit: f } } },
+    on: (h: Harness) => h.read.diskKeys().some((k) => k.includes(match)), // D158: a corruption that matches nothing is red, so it is tried only where it bites
   })),
 ];
 export const searchOdd = (

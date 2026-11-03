@@ -1,5 +1,6 @@
 // Re-audit H2: D91's compile-time pins are a gate. `tsc` on `typed/tsconfig.json`: every `@ts-expect-error` must be an error, and the
-// typed front end must compile. Each directive is counted too, so a pin deleted with its line is seen even when `tsc` stays green.
+// typed front end must compile. Re-check M1', D156: each directive is found as TypeScript finds one, by comment token (a comment that only
+// mentions the words is no directive), and each is pinned by its own text, so "which refusal" is part of the gate, not only "how many".
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 
@@ -15,10 +16,49 @@ const p = Bun.spawnSync([tsc, "-p", join(typed, "tsconfig.json")], { stdin: "ign
 const out = p.stdout.toString() + p.stderr.toString();
 const bad: string[] = [];
 if (p.exitCode !== 0) bad.push(`tsc exit ${p.exitCode}: ${out.split("\n").filter(Boolean).slice(0, 3).join(" | ")}`);
-// The pins this round states. A refusal removed with its directive compiles; this count does not.
-const PINS = 9;
-const n = (readFileSync(join(typed, "type-tests.ts"), "utf8").match(/@ts-expect-error/g) ?? []).length;
-if (n !== PINS) bad.push(`type-tests.ts holds ${n} @ts-expect-error pins, ${PINS} stated`);
+// The pins this round states, by their words. A refusal removed with its directive compiles; a missing text here does not.
+const PINS = [
+  "a key names a field that is not the input's",
+  "`NoSuchTag` is no failure this commit has",
+  "an event with a payload cannot be mapped with no `.from`",
+  "`text` is not on `Saved`",
+  "memory has no `m`",
+  "no such state",
+  "a commit's input is the contract's",
+  "a key is the contract's key fields",
+];
+// What TypeScript itself takes for a directive: a single-line comment token whose text matches its own rule, `^\/\/\/?\s*@ts-expect-error`.
+// The installed TypeScript is 7 (native), with no JS scanner to call, so this is a scanner of comment and string tokens, not a text search:
+// a `//` inside a string, a template or a block comment is no comment, and a comment that only mentions the words is no directive.
+// That each directive is used (its line errors) is `tsc`'s own check above.
+export const directives = (text: string): string[] => {
+  const found: string[] = [];
+  let i = 0;
+  const n = text.length;
+  while (i < n) {
+    const c = text[i]!;
+    const d = text[i + 1];
+    if (c === "/" && d === "/") {
+      const end = text.indexOf("\n", i);
+      const tok = text.slice(i, end < 0 ? n : end);
+      const m = /^\/\/\/?\s*@ts-expect-error\b\s*(.*)$/.exec(tok);
+      if (m) found.push(m[1]!.trim());
+      i = end < 0 ? n : end;
+    } else if (c === "/" && d === "*") {
+      const end = text.indexOf("*/", i + 2);
+      i = end < 0 ? n : end + 2;
+    } else if (c === '"' || c === "'" || c === "`") {
+      i++;
+      while (i < n && text[i] !== c) i += text[i] === "\\" ? 2 : 1; // a template's `${}` holds no directive in this file; stated
+      i++;
+    } else i++;
+  }
+  return found;
+};
+const got = directives(readFileSync(join(typed, "type-tests.ts"), "utf8"));
+for (const want of PINS) if (!got.includes(want)) bad.push(`no @ts-expect-error directive pins: ${want}`);
+for (const g of got) if (!PINS.includes(g)) bad.push(`a directive this check does not state: ${g || "(no words)"}`);
+if (got.length !== PINS.length) bad.push(`type-tests.ts holds ${got.length} directives, ${PINS.length} stated`);
 for (const b of bad) console.log(`FAIL  types: ${b}`);
-console.log(bad.length ? "TYPES FAIL" : `TYPES PASS  tsc clean, ${n} pins`);
+console.log(bad.length ? "TYPES FAIL" : `TYPES PASS  tsc clean, ${got.length} directives, each by its words`);
 process.exit(bad.length ? 1 : 0);
