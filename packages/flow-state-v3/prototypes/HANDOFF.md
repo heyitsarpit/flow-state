@@ -36,9 +36,10 @@ See `round-8/RESULTS.md`. Left from it, for later: `input` through its Schema wi
 Arpit's condition: each remaining prototype step must directly inform production work. This supersedes the numbered steps below where they differ, which stay as prior art.
 
 1. **Test gate passes:** round 10, stage F and its re-check.
-2. **Entity store proven on the runtime,** from `round-9/entity-proposal-2.md`, test first. `listen.load` and `fragstore.row` must pass. Plus one thin real TanStack DB path, as a test of the seam.
-3. **`Compiled` settled by compiling:** the typed suite through JSON with a code table, then compile prototypes for machine, fragment and operations from the public API, with the suite passing on compiled output. Entity and outside world thin: one real fetch or SDK path each.
-4. **"For Arpit's read".**
+2. **Typed suite through JSON,** with a code table (Arpit, 2026-11-03: this goes before entities).
+3. **Entity store proven on the runtime,** from `round-9/entity-proposal-2.md`, test first. `listen.load` and `fragstore.row` must pass. **No TanStack DB integration** (Arpit, 2026-11-03).
+4. **Compile prototypes** for machine, fragment and operations from the public API, with the suite passing on compiled output. Entity and outside world thin: one real fetch or SDK path each.
+5. **"For Arpit's read".**
 
 - **Safari:** one short run of the edge's store contract on macOS Safari, now that `safaridriver` is enabled: atomic batches, issue order, quota errors, a lost connection, bfcache with the lock. It informs production's host adapter. It runs after step 1, by one agent, and is not a gate. Phones and iOS are production tasks.
 - **Moved to production:** the sweep of old findings (step 10), performance budgets, typing streams beyond what compile needs, and a full TanStack DB integration.
