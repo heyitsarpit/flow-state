@@ -61,14 +61,13 @@ export const waitsOf = (w: World, modules: readonly Module<any>[], machines: Mac
     }
     return false;
   };
-  for (const x of Object.values(w.stranded)) out.push({ kind: "stranded", op: x.op }); // D118
+  for (const x of Object.values(w.stranded)) out.push({ kind: "stranded", op: x.op, inc: x.inc }); // D123
+  // Rule 52: what a paused life is owed waits with it, so a wait says so. A retired identity's too.
+  for (const a of [...allActors(w.actors), ...Object.values(w.retired)])
+    walkIncs(a.root, (i) => {
+      for (const p of i.frozen?.parked ?? []) if (p.k === "ending") out.push({ kind: "parked", op: p.op, attempt: p.attempt ?? "", frozen: true });
+    });
   for (const f of w.keptFires) out.push({ kind: "parked", op: f.event.tag, firing: true }); // D118
-  const paced = new Set<string>();
-  for (const t of Object.values(w.timers))
-    if (t.kind === "pace") {
-      out.push({ kind: "paced", op: t.mail.op, ...(t.mail.attempt ? { attempt: t.mail.attempt } : {}) }); // D115
-      if (t.mail.attempt) paced.add(t.mail.attempt);
-    }
   for (const l of Object.values(w.lanes)) {
     for (const p of l.parked) out.push({ kind: "parked", op: l.op, attempt: p.attempt ?? "" });
     const h = l.head;
@@ -91,7 +90,7 @@ export const waitsOf = (w: World, modules: readonly Module<any>[], machines: Mac
         out.push({ kind: "wire", ...base });
         break;
       case "settled":
-        if (!paced.has(h.id)) out.push({ kind: "mail", ...base });
+        out.push({ kind: "mail", ...base });
         break;
       case "durable":
         out.push({ kind: h.phase.on, ...base, key: `lane/${l.id}` });

@@ -73,7 +73,6 @@ export const createRuntime = (cfg: {
   const sys: System = { machines, modules, bounds };
   let world: World = emptyWorld;
   let running = false;
-  let yielded = false;
   let fatal = false;
   let notifying = false;
   let chain = 0;
@@ -111,8 +110,9 @@ export const createRuntime = (cfg: {
   };
   // ── The edge: edge.ts. The only place a record becomes bytes. A batch goes after the drain (convergence-7, section 8, question 5), so one drain is one cut.
   let afterDrain: Array<() => void> = [];
+  // D122: a cut waits for the end of a turn and its follow-ups, which are bounded, and for no more. A loop of turns that never ends the drain cannot starve the disk.
   const runAfterDrain = () => {
-    if (work()) return void host.later(runAfterDrain); // still draining, past a yield
+    if (!fatal && world.follow.length > 0) return void host.later(runAfterDrain);
     const due = afterDrain;
     afterDrain = [];
     for (const f of due) f();
@@ -142,10 +142,10 @@ export const createRuntime = (cfg: {
     try {
       const effect = (machines[c.machine]!.ops[c.op]!.commit as Slot<CommitFn>).run(c.input, { attempt: c.ctx });
       fork(`${c.attempt}#${c.send}`, effect, (exit) =>
-        input({ k: "sent", attempt: c.attempt, send: c.send, exit, ...(running ? { inline: true as const } : {}) }), // D115
+        input({ k: "sent", attempt: c.attempt, send: c.send, exit }),
       );
     } catch (cause) {
-      input({ k: "sent", attempt: c.attempt, send: c.send, exit: { t: "defect", cause }, ...(running ? { inline: true as const } : {}) });
+      input({ k: "sent", attempt: c.attempt, send: c.send, exit: { t: "defect", cause } });
     }
   };
   const exec = (c: Command) => {
@@ -226,11 +226,28 @@ export const createRuntime = (cfg: {
       const left = [...fibers.keys()].filter((k) => k.startsWith("module/"));
       guarded(() => cfg.onEvidence(left.map((k) => ({ kind: "AbandonedFiber", op: k }))));
     });
+  // D122: one rule. A slice of work, however it arrived, then a task for the page. `spent` counts only work, and only a yield refills it, so an answer arriving in a microtask, which no task separates from the last, is on the same bill.
+  const clock = () => host.workClock?.() ?? performance.now();
+  let spent = 0;
+  let steps = 0;
+  let yielding = false;
+  const overSlice = () => steps > 0 && spent > bounds.drainMs;
+  const yieldToPage = () => {
+    if (yielding) return;
+    yielding = true;
+    host.later(() => {
+      yielding = false;
+      spent = 0;
+      steps = 0;
+      pump();
+    });
+  };
   const pump = () => {
     if (running || fatal) return;
+    if (yielding) return;
+    if (overSlice()) return yieldToPage();
     running = true;
-    yielded = false;
-    const t0 = performance.now();
+    let mark = clock();
     try {
       while (work()) {
         const i: Input = inbox.shift() ?? { k: "turn" };
@@ -267,16 +284,19 @@ export const createRuntime = (cfg: {
           edge.hide(); // L3
           watchDisposal();
         }
-        if (performance.now() - t0 > bounds.drainMs && work()) {
-          yielded = true;
-          host.later(pump);
+        const t = clock();
+        spent += t - mark;
+        mark = t;
+        steps++;
+        if (overSlice() && work()) {
+          yieldToPage();
           break;
         }
       }
     } finally {
       running = false;
     }
-    if (!yielded) notify();
+    notify();
   };
   const notify = () => {
     notifying = true;

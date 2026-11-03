@@ -1,0 +1,281 @@
+{
+ "browser": "Chrome/146.0.7680.76",
+ "spin.promise": {
+  "spun": 599569,
+  "fired": true,
+  "heard": 599593,
+  "gaps": {
+   "ticks": 106,
+   "p50": 17.30000001192093,
+   "max": 28.299999952316284
+  },
+  "storm": 0,
+  "visibility": "visible",
+  "stopped": true
+ },
+ "spin.promise.failing": {
+  "spun": 403662,
+  "fired": true,
+  "heard": 403686,
+  "gaps": {
+   "ticks": 103,
+   "p50": 17.30000001192093,
+   "max": 26.299999952316284
+  },
+  "storm": 1,
+  "visibility": "visible",
+  "stopped": true
+ },
+ "spin.sync": {
+  "spun": 639458,
+  "fired": true,
+  "heard": 249,
+  "gaps": {
+   "ticks": 106,
+   "p50": 16.200000047683716,
+   "max": 24.5
+  },
+  "storm": 0,
+  "visibility": "visible",
+  "stopped": true
+ },
+ "spin.sync.failing": {
+  "spun": 591235,
+  "fired": true,
+  "heard": 249,
+  "gaps": {
+   "ticks": 108,
+   "p50": 16.200000047683716,
+   "max": 24.5
+  },
+  "storm": 1,
+  "visibility": "visible",
+  "stopped": true
+ },
+ "spin.promise.setTimeoutHost": {
+  "spun": 357182,
+  "fired": true,
+  "heard": 357197,
+  "gaps": {
+   "ticks": 195,
+   "p50": 12.400000035762787,
+   "max": 24.30000001192093
+  },
+  "storm": 0,
+  "visibility": "visible",
+  "stopped": true
+ },
+ "press.beside.spin": {
+  "p50": 17,
+  "max": 18.19999998807907,
+  "spun": 360147
+ },
+ "rows.1000.promise": {
+  "n": 1000,
+  "done": true,
+  "ms": 19,
+  "gaps": {
+   "ticks": 1,
+   "p50": 19.30000001192093,
+   "max": 19.30000001192093
+  },
+  "m": {
+   "ok": 1000,
+   "dup": 0
+  },
+  "storm": 0,
+  "visibility": "visible"
+ },
+ "rows.1000.sync": {
+  "n": 1000,
+  "done": true,
+  "ms": 20,
+  "gaps": {
+   "ticks": 0,
+   "p50": -1,
+   "max": -1
+  },
+  "m": {
+   "ok": 1000,
+   "dup": 0
+  },
+  "storm": 0,
+  "visibility": "visible"
+ },
+ "rows.1000.promise.noYield": {
+  "n": 1000,
+  "done": true,
+  "ms": 25,
+  "gaps": {
+   "ticks": 0,
+   "p50": -1,
+   "max": -1
+  },
+  "m": {
+   "ok": 1000,
+   "dup": 0
+  },
+  "storm": 0,
+  "visibility": "visible"
+ },
+ "rows.1000.sync.noYield": {
+  "n": 1000,
+  "done": true,
+  "ms": 23,
+  "gaps": {
+   "ticks": 0,
+   "p50": -1,
+   "max": -1
+  },
+  "m": {
+   "ok": 1000,
+   "dup": 0
+  },
+  "storm": 0,
+  "visibility": "visible"
+ },
+ "rows.1000.promise.setTimeoutHost": {
+  "n": 1000,
+  "done": true,
+  "ms": 21,
+  "gaps": {
+   "ticks": 1,
+   "p50": 20.799999952316284,
+   "max": 20.799999952316284
+  },
+  "m": {
+   "ok": 1000,
+   "dup": 0
+  },
+  "storm": 0,
+  "visibility": "visible"
+ },
+ "rows.5000.promise": {
+  "n": 5000,
+  "done": true,
+  "ms": 53,
+  "gaps": {
+   "ticks": 3,
+   "p50": 17,
+   "max": 24.400000035762787
+  },
+  "m": {
+   "ok": 5000,
+   "dup": 0
+  },
+  "storm": 0,
+  "visibility": "visible"
+ },
+ "rows.5000.promise.noYield": {
+  "n": 5000,
+  "done": true,
+  "ms": 52,
+  "gaps": {
+   "ticks": 0,
+   "p50": -1,
+   "max": -1
+  },
+  "m": {
+   "ok": 5000,
+   "dup": 0
+  },
+  "storm": 0,
+  "visibility": "visible"
+ },
+ "rows.200.one.dup": {
+  "n": 200,
+  "done": true,
+  "ms": 13,
+  "gaps": {
+   "ticks": 0,
+   "p50": -1,
+   "max": -1
+  },
+  "m": {
+   "ok": 199,
+   "dup": 1
+  },
+  "storm": 0,
+  "visibility": "visible"
+ },
+ "rows.300.tenth.dup": {
+  "n": 300,
+  "done": true,
+  "ms": 17,
+  "gaps": {
+   "ticks": 1,
+   "p50": 16.899999976158142,
+   "max": 16.899999976158142
+  },
+  "m": {
+   "ok": 270,
+   "dup": 30
+  },
+  "storm": 0,
+  "visibility": "visible"
+ },
+ "rows.200.all.dup": {
+  "n": 200,
+  "done": true,
+  "ms": 13,
+  "gaps": {
+   "ticks": 0,
+   "p50": -1,
+   "max": -1
+  },
+  "m": {
+   "ok": 0,
+   "dup": 200
+  },
+  "storm": 0,
+  "visibility": "visible"
+ },
+ "rows.200.all.dup.sync": {
+  "n": 200,
+  "done": true,
+  "ms": 11,
+  "gaps": {
+   "ticks": 0,
+   "p50": -1,
+   "max": -1
+  },
+  "m": {
+   "ok": 0,
+   "dup": 200
+  },
+  "storm": 0,
+  "visibility": "visible"
+ },
+ "writes.1000.promise": {
+  "n": 1000,
+  "done": true,
+  "ms": 35,
+  "gaps": {
+   "ticks": 2,
+   "p50": 23.899999976158142,
+   "max": 23.899999976158142
+  },
+  "m": {
+   "ok": 1000,
+   "dup": 0
+  },
+  "storm": 0,
+  "visibility": "visible"
+ },
+ "rows.5000.frozen1s": {
+  "n": 5000,
+  "done": true,
+  "ms": 1156,
+  "gaps": {
+   "ticks": 8,
+   "p50": 23.19999998807907,
+   "max": 1011.6999999880791
+  },
+  "m": {
+   "ok": 5000,
+   "dup": 0
+  },
+  "storm": 0,
+  "visibility": "hidden"
+ }
+}

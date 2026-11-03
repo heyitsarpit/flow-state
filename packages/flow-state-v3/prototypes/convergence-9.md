@@ -134,3 +134,69 @@ const Summary = fragment({ on: { Paid: {} } });            // unchanged
 **Prior art, read only as far as stated:** Stripe's docs name the key per request and scope it to the request's parameters [reasoning, from memory, not checked this round]. Check TanStack DB and Effect before accepting.
 
 **Why not now:** it changes a public shape and every fixture's `commit`, and entities may want to say what a key is too. **My recommendation: accept, after the entity redesign shows what it needs from it.** Decided nothing.
+
+---
+
+# Convergence 9, part two: self-looping and what a turn cannot take, settled
+
+Status: **proposed, throwaway**, under delegated authority. Arpit overrules. Input: [round-9/review-fixes.md](round-9/review-fixes.md), advice. Results: [round-9/RESULTS.md](round-9/RESULTS.md). D115 and the Considered list above are prior art now; D118's table is replaced.
+
+## Self-looping: the requirements together
+
+Two designs failed by treating one symptom. Round 8 cut by rate, and dropped work. Part one paced by depth, which needs a timer per ending past the bound, so it stalled correct work, and read the wrong actor's depth. All at once:
+
+| # | Requirement | Traces that fail it |
+| --- | --- | --- |
+| 1 | Never drop work | Round 8's budget |
+| 2 | A page never freezes, however the answer arrives: inside the pump, in a microtask, as a task | H1 |
+| 3 | A correct bulk of thousands finishes about as fast as with no yielding | 1,000 rows 4.8 s; 936 timers |
+| 4 | A failure is not a spin | 200 failures, 66 minutes; one duplicate, 30 s |
+| 5 | One actor's loop cannot delay another | M2 |
+| 6 | Hidden tabs and throttled timers do not make correct work take hours | M1's reasoning |
+| 7 | No wall-clock number decides anything | 64, 1 s doubling, 30 s |
+| 8 | The world stays pure and replayable; a search and the suite can reach it | `inline`, H1 through every case |
+
+Prior art, read: Effect's fiber (`node_modules/effect/src/internal/effect.ts:640-655`) counts ops and yields to `Scheduler.shouldYield`, and its `MixedScheduler` goes to a task; a fiber in a loop never ends and is never cut. `Effect.forever` is a correct program there. React's scheduler, from memory, not in `codebases/`: a 5 ms slice, measured across work, a `MessageChannel` post rather than `setTimeout` because of the 4 ms clamp and background throttling. The browser's `scheduler.yield`, same idea. xstate's `createActor.ts:280-299`: drains, and has no bound. **What none of them does:** decide from a loop's shape that it is wrong.
+
+## Decisions (all proposed)
+
+| Id | Decision | Costs | Changes |
+| --- | --- | --- | --- |
+| **D122, replaces D115** | **One rule: a slice of work, however it arrived, then a task for the page.** Driver only. `spent` counts work across pumps, and only a yield refills it, so an answer in a microtask is on the same bill as one in the pump. That closes H1, on the path that caused it: a task boundary is a real one, and no answer can reach the runtime past an exhausted slice without waiting for it. **`drainMs` was already there and now means the whole slice;** it decides when, never what. `Host.later` is a real task: `MessageChannel` on a page, `reality/task.ts`. **Mail is served actor by actor**, so a queue on one does not stand in front of a press on another. **Listeners and batches run at each slice's end**, not at the drain's, so nothing starves. **A spin is not stopped, not slowed, and not cut.** It runs at task rate until a press or a move ends it. It is named, and that decides nothing: `TurnStorm` when the same op fails with the same input `sameFailures` times in a row, and `flow check`'s `AsksForever` when every handler of its own ending asks again. A success spin is not named at run time, since a queue looks the same | **A hot spin burns a core until something ends it, in a hidden tab too.** No backoff protects a server from a handler that retries at once. A success spin has no run-time name. One more world field (`rota`), one for naming (`failing`) | `driver.ts`, `world.ts`, `turn.ts`, `step.ts`, `reads.ts`, `publish.ts`. **Gone:** `depth`, `inline`, `noIo`, `endingChain`, the `pace` timer, the `paced` wait, `dropPaced`, `paced` on mail |
+| **D123, replaces D118's table** | **One rule: what a turn refused twice stays with what owes it, and ends with that.** Below. A refusal says what was thrown: `cause` on the issue. A kept ending gets one try per boot or adoption, not two | One more evidence kind | `turn.ts`, `lane.ts`, `step.ts`, `durable.ts`, `reads.ts`, `world.ts` |
+| **D124, replaces D120** | **Walk the decoded type of every input field**, into objects, arrays, records and classes, and name each place the door would refuse: `InputFieldForm`. What it cannot see into it says nothing about. `Compiled` field `inputNotCarried`, by path. `hasJsonForm` gone | A longer walk at compile. Rename | `typed/flow.ts`, `cli/check.ts`, `compiled.ts`, `typed/form.typed.ts` |
+| **D125, replaces D117's second half** | **Oracle (j) is a ledger of every ending,** by op and Attempt, from evidence the runtime gives and the disk the suite owns. Said: owed until heard, parked or let go. Parked: a wait must name its op and Attempt. On disk at a kill: owed at the boot. Refused once: owed a second try. Refused twice: owed a keep, and a wait naming it | Every step reads waits. Runtime gains the evidence `kept`, `refused`, `ParkedLetGo` | `drive.ts`, `turn.ts`, `lane.ts`, `publish.ts` |
+| **D126** | `--first-lock` is refused where the log has history. A log deleted too gets through; `git diff` stays the check | | `main.ts` |
+| **D127** | **Plants: a `capture` alphabet,** with a real interval and oracles for what time does: (o) a change waits no longer than the interval, (p) a failed write comes round, (q) a hidden page does not wait, (r) a lane's batch does not wait, (s) a batch that never answers is said. `encodeOnTurn` stays suite-only: same states, only where the encode ran differs | Five more oracles, one alphabet | `flush.search.ts`, `run-plants.sh` |
+| **D128** | **Search `chain`,** so a search reaches an op that answers at once: queues and spins on two actors, kills, refusals. (l) a press on another actor is heard in its step, (m) a queue left alone ends or says why, (n) a stopped spin stays stopped. The fake's (k), a frozen page, is in every step of everything | | `search/chain.search.ts` |
+
+### D123's rule, as a table
+
+| What was refused twice | Owed by | Where it stays | Ends when | Blocks |
+| --- | --- | --- | --- | --- |
+| A sent write's ending | The lane: it may be at the server | Parked, kept, on disk if persisted | Heard, `cancel`, a release, or a local life's end | Its key: column `Kept`. `idle` keyed or key-less denies; a commit declines `Rejected` |
+| A hold's | The lane's head | The head | The hold's own ways out | The head does |
+| A decline (no Attempt) | The lane of the key it was asked for | Parked, kept, on disk if persisted. One per lane: a newer one says all an older did | Heard, `cancel`, a release, a newer decline | **Nothing:** it sent nothing |
+| A deadline | Its activation | `keptFires`, on the record | Heard, or the activation ends | Nothing |
+| A read's answer, a stream's failure | The life that asked | `stranded`, by life, in memory | That life's next ask of that op, its end, or a boot | Nothing |
+
+Key-less `idle` reads the column as keyed does. `cancel` lets go whatever else the lane is doing, and a key-less one outside an ending lets go of every kept ending of the op it can see. D22 stands for heads. Only the input's bad field is lost, so a decline's lane comes from the key the input can still give; a key with no name is `null`, reached by key-less `cancel`.
+
+**D118's sentence "a reload asks again" was false, and is withdrawn.** A boot forgets a stranded wait. A machine with a recurring schedule asks again (`machine-design.md` rule 42); one without stays where it was. For Arpit: that is a table lint, not built.
+
+**Why a decline is kept and not stranded,** against the review's proposal: stranded dies at a reload and leaves a persisted `W` with no wait for good. Parked and blocking nothing has neither of the harms the review named: coalescing ends the pile-up, and the real key ends the `null` hole.
+
+## Considered for D122 and not chosen
+
+- **H1's patch on D115, backoff on a same-input run (the review's M1, M2).** Correct, and three mechanisms: `sameTask`, `depth` on the Attempt, `failRun` and its timers. Requirement 7 fails. It would still leave a varying-input spin hot, so it does not close the class it prices.
+- **A `later` per invoke.** Works. One per slice costs less, and answers through module fibers on the same bill.
+- **Count steps, as Effect counts ops.** One slow turn then holds the page. A clock that decides only *when* is the safer of the two.
+- **`scheduler.postTask` or `scheduler.yield`.** Chrome-only here; `MessageChannel` is what they replace for this job.
+
+## Effect on the rest
+
+- **Replay:** `sent.inline` is off the log. `rota` and `failing` are pure, in the world. A slice's clock is outside it, so a replay is the same at any speed.
+- **`Compiled`:** `inputNotCarried` only. Runtime bounds are not `Compiled`.
+- **Static analysis, CLI:** two warnings, both from tables. `flow trace` still does not name `parked` or `stranded`.
+- **Entities:** a `.confirms` over a local source costs a turn. A failed confirm chain is not a storm unless it is one input. **Mail order across actors is no longer global:** entities should not assume one actor's mail lands before another's unless a turn links them.
+- **A freeze now interrupts an answer in mail**, not only one on the wire, for any read. It was reachable before, by any answer behind a leaving turn, with no test.

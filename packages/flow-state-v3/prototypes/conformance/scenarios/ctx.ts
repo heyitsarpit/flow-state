@@ -7,7 +7,7 @@ export class Mismatch extends Error {}
 // D29: L3 no longer trusts the runtime. Each claim is checked against what the suite itself owns.
 export const checkClaims = (r: Reads) => {
   const q = r.quiet();
-  if (q.fatal) return;
+  if (q.fatal || q.spinning) return; // D122: a spin has nothing settled to claim. A case that ends it is read after
   if (!q.idle) throw new Mismatch("do() returned with work runnable");
   // D117, oracle (j): what a committed turn asked for became something, and what no turn could take left a wait.
   const gone = r.missingEndings();
@@ -139,17 +139,12 @@ export const checkEndings = (r: Reads) => {
     }
   }
   const q = r.quiet();
-  if (q.fatal) return;
+  if (q.fatal || q.spinning) return;
   const wires = q.waits.filter((w) => w.kind === "wire");
   for (const k of open) {
     const attempt = k.split("#")[0]!;
     if (!wires.some((w) => !("attempt" in w) || w.attempt === attempt) && !ended)
       throw new Mismatch(`a send never ended: ${k}`);
-  }
-  // D115: a paced ending is owed, and a wait says when.
-  for (const w of q.waits) if (w.kind === "paced") {
-    const k = `${w.op}/${("attempt" in w && w.attempt) || ""}`;
-    owed.set(k, (owed.get(k) ?? 0) - 1);
   }
   if (q.idle)
     for (const [k, n] of owed) if (n > 0) throw new Mismatch(`an ending was never delivered: ${k}`);

@@ -6,6 +6,7 @@ import { payFixture } from "../fixtures/pay.compiled.ts";
 import { payFixedFixture } from "../fixtures/pay.fixed.ts";
 import { s1Fixture } from "../fixtures/s1.compiled.ts";
 import type { RuntimeModule } from "../harness.ts";
+import { searchChain } from "./chain.search.ts";
 import { searchCross } from "./cross.search.ts";
 import { searchFlush } from "./flush.search.ts";
 import { searchCrash } from "./crash.search.ts";
@@ -49,7 +50,9 @@ const r =
     : which === "payFixed"
       ? searchPay(make, [payFixedFixture], { ...o, pins: [] })
       : which.startsWith("flush.")
-        ? searchFlush(make, which.split(".")[1] as never, o, which.includes(".tight"), which.includes(".wide"), which.includes(".directed") ? "store" : which.includes(".queue") ? "queue" : which.includes(".burst") ? "burst" : which.includes(".wipe") ? "wipe" : false)
+        ? searchFlush(make, which.split(".")[1] as never, o, which.includes(".tight"), which.includes(".wide"), which.includes(".directed") ? "store" : which.includes(".queue") ? "queue" : which.includes(".burst") ? "burst" : which.includes(".wipe") ? "wipe" : which.includes(".capture") ? "capture" : false)
+      : which === "chain"
+        ? searchChain(make, o)
       : which === "crash"
         ? searchCrash(make, o)
       : which === "crash5s"

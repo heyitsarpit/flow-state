@@ -84,7 +84,6 @@ export type Timer = {
     }
   | { readonly kind: "timeout" | "storage" | "stall" | "yield"; readonly attempt: string }
   | { readonly kind: "module"; readonly module: string }
-  | { readonly kind: "pace"; readonly mail: EndingMail } // D115
   | { readonly kind: "dispose" }
 );
 export type FrozenTimer = Extract<Timer, { kind: "schedule" }>;
@@ -123,8 +122,7 @@ export type EndingMail = {
   readonly onLane?: boolean; // its cell has yet to apply
   readonly restored?: boolean; // current from the active leaf, whatever the owner
   readonly redelivered?: boolean; // D50
-  readonly depth?: number; // D115: how many endings in a row, up to this one, had no I/O since their ask
-  readonly paced?: true; // D115: it has waited its turn
+  readonly kept?: true; // D123: it came off a lane where it was kept, and goes back as that
 };
 export type FireMail = {
   readonly k: "fire";
@@ -166,14 +164,15 @@ export type World = {
   readonly mail: readonly Mail[];
   readonly follow: readonly Mail[];
   readonly chain: number;
-  readonly depth: number; // D115: the turn now running's, for what it ends with no I/O
+  readonly rota: readonly string[]; // D122: the actors with mail, in the order they are next served
+  readonly failing: Readonly<Record<string, { readonly input: string; readonly n: number }>>; // D122: by actor and operation, the same input failing in a row. It names a spin, and decides nothing
   readonly status: "live" | "disposing" | "disposed";
   // Last value emitted per lane. The edge loses nothing it accepted, so this is only a diff.
   readonly savedLanes: Readonly<Record<string, string>>;
   readonly persistence: boolean; // D26, review H3: false: this tab read no disk and writes none. A persisted machine's commit declines
   readonly quarantined: Readonly<Record<string, true>>; // D88: a lane whose record this release cannot read. Its id still holds
   readonly rekeyed: Readonly<Record<string, string>>; // D78: new lane id -> old id still on disk
-  readonly stranded: Readonly<Record<string, { readonly op: string }>>; // D118: a read's answer or a stream's failure no turn could take. Nothing owed on disk; a wait says so until it is asked again
+  readonly stranded: Readonly<Record<string, { readonly actor: string; readonly inc: string; readonly op: string }>>; // D123: a read's answer or a stream's failure no turn could take, by the life that asked. Nothing on disk. It ends with that life, or at that life's next ask of the same op
   readonly keptFires: readonly FireMail[]; // D118: a deadline no turn could take. On the record until a turn commits it, or its activation ends
   readonly disabled: Readonly<Record<string, true>>;
   readonly stalled: Readonly<Record<string, "storage" | "record" | "module">>; // D49, by Attempt
@@ -194,7 +193,8 @@ export const emptyWorld: World = {
   mail: [],
   follow: [],
   chain: 0,
-  depth: 0,
+  rota: [],
+  failing: {},
   status: "live",
   savedLanes: {},
   persistence: true,
@@ -215,7 +215,7 @@ export type SendExit =
   | { readonly t: "interrupted"; readonly cause: unknown };
 export type Input =
   | { readonly k: "boot"; readonly records: ReadonlyArray<readonly [string, string]>; readonly persistence?: boolean }
-  | { readonly k: "sent"; readonly attempt: string; readonly send: string; readonly exit: SendExit; readonly inline?: true } // D115: answered inside the pump that asked
+  | { readonly k: "sent"; readonly attempt: string; readonly send: string; readonly exit: SendExit }
   | { readonly k: "timer"; readonly timer: string; readonly gen: string }
   | {
       readonly k: "stored";
@@ -265,7 +265,7 @@ export type Command =
 
 export type Env = { readonly now: number; id(): string };
 export type Evidence = { readonly kind: string; readonly [k: string]: unknown };
-export type Issue = { readonly code: string; readonly origin?: string; readonly input?: unknown };
+export type Issue = { readonly code: string; readonly origin?: string; readonly input?: unknown; readonly cause?: string }; // D123: `cause`, what a user's closure threw
 export type Bounds = {
   readonly drainMs: number;
   readonly storageMs: number;
@@ -275,7 +275,7 @@ export type Bounds = {
   readonly captureMs: number; // D80 (accepted): plain memory coalesces this long, flushed on hide. 0: at once. D84: a batch touching a lane never waits
   readonly bootMs: number; // D87: a read of the disk that has not answered by now is O5's StorageFailure. A guess
   readonly retryMaxMs: number;
-  readonly endingChain: number; // D115: endings in a row with no I/O before one waits. A guess, in line with `followUps`
+  readonly sameFailures: number; // D122: the same ask failing in a row, with the same input, before `TurnStorm` names it. Decides nothing. A guess, in line with `followUps`
   readonly bootQueue: number; // D87: inputs held until boot; past this, dropped with evidence
   readonly followUps: number;
   readonly notifyChain: number;
@@ -292,7 +292,7 @@ export const defaultBounds: Bounds = {
   captureMs: 5_000,
   bootMs: 10_000,
   retryMaxMs: 30_000,
-  endingChain: 64,
+  sameFailures: 64,
   bootQueue: 1_024,
   followUps: 64,
   notifyChain: 64,
@@ -319,7 +319,6 @@ export type Tx = System & {
   visible: boolean;
   inTurn: boolean; // D46: is a user closure's throw a refusal, or an issue with a default?
   cause: string;
-  readonly noIo: boolean; // D115: this step reached nothing outside
 };
 export type StepOut = {
   readonly world: World;
@@ -341,14 +340,22 @@ export const fragOf = (m: Compiled, inc: Inc): Pick<Fragment, "nodes" | "root" |
 export const note = (tx: Tx, kind: string, fields: Record<string, unknown> = {}) =>
   void tx.evidence.push({ kind, ...fields });
 export const issue = (tx: Tx, i: Issue) => void tx.issues.push(i);
-export const strand = (tx: Tx, key: string, op: string) => {
-  tx.w = { ...tx.w, stranded: { ...tx.w.stranded, [key]: { op } } };
+const strandKey = (actor: string, inc: string, op: string) => `${actor}|${inc}|${op}`;
+export const strand = (tx: Tx, actor: string, inc: string, op: string) => {
+  tx.w = { ...tx.w, stranded: { ...tx.w.stranded, [strandKey(actor, inc, op)]: { actor, inc, op } } };
   tx.visible = true;
 };
-export const clearStranded = (tx: Tx, key: string) => {
-  if (!tx.w.stranded[key]) return;
-  const { [key]: _gone, ...stranded } = tx.w.stranded;
-  tx.w = { ...tx.w, stranded };
+export const clearStranded = (tx: Tx, actor: string, inc: string, op: string) => {
+  if (tx.w.stranded[strandKey(actor, inc, op)])
+    tx.w = { ...tx.w, stranded: without(tx.w.stranded, strandKey(actor, inc, op)) };
+};
+// D123: what a life was owed ends with it.
+export const reapStranded = (tx: Tx, gone: (s: { readonly actor: string; readonly inc: string }) => boolean) => {
+  const kept = Object.entries(tx.w.stranded).filter(([, s]) => !gone(s));
+  if (kept.length !== Object.keys(tx.w.stranded).length) {
+    tx.w = { ...tx.w, stranded: Object.fromEntries(kept) };
+    tx.visible = true;
+  }
 };
 export const nextGen = (tx: Tx) => {
   const n = tx.w.nextId;
@@ -401,10 +408,29 @@ export const deleteLane = (tx: Tx, id: string) => {
   tx.touchedLanes.set(id, prev.actor);
   tx.visible = true;
 };
-// D115: the one place an ending joins the mail, so the one place its chain is counted. Made by a turn, or answered inside the pump that asked: one past the turn. A real answer, a timer, a boot: none.
+// D122: mail is served actor by actor, oldest first within each, so what one actor has queued does not stand in front of another's press.
 export const enqueue = (tx: Tx, m: Mail) => {
-  const mail = m.k === "ending" && tx.noIo && !m.redelivered ? { ...m, depth: tx.w.depth + 1 } : m;
-  tx.w = { ...tx.w, mail: [...tx.w.mail, mail] };
+  const rota = tx.w.rota.includes(m.actor) ? tx.w.rota : [...tx.w.rota, m.actor];
+  tx.w = { ...tx.w, mail: [...tx.w.mail, m], rota };
+};
+export const takeMail = (tx: Tx): Mail | undefined => {
+  let rota = tx.w.rota;
+  for (;;) {
+    const actor = rota[0];
+    const at = actor === undefined ? 0 : tx.w.mail.findIndex((m) => m.actor === actor);
+    if (actor !== undefined && at < 0) {
+      rota = rota.slice(1); // its mail went some other way: a freeze, a retract
+      continue;
+    }
+    const item = tx.w.mail[at];
+    if (!item) {
+      tx.w = { ...tx.w, rota: [] };
+      return undefined;
+    }
+    const mail = tx.w.mail.filter((_, i) => i !== at);
+    tx.w = { ...tx.w, mail, rota: mail.some((m) => m.actor === item.actor) ? [...rota.slice(1), item.actor] : rota.slice(1) };
+    return item;
+  }
 };
 // A firing still in mail, or kept, is a schedule to the disk (L6, D118).
 export const fireAsTimer = (m: FireMail, now: number): FrozenTimer => ({

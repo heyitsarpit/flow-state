@@ -19,6 +19,7 @@ import { round6Scenarios } from "./scenarios/round6.scenario.ts";
 import { round7Scenarios } from "./scenarios/round7.scenario.ts";
 import { round8Scenarios } from "./scenarios/round8.scenario.ts";
 import { round9Scenarios } from "./scenarios/round9.scenario.ts";
+import { round9bScenarios } from "./scenarios/round9b.scenario.ts";
 import { streams5Scenarios } from "./scenarios/streams5.scenario.ts";
 import { flowScenarios } from "./scenarios/flows.scenario.ts";
 import { fragScenarios } from "./scenarios/frag.scenario.ts";
@@ -45,6 +46,7 @@ export const allScenarios: readonly Scenario[] = [
   ...round7Scenarios,
   ...round8Scenarios,
   ...round9Scenarios,
+  ...round9bScenarios,
 ];
 
 const here = import.meta.dir;
@@ -186,6 +188,11 @@ if (import.meta.main) {
   // D116, review M7: no lock is not a first run. Only `--first-lock` says it is.
   if (!existsSync(LOCK) && !has("--first-lock")) {
     console.log(`NO LOCK at ${LOCK}. Nothing can be compared, so nothing can pass. Restore it from git; \`--first-lock\` only for a new suite.`);
+    process.exit(1);
+  }
+  // D126: `--first-lock` is for a suite with no history. A log with lines says there was one, so a moved lock is not a first run.
+  if (!existsSync(LOCK) && has("--first-lock") && existsSync(LOG) && readFileSync(LOG, "utf8").includes(" hash:")) {
+    console.log(`NO LOCK at ${LOCK}, and ${LOG} has history, so this is not a first run. Restore it from git.`);
     process.exit(1);
   }
   const old = new Map(existsSync(LOCK) ? readFileSync(LOCK, "utf8").trim().split("\n").map(splitLock) : []);

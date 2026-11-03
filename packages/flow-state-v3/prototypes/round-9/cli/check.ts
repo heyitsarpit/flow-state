@@ -241,10 +241,20 @@ const checkBody = (b: Body, machine: string, push: (f: Finding) => void, persist
       if (!own || others.length)
         push({ severity: "error", rule: "KeyRequired", machine, path: w.alt.at.path, op: m.op, event: w.event, message: `key-less \`${m.op}.${m.verb}\` outside a handler of an event \`${m.op}\` alone maps`, help: `pass the key: \`O.${m.op}.${m.verb}(k)\`` });
     }
-  // ── D120: a key field that can name a lane, in an input that cannot be carried.
+  // ── D122: a handler of an operation's own ending that always asks it again. Nothing stops it but a press. Table data, so it is said before it runs.
   for (const [name, op] of Object.entries(b.ops))
-    for (const f of op.keyFieldsNoJson ?? [])
-      push({ severity: "warn", rule: "KeyFieldForm", machine, path: `operations.${name}.key`, op: name, message: `\`${name}\`'s key field \`${f}\` has no JSON form, so its input cannot be carried: every commit ends \`NotSent { Unencodable }\``, help: "use a Schema whose value is a string or a number, such as a `Schema.String` holding the decimal" });
+    for (const event of new Set(mappedEvents(op).all))
+      for (const leaf of Object.keys(b.nodes)) {
+        const here = altsAt(b, leaf, event);
+        if (here.length > 0 && here.every(({ alt }) => alt.target === "self" && alt.members.some((m) => m.op === name && (m.verb === "commit" || m.verb === "lookup")))) {
+          push({ severity: "warn", rule: "AsksForever", machine, path: `operations.${name}`, op: name, event, message: `every handler of \`${event}\`, \`${name}\`'s own ending, asks \`${name}\` again: nothing here stops it, and if it answers at once it runs as fast as the page allows`, help: "give one alternative a guard and no ask, or a schedule between tries" });
+          break;
+        }
+      }
+  // ── D124: an input field the door will refuse, wherever it is. Read from tables.
+  for (const [name, op] of Object.entries(b.ops))
+    for (const f of op.inputNotCarried ?? [])
+      push({ severity: "warn", rule: "InputFieldForm", machine, path: `operations.${name}.input`, op: name, message: `\`${name}\`'s input field \`${f}\` cannot be carried: a commit with such a value ends \`NotSent { Unencodable }\``, help: "use a Schema whose decoded value is a string or a number, such as a `Schema.String` holding the decimal" });
   // ── Rule 16's warning.
   for (const w of alts) {
     if (w.alt.target === "self" || w.alt.target === w.node) continue;

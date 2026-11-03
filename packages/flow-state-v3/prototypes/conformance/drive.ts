@@ -31,11 +31,96 @@ export const makeHarness = (port: Port) => (): Harness => {
   const injections = { planned: 0, done: 0, withLive: 0, withChoice: 0 };
 
   // Compiled data is plain data: wrapping its Slots is what a test build would do, and the core cannot tell.
-  // D117, oracle (j): what a turn asked for. By operation, per step: a committed turn's asks must each become something.
+  // D117, D125, oracle (j): no ending goes missing. Its first half, what a turn asked for: by operation, per step, a committed turn's asks must each become something.
   let asking: string[] = [];
   let replaying = false;
   const missing: string[] = [];
-  const lastKept = new Map<string, string>();
+  // Its second half, a ledger of every ending, from the evidence the runtime gives and the disk the suite owns. An ending said is owed until it is heard (`delivered`), goes as evidence, is parked, or is let go. What is parked is owed until it is unparked, and a wait must name it, op and Attempt. A refusal is owed its second try, and a second refusal is owed a keep. What is on disk at a kill is owed at the boot.
+  const told = new Map<string, number>();
+  const parkedOwed = new Map<string, number>();
+  const bootOwed = new Map<string, number>();
+  const tryAgain = new Map<string, number>();
+  let keptNow: Array<{ op: string; attempt: string }> = [];
+  let keptNames: Array<{ op: string; attempt: string }> = [];
+  let ledgerOff = false; // a disposed runtime, or a disk edited or wiped by the case
+  const bump = (m: Map<string, number>, k: string, by = 1) => {
+    const n = (m.get(k) ?? 0) + by;
+    if (n > 0) m.set(k, n);
+    else m.delete(k);
+  };
+  const ledgerKey = (e: Record<string, any>) => `${e["op"]} ${e["attempt"] ?? ""}`;
+  const ledger = (e: readonly Record<string, any>[]) => {
+    for (const x of e) {
+      const k = ledgerKey(x);
+      switch (x["kind"]) {
+        case "ending":
+          bump(told, k);
+          break;
+        case "delivered":
+        case "evidenceOnly":
+          bump(told, k, -1);
+          break;
+        case "parked":
+          bump(told, k, -1);
+          bump(parkedOwed, k);
+          break;
+        case "unparked":
+          if (bootOwed.has(k)) bump(bootOwed, k, -1);
+          else bump(parkedOwed, k, -1);
+          bump(told, k);
+          break;
+        case "kept":
+          bump(parkedOwed, k, x["onLane"] ? 1 : 0);
+          keptNow.push({ op: x["op"], attempt: x["attempt"] ?? "" });
+          keptNames.push({ op: x["op"], attempt: x["attempt"] ?? "" });
+          break;
+        case "KeptLetGo":
+        case "ParkedLetGo":
+          bump(parkedOwed, k, -1);
+          break;
+        case "refused":
+          bump(tryAgain, String(x["event"]));
+          break;
+        case "turn":
+        case "Denied":
+        case "Unhandled":
+          bump(tryAgain, String(x["event"]), -1);
+          break;
+        case "fence":
+        case "unbound":
+          tryAgain.clear();
+          break;
+        case "DisposeStart":
+          ledgerOff = true;
+          break;
+        default:
+      }
+    }
+  };
+  // What the disk holds of a parked ending is owed at this boot. What was only in memory went with the process.
+  const owedAtBoot = () => {
+    told.clear();
+    parkedOwed.clear();
+    bootOwed.clear();
+    tryAgain.clear();
+    keptNow = [];
+    keptNames = [];
+    for (const [k, v] of fake.kv)
+      if (k.startsWith("lane/"))
+        try {
+          const l = JSON.parse(v);
+          for (const p of l?.parked ?? []) bump(bootOwed, `${l.op} ${p.attempt ?? ""}`);
+        } catch {}
+  };
+  const refusal = (i: { code: string; input?: unknown }) => {
+    if (i.code !== "InvalidTurn") return;
+    const input = i.input as { k?: string; event?: string; redelivered?: boolean } | undefined;
+    if (input?.k !== "mail" || input.event === undefined) return;
+    if (!input.redelivered) return;
+    bump(tryAgain, input.event, -1);
+    if (keptNow.length === 0) missing.push(`(j) refused twice, and kept nowhere: ${input.event}`);
+    keptNow = [];
+  };
   const askedFor = (op: string, slot: any) => ({
     ...slot,
     run: (...a: unknown[]) => {
@@ -101,15 +186,30 @@ export const makeHarness = (port: Port) => (): Harness => {
       faults,
       onEvidence: (e) => {
         judgeAsks(e);
+        ledger(e);
         evidence.push(...e);
       },
-      onIssue: (i) => void issues.push(...i),
+      onIssue: (i) => {
+        for (const x of i) refusal(x);
+        issues.push(...i);
+      },
     });
     for (const f of listeners) inst.subscribe(f);
     instances.push(inst);
   };
+  let tasksPerStep: number | null = null;
+  let spinning = false;
   const settle = () => {
-    for (let guard = 0; guard < 50_000; guard++) {
+    const firstTask = fake.tasks;
+    const t0 = Date.now();
+    spinning = false;
+    for (let guard = 0; ; guard++) {
+      if (tasksPerStep !== null && fake.tasks - firstTask >= tasksPerStep) {
+        spinning = true;
+        return;
+      }
+      // A step that never settles is a spin nobody said to expect: fail it here, rather than leave it to the watchdog.
+      if (fake.tasks - firstTask > 5_000 || (guard % 4096 === 4095 && Date.now() - t0 > 20_000)) throw new Error("settle: did not quiesce");
       if (plan && fake.scheduler.picks >= plan.at) {
         const { inject } = plan;
         plan = undefined;
@@ -160,6 +260,7 @@ export const makeHarness = (port: Port) => (): Harness => {
       if (!s.stay) fake.hidden = false; // a flush event, the common use here. `stay`: the page stays hidden
     } else if ("clockBack" in s) fake.clockBack(s.clockBack);
     else if ("freeze" in s) fake.freezeTimers = s.freeze;
+    else if ("tasksPerStep" in s) tasksPerStep = s.tasksPerStep;
     else if ("holdPlain" in s) fake.holdPlain = s.holdPlain;
     else if ("slowAfterAck" in s) fake.slowAfterAck = true;
     else if ("advanceNow" in s) fake.advanceWith(s.advanceNow, () => {});
@@ -188,28 +289,33 @@ export const makeHarness = (port: Port) => (): Harness => {
         `kill: held back ${inst.stateText("").split("|").at(-1)}; on disk ${[...fake.kv.keys()].filter((k) => k !== "meta" && k !== "host/ready").join(",") || "nothing"}`,
       );
     noteLost();
+    if (s.wipe || s.tear !== undefined) ledgerOff = true;
+    owedAtBoot();
     fake.killProcess();
     if (s.load) fake.loadMode = s.load;
     boot();
     if (s.crashAfterBoot) {
+      owedAtBoot();
       fake.killProcess();
       boot();
     }
   };
   const excused = new Set<string>(); // D112: what a wipe or an edited record took. Nothing else may leave a key undecided with no head on disk
-  const keptSeen = { n: 0 };
   const reads: Harness["read"] = {
     missingEndings: () => {
-      // The second half: an ending refused twice leaves a wait, unless a boot has since taken it. Reads the suite's own issues against the runtime's claims.
-      const q = inst.waits();
-      const told = issues.filter((i) => i.code === "InvalidTurn" && (i.input as any)?.redelivered === true);
-      const seen = keptSeen.n;
-      keptSeen.n = told.length;
       const out = [...missing];
-      if (told.length > seen && !q.some((w) => w.kind === "parked" || w.kind === "stranded" || w.kind === "held")) {
-        // A delivery after the refusal, or one in its own lane still deciding, would show as a state moved. A refused second time with nothing to show is what this catches.
-        out.push(`(j) an ending refused twice left no wait: ${(told.at(-1)!.input as any).event}`);
-      }
+      if (ledgerOff) return out;
+      const q = inst.waits() as ReadonlyArray<Record<string, any>>;
+      for (const { op, attempt } of keptNames)
+        if (!q.some((w) => (w["kind"] === "parked" || w["kind"] === "held" || w["kind"] === "stranded") && w["op"] === op && (w["kind"] === "stranded" || w["firing"] || (w["attempt"] ?? "") === attempt)))
+          out.push(`(j) kept, and no wait names it: ${op} ${attempt}`);
+      keptNames = [];
+      for (const k of told.keys()) out.push(`(j) an ending reached nobody: ${k}`);
+      for (const k of bootOwed.keys()) out.push(`(j) parked on disk, and not heard at the boot: ${k}`);
+      for (const k of tryAgain.keys()) out.push(`(j) refused once, and not tried again: ${k}`);
+      const parkedWaits = new Map<string, number>();
+      for (const w of q) if (w["kind"] === "parked" && !w["firing"]) bump(parkedWaits, `${w["op"]} ${w["attempt"] ?? ""}`);
+      for (const [k, n] of parkedOwed) if ((parkedWaits.get(k) ?? 0) < n) out.push(`(j) parked, and no wait says so: ${k}`);
       return out;
     },
     writeAheadLies: () => {
@@ -252,7 +358,10 @@ export const makeHarness = (port: Port) => (): Harness => {
       idle: !inst.pending() && !fake.hasWork(),
       fatal: inst.fatal(),
       waits: inst.waits(),
+      ...(spinning ? { spinning: true } : {}),
     }),
+    tasks: () => fake.tasks,
+    now: () => fake.now,
     outside: () => {
       if (TEST_FLUSH.includes("probes")) fake.hide();
       return { ...fake.outside(), live: inst.live(), injections };
@@ -355,10 +464,15 @@ export const makeHarness = (port: Port) => (): Harness => {
             .filter((e) => e["kind"] === "mint" && hit.some((v) => v.includes(e["attempt"])))
             .map((e) => ({ kind: "lostWithProcess", attempt: e["attempt"] }));
           evidence.push(...inHit);
+          ledgerOff = true; // a record edited on disk may be quarantined, and what it owed with it: rule 46
           fake.corrupt(f.corruptStored.match, f.corruptStored.edit);
           for (const k of fake.mayHave()) excused.add(k);
         } else if ("uninterruptibleHang" in f) fake.uninterruptible.add(f.uninterruptibleHang);
         else if ("syncAnswer" in f) fake.syncAnswers.set(f.syncAnswer[0], f.syncAnswer[1]);
+        else if ("microAnswer" in f) {
+          const a = f.microAnswer[1];
+          fake.microAnswers.set(f.microAnswer[0], typeof a === "function" ? a : () => a);
+        }
         else if ("lateAnswer" in f) fake.lateAnswer(f.lateAnswer[0], f.lateAnswer[1]);
         else if ("landLate" in f) fake.landLate(f.landLate);
         else if ("duplicateCompletion" in f) dup = f.duplicateCompletion;

@@ -334,3 +334,45 @@ REV9-STREAM hash:0cbd3798e0ef | round 9: a stream key with no name
 file:scenarios/round9.scenario.ts hash:24e504b3c4f4 | round 9: carries the REV9 pins above
 file:fixtures/chat.compiled.ts hash:a416dfd32789 | round 9, D118: odd.keyValue, a stream key with no name
 file:fixtures/round9.compiled.ts hash:0057c35fe4d6 | round 9: Spinny, oddKey, an unknown mapper on save
+STREAM5-LATEST hash:e18ef724fa35 | round 9b, D122: a slice ends across pumps, so how many frames were in flight at once is scheduling; pinned as at least one, and what was behind never turned
+REV8-STORM hash:64c22b0849f8 | round 9b, D122: no pacing. A spin yields and is named by the same input failing, and a press goes beside it. `yields`, not `stops`
+REV9-M1 hash:4f3c39825a3c | round 9b, D123: a decline with a good key parks on that key, not on null
+REV9-BURST hash:bb2210684f2a | round 9b, D122: a queue yields by a task with no timer and no wait
+REV9-KEPT hash:cb61397c4c48 | round 9b, D123: a boot tries a kept ending once, one refusal, not two
+REV9-LOOP hash:93b65540691f | round 9b, D122: new. H1, M1, M2 as traces, every row of the review's tables
+REV9-EDGE hash:c4283825abf3 | round 9b, D123: new. M3, M4, M5, M6, and the review's survivors
+file:scenarios/ctx.ts hash:c25d64ea9e79 | round 9b, D122: a spin has nothing settled to claim; the paced wait is gone
+file:scenarios/round8.scenario.ts hash:c6bcae650cb8 | round 9b: carries REV8-STORM's rewrite
+file:scenarios/round9.scenario.ts hash:9919794af76f | round 9b: REV9-SPIN removed, D122 replaces it in round9b; REV9-M1, BURST, KEPT as above
+file:scenarios/round9b.scenario.ts hash:5ca77826528c | round 9b: the new scenarios, REV9-LOOP and REV9-EDGE
+file:scenarios/streams5.scenario.ts hash:513703763ddf | round 9b: carries STREAM5-LATEST's change
+file:search/chain.search.ts hash:b969da4e02a1 | round 9b, D125: new. A search that reaches ops answering at once, with oracles (l), (m), (n)
+file:search/flush.search.ts hash:05b7c5052e2a | round 9b, D127: a `capture` alphabet with a real interval and oracles (o) to (s)
+file:search/run.ts hash:ef96b7f6b136 | round 9b: `chain`, and `capture` in flush's directed list
+file:fixtures/compiled.ts hash:ae864db259b6 | round 9b, D124: `inputNotCarried` replaces `keyFieldsNoJson`
+file:fixtures/round9b.compiled.ts hash:e4dd4ab9dcb1 | round 9b: the chain and edge machines
+file:main.ts hash:78e4c7becfd6 | round 9b, D126: `--first-lock` refused where the log has history
+file:harness.ts hash:7a054d3b22a7 | round 9b, D122: microAnswer, tasksPerStep, tasks, now; the paced wait gone
+file:drive.ts hash:711669e2245a | round 9b, D125: oracle (j) as a ledger of every ending; D122: a step ending after n tasks
+file:fake-world.ts hash:2cb6fb9f99de | round 9b, D122: an answer in a microtask, tasks counted, oracle (k) a frozen page, a counted work clock
+round:cli/broken.ts hash:54f167e64247 | round 9b, D124: bigint-key marks inputNotCarried
+round:cli/check.ts hash:aa13861f10b5 | round 9b, D124 InputFieldForm; D122 AsksForever
+round:cli/flow.ts hash:752d6db3a6b6 | round 9b: the form targets, asks-forever, queue
+round:cli/main.ts hash:1d86b0f25ea2 | round 9b: D124's pins end to end; D122's lint
+round:typed/flow.ts hash:1965f4070036 | round 9b, D124: `notCarried` walks every input field; `hasJsonForm` gone
+round:typed/form.typed.ts hash:e25b4e4832f7 | round 9b, D124: new. Machines through the real front end
+removed:REV9-SPIN | round 9b, D122: no pacing to pin. REV9-LOOP replaces the scenario, trace by trace
+removed:variant:REV8-STORM/a-lookup-that-fails-at-once-and-asks-again-stops | round 9b, D122: it does not stop. Now -yields, with its tasks counted
+removed:variant:REV8-STORM/a-commit-that-throws-at-once-and-asks-again-stops | round 9b, D122: it does not stop. Now -yields, with its tasks counted, the throw path
+removed:variant:REV8-STORM/a-press-after-a-spin-goes | round 9b, D122: there is no after. Now a-press-beside-a-spin-goes
+removed:variant:REV9-SPIN/a-spin-stops-spinning-and-its-ending-is-not-lost | round 9b, D122: a spin goes on; its tasks and oracle (j): REV9-LOOP/a-spin-answered-inside-the-pump-yields-too
+removed:variant:REV9-SPIN/a-paced-failure-backs-off | round 9b, D122: no backoff, review M1. REV9-LOOP/200-failing-rows-are-not-a-spin
+removed:variant:REV9-SPIN/a-press-beside-a-spin-goes-at-once | round 9b: REV9-LOOP/a-press-beside-a-spin-goes-in-its-task
+removed:variant:REV9-SPIN/a-real-answer-breaks-the-chain | round 9b, D122: no chain. The review found this one vacuous; the idea it pinned is gone, not weakened
+removed:variant:REV9-SPIN/a-commit-that-throws-at-once-and-asks-again-is-paced | round 9b: REV9-LOOP/a-commit-that-throws-at-once-and-asks-again-yields
+removed:variant:REV9-SPIN/listeners-hear-a-spin | round 9b: REV9-LOOP/listeners-hear-a-spin-while-it-runs
+removed:variant:REV9-SPIN/a-spin-with-the-clock-set-back-is-still-paced | round 9b, D122: no clock in the world to set back. A slice's clock is monotonic and decides only when
+removed:variant:REV9-SPIN/a-newer-ask-replaces-a-paced-read | round 9b, D122: nothing is paced, so an ordinary `latest` covers it
+removed:variant:REV9-SPIN/a-freeze-interrupts-a-paced-read | round 9b: REV9-LOOP/a-freeze-ends-a-spin, stricter: any answer in mail
+removed:variant:REV9-SPIN/a-kill-while-paced-boots-clean | round 9b: REV9-LOOP/a-kill-during-a-spin-boots-clean
+removed:variant:REV9-SPIN/a-dispose-while-paced-ends-it | round 9b: REV9-LOOP/a-dispose-during-a-spin-ends-it

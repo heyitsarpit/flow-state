@@ -11,7 +11,8 @@ export type Host = {
   now(): number;
   id(): string;
   setTimer(at: number, f: () => void): () => void;
-  later(f: () => void): void;
+  later(f: () => void): void; // a new task: what the page runs between. The page after `later` has painted, or may have
+  workClock?(): number; // D122: what a slice of work is measured by. Not given: `performance.now()`. The fake counts, so a yield falls in the same place every run
   scheduler: Scheduler.Scheduler;
   // Round 7, D80: when the page stops being seen: `visibilitychange` to hidden, `pagehide`. A host may not have one.
   onHidden?(f: () => void): void;
@@ -98,6 +99,7 @@ const capturable = (v: any) => v?.status === "requires_capture" || v?.status ===
 const matches = (input: any, where?: Readonly<Record<string, unknown>>) =>
   !where || Object.entries(where).every(([k, v]) => input?.[k] === v);
 
+const FROZEN_AFTER = 5_000;
 export class FakeWorld {
   now = 0; // monotonic: what timers run on
   clockOffset = 0; // how far the wall clock the host reads has been set back
@@ -121,7 +123,13 @@ export class FakeWorld {
   readonly orders: string[] = [];
   serverState: any;
   uninterruptible = new Set<string>();
-  syncAnswers = new Map<string, Answer>();
+  syncAnswers = new Map<string, Answer | ((input: any) => Answer)>();
+  // D122, review assumption 57: an answer that comes as a resolved promise does: after the pump has returned, before any task. By the input, so one row of a queue can differ.
+  microAnswers = new Map<string, (input: any) => Answer>();
+  private micro: Array<() => void> = [];
+  private sinceTask = 0;
+  tasks = 0; // how many tasks the page has had
+  private work = 0;
   yields = 0;
 
   readonly kv = new Map<string, string>();
@@ -167,6 +175,8 @@ export class FakeWorld {
     this.timers = [];
     this.scheduler.q = [];
     this.laters = [];
+    this.micro = [];
+    this.sinceTask = 0;
     this.lateReports = [];
     this.laterFailing = 0;
     this.pendingLoad = undefined;
@@ -189,6 +199,7 @@ export class FakeWorld {
         };
       },
       later: (f) => void this.laters.push(f),
+      workClock: () => (this.work += 0.01),
       scheduler: this.scheduler,
       onHidden: (f) => void this.hiders.push({ f, process }),
       isHidden: () => this.hidden,
@@ -464,8 +475,14 @@ export class FakeWorld {
       this.requests.push(r);
       if (sync) {
         r.answered = true;
-        return this.settle(r, sync);
+        return this.settle(r, typeof sync === "function" ? sync(input) : sync);
       }
+      const micro = this.microAnswers.get(op);
+      if (micro)
+        return Effect.callback<unknown, any>((resume) => {
+          r.answered = true;
+          this.micro.push(() => resume(this.settle(r, micro(input))));
+        });
       return Effect.callback<unknown, any>((resume) => {
         r.resume = resume;
         // A read carries a signal, so aborting it ends it at the server. A write has none (pay.contracts.ts): it stays.
@@ -725,15 +742,23 @@ export class FakeWorld {
   }
 
   // ── Settling and time
+  // A microtask runs before any task, and the page has nothing until the queue is empty. So a chain of them with no task between is a frozen page, and the suite can say so (oracle k).
   settleStep() {
-    if (this.scheduler.q.length) this.scheduler.next()();
-    else if (this.laters.length) this.laters.shift()!();
+    if (this.micro.length) {
+      if (++this.sinceTask > FROZEN_AFTER) throw new Error(`(k) the page froze: ${FROZEN_AFTER} answers with no task between`);
+      this.micro.shift()!();
+    } else if (this.scheduler.q.length) this.scheduler.next()();
+    else if (this.laters.length) {
+      this.sinceTask = 0;
+      this.tasks++;
+      this.laters.shift()!();
+    }
   }
   hasLaters() {
     return this.laters.length > 0;
   }
   hasWork() {
-    return this.scheduler.q.length > 0 || this.laters.length > 0;
+    return this.micro.length > 0 || this.scheduler.q.length > 0 || this.laters.length > 0;
   }
   advanceWith(ms: number, settle: () => void) {
     const end = this.now + ms;

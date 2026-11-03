@@ -47,3 +47,56 @@ FAIL  REV9-NAMES/a-bigint-input-still-cannot-be-carried    (j) an ending refused
 PASS  REV9-NAMES/two-reset-values-with-no-name-are-one     0.5 ms
 PASS  REV9-NAMES/a-guard-key-with-no-name-says-why         0.2 ms
 WATCH peak 158 MB, 0.9 s, exit 1, killed no
+
+# Round 9, part two: every new case, on part one (the review commit 252a17a3), under watch.ts. Rule each cites: REV9-LOOP D122, H1, M1, M2. REV9-EDGE D123, M3-M6.
+# A PASS pins what was already true, or what only the new code must keep: not seen failing. REV9-M1, REV8-STORM and the rest rewritten here are in the log.
+FAIL  REV9-LOOP/a-spin-over-a-resolved-promise-never-freezes threw: Error: (k) the page froze: 5000 answers with no task between     at sett
+FAIL  REV9-LOOP/a-failing-promise-spin-never-freezes       threw: Error: (k) the page froze: 5000 answers with no task between     at settle
+FAIL  REV9-LOOP/a-spin-answered-inside-the-pump-yields-too (j) an ending reached nobody: spin read/Lab/Chain/a/g1.3/spin
+FAIL  REV9-LOOP/a-commit-that-throws-at-once-and-asks-again-yields (j) an ending reached nobody: w 
+FAIL  REV9-LOOP/listeners-hear-a-spin-while-it-runs        threw: Error: (k) the page froze: 5000 answers with no task between     at settle
+FAIL  REV9-LOOP/a-batch-lands-during-a-spin                threw: Error: (k) the page froze: 5000 answers with no task between     at settle
+FAIL  REV9-LOOP/a-press-on-the-same-actor-ends-its-spin    threw: Error: (k) the page froze: 5000 answers with no task between     at settle
+FAIL  REV9-LOOP/a-kill-during-a-spin-boots-clean           threw: Error: (k) the page froze: 5000 answers with no task between     at settle
+FAIL  REV9-LOOP/a-dispose-during-a-spin-ends-it            threw: Error: (k) the page froze: 5000 answers with no task between     at settle
+FAIL  REV9-LOOP/1000-rows-over-a-resolved-promise-need-no-timer it yielded on the way: expected true, got false
+FAIL  REV9-LOOP/1000-rows-answered-inside-the-pump-need-no-timer (j) an ending reached nobody: row read/Lab/Chain/a/g1.3/row
+PASS  REV9-LOOP/1000-writes-need-no-timer                  17.5 ms
+FAIL  REV9-LOOP/one-duplicate-at-row-150-costs-nothing     (j) an ending reached nobody: row read/Lab/Chain/a/g1.3/row
+FAIL  REV9-LOOP/every-tenth-row-a-duplicate-costs-nothing  (j) an ending reached nobody: row read/Lab/Chain/a/g1.3/row
+FAIL  REV9-LOOP/200-failing-rows-are-not-a-spin            (j) an ending reached nobody: row read/Lab/Chain/a/g1.3/row
+FAIL  REV9-LOOP/200-failing-writes-are-not-a-spin          (j) an ending reached nobody: save att-1-65
+FAIL  REV9-LOOP/the-same-input-failing-in-a-row-is-named-once threw: Error: (k) the page froze: 5000 answers with no task between     at set
+FAIL  REV9-LOOP/a-new-input-each-time-is-not-the-same-failure threw: Error: (k) the page froze: 5000 answers with no task between     at set
+FAIL  REV9-LOOP/a-success-spin-is-not-named                threw: Error: (k) the page froze: 5000 answers with no task between     at settle
+FAIL  REV9-LOOP/a-spin-does-not-delay-another-actors-ending threw: Error: (k) the page froze: 5000 answers with no task between     at settl
+FAIL  REV9-LOOP/a-press-beside-a-spin-goes-in-its-task     threw: Error: (k) the page froze: 5000 answers with no task between     at settle
+PASS  REV9-LOOP/a-bulk-does-not-stand-in-front-of-another-actors-press 1.9 ms
+FAIL  REV9-LOOP/a-freeze-ends-a-spin                       (j) an ending reached nobody: spinRead 
+FAIL  REV9-EDGE/a-key-less-idle-denies-a-kept-ending       (j) refused twice, and kept nowhere: Saved
+FAIL  REV9-EDGE/a-key-less-cancel-lets-a-kept-ending-go    (j) refused twice, and kept nowhere: Saved
+FAIL  REV9-EDGE/a-cancel-with-a-head-beside-it-lets-go-too (j) refused twice, and kept nowhere: QOk
+FAIL  REV9-EDGE/a-decline-names-its-own-key                (j) refused twice, and kept nowhere: SaveNo
+FAIL  REV9-EDGE/cancel-of-its-own-key-lets-a-decline-go    (j) refused twice, and kept nowhere: SaveNo
+FAIL  REV9-EDGE/a-kept-decline-blocks-nothing              (j) refused twice, and kept nowhere: SaveNo
+FAIL  REV9-EDGE/kept-declines-do-not-pile-up               (j) refused twice, and kept nowhere: SaveNo
+FAIL  REV9-EDGE/a-kept-success-and-its-rejections-stay-two (j) refused twice, and kept nowhere: Saved
+FAIL  REV9-EDGE/a-boot-tries-a-kept-ending-once            (j) refused twice, and kept nowhere: Saved
+FAIL  REV9-EDGE/a-refusal-says-what-was-thrown             (j) refused twice, and kept nowhere: Saved
+FAIL  REV9-EDGE/a-new-local-life-hears-nothing-of-the-old  (j) refused twice, and kept nowhere: Saved
+FAIL  REV9-EDGE/a-new-persisted-life-does-hear-it          (j) refused twice, and kept nowhere: Saved
+FAIL  REV9-EDGE/another-rows-ask-leaves-a-stranded-wait    (j) refused twice, and kept nowhere: RowGot
+FAIL  REV9-EDGE/two-rows-stranded-are-two-waits            (j) refused twice, and kept nowhere: RowGot
+FAIL  REV9-EDGE/its-own-next-ask-clears-it                 (j) refused twice, and kept nowhere: RowGot
+FAIL  REV9-EDGE/a-stranded-wait-ends-with-its-life         (j) refused twice, and kept nowhere: RowGot
+FAIL  REV9-EDGE/a-stranded-wait-ends-with-its-actor        (j) refused twice, and kept nowhere: RowGot
+PASS  REV9-EDGE/an-ordinary-parked-ending-blocks-nothing   0.9 ms
+FAIL  REV9-EDGE/cancel-leaves-an-ordinary-parked-ending-where-it-is (j) refused twice, and kept nowhere: Saved
+FAIL  REV9-EDGE/two-parked-on-a-lane-at-boot-are-both-heard (j) refused twice, and kept nowhere: Saved
+PASS  REV9-EDGE/a-decline-with-no-life-left-is-parked      0.5 ms
+FAIL  REV9-EDGE/a-release-lets-a-kept-ending-go            (j) refused twice, and kept nowhere: RelOk
+PASS  REV9-EDGE/a-cancel-by-a-bigint-key-reaches-its-lane  0.7 ms
+PASS  REV9-EDGE/a-bigint-and-its-digits-are-two-lanes      0.5 ms
+PASS  REV9-EDGE/a-function-in-an-input-declines            0.4 ms
+FAIL  REV9-EDGE/a-reads-decline-carries-its-input          (j) refused twice, and kept nowhere: LookNo
+WATCH peak 427 MB, 0.8 s, exit 1, killed no

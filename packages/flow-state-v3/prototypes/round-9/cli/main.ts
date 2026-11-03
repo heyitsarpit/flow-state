@@ -1,6 +1,4 @@
 // Pins for `flow check` and static `flow explain`, as a process: stdout, exit code, callbacks run. bun round-9/cli/main.ts
-import { Schema } from "effect";
-import { hasJsonForm } from "../typed/flow.ts";
 
 const run = (...a: string[]) => {
   const p = Bun.spawnSync(["bun", `${import.meta.dir}/flow.ts`, ...a]);
@@ -36,15 +34,30 @@ eq("explain names where it stopped", ex.alternatives[0].guards[0], { kind: "opaq
 eq("explain ran nothing", ex.callbacksRun, 0);
 const ex2 = JSON.parse(run("explain", "typed-pay", "--state", "CARD", "--event", "IntentRead", "--json").out);
 eq("a table with no guard is decided", ex2.decided, true);
-// D120, M5: a key field with no JSON form is a lint, read from tables.
-eq("bigint-key: a key field with no JSON form", rules("bigint-key").rules.includes("warn:KeyFieldForm"), true);
-eq("bigint-key: nothing ran", rules("bigint-key").callbacks, 0);
-eq("typed Pay has no such field", rules("typed-pay").rules.includes("warn:KeyFieldForm"), false);
-eq("Schema.BigInt has no JSON form", hasJsonForm(Schema.BigInt.ast as never), false);
-eq("Schema.Date has no JSON form", hasJsonForm(Schema.Date.ast as never), false);
-eq("Schema.String does", hasJsonForm(Schema.String.ast as never), true);
-eq("a nullable string does", hasJsonForm(Schema.Union([Schema.String, Schema.Null]).ast as never), true);
-eq("a nullable bigint does not", hasJsonForm(Schema.Union([Schema.BigInt, Schema.Null]).ast as never), false);
+// D122: a loop with no way out, from tables. A queue has one.
+eq("asks-forever", rules("asks-forever").rules.includes("warn:AsksForever"), true);
+eq("a queue with a way out says nothing", rules("queue").rules.includes("warn:AsksForever"), false);
+eq("typed Pay says nothing", rules("typed-pay").rules.includes("warn:AsksForever"), false);
+// D124, M7: from a Schema, through the real front end, to a finding. Each field the door would refuse, and none it would take.
+const notes = (name: string) => JSON.parse(run("check", name, "--json").out).findings.filter((f: any) => f.rule === "InputFieldForm").map((f: any) => f.message.match(/field `([^`]+)`/)[1]);
+eq("bigint-key: read from tables alone", rules("bigint-key").rules.includes("warn:InputFieldForm"), true);
+eq("nothing ran", rules("bigint-key").callbacks, 0);
+eq("typed Pay has no such field", rules("typed-pay").rules.includes("warn:InputFieldForm"), false);
+for (const [name, paths] of [
+  ["form-amount-bigint", ["amount"]],
+  ["form-key-bigint", ["orderId"]],
+  ["form-struct-bigint", ["line.total"]],
+  ["form-array-bigint", ["totals[]"]],
+  ["form-record-bigint", ["byLine[]"]],
+  ["form-nullable-bigint", ["tip"]],
+  ["form-set", ["tags"]],
+  ["form-map", ["tags"]],
+  ["form-date-key", []],
+  ["form-template", []],
+  ["form-unknown", []],
+  ["form-plain", []],
+] as const)
+  eq(`${name}: ${paths.join(", ") || "nothing to say"}`, notes(name), paths);
 const txt = run("check", "broken");
 eq("text and JSON agree on the count", /3 errors, 1 warnings/.test(txt.out), true);
 console.log(`\nCLI pins: ${bad === 0 ? "all pass" : `${bad} failed`}`);

@@ -23,7 +23,7 @@ import {
   type Tx,
 } from "./world.ts";
 
-type Column = "Idle" | "Kept" | "Waiting" | "Resend" | "Wire" | "Settled" | "Held"; // D118: Kept, no head, and an ending the machine has not heard
+type Column = "Idle" | "Kept" | "Waiting" | "Resend" | "Wire" | "Settled" | "Held"; // D123: Kept, no head, and a sent Attempt's ending the machine has not heard. A decline sent nothing, so it never makes this column
 type Row =
   | "commit"
   | "retry"
@@ -46,7 +46,6 @@ type Action =
   | "resend"
   | "nothing"
   | "busyKept"
-  | "letGo"
   | "cancelNeverSent"
   | "cancelResend"
   | "interruptWire"
@@ -84,7 +83,7 @@ const TABLE: Readonly<Record<Row, Partial<Record<Column, Action>>>> = {
   retry: { Idle: "nothingToResend", Kept: "nothingToResend", ...all("evidenceInFlight"), Held: "resend" },
   cancel: {
     Idle: "nothing",
-    Kept: "letGo",
+    Kept: "nothing", // D123: `letGoKept` has taken it before the row is read
     Waiting: "cancelNeverSent",
     Resend: "cancelResend",
     Wire: "interruptWire",
@@ -138,9 +137,29 @@ const GUARD: Readonly<
   },
 };
 
+// D123: a `cancel`'s other half, whatever else the lane is doing: the owner lets go of what it could not hear. Returns the lane as it now stands.
+export const letGoKept = (tx: Tx, l: Lane): Lane | undefined => {
+  if (!l.parked.some((p) => p.kept)) return l;
+  for (const p of l.parked) if (p.kept) note(tx, "KeptLetGo", { op: l.op, attempt: p.attempt ?? "" });
+  return withParked(tx, l, l.parked.filter((p) => !p.kept));
+};
+// D21, D123: a local identity's life is over, so what it was owed goes as evidence.
+export const dropParked = (tx: Tx, l: Lane): Lane | undefined => {
+  for (const p of l.parked) note(tx, "ParkedLetGo", { op: l.op, attempt: p.attempt ?? "" });
+  return l.parked.length ? withParked(tx, l, []) : l;
+};
+const withParked = (tx: Tx, l: Lane, parked: Lane["parked"]): Lane | undefined => {
+  const next = { ...l, parked };
+  if (parked.length === 0 && !l.head && l.w.length === 0) {
+    deleteLane(tx, l.id);
+    return undefined;
+  }
+  setLane(tx, next);
+  return next;
+};
 export const columnOf = (lane: Lane | undefined): Column => {
   const h = lane?.head;
-  if (!h) return lane?.parked.some((p) => p.kept) ? "Kept" : "Idle";
+  if (!h) return lane?.parked.some((p) => p.kept && p.attempt) ? "Kept" : "Idle";
   switch (h.phase.t) {
     case "held":
       return "Held";
@@ -365,13 +384,6 @@ const ACTIONS: Readonly<Record<Action, (tx: Tx, lane: Lane | undefined, a: CellA
   // D118: a new press may not go beside an ending nobody heard. Whatever the policy: `serialize` queues behind a head, and there is none.
   busyKept(tx, _l, a) {
     decline(tx, a, "Rejected");
-  },
-  // D118: the owner lets it go. The way out of a kept ending, short of a release.
-  letGo(tx, l) {
-    for (const p of l!.parked) if (p.kept) note(tx, "KeptLetGo", { op: l!.op, attempt: p.attempt ?? "" });
-    const parked = l!.parked.filter((p) => !p.kept);
-    if (parked.length === 0) deleteLane(tx, l!.id);
-    else setLane(tx, { ...l!, parked });
   },
   resend(tx, l, a) {
     const h: Attempt = { ...l!.head!, owner: a.owner ?? l!.head!.owner };

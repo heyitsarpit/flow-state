@@ -23,7 +23,7 @@ import {
 } from "../../conformance/fixtures/compiled.ts";
 
 export { deny };
-type Fields = Readonly<Record<string, Schema.Top>>;
+export type Fields = Readonly<Record<string, Schema.Top>>;
 type TypeOf<F extends Fields> = { readonly [K in keyof F]: F[K]["Type"] };
 type Tagged = { readonly _tag: string };
 
@@ -481,19 +481,44 @@ const compileMapped = (definition: string, op: string, name: string, t: unknown)
     ...(x.fromFn ? { from: slotOf(definition, `operations.${op}.${name}`, x.fromFn) } : {}),
   };
 };
-// D120: can a key field's value itself go through JSON? `Schema.BigInt` encodes to a string, but what reaches the Runtime's door is the bigint. A Struct or an Array is not looked inside.
-export const hasJsonForm = (ast: { _tag: string; types?: readonly any[] } | undefined): boolean => {
-  if (!ast) return true;
-  if (ast._tag === "Union") return (ast.types ?? []).every(hasJsonForm);
-  return ["String", "Number", "Boolean", "Null", "Literal", "Enum", "Objects", "Arrays"].includes(ast._tag);
+// D124, replaces D120's tag list: what the door refuses is a value's decoded form, anywhere in the input (`gate.ts`: a bigint, a Map, a Set, a function, a cycle). So this walks the decoded type of every field, into objects, arrays and classes, and names each place. What it cannot see into (`Unknown`, an opaque declaration) it says nothing about: the warning says "every commit", so it must be sure of the shape. A union is named if any member cannot go: that member's commits decline.
+type Ast = { readonly _tag: string; readonly [k: string]: any };
+export const notCarried = (ast: Ast | undefined, path: string, seen: Set<Ast> = new Set()): readonly string[] => {
+  if (!ast || seen.has(ast)) return [];
+  seen.add(ast);
+  const inner = (x: Ast | undefined, p: string) => notCarried(x, p, seen);
+  switch (ast._tag) {
+    case "BigInt":
+      return [path];
+    case "Literal":
+      return typeof ast["literal"] === "bigint" ? [path] : [];
+    case "Union":
+      return [...new Set<string>((ast["types"] as Ast[]).flatMap((t) => inner(t, path)))];
+    case "Suspend":
+      return inner(ast["thunk"](), path);
+    case "Objects":
+      return [
+        ...(ast["propertySignatures"] as Array<{ name: PropertyKey; type: Ast }>).flatMap((p) => inner(p.type, `${path}.${String(p.name)}`)),
+        ...(ast["indexSignatures"] as Array<{ type: Ast }>).flatMap((i) => inner(i.type, `${path}[]`)),
+      ];
+    case "Arrays":
+      return [...(ast["elements"] as Ast[]), ...(ast["rest"] as Ast[])].flatMap((t) => inner(t, `${path}[]`));
+    case "Declaration": {
+      const says = ast["annotations"]?.expected;
+      if (says === "ReadonlySet" || says === "ReadonlyMap") return [path];
+      return (ast["annotations"]?.["~constructor"] ? (ast["typeParameters"] as Ast[]) : []).flatMap((t) => inner(t, path)); // a class: its fields
+    }
+    default:
+      return [];
+  }
 };
 const compileOp = (definition: string, name: string, b: AnyBound): Op => {
   const c = b.contract;
   const m = b.mapped;
   const keyFields = c.key.map(String);
-  const keyFieldsNoJson = keyFields.filter((f) => !hasJsonForm((c.input as Record<string, { ast: { _tag: string } }>)[f]?.ast));
+  const inputNotCarried = Object.entries(c.input as Record<string, { ast: Ast }>).flatMap(([f, s]) => notCarried(s.ast, f));
   return {
-    ...(keyFieldsNoJson.length ? { keyFieldsNoJson } : {}), // D120
+    ...(inputNotCarried.length ? { inputNotCarried } : {}), // D124
     id: name,
     contract: c.id,
     kind: c.kind,

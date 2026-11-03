@@ -224,7 +224,7 @@ const revive = (a: SavedAttempt, phase: Phase, mayHaveApplied: boolean): Attempt
 const mail = (
   tx: Tx,
   l: SavedLane,
-  a: { id?: string; attempt?: string; owner: any; input: unknown },
+  a: { id?: string; attempt?: string; owner: any; input: unknown; kept?: boolean },
   e: Ending,
   onLane: boolean,
 ) =>
@@ -241,6 +241,7 @@ const mail = (
     restored: true,
     ...((a.id ?? a.attempt) ? { attempt: (a.id ?? a.attempt)! } : {}),
     ...(onLane ? { onLane } : {}),
+    ...(a.kept ? { kept: true as const, redelivered: true as const } : {}), // D123: one try per boot
   });
 // The restore row, and rule 44's delivery order: per lane in creation order, before any external event.
 export const restore = (tx: Tx, records: ReadonlyArray<readonly [string, string]>) => {

@@ -134,7 +134,7 @@ export type Op = {
     | ((input: any, ctx: CommitCtx) => Effect.Effect<unknown, unknown, never>)
     | Slot<(input: any, ctx: CommitCtx) => Effect.Effect<unknown, unknown, never>>;
   readonly keyFields?: readonly string[]; // Round 7, D91: rule 39's field list, as data. Hand-written fixtures have a closure only
-  readonly keyFieldsNoJson?: readonly string[]; // D120: which of them have a Schema with no JSON form. For `flow check`
+  readonly inputNotCarried?: readonly string[]; // D124: which input fields, by path, have a decoded form the door refuses. For `flow check`
   readonly outcomes: {
     readonly success?: Mapped;
     readonly failure: Readonly<Record<string, Mapped>>;

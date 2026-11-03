@@ -1,17 +1,8 @@
 // The thin read lane (D23, rules 42, 52): no cache, no resources, no hold, not persisted. One lane per (actor, incarnation,
 // operation); replace latest; a read's generation drops a superseded answer. D47: it carries the position it started at.
-import { disarmTimer } from "./timers.ts";
 import { enqueue, nextGen, note, noteEnding, position, without, type Ending, type Owner, type Tx } from "./world.ts";
 
 const keyOf = (actor: string, inc: string, op: string) => `read/${actor}/${inc}/${op}`;
-// D115: `latest`. An older answer waiting its turn is superseded by a newer ask, as one on the wire is.
-const dropPaced = (tx: Tx, inc: string, op: string) => {
-  for (const t of Object.values(tx.w.timers))
-    if (t.kind === "pace" && t.mail.inc === inc && t.mail.op === op) {
-      disarmTimer(tx, t.key);
-      note(tx, "evidenceOnly", { op, attempt: t.mail.attempt ?? "" });
-    }
-};
 export const lookup = (
   tx: Tx,
   a: {
@@ -24,7 +15,6 @@ export const lookup = (
     inc: string;
   },
 ) => {
-  dropPaced(tx, a.inc, a.op);
   const key = keyOf(a.actor, a.inc, a.op);
   const old = tx.w.reads[key];
   if (old) {
@@ -48,15 +38,14 @@ export const lookup = (
 // D108: a read that cannot be named cannot go. It ends as a failure through its own outcomes, as a defect would, and replaces what was open: the newest ask is what is wanted.
 export const lookupUnencodable = (
   tx: Tx,
-  a: { actor: string; machine: string; op: string; owner: Owner; inc: string },
+  a: { actor: string; machine: string; op: string; owner: Owner; inc: string; input: unknown; key: unknown },
 ) => {
   cancelRead(tx, a.actor, a.inc, a.op);
   const ending: Ending = { ch: "failure", tag: "Defect", value: { why: "Unencodable" } };
   noteEnding(tx, { op: a.op }, ending);
-  enqueue(tx, { k: "ending", actor: a.actor, op: a.op, key: null, owner: a.owner, ending, input: undefined, inc: a.inc });
+  enqueue(tx, { k: "ending", actor: a.actor, op: a.op, key: a.key, owner: a.owner, ending, input: a.input, inc: a.inc }); // D114, D123: what was asked, as a write's decline carries
 };
 export const cancelRead = (tx: Tx, actor: string, inc: string, op: string) => {
-  dropPaced(tx, inc, op);
   const key = keyOf(actor, inc, op);
   const old = tx.w.reads[key];
   if (!old) return;

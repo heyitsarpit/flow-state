@@ -13,6 +13,7 @@ import { sessions } from "../sessions.ts";
 import { viewOf } from "../inc.ts";
 import { idbStorage, openDb, strictMarker, type Faults, type Stats } from "./idb.ts";
 import { realApi } from "./real-api.ts";
+import { newTask } from "./task.ts";
 
 const g = globalThis as any;
 const evidence: any[] = [];
@@ -47,7 +48,7 @@ const host = (storage: any) => ({
     const t = setTimeout(f, Math.max(0, at - Date.now()));
     return () => clearTimeout(t);
   },
-  later: (f: () => void) => void setTimeout(f, 0),
+  later: newTask(), // D122
   scheduler: new Scheduler.MixedScheduler(),
   storage,
 });

@@ -9,6 +9,9 @@ import { payFixture } from "../../conformance/fixtures/pay.compiled.ts";
 import { addressFixture, attachFixture, panelsFixture, ticketFixture } from "../../conformance/fixtures/real.compiled.ts";
 import { refundsFixture } from "../../conformance/fixtures/refunds.compiled.ts";
 import type { Fixture } from "../../conformance/harness.ts";
+import { loopFixture } from "../../conformance/fixtures/round8.compiled.ts";
+import { bulkFixture } from "../../conformance/fixtures/round9.compiled.ts";
+import { formFixtures } from "../typed/form.typed.ts";
 import { typedPayFixture } from "../typed/pay.typed.ts";
 import { check, type Finding } from "./check.ts";
 import { bigintKeyFixture, brokenFixture, dupSessionFixture, keylessFixture, noNotSentFixture, noOwnerFixture, readBadFixture, unknownEventFixture } from "./broken.ts";
@@ -37,6 +40,9 @@ export const TARGETS: Readonly<Record<string, Fixture>> = {
   "no-notsent": noNotSentFixture,
   "unknown-event": unknownEventFixture,
   "bigint-key": bigintKeyFixture,
+  "asks-forever": loopFixture,
+  queue: bulkFixture,
+  ...formFixtures,
 };
 const fail = (reason: string, operand: string): never => {
   process.stderr.write(`${JSON.stringify({ error: "InvalidOperand", reason, operand })}\n`);

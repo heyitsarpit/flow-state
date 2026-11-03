@@ -53,7 +53,7 @@ export const searchFlush = (
   o: { depth: number; maxStates: number; deadlineMs: number },
   tight = false,
   wide = false, // one store: only the oldest batch can answer, so a hang holds everyone
-  directed: false | "store" | "queue" | "burst" | "wipe" = false, // a small alphabet for one risk. "store": a ticket beside a slow store; review: finds in 44 s what the wide one misses in 110 s. "queue": what waits behind a head
+  directed: false | "store" | "queue" | "burst" | "wipe" | "capture" = false, // a small alphabet for one risk. "store": a ticket beside a slow store; review: finds in 44 s what the wide one misses in 110 s. "queue": what waits behind a head
 ): Report & { unpinned: readonly string[]; lanesAhead: number; lanesAheadWitness?: string } => {
   const c = CFG[target];
   const send = (w: Who, event: string, payload: unknown = {}): Step => ({ send: w, event, payload, ...(c.to ? { to: c.to } : {}) });
@@ -87,7 +87,38 @@ export const searchFlush = (
     { name: "thaw", step: { freeze: false } },
     { name: "clockBack", step: { clockBack: 60_000 } },
     { name: "tick", step: { advance: 1100 } },
+    // D127: the capture interval is a real one in this alphabet, so what a plant does to time can be seen.
+    { name: "tickLong", step: { advance: 40_000 } },
+    { name: "HIDE", step: { hide: true, stay: true } },
   ];
+  const CAPTURE = 2000;
+  // D127, for `capture` only. Against the fixture's own time, and only where the store is doing nothing: (o) a change waits no longer than the interval; (p) a failed write comes round again; (q) a hidden page does not wait; (r) a batch touching a lane does not wait; (s) a batch that never answers is said.
+  const checkCapture = (h: Harness, script: readonly string[]) => {
+    const out = h.read.outside();
+    const stored = h.read.stored();
+    const last = (n: string) => script.lastIndexOf(n);
+    for (const w of c.actors) {
+      const k = keyOf(w);
+      const rec = stored.get(`actor/${k}`) as any;
+      if (!rec) continue;
+      const disk = canon({ s: rec.root.leaf, m: rec.root.memory });
+      const frames = (h.read.frames() as any[]).filter((f) => f.view[k]);
+      const idx = frames.map((f) => cut(f.view[k])).lastIndexOf(disk);
+      const first = frames[idx + 1];
+      const quiet = out.storage.length === 0 && !out.failing;
+      if (out.storage.some((s) => s.hung && s.purpose === "flush") && last("hang") >= 0 && last("tickLong") > last("hang") && !h.read.issues().some((i) => i.code === "StorageSilent"))
+        throw new Oracle("(s) a batch has not answered in 40 s, and nobody was told");
+      if (!quiet || !first) continue;
+      if (!script.includes("failNext") && h.read.now() - first.at > CAPTURE + 1100) throw new Oracle(`(o) a change has waited past the interval: ${h.read.now() - first.at} ms`);
+      if (last("tickLong") === script.length - 1) throw new Oracle("(p) a long quiet, nothing outstanding, and memory is not on disk");
+      if (!script.includes("failNext") && last("HIDE") > last("FLUSH") && last("HIDE") >= 0) throw new Oracle("(q) a change waited on a hidden page");
+    }
+    if (!script.includes("failNext") && out.storage.length === 0 && !out.failing) {
+      const heads = [...stored.entries()].filter(([k, v]) => k.startsWith("lane/") && (v as any)?.head).map(([, v]) => (v as any).head.id);
+      const live = new Set(h.read.quiet().waits.flatMap((w) => ("attempt" in w && w.attempt ? [w.attempt] : [])));
+      for (const id of heads) if (!live.has(id)) throw new Oracle(`(r) a settled lane's delete waited: ${id}`);
+    }
+  };
   const CAP = { status: "requires_capture", clientSecret: "" };
   const body = (w: Who, s: string): readonly Action[] => [
     { name: `Go${s}`, step: send(w, "Go") },
@@ -117,7 +148,8 @@ export const searchFlush = (
       : c.actors.flatMap((w, i) => body(w, i === 0 ? "" : ".b"));
   const tightNames = /^(Go|Note|Set|NoteBad|Peek|Forget|failHeld|sayFailed|ack|FLUSH|KILL|lost|ok|Pay|pay\.ok|pay\.lost)/;
   const directedNames =
-    directed === "queue" ? /^(Go|ok|lost|Retry|Forget|ack|landNoAck|KILL|refuseOk|refuseNo)$/
+    directed === "capture" ? /^(Go|Note$|Note2$|ok|ack|tick|tickLong|HIDE|FLUSH|failNext|holdPlain|hang)$/
+    : directed === "queue" ? /^(Go|ok|lost|Retry|Forget|ack|landNoAck|KILL|refuseOk|refuseNo)$/
     : directed === "burst" ? /^(Burst|Go|ok|ack|refuse|refuseNo|refuseOk|KILL)$/
     : directed === "wipe" ? /^(Go|Note$|ok|lost|ack|KILL|WIPE|Ensure|Forget|FLUSH)$/
     : /^(Go|Note$|holdPlain|FLUSH|ack|KILL)$/;
@@ -176,7 +208,7 @@ export const searchFlush = (
       const inner = make();
       const log: string[] = [];
       const fx: Fixture = { ...c.fixture, make: (api) => logGuards(c.fixture.make(api), log) };
-      inner.start({ machines: [fx], seed: 1, bounds: { captureMs: 2_000_000_000 } });
+      inner.start({ machines: [fx], seed: 1, bounds: { captureMs: directed === "capture" ? CAPTURE : 2_000_000_000 } });
       logs.set(inner, log);
       pointers.set(inner, new Map());
       if (wide) inner.do({ storeWide: true });
@@ -242,6 +274,7 @@ export const searchFlush = (
     state(h, script) {
       checkClaims(h.read);
       checkEndings(h.read);
+      if (directed === "capture") checkCapture(h, script);
       const b = bad.get(h);
       if (b) throw new Oracle(b);
       const frames = h.read.frames() as any[];

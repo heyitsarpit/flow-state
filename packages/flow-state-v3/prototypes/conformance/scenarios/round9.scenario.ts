@@ -1,6 +1,6 @@
 // Round 9, part one: what round 8's final review found. Each case was seen failing on round 8's code, or says why it pins what was already true: red-round-9.txt. D114-D120 are proposed.
 import { chatFixture } from "../fixtures/chat.compiled.ts";
-import { doorsFixture, DoorsId, loopFixture, LoopId, serialBareFixture } from "../fixtures/round8.compiled.ts";
+import { doorsFixture, DoorsId } from "../fixtures/round8.compiled.ts";
 import { BareId } from "../fixtures/round7.compiled.ts";
 import { bulkFixture, BulkId, keptFixture, KeptId } from "../fixtures/round9.compiled.ts";
 import type { Fixture } from "../harness.ts";
@@ -66,7 +66,7 @@ export const round9Scenarios: readonly Scenario[] = [
         c.do({ fault: { throwIn: SAVE_NOT_SENT, times: 2 } });
         c.send("Go", { id: "a", at: 1n });
         c.eq("no fatal", c.r.quiet().fatal, false);
-        const l = lane(c, "null"); // a decline names no lane of its own: the door refused before its key
+        const l = lane(c); // D123: its key is good, so that is its lane. Only the field stands in
         c.eq("parked", (l?.parked ?? []).length, 1);
         c.eq("only what cannot be carried stands in", l.parked[0].input, { id: "a", at: { unencodable: true } });
         c.reload();
@@ -130,16 +130,15 @@ export const round9Scenarios: readonly Scenario[] = [
         c.eq("all done", left.length, 0);
         c.eq("no storm", code(c, "TurnStorm"), 0);
       },
-      // A queue over a local source: a chain with no I/O that is a correct program. It yields; it is not cut.
+      // A queue over a local source: a chain with no I/O that is a correct program. D122: it yields and is not cut, and no timer is in it.
       "a-queue-over-a-local-source-finishes"(c0) {
-        const c = on(c0, bulkFixture, BK, { endingChain: 16 });
+        const c = on(c0, bulkFixture, BK, { drainMs: 0 });
+        const t = c.r.tasks();
         c.send("Drain", { queue: 200 });
-        c.yes("it yielded to the page, so a view was published", c.r.quiet().idle);
-        c.yes("a yield says so", waits(c, "paced").length === 1);
-        c.advance(0);
         c.eq("all ran", c.mem().ran, 200);
+        c.yes("it yielded to the page", c.r.tasks() > t);
+        c.eq("no timer", c.r.now(), 0);
         c.eq("a success is never a storm", code(c, "TurnStorm"), 0);
-        c.eq("no wait left", waits(c, "paced").length, 0);
       },
       // M4: `now - at` went negative, so the window never renewed: 255 asked, 145 cut.
       "a-clock-set-back-stops-nothing"(c0) {
@@ -152,121 +151,6 @@ export const round9Scenarios: readonly Scenario[] = [
         }
         c.eq("all asked", c.reqs("read").length, 401);
         c.eq("no storm", code(c, "TurnStorm"), 0);
-      },
-    },
-  },
-  {
-    id: "REV9-SPIN",
-    kind: "fault",
-    fixtures: [doorsFixture],
-    actor: D,
-    cites: ["D115", "H1"],
-    namedIssues: ["TurnStorm", "UnencodableValue", "Defect"],
-    variants: {
-      "a-spin-stops-spinning-and-its-ending-is-not-lost"(c0) {
-        const c = on(c0, doorsFixture, D, { endingChain: 16 });
-        c.send("LoopLook");
-        c.yes("settled", c.r.quiet().idle);
-        c.eq("bounded", c.mem().loops, 16);
-        c.eq("named once", code(c, "TurnStorm"), 1);
-        c.eq("a wait says it is paced", waits(c, "paced").map((w: any) => w.op), ["readLoop"]);
-      },
-      // It goes on, as a loop over a failing network does, and slower each time, up to the cap.
-      "a-paced-failure-backs-off"(c0) {
-        const c = on(c0, doorsFixture, D, { endingChain: 16, retryMaxMs: 4_000 });
-        c.send("LoopLook");
-        const at = (ms: number) => {
-          c.advance(ms);
-          return c.mem().loops;
-        };
-        c.eq("not yet", at(999), 16);
-        c.eq("one at 1 s", at(1), 17);
-        c.eq("then 2 s", [at(1_999), at(1)], [17, 18]);
-        c.eq("then 4 s", [at(3_999), at(1)], [18, 19]);
-        c.eq("the cap", [at(3_999), at(1)], [19, 20]);
-        c.eq("still named once", code(c, "TurnStorm"), 1);
-      },
-      // A press is not part of the chain, and its good read goes at once.
-      "a-press-beside-a-spin-goes-at-once"(c0) {
-        const c = on(c0, doorsFixture, D, { endingChain: 16 });
-        c.send("LoopLook");
-        c.send("LoopGood");
-        c.eq("it goes", c.reqs("readLoop").length, 1);
-      },
-      // A real answer breaks a chain: only an ending with no I/O since its ask counts.
-      "a-real-answer-breaks-the-chain"(c0) {
-        c0.namedIssues.length = 0;
-        const c = on(c0, doorsFixture, D, { endingChain: 2 });
-        for (let i = 0; i < 12; i++) {
-          c.send("Look", { v: "fine" });
-          c.answer("read", { ok: "x" });
-        }
-        c.eq("no wait", waits(c, "paced").length, 0);
-        c.eq("none paced", c.mem().last, "x");
-      },
-      "a-commit-that-throws-at-once-and-asks-again-is-paced"(c0) {
-        const L = { actor: LoopId, id: "a" };
-        const c = on(c0, loopFixture, L, { endingChain: 16 });
-        c.send("Go");
-        c.yes("settled", c.r.quiet().idle);
-        c.eq("named once", code(c, "TurnStorm"), 1);
-        c.yes("bounded", c.mem().loops <= 16);
-        c.eq("a wait", waits(c, "paced").length, 1);
-      },
-      // The drain ends, so what comes after it runs: this is what the spin starved.
-      "listeners-hear-a-spin"(c0) {
-        const c = on(c0, doorsFixture, D, { endingChain: 16 });
-        let heard = 0;
-        c.h.subscribe(() => void heard++);
-        c.send("LoopLook");
-        c.yes("heard", heard > 0);
-      },
-      "a-spin-with-the-clock-set-back-is-still-paced"(c0) {
-        const c = on(c0, doorsFixture, D, { endingChain: 16 });
-        c.do({ clockBack: 3_600_000 });
-        c.send("LoopLook");
-        c.yes("settled", c.r.quiet().idle);
-        c.eq("bounded", c.mem().loops, 16);
-        c.advance(1_000);
-        c.eq("one more", c.mem().loops, 17);
-      },
-      // `latest`: an older answer waiting its turn goes when a newer ask comes, as one on the wire does.
-      "a-newer-ask-replaces-a-paced-read"(c0) {
-        const c = on(c0, doorsFixture, D, { endingChain: 16 });
-        c.send("LoopLook");
-        c.send("LoopGood");
-        c.eq("no wait", waits(c, "paced").length, 0);
-        c.advance(60_000);
-        c.eq("the loop is over", c.mem().loops, 16);
-        c.answer("readLoop", { ok: {} });
-      },
-      // Rule 52: a freeze interrupts a read, and one waiting its turn is a read.
-      "a-freeze-interrupts-a-paced-read"(c0) {
-        const c = on(c0, keptFixture(), K, { endingChain: 2 });
-        c.send("ToP");
-        c.into(["rz"], "Spin");
-        c.eq("paced", waits(c, "paced").length, 1);
-        c.send("Leave");
-        c.eq("frozen, nothing waits", waits(c, "paced").length, 0);
-        c.advance(60_000);
-        c.eq("no more", (c.r.inner(K, ["rz"]) as any)?.memory.n, 2);
-        c.send("ToP");
-        c.eq("it heard, at the thaw", (c.r.inner(K, ["rz"]) as any)?.memory.stopped, true);
-      },
-      "a-kill-while-paced-boots-clean"(c0) {
-        const c = on(c0, doorsFixture, D, { endingChain: 16 });
-        c.send("LoopLook");
-        c.reload();
-        c.eq("nothing paced", waits(c, "paced").length, 0);
-        c.advance(60_000);
-        c.eq("no more", code(c, "TurnStorm"), 1);
-      },
-      "a-dispose-while-paced-ends-it"(c0) {
-        const c = on(c0, doorsFixture, D, { endingChain: 16 });
-        c.send("LoopLook");
-        c.dispose();
-        c.advance(60_000);
-        c.eq("no wait", waits(c, "paced").length, 0);
       },
     },
   },
@@ -366,7 +250,7 @@ export const round9Scenarios: readonly Scenario[] = [
         c.ack();
         c.answer("save", { ok: { v: "boom" } });
         c.reload();
-        c.eq("two more", refusals(c), 4);
+        c.eq("one more: a boot tries it once (D123)", refusals(c), 3);
         c.eq("the row", (c.r.row(K, "save", { id: "a" }) as any)?.undelivered, 1);
       },
       // Review's `d109.unpersisted-parks`: no disk, so nothing outlives the tab. The row is still true while it lives.

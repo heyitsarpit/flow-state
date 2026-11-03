@@ -552,7 +552,7 @@ export const streams5Scenarios: readonly Scenario[] = [
         const c = at(c0, presenceFixture, P, { drainMs: -1 });
         c.do({ feed: "who", frames: ["a", "b", "c"] });
         c.eq("what was behind never turned", c.mem().seen, ["c"]);
-        c.eq("said", c.r.evidence("discarded").length, 2);
+        c.yes("what was in flight is said. How many were in flight is the slice's business (D122)", c.r.evidence("discarded").length >= 1);
       },
       "an-equal-value-confirms-and-is-not-heard-again"(c0) {
         const c = at(c0, presenceFixture, P);

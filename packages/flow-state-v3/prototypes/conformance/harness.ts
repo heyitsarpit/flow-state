@@ -32,7 +32,8 @@ export type Fault =
   | { lateAnswer: readonly [RequestMatch, Answer] } // the server's answer finally arrives
   | { landLate: RequestMatch } // a lost request lands at the server, unseen
   | { uninterruptibleHang: RequestMatch }
-  | { syncAnswer: readonly [RequestMatch, Answer] }
+  | { syncAnswer: readonly [RequestMatch, Answer | ((input: any) => Answer)] }
+  | { microAnswer: readonly [RequestMatch, Answer | ((input: any) => Answer)] } // D122: as a resolved promise: after the pump, before any task
   | { throwInModule: string } // D27: the next call of this hook of any module throws
   | { throwInModuleAfter: string } // L1: the hook runs, makes its effects, then throws
   | { throwInCore: true } // D27: the next step's core code throws. Reached through data: no seam in the core
@@ -69,6 +70,7 @@ export type Step =
   // A stream's server says something. `frames`: a burst, with no settling between them. `fail`: the connection fails with this.
   | { feed: string; frame?: unknown; frames?: readonly unknown[]; end?: true; fail?: unknown }
   | { fault: Fault }
+  | { tasksPerStep: number | null } // D122: a spin never settles. From now on a step ends after this many tasks, and `quiet().spinning` says so
   | { disposeRuntime: true };
 
 export type Row = {
@@ -140,7 +142,6 @@ type WaitKind =
   | { kind: "disposing"; op: string; attempt: string }
   | { kind: "disabled"; op: string; attempt: string; module: string } // D46: a module holds it, having failed
   | { kind: "parked"; op: string; attempt: string } // rule 53: an ending waits for an incarnation of its path
-  | { kind: "paced"; op: string; attempt?: string } // D115: an ending with no I/O since its ask waits its turn
   | { kind: "stranded"; op: string }; // D118: a read's answer or a stream's failure no turn could take
 export type Outside = {
   open: ReadonlyArray<{ op: string; key?: string; never: boolean; input: any }>;
@@ -177,7 +178,9 @@ export type Reads = {
   issues(): ReadonlyArray<{ code: string; origin?: string; input?: unknown }>;
   evidence(kind?: string): ReadonlyArray<Record<string, any>>;
   stored(): ReadonlyMap<string, unknown>;
-  quiet(): { idle: boolean; fatal: boolean; waits: readonly Wait[] };
+  quiet(): { idle: boolean; fatal: boolean; waits: readonly Wait[]; spinning?: boolean };
+  tasks(): number; // D122: how many tasks the page has had
+  now(): number; // the virtual clock: what a correct bulk must not need
   outside(): Outside;
   stateHash(): string; // opaque; equal means the same future under the same steps
   module(id: string, ref: string): any; // a module's `read`: a stream's row

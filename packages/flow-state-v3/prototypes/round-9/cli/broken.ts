@@ -169,12 +169,12 @@ const evs = (...extra: string[]) => ({ external: ["Go"], internal: ["Ok", "No", 
 export const noNotSentFixture: Fixture = { id: G, make: () => gapMachine(gapOp({}), {}, evs()) as never };
 export const unknownEventFixture: Fixture = { id: G, make: () => gapMachine(gapOp({ NotSent: { event: "No" } }), { Nobody: [{}] }, evs()) as never };
 
-// D120: a key field with no JSON form, as the typed front end marks it.
+// D124: the lint reads tables only: this one has no Schema behind it. `typed/form.typed.ts` is the front end's half.
 export const bigintKeyFixture: Fixture = {
   id: "Lab/BigKey",
   make: (api) => {
     const m = keylessFixture.make(api);
     const charge = Object.values(m.ops)[0]!;
-    return { ...m, id: "Lab/BigKey", ops: { ...m.ops, [charge.id]: { ...charge, keyFields: ["orderId"], keyFieldsNoJson: ["orderId"] } } };
+    return { ...m, id: "Lab/BigKey", ops: { ...m.ops, [charge.id]: { ...charge, keyFields: ["orderId"], inputNotCarried: ["orderId"] } } };
   },
 };

@@ -14,7 +14,7 @@ import {
 import { flush, onStorageBound, onStored, restore } from "./durable.ts";
 import { own } from "./gate.ts";
 import { down, placementsActive, seedKids, up, walkIncs, viewOf, type Started } from "./inc.ts";
-import { cell, parkWaiting, settleSend } from "./lane.ts";
+import { cell, dropParked, parkWaiting, settleSend } from "./lane.ts";
 import { dropReadsOf, takeRead } from "./reads.ts";
 import { armTimer, disarmTimer, scheduleKey } from "./timers.ts";
 import { onTurn, rebindActor, startActor } from "./turn.ts";
@@ -24,6 +24,7 @@ import {
   fireAsTimer,
   fragOf,
   issue,
+  reapStranded,
   laneOfAttempt,
   nextGen,
   note,
@@ -171,8 +172,6 @@ const onTimer = (tx: Tx, i: Extract<Input, { k: "timer" }>) => {
     }
     case "yield":
       return yieldHold(tx, t.attempt);
-    case "pace":
-      return enqueue(tx, t.mail);
     case "dispose":
       return finishDisposal(tx);
     case "module":
@@ -195,7 +194,7 @@ const finishDisposal = (tx: Tx) => {
 };
 const onDisposeRuntime = (tx: Tx) => {
   note(tx, "DisposeStart", {});
-  tx.w = { ...tx.w, status: "disposing", mail: [], follow: [] };
+  tx.w = { ...tx.w, status: "disposing", mail: [], rota: [], follow: [] };
   for (const l of Object.values(tx.w.lanes))
     if (l.head)
       cell(tx, "runtimeDisposal", l, { actor: l.actor, machine: l.machine, op: l.op, key: l.key });
@@ -216,6 +215,8 @@ const onDisposeActor = (tx: Tx, key: string) => {
   if (!a) return;
   const m = tx.machines[a.machine]!;
   walkIncs(a.root, (i) => void dropReadsOf(tx, i.id));
+  reapStranded(tx, (s) => s.actor === key);
+  tx.w = { ...tx.w, failing: Object.fromEntries(Object.entries(tx.w.failing).filter(([k]) => !k.startsWith(`${key}|`))) };
   const armed = Object.values(tx.w.timers).filter(
     (t): t is FrozenTimer => t.kind === "schedule" && t.actor === key,
   );
@@ -229,8 +230,10 @@ const onDisposeActor = (tx: Tx, key: string) => {
     ...(m.persisted ? { retired: { ...tx.w.retired, [key]: { ...a, timers } as ActorRec } } : {}),
   };
   if (m.local)
-    for (const l of Object.values(tx.w.lanes)) {
-      if (l.actor !== key || !l.head) continue;
+    for (const old of Object.values(tx.w.lanes)) {
+      if (old.actor !== key) continue;
+      const l = dropParked(tx, old); // D21, D123: no next life hears this one's. It goes as evidence
+      if (!l?.head) continue;
       if (l.head.phase.t === "held")
         cell(tx, "cancel", l, { actor: key, machine: l.machine, op: l.op, key: l.key });
       else setLane(tx, { ...l, releasing: true });
@@ -323,7 +326,7 @@ const onEnsure = (tx: Tx, key: string, machine: string, input: unknown) => {
     tx.commands.length = kept.commands;
     tx.evidence.length = kept.evidence; // L9
     tx.touchedActors.delete(key);
-    issue(tx, { code: "InvalidTurn", origin: e.origin });
+    issue(tx, { code: "InvalidTurn", origin: e.origin, cause: e.message });
   } finally {
     tx.inTurn = false;
   }
@@ -426,7 +429,6 @@ export const step = (world: World, input: Input, env: Env, sys: System): StepOut
     visible: false,
     inTurn: false,
     cause: input.k,
-    noIo: input.k === "turn" || (input.k === "sent" && input.inline === true),
   };
   if (world.status === "disposed" && input.k !== "boot") {
     note(tx, "dropped", { input: input.k });

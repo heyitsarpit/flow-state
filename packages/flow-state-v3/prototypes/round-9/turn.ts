@@ -34,7 +34,7 @@ import { resetValue,
   type Path,
   type Started,
 } from "./inc.ts";
-import { admitRow, cell, decline, guardCell } from "./lane.ts";
+import { admitRow, cell, decline, guardCell, letGoKept } from "./lane.ts";
 import { cancelRead, dropReadsOf, lookup, lookupUnencodable } from "./reads.ts";
 import { armTimer, disarmTimer, scheduleKey } from "./timers.ts";
 import {
@@ -57,9 +57,22 @@ import {
   type Owner,
   type Tx,
   clearStranded,
+  reapStranded,
   strand,
+  takeMail,
+  without,
 } from "./world.ts";
 
+// D123: a key a refused input can still give, or none.
+const nameOf = (op: Compiled["ops"][string], input: unknown): unknown => {
+  try {
+    const k = entered(() => run(op.key, input));
+    return k.ok ? k.v : null;
+  } catch (e) {
+    if (e instanceof Refused) return null;
+    throw e;
+  }
+};
 const isDenial = (v: unknown): v is { deny: string } =>
   typeof v === "object" && v !== null && "deny" in v;
 const machineOf = (tx: Tx, a: ActorRec): Compiled => tx.machines[a.machine]!;
@@ -128,9 +141,7 @@ const tokensPass = (w: Walk, path: Path, inc: Inc, alt: Alternative, view: objec
     }
     if (t.verb === "idle" && !t.key) {
       // Rule 21: a key-less idle passes only when every lane of this operation it can see is Idle.
-      const busy = Object.values(w.tx.w.lanes).filter(
-        (l) => l.actor === w.a.key && l.op === t.op && l.head,
-      );
+      const busy = Object.values(w.tx.w.lanes).filter((l) => l.actor === w.a.key && l.op === t.op); // D123: by the column, as a keyed idle reads it
       if (busy.some((l) => !guardCell(w.tx, "idle", l, t.op))) return { pass: false, reasons };
       const prefix = `${w.a.key}|${t.op}|`; // D88
       if (Object.keys(w.tx.w.quarantined).some((id) => id.startsWith(prefix)))
@@ -406,6 +417,7 @@ const freezeInc = (w: Walk, hostPath: Path, part: string) => {
   );
   for (const t of timers) disarmTimer(tx, t.key);
   const queued: FrozenTimer[] = [];
+  const queuedReads: Mail[] = [];
   const keep = (m: Mail) => {
     if (m.k === "fire" && m.inc === inc.id) {
       queued.push({
@@ -421,17 +433,16 @@ const freezeInc = (w: Walk, hostPath: Path, part: string) => {
       });
       return false;
     }
+    // Rule 52: a read's answer not yet heard is a read of this life, and a freeze interrupts it.
+    if (m.k === "ending" && m.inc === inc.id) {
+      note(tx, "parked", { op: m.op, attempt: m.attempt ?? "" });
+      queuedReads.push({ ...m, ending: { ch: "failure", tag: "Interrupted", value: {} } });
+      return false;
+    }
     return true;
   };
   tx.w = { ...tx.w, mail: tx.w.mail.filter(keep), follow: tx.w.follow.filter(keep) };
-  // D115: a read's ending waiting its turn is a read of this life, and rule 52 interrupts it.
-  const pacedReads = Object.values(tx.w.timers).flatMap((t) => (t.kind === "pace" && t.mail.inc === inc.id ? [t] : []));
-  const pacedParked: Mail[] = pacedReads.map((t) => {
-    disarmTimer(tx, t.key);
-    const { depth: _d, ...mail } = (t as Extract<typeof t, { kind: "pace" }>).mail;
-    return { ...mail, ending: { ch: "failure" as const, tag: "Interrupted", value: {} } };
-  });
-  const parked: Mail[] = [...pacedParked, ...dropReadsOf(tx, inc.id, false).map((r): Mail => {
+  const parked: Mail[] = [...queuedReads, ...dropReadsOf(tx, inc.id, false).map((r): Mail => {
     const e = { ch: "failure" as const, tag: "Interrupted", value: {} };
     noteEnding(tx, { op: r.op, attempt: `read/${r.actor}/${r.inc}/${r.op}`, send: r.gen }, e);
     note(tx, "parked", { op: r.op, attempt: `read/${r.actor}/${r.inc}/${r.op}` });
@@ -661,7 +672,12 @@ const applyMembers = (w: Walk) => {
         if (mem.verb === "module") return { input: undefined, key: undefined, value: mem.value ? run(mem.value, after as never) : undefined };
         return { input: undefined, key: mem.key ? run(mem.key, after as never) : undefined, value: undefined };
       });
-      if (!got.ok) return { part, mem, inc, unencodable: true, input: asked ? asked.input : got.value, key: null, value: undefined, prepared: undefined, owner };
+      if (!got.ok) {
+        const input = asked ? asked.input : got.value;
+        // D123: only the part that failed the door is lost. If the input can still name its lane, that is the lane it was asked of.
+        const key = mem.verb === "commit" || mem.verb === "lookup" ? nameOf(op, input) : null;
+        return { part, mem, inc, unencodable: true, input, key, value: undefined, prepared: undefined, owner };
+      }
       const prepared = mem.verb === "commit" ? prepareAll(tx, { machine: w.a.machine, op: mem.op, input: got.v.input }) : {};
       return { part, mem, inc, unencodable: false, ...got.v, prepared, owner };
     });
@@ -670,13 +686,13 @@ const applyMembers = (w: Walk) => {
     const { mem, inc } = r;
     const op = w.m.ops[mem.op]!;
     const base = { actor: w.a.key, machine: w.a.machine, op: mem.op, owner: r.owner };
-    if (mem.verb === "lookup") clearStranded(tx, `${w.a.key}|${mem.op}`); // D118: the next ask is what replaces a lost answer
+    if (mem.verb === "lookup") clearStranded(tx, w.a.key, inc.id, mem.op); // D123: this life's next ask is what replaces its lost answer
     if (r.unencodable) {
       issue(tx, { code: "UnencodableValue", origin: `${w.a.machine} ${mem.op}` });
       // D108: by verb. A module's value goes nowhere. A `retry` or `cancel` key names no lane, since no lane has a key with no text.
-      if (mem.verb === "lookup") lookupUnencodable(tx, { ...base, inc: inc.id });
+      if (mem.verb === "lookup") lookupUnencodable(tx, { ...base, inc: inc.id, input: r.input, key: r.key });
       else if (mem.verb === "commit")
-        decline(tx, { ...base, key: null, input: r.input, subject: op.fragment ? inc.subject : [] }, "Unencodable"); // D114
+        decline(tx, { ...base, key: r.key, input: r.input, subject: op.fragment ? inc.subject : [] }, "Unencodable"); // D114
       continue;
     }
     if (mem.verb === "module") {
@@ -721,11 +737,18 @@ const applyMembers = (w: Walk) => {
       continue;
     }
     const it = w.item;
-    const lane = mem.key
+    // D123: a key-less `cancel` outside an ending names no Attempt (D22), and every kept ending of the op it can see is its to let go.
+    if (mem.verb === "cancel" && !mem.key && it?.k !== "ending") {
+      for (const l of Object.values(tx.w.lanes))
+        if (l.actor === w.a.key && l.op === mem.op && sameSubject(l.subject, subject)) letGoKept(tx, l);
+      continue;
+    }
+    const named = mem.key
       ? tx.w.lanes[laneKey(w.a.key, mem.op, r.key)]
       : it?.k === "ending" && it.op === mem.op && it.attempt
         ? laneOfAttempt(tx.w, it.attempt) // D22: key-less names the ending's own Attempt only
         : undefined;
+    const lane = named && mem.verb === "cancel" && sameSubject(named.subject, subject) ? letGoKept(tx, named) : named;
     // In a NotSent ending there is no Attempt: a key-less member does nothing (2.7.13).
     if (!mem.key && !lane) {
       if (it?.k === "ending") continue;
@@ -792,6 +815,8 @@ const reapTimers = (w: Walk) => {
     const i = p && kidAt(w.root, p);
     return !!i && (!!i.frozen || Object.values(i.activations).includes(activation));
   };
+  // D123: what a life is owed ends with it.
+  reapStranded(tx, (s) => s.actor === w.a.key && !pathOfId(w.root, s.inc));
   // D118: rule 1 for a kept firing too.
   if (tx.w.keptFires.some((f) => f.actor === w.a.key && !live(f.inc, f.activation)))
     tx.w = { ...tx.w, keptFires: tx.w.keptFires.filter((f) => f.actor !== w.a.key || live(f.inc, f.activation)) };
@@ -825,6 +850,7 @@ export const adoption = (tx: Tx, a: ActorRec, inc: Inc, thawing = false): Mail[]
         input: p.input,
         subject: l.subject,
         ...(p.attempt ? { attempt: p.attempt } : {}),
+        ...(p.kept ? { kept: true as const, redelivered: true as const } : {}), // D123: one try per life or boot. It was refused twice already
       });
     }
     const had = l.parked.some((p) => p.attempt === l.head?.id);
@@ -931,7 +957,10 @@ const finish = (
       dueAt: tx.env.now + x.ms,
     });
   // Rule 52: what ended takes its lookups with it. Its write lanes run on; a parked or held one waits for the next (rule 53).
-  for (const e of w.ended) dropReadsOf(tx, e.inc.id);
+  for (const e of w.ended) {
+    dropReadsOf(tx, e.inc.id);
+    for (const p of e.inc.frozen?.parked ?? []) if (p.k === "ending") note(tx, "ParkedLetGo", { op: p.op, attempt: p.attempt ?? "" }); // rule 52: its life is over
+  }
   tx.touchedActors.add(w.a.key);
   note(tx, "turn", {
     actor: w.a.key,
@@ -1018,14 +1047,19 @@ const bindingOf = (
   });
   return found;
 };
-// D109, D118: it stays with its owner. A hold's lane already holds it. A read has no lane and no disk, so a wait says it. A write's goes on its lane: on disk if persisted, delivered at the next boot or adoption.
-const keepEnding = (tx: Tx, item: EndingMail) => {
+// D123: it stays with what owes it, and ends with that. A read's answer is owed to the life that asked: a wait until its next ask, or its end. A write's ending and a decline go on the lane of their key: on disk if persisted, and heard at the next boot or adoption. A hold's lane already holds it. Only an ending that was sent blocks its key (`columnOf`), and a newer decline says all an older one did.
+const keepEnding = (tx: Tx, a: ActorRec, item: EndingMail) => {
   const lane = tx.w.lanes[laneKey(item.actor, item.op, item.key)];
-  if (item.inc) return strand(tx, `${item.actor}|${item.op}`, item.op);
-  if (item.attempt && lane?.head?.id === item.attempt) return; // D114: only an Attempt can be a hold. A decline has none
-  const machine = lane?.machine ?? getActor(tx.w.actors, item.actor)?.machine ?? item.machine;
-  if (machine === undefined) return strand(tx, `${item.actor}|${item.op}`, item.op);
-  parkEnding(tx, item, lane, item.subject ?? lane?.subject ?? [], machine, true);
+  const said = { op: item.op, attempt: item.attempt ?? "" };
+  if (item.inc) {
+    note(tx, "kept", said);
+    return strand(tx, item.actor, item.inc, item.op);
+  }
+  if (item.attempt && lane?.head?.id === item.attempt) return note(tx, "kept", said); // D114: only an Attempt can be a hold. A decline has none
+  note(tx, "kept", { ...said, onLane: !item.kept });
+  if (!item.attempt && lane?.parked.some((p) => !p.attempt && p.kept)) note(tx, "KeptLetGo", said);
+  const base = !item.attempt && lane ? { ...lane, parked: lane.parked.filter((p) => p.attempt || !p.kept) } : lane;
+  parkEnding(tx, item, base, item.subject ?? lane?.subject ?? [], a.machine, true);
 };
 const parkEnding = (
   tx: Tx,
@@ -1037,7 +1071,7 @@ const parkEnding = (
 ) => {
   if (!kept) note(tx, "parked", { op: item.op, attempt: item.attempt ?? "" });
   const parked = {
-    ...(kept ? { kept: true as const } : {}),
+    ...(kept || item.kept ? { kept: true as const } : {}),
     ...(item.attempt ? { attempt: item.attempt } : {}),
     ending: item.ending,
     owner: item.owner,
@@ -1115,7 +1149,7 @@ const deliver = (tx: Tx, a: ActorRec, path: Path, item: EndingMail) => {
   const m = machineOf(tx, a);
   const inc = kidAt(a.root, path)!;
   const mapped = mappedFor(m, item);
-  if (!item.redelivered)
+  if (!item.redelivered || item.kept)
     note(tx, "delivered", { op: item.op, attempt: item.attempt ?? "", event: mapped?.event });
   if (!mapped)
     return issue(tx, {
@@ -1123,7 +1157,8 @@ const deliver = (tx: Tx, a: ActorRec, path: Path, item: EndingMail) => {
       origin: `${a.machine} operations.${item.op}`,
       input: item.ending,
     });
-  void attemptTurn(tx, item, mapped.event, () => {
+  if (!item.redelivered) countFailure(tx, item);
+  const ran = attemptTurn(tx, item, mapped.event, () => {
     const e = item.ending;
     const value = "value" in e ? e.value : undefined;
     const ev = {
@@ -1143,6 +1178,22 @@ const deliver = (tx: Tx, a: ActorRec, path: Path, item: EndingMail) => {
     const { start, late } = routeFrom(tx, a, item, inc);
     runTurn(tx, a, path, ev, start, late, item);
   });
+  // D123: refused twice, or once more at a boot.
+  if (!ran && item.redelivered) keepEnding(tx, a, item);
+};
+// D122: what a spin is, by its evidence: one ask with one input, failing, in a row. It names it. It decides nothing, so a failure costs what a success does.
+const countFailure = (tx: Tx, item: EndingMail) => {
+  const key = `${item.actor}|${item.op}`;
+  if (item.ending.ch === "success") {
+    if (tx.w.failing[key]) tx.w = { ...tx.w, failing: without(tx.w.failing, key) };
+    return;
+  }
+  const input = text(item.input) ?? "";
+  const was = tx.w.failing[key];
+  const n = was?.input === input ? was.n + 1 : 1;
+  tx.w = { ...tx.w, failing: { ...tx.w.failing, [key]: { input, n } } };
+  if (n === tx.bounds.sameFailures)
+    issue(tx, { code: "TurnStorm", origin: `${item.actor} ${item.op}`, input: { failures: n } });
 };
 const attemptTurn = (tx: Tx, item: Mail, tag: string, f: () => void): boolean => {
   const kept = {
@@ -1168,23 +1219,24 @@ const attemptTurn = (tx: Tx, item: Mail, tag: string, f: () => void): boolean =>
     for (const x of kept.touchedA) tx.touchedActors.add(x);
     tx.touchedLanes.clear();
     for (const [x, a] of kept.touchedL) tx.touchedLanes.set(x, a);
-    const again = (item.k === "ending" || item.k === "fire") && item.redelivered === true;
+    const again = (item.k === "ending" || item.k === "fire" || item.k === "deliver") && item.redelivered === true;
     issue(tx, {
       code: "InvalidTurn",
       origin: e.origin,
+      cause: e.message, // D123
       input: { k: "mail", event: tag, ...(again ? { redelivered: true } : {}) },
     });
+    if ((item.k === "ending" || item.k === "fire") && !again) note(tx, "refused", { event: tag }); // D125: it is owed a second try
     // D50: a refused turn of an ending comes once more, after other mail, with no second cell.
     if (item.k === "ending" && !again) {
       const { onLane: _o, ...rest } = item;
       enqueue(tx, { ...rest, redelivered: true });
     }
-    // D109: and then it is kept. A turn can never lose a completion.
-    if (item.k === "ending" && again) keepEnding(tx, item);
     // D50, M5: a firing is a delivery too (rule 8). `EXPIRED`'s GiveUp is the only way out of it.
     if (item.k === "fire" && !again) enqueue(tx, { ...item, redelivered: true });
     // D118: and then it stays on the record, so a reload fires it again.
     if (item.k === "fire" && again) {
+      note(tx, "kept", { op: item.event.tag, attempt: "" });
       tx.w = { ...tx.w, keptFires: [...tx.w.keptFires, item] };
       tx.visible = true; // the record on disk already has its timer; a later write keeps it
     }
@@ -1194,31 +1246,17 @@ const attemptTurn = (tx: Tx, item: Mail, tag: string, f: () => void): boolean =>
   }
 };
 
-// D115: a chain of endings with no I/O would never end the drain, so batches and listeners would starve. Past the bound the ending waits on a timer, and nothing is dropped. A failure backs off as storage does, and is named; a success is progress, so it only yields.
-const pace = (tx: Tx, item: EndingMail) => {
-  const over = item.depth! - tx.bounds.endingChain;
-  const failing = item.ending.ch !== "success";
-  if (failing && over === 1)
-    issue(tx, { code: "TurnStorm", origin: `${item.machine ?? getActor(tx.w.actors, item.actor)?.machine ?? item.actor} ${item.op}`, input: { endings: tx.bounds.endingChain } });
-  const delay = failing ? Math.min(tx.bounds.retryMaxMs, 1000 * 2 ** (over - 1)) : 0;
-  armTimer(tx, { key: `pace/${nextGen(tx)}`, kind: "pace", mail: { ...item, paced: true }, dueAt: tx.env.now + delay });
-  tx.visible = true;
-};
 export const onTurn = (tx: Tx) => {
   const fromFollow = tx.w.follow.length > 0;
-  const [item, ...rest] = fromFollow ? tx.w.follow : tx.w.mail;
+  const item = fromFollow ? tx.w.follow[0] : takeMail(tx);
   if (!item) return;
-  // D115: a follow-up is part of its turn's chain. Anything else starts where its mail says.
-  tx.w = fromFollow
-    ? { ...tx.w, follow: rest, chain: tx.w.chain + 1 }
-    : { ...tx.w, mail: rest, chain: 0, depth: (item.k === "ending" && item.depth) || 0 };
+  tx.w = fromFollow ? { ...tx.w, follow: tx.w.follow.slice(1), chain: tx.w.chain + 1 } : { ...tx.w, chain: 0 };
   tx.cause =
     item.k === "ending"
       ? `ending:${item.op}`
       : item.k === "recheck"
         ? "reset"
         : `event:${item.event.tag}`;
-  if (item.k === "ending" && !item.paced && (item.depth ?? 0) > tx.bounds.endingChain) return pace(tx, item);
   if (item.k === "ending") return admitEnding(tx, item); // A0: kept whatever the turn does
   const a = getActor(tx.w.actors, item.actor);
   if (!a) return note(tx, "unbound", { actor: item.actor });
@@ -1235,8 +1273,10 @@ export const onTurn = (tx: Tx) => {
     const ran = attemptTurn(tx, item, item.event.tag, () =>
       runTurn(tx, a, path!, item.event, undefined, false, item),
     );
+    if (!ran && item.ending && !item.redelivered) note(tx, "refused", { event: item.event.tag });
     if (!ran && item.ending && !item.redelivered) enqueue(tx, { ...item, redelivered: true }); // D50
-    if (!ran && item.ending && item.redelivered) strand(tx, `${item.actor}|${item.event.tag}`, item.event.tag); // D118: a reload reopens it
+    if (!ran && item.ending && item.redelivered) note(tx, "kept", { op: item.event.tag, attempt: "" });
+    if (!ran && item.ending && item.redelivered) strand(tx, item.actor, item.inc, item.event.tag); // D123
     return moduleTold(tx, item.module, {
       k: "turned",
       tag: item.tag,

@@ -472,30 +472,33 @@ export const round8Scenarios: readonly Scenario[] = [
     kind: "fault",
     fixtures: [doorsFixture],
     actor: { actor: DoorsId, id: "a" },
-    cites: ["D110"],
+    cites: ["D110", "D122"],
     namedIssues: ["TurnStorm", "UnencodableValue", "Defect"],
     variants: {
-      // Review M5: 1.8 GB in 1.6 s. A failure with no I/O and a handler that asks again.
-      "a-lookup-that-fails-at-once-and-asks-again-stops"(c0) {
+      // Review M5: 1.8 GB in 1.6 s. A failure with no I/O and a handler that asks again. D122: it goes on, and the page has its tasks, and it is named.
+      "a-lookup-that-fails-at-once-and-asks-again-yields"(c0) {
         const D = { actor: DoorsId, id: "a" };
-        const c = on(c0, doorsFixture, { captureMs: 0, endingChain: 16 }, D);
+        const c = on(c0, doorsFixture, { captureMs: 0, drainMs: 0.2, sameFailures: 16 }, D);
+        c.do({ tasksPerStep: 40 });
+        const t = c.r.tasks();
         c.send("LoopLook");
-        c.yes("settled, so it stopped", c.r.quiet().idle);
+        c.yes("the page had its tasks", c.r.tasks() >= t + 40);
         c.eq("named once", c.r.issues().filter((i) => i.code === "TurnStorm").length, 1);
-        c.yes("a wait says so", c.r.quiet().waits.some((w) => w.kind === "paced" && (w as any).op === "readLoop"));
-        c.eq("bounded", c.mem().loops, 16);
+        c.yes("it went on", c.mem().loops > 16);
       },
-      "a-commit-that-throws-at-once-and-asks-again-stops"(c0) {
+      "a-commit-that-throws-at-once-and-asks-again-yields"(c0) {
         const L = { actor: LoopId, id: "a" };
-        const c = on(c0, loopFixture, { endingChain: 16 }, L);
+        const c = on(c0, loopFixture, { drainMs: 0.2, sameFailures: 16 }, L);
+        c.do({ tasksPerStep: 40 });
+        const t = c.r.tasks();
         c.send("Go");
-        c.yes("settled, so it stopped", c.r.quiet().idle);
+        c.yes("the page had its tasks", c.r.tasks() >= t + 40);
         c.eq("named once", c.r.issues().filter((i) => i.code === "TurnStorm").length, 1);
-        c.yes("bounded", c.mem().loops <= 16);
       },
-      "a-press-after-a-spin-goes"(c0) {
+      "a-press-beside-a-spin-goes"(c0) {
         const D = { actor: DoorsId, id: "a" };
-        const c = on(c0, doorsFixture, { captureMs: 0, endingChain: 16 }, D);
+        const c = on(c0, doorsFixture, { captureMs: 0, drainMs: 0.2 }, D);
+        c.do({ tasksPerStep: 5 });
         c.send("LoopLook");
         c.send("LoopGood");
         c.eq("it goes", c.reqs("readLoop").length, 1);
