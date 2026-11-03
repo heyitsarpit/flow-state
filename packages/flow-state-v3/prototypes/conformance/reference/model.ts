@@ -60,6 +60,50 @@ export class Reference {
     return this.placed(m, o.fragment, leaf);
   };
 
+  // Stage F: the live copies of `frag` in an actor, as paths (`name` or `name:key` per level, the runtime's own path form), from what the
+  // actor publishes: its leaf and memory, the `.each` membership in a host's memory, and each copy's own published state (`inner`, undefined
+  // while not live: left, frozen, or never entered). A copy's `resetOn` values ride along, by the compiled slot on its host's published memory.
+  copies = (machine: string, frag: string, leaf: string | undefined, memory: unknown, inner: (path: readonly string[]) => { state: string; memory: any } | undefined) => {
+    const m = this.byId.get(machine);
+    const out: Array<{ path: string[]; resets: string[] }> = [];
+    if (!m || leaf === undefined) return out;
+    const walk = (nodes: Readonly<Record<string, Node>>, at: string, mem: any, here: string[], resets: string[], depth: number) => {
+      if (depth > 8) return;
+      const chain: Node[] = [];
+      for (let id: string | undefined = at, n = 0; id !== undefined && n < 1000; n++) {
+        const node: Node | undefined = nodes[id];
+        if (!node) break;
+        chain.push(node);
+        id = node.parent;
+      }
+      for (const p of chain.flatMap((n) => [...(n.placements ?? []), ...(n.subroutine ? [n.subroutine] : [])])) {
+        const items: unknown[] = p.each ? (Array.isArray(mem?.[p.each.of]) ? mem[p.each.of] : []) : [undefined];
+        let reset: string | undefined;
+        if (p.resetOn) {
+          try {
+            reset = JSON.stringify((p.resetOn as any).run({ memory: mem, event: {} }));
+          } catch {
+            reset = "$threw";
+          }
+        }
+        for (const item of items) {
+          // The published memory is the host's view: a placement named as its `.each` field shows its copies' slices there, each with its `key`.
+          const slice = p.each && p.name === p.each.of && item !== null && typeof item === "object" && "key" in (item as object);
+          const key = p.each ? (slice ? (item as any).key : p.each.by ? (item as any)?.[p.each.by] : item) : undefined;
+          const path = [...here, key === undefined ? p.name : `${p.name}:${String(key)}`];
+          const got = inner(path);
+          if (!got) continue;
+          const rs = reset === undefined ? resets : [...resets, reset];
+          if (p.fragment === frag) out.push({ path, resets: rs });
+          const f = m.fragments?.[p.fragment];
+          if (f) walk(f.nodes, got.state, got.memory, path, rs, depth + 1);
+        }
+      }
+    };
+    walk(m.nodes, leaf, memory, [], [], 0);
+    return out;
+  };
+
   // The owner's own alternatives with a `cancel` of `op`, on any node of its machine and its fragments. Not any `cancel` of that name anywhere.
   private cancelAlts = (m: Compiled, op: string) => {
     const out: Array<{ node: Node; ev: string; alt: Alternative; inFragment: boolean }> = [];

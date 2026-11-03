@@ -7,7 +7,12 @@ import { dirname, join } from "node:path";
 const typed = join(import.meta.dir, "../typed");
 let dir = import.meta.dir;
 while (!existsSync(join(dir, "node_modules/.bin/tsc")) && dirname(dir) !== dir) dir = dirname(dir);
-const tsc = join(dir, "node_modules/.bin/tsc");
+let tsc = join(dir, "node_modules/.bin/tsc");
+// Re-check L2 (stage F): a fresh worktree has no `node_modules`; then the main checkout's, by git's common dir, as `falsify.ts` finds it.
+if (!existsSync(tsc)) {
+  const common = Bun.spawnSync(["git", "rev-parse", "--path-format=absolute", "--git-common-dir"], { cwd: import.meta.dir, stdin: "ignore" }).stdout.toString().trim();
+  if (common) tsc = join(dirname(common), "node_modules/.bin/tsc");
+}
 if (!existsSync(tsc)) {
   console.log("FAIL  types: no tsc found");
   process.exit(1);

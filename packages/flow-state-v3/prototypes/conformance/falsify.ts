@@ -144,6 +144,11 @@ try {
   edit(join(conf, "expected-changes.log"), (s) => s + ids.map((i) => `${i} hash:000000000000 | same words\n`).join(""));
   const k = await scratchSuite("PAY-01");
   say(k.code !== 0, "log: a line whose hash is not the current one is red");
+  // Re-check M2''' (stage F): the reference model is under the lock. The re-check's one-token tamper is red by the lock.
+  reset();
+  edit(join(conf, "reference/model.ts"), (s) => s.replace('if (o.fragment === undefined) return "yes";', 'if (o.fragment === undefined) return "unknown";'));
+  const rf = await scratchSuite("PAY-01");
+  say(rf.code !== 0 && /unlogged expectation changes: [^;]*file:reference\/model\.ts/.test(rf.stdout), "lock: a one-token change to reference/model.ts is red");
   // Re-audit H2: D91's type pins. A directive removed and its refusal widened with `as any` compiles; the check and the lock must both see it.
   const typesCheck = () => run(["bun", join(round, "checks/types-check.ts")], {}, conf);
   reset();
@@ -260,8 +265,23 @@ try {
       ["a6.abandoned-like2", "A6 AbandonedFiber", [["world.ts", NOTEEND, `${NOTEEND} (a.op === "like" && String(a.attempt).endsWith("-2") && e.ch !== "success") ? note(tx, "AbandonedFiber", { op: a.op, attempt: a.attempt, send: a.send }) :`], ["turn.ts", G125, at('item.ending.ch !== "success" && item.op === "like" && String(item.attempt).endsWith("-2")', "return;")]], ""],
       ["a6.abandoned-save", "A6 AbandonedFiber, save", [["world.ts", NOTEEND, `${NOTEEND} (a.op === "save" && e.ch !== "success") ? note(tx, "AbandonedFiber", { op: a.op, attempt: a.attempt, send: a.send }) :`], ["turn.ts", G125, at(SAVE, "return;")]], ""],
     ];
+    // Stage F: the stage E re-check's lies (`conformance-audit/re-check-round-10e.md`), as it wrote them, and one only (ref) can see.
+    const FRAG = "tx.machines[a.machine]?.ops[item.op]?.fragment !== undefined";
+    const KEYED = `Object.values(tx.machines[a.machine]!.nodes).some((n: any) => [...(n.placements ?? []), ...(n.subroutine ? [n.subroutine] : [])].some((p: any) => p.fragment === tx.machines[a.machine]!.ops[item.op]?.fragment && (p.each || p.resetOn)))`;
+    const FAN = `(() => { let n = 0; walkIncs(a.root, (i: any) => { if (i.frag === tx.machines[a.machine]!.ops[item.op]?.fragment && !i.frozen) n++; }); return n >= 2; })()`;
+    const FIRST = `(() => { let s: any; walkIncs(a.root, (i: any) => { if (i.frag === tx.machines[a.machine]!.ops[item.op]?.fragment && !i.frozen) s ??= i.subject; }); return s ?? subject; })()`;
+    const BIND = "const path = bindingOf(tx, a, item.op, subject);";
+    const LIES10F: ReadonlyArray<readonly [string, string, Edits, string]> = [
+      ["e2.subject-fan-fail-att", "the copy: a failure to the first of 2+ copies (H1''')", [["turn.ts", BIND, `const path = item.attempt && ${FAIL} && ${FAN} ? bindingOf(tx, a, item.op, ${FIRST}) : bindingOf(tx, a, item.op, subject);`]], "(j) delivered to the wrong copy"],
+      ["e2.subject-fan-att", "the copy: every ending to the first of 2+ copies", [["turn.ts", BIND, `const path = item.attempt && ${FAN} ? bindingOf(tx, a, item.op, ${FIRST}) : bindingOf(tx, a, item.op, subject);`]], "(j) delivered to the wrong copy"],
+      ["e1.park-keyed", "parked, keyed copies (M1''')", [["turn.ts", G125, at(`${FRAG} && ${KEYED}`, PARK)]], "(j) parked"],
+      ["e1.park-keyed-fan-att", "parked, keyed, 2+ copies, attempts (M1''')", [["turn.ts", G125, at(`item.attempt && ${FRAG} && ${KEYED} && ${FAN}`, PARK)]], "(j) parked"],
+      ["a3p.park-decline", "a decline parked on its live owner (M1''')", [["turn.ts", G125, at("!item.attempt", PARK)]], "(j) a decline parked"],
+      ["a4p.refused-turn", "A4' a false turn pays a refusal", [["turn.ts", "enqueue(tx, { ...rest, redelivered: true });", 'note(tx, "turn", { actor: item.actor, event: tag, from: "a", to: "a" });']], "(j) refused once"],
+      ["ref.binding-first-copy", "the runtime's `binding` ignores the subject; delivery is right", [["adapter.ts", "return r && bindingIn(byId, r, op, subject);", "return r && bindingIn(byId, r, op, []) !== undefined ? bindingIn(byId, r, op, []) : r && (() => { let s: any; walkIncs(r.root, (i: any) => { if (i.frag === byId[r.machine]!.ops[op]?.fragment && !i.frozen) s ??= i.subject; }); return s ? bindingIn(byId, r, op, s) : bindingIn(byId, r, op, subject); })();"], ["adapter.ts", 'import { bindingIn } from "./turn.ts";', 'import { bindingIn } from "./turn.ts"; import { walkIncs } from "./inc.ts";']], "(ref) binding with subject"],
+    ];
     const flex = (find: string) => new RegExp(find.trim().split(/\s+/).map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("\\s*"));
-    const ALL = [...LIES, ...LIES10D];
+    const ALL = [...LIES, ...LIES10D, ...LIES10F];
     // `--slice i/n`: the i-th of n parts (each fits a 5-minute command).
     const sl = process.argv.indexOf("--slice");
     const [si, sn] = sl < 0 ? [1, 1] : process.argv[sl + 1]!.split("/").map(Number) as [number, number];

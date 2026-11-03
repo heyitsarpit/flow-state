@@ -945,6 +945,44 @@ export const fragScenarios: readonly Scenario[] = [
       },
     },
   },
+  // Stage F, re-check H1''': which row hears a failure. Two live copies, a failure on the second; the first must not hear it.
+  {
+    id: "FRAG-21",
+    kind: "example",
+    fixtures: [notesFixture],
+    actor: N,
+    cites: ["rule:51", "rule:53"],
+    variants: {
+      "a-failure-on-the-second-copy-reaches-only-it"(c) {
+        c.ensure();
+        c.send("SetDocs", docs("d1", "d2"));
+        edit(c, "d1", "one");
+        edit(c, "d2", "two");
+        c.ack();
+        c.ack();
+        c.answer("save", { fail: { tag: "Conflict" } }, { docId: "d2" });
+        c.eq("the second copy heard its conflict", saved(c, "d2")?.status, "conflict");
+        c.eq("the first copy heard nothing", saved(c, "d1")?.status, "saving");
+        c.eq("the first copy's text is its own", saved(c, "d1")?.body, "one");
+        c.answer("save", { apply: true }, { docId: "d1" });
+        c.eq("the first copy's own success", saved(c, "d1")?.saved, "one");
+        c.eq("the second copy kept its conflict", saved(c, "d2")?.status, "conflict");
+      },
+      // Re-check L1, tried: a keyed copy's failing save, answered with other sends to the same actor queued in the same tick. The runtime
+      // admits the ending before or after that mail, never beside it, so D161's keyed "owner moved" trigger still fires in no case (stage F).
+      "a-keyed-failure-and-sends-in-one-tick"(c) {
+        c.ensure();
+        c.send("SetDocs", docs("d1", "d2"));
+        edit(c, "d1", "one");
+        c.ack();
+        c.h.raw({ answer: "save", with: { fail: { tag: "Conflict" } }, where: { docId: "d1" } });
+        c.h.raw({ sendMany: [[N, "SetDocs", docs("d1", "d2", "d3")], [N, "SetDocs", docs("d1", "d2")]] });
+        c.h.do({ advance: 0 });
+        c.eq("the copy heard its conflict", saved(c, "d1")?.status, "conflict");
+        c.eq("the other copy is untouched", saved(c, "d2")?.status, "clean");
+      },
+    },
+  },
   // From the second author's survivors, after his number was taken (35/50). They do not change that number.
   {
     id: "FRAG-20",

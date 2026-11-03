@@ -92,6 +92,7 @@ FRAG-16 12030f535565
 FRAG-17 487058dddb0a
 FRAG-18 340505cc22a8
 FRAG-19 8a1eeb080154
+FRAG-21 9fd008aefa5a
 FRAG-20 71365391e864
 REV4-H1 d22230626e38
 REV4-H2 b392b6ba7ad9
@@ -354,6 +355,8 @@ variant:FRAG-18/reload-while-frozen-keeps-the-parked-ending present
 variant:FRAG-18/a-live-lookup-is-not-persisted present
 variant:FRAG-19/copies-and-subject-paths-survive-a-reload present
 variant:FRAG-19/unplaced-parked-survives-a-reload present
+variant:FRAG-21/a-failure-on-the-second-copy-reaches-only-it present
+variant:FRAG-21/a-keyed-failure-and-sends-in-one-tick present
 variant:FRAG-20/release-only-the-ending-subject present
 variant:FRAG-20/a-commit-in-a-copy-the-same-turn-removes-is-marked present
 variant:FRAG-20/actor-record-does-not-parse present
@@ -846,7 +849,7 @@ variant:R10-AUDIT-ENDINGS/a-failure-beside-another-actors-mail-is-heard present
 variant:R10-AUDIT-ENDINGS/a-failure-beside-one-send-is-heard present
 file:scenarios/ctx.ts 041466da4ebc
 file:scenarios/flows.scenario.ts 609988df9d0b
-file:scenarios/frag.scenario.ts 99fead9ff111
+file:scenarios/frag.scenario.ts 4845b88e60c9
 file:scenarios/order.scenario.ts 808eaa809f06
 file:scenarios/pay.scenario.ts ab1e3ac509a9
 file:scenarios/review.scenario.ts 973830d14300
@@ -904,9 +907,10 @@ file:bench/fixture.ts f187601228e3
 file:bench/main.ts 7c2e411b7451
 file:bench/s4-page.ts 4d9780fd71ee
 file:bench/s4-run.ts 78b684022f52
-file:main.ts 1c070060b898
+file:reference/model.ts 4864a6ed409c
+file:main.ts 6b42c9aab034
 file:output.ts 0b15041b194e
-file:falsify.ts 5790b1f56116
+file:falsify.ts fd7dda51fba5
 file:broken-adapter.ts a255b41105c6
 file:null-adapter.ts 295792b7b6be
 file:report.ts 7e305fd3110b
@@ -916,7 +920,7 @@ file:gate-5s-expected.txt 7995923439b2
 file:mutate.ts bd0623c0a5c3
 file:mutate-one.ts 14f130df7310
 file:harness.ts daf1e0674f88
-file:drive.ts a7c34f3dd3ed
+file:drive.ts eb662b257fab
 file:fake-world.ts 683d3534c270
 round:cli/broken.ts 10d0ce602315
 round:cli/check.ts 9b5b5f6c07d4
@@ -935,7 +939,7 @@ round:typed/type-tests.ts c59a5f992e9e
 round:checks/mailq-check.ts ea7e7b354b07
 round:checks/score-check.ts 96fddc8d1c66
 round:checks/search-vacuity-check.ts 64d0d2313347
-round:checks/types-check.ts 93fe29f7f655
+round:checks/types-check.ts 278fb66812c7
 round:reality/h3-plant.ts 00c84949a985
 round:reality/h3.ts 87ca84205094
 round:reality/idb.ts bcc1040c4f58
@@ -1047,6 +1051,8 @@ output:FRAG-20/local-sent-finishes-to-evidence bc99733026f2
 output:FRAG-20/no-waiter-left-no-yield 1810176ab47d
 output:FRAG-20/re-entering-does-not-refresh-a-resumable f6406d6353de
 output:FRAG-20/release-only-the-ending-subject ea79a895ca40
+output:FRAG-21/a-failure-on-the-second-copy-reaches-only-it e76f56270b2d
+output:FRAG-21/a-keyed-failure-and-sends-in-one-tick 7d4a76513d69
 output:HIGH-01/pay-told-not-charged 02b546ae0dde
 output:HIGH-01/retry-then-cancel-releases bfb328e45e36
 output:HIGH-01/retry-then-commit-queues-behind e3d23b3ef219

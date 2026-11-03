@@ -94,6 +94,7 @@ const SHARED = [
   ...walked(here, "search", /\.ts$/),
   ...walked(here, "fixtures", /\.ts$/),
   ...walked(here, "bench", /\.ts$/),
+  ...walked(here, "reference", /\.ts$/), // re-check M2''': the suite's model of binding is an expected result too
   "main.ts",
   "output.ts",
   "falsify.ts",

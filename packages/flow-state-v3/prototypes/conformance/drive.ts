@@ -37,6 +37,7 @@ export const makeHarness = (port: Port) => (): Harness => {
   // Compiled data is plain data: wrapping its Slots is what a test build would do, and the core cannot tell.
   // D117, D125, oracle (j): no ending goes missing. Its first half, what a turn asked for: by operation, per step, a committed turn's asks must each become something.
   let asking: string[] = [];
+  let askKeys: Array<{ op: string; key: string | undefined }> = []; // stage F: each ask's copy key, in order
   let askedNow: string[] = []; // this batch's asks, seen by the wrapped input Slots
   let replaying = false;
   const missing: string[] = [];
@@ -129,6 +130,56 @@ export const makeHarness = (port: Port) => (): Harness => {
   const driveTimers = () => {
     for (const a of known) for (const ev of refm().scheduleEvents(machineOf(a))) drive(a, ev, "timer");
   };
+  // Stage F (re-check H1'''): each attempt's copy, from what the suite drove. A `send` with `to` names the copy its turn runs in; a delivered
+  // ending's turn runs in that attempt's copy; a definition's op is the actor's root (`[]`). A fragment op's copy is the one live copy of its
+  // fragment (by `reference.copies`: published leaf, `.each` membership, each copy's published state) on that path; none or two is undecided.
+  const attemptCopy = new Map<string, { path: string[]; resets: string[] } | null>();
+  const declineCopy = new Map<string, { actor: string; copy: { path: string[]; resets: string[] } | null }>(); // op -> its latest decline's
+  let stepTo: { actor: string; event: string; to: readonly string[] } | undefined; // the send this step drove
+  let unplaced = 0; // deliveries of attempts whose copy the suite could not decide: reported, never an excuse
+  const memoryOf = (actor: string) => {
+    try {
+      return inst.memory(actor);
+    } catch {
+      return undefined;
+    }
+  };
+  const copiesOf = (actor: string, op: string) => {
+    const m = refm().machine(machineOf(actor));
+    const f = m?.ops[op]?.fragment;
+    if (!m || f === undefined) return [];
+    return refm().copies(m.id, f, leafOf(actor), memoryOf(actor), (p) => {
+      try {
+        return inst.inner(actor, p);
+      } catch {
+        return undefined;
+      }
+    });
+  };
+  const samePath = (a: readonly string[], b: readonly string[]) => a.length === b.length && a.every((x, i) => x === b[i]);
+  const prefix = (a: readonly string[], b: readonly string[]) => a.length <= b.length && a.every((x, i) => x === b[i]);
+  const keyOf = new Map<string, string | undefined>(); // attempt -> the `.each` key its asking copy's view showed (the suite's wrap)
+  const placeFor = (actor: string, op: string, cause: readonly string[] | null, key?: string) => {
+    const m = refm().machine(machineOf(actor));
+    if (!m?.ops[op]) return null;
+    if (m.ops[op]!.fragment === undefined) return { path: [], resets: [] };
+    const cs = copiesOf(actor, op);
+    let pick = cause === null ? cs : cs.filter((c) => prefix(c.path, cause) || prefix(cause, c.path));
+    if (pick.length > 1 && key !== undefined) pick = pick.filter((c) => c.path.at(-1)!.endsWith(`:${key}`) && c.path.at(-1)!.indexOf(":") === c.path.at(-1)!.length - key.length - 1);
+    return pick.length === 1 ? pick[0]! : null;
+  };
+  // Does the live owner bind this attempt's ending in the copy the suite recorded for it? A root op: the reference. A copy: that copy live,
+  // with the same `resetOn` values it had at the attempt (rule 51: a new value is a new subject).
+  const bindsCopy = (actor: string, op: string, copy: { path: string[]; resets: string[] } | null | undefined): "yes" | "no" | "unknown" => {
+    const leaf = leafOf(actor);
+    const m = refm().machine(machineOf(actor));
+    if (leaf === undefined) return "no";
+    if (!m?.ops[op]) return "unknown";
+    if (m.ops[op]!.fragment === undefined) return refm().binds(m.id, op, leaf);
+    if (!copy) return refm().binds(m.id, op, leaf);
+    const c = copiesOf(actor, op).find((x) => samePath(x.path, copy.path));
+    return c && JSON.stringify(c.resets) === JSON.stringify(copy.resets) ? "yes" : "no";
+  };
   const ended = new Set<string>(); // attempts with an `ending` said
   const openAttempts = (op?: string) => [...attemptActor].filter(([a]) => !ended.has(a) && (op === undefined || madeOp.get(a) === op));
   const cancelSeen = (actor: string, op: string, att?: string) => {
@@ -179,9 +230,23 @@ export const makeHarness = (port: Port) => (): Harness => {
     // Attribution: a mint or an invoke belongs to the turn before it in the step, or, if none came before, the turn after it.
     let turnActor: string | undefined;
     const pending: string[] = [];
+    // Stage F: the copy the running turn is in, by what the suite drove (a `to`, or a delivered attempt's own copy).
+    let cause: readonly string[] | null = stepTo ? stepTo.to : null;
+    const causeOf = new Map<string, readonly string[] | null>();
+    const declines: Array<{ op: string; cause: readonly string[] | null }> = [];
     for (const x of e) {
+      if (x["kind"] === "delivered") cause = x["attempt"] ? (attemptCopy.get(String(x["attempt"]))?.path ?? null) : null;
+      if ((x["kind"] === "mint" || x["kind"] === "invoked") && !causeOf.has(String(x["attempt"])) && !attemptCopy.has(String(x["attempt"]))) {
+        causeOf.set(String(x["attempt"]), cause);
+        const i = askKeys.findIndex((q) => q.op === x["op"]);
+        if (i >= 0) keyOf.set(String(x["attempt"]), askKeys.splice(i, 1)[0]!.key);
+      }
+      if (x["kind"] === "ending" && x["attempt"] === undefined) declines.push({ op: String(x["op"]), cause });
       if (x["kind"] === "turn") {
         const who = String(x["actor"]);
+        if (stepTo && who === stepTo.actor && String(x["event"]) === stepTo.event) stepTo = undefined;
+        for (const d of declines.splice(0)) declineCopy.set(d.op, { actor: who, copy: placeFor(who, d.op, d.cause) });
+        cause = null;
         // Re-check M2'' (A1): attribute only to an actor the suite addressed or that publishes. A turn of any other is itself red.
         if (!known.has(who) && !published.has(who) && publishedNow(who) === undefined) {
           missing.push(`(j) a turn of an actor the suite never addressed and that publishes nothing: ${who}`);
@@ -202,6 +267,11 @@ export const makeHarness = (port: Port) => (): Harness => {
         else pending.push(a);
       }
     }
+    for (const [a, c] of causeOf) {
+      const actor = attemptActor.get(a);
+      if (actor !== undefined && !attemptCopy.has(a)) attemptCopy.set(a, placeFor(actor, madeOp.get(a) ?? "", c, keyOf.get(a)));
+    }
+    askKeys = [];
     // D154: whose published state moved in this batch, by the suite's own reading before and after it.
     moved = new Set();
     const prev = new Map<string, string | undefined>();
@@ -232,6 +302,24 @@ export const makeHarness = (port: Port) => (): Harness => {
         if ((got !== undefined) !== (want === "yes")) missing.push(`(ref) binding: the runtime ${got ? `binds ${op} at [${got.join("/")}]` : `binds ${op} nowhere`} in ${actor} at ${leaf}; the reference says ${want === "yes" ? "bound" : "unbound"}`);
       }
     }
+    // Stage F (re-check: (ref) asked only with `[]`): every open attempt of a copy, asked with its real subject, the `.each` keys of the path the
+    // suite recorded (rule 51). A `resetOn` part is the runtime's encoding of a value, so a path under one is asked by (j)'s park check only.
+    if (inst?.binding)
+      for (const [a, copy] of attemptCopy) {
+        const actor = attemptActor.get(a);
+        if (!copy || copy.path.length === 0 || copy.resets.length > 0 || actor === undefined || ended.has(a) || !known.has(actor)) continue;
+        const op = madeOp.get(a) ?? "";
+        const want = bindsCopy(actor, op, copy);
+        if (want === "unknown") continue;
+        const subject = copy.path.flatMap((s) => (s.includes(":") ? [s.slice(s.indexOf(":") + 1)] : []));
+        let got: readonly string[] | undefined;
+        try {
+          got = inst.binding(actor, op, subject);
+        } catch {
+          continue;
+        }
+        if (want === "yes" ? !got || !samePath(got, copy.path) : got !== undefined) missing.push(`(ref) binding with subject [${subject.join(" / ")}]: the runtime ${got ? `binds ${op} at [${got.join(" / ")}]` : `binds ${op} nowhere`} in ${actor}; the reference says ${want === "yes" ? `[${copy.path.join(" / ")}]` : "unbound"}`);
+      }
     // Re-check M3', D154: `Superseded` is the runtime's word. It is owed a seen cause: the owner's life over (or a dispose this batch, which the
     // suite drove), or the compiled op supersedes (`latest`) and this batch holds a newer attempt of the same op by the same owner.
     const disposing = e.some((x) => x["kind"] === "DisposeStart");
@@ -265,7 +353,22 @@ export const makeHarness = (port: Port) => (): Harness => {
           bump(told, k);
           if (x["attempt"] !== undefined) ended.add(String(x["attempt"]));
           break;
-        case "delivered":
+        case "delivered": {
+          // Stage F (H1'''): not only that it was delivered, but to whom. Every delivery names its copy; an attempt's must be the one the
+          // suite recorded from its own driving. A count can be right with every ending in the wrong row.
+          const at = x["at"];
+          const want = x["attempt"] ? attemptCopy.get(String(x["attempt"])) : undefined;
+          if (!Array.isArray(at)) missing.push(`(j) a delivery names no copy: ${x["op"]} ${x["attempt"] ?? ""}`);
+          else if (x["attempt"] && !ledgerOff) {
+            if (want) {
+              if (!samePath(want.path, at)) missing.push(`(j) delivered to the wrong copy: ${x["op"]} ${x["attempt"]} ran in [${at.join(" / ")}]; the suite drove it from [${want.path.join(" / ")}]`);
+            } else if (attemptActor.has(String(x["attempt"])) && refm().machine(machineOf(attemptActor.get(String(x["attempt"]))!))?.ops[String(x["op"])]) {
+              // No `unknown` where fan-out lives: a delivery the suite cannot place is red, not excused. None in the suite today.
+              unplaced++;
+              missing.push(`(j) delivered, and the suite could not decide its copy from what it drove: ${x["op"]} ${x["attempt"]} ran in [${at.join(" / ")}]`);
+            }
+          }
+        }
           if (heard) bump(told, k, -1);
           else unpaid.push(k);
           break;
@@ -278,8 +381,14 @@ export const makeHarness = (port: Port) => (): Harness => {
           // owner's life is over. A live owner whose published state binds the op is owed the ending: red, whatever a wait says.
           const att = String(x["attempt"] ?? "");
           const owner = attemptActor.get(att);
-          if (owner !== undefined && !ledgerOff && !runtimeDisposed && !lifeOver(att) && !moveLetsGo(owner, String(x["op"])) && refm().binds(machineOf(owner), String(x["op"]), leafOf(owner)) === "yes")
-            missing.push(`(j) parked, and its live owner binds it (reference): ${x["op"]} ${att} in ${owner} at ${leafOf(owner)}`);
+          // Stage F (M1'''): a keyed, nested or resumable copy is answered by the copy the suite recorded for the attempt, not `unknown`.
+          // A decline has no attempt: its copy is the one the suite drove the declining turn in.
+          const op = String(x["op"]);
+          if (owner !== undefined && !ledgerOff && !runtimeDisposed && !lifeOver(att) && !moveLetsGo(owner, op) && bindsCopy(owner, op, attemptCopy.get(att)) === "yes")
+            missing.push(`(j) parked, and its live owner binds it (reference): ${op} ${att} in ${owner} at ${leafOf(owner)}`);
+          const dc = att === "" ? declineCopy.get(op) : undefined;
+          if (dc && dc.copy && !ledgerOff && !runtimeDisposed && !moved.has(dc.actor) && bindsCopy(dc.actor, op, dc.copy) === "yes")
+            missing.push(`(j) a decline parked, and its live owner binds it (reference): ${op} in ${dc.actor} [${dc.copy.path.join(" / ")}]`);
           bump(told, k, -1);
           bump(parkedOwed, k);
           break;
@@ -304,9 +413,13 @@ export const makeHarness = (port: Port) => (): Harness => {
           bump(tryAgain, String(x["event"]));
           refusedAt.set(String(x["event"]), slotRuns.length);
           break;
-        case "turn":
-          bump(tryAgain, String(x["event"]), -1);
+        case "turn": {
+          // Re-check A4' (stage F): a turn pays a refusal only as a denial does (D162): a Slot of that event's alternatives ran after the refusal.
+          const ev = String(x["event"]);
+          const since = refusedAt.get(ev);
+          if (!tryAgain.has(ev) || since === undefined || slotRuns.slice(since).some((p) => p.includes(`on.${ev}[`))) bump(tryAgain, ev, -1);
           break;
+        }
         case "Denied":
         case "Unhandled": {
           // Re-check M3'' (A4): a denial pays a refusal only if the suite saw the second try: a Slot of that event's alternatives ran after
@@ -354,6 +467,8 @@ export const makeHarness = (port: Port) => (): Harness => {
     run: (...a: unknown[]) => {
       const r = slot.run(...a);
       if (!replaying) asking.push(op);
+      // Stage F: the asking copy's own `.each` key, as the suite's wrap of its input Slot sees the copy's memory view
+      if (!replaying) askKeys.push({ op, key: (a[0] as any)?.memory?.key === undefined ? undefined : String((a[0] as any).memory.key) });
       return r;
     },
   });
@@ -492,13 +607,14 @@ export const makeHarness = (port: Port) => (): Harness => {
     if ("sendMany" in s) for (const [a, tag] of s.sendMany) drive(actorKey(a), tag);
     // An answer drives the events of its op's mapping to the owners of that op's open attempts, from that op (never a cause for itself).
     if ("answer" in s) for (const [, owner] of openAttempts(s.answer)) for (const ev of refm().mappedEvents(machineOf(owner), s.answer)) drive(owner, ev, s.answer);
+    stepTo = undefined; // stage F: set again below for a `send`
     if ("advanceNow" in s) driveTimers();
     if ("ensure" in s) known.add(actorKey(s.ensure));
     if ("ensureAs" in s) machineOfActor.set(actorKey(s.ensureAs.key), s.ensureAs.machine);
     if ("ensureAs" in s) inst.ensure(actorKey(s.ensureAs.key), s.ensureAs.machine); // D137: a key and a machine that do not agree, as a host's bug would give
     else if ("ensure" in s) inst.ensure(actorKey(s.ensure), s.ensure.actor, s.input);
     else if ("burst" in s) for (let i = 0; i < s.n; i++) inst.send(actorKey(s.burst), { tag: s.event, payload: {} });
-    else if ("send" in s)
+    else if ("send" in s && ((stepTo = { actor: actorKey(s.send), event: s.event, to: s.to ?? [] }), true))
       inst.send(actorKey(s.send), {
         tag: s.event,
         payload: s.payload ?? {},

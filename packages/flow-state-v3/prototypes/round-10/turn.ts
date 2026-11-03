@@ -1153,7 +1153,7 @@ const deliver = (tx: Tx, a: ActorRec, path: Path, item: EndingMail) => {
   const inc = kidAt(a.root, path)!;
   const mapped = mappedFor(m, item);
   if (!item.redelivered || item.kept)
-    note(tx, "delivered", { op: item.op, attempt: item.attempt ?? "", event: mapped?.event });
+    note(tx, "delivered", { op: item.op, attempt: item.attempt ?? "", event: mapped?.event, at: path }); // stage F: the copy it runs in
   if (!mapped)
     return issue(tx, {
       code: "UnmappedEnding",
