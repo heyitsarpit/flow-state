@@ -59,6 +59,45 @@ const got = directives(readFileSync(join(typed, "type-tests.ts"), "utf8"));
 for (const want of PINS) if (!got.includes(want)) bad.push(`no @ts-expect-error directive pins: ${want}`);
 for (const g of got) if (!PINS.includes(g)) bad.push(`a directive this check does not state: ${g || "(no words)"}`);
 if (got.length !== PINS.length) bad.push(`type-tests.ts holds ${got.length} directives, ${PINS.length} stated`);
+// Re-check L1 (stage E): a directive's words say which refusal; the line under it must error for THAT refusal, not for a typo. So the
+// directives are stripped (lines kept) in a copy beside the file, `tsc` runs on it once, and each line under a directive must hold exactly
+// the error pinned here, by code and words, and no other.
+const ERRORS: Record<string, readonly [string, string]> = {
+  "a key names a field that is not the input's": ["TS2322", `Type '"b"' is not assignable to type '"a"'`],
+  "`NoSuchTag` is no failure this commit has": ["TS2353", "'NoSuchTag' does not exist in type"],
+  "an event with a payload cannot be mapped with no `.from`": ["TS2322", `Type 'EventToken<"Saved"`],
+  "`text` is not on `Saved`": ["TS2339", "Property 'text' does not exist"],
+  "memory has no `m`": ["TS2322", "Type '() => { m: number; }' is not assignable"],
+  "no such state": ["TS2339", "Property 'C' does not exist on type 'StatesOf"],
+  "a commit's input is the contract's": ["TS2322", "Type 'number' is not assignable to type 'string'"],
+  "a key is the contract's key fields": ["TS2741", "Property 'docId' is missing in type '{ text: string; }'"],
+};
+{
+  const src = readFileSync(join(typed, "type-tests.ts"), "utf8").split("\n");
+  const under = new Map<number, string>(); // 1-based line under each directive -> its words
+  src.forEach((l, i) => {
+    const m = /^\s*\/\/\/?\s*@ts-expect-error\b\s*(.*)$/.exec(l);
+    if (m) under.set(i + 2, m[1]!.trim());
+  });
+  const stripped = src.map((l, i) => (under.has(i + 2) ? l.replace(/\/\/.*$/, "//") : l)).join("\n");
+  const tag = `zz-pins-${process.pid}`;
+  const { writeFileSync, rmSync } = await import("node:fs");
+  writeFileSync(join(typed, `${tag}.ts`), stripped);
+  writeFileSync(join(typed, `${tag}.json`), JSON.stringify({ extends: "./tsconfig.json", files: [`${tag}.ts`] }));
+  try {
+    const q = Bun.spawnSync([tsc, "-p", join(typed, `${tag}.json`)], { stdin: "ignore", timeout: 150_000 });
+    const errs = (q.stdout.toString() + q.stderr.toString()).split("\n").map((l) => /^\S+\((\d+),\d+\): error (TS\d+): (.*)$/.exec(l)).filter((m): m is RegExpExecArray => m !== null);
+    for (const [line, words] of under) {
+      const want = ERRORS[words];
+      const here = errs.filter((m) => Number(m[1]) === line);
+      if (!want) bad.push(`no error pinned for the directive: ${words}`);
+      else if (here.length !== 1 || here[0]![2] !== want[0] || !here[0]![3]!.includes(want[1])) bad.push(`the line under "${words}" errors for something else: ${here.map((m) => `${m[2]} ${m[3]!.slice(0, 90)}`).join(" | ") || "no error"}`);
+    }
+  } finally {
+    rmSync(join(typed, `${tag}.ts`), { force: true });
+    rmSync(join(typed, `${tag}.json`), { force: true });
+  }
+}
 for (const b of bad) console.log(`FAIL  types: ${b}`);
 console.log(bad.length ? "TYPES FAIL" : `TYPES PASS  tsc clean, ${got.length} directives, each by its words`);
 process.exit(bad.length ? 1 : 0);

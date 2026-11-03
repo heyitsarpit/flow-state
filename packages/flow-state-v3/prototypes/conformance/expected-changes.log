@@ -592,3 +592,8 @@ file:harness.ts hash:0e469f632dfd | D158: `Reads.releaseSeen`
 file:drive.ts hash:7f3bb78d87fd | D158: `DisposeStart` turns (j) off only after a driven `disposeRuntime`; (h) takes a `Released` only with a seen cause; a driven reload maps restored endings to events (D154)
 file:drive.ts hash:cc718aec49e2 | D154: an answer's mapped event is no cause for its own op's ending, which `lie.like2nc-released` used to excuse itself
 file:falsify.ts hash:339f64abcbe0 | D155: `lie.settled-released` is read by any named oracle, since (j) sees it before `checkMints`
+file:harness.ts hash:daf1e0674f88 | D159: `Instance.binding`, optional, the runtime's answer to where an ending of an op would go, checked by oracle (ref)
+file:drive.ts hash:a7c34f3dd3ed | D159-D162: the suite's reference model answers binding and cancels; (j) refuses a park on a live owner that binds the op; causes per owner; a ghost turn is red; a refusal's retry is paid only by its own seen try
+round:adapter.ts hash:1da58b03b964 | D159: round 10 answers `binding` from its own `bindingIn`, over the sealed data as booted
+round:checks/types-check.ts hash:93fe29f7f655 | D163: each directive's line must error with its pinned code and words (re-check L1)
+file:falsify.ts hash:49069f1340dc | D163: the 24 stage-D lies in `--part lies` with `--slice`, the typo tamper, and `node_modules` found from a fresh worktree

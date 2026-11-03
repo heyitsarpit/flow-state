@@ -906,7 +906,7 @@ file:bench/s4-page.ts 4d9780fd71ee
 file:bench/s4-run.ts 78b684022f52
 file:main.ts 1c070060b898
 file:output.ts 0b15041b194e
-file:falsify.ts 339f64abcbe0
+file:falsify.ts 49069f1340dc
 file:broken-adapter.ts a255b41105c6
 file:null-adapter.ts 295792b7b6be
 file:report.ts 7e305fd3110b
@@ -915,8 +915,8 @@ file:gate5s.ts 9ca8fbc3f284
 file:gate-5s-expected.txt 7995923439b2
 file:mutate.ts bd0623c0a5c3
 file:mutate-one.ts 14f130df7310
-file:harness.ts 0e469f632dfd
-file:drive.ts cc718aec49e2
+file:harness.ts daf1e0674f88
+file:drive.ts a7c34f3dd3ed
 file:fake-world.ts 683d3534c270
 round:cli/broken.ts 10d0ce602315
 round:cli/check.ts 9b5b5f6c07d4
@@ -935,7 +935,7 @@ round:typed/type-tests.ts c59a5f992e9e
 round:checks/mailq-check.ts ea7e7b354b07
 round:checks/score-check.ts 96fddc8d1c66
 round:checks/search-vacuity-check.ts 64d0d2313347
-round:checks/types-check.ts bcb3ce3334fe
+round:checks/types-check.ts 93fe29f7f655
 round:reality/h3-plant.ts 00c84949a985
 round:reality/h3.ts 87ca84205094
 round:reality/idb.ts bcc1040c4f58
@@ -959,7 +959,7 @@ round:mutants-r9.ts b9904f5525b2
 round:mutants-r9b.ts b166469a099b
 round:mutants.ts 9ced0df5e862
 round:run-plants.sh cb7f2b68d5b2
-round:adapter.ts 177734217500
+round:adapter.ts 1da58b03b964
 output:CART-01 cfd438e7ae1b
 output:CART-02/at-most-nine fd17f07a683d
 output:CART-02/coupon cffb0eef99f3

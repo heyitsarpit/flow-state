@@ -12,6 +12,7 @@ import { MailQ } from "./mailq.ts";
 import { row as rowOf, view, waitsOf } from "./publish.ts";
 import type { Module } from "./seam.ts";
 import { step } from "./step.ts";
+import { bindingIn } from "./turn.ts";
 import { defaultBounds, emptyWorld, type Machines, type World } from "./world.ts";
 
 const REGISTRY: Readonly<Record<string, Module<any>>> = { entities, sessions, engine };
@@ -179,6 +180,8 @@ export const port: Port = {
       ...(DRAIN === undefined ? {} : { drainMs: Number(DRAIN) }),
       ...(CAP === undefined ? {} : { captureMs: Number(CAP) }),
     };
+    const byId: Record<string, Compiled> = {};
+    for (const c of a.compiled) byId[c.id] ??= c;
     const rt = createRuntime({
       host: a.host,
       machines: a.compiled, // D77: createRuntime seals
@@ -221,6 +224,10 @@ export const port: Port = {
       live: () => rt.live(),
       logLength: () => log.length,
       state: (x) => getActor(rt.world().actors, x)?.root.leaf,
+      binding: (x, op, subject) => {
+        const r = getActor(rt.world().actors, x);
+        return r && bindingIn(byId, r, op, subject); // the sealed data as booted, not `rt.sys.machines`: a read there is a core fault's trigger
+      },
       memory: (x) => {
         const r = getActor(rt.world().actors, x)?.root;
         return r && viewOf(r);

@@ -1,6 +1,6 @@
 // D132: a green must be able to go red. Every gate, on runtimes and copies known to be broken. Any that stays green fails this. bun falsify.ts --runtime ../round-10/adapter.ts [--quick]
 // The other side, the same gates green on the real runtime, is run here too, at the same small depth, so a red below is about the breakage.
-import { cpSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
 import { watched } from "./watch.ts";
@@ -85,7 +85,17 @@ if (part("search")) for (const w of quick ? SEARCHES.slice(0, 3) : SEARCHES) {
 
 // ── Gates by tampering a copy: compare, the lock, the log.
 const scratch = mkdtempSync(join(tmpdir(), "flow-falsify-"));
-symlinkSync(resolve(here, "../../../../node_modules"), join(scratch, "node_modules"));
+// Re-check (stage E): the copies need `node_modules` with `tsc`. Up from here first; a fresh worktree has none, so then the main checkout's,
+// by git's common dir. With neither, say so plainly instead of three "no tsc found" BADs.
+const nodeModules = (() => {
+  for (let d = here; dirname(d) !== d; d = dirname(d)) if (existsSync(join(d, "node_modules/.bin/tsc"))) return join(d, "node_modules");
+  const common = Bun.spawnSync(["git", "rev-parse", "--path-format=absolute", "--git-common-dir"], { cwd: here, stdin: "ignore" }).stdout.toString().trim();
+  const main = common && join(dirname(common), "node_modules");
+  if (main && existsSync(join(main, ".bin/tsc"))) return main;
+  return undefined;
+})();
+if (nodeModules) symlinkSync(nodeModules, join(scratch, "node_modules"));
+else if (part("tamper")) say(false, "tamper: no node_modules with tsc above this checkout or in its main checkout; run `nub install`");
 const conf = join(scratch, "conformance");
 const round = join(scratch, basename(roundDir));
 const reset = () => {
@@ -150,6 +160,11 @@ try {
   edit(join(round, "typed/type-tests.ts"), (s) => s.replace(/\/\/ @ts-expect-error a key names a field that is not the input's\n(.*)key: \["b"\],/, '// see the @ts-expect-error notes below\n$1key: ["b"] as any,'));
   const moved = await typesCheck();
   say(moved.code !== 0 && /no @ts-expect-error directive pins: a key names/.test(moved.stdout), "types: a directive turned into a mention is red, by its words");
+  // Re-check L1: a typo under a kept directive. The directive and its words stay; its line now errors for the typo, not its refusal.
+  reset();
+  edit(join(round, "typed/type-tests.ts"), (s) => s.replace('key: ["b"], concurrency: "reject"', 'key: ["a"], concurrency: "rejct"'));
+  const typo = await typesCheck();
+  say(typo.code !== 0 && /errors for something else/.test(typo.stdout), "types: a typo under a kept directive is red, by its error");
   reset();
   const tc = await typesCheck();
   say(tc.code === 0, "control: the types check is green untampered", tc.code === 0 ? "" : tc.stdout.slice(-300));
@@ -199,13 +214,73 @@ try {
       ["lie.settled-released", "Released, a settled head (checkMints)", [["lane.ts", "  settleHead(tx, next, final);", '  note(tx, "Released", { op: next.op, attempt: next.head?.id }); setLane(tx, next);']], ""], // (j) runs first and sees it; `checkMints` behind it
       ["lie.letgo-all-parked-on-cancel", "ParkedLetGo", [["lane.ts", 'for (const p of l.parked) if (p.kept) note(tx, "KeptLetGo", { op: l.op, attempt: p.attempt ?? "" }); return withParked(tx, l, l.parked.filter((p) => !p.kept));', 'for (const p of l.parked) note(tx, p.kept ? "KeptLetGo" : "ParkedLetGo", { op: l.op, attempt: p.attempt ?? "" }); return withParked(tx, l, []);']], ""],
     ];
+    // Stage E: every lie of the stage D re-check (`conformance-audit/recheck10d-scripts/run-mut.ts`), as it wrote them.
+    const at = (cond: string, body: string) => `${G125} if (a && ${cond}) { ${body} }`;
+    const EO = 'return note(tx, "evidenceOnly", { op: item.op, attempt: item.attempt ?? "" });';
+    const SAVE = 'item.ending.ch !== "success" && item.op === "save"';
+    const FAIL = 'item.ending.ch !== "success"';
+    const SAMEMAIL = '[...tx.w.mail].some((x: any) => x.actor === item.actor && !(x.k === "ending" && x.attempt === item.attempt))';
+    const SAMESEND = '[...tx.w.mail].some((x: any) => x.actor === item.actor && x.k === "send")';
+    const DELIV = 'note(tx, "delivered", { op: item.op, attempt: item.attempt ?? "", event: "x" }); return;';
+    const UNMAP = 'note(tx, "delivered", { op: item.op, attempt: item.attempt ?? "", event: "x" }); return issue(tx, { code: "UnmappedEnding", origin: `${a.machine} operations.${item.op}`, input: item.ending });';
+    const PARK = "return parkEnding(tx, item, lane, subject, a.machine);";
+    const MINT = 'note(tx, "mint", { op: a.op, attempt: attempt.id, mint: attempt.mint });';
+    const NOTEEND = "export const noteEnding = (tx: Tx, a: { op: string; attempt?: string; send?: string }, e: Ending) =>";
+    const PROBE = 'issue(tx, { code: "ProbeFired", origin: "probe", input: item.op });';
+    type Edits = ReadonlyArray<readonly [string, string, string]>;
+    // A lie whose trigger fires in no case is vacuous: it is run, and if it stays green its probe (the same trigger, saying so) must fire nowhere.
+    const vacuous = new Map<string, Edits>([
+      ["d154.moved-save-released", [["turn.ts", G125, at(`${SAVE} && ${SAMEMAIL}`, PROBE)]]],
+      ["d154.event-fail-released", [["turn.ts", G125, at(`${FAIL} && ${SAMESEND}`, PROBE)]]],
+      ["d154.event-like-released", [["turn.ts", G125, at(`${FAIL} && item.op === "like" && ${SAMESEND}`, PROBE)]]],
+    ]);
+    const LIES10D: ReadonlyArray<readonly [string, string, Edits, string]> = [
+      ["h1.like2nc-released", "Released (10d)", [["turn.ts", G125, at(LIKE2NC, REL + EO)]], "(j)"],
+      ["h1.like2nc-plain", "evidenceOnly (10d)", [["turn.ts", G125, at(LIKE2NC, EO)]], "(j)"],
+      ["h1.save-released", "Released, save (10d)", [["turn.ts", G125, at(SAVE, REL + EO)]], "(j)"],
+      ["h1.second-released", "Released, second sends (10d)", [["turn.ts", G125, at(`${FAIL} && String(item.attempt).endsWith("-2")`, REL + EO)]], "(j)"],
+      ["h1.unknown-released", "Released, unknowns (10d)", [["turn.ts", G125, at('item.ending.ch === "unknown"', REL + EO)]], "(j)"],
+      ["h1.lanecell-noatt-like2nc", "lane cell, no attempt (10d)", [["turn.ts", G125, at(LIKE2NC, 'note(tx, "lane", { cell: "lane.release.busy", op: item.op });' + EO)]], "(j)"],
+      ["d154.moved-fail-released", "owner moved, every failure (M1'')", [["turn.ts", G125, at(`${FAIL} && ${SAMEMAIL}`, REL + EO)]], "(j)"],
+      ["d154.moved-like-released", "owner moved, SURV-03 (M1'')", [["turn.ts", G125, at(`${FAIL} && item.op === "like" && ${SAMEMAIL}`, REL + EO)]], "(j)"],
+      ["d154.moved-save-released", "owner moved, save", [["turn.ts", G125, at(`${SAVE} && ${SAMEMAIL}`, REL + EO)]], "(j)"],
+      ["d154.event-fail-released", "cancel by event", [["turn.ts", G125, at(`${FAIL} && ${SAMESEND}`, REL + EO)]], "(j)"],
+      ["d154.event-like-released", "cancel by event, like", [["turn.ts", G125, at(`${FAIL} && item.op === "like" && ${SAMESEND}`, REL + EO)]], "(j)"],
+      ["a1.ghost-like2", "A1 a ghost turn", [["lane.ts", MINT, `if (a.op === "like" && String(attempt.id).endsWith("-2")) note(tx, "turn", { actor: "ghost/none", event: "x", from: "a", to: "a" }); ${MINT}`], ["turn.ts", G125, at(LIKE2NC, EO)]], "(j)"],
+      ["a1.ghost-save", "A1 a ghost turn, save", [["lane.ts", MINT, `if (a.op === "save") note(tx, "turn", { actor: "ghost/none", event: "x", from: "a", to: "a" }); ${MINT}`], ["turn.ts", G125, at(SAVE, EO)]], "(j)"],
+      ["a2.deliv-like2nc", "A2 delivered", [["turn.ts", G125, at(LIKE2NC, DELIV)]], "(j)"],
+      ["a2.deliv-save", "A2 delivered, save", [["turn.ts", G125, at(SAVE, DELIV)]], "(j)"],
+      ["a2.deliv-fail-samemail", "A2 delivered, owner has mail", [["turn.ts", G125, at(`${FAIL} && ${SAMEMAIL}`, DELIV)]], "(j)"],
+      ["a3.park-like2nc", "A3 parked on a live bound owner (H1'')", [["turn.ts", G125, at(LIKE2NC, PARK)]], "(j)"],
+      ["a3.park-save", "A3 parked, save", [["turn.ts", G125, at(SAVE, PARK)]], "(j)"],
+      ["a4.refused-fence", "A4 retry dropped, fence", [["turn.ts", "enqueue(tx, { ...rest, redelivered: true });", 'note(tx, "fence", {});']], "(j)"],
+      ["a4.refused-denied", "A4 retry dropped, Denied", [["turn.ts", "enqueue(tx, { ...rest, redelivered: true });", 'note(tx, "Denied", { event: tag });']], "(j)"],
+      ["a5.unmapped-like2nc", "A5 UnmappedEnding", [["turn.ts", G125, at(LIKE2NC, UNMAP)]], ""],
+      ["a5.unmapped-save", "A5 UnmappedEnding, save", [["turn.ts", G125, at(SAVE, UNMAP)]], ""],
+      ["a6.abandoned-like2", "A6 AbandonedFiber", [["world.ts", NOTEEND, `${NOTEEND} (a.op === "like" && String(a.attempt).endsWith("-2") && e.ch !== "success") ? note(tx, "AbandonedFiber", { op: a.op, attempt: a.attempt, send: a.send }) :`], ["turn.ts", G125, at('item.ending.ch !== "success" && item.op === "like" && String(item.attempt).endsWith("-2")', "return;")]], ""],
+      ["a6.abandoned-save", "A6 AbandonedFiber, save", [["world.ts", NOTEEND, `${NOTEEND} (a.op === "save" && e.ch !== "success") ? note(tx, "AbandonedFiber", { op: a.op, attempt: a.attempt, send: a.send }) :`], ["turn.ts", G125, at(SAVE, "return;")]], ""],
+    ];
     const flex = (find: string) => new RegExp(find.trim().split(/\s+/).map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("\\s*"));
-    for (const [id, about, edits, mark] of quick ? LIES.slice(0, 3) : LIES) {
+    const ALL = [...LIES, ...LIES10D];
+    // `--slice i/n`: the i-th of n parts (each fits a 5-minute command).
+    const sl = process.argv.indexOf("--slice");
+    const [si, sn] = sl < 0 ? [1, 1] : process.argv[sl + 1]!.split("/").map(Number) as [number, number];
+    const chosen = quick ? ALL.slice(0, 3) : ALL.filter((_, i) => i % sn === si - 1);
+    const named = async (edits: Edits) => {
       reset();
       for (const [f, find, rep] of edits) edit(join(round, f), (s) => s.replace(flex(find), () => rep));
       const r = await run(["bun", "main.ts", "--round", "99", "--no-catalog", "--no-output", "--runtime", `../${basename(roundDir)}/adapter.ts`], {}, conf);
-      const fails = r.stdout.split("\n").filter((l) => l.startsWith("FAIL") && !l.split("\t")[1]?.startsWith("output:"));
+      return { r, fails: r.stdout.split("\n").filter((l) => l.startsWith("FAIL") && !l.split("\t")[1]?.startsWith("output:")) };
+    };
+    for (const [id, about, edits, mark] of chosen) {
+      const { r, fails } = await named(edits);
       const by = fails.filter((l) => l.includes(mark));
+      if (by.length === 0 && fails.length === 0 && vacuous.has(id)) {
+        const p = await named(vacuous.get(id)!);
+        const fired = p.fails.filter((l) => l.includes("ProbeFired"));
+        say(summary(p.r.stdout) !== null && fired.length === 0, `lie ${id} (${about}): vacuous, its trigger fires in no case`, fired.slice(0, 3).map((l) => l.slice(4).split("\t")[0]!.trim()).join(" "));
+        continue;
+      }
       say(summary(r.stdout) !== null && by.length > 0, `lie ${id} (${about}): red by ${mark || "a named oracle"}`, `${by.length} of ${fails.length}: ${by.slice(0, 3).map((l) => l.slice(4).split("\t")[0]!.trim()).join(" ")}`);
     }
   }

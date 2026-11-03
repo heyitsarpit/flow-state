@@ -247,6 +247,8 @@ export type Instance = {
   live(): number;
   logLength(): number;
   state(actor: string): string | undefined;
+  // Stage E: where the runtime would deliver an ending of `op` with `subject` (rule 14, 53): a path, or undefined for none. Checked against `reference/`.
+  binding?(actor: string, op: string, subject: readonly string[]): readonly string[] | undefined;
   memory(actor: string): unknown;
   inner(actor: string, path: readonly string[]): { state: string; memory: any } | undefined;
   row(actor: string, op: string, key: unknown): Row | undefined;

@@ -4,6 +4,7 @@ import type { Fixture as Fixture_ } from "./harness.ts";
 import type { Compiled } from "./fixtures/compiled.ts";
 import { FakeWorld, NoHeldRequest } from "./fake-world.ts";
 import { canonText } from "./output.ts";
+import { machineOfKey, Reference } from "./reference/model.ts";
 import type { FaultState, Harness, Instance, Port, Step } from "./harness.ts";
 
 export const rowKey = (op: string, key: unknown) => `${op}|${JSON.stringify(key)}`;
@@ -44,6 +45,8 @@ export const makeHarness = (port: Port) => (): Harness => {
   const parkedOwed = new Map<string, number>();
   const bootOwed = new Map<string, number>();
   const tryAgain = new Map<string, number>();
+  const refusedAt = new Map<string, number>(); // event -> how many Slot runs the suite had seen when it was refused
+  const slotRuns: string[] = []; // every wrapped Slot's path, in the order the suite saw it run (not in replay)
   let keptNow: Array<{ op: string; attempt: string }> = [];
   let keptNames: Array<{ op: string; attempt: string }> = [];
   let ledgerOff = false; // a disposed runtime, or a disk edited or wiped by the case
@@ -68,6 +71,7 @@ export const makeHarness = (port: Port) => (): Harness => {
   const attemptLife = new Map<string, number>(); // attempt -> the life of its actor it was made in
   const lifeOf = new Map<string, number>(); // actor key -> lives ended by a `dispose` step
   const lettingGo = new Set<string>(); // attempts whose lane the suite has seen being let go
+  const releasedBySelf = new Set<string>(); // let go only by their own restored ending after a driven reload: a release, not an excuse for (j)
   const made = new Map<string, number>(); // attempt -> order of its first mint or invoke
   const madeOp = new Map<string, string>();
   const sends = new Map<string, string[]>(); // attempt -> the send gens the suite saw invoked, in order
@@ -89,84 +93,50 @@ export const makeHarness = (port: Port) => (): Harness => {
       return undefined;
     }
   };
-  let releasableOps: Set<string> | undefined;
-  const releasable = (op: string) => {
-    if (!releasableOps) {
-      const out = new Set<string>();
-      const seen = new Set<unknown>();
-      const walk = (v: any) => {
-        if (v === null || typeof v !== "object" || seen.has(v)) return;
-        seen.add(v);
-        if (Array.isArray(v)) return void v.forEach(walk);
-        if (v.verb === "cancel" && typeof v.op === "string") out.add(v.op);
-        if (v.whenAbandoned?.release) for (const o of v.whenAbandoned.release) out.add(o);
-        for (const [k, x] of Object.entries(v)) if (k !== "domain" && typeof x === "object") walk(x);
-      };
-      walk(compiled);
-      releasableOps = out;
+  // Stage E: the suite's own reference (`reference/model.ts`, from machine-design.md, nothing from a runtime) answers which actor binds an op,
+  // whether the owner's own machine can cancel it on an event or by a move, and which timers a machine has.
+  let reference: Reference | undefined;
+  const refm = () => (reference ??= new Reference(compiled));
+  const machineOfActor = new Map<string, string>(); // the machine the suite ensured an actor as; else its key's
+  const machineOf = (actor: string) => machineOfActor.get(actor) ?? machineOfKey(actor);
+  const leafOf = (actor: string) => {
+    try {
+      return inst.state(actor);
+    } catch {
+      return undefined;
     }
-    return releasableOps.has(op);
   };
-  // D154: the other seen cause, a cancel that changes nothing published. The suite drove an event to the owner in this `do` (a send, or an
-  // answer or a timer whose compiled mapping names the event), and the compiled machine has an alternative on that event with a `cancel` of the op.
-  let cancelsOn: Map<string, Set<string>> | undefined; // event -> ops some alternative on it cancels
-  const cancels = () => {
-    if (cancelsOn) return cancelsOn;
-    const out = new Map<string, Set<string>>();
-    const seen = new Set<unknown>();
-    const walk = (v: any) => {
-      if (v === null || typeof v !== "object" || seen.has(v)) return;
-      seen.add(v);
-      if (Array.isArray(v)) return void v.forEach(walk);
-      if (v.on && typeof v.on === "object" && v.id !== undefined)
-        for (const [ev, alts] of Object.entries(v.on as Record<string, any[]>))
-          for (const alt of alts ?? []) for (const m of alt.members ?? []) if (m.verb === "cancel") (out.get(ev) ?? out.set(ev, new Set()).get(ev)!).add(m.op);
-      for (const [k, x] of Object.entries(v)) if (k !== "domain" && typeof x === "object") walk(x);
-    };
-    walk(compiled);
-    return (cancelsOn = out);
+  let leafPrev = new Map<string, string | undefined>(); // actor -> its leaf before this batch, by the suite's reading
+  // D154 per owner (re-check M1''): the owner's own machine, between its published leaf before and after the batch, took an alternative that
+  // cancels the op, left every state that binds it, or left a fragment that releases it. `unknown` is where the reference cannot see: it pays
+  // only a let-go of a fragment's own op, never a root op's ending.
+  const moveLetsGo = (actor: string, op: string) => {
+    if (!moved.has(actor)) return false;
+    const a = refm().moveLetsGo(machineOf(actor), op, leafPrev.get(actor), leafOf(actor));
+    return a === "yes" || (a === "unknown" && refm().machine(machineOf(actor))?.ops[op]?.fragment !== undefined);
   };
-  const drivenTo = new Map<string, Set<string>>(); // actor -> events the suite sent it in this `do`
-  const drivenAny = new Set<string>(); // events a timer or a driven reload of this `do` maps to, by the compiled data; owner not known to the suite
-  const mappedFrom = new Map<string, Set<string>>(); // event -> the ops whose answer in this `do` maps to it
-  const mapFrom = (ev: string, op: string) => void (mappedFrom.get(ev) ?? mappedFrom.set(ev, new Set()).get(ev)!).add(op);
+  // D154: the other seen cause, a cancel that changes nothing published. The suite drove an event to THIS owner in this `do`: a send, a timer
+  // of its own machine on `advance`, the restored ending of its own attempt after a reload the suite drove, or the answer of ANOTHER op of its
+  // own attempt. And the owner's own machine has an alternative on that event with a `cancel` of the op (re-check inventory 3: per actor).
+  const drivenTo = new Map<string, Map<string, Set<string>>>(); // actor -> event -> what drove it ("" for a send, an op for its answer)
   const known = new Set<string>(); // every actor the suite addressed: their published state is read after each batch
-  const drive = (actor: string, ev: string) => {
+  const drive = (actor: string, ev: string, from = "") => {
     known.add(actor);
-    (drivenTo.get(actor) ?? drivenTo.set(actor, new Set()).get(actor)!).add(ev);
+    const m = drivenTo.get(actor) ?? drivenTo.set(actor, new Map()).get(actor)!;
+    (m.get(ev) ?? m.set(ev, new Set()).get(ev)!).add(from);
   };
-  const mappedEvents = (op: string) => {
-    const out: string[] = [];
-    for (const c of compiled) {
-      const o = c.ops[op] as any;
-      if (!o) continue;
-      const add = (m: any) => m?.event && out.push(m.event);
-      add(o.outcomes.success);
-      for (const m of Object.values(o.outcomes.failure ?? {})) add(m);
-      const u = o.outcomes.unknown;
-      if (u?.byReason) for (const m of Object.values(u.byReason)) add(m);
-      else add(u);
-    }
-    return out;
+  // `advance`: each known actor's own machine's timers, to that actor (not every schedule of every machine to every actor).
+  const driveTimers = () => {
+    for (const a of known) for (const ev of refm().scheduleEvents(machineOf(a))) drive(a, ev, "timer");
   };
-  const scheduleEvents = () => {
-    const out: string[] = [];
-    const seen = new Set<unknown>();
-    const walk = (v: any) => {
-      if (v === null || typeof v !== "object" || seen.has(v)) return;
-      seen.add(v);
-      if (Array.isArray(v)) return void v.forEach(walk);
-      if (Array.isArray(v.schedules)) for (const s of v.schedules) if (typeof s.send === "string") out.push(s.send);
-      for (const [k, x] of Object.entries(v)) if (k !== "domain" && typeof x === "object") walk(x);
-    };
-    walk(compiled);
-    return out;
-  };
-  const cancelSeen = (actor: string, op: string) => {
-    const c = cancels();
-    for (const ev of [...(drivenTo.get(actor) ?? []), ...drivenAny]) if (c.get(ev)?.has(op)) return true;
+  const ended = new Set<string>(); // attempts with an `ending` said
+  const openAttempts = (op?: string) => [...attemptActor].filter(([a]) => !ended.has(a) && (op === undefined || madeOp.get(a) === op));
+  const cancelSeen = (actor: string, op: string, att?: string) => {
+    const evs = drivenTo.get(actor);
+    if (!evs) return false;
     // An ending's own mapped event is no cause for that same op's ending: an ending hidden as evidence would excuse itself (lie.like2nc-released).
-    for (const [ev, from] of mappedFrom) if (c.get(ev)?.has(op) && [...from].some((o) => o !== op)) return true;
+    // Stage E: nor is a restored ending's, after a reload, a cause for that same attempt (SURV-03's lie: `reload:` names the attempt).
+    for (const [ev, from] of evs) if ([...from].some((o) => o !== op && o !== `reload:${att}`) && refm().cancelsOn(machineOf(actor), op, ev, leafPrev.get(actor) ?? leafOf(actor)) !== "no") return true;
     return false;
   };
   const lifeOver = (att: string) => {
@@ -176,11 +146,13 @@ export const makeHarness = (port: Port) => (): Harness => {
     return publishedNow(actor) === undefined;
   };
   // A release of `att`'s lane, said by the runtime, has a cause the suite saw. No attempt named: no actor known, no pay (re-check H1': no wildcard).
-  const releaseSeen = (op: string, att: string | undefined) => {
+  // `self`: a release of the attempt whose own restored ending, after a reload the suite drove, maps to a cancel. It pays the release (h) reads,
+  // never that attempt's ending as evidence: a delivered restored ending is paid by its delivery.
+  const releaseSeen = (op: string, att: string | undefined, self = false) => {
     if (att === undefined) return false;
     const actor = attemptActor.get(att);
     if (actor === undefined) return false;
-    return lifeOver(att) === true || (moved.has(actor) && releasable(op)) || cancelSeen(actor, op);
+    return lifeOver(att) === true || moveLetsGo(actor, op) || cancelSeen(actor, op, self ? undefined : att);
   };
   const mayBeEvidence = (x: Record<string, any>, batch: readonly Record<string, any>[]) => {
     const att = String(x["attempt"] ?? "");
@@ -198,8 +170,8 @@ export const makeHarness = (port: Port) => (): Harness => {
     const actor = attemptActor.get(String(x["attempt"] ?? ""));
     // D154: the owner's published state moved this batch, or the suite drove it a cancel of the op (seen), or a newer keep of the op, which
     // `missingEndings` holds to a wait naming it. A let-go with no attempt (a decline) has no owner the suite knows: any actor's seen cause of the op.
-    const seen = (a: string) => moved.has(a) || cancelSeen(a, op);
-    if (actor !== undefined ? seen(actor) : [...known].some(seen) || cancelSeen("", op)) return true;
+    const seen = (a: string) => moveLetsGo(a, op) || cancelSeen(a, op, String(x["attempt"] ?? ""));
+    if (actor !== undefined ? seen(actor) : [...known].some(seen)) return true;
     return batch.some((y) => y["kind"] === "kept" && y["op"] === x["op"]);
   };
   const ledger = (e: readonly Record<string, any>[]) => {
@@ -209,7 +181,13 @@ export const makeHarness = (port: Port) => (): Harness => {
     const pending: string[] = [];
     for (const x of e) {
       if (x["kind"] === "turn") {
-        turnActor = String(x["actor"]);
+        const who = String(x["actor"]);
+        // Re-check M2'' (A1): attribute only to an actor the suite addressed or that publishes. A turn of any other is itself red.
+        if (!known.has(who) && !published.has(who) && publishedNow(who) === undefined) {
+          missing.push(`(j) a turn of an actor the suite never addressed and that publishes nothing: ${who}`);
+          continue;
+        }
+        turnActor = who;
         for (const a of pending.splice(0)) if (!attemptActor.has(a)) attribute(a, turnActor);
       }
       if (x["kind"] === "mint" || x["kind"] === "invoked") {
@@ -226,11 +204,33 @@ export const makeHarness = (port: Port) => (): Harness => {
     }
     // D154: whose published state moved in this batch, by the suite's own reading before and after it.
     moved = new Set();
+    const prev = new Map<string, string | undefined>();
     for (const actor of new Set([...known, ...attemptActor.values()])) {
       const now = publishedNow(actor);
-      if (published.has(actor) && published.get(actor) !== now) moved.add(actor);
+      const before = published.get(actor);
+      prev.set(actor, before === undefined ? undefined : (JSON.parse(before) as [string, string])[0]);
+      if (published.has(actor) && before !== now) moved.add(actor);
       if (now === undefined) published.delete(actor);
       else published.set(actor, now);
+    }
+    leafPrev = prev;
+    // Stage E, oracle (ref): the runtime's binding against the suite's reference, every batch, for every live actor and every op of its
+    // machine, where the reference is certain. A root op is bound while the actor lives; a fragment's op with no placing state is bound nowhere.
+    for (const actor of known) {
+      const leaf = leafOf(actor);
+      const m = refm().machine(machineOf(actor));
+      if (leaf === undefined || !m || !inst.binding) continue;
+      for (const op of Object.keys(m.ops)) {
+        const want = refm().binds(m.id, op, leaf);
+        if (want === "unknown" || (want === "yes" && m.ops[op]!.fragment !== undefined)) continue; // a placed fragment's subject is the runtime's
+        let got: readonly string[] | undefined;
+        try {
+          got = inst.binding(actor, op, []);
+        } catch {
+          continue;
+        }
+        if ((got !== undefined) !== (want === "yes")) missing.push(`(ref) binding: the runtime ${got ? `binds ${op} at [${got.join("/")}]` : `binds ${op} nowhere`} in ${actor} at ${leaf}; the reference says ${want === "yes" ? "bound" : "unbound"}`);
+      }
     }
     // Re-check M3', D154: `Superseded` is the runtime's word. It is owed a seen cause: the owner's life over (or a dispose this batch, which the
     // suite drove), or the compiled op supersedes (`latest`) and this batch holds a newer attempt of the same op by the same owner.
@@ -251,8 +251,11 @@ export const makeHarness = (port: Port) => (): Harness => {
     }
     for (const x of e)
       // A lane let go: the head named now, and every later ending of it, may go as evidence (rule 60, 2.9.3). Only with a cause the suite saw (D154).
-      if ((x["kind"] === "Released" || (x["kind"] === "lane" && String(x["cell"]).startsWith("lane.release."))) && releaseSeen(String(x["op"]), x["attempt"] === undefined ? undefined : String(x["attempt"])))
-        lettingGo.add(String(x["attempt"]));
+      if (x["kind"] === "Released" || (x["kind"] === "lane" && String(x["cell"]).startsWith("lane.release."))) {
+        const att = x["attempt"] === undefined ? undefined : String(x["attempt"]);
+        if (releaseSeen(String(x["op"]), att)) lettingGo.add(String(att));
+        else if (releaseSeen(String(x["op"]), att, true)) releasedBySelf.add(String(att)); // (h) and `checkMints` take it; (j) does not
+      }
     // Review M5: `delivered` is the runtime's word. It pays only if the same step shows the machine took it: a turn, a denial, an unhandled, or a refusal. Otherwise the debt stays.
     const heard = e.some((x) => x["kind"] === "turn" || x["kind"] === "Denied" || x["kind"] === "Unhandled" || x["kind"] === "refused");
     for (const x of e) {
@@ -260,6 +263,7 @@ export const makeHarness = (port: Port) => (): Harness => {
       switch (x["kind"]) {
         case "ending":
           bump(told, k);
+          if (x["attempt"] !== undefined) ended.add(String(x["attempt"]));
           break;
         case "delivered":
           if (heard) bump(told, k, -1);
@@ -269,10 +273,17 @@ export const makeHarness = (port: Port) => (): Harness => {
           if (mayBeEvidence(x, e)) bump(told, k, -1);
           else if (process.env["FLOW_DEBUG_EO"]) console.error("EO-UNPAID", JSON.stringify(x), attemptActor.get(String(x["attempt"])), e.map((y) => y["kind"]).join(","));
           break;
-        case "parked":
+        case "parked": {
+          // Re-check H1'' (A3): a park is the runtime's word. It is allowed only where the reference says no live actor binds the op, or the
+          // owner's life is over. A live owner whose published state binds the op is owed the ending: red, whatever a wait says.
+          const att = String(x["attempt"] ?? "");
+          const owner = attemptActor.get(att);
+          if (owner !== undefined && !ledgerOff && !runtimeDisposed && !lifeOver(att) && !moveLetsGo(owner, String(x["op"])) && refm().binds(machineOf(owner), String(x["op"]), leafOf(owner)) === "yes")
+            missing.push(`(j) parked, and its live owner binds it (reference): ${x["op"]} ${att} in ${owner} at ${leafOf(owner)}`);
           bump(told, k, -1);
           bump(parkedOwed, k);
           break;
+        }
         case "unparked":
           if (bootOwed.has(k)) bump(bootOwed, k, -1);
           else bump(parkedOwed, k, -1);
@@ -291,15 +302,24 @@ export const makeHarness = (port: Port) => (): Harness => {
           break;
         case "refused":
           bump(tryAgain, String(x["event"]));
+          refusedAt.set(String(x["event"]), slotRuns.length);
           break;
         case "turn":
-        case "Denied":
-        case "Unhandled":
           bump(tryAgain, String(x["event"]), -1);
           break;
+        case "Denied":
+        case "Unhandled": {
+          // Re-check M3'' (A4): a denial pays a refusal only if the suite saw the second try: a Slot of that event's alternatives ran after
+          // the refusal (a denial runs its guards, which are the suite's wrapped Slots).
+          const ev = String(x["event"]);
+          const since = refusedAt.get(ev);
+          if (since !== undefined && slotRuns.slice(since).some((p) => p.includes(`on.${ev}[`))) bump(tryAgain, ev, -1);
+          break;
+        }
         case "fence":
         case "unbound":
-          tryAgain.clear();
+          // Re-check M3'': a fence no longer clears every refusal. It pays one only for a cause the suite saw: an actor's life over or gone.
+          if ([...known].some((a) => leafPrev.get(a) !== undefined && leafOf(a) === undefined)) tryAgain.clear();
           break;
         case "DisposeStart":
           // D158: the ledger turns off only for a dispose the suite drove. Said with none, it is a lie that would excuse every debt.
@@ -358,6 +378,7 @@ export const makeHarness = (port: Port) => (): Harness => {
       return {
         ...v,
         run: (...a: unknown[]) => {
+          if (!replaying) slotRuns.push(path);
           const n = throwIn.get(path);
           if (n) {
             throwIn.set(path, n - 1);
@@ -469,9 +490,11 @@ export const makeHarness = (port: Port) => (): Harness => {
     // D154: what the suite drives, by event, for the ledger's seen causes.
     if ("burst" in s || "send" in s) drive(actorKey((s as any).burst ?? (s as any).send), (s as any).event);
     if ("sendMany" in s) for (const [a, tag] of s.sendMany) drive(actorKey(a), tag);
-    if ("answer" in s) for (const ev of mappedEvents(s.answer)) mapFrom(ev, s.answer);
-    if ("advanceNow" in s) for (const ev of scheduleEvents()) drivenAny.add(ev);
+    // An answer drives the events of its op's mapping to the owners of that op's open attempts, from that op (never a cause for itself).
+    if ("answer" in s) for (const [, owner] of openAttempts(s.answer)) for (const ev of refm().mappedEvents(machineOf(owner), s.answer)) drive(owner, ev, s.answer);
+    if ("advanceNow" in s) driveTimers();
     if ("ensure" in s) known.add(actorKey(s.ensure));
+    if ("ensureAs" in s) machineOfActor.set(actorKey(s.ensureAs.key), s.ensureAs.machine);
     if ("ensureAs" in s) inst.ensure(actorKey(s.ensureAs.key), s.ensureAs.machine); // D137: a key and a machine that do not agree, as a host's bug would give
     else if ("ensure" in s) inst.ensure(actorKey(s.ensure), s.ensure.actor, s.input);
     else if ("burst" in s) for (let i = 0; i < s.n; i++) inst.send(actorKey(s.burst), { tag: s.event, payload: {} });
@@ -515,7 +538,8 @@ export const makeHarness = (port: Port) => (): Harness => {
     plan = undefined;
     // D154: a reload the suite drove. What was in flight restores as an ending, which the compiled data maps to events: those count as driven.
     // The reload is the seen cause here, not the ending, so a restored ending's event may let its own op go.
-    for (const c of compiled) for (const op of Object.keys(c.ops)) for (const ev of mappedEvents(op)) drivenAny.add(ev);
+    // Per owner (re-check inventory 3): only the attempts still open, each to its own actor, by its own machine's mapping.
+    for (const [att, owner] of openAttempts()) for (const ev of refm().mappedEvents(machineOf(owner), madeOp.get(att)!)) drive(owner, ev, `reload:${att}`);
     if (s.tear !== undefined) fake.tearLast(s.tear);
     if (s.wipe) {
       fake.wipe();
@@ -568,7 +592,7 @@ export const makeHarness = (port: Port) => (): Harness => {
       if (undecided.length === 0) return [];
       const heads = new Set(port.disk.heads(fake.kv)); // D142
       const writes = new Set(compiled.filter((c) => c.persisted).flatMap((c) => Object.values(c.ops).filter((o) => o.kind === "write").map((o) => o.id)));
-      const released = new Set(evidence.filter((e) => e["kind"] === "Released" && lettingGo.has(String(e["attempt"]))).map((e) => e["attempt"])); // D158: a release the ledger saw a cause for
+      const released = new Set(evidence.filter((e) => e["kind"] === "Released" && (lettingGo.has(String(e["attempt"])) || releasedBySelf.has(String(e["attempt"])))).map((e) => e["attempt"])); // D158: a release the ledger saw a cause for
       return undecided.filter((key) => {
         const q = fake.requests.find((r) => r.idempotencyKey === key)!;
         return writes.has(q.op) && !heads.has(key) && !released.has(key) && !excused.has(key) && !key.startsWith("business:");
@@ -601,7 +625,7 @@ export const makeHarness = (port: Port) => (): Harness => {
     frozenDrops: () => frozenDrops,
     diskScope: (k) => port.disk.scope(k),
     actorKey: (a) => actorKey(a),
-    releaseSeen: (attempt) => lettingGo.has(attempt),
+    releaseSeen: (attempt) => lettingGo.has(attempt) || releasedBySelf.has(attempt),
     quiet: () => ({
       idle: !inst.pending() && !fake.hasWork(),
       fatal: inst.fatal(),
@@ -695,9 +719,7 @@ export const makeHarness = (port: Port) => (): Harness => {
     },
     do(s) {
       drivenTo.clear();
-      drivenAny.clear();
-      mappedFrom.clear();
-      if ("advance" in s) for (const ev of scheduleEvents()) drivenAny.add(ev);
+      if ("advance" in s) driveTimers();
       if ("advance" in s) {
         settle();
         fake.advanceWith(s.advance, settle);

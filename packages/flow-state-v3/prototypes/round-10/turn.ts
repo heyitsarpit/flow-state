@@ -1033,13 +1033,16 @@ const runRecheck = (tx: Tx, a: ActorRec) => {
 };
 
 // ── Admit. Rule 14's test, inside the binding incarnation. Rule 53: no binding incarnation, parked. Rule 60: evidence.
-const bindingOf = (
-  tx: Tx,
+const bindingOf = (tx: Tx, a: ActorRec, op: string, subject: readonly string[]): Path | undefined =>
+  bindingIn(tx.machines, a, op, subject);
+// Stage E: the same question, asked from outside a turn, so the suite can check it against its own reference (`conformance/reference/`).
+export const bindingIn = (
+  machines: Readonly<Record<string, Compiled>>,
   a: ActorRec,
   op: string,
   subject: readonly string[],
 ): Path | undefined => {
-  const frag = machineOf(tx, a).ops[op]?.fragment ?? null;
+  const frag = machines[a.machine]!.ops[op]?.fragment ?? null;
   if (frag === null) return [];
   let found: Path | undefined;
   walkIncs(a.root, (i, p) => {
