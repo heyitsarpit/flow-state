@@ -233,6 +233,26 @@ The class: (j) asked "did each delivery run in its recipient?" and never "is eve
 
 Deleted: `placeView`, `placeAtBoot`, the structural `same`, the `indistinct` count, and the pairing of a delivery with the first observation of any of its events.
 
-Stated limits: a boot's runs are counted by event, not placed (the booting runtime is unreadable until `port.boot` returns; its restored memory carries a fresh serial). A follow-up pays a run in any copy of its actor. A serial published by two incarnations would not be counted (the last scanned wins); no runtime path copies one, but the scan does not check it. Delivery with no run (A2, 143) is still paid by the batch's turn.
+Stated limits: a boot's runs are counted by event, not placed (the booting runtime is unreadable until `port.boot` returns; its restored memory carries a fresh serial). A follow-up pays a run in any copy of its actor. A serial published by two incarnations would not be counted (the first place cached wins; this said "the last scanned wins" until stage I, and D178 makes such a serial red). Delivery with no run (A2, 143) is still paid by the batch's turn.
 
 Lies on the final code commit, one slice at a time: see `STATUS.md`.
+
+## Stage I: a boot placed, and no code path added (re-check 10h; D176-D179, proposed)
+
+The class: the suite treated a boot as a step it may only count, and gave the runtime a `memory.restore` it did not have. Both are the harness deciding instead of observing. A boot's batches are now held and judged once `port.boot` returns, by the one ledger every batch uses; and only Slots the compiled data has are wrapped (`../convergence-10.md`, stage I).
+
+| Finding | Answer | Shown by (`--no-output`) |
+| --- | --- | --- |
+| H1⁶ a restored ending in another actor, at a boot | D176: placed by serial after the boot; the `o.boot` escapes in `fits` and the credits are deleted | `h.boot-other` red by `(j) delivered to the wrong recipient` 2 of 2 (MED-01, FRAG-20); MED-01 was green |
+| H1⁶ a restored ending in another copy, at a boot | D176 | `h.boot-copy` red 1 of 1 (FRAG-15); was 0 |
+| H1⁶ in its owner and another actor | D176 | `h.boot-dup` red by `(j) a handler run nothing accounts for` 2 of 2 |
+| T1 the runtime's branch for no restore never ran | D177: no restore added; a decoded memory's serial is minted at `JSON.parse` while the runtime runs | `h.restore-absent-lost` killed by named oracles in 91 (PAY-08, PAY-09, ...); was 736/736 green |
+| Two rows across a reload, a named case | D176, D177: R10-BOOT-ROWS, with a compiled restore and without | 2 variants green on round 10 |
+| The note "last scanned wins" | D178: first place kept, both say so; one serial in two places is red | 0 in the suite |
+| `d154.event-*` vacuous | D179: retired; their trigger needs a send injected between an ending's enqueue and its turn | |
+
+`RECIPIENTS` over 738 cases: observed 45,642; at a boot, placed 260; ambiguous 0; unplaceable 0; one serial in two places 0; unobserved (A2) 143; paid by the suite's sends 175; left over 0.
+
+Stated limits: the state check is not made for a boot's runs (the leaf has moved by the time the boot returns). A runtime that decodes memory by anything but `JSON.parse` mints no serial and is red as ambiguous. The ear is a guard the suite adds; no branch in round 10 counts guards. A follow-up still pays a run in any copy of its actor; timer and unspent send credits still live across batches (re-check 10h, section 2).
+
+Gates on the stage I code commit: see `STATUS.md`.

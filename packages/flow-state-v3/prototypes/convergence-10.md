@@ -92,7 +92,7 @@ Kinds:
 | 11 | ledger (j) | `Released`, `lane.release.*` cell | Names (D154) | Says a release of the op happened. Pays only if THIS attempt's owner has a cause from rows 1-4. No attempt: no wildcard |
 | 12 | ledger (j) | `KeptLetGo`, `ParkedLetGo` | Names (D154) | Pays for rows 1-4, or a newer `kept` (row 15) |
 | 13 | ledger (j) | `Superseded` | Names (D154, new oracle) | Owed a dispose, the owner gone, or (write) `latest` and a newer attempt of the op by the owner, or (lookup) a newer send, a newer ask, or the owner moved |
-| 14 | ledger (j) | `delivered` | Checked against `turn`/`Denied`/`Unhandled`/`refused` in the batch. **Stage G:** observed by the suite's own guard. **Stage H:** conserved: every observed handler run of a mapped event is paid once by an expected delivery to that recipient or by a send, follow-up or refusal retry the suite saw; recipients are told apart by a suite serial in each incarnation's memory (D173) | **Allowance A2**, narrowed to the 143 deliveries no guard saw (no alternative's guard ran). A boot's 256 runs are counted by event, not placed |
+| 14 | ledger (j) | `delivered` | Checked against `turn`/`Denied`/`Unhandled`/`refused` in the batch. **Stage G:** observed by the suite's own guard. **Stage H:** conserved: every observed handler run of a mapped event is paid once by an expected delivery to that recipient or by a send, follow-up or refusal retry the suite saw; recipients are told apart by a suite serial in each incarnation's memory (D173). **Stage I:** a boot's runs are placed by serial once `port.boot` returns, by the same ledger (D176); the suite adds no Slot (D177) | **Allowance A2**, narrowed to the 143 deliveries no guard saw (no alternative's guard ran) |
 | 15 | ledger (j) | `parked`, `kept` | Checked: each must be named by a wait (`inst.waits()`) | **Allowance A3**: a wait is the runtime's inspection; for `parked`/`kept` waits nothing outside backs it |
 | 16 | ledger (j) | `turn`/`Denied`/`Unhandled` pay a refusal; `fence`/`unbound` clear refusals | Self-report excuse | **Allowance A4** |
 | 17 | ledger (j) | `UnmappedEnding`, `InvalidTurn` issues pay a batch's unheard deliveries | Self-report excuse | **Allowance A5**. A case that does not name the issue still fails (D130) |
@@ -192,13 +192,43 @@ Stage G observed who ran an ending, but only asked the question one way: each `d
 
 **Deleted.** `placeView` (memory-equality placement over actors and copies), `placeAtBoot` (pre-kill memory equality), the structural `same`, the `indistinct` count, and pairing a delivery with the first observation of any of its events. A boot's runs are counted by event against the boot's deliveries and retries, not placed: the booting runtime is not readable until `port.boot` returns, and its restored memory carries a new serial.
 
-Run counts (`RECIPIENTS`, 736 cases): observed and placed 45,380; **ambiguous 0** (a view with no serial; a serial two incarnations publish is not counted: the last scanned wins, stated); unplaceable 0; at a boot, counted 256; unobserved (A2) 143; runs paid by the suite's own sends 175; left over 0.
+Run counts (`RECIPIENTS`, 736 cases): observed and placed 45,380; **ambiguous 0** (a view with no serial; a serial two incarnations publish is not counted: the first place cached wins, as the code does (this note said "the last scanned wins" until stage I; D178 makes such a serial red); unplaceable 0; at a boot, counted 256; unobserved (A2) 143; runs paid by the suite's own sends 175; left over 0.
 
 | Id | Decision | Costs | Changes |
 | --- | --- | --- | --- |
 | **D173** | **(j) conserves observed handler runs.** Each run of a mapped event the suite's guard sees is paid exactly once, by an expected delivery to that recipient or by a send, follow-up, timer or refusal retry the suite saw for it; a run left over is red. Recipients are told apart by a suite serial minted in every incarnation's memory, never by its view; the state is matched by the ear's node. Memory-equality placement is deleted | A memory a compiled Slot makes other than `initial`/`restore`, or one that is not a plain object, carries no serial; none in the suite (ambiguous 0), and any would be red. A boot's runs are counted, not placed. A follow-up pays a run in any copy of its actor. A raise to a child on a mapped event would need a credit; none in the suite | `drive.ts`, `main.ts` |
 | **D174** | **FRAG-23**: two Feed actors with equal memory in one state, and in two states (LIVE, AWAY); two equal copies across two Notes actors (same key, same body); an ending beside the suite's own send of its event to another actor | Within one actor two `.each` copies never have equal views (the view carries the key), so "two equal copies" is built across two actors | `frag.scenario.ts`, `SCENARIOS.md` |
 | **D175** | **`falsify --part lies` holds the stage G re-check's lies**: `q3.dup-other`, `q3.dup-copy`, `q1.wa-eq-any`, and `q5.send-stolen` (an ending run in another actor the suite sent mail to in that batch) | `q5.send-stolen` fires in 2 cases, not in FRAG-23's own variant (the send has run before the ending arrives there) | `falsify.ts` |
+
+### Stage I: a boot is not a special case, and the suite adds no code path (from `conformance-audit/re-check-round-10h.md`; all proposed)
+
+Two findings, one root each. H1⁶: at a boot, (j) counted restored endings by event and never placed them, so a restored ending run in another actor or copy stayed green. T1: to carry the serial, the suite gave every memory with no `memory.restore` one of its own, so the runtime's own branch for none (`durable.ts`: `dec ? dec.run(i.memory) : i.memory`) never ran in tests. The rule both break: the harness observes; it does not change what the runtime runs, and it does not special-case a step it cannot read.
+
+**How.** A boot's evidence and issues are held, in order, each batch with the ears it heard, and judged once `port.boot` returns, when the new instance is readable. Each run is then placed by its serial with the same one-to-one ledger, `fits` and credit rules as any batch: the `o.boot ||` escapes are deleted. Only the state check (the ear's node against the recipient's published leaf) is not made for a boot's runs, since the leaf has moved by then. The serial of a memory with no restore is minted where the runtime makes that object: while the runtime runs (inside `port.boot`, a settle, a step the suite drives), each plain object `JSON.parse` returns gets a serial in place, under the suite's symbol key, before the runtime holds it. The compiled data is wrapped only where it has a Slot: `initial`, and `restore` where it exists.
+
+Run counts (`RECIPIENTS`, 738 cases): observed and placed 45,642; at a boot, placed 260 (was 256 counted); ambiguous 0; unplaceable 0; one serial in two places 0; unobserved (A2) 143; paid by the suite's sends 175; left over 0.
+
+| Id | Decision | Costs | Changes |
+| --- | --- | --- | --- |
+| **D176** | **A boot's runs are placed by serial after `port.boot` returns.** Its batches are held and judged in order then, each with its own ears, by the one ledger every batch uses. R10-BOOT-ROWS: two rows of one machine reload with a write in flight each, through a compiled restore (each row's own count moves: 101, 100) and through none (each keeps its memory: 1, 0) | The state check is not made for a boot's runs. A copy that a restored ending's turn ends during the boot would publish its serial nowhere afterwards, and be red as unplaceable; none in the suite | `drive.ts`, `main.ts`, `round6.scenario.ts`, `SCENARIOS.md` |
+| **D177** | **The suite adds no Slot.** A restore that is absent stays absent, and the runtime's own branch for it runs. The serial of a decoded memory is minted at `JSON.parse`, in place, while the runtime runs. `h.restore-absent-lost` (that branch returns `{}`) is red by named oracles in 91 cases; at stage H it was green | The platform is instrumented: a runtime that decodes by another means mints no serial, and its views are `ambiguous` (red, loudly). Every plain object the runtime parses carries a symbol key; no published text, hash or output moved | `drive.ts`, `falsify.ts` |
+| **D178** | **One place per serial.** `resolve` keeps the first place a serial was seen (stage H's note said "the last scanned wins"; the code kept the first, and now both say first). A scan that finds one serial in two places is red: `(j) one incarnation's identity is published by two` | | `drive.ts`, `main.ts` |
+| **D179** | **`falsify` holds the stage H re-check's boot lies and its mutant.** `--part lies`: `h.boot-other`, `h.boot-copy`, `h.boot-dup`. `--part mutants`: `h.restore-absent-lost`. `d154.event-fail-released` and `d154.event-like-released` are retired: their trigger (a failure ending taken while its owner has a `send` in mail) needs a send injected between an ending's enqueue and its turn, and no case does that; a lie that cannot fire proves nothing | The cause they lied about (a cancel by a driven event) has no lie now. A case for it is owed (`round-10/STATUS.md`, item 0) | `falsify.ts` |
+
+**Every place the harness wraps program functions, checked against the same rule** (does the runtime take a different path?):
+
+| Wrapper (`conformance/drive.ts`) | What it wraps | Changes a path? |
+| --- | --- | --- |
+| `wrap` | every compiled Slot (`run` + `at`), to record its run and throw an armed fault | No, unless a case arms a fault there; that is the fault |
+| `askedFor` | an existing `input` Slot of a `commit`/`lookup` member | No |
+| `commit` wrapper | an existing commit function, for `startThrows` | Only when armed |
+| `listen`'s ear | **adds** one guard, first, to every alternative on an event an ending maps to | No branch in `round-10` reads how many guards an alternative has, and the work clock is read per pump, not per Slot. The ear always passes. It is still an added Slot run: a runtime that charged work per guard, or skipped empty guard lists, would run differently. Stated |
+| `listen`'s `follow` | an existing follow-up Slot | No |
+| `tagged` | `memory.initial` (always present) and `memory.restore` where present | The runtime gets a copy of what the program returned. A runtime comparing that result by reference would see it; none does |
+| `whileRuntimeRuns` | `JSON.parse`, not a program function | No path. Objects carry one more symbol key |
+| `Object.fromEntries` rebuilds in `wrap` and `listen` | the compiled data's plain objects | Identity of compiled objects changes; the runtime seals its own copy anyway |
+
+Inventory changes: row 14 (`delivered`): a boot's runs are placed, not counted. The note on two publishers is replaced by a red check.
 
 ## Design edits owed at merge
 
