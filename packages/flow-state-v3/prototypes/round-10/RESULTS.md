@@ -293,3 +293,35 @@ Eight re-checks failed (j) one dimension further each time. `../conformance-audi
 Stated limits (`ending-check-design.md`, section 4, L1-L9): a codec and a restore that agree on a wrong leaf; the published leaf between anchors; order among one incarnation's restored endings and across actors; A2; a serial moved by a spread; a copy's binding at a boot judged at its run; timer and follow-up credits per actor; the order of a send of an unmapped event.
 
 Gates on the stage K commits: see `STATUS.md`.
+
+## Stage L: (j)'s single revision (review of stage K; D188-D192, proposed)
+
+The review (`../conformance-audit/review-ending-check.md`) found a new class with two root causes. R6: the runtime's silence counted as an excuse. R7: a cause named its recipient but not its event, start, order or count. `../conformance-audit/ending-check-design.md` is revised in place. It now lists 18 dimensions, and one rule: one ledger, matched both ways, at the cause's time, from the suite's own facts. This is the last cycle; what is left is a stated limit with a named case.
+
+| Finding | Answer | The review's lie, `--no-output` (cases with the mark / all failing) |
+| --- | --- | --- |
+| H1 the anchor opt-in by `leaves` | D188: no answer for a restored actor is red | `k.no-leaves+at-send` 107/107 (was 0 by (j)) |
+| H2 a boot owes what the runtime says | D188: owed from `disk.heads` and `disk.parked` | `k.held-silent` 8/8 (was 0) |
+| H3 "owner not alive" from what it publishes | D188: alive by the suite's record; a drop is red | `k.drop-row` 62/68, `k.drop-copy` 9/9, `k.vanish-live` 80/85 (were 0, 0, 15) |
+| H4 D11 for a definition's op only | D190: for every op, copies included | `h.boot-order` 2/2, FRAG-24's new slow-load variant among them |
+| H5 a ghost life | D188, D190: no run or publish in a disposed actor | `k.ghost-life` 9/9 (was 1) |
+| H6 the start node | D189: rule 14's start, current and late; rule 15 | `k.late-as-current` 5/6, `k.restored-from-root` 13/15 (were 0, 0) |
+| H7 A2 paid by `Unhandled` | D189: red where a token-free alternative handles the event | `k.claim-unhandled` 49/56 (was 0) |
+| M1 anchor when the runtime says `boot` | D188: before the first run | `k.ev-late+at-send` 17/17 |
+| M2 `loading` from `boot` | D188: from the fake; no boot after an answered load is red | `k.no-boot-ev+at-send` 149/152, `k.no-boot-ev+boot-order` 149/152 (were 0) |
+| M3 the event | D189: rule 13's mapping of the ending said | `k.restored-as-success` 57/60, `k.failure-as-success` 90/96 (were 0) |
+| M4 a send ahead of the restored endings | D190: no move while owed | `k.send-ahead` 1/2 (was 0) |
+| M5 streams | limit L10, with a partial check (a stream run in an incarnation that opened its session) | `k.stream-other`: limit |
+| M6 once per boot only | D190: once across boots; nothing parked on disk unowed | `k.parked-every-boot-silent` 24/25 (was 0) |
+| M7 parked order | D190: saved order per lane | `k.parked-reversed` 1/1 (was green) |
+| M8 counts printed, not gated | D191: `expected-recipients.txt` under the lock | |
+| M9 one edit turns (j) off | D191: per actor | |
+| L1 a sent head Superseded | D191 | `k.supersede-head` 11/13 (was 0) |
+| L2, L3 frozen copies; one path | limits L11, L12 | neither fires |
+| L4, L5, L6, L7 | D191, D190 | |
+
+`RECIPIENTS` over 742 cases: observed 45,650; restored states checked against their record 1,074; ambiguous 0; unplaceable 0; one serial in two places 0; unobserved (A2) 143; paid by the suite's sends 175; left over 0; start node checked 6,288; stream deliveries placed 180.
+
+Stated limits, L1-L13 (`ending-check-design.md`, section 4): a codec sharing restore's decode; the published leaf between anchors; order across actors; A2 where every handler is token-gated; a serial moved by a spread; a copy a lost reset unplaced at a boot; "late" sampled between steps; rule 15's active subroutine; the live channel is the ending evidence's word; a stream frame's session; frozen copies; two incarnations at one path; an empty boot after the runtime's own load bound.
+
+Gates on the stage L commits: see `STATUS.md`.

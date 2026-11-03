@@ -271,6 +271,41 @@ Inventory changes: row 2 (`inst.state` before and after each batch) is the runti
 
 Stated limits (`ending-check-design.md`, section 4): L1 a codec and restore that agree on a wrong leaf; L2 the published leaf between anchors (each run's node is checked); L3 order among one incarnation's restored endings; L4 order across actors (not promised); L5 allowance A2 (143); L6 a serial moved by a spread; L7 a copy's binding at a boot; L8 timer and follow-up credits per actor until the kill.
 
+### Stage L: the single revision of (j) (from `conformance-audit/review-ending-check.md`; all proposed)
+
+The review of stage K found a new class, not a step further along a listed dimension. Its two root causes: R6, the runtime's silence counted as an excuse (H1, H2, H3, H7, M1, M2, M8), and R7, a cause that named its recipient but not its event, start node, order or count (H4, H5, H6, M3, M4, M6, M7, L1). Under policy-convergence step 8 they are answered together in `ending-check-design.md`, revised in place, whose "Revision" section says what changed. There is no further re-check cycle. What is left is stated, with a named case for each.
+
+| Id | Decision | Costs | Changes |
+| --- | --- | --- | --- |
+| **D188** | **Every expectation from the suite's own facts (R6).** Alive is the suite's record: ensured, not disposed; at a reload kept only with an actor record on disk (a dispose the kill undid revives it, by the bytes). What a boot owes is read from the disk (`heads`, `parked`): each has an ending said at that boot, a head `unknown { Restored }`, queued work `NotSent { Restored }`. The boot's records are given when the fake answered its load; `loading` is the fake's pending load. The anchor runs before the first run in the boot, at its `boot` evidence, or at the step's end, whichever is first. Red: no `leaves` answer for a restored actor, an actor or live copy on disk that is not restored, a restored copy its record lacks, an actor the suite never disposed that stops publishing, or a load answered with no `boot`. A quarantine excuses only for a cause the suite drove: a release, bytes it edited, or a compiled restore it saw throw | A Port's codec must read every live record it restores. The anchor reads the published state at the first run, which is the boot step's world | `drive.ts`, `harness.ts`, `fake-world.ts` |
+| **D189** | **A cause names its event and its start (R7).** The run's event is rule 13's mapping of the ending said, for an attempt or a decline. Another event of the op in the right recipient is "delivered as X". Rule 14's start: current (every Restored, an adopted lane) from the deepest node up from the active leaf that handles the event, past only token-gated alternatives; late from the owner's nearest ancestor alive at every batch end since the ask. The owner is the node the asking alternative's transition names, seen by the suite's wrap of each commit and lookup input. A late turn that leaves a state owning another pending call is red (rule 15). A delivery with no run is red where a token-free alternative handles its event (A2 narrowed) | "Late" is sampled between steps (limit L7). An ask in a placement callback, or a resend by a retry, has no owner the suite saw | `drive.ts` |
+| **D190** | **Order and count across boots (R7).** A restored ending is owed as at the reload, for every op, a copy's included. Red: a park after the owner's life changed since, a run of the suite's send in the same incarnation, or any move of the actor while the ending is owed. A lane's parked endings run in their saved order (`disk.parked` names its lane), declines included. An ending a run took is not restored again (rule 17). With every write landed and no capture interval, nothing is parked on disk that the ledger does not owe | The disk check needs `captureMs: 0`, every write landed, and no failing store | `drive.ts`, `harness.ts`, `round-10/adapter.ts` |
+| **D191** | **Scope, locks, contracts.** A torn batch or an edited record excuses only the actors it touched, by the codec's scope (`ledgerOff` stays for a wipe and a disposed runtime). RECIPIENTS is held to `expected-recipients.txt` under the lock. The codec reads a copy of the bytes. Rule 47 is asserted at `start` (no schedule sends a mapped event), so timer credits cannot pay an ending. A sent write said Superseded is red. `DiskCodec.leaves` must not share restore's decode | A change in coverage counts needs a log line | `drive.ts`, `main.ts`, `fake-world.ts`, `expected-recipients.txt` |
+| **D192** | **Named.** FRAG-24 gains a slow-load variant: a dispose waits for the load, and both copies hear their restored unknown first. The review's lies are in `falsify --part lies`; `--cases` and `FALSIFY_LIST` are for diagnosis. The review's `k.stream-other` is limit L10 (a frame's session is invisible); `k.frozen-at-send` is L11 and `k.read-to-new-inc` L12 (neither fires) | | `frag.scenario.ts`, `falsify.ts`, `expected-output.txt` |
+
+Run counts at `c93813f1` (742 cases): `RECIPIENTS observed 45650; ambiguous 0; with no copy recorded 0; unplaceable 0; restored states checked against their record 1074; one serial in two places 0; unobserved (A2) 143; paid by sends 175; left over 0; start node checked 6288; stream deliveries placed 180`. The review's lies, `--no-output`: see `ending-check-design.md` section 6 and `round-10/STATUS.md`.
+
+Inventory changes:
+- Row 2 (`inst.state`) is a claim at both ends and no longer an excuse anywhere (`lifeOver`, D188).
+- Row 6 (disk bytes) now also owes heads and orders parked endings.
+- Row 14 (`delivered`): its event and start are derived (D189). A2 holds only where every handler of the event is token-gated.
+- New inputs, both Observed: the suite's wrap of commit and lookup inputs, which gives each attempt's owner node; and the fake's load answers.
+
+Stated limits (`ending-check-design.md`, section 4):
+- L1 a codec and restore sharing one wrong decode
+- L2 the published leaf between anchors
+- L3 order across actors
+- L4 A2 where every handler is token-gated (143)
+- L5 a serial moved by a spread
+- L6 a copy unplaced by a lost reset at a boot
+- L7 "late" sampled between steps
+- L8 rule 15's active subroutine
+- L9 the live channel is the ending evidence's word
+- L10 a stream frame's session
+- L11 frozen copies
+- L12 two incarnations at one path
+- L13 an empty boot after the runtime's own load bound
+
 ## Design edits owed at merge
 
 `machine-design.md` is not edited in this round. Owed:
