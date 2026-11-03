@@ -781,6 +781,51 @@ export const round6Scenarios: readonly Scenario[] = [
       },
     },
   },
+  // Stage I (re-check 10h H1⁶, T1): two rows of one machine reload with a write in flight each. Each restored ending must reach its own row,
+  // placed by the suite after `port.boot` returns. Once through the compiled `memory.restore`, once through the runtime's own branch for none.
+  {
+    id: "R10-BOOT-ROWS",
+    kind: "fault",
+    fixtures: [memoryReleaseFixture({ v: 1 }, true)],
+    actor: { actor: "Lab/MemoryRelease", id: "a" },
+    cites: ["rule:44", "D82", "D72"],
+    variants: {
+      "two-rows-with-a-restore-each-hear-their-own-ending"(c0) {
+        const A = { actor: "Lab/MemoryRelease", id: "a" };
+        const B = { actor: "Lab/MemoryRelease", id: "b" };
+        const rel: Release = { v: 1 };
+        const c = at(c0, memoryReleaseFixture(rel, true), A);
+        c.send("Go");
+        c.ack();
+        c.answer("put", { ok: {} });
+        c.eq("a has one ok", c.mem(A).oks, 1);
+        c.send("Go");
+        c.ensure(B);
+        c.to(B, "Go");
+        c.ack();
+        c.h.release(() => void (rel.v = 2), () => void (rel.v = 1));
+        c.reload();
+        c.eq("each row heard its own restored unknown, through the restore", [c.mem(A).oks, c.mem(B).oks], [101, 100]);
+        c.eq("no refusal", c.r.issues().length, 0);
+      },
+      "two-rows-without-a-restore-each-keep-their-memory"(c0) {
+        const A = { actor: "Lab/MemoryRelease", id: "a" };
+        const B = { actor: "Lab/MemoryRelease", id: "b" };
+        const c = at(c0, memoryReleaseFixture({ v: 1 }, false), A);
+        c.send("Go");
+        c.ack();
+        c.answer("put", { ok: {} });
+        c.send("Go");
+        c.ensure(B);
+        c.to(B, "Go");
+        c.ack();
+        c.reload();
+        c.eq("each row kept its own memory past the runtime's own decode", [c.mem(A).oks, c.mem(B).oks], [1, 0]);
+        c.eq("both restored endings were delivered", c.r.evidence("delivered").filter((e) => e["op"] === "put").length, 3);
+        c.eq("no refusal", c.r.issues().length, 0);
+      },
+    },
+  },
   {
     id: "REV6-M8",
     kind: "fault",

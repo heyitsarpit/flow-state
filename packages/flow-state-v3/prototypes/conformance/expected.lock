@@ -151,6 +151,7 @@ REV6-H7 11b2e2e2fb64
 REV6-STREAMS a96d396fe54c
 REV6-M7 4aba3b7fcf2b
 REV6-TEAR 2fcc9a74fcad
+R10-BOOT-ROWS dc4a389b473f
 REV6-M8 5e2ab7747492
 REV6-L3 05986fc464dc
 REV7-H1 86e4ac5c74ae
@@ -644,6 +645,8 @@ variant:REV6-M7/a-failed-plain-write-is-not-believed present
 variant:REV6-M7/newer-state-wins-a-retry present
 variant:REV6-M7/a-failed-write-survives-a-reload-as-the-last-good-capture present
 variant:REV6-TEAR/a-store-with-no-atomic-batch-strands-nothing-silently present
+variant:R10-BOOT-ROWS/two-rows-with-a-restore-each-hear-their-own-ending present
+variant:R10-BOOT-ROWS/two-rows-without-a-restore-each-keep-their-memory present
 variant:REV6-M8/a-declared-decode-gives-the-new-field-its-default present
 variant:REV6-M8/without-one-the-refusal-is-as-designed present
 variant:REV6-L3/a-stored-frag-of-no-shape-quarantines present
@@ -865,7 +868,7 @@ file:scenarios/review.scenario.ts 973830d14300
 file:scenarios/round10.scenario.ts 698640b18494
 file:scenarios/round4.scenario.ts 5ef7c0f29ba0
 file:scenarios/round5.scenario.ts c89c276b56cb
-file:scenarios/round6.scenario.ts fab49f62d0c7
+file:scenarios/round6.scenario.ts 6006df615f43
 file:scenarios/round7.scenario.ts 0435bee1fc7f
 file:scenarios/round8.scenario.ts 73ca63b5c51b
 file:scenarios/round9.scenario.ts d8c59221b1f4
@@ -917,9 +920,9 @@ file:bench/main.ts 7c2e411b7451
 file:bench/s4-page.ts 4d9780fd71ee
 file:bench/s4-run.ts 78b684022f52
 file:reference/model.ts f2d10ce05bca
-file:main.ts 1d8e3a2964b8
+file:main.ts b6d25add06c5
 file:output.ts 0b15041b194e
-file:falsify.ts 8241113b88c4
+file:falsify.ts b1808116e681
 file:broken-adapter.ts a255b41105c6
 file:null-adapter.ts 295792b7b6be
 file:report.ts 7e305fd3110b
@@ -929,7 +932,7 @@ file:gate-5s-expected.txt 7995923439b2
 file:mutate.ts bd0623c0a5c3
 file:mutate-one.ts 14f130df7310
 file:harness.ts daf1e0674f88
-file:drive.ts 7916e2f590ce
+file:drive.ts 0bb4dee519e3
 file:fake-world.ts 683d3534c270
 round:cli/broken.ts 10d0ce602315
 round:cli/check.ts 9b5b5f6c07d4
@@ -1177,6 +1180,8 @@ output:R10-AUDIT-ENDINGS/a-failure-beside-another-actors-mail-is-heard 54048aef7
 output:R10-AUDIT-ENDINGS/a-failure-beside-one-send-is-heard bde99ddb2072
 output:R10-AUDIT-READS 498d8c401132
 output:R10-AUDIT/a-stale-timer-under-a-newer-one-is-fenced e7b3faba899a
+output:R10-BOOT-ROWS/two-rows-with-a-restore-each-hear-their-own-ending 2ee4a58b8288
+output:R10-BOOT-ROWS/two-rows-without-a-restore-each-keep-their-memory 6b9c20fd46c4
 output:R10-PINS/a-hosts-cancel-lets-go-the-ordinary-and-keeps-the-kept 40f24c090a76
 output:R10-PINS/a-refused-ensure-rolls-back-and-names-its-origin 72738bdc4909
 output:R10-PINS/a-second-try-beside-another-actors-mail-is-not-lost 28f5b1df8505

@@ -629,3 +629,10 @@ output:FRAG-23/an-ending-beside-the-suites-own-send-of-its-event-to-another-acto
 output:FRAG-23/equal-memory-actors-in-one-state-an-ending-reaches-one hash:36a0137d4d1f | D174: its output, new (equal actors, one state)
 output:FRAG-23/equal-memory-actors-in-two-states-an-ending-reaches-the-live-one hash:948be704d755 | D174: its output, new (equal actors, two states)
 output:FRAG-23/two-equal-copies-in-two-actors-an-ending-reaches-one hash:36dfc154d0f6 | D174: its output, new (two equal copies)
+R10-BOOT-ROWS hash:dc4a389b473f | D176, D177: new case, two rows reload with a write in flight each, with and without a compiled restore
+file:scenarios/round6.scenario.ts hash:6006df615f43 | D176, D177: R10-BOOT-ROWS added after REV6-M8
+file:main.ts hash:b6d25add06c5 | D176, D178: RECIPIENTS says a boot's runs are placed, and counts a serial found in two places
+file:falsify.ts hash:b1808116e681 | D179: h.boot-other, h.boot-copy, h.boot-dup in --part lies; h.restore-absent-lost in --part mutants; d154.event-* retired
+file:drive.ts hash:0bb4dee519e3 | D176, D177, D178: a boot's batches held and placed by serial after port.boot; no restore added; a serial minted at decode; one place per serial
+output:R10-BOOT-ROWS/two-rows-with-a-restore-each-hear-their-own-ending hash:2ee4a58b8288 | D176: its output, new (through the compiled restore)
+output:R10-BOOT-ROWS/two-rows-without-a-restore-each-keep-their-memory hash:6b9c20fd46c4 | D177: its output, new (the runtime's own branch for no restore)

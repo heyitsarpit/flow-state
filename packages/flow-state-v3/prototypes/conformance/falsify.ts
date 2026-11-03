@@ -186,6 +186,8 @@ try {
     [laundered.id, laundered.edits, 2],
     ["step.timer-fence-off", [["step.ts", "if (!t || t.gen !== i.gen) return", "if (!t) return"]], 1],
     ["step.dispose-reads-not-aborted", [["step.ts", "    tx.commands.push({ k: \"interrupt\", attempt: k, send: r.gen });\n    note(tx, \"Superseded\", { op: r.op, attempt: k, send: r.gen });\n  }\n  tx.w = { ...tx.w, reads: {} };", "    note(tx, \"Superseded\", { op: r.op, attempt: k, send: r.gen });\n  }\n  tx.w = { ...tx.w, reads: {} };"]], 1],
+    // Stage I (re-check 10h T1): the runtime's own branch for a memory with no restore. The suite no longer adds one, so the branch runs.
+    ["h.restore-absent-lost", [["durable.ts", "memory: dec ? dec.run(i.memory) : i.memory,", "memory: dec ? dec.run(i.memory) : {},"]], 1],
   ];
   for (const [id, edits, min] of NAMED) {
     reset();
@@ -225,7 +227,6 @@ try {
     const SAVE = 'item.ending.ch !== "success" && item.op === "save"';
     const FAIL = 'item.ending.ch !== "success"';
     const SAMEMAIL = '[...tx.w.mail].some((x: any) => x.actor === item.actor && !(x.k === "ending" && x.attempt === item.attempt))';
-    const SAMESEND = '[...tx.w.mail].some((x: any) => x.actor === item.actor && x.k === "send")';
     const DELIV = 'note(tx, "delivered", { op: item.op, attempt: item.attempt ?? "", event: "x" }); return;';
     const UNMAP = 'note(tx, "delivered", { op: item.op, attempt: item.attempt ?? "", event: "x" }); return issue(tx, { code: "UnmappedEnding", origin: `${a.machine} operations.${item.op}`, input: item.ending });';
     const PARK = "return parkEnding(tx, item, lane, subject, a.machine);";
@@ -236,8 +237,9 @@ try {
     // A lie whose trigger fires in no case is vacuous: it is run, and if it stays green its probe (the same trigger, saying so) must fire nowhere.
     const vacuous = new Map<string, Edits>([
       ["d154.moved-save-released", [["turn.ts", G125, at(`${SAVE} && ${SAMEMAIL}`, PROBE)]]],
-      ["d154.event-fail-released", [["turn.ts", G125, at(`${FAIL} && ${SAMESEND}`, PROBE)]]],
-      ["d154.event-like-released", [["turn.ts", G125, at(`${FAIL} && item.op === "like" && ${SAMESEND}`, PROBE)]]],
+      // Stage I: `d154.event-fail-released` and `d154.event-like-released` are retired. Their trigger (a failure ending taken while its owner
+      // has a `send` in mail) needs a host yield between the ending's enqueue and its turn with a send injected to that owner; the pump drains
+      // an input's mail before it returns, and no case injects one there. A lie that cannot fire proves nothing (re-check 10h). Owed in revisit.
     ]);
     const LIES10D: ReadonlyArray<readonly [string, string, Edits, string]> = [
       ["h1.like2nc-released", "Released (10d)", [["turn.ts", G125, at(LIKE2NC, REL + EO)]], "(j)"],
@@ -249,8 +251,6 @@ try {
       ["d154.moved-fail-released", "owner moved, every failure (M1'')", [["turn.ts", G125, at(`${FAIL} && ${SAMEMAIL}`, REL + EO)]], "(j)"],
       ["d154.moved-like-released", "owner moved, SURV-03 (M1'')", [["turn.ts", G125, at(`${FAIL} && item.op === "like" && ${SAMEMAIL}`, REL + EO)]], "(j)"],
       ["d154.moved-save-released", "owner moved, save", [["turn.ts", G125, at(`${SAVE} && ${SAMEMAIL}`, REL + EO)]], "(j)"],
-      ["d154.event-fail-released", "cancel by event", [["turn.ts", G125, at(`${FAIL} && ${SAMESEND}`, REL + EO)]], "(j)"],
-      ["d154.event-like-released", "cancel by event, like", [["turn.ts", G125, at(`${FAIL} && item.op === "like" && ${SAMESEND}`, REL + EO)]], "(j)"],
       ["a1.ghost-like2", "A1 a ghost turn", [["lane.ts", MINT, `if (a.op === "like" && String(attempt.id).endsWith("-2")) note(tx, "turn", { actor: "ghost/none", event: "x", from: "a", to: "a" }); ${MINT}`], ["turn.ts", G125, at(LIKE2NC, EO)]], "(j)"],
       ["a1.ghost-save", "A1 a ghost turn, save", [["lane.ts", MINT, `if (a.op === "save") note(tx, "turn", { actor: "ghost/none", event: "x", from: "a", to: "a" }); ${MINT}`], ["turn.ts", G125, at(SAVE, EO)]], "(j)"],
       ["a2.deliv-like2nc", "A2 delivered", [["turn.ts", G125, at(LIKE2NC, DELIV)]], "(j)"],
@@ -310,7 +310,16 @@ try {
       ["q1.wa-eq-any", "an ending runs in another actor whose memory equals the owner's (equal views)", [["turn.ts", G125, WAX("true", MEMEQ)]], "(j) delivered to the wrong recipient"],
       ["q5.send-stolen", "an ending runs in another actor the suite sent mail to in the same batch", [["turn.ts", G125, WAX("true", '[...tx.w.mail].some((m: any) => m.k === "send" && m.actor === x.key)')]], "(j) delivered to the wrong recipient"],
     ];
-    const ALL = [...LIES, ...LIES10D, ...LIES10F, ...LIES10G, ...LIES10H];
+    // Stage I: the stage H re-check's boot lies (`conformance-audit/re-check-round-10h.md`). A restored ending run, at a boot, in another live
+    // actor of its machine, in another unfrozen copy of its fragment, or in its owner and another actor. Each is placed by its serial after
+    // `port.boot` returns, like any other batch.
+    const SIB = `(() => { const t = kidAt(a.root, path); let s: any; if (t && path.length > 0) walkIncs(a.root, (i: any, p: any) => { if (p.length > 0 && !samePath(p, path) && i.frag === t.frag && !i.frozen) s ??= p; }); return s; })()`;
+    const LIES10I: ReadonlyArray<readonly [string, string, Edits, string]> = [
+      ["h.boot-other", "a restored ending runs, at a boot, in another live actor (H1⁶)", [["turn.ts", G125, WAX("item.restored", "true")]], "(j) delivered to the wrong recipient"],
+      ["h.boot-copy", "a restored ending runs, at a boot, in another unfrozen copy (H1⁶)", [["turn.ts", RUNT, `runTurn(tx, a, item.attempt && item.restored ? (${SIB} ?? path) : path, ev, start, late, item);`]], "(j) delivered to the wrong recipient"],
+      ["h.boot-dup", "a restored ending runs in its owner and in another actor (H1⁶)", [["turn.ts", DUPFIND, `${DUPFIND} { const o = item.attempt && item.restored ? ${ACTORS}.find((x: any) => x.machine === a.machine && x.key !== a.key) : undefined; const p2 = o && bindingOf(tx, o, item.op, subject); if (o && p2) deliver(tx, o, p2, { ...item, redelivered: true, kept: false } as any); }`]], "(j) a handler run nothing accounts for"],
+    ];
+    const ALL = [...LIES, ...LIES10D, ...LIES10F, ...LIES10G, ...LIES10H, ...LIES10I];
     // `--slice i/n`: the i-th of n parts (each fits a 5-minute command).
     const sl = process.argv.indexOf("--slice");
     const [si, sn] = sl < 0 ? [1, 1] : process.argv[sl + 1]!.split("/").map(Number) as [number, number];

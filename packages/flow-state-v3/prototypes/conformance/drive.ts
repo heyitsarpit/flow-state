@@ -9,11 +9,42 @@ import type { FaultState, Harness, Instance, Port, Step } from "./harness.ts";
 
 // Stage G: how each delivery's recipient was settled, over the whole run (printed by `main.ts`). `unobserved` is allowance A2's remainder.
 // Stage H: `ambiguous` (a view with no suite identity, or one no incarnation publishes) must be 0; `bySend` are runs paid by the suite's own sends.
-export const recipients = { observed: 0, ambiguous: 0, unobserved: 0, unplaceable: 0, noCopy: 0, atBoot: 0, bySend: 0, leftover: 0 };
+// Stage I: `atBoot` are placed like any other (resolved once `port.boot` returns); `shared` counts serials found in two places (red).
+export const recipients = { observed: 0, ambiguous: 0, unobserved: 0, unplaceable: 0, noCopy: 0, atBoot: 0, bySend: 0, leftover: 0, shared: 0 };
 // Stage H: the suite's identity of an incarnation. Minted once per memory the compiled data makes; never in any published text.
 const WHO = Symbol("flow-suite incarnation");
 let serials = 0;
 const tag = (m: any) => (m !== null && typeof m === "object" && !Array.isArray(m) && Object.getPrototypeOf(m) === Object.prototype ? { ...m, [WHO]: ++serials } : m);
+// Stage I (re-check 10h T1): a memory with no `memory.restore` comes back from the runtime's own decode of its record, by the runtime's own
+// branch (`durable.ts`: `dec ? dec.run(i.memory) : i.memory`). The suite adds no Slot there. It mints that incarnation's serial where the
+// object is made: while the runtime runs (a boot, a settle step), each plain object `JSON.parse` returns gets a serial, in place, under the
+// same symbol key, before the runtime holds it. The platform is instrumented, not the program, so the runtime takes the same path. A
+// runtime with another codec mints nothing, and its views are `ambiguous`: red, loudly.
+const parse0 = JSON.parse;
+const mintIn = (v: any, depth = 0): void => {
+  if (v === null || typeof v !== "object" || depth > 64) return;
+  if (Array.isArray(v)) {
+    for (const x of v) mintIn(x, depth + 1);
+    return;
+  }
+  if (Object.getPrototypeOf(v) !== Object.prototype || Object.isFrozen(v)) return;
+  if (v[WHO] === undefined) v[WHO] = ++serials;
+  for (const k of Object.keys(v)) mintIn(v[k], depth + 1);
+};
+let minting = 0;
+const whileRuntimeRuns = <T,>(f: () => T): T => {
+  if (minting++ === 0)
+    JSON.parse = ((t: string, r?: (k: string, v: unknown) => unknown) => {
+      const v = parse0(t, r as never);
+      mintIn(v);
+      return v;
+    }) as typeof JSON.parse;
+  try {
+    return f();
+  } finally {
+    if (--minting === 0) JSON.parse = parse0;
+  }
+};
 export const rowKey =(op: string, key: unknown) => `${op}|${JSON.stringify(key)}`;
 // D137: the id is escaped, so `M` + `x/y` and `M/x` + `y` are two actors. The last `/` always ends the machine.
 // `|` too: a lane's id starts with its actor's key and a `|`, so an id holding one would name another actor's lane.
@@ -226,18 +257,31 @@ export const makeHarness = (port: Port) => (): Harness => {
     }
   };
   const whereOf = new Map<number, { actor: string; path: string[] }>(); // serial -> the incarnation that publishes it, by the suite's reads
+  // Stage I (re-check 10h: the note said "the last scanned wins"; the code kept the first): the first place a serial is seen is kept, and
+  // a scan that finds one serial in two places is red, since an identity two incarnations publish places nothing.
+  const twice = new Set<number>();
   const scanIds = () => {
+    const now = new Map<number, string>();
+    const put = (s: unknown, actor: string, path: string[]) => {
+      if (typeof s !== "number") return;
+      const here = `${actor} [${path.join(" / ")}]`;
+      const was = now.get(s);
+      if (was !== undefined && was !== here && !twice.has(s)) {
+        twice.add(s);
+        recipients.shared++;
+        missing.push(`(j) one incarnation's identity is published by two: ${was} and ${here}`);
+      }
+      now.set(s, here);
+      if (!whereOf.has(s)) whereOf.set(s, { actor, path });
+    };
     for (const actor of new Set([...known, ...attemptActor.values()])) {
       const mem = memoryOf(actor);
       if (mem === undefined) continue;
-      if (typeof mem[WHO] === "number") whereOf.set(mem[WHO], { actor, path: [] });
+      put(mem[WHO], actor, []);
       const m = refm().machine(machineOf(actor));
       const leaf = leafOf(actor);
       for (const f of Object.keys(m?.fragments ?? {}))
-        for (const c of refm().copies(m!.id, f, leaf, mem, innerOf(actor))) {
-          const s = innerOf(actor)(c.path)?.memory?.[WHO];
-          if (typeof s === "number") whereOf.set(s, { actor, path: c.path });
-        }
+        for (const c of refm().copies(m!.id, f, leaf, mem, innerOf(actor))) put(innerOf(actor)(c.path)?.memory?.[WHO], actor, c.path);
     }
   };
   const resolve = (s: number): Who | undefined => {
@@ -257,7 +301,9 @@ export const makeHarness = (port: Port) => (): Harness => {
     return false;
   };
   const say = (w: Who) => `${w.actor} life ${w.life} [${w.path.join(" / ")}]`;
-  // A boot delivers restored endings before `port.boot` returns, so the new instance cannot be read yet: a boot's views are counted, not placed.
+  // A boot delivers restored endings before `port.boot` returns, so the new instance cannot be read yet. Stage I (H1⁶): a boot is not a
+  // special case. Its batches are held, each with its own ears, and judged in order once `port.boot` returns; each run is then placed by its
+  // serial (minted by the restore the compiled data has, or at the decode) like any other. Only the state check waits: the leaf has moved.
   let booting = false;
   const listen = (c: any): any => {
     const evs = new Set(Object.keys(c.ops ?? {}).flatMap((op) => {
@@ -302,16 +348,17 @@ export const makeHarness = (port: Port) => (): Harness => {
         : {};
     const nodes = (ns: Record<string, any>, frag?: string) =>
       Object.fromEntries(Object.entries(ns ?? {}).map(([id, n]) => [id, n.on ? { ...n, on: Object.fromEntries(Object.entries(n.on).map(([ev, alts]) => [ev, (alts as any[]).map((alt) => ({ ...alt, ...follow(alt), ...(evs.has(ev) ? { guards: [ear(ev, alt.at, id, frag), ...(alt.guards ?? [])] } : {}) }))])) } : n]));
-    const tagged = (mem: any, where: string) => ({
+    // Stage I (T1): only the Slots the compiled data has are wrapped. A restore that is absent stays absent (see `whileRuntimeRuns`).
+    const tagged = (mem: any) => ({
       ...mem,
       initial: { ...mem.initial, run: (i: unknown) => tag(mem.initial.run(i)) },
-      restore: mem.restore ? { ...mem.restore, run: (s: unknown) => tag(mem.restore.run(s)) } : { at: { definition: where, path: "memory#restore" }, run: (s: unknown) => tag(s) },
+      ...(mem.restore ? { restore: { ...mem.restore, run: (s: unknown) => tag(mem.restore.run(s)) } } : {}),
     });
     return {
       ...c,
-      memory: tagged(c.memory, c.id),
+      memory: tagged(c.memory),
       nodes: nodes(c.nodes),
-      ...(c.fragments ? { fragments: Object.fromEntries(Object.entries(c.fragments).map(([id, f]: [string, any]) => [id, { ...f, memory: tagged(f.memory, id), nodes: nodes(f.nodes, id) }])) } : {}),
+      ...(c.fragments ? { fragments: Object.fromEntries(Object.entries(c.fragments).map(([id, f]: [string, any]) => [id, { ...f, memory: tagged(f.memory), nodes: nodes(f.nodes, id) }])) } : {}),
     };
   };
   const ended = new Set<string>(); // attempts with an `ending` said
@@ -368,7 +415,7 @@ export const makeHarness = (port: Port) => (): Harness => {
   const ledger = (e: readonly Record<string, any>[]) => {
     unpaid = [];
     // Stage H: a view made in this batch is published only now; place what the ear could not.
-    const heardNow = ears.map((o) => ({ ...o, who: o.who ?? (o.boot || o.serial === undefined ? undefined : resolve(o.serial)), used: false }));
+    const heardNow = ears.map((o) => ({ ...o, who: o.who ?? (o.serial === undefined ? undefined : resolve(o.serial)), used: false }));
     ears = [];
     // Attribution: a mint or an invoke belongs to the turn before it in the step, or, if none came before, the turn after it.
     let turnActor: string | undefined;
@@ -514,7 +561,6 @@ export const makeHarness = (port: Port) => (): Harness => {
           const copy = att === undefined ? undefined : attemptCopy.get(att);
           const want: Who | undefined = checked ? { actor: owner!, life: lifeOf.get(owner!) ?? 0, path: copy?.path ?? [] } : undefined;
           const fits = (o: (typeof heardNow)[number]) =>
-            o.boot ||
             (dc ? o.who !== undefined && o.who.actor === dc.actor && (!dc.copy || samePath(o.who.path, dc.copy.path)) : !want || (o.who !== undefined && o.who.actor === want.actor && o.who.life === want.life && (!copy || samePath(o.who.path, want.path))));
           const ob = evs.length === 0 ? undefined : heardNow.find((o) => !o.used && evs.includes(o.ev) && fits(o));
           if (ob) ob.used = true;
@@ -525,8 +571,8 @@ export const makeHarness = (port: Port) => (): Harness => {
             } else if (!ob) {
               recipients.unobserved++;
               wanted.push({ op, att: att!, evs, want: want!, copied: copy !== undefined });
-            } else if (ob.boot) recipients.atBoot++; // stated: the booting runtime is not readable; the count is still conserved below
-            else {
+            } else {
+              if (ob.boot) recipients.atBoot++; // placed by serial once `port.boot` returned
               recipients.observed++;
               if (!copy) recipients.noCopy++;
             }
@@ -620,22 +666,22 @@ export const makeHarness = (port: Port) => (): Harness => {
     // ran elsewhere, an ending that ran in the wrong recipient, or one that took a send's place. A refused turn's retry may run once more.
     for (const x of e)
       if (x["kind"] === "refused") {
-        const o = heardNow.find((h) => h.used && h.ev === String(x["event"]) && (h.who || h.boot));
-        if (o) credit(o.who?.actor ?? "", o.ev, o.who?.path ?? null); // "": a booting view's retry, counted by event only
+        const o = heardNow.find((h) => h.used && h.ev === String(x["event"]) && h.who);
+        if (o) credit(o.who!.actor, o.ev, o.who!.path);
       }
     for (const o of heardNow) {
       if (o.used) continue;
-      if (!o.boot && o.serial === undefined) {
+      if (o.serial === undefined) {
         recipients.ambiguous++;
         missing.push(`(j) a handler of ${o.ev} ran on a view with no suite identity (${o.machine}.${o.node})`);
         continue;
       }
-      if (!o.boot && !o.who) {
+      if (!o.who) {
         recipients.unplaceable++;
-        missing.push(`(j) a handler of ${o.ev} ran in an incarnation no actor or copy the suite drove publishes (${o.machine}.${o.node})`);
+        missing.push(`(j) a handler of ${o.ev} ran in an incarnation no actor or copy the suite drove publishes (${o.machine}.${o.node}${o.boot ? ", at a boot" : ""})`);
         continue;
       }
-      const c = credits.find((k) => k.n > 0 && k.ev === o.ev && (o.boot || (k.actor === o.who!.actor && (k.path === null || samePath(k.path, o.who!.path)))));
+      const c = credits.find((k) => k.n > 0 && k.ev === o.ev && k.actor === o.who!.actor && (k.path === null || samePath(k.path, o.who!.path)));
       if (c) {
         c.n--;
         recipients.bySend++;
@@ -733,31 +779,50 @@ export const makeHarness = (port: Port) => (): Harness => {
   const boot = () => {
     armedAtBoot.push({ throwIn: new Map(throwIn), module: new Map(faults.moduleThrows), after: new Map(faults.moduleThrowsAfter), core: faults.coreThrows });
     booting = instances.length > 0; // the first boot restores nothing
-    inst = port.boot({
-      host: fake.host(),
-      compiled,
-      bounds,
-      faults,
-      onEvidence: (e) => {
-        judgeAsks(e);
-        ledger(e);
-        evidence.push(...e);
-      },
-      onIssue: (i) => {
-        for (const x of i) {
-          payByIssue(x.code);
-          refusal(x);
-        }
-        issues.push(...i);
-      },
-    });
+    const onEvidence = (e: readonly Record<string, any>[]) => {
+      judgeAsks(e);
+      ledger(e);
+      evidence.push(...e);
+    };
+    const onIssue = (i: ReadonlyArray<{ code: string; origin?: string; input?: unknown }>) => {
+      for (const x of i) {
+        payByIssue(x.code);
+        refusal(x);
+      }
+      issues.push(...i);
+    };
+    // Stage I (H1⁶): what a boot says before `port.boot` returns is held, in order, each batch with its own ears, and judged after.
+    const held: Array<() => void> = [];
+    let ready = false;
+    const next = whileRuntimeRuns(() =>
+      port.boot({
+        host: fake.host(),
+        compiled,
+        bounds,
+        faults,
+        onEvidence: (e) => {
+          if (ready || !booting) return onEvidence(e);
+          const mine = ears;
+          ears = [];
+          held.push(() => {
+            ears = mine;
+            onEvidence(e);
+          });
+        },
+        onIssue: (i) => (ready || !booting ? onIssue(i) : void held.push(() => onIssue(i))),
+      }),
+    );
+    inst = next;
+    ready = true;
     booting = false;
+    for (const h of held) h();
     for (const f of listeners) inst.subscribe(f);
     instances.push(inst);
   };
   let tasksPerStep: number | null = null;
   let spinning = false;
-  const settle = () => {
+  const settle = () => whileRuntimeRuns(settle_);
+  const settle_ = () => {
     const firstTask = fake.tasks;
     const t0 = Date.now();
     spinning = false;
@@ -804,7 +869,8 @@ export const makeHarness = (port: Port) => (): Harness => {
   // D146: what needs the page's own JS cannot happen on a frozen page: a press, a hide event, an ensure. It is dropped and counted, and a case that drops one is told so at its end.
   let frozenDrops = 0;
   const PAGE_INPUT = ["ensureAs", "ensure", "burst", "send", "sendMany", "dispose", "hide", "disposeRuntime", "advanceNow", "nextYield"];
-  const run = (s: Step) => {
+  const run = (s: Step) => whileRuntimeRuns(() => run_(s));
+  const run_ = (s: Step) => {
     if (fake.freezeTimers && PAGE_INPUT.some((k) => k in s)) {
       frozenDrops++;
       return;
