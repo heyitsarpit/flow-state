@@ -123,7 +123,8 @@ try {
 
   // H5: a removed newline lets a comment swallow an oracle.
   reset();
-  edit(join(conf, "scenarios/ctx.ts"), (s) => s.replace("// D122: a spin has nothing settled to claim. A case that ends it is read after\n", "// D122: a spin has nothing settled to claim. A case that ends it is read after "));
+  // Found by the oracle it swallows, not by the comment's words, which change.
+  edit(join(conf, "scenarios/ctx.ts"), (s) => s.replace(/(\/\/[^\n]*)\n(\s*if \(!q\.idle\) throw)/, "$1 $2"));
   const j = await scratchSuite("PAY-01");
   say(j.code !== 0 && /unlogged expectation changes: (?!none)/.test(j.stdout), "lock: a comment swallowing an oracle is red");
 

@@ -523,3 +523,4 @@ round:reality/score.ts hash:9a75735fb7fd | D148: bfcacheZombie must be zero
 R10-PINS hash:c9d7301a2549 | the final mutant run's survivor, second-try-lost-if-mail: a second try beside another actor's burst; (j) kills it
 file:scenarios/round10.scenario.ts hash:8339b773034b | holds the second-try pin
 output:R10-PINS/a-second-try-beside-another-actors-mail-is-not-lost hash:28f5b1df8505 | new, D134: whole output of the second-try pin
+file:falsify.ts hash:0727178edeac | the swallowing tamper finds its line by the oracle it hides, since D146 changed the comment's words and the old edit refused to run
