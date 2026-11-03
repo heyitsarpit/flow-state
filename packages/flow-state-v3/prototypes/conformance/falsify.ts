@@ -266,6 +266,7 @@ try {
     const sl = process.argv.indexOf("--slice");
     const [si, sn] = sl < 0 ? [1, 1] : process.argv[sl + 1]!.split("/").map(Number) as [number, number];
     const chosen = quick ? ALL.slice(0, 3) : ALL.filter((_, i) => i % sn === si - 1);
+    if (chosen.length === 0) say(false, `lies: the slice ${si}/${sn} holds no lie`); // an empty part is no pass
     const named = async (edits: Edits) => {
       reset();
       for (const [f, find, rep] of edits) edit(join(round, f), (s) => s.replace(flex(find), () => rep));

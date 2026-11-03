@@ -1,12 +1,12 @@
 # Round 10, status
 
-Done through stage D. All four stages are written up in `RESULTS.md`, with decisions D129-D158 in `../convergence-10.md`. Everything is proposed.
+Done through stage E. All five stages are written up in `RESULTS.md`, with decisions D129-D163 in `../convergence-10.md`. Everything is proposed.
 
-At the end of stage D (`9b87842e` and the docs commit): suite 727/727; every input the oracles read is inventoried (34: 11 observed, 3 debt-only, 6 names-only, 12 checked, 2 excuses at the runtime's word; 7 allowances in all); an oracle excuses only for a cause the suite saw (D154); 11 lying runtimes in `falsify.ts --part lies`, each red by its named oracle. Gate numbers are in `RESULTS.md`, "Gates on the final commit".
+At the end of stage E (`0eee5e65` and the docs commit): suite 727/727; the suite holds its own reference model of binding (`conformance/reference/model.ts`, D159), and (j) takes a park only where it says nothing live binds the op (D160); every D154 cause is per owner (D161); A1 closed, A4 narrowed (D162); 35 inputs inventoried (11 observed, 3 debt-only, 5 names-only, 15 checked, 1 excuse at the runtime's word; allowances A2, A3', A4', A5, A6, A7); 35 lying runtimes in `falsify.ts --part lies`, each red by its named oracle or shown vacuous. Gate numbers are in `RESULTS.md`, "Gates on the final commit".
 
 Left undone, in order of what makes green mean more:
 
-1. Lies for the seven allowances A1-A7 (`convergence-10.md`, Stage D), then convert each the way D154 did, or keep it as a stated allowance.
+1. The allowances left: A3' (a park with no attempt; the reference's unknowns: keyed, nested and resumable fragments, which entities will multiply), A4' (a `turn` pays a refusal), A2, A5, A6, A7. Then L2: a case where a cancel alternative's guard refuses beside a dropped ending.
 2. M2's rest: lane helpers reading one lane by its full key (rounds 7, 8, 9, 9b) through the codec; mark what stays as a named format pin.
 3. Pins for under-specification A05, A12, A15, and for rules 47 and 59.
 4. The fake: hidden throttling, plain writes queued behind a strict one, connection loss, power loss, a reload driven into a 409.

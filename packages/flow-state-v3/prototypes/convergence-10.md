@@ -126,6 +126,33 @@ Kinds:
 | **D157** | **Every real-run mode declares its row counters.** `s3`, `desk`, `crash` rows and `tabs` have them. Cycles and `n` must be above zero; no count may be negative; a key not declared by a declared mode fails, so a misspelt counter beside the real one is red. Each re-check attack is a case in `checks/score-check.ts`, beside a green per mode | `run7.ts`, `h3.ts`, `spin.ts` still not by mode (D153). A new row field needs a declaration | `reality/score.ts`, `checks/score-check.ts` |
 | **D158** | **The rest of the re-check's M4'.** `corruptStored` that matches no key throws; `odd`'s corruptions are tried only where their match is on disk. `Ctx.record` takes the actor's id from `Reads.actorKey`, the suite's one spelling, which `diskScope` answers in. REV9-KEPT's two "nothing on disk" absences go through `Ctx.lanesOf` (kind and scope by the codec). `DisposeStart` turns the ledger off only after a dispose step the suite drove; `Released` excuses (h) and `checkMints` only when the ledger saw its cause | Lane helpers reading one lane by its full key are still literal for presence checks | `drive.ts`, `harness.ts`, `ctx.ts`, `round9.scenario.ts`, `odd.search.ts` |
 
+### Stage E: a reference model of binding (from `conformance-audit/re-check-round-10d.md`)
+
+The gate failed three times on one class: (j) excused an undelivered ending by something the runtime said (`evidenceOnly`, then `Released`, then `parked`/`kept`). The root: the suite had no model of its own for which actor may receive an op's ending, so it borrowed the runtime's. `conformance/reference/model.ts` is that model. It is written from `machine-design.md`'s rules 14, 44, 49, 51, 52, 53, 60, imports nothing from `round-*`, and reads only the compiled data and the leaf state an actor publishes. Every answer is yes, no or unknown; an oracle excuses only on a certain one.
+
+Inventory changes (the stage D table, rows by number):
+
+| # | Was | Now |
+| --- | --- | --- |
+| 2, 3 | "owner moved" while any machine anywhere had a `cancel` or `whenAbandoned.release` of the op name | Per owner, by the reference: between the leaf before and after the batch, the owner left every state that binds the op, or left a fragment that releases it. A `cancel` alternative is no cause by a move alone (which alternative ran is not published). Unknown (a keyed, nested or resumable fragment) pays only a fragment's own op |
+| 4 | A reload added every mapped event of every op, and `advance` every schedule, to every actor | Per owner: a reload drives the mapped events of each open attempt to its own actor, marked with that attempt, so a restored ending never excuses itself as evidence (it may still pay the release (h) reads); `advance` drives each actor its own machine's timers; an answer drives its op's events to the owners of that op's open attempts. The cancel must be one the owner's own machine has, on that event |
+| 9 | **A1**: a `turn` of any actor attributes | **Checked**: a `turn` of an actor the suite never addressed and that publishes nothing is red, and attributes nothing. A1 closed |
+| 15 | **A3**: `parked` checked only against a wait | **Checked against the reference**: a park of an attempt whose owner is alive, not disposing, and whose published state the reference says binds the op is red, whatever a wait says. Left as allowance A3': a park with no attempt (a decline), and a park where the reference says unknown |
+| 16 | **A4**: `turn`/`Denied`/`Unhandled` pay a refusal by event; `fence`/`unbound` clear every refusal | `Denied`/`Unhandled` pay only if one of the event's alternatives' Slots (the suite's own wrap) ran after the refusal; `fence`/`unbound` pay only with an actor the suite saw gone in that batch. Left as allowance A4': a `turn` of the event pays (A2's class) |
+| 35 (new) | | `Instance.binding(actor, op, subject)`, optional: the runtime's own answer. Oracle (ref) compares it with the reference every batch, for every live actor and op of its machine, where the reference is certain (a root op, bound while the actor lives; a fragment op with no placing state, bound nowhere) |
+
+**Counts: 35 inputs. 11 observed, 3 debt-only, 5 names-only, 15 checked, 1 excuse at the runtime's word (17). Allowances: A2, A3' (narrowed), A4' (narrowed), A5, A6, A7; A1 closed.**
+
+### Stage E decisions (all proposed)
+
+| Id | Decision | Costs | Changes |
+| --- | --- | --- | --- |
+| **D159** | **The suite holds a reference model of binding and cancels, `conformance/reference/model.ts`, from the design's rules, and checks the runtime's `bindingOf` against it every batch (oracle `(ref)`).** Three-valued; an excuse needs a certain answer. A placement keyed by `.each` or `resetOn` is unknown, since the ending's subject picks the incarnation, and so is one beside it | The reference cannot see a fragment's own states, nested fragments or frozen copies; there it says unknown and the old allowance stands. A runtime that does not offer `binding` skips (ref) | `reference/model.ts`, `drive.ts`, `harness.ts`, `round-10/adapter.ts`, `round-10/turn.ts` (`bindingIn`, extracted, same code) |
+| **D160** | **(j): an ending may be parked only where the reference says no live actor binds it, or the owner is gone or moved off its binding state.** The re-check's H1'' | `kept` is not reread: after a refusal twice it is right on a bound owner (D118); its cause is the refusal, which D162 now checks | `drive.ts` |
+| **D161** | **Every D154 cause is per owner.** Moves by the reference (rows 2-3); driven events per actor, by its own machine (row 4); a restored ending pays its own release, never its own ending as evidence | A memory change of an owner with a keyed fragment that releases the op still excuses (unknown) | `drive.ts`, `reference/model.ts` |
+| **D162** | **A1 closed and A4 narrowed**, as rows 9 and 16 say | A `turn` still pays a refusal | `drive.ts` |
+| **D163** | **`types-check` pins each directive's error, by code and words, on a copy with the directives stripped (re-check L1); `falsify.ts --part lies` holds the 24 stage D lies beside the 11 (`--slice i/n` keeps each command under 5 minutes; a lie whose trigger fires in no case must show its probe firing nowhere); `falsify.ts` finds `node_modules` from a fresh worktree through git's common dir** | A changed error message needs a check edit | `checks/types-check.ts`, `falsify.ts` |
+
 ## Design edits owed at merge
 
 `machine-design.md` is not edited in this round. Owed:

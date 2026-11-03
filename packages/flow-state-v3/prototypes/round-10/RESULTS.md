@@ -79,6 +79,27 @@ The rule (D154): **an oracle excuses only for a cause the suite observed.** A se
 
 Not closed: the allowances A1-A7 (attribution by the step's turn; `delivered` checked by a `turn`; `parked`/`kept` waits; refusal pay by `turn`/`fence`; issues paying deliveries; `AbandonedFiber`; `disabled` by `ModuleDefect`) have no lie runtimes yet. D154's limits: the cancel cause is by event, not by the alternative taken; an owner's memory move beside a lie on a releasable op still excuses. M2's 73/26 literal-key presence checks; L1-L4.
 
+## Stage E: a reference of its own (`../conformance-audit/re-check-round-10d.md`)
+
+Commit `0eee5e65` and this file's commit. Decisions D159-D163, proposed.
+
+The gate failed three times on one class, each an excuse at the runtime's word one hop further. The root: the suite had no model of its own for which actor may receive an op's ending. `conformance/reference/model.ts` is that model, from the design's rules, importing nothing from `round-*`. It answers, from the compiled data and the published leaf: which live actor binds an op; whether the owner's own machine cancels it on an event; whether a move let it go; which timers a machine has. Inventory: **35 inputs, 11 observed, 3 debt-only, 5 names-only, 15 checked, 1 excuse at the runtime's word; allowances A2, A3', A4', A5, A6, A7 (A1 closed)** (`../convergence-10.md`, "Stage E").
+
+| Finding | Fix | Shown by (`falsify.ts --part lies`, `--no-output`) |
+| --- | --- | --- |
+| H1'': a park on a live bound owner | D160: a park is allowed only where the reference says nothing live binds the op, or the owner is gone or moved off it | **`a3.park-like2nc` red by (j)** (was 0/727 named); `a3.park-save` red by (j) in 2 (was 0) |
+| M1'': "owner moved", global op names | D161: per owner, by the reference; a cancel alternative is no cause by a move alone; a restored ending never excuses its own attempt | **`d154.moved-like-released` (SURV-03) red by (j)** (was 0 by (j)) |
+| Inventory 3: reload and `advance` drove every event to every actor | D161: per owner, by its own machine and its own open attempts | the per-owner causes above; no lie fires there (L2 stands) |
+| M2'' (A1): a ghost turn | D162: a turn of an actor never addressed and publishing nothing is red | `a1.ghost-like2` and `-save` red by (j) in 32 and more |
+| M3'' (A4): a refusal's retry dropped | D162: a denial pays only with a Slot of its event run after the refusal; a fence only with an actor seen gone | `a4.refused-fence`, `a4.refused-denied` red by (j) in 44 each (was 0) |
+| `bindingOf` taken at its word | D159: oracle (ref) compares `Instance.binding` with the reference every batch, where the reference is certain | Suite 727/727; no disagreement with round 10 |
+| L1: a typo under a kept directive | D163: each directive's line must error with its pinned code and words | `falsify --part tamper`: the typo tamper is red |
+| Tamper in a fresh worktree | D163: `node_modules` found up the tree, then through git's common dir | |
+
+**Where the reference disagreed with the runtime: nowhere, on certain answers.** Three disagreements on the way were the reference's own errors, each fixed in the reference, not the runtime: a placement's subject includes its `resetOn` value (D64), so a `resetOn` placement is keyed (REAL-04, FRAG-11); a keyed placement beside a plain one of the same fragment (`rows` and `once`) leaves the subject to choose (REV4-L2); a `.resumable()` placement keeps a frozen copy that a memory change can end (REV4-M3). One harness error too: reading `rt.sys.machines` for `binding` spent REV8-FATAL's planned core fault, so the adapter answers from the sealed data as booted.
+
+Not closed: A3' (a park with no attempt, and where the reference says unknown: keyed, nested or resumable fragments); A4' (a `turn` pays a refusal); A2, A5, A6, A7; L2 (the cancel-by-event limit has no lie that fires). `kept` is not reread by the reference: a double refusal on a bound owner is right (D118); its cause, the refusal, is what D162 checks.
+
 ## What the new oracles exposed
 
 No new runtime bug in the named paths. Exposed instead: replay limits that hid S11 on kept endings and releases; a case pinning an impossible frozen page; a vacuous FRAG-08; HIGH-03 delivering `Listed`; the real bfcache gap (a link click made the next page a second tab); and four holes in this round's own tools (the token hash, a case passing on null, mutate copying live sources, the `truth` section holding disk bytes).
@@ -93,6 +114,21 @@ No new runtime bug in the named paths. Exposed instead: replay limits that hid S
 - Whole output is a change detector: it says something changed, not that it is right. A search stopped by depth or budget needs only half its actions to have moved. A log reason can still be poor.
 
 ## Gates on the final commit
+
+Stage E, on `0eee5e65` plus the falsify empty-slice check (one tree at a time, each under a time limit):
+
+| Gate | Result |
+| --- | --- |
+| Suite, `--round 10` with catalog | 727/727; unlogged none; stale lock 0; catalog disagreements none; 754 MB, 20 s. (ref) disagreements none |
+| `falsify.ts --part lies`, slices 1-4 | **35 of 35 ok: 32 red by the named oracle, 3 vacuous (`d154.moved-save-released`, `d154.event-fail-released`, `d154.event-like-released`: their probes fire in no case)** |
+| `--part tamper` | 11 ok, the typo tamper among them |
+| `--part suite` | null 0/727; constant hash 61; lying fatal 0; no evidence 36; no waits 179; injected issue 5; lying replay 2; junk key 255; D130 ok |
+| `--part mutants` | 3 killed by named oracles |
+| `--part watch` | ok |
+
+Not run in stage E: `--part search`, `mutate-one.ts`, `--swap`, the 5 s gate, the variant adapter's counts, real-browser modes, `nub run verify`, `vp fmt`.
+
+Stage D:
 
 Stage D, on the commit after `4bb9e52f` (the gates on its code, before the last `drive.ts` fix, then the suite and the lies part again after it):
 

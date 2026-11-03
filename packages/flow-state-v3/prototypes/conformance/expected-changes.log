@@ -597,3 +597,4 @@ file:drive.ts hash:a7c34f3dd3ed | D159-D162: the suite's reference model answers
 round:adapter.ts hash:1da58b03b964 | D159: round 10 answers `binding` from its own `bindingIn`, over the sealed data as booted
 round:checks/types-check.ts hash:93fe29f7f655 | D163: each directive's line must error with its pinned code and words (re-check L1)
 file:falsify.ts hash:49069f1340dc | D163: the 24 stage-D lies in `--part lies` with `--slice`, the typo tamper, and `node_modules` found from a fresh worktree
+file:falsify.ts hash:5790b1f56116 | D163: a lies slice that holds no lie is red (a zsh loop passed `--part "lies --slice i/n"` and passed vacuously)
