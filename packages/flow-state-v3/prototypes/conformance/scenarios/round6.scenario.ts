@@ -553,7 +553,7 @@ export const round6Scenarios: readonly Scenario[] = [
         c.ack();
         c.answer("charge", { lost: true });
         c.eq("held", c.mem().unsure, 1);
-        rel.v = 2;
+        c.h.release(() => void (rel.v = 2), () => void (rel.v = 1));
         c.reload();
         c.send("Go");
         c.eq("the request count stays", c.reqs("charge").length, 1);
@@ -566,7 +566,7 @@ export const round6Scenarios: readonly Scenario[] = [
         c.send("Go");
         c.ack();
         c.answer("charge", { lost: true });
-        rel.v = 2;
+        c.h.release(() => void (rel.v = 2), () => void (rel.v = 1));
         c.reload();
         c.yes(
           "still held on disk under the new id",
@@ -795,7 +795,7 @@ export const round6Scenarios: readonly Scenario[] = [
         const c = at(c0, memoryReleaseFixture(rel, true), A);
         c.send("Go");
         c.ack();
-        rel.v = 2;
+        c.h.release(() => void (rel.v = 2), () => void (rel.v = 1));
         c.reload();
         c.eq("the restored ending ran", c.mem().oks, 100);
         c.eq("no refusal", c.r.issues().length, 0);
@@ -806,7 +806,7 @@ export const round6Scenarios: readonly Scenario[] = [
         const c = at(c0, memoryReleaseFixture(rel, false), A);
         c.send("Go");
         c.ack();
-        rel.v = 2;
+        c.h.release(() => void (rel.v = 2), () => void (rel.v = 1));
         c.reload();
         c.yes(
           "D50, stated",

@@ -100,6 +100,9 @@ const bookmark = (c: Ctx, a = F): any =>
 const cycle: any = { a: 1 };
 cycle.self = cycle;
 const ODD_VALUES: readonly unknown[] = [
+  Symbol("odd"), // D139, F4: it was the one hole
+  new Date(5),
+  Infinity,
   undefined,
   null,
   5,
@@ -166,6 +169,8 @@ const oddOne = (make: () => Harness, kind: string, v: unknown) => {
     checkMints(h.read);
   };
   h.do({ ensure: O });
+  // D132: a value may not stop the core, so the actor must be there to be not stopped. It passed on no runtime.
+  if (h.read.state(O) === undefined) throw new Mismatch(`no actor: ${label}`);
   h.do({ send: O, event: "Set", payload: { odd: { kind, value: v } } });
   check("Set");
   for (const s of ODD_SCRIPT) {

@@ -473,3 +473,5 @@ Convergence-8. Old unbuilt rows (`STORY-ALL`, `BROWSER-*`, `SSR-01`) renumbered 
 | REV9-KEPT | 9 | fault | hostile | D118, D109, D50 |  | review M2, M3: a refused deadline stays on the record; a kept ending is on the row, blocks its key, can be let go; a raise with no name; a refused turn's commands |
 | REV9-STREAM | 9 | fault | hostile | D118, D50 |  | review M2: a stream's failure no turn could take is a stranded wait |
 | REV9-NAMES | 9 | fault | hostile | D119, D108, M5 |  | review M5: a bigint names a lane and a reset; it still cannot be carried; two values with no name are one |
+| FRAG-20 | 3 | example | table | rule:60, rule:14, rule:15, D15, D21, D46, rule:1, rule:17 |  | a freeze is an ending, not a release; an actor record that does not parse |
+| R10-RUNTIME | 10 | fault | hostile | D136, D137, D138, D139, D140, D141 |  | the slice's bill, one notify per task, one machine per key, reserved state names, values with no form, a linear burst, a hash of values |

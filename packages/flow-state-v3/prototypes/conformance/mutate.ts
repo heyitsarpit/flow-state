@@ -37,7 +37,7 @@ const results: unknown[] = [];
   cpSync(here, join(dir, "conformance"), { recursive: true });
   cpSync(source, join(dir, basename(source)), { recursive: true });
   const r = await watched(["bun", join(dir, "conformance/mutate-one.ts"), "--runtime", `../${basename(source)}/adapter.ts`, ...extra], {
-    rssMb: 1400,
+    rssMb: 1700,
     seconds: 240,
     capture: true,
   });
@@ -57,7 +57,6 @@ const results: unknown[] = [];
   }
   console.log(`control: the unmutated code passes every gate (${(r.ms / 1000).toFixed(0)} s)`);
 }
-const notApplied: string[] = [];
 const invalid: string[] = [];
 const byWatchdog: string[] = [];
 let survived = 0;
@@ -105,7 +104,7 @@ for (const m of list) {
       `../${basename(source)}/adapter.ts`,
       ...extra,
     ],
-    { rssMb: 1400, seconds: 240, capture: true },
+    { rssMb: 1700, seconds: 240, capture: true },
   );
   const line = r.stdout.trim().split("\n").at(-1) ?? "";
   let parsed: { killedBy: string | null; killers: string[]; search: string } | undefined;
@@ -115,15 +114,9 @@ for (const m of list) {
     parsed = undefined;
   }
   const killers = parsed?.killers ?? [];
-  // A run with no answer: it did not load, or it died. Not a kill by a test: `INVALID`. A watchdog's kill is a kill, counted apart, since load can make one.
-  if (!parsed && r.killed === null) {
-    invalid.push(m.id);
-    console.log(`INVALID  ${m.id.padEnd(36)} no answer: ${r.stdout.slice(-160).replace(/\n/g, " ")}`);
-    results.push({ id: m.id, kills: m.kills, killed: false, killers: [], author, by: "invalid", peakMb: r.peakMb });
-    continue;
-  }
+  // D132, bugs M2: it parsed and the control ran, so a run with no answer is a run this mutant broke. Killed, by `crash`, and counted apart: it shrank the denominator before.
   if (r.killed !== null) byWatchdog.push(m.id);
-  const killed = r.killed !== null || (parsed?.killedBy ?? null) !== null;
+  const killed = r.killed !== null || !parsed || (parsed?.killedBy ?? null) !== null;
   if (!killed) survived++;
   results.push({
     id: m.id,
@@ -140,5 +133,4 @@ for (const m of list) {
 }
 rmSync(scratch, { recursive: true, force: true });
 writeFileSync(out, JSON.stringify(results, null, 1));
-console.log(`\nnot applied (${notApplied.length}):\n${notApplied.join("\n")}`);
 console.log(`\n${results.length - survived - invalid.length}/${results.length - invalid.length} killed (${author}); by the watchdog: ${byWatchdog.join(" ") || "none"}; invalid: ${invalid.join(" ") || "none"}`);

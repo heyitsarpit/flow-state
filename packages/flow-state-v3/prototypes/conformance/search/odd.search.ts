@@ -21,6 +21,9 @@ const cycle: any = { a: 1 };
 cycle.self = cycle;
 const ODD_LISTS: ReadonlyArray<readonly [string, unknown]> = [
   ["null", null],
+  ["sym", Symbol("odd")], // D139
+  ["date", new Date(5)],
+  ["nan", Number.NaN],
   ["five", 5],
   ["nullItem", [null]],
   ["emptyItem", [{}]],

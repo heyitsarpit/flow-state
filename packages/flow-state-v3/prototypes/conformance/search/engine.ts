@@ -4,12 +4,14 @@
 // no history is needed beyond what the hash carries.
 import type { Harness, Step } from "../harness.ts";
 
-export type Action = { name: string; step: Step; on?: (h: Harness) => boolean };
+// D131: `idle`: this action never changes the state hash, and why that is true. Otherwise an action no edge moved makes the verdict `vacuous`.
+export type Action = { name: string; step: Step; on?: (h: Harness) => boolean; idle?: string };
 export type Probe = (h: Harness, script: readonly string[]) => void;
 export class Oracle extends Error {}
 
 export type Report = {
-  verdict: "completed" | "closed" | "inconclusive" | "failed";
+  verdict: "completed" | "closed" | "inconclusive" | "failed" | "vacuous";
+  deadActions?: readonly string[]; // D131: what no edge moved, and no `idle` excused
   perDepth: readonly number[]; // new states per depth
   states: number;
   edges: number;
@@ -54,8 +56,15 @@ export const bfs = (o: {
   };
   const key = (h: Harness, s: readonly Action[]) =>
     Bun.hash(`${h.read.stateHash()}|${o.extra?.(s) ?? ""}`);
-  const done = (verdict: Report["verdict"], depthCompleted: number, failure?: string): Report => ({
+  // D131: `closed` means no new hash appeared, and that alone is what a dead runtime or a constant hash looks like. A verdict needs every action to have moved the state on some edge. A guard that never let it run counts the same.
+  const moved = new Set<string>();
+  const done = (v: Report["verdict"], depthCompleted: number, failure?: string): Report => {
+    const dead = v === "failed" ? [] : o.actions.filter((a) => !moved.has(a.name) && a.idle === undefined).map((a) => a.name);
+    // `closed` says the space is exhausted, so an action that never moved it must be named `idle`. A depth or a budget that ended first may simply not have reached an action: at least half must have moved, or nothing was searched.
+    const verdict = v === "failed" ? v : (v === "closed" ? dead.length > 0 : dead.length * 2 > o.actions.length) ? "vacuous" : v;
+    return {
     verdict,
+    ...(dead.length ? { deadActions: dead } : {}),
     perDepth,
     states: seen.size,
     edges,
@@ -65,7 +74,8 @@ export const bfs = (o: {
     classes,
     ms: Date.now() - t0,
     peakRssMb: Math.round(peak / 1e6),
-  });
+    };
+  };
   const names = (s: readonly Action[]) => s.map((a) => a.name);
   const out = () => seen.size >= o.maxStates || Date.now() - t0 > o.deadlineMs;
   let frontier: Action[][] = [[]];
@@ -84,11 +94,11 @@ export const bfs = (o: {
           const pre = run(script);
           if (a.on && !a.on(pre)) continue;
           edges++;
-          const post = run(script);
-          post.do(a.step);
-          steps++;
           const s = [...script, a];
+          const post = run(script);
           try {
+            post.do(a.step);
+            steps++;
             o.edge(pre, post, a);
           } catch (e) {
             if (e instanceof Error && !(e instanceof Oracle))
@@ -96,6 +106,7 @@ export const bfs = (o: {
             throw new Oracle(`${(e as Error).message} on ${names(s).join(" ")}`);
           }
           const k = key(post, s);
+          if (key(pre, s) !== k) moved.add(a.name);
           if (seen.has(k)) continue;
           seen.add(k);
           next.push(s);
@@ -114,8 +125,8 @@ export const bfs = (o: {
       frontier = next;
     }
   } catch (e) {
-    if (e instanceof Oracle) return done("failed", depthCompleted, e.message);
-    throw e;
+    // M2: a throw anywhere is this search's verdict, never a crash with none: an oracle in the fake throws a plain Error.
+    return done("failed", depthCompleted, e instanceof Oracle ? e.message : `threw: ${(e as Error).message}`);
   }
   return done("completed", depthCompleted);
 };

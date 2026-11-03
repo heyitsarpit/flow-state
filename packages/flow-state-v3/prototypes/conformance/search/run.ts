@@ -42,7 +42,7 @@ if (which === "oddall") {
     return h;
   });
   console.log(JSON.stringify({ search: which, verdict: "completed", combinations: n }));
-  process.exit(0);
+  process.exit(n > 0 ? 0 : 1);
 }
 const r =
   which === "pay"
@@ -78,4 +78,4 @@ const r =
                     ? searchFragStore(make, which.split(".")[1] as never, o)
                     : searchLike(make, [s1Fixture], o);
 console.log(JSON.stringify({ search: which, ...r }, null, 1));
-process.exitCode = r.verdict === "failed" ? 1 : 0;
+process.exitCode = r.verdict === "failed" || r.verdict === "vacuous" ? 1 : 0; // D131

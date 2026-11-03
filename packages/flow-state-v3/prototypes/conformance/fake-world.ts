@@ -715,6 +715,7 @@ export class FakeWorld {
   // Everything that decides this world's future, as text. Ids and times are normalised by the runtime's stateText.
   stateText(): string {
     return JSON.stringify({
+      clockOffset: this.clockOffset, // D141, bugs M3: `clockBack` is an action, and a set-back clock has another future
       open: this.requests
         .filter((r) => !r.answered && r.process === this.process)
         .map((r) => [r.op, r.idempotencyKey, r.input, r.never === true, r.aborted === true]),

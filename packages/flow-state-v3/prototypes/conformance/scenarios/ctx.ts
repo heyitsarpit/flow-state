@@ -4,9 +4,20 @@ import { NoHeldRequest } from "../fake-world.ts";
 
 export class Mismatch extends Error {}
 
+// D130: one list of named issues per case, shared by every `Ctx` in it. D133: a fatal counts as an issue that must be named.
+let caseNamed: string[] | undefined;
+export const openCase = (named: readonly string[]) => (caseNamed = [...named]);
+// D133: a fatal stops being a way out of the oracles. Named by the case, it is read after. Not named, it fails where it is. A runtime's `fatal` with no `Fatal` issue is a lie either way. Outside a case (a search), a search that means a fatal says `allowFatal`.
+export const fatalAllowed = { search: false };
+const checkFatal = (r: Reads) => {
+  if (!r.issues().some((i) => i.code === "Fatal")) throw new Mismatch("D133: fatal, and no Fatal issue says why");
+  if (caseNamed ? !caseNamed.includes("Fatal") : !fatalAllowed.search) throw new Mismatch(`D133: a fatal nobody named: ${r.issues().filter((i) => i.code === "Fatal").map((i) => i.input).join(" ")}`);
+};
+
 // D29: L3 no longer trusts the runtime. Each claim is checked against what the suite itself owns.
 export const checkClaims = (r: Reads) => {
   const q = r.quiet();
+  if (q.fatal) checkFatal(r);
   if (q.fatal || q.spinning) return; // D122: a spin has nothing settled to claim. A case that ends it is read after
   if (!q.idle) throw new Mismatch("do() returned with work runnable");
   // D117, oracle (j): what a committed turn asked for became something, and what no turn could take left a wait.
@@ -64,7 +75,7 @@ export const checkClaims = (r: Reads) => {
         // M9: a hold names who owns it, and the suite can see the actor. Unbound must be true, and visible by evidence.
         const at = w.actor.lastIndexOf("/");
         const alive =
-          r.state({ actor: w.actor.slice(0, at), id: w.actor.slice(at + 1) }) !== undefined;
+          r.state({ actor: w.actor.slice(0, at), id: decodeURIComponent(w.actor.slice(at + 1)) }) !== undefined;
         if (w.owner === "unbound" ? alive : !alive)
           throw new Mismatch(
             `L3: ${w.op} held by ${w.actor} claims ${w.owner}, actor alive: ${alive}`,
@@ -170,7 +181,14 @@ export const checkMints = (r: Reads) => {
 };
 
 export class Ctx {
-  namedIssues: string[] = [];
+  get namedIssues(): string[] {
+    return caseNamed ?? [];
+  }
+  // D130: naming adds to the case's list, whichever `Ctx` said it.
+  set namedIssues(v: string[]) {
+    if (!caseNamed) caseNamed = [];
+    for (const x of v) if (!caseNamed.includes(x)) caseNamed.push(x);
+  }
   fresh: (machines?: readonly Fixture[], bounds?: Record<string, number>) => Harness = () => {
     throw new Error("no fresh");
   };
@@ -258,6 +276,7 @@ export type Scenario = {
   actor?: ActorRef;
   bounds?: Record<string, number>;
   namedIssues?: readonly string[];
+  outputAllow?: { readonly sections: readonly string[]; readonly why: string }; // D134: what this case does not care about, and why
   run?: (c: Ctx) => void;
   variants?: Record<string, (c: Ctx) => void>;
 };

@@ -19,12 +19,13 @@ const on = (c0: Ctx, f: Fixture, a: { actor: string; id: string }, bounds?: Reco
 const waits = (c: Ctx, kind: string) => c.r.quiet().waits.filter((w) => w.kind === kind);
 const refusals = (c: Ctx) => c.r.issues().filter((i) => i.code === "InvalidTurn").length;
 const code = (c: Ctx, x: string) => c.r.issues().filter((i) => i.code === x).length;
-const healed = (f: () => void) => {
-  (globalThis as any).__healed = true;
+const healed = (c: Ctx, f: () => void) => {
+  const set = (v: boolean) => () => void ((globalThis as any).__healed = v);
+  c.h.release(set(true), set(false)); // a release that fixes the closure
   try {
     f();
   } finally {
-    (globalThis as any).__healed = false;
+    c.h.release(set(false), set(true));
   }
 };
 const SAVE_NOT_SENT = "operations.save.NotSent";
@@ -172,7 +173,7 @@ export const round9Scenarios: readonly Scenario[] = [
         c.eq("a wait says so", waits(c, "parked").map((w: any) => w.op), ["GiveUp"]);
         c.send("Note", { text: "x" });
         c.do({ hide: true });
-        healed(() => {
+        healed(c, () => {
           c.reload();
           c.advance(5_000);
         });
@@ -188,7 +189,7 @@ export const round9Scenarios: readonly Scenario[] = [
         c.send("Leave");
         c.state("A");
         c.eq("no wait", waits(c, "parked").length, 0);
-        healed(() => {
+        healed(c, () => {
           c.reload();
           c.advance(5_000);
         });
@@ -201,7 +202,7 @@ export const round9Scenarios: readonly Scenario[] = [
         c.advance(1_500);
         c.dispose();
         c.eq("nothing kept for nobody", waits(c, "parked").length, 0);
-        healed(() => {
+        healed(c, () => {
           c.ensure();
           c.advance(5_000);
         });
@@ -238,7 +239,7 @@ export const round9Scenarios: readonly Scenario[] = [
         c.send("Go");
         c.ack();
         c.answer("save", { ok: { v: "boom" } });
-        healed(() => c.reload());
+        healed(c, () => c.reload());
         c.state("B");
         c.send("IfIdle");
         c.eq("idle", c.mem().presses, 1);

@@ -438,11 +438,12 @@ export const round8Scenarios: readonly Scenario[] = [
         c.eq("refused twice", c.r.issues().filter((i) => i.code === "InvalidTurn").length, 2);
         c.yes("a wait says so", c.r.quiet().waits.some((w) => w.kind === "parked" && (w as any).op === "boom"));
         c.do({ hide: true });
-        (globalThis as any).__healed = true; // a release that fixes the closure
+        const heal = (v: boolean) => () => void ((globalThis as any).__healed = v);
+        c.h.release(heal(true), heal(false)); // a release that fixes the closure
         try {
           c.reload();
         } finally {
-          (globalThis as any).__healed = false;
+          c.h.release(heal(false), heal(true));
         }
         c.state("B");
         c.eq("delivered", c.mem().last, "delivered");
@@ -679,11 +680,13 @@ export const round8Scenarios: readonly Scenario[] = [
       "D65-NaN-is-not-null"(c0) {
         const D = { actor: DoorsId, id: "a" };
         const c = on(c0, doorsFixture, undefined, D);
+        // D139: NaN has a name, so it is not null's lane, and no carried form: JSON would bring it back as a string. So it declines, named, as a bigint's does, and null still goes.
         c.send("GoOther", { v: Number.NaN });
-        c.ack();
+        c.eq("declined, named", c.r.issues().filter((i) => i.code === "UnencodableValue").length, 1);
+        c.eq("nothing sent for NaN", c.reqs("other").length, 0);
         c.send("GoOther", { v: null });
         c.ack();
-        c.eq("two lanes", c.reqs("other").length, 2);
+        c.eq("null's lane was not taken", c.reqs("other").length, 1);
       },
       // gate.map-is-object: a Map has no text, so it is poison, not `{}`.
       "D89-a-map-is-poison-not-an-empty-object"(c0) {

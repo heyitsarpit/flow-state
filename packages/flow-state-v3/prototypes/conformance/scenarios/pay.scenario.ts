@@ -406,6 +406,7 @@ export const payScenarios: readonly Scenario[] = [
       "refused-after-members"(c) {
         const R = { actor: "Ring", id: "a" };
         const d = new Ctx(c.fresh([ringFixture]), R);
+        d.namedIssues = ["InvalidTurn"];
         d.ensure();
         d.fault({ throwIn: "on.WorkBad[0].followUp[0]" });
         d.send("WorkBad", { n: 1, who: "a" });
@@ -957,12 +958,12 @@ export const payScenarios: readonly Scenario[] = [
         c.namedIssues = ["ModuleDefect"];
       },
       "core-throw-is-fatal"(c) {
+        c.namedIssues = ["Fatal"];
         onWire(c);
         c.fault({ throwInCore: true });
         c.answer("pay", req_cap); // this step's core code throws: the world freezes
         c.eq("issue", c.r.issues().at(-1)?.code, "Fatal");
         c.yes("fatal", c.r.quiet().fatal);
-        c.namedIssues = ["Fatal"];
         c.send("Leave"); // dropped
         c.yes("dropped", c.r.evidence("dropped").length > 0);
         c.reload(); // a reload recovers, by the one restore path

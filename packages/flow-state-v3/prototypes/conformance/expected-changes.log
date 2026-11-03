@@ -380,3 +380,70 @@ REV9-LOOP hash:0a14707091ea | round 9b, D122: new. H1, M1, M2 as traces, every r
 REV9-EDGE hash:9a3510e07bea | round 9b, D123: new. M3, M4, M5, M6, and the review's survivors (survivors pinned)
 file:scenarios/round9b.scenario.ts hash:b57111a3d121 | round 9b: the new scenarios, REV9-LOOP and REV9-EDGE (survivors pinned)
 file:fixtures/round9b.compiled.ts hash:5c6ac803c141 | round 9b: the chain and edge machines (survivors pinned)
+--- hash scheme 2 (D135): hashes read tokens. Lines above are history under the old scheme. expected.baseline is HEAD 3836abc4 under the new scheme; from here each id needs its own line to move from it. ---
+outputs: expected.baseline gained `output:` lines on this line's day: expected-output.txt as captured before D136-D141, the state of round 9 with D130-D135's oracles. REV9-LOOP's lines are the sections it does not allow away.
+PAY-11 hash:f70a1303d962 | D130: refused-after-members names InvalidTurn on its second harness, where the issue check now reaches it
+PAY-17 hash:c9094e44fce4 | D133: core-throw-is-fatal names Fatal before the fault, so a fatal nobody named can fail at its step
+REV6-H5 hash:5bd854a4e980 | D130: `rel.v = 2` says itself as `release`, so S11 replays the first life under the first key closure
+REV6-M8 hash:5e2ab7747492 | D130: its release, as a step, for the same reason; the case never failed, since it did the same thing
+REV8-KEPT hash:942b722daca6 | D130: the closure's fix is a `release`, so S11 replays the refusing life with the refusing closure
+REV8-PINS hash:a17306b2f126 | D139: NaN no longer comes back as a string: it declines, named, and null's lane stays free
+REV9-KEPT hash:4b3406d55d9f | D130: `healed` is a `release`; three replays differed because the program changed between lives
+REV9-LOOP hash:16add61faa66 | D130: a commit that throws names Defect; D134: a spin's distance in a step is the clock's, allowed by name
+REV9-EDGE hash:24f8ec12d6b7 | D130: `healed` is a `release`, three replays again
+R10-RUNTIME hash:6daba100b7ac | new, D136-D141: one pin each for H1, H2, M3, x/y, self, Symbol, NaN, a burst, a hash of values
+file:scenarios/ctx.ts hash:9f95f75cb7d4 | D130 one named list per case, D133 a fatal must be named, D137 a key's id is escaped
+file:scenarios/pay.scenario.ts hash:95d35ad0f8a5 | holds PAY-11 and PAY-17's namings, above
+file:scenarios/round10.scenario.ts hash:ca9f608f7e3d | new file, R10-RUNTIME
+file:scenarios/round5.scenario.ts hash:d24c459227a2 | D132: SEARCH-ODD-ALL passed on no runtime, so it checks the actor is there; Symbol, Date, Infinity join the values
+file:scenarios/round6.scenario.ts hash:aa97d23b1f5f | holds REV6-H5's and REV6-M8's `release`
+file:scenarios/round8.scenario.ts hash:73ca63b5c51b | holds REV8-KEPT's `release` and REV8-PINS's NaN
+file:scenarios/round9.scenario.ts hash:9daf87e6c97d | holds REV9-KEPT's `healed`
+file:scenarios/round9b.scenario.ts hash:62af6bbadebd | holds REV9-EDGE's `healed` and REV9-LOOP's naming and allow
+file:search/engine.ts hash:dbd919803831 | D131: a verdict needs actions that moved the state; a throw is a failed verdict
+file:search/odd.search.ts hash:bf83ac3dddeb | O F4: Symbol, Date, NaN join the alphabet
+file:search/run.ts hash:a26d48f4195a | D131: vacuous exits 1, and oddall needs a count
+file:bench/burst.ts hash:c502c2bbc1d8 | new, D140: a scored burst, with round 9's numbers beside it
+file:main.ts hash:82f2da85656d | D130 tracked harnesses, D134 whole output, D135 token hash and log rule, D132 --only and catalog both ways
+file:output.ts hash:7b4577aba7c6 | new, D134
+file:falsify.ts hash:49f68276bdab | new, D132, the standing check
+file:null-adapter.ts hash:9a2b7e71889f | D132: the whole Instance, so it fails by expectation and not TypeError
+file:watch.ts hash:eabed1da1c20 | D129: the tree; env and cwd for its callers
+file:gate5s.ts hash:9ca8fbc3f284 | names with spaces are read whole; default round is 10
+file:mutate.ts hash:1aa0043daa11 | D132: a parsed mutant that crashes is killed by `crash`; a dead variable gone
+file:mutate-one.ts hash:d06d7f3eebe2 | D134: output is its own gate, last and apart from named oracles; names read whole
+file:harness.ts hash:f2292faaca92 | `release`, `chargeWork`, `ensureAs`, `diskKeys`
+file:drive.ts hash:4ee028459440 | D130 faults as armed at boot and `release`; D137 escaped ids; diskKeys, chargeWork, ensureAs
+file:fake-world.ts hash:3e82ae3a52e8 | D141: the clock offset is in the fake's text
+round:typed/compare.ts hash:16224995fab6 | D132: it can fail now; 52 differences read and stated, three kinds
+round:adapter.ts hash:b5ae68fc9335 | D141 canon tags values, MailQ; FLOW_REPLAY_TRACE
+output:R10-RUNTIME/a-burst-is-served-in-order-across-slices hash:0f7efff523db | new, D134: the whole output of a-burst-is-served-in-order-across-slices
+output:R10-RUNTIME/a-clock-set-back-is-another-state hash:0f7efff523db | new, D134: the whole output of a-clock-set-back-is-another-state
+output:R10-RUNTIME/a-listener-that-costs-is-on-the-bill hash:0f7efff523db | new, D134: the whole output of a-listener-that-costs-is-on-the-bill
+output:R10-RUNTIME/a-listener-that-sends-across-slices-loses-nothing hash:0f7efff523db | new, D134: the whole output of a-listener-that-sends-across-slices-loses-nothing
+output:R10-RUNTIME/a-quiet-end-is-still-heard hash:0f7efff523db | new, D134: the whole output of a-quiet-end-is-still-heard
+output:R10-RUNTIME/a-state-named-self-is-refused-at-the-seal hash:97d170e1550e | new, D134: the whole output of a-state-named-self-is-refused-at-the-seal
+output:R10-RUNTIME/a-storm-in-one-stack-is-still-cut hash:afbd9c9f263f | new, D134: the whole output of a-storm-in-one-stack-is-still-cut
+output:R10-RUNTIME/a-symbol-in-an-input-declines-and-stops-nothing hash:7d1536aac090 | new, D134: the whole output of a-symbol-in-an-input-declines-and-stops-nothing
+output:R10-RUNTIME/a-symbol-or-nan-in-memory-is-named-and-the-last-capture-stays hash:67fe49630413 | new, D134: the whole output of a-symbol-or-nan-in-memory-is-named-and-the-last-capture-stays
+output:R10-RUNTIME/ensure-of-a-live-key-with-another-machine-is-named hash:d0403bed9a4e | new, D134: the whole output of ensure-of-a-live-key-with-another-machine-is-named
+output:R10-RUNTIME/one-notify-per-task hash:0f7efff523db | new, D134: the whole output of one-notify-per-task
+output:R10-RUNTIME/two-dates-are-two-states hash:4e68b62cd78b | new, D134: the whole output of two-dates-are-two-states
+output:R10-RUNTIME/x-slash-y-is-not-a-second-machines-actor hash:0d6b9547546f | new, D134: the whole output of x-slash-y-is-not-a-second-machines-actor
+output:REV7-EDGE/a-lost-clock-does-not-strand-a-flush hash:f67720d5a926 | D141: hashes 4 to 5, since a set-back clock is another state now
+output:REV8-PINS/D65-NaN-is-not-null hash:96a90b310b8d | D139: one request, UnencodableValue, one lane; the NaN no longer goes as text
+output:REV9-BURST/a-clock-set-back-stops-nothing hash:80cbd6c97d0d | D141: hashes 402 to 403, the clock again
+file:main.ts hash:a502b4de9915 | D130 tracked harnesses, D134 whole output, D135 token hash and log rule, D132 --only and catalog both ways
+file:broken-adapter.ts hash:859509eff05a | new, D132
+REV9-LOOP hash:0bf7cddaaa45 | D130: a commit that throws names Defect; D134: a spin's distance in a step is the clock's, allowed by name
+R10-RUNTIME hash:b5b50b2449e7 | new, D136-D141: one pin each for H1, H2, M3, x/y, self, Symbol, NaN, a burst, a hash of values
+file:scenarios/round10.scenario.ts hash:a61b05351fbc | new file, R10-RUNTIME
+file:scenarios/round9b.scenario.ts hash:cd1939c92418 | holds REV9-EDGE's `healed` and REV9-LOOP's naming and allow
+file:falsify.ts hash:2a576181e901 | new, D132, the standing check
+round:mutants-r10.ts hash:e02acc886d7e | new: stage A's fixes undone, one mutant each, and the audit's junk key
+file:main.ts hash:fa8a90eeb571 | D130 tracked harnesses, D134 whole output, D135 token hash and log rule, D132 --only and catalog both ways
+file:mutate.ts hash:20059836a4e0 | D132: a parsed mutant that crashes is killed by `crash`; a dead variable gone
+file:mutate-one.ts hash:1da239be5ff3 | D134: output is its own gate, last and apart from named oracles; names read whole
+R10-RUNTIME hash:859d58c2bccf | stage A survivors pinned: H2 inside the pump, and a mailbox branch; new, D136-D141: one pin each for H1, H2, M3, x/y, self, Symbol, NaN, a burst, a hash of values
+file:scenarios/round10.scenario.ts hash:bea394f0d96b | new file, R10-RUNTIME, with both survivors pinned
+output:R10-RUNTIME/a-branch-of-the-mailbox-does-not-share-its-tail hash:97d170e1550e | new, D134: the whole output of a-branch-of-the-mailbox-does-not-share-its-tail

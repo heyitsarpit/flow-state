@@ -61,6 +61,8 @@ export type Step =
   | { storage: "ack" | "refuse" | "hang" | "landNoAck" | "failLate" | "loadOk" | "loadFail"; match?: string }
   | { clockBack: number } // round 7: the wall clock is set back
   | { freeze: boolean } // round 7: a frozen tab's timers do not fire
+  | { ensureAs: { key: ActorRef; machine: string } } // D137
+  | { chargeWork: number } // D136: a listener's or a commit's tail's time, on the work clock (ms)
   | { advanceNow: number } // round 8, inside `afterYield`: time passes and timers fire, with no settling: a firing behind mail already queued
   | { nextYield: Step | readonly Step[] } // round 8, inside `afterYield`: and this at the next yield
   | { holdPlain: boolean } // round 7: plain successes stay in flight until a `storage` step
@@ -178,6 +180,7 @@ export type Reads = {
   issues(): ReadonlyArray<{ code: string; origin?: string; input?: unknown }>;
   evidence(kind?: string): ReadonlyArray<Record<string, any>>;
   stored(): ReadonlyMap<string, unknown>;
+  diskKeys(): readonly string[];
   quiet(): { idle: boolean; fatal: boolean; waits: readonly Wait[]; spinning?: boolean };
   tasks(): number; // D122: how many tasks the page has had
   now(): number; // the virtual clock: what a correct bulk must not need
@@ -200,6 +203,7 @@ export type Bounds = {
 export type Harness = {
   start(cfg: { machines: readonly Fixture[]; seed: number; bounds?: Partial<Bounds> }): void;
   do(step: Step): void; // runs, then settles
+  release(now: () => void, before: () => void): void; // the program itself changes here: `now` makes it so, `before` undoes it. S11 replays each life under what it ran
   raw(step: Step): void; // runs, does not settle: D2 is visible on return
   subscribe(f: () => void): void; // notified per drain
   send(a: ActorRef, event: string, payload?: unknown): void; // from a subscriber: no settling

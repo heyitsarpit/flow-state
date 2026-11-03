@@ -6,7 +6,8 @@ import { FakeWorld, NoHeldRequest } from "./fake-world.ts";
 import type { FaultState, Harness, Instance, Port, Step } from "./harness.ts";
 
 export const rowKey = (op: string, key: unknown) => `${op}|${JSON.stringify(key)}`;
-const actorKey = (a: { actor: string; id: string }) => `${a.actor}/${a.id}`;
+// D137: the id is escaped, so `M` + `x/y` and `M/x` + `y` are two actors. The last `/` always ends the machine.
+const actorKey = (a: { actor: string; id: string }) => `${a.actor}/${a.id.replaceAll("%", "%25").replaceAll("/", "%2F")}`;
 
 export const makeHarness = (port: Port) => (): Harness => {
   let fake: FakeWorld;
@@ -178,7 +179,10 @@ export const makeHarness = (port: Port) => (): Harness => {
       }),
     );
   };
+  // D130's first trace: a fault armed in one life and spent in the next. A replay of a life starts from what was armed when it booted, or it replays a different program.
+  const armedAtBoot: Array<{ throwIn: Map<string, number>; module: Map<string, number>; after: Map<string, number>; core: number }> = [];
   const boot = () => {
+    armedAtBoot.push({ throwIn: new Map(throwIn), module: new Map(faults.moduleThrows), after: new Map(faults.moduleThrowsAfter), core: faults.coreThrows });
     inst = port.boot({
       host: fake.host(),
       compiled,
@@ -242,7 +246,8 @@ export const makeHarness = (port: Port) => (): Harness => {
     f();
   };
   const run = (s: Step) => {
-    if ("ensure" in s) inst.ensure(actorKey(s.ensure), s.ensure.actor, s.input);
+    if ("ensureAs" in s) inst.ensure(actorKey(s.ensureAs.key), s.ensureAs.machine); // D137: a key and a machine that do not agree, as a host's bug would give
+    else if ("ensure" in s) inst.ensure(actorKey(s.ensure), s.ensure.actor, s.input);
     else if ("burst" in s) for (let i = 0; i < s.n; i++) inst.send(actorKey(s.burst), { tag: s.event, payload: {} });
     else if ("send" in s)
       inst.send(actorKey(s.send), {
@@ -260,6 +265,7 @@ export const makeHarness = (port: Port) => (): Harness => {
       if (!s.stay) fake.hidden = false; // a flush event, the common use here. `stay`: the page stays hidden
     } else if ("clockBack" in s) fake.clockBack(s.clockBack);
     else if ("freeze" in s) fake.freezeTimers = s.freeze;
+    else if ("chargeWork" in s) fake.work += s.chargeWork;
     else if ("tasksPerStep" in s) tasksPerStep = s.tasksPerStep;
     else if ("holdPlain" in s) fake.holdPlain = s.holdPlain;
     else if ("slowAfterAck" in s) fake.slowAfterAck = true;
@@ -300,6 +306,8 @@ export const makeHarness = (port: Port) => (): Harness => {
       boot();
     }
   };
+  // D130's trace: a case that changes the program itself, a release that fixes a closure, across lives. Said as a step, so S11 replays each life under the program it ran.
+  const releases: Array<{ segment: number; at: number; now: () => void; before: () => void; fired?: boolean }> = [];
   const excused = new Set<string>(); // D112: what a wipe or an edited record took. Nothing else may leave a key undecided with no head on disk
   const reads: Harness["read"] = {
     missingEndings: () => {
@@ -354,6 +362,7 @@ export const makeHarness = (port: Port) => (): Harness => {
       settle();
       return new Map([...fake.kv].map(([k, v]) => [k, JSON.parse(v)]));
     },
+    diskKeys: () => [...fake.kv.keys()], // D134: what is on disk now, with no settle
     quiet: () => ({
       idle: !inst.pending() && !fake.hasWork(),
       fatal: inst.fatal(),
@@ -378,9 +387,29 @@ export const makeHarness = (port: Port) => (): Harness => {
       const liveAfter = new Map(faults.moduleThrowsAfter);
       faults.moduleThrowsAfter.clear();
       faults.coreThrows = 0;
+      for (const x of [...releases].reverse()) {
+        x.before();
+        x.fired = false;
+      }
+      const fireReleases = (si: number, i: number) => {
+        for (const x of releases)
+          if (!x.fired && (x.segment < si || (x.segment === si && x.at <= i))) {
+            x.fired = true;
+            x.now();
+          }
+      };
       let result: { same: boolean; firstDiff?: unknown } = { same: true };
       for (let si = 0; si < instances.length; si++) {
+        const at = armedAtBoot[si]!;
+        throwIn.clear();
+        for (const [k, v] of at.throwIn) throwIn.set(k, v);
+        faults.moduleThrows.clear();
+        for (const [k, v] of at.module) faults.moduleThrows.set(k, v);
+        faults.moduleThrowsAfter.clear();
+        for (const [k, v] of at.after) faults.moduleThrowsAfter.set(k, v);
+        faults.coreThrows = at.core;
         const r = instances[si]!.replay((i) => {
+          fireReleases(si, i);
           for (const a of armed) if (a.segment === si && a.at === i) a.arm();
         });
         if (!r.same) {
@@ -395,6 +424,7 @@ export const makeHarness = (port: Port) => (): Harness => {
       faults.moduleThrowsAfter.clear();
       for (const [k, v] of liveAfter) faults.moduleThrowsAfter.set(k, v);
       faults.coreThrows = liveCore;
+      for (const x of releases) x.now();
       replaying = false;
       return result;
     },
@@ -411,6 +441,10 @@ export const makeHarness = (port: Port) => (): Harness => {
       boot();
     },
     raw: run,
+    release(now, before) {
+      releases.push({ segment: instances.length - 1, at: inst.logLength(), now, before });
+      now();
+    },
     subscribe(f) {
       listeners.push(f);
       inst.subscribe(f);

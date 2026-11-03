@@ -6,7 +6,6 @@ import { existsSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { makeHarness } from "./drive.ts";
 import type { RuntimeModule } from "./harness.ts";
-import { runScenarios } from "./main.ts";
 import { searchFlush } from "./search/flush.search.ts";
 
 const i = process.argv.indexOf("--runtime");
@@ -14,12 +13,11 @@ const runtimeArg = process.argv[i + 1]!;
 const round = resolve(import.meta.dir, dirname(runtimeArg));
 const mod = (await import(resolve(import.meta.dir, runtimeArg))) as RuntimeModule;
 const make = makeHarness(mod.port);
-const name = (r: { id: string; variant?: string }) => (r.variant ? `${r.id}/${r.variant}` : r.id);
 const failed = (out: string) =>
   out
     .split("\n")
     .filter((l) => l.startsWith("FAIL"))
-    .map((l) => l.split(/\s+/)[1]!);
+    .map((l) => l.slice(4).split("\t")[0]!.trim());
 const spawn = (...cmd: string[]) => {
   const p = Bun.spawnSync(["bun", ...cmd], { cwd: import.meta.dir, env: process.env });
   return { code: p.exitCode, out: p.stdout.toString(), err: p.stderr.toString() };
@@ -37,10 +35,14 @@ if (process.argv.includes("--search-only")) {
   const b = q.verdict === "failed" ? q : searchFlush(make, "bare", o, true);
   done(b.verdict === "failed" ? "search" : null, b.verdict === "failed" ? [b.failure ?? ""] : [], b.verdict);
 }
-const suite = runScenarios(make)
-  .filter((r) => !r.ok)
-  .map(name);
+// D134: named oracles first. A mutant killed only by whole output is reported apart, since output notices anything that changes.
+// A child, so its memory is gone before the next gate: D129 sees the tree, and two suites at once pass the limit.
+const first = spawn("main.ts", "--round", "99", "--no-catalog", "--runtime", runtimeArg);
+if (!first.out.includes("SUMMARY")) done("crash", [first.err.slice(0, 200) || first.out.slice(-200)]);
+const failing = first.out.split("\n").filter((l) => l.startsWith("FAIL"));
+const suite = failing.filter((l) => !l.split("\t")[1]?.startsWith("output:")).map((l) => l.slice(4).split("\t")[0]!.trim());
 if (suite.length) done("suite", suite);
+const outputOnly = failing.map((l) => l.slice(4).split("\t")[0]!.trim());
 if (existsSync(join(round, "typed/swaps.ts"))) {
   const s = spawn("main.ts", "--round", "99", "--no-catalog", "--swap", join(round, "typed/swaps.ts"), "--runtime", runtimeArg);
   if (failed(s.out).length || !s.out.includes("SUMMARY")) done("swap", failed(s.out).length ? failed(s.out) : ["could not run"]);
@@ -55,6 +57,7 @@ if (existsSync(join(round, "cli/main.ts"))) {
 }
 const g = spawn("gate5s.ts", "--runtime", runtimeArg);
 if (g.code !== 0) done("gate", [g.out.trim().slice(0, 300) || g.err.slice(0, 200)]);
+if (outputOnly.length) done("output", outputOnly);
 if (process.argv.includes("--search")) {
   const r = searchFlush(make, "serialize", { depth: 11, maxStates: 8_000, deadlineMs: 100_000 }, false, false, "store");
   if (r.verdict === "failed") done("search", [r.failure ?? ""], r.verdict);

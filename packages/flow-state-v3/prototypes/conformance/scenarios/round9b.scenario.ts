@@ -17,12 +17,13 @@ const on = (c0: Ctx, f: Fixture, a: { actor: string; id: string }, bounds?: Reco
 };
 const code = (c: Ctx, x: string) => c.r.issues().filter((i) => i.code === x);
 const waits = (c: Ctx, kind: string) => c.r.quiet().waits.filter((w) => w.kind === kind);
-const healed = (f: () => void) => {
-  (globalThis as any).__healed = true;
+const healed = (c: Ctx, f: () => void) => {
+  const set = (v: boolean) => () => void ((globalThis as any).__healed = v);
+  c.h.release(set(true), set(false)); // a release that fixes the closure
   try {
     f();
   } finally {
-    (globalThis as any).__healed = false;
+    c.h.release(set(false), set(true));
   }
 };
 const micro = (c: Ctx, op: string, a: any) => c.fault({ microAnswer: [op, a] });
@@ -45,6 +46,8 @@ export const round9bScenarios: readonly Scenario[] = [
     actor: A,
     cites: ["D122", "H1", "M1", "M2"],
     namedIssues: ["TurnStorm", "UnencodableValue"],
+    // How far a spin gets inside one step is the work clock's count, not behaviour: D122 says when, never what. Truth, issues, disk and fatal stay compared.
+    outputAllow: { sections: ["requests", "actors", "evidence", "frames", "hashes", "outside", "waits"], why: "a spin's distance in a step is the work clock's count" },
     variants: {
       // H1: `commit: async () => cache.get(k)`. No timer ever fired again.
       "a-spin-over-a-resolved-promise-never-freezes"(c0) {
@@ -77,6 +80,7 @@ export const round9bScenarios: readonly Scenario[] = [
       "a-commit-that-throws-at-once-and-asks-again-yields"(c0) {
         const L = { actor: LoopId, id: "a" };
         const c = on(c0, loopFixture, L);
+        c.namedIssues = ["Defect"]; // it dies each time, and that is what it is named
         spinning(c);
         const t = c.r.tasks();
         c.send("Go");
@@ -133,8 +137,10 @@ export const round9bScenarios: readonly Scenario[] = [
         micro(c, "spin", OK);
         spinning(c);
         c.send("Spin");
+        c.yes("it was spinning", c.reqs("spin").length > 0); // D132: this passed on no runtime
         c.dispose();
         settled(c);
+        c.eq("the actor is gone", c.r.state(A), undefined);
       },
       // M1, every row of the review's table.
       "1000-rows-over-a-resolved-promise-need-no-timer"(c0) {
@@ -366,7 +372,7 @@ export const round9bScenarios: readonly Scenario[] = [
         c.reload();
         c.eq("and one more", code(c, "InvalidTurn").length, n + 2);
         c.eq("still kept", (c.r.row(E, "save", { id: "a" }) as any)?.undelivered, 1);
-        healed(() => c.reload());
+        healed(c, () => c.reload());
         c.state("B");
         c.eq("heard, at last", c.mem().last, "delivered");
       },
@@ -388,7 +394,7 @@ export const round9bScenarios: readonly Scenario[] = [
         c.dispose();
         c.eq("it goes with the life", waits(c, "parked").length, 0);
         c.eq("no row", c.r.row(E, "save", { id: "a" }), undefined);
-        healed(() => c.ensure());
+        healed(c, () => c.ensure());
         c.state("A");
         c.eq("nobody pressed anything", c.mem().last, null);
       },
@@ -399,7 +405,7 @@ export const round9bScenarios: readonly Scenario[] = [
         c.ack();
         c.answer("save", { ok: { v: "boom" } });
         c.dispose();
-        healed(() => c.ensure());
+        healed(c, () => c.ensure());
         c.state("B");
       },
       "a-new-life-tries-a-kept-ending-once"(c0) {
@@ -512,7 +518,7 @@ export const round9bScenarios: readonly Scenario[] = [
         c.do({ fault: { throwIn: "operations.save.NotSent", times: 2 } });
         c.send("Go");
         c.eq("two", waits(c, "parked").length, 2);
-        healed(() => c.reload());
+        healed(c, () => c.reload());
         c.eq("both heard", waits(c, "parked").length, 0);
         c.yes("the success among them", c.r.evidence("delivered").some((d) => d["event"] === "Saved"));
       },
