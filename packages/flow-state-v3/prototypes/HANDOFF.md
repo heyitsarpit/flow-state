@@ -65,6 +65,7 @@ Move `conformance/` out of `prototypes/`, add fast parts to `nub run verify`, ke
 - Every review has a section on the tests and continues the assumptions audit.
 - When findings pile up on one part, redesign from scratch, giving the agent problems and traces, not the old code.
 - Report plainly what failed and wasn't run.
+- Shell commands must be bounded, since round 10's builder hung for 43 minutes. Don't read stdin unless you feed it (`</dev/null` otherwise; `cat` is `bat` here). Write and edit files with the Write and Edit tools. Run every command under `conformance/watch.ts --seconds N` or `perl -e 'alarm N; exec @ARGV' --`, since there is no `timeout` command. Never wait on unbounded background work; kill your own stale shells by exact pid.
 
 ## Limits
 
