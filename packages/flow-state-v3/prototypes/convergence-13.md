@@ -64,6 +64,14 @@ Mutants [ran]: no decline beside an old hold (7 cases red); stamped lanes rename
 | Restore of an actor record | each stored field by its codec (`toCodecJson`) | the same one default; a computed initial run over the restored fields; absent if optional; an input with no default refuses the record (`RestoreMissingInput`) | quarantined (`RecordQuarantined`, D46); the old bytes are kept |
 | The compile | | | `TwoDefaults`: two different defaults, or a default beside `Flow.initial` |
 
+## D228: the lie gate, targeted
+
+| Id | Decision | Why | Replaces |
+| --- | --- | --- | --- |
+| **D228** | **The lie gate runs targeted by default.** `falsify.ts --part lies` runs each lie only on the cases that went red by its named oracle in the last `--full` run, recorded one file per lie in `conformance/lie-cases/`; a lie with no record, or whose recorded cases no longer go red, runs the whole suite, so a stale record costs time and never passes a lie. `--full` (a round's final commit) runs every lie over the whole suite and rewrites the records. `--parallel N`, N at most 8 (Arpit's rule), runs N lies at once, each in its own copy | Arpit's parallel rule and the coordinator's brief. The record is of killing cases, not of a probe's firing cases (only the vacuous lies have probes) | the full run as the only mode |
+
+Proof that targeted catches what the full run catches [ran, `run-costs.md`]: the full run (`--full`, 3cce106b's tree) found all 75 lies red and recorded their cases; targeted at 3cce106b ran all 75 on those cases, and all 75 went red, none falling back. Stated limit: this is the same verdict on fewer cases, not a search for new cases; a code change that moves a lie's kill elsewhere makes targeted fall back to the full suite for it (shown: `lie.released` with a record pointing at `PAY-01` fell back and went red).
+
 ## What the graph gate found
 
 | Disagreement | Where the bug was | Fixed by |
@@ -74,7 +82,7 @@ Mutants [ran]: no decline beside an old hold (7 cases red); stamped lanes rename
 | `Checkout/Pay on.AbortPay[0]` taken 60 times, unsourced | **a fixture**: `typed/cells.ts` adds the handler to compiled Pay and did not declare the event (so `flow check` on it would say `UnknownEvent`) | `cells.ts` declares `AbortPay` |
 | `Checkout/Pay on.CartLoaded[0]` taken once, unsourced | **the suite or Pay**: Pay declares `CartLoaded` internal and nothing maps or schedules it; only FRAG-09 sends it from outside | not fixed: Pay is the pinned reference. For Arpit: the real Pay's cart read is not in the pinned subset |
 
-At the final commit: **0 disagreements**; 77,507 turns and 78,528 parts observed; 736 edges over 56 machines; 487 taken; 180 not taken but guarded; 62 not taken and unmarked (listed by `--list`: the suite does not drive them; nothing says they cannot be taken); 5 unreached and 3 unsourced, each a true static fact (one Deep variant cannot reach FIELD; Lab/Chat without pages has no `Page` source).
+At the final commit (3cce106b): **0 disagreements**; 77,522 turns and 78,543 parts observed; 730 edges over 55 machines; 483 taken; 178 not taken but guarded; 62 not taken and unmarked (listed by `--list`: the suite does not drive them; nothing says they cannot be taken); 5 unreached and 3 unsourced, each a true static fact (one Deep variant cannot reach FIELD; Lab/Chat without pages has no `Page` source).
 
 ## The mid review's other findings
 
