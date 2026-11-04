@@ -10,6 +10,14 @@ tester.run("no-readonly", noReadonlyRule, {
 		"type Value = string[];",
 		"interface MutableValue { value: string; }",
 		"class Value { value: string; }",
+		{
+			code: "export type Value = { readonly value: string; readonly items: ReadonlyArray<string> };",
+			options: [{ allowInExportedTypes: true }],
+		},
+		{
+			code: "export interface Value { readonly value: string }",
+			options: [{ allowInExportedTypes: true }],
+		},
 	],
 	invalid: [
 		{
@@ -39,6 +47,15 @@ tester.run("no-readonly", noReadonlyRule, {
 		{
 			code: "class Value { readonly value = 1; constructor(readonly label: string) {} }",
 			errors: [{ messageId: "readonly" }, { messageId: "readonly" }],
+		},
+		{
+			code: "type Internal = { readonly value: string }; const f = (items: ReadonlyArray<string>) => items;",
+			options: [{ allowInExportedTypes: true }],
+			errors: [{ messageId: "readonly" }, { messageId: "readonly" }],
+		},
+		{
+			code: "export type Value = { readonly value: string };",
+			errors: [{ messageId: "readonly" }],
 		},
 	],
 });

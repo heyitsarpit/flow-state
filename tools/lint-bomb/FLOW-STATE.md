@@ -79,15 +79,19 @@ Rules that misfire on a library with public types:
 - `prefer-effect-native-tagged-types`: `warn`. `Compiled` and records are JSON data (D194), so
   Schema owns those variants. The rule can't resolve imported models, so it would report each
   module.
-- `no-readonly`: `warn`. Public types follow Effect's convention: 10,130 `readonly` in its
-  source. The rule can't tell public from internal yet.
+- `no-readonly`: `error`, with `allowInExportedTypes` (added to lint-bomb on 2026-11-04, at
+  Arpit's request). Exported types keep `readonly` as Effect's do (10,130 uses in its source).
+  Internal records and parameters stay plain.
+- `no-empty-object-type`, new in lint-bomb on 2026-11-04: `error`. It replaces Oxlint's
+  `typescript/no-empty-object-type` (now `off`) and allows `{}` only as an empty
+  `Data.TaggedEnum` variant (Arpit: `{}` there is correct).
 - `no-optional-domain-properties`: `warn`. Public option bags use `?:` under
   `exactOptionalPropertyTypes`, as Effect does (4,182 uses). Internal records should use `Option`.
 - `no-runtime-typeof`: `error`, with `allowInTypeGuards`. The runtime narrows user values in
   named guards, for example `1n` keys restored as `"$1n"` (D119).
 
-`no-readonly` and `no-optional-domain-properties` are `warn` only until the layout exists. Then
-they become `error` on internal modules and `off` on public entrypoint modules.
+`no-optional-domain-properties` is `warn` only until the layout exists. Then it becomes `error`
+on internal modules and `off` on public entrypoint modules.
 
 ### Disabled: 2
 
@@ -109,8 +113,8 @@ they become `error` on internal modules and `off` on public entrypoint modules.
 
 - When the module layout is decided:
   - Enable `no-inward-module-dependency` and `no-public-entrypoint-export-drift`.
-  - Scope `no-readonly` and `no-optional-domain-properties` to internal modules as `error`, and
-    turn them off on public modules.
+  - Scope `no-optional-domain-properties` to internal modules as `error`, and turn it off on
+    public modules.
   - Add the host adapter directory to `no-effect-runner-in-domain`,
     `no-unwrapped-promise-in-effect-core` and `no-unsafe-fiber-methods`.
 - When v3 has an issue or diagnostic type: port `no-parallel-diagnostic-errors` to v3's path.

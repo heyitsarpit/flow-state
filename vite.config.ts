@@ -47,7 +47,8 @@ export default defineConfig({
       complexity: "error",
       "no-else-return": "error",
       "no-unneeded-ternary": "error",
-      "typescript/no-empty-object-type": "error",
+      // Replaced by lint-bomb/no-empty-object-type, which allows `{}` as an empty TaggedEnum variant.
+      "typescript/no-empty-object-type": "off",
       "typescript/no-extraneous-class": "error",
       "typescript/no-misused-promises": "error",
       "typescript/no-namespace": "error",
@@ -72,6 +73,7 @@ export default defineConfig({
       "lint-bomb/no-direct-process-env": ["error", { sourceRoots: [productionSource] }],
       "lint-bomb/no-effect-promise": "error",
       "lint-bomb/no-effect-ref-read-then-write": "error",
+      "lint-bomb/no-empty-object-type": "error",
       // The host boundary that runs fibers gets allowedDirectories once the layout exists.
       "lint-bomb/no-effect-runner-in-domain": "error",
       "lint-bomb/no-empty-context-make-unsafe": "error",
@@ -138,7 +140,7 @@ export default defineConfig({
       "lint-bomb/no-god-service-shape": ["warn", { threshold: 16 }],
       "lint-bomb/no-object-freeze": "warn",
       "lint-bomb/prefer-effect-native-tagged-types": "warn",
-      "lint-bomb/no-readonly": "warn",
+      "lint-bomb/no-readonly": ["error", { allowInExportedTypes: true }],
       "lint-bomb/no-optional-domain-properties": ["warn", { sourceRoots: [productionSource] }],
       "lint-bomb/no-runtime-typeof": ["error", { allowInTypeGuards: true }],
 

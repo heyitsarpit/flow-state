@@ -729,6 +729,32 @@ Effect.sleep(100);
 
 Bare numeric durations hide their unit. Use Duration.seconds/millis or a unit-tagged duration string.
 
+## no-empty-object-type
+
+### Prescription
+
+`{}` accepts any non-nullish value, not an empty object. Declare the fields a value carries, use
+`Record<string, never>` for an object with no keys, or `unknown` for any value. The one exception
+is an empty variant of a `Data.TaggedEnum`, where `{}` means "this case carries no data". This
+replaces Oxlint's `typescript/no-empty-object-type`, which also bans that use; turn that one off.
+
+**Failing target**
+
+```ts
+type Value = {};
+interface Empty {}
+```
+
+**Passing target**
+
+```ts
+type Answer = Data.TaggedEnum<{ Landed: {}; Refused: { reason: string } }>;
+```
+
+**Shipped message**
+
+`{}` accepts any non-nullish value, not an empty object. Declare the fields this value carries, use `Record<string, never>` for an object with no keys, or `unknown` for any value. An empty variant of a Data.TaggedEnum may keep `{}`.
+
 ## no-object-freeze
 
 ### Prescription
@@ -917,6 +943,10 @@ Raw try/catch is forbidden here. Use Schema parsers for admission and Result for
 Keep internal trusted records plain unless the contract needs immutability. Preserve required public
 readonly guarantees. Protect retained facts through ownership and detached publication where
 required; readonly syntax alone does not provide runtime isolation.
+
+Option `allowInExportedTypes` (default `false`) skips `readonly` inside an exported type alias or
+interface. Use it for a library whose public types carry `readonly` as part of their contract, as
+Effect's do. Internal types and function parameters are still checked.
 
 **Failing target**
 

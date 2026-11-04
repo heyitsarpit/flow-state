@@ -22,6 +22,7 @@ import { noLocalDefiniteAssignmentRule } from "./rules/typescript/no-local-defin
 import { noModuleMockingRule } from "./rules/typescript/no-module-mocking.ts";
 import { noNestedConditionalExpressionRule } from "./rules/typescript/no-nested-conditional-expression.ts";
 import { noNullishFunctionContractsRule } from "./rules/typescript/no-nullish-function-contracts.ts";
+import { noEmptyObjectTypeRule } from "./rules/typescript/no-empty-object-type.ts";
 import { noObjectFreezeRule } from "./rules/typescript/no-object-freeze.ts";
 import { noObjectTypeRule } from "./rules/typescript/no-object-type.ts";
 import { noOptionalDomainPropertiesRule } from "./rules/typescript/no-optional-domain-properties.ts";
@@ -108,6 +109,7 @@ const lintBombPlugin = eslintCompatPlugin({
 		"no-numeric-duration": noNumericDurationRule,
 		"no-nested-conditional-expression": noNestedConditionalExpressionRule,
 		"no-nullish-function-contracts": noNullishFunctionContractsRule,
+		"no-empty-object-type": noEmptyObjectTypeRule,
 		"no-object-freeze": noObjectFreezeRule,
 		"no-anonymous-default-export": noAnonymousDefaultExportRule,
 		"no-direct-process-env": noDirectProcessEnvRule,

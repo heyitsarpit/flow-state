@@ -42,6 +42,7 @@ import "../src/rules/typescript/no-local-definite-assignment.test.ts";
 import "../src/rules/typescript/no-module-mocking.test.ts";
 import "../src/rules/typescript/no-nested-conditional-expression.test.ts";
 import "../src/rules/typescript/no-nullish-function-contracts.test.ts";
+import "../src/rules/typescript/no-empty-object-type.test.ts";
 import "../src/rules/typescript/no-object-freeze.test.ts";
 import "../src/rules/typescript/no-object-type.test.ts";
 import "../src/rules/typescript/no-optional-domain-properties.test.ts";
