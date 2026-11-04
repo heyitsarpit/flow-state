@@ -27,6 +27,7 @@ Progress: progress.md, beside this file.
 - New features are built in production from the finished plans, with CLI outputs that are well formatted and well considered.
 - UI is React and Next.js only. Electron is out for now.
 - Docs live in `apps/docs/`. As much documentation as possible lives in the code and is generated to Markdown, to avoid drift. The example apps are linked from the docs.
+- The docs follow Effect's shape, as phase 6 describes (confirmed 2026-11-04). Each public export gets a summary, **When to use**, **Details**, **Gotchas**, named runnable examples and `@see` links. Long guides are written beside the package. Prose, not type annotations.
 - Example apps go in a top-level `examples/` folder and import the `flow-state` package. They come later. The existing `checkout` and `dispatch-desk` references don't work yet, so their state doesn't matter. Hardening runs in real Next.js apps.
 - `tools/oxlint/anti-slop/` is deleted, superseded by lint-bomb (`6bd32fbb`).
 
