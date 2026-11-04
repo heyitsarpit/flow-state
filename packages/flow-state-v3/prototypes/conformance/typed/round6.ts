@@ -2,7 +2,7 @@
 // a kill and a boot, so the closures read it when they run, as the hand ones do. KeyRelease's release 2 renames its key by a closure (`{ key: i.k }`), which
 // no field list makes (finding F2), and Engine carries a `domain` and streams (finding F5): both re-exported hand.
 import { Effect, Schema } from "effect";
-import { definition, Flow, machine, transaction } from "./flow.ts";
+import { definition, Flow, machine, transaction } from "../compile/index.ts";
 import { FakeApi, fixture, write } from "./lab.ts";
 
 export { engineRef, keyReleaseFixture, type Release } from "../fixtures/round6.compiled.ts";
@@ -17,9 +17,9 @@ const memoryRelease = (rel: Release, decode: boolean) => {
   const Extra = S.Struct({ n: S.Number });
   const d = definition({
     id: M,
-    states: {},
+    states: [],
     events: { Go: {} },
-    internalEvents: { Ok: {}, No: {}, Unsure: {} },
+    internalEvents: { Ok: {}, No: {}, Unsure: Flow.uncertain({}) },
     memory: {
       oks: Flow.initial(S.Number, 0),
       extra: decode ? Extra.pipe(S.withDecodingDefaultKey(Effect.succeed({ n: 0 }))) : S.optionalKey(Extra),
@@ -43,19 +43,19 @@ export const memoryReleaseFixture = (rel: Release, decode: boolean) => fixture(m
 // the stored input lacks (the same lane, by canonical form).
 const keyRelease = (rel: Release) => {
   const keys = rel.v === 1 ? (["k"] as const) : rel.v === 2 ? (["id"] as const) : (["k", "region"] as const);
-  const charge = transaction({ id: "lab/charge", input: { k: S.Unknown, id: S.Unknown, region: S.Unknown }, key: keys, concurrency: "reject", services: [FakeApi], commit: write("charge") });
+  const charge = transaction({ id: "lab/charge", input: { k: S.Unknown, id: S.Unknown, region: S.optionalKey(S.Unknown) }, key: keys, concurrency: "reject", services: [FakeApi], commit: write("charge") });
   const d = definition({
     id: "Lab/KeyReleaseTyped",
-    states: {},
+    states: [],
     events: { Go: {} },
-    internalEvents: { Ok: {}, No: {}, Unsure: {} },
+    internalEvents: { Ok: {}, No: {}, Unsure: Flow.uncertain({}) },
     memory: { unsure: Flow.initial(S.Number, 0) },
     operations: ({ E }) => ({ charge: charge.outcomes({ success: E.Ok, failure: { NotSent: E.No }, unknown: E.Unsure }) }),
   });
   return machine(d, ({ O }) => ({
     default: { node: "root" },
     on: {
-      Go: { actions: [O.charge.commit(() => ({ k: "a", id: "x" }))] },
+      Go: { actions: [O.charge.commit(() => ({ k: "a", id: "x" }))] }, // no region: a stored input lacks it
       Ok: {},
       No: {},
       Unsure: { updateMemory: ({ memory }) => ({ unsure: memory.unsure + 1 }) },
@@ -68,7 +68,7 @@ export const keyReleaseTypedFixture = (rel: Release) => fixture(() => keyRelease
 // red in the suite and not only in `typed/date-check.ts`. A Date, a NaN and a bigint.
 const dateD = definition({
   id: "Lab/Dates",
-  states: {},
+  states: [],
   events: { Touch: {} },
   internalEvents: {},
   memory: { at: Flow.initial(S.Date, new Date(0)), n: Flow.initial(S.Number, 0), big: Flow.initial(S.BigInt, 1n) },
@@ -80,9 +80,9 @@ const RM = "Lab/RowMove";
 // Stage J (re-check 10i S1): a row moves while its write is out. Each state handles the write's unknown its own way.
 const rowMove = definition({
   id: RM,
-  states: { EDITING: {}, SAVING: {}, REVIEW: {} },
+  states: ["EDITING", "SAVING", "REVIEW"],
   events: { Go: {}, Review: {} },
-  internalEvents: { Ok: {}, No: {}, Unsure: {} },
+  internalEvents: { Ok: {}, No: {}, Unsure: Flow.uncertain({}) },
   memory: { inEditing: Flow.initial(S.Number, 0), inSaving: Flow.initial(S.Number, 0), inReview: Flow.initial(S.Number, 0) },
   operations: ({ E }) => ({ put: put.outcomes({ success: E.Ok, failure: { NotSent: E.No }, unknown: E.Unsure }) }),
 });
@@ -106,9 +106,9 @@ const engine = (api: Api) =>
   machine(
     definition({
       id: "Lab/Engine",
-      states: { ON: {} },
+      states: ["ON"],
       events: { Rename: { id: S.Unknown, title: S.Unknown } },
-      internalEvents: { Done: {}, No: {}, Unsure: {} },
+      internalEvents: { Done: {}, No: {}, Unsure: Flow.uncertain({}) },
       memory: {},
       persisted: false,
       uses: ["engine", "sessions"],
@@ -143,7 +143,7 @@ export const engineFixture = fixture(engine);
 
 const G = "Lab/Getter";
 // M11: a patch with a throwing getter: a lazy class instance, a Proxy. Not a memory value any Schema decodes, so only a cast writes it (finding F1).
-const getter = definition({ id: G, states: {}, events: { Trap: {} }, internalEvents: {}, memory: { x: Flow.initial(S.Number, 0) }, operations: () => ({}) });
+const getter = definition({ id: G, states: [], events: { Trap: {} }, internalEvents: {}, memory: { x: Flow.initial(S.Number, 0) }, operations: () => ({}) });
 export const getterFixture = fixture(
   machine(getter, () => ({
     default: { node: "root" },

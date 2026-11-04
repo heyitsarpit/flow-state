@@ -1,9 +1,10 @@
 // Real fragments, typed: references/checkout/features/Pay/{countdown.trait,three-ds.subroutine}.ts. ThreeDS places Countdown, nested and resumable.
+// Round 12: in the design's spelling (2.1-2.3): `trait` and `subroutine`, an ordered state list, the child placed on its node with `Flow.state`.
 import { Duration, Schema } from "effect";
 import { LENGTH_MS } from "../../conformance/fixtures/pay-full.compiled.ts";
-import { Flow, fragment } from "./flow.ts";
+import { Flow, subroutine, trait } from "../compile/index.ts";
 
-export const Countdown = fragment(
+export const Countdown = trait(
   {
     id: "Countdown",
     hostEvents: { Shown: {} },
@@ -15,10 +16,10 @@ export const Countdown = fragment(
     on: { Shown: {}, Expired: { notify: [callbacks.onExpired] } },
   }),
 );
-export const ThreeDS = fragment(
+export const ThreeDS = subroutine(
   {
     id: "ThreeDS",
-    states: { OPEN: { BANK: {}, EXPIRED: {} }, HELP: {} },
+    states: [{ OPEN: Flow.state(["BANK", "EXPIRED"], { traits: { countdown: Countdown.resumable() } }) }, "HELP"],
     default: "OPEN",
     events: { BankShown: {}, Help: {}, CloseHelp: {} },
     hostEvents: { Answered: { authId: Schema.String }, Failed: { code: Schema.String } },
@@ -32,7 +33,6 @@ export const ThreeDS = fragment(
       intentId: Flow.input(Schema.String),
       helpOpened: Flow.private(Flow.initial(Schema.Number, 0)),
     },
-    places: { countdown: Countdown },
   },
   ({ S, E, exits }) => ({
     on: {
@@ -42,13 +42,15 @@ export const ThreeDS = fragment(
     states: {
       OPEN: {
         default: S.OPEN.BANK,
-        traits: { countdown: { resumable: true, callbacks: { onExpired: { target: S.OPEN.EXPIRED } } } },
+        traits: { countdown: { callbacks: { onExpired: { target: S.OPEN.EXPIRED } } } },
         on: { Help: { target: S.HELP, updateMemory: ({ memory }) => ({ helpOpened: memory.helpOpened + 1 }) } },
-      },
-      BANK: { on: { BankShown: { raise: [E.countdown.Shown] } } },
-      EXPIRED: {
-        schedules: { leave: { schedule: "2 seconds", send: E.GiveUp } },
-        on: { GiveUp: exits.TimedOut },
+        states: {
+          BANK: { on: { BankShown: { raise: [E.countdown.Shown] } } },
+          EXPIRED: {
+            schedules: { leave: { schedule: "2 seconds", send: E.GiveUp } },
+            on: { GiveUp: exits.TimedOut },
+          },
+        },
       },
       HELP: { on: { CloseHelp: S.OPEN.history } },
     },

@@ -3,7 +3,7 @@
 import { Effect, Schema } from "effect";
 import type { Api } from "../fake-world.ts";
 import type { Op } from "../fixtures/compiled.ts";
-import { definition, Flow, fragment, machine, resource, transaction } from "./flow.ts";
+import { definition, Flow, machine, resource, trait, transaction } from "../compile/index.ts";
 import { call, FakeApi, fixture, write } from "./lab.ts";
 
 export { ticketRef, deskServer, thingRef, traitStoreFixture, type StoreShape } from "../fixtures/desk.compiled.ts";
@@ -18,7 +18,7 @@ const Strs = S.Array(S.String);
 type DeskOpts = { readonly versioned: boolean; readonly listen?: boolean; readonly lexical?: boolean; readonly twoFeeds?: boolean };
 const deskWrite = <I extends Readonly<Record<string, Schema.Top>>, K extends keyof I>(id: string, concurrency: Op["concurrency"], input: I, key: readonly K[]) =>
   transaction({ id: `tickets/${id}`, input, key, concurrency, services: [FakeApi], commit: write<unknown, "Refused">(id) });
-const deskList = resource({ id: "tickets/list", input: {}, key: [], services: [FakeApi], commit: (i) => call<unknown, "NoResponse">("list")(i) });
+const deskList = resource({ id: "tickets/list", input: {}, key: [], services: [FakeApi], lookup: (i) => call<unknown, "NoResponse">("list")(i) });
 const changes = (api: Api, id: string, E: { readonly Unused: { readonly tag: "Unused" }; readonly Failed: { readonly tag: "Failed" } }) => ({
   id,
   listen: true as const,
@@ -49,9 +49,9 @@ const desk = (o: DeskOpts) => (api: Api) => {
   type V = { readonly id: string; readonly title: string; readonly revision: unknown };
   const d = definition({
     id: "Desk/Tickets",
-    states: { READY: {} },
+    states: ["READY"],
     events: { Load: {}, Archive: { id: U }, Remove: { id: U }, Purge: { id: U }, MarkRead: { ids: U, at: U }, Rename: { id: U, title: U }, Retitle: { id: U, title: U }, Reconcile: { id: U } },
-    internalEvents: { Listed: {}, ListFailed: {}, Settled: {}, Failed: {}, Unsure: { id: U, op: U }, Unused: {} },
+    internalEvents: { Listed: {}, ListFailed: {}, Settled: {}, Failed: {}, Unsure: Flow.uncertain({ id: U, op: U }), Unused: {} },
     memory: {},
     persisted: false,
     uses: o.listen ? ["entities", "sessions"] : ["entities"],
@@ -103,7 +103,7 @@ const desk = (o: DeskOpts) => (api: Api) => {
       MarkRead: { actions: [O.markRead.commit(({ event }) => ({ ids: event.ids, at: event.at }))] },
       Rename: { actions: [O.rename.commit(({ event }) => ({ id: event.id, title: event.title }))] },
       Retitle: { actions: [O.retitle.commit(({ event }) => ({ id: event.id, title: event.title }))] },
-      Reconcile: { actions: [O.archive.retry.key(({ event }) => ({ id: event.id }))] },
+      Reconcile: { actions: [O.archive.retry(({ event }) => ({ id: event.id }))] },
       Settled: {},
       Failed: {},
       Unsure: {},
@@ -125,11 +125,11 @@ export const deskTwoFeedsNoVersionFixture = fixture(desk({ versioned: false, lis
 const TW = "Lab/TraitWrite";
 const traitWrite = (policy: Op["concurrency"], persisted: boolean) => {
   const put = transaction({ id: "lab/put", input: { k: U }, key: ["k"], concurrency: policy, services: [FakeApi], commit: write<unknown, "Refused">("put") });
-  const Trait = fragment(
+  const Trait = trait(
     {
       id: "TW",
       events: { Go: { k: U }, Resend: {} },
-      internalEvents: { Ok: { k: U }, No: { k: U, why: U }, Unsure: { k: U, why: U } },
+      internalEvents: { Ok: { k: U }, No: { k: U, why: U }, Unsure: Flow.uncertain({ k: U, why: U }) },
       memory: { got: Flow.initial(Strs, []) },
       operations: ({ E }) => ({
         put: put.outcomes({
@@ -145,15 +145,15 @@ const traitWrite = (policy: Op["concurrency"], persisted: boolean) => {
     ({ O }) => ({
       on: {
         Go: { actions: [O.put.commit(({ event }) => ({ k: event.k ?? "a" }))] },
-        Resend: { actions: [O.put.retry.key(() => ({ k: "a" }))] },
+        Resend: { actions: [O.put.retry(() => ({ k: "a" }))] },
         Ok: { updateMemory: ({ memory, event }) => ({ got: [...memory.got, `ok:${String(event.k)}`] }) },
         No: { updateMemory: ({ memory, event }) => ({ got: [...memory.got, `no:${String(event.k)}:${String(event.why)}`] }) },
         Unsure: { updateMemory: ({ memory, event }) => ({ got: [...memory.got, `unsure:${String(event.k)}:${String(event.why)}`] }) },
       },
     }),
   );
-  const d = definition({ id: TW, states: { TAB: {}, AWAY: {} }, events: { Away: {}, Back: {} }, internalEvents: {}, memory: {}, persisted, places: { t: Trait }, operations: () => ({}) });
-  return machine(d, ({ S: St }) => ({ default: St.TAB, on: { Away: St.AWAY, Back: St.TAB }, states: { TAB: { traits: { t: { resumable: true } } } } }));
+  const d = definition({ id: TW, states: [{ TAB: Flow.state({ traits: { t: Trait.resumable() } }) }, "AWAY"], events: { Away: {}, Back: {} }, internalEvents: {}, memory: {}, persisted, operations: () => ({}) });
+  return machine(d, ({ S: St }) => ({ default: St.TAB, on: { Away: St.AWAY, Back: St.TAB } }));
 };
 export const traitWriteFixture = fixture(traitWrite("serialize", true));
 
@@ -161,11 +161,11 @@ export const traitWriteFixture = fixture(traitWrite("serialize", true));
 const EW = "Lab/EachWrite";
 // Not `unknownWhenLost`: the hand fixture's commit answers a lost call as a failure.
 const ewPut = transaction({ id: "lab/put", input: { k: U }, key: ["k"], concurrency: "serialize", services: [FakeApi], commit: (i, { attempt }) => call("put")(i, attempt.id) });
-const Copy = fragment(
+const Copy = trait(
   {
     id: "Copy",
     events: { Go: {} },
-    internalEvents: { Ok: {}, No: { why: U }, Unsure: {} },
+    internalEvents: { Ok: {}, No: { why: U }, Unsure: Flow.uncertain({}) },
     memory: { got: Flow.initial(Strs, []) },
     operations: ({ E }) => ({ put: ewPut.outcomes({ success: E.Ok, failure: { NotSent: E.No.from((v) => ({ why: v.why })) }, unknown: E.Unsure }) }),
   },
@@ -178,21 +178,22 @@ const Copy = fragment(
     },
   }),
 );
-const eachWrite = definition({ id: EW, states: {}, events: {}, internalEvents: {}, memory: { ids: Flow.initial(Strs, ["x", "y"]) }, persisted: false, places: { c: Copy }, operations: () => ({}) });
-export const eachWriteFixture = fixture(machine(eachWrite, () => ({ default: { node: "root" }, traits: { c: { each: { of: "ids", max: 8 } } } })));
+const eachWrite = definition({ id: EW, states: [], events: {}, internalEvents: {}, memory: { ids: Flow.initial(Strs, ["x", "y"]) }, persisted: false, traits: { c: Copy.each({ of: "ids", max: 8 }) }, operations: () => ({}) });
+export const eachWriteFixture = fixture(machine(eachWrite, () => ({ default: { node: "root" } })));
 
 // ── Rule 15 in step 3: a late ending's filling may not leave what the host's state still owns.
 const LF = "Lab/LateFill";
 const plain = (id: string) => transaction({ id: `lab/${id}`, input: {}, key: [], concurrency: "reject", services: [FakeApi], commit: (i, { attempt }) => call(id)(i, attempt.id) });
 const kidPut = plain("kidPut");
 const hostPut = plain("hostPut");
-const Kid = fragment(
+// A trait with an exit, as the hand fixture has it: the compile does not refuse exits on a trait (api-changes: the design keeps them for subroutines).
+const Kid = trait(
   {
     id: "Kid",
-    states: { A: {}, B: {} },
+    states: ["A", "B"],
     default: "A",
     events: { Go: {}, Move: {} },
-    internalEvents: { Done: {}, Failed: {}, Unsure: {} },
+    internalEvents: { Done: {}, Failed: {}, Unsure: Flow.uncertain({}) },
     exits: { Finished: Flow.Exit({}) },
     operations: ({ E }) => ({ kidPut: kidPut.outcomes({ success: E.Done, failure: { NotSent: E.Failed }, unknown: E.Unsure }) }),
   },
@@ -203,12 +204,11 @@ const Kid = fragment(
 );
 const lateFill = definition({
   id: LF,
-  states: { HOST: {}, OTHER: {} },
+  states: [{ HOST: Flow.state({ traits: { kid: Kid } }) }, "OTHER"],
   events: { HostGo: {} },
-  internalEvents: { Failed: {}, Unsure: {}, HostDone: {} },
+  internalEvents: { Failed: {}, Unsure: Flow.uncertain({}), HostDone: {} },
   memory: {},
   persisted: false,
-  places: { kid: Kid },
   operations: ({ E }) => ({ hostPut: hostPut.outcomes({ success: E.HostDone, failure: { NotSent: E.Failed }, unknown: E.Unsure }) }),
 });
 export const lateFillFixture = fixture(
@@ -221,13 +221,13 @@ export const lateFillFixture = fixture(
 
 // ── Review M2: a callback's patch moves an `.each` placement's reset value, so the reset is a pending one.
 const ER = "Lab/EachReset";
-const Item = fragment({ id: "Item", events: { Bump: {} }, callbacks: { Bumped: Flow.Callback({}) }, memory: { fresh: Flow.initial(S.Boolean, true) } }, ({ callbacks }) => ({
+const Item = trait({ id: "Item", events: { Bump: {} }, callbacks: { Bumped: Flow.Callback({}) }, memory: { fresh: Flow.initial(S.Boolean, true) } }, ({ callbacks }) => ({
   on: { Bump: { notify: [callbacks.Bumped] } },
 }));
-const eachReset = definition({ id: ER, states: {}, events: {}, internalEvents: {}, memory: { ids: Flow.initial(Strs, ["x", "y"]), v: Flow.initial(S.Number, 0) }, persisted: false, places: { c: Item }, operations: () => ({}) });
+const eachReset = definition({ id: ER, states: [], events: {}, internalEvents: {}, memory: { ids: Flow.initial(Strs, ["x", "y"]), v: Flow.initial(S.Number, 0) }, persisted: false, traits: { c: Item.each({ of: "ids", max: 8 }) }, operations: () => ({}) });
 export const eachResetFixture = fixture(
   machine(eachReset, () => ({
     default: { node: "root" },
-    traits: { c: { each: { of: "ids", max: 8 }, resetOn: ({ memory }) => memory.v, callbacks: { Bumped: { updateMemory: ({ memory }) => ({ v: memory.v + 1 }) } } } },
+    traits: { c: { resetOn: ({ memory }) => memory.v, callbacks: { Bumped: { updateMemory: ({ memory }) => ({ v: memory.v + 1 }) } } } },
   })),
 );

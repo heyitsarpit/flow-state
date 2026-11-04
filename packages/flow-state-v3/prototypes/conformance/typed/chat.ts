@@ -4,7 +4,7 @@
 import { Effect, Schema, Stream } from "effect";
 import type { Api } from "../fake-world.ts";
 import type { ChatOpts } from "../fixtures/chat.compiled.ts";
-import { definition, deny, Flow, machine, moduleMember } from "./flow.ts";
+import { definition, deny, Flow, machine, moduleMember } from "../compile/index.ts";
 import { fixture } from "./lab.ts";
 
 export type { ChatOpts } from "../fixtures/chat.compiled.ts";
@@ -17,7 +17,7 @@ const upsert = (list: readonly unknown[], e: unknown) =>
 const chat = (o: ChatOpts) => (api: Api) => {
   const d = definition({
     id: "Lab/Chat",
-    states: { OPEN: {}, CLOSED: {}, BANNED: {} },
+    states: ["OPEN", "CLOSED", "BANNED"],
     events: { Leave: {}, Open: {}, Jump: { at: U }, Refetch: {}, Mute: {}, Unmute: {} },
     internalEvents: { Message: { message: U }, Page: { items: S.Array(U) }, Missed: {}, Ended: { why: U }, Banned: {} },
     memory: {
@@ -120,7 +120,7 @@ const presence = (api: Api) =>
   machine(
     definition({
       id: "Lab/Presence",
-      states: { ON: {}, OFF: {} },
+      states: ["ON", "OFF"],
       events: { Off: {} },
       internalEvents: { Seen: { who: U }, Ended: {} },
       memory: { seen: Flow.initial(S.Array(U), []) },

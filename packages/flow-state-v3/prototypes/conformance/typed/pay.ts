@@ -5,7 +5,7 @@ import type { Api } from "../../conformance/fake-world.ts";
 import { Outcome, OutcomeFailure, OutcomeUnknown } from "../../conformance/fixtures/compiled.ts";
 import { payFixture as handPay } from "../../conformance/fixtures/pay.compiled.ts";
 import type { Fixture } from "../../conformance/harness.ts";
-import { definition, deny, Flow, machine, resource, servicesFor, transaction } from "./flow.ts";
+import { definition, deny, Flow, machine, resource, servicesFor, transaction } from "../compile/index.ts";
 
 // ── Where the data comes from: the shop's API, an Effect service (adapters/shop-api.ts). Flow is not a network library.
 type NoResponse = { readonly _tag: "NoResponse" };
@@ -129,14 +129,14 @@ const intentStatus = resource({
   input: { intentId: Schema.String },
   key: ["intentId"],
   services: [ShopApi],
-  commit: (input) => Effect.flatMap(Effect.service(ShopApi), (api) => api.intent(input)),
+  lookup: (input) => Effect.flatMap(Effect.service(ShopApi), (api) => api.intent(input)),
 });
 const orderForCart = resource({
   id: "Checkout/order-for-cart",
   input: { cartId: Schema.String },
   key: ["cartId"],
   services: [ShopApi],
-  commit: (input) => Effect.flatMap(Effect.service(ShopApi), (api) => api.orderFor(input)),
+  lookup: (input) => Effect.flatMap(Effect.service(ShopApi), (api) => api.orderFor(input)),
 });
 
 // ── The definition.
@@ -155,9 +155,7 @@ const Receipt = Schema.Struct({
 });
 const Pay = definition({
   id: "Checkout/Pay",
-  states: {
-    IDLE: {}, CARD: {}, PAYING: {}, WAITING: {}, UNSURE: {}, PLACING: {}, PAID: {}, STUCK: {}, LEFT: {},
-  },
+  states: ["IDLE", "CARD", "PAYING", "WAITING", "UNSURE", "PLACING", "PAID", "STUCK", "LEFT"],
   events: {
     CardChosen: { paymentMethodId: Schema.String },
     PayRequested: { paymentMethodId: Schema.String }, // the summary trait's `onPay`, flattened as in the pinned fixture
@@ -173,7 +171,7 @@ const Pay = definition({
     Busy: { retryAfterMs: Schema.Number },
     PayRefused: { reason: Schema.String },
     PayNotSent: { why: Schema.String },
-    PayUnsure: {},
+    PayUnsure: Flow.uncertain({}),
     RetryNow: {},
     CheckTick: {},
     IntentRead: { status: Schema.String },
@@ -181,10 +179,10 @@ const Pay = definition({
     OrderSeen: { orderId: Schema.String },
     Placed: { orderId: Schema.String, alreadyPlaced: Schema.Boolean },
     PlaceRefused: {},
-    PlaceUnsure: {},
+    PlaceUnsure: Flow.uncertain({}),
     Voided: {},
     VoidRefused: { chargeId: Schema.String },
-    VoidUnsure: {},
+    VoidUnsure: Flow.uncertain({}),
   },
   memory: {
     cartId: Flow.initial(Schema.String, ""),
@@ -416,16 +414,16 @@ export const compilePay = (id: string = Pay.id) => machine({ ...Pay, id }, ({ S,
               target: S.PLACING,
               guard: [capturable],
               updateMemory: () => ({ authorized: true }),
-              actions: [O.pay.cancel.key(intent), O.place.commit(cart)],
+              actions: [O.pay.cancel(intent), O.place.commit(cart)],
             },
             {
               index: 2, // [1] in the real machine is the CHALLENGE alternative, absent here
               target: S.PAYING,
               guard: [
                 ({ event }) => event.status === "requires_payment_method" || deny("Moved"),
-                O.pay.retryable({ times: 3, key: intent }),
+                O.pay.retryable(intent, { times: 3 }),
               ],
-              actions: [O.pay.retry.key(intent)],
+              actions: [O.pay.retry(intent)],
             },
             { index: 3 },
           ],
@@ -436,7 +434,7 @@ export const compilePay = (id: string = Pay.id) => machine({ ...Pay, id }, ({ S,
               updateMemory: ({ event }) => ({
                 receipt: { orderId: event.orderId, afterUnsure: true, alreadyPlaced: true },
               }),
-              actions: [O.intent.cancel, O.pay.cancel.key(intent)],
+              actions: [O.intent.cancel, O.pay.cancel(intent)],
             },
             {},
           ],

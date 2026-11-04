@@ -44,6 +44,7 @@ const PINS = [
   "a key is the contract's key fields",
   "a contract that does not name its commit's service has no `outcomes`", // round 12, D213
   "a boot that does not give a machine's service", // round 12, D213
+  "a select reads its handler's event: `Saved` has no `text`", // round 12, the compile prototype's typed selectors
 ];
 // What TypeScript itself takes for a directive: a single-line comment token whose text matches its own rule, `^\/\/\/?\s*@ts-expect-error`.
 // The installed TypeScript is 7 (native), with no JS scanner to call, so this is a scanner of comment and string tokens, not a text search:
@@ -86,11 +87,12 @@ const ERRORS: Record<string, readonly [string, string]> = {
   "an event with a payload cannot be mapped with no `.from`": ["TS2322", `Type 'EventToken<"Saved"`],
   "`text` is not on `Saved`": ["TS2339", "Property 'text' does not exist"],
   "memory has no `m`": ["TS2322", "Type '() => { m: number; }' is not assignable"],
-  "no such state": ["TS2339", "Property 'C' does not exist on type 'StatesOf"],
+  "no such state": ["TS2339", "Property 'C' does not exist on type '{ readonly A: Tok; }"], // round 12: the ordered state list's type
   "a commit's input is the contract's": ["TS2322", "Type 'number' is not assignable to type 'string'"],
   "a key is the contract's key fields": ["TS2741", "Property 'docId' is missing in type '{ text: string; }'"],
   "a contract that does not name its commit's service has no `outcomes`": ["TS2339", "Property 'outcomes' does not exist"],
   "a boot that does not give a machine's service": ["TS2345", "Argument of type 'Context<Other>' is not assignable"],
+  "a select reads its handler's event: `Saved` has no `text`": ["TS2339", "Property 'text' does not exist on type '{ readonly revision: number; }'"],
 };
 {
   const src = readFileSync(join(typed, "type-tests.ts"), "utf8").split("\n");

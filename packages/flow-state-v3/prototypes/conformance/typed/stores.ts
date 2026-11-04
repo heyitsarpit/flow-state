@@ -6,7 +6,7 @@ import type { Api } from "../fake-world.ts";
 import { refundsFixture as handRefunds } from "../fixtures/refunds.compiled.ts";
 import { s1Fixture as handS1 } from "../fixtures/s1.compiled.ts";
 import { docsFixture as handDocs } from "../fixtures/lab.compiled.ts";
-import { definition, Flow, machine, resource, transaction } from "./flow.ts";
+import { definition, Flow, machine, resource, transaction } from "../compile/index.ts";
 import { call, FakeApi, fixture, write } from "./lab.ts";
 
 export { orderRef } from "../fixtures/refunds.compiled.ts";
@@ -21,15 +21,15 @@ const repairBy = (api: Api) => (ref: string) => api.call("repair", { ref }) as E
 // ── Refunds.
 const money = (c: number) => `$${(c / 100).toFixed(2)}`;
 const refund = transaction({ id: "Checkout/refund", input: { chargeId: U, orderId: U, amountCents: U }, key: ["chargeId"], concurrency: "serialize", services: [FakeApi], commit: write<{ readonly orderId: unknown }, "OverRefund">("refund") });
-const orders = resource({ id: "Checkout/orders", input: {}, key: [], services: [FakeApi], commit: (i) => call<unknown, "NoResponse">("orders")(i) });
+const orders = resource({ id: "Checkout/orders", input: {}, key: [], services: [FakeApi], lookup: (i) => call<unknown, "NoResponse">("orders")(i) });
 type Order = { readonly refundedCents: number; readonly amountCents: number };
 const refunds = (api: Api) =>
   machine(
     definition({
       id: "Checkout/Refunds",
-      states: { READY: {} },
+      states: ["READY"],
       events: { Open: {}, RefundAsked: { chargeId: U, orderId: U, amountCents: U } },
-      internalEvents: { Listed: {}, ListFailed: {}, Refunded: { orderId: U }, OverRefund: { leftCents: S.Number }, RefundNotSent: { why: U }, RefundUnsure: {} },
+      internalEvents: { Listed: {}, ListFailed: {}, Refunded: { orderId: U }, OverRefund: { leftCents: S.Number }, RefundNotSent: { why: U }, RefundUnsure: Flow.uncertain({}) },
       memory: { notice: Flow.initial(U, "") },
       uses: ["entities"],
       domain: {
@@ -86,9 +86,9 @@ const s1 = (persisted: boolean) => (api: Api) =>
   machine(
     definition({
       id: "S1",
-      states: { READY: {} },
+      states: ["READY"],
       events: { Commit: { mask: U, v: U }, Retry: {}, Cancel: {} },
-      internalEvents: { Done: {}, Refused: {}, NotSent: {}, Unsure: {} },
+      internalEvents: { Done: {}, Refused: {}, NotSent: {}, Unsure: Flow.uncertain({}) },
       memory: {},
       persisted,
       uses: ["entities"],
@@ -107,8 +107,8 @@ const s1 = (persisted: boolean) => (api: Api) =>
       default: St.READY,
       on: {
         Commit: { actions: [O.w.commit(({ event }) => event as never)] }, // the event as sent, as the hand fixture's
-        Retry: { actions: [O.w.retry.key(() => ({}))] },
-        Cancel: { actions: [O.w.cancel.key(() => ({}))] },
+        Retry: { actions: [O.w.retry(() => ({}))] },
+        Cancel: { actions: [O.w.cancel(() => ({}))] },
         Done: {},
         Refused: {},
         NotSent: {},
@@ -128,9 +128,9 @@ const docs = (api: Api) =>
   machine(
     definition({
       id: "Docs",
-      states: { LIST: {}, DETAIL: {} },
+      states: ["LIST", "DETAIL"],
       events: { Open: {}, Close: {}, Save: { id: U, title: U }, Touch: { id: U } },
-      internalEvents: { Saved: {}, Touched: {}, Unsure: {}, Failed: {} },
+      internalEvents: { Saved: {}, Touched: {}, Unsure: Flow.uncertain({}), Failed: {} },
       memory: { saved: Flow.initial(S.Number, 0), lateSaved: Flow.initial(S.Number, 0) },
       persisted: false,
       uses: ["entities"],

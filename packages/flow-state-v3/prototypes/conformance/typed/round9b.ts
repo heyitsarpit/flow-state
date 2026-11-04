@@ -1,7 +1,7 @@
 // Round 11: `fixtures/round9b.compiled.ts`, written in the public API. A queue over any source, one ask per ending (review M1); a spin that only a press ends;
 // a machine for every edge of what a turn cannot take (D123).
 import { Schema } from "effect";
-import { definition, deny, Flow, fragment, labHostOp, machine, resource, transaction } from "./flow.ts";
+import { definition, deny, Flow, labHostOp, machine, resource, trait, transaction } from "../compile/index.ts";
 import { call, FakeApi, fixture, write } from "./lab.ts";
 
 const S = Schema;
@@ -12,19 +12,19 @@ const last = ({ memory }: { readonly memory: ChainM }) => memory.i + 1 >= memory
 const moved = (field: "ok" | "dup") => ({ memory }: { readonly memory: ChainM }) => ({ i: memory.i + 1, [field]: memory[field] + 1 });
 const done = (field: "ok" | "dup") => ({ memory }: { readonly memory: ChainM }) => ({ [field]: memory[field] + 1 });
 const stopped = ({ memory }: { readonly memory: ChainM }) => memory.stopped || deny("go on");
-const row = resource({ id: "lab/row", input: { i: U }, key: [], services: [FakeApi], commit: (i) => call<unknown, "Duplicate" | "NoResponse">("row")(i) });
+const row = resource({ id: "lab/row", input: { i: U }, key: [], services: [FakeApi], lookup: (i) => call<unknown, "Duplicate" | "NoResponse">("row")(i) });
 // Not `unknownWhenLost`: the hand fixture's `save` and `pw` answer a lost call as a failure, and so does this.
 const save = transaction({ id: "lab/chainSave", input: { i: U }, key: ["i"], concurrency: "reject", services: [FakeApi], commit: (i, { attempt }) => call<unknown, "Duplicate">("save")(i, attempt.id) });
-const spin = resource({ id: "lab/spin", input: { same: U }, key: [], services: [FakeApi], commit: (i) => call<unknown, "Whatever" | "NoResponse">("spin")(i) });
-const spinIn = resource({ id: "lab/spinIn", input: { i: U }, key: [], services: [FakeApi], commit: (i) => call<unknown, "Whatever" | "NoResponse">("spinIn")(i) });
+const spin = resource({ id: "lab/spin", input: { same: U }, key: [], services: [FakeApi], lookup: (i) => call<unknown, "Whatever" | "NoResponse">("spin")(i) });
+const spinIn = resource({ id: "lab/spinIn", input: { i: U }, key: [], services: [FakeApi], lookup: (i) => call<unknown, "Whatever" | "NoResponse">("spinIn")(i) });
 const pw = transaction({ id: "lab/pw", input: { id: U }, key: ["id"], concurrency: "reject", services: [FakeApi], commit: (i, { attempt }) => call("pw")(i, attempt.id) });
 const chain = (persisted: boolean, local: boolean) => {
   const d = definition({
     id: ChainId,
-    states: { A: {} },
+    states: ["A"],
     events: { Rows: { n: S.Number }, Writes: { n: S.Number }, Spin: {}, SpinInput: {}, Stop: {}, Press: {}, Pw: {} },
     internalEvents: {
-      RowOk: {}, RowDup: {}, RowLost: {}, SaveOk: {}, SaveDup: {}, SaveUnsure: {}, SpinAgain: {}, SpinInAgain: {}, PwOk: {}, PwNo: {}, PwUnsure: {},
+      RowOk: {}, RowDup: {}, RowLost: {}, SaveOk: {}, SaveDup: {}, SaveUnsure: Flow.uncertain({}), SpinAgain: {}, SpinInAgain: {}, PwOk: {}, PwNo: {}, PwUnsure: Flow.uncertain({}),
     },
     memory: {
       n: Flow.initial(S.Number, 0), i: Flow.initial(S.Number, 0), ok: Flow.initial(S.Number, 0), dup: Flow.initial(S.Number, 0),
@@ -81,15 +81,15 @@ const boom = (message: string) => () => {
   if (!heal()) throw new Error(message);
   return {};
 };
-const rowRead = resource({ id: "lab/edgeRowRead", input: { id: U }, key: [], services: [FakeApi], commit: (i) => call<unknown, "NoResponse">("rowRead")(i) });
+const rowRead = resource({ id: "lab/edgeRowRead", input: { id: U }, key: [], services: [FakeApi], lookup: (i) => call<unknown, "NoResponse">("rowRead")(i) });
 const rowSave = transaction({ id: "lab/edgeRowSave", input: { id: U, row: U }, key: ["id"], concurrency: "reject", services: [FakeApi], commit: write("rowSave") });
-const EdgeRow = fragment(
+const EdgeRow = trait(
   {
     id: "EdgeRow",
-    states: { L: {}, D: {} },
+    states: ["L", "D"],
     default: "L",
     events: { Ask: {}, DoRow: {}, ForgetRow: {} },
-    internalEvents: { RowGot: {}, RowNo: {}, RowSaved: {}, RowSaveNo: {}, RowSaveUnsure: {} },
+    internalEvents: { RowGot: {}, RowNo: {}, RowSaved: {}, RowSaveNo: {}, RowSaveUnsure: Flow.uncertain({}) },
     operations: ({ E }) => ({
       rowRead: rowRead.outcomes({ success: E.RowGot, failure: { NoResponse: E.RowNo, Defect: E.RowNo, Interrupted: E.RowNo } }),
       rowSave: rowSave.outcomes({ success: E.RowSaved, failure: { NotSent: E.RowSaveNo }, unknown: E.RowSaveUnsure }),
@@ -109,11 +109,11 @@ const EdgeRow = fragment(
   }),
 );
 const job = transaction({ id: "lab/edgeJob", input: { id: U }, key: ["id"], concurrency: "reject", services: [FakeApi], commit: write("job") });
-const EdgeJob = fragment(
+const EdgeJob = trait(
   {
     id: "EdgeJob",
     events: { Do: {}, DoBad: {}, Boom: {} },
-    internalEvents: { JobOk: {}, JobNo: {}, JobUnsure: {} },
+    internalEvents: { JobOk: {}, JobNo: {}, JobUnsure: Flow.uncertain({}) },
     operations: ({ E }) => ({ job: job.outcomes({ success: E.JobOk, failure: { NotSent: E.JobNo }, unknown: E.JobUnsure }) }),
   },
   ({ O }) => ({
@@ -130,11 +130,11 @@ const EdgeJob = fragment(
 );
 // Its life's end lets go of its writes (rule 60): what is kept goes with it.
 const rel = transaction({ id: "lab/edgeRel", input: { id: U }, key: ["id"], concurrency: "reject", services: [FakeApi], commit: write("rel") });
-const EdgeRel = fragment(
+const EdgeRel = trait(
   {
     id: "EdgeRel",
     events: { Do: {} },
-    internalEvents: { RelOk: {}, RelNo: {}, RelUnsure: {} },
+    internalEvents: { RelOk: {}, RelNo: {}, RelUnsure: Flow.uncertain({}) },
     operations: ({ E }) => ({ rel: rel.outcomes({ success: E.RelOk, failure: { NotSent: E.RelNo }, unknown: E.RelUnsure }) }),
   },
   ({ O }) => ({
@@ -146,18 +146,19 @@ const edgeSave = transaction({ id: "lab/edgeSave", input: { id: U, at: U }, key:
 const q = transaction({ id: "lab/edgeQ", input: { id: U }, key: ["id"], concurrency: "serialize", services: [FakeApi], commit: write<{ readonly v?: unknown }, never>("q") });
 // Finding F2: the hand key was `BigInt(i.o)`, a key that is not a projection of the input. Rule 39 makes a key the contract's fields, so here it is `o` itself.
 const big = transaction({ id: "lab/edgeBig", input: { o: U }, key: ["o"], concurrency: "reject", services: [FakeApi], commit: write("big") });
-const look = resource({ id: "lab/edgeLook", input: { id: U, at: U }, key: ["id"], services: [FakeApi], commit: (i) => call<unknown, "NoResponse">("look")(i) });
+const look = resource({ id: "lab/edgeLook", input: { id: U, at: U }, key: ["id"], services: [FakeApi], lookup: (i) => call<unknown, "NoResponse">("look")(i) });
 const edge = (persisted: boolean, local: boolean) => {
   const d = definition({
     id: EdgeId,
-    states: { A: {}, W: {}, B: {}, J: {}, R: {} },
+    states: ["A", "W", "B", { J: Flow.state({ traits: { j: EdgeJob } }) }, { R: Flow.state({ traits: { rel: EdgeRel } }) }],
+    traits: { r: EdgeRow.each({ of: "ids", max: 8 }) },
     events: {
       Go: { id: U, at: U }, IfAny: {}, IfA: {}, IfJob: {}, ForgetAny: {}, ForgetA: {}, Q: {}, ForgetQ: {}, Look: { at: U }, Set: { ids: S.Array(S.String) },
       ToRel: {}, GoBig: {}, ForgetBig: {}, IfBig1: {}, ToJob: {}, Out: {},
     },
     internalEvents: {
-      Saved: { v: U }, SaveNo: { id: U, why: U, boom: U }, SaveUnsure: {}, QOk: { v: U }, QNo: {}, QUnsure: {}, Looked: {}, LookNo: { id: U, k: U },
-      BigOk: {}, BigNo: {}, BigUnsure: {},
+      Saved: { v: U }, SaveNo: { id: U, why: U, boom: U }, SaveUnsure: Flow.uncertain({}), QOk: { v: U }, QNo: {}, QUnsure: Flow.uncertain({}), Looked: {}, LookNo: { id: U, k: U },
+      BigOk: {}, BigNo: {}, BigUnsure: Flow.uncertain({}),
     },
     memory: { presses: Flow.initial(S.Number, 0), ids: Flow.initial(S.Array(S.String), []), last: Flow.initial(U, null), qd: S.optionalKey(S.Boolean) },
     persisted,
@@ -209,7 +210,7 @@ const edge = (persisted: boolean, local: boolean) => {
       IfA: [{ guard: [O.save.idle(() => ({ id: "a" }))], updateMemory: idle }, {}],
       IfJob: [{ guard: [labHostOp("job").idle], updateMemory: idle }, {}], // a fragment's op, asked by the host: rule 50 forbids it, a named seam (D212, F3)
       ForgetAny: { actions: [O.save.cancel] },
-      ForgetA: { actions: [O.save.cancel.key(() => ({ id: "a" }))] },
+      ForgetA: { actions: [O.save.cancel(() => ({ id: "a" }))] },
       // A queue on one key, so a kept ending can sit beside a head.
       Q: { actions: [O.q.commit(() => ({ id: "a" }))] },
       QOk: {
@@ -220,7 +221,7 @@ const edge = (persisted: boolean, local: boolean) => {
       },
       QNo: {},
       QUnsure: {},
-      ForgetQ: { actions: [O.q.cancel.key(() => ({ id: "a" }))] },
+      ForgetQ: { actions: [O.q.cancel(() => ({ id: "a" }))] },
       // A read whose failure mapper reads its input.
       Look: { actions: [O.look.lookup(({ event }) => ({ id: "x", at: event.at }))] },
       Looked: {},
@@ -232,15 +233,10 @@ const edge = (persisted: boolean, local: boolean) => {
       BigOk: {},
       BigNo: {},
       BigUnsure: {},
-      ForgetBig: { actions: [O.big.cancel.key(() => ({ o: 1n }))] },
+      ForgetBig: { actions: [O.big.cancel(() => ({ o: 1n }))] },
       IfBig1: [{ guard: [O.big.idle(() => ({ o: "1" }))], updateMemory: idle }, {}],
       ToJob: St.J,
       Out: St.A,
-    },
-    traits: { r: { fragment: EdgeRow, each: { of: "ids", max: 8 } } },
-    states: {
-      J: { traits: { j: { fragment: EdgeJob } } },
-      R: { traits: { rel: { fragment: EdgeRel } } },
     },
   }));
 };

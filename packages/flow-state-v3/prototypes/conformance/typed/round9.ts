@@ -1,17 +1,17 @@
 // Round 11: `fixtures/round9.compiled.ts`, written in the public API. A bulk write, one lane per row (review H1); `.each` rows that ask once at entry; a write
 // whose mapper reads its input (M1); a deadline whose handler can throw, a raise with no name (M2); a queue over a local source; keys that are bigints (M5).
 import { Effect, Schema } from "effect";
-import { definition, deny, Flow, fragment, machine, resource, transaction } from "./flow.ts";
+import { definition, deny, Flow, machine, resource, trait, transaction } from "../compile/index.ts";
 import { call, FakeApi, fixture, write } from "./lab.ts";
 
 const S = Schema;
 const U = S.Unknown;
 export const BulkId = "Lab/Bulk";
-const rowRead = resource({ id: "lab/rowRead", input: { id: U }, key: [], services: [FakeApi], commit: (i) => call<unknown, "NoResponse">("rowRead")(i) });
-const Row = fragment(
+const rowRead = resource({ id: "lab/rowRead", input: { id: U }, key: [], services: [FakeApi], lookup: (i) => call<unknown, "NoResponse">("rowRead")(i) });
+const Row = trait(
   {
     id: "Row",
-    states: { L: {}, D: {} },
+    states: ["L", "D"],
     default: "L",
     events: {},
     internalEvents: { Ask: {}, Got: {}, GotNo: {} },
@@ -24,12 +24,13 @@ const Row = fragment(
 );
 const del = transaction({ id: "lab/del", input: { id: U }, key: ["id"], concurrency: "reject", services: [FakeApi], commit: write("del") });
 const local = transaction({ id: "lab/local", input: {}, key: [], concurrency: "reject", commit: () => Effect.succeed({}) });
-const localRead = resource({ id: "lab/localRead", input: {}, key: [], commit: () => Effect.succeed({}) });
+const localRead = resource({ id: "lab/localRead", input: {}, key: [], lookup: () => Effect.succeed({}) });
 const bulk = definition({
   id: BulkId,
-  states: { A: {} },
+  states: ["A"],
+  traits: { row: Row.each({ of: "ids", max: 2000 }) },
   events: { Del: { id: S.String }, Rows: { ids: S.Array(S.String) }, Next: { queue: S.Number }, Drain: { queue: S.Number } },
-  internalEvents: { DelOk: { id: S.String }, DelNo: { id: S.String }, DelUnsure: {}, LocalOk: {}, LocalNo: {}, LocalUnsure: {}, Drained: {}, DrainNo: {} },
+  internalEvents: { DelOk: { id: S.String }, DelNo: { id: S.String }, DelUnsure: Flow.uncertain({}), LocalOk: {}, LocalNo: {}, LocalUnsure: Flow.uncertain({}), Drained: {}, DrainNo: {} },
   memory: {
     deleting: Flow.initial(S.Array(S.String), []), done: Flow.initial(S.Number, 0), ids: Flow.initial(S.Array(S.String), []),
     queue: Flow.initial(S.Number, 0), ran: Flow.initial(S.Number, 0),
@@ -66,7 +67,6 @@ export const bulkFixture = fixture(
       ],
       DrainNo: {},
     },
-    traits: { row: { fragment: Row, each: { of: "ids", max: 2000 } } },
   })),
 );
 
@@ -74,12 +74,12 @@ export const bulkFixture = fixture(
 export const KeptId = "Lab/Kept";
 const heal = () => (globalThis as { __healed?: boolean }).__healed === true;
 const kidSave = transaction({ id: "lab/kidSave", input: { id: U, at: U }, key: ["id"], concurrency: "reject", services: [FakeApi], commit: write("kidSave") });
-const Kid = fragment(
+const Kid = trait(
   {
     id: "Kid",
     events: { Save: {} },
     hostEvents: { Set: { v: U } },
-    internalEvents: { KidNo: { why: U }, KidOk: {}, KidUnsure: {} },
+    internalEvents: { KidNo: { why: U }, KidOk: {}, KidUnsure: Flow.uncertain({}) },
     memory: { heard: Flow.initial(U, null), got: Flow.initial(U, null) },
     operations: ({ E }) => ({
       kidSave: kidSave.outcomes({ success: E.KidOk, failure: { NotSent: E.KidNo.from((v) => ({ why: v?.why })) }, unknown: E.KidUnsure }),
@@ -97,8 +97,8 @@ const Kid = fragment(
   }),
 );
 // A resumable life with a read that fails at once, and a handler that asks again.
-const spinRead = resource({ id: "lab/spinRead", input: { v: U }, key: [], commit: () => Effect.void as Effect.Effect<unknown, { readonly _tag: "NoResponse" }> });
-const Spinny = fragment(
+const spinRead = resource({ id: "lab/spinRead", input: { v: U }, key: [], lookup: () => Effect.void as Effect.Effect<unknown, { readonly _tag: "NoResponse" }> });
+const Spinny = trait(
   {
     id: "Spinny",
     events: { Spin: {} },
@@ -118,26 +118,26 @@ const Spinny = fragment(
 const save = transaction({ id: "lab/save", input: { id: U, at: U }, key: ["id"], concurrency: "reject", services: [FakeApi], commit: write<{ readonly v?: unknown }, never>("save") });
 // Finding F2: the hand keys were `() => new Set()` and `BigInt(i.o)`, keys that are not a projection of the input; here they are fields (rule 39).
 const oddKey = transaction({ id: "lab/oddKey", input: { id: U }, key: [], concurrency: "reject", commit: () => Effect.void });
-const look = resource({ id: "lab/look", input: {}, key: [], services: [FakeApi], commit: (i) => call<unknown, "NoResponse">("look")(i) });
+const look = resource({ id: "lab/look", input: {}, key: [], services: [FakeApi], lookup: (i) => call<unknown, "NoResponse">("look")(i) });
 const keyed = transaction({ id: "lab/keyed", input: { o: U }, key: ["o"], concurrency: "reject", services: [FakeApi], commit: write("keyed") });
 const kept = (persisted: boolean) => {
   const d = definition({
     id: KeptId,
-    states: { A: {}, W: {}, B: {}, P: {}, T: {} },
+    states: ["A", "W", "B", { P: Flow.state({ traits: { rz: Spinny.resumable() } }) }, "T"],
     events: {
       ToP: {}, GoOddKey: {}, Go: { id: U, at: U }, IfIdle: {}, Forget: {}, Arm: {}, Leave: {}, Note: { text: U }, RaiseBad: { v: U }, LookBoom: {},
       GoKey: { o: U }, IfKeyIdle: { o: U }, Who: { who: U }, WhoOdd: { n: U },
     },
     internalEvents: {
-      OddOk: {}, OddNo: { id: U }, OddUnsure: {}, Saved: { v: U }, SaveNo: { id: U, why: U }, SaveUnsure: {}, GiveUp: {}, Looked: {}, LookNo: {},
-      KeyedOk: {}, KeyedNo: {}, KeyedUnsure: {},
+      OddOk: {}, OddNo: { id: U }, OddUnsure: Flow.uncertain({}), Saved: { v: U }, SaveNo: { id: U, why: U }, SaveUnsure: Flow.uncertain({}), GiveUp: {}, Looked: {}, LookNo: {},
+      KeyedOk: {}, KeyedNo: {}, KeyedUnsure: Flow.uncertain({}),
     },
     memory: {
       presses: Flow.initial(S.Number, 0), ids: Flow.initial(S.Array(S.String), ["x"]), who: Flow.initial(U, "1"),
       last: S.optionalKey(U), gaveUp: S.optionalKey(U), note: S.optionalKey(U), raised: S.optionalKey(U), whoOdd: S.optionalKey(U),
     },
     persisted,
-    places: { c: Kid, s: Kid, z: Kid },
+    traits: { c: Kid.each({ of: "ids", max: 4 }), s: Kid, z: Kid },
     operations: ({ E }) => ({
       save: save.outcomes({
         success: E.Saved.from((v) => ({ v: v?.v })),
@@ -169,7 +169,7 @@ const kept = (persisted: boolean) => {
       SaveNo: { target: St.A, updateMemory: ({ event }) => ({ last: `no:${String(event.id)}:${String(event.why)}` }) },
       SaveUnsure: St.A,
       IfIdle: [{ guard: [O.save.idle(() => ({ id: "a" }))], updateMemory: ({ memory }) => ({ presses: memory.presses + 1 }) }, {}],
-      Forget: { actions: [O.save.cancel.key(() => ({ id: "a" }))] },
+      Forget: { actions: [O.save.cancel(() => ({ id: "a" }))] },
       // M2: a deadline, and its handler can throw.
       Arm: St.T,
       GiveUp: {
@@ -204,12 +204,10 @@ const kept = (persisted: boolean) => {
       WhoOdd: { updateMemory: ({ event }) => ({ whoOdd: event.n }) },
     },
     traits: {
-      c: { each: { of: "ids", max: 4 } },
       s: { resetOn: ({ memory }) => BigInt(memory.who as string) },
       z: { resetOn: ({ memory }) => (memory.whoOdd === undefined ? "same" : new Set([memory.whoOdd])) },
     },
     states: {
-      P: { traits: { rz: { fragment: Spinny, resumable: true } } },
       T: { schedules: { t: { schedule: "1 second", send: E.GiveUp } } },
     },
   }));

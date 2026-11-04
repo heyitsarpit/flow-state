@@ -79,7 +79,8 @@ const sha = (s: string) => createHash("sha1").update(s).digest("hex").slice(0, 1
 // Re-audit H2: under `typed/` the types and the `@ts-expect-error` comments are the pins, and the transpiler strips both. Those files hash by
 // their text with whitespace collapsed: `vp fmt`'s line breaks are free, and a type, a directive or a comment's words are not.
 export const typedText = (src: string) => src.replace(/\s+/g, " ").trim();
-const shaFile = (f: string, text: string) => sha(f.startsWith("typed/") ? typedText(text) : f.endsWith(".ts") ? tokens(text) : text);
+// Round 12: the compile prototypes' types are their contract too (D213's `Covered`, the typed selectors), so they hash by text, as `typed/` does.
+const shaFile = (f: string, text: string) => sha(f.startsWith("typed/") || f.startsWith("compile/") ? typedText(text) : f.endsWith(".ts") ? tokens(text) : text);
 const bodyOf = (s: Scenario) =>
   [
     tokens(s.run?.toString() ?? ""),
@@ -98,6 +99,7 @@ const SHARED = [
   ...walked(here, "bench", /\.ts$/),
   ...walked(here, "reference", /\.ts$/), // re-check M2''': the suite's model of binding is an expected result too
   ...walked(here, "typed", /\.ts$/), // round 11, review H2: the typed fixtures and their front end, which the suite boots
+  ...walked(here, "compile", /\.ts$/), // round 12: the compile prototypes, which made what the suite boots
   "legacy.ts", // round 11, D207: the hand fixtures' slotting before boot
   "main.ts",
   "output.ts",

@@ -3,7 +3,7 @@
 import { Effect, Schema } from "effect";
 import type { Api } from "../fake-world.ts";
 import { cartRef, cartServer, lineRef } from "../fixtures/cart.compiled.ts";
-import { definition, deny, Flow, machine, resource, transaction, type DomainIn } from "./flow.ts";
+import { definition, deny, Flow, machine, resource, transaction, type DomainIn } from "../compile/index.ts";
 import { call, FakeApi, fixture, write } from "./lab.ts";
 
 export { cartRef, cartServer, lineRef } from "../fixtures/cart.compiled.ts";
@@ -36,17 +36,17 @@ const lineIn = { cartId: U, lineId: U };
 const setQuantity = transaction({ id: "Checkout/setQuantity", input: { ...lineIn, quantity: U, delta: U }, key: ["cartId", "lineId"], concurrency: "latest", services: [FakeApi], commit: write<unknown, "LineGone">("setQuantity") });
 const removeLine = transaction({ id: "Checkout/removeLine", input: lineIn, key: ["cartId", "lineId"], concurrency: "reject", services: [FakeApi], commit: write<unknown, "LineGone">("removeLine") });
 const coupon = transaction({ id: "Checkout/coupon", input: { cartId: U, code: U }, key: [], concurrency: "reject", services: [FakeApi], commit: write<unknown, "CouponRejected">("coupon") });
-const cartRead = resource({ id: "Checkout/cart", input: { cartId: U }, key: ["cartId"], services: [FakeApi], commit: (i) => call<CartV, "NoResponse">("cart")(i) });
+const cartRead = resource({ id: "Checkout/cart", input: { cartId: U }, key: ["cartId"], services: [FakeApi], lookup: (i) => call<CartV, "NoResponse">("cart")(i) });
 type Coupon = { readonly code: unknown; readonly status: string; readonly predictedTotalCents: number | null; readonly reason: unknown };
 const page = (api: Api) =>
   machine(
     definition({
       id: "Checkout/Cart",
-      states: { SHOPPING: {}, REMOVING: {} },
+      states: ["SHOPPING", "REMOVING"],
       events: { Load: {}, Increment: { lineId: S.String }, Decrement: { lineId: S.String }, ApplyCoupon: { code: S.String }, Yes: { lineId: S.String }, Keep: {} },
       internalEvents: {
-        Loaded: { lines: S.Array(U), subtotalCents: S.Number }, LoadFailed: {}, QuantitySet: {}, LineGone: {}, QuantityUnsure: {}, Removed: {}, RemoveUnsure: {},
-        CouponApplied: {}, CouponRefused: { reason: U }, CouponUnsure: {},
+        Loaded: { lines: S.Array(U), subtotalCents: S.Number }, LoadFailed: {}, QuantitySet: {}, LineGone: {}, QuantityUnsure: Flow.uncertain({}), Removed: {}, RemoveUnsure: Flow.uncertain({}),
+        CouponApplied: {}, CouponRefused: { reason: U }, CouponUnsure: Flow.uncertain({}),
       },
       memory: {
         cartId: Flow.input(U),
@@ -122,9 +122,9 @@ const mini = (api: Api) =>
   machine(
     definition({
       id: "Checkout/MiniCart",
-      states: { READY: {} },
+      states: ["READY"],
       events: { Remove: { lineId: S.String } },
-      internalEvents: { Removed: {}, RemoveUnsure: {} },
+      internalEvents: { Removed: {}, RemoveUnsure: Flow.uncertain({}) },
       memory: { cartId: Flow.input(U) },
       persisted: false,
       uses: ["entities"],

@@ -5,7 +5,7 @@ import { Context, Effect } from "effect";
 import type { Api, ServerModel } from "../fake-world.ts";
 import { Outcome, OutcomeUnknown, type Compiled } from "../fixtures/compiled.ts";
 import type { Fixture } from "../harness.ts";
-import { servicesFor, type Typed } from "./flow.ts";
+import { servicesFor, type Typed } from "../compile/index.ts";
 
 export class FakeApi extends Context.Service<FakeApi, Api>()("Flow/Fixture/Api") {}
 type Tag<T extends string> = { readonly _tag: T };

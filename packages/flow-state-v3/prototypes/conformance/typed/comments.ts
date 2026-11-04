@@ -3,7 +3,7 @@
 // `resetOn` (path [ticketId], rule 51).
 import { Effect, Schema } from "effect";
 import type { Api, ServerModel } from "../fake-world.ts";
-import { definition, deny, Flow, fragment, machine, resource, transaction, type DomainIn } from "./flow.ts";
+import { definition, deny, Flow, machine, resource, trait, transaction, type DomainIn } from "../compile/index.ts";
 import { call, FakeApi, fixture, write } from "./lab.ts";
 
 // The ref and the fake server's model, copied from the hand file: that file does not type-check under the types gate's options (`exactOptionalPropertyTypes`),
@@ -49,8 +49,8 @@ const post = transaction({ id: "comments/post", input: { ticketId: U, clientId: 
 const pin = transaction({ id: "comments/pin", input: { ticketId: U, commentId: U, pinned: U }, key: key2, concurrency: "reject", services: [FakeApi], commit: write<unknown, "CommentGone">("pin") });
 const react = transaction({ id: "comments/react", input: { ticketId: U, commentId: U, emoji: U, on: U }, key: key2, concurrency: "reject", services: [FakeApi], commit: write<unknown, "CommentGone">("react") });
 const remove = transaction({ id: "comments/remove", input: { ticketId: U, commentId: U }, key: key2, concurrency: "reject", services: [FakeApi], commit: write<unknown, "EditWindowClosed" | "CommentGone">("remove") });
-const thread = resource({ id: "comments/thread", input: { ticketId: U }, key: ["ticketId"], services: [FakeApi], commit: (i) => call<unknown, "NoResponse">("thread")(i) });
-const Comments = fragment(
+const thread = resource({ id: "comments/thread", input: { ticketId: U }, key: ["ticketId"], services: [FakeApi], lookup: (i) => call<unknown, "NoResponse">("thread")(i) });
+const Comments = trait(
   {
     id: "Comments",
     events: {
@@ -58,8 +58,8 @@ const Comments = fragment(
       GiveUp: { clientId: S.String }, Delete: { commentId: U },
     },
     internalEvents: {
-      Loaded: {}, LoadFailed: {}, PinUnsure: {}, Reacted: {}, ReactUnsure: {}, Posted: { clientId: S.String, text: U }, PostRejected: { clientId: S.String, text: U },
-      PostNotSent: { clientId: S.String, text: U }, PostUnsure: { clientId: S.String, text: U }, Changed: {}, ChangeRefused: { notice: S.String }, DeleteUnsure: {},
+      Loaded: {}, LoadFailed: {}, PinUnsure: Flow.uncertain({}), Reacted: {}, ReactUnsure: Flow.uncertain({}), Posted: { clientId: S.String, text: U }, PostRejected: { clientId: S.String, text: U },
+      PostNotSent: { clientId: S.String, text: U }, PostUnsure: Flow.uncertain({ clientId: S.String, text: U }), Changed: {}, ChangeRefused: { notice: S.String }, DeleteUnsure: Flow.uncertain({}),
     },
     memory: { ticketId: Flow.input(U), drafts: Flow.initial(S.Array(U), []), notice: Flow.initial(U, "") },
     operations: ({ E }) => {
@@ -101,14 +101,14 @@ const Comments = fragment(
           actions: [O.post.commit(({ memory, event }) => ({ ticketId: memory.ticketId, clientId: event.clientId, text: event.text }))],
         },
         Resend: {
-          guard: [isDraft(["unsure"], "NotUnsure") as never, O.post.retryable({ times: 3, key: ticketKey as never })],
+          guard: [isDraft(["unsure"], "NotUnsure") as never, O.post.retryable(ticketKey as never, { times: 3 })],
           updateMemory: ({ memory, event }) => ({ drafts: drafts(memory).map((d) => (d.clientId === event.clientId ? { ...d, problem: null } : d)) }),
-          actions: [O.post.retry.key(ticketKey as never)],
+          actions: [O.post.retry(ticketKey as never)],
         },
         GiveUp: {
           guard: [isDraft(["unsure"], "NotUnsure") as never],
           updateMemory: ({ memory, event }) => ({ drafts: drafts(memory).map((d) => (d.clientId === event.clientId ? { ...d, problem: "gaveUp" } : d)) }),
-          actions: [O.post.cancel.key(ticketKey as never)],
+          actions: [O.post.cancel(ticketKey as never)],
         },
         Delete: { guard: [O.remove.idle(commentKey as never)], actions: [O.remove.commit(commentKey as never)] },
         Posted: { updateMemory: ({ memory, event }) => ({ drafts: upsert(drafts(memory), event, { sent: true, problem: null }) }) },
@@ -140,21 +140,21 @@ const domainOf = (api: Api): DomainIn => ({
 });
 const editor = (api: Api) =>
   machine(
-    definition({ id: "Desk/Editor", states: { READY: {} }, events: {}, internalEvents: {}, memory: {}, persisted: false, uses: ["entities"], domain: domainOf(api), places: { comments: Comments }, operations: () => ({}) }),
+    definition({ id: "Desk/Editor", states: ["READY"], events: {}, internalEvents: {}, memory: {}, persisted: false, uses: ["entities"], domain: domainOf(api), traits: { comments: Comments }, operations: () => ({}) }),
     ({ S: St }) => ({ default: St.READY, traits: { comments: { input: () => ({ ticketId: "T-42" }) } } }),
   );
 const queue = (api: Api) =>
   machine(
     definition({
       id: "Desk/Queue",
-      states: { READY: {} },
+      states: ["READY"],
       events: { Preview: { id: U } },
       internalEvents: {},
       memory: { previewId: Flow.initial(U, "T-1") },
       persisted: false,
       uses: ["entities"],
       domain: domainOf(api),
-      places: { comments: Comments },
+      traits: { comments: Comments },
       operations: () => ({}),
     }),
     ({ S: St }) => ({

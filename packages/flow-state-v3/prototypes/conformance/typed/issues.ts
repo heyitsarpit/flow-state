@@ -3,7 +3,7 @@
 import { Effect, Schema } from "effect";
 import type { Api } from "../fake-world.ts";
 import { server } from "../fixtures/issues.compiled.ts";
-import { definition, deny, Flow, machine, resource, transaction, type DomainIn } from "./flow.ts";
+import { definition, deny, Flow, machine, resource, transaction, type DomainIn } from "../compile/index.ts";
 import { call, FakeApi, fixture, write } from "./lab.ts";
 
 export { MAX_LIKE_RESENDS, issueRef, server } from "../fixtures/issues.compiled.ts";
@@ -16,7 +16,7 @@ const contracts = (throwing: boolean) => ({
   like: transaction({ id: "issues/like", input: { id: U, liked: U }, key: ["id"], concurrency: "latest", services: [FakeApi], commit: write<unknown, "Gone" | "Refused">("like") }),
   rename: transaction({ id: "issues/rename", input: { id: U, title: U }, key: ["id"], concurrency: "latest", services: [FakeApi], commit: write<unknown, "Gone" | "Refused">("rename") }),
   remove: transaction({ id: "issues/remove", input: { id: U }, key: ["id"], concurrency: "reject", services: [FakeApi], commit: write<unknown, "Gone" | "Refused">("remove") }),
-  list: resource({ id: "issues/in-project", input: {}, key: [], services: [FakeApi], commit: (i) => call<unknown, "NoResponse">("list")(i) }),
+  list: resource({ id: "issues/in-project", input: {}, key: [], services: [FakeApi], lookup: (i) => call<unknown, "NoResponse">("list")(i) }),
   // M8, H3: a write with no `unknownWhenLost`, as the hand `poke` has (`issuesThrowing`).
   ...(throwing ? { poke: transaction({ id: "issues/poke", input: { id: U }, key: ["id"], concurrency: "latest", services: [FakeApi], commit: (i, { attempt }) => call<unknown, "Gone" | "Refused">("poke")(i, attempt.id) }) } : {}),
 });
@@ -61,12 +61,12 @@ const issues = (o: Opts) => (api: Api) => {
   const c = contracts(o.throwing ?? false);
   const d = definition({
     id: "Issues/List",
-    states: { READY: {} },
+    states: ["READY"],
     events: {
       Load: {}, Toggle: { id: U, liked: U }, Edit: { id: U, title: S.String }, Delete: { id: U }, ReconcileLike: { id: U }, CancelLike: { id: U }, CancelRename: { id: U },
       ...(o.throwing ? { Poke: { id: U }, TwoBad: { id: U } } : {}),
     },
-    internalEvents: { Listed: {}, ListFailed: {}, Settled: {}, IssueGone: {}, Failed: { message: S.String }, LikeUnsure: { id: U }, RenameUnsure: { message: S.String }, RemoveUnsure: { message: S.String } },
+    internalEvents: { Listed: {}, ListFailed: {}, Settled: {}, IssueGone: {}, Failed: { message: S.String }, LikeUnsure: Flow.uncertain({ id: U }), RenameUnsure: Flow.uncertain({ message: S.String }), RemoveUnsure: Flow.uncertain({ message: S.String }) },
     memory: { toast: Flow.initial(U, null) },
     persisted: o.persisted ?? false,
     ...(o.local ? { local: true as const } : {}),
@@ -95,9 +95,9 @@ const issues = (o: Opts) => (api: Api) => {
         Toggle: { actions: [O.like.commit(({ event }) => ({ id: event.id, liked: event.liked }))] },
         Edit: { guard: [({ event }) => event.title.trim() !== "" || deny("EmptyTitle")], actions: [O.rename.commit(({ event }) => ({ id: event.id, title: event.title }))] },
         Delete: { guard: [O.remove.idle(named)], actions: [O.remove.commit(({ event }) => ({ id: event.id }))] },
-        ReconcileLike: { actions: [O.like.retry.key(named)] },
-        CancelLike: { actions: [O.like.cancel.key(named)] },
-        CancelRename: { actions: [O.rename.cancel.key(named)] },
+        ReconcileLike: { actions: [O.like.retry(named)] },
+        CancelLike: { actions: [O.like.cancel(named)] },
+        CancelRename: { actions: [O.rename.cancel(named)] },
         // D22, F3.1: a success whose handler always denies (`issuesDenySettled`).
         Settled: o.denySettled ? { guard: [() => deny("Nope")] } : {},
         IssueGone: {},

@@ -1,7 +1,7 @@
 // What the types refuse. Each `@ts-expect-error` must be an error, or `tsc` fails: a compile-time pin of D91, not a claim.
 import { Context, Effect, Schema } from "effect";
 import { OutcomeUnknown } from "../../conformance/fixtures/compiled.ts";
-import { definition, Flow, machine, servicesFor, transaction } from "../../conformance/typed/flow.ts";
+import { definition, Flow, machine, servicesFor, transaction } from "../../conformance/compile/index.ts";
 
 type Refused = { readonly _tag: "Refused"; readonly why: string };
 const save = transaction({
@@ -23,7 +23,7 @@ const timed = transaction({ id: "t/timed", input: {}, key: [], concurrency: "rej
 // @ts-expect-error a contract that does not name its commit's service has no `outcomes`
 void timed.outcomes;
 const timedOk = transaction({ id: "t/timed", input: {}, key: [], concurrency: "reject", services: [Clock], commit: () => Effect.map(Effect.service(Clock), (c) => c.now()) });
-const TD = definition({ id: "T/Timed", states: { A: {} }, events: {}, internalEvents: { Ok: {}, No: {}, Unsure: {} }, memory: {}, operations: ({ E }) => ({ t: timedOk.outcomes({ success: E.Ok, failure: { NotSent: E.No }, unknown: E.Unsure }) }) });
+const TD = definition({ id: "T/Timed", states: ["A"], events: {}, internalEvents: { Ok: {}, No: {}, Unsure: Flow.uncertain({}) }, memory: {}, operations: ({ E }) => ({ t: timedOk.outcomes({ success: E.Ok, failure: { NotSent: E.No }, unknown: E.Unsure }) }) });
 const TM = machine(TD, ({ S }) => ({ default: S.A, on: { Ok: {}, No: {}, Unsure: {} } }));
 class Other extends Context.Service<Other, { readonly x: number }>()("Probe/Other") {}
 // @ts-expect-error a boot that does not give a machine's service
@@ -32,7 +32,7 @@ servicesFor(TM, Context.make(Clock, { now: () => 0 }));
 
 const D = definition({
   id: "T",
-  states: { A: {}, B: {} },
+  states: ["A", "B"],
   events: { Go: { text: Schema.String } },
   internalEvents: { Saved: { revision: Schema.Number }, Refused: { why: Schema.String }, NotSent: {} },
   memory: { n: Flow.initial(Schema.Number, 0), docId: Flow.initial(Schema.String, "") },
@@ -65,6 +65,9 @@ machine(D, ({ S, O }) => ({
       { updateMemory: ({ event }) => ({ docId: event.text }) },
       // @ts-expect-error memory has no `m`
       { updateMemory: () => ({ m: 1 }) },
+      // Round 12 (2.7.3, "the select is typed where it is used"): a commit's select reads its own handler's event.
+      // @ts-expect-error a select reads its handler's event: `Saved` has no `text`
+      { actions: [O.save.commit(({ event }) => ({ docId: "d", text: event.text }))] },
     ],
     Nope: {}, // NOT refused: the callback's return loses TypeScript's excess-property check. `flow check` says `UnknownEvent`
   },
@@ -81,7 +84,7 @@ machine(D, ({ S, O }) => ({
             // @ts-expect-error a commit's input is the contract's
             O.save.commit(() => ({ docId: 1, text: "" })),
             // @ts-expect-error a key is the contract's key fields
-            O.save.cancel.key(() => ({ text: "" })),
+            O.save.cancel(() => ({ text: "" })),
           ],
         },
       },

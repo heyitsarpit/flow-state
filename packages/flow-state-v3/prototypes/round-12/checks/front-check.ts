@@ -4,7 +4,7 @@ import { Context, Effect, Schema } from "effect";
 import type { Api } from "../../conformance/fake-world.ts";
 import type { Alternative, Compiled, Fragment, Node } from "../../conformance/fixtures/compiled.ts";
 import { legacySlots } from "../../conformance/legacy.ts";
-import { definition, deny, Flow, fragment, machine, transaction } from "../../conformance/typed/flow.ts";
+import { definition, deny, Flow, machine, subroutine, trait, transaction } from "../../conformance/compile/index.ts";
 import { CompiledData, toData } from "../codec/codec.ts";
 import { seal } from "../gate.ts";
 import { pairs } from "../typed/pairs.ts";
@@ -21,17 +21,16 @@ const S = Schema;
 
 // ── 1. Pins, one per feature the review's mutants could not reach (M6) and the two path bugs (H3, M1).
 const put = transaction({ id: "t/put", input: { a: S.String, b: S.String }, key: ["a", "b"], concurrency: "reject", commit: () => Effect.void });
-const Kid = fragment(
+const Kid = trait(
   { id: "Kid", events: { Go: {} }, hostEvents: { Poke: { n: S.Number } }, guards: { may: Flow.Guard }, callbacks: { done: Flow.Callback({}) } },
   ({ guards, callbacks }) => ({ on: { Go: { guard: [guards.may], notify: [callbacks.done] }, Poke: {} }, whenAbandoned: [callbacks.done] }),
 );
 const d = definition({
   id: "T/Front",
-  states: { A: { A1: {}, A2: {} }, B: {} },
+  states: [{ A: ["A1", "A2"] }, { B: Flow.state({ traits: { kid: Kid } }) }],
   events: { Back: {}, Back2: {}, Go: {}, Mixed: {}, Stop: {}, Hit: {} },
-  internalEvents: { Ok: {}, No: {}, Lost: {}, Gone: {}, Tick: {} },
+  internalEvents: { Ok: {}, No: {}, Lost: Flow.uncertain({}), Gone: Flow.uncertain({}), Tick: {} },
   memory: { n: Flow.initial(S.Number, 0), maybe: S.optionalKey(S.String) },
-  places: { kid: Kid },
   operations: ({ E }) => ({ put: put.outcomes({ success: E.Ok, failure: { NotSent: E.No }, unknown: { NoResponse: E.Lost, Cancelled: E.Gone } }) }),
 });
 const m = machine(d, ({ S: St, E, O }) => ({
@@ -86,7 +85,7 @@ const threw = (f: () => unknown): string => {
 // D214, M2: memory as fields; creation decodes the input; the restore rule for a field a release adds.
 const memD = definition({
   id: "T/Mem",
-  states: { A: {} },
+  states: ["A"],
   events: {},
   internalEvents: {},
   memory: {
@@ -119,9 +118,9 @@ eq("SealNoKey", sealOf(withOp(({ keyFields: _k, ...o }) => o)), "SealNoKey");
 // D213, H1: a commit that needs a service the boot does not give is refused at the seal, by name.
 const svcD = definition({
   id: "T/Svc",
-  states: { A: {} },
+  states: ["A"],
   events: {},
-  internalEvents: { Ok: {}, No: {}, Unsure: {} },
+  internalEvents: { Ok: {}, No: {}, Unsure: Flow.uncertain({}) },
   memory: {},
   operations: ({ E }) => ({ go: transaction({ id: "t/go", input: {}, key: [], concurrency: "reject", services: [ProbeClock], commit: () => Effect.map(Effect.service(ProbeClock), (k) => k.now()) }).outcomes({ success: E.Ok, failure: { NotSent: E.No }, unknown: E.Unsure }) }),
 });
@@ -135,15 +134,23 @@ eq("SealDuplicatePath", sealOf(dupPath), "SealDuplicatePath");
 eq("a bare function below ops", sealOf(withOp((o) => ({ ...o, outcomes: { ...(o["outcomes"] as object), success: { event: "Ok", from: () => ({}) } } }))), "SealUnknownClosure");
 eq("SealIncomplete without events", sealOf({ ...c, events: undefined }), "SealIncomplete");
 // L2: rule 51 at the front end.
-const Twin = fragment({ id: "Twin", internalEvents: { Ok: {} }, operations: ({ E }) => ({ put: put.outcomes({ success: E.Ok, failure: {} }) }) }, () => ({ on: { Ok: {} } }));
-const twinD = definition({ id: "T/Twin", states: { A: {} }, events: {}, internalEvents: { Ok: {} }, memory: {}, places: { twin: Twin }, operations: ({ E }) => ({ put: put.outcomes({ success: E.Ok, failure: {} }) }) });
-eq("DuplicateOperation (rule 51)", threw(() => machine(twinD, ({ S: St }) => ({ default: St.A, on: { Ok: {} }, traits: { twin: {} } }))), "DuplicateOperation");
-// L1: F6's guarded exit keeps its guard.
-const Step = fragment(
+const Twin = trait({ id: "Twin", internalEvents: { Ok: {} }, operations: ({ E }) => ({ put: put.outcomes({ success: E.Ok, failure: {} }) }) }, () => ({ on: { Ok: {} } }));
+const twinD = definition({ id: "T/Twin", states: ["A"], events: {}, internalEvents: { Ok: {} }, memory: {}, traits: { twin: Twin }, operations: ({ E }) => ({ put: put.outcomes({ success: E.Ok, failure: {} }) }) });
+eq("DuplicateOperation (rule 51)", threw(() => machine(twinD, ({ S: St }) => ({ default: St.A, on: { Ok: {} } }))), "DuplicateOperation");
+// L1: F6's guarded exit keeps its guard; round 12 writes it as the design does, `target: exits.Done` behind a guard.
+const Step = subroutine(
   { id: "Step", events: { Confirm: {} }, exits: { Done: Flow.Exit({}) } },
-  ({ exits }) => ({ on: { Confirm: { guard: [() => deny("Bad")], exit: exits.Done.exit } } }),
+  ({ exits }) => ({ on: { Confirm: { guard: [() => deny("Bad")], target: exits.Done } } }),
 );
 eq("F6 an exit behind a guard keeps the guard", Step.compiled.nodes["root"]!.on["Confirm"]![0]!.guards.length, 1);
+eq("and is an exit", Step.compiled.nodes["root"]!.on["Confirm"]![0]!.exit?.name, "Done");
+// Round 12, the compile prototypes: rule 13's `Flow.uncertain` is checked; placement is in the definition; a body for a state that is not there is refused.
+const plain = transaction({ id: "t/plain", input: {}, key: [], concurrency: "reject", commit: () => Effect.void });
+eq("UnknownNotUncertain", threw(() => definition({ id: "T/U", states: ["A"], events: {}, internalEvents: { Ok: {}, Sure: {} }, memory: {}, operations: ({ E }) => ({ p: plain.outcomes({ success: E.Ok, failure: {}, unknown: E.Sure }) }) })), "");
+eq("UnknownNotUncertain at the compile", threw(() => machine(definition({ id: "T/U", states: ["A"], events: {}, internalEvents: { Ok: {}, Sure: {} }, memory: {}, operations: ({ E }) => ({ p: plain.outcomes({ success: E.Ok, failure: {}, unknown: E.Sure }) }) }), ({ S: St }) => ({ default: St.A }))), "UnknownNotUncertain");
+eq("UnknownTrait", threw(() => machine(twinD as never, () => ({ default: { node: "A" }, traits: { nope: {} } }) as never)), "UnknownTrait");
+eq("UnknownState under its parent", threw(() => machine(d, ({ S: St }) => ({ default: St.A, states: { A: { states: { B: {} } } } }) as never)), "UnknownState");
+eq("each and resumable from the definition", [c.nodes["B"]!.placements![0]!.fragment, c.nodes["B"]!.placements![0]!.resumable ?? false], ["Kid", false]);
 // M1: `legacy.ts` slots a hand commit and each hand read under its own place.
 const hand = legacySlots({
   id: "T/Hand", nodes: { root: { id: "root", on: {}, schedules: [] } }, root: "root", default: "root", memory: { initial: { run: () => ({}), at: { definition: "T/Hand", path: "memory.initial" } } },

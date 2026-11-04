@@ -1,7 +1,7 @@
 // Round 11: `fixtures/round8.compiled.ts`, written in the public API. The bare write with `serialize`, so a commit can queue behind a ticket (H1); three doors
 // for a value that cannot encode (D100); copies under `.each`, each with a read (D99); a business key beside the Attempt's own (D106).
 import { Effect, Schema } from "effect";
-import { definition, deny, Flow, fragment, machine, resource, transaction } from "./flow.ts";
+import { definition, deny, Flow, machine, resource, trait, transaction } from "../compile/index.ts";
 import { call, FakeApi, fixture, unknownWhenLost, write } from "./lab.ts";
 import { BareId } from "./round7.ts";
 
@@ -19,9 +19,9 @@ const bareMemory = {
 const serialCharge = transaction({ id: "lab/charge", input: { who: U }, key: [], concurrency: "serialize", services: [FakeApi], commit: write("charge") });
 const serial = definition({
   id: BareId,
-  states: { A: {}, W: {}, B: {}, U: {}, T: {}, TF: {} },
+  states: ["A", "W", "B", "U", "T", "TF"],
   events: { ...bareEvents, Two: {}, NoteMap: {}, IfIdleK: {}, Arm: {}, ArmFar: {} },
-  internalEvents: { Ok: { value: U }, No: { why: U, who: U }, Unsure: {}, Fired: {} },
+  internalEvents: { Ok: { value: U }, No: { why: U, who: U }, Unsure: Flow.uncertain({}), Fired: {} },
   memory: { ...bareMemory, fired: S.optionalKey(S.Number) },
   operations: ({ E }) => ({
     charge: serialCharge.outcomes({
@@ -38,8 +38,8 @@ const serialMachine = machine(serial, ({ S: St, E, O }) => ({
     Go: { target: St.W, actions: [O.charge.commit(({ memory }) => ({ who: memory.who }))] },
     GoBad: { target: St.W, actions: [O.charge.commit(() => ({ big: 1n }) as never)] },
     IfIdle: [{ guard: [O.charge.idle(() => ({}))], updateMemory: ({ memory }) => ({ peeks: memory.peeks + 1 }) }, {}],
-    Retry: { actions: [O.charge.retry.key(() => ({}))] },
-    Forget: { target: St.A, actions: [O.charge.cancel.key(() => ({}))] },
+    Retry: { actions: [O.charge.retry(() => ({}))] },
+    Forget: { target: St.A, actions: [O.charge.cancel(() => ({}))] },
     Note: { updateMemory: ({ event }) => ({ note: event.text, noteCopy: event.text }) },
     Peek: [{ guard: [({ memory }) => memory.note === memory.noteCopy || deny("Mixed")], updateMemory: ({ memory }) => ({ peeks: memory.peeks + 1 }) }, {}],
     NoteBad: { updateMemory: () => ({ note: 1n }) },
@@ -83,9 +83,9 @@ const businessCharge = transaction({
 });
 const business = definition({
   id: BareId,
-  states: { A: {}, W: {}, B: {}, U: {} },
+  states: ["A", "W", "B", "U"],
   events: bareEvents,
-  internalEvents: { Ok: { value: U }, No: {}, Unsure: {} },
+  internalEvents: { Ok: { value: U }, No: {}, Unsure: Flow.uncertain({}) },
   memory: bareMemory,
   operations: ({ E }) => ({ charge: businessCharge.outcomes({ success: E.Ok.from((v: unknown) => ({ value: v })), failure: { NotSent: E.No }, unknown: E.Unsure }) }),
 });
@@ -96,8 +96,8 @@ const businessFx = fixture(
       Go: { target: St.W, actions: [O.charge.commit(({ memory }) => ({ who: memory.who }))] },
       GoBad: { target: St.W, actions: [O.charge.commit(() => ({ big: 1n }) as never)] },
       IfIdle: [{ guard: [O.charge.idle(() => ({}))], updateMemory: ({ memory }) => ({ peeks: memory.peeks + 1 }) }, {}],
-      Retry: { actions: [O.charge.retry.key(() => ({}))] },
-      Forget: { target: St.A, actions: [O.charge.cancel.key(() => ({}))] },
+      Retry: { actions: [O.charge.retry(() => ({}))] },
+      Forget: { target: St.A, actions: [O.charge.cancel(() => ({}))] },
       Note: { updateMemory: ({ event }) => ({ note: event.text, noteCopy: event.text }) },
       Peek: [{ guard: [({ memory }) => memory.note === memory.noteCopy || deny("Mixed")], updateMemory: ({ memory }) => ({ peeks: memory.peeks + 1 }) }, {}],
       NoteBad: { updateMemory: () => ({ note: 1n }) },
@@ -123,22 +123,22 @@ const heal = () => (globalThis as { __healed?: boolean }).__healed === true;
 const dCharge = transaction({ id: "lab/charge", input: {}, key: [], concurrency: "reject", services: [FakeApi], commit: write<{ readonly v?: unknown }, never>("charge") });
 // `other` keys by its whole input, `k`: the hand key was `i => i`, which is this field list for this input.
 const other = transaction({ id: "lab/other", input: { k: U }, key: ["k"], concurrency: "reject", services: [FakeApi], commit: write("other") });
-const read = resource({ id: "lab/read", input: { v: U }, key: [], services: [FakeApi], commit: (i) => call<unknown, "NoResponse">("read")(i) });
+const read = resource({ id: "lab/read", input: { v: U }, key: [], services: [FakeApi], lookup: (i) => call<unknown, "NoResponse">("read")(i) });
 const boomOp = transaction({ id: "lab/boom", input: {}, key: [], concurrency: "reject", services: [FakeApi], commit: write<{ readonly v?: unknown }, never>("boom") });
-const readBoom = resource({ id: "lab/readBoom", input: { v: U }, key: [], services: [FakeApi], commit: (i) => call<unknown, "NoResponse">("readBoom")(i) });
-const readLoop = resource({ id: "lab/readLoop", input: { v: U }, key: [], services: [FakeApi], commit: (i) => call<unknown, "NoResponse">("readLoop")(i) });
+const readBoom = resource({ id: "lab/readBoom", input: { v: U }, key: [], services: [FakeApi], lookup: (i) => call<unknown, "NoResponse">("readBoom")(i) });
+const readLoop = resource({ id: "lab/readLoop", input: { v: U }, key: [], services: [FakeApi], lookup: (i) => call<unknown, "NoResponse">("readLoop")(i) });
 // Finding F2: the hand key was `() => new Set()`, which no field list makes.
-const readKey = resource({ id: "lab/readKey", input: { v: U }, key: [], services: [FakeApi], commit: (i) => call<unknown, "NoResponse">("readKey")(i) });
+const readKey = resource({ id: "lab/readKey", input: { v: U }, key: [], services: [FakeApi], lookup: (i) => call<unknown, "NoResponse">("readKey")(i) });
 const doors = definition({
   id: DoorsId,
-  states: { A: {}, W: {}, B: {}, C: {} },
+  states: ["A", "W", "B", "C"],
   events: {
     Go: {}, OnlyKeyed: { v: U }, Look: { v: U }, LookKeyBad: {}, CancelBad: { v: U }, RetryBad: { v: U }, GoOther: { v: U }, GoBoom: {}, ReadBoom: {},
     LoopLook: {}, LoopGood: {},
   },
   internalEvents: {
-    Done: { v: U }, Failed: {}, Unsure: {}, Looked: { value: U }, LookFailed: {}, BoomDone: { v: U }, BoomNo: {}, BoomUnsure: {}, ReadBoomed: {}, ReadBoomFailed: {},
-    LoopFailed: {}, Looped: {}, OtherOk: {}, OtherNo: {}, OtherUnsure: {},
+    Done: { v: U }, Failed: {}, Unsure: Flow.uncertain({}), Looked: { value: U }, LookFailed: {}, BoomDone: { v: U }, BoomNo: {}, BoomUnsure: Flow.uncertain({}), ReadBoomed: {}, ReadBoomFailed: {},
+    LoopFailed: {}, Looped: {}, OtherOk: {}, OtherNo: {}, OtherUnsure: Flow.uncertain({}),
   },
   memory: { looked: Flow.initial(S.Boolean, false), last: Flow.initial(U, null), cancels: Flow.initial(S.Number, 0), retries: Flow.initial(S.Number, 0), loops: S.optionalKey(S.Number) },
   operations: ({ E }) => ({
@@ -167,8 +167,8 @@ export const doorsFixture = fixture(
         LookKeyBad: { actions: [O.readKey.lookup(() => ({ v: "fine" }))] },
         Looked: { updateMemory: ({ event }) => ({ last: event.value ?? "ok" }) },
         LookFailed: { updateMemory: () => ({ last: "failed" }) },
-        CancelBad: { updateMemory: () => ({ cancels: 1 }), actions: [O.other.cancel.key(badKey)] },
-        RetryBad: { updateMemory: () => ({ retries: 1 }), actions: [O.other.retry.key(badKey)] },
+        CancelBad: { updateMemory: () => ({ cancels: 1 }), actions: [O.other.cancel(badKey)] },
+        RetryBad: { updateMemory: () => ({ retries: 1 }), actions: [O.other.retry(badKey)] },
         GoOther: { actions: [O.other.commit(({ event }) => ({ k: event.v }))] },
         // A success whose handler throws on this value: the turn refuses, twice. The server did it.
         GoBoom: { target: St.W, actions: [O.boom.commit(() => ({}))] },
@@ -204,8 +204,8 @@ export const doorsFixture = fixture(
 
 // Copies under `.each`: a read's ending finds its copy by id (`admitRead`, `pathOfId`), so a repeated id reaches the wrong one (M3).
 export const CopiesId = "Lab/Copies";
-const load = resource({ id: "lab/load", input: { tag: U }, key: [], services: [FakeApi], commit: (i) => call<unknown, "NoResponse">("load")(i) });
-const IdCopy = fragment(
+const load = resource({ id: "lab/load", input: { tag: U }, key: [], services: [FakeApi], lookup: (i) => call<unknown, "NoResponse">("load")(i) });
+const IdCopy = trait(
   {
     id: "IdCopy",
     events: { Load: { tag: U } },
@@ -227,11 +227,11 @@ const IdCopy = fragment(
 );
 const copies = definition({
   id: CopiesId,
-  states: {},
+  states: [],
   events: { Add: { id: S.String }, Note: { text: U }, BadReset: {}, RaiseTwice: {} },
   internalEvents: {},
   memory: { ids: Flow.initial(S.Array(S.String), ["x"]), note: Flow.initial(U, ""), bad: S.optionalKey(U) },
-  places: { c: IdCopy, r: IdCopy },
+  traits: { c: IdCopy.each({ of: "ids", max: 16 }), r: IdCopy },
   operations: () => ({}),
 });
 export const copiesFixture = fixture(
@@ -243,7 +243,7 @@ export const copiesFixture = fixture(
       BadReset: { updateMemory: () => ({ bad: new Set() }) },
       RaiseTwice: { raise: [E.c.Set.key(() => "x"), E.c.Set.key(() => "x")] },
     },
-    traits: { c: { each: { of: "ids", max: 16 } }, r: { resetOn: ({ memory }) => memory.bad ?? "same" } },
+    traits: { r: { resetOn: ({ memory }) => memory.bad ?? "same" } },
   })),
 );
 
@@ -260,9 +260,9 @@ const w = transaction({
 });
 const loop = definition({
   id: LoopId,
-  states: { A: {} },
+  states: ["A"],
   events: { Go: {} },
-  internalEvents: { Ok: {}, No: {}, Unsure: {} },
+  internalEvents: { Ok: {}, No: {}, Unsure: Flow.uncertain({}) },
   memory: { loops: Flow.initial(S.Number, 0) },
   persisted: false,
   operations: ({ E }) => ({ w: w.outcomes({ success: E.Ok, failure: { NotSent: E.No }, unknown: E.Unsure }) }),

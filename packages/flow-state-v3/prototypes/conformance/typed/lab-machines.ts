@@ -1,7 +1,7 @@
 // Round 11: `fixtures/lab.compiled.ts`, written in the public API: Form (traits with no operations), Notes (writing traits under `.each`), Feed (a resumable
 // trait with a lookup), Odd (values core must encode). Docs and the Issues variants carry a `domain` and wait for the entity step (finding F5): re-exported hand.
 import { Effect, Schema } from "effect";
-import { definition, deny, Flow, fragment, machine, resource, transaction } from "./flow.ts";
+import { definition, deny, Flow, machine, resource, trait, transaction } from "../compile/index.ts";
 import { call, FakeApi, fixture, write } from "./lab.ts";
 import { notesFixture as handNotes } from "../fixtures/lab.compiled.ts";
 
@@ -13,7 +13,7 @@ const U = S.Unknown;
 const Strs = S.Array(S.String);
 
 // ── Form: traits with no operations. Field (3.3), a node trait with a schedule, `.each`, `resetOn`, whenAbandoned, callbacks.
-const Field = fragment(
+const Field = trait(
   {
     id: "Field",
     events: { Changed: { value: S.String }, Clear: {} },
@@ -30,7 +30,7 @@ const Field = fragment(
     whenAbandoned: [callbacks.onGone.from(({ memory, key }: { readonly memory: { readonly value: unknown }; readonly key?: string }) => ({ value: memory.value, key }))],
   }),
 );
-const Flash = fragment(
+const Flash = trait(
   { id: "Flash", internalEvents: { Expired: {} }, callbacks: { onExpired: Flow.Callback({}) }, memory: { n: Flow.initial(S.Number, 0) } },
   ({ E, callbacks }) => ({
     schedules: { expire: { schedule: "1 second", send: E.Expired } },
@@ -38,10 +38,10 @@ const Flash = fragment(
   }),
 );
 // A whenAbandoned that writes what its own resetOn watches: rule 1's lag, and D35's bound.
-const Osc = fragment({ id: "Osc", callbacks: { onGone: Flow.Callback({}) } }, ({ callbacks }) => ({ whenAbandoned: [callbacks.onGone] }));
+const Osc = trait({ id: "Osc", callbacks: { onGone: Flow.Callback({}) } }, ({ callbacks }) => ({ whenAbandoned: [callbacks.onGone] }));
 const form = definition({
   id: "Form",
-  states: { EDIT: {}, DONE: {} },
+  states: [{ EDIT: Flow.state({ traits: { flash: Flash } }) }, "DONE"],
   events: {
     SetSubject: { subject: S.String }, SetAndRaise: { subject: S.String }, SetIds: { ids: Strs }, AddAndRaise: { key: S.String }, RaiseGone: { key: S.String },
     RefuseChild: {}, Spin: {}, Go: {}, Back: {},
@@ -53,7 +53,7 @@ const form = definition({
     spinning: Flow.initial(S.Boolean, false), resets: Flow.initial(S.Number, 0), flashes: Flow.initial(S.Number, 0), moved: Flow.initial(S.Boolean, false),
   },
   persisted: false,
-  places: { check: Field, rows: Field, osc: Osc },
+  traits: { check: Field, rows: Field.each({ of: "rowIds", max: 2 }), osc: Osc },
   operations: () => ({}),
 });
 export const formFixture = fixture(
@@ -75,7 +75,6 @@ export const formFixture = fixture(
         },
       },
       rows: {
-        each: { of: "rowIds", max: 2 },
         input: ({ key }) => ({ value: `seed ${key}` }),
         callbacks: {
           onDirty: {},
@@ -102,7 +101,7 @@ export const formFixture = fixture(
       Go: St.DONE,
       Back: St.EDIT,
     },
-    states: { EDIT: { traits: { flash: { fragment: Flash, callbacks: { onExpired: { updateMemory: ({ memory }) => ({ flashes: memory.flashes + 1 }) } } } } } },
+    states: { EDIT: { traits: { flash: { callbacks: { onExpired: { updateMemory: ({ memory }) => ({ flashes: memory.flashes + 1 }) } } } } } },
   })),
 );
 
@@ -110,11 +109,11 @@ export const formFixture = fixture(
 // (rule 51's decline). Persisted.
 const saveC = transaction({ id: "lab/save", input: { docId: U, body: U }, key: ["docId"], concurrency: "reject", services: [FakeApi], commit: write<unknown, "Conflict">("save") });
 const sharedC = transaction({ id: "lab/shared", input: { from: U }, key: [], concurrency: "reject", services: [FakeApi], commit: write("shared") });
-const Autosave = fragment(
+const Autosave = trait(
   {
     id: "Autosave",
     events: { Edited: { body: S.String }, Shared: {}, Resend: {}, Drop: {}, RetryShared: {}, CancelShared: {}, IdleShared: {} },
-    internalEvents: { Saved: { body: U }, Conflict: { mine: U }, NotSent: { why: U }, Unsure: { reason: U }, SharedDone: {}, SharedNotSent: { why: U } },
+    internalEvents: { Saved: { body: U }, Conflict: { mine: U }, NotSent: { why: U }, Unsure: Flow.uncertain({ reason: U }), SharedDone: {}, SharedNotSent: { why: U } },
     memory: {
       body: Flow.initial(U, ""), status: Flow.initial(U, "clean"), saved: Flow.initial(U, null), mine: Flow.initial(U, null), why: Flow.initial(U, null),
       reason: Flow.initial(U, null), shared: Flow.initial(U, null),
@@ -135,12 +134,12 @@ const Autosave = fragment(
     on: {
       Edited: { updateMemory: ({ event }) => ({ body: event.body, status: "saving" }), actions: [O.save.commit(({ event, key }) => ({ docId: key, body: event.body }))] },
       Shared: { actions: [O.shared.commit(({ key }) => ({ from: key }))] },
-      Resend: { guard: [O.save.retryable({ times: 3, key: ({ key }) => ({ docId: key }) })], actions: [O.save.retry.key(({ key }) => ({ docId: key }))] },
-      Drop: { actions: [O.save.cancel.key(({ key }) => ({ docId: key }))] },
+      Resend: { guard: [O.save.retryable(({ key }) => ({ docId: key }), { times: 3 })], actions: [O.save.retry(({ key }) => ({ docId: key }))] },
+      Drop: { actions: [O.save.cancel(({ key }) => ({ docId: key }))] },
       Saved: { updateMemory: ({ event }) => ({ status: "clean", saved: event.body }) },
       // Rule 55: an adopted handler reads what it needs from the event.
-      RetryShared: [{ guard: [O.shared.retryable({ times: 3, key: () => ({}) })], actions: [O.shared.retry.key(() => ({}))] }, { updateMemory: () => ({ shared: "retry-denied" }) }],
-      CancelShared: { actions: [O.shared.cancel.key(() => ({}))] },
+      RetryShared: [{ guard: [O.shared.retryable(() => ({}), { times: 3 })], actions: [O.shared.retry(() => ({}))] }, { updateMemory: () => ({ shared: "retry-denied" }) }],
+      CancelShared: { actions: [O.shared.cancel(() => ({}))] },
       IdleShared: [{ guard: [O.shared.idle(() => ({}))], updateMemory: () => ({ shared: "idle" }) }, { updateMemory: () => ({ shared: "busy" }) }],
       Conflict: { updateMemory: ({ event }) => ({ status: "conflict", mine: event.mine }) },
       NotSent: { updateMemory: ({ event }) => ({ status: "notSent", why: event.why }) },
@@ -151,11 +150,11 @@ const Autosave = fragment(
   }),
 );
 const putC = transaction({ id: "lab/put", input: { ref: U }, key: ["ref"], concurrency: "reject", services: [FakeApi], commit: write("put") });
-const Upload = fragment(
+const Upload = trait(
   {
     id: "Upload",
     hostEvents: { Kick: {} },
-    internalEvents: { StartDue: {}, Stored: {}, NotSent: {}, Unsure: {} },
+    internalEvents: { StartDue: {}, Stored: {}, NotSent: {}, Unsure: Flow.uncertain({}) },
     callbacks: { onStored: Flow.Callback({ ref: U }) },
     memory: { status: Flow.initial(U, "queued") },
     operations: ({ E }) => ({ put: putC.outcomes({ success: E.Stored, failure: { NotSent: E.NotSent }, unknown: E.Unsure }) }),
@@ -181,11 +180,11 @@ const Upload = fragment(
 );
 const notes = definition({
   id: "Notes",
-  states: { READY: {} },
+  states: ["READY"],
   events: { SetDocs: { docs: Strs }, SetDocsThen: { docs: Strs }, SetFiles: { files: Strs }, KickAndDrop: { key: S.String } },
   internalEvents: {},
   memory: { docs: Flow.initial(Strs, []), files: Flow.initial(Strs, []), stored: Flow.initial(S.Array(U), []) },
-  places: { docs: Autosave, uploads: Upload },
+  traits: { docs: Autosave.each({ of: "docs", max: 4 }), uploads: Upload.each({ of: "files", max: 4 }) },
   operations: () => ({}),
 });
 export const notesFixture = {
@@ -193,8 +192,7 @@ export const notesFixture = {
     machine(notes, ({ S: St, E }) => ({
       default: St.READY,
       traits: {
-        docs: { each: { of: "docs", max: 4 } },
-        uploads: { each: { of: "files", max: 4 }, callbacks: { onStored: { updateMemory: ({ memory, event }) => ({ stored: [...memory.stored, (event as { readonly ref: unknown }).ref] }) } } },
+        uploads: { callbacks: { onStored: { updateMemory: ({ memory, event }) => ({ stored: [...memory.stored, (event as { readonly ref: unknown }).ref] }) } } },
       },
       on: {
         SetDocs: { updateMemory: ({ event }) => ({ docs: event.docs }) },
@@ -210,8 +208,8 @@ export const notesFixture = {
 };
 
 // ── Feed: a resumable trait with a lookup. Rule 52, 2.9.6's catch-up, FP RV3 H1. Persisted.
-const catchUp = resource({ id: "lab/catchUp", input: { from: U }, key: [], services: [FakeApi], commit: (i) => call<unknown, "NoResponse">("catchUp")(i) });
-const Tail = fragment(
+const catchUp = resource({ id: "lab/catchUp", input: { from: U }, key: [], services: [FakeApi], lookup: (i) => call<unknown, "NoResponse">("catchUp")(i) });
+const Tail = trait(
   {
     id: "Tail",
     events: { Sync: {} },
@@ -238,12 +236,11 @@ const Tail = fragment(
     },
   }),
 );
-const feed = definition({ id: "Feed", states: { LIVE: {}, AWAY: {} }, events: { Away: {}, Live: {} }, internalEvents: {}, memory: {}, operations: () => ({}) });
+const feed = definition({ id: "Feed", states: [{ LIVE: Flow.state({ traits: { tail: Tail.resumable() } }) }, "AWAY"], events: { Away: {}, Live: {} }, internalEvents: {}, memory: {}, operations: () => ({}) });
 export const feedFixture = fixture(
   machine(feed, ({ S: St }) => ({
     default: St.LIVE,
     on: { Away: St.AWAY, Live: St.LIVE },
-    states: { LIVE: { traits: { tail: { fragment: Tail, resumable: true } } } },
   })),
 );
 
@@ -251,9 +248,9 @@ export const feedFixture = fixture(
 const bad = transaction({ id: "lab/bad", input: { id: U }, key: ["id"], concurrency: "reject", services: [FakeApi], commit: write("bad") });
 const odd = definition({
   id: "Odd",
-  states: { READY: {} },
+  states: ["READY"],
   events: { BadKey: {}, BadMemory: {}, Fine: {} },
-  internalEvents: { Done: {} },
+  internalEvents: { Done: Flow.uncertain({}) },
   memory: { n: Flow.initial(S.Number, 0), big: S.optionalKey(U) },
   operations: ({ E }) => ({ bad: bad.outcomes({ success: E.Done, failure: { NotSent: E.Done }, unknown: E.Done }) }),
 });

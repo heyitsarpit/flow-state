@@ -3,14 +3,14 @@ import { Effect, Schema } from "effect";
 import { makeHarness } from "../../conformance/drive.ts";
 import type { Fixture } from "../../conformance/harness.ts";
 import { port } from "../adapter.ts";
-import { definition, Flow, machine, transaction } from "../../conformance/typed/flow.ts";
+import { definition, Flow, machine, transaction } from "../../conformance/compile/index.ts";
 
 const save = transaction({ id: "t/save", input: { id: Schema.String }, key: ["id"], concurrency: "reject", commit: () => Effect.void });
 const D = definition({
   id: "T/Date",
-  states: { A: {} },
+  states: ["A"],
   events: { Touch: {} },
-  internalEvents: { Ok: {}, No: {}, Unsure: {} },
+  internalEvents: { Ok: {}, No: {}, Unsure: Flow.uncertain({}) },
   memory: { at: Flow.initial(Schema.Date, new Date(0)), n: Flow.initial(Schema.Number, Number.NaN), big: Flow.initial(Schema.BigInt, 1n) },
   operations: ({ E }) => ({ save: save.outcomes({ success: E.Ok, failure: { NotSent: E.No }, unknown: E.Unsure }) }),
 });

@@ -78,7 +78,8 @@ export const MUTANTS = [
   // Typed: killed only by `--swap`, compare or the date check. Round 7's review read 0/11 here because the runner ran none of them.
   m("typed.flip-a-target", "D91", "typed/pay.typed.ts", "target: S.CARD,", "target: S.LEFT,"),
   m("typed.json-not-schema", "D89", "record.ts", "return canon(m && r.root ? { ...r, root: walk(m, r.root) } : record);", "return canon(record);"),
-  m("typed.restore-ignores-codec", "D89", "typed/flow.ts", "? Schema.decodeUnknownSync(jsonCodec(f))(s[k])", "? s[k]"),
+  // Round 12 (review L4): retargeted to the compile prototype's memory, where the restore now is.
+  m("typed.restore-ignores-codec", "D89", "../conformance/compile/memory.ts", "if (k in s) out[k] = (Schema.decodeUnknownSync(codecs.get(k)!)({ [k]: s[k] }) as Record<string, unknown>)[k];", "if (k in s) out[k] = s[k];"),
   // The CLI: pins only.
   m("cli.notsent-off", "D92", "cli/check.ts", 'push({ severity: "error", rule: "Rule20NotSent",', 'void ({ severity: "error", rule: "Rule20NotSent",'),
   m("cli.unknown-event-off", "D92", "cli/check.ts", 'push({ severity: "error", rule: "UnknownEvent", machine: c.id, path: `on.${e}`,', 'void ({ severity: "error", rule: "UnknownEvent", machine: c.id, path: `on.${e}`,'),

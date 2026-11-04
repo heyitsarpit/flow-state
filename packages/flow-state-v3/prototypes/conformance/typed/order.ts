@@ -1,7 +1,7 @@
 // Round 11: `fixtures/order.compiled.ts` and `fixtures/drv.compiled.ts`, written in the public API. Ring records what it saw, so order is visible by memory;
 // its head insertions are the `labFollowUps` seam (D203, finding F4). Drv is S2's commit matrix on the real driver.
 import { Effect, Schema } from "effect";
-import { definition, Flow, machine, transaction } from "./flow.ts";
+import { definition, Flow, machine, transaction } from "../compile/index.ts";
 import { FakeApi, fixture, write } from "./lab.ts";
 import type { Api } from "../fake-world.ts";
 
@@ -13,9 +13,9 @@ const U = S.Unknown;
 const job = transaction({ id: "ring/job", input: { n: U, who: U }, key: ["n"], concurrency: "reject", services: [FakeApi], commit: write("job") });
 const ring = definition({
   id: "Ring",
-  states: { READY: {} },
+  states: ["READY"],
   events: { Say: { n: U }, SayThenX: { n: U }, Loop: { n: U }, Nest: { n: U }, Nest1: { n: U }, Boom: { n: U }, WorkBad: { n: U, who: U }, Work: { n: U, who: U } },
-  internalEvents: { JobDone: {}, JobUnsure: {}, JobRefused: {} },
+  internalEvents: { JobDone: {}, JobUnsure: Flow.uncertain({}), JobRefused: {} },
   memory: { log: Flow.initial(S.Array(U), []) },
   persisted: false,
   operations: ({ E }) => ({ job: job.outcomes({ success: E.JobDone, failure: { NotSent: E.JobRefused }, unknown: E.JobUnsure }) }),
@@ -60,9 +60,9 @@ const drvMachine = (api: Api) => {
   const otherOp = drvOp(api, "other");
   const drv = definition({
   id: "Drv",
-  states: { READY: {} },
+  states: ["READY"],
   events: { Go: { behaviour: U }, GoOther: { behaviour: U }, GoBoth: { behaviour: U }, Cancel: {} },
-  internalEvents: { Ended: { how: S.String } },
+  internalEvents: { Ended: Flow.uncertain({ how: S.String }) },
   memory: { ends: Flow.initial(S.Array(U), []) },
   persisted: false,
   operations: ({ E }) => {
@@ -77,7 +77,7 @@ const drvMachine = (api: Api) => {
       Go: { actions: [O.job.commit(({ event }) => event as never)] },
       GoOther: { actions: [O.other.commit(({ event }) => event as never)] },
       GoBoth: { actions: [O.job.commit(({ event }) => event as never), O.other.commit(({ event }) => event as never)] },
-      Cancel: { actions: [O.job.cancel.key(() => ({}))] },
+      Cancel: { actions: [O.job.cancel(() => ({}))] },
       Ended: { updateMemory: ({ memory, event }) => ({ ends: [...memory.ends, event.how] }) },
     },
   }));

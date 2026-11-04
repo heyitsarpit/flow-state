@@ -789,3 +789,42 @@ output:R12-KEYS/a-release-that-adds-a-key-field-the-stored-input-lacks-keeps-the
 output:R12-KEYS/a-typed-release-that-changes-the-key-rekeys-and-does-not-mint hash:1fb83e4181e3 | round 12, review M5: new rekey case's output
 output:R12-MEMORY hash:5cb1f72927f7 | round 12, review Q1: new case's output
 output:R12-SERVICES hash:827541ad3b22 | round 12, review L2: new case's output
+--- round 12, the compile prototypes: every typed fixture in the design's spelling, the same output (746/746, whole output and RECIPIENTS unchanged)
+file:typed/cart.ts hash:47f7386f36f4 | round 12, compile prototypes: Cart and MiniCart, ordered states, lookup, Flow.uncertain
+file:typed/chat.ts hash:a13f2354e0a3 | round 12, compile prototypes: Chat and Presence, ordered states
+file:typed/comments.ts hash:6ea51a9f5d15 | round 12, compile prototypes: Comments a trait placed in Editor's and Queue's definitions
+file:typed/desk.ts hash:d6434ba02f91 | round 12, compile prototypes: Tickets, TraitWrite, EachWrite, LateFill, EachReset with placement in the definition
+file:typed/feed.ts hash:580a9414f136 | round 12, compile prototypes: DeskFeed, and Rooms' trait resumable in its definition
+file:typed/form.ts hash:cde10d5fc5e5 | round 12, compile prototypes: Form's machines from the compile prototype
+file:typed/issues.ts hash:df1400ce718d | round 12, compile prototypes: Issues/List, retry(k) and cancel(k), Flow.uncertain
+file:typed/lab-machines.ts hash:7e611ae265ab | round 12, compile prototypes: Form, Notes, Feed, Odd with .each and .resumable() on the placed value
+file:typed/lab.ts hash:1bbc0587d2e7 | round 12, compile prototypes: fixture() imports the boot's typing from compile/
+file:typed/order.ts hash:4edafc259d44 | round 12, compile prototypes: Ring and Drv, Flow.uncertain on the unknown targets
+file:typed/pay-full.ts hash:6950d725b577 | round 12, compile prototypes: pay-full's summary in the definition, ThreeDS a subroutine by its state
+file:typed/pay.ts hash:7c08417e69af | round 12, compile prototypes: Pay in the design's spelling, the pinned behaviour unchanged
+file:typed/real.ts hash:9ce741bef76b | round 12, compile prototypes: AddressStep, Wizard, Upload, History, Deep; nested bodies; F6 as target exits.Done
+file:typed/round10.ts hash:feddb1eaa7a1 | round 12, compile prototypes: Let's trait resumable at F, in its definition
+file:typed/round6.ts hash:7925834a8cc9 | round 12, compile prototypes: MemoryRelease, KeyReleaseTyped, Dates, RowMove, Engine, Getter
+file:typed/round7.ts hash:d311490fd524 | round 12, compile prototypes: Lab/Bare and Lab/FragPair
+file:typed/round8.ts hash:83315840f130 | round 12, compile prototypes: serial Bare, business key, Doors, Copies, Loop
+file:typed/round9.ts hash:e51ca9317757 | round 12, compile prototypes: Lab/Bulk's rows and Lab/Kept's copies placed in the definition
+file:typed/round9b.ts hash:910a247ba367 | round 12, compile prototypes: Lab/Chain and Lab/Edge, Edge's traits on Flow.state nodes
+file:typed/stores.ts hash:a08839923eda | round 12, compile prototypes: Refunds, S1 and Docs
+file:typed/threeds.ts hash:48329cb338f4 | round 12, compile prototypes: Countdown a trait, ThreeDS a subroutine with Countdown on OPEN
+file:compile/body.ts hash:e98c7003f931 | round 12: new, the shared body compile: ordered states, Flow.state, placement and filling, alternatives
+file:compile/core.ts hash:ba05e630de92 | round 12: new, what the compile prototypes share
+file:compile/events.ts hash:6804dcd12926 | round 12: new, event tokens and Flow.uncertain
+file:compile/fragment.ts hash:996d78689a6b | round 12: new, the fragment compile prototype: trait and subroutine
+file:compile/index.ts hash:a1eb68f7e14b | round 12: new, the compile prototypes' public surface and the named seams
+file:compile/machine.ts hash:e28a069f38f3 | round 12: new, the machine compile prototype: definition and machine
+file:compile/memory.ts hash:02761761f629 | round 12: new, memory fields compiled (D214)
+file:compile/operations.ts hash:2d1126f04663 | round 12: new, the operations compile prototype: contracts, outcomes, O, services (D213)
+removed:file:typed/flow.ts | round 12: the fixture front end, replaced by conformance/compile/ (the compile prototypes); prior art at bc934edb
+file:main.ts hash:413dfcfc5fa1 | round 12: compile/ walked into the lock, hashed by text as typed/ is
+round:typed/census.ts hash:718d706db22e | round 12, review M4: typed-only cases split by D209 module blocks; field Schemas not counted as closures
+round:typed/date-check.ts hash:6b90120b1bf9 | round 12: date-check in the compile prototypes' spelling
+round:typed/type-tests.ts hash:f14dd590dd54 | round 12: type pins in the compile prototypes' spelling, and a select typed by its handler's event
+round:checks/front-check.ts hash:e06e2d4f1928 | round 12: front-check on the compile prototypes; UnknownNotUncertain, UnknownTrait, nested UnknownState pinned
+round:checks/types-check.ts hash:fd94a9b878f6 | round 12: the typed selector's directive; "no such state" names the ordered list's type
+round:mutants-r8.ts hash:fd0da998b8b7 | round 12, review L4: typed.restore-ignores-codec retargeted to compile/memory.ts
+round:mutants-r9b.ts hash:a63507e3087f | round 12, review L4: the D124 mutants retargeted to compile/operations.ts

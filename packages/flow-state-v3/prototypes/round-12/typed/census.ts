@@ -25,6 +25,7 @@ const api0 = new Proxy({}, { get: () => () => undefined }) as Api;
 const kind = (f: Fixture): "typed" | "edited" | "hand" =>
   (f as { typed?: boolean }).typed === true ? "typed" : (() => { try { return f.make(api0).events ? "edited" : "hand"; } catch { return "hand"; } })();
 const caseKind = new Map<string, "typed" | "edited" | "hand">();
+const withModules = new Set<string>();
 const untypedIds = new Map<string, number>();
 runScenarios(make, new Set(), undefined, {
   onResult: (r) => {
@@ -32,6 +33,8 @@ runScenarios(make, new Set(), undefined, {
     for (const f of bucket) (seen.get(f) ?? seen.set(f, new Set()).get(f)!).add(name);
     const kinds = bucket.map(kind);
     caseKind.set(name, bucket.length === 0 || kinds.includes("hand") ? "hand" : kinds.includes("edited") ? "edited" : "typed");
+    // Round 12 (review M4): a typed case whose machine carries a `domain` or `streams` block boots D209's `Compiled`-shaped module data, not the design's API.
+    if (caseKind.get(name) === "typed" && bucket.some((f) => { const c = f.make(api0); return c.domain !== undefined || c.streams !== undefined; })) withModules.add(name);
     for (const id of new Set(bucket.filter((_f, i) => kinds[i] === "hand").map((f) => f.id))) untypedIds.set(id, (untypedIds.get(id) ?? 0) + 1);
     bucket = [];
   },
@@ -46,6 +49,7 @@ const walk = (v: unknown, p: string, s: Stat, seenObj: Set<object>) => {
   seenObj.add(v);
   if (Array.isArray(v)) return v.forEach((x, i) => walk(x, `${p}[${i}]`, s, seenObj));
   const o = v as Record<string, unknown>;
+  if (/(^|\.)memory\.fields\.[^.]+$/.test(p)) return; // round 12 (D214): a field's Schema is a value, not a closure of the definition (as the seal reads it)
   if (typeof o["run"] === "function" && o["at"]) {
     s.slots++;
     const at = o["at"] as { definition: string; path: string };
@@ -121,5 +125,6 @@ const t = (k: "slots") => rows.reduce((a, r) => a + r[k], 0);
 console.log(`fixture objects ${rows.length}; distinct ids ${byId.size}; slots ${t("slots")}; bare ${rows.reduce((a, r) => a + r.bare.length, 0)}; duplicate paths ${rows.reduce((a, r) => a + r.dups.length, 0)}; non-finite numbers ${rows.reduce((a, r) => a + r.infinities.length, 0)}`);
 const count = (k: string) => [...caseKind.values()].filter((x) => x === k).length;
 console.log(`TYPED  ${count("typed")}/${caseKind.size} cases boot only typed output; ${count("edited")} more boot typed output a case edits; ${count("hand")} boot a hand machine. Hand machines, by cases: ${[...untypedIds].sort((a, b) => b[1] - a[1]).map(([k, n]) => `${k} ${n}`).join(", ") || "none"}`);
+console.log(`MODULES  of the ${count("typed")} typed-only cases, ${withModules.size} boot a typed machine with D209's Compiled-shaped domain or streams block, ${count("typed") - withModules.size} machine-only typed output`);
 const i = process.argv.indexOf("--json");
 if (i > 0) await Bun.write(process.argv[i + 1]!, JSON.stringify(rows, null, 1));

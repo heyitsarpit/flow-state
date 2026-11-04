@@ -46,13 +46,13 @@ export const MUTANTS = [
   // D114 on reads.
   m("d114.read-input-lost", "M6", "reads.ts", "ending, input: a.input, inc: a.inc", "ending, input: undefined, inc: a.inc"),
   m("d114.read-key-lost", "M6", "reads.ts", "key: a.key, owner: a.owner, ending", "key: null, owner: a.owner, ending"),
-  // D124.
-  m("d124.front-none", "D124", "typed/flow.ts", "...(inputNotCarried.length ? { inputNotCarried } : {}), // D124"),
-  m("d124.keys-only", "D124", "typed/flow.ts", "Object.entries(c.input as Record<string, { ast: Ast }>).flatMap(", "Object.entries(c.input as Record<string, { ast: Ast }>).filter(([f]) => keyFields.includes(f)).flatMap("),
-  m("d124.no-objects", "D124", "typed/flow.ts", 'case "Objects":\n      return [', 'case "Objects":\n      return []; return ['),
-  m("d124.no-records", "D124", "typed/flow.ts", '...(ast["indexSignatures"] as Array<{ type: Ast }>).flatMap((i) => inner(i.type, `${path}[]`)),'),
-  m("d124.no-arrays", "D124", "typed/flow.ts", 'case "Arrays":\n      return [', 'case "Arrays":\n      return []; return ['),
-  m("d124.no-unions", "D124", "typed/flow.ts", 'return [...new Set<string>((ast["types"] as Ast[]).flatMap((t) => inner(t, path)))];', "return [];"),
-  m("d124.no-sets", "D124", "typed/flow.ts", 'if (says === "ReadonlySet" || says === "ReadonlyMap") return [path];'),
-  m("d124.date-warns", "D124", "typed/flow.ts", 'if (says === "ReadonlySet" || says === "ReadonlyMap") return [path];', "return [path];"),
+  // D124. Round 12 (review L4): retargeted to the compile prototype for operations, where the door's lint now is.
+  m("d124.front-none", "D124", "../conformance/compile/operations.ts", "...(inputNotCarried.length ? { inputNotCarried } : {}),"),
+  m("d124.keys-only", "D124", "../conformance/compile/operations.ts", "Object.entries(c.input as Record<string, { ast: Ast }>).flatMap(", "Object.entries(c.input as Record<string, { ast: Ast }>).filter(([f]) => keyFields.includes(f)).flatMap("),
+  m("d124.no-objects", "D124", "../conformance/compile/operations.ts", 'case "Objects":\n      return [', 'case "Objects":\n      return []; return ['),
+  m("d124.no-records", "D124", "../conformance/compile/operations.ts", '...(ast["indexSignatures"] as Array<{ type: Ast }>).flatMap((i) => inner(i.type, `${path}[]`)),'),
+  m("d124.no-arrays", "D124", "../conformance/compile/operations.ts", 'case "Arrays":\n      return [', 'case "Arrays":\n      return []; return ['),
+  m("d124.no-unions", "D124", "../conformance/compile/operations.ts", 'return [...new Set<string>((ast["types"] as Ast[]).flatMap((t) => inner(t, path)))];', "return [];"),
+  m("d124.no-sets", "D124", "../conformance/compile/operations.ts", 'if (says === "ReadonlySet" || says === "ReadonlyMap") return [path];'),
+  m("d124.date-warns", "D124", "../conformance/compile/operations.ts", 'if (says === "ReadonlySet" || says === "ReadonlyMap") return [path];', "return [path];"),
 ];

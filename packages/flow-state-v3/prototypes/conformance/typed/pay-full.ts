@@ -4,7 +4,7 @@
 import { Context, Schema } from "effect";
 import type { Api } from "../fake-world.ts";
 import { payFullFixture as handPayFull } from "../fixtures/pay-full.compiled.ts";
-import { definition, deny, Flow, fragment, labHostOp, machine, servicesFor, transaction } from "./flow.ts";
+import { definition, deny, Flow, labHostOp, machine, servicesFor, trait, transaction } from "../compile/index.ts";
 import { call, FakeApi, write } from "./lab.ts";
 import {
   Address,
@@ -37,12 +37,12 @@ const shipping = transaction({
   services: [FakeApi],
   commit: write<unknown, "NotDeliverable">("shipping"),
 });
-const OrderSummary = fragment(
+const OrderSummary = trait(
   {
     id: "OrderSummary",
     events: { PayPressed: { paymentMethodId: S.String } },
     hostEvents: { Quote: { postcode: S.String } },
-    internalEvents: { Quoted: { slot: U }, NotDeliverable: { postcode: U }, QuoteFailed: {}, QuoteUnsure: {} },
+    internalEvents: { Quoted: { slot: U }, NotDeliverable: { postcode: U }, QuoteFailed: {}, QuoteUnsure: Flow.uncertain({}) },
     guards: { mayPay: Flow.Guard },
     callbacks: { onPay: Flow.Callback({ paymentMethodId: S.String, shippingSlotId: S.String }) },
     memory: { cartId: Flow.input(S.String), shipping: Flow.initial(U, null), problem: Flow.initial(U, null) },
@@ -83,7 +83,7 @@ const authenticate = transaction({
 });
 const PayFull = definition({
   id: "Checkout/Pay",
-  states: { IDLE: {}, CARD: {}, PAYING: {}, WAITING: {}, UNSURE: {}, PLACING: {}, PAID: {}, STUCK: {}, LEFT: {}, CHALLENGE: {} },
+  states: ["IDLE", "CARD", "PAYING", "WAITING", "UNSURE", "PLACING", "PAID", "STUCK", "LEFT", { CHALLENGE: ThreeDS }],
   events: {
     CardChosen: { paymentMethodId: S.String },
     PayRequested: { paymentMethodId: S.String },
@@ -99,7 +99,7 @@ const PayFull = definition({
     Busy: { retryAfterMs: S.Number },
     PayRefused: { reason: S.String },
     PayNotSent: { why: S.String },
-    PayUnsure: {},
+    PayUnsure: Flow.uncertain({}),
     RetryNow: {},
     CheckTick: {},
     IntentRead: { status: S.String },
@@ -107,14 +107,14 @@ const PayFull = definition({
     OrderSeen: { orderId: S.String },
     Placed: { orderId: S.String, alreadyPlaced: S.Boolean },
     PlaceRefused: {},
-    PlaceUnsure: {},
+    PlaceUnsure: Flow.uncertain({}),
     Voided: {},
     VoidRefused: { chargeId: S.String },
-    VoidUnsure: {},
+    VoidUnsure: Flow.uncertain({}),
     Quoted: {}, // the hand host lists its trait's event at the root, unguarded; kept, so `flow check` reads the same machine
     Authenticated: { authId: S.String },
     AuthFailed: { code: S.String },
-    AuthUnsure: {},
+    AuthUnsure: Flow.uncertain({}),
   },
   memory: {
     cartId: Flow.initial(S.String, ""),
@@ -131,7 +131,7 @@ const PayFull = definition({
     receipt: Flow.initial(S.NullOr(Receipt), null),
     notice: Flow.initial(S.String, ""),
   },
-  places: { summary: OrderSummary, CHALLENGE: ThreeDS },
+  traits: { summary: OrderSummary },
   operations: ({ E }) => ({
     pay: pay.outcomes({
       success: E.Confirmed.from((v: { status: string; clientSecret: string; afterUnsure: boolean }) => ({ status: v.status, clientSecret: v.clientSecret, afterUnsure: v.afterUnsure })),
@@ -228,7 +228,7 @@ const PayFullMachine = machine(PayFull, ({ S: St, E, O }) => {
         { updateMemory: () => ({ authorized: true }) },
       ],
       AuthFailed: {},
-      AuthUnsure: { actions: [O.authenticate.cancel.key(intent)] },
+      AuthUnsure: { actions: [O.authenticate.cancel(intent)] },
     },
     states: {
       IDLE: { on: { Start: start } },
@@ -268,12 +268,12 @@ const PayFullMachine = machine(PayFull, ({ S: St, E, O }) => {
         on: {
           CheckTick: { actions: [O.intent.lookup(intent), O.order.lookup(({ memory }) => ({ cartId: memory.cartId }))] },
           IntentRead: [
-            { target: St.PLACING, guard: [capturable], updateMemory: () => ({ authorized: true }), actions: [O.pay.cancel.key(intent), O.place.commit(cart)] },
-            { index: 2, target: St.PAYING, guard: [({ event }) => event.status === "requires_payment_method" || deny("Moved"), O.pay.retryable({ times: 3, key: intent })], actions: [O.pay.retry.key(intent)] },
+            { target: St.PLACING, guard: [capturable], updateMemory: () => ({ authorized: true }), actions: [O.pay.cancel(intent), O.place.commit(cart)] },
+            { index: 2, target: St.PAYING, guard: [({ event }) => event.status === "requires_payment_method" || deny("Moved"), O.pay.retryable(intent, { times: 3 })], actions: [O.pay.retry(intent)] },
             { index: 3 },
           ],
           OrderSeen: [
-            { target: St.PAID, guard: [({ event }) => event.orderId !== "" || deny("NoOrder")], updateMemory: ({ event }) => ({ receipt: { orderId: event.orderId, afterUnsure: true, alreadyPlaced: true } }), actions: [O.intent.cancel, O.pay.cancel.key(intent)] },
+            { target: St.PAID, guard: [({ event }) => event.orderId !== "" || deny("NoOrder")], updateMemory: ({ event }) => ({ receipt: { orderId: event.orderId, afterUnsure: true, alreadyPlaced: true } }), actions: [O.intent.cancel, O.pay.cancel(intent)] },
             {},
           ],
           PayUnsure: {},
@@ -283,14 +283,12 @@ const PayFullMachine = machine(PayFull, ({ S: St, E, O }) => {
       STUCK: { on: { CheckAgain: { target: St.UNSURE } } },
       LEFT: { on: { Start: start } },
       CHALLENGE: {
-        into: {
-          fragment: ThreeDS,
-          input: ({ memory }) => ({ intentId: memory.intentId }),
-          exits: {
-            Passed: { target: St.PLACING, updateMemory: () => ({ authorized: true }), actions: [O.place.commit(cart)] },
-            Declined: { target: St.CARD, updateMemory: ({ event }) => ({ notice: `Your bank declined the check (${(event as { readonly code: string }).code}).` }) },
-            TimedOut: { target: St.CARD, updateMemory: () => ({ notice: "The bank's check timed out. You can pay again." }) },
-          },
+        // the subroutine's filling, on its state (2.3)
+        input: ({ memory }) => ({ intentId: memory.intentId }),
+        exits: {
+          Passed: { target: St.PLACING, updateMemory: () => ({ authorized: true }), actions: [O.place.commit(cart)] },
+          Declined: { target: St.CARD, updateMemory: ({ event }) => ({ notice: `Your bank declined the check (${(event as { readonly code: string }).code}).` }) },
+          TimedOut: { target: St.CARD, updateMemory: () => ({ notice: "The bank's check timed out. You can pay again." }) },
         },
         on: {
           Authenticated: { raise: [E.CHALLENGE.Answered.from(({ event }) => ({ authId: (event as { readonly authId: string }).authId }))] },

@@ -4,7 +4,7 @@ import { Effect, Schema, Stream } from "effect";
 import type { Api } from "../fake-world.ts";
 import type { Cursor, DeskFrame } from "../fixtures/feed.compiled.ts";
 import type { Signal } from "../fixtures/compiled.ts";
-import { definition, deny, Flow, fragment, machine, moduleMember, resource } from "./flow.ts";
+import { definition, deny, Flow, machine, moduleMember, resource, trait } from "../compile/index.ts";
 import { call, FakeApi, fixture } from "./lab.ts";
 
 export type { Cursor, DeskFrame } from "../fixtures/feed.compiled.ts";
@@ -49,11 +49,11 @@ type Entry = { readonly id: string };
 const upsert = (list: readonly unknown[], e: unknown) =>
   list.some((x) => (x as Entry).id === (e as Entry).id) ? list.map((x) => ((x as Entry).id === (e as Entry).id ? e : x)) : [...list, e];
 
-const peek = resource({ id: "desk/peek", input: {}, key: [], services: [FakeApi], commit: () => call<unknown, "NoResponse">("peek")({}) });
+const peek = resource({ id: "desk/peek", input: {}, key: [], services: [FakeApi], lookup: () => call<unknown, "NoResponse">("peek")({}) });
 const deskFeed = (reconnect: boolean) => (api: Api) => {
   const d = definition({
     id: "DispatchDesk/DeskFeed",
-    states: { LIVE: {}, RETRY_WAIT: {}, SIGNED_OUT: {} },
+    states: ["LIVE", "RETRY_WAIT", "SIGNED_OUT"],
     events: { DismissNotice: {}, SessionExpired: {}, Jump: { at: U }, JumpThenThrow: { at: U }, Refetch: {}, Clear: {}, ClearAndLeave: {}, Peek: {}, SignOut: {}, BreakInput: {}, Open: {} },
     internalEvents: { Peeked: {}, Entry: { entry: U }, MayHaveMissed: {}, FeedEnded: {}, Healthy: {}, Reopen: {} },
     memory: {
@@ -138,7 +138,7 @@ export const deskFeedFixture = fixture(deskFeed(true));
 export const deskFeedNoReconnect = fixture(deskFeed(false));
 
 // ── The same session in a trait: `resetOn` the room, `.resumable()` on its tab.
-const Room = fragment(
+const Room = trait(
   {
     id: "Room",
     hostEvents: { Entry: { entry: U }, MayHaveMissed: {}, FeedEnded: {} },
@@ -157,19 +157,18 @@ const rooms = (api: Api) =>
   machine(
     definition({
       id: "Desk/Rooms",
-      states: { TAB: {}, AWAY: {} },
+      states: [{ TAB: Flow.state({ traits: { room: Room.resumable() } }) }, "AWAY"],
       events: { ShowRoom: { roomId: U }, Away: {}, Back: {} },
       internalEvents: { Entry: { entry: U }, MayHaveMissed: {}, FeedEnded: {} },
       memory: { roomId: Flow.initial(U, "w1") },
       uses: ["sessions"],
-      places: { room: Room },
       operations: () => ({}),
       streams: ({ E }) => ({ activity: activity(api, true, E as never) }),
     }),
     ({ S: St }) => ({
       default: St.TAB,
       on: { ShowRoom: { updateMemory: ({ event }) => ({ roomId: event.roomId }) }, Away: St.AWAY, Back: St.TAB },
-      states: { TAB: { traits: { room: { resumable: true, input: ({ memory }) => ({ workspaceId: memory.roomId }), resetOn: ({ memory }) => memory.roomId } } } },
+      states: { TAB: { traits: { room: { input: ({ memory }) => ({ workspaceId: memory.roomId }), resetOn: ({ memory }) => memory.roomId } } } },
     }),
   );
 export const roomsFixture = fixture(rooms);
