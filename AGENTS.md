@@ -19,6 +19,17 @@ nub run verify       # full gate; don't claim full verification without it
 workflow check       # see .agents/skills/workflow-cli/SKILL.md before editing Workflow records
 ```
 
+## Code style (v3 production)
+- Write in lint-bomb's style before linting: read `tools/lint-bomb/STYLE.md`, `tools/lint-bomb/examples/`,
+  and `packages/flow-state-v3/src/_example/edge.ts` (house style). `tools/lint-bomb/FLOW-STATE.md`
+  says which rules apply here and why.
+- House rules: the core returns work as data and the host runs it; each fact lives in one place;
+  decode once at the boundary with Schema and trust the result.
+- Doc comments only on exported API, in Effect's shape (summary, When to use, Details, Gotchas,
+  examples). No other comments unless an outside constraint forces one.
+- Before finishing: `nub run check:fix`, then `nub run check` with zero errors and zero warnings.
+  Fix the code; suppress a rule only with a reason on the line, and never to make a check pass.
+
 ## Working with Arpit
 
 ### Talking
