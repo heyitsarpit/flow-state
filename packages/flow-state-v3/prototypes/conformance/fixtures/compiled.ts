@@ -74,8 +74,26 @@ export type Placement = {
   readonly callbacks?: Readonly<Record<string, readonly Alternative[]>>;
   readonly exits?: Readonly<Record<string, readonly Alternative[]>>;
 };
+// Round 13 (round 12 review M3): what a definition or a fragment declares, by direction, with each event's payload fields as Schemas (in-process; the data
+// view renders each as JSON Schema). `host` is a fragment's `hostEvents` (sent by its host, or a Story alone); a machine has none.
+export type Events = {
+  readonly external: readonly string[];
+  readonly internal: readonly string[];
+  readonly host?: readonly string[];
+  readonly payloads?: Readonly<Record<string, Readonly<Record<string, unknown>>>>; // event -> field -> Schema
+};
+// A fragment's ports (2.2.1): exits and callbacks with their payload fields, guard ports. `optional` is `Flow.optional`, not built (api-changes): never set.
+export type Port = { readonly fields: Readonly<Record<string, unknown>>; readonly optional?: true };
+export type Ports = {
+  readonly exits: Readonly<Record<string, Port>>;
+  readonly callbacks: Readonly<Record<string, Port>>;
+  readonly guards: Readonly<Record<string, { readonly optional?: true }>>;
+};
 export type Fragment = {
   readonly id: string;
+  readonly kind?: "trait" | "subroutine"; // round 13 (M3): absent on the suite's hand fragments only
+  readonly events?: Events; // round 13 (M3)
+  readonly ports?: Ports; // round 13 (M3)
   readonly nodes: Readonly<Record<string, Node>>;
   readonly root: string;
   readonly default: string; // the root node when it has no states
@@ -171,7 +189,7 @@ export type Compiled = {
   readonly local?: true; // a local identity: lanes never adopted (D21)
   readonly streams?: Readonly<Record<string, StreamSpec>>; // data for a sessions module
   // Round 7, D91, rule 47: what a typed definition declares. Absent on hand-written fixtures, so `flow check` infers it and says so.
-  readonly events?: { readonly external: readonly string[]; readonly internal: readonly string[] };
+  readonly events?: Events;
 };
 // Round 12 (D213-D216): what a compiler emits. The fields above stay optional only for the suite's hand data, which `legacy.ts` completes before the seal,
 // and the seal refuses a table without them; this type says it to the compiler, so the front end's output is checked by `tsc` too.
@@ -181,11 +199,17 @@ export type CompiledOp = Omit<Op, "key"> & {
   readonly services: readonly string[];
 };
 export type CompiledMemory = Required<Memory>;
-export type CompiledFragment = Omit<Fragment, "memory"> & { readonly memory: CompiledMemory };
+export type CompiledEvents = Required<Omit<Events, "host">> & Pick<Events, "host">;
+export type CompiledFragment = Omit<Fragment, "memory" | "kind" | "events" | "ports"> & {
+  readonly memory: CompiledMemory;
+  readonly kind: "trait" | "subroutine";
+  readonly events: Required<Events>;
+  readonly ports: Ports;
+};
 export type CompiledOutput = Omit<Compiled, "ops" | "memory" | "events" | "fragments"> & {
   readonly ops: Readonly<Record<string, CompiledOp>>;
   readonly memory: CompiledMemory;
-  readonly events: NonNullable<Compiled["events"]>;
+  readonly events: CompiledEvents;
   readonly fragments?: Readonly<Record<string, CompiledFragment>>;
 };
 

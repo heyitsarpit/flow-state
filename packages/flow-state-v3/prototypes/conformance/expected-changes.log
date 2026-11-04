@@ -858,3 +858,39 @@ file:scenarios/round12.scenario.ts hash:083149ff74f4 | round 12, D130: R12-BOOT'
 output:R12-BOOT hash:684fd41b58ee | round 12, D130: R12-BOOT's output with its control boot
 file:legacy.ts hash:2c8abbeed313 | round 12, falsify search: the stream branch restored, the listen.load search boots the hand Desk/Tickets
 round:checks/front-check.ts hash:846850bd2aad | round 12: a hand stream's closures pinned under their own places
+--- round 13, round 12's final review (round-12/review.md): H1 the lane stamp (D221), M1 KeyOf, M2 creation by constructor (D222), M3 fragment declarations in Compiled, L1-L6
+R13-STAMP-SHAPE hash:2890abaf485a | round 13, review H1 P1 and M1: new, keys with and without an optional field both send with no release; a typed retry with the field absent
+R13-STAMP-RELEASE hash:1054c6685703 | round 13, review H1 P2 P3: new, the older hold reached by a keyed retry and cancel, seen by a keyed idle; another key value and another actor are not it
+R13-CREATE hash:e3cb3f5f96c3 | round 13, review M2: new, an absent input takes its constructor default at creation (D222)
+file:scenarios/round13.scenario.ts hash:c02d3be835e5 | round 13: new, R13-STAMP-SHAPE, R13-STAMP-RELEASE, R13-CREATE
+file:typed/round13.ts hash:ad524995df40 | round 13: new, Lab/KeyShape, Lab/KeyStamp, Lab/CtorInput, Lab/DecodeOnlyInput
+file:typed/feed.ts hash:5916a9099175 | round 13, D222: an input with a decoding default also states its constructor default (DeskFeed)
+file:typed/lab-machines.ts hash:d52dd358933d | round 13, D222: an input with a decoding default also states its constructor default (the lab's field)
+file:typed/round7.ts hash:9da9997d5304 | round 13, D222: an input with a decoding default also states its constructor default (round 7's who)
+file:typed/round8.ts hash:6df42c6206e0 | round 13, D222: an input with a decoding default also states its constructor default (round 8's who)
+file:compile/events.ts hash:afe7154bfb5d | round 13, review M3: payloadsOf, each event's payload fields for Compiled.events.payloads
+file:compile/fragment.ts hash:b848aa884412 | round 13, review M3: a fragment compiles its kind, its events by direction with payloads, and its ports
+file:compile/machine.ts hash:f4d5060a7b4f | round 13, review M3: a machine's events carry their payload Schemas
+file:compile/memory.ts hash:d580212bf859 | round 13, review M2 (D222): creation is the Schema's constructor; a decoding default is restore's only
+file:compile/operations.ts hash:b3950c420aa8 | round 13, review M1: KeyOf is the input's pick, so an optional key field stays optional; L7's stale comment
+file:main.ts hash:4b84b349632c | round 13: round13Scenarios registered
+file:falsify.ts hash:5fbad632e4d7 | round 13: the default runtime is round-13's
+file:broken-adapter.ts hash:b682c5d52315 | round 13: the broken adapter's default base is round-13's
+file:gate5s.ts hash:0c9119325066 | round 13: the 5 s gate's default runtime is round-13's
+round:cli/check.ts hash:4b5999dbe7f0 | round 13, review M3: UnknownEvent reads a fragment's bodies against its own declared events
+round:typed/compare-all.ts hash:1060f3bf8d77 | round 13, review L5: skips by path, not by name; a fragment's kind, events and ports are typed only
+round:typed/compare.ts hash:7da4f55ac64a | round 13, review M3: a fragment's kind and ports are typed only
+round:typed/type-tests.ts hash:5c4156ab12e5 | round 13, review L1 and M1: D218 nested, on a node and for a subroutine; a key with its optional field absent type-checks
+round:checks/front-check.ts hash:0ea74850a0db | round 13, review L2 L3 L4 M2 M3 and D124's union: pinned by output
+round:checks/types-check.ts hash:8d3e6c8fe02d | round 13, review L1: three directives stated
+output:R13-CREATE hash:75af62345040 | round 13, review M2: R13-CREATE's output
+output:R13-STAMP-RELEASE/a-keyed-cancel-lets-the-older-hold-go-and-then-a-commit-sends hash:69cd1a9ecbdd | round 13, review H1: the cancel way out's output, two requests
+output:R13-STAMP-RELEASE/a-keyed-idle-sees-the-older-hold hash:42a117713a8e | round 13, review H1 P3: the guard's output, one request
+output:R13-STAMP-RELEASE/a-keyed-retry-names-the-older-hold-and-then-a-commit-sends hash:23e0ced5e32c | round 13, review H1 P2: the retry way out's output, three requests
+output:R13-STAMP-RELEASE/a-lane-minted-after-the-release-is-not-older hash:c4bc4aa3c33d | round 13, review H1: a lane after the release is its own, two requests
+output:R13-STAMP-RELEASE/another-actor-is-not-the-older-hold hash:609a8f9861f6 | round 13, review H1: another actor's output, two requests
+output:R13-STAMP-RELEASE/another-key-value-is-not-the-older-hold hash:b3c6d202d100 | round 13, review H1: another key value's output, two requests
+output:R13-STAMP-SHAPE/a-typed-retry-with-the-optional-field-absent-names-its-lane hash:501eaf862758 | round 13, review M1: the retry's output, one Attempt
+output:R13-STAMP-SHAPE/the-key-with-the-field-first-then-without-it-both-send hash:370f392161d2 | round 13, review H1 P1: the second order's output, two requests
+output:R13-STAMP-SHAPE/the-key-without-the-field-first-then-with-it-both-send hash:46bb9ea0793e | round 13, review H1 P1: the first order's output, two requests
+file:expected-recipients.txt hash:aaa228dd7219 | round 13: the new cases' observed recipients (16) and restored states checked (9)

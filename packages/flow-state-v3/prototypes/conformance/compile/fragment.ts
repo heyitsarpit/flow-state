@@ -4,7 +4,7 @@
 // Compiles to a `CompiledFragment` and the fragment's operations, which join the host's at placement (rules 49, 51).
 import type { CompiledFragment } from "../fixtures/compiled.ts";
 import { slotOf, type Fields, type TypeOf } from "./core.ts";
-import { tokens, type EventPayloads, type EventsOf } from "./events.ts";
+import { payloadsOf, tokens, type EventPayloads, type EventsOf } from "./events.ts";
 import { compileMemory, type MemoryFields, type MemoryOf } from "./memory.ts";
 import { compileOp, handles, type Act, type AnyBound, type HandleOf, type In, type RequirementsOf } from "./operations.ts";
 import {
@@ -116,8 +116,18 @@ const make =
     const isAct = (x: unknown): x is Act => (typeof x === "object" || typeof x === "function") && x !== null && "member" in x;
     const notify = abandon.filter((x): x is NotifyTok<MemoryOf<M>, unknown> => !isAct(x));
     const release = abandon.filter(isAct).map((a) => a.op);
+    // Round 13 (round 12 review M3): what the fragment declares, as data, so `flow graph`, `Story.fragment` and `flow check` read it with nothing run.
+    const portOf = (p: Ports | undefined) => Object.fromEntries(Object.entries(p ?? {}).map(([k, x]) => [k, { fields: { ...x.fields } }]));
     const compiled: CompiledFragment = {
       id: d.id,
+      kind,
+      events: {
+        external: Object.keys(d.events ?? {}),
+        host: Object.keys(d.hostEvents ?? {}),
+        internal: Object.keys(d.internalEvents ?? {}),
+        payloads: payloadsOf({ ...d.events, ...d.hostEvents, ...d.internalEvents } as Readonly<Record<string, Fields>>),
+      },
+      ports: { exits: portOf(d.exits), callbacks: portOf(d.callbacks), guards: Object.fromEntries(Object.keys(d.guards ?? {}).map((k) => [k, {}])) },
       root: "root",
       default: d.default ?? "root",
       nodes: compileNodes(d.id, tree, b as never, placed),

@@ -18,5 +18,9 @@ export const uncertain = <F extends Fields>(fields: F): F => {
 };
 export const isUncertain = (fields: unknown) => typeof fields === "object" && fields !== null && uncertainSet.has(fields);
 
-export const tokens = <Ev extends Readonly<Record<string, Fields>>>(ev: Ev): EventsOf<Ev> =>
+// Round 13 (round 12 review M3): each event's payload fields, as `Compiled.events.payloads` holds them (copied, so `Compiled` shares no object with the
+// author's records). The admission door and a Story's sends have data to check against.
+export const payloadsOf = (ev: Readonly<Record<string, Fields>>): Readonly<Record<string, Readonly<Record<string, unknown>>>> =>
+  Object.fromEntries(Object.entries(ev).map(([tag, f]) => [tag, { ...f }]));
+export const tokens =<Ev extends Readonly<Record<string, Fields>>>(ev: Ev): EventsOf<Ev> =>
   Object.fromEntries(Object.keys(ev).map((tag) => [tag, { tag, from: (fromFn: unknown) => ({ tag, fromFn }) }])) as EventsOf<Ev>;

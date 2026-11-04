@@ -39,31 +39,30 @@ const isOptionalKey = (s: Schema.Top): boolean => (s.ast as { context?: { isOpti
 // Written and read by one codec (round 7, review H2). Each field as a one-field struct, so a key modifier means what it means in a struct.
 const jsonCodec = (k: string, f: MemorySpec) => Schema.toCodecJson(Schema.Struct({ [k]: f.schema }) as unknown as Schema.Codec<unknown, unknown>);
 
-// Creation (D214, 2.2.2: "decode the input with the derived `Input` schema"): a present input field is checked by its Schema's type side; absent, it takes
-// its decoding default, stays absent if optional, else is refused. Then constant initials, then computed ones over those.
+// Creation (D214, D219; round 13 D222, round 12 review M2): the creator hands a value in-process, so creation is the Schema's own constructor, the type side
+// throughout: a present input field is checked by its type side (refinements kept, no transforming decode), an absent one takes its constructor default
+// (`withConstructorDefault`, as `Flow.initial` is), stays absent if optional, else is refused. A decoding default is the codec's, read by restore only.
+// Then constant initials, then computed ones over those.
+type Maker = { readonly make: (i: Record<string, unknown>) => Record<string, unknown> };
 const initialOf = (definition: string, m: Readonly<Record<string, MemorySpec>>) => {
-  const built = lazy(() => ({
-    defaults: new Map(Object.entries(m).filter(([, s]) => s.from === "input").map(([k, s]) => [k, missingDefault(k, s.schema)])),
-    checks: new Map(
-      Object.entries(m)
-        .filter(([, s]) => s.from === "input")
-        .map(([k, s]) => [k, Schema.decodeUnknownSync(Schema.toType(Schema.Struct({ [k]: s.schema }) as unknown as Schema.Top) as unknown as Schema.Codec<unknown, unknown>)]),
-    ),
-  }));
+  const built = lazy(
+    () => new Map(Object.entries(m).filter(([, s]) => s.from === "input").map(([k, s]) => [k, Schema.Struct({ [k]: s.schema }) as unknown as Maker])),
+  );
   return slotOf<(input: unknown) => object>(definition, "memory.initial", (input: unknown) => {
-    const { defaults, checks } = built();
+    const makers = built();
     const given = (input ?? {}) as Record<string, unknown>;
     const out: Record<string, unknown> = {};
     for (const [k, s] of Object.entries(m)) {
       if (s.from === "input") {
-        if (k in given) {
-          try {
-            out[k] = (checks.get(k)!({ [k]: given[k] }) as Record<string, unknown>)[k];
-          } catch (e) {
-            throw new Error(`InputRefused: ${definition} input ${k}: ${(e as Error).message.split("\n")[0]}`);
-          }
-        } else if (defaults.get(k)!.has) out[k] = defaults.get(k)!.v;
-        else if (!isOptionalKey(s.schema)) throw new Error(`InputMissing: ${definition} input ${k}`);
+        const present = k in given;
+        let made: Record<string, unknown>;
+        try {
+          made = makers.get(k)!.make(present ? { [k]: given[k] } : {});
+        } catch (e) {
+          if (!present) throw new Error(`InputMissing: ${definition} input ${k}`);
+          throw new Error(`InputRefused: ${definition} input ${k}: ${(e as Error).message.split("\n")[0]}`);
+        }
+        if (k in made) out[k] = made[k];
       } else if (s.from === "initial" && !s.computed) out[k] = s.value;
     }
     const start = { ...out };

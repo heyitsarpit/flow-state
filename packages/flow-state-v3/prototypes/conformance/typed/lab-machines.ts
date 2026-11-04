@@ -19,7 +19,7 @@ const Field = trait(
     events: { Changed: { value: S.String }, Clear: {} },
     hostEvents: { Refuse: {} },
     callbacks: { onDirty: Flow.Callback({ value: S.String }), onGone: Flow.Callback({ value: U, key: U }) },
-    memory: { value: Flow.input(U.pipe(S.withDecodingDefaultKey(Effect.succeed("")))), touched: Flow.initial(S.Boolean, false) },
+    memory: { value: Flow.input(U.pipe(S.withDecodingDefaultKey(Effect.succeed("")), S.withConstructorDefault(Effect.succeed("")))), touched: Flow.initial(S.Boolean, false) }, // D222
   },
   ({ callbacks }) => ({
     on: {

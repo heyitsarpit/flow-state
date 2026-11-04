@@ -95,7 +95,9 @@ type ActData =
 // `Ev = unknown` for a member with no select (`O.x.cancel`), which fits any handler.
 export type Act<Ev = unknown> = ActData & { readonly _ev?: (e: Ev) => void };
 export type OpGuard<Ev = unknown> = { readonly opGuard: TokenGuard; readonly keyFn?: unknown; readonly _ev?: (e: Ev) => void };
-type KeyOf<I extends Fields, K extends keyof I> = { readonly [F in K]: I[F]["Type"] };
+// Round 13 (round 12 review M1): the key is the input's pick, so an optional key field stays optional here, as `commit` lets it be absent (rule 39 allows it:
+// an absent field is a key value, and D221's stamp, not the key's shape, says which release made a lane).
+type KeyOf<I extends Fields, K extends keyof I> = Pick<TypeOf<I>, K & keyof TypeOf<I>>;
 type WriteHandle<I extends Fields, K extends keyof I, M> = {
   readonly commit: <Ev = AnyEvent>(f: (a: In<M, Ev>) => TypeOf<I>) => Act<Ev>;
   // 2.7.3: `idle(k?)`, `retry(k?)`, `cancel(k?)`; key-less names the one lane, or the ending's Attempt (OD8). `retryable({ times })`, `retryable(k, { times })`.
@@ -203,6 +205,7 @@ export const compileOp = (definition: string, name: string, b: AnyBound, events:
 
 // ── What a machine needs from the boot: `R`, the union of its contracts' requirements (rule 57).
 export type Typed<R> = { readonly compiled: CompiledOutput; readonly _R?: (r: R) => R };
-// D213: the one place a context's type is erased for the Runtime, after `tsc` has checked it against the machine's `R` (taken from the machine alone).
+// D213: the one place a context's type is erased for the Runtime, after `tsc` has checked it against the machine's `R` (the machine's own operations and,
+// D218, every fragment it places).
 export const servicesFor = <R>(_t: Typed<R>, services: Context.Context<NoInfer<R>>): Context.Context<never> => services as Context.Context<never>;
 void Effect;
