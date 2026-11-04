@@ -197,7 +197,8 @@ try {
     ["step.timer-fence-off", [["step.ts", "if (!t || t.gen !== i.gen) return", "if (!t) return"]], 1],
     ["step.dispose-reads-not-aborted", [["step.ts", "    tx.commands.push({ k: \"interrupt\", attempt: k, send: r.gen });\n    note(tx, \"Superseded\", { op: r.op, attempt: k, send: r.gen });\n  }\n  tx.w = { ...tx.w, reads: {} };", "    note(tx, \"Superseded\", { op: r.op, attempt: k, send: r.gen });\n  }\n  tx.w = { ...tx.w, reads: {} };"]], 1],
     // Stage I (re-check 10h T1): the runtime's own branch for a memory with no restore. The suite no longer adds one, so the branch runs.
-    ["h.restore-absent-lost", [["durable.ts", "memory: dec ? dec.run(i.memory) : i.memory,", "memory: dec ? dec.run(i.memory) : {},"]], 1],
+    // Round 12 (D214): that branch is gone, since every sealed memory has a restore; the class now sits on `legacy.ts`'s identity restore for hand data.
+    ["h.restore-absent-lost", [["../conformance/legacy.ts", "restore: m.restore ?? { run: (stored: object) => stored,", "restore: m.restore ?? { run: () => ({}),"]], 1],
   ];
   for (const [id, edits, min] of NAMED) {
     reset();

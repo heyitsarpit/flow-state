@@ -5,6 +5,7 @@ import type { CompiledOutput, DomainSpec, Mapped, StreamSpec } from "../fixtures
 import { slotOf, type Fields } from "./core.ts";
 import { tokens, type EventPayloads, type EventsOf } from "./events.ts";
 import { compileMemory, type MemoryFields, type MemoryOf } from "./memory.ts";
+import type { ReqsOf } from "./fragment.ts";
 import { compileOp, handles, type AnyBound, type HandleOf, type RequirementsOf, type Typed } from "./operations.ts";
 import {
   collect,
@@ -138,7 +139,7 @@ export const machine = <
     readonly activities?: Activities<MemoryOf<M>>;
     readonly states?: { readonly [K in keyof StatesOf<T> & string]?: StateBody<MemoryOf<M>, All<Ev, In_>> };
   },
-): Typed<RequirementsOf<O>> => {
+): Typed<RequirementsOf<O> | ReqsOf<Tr & TraitsOf<T>>> => {
   const tree = d.tree;
   const b = body({ S: statesOf<T>(tree), E: { ...tokens({ ...d.events, ...d.internalEvents }), ...placeToksOf(tree) } as never, O: handles<O, MemoryOf<M>>(d.ops) });
   const placed: FragmentValue[] = [];

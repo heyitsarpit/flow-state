@@ -491,3 +491,5 @@ Convergence-8. Old unbuilt rows (`STORY-ALL`, `BROWSER-*`, `SSR-01`) renumbered 
 | R12-MEMORY | 12 | fault | hostile | D82, D89 |  | round 11 review Q1: a Date, a NaN and a bigint in typed memory survive a reload, through the fields' codecs |
 | R12-SERVICES | 12 | fault | hostile | rule:57 |  | round 11 review L2: two machines whose commits need different services boot together, and both writes leave |
 | R12-DEFECT | 12 | fault | hostile | rule:13 |  | round 11 review H1: a commit that dies raises a Defect issue that names its cause |
+| R12-DOORS | 12 | fault | hostile | D82, D46, rule:44 |  | mid review M3: an input its Schema refuses makes no actor; a release-added computed field restores computed; a release-added required input quarantines the record and keeps its bytes |
+| R12-BOOT | 12 | fault | hostile | rule:57 |  | mid review M3: a boot that does not give a machine's service is refused at the seal, by name |

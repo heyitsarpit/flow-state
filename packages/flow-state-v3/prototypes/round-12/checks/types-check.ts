@@ -45,6 +45,8 @@ const PINS = [
   "a contract that does not name its commit's service has no `outcomes`", // round 12, D213
   "a boot that does not give a machine's service", // round 12, D213
   "a select reads its handler's event: `Saved` has no `text`", // round 12, the compile prototype's typed selectors
+  "a boot that does not give a placed fragment's service", // round 12, mid review H1
+  "a services list that is not a tuple has no `outcomes`", // round 12, mid review L1
 ];
 // What TypeScript itself takes for a directive: a single-line comment token whose text matches its own rule, `^\/\/\/?\s*@ts-expect-error`.
 // The installed TypeScript is 7 (native), with no JS scanner to call, so this is a scanner of comment and string tokens, not a text search:
@@ -93,6 +95,8 @@ const ERRORS: Record<string, readonly [string, string]> = {
   "a contract that does not name its commit's service has no `outcomes`": ["TS2339", "Property 'outcomes' does not exist"],
   "a boot that does not give a machine's service": ["TS2345", "Argument of type 'Context<Other>' is not assignable"],
   "a select reads its handler's event: `Saved` has no `text`": ["TS2339", "Property 'text' does not exist on type '{ readonly revision: number; }'"],
+  "a boot that does not give a placed fragment's service": ["TS2345", "Argument of type 'Context<Other>' is not assignable"],
+  "a services list that is not a tuple has no `outcomes`": ["TS2339", "Property 'outcomes' does not exist"],
 };
 {
   const src = readFileSync(join(typed, "type-tests.ts"), "utf8").split("\n");

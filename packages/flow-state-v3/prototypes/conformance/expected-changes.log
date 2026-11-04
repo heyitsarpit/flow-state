@@ -833,3 +833,23 @@ file:scenarios/round12.scenario.ts hash:f5f492595661 | round 12, review H1: R12-
 file:typed/round6.ts hash:410ee2c98113 | round 12, review H1: Lab/Dies, a commit that dies, for R12-DEFECT
 output:R12-DEFECT hash:3bcb699f43c4 | round 12, review H1: R12-DEFECT's output
 file:expected-recipients.txt hash:380427b76ac9 | round 12: R12-DEFECT's one observed recipient and its start
+--- round 12, the mid-session review (round-12/review-mid.md): H1 fragments' requirements, M2 a release that adds a key field, M3 doors through the Runtime
+R12-KEYS hash:8d2213f0d366 | round 12, mid review M2: the second variant supplies the new key field and expects a decline beside the older lane (D217); both ack the new commit
+removed:variant:R12-KEYS/a-release-that-adds-a-key-field-the-stored-input-lacks-keeps-the-lane | round 12, mid review M2: renamed, its commit now supplies the field, so it pins D217's decline
+removed:output:R12-KEYS/a-release-that-adds-a-key-field-the-stored-input-lacks-keeps-the-lane | round 12, mid review M2: that variant's output goes with its rename
+output:R12-KEYS/a-release-that-adds-a-key-field-declines-beside-the-older-lane hash:b9f23dcb90f4 | round 12, mid review M2: the renamed variant's output, one request
+R12-DOORS hash:f3276155c740 | round 12, mid review M3: new, memory's doors through the Runtime (D214, D46)
+output:R12-DOORS/a-computed-field-a-release-adds-is-computed-from-the-restored-fields hash:e0b285871d7c | round 12, mid review M3: computed at restore, D214
+output:R12-DOORS/a-required-input-a-release-adds-quarantines-the-record hash:7580435d1fc4 | round 12, mid review M3: quarantined, bytes kept, D46
+output:R12-DOORS/an-input-its-schema-refuses-makes-no-actor hash:9b1ea09f93ed | round 12, mid review M3: no actor, 2.2.2
+R12-BOOT hash:7c4ea7892b9d | round 12, mid review M3: new, a boot missing a service refused by name (D213)
+output:R12-BOOT hash:97d170e1550e | round 12, mid review M3: R12-BOOT boots nothing
+file:scenarios/round12.scenario.ts hash:76f51adef7bf | round 12, mid review M2, M3: R12-KEYS's second variant, R12-DOORS, R12-BOOT
+file:typed/round6.ts hash:128e6c1b5af3 | round 12, mid review M2, M3: release 3 supplies region; Lab/MemDoors and Lab/Input
+file:compile/fragment.ts hash:2b0a62ea3483 | round 12, mid review H1: a fragment's type carries its requirements (rule 57)
+file:compile/machine.ts hash:f63ec0aa1938 | round 12, mid review H1: a machine's requirements include its placed fragments'
+file:compile/operations.ts hash:b8f5387cbdc4 | round 12, mid review L1: a services list must be a tuple
+file:falsify.ts hash:2366772fdbb4 | round 12, D214: h.restore-absent-lost retargeted to legacy.ts's identity restore, the branch it named is gone
+round:typed/type-tests.ts hash:7126aec1389e | round 12, mid review H1, L1: a placed fragment's service, and a widened list
+round:checks/types-check.ts hash:ce4686b72f8a | round 12, mid review H1, L1: the two directives stated
+file:expected-recipients.txt hash:792cbb673f72 | round 12, mid review M3: R12-DOORS's restored state

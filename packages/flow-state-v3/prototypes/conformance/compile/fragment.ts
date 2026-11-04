@@ -6,7 +6,7 @@ import type { CompiledFragment } from "../fixtures/compiled.ts";
 import { slotOf, type Fields, type TypeOf } from "./core.ts";
 import { tokens, type EventPayloads, type EventsOf } from "./events.ts";
 import { compileMemory, type MemoryFields, type MemoryOf } from "./memory.ts";
-import { compileOp, handles, type Act, type AnyBound, type HandleOf, type In } from "./operations.ts";
+import { compileOp, handles, type Act, type AnyBound, type HandleOf, type In, type RequirementsOf } from "./operations.ts";
 import {
   collect,
   compileNodes,
@@ -75,7 +75,10 @@ type Body<T extends StateList, Ev, Host, In_, X extends Ports, C extends Ports, 
   // 2.2: notified when the incarnation ends, except by an exit; a key-less `O.x.cancel` here releases (rule 60)
   readonly whenAbandoned?: ReadonlyArray<NotifyTok<MemoryOf<M>, unknown> | Act>;
 };
-export type FragmentOf<Ev, Host> = Omit<FragmentValue, "hostEvents" | "events"> & { readonly hostEvents: Host; readonly events: Ev };
+// Round 12 (mid review H1, rule 57): a fragment's type carries the union of its contracts' requirements and its children's, so a host whose boot lacks one
+// is a type error, as for its own operations.
+export type FragmentOf<Ev, Host, R = never> = Omit<FragmentValue, "hostEvents" | "events"> & { readonly hostEvents: Host; readonly events: Ev; readonly _R?: (r: R) => R };
+export type ReqsOf<P> = { [K in keyof P]-?: P[K] extends { readonly _R?: (r: infer R) => unknown } ? R : never }[keyof P];
 
 const make =
   (kind: "trait" | "subroutine") =>
@@ -93,7 +96,7 @@ const make =
   >(
     d: Decl<T, Ev, Host, In_, X, C, M, Tr, G, O>,
     body: Body<T, Ev, Host, In_, X, C, M, Tr, G, O>,
-  ): Placed<FragmentOf<Ev, Host>> => {
+  ): Placed<FragmentOf<Ev, Host, RequirementsOf<O> | ReqsOf<Tr & TraitsOf<T>>>> => {
     const tree = parseStates(d.states, d.traits ?? {});
     const exitToks = Object.fromEntries(Object.keys(d.exits ?? {}).map((name) => [name, { exit: { name }, from: (f: unknown) => ({ exit: { name, f } }) }]));
     const cb = Object.fromEntries(Object.keys(d.callbacks ?? {}).map((name) => [name, { name, from: (f: unknown) => ({ name, f }) }]));

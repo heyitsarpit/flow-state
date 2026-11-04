@@ -3,6 +3,7 @@
 import { hook, startAll } from "./hooks.ts";
 import { requestDurable } from "./durable.ts";
 import { armTimer, disarmTimer } from "./timers.ts";
+import { same } from "./gate.ts";
 import {
   clearStall,
   declined,
@@ -532,6 +533,19 @@ const ACTIONS: Readonly<Record<Action, (tx: Tx, lane: Lane | undefined, a: CellA
   },
 };
 
+const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
+const olderKeyLane = (tx: Tx, a: CellArgs): Lane | undefined => {
+  const fields = tx.machines[a.machine]?.ops[a.op]?.keyFields;
+  if (!fields || !isRecord(a.key)) return undefined;
+  const k = a.key;
+  for (const l of Object.values(tx.w.lanes)) {
+    if (l.actor !== a.actor || l.op !== a.op || columnOf(l) === "Idle" || !isRecord(l.key)) continue;
+    const named = Object.keys(l.key).filter((f) => l.key && (l.key as Record<string, unknown>)[f] !== undefined);
+    const lacks = fields.some((f) => !named.includes(f));
+    if (lacks && named.every((f) => fields.includes(f)) && named.every((f) => same(k[f], (l.key as Record<string, unknown>)[f]))) return l;
+  }
+  return undefined;
+};
 // The one way a lane changes. A lane's status changes only through here (S3).
 export const cell = (tx: Tx, row: Row, lane: Lane | undefined, a: CellArgs) => {
   const id = laneKey(a.actor, a.op, a.key);
@@ -545,6 +559,16 @@ export const cell = (tx: Tx, row: Row, lane: Lane | undefined, a: CellArgs) => {
       tx.touchedLanes.set(id, a.actor);
     }
     return;
+  }
+  // Round 12 (D217, mid review M2): a release that adds a key field. A lane of an older release's key holds or waits, its key lacks the new field, and this
+  // commit's key, projected onto the old key's fields, names it. Its stored input cannot be placed under the new key, so the Runtime cannot tell the two apart:
+  // the commit declines, as beside a hold on its own key, and its transition runs. Never a second send beside it.
+  if (row === "commit" && !lane) {
+    const old = olderKeyLane(tx, a);
+    if (old) {
+      note(tx, "BesideOlderKey", { op: a.op, lane: old.id });
+      return decline(tx, a, "Rejected");
+    }
   }
   const col = columnOf(lane);
   const action = TABLE[row][col];

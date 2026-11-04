@@ -1,6 +1,6 @@
 // Round 12: round 11's final review, pinned where a case is the right pin (review M5, Q1, L2). Each says what it would see without its fix.
 import { payFixture } from "../typed/pay.ts";
-import { datesFixture, diesFixture, keyReleaseTypedFixture, type Release } from "../typed/round6.ts";
+import { datesFixture, diesFixture, inputFixture, keyReleaseTypedFixture, memReleaseFixture, type Release } from "../typed/round6.ts";
 import type { Fixture } from "../harness.ts";
 import { Ctx, type Scenario } from "./ctx.ts";
 
@@ -21,6 +21,7 @@ const heldThenRelease = (c0: Ctx, next: number) => {
   c.h.release(() => void (rel.v = next), () => void (rel.v = 1));
   c.reload();
   c.send("Go");
+  c.ack(); // so a second Attempt, if one were minted, would leave
   return c;
 };
 
@@ -40,13 +41,15 @@ export const round12Scenarios: readonly Scenario[] = [
         c.eq("no second Attempt", c.keys("charge").length, 1);
         c.eq("said", c.r.evidence("LaneRekeyed").length, 1);
       },
-      // The edge only a typed fixture shows: a release adds a key field the stored input lacks. The key's canonical form drops the absent field, so it is
-      // the same lane, and nothing is rekeyed or minted beside it.
-      "a-release-that-adds-a-key-field-the-stored-input-lacks-keeps-the-lane"(c0) {
+      // Mid review M2, D217 (proposed): a release adds a key field, and the new commit supplies it. The held lane's stored input lacks the field, so it
+      // cannot be rekeyed (D78 has no new name to move it to), and the new key, projected onto the old key's fields, names it. D217: the commit declines
+      // (`NotSent { why: "Rejected" }`, rule 16), as beside a hold on its own key; never a second send beside an unsure write (D78, rule 16).
+      "a-release-that-adds-a-key-field-declines-beside-the-older-lane"(c0) {
         const c = heldThenRelease(c0, 3);
         c.eq("the request count stays", c.reqs("charge").length, 1);
         c.eq("no second Attempt", c.keys("charge").length, 1);
         c.eq("not rekeyed", c.r.evidence("LaneRekeyed").length, 0);
+        c.eq("declined beside the older key", c.r.evidence("BesideOlderKey").length, 1);
       },
     },
   },
@@ -86,6 +89,67 @@ export const round12Scenarios: readonly Scenario[] = [
       c.eq("the fake's write left", c.reqs("charge").length, 1);
       c.eq("the shop's write left", c.reqs("pay").length, 1);
       c.eq("no Defect", c.r.issues().filter((i) => i.code === "Defect").length, 0);
+    },
+  },
+  {
+    // Mid review M3: memory's doors through the Runtime, each from a recorded decision.
+    id: "R12-DOORS",
+    kind: "fault",
+    fixtures: [memReleaseFixture({ v: 1 })],
+    actor: { actor: "Lab/MemDoors", id: "a" },
+    cites: ["D82", "D46", "rule:44"],
+    namedIssues: ["InvalidTurn", "RecordQuarantined"],
+    variants: {
+      // 2.2.2 and D214: creation checks the input by its Schema; a refusal makes no actor, and the turn's issue names the cause.
+      "an-input-its-schema-refuses-makes-no-actor"(c0) {
+        const A = { actor: "Lab/Input", id: "a" };
+        const c = new Ctx(c0.fresh([inputFixture], { captureMs: 0 }), A);
+        c.ensure(A, { who: 5 });
+        c.eq("no actor", c.r.state(A), undefined);
+        c.yes("the cause is named", c.r.issues().some((i) => i.code === "InvalidTurn" && String((i as { cause?: unknown }).cause).includes("InputRefused")));
+        c.ensure({ actor: "Lab/Input", id: "b" });
+        c.eq("a missing required input makes none either", c.r.state({ actor: "Lab/Input", id: "b" }), undefined);
+        c.yes("and says so", c.r.issues().some((i) => i.code === "InvalidTurn" && String((i as { cause?: unknown }).cause).includes("InputMissing")));
+      },
+      // D214: a computed field a release adds is computed once from the restored fields.
+      "a-computed-field-a-release-adds-is-computed-from-the-restored-fields"(c0) {
+        const rel: Release = { v: 1 };
+        const c = on(c0, [memReleaseFixture(rel)], { actor: "Lab/MemDoors", id: "a" });
+        c.send("Bump");
+        c.h.release(() => void (rel.v = 2), () => void (rel.v = 1));
+        c.reload();
+        c.eq("restored, and computed", c.mem(), { n: 3, twice: 6 });
+      },
+      // D214, D46: a required input a release adds cannot be made up, so the record is quarantined and its bytes are kept, never overwritten unread.
+      "a-required-input-a-release-adds-quarantines-the-record"(c0) {
+        const rel: Release = { v: 1 };
+        const c = on(c0, [memReleaseFixture(rel)], { actor: "Lab/MemDoors", id: "a" });
+        c.send("Bump");
+        const before = c.record();
+        c.h.release(() => void (rel.v = 3), () => void (rel.v = 1));
+        c.reload();
+        c.yes("quarantined", c.r.issues().some((i) => i.code === "RecordQuarantined"));
+        c.eq("the bytes are kept", c.record(), before);
+      },
+    },
+  },
+  {
+    // D213, rule 57: a boot that does not give a machine's service is refused by name, before anything runs.
+    id: "R12-BOOT",
+    kind: "fault",
+    fixtures: [payFixture],
+    actor: { actor: "Checkout/Pay", id: "shopper-1" },
+    cites: ["rule:57"],
+    run(c0) {
+      const { services: _s, ...bare } = payFixture;
+      let threw = "";
+      try {
+        c0.fresh([bare as Fixture]);
+      } catch (e) {
+        threw = String(e);
+      }
+      c0.yes("refused at the seal", threw.includes("SealMissingService"));
+      c0.yes("by the service's name", threw.includes("ShopApi"));
     },
   },
   {

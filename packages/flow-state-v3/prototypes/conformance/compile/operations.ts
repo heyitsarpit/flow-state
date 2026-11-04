@@ -10,7 +10,12 @@ import { isUncertain, type EndCtx, type From, type Token } from "./events.ts";
 export type Svc = Context.Key<any, any>;
 type IdOf<Sv extends readonly Svc[]> = Context.Service.Identifier<Sv[number]>;
 // On the result, not the argument, so the commit's own types still infer: a contract that misses a service has no `outcomes`.
-type Covered<R, Sv extends readonly Svc[], C> = [Exclude<R, IdOf<Sv>>] extends [never] ? C : { readonly "~servicesMissing": Exclude<R, IdOf<Sv>> };
+// Mid review L1: a list widened to an array type says nothing (its identifiers are `any`), so it must be a tuple of the service values.
+type Covered<R, Sv extends readonly Svc[], C> = number extends Sv["length"]
+  ? { readonly "~servicesNotATuple": true }
+  : [Exclude<R, IdOf<Sv>>] extends [never]
+    ? C
+    : { readonly "~servicesMissing": Exclude<R, IdOf<Sv>> };
 
 type Reason<E> = E extends OutcomeUnknown<unknown> ? never : E extends OutcomeFailure<infer R> ? R : E;
 type TagsOf<E> = Reason<E> extends infer X ? (X extends Tagged ? X["_tag"] : never) : never;

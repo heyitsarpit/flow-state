@@ -55,7 +55,8 @@ const keyRelease = (rel: Release) => {
   return machine(d, ({ O }) => ({
     default: { node: "root" },
     on: {
-      Go: { actions: [O.charge.commit(() => ({ k: "a", id: "x" }))] }, // no region: a stored input lacks it
+      // Release 3's commits supply the new field (mid review M2); the stored input of release 1 lacks it.
+      Go: { actions: [O.charge.commit(() => (rel.v === 3 ? { k: "a", id: "x", region: "eu" } : { k: "a", id: "x" }))] },
       Ok: {},
       No: {},
       Unsure: { updateMemory: ({ memory }) => ({ unsure: memory.unsure + 1 }) },
@@ -75,6 +76,22 @@ const dateD = definition({
   operations: () => ({}),
 });
 export const datesFixture = fixture(machine(dateD, () => ({ default: { node: "root" }, on: { Touch: { updateMemory: () => ({ at: new Date(86_400_000), n: Number.NaN, big: 2n }) } } })));
+
+// Round 12 (mid review M3, D214): memory's doors through the Runtime. Release 1 has `n`; release 2 adds a computed field, `twice`, made from the restored
+// fields once (D214); release 3 adds a required `Flow.input` with no default, which no stored record can supply, so the record is refused (D214, D46).
+const memRelease = (rel: Release) => {
+  const memory = {
+    n: Flow.initial(S.Number, 0),
+    ...(rel.v >= 2 ? { twice: Flow.initial(S.Number, ({ n }: Readonly<Record<string, unknown>>) => (n as number) * 2) } : {}),
+    ...(rel.v >= 3 ? { who: Flow.input(S.String) } : {}),
+  };
+  const d = definition({ id: "Lab/MemDoors", states: [], events: { Bump: {} }, internalEvents: {}, memory: memory as { readonly n: ReturnType<typeof Flow.initial<typeof S.Number>> }, operations: () => ({}) });
+  return machine(d, () => ({ default: { node: "root" }, on: { Bump: { updateMemory: ({ memory: m }) => ({ n: m.n + 3 }) } } }));
+};
+export const memReleaseFixture = (rel: Release) => fixture(() => memRelease(rel));
+// A required input, for creation's door (2.2.2: "decode the input with the derived `Input` schema").
+const inputD = definition({ id: "Lab/Input", states: [], events: {}, internalEvents: {}, memory: { who: Flow.input(S.String) }, operations: () => ({}) });
+export const inputFixture = fixture(machine(inputD, () => ({ default: { node: "root" } })));
 
 // Round 12 (review H1): a commit that dies says what died. Before, the `Defect` issue named the operation only.
 const dies = transaction({ id: "lab/dies", input: {}, key: [], concurrency: "reject", commit: () => Effect.die(new Error("the cause of the death")) });

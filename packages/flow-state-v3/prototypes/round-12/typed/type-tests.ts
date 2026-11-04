@@ -1,7 +1,7 @@
 // What the types refuse. Each `@ts-expect-error` must be an error, or `tsc` fails: a compile-time pin of D91, not a claim.
 import { Context, Effect, Schema } from "effect";
 import { OutcomeUnknown } from "../../conformance/fixtures/compiled.ts";
-import { definition, Flow, machine, servicesFor, transaction } from "../../conformance/compile/index.ts";
+import { definition, Flow, machine, servicesFor, trait, transaction } from "../../conformance/compile/index.ts";
 
 type Refused = { readonly _tag: "Refused"; readonly why: string };
 const save = transaction({
@@ -29,6 +29,18 @@ class Other extends Context.Service<Other, { readonly x: number }>()("Probe/Othe
 // @ts-expect-error a boot that does not give a machine's service
 servicesFor(TM, Context.make(Other, { x: 1 }));
 servicesFor(TM, Context.make(Clock, { now: () => 0 }));
+// Mid review H1 (rule 57): a fragment's operation's service reaches its host's requirements.
+const Ticker = trait({ id: "Ticker", internalEvents: { Ok: {}, No: {}, Unsure: Flow.uncertain({}) }, operations: ({ E }) => ({ t: timedOk.outcomes({ success: E.Ok, failure: { NotSent: E.No }, unknown: E.Unsure }) }) }, () => ({ on: { Ok: {}, No: {}, Unsure: {} } }));
+const HD = definition({ id: "T/Host", states: ["A"], events: {}, internalEvents: {}, memory: {}, traits: { ticker: Ticker }, operations: () => ({}) });
+const HM = machine(HD, ({ S }) => ({ default: S.A }));
+// @ts-expect-error a boot that does not give a placed fragment's service
+servicesFor(HM, Context.make(Other, { x: 1 }));
+servicesFor(HM, Context.make(Clock, { now: () => 0 }));
+// Mid review L1: a services list widened to an array type is refused.
+const widened: ReadonlyArray<Context.Key<any, any>> = [];
+const loose = transaction({ id: "t/loose", input: {}, key: [], concurrency: "reject", services: widened, commit: () => Effect.map(Effect.service(Clock), (c) => c.now()) });
+// @ts-expect-error a services list that is not a tuple has no `outcomes`
+void loose.outcomes;
 
 const D = definition({
   id: "T",
