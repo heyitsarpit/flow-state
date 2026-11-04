@@ -487,3 +487,6 @@ Convergence-8. Old unbuilt rows (`STORY-ALL`, `BROWSER-*`, `SSR-01`) renumbered 
 | R10-AUDIT | 10 | fault | hostile | D8, rule:25 |  | re-audit M3: a timer cancel that loses the race fires under a newer timer's key, and is fenced |
 | R10-AUDIT-ENDINGS | 10 | fault | hostile | rule:44, D125 |  | re-audit H1: a failure to a live actor beside another actor's mail is heard, not evidence |
 | R10-AUDIT-READS | 10 | fault | hostile | rule:52 |  | re-audit M3: disposing the runtime aborts a read in flight at the server |
+| R12-KEYS | 12 | fault | hostile | D78, rule:39, rule:46 |  | round 11 review M5: a typed release that changes the key's fields rekeys a held lane and mints nothing beside it; one that adds a key field the stored input lacks keeps the lane |
+| R12-MEMORY | 12 | fault | hostile | D82, D89 |  | round 11 review Q1: a Date, a NaN and a bigint in typed memory survive a reload, through the fields' codecs |
+| R12-SERVICES | 12 | fault | hostile | rule:57 |  | round 11 review L2: two machines whose commits need different services boot together, and both writes leave |

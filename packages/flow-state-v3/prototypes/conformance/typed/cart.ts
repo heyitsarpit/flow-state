@@ -4,7 +4,7 @@ import { Effect, Schema } from "effect";
 import type { Api } from "../fake-world.ts";
 import { cartRef, cartServer, lineRef } from "../fixtures/cart.compiled.ts";
 import { definition, deny, Flow, machine, resource, transaction, type DomainIn } from "./flow.ts";
-import { call, fixture, write } from "./lab.ts";
+import { call, FakeApi, fixture, write } from "./lab.ts";
 
 export { cartRef, cartServer, lineRef } from "../fixtures/cart.compiled.ts";
 const S = Schema;
@@ -33,10 +33,10 @@ const domainOf = (api: Api): DomainIn => ({
   repair: (ref: string) => api.call("repair", { ref }) as Effect.Effect<unknown, unknown, never>,
 });
 const lineIn = { cartId: U, lineId: U };
-const setQuantity = transaction({ id: "Checkout/setQuantity", input: { ...lineIn, quantity: U, delta: U }, key: ["cartId", "lineId"], concurrency: "latest", commit: write<unknown, "LineGone">("setQuantity") });
-const removeLine = transaction({ id: "Checkout/removeLine", input: lineIn, key: ["cartId", "lineId"], concurrency: "reject", commit: write<unknown, "LineGone">("removeLine") });
-const coupon = transaction({ id: "Checkout/coupon", input: { cartId: U, code: U }, key: [], concurrency: "reject", commit: write<unknown, "CouponRejected">("coupon") });
-const cartRead = resource({ id: "Checkout/cart", input: { cartId: U }, key: ["cartId"], commit: (i) => call<CartV, "NoResponse">("cart")(i) });
+const setQuantity = transaction({ id: "Checkout/setQuantity", input: { ...lineIn, quantity: U, delta: U }, key: ["cartId", "lineId"], concurrency: "latest", services: [FakeApi], commit: write<unknown, "LineGone">("setQuantity") });
+const removeLine = transaction({ id: "Checkout/removeLine", input: lineIn, key: ["cartId", "lineId"], concurrency: "reject", services: [FakeApi], commit: write<unknown, "LineGone">("removeLine") });
+const coupon = transaction({ id: "Checkout/coupon", input: { cartId: U, code: U }, key: [], concurrency: "reject", services: [FakeApi], commit: write<unknown, "CouponRejected">("coupon") });
+const cartRead = resource({ id: "Checkout/cart", input: { cartId: U }, key: ["cartId"], services: [FakeApi], commit: (i) => call<CartV, "NoResponse">("cart")(i) });
 type Coupon = { readonly code: unknown; readonly status: string; readonly predictedTotalCents: number | null; readonly reason: unknown };
 const page = (api: Api) =>
   machine(

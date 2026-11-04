@@ -5,7 +5,7 @@ import { Context, Effect } from "effect";
 import type { Api, ServerModel } from "../fake-world.ts";
 import { Outcome, OutcomeUnknown, type Compiled } from "../fixtures/compiled.ts";
 import type { Fixture } from "../harness.ts";
-import { provide, type Typed } from "./flow.ts";
+import { servicesFor, type Typed } from "./flow.ts";
 
 export class FakeApi extends Context.Service<FakeApi, Api>()("Flow/Fixture/Api") {}
 type Tag<T extends string> = { readonly _tag: T };
@@ -32,9 +32,10 @@ export const write =
     unknownWhenLost(call<A, T | "NoResponse" | "ServerError">(op)(input, c.attempt.id));
 // A fixture from a typed machine. Every Compiled the suite boots from here went through `machine()`, the compile, and nothing else touched it: the fake is
 // given to the Runtime at boot as the service the commits ask for (D211), not wrapped around each commit (`provide`, finding F10).
-export const fixture = <R>(typed: Typed<R> | ((api: Api) => Typed<R>), server?: ServerModel): Fixture & { readonly typed: true } => {
+// Round 12 (D213, review H1): typed by what the machine needs. The boot gives the fake as `FakeApi`, so a machine whose commits need anything else is a type error
+// here (`R extends FakeApi`), and the seal refuses it by name at run time.
+export const fixture = <R extends FakeApi>(typed: Typed<R> | ((api: Api) => Typed<R>), server?: ServerModel): Fixture & { readonly typed: true } => {
   const make = (api: Api): Compiled => (typeof typed === "function" ? typed(api) : typed).compiled;
-  const id = (typeof typed === "function" ? typed(new Proxy({}, { get: () => () => undefined }) as Api) : typed).compiled.id;
-  return { id, make, services: (api) => Context.make(FakeApi, api) as Context.Context<never>, typed: true, ...(server ? { server } : {}) };
+  const probe = typeof typed === "function" ? typed(new Proxy({}, { get: () => () => undefined }) as Api) : typed;
+  return { id: probe.compiled.id, make, services: (api) => servicesFor(probe, Context.make(FakeApi, api)), typed: true, ...(server ? { server } : {}) };
 };
-void provide;

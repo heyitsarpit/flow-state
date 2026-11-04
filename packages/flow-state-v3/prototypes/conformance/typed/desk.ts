@@ -4,7 +4,7 @@ import { Effect, Schema } from "effect";
 import type { Api } from "../fake-world.ts";
 import type { Op } from "../fixtures/compiled.ts";
 import { definition, Flow, fragment, machine, resource, transaction } from "./flow.ts";
-import { call, fixture, write } from "./lab.ts";
+import { call, FakeApi, fixture, write } from "./lab.ts";
 
 export { ticketRef, deskServer, thingRef, traitStoreFixture, type StoreShape } from "../fixtures/desk.compiled.ts";
 import { deskServer, ticketRef } from "../fixtures/desk.compiled.ts";
@@ -17,8 +17,8 @@ const Strs = S.Array(S.String);
 // `markRead` has no `id`: the hand key was `{ id: i.id ?? "many" }`, a key no field list makes (finding F2), so here it is one lane by an empty key list.
 type DeskOpts = { readonly versioned: boolean; readonly listen?: boolean; readonly lexical?: boolean; readonly twoFeeds?: boolean };
 const deskWrite = <I extends Readonly<Record<string, Schema.Top>>, K extends keyof I>(id: string, concurrency: Op["concurrency"], input: I, key: readonly K[]) =>
-  transaction({ id: `tickets/${id}`, input, key, concurrency, commit: write<unknown, "Refused">(id) });
-const deskList = resource({ id: "tickets/list", input: {}, key: [], commit: (i) => call<unknown, "NoResponse">("list")(i) });
+  transaction({ id: `tickets/${id}`, input, key, concurrency, services: [FakeApi], commit: write<unknown, "Refused">(id) });
+const deskList = resource({ id: "tickets/list", input: {}, key: [], services: [FakeApi], commit: (i) => call<unknown, "NoResponse">("list")(i) });
 const changes = (api: Api, id: string, E: { readonly Unused: { readonly tag: "Unused" }; readonly Failed: { readonly tag: "Failed" } }) => ({
   id,
   listen: true as const,
@@ -124,7 +124,7 @@ export const deskTwoFeedsNoVersionFixture = fixture(desk({ versioned: false, lis
 // ── A persisted trait with a write. `.resumable()` on its tab. For rebind and reload (review H5, H6).
 const TW = "Lab/TraitWrite";
 const traitWrite = (policy: Op["concurrency"], persisted: boolean) => {
-  const put = transaction({ id: "lab/put", input: { k: U }, key: ["k"], concurrency: policy, commit: write<unknown, "Refused">("put") });
+  const put = transaction({ id: "lab/put", input: { k: U }, key: ["k"], concurrency: policy, services: [FakeApi], commit: write<unknown, "Refused">("put") });
   const Trait = fragment(
     {
       id: "TW",
@@ -160,7 +160,7 @@ export const traitWriteFixture = fixture(traitWrite("serialize", true));
 // ── Copies under `.each` with one key across them: rule 51 under `serialize`, where the lane's own decline cannot hide it.
 const EW = "Lab/EachWrite";
 // Not `unknownWhenLost`: the hand fixture's commit answers a lost call as a failure.
-const ewPut = transaction({ id: "lab/put", input: { k: U }, key: ["k"], concurrency: "serialize", commit: (i, { attempt }) => call("put")(i, attempt.id) });
+const ewPut = transaction({ id: "lab/put", input: { k: U }, key: ["k"], concurrency: "serialize", services: [FakeApi], commit: (i, { attempt }) => call("put")(i, attempt.id) });
 const Copy = fragment(
   {
     id: "Copy",
@@ -183,7 +183,7 @@ export const eachWriteFixture = fixture(machine(eachWrite, () => ({ default: { n
 
 // ── Rule 15 in step 3: a late ending's filling may not leave what the host's state still owns.
 const LF = "Lab/LateFill";
-const plain = (id: string) => transaction({ id: `lab/${id}`, input: {}, key: [], concurrency: "reject", commit: (i, { attempt }) => call(id)(i, attempt.id) });
+const plain = (id: string) => transaction({ id: `lab/${id}`, input: {}, key: [], concurrency: "reject", services: [FakeApi], commit: (i, { attempt }) => call(id)(i, attempt.id) });
 const kidPut = plain("kidPut");
 const hostPut = plain("hostPut");
 const Kid = fragment(

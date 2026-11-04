@@ -2,7 +2,7 @@
 // its head insertions are the `labFollowUps` seam (D203, finding F4). Drv is S2's commit matrix on the real driver.
 import { Effect, Schema } from "effect";
 import { definition, Flow, machine, transaction } from "./flow.ts";
-import { fixture, write } from "./lab.ts";
+import { FakeApi, fixture, write } from "./lab.ts";
 import type { Api } from "../fake-world.ts";
 
 export { BEHAVIOURS } from "../fixtures/drv.compiled.ts";
@@ -10,7 +10,7 @@ import { BEHAVIOURS } from "../fixtures/drv.compiled.ts";
 
 const S = Schema;
 const U = S.Unknown;
-const job = transaction({ id: "ring/job", input: { n: U, who: U }, key: ["n"], concurrency: "reject", commit: write("job") });
+const job = transaction({ id: "ring/job", input: { n: U, who: U }, key: ["n"], concurrency: "reject", services: [FakeApi], commit: write("job") });
 const ring = definition({
   id: "Ring",
   states: { READY: {} },

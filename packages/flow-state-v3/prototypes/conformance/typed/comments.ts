@@ -4,7 +4,7 @@
 import { Effect, Schema } from "effect";
 import type { Api, ServerModel } from "../fake-world.ts";
 import { definition, deny, Flow, fragment, machine, resource, transaction, type DomainIn } from "./flow.ts";
-import { call, fixture, write } from "./lab.ts";
+import { call, FakeApi, fixture, write } from "./lab.ts";
 
 // The ref and the fake server's model, copied from the hand file: that file does not type-check under the types gate's options (`exactOptionalPropertyTypes`),
 // and the gate follows imports. The world's model is not a machine.
@@ -45,11 +45,11 @@ const isDraft =
     problems.includes(draftOf(memory.drafts, event.clientId)?.problem ?? null) || deny(code);
 
 const key2 = ["ticketId", "commentId"] as const;
-const post = transaction({ id: "comments/post", input: { ticketId: U, clientId: U, text: U }, key: ["ticketId"], concurrency: "serialize", commit: write<unknown, "CommentRejected">("post") });
-const pin = transaction({ id: "comments/pin", input: { ticketId: U, commentId: U, pinned: U }, key: key2, concurrency: "reject", commit: write<unknown, "CommentGone">("pin") });
-const react = transaction({ id: "comments/react", input: { ticketId: U, commentId: U, emoji: U, on: U }, key: key2, concurrency: "reject", commit: write<unknown, "CommentGone">("react") });
-const remove = transaction({ id: "comments/remove", input: { ticketId: U, commentId: U }, key: key2, concurrency: "reject", commit: write<unknown, "EditWindowClosed" | "CommentGone">("remove") });
-const thread = resource({ id: "comments/thread", input: { ticketId: U }, key: ["ticketId"], commit: (i) => call<unknown, "NoResponse">("thread")(i) });
+const post = transaction({ id: "comments/post", input: { ticketId: U, clientId: U, text: U }, key: ["ticketId"], concurrency: "serialize", services: [FakeApi], commit: write<unknown, "CommentRejected">("post") });
+const pin = transaction({ id: "comments/pin", input: { ticketId: U, commentId: U, pinned: U }, key: key2, concurrency: "reject", services: [FakeApi], commit: write<unknown, "CommentGone">("pin") });
+const react = transaction({ id: "comments/react", input: { ticketId: U, commentId: U, emoji: U, on: U }, key: key2, concurrency: "reject", services: [FakeApi], commit: write<unknown, "CommentGone">("react") });
+const remove = transaction({ id: "comments/remove", input: { ticketId: U, commentId: U }, key: key2, concurrency: "reject", services: [FakeApi], commit: write<unknown, "EditWindowClosed" | "CommentGone">("remove") });
+const thread = resource({ id: "comments/thread", input: { ticketId: U }, key: ["ticketId"], services: [FakeApi], commit: (i) => call<unknown, "NoResponse">("thread")(i) });
 const Comments = fragment(
   {
     id: "Comments",

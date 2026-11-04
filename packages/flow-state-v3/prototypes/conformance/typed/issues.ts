@@ -4,7 +4,7 @@ import { Effect, Schema } from "effect";
 import type { Api } from "../fake-world.ts";
 import { server } from "../fixtures/issues.compiled.ts";
 import { definition, deny, Flow, machine, resource, transaction, type DomainIn } from "./flow.ts";
-import { call, fixture, write } from "./lab.ts";
+import { call, FakeApi, fixture, write } from "./lab.ts";
 
 export { MAX_LIKE_RESENDS, issueRef, server } from "../fixtures/issues.compiled.ts";
 import { MAX_LIKE_RESENDS, issueRef } from "../fixtures/issues.compiled.ts";
@@ -13,12 +13,12 @@ const S = Schema;
 const U = S.Unknown;
 type Opts = { readonly persisted?: boolean; readonly local?: boolean; readonly throwing?: boolean; readonly doubleCancel?: boolean; readonly denySettled?: boolean };
 const contracts = (throwing: boolean) => ({
-  like: transaction({ id: "issues/like", input: { id: U, liked: U }, key: ["id"], concurrency: "latest", commit: write<unknown, "Gone" | "Refused">("like") }),
-  rename: transaction({ id: "issues/rename", input: { id: U, title: U }, key: ["id"], concurrency: "latest", commit: write<unknown, "Gone" | "Refused">("rename") }),
-  remove: transaction({ id: "issues/remove", input: { id: U }, key: ["id"], concurrency: "reject", commit: write<unknown, "Gone" | "Refused">("remove") }),
-  list: resource({ id: "issues/in-project", input: {}, key: [], commit: (i) => call<unknown, "NoResponse">("list")(i) }),
+  like: transaction({ id: "issues/like", input: { id: U, liked: U }, key: ["id"], concurrency: "latest", services: [FakeApi], commit: write<unknown, "Gone" | "Refused">("like") }),
+  rename: transaction({ id: "issues/rename", input: { id: U, title: U }, key: ["id"], concurrency: "latest", services: [FakeApi], commit: write<unknown, "Gone" | "Refused">("rename") }),
+  remove: transaction({ id: "issues/remove", input: { id: U }, key: ["id"], concurrency: "reject", services: [FakeApi], commit: write<unknown, "Gone" | "Refused">("remove") }),
+  list: resource({ id: "issues/in-project", input: {}, key: [], services: [FakeApi], commit: (i) => call<unknown, "NoResponse">("list")(i) }),
   // M8, H3: a write with no `unknownWhenLost`, as the hand `poke` has (`issuesThrowing`).
-  ...(throwing ? { poke: transaction({ id: "issues/poke", input: { id: U }, key: ["id"], concurrency: "latest", commit: (i, { attempt }) => call<unknown, "Gone" | "Refused">("poke")(i, attempt.id) }) } : {}),
+  ...(throwing ? { poke: transaction({ id: "issues/poke", input: { id: U }, key: ["id"], concurrency: "latest", services: [FakeApi], commit: (i, { attempt }) => call<unknown, "Gone" | "Refused">("poke")(i, attempt.id) }) } : {}),
 });
 const domainOf = (api: Api, throwing: boolean): DomainIn => ({
   writes: {

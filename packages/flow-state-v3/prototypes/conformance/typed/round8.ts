@@ -2,7 +2,7 @@
 // for a value that cannot encode (D100); copies under `.each`, each with a read (D99); a business key beside the Attempt's own (D106).
 import { Effect, Schema } from "effect";
 import { definition, deny, Flow, fragment, machine, resource, transaction } from "./flow.ts";
-import { call, fixture, unknownWhenLost, write } from "./lab.ts";
+import { call, FakeApi, fixture, unknownWhenLost, write } from "./lab.ts";
 import { BareId } from "./round7.ts";
 
 const S = Schema;
@@ -16,7 +16,7 @@ const bareMemory = {
   who: Flow.input(U.pipe(S.withDecodingDefaultKey(Effect.succeed("a")))),
 };
 // The serial bare machine: Lab/Bare, with `serialize`, a follow-up, a Map in memory, key-less idle, two deadlines, and a mapper that reads its input.
-const serialCharge = transaction({ id: "lab/charge", input: { who: U }, key: [], concurrency: "serialize", commit: write("charge") });
+const serialCharge = transaction({ id: "lab/charge", input: { who: U }, key: [], concurrency: "serialize", services: [FakeApi], commit: write("charge") });
 const serial = definition({
   id: BareId,
   states: { A: {}, W: {}, B: {}, U: {}, T: {}, TF: {} },
@@ -78,6 +78,7 @@ const businessCharge = transaction({
   input: { who: U },
   key: [],
   concurrency: "reject",
+  services: [FakeApi],
   commit: (input) => unknownWhenLost(call<unknown, "NoResponse" | "ServerError">("charge")(input, "business:charge:a")),
 });
 const business = definition({
@@ -119,15 +120,15 @@ export const businessKeyFixture = () => businessFx;
 
 export const DoorsId = "Lab/Doors";
 const heal = () => (globalThis as { __healed?: boolean }).__healed === true;
-const dCharge = transaction({ id: "lab/charge", input: {}, key: [], concurrency: "reject", commit: write<{ readonly v?: unknown }, never>("charge") });
+const dCharge = transaction({ id: "lab/charge", input: {}, key: [], concurrency: "reject", services: [FakeApi], commit: write<{ readonly v?: unknown }, never>("charge") });
 // `other` keys by its whole input, `k`: the hand key was `i => i`, which is this field list for this input.
-const other = transaction({ id: "lab/other", input: { k: U }, key: ["k"], concurrency: "reject", commit: write("other") });
-const read = resource({ id: "lab/read", input: { v: U }, key: [], commit: (i) => call<unknown, "NoResponse">("read")(i) });
-const boomOp = transaction({ id: "lab/boom", input: {}, key: [], concurrency: "reject", commit: write<{ readonly v?: unknown }, never>("boom") });
-const readBoom = resource({ id: "lab/readBoom", input: { v: U }, key: [], commit: (i) => call<unknown, "NoResponse">("readBoom")(i) });
-const readLoop = resource({ id: "lab/readLoop", input: { v: U }, key: [], commit: (i) => call<unknown, "NoResponse">("readLoop")(i) });
+const other = transaction({ id: "lab/other", input: { k: U }, key: ["k"], concurrency: "reject", services: [FakeApi], commit: write("other") });
+const read = resource({ id: "lab/read", input: { v: U }, key: [], services: [FakeApi], commit: (i) => call<unknown, "NoResponse">("read")(i) });
+const boomOp = transaction({ id: "lab/boom", input: {}, key: [], concurrency: "reject", services: [FakeApi], commit: write<{ readonly v?: unknown }, never>("boom") });
+const readBoom = resource({ id: "lab/readBoom", input: { v: U }, key: [], services: [FakeApi], commit: (i) => call<unknown, "NoResponse">("readBoom")(i) });
+const readLoop = resource({ id: "lab/readLoop", input: { v: U }, key: [], services: [FakeApi], commit: (i) => call<unknown, "NoResponse">("readLoop")(i) });
 // Finding F2: the hand key was `() => new Set()`, which no field list makes.
-const readKey = resource({ id: "lab/readKey", input: { v: U }, key: [], commit: (i) => call<unknown, "NoResponse">("readKey")(i) });
+const readKey = resource({ id: "lab/readKey", input: { v: U }, key: [], services: [FakeApi], commit: (i) => call<unknown, "NoResponse">("readKey")(i) });
 const doors = definition({
   id: DoorsId,
   states: { A: {}, W: {}, B: {}, C: {} },
@@ -203,7 +204,7 @@ export const doorsFixture = fixture(
 
 // Copies under `.each`: a read's ending finds its copy by id (`admitRead`, `pathOfId`), so a repeated id reaches the wrong one (M3).
 export const CopiesId = "Lab/Copies";
-const load = resource({ id: "lab/load", input: { tag: U }, key: [], commit: (i) => call<unknown, "NoResponse">("load")(i) });
+const load = resource({ id: "lab/load", input: { tag: U }, key: [], services: [FakeApi], commit: (i) => call<unknown, "NoResponse">("load")(i) });
 const IdCopy = fragment(
   {
     id: "IdCopy",

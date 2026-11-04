@@ -754,6 +754,7 @@ export const round8Scenarios: readonly Scenario[] = [
       // durable.memory-decode-failure-ignored: memory this release cannot decode is quarantined, not fatal.
       "D46-memory-that-cannot-decode-is-quarantined"(c0) {
         const broken: Fixture = {
+          ...bareFixture(), // round 12 (D213): with its services, which the seal now checks against what each op needs
           id: BareId,
           make: (api) => {
             const m = bareFixture().make(api);

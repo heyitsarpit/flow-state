@@ -5,7 +5,7 @@ import type { Api } from "../../conformance/fake-world.ts";
 import { Outcome, OutcomeFailure, OutcomeUnknown } from "../../conformance/fixtures/compiled.ts";
 import { payFixture as handPay } from "../../conformance/fixtures/pay.compiled.ts";
 import type { Fixture } from "../../conformance/harness.ts";
-import { definition, deny, Flow, machine, provide, resource, transaction } from "./flow.ts";
+import { definition, deny, Flow, machine, resource, servicesFor, transaction } from "./flow.ts";
 
 // ── Where the data comes from: the shop's API, an Effect service (adapters/shop-api.ts). Flow is not a network library.
 type NoResponse = { readonly _tag: "NoResponse" };
@@ -68,6 +68,7 @@ const pay = transaction({
   key: ["intentId"],
   concurrency: "reject",
   timeoutMs: 60_000, // D8, as the pinned fixture
+  services: [ShopApi], // round 12 (D213): rule 57's requirement, as data
   commit: (input, { attempt }) =>
     Effect.flatMap(Effect.service(ShopApi), (api) =>
       api.confirm(input, { idempotencyKey: attempt.id }),
@@ -95,6 +96,7 @@ const placeOrder = transaction({
   input: { cartId: Schema.String, intentId: Schema.String },
   key: ["cartId"],
   concurrency: "reject",
+  services: [ShopApi],
   commit: (input, { attempt }) =>
     Effect.flatMap(Effect.service(ShopApi), (api) =>
       api.placeOrder(input, { idempotencyKey: attempt.id }),
@@ -116,6 +118,7 @@ const voidAuthorization = transaction({
   input: { intentId: Schema.String },
   key: ["intentId"],
   concurrency: "reject",
+  services: [ShopApi],
   commit: (input, { attempt }) =>
     Effect.flatMap(Effect.service(ShopApi), (api) =>
       api.voidAuthorization(input, { idempotencyKey: attempt.id }),
@@ -125,12 +128,14 @@ const intentStatus = resource({
   id: "Checkout/intent-status",
   input: { intentId: Schema.String },
   key: ["intentId"],
+  services: [ShopApi],
   commit: (input) => Effect.flatMap(Effect.service(ShopApi), (api) => api.intent(input)),
 });
 const orderForCart = resource({
   id: "Checkout/order-for-cart",
   input: { cartId: Schema.String },
   key: ["cartId"],
+  services: [ShopApi],
   commit: (input) => Effect.flatMap(Effect.service(ShopApi), (api) => api.orderFor(input)),
 });
 
@@ -464,9 +469,8 @@ export const typedPayFixture: Fixture & { readonly typed: true } = {
   id: handPay.id,
   ...(handPay.server ? { server: handPay.server } : {}),
   make: () => PayMachine.compiled,
-  services: (api) => shopFrom(api) as Context.Context<never>, // D211: given to the Runtime at boot
+  services: (api) => servicesFor(PayMachine, shopFrom(api)), // D211: given to the Runtime at boot; D213: checked against Pay's `R`
   typed: true,
 };
-void provide;
 // Round 11: the scenarios' name for Pay, so a scenario file switches by its import path alone (D195).
 export const payFixture = typedPayFixture;

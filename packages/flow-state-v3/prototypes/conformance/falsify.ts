@@ -7,7 +7,7 @@ import { watched } from "./watch.ts";
 
 const here = import.meta.dir;
 const argIdx = process.argv.indexOf("--runtime");
-const runtimeArg = argIdx < 0 ? "../round-11/adapter.ts" : process.argv[argIdx + 1]!;
+const runtimeArg = argIdx < 0 ? "../round-12/adapter.ts" : process.argv[argIdx + 1]!;
 const runtime = resolve(here, runtimeArg);
 const roundDir = dirname(runtime);
 const quick = process.argv.includes("--quick");

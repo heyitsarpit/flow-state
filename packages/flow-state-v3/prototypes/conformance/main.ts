@@ -23,6 +23,7 @@ import { round8Scenarios } from "./scenarios/round8.scenario.ts";
 import { round9Scenarios } from "./scenarios/round9.scenario.ts";
 import { round9bScenarios } from "./scenarios/round9b.scenario.ts";
 import { round10Scenarios } from "./scenarios/round10.scenario.ts";
+import { round12Scenarios } from "./scenarios/round12.scenario.ts";
 import { streams5Scenarios } from "./scenarios/streams5.scenario.ts";
 import { flowScenarios } from "./scenarios/flows.scenario.ts";
 import { fragScenarios } from "./scenarios/frag.scenario.ts";
@@ -51,6 +52,7 @@ export const allScenarios: readonly Scenario[] = [
   ...round9Scenarios,
   ...round9bScenarios,
   ...round10Scenarios,
+  ...round12Scenarios,
 ];
 
 const here = import.meta.dir;

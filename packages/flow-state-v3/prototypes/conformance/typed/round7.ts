@@ -1,7 +1,7 @@
 // Round 11: `fixtures/round7.compiled.ts`, written in the public API. The same machines, ids, events and behaviour; the hand file stays as prior art.
 import { Effect, Schema } from "effect";
 import { deny, definition, Flow, fragment, machine } from "./flow.ts";
-import { fixture, write } from "./lab.ts";
+import { FakeApi, fixture, write } from "./lab.ts";
 import { transaction } from "./flow.ts";
 
 export const BareId = "Lab/Bare";
@@ -11,7 +11,7 @@ const charge = transaction({
   input: { who: S.Unknown },
   key: [],
   concurrency: "reject",
-  commit: write("charge"),
+  services: [FakeApi], commit: write("charge"),
 });
 const bare = (persisted: boolean) => {
   const d = definition({
@@ -69,7 +69,7 @@ export const bareFixture = (o: { persisted?: boolean } = {}) => ((o.persisted ??
 
 // The same for a fragment: a trait with a write and a pair, resumable, on a persisted host that can leave it.
 export const FragPairId = "Lab/FragPair";
-const put = transaction({ id: "lab/put", input: {}, key: [], concurrency: "reject", commit: write("put") });
+const put = transaction({ id: "lab/put", input: {}, key: [], concurrency: "reject", services: [FakeApi], commit: write("put") });
 const PairTrait = fragment(
   {
     id: "PairTrait",

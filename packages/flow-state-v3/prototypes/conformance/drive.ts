@@ -44,6 +44,9 @@ const actorKey = (a: { actor: string; id: string }) => `${a.actor}/${a.id.replac
 export const makeHarness = (port: Port) => (): Harness => {
   let fake: FakeWorld;
   let compiled: Compiled[] = [];
+  // Round 12 (D215, review M5): a release that changes data (a key's fields), not only a closure, is compiled again at the boot after it. Only after a
+  // `release`, so no other case's boot changes.
+  let compileAll: () => Compiled[] = () => compiled;
   let services: Context.Context<never> | undefined; // D211
   let bounds = {};
   let inst: Instance;
@@ -1156,6 +1159,7 @@ export const makeHarness = (port: Port) => (): Harness => {
     // published, and every run there is unplaceable, red); never the killed instance's.
     const none = () => undefined;
     inst = { state: none, memory: none, inner: none } as unknown as Instance;
+    if (releases.length > 0) compiled = compileAll();
     const host = fake.host();
     const next = port.boot({
       host: { ...host, decode: (k: string, t: string) => {
@@ -1521,7 +1525,8 @@ export const makeHarness = (port: Port) => (): Harness => {
       // The second pass (gate5s.ts): no bound named means the runtime's own default.
       bounds = runtimeDefault || process.env["FLOW_RUNTIME_DEFAULT"] ? named : { captureMs: 0, ...named };
       // D207: a hand fixture's bare closures are slotted here, by the suite, since the Runtime's seal takes only Slots. Typed output passes unchanged.
-      compiled = cfg.machines.map((m) => listen(wrap(legacySlots((swaps.get(m) ?? m).make(fake.api)))));
+      compileAll = () => cfg.machines.map((m) => listen(wrap(legacySlots((swaps.get(m) ?? m).make(fake.api)))));
+      compiled = compileAll();
       // D211: the machines' services, merged, for the Runtime's boot. Built once per start, from this world's fake.
       const given = cfg.machines.map((m) => (swaps.get(m) ?? m).services?.(fake.api)).filter((x): x is Context.Context<never> => x !== undefined);
       services = given.length ? given.reduce((a, b) => Context.merge(a, b)) : undefined;

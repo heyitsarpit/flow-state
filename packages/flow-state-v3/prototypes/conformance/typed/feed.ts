@@ -5,7 +5,7 @@ import type { Api } from "../fake-world.ts";
 import type { Cursor, DeskFrame } from "../fixtures/feed.compiled.ts";
 import type { Signal } from "../fixtures/compiled.ts";
 import { definition, deny, Flow, fragment, machine, moduleMember, resource } from "./flow.ts";
-import { call, fixture } from "./lab.ts";
+import { call, FakeApi, fixture } from "./lab.ts";
 
 export type { Cursor, DeskFrame } from "../fixtures/feed.compiled.ts";
 const S = Schema;
@@ -49,7 +49,7 @@ type Entry = { readonly id: string };
 const upsert = (list: readonly unknown[], e: unknown) =>
   list.some((x) => (x as Entry).id === (e as Entry).id) ? list.map((x) => ((x as Entry).id === (e as Entry).id ? e : x)) : [...list, e];
 
-const peek = resource({ id: "desk/peek", input: {}, key: [], commit: () => call<unknown, "NoResponse">("peek")({}) });
+const peek = resource({ id: "desk/peek", input: {}, key: [], services: [FakeApi], commit: () => call<unknown, "NoResponse">("peek")({}) });
 const deskFeed = (reconnect: boolean) => (api: Api) => {
   const d = definition({
     id: "DispatchDesk/DeskFeed",

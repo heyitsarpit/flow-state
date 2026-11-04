@@ -3,7 +3,7 @@
 // no field list makes (finding F2), and Engine carries a `domain` and streams (finding F5): both re-exported hand.
 import { Effect, Schema } from "effect";
 import { definition, Flow, machine, transaction } from "./flow.ts";
-import { fixture, write } from "./lab.ts";
+import { FakeApi, fixture, write } from "./lab.ts";
 
 export { engineRef, keyReleaseFixture, type Release } from "../fixtures/round6.compiled.ts";
 import { engineRef, type Release } from "../fixtures/round6.compiled.ts";
@@ -11,7 +11,7 @@ import type { Api } from "../fake-world.ts";
 
 const S = Schema;
 const M = "Lab/MemoryRelease";
-const put = transaction({ id: "lab/put", input: {}, key: [], concurrency: "reject", commit: write("put") });
+const put = transaction({ id: "lab/put", input: {}, key: [], concurrency: "reject", services: [FakeApi], commit: write("put") });
 // M8: release 2's `Ok` reads a field release 1 never stored. `decode`: the field's Schema has a decoding default, so a restore fills it (D82, now a Schema).
 const memoryRelease = (rel: Release, decode: boolean) => {
   const Extra = S.Struct({ n: S.Number });
@@ -38,6 +38,44 @@ const memoryRelease = (rel: Release, decode: boolean) => {
 };
 export const memoryReleaseFixture = (rel: Release, decode: boolean) => fixture(memoryRelease(rel, decode));
 
+// Round 12 (review M5, D215): KeyRelease's production path on a typed machine. A release changes the contract's `key`, a field list (rule 39), and the
+// harness compiles again at the boot after a release. Release 1 keys by `k`; release 2 by `id` (a real rekey, D78); release 3 by `k` and `region`, a field
+// the stored input lacks (the same lane, by canonical form).
+const keyRelease = (rel: Release) => {
+  const keys = rel.v === 1 ? (["k"] as const) : rel.v === 2 ? (["id"] as const) : (["k", "region"] as const);
+  const charge = transaction({ id: "lab/charge", input: { k: S.Unknown, id: S.Unknown, region: S.Unknown }, key: keys, concurrency: "reject", services: [FakeApi], commit: write("charge") });
+  const d = definition({
+    id: "Lab/KeyReleaseTyped",
+    states: {},
+    events: { Go: {} },
+    internalEvents: { Ok: {}, No: {}, Unsure: {} },
+    memory: { unsure: Flow.initial(S.Number, 0) },
+    operations: ({ E }) => ({ charge: charge.outcomes({ success: E.Ok, failure: { NotSent: E.No }, unknown: E.Unsure }) }),
+  });
+  return machine(d, ({ O }) => ({
+    default: { node: "root" },
+    on: {
+      Go: { actions: [O.charge.commit(() => ({ k: "a", id: "x" }))] },
+      Ok: {},
+      No: {},
+      Unsure: { updateMemory: ({ memory }) => ({ unsure: memory.unsure + 1 }) },
+    },
+  }));
+};
+export const keyReleaseTypedFixture = (rel: Release) => fixture(() => keyRelease(rel));
+
+// Round 12 (review Q1): a reload of values whose JSON form is not their decoded form, in a scenario, so a restore with no decode or an encode with no codec is
+// red in the suite and not only in `typed/date-check.ts`. A Date, a NaN and a bigint.
+const dateD = definition({
+  id: "Lab/Dates",
+  states: {},
+  events: { Touch: {} },
+  internalEvents: {},
+  memory: { at: Flow.initial(S.Date, new Date(0)), n: Flow.initial(S.Number, 0), big: Flow.initial(S.BigInt, 1n) },
+  operations: () => ({}),
+});
+export const datesFixture = fixture(machine(dateD, () => ({ default: { node: "root" }, on: { Touch: { updateMemory: () => ({ at: new Date(86_400_000), n: Number.NaN, big: 2n }) } } })));
+
 const RM = "Lab/RowMove";
 // Stage J (re-check 10i S1): a row moves while its write is out. Each state handles the write's unknown its own way.
 const rowMove = definition({
@@ -63,7 +101,7 @@ export const rowMoveFixture = fixture(
 // D81's check: a machine on a sync engine. The feed carries pokes; the write's response says nothing. Domain and stream in `Compiled`'s shape (D209).
 // Finding F2: the hand key renamed a field (`{ id, n: i.title }`); a key is the contract's fields (rule 39), so here it is `{ id, title }`.
 // `idleMs: Infinity`, as the hand fixture has it: in-process (D194) it is a number like any other; the data view names it a loss (`codec/codec.ts`).
-const rename = transaction({ id: "lab/rename", input: { id: S.Unknown, title: S.Unknown }, key: ["id", "title"], concurrency: "reject", commit: write("rename") });
+const rename = transaction({ id: "lab/rename", input: { id: S.Unknown, title: S.Unknown }, key: ["id", "title"], concurrency: "reject", services: [FakeApi], commit: write("rename") });
 const engine = (api: Api) =>
   machine(
     definition({

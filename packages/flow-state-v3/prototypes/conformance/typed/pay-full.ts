@@ -4,7 +4,7 @@
 import { Context, Schema } from "effect";
 import type { Api } from "../fake-world.ts";
 import { payFullFixture as handPayFull } from "../fixtures/pay-full.compiled.ts";
-import { definition, deny, Flow, fragment, labHostOp, machine, provide, transaction } from "./flow.ts";
+import { definition, deny, Flow, fragment, labHostOp, machine, servicesFor, transaction } from "./flow.ts";
 import { call, FakeApi, write } from "./lab.ts";
 import {
   Address,
@@ -34,6 +34,7 @@ const shipping = transaction({
   input: { cartId: S.String, postcode: S.String },
   key: ["cartId"],
   concurrency: "latest",
+  services: [FakeApi],
   commit: write<unknown, "NotDeliverable">("shipping"),
 });
 const OrderSummary = fragment(
@@ -77,6 +78,7 @@ const authenticate = transaction({
   input: { intentId: S.String, clientSecret: S.String },
   key: ["intentId"],
   concurrency: "reject",
+  services: [FakeApi],
   commit: write<{ readonly intentId?: string }, "ChallengeFailed">("authenticate"),
 });
 const PayFull = definition({
@@ -302,10 +304,9 @@ export const typedPayFullFixture = {
   id: handPayFull.id,
   ...(handPayFull.server ? { server: handPayFull.server } : {}),
   make: () => PayFullMachine.compiled,
-  services: (api: Api) => Context.merge(shopFrom(api), Context.make(FakeApi, api)) as Context.Context<never>, // D211
+  services: (api: Api) => servicesFor(PayFullMachine, Context.merge(shopFrom(api), Context.make(FakeApi, api))), // D211; D213: checked against its `R`
   typed: true as const,
 };
-void provide;
 export const payFullFixture = typedPayFullFixture;
 export { LENGTH_MS } from "../fixtures/pay-full.compiled.ts";
 void call;

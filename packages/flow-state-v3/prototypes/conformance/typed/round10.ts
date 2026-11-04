@@ -3,9 +3,9 @@
 // Not here: round 10's `small(...)` machines (V, M, S, R, N, M/x), whose `Set` writes any key into memory: an open record has no field list (finding F11).
 import { Schema } from "effect";
 import { definition, Flow, fragment, labHostOp, machine, transaction } from "./flow.ts";
-import { fixture, write } from "./lab.ts";
+import { FakeApi, fixture, write } from "./lab.ts";
 
-const job = transaction({ id: "lab/job", input: { id: Schema.Unknown }, key: ["id"], concurrency: "serialize", commit: write("job") });
+const job = transaction({ id: "lab/job", input: { id: Schema.Unknown }, key: ["id"], concurrency: "serialize", services: [FakeApi], commit: write("job") });
 const LetFrag = fragment(
   {
     id: "LetFrag",

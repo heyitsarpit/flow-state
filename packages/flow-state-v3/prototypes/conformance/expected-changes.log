@@ -746,3 +746,46 @@ removed:round:typed/flow.ts | round 11, D205: the front end moved to conformance
 removed:round:typed/form.typed.ts | round 11, D205: moved to conformance/typed/form.ts
 removed:round:typed/pay.typed.ts | round 11, D205: moved to conformance/typed/pay.ts
 removed:round:typed/threeds.typed.ts | round 11, D205: moved to conformance/typed/threeds.ts
+REV8-PINS hash:9ea5d5e74b42 | round 12, D213: D46's broken Lab/Bare keeps its fixture's services, which the seal now checks against what its op needs
+R12-KEYS hash:60d2ebdb94ea | round 12, review M5: new, D78's rekey pinned on a typed machine whose release changes the key's fields
+R12-MEMORY hash:c8f878a0af37 | round 12, review Q1: new, a Date, a NaN and a bigint through a reload in a scenario
+R12-SERVICES hash:d5c587f8ea30 | round 12, review L2: new, two machines with different services booted together
+file:scenarios/round12.scenario.ts hash:d1dd9ba24c1d | round 12: new, R12-KEYS, R12-MEMORY, R12-SERVICES
+file:scenarios/round8.scenario.ts hash:1e0a398a5c1a | round 12, D213: REV8-PINS/D46's fixture spreads its services
+file:typed/cart.ts hash:99b3d707d7f2 | round 12, D213: Cart's contracts name FakeApi
+file:typed/comments.ts hash:cb3a12524b09 | round 12, D213: Comments' contracts name FakeApi
+file:typed/desk.ts hash:9cf5f4e8ef9d | round 12, D213: Desk's contracts name FakeApi
+file:typed/feed.ts hash:52891c7a5e91 | round 12, D213: DeskFeed's peek names FakeApi
+file:typed/flow.ts hash:f7f5d9153b50 | round 12, D213-D215: services on contracts, servicesFor, no key closure, inputFields, memory fields, creation decode, the restore rule; provide cut (L7)
+file:typed/form.ts hash:5b467e2b9c75 | round 12, review L7: form boots its compiled output, no provide
+file:typed/issues.ts hash:ded0beb6105f | round 12, D213: Issues' contracts name FakeApi
+file:typed/lab-machines.ts hash:afab3fff55d0 | round 12, D213: the lab machines' contracts name FakeApi
+file:typed/lab.ts hash:d59fae165700 | round 12, D213: fixture() typed by R extends FakeApi, services through servicesFor
+file:typed/order.ts hash:a4abcf813c46 | round 12, D213: Ring's job names FakeApi
+file:typed/pay-full.ts hash:56ba38533eba | round 12, D213: shipping and authenticate name FakeApi; services through servicesFor
+file:typed/pay.ts hash:5d3e1676c15c | round 12, D213: Pay's contracts name ShopApi; services through servicesFor
+file:typed/real.ts hash:198ac67047b7 | round 12, D213: the real fixtures' contracts name FakeApi
+file:typed/round10.ts hash:b74be894aeaa | round 12, D213: Let's job names FakeApi
+file:typed/round6.ts hash:107553084ca9 | round 12, D213 and review M5, Q1: FakeApi named; typed KeyRelease and Dates added
+file:typed/round7.ts hash:fe8755034852 | round 12, D213: round 7's contracts name FakeApi
+file:typed/round8.ts hash:a78de6acf50e | round 12, D213: round 8's contracts name FakeApi
+file:typed/round9.ts hash:85bf30de5c11 | round 12, D213: Bulk's and Kept's contracts name FakeApi
+file:typed/round9b.ts hash:e88f1adc46f5 | round 12, D213: Chain's and Edge's contracts name FakeApi
+file:typed/stores.ts hash:5081f20c5025 | round 12, D213: Refunds', S1's and Docs' contracts name FakeApi
+file:legacy.ts hash:17cef7820fe1 | round 12, D213-D216: hand data completed before the seal (services, memory fields, identity restore and encode, events); the stream branch cut (M1)
+file:main.ts hash:210e2b845a9f | round 12: round12Scenarios joined to the suite
+file:falsify.ts hash:47dc9f7b5f1b | round 12: falsify runs round 12 by default
+file:broken-adapter.ts hash:4433211c1187 | round 12: the broken runtimes wrap round 12 by default
+file:gate5s.ts hash:a68636363ff7 | round 12: the 5 s gate runs round 12 by default
+file:expected-recipients.txt hash:e5b3aa19cfcb | round 12: the four new cases' recipients, 4 observed, 3 restored, 4 starts
+file:drive.ts hash:ee9510db3837 | round 12, review M5: a release recompiles the machines at the next boot, so data (a key's fields) can change between releases
+round:cli/check.ts hash:2d6806fcac02 | round 12, D215: flow check's KeyField, a key field that is not an input field
+round:typed/compare-all.ts hash:47ad84a2596f | round 12, D213-D215: inputFields, services, memory fields and the gone key closure stated
+round:typed/compare.ts hash:3d8511c5c80a | round 12, D213-D215: the same for Pay, ThreeDS and Countdown
+round:typed/type-tests.ts hash:0d40f683d799 | round 12, D213: two directives, a contract missing its service and a boot missing one
+round:checks/front-check.ts hash:f8c9510df3a3 | round 12: the review's survivors and the Compiled changes pinned; three more corruptions
+round:checks/types-check.ts hash:06f2435183c7 | round 12, D213: the two new directives stated by their words and errors
+output:R12-KEYS/a-release-that-adds-a-key-field-the-stored-input-lacks-keeps-the-lane hash:d89457f6e400 | round 12, review M5: new case's output
+output:R12-KEYS/a-typed-release-that-changes-the-key-rekeys-and-does-not-mint hash:1fb83e4181e3 | round 12, review M5: new rekey case's output
+output:R12-MEMORY hash:5cb1f72927f7 | round 12, review Q1: new case's output
+output:R12-SERVICES hash:827541ad3b22 | round 12, review L2: new case's output

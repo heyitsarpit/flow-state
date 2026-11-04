@@ -79,15 +79,25 @@ export type Fragment = {
   readonly nodes: Readonly<Record<string, Node>>;
   readonly root: string;
   readonly default: string; // the root node when it has no states
-  readonly memory: {
-    readonly initial: Slot<(input: any) => object>;
-    readonly restore?: Slot<(stored: any) => object>;
-    readonly encode?: Slot<(memory: any) => object>; // Round 7, review H2: the memory's Schema, so reading and writing are one format
-  };
+  readonly memory: Memory;
   readonly whenAbandoned?: {
     readonly notify?: readonly Notify[];
     readonly release?: readonly string[]; // rule 60: a key-less O.x.cancel listed there
   };
+};
+// Round 12 (D214, review M2): memory as fields, each with its Schema, its one source (2.2.2) and whether it is private: what `flow check`'s rule 12, the restore
+// rule and the creation decode are decided over. The three Slots are made from the fields by the compiler and are what the Runtime runs; `restore` and
+// `encode` are required after the seal (the suite's hand data gets identity ones from `legacy.ts`, and `fields: {}`, since F11's open record has none).
+export type MemoryField = {
+  readonly source: "input" | "initial" | "computed" | "absent";
+  readonly schema: unknown; // an Effect Schema, in-process (D194); the data view renders it
+  readonly private?: true;
+};
+export type Memory = {
+  readonly fields?: Readonly<Record<string, MemoryField>>;
+  readonly initial: Slot<(input: any) => object>;
+  readonly restore?: Slot<(stored: any) => object>; // D82, D214: decode by the fields' Schemas, with the restore rule for a field a release adds
+  readonly encode?: Slot<(memory: any) => object>; // Round 7, review H2: the memory's Schema, so reading and writing are one format
 };
 export type ScheduleSpec = {
   readonly id: string;
@@ -125,7 +135,13 @@ export type Op = {
   readonly id: string;
   readonly contract: string;
   readonly kind: "write" | "read";
-  readonly key: Slot<(input: any) => unknown>;
+  // Round 12 (D215): the key has one source, `keyFields`, and the seal makes the lane's key from it. A compiler never writes `key`; only the suite's hand
+  // data does (finding F2's closures), through `conformance/legacy.ts`, and the seal refuses an op that has both or neither. After the seal, always a Slot.
+  readonly key?: Slot<(input: any) => unknown>;
+  // Round 12 (D215, review M3): the input's field names, so the seal and `flow check` can refuse a key field that names nothing.
+  readonly inputFields?: readonly string[];
+  // Round 12 (D213, review H1): the service keys the commit asks for (rule 57's requirements, as data). The seal refuses a boot that does not give one.
+  readonly services?: readonly string[];
   readonly concurrency: "reject" | "latest" | "serialize";
   readonly timeoutMs?: number;
   readonly fragment?: string; // the declaring fragment (rule 49). Absent: the machine. One per actor (rule 51)
@@ -146,11 +162,7 @@ export type Compiled = {
   readonly nodes: Readonly<Record<string, Node>>;
   readonly root: string;
   readonly default: string;
-  readonly memory: {
-    readonly initial: Slot<(input: unknown) => object>;
-    readonly restore?: Slot<(stored: any) => object>; // D82: a stand-in for Schema decode with defaults, at restore
-    readonly encode?: Slot<(memory: any) => object>; // Round 7, review H2: the memory's Schema, used by the driver off the turn
-  };
+  readonly memory: Memory;
   readonly ops: Readonly<Record<string, Op>>;
   readonly persisted: boolean;
   readonly uses: readonly string[]; // D44: modules this machine's operations import, by name
@@ -160,6 +172,21 @@ export type Compiled = {
   readonly streams?: Readonly<Record<string, StreamSpec>>; // data for a sessions module
   // Round 7, D91, rule 47: what a typed definition declares. Absent on hand-written fixtures, so `flow check` infers it and says so.
   readonly events?: { readonly external: readonly string[]; readonly internal: readonly string[] };
+};
+// Round 12 (D213-D216): what a compiler emits. The fields above stay optional only for the suite's hand data, which `legacy.ts` completes before the seal,
+// and the seal refuses a table without them; this type says it to the compiler, so the front end's output is checked by `tsc` too.
+export type CompiledOp = Omit<Op, "key"> & {
+  readonly keyFields: readonly string[];
+  readonly inputFields: readonly string[];
+  readonly services: readonly string[];
+};
+export type CompiledMemory = Required<Memory>;
+export type CompiledFragment = Omit<Fragment, "memory"> & { readonly memory: CompiledMemory };
+export type CompiledOutput = Omit<Compiled, "ops" | "memory" | "events" | "fragments"> & {
+  readonly ops: Readonly<Record<string, CompiledOp>>;
+  readonly memory: CompiledMemory;
+  readonly events: NonNullable<Compiled["events"]>;
+  readonly fragments?: Readonly<Record<string, CompiledFragment>>;
 };
 
 // ── What a domain says about records (2.8). Data for the entities module; the core never reads it.

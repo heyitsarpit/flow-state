@@ -2,7 +2,7 @@
 // trait with a lookup), Odd (values core must encode). Docs and the Issues variants carry a `domain` and wait for the entity step (finding F5): re-exported hand.
 import { Effect, Schema } from "effect";
 import { definition, deny, Flow, fragment, machine, resource, transaction } from "./flow.ts";
-import { call, fixture, write } from "./lab.ts";
+import { call, FakeApi, fixture, write } from "./lab.ts";
 import { notesFixture as handNotes } from "../fixtures/lab.compiled.ts";
 
 export { docRef, docsFixture, s1Persisted } from "./stores.ts";
@@ -108,8 +108,8 @@ export const formFixture = fixture(
 
 // ── Notes: writing traits. Autosave under `.each` (2.9.6, no release), an upload under `.each` (desk upload.trait.ts, rule 60), a shared key across copies
 // (rule 51's decline). Persisted.
-const saveC = transaction({ id: "lab/save", input: { docId: U, body: U }, key: ["docId"], concurrency: "reject", commit: write<unknown, "Conflict">("save") });
-const sharedC = transaction({ id: "lab/shared", input: { from: U }, key: [], concurrency: "reject", commit: write("shared") });
+const saveC = transaction({ id: "lab/save", input: { docId: U, body: U }, key: ["docId"], concurrency: "reject", services: [FakeApi], commit: write<unknown, "Conflict">("save") });
+const sharedC = transaction({ id: "lab/shared", input: { from: U }, key: [], concurrency: "reject", services: [FakeApi], commit: write("shared") });
 const Autosave = fragment(
   {
     id: "Autosave",
@@ -150,7 +150,7 @@ const Autosave = fragment(
     },
   }),
 );
-const putC = transaction({ id: "lab/put", input: { ref: U }, key: ["ref"], concurrency: "reject", commit: write("put") });
+const putC = transaction({ id: "lab/put", input: { ref: U }, key: ["ref"], concurrency: "reject", services: [FakeApi], commit: write("put") });
 const Upload = fragment(
   {
     id: "Upload",
@@ -210,7 +210,7 @@ export const notesFixture = {
 };
 
 // ── Feed: a resumable trait with a lookup. Rule 52, 2.9.6's catch-up, FP RV3 H1. Persisted.
-const catchUp = resource({ id: "lab/catchUp", input: { from: U }, key: [], commit: (i) => call<unknown, "NoResponse">("catchUp")(i) });
+const catchUp = resource({ id: "lab/catchUp", input: { from: U }, key: [], services: [FakeApi], commit: (i) => call<unknown, "NoResponse">("catchUp")(i) });
 const Tail = fragment(
   {
     id: "Tail",
@@ -248,7 +248,7 @@ export const feedFixture = fixture(
 );
 
 // ── Odd: values core must encode, from user closures. H2, D46.
-const bad = transaction({ id: "lab/bad", input: { id: U }, key: ["id"], concurrency: "reject", commit: write("bad") });
+const bad = transaction({ id: "lab/bad", input: { id: U }, key: ["id"], concurrency: "reject", services: [FakeApi], commit: write("bad") });
 const odd = definition({
   id: "Odd",
   states: { READY: {} },

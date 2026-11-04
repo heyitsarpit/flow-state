@@ -7,7 +7,7 @@ import { refundsFixture as handRefunds } from "../fixtures/refunds.compiled.ts";
 import { s1Fixture as handS1 } from "../fixtures/s1.compiled.ts";
 import { docsFixture as handDocs } from "../fixtures/lab.compiled.ts";
 import { definition, Flow, machine, resource, transaction } from "./flow.ts";
-import { call, fixture, write } from "./lab.ts";
+import { call, FakeApi, fixture, write } from "./lab.ts";
 
 export { orderRef } from "../fixtures/refunds.compiled.ts";
 export { s1Ref } from "../fixtures/s1.compiled.ts";
@@ -20,8 +20,8 @@ const repairBy = (api: Api) => (ref: string) => api.call("repair", { ref }) as E
 
 // ── Refunds.
 const money = (c: number) => `$${(c / 100).toFixed(2)}`;
-const refund = transaction({ id: "Checkout/refund", input: { chargeId: U, orderId: U, amountCents: U }, key: ["chargeId"], concurrency: "serialize", commit: write<{ readonly orderId: unknown }, "OverRefund">("refund") });
-const orders = resource({ id: "Checkout/orders", input: {}, key: [], commit: (i) => call<unknown, "NoResponse">("orders")(i) });
+const refund = transaction({ id: "Checkout/refund", input: { chargeId: U, orderId: U, amountCents: U }, key: ["chargeId"], concurrency: "serialize", services: [FakeApi], commit: write<{ readonly orderId: unknown }, "OverRefund">("refund") });
+const orders = resource({ id: "Checkout/orders", input: {}, key: [], services: [FakeApi], commit: (i) => call<unknown, "NoResponse">("orders")(i) });
 type Order = { readonly refundedCents: number; readonly amountCents: number };
 const refunds = (api: Api) =>
   machine(
@@ -81,7 +81,7 @@ export const refundsFixture = fixture(refunds, handRefunds.server);
 
 // ── S1.
 const recsOf = (mask: number) => (mask === 1 ? ["r1"] : mask === 2 ? ["r2"] : ["r1", "r2"]);
-const w = transaction({ id: "s1/w", input: { mask: U, v: U }, key: [], concurrency: "latest", commit: write<unknown, "Refused">("w") });
+const w = transaction({ id: "s1/w", input: { mask: U, v: U }, key: [], concurrency: "latest", services: [FakeApi], commit: write<unknown, "Refused">("w") });
 const s1 = (persisted: boolean) => (api: Api) =>
   machine(
     definition({
@@ -122,8 +122,8 @@ export const s1Persisted = fixture(s1(true), handS1.server);
 
 // ── Docs.
 const docRef = (id: string) => `Doc|${id}`;
-const docSave = transaction({ id: "lab/save", input: { id: U, title: U }, key: ["id"], concurrency: "reject", commit: write<{ readonly title?: unknown }, "Refused">("save") });
-const docTouch = transaction({ id: "lab/touch", input: { id: U }, key: ["id"], concurrency: "reject", commit: write("touch") });
+const docSave = transaction({ id: "lab/save", input: { id: U, title: U }, key: ["id"], concurrency: "reject", services: [FakeApi], commit: write<{ readonly title?: unknown }, "Refused">("save") });
+const docTouch = transaction({ id: "lab/touch", input: { id: U }, key: ["id"], concurrency: "reject", services: [FakeApi], commit: write("touch") });
 const docs = (api: Api) =>
   machine(
     definition({

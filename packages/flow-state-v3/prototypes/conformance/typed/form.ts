@@ -1,7 +1,7 @@
 // D124: machines through the real front end, so `flow check`'s lint is pinned from a Schema to a finding. Where the value comes from: a form, an API's response. Flow only asks whether the door will take it.
 import { Effect, Schema } from "effect";
 import type { Fixture } from "../../conformance/harness.ts";
-import { definition, Flow, machine, provide, transaction, type Fields } from "./flow.ts";
+import { definition, Flow, machine, transaction, type Fields } from "./flow.ts";
 
 const formFixture = (id: string, input: Fields, key: readonly string[]): Fixture => ({
   id,
@@ -16,7 +16,7 @@ const formFixture = (id: string, input: Fields, key: readonly string[]): Fixture
       operations: ({ E }) => ({ save: save.outcomes({ success: E.Saved, failure: { NotSent: E.No }, unknown: E.Unsure }) }),
     });
     const m = machine(d, ({ S }) => ({ default: S.A, on: { Saved: {}, No: {}, Unsure: {} } }));
-    return provide(m as never, undefined as never);
+    return m.compiled; // round 12, review L7: no `provide`; this commit needs no service
   },
 });
 const S = Schema;

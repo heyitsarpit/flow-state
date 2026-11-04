@@ -2,12 +2,12 @@
 // whose mapper reads its input (M1); a deadline whose handler can throw, a raise with no name (M2); a queue over a local source; keys that are bigints (M5).
 import { Effect, Schema } from "effect";
 import { definition, deny, Flow, fragment, machine, resource, transaction } from "./flow.ts";
-import { call, fixture, write } from "./lab.ts";
+import { call, FakeApi, fixture, write } from "./lab.ts";
 
 const S = Schema;
 const U = S.Unknown;
 export const BulkId = "Lab/Bulk";
-const rowRead = resource({ id: "lab/rowRead", input: { id: U }, key: [], commit: (i) => call<unknown, "NoResponse">("rowRead")(i) });
+const rowRead = resource({ id: "lab/rowRead", input: { id: U }, key: [], services: [FakeApi], commit: (i) => call<unknown, "NoResponse">("rowRead")(i) });
 const Row = fragment(
   {
     id: "Row",
@@ -22,7 +22,7 @@ const Row = fragment(
     states: { L: { schedules: { ask: { schedule: "0 millis", send: E.Ask } } } },
   }),
 );
-const del = transaction({ id: "lab/del", input: { id: U }, key: ["id"], concurrency: "reject", commit: write("del") });
+const del = transaction({ id: "lab/del", input: { id: U }, key: ["id"], concurrency: "reject", services: [FakeApi], commit: write("del") });
 const local = transaction({ id: "lab/local", input: {}, key: [], concurrency: "reject", commit: () => Effect.succeed({}) });
 const localRead = resource({ id: "lab/localRead", input: {}, key: [], commit: () => Effect.succeed({}) });
 const bulk = definition({
@@ -73,7 +73,7 @@ export const bulkFixture = fixture(
 // Everything a turn can be unable to accept, in one machine.
 export const KeptId = "Lab/Kept";
 const heal = () => (globalThis as { __healed?: boolean }).__healed === true;
-const kidSave = transaction({ id: "lab/kidSave", input: { id: U, at: U }, key: ["id"], concurrency: "reject", commit: write("kidSave") });
+const kidSave = transaction({ id: "lab/kidSave", input: { id: U, at: U }, key: ["id"], concurrency: "reject", services: [FakeApi], commit: write("kidSave") });
 const Kid = fragment(
   {
     id: "Kid",
@@ -115,11 +115,11 @@ const Spinny = fragment(
     },
   }),
 );
-const save = transaction({ id: "lab/save", input: { id: U, at: U }, key: ["id"], concurrency: "reject", commit: write<{ readonly v?: unknown }, never>("save") });
+const save = transaction({ id: "lab/save", input: { id: U, at: U }, key: ["id"], concurrency: "reject", services: [FakeApi], commit: write<{ readonly v?: unknown }, never>("save") });
 // Finding F2: the hand keys were `() => new Set()` and `BigInt(i.o)`, keys that are not a projection of the input; here they are fields (rule 39).
 const oddKey = transaction({ id: "lab/oddKey", input: { id: U }, key: [], concurrency: "reject", commit: () => Effect.void });
-const look = resource({ id: "lab/look", input: {}, key: [], commit: (i) => call<unknown, "NoResponse">("look")(i) });
-const keyed = transaction({ id: "lab/keyed", input: { o: U }, key: ["o"], concurrency: "reject", commit: write("keyed") });
+const look = resource({ id: "lab/look", input: {}, key: [], services: [FakeApi], commit: (i) => call<unknown, "NoResponse">("look")(i) });
+const keyed = transaction({ id: "lab/keyed", input: { o: U }, key: ["o"], concurrency: "reject", services: [FakeApi], commit: write("keyed") });
 const kept = (persisted: boolean) => {
   const d = definition({
     id: KeptId,

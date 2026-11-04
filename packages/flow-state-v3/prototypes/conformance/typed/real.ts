@@ -2,7 +2,7 @@
 // under Desk/Attach, History under Desk/Panels, and Deep. `attachDomainFixture` carries a `domain` and waits for the entity step (finding F5): hand.
 import { Effect, Schema } from "effect";
 import { definition, deny, Flow, fragment, machine, resource, transaction } from "./flow.ts";
-import { call, fixture, write } from "./lab.ts";
+import { call, FakeApi, fixture, write } from "./lab.ts";
 import { attachFixture as handAttach } from "../fixtures/real.compiled.ts";
 
 export { emptyAddress, MAX_RESENDS } from "../fixtures/real.compiled.ts";
@@ -145,7 +145,7 @@ export const ticketFixture = fixture(
 
 // ── AttachmentUpload, as written: `by: "ref"`, `item`, by-reason `unknown`, `resend` with `disarmOn`, `Lost`, whenAbandoned.
 const REASONS = { Cancelled: "Stopped", NoResponse: "Unsure", ServerError: "Unsure", Restored: "Lost", Interrupted: "Unsure", Defect: "Unsure", StillUnknown: "Unsure", StorageRefused: "Unsure" } as const;
-const put = transaction({ id: "real/put", input: { ref: U }, key: ["ref"], concurrency: "reject", commit: write<{ readonly url?: string }, "TooLarge" | "FileGone">("put") });
+const put = transaction({ id: "real/put", input: { ref: U }, key: ["ref"], concurrency: "reject", services: [FakeApi], commit: write<{ readonly url?: string }, "TooLarge" | "FileGone">("put") });
 const upload = (omit: readonly string[]) =>
   fragment(
     {
@@ -258,8 +258,8 @@ export const attachMissingReason = fixture(attach(["StillUnknown"]), handAttach.
 export const attachDomainFixture = fixture((api: Api) => attach([], api), handAttach.server);
 
 // ── History under Panels, as written: resumable + resetOn on a tab node; a lookup a freeze cuts; a write that outlives it; a raise from the host.
-const earlier = resource({ id: "real/historyOf", input: { ticketId: U, page: U }, key: ["ticketId"], commit: (i) => call<{ readonly entry?: unknown }, "NoResponse">("earlier")(i) });
-const pin = transaction({ id: "real/pin", input: { ticketId: U, entryId: U, pinned: U }, key: ["ticketId", "entryId"], concurrency: "reject", commit: write("pin") });
+const earlier = resource({ id: "real/historyOf", input: { ticketId: U, page: U }, key: ["ticketId"], services: [FakeApi], commit: (i) => call<{ readonly entry?: unknown }, "NoResponse">("earlier")(i) });
+const pin = transaction({ id: "real/pin", input: { ticketId: U, entryId: U, pinned: U }, key: ["ticketId", "entryId"], concurrency: "reject", services: [FakeApi], commit: write("pin") });
 const History = fragment(
   {
     id: "History",
@@ -345,8 +345,8 @@ const MidT = fragment({ id: "MidT", states: { X: {}, Y: {} }, default: "X", even
   on: { ToX: St.X, ToY: St.Y },
   states: { X: { traits: { ch: { resumable: true } } } },
 }));
-const rowRead = resource({ id: "real/rowRead", input: { key: U }, key: ["key"], commit: (i) => call<unknown, "NoResponse">("rowRead")(i) });
-const rowPut = transaction({ id: "real/rowPut", input: { key: U }, key: ["key"], concurrency: "reject", commit: write("rowPut") });
+const rowRead = resource({ id: "real/rowRead", input: { key: U }, key: ["key"], services: [FakeApi], commit: (i) => call<unknown, "NoResponse">("rowRead")(i) });
+const rowPut = transaction({ id: "real/rowPut", input: { key: U }, key: ["key"], concurrency: "reject", services: [FakeApi], commit: write("rowPut") });
 const RowT = fragment(
   {
     id: "RowT",
@@ -381,7 +381,7 @@ const FieldT = fragment(
     whenAbandoned: [callbacks.onGone.from(({ memory }) => ({ value: memory.value }))],
   }),
 );
-const job = transaction({ id: "real/job", input: { n: U }, key: [], concurrency: "reject", commit: write("job") });
+const job = transaction({ id: "real/job", input: { n: U }, key: [], concurrency: "reject", services: [FakeApi], commit: write("job") });
 const deep = (start: "A" | "B" | "C" | "FAR" | "FIELD" | "MID" | "AWAY" | "HERE" | "WAIT" | "BADMS") =>
   machine(
     definition({

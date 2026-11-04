@@ -2,7 +2,7 @@
 // a machine for every edge of what a turn cannot take (D123).
 import { Schema } from "effect";
 import { definition, deny, Flow, fragment, labHostOp, machine, resource, transaction } from "./flow.ts";
-import { call, fixture, write } from "./lab.ts";
+import { call, FakeApi, fixture, write } from "./lab.ts";
 
 const S = Schema;
 const U = S.Unknown;
@@ -12,12 +12,12 @@ const last = ({ memory }: { readonly memory: ChainM }) => memory.i + 1 >= memory
 const moved = (field: "ok" | "dup") => ({ memory }: { readonly memory: ChainM }) => ({ i: memory.i + 1, [field]: memory[field] + 1 });
 const done = (field: "ok" | "dup") => ({ memory }: { readonly memory: ChainM }) => ({ [field]: memory[field] + 1 });
 const stopped = ({ memory }: { readonly memory: ChainM }) => memory.stopped || deny("go on");
-const row = resource({ id: "lab/row", input: { i: U }, key: [], commit: (i) => call<unknown, "Duplicate" | "NoResponse">("row")(i) });
+const row = resource({ id: "lab/row", input: { i: U }, key: [], services: [FakeApi], commit: (i) => call<unknown, "Duplicate" | "NoResponse">("row")(i) });
 // Not `unknownWhenLost`: the hand fixture's `save` and `pw` answer a lost call as a failure, and so does this.
-const save = transaction({ id: "lab/chainSave", input: { i: U }, key: ["i"], concurrency: "reject", commit: (i, { attempt }) => call<unknown, "Duplicate">("save")(i, attempt.id) });
-const spin = resource({ id: "lab/spin", input: { same: U }, key: [], commit: (i) => call<unknown, "Whatever" | "NoResponse">("spin")(i) });
-const spinIn = resource({ id: "lab/spinIn", input: { i: U }, key: [], commit: (i) => call<unknown, "Whatever" | "NoResponse">("spinIn")(i) });
-const pw = transaction({ id: "lab/pw", input: { id: U }, key: ["id"], concurrency: "reject", commit: (i, { attempt }) => call("pw")(i, attempt.id) });
+const save = transaction({ id: "lab/chainSave", input: { i: U }, key: ["i"], concurrency: "reject", services: [FakeApi], commit: (i, { attempt }) => call<unknown, "Duplicate">("save")(i, attempt.id) });
+const spin = resource({ id: "lab/spin", input: { same: U }, key: [], services: [FakeApi], commit: (i) => call<unknown, "Whatever" | "NoResponse">("spin")(i) });
+const spinIn = resource({ id: "lab/spinIn", input: { i: U }, key: [], services: [FakeApi], commit: (i) => call<unknown, "Whatever" | "NoResponse">("spinIn")(i) });
+const pw = transaction({ id: "lab/pw", input: { id: U }, key: ["id"], concurrency: "reject", services: [FakeApi], commit: (i, { attempt }) => call("pw")(i, attempt.id) });
 const chain = (persisted: boolean, local: boolean) => {
   const d = definition({
     id: ChainId,
@@ -81,8 +81,8 @@ const boom = (message: string) => () => {
   if (!heal()) throw new Error(message);
   return {};
 };
-const rowRead = resource({ id: "lab/edgeRowRead", input: { id: U }, key: [], commit: (i) => call<unknown, "NoResponse">("rowRead")(i) });
-const rowSave = transaction({ id: "lab/edgeRowSave", input: { id: U, row: U }, key: ["id"], concurrency: "reject", commit: write("rowSave") });
+const rowRead = resource({ id: "lab/edgeRowRead", input: { id: U }, key: [], services: [FakeApi], commit: (i) => call<unknown, "NoResponse">("rowRead")(i) });
+const rowSave = transaction({ id: "lab/edgeRowSave", input: { id: U, row: U }, key: ["id"], concurrency: "reject", services: [FakeApi], commit: write("rowSave") });
 const EdgeRow = fragment(
   {
     id: "EdgeRow",
@@ -108,7 +108,7 @@ const EdgeRow = fragment(
     },
   }),
 );
-const job = transaction({ id: "lab/edgeJob", input: { id: U }, key: ["id"], concurrency: "reject", commit: write("job") });
+const job = transaction({ id: "lab/edgeJob", input: { id: U }, key: ["id"], concurrency: "reject", services: [FakeApi], commit: write("job") });
 const EdgeJob = fragment(
   {
     id: "EdgeJob",
@@ -129,7 +129,7 @@ const EdgeJob = fragment(
   }),
 );
 // Its life's end lets go of its writes (rule 60): what is kept goes with it.
-const rel = transaction({ id: "lab/edgeRel", input: { id: U }, key: ["id"], concurrency: "reject", commit: write("rel") });
+const rel = transaction({ id: "lab/edgeRel", input: { id: U }, key: ["id"], concurrency: "reject", services: [FakeApi], commit: write("rel") });
 const EdgeRel = fragment(
   {
     id: "EdgeRel",
@@ -142,11 +142,11 @@ const EdgeRel = fragment(
     whenAbandoned: [O.rel.cancel],
   }),
 );
-const edgeSave = transaction({ id: "lab/edgeSave", input: { id: U, at: U }, key: ["id"], concurrency: "reject", commit: write<{ readonly v?: unknown }, never>("save") });
-const q = transaction({ id: "lab/edgeQ", input: { id: U }, key: ["id"], concurrency: "serialize", commit: write<{ readonly v?: unknown }, never>("q") });
+const edgeSave = transaction({ id: "lab/edgeSave", input: { id: U, at: U }, key: ["id"], concurrency: "reject", services: [FakeApi], commit: write<{ readonly v?: unknown }, never>("save") });
+const q = transaction({ id: "lab/edgeQ", input: { id: U }, key: ["id"], concurrency: "serialize", services: [FakeApi], commit: write<{ readonly v?: unknown }, never>("q") });
 // Finding F2: the hand key was `BigInt(i.o)`, a key that is not a projection of the input. Rule 39 makes a key the contract's fields, so here it is `o` itself.
-const big = transaction({ id: "lab/edgeBig", input: { o: U }, key: ["o"], concurrency: "reject", commit: write("big") });
-const look = resource({ id: "lab/edgeLook", input: { id: U, at: U }, key: ["id"], commit: (i) => call<unknown, "NoResponse">("look")(i) });
+const big = transaction({ id: "lab/edgeBig", input: { o: U }, key: ["o"], concurrency: "reject", services: [FakeApi], commit: write("big") });
+const look = resource({ id: "lab/edgeLook", input: { id: U, at: U }, key: ["id"], services: [FakeApi], commit: (i) => call<unknown, "NoResponse">("look")(i) });
 const edge = (persisted: boolean, local: boolean) => {
   const d = definition({
     id: EdgeId,

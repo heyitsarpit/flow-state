@@ -11,8 +11,12 @@ import {
   type At,
   type CommitCtx,
   type Compiled,
+  type CompiledMemory,
+  type CompiledOp,
+  type CompiledOutput,
+  type MemoryField as CompiledField,
   type Denial,
-  type Fragment,
+  type CompiledFragment,
   type Mapped,
   type DomainSpec,
   type StreamSpec,
@@ -86,18 +90,28 @@ const lazy = <A>(f: () => A) => {
   let v: A | undefined;
   return () => (v ??= f());
 };
+// Round 12 (D214, review M2): creation decodes the input, as 2.2.2 says ("decode the input with the derived `Input` schema"). An input field present is checked
+// by its Schema's type side (the creator hands a value, not its JSON); absent, it takes the Schema's decoding default for a missing key, stays absent if its
+// key is optional, and is otherwise refused (`InputMissing`). A refusal throws, and the Runtime refuses the creation as it refuses any closure that throws.
 const initialOf = (definition: string, fields: MemoryFields) => {
   const m = specs(fields);
-  const defaultsOf = lazy(() => new Map(Object.entries(m).filter(([, s]) => s.from === "input").map(([k, s]) => [k, missingDefault(k, s.schema)])));
+  const built = lazy(() => ({
+    defaults: new Map(Object.entries(m).filter(([, s]) => s.from === "input").map(([k, s]) => [k, missingDefault(k, s.schema)])),
+    checks: new Map(Object.entries(m).filter(([, s]) => s.from === "input").map(([k, s]) => [k, Schema.decodeUnknownSync(Schema.toType(Schema.Struct({ [k]: s.schema }) as unknown as Schema.Top) as unknown as Schema.Codec<unknown, unknown>)])),
+  }));
   return slotOf<(input: unknown) => object>(definition, "memory.initial", (input: unknown) => {
-    const defaults = defaultsOf();
+    const { defaults, checks } = built();
     const given = (input ?? {}) as Record<string, unknown>;
     const out: Record<string, unknown> = {};
     for (const [k, s] of Object.entries(m)) {
       if (s.from === "input") {
-        if (k in given) out[k] = given[k];
-        else if (defaults.get(k)!.has) out[k] = defaults.get(k)!.v;
-        else out[k] = undefined;
+        if (k in given) {
+          try {
+            out[k] = (checks.get(k)!({ [k]: given[k] }) as Record<string, unknown>)[k];          } catch (e) {
+            throw new Error(`InputRefused: ${definition} input ${k}: ${(e as Error).message.split("\n")[0]}`);
+          }
+        } else if (defaults.get(k)!.has) out[k] = defaults.get(k)!.v;
+        else if (!isOptionalKey(s.schema)) throw new Error(`InputMissing: ${definition} input ${k}`);
       } else if (s.from === "initial" && !s.computed) out[k] = s.value;
     }
     const start = { ...out };
@@ -105,9 +119,13 @@ const initialOf = (definition: string, fields: MemoryFields) => {
     return out;
   });
 };
-// D82's stand-in becomes real: a stored record decodes by the memory's Schema. A field a release added takes its initial value.
-// Round 11: a field missing from the record takes, in order, its Schema's decoding default for a missing key (what D82's stand-in meant: "a Schema with a
-// default"), its constant initial, or stays absent when it starts absent.
+const isOptionalKey = (s: Schema.Top): boolean => (s.ast as { context?: { isOptional?: boolean } }).context?.isOptional === true;
+// D82's stand-in becomes real: a stored record decodes by the memory's Schema.
+// Round 12 (D214, review M2): the restore rule for a field the record lacks, which a release added. In order: its Schema's decoding default for a missing key;
+// a constant initial's value; a computed initial, run once over the restored fields (its function reads only input and constant fields, which are restored
+// by then; it is never run for a field the record has); an optional key stays absent. An input field with no default cannot be made up: the record is refused
+// (`RestoreMissingInput`), and the Runtime quarantines it as any record this release cannot read. Round 11 left the last two as `undefined`, which fails the
+// field's own Schema.
 const restoreOf = (definition: string, fields: MemoryFields) => {
   const m = specs(fields);
   const built = lazy(() => ({
@@ -117,20 +135,34 @@ const restoreOf = (definition: string, fields: MemoryFields) => {
   return slotOf<(stored: unknown) => object>(definition, "memory.restore", (stored: unknown) => {
     const { defaults, codecs } = built();
     const s = stored as Record<string, unknown>;
-    return Object.fromEntries(
-      Object.entries(m)
-        .filter(([k, f]) => k in s || defaults.get(k)!.has || f.from !== "absent")
-        .map(([k, f]) => [
-          k,
-          k in s
-            ? (Schema.decodeUnknownSync(codecs.get(k)!)({ [k]: s[k] }) as Record<string, unknown>)[k]
-            : defaults.get(k)!.has
-              ? defaults.get(k)!.v
-              : f.value,
-        ]),
-    );
+    const out: Record<string, unknown> = {};
+    const later: Array<[string, MemorySpec]> = [];
+    for (const [k, f] of Object.entries(m)) {
+      if (k in s) out[k] = (Schema.decodeUnknownSync(codecs.get(k)!)({ [k]: s[k] }) as Record<string, unknown>)[k];
+      else if (defaults.get(k)!.has) out[k] = defaults.get(k)!.v;
+      else if (f.computed) later.push([k, f]);
+      else if (f.from === "initial") out[k] = f.value;
+      else if (f.from === "input" && !isOptionalKey(f.schema)) throw new Error(`RestoreMissingInput: ${definition} ${k}`);
+    }
+    const start = { ...out };
+    for (const [k, f] of later) out[k] = f.computed!(start);
+    return out;
   });
 };
+const memoryOf = (definition: string, fields: MemoryFields): CompiledMemory => ({
+  fields: fieldsOf(fields),
+  initial: initialOf(definition, fields),
+  restore: restoreOf(definition, fields),
+  encode: encodeOf(definition, fields),
+});
+// D214: the fields as data, for tools: each one's Schema, its one source, and whether it is private.
+const fieldsOf = (fields: MemoryFields): Readonly<Record<string, CompiledField>> =>
+  Object.fromEntries(
+    Object.entries(specs(fields)).map(([k, s]) => [
+      k,
+      { source: s.computed ? ("computed" as const) : s.from, schema: s.schema, ...(s.private ? { private: true as const } : {}) },
+    ]),
+  );
 // Review H2: written and read by one codec. `toCodecJson` is what makes a Date or a NaN a JSON value and back. Round 11: each field as a one-field struct, so
 // a key modifier (`optionalKey`, a decoding default) means what it means in a struct.
 const jsonCodec = (k: string, f: MemorySpec) => Schema.toCodecJson(Schema.Struct({ [k]: f.schema }) as unknown as Schema.Codec<unknown, unknown>);
@@ -174,11 +206,20 @@ type Outcomes<O, E> = {
   // `byReason` is the compiled form; it does not leak into the definition.
   readonly unknown?: Target<unknown> | Readonly<Record<string, Target<unknown>>>;
 };
-type ContractSpec<I extends Fields, K extends keyof I, A, E, R> = {
+// Round 12 (D213, review H1): a contract names the services its commit asks for, as values. `tsc` refuses a list that misses one of the commit's `R`, and the
+// list compiles to `Op.services` (rule 57's requirements, as data), which the Runtime's seal checks against what the boot gives, by key.
+type Svc = Context.Key<any, any>;
+type IdOf<Sv extends readonly Svc[]> = Context.Service.Identifier<Sv[number]>;
+// On the result, not the argument, so the commit's own types still infer: a contract that misses a service has no `outcomes`, and its use names what is missing.
+type Covered<R, Sv extends readonly Svc[], C> = [Exclude<R, IdOf<Sv>>] extends [never]
+  ? C
+  : { readonly "~servicesMissing": Exclude<R, IdOf<Sv>> };
+type ContractSpec<I extends Fields, K extends keyof I, A, E, R, Sv extends readonly Svc[] = readonly Svc[]> = {
   readonly id: string;
   readonly input: I;
   readonly key: readonly K[];
   readonly timeoutMs?: number;
+  readonly services?: Sv;
   readonly commit: (input: TypeOf<I>, c: CommitCtx) => Effect.Effect<A, E, R>;
 };
 export type Contract<I extends Fields, K extends keyof I, A, E, R> = ContractSpec<I, K, A, E, R> & {
@@ -203,12 +244,12 @@ const contract = <I extends Fields, K extends keyof I, A, E, R>(
   };
   return self;
 };
-export const transaction = <I extends Fields, K extends keyof I, A, E, R>(
-  s: ContractSpec<I, K, A, E, R> & { readonly concurrency: Op["concurrency"] },
-) => contract("write", s.concurrency, s);
-export const resource = <I extends Fields, K extends keyof I, A, E, R>(
-  s: ContractSpec<I, K, A, E, R>,
-) => contract("read", "reject", s); // D23: unused for a read
+export const transaction = <I extends Fields, K extends keyof I, A, E, R, const Sv extends readonly Svc[] = readonly []>(
+  s: ContractSpec<I, K, A, E, R, Sv> & { readonly concurrency: Op["concurrency"] },
+): Covered<R, Sv, Contract<I, K, A, E, R>> => contract<I, K, A, E, R>("write", s.concurrency, s) as never;
+export const resource = <I extends Fields, K extends keyof I, A, E, R, const Sv extends readonly Svc[] = readonly []>(
+  s: ContractSpec<I, K, A, E, R, Sv>,
+): Covered<R, Sv, Contract<I, K, A, E, R>> => contract<I, K, A, E, R>("read", "reject", s) as never; // D23: unused for a read
 
 // ── Tokens.
 type EventsOf<Ev extends Readonly<Record<string, Fields>>> = {
@@ -283,6 +324,7 @@ type AnyBound = {
     readonly input: Fields;
     readonly key: readonly PropertyKey[];
     readonly timeoutMs?: number;
+    readonly services?: readonly Svc[];
     readonly commit: unknown;
   };
   readonly mapped: {
@@ -296,7 +338,7 @@ type HandleOf<B, M> =
     ? WriteHandle<I, K, M> & ReadHandle<I, M>
     : never;
 type RequirementsOf<O> = {
-  [K in keyof O]: O[K] extends Bound<Fields, never, infer _A, infer _E, infer R> ? R : never;
+  [K in keyof O]-?: NonNullable<O[K]> extends Bound<Fields, never, infer _A, infer _E, infer R> ? R : never;
 }[keyof O];
 const handles = <O extends Readonly<Record<string, AnyBound>>, M>(ops: O) =>
   Object.fromEntries(
@@ -379,8 +421,8 @@ type StateBody<M, All> = {
 // A placed fragment, by the value `fragment()` returned (the machine collects it and every fragment it places) or by id for a fragment the host names elsewhere.
 export type FragmentValue = {
   readonly id: string;
-  readonly compiled: Fragment;
-  readonly ops: Readonly<Record<string, Op>>;
+  readonly compiled: CompiledFragment;
+  readonly ops: Readonly<Record<string, CompiledOp>>;
   readonly places: readonly FragmentValue[];
 };
 type FragRef = FragmentValue | string;
@@ -674,7 +716,7 @@ export const notCarried = (ast: Ast | undefined, path: string, seen: Set<Ast> = 
       return [];
   }
 };
-const compileOp = (definition: string, name: string, b: AnyBound, fragment?: string): Op => {
+const compileOp = (definition: string, name: string, b: AnyBound, fragment?: string): CompiledOp => {
   const c = b.contract;
   const m = b.mapped;
   const keyFields = c.key.map(String);
@@ -687,10 +729,9 @@ const compileOp = (definition: string, name: string, b: AnyBound, fragment?: str
     contract: c.id,
     kind: c.kind,
     ...(fragment ? { fragment } : {}),
-    keyFields, // new on `Compiled`: rule 39's field list, as data
-    key: slotOf(definition, `operations.${name}.key`, (i: Record<string, unknown>) =>
-      Object.fromEntries(keyFields.map((f) => [f, i[f]])),
-    ),
+    keyFields, // rule 39's field list, as data. Round 12 (D215): the one source; the seal makes the key from it, and no `key` closure is written
+    inputFields: Object.keys(c.input), // D215, review M3
+    services: (c.services ?? []).map((s) => s.key), // D213, review H1
     concurrency: c.concurrency,
     ...(c.timeoutMs === undefined ? {} : { timeoutMs: c.timeoutMs }),
     commit: slotOf(definition, `operations.${name}.commit`, c.commit),
@@ -708,29 +749,15 @@ const compileOp = (definition: string, name: string, b: AnyBound, fragment?: str
           : { unknown: compileMapped(definition, name, "unknown", u) }
         : {}),
     },
-  } as unknown as Op;
+  } as unknown as CompiledOp;
 };
 
-// ── `Compiled` with what it needs: `R`, the services its commits ask for. `provide` closes it, so the Runtime stays `never`.
-export type Typed<R> = { readonly compiled: Compiled; readonly _R?: (r: R) => void };
-export const provide = <R>(t: Typed<R>, services: Context.Context<R>): Compiled => ({
-  ...t.compiled,
-  ops: Object.fromEntries(
-    Object.entries(t.compiled.ops).map(([k, op]): [string, Op] => {
-      const c = op.commit as unknown as Slot<(i: unknown, x: CommitCtx) => Effect.Effect<unknown, unknown, R>>;
-      return [
-        k,
-        {
-          ...op,
-          commit: {
-            ...c,
-            run: (i: unknown, x: CommitCtx) => Effect.provide(c.run(i, x), services),
-          },
-        },
-      ];
-    }),
-  ),
-});
+// ── `Compiled` with what it needs: `R`, the services its commits ask for (rule 57).
+// Round 12 (D213, review H1): `R` is what the boot must give. `servicesFor` is the one place a context's type is erased for the Runtime, after `tsc` has
+// checked it against the machine's `R` (taken from the machine alone, so a short context cannot narrow it). Round 11's casts at each fixture are gone, and so
+// is `provide` (review L7), the per-commit `Effect.provide` that D211 retired.
+export type Typed<R> = { readonly compiled: CompiledOutput; readonly _R?: (r: R) => R };
+export const servicesFor = <R>(_t: Typed<R>, services: Context.Context<NoInfer<R>>): Context.Context<never> => services as Context.Context<never>;
 
 // Every fragment a machine places, and every one they place, once each; their operations join the machine's (rule 51: one per actor).
 const collect = (roots: readonly FragmentValue[]) => {
@@ -897,11 +924,7 @@ export const machine = <
       nodes,
       root: "root",
       default: b.default.node,
-      memory: {
-        initial: initialOf(d.id, d.memory),
-        restore: restoreOf(d.id, d.memory),
-        encode: encodeOf(d.id, d.memory),
-      },
+      memory: memoryOf(d.id, d.memory),
       ops: {
         ...Object.fromEntries(Object.entries(d.ops).map(([k, x]) => [k, compileOp(d.id, k, x)])),
         ...fragOps,
@@ -1011,16 +1034,12 @@ export const fragment = <
   const abandon = b.whenAbandoned ?? [];
   const notify = abandon.filter((x): x is NotifyTok<MemoryOf<M>, unknown> => "name" in x);
   const release = abandon.filter((x): x is Act => "member" in x).map((a) => a.op);
-  const compiled: Fragment = {
+  const compiled: CompiledFragment = {
     id: d.id,
     root: "root",
     default: d.default ?? "root",
     nodes: compileNodes(d.id, tree, fragmentIds, b as never, placedHere),
-    memory: {
-      initial: initialOf(d.id, (d.memory ?? {}) as M),
-      restore: restoreOf(d.id, (d.memory ?? {}) as M),
-      encode: encodeOf(d.id, (d.memory ?? {}) as M),
-    },
+    memory: memoryOf(d.id, (d.memory ?? {}) as M),
     ...(abandon.length
       ? {
           whenAbandoned: {

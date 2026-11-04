@@ -3,7 +3,7 @@
 import type { Port, RuntimeModule } from "./harness.ts";
 
 const kind = process.env["FLOW_VARIANT"] ?? "diskKeys";
-const base = (await import(process.env["FLOW_VARIANT_BASE"] ?? "../round-11/adapter.ts")) as RuntimeModule;
+const base = (await import(process.env["FLOW_VARIANT_BASE"] ?? "../round-12/adapter.ts")) as RuntimeModule;
 const out = (k: string) => (kind !== "diskKeys" ? k : k.startsWith("actor/") ? `A::${k.slice(6)}` : k.startsWith("lane/") ? `L::${k.slice(5)}` : k);
 const back = (k: string) => (kind !== "diskKeys" ? k : k.startsWith("A::") ? `actor/${k.slice(3)}` : k.startsWith("L::") ? `lane/${k.slice(3)}` : k);
 const wrap = (v: string) => (kind === "envelope" ? JSON.stringify({ v: 2, body: v }) : v);
