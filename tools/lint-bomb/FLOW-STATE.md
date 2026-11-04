@@ -113,6 +113,28 @@ on internal modules and `off` on public entrypoint modules.
 
 - The built-in set from lint-bomb's own config, all `error`: `complexity`, `no-else-return`,
   `typescript/no-unnecessary-condition`, `typescript/switch-exhaustiveness-check` and the rest.
+- Added on 2026-11-04 (Arpit), each from a prototype finding. Proved by probe files that tripped
+  every one, then deleted. In the core, meaning `src` except tests and `src/host/` (a proposed name):
+  - Host APIs banned: `window`, `document`, `navigator`, `indexedDB`, `localStorage`,
+    `sessionStorage`. Only `src/host/` touches the platform: the freeze bug, the bfcache lock, and
+    Safari's false `oncomplete`.
+  - Scheduling banned: `setTimeout`, `setInterval`, `queueMicrotask`, `Promise`. The core returns
+    work as data for the driver.
+  - No Effect runtime: `Effect.gen`, `runSync`, `runPromise`, `runFork`, `try`, `tryPromise`. This
+    keeps the turn's hot path pure (0.2 ms p99; `Effect.try` costs 170 ns against 7 ns).
+  - Determinism: `Math.random` and `crypto` are banned. Ids come from the runtime's mint, so
+    stories, replays and searches reproduce a run (round 13's H1).
+  - `JSON.stringify` is banned: equality goes through `Schema.toEquivalence`, keys through their
+    Schema codec (round 10's text-order equality, the prototype's `canon`).
+- Everywhere in `src`:
+  - `switch-exhaustiveness-check` with `considerDefaultExhaustiveForUnions: false`: a `default:`
+    no longer hides a variant (it hid lane phases).
+  - `no-param-reassign` with `props: true`: a turn never mutates a value it was given. With
+    `no-readonly` off, this is the guard on shared turn state.
+  - `unicorn/no-array-sort`, `unicorn/no-array-reverse`: no in-place sort or reverse.
+  - `typescript/no-floating-promises`: a dropped promise at the host boundary is a lost write.
+- Better as types than lint, for the foundation stage: user callbacks callable only through one
+  boundary module (a branded `Slot` type), and deeply readonly `Compiled` types.
 - Carried over from the old config, scoped to v3 `src`:
   - `Date` and `performance` are banned outside tests ("use the supplied Effect Clock").
   - `setTimeout`, `setInterval`, `Effect.sleep` and `Effect.delay` are banned in tests ("use
@@ -129,6 +151,8 @@ on internal modules and `off` on public entrypoint modules.
     `Result`. `Effect.try` costs about 170 ns against 7 ns per callback and would put Effect in the
     turn. `no-raw-try-catch` stays `error` everywhere else.
   - Narrow `no-allocation-in-loop` to the turn's hot modules.
+  - Replace the proposed `src/host/` in `vite.config.ts` with the real host adapter directory, and
+    narrow the "no Effect runtime" ban to the turn's modules if the compiler needs Effect.
   - Add the host adapter directory to `no-effect-runner-in-domain`,
     `no-unwrapped-promise-in-effect-core` and `no-unsafe-fiber-methods`.
 - When v3 has an issue or diagnostic type: port `no-parallel-diagnostic-errors` to v3's path.

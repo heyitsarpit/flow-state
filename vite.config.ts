@@ -16,6 +16,10 @@ const frozen = [
   "tools/oxlint/**",
 ];
 
+// The pure core: everything in src except host adapters and tests. `src/host/` is a proposed name;
+// fix it when the module layout is decided (tools/lint-bomb/FLOW-STATE.md, "Deferred").
+const productionHost = `${productionSource}/host/**`;
+
 const productionTests = [
   `${productionSource}/**/*.test.{ts,tsx}`,
   `${productionSource}/**/*.spec.{ts,tsx}`,
@@ -58,7 +62,16 @@ export default defineConfig({
       "typescript/no-unnecessary-type-arguments": "error",
       "typescript/no-unnecessary-type-assertion": "error",
       "typescript/no-unnecessary-type-constraint": "error",
-      "typescript/switch-exhaustiveness-check": "error",
+      // A `default:` does not count as handling a tagged case: every variant is named.
+      "typescript/switch-exhaustiveness-check": [
+        "error",
+        { considerDefaultExhaustiveForUnions: false },
+      ],
+      // A dropped promise at the host boundary is a lost write.
+      "typescript/no-floating-promises": "error",
+      // Shared turn state is never sorted or reversed in place.
+      "unicorn/no-array-sort": "error",
+      "unicorn/no-array-reverse": "error",
       "vite-plus/prefer-vite-plus-imports": "error",
 
       // lint-bomb, applied as shipped (59).
@@ -162,13 +175,15 @@ export default defineConfig({
         files: [`${productionSource}/**/*.{ts,tsx}`],
         rules: {
           "import/no-mutable-exports": "error",
-          "no-param-reassign": "error",
+          // props: a turn never mutates a value it was given, such as the previous turn's state.
+          "no-param-reassign": ["error", { props: true }],
           "no-var": "error",
         },
       },
       {
+        // The core is pure, deterministic and host-free. Only src/host/ touches the platform.
         files: [`${productionSource}/**/*.{ts,tsx}`],
-        excludeFiles: productionTests,
+        excludeFiles: [...productionTests, productionHost],
         rules: {
           "no-restricted-globals": [
             "error",
@@ -179,10 +194,40 @@ export default defineConfig({
                   name: "performance",
                   message: "Use the supplied Effect Clock at the host boundary.",
                 },
+                ...["window", "document", "navigator", "indexedDB", "localStorage", "sessionStorage"].map(
+                  (name) => ({ name, message: "Host APIs belong in src/host/, not the core." }),
+                ),
+                ...["setTimeout", "setInterval", "queueMicrotask", "Promise"].map((name) => ({
+                  name,
+                  message: "The core schedules nothing itself: return the work as data for the driver.",
+                })),
+                {
+                  name: "crypto",
+                  message: "The core is deterministic: ids come from the runtime's own mint.",
+                },
               ],
               checkGlobalObject: true,
-              globalObjects: ["global"],
+              globalObjects: ["global", "globalThis", "window"],
             },
+          ],
+          "no-restricted-properties": [
+            "error",
+            {
+              object: "Math",
+              property: "random",
+              message: "The core is deterministic: stories, replays and searches must reproduce a run.",
+            },
+            {
+              object: "JSON",
+              property: "stringify",
+              message:
+                "Not for equality or keys: use Schema.toEquivalence, or the key's Schema codec.",
+            },
+            ...["gen", "runSync", "runPromise", "runFork", "try", "tryPromise"].map((property) => ({
+              object: "Effect",
+              property,
+              message: "No Effect runtime in the core: it returns work as data, the host runs it.",
+            })),
           ],
         },
       },
