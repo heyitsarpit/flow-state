@@ -79,9 +79,10 @@ Rules that misfire on a library with public types:
 - `prefer-effect-native-tagged-types`: `warn`. `Compiled` and records are JSON data (D194), so
   Schema owns those variants. The rule can't resolve imported models, so it would report each
   module.
-- `no-readonly`: `error`, with `allowInExportedTypes` (added to lint-bomb on 2026-11-04, at
-  Arpit's request). Exported types keep `readonly` as Effect's do (10,130 uses in its source).
-  Internal records and parameters stay plain.
+- `no-readonly`: `off` (Arpit, 2026-11-04). The rule exists to stop agents overusing `readonly`.
+  Here `readonly` is the only zero-cost guard against a turn mutating the previous turn's state:
+  316 internal findings on the round 13 runtime (`packages/flow-state-v3/lint-eval.md`). Its
+  `allowInExportedTypes` option stays in lint-bomb for other projects.
 - `no-empty-object-type`, new in lint-bomb on 2026-11-04: `error`. It replaces Oxlint's
   `typescript/no-empty-object-type` (now `off`) and allows `{}` only as an empty
   `Data.TaggedEnum` variant (Arpit: `{}` there is correct).

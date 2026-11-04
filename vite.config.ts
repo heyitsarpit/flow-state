@@ -140,7 +140,8 @@ export default defineConfig({
       "lint-bomb/no-god-service-shape": ["warn", { threshold: 16 }],
       "lint-bomb/no-object-freeze": "warn",
       "lint-bomb/prefer-effect-native-tagged-types": "warn",
-      "lint-bomb/no-readonly": ["error", { allowInExportedTypes: true }],
+      // Off: it exists to stop agents overusing readonly elsewhere; here readonly guards shared turn state.
+      "lint-bomb/no-readonly": "off",
       "lint-bomb/no-optional-domain-properties": ["warn", { sourceRoots: [productionSource] }],
       "lint-bomb/no-runtime-typeof": ["error", { allowInTypeGuards: true }],
 
