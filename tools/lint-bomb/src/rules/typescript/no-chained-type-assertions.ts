@@ -1,6 +1,5 @@
 import { defineRule } from "@oxlint/plugins";
 import type { ESTree } from "@oxlint/plugins";
-import { containsUnknownType } from "../../shared/typescript-type.ts";
 
 type TypeAssertionExpression = ESTree.TSAsExpression | ESTree.TSTypeAssertion;
 
@@ -45,7 +44,6 @@ function isForbiddenAssertionChain(node: TypeAssertionExpression): boolean {
   while (isTypeAssertionExpression(current)) {
     assertionCount += 1;
     hasNonConstAssertion ||= !isConstAssertion(current);
-    if (containsUnknownType(current.typeAnnotation)) return false;
     current = unwrapParenthesizedExpression(current.expression);
   }
 

@@ -83,13 +83,22 @@ Rules that misfire on a library with public types:
   Here `readonly` is the only zero-cost guard against a turn mutating the previous turn's state:
   316 internal findings on the round 13 runtime (`packages/flow-state-v3/lint-eval.md`). Its
   `allowInExportedTypes` option stays in lint-bomb for other projects.
+- New in lint-bomb on 2026-11-04, from the prototype's failure history (`packages/flow-state-v3/lint-eval.md`):
+  - `no-throw-in-core`: `error` on `src`. The core returns expected failures as values; only
+    `Defect` and `unreachable` may be thrown. The names are proposed until the issue catalog exists.
+  - `no-allocation-in-loop`: `warn` on `src`, a review signal (Arpit asked for it). It reports
+    allocations inside loop bodies and iteration callbacks. Narrow it to the turn's modules once
+    the layout exists.
+  - `no-chained-type-assertions` no longer exempts `as unknown as T`. The prototype had 7 of them.
 - `no-empty-object-type`, new in lint-bomb on 2026-11-04: `error`. It replaces Oxlint's
   `typescript/no-empty-object-type` (now `off`) and allows `{}` only as an empty
   `Data.TaggedEnum` variant (Arpit: `{}` there is correct).
 - `no-optional-domain-properties`: `warn`. Public option bags use `?:` under
   `exactOptionalPropertyTypes`, as Effect does (4,182 uses). Internal records should use `Option`.
-- `no-runtime-typeof`: `error`, with `allowInTypeGuards`. The runtime narrows user values in
-  named guards, for example `1n` keys restored as `"$1n"` (D119).
+- `no-runtime-typeof`: `error`, with no exemption (Arpit, 2026-11-04). Every user value arrives
+  through its Schema: keys through `keyFields`, memory through `Schema.toCodecJson`, records
+  decoded once at boot. A `typeof` means a value skipped its Schema. The prototype's 79 uses were
+  hand-written encoding (`canon`) and hand-checked records, which production replaces.
 
 `no-optional-domain-properties` is `warn` only until the layout exists. Then it becomes `error`
 on internal modules and `off` on public entrypoint modules.
@@ -116,6 +125,10 @@ on internal modules and `off` on public entrypoint modules.
   - Enable `no-inward-module-dependency` and `no-public-entrypoint-export-drift`.
   - Scope `no-optional-domain-properties` to internal modules as `error`, and turn it off on
     public modules.
+  - Allow plain `try/catch` in exactly one module, the one that calls user callbacks and returns a
+    `Result`. `Effect.try` costs about 170 ns against 7 ns per callback and would put Effect in the
+    turn. `no-raw-try-catch` stays `error` everywhere else.
+  - Narrow `no-allocation-in-loop` to the turn's hot modules.
   - Add the host adapter directory to `no-effect-runner-in-domain`,
     `no-unwrapped-promise-in-effect-core` and `no-unsafe-fiber-methods`.
 - When v3 has an issue or diagnostic type: port `no-parallel-diagnostic-errors` to v3's path.

@@ -5,6 +5,29 @@ Configure path-scoped rules for the boundaries in your repository.
 
 Prescriptions follow the [examples](examples/) and [style reference](STYLE.md).
 
+## no-allocation-in-loop
+
+Opt-in: off in lint-bomb's own config. Scope it with `sourceRoots` to a project's hot paths.
+
+### Prescription
+
+An object, array, `new`, closure or spread inside a loop body, or inside an iteration callback
+(`map`, `filter`, `reduce`, `forEach` and the rest), allocates once per element. In a hot path,
+hoist it out of the loop, reuse one value, or loop without the per-element callback. When each
+element really needs a new value, as when building a result, keep it and disable the line with the
+reason. Allocations in a loop's initializer, and spreads into a call's arguments, are not reported.
+
+**Failing target**
+
+```ts
+for (const x of xs) out.push({ x });
+xs.reduce((all, x) => [...all, ...x], []);
+```
+
+**Shipped message**
+
+This allocates once per iteration in a hot path. Hoist it out of the loop, reuse one value, or loop without the per-element callback. If each element needs a new value, as when building a result, keep it and disable this line with the reason.
+
 ## no-anonymous-default-export
 
 ### Prescription
@@ -69,7 +92,11 @@ decode at admission.
 
 ```ts
 const value = input as const as string;
+const other = input as unknown as string;
 ```
+
+`as unknown as T` is not exempt: widening to `unknown` and then asserting asserts with no evidence.
+A single widening (`input as unknown`) stays allowed.
 
 **Shipped message**
 
@@ -1257,6 +1284,30 @@ const value = enabled ? (() => buildValue())() : fallback;
 **Shipped message**
 
 Remove a trivial immediately invoked wrapper; otherwise use explicit branches or a meaningful named function. Preserve lazy branch evaluation and the branch result.
+
+## no-throw-in-core
+
+Opt-in: off in lint-bomb's own config. Scope it with `sourceRoots` to a project's pure core, and
+name its defect constructors with `defects`.
+
+### Prescription
+
+A pure core returns expected failures as values: a `Result`, an `Option`, or a tagged variant its
+caller matches. It throws only a defect, an invariant the code itself guarantees and found broken,
+through one of the configured constructors or functions, such as `throw new Defect(...)` or
+`throw unreachable(x)`.
+
+**Failing target**
+
+```ts
+const admit = (input: Input) => {
+  throw new Error("quota exceeded");
+};
+```
+
+**Shipped message**
+
+A pure core returns expected failures as values: a Result, an Option, or a tagged variant the caller matches. Throw only a defect, an invariant this code guarantees and found broken, using one of the configured defect constructors.
 
 ## no-throw-in-effect-gen
 

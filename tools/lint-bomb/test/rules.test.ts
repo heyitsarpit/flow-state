@@ -1,4 +1,6 @@
 import "../src/shared/module-path.test.ts";
+import "../src/rules/typescript/no-allocation-in-loop.test.ts";
+import "../src/rules/typescript/no-throw-in-core.test.ts";
 import "../src/rules/effect/no-constant-effect-flatmap.test.ts";
 import "../src/rules/effect/no-context-tag.test.ts";
 import "../src/rules/effect/no-eager-stateful-effect-succeed.test.ts";

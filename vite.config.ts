@@ -74,6 +74,13 @@ export default defineConfig({
       "lint-bomb/no-effect-promise": "error",
       "lint-bomb/no-effect-ref-read-then-write": "error",
       "lint-bomb/no-empty-object-type": "error",
+      // The core returns expected failures as values; only named defects may be thrown.
+      "lint-bomb/no-throw-in-core": [
+        "error",
+        { sourceRoots: [productionSource], defects: ["Defect", "unreachable"] },
+      ],
+      // A review signal for hot paths. Narrow sourceRoots to the turn's modules once the layout exists.
+      "lint-bomb/no-allocation-in-loop": ["warn", { sourceRoots: [productionSource] }],
       // The host boundary that runs fibers gets allowedDirectories once the layout exists.
       "lint-bomb/no-effect-runner-in-domain": "error",
       "lint-bomb/no-empty-context-make-unsafe": "error",
@@ -143,7 +150,8 @@ export default defineConfig({
       // Off: it exists to stop agents overusing readonly elsewhere; here readonly guards shared turn state.
       "lint-bomb/no-readonly": "off",
       "lint-bomb/no-optional-domain-properties": ["warn", { sourceRoots: [productionSource] }],
-      "lint-bomb/no-runtime-typeof": ["error", { allowInTypeGuards: true }],
+      // No exemption: user values arrive through their Schema, so typeof means a value skipped it.
+      "lint-bomb/no-runtime-typeof": "error",
 
       // lint-bomb, disabled (2) until the production module layout and entrypoints exist.
       "lint-bomb/no-inward-module-dependency": "off",

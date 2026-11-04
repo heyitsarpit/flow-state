@@ -1,6 +1,8 @@
 import { eslintCompatPlugin } from "@oxlint/plugins";
 
+import { noAllocationInLoopRule } from "./rules/typescript/no-allocation-in-loop.ts";
 import { noAnonymousDefaultExportRule } from "./rules/typescript/no-anonymous-default-export.ts";
+import { noThrowInCoreRule } from "./rules/typescript/no-throw-in-core.ts";
 import { noArrayFromThenMapRule } from "./rules/typescript/no-array-from-then-map.ts";
 import { noBivariantCallbackRule } from "./rules/typescript/no-bivariant-callback.ts";
 import { noChainedTypeAssertionsRule } from "./rules/typescript/no-chained-type-assertions.ts";
@@ -76,7 +78,9 @@ import { noUnwrappedPromiseInEffectCoreRule } from "./rules/effect/no-unwrapped-
 const lintBombPlugin = eslintCompatPlugin({
 	meta: { name: "lint-bomb" },
 	rules: {
+		"no-allocation-in-loop": noAllocationInLoopRule,
 		"no-array-from-then-map": noArrayFromThenMapRule,
+		"no-throw-in-core": noThrowInCoreRule,
 		"no-chained-type-assertions": noChainedTypeAssertionsRule,
 		"no-conditional-empty-object-spread": noConditionalEmptyObjectSpreadRule,
 		"no-conditional-array-spread": noConditionalArraySpreadRule,
