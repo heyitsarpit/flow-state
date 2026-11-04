@@ -168,7 +168,13 @@ Caught by: lying implementations in each feature's audit.
 
 ### 6. Documentation: not verifiable goal
 
-Goal: docs in `apps/docs/`, generated from source wherever possible, following Effect's approach (`codebases/effect-v4`). Every public export carries JSDoc with `@since`, `@category` and examples. A docgen step (as `@effect/docgen` with `packages/effect/docgen.json`) generates the API reference to Markdown, type-checking every example. Some examples run as tests. Guides are hand-written Markdown that pull checked snippets from the example apps. The issue catalog is generated from the code. Example apps are linked from the docs.
+Goal: real documentation in `apps/docs/`, written in the source and generated to Markdown wherever possible, as Effect does (`node_modules/effect/src/Effect.ts`, `retry`). Not type annotations: prose that teaches.
+- Every public export's doc comment has a one-line summary, then **When to use**, **Details** and **Gotchas**, then named **Examples**.
+- The examples are complete, runnable programs, checked by type-checking and, as Effect's `ts import.meta.vitest` blocks, run as tests.
+- Cross-links (`@see`) say when to use another export instead.
+- Long guides are hand-written Markdown beside the package, as Effect's `SCHEMA.md` (7,272 lines, 258 examples), pulling checked snippets from the example apps.
+- A docgen step generates the API reference from the comments, as `@effect/docgen` with `packages/effect/docgen.json`.
+- The issue catalog is generated from the code. Example apps are linked from the docs.
 Verified by: Arpit's judgment against criteria written first. The checkable part: every example compiles; generated Markdown is current in `nub run verify`; a fresh agent builds a small feature from the docs alone.
 Stops for the owner: the criteria; each docs section draft.
 
