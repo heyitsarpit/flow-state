@@ -60,5 +60,36 @@ for (const [name, paths] of [
   eq(`${name}: ${paths.join(", ") || "nothing to say"}`, notes(name), paths);
 const txt = run("check", "broken");
 eq("text and JSON agree on the count", /3 errors, 1 warnings/.test(txt.out), true);
+
+// ── Round 13: `flow story`, `flow trace`, `flow graph`.
+const j = (...a: string[]) => {
+  const r = run(...a, "--json");
+  return { code: r.code, doc: r.out ? JSON.parse(r.out) : undefined, err: r.err };
+};
+const list = j("story", "list");
+eq("story list: every Story, nothing run", [list.code, list.doc.stories.length, list.doc.callbacksRun, list.doc.stories.map((s: { kind: string }) => s.kind).filter((k: string) => k === "fragment").length], [0, 8, 0, 2]);
+const desc = j("story", "describe", "checkout/busy-then-paid");
+eq("story describe: from the plan alone", [desc.code, desc.doc.callbacksRun, desc.doc.steps.length, desc.doc.checkpoints, desc.doc.fakes.map((f: { server: string; endpoints: unknown[]; controls: unknown[] }) => [f.server, f.endpoints.length, f.controls.length])], [0, 0, 6, ["waiting", "paid"], [["Shop", 5, 1]]]);
+eq("story describe: a step in its data form", desc.doc.steps[0].step, { world: [{ control: { server: "Shop", name: "busy", params: { times: 1 } } }] });
+const unknownStory = run("story", "run", "nope/nope");
+eq("story run: an unknown id exits 2 on stderr", [unknownStory.code, JSON.parse(unknownStory.err).reason], [2, "UnknownStory"]);
+const ran = j("story", "run", "checkout/reload-mid-charge");
+eq("story run: what ran, no verdict", [ran.code, ran.doc.checkpoints.map((c: { state: string }) => c.state), ran.doc.requests["Shop.confirm"], "pass" in ran.doc], [0, ["PAYING", "UNSURE", "PAID"], { orphan: 1 }, false]);
+const tr = j("trace", "threeds/timed-out");
+eq("trace: the exit is on the timeline", tr.doc.lines.some((l: string) => l.includes("exits.TimedOut[0]")), true);
+eq("trace: the callback, at its instance", tr.doc.lines.some((l: string) => l.includes("[IN/countdown] on.Expired[0]")), true);
+const trAt = j("trace", "threeds/timed-out", "--at", "expired");
+eq("trace --at stops at the checkpoint", [trAt.doc.lines.some((l: string) => l.includes("GiveUp")), trAt.doc.lines.at(-1)], [false, "      checkpoint expired  seq 5"]);
+const trWire = j("trace", "checkout/reload-mid-charge");
+eq("trace: the wire as it stood", trWire.doc.lines.filter((l: string) => l.trim().startsWith("wire  Shop.confirm")).map((l: string) => l.trim()),["wire  Shop.confirm  held  att-1-1", "wire  Shop.confirm  held -> orphan  att-1-1"]);
+const g = j("graph", "typed-pay");
+eq("graph: from Compiled, nothing run", [g.code, g.doc.callbacksRun, g.doc.machine], [0, 0, "Checkout/Pay"]);
+eq("graph: an edge names its alternative", g.doc.edges.find((e: { at: string }) => e.at === "states.IDLE.on.Start[0]"), { definition: "Checkout/Pay", at: "states.IDLE.on.Start[0]", kind: "on", from: "IDLE", event: "Start", target: "CARD", guarded: [], members: [], raises: [], notifies: [], status: "takeable" });
+eq("graph: a guarded edge says what decides it", g.doc.edges.find((e: { at: string }) => e.at === "states.WAITING.on.RetryNow[0]").guarded, ["idle:pay(k)"]);
+eq("graph: Pay's CartLoaded has no source", g.doc.edges.filter((e: { status: string }) => e.status === "unsourced").map((e: { event: string }) => e.event), ["CartLoaded"]);
+const gf = j("graph", "pay-full");
+eq("graph: a fragment's table and its exits", [gf.doc.edges.some((e: { definition: string; at: string }) => e.definition === "ThreeDS" && e.at === "states.OPEN.states.EXPIRED.on.GiveUp[0]"), gf.doc.edges.filter((e: { kind: string }) => e.kind === "exit").map((e: { event: string }) => e.event).sort()], [true, ["Declined", "Passed", "TimedOut"]]);
+const gp = j("graph", "panels");
+eq("graph: a resumable trait's whenAbandoned callback fires from anywhere", gp.doc.edges.filter((e: { onAbandon?: string }) => e.onAbandon !== undefined).map((e: { event: string; onAbandon: string }) => `${e.event}:${e.onAbandon}`), ["onGone:frozen"]);
 console.log(`\nCLI pins: ${bad === 0 ? "all pass" : `${bad} failed`}`);
 process.exit(bad ? 1 : 0);

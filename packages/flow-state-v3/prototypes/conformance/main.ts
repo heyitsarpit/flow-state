@@ -103,6 +103,8 @@ const SHARED = [
   ...walked(here, "typed", /\.ts$/), // round 11, review H2: the typed fixtures and their front end, which the suite boots
   ...walked(here, "compile", /\.ts$/), // round 12: the compile prototypes, which made what the suite boots
   "legacy.ts", // round 11, D207: the hand fixtures' slotting before boot
+  "graph.ts", // round 13: `flow graph`'s graph, which the graph gate holds the runtime to
+  "graph-gate.ts", // round 13: the graph gate
   "main.ts",
   "output.ts",
   "falsify.ts",

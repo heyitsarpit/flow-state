@@ -13,4 +13,10 @@ Status: **proposed**, builder's notes for the mid-session review. Decisions star
 
 Suite: 761/761, lock clean, exit 0 [ran]. Types: 16 directives [ran]. Front: 58 pins [ran]. CLI pins pass [ran].
 
-Next: the story prototype (`round-13/story/`), then `flow story`, `flow trace`, `flow graph` and its conformance gate.
+## Checkpoint 2: the story prototype and the three commands (steps 2, 3)
+
+- `round-13/story/`: `fake.ts` (`Fake.server`, `Fake.call`, `Fake.control`, wire words `hold`/`release`/`drop`), `story.ts` (`Story.machine`, `Story.fragment` with a stand-in host built through the compile API, the steps' data forms, `run()` on the round 13 runtime with the world settled between the runtime's settles, a cut per step, checkpoint reads: `state`, `memory`, `operations`, `lane`, `read(server | endpoint)`, `records`, `attempt`, `now`). Eight Stories: Checkout (paid, pressed twice, busy then paid, reload mid-charge), 3-D Secure alone (timed out, help and back), the desk (rename latest, archive twice). Their tests and the Story errors: `checks/story-check.ts` (53 checks) [ran].
+- `flow story list | describe | run`, `flow trace <id> [--at cp]`, `flow graph <machine>` in `cli/`; pins in `cli/main.ts` [ran].
+- **`flow graph`'s gate** (`conformance/graph.ts`, `conformance/graph-gate.ts`): every `turn` the runtime writes now names each part's alternative (`definition`, `at`), node and the moved incarnation. On the suite without searches: 73,257 turns, 73,334 parts, 736 edges over 56 machines, **0 disagreements** after three graph fixes (fillings run from the host's leaf, under the placing node; a `whenAbandoned` callback runs in the leaving turn, and a resumable one's from anywhere) and one fixture fix (`cells.ts` declared no `AbortPay`). Taken 468; not taken but guarded 185; not taken and unmarked 76; marked unreached 5, unsourced 3; one event sent only by the suite (`CartLoaded`).
+
+Next: api-changes, the gate with searches, the gates on the final commit, RESULTS, convergence-13.

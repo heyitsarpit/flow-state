@@ -86,6 +86,7 @@ type Part = {
   event: any;
   patch?: object;
   source?: true; // its patch is on before the walk
+  fused?: true; // round 13: a `whenAbandoned` notify's filling, run inside the leaving turn (so from the leaf it left to)
 };
 type Walk = {
   tx: Tx;
@@ -285,6 +286,7 @@ const runPart = (
     event,
     ...(patch ? { patch } : {}),
     ...(source ? { source: true as const } : {}),
+    ...(fused ? { fused: true as const } : {}),
   });
   if (alt.target !== "self") {
     if (fused) throw refused(alt.at, "whenAbandoned may not target");
@@ -971,6 +973,9 @@ const finish = (
     from,
     to: w.root.leaf,
     ...((w.parts[0]?.event as any)?.n !== undefined ? { n: (w.parts[0]?.event as any).n } : {}),
+    // Round 13 (`flow graph`'s conformance gate, `flow trace`): which alternative ran in which incarnation, and where the moved one went. Read only by tools.
+    parts: w.parts.map((p) => ({ path: p.path, definition: p.alt.at.definition, at: p.alt.at.path, node: p.node, tag: p.tag, target: p.alt.target, ...(p.fused ? { fused: true } : {}) })),
+    ...(w.move ? { moved: { path: w.move.path, from: kidAt(w.root0, w.move.path)?.leaf, to: kidAt(w.root, w.move.path)?.leaf } } : {}),
   });
   tx.visible = true;
   // D1, D35: a follow-up runs next, up to a bound per admitted item. A pending reset first, then adoption (rule 54).

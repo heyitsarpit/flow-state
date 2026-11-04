@@ -953,7 +953,7 @@ file:bench/s4-page.ts 4d9780fd71ee
 file:bench/s4-run.ts 78b684022f52
 file:reference/model.ts f2d10ce05bca
 file:typed/cart.ts 47f7386f36f4
-file:typed/cells.ts c8dfb2d3f9be
+file:typed/cells.ts fcb852b29fba
 file:typed/chat.ts a13f2354e0a3
 file:typed/comments.ts 6ea51a9f5d15
 file:typed/desk.ts d6434ba02f91
@@ -984,7 +984,9 @@ file:compile/machine.ts f4d5060a7b4f
 file:compile/memory.ts d580212bf859
 file:compile/operations.ts b3950c420aa8
 file:legacy.ts 2c8abbeed313
-file:main.ts 4b84b349632c
+file:graph.ts 62d146b2355b
+file:graph-gate.ts 34a1bb77ad58
+file:main.ts 9ef5ad1b6193
 file:output.ts 0b15041b194e
 file:falsify.ts 5fbad632e4d7
 file:broken-adapter.ts b682c5d52315
@@ -997,13 +999,15 @@ file:expected-recipients.txt aaa228dd7219
 file:mutate.ts bd0623c0a5c3
 file:mutate-one.ts 14f130df7310
 file:harness.ts 57e2c01c3d37
-file:drive.ts ee9510db3837
+file:drive.ts c92a5b8f9720
 file:fake-world.ts 3da685e6cff6
 round:cli/broken.ts 10d0ce602315
 round:cli/check.ts 4b5999dbe7f0
 round:cli/explain.ts 5ce00d205bff
-round:cli/flow.ts 1b7c391cf973
-round:cli/main.ts a41e156eb8c7
+round:cli/flow.ts 8fa9d71afb68
+round:cli/graph.ts 514f9c852616
+round:cli/main.ts 97b831b7fe7f
+round:cli/story.ts eb55709d3fa8
 round:typed/bare-closures.ts 8609615421fe
 round:typed/census.ts 718d706db22e
 round:typed/compare-all.ts 1060f3bf8d77
@@ -1016,6 +1020,7 @@ round:checks/front-check.ts 0ea74850a0db
 round:checks/mailq-check.ts ea7e7b354b07
 round:checks/score-check.ts 96fddc8d1c66
 round:checks/search-vacuity-check.ts b04a7b97a185
+round:checks/story-check.ts bedec5233dd5
 round:checks/types-check.ts 8d3e6c8fe02d
 round:reality/h3-plant.ts 00c84949a985
 round:reality/h3.ts 87ca84205094

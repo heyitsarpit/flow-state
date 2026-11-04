@@ -1143,10 +1143,13 @@ export const makeHarness = (port: Port) => (): Harness => {
     bootSeen = false;
     saidNoBoot = false;
     anchored = reloadFacts === undefined; // a crash after a boot boots again from the same reload
+    if (releases.length > 0) compiled = compileAll();
+    const seen = observing(compiled);
     const onEvidence = (e: readonly Record<string, any>[]) => {
       judgeAsks(e);
       ledger(e);
       evidence.push(...e);
+      seen?.(e);
     };
     const onIssue = (i: ReadonlyArray<{ code: string; origin?: string; input?: unknown }>) => {
       for (const x of i) {
@@ -1159,7 +1162,6 @@ export const makeHarness = (port: Port) => (): Harness => {
     // published, and every run there is unplaceable, red); never the killed instance's.
     const none = () => undefined;
     inst = { state: none, memory: none, inner: none } as unknown as Instance;
-    if (releases.length > 0) compiled = compileAll();
     const host = fake.host();
     const next = port.boot({
       host: { ...host, decode: (k: string, t: string) => {
@@ -1648,8 +1650,14 @@ export const makeHarness = (port: Port) => (): Harness => {
 // Round 7: classifying what fails at D80's interval. A flush, through the host's own hide, before a disk read, or before a kill. Off in a normal run.
 const TEST_FLUSH = process.env["FLOW_TEST_FLUSH"] ?? "";
 // Round 7: the same scenario on another way of building the same machine (`main.ts --swap`). By identity, so nothing else with its id is touched.
+// Round 13: an optional observer of each boot, for the graph gate (`graph-gate.ts`): what was booted, then every evidence batch of that boot. Unset in every
+// other run, so no case's output depends on it.
+export type BootObserver = (compiled: readonly Compiled[]) => (e: readonly Record<string, any>[]) => void;
+let observer: BootObserver | undefined;
+export const observeBoots = (o: BootObserver | undefined) => void (observer = o);
+const observing = (compiled: readonly Compiled[]) => observer?.(compiled);
 const swaps = new Map<Fixture_, Fixture_>();
-export const swapFixtures = (m: ReadonlyMap<Fixture_, Fixture_>) => {
+export const swapFixtures =(m: ReadonlyMap<Fixture_, Fixture_>) => {
   for (const [a, b] of m) swaps.set(a, b);
 };
 export { NoHeldRequest };

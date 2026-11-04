@@ -894,3 +894,14 @@ output:R13-STAMP-SHAPE/a-typed-retry-with-the-optional-field-absent-names-its-la
 output:R13-STAMP-SHAPE/the-key-with-the-field-first-then-without-it-both-send hash:370f392161d2 | round 13, review H1 P1: the second order's output, two requests
 output:R13-STAMP-SHAPE/the-key-without-the-field-first-then-with-it-both-send hash:46bb9ea0793e | round 13, review H1 P1: the first order's output, two requests
 file:expected-recipients.txt hash:aaa228dd7219 | round 13: the new cases' observed recipients (16) and restored states checked (9)
+--- round 13, step 3b: the story prototype and three CLI commands; `flow graph`'s conformance gate
+file:typed/cells.ts hash:fcb852b29fba | round 13, graph gate: the case-edited Pay declares the AbortPay it handles, so its table is whole
+file:graph.ts hash:62d146b2355b | round 13: new, the transition graph of a Compiled, from data alone
+file:graph-gate.ts hash:34a1bb77ad58 | round 13: new, the graph gate over the whole suite
+file:main.ts hash:9ef5ad1b6193 | round 13: graph.ts and graph-gate.ts are under the lock
+file:drive.ts hash:c92a5b8f9720 | round 13: an optional boot observer for the graph gate; unset, nothing changes
+round:cli/flow.ts hash:8fa9d71afb68 | round 13: `flow graph`, `flow story`, `flow trace`
+round:cli/graph.ts hash:514f9c852616 | round 13: new, `flow graph` from Compiled with every Slot poisoned
+round:cli/main.ts hash:97b831b7fe7f | round 13: pins for story, trace and graph
+round:cli/story.ts hash:eb55709d3fa8 | round 13: new, `flow story list|describe|run` and `flow trace`
+round:checks/story-check.ts hash:bedec5233dd5 | round 13: new, the Stories' tests and the Story errors made to happen

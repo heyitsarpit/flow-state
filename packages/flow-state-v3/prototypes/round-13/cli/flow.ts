@@ -17,6 +17,7 @@ import { typedPayFixture } from "../../conformance/typed/pay.ts";
 import { check, type Finding } from "./check.ts";
 import { bigintKeyFixture, brokenFixture, dupSessionFixture, keylessFixture, noNotSentFixture, noOwnerFixture, readBadFixture, unknownEventFixture } from "./broken.ts";
 import { explain, explainText, overview } from "./explain.ts";
+import { graphCommand, graphText } from "./graph.ts";
 
 const api = new Proxy({}, { get: () => () => undefined }) as Api;
 export const TARGETS: Readonly<Record<string, Fixture>> = {
@@ -90,4 +91,12 @@ if (cmd === "check") {
     const lines = overview(m);
     console.log(json ? JSON.stringify({ command: "explain", machine: m.id, lines }) : lines.join("\n"));
   }
+} else if (cmd === "graph") {
+  // Round 13: `flow graph`, from `Compiled` alone.
+  const r = graphCommand(machineOf(rest[0] ?? ""));
+  console.log(json ? JSON.stringify({ command: "graph", machine: r.graph.machine, nodes: r.graph.nodes, edges: r.graph.edges.map(({ key: _k, ...e }) => e), sources: r.graph.sources, unseen: r.graph.unseen, callbacksRun: r.callbacksRun }) : graphText(r));
+} else if (cmd === "story" || cmd === "trace") {
+  // Round 13: `flow story list | describe <id> | run <id>` and `flow trace <id>`, over the round's Stories (`../story/`).
+  const { storyCommand } = await import("./story.ts");
+  process.exit(await storyCommand(cmd, rest, json));
 } else fail("UnknownCommand", cmd ?? "");

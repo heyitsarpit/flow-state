@@ -21,6 +21,9 @@ export const cellsFixture: Fixture = {
       },
     ];
     const root = c.nodes["root"]!;
-    return { ...c, nodes: { ...c.nodes, root: { ...root, on: { ...root.on, AbortPay } } } };
+    // Round 13 (`flow graph`'s gate): the edit declares the event it handles, as an external one with no payload, so the table stays one `flow check`
+    // and `flow graph` read whole. Before, the handler named an event nothing declared or could send.
+    const events = c.events ? { ...c.events, external: [...c.events.external, "AbortPay"], payloads: { ...c.events.payloads, AbortPay: {} } } : c.events;
+    return { ...c, nodes: { ...c.nodes, root: { ...root, on: { ...root.on, AbortPay } } }, ...(events ? { events } : {}) };
   },
 } as Fixture;
