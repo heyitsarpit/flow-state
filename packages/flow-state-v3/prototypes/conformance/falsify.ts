@@ -389,7 +389,7 @@ try {
     const chosen = quick ? ALL.slice(0, 3) : only ? ALL.filter(([id]) => only.has(id)) : ALL.filter((_, i) => i % sn === si - 1);
     if (chosen.length === 0) say(false, `lies: the slice ${si}/${sn} holds no lie`); // an empty part is no pass
     // Round 13: two modes. `--full` (a round's final commit) runs each lie over the whole suite, as before, and records the cases that went red by its
-    // named oracle in `lie-cases/` (one file per slice, so parallel slices never write one file). The default, **targeted**, runs each lie only on its
+    // named oracle in `lie-cases/` (one file per lie, written as each lie ends). The default, **targeted**, runs each lie only on its
     // recorded cases: the claim checked is the same ("red by its oracle"), on fewer cases. A lie with no record, or one whose recorded cases no longer go red,
     // runs the whole suite instead, so a stale record costs time and never passes a lie. `--parallel N` (N <= 8) runs N lies at once, each in its own copy.
     const full = process.argv.includes("--full");
@@ -399,6 +399,12 @@ try {
     const record: Record<string, readonly string[]> = {};
     if (existsSync(RECORDS)) for (const f of readdirSync(RECORDS).filter((x) => x.endsWith(".json")).sort()) Object.assign(record, JSON.parse(readFileSync(join(RECORDS, f), "utf8")));
     const recorded: Record<string, readonly string[]> = {};
+    // One file per lie: parallel slices and parallel lies never write one file.
+    const save = () => {
+      if (!full || process.argv.indexOf("--lie") >= 0 || process.argv.indexOf("--cases") >= 0) return;
+      mkdirSync(RECORDS, { recursive: true });
+      for (const [k, v] of Object.entries(recorded)) writeFileSync(join(RECORDS, `${k}.json`), `${JSON.stringify({ [k]: v })}\n`);
+    };
     let copies = 0;
     const copy = () => {
       const d = join(scratch, `lie-${copies++}`);
@@ -438,17 +444,16 @@ try {
         say(summary(p.r.stdout) !== null && fired.length === 0, `lie ${id} (${about}): vacuous, its trigger fires in no case`, fired.slice(0, 3).map((l) => l.slice(4).split("\t")[0]!.trim()).join(" "));
         return;
       }
-      if (how.startsWith("full")) recorded[id] = [...new Set(by.map(caseOf))];
+      if (how.startsWith("full") && by.length) {
+        recorded[id] = [...new Set(by.map(caseOf))];
+        save(); // after each lie, so a killed slice keeps what it learnt
+      }
       say(summary(r.stdout) !== null && by.length > 0, `lie ${id} (${about}): red by ${mark || "a named oracle"} [${how}]`, `${by.length} of ${fails.length}: ${by.slice(0, 3).map((l) => l.slice(4).split("\t")[0]!.trim()).join(" ")}`);
     };
     const queue = [...chosen];
     await Promise.all(Array.from({ length: Math.min(parallel, queue.length) }, async () => {
       for (let x = queue.shift(); x; x = queue.shift()) await one(x);
     }));
-    if (full && process.argv.indexOf("--lie") < 0 && process.argv.indexOf("--cases") < 0) {
-      mkdirSync(RECORDS, { recursive: true });
-      writeFileSync(join(RECORDS, `slice-${si}-of-${sn}.json`), `${JSON.stringify(recorded, null, 1)}\n`);
-    }
   }
 } finally {
   rmSync(scratch, { recursive: true, force: true });

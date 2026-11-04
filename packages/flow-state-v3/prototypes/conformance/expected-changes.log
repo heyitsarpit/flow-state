@@ -967,3 +967,4 @@ output:R13-KEYS/with-no-release-two-keys-are-two-lanes hash:b9a8c7ddd343 | round
 round:cli/story.ts hash:51bc9efbb26b | round 13, D221: the trace names BesideOldVersion and OldVersionLane
 round:mutants-r6.ts hash:b6c3802cca2e | round 13, D221: d78-no-rekey retargeted to the two-pass placement
 file:falsify.ts hash:1325749ba53f | round 13, Arpit's parallel rule: lies targeted by default on their recorded cases, --full records them, --parallel N up to 8
+file:falsify.ts hash:ba6fcdfbfcbd | round 13: each lie's record is its own file, written as it ends, so a killed slice keeps what it learnt
