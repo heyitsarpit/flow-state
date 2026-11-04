@@ -43,6 +43,10 @@ Arpit's condition: each remaining prototype step must directly inform production
    - `flow graph` from `Compiled`, as conformance proof. Every transition the suite and searches observe on the runtime must be an edge of the graph, so the graph is never smaller than real behaviour. Every edge the graph claims must be one the runtime can take, or be marked guard-dependent, so it is never larger without saying so. Any disagreement is a bug in the compiler, the runtime or the graph.
    - `flow story` reading the stories.
    Log API changes with before and after. Entity stories wait for the entity round, which then writes them test first.
+3c. **Test the spec, not the code** (Arpit, 2026-11-04, a trial). Two parts:
+   - (a) A full blind derivation: every scenario id's expected results derived from `machine-design.md` alone, then compared with the suite. Each disagreement is fixed, or listed for Arpit when the design is silent. Runs after round 12's mid review.
+   - (b) From the story prototype on, an oracle writer, not the builder, writes each new case's expected results from the design before the code exists.
+   The measure is whether reviews then find fewer problems in the tests. Compare High and Medium counts per review before and after. If they fall, reviews can be cut back.
 4. **Entity store proven on the runtime,** from `round-9/entity-proposal-2.md`, test first. `listen.load` and `fragstore.row` must pass. **No TanStack DB integration** (Arpit, 2026-11-03). Its compile stays thin, and so does the outside world's: one real fetch or SDK path each.
 5. **"For Arpit's read".**
 
