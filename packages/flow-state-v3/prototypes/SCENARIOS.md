@@ -490,3 +490,4 @@ Convergence-8. Old unbuilt rows (`STORY-ALL`, `BROWSER-*`, `SSR-01`) renumbered 
 | R12-KEYS | 12 | fault | hostile | D78, rule:39, rule:46 |  | round 11 review M5: a typed release that changes the key's fields rekeys a held lane and mints nothing beside it; one that adds a key field the stored input lacks keeps the lane |
 | R12-MEMORY | 12 | fault | hostile | D82, D89 |  | round 11 review Q1: a Date, a NaN and a bigint in typed memory survive a reload, through the fields' codecs |
 | R12-SERVICES | 12 | fault | hostile | rule:57 |  | round 11 review L2: two machines whose commits need different services boot together, and both writes leave |
+| R12-DEFECT | 12 | fault | hostile | rule:13 |  | round 11 review H1: a commit that dies raises a Defect issue that names its cause |

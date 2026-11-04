@@ -76,6 +76,19 @@ const dateD = definition({
 });
 export const datesFixture = fixture(machine(dateD, () => ({ default: { node: "root" }, on: { Touch: { updateMemory: () => ({ at: new Date(86_400_000), n: Number.NaN, big: 2n }) } } })));
 
+// Round 12 (review H1): a commit that dies says what died. Before, the `Defect` issue named the operation only.
+const dies = transaction({ id: "lab/dies", input: {}, key: [], concurrency: "reject", commit: () => Effect.die(new Error("the cause of the death")) });
+const diesD = definition({
+  id: "Lab/Dies",
+  states: [],
+  events: { Go: {} },
+  internalEvents: { Ok: {}, No: {}, Unsure: Flow.uncertain({}) },
+  memory: {},
+  persisted: false,
+  operations: ({ E }) => ({ dies: dies.outcomes({ success: E.Ok, failure: { NotSent: E.No }, unknown: E.Unsure }) }),
+});
+export const diesFixture = fixture(machine(diesD, ({ O }) => ({ default: { node: "root" }, on: { Go: { actions: [O.dies.commit(() => ({}))] }, Ok: {}, No: {}, Unsure: { actions: [O.dies.cancel] } } })));
+
 const RM = "Lab/RowMove";
 // Stage J (re-check 10i S1): a row moves while its write is out. Each state handles the write's unknown its own way.
 const rowMove = definition({

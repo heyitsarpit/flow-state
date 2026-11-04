@@ -1,6 +1,6 @@
 // Round 12: round 11's final review, pinned where a case is the right pin (review M5, Q1, L2). Each says what it would see without its fix.
 import { payFixture } from "../typed/pay.ts";
-import { datesFixture, keyReleaseTypedFixture, type Release } from "../typed/round6.ts";
+import { datesFixture, diesFixture, keyReleaseTypedFixture, type Release } from "../typed/round6.ts";
 import type { Fixture } from "../harness.ts";
 import { Ctx, type Scenario } from "./ctx.ts";
 
@@ -86,6 +86,22 @@ export const round12Scenarios: readonly Scenario[] = [
       c.eq("the fake's write left", c.reqs("charge").length, 1);
       c.eq("the shop's write left", c.reqs("pay").length, 1);
       c.eq("no Defect", c.r.issues().filter((i) => i.code === "Defect").length, 0);
+    },
+  },
+  {
+    // Review H1: a `Defect` issue carries what died (`step.ts`). Without it, "Service not found" or any other cause is lost.
+    id: "R12-DEFECT",
+    kind: "fault",
+    fixtures: [diesFixture],
+    actor: { actor: "Lab/Dies", id: "a" },
+    cites: ["rule:13"],
+    namedIssues: ["Defect"],
+    run(c0) {
+      const c = on(c0, [diesFixture], { actor: "Lab/Dies", id: "a" });
+      c.send("Go");
+      const d = c.r.issues().find((i) => i.code === "Defect") as { readonly cause?: unknown } | undefined;
+      c.yes("a Defect", d !== undefined);
+      c.eq("that names its cause", d?.cause, "the cause of the death");
     },
   },
 ];

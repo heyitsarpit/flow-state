@@ -828,3 +828,8 @@ round:checks/front-check.ts hash:e06e2d4f1928 | round 12: front-check on the com
 round:checks/types-check.ts hash:fd94a9b878f6 | round 12: the typed selector's directive; "no such state" names the ordered list's type
 round:mutants-r8.ts hash:fd0da998b8b7 | round 12, review L4: typed.restore-ignores-codec retargeted to compile/memory.ts
 round:mutants-r9b.ts hash:a63507e3087f | round 12, review L4: the D124 mutants retargeted to compile/operations.ts
+R12-DEFECT hash:492962f64090 | round 12, review H1: new, a Defect issue names its cause
+file:scenarios/round12.scenario.ts hash:f5f492595661 | round 12, review H1: R12-DEFECT added
+file:typed/round6.ts hash:410ee2c98113 | round 12, review H1: Lab/Dies, a commit that dies, for R12-DEFECT
+output:R12-DEFECT hash:3bcb699f43c4 | round 12, review H1: R12-DEFECT's output
+file:expected-recipients.txt hash:380427b76ac9 | round 12: R12-DEFECT's one observed recipient and its start

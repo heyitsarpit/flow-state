@@ -190,6 +190,7 @@ R10-AUDIT-READS a94287a877f3
 R12-KEYS 60d2ebdb94ea
 R12-MEMORY c8f878a0af37
 R12-SERVICES d5c587f8ea30
+R12-DEFECT 492962f64090
 variant:PAY-06/interruptible present
 variant:PAY-06/uninterruptible present
 variant:PAY-07/leaveMidCharge present
@@ -878,7 +879,7 @@ file:scenarios/order.scenario.ts d19740ca00ce
 file:scenarios/pay.scenario.ts 73232f476cba
 file:scenarios/review.scenario.ts 8fdcdc5094d6
 file:scenarios/round10.scenario.ts 9a79cf927e08
-file:scenarios/round12.scenario.ts d1dd9ba24c1d
+file:scenarios/round12.scenario.ts f5f492595661
 file:scenarios/round4.scenario.ts df05c4ce4d50
 file:scenarios/round5.scenario.ts 6e3fae94bc6c
 file:scenarios/round6.scenario.ts 72e2a778f2b5
@@ -948,7 +949,7 @@ file:typed/pay-full.ts 6950d725b577
 file:typed/pay.ts 7c08417e69af
 file:typed/real.ts 9ce741bef76b
 file:typed/round10.ts feddb1eaa7a1
-file:typed/round6.ts 7925834a8cc9
+file:typed/round6.ts 410ee2c98113
 file:typed/round7.ts d311490fd524
 file:typed/round8.ts 83315840f130
 file:typed/round9.ts e51ca9317757
@@ -973,7 +974,7 @@ file:report.ts 7e305fd3110b
 file:watch.ts eabed1da1c20
 file:gate5s.ts a68636363ff7
 file:gate-5s-expected.txt 076d1f268376
-file:expected-recipients.txt e5b3aa19cfcb
+file:expected-recipients.txt 380427b76ac9
 file:mutate.ts bd0623c0a5c3
 file:mutate-one.ts 14f130df7310
 file:harness.ts 57e2c01c3d37
@@ -1248,6 +1249,7 @@ output:R10-RUNTIME/ensure-of-a-live-key-with-another-machine-is-named e2ecc4bb5b
 output:R10-RUNTIME/one-notify-per-task d250c6d8bcce
 output:R10-RUNTIME/two-dates-are-two-states 1b7a3f3c6e93
 output:R10-RUNTIME/x-slash-y-is-not-a-second-machines-actor c2b2d654fa3b
+output:R12-DEFECT 3bcb699f43c4
 output:R12-KEYS/a-release-that-adds-a-key-field-the-stored-input-lacks-keeps-the-lane d89457f6e400
 output:R12-KEYS/a-typed-release-that-changes-the-key-rekeys-and-does-not-mint 1fb83e4181e3
 output:R12-MEMORY 5cb1f72927f7
