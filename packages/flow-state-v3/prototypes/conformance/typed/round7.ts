@@ -25,7 +25,7 @@ const bare = (persisted: boolean) => {
       noteCopy: Flow.initial(S.Unknown, ""),
       peeks: Flow.initial(S.Number, 0),
       last: Flow.initial(S.Unknown, null),
-      who: Flow.input(S.Unknown.pipe(S.withDecodingDefaultKey(Effect.succeed("a")), S.withConstructorDefault(Effect.succeed("a")))), // D222: creation's default, and restore's
+      who: Flow.input(S.Unknown.pipe(S.withDecodingDefaultKey(Effect.succeed("a")))),
     },
     persisted,
     operations: ({ E }) => ({

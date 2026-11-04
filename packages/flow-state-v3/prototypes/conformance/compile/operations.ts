@@ -95,9 +95,9 @@ type ActData =
 // `Ev = unknown` for a member with no select (`O.x.cancel`), which fits any handler.
 export type Act<Ev = unknown> = ActData & { readonly _ev?: (e: Ev) => void };
 export type OpGuard<Ev = unknown> = { readonly opGuard: TokenGuard; readonly keyFn?: unknown; readonly _ev?: (e: Ev) => void };
-// Round 13 (round 12 review M1): the key is the input's pick, so an optional key field stays optional here, as `commit` lets it be absent (rule 39 allows it:
-// an absent field is a key value, and D221's stamp, not the key's shape, says which release made a lane).
-type KeyOf<I extends Fields, K extends keyof I> = Pick<TypeOf<I>, K & keyof TypeOf<I>>;
+// Round 13 (D221, Arpit's call): key fields are required, so the key is a plain required pick of the input. The compile refuses an optional or defaulted
+// key field (`KeyFieldOptional`, below): an absent value is never a key value.
+type KeyOf<I extends Fields, K extends keyof I> = Required<Pick<TypeOf<I>, K & keyof TypeOf<I>>>;
 type WriteHandle<I extends Fields, K extends keyof I, M> = {
   readonly commit: <Ev = AnyEvent>(f: (a: In<M, Ev>) => TypeOf<I>) => Act<Ev>;
   // 2.7.3: `idle(k?)`, `retry(k?)`, `cancel(k?)`; key-less names the one lane, or the ending's Attempt (OD8). `retryable({ times })`, `retryable(k, { times })`.
@@ -168,11 +168,27 @@ export const notCarried = (ast: Ast | undefined, path: string, seen: Set<Ast> = 
       return [];
   }
 };
+const optionalOrDefaulted = (f: string, s: Schema.Top): boolean => {
+  if ((s.ast as { context?: { isOptional?: boolean } }).context?.isOptional === true) return true;
+  const st = Schema.Struct({ [f]: s }) as unknown as Schema.Codec<Record<string, unknown>, unknown> & { makeOption: (i: unknown) => { _tag: string } };
+  if (st.makeOption({})._tag === "Some") return true; // a constructor default
+  try {
+    Schema.decodeUnknownSync(st)({});
+    return true; // a decoding default
+  } catch {
+    return false;
+  }
+};
 // `events`: the declaring definition's or fragment's event records, so `unknown:` is checked against `Flow.uncertain` (rule 13).
 export const compileOp = (definition: string, name: string, b: AnyBound, events: Readonly<Record<string, Fields>>, fragment?: string): CompiledOp => {
   const c = b.contract;
   const m = b.mapped;
   const keyFields = c.key.map(String);
+  // D221 (rule 39, round 13 mid review L5): a key field is required and has no default, so every key names its server thing by values the caller gave.
+  for (const f of keyFields) {
+    const s = (c.input as Record<string, Schema.Top>)[f];
+    if (s && (optionalOrDefaulted(f, s))) throw new Error(`KeyFieldOptional: ${definition} operations.${name} key field ${f} is optional or has a default (rule 39)`);
+  }
   const inputNotCarried = Object.entries(c.input as Record<string, { ast: Ast }>).flatMap(([f, s]) => notCarried(s.ast, f));
   const u0 = m.unknown as Readonly<Record<string, unknown>> | undefined;
   const u = u0 === undefined ? undefined : typeof u0["tag"] === "string" ? u0 : { byReason: u0 }; // a token's `tag` is a string; a reason's value is a token

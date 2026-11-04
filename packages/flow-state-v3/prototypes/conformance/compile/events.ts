@@ -22,5 +22,7 @@ export const isUncertain = (fields: unknown) => typeof fields === "object" && fi
 // author's records). The admission door and a Story's sends have data to check against.
 export const payloadsOf = (ev: Readonly<Record<string, Fields>>): Readonly<Record<string, Readonly<Record<string, unknown>>>> =>
   Object.fromEntries(Object.entries(ev).map(([tag, f]) => [tag, { ...f }]));
-export const tokens =<Ev extends Readonly<Record<string, Fields>>>(ev: Ev): EventsOf<Ev> =>
+// Round 13 (mid review L4): which events `Flow.uncertain` marks, as data; `payloadsOf`'s copies lose the mark, which is by identity.
+export const uncertainOf = (ev: Readonly<Record<string, Fields>>): readonly string[] => Object.keys(ev).filter((k) => isUncertain(ev[k]));
+export const tokens = <Ev extends Readonly<Record<string, Fields>>>(ev: Ev): EventsOf<Ev> =>
   Object.fromEntries(Object.keys(ev).map((tag) => [tag, { tag, from: (fromFn: unknown) => ({ tag, fromFn }) }])) as EventsOf<Ev>;

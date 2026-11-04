@@ -61,6 +61,10 @@ for (const [name, paths] of [
 const txt = run("check", "broken");
 eq("text and JSON agree on the count", /3 errors, 1 warnings/.test(txt.out), true);
 
+// ── Round 13 (mid review M3): a fragment's operations are checked against the fragment's own declarations.
+eq("attach: nothing to say", rules("attach").rules.filter((r) => r.startsWith("error")), []);
+eq("panels: nothing to say", rules("panels").rules.filter((r) => r.startsWith("error")), []);
+eq("frag-typo: an undeclared fragment ending is UnknownEvent", rules("frag-typo").rules.includes("error:UnknownEvent"), true);
 // ── Round 13: `flow story`, `flow trace`, `flow graph`.
 const j = (...a: string[]) => {
   const r = run(...a, "--json");

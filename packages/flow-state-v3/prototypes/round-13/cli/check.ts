@@ -288,7 +288,8 @@ export const check = (raw: Compiled): { findings: Finding[]; callbacksRun: numbe
   // ── Events: declared, or inferred, and said so.
   const bodies: Array<{ id: string; nodes: Nodes }> = [{ id: c.id, nodes: c.nodes }];
   const handled = new Set(bodies.flatMap((b) => Object.values(b.nodes).flatMap((n) => Object.keys(n.on))));
-  const mapped = new Set(Object.values(c.ops).flatMap((o) => mappedEvents(o).all));
+  // Round 13 (mid review M3): a fragment op's endings are the fragment's events, checked against its declarations below, not the machine's.
+  const mapped = new Set(Object.values(c.ops).filter((o) => !o.fragment || !c.fragments?.[o.fragment]?.events).flatMap((o) => mappedEvents(o).all));
   const sends = new Set(Object.values(c.nodes).flatMap((n) => n.schedules.map((s) => s.send)));
   if (c.events) {
     const known = new Set([...c.events.external, ...c.events.internal]);
@@ -311,11 +312,15 @@ export const check = (raw: Compiled): { findings: Finding[]; callbacksRun: numbe
       continue;
     }
     const known = new Set([...f.events.external, ...(f.events.host ?? []), ...f.events.internal]);
-    const placedEvents = new Set(Object.values(f.nodes).flatMap((n) => [...(n.placements ?? []), ...(n.subroutine ? [n.subroutine] : [])].map((p) => p.name)));
     for (const n of Object.values(f.nodes))
       for (const e of Object.keys(n.on))
-        if (!known.has(e) && !placedEvents.has(e))
+        if (!known.has(e))
           push({ severity: "error", rule: "UnknownEvent", machine: c.id, path: `fragments.${fid}.on.${e}`, event: e, message: `\`${e}\` is handled in fragment \`${fid}\` but it declares no such event`, help: "declare it in the fragment's `events`, `hostEvents` or `internalEvents`" });
+    // Its operations' endings and its schedules' sends, against its own declarations (mid review M3).
+    const own = [...Object.values(c.ops).filter((o) => o.fragment === fid).flatMap((o) => mappedEvents(o).all), ...Object.values(f.nodes).flatMap((n) => n.schedules.map((s) => s.send))];
+    for (const e of new Set(own))
+      if (!known.has(e))
+        push({ severity: "error", rule: "UnknownEvent", machine: c.id, path: `fragments.${fid}.operations`, event: e, message: `\`${e}\` is mapped or scheduled in fragment \`${fid}\` but it declares no such event`, help: "declare it in the fragment's `internalEvents`" });
   }
   // Round 12 (D215, review M3): a key field must be an input field, or every input names one lane.
   for (const [k, o] of Object.entries(c.ops))

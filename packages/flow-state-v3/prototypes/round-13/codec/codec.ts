@@ -175,12 +175,12 @@ const build = (Slot: S.Top) => {
   const Memory = S.Struct({ fields: S.Record(S.String, Field), initial: Slot, restore: Slot, encode: Slot });
   // Round 13 (round 12 review M3): what a definition and a fragment declare, payload Schemas included (each rendered by `toData`).
   const Payloads = S.Record(S.String, S.Record(S.String, S.Unknown));
-  const Events = S.Struct({ external: S.Array(S.String), internal: S.Array(S.String), host: opt(S.Array(S.String)), payloads: Payloads });
+  const Events = S.Struct({ external: S.Array(S.String), internal: S.Array(S.String), host: opt(S.Array(S.String)), payloads: Payloads, uncertain: S.Array(S.String) });
   const PortS = S.Struct({ fields: S.Record(S.String, S.Unknown), optional: opt(S.Literal(true)) });
   const Fragment = S.Struct({
     id: S.String,
     kind: S.Literals(["trait", "subroutine"]),
-    events: S.Struct({ external: S.Array(S.String), host: S.Array(S.String), internal: S.Array(S.String), payloads: Payloads }),
+    events: S.Struct({ external: S.Array(S.String), host: S.Array(S.String), internal: S.Array(S.String), payloads: Payloads, uncertain: S.Array(S.String) }),
     ports: S.Struct({ exits: S.Record(S.String, PortS), callbacks: S.Record(S.String, PortS), guards: S.Record(S.String, S.Struct({ optional: opt(S.Literal(true)) })) }),
     nodes: S.Record(S.String, Node),
     root: S.String,

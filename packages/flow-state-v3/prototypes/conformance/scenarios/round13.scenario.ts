@@ -1,170 +1,156 @@
-// Round 13: round 12's final review, pinned (round-12/review.md H1, M1). Each says what it would see without its fix.
-import { ctorInputFixture, decodeOnlyInputFixture, keyShapeFixture, keyStampFixture } from "../typed/round13.ts";
+// Round 13: an op's key fields across releases (D221) and one default per field (D222), from round 12's final review (H1, M1, M2) and round 13's mid
+// review (H1, M1, M2, M4). Each says what it would see without its fix.
+import { ctorInputFixture, decodeInputFixture, keyStampFixture } from "../typed/round13.ts";
+import type { Op } from "../fixtures/compiled.ts";
 import type { Release } from "../fixtures/round6.compiled.ts";
-import type { Fixture } from "../harness.ts";
 import { Ctx, type Scenario } from "./ctx.ts";
 
-const SHAPE = { actor: "Lab/KeyShape", id: "a" };
-const STAMP = { actor: "Lab/KeyStamp", id: "a" };
-const on = (c0: Ctx, fs: readonly Fixture[], a: { actor: string; id: string }) => {
-  const c = new Ctx(c0.fresh(fs, { captureMs: 0 }), a);
+const A = { actor: "Lab/KeyStamp", id: "a" };
+// Under release `from`, hold each of `keys` unsure; then release `to`, and the page boots again.
+const holdThen = (c0: Ctx, from: number, to: number, keys: ReadonlyArray<Readonly<Record<string, string>>>, policy: Op["concurrency"] = "reject") => {
+  const rel: Release = { v: from };
+  const c = new Ctx(c0.fresh([keyStampFixture(rel, policy)], { captureMs: 0 }), A);
   c.ensure();
-  return c;
-};
-// Release 1: `Go { k: a }` held unsure. Then release 2 adds a required key field and the page boots again: the hold is stamped `["k"]`, an older-key lane.
-const heldThenAdded = (c0: Ctx) => {
-  const rel: Release = { v: 1 };
-  const c = on(c0, [keyStampFixture(rel)], STAMP);
-  c.send("Go", { k: "a" });
-  c.ack();
-  c.answer("charge", { lost: true });
-  c.eq("held", c.mem().unsure, 1);
-  c.h.release(() => void (rel.v = 2), () => void (rel.v = 1));
+  for (const k of keys) {
+    c.send("Go", k);
+    c.ack();
+    c.answer("charge", { lost: true });
+  }
+  c.eq("held", c.mem().unsure, keys.length);
+  c.h.release(() => void (rel.v = to), () => void (rel.v = from));
   c.reload();
   return c;
 };
+const sent = (c: Ctx) => c.reqs("charge").length;
 
 export const round13Scenarios: readonly Scenario[] = [
   {
-    // Review H1, P1: with no release, an optional key field absent is a key value like any other. Round 12 decided "older" by the key's shape, so the second
-    // commit declined in one order only: one request where rule 39 says two server things.
-    id: "R13-STAMP-SHAPE",
-    kind: "fault",
-    fixtures: [keyShapeFixture],
-    actor: SHAPE,
-    cites: ["D221", "rule:39", "rule:16"],
-    variants: {
-      "the-key-without-the-field-first-then-with-it-both-send"(c0) {
-        const c = on(c0, [keyShapeFixture], SHAPE);
-        c.send("GoA");
-        c.ack();
-        c.send("GoEu");
-        c.ack();
-        c.eq("two requests", c.reqs("charge").length, 2);
-        c.eq("no decline", c.mem().declined, 0);
-        c.eq("nothing beside an older key", c.r.evidence("BesideOlderKey").length, 0);
-      },
-      "the-key-with-the-field-first-then-without-it-both-send"(c0) {
-        const c = on(c0, [keyShapeFixture], SHAPE);
-        c.send("GoEu");
-        c.ack();
-        c.send("GoA");
-        c.ack();
-        c.eq("two requests", c.reqs("charge").length, 2);
-        c.eq("no decline", c.mem().declined, 0);
-      },
-      // Review M1: `retry(() => ({ k: "a" }))` type-checks (it did not in round 12) and names the lane `commit(() => ({ k: "a", id }))` made.
-      "a-typed-retry-with-the-optional-field-absent-names-its-lane"(c0) {
-        const c = on(c0, [keyShapeFixture], SHAPE);
-        c.send("GoA");
-        c.ack();
-        c.answer("charge", { lost: true });
-        c.eq("held", c.mem().unsure, 1);
-        c.send("RetryA");
-        c.ack(); // rule 46: a persisted re-send waits for its lane record's capture
-        c.eq("resent", c.reqs("charge").length, 2);
-        c.eq("the same Attempt", c.keys("charge").length, 1);
-      },
-    },
-  },
-  {
-    // Review H1, P2, P3: after a release that adds a required key field, the older hold had no member that could reach it, and D217 declined every later
-    // commit for that key, across reloads. D221: a keyed `retry` or `cancel` names it, a keyed `idle` sees it, and nothing else is caught.
-    id: "R13-STAMP-RELEASE",
+    // D221: a release that changes an op's key fields makes a new version of it. An old-version hold is never renamed and never matched against a new key;
+    // until it ends, every commit of the op declines (rule 16's busy, `NotSent { Rejected }`); its own old key reaches it. Round 12's D217 matched by key
+    // shape (a decline with no release; a stranded hold); round 13's first D221 matched by projection, and its restore could drop a hold.
+    id: "R13-KEYS",
     kind: "fault",
     fixtures: [keyStampFixture({ v: 1 })],
-    actor: STAMP,
-    cites: ["D221", "D217", "D78", "rule:46", "rule:16"],
+    actor: A,
+    cites: ["D221", "D217", "D78", "rule:39", "rule:46", "rule:16"],
     variants: {
-      // Without D221's member lookup: the retry names no lane, nothing is resent, and the last commit declines (round 12's stranding).
-      "a-keyed-retry-names-the-older-hold-and-then-a-commit-sends"(c0) {
-        const c = heldThenAdded(c0);
-        c.send("Go", { k: "a" });
-        c.eq("declined beside the older key", c.r.evidence("BesideOlderKey").length, 1);
-        c.eq("one request", c.reqs("charge").length, 1);
-        c.send("Retry", { k: "a" });
-        c.ack(); // rule 46: a persisted re-send waits for its lane record's capture
-        c.eq("the hold is resent", c.reqs("charge").length, 2);
-        c.eq("as the same Attempt", c.keys("charge").length, 1);
+      // A field added. Without D221: the new key names a new lane, and a second charge goes beside the unsure one.
+      "a-release-that-adds-a-key-field-declines-every-commit-until-the-old-hold-ends"(c0) {
+        const c = holdThen(c0, 1, 2, [{ k: "a" }]);
+        c.eq("said once", c.r.evidence("OldVersionLane").length, 1);
+        c.send("Go", { k: "a", region: "eu" });
+        c.send("Go", { k: "b", region: "eu" });
+        c.eq("both declined, whatever their key", [c.mem().declined, c.r.evidence("BesideOldVersion").length, sent(c)], [2, 2, 1]);
+        c.send("Retry", { k: "a" }); // its own old key
+        c.ack();
+        c.eq("the old hold is resent, as the same Attempt", [sent(c), c.keys("charge").length], [2, 1]);
         c.answer("charge", { ok: {} });
-        c.eq("settled", c.mem().oks, 1);
+        c.send("Go", { k: "a", region: "eu" });
+        c.ack();
+        c.eq("then a commit sends", [sent(c), c.mem().declined], [3, 2]);
+      },
+      // A field removed, two old holds that would share the new key `{ k: a }`. Round 13's first D221 renamed one onto the other's id and dropped it
+      // silently in one mint order (mid review H1); now neither moves, so no collision can occur, in either order.
+      "a-release-that-removes-a-key-field-keeps-every-old-hold-eu-first"(c0) {
+        const c = holdThen(c0, 2, 3, [{ k: "a", region: "eu" }, { k: "a", region: "us" }]);
+        c.eq("both kept, both said", [c.r.evidence("OldVersionLane").length, c.r.evidence("LaneRekeyed").length, c.r.issues().filter((i) => i.code === "LaneRekeyCollision").length], [2, 0, 0]);
+        c.eq("two lanes on disk", c.laneKeys().length, 2);
+        c.send("Go", { k: "a" });
+        c.eq("declined", [c.mem().declined, sent(c)], [1, 2]);
+        c.send("Cancel", { k: "a", region: "eu" });
+        c.send("Go", { k: "a" });
+        c.eq("one old hold left: still declined", [c.mem().declined, sent(c)], [2, 2]);
+        c.send("Cancel", { k: "a", region: "us" });
         c.send("Go", { k: "a" });
         c.ack();
-        c.eq("now a commit sends", c.reqs("charge").length, 3);
-        c.eq("and declines no more", c.r.evidence("BesideOlderKey").length, 1);
+        c.eq("both gone: it sends", [sent(c), c.mem().declined], [3, 2]);
       },
-      // Without D221's member lookup the cancel names nothing, and the commit after it declines.
-      "a-keyed-cancel-lets-the-older-hold-go-and-then-a-commit-sends"(c0) {
-        const c = heldThenAdded(c0);
+      "a-release-that-removes-a-key-field-keeps-every-old-hold-us-first"(c0) {
+        const c = holdThen(c0, 2, 3, [{ k: "a", region: "us" }, { k: "a", region: "eu" }]);
+        c.eq("both kept, both said", [c.r.evidence("OldVersionLane").length, c.r.issues().filter((i) => i.code === "LaneRekeyCollision").length, c.laneKeys().length], [2, 0, 2]);
+        c.send("Go", { k: "a" });
+        c.eq("declined", [c.mem().declined, sent(c)], [1, 2]);
+      },
+      // A keyed `idle` says what its commit would meet.
+      "a-keyed-idle-sees-an-old-version-hold"(c0) {
+        const c = holdThen(c0, 1, 2, [{ k: "a" }]);
+        c.send("Guarded", { k: "z", region: "eu" });
+        c.eq("the guard said no, so nothing met the hold", [c.mem().guardedOut, c.r.evidence("BesideOldVersion").length, sent(c)], [1, 0, 1]);
+      },
+      // `serialize` does not queue beside an old-version hold: it declines, as `reject` does.
+      "serialize-declines-beside-an-old-version-hold-and-queues-nothing"(c0) {
+        const c = holdThen(c0, 1, 2, [{ k: "a" }], "serialize");
+        c.send("Go", { k: "a", region: "eu" });
+        c.ack();
+        c.eq("declined, not queued", [c.mem().declined, sent(c)], [1, 1]);
         c.send("Cancel", { k: "a" });
-        c.send("Go", { k: "a" });
+        c.send("Go", { k: "a", region: "eu" });
         c.ack();
-        c.eq("a commit sends", c.reqs("charge").length, 2);
-        c.eq("no decline", c.r.evidence("BesideOlderKey").length, 0);
+        c.eq("then it sends", sent(c), 2);
       },
-      // P3: without D221's guard lookup, `idle(k)` passes and the commit it guards declines.
-      "a-keyed-idle-sees-the-older-hold"(c0) {
-        const c = heldThenAdded(c0);
-        c.send("Guarded", { k: "a" });
-        c.eq("the guard said no", c.mem().guardedOut, 1);
-        c.eq("so no commit met it", c.r.evidence("BesideOlderKey").length, 0);
-        c.eq("one request", c.reqs("charge").length, 1);
+      // A reload in between keeps it an old-version hold: the stamp is on disk.
+      "a-reload-in-between-keeps-the-old-version-hold"(c0) {
+        const c = holdThen(c0, 1, 2, [{ k: "a" }]);
+        c.reload();
+        c.send("Go", { k: "a", region: "eu" });
+        c.eq("still declined", [c.mem().declined, sent(c)], [1, 1]);
+        c.eq("said at each boot", c.r.evidence("OldVersionLane").length, 2);
       },
-      // The match itself: another key value is another server thing (survivor `d217.any-value`).
-      "another-key-value-is-not-the-older-hold"(c0) {
-        const c = heldThenAdded(c0);
-        c.send("Go", { k: "b" });
-        c.ack();
-        c.eq("it sends", c.reqs("charge").length, 2);
-        c.eq("no decline", c.r.evidence("BesideOlderKey").length, 0);
-      },
-      // And another actor's lanes are its own (survivor `d217.any-actor`).
-      "another-actor-is-not-the-older-hold"(c0) {
-        const c = heldThenAdded(c0);
+      // Another actor's lanes are its own.
+      "another-actor-is-not-held"(c0) {
+        const c = holdThen(c0, 1, 2, [{ k: "a" }]);
         const b = { actor: "Lab/KeyStamp", id: "b" };
         c.ensure(b);
-        c.to(b, "Go", { k: "a" });
+        c.to(b, "Go", { k: "a", region: "eu" });
         c.ack();
-        c.eq("it sends", c.reqs("charge").length, 2);
-        c.eq("no decline", c.r.evidence("BesideOlderKey").length, 0);
+        c.eq("it sends", [sent(c), c.r.evidence("BesideOldVersion").length], [2, 0]);
       },
-      // A lane minted under the current fields is never older: after the release and the hold's end, a new hold on `{ k: a, region: eu }` and a commit on
-      // `{ k: a, region: eu }` meet as a hold on their own key (rule 16's busy), with no `BesideOlderKey`.
-      "a-lane-minted-after-the-release-is-not-older"(c0) {
-        const c = heldThenAdded(c0);
-        c.send("Cancel", { k: "a" });
-        c.send("Go", { k: "a" });
+      // With no release, nothing is old: two keys are two lanes (rule 39).
+      "with-no-release-two-keys-are-two-lanes"(c0) {
+        const rel: Release = { v: 2 };
+        const c = new Ctx(c0.fresh([keyStampFixture(rel)], { captureMs: 0 }), A);
+        c.ensure();
+        c.send("Go", { k: "a", region: "eu" });
         c.ack();
-        c.answer("charge", { lost: true });
+        c.send("Go", { k: "a", region: "us" });
+        c.ack();
         c.reload();
-        c.send("Go", { k: "a" });
-        c.eq("busy on its own lane", c.reqs("charge").length, 2);
-        c.eq("not beside an older key", c.r.evidence("BesideOlderKey").length, 0);
+        c.eq("two requests, nothing old", [sent(c), c.r.evidence("OldVersionLane").length, c.r.evidence("BesideOldVersion").length], [2, 0, 0]);
       },
     },
   },
   {
-    // Review M2, D222: creation reads one side of a field's Schema, the type side, so an absent input takes its constructor default. Round 12 took the
-    // decoding default at creation and ignored a constructor default (`InputMissing`).
-    id: "R13-CREATE",
+    // D222: one default per field, at creation and at restore alike. Round 13's first D222 split them: a release-added input with only a constructor default
+    // quarantined every old actor; one with only a decoding default refused every creation (mid review M2).
+    id: "R13-DEFAULTS",
     kind: "fault",
-    fixtures: [ctorInputFixture, decodeOnlyInputFixture],
+    fixtures: [ctorInputFixture({ v: 1 })],
     actor: { actor: "Lab/CtorInput", id: "a" },
-    cites: ["D222", "D219", "D214"],
-    namedIssues: ["InvalidTurn"],
-    run(c0) {
-      const A = { actor: "Lab/CtorInput", id: "a" };
-      const B = { actor: "Lab/DecodeOnlyInput", id: "b" };
-      const c = new Ctx(c0.fresh([ctorInputFixture, decodeOnlyInputFixture], { captureMs: 0 }), A);
-      c.ensure(A);
-      c.eq("the constructor default", c.mem(A), { n: 7 });
-      c.ensure(B);
-      c.eq("a decoding default is restore's, not creation's", c.r.state(B), undefined);
-      c.yes("said as missing", c.r.issues().some((i) => i.code === "InvalidTurn" && String((i as { cause?: unknown }).cause).includes("InputMissing")));
-      c.ensure(B, { n: 2 });
-      c.eq("given, it is made", c.mem(B), { n: 2 });
-      c.reload();
-      c.eq("and restores", c.mem(A), { n: 7 });
+    cites: ["D222", "D219", "D214", "D46"],
+    variants: {
+      "a-constructor-default-applies-at-creation-and-at-restore"(c0) {
+        const rel: Release = { v: 1 };
+        const a = { actor: "Lab/CtorInput", id: "a" };
+        const c = new Ctx(c0.fresh([ctorInputFixture(rel)], { captureMs: 0 }), a);
+        c.ensure();
+        c.h.release(() => void (rel.v = 2), () => void (rel.v = 1));
+        c.reload();
+        c.eq("an old actor restores with it", c.mem(), { seen: 1, n: 7 });
+        c.ensure({ actor: "Lab/CtorInput", id: "b" });
+        c.eq("a new one starts with it", c.mem({ actor: "Lab/CtorInput", id: "b" }), { seen: 1, n: 7 });
+        c.eq("nothing quarantined", c.r.issues().filter((i) => i.code === "RecordQuarantined").length, 0);
+      },
+      "a-decoding-default-applies-at-creation-and-at-restore"(c0) {
+        const rel: Release = { v: 1 };
+        const a = { actor: "Lab/DecodeInput", id: "a" };
+        const c = new Ctx(c0.fresh([decodeInputFixture(rel)], { captureMs: 0 }), a);
+        c.ensure();
+        c.h.release(() => void (rel.v = 2), () => void (rel.v = 1));
+        c.reload();
+        c.eq("an old actor restores with it", c.mem(), { seen: 1, n: 4 });
+        c.ensure({ actor: "Lab/DecodeInput", id: "b" });
+        c.eq("a new one starts with it", c.mem({ actor: "Lab/DecodeInput", id: "b" }), { seen: 1, n: 4 });
+      },
     },
   },
 ];

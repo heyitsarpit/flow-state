@@ -39,11 +39,12 @@ const memoryRelease = (rel: Release, decode: boolean) => {
 export const memoryReleaseFixture = (rel: Release, decode: boolean) => fixture(memoryRelease(rel, decode));
 
 // Round 12 (review M5, D215): KeyRelease's production path on a typed machine. A release changes the contract's `key`, a field list (rule 39), and the
-// harness compiles again at the boot after a release. Release 1 keys by `k`; release 2 by `id` (a real rekey, D78); release 3 by `k` and `region`, a field
-// the stored input lacks (the same lane, by canonical form).
+// harness compiles again at the boot after a release. Release 1 keys by `k`; release 2 by `id`; release 3 by `k` and `region`, a field the stored input
+// lacks. Round 13 (D221): each is a new version of the op, so a release-1 hold is an old-version hold under either, never renamed.
 const keyRelease = (rel: Release) => {
   const keys = rel.v === 1 ? (["k"] as const) : rel.v === 2 ? (["id"] as const) : (["k", "region"] as const);
-  const charge = transaction({ id: "lab/charge", input: { k: S.Unknown, id: S.Unknown, region: S.optionalKey(S.Unknown) }, key: keys, concurrency: "reject", services: [FakeApi], commit: write("charge") });
+  // Round 13 (D221): a key field is required, so release 3's `region` is required where it is a key field.
+  const charge = transaction({ id: "lab/charge", input: { k: S.Unknown, id: S.Unknown, region: rel.v === 3 ? S.Unknown : S.optionalKey(S.Unknown) }, key: keys, concurrency: "reject", services: [FakeApi], commit: write("charge") });
   const d = definition({
     id: "Lab/KeyReleaseTyped",
     states: [],
@@ -56,7 +57,7 @@ const keyRelease = (rel: Release) => {
     default: { node: "root" },
     on: {
       // Release 3's commits supply the new field (mid review M2); the stored input of release 1 lacks it.
-      Go: { actions: [O.charge.commit(() => (rel.v === 3 ? { k: "a", id: "x", region: "eu" } : { k: "a", id: "x" }))] },
+      Go: { actions: [O.charge.commit(() => (rel.v === 3 ? { k: "a", id: "x", region: "eu" } : { k: "a", id: "x" }) as never)] }, // the input's type is per release
       Ok: {},
       No: {},
       Unsure: { updateMemory: ({ memory }) => ({ unsure: memory.unsure + 1 }) },

@@ -57,7 +57,7 @@ const deskFeed = (reconnect: boolean) => (api: Api) => {
     events: { DismissNotice: {}, SessionExpired: {}, Jump: { at: U }, JumpThenThrow: { at: U }, Refetch: {}, Clear: {}, ClearAndLeave: {}, Peek: {}, SignOut: {}, BreakInput: {}, Open: {} },
     internalEvents: { Peeked: {}, Entry: { entry: U }, MayHaveMissed: {}, FeedEnded: {}, Healthy: {}, Reopen: {} },
     memory: {
-      workspaceId: Flow.input(U.pipe(S.withDecodingDefaultKey(Effect.succeed("w1")), S.withConstructorDefault(Effect.succeed("w1")))), // D222
+      workspaceId: Flow.input(U.pipe(S.withDecodingDefaultKey(Effect.succeed("w1")))),
       activity: Flow.initial(S.Array(U), []),
       notice: Flow.initial(U, ""),
       notices: Flow.initial(S.Number, 0),

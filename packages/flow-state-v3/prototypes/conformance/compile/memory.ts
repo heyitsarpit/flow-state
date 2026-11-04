@@ -39,42 +39,58 @@ const isOptionalKey = (s: Schema.Top): boolean => (s.ast as { context?: { isOpti
 // Written and read by one codec (round 7, review H2). Each field as a one-field struct, so a key modifier means what it means in a struct.
 const jsonCodec = (k: string, f: MemorySpec) => Schema.toCodecJson(Schema.Struct({ [k]: f.schema }) as unknown as Schema.Codec<unknown, unknown>);
 
-// Creation (D214, D219; round 13 D222, round 12 review M2): the creator hands a value in-process, so creation is the Schema's own constructor, the type side
-// throughout: a present input field is checked by its type side (refinements kept, no transforming decode), an absent one takes its constructor default
-// (`withConstructorDefault`, as `Flow.initial` is), stays absent if optional, else is refused. A decoding default is the codec's, read by restore only.
-// Then constant initials, then computed ones over those.
-type Maker = { readonly make: (i: Record<string, unknown>) => Record<string, unknown> };
+// Round 13 (D222, replacing the first D222's split by door; mid review M2): **a field has one default, and it applies at creation and at restore alike.**
+// It is the Schema's constructor default or its decoding default, whichever it states (both, with different values, is refused at the compile:
+// `TwoDefaults`); a `Flow.initial`'s constant is its default, so its Schema may state none. A computed initial is made from the fields, at both doors.
+const constructorDefault = (k: string, s: Schema.Top): { readonly has: boolean; readonly v?: unknown } => {
+  const o = (Schema.Struct({ [k]: s }) as unknown as { makeOption: (i: unknown) => { _tag: string; value?: Record<string, unknown> } }).makeOption({});
+  return o._tag === "Some" && o.value && k in o.value ? { has: true, v: o.value[k] } : { has: false };
+};
+const defaultOf = (definition: string, k: string, f: MemorySpec): { readonly has: boolean; readonly v?: unknown } => {
+  const c = constructorDefault(k, f.schema);
+  const d = missingDefault(k, f.schema);
+  if (f.from === "initial" && (c.has || d.has)) throw new Error(`TwoDefaults: ${definition} memory ${k} is Flow.initial and its Schema states a default too`);
+  if (c.has && d.has && JSON.stringify(c.v) !== JSON.stringify(d.v)) throw new Error(`TwoDefaults: ${definition} memory ${k} states two different defaults`);
+  if (f.from === "initial" && !f.computed) return { has: true, v: f.value };
+  return c.has ? c : d;
+};
+// Creation (D214, D219): the creator hands a value in-process, so a present input field is checked by its Schema's type side (refinements kept, no
+// transforming decode). An absent one takes the field's default, stays absent if optional, else is refused. Then computed initials over those.
 const initialOf = (definition: string, m: Readonly<Record<string, MemorySpec>>) => {
-  const built = lazy(
-    () => new Map(Object.entries(m).filter(([, s]) => s.from === "input").map(([k, s]) => [k, Schema.Struct({ [k]: s.schema }) as unknown as Maker])),
-  );
+  const built = lazy(() => ({
+    defaults: new Map(Object.entries(m).map(([k, s]) => [k, defaultOf(definition, k, s)])),
+    checks: new Map(
+      Object.entries(m)
+        .filter(([, s]) => s.from === "input")
+        .map(([k, s]) => [k, Schema.decodeUnknownSync(Schema.toType(Schema.Struct({ [k]: s.schema }) as unknown as Schema.Top) as unknown as Schema.Codec<unknown, unknown>)]),
+    ),
+  }));
   return slotOf<(input: unknown) => object>(definition, "memory.initial", (input: unknown) => {
-    const makers = built();
+    const { defaults, checks } = built();
     const given = (input ?? {}) as Record<string, unknown>;
     const out: Record<string, unknown> = {};
     for (const [k, s] of Object.entries(m)) {
-      if (s.from === "input") {
-        const present = k in given;
-        let made: Record<string, unknown>;
+      if (s.computed) continue;
+      if (s.from === "input" && k in given) {
         try {
-          made = makers.get(k)!.make(present ? { [k]: given[k] } : {});
+          out[k] = (checks.get(k)!({ [k]: given[k] }) as Record<string, unknown>)[k];
         } catch (e) {
-          if (!present) throw new Error(`InputMissing: ${definition} input ${k}`);
           throw new Error(`InputRefused: ${definition} input ${k}: ${(e as Error).message.split("\n")[0]}`);
         }
-        if (k in made) out[k] = made[k];
-      } else if (s.from === "initial" && !s.computed) out[k] = s.value;
+      } else if (defaults.get(k)!.has) out[k] = defaults.get(k)!.v;
+      else if (s.from === "input" && !isOptionalKey(s.schema)) throw new Error(`InputMissing: ${definition} input ${k}`);
     }
     const start = { ...out };
     for (const [k, s] of Object.entries(m)) if (s.computed) out[k] = s.computed(start);
     return out;
   });
 };
-// Restore (D214): a stored field decodes by its codec. A field the record lacks (a release added it): its decoding default; a constant initial; a computed
-// initial, run once over the restored fields; an optional key stays absent; an input with no default refuses the record (`RestoreMissingInput`).
+// Restore (D214, D222): a stored field decodes by its codec. A field the record lacks (a release added it): the field's one default (a constant initial's
+// included); a computed initial, run once over the restored fields; an optional key stays absent; an input with no default refuses the record
+// (`RestoreMissingInput`).
 const restoreOf = (definition: string, m: Readonly<Record<string, MemorySpec>>) => {
   const built = lazy(() => ({
-    defaults: new Map(Object.entries(m).map(([k, f]) => [k, missingDefault(k, f.schema)])),
+    defaults: new Map(Object.entries(m).map(([k, f]) => [k, f.computed ? { has: false } : defaultOf(definition, k, f)])),
     codecs: new Map(Object.entries(m).map(([k, f]) => [k, jsonCodec(k, f)])),
   }));
   return slotOf<(stored: unknown) => object>(definition, "memory.restore", (stored: unknown) => {
@@ -106,5 +122,6 @@ const fieldsOf = (m: Readonly<Record<string, MemorySpec>>): Readonly<Record<stri
   Object.fromEntries(Object.entries(m).map(([k, s]) => [k, { source: s.computed ? ("computed" as const) : s.from, schema: s.schema, ...(s.private ? { private: true as const } : {}) }]));
 export const compileMemory = (definition: string, fields: MemoryFields): CompiledMemory => {
   const m = specs(fields);
+  for (const [k, f] of Object.entries(m)) if (!f.computed) defaultOf(definition, k, f); // D222: `TwoDefaults` at the compile, not at first use
   return { fields: fieldsOf(m), initial: initialOf(definition, m), restore: restoreOf(definition, m), encode: encodeOf(definition, m) };
 };

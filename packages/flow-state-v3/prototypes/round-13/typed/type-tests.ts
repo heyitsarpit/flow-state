@@ -54,10 +54,6 @@ const SM = machine(SD, ({ S }) => ({ default: S.A }));
 // @ts-expect-error a boot that does not give a subroutine's service
 servicesFor(SM, Context.make(Other, { x: 1 }));
 servicesFor(SM, Context.make(Clock, { now: () => 0 }));
-// Round 13 (round 12 review M1): a key with its optional field absent, as `commit` may leave it.
-const opt = transaction({ id: "t/opt", input: { k: Schema.String, region: Schema.optionalKey(Schema.String) }, key: ["k", "region"], concurrency: "reject", commit: () => Effect.void });
-const OptD = definition({ id: "T/Opt", states: ["A"], events: { Go: {} }, internalEvents: { Ok: {}, No: {}, Unsure: Flow.uncertain({}) }, memory: {}, operations: ({ E }) => ({ o: opt.outcomes({ success: E.Ok, failure: { NotSent: E.No }, unknown: E.Unsure }) }) });
-machine(OptD, ({ S, O }) => ({ default: S.A, on: { Go: { guard: [O.o.idle(() => ({ k: "a" }))], actions: [O.o.retry(() => ({ k: "a" })), O.o.cancel(() => ({ k: "a" }))] }, Ok: {}, No: {}, Unsure: {} } }));
 // Mid review L1: a services list widened to an array type is refused.
 const widened: ReadonlyArray<Context.Key<any, any>> = [];
 const loose = transaction({ id: "t/loose", input: {}, key: [], concurrency: "reject", services: widened, commit: () => Effect.map(Effect.service(Clock), (c) => c.now()) });

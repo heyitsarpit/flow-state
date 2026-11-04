@@ -304,8 +304,8 @@ export const ROUND6 = [
     "d78-no-rekey",
     "D78",
     "durable.ts",
-    "lanes.push([k, rekeyLane(tx, v, lanes)]);",
-    "lanes.push([k, v]);",
+    "lanes.splice(0, lanes.length, ...placeLanes(tx, lanes));", // round 13 (D221): the hand closures' rename, in two passes
+    "",
   ),
   m("d78-old-id-stays", "D78", "durable.ts", "put(old, undefined);", ""),
   m(

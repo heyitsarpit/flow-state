@@ -197,7 +197,21 @@ eq("L3 the first missing too", threw(() => seal(r13 as Compiled, new Set(["Probe
 eq("D124 a union's second member", r13.ops["two"]!.inputNotCarried, ["v"]);
 eq("L4 the seal requires memory fields", sealOf({ ...svc, memory: { ...svc.memory, fields: undefined } }, new Set(["Probe/Clock"])), "SealIncomplete");
 eq("M2 an absent input takes its constructor default", r13.memory.initial.run({}), { k: 7 });
+// D222: one default per field, at both doors; two different ones, or a default beside `Flow.initial`, refused at the compile.
+const memOf = (memory: Record<string, unknown>) => () => machine(definition({ id: "T/Def", states: ["A"], events: {}, internalEvents: {}, memory: memory as never, operations: () => ({}) }), ({ S: St }) => ({ default: St.A }));
+eq("D222 the restore door takes the constructor default too", (r13.memory.restore.run({}) as { k: number }).k, 7);
+eq("D222 a decoding default at creation", (memOf({ n: Flow.input(S.Number.pipe(S.withDecodingDefaultKey(Effect.succeed(4)))) })().compiled.memory.initial.run({}) as { n: number }).n, 4);
+eq("D222 two different defaults", threw(memOf({ n: Flow.input(S.Number.pipe(S.withDecodingDefaultKey(Effect.succeed(4)), S.withConstructorDefault(Effect.succeed(7)))) })), "TwoDefaults");
+eq("D222 a default beside Flow.initial", threw(memOf({ n: Flow.initial(S.Number.pipe(S.withConstructorDefault(Effect.succeed(7))), 1) })), "TwoDefaults");
+// D221 (rule 39): a key field is required and has no default.
+const keyed = (k: Schema.Top) => () =>
+  machine(definition({ id: "T/Key", states: ["A"], events: {}, internalEvents: { Ok: {}, No: {}, Unsure: Flow.uncertain({}) }, memory: {}, operations: ({ E }) => ({ o: transaction({ id: "t/key", input: { k }, key: ["k"], concurrency: "reject", commit: () => Effect.void }).outcomes({ success: E.Ok, failure: { NotSent: E.No }, unknown: E.Unsure }) }) }), ({ S: St }) => ({ default: St.A, on: { Ok: {}, No: {}, Unsure: {} } }));
+eq("D221 an optional key field is refused", threw(keyed(S.optionalKey(S.String))), "KeyFieldOptional");
+eq("D221 a key field with a decoding default is refused", threw(keyed(S.String.pipe(S.withDecodingDefaultKey(Effect.succeed("a"))))), "KeyFieldOptional");
+eq("D221 a key field with a constructor default is refused", threw(keyed(S.String.pipe(S.withConstructorDefault(Effect.succeed("a"))))), "KeyFieldOptional");
+eq("D221 a required key field compiles", threw(keyed(S.String)), "");
 eq("M3 a machine's event payloads", Object.keys(r13.events.payloads["Go"] ?? {}), ["n"]);
+eq("mid L4 Flow.uncertain survives as data", r13.events.uncertain, ["Unsure"]);
 const kidC = r13.fragments!["Kid"]!;
 eq("M3 a fragment's kind", kidC.kind, "trait");
 eq("M3 its events by direction", [kidC.events.external, kidC.events.host, kidC.events.internal], [["Go"], ["Poke"], []]);

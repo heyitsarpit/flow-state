@@ -3,7 +3,7 @@
 // every placement at its node and writes the handlers. Compiles to `CompiledOutput`, with every placed fragment and its operations hoisted (rules 49, 51).
 import type { CompiledOutput, DomainSpec, Mapped, StreamSpec } from "../fixtures/compiled.ts";
 import { slotOf, type Fields } from "./core.ts";
-import { payloadsOf, tokens, type EventPayloads, type EventsOf } from "./events.ts";
+import { payloadsOf, tokens, uncertainOf, type EventPayloads, type EventsOf } from "./events.ts";
 import { compileMemory, type MemoryFields, type MemoryOf } from "./memory.ts";
 import type { ReqsOf } from "./fragment.ts";
 import { compileOp, handles, type AnyBound, type HandleOf, type RequirementsOf, type Typed } from "./operations.ts";
@@ -163,7 +163,7 @@ export const machine = <
     uses: d.uses ?? [],
     ...(d.domain ? { domain: compileDomain(d.id, d.domain) } : {}),
     ...(Object.keys(streams).length ? { streams } : {}),
-    events: { external: Object.keys(d.events), internal: Object.keys(d.internalEvents), payloads: payloadsOf(events) }, // round 13 (M3): with payload Schemas
+    events: { external: Object.keys(d.events), internal: Object.keys(d.internalEvents), payloads: payloadsOf(events), uncertain: uncertainOf(d.internalEvents) }, // round 13 (M3): with payload Schemas
   };
   return { compiled };
 };

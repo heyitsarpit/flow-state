@@ -45,6 +45,15 @@ export const TARGETS: Readonly<Record<string, Fixture>> = {
   "asks-forever": loopFixture,
   queue: bulkFixture,
   ...formFixtures,
+  // Round 13 (mid review M3): Attach with its upload fragment's `Stored` taken out of the fragment's declarations, so its op maps an undeclared event.
+  "frag-typo": {
+    ...attachFixture,
+    make: (a: Api) => {
+      const c = attachFixture.make(a);
+      const fragments = Object.fromEntries(Object.entries(c.fragments ?? {}).map(([k, f]) => [k, f.events ? { ...f, events: { ...f.events, internal: f.events.internal.filter((e) => e !== "Stored") } } : f]));
+      return { ...c, fragments };
+    },
+  },
 };
 const fail = (reason: string, operand: string): never => {
   process.stderr.write(`${JSON.stringify({ error: "InvalidOperand", reason, operand })}\n`);

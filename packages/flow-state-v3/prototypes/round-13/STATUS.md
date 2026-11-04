@@ -19,4 +19,9 @@ Suite: 761/761, lock clean, exit 0 [ran]. Types: 16 directives [ran]. Front: 58 
 - `flow story list | describe | run`, `flow trace <id> [--at cp]`, `flow graph <machine>` in `cli/`; pins in `cli/main.ts` [ran].
 - **`flow graph`'s gate** (`conformance/graph.ts`, `conformance/graph-gate.ts`): every `turn` the runtime writes now names each part's alternative (`definition`, `at`), node and the moved incarnation. On the suite without searches: 73,257 turns, 73,334 parts, 736 edges over 56 machines, **0 disagreements** after three graph fixes (fillings run from the host's leaf, under the placing node; a `whenAbandoned` callback runs in the leaving turn, and a resumable one's from anywhere) and one fixture fix (`cells.ts` declared no `AbortPay`). Taken 468; not taken but guarded 185; not taken and unmarked 76; marked unreached 5, unsourced 3; one event sent only by the suite (`CartLoaded`).
 
-Next: api-changes, the gate with searches, the gates on the final commit, RESULTS, convergence-13.
+## Checkpoint 3: the mid review, and key evolution redesigned once
+
+- `review-mid.md` copied. Arpit's call: key fields are required. D221 redone (coordinator's proposal): an op's key fields are its version; old lanes are old-version holds, never renamed, reached by their own old keys; every commit of the op declines beside one. Projection matching and the stamped rename are deleted. `R13-KEYS` ×8 pins every case; the mid review's collision cannot occur (both mint orders). D222 redone: one default per field at both doors (`R13-DEFAULTS`, `TwoDefaults`). M3: `flow check` reads fragment ops against the fragment. L4: `events.uncertain`.
+- Suite 761/761, lock clean; types 16 directives; front 67 pins; CLI pins pass; stories 53 checks [ran].
+
+Next: the gates on the final commit, then RESULTS.

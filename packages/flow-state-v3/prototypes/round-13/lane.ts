@@ -535,28 +535,22 @@ const ACTIONS: Readonly<Record<Action, (tx: Tx, lane: Lane | undefined, a: CellA
 };
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
-const sameFields = (a: readonly string[] | undefined, b: readonly string[] | undefined) =>
-  a === undefined || b === undefined || (a.length === b.length && a.every((f, i) => f === b[i]));
+// The same key fields, in any order: the same op version (a reorder changes no key, since a key is a record).
+export const sameFields = (a: readonly string[] | undefined, b: readonly string[] | undefined) =>
+  a === undefined || b === undefined || (a.length === b.length && a.every((f) => b.includes(f)));
 // Round 13 (D221): a mint stamps the fields its key is made under now.
 function stampOf(tx: Tx, machine: string, op: string): { keyFields?: readonly string[] } {
   const f = tx.machines[machine]?.ops[op]?.keyFields;
   return f ? { keyFields: [...f] } : {};
 }
-// Round 13 (D221, replaces D217's shape test; round 12 review H1). The lane of this actor's op whose key was made under other key fields than the op's now
-// (its stamp, set at mint and moved by a rekey: a real release boundary), non-idle, and whose key agrees with `key` on every field the two releases share.
-// The one lookup a commit (D217's decline), a keyed `retry`/`cancel` (the hold's way out) and a keyed guard (`idle(k)`, `retryable(k)`) all use, so
-// what the guard sees is what the commit meets. A lane with no stamp (a hand key closure) or the current stamp is never older: no release, no decline.
-export const olderKeyLane = (tx: Tx, actor: string, machine: string, op: string, key: unknown): Lane | undefined => {
+// Round 13 (D221, Arpit's call on required key fields; replaces D217's shape test and the first D221's projection). An op's key fields are part of its
+// identity: a release that changes them makes a new version of the op. A lane minted under the old fields (its stamp) is an old-version hold: never rekeyed,
+// never matched against a new key. It stays reachable by its own old key (`retry(k)`, `cancel(k)`, an exact lane id), and until it ends every commit of
+// this actor's op declines, whatever its key, and a keyed `idle` says no. A lane with no stamp (a hand key closure, F2) has no version.
+export const oldVersionLane = (tx: Tx, actor: string, machine: string, op: string): Lane | undefined => {
   const fields = tx.machines[machine]?.ops[op]?.keyFields;
-  if (!fields || !isRecord(key)) return undefined;
-  for (const l of Object.values(tx.w.lanes)) {
-    if (l.actor !== actor || l.op !== op || !l.keyFields || sameFields(l.keyFields, fields)) continue;
-    if (columnOf(l) === "Idle" || !isRecord(l.key)) continue;
-    const old = l.key;
-    const shared = l.keyFields.filter((f) => fields.includes(f));
-    if (shared.every((f) => same(key[f], old[f]))) return l;
-  }
-  return undefined;
+  if (!fields) return undefined;
+  return Object.values(tx.w.lanes).find((l) => l.actor === actor && l.op === op && l.keyFields !== undefined && !sameFields(l.keyFields, fields) && columnOf(l) !== "Idle");
 };
 // The one way a lane changes. A lane's status changes only through here (S3).
 export const cell = (tx: Tx, row: Row, lane: Lane | undefined, a: CellArgs) => {
@@ -572,13 +566,12 @@ export const cell = (tx: Tx, row: Row, lane: Lane | undefined, a: CellArgs) => {
     }
     return;
   }
-  // Round 12 (D217, mid review M2), round 13 (D221): a release that adds a key field. A lane stamped under an older release's key fields holds or waits,
-  // its stored input could not be placed under the new key (durable.ts `rekeyLane`), and this commit's key agrees with it on the fields both share. The
-  // Runtime cannot tell the two apart: the commit declines, as beside a hold on its own key, and its transition runs. Never a second send beside it.
-  if (row === "commit" && !lane) {
-    const old = olderKeyLane(tx, a.actor, a.machine, a.op, a.key);
+  // Round 13 (D221): beside an old-version hold of this op, every commit declines, as beside a hold on its own key, and its transition runs. The Runtime
+  // cannot say whether the old server thing is the new one; nothing sends beside it.
+  if (row === "commit") {
+    const old = oldVersionLane(tx, a.actor, a.machine, a.op);
     if (old) {
-      note(tx, "BesideOlderKey", { op: a.op, lane: old.id });
+      note(tx, "BesideOldVersion", { op: a.op, lane: old.id });
       return decline(tx, a, "Rejected");
     }
   }

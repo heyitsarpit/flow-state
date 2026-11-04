@@ -86,7 +86,8 @@ const timeline = (r: StoryRun<string>, s: Story<string>, upTo?: number) => {
         return `mint     ${e["op"]}  ${e["attempt"]}`;
       case "lane":
         return `lane     ${e["op"]}  ${e["cell"]}`;
-      case "BesideOlderKey":
+      case "BesideOldVersion":
+      case "OldVersionLane":
       case "LaneRekeyed":
       case "Superseded":
       case "Released":

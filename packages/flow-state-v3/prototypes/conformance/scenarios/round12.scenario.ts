@@ -34,12 +34,15 @@ export const round12Scenarios: readonly Scenario[] = [
     actor: K,
     cites: ["D78", "rule:39", "rule:46"],
     variants: {
-      // Without the rekey (or with the key still from the old release's data): a second Attempt beside the hold, two requests.
-      "a-typed-release-that-changes-the-key-rekeys-and-does-not-mint"(c0) {
+      // Round 13 (D221): a release that changes the key's fields is a new version of the op. The hold is never renamed; the commit declines beside it.
+      // Without D221: a second Attempt beside the hold, two requests.
+      "a-typed-release-that-changes-the-key-keeps-the-old-version-hold-and-does-not-mint"(c0) {
         const c = heldThenRelease(c0, 2);
         c.eq("the request count stays", c.reqs("charge").length, 1);
         c.eq("no second Attempt", c.keys("charge").length, 1);
-        c.eq("said", c.r.evidence("LaneRekeyed").length, 1);
+        c.eq("not renamed", c.r.evidence("LaneRekeyed").length, 0);
+        c.eq("an old-version hold, said", c.r.evidence("OldVersionLane").length, 1);
+        c.eq("declined beside it", c.r.evidence("BesideOldVersion").length, 1);
       },
       // Mid review M2, D217 (proposed): a release adds a key field, and the new commit supplies it. The held lane's stored input lacks the field, so it
       // cannot be rekeyed (D78 has no new name to move it to), and the new key, projected onto the old key's fields, names it. D217: the commit declines
@@ -49,7 +52,7 @@ export const round12Scenarios: readonly Scenario[] = [
         c.eq("the request count stays", c.reqs("charge").length, 1);
         c.eq("no second Attempt", c.keys("charge").length, 1);
         c.eq("not rekeyed", c.r.evidence("LaneRekeyed").length, 0);
-        c.eq("declined beside the older key", c.r.evidence("BesideOlderKey").length, 1);
+        c.eq("declined beside the old version", c.r.evidence("BesideOldVersion").length, 1); // round 13 (D221): renamed from BesideOlderKey
       },
     },
   },

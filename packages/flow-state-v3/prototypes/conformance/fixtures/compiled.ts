@@ -81,6 +81,7 @@ export type Events = {
   readonly internal: readonly string[];
   readonly host?: readonly string[];
   readonly payloads?: Readonly<Record<string, Readonly<Record<string, unknown>>>>; // event -> field -> Schema
+  readonly uncertain?: readonly string[]; // round 13 (mid review L4): the events `Flow.uncertain` marks, the only ones an `unknown:` may target (rule 13)
 };
 // A fragment's ports (2.2.1): exits and callbacks with their payload fields, guard ports. `optional` is `Flow.optional`, not built (api-changes): never set.
 export type Port = { readonly fields: Readonly<Record<string, unknown>>; readonly optional?: true };

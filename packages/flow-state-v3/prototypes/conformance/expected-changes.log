@@ -905,3 +905,64 @@ round:cli/graph.ts hash:514f9c852616 | round 13: new, `flow graph` from Compiled
 round:cli/main.ts hash:97b831b7fe7f | round 13: pins for story, trace and graph
 round:cli/story.ts hash:eb55709d3fa8 | round 13: new, `flow story list|describe|run` and `flow trace`
 round:checks/story-check.ts hash:bedec5233dd5 | round 13: new, the Stories' tests and the Story errors made to happen
+--- round 13, the mid-session review (round-13/review-mid.md) and Arpit's call: key fields are required; an op's key fields are its version (D221, redone); one default per field (D222, redone)
+removed:R13-STAMP-SHAPE | round 13, D221 redone: optional key fields are refused at the compile, so the shape cases have no machine to run on
+removed:R13-STAMP-RELEASE | round 13, D221 redone: projection matching is gone; R13-KEYS pins the version rule
+removed:R13-CREATE | round 13, D222 redone: one default per field; R13-DEFAULTS pins both doors
+removed:variant:R12-KEYS/a-typed-release-that-changes-the-key-rekeys-and-does-not-mint | round 13, D221: a key-field change is a new op version, so no rename; renamed to say so
+removed:output:R12-KEYS/a-typed-release-that-changes-the-key-rekeys-and-does-not-mint | round 13, D221: that variant's output goes with its rename
+removed:variant:R13-STAMP-SHAPE/the-key-without-the-field-first-then-with-it-both-send | round 13, D221 redone: no optional key fields
+removed:variant:R13-STAMP-SHAPE/the-key-with-the-field-first-then-without-it-both-send | round 13, D221 redone: no optional key fields (the other order)
+removed:variant:R13-STAMP-SHAPE/a-typed-retry-with-the-optional-field-absent-names-its-lane | round 13, D221 redone: an absent value is never a key value
+removed:variant:R13-STAMP-RELEASE/a-keyed-retry-names-the-older-hold-and-then-a-commit-sends | round 13, D221 redone: R13-KEYS's added-field case retries by the old key
+removed:variant:R13-STAMP-RELEASE/a-keyed-cancel-lets-the-older-hold-go-and-then-a-commit-sends | round 13, D221 redone: R13-KEYS's removed-field cases cancel by old keys
+removed:variant:R13-STAMP-RELEASE/a-keyed-idle-sees-the-older-hold | round 13, D221 redone: R13-KEYS/a-keyed-idle-sees-an-old-version-hold
+removed:variant:R13-STAMP-RELEASE/another-key-value-is-not-the-older-hold | round 13, D221 redone: every key of the op declines beside an old-version hold now
+removed:variant:R13-STAMP-RELEASE/another-actor-is-not-the-older-hold | round 13, D221 redone: R13-KEYS/another-actor-is-not-held
+removed:variant:R13-STAMP-RELEASE/a-lane-minted-after-the-release-is-not-older | round 13, D221 redone: R13-KEYS/with-no-release-two-keys-are-two-lanes
+removed:output:R13-CREATE | round 13, D222 redone: its case is removed
+removed:output:R13-STAMP-RELEASE/a-keyed-cancel-lets-the-older-hold-go-and-then-a-commit-sends | round 13, D221 redone: its case is removed (cancel)
+removed:output:R13-STAMP-RELEASE/a-keyed-idle-sees-the-older-hold | round 13, D221 redone: its case is removed (idle)
+removed:output:R13-STAMP-RELEASE/a-keyed-retry-names-the-older-hold-and-then-a-commit-sends | round 13, D221 redone: its case is removed (retry)
+removed:output:R13-STAMP-RELEASE/a-lane-minted-after-the-release-is-not-older | round 13, D221 redone: its case is removed (minted after)
+removed:output:R13-STAMP-RELEASE/another-actor-is-not-the-older-hold | round 13, D221 redone: its case is removed (another actor)
+removed:output:R13-STAMP-RELEASE/another-key-value-is-not-the-older-hold | round 13, D221 redone: its case is removed (another key value)
+removed:output:R13-STAMP-SHAPE/a-typed-retry-with-the-optional-field-absent-names-its-lane | round 13, D221 redone: its case is removed (typed retry)
+removed:output:R13-STAMP-SHAPE/the-key-with-the-field-first-then-without-it-both-send | round 13, D221 redone: its case is removed (second order)
+removed:output:R13-STAMP-SHAPE/the-key-without-the-field-first-then-with-it-both-send | round 13, D221 redone: its case is removed (first order)
+R12-KEYS hash:25d86566c70f | round 13, D221: the first variant keeps the old-version hold (no rename) and declines; the evidence is BesideOldVersion
+R13-KEYS hash:cc80b846cac4 | round 13, D221: new, an op's key fields across releases, every row of the rule
+R13-DEFAULTS hash:685441469c5b | round 13, D222: new, one default per field at both doors
+file:scenarios/round12.scenario.ts hash:76ae180c7251 | round 13, D221: R12-KEYS under the version rule
+file:scenarios/round13.scenario.ts hash:21bc66a212dd | round 13, D221 and D222 redone: R13-KEYS and R13-DEFAULTS replace the first round 13 cases
+file:typed/feed.ts hash:580a9414f136 | round 13, D222 redone: back to one default (DeskFeed)
+file:typed/lab-machines.ts hash:7e611ae265ab | round 13, D222 redone: back to one default (the lab's field)
+file:typed/round7.ts hash:d311490fd524 | round 13, D222 redone: back to one default (round 7's who)
+file:typed/round8.ts hash:83315840f130 | round 13, D222 redone: back to one default (round 8's who)
+file:typed/round13.ts hash:8329def56a59 | round 13, D221 and D222 redone: Lab/KeyStamp over three releases and two policies; Lab/CtorInput and Lab/DecodeInput
+file:typed/round6.ts hash:9d04476c5d39 | round 13, D221: release 3's region is required where it is a key field
+file:compile/events.ts hash:7ecc84f9f863 | round 13, mid review L4: uncertainOf, Flow.uncertain as data
+file:compile/fragment.ts hash:bbe293581916 | round 13, mid review L4: a fragment's events say which are uncertain
+file:compile/machine.ts hash:ed5d2146d4a3 | round 13, mid review L4: a machine's events say which are uncertain
+file:compile/memory.ts hash:b4108344eef7 | round 13, D222 redone: one default per field at both doors; TwoDefaults at the compile
+file:compile/operations.ts hash:fb606cded571 | round 13, D221: KeyOf a required pick; KeyFieldOptional refuses an optional or defaulted key field (mid review L5)
+file:expected-recipients.txt hash:5725f596c7d5 | round 13, D221 and D222 redone: the new cases' recipients
+round:cli/check.ts hash:850ba0e0655f | round 13, mid review M3: fragment operations and schedules checked against the fragment's declarations
+round:cli/flow.ts hash:521624e9c260 | round 13, mid review M3: frag-typo, a fragment's undeclared ending
+round:cli/main.ts hash:34ccb8ca4a27 | round 13, mid review M3: attach and panels say nothing; frag-typo is UnknownEvent
+round:typed/type-tests.ts hash:deac1bc5a21b | round 13, D221 redone: the optional-key type test goes with optional key fields
+round:checks/front-check.ts hash:9ab61fdaf9b6 | round 13, D221 and D222 redone: KeyFieldOptional, TwoDefaults, both doors; mid review L4's uncertain list
+output:R12-KEYS/a-release-that-adds-a-key-field-declines-beside-the-older-lane hash:65749a017413 | round 13, D221: OldVersionLane and BesideOldVersion in its evidence
+output:R12-KEYS/a-typed-release-that-changes-the-key-keeps-the-old-version-hold-and-does-not-mint hash:65749a017413 | round 13, D221: the renamed variant's output, one request
+output:R13-DEFAULTS/a-constructor-default-applies-at-creation-and-at-restore hash:f828dd864f26 | round 13, D222: 7 at both doors
+output:R13-DEFAULTS/a-decoding-default-applies-at-creation-and-at-restore hash:6962406f7b5d | round 13, D222: 4 at both doors
+output:R13-KEYS/a-keyed-idle-sees-an-old-version-hold hash:e97aeabdd57c | round 13, D221: the guard says no
+output:R13-KEYS/a-release-that-adds-a-key-field-declines-every-commit-until-the-old-hold-ends hash:650b0672318c | round 13, D221: three requests, two declines
+output:R13-KEYS/a-release-that-removes-a-key-field-keeps-every-old-hold-eu-first hash:3a7db6816918 | round 13, D221: both holds kept, eu first
+output:R13-KEYS/a-release-that-removes-a-key-field-keeps-every-old-hold-us-first hash:4852499eba4c | round 13, D221: both holds kept, us first
+output:R13-KEYS/a-reload-in-between-keeps-the-old-version-hold hash:b9bbf9505f93 | round 13, D221: still old after a second boot
+output:R13-KEYS/another-actor-is-not-held hash:d75fba21227a | round 13, D221: another actor sends
+output:R13-KEYS/serialize-declines-beside-an-old-version-hold-and-queues-nothing hash:f799168ec46a | round 13, D221: serialize declines, queues nothing
+output:R13-KEYS/with-no-release-two-keys-are-two-lanes hash:b9a8c7ddd343 | round 13, D221: no release, two lanes
+round:cli/story.ts hash:51bc9efbb26b | round 13, D221: the trace names BesideOldVersion and OldVersionLane
+round:mutants-r6.ts hash:b6c3802cca2e | round 13, D221: d78-no-rekey retargeted to the two-pass placement

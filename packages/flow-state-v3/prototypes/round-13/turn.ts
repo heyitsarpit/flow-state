@@ -34,7 +34,7 @@ import { resetValue,
   type Path,
   type Started,
 } from "./inc.ts";
-import { admitRow, cell, decline, guardCell, letGoKept, olderKeyLane } from "./lane.ts";
+import { admitRow, cell, decline, guardCell, letGoKept, oldVersionLane } from "./lane.ts";
 import { cancelRead, dropReadsOf, lookup, lookupUnencodable } from "./reads.ts";
 import { armTimer, disarmTimer, scheduleKey } from "./timers.ts";
 import {
@@ -174,8 +174,9 @@ const laneOfToken = (
   t: { op: string; key?: Slot<(a: any) => unknown> },
   key: unknown,
 ): Lane | undefined => {
-  // D221: a keyed guard sees the lane a commit with this key would meet: its own, else an older-key lane it agrees with (round 12 review P3).
-  if (t.key) return w.tx.w.lanes[laneKey(w.a.key, t.op, key)] ?? olderKeyLane(w.tx, w.a.key, w.a.machine, t.op, key);
+  // D221: a keyed `idle` says what its commit would meet: its own lane, else an old-version hold of the op (every commit declines beside one). A keyed
+  // `retryable` names its own lane only.
+  if (t.key) return w.tx.w.lanes[laneKey(w.a.key, t.op, key)] ?? (t.verb === "idle" ? oldVersionLane(w.tx, w.a.key, w.a.machine, t.op) : undefined);
   const it = w.item;
   if (it?.k === "ending" && it.op === t.op && it.attempt) return laneOfAttempt(w.tx.w, it.attempt);
   return undefined;
@@ -746,10 +747,9 @@ const applyMembers = (w: Walk) => {
         if (l.actor === w.a.key && l.op === mem.op && sameSubject(l.subject, subject)) letGoKept(tx, l);
       continue;
     }
-    // D221: a keyed `retry(k)`/`cancel(k)` names the lane its key would commit into: its own, else the older-key lane D217 declines beside. That is the
-    // hold's owner's way out after a release that adds a key field (round 12 review H1, P2): nothing else can name it.
+    // D221: a keyed `retry(k)`/`cancel(k)` names the lane of exactly that key. An old-version hold is named by its own old key: the owner's way out.
     const named = mem.key
-      ? (tx.w.lanes[laneKey(w.a.key, mem.op, r.key)] ?? olderKeyLane(tx, w.a.key, w.a.machine, mem.op, r.key))
+      ? tx.w.lanes[laneKey(w.a.key, mem.op, r.key)]
       : it?.k === "ending" && it.op === mem.op && it.attempt
         ? laneOfAttempt(tx.w, it.attempt) // D22: key-less names the ending's own Attempt only
         : undefined;

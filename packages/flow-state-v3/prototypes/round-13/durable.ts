@@ -5,7 +5,7 @@ import { getActor, setActor, noActors, type Actors } from "./actors.ts";
 import { canon, carried, standIn, text, own, Unencodable, validActor, validLane } from "./gate.ts";
 import type { Compiled } from "../conformance/fixtures/compiled.ts";
 import { hook, saveAll } from "./hooks.ts";
-import { afterAck, cell } from "./lane.ts";
+import { afterAck, cell, sameFields } from "./lane.ts";
 import { armTimer, disarmTimer } from "./timers.ts";
 import {
   clearStall,
@@ -309,9 +309,10 @@ export const restore = (tx: Tx, records: ReadonlyArray<readonly [string, string]
       }
       const { boot: _stamp, ...body } = v;
       saved[v.id] = JSON.stringify(body);
-      lanes.push([k, rekeyLane(tx, v, lanes)]);
+      lanes.push([k, v]);
     }
   }
+  lanes.splice(0, lanes.length, ...placeLanes(tx, lanes));
   tx.w = {
     ...tx.w,
     boot: maxBoot + 1,
@@ -377,39 +378,41 @@ export const restore = (tx: Tx, records: ReadonlyArray<readonly [string, string]
   }
   tx.w = { ...tx.w, nextMint: maxMint + 1 };
 };
-// D78: a hold is a claim about the outside world; its key is only our name for it. The name moves with the release, the hold never does.
-const rekeyLane = (
-  tx: Tx,
-  v: SavedLane,
-  so_far: ReadonlyArray<readonly [string, SavedLane]>,
-): SavedLane => {
-  if (!v.head) return v;
-  const op = tx.machines[v.machine]!.ops[v.op]!;
-  // D221: a lane stamped under the current fields needs nothing. One stamped under others moves to the new key only if its stored input has every new field:
-  // else it stays under its old stamp, an older-key lane (D217's decline, and the way out by a keyed member, lane.ts `olderKeyLane`).
-  const restamp = (l: SavedLane): SavedLane => (op.keyFields ? { ...l, keyFields: [...op.keyFields] } : l);
-  // A lane minted under the current fields with an optional one absent is not placeable either, and its stamp is already the current one: unchanged.
-  const input = v.head.input as Record<string, unknown> | undefined;
-  const placeable = !op.keyFields || op.keyFields.every((f) => typeof input === "object" && input !== null && input[f] !== undefined);
-  if (!placeable) return v;
-  let fresh: unknown;
-  try {
-    fresh = op.key.run(v.head.input);
-  } catch (e) {
-    if (e instanceof Unencodable) return v; // no new name to move to
-    issue(tx, { code: "UserClosure", origin: `${v.machine} ${v.op} key`, input: String(e) });
-    return v;
-  }
-  if (text(fresh) === undefined) return v;
-  if (text(fresh) === text(v.key)) return restamp(v);
-  const id = laneKey(v.actor, v.op, fresh);
-  if (so_far.some(([, o]) => o.id === id)) {
-    issue(tx, { code: "LaneRekeyCollision", origin: `${v.machine} ${v.op}`, input: id });
-    return v;
-  }
-  note(tx, "LaneRekeyed", { op: v.op, from: v.id, to: id });
-  tx.w = { ...tx.w, rekeyed: { ...tx.w.rekeyed, [id]: v.id } };
-  return restamp({ ...v, id, key: fresh });
+// Round 13 (D221): a lane's identity across releases. A lane stamped with key fields (every typed op) is never renamed: its key is the server thing's name
+// under the op version that minted it. Under other fields now, it is an old-version hold, said once per boot (`OldVersionLane`), reachable by its own key,
+// and every new commit of the op declines beside it (`lane.ts`). So no restore ever moves a stamped lane, and no two lanes can share an id.
+// D78's rename stays for the suite's hand key closures only (F2, no fields to stamp; a seam): two passes, so a lane that keeps its name is placed before any
+// lane moves, and a move onto a taken name is refused loudly (`LaneRekeyCollision`), the mover keeping its old name. A hold is never dropped.
+const placeLanes = (tx: Tx, lanes: ReadonlyArray<readonly [string, SavedLane]>): Array<[string, SavedLane]> => {
+  const freshOf = (v: SavedLane): unknown => {
+    if (!v.head || v.keyFields !== undefined) return undefined;
+    const op = tx.machines[v.machine]!.ops[v.op]!;
+    try {
+      const f = op.key.run(v.head.input);
+      return text(f) === undefined || text(f) === text(v.key) ? undefined : f;
+    } catch (e) {
+      if (!(e instanceof Unencodable)) issue(tx, { code: "UserClosure", origin: `${v.machine} ${v.op} key`, input: String(e) });
+      return undefined; // no new name to move to
+    }
+  };
+  const moves = lanes.map(([, v]) => freshOf(v));
+  const taken = new Set(lanes.filter((_, i) => moves[i] === undefined).map(([, v]) => v.id));
+  return lanes.map(([k, v], i): [string, SavedLane] => {
+    const fields = tx.machines[v.machine]!.ops[v.op]!.keyFields;
+    if (v.keyFields !== undefined && fields && !sameFields(v.keyFields, fields)) note(tx, "OldVersionLane", { op: v.op, lane: v.id, keyFields: v.keyFields });
+    const fresh = moves[i];
+    if (fresh === undefined) return [k, v];
+    const id = laneKey(v.actor, v.op, fresh);
+    if (taken.has(id)) {
+      issue(tx, { code: "LaneRekeyCollision", origin: `${v.machine} ${v.op}`, input: id });
+      taken.add(v.id);
+      return [k, v];
+    }
+    taken.add(id);
+    note(tx, "LaneRekeyed", { op: v.op, from: v.id, to: id });
+    tx.w = { ...tx.w, rekeyed: { ...tx.w.rekeyed, [id]: v.id } };
+    return [k, { ...v, id, key: fresh }];
+  });
 };
 // D82: a stand-in for Schema decode with defaults. Undefined: this record cannot be read by this release.
 const restoredMemory = (m: Compiled, root: Inc): Inc | undefined => {

@@ -13,7 +13,7 @@ const bareMemory = {
   noteCopy: Flow.initial(U, ""),
   peeks: Flow.initial(S.Number, 0),
   last: Flow.initial(U, null),
-  who: Flow.input(U.pipe(S.withDecodingDefaultKey(Effect.succeed("a")), S.withConstructorDefault(Effect.succeed("a")))), // D222
+  who: Flow.input(U.pipe(S.withDecodingDefaultKey(Effect.succeed("a")))),
 };
 // The serial bare machine: Lab/Bare, with `serialize`, a follow-up, a Map in memory, key-less idle, two deadlines, and a mapper that reads its input.
 const serialCharge = transaction({ id: "lab/charge", input: { who: U }, key: [], concurrency: "serialize", services: [FakeApi], commit: write("charge") });
