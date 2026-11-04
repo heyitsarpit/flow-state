@@ -63,17 +63,28 @@ Every rule not listed below. They fit this codebase as they are:
 
 ### Softened: 9
 
-| Rule | Setting | Reason |
-| --- | --- | --- |
-| `no-eager-stateful-effect-succeed` | warn | RULES.md calls it a review warning. Syntax can't prove the timing contract. |
-| `no-stateful-effect-construction` | warn | The same. RULES.md: "a review warning, not proof of a leak". |
-| `no-large-production-file` | warn, 500 / 1000 | Line count alone doesn't justify a split. A lane or edge module owns one invariant. 173 of Effect's 417 source files are over 500 lines. |
-| `no-god-service-shape` | warn, 16 | RULES.md: "a review prompt, not proof". |
-| `no-object-freeze` | warn | Snapshots published to React may need freezing by contract. The matcher flags every reference. |
-| `prefer-effect-native-tagged-types` | warn | `Compiled` and records are JSON data (D194), so Schema owns those variants. The rule can't resolve imported models and would report each module. |
-| `no-readonly` | warn | Public types follow Effect's convention (10,130 `readonly` in its source). The rule can't tell public from internal yet. |
-| `no-optional-domain-properties` | warn | Public option bags use `?:` under `exactOptionalPropertyTypes`, as Effect does (4,182 uses). Internal records should use `Option`. |
-| `no-runtime-typeof` | error, `allowInTypeGuards` | The runtime narrows user values in named guards, for example `1n` keys restored as `"$1n"` (D119). |
+Review signals, which RULES.md itself says syntax can't prove:
+
+- `no-eager-stateful-effect-succeed`, `no-stateful-effect-construction`: `warn`. RULES.md: "a
+  review warning, not proof of a leak".
+- `no-god-service-shape`: `warn` at 16. RULES.md: "a review prompt, not proof".
+- `no-large-production-file`: `warn` at 500 lines, 1000 for tests. Line count alone doesn't
+  justify a split, and a lane or edge module owns one invariant. 173 of Effect's 417 source
+  files are over 500 lines.
+
+Rules that misfire on a library with public types:
+
+- `no-object-freeze`: `warn`. Snapshots published to React may need freezing by contract, and
+  the matcher flags every reference.
+- `prefer-effect-native-tagged-types`: `warn`. `Compiled` and records are JSON data (D194), so
+  Schema owns those variants. The rule can't resolve imported models, so it would report each
+  module.
+- `no-readonly`: `warn`. Public types follow Effect's convention: 10,130 `readonly` in its
+  source. The rule can't tell public from internal yet.
+- `no-optional-domain-properties`: `warn`. Public option bags use `?:` under
+  `exactOptionalPropertyTypes`, as Effect does (4,182 uses). Internal records should use `Option`.
+- `no-runtime-typeof`: `error`, with `allowInTypeGuards`. The runtime narrows user values in
+  named guards, for example `1n` keys restored as `"$1n"` (D119).
 
 `no-readonly` and `no-optional-domain-properties` are `warn` only until the layout exists. Then
 they become `error` on internal modules and `off` on public entrypoint modules.
