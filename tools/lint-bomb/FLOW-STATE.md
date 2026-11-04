@@ -1,0 +1,107 @@
+# lint-bomb in Flow State
+
+Status: proposed, 2026-11-04. Arpit has not reviewed these choices yet.
+
+The lint rules for Flow State v3 production code. The config is the `lint` block of the root
+`vite.config.ts`. This note gives the reason for each choice. Change both together.
+
+## Source
+
+- Vendored from `/Users/arpit/Developer/workflow/lint-bomb` at commit
+  `bfe34fa51c453bb443078fca7696bbd4651b82df`, with no local changes. Copied: `src/`,
+  `test/rules.test.ts`, `LICENSE`, `RULES.md`, `STYLE.md` and `examples/`, as its README says.
+- Oxlint loads `src/index.ts` directly, the same way lint-bomb's own config does. So there is no
+  esbuild step and no new dependency. The repo already pins `oxlint` and `@oxlint/plugins` at
+  1.89.0, and the copied rule tests pass on 1.89.0 (`nub run lint:rules`). lint-bomb itself was
+  tested on 1.81.0.
+- Not vendored: `personal/flow-state/no-parallel-diagnostic-errors`. It is hard-wired to
+  `packages/flow-state-rewrite/src/`. It should come back once v3 has its own issue or diagnostic
+  type (see "Deferred").
+
+## Scope
+
+- Linted and formatted: `packages/flow-state-v3/`, except `prototypes/`. Type-aware rules use
+  `packages/flow-state-v3/tsconfig.json`, which extends `tsconfig.base.json`.
+- Never linted or formatted: `packages/flow-state/`, `packages/flow-state-rewrite/`,
+  `packages/flow-state-v3/prototypes/`, `codebases/`, `reference/`, `tools/lint-bomb/` and the old
+  `tools/oxlint/` plugin.
+- `check` and `lint` pass `--no-error-on-unmatched-pattern` because `packages/flow-state-v3/src/`
+  does not exist yet. Remove the flag when the first source file lands, so that a wrong path can't
+  pass by linting nothing.
+
+## Rules: 70 in lint-bomb
+
+### Applied as shipped: 59, all `error`
+
+Every rule not listed below. They fit this codebase as they are:
+
+- **Effect use** (`no-context-tag`, `no-effect-promise`, `no-throw-in-effect-gen`,
+  `no-manual-effect-error-tag`, `no-implicit-effect-concurrency`, `no-numeric-duration`,
+  `no-unmanaged-effect-scope`, `no-effect-ref-read-then-write` and the rest). They match
+  `codebases/effect-v4` usage and STYLE.md. In a runtime, explicit concurrency and owned scopes are
+  correctness issues, not style.
+- **Type evidence** (`no-explicit-any`, `no-unknown`, `no-escape-hatch-assertion`,
+  `require-safety-comment-for-type-assertion`, `no-shallow-json-domain-cast` and others). Public
+  types are the product, and `Compiled` crosses a JSON boundary (D194). Each erasure gets a reasoned
+  suppression, a `SAFETY:` comment or a `FLOW_STATE_ALLOW_UNKNOWN:` comment.
+- **Promises and runners** (`no-effect-runner-in-domain`, `no-unwrapped-promise-in-effect-core`,
+  `no-unsafe-fiber-methods`, `no-raw-try-catch`, `no-unjustified-effect-try-promise`). The runtime
+  is a host boundary: IndexedDB, Web Locks and page lifecycle events. So these need explicit
+  allowances, and the allowances get added with the host adapter's directory, not before.
+- **Tests** (`no-module-mocking`, `no-expect-in-if`, `no-promise-microtask-barrier`,
+  `no-swallowed-cleanup-error`). The conformance harness runs on a fake clock, and a microtask turn
+  proves nothing.
+- **Path options set now:** `no-direct-process-env`, `no-module-level-mutable-state`,
+  `no-object-type` and `no-unknown` are scoped to `packages/flow-state-v3/src`, and
+  `no-package-dist-or-self-import-in-src` to the package `flow-state-v3`. With no global state,
+  several runtimes and tests can share a page.
+- `no-excessive-cognitive-complexity` uses the rule's default (15, at least 3 branches), not the
+  demo's 8. A transition selector branches by nature, and RULES.md says not to extract helpers
+  only to lower the score.
+- `use-consistent-type-definitions` prefers `type`. The rule skips interfaces with heritage and
+  merged interfaces, which are the cases Effect needs `interface` for.
+
+### Softened: 9
+
+| Rule | Setting | Reason |
+| --- | --- | --- |
+| `no-eager-stateful-effect-succeed` | warn | RULES.md calls it a review warning. Syntax can't prove the timing contract. |
+| `no-stateful-effect-construction` | warn | The same. RULES.md: "a review warning, not proof of a leak". |
+| `no-large-production-file` | warn, 500 / 1000 | Line count alone doesn't justify a split. A lane or edge module owns one invariant. 173 of Effect's 417 source files are over 500 lines. |
+| `no-god-service-shape` | warn, 16 | RULES.md: "a review prompt, not proof". |
+| `no-object-freeze` | warn | Snapshots published to React may need freezing by contract. The matcher flags every reference. |
+| `prefer-effect-native-tagged-types` | warn | `Compiled` and records are JSON data (D194), so Schema owns those variants. The rule can't resolve imported models and would report each module. |
+| `no-readonly` | warn | Public types follow Effect's convention (10,130 `readonly` in its source). The rule can't tell public from internal yet. |
+| `no-optional-domain-properties` | warn | Public option bags use `?:` under `exactOptionalPropertyTypes`, as Effect does (4,182 uses). Internal records should use `Option`. |
+| `no-runtime-typeof` | error, `allowInTypeGuards` | The runtime narrows user values in named guards, for example `1n` keys restored as `"$1n"` (D119). |
+
+`no-readonly` and `no-optional-domain-properties` are `warn` only until the layout exists. Then
+they become `error` on internal modules and `off` on public entrypoint modules.
+
+### Disabled: 2
+
+- `no-inward-module-dependency` and `no-public-entrypoint-export-drift` need real module roots and
+  an entrypoint list. Without them they only report "Configure explicit nonempty architecture
+  boundaries". Turn them on at the foundation stage.
+
+## Also in the config (built-in Oxlint rules)
+
+- The built-in set from lint-bomb's own config, all `error`: `complexity`, `no-else-return`,
+  `typescript/no-unnecessary-condition`, `typescript/switch-exhaustiveness-check` and the rest.
+- Carried over from the old config, scoped to v3 `src`:
+  - `Date` and `performance` are banned outside tests ("use the supplied Effect Clock").
+  - `setTimeout`, `setInterval`, `Effect.sleep` and `Effect.delay` are banned in tests ("use
+    TestClock").
+  - `no-param-reassign`, `no-var` and `import/no-mutable-exports`.
+
+## Deferred, with what triggers each
+
+- When the module layout is decided:
+  - Enable `no-inward-module-dependency` and `no-public-entrypoint-export-drift`.
+  - Scope `no-readonly` and `no-optional-domain-properties` to internal modules as `error`, and
+    turn them off on public modules.
+  - Add the host adapter directory to `no-effect-runner-in-domain`,
+    `no-unwrapped-promise-in-effect-core` and `no-unsafe-fiber-methods`.
+- When v3 has an issue or diagnostic type: port `no-parallel-diagnostic-errors` to v3's path.
+- When the first file lands in `src/`: remove `--no-error-on-unmatched-pattern`.
+- Examples and docs apps: add each to the linted paths when it is created.

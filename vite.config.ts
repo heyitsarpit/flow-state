@@ -1,5 +1,29 @@
 import { defineConfig } from "vite-plus";
 
+// Lint and format cover Flow State v3 production code only. The rule choices and their reasons
+// are in tools/lint-bomb/FLOW-STATE.md; change both together.
+const production = "packages/flow-state-v3";
+const productionSource = `${production}/src`;
+
+// Frozen or throwaway code: never linted or formatted.
+const frozen = [
+  "packages/flow-state/**",
+  "packages/flow-state-rewrite/**",
+  `${production}/prototypes/**`,
+  "codebases/**",
+  "reference/**",
+  "tools/lint-bomb/**",
+  "tools/oxlint/**",
+];
+
+const productionTests = [
+  `${productionSource}/**/*.test.{ts,tsx}`,
+  `${productionSource}/**/*.spec.{ts,tsx}`,
+  `${productionSource}/**/__tests__/**/*.{ts,tsx}`,
+  `${productionSource}/**/test/**/*.{ts,tsx}`,
+  `${productionSource}/**/testing/**/*.{ts,tsx}`,
+];
+
 export default defineConfig({
   pack: {
     dts: {
@@ -9,253 +33,122 @@ export default defineConfig({
     tsconfig: "tsconfig.pack.json",
   },
   staged: {
-    "packages/flow-state-rewrite/**/*.{js,jsx,ts,tsx,json,jsonc,md,css,html,yaml,yml}":
-      "vp check --fix",
+    [`${productionSource}/**/*.{js,jsx,ts,tsx,json,jsonc,md,css,html,yaml,yml}`]: "vp check --fix",
   },
   lint: {
+    options: { typeAware: true, typeCheck: true },
     plugins: ["eslint", "typescript", "unicorn", "oxc", "import"],
     jsPlugins: [
       { name: "vite-plus", specifier: "vite-plus/oxlint-plugin" },
-      { name: "anti-slop", specifier: "./tools/oxlint/anti-slop/index.ts" },
+      { name: "lint-bomb", specifier: "./tools/lint-bomb/src/index.ts" },
     ],
     rules: {
+      // Built-in rules, as in lint-bomb's own configuration.
       complexity: "error",
       "no-else-return": "error",
       "no-unneeded-ternary": "error",
-      "typescript/no-empty-object-type": "warn",
+      "typescript/no-empty-object-type": "error",
       "typescript/no-extraneous-class": "error",
-      "typescript/no-misused-promises": "warn",
+      "typescript/no-misused-promises": "error",
       "typescript/no-namespace": "error",
       "typescript/no-unsafe-function-type": "error",
-      "typescript/no-unsafe-type-assertion": "warn",
-      "typescript/no-unnecessary-condition": "warn",
-      "typescript/no-unnecessary-type-arguments": "warn",
-      "typescript/no-unnecessary-type-assertion": "warn",
+      "typescript/no-unsafe-type-assertion": "error",
+      "typescript/no-unnecessary-condition": "error",
+      "typescript/no-unnecessary-type-arguments": "error",
+      "typescript/no-unnecessary-type-assertion": "error",
       "typescript/no-unnecessary-type-constraint": "error",
-      "typescript/switch-exhaustiveness-check": "warn",
+      "typescript/switch-exhaustiveness-check": "error",
       "vite-plus/prefer-vite-plus-imports": "error",
-      "anti-slop/no-excessive-cognitive-complexity": [
-        "warn",
+
+      // lint-bomb, applied as shipped (59).
+      "lint-bomb/no-anonymous-default-export": "error",
+      "lint-bomb/no-array-from-then-map": "error",
+      "lint-bomb/no-bivariant-callback": "error",
+      "lint-bomb/no-chained-type-assertions": "error",
+      "lint-bomb/no-conditional-array-spread": "error",
+      "lint-bomb/no-conditional-empty-object-spread": "error",
+      "lint-bomb/no-constant-effect-flatmap": "error",
+      "lint-bomb/no-context-tag": "error",
+      "lint-bomb/no-direct-process-env": ["error", { sourceRoots: [productionSource] }],
+      "lint-bomb/no-effect-promise": "error",
+      "lint-bomb/no-effect-ref-read-then-write": "error",
+      // The host boundary that runs fibers gets allowedDirectories once the layout exists.
+      "lint-bomb/no-effect-runner-in-domain": "error",
+      "lint-bomb/no-empty-context-make-unsafe": "error",
+      "lint-bomb/no-escape-hatch-assertion": "error",
+      "lint-bomb/no-excessive-cognitive-complexity": [
+        "error",
         { threshold: 15, minimumBranches: 3 },
       ],
-      "anti-slop/no-for-each": "warn",
-      "anti-slop/use-export-type": "warn",
-      "anti-slop/use-import-type": "warn",
-      "anti-slop/no-anonymous-default-export": "warn",
-      // These external rules are review signals: syntax alone cannot prove the owner-level performance or tagged-value contract.
-      "anti-slop/no-array-filter-map": "warn",
-      "anti-slop/no-array-from-then-map": "error",
-      "anti-slop/no-bivariant-callback": "error",
-      "anti-slop/no-chained-type-assertions": "error",
-      "anti-slop/no-conditional-empty-object-spread": "error",
-      "anti-slop/no-conditional-array-spread": "error",
-      "anti-slop/no-context-tag": "error",
-      // "anti-slop/no-data-taggederror": "error", // Superseded by no-parallel-diagnostic-errors.
-      "anti-slop/no-direct-process-env": [
-        "warn",
-        {
-          sourceRoots: ["packages/flow-state/src", "packages/flow-state-rewrite/src"],
-        },
-      ],
-      "anti-slop/no-effect-promise": "error",
-      // "anti-slop/no-effect-promise-microtask": "error", // Subsumed by no-effect-promise.
-      "anti-slop/no-unjustified-effect-try-promise": "error",
-      "anti-slop/no-effect-runner-in-domain": [
+      "lint-bomb/no-expect-in-if": "error",
+      "lint-bomb/no-explicit-any": "error",
+      "lint-bomb/no-for-each": "error",
+      "lint-bomb/no-generic-utility-module": "error",
+      "lint-bomb/no-implicit-effect-concurrency": "error",
+      "lint-bomb/no-inline-import-type-query": "error",
+      "lint-bomb/no-known-value-widening": "error",
+      "lint-bomb/no-local-definite-assignment": "error",
+      "lint-bomb/no-manual-effect-error-tag": "error",
+      "lint-bomb/no-manual-tag-comparison": "error",
+      "lint-bomb/no-module-level-mutable-state": ["error", { sourceRoots: [productionSource] }],
+      "lint-bomb/no-module-mocking": "error",
+      "lint-bomb/no-nested-conditional-expression": "error",
+      "lint-bomb/no-nullish-function-contracts": "error",
+      "lint-bomb/no-numeric-duration": "error",
+      "lint-bomb/no-object-iteration-result-cast": "error",
+      "lint-bomb/no-object-type": ["error", { sourceRoots: [productionSource] }],
+      "lint-bomb/no-package-dist-or-self-import-in-src": [
         "error",
-        {
-          allowedFiles: [
-            "packages/flow-state/src/core/orchestrator/orchestrator-system.ts",
-            "packages/flow-state/src/core/runtime/services/host-signals.ts",
-            "packages/flow-state/src/public/root.ts",
-            "packages/flow-state/src/public/runtime.ts",
-            "packages/flow-state/src/runtime/contract-runtime.ts",
-          ],
-        },
+        { packageName: "flow-state-v3", sourceRoot: productionSource },
       ],
-      // These are review signals: syntax cannot establish owner semantics or expected failure classification.
-      "anti-slop/no-stateful-effect-construction": "warn",
-      "anti-slop/no-eager-stateful-effect-succeed": "warn",
-      "anti-slop/no-expected-failure-as-defect": "warn",
-      "anti-slop/no-constant-effect-flatmap": "warn",
-      "anti-slop/no-empty-context-make-unsafe": "warn",
-      "anti-slop/no-public-runtime-infrastructure": [
-        "error",
-        {
-          sourceRoots: ["packages/flow-state-rewrite/src"],
-          allowedPathFragments: ["/src/public/adapter/", "/src/public/host/"],
-        },
-      ],
-      "anti-slop/no-object-iteration-result-cast": "error",
-      "anti-slop/prefer-effect-native-tagged-types": "warn",
-      "anti-slop/no-effect-ref-read-then-write": "error",
-      "anti-slop/no-escape-hatch-assertion": "error",
-      "anti-slop/no-explicit-any": "error",
-      "anti-slop/no-unknown": [
-        "error",
-        {
-          sourceRoots: ["packages/flow-state-rewrite/src"],
-          allowedSchemaFields: [
-            {
-              file: "packages/flow-state-rewrite/src/machine/admission.ts",
-              fields: ["default", "states", "on", "redirect", "activities", "timers"],
-            },
-            {
-              file: "packages/flow-state-rewrite/src/operation/resource.ts",
-              fields: ["gcTime", "staleTime"],
-            },
-          ],
-          allowedParameters: [
-            {
-              file: "packages/flow-state-rewrite/src/diagnostic/diagnostic.ts",
-              fields: ["defect"],
-            },
-            {
-              file: "packages/flow-state-rewrite/src/public/root.ts",
-              fields: ["cause"],
-            },
-          ],
-        },
-      ],
-      "anti-slop/no-expect-in-if": "error",
-      "anti-slop/no-implicit-effect-concurrency": "error",
-      "anti-slop/no-manual-effect-error-tag": "warn",
-      "anti-slop/no-manual-tag-comparison": "warn",
-      "anti-slop/no-inward-module-dependency": [
-        "warn",
-        {
-          profiles: [
-            {
-              sourceRoot: "packages/flow-state/src/core",
-              forbiddenRoots: [
-                "packages/flow-state/src/cli",
-                "packages/flow-state/src/react",
-                "packages/flow-state/src/testing",
-                "packages/flow-state/src/runtime",
-                "packages/flow-state/src/index.ts",
-                "packages/flow-state/src/server.ts",
-              ],
-            },
-            {
-              sourceRoot: "packages/flow-state-rewrite/src/internal",
-              forbiddenRoots: [
-                "packages/flow-state-rewrite/src/public",
-                "packages/flow-state-rewrite/src/index.ts",
-                "packages/flow-state-rewrite/src/react-entry.ts",
-                "packages/flow-state-rewrite/src/testing.ts",
-                "packages/flow-state-rewrite/src/inspect.ts",
-              ],
-            },
-          ],
-        },
-      ],
-      "anti-slop/no-known-value-widening": "error",
-      "anti-slop/no-inline-import-type-query": "error",
-      "anti-slop/no-local-definite-assignment": "error",
-      "anti-slop/no-module-mocking": "error",
-      "anti-slop/no-numeric-duration": "error",
-      "anti-slop/no-nested-conditional-expression": "error",
-      // Contract-required public snapshots may be frozen; keep this as a review signal for private boundaries.
-      "anti-slop/no-object-freeze": "warn",
-      "anti-slop/no-generic-utility-module": "warn",
-      "anti-slop/no-god-service-shape": ["warn", { threshold: 16 }],
-      "anti-slop/no-large-production-file": [
+      "lint-bomb/no-promise-microtask-barrier": "error",
+      "lint-bomb/no-raw-try-catch": "error",
+      "lint-bomb/no-redundant-readonly-wrapper": "error",
+      "lint-bomb/no-reduce-accumulator-copy": "error",
+      "lint-bomb/no-reflect-apply": "error",
+      "lint-bomb/no-reflect-get": "error",
+      "lint-bomb/no-service-shape-parameter-extraction": "error",
+      "lint-bomb/no-shallow-json-domain-cast": "error",
+      "lint-bomb/no-shape-in-symbol-names": "error",
+      "lint-bomb/no-staged-object-assign": "error",
+      "lint-bomb/no-swallowed-cleanup-error": "error",
+      "lint-bomb/no-ternary-iife": "error",
+      "lint-bomb/no-throw-in-effect-gen": "error",
+      "lint-bomb/no-unjustified-effect-try-promise": "error",
+      "lint-bomb/no-unknown": ["error", { sourceRoots: [productionSource] }],
+      "lint-bomb/no-unmanaged-effect-scope": "error",
+      "lint-bomb/no-unsafe-dictionary-type": "error",
+      "lint-bomb/no-unsafe-fiber-methods": "error",
+      "lint-bomb/no-unwrapped-promise-in-effect-core": "error",
+      "lint-bomb/no-widen-then-assert": "error",
+      "lint-bomb/prefer-inferred-return-types": "error",
+      "lint-bomb/require-readable-spacing": "error",
+      "lint-bomb/require-safety-comment-for-type-assertion": "error",
+      "lint-bomb/use-consistent-type-definitions": ["error", { preference: "type" }],
+      "lint-bomb/use-export-type": "error",
+      "lint-bomb/use-import-type": "error",
+
+      // lint-bomb, softened (9): review signals, or rules that cannot yet tell public from internal.
+      "lint-bomb/no-eager-stateful-effect-succeed": "warn",
+      "lint-bomb/no-stateful-effect-construction": "warn",
+      "lint-bomb/no-large-production-file": [
         "warn",
         { productionThreshold: 500, testThreshold: 1000 },
       ],
-      "anti-slop/no-object-type": ["error", { sourceRoots: ["packages/flow-state-rewrite/src"] }],
-      "anti-slop/no-optional-domain-properties": [
-        "error",
-        {
-          sourceRoots: [
-            "packages/flow-state/src/core/api",
-            "packages/flow-state/src/vnext",
-            "packages/flow-state-rewrite/src",
-          ],
-        },
-      ],
-      "anti-slop/no-package-dist-or-self-import-in-src": [
-        "error",
-        {
-          packages: [
-            { packageName: "flow-state", sourceRoot: "packages/flow-state/src" },
-            {
-              packageName: "flow-state-rewrite",
-              sourceRoot: "packages/flow-state-rewrite/src",
-            },
-          ],
-        },
-      ],
-      "anti-slop/no-promise-microtask-barrier": "error",
-      "anti-slop/no-raw-try-catch": "error",
-      // Contract-required public shapes use readonly; keep this as a review signal for private state modeling.
-      "anti-slop/no-readonly": "warn",
-      "anti-slop/no-reduce-accumulator-copy": "warn",
-      // Enable manually when the repository is ready to adopt this formatting policy.
-      "anti-slop/require-readable-spacing": "warn",
-      "anti-slop/no-public-entrypoint-export-drift": [
-        "error",
-        {
-          packages: [
-            {
-              sourceRoot: "packages/flow-state/src",
-              entrypoints: ["index.ts", "react-entry.ts", "testing.ts", "server.ts", "inspect.ts"],
-            },
-            {
-              sourceRoot: "packages/flow-state-rewrite/src",
-              entrypoints: ["index.ts", "react-entry.ts", "testing.ts", "inspect.ts"],
-            },
-          ],
-        },
-      ],
-      // "anti-slop/no-redundant-readonly-wrapper": "error",
-      "anti-slop/prefer-inferred-return-types": "warn",
-      "anti-slop/no-reflect-apply": "error",
-      "anti-slop/no-reflect-get": "error",
-      "anti-slop/no-runtime-typeof": ["error", { allowInTypeGuards: true }],
-      "anti-slop/no-shallow-json-domain-cast": "error",
-      "anti-slop/no-shape-in-symbol-names": "error",
-      "anti-slop/no-service-shape-parameter-extraction": "error",
-      "anti-slop/no-staged-object-assign": "error",
-      "anti-slop/no-swallowed-cleanup-error": "error",
-      "anti-slop/no-ternary-iife": "error",
-      "anti-slop/no-throw-in-effect-gen": "error",
-      "anti-slop/no-unmanaged-effect-scope": "error",
-      "anti-slop/no-parallel-diagnostic-errors": "error",
-      "anti-slop/no-unwrapped-promise-in-effect-core": "error",
-      "anti-slop/no-unsafe-dictionary-type": "error",
-      "anti-slop/no-unsafe-fiber-methods": "error",
-      "anti-slop/no-widen-then-assert": "error",
-      "anti-slop/require-safety-comment-for-type-assertion": "error",
+      "lint-bomb/no-god-service-shape": ["warn", { threshold: 16 }],
+      "lint-bomb/no-object-freeze": "warn",
+      "lint-bomb/prefer-effect-native-tagged-types": "warn",
+      "lint-bomb/no-readonly": "warn",
+      "lint-bomb/no-optional-domain-properties": ["warn", { sourceRoots: [productionSource] }],
+      "lint-bomb/no-runtime-typeof": ["error", { allowInTypeGuards: true }],
+
+      // lint-bomb, disabled (2) until the production module layout and entrypoints exist.
+      "lint-bomb/no-inward-module-dependency": "off",
+      "lint-bomb/no-public-entrypoint-export-drift": "off",
     },
-    options: { typeAware: true, typeCheck: true },
     overrides: [
       {
-        files: ["packages/flow-state/src/**", "packages/flow-state-rewrite/src/**"],
-        rules: {
-          "no-restricted-imports": [
-            "warn",
-            {
-              patterns: [
-                {
-                  group: [
-                    "flow-state",
-                    "flow-state/*",
-                    "flow-state-rewrite",
-                    "flow-state-rewrite/*",
-                  ],
-                  message: "Package source must import its owning relative source module.",
-                },
-                {
-                  group: ["**/dist/**"],
-                  message: "Package source must not import built dist output.",
-                },
-              ],
-            },
-          ],
-        },
-      },
-      {
-        files: ["packages/flow-state-rewrite/src/**/*.{ts,tsx}"],
+        files: [`${productionSource}/**/*.{ts,tsx}`],
         rules: {
           "import/no-mutable-exports": "error",
           "no-param-reassign": "error",
@@ -263,24 +156,14 @@ export default defineConfig({
         },
       },
       {
-        files: ["packages/flow-state-rewrite/src/**/*.{ts,tsx}"],
-        excludeFiles: [
-          "packages/flow-state-rewrite/src/**/*.test.{ts,tsx}",
-          "packages/flow-state-rewrite/src/**/*.spec.{ts,tsx}",
-          "packages/flow-state-rewrite/src/**/__tests__/**",
-          "packages/flow-state-rewrite/src/**/cli-test/**",
-          "packages/flow-state-rewrite/src/**/test/**",
-          "packages/flow-state-rewrite/src/**/testing/**",
-        ],
+        files: [`${productionSource}/**/*.{ts,tsx}`],
+        excludeFiles: productionTests,
         rules: {
           "no-restricted-globals": [
             "error",
             {
               globals: [
-                {
-                  name: "Date",
-                  message: "Use the supplied Effect Clock at the host boundary.",
-                },
+                { name: "Date", message: "Use the supplied Effect Clock at the host boundary." },
                 {
                   name: "performance",
                   message: "Use the supplied Effect Clock at the host boundary.",
@@ -293,14 +176,7 @@ export default defineConfig({
         },
       },
       {
-        files: [
-          "packages/flow-state-rewrite/src/**/*.test.{ts,tsx}",
-          "packages/flow-state-rewrite/src/**/*.spec.{ts,tsx}",
-          "packages/flow-state-rewrite/src/**/__tests__/**/*.{ts,tsx}",
-          "packages/flow-state-rewrite/src/**/cli-test/**/*.{ts,tsx}",
-          "packages/flow-state-rewrite/src/**/test/**/*.{ts,tsx}",
-          "packages/flow-state-rewrite/src/**/testing/**/*.{ts,tsx}",
-        ],
+        files: productionTests,
         rules: {
           "no-restricted-globals": [
             "error",
@@ -335,16 +211,10 @@ export default defineConfig({
         },
       },
     ],
-    ignorePatterns: [
-      "reference/**",
-      "tools/oxlint/anti-slop/**",
-      "packages/flow-state-rewrite/src/runtime/**",
-      // These fixtures resolve the installed tarball in check:packed-consumers.
-      "packages/flow-state-rewrite/test/packed/**",
-    ],
+    ignorePatterns: frozen,
   },
   fmt: {
-    ignorePatterns: ["tools/oxlint/anti-slop/**"],
+    ignorePatterns: frozen,
   },
   test: {
     include: ["packages/**/*.test.ts"],
