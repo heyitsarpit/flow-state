@@ -1,6 +1,6 @@
 // D132: a green must be able to go red. Every gate, on runtimes and copies known to be broken. Any that stays green fails this. bun falsify.ts --runtime ../round-10/adapter.ts [--quick]
 // The other side, the same gates green on the real runtime, is run here too, at the same small depth, so a red below is about the breakage.
-import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
 import { watched } from "./watch.ts";
@@ -388,25 +388,66 @@ try {
     const only = li < 0 ? undefined : new Set(process.argv[li + 1]!.split(","));
     const chosen = quick ? ALL.slice(0, 3) : only ? ALL.filter(([id]) => only.has(id)) : ALL.filter((_, i) => i % sn === si - 1);
     if (chosen.length === 0) say(false, `lies: the slice ${si}/${sn} holds no lie`); // an empty part is no pass
-    const named = async (edits: Edits) => {
-      reset();
-      for (const [f, find, rep] of edits) edit(join(round, f), (s) => s.replace(flex(find), () => rep));
-      // `--cases A,B`: only these cases (a diagnosis, never a gate run). Prints their FAIL lines too.
-      const ci = process.argv.indexOf("--cases");
-      const r = await run(["bun", "main.ts", "--round", "99", "--no-catalog", "--no-output", ...(ci < 0 ? [] : ["--only", process.argv[ci + 1]!]), "--runtime", `../${basename(roundDir)}/adapter.ts`], {}, conf);
-      if (ci >= 0 || process.env["FALSIFY_LIST"]) console.log(r.stdout.split("\n").filter((l) => l.startsWith("FAIL")).map((l) => l.slice(0, 300)).join("\n"));
-      return { r, fails: r.stdout.split("\n").filter((l) => l.startsWith("FAIL") && !l.split("\t")[1]?.startsWith("output:")) };
+    // Round 13: two modes. `--full` (a round's final commit) runs each lie over the whole suite, as before, and records the cases that went red by its
+    // named oracle in `lie-cases/` (one file per slice, so parallel slices never write one file). The default, **targeted**, runs each lie only on its
+    // recorded cases: the claim checked is the same ("red by its oracle"), on fewer cases. A lie with no record, or one whose recorded cases no longer go red,
+    // runs the whole suite instead, so a stale record costs time and never passes a lie. `--parallel N` (N <= 8) runs N lies at once, each in its own copy.
+    const full = process.argv.includes("--full");
+    const pi = process.argv.indexOf("--parallel");
+    const parallel = Math.min(8, Math.max(1, pi < 0 ? 1 : Number(process.argv[pi + 1]) || 1));
+    const RECORDS = join(here, "lie-cases");
+    const record: Record<string, readonly string[]> = {};
+    if (existsSync(RECORDS)) for (const f of readdirSync(RECORDS).filter((x) => x.endsWith(".json")).sort()) Object.assign(record, JSON.parse(readFileSync(join(RECORDS, f), "utf8")));
+    const recorded: Record<string, readonly string[]> = {};
+    let copies = 0;
+    const copy = () => {
+      const d = join(scratch, `lie-${copies++}`);
+      cpSync(here, join(d, "conformance"), { recursive: true });
+      cpSync(roundDir, join(d, basename(roundDir)), { recursive: true });
+      if (nodeModules) symlinkSync(nodeModules, join(d, "node_modules"));
+      return d;
     };
-    for (const [id, about, edits, mark] of chosen) {
-      const { r, fails } = await named(edits);
-      const by = fails.filter((l) => l.includes(mark));
+    const named = async (edits: Edits, cases?: readonly string[]) => {
+      const d = copy();
+      try {
+        for (const [f, find, rep] of edits) edit(join(d, basename(roundDir), f), (s) => s.replace(flex(find), () => rep));
+        // `--cases A,B`: only these cases (a diagnosis, never a gate run). Prints their FAIL lines too.
+        const ci = process.argv.indexOf("--cases");
+        const only = ci >= 0 ? process.argv[ci + 1]! : cases?.join(",");
+        const r = await run(["bun", "main.ts", "--round", "99", "--no-catalog", "--no-output", ...(only ? ["--only", only] : []), "--runtime", `../${basename(roundDir)}/adapter.ts`], {}, join(d, "conformance"));
+        if (ci >= 0 || process.env["FALSIFY_LIST"]) console.log(r.stdout.split("\n").filter((l) => l.startsWith("FAIL")).map((l) => l.slice(0, 300)).join("\n"));
+        return { r, fails: r.stdout.split("\n").filter((l) => l.startsWith("FAIL") && !l.split("\t")[1]?.startsWith("output:")) };
+      } finally {
+        rmSync(d, { recursive: true, force: true });
+      }
+    };
+    const caseOf = (l: string) => l.slice(4).split("\t")[0]!.trim().split("/")[0]!;
+    const one = async ([id, about, edits, mark]: (typeof chosen)[number]) => {
+      const cases = full ? undefined : record[id];
+      let { r, fails } = await named(edits, cases?.length ? cases : undefined);
+      let by = fails.filter((l) => l.includes(mark));
+      let how = cases?.length ? `targeted, ${cases.length} case(s)` : "full";
+      if (cases?.length && by.length === 0) {
+        ({ r, fails } = await named(edits)); // a stale record: the whole suite decides
+        by = fails.filter((l) => l.includes(mark));
+        how = "full, the record was stale";
+      }
       if (by.length === 0 && fails.length === 0 && vacuous.has(id)) {
         const p = await named(vacuous.get(id)!);
         const fired = p.fails.filter((l) => l.includes("ProbeFired"));
         say(summary(p.r.stdout) !== null && fired.length === 0, `lie ${id} (${about}): vacuous, its trigger fires in no case`, fired.slice(0, 3).map((l) => l.slice(4).split("\t")[0]!.trim()).join(" "));
-        continue;
+        return;
       }
-      say(summary(r.stdout) !== null && by.length > 0, `lie ${id} (${about}): red by ${mark || "a named oracle"}`, `${by.length} of ${fails.length}: ${by.slice(0, 3).map((l) => l.slice(4).split("\t")[0]!.trim()).join(" ")}`);
+      if (how.startsWith("full")) recorded[id] = [...new Set(by.map(caseOf))];
+      say(summary(r.stdout) !== null && by.length > 0, `lie ${id} (${about}): red by ${mark || "a named oracle"} [${how}]`, `${by.length} of ${fails.length}: ${by.slice(0, 3).map((l) => l.slice(4).split("\t")[0]!.trim()).join(" ")}`);
+    };
+    const queue = [...chosen];
+    await Promise.all(Array.from({ length: Math.min(parallel, queue.length) }, async () => {
+      for (let x = queue.shift(); x; x = queue.shift()) await one(x);
+    }));
+    if (full && process.argv.indexOf("--lie") < 0 && process.argv.indexOf("--cases") < 0) {
+      mkdirSync(RECORDS, { recursive: true });
+      writeFileSync(join(RECORDS, `slice-${si}-of-${sn}.json`), `${JSON.stringify(recorded, null, 1)}\n`);
     }
   }
 } finally {
