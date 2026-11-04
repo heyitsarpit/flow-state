@@ -31,6 +31,13 @@ See `round-8/RESULTS.md`. Left from it, for later: `input` through its Schema wi
 - Step 9 (phone or Safari, real quota) moves before step 8's compile prototypes. Why: H3's path differs on low-end devices per Chromium's code, and D97 and D110's numbers are unmeasured there, so it could change the edge that compile output must match.
 - `keyFields` with Schemas moves into round 9's typing of `domain`, since a typed `Schema.BigInt` key reaches the fault today.
 
+## Where it stopped (2026-11-04)
+
+Stopped at "For Arpit's read": `FOR-ARPIT.md` (`04e314f4`). Rounds 8-13 are done and reviewed; the last review is `round-13/review.md`. Not started: the entity store round. Open, and to fix first:
+- Round 13's H1: a default is evaluated once and shared by every actor.
+- Round 13's H2: a key version is told apart by field names only.
+Next: Arpit answers Q1-Q8 in `FOR-ARPIT.md`, then the production plan.
+
 ## Plan cut to what informs production (agreed with Arpit, 2026-11-03)
 
 Arpit's condition: each remaining prototype step must directly inform production work. This supersedes the numbered steps below where they differ, which stay as prior art.
