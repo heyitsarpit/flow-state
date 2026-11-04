@@ -969,7 +969,7 @@ file:compile/index.ts a1eb68f7e14b
 file:compile/machine.ts f63ec0aa1938
 file:compile/memory.ts 02761761f629
 file:compile/operations.ts b8f5387cbdc4
-file:legacy.ts 17cef7820fe1
+file:legacy.ts 2c8abbeed313
 file:main.ts 413dfcfc5fa1
 file:output.ts 0b15041b194e
 file:falsify.ts 2366772fdbb4
@@ -998,7 +998,7 @@ round:typed/date-check.ts 6b90120b1bf9
 round:typed/pairs.ts f383f0e39a5d
 round:typed/swaps.ts 3c7c8b8b8356
 round:typed/type-tests.ts 7126aec1389e
-round:checks/front-check.ts e06e2d4f1928
+round:checks/front-check.ts 846850bd2aad
 round:checks/mailq-check.ts ea7e7b354b07
 round:checks/score-check.ts 96fddc8d1c66
 round:checks/search-vacuity-check.ts b04a7b97a185

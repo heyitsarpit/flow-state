@@ -856,3 +856,5 @@ file:expected-recipients.txt hash:792cbb673f72 | round 12, mid review M3: R12-DO
 R12-BOOT hash:55726999c10b | round 12, falsify suite3 (D130): R12-BOOT also boots its control, so the per-case oracles have a harness
 file:scenarios/round12.scenario.ts hash:083149ff74f4 | round 12, D130: R12-BOOT's control boot
 output:R12-BOOT hash:684fd41b58ee | round 12, D130: R12-BOOT's output with its control boot
+file:legacy.ts hash:2c8abbeed313 | round 12, falsify search: the stream branch restored, the listen.load search boots the hand Desk/Tickets
+round:checks/front-check.ts hash:846850bd2aad | round 12: a hand stream's closures pinned under their own places

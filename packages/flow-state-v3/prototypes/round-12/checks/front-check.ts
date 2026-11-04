@@ -157,7 +157,9 @@ const hand = legacySlots({
   ops: { put: { id: "put", contract: "t", kind: "write", key: { run: () => ({}), at: { definition: "T/Hand", path: "operations.put.key" } }, concurrency: "reject", commit: () => Effect.void, outcomes: { failure: {} } } },
   persisted: true, uses: [],
   domain: { writes: {}, reads: { a: () => [], b: () => [] }, repair: () => Effect.void },
+  streams: { s: { id: "s", key: () => ({}), backoff: () => 1, subscribe: () => null, reconnectWhile: () => true } },
 } as unknown as Compiled);
+eq("a hand stream's closures under their own places", Object.entries((hand.streams as unknown as { s: Record<string, { at?: { path: string } }> }).s).flatMap(([, v]) => (typeof v === "object" && v?.at ? [v.at.path] : [])), ["streams.s.key", "streams.s.backoff", "streams.s.subscribe", "streams.s.reconnect.while"]);
 eq("a hand commit at operations.<op>.commit", (hand.ops["put"]!.commit as { at: { path: string } }).at.path, "operations.put.commit");
 eq("each hand read under its own name", Object.values((hand.domain as unknown as { reads: Record<string, { at: { path: string } }> }).reads).map((r) => r.at.path), ["domain.reads.a", "domain.reads.b"]);
 eq("hand data gets identity restore and encode, and events", [typeof hand.memory.restore?.run, typeof hand.memory.encode?.run, hand.events], ["function", "function", { external: [], internal: [] }]);

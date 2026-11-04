@@ -4,15 +4,17 @@
 // so none) and `inputFields` (unknown for a closure key: the hand op keeps its `key` closure, F2, and the seal takes it only from an op with no `keyFields`);
 // the memory's `fields` (F11's open record has none), and identity `restore` and `encode` where the hand memory had none, which is what the Runtime's
 // removed fallback did; and `events`, inferred from the handlers and the endings, as `flow check` inferred them before.
-// Review M1: the stream branch of round 11 is cut: no booted hand machine has streams, so it was unchecked code, and a hand machine with a bare stream closure
-// is now refused by the seal, by its path. The domain branch stays: REV4-H2, REV4-H4, REV5-H1 and SEARCH-ODD-ALL boot hand domains (round 12, run). Its
-// paths are pinned by `checks/front-check.ts` (each read under its own name, a commit at `operations.<op>.commit`).
+// Review M1: both branches stay, since both are reached. The domain branch by REV4-H2, REV4-H4, REV5-H1 and SEARCH-ODD-ALL; the stream branch by the
+// `listen.load` search, which boots the hand Desk/Tickets (round 12, run: cut, that search threw `SealUnknownClosure: Desk/Tickets streams.changes.key`;
+// the census counts scenarios only, which is why the review saw none). Their paths are pinned by `checks/front-check.ts`.
 import type { Compiled, Fragment, Memory, Node } from "./fixtures/compiled.ts";
 
 type AnyFn = (...a: never[]) => unknown;
 const slot = (definition: string, path: string, f: unknown) => (typeof f === "function" ? { run: f as AnyFn, at: { definition, path } } : f);
 const each = <A>(o: Readonly<Record<string, A>> | undefined, f: (k: string, a: A) => unknown) =>
   o === undefined ? undefined : Object.fromEntries(Object.entries(o).map(([k, a]) => [k, f(k, a)]));
+const STREAM = ["key", "backoff", "subscribe", "reconnectWhile", "pageRetryWhile", "catchUp"] as const;
+const streamPath = (n: string) => (n === "reconnectWhile" ? "reconnect.while" : n === "pageRetryWhile" ? "page.while" : n);
 const memoryOf = (definition: string, m: Memory): Memory => ({
   ...m,
   fields: m.fields ?? {},
@@ -55,9 +57,14 @@ export const legacySlots = (c: Compiled): Compiled => {
     ...(d["version"] ? { version: slot(id, "domain.version", d["version"]) } : {}),
     ...(typeof d["versionOrder"] === "function" ? { versionOrder: slot(id, "domain.versionOrder", d["versionOrder"]) } : {}),
   };
+  const streams = each(c.streams as Record<string, Record<string, unknown>> | undefined, (k, s) => ({
+    ...s,
+    ...Object.fromEntries(STREAM.filter((n) => s[n] !== undefined).map((n) => [n, slot(id, `streams.${k}.${streamPath(n)}`, s[n])])),
+  }));
   return {
     ...c,
     ...(domain ? { domain: domain as never } : {}),
+    ...(streams ? { streams: streams as never } : {}),
     ops: ops as Compiled["ops"],
     memory: memoryOf(id, c.memory),
     ...(fragments ? { fragments: fragments as Compiled["fragments"] } : {}),
