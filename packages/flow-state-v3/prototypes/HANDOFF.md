@@ -38,6 +38,11 @@ Arpit's condition: each remaining prototype step must directly inform production
 1. **Test gate passes:** round 10, stage F and its re-check.
 2. **Typed suite,** before entities (Arpit, 2026-11-03). The codec strategy is the builder's to explore and measure, per `codec/BRIEF.md` (Arpit, 2026-11-04). `JSON.parse(JSON.stringify(...))` with a code table is only one option there.
 3. **Compile prototypes** for machine, fragment and operations from the public API, with the suite passing on compiled output (Arpit, 2026-11-04: moved ahead of entities).
+3b. **Story prototype** (Arpit, 2026-11-04: added, after the compile prototypes, before entities). Three or four real stories on Pay, a fragment machine and the desk, written in the design's public Story API (2.10, rules 61-66) on the round 12 runtime and the harness's fake world. Run the checks they need, and have `flow story` read them without running callbacks. Also prototype three CLI commands (Arpit, 2026-11-04):
+   - `flow trace` on a story's run, from the runtime's evidence and step log, compared with round 7's paper design in `round-7/cli-outputs.md`.
+   - `flow graph` from `Compiled`, as conformance proof. Every transition the suite and searches observe on the runtime must be an edge of the graph, so the graph is never smaller than real behaviour. Every edge the graph claims must be one the runtime can take, or be marked guard-dependent, so it is never larger without saying so. Any disagreement is a bug in the compiler, the runtime or the graph.
+   - `flow story` reading the stories.
+   Log API changes with before and after. Entity stories wait for the entity round, which then writes them test first.
 4. **Entity store proven on the runtime,** from `round-9/entity-proposal-2.md`, test first. `listen.load` and `fragstore.row` must pass. **No TanStack DB integration** (Arpit, 2026-11-03). Its compile stays thin, and so does the outside world's: one real fetch or SDK path each.
 5. **"For Arpit's read".**
 
