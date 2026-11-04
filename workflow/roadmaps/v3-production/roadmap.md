@@ -1,35 +1,117 @@
 # Roadmap: Flow State v3 production
 
-Status: proposed. It replaces the first draft of 2026-11-04 (in git at `0ecda35d`), which planned
-new prototype rounds that Arpit rejected. Arpit gave its shape on 2026-11-04, and this file writes
-it down; he has not yet approved this text. A runner never starts an unapproved roadmap.
+Status: proposed. Not yet approved by the user. A runner never starts an unapproved roadmap.
+Shape confirmed: 2026-11-04, in the Claude Code session. The user gave points 1-10: plans first,
+conformance rewritten, the core, features, Next.js hardening, examples and docs.
 Goal: production code for Flow State v3 at high quality, with good error messages and the
 correctness guarantees the prototypes proved, plus example apps and generated documentation.
 Runner: agent, until a stop (proposed). Claude coordinates and starts builders and reviewers.
 Built from: suite commit `ae99594079459f68f75ed3b13fa5fba0d4ab3b33`
-(`/Users/arpit/Developer/workflow/skills/suites/workflow`).
-
+(`/Users/arpit/Developer/workflow/skills/suites/workflow`), plus uncommitted edits to `roadmap/`,
+`policy-delegation/` and `ONBOARDING.md` made on 2026-11-04. Until the user commits them, the pin
+is that commit plus those files as they stand.
 Records:
-- Plans: `workflow/plans/flow/*.plan`. Out of date until phase 1.
+- Plans: `workflow/plans/flow/*.plan` (stale until phase 1).
 - Design: `workflow/plans/flow/references/explorations/machine-fragments/machine-design.md`.
-- Authority, until phase 1 is done: the latest prototype (`packages/flow-state-v3/prototypes/round-13/`) and its conformance suite (`prototypes/conformance/`).
-- Prototype record: `prototypes/FOR-ARPIT.md`, `HANDOFF.md`, `convergence-1.md` to `convergence-13.md`, `round-13/review.md`.
-- Lint: `tools/lint-bomb/FLOW-STATE.md`. Docs: `apps/docs/`. Examples: a top-level `examples/` folder, later.
-
+- Open proposals: every file under `workflow/plans/flow/references/explorations/` not marked
+  merged or superseded, and `packages/flow-state-v3/prototypes/round-9/entity-proposal-2.md`.
+- Prototype record: `packages/flow-state-v3/prototypes/FOR-ARPIT.md`, `HANDOFF.md`,
+  `convergence-1.md` to `convergence-13.md` and `round-13/review.md`, all in that folder.
+- Epic, Specs and Tasks: none yet. Specs are written in phase 1. Tasks are drafted with `to-task`
+  at the start of phases 4 and 5; drafting Tasks is not a plan edit.
+Source of truth, by area:
+- Until phase 1 merges the plans, the latest prototype is authoritative for everything it built:
+  `packages/flow-state-v3/prototypes/round-13/` and `packages/flow-state-v3/prototypes/conformance/`,
+  with the decisions in the prototype record above.
+- For everything the prototype never touched, the plans and the design are authoritative.
+- Code style: `AGENTS.md`, section "Code style (v3 production)", and
+  `tools/lint-bomb/FLOW-STATE.md`.
+Locations: the production package is `packages/flow-state-v3/src/`, and the new conformance suite
+is `packages/flow-state-v3/conformance/` (proposed; the user decides at phase 3's layout stop).
+Example apps go in a top-level `examples/` folder. They import the v3 package; its published name
+is decided at release, and is not the frozen `packages/flow-state/`.
 Progress: progress.md, beside this file.
 
-## What Arpit set (2026-11-04)
+## The user's constraints
 
-- Prototyping is over, except one short pre-work phase for entities, streams and record migration. After that, production work may converge again, but builds no new prototypes.
-- The prototype and the conformance suite are the authority until the plans are merged. The plans are out of date. `machine-design.md` and the open proposals merge into them first, and every decision the prototype superseded is found and marked. Plans still fill the gaps where the prototype never went. Arpit approved the merge.
-- Conformance is rewritten cleanly as a new suite, copying what is already clean. It is ported first, and it runs against both the prototype runtime and the new runtime. Only the latest conformance and prototype are used.
-- The core is written cleanly, with the prototype open beside it.
-- New features are built in production from the finished plans, with CLI outputs that are well formatted and well considered.
-- UI is React and Next.js only. Electron is out for now.
-- Docs live in `apps/docs/`. As much documentation as possible lives in the code and is generated to Markdown, to avoid drift. The example apps are linked from the docs.
-- The docs follow Effect's shape, as phase 6 describes (confirmed 2026-11-04). Each public export gets a summary, **When to use**, **Details**, **Gotchas**, named runnable examples and `@see` links. Long guides are written beside the package. Prose, not type annotations.
-- Example apps go in a top-level `examples/` folder and import the `flow-state` package. They come later. The existing `checkout` and `dispatch-desk` references don't work yet, so their state doesn't matter. Hardening runs in real Next.js apps.
-- `tools/oxlint/anti-slop/` is deleted, superseded by lint-bomb (`6bd32fbb`).
+Each constraint has its source, date and scope. A step that contradicts one is a defect: stop and
+log it.
+- No new prototyping, except in phase 2: entities, streams, record migration, and (if R2 is A)
+  round 13's H1 and H2. Production work may converge again (session, 2026-11-04; whole run).
+- The plans are stale. Merge the design and the open proposals into them, find and mark every
+  decision the prototype superseded, and keep the plans where the prototype never went. Merging
+  is approved (session, 2026-11-04; phase 1, and phase 2's results if R6 is A).
+- Conformance is rewritten cleanly as a new suite, copying what is clean. It is ported first and
+  runs against the prototype runtime and the new one. Only the latest conformance and prototype
+  are used (session, 2026-11-04; phase 3).
+- The core is written cleanly, with the prototype open beside it. Reading and copying ideas is
+  expected; the prototype folder never becomes the package (session, 2026-11-04; phase 4).
+- New features are built from the finished plans, with CLI outputs that are well formatted and
+  well considered (session, 2026-11-04; phase 5).
+- UI is React and Next.js only. Electron is out (session, 2026-11-04; whole run).
+- TanStack DB integration is out (session, 2026-11-03; whole run).
+- Docs live in `apps/docs/`, written in the source in Effect's shape: a summary, When to use,
+  Details, Gotchas, named runnable examples, and `@see`. They are generated to Markdown, with long
+  guides beside the package. Prose, not type annotations. Example apps are linked from the docs
+  (session, 2026-11-04; phase 7).
+- Example apps go in `examples/` and are built with Next.js. Each explains what it demos, with a
+  write-up and tooltips that show a feature as it happens, and one demos Story presentation
+  (session, 2026-11-04; phase 6).
+- Code style follows `AGENTS.md`: lint-bomb's style; the core is plain TypeScript, pure,
+  synchronous and deterministic, returning work as data; Effect is used at the host and edges.
+  Doc comments go only on exported API, and lint and format are clean with zero warnings before
+  finishing (session, 2026-11-04; whole run).
+- Don't cite plan or invariant IDs in code. The spec owns the IDs and tests cite them (session,
+  2026-11-04; whole run).
+- Commit locally with explicit paths; never push (AGENTS.md; whole run).
+- Ask the user in numbered rounds, and never present a recommendation as decided (AGENTS.md;
+  whole run).
+- One or two agents at a time by default; limits must last the project (memory, 2026-11-03;
+  whole run).
+- No fixed time caps. Review at each 60-minute checkpoint while the builder keeps going (memory,
+  2026-11-02, widened 2026-11-03; whole run).
+- Deterministic work runs up to 8 processes in parallel, about 16 GB in total. Real-browser runs
+  and benchmarks run alone (memory, 2026-11-04; whole run).
+- Kill your own stray processes by exact pid; never the user's (memory, 2026-11-04; whole run).
+- Business keys for money (`packages/flow-state-v3/prototypes/round-8/RESULTS.md`; whole run).
+- Entities are optional but not up for cutting (memory, 2026-11-01; whole run).
+- No tla-ts (memory, 2026-11-03; whole run).
+- Usage: the 90% weekly stop was lifted for the prototypes (memory, 2026-11-03; prototypes only).
+  For production, see question R3.
+
+## Glossary
+
+- **Gate:** a check a phase relies on, which counts only if it has been seen failing on a wrong
+  implementation (runner rule 6).
+- **Lie:** a deliberately wrong runtime that a named check must catch. Lies live in
+  `packages/flow-state-v3/prototypes/conformance/falsify.ts`, part `lies`.
+- **Falsify:** the gate that runs every gate against null, broken, tampered and lying runtimes
+  (same file).
+- **Mutant:** a one-change copy of the runtime that the suite must kill
+  (`packages/flow-state-v3/prototypes/conformance/mutate-one.ts`).
+- **Graph gate:** `flow graph` checked against every transition the runtime is seen to take, in
+  both directions (`packages/flow-state-v3/prototypes/round-13/RESULTS.md`).
+- **Four-angle audit:** auditing a suite from four angles, each by an agent with no prior reading:
+  harness bugs, false assumptions about reality, assumptions so narrow that a correct variation
+  fails, and missing requirements (`policy-testing`).
+- **Same class:** failures with the same root cause, as named in one sentence in the failure
+  ledger.
+- **Failure ledger:** the table in progress.md: part or gate, root-cause class, failure count,
+  last revision, state.
+- **`listen.load`, `fragstore.row`:** two entity searches in
+  `packages/flow-state-v3/prototypes/conformance/search/` that fail today (round 7 onwards).
+- **H1, H2, M5:** findings in `packages/flow-state-v3/prototypes/round-13/review.md`.
+- **The Pay path:** checkout's Pay machine, `packages/flow-state-v3/prototypes/conformance/typed/pay.ts`,
+  run end to end through the public API.
+- **Safari's four requirements:** host adapter requirements in
+  `packages/flow-state-v3/prototypes/safari/RESULTS.md`, listed in `HANDOFF.md`.
+- **Issue catalog:** every issue the runtime raises, each with a name, a cause and a next step,
+  generated from the code.
+- **Packed-consumer check:** installing the exact published tarball in a fresh project and
+  importing every public route.
+- **Final-commit gates:** gates too slow for every commit (the full lie run, searches,
+  real-browser runs), run before a phase's final commit.
+- **`watch.ts`:** the process watchdog, `packages/flow-state-v3/prototypes/conformance/watch.ts`.
 
 ## How to run
 
@@ -42,82 +124,92 @@ the work. On PASS, start the next phase if Authority allows it; otherwise stop.
 
 | Stage | Phases | Gate to the next stage |
 | --- | --- | --- |
-| A. Settle | 1, 2 | Plans merged and marked; the pre-work prototype settled entities, streams and migration |
+| A. Settle | 1, 2 | Plans merged and marked; phase 2 settled entities, streams and migration |
 | B. Suite and core | 3, 4 | The new suite audited and green on both runtimes; the core passes it alone |
 | C. Features | 5 | Each feature's slice audited, then green on production |
-| D. Docs and examples | 6, 7 | Docs generated from source; example apps run in real browsers |
-| E. Hardening and release | 8, 9 | Budgets met, findings swept; release as far as Arpit asks |
-
-## Method: the working practice, used by every phase
-
-This is how the project already works. Phases point here rather than repeating it.
-
-**Rounds.**
-- A round is one builder session, test first.
-- Cases are written and seen failing before the build. Each case cites the rule or decision it tests.
-- The builder commits a checkpoint and a status file at about minute 50.
-- At each 60-minute checkpoint, a reviewer checks it in parallel while the builder keeps going. The 60 minutes triggers a review; it is never a stop.
-- A final independent review runs on the round's last commit.
-- Reviewers write mutants and attacks before reading results, rerun the headline numbers, include a section on the tests, and continue the assumptions table.
-- Findings are advice. The coordinator decides each one, with a reason.
-
-**Convergence instead of patching.** This is `policy-convergence`.
-- Converge when the same part fails review twice, when a fix moves a failure one step further on, when a rule grows a list of cases, or when reviews repeat a kind of finding.
-- To converge: gather everything, name the root causes, redesign from the problems rather than the old draft, review once, revise once, and prove it with a check that can fail.
-- The same rule applies to the test suite.
-
-**Gates that must be able to fail.**
-- Falsify, lies (targeted by default, full before a final commit), `mutate-one`, the graph gate in both directions, and the reference model (which imports nothing from the code under test).
-- Each counts only if it is shown failing on a null, broken or tampered runtime.
-- Recorded output is a change detector, never evidence. An expected result changes only with a logged, specific reason, and relaxing a gate needs Arpit.
-- A check excuses a missing obligation only for a cause the harness observed.
-- Audit the suite from four angles (harness bugs, false assumptions, narrow assumptions, missing requirements), fix from all findings at once, then re-audit.
-- After phase 1, "test the spec, not the code" applies: expected results come from the merged plans, with the rule cited.
-
-**Shell.**
-- Never read stdin unfed; append `</dev/null` otherwise. `cat` is `bat`.
-- Create and edit files only with the Write and Edit tools.
-- Bound every command with `watch.ts --seconds N` or `perl -e 'alarm N; exec @ARGV' --`.
-- Never wait on unbounded background work.
-- Kill your own strays by exact pid after checking the parent chain. Never kill Arpit's processes, or anything by name.
-
-**Parallel runs.** Deterministic work runs up to 8 processes at once, about 16 GB in total, after checking `vm_stat`. Real-browser runs and benchmarks run alone.
-
-**Records.** Decisions go to the plans, guarantees to the specs, and work and evidence to the tasks. Never present something as decided unless Arpit accepted it. New ideas go in a new proposal file. Deferred items go in `revisit.md`.
+| D. Examples and docs | 6, 7 | Example apps run in real browsers; docs generated from source |
+| E. Hardening and release | 8, 9 | Budgets met and findings swept; release as far as the user asks |
 
 ## Phases
 
+Methods are pinned at `/Users/arpit/Developer/workflow/skills/suites/workflow/NAME/SKILL.md` (see
+"Built from"). Open one only when its trigger fires.
+- `policy-convergence`: when the failure ledger says to converge.
+- `policy-testing`: when building or auditing a suite.
+- `review`: at each 60-minute checkpoint and at a round's end.
+- `check-task` and `check-runtime`: at acceptance.
+- `check-benchmark`: on any performance number.
+- `interview`: for every question round.
+- `to-task`: when drafting Tasks.
+
 ### 1. Plan merge: not verifiable goal
 
-Goal: the plans current. `machine-design.md`, the open proposals and the prototype's decisions are merged in. Every superseded decision is found and marked, with a pointer to what replaced it. The plans keep their content where the prototype never went.
-Verified by: Arpit's judgment, plus `workflow check`, plus an audit that compares each merged rule with the latest decision that touches it (convergence 1-13, round 13's review, Arpit's answers).
-One iteration: one plan or area: list the changes (before, after, decision id), apply them under Arpit's approval of the merge, run `workflow check`.
+Goal: current plans, and Specs for production. The design, the open proposals and the prototype's
+decisions are merged into the plans. Every superseded decision is found and marked with a pointer
+to its replacement. The plans keep their content where the prototype never went. Specs record the
+guarantees (`to-spec`), so later phases test what is supposed to happen.
+Verified by: the user's judgment, `workflow check`, and an audit that compares each merged rule
+with the latest decision that touches it.
+Gates relied on: `workflow check`. Fails on: a record with a broken reference or schema.
+Falsified by: running it on a deliberately broken copy of one plan.
+One iteration: one plan or area. List the edits as before and after, with the decision behind
+each. Apply them, under the user's approval of the merge, and run `workflow check`.
 Done when:
-- every `.plan` touched by the prototype is merged;
+- every `.plan` the prototype touched is merged;
 - every superseded decision is marked;
-- `FOR-ARPIT.md`'s calls and Q1-Q8 are answered or listed as open;
-- no plan text claims a decision Arpit didn't make;
+- Specs exist for each production area;
+- `FOR-ARPIT.md`'s 20 calls and Q1-Q8 are answered, or listed as open;
+- no plan text claims a decision the user didn't make;
 - `workflow check` passes.
-Stops for the owner: each `FOR-ARPIT.md` question round; the end, with a page listing what changed.
-Could succeed at the wrong thing by: merging from the stale `machine-design.md` where the prototype replaced it, or recording a recommendation as decided.
-Caught by: the audit, rule by rule, against the latest convergence decision and Arpit's words.
+Stops for the user: each question round; the end, with a page listing what changed.
+Could succeed at the wrong thing by: merging from the stale design where the prototype replaced
+it, or recording a recommendation as decided. Caught by: the audit, rule by rule, against the
+latest convergence decision and the user's words.
+Budget: up to 10 merge iterations and 3 question rounds; small usage (no builders).
+Steps:
+- Ask `FOR-ARPIT.md` Q1-Q8 first, since Q1 and Q2 block the most work. Then the 20 calls, then
+  the services choice (no `services` list, types only, is recommended).
+- Merge one plan or area per iteration, with `workflow check` after each.
+- Write the Specs last, from the merged plans.
 
 ### 2. Pre-work prototype: not readily verifiable goal
 
-Goal: the last prototyping, for entities (`round-9/entity-proposal-2.md`), streams, and persisted record migration across deploys. Also round 13's open items, H1 (a default computed once) and H2 (key versions by name only), so the prototype the new suite ports from is right.
-Verified by: each area's suite slice, test first, audited against lying implementations, with the Method's reviews.
-One iteration: one round, using the Method.
-Done when: each area's design is settled and in the plans, its slice passes and is audited, `listen.load` and `fragstore.row` pass, and H1 and H2 are fixed and pinned.
-Stops for the owner: before each area's first round, to settle its decisions; at the end, with one page for his read.
-Could succeed at the wrong thing by: designs that fit the harness but not real apps.
-Caught by: one real fetch or SDK path per area, from the data's real source.
-Budget: proposed with the area's first round.
+Goal: the last prototyping, for entities (`packages/flow-state-v3/prototypes/round-9/entity-proposal-2.md`),
+streams, and persisted record migration across deploys. If R2 is A, also round 13's H1 (a default
+computed once) and H2 (key versions told apart by field names only), so the prototype the new
+suite ports from is right. Settle round 13's M5 (a cancel inside its own unknown handler) from its
+traces.
+Verified by: each area's suite slice, test first, audited against lies, with a review at each
+60-minute checkpoint and a final independent review.
+Gates relied on: the suite, falsify, lies, the graph gate, the reference model. Fails on: a null,
+broken or lying runtime. Falsified by: `packages/flow-state-v3/prototypes/conformance/falsify.ts`,
+each part.
+One iteration: one round on one area, building against its slice.
+Done when:
+- each area's design is settled, and recorded in the plans if R6 is A, or listed for the user if not;
+- its slice passes and is audited;
+- `listen.load` and `fragstore.row` pass;
+- H1 and H2 are fixed and pinned (if R2 is A);
+- M5 is settled, or listed for the user.
+Stops for the user: before each area's first round, to settle its decisions; at the end, with one
+page for the user's read.
+Could succeed at the wrong thing by: designs that fit the harness but not real apps. Caught by: one
+path per area that takes the data from a real source, such as a real `fetch` or SDK call.
+Budget: up to 6 rounds per area and 15 in total; stop after 2 same-class failures after
+convergence.
 
 ### 3. Conformance rewrite: readily verifiable goal
 
-Goal: a new, clean conformance suite in its own location, at production code quality, that runs against both the latest prototype runtime and the new runtime.
-- **Copy over, mostly as they are:** fixtures and typed machines, scenarios, the reference model, the lies, and the fake world's behaviours.
-- **Rewrite:** the runner, the ending ledger and oracles (`drive.ts`, `ctx.ts`, `main.ts`), the lock and reporting, `legacy.ts` and the hand-`Compiled` shims, and text formats the harness parses.
+Goal: a new, clean conformance suite at production code quality, running against both the
+prototype runtime and the new one.
+- **Copy, mostly as they are:** fixtures and typed machines, scenarios, the reference model, the
+  lies, and the fake world's behaviours.
+- **Rewrite:**
+  - the runner, the ending ledger and oracles (`drive.ts`, `scenarios/ctx.ts`, `main.ts` in the
+    prototype's `conformance/`);
+  - the lock and reporting;
+  - `legacy.ts` and the hand-`Compiled` shims;
+  - the text formats the harness parses.
 - **Shape:**
   - one `Port` interface, with a prototype adapter and a production adapter;
   - one oracle module per guarantee, each with its lie beside it;
@@ -126,129 +218,260 @@ Goal: a new, clean conformance suite in its own location, at production code qua
   - one runner for the suite, lies, searches and mutants, with `--parallel`;
   - falsify built in;
   - lint-bomb clean.
-Verified by: the new suite green on the prototype runtime with the same verdicts as the old one, every gate falsified, the four-angle audit and re-audit, and a final review.
-Done when: the new suite passes on the prototype runtime, catches every lie the old suite catches, passes its re-audit, and its fast gates run in `nub run verify`.
-Stops for the owner: the layout of the suite's package (it is API for contributors); when it first passes its audit; the end.
-Could succeed at the wrong thing by: a suite that agrees with the old one because it was copied, weaknesses included.
-Caught by: the four-angle audit on the new suite, not the old one.
+Verified by: the new suite green on the prototype runtime with the old suite's verdicts, every
+gate falsified, a four-angle audit and re-audit, and a final review.
+Gates relied on: the new suite, falsify, lies, mutants, the graph gate. Fails on: a null, broken or
+lying runtime. Falsified by: the new suite's own falsify part, run on every final commit.
+One iteration: one part of the suite: rewrite, run on the prototype runtime, compare verdicts.
+Done when:
+- the new suite passes on the prototype runtime;
+- it catches every lie the old suite catches;
+- it passes its re-audit;
+- its fast gates run in `nub run verify`.
+Stops for the user: the suite's location and layout (it is API for contributors); when it first
+passes its audit; the end.
+Could succeed at the wrong thing by: agreeing with the old suite because it was copied, weaknesses
+included. Caught by: the four-angle audit on the new suite, not the old one.
+Budget: up to 12 rounds; stop after 2 same-class failures after convergence.
 
 ### 4. Core: readily verifiable goal
 
-Goal: the production runtime for what the prototypes proved, written cleanly with the prototype open beside it, one module at a time:
+Goal: the production runtime for what the prototypes proved, written cleanly with the prototype
+open beside it, one module at a time:
 1. `Compiled` and the compiler, from the public API;
 2. lane, step and turn;
 3. the persistence edge, write-ahead and the driver;
 4. restore and key versions;
 5. fragments;
-6. operations and services;
+6. operations;
 7. the CLI's `check`, `explain` and `graph`.
-Verified by: the new suite on the production runtime, every gate, lint with zero errors, `check-task` per module, and the final review.
-One iteration: the next module: build, check independently, repair. First, one narrow path end to end: Pay through the public API.
-Done when: the suite passes on the production runtime alone, with the prototype adapter retired; every gate fails on its broken runtime; `nub run verify` passes; the completion audit passes.
-Stops for the owner: a public API change beyond what he accepted; a guarantee that can't be met; the end.
-Could succeed at the wrong thing by: the production adapter doing work the runtime should.
-Caught by: lies and mutants against the production adapter, and a review section on the adapter's size and role.
+Verified by: the new suite on the production runtime, every gate, lint with zero errors and
+warnings, `check-task` per module, and the final review.
+Gates relied on: as phase 3, plus lint. Fails on: a broken runtime, and a lint violation. Falsified
+by: the suite's falsify part, and a probe file per lint rule.
+One iteration: the next ready Task: build, check independently, repair. Draft the Tasks first, with
+`to-task`. Then make one narrow path work end to end: the Pay path.
+Done when:
+- the suite passes on the production runtime alone, with the prototype adapter retired;
+- every gate fails on its broken runtime;
+- `nub run verify` passes;
+- the completion audit passes.
+Stops for the user: the module layout and entrypoint names; a public API change beyond what the
+user accepted; a guarantee that can't be met; the end.
+Could succeed at the wrong thing by: the production adapter doing work the runtime should. Caught
+by: lies and mutants against the production adapter, and a review section on the adapter's role.
+Budget: up to 25 rounds; stop after 2 same-class failures after convergence.
 
 ### 5. Features: readily verifiable goal
 
-Goal: production code for the features not in the core, built from the finished plans:
+Goal: production code for the features outside the core, built from the finished plans:
 - the entity store;
 - streams;
 - record migration;
 - multi-tab and sessions;
-- host adapters (IndexedDB with Safari's four requirements, in-memory);
+- host adapters (IndexedDB with Safari's four requirements, and in-memory);
 - Stories with `flow story` and `flow trace`;
 - React and Next.js bindings;
-- the CLI outputs designed for people: source locations, a trace that reads like a story, a graph grouped by state, and messages from an issue catalog (name, cause, next step).
-Verified by: each feature's slice in the suite, audited; real-browser runs in Chrome and Safari; reviews per the Method.
-One iteration: the next ready Task of the earliest feature. Up to 2-4 features can run in parallel once the core is stable.
-Done when: each feature's slice passes on production after its audit, and the CLI outputs are accepted by Arpit.
-Stops for the owner: before each feature, if its plan has open calls; the CLI output mocks; the end.
-Could succeed at the wrong thing by: a slice too lenient to fail.
-Caught by: lying implementations in each feature's audit.
+- CLI outputs designed for people: source locations, a trace that reads like a story, a graph
+  grouped by state, and messages from the issue catalog.
+Verified by: each feature's slice, audited; real-browser runs in Chrome and Safari; reviews.
+Gates relied on: as phase 4, plus each feature's lies. Fails on: a feature-specific lie. Falsified
+by: each slice's falsify entries.
+One iteration: the next ready Task of the earliest feature. Up to two features may run in parallel
+once the core is stable, or up to four if the user allows (R4).
+Done when: each feature's slice passes on production after its audit, and the user accepts the CLI
+outputs.
+Stops for the user: before each feature whose plan has open calls; the CLI output mocks; the end.
+Could succeed at the wrong thing by: a slice too lenient to fail. Caught by: lying implementations
+in each feature's audit.
+Budget: up to 8 rounds per feature and 40 in total; stop after 2 same-class failures after
+convergence.
 
-### 6. Documentation: not verifiable goal
+### 6. Example apps: not verifiable goal
 
-Goal: real documentation in `apps/docs/`, written in the source and generated to Markdown wherever possible, as Effect does (`node_modules/effect/src/Effect.ts`, `retry`). Not type annotations: prose that teaches.
-- Every public export's doc comment has a one-line summary, then **When to use**, **Details** and **Gotchas**, then named **Examples**.
-- The examples are complete, runnable programs, checked by type-checking and, as Effect's `ts import.meta.vitest` blocks, run as tests.
-- Cross-links (`@see`) say when to use another export instead.
-- Long guides are hand-written Markdown beside the package, as Effect's `SCHEMA.md` (7,272 lines, 258 examples), pulling checked snippets from the example apps.
-- A docgen step generates the API reference from the comments, as `@effect/docgen` with `packages/effect/docgen.json`.
-- The issue catalog is generated from the code. Example apps are linked from the docs.
-Verified by: Arpit's judgment against criteria written first. The checkable part: every example compiles; generated Markdown is current in `nub run verify`; a fresh agent builds a small feature from the docs alone.
-Stops for the owner: the criteria; each docs section draft.
+Goal: medium-sized Next.js example apps in `examples/`, each importing the v3 package, each a
+striking demo that explains what it shows. One demos Story presentation. Which apps is the user's
+pick (candidates in progress.md). They also drive conformance runs and benchmarks.
+Verified by: the user's judgment. Each app builds, lints, runs its Stories, and works in real Chrome
+and Safari.
+Gates relied on: each app's Stories in `nub run verify`. Fails on: a broken Story. Falsified by: one
+deliberately broken Story per app.
+One iteration: one app's next slice, reviewed, then shown to the user.
+Done when: the user accepts each app.
+Stops for the user: picking the apps; each app's first working version.
+Could succeed at the wrong thing by: a demo that hides the guarantee it claims to show. Caught by:
+the user's review against the app's own write-up.
+Budget: up to 6 rounds per app.
 
-### 7. Example apps: not verifiable goal
+### 7. Documentation: not verifiable goal
 
-Goal: medium-sized example apps in `examples/`, each importing the `flow-state` package. Each is a striking demo that highlights its own features, simple and to the point, built with Next.js. They also drive conformance runs and benchmarks. Which apps to build is Arpit's pick (see progress.md).
-Verified by: Arpit's judgment. Each builds, lints, runs its Stories, and works in real Chrome and Safari.
-Stops for the owner: picking the apps; each app's first working version.
+Goal: docs in `apps/docs/`, written in the source in Effect's shape and generated to Markdown, as
+`@effect/docgen` does with `codebases/effect-v4/packages/effect/docgen.json`, with every example
+type-checked and some run as tests. Long guides sit beside the package, as
+`codebases/effect-v4/packages/effect/SCHEMA.md`, and pull checked snippets from phase 6's example
+apps. The issue catalog is generated from the code. The example apps are linked from the docs.
+Verified by: the user's judgment against criteria written first. The checkable part:
+- every example compiles;
+- the generated Markdown is current in `nub run verify`;
+- a fresh agent, given only the docs, builds a small feature whose Story passes.
+Gates relied on: example type-checking, and generated-docs freshness. Fails on: an example that
+doesn't compile, and a stale page. Falsified by: one deliberately broken example and one stale
+page.
+One iteration: draft or revise one section, get an independent review, then put open choices to
+the user as numbered questions.
+Done when: the user accepts each section, and the checkable part passes.
+Stops for the user: the criteria; each section's draft.
+Could succeed at the wrong thing by: documenting the planned API rather than the built one.
+Caught by: examples compiled against the packed package.
+Budget: up to 3 rounds per section.
 
 ### 8. Hardening and budgets: readily verifiable goal
 
-Goal: the whole system tested inside the real Next.js example apps in real Chrome and Safari (and an iOS simulator), with production performance and bundle budgets met on named devices, and every finding from every round given a disposition.
-Verified by: real-browser and device runs; `check-benchmark` on baselines and finals; a harness-only review by an agent with no prior reading; tamper checks; the final review.
-Done when: budgets are met on their devices, every finding has a disposition, quota and disk durability are measured on a real device, and `nub run verify` passes along with the final-commit gates.
-Stops for the owner: agreeing the budget targets after baselines; a finding whose fix changes a guarantee; the end.
+Goal: the whole system tested inside the real Next.js example apps in Chrome and Safari (and an iOS
+simulator), with production performance and bundle budgets met on named devices, and every finding
+from every round given a disposition.
+Verified by: real-browser runs; `check-benchmark` on baselines and finals; a harness-only review by
+an agent with no prior reading; tamper checks; the final review.
+Gates relied on: the suite, the real-browser runs, the benchmarks. Fails on: a broken runtime, and a
+deliberately slowed build. Falsified by: falsify and one slowed build per budget.
+One iteration: one finding group or one budget.
+Done when:
+- budgets are met on their devices;
+- every finding has a disposition;
+- quota and disk durability are measured on a real phone, run by the user, since an agent here
+  reaches only browsers and a simulator;
+- `nub run verify` and the final-commit gates pass.
+Stops for the user: agreeing budget targets after baselines; the real-phone run; a finding whose
+fix changes a guarantee; the end.
+Could succeed at the wrong thing by: closing findings as "dropped" to finish. Caught by: the audit
+checking each drop's reason against the spec.
+Budget: up to 10 rounds; budget targets set by the user after baselines.
 
 ### 9. Release: small ticket
 
-Goal: the package published, only as far as Arpit asks. Verified by the packed-consumer check on the exact tarball, `nub run verify`, and an independent review. Stops before each ship stage.
+Goal: the package published, only as far as the user asks.
+Verified by: the packed-consumer check on the exact tarball, `nub run verify`, and an independent
+review of the release change.
+Gates relied on: the packed-consumer check. Fails on: a route missing from the tarball. Falsified
+by: packing with one entrypoint removed.
+One iteration: implement, check independently, repair.
+Done when: acceptance passes at the final revision, and each requested ship stage is confirmed.
+Stops for the user: before each ship stage (publish, land, tag).
+Could succeed at the wrong thing by: publishing a package whose installed form differs from what
+was tested. Caught by: the packed-consumer check.
+Budget: one Task.
 
 ## Authority
 
 By default: read, edit within the phase's scope, run checks, repair own defects, update records.
-Also allowed by Arpit's approval of this roadmap (proposed until he approves):
-- commit locally to `flow-rewrite` with explicit paths, never pushing;
+Also allowed, by the user's approval of this roadmap:
+- commit locally to `flow-rewrite` with explicit paths; never push;
 - start builder and reviewer agents as the Agents section says;
-- apply the plan merge in phase 1 (approved 2026-11-04);
-- make design calls under delegation in phases 2-5, record why, and list them for Arpit to overrule;
-- start the next phase after its audit passes, unless it starts with a stop.
-Still needs the owner: public API changes he hasn't accepted, relaxing a gate, deleting work the runner didn't create, and any publishing.
+- apply the plan merge in phase 1 (approved 2026-11-04), and write the Specs;
+- record phase 2's settled designs in the plans, if R6 is A;
+- draft Tasks with `to-task`;
+- start the next phase after its audit passes, unless it starts with a stop for the user.
+Runner decides: design calls in phases 2-5 and 8, recorded with reasons in progress.md for the
+user's read.
+User decides: public API names and changes beyond what was accepted, relaxing a gate, plan edits
+beyond the approved merge, scope, budgets, the module layout and entrypoints, the suite's location,
+the example apps, and running more than two agents at once.
+Everything else still needs the user.
 
 ## Agents
 
-- Builders: Opus, medium effort, every third round high. Reviewers: Opus, high, never the builder.
-- One or two agents at a time by default, a builder plus its mid-run reviewer. More only in phase 5's parallel features, or if Arpit allows it after a plan upgrade.
-- No time caps. Every blocking command stays under 5 minutes.
-- Briefs stand alone: the goal, steps and checks copied from here, the Method's shell and parallel-run rules, write scope, and what to return.
-- Check soon after starting that each agent is doing something, and stop or replace one that stalls.
+- Builders: Opus, medium effort, every third round high. Reviewers: Opus, high; never the builder.
+- Agents at once: 2 by default, a builder and its reviewer; up to 4 in phase 5 if the user allows
+  (R4).
+- Processes at once: up to 8 deterministic processes, about 16 GB in total, after checking
+  `vm_stat`. Always alone: real-browser runs and benchmarks.
+- Review interval: 60 minutes on the latest committed checkpoint; a trigger, never a stop. Time
+  cap: none. Builders commit a checkpoint and status file about every 50 minutes.
+- Command bound: `watch.ts --seconds N` or `perl -e 'alarm N; exec @ARGV' --`, each command under
+  5 minutes. Never read stdin unfed (`</dev/null`; `cat` is `bat`). Create and edit files only with
+  the Write and Edit tools.
+- Each brief stands alone: the goal, the steps and checks it needs, the write scope, the budget,
+  these values, the user's constraints that apply, and what to return.
+- Within a minute of starting, confirm each agent is doing something. After that, compare its
+  progress with what its brief expected; stop or replace one that has stalled.
 
 ## Budget
 
-Running out is a stop, not success. Check usage between agents. Arpit lifted the 90% weekly stop for the prototypes. Whether it holds for production is question R3.
+Total: the round caps per phase above, about 120 rounds. Running out is a stop, not success.
+Pace: one builder and one reviewer at a time. Usage is measured against the weekly limit on the
+user's plan; check it between agents and log it every iteration. Reserve: set by R3; until then,
+stop at 95% of the weekly limit.
 
 ## Decisions about this run
 
-Confirmed by Arpit (2026-11-04 unless dated): everything in "What Arpit set" above, plus:
-- commit locally and never push;
-- builders on Opus at medium effort, reviews on high;
-- 60-minute reviews, never a stop;
-- one or two agents at a time;
-- up to 8 parallel deterministic runs;
-- bounded shell commands;
-- the CLI is check, explain, graph, story and trace;
-- no tla-ts;
-- entities are not up for cutting;
-- business keys for money.
+Confirmed by the user (2026-11-04 unless dated): every item in "The user's constraints", the shape
+above, and the plan merge.
 
 Proposed, as questions (answer `R1 A`):
-- **R1.** Phases as above: nine phases in five stages. A: accept. B: change. Rec. A.
-- **R2.** Phase 2 also fixes round 13's H1 and H2 in the prototype before the suite is rewritten. A: yes, so the new suite has a correct runtime to pass on. B: fix them only in production. Rec. A.
-- **R3.** Budget: keep the 90% weekly stop lifted for production. A: lifted. B: stop at 90%. Rec. A, since you upgrade when needed.
-- **R4.** Runner: Claude as an agent runner, until a stop. A: yes. B: Arpit runs one phase at a time. Rec. A.
+- **R1.** Phases as above, nine phases in five stages, with examples before docs because the docs
+  pull snippets from the examples. A: accept. B: change. Rec. A.
+- **R2.** Phase 2 also fixes round 13's H1 and H2 in the prototype before the suite is rewritten.
+  A: yes, so the new suite has a correct runtime to pass on. B: fix them only in production.
+  Rec. A.
+- **R3.** Usage reserve for production. A: no weekly stop, with a 5% reserve kept for you. B: stop
+  at 90% weekly. C: another reserve. Rec. A, since you upgrade when needed.
+- **R4.** Runner and parallelism. A: Claude as an agent runner until a stop, with up to 4 agents in
+  phase 5. B: the same, with 2 agents throughout. C: you run one phase at a time. Rec. A.
 - **R5.** Lint choices in `tools/lint-bomb/FLOW-STATE.md`. A: accept. B: change. Rec. A.
+- **R6.** Phase 2's settled designs go straight into the plans, under the merge approval, listed for
+  your read. A: yes. B: list them for you first, and edit the plans only after your yes. Rec. A.
+- **R7.** The round caps above, about 120 in total. A: accept. B: change them. Rec. A.
 
 ## Runner rules
 
-1. Reread every iteration: `roadmap.md`, `progress.md`, and the phase's records.
-2. Run only an approved roadmap.
-3. Write only `progress.md` of the two roadmap files.
-4. Never edit `roadmap.md` or change a phase's class. If it looks wrong, stop and propose the change in `progress.md`.
-5. Never weaken a check to pass it.
-6. Audit before done: an agent that didn't do the work checks the done condition, in a fresh context.
-7. Act within authority.
-8. Stop when a phase is done and the next isn't authorized, at a stop for the owner, when the budget runs out, when a decision is the owner's, when the roadmap looks wrong, or when the owner says stop. Record the state and the first resume action in `progress.md`.
-9. Claim only what you checked.
-10. Brief agents fully.
+1. **Reread every iteration.** Start each iteration by reading `roadmap.md`, `progress.md`, and
+   the records the phase names. Trust the files, not memory, so a fresh context loses nothing.
+2. **Run only an approved roadmap.**
+3. **Write only `progress.md` of the two roadmap files.** It holds the run's state: phase,
+   iteration, revision, verdicts, budget used, the failure ledger, the agents running, the calls
+   for the user's read, next action, and what the run waits on. Results go to the project's
+   Plans, Tasks, and Specs.
+4. **Never edit `roadmap.md` or change a phase's class.** If the roadmap looks wrong (the wrong
+   class, a check that cannot be built, the named misfire happening, a step that contradicts one
+   of the user's constraints), stop and write the proposed change in `progress.md`.
+5. **Never weaken a check to pass it.** An expected result changes only for a specific reason,
+   logged in the record that owns it. Relaxing a check, target, or budget needs the user.
+6. **Count only gates that can fail.** A gate counts only if it has been seen failing on a wrong
+   implementation at the current harness revision. A change to the harness or suite triggers its
+   re-audit before its verdicts count.
+7. **Converge instead of patching.** Update the failure ledger every iteration. When one part
+   fails twice, when a fix moves a failure one step further on, or when reviews repeat a kind of
+   finding, stop patching and converge (`policy-convergence`): gather every finding, list every
+   dimension the part must cover, and redesign once. This holds for suites as well as code.
+8. **Fix the last review's findings first,** then take the next planned step.
+9. **Review on time.** Before waiting on an agent, set a wake for its next review. On every wake or
+   reread, a review that is overdue runs now, on the latest checkpoint or a snapshot of the
+   working tree, and is logged as missed. Each round or phase ends with an independent final
+   review of its last commit, before the completion audit.
+10. **Audit before done.** A phase is done only when an agent that did not do the work checks its
+    done condition against the evidence, in a fresh context, tries to break it, and passes it.
+    Self-checks do not count.
+11. **Act within authority.** Read, edit within the phase's scope, run checks, repair your own
+    defects, and update records. Do anything else, such as committing, pushing, deleting work you
+    did not create, or widening scope, only if the Authority section lists it. Record each call you
+    make under delegation in `progress.md`, for the user's read.
+12. **Keep agents and processes clean.** Before each wait, check for your own stray processes and
+    stop them by exact process id, after checking their parent chain. Never stop the user's own
+    processes or anything by name.
+13. **Stop** when:
+    - a phase is done and the next is not authorized;
+    - a stop for the user is reached;
+    - the budget or the reserve runs out (report it as not done, with the gap);
+    - a converged part fails on the same class as many times as the phase's stop count (report a
+      stated limit, with the evidence);
+    - in a not readily verifiable or not verifiable phase, a round produces no new decision (end
+      the phase early; a readily verifiable phase ends only at its done condition);
+    - a decision is the user's;
+    - the roadmap looks wrong;
+    - passing would mean weakening a check;
+    - the user says stop.
+
+    Record the state and the first resume action in `progress.md`.
+14. **Claim only what you checked:** what ran, on which revision, and what is still unverified.
+15. **Brief agents fully.** An agent you start gets a brief that stands alone: its goal, the steps
+    and checks it needs, its write scope, its budget, the Agents values, and what to return.
