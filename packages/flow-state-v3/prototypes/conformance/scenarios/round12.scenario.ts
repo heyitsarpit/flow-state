@@ -150,6 +150,10 @@ export const round12Scenarios: readonly Scenario[] = [
       }
       c0.yes("refused at the seal", threw.includes("SealMissingService"));
       c0.yes("by the service's name", threw.includes("ShopApi"));
+      // The control, and a harness for D130's per-case oracles: given its service, the same machine boots and runs.
+      const c = on(c0, [payFixture], { actor: "Checkout/Pay", id: "shopper-1" });
+      c.send("Start", { cartId: "c1", intentId: "pi_1" });
+      c.state("CARD");
     },
   },
   {

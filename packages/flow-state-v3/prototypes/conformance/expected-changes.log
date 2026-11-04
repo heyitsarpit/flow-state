@@ -853,3 +853,6 @@ file:falsify.ts hash:2366772fdbb4 | round 12, D214: h.restore-absent-lost retarg
 round:typed/type-tests.ts hash:7126aec1389e | round 12, mid review H1, L1: a placed fragment's service, and a widened list
 round:checks/types-check.ts hash:ce4686b72f8a | round 12, mid review H1, L1: the two directives stated
 file:expected-recipients.txt hash:792cbb673f72 | round 12, mid review M3: R12-DOORS's restored state
+R12-BOOT hash:55726999c10b | round 12, falsify suite3 (D130): R12-BOOT also boots its control, so the per-case oracles have a harness
+file:scenarios/round12.scenario.ts hash:083149ff74f4 | round 12, D130: R12-BOOT's control boot
+output:R12-BOOT hash:684fd41b58ee | round 12, D130: R12-BOOT's output with its control boot
