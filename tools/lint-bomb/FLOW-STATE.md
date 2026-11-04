@@ -8,7 +8,8 @@ The lint rules for Flow State v3 production code. The config is the `lint` block
 ## Source
 
 - Vendored from `/Users/arpit/Developer/workflow/lint-bomb` at commit
-  `bfe34fa51c453bb443078fca7696bbd4651b82df`, with no local changes. Copied: `src/`,
+  `183d43b995bc5488a811c19e326a463eafbb4c67` ("Five rule changes from Flow State"), with no local
+  changes. Copied: `src/`,
   `test/rules.test.ts`, `LICENSE`, `RULES.md`, `STYLE.md` and `examples/`, as its README says.
 - Oxlint loads `src/index.ts` directly, the same way lint-bomb's own config does. So there is no
   esbuild step and no new dependency. The repo already pins `oxlint` and `@oxlint/plugins` at
