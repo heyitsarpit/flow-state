@@ -24,7 +24,9 @@ Waiting on the owner:
 
 ## Example app candidates (proposed, for Arpit's pick)
 
-Each is a Next.js demo with a live inspector panel beside the app, showing `flow trace` and `flow graph` as it runs, so the demo shows its own guarantees.
+Arpit likes these (2026-11-04); the final pick is still his. Each is a Next.js demo with a live inspector panel beside the app, showing `flow trace` and `flow graph` as it runs, so the demo shows its own guarantees. Arpit also set two requirements:
+- Each app explains what it is demoing, with a write-up beside it, and tooltips that open a popup to show a feature off at the moment it happens.
+- One demo shows the Story presentation feature: Stories played back as a presentation.
 
 | App | What it demos |
 | --- | --- |
