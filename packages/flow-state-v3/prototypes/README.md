@@ -10,7 +10,7 @@ Rules:
 
 - Name entry files `main.ts`, not `*.test.ts`, because `vp test` covers `packages/**`.
 - Run every suite, lie, search and mutation under `conformance/watch.ts`, each process under 2 GB.
-- Deterministic work (suite slices, lies, mutants) may run up to 4 processes at once, under about 8 GB in total. Before adding one, check that the machine isn't swapping (`vm_stat`'s swapouts). Real-browser runs, benchmarks and timing-sensitive searches still run one at a time, with nothing else beside them. (Arpit, 2026-11-04: "just don't burn out my laptop".)
+- Deterministic work (suite slices, lies, mutants) may run up to 8 processes at once, under about 16 GB in total (Arpit: up to 16-20 GB of the 24 GB). Before adding one, check that the machine isn't swapping (`vm_stat`'s swapouts). Real-browser runs, benchmarks and timing-sensitive searches still run one at a time, with nothing else beside them. (Arpit, 2026-11-04: "just don't burn out my laptop".)
 - Lies run targeted by default: each lie only on the cases its probe fires in. Run the full lie gate once before a round's final commit.
 - No new dependencies. `effect` resolves from the workspace root (4.0.5).
 - A result claims only what ran.
