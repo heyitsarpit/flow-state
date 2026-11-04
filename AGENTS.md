@@ -20,11 +20,25 @@ workflow check       # see .agents/skills/workflow-cli/SKILL.md before editing W
 ```
 
 ## Code style (v3 production)
-- Write in lint-bomb's style before linting: read `tools/lint-bomb/STYLE.md`, `tools/lint-bomb/examples/`,
-  and `packages/flow-state-v3/src/_example/edge.ts` (house style). `tools/lint-bomb/FLOW-STATE.md`
-  says which rules apply here and why.
-- House rules: the core returns work as data and the host runs it; each fact lives in one place;
-  decode once at the boundary with Schema and trust the result.
+- Write in lint-bomb's style before linting: read `tools/lint-bomb/STYLE.md` with its code
+  companion `tools/lint-bomb/examples/style.ts`, the composed examples (`booking.ts`,
+  `tracking.ts`), and `packages/flow-state-v3/src/_example/edge.ts` (house style).
+  `tools/lint-bomb/FLOW-STATE.md` says which rules apply here and why. The examples' Effect
+  workflows, `Ref`, `Layer`, HTTP and SQL recipes are for the host and app edges, not the core.
+- House rules: each fact lives in one place; decode once at the boundary with Schema and trust
+  the result.
+- The core (everything outside `src/host/`) is plain TypeScript:
+  - pure and synchronous: no Effect runtime (`Effect.gen`, `run*`, `try`), no promises or timers.
+    A turn runs in about 0.2 ms, and Effect there costs 20-25x per call;
+  - deterministic: no clock, randomness or host APIs. Ids come from the runtime's mint, so a story
+    or search replays exactly;
+  - returns work as data (`{ state, effects }`); the driver in `src/host/` runs it with Effect;
+  - Effect's data types are fine where they cost little: `Option`, `Result`, `Data`, `Schema`.
+    Hot loops avoid per-element allocation (`HashMap` and `Data` constructors cost 5-17x a plain
+    structure);
+  - expected failures are values; only defects are thrown.
+- The host and edges (`src/host/`, adapters, the CLI) use Effect fully: services, layers, scoped
+  resources, `Effect.fn`, `Schedule`, `Clock`.
 - Doc comments only on exported API, in Effect's shape (summary, When to use, Details, Gotchas,
   examples). No other comments unless an outside constraint forces one.
 - Before finishing: `nub run check:fix`, then `nub run check` with zero errors and zero warnings.
