@@ -337,6 +337,7 @@ export const port: Port = {
       modules,
       bounds: { ...defaultBounds, ...bounds },
     };
+    let lastText: { w: World; now: number; said: string; text: string } | undefined;
     const store = (w: World) => w.ext["entities"] as Slice | undefined;
     const reg = REGISTRY["entities"]!;
     return {
@@ -393,7 +394,13 @@ export const port: Port = {
             records: (s ? readAll(s) : {}) as never,
           };
         }),
-      stateText: (outside) => normalise(rt.world(), a.host.now(), `${outside}|${rt.edgeText()}`),
+      stateText: (outside) => {
+        const w = rt.world();
+        const now = a.host.now();
+        const said = `${outside}|${rt.edgeText()}`;
+        if (lastText?.w !== w || lastText.now !== now || lastText.said !== said) lastText = { w, now, said, text: normalise(w, now, said) };
+        return lastText.text;
+      },
       // S11: pure re-execution of this boot's input log, with its logged draws, against what was published.
       replay: (before) => {
         let w: World = emptyWorld;

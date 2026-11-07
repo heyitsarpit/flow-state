@@ -31,9 +31,20 @@ export const withKid = (root: Inc, path: Path, f: (i: Inc) => Inc | undefined): 
 };
 export const pathOfId = (root: Inc, id: string, here: Path = []): Path | undefined => {
   if (root.id === id) return here;
-  for (const [name, k] of Object.entries(root.kids)) {
-    const p = pathOfId(k, id, [...here, name]);
-    if (p) return p;
+  const path = [...here];
+  const find = (i: Inc): boolean => {
+    if (i.id === id) return true;
+    for (const name of Object.keys(i.kids)) {
+      path.push(name);
+      if (find(i.kids[name]!)) return true;
+      path.pop();
+    }
+    return false;
+  };
+  for (const name of Object.keys(root.kids)) {
+    path.push(name);
+    if (find(root.kids[name]!)) return path;
+    path.pop();
   }
   return undefined;
 };

@@ -1,5 +1,6 @@
 // bun packages/flow-state-v3/prototypes/conformance/main.ts --round 6 --runtime ../round-6/adapter.ts
 //   [--no-search] [--lock]. Searches run separately: search/run.ts, under watch.ts.
+import { heapSize } from "bun:jsc";
 import { createHash } from "node:crypto";
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
@@ -213,7 +214,7 @@ export const runScenarios = (
         h.do = (st) => {
           note(st);
           do_(st);
-          hashed();
+          if (o.outputs || o.collect) hashed();
         };
         h.raw = (st) => {
           note(st);
@@ -295,7 +296,7 @@ export const runScenarios = (
         });
       }
     }
-    if (process.memoryUsage().rss > 5e8) Bun.gc(true); // a long case leaves gigabytes of world text for a GC that is in no hurry
+    if (heapSize() > 5e8) Bun.gc(true); // a long case leaves gigabytes of world text for a GC that is in no hurry
     const missing = citedCells.filter((x) => !hitHere.has(x));
     const last = results.at(-1)!;
     if (missing.length && results.filter((r) => r.id === s.id).every((r) => r.ok)) {
