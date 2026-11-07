@@ -216,6 +216,34 @@ applied as amendment <n>, or rejected).
     review, `check-benchmark` at the end, and the final numbers in the log.
   - Cold read: not run separately. The user ruled the targets directly; a cold read of this entry is owed at the
     next review.
+- **CP2, speed pass 2 (queue item 0b, after CP1).** Kind: insert, a Task inside phase 0. Judge: agent (the runner),
+  continuing CP1 toward the user's Q4 A targets, which CP1 leaves unmet on memory. State: proposed; starts when CP1's
+  builder reports. Built with the roadmap skill (amendment 6), from three read-only Haiku surveys on 2026-11-08 (the
+  suite, the runtime, the gates; unprofiled, so every saving is a guess until measured):
+  - Class: **performance work**. Draws from `playbook-performance`, `performance`, `check-benchmark` (`9b1dd09`).
+  - Goal: peak RSS per suite process ≤ 600 MB and every final-commit gate ≤ 10 min at up to 8 in parallel, with the
+    same checks.
+  - Steps, each profiled before it is kept:
+    1. finish each harness's end checks and output line as soon as the harness is done, instead of keeping every
+       harness to the case's end (`main.ts` tracked list; FRAG-15 about 4059, DRV-01 2160);
+    2. build the search engine's `pre` and `key(pre)` once per script (`search/engine.ts`), after checking that no
+       guard or edge mutates `pre`;
+    3. a GC check inside long settle loops (`drive.ts`; R10-RUNTIME's 1.2 GB of garbage);
+    4. memoise `encodeRecord` per incarnation object (`round-14/durable.ts`, `record.ts`);
+    5. one 8-slot scheduler for every final-commit gate: falsify's parts and searches, `lifetime-falsify`'s 57
+       runtimes in their own folders, the graph gate, mutants. Longest first, at most 8 jobs and 14 GB, mutate-one
+       counted at 4.8 GB;
+    6. `mutate.ts`: a watchdog time kill reads as unknown and is rerun serially, never as killed (today line 143
+       counts any watchdog kill as killed, so parallel load could inflate the score); `--parallel` capped by memory.
+  - Done when: both targets are met with every verdict and output byte-identical, or the gap is named with its
+    limiter.
+  - Likely misfire: finishing a harness early drops a check that reads state named later in the case (DRV-01 names
+    its issues after its checks), or a parallel run hides a time kill as a verdict. Caught by byte-identical outputs
+    and lock, a differential mode per cache, lies and mutants still red, and `check-benchmark`.
+  - Gates: as CP1. Budget: 1 builder round. Blocking: any changed expected result or guarantee. Reviews: hourly, and
+    `check-benchmark` at the end.
+  - Left out: clonefile copies (measured 9 ms); indexes for lanes, mail and rota in the runtime (`turn.ts:851`,
+    `mailq.ts`), unless step 4's profile shows the runtime is now the limiter.
 
 ## Example app candidates (proposed, for the user's pick)
 
@@ -294,3 +322,4 @@ One line per iteration. Results live in the records; link them.
 - 2026-11-08 amendment 5 (the user, Q1 A): up to 4 Haiku agents for read-only research fan-out in phase 0's close-out and phase 2, only while no builder runs; tables, never verdicts; one Opus reviewer judges. Roadmap version 6. Uncommitted.
 - 2026-11-08 round 14 merged into `flow-rewrite` as is (`482e8e2b`; the user's Q2 A, no worktrees from now on). Gate timing survey running (results in the session scratchpad, to be summarised here); a read-only research agent is surveying per-process speed and memory techniques for the gates.
 - 2026-11-08 speed survey: baseline above; the user accepted the speed pass as queue item 0 (Q3 A) and its targets (Q4 A). New: `falsify --part search` red on `chain` (the real runtime), for round 14's remaining work. Worktree removed. Loop started, item 0's builder launched.
+- 2026-11-08 CP1 speed pass built (`0806c7de`..`b2fd9218`): suite 65 s → 17.1 s, mutate-one 206 s → 20 s, graph gate 67 s → 16 s, lies at 4 in 29 s, lifetime-falsify 32 s (57/57 red), fast loop 21 s, final-commit gates about 3 min; every falsify and lifetime ok/BAD line identical to `f0771187`. Missed: suite 15 s (17.1 s) and RSS 600 MB (1.75 GB), carried to CP2. The suite exits 1 only on the lock (seven harness files hashed by D113); relock refused by the permission classifier for the builder and for the runner, so it waits on the user. Close-out review with `check-benchmark` started; CP2 waits for it (its timing re-runs need an idle machine).
