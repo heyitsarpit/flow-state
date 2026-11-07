@@ -26,9 +26,6 @@ Waiting on the user:
 - approval of roadmap.md (rounds 1-3 answered on 2026-11-07);
 - phase 1's label round, then its user-judged decisions;
 - which example apps to build, any time before phase 6. Candidates are below.
-Uncommitted on purpose, until the user says: `packages/flow-state-v3/src/_example/edge.ts`;
-`packages/flow-state-v3/lint-eval.md` (it also fails `nub run check`'s formatting, so `nub run
-verify` fails there); and `roadmap-skill-review.md` beside this file.
 
 ## Phases
 
