@@ -1,14 +1,30 @@
+import { TransactionFigure } from "../components/transaction-figure";
+
+<div className="fs-kicker">Experimental alpha · Effect-native</div>
+
 # Flow State
 
-Flow State is an experimental Effect-native runtime for teams building
-mid-to-large applications with cached resources, optimistic transactions,
-workflows, streams, deterministic tests, and inspection under one scoped owner.
+<div className="fs-lede">
+  One scoped owner for the parts of an application that usually live in four libraries: cached
+  resources, optimistic transactions, workflows, and the tests that prove them.
+</div>
 
-It is an opinionated alternative to assembling TanStack Query and XState for the
-same application boundary. It is not a drop-in replacement and does not claim
-feature parity with either library.
+<div className="fs-abstract">
+  Flow State is an experimental Effect-native runtime for teams building mid-to-large applications
+  with cached resources, optimistic transactions, workflows, streams, deterministic tests, and
+  inspection under one scoped owner. It is an opinionated alternative to assembling TanStack Query
+  and XState for the same application boundary. It is not a drop-in replacement and does not claim
+  feature parity with either library.
+</div>
 
-## Alpha surface
+## A write, drawn as a machine
+
+Every server write is a `flow.transaction`. It previews optimistically, then settles into a typed
+outcome. The same shape that runs in the app is what the tests step through and the inspector draws.
+
+<TransactionFigure />
+
+## The alpha surface
 
 | Need                    | Flow State owner                                                               |
 | ----------------------- | ------------------------------------------------------------------------------ |
@@ -23,7 +39,23 @@ feature parity with either library.
 The package exports `flow-state`, `flow-state/react`, `flow-state/testing`,
 `flow-state/server`, and `flow-state/inspect`.
 
-## Start here
+## What it looks like
+
+A resource owns canonical server data; I/O stays behind an Effect service.
+
+```ts
+import { Effect } from "effect";
+import * as flow from "flow-state";
+
+const postsResource = flow.resource({
+  id: "posts.list",
+  key: () => flow.createKey("posts", "list"),
+  lookup: () => Effect.flatMap(PostsService, (service) => service.list),
+  freshness: { staleAfter: "30 seconds", onInvalidate: "active" },
+});
+```
+
+### Where to go next
 
 Follow [Getting Started](/getting-started) for the single supported onboarding
 path. Read [Current Status](/reference/status) before adopting the alpha, because

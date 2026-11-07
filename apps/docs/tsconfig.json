@@ -5,5 +5,5 @@
     "noEmit": true,
     "types": ["react"]
   },
-  "include": ["src/**/*.md", "src/**/*.mdx", "src/**/*.ts", "src/**/*.tsx", "vocs.config.ts"]
+  "include": ["src/**/*.md", "src/**/*.mdx", "src/**/*.ts", "src/**/*.tsx", "vocs.config.ts", "code-themes.ts"]
 }
