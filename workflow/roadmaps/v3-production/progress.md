@@ -62,7 +62,8 @@ further each time (round 10, stages C-J), until convergence in stages K and L.
 
 | Agent | Started | Last checkpoint | Last review |
 | --- | --- | --- | --- |
-| Builder, prototype round 14 (Opus), worktree `.claude/worktrees/agent-acee8f40b71d961fd` | 2026-11-07 | — | — |
+| Reviewer, round 14 final (Opus), read-only on `ad2a6315` | 2026-11-08 | — | — |
+| Builder, phase 0b design catch-up (Opus), main checkout | 2026-11-08 | — | — |
 
 ## Calls for the user's read
 
@@ -135,4 +136,5 @@ One line per iteration. Results live in the records; link them.
 - 2026-11-07 OD28-OD31 merged into machine-design.md (`6d02bef6`); stage A reordered (round 4): phase 0
   reconcile, phase 1 pre-work prototype, phase 2 plan merge; round 14 started as phase 0's first iteration.
 - 2026-11-07 roadmap approved (`309c87e4`); cold read run after approval; its wording fixes applied as amendment 1 (`fadf004f`); round 14 continues with the review's fixes and D1-D7.
+- 2026-11-08 0a.1 `ad2a6315` (worktree branch): round 14 done, 822/822, lock clean, every gate green except `fragstore.row` (failing differently: an ending reached nobody after dispose and reload); 46 lifetime mutants red; D1-D7 and the mid-review fixes in. Final independent review started; phase 0b (design catches up, `proposals/design-catch-up/`) started alongside, separate write scope. Usage: not measured.
 
