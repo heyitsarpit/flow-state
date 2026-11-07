@@ -2,7 +2,7 @@
 
 Status: approved by the user on 2026-11-07, in the Claude Code session ("the roadmap is approved"), handing
 its execution to Claude as the agent runner.
-Version: 4, approved 2026-11-07, after amendment 3.
+Version: 6, approved 2026-11-07, after amendment 5.
 Shape confirmed: 2026-11-04, in the Claude Code session. The user gave points 1-10: plans first,
 conformance rewritten, the core, features, Next.js hardening, examples and docs.
 Goal: production code for Flow State v3 at high quality, with good error messages and the
@@ -497,7 +497,8 @@ Everything else still needs the user.
 
 - Builders: Opus, medium effort, every third round high. Reviewers: Opus, high; never the builder.
 - Agents at once: one builder and, at review time, one reviewer; work runs serially (the user,
-  2026-11-08, replacing the 2026-11-07 allowance of 3). The procedure: Work serially: one builder at a time, always busy on the queue. One independent Opus review of the latest committed checkpoint every 60 minutes, and one close-out review when a round or area finishes. Reviews only report; the runner fixes minor findings itself. When several reviews in a row keep finding many issues, stop patching: collect every finding as a requirement and run one convergence pass (`policy-convergence`), then keep going.
+  2026-11-08, replacing the 2026-11-07 allowance of 3). Exception (amendment 5): up to 4 Haiku research agents,
+  read-only, in phase 0's close-out and phase 2, while no builder runs; they return tables, never verdicts. The procedure: Work serially: one builder at a time, always busy on the queue. One independent Opus review of the latest committed checkpoint every 60 minutes, and one close-out review when a round or area finishes. Reviews only report; the runner fixes minor findings itself. When several reviews in a row keep finding many issues, stop patching: collect every finding as a requirement and run one convergence pass (`policy-convergence`), then keep going.
 
 - Processes at once: up to 8 deterministic processes, about 16 GB in total, after checking
   `vm_stat`. Always alone: real-browser runs and benchmarks.
@@ -591,6 +592,15 @@ Numbered, oldest first (runner rule 4).
    every 60 minutes; one close-out review per round or area; repeated heavy findings trigger one convergence pass;
    the run continues. The stage A completion audit before the plan merge is the close-out review of stage A.
    Phases worked out again: none (how they run only).
+4. 2026-11-08, judge the user ("let's fix it as 3 for now"): the convergence trigger in runner rule 7 is the third
+   review in a row that finds the same root-cause class in the same part; before it, findings are patched. Version 5.
+   Unchanged: each phase's stop count ("stop after 2 same-class failures after convergence") still applies after a
+   convergence pass. Phases worked out again: none (how they run only).
+5. 2026-11-08, judge the user (Q1 A): up to 4 Haiku agents for read-only research fan-out in phase 0's close-out
+   (the design against the prototype, area by area) and in phase 2 (the plan merge), only while no builder runs.
+   Each takes a slice (a plan file or a range of C rows) and returns a table of locations and matches, never a
+   verdict; one Opus reviewer judges from those tables and the text. Version 6. Phases worked out again: none (how
+   they run only).
 
 ## Runner rules
 
@@ -624,10 +634,13 @@ Numbered, oldest first (runner rule 4).
 6. **Count only gates that can fail.** A gate counts only if it has been seen failing on a wrong
    implementation at the current harness revision. A change to the harness or suite triggers its
    re-audit before its verdicts count.
-7. **Converge instead of patching.** Update the failure ledger every iteration. When one part
-   fails twice, when a fix moves a failure one step further on, or when reviews repeat a kind of
-   finding, stop patching and converge (`policy-convergence`): gather every finding, list every
-   dimension the part must cover, and redesign once. This holds for suites as well as code.
+7. **Converge instead of patching.** Update the failure ledger every iteration. When the third
+   review in a row finds the same root-cause class in the same part (a part failing, a fix moving a
+   failure one step further on, or a repeated kind of finding), stop patching and converge
+   (`policy-convergence`): gather every finding, list every dimension the part must cover, and
+   redesign once. Minor findings with different causes are patched inline and never count. This
+   holds for suites as well as code. (Amendment 4; replaces "when one part fails twice, when a fix
+   moves a failure one step further on, or when reviews repeat a kind of finding".)
 8. **Fix the last review's findings first,** then take the next planned step.
 9. **Review on time.** Before waiting on an agent, set a wake for its next review. On every wake or
    reread, a review that is overdue runs now, on the latest checkpoint or a snapshot of the

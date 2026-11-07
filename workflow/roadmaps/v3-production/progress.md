@@ -19,6 +19,8 @@ order:
 committed checkpoint every 60 minutes, and one close-out review when a round or area finishes. Reviews only report;
 the runner fixes minor findings itself. When several reviews in a row keep finding many issues, stop patching:
 collect every finding as a requirement and run one convergence pass (`policy-convergence`), then keep going.
+"Several" is three: converge on the third review in a row that finds the same root-cause class in the same part
+(amendment 4, the user, 2026-11-08); the failure ledger counts them.
 The runner (you) fixes minor findings inline, writes each round's design corrections
 into machine-design.md, merges finished rounds into `flow-rewrite`, keeps this file current and commits locally with
 explicit paths. Never push. Do not spawn extra fix passes, audits or re-reviews for minor findings; stage A's close-out
@@ -230,3 +232,5 @@ One line per iteration. Results live in the records; link them.
 - 2026-11-08 phase 0b completion audit: failed on minor items, fixed inline (`5132591c`); the `persist` placement went to the user and was ruled U19 A (on the definition). The user asked for one busy builder thread, an hourly review and no extra passes or audits for minor findings, then stopped the session for a hand-off; the round 14 builder was told to stop at a clean point and write what is left in its STATUS.md.
 - 2026-11-08 0a round 14 fix pass stopped for hand-off at `f49ec387`: nine items done, four gates left (see the queue). The builder ran `git stash`/`pop` in the worktree, which briefly applied the user's `stash@{0}` there; it undid it, and the stash entry is intact (checked). Note for the next agent: never use bare `git stash` in a worktree; the stash stack is shared.
 
+- 2026-11-08 amendment 4 (the user, "let's fix it as 3 for now"): convergence on the third review in a row with the same root-cause class in the same part; roadmap version 5. Uncommitted.
+- 2026-11-08 amendment 5 (the user, Q1 A): up to 4 Haiku agents for read-only research fan-out in phase 0's close-out and phase 2, only while no builder runs; tables, never verdicts; one Opus reviewer judges. Roadmap version 6. Uncommitted.
