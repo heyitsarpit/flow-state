@@ -795,9 +795,9 @@ function newLifetimeScenarios(): Scenario[] {
       },
     },
     {
-      // T3's parking path (proposal-v5 11.3): Runtime disposal with the commit on the wire; within the bound its ending (unknown, as Runtime O6
-      // interrupts it) is parked; at the reload the identity, which no use holds, is owed it and is woken at ready; delivered once; then,
-      // with no use, it ends.
+      // T3's parking path (proposal-v5 11.3; 2.10's walk "the write succeeds within the bound, reload"): Runtime disposal with the commit on
+      // the wire; Runtime O6 lets it settle within the bound, and its success is parked; at the reload the identity, which no use holds, is
+      // owed it and is woken at ready; delivered once; then, with no use, it ends. Back to Runtime O6 (was confirmUnsure: an interrupt).
       id: "LIFE-28",
       kind: "example",
       fixtures: [lifeFixture()],
@@ -811,8 +811,14 @@ function newLifetimeScenarios(): Scenario[] {
         c.do({ disposeRuntime: true });
         c.tryAnswer("confirm", { ok: {} });
         c.reload();
-        c.eq("woken at ready, heard once", log(c), ["confirmUnsure"]);
+        c.eq("woken at ready, heard once", log(c), ["confirmed"]);
         c.eq("delivered once", delivered(c, "confirm"), 1);
+        c.advance(GRACE);
+        c.state("REFRESHING", X); // the read its ending's turn started is work in flight (rule 73)
+        c.answer("cart", { ok: {} });
+        c.ack();
+        c.answer("place", { ok: {} });
+        c.eq("the chain, by the incarnation woken at ready (one before the reload, one after)", [log(c), c.incarnations(X)], [["confirmed", "cart", "placed"], 2]);
         c.advance(GRACE);
         c.eq("then ended", c.r.state(X), undefined);
       },

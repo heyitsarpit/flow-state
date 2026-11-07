@@ -708,6 +708,9 @@ export const reviewScenarios: readonly Scenario[] = [
       toggle(c, false);
       c.eq("W's prediction shows", c.rec(I1)?.data.liked, false);
       c.do({ disposeRuntime: true });
+      // 2.7.13's Runtime disposal row: each W entry ends when the head's ending is admitted, or when Runtime O6's bound ends (back to Runtime O6).
+      c.eq("the head may still settle: W's prediction stays", c.rec(I1)?.data.liked, false);
+      c.advance(5_000);
       c.eq("the W prediction is gone; head's stays until it ends", c.rec(I1)?.data.liked, true);
     },
   },

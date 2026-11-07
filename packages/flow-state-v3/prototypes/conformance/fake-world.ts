@@ -606,6 +606,7 @@ export class FakeWorld {
       return Effect.fail({ _tag: "NoResponse" });
     }
     if ("die" in a) return Effect.die(a.die);
+    if ("interrupted" in a) return Effect.interrupt;
     // D145, assumptions #3: Stripe refuses a send of a key while an earlier one is executing (409), saves nothing, and may still land the first.
     if ("inFlight" in a) {
       const earlier = this.requests.some((x) => x !== r && x.idempotencyKey === r.idempotencyKey && x.idempotencyKey !== undefined && !x.answered && !x.never);

@@ -691,16 +691,16 @@ export const round5Scenarios: readonly Scenario[] = [
     bounds: { drainMs: -1 },
     variants: {
       "a-crash-during-recovery-loses-no-parked-ending"(c0) {
-        // T3 (rule 73): Runtime disposal is the one way left to park an ending with no live actor. Runtime O6 interrupts the wire at
-        // disposal, so the ending within the bound is unknown { Interrupted } (2.7.13's Runtime disposal row), saved as a parked ending.
+        // T3 (rule 73): Runtime disposal is the one way left to park an ending with no live actor. Back to Runtime O6: the commit is
+        // allowed to settle within the bound, so its success is the parked ending (2.7.13's Runtime disposal row).
         const c = at(c0, traitWriteFixture, TW, { drainMs: -1 });
         c.into(["t"], "Go");
         c.ack();
         c.do({ disposeRuntime: true });
-        c.tryAnswer("put", { ok: {} });
+        c.answer("put", { ok: {} });
         c.do({ reload: true, crashAfterBoot: true });
         c.ensure();
-        c.eq("delivered once across the crash", got(c), ["unsure:a:Interrupted"]);
+        c.eq("delivered once across the crash", got(c), ["ok:a"]);
       },
       "nor-a-w-behind-an-acked-head"(c0) {
         const c = at(c0, traitWriteFixture, TW, { drainMs: -1 });
@@ -712,21 +712,16 @@ export const round5Scenarios: readonly Scenario[] = [
         c.yes("the second", got(c).includes("no:a:Restored"));
       },
       "the-record-goes-once-delivered"(c0) {
-        // T3, as above: the parked unknown { Interrupted } is delivered at ready and its record goes; the lane stays only as the hold it
-        // left (rule 17), with nothing parked.
+        // T3, as above: the parked success is delivered at ready and its record goes (back to Runtime O6, as before round 14).
         const c = at(c0, traitWriteFixture, TW, { drainMs: -1 });
         c.into(["t"], "Go");
         c.ack();
         c.do({ disposeRuntime: true });
-        c.tryAnswer("put", { ok: {} });
+        c.answer("put", { ok: {} });
         c.reload();
         c.ensure();
-        c.eq(
-          "nothing parked on the disk",
-          c.laneKeys().map((k) => ((c.r.stored().get(k) as { parked?: unknown[] })?.parked ?? []).length),
-          [0],
-        );
-        c.eq("delivered once", got(c), ["unsure:a:Interrupted"]);
+        c.eq("the lane is off the disk", c.laneKeys(), []);
+        c.eq("delivered once", got(c), ["ok:a"]);
       },
     },
   },

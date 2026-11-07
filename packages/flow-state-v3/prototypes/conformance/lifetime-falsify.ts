@@ -9,10 +9,13 @@ const here = import.meta.dir;
 const i = process.argv.indexOf("--runtime");
 const source = dirname(resolve(here, i < 0 ? "../round-14x/adapter.ts" : process.argv[i + 1]!));
 // Round 14 (OD31): LIFE-01..30 as built, and the rewritten dispose cases whose result the rule changed.
-const ONLY = [...Array.from({ length: 30 }, (_, k) => `LIFE-${String(k + 1).padStart(2, "0")}`).filter((id) => !["LIFE-19", "LIFE-20", "LIFE-25", "LIFE-26"].includes(id)), "REV5-H5H6", "FRAG-08", "R14-ID-01", "R14-ID-02", "R14-ID-03", "R14-IGN-01", "R14-IGN-02", "R14-IGN-03", "R14-F-01"].join(",");
-const { MUTANTS } = (await import(join(source, "mutants-lifetime.ts"))) as {
+const ONLY = [...Array.from({ length: 30 }, (_, k) => `LIFE-${String(k + 1).padStart(2, "0")}`).filter((id) => !["LIFE-19", "LIFE-20", "LIFE-25", "LIFE-26"].includes(id)), "REV5-H5H6", "FRAG-08", "R14-ID-01", "R14-ID-02", "R14-ID-03", "R14-IGN-01", "R14-IGN-02", "R14-IGN-03", "R14-F-01", "REV5-M1", "PAY-16", "SURV-08", "REV8-PINS"].join(",");
+const { MUTANTS: ALL } = (await import(join(source, "mutants-lifetime.ts"))) as {
   MUTANTS: ReadonlyArray<{ id: string; kills: readonly string[]; edits: ReadonlyArray<readonly [string, string, string]> }>;
 };
+// `--mutants a,b` runs only those wrong runtimes (a quick check while building; the gate runs them all).
+const pick = process.argv.indexOf("--mutants");
+const MUTANTS = pick < 0 ? ALL : ALL.filter((m) => process.argv[pick + 1]!.split(",").some((p) => m.id.startsWith(p)));
 const scratch = mkdtempSync(join(tmpdir(), "flow-life-"));
 symlinkSync(resolve(here, "../../../../node_modules"), join(scratch, "node_modules"));
 const flex = (find: string) => new RegExp(find.trim().split(/\s+/).map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("\\s*"));

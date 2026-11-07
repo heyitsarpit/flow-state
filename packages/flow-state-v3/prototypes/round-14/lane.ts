@@ -485,11 +485,9 @@ const ACTIONS: Readonly<Record<Action, (tx: Tx, lane: Lane | undefined, a: CellA
   disposeResend(tx, l) {
     setLane(tx, parkWaiting(tx, { ...l!, head: { ...l!.head!, phase: { t: "held" } } }));
   },
-  disposeWire(tx, l) {
-    const h = l!.head!;
-    if (h.phase.t === "wire")
-      tx.commands.push({ k: "interrupt", attempt: h.id, send: h.phase.gen });
-  },
+  // Runtime O6: an invoked commit is allowed to settle within the disposal bound; its ending is parked (settleSend), and one still on the wire
+  // at the bound is captured as InFlight, so a reload restores it unknown { Restored } (2.7.13's Runtime disposal row).
+  disposeWire() {},
   disposeSettled(tx, l) {
     const h = l!.head!;
     if (h.phase.t !== "settled") return;
@@ -619,13 +617,15 @@ export const settleSend = (tx: Tx, lane: Lane, send: string, ending: Ending) => 
   };
   tellEnded(tx, h.id, final, h.sentAt);
   if (tx.w.status === "disposing") {
+    // Runtime O6: settled within the bound, the ending is a pending mapped outcome, as `disposeSettled` parks one; the Attempt has ended,
+    // so no head is left Held (a parked unknown holds again when it is delivered, `byEnding`).
     const parked = {
       ...next,
-      head: { ...next.head!, phase: { t: "held" as const } },
       parked: [...next.parked, { attempt: h.id, ending: final, owner: h.owner, input: h.input }],
     };
     note(tx, "parked", { op: lane.op, attempt: h.id });
-    return setLane(tx, parkWaiting(tx, parked));
+    const { head: _h, ...rest } = parkWaiting(tx, parked);
+    return setLane(tx, rest);
   }
   settleHead(tx, next, final);
 };

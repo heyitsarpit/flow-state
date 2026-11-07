@@ -58,4 +58,8 @@ export const MUTANTS = [
   m("f.filling-has-no-key", "OD:29", "inc.ts", "(present?.ok ? { ...hv, key: present.v } : hv)", "hv"),
   m("f.absent-does-not-end", "OD:29", "turn.ts", "if (p.each || now === undefined) continue;", "if (p.each) continue;"),
   m("id.value-is-not-the-input", "rule:74", "step.ts", "memory: run(m.memory.initial, input as never),", "memory: run(m.memory.initial, (identity ? {} : input) as never),"),
+  // Fix pass after the final review (H-A): Runtime O6 lets an invoked commit settle within the disposal bound.
+  m("o6.dispose-interrupts-wire", "Runtime O6", "lane.ts", "disposeWire() {},", 'disposeWire(tx, l) { const h = l!.head!; if (h.phase.t === "wire") tx.commands.push({ k: "interrupt", attempt: h.id, send: h.phase.gen }); },'),
+  m("o6.settled-in-bound-stays-held", "Runtime O6", "lane.ts", "const { head: _h, ...rest } = parkWaiting(tx, parked); return setLane(tx, rest);", 'return setLane(tx, parkWaiting(tx, { ...parked, head: { ...next.head!, phase: { t: "held" as const } } }));'),
+  m("o6.no-bound", "Runtime O6", "step.ts", "if (wires(tx.w).length === 0) finishDisposal(tx);", "if (true) finishDisposal(tx);"),
 ];

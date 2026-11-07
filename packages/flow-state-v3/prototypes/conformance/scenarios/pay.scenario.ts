@@ -780,14 +780,28 @@ export const payScenarios: readonly Scenario[] = [
         c.eq("kept", row(c)?.retryCount, 1);
       },
       // Disposal row: an ending that settles before the final capture is saved, then delivered once.
+      // Back to Runtime O6: invoked commits are allowed to settle within the bound; nothing interrupts the wire.
       "settled-during-disposal-parked"(c) {
         onWire(c);
         c.do({ disposeRuntime: true });
-        c.eq("not yet", c.r.evidence("Disposed").length, 1); // an interruptible fetch ends at the interrupt
+        c.eq("not yet: the commit may settle", c.r.evidence("Disposed").length, 0);
+        c.answer("pay", req_cap);
+        c.eq("disposed once the wire is empty", c.r.evidence("Disposed").length, 1);
+        c.eq("its own ending, parked", [c.lastEnding("pay")?.["channel"], c.r.evidence("parked").length], ["success", 1]);
+        c.reload();
+        c.state("PLACING");
+        c.eq("no Restored: the parked ending is delivered", c.endings("pay").some((e) => e["reason"] === "Restored"), false);
+      },
+      // Runtime O6's bound: still on the wire at 5 s, the Attempt is captured InFlight; its late result is ignored; a reload restores it unknown.
+      "on-the-wire-at-the-bound-restores-unknown"(c) {
+        onWire(c);
+        c.do({ disposeRuntime: true });
+        c.advance(4_999);
+        c.eq("within the bound", c.r.evidence("Disposed").length, 0);
+        c.advance(1);
+        c.eq("the bound ends it", c.r.evidence("Disposed").length, 1);
         c.reload();
         c.state("UNSURE");
-        c.eq("parked and delivered", c.lastEnding("pay")?.reason, "Interrupted");
-        c.eq("once", c.endings("pay").filter((e) => e["reason"] === "Interrupted").length, 1);
       },
       // D5: an older send's exit, while its own Attempt's re-send is on the wire, is stale.
       "stale-send-fenced"(c) {
@@ -877,7 +891,8 @@ export const payScenarios: readonly Scenario[] = [
         c.answer("intent", { ok: { status: "requires_payment_method" } });
         c.state("PAYING");
         c.ack();
-        c.do({ disposeRuntime: true }); // this send's interrupt is Flow's disposal, not the earlier cancel
+        c.answer("pay", { lost: true }); // the cancelled first send's late exit: fenced
+        c.answer("pay", { interrupted: true }); // this send's own interrupt, not the earlier cancel (disposal interrupts nothing: Runtime O6)
         c.eq("reason", c.lastEnding("pay")?.reason, "Interrupted");
       },
       // 2.7.1: a read's defect is an actor issue.

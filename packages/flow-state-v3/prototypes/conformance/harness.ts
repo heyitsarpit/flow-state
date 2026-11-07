@@ -23,6 +23,7 @@ export type Answer =
   | { lost: true }
   | { lostButLanded: unknown }
   | { die: string }
+  | { interrupted: true } // the effect's own fiber is interrupted (an inner race or abort), not Flow's cancel
   | { never: true }
   | { apply: true } // the server model applies it and answers, or refuses. Idempotent per key
   | { applyLost: true } // the server model applies it; the answer is lost

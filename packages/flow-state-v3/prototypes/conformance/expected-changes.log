@@ -1392,3 +1392,26 @@ removed:variant:R14-ID-03/one-machine-in-both-forms-is-conflicting | D4: both fo
 removed:output:R14-ID-03/a-singleton-takes-its-input-at-ensure | D4: the variant went; its output line goes with it
 removed:output:R14-ID-03/one-machine-in-both-forms-is-conflicting | D4: the variant went with the form conflict; its output line goes with it
 file:expected-recipients.txt hash:a900c468aaf7 | D1, D6: one more delivery observed and start node checked
+PAY-16 hash:7002c94be212 | H-A, back to Runtime O6: a commit on the wire at Runtime disposal settles within the bound and is parked; one still out at the bound restores unknown (new variant); cancelled-does-not-stick uses the effect's own interrupt
+SURV-08 hash:3fd5ea9dad55 | H-A, back to Runtime O6: W's NotSent { Disposed } waits for the head's ending or the bound (2.7.13's Runtime disposal row), so the case advances to the bound
+REV5-M1 hash:52d279d780b3 | H-A, back to Runtime O6: the put settles within the bound, so the parked ending is its success (ok:a), and the lane is off the disk once delivered, as before round 14
+LIFE-28 hash:2a9468836fec | H-A, back to Runtime O6: the success parked within the bound is delivered at ready (confirmed); its chained read and place keep the woken actor until they run
+file:scenarios/lifetime.scenario.ts hash:88d2fb1e5165 | H-A, back to Runtime O6: LIFE-28 expects the success settled within the bound
+file:scenarios/pay.scenario.ts hash:537fa932871b | H-A, back to Runtime O6: PAY-16's disposal variants follow the bound
+file:scenarios/review.scenario.ts hash:42114a2ac13d | H-A, back to Runtime O6: SURV-08 reaches the bound before W's prediction goes
+file:scenarios/round5.scenario.ts hash:e7d05b218930 | H-A, back to Runtime O6: REV5-M1 expects the settled success
+file:harness.ts hash:d62a2e32efc8 | H-A: an `interrupted` answer, the effect's own fiber interrupted, now that disposal interrupts nothing
+file:fake-world.ts hash:71dfce0a8544 | H-A: the fake answers `interrupted` with Effect.interrupt
+round:mutants-lifetime.ts hash:288096d29bf7 | H-A: three wrong runtimes for Runtime O6 (interrupt at disposal, a settled head left Held, no bound)
+output:DRV-01 hash:c05230f3e64e | H-A, back to Runtime O6: at each disposal tick the commit is not interrupted; a defect inside the bound is an issue, a hang is AbandonedFiber at the bound
+output:LIFE-28 hash:e789c6e67975 | H-A, back to Runtime O6: LIFE-28 runs its chain after the reload and ends with no lane on disk
+output:PAY-16/cancelled-does-not-stick hash:9be0bf1c13f5 | H-A: the re-send ends by its own interrupt with no disposal, so the run stays live (UNSURE)
+output:PAY-16/disposal-ends-with-the-last-fiber hash:f396dbe03f5d | H-A: the head settled within the bound is parked with no Held head left on the lane
+output:PAY-16/on-the-wire-at-the-bound-restores-unknown hash:7f9f4a82fc15 | H-A: PAY-16's bound variant, new
+output:PAY-16/settled-during-disposal-parked hash:fcd4885496c9 | H-A: the pay's success within the bound is parked and delivered after the reload (PLACING)
+output:REV5-M1/a-crash-during-recovery-loses-no-parked-ending hash:c31985ac0a1e | H-A: REV5-M1's crash variant delivers ok:a and leaves no lane record
+output:REV5-M1/the-record-goes-once-delivered hash:abf6575a96b3 | H-A: REV5-M1's record variant delivers ok:a and the lane goes
+output:REV8-PINS/D72-a-parked-ending-survives-a-kill-before-delivery hash:14d6d06b70a9 | H-A: D72's parked ending is the charge's success (state B), not an interrupt
+output:SURV-07 hash:fda08f3fabd8 | H-A: the uninterruptible like's late answer settles within the bound; with no unknown there is no repair read during disposal
+output:SURV-08 hash:016a205debf8 | H-A: no interrupt, so no unknown and no repair read; the head stays on the wire to the bound
+file:expected-recipients.txt hash:347b630e68d1 | H-A: LIFE-28's chain after the reload is one more delivery observed
