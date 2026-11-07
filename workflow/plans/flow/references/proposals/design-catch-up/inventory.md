@@ -23,6 +23,8 @@ Labels:
   the new conformance suite (phase 3) or the host adapter (phase 5), as FOR-ARPIT section 6 says.
 
 Change-list entries are `E` numbers; user-judged conflicts are `U` numbers; both are in [change-list.md](change-list.md).
+The user ruled on U1-U18 in the label round of 2026-11-07, each at its recommendation (OD48); pass 3 (E71-E89)
+applied them, and each row below says "ruled".
 
 ## 1. The turn, the mailbox and scheduling
 
@@ -50,51 +52,51 @@ Change-list entries are `E` numbers; user-judged conflicts are `U` numbers; both
 | D11 a throw in `resetOn`, `input` or a prediction is `InvalidTurn` | in | rule 22's defect rules and 2.5 step 5 |
 | D27 hook throw disables the module; core throw fatal | superseded (D46) | |
 | D31 a refused ending turn is not redelivered | superseded (D50) | |
-| D46 one rule for a throw, by who threw; a module defect fails closed (`NotSent { ModuleDisabled }`); a core bug is fatal until reload; restore per record | conflict, user (U7) | a new Flow reason and a stated Runtime guarantee; the module seam is the entity store's (phase 1) |
+| D46 one rule for a throw, by who threw; a module defect fails closed (`NotSent { ModuleDisabled }`); a core bug is fatal until reload; restore per record | conflict, user (U7); ruled: phase 1, 2026-11-07 | a new Flow reason and a stated Runtime guarantee; the module seam is the entity store's (phase 1) |
 | D50 a refused ending turn is redelivered once | newer (decided with call 10) | E01 |
 | D57, D65, D77, D207 one gate; the sealed `Compiled`; every closure a Slot | newer (decided with call 14, agent-judged detail) | E23 (`Compiled` holds Slots); the seal's checks are prototype-only |
 | D109, D118 a turn never loses a completion; `Kept` | superseded in form by D123, except D109's "the machine stays where it is, shown, no fallback alternative or API" | that part is decided (FOR-ARPIT call 19, round 8 call 1): E64, OD47 |
 | FOR-ARPIT call 19 (smaller calls) | D119 newer (decided): E08, OD44; "a kept ending stays in `W` and shows it" newer (decided): E64, OD47; D228 prototype-only | pass 1 missed the third part |
 | D123 what a turn refused twice stays with what owes it, and ends with that | newer (decided: call 10) | E01, E02 |
 | D133 `fatal` must be named | prototype-only | suite |
-| D138 a state named `self` or `__proto__` is refused (`ReservedStateName`) | newer, agent-judged | E26 |
+| D138 a state named `self` or `__proto__` is refused (`ReservedStateName`) | newer, agent-judged; name ruled: accept (U18), 2026-11-07 | E26 |
 | D147 a read mapper's throw or shapeless result ends `Defect` | newer (decided: call 8) | E07 |
 
 ## 3. Encoding at the doors
 
 | Decision | Label | Where, or why |
 | --- | --- | --- |
-| D89 encoding never fails a turn: memory skips the batch; a commit that cannot encode declines | conflict, user (U6) | new behaviour and a reason name |
-| D100, D108 one door, `encodable`; commit `NotSent { Unencodable }`, lookup `Defect`, a guard key denies | conflict, user (U6) | a new Flow reason |
-| D114 a decline carries what the turn asked to send | conflict, user (U6) | part of the same door |
+| D89 encoding never fails a turn: memory skips the batch; a commit that cannot encode declines | conflict, user (U6); ruled: the prototype, 2026-11-07 | new behaviour and a reason name |
+| D100, D108 one door, `encodable`; commit `NotSent { Unencodable }`, lookup `Defect`, a guard key denies | conflict, user (U6); ruled: the prototype, 2026-11-07 | a new Flow reason |
+| D114 a decline carries what the turn asked to send | conflict, user (U6); ruled: the prototype, 2026-11-07 | part of the same door |
 | D119 `canon` and `carried`; `1n` restores as `"$1n"` | newer (decided: call 19) | E27 |
-| D120, D124 `InputFieldForm` lint and `inputNotCarried` | newer, agent-judged | E26 (a `flow check` finding name [P]) |
-| D139 a `Symbol` or a value with no form is `UnencodableValue` | conflict, user (U6) | pass 2: part of U6's door; E62 took it out of E26 |
+| D120, D124 `InputFieldForm` lint and `inputNotCarried` | newer, agent-judged; name ruled: accept (U18), 2026-11-07 | E26 (a `flow check` finding name [P]) |
+| D139 a `Symbol` or a value with no form is `UnencodableValue` | conflict, user (U6); ruled: the prototype, 2026-11-07 | pass 2: part of U6's door; E62 took it out of E26 |
 | D141, D143 the hash and replay see values | prototype-only | suite |
 
 ## 4. Write lanes and the lane table
 
 | Decision | Label | Where, or why |
 | --- | --- | --- |
-| D3 queue order is mint order; a retry never rejoins; an entry leaves only when resolved or released (rules 29-31) | phase 1 (U11) | entity record queues; recorded with the entity round |
-| D12, D40 forced repair bounded at 30 s | phase 1 (U11) | |
-| D15 an unbound hold with a waiter yields after 5 minutes (`unknown { Abandoned }`) | phase 1 (U11) | blocks only through a record queue |
+| D3 queue order is mint order; a retry never rejoins; an entry leaves only when resolved or released (rules 29-31) | phase 1 (U11; ruled: defer to phase 1, 2026-11-07) | entity record queues; recorded with the entity round |
+| D12, D40 forced repair bounded at 30 s | phase 1 (U11; ruled: defer to phase 1, 2026-11-07) | |
+| D15 an unbound hold with a waiter yields after 5 minutes (`unknown { Abandoned }`) | phase 1 (U11; ruled: defer to phase 1, 2026-11-07) | blocks only through a record queue |
 | D21 local lanes are not adopted | superseded by the design (OD31, R14 D5) | the design is newer: a local remount adopts lanes |
-| D22 key-less members name the ending's own Attempt only (rule 43's second clause cut) | conflict, user (U2) | |
+| D22 key-less members name the ending's own Attempt only (rule 43's second clause cut) | conflict, user (U2); ruled: the prototype, 2026-11-07 | |
 | D23 reads have no hold and no queue; latest wins | in | rule 42 |
 | D28 `Attempt.phase` | prototype-only | the table's columns are the design's states |
 | D43 `serialize`, `W` at most 64 | in | rule 21, 2.7.13 |
 | D45 `Attempt.sent` | prototype-only | 2.7.13 already says an Attempt remembers whether it was ever sent |
-| D48 a never-sent cancel or replace waits for its acknowledgement | the safety rule: newer, agent-judged (E05); its unbounded wait: conflict, user (U16) | on a hung disk the cancel never takes effect; stated limit in rule 24 (E52) |
+| D48 a never-sent cancel or replace waits for its acknowledgement | the safety rule: newer, agent-judged (E05); its unbounded wait: conflict, user (U16); ruled: A, 2026-11-07 | on a hung disk the cancel never takes effect; stated limit in rule 24 (E52) |
 | D72 boot forgets a stored ending only once delivered | prototype-only | Persistence O4's at-least-once restore already holds it |
 | D78 restore re-derives a held lane's key | superseded by D221 for every typed contract | kept only for the suite's hand key closures (prototype-only) |
-| D88 a quarantined lane keeps its id and hold; a commit declines; `cancel` clears; `orphaned` unbuilt | conflict, user (U4) | the design sends such a lane to `orphaned` (P19) |
-| D107 restore delivers a lane's `W` endings first, then the head's unknown | conflict, user (U3) | changes rule 44's order |
+| D88 a quarantined lane keeps its id and hold; a commit declines; `cancel` clears; `orphaned` unbuilt | conflict, user (U4); ruled: the prototype, 2026-11-07 | the design sends such a lane to `orphaned` (P19) |
+| D107 restore delivers a lane's `W` endings first, then the head's unknown | conflict, user (U3); ruled: the prototype, 2026-11-07 | changes rule 44's order |
 | D217 a release that adds a key field declines beside the older lane | superseded by D221 | |
 | D221 key fields required; a changed key is a new op version; old-version holds | newer (decided: calls 11, 12, Q1 A, Q2 A, round 13's H2 fix) | E08, E09 |
-| D20 key-equality migration cut (to `orphaned`) | conflict, user (U4) | rule 46 adopts by key equality |
-| D19 `allow` cut | conflict, user (U5) | scope: the design specifies `allow` throughout; the prototype never built it |
-| D18 `basedOn` rebase cut | phase 1 (U11) | entity writes |
+| D20 key-equality migration cut (to `orphaned`) | conflict, user (U4); ruled: the prototype, 2026-11-07 | rule 46 adopts by key equality |
+| D19 `allow` cut | conflict, user (U5); ruled: cut, 2026-11-07 | scope: the design specifies `allow` throughout; the prototype never built it |
+| D18 `basedOn` rebase cut | phase 1 (U11; ruled: defer to phase 1, 2026-11-07) | entity writes |
 
 ## 5. Persistence and the host
 
@@ -102,16 +104,16 @@ Change-list entries are `E` numbers; user-judged conflicts are `U` numbers; both
 | --- | --- | --- |
 | D14 storage bounded at 10 s, refused | superseded (D30) | |
 | D26 write-ahead is core | in | Persistence O6, rules 38, 46 |
-| D30 silent storage means pending; evidence at 10 s | conflict, user (U16) | E22, E54: kept in 2.7.20 and marked U16; it drops a bound on waiting (a shopper can sit on "Paying…" with a dead disk) |
-| D49 a stall bound and sign; later left the public row | phase 1 (U11) for the record-queue half; storage half in E22 | |
+| D30 silent storage means pending; evidence at 10 s | conflict, user (U16); ruled: A, 2026-11-07 | E22, E54: kept in 2.7.20 and marked U16; it drops a bound on waiting (a shopper can sit on "Paying…" with a dead disk) |
+| D49 a stall bound and sign; later left the public row | phase 1 (U11; ruled: defer to phase 1, 2026-11-07) for the record-queue half; storage half in E22 | |
 | D73, D93 `retired` identities | superseded by OD31 (`disposeActor` removes the record) | |
 | D80 plain memory coalesces at 5 s, flushed on hide (decided 2026-11-02) | newer (decided: call 4) | E22 |
 | D83 per key a later write wins; batches atomic, in issue order | newer, agent-judged | E22 (the host's store contract) |
 | D84 a batch touching a lane flushes now | newer (decided with call 4: "lane and send writes are not delayed") | E22 |
 | D85 a strict marker before ready | prototype-only | an H3 experiment that did not close it |
 | D86, D96 a first send is one batch; `acked` gone; `NotSent { Restored }` only for `W` | newer (decided: call 1, Q3 A) | E30 |
-| D87 sends before boot queue until boot | conflict, user (U8) | 2.10.17.6 says `ActorAbsent` |
-| D94 an awaited write waits for its actor's plain batch | conflict, user (U16) | E22, E53: a hung plain batch stalls an awaited write |
+| D87 sends before boot queue until boot | conflict, user (U8); ruled: the prototype, 2026-11-07 | 2.10.17.6 says `ActorAbsent` |
+| D94 an awaited write waits for its actor's plain batch | conflict, user (U16); ruled: A, 2026-11-07 | E22, E53: a hung plain batch stalls an awaited write |
 | D95 one plain write per key | newer, agent-judged | E22 |
 | D97 a hidden page issues at once, backoff apart | newer (decided with call 4's hidden flush) | E22 |
 | D99, D111 a record names its boot; ids never repeat | newer, agent-judged | E22 |
@@ -133,9 +135,9 @@ Change-list entries are `E` numbers; user-judged conflicts are `U` numbers; both
 | D137 an actor key names one machine (`ActorMachineMismatch`) | superseded by the design (OD30: identity is the machine plus its input) | |
 | D200 `Flow.absent` | superseded (round 11: `Schema.optionalKey`) | the design already uses `Schema.optionalKey` (2.2.2) |
 | D214 memory as fields; the restore rule for a field a record lacks | newer (decided with call 13) | E10; the `Compiled` half is E23 |
-| D219 creation checks a present input by its type side, no transforming decode | conflict, user (U9) | 2.2.2 says "decode the input" |
+| D219 creation checks a present input by its type side, no transforming decode | conflict, user (U9); ruled: the prototype, 2026-11-07 | 2.2.2 says "decode the input" |
 | D222 one default per field, at creation and restore; `TwoDefaults` | newer (decided: call 13) | E10 |
-| round 13's H1 (a default computed once and shared) | newer (decided fix) | E10; its tension with creation's purity is U12 |
+| round 13's H1 (a default computed once and shared) | newer (decided fix) | E10; its tension with creation's purity is U12; ruled: B, 2026-11-07 (defaults are pure, E79) |
 | R14 D1 an end parks `failure { Interrupted }` per stopped read | newer (approved) | E13 |
 | R14 D2 only the latest arming waits | newer (approved) | E14 |
 | R14 D3 a return mints a new incarnation id | newer (approved) | E15 |
@@ -149,7 +151,7 @@ Change-list entries are `E` numbers; user-judged conflicts are `U` numbers; both
 | Decision | Label | Where, or why |
 | --- | --- | --- |
 | D7 the reification criterion | prototype-only | |
-| D8 `timeout` on operations, per send (`unknown { TimedOut }`, `failure { TimedOut }`) | conflict, user (U1) | rule 25 and 2.7.17 (OD31) put timeouts in the Effect |
+| D8 `timeout` on operations, per send (`unknown { TimedOut }`, `failure { TimedOut }`) | conflict, user (U1); ruled: B, 2026-11-07 | rule 25 and 2.7.17 (OD31) put timeouts in the Effect |
 | D9, D25, D42, D51, D63, D68, D69, D81 the module seam | prototype-only | entities and streams sit behind it; phase 1 |
 | D16 entities optional, behind a seam | in | 2.8 and the user's constraint |
 | D17 an interpreted table only where cells are uniform | prototype-only | |
@@ -193,7 +195,7 @@ Change-list entries are `E` numbers; user-judged conflicts are `U` numbers; both
 | D47, D55, D58, D59, D60, D66, D67, D74, D75, D76 positions, the judge, versions, stubs | phase 1 | replaced by `round-9/entity-proposal-2.md`, which phase 1 builds |
 | D53 per-key money ledger | prototype-only | suite oracle |
 | D70, D71 sessions | in, in part (rule 70; Streams T4's turn pace); the rest phase 1 | |
-| FOR-ARPIT call 7, Q7 A (rule 32: two levels of doubt, no clock) | conflict, user (U10) | OD28 P1 (the design, the same day) keeps "a later write's success still clears it" |
+| FOR-ARPIT call 7, Q7 A (rule 32: two levels of doubt, no clock) | conflict, user (U10); ruled: Q7 A, phase 1, 2026-11-07 | OD28 P1 (the design, the same day) keeps "a later write's success still clears it" |
 | D16, D42, D81 the store seam | prototype-only | phase 1 |
 
 ## 10. Stories, the CLI and tooling
@@ -224,14 +226,14 @@ Labelled by the roadmap's judge rule. R14R numbers are this list's order.
 
 | Item | Label | Where, or why |
 | --- | --- | --- |
-| R14R 1 Runtime disposal: within the bound the ending is parked; after the bound the reason is undefined (Runtime O6, 2.7.13's row and the reasons table disagree; not `Interrupted`) | conflict, user (U13) | a Flow reason name |
+| R14R 1 Runtime disposal: within the bound the ending is parked; after the bound the reason is undefined (Runtime O6, 2.7.13's row and the reasons table disagree; not `Interrupted`) | conflict, user (U13); ruled: `unknown { Disposed }`, 2026-11-07 | a Flow reason name |
 | R14R 2 incarnation boundary: does a reload mint new ids for live restores and records kept at ready; does R14 D3 renew nested fragment incarnations | newer, agent-judged | E34: "`Restored` means a new incarnation" (rule 73, C126) already makes a reload a new incarnation; the ruling applies it to every incarnation the record restores |
 | R14R 3 ready after R14 D6: parked endings with no record stay parked until an ensure; nothing is created at ready; a kept record holding a `Held` hold is named | newer, agent-judged | E35, a reading of 2.7.17's Ready and its stated limit on `Held` offline writes |
-| R14R 4 `disposeActor` durability: a crash before its capture brings the record back | conflict, user (U14) | a durability guarantee: state a limit, or flush the removal |
+| R14R 4 `disposeActor` durability: a crash before its capture brings the record back | conflict, user (U14); ruled: flush, 2026-11-07 | a durability guarantee: state a limit, or flush the removal |
 | R14R 5 waiting commits behind a `Held` head at ready: owed or not | in | rule 73 and 2.7.17's Ready: not owed; the prototype is being changed back. The design's behaviour is the better one: those `W` entries were never sent, their `NotSent { Restored }` reaches the next use, and waking every such actor at ready restores screens nobody opened |
 | R14R 6 R14 D7 and 2.7.17's state table: `Quarantined` is terminal; an undecodable record needs its own state, left by a fresh ensure or `forget`; `RestoreDiscarded` | newer, agent-judged (follows the approved R14 D7) | E18, E36 |
-| R14R 7 rule 74's versions: the encoded side only, or type and encoded; Schemas compared structurally, ignoring annotations | conflict, user (U17) | pass 1 ruled it agent (E12, E37); overturned by the review: with every identity field a string, `Schema.String` to `NumberFromString` would not be a new version; E50 reverts it to open |
-| R14R 8 `persist` is per ref in the API, per identity in effect: who wins | conflict, user (U15) | API shape |
+| R14R 7 rule 74's versions: the encoded side only, or type and encoded; Schemas compared structurally, ignoring annotations | conflict, user (U17); ruled: B, 2026-11-07 | pass 1 ruled it agent (E12, E37); overturned by the review: with every identity field a string, `Schema.String` to `NumberFromString` would not be a new version; E50 reverts it to open |
+| R14R 8 `persist` is per ref in the API, per identity in effect: who wins | conflict, user (U15); ruled: B, 2026-11-07 | API shape |
 | R14R 9 R14 D1's `Interrupted` on every path that brings an ended identity back, and its order against rule 44 | newer, agent-judged (completes the approved R14 D1) | E13 |
 
 ## 13. Counts

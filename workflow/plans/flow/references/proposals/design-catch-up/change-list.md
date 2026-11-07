@@ -7,16 +7,16 @@ replacement, its decision entry and its judge:
 - **agent**: a refinement that changes no public name, API shape, guarantee, scope or stated preference, ruled by the
   runner as the reviewing agent would; applied and listed in `workflow/roadmaps/v3-production/progress.md`'s
   review queue. New finding and evidence names carry `[P]`, as MD's own proposed names do.
-- **user**: a real conflict. **Not applied.** Listed under "User-judged conflicts" with both texts, a recommendation
-  and its reversibility, for the user's label round.
+- **user**: a real conflict. **Not applied until the user rules.** Listed under "User-judged conflicts" with both texts, a recommendation
+  and its reversibility, for the user's label round. Ruled by the user on 2026-11-07 and applied in pass 3.
 
 An entry is applied only if its current text occurs exactly once in MD at that moment (Python `str.count`); the apply
 log at the end says what was applied, adjusted or skipped. Entries apply in order. The blocks below are read by the
 apply script: `~~~~current` and `~~~~new` hold the exact text.
 
-New decision ids: OD32-OD47 (after OD31; OD47 from pass 2). New plan rows: C128-C149 (after C127; C147-C149 from
-pass 2). Pass 1's entries are E01-E42; pass 2's, after the independent review, are E50-E70 and amend some of them
-(E12's version text by E50, E26 by E62, OD45 and OD46 by E66 and E70).
+New decision ids: OD32-OD48 (after OD31; OD47 from pass 2, OD48 from pass 3). New plan rows: C128-C161 (after C127;
+C147-C149 from pass 2, C150-C161 from pass 3). Pass 1's entries are E01-E42; pass 2's, after the independent review, are E50-E70 and amend some of them
+(E12's version text by E50, E26 by E62, OD45 and OD46 by E66 and E70). Pass 3's, after the user's label round, are E71-E90.
 
 ## Entries
 
@@ -1088,12 +1088,979 @@ waits for storage (rule 24; D48; OD46); the wait is unbounded, a stated limit (U
   (FOR-ARPIT section 4) and `TurnStorm` and `AsksForever` (call 5, D122). (2026-11-07)
 ~~~~
 
-## User-judged conflicts (not applied; for the label round)
+## Pass 3 entries (the label round, 2026-11-07)
 
-Each: the question, both texts, the recommendation and why, and how reversible it is. "Design" quotes MD; "Prototype"
+The user ruled on every user-judged conflict, U1-U18, in the label round on 2026-11-07 (the Claude Code session):
+**all accepted at the recommended option**. These entries write the rulings into MD, with every knock-on place. Same
+rules: each block applies only if its current text occurs exactly once in MD at that moment, in order. Pass 3 adds
+OD48 (the label round) and plan rows C150-C161. Decision entries before OD48 stay as history, except OD35, OD39, OD40
+and OD46, whose open points the rulings close. Calls made in applying them (agent, listed in OD48): a lane whose
+operation is gone is kept like a quarantined one until `forget`; a quarantined lane's `cancel` may come from any
+subject path; `Unencodable` must be mapped where an input or key Schema admits a value with no form; `persist` is
+declared on the definition.
+
+### E71 Header: the label round (OD48, C150-C161)
+
+~~~~current
+(OD32-OD47, C128-C149). Conflicts the user decides are listed, not applied:
+[../../proposals/design-catch-up/change-list.md](../../proposals/design-catch-up/change-list.md). R14 D4 amends rule 74:
+a singleton takes no input.
+~~~~
+~~~~new
+(OD32-OD47, C128-C149). The user ruled on the conflicts U1-U18 in the label round of 2026-11-07, each at its
+recommended option (OD48, C150-C161):
+[../../proposals/design-catch-up/change-list.md](../../proposals/design-catch-up/change-list.md). R14 D4 amends rule 74:
+a singleton takes no input.
+~~~~
+
+### E72 Rule 25: no Flow timeout stands (U1 B)
+
+~~~~current
+25. **No Flow timeout and no Flow retry, of a session or a call** (amended, S15).
+~~~~
+~~~~new
+25. **No Flow timeout and no Flow retry, of a session or a call** (amended, S15; decided, U1 B, OD48: the user
+    overturned their remark of 2026-11-01, "rule 25 is cancelled, timeouts return", so the prototype's `timeout` and
+    `TimedOut` (D8) are not taken; a call's deadline is its commit's Effect,
+    `Effect.timeoutOrElse(..., () => Outcome.unknown(...))`, 2.7.6).
+~~~~
+
+### E73 Rule 43 and 2.7.13: a key-less member names its ending's own Attempt only (U2; D22)
+
+~~~~current
+    operation alone maps, naming that ending's Attempt and, once it is resolved or released, the lane's addressable one
+    (holding policies only); under `serialize`, only in the head's own ending's handler; in a `NotSent` ending they do
+    nothing;
+~~~~
+~~~~new
+    operation alone maps, naming that ending's own Attempt only (decided, U2, OD48; D22 cut the clause "and, once it
+    is resolved or released, the lane's addressable one"); once that Attempt is resolved or released, a key-less member
+    acts as on an `Idle` lane (2.7.13); under `serialize`, only in the head's own ending's handler; in a `NotSent`
+    ending they do nothing;
+~~~~
+
+~~~~current
+**Key-less members in an ending** (decided, OD8; R5 K9; R6 M1): a key-less `retry`, `retryable` or `cancel` in a
+handler of an event its operation alone maps names **that ending's own Attempt; once that Attempt is resolved or
+released, it names the lane's addressable one**. So `[O.x.cancel, O.x.cancel]` in an unknown's handler releases the
+ending's Attempt (→ promote) and then ends the promoted, not yet invoked commit with `NotSent { Cancelled }`. In a
+**success or failure** handler of a keyed operation, the ending's Attempt is already resolved, so a key-less `cancel`
+there ends the commit that admission just promoted (R7 L2). In a `NotSent` ending there is no Attempt (rule 16),
+so a key-less member does nothing. The "then the lane's addressable one" step applies to the three holding policies
+only (R7 M2). On `serialize`, key-less `retry`, `retryable` and `cancel` stand only in a handler of the head's own
+ending; per-item stops use a keyed design (decided, OD19: Q35 A; narrows OD8 for one policy).
+~~~~
+~~~~new
+**Key-less members in an ending** (decided, OD8; R5 K9; R6 M1; narrowed by U2, OD48, D22): a key-less `retry`,
+`retryable` or `cancel` in a handler of an event its operation alone maps names **that ending's own Attempt only**.
+Once that Attempt is resolved or released, a key-less member acts as on an `Idle` lane: `[O.x.cancel, O.x.cancel]` in
+an unknown's handler releases the ending's Attempt (→ promote), and the second `cancel` does nothing, with evidence;
+the promoted commit is reached only by its key. In a **success or failure** handler of a keyed operation, the
+ending's Attempt is already resolved, so a key-less `cancel` there does nothing (R7 L2's reading and R7 M2's step are
+cut with the clause). In a `NotSent` ending there is no Attempt (rule 16), so a key-less member does nothing. On
+`serialize`, key-less `retry`, `retryable` and `cancel` stand only in a handler of the head's own ending; per-item
+stops use a keyed design (decided, OD19: Q35 A; narrows OD8 for one policy).
+~~~~
+
+### E74 Rule 44 and 2.7.13: restore delivers `W`'s `NotSent { Restored }` first, then the head's unknown (U3; D107)
+
+~~~~current
+    the parked endings in saved order; per lane in creation order and once per incarnation (a reload, or a return after an end, rule 73), a held head's `unknown { Restored }`
+    (and, on a reload, `NotSent { Restored }` for each queued commit `W`, never sent; a head is on disk only once its
+    first send's batch landed, so it restores as unknown, OD32); an `InFlight` lane's ending when it lands.
+~~~~
+~~~~new
+    the parked endings in saved order; per lane in creation order and once per incarnation (a reload, or a return
+    after an end, rule 73), on a reload `NotSent { Restored }` for each queued commit `W` first (never sent; a head is
+    on disk only once its first send's batch landed, so it restores as unknown, OD32), then a held head's
+    `unknown { Restored }`, so the hold's route is the last one (decided, U3, OD48; D107); an `InFlight` lane's ending
+    when it lands.
+~~~~
+
+~~~~current
+2. per lane, in creation order: the head's `unknown { Restored }` if the lane is `Held` (once; not if that Attempt's
+   outcome was parked, G3), then, on a reload only, each `W` entry's `NotSent { Restored }` (C2; R10 L2); a head never
+   acknowledged is not on disk (OD32);
+~~~~
+~~~~new
+2. per lane, in creation order: on a reload only, each `W` entry's `NotSent { Restored }` first (C2), then the head's
+   `unknown { Restored }` if the lane is `Held` (once; not if that Attempt's outcome was parked, G3), so the hold's
+   route is the last one and a queued press's answer cannot run over the prompt the hold needs (decided, U3, OD48;
+   D107, the trace `Go Go ack KILL`; reverses R10 L2's order); a head never acknowledged is not on disk (OD32);
+~~~~
+
+### E75 Rules 8, 46, 2.5, 2.7.7, 2.7.15, 2.7.19, 2.9.4: a lane that no longer decodes is quarantined; `orphaned` leaves v1 (U4; D20, D88)
+
+~~~~current
+A write lane whose operation
+   is gone, or whose key no longer decodes, goes to its descriptor's `orphaned` handler, outside any actor (P19); a lane
+   whose actor record no longer decodes is adopted by the fresh incarnation (rule 46).
+~~~~
+~~~~new
+A write lane whose operation
+   is gone, or whose key no longer decodes, is quarantined: it keeps its hold, is listed, and nothing runs for it
+   outside an actor (rule 46; U4, OD48); a lane whose actor record no longer decodes is adopted by the fresh
+   incarnation (rule 46).
+~~~~
+
+~~~~current
+    when the actor record no longer decodes; a lane whose operation is gone, or whose key no longer decodes, goes to
+    `orphaned` (P19). A lane record names no instance path; it carries the subject path (strings) and the releasing
+    mark (a flag), both decoding without the machine. A recorded path the placement cannot produce is adopted by key
+    equality only when the placement's last subject part is the contract's single key field, else goes to `orphaned`
+    (rule 51; 2.9.4).
+~~~~
+~~~~new
+    when the actor record no longer decodes. **A lane whose key no longer decodes is quarantined** (decided, U4,
+    OD48; D88): it keeps its id (the record's key text) and its hold; a commit of that operation whose key's
+    canonical text is that id declines `NotSent { why: "Rejected" }` and its transition runs; the record stays on
+    disk; Inspection lists it and each boot reports it; a `cancel` on that key clears it. A lane whose operation is
+    gone is kept the same way, listed and reported, until `forget` removes it (agent, OD48). Restore is per record
+    (U7). A lane record names no instance path; it carries the subject path (strings) and the releasing mark (a
+    flag), both decoding without the machine. A recorded path the placement cannot produce is quarantined the same
+    way; key-equality adoption is cut (decided, U4, OD48; D20) (rule 51; 2.9.4). `orphaned` (P19) is not in v1; its
+    text is prior art in [revisit.md](../../proposals/revisit.md).
+~~~~
+
+~~~~current
+   - `whenAbandoned` is never queued, because it is fused. `orphaned` runs on the descriptor, not in an
+     actor's mailbox (P19).
+~~~~
+~~~~new
+   - `whenAbandoned` is never queued, because it is fused.
+~~~~
+
+~~~~current
+  commit: chargeCard,                                 // classifies with Outcome where it reads the response
+  orphaned: ({ attempt, retry }) => retry(attempt),   // its operation gone across a version change (P19)
+~~~~
+~~~~new
+  commit: chargeCard,                                 // classifies with Outcome where it reads the response
+~~~~
+
+~~~~current
+- A write lane whose contract no longer has an operation, or whose key no longer decodes under the contract's key
+  Schema, goes to `orphaned` (P19).
+~~~~
+~~~~new
+- A write lane whose contract no longer has an operation, or whose key no longer decodes under the contract's key
+  Schema, is quarantined (rule 46; decided, U4, OD48; D88): its hold stays, listed, and nothing re-sends it.
+~~~~
+
+~~~~current
+Tabs on two releases see two actors. Whether an old-version record's lanes should go to `orphaned` (P19)
+  instead of staying unbound is open.
+~~~~
+~~~~new
+Tabs on two releases see two actors. An old-version record's lanes stay unbound and listed; `orphaned`
+  (P19) is not in v1 (U4, OD48).
+~~~~
+
+~~~~current
+It is adopted by key equality only when the placement's last subject part **is the contract's
+  single key field**: for `.each`, `by` names that field (FP 4.1: `by: "docId"`, `key: ["docId"]`, so a held save of `d1`
+  becomes path `["d1"]`); for `resetOn`, the reset value is that field's value. Otherwise it goes to `orphaned` (P19),
+  stated. A subjectless lane adopted by a root trait at the actor's root needs nothing (its path is `[]`).
+  Membership of bare strings has no `by`, so it does not pass the test: after FP 4.4's upgrade (a board with bare-string
+  `issueIds`), a held like from the host-only form goes to `orphaned`, stated (FP RV3 L3).
+~~~~
+~~~~new
+It is quarantined (rule 46): it keeps its hold, a commit of that operation on its key declines
+  `Rejected`, Inspection lists it, and a `cancel` on that key, from any subject path, clears it (agent, OD48).
+  Key-equality adoption (the placement's last subject part as the contract's single key field, FP 4.1) is cut
+  (decided, U4, OD48; D20): a release that moves a held write ships a handler for its old hold, as a key change does
+  (2.7.15). A subjectless lane adopted by a root trait at the actor's root needs nothing (its path is `[]`).
+~~~~
+
+~~~~current
+- A version that removes the fragment's operation sends the lane to `orphaned` (P19).
+~~~~
+~~~~new
+- A version that removes the fragment's operation leaves the lane quarantined (rule 46).
+~~~~
+
+~~~~current
+`keys` on keyed schedules (key records); `orphaned`; `.history`
+~~~~
+~~~~new
+`keys` on keyed schedules (key records); `.history`
+~~~~
+
+~~~~current
+Attempts survive a version change through `orphaned`, at least once (P19).
+~~~~
+~~~~new
+A lane across a version change is adopted, an old-version hold, or quarantined, never dropped (rule 46, 2.7.15; U4).
+~~~~
+
+~~~~current
+| P19 | Persistence O5 | A write lane whose operation is gone,
+~~~~
+~~~~new
+| P19 | Persistence O5 | **Cut from v1 by C152 (U4, OD48); prior art in `revisit.md`.** Was: A write lane whose operation is gone,
+~~~~
+
+~~~~current
+  or `Fake.storage.seed(records)` (2.10.10), which matter more now that `orphaned` makes version changes first-class
+  (durable R8).
+~~~~
+~~~~new
+  or `Fake.storage.seed(records)` (2.10.10), which matter more now that versions are first-class (old-version holds,
+  quarantined lanes; durable R8).
+~~~~
+
+~~~~current
+16. **`orphaned`'s `retry(attempt)`** (P19, 2.7.7). Merge 2
+~~~~
+~~~~new
+16. ~~**`orphaned`'s `retry(attempt)`**~~ **Closed (U4, OD48):** `orphaned` is not in v1 (rule 46 quarantines such a
+    lane; prior art in [revisit.md](../../proposals/revisit.md)). Was (P19, 2.7.7): Merge 2
+~~~~
+
+### E76 Rules 21, 29, N2, 2.7.3, 2.7.6, 2.7.8, 2.7.13, 2.7.18, 2.9.3, 2.10: `concurrency: "allow"` is cut from v1 (U5; D19)
+
+~~~~current
+`cancel` and `allow` hold it for its own ending's
+    turn (`HeldThisTurn`)
+~~~~
+~~~~new
+`cancel` holds it for its own ending's
+    turn (`HeldThisTurn`)
+~~~~
+
+~~~~current
+    `outstanding` under `serialize`; `{ pending, retryCount, progress? }` under `cancel`; `{ pending, outstanding }`
+    under `allow`. `pending` is `InFlight`;
+~~~~
+~~~~new
+    `outstanding` under `serialize`; `{ pending, retryCount, progress? }` under `cancel` (`allow` is cut from v1:
+    decided, U5, OD48; D19). `pending` is `InFlight`;
+~~~~
+
+~~~~current
+(`reject`, `latest`, `allow`, `serialize`)
+~~~~
+~~~~new
+(`reject`, `latest`, `serialize`)
+~~~~
+
+~~~~current
+  `serialize` the head (OD19). Under `allow` they exist only key-less in an ending's own handler, naming that ending's
+  Attempt (OD20); elsewhere they are type errors. A call
+~~~~
+~~~~new
+  `serialize` the head (OD19); `allow`, the one policy without an addressable Attempt, is cut from v1 (U5, OD48). A call
+~~~~
+
+~~~~current
+; under `allow`, `{ pending, outstanding }` (no hold) |
+~~~~
+~~~~new
+ |
+~~~~
+
+~~~~current
+`cancel` and `allow` do not hold, so there it is not required.
+~~~~
+~~~~new
+`cancel` does not hold, so there it is not required.
+~~~~
+
+~~~~current
+lane's one Attempt is the one this state reconciles; under `allow` a key-less `retry` exists only in the ending's
+own handler, naming that ending's Attempt (rule N2).
+~~~~
+~~~~new
+lane's one Attempt is the one this state reconciles (rule N2).
+~~~~
+
+~~~~current
+| `cancel` | for its own ending's turn (`HeldThisTurn`) | none: a commit interrupts the Attempt on the wire, whose ending is then evidence | the one minted Attempt, for its own ending's turn | `{ key, pending, retryCount, progress? }` |
+| `allow` | per Attempt, for its own ending's turn | none | per Attempt, key-less in its own ending's handler (rule N2) | `{ key, pending, outstanding }` |
+~~~~
+~~~~new
+| `cancel` | for its own ending's turn (`HeldThisTurn`) | none: a commit interrupts the Attempt on the wire, whose ending is then evidence | the one minted Attempt, for its own ending's turn | `{ key, pending, retryCount, progress? }` |
+~~~~
+
+~~~~current
+`idle` exists in every mode; `retry` and `cancel` as rule N2 says.
+~~~~
+~~~~new
+`idle` exists in every mode; `retry` and `cancel` as rule N2 says. `allow` (every commit independent, nothing held)
+is cut from v1 (decided, U5, OD48; D19; prior art in [revisit.md](../../proposals/revisit.md)): a presence ping fits
+`cancel`, and a nudge is `reject` with its own key.
+~~~~
+
+~~~~current
+`W` under `serialize`, every Attempt under `allow` (which has no addressable Attempt) | MD's word (R6 L4), one meaning on both rows |
+~~~~
+~~~~new
+`W` under `serialize` | MD's word (R6 L4) |
+~~~~
+
+~~~~current
+**The two policies that do not hold** (decided, OD19; R6 M3, R7 M2).
+~~~~
+~~~~new
+**The policy that does not hold** (decided, OD19; R6 M3, R7 M2; `allow` cut, U5, OD48).
+~~~~
+
+~~~~current
+ `allow` follows this per Attempt | cannot occur |
+~~~~
+~~~~new
+ | cannot occur |
+~~~~
+
+~~~~current
+Under `cancel` and
+`allow`, an `unknown` that lands
+~~~~
+~~~~new
+Under `cancel`, an `unknown` that lands
+~~~~
+
+~~~~current
+`cancel` and `allow` rows have no `uncertain` field
+~~~~
+~~~~new
+`cancel` rows have no `uncertain` field
+~~~~
+
+~~~~current
+Under **`allow`** (OD20 F9), a lane is a set of independent Attempts, each following the `cancel` table's rows for
+itself, including invoked, storage refused, dispose, rebind and restore; its state is a count (`outstanding`), `pending` is
+`outstanding > 0`, and each Attempt has its own `HeldThisTurn` for its own ending's turn. `retry` and `cancel` exist
+only key-less in an ending's own handler (N2 stands elsewhere); the "then the lane's addressable one" step does not
+apply. Rows: `{ pending, retryCount, progress? }` under `cancel`, `{ pending, outstanding }` under `allow`; no
+`uncertain` or `waiting` (R6 L4).
+~~~~
+~~~~new
+Rows under `cancel`: `{ pending, retryCount, progress? }`; no `uncertain` or `waiting` (R6 L4). OD20 F9's `allow`, a
+lane of independent Attempts, is cut from v1 (U5, OD48; prior art in [revisit.md](../../proposals/revisit.md)).
+~~~~
+
+~~~~current
+| `cancel` | no | none | the one minted Attempt, for its own ending's turn | `HeldThisTurn` |
+| `allow` | no | none | per Attempt, in its own ending's turn | a count; `HeldThisTurn` per Attempt |
+~~~~
+~~~~new
+| `cancel` | no | none | the one minted Attempt, for its own ending's turn | `HeldThisTurn` |
+~~~~
+
+~~~~current
+uses `cancel`, `allow` or `serialize`
+~~~~
+~~~~new
+uses `cancel` or `serialize`
+~~~~
+
+~~~~current
+`cancel` and `allow` with Runtime disposal
+~~~~
+~~~~new
+`cancel` with Runtime disposal
+~~~~
+
+~~~~current
+photos 4–20); `allow` neither throttles nor holds. A throttle
+~~~~
+~~~~new
+photos 4–20). A throttle
+~~~~
+
+~~~~current
+under `cancel` and `allow`
+  an ignored unknown goes to `Idle` at once.
+~~~~
+~~~~new
+under `cancel`
+  an ignored unknown goes to `Idle` at once.
+~~~~
+
+~~~~current
+**Under `cancel` and `allow`** (FP RV3 L4): a lane in `HeldThisTurn` or `Held (parked)` is released at marking, as
+`Held` is; under `allow` the rows apply per Attempt.
+~~~~
+~~~~new
+**Under `cancel`** (FP RV3 L4): a lane in `HeldThisTurn` or `Held (parked)` is released at marking, as
+`Held` is.
+~~~~
+
+~~~~current
+A parked lane under `cancel` or `allow` is listed
+~~~~
+~~~~new
+A parked lane under `cancel` is listed
+~~~~
+
+~~~~current
+The `cancel`/`allow` table adds
+~~~~
+~~~~new
+The `cancel` table adds
+~~~~
+
+~~~~current
+Type errors: `retry`, `retryable`, a row's `retryCount` or `progress` under `allow` outside an ending's own handler (rule N2); a key-less
+~~~~
+~~~~new
+Type errors (those under `allow` cut by C153): a key-less
+~~~~
+
+### E77 Rules 12, 20, 22, 30, 2.7.1, 2.7.20, 2.8.6: values that cannot be encoded (U6; D89, D100, D108, D114, D139)
+
+~~~~current
+    - **Input forms** (agent, OD46). `flow check` names each input field whose decoded form cannot be carried
+      (`InputFieldForm` [P], a warning). What a value with no form does, and its name, wait for U6.
+~~~~
+~~~~new
+    - **Values with no form** (decided, U6, OD48; D89, D100, D108, D114, D139). A `Symbol`, function, `Map` or `Set`
+      where a value must be carried is `UnencodableValue`. Encoding never fails a turn: memory that cannot encode
+      skips that capture batch and keeps the last good one, named `UnencodableValue` (Persistence O5); a commit whose
+      input or key cannot encode declines `NotSent { why: "Unencodable" }`, its transition runs, and its mapper
+      receives the value the turn asked to send; a lookup whose input or key cannot encode ends `failure` as
+      `Defect`; a guard key that cannot encode denies that alternative (`Unencodable`), and a later alternative may
+      match; a module value that cannot encode is dropped with `UnencodableValue`, and the module's member does not
+      run.
+    - **Input forms** (agent, OD46). `flow check` names each input field whose decoded form cannot be carried
+      (`InputFieldForm`, a warning; the name accepted, U18).
+~~~~
+
+~~~~current
+or for a domain write (`Overloaded`, rule 35), or on a placement
+~~~~
+~~~~new
+or for a domain write (`Overloaded`, rule 35), or where its input or key Schema admits a value with no form (`Unencodable`, rule 12; agent, OD48), or on a placement
+~~~~
+
+~~~~current
+so a failing select or an invalid duration rejects the turn (`InvalidTurn`).
+~~~~
+~~~~new
+so a failing select or an invalid duration rejects the turn (`InvalidTurn`). A value that cannot be encoded is not
+    a failing select and never rejects a turn (rule 12's values with no form; U6).
+~~~~
+
+~~~~current
+    `Disposed`, `NoPersistence`, `OldVersion`) and evidence
+~~~~
+~~~~new
+    `Disposed`, `NoPersistence`, `OldVersion`, `Unencodable`) and evidence
+~~~~
+
+~~~~current
+`OldVersion` (the operation holds an old-version lane for that actor, 2.7.15; OD39) |
+~~~~
+~~~~new
+`OldVersion` (the operation holds an old-version lane for that actor, 2.7.15; OD39), `Unencodable` (the commit's input or key cannot be encoded; its mapper receives the value, rule 12; U6, OD48) |
+~~~~
+
+~~~~current
+`NotSent { Cancelled | Rejected | Restored | StorageRefused | Disposed }`
+~~~~
+~~~~new
+`NotSent { Cancelled | Rejected | Restored | StorageRefused | Disposed | NoPersistence | OldVersion | Unencodable }`
+~~~~
+
+~~~~current
+  the turn that committed it (rule 44; OD32). A hidden page writes at once, backoff apart.
+~~~~
+~~~~new
+  the turn that committed it (rule 44; OD32). A hidden page writes at once, backoff apart. Memory that cannot encode
+  skips its batch, keeps the last good one and is named `UnencodableValue` (rule 12; U6).
+~~~~
+
+### E78 2.10.17.6 and 2.7.17: sends before the Runtime is ready queue until boot (U8; D87)
+
+~~~~current
+While a restore read is held, the tab has not finished bootstrap:
+its persisted actors are absent, and a send to one is `ActorAbsent`. Refused, the tab reports `StorageFailure` and runs
+without persistence (Persistence O5).
+~~~~
+~~~~new
+While a restore read is held, the tab has not finished bootstrap,
+and a send to one of its persisted actors queues until boot, within Persistence O5's bound (decided, U8, OD48; D87).
+Refused, or unanswered past the boot bound (10 s, internal), the tab reports `StorageFailure`, runs without
+persistence (Persistence O5) and flushes the queue; a late answer is ignored, so unread data is never overwritten.
+~~~~
+
+~~~~current
+| being disposed by `disposeActor` | dropped, `NoRecord` (Runtime O4) |
+~~~~
+~~~~new
+| persisted, the Runtime still booting (its restore read not answered) | queued until boot, within Persistence O5's bound; past the boot bound or on a failed read, `StorageFailure`, the Runtime runs without persistence and flushes the queue (U8, OD48; 2.10.17.6) |
+| being disposed by `disposeActor` | dropped, `NoRecord` (Runtime O4) |
+~~~~
+
+### E79 2.2.2: creation checks input by its type side (U9; D219) and defaults are pure (U12 B)
+
+~~~~current
+- **Creation is pure and happens once per incarnation:** decode the input with the derived `Input`
+  schema, copy the input fields,
+~~~~
+~~~~new
+- **Creation is pure and happens once per incarnation:** check a present input by the derived `Input`
+  schema's type side, with no transforming decode (decided, U9, OD48; D219: the creator hands an in-process value,
+  not its JSON, so a `NumberFromString` field given `"3"` is refused), copy the input fields,
+~~~~
+
+~~~~current
+them. A default is evaluated for each actor at each door, never computed once and shared (round 13's H1). At
+~~~~
+~~~~new
+them. A default is evaluated for each actor at each door, never computed once and shared (round 13's H1). **A
+  default is pure** (decided, U12 B, OD48): a default that is an Effect to run rather than a plain value
+  (`withConstructorDefault(Effect.sync(() => new Date()))`, a `randomUUID()` per call) is a construction error; a time
+  or an id comes from an event or the Runtime's mint. At
+~~~~
+
+### E80 2.7.1 and 2.7.13: Runtime disposal past its bound ends `unknown { Disposed }` (U13)
+
+~~~~current
+| `StorageRefused` | unknown | a re-send's lane-record capture failed before invocation (2.7.13) |
+~~~~
+~~~~new
+| `StorageRefused` | unknown | a re-send's lane-record capture failed before invocation (2.7.13) |
+| `Disposed` | unknown | the Runtime was disposed and the call had not settled within Runtime O6's bound (2.7.13; U13, OD48) |
+~~~~
+
+~~~~current
+On the wire: Runtime O6 (settles within its bound, else unknown);
+~~~~
+~~~~new
+On the wire: Runtime O6: within its bound it settles (saved as below); past the bound it ends `unknown { Disposed }` (decided, U13, OD48);
+~~~~
+
+~~~~current
+An Attempt on the wire follows Runtime O6 (it settles within the bound, or not).
+~~~~
+~~~~new
+An Attempt on the wire follows Runtime O6: within the bound it settles, and past it it ends `unknown { Disposed }` (U13).
+~~~~
+
+~~~~current
+`Restored`, `Interrupted`, `Defect`, `StillUnknown`, `StorageRefused`) are optional in the type
+~~~~
+~~~~new
+`Restored`, `Interrupted`, `Defect`, `StillUnknown`, `StorageRefused`, `Disposed`) are optional in the type
+~~~~
+
+### E81 2.7.13 and 2.7.20: `disposeActor` flushes its removal; an unbound lane record's end (U14)
+
+~~~~current
+`disposeActor` removes the actor's record and keeps its non-`Idle` lanes as unbound lanes; `forget` removes both.
+~~~~
+~~~~new
+`disposeActor` removes the actor's record and keeps its non-`Idle` lanes as unbound lanes; `forget` removes both.
+The removal is flushed at once, as a lane batch is (decided, U14, OD48; D93), so a crash cannot bring the record
+back. An unbound lane record left by `disposeActor` ends when an ensure of the identity adopts it or `forget` removes
+it; until then Inspection lists it as unbound under the identity, and each boot reports it, as `OldVersionLane` does
+for an old-version hold.
+~~~~
+
+~~~~current
+A batch that touches a lane or a send is written at once,
+~~~~
+~~~~new
+A batch that touches a lane or a send, or a `disposeActor` removal (U14), is written at once,
+~~~~
+
+### E82 Rule 74, 2.2, 2.7.17, 2.7.19, 2.10.18: `persist` is the machine's, declared in its definition (U15 B)
+
+~~~~current
+    - Two refs of one identity with different `persist` or `context` are `ConflictingActorRef` at ensure [P]; one
+      machine in both forms cannot be written (R14 D4).
+~~~~
+~~~~new
+    - **Persistence is the machine's** (decided, U15 B, OD48): `definition({ id, persist: true, … })`, beside `id`,
+      which names the machine in every saved record; refs carry no `persist`, so every ref of an identity agrees by
+      construction. The definition is the place because it holds the machine's declarations (`context` is there too,
+      and fragments may declare neither), `machine()` takes no options, and the persisted-value type rule reads the
+      definition's memory (Persistence O2). A local actor of a persisted machine is not persisted (Persistence O2).
+      Two refs of one identity with different `context` are `ConflictingActorRef` at ensure [P]; one machine in both
+      forms cannot be written (R14 D4).
+~~~~
+
+~~~~current
+Fragments may not declare `context`, `onContext`, `send` or persistence.
+~~~~
+~~~~new
+Fragments may not declare `context`, `onContext`, `send` or `persist` (a definition's, rule 74).
+~~~~
+
+~~~~current
+actorRef(EditorMachine, ticket, { persist: true });   // dropped: retain
+~~~~
+~~~~new
+actorRef(EditorMachine, ticket);                       // dropped: retain; `persist: true` is Editor's definition's (rule 74)
+~~~~
+
+~~~~current
+actorRef(EditorMachine, ticket, { persist: true });     // new meaning: a value carrying the input fields
+useActorByRef(editorRef(ticket), {});                   // `{}` selects ensure (React O2); no input
+actorRef(SessionMachine, "coordinator", { persist: true });   // a singleton: a literal name, no input (R14 D4)
+~~~~
+~~~~new
+export const Editor = definition({ id: "Editor", persist: true, /* … */ });   // NEW: persist on the definition (U15)
+actorRef(EditorMachine, ticket);                        // new meaning: a value carrying the input fields; no persist
+useActorByRef(editorRef(ticket), {});                   // `{}` selects ensure (React O2); no input
+actorRef(SessionMachine, "coordinator");   // a singleton: a literal name, no input (R14 D4); Session's definition persists
+~~~~
+
+~~~~current
+- **Where non-naming data goes.**
+~~~~
+~~~~new
+- **Persistence.** `persist` is a property of the machine, on its definition (rule 74; U15 B), so two refs of one
+  identity cannot disagree about it; a ref's options keep only `context`.
+- **Where non-naming data goes.**
+~~~~
+
+~~~~current
+Checkout1 = actorRef(CheckoutMachine, { intentId: "pi_1" }, { persist: true })
+~~~~
+~~~~new
+Checkout1 = actorRef(CheckoutMachine, { intentId: "pi_1" }), whose definition persists
+~~~~
+
+~~~~current
+a machine with no persisted ref, or a local one, the message says "lost if the screen leaves first: persist the
+  ref, commit on close, or lift the actor's use"
+~~~~
+~~~~new
+a machine that does not persist, or a local actor, the message says "lost if the screen leaves first: persist the
+  machine, commit on close, or lift the actor's use"
+~~~~
+
+### E83 Rule 24 and 2.7.20: storage waits have no bound (U16 A); the U16 marks go
+
+~~~~current
+an acknowledged Attempt may restore as unknown. Stated limit: nothing bounds that wait, so on a disk that never
+    answers the cancel never takes effect; `StorageSilent` [P] names it after 10 s (2.7.20) and decides nothing
+    (whether a wait on storage is bounded is U16, the user's).
+~~~~
+~~~~new
+an acknowledged Attempt may restore as unknown. Stated limit (decided, U16 A, OD48): nothing bounds that wait, so
+    on a disk that never answers the cancel never takes effect; `StorageSilent` names it after 10 s (2.7.20) and
+    decides nothing.
+~~~~
+
+~~~~current
+(D94; its unbounded wait is U16)
+~~~~
+~~~~new
+(D94; its wait is unbounded, a stated limit below; U16 A)
+~~~~
+
+~~~~current
+- **Silent storage** (D30; whether a wait on storage is bounded is U16, the user's). A write the disk has not answered is pending, never "not sent": no ending is invented
+  for it, and evidence `StorageSilent` [P] names it after 10 s.
+~~~~
+~~~~new
+- **Silent storage** (D30; decided, U16 A, OD48: storage waits have no bound). A write the disk has not answered is
+  pending, never "not sent": no ending is invented for it, and evidence `StorageSilent` names it after 10 s and
+  decides nothing.
+~~~~
+
+~~~~current
+Nothing
+  bounds a wait on storage (U16):
+~~~~
+~~~~new
+Nothing
+  bounds a wait on storage (decided, U16 A, OD48):
+~~~~
+
+~~~~current
+silent storage pending (`StorageSilent` [P]; unbounded, U16),
+~~~~
+~~~~new
+silent storage pending (`StorageSilent`; unbounded, a stated limit, U16 A),
+~~~~
+
+~~~~current
+the wait is unbounded, a stated limit (U16) | Adds |
+~~~~
+~~~~new
+the wait is unbounded, a stated limit (U16 A, OD48) | Adds |
+~~~~
+
+~~~~current
+  write's wait (D94) leave waits on storage unbounded, which is U16, the user's. (2026-11-07)
+~~~~
+~~~~new
+  write's wait (D94) leave waits on storage unbounded, a stated limit the user accepted (U16 A, OD48). (2026-11-07)
+~~~~
+
+### E84 Rule 74 and 2.7.15: a version compares the type side and the encoded side (U17 B; amends Q1 A)
+
+~~~~current
+field's encoded Schema, is a new version. Whether a type-side change with the same encoding (`Schema.String` to
+      `Schema.NumberFromString`, both strings) is one is open: U17, the user's.
+~~~~
+~~~~new
+field's Schema on its type side or its encoded side (compared structurally, ignoring annotations), is a new
+      version: `Schema.String` to `Schema.NumberFromString` is one, though both encode to strings, and a brand or a
+      description is not (decided, U17 B, OD48).
+~~~~
+
+~~~~current
+the field names and each key field's encoded JSON Schema, compared structurally, ignoring annotations
+  (so a branded `Schema.String` keeps the version, and `Schema.String` to `Schema.Number` under one name does not;
+  Q1 A; a type-side change with the same encoding, `Schema.String` to `Schema.NumberFromString`, is open, U17).
+~~~~
+~~~~new
+the field names and each key field's Schema, its type side and its encoded side, compared structurally,
+  ignoring annotations (so a branded or described `Schema.String` keeps the version, and `Schema.String` to
+  `Schema.Number`, or to `Schema.NumberFromString`, under one name does not; Q1 A, amended by U17 B, OD48: Q1 A
+  compared the encoded side only).
+~~~~
+
+~~~~current
+  reached through `previous: [{ key }]`; the `within` narrowing is cut (rule 39, 2.7.15). (2026-11-07)
+~~~~
+~~~~new
+  reached through `previous: [{ key }]`; the `within` narrowing is cut (rule 39, 2.7.15). (2026-11-07) *Amended by
+  OD48 (U17 B): the fingerprint compares each key field's type side and encoded side, ignoring annotations.*
+~~~~
+
+### E85 2.2.2, rules 12, 13 and the plan rows: the proposed names are accepted (U18)
+
+~~~~current
+(`RestoreMissingInput` [P]), which then quarantines it.
+~~~~
+~~~~new
+(`RestoreMissingInput`), which then quarantines it.
+~~~~
+
+~~~~current
+(`ReservedStateName` [P]; agent, OD46)
+~~~~
+~~~~new
+(`ReservedStateName`; agent, OD46; the name accepted, U18)
+~~~~
+
+~~~~current
+restore of a field the record lacks (`RestoreMissingInput` [P]) (2.2.2; OD40) | Adds |
+~~~~
+~~~~new
+restore of a field the record lacks (`RestoreMissingInput`) (2.2.2; OD40); defaults are pure (C157) | Adds |
+~~~~
+
+~~~~current
+| `ReservedStateName` [P], `InputFieldForm` [P] (OD46; names U18), `UnknownNotUncertain` (OD47) (rules 12, 13); `UnencodableValue` waits with U6 | Adds |
+~~~~
+~~~~new
+| `ReservedStateName`, `InputFieldForm` (OD46; names accepted, U18, OD48), `UnknownNotUncertain` (OD47), `UnencodableValue` (U6, U18, OD48) (rules 12, 13) | Adds |
+~~~~
+
+~~~~current
+  `RestoreMissingInput` [P] (their spelling is U18, the user's)
+~~~~
+~~~~new
+  `RestoreMissingInput` (their spelling accepted by the user, U18, OD48)
+~~~~
+
+~~~~current
+(rule 24; its unbounded wait
+  is U16)
+~~~~
+~~~~new
+(rule 24; its unbounded wait
+  is a stated limit, U16 A, OD48)
+~~~~
+
+~~~~current
+and the names the user accepted to OD47. Reversible by
+~~~~
+~~~~new
+and the names the user accepted to OD47; the user ruled every one of them in OD48. Reversible by
+~~~~
+
+### E86 Rule 32, 2.8 and 2.8.6: rule 32 follows Q7 A in phase 1 (U10); the entity store waits for phase 1 (U11)
+
+~~~~current
+    not collected while it may still be changed by a lost request.
+~~~~
+~~~~new
+    not collected while it may still be changed by a lost request. **Decided, to be written into this rule and 2.8.6
+    in phase 1 with the entity store** (U10, OD48; FOR-ARPIT call 7, Q7 A): a later success cannot clear a mark, nor
+    can time; after give-up a mark is `uncertain` until the next read, then `unconfirmed`, quiet, until proof; OD28
+    P1's release is what moves a mark from `uncertain` to `unconfirmed`. Until phase 1 rewrites them, the sentences
+    above that let a later write's success clear a mark are superseded.
+~~~~
+
+~~~~current
+(EDP:6, EDP:62-64). A test reads the store with `cp.entity`, and its queues and marks in `cp.inspection` (2.10.8).
+~~~~
+~~~~new
+(EDP:6, EDP:62-64). A test reads the store with `cp.entity`, and its queues and marks in `cp.inspection` (2.10.8).
+
+**Deferred to phase 1** (decided, U11, OD48): the prototype's entity-store decisions (D3, D12, D15, D18, D39, D40,
+D49's record half, D47 to D76's judge) are settled when phase 1 builds `round-9/entity-proposal-2.md`. D3's price (a
+person who has not pressed can stall another actor's writes to one record, made visible as evidence) is a guarantee
+and comes back to the user there. A module's defect (D46) is settled there too (U7).
+~~~~
+
+~~~~current
+#### 2.8.6 Unknown, retry and uncertain (E2, E3, E7, E8)
+~~~~
+~~~~new
+#### 2.8.6 Unknown, retry and uncertain (E2, E3, E7, E8)
+
+**Phase 1** (U10, U11; OD48): what clears `uncertain` is FOR-ARPIT Q7 A (rule 32's last sentences), written here with
+the entity store; where this section lets a later write's success clear a mark, it is superseded until then.
+~~~~
+
+### E87 Decision log: OD40 closed, OD48 added
+
+~~~~current
+restore, `TwoDefaults` from the Schema's structure, evaluated per actor at each door (2.2.2). Whether a default
+  may read a clock is open, U12. (2026-11-07)
+~~~~
+~~~~new
+restore, `TwoDefaults` from the Schema's structure, evaluated per actor at each door (2.2.2). A default may not
+  read a clock or randomness: an Effect-valued default is a construction error (U12 B, OD48). (2026-11-07)
+~~~~
+
+~~~~current
+  (FOR-ARPIT section 4) and `TurnStorm` and `AsksForever` (call 5, D122). (2026-11-07)
+~~~~
+~~~~new
+  (FOR-ARPIT section 4) and `TurnStorm` and `AsksForever` (call 5, D122). (2026-11-07)
+- **OD48** The user, 2026-11-07, the design catch-up's label round (the Claude Code session): every user-judged
+  conflict, U1-U18 in [change-list.md](../../proposals/design-catch-up/change-list.md), accepted at its recommended
+  option. **U1 B**: no Flow timeout; a call's deadline is its commit's Effect
+  (`Effect.timeoutOrElse(..., () => Outcome.unknown(...))`). The user overturned their remark of 2026-11-01 ("rule 25
+  is cancelled, timeouts return"); rule 25 stands and the prototype's D8 is not taken. **U2**: a key-less member names
+  only its ending's own Attempt; rule 43's second clause is cut (D22; amends OD8). **U3**: restore delivers, per lane,
+  each queued commit's `NotSent { Restored }` first, then the head's `unknown` (D107; rule 44, 2.7.13; reverses R10
+  L2's order). **U4**: a lane whose key no longer decodes is quarantined: it keeps its id and its hold, a commit on it
+  declines `Rejected`, the record stays, `cancel` on that key clears it (D88); key-equality adoption is cut (D20);
+  `orphaned` (P19) moves to `revisit.md` (rules 8, 46, 2.7.15, 2.9.4). **U5**: `concurrency: "allow"` is cut from v1
+  everywhere, its text prior art in `revisit.md` (D19; amends OD20 F9; rules 21, 29, N2, 2.7.8, 2.7.13). **U6**:
+  encoding never fails a turn; memory that cannot encode skips its capture batch, named `UnencodableValue`; a commit
+  whose input or key cannot encode declines `NotSent { Unencodable }`, a new Flow reason, with the value kept for its
+  mapper; a lookup ends `Defect`; a guard key denies; a module value is dropped (D89, D100, D108, D114, D139; rule 12).
+  **U7**: a module's defect is settled in phase 1 with the entity store; restore is per record now (D46; rule 46).
+  **U8**: sends before the Runtime is ready queue until boot, within Persistence O5's bound; past the boot bound or on
+  a failed read, `StorageFailure`, the Runtime runs without persistence and flushes the queue (D87; 2.10.17.6,
+  2.7.17). **U9**: creation checks a present input by its Schema's type side and runs no transforming decode (D219;
+  2.2.2). **U10**: rule 32 follows FOR-ARPIT Q7 A (a later success cannot clear a mark, nor can time; after give-up
+  `uncertain` until the next read, then `unconfirmed`, quiet, until proof), keeping OD28 P1's release as what moves a
+  mark from `uncertain` to `unconfirmed`; written into rule 32 and 2.8.6 in phase 1 with the entity store. **U11**:
+  the entity-store decisions are deferred to phase 1 (2.8). **U12 B**: memory defaults are pure; an Effect-valued
+  default is a construction error; a time or an id comes from an event or the Runtime's mint; E10's per-actor
+  evaluation stays (2.2.2; closes OD40's open point). **U13**: Runtime disposal past its bound ends the Attempt
+  `unknown { Disposed }`; within the bound it settles and is parked (2.7.1, 2.7.13). **U14**: `disposeActor` flushes
+  its removal at once; an unbound lane record left after it ends when an ensure of the identity adopts it or `forget`
+  removes it, and until then Inspection lists it as unbound under the identity and each boot reports it (2.7.13,
+  2.7.20). **U15 B**: `persist` is a property of the machine, declared on its definition (`definition({ id, persist:
+  true, … })`), and refs lose it; `ConflictingActorRef` remains for `context` only (rule 74, 2.7.17, 2.7.19). **U16
+  A**: storage waits have no bound; `StorageSilent` names a write unanswered after 10 s and decides nothing; the limit
+  is stated in rule 24 and 2.7.20. **U17 B**: an actor version and an operation key's fingerprint compare the type
+  side and the encoded side, ignoring annotations (a transformation change is a new version; a brand or description
+  is not); this amends FOR-ARPIT Q1 A (OD39), which compared the encoded side only (rule 74, 2.7.15). **U18**:
+  `ReservedStateName`, `InputFieldForm`, `StorageSilent`, `RestoreMissingInput` and `UnencodableValue` are accepted
+  public names. Agent calls made in applying them (the builder of pass 3): a lane whose operation is gone is kept
+  like a quarantined lane until `forget`; a quarantined lane's `cancel` may come from any subject path; `Unencodable`
+  must be mapped where an input or key Schema admits a value with no form; `persist` sits on the definition. Plan rows
+  C150-C161. (2026-11-07)
+~~~~
+
+### E88 Plan rows C150-C161
+
+~~~~current
+| C149 | Runtime O4 | Follow-ups are bounded at 64 per admitted event; past it the turn is refused `InvalidTurn` naming the chain (2.5 step 1; D13, D35; OD46) | Adds |
+~~~~
+~~~~new
+| C149 | Runtime O4 | Follow-ups are bounded at 64 per admitted event; past it the turn is refused `InvalidTurn` naming the chain (2.5 step 1; D13, D35; OD46) | Adds |
+| C150 | Operations O3 | A key-less `retry`, `retryable` or `cancel` in an ending's handler names that ending's own Attempt only; once it is resolved or released, a key-less member acts as on an `Idle` lane (rule 43, 2.7.13; U2, OD48) | Amends C33's lane table (rule 43's "and, once it is resolved or released, the lane's addressable one" is cut); no Operations plan sentence names it |
+| C151 | Persistence O4 | On a reload, per lane in creation order, each queued commit's `NotSent { Restored }` first, then a `Held` head's `unknown { Restored }` (rule 44; U3, OD48) | Amends C46's "a `Held` head's `unknown { Restored }` … and, on reload, `W`'s `NotSent { Restored }`" (the order is reversed) |
+| C152 | Persistence O5 | A lane whose key no longer decodes, whose operation is gone, or whose recorded path the placement cannot produce is quarantined: it keeps its id and hold, a commit on its key declines `Rejected`, the record stays, Inspection lists it and each boot reports it, and `cancel` on that key (or, with no operation, `forget`) clears it; no key-equality adoption; no `orphaned` (rule 46, 2.7.15, 2.9.4; U4, OD48) | Replaces P19 ("after ready it goes to its descriptor's `orphaned` handler (which may `retry` or invalidate), or else surfaces as an issue") and C62's "adopts by key equality only when its last part is the contract's single key field, else `orphaned`" |
+| C153 | Operations O1, O3, CommandLine O5 | `concurrency` is `reject`, `latest`, `cancel` or `serialize`; `allow` is cut from v1 (rules 21, 29, N2; U5, OD48) | Replaces Operations O1's "concurrency is required and is reject, cancel, allow or serialize" and Operations O3's "allow starts every commit independently and delivers every outcome in settlement order"; removes C18's type errors "under `allow` outside an ending's own handler" |
+| C154 | Operations O3, Persistence O5, Diagnostics | Encoding never fails a turn: memory skips its capture batch (`UnencodableValue`); a commit whose input or key cannot encode declines `NotSent { Unencodable }` with the value kept for its mapper; a lookup ends `Defect`; a guard key denies `Unencodable`; a module value is dropped (rule 12; U6, OD48) | Replaces Operations O3's "unencodable input rejects admission before work starts"; adds `Unencodable` to C2's reasons and `UnencodableValue` to Persistence O5's "the whole write is skipped with the codec's code" |
+| C155 | Runtime O4, Persistence O5 | A send to a persisted actor before boot queues until boot, within O5's bound; past the boot bound or on a failed read, `StorageFailure`, no persistence, the queue flushed, a late answer ignored (2.10.17.6, 2.7.17; U8, OD48) | Adds to Persistence O5's "A storage read failure reports StorageFailure and disables persistence for that Runtime"; replaces 2.10.17.6's `ActorAbsent` for such a send |
+| C156 | Machines O1 | Creation checks a present input by its Schema's type side; no transforming decode (2.2.2; U9, OD48) | Adds to Machines O1's input rule; no plan sentence says "decode" |
+| C157 | Machines O1, Diagnostics | A memory default is pure: an Effect-valued default is a construction error; a time or an id comes from an event or the Runtime's mint (2.2.2; U12 B, OD48) | Keeps Machines O1's "initial is pure: it reads no clock or randomness"; amends C137 |
+| C158 | Runtime O6, Operations O3 | Runtime disposal: a call that settles within the bound is parked; past it the Attempt ends `unknown { Disposed }` (2.7.1, 2.7.13; U13, OD48) | Replaces Runtime O6's "after 5 seconds a commit still in flight becomes unknown with its Attempt" (now `unknown { Disposed }`); adds `Disposed` to C2's unknowns |
+| C159 | Runtime O6, Persistence O3, Inspection O1 | `disposeActor` flushes its removal at once; an unbound lane record it leaves ends at an adopting ensure or `forget`, listed as unbound under the identity and reported at each boot until then (2.7.13, 2.7.20; U14, OD48) | Adds to Runtime O6's "runtime.disposeActor(actor) disposes the actor for every user"; amends C45 |
+| C160 | Persistence O2, Runtime O3, Machines O1 | `persist` is a property of the machine, on its definition (`definition({ id, persist: true, … })`); refs carry no `persist`; `ConflictingActorRef` for `context` only (rule 74; U15 B, OD48) | Replaces Persistence O2's "actorRef(machine, id, { persist: true }) selects a stable shared actor" (C120's `actorRef(machine, nameOrValue, { persist: true })`) and Runtime O3's "different persist, retain or context" (C104, C144: `persist` and `context`); amends C104, C120, C144 |
+| C161 | Runtime O3, Operations O1, Persistence O5 | An actor version and an operation key's fingerprint compare each field's type side and encoded side, ignoring annotations (rule 74, 2.7.15; U17 B, OD48) | Amends C135's fingerprint ("each key field's encoded JSON Schema") and C120's O5 version rule; amends FOR-ARPIT Q1 A |
+~~~~
+
+### E89 Rulings with no plan row (no MD block)
+
+U1 keeps the design (no plan sentence names a Flow timeout); U7, U10 and U11 are phase 1's; U16 and U18 amend C131,
+C137, C145 and C146 in place (E83, E85). So they add no plan row.
+
+### E90 Earlier plan rows point at the rows that amend them (C2, C33, C46, C62, C104, C120, C135, C144)
+
+Added after the sweep for stale terms; applied by `apply3.py` restricted to E90.
+
+~~~~current
+`interrupt` and `defect` stop being outcome keys. Flow has no timeout reason | Replaces the `reject` and "ends it as interrupt" sentences |
+~~~~
+~~~~new
+`interrupt` and `defect` stop being outcome keys. Flow has no timeout reason | Replaces the `reject` and "ends it as interrupt" sentences; amended by C154 (`NotSent { Unencodable }`) and C158 (`unknown { Disposed }`) |
+~~~~
+
+~~~~current
+| Replaces C8 and Operations O3's disposal sentences; amended by C68 (operations in fragments) |
+~~~~
+~~~~new
+| Replaces C8 and Operations O3's disposal sentences; amended by C68 (operations in fragments) and C150 (key-less members) |
+~~~~
+
+~~~~current
+| Replaces "restore resumes in the saved leaf and delivers saved outcomes"; amended by C62 (operations in fragments) |
+~~~~
+~~~~new
+| Replaces "restore resumes in the saved leaf and delivers saved outcomes"; amended by C62 (operations in fragments) and C151 (the order within a lane) |
+~~~~
+
+~~~~current
+(rules 46, 51; P19 gains the case) | Amends C46, C47, P19 |
+~~~~
+~~~~new
+(rules 46, 51; P19 gains the case) | Amends C46, C47, P19; amended by C152 (no key-equality adoption, no `orphaned`) |
+~~~~
+
+~~~~current
+from "different persist, retain or context" (C117 rewrites the rest) |
+~~~~
+~~~~new
+from "different persist, retain or context" (C117 rewrites the rest); amended by C160 (`persist` on the definition) |
+~~~~
+
+~~~~current
+ignores fresh input"; adds to O5's version-change paragraph |
+~~~~
+~~~~new
+ignores fresh input"; adds to O5's version-change paragraph; amended by C160 (O2: `persist` on the definition) and C161 (versions) |
+~~~~
+
+~~~~current
+(now no `ensure(ref)` takes input) |
+~~~~
+~~~~new
+(now no `ensure(ref)` takes input); amended by C160 (`ConflictingActorRef` for `context` only) |
+~~~~
+
+~~~~current
+| Replaces 2.7.15's "Changing a contract's key fields is therefore a persistence break"; adds to C2's reasons |
+~~~~
+~~~~new
+| Replaces 2.7.15's "Changing a contract's key fields is therefore a persistence break"; adds to C2's reasons; amended by C161 (type and encoded side) |
+~~~~
+
+## User-judged conflicts (ruled by the user, 2026-11-07, each at its recommendation; applied in pass 3)
+
+Each: the question, both texts, the recommendation and why, and how reversible it is. The user ruled on all of them in the label round of 2026-11-07, each at its recommendation (OD48); pass 3 (E71-E89) applied them, and each item says where. "Design" quotes MD; "Prototype"
 quotes the decision record.
 
-**U1. Operation timeouts (rule 25; D8).**
+**U1. Operation timeouts (rule 25; D8).** **Ruled: B, 2026-11-07** (E72; OD48).
 - Design (rule 25, and 2.7.17 from OD31): "No Flow timeout and no Flow retry, of a session or a call"; "a transport
   deadline belongs inside the commit (`Effect.timeoutOrElse`, 2.7.6)".
 - Prototype (D8): "`timeout` on operations, per send. Write: `unknown { TimedOut }` at the timer, then interrupt. Read:
@@ -1107,14 +2074,14 @@ quotes the decision record.
   their own remark of 2026-11-01 ("rule 25 is cancelled, timeouts return").** Reversible: easy either way before
   phase 4.
 
-**U2. Key-less members (rule 43; D22).**
+**U2. Key-less members (rule 43; D22).** **Ruled: the prototype (D22), 2026-11-07** (E73; OD48).
 - Design: a key-less member names "that ending's Attempt and, once it is resolved or released, the lane's addressable
   one (holding policies only)".
 - Prototype (D22): "Key-less members name the ending's own Attempt only (rule 43's second clause cut)."
 - **Recommendation: the prototype**: one meaning, proven by the suite since round 1; the second clause reaches an
   Attempt the handler never saw. Reversible: cheap now, a type-level change after phase 4.
 
-**U3. Restore order within a lane (rule 44, 2.7.13; D107).**
+**U3. Restore order within a lane (rule 44, 2.7.13; D107).** **Ruled: the prototype (D107), 2026-11-07** (E74; OD48).
 - Design: per lane, "the head's `unknown { Restored }` ... then, on a reload only, each `W` entry's
   `NotSent { Restored }`".
 - Prototype (D107): "Restore delivers, per lane, `W`'s `NotSent { Restored }` first, then the head's `unknown`", so the
@@ -1122,7 +2089,7 @@ quotes the decision record.
 - **Recommendation: the prototype**, for the trace `Go Go ack KILL`. Reversible: cheap; a delivery-order guarantee, so
   the user's.
 
-**U4. A lane whose key no longer decodes, and key-equality adoption (rule 46, 2.7.15, P19; D20, D88).**
+**U4. A lane whose key no longer decodes, and key-equality adoption (rule 46, 2.7.15, P19; D20, D88).** **Ruled: the prototype, `orphaned` to revisit.md, 2026-11-07** (E75; OD48).
 - Design: such a lane "goes to `orphaned` (P19)"; "A recorded path the placement cannot produce is adopted by key
   equality only when the placement's last subject part is the contract's single key field".
 - Prototype: D88 "A quarantined lane keeps its id and its hold. A commit on it declines `Rejected`. The record stays on
@@ -1130,14 +2097,14 @@ quotes the decision record.
 - **Recommendation: the prototype**, with `orphaned` moved to `revisit.md`: a hold is never dropped, and D221's
   versions now cover key changes. Reversible: moderate (orphaned is unbuilt either way).
 
-**U5. `concurrency: "allow"` (rules 21, 29, N2; D19).**
+**U5. `concurrency: "allow"` (rules 21, 29, N2; D19).** **Ruled: cut from v1, text to revisit.md, 2026-11-07** (E76; OD48).
 - Design: `allow` throughout (rows, `HeldThisTurn`, rule N2).
 - Prototype (D19): "Cut `allow`. 3 corpus uses, written for coverage. `presence` fits `cancel`; a nudge is `reject`
   with its own key." Never built in rounds 1-13.
 - **Recommendation: cut `allow` from v1** and keep its text as prior art in `revisit.md`: no real app needs it and
   nothing has proved it. Reversible: moderate (a lane column to add back later). Scope, so the user's.
 
-**U6. Values that cannot be encoded (D89, D100, D108, D114).**
+**U6. Values that cannot be encoded (D89, D100, D108, D114).** **Ruled: the prototype, `Unencodable` and `UnencodableValue`, 2026-11-07** (E77; OD48).
 - Design: silent; rule 22 makes a failing select `InvalidTurn`.
 - Prototype: encoding never fails a turn. Memory that cannot encode skips the capture batch and keeps the last good
   one, named; a commit whose input or key cannot encode declines `NotSent { Unencodable }` with the value kept for its
@@ -1147,7 +2114,7 @@ quotes the decision record.
 - **Recommendation: the prototype**, with `Unencodable` added to Flow's reasons and `UnencodableValue` as the issue.
   Reversible: cheap now; a new reason name and a guarantee, so the user's.
 
-**U7. A module's defect (D46).**
+**U7. A module's defect (D46).** **Ruled: settle in phase 1; restore per record now, 2026-11-07** (E75, OD48; OD48).
 - Design: silent on modules.
 - Prototype: a module defect fails closed (what joined stays unsent; what would join declines
   `NotSent { ModuleDisabled }`); a core bug is fatal to the Runtime until reload; a user closure outside a turn is an
@@ -1155,7 +2122,7 @@ quotes the decision record.
 - **Recommendation: settle in phase 1** with the entity store, the only module; keep "restore is per record" now
   (already true by rule 46). Reversible: cheap.
 
-**U8. Sends before the Runtime is ready (2.10.17.6; D87).**
+**U8. Sends before the Runtime is ready (2.10.17.6; D87).** **Ruled: the prototype (D87), 2026-11-07** (E78; OD48).
 - Design: "While a restore read is held, the tab has not finished bootstrap: its persisted actors are absent, and a
   send to one is `ActorAbsent`."
 - Prototype (D87): "Queue until boot, with O5's bound. Past `bootMs`, or on a failed read: `StorageFailure`, run
@@ -1163,13 +2130,13 @@ quotes the decision record.
 - **Recommendation: the prototype**, as OD31's send table already queues for an ending persisted target.
   Reversible: cheap.
 
-**U9. Creation checks input; it does not decode (2.2.2; D219).**
+**U9. Creation checks input; it does not decode (2.2.2; D219).** **Ruled: the prototype (D219), 2026-11-07** (E79; OD48).
 - Design: "decode the input with the derived `Input` schema".
 - Prototype (D219): "Creation checks a present input by its Schema's type side; it does not run a transforming
   decode", since the creator hands an in-process value, not JSON; a `NumberFromString` field given `"3"` is refused.
 - **Recommendation: the prototype.** Reversible: cheap.
 
-**U10. Rule 32: what clears `uncertain` (FOR-ARPIT call 7, Q7 A, against OD28 P1).**
+**U10. Rule 32: what clears `uncertain` (FOR-ARPIT call 7, Q7 A, against OD28 P1).** **Ruled: Q7 A, written in phase 1, 2026-11-07** (E86; OD48).
 - Design (OD28 P1, 2026-11-07): every unretained unknown is `Released`; "a later write's success still clears it,
   rule 32".
 - FOR-ARPIT Q7 A (accepted 2026-11-07): "a later success can't clear a mark, and neither can time. After give-up,
@@ -1180,7 +2147,7 @@ quotes the decision record.
   until the entity store is built.
 
 **U11. Entity-store decisions (rules 29-31, 2.8.5, 2.8.6; D3, D12, D15, D18, D39, D40, D49's record half, D47 to
-D76's judge).** **Recommendation: defer to phase 1**, which builds `round-9/entity-proposal-2.md`; the label round
+D76's judge).** **Ruled: defer to phase 1, 2026-11-07** (E86; OD48). **Recommendation: defer to phase 1**, which builds `round-9/entity-proposal-2.md`; the label round
 confirms the deferral. D3's price (a person who has not pressed can stall another actor's writes to one record, made
 visible as evidence) is a guarantee and comes back to the user there.
 
@@ -1193,13 +2160,13 @@ visible as evidence) is a guarantee and comes back to the user there.
 - **Recommendation: B**: it keeps creation deterministic (AGENTS.md's core rules). E10's sentence stays either way: a
   default is evaluated for each actor at each door, never computed once and shared. Reversible: cheap.
 
-**U13. Runtime disposal past its bound (Runtime O6, 2.7.13's Runtime-disposal row; round 14's final review).**
+**U13. Runtime disposal past its bound (Runtime O6, 2.7.13's Runtime-disposal row; round 14's final review).** **Ruled: `unknown { Disposed }`, 2026-11-07** (E80; OD48). **Ruled: B, 2026-11-07** (E79, E87; OD48).
 - Design: on the wire, "Runtime O6 (settles within its bound, else unknown)"; no reason is named, and C2's list has
   none for it.
 - **Recommendation:** within the bound, the ending is parked as the row says; past it, `unknown` with reason
   `Disposed`, reusing the word `NotSent` already has. Reversible: cheap; a reason name, so the user's.
 
-**U14. `disposeActor` durability (Persistence O3; round 14's final review).**
+**U14. `disposeActor` durability (Persistence O3; round 14's final review).** **Ruled: flush the removal; the unbound record ends at adoption or `forget`, 2026-11-07** (E81; OD48).
 - Design: silent; with a 5 s capture interval (OD35) a crash before the capture brings the record back.
 - **Recommendation: flush the removal at once**, as a lane batch is (the prototype's D93 did), rather than state a
   limit. Reversible: cheap.
@@ -1237,10 +2204,10 @@ visible as evidence) is a guarantee and comes back to the user there.
 - A: the encoded side only, ignoring annotations (Q1 A as accepted; pass 1's reading for actors). B: the type side and
   the encoded side, ignoring annotations, for actor versions and operation keys (amending Q1 A): a transformation
   change is a new version; a brand or a description is not.
-- **Recommendation: B, "type and encoded side, ignoring annotations".** Reversible: cheap before phase 4; a
+- **Recommendation: B, "type and encoded side, ignoring annotations".** **Ruled: B, 2026-11-07** (E84; OD48). **Ruled: A, 2026-11-07** (E83; OD48). Reversible: cheap before phase 4; a
   persistence guarantee, so the user's.
 
-**U18. The proposed public names ([P]), as one batch.** `ReservedStateName` (a state named `self` or `__proto__`),
+**U18. The proposed public names ([P]), as one batch.** **Ruled: accept the spellings, 2026-11-07** (E85; OD48). `ReservedStateName` (a state named `self` or `__proto__`),
 `InputFieldForm` (an input field whose decoded form cannot be carried, a warning), `StorageSilent` (a write the disk
 has not answered after 10 s, evidence), `RestoreMissingInput` (a record lacking an input field with no default), and,
 with U6, `UnencodableValue`. Pass 1 applied them as agent rulings; they are public finding and evidence names, so the
@@ -1248,7 +2215,7 @@ user's. The names the user already accepted (`KeyFieldOptional`, `TwoDefaults`, 
 `UnknownNotUncertain`, `TurnStorm`, `AsksForever`) are recorded as decided in OD47. **Recommendation: accept the
 prototype's spellings.** Reversible: cheap until phase 7's docs.
 
-**U15. `persist` per ref, identity per machine and input (rule 74; round 14's final review).**
+**U15. `persist` per ref, identity per machine and input (rule 74; round 14's final review).** **Ruled: B, `persist` on the definition, 2026-11-07** (E82; OD48).
 - Design: `actorRef(machine, nameOrValue, { persist: true })`; two refs of one identity with different `persist` are
   `ConflictingActorRef` at ensure, so which one is seen first decides.
 - A: the first ensure wins (order-dependent). B: `persist` becomes a property of the machine (one fact in one place),
@@ -1276,3 +2243,19 @@ in order, with the same exactly-once rule.
   needs the rule beside it. The review's finding 13 ("one line against React O3") is C147 plus one sentence in 2.5
   step 1. Finding 16's convergence-9 item is recorded in rule 8 (a boot forgets a stranded read), and its unbuilt lint
   is listed for the user in progress.md.
+
+Pass 3, run 2026-11-07 by `apply3.py` (the builder's scratchpad), which reads only the blocks under "Pass 3 entries",
+in order, with the same exactly-once rule, after a dry run on a copy of MD.
+- Applied: all 90 blocks of E71-E88, then, after the sweep for stale terms, the 8 blocks of E90 (`apply3.py` restricted
+  to E90). Skipped: none. E89 has no block.
+- Adjusted before the run: the two table-row deletions under E76 (2.7.8's and 2.7.13's `allow` rows) anchor on the
+  `cancel` row above them, so that no empty line breaks the table; OD46's two U16 and pass-2 sentences were added to
+  E85 so no U mark is left stale.
+- Judgement calls (agent, listed in OD48 and progress.md): a lane whose operation is gone is kept like a quarantined
+  lane until `forget` (U4 names only the undecodable key); a quarantined path's `cancel` may come from any subject
+  path (rule 51 would otherwise decline it); `Unencodable` is required in rule 20 where an input or key Schema admits a
+  value with no form; `persist` sits on the definition, since `machine()` takes no options and the definition already
+  holds `context` and the persisted memory; 2.8.6's `NotSent` list gains `NoPersistence` and `OldVersion` with
+  `Unencodable`, which pass 2 had added to rule 30 only. Decision entries before OD48 stay as history (D5, D19, D20,
+  E17, OD8, OD20 F9, OD22, OD25 still say `allow` or `orphaned`); OD35, OD39, OD40 and OD46 point at OD48. The
+  2.7.17 and 2.7.19 "before" examples keep `{ persist: true }`, since they show the old API.
