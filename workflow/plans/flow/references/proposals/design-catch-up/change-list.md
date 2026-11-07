@@ -2151,7 +2151,7 @@ D76's judge).** **Ruled: defer to phase 1, 2026-11-07** (E86; OD48). **Recommend
 confirms the deferral. D3's price (a person who has not pressed can stall another actor's writes to one record, made
 visible as evidence) is a guarantee and comes back to the user there.
 
-**U12. May a memory default read a clock or randomness (2.2.2, OD40)?**
+**U12. May a memory default read a clock or randomness (2.2.2, OD40)?** **Ruled: B, 2026-11-07** (E79, E87; OD48).
 - Design: "Creation is pure ... No clock, no randomness".
 - Round 13's H1 fix (accepted): "evaluate the default per call at each entry point", motivated by
   `withConstructorDefault(Effect.sync(() => new Date()))` and `randomUUID()`.
@@ -2160,7 +2160,7 @@ visible as evidence) is a guarantee and comes back to the user there.
 - **Recommendation: B**: it keeps creation deterministic (AGENTS.md's core rules). E10's sentence stays either way: a
   default is evaluated for each actor at each door, never computed once and shared. Reversible: cheap.
 
-**U13. Runtime disposal past its bound (Runtime O6, 2.7.13's Runtime-disposal row; round 14's final review).** **Ruled: `unknown { Disposed }`, 2026-11-07** (E80; OD48). **Ruled: B, 2026-11-07** (E79, E87; OD48).
+**U13. Runtime disposal past its bound (Runtime O6, 2.7.13's Runtime-disposal row; round 14's final review).** **Ruled: `unknown { Disposed }`, 2026-11-07** (E80; OD48).
 - Design: on the wire, "Runtime O6 (settles within its bound, else unknown)"; no reason is named, and C2's list has
   none for it.
 - **Recommendation:** within the bound, the ending is parked as the row says; past it, `unknown` with reason
@@ -2175,7 +2175,7 @@ visible as evidence) is a guarantee and comes back to the user there.
   or `forget` removes it; until then Inspection lists it as unbound under the identity, and each boot reports it, as
   `OldVersionLane` does for an old-version hold.
 
-**U16. Is a wait on storage bounded? (rule 24, 2.7.20; D30, D48, D94.)**
+**U16. Is a wait on storage bounded? (rule 24, 2.7.20; D30, D48, D94.)** **Ruled: A, 2026-11-07** (E83; OD48).
 - Design before the catch-up: silent; it never bounded storage. Pass 1 applied the prototype's three rules as
   agent-judged; pass 2 keeps their text in MD, marked U16, with a stated limit in rule 24 and 2.7.20, because each
   is a safety rule whose price is liveness on a broken disk, and that price is a guarantee.
@@ -2204,7 +2204,7 @@ visible as evidence) is a guarantee and comes back to the user there.
 - A: the encoded side only, ignoring annotations (Q1 A as accepted; pass 1's reading for actors). B: the type side and
   the encoded side, ignoring annotations, for actor versions and operation keys (amending Q1 A): a transformation
   change is a new version; a brand or a description is not.
-- **Recommendation: B, "type and encoded side, ignoring annotations".** **Ruled: B, 2026-11-07** (E84; OD48). **Ruled: A, 2026-11-07** (E83; OD48). Reversible: cheap before phase 4; a
+- **Recommendation: B, "type and encoded side, ignoring annotations".** **Ruled: B, 2026-11-07** (E84; OD48). Reversible: cheap before phase 4; a
   persistence guarantee, so the user's.
 
 **U18. The proposed public names ([P]), as one batch.** **Ruled: accept the spellings, 2026-11-07** (E85; OD48). `ReservedStateName` (a state named `self` or `__proto__`),
@@ -2259,3 +2259,10 @@ in order, with the same exactly-once rule, after a dry run on a copy of MD.
   `Unencodable`, which pass 2 had added to rule 30 only. Decision entries before OD48 stay as history (D5, D19, D20,
   E17, OD8, OD20 F9, OD22, OD25 still say `allow` or `orphaned`); OD35, OD39, OD40 and OD46 point at OD48. The
   2.7.17 and 2.7.19 "before" examples keep `{ persist: true }`, since they show the old API.
+
+## Completion audit fixes (2026-11-08)
+
+The phase 0b completion audit failed the pass on: the `persist` placement recorded as decided (now proposed, for the user, U19); the U12, U13, U16 and U17 headers (fixed); the 2.8.6 reason-list call missing from the records (added to OD48 and progress.md); `Rejected` unmapped for kept endings and quarantined lanes (rules 20, 2.7.1 fixed); `Disposed` missing from rule 13 and 2.7.1's inferred channel (fixed); `Overloaded` in 2.8.6's list and C2's pointers (fixed); round 13's M1, M2, M4, M5 rows (inventory.md). Applied by the runner, not by a builder.
+
+**U19. Where `persist` is spelled (U15 B's placement).** A (proposed): on the definition, `definition({ id, persist: true, … })`, beside `id` and `context`. B: an option of `machine()`. C: at registration, `app({ machines: [{ machine, persist: true }] })`. Recommendation: A, because the definition already holds the machine's declarations and the persisted memory. Reversible: cheap before phase 4. API shape, so the user's.
+

@@ -253,3 +253,13 @@ counts as a conflict. U11 (the entity group) and U12 (a default's purity) have n
 findings) moved D2, D13, D35 and D136 into the record (D2 decided; the rest agent), D30, D48's wait, D94 and D139 to
 conflicts (U16, U6), and R14R 7 to U17; U18 batches the proposed names. D48 counts as recorded (its rule) and D95
 stays recorded.
+
+## Round 13 review items (added by the completion audit, 2026-11-08)
+
+| Item | Class | Where |
+| --- | --- | --- |
+| M1 (round-13/review.md): the graph gate checks one direction and is not falsified | prototype-only: a gate item | phase 3's suite |
+| M2: seven of D221's twelve paths unpinned | prototype-only: missing suite pins | phase 1 (with H2) or phase 3 |
+| M4: `flow story list` prints `callbacks run: 0` as a constant | prototype-only: a CLI bug | phase 5's CLI work |
+| M5 (a cancel inside its own unknown handler) | deferred | phase 1, as the roadmap says |
+

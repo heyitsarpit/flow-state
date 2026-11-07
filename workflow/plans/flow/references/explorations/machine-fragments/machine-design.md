@@ -647,7 +647,7 @@ declarer" (a definition or a fragment), and "binding actor" as "binding incarnat
     (**new**; 2.7.18): no event and no handler; never on a stream key or a `listen` entry. Every `unknown:` target is a
     `Flow.uncertain` event or `Flow.ignore`. A read's `failure:` carries its tags plus Flow's `Defect` and `Interrupted` (rule 37). An
     author error whose tag is one of Flow's reasons (`NotSent`, `Cancelled`, `Restored`, `Interrupted`, `Defect`,
-    `StillUnknown`, `StorageRefused`) is a type error; on a stream, so is one of `Feed`'s reasons (`Closed`, `Overflow`, `Silent`, `Flapping`) or the tag `Feed`, the map's own key [P, merge]. A commit's context also gives `progress(p)`, which sets its row's `progress` with no turn (Streams T8).
+    `StillUnknown`, `StorageRefused`, `Disposed`) is a type error; on a stream, so is one of `Feed`'s reasons (`Closed`, `Overflow`, `Silent`, `Flapping`) or the tag `Feed`, the map's own key [P, merge]. A commit's context also gives `progress(p)`, which sets its row's `progress` with no turn (Streams T8).
 14. **Owner, current, late, decided at admission.** Stream deliveries are always current from the active leaf; a session's owner is its placement's activation or incarnation, and release discards rather than routing late (rule 70). Otherwise, a commit, lookup or retry of an operation is owned by the activation
     of the state its transition names (`"self"`: the handler's own state). When the ending's turn is **admitted** (2.5
     step 1), Flow maps the ending through the operation's `outcomes` and tests the owner against the pre-turn snapshot.
@@ -707,7 +707,8 @@ declarer" (a definition or a fragment), and "binding actor" as "binding incarnat
     server holds first; Flow keeps no key age (agent, D145).
 20. **Required handling** (`flow check`). Every current event that can occur is handled totally from every leaf under
     its owner (fall-through to ancestors included). `failure.NotSent` must be mapped only where it can occur: under
-    `reject` (`Rejected`) or `serialize` (`Overloaded`), where the machine cancels the operation (`Cancelled`), for a
+    `reject`, for a key that can hold a kept ending (rule 21), or on a lane that can be quarantined (rule 46)
+    (`Rejected`), or under `serialize` (`Overloaded`), where the machine cancels the operation (`Cancelled`), for a
     persisted identity (`Restored`, `StorageRefused`, `Disposed`, `NoPersistence`, `OldVersion`), or for a domain write (`Overloaded`, rule 35), or where its input or key Schema admits a value with no form (`Unencodable`, rule 12; agent, OD48), or on a placement whose subject path is not
     empty (`Rejected`, rule 51; checked at the placement from the fragment's summary, rule 57). A read
     operation's tag record must map `Defect` and `Interrupted` (rule 37). An ending mapped to `Flow.ignore` produces no event, so it needs no current, late or
@@ -1249,7 +1250,8 @@ decisions (F1–F10).
       description is not (decided, U17 B, OD48). A saved record of another field set is an **old-version record**:
       listed at ready (`OldVersionActor` [P]), never renamed or matched by shared fields, removed by `forget`. Its
       non-`Idle` lanes stay unbound and listed (rule 44), since no ref can spell its identity.
-    - **Persistence is the machine's** (decided, U15 B, OD48): `definition({ id, persist: true, … })`, beside `id`,
+    - **Persistence is the machine's** (decided, U15 B, OD48). Where it is spelled is **proposed** (agent, awaiting the
+      user, OD48): `definition({ id, persist: true, … })`, beside `id`,
       which names the machine in every saved record; refs carry no `persist`, so every ref of an identity agrees by
       construction. The definition is the place because it holds the machine's declarations (`context` is there too,
       and fragments may declare neither), `machine()` takes no options, and the persisted-value type rule reads the
@@ -1514,7 +1516,7 @@ catch: (e) => Outcome.unknown(err)    // the same calls work wherever Effect wan
 
 | Reason | Channel | When |
 | --- | --- | --- |
-| `NotSent { why }` | failure | the commit was never called. `why`: `Cancelled` (before invocation, rule 24), `Restored` (a queued commit `W`, never sent, when the page reloaded; a head is on disk only once its first send's batch landed, rule 44; OD32), `Rejected` (a busy or held `reject` lane, rule 16), `Overloaded` (a commit past its lane's queued commits or a record queue's bound, or a `many` key array past 4,096 items, rule 35), `StorageRefused` (the Attempt's acknowledgement failed), `Disposed` (the Runtime was disposed before invocation), `NoPersistence` (a persisted identity's commit in a Runtime without persistence, a second tab, rule 16; OD34), `OldVersion` (the operation holds an old-version lane for that actor, 2.7.15; OD39), `Unencodable` (the commit's input or key cannot be encoded; its mapper receives the value, rule 12; U6, OD48) |
+| `NotSent { why }` | failure | the commit was never called. `why`: `Cancelled` (before invocation, rule 24), `Restored` (a queued commit `W`, never sent, when the page reloaded; a head is on disk only once its first send's batch landed, rule 44; OD32), `Rejected` (a busy or held `reject` lane, rule 16; a kept ending's key, rule 21; a quarantined lane, rule 46), `Overloaded` (a commit past its lane's queued commits or a record queue's bound, or a `many` key array past 4,096 items, rule 35), `StorageRefused` (the Attempt's acknowledgement failed), `Disposed` (the Runtime was disposed before invocation), `NoPersistence` (a persisted identity's commit in a Runtime without persistence, a second tab, rule 16; OD34), `OldVersion` (the operation holds an old-version lane for that actor, 2.7.15; OD39), `Unencodable` (the commit's input or key cannot be encoded; its mapper receives the value, rule 12; U6, OD48) |
 | `Cancelled` | unknown | `O.pay.cancel(k?)` after the call started (rule 24) |
 | `Restored` | unknown | the page reloaded mid-call (persisted identities), or a new incarnation adopted a held lane (rule 44) |
 | `Interrupted` | unknown | the commit's fiber was interrupted by something other than Flow |
@@ -1538,7 +1540,7 @@ class OutcomeUnknown<R> extends Data.TaggedError("Flow/Unknown")<{ readonly reas
 
 // Inferred from the commit, with nothing declared elsewhere:
 //   failure channel = FailureReasons<E> | NotSent
-//   unknown channel = UnknownReasons<E> | Cancelled | Restored | Interrupted | Defect | StillUnknown<FailureReasons<E>>
+//   unknown channel = UnknownReasons<E> | Cancelled | Restored | Interrupted | Defect | Disposed | StillUnknown<FailureReasons<E>>
 ```
 
 Effect's own combinators keep working inside a commit (`Effect.catchReason("Flow/Unknown", "NoResponse", …)`).
@@ -3156,13 +3158,13 @@ ensured first. Now an actor is its machine plus its input, shared or local.
 actorRef(EditorMachine, [ticket.workspaceId, ticket.ticketId], { persist: true });   // parts
 useActorByRef(editorRef(ticket), { input: ticket });                                  // the same values again
 // after
-export const Editor = definition({ id: "Editor", persist: true, /* … */ });   // NEW: persist on the definition (U15)
+export const Editor = definition({ id: "Editor", persist: true, /* … */ });   // NEW: persist on the definition (U15 B; the placement is proposed)
 actorRef(EditorMachine, ticket);                        // new meaning: a value carrying the input fields; no persist
 useActorByRef(editorRef(ticket), {});                   // `{}` selects ensure (React O2); no input
 actorRef(SessionMachine, "coordinator");   // a singleton: a literal name, no input (R14 D4); Session's definition persists
 ```
 
-- **Persistence.** `persist` is a property of the machine, on its definition (rule 74; U15 B), so two refs of one
+- **Persistence.** `persist` is a property of the machine (U15 B), on its definition (proposed placement; rule 74), so two refs of one
   identity cannot disagree about it; a ref's options keep only `context`.
 - **Where non-naming data goes.** Data that does not name the actor comes from a record read, an event or context,
   never input: the visit's `assignee` is read from the `Ticket` record, which a reassignment changes.
@@ -3748,7 +3750,7 @@ settlement (rule 27), and orders writes to a record across lanes and actors (rul
   no rebase; they compare versions in their commit function.
 
 The other merge 4 facts are unchanged: a queued `latest` commit applies its prediction at commit and joins the record
-queue (rules 28, 29); `Superseded` and `NotSent { Cancelled | Rejected | Restored | StorageRefused | Disposed | NoPersistence | OldVersion | Unencodable }` remove its
+queue (rules 28, 29); `Superseded` and `NotSent { Cancelled | Rejected | Overloaded | Restored | StorageRefused | Disposed | NoPersistence | OldVersion | Unencodable }` remove its
 prediction without repair (rule 30); rule 30's record-queue hold and the lane hold agree. A re-send joins its record
 queues again (rule 31), which is why a re-send can wait to be invoked across turns (the `cancel` cell's re-send case).
 
@@ -8083,7 +8085,7 @@ C1–C18 (their record is in [merged/](merged/)); P15 and P20 are rewritten in p
 | # | Plan | Rule | Replaces or adds |
 |---|---|---|---|
 | C1 | Operations O1, O3 | Commits end in three channels: success, failure, unknown. The commit function classifies each ending with `Outcome.success`, `Outcome.failure`, `Outcome.unknown`; a plain error defaults to failure; a throw or die is unknown (`Defect`) and an actor issue. Flow interprets no status and no error type. An author error with a Flow reason's tag is a type error | Replaces the five outcomes (`success`, `failure`, `defect`, `interrupt`, `unknown`) and the descriptor's `failureKinds` |
-| C2 | Operations O3, O7 | Flow's reasons: the failure `NotSent { why }` (`Cancelled`, `Restored`, `Rejected`, `Overloaded`, `StorageRefused`, `Disposed`) and the unknowns `Cancelled`, `Restored`, `Interrupted`, `Defect` (with the Cause), `StillUnknown { failure }` and `StorageRefused`. `Superseded`, `NothingToResend`, `InFlight` and `Released` are evidence, never endings (rule 17). `interrupt` and `defect` stop being outcome keys. Flow has no timeout reason | Replaces the `reject` and "ends it as interrupt" sentences; amended by C154 (`NotSent { Unencodable }`) and C158 (`unknown { Disposed }`) |
+| C2 | Operations O3, O7 | Flow's reasons: the failure `NotSent { why }` (`Cancelled`, `Restored`, `Rejected`, `Overloaded`, `StorageRefused`, `Disposed`) and the unknowns `Cancelled`, `Restored`, `Interrupted`, `Defect` (with the Cause), `StillUnknown { failure }` and `StorageRefused`. `Superseded`, `NothingToResend`, `InFlight` and `Released` are evidence, never endings (rule 17). `interrupt` and `defect` stop being outcome keys. Flow has no timeout reason | Replaces the `reject` and "ends it as interrupt" sentences; amended by C130, C135, C154 (`NotSent { Unencodable }`) and C158 (`unknown { Disposed }`) |
 | C3 | Operations O3 | The runtime classifies each send from the commit fiber's `Exit` and its whole `Cause`, outside that fiber, most cautious first (2.7.1). The ending delivered is the Attempt's: a definite failure after an unknown send of the same Attempt is `StillUnknown` (rule 18) | Adds |
 | C4 | Operations O5, EntityDomains O1 | Success confirms the optimistic look and domain predictions; failure removes them without a refetch; unknown keeps them, marked uncertain, and refetches the displayed entries once. Flow never loops. `revertOnUnknown` does not exist. Domain predictions follow the Attempt's ending after rule 18, not the channel: a definite failure after an unknown send is unknown in the store (rule 30) | Replaces Operations O5's "unknown retains them and invalidates the entry" and EntityDomains O1's "failure or defect … repairs" |
 | C5 | Operations O2 | Reads keep two channels, success and failure; a read's defect is an issue and arrives on `failure` as `Defect` (rule 37). A one-off read is an operation looked up with `O.x.lookup(select)` (rule 42; C32); its endings are routed like a write's (rule 14) | Replaces `defect` and `interrupt` for lookups |
@@ -8285,7 +8287,7 @@ The streams merge ([merged/streams/proposal-v3.md](merged/streams/proposal-v3.md
 | C157 | Machines O1, Diagnostics | A memory default is pure: an Effect-valued default is a construction error; a time or an id comes from an event or the Runtime's mint (2.2.2; U12 B, OD48) | Keeps Machines O1's "initial is pure: it reads no clock or randomness"; amends C137 |
 | C158 | Runtime O6, Operations O3 | Runtime disposal: a call that settles within the bound is parked; past it the Attempt ends `unknown { Disposed }` (2.7.1, 2.7.13; U13, OD48) | Replaces Runtime O6's "after 5 seconds a commit still in flight becomes unknown with its Attempt" (now `unknown { Disposed }`); adds `Disposed` to C2's unknowns |
 | C159 | Runtime O6, Persistence O3, Inspection O1 | `disposeActor` flushes its removal at once; an unbound lane record it leaves ends at an adopting ensure or `forget`, listed as unbound under the identity and reported at each boot until then (2.7.13, 2.7.20; U14, OD48) | Adds to Runtime O6's "runtime.disposeActor(actor) disposes the actor for every user"; amends C45 |
-| C160 | Persistence O2, Runtime O3, Machines O1 | `persist` is a property of the machine, on its definition (`definition({ id, persist: true, … })`); refs carry no `persist`; `ConflictingActorRef` for `context` only (rule 74; U15 B, OD48) | Replaces Persistence O2's "actorRef(machine, id, { persist: true }) selects a stable shared actor" (C120's `actorRef(machine, nameOrValue, { persist: true })`) and Runtime O3's "different persist, retain or context" (C104, C144: `persist` and `context`); amends C104, C120, C144 |
+| C160 | Persistence O2, Runtime O3, Machines O1 | `persist` is a property of the machine (U15 B), on its definition (`definition({ id, persist: true, … })`, placement proposed); refs carry no `persist`; `ConflictingActorRef` for `context` only (rule 74; U15 B, OD48) | Replaces Persistence O2's "actorRef(machine, id, { persist: true }) selects a stable shared actor" (C120's `actorRef(machine, nameOrValue, { persist: true })`) and Runtime O3's "different persist, retain or context" (C104, C144: `persist` and `context`); amends C104, C120, C144 |
 | C161 | Runtime O3, Operations O1, Persistence O5 | An actor version and an operation key's fingerprint compare each field's type side and encoded side, ignoring annotations (rule 74, 2.7.15; U17 B, OD48) | Amends C135's fingerprint ("each key field's encoded JSON Schema") and C120's O5 version rule; amends FOR-ARPIT Q1 A |
 
 ### For tooling
@@ -9130,8 +9132,8 @@ operations-in-fragments, the lane model and the reviews cite them.
   `unknown { Disposed }`; within the bound it settles and is parked (2.7.1, 2.7.13). **U14**: `disposeActor` flushes
   its removal at once; an unbound lane record left after it ends when an ensure of the identity adopts it or `forget`
   removes it, and until then Inspection lists it as unbound under the identity and each boot reports it (2.7.13,
-  2.7.20). **U15 B**: `persist` is a property of the machine, declared on its definition (`definition({ id, persist:
-  true, … })`), and refs lose it; `ConflictingActorRef` remains for `context` only (rule 74, 2.7.17, 2.7.19). **U16
+  2.7.20). **U15 B**: `persist` is a property of the machine, and refs lose it; declaring it on its definition
+  (`definition({ id, persist: true, … })`) is the agent's proposal, for the user; `ConflictingActorRef` remains for `context` only (rule 74, 2.7.17, 2.7.19). **U16
   A**: storage waits have no bound; `StorageSilent` names a write unanswered after 10 s and decides nothing; the limit
   is stated in rule 24 and 2.7.20. **U17 B**: an actor version and an operation key's fingerprint compare the type
   side and the encoded side, ignoring annotations (a transformation change is a new version; a brand or description
@@ -9139,7 +9141,10 @@ operations-in-fragments, the lane model and the reviews cite them.
   `ReservedStateName`, `InputFieldForm`, `StorageSilent`, `RestoreMissingInput` and `UnencodableValue` are accepted
   public names. Agent calls made in applying them (the builder of pass 3): a lane whose operation is gone is kept
   like a quarantined lane until `forget`; a quarantined lane's `cancel` may come from any subject path; `Unencodable`
-  must be mapped where an input or key Schema admits a value with no form; `persist` sits on the definition. Plan rows
+  must be mapped where an input or key Schema admits a value with no form; 2.8.6's reason list gains `NoPersistence`
+  and `OldVersion` (as rule 30, pass 2; reversible by deleting two words); `persist` on the definition is proposed,
+  not decided (completion audit, 2026-11-08); `Rejected` must be mapped where a kept ending (rule 21) or a quarantined
+  lane (rule 46) can decline; `Disposed` joins rule 13's reserved reasons and 2.7.1's inferred unknown channel. Plan rows
   C150-C161. (2026-11-07)
 - **OD24** Process, delegated by the owner (2026-10-30): the main session approves the merge change lists for merges 4
   and 5 and for operations-in-definition, and treats operations as accepted for merging, unless a conflict needs an
