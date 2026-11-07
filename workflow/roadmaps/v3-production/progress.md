@@ -70,6 +70,13 @@ Calls made under delegation before this roadmap are listed in
 `FOR-ARPIT.md` section 2 (in git at `04e314f4`; accepted 2026-11-07). New calls go here, one line each: the
 call, its reason, its evidence, and how reversible it is.
 
+## Calls for the user's read (added 2026-11-07)
+
+- Amendment 1 (cold read, wording only): the runner judged it agent-level because it only reconciles
+  text with the user's own decisions; reversible by reverting `fadf004f`. Not changed, for the user's
+  read: the cold read also noted that "business keys for money" binds no phase explicitly, and that
+  phase 1's number of areas is implied (entities, streams, migration, H1/H2) rather than counted.
+
 ## Change proposals
 
 One entry each (runner rule 4): the kind (insert, modify, split, reorder, reclassify), why, the
@@ -127,3 +134,5 @@ One line per iteration. Results live in the records; link them.
   the frozen package.
 - 2026-11-07 OD28-OD31 merged into machine-design.md (`6d02bef6`); stage A reordered (round 4): phase 0
   reconcile, phase 1 pre-work prototype, phase 2 plan merge; round 14 started as phase 0's first iteration.
+- 2026-11-07 roadmap approved (`309c87e4`); cold read run after approval; its wording fixes applied as amendment 1 (`fadf004f`); round 14 continues with the review's fixes and D1-D7.
+
