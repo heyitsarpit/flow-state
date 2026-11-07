@@ -321,8 +321,9 @@ export type { Host };
 // What the suite's memos rest on: a published or logged value is never written in place. A plain object is frozen, so a write throws
 // where it happens (a step's throw is Fatal). An array is fingerprinted instead, by its length and each element's identity, and checked
 // when asked: JavaScriptCore takes a frozen array off its fast paths, and a weak table of every value costs more in GC than the suite.
-// A frozen object is taken as guarded with all it holds. A class or a Map is left as it is. `inPlaceGuard(false)` freezes objects only and
-// keeps nothing, for values nobody reads after the walk that made them (a replay's own worlds).
+// Each guard walks what it has not seen itself, so an array in a shared constant frozen by an earlier guard is still this guard's to check.
+// A class or a Map is left as it is. `inPlaceGuard(false)` freezes objects only and keeps nothing (a frozen object is taken as done), for
+// values nobody reads after the walk that made them (a replay's own worlds).
 const NO_GUARD = (globalThis as { process?: { env: Record<string, string | undefined> } }).process?.env["FLOW_NO_FREEZE"] === "1";
 export type InPlaceGuard = { guard(v: unknown): void; written(): { arrays: number; first?: string } };
 export const inPlaceGuard = (arrays_ = true): InPlaceGuard => {
@@ -331,6 +332,7 @@ export const inPlaceGuard = (arrays_ = true): InPlaceGuard => {
   const objects = new Map<object, number>();
   const strings = new Map<string, number>();
   const walking = new Set<unknown[]>();
+  const walked = new Set<object>();
   const idOf = <K>(m: Map<K, number>, k: K) => {
     let n = m.get(k);
     if (n === undefined) {
@@ -363,7 +365,7 @@ export const inPlaceGuard = (arrays_ = true): InPlaceGuard => {
     return [h1, h2];
   };
   const guard = (v: unknown): void => {
-    if (NO_GUARD || v === null || typeof v !== "object" || Object.isFrozen(v)) return;
+    if (NO_GUARD || v === null || typeof v !== "object") return;
     const proto = Object.getPrototypeOf(v);
     if (proto === Array.prototype) {
       const a = v as unknown[];
@@ -382,6 +384,10 @@ export const inPlaceGuard = (arrays_ = true): InPlaceGuard => {
       return;
     }
     if (proto !== Object.prototype) return;
+    if (arrays_) {
+      if (walked.has(v)) return;
+      walked.add(v);
+    } else if (Object.isFrozen(v)) return;
     Object.freeze(v);
     for (const k of Object.keys(v)) guard((v as Record<string, unknown>)[k]);
   };

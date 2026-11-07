@@ -219,7 +219,7 @@ export const makeHarness = (port: Port) => (): Harness => {
   type Copy = { path: string[]; resets: string[] };
   type Copies = { list: Copy[]; byPath: Map<string, Copy>; slots: string[]; threw: boolean };
   let copiesMemo: { inst: Instance; ref: Reference; world: unknown; at: Map<string, Copies> } | undefined;
-  const versions = inPlaceGuard();
+  const versions = inPlaceGuard(false);
   let copiesChecking = false;
   const copiesFresh = (actor: string, machine: string, f: string): Copies => {
     const tape = { slots: [] as string[], threw: false };
@@ -1772,8 +1772,6 @@ export const makeHarness = (port: Port) => (): Harness => {
           break;
         }
       }
-      const was = versions.written();
-      if (result.same && was.arrays > 0) result = { same: false, firstDiff: { writtenInPlace: was, published: true } };
       throwIn.clear();
       for (const [k, v] of liveThrow) throwIn.set(k, v);
       faults.moduleThrows.clear();

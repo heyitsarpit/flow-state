@@ -233,6 +233,8 @@ export const runScenarios = (
           h.do = usedAfterEnd;
           h.raw = usedAfterEnd;
           h.send = usedAfterEnd;
+          h.release = usedAfterEnd;
+          h.subscribe = usedAfterEnd;
         };
         const note = (step: any) => {
           for (const a of [step?.ensure, step?.send, step?.burst, step?.dispose, step?.attach, step?.release]) if (a?.actor !== undefined) rec.actors.set(`${a.actor}/${a.id}`, a);
