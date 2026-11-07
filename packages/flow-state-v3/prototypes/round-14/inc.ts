@@ -88,11 +88,18 @@ export const sameSubject = sameList;
 export type Started = { path: Path; inc: Inc; entered: readonly string[] };
 // A new incarnation (rule 1). Its Input from the host's view as the caller holds it; then its children, active by default.
 // D108: a reset value that cannot encode is one constant, so nothing resets on it. A fragment's identity needs a name, and "this value has none" is the honest one.
-export const resetValue = (tx: Tx, slot: NonNullable<Placement["resetOn"]>, view: object): string => {
+// Round 14 (OD29 F, rule 1): `null` and `undefined` are not reset values. Undefined here is "absent": the trait is not placed.
+export const resetValue = (tx: Tx, slot: NonNullable<Placement["resetOn"]>, view: object): string | undefined => {
   const got = entered(() => run(slot, view as never));
-  if (got.ok) return text(got.v)!;
+  if (got.ok) return got.v === null || got.v === undefined ? undefined : text(got.v)!;
   issue(tx, { code: "UnencodableValue", origin: `${slot.at.definition} ${slot.at.path}` });
   return "$unencodable";
+};
+// Whether a placement's reset value is absent now, read with no issue (the seed that follows says any).
+export const absentReset = (p: Placement, view: object) => {
+  if (!p.resetOn) return false;
+  const got = entered(() => run(p.resetOn!, view as never));
+  return got.ok && (got.v === null || got.v === undefined);
 };
 export const seed = (
   tx: Tx,
@@ -106,8 +113,10 @@ export const seed = (
 ): Inc => {
   const frag: Fragment = m.fragments![p.fragment]!;
   const hv = { memory: viewOf(host), event: {}, ...(key === undefined ? {} : { key, item }) };
-  const input = p.input ? run(p.input, hv as never) : {};
   const reset = p.resetOn ? resetValue(tx, p.resetOn, hv) : undefined;
+  // OD29 F (rule 9): a `resetOn` filling's parts receive `key`, the present reset value; under `.each`, `key` stays the copy key.
+  const present = key === undefined && reset !== undefined ? entered(() => run(p.resetOn!, hv as never)) : undefined;
+  const input = p.input ? run(p.input, (present?.ok ? { ...hv, key: present.v } : hv) as never) : {};
   const subject = [
     ...host.subject,
     ...(reset === undefined ? [] : [reset]),
@@ -160,6 +169,8 @@ export const seedKids = (
       }
       const old = cur.kids[p.name];
       if (old) continue; // a resumable one thaws in the turn
+      // OD29 F (rule 1): while `resetOn` returns `null` or `undefined` the trait is not placed: no incarnation, no subject part.
+      if (p.resetOn && absentReset(p, { memory: viewOf(cur), event: {} })) continue;
       const k = seed(tx, m, cur, p, [...path, p.name], undefined, undefined, started);
       cur = { ...cur, kids: { ...cur.kids, [p.name]: k } };
     }

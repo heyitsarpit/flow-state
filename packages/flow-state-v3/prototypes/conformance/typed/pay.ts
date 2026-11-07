@@ -40,26 +40,17 @@ export class ShopApi extends Context.Service<
   }
 >()("ShopApi") {}
 
+// Round 14 (OD28 G): Effect's own `catchTag` over the lost tags, as an app writes it.
 const unknownWhenLost = <A, E extends { readonly _tag: string }, R>(
   write: Effect.Effect<A, E, R>,
 ): Effect.Effect<A, Exclude<E, Lost> | OutcomeUnknown<Lost>, R> =>
-  Effect.catch(write, (e: E): Effect.Effect<never, Exclude<E, Lost> | OutcomeUnknown<Lost>> =>
-    e._tag === "NoResponse" || e._tag === "ServerError"
-      ? Outcome.unknown(e as unknown as Lost)
-      : Effect.fail(e as Exclude<E, Lost>),
-  );
+  Effect.catchTag(write as Effect.Effect<A, E | Lost, R>, ["NoResponse", "ServerError"], (e) => Outcome.unknown(e as Lost)) as never; // `E` is generic here
 
 // The same, where a `Flow/Failure` is already among the errors, which has no `_tag` of ours.
 const unknownWhenLostFlat = <A, R>(
   write: Effect.Effect<A, OutcomeFailure<IntentBusy> | CardDeclined | Busy | Lost, R>,
 ): Effect.Effect<A, OutcomeFailure<IntentBusy> | CardDeclined | Busy | OutcomeUnknown<Lost>, R> =>
-  Effect.catch(
-    write,
-    (e): Effect.Effect<never, OutcomeFailure<IntentBusy> | CardDeclined | Busy | OutcomeUnknown<Lost>> =>
-      e._tag === "NoResponse" || e._tag === "ServerError"
-        ? Outcome.unknown<Lost>(e)
-        : Effect.fail(e as OutcomeFailure<IntentBusy> | CardDeclined | Busy),
-  );
+  Effect.catchTag(write, ["NoResponse", "ServerError"], (e) => Outcome.unknown<Lost>(e));
 
 // ── Contracts.
 const pay = transaction({

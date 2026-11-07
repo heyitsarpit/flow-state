@@ -28,6 +28,7 @@ import { round13Scenarios } from "./scenarios/round13.scenario.ts";
 import { lifetimeScenarios } from "./scenarios/lifetime.scenario.ts";
 import { identityScenarios } from "./scenarios/identity.scenario.ts";
 import { ignoreScenarios } from "./scenarios/ignore.scenario.ts";
+import { absorbScenarios } from "./scenarios/absorb.scenario.ts";
 import { streams5Scenarios } from "./scenarios/streams5.scenario.ts";
 import { flowScenarios } from "./scenarios/flows.scenario.ts";
 import { fragScenarios } from "./scenarios/frag.scenario.ts";
@@ -61,6 +62,7 @@ export const allScenarios: readonly Scenario[] = [
   ...lifetimeScenarios,
   ...identityScenarios,
   ...ignoreScenarios,
+  ...absorbScenarios,
 ];
 
 const here = import.meta.dir;

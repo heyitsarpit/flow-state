@@ -47,5 +47,9 @@ export const MUTANTS = [
   m("ign.runs-a-turn", "OD:28", "turn.ts", "if (mm && mappedFor(mm, item)?.ignore) {", "if (false) {"),
   m("ign.unknown-held", "rule:40", "turn.ts", 'if (item.ending.ch === "unknown" && cur?.head?.phase.t === "held" && cur.head.id === item.attempt) cell(tx, "cancel", cur, argsOf(cur));', ""),
   m("ign.parked-without-incarnation", "OD:28", "turn.ts", "if (mm && mappedFor(mm, item)?.ignore) {", "if (mm && getActor(tx.w.actors, item.actor) && mappedFor(mm, item)?.ignore) {"),
+  // F (OD29), area 4.
+  m("f.absent-is-placed", "OD:29", "inc.ts", "if (p.resetOn && absentReset(p, { memory: viewOf(cur), event: {} })) continue;", ""),
+  m("f.filling-has-no-key", "OD:29", "inc.ts", "(present?.ok ? { ...hv, key: present.v } : hv)", "hv"),
+  m("f.absent-does-not-end", "OD:29", "turn.ts", "if (p.each || now === undefined) continue;", "if (p.each) continue;"),
   m("id.value-is-not-the-input", "rule:74", "step.ts", "memory: run(m.memory.initial, input as never),", "memory: run(m.memory.initial, (identity ? {} : input) as never),"),
 ];

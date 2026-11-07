@@ -122,6 +122,24 @@ machine(D, ({ S, O }) => ({
   },
 }));
 
+// Round 14 (OD29 E step 2, rule 39): a commit's and a lookup's context carry no `signal`; an adapter uses Effect's (`tryPromise`, `Effect.abortSignal`).
+transaction({
+  id: "t/nosignal",
+  input: {},
+  key: [],
+  concurrency: "reject",
+  commit: (_i, c) => {
+    // @ts-expect-error the commit context has no `signal` (OD29 E step 2)
+    void c.signal;
+    return Effect.void;
+  },
+});
+// Round 14 (OD28): `Flow.ignore` stands wherever a mapping takes one event.
+const TI = definition({ id: "T/Ign", states: ["A"], events: {}, internalEvents: { Ok: {} }, memory: {}, operations: ({ E }) => ({ s: save.outcomes({ success: Flow.ignore, failure: { Refused: Flow.ignore, NotSent: E.Ok }, unknown: Flow.ignore }) }) });
+void TI;
+// OD29 (decision 3 B): a handler's `target` may be omitted and means "self" (already accepted; pinned as compiling).
+machine(TI, ({ S }) => ({ default: S.A, on: { Ok: { updateMemory: () => ({}) } } }));
+
 // Round 14 (OD30, rule 74, 2.7.19): refs. A value ref is named by the input fields; a singleton by a literal name.
 const ED = definition({ id: "T/Editor", states: ["A"], events: {}, internalEvents: {}, memory: { workspaceId: Flow.input(Schema.String), ticketId: Flow.input(Schema.String), title: Flow.initial(Schema.String, "") }, operations: () => ({}) });
 const EM = machine(ED, ({ S }) => ({ default: S.A }));

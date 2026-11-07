@@ -526,4 +526,5 @@ Convergence-8. Old unbuilt rows (`STORY-ALL`, `BROWSER-*`, `SSR-01`) renumbered 
 | R14-ID-03 | 14 | example | design | rule:74, sec:2.7.19 |  | rule 74: a singleton has a literal name and takes input at ensure; one machine in both forms is ConflictingActorRef |
 | R14-IGN-01 | 14 | example | design | OD:28, sec:2.7.18, rule:13, rule:40 |  | OD28: an ignored success, failure tag, unknown, interrupt and NotSent each apply their lane effect with no turn; an unknown is released (a waiting commit promoted); with no incarnation it is not parked |
 | R14-IGN-02 | 14 | example | design | OD:28, sec:2.7.18, rule:44 |  | OD28: an ignored Restored releases the hold, at a return after an end and at a reload |
+| R14-F-01 | 14 | example | design | OD:29, rule:1, rule:9, rule:51, rule:56 |  | OD29 F: a resetOn returning null is not placed (M8 impossible); present, its filling reads key; A, none, A adopts A's post |
 | R14-IGN-03 | 14 | example | design | OD:28, rule:40, rule:32, sec:2.8.6 |  | OD28 P1: an ignored unknown on a domain write is Released; the mark stays until a later write's success clears it |

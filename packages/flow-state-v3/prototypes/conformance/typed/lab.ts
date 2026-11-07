@@ -17,14 +17,12 @@ export const call =
       (idempotencyKey === undefined ? api.call(op, input) : api.call(op, input, { idempotencyKey })) as Effect.Effect<A, Tag<T>>,
     );
 // The common write: a lost answer or a server error is an unknown (rule 13). The hand fixtures' `unknownWhenLost`, typed.
+// Round 14 (OD28 G): with Effect's own `catchTag` over the two lost tags, as an app writes it; no Flow word.
 export const unknownWhenLost = <A, T extends string, R>(
   write: Effect.Effect<A, Tag<T>, R>,
 ): Effect.Effect<A, Tag<Exclude<T, "NoResponse" | "ServerError">> | OutcomeUnknown<Tag<"NoResponse" | "ServerError">>, R> =>
-  Effect.catch(write, (e: Tag<T>): Effect.Effect<never, Tag<Exclude<T, "NoResponse" | "ServerError">> | OutcomeUnknown<Tag<"NoResponse" | "ServerError">>> =>
-    e._tag === "NoResponse" || e._tag === "ServerError"
-      ? Outcome.unknown(e as unknown as Tag<"NoResponse" | "ServerError">)
-      : Effect.fail(e as Tag<Exclude<T, "NoResponse" | "ServerError">>),
-  );
+  Effect.catchTag(write as Effect.Effect<A, Tag<"NoResponse"> | Tag<"ServerError"> | Tag<string>, R>, ["NoResponse", "ServerError"], (e) => Outcome.unknown(e)) as never; // `T` is generic here, so its tags are widened to call catchTag
+
 // A write by its op name, keyed by the Attempt (D106: the idempotency key is the Attempt's id).
 export const write =
   <A = unknown, T extends string = never>(op: string) =>

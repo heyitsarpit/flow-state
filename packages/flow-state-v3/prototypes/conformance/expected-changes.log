@@ -1298,3 +1298,16 @@ output:R14-IGN-02/a-reloads-restored-is-released-at-ready hash:255a1abd00aa | OD
 output:R14-IGN-02/a-returns-restored-is-released hash:5d3487c4ffba | OD28: R14-IGN-02's return variant, new
 output:R14-IGN-03 hash:657cedaf99c2 | OD28 P1: R14-IGN-03's whole output, new
 file:expected-recipients.txt hash:315202bfaabe | OD28: R14-IGN observe 4 more deliveries and anchor 1 more restored state
+--- round 14, areas 4 and 5: F, E step 2, the optional target and G (OD29, OD28), by hand
+R14-F-01 hash:02fb76024a05 | OD29 F: an absent resetOn value places nothing (M8 impossible), key reaches the filling, A none A adopts A's post
+file:scenarios/absorb.scenario.ts hash:9763d1722ca6 | OD29 F: R14-F-01
+file:typed/comments.ts hash:cc42058312d2 | OD29 F: Desk/Previewer, the comments trait placed only while a preview is chosen, its input from key
+file:typed/lab.ts hash:08c9d1e19058 | OD28 G: the lost tags classified with Effect.catchTag, results unchanged
+file:typed/pay.ts hash:ec1cf13ca03a | OD28 G: Pay's two lost classifiers with Effect.catchTag, results unchanged
+file:main.ts hash:a44694a6b3b1 | OD29 F: the absorb scenarios join the suite
+round:typed/type-tests.ts hash:c4369a72842c | OD29 E step 2, OD28, OD29 target: no signal in a commit's context; Flow.ignore types; target omitted compiles
+round:mutants-lifetime.ts hash:5af65ffd2607 | OD29 F: three wrong runtimes for the absent reset value and the filling's key
+output:R14-F-01/a-none-a-adopts-as-save hash:5a3b68dfa85f | OD29 F: R14-F-01's walk variant, new
+output:R14-F-01/not-placed-while-absent-so-a-post-goes-nowhere hash:bbb061c5b93c | OD29 F: R14-F-01's not-placed variant, new
+output:R14-F-01/present-it-is-placed-with-key hash:4ef445cbcc72 | OD29 F: R14-F-01's key variant, new
+file:expected-recipients.txt hash:63755331c03e | OD29 F: R14-F-01 observes one more delivery and checks one more start node

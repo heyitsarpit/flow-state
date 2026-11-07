@@ -385,10 +385,17 @@ const doResets = (w: Walk) => {
         const kid = host.kids[part]!;
         if (kid.frozen || kid.reset === now) continue;
         endInc(w, path, part, p);
-        if (p.each) continue;
+        if (p.each || now === undefined) continue; // OD29 F: becoming absent ends the incarnation as removal does
         const cur = kidAt(w.root, path)!;
         const fresh = seed(w.tx, w.m, cur, p, [...path, part], undefined, undefined, w.started);
         w.root = withKid(w.root, path, (i) => ({ ...i, kids: { ...i.kids, [part]: fresh } }));
+        markFresh(w);
+      }
+      // OD29 F: becoming present starts one (a frozen resumable copy is the thaw's business).
+      if (!p.each && now !== undefined && partsNamed(kidAt(w.root, path)!, p.name).length === 0) {
+        const cur = kidAt(w.root, path)!;
+        const fresh = seed(w.tx, w.m, cur, p, [...path, p.name], undefined, undefined, w.started);
+        w.root = withKid(w.root, path, (i) => ({ ...i, kids: { ...i.kids, [p.name]: fresh } }));
         markFresh(w);
       }
     }
@@ -906,6 +913,7 @@ const recheckResets = (w: Walk): boolean => {
       const now = resetValue(w.tx, p.resetOn!, inView(host, {}));
       for (const part of partsNamed(host, p.name))
         if (!host.kids[part]!.frozen && host.kids[part]!.reset !== now) pending = true;
+      if (!p.each && now !== undefined && partsNamed(host, p.name).length === 0) pending = true; // OD29 F: a value became present
     }
   });
   return pending;

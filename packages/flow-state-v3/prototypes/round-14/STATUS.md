@@ -21,4 +21,10 @@ Prototype, for evidence; never production code.
 - Runtime: an ignored ending is admitted with no turn; its cell applies; an unknown is released (cancel in Held); never parked.
 - `flow check`: `IgnoredUnknown` info. R14-IGN-01..03; 815/815 locked; 35 wrong runtimes red, every case red on one.
 
-Next: area 4, F (OD29).
+## Checkpoint 4: areas 4 and 5 (OD29 F, E step 2, target, G) done
+
+- F: an absent `resetOn` value places nothing; present, the filling reads `key`; R14-F-01 (M8 impossible, the "A, none, A" walk).
+- E step 2 and the optional target: type pins (no `signal` in contexts was already so). G: `Effect.catchTag` in `typed/lab.ts`, `typed/pay.ts`.
+- J: not built (the prototype has no typed entity API). 818/818 locked; 38 wrong runtimes red.
+
+Next: the end gates.
