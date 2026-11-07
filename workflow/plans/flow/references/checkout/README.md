@@ -55,7 +55,7 @@ it in a `StoryPlayer`, and replays the property test's shrunk counterexample whe
 
 ## Design gaps
 
-Every `// design gap:` comment in this folder's code (grep `design gap:`). 11 gaps; the text is the comment's. Findings against the design from the conversion are in [../CONVERSION.md](../CONVERSION.md).
+Every `// design gap:` comment in this folder's code (grep `design gap:`). 11 gaps; the text is the comment's. Findings against the design from the conversion are in [../CONVERSION.md](../../../archive/flow-design-2026-11/CONVERSION.md).
 
 | #   | File                                  | Gap                                                                                                                                                                                        |
 | --- | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |

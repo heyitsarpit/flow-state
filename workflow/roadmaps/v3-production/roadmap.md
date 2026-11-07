@@ -12,8 +12,9 @@ Built from: suite commit `9b1dd09b1b4436e26e103f9632bb63153593d5e3`
 Records:
 - Plans: `workflow/plans/flow/*.plan` (stale until phase 1).
 - Design: `workflow/plans/flow/references/explorations/machine-fragments/machine-design.md`.
-- Open proposals: every file under `workflow/plans/flow/references/explorations/` not marked
-  merged or superseded, and `packages/flow-state-v3/prototypes/round-9/entity-proposal-2.md`.
+- Open proposals: every file under `workflow/plans/flow/references/proposals/`, and
+  `packages/flow-state-v3/prototypes/round-9/entity-proposal-2.md`. History is in
+  `workflow/plans/archive/flow-design-2026-11/` (read-only).
 - Prototype record: `packages/flow-state-v3/prototypes/FOR-ARPIT.md`, `HANDOFF.md`,
   `convergence-1.md` to `convergence-13.md` and `round-13/review.md`, all in that folder.
 - Epic, Specs and Tasks: none yet. Specs are written in phase 1. Tasks are drafted with `to-task`

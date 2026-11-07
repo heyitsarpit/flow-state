@@ -1,7 +1,9 @@
 # Impact: call state belongs to the use site (the `calls` object)
 
+**Not pursued (2026-11-07):** closed at the references cleanup; nothing has referred to it since 2026-10-31. Kept as prior art.
+
 Written 2026-10-30 as an exploration. Nothing here is accepted, and no proposal was edited. Abbreviations: MD =
-[machine-design.md](../machine-design.md), AU = [audit-multiplicity.md](../audit-multiplicity.md), M3, M4, M5, M6 = the
+[machine-design.md](../../../../flow/references/explorations/machine-fragments/machine-design.md), AU = [audit-multiplicity.md](../audit-multiplicity.md), M3, M4, M5, M6 = the
 `merge-N-*/proposal.md` files. Citations are `file:line` as the files stand today.
 
 **Verdict in one line:** the lane model gets simpler and several rules and decisions disappear, but the change is
@@ -359,7 +361,7 @@ more than one key in Story traces (`SiteManyKeys`), a state-placed call outstand
 
 ## 5. How often does one machine call the same operation more than once?
 
-Counted from the five rewrites in [merged/server-calls/rewrites/](../merged/server-calls/rewrites/) and the design's
+Counted from the five rewrites in [merged/server-calls/rewrites/](../../../../flow/references/explorations/machine-fragments/merged/server-calls/rewrites/) and the design's
 examples. "Sites" are `.commit(...)` values (`grep` of the rewrites).
 
 | Machine | Commit sites | (a) one operation from **different** sites | (b) one site, **many concurrent** calls |

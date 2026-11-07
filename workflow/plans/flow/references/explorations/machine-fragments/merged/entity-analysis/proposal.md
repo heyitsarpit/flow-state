@@ -2,7 +2,7 @@
 
 Status: **merged into machine-design.md on 2026-10-30; kept as the record behind it.** It was merge 5 into
 [machine-design.md](../../machine-design.md) (section 2.8's predicted-field wording, rules 34 and 35, C18, the Package O1
-row, a pointer in section 5, decisions M5-D1–M5-D10; plan: [merge-plan-4-5.md](../../merge-plan-4-5.md)); its rules
+row, a pointer in section 5, decisions M5-D1–M5-D10; plan: [merge-plan-4-5.md](../../../../../../archive/flow-design-2026-11/machine-fragments/merge-plan-4-5.md)); its rules
 A1–A12 are for `references/design/entity-domain.md` section 9. Where this record and the design differ, the design
 wins. Its `M4:` citations are line numbers of merge 4 before it was merged; in
 [merged/entities.md](../entities.md) they are two lines later.

@@ -1,5 +1,7 @@
 # From-scratch experiment, output 1: new shapes
 
+**Not pursued (2026-11-07):** closed at the references cleanup; nothing has referred to it since 2026-10-31. Kept as prior art.
+
 Status: brainstorm, written 2026-10-31 (open-items 20). **Nothing here is proposed, decided or checked against
 the current design.** I did not read machine-design.md or any proposal. Sources read: principles.md,
 reference/example-apps.md, merged/server-calls/requirements.md (R1-R38, P1-P23), merged/streams/brief.md (SR, FC),

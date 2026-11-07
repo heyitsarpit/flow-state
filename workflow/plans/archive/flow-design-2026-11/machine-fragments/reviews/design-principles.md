@@ -1,7 +1,7 @@
 # Review of proposal-v4 (principles lens, focused on the additions)
 
-This review reads [machine-design.md](../machine-design.md) against [principles.md](../principles.md) and
-the prior-art notes (`prior-art/README.md` and its four notes, removed, see [the folder README](../README.md)). It covers
+This review reads [machine-design.md](../../../../flow/references/explorations/machine-fragments/machine-design.md) against [principles.md](../fragments-problem.md) and
+the prior-art notes (`prior-art/README.md` and its four notes, removed, see [the folder README](../../../../flow/references/explorations/machine-fragments/README.md)). It covers
 only what changed from v3, and ignores the uncommitted `.plan` edits. Line numbers (Lnn) refer to
 machine-design.md.
 

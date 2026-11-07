@@ -7,7 +7,7 @@ differ, the design wins. It changed how a commit's ending reaches the machine an
 P13, P14, the `definite` field of `abandoned`, and parts of the Operations and EntityDomains plans (section 7). The
 in-machine half (timeout and retry placement, fencing, `abandoned`, late turns, the saga recipe) is merge 2,
 [server-calls/proposal.md](server-calls/proposal.md). The implementation is checked by the spike in
-[spikes/outcome-channels](../spikes/outcome-channels/outcome.ts).
+[spikes/outcome-channels](../../../../../archive/flow-design-2026-11/machine-fragments/spikes/outcome-channels/outcome.ts).
 
 ## 1. The problem
 

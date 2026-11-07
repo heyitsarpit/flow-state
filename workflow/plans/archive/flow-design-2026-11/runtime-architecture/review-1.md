@@ -1,6 +1,7 @@
 # Review 1 of the runtime architecture discussion
 
-**Status: proposed.** Advice to the coordinator and the owner. Nothing here is decided.
+**Status: spent (2026-11-07),** with the discussion it reviews; the prototype rounds answered it. The original status
+read: proposed. Advice to the coordinator and the owner. Nothing here is decided.
 
 ## Step 1: written before opening discussion.md, not revised afterward
 

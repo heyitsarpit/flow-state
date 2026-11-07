@@ -3,7 +3,7 @@
 Throwaway experiments for the runtime. Each folder answers one question and holds its code and a `RESULTS.md` with the
 inputs, conditions, results and limits. Nothing here becomes production code; the findings carry over.
 
-Everything is proposed. Context: `workflow/plans/flow/references/explorations/runtime-architecture/discussion.md` and
+Everything is proposed. Context: `workflow/plans/archive/flow-design-2026-11/runtime-architecture/discussion.md` and
 `review-1.md`. Method: the `prototype` skill.
 
 Rules:

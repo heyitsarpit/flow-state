@@ -227,7 +227,7 @@ may import app setup and fakes. Relative `.js` imports refer to `.ts` and `.tsx`
 
 ## Design gaps
 
-Every `// design gap:` comment in this folder's code (grep `design gap:`). 33 gaps; the text is the comment's. Findings against the design from the conversion are in [../CONVERSION.md](../CONVERSION.md).
+Every `// design gap:` comment in this folder's code (grep `design gap:`). 33 gaps; the text is the comment's. Findings against the design from the conversion are in [../CONVERSION.md](../../../archive/flow-design-2026-11/CONVERSION.md).
 
 | #   | File                                                  | Gap                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | --- | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

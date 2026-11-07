@@ -1,6 +1,8 @@
 # What the Flow State runtime prototype should be
 
-Status: **everything here is proposed.** Nothing is decided until you say so. Written 2026-11-01 against `machine-fragments/machine-design.md` as it stood that evening; another agent was editing its samples, so I cite sections and rule numbers, not line numbers.
+Status: **spent (2026-11-07).** Its question, what the runtime prototype should be, was answered by the prototype rounds 1-13
+in `packages/flow-state-v3/prototypes/`, whose decision record is authoritative. Kept as prior art. The original status
+read: everything here is proposed. Nothing is decided until you say so. Written 2026-11-01 against `machine-fragments/machine-design.md` as it stood that evening; another agent was editing its samples, so I cite sections and rule numbers, not line numbers.
 
 How to read the evidence marks:
 

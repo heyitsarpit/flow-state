@@ -15,11 +15,10 @@ contracts. Everything here supports them. Where a document here and a plan diffe
 | [design/principles.md](design/principles.md)                                         | the design checklist                                                              |
 | [design/multi-tab.md](design/multi-tab.md)                                           | shared multi-tab persistence; deferred, not version 1                             |
 | [design/sync-engine-adapter.md](design/sync-engine-adapter.md)                       | the tier-2 sync engine plug-in point; deferred, not version 1                     |
-| [explorations/playback.md](explorations/playback.md)                                 | Story rendering and playback over the real UI; an exploration                     |
-| [explorations/machine-fragments/](explorations/machine-fragments/README.md)      | Traits and subroutines: reusable machine behaviour, restarted from principles     |
-| [explorations/fragments.md](explorations/fragments.md)                               | Prior art, not accepted: the single-fragment proposal and its decisions D1–D13    |
-| [explorations/fragment-examples.md](explorations/fragment-examples.md)               | Prior art: the single-fragment proposal's examples, grouped by use case           |
-| [explorations/fragment-contract-syntax.md](explorations/fragment-contract-syntax.md) | Prior art: the single-fragment proposal's contract syntax versions                |
+| [explorations/machine-fragments/machine-design.md](explorations/machine-fragments/machine-design.md) | **the** design, and the record behind it in `merged/`; both move to `design/` and the archive after phase 1 |
+| [proposals/](proposals/)                                                             | open work only: [actor-lifetime/](proposals/actor-lifetime/proposal.md), [absorb-wiring/](proposals/absorb-wiring/absorb-wiring-proposal.md), [open-items.md](proposals/open-items.md), [revisit.md](proposals/revisit.md) |
+| [COVERAGE.md](COVERAGE.md)                                                           | proposed map of each API across the two reference apps; to check |
+| [../../archive/flow-design-2026-11/](../../archive/flow-design-2026-11/)             | history, read-only: merged-in reviews, spikes, merge plans, the fragments prior art, playback (accepted, now Testing.plan O4 and O9), the spent runtime discussion, closed explorations |
 
 Some design documents predate later decisions. In version 1, SSR hydration and lazy features are
 in; Suspense, multi-tab sharing and sync engines are out. The plans state the decided behaviour.

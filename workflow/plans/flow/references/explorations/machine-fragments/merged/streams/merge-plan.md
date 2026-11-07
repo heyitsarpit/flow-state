@@ -275,7 +275,7 @@ Nothing. Limits and unproven items are section 7 item 23; plan changes are owed 
 
 ## 4. What the merge check changed
 
-Applied 2026-11-01 from [reviews/streams-merge-check.md](../../reviews/streams-merge-check.md), with the owner's decisions. This section supersedes MX6 and MX7's wording; the rows above stay as written.
+Applied 2026-11-01 from [reviews/streams-merge-check.md](../../../../../../archive/flow-design-2026-11/machine-fragments/reviews/streams-merge-check.md), with the owner's decisions. This section supersedes MX6 and MX7's wording; the rows above stay as written.
 
 - **Samples.** A fixture that needs a sibling is provided it: `ChatSocket.layer.pipe(Layer.provide(ChatFake))`, Testing O3 unchanged. 2.10.18.7's subject is written out: `ChatLog`, `Message` with `seq`, `ChatLogSocket`, `ChatLogDefinition`, `ChatLogRoom`. The bookmark helper has one subject, the desk's.
 - **Rules and text.** Rule 13 adds the tag `Feed`; rule 40 and 2.7.3 except `every` and `listen`; rules 67, 68, 71 mark their clauses; rule 50 and 2.6 add `bookmark`; 2.5 step 6 keeps Streams T3's two conditions; 2.11.6 says where `Interrupted` comes from; 2.11 states what spike and model mean; item 23 corrects trial 2's claim.

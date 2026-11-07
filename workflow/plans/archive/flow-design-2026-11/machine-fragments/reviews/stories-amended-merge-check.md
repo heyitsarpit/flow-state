@@ -1,9 +1,9 @@
 # Check: amended Stories and Fake merge into machine-design.md
 
 Reviewed 2026-11-01. Scope: `5a5ea0f8` against `5a5ea0f8^` (`700c2b4d`), using
-[merged/story-checks/merge-plan.md](../merged/story-checks/merge-plan.md) (AE1–AE26, AE-C rows, MX1–MX10),
-[stories-amended.md](../merged/story-checks/stories-amended.md) (SA), [fakes-v2.md](../merged/story-checks/fakes-v2.md) and
-[decisions.md](../merged/story-checks/decisions.md). Method as in [fragments-merge-check.md](fragments-merge-check.md). Line numbers
+[merged/story-checks/merge-plan.md](../../../../flow/references/explorations/machine-fragments/merged/story-checks/merge-plan.md) (AE1–AE26, AE-C rows, MX1–MX10),
+[stories-amended.md](../../../../flow/references/explorations/machine-fragments/merged/story-checks/stories-amended.md) (SA), [fakes-v2.md](../../../../flow/references/explorations/machine-fragments/merged/story-checks/fakes-v2.md) and
+[decisions.md](../../../../flow/references/explorations/machine-fragments/merged/story-checks/decisions.md). Method as in [fragments-merge-check.md](fragments-merge-check.md). Line numbers
 are of `machine-design.md` at HEAD (`3cee5255`), whose text equals `5a5ea0f8`. Only this file was written.
 
 This file has its own name because `reviews/stories-merge-check.md` is the committed check of merge 3 (`0ca7d93b`).

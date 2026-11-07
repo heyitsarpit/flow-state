@@ -1,9 +1,9 @@
 # Check: operations-in-definition merge into machine-design.md
 
 Reviewed 2026-10-30. Scope: f66ec80c (change set 1, OE1-OE83 normative parts), 1b0c91bd (change set 2 and the move to
-`merged/operations/`), acbe86c3 (owner Q1 edits, OD26), against [merged/operations/merge-plan.md](../merged/operations/merge-plan.md),
-[proposal.md](../merged/operations/proposal.md) (revision 13), [decisions.md](../merged/operations/decisions.md) and
-[delegated-decisions.md](../delegated-decisions.md) rows 4-11. Method as in [merge-4-5-check.md](merge-4-5-check.md).
+`merged/operations/`), acbe86c3 (owner Q1 edits, OD26), against [merged/operations/merge-plan.md](../../../../flow/references/explorations/machine-fragments/merged/operations/merge-plan.md),
+[proposal.md](../../../../flow/references/explorations/machine-fragments/merged/operations/proposal.md) (revision 13), [decisions.md](../../../../flow/references/explorations/machine-fragments/merged/operations/decisions.md) and
+[delegated-decisions.md](../../../../flow/references/explorations/machine-fragments/delegated-decisions.md) rows 4-11. Method as in [merge-4-5-check.md](merge-4-5-check.md).
 Line numbers are of `machine-design.md` at HEAD (acbe86c3). Only this file was written.
 
 ## Verdict

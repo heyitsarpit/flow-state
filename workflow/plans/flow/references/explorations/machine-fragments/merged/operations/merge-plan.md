@@ -7,8 +7,8 @@ HEAD `ebd7120c` (merges 1, 2, 4 and 5 merged, the 4/5 check's two defects fixed)
 
 Short names: **MD** [machine-design.md](../../machine-design.md); **ODP** [proposal.md](proposal.md) (revision 13,
 accepted for merging, OD24); **OD** [decisions.md](decisions.md); **LM** [lane-model/RESULTS.md](lane-model/RESULTS.md);
-**P45** [merge-plan-4-5.md](../../merge-plan-4-5.md) (its section 5 listed what this merge replaces); **CHK**
-[reviews/merge-4-5-check.md](../../reviews/merge-4-5-check.md). ODP's "M4 rule *n*" is now **MD rule *n*** (26–38); its
+**P45** [merge-plan-4-5.md](../../../../../../archive/flow-design-2026-11/machine-fragments/merge-plan-4-5.md) (its section 5 listed what this merge replaces); **CHK**
+[reviews/merge-4-5-check.md](../../../../../../archive/flow-design-2026-11/machine-fragments/reviews/merge-4-5-check.md). ODP's "M4 rule *n*" is now **MD rule *n*** (26–38); its
 "MD line 818" is MD 2.7.1's reasons table; its "MD:1361-1457" is MD 3.1's fragments. "Before" quotes are copied
 from MD; "…" in a quote only shortens it, and the edit replaces the whole sentence, row or block it names.
 

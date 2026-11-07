@@ -1,6 +1,6 @@
 # Converting the dispatch desk and Checkout to the current design
 
-Both apps now use the design in [machine-design.md](explorations/machine-fragments/machine-design.md) ("MD"), streams and amended Stories included. Everything is uncommitted. Findings below are **proposed**: none is a decision.
+Both apps now use the design in [machine-design.md](../../flow/references/explorations/machine-fragments/machine-design.md) ("MD"), streams and amended Stories included. Everything is uncommitted. Findings below are **proposed**: none is a decision.
 
 ## What was checked, and what that proves
 
@@ -15,7 +15,7 @@ nubx tsc -p workflow/plans/flow/references/dispatch-desk/tsconfig.effect-only.js
 nubx tsc -p workflow/plans/flow/references/checkout/tsconfig.effect-only.json      # 0 errors
 ```
 
-[typecheck/standin/](typecheck/standin/) was copied from the desk trial and widened. Real Effect 4.0.5 types; every Flow type is mine.
+[typecheck/standin/](../../flow/references/typecheck/standin/) was copied from the desk trial and widened. Real Effect 4.0.5 types; every Flow type is mine.
 
 | Part | How strict | A pass proves |
 | --- | --- | --- |
@@ -26,7 +26,7 @@ nubx tsc -p workflow/plans/flow/references/checkout/tsconfig.effect-only.json   
 | Machine bodies, fragments, resources, domains, entities, rows other than a stream's | `any` | **nothing**: a wrong word inside them compiles |
 | Views, Next, React, hooks | `any` | syntax and imports only |
 
-[typecheck/checks/negative.ts](typecheck/checks/negative.ts) has 18 lines that must fail, and they do. That shows the stand-ins match the design's words where they claim to be strict, not that Flow can type this.
+[typecheck/checks/negative.ts](../../flow/references/typecheck/checks/negative.ts) has 18 lines that must fail, and they do. That shows the stand-ins match the design's words where they claim to be strict, not that Flow can type this.
 
 Two flags differ from `tsconfig.base.json`: `noImplicitAny` is off (machine bodies are `any`, so callbacks would all fail), and `exactOptionalPropertyTypes` is off (`Schema.optional` request fields against the pure server core). `noUnused*` is off as well. So it is not the trial's "no `any`" claim.
 

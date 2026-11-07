@@ -1,7 +1,7 @@
 # Fragments: reusable machine behaviour
 
 Status: proposal, not accepted: the single-fragment proposal, where one `fragment` concept covers
-everything. It is prior art for [machine-fragments/](machine-fragments/principles.md), which splits
+everything. It is prior art for [machine-fragments/](../machine-fragments/fragments-problem.md), which splits
 fragments into traits and subroutines; its decisions D1–D13 are evidence there, not rules. No plan has been changed for it. Where this document and a plan differ, the plan wins.
 
 Companion files: [fragment-examples.md](fragment-examples.md) holds the full code of every fragment;
@@ -35,7 +35,7 @@ the closest prior art
 A **fragment** is behaviour without identity. It declares states, events, memory, guards and
 schedules, and is inlined into a host machine when the machine is constructed. The host stays one
 actor with one mailbox, one turn and one plain snapshot, and everything compiles into one
-representation ([FlowState.plan](../../FlowState.plan) D1).
+representation ([FlowState.plan](../../../flow/FlowState.plan) D1).
 
 ```ts
 export const Toggle = (p: { initial: boolean }) =>
@@ -99,7 +99,7 @@ touch the world: I/O, other actors, wiring, storage or identity. Section 8 expla
 
 ## 4. Mounted and embedded
 
-The plans keep exactly one active leaf state per actor ([Machines.plan](../../Machines.plan) O2),
+The plans keep exactly one active leaf state per actor ([Machines.plan](../../../flow/Machines.plan) O2),
 so reusable behaviour comes in two kinds:
 
 - **Mounted**: a step in a flow (save with retry, a confirmation, a wizard step). It is placed as
@@ -261,7 +261,7 @@ typed key like any event name), and is otherwise dropped with evidence.
 
 **Restore.** The saved state path includes fragment states and memory includes fragment slices;
 restore resumes them with no re-initialization and no replay
-([Persistence.plan](../../Persistence.plan) O4). An operation in flight restores as `unknown`
+([Persistence.plan](../../../flow/Persistence.plan) O4). An operation in flight restores as `unknown`
 (Persistence O6), so a host that maps a commit's outcomes onto a fragment must map `unknown` too,
 and `flow check` errors otherwise. Lookups re-subscribe on restore, so loading is modelled with an
 activity, not a commit.
@@ -278,7 +278,7 @@ does not retime it. `restartOn` sees `memory` and `context`, as in Machines O5, 
    commits.
 2. **Operation inputs need host data**, which a fragment cannot see.
 3. **Concurrency is per actor.** Commit policies apply per actor, operation and key
-   ([Operations.plan](../../Operations.plan) O3); operations hidden in two fragments of one host
+   ([Operations.plan](../../../flow/Operations.plan) O3); operations hidden in two fragments of one host
    would share a queue without either declaring it.
 4. **One I/O list per actor.** The host's `operations` is what services, SSR settling, Attempt
    durability, Story fixtures, `flow check` and the graph read.
@@ -294,13 +294,13 @@ XState's maintainers advise against sharing state configuration because Stately'
 code: a parser cannot follow a spread config or a state built by a function call
 ([statelyai/xstate#3283](https://github.com/statelyai/xstate/discussions/3283)). That does not apply
 here. `inspect(app)` and `flow check` construct the app and read its compiled representation
-([Inspection.plan](../../Inspection.plan) O1). Fragments compile into it: callbacks and injected
+([Inspection.plan](../../../flow/Inspection.plan) O1). Fragments compile into it: callbacks and injected
 guards merge into ordinary transitions, so graphs, `check()`, models, coverage and Stories see
 ordinary states and edges, tagged `fragment: { id, instance }` so graphs can collapse them.
 
 Three things need care:
 
-- **Deny codes come from TypeScript types** ([Inspection.plan](../../Inspection.plan) D2). Injected
+- **Deny codes come from TypeScript types** ([Inspection.plan](../../../flow/Inspection.plan) D2). Injected
   guards and callback handlers are host code, read like any guard. In generic fragments a deny code
   must stay a literal type; `const` type parameters keep it so.
 - **Type-level cost.** Nested names and generic fragments push on inference
@@ -352,22 +352,22 @@ Open questions:
 
 Plan changes, once accepted:
 
-- **[Machines.plan](../../Machines.plan) O1, O2, O3:** `fragment`, `embeds`, mounting, instance
+- **[Machines.plan](../../../flow/Machines.plan) O1, O2, O3:** `fragment`, `embeds`, mounting, instance
   names, props, combined transitions and their order, injected guards, `raise`, no direct targets
   into a mount.
 - **Machines O5, O6, O8:** schedules and activities owned by a fragment, props read at arm time,
   nested memory slices and fragment states in snapshots.
-- **[Runtime.plan](../../Runtime.plan):** mount generations and fencing of outcomes.
-- **[Operations.plan](../../Operations.plan):** outcome mappings onto fragment events, including
+- **[Runtime.plan](../../../flow/Runtime.plan):** mount generations and fencing of outcomes.
+- **[Operations.plan](../../../flow/Operations.plan):** outcome mappings onto fragment events, including
   the required `unknown`.
-- **[Testing.plan](../../Testing.plan):** `fragmentStory`.
-- **[Persistence.plan](../../Persistence.plan), [ServerRendering.plan](../../ServerRendering.plan):**
+- **[Testing.plan](../../../flow/Testing.plan):** `fragmentStory`.
+- **[Persistence.plan](../../../flow/Persistence.plan), [ServerRendering.plan](../../../flow/ServerRendering.plan):**
   fragment ids, versions and parameters in the saved shape and the shape digest.
-- **[Inspection.plan](../../Inspection.plan), [CommandLine.plan](../../CommandLine.plan):** fragment
+- **[Inspection.plan](../../../flow/Inspection.plan), [CommandLine.plan](../../../flow/CommandLine.plan):** fragment
   tags, collapsed graphs, and checks for conflicting targets, unbound callbacks, unmapped `unknown`
   and name collisions.
-- **[Package.plan](../../Package.plan):** `fragment`, `prop`, `callback`, and `fragmentStory`.
-- **[FlowState.plan](../../FlowState.plan):** a build stage after S3.
+- **[Package.plan](../../../flow/Package.plan):** `fragment`, `prop`, `callback`, and `fragmentStory`.
+- **[FlowState.plan](../../../flow/FlowState.plan):** a build stage after S3.
 
 ## 13. Decisions
 

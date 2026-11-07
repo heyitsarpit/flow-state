@@ -2,9 +2,9 @@
 
 Reviewed 2026-10-31. Scope: 48e3ca86 (change set 1, FE1–FE71, FE73–FE81) and HEAD (change set 2: FE72's 2.9.6 and
 the move to `merged/fragment-operations/`), against `54531af0`, using
-[merged/fragment-operations/merge-plan.md](../merged/fragment-operations/merge-plan.md),
-[proposal.md](../merged/fragment-operations/proposal.md) (revision 3 with review 3's fixes),
-[decisions.md](../merged/fragment-operations/decisions.md) (F1–F10) and [delegated-decisions.md](../delegated-decisions.md)
+[merged/fragment-operations/merge-plan.md](../../../../flow/references/explorations/machine-fragments/merged/fragment-operations/merge-plan.md),
+[proposal.md](../../../../flow/references/explorations/machine-fragments/merged/fragment-operations/proposal.md) (revision 3 with review 3's fixes),
+[decisions.md](../../../../flow/references/explorations/machine-fragments/merged/fragment-operations/decisions.md) (F1–F10) and [delegated-decisions.md](../../../../flow/references/explorations/machine-fragments/delegated-decisions.md)
 rows 12–16. Method as in [operations-merge-check.md](operations-merge-check.md) and [merge-4-5-check.md](merge-4-5-check.md).
 Line numbers are of `machine-design.md` at HEAD. Only this file was written.
 

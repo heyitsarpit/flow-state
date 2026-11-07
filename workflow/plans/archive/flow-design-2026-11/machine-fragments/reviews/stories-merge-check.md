@@ -2,9 +2,9 @@
 
 Reviewed 2026-10-31. Scope: 43cbff2a (change set 1, SE1–SE32) and 5da6e558 (change set 2, EX1–EX8, and the move to
 `merged/stories/`), against `43cbff2a^` (7e7c430f), using
-[merged/stories/merge-plan.md](../merged/stories/merge-plan.md) (SE, EX, SX1–SX20, AX1–AX6, M1–M7),
-[proposal-v2.md](../merged/stories/proposal-v2.md) (revision 3), [decisions-v2.md](../merged/stories/decisions-v2.md)
-(T1–T7) and [delegated-decisions.md](../delegated-decisions.md) rows 18–22. Method as in
+[merged/stories/merge-plan.md](../../../../flow/references/explorations/machine-fragments/merged/stories/merge-plan.md) (SE, EX, SX1–SX20, AX1–AX6, M1–M7),
+[proposal-v2.md](../../../../flow/references/explorations/machine-fragments/merged/stories/proposal-v2.md) (revision 3), [decisions-v2.md](../../../../flow/references/explorations/machine-fragments/merged/stories/decisions-v2.md)
+(T1–T7) and [delegated-decisions.md](../../../../flow/references/explorations/machine-fragments/delegated-decisions.md) rows 18–22. Method as in
 [fragments-merge-check.md](fragments-merge-check.md). Line numbers are of `machine-design.md` at 5da6e558, which is
 also HEAD for that file. Only this file was written.
 

@@ -30,7 +30,7 @@ Questions to answer when revisiting:
 - Should `armOn` count an event that has no handler, so the no-op line disappears? What does that
   do to `Unhandled`, `check()` and rule 8?
 - Or does this argue for arming from the transition after all (`Start: { target: "self", arm: … }`),
-  despite the locality and naming costs found in [spikes/schedule-triggers/RESULTS.md](spikes/schedule-triggers/RESULTS.md)?
+  despite the locality and naming costs found in [spikes/schedule-triggers/RESULTS.md](../../../archive/flow-design-2026-11/machine-fragments/spikes/schedule-triggers/RESULTS.md)?
 - Or is a timer-only trait better expressed some other way, so authors rarely write this?
 
 **Resolved (2026-10-29).** A schedule trigger is a handler: an event listed in an active schedule's `armOn` or
@@ -110,8 +110,8 @@ Interrupts and a computed `default` were considered and not taken; deep history 
 
 ## 4. Server calls, the in-machine half (flagged 2026-10-29)
 
-**Merged into [machine-design.md](machine-design.md) on 2026-10-30** (section 2.7), from
-[merged/server-calls/proposal.md](merged/server-calls/proposal.md), which superseded `in-machine-calls-proposal.md`
+**Merged into [machine-design.md](../explorations/machine-fragments/machine-design.md) on 2026-10-30** (section 2.7), from
+[merged/server-calls/proposal.md](../explorations/machine-fragments/merged/server-calls/proposal.md), which superseded `in-machine-calls-proposal.md`
 (removed). The notes below are the record of what was flagged.
 `unknown` was kept as the name. What it leaves open is in its section 8.
 
@@ -188,7 +188,7 @@ Candidates already seen: resume position and dedupe on fact feeds; catch-up pagi
 reload (the chat `reopenInMs` field); retry-budget handlers (`retryable` then `retry`, else `cancel`) repeated on every
 write; releasing a held write in every toast-only `unknown` handler; mirroring lane state into memory for views;
 key selectors in user events; seeding a feed's first position from a history read. From the new-shapes experiment (experiments/new-shapes.md): #10 policy as one value (retry, budget, cooldown, lockout declared once instead of the `retryable`/`retry`/`cancel` trio in every handler) and #14 feeds as tables (resume position, dedupe, ordering and status derived from one declared source). Also: a ready-made payload schema for `missed` events (for example `Feed.Missed`, `{ why, restartAt? }`), since every app declares the same shape. Scope: machine-design.md as merged,
-streams (proposal-v2.md) and operations-in-fragments. The fragments half is answered in [the fragments record](merged/fragment-operations/proposal.md) 2.8 (design 2.9.5): kept, the retry budget and the keep-busy line; absorbed, release on leave and `resetOn`.
+streams (proposal-v2.md) and operations-in-fragments. The fragments half is answered in [the fragments record](../explorations/machine-fragments/merged/fragment-operations/proposal.md) 2.8 (design 2.9.5): kept, the retry budget and the keep-busy line; absorbed, release on leave and `resetOn`.
 
 ## 16. Outbound live state on a session (cursors) (deferred by streams S5, 2026-10-30)
 
@@ -234,7 +234,7 @@ sessions as Stories, #21 fake worlds with one world controller.
 
 ## 21. The subject path as phase 2's admission rule for node traits and subroutines (deferred by operations-in-fragments, 2026-10-31)
 
-Mapped writes in node traits and subroutines are phase 2 (F4, F7). The candidate rule: an entry's input becomes a subject part, so a re-entry about the same thing adopts the lane (design rule 51; [the record](merged/fragment-operations/proposal.md) section 9).
+Mapped writes in node traits and subroutines are phase 2 (F4, F7). The candidate rule: an entry's input becomes a subject part, so a re-entry about the same thing adopts the lane (design rule 51; [the record](../explorations/machine-fragments/merged/fragment-operations/proposal.md) section 9).
 
 ## 22. One fragment's placements sharing an operation when their paths differ (deferred by operations-in-fragments, 2026-10-31)
 
@@ -290,7 +290,7 @@ runs turns only if a case needs a chain inside a race.
 ## 33. SSE transport and offline coverage (deferred by the coverage trim, 2026-10-31)
 
 The owner trimmed the reference code to the dispatch desk plus the Checkout app, dropping the Notebook app
-([COVERAGE.md](../../COVERAGE.md), section 5.5). Four streams situations had their home there and now have none: the SSE
+([COVERAGE.md](../COVERAGE.md), section 5.5). Four streams situations had their home there and now have none: the SSE
 recipe with `Last-Event-ID` replay as the proof (M6 4.7), a `Feed.down` caused by the browser going offline, a fact feed's
 cursor resuming across reload in a second app, and `Fake.fetch` with a streamed SSE body (design 2.10.4). Merge 6 has landed (2026-11-01; the SSE recipe is design 2.11.12.8, the cursor is now the bookmark). Add them, in a
 desk module or a small app, when a case needs them.

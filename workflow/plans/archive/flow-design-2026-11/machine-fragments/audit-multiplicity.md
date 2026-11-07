@@ -1,8 +1,8 @@
 # Audit: multiplicity, identity and existence
 
-Written 2026-10-31. Scope: [machine-design.md](machine-design.md) (MD), [merged/entities.md](merged/entities.md)
-(M4, accepted), [merged/stories](merged/stories/proposal.md) (M3, revision 3), [merged/streams](merged/streams/proposal.md)
-(M6, accepted), [merged/entity-analysis](merged/entity-analysis/proposal.md) (M5, read only), and the plans
+Written 2026-10-31. Scope: [machine-design.md](../../../flow/references/explorations/machine-fragments/machine-design.md) (MD), [merged/entities.md](../../../flow/references/explorations/machine-fragments/merged/entities.md)
+(M4, accepted), [merged/stories](../../../flow/references/explorations/machine-fragments/merged/stories/proposal.md) (M3, revision 3), [merged/streams](../../../flow/references/explorations/machine-fragments/merged/streams/proposal.md)
+(M6, accepted), [merged/entity-analysis](../../../flow/references/explorations/machine-fragments/merged/entity-analysis/proposal.md) (M5, read only), and the plans
 `Operations` (Op), `Machines` (Mc), `EntityDomains` (EP), `Testing` (T), `Persistence` (Ps), `Runtime` (Rt) and
 `references/design/multi-tab.md` (MT), all under `workflow/plans/flow/`. Citations are section or rule numbers, so they
 survive the edits this audit made.
@@ -82,7 +82,7 @@ state is left, and across tabs. The state is the one **before** this audit's edi
 | 20 | Subroutine | **D** one per state | **D** the state's name (2.1) | **D** fresh on entry (rule 1) |
 | 21 | `.each` copies | **D** at most `max` (rule 9) | **D** string keys, incarnations | **D** final list, persisted with counters (rule 9) |
 | 22 | Raise into one copy | **D** | **D** `key` in the mapper's result (rule 9) | **D** absent key: dropped or refused (rule 9) |
-| 23 | Raise into every copy; several copies writing the list | **U** not expressible ([merged/each.md](merged/each.md) section 4, items 3 and 4) → F13 | **D** | **D** |
+| 23 | Raise into every copy; several copies writing the list | **U** not expressible ([merged/each.md](../../../flow/references/explorations/machine-fragments/merged/each.md) section 4, items 3 and 4) → F13 | **D** | **D** |
 | 24 | Named schedule | **D** one per node incarnation | **D** its path (2.1) | **D** P7, P11 |
 | 25 | Keyed schedule | **D** one timer per key (rule 23) | **U** duplicate keys in the `keys` result → F7 | **U** restore of per-key timers is unstated (section 5's Persistence O2 row) → F7 |
 | 26 | Schedules of copies | **D** | **D** `s.schedules.<name>[i]` (2.1) | **D** |
@@ -245,7 +245,7 @@ copies. **Applied.** MD rule 23, section 5 (Persistence O2 row).
 ### F8. One subscription per key (row 27) — undefined, a flexibility gap
 
 **Sequence.** A watchlist shows a live quote per row; sign-in's challenges would each want a status stream. An
-activity is named, so one name holds one subscription (MD 7 item 0; [merged/each.md](merged/each.md) 4 item 1).
+activity is named, so one name holds one subscription (MD 7 item 0; [merged/each.md](../../../flow/references/explorations/machine-fragments/merged/each.md) 4 item 1).
 
 **Fix (N1).** An activity may declare `keys`, as a schedule does: one subscription or session per key of the after
 list, started when a key appears and released when it leaves; `s.activities.<name>` is a keyed list; params and
@@ -347,7 +347,7 @@ sentence (section 4).
 ### F13. Raising into every copy; several copies writing their list (row 23) — undefined, a flexibility gap
 
 "Acknowledge all" cannot be one raise, and two copies' callbacks that each remove themselves in one turn overlap
-(2.5 step 5). **Not applied:** no case in the design needs it yet ([merged/each.md](merged/each.md) 4). The N1 form
+(2.5 step 5). **Not applied:** no case in the design needs it yet ([merged/each.md](../../../flow/references/explorations/machine-fragments/merged/each.md) 4). The N1 form
 would be an aggregate address, `E.<name>.all.Event()`, and list edits (`remove: [key]`) that compose. Left to the
 owner, unchanged in MD 7 item 0.
 

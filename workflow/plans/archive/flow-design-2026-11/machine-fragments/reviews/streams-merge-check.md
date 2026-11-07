@@ -2,7 +2,7 @@
 
 Status: **applied 2026-11-01**, with the owner's decisions; nothing skipped. High 2's adapter is `ChatLogSocket`, so 2.10.18.7's fixture is `ChatLogSocket.layer.pipe(Layer.provide(ChatFake))`. The flood doubt is not settled, and is in section 7 item 23 as unproven; line numbers below stay those of `40c3c68e`.
 
-Reviewed 2026-11-01. Scope: `afcc2641..40c3c68e`, against [merged/streams/merge-plan.md](../merged/streams/merge-plan.md) (ME1–ME88, MX1–MX21) and [proposal-v3.md](../merged/streams/proposal-v3.md) (v3). Line numbers are of `machine-design.md` at `40c3c68e`. Only this file was written. Everything below is by reading: no model, type check or Flow code ran.
+Reviewed 2026-11-01. Scope: `afcc2641..40c3c68e`, against [merged/streams/merge-plan.md](../../../../flow/references/explorations/machine-fragments/merged/streams/merge-plan.md) (ME1–ME88, MX1–MX21) and [proposal-v3.md](../../../../flow/references/explorations/machine-fragments/merged/streams/proposal-v3.md) (v3). Line numbers are of `machine-design.md` at `40c3c68e`. Only this file was written. Everything below is by reading: no model, type check or Flow code ran.
 
 ## Verdict
 

@@ -1,7 +1,8 @@
 # Flow State
 
 ## Where things live
-- `workflow/plans/flow/` — current plans. Proposals are in `references/explorations/`.
+- `workflow/plans/flow/` — current plans. The design is `references/explorations/machine-fragments/machine-design.md`;
+  open proposals are in `references/proposals/`.
 - `workflow/plans/archive/`, `reference/`, Beads — historical. Read-only.
 - `packages/flow-state-v3/` — the current build; runtime first. Prototypes are in its `prototypes/` and never become production code.
 - `packages/flow-state-rewrite/`, `packages/flow-state/` — frozen, never edit.

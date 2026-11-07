@@ -16,11 +16,11 @@ Stories (merge 3, [merged/stories/proposal-v2.md](merged/stories/proposal-v2.md)
 a Story is a plan of the user's, time's and the world's inputs, run on the production Runtime against fake servers,
 with no ending injected (2.10, rules 61–66). The amended Stories and Fake design ([merged/story-checks/stories-amended.md](merged/story-checks/stories-amended.md), [merged/story-checks/fakes-v2.md](merged/story-checks/fakes-v2.md)) was merged on 2026-11-01: a Story is a transcript of inputs and checkpoints, and a test checks values with its runner's own `expect` (rules 11, 61–66; decisions SC1–SC5, W1–W43). Streams (merge 6, [merged/streams/proposal-v3.md](merged/streams/proposal-v3.md), [merged/streams/decisions-v2.md](merged/streams/decisions-v2.md)) was merged on 2026-11-01: a feed's adapter says what the connection did, and Flow runs one session table, keeps the consumer's place in a private bookmark saved with its memory, and tells a clear from a wipe with `fills` (2.11, rules 67–72; decisions S1–S16). The work order is in [the folder README](README.md). This design
 **supersedes the earlier design `proposal-v3.md`**, not streams' file of that name (removed, see [the folder README](README.md)). It is evaluated against
-[principles.md](principles.md). v4 keeps v3's model and adds what the prior-art study found missing (`prior-art/`,
+[principles.md](../../../../archive/flow-design-2026-11/machine-fragments/fragments-problem.md). v4 keeps v3's model and adds what the prior-art study found missing (`prior-art/`,
 removed, see [the folder README](README.md)). Where this file and a plan differ, the plan wins. Section 5 lists every
 plan amendment, with the sentence each one replaces. All syntax is a working draft.
 
-**Revision (multiplicity audit, 2026-10-31).** [audit-multiplicity.md](audit-multiplicity.md) checked every handle,
+**Revision (multiplicity audit, 2026-10-31).** [audit-multiplicity.md](../../../../archive/flow-design-2026-11/machine-fragments/audit-multiplicity.md) checked every handle,
 read, action, event, record and evidence item for how many exist at once, which one each reference names, and what
 happens before creation, after deletion and across restores and tabs. Its three general rules are N1–N3 (2.4, after
 rule 25); its changes are marked with this heading's words, and its decisions are D18–D21.
@@ -696,7 +696,7 @@ declarer" (a definition or a fragment), and "binding actor" as "binding incarnat
     **Classification runs outside the fiber it interrupts.**
 
 **Multiplicity** (rules N1–N3). **Revision (multiplicity audit, 2026-10-31).** Every rule above that names "the" lane,
-"the" Attempt, "the" copy or "the" session obeys these three; [audit-multiplicity.md](audit-multiplicity.md) has the
+"the" Attempt, "the" copy or "the" session obeys these three; [audit-multiplicity.md](../../../../archive/flow-design-2026-11/machine-fragments/audit-multiplicity.md) has the
 matrix behind them and a failing sequence for each case they close.
 
 - **N1. One reference, one thing; many is a keyed list.** A declaration that can have several instances at once
@@ -2382,7 +2382,7 @@ apply. Rows: `{ pending, retryCount, progress? }` under `cancel`, `{ pending, ou
 | --- | --- | --- | --- | --- |
 | `reject` | yes | none | the one minted Attempt | a commit while `InFlight` or `Held` ends `NotSent { Rejected }` |
 | `latest` | yes | one queued commit | the one minted Attempt | a commit replaces `W`, and a never-sent head not yet invoked |
-| `serialize` | yes | queued commits, FIFO ≤ 64 | the head | amends N2 and C18 (`retry`, `retryable`, `retryCount` on the head); key-less members only in the head's own ending (Q35 A); "drop the queue" and per-item stops have no member ([open-items.md](open-items.md); a keyed design) |
+| `serialize` | yes | queued commits, FIFO ≤ 64 | the head | amends N2 and C18 (`retry`, `retryable`, `retryCount` on the head); key-less members only in the head's own ending (Q35 A); "drop the queue" and per-item stops have no member ([open-items.md](../../proposals/open-items.md); a keyed design) |
 | `cancel` | no | none | the one minted Attempt, for its own ending's turn | `HeldThisTurn` |
 | `allow` | no | none | per Attempt, in its own ending's turn | a count; `HeldThisTurn` per Attempt |
 
@@ -2460,10 +2460,10 @@ non-initial leaf.
   members, and `commit`, `retry` and `cancel` have no per-key form (archive selected threads, flush N held notes on
   reconnect, retry all unsure, cancel all uploads). The pattern is a bulk contract: one request over the set, one
   `serialize` lane (review 6's sketch 9, `archived: boolean` with Undo queued behind it). Per-key fan-out of write
-  members goes to [open-items.md](open-items.md) with these four cases; no word now.
+  members goes to [open-items.md](../../proposals/open-items.md) with these four cases; no word now.
 - **Independent work one at a time.** Under unkeyed `serialize`, one unknown holds every later write (photo 3 holds
   photos 4–20); `allow` neither throttles nor holds. A throttle of independent writes is a memory queue in the
-  machine (commit the next file on `Uploaded`). Stated as a cut, for [open-items.md](open-items.md) (R4 M6).
+  machine (commit the next file on `Uploaded`). Stated as a cut, for [open-items.md](../../proposals/open-items.md) (R4 M6).
 
 **Prior art.** RxJS uses `concatMap` (queue, never drop sent work) rather than `switchMap` (cancel the previous) for
 writes, because switching drops results the server already acted on. TanStack Query's mutation `scope` runs
@@ -3418,7 +3418,7 @@ lists a releasing lane as such.
 | Stop a predecessor by raising its `Cancel` (avatar) | upload | yes | **absorbed** (decided, F9): `whenAbandoned: [O.put.cancel]` in the fragment |
 | A list of one so a root trait can change its thing | editor switching documents, avatar | yes | **absorbed** (decided, F8): `resetOn`, its value a subject part |
 | The retry-budget triplet (`retryable` else `cancel` and notify; a schedule that `retry`s) | every write | the shape, not the budget, delay or give-up reaction | **keep**: it is what a fragment is for, written once per fragment. A generic reconcile fragment cannot be written (rule 13's exhaustive `failure`) |
-| A second `cancel` after `unknown { Cancelled }` to release a user's stop | upload | no: a tombstone clean-up needs the hold (2.7.7) | **keep**; "release on user cancel" goes to [open-items.md](open-items.md) |
+| A second `cancel` after `unknown { Cancelled }` to release a user's stop | upload | no: a tombstone clean-up needs the hold (2.7.7) | **keep**; "release on user cancel" goes to [open-items.md](../../proposals/open-items.md) |
 | A 0 ms `Flow.entry` schedule to commit on creation | upload | yes, but once per fragment | **keep** (F7: no entry hook); rule 54's `idle` default makes it safe |
 | Mirroring status from endings into memory for a row | upload, autosave | partly: `pending`, `uncertain`, `progress` are rows already | **keep** |
 | Drafts pruned against the list's ids (rule 33) | comments | the shape; what a draft is differs | **keep** |
@@ -7642,9 +7642,9 @@ The streams merge ([merged/streams/proposal-v3.md](merged/streams/proposal-v3.md
   contract-agnostic reconcile fragment unwritable; fragments own concrete operations (2.9). **Mapped writes in
   subroutines and node traits** are phase 2 (F4, F7; [merged/fragment-operations/proposal.md](merged/fragment-operations/proposal.md) section 9).
 - **An Rpc-based contract** (OD13): a `fromRpc` adapter, later, when a real app needs it.
-- **Streams, out of scope** ([open-items.md](open-items.md)): outbound live state on a session (item 16), one shared session per Runtime (17), a manual `reconnect` member (18), `fromRpc` streams and download resume (19).
+- **Streams, out of scope** ([open-items.md](../../proposals/open-items.md)): outbound live state on a session (item 16), one shared session per Runtime (17), a manual `reconnect` member (18), `fromRpc` streams and download resume (19).
 - **Per-key fan-out of write members, throttled independent writes, per-item stops on a `serialize` queue** (2.7.13's
-  limits): bulk contracts and keyed designs; deferred to [open-items.md](open-items.md).
+  limits): bulk contracts and keyed designs; deferred to [open-items.md](../../proposals/open-items.md).
 
 **Decisions pending for the user** (each is its own proposal):
 
@@ -7826,7 +7826,7 @@ Notes (removed, see [the folder README](README.md)): `prior-art/synchronous-lang
 
 ## Changes after review
 
-From [reviews/design-correctness.md](reviews/design-correctness.md) and [reviews/design-principles.md](reviews/design-principles.md):
+From [reviews/design-correctness.md](../../../../archive/flow-design-2026-11/machine-fragments/reviews/design-correctness.md) and [reviews/design-principles.md](../../../../archive/flow-design-2026-11/machine-fragments/reviews/design-principles.md):
 
 - Turn (2.5): parts selected before seeding (M1); initial memory before patches, so Add-then-Strike keeps the strike (M2); all-declining falls through to ancestors (M8); a "what reads what" table; `check()` runs steps 2–6; `whenAbandoned` and pending runs after the walk; reset incarnations arm entry timers; pending resets (m2, m3).
 - Dead incarnations drop only their own parts; the host's handling commits (M3).
@@ -7843,12 +7843,12 @@ From [reviews/design-correctness.md](reviews/design-correctness.md) and [reviews
 - `.keep()` is renamed `.resumable()`: the trait resumes on return instead of restarting (SCADE 6's resume versus restart).
 - `Field(schema, { validate? })` keeps the author's validator. A validator returns `true | deny(code, context?)`, the field stores the denial or null as `Flow.Denial`, and a host guard forwards it (`memory.code.error ?? true`). A Schema check fits inside a validator (`Schema.is`), so `unchecked` and `firstIssue` are gone ([reference/effect4-field-validation.md](reference/effect4-field-validation.md)).
 - `.each` replaces the open `.list` draft (rule 9, 2.5, sign-in, invites): membership is host memory, decided from the turn's final list, repaired instead of refused, with incarnations kept internal ([merged/each.md](merged/each.md) and its four reviews).
-- Schedules (P7): `armOn` may list `Flow.entry` to also start on entry; `disarmOn` stops a schedule; `armOn` with `restartOn` is a construction error. Event-typed triggers need no name inference ([spikes/schedule-triggers/RESULTS.md](spikes/schedule-triggers/RESULTS.md)). `schedules` keeps its name (D53).
+- Schedules (P7): `armOn` may list `Flow.entry` to also start on entry; `disarmOn` stops a schedule; `armOn` with `restartOn` is a construction error. Event-typed triggers need no name inference ([spikes/schedule-triggers/RESULTS.md](../../../../archive/flow-design-2026-11/machine-fragments/spikes/schedule-triggers/RESULTS.md)). `schedules` keeps its name (D53).
 - Schedule triggers are handlers (2.5 step 2): an event listed in an active schedule's `armOn` or `disarmOn` is handled
   there with no move when the node has no written handler, so `Countdown` loses its `Start: { target: "self" }` no-op.
   Rejected: restarting by reset alone (`Flow.entry` plus `resetOn`), because `Lockout`'s nested timer must start at
   the limit-th strike, not when `Lockout` is created; and arming from the transition (`arm:`), for the locality and
-  naming costs in [spikes/schedule-triggers/RESULTS.md](spikes/schedule-triggers/RESULTS.md).
+  naming costs in [spikes/schedule-triggers/RESULTS.md](../../../../archive/flow-design-2026-11/machine-fragments/spikes/schedule-triggers/RESULTS.md).
 - `.each` names its list with `of`: `.each({ of: "inviteIds", max: 5 })` reads "a copy for each of inviteIds", where the
   bare first argument read as a key or an id. Rejected: `.list({ key, max })` (suggests the trait owns the list, and
   `key` already means the copy's key), a selector (`flow check` would have to run it), and a `Flow` marker on the
@@ -7864,7 +7864,7 @@ From [reviews/design-correctness.md](reviews/design-correctness.md) and [reviews
   [merged/server-calls/reviews/memory-reads.md](merged/server-calls/reviews/memory-reads.md)). Their decisions follow.
   One deviation from merge 2's text: its amendment table said selects are computed in step 4; its rule (now rule
   22) and the memory-read review say step 5, after every patch, and the design follows the rule.
-- **Revision (multiplicity audit, 2026-10-31)** ([audit-multiplicity.md](audit-multiplicity.md)): rules N1–N3; lanes
+- **Revision (multiplicity audit, 2026-10-31)** ([audit-multiplicity.md](../../../../archive/flow-design-2026-11/machine-fragments/audit-multiplicity.md)): rules N1–N3; lanes
   as `s.calls` with the per-call members decided by concurrency (rule 21, 2.7.3, 2.7.5, 2.7.8); `cancel` over every
   outstanding Attempt (rule 24); a retry of an outstanding Attempt is `Rejected` in every mode (rule 16); copy-started
   calls and `laneKey` (rule 9, 2.7.2, 2.7.3; items 6 and 15 closed); one ending per `fetch` (2.7.9); keyed schedules' repeats and restore (rule 23); keyed activities (2.7.10); C8, C19, C20; decisions D18–D21.
@@ -7930,7 +7930,7 @@ their rewrites, spikes, models and later proposals cite; they are not the proble
   TypeScript brands (replaced by `Data.TaggedError` wrappers, so the channels are real Effect errors: yieldable,
   catchable and visible to Effect's combinators).
 - **`Outcome.failure` and `Outcome.unknown` return error values**, not `Effect.fail(…)`, so one spelling works in
-  `yield*`, `catch:` and `mapError` (checked on Effect 4.0.5, [spikes/outcome-channels](spikes/outcome-channels/outcome.ts)).
+  `yield*`, `catch:` and `mapError` (checked on Effect 4.0.5, [spikes/outcome-channels](../../../../archive/flow-design-2026-11/machine-fragments/spikes/outcome-channels/outcome.ts)).
 - **`Outcome.success` stays**, for symmetry only; a plain `return` means the same.
 - **No `flow check` warning on unwrapped typed errors.** `outcomes.failure` is exhaustive, so an unwrapped error meant
   as unknown appears there by name and must be handled as a failure, where the author sees it.
@@ -8025,7 +8025,7 @@ their rewrites, spikes, models and later proposals cite; they are not the proble
   (each GET would mint an Attempt and have an unknown channel a read cannot have); per-item results in one success
   value (per-item unknowns get no cache rule).
 
-### Multiplicity audit ([audit-multiplicity.md](audit-multiplicity.md), 2026-10-31)
+### Multiplicity audit ([audit-multiplicity.md](../../../../archive/flow-design-2026-11/machine-fragments/audit-multiplicity.md), 2026-10-31)
 
 **Revision (multiplicity audit, 2026-10-31).** Made by the audit under the owner's brief; each awaits the owner's
 confirmation (the audit's section 5).
@@ -8096,7 +8096,7 @@ E1–E18 are kept, because its rules, merge 3, merge 5 and operations-in-definit
   it exists only under `reject`, `latest` and `cancel` (rule N2, D20); a domain write retried under several
   concurrent calls takes a per-call key and `reject`. The list's `createIssue` is `reject` per draft (2.8.2). Reason:
   under `allow` the lane's "current" Attempt was the newest create, so a retry re-sent the wrong draft's write
-  ([audit-multiplicity.md](audit-multiplicity.md) F1). Views and guards read lanes as `s.calls` rows (D18);
+  ([audit-multiplicity.md](../../../../archive/flow-design-2026-11/machine-fragments/audit-multiplicity.md) F1). Views and guards read lanes as `s.calls` rows (D18);
   the `NotSent` mapper's `laneKey` names the draft (D21), so `CreateFailed.draftId` is never `null`. *Amended by OD19: also the `serialize` head (rule 31).* *Rows are `s.operations`; `laneKey` is `key` (X30).*
 - **E18 (Revision (multiplicity audit, 2026-10-31); new).** A prediction over a record the store does not hold shows nothing and waits for a base;
   an uncertain mark holds its record (rules 30, 32). Reason: a patch replayed over a deleted or never-loaded record had
@@ -8348,7 +8348,7 @@ operations-in-fragments, the lane model and the reviews cite them.
   `subscribe`, `outcomes`).
 - **One lane per (contract id, key) Runtime-wide** (TanStack's cache-wide `scope`): one actor's `retry` and `cancel`
   would act on another's Attempt.
-- **Resuming never-sent work across a reload** (TanStack Query's model): left for [open-items.md](open-items.md); it would amend C2 and
+- **Resuming never-sent work across a reload** (TanStack Query's model): left for [open-items.md](../../proposals/open-items.md); it would amend C2 and
   Operations O3.
 - **Branded keys** and **an age bound on adopted holds**: not proposed; the first would close a structural-typing gap,
   the second is public API.
@@ -8434,7 +8434,7 @@ Stories T1–T7 above. SC*n* is the record's C*n*, renamed because a bare C*n* i
 - **SC1** A Story is a transcript of inputs and checkpoints. Flow owns no assertions: `.expect` leaves the Story, and tests use the runner's own `expect`. *Owner-confirmed.* (2026-11-01)
 - **SC2** Keep the word `checkpoints`. No `at` until it does something extra; no callback form. *Owner-confirmed.* (2026-11-01)
 - **SC3** Q1 B: short reads on a checkpoint, for every runner. `lane(O.x, key)` is `undefined` when the lane does not exist; `records(kind, filter?)` is NEW on a checkpoint. *Owner-confirmed.* (2026-11-01)
-- **SC4** Q2 A: no matchers for now. `toHaveLane`, `toHaveRecord` and `toBeIn` are deferred ([revisit.md](revisit.md)). *Owner-confirmed.* (2026-11-01)
+- **SC4** Q2 A: no matchers for now. `toHaveLane`, `toHaveRecord` and `toBeIn` are deferred ([revisit.md](../../proposals/revisit.md)). *Owner-confirmed.* (2026-11-01)
 - **SC5** Q3 A: checkpoint names are camelCase by convention, so destructuring works. *Owner-confirmed.* (2026-11-01)
 - **W1** Group 1, Q1 B: `Story.app`, `Story.machine` and `Story.fragment`, so the kind is visible on the line. Reverses T3's `Story.make`; the options and steps per subject stay. *Owner-confirmed.* (2026-11-01)
 - **W2** Group 1, Q2 A: `process()` is removed; each step settles (T5 B1 confirmed). *Owner-confirmed.* (2026-11-01)
@@ -8450,7 +8450,7 @@ Stories T1–T7 above. SC*n* is the record's C*n*, renamed because a bare C*n* i
 - **W12** Group 3, Q11 A: no ending injection (T2 confirmed). *Owner-confirmed.* (2026-11-01)
 - **W13** Group 3, Q12 A: `world` as an option and a step, with controls as data. *Owner-confirmed.* (2026-11-01)
 - **W14** Group 3, Q13 A: `handle` returns `{ truth, response }`, so order cannot be confused (Effect's `Ref.modify` is `[result, next]`, the reverse of the merged tuple). *Owner-confirmed.* (2026-11-01)
-- **W15** Group 3, Q14 A: no MSW binding now ([revisit.md](revisit.md)). *Owner-confirmed.* (2026-11-01)
+- **W15** Group 3, Q14 A: no MSW binding now ([revisit.md](../../proposals/revisit.md)). *Owner-confirmed.* (2026-11-01)
 - **W16** Group 3, Q15 A: `Fake.fetch` routes by method and path, such as `{ "POST /confirm": "confirm" }`; the function stays for unusual cases. Spelling to check against the desk's five fakes. *Owner-confirmed.* (2026-11-01)
 - **W17** `Fake` stands alone with its own narrow set of capabilities. A mocking library is optional, and goes inside a handler or a plain Layer if a user wants one. *Owner-confirmed.* (2026-11-01)
 - **W18** Group 4, Q21 A: `hold`, `release`, `drop` and `duplicate` as a Story-owned wire layer. *Owner-confirmed.* (2026-11-01)

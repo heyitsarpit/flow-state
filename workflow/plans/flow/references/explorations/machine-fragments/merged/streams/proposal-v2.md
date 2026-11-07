@@ -1758,7 +1758,7 @@ payload (2 lines).
 | S9 | Delegated, from RV4: H1 a session owes from its first registration (internal `announced`, 3.4); `Missed` gains `initial`; an empty-`from` precondition for `fresh`; H2 recipe finalizers remove only their own listeners, a shared Ably channel is never detached, a `detached` listener; M1 release-before-restart waits per (actor, operation, key) across placements |
 | S10 | Delegated, from RV5: `registered` per (memory slice, operation, key), persisted like `heard`, replaces S9's per-session `announced`; `fresh` drops to `live()` once set; `initial = ¬registered`; Ably channels reference-counted; `initial` on `settle(lost)` specified; the ignore guard only for `Unproven` |
 
-Deferred to [../../open-items.md](../../open-items.md): **16** outbound live state on a session (cursors); **17** one shared
+Deferred to [../../open-items.md](../../../../proposals/open-items.md): **16** outbound live state on a session (cursors); **17** one shared
 session per Runtime; **18** a manual `reconnect` member (parked; this design does not preclude it); **19** `fromRpc`
 streams and `Range` resume. Candidates for **15** (wiring every app writes), not proposed here: machine-level re-open
 with its healthy-reset (2.7), a per-key re-open for `subscribe.each` (4.3), a built-in `live` guard, a close-code

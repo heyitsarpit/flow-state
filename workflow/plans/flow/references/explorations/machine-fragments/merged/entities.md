@@ -2,10 +2,10 @@
 
 Status: **merged into machine-design.md on 2026-10-30; kept as the record behind it.** It was merge 4 into
 [machine-design.md](../machine-design.md) (section 2.8, rules 26–38, section 5's C21–C30 and the "Decisions" section
-there; plan: [merge-plan-4-5.md](../merge-plan-4-5.md)). Where this record and the design differ, the design wins:
+there; plan: [merge-plan-4-5.md](../../../../../archive/flow-design-2026-11/machine-fragments/merge-plan-4-5.md)). Where this record and the design differ, the design wins:
 the design decides every start in step 5, before publication, for every write (rule 28 here was written for domain
 writes only). Accepted by the owner on 2026-10-30 (E1–E16), revised by the multiplicity audit (2026-10-31, E17, E18,
-[audit-multiplicity.md](../audit-multiplicity.md)). Its `MD:` citations are line numbers of the design before this
+[audit-multiplicity.md](../../../../../archive/flow-design-2026-11/machine-fragments/audit-multiplicity.md)). Its `MD:` citations are line numbers of the design before this
 merge. Section 9 is kept as the reasoning behind section 10's decisions.
 
 Sources and the short names used for citations:
@@ -939,7 +939,7 @@ section 9. In short:
   it exists only under `reject`, `latest` and `cancel` (design rule N2, D20); a domain write retried under several
   concurrent calls takes a per-call key and `reject`. The list's `createIssue` is `reject` per draft (3.1). Reason:
   under `allow` the lane's "current" Attempt was the newest create, so a retry re-sent the wrong draft's write
-  ([audit-multiplicity.md](../audit-multiplicity.md) F1). Views and guards read lanes as `s.calls` rows (design D18);
+  ([audit-multiplicity.md](../../../../../archive/flow-design-2026-11/machine-fragments/audit-multiplicity.md) F1). Views and guards read lanes as `s.calls` rows (design D18);
   the `NotSent` mapper's `laneKey` names the draft (design D21), so `CreateFailed.draftId` is never `null`.
 - **E18 (Revision (multiplicity audit, 2026-10-31); new).** A prediction over a record the store does not hold shows nothing and waits for a base;
   an uncertain mark holds its record (rules 30, 32). Reason: a patch replayed over a deleted or never-loaded record had

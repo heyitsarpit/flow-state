@@ -99,7 +99,7 @@ Awake, a fast ping against a long `advance` hits `StoryTurnLimit { Advance }`: w
 **Dropped:** `accept`, every tuple result, `{ to, send }`, `Fake/Lost` as a string, a handler that is an Effect; `latency`, `response` as an Effect and `headers` on `Fake.stream` (RV1 M1, section 8; main session's cuts); `message` on `Fake.stream` (RV2 section 8).
 
 **Not added:** `pushes` (approved out; the desk's conversion is its test), a `closed` handler, `release({ take })`, a duplex
-client half, `HttpApi` derivation ([revisit.md](../../revisit.md)); `headers` on `Fake.stream`, until the first SSE adapter checks a content type; `message`, until the first duplex fake. A stream is server-to-client for now: a client's frame through `Fake.webSocket`'s socket is ignored and logged.
+client half, `HttpApi` derivation ([revisit.md](../../../../proposals/revisit.md)); `headers` on `Fake.stream`, until the first SSE adapter checks a content type; `message`, until the first duplex fake. A stream is server-to-client for now: a client's frame through `Fake.webSocket`'s socket is ignored and logged.
 
 ## 3. Rules
 

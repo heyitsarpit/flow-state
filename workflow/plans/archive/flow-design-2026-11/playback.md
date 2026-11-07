@@ -1,6 +1,6 @@
 # Story rendering and playback: proposal
 
-Status: accepted. [Testing.plan](../../Testing.plan) O4 (frames, `StoryFrame`) and O9 (playback)
+Status: accepted. [Testing.plan](../../flow/Testing.plan) O4 (frames, `StoryFrame`) and O9 (playback)
 hold the contract; this document explains the design. Where they differ, the plan wins.
 
 ## 1. The idea
@@ -12,9 +12,9 @@ application with a floating control overlay, not an application inside a preview
 Two properties of Flow State make this simple:
 
 1. **A Story run is deterministic.** The same Story, fixtures and seed always produce the same
-   sequence of states ([Testing.plan](../../Testing.plan) O2).
+   sequence of states ([Testing.plan](../../flow/Testing.plan) O2).
 2. **The UI is a function of state.** Components read actor snapshots and store data that never
-   change once published ([React.plan](../../React.plan) O4), so the same state renders the same UI.
+   change once published ([React.plan](../../flow/React.plan) O4), so the same state renders the same UI.
 
 So playback records once, then only renders:
 
@@ -77,11 +77,11 @@ run.checkpoints.saving; // the frame named "saving"
   `SAVING → SAVED` inside a single `process()`. Frames are taken only at committed publications, so
   each is consistent.
 - **Size.** Actor snapshots and unchanged lanes keep their identity between publications
-  ([Machines.plan](../../Machines.plan) O8, [React.plan](../../React.plan) O4), so frames share most
+  ([Machines.plan](../../flow/Machines.plan) O8, [React.plan](../../flow/React.plan) O4), so frames share most
   of their data. Consecutive identical frames collapse into one, and a run marks truncation if it
   reaches its frame limit.
 - **Failures.** A run that rejects carries its frames to the failing boundary
-  ([Testing.plan](../../Testing.plan) O8). A failed property test emits a static Story (O6); playing
+  ([Testing.plan](../../flow/Testing.plan) O8). A failed property test emits a static Story (O6); playing
   that Story's run shows the failure.
 - **Frames are never saved.** To share a run, share the Story and run it again; determinism gives
   the same frames. Rendering a frame is neither a restore nor a replay.
@@ -166,17 +166,17 @@ const presentation = definePresentation(editorSaveStory, {
 - **Not proof of wiring on its own.** It shows how the UI responds to events. The next-action
   highlight shows whether a control produces the Story's next event.
 - **Starting state only:** components' own actors and `useState`. Stories cannot create or address
-  a component's own actor ([Testing.plan](../../Testing.plan) O1).
+  a component's own actor ([Testing.plan](../../flow/Testing.plan) O1).
 - **Rendered output is raw.** Screenshots, text dumps and anything shown on screen carry real
   values, unlike exported traces, which digest sensitive ones
-  ([Inspection.plan](../../Inspection.plan) O5). Anything leaving the machine should come from
+  ([Inspection.plan](../../flow/Inspection.plan) O5). Anything leaving the machine should come from
   Stories with non-sensitive fixture data.
 - **Browser presentation** (focus, scrolling, cursor, typing animation) is not state. Uncontrolled
   inputs keep typed text across frames unless the player remounts them.
 - **Wall-clock code:** components that call `Date.now()` or run their own timers ignore the
   frame's time; `useNow` is the supported way to show time.
 - **Server rendering:** a first server render is not a frame; `serverView` follows
-  [Testing.plan](../../Testing.plan) O7. SSR frames are deferred.
+  [Testing.plan](../../flow/Testing.plan) O7. SSR frames are deferred.
 
 ## 8. Follow-ups
 

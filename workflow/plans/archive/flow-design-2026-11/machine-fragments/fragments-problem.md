@@ -1,16 +1,16 @@
 # Machine fragments: problem, principles and evaluation plan
 
 Status: exploration, not part of version 1. This folder restarts the design from scratch after the
-split into two kinds. The earlier files ([fragments.md](../fragments.md),
-[fragment-examples.md](../fragment-examples.md),
-[fragment-contract-syntax.md](../fragment-contract-syntax.md)) are the **single-fragment
+split into two kinds. The earlier files ([fragments.md](../fragments/fragments.md),
+[fragment-examples.md](../fragments/fragment-examples.md),
+[fragment-contract-syntax.md](../fragments/fragment-contract-syntax.md)) are the **single-fragment
 proposal**: one `fragment` concept for everything. It was not accepted; it is prior art. It records
 what was tried and why, and its decisions D1–D13 (fragments.md section 13) are evidence here, not
 rules.
 Where this folder and a plan differ, the plan wins.
 
 Every proposal in this folder is evaluated against this file. The current proposal is
-[machine-design.md](machine-design.md).
+[machine-design.md](../../../flow/references/explorations/machine-fragments/machine-design.md).
 
 **What is settled, and what is not.** Conceptually, the parts of a machine that compose together
 are **fragments**, and fragments come in two kinds: **traits** and **subroutines**. That is all
@@ -56,23 +56,23 @@ Extract a fragment on the second use, not the first.
 
 These are fixed. A proposal that needs one changed must say so and argue for it separately.
 
-1. **One active leaf state per actor; no parallel regions** ([Machines.plan](../../../Machines.plan)
+1. **One active leaf state per actor; no parallel regions** ([Machines.plan](../../../flow/Machines.plan)
    O2). This is why traits have no states and subroutines are placed as host states.
-2. **No child actors.** They were removed ([Package.plan](../../../Package.plan) O3); machine
+2. **No child actors.** They were removed ([Package.plan](../../../flow/Package.plan) O3); machine
    fragments are inlined, never spawned.
 3. **Definition and machine split.** The definition holds structure and produces `S`, `E` and the
    types the UI uses; the machine holds behaviour and receives `S`, `E` and `O`.
 4. **Static analysis.** Structure is data, not closures; everything a fragment adds is known at
-   construction ([FlowState.plan](../../../FlowState.plan) D1). `flow graph` and `flow check` see
+   construction ([FlowState.plan](../../../flow/FlowState.plan) D1). `flow graph` and `flow check` see
    all of it.
 5. **Determinism.** Stories replay every input at an exact step; fragments use the Runtime clock
-   and never wall time ([Testing.plan](../../../Testing.plan)).
-6. **Memory holds keys and drafts, never copies** ([design/principles.md](../../design/principles.md)).
+   and never wall time ([Testing.plan](../../../flow/Testing.plan)).
+6. **Memory holds keys and drafts, never copies** ([design/principles.md](../../../flow/references/design/principles.md)).
 7. **One canonical form per concept**, and every name earns its place
-   ([FlowState.plan](../../../FlowState.plan) D2).
+   ([FlowState.plan](../../../flow/FlowState.plan) D2).
 8. **Schema at boundaries.** Events, memory and anything encoded or validated use Effect Schema.
 9. **Nothing off the record.** Inspection sees every fragment's memory, events, schedules and
-   transitions under its instance name ([Inspection.plan](../../../Inspection.plan)).
+   transitions under its instance name ([Inspection.plan](../../../flow/Inspection.plan)).
 
 ## 3. Guiding principles
 
@@ -180,11 +180,11 @@ allows it, or does not apply.
 | T2  | **Schedule traps.** A `restartOn` debounce in a state entered by the triggering edit never fires (Machines O5's silent baseline), and a firing queued before a restart can fire the restarted timer early. | debounce, today's editor autosave |
 
 Problems L5–L8, E4, E5, H4, H5, D5–D7, A7, T1 and T2 were added from the research reviews
-(`research/reviews/`, removed, see [the folder README](README.md)).
+(`research/reviews/`, removed, see [the folder README](../../../flow/references/explorations/machine-fragments/README.md)).
 
 ## 5. What the single-fragment proposal gives us
 
-Decisions from [fragments.md](../fragments.md) section 13 that the problems above support. They are
+Decisions from [fragments.md](../fragments/fragments.md) section 13 that the problems above support. They are
 the starting point here, and can be revisited if a proposal shows a better answer against
 sections 3 and 4.
 
@@ -200,7 +200,7 @@ sections 3 and 4.
 | version 2      | Fragments do no I/O; the host runs every operation and maps every outcome                                                     | 1; A5, D4            |
 
 The "version 2" starting point is revisited by F1 (operations in fragments, merged 2026-10-31): a fragment may declare
-and alone act on its own operations ([machine-design.md](machine-design.md) 2.9, rules 48–60).
+and alone act on its own operations ([machine-design.md](../../../flow/references/explorations/machine-fragments/machine-design.md) 2.9, rules 48–60).
 
 ## 6. Open questions
 

@@ -1,8 +1,8 @@
 # Check: merges 4 and 5 into machine-design.md
 
 Reviewed 2026-10-30. Scope: commits e4e9527b (merge 4: A1–A49, K1–K13, K18–K21) and a88b24b6 (merge 5: B1–B11, K14–K17)
-against [merge-plan-4-5.md](../merge-plan-4-5.md), [delegated-decisions.md](../delegated-decisions.md),
-[merged/entities.md](../merged/entities.md) and [merged/entity-analysis/proposal.md](../merged/entity-analysis/proposal.md).
+against [merge-plan-4-5.md](../merge-plan-4-5.md), [delegated-decisions.md](../../../../flow/references/explorations/machine-fragments/delegated-decisions.md),
+[merged/entities.md](../../../../flow/references/explorations/machine-fragments/merged/entities.md) and [merged/entity-analysis/proposal.md](../../../../flow/references/explorations/machine-fragments/merged/entity-analysis/proposal.md).
 Line numbers are of `machine-design.md` at HEAD (a88b24b6). Nothing was edited except this file.
 
 ## Verdict
