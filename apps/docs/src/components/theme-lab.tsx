@@ -32,23 +32,28 @@ const write = (key: string, value: string): void => {
 };
 
 export function ThemeLab() {
-  const [choice, setChoice] = useState<Choice>(initial);
+  const [loaded, setLoaded] = useState<Choice | null>(null);
+  const choice = loaded ?? initial;
 
   useEffect(() => {
-    const stored = { ...initial };
+    const stored: Record<Axis["key"], string> = { ...initial };
     for (const axis of axes) {
       const value = read(`fs-${axis.key}`);
       if (value !== null && axis.options.some(([option]) => option === value)) stored[axis.key] = value;
     }
-    setChoice(stored);
+    setLoaded(stored);
   }, []);
 
   useEffect(() => {
+    if (loaded === null) return;
     for (const axis of axes) {
-      document.documentElement.setAttribute(`data-fs-${axis.key}`, choice[axis.key]);
-      write(`fs-${axis.key}`, choice[axis.key]);
+      document.documentElement.setAttribute(`data-fs-${axis.key}`, loaded[axis.key]);
+      write(`fs-${axis.key}`, loaded[axis.key]);
     }
-  }, [choice]);
+  }, [loaded]);
+
+  const pick = (key: Axis["key"], value: string) =>
+    setLoaded((current) => ({ ...(current ?? initial), [key]: value }));
 
   return (
     <div className="fs-lab" aria-label="Theme lab">
@@ -60,7 +65,7 @@ export function ThemeLab() {
               <button
                 type="button"
                 aria-pressed={choice[axis.key] === value}
-                onClick={() => setChoice((current) => ({ ...current, [axis.key]: value }))}
+                onClick={() => pick(axis.key, value)}
               >
                 {label}
               </button>

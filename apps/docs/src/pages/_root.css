@@ -486,7 +486,7 @@ pre.shiki > button[aria-label="Copy code"][data-copied="true"]::before {
 /* Sidebar: a table of contents, with a dot for "you are here"        */
 /* ------------------------------------------------------------------ */
 
-[data-v-sidebar] {
+nav[data-v-sidebar] {
   font-size: 0.875rem;
 }
 
