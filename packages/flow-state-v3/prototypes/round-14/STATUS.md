@@ -120,7 +120,29 @@ Baseline (serial, 12 cores / 24 GB): suite `--no-search` 67 s wall, 1745 MB peak
 | 2 canon: ancestor `Set` with add/delete; replay compares pairs of plain subtrees, memoised; `ranked()` by a Map | done | 546634af | suite 27.7 s; DRV-01 2.6 s, FRAG-15 4.7 s, R10 listener 3.2 s, 300-sends 2.3 s | suite 19.7 s; 1.6 s, 3.7 s, 2.3 s, 1.2 s | 834/834, outputs and RECIPIENTS identical; `FLOW_CANON_CHECK=1` (kept) recomputes the old whole-text comparison on every replayed step: 205650 steps, 0 differ; `FLOW_DEEP_FREEZE=1` suite 834/834 |
 | 3 no per-step `stateHash` unless output is compared or collected | done | 917b8ffb | `--no-output` suite about 17-19 s | `--no-output` 13.1 s; plain 17.0 s | `rec.hashes` is read only by `output.ts` (`hashes: t.hashes.size`); `stateHash` reads only (fake `stateText`, `mayHave`, `truth`, `edge.text`, `normalise`), so skipping it changes nothing else; 834/834, RECIPIENTS identical with and without `--no-output` |
 | extra: `pathOfId` without a path array per node; per-case `Bun.gc(true)` when the JSC heap (not RSS) passes 500 MB; `stateText` keeps its last answer per (world, now, outside text) | done | 917b8ffb | 300-sends 1.25 s in the suite (0.9 s of it hashing), rows 4.2 s | 300-sends 1.25 s, rows 3.2 s; plain suite 18.1 s to 17.0 s | equal value and order (`pathOfId`); GC timing decides no result (nothing weak in the suite or runtime); `normalise` is a pure function of its three inputs and the world is never written in place; 834/834, outputs, RECIPIENTS identical |
-| 4 gate concurrency: `mutate-one.ts` runs plain, swap, compare, date-check, CLI and gate5s at once (checks after, since `types-check.ts` writes into `typed/`), `--serial` for the old one-at-a-time; `mutate.ts --parallel N` (N <= 8), one copy and one watchdog per mutant, control first, reported in list order, `--serial` passed to each mutate-one; `--rss-mb` (default 1700) | done | (this commit) | mutate-one control 46.4 s after fixes 1-3 (206 s at baseline) | 19.6 s (peak 4.8 GB, the tree); mutate.ts 3 mutants, parallel 3: 71 s against 89 s for 2 serial | the same precedence, read in the same order from the same outputs; planted kills in a scratch copy (date-check and CLI broken; then CLI only) give the same `killedBy` and killers in both modes; serial and parallel mutate.ts runs gave the same lines |
+| 4 gate concurrency: `mutate-one.ts` runs plain, swap, compare, date-check, CLI and gate5s at once (checks after, since `types-check.ts` writes into `typed/`), `--serial` for the old one-at-a-time; `mutate.ts --parallel N` (N <= 8), one copy and one watchdog per mutant, control first, reported in list order, `--serial` passed to each mutate-one; `--rss-mb` (default 1700) | done | b7d6239a | mutate-one control 46.4 s after fixes 1-3 (206 s at baseline) | 19.6 s (peak 4.8 GB, the tree); mutate.ts 3 mutants, parallel 3: 71 s against 89 s for 2 serial | the same precedence, read in the same order from the same outputs; planted kills in a scratch copy (date-check and CLI broken; then CLI only) give the same `killedBy` and killers in both modes; serial and parallel mutate.ts runs gave the same lines |
+
+End gates (2026-11-08, after b7d6239a; wall, peak RSS of the watched tree):
+
+| Gate | Exit | Wall | Peak | Baseline (f0771187) |
+| --- | --- | --- | --- | --- |
+| suite `--no-search` | 1, only for the unlogged file hashes; 834/834, outputs and RECIPIENTS identical | 17.1 s | 1790 MB | 67 s |
+| `mutate-one.ts` | 0, `{"killedBy":null}` | 20.3 s | 4763 MB | 206 s |
+| `graph-gate.ts` | 0, GRAPH PASS | 15.8 s | 1943 MB | 67 s |
+| falsify suite1 / suite2 / suite3 | 0 / 0 / 0 | 25 / 57 / 20 s | 1716 / 1751 / 1013 MB | 85 / 223 / 115 s |
+| falsify tamper | 1: "control: the copy is green untampered" (the lock, see above); every tamper red | 5.6 s | 333 MB | 4 s |
+| falsify mutants | 0 | 59 s | 1835 MB | 279 s |
+| falsify lies `--parallel 4` | 0 | 29 s | 3024 MB | 75 s |
+| `lifetime-falsify.ts` | 0, control 119 pass, 57 of 57 red | 32 s | 1580 MB | 37 s |
+| falsify search | 1, `chain` red on the real runtime (known) | 47 s | 342 MB | 47 s |
+| checks, typed tsc, CLI pins | all 0 | fast loop 21 s serial, 17 s at once | | |
+
+Run in three batches of up to 7 processes, the gates take about 3 minutes of wall. Every line the falsify parts, lies, search and
+lifetime-falsify print (`ok`/`BAD` and their case lists) is identical to the same parts run on a copy of f0771187.
+
+Left: the lock needs the user's log lines and `--lock` (the suite and tamper's control exit 1 until then); peak RSS per suite process
+is about 1.75 GB against 600 MB; the plain suite is 17 s against 15 s (13 s with `--no-output`: per-step `normalise` for the hash
+count is about 4 s, the runtime's own steps most of the rest); `mutate.ts` at its default 1700 MB limit fails its control (as before).
 
 Findings:
 - `mutate.ts`'s control fails at its 1700 MB tree limit, and did before this task: the suite alone peaked at 1745 MB at the baseline
