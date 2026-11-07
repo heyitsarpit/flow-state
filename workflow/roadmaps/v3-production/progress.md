@@ -96,6 +96,8 @@ not the ref; U17 versions and key fingerprints compare the type and encoded side
 Waiting on the user:
 - nothing blocking now: U1-U19 are ruled (U1-U18 on 2026-11-07, all at the recommended option; U19 A on 2026-11-08);
 - phase 2's label round, then its user-judged decisions;
+- not blocking, to decide 2026-11-09: folding this roadmap into Workflow records as an Epic (`to-epic`), in
+  `/Users/arpit/Developer/workflow/spec-lang/design/to-epic-proposal.md` (Q1-Q5, all proposed);
 - which example apps to build, any time before phase 6. Candidates are below.
 
 ## Phases
