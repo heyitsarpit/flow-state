@@ -29,7 +29,7 @@ export const orderScenarios: readonly Scenario[] = [
     fixtures: R,
     actor: a,
     cites: ["D1", "sec:2.10.17"],
-    // Rule 73, C105: the send to c3, which does not exist and is not persisted, is SendTargetAbsent { NotPersisted }, not a silent Unhandled.
+    // Rule 73, C105 (OD31's send table): the send to c3, which was never created, is SendTargetAbsent { NoRecord }, not a silent Unhandled.
     namedIssues: ["SendTargetAbsent"],
     run(c) {
       c.ensure(a);
@@ -43,7 +43,7 @@ export const orderScenarios: readonly Scenario[] = [
         c.h.send(a, "Say", { n: "a2" });
       });
       c.to(c3, "Say", { n: "ignored" }); // no such actor yet: SendTargetAbsent, and it wakes the subscriber
-      c.eq("why", c.r.issues().find((i) => i.code === "SendTargetAbsent")?.input, { reason: "NotPersisted" });
+      c.eq("why", c.r.issues().find((i) => i.code === "SendTargetAbsent")?.input, { reason: "NoRecord" });
       c.eq("one FIFO, follow-up next", turns(c), [
         "a:SayThenX:a1",
         "a:Say:x",

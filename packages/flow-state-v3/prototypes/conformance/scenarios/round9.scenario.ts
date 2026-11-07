@@ -202,7 +202,9 @@ export const round9Scenarios: readonly Scenario[] = [
         const c = on(c0, keptFixture(), K);
         c.send("Arm");
         c.advance(1_500);
-        c.dispose();
+        c.detach(); // T2 (rule 73): ended with the kept firing; the record carries it
+        c.advance(100);
+        c.eq("ended", c.r.state(K), undefined);
         c.eq("nothing kept for nobody", waits(c, "parked").length, 0);
         healed(c, () => {
           c.ensure();

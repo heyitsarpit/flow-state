@@ -451,19 +451,64 @@ export const makeHarness = (port: Port) => (): Harness => {
   const notRestored = new Set<string>();
   let restoreThrew = false; // a compiled `memory.restore` threw on a stored record (the suite's own wrap saw it)
   const ensured = new Set<string>(); // the suite ensured it, and has not disposed it; at a reload, kept only with a record on disk
-  // Rule 73 (OD27 Q2): an ensure is no use, so on a runtime with uses the suite's `ensure` attaches the suite's own consumer, once per actor, as a
-  // component using the actor would. `release` and `dispose` end it; a reload re-attaches it, as remounting components would.
-  const held = new Set<string>();
+  // Rule 73 (OD31, 2.10.10): in an app Story, `ensure(ref)` attaches one use, as a mounted screen does, and `detach(ref)` ends one. The suite
+  // counts the uses it holds, by kind: the Story's own ("story"), host subscriptions ("host") and mounted local actors ("component"). A reload
+  // re-attaches the Story's uses and subscriptions held in that life, in first-ensure order.
+  const held = new Map<string, number>();
+  const subs = new Map<string, number>();
+  const mounts = new Map<string, number>();
+  const usesHeld = (key: string) => (held.get(key) ?? 0) + (subs.get(key) ?? 0) + (mounts.get(key) ?? 0);
   const use = (key: string, machine: string, input: unknown) => {
-    if (inst.attach && !held.has(key)) {
-      held.add(key);
-      inst.attach(key, machine, input);
+    if (inst.attach) {
+      bump(held, key, 1);
+      inst.attach(key, machine, input, "story");
     } else inst.ensure(key, machine, input);
   };
+  // Onto what the boot restored, or a record kept at ready: a re-attach restores it from the Runtime's copy and creates nothing, so a record
+  // quarantined at boot stays absent until a case asks (a pending use, as a subscription on an identity with neither waits).
   const reattach = () => {
-    for (const a of [...held]) {
-      if (!ensured.has(a) || !inst.attach) held.delete(a);
-      else inst.attach(a, machineOf(a), undefined, true); // onto what the boot restored; it ensures nothing, so a quarantined record stays absent until a case asks
+    if (!inst.attach) return;
+    for (const [a, n] of [...held]) {
+      if (!ensured.has(a)) held.delete(a);
+      else for (let i = 0; i < n; i++) inst.attach(a, machineOf(a), undefined, "story", true);
+    }
+    for (const [a, n] of [...subs]) for (let i = 0; i < n; i++) inst.attach(a, machineOf(a), undefined, "host", true);
+    mounts.clear(); // a local actor's component mounts again as a new actor, which no case here drives
+  };
+  // Rule 73's global invariants (proposal-v5 11.4), from the suite's own facts: the uses it holds, the attempts it saw minted and the waits it
+  // checks against the fake. (1) safety and (3) same incarnation: an end while the suite holds a use, or while a write the actor minted is in
+  // flight (its ending then reaches another incarnation); (2) liveness: a counted actor free past its grace with no end; (4) no schedule fires
+  // on an incarnation with no use.
+  const violations: string[] = [];
+  const INFLIGHT = new Set(["wire", "mail", "ready", "queue", "repair", "ack", "capture", "disabled"]);
+  const counted = (key: string) => {
+    const c = compiled.find((x) => x.id === machineOf(key));
+    return c !== undefined && (!c.local || (mounts.get(key) ?? 0) > 0);
+  };
+  const inFlightOf = (key: string) => inst.waits().filter((w) => INFLIGHT.has(w.kind) && "attempt" in w && w.attempt && attemptActor.get(w.attempt) === key);
+  const lifetimeCheck = (e: readonly Record<string, any>[]) => {
+    if (!inst.inspect) return;
+    for (const x of e) {
+      if (x["kind"] === "ended") {
+        const a = String(x["actor"]);
+        if (usesHeld(a) > 0) violations.push(`(73) safety: ${a} ended while the suite holds ${usesHeld(a)} use(s)`);
+        const w = inFlightOf(a);
+        if (w.length > 0) violations.push(`(73) same incarnation: ${a} ended with work in flight: ${w.map((y) => `${y.op} ${(y as { attempt: string }).attempt}`).join(", ")}`);
+      }
+      if (x["kind"] === "fired") {
+        const a = String(x["actor"]);
+        if (counted(a) && usesHeld(a) === 0) violations.push(`(73) a schedule fired with no use: ${x["id"]} of ${a}`);
+      }
+    }
+  };
+  const livenessCheck = () => {
+    if (!inst.inspect || fake.freezeTimers) return;
+    for (const a of known) {
+      if (inst.state(a) === undefined || !counted(a) || usesHeld(a) > 0) continue;
+      const i = inst.inspect(a);
+      if (i.uses.length > 0 || i.busy.length > 0 || inFlightOf(a).length > 0) continue;
+      if (i.grace === undefined) violations.push(`(73) liveness: ${a} is free and no grace is armed`);
+      else if (i.grace <= fake.now) violations.push(`(73) liveness: ${a} is free past its grace (${i.grace} <= ${fake.now})`);
     }
   };
   const ghosts = new Set<string>(); // the suite disposed it and has not ensured it since (review H5)
@@ -541,6 +586,17 @@ export const makeHarness = (port: Port) => (): Harness => {
   // the runtime publishes. A record the runtime quarantined is excused only for a cause the suite drove: a release, or bytes it edited.
   const quarantined = (actor: string) =>
     (releases.length > 0 || off(actor) || restoreThrew) && issues.some((i) => i.code === "RecordQuarantined" && port.disk.scope(String(i.input ?? "").split(": ")[0]!) === actor);
+  // Rule 73 (OD31, Ready and hydration): a record the boot keeps as a record is restored when the suite's re-attach reaches it. Its anchor
+  // waits for that incarnation, before any run in it; still absent at the end of the step that booted, it was not restored.
+  const deferredAnchor = new Set<string>();
+  const anchorDeferred = (e: readonly Record<string, any>[]) => {
+    if (deferredAnchor.size === 0 || !reloadFacts) return;
+    for (const x of e)
+      if (x["kind"] === "incarnation" && deferredAnchor.has(String(x["actor"]))) {
+        deferredAnchor.delete(String(x["actor"]));
+        anchorActor(String(x["actor"]), new Map(reloadFacts.kv));
+      }
+  };
   const anchorOnce = () => {
     if (anchored || !reloadFacts || !given()) return;
     anchored = true;
@@ -548,14 +604,24 @@ export const makeHarness = (port: Port) => (): Harness => {
     for (const actor of reloadFacts.alive) {
       const m = refm().machine(machineOf(actor));
       if (!m || off(actor)) continue;
+      if (leafOf(actor) === undefined && usesHeld(actor) > 0) {
+        deferredAnchor.add(actor);
+        continue;
+      }
+      anchorActor(actor, kv);
+    }
+  };
+  const anchorActor = (actor: string, kv: Map<string, string>) => {
+    {
+      const m = refm().machine(machineOf(actor))!;
       if (leafOf(actor) === undefined) {
         notRestored.add(actor); // judged at the end of the step, when the boot's issues (a quarantine) have come
-        continue;
+        return;
       }
       const ls = port.disk.leaves(kv, actor);
       if (!ls?.some((x) => x.path.length === 0)) {
         missing.push(`(j) the codec reads no leaf for ${actor}'s record, which the runtime restored`);
-        continue;
+        return;
       }
       const onDisk = new Set(ls.map((x) => JSON.stringify(x.path)));
       for (const { path, leaf } of ls) {
@@ -1161,8 +1227,10 @@ export const makeHarness = (port: Port) => (): Harness => {
     if (releases.length > 0) compiled = compileAll();
     const seen = observing(compiled);
     const onEvidence = (e: readonly Record<string, any>[]) => {
+      anchorDeferred(e);
       judgeAsks(e);
       ledger(e);
+      lifetimeCheck(e);
       evidence.push(...e);
       seen?.(e);
     };
@@ -1244,7 +1312,7 @@ export const makeHarness = (port: Port) => (): Harness => {
   };
   // D146: what needs the page's own JS cannot happen on a frozen page: a press, a hide event, an ensure. It is dropped and counted, and a case that drops one is told so at its end.
   let frozenDrops = 0;
-  const PAGE_INPUT = ["ensureAs", "ensure", "attach", "release", "burst", "send", "sendMany", "dispose", "hide", "disposeRuntime", "advanceNow", "nextYield"];
+  const PAGE_INPUT = ["ensureAs", "ensure", "hostEnsure", "detach", "subscribe", "unsubscribe", "mount", "unmount", "codecFails", "burst", "send", "sendMany", "dispose", "hide", "disposeRuntime", "advanceNow", "nextYield"];
   const run = (s: Step) => {
     if (fake.freezeTimers && PAGE_INPUT.some((k) => k in s)) {
       frozenDrops++;
@@ -1259,24 +1327,31 @@ export const makeHarness = (port: Port) => (): Harness => {
     stepTo = undefined; // stage F: set again below for a `send`
     if ("advanceNow" in s) driveTimers();
     if ("ensure" in s) known.add(actorKey(s.ensure));
-    if ("attach" in s) known.add(actorKey(s.attach));
+    if ("mount" in s) known.add(actorKey(s.mount));
+    if ("hostEnsure" in s) known.add(actorKey(s.hostEnsure));
+    if ("subscribe" in s) known.add(actorKey(s.subscribe));
     if ("ensureAs" in s) machineOfActor.set(actorKey(s.ensureAs.key), s.ensureAs.machine);
     // Stage L (review H3, H5): alive by the suite's own steps.
-    const madeLive = "ensure" in s ? actorKey(s.ensure) : "attach" in s ? actorKey(s.attach) : "ensureAs" in s ? actorKey(s.ensureAs.key) : undefined;
-    // Rule 73: a release may end the life after the grace, once the actor is idle, which only the runtime knows. It is no longer owed to stay
-    // alive; its life is not over at the step (its work still lands in it), so it is no ghost.
-    if ("release" in s) {
-      ensured.delete(actorKey(s.release));
-      seenLive.delete(actorKey(s.release));
-      held.delete(actorKey(s.release));
+    const madeLive = "ensure" in s ? actorKey(s.ensure) : "mount" in s ? actorKey(s.mount) : "ensureAs" in s ? actorKey(s.ensureAs.key) : undefined;
+    // Rule 73: the last use ending may end the life after the grace, once nothing is in flight, which only the runtime knows. It is no longer
+    // owed to stay alive; its life is not over at the step (its work still lands in it), so it is no ghost.
+    const lastUse = "detach" in s ? actorKey(s.detach) : "unsubscribe" in s ? actorKey(s.unsubscribe) : "unmount" in s ? actorKey(s.unmount) : undefined;
+    if ("detach" in s && (held.get(lastUse!) ?? 0) === 0 && inst.attach) {
+      issues.push({ code: "StoryInvalidCommand", origin: `detach ${lastUse}`, input: { reason: "ActorAbsent" } });
+      return;
     }
-    if ("dispose" in s) held.delete(actorKey(s.dispose)); // an explicit dispose clears the identity's uses (2.7.17)
-    // Lifetime proposal, Runtime O4: a send to an absent persisted target restores it from its kept record. Its next publish is that new life, not a ghost.
-    for (const a of "send" in s ? [actorKey(s.send)] : "burst" in s ? [actorKey(s.burst)] : "sendMany" in s ? s.sendMany.map(([x]) => actorKey(x)) : [])
-      if ((ghosts.has(a) || ghostsPending.has(a)) && compiled.find((c) => c.id === machineOf(a))?.persisted) {
-        ghosts.delete(a);
-        ghostsPending.delete(a);
-      }
+    if ("detach" in s) bump(held, lastUse!, -1);
+    if ("unsubscribe" in s) bump(subs, lastUse!, -1);
+    if ("unmount" in s) bump(mounts, lastUse!, -1);
+    if (lastUse !== undefined && usesHeld(lastUse) === 0) {
+      ensured.delete(lastUse);
+      seenLive.delete(lastUse);
+    }
+    if ("dispose" in s) {
+      held.delete(actorKey(s.dispose)); // `disposeActor` ends the identity's uses (2.7.17)
+      subs.delete(actorKey(s.dispose));
+      mounts.delete(actorKey(s.dispose));
+    }
     if (madeLive !== undefined) {
       ensured.add(madeLive);
       ghosts.delete(madeLive);
@@ -1290,12 +1365,22 @@ export const makeHarness = (port: Port) => (): Harness => {
     }
     if ("ensureAs" in s) inst.ensure(actorKey(s.ensureAs.key), s.ensureAs.machine); // D137: a key and a machine that do not agree, as a host's bug would give
     else if ("ensure" in s) use(actorKey(s.ensure), s.ensure.actor, s.input);
-    else if ("attach" in s) {
-      if (!inst.attach) throw new Error("this runtime has no uses: attach");
-      inst.attach(actorKey(s.attach), s.attach.actor, s.input);
-    } else if ("release" in s) {
-      if (!inst.release) throw new Error("this runtime has no uses: release");
-      inst.release(actorKey(s.release));
+    else if ("hostEnsure" in s) inst.ensure(actorKey(s.hostEnsure), s.hostEnsure.actor, s.input);
+    else if ("detach" in s || "unsubscribe" in s || "unmount" in s || "subscribe" in s || "mount" in s || "codecFails" in s) {
+      if (!inst.attach || !inst.detach) throw new Error("this runtime has no uses");
+      if ("detach" in s) inst.detach(lastUse!, "story");
+      else if ("unsubscribe" in s) inst.detach(lastUse!, "host");
+      else if ("unmount" in s) inst.detach(lastUse!, "component");
+      else if ("subscribe" in s) {
+        bump(subs, actorKey(s.subscribe), 1);
+        inst.attach(actorKey(s.subscribe), s.subscribe.actor, undefined, "host", true);
+      } else if ("mount" in s) {
+        bump(mounts, actorKey(s.mount), 1);
+        inst.attach(actorKey(s.mount), s.mount.actor, s.input, "component");
+      } else if ("codecFails" in s) {
+        if (!inst.codec) throw new Error("this runtime has no codec input");
+        inst.codec(actorKey(s.codecFails), s.on);
+      }
     }
     else if ("burst" in s) for (let i = 0; i < s.n; i++) inst.send(actorKey(s.burst), { tag: s.event, payload: {} });
     else if ("send" in s && ((stepTo = { actor: actorKey(s.send), event: s.event, to: s.to ?? [] }), true))
@@ -1382,7 +1467,8 @@ export const makeHarness = (port: Port) => (): Harness => {
         if (records.has(a) && port.disk.leaves(new Map(kv), a) !== undefined) {
           ghosts.delete(a);
           ghostsPending.delete(a);
-          ensured.add(a);
+          // Rule 73 (OD31): the record is back, but nothing uses it, so at ready it stays a record and owes nothing alive.
+          if (!inst.attach) ensured.add(a);
           if (lifeBefore.has(a)) lifeOf.set(a, lifeBefore.get(a)!);
         }
       lifeAtReload = new Map(lifeOf);
@@ -1413,6 +1499,8 @@ export const makeHarness = (port: Port) => (): Harness => {
     ghostsPending.clear();
     if (!reloadFacts || !given() || ledgerOff) return;
     anchorOnce();
+    for (const a of deferredAnchor) notRestored.add(a);
+    deferredAnchor.clear();
     for (const a of notRestored) if (!quarantined(a) && !off(a)) missing.push(`(j) not restored: ${a} has a record on disk, and the suite never disposed it`);
     notRestored.clear();
     if (!bootSeen && !saidNoBoot) {
@@ -1468,6 +1556,9 @@ export const makeHarness = (port: Port) => (): Harness => {
     record: (ref) => inst.record(ref),
     module: (id, ref) => inst.module(id, ref),
     peakDeliveriesInMail: () => Math.max(0, ...instances.map((i) => i.peakDeliveriesInMail())),
+    snapshot: (a) => inst.snapshot?.(actorKey(a)),
+    inspect: (a) => inst.inspect?.(actorKey(a)),
+    lifetimeViolations: () => [...violations],
     requests: () => fake.publicRequests(),
     truth: () => fake.truth(),
     frames: () => instances.flatMap((i) => i.frames()),
@@ -1600,6 +1691,7 @@ export const makeHarness = (port: Port) => (): Harness => {
         settle();
         fake.advanceWith(s.advance, settle);
         afterStep();
+        livenessCheck();
         return;
       }
       if ("reload" in s) {

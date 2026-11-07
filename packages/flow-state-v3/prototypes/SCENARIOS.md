@@ -501,7 +501,23 @@ Convergence-8. Old unbuilt rows (`STORY-ALL`, `BROWSER-*`, `SSR-01`) renumbered 
 | LIFE-04 | 14 | example | design | rule:73, sec:2.7.17, C109 |  | rule 73: a release and an attach in one task, or within the grace, keep the incarnation; past the grace it goes; uses are counted |
 | LIFE-05 | 14 | example | design | rule:73, rule:44, rule:53 |  | rule 73: an ending parked for a removed copy's path is no use; the persisted actor goes, and its next incarnation's copy hears the ending once |
 | LIFE-06 | 14 | example | design | rule:73, rule:44 |  | rule 73: a Held lane is no use; the actor goes, the hold is unbound and the next incarnation hears unknown Restored once |
-| LIFE-07 | 14 | example | design | rule:73, sec:2.7.17 |  | rule 73: an armed schedule is no use; the persisted record keeps the deadline and the overdue one fires once at restore |
-| LIFE-08 | 14 | example | design | rule:73, sec:2.7.17 |  | rule 73: a send during the grace is mail, a use: the same incarnation hears it and the grace starts again |
-| LIFE-09 | 14 | example | design | rule:73, C105 |  | C105: a send to an absent non-persisted target is SendTargetAbsent NotPersisted and creates nothing |
-| LIFE-10 | 14 | example | design | rule:73, C108 |  | C108: a pre-attach handle of a disposed persisted identity reads the Runtime's copy, with no flash of initial memory |
+| LIFE-07 | 14 | example | design | rule:73, sec:2.7.17, C124 |  | rule 73: an armed schedule keeps nothing; the persisted record keeps the deadline and the overdue one fires once at restore |
+| LIFE-08 | 14 | example | design | rule:73, sec:2.7.17 |  | rule 73 (OD31, inverted): a send in the grace is delivered to the same incarnation and does not restart the grace |
+| LIFE-09 | 14 | example | design | rule:73, C105 |  | C105: a send to an ended non-persisted target is SendTargetAbsent NoRecord and creates nothing |
+| LIFE-10 | 14 | example | design | rule:73, C108 |  | C108: an ensure of an ended persisted identity reads the Runtime's copy, with no flash of initial memory |
+| LIFE-11 | 14 | example | design | rule:73, sec:2.7.17, C109 |  | rule 73: a chain of three (confirm, a cart read started in its kept turn, place) runs in one incarnation after the last use ends, then it ends |
+| LIFE-12 | 14 | example | design | rule:73, sec:2.7.17 |  | rule 73: write, read, write, persisted: a kept read keeps however long it takes; the record holds the chain after the end |
+| LIFE-13 | 14 | example | design | rule:73, sec:2.7.17 |  | rule 73: a read started by a press, or by a send-restore, keeps nothing and is cut by the end |
+| LIFE-14 | 14 | example | design | rule:73, sec:2.7.17, C124 |  | C124: a debounce due with no use waits; lost at a non-persisted end, fired once at the next ensure when persisted, fired once when a use returns in the grace |
+| LIFE-15 | 14 | example | design | rule:73, sec:2.7.17 |  | rule 73: a heartbeat whose ping outlasts its period: the next tick waits, the ping keeps the actor, it ends when the ping returns |
+| LIFE-16 | 14 | example | design | rule:73, sec:2.7.17 |  | rule 73: an expiry whose deadline is not the armed grace's does nothing |
+| LIFE-17 | 14 | example | design | rule:73, rule:44, C126 |  | C126: Held keeps nothing; unknown Restored is heard once per incarnation, at each return after an end |
+| LIFE-18 | 14 | example | design | rule:73, C106 |  | C106: at ready a plain record stays a record a handle reads and a send restores; one owed an ending is woken, hears it, then ends |
+| LIFE-21 | 14 | example | design | rule:73, C108 |  | C108: reads follow the identity: an ended persisted actor reads as its record, a non-persisted one as its terminal snapshot, one never created as pre-attach |
+| LIFE-22 | 14 | example | design | rule:73, sec:2.7.17 |  | rule 73: an unencodable record blocks the end, retried at each expiry with one diagnostic, until it encodes |
+| LIFE-23 | 14 | example | design | rule:73, C105 |  | C105: a send after disposeActor is NoRecord; one to a record that does not decode is RecordUndecodable, and an ensure discards it |
+| LIFE-24 | 14 | example | design | rule:73, C105 |  | C105, OD27 Q2: a host ensure keeps nothing; a subscription on an identity with no actor waits as a use, in either order with the ensure |
+| LIFE-27 | 14 | example | design | rule:73, sec:2.7.17, C108 |  | rule 73: a mounted local actor finishes its chain after unmount; a remount while it is kept only by work disposes it and adopts the ending |
+| LIFE-28 | 14 | example | design | rule:73, rule:44, C106 |  | C106: Runtime disposal parks the wire's ending; at the reload the unheld identity is woken at ready, hears it once, then ends |
+| LIFE-29 | 14 | example | design | rule:73, C125 |  | C125: EndedWithWork once per machine and kind of work; none for an end with nothing live |
+| LIFE-30 | 14 | example | design | rule:73, C111 |  | C111: a create within 5 s of an end carries how long ago; at 5 s it does not |

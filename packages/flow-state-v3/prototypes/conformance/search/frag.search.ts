@@ -57,7 +57,8 @@ export const searchFrag = (
     deadlineMs: o.deadlineMs,
     edge(_pre, post) {
       if (post.read.quiet().fatal) throw new Oracle("fatal");
-      const bad = post.read.issues().filter((i) => i.code !== "RecordQuarantined");
+      // Rule 73 (OD31): `dispose` is `disposeActor`, so a later send has no record and is dropped with SendTargetAbsent on the sender (C105).
+      const bad = post.read.issues().filter((i) => i.code !== "RecordQuarantined" && !(i.code === "SendTargetAbsent" && (i.input as { reason?: string })?.reason === "NoRecord"));
       if (bad.length) throw new Oracle(`issue ${bad[0]!.code} ${bad[0]!.origin ?? ""}`);
       // Rule 17 across a crash: once unknown, never a definite ending for that Attempt.
       const unknown = new Set<unknown>();

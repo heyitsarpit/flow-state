@@ -59,11 +59,17 @@ export type Step =
   | { burst: ActorRef; event: string; n: number } // round 9: many sends in one tick, as a bulk flow does
   | { ensure: ActorRef; input?: unknown }
   | { send: ActorRef; event: string; payload?: unknown; to?: readonly string[] }
-  | { dispose: ActorRef } // the actor's life ends. Its lanes stay the Runtime's (OD19)
-  // Rule 73: a consumer of a shared actor attaches (ensuring it), or a use ends (Story.release, OD27 Q4), which disposes nothing. The suite's
-  // `ensure` attaches its own consumer on a runtime with uses; `release` ends it. With no uses and nothing busy, the actor goes after the grace.
-  | { attach: ActorRef; input?: unknown }
-  | { release: ActorRef }
+  | { dispose: ActorRef } // `disposeActor` (OD31): the actor and a persisted record go. Its lanes stay the Runtime's (OD19, rule 46)
+  // Rule 73 (OD31, 2.10.10). `ensure` attaches one use, as a mounted screen; `detach` ends one (`StoryInvalidCommand { ActorAbsent }` with
+  // none held). `subscribe` is a host `snapshots` subscription (restores a record, waits on an identity with neither); `mount` is `useActor`
+  // of a local machine. `codecFails`: the core's codec input.
+  | { detach: ActorRef }
+  | { hostEnsure: ActorRef; input?: unknown } // a host `ensureActor`: no use (OD27 Q2)
+  | { subscribe: ActorRef }
+  | { unsubscribe: ActorRef }
+  | { mount: ActorRef; input?: unknown }
+  | { unmount: ActorRef }
+  | { codecFails: ActorRef; on: boolean }
   | { advance: number }
   | { answer: RequestMatch; with: Answer; where?: Readonly<Record<string, unknown>> }
   // crashAfterBoot: the first boot dies with its mail undelivered (review M1). Needs drainMs -1. tear: only the first n writes of the last batch landed
@@ -210,6 +216,9 @@ export type Reads = {
   module(id: string, ref: string): any; // a module's `read`: a stream's row
   peakDeliveriesInMail(): number; // rule 69: the most a single session has ever had in mail at once, over every step
   replay(): { same: boolean; firstDiff?: unknown };
+  snapshot(a: ActorRef): Snapshot | undefined; // rule 73: undefined on a runtime with no uses
+  inspect(a: ActorRef): Inspected | undefined;
+  lifetimeViolations(): readonly string[]; // rule 73's global invariants, checked by the suite after every step
 };
 export type Bounds = {
   drainMs: number;
@@ -253,12 +262,19 @@ export type BootArgs = {
   readonly services?: Context.Context<never>;
 };
 export type BootReads = Pick<Instance, "state" | "binding" | "memory" | "inner">;
+// 2.7.17 Reads: what a handle shows for an identity. Inspection O1's `uses` per actor, the armed grace's deadline and the waiting schedules.
+export type Snapshot = { lifecycle: "active" | "disposed" | "pre-attach"; state?: string; memory?: unknown };
+export type Inspected = { uses: readonly string[]; busy: readonly string[]; grace?: number; waiting: readonly string[] };
 export type Instance = {
   ensure(actor: string, machine: string, input: unknown): void;
   send(actor: string, event: Ev): void;
   dispose(actor: string): void;
-  attach?(actor: string, machine: string, input: unknown, existing?: boolean): void; // rule 73: a runtime without uses has none. `existing`: only onto a live actor
-  release?(actor: string): void;
+  // Rule 73: a runtime without uses has none. `owner`: the use's kind ("story", "host", "component"). `existing`: a subscription, never a create.
+  attach?(actor: string, machine: string, input: unknown, owner: string, existing?: boolean): void;
+  detach?(actor: string, owner: string): void;
+  codec?(actor: string, fails: boolean): void;
+  snapshot?(actor: string): Snapshot;
+  inspect?(actor: string): Inspected;
   disposeRuntime(): void;
   repeatLastCompletion(): void;
   pending(): boolean;

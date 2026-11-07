@@ -8,8 +8,8 @@ import { watched } from "./watch.ts";
 const here = import.meta.dir;
 const i = process.argv.indexOf("--runtime");
 const source = dirname(resolve(here, i < 0 ? "../round-14x/adapter.ts" : process.argv[i + 1]!));
-const ONLY = "LIFE-01,LIFE-02,LIFE-03,LIFE-04,LIFE-05,LIFE-06,LIFE-07,LIFE-08,LIFE-09,LIFE-10";
-const CASES = 13; // LIFE-02 and LIFE-04 have 2 and 3 variants
+// Round 14 (OD31): LIFE-01..30 as built, and the rewritten dispose cases whose result the rule changed.
+const ONLY = [...Array.from({ length: 30 }, (_, k) => `LIFE-${String(k + 1).padStart(2, "0")}`).filter((id) => !["LIFE-19", "LIFE-20", "LIFE-25", "LIFE-26"].includes(id)), "REV5-H5H6", "FRAG-08"].join(",");
 const { MUTANTS } = (await import(join(source, "mutants-lifetime.ts"))) as {
   MUTANTS: ReadonlyArray<{ id: string; kills: readonly string[]; edits: ReadonlyArray<readonly [string, string, string]> }>;
 };
@@ -39,14 +39,19 @@ const runOne = async (edits: ReadonlyArray<readonly [string, string, string]>) =
 };
 let bad = 0;
 const control = await runOne([]);
-console.log(`${control.failed.length === 0 && control.passed.length === CASES ? "ok  " : "BAD "} control: ${control.passed.length} pass, ${control.failed.length} fail`);
+console.log(`${control.failed.length === 0 && control.passed.length > 0 ? "ok  " : "BAD "} control: ${control.passed.length} pass, ${control.failed.length} fail${control.failed.length ? `\n       ${control.failed.join("\n       ")}` : ""}`);
 if (control.failed.length) bad++;
+// Fail-then-pass: every case green on the control must be red on at least one wrong runtime.
+const everRed = new Set<string>();
 for (const m of MUTANTS) {
   const r = await runOne(m.edits);
   const killed = r.failed.length > 0;
   if (!killed) bad++;
+  for (const f of r.failed) everRed.add(f.split(":")[0]!.split("/")[0]!.trim());
   console.log(`${killed ? "ok  " : "BAD "} ${m.id} (${m.kills.join(",")}): ${r.failed.length} red${killed ? `\n       ${r.failed.join("\n       ")}` : ""}`);
 }
+const neverRed = [...new Set(control.passed.map((p) => p.split("/")[0]!.trim()))].filter((id) => !everRed.has(id));
+console.log(neverRed.length === 0 ? "every case is red on some wrong runtime" : `never red: ${neverRed.join(" ")}`);
 rmSync(scratch, { recursive: true, force: true });
 console.log(bad === 0 ? "every lifetime mutant goes red" : `${bad} survivor(s) or a red control`);
 process.exitCode = bad === 0 ? 0 : 1;
