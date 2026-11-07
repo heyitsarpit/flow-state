@@ -1,5 +1,6 @@
 // Turns a runtime's `Port` into a Harness. Settling, faults, plans and the fake live here, so a rewrite replaces only the
 // port. Faults reach a runtime through what production has: compiled data (Slots), a Host, and its own input port.
+import { heapSize } from "bun:jsc";
 import { Context } from "effect";
 import type { Fixture as Fixture_ } from "./harness.ts";
 import type { Compiled } from "./fixtures/compiled.ts";
@@ -42,6 +43,14 @@ export const rowKey =(op: string, key: unknown) => `${op}|${JSON.stringify(key)}
 // `|` too: a lane's id starts with its actor's key and a `|`, so an id holding one would name another actor's lane.
 const actorKey = (a: { actor: string; id: string }) => `${a.actor}/${a.id.replaceAll("%", "%25").replaceAll("/", "%2F").replaceAll("|", "%7C")}`;
 
+// A long run of steps, or a long log's replay, makes garbage faster than JavaScriptCore collects it (R10-RUNTIME peaked at 1.4 GB with 25 MB
+// live after). A look every 256 steps or replayed steps. Nothing in the suite or a runtime is weak (no WeakRef, no FinalizationRegistry), so
+// when a collection runs decides nothing.
+const GC_AT = 2.5e8;
+let ticks = 0;
+const collectSometimes = () => {
+  if (++ticks % 256 === 0 && heapSize() > GC_AT) Bun.gc(true);
+};
 const COPIES_CHECK = process.env["FLOW_COPIES_CHECK"] === "1";
 const copiesChecked = { hits: 0, differ: 0 };
 if (COPIES_CHECK) process.on("exit", () => console.log(`COPIES-CHECK hits ${copiesChecked.hits}, differ ${copiesChecked.differ}`));
@@ -1346,6 +1355,7 @@ export const makeHarness = (port: Port) => (): Harness => {
     if (releases.length > 0) compiled = compileAll();
     const seen = observing(compiled);
     const onEvidence = (e: readonly Record<string, any>[]) => {
+      collectSometimes();
       anchorDeferred(e);
       judgeAsks(e);
       ledger(e);
@@ -1414,6 +1424,7 @@ export const makeHarness = (port: Port) => (): Harness => {
       }
       const had = fake.hasWork();
       fake.settleStep();
+      collectSometimes();
       if (!had && !fake.hasWork() && !inst.pending()) return;
     }
     throw new Error("settle: did not quiesce");
@@ -1747,6 +1758,7 @@ export const makeHarness = (port: Port) => (): Harness => {
         for (const [k, v] of at.after) faults.moduleThrowsAfter.set(k, v);
         faults.coreThrows = at.core;
         const r = instances[si]!.replay((i) => {
+          collectSometimes();
           fireReleases(si, i);
           for (const a of armed) if (a.segment === si && a.at === i) a.arm();
         });

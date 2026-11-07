@@ -83,10 +83,10 @@ export const outputOf = (t: Tracked): Record<Section, unknown> => {
 };
 // One line per harness a case drove, in order. Harnesses that took no step say nothing.
 // What a case allows is not in its line at all, so it cannot churn.
-export const caseOutput = (ts: readonly Tracked[], allow: readonly Section[] = []): Array<Partial<Record<Section, unknown>>> =>
+export const caseOutput = (ts: readonly Tracked[], allow: readonly Section[] = [], of: (t: Tracked) => Record<Section, unknown> = outputOf): Array<Partial<Record<Section, unknown>>> =>
   ts
     .filter((t) => t.steps > 0)
-    .map(outputOf)
+    .map((t) => of(t))
     .map((o) => Object.fromEntries(Object.entries(o).filter(([k]) => !allow.includes(k as Section))) as Partial<Record<Section, unknown>>);
 export const diffOutput = (want: string, got: string): string[] => {
   if (want === got) return [];

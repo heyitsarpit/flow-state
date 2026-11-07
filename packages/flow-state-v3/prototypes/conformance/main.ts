@@ -6,7 +6,7 @@ import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { makeHarness, recipients, swapFixtures } from "./drive.ts";
 import type { Harness, RuntimeModule } from "./harness.ts";
-import { caseOutput, diffOutput, type Section, type Tracked } from "./output.ts";
+import { caseOutput, diffOutput, outputOf, type Section, type Tracked } from "./output.ts";
 import { catalog, printReports } from "./report.ts";
 import {
   checkClaims,
@@ -165,6 +165,10 @@ const lockLines = (): string[] => [
 
 // The store failing, the core failing, a listener's storm: none has a closure or a turn to name. Surveyed (FLOW_ORIGIN_SURVEY=1): these three only.
 const NO_ORIGIN = new Set(process.env["FLOW_ORIGIN_SURVEY"] ? [] : ["Fatal", "StorageFailure", "TurnStorm"]);
+const usedAfterEnd = () => {
+  throw new Error("harness used after its end");
+};
+const ENDED = { read: new Proxy({}, { get: usedAfterEnd }) } as unknown as Harness;
 export const runScenarios = (
   make: () => Harness,
   cellsHit: Set<string> = new Set(),
@@ -191,15 +195,44 @@ export const runScenarios = (
       const v = variant ? { variant } : {};
       // D130: every harness this case makes, whoever made it. The checks below run on each, so a case that drives a second harness cannot leave them on an empty one.
       const tracked: Tracked[] = [];
+      // A harness its maker has ended (`end`): checked and its output line made then, and let go. Only when no name the case may still
+      // add can change its verdict (names only grow); the end loop below reads what was kept, in the same order.
+      const finished = new Map<Tracked, { error?: { e: unknown }; cells: string[]; line?: { v?: ReturnType<typeof outputOf>; e?: unknown } }>();
       const makeTracked = (): Harness => {
         const h = make();
         if (isSearch) return h;
         const rec: Tracked = { h, actors: new Map(), hashes: new Set(), steps: 0 };
         // Tracked once it boots: a machine table the seal refuses has no harness to read (REV7-M2).
         const start = h.start;
+        let booted = false;
         h.start = (cfg) => {
           start(cfg);
           tracked.push(rec);
+          booted = true;
+        };
+        h.end = () => {
+          if (!booted || finished.has(rec)) return;
+          const r = h.read;
+          if (r.issues().some((i) => !named.includes(i.code))) return;
+          if (r.appliedTwice().length && !named.includes("AppliedTwice")) return;
+          const done: { error?: { e: unknown }; cells: string[]; line?: { v?: ReturnType<typeof outputOf>; e?: unknown } } = { cells: [] };
+          try {
+            done.cells = endChecks(r);
+          } catch (e) {
+            done.error = { e };
+          }
+          if (!done.error && (o.outputs || o.collect) && rec.steps > 0)
+            try {
+              done.line = { v: outputOf(rec) };
+            } catch (e) {
+              done.line = { e };
+            }
+          finished.set(rec, done);
+          rec.h = ENDED;
+          rec.hashes = new Set();
+          h.do = usedAfterEnd;
+          h.raw = usedAfterEnd;
+          h.send = usedAfterEnd;
         };
         const note = (step: any) => {
           for (const a of [step?.ensure, step?.send, step?.burst, step?.dispose, step?.attach, step?.release]) if (a?.actor !== undefined) rec.actors.set(`${a.actor}/${a.id}`, a);
@@ -232,13 +265,7 @@ export const runScenarios = (
         return h;
       };
       const named = openCase(s.namedIssues ?? []);
-      try {
-        const c = new Ctx(fresh(), s.actor);
-        c.fresh = fresh;
-        c.make = makeTracked;
-        body(c);
-        for (const { h } of tracked) {
-          const r = h.read;
+      const endChecks = (r: Harness["read"]): string[] => {
           const extra = r.issues().map((i) => i.code).filter((x) => !named.includes(x));
           if (extra.length) throw new Mismatch(`issues not named by the scenario: ${extra.join(", ")}`);
           // Rule 12, under-specification A07: an issue says where it came from. Only what has no closure or turn behind it may come without: the codes below, by what they are.
@@ -264,16 +291,32 @@ export const runScenarios = (
               !minted.has(q.idempotencyKey)
             )
               throw new Mismatch(`key ${q.idempotencyKey} is no Attempt`);
-          for (const e of r.evidence("lane")) {
-            cellsHit.add(e["cell"]);
-            hitHere.add(e["cell"]);
+          return r.evidence("lane").map((e) => e["cell"]);
+      };
+      try {
+        const c = new Ctx(fresh(), s.actor);
+        c.fresh = fresh;
+        c.make = makeTracked;
+        body(c);
+        for (const t of tracked) {
+          const f = finished.get(t);
+          if (f?.error) throw f.error.e;
+          for (const cell of f ? f.cells : endChecks(t.h.read)) {
+            cellsHit.add(cell);
+            hitHere.add(cell);
           }
         }
         // D134: the whole output, beside the named oracles. A case states what it does not care about.
         const nm = name({ id: s.id, ...v });
         let output: string | undefined;
         if (!isSearch && (o.outputs || o.collect)) {
-          const got = JSON.stringify(caseOutput(tracked, (s.outputAllow?.sections ?? []) as readonly Section[]));
+          const lineOf = (t: Tracked) => {
+            const l = finished.get(t)?.line;
+            if (!l) return outputOf(t);
+            if (l.e !== undefined) throw l.e;
+            return l.v!;
+          };
+          const got = JSON.stringify(caseOutput(tracked, (s.outputAllow?.sections ?? []) as readonly Section[], lineOf));
           o.collect?.set(nm, got);
           const want = o.outputs?.get(nm);
           if (o.outputs) {

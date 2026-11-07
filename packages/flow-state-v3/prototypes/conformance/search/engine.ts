@@ -87,15 +87,23 @@ export const bfs = (o: {
     const root = run([]);
     seen.add(key(root, []));
     o.state(root, []);
+    root.end?.();
     perDepth.push(1);
-    if (o.drain) o.drain(run([]), [], report([]));
+    if (o.drain) {
+      const h = run([]);
+      o.drain(h, [], report([]));
+      h.end?.();
+    }
     for (let d = 1; d <= o.depth; d++) {
       const next: Action[][] = [];
       for (const script of frontier) {
         for (const a of o.actions) {
           if (out()) return done("inconclusive", depthCompleted);
           const pre = run(script);
-          if (a.on && !a.on(pre)) continue;
+          if (a.on && !a.on(pre)) {
+            pre.end?.();
+            continue;
+          }
           tried.add(a.name);
           edges++;
           const s = [...script, a];
@@ -111,7 +119,11 @@ export const bfs = (o: {
           }
           const k = key(post, s);
           if (key(pre, s) !== k) moved.add(a.name);
-          if (seen.has(k)) continue;
+          pre.end?.();
+          if (seen.has(k)) {
+            post.end?.();
+            continue;
+          }
           seen.add(k);
           next.push(s);
           try {
@@ -120,6 +132,7 @@ export const bfs = (o: {
           } catch (e) {
             throw new Oracle(`${(e as Error).message} on ${names(s).join(" ")}`);
           }
+          post.end?.();
           if (seen.size % 500 === 0) peak = Math.max(peak, process.memoryUsage().rss);
         }
       }

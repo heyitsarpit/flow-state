@@ -399,7 +399,7 @@ export const port: Port = {
       replay: (before) => {
         const was = logged.written();
         if (was.arrays > 0) return { same: false, firstDiff: { writtenInPlace: was } };
-        const replayed = inPlaceGuard();
+        const replayed = inPlaceGuard(false);
         let w: World = emptyWorld;
         const compare = canonComparer();
         const sameCanon = (x: unknown, y: unknown) => {
@@ -441,9 +441,8 @@ export const port: Port = {
             break;
           }
         }
-        const now = replayed.written();
         const then = logged.written();
-        if (now.arrays > 0 || then.arrays > 0) return { same: false, firstDiff: { writtenInPlace: now.arrays > 0 ? now : then, replayed: now.arrays > 0 } };
+        if (then.arrays > 0) return { same: false, firstDiff: { writtenInPlace: then } };
         return { same: true };
       },
       subscribe: (f) => rt.subscribe(f),

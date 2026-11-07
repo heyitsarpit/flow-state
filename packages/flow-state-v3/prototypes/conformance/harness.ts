@@ -238,6 +238,7 @@ export type Harness = {
   subscribe(f: () => void): void; // notified per drain
   send(a: ActorRef, event: string, payload?: unknown): void; // from a subscriber: no settling
   read: Reads;
+  end?(): void; // its maker drives and reads it no more (a search, after a state's last edge): the suite may check it and let it go now
 };
 
 // ── What a runtime implements.
@@ -320,14 +321,16 @@ export type { Host };
 // What the suite's memos rest on: a published or logged value is never written in place. A plain object is frozen, so a write throws
 // where it happens (a step's throw is Fatal). An array is fingerprinted instead, by its length and each element's identity, and checked
 // when asked: JavaScriptCore takes a frozen array off its fast paths, and a weak table of every value costs more in GC than the suite.
-// A frozen object is taken as guarded with all it holds. A class or a Map is left as it is.
+// A frozen object is taken as guarded with all it holds. A class or a Map is left as it is. `inPlaceGuard(false)` freezes objects only and
+// keeps nothing, for values nobody reads after the walk that made them (a replay's own worlds).
 const NO_GUARD = (globalThis as { process?: { env: Record<string, string | undefined> } }).process?.env["FLOW_NO_FREEZE"] === "1";
 export type InPlaceGuard = { guard(v: unknown): void; written(): { arrays: number; first?: string } };
-export const inPlaceGuard = (): InPlaceGuard => {
+export const inPlaceGuard = (arrays_ = true): InPlaceGuard => {
   const arrays: unknown[][] = [];
   const fp: number[] = [];
   const objects = new Map<object, number>();
   const strings = new Map<string, number>();
+  const walking = new Set<unknown[]>();
   const idOf = <K>(m: Map<K, number>, k: K) => {
     let n = m.get(k);
     if (n === undefined) {
@@ -364,7 +367,13 @@ export const inPlaceGuard = (): InPlaceGuard => {
     const proto = Object.getPrototypeOf(v);
     if (proto === Array.prototype) {
       const a = v as unknown[];
-      if (objects.has(a)) return;
+      if (objects.has(a) || walking.has(a)) return;
+      if (!arrays_) {
+        walking.add(a);
+        for (let j = 0; j < a.length; j++) guard(a[j]);
+        walking.delete(a);
+        return;
+      }
       idOf(objects, a);
       for (let j = 0; j < a.length; j++) guard(a[j]);
       const [h1, h2] = prints(a);
