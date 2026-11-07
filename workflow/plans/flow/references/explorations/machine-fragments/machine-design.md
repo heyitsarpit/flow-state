@@ -49,7 +49,7 @@ beside it are prior art.
 
 **Revision (design catch-up, phase 0, 2026-11-07).** The prototype's newer decisions are recorded: the accepted
 `FOR-ARPIT.md` (calls, Q1-Q8, carry-over), the round-14 corrections R14 D1-R14 D7, and agent-judged refinements
-(OD32-OD46, C128-C146). Conflicts the user decides are listed, not applied:
+(OD32-OD47, C128-C149). Conflicts the user decides are listed, not applied:
 [../../proposals/design-catch-up/change-list.md](../../proposals/design-catch-up/change-list.md). R14 D4 amends rule 74:
 a singleton takes no input.
 
@@ -319,7 +319,7 @@ Rules:
   `Flow.initial` never go on the same field.
 - **A field has one default, the same at creation and at restore** (decided, OD40): whichever its Schema states, a
   constructor or a decoding default, or `Flow.initial`'s constant. Two different defaults, or a Schema default beside
-  `Flow.initial`, are a construction error (`TwoDefaults` [P]), found from the Schema's structure, never by evaluating
+  `Flow.initial`, are a construction error (`TwoDefaults`; decided, call 13), found from the Schema's structure, never by evaluating
   them. A default is evaluated for each actor at each door, never computed once and shared (round 13's H1). At
   restore, a field the record lacks (a release added it) takes that default, or runs its computed initial over the
   restored fields; an optional key stays absent; an input field with no default refuses the record
@@ -537,7 +537,11 @@ after rule 47, let fragments declare operations (2.9); 61–66, after rule 60, a
    lane is cancelled or released, or a local life ends; a hold stays the lane's head; a decline is kept on the lane of
    the key it asked for and blocks nothing, a newer decline replacing it; a deadline stays on its record until a turn
    commits it, or its activation ends; a read's answer or a stream's failure is **stranded**, named, until that life
-   asks again, ends, or a boot. A kept ending gets one try per boot or adoption.
+   asks again, ends, or a boot. A kept ending gets one try per boot or adoption. The machine stays in the state that
+   was waiting for it and shows the kept ending; there is no fallback alternative and no API for it (decided,
+   FOR-ARPIT call 19, round 8 call 1, D109; OD47). A boot forgets a stranded read: a machine with a recurring schedule
+   asks again (rule 42), and one without stays where it was (convergence-9 withdrew "a reload asks again"; a lint for
+   that case is proposed, not built).
 9. **Many copies: `.each`.** Full design, reasons and nine worked examples:
    [merged/each.md](merged/each.md). `T.each({ of, max, by? })`
    places one copy of T per key in the memory field `of` names, of the placing definition or fragment, in
@@ -601,11 +605,10 @@ after rule 47, let fragments declare operations (2.9); 61–66, after rule 60, a
       - an acting member of a fragment's operation used outside that fragment (rule 50);
       - a mapped write outside rule 48's scope;
       - a `resetOn` returning anything but a string, `null` or `undefined` on a placement that owns a mapped write (rule 48);
-      - a state named `self` or `__proto__` (`ReservedStateName` [P]), and an `unknown:` target that is not a
-        `Flow.uncertain` event or `Flow.ignore` (`UnknownNotUncertain` [P]) (agent, OD46).
-    - **Values with no form.** A `Symbol`, function, `Map` or `Set` where a value must be carried is
-      `UnencodableValue` [P]; `flow check` names each input field whose decoded form cannot be carried
-      (`InputFieldForm` [P], a warning) (agent, OD46).
+      - a state named `self` or `__proto__` (`ReservedStateName` [P]; agent, OD46), and an `unknown:` target that is
+        not a `Flow.uncertain` event or `Flow.ignore` (`UnknownNotUncertain`; decided, FOR-ARPIT section 4, OD47).
+    - **Input forms** (agent, OD46). `flow check` names each input field whose decoded form cannot be carried
+      (`InputFieldForm` [P], a warning). What a value with no form does, and its name, wait for U6.
     - **Pruning reads only state tokens that are elements of guard arrays.** It never parses
       closures. Two alternatives made exclusive by their token elements are not flagged.
     - **Runtime pre-commit defects,** each also a `flow check` warning where it can be seen:
@@ -691,7 +694,7 @@ declarer" (a definition or a fragment), and "binding actor" as "binding incarnat
 20. **Required handling** (`flow check`). Every current event that can occur is handled totally from every leaf under
     its owner (fall-through to ancestors included). `failure.NotSent` must be mapped only where it can occur: under
     `reject` (`Rejected`) or `serialize` (`Overloaded`), where the machine cancels the operation (`Cancelled`), for a
-    persisted identity (`Restored`, `StorageRefused`, `Disposed`, `NoPersistence`), or for a domain write (`Overloaded`, rule 35), or on a placement whose subject path is not
+    persisted identity (`Restored`, `StorageRefused`, `Disposed`, `NoPersistence`, `OldVersion`), or for a domain write (`Overloaded`, rule 35), or on a placement whose subject path is not
     empty (`Rejected`, rule 51; checked at the placement from the fragment's summary, rule 57). A read
     operation's tag record must map `Defect` and `Interrupted` (rule 37). An ending mapped to `Flow.ignore` produces no event, so it needs no current, late or
     adopted handler (2.7.18). **Every late event that can occur, from any
@@ -764,7 +767,9 @@ declarer" (a definition or a fragment), and "binding actor" as "binding incarnat
     `NotSent { why: "Cancelled" }` and the next queued commit is promoted; a re-send returns to `Held` and is released.
     While a never-sent Attempt's acknowledgement is being written, a `cancel` or a `latest` replacement waits for
     storage: stored, the never-sent cell runs; refused, it ends `NotSent { StorageRefused }` (agent, OD46; D48), since
-    an acknowledged Attempt may restore as unknown.
+    an acknowledged Attempt may restore as unknown. Stated limit: nothing bounds that wait, so on a disk that never
+    answers the cancel never takes effect; `StorageSilent` [P] names it after 10 s (2.7.20) and decides nothing
+    (whether a wait on storage is bounded is U16, the user's).
     In `Held` it releases the Attempt (`Released`, evidence) and promotes the next queued commit. In `Idle` it does
     nothing, with evidence. It never drops a queued commit silently, except a release on leave the fragment declares, whose cells act on every
     lane of the subject path and end its queued commits as evidence (rule 60). **A settled ending is never rewritten.** A one-off
@@ -828,7 +833,7 @@ decision (E1–E18). Rules 13–25 and N1–N3 still apply.
     table (2.7.13), with rule 30's store effects.
 30. **The store follows the Attempt's ending** (E8). Success confirms; a definite failure removes predictions without
     repair; `NotSent` (`Rejected`, `Overloaded`, `Cancelled`, `Restored`, `StorageRefused`,
-    `Disposed`) and evidence `Superseded` remove or never apply them, without repair (2.8.5); `Released` keeps the mark
+    `Disposed`, `NoPersistence`, `OldVersion`) and evidence `Superseded` remove or never apply them, without repair (2.8.5); `Released` keeps the mark
     (rule 32) and withdraws a waiting re-send's queue entry (2.8.6); unknown, including `StillUnknown`, keeps live
     predictions until a forced repair lands, holds the record queue until that repair settles, and marks the record
     uncertain for that Attempt. **Revision (multiplicity audit, 2026-10-31) (E18).** A prediction over a record the store does not hold (never held,
@@ -886,7 +891,7 @@ decision (E1–E18). Rules 13–25 and N1–N3 still apply.
     schema. `key` is required on every contract, streams included: a list of top-level `input` fields naming which
     server thing a call is about, `[]` for one; a composite key lists every field; its Schema is `input`'s pick; there
     are no derived or nested keys, and no default, domain writes included. A key field is required and has no default:
-    an optional or defaulted one is a construction error (`KeyFieldOptional` [P]; decided, OD39), since an absent value
+    an optional or defaulted one is a construction error (`KeyFieldOptional`; decided, call 11, OD39), since an absent value
     is never a key value. A key is stored in its canonical text, and a value JSON cannot carry gets a stable name, so
     a `bigint` key `1n` restores as `"$1n"` and names the same lane (decided, OD44). On a resource, every `input` field that
     changes the output is in `key` (`KeyOmitsInput` warns otherwise); a stream's position is not in `input`: the contract names a field of `output` (`position`), and the bookmark holds it (rule 71; overturns OD12's clause, S15). A session reads `input` once, at start, so a non-key field never restarts it (S11). No Rpc inside; a `fromRpc` adapter comes later.
@@ -1193,7 +1198,8 @@ decisions (F1–F10).
     committed by the incarnation that started it. Nothing else keeps an actor: not schedules, other reads,
     activities, stream sessions, `Held` lanes, parked endings or context; queued mail is processed before the end.
     While nothing uses it, its schedules wait. Free of both for the grace (100 ms on the Runtime Clock, internal,
-    the same for local actors), it ends; a persisted actor's record is encoded in that step, and the end waits
+    the same for local actors; a local actor remounted within its grace reuses that actor, decided, OD45; R14 D5), it
+    ends; a persisted actor's record is encoded in that step, and the end waits
     while the record cannot be encoded. An ensure, a subscription or a send restores a persisted identity from the
     Runtime's copy; a non-persisted actor is gone, and its lanes stay with the Runtime (rule 44). An actor that must
     outlive a screen is used from where it should live. Local actors made by `useActor` follow the same rule; host
@@ -1210,7 +1216,8 @@ decisions (F1–F10).
       to strings (2.2.2). The identity encodes them with their Schemas, in field-name order, so a reorder changes nothing
       (R14 D4).
     - **Versions.** For a persisted value-named machine, adding, removing or renaming an input field, or changing a
-      field's encoded Schema (compared structurally, ignoring annotations, as an operation's key is, 2.7.15; OD46), is a new version. A saved record of another field set is an **old-version record**:
+      field's encoded Schema, is a new version. Whether a type-side change with the same encoding (`Schema.String` to
+      `Schema.NumberFromString`, both strings) is one is open: U17, the user's. A saved record of another field set is an **old-version record**:
       listed at ready (`OldVersionActor` [P]), never renamed or matched by shared fields, removed by `forget`. Its
       non-`Idle` lanes stay unbound and listed (rule 44), since no ref can spell its identity.
     - Two refs of one identity with different `persist` or `context` are `ConflictingActorRef` at ensure [P]; one
@@ -1241,10 +1248,14 @@ denies `Uncertain` and `retry` re-sends; in a success's turn the next queued com
 denies `InFlight`.
 
 1. **Admit** (runtime only).
+   - **A `send` runs at once when the Runtime is idle** (decided, the user's Q3 A of 2026-10-28, recorded as the
+     prototype's D2 in `convergence-1.md`; OD47): with no turn running and no slice yielded, its turn runs before
+     `send` returns; otherwise it queues in its actor's mailbox.
    - A pending reset from the last commit runs first, as its own follow-up turn (rule 1).
    - Otherwise, take the next event. Each actor's mailbox is FIFO in admission order: user sends,
      call endings, stream deliveries, timer firings and `onContext` events queue together. Across actors (decided,
-     OD36): follow-ups run first, up to their bound; otherwise one event from the next actor in rotation, oldest first
+     OD36): follow-ups run first, up to 64 for each admitted event, past which the turn that would add one is refused
+     `InvalidTurn` naming the chain (agent, OD46; D13, D35); otherwise one event from the next actor in rotation, oldest first
      within that actor; an actor joins the rotation at its first event and goes to the back after each. Nothing
      orders two actors' turns unless a turn links them, so bulk work on one actor never starves another, and
      entities must not assume a global order; a session moves one delivery at a time from its own queue (Streams T4, rule 69).
@@ -1258,9 +1269,11 @@ denies `InFlight`.
    - **Work runs in slices** (decided, OD36). The driver serves mail for a slice of time, then yields a real task to
      the page; the slice decides when, never what. A spin, a handler that asks again on its own ending, is never
      stopped, slowed or cut: it runs at task rate, hidden tabs included, until a press or a move ends it.
-     `TurnStorm` [P] (evidence) names one operation failing with the same input many times in a row, and `flow
-     check`'s `AsksForever` [P] a handler whose every path asks again; neither decides anything. A backoff belongs on
-     an explicit retry with a delay (Q5 A).
+     `TurnStorm` (evidence) names one operation failing with the same input many times in a row, and `flow
+     check`'s `AsksForever` a handler whose every path asks again (both decided with call 5, D122; OD47); neither
+     decides anything. A backoff belongs on an explicit retry with a delay (Q5 A). Subscribers hear one notify per
+     task: the first slice end in a task notifies, and later ones in that task coalesce into one in the next task
+     (agent, OD46; D136).
    - A timer of a dead activation is discarded here (Machines O5).
    - Firings with the same deadline are separate turns.
    - `whenAbandoned` is never queued, because it is fused. `orphaned` runs on the descriptor, not in an
@@ -1468,7 +1481,7 @@ catch: (e) => Outcome.unknown(err)    // the same calls work wherever Effect wan
 
 | Reason | Channel | When |
 | --- | --- | --- |
-| `NotSent { why }` | failure | the commit was never called. `why`: `Cancelled` (before invocation, rule 24), `Restored` (the page reloaded before the Attempt was acknowledged), `Rejected` (a busy or held `reject` lane, rule 16), `Overloaded` (a commit past its lane's queued commits or a record queue's bound, or a `many` key array past 4,096 items, rule 35), `StorageRefused` (the Attempt's acknowledgement failed), `Disposed` (the Runtime was disposed before invocation) |
+| `NotSent { why }` | failure | the commit was never called. `why`: `Cancelled` (before invocation, rule 24), `Restored` (a queued commit `W`, never sent, when the page reloaded; a head is on disk only once its first send's batch landed, rule 44; OD32), `Rejected` (a busy or held `reject` lane, rule 16), `Overloaded` (a commit past its lane's queued commits or a record queue's bound, or a `many` key array past 4,096 items, rule 35), `StorageRefused` (the Attempt's acknowledgement failed), `Disposed` (the Runtime was disposed before invocation), `NoPersistence` (a persisted identity's commit in a Runtime without persistence, a second tab, rule 16; OD34), `OldVersion` (the operation holds an old-version lane for that actor, 2.7.15; OD39) |
 | `Cancelled` | unknown | `O.pay.cancel(k?)` after the call started (rule 24) |
 | `Restored` | unknown | the page reloaded mid-call (persisted identities), or a new incarnation adopted a held lane (rule 44) |
 | `Interrupted` | unknown | the commit's fiber was interrupted by something other than Flow |
@@ -2260,7 +2273,7 @@ commits (2.10.8). (2.10.18.2's `busyThenPaid` checks the same run by its `ending
 | The ending's admission (step 1) | the Attempt's ending mapped (rule 18 was applied at settlement); its cell applied, which may promote the next queued commit, invoked after the turn; owner tested (rule 14); the lane removed when `Idle` |
 | The event's turn, steps 2–6 | ordinary selection, rule 15 if late; after an unknown the lane is `Held`, so a `retry` here re-sends |
 | A timer of a dead activation | discarded at admission (Machines O5) |
-| Restore and rebind | a new incarnation adopts its identity's lanes and receives, before any external event, its parked endings, then per lane a held head's `unknown { Restored }` and, on a reload, `NotSent { Restored }` for never-acknowledged work (rule 44); an Attempt acknowledged once restores as `unknown { Restored }`; its predicted records are marked uncertain and repaired before readiness, and an unacknowledged one predicted nothing (rule 38); within the actor, each lane's deliveries go to the incarnation with its subject path, after any pending reset (rule 54) |
+| Restore and rebind | a new incarnation adopts its identity's lanes and receives, before any external event, its parked endings, then per lane a held head's `unknown { Restored }` and, on a reload, `NotSent { Restored }` for each queued commit `W`, never sent (rule 44; OD32); an Attempt acknowledged once restores as `unknown { Restored }`; its predicted records are marked uncertain and repaired before readiness, and an unacknowledged one predicted nothing (rule 38); within the actor, each lane's deliveries go to the incarnation with its subject path, after any pending reset (rule 54) |
 
 The reference implementation is the spike in [merged/server-calls/spike/](merged/server-calls/spike/) (`tsc -p .`,
 then `bun stories.ts`), in the form before the operations merge: commit values, `Outcomes` and `Events` types, the lane, admission and routing, with Stories
@@ -2737,9 +2750,9 @@ Rule 46 is normative. Per kind (OD3):
 - **A contract's key is part of its version** (decided, OD39). Each lane is stamped at mint with its key's
   fingerprint: the field names and each key field's encoded JSON Schema, compared structurally, ignoring annotations
   (so a branded `Schema.String` keeps the version, and `Schema.String` to `Schema.Number` under one name does not;
-  Q1 A). A release that changes it makes a new version of the operation; reordering key fields changes nothing. A lane
+  Q1 A; a type-side change with the same encoding, `Schema.String` to `Schema.NumberFromString`, is open, U17). A release that changes it makes a new version of the operation; reordering key fields changes nothing. A lane
   of another version is an **old-version hold**: never renamed or matched against a new key, and reported at each boot
-  (`OldVersionLane` [P], an issue). Until it ends, every commit of that operation for that actor declines
+  (`OldVersionLane`, an issue; decided, Q2 A). Until it ends, every commit of that operation for that actor declines
   `NotSent { why: "OldVersion" }` and its transition runs, under every policy, `serialize` included, and a keyed
   `idle` denies. The contract declares its earlier keys, `previous: [{ key: { k: Schema.String } }]`, which gives
   typed members `O.x.previous[i].retry(k)` and `O.x.previous[i].cancel(k)` naming the old lanes by their own keys
@@ -2890,8 +2903,7 @@ The end. At the expiry, if the actor is still free, the end step runs after the 
    it stops parks `failure { Interrupted }` for the identity, as a freeze does (rule 52) (decided, OD45; R14 D1). The end
    is a trace record with the reason `NoUses`, listing the live work it stopped (Diagnostics).
 Until the driver reports that cleanup is done (the core's `stopped(actor, incarnation)` input), the actor is ending:
-sends follow the table below, and an ensure waits and binds the next incarnation (Runtime O3). A local actor
-remounted within its grace reuses that actor (decided, OD45; R14 D5). When a new
+sends follow the table below, and an ensure waits and binds the next incarnation (Runtime O3). When a new
 incarnation of an equal local identity (2.7.13) starts while an older one is kept only by work in flight, the older
 one is disposed at once and the new one starts fresh and adopts its lanes, so the remounted screen receives the
 ending, not an invisible predecessor.
@@ -2899,7 +2911,7 @@ ending, not an invisible predecessor.
 Return. A persisted identity whose record is in the Runtime's copy returns as a new incarnation, with a newly minted
 incarnation id, restored from that copy (never re-read from storage), when an ensure, a subscription or a send
 reaches it (decided, OD45; R14 D3). An ending owned by the previous incarnation is delivered as adopted: current,
-from the active leaf (rules 14, 44). It receives, in order: its
+from the active leaf (rules 14, 44) (agent, OD46: the round-14 builder's call). It receives, in order: its
 starting turn; rule 44's deliveries (parked endings, then each held head's `unknown { Restored }`, once per
 incarnation); the `failure { Interrupted }` of each read its end stopped (R14 D1), on every path that brings it back:
 an ensure, a subscription, a send, or a wake at `ready` (agent, OD46); one `onContext` wave if a provider's selection differs from the one it ended with in this Runtime;
@@ -3138,9 +3150,9 @@ host adapter's contract (Persistence O3, O6, O7), proved by the prototype's edge
   the turn that committed it (rule 44; OD32). A hidden page writes at once, backoff apart.
 - **The store's contract** (agent). Batches are atomic and commit in issue order; per key a later write wins, whatever
   order the answers come in; one plain write per key is out at a time; an awaited write waits for any plain batch of
-  its actor still out, and carries what that batch owed. A batch answers "landed" only if every request in it
+  its actor still out, and carries what that batch owed (D94; its unbounded wait is U16). A batch answers "landed" only if every request in it
   succeeded.
-- **Silent storage** (agent). A write the disk has not answered is pending, never "not sent": no ending is invented
+- **Silent storage** (D30; whether a wait on storage is bounded is U16, the user's). A write the disk has not answered is pending, never "not sent": no ending is invented
   for it, and evidence `StorageSilent` [P] names it after 10 s. A refusal is the only `NotSent { StorageRefused }`.
 - **The lock and the back-forward cache** (decided, FOR-ARPIT call 9). The page holds the persistence lock while it is
   the live page, not for its life. On `pagehide` with `persisted`, after its own flush, the host releases the lock
@@ -3154,7 +3166,12 @@ host adapter's contract (Persistence O3, O6, O7), proved by the prototype's edge
   blocked the next owner's reads in 12 of 12 runs; the lock is lost while the page is cached, so a return must
   reload; a tab close loses the last batch (0 of 6), so on Safari the loss window is the 5 s interval.
 - **Stated limits.** Quota and disk durability are unmeasured; a real phone runs them (production phase 8). A wipe of
-  the origin after a torn log removes holds too; only a business key prevents a second charge (rule 19).
+  the origin after a torn log removes holds too; only a business key prevents a second charge (rule 19). Nothing
+  bounds a wait on storage (U16): a commit whose acknowledgement the disk never answers stays pending (a shopper can
+  sit on "Paying…" with a dead disk), a cancel or `latest` replacement waiting on one never takes effect (rule 24),
+  and an awaited write behind a hung plain batch of its actor stalls; `StorageSilent` names each and decides nothing.
+  Records stored as JSON strings (2.6.1) were measured on Chrome only; Safari is measured in production (FOR-ARPIT
+  call 14).
 
 ### 2.8 Server calls and entity domains
 
@@ -8189,25 +8206,28 @@ The streams merge ([merged/streams/proposal-v3.md](merged/streams/proposal-v3.md
 | C125 | Diagnostics O2, CommandLine O5 | `ScheduleLeadsToWrite` (warning or info) and its `flow explain` path; the development warning `EndedWithWork` | Adds to CommandLine O5's "Owner plans add findings of their own" and Diagnostics O2's codes; replaces no sentence |
 | C126 | Operations O3 | `unknown { Restored }` means a new incarnation (a reload or a return after an end), once per incarnation | Amends "work with an acknowledged Attempt restores as unknown unless a durable settled result is known" |
 | C127 | `references/design/multi-tab.md` 4, 5.3, V-MT2 | A follower's attachments are uses in the leader; a new leader waits for no one | Replaces "It releases that follower's attachments (retain)" with "its uses", "`retain` counts attachments in every tab" with "A follower's attachments are uses in the leader", the heading "Sends, dispose and retain" with "Sends, dispose and uses", and V-MT2's "retain across tabs" with "uses across tabs" |
-| C128 | Persistence O6, Operations O3 | A first send's capture and acknowledgement are one batch with its turn; a kill before it lands restores the state before that turn, with no ending; `NotSent { Restored }` only for queued commits (OD32) | Amends O3's restore sentence and O6's acknowledgement; the sentences are named at the phase 2 merge |
+| C128 | Persistence O6, Operations O3 | A first send's capture and acknowledgement are one batch with its turn; a kill before it lands restores the state before that turn, with no ending; `NotSent { Restored }` only for queued commits (OD32) | Replaces Operations O3's "Restored work with no acknowledged Attempt cannot have been invoked and ends interrupt"; amends Persistence O6's "A persisted actor's remote commit cannot invoke its adapter until storage acknowledges its Attempt, including id and encoded input" (the acknowledgement is one batch with the capture of the turn that committed it) |
 | C129 | Operations O1 | Money writes take a business key; a contract states `idempotency: "attempt" \| fields`; a server may prune keys, so a re-send on an old key reads first (rule 19; OD33) | Adds |
 | C130 | Operations O3, O7, Persistence O7 | `NotSent { NoPersistence }`: a persisted identity's commit in a Runtime without persistence (OD34) | Adds to C2's reasons |
-| C131 | Persistence O3, O6, O7, a host adapter plan | 2.7.20: 5 s capture with a flush on hide, lane batches at once, the store contract, silent storage pending (`StorageSilent` [P]), the lock and the back-forward cache, a frozen page, ids never repeated, Safari's four requirements (OD35) | Adds |
-| C132 | Runtime O4, Diagnostics | Work in slices; a spin is never cut; `TurnStorm` [P] evidence; `flow check`'s `AsksForever` [P] (OD36) | Adds |
+| C131 | Persistence O3, O6, O7, a host adapter plan | 2.7.20: 5 s capture with a flush on hide, lane batches at once, the store contract, silent storage pending (`StorageSilent` [P]; unbounded, U16), the lock and the back-forward cache, a frozen page, ids never repeated, Safari's four requirements (OD35) | Adds |
+| C132 | Runtime O4, Diagnostics | Work in slices; a spin is never cut; `TurnStorm` evidence; `flow check`'s `AsksForever` (OD36, OD47) | Adds |
 | C133 | EntityDomains O1, Operations O6 | A read mapper's throw or shapeless result ends `failure` `Defect`, with `UserClosure` (rule 37; OD37) | Adds |
 | C134 | Runtime O4, Operations O3 | A refused ending is redelivered once; refused twice it is kept with its owner; a kept write ending blocks its key; a read's answer is stranded (rules 8, 21; OD38) | Adds |
-| C135 | Operations O1, O3, Persistence O5 | Key fields required (`KeyFieldOptional` [P]); a key's fingerprint is part of the operation's version; old-version holds (`OldVersionLane` [P]), `NotSent { OldVersion }`, `previous: [{ key }]` with typed `previous[i].retry/cancel` (rule 39, 2.7.15; OD39) | Replaces 2.7.15's "Changing a contract's key fields is therefore a persistence break"; adds to C2's reasons |
+| C135 | Operations O1, O3, Persistence O5 | Key fields required (`KeyFieldOptional`); a key's fingerprint is part of the operation's version; old-version holds (`OldVersionLane`), `NotSent { OldVersion }`, `previous: [{ key }]` with typed `previous[i].retry/cancel` (rule 39, 2.7.15; OD39) | Replaces 2.7.15's "Changing a contract's key fields is therefore a persistence break"; adds to C2's reasons |
 | C136 | Runtime O4 | Each actor's mailbox is FIFO; across actors follow-ups first, then rotation; nothing orders two actors unless a turn links them (2.5 step 1; OD36) | Amends P21 |
-| C137 | Machines O1, React O2 | One default per field at creation and restore (`TwoDefaults` [P]), evaluated per actor; restore of a field the record lacks (`RestoreMissingInput` [P]) (2.2.2; OD40) | Adds |
+| C137 | Machines O1, React O2 | One default per field at creation and restore (`TwoDefaults`), evaluated per actor; restore of a field the record lacks (`RestoreMissingInput` [P]) (2.2.2; OD40) | Adds |
 | C138 | Operations O1, Package O1 | `services: [S]` required on every contract, checked against `R`, refused by name at boot; the boot's Layer is typed by the machines' `R` (rule 39; OD41) | Adds |
 | C139 | Runtime O1, CommandLine O5 | `machine()` is the compile; `Compiled` is data plus Slots, booted in process; tools read its data view (2.6.1; OD41, OD46) | Adds |
 | C140 | Testing O1-O9 | 2.10 stands; the prototype's Story spellings are prior art (OD42) | No change to the Stories rows |
 | C141 | CommandLine O2, O5, Inspection O4 | `flow trace <story> [--at]`; `flow graph`, one edge per alternative with its marks; output with source locations, a story-like trace, a graph by state (2.10.14; OD43) | Replaces round 7's `flow trace summarize <file>` |
 | C142 | Operations O1, Persistence O2 | A key's canonical text: a value JSON cannot carry gets a stable name (`1n` as `"$1n"`) (rule 39; OD44) | Adds |
 | C143 | Runtime O3, React O2, O3 | R14 D1-D7: an end parks `Interrupted` per stopped read; only the latest arming waits; a return mints a new incarnation id; a local remount within its grace reuses the actor; endings after `disposeActor` stay on the lane record; an undecodable record reads `quarantined` and an ensure starts fresh with `RecordUndecodable` (2.7.17, rules 42, 44; OD45) | Amends C104, C105, C108, C124; replaces 2.7.17's `RestoreDiscarded` |
-| C144 | Runtime O3, V1, Persistence O2, O4, React O2 | The ref form is fixed per machine in the types: input fields only by value, none only by a literal name; no singleton input, no `InputIgnored`; `ConflictingActorRef` for `persist` and `context` only; identity encoded with its Schemas (rule 74; OD45) | Amends C117, C118, C119, C120 |
-| C145 | Machines O1, Diagnostics, CommandLine O5 | `ReservedStateName`, `UnknownNotUncertain`, `UnencodableValue`, `InputFieldForm` [P] (rules 12, 13; OD46) | Adds |
-| C146 | Operations O2 | A `cancel` or `latest` replacement of a never-sent Attempt whose acknowledgement is being written waits for storage (rule 24; D48; OD46) | Adds |
+| C144 | Runtime O3, V1, Persistence O2, O4, React O2 | The ref form is fixed per machine in the types: input fields only by value, none only by a literal name; no singleton input, no `InputIgnored`; `ConflictingActorRef` for `persist` and `context` only; identity encoded with its Schemas (rule 74; OD45) | Amends C117, C118, C119, C120, and C122's "an app Story's `ensure(ref)` takes input only for a singleton" (now no `ensure(ref)` takes input) |
+| C145 | Machines O1, Diagnostics, CommandLine O5 | `ReservedStateName` [P], `InputFieldForm` [P] (OD46; names U18), `UnknownNotUncertain` (OD47) (rules 12, 13); `UnencodableValue` waits with U6 | Adds |
+| C146 | Operations O2 | A `cancel` or `latest` replacement of a never-sent Attempt whose acknowledgement is being written waits for storage (rule 24; D48; OD46); the wait is unbounded, a stated limit (U16) | Adds |
+| C147 | React O3 | One notify per task: the first slice end in a task notifies subscribers, and later ones in that task coalesce into one in the next task (2.5 step 1; D136; OD46) | Adds |
+| C148 | Runtime O4 | A `send` to an idle Runtime runs its turn before `send` returns; during a turn or a yield between slices it queues (2.5 step 1; D2; OD47) | Adds |
+| C149 | Runtime O4 | Follow-ups are bounded at 64 per admitted event; past it the turn is refused `InvalidTurn` naming the chain (2.5 step 1; D13, D35; OD46) | Adds |
 
 ### For tooling
 
@@ -8974,7 +8994,8 @@ operations-in-fragments, the lane model and the reviews cite them.
   `NotSent { NoPersistence }` (rules 16, 20). Cross-tab exactly-once is not promised. (2026-11-07)
 - **OD35** The user, 2026-11-07: call 4 (5 s capture, flush on hide; decided 2026-11-02), call 9 (the lock released
   on `pagehide` with `persisted`, a return reloads; D148) and FOR-ARPIT section 6's Safari requirements, as 2.7.20.
-  Its store-contract, silent-storage, frozen-page and id-floor bullets are agent-judged (OD46). (2026-11-07)
+  Its store-contract, frozen-page and id-floor bullets are agent-judged (OD46); silent storage (D30) and an awaited
+  write's wait (D94) leave waits on storage unbounded, which is U16, the user's. (2026-11-07)
 - **OD36** The user, 2026-11-07: calls 5 and 6, Q5 A (D122): mail per actor in rotation, follow-ups first; a spin is
   never stopped, slowed or cut; `TurnStorm` and `AsksForever` name and decide nothing; a backoff waits for an
   explicit retry with a delay (2.5 step 1, P21). (2026-11-07)
@@ -8999,20 +9020,28 @@ operations-in-fragments, the lane model and the reviews cite them.
 - **OD44** The user, 2026-11-07: call 19's D119 (a key's canonical text; `1n` restores as `"$1n"`, rule 39). Call 19's
   D228 and call 20's limits L1-L15 are the suite's, not this design's. (2026-11-07)
 - **OD45** The user, 2026-11-07, approving the round-14 review's corrections R14 D1-R14 D7: an end parks
-  `failure { Interrupted }` per stopped read, delivered after the restored deliveries; only the latest arming waits;
-  a return mints a new incarnation id, a previous incarnation's ending delivered as adopted; the ref form fixed per
+  `failure { Interrupted }` per stopped read; only the latest arming waits;
+  a return mints a new incarnation id; the ref form fixed per
   machine in the types, `ConflictingActorRef` for `persist` and `context` only, identity encoded with its Schemas; a
   local remount within its grace reuses the actor, one kept only by work is disposed and its lanes adopted by a fresh
   one; after `disposeActor` endings stay on the lane record for a later ensure, with no record at all evidence only;
   an undecodable record reads `quarantined`, and an ensure starts fresh with `RecordUndecodable` (rules 42, 44, 74,
   2.2.2, 2.7.13, 2.7.17, 2.7.19). (2026-11-07)
 - **OD46** Agent-judged, the phase 0b builder, 2026-11-07, under the roadmap's judge rule, each listed in
-  `workflow/roadmaps/v3-production/progress.md` for the user's read: D48 (rule 24), D145's pruned keys (rule 19),
-  2.7.20's agent bullets (D30, D83, D94, D95, D99, D111, D146), 2.6.1's agent bullets (D206, D215, D216, D223), the
-  names `ReservedStateName`, `UnknownNotUncertain`, `UnencodableValue`, `InputFieldForm`, `StorageSilent`,
-  `TurnStorm`, `AsksForever`, `KeyFieldOptional`, `OldVersionLane`, `TwoDefaults`, `RestoreMissingInput` [P], and
-  round 14's final-review items R14R 2, 3, 6, 7, 9 (2.7.15, rule 74, 2.7.17). Reversible by reverting the design
-  commit; the user may overrule any of them. (2026-11-07)
+  `workflow/roadmaps/v3-production/progress.md` for the user's read: D48's safety rule (rule 24; its unbounded wait
+  is U16), D145's pruned keys (rule 19), 2.7.20's store-contract, frozen-page and id-floor bullets (D83, D95, D99,
+  D111, D146), 2.6.1's agent bullets (D206, D215, D216, D223), the follow-up bound (D13, D35) and one notify per task
+  (D136) in 2.5 step 1, the proposed names `ReservedStateName`, `InputFieldForm`, `StorageSilent`,
+  `RestoreMissingInput` [P] (their spelling is U18, the user's), round 14's final-review items R14R 2, 3, 6 and 9
+  (2.7.17; R14R 9 is "delivered after the restored deliveries"), and the round-14 builder's call that a previous
+  incarnation's ending is delivered as adopted (2.7.17). Amended by pass 2 (2026-11-07): D30, D94 and D48's price
+  moved to U16, R14R 7 to U17, `UnencodableValue` to U6, and the names the user accepted to OD47. Reversible by
+  reverting the design commits; the user may overrule any of them. (2026-11-07)
+- **OD47** The user's own earlier decisions, recorded in pass 2 of the design catch-up (2026-11-07): `send` runs at
+  once when the Runtime is idle (Q3 A, 2026-10-28; the prototype's D2; 2.5 step 1); a kept ending leaves the machine
+  where it is, shown, with no fallback alternative or API (FOR-ARPIT call 19, round 8 call 1; D109; rule 8); and the
+  names `KeyFieldOptional` (call 11), `TwoDefaults` (call 13), `OldVersionLane` (Q2 A), `UnknownNotUncertain`
+  (FOR-ARPIT section 4) and `TurnStorm` and `AsksForever` (call 5, D122). (2026-11-07)
 - **OD24** Process, delegated by the owner (2026-10-30): the main session approves the merge change lists for merges 4
   and 5 and for operations-in-definition, and treats operations as accepted for merging, unless a conflict needs an
   owner decision; only then is the owner asked. The streams direction review remains the owner's. (2026-10-30) *Process,
