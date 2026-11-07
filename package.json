@@ -22,7 +22,7 @@
     "lint:fix": "vp lint --no-error-on-unmatched-pattern packages/flow-state-v3 --fix",
     "lint:rules": "node --experimental-strip-types tools/lint-bomb/test/rules.test.ts",
     "test": "vp test",
-    "verify": "nub run check:toolchain && nub run lint:rules && nub run check && nub run test && nub run build && nub run docs:build",
+    "verify": "nub run check:toolchain && nub run lint:rules && nub run check && nub run test && nub run docs:build",
     "test:coverage": "vp test run packages/flow-state-rewrite --coverage",
     "report:unused": "knip --workspace packages/flow-state-rewrite --no-exit-code"
   },

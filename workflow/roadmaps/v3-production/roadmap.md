@@ -1,15 +1,14 @@
 # Roadmap: Flow State v3 production
 
 Status: proposed. Not yet approved by the user. A runner never starts an unapproved roadmap.
+Version: 1, before approval; amendments start after it.
 Shape confirmed: 2026-11-04, in the Claude Code session. The user gave points 1-10: plans first,
 conformance rewritten, the core, features, Next.js hardening, examples and docs.
 Goal: production code for Flow State v3 at high quality, with good error messages and the
 correctness guarantees the prototypes proved, plus example apps and generated documentation.
 Runner: agent, until a stop (proposed). Claude coordinates and starts builders and reviewers.
-Built from: suite commit `ae99594079459f68f75ed3b13fa5fba0d4ab3b33`
-(`/Users/arpit/Developer/workflow/skills/suites/workflow`), plus uncommitted edits to `roadmap/`,
-`policy-delegation/` and `ONBOARDING.md` made on 2026-11-04. Until the user commits them, the pin
-is that commit plus those files as they stand.
+Built from: suite commit `9b1dd09b1b4436e26e103f9632bb63153593d5e3`
+(`/Users/arpit/Developer/workflow/skills/suites/workflow`).
 Records:
 - Plans: `workflow/plans/flow/*.plan` (stale until phase 1).
 - Design: `workflow/plans/flow/references/explorations/machine-fragments/machine-design.md`.
@@ -27,7 +26,8 @@ Source of truth, by area:
 - Code style: `AGENTS.md`, section "Code style (v3 production)", and
   `tools/lint-bomb/FLOW-STATE.md`.
 Locations: the production package is `packages/flow-state-v3/src/`, and the new conformance suite
-is `packages/flow-state-v3/conformance/` (proposed; the user decides at phase 3's layout stop).
+is `packages/flow-state-v3/conformance/` (proposed; the runner decides in phase 3, for the user's
+review).
 Example apps go in a top-level `examples/` folder. They import the v3 package; its published name
 is decided at release, and is not the frozen `packages/flow-state/`.
 Progress: progress.md, beside this file.
@@ -77,7 +77,7 @@ log it.
 - Entities are optional but not up for cutting (memory, 2026-11-01; whole run).
 - No tla-ts (memory, 2026-11-03; whole run).
 - Usage: the 90% weekly stop was lifted for the prototypes (memory, 2026-11-03; prototypes only).
-  For production, see question R3.
+  For production: no weekly stop, with a 5% reserve (R3 A, 2026-11-07; whole run).
 
 ## Glossary
 
@@ -111,18 +111,26 @@ log it.
   importing every public route.
 - **Final-commit gates:** gates too slow for every commit (the full lie run, searches,
   real-browser runs), run before a phase's final commit.
+- **Judgment goal:** a phase no check can settle, only a ruling against written criteria. Each
+  decision names its judge, agent or user, up front.
+- **Judge:** who rules on a decision: the user, or a reviewing agent that did not write the draft.
+- **Guarantee map:** a table, one row per guarantee: the checks that cover it, the lie that breaks
+  it, and its audit state. Read instead of the tests.
+- **Guarantee change:** any finding, fix or design that adds, drops or changes a guarantee recorded
+  in a Spec. It always blocks on the user.
+- **Amendment:** a numbered, recorded change to this file (runner rule 4).
 - **`watch.ts`:** the process watchdog, `packages/flow-state-v3/prototypes/conformance/watch.ts`.
 
 ## Stops and the review queue
 
-A blocking stop halts the run until the user answers. There are only these: phase 1's question
-rounds, public entrypoint names, a public API change beyond what the user accepted, a guarantee
-that can't be met, a feature call only the user can make, picking the example apps, the docs
-criteria, a finding whose fix changes a guarantee, the real-phone run (that item only), and each
-ship stage.
+A blocking stop halts the run until the user answers. There are only these: the label round and
+the user-judged decisions of a judgment phase (phases 1, 6 and 7), public entrypoint names, a
+public API change beyond what the user accepted, a guarantee that can't be met, a guarantee
+change, a feature call only the user can make, a change proposal whose judge is the user, the
+real-phone run (that item only), and each ship stage.
 
-Everything else is a review: the runner records it under "Calls for the user's read" in
-progress.md, with its reason, evidence and how reversible it is, and keeps working. The user works
+Everything else is a review, including every agent-judged ruling: the runner records it under
+"Calls for the user's read" in progress.md, with its reason, evidence and how reversible it is, and keeps working. The user works
 through the queue at their own pace, ideally daily, and may overrule any item. Overruling late
 costs rework of what was built on the call; the runner names that cost in each entry.
 
@@ -155,13 +163,13 @@ Methods are pinned at `/Users/arpit/Developer/workflow/skills/suites/workflow/NA
 - `interview`: for every question round.
 - `to-task`: when drafting Tasks.
 
-### 1. Plan merge: not verifiable goal
+### 1. Plan merge: judgment goal
 
 Goal: current plans, and Specs for production. The design, the open proposals and the prototype's
 decisions are merged into the plans. Every superseded decision is found and marked with a pointer
 to its replacement. The plans keep their content where the prototype never went. Specs record the
 guarantees (`to-spec`), so later phases test what is supposed to happen.
-Verified by: the user's judgment, `workflow check`, and an audit that compares each merged rule
+Verified by: each decision's judge, `workflow check`, and an audit that compares each merged rule
 with the latest decision that touches it.
 Gates relied on: `workflow check`. Fails on: a record with a broken reference or schema.
 Falsified by: running it on a deliberately broken copy of one plan.
@@ -171,17 +179,23 @@ Done when:
 - every `.plan` the prototype touched is merged;
 - every superseded decision is marked;
 - Specs exist for each production area;
-- `FOR-ARPIT.md`'s 20 calls and Q1-Q8 are answered, or listed as open;
+- `FOR-ARPIT.md`'s 20 calls and Q1-Q8 have a ruling from their judge, or are listed as open;
 - no plan text claims a decision the user didn't make;
 - `workflow check` passes.
-Blocking: each question round. Reviews: a page listing what changed, at the end.
+Blocking: the label round, then each round of user-judged decisions. Reviews: agent-judged
+rulings, and a page listing what changed, at the end.
+Decisions: `FOR-ARPIT.md` Q1-Q8 and its 20 calls, and each conflict found while merging. The
+first round labels every one (the recommended answer and why, the judge, how reversible it is),
+and the user confirms the labels. Merge edits that follow a ruled decision are the approved merge,
+not new decisions.
 Could succeed at the wrong thing by: merging from the stale design where the prototype replaced
 it, or recording a recommendation as decided. Caught by: the audit, rule by rule, against the
 latest convergence decision and the user's words.
 Budget: up to 10 merge iterations and 3 question rounds; small usage (no builders).
 Steps:
-- Ask `FOR-ARPIT.md` Q1-Q8 first, since Q1 and Q2 block the most work. Then the 20 calls, then
-  the remaining open calls. The services choice is settled: a required `services` list on every
+- Label round first. Then the user-judged ones among `FOR-ARPIT.md` Q1-Q8, since Q1 and Q2 block
+  the most work, then the 20 calls, then the remaining open calls; agent-judged ones are ruled by
+  the reviewer and queued. The services choice is settled: a required `services` list on every
   operation (Q2 B, 2026-11-07).
 - Merge one plan or area per iteration, with `workflow check` after each.
 - Write the Specs last, from the merged plans.
@@ -205,8 +219,9 @@ Done when:
 - `listen.load` and `fragstore.row` pass;
 - H1 and H2 are fixed and pinned;
 - M5 is settled, or listed for the user.
-Blocking: none. Reviews: each area's settled decisions, and one page at the end, in the review
-queue.
+Blocking: a guarantee change, including each area's guarantee map if it adds or changes a public
+guarantee. Reviews: each area's guarantee map at its first audit pass, its settled decisions, and
+one page at the end, in the review queue.
 Could succeed at the wrong thing by: designs that fit the harness but not real apps. Caught by: one
 path per area that takes the data from a real source, such as a real `fetch` or SDK call.
 Budget: up to 6 rounds per area and 15 in total; stop after 2 same-class failures after
@@ -242,8 +257,10 @@ Done when:
 - it catches every lie the old suite catches;
 - it passes its re-audit;
 - its fast gates run in `nub run verify`.
-Blocking: none. Reviews: the suite's location and layout (the runner decides; the user may
-overrule), its first audit pass, and the end.
+Blocking: a guarantee change. Reviews: the suite's location and layout (the runner decides; the
+user may overrule), the guarantee map at its first audit pass, and the end. A wrong check found
+here or later sends only its part back to the not readily verifiable rules: fix, re-audit,
+resume.
 Could succeed at the wrong thing by: agreeing with the old suite because it was copied, weaknesses
 included. Caught by: the four-angle audit on the new suite, not the old one.
 Budget: up to 12 rounds; stop after 2 same-class failures after convergence.
@@ -271,7 +288,7 @@ Done when:
 - `nub run verify` passes;
 - the completion audit passes.
 Blocking: public entrypoint names; a public API change beyond what the user accepted; a guarantee
-that can't be met. Reviews: the internal module layout (the runner decides) and the end.
+that can't be met; a guarantee change. Reviews: the internal module layout (the runner decides) and the end.
 Could succeed at the wrong thing by: the production adapter doing work the runtime should. Caught
 by: lies and mutants against the production adapter, and a review section on the adapter's role.
 Budget: up to 25 rounds; stop after 2 same-class failures after convergence.
@@ -291,8 +308,8 @@ Goal: production code for the features outside the core, built from the finished
 Verified by: each feature's slice, audited; real-browser runs in Chrome and Safari; reviews.
 Gates relied on: as phase 4, plus each feature's lies. Fails on: a feature-specific lie. Falsified
 by: each slice's falsify entries.
-One iteration: the next ready Task of the earliest feature. Up to two features may run in parallel
-once the core is stable, or up to four if the user allows (R4).
+One iteration: the next ready Task of the earliest feature. One feature at a time, with a builder and its
+reviewer (R4 B).
 Done when: each feature's slice passes on production after its audit, and the user accepts the CLI
 outputs.
 Blocking: a feature whose plan has an open call that only the user can make. Reviews: the CLI
@@ -302,41 +319,45 @@ in each feature's audit.
 Budget: up to 8 rounds per feature and 40 in total; stop after 2 same-class failures after
 convergence.
 
-### 6. Example apps: not verifiable goal
+### 6. Example apps: judgment goal
 
 Goal: medium-sized Next.js example apps in `examples/`, each importing the v3 package, each a
 striking demo that explains what it shows. One demos Story presentation. Which apps is the user's
 pick (candidates in progress.md). They also drive conformance runs and benchmarks.
-Verified by: the user's judgment. Each app builds, lints, runs its Stories, and works in real Chrome
+Verified by: each decision's judge. Each app builds, lints, runs its Stories, and works in real Chrome
 and Safari.
 Gates relied on: each app's Stories in `nub run verify`. Fails on: a broken Story. Falsified by: one
 deliberately broken Story per app.
 One iteration: one app's next slice, reviewed, then shown to the user.
-Done when: the user accepts each app.
-Blocking: picking the apps, answerable any time before this phase. Reviews: each app's first
-working version.
+Done when: every decision has its judge's ruling, and each app is accepted.
+Blocking: picking the apps (answerable any time before this phase), and accepting each app.
+Reviews: each app's first working version, and agent-judged slice calls.
+Decisions (proposed labels): which apps, user; each app's acceptance, user, since the user set
+its requirements; design calls inside an app's slice, agent.
 Could succeed at the wrong thing by: a demo that hides the guarantee it claims to show. Caught by:
 the user's review against the app's own write-up.
 Budget: up to 6 rounds per app.
 
-### 7. Documentation: not verifiable goal
+### 7. Documentation: judgment goal
 
 Goal: docs in `apps/docs/`, written in the source in Effect's shape and generated to Markdown, as
 `@effect/docgen` does with `codebases/effect-v4/packages/effect/docgen.json`, with every example
 type-checked and some run as tests. Long guides sit beside the package, as
 `codebases/effect-v4/packages/effect/SCHEMA.md`, and pull checked snippets from phase 6's example
 apps. The issue catalog is generated from the code. The example apps are linked from the docs.
-Verified by: the user's judgment against criteria written first. The checkable part:
+Verified by: each decision's judge against criteria written first. The checkable part:
 - every example compiles;
 - the generated Markdown is current in `nub run verify`;
 - a fresh agent, given only the docs, builds a small feature whose Story passes.
 Gates relied on: example type-checking, and generated-docs freshness. Fails on: an example that
 doesn't compile, and a stale page. Falsified by: one deliberately broken example and one stale
 page.
-One iteration: draft or revise one section, get an independent review, then put open choices to
-the user as numbered questions.
-Done when: the user accepts each section, and the checkable part passes.
-Blocking: the docs criteria, once. Reviews: each section's draft.
+One iteration: draft or revise one section, get an independent review, then put each open
+decision to its judge.
+Done when: every section has its judge's ruling, and the checkable part passes.
+Blocking: the docs criteria, once. Reviews: each section's draft and its ruling.
+Decisions (proposed labels): the docs criteria, user; each section against the criteria, agent;
+any public name a section introduces, user.
 Could succeed at the wrong thing by: documenting the planned API rather than the built one.
 Caught by: examples compiled against the packed package.
 Budget: up to 3 rounds per section.
@@ -357,8 +378,7 @@ Done when:
 - quota and disk durability are measured on a real phone, run by the user, since an agent here
   reaches only browsers and a simulator;
 - `nub run verify` and the final-commit gates pass.
-Blocking: the real-phone run (only that item; other work continues); a finding whose fix changes a
-guarantee. Reviews: budget targets, which the runner proposes from the baselines, and the end.
+Blocking: the real-phone run (only that item; other work continues); a guarantee change. Reviews: budget targets, which the runner proposes from the baselines, and the end.
 Could succeed at the wrong thing by: closing findings as "dropped" to finish. Caught by: the audit
 checking each drop's reason against the spec.
 Budget: up to 10 rounds; budget targets set by the user after baselines.
@@ -386,12 +406,15 @@ Also allowed, by the user's approval of this roadmap:
 - apply the plan merge in phase 1 (approved 2026-11-04), and write the Specs;
 - record phase 2's settled designs in the plans;
 - draft Tasks with `to-task`;
-- start the next phase after its audit passes, unless it starts with a stop for the user.
-Runner decides: design calls in phases 2-5 and 8, recorded with reasons in progress.md for the
-user's read.
+- start the next phase after its audit passes, unless it starts with a stop for the user;
+- apply agent-judged change proposals as amendments (runner rule 4), each also in the review
+  queue.
+Runner decides: design calls in phases 2-5 and 8, and agent-judged decisions in phases 1, 6 and
+7, recorded with reasons in progress.md for the user's read.
 User decides (blocking): public entrypoint names, public API changes beyond what was accepted,
-relaxing a gate, plan edits beyond the approved merge, scope, budgets, the example apps, and running
-more than two agents at once.
+relaxing a gate, plan edits beyond the approved merge, scope, budgets, the example apps, a
+guarantee change, user-judged decisions and change proposals, and running more than two agents at
+once.
 Runner decides, then reviews: the suite's location and layout, the internal module layout, and
 budget targets proposed from baselines; each goes to the review queue and the user may overrule.
 Everything else still needs the user.
@@ -399,8 +422,7 @@ Everything else still needs the user.
 ## Agents
 
 - Builders: Opus, medium effort, every third round high. Reviewers: Opus, high; never the builder.
-- Agents at once: 2 by default, a builder and its reviewer; up to 4 in phase 5 if the user allows
-  (R4).
+- Agents at once: 2 throughout, a builder and its reviewer (R4 B).
 - Processes at once: up to 8 deterministic processes, about 16 GB in total, after checking
   `vm_stat`. Always alone: real-browser runs and benchmarks.
 - Review interval: 60 minutes on the latest committed checkpoint; a trigger, never a stop. Time
@@ -431,26 +453,55 @@ above, and the plan merge. Round 1, on 2026-11-07:
 - No weekly stop; a 5% reserve is kept for the user (Q4 A, R3).
 - Phase 2's settled designs go straight into the plans, listed for the user's read (Q5 A, R6).
 
-Proposed, as questions (answer `R1 A`):
-- **R1.** Phases as above, nine phases in five stages, with examples before docs because the docs
-  pull snippets from the examples. A: accept. B: change. Rec. A.
-- **R4.** Runner and parallelism. A: Claude as an agent runner until a stop, with up to 4 agents in
-  phase 5. B: the same, with 2 agents throughout. C: you run one phase at a time. Rec. A.
-- **R5.** Lint choices in `tools/lint-bomb/FLOW-STATE.md`. A: accept. B: change. Rec. A.
-- **R7.** The round caps above, about 120 in total. A: accept. B: change them. Rec. A.
+Round 2, on 2026-11-07:
+- The phases as above, nine phases in five stages, examples before docs (R1 A).
+- Claude runs as an agent runner until a stop, with 2 agents at once throughout (R4 B).
+- The lint choices in `tools/lint-bomb/FLOW-STATE.md` are accepted (R5 A).
+- The round caps above, about 120 in total (R7 A).
+- `nub run verify` drops the frozen library build; `build` points at `packages/flow-state-v3`
+  once it has a build step, in phase 4 at the latest.
+
+Round 3, the roadmap skill, on 2026-11-07 (this file rebuilt from it):
+- Not verifiable goals become judgment goals: each decision names its judge, agent or user, up
+  front with a recommended answer. The runner proposes the labels; the user confirms them once
+  per phase (Q1 B).
+- A new phase always needs the user's yes (Q2 A).
+- The guarantee map, one guarantee-change event, criteria approved by their judge, and back moves
+  for a wrong check (Q3 A).
+- The skill changes first, then this roadmap is rebuilt from it before phase 1 (Q4 B).
+- Two files only; `handoff.md` is deleted and `progress.md` carries a Resume block (Q5 A).
+
+## Amendments
+
+None yet. Numbered, oldest first, once the roadmap is approved (runner rule 4).
 
 ## Runner rules
 
 1. **Reread every iteration.** Start each iteration by reading `roadmap.md`, `progress.md`, and
    the records the phase names. Trust the files, not memory, so a fresh context loses nothing.
 2. **Run only an approved roadmap.**
-3. **Write only `progress.md` of the two roadmap files.** It holds the run's state: phase,
-   iteration, revision, verdicts, budget used, the failure ledger, the agents running, the calls
-   for the user's read, next action, and what the run waits on. Results go to the project's
-   Plans, Tasks, and Specs.
-4. **Never edit `roadmap.md` or change a phase's class.** If the roadmap looks wrong (the wrong
-   class, a check that cannot be built, the named misfire happening, a step that contradicts one
-   of the user's constraints), stop and write the proposed change in `progress.md`.
+3. **Keep the run's state in `progress.md`.** It holds the phase, iteration, revision, verdicts,
+   budget used, the failure ledger, the agents running, the calls for the user's read, the change
+   proposals, next action, and what the run waits on. Its Resume block, at the top, says what a
+   fresh context reads, in order, and the first action. Never write a separate handoff file: each
+   fact lives in one place. Results go to the project's Plans, Tasks, and Specs.
+4. **Change `roadmap.md` only by amendment.** The frame (the user's constraints, each phase's
+   class, the Authority, the Budget total, and these rules) changes only with the user's yes. The
+   work (phases, items, their gates and budgets) may change as the run learns. To change either,
+   write a change proposal in `progress.md`: the kind (insert, modify, split, reorder,
+   reclassify), why, the class, gates and likely misfire of anything new, its cost to the budget,
+   and its judge:
+   - agent: inserting a Task inside a phase, splitting a phase, or reordering without breaking a
+     dependency. Apply it and record it as a review;
+   - user, blocking: a new phase, a changed goal, the Budget total, a class with fewer checks, or
+     the Authority.
+
+   Apply an accepted change as a numbered entry in `roadmap.md`'s Amendments section (date, judge,
+   change), raise the version, and cold-read only the changed phase. Work out again every phase
+   that depends on a changed goal. Leave replaced text in place, marked with a pointer to its
+   replacement. "Done" is judged against the current version. If the roadmap looks wrong (the
+   wrong class, a check that cannot be built, the named misfire happening, a step that contradicts
+   one of the user's constraints), that is a change proposal too.
 5. **Never weaken a check to pass it.** An expected result changes only for a specific reason,
    logged in the record that owns it. Relaxing a check, target, or budget needs the user.
 6. **Count only gates that can fail.** A gate counts only if it has been seen failing on a wrong
@@ -481,10 +532,10 @@ Proposed, as questions (answer `R1 A`):
     - the budget or the reserve runs out (report it as not done, with the gap);
     - a converged part fails on the same class as many times as the phase's stop count (report a
       stated limit, with the evidence);
-    - in a not readily verifiable or not verifiable phase, a round produces no new decision (end
-      the phase early; a readily verifiable phase ends only at its done condition);
-    - a decision is the user's;
-    - the roadmap looks wrong;
+    - in a not readily verifiable or judgment phase, a round produces no new decision (end the
+      phase early; a readily verifiable phase ends only at its done condition);
+    - a decision is the user's, including a guarantee change;
+    - a change proposal needs the user;
     - passing would mean weakening a check;
     - the user says stop.
 

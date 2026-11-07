@@ -1,16 +1,34 @@
 # Progress: Flow State v3 production
 
+## Resume
+
+A fresh context reads, in order:
+1. `AGENTS.md`, then the memory index
+   `/Users/arpit/.claude/projects/-Users-arpit-Developer-flow-state/memory/MEMORY.md` and the files
+   it points to;
+2. `workflow/roadmaps/v3-production/roadmap.md`;
+3. this file;
+4. `packages/flow-state-v3/prototypes/FOR-ARPIT.md`, then `packages/flow-state-v3/prototypes/HANDOFF.md`
+   ("Where it stopped") and `packages/flow-state-v3/prototypes/round-13/review.md`;
+5. the roadmap skill, `/Users/arpit/Developer/workflow/skills/suites/workflow/roadmap/SKILL.md`;
+   other pinned packages only when the roadmap's triggers fire.
+
+First action: the same as Next action below.
+
 Roadmap: roadmap.md
 State: stopped: the roadmap is not yet approved
 Phase: none started. Iteration: 0. Revision: see `git log` on `flow-rewrite`
 Budget used: none of the proposed total
-Next action: on approval, start phase 1 (the plan merge, approved on 2026-11-04), with
-`FOR-ARPIT.md` Q1-Q8 in the first question round.
+Next action: on approval, start phase 1 (the plan merge, approved on 2026-11-04) with its label
+round: every `FOR-ARPIT.md` question and call, with a recommended answer, a proposed judge and how
+reversible it is, for the user to confirm.
 Waiting on the user:
-- round 2: R1, R4, R5, R7, and the `nub run verify` fix (drop the frozen build, or fix it);
-  then approval of roadmap.md;
-- `FOR-ARPIT.md` Q1-Q8 and the 20 calls (phase 1's first rounds);
+- approval of roadmap.md (rounds 1-3 answered on 2026-11-07);
+- phase 1's label round, then its user-judged decisions;
 - which example apps to build, any time before phase 6. Candidates are below.
+Uncommitted on purpose, until the user says: `packages/flow-state-v3/src/_example/edge.ts`;
+`packages/flow-state-v3/lint-eval.md` (it also fails `nub run check`'s formatting, so `nub run
+verify` fails there); and `roadmap-skill-review.md` beside this file.
 
 ## Phases
 
@@ -44,6 +62,13 @@ further each time (round 10, stages C-J), until convergence in stages K and L.
 Calls made under delegation before this roadmap are listed in
 `packages/flow-state-v3/prototypes/FOR-ARPIT.md` section 2. New calls go here, one line each: the
 call, its reason, its evidence, and how reversible it is.
+
+## Change proposals
+
+One entry each (runner rule 4): the kind (insert, modify, split, reorder, reclassify), why, the
+class, gates and misfire of anything new, the budget cost, the judge, and its state (proposed,
+applied as amendment <n>, or rejected).
+- (none yet)
 
 ## Example app candidates (proposed, for the user's pick)
 
@@ -89,3 +114,7 @@ One line per iteration. Results live in the records; link them.
   operation declares a `services` list. H1 and H2 are fixed in phase 2. There's a 5% reserve, and
   phase 2's designs go straight into the plans. The roadmap skill gained the same blocking/review
   split, uncommitted in the suite.
+- 2026-11-07 rounds 1-3 answered. The roadmap skill changed (judgment goals, the guarantee map,
+  guarantee changes, back moves, amendments, no handoff file); roadmap.md rebuilt from it;
+  `handoff.md` folded into the Resume block above and deleted; `nub run verify` no longer builds
+  the frozen package.
