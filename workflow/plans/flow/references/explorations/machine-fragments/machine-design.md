@@ -25,6 +25,28 @@ read, action, event, record and evidence item for how many exist at once, which 
 happens before creation, after deletion and across restores and tabs. Its three general rules are N1–N3 (2.4, after
 rule 25); its changes are marked with this heading's words, and its decisions are D18–D21.
 
+**Revision (`Flow.ignore`, 2026-11-07).** An operation's mapping may say `Flow.ignore`: no event, no handler; an
+ignored unknown is released, and every unknown that is not retained releases to the store (rule 13, 2.7.18; decided,
+OD28). Evidence: [../../proposals/absorb-wiring/absorb-wiring-proposal.md](../../proposals/absorb-wiring/absorb-wiring-proposal.md)
+sections 3 and 6.
+
+**Revision (absorb-wiring J, E step 2, F, 2026-11-07).** An entity key may be any value carrying its fields (2.8.8);
+the `lookup`, `commit`, `subscribe` and `catchUp` contexts carry no `signal`, and an adapter takes Effect's own (rule
+39); a `resetOn` returning `null` or `undefined` means the trait is not placed, and the filling's parts receive `key`,
+the present reset value (rule 1). Decided, OD29. Evidence:
+[../../proposals/absorb-wiring/absorb-wiring-proposal.md](../../proposals/absorb-wiring/absorb-wiring-proposal.md).
+
+**Revision (actor identity, 2026-11-07).** An actor is its machine plus its input: a ref built from a value is named
+by the machine's `Flow.input` fields and takes no input; a singleton has a literal name and takes input at ensure; a
+machine's input fields are read-only, and on a value-named machine required, default-free and string-encoded (rule
+74, 2.7.19; decided, OD30). Proposal: [../../proposals/actor-identity/proposal.md](../../proposals/actor-identity/proposal.md).
+
+**Revision (actor lifetime, 2026-11-07).** `retain` is removed: a shared actor lives while it is used, plus until its
+finite work in flight has returned; its schedules wait while nothing uses it, and an actor that must outlive a screen
+is used from where it should live (rule 73, 2.7.17; decided, OD27, OD31). Proposal and evidence:
+[../../proposals/actor-lifetime/proposal-v6.md](../../proposals/actor-lifetime/proposal-v6.md); earlier versions
+beside it are prior art.
+
 **Eight decisions.** Decision 1 can be accepted alone; decision 2 builds on decision 1's turn (2.5); decision 3 is
 independent; decision 4 builds on decision 2; decision 5 builds on decisions 2 and 4; decision 6 builds on decisions 1
 and 5; decision 7 builds on decisions 5 and 6; decision 8 builds on decisions 2, 5, 6 and 7.
@@ -84,7 +106,7 @@ reconcile; 2.9). Policy is written once per declarer, as states, schedules and t
 | Many of them                             | `.each({ of, max, by? })`: one copy per key in a host memory field (rule 9)                         | no                                                                                       |
 | Instance name                            | the `traits` key (`code`)                                                                              | the state's name (`CANCELLING`)                                                          |
 | States of its own                        | none                                                                                                   | optional, under its state (`HOLDING.WAITING`). Without `states` it is a leaf (`Confirm`) |
-| Lives                                    | while its node is active (the root: the actor's life); fresh on every activation unless `.resumable()` | while its state is active; fresh on every entry                                          |
+| Lives                                    | while its node is active and its `resetOn` value is present (the root: the actor's life); fresh on every activation unless `.resumable()` | while its state is active; fresh on every entry                                          |
 | Re-activated                             | when its `resetOn` value changes                                                                       | on every entry                                                                           |
 | Ends                                     | when its node is left (resumable: frozen)                                                              | by taking an exit, or abandoned by a transition that exits its state                     |
 | On ending, except by an exit or a freeze | `whenAbandoned` notifications run, fused into the leaving turn; a key-less `O.x.cancel` listed there releases the subject's lanes of that operation (rule 60)                                               | the same                                                                                 |
@@ -204,7 +226,7 @@ kinds, optional versus required, and uncertainty.
 | `Flow.optional(port)`                            | combinator      | the host may leave the port unfilled                                                                            | shape of `Schema.optional`; a different meaning (a port, not a field) |
 | `Flow.uncertain(fields)`                         | combinator      | marks an event that an operation's `unknown:` (or one of its tags) may target (rule 13)                           | none                                                                  |
 | `Flow.annotate(port, { title?, description?, denials? })` | combinator | documentation for Inspection, devtools and agents; `denials` names the refusal codes a guard is expected to give | `Schema.annotate` |
-| `Flow.input(schema)`                             | memory modifier | the creator supplies this field (2.2.2)                                                                         | none; derives the `Input` type                                        |
+| `Flow.input(schema)`                             | memory modifier | the creator supplies this field; on a machine it is read-only and names the actor (2.2.2, rule 74)              | none; derives the `Input` type                                        |
 | `Flow.initial(schema, value or fn)`              | memory modifier | the field's starting value (2.2.2)                                                                              | `Schema.withConstructorDefault(Effect.succeed(value))`                |
 | `Flow.private(schema)`                           | memory modifier | only the owner sees this field (2.2.2)                                                                          | none                                                                  |
 | `Flow.Denial`                                    | value           | the Schema of what `deny(code, context?)` returns, `{ code, context? }`, for storing a refusal reason in memory | a value, like `Schema.Boolean`                                        |
@@ -268,7 +290,7 @@ top-level `input` block and no top-level `initial` function**.
 
 | Modifier                                       | Meaning                                                                                                                                                                                                       |
 |------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `Flow.input(schema)`                           | The creator supplies this field: an actor's creator (`ensure(ref, { input })`, `useActor(m, { input })`), or a fragment's host (its `input:` filling). The definition's `Input` type is exactly these fields. |
+| `Flow.input(schema)`                           | The creator supplies this field: an actor's creator (a value-named ref's value, `actorRef(M, ticket)`; a singleton's `ensure(ref, { input })`; a local actor's `useActor(m, { input })`; rule 74), or a fragment's host (its `input:` filling). The definition's `Input` type is exactly these fields. |
 | `Flow.initial(schema, value)`                  | A constant start. It is Schema's constructor default, `withConstructorDefault(Effect.succeed(value))`, restricted to a plain value so it is pure.                                                             |
 | `Flow.initial(schema, ({ …fields }) => value)` | A computed start: a pure function of fields that start from `Flow.input` or a constant `Flow.initial`, never of another computed field.                                                                       |
 | `Flow.private(schema)`                         | Only the owner sees this field: its own handlers, guards and selects. The host, views and other actors do not; Stories and Inspection do.                                                                     |
@@ -276,7 +298,7 @@ top-level `input` block and no top-level `initial` function**.
 ```ts
 memory: {
   workspaceId: Flow.input(Schema.String),                             // supplied
-  title: Flow.input(Schema.String),                                   // supplied, then edited
+  title: Flow.input(Schema.String),                                   // supplied; read-only on a machine, writable in a fragment
   draft: Flow.initial(Schema.String, ({ title }) => title),           // computed from a supplied field
   error: Flow.initial(Schema.NullOr(Schema.String), null),            // constant
   saves: Flow.private(Flow.initial(Schema.Int, 0)),                   // constant, hidden outside
@@ -292,11 +314,16 @@ Rules:
 - **Creation is pure and happens once per incarnation:** decode the input with the derived `Input`
   schema, copy the input fields, apply constant initials, then computed initials. No clock, no
   randomness, never on restore (Machines O1, React O2). The machine never sees an `input` value:
-  input fields are ordinary memory, writable like any other.
+  input fields are ordinary memory. **A machine's input fields are read-only** (decided, OD30 Q5): an `updateMemory` that writes one is a type error, since they name the actor (rule 74). A fragment's input fields stay writable.
 - **Outside types omit private fields.** `s.memory.<field>` and a host's `memory.<instance>.<field>`
   are type errors for a private field. Only the owner writes any of its memory.
 - **Markers survive.** `Flow` is outermost; a Schema modifier applied over a `Flow` marker is a type
   error, so a field cannot silently stop being an input.
+- **A value-named machine's input** (rule 74) is required and has no default: an optional field, or a Schema
+  default on a `Flow.input` field, is a construction error (`IdentityFieldOptional` [P]), as an operation's key
+  fields are (rule 39). Each field's encoded form is a string (`Schema.String`, a literal, a template literal, a
+  transformation such as `NumberFromString`); any other is a type error (OD30 Q6). A singleton's and a local actor's
+  input keep their fields' one default.
 
 A bare token is shorthand for `{ target: token }`, in a filling (`Confirmed: S.CANCELLED`) and in a
 fragment (`Yes: exits.Confirmed`).
@@ -412,7 +439,13 @@ after rule 47, let fragments declare operations (2.9); 61–66, after rule 60, a
      child resume only if resumable. `flow check` warns when a history target can re-activate a node
      with non-resumable fragments under it, or a state that owns a call (re-entering it is a new activation, so the
      old call's ending routes late and the state would wait with nothing pending).
-   - **`resetOn`** returns a **reset value**, compared with `Equal.equals` as `restartOn` is.
+   - **`resetOn`** returns a **reset value**, compared with `Equal.equals` as `restartOn` is. `null` and `undefined`
+     are not reset values (decided, OD29 F): while `resetOn` returns one, the trait is **not placed**: no incarnation,
+     its slice `undefined`, no subject part. Becoming absent ends the incarnation as removal does (`whenAbandoned`
+     runs); becoming present starts one; a pending reset to absent ends it in its follow-up turn. The filling's parts
+     receive `key`, the present reset value, typed as `resetOn`'s return without `null` and `undefined`; on an `.each`
+     placement `key` stays the copy key (rule 9). A view's event to an unplaced trait is `Unhandled`, as at any
+     inactive trait.
      - It reads the **before-walk memory** (2.5): the pre-turn memory with the source
        transition's own `updateMemory` applied, plus the fresh slices of traits reset before it.
      - Traits reset in declaration order (their order of placement), and each `resetOn` is typed to
@@ -490,7 +523,7 @@ after rule 47, let fragments declare operations (2.9); 61–66, after rule 60, a
    - **Membership is host data.** Keys are strings, bare or in records (`by` names the key field).
      The host adds and removes copies by writing the field in its own transitions, behind its own
      guards. There are no `Add` or `Remove` events. `max` is required.
-   - **Fillings and views.** One filling serves every copy, and each part of it receives `key` and
+   - **Fillings and views.** One filling serves every copy (a `resetOn` filling also receives `key`, its reset value, rule 1; under `.each` it is the copy key), and each part of it receives `key` and
      `item` (the entry). **Revision (multiplicity audit, 2026-10-31; amended by the operations merge).** A copy may own operations (rule 48); a
      lane its commit creates records the copy's key as a part of its subject path (rule 51). A commit
      started in a copy's filling is an ordinary commit of the host's operation: its lane is named by the contract's key,
@@ -545,7 +578,7 @@ after rule 47, let fragments declare operations (2.9); 61–66, after rule 60, a
       - two state changers or overlapping keys that the state-token pruning cannot separate;
       - an acting member of a fragment's operation used outside that fragment (rule 50);
       - a mapped write outside rule 48's scope;
-      - a non-string `resetOn` on a placement that owns a mapped write (rule 48).
+      - a `resetOn` returning anything but a string, `null` or `undefined` on a placement that owns a mapped write (rule 48).
     - **Pruning reads only state tokens that are elements of guard arrays.** It never parses
       closures. Two alternatives made exclusive by their token elements are not flagged.
     - **Runtime pre-commit defects,** each also a `flow check` warning where it can be seen:
@@ -566,8 +599,9 @@ declarer" (a definition or a fragment), and "binding actor" as "binding incarnat
     a record by tag as `failure` is, OD23 Q36; 2.7.13); for a read `success:` (one-off) or `value:` (live) and
     `failure:` (rule 41); for a stream `value:`, `pages:`, `missed:`, `failure:`, with `fills` beside them as data (rule 67, 2.11.6). A mapping value is an event (payload-free) or `E.X.from((value, ctx) => payload)`, with `ctx`
     `{ input, attempt, progress, key }` for a write and `{ input, key }` for a read or stream; `key` is the contract's
-    key record of the call that ended. Several endings may map to one event. Every `unknown:` target is a
-    `Flow.uncertain` event. A read's `failure:` carries its tags plus Flow's `Defect` and `Interrupted` (rule 37). An
+    key record of the call that ended. Several endings may map to one event. A mapping value may instead be `Flow.ignore`
+    (**new**; 2.7.18): no event and no handler; never on a stream key or a `listen` entry. Every `unknown:` target is a
+    `Flow.uncertain` event or `Flow.ignore`. A read's `failure:` carries its tags plus Flow's `Defect` and `Interrupted` (rule 37). An
     author error whose tag is one of Flow's reasons (`NotSent`, `Cancelled`, `Restored`, `Interrupted`, `Defect`,
     `StillUnknown`, `StorageRefused`) is a type error; on a stream, so is one of `Feed`'s reasons (`Closed`, `Overflow`, `Silent`, `Flapping`) or the tag `Feed`, the map's own key [P, merge]. A commit's context also gives `progress(p)`, which sets its row's `progress` with no turn (Streams T8).
 14. **Owner, current, late, decided at admission.** Stream deliveries are always current from the active leaf; a session's owner is its placement's activation or incarnation, and release discards rather than routing late (rule 70). Otherwise, a commit, lookup or retry of an operation is owned by the activation
@@ -605,7 +639,7 @@ declarer" (a definition or a fragment), and "binding actor" as "binding incarnat
     before its record was cleared (Stories T7; section 7 item 21).
     Evidence, by declaration: a never-sent commit replaced under `latest` (`Superseded`); a lookup a newer lookup or
     `cancel` released (`Superseded`); a declined retry (`InFlight`, `NothingToResend`); a bare write's endings (rule
-    40); under `concurrency: "cancel"`, the ending of an Attempt a newer commit interrupted; a fragment's lookup whose
+    40); an ending mapped to `Flow.ignore` (2.7.18); under `concurrency: "cancel"`, the ending of an Attempt a newer commit interrupted; a fragment's lookup whose
     incarnation ended (rule 52); an ending of a releasing lane, and its queued commits (rule 60). A freeze is not a
     release: it ends the lookup (rule 52).
 18. **The Attempt's ending.** Each send is classified as in 2.7.1. The Attempt's ending is decided at settlement, from
@@ -623,8 +657,9 @@ declarer" (a definition or a fragment), and "binding actor" as "binding incarnat
     `reject` (`Rejected`) or `serialize` (`Overloaded`), where the machine cancels the operation (`Cancelled`), for a
     persisted identity (`Restored`, `StorageRefused`, `Disposed`), or for a domain write (`Overloaded`, rule 35), or on a placement whose subject path is not
     empty (`Rejected`, rule 51; checked at the placement from the fragment's summary, rule 57). A read
-    operation's tag record must map `Defect` and `Interrupted` (rule 37). **Every late event that can occur, from any
-    channel, is handled** at a strict ancestor of the owner; `{ target: "self" }` is the explicit ignore. A missing late
+    operation's tag record must map `Defect` and `Interrupted` (rule 37). An ending mapped to `Flow.ignore` produces no event, so it needs no current, late or
+    adopted handler (2.7.18). **Every late event that can occur, from any
+    channel, is handled** at a strict ancestor of the owner; `{}` (or `{ target: "self" }`; an omitted target means `"self"`) is the explicit ignore. A missing late
     handler is a `flow check` error naming the event and the state whose leaving makes it late. Flow cannot know which
     late failures matter (sign-in's late `WrongCode` is a strike), so a person decides for each one. **Adopted endings**
     (OD22). Every event a write operation maps (`success`, each `failure` tag, `unknown` or each of its tags) is handled
@@ -798,7 +833,7 @@ decision (E1–E18). Rules 13–25 and N1–N3 still apply.
 39. **Contracts** (OD4, OD11–OD15, OD17 Q18, OD18, OD23 Q37, Q38). A contract (`transaction`, `resource`, `stream`, or a
     domain entry) lives in `*.contracts.ts` and has exactly two schemas, `input` and `output`, flat at its top level,
     each a fields record or a full Schema (an omitted `output` is `Schema.Void`), and its function inline (`commit`,
-    `lookup`, `subscribe`, and a stream's `catchUp`), which calls services whose Layer is the swap point. A transaction's `progress` keeps its own
+    `lookup`, `subscribe`, and a stream's `catchUp`), which calls services whose Layer is the swap point. Their contexts carry no `signal` (OD29 E): Flow interrupts the function's fiber (rule 24, Streams T1's `abandon`), and an adapter that needs an `AbortSignal` takes Effect's own, `Effect.tryPromise`'s or `Effect.callback`'s, or one `Effect.abortSignal` under `Effect.scoped` when several steps (a `fetch`, then its body) must share it. A transaction's `progress` keeps its own
     schema. `key` is required on every contract, streams included: a list of top-level `input` fields naming which
     server thing a call is about, `[]` for one; a composite key lists every field; its Schema is `input`'s pick; there
     are no derived or nested keys, and no default, domain writes included. On a resource, every `input` field that
@@ -808,7 +843,10 @@ decision (E1–E18). Rules 13–25 and N1–N3 still apply.
     or verb, and its mappings live only there. One write operation per write contract **per actor**, counting the definition and every fragment placement in its
     tree (`SharedContract` otherwise; F2), so two placements of one writing fragment are an error;
     reads and streams are exempt. A **bare** operation (never an `every` stream's or a `listen` entry's, which must map, rule 37, 2.11.6) maps nothing: a bare write's endings are evidence and its unknown
-    is not retained, so it never holds; `flow check` lists bare writes as info. Each declarer exports `O`, the
+    is not retained, so it never holds; `flow check` lists bare writes as info. A bare write is the case where every
+    channel is `Flow.ignore` (2.7.18): whether a write holds depends on whether its `unknown`, or each tag of it, maps an
+    event. **An unknown that is not retained** (a bare write's, an ignored one, `HeldThisTurn`'s at its turn end) **is
+    released**, and 2.8.6's `Released` row applies (decided, OD28 P1). Each declarer exports `O`, the
     operations' handles (a fragment's, outside it, is read-only; rule 50).
 41. **Verbs and placements** (OD1, OD2, OD9 Q22, Q23, OD17 Q14). Operations are used through `O` with the contract's own
     verbs: `O.x.commit(select)` (write) and `O.x.lookup(select)` (one-off read) in `actions`; `O.x.subscribe(select, {
@@ -839,16 +877,21 @@ decision (E1–E18). Rules 13–25 and N1–N3 still apply.
     with no live actor incarnation is parked raw on its lane record for the identity's saved record, if one exists, and mapped
     through the current `outcomes` at delivery; otherwise it is evidence. A starting incarnation adopts only its own
     identity's **unbound lanes** (the oldest first, for equal local identities) and receives, before any external event:
-    the parked endings in saved order; per lane in creation order, a held head's `unknown { Restored }` exactly once
+    the parked endings in saved order; per lane in creation order and once per incarnation (a reload, or a return after an end, rule 73), a held head's `unknown { Restored }`
     (and, on a reload, `NotSent { Restored }` for never-acknowledged work); an `InFlight` lane's ending when it lands.
     Adopted endings and every `unknown { Restored }` are current from the active leaf (rule 14). So a holding write's
     unknown, success and failure are handled at the root, with a path to an owner, reading what they need from the
     event, never from memory an earlier incarnation set. `runtime.unsettledWrites()` lists non-`Idle` lanes by identity,
     for a host's `beforeunload`. Within the actor, each lane's deliveries go to the incarnation with its subject path, as
     follow-up turns after that incarnation's starting turn (rule 54); a lane whose path no incarnation has is
-    **unplaced** and parks its endings (rule 53).
+    **unplaced** and parks its endings (rule 53). An actor never ends implicitly while a lane of the actor is
+    `InFlight` (rule 73), so a sent write's ending reaches the incarnation that sent it; a `Held` lane, with or
+    without waiting commits, keeps nothing and is handed off by this rule. When a shared actor ends, persisted or
+    not, endings parked for a path stay on the lane record, and the next incarnation that adopts the lane receives
+    them.
 45. **Every hold has an owner** (OD6, OD10, OD16, OD22, OD25). `flow check` reports `UnresolvedHold` (2.7.14) when a
-    write on `reject`, `latest` or `serialize` maps anything but not `unknown`, or when, from some arrival of an event
+    write on `reject`, `latest` or `serialize` maps anything but not `unknown` (`unknown: Flow.ignore` counts as mapped,
+    and ignored tags are not among the events it maps), or when, from some arrival of an event
     its `unknown` maps (one, or one per tag), a branch that keeps the hold reaches no `retry` or `cancel` of the
     operation; an error, or a warning when the owner exists but is unreachable. The same arrival set is rule 20's for
     the operation's other mapped events. For a fragment's operation the check runs on the fragment's body (rule 55); at
@@ -874,7 +917,7 @@ decisions (F1–F10).
     that maps anything only if **every placement from the actor's root to it** is a root trait (a trait at the root of
     the definition, or at the root of such a trait), an `.each` copy, or a `.resumable()` trait, any of which may carry
     `resetOn`, and **no subroutine is on the path**. `.each` with `resetOn` is allowed (its path gains two parts). A
-    `resetOn` on such a placement must return a string, so it can be recorded and persisted: a non-string reset value is a
+    `resetOn` on such a placement must return a string, `null` or `undefined` (absent: not placed, rule 1), so it can be recorded and persisted: any other reset value is a
     type error, whose remedy is a joined key (`[sort, status].join("|")`). Elsewhere a fragment may own reads, streams and
     bare writes. A violation is a construction error (rule 12). Nested `.each` is out of scope (rule 9), so a path
     holds at most one copy key.
@@ -895,15 +938,15 @@ decisions (F1–F10).
 51. **Lane identity is unchanged; each lane records its subject path** (identity decided, F2; subject decided as a
     concept by F8; path refined, FP RV2 H4).
 
-    - A write lane is (actor identity, contract id, key). `SharedContract` counts every write operation of the
+    - A write lane is (actor identity, contract id, key); an actor identity is its machine plus its input (rule 74). `SharedContract` counts every write operation of the
       definition and of every fragment placement in its tree.
     - An incarnation's **subject path** lists, from the actor's root down to its placement, one part for each `.each`
-      (that copy's key) and one for each `resetOn` (its reset value), in order; any other placement adds nothing. A root
+      (that copy's key) and one for each `resetOn` (its reset value, always present: an absent one places nothing, rule 1), in order; any other placement adds nothing. A root
       trait at the actor's root has `[]`; a copy of `docs` has `["d1"]`; a root trait inside copy `X` has `["X"]`; a
       writing `.each` copy with `resetOn` has `[resetValue, copyKey]` in placement order.
     - **A `resetOn` part is the incarnation's own reset value** (FP RV3 M2), recorded when the incarnation is created and
       persisted with its slice. On restore, if a writing placement's re-taken value differs from the recorded one (a
-      pending reset was lost by the reload, rule 1), the trait is **reset** (its `whenAbandoned` runs), not silently
+      pending reset was lost by the reload, rule 1), the trait is **reset**, or ended if the re-taken value is absent (its `whenAbandoned` runs either way), not silently
       re-baselined; so the path always matches the memory that commits. The reset is a pending reset: the first
       follow-up turn after restore, before rule 44's deliveries, so the old path's lanes become unplaced (or are
       released, rule 60) and the new incarnation adopts only its own path's lanes (delegated, FX6).
@@ -984,7 +1027,7 @@ decisions (F1–F10).
       keep-busy line) is not a token, so that host keeps the warning or guards with `idle`.
     - **`resetOn`:** reachability is vacuous too (the next incarnation needs the same reset value, which closures decide).
       Documented default: the transition that changes the reset value guards with `Fragment.O.x.idle` for the current
-      subject. Story walk: "A, B, A adopts A's save".
+      subject. Story walks: "A, B, A adopts A's save" and "A, none, A adopts A's save" (OD29 F).
     - At runtime, an incarnation that ends while its path has a non-`Idle` lane leaves an **unplaced** lane, listed by
       Inspection.
 
@@ -1019,7 +1062,7 @@ decisions (F1–F10).
     whenAbandoned: [O.put.cancel, callbacks.onIdle],                                     // existing: whenAbandoned, cancel; NEW MEANING (F9): release this subject's lanes on leave; onIdle frees the host's slot (FP RV2 L6)
     ```
 
-    - **When:** the incarnation ends by removal, leaving or reset. Not on freeze (it has not ended), not on actor disposal
+    - **When:** the incarnation ends by removal, leaving, reset, or its reset value becoming absent (rule 1). Not on freeze (it has not ended), not on actor disposal
       (OD19: disposal drops nothing; the identity may return).
     - **What:** every lane of that operation whose subject path is the ending incarnation's (one subject may own many
       lanes, as a thread owns one per `clientId`). It is listed in step 3 with the leaving notifications and is a Runtime step in the leaving turn's step 5, after
@@ -1088,6 +1131,37 @@ decisions (F1–F10).
 70. **Ownership.** A session belongs to its placement's activation. Identity per placement path; the wait for a releasing predecessor per (actor, operation, key) at any path. A released session's undelivered items are discarded with evidence. Two operations on one contract and key are two sessions, with a `DuplicateSession` warning (S11).
 71. **The bookmark** (that Flow keeps it, S15; its shape is [P]). A Flow-private partition of the slice's saved record, per (operation, key), holding `at` and `filled`. It is not a memory field and has no patch, and no guard reads it, so "memory changes only through `updateMemory`" stays true; it is also not `Flow.private`, which is a memory field a fragment hides (2.2.2) [P, merge]. It says what the consumer was offered: a `Denied` value moves it, with `DeliveryDenied`. Streams T2, T3; `fills` (2.11.7) ties it to memory.
 72. **`listen`.** Streams T7.
+73. **A shared actor lives while it is used, and until its finite work in flight has returned** (decided, OD27,
+    OD31; 2.7.17). A use is an attached consumer (from its passive commit effect, never from render), a live
+    `snapshots` subscription, a bound context consumer, or Flow's hold for `dehydrate` and `Hydrate`. Work in flight
+    is an `InFlight` write lane, a read started in a turn that handles the ending of work in flight (transitively),
+    and an ending owed at `ready`; it keeps the actor until its ending's turn has run, so a chained step is
+    committed by the incarnation that started it. Nothing else keeps an actor: not schedules, other reads,
+    activities, stream sessions, `Held` lanes, parked endings or context; queued mail is processed before the end.
+    While nothing uses it, its schedules wait. Free of both for the grace (100 ms on the Runtime Clock, internal,
+    the same for local actors), it ends; a persisted actor's record is encoded in that step, and the end waits
+    while the record cannot be encoded. An ensure, a subscription or a send restores a persisted identity from the
+    Runtime's copy; a non-persisted actor is gone, and its lanes stay with the Runtime (rule 44). An actor that must
+    outlive a screen is used from where it should live. Local actors made by `useActor` follow the same rule; host
+    `createActor` actors live until disposed. `retain` does not exist.
+74. **An actor is its machine plus its input** (decided, OD30; 2.7.19). `actorRef(machine, nameOrValue, options?)`
+    names a shared actor in one of two forms. **From a value:** the value carries the machine's `Flow.input` fields,
+    which are its identity; Flow keeps only those fields. Ensuring it takes no `input` (`ensureActor(ref)`,
+    `useActorByRef(ref, {})`), because the value is the input. **A singleton:** a literal string name (a runtime
+    `string` is a type error); its input, if declared, is given at ensure, the first accepted input wins, and a
+    different later one reports `InputIgnored`, the only place it remains. A machine with no input is a singleton. A
+    local actor (`createActor`, `useActor`, `Story.machine`) is (machine, input by `Equal.equals`), as 2.7.13 says.
+    - A machine's input fields are read-only; on a value-named machine they are required, have no default and encode
+      to strings (2.2.2). The identity encodes them in field-name order, so a reorder changes nothing.
+    - **Versions.** For a persisted value-named machine, adding, removing or renaming an input field, or changing a
+      field's encoded Schema, is a new version. A saved record of another field set is an **old-version record**:
+      listed at ready (`OldVersionActor` [P]), never renamed or matched by shared fields, removed by `forget`. Its
+      non-`Idle` lanes stay unbound and listed (rule 44), since no ref can spell its identity.
+    - One machine reached in both forms, or two refs of one identity with different `persist` or `context`, is
+      `ConflictingActorRef` at ensure [P].
+    - Uses (rule 73) count per identity. Inspection, `flow trace` and Story records name an actor by its machine and
+      fields, `Editor{workspaceId: "north", ticketId: "T-42"}`, or a singleton's name. The multi-tab leader and a
+      server-rendered payload carry the encoded identity; the client's ref recomputes it from the same value.
 
 ### 2.5 The turn
 
@@ -1147,7 +1221,7 @@ denies `InFlight`.
    - **Fixed targets.** Every alternative selected fixes its target, so by the end of the walk the
      turn's one state change, and with it the exit and entry sets, is known.
    - **Resets come first.** Before the walk, `resetOn` runs on the before-walk memory, and every
-     changed trait gets a new incarnation. Raises into it reach the fresh incarnation.
+     changed trait gets a new incarnation, or ends if its value became absent (rule 1). Raises into it reach the fresh incarnation.
    - **Addressing.** A raise addresses the incarnation live at that point: pre-turn, reset, or
      added earlier in the walk. A new incarnation is seeded lazily on first address: its `Input` record from
      the before-walk memory, then its `Flow.initial` values (2.2.2).
@@ -1404,12 +1478,12 @@ throws ([merged/outcomes.md](merged/outcomes.md) section 6 lists each source, wi
 | `attempt.mayHaveApplied` | Flow: an earlier send of this Attempt ended unknown | the commit's context, to read a response with the write's history |
 | `input` | the commit's select, over the after memory and event (rule 22) | the mapper's `input`; always present |
 | `key` | the contract's `key`, a list of `input` fields, picked from the input (rule 39) | the lane's identity for a write, the entry or session for a read; every mapper's `key`, present even when `attempt` is not |
-| Lane identity | Runtime O3's actor identity, the contract id and the key | adoption by a new incarnation of the identity (rule 44) |
+| Lane identity | the actor identity (its machine plus its input, rule 74), the contract id and the key | adoption by a new incarnation of the identity (rule 44) |
 | A prediction | the domain's predicted fields' functions `(beneath, input) => value`, with the real input; `.predicts` itself runs once, at construction, for structure | the store, joined in the starting turn's publication (rule 28); views read `predicted` on the record |
 | The record queue | the store, per record, across actors | Flow joins it at start or retry and releases it at settlement, or after a forced repair (rules 29, 30) |
 | `uncertain` | the store, per record and Attempt | set at settlement of an unknown, cleared by rule 32; views read it on the record |
 | `unconfirmed` | the store, from a success that omitted a predicted field | views |
-| Cancel | the machine's `O.pay.cancel(k?)` action | `Fiber.interrupt` on the commit, which aborts the `AbortSignal` it handed the adapter; the browser drops the request **only if the adapter passed it to `fetch`/XHR** |
+| Cancel | the machine's `O.pay.cancel(k?)` action | `Fiber.interrupt` on the commit, which aborts the signal Effect handed the adapter (`tryPromise`'s, `callback`'s, or a scoped `Effect.abortSignal`; rule 39); the browser drops the request **only if the adapter passed that signal to `fetch`/XHR**, and the body only if the same signal reaches it |
 | "the request reached the server", "the server finished after a cancel" | nothing: no browser API reports either | so a send interrupted after invocation is `unknown`, and clean-up is keyed by the Attempt (2.7.7) |
 | Time | the Runtime Clock; `TestClock` in Stories | schedules (`now`, firing metadata, a keyed schedule's `key`) |
 | Server truth in Stories | a fake server, one per run (rule 62) | the fake's truth and request log, read at every step cut (2.10.4); no ending is injected (Testing O3, rule 62) |
@@ -1427,9 +1501,9 @@ export const Stripe = {
     output: Intent,
     key: [],                                                    // one lane: one intent per checkout actor (rule 39)
     concurrency: "reject",
-    commit: (input, { attempt, signal }) => Effect.gen(function* () {
+    commit: (input, { attempt }) => Effect.gen(function* () {
       const api = yield* StripeApi                              // production wraps fetch; Stories use a fake's client half (2.10.4)
-      const res = yield* api.confirm(input, { idempotencyKey: attempt.id, signal }).pipe(   // the author puts Flow's id on the wire (rule 19)
+      const res = yield* api.confirm(input, { idempotencyKey: attempt.id }).pipe(   // the author puts Flow's id on the wire (rule 19); the adapter passes tryPromise's signal to fetch (rule 39)
         Effect.retry({ while: (e) => e._tag === "NoResponse", times: 1 }),                  // invisible: inside one send
         Effect.catchTag("NoResponse", (e) => Outcome.unknown(e)))
       if (res.ok) return yield* Outcome.success(toIntent(res))
@@ -1621,7 +1695,7 @@ export const saveField = transaction({
   input: { docId: Schema.String, field: Schema.Literals(["title", "description", "tags"]), value: Schema.String },   // OD14: a fields record
   key: ["docId", "field"],                                                     // a field list (OD4); one lane per field: title, description and tags never supersede each other
   concurrency: "latest",
-  commit: (i, { attempt, signal }) => SettingsApi.use((api) => api.patch(i, { idempotencyKey: attempt.id, signal })),
+  commit: (i, { attempt }) => SettingsApi.use((api) => api.patch(i, { idempotencyKey: attempt.id })),
 })
 // in the machine: one commit, the key comes from the input
 FieldEdited: { target: "self", actions: [O.save.commit(({ memory, event }) => ({ docId: memory.docId, field: event.field, value: event.value }))] },   // existing: commit
@@ -2151,7 +2225,7 @@ H2 lost facts, H3 the wrong retry under `cancel`, M1 a second charge under `reje
 
 1. **A never-sent commit is replaceable**; the replaced one ends as evidence `Superseded` (`NotSent { why:
    "Superseded" }` for a domain write, rule 29) and no handler sees it.
-2. **A sent Attempt's ending is always delivered**: success, failure and unknown, each mapped once (R3 H2), to a
+2. **A sent Attempt's ending is always delivered, or ignored by its declaration as evidence (2.7.18)**: success, failure and unknown, each mapped once (R3 H2), to a
    live incarnation of its identity or to that identity's saved record (OD21). **Exception, stated (G4):** a local
    actor's lanes are never persisted, so a write a local actor sent before a reload has no lane afterwards: its
    ending is not seen, **and its hold is lost**, so after the reload a newer write on that key can be sent past an
@@ -2174,7 +2248,7 @@ members address the lane. Disposing that actor never drops or cancels the lane's
 Runtime keeps the lane, applies its endings to it (the table's lane effects and merge 4's store effects, which never
 depended on the actor, rule 27), and invokes what the table promotes. **With no live actor incarnation** (decided, OD21; R9
 K25, H1), an ending is applied to the lane by the Runtime; if the lane's identity has a saved actor record (a
-persisted actor disposed by retain expiry, or awaiting reload), the ending, including `NotSent { Disposed }`, is also
+persisted actor that ended under rule 73, a dormant lazy record, or one awaiting reload), the ending, including `NotSent { Disposed }`, is also
 **parked** for that identity and delivered once to its next incarnation, in saved order (Persistence O2, O4). With a live actor but no incarnation of the lane's path, the ending is parked
 for that path instead (rule 53). It is
 evidence only when no record of the identity survives (`disposeActor`, `forget`, a non-persisted or local identity).
@@ -2189,8 +2263,9 @@ Runtime's copy** of the identity's records when one exists, not from storage (R1
 only a reload, where the last good capture is consistent.
 **A lane's identity is (actor identity, contract id, key)** (decided, OD20; R8 K21, H1); for local actors this identity
 is the adoption key, and while bound a lane belongs to its binding incarnation (R10 L4). The actor identity
-is Runtime O3's ref (machine id, actor id) for a shared actor; for a local actor it is **defined here** (R9 K27, M1)
-as (machine id, input by `Equal.equals`), so a remounted or revealed local actor with the same input adopts its
+is **its machine plus its input** for every actor (decided, OD30; rule 74): for a ref built from a value, (machine
+id, its input fields, encoded in field-name order); for a singleton, (machine id, its literal name); for a local actor,
+as first **defined here** (R9 K27, M1), (machine id, input by `Equal.equals`), so a remounted or revealed local actor with the same input adopts its
 predecessor's lanes (fresh memory and state, as React O2 and O3 say, but not fresh write lanes). **A starting actor
 (created, ensured or restored) adopts only the unbound lanes of its own identity**: d2's editor never takes d1's
 lane, and checkout B never takes checkout A's. A new incarnation of an identity receives that identity's lanes,
@@ -2210,7 +2285,7 @@ incarnation reaches a new one"): **a new incarnation of the same identity receiv
 **Lanes are Runtime records for persistence too** (decided, OD20; R8 H2). A capture includes every non-`Idle` lane
 of a persisted identity, bound or unbound, under (actor identity, contract id, key); Persistence O6's acknowledgement
 is per lane record and per Attempt, and needs no actor. An actor's saved record holds no lanes. Restore at ready, and
-an ensure after retain expiry, bind the incarnation to the Runtime's one lane, never to a stale copy beside it.
+a return after an end (rule 73), bind the incarnation to the Runtime's one lane, never to a stale copy beside it.
 `disposeActor` removes the actor's record and keeps its non-`Idle` lanes as unbound lanes; `forget` removes both. A local
 actor's lanes are never persisted (Persistence O2). When an actor record no longer decodes but its lane records do
 (they decode by the contract's `input` pick, independent of the machine), the fresh incarnation adopts them in its
@@ -2417,8 +2492,8 @@ Stories T2; 2.10.15). The executable lane model (in
 the operations record) is a design check, not that suite: running the suite on it would be the second execution path
 T1 removed. Walks kept as Stories: 8.2's force save, 5.3's three
 re-sends offline, 8.2's `CloseAnyway` then unmount (R7 H1), 9.3's `Saved` denied (R7 H3), and sketch 10's walk E
-(R7 H2), plus a rebind into a leaf with no handler (R8 H3), "retain expiry, the unbound lane's write succeeds,
-ensure: the restored state receives the ending" (R9 H1), "an adopted Attempt ends unknown in a leaf other than the
+(R7 H2), plus a rebind into a leaf with no handler (R8 H3), "Runtime disposal with an Attempt on the wire, the write succeeds within the bound, reload: the identity, owed the parked
+ending, is restored live at `ready` and receives it" (R9 H1; an implicit end never meets an `InFlight` lane, rule 73), "an adopted Attempt ends unknown in a leaf other than the
 initial one" (R9 H3), and "an adopted Attempt succeeds in the new incarnation's initial leaf" (R10 H1). **A clean
 Runtime shutdown with queued work (R9 H2) is a policy-suite test**, not an app Story: Testing O7's `closeTab` ends a
 tab abruptly (R10 M6; decided, OD23 Q41). The lane model's next run adds two
@@ -2636,8 +2711,316 @@ Rule 46 is normative. Per kind (OD3):
   placements (returns `Lane | undefined`); a one-off read and an unkeyed placement take no key.
 - **Fragments** (rule 50): `Fragment.O` is typed from the declaration and has only write operations' reads; members
   are branded with their fragment; key-less `O.x.cancel` type-checks in `whenAbandoned`; the fragment's `R` reaches
-  the host and its Stories; a writing placement's `resetOn` returns `string`. Not spiked (section 7 item 20).
+  the host and its Stories; a writing placement's `resetOn` returns `string`, `null` or `undefined`, and its filling's `key` is the `string` (OD29 F; scratch spike). Not spiked (section 7 item 20).
 - **Watch**: no excess-property check on returned literals (TS (j)); errors collapse onto callback heads (TS shape 2).
+
+#### 2.7.17 Actor lifetime: alive while used, and until its work in flight returns
+
+Rule 73 is normative (decided, OD27, OD31). It replaces Runtime O3's `retain`, a guessed duration per ref that expired
+an actor whatever it was doing. An actor behaves as a mounted component does: its state lives while something uses
+it, its timers stop when nothing does, and a request already sent still returns. That last part is the one
+exception, and it prevents a dangerous bug: work already in flight keeps the actor until its ending's turn has run,
+so a chained step (Pay's confirm, then `place`) is committed by the incarnation that started it. Leaving is sometimes
+how a user cancels, so nothing else outlives the last use. An actor that must outlive a screen is used from where it
+should live; Flow has no keep-alive option.
+
+Prior art. React clears an unmounted component's timers, and a fetch already sent still resolves. XState ties an
+actor to its owner (`useActorRef`'s effect cleanup), and apps lift long-lived actors into a root provider
+(`createActorContext`). TanStack Query keeps an unobserved query for `gcTime` (`query-core/src/removable.ts:25-28`),
+never removes one while it fetches (`query.ts:226-227`), and lets a pending mutation outlive its observers
+(`mutation.ts:155-162`), as lanes do (OD19). Flow keeps `gcTime` for store data, not for actors: an actor runs work,
+and a window would run it for an absent screen.
+
+```ts
+// before
+actorRef(EditorMachine, ticket, { persist: true, retain: "10 minutes" });
+actorRef(PresenceMachine, ticket, { retain: "15 seconds" });
+// after
+actorRef(EditorMachine, ticket, { persist: true });   // dropped: retain
+actorRef(PresenceMachine, ticket);                     // dropped: retain
+```
+
+Scope. Shared actors (`actorRef`), and local actors made by `useActor`, whose one use is their component (React O3).
+A local actor made by host `createActor` lives until `disposeActor` or Runtime disposal (Runtime O3). `disposeActor`,
+`forget` and Runtime disposal are explicit and are not governed by this section.
+
+Uses. A use is:
+- an ensuring hook (`useActorByRef(ref, options)`), from its passive commit effect (the one `useSyncExternalStore`
+  subscribes in) to that effect's cleanup, including while its attach waits for readiness, lazy adoption, a `Hydrate`
+  boundary or a disposing predecessor. Render registers nothing, so a discarded render leaks none. When shown content
+  suspends again, React keeps its passive effects, so a Suspense fallback keeps its uses; React Activity's hidden mode
+  cleans up passive effects, so hiding ends them;
+- a live `snapshots` subscription, from host code or from Flow, from the moment it is made until it stops. On an
+  identity with a record and no live incarnation it restores the actor (Return). On an identity with neither, it
+  emits that identity's current snapshot (Reads) and waits: the ensure that next creates the actor finds the use
+  already held. It completes when its subscriber stops, or after the terminal snapshot of `disposeActor`, `forget`
+  or Runtime disposal;
+- `dehydrate`'s hold: its Runtime subscribes to each shared actor in the call that installs it (an ensure, or a
+  provider restored for it), before control returns to `prepare`; the hold ends at capture or rejection;
+- `Hydrate`'s hold on each actor its payload inserted, from the boundary's commit until that actor's first consumer
+  attaches or the boundary unmounts;
+- a bound context consumer, which is a use of its provider;
+- in an app Story, `ensure(ref)` until `detach(ref)` (2.10.10).
+`ensureActor` alone, `getSnapshot`, a lookup (`useActorByRef(ref)` with no options), `useView` and sends are not
+uses. Uses count per actor identity (rule 74).
+
+Work in flight. Besides its uses, an actor is kept by finite work it already started, until that work's ending's turn
+has run in the same incarnation:
+- a write lane of the actor that is `InFlight` (waiting to be invoked or on the wire; bound or unplaced, rule 53);
+- a read started in a turn that handles the ending of work in flight, transitively: write, read, write (`Confirmed`
+  refetches the cart, and its answer commits `place`) runs to its end. A read started in any other turn keeps nothing;
+- at `ready`, an ending owed by the restore (Ready and hydration).
+A write any turn commits is `InFlight`, so it keeps the actor too. Mail already queued is processed: the end waits
+behind it, and a send restarts nothing. A `Held` lane, with or without waiting commits, keeps nothing; rule 44 hands
+it off.
+
+Schedules wait while nothing uses the actor. During the grace, or while it is kept only by work in flight, its
+schedules do not fire: a deadline that comes due waits. If a use returns before the end, each waiting deadline fires
+once, in deadline order (Machines O5's overdue rule); at the end a persisted record keeps them and a non-persisted
+actor loses them. Activities and stream sessions run until the end. A chained step reached only through a schedule
+therefore waits for the next use, which `flow check` reports (Diagnostics). A poll a chain needs belongs inside the
+read (`Effect.repeat` with a `Schedule` in the lookup's Effect: one finite read); a transport deadline belongs inside
+the commit (`Effect.timeoutOrElse`, 2.7.6).
+
+The grace. An actor is free when it has no use and no work in flight. When it becomes free, the core returns an effect
+arming the grace, 100 ms on the Runtime Clock (React O3's, internal, the same for local actors), identified by its
+deadline. The driver in `src/host/` sleeps, yields once so that fibers forked before the expiry have run, and
+delivers the expiry as a Runtime step. A use or new work in flight disarms it; an expiry whose deadline is not the
+armed one does nothing. The core never reads the clock.
+
+The end. At the expiry, if the actor is still free, the end step runs after the mailbox drains:
+1. A persisted actor's record (state, memory, armed and waiting deadlines, restartOn baselines) is encoded into the
+   Runtime's copy in this step; a capture may not have run yet. If it cannot be encoded, the actor does not end: it
+   stays live, the codec's diagnostic is published once (Persistence O5), `uses.busy` names it, and the grace is
+   armed again, so the end is retried at each expiry.
+2. Its lanes move to the Runtime unbound (rule 44), with any endings parked for a path (rule 53).
+3. Its schedules are cancelled and its activities, sessions and unkept reads stopped (Runtime O6's cleanup). The end
+   is a trace record with the reason `NoUses`, listing the live work it stopped (Diagnostics).
+Until the driver reports that cleanup is done (the core's `stopped(actor, incarnation)` input), the actor is ending:
+sends follow the table below, and an ensure waits and binds the next incarnation (Runtime O3). When a new
+incarnation of an equal local identity (2.7.13) starts while an older one is kept only by work in flight, the older
+one is disposed at once and the new one adopts its lanes, so the remounted screen receives the ending, not an
+invisible predecessor.
+
+Return. A persisted identity whose record is in the Runtime's copy returns as a new incarnation, restored from that
+copy (never re-read from storage), when an ensure, a subscription or a send reaches it. It receives, in order: its
+starting turn; rule 44's deliveries (parked endings, then each held head's `unknown { Restored }`, once per
+incarnation); one `onContext` wave if a provider's selection differs from the one it ended with in this Runtime;
+then the event that restored it, if a send. Each schedule follows Machines O5. `Restored` means a new incarnation: a
+reload, or a return after an end. An ensure over a record that no longer decodes discards it (`RestoreDiscarded`),
+adopts the identity's lanes (rule 46) and creates from input. A non-persisted identity has nothing to return to: an
+ensure creates fresh and adopts its lanes, with their parked endings.
+
+Ready and hydration. At `ready`, a restored record stays a record until an ensure, a subscription or a send reaches
+it, except an identity whose captured lanes owe it an ending: a lane that was `InFlight` at capture (its restore
+ending is `NotSent { Restored }` or `unknown { Restored }`) or a parked ending. That identity is restored live at
+`ready`, and each owed ending is work in flight until its turn has run, so an offline-first app's queued writes
+resume after a reload without each screen being opened. A reload's context baselines stay silent (Persistence O4).
+A hydrated actor activates at its `Hydrate` commit under `Hydrate`'s hold.
+
+Reads. A handle follows the identity, not the incarnation, so its reads and its sends agree after an end.
+`getSnapshot` reads the live incarnation; with none, a persisted identity's record from the Runtime's copy (decoded
+once per revision; lifecycle `active`, since any ensure or send brings that state back); with neither, the
+pre-attach snapshot (React O2) if the identity never had an incarnation in this Runtime, otherwise the last
+incarnation's terminal snapshot (lifecycle `disposed`). A lookup of an identity with a record returns that record
+view, never `null`; it is a read, not a use. A pre-attach handle reads the same copy, so a quick return never
+flashes `initial`.
+
+Sends (amends Runtime O4 and LazyFeatures O2; action `send(ref, e)` and handle `send(e)` alike):
+
+| Target at the send | Result |
+| --- | --- |
+| live: used, kept by work in flight, or in the grace | delivered (Runtime O4). A send is not a use; the end waits behind it |
+| ending, persisted | queued for the next incarnation, restored when cleanup is done, which receives it after Return's deliveries; `disposeActor` or `forget` during that cleanup drops the queue with `NoRecord` |
+| ending, not persisted | dropped, `SendTargetAbsent { reason: "NoRecord" }` |
+| ended, persisted, record decodes | restored (Return), delivered last. It has no use, so its schedules wait, and it ends after the grace unless the event starts work in flight |
+| ended, record does not decode | dropped, `RecordUndecodable`; the record stays for an ensure to discard |
+| no record (not persisted, never created, disposed, forgotten) | dropped, `NoRecord` |
+| a lazy entry not adopted | dropped, `NotAdopted` |
+| being disposed by `disposeActor` | dropped, `NoRecord` (Runtime O4) |
+
+A send never creates: creating is an ensure's decision, and a send must not resurrect a disposed or forgotten
+identity, start a singleton without its input, or adopt a lazy entry. Restoring is not creating: the record already
+holds state and memory. Reasons are reported on the sender and never roll back its turn.
+
+Keeping an actor alive: lift its use up. Hold the use where the actor should live, as XState apps lift actors into a
+root provider:
+- the app shell, for services: a session, notifications, a player, downloads, an idle-logout timer, an IDE's
+  workbench services;
+- the layout spanning the routes that share an actor: a wizard across routes, a list and its detail;
+- the tab strip, for editor tabs, above any React Activity boundary, since hiding ends the uses inside it;
+- for a headless host, a `snapshots` subscription taken with the ensure, before anything awaits (a subscription on
+  an identity with no actor waits as a use, so their order never matters).
+
+```ts
+function WizardLayout({ children }: { children: ReactNode }) { useActorByRef(wizardRef, {}); return children; }
+const editor = runtime.ensureActor(editorRef(T42));          // keeps nothing by itself
+yield* Effect.forkScoped(Stream.runDrain(editor.snapshots)); // a use until the scope closes
+```
+
+Persisting the ref keeps state across an end, but not work: a persisted actor's schedules wait while nothing uses it.
+
+Lift services and data; keep screen-dependent work in the screen's state. Work that should stop when a screen leaves
+or changes state belongs to that screen's machine, in the state it serves. A poll that should stop with a child's
+state is that state's schedule or activity in the child; its results land in an entity domain, one record per key in
+the Runtime's store, which the lifted parts read, so the lifted list and several children see the same record (a
+read's session is per placement and key, rule 68). `send(ref, event)` up is for a lifted service's mode chosen by a
+child, such as a player's track. No event is sent when a screen leaves, so the screen-scoped activity is the
+backstop: what must stop with the screen runs there, and a mode left set by a child that left is one that is harmless
+while it stays.
+
+Commit on the way out: a `Close` event commits a dirty draft, and that write keeps the actor until it returns
+(`Close: [{ target: S.CLOSED, guard: [dirty, O.save.idle(ticketKey)], actions: [commitDraft] }, { target: S.CLOSED }]`).
+Send it from the navigation itself (a close button, a router's leave hook), never from an effect cleanup: React Strict
+Mode runs cleanups in development, and Activity runs them when it hides a subtree that can be shown again.
+
+Diagnostics. None is public API; each is evidence, Inspection or a `flow check` finding.
+- **An end with live work** (development). When an end stops live work (an armed or waiting schedule, an open stream
+  session or activity, a read that did not keep the actor), the Runtime reports the warning `EndedWithWork` once per
+  machine and kind of work per Runtime, naming the work and, for a persisted actor, that its deadlines are in the
+  record. In production the end's trace record lists the same work.
+- **A create soon after an end.** A create of an identity that ended in the last 5 seconds carries how long ago it
+  ended, and `flow trace` marks it: a forgotten lift, visible in development when the network is throttled.
+- **`ScheduleLeadsToWrite`** (`flow check`), for each schedule whose `send` turn can reach a write member (`commit`,
+  `retry` or `cancel` of a transaction or domain write), following handlers, raises, exits, entries, host transitions
+  (rule 7) and lookup endings with their raises, to a fixed point, over every arming path: entry, `armOn`,
+  `restartOn`, keyed `keys`, `.each` copies and subroutine entry. It is a warning when the schedule is armed in a turn
+  that handles a write's ending (a chain through a schedule, such as a retry with a delay); otherwise it is info. For
+  a machine with no persisted ref, or a local one, the message says "lost if the screen leaves first: persist the
+  ref, commit on close, or lift the actor's use"; for a persisted one, "delayed until the next open: it fires once,
+  late, against what the server holds then, so the write needs a precondition such as If-Match". A repeating
+  schedule whose write can outlast its period is named as such. `flow explain` prints the path per schedule. The
+  finding never affects lifetime.
+- **Inspection** gives each actor `uses: { consumers, subscriptions, contexts, pendingEnsures, busy }`, shown by
+  `flow trace` and `flow explain`: `consumers` are attached hooks; `pendingEnsures` are hooks past their commit effect
+  and not yet attached; `subscriptions` each carry an owner (host code, `dehydrate`, `Hydrate`, a follower);
+  `contexts` are bound consumers; `busy` lists work in flight by address (rule 65), the mailbox depth, waiting
+  deadlines and an unencodable record. A free actor shows its grace in `inspection.work`. Every end and return is a
+  trace record. An actor is printed by its machine and input fields (`Editor{workspaceId: "north", ticketId:
+  "T-42"}`) or a singleton's name (rule 74).
+
+States:
+
+| State | Left by |
+| --- | --- |
+| Live, used | the last use ending |
+| Live, kept by work in flight (schedules wait; `uses.busy` lists the work) | the last kept ending's turn; then free |
+| Live, in the grace (schedules wait; one armed grace) | a use or new work (stays live), or the expiry |
+| Live, end blocked (`uses.busy` names the unencodable record) | an expiry at which it encodes |
+| Ending (terminal snapshot; activities stopping; sends queued for a persisted identity) | cleanup done; a cleanup failure quarantines (Runtime O6) |
+| Ended, persisted (the Runtime's copy, the stored record, lane records, parked endings) | an ensure, subscription or send (Return); `disposeActor` (record removed, lanes kept unbound, rule 46); `forget`; Runtime disposal |
+| Ended, not persisted (its non-`Idle` lanes, unbound, with parked endings) | the lanes resolve, a new incarnation adopts them, or Runtime disposal |
+| Record at `ready` | as ended, persisted; restored live at once if its lanes owe it an ending |
+| Quarantined (the ref's failure and Cause) | Runtime disposal |
+
+Over Persistence O3's bounds (4,096 records, 16 MiB), a capture drops the oldest ended records that equal a fresh
+start (the state and memory a new ensure would build from the identity's input, only the initial leaf's entry
+deadlines, no non-`Idle` lane, no parked ending), with evidence. If that is not enough, the capture is rejected as O3
+says, and its evidence names the oldest ended identities, so the app can `forget` them. A record that holds anything
+a user did is never dropped.
+
+Multi-tab. Under Persistence O7 a second tab runs without persistence and uses are per Runtime. Under multi-tab.md (a
+proposal), a follower's attached mirror is a use in the leader, ended by its detach or its presence lock's grant, and
+a new leader restores as Ready says and waits for no one.
+
+Stated limits.
+- Per-entity timers that no screen can hold (a reminder per row of a list nobody opens) stop with their actor; they
+  belong on the server or in a lifted service with keyed schedules.
+- A persisted autosave inside its debounce fires at the next open or reload: late, not lost, so the write needs a
+  precondition. A non-persisted one is lost.
+- A chained step that needs the user (3-D Secure's `authenticate`) runs with nobody on the page; send a `Leave`
+  event from the router's leave hook.
+- A chain through a delayed retry stops at the delay when the user has left (warned).
+- An offline write that ended unknown (`Held`) before a reload is not woken at `ready`; it syncs at the next use.
+  Keep an offline write in flight (the commit waits for connectivity inside its Effect) rather than ending unknown.
+- Rows held in a non-persisted actor's memory are refetched when it starts fresh; rows held in an entity domain or a
+  resource stay in the store for their `gcTime`.
+- A send that restores runs the starting turn, entry lookups and activities, then ends after the grace; a send to
+  many ended persisted identities restores each. Restore cost is not measured.
+- A write or kept read that never settles keeps its actor until Runtime disposal; its timeout belongs in the Effect.
+  A `snapshots` subscription never stopped is the caller's leak; Inspection names its owner.
+- Follower uses and React's effect timing (Strict Mode, Suspense, Activity) need browser tests.
+
+What no longer happens implicitly: a busy actor losing its live incarnation, which made R8 H2 and R9 H1 reachable
+without a reload. What stays: Runtime-owned lanes (OD19), parked endings on lane records (OD21, OD22) for reload,
+Runtime disposal and dormant lazy records, unbound lanes for `disposeActor` and local actors, unplaced lanes (rule
+53), adoption by identity, `unknown { Restored }` and `runtime.unsettledWrites()`.
+
+#### 2.7.18 `Flow.ignore`: an ending that needs no reaction
+
+Rules 13, 17, 20, 40 and 45 are normative (decided, OD28). `Flow.ignore` stands wherever an operation's mapping takes
+one event. The author still decides at the mapping, so rule 20's reason holds.
+
+```ts
+// before
+internalEvents: { FileRemoved: {}, FileKept: { uploadedBy: Schema.String }, FileRemoveUnsure: Flow.uncertain({}) },
+removeFile: AttachmentsDomain.remove.outcomes({
+  success: E.FileRemoved,
+  failure: { RemoveRefused: E.FileKept.from((e) => ({ uploadedBy: e.uploadedBy })), NotSent: E.FileRemoved },
+  unknown: E.FileRemoveUnsure,
+}),
+on: { FileRemoved: { target: "self" }, FileKept: { /* ... */ }, FileRemoveUnsure: { target: "self", actions: [O.removeFile.cancel] } },
+
+// after
+internalEvents: { FileKept: { uploadedBy: Schema.String } },
+removeFile: AttachmentsDomain.remove.outcomes({
+  success: Flow.ignore,                                                    // new: Flow.ignore
+  failure: { RemoveRefused: E.FileKept.from((e) => ({ uploadedBy: e.uploadedBy })), NotSent: Flow.ignore },
+  unknown: Flow.ignore,                                                    // released when it lands
+}),
+on: { FileKept: { /* ... */ } },
+```
+
+- **In the turn.** An ignored ending is admitted with no turn: it takes its place in the mailbox (so lanes change in
+  order), applies its 2.7.13 cell's lane effect, and publishes as a Runtime step (2.5), as OD20 F8 keeps the lane
+  effect of an ending admitted in a `Denied` or `Unhandled` turn. No event, no handler, no late route, no parking.
+  `Story.ending` and `flow trace` record `ignored` with the channel and reason; `flow explain` prints
+  `removeFile.unknown → ignored (released)`.
+- **Unknown.** Ignored also releases the Attempt, as `cancel` does in `Held`, at admission as a Runtime step (today's
+  `cancel` runs in a later turn). It cannot be dropped by a `Denied` turn, and with no binding incarnation the Runtime
+  releases it when it lands. Store effects stay at settlement (rule 27), then 2.8.6's `Released` row applies.
+- **2.7.13's cells.** Only rows whose ending maps to `Flow.ignore` change: success and failure in `InFlight` keep their
+  lane effect; unknown and interrupt in `InFlight` release (promote or `Idle`); every `NotSent` is ignored; a re-send's
+  `StorageRefused`, a rebind's and a restore's `Restored`, when ignored, release; an ending with no binding incarnation
+  is applied and **not parked**; Runtime disposal keeps an ignored one as evidence, unsaved; under `cancel` and `allow`
+  an ignored unknown goes to `Idle` at once. `retry`, `idle`, `retryable`, `invoked`, SSR hydration and every "cannot
+  occur" cell are unchanged. The `Held` (parked) table is never entered for an ignored tag.
+- **Lazy records.** With the definition not loaded, the raw ending parks as today and the ignore applies at delivery
+  (OD22), so the lane stays `Held` until then.
+- **Forbidden** on every stream key (`value`, `pages`, `missed`, `failure`) and every `listen` entry: a gap must reach
+  the consumer (2.11.6), pages move the bookmark (rule 71), and a dead session must be seen (rule 25). Allowed
+  everywhere else; `flow check` lists every ignored `unknown` as info, beside bare writes.
+- **`{ target: "self" }` stays** for a different fact: one arrival of an event changes nothing, where the same event
+  matters elsewhere. Ignore at the mapping when no arrival needs the event; ignore in a handler when only some do.
+- **Rule 73.** An ignored unknown leaves no `InFlight` lane, so it does not keep the actor.
+
+#### 2.7.19 Actor identity: the machine plus its input
+
+Rule 74 is normative (decided, OD30). A shared actor used to be named twice, by the ref's parts and again by its
+input, and nothing reported the two disagreeing; a persisted actor's non-naming input was frozen by whichever caller
+ensured first. Now an actor is its machine plus its input, shared or local.
+
+```ts
+// before
+actorRef(EditorMachine, [ticket.workspaceId, ticket.ticketId], { persist: true });   // parts
+useActorByRef(editorRef(ticket), { input: ticket });                                  // the same values again
+// after
+actorRef(EditorMachine, ticket, { persist: true });     // new meaning: a value carrying the input fields
+useActorByRef(editorRef(ticket), {});                   // `{}` selects ensure (React O2); no input
+actorRef(SessionMachine, "coordinator", { persist: true });   // a singleton: a literal name, input at ensure
+```
+
+- **Where non-naming data goes.** Data that does not name the actor comes from a record read, an event or context,
+  never input: the visit's `assignee` is read from the `Ticket` record, which a reassignment changes.
+- **Lanes.** A lane is still (actor identity, contract id, key); adoption, parking and `unknown { Restored }` are
+  unchanged (rule 44), and 2.7.13's local identity is now the general rule.
+- **Releases.** Changing a persisted value-named machine's input fields is a new version (rule 74). Changing a
+  parts array used to rename saved actors silently.
+- **Stories.** `Story.machine(M, { input })` is a local actor, unchanged. An app Story ensures a value ref with no
+  input (`.ensure(Editor42)`) and a singleton with its input.
+- **Stated limits.** A release that adds creation data to a persisted value-named machine must use memory and an
+  event. Tabs on two releases see two actors. Whether an old-version record's lanes should go to `orphaned` (P19)
+  instead of staying unbound is open.
 
 ### 2.8 Server calls and entity domains
 
@@ -2701,8 +3084,8 @@ export class Invalid extends Schema.TaggedError<Invalid>()("Invalid", { message:
 export class ServerError extends Schema.TaggedError<ServerError>()("ServerError", { status: Schema.Number }) {}
 export class ListFailed extends Schema.TaggedError<ListFailed>()("ListFailed", { status: Schema.Number }) {}
 
-const send = (method: "PUT" | "PATCH" | "DELETE" | "POST", path: string, body: unknown, attemptId: string, signal: AbortSignal) =>
-  IssuesApi.use((api) => api.send(method, path, body, { idempotencyKey: attemptId, signal })).pipe(Effect.catchTag("NoResponse", (e) => Outcome.unknown(e)))
+const send = (method: "PUT" | "PATCH" | "DELETE" | "POST", path: string, body: unknown, attemptId: string) =>
+  IssuesApi.use((api) => api.send(method, path, body, { idempotencyKey: attemptId })).pipe(Effect.catchTag("NoResponse", (e) => Outcome.unknown(e)))
 const settle = (res: { status: number }) => Effect.gen(function* () {
   if (res.status === 404) return yield* Outcome.failure(new Gone({}))
   if (res.status >= 500) return yield* Outcome.unknown(new ServerError({ status: res.status }))
@@ -2711,32 +3094,32 @@ const settle = (res: { status: number }) => Effect.gen(function* () {
 
 export const issuesInProject = resource({
   id: "issues/in-project", input: { projectId: Schema.String }, output: IssuesPage, key: ["projectId"], staleTime: "30 seconds", gcTime: "5 minutes",   // OD12: input/output; OD4: key names input fields
-  lookup: (i, { signal }) => Effect.gen(function* () {
-    const res = yield* (yield* IssuesApi).list(i, { signal }).pipe(Effect.mapError(() => new ListFailed({ status: 0 })))
+  lookup: (i) => Effect.gen(function* () {
+    const res = yield* (yield* IssuesApi).list(i).pipe(Effect.mapError(() => new ListFailed({ status: 0 })))
     if (res.page === undefined) return yield* new ListFailed({ status: res.status })
     return res.page
   }),
 })
 export const setLike = transaction({
   id: "issues/set-like", input: Schema.Struct({ id: Schema.String, liked: Schema.Boolean }), output: IssueRow, key: ["id"], concurrency: "latest",   // stated, no domain default
-  commit: (i, { attempt, signal }) => Effect.gen(function* () {
-    const res = yield* send("PUT", `/issues/${i.id}/like`, { liked: i.liked }, attempt.id, signal)
+  commit: (i, { attempt }) => Effect.gen(function* () {
+    const res = yield* send("PUT", `/issues/${i.id}/like`, { liked: i.liked }, attempt.id)
     if (res.status === 200 && res.row !== undefined) return res.row
     return yield* settle(res)
   }),
 })
 export const renameIssue = transaction({
   id: "issues/rename", input: Schema.Struct({ id: Schema.String, title: Schema.String }), output: IssueRow, key: ["id"], concurrency: "latest",
-  commit: (i, { attempt, signal }) => Effect.gen(function* () {
-    const res = yield* send("PATCH", `/issues/${i.id}`, { title: i.title }, attempt.id, signal)
+  commit: (i, { attempt }) => Effect.gen(function* () {
+    const res = yield* send("PATCH", `/issues/${i.id}`, { title: i.title }, attempt.id)
     if (res.status === 200 && res.row !== undefined) return res.row
     return yield* settle(res)
   }),
 })
 export const removeIssue = transaction({
   id: "issues/remove", input: Schema.Struct({ id: Schema.String }), key: ["id"], concurrency: "reject",   // no output: void (Q37)
-  commit: (i, { attempt, signal }) => Effect.gen(function* () {
-    const res = yield* send("DELETE", `/issues/${i.id}`, {}, attempt.id, signal)
+  commit: (i, { attempt }) => Effect.gen(function* () {
+    const res = yield* send("DELETE", `/issues/${i.id}`, {}, attempt.id)
     if (res.status === 204) return
     return yield* settle(res)
   }),
@@ -2745,8 +3128,8 @@ export const createIssue = transaction({
   id: "issues/create", input: Schema.Struct({ draftId: Schema.String, projectId: Schema.String, title: Schema.String }), output: IssueRow,
   key: ["draftId"],                                                            
   concurrency: "reject",
-  commit: (i, { attempt, signal }) => Effect.gen(function* () {
-    const res = yield* send("POST", `/projects/${i.projectId}/issues`, { title: i.title }, attempt.id, signal)   // draftId stays on the device
+  commit: (i, { attempt }) => Effect.gen(function* () {
+    const res = yield* send("POST", `/projects/${i.projectId}/issues`, { title: i.title }, attempt.id)   // draftId stays on the device
     if (res.status === 201 && res.row !== undefined) return res.row
     if (res.status === 422) return yield* Outcome.failure(new Invalid({ message: res.message ?? "invalid" }))
     if (res.status >= 500) return yield* Outcome.unknown(new ServerError({ status: res.status }))
@@ -3148,7 +3531,7 @@ released (rule 32; EDP:105-106).
 | failure (author's tag) | removed | none (C4) | at settlement | unchanged |
 | failure `NotSent` | 2.8.5's table | none | at settlement | unchanged |
 | unknown (author's, `Cancelled`, `Restored`, `Interrupted`, `Defect`, `StillUnknown`) | kept until the forced repair lands | forced | after the forced repair settles | set for this Attempt |
-| `Released` (`cancel` in `Held`) | none left (ended by the forced repair) | none | a waiting re-send's entry withdrawn | kept until a later write's success (rule 32) |
+| `Released` (`cancel` in `Held`, an ignored unknown, any unknown not retained: rule 40) | ended by the forced repair; a release before the repair lands removes nothing, and predictions end with the repair, as for unknown | none | a waiting re-send's entry withdrawn | kept until a later write's success (rule 32) |
 
 **Facts the record queue owns** (decided as behaviour, OD19, OD20; R7 K20, M3, M4). The record queue is shared, applied at
 settlement (rule 27), and orders writes to a record across lanes and actors (rule 29). Two facts move there:
@@ -3197,6 +3580,14 @@ A domain write states its `key`, a list of `input` fields, like every contract (
 one-record write's key fields are not the input fields its predicted record's key reads (rule 34), since two lanes for
 one record would let `reject` pass two writes; writes predicting several records, none, or a `many` key are exempt. The
 `.each` spelling (strings, rule 9) is unchanged.
+
+**A key from a value carrying its fields** (decided, OD29 J). `Entity.patch`, `Entity.delete`, `Entity.fields` and a
+read's `.byKey` take any value carrying the key's fields, or an array of such values, as rule 43's members do:
+`Comment.patch(input, { text: input.text })`. The parameter is the key type itself, never a type variable, so a
+fresh object literal with a field outside the key is a type error, as are a missing, optional or nullable key field.
+Flow keeps only the `primaryKey` fields, so the stored key equals the literal's under `Equal.equals`, and the
+predicts recorder records each as that value's field, so rule 34's warning is unchanged. Where the input names the
+key differently, write the literal.
 
 #### 2.8.9 Callback memory reads (E12)
 
@@ -3296,7 +3687,7 @@ Rules 48–60 are normative; this section is their reading, in the record's term
 | Value | Real source | Written in | Changes here |
 | --- | --- | --- | --- |
 | Request, response, status, body | `fetch`, XHR, `WebSocket`, an SDK (Stripe.js, a socket client) | an Effect service (`DocsApi`, `StripeApi`, `ChatSocket`, `IssuesApi`) whose Layer is the swap point (OD11) | no |
-| Cancel | `AbortController`: Flow interrupts the commit's fiber, which aborts the `signal` the adapter passed to `fetch` | the contract's function | no |
+| Cancel | Flow interrupts the commit's fiber, which aborts the signal Effect handed the adapter and it passed to `fetch` (rule 39) | the contract's function | no |
 | Idempotency key | `attempt.id`, minted by Flow, put on the wire by the commit author (rule 19) | the contract | no |
 | Classification | `Outcome.success / failure / unknown` beside the status it reads | the contract (2.7.1) | no |
 | Which server thing | the contract's `key`, a list of `input` fields (OD4, OD15) | the contract | no |
@@ -3337,6 +3728,7 @@ per-key fan-out limit); host data many writes share.
 | Writing root trait inside a copy (FP 2.10) | own | the copy's path `["X"]` | `["X"]`'s | copy X's inner trait only |
 | `.resumable()` frozen | placements released; lookups end `Interrupted`, parked with the slice (persisted) | runs | held | parked; at thaw the same incarnation, interrupted lookups first; `activities` placed again (rule 52) |
 | `resetOn` reset (F8) | released; placed again | runs | held | the incarnation with the old value, when it returns (rule 54); with rule 60, released |
+| `resetOn` value becomes absent (OD29 F) | released | runs | held, unplaced | the incarnation with the old value, when it returns (rule 54); with rule 60, released |
 | Node trait left, subroutine left (phase 2) | released | runs | held, unplaced | the next incarnation with the same path |
 | Actor disposed | released | unchanged (OD19) | unchanged | the identity's next incarnation, then the path's placement; parked for a persisted identity, evidence otherwise (OD21); a releasing mark survives |
 | Rebind or restore | placed per state | delivered when it lands, or released if marked | `unknown { Restored }` once, or released if marked | the incarnation with the lane's path, if active; else parked |
@@ -3406,7 +3798,7 @@ lists a releasing lane as such.
 - **`flow check` adds no finding name.** `SharedContract` widens (F2). `UnresolvedHold` and rule 20's adopted-ending
   check run inside each fragment (rule 55) and gain rule 56's arrivals and structural warning at the host. Rule 20's `NotSent`
   list gains "a mapped write on a placement whose subject path is not empty (`Rejected`)". An acting member used
-  outside its fragment, a rule 48 violation and a non-string `resetOn` on a writing placement are construction or type
+  outside its fragment, a rule 48 violation and a `resetOn` on a writing placement returning anything but a string, `null` or `undefined` are construction or type
   errors.
 - **Typing.** `Fragment.O` is typed from the declaration and has only write operations' reads. Members are branded
   with their fragment. Key-less `O.x.cancel` type-checks in `whenAbandoned` on any write operation. The fragment's `R`
@@ -3755,9 +4147,9 @@ the design used here, such as `deny` (SA RV1 L4).
 | Tier | Count | Words |
 | --- | --- | --- |
 | **Common** (a scripted test of one machine, as 2.10.18.1–2) | **34** new, 5 reused | Story, 10: `Story.machine`, `id`, `fixtures`, `world`, `send`, `advance`, `next`, `checkpoint`, `run`, `checkpoints`. Reads, 8: `read`, `lane`, `records`, `since`, `attempt`, `n`, `now`, `run.end`. Fake, 11: `Fake.server`, `truth`, `initial`, `endpoints`, `Fake.call`, `request`, `handle`, `response`, `controls`, `Fake.control`, `Fake.Lost`. Wire, 5: `hold`, `release`, `drop`, `at`, `times`. Reused: `input`, `state`, `memory`, `operations`, `schedules` |
-| **Uncommon** (apps, fragments, domains, reloads, tabs, streams, transports, SSR) | **43** new, 13 reused | Subjects, 2: `Story.app`, `Story.fragment`. Steps and options, 12: `together`, `dispose`, `how`, `reload`, `guards`, `suspended`, `from`, `subject`, `end` (on `leave`), `settled`, `turn`, `step` (the last three in `checkpoint(…, { at })`). Wire, 4: `duplicate`, `match`, `purpose`, `after`. Fake, 20: `Fake.storage`, `Fake.stream`, `frame`, `open`, `ping`, `every`, `frames`, `refuse`, `end` (on `open`, and `socket.end`), `send`, `close`, `Fake.fetch`, `endpoint`, `params`, `query`, `body`, `headers` (the route context), `Fake.webSocket`, `Fake.Refused`, `Fake.Closed`. Reads, 5: `inspection`, `entity`, `tabs`, `run.frames`, `truncated`. Reused: `ensure`, `openTab`, `closeTab`, `enter`, `leave`, `setContext`, `dehydrate`, `hydrate`, `within`, `maxBytes`, `label`, `serverView`, `input` (in a route) |
+| **Uncommon** (apps, fragments, domains, reloads, tabs, streams, transports, SSR) | **44** new, 13 reused | Subjects, 2: `Story.app`, `Story.fragment`. Steps and options, 13: `together`, `dispose`, `detach`, `how`, `reload`, `guards`, `suspended`, `from`, `subject`, `end` (on `leave`), `settled`, `turn`, `step` (the last three in `checkpoint(…, { at })`). Wire, 4: `duplicate`, `match`, `purpose`, `after`. Fake, 20: `Fake.storage`, `Fake.stream`, `frame`, `open`, `ping`, `every`, `frames`, `refuse`, `end` (on `open`, and `socket.end`), `send`, `close`, `Fake.fetch`, `endpoint`, `params`, `query`, `body`, `headers` (the route context), `Fake.webSocket`, `Fake.Refused`, `Fake.Closed`. Reads, 5: `inspection`, `entity`, `tabs`, `run.frames`, `truncated`. Reused: `ensure`, `openTab`, `closeTab`, `enter`, `leave`, `setContext`, `dehydrate`, `hydrate`, `within`, `maxBytes`, `label`, `serverView`, `input` (in a route) |
 | **Rare** (policy cells, property tests, upgrades) | **17** | `to`, `reset`, `nth`, `storage`, `Fake.storage.seed`, `Fake.storage.from`, `seed`, `propertyTest`, `steps`, `properties`, `whenQuiet`, `runs`, `length`, `quietWithin`, `domainPropertyOptions`, `Story.Frame`, `Story.Step` |
-| **Total** | **94** new, 18 reused | v3's `ping` and `every` add 2 [v3 item 1]. Round 2's cuts of `message` and `signal` took 2. `Story.World` became `Story.Step`, same count. `release({ match })`, the data forms and round 3's rules add no word |
+| **Total** | **95** new, 18 reused | v3's `ping` and `every` add 2 [v3 item 1]. Round 2's cuts of `message` and `signal` took 2. `Story.World` became `Story.Step`, same count. `release({ match })`, the data forms and round 3's rules add no word |
 
 **Removed** from the plans' Story surface: `process()` (W2), `advanceTo`, `advanceToNextTimer` (W6), the `frames` option and
 frame collapse (W22), `run.calls`, `checkpoint.exit` (W34), the checkpoint predicate (SC2, C16), `Story.ending` (never
@@ -3776,7 +4168,7 @@ plain variables and each branch runs in a fresh Runtime. A plan holds inputs and
 
 | Constructor | Subject | Options (exactly what the subject declares, STR1) | Steps that type-check beyond the common ones |
 | --- | --- | --- | --- |
-| `Story.app` | an app setup (`RuntimeSetup`) | `id`, `fixtures?`, `world?`, `storage?`, `seed?` | `ensure(ref)`, `dispose(ref, { how? })`, `send(target, …events)`, `openTab`, `closeTab`, `reload`, `dehydrate`, `hydrate` |
+| `Story.app` | an app setup (`RuntimeSetup`) | `id`, `fixtures?`, `world?`, `storage?`, `seed?` | `ensure(ref)`, `detach(ref)`, `dispose(ref, { how? })`, `send(target, …events)`, `openTab`, `closeTab`, `reload`, `dehydrate`, `hydrate` |
 | `Story.machine` | a machine | `id`, `input` (iff declared), `context` (iff declared), `fixtures?`, `world?`, `seed?` | `send(…events)`, `setContext`, `dispose()`, `ensure()` (another incarnation of the same identity) |
 | `Story.fragment` | a trait or a subroutine alone | `id`, `fixtures?`, `world?`, `seed?` (input is given at `enter`) | `enter(input?, { subject? })`, `leave(options?)`, `guards(answers)`, `reset(subject)` (traits), `send` of `events` and `hostEvents` |
 
@@ -3806,7 +4198,7 @@ acquiring anything (Testing O1).
 | `world` | a control; `{ world: [...controls] }` |
 | `advance` | `{ advance: d }`, `{ advance: { next } }`, `{ advance: { to } }`, `{ advance: [d, { suspended }] }` |
 | `together` | `{ together: [...inputs] }` |
-| `ensure`, `dispose` | `{ ensure: [ref?, options?] }`, `{ dispose: [ref?, options?] }` |
+| `ensure`, `detach`, `dispose` | `{ ensure: [ref?, options?] }`, `{ detach: [ref?] }`, `{ dispose: [ref?, options?] }` |
 | `enter`, `leave`, `reset`, `guards` | `{ enter: [input?, options?] }`, `{ leave: options }`, `{ reset: subject }`, `{ guards: answers }` |
 | `setContext` | `{ setContext: context }` |
 | `openTab`, `closeTab`, `reload` | `{ openTab: [name, options?] }`, `{ closeTab: name }`, `{ reload: name }` |
@@ -3875,7 +4267,7 @@ as work (2.10.6).
 | `advance(d)` | time moves to now + d, stopping at every deadline on the way, in the order of 2.10.3, settling at each | settle at now + d |
 | `advance({ next: address })`, `advance({ to })` | to the earliest unfrozen deadline the address matches; to an epoch millisecond at or after now | as `advance` |
 | `advance(d, { suspended })` | a page in the background (2.10.3) | the tab's overdue timers fire, then settle |
-| `ensure`, `dispose`, `openTab`, `closeTab`, `reload`, `enter`, `leave`, `reset`, `setContext` | the lifecycle command, as a host would issue it | settle |
+| `ensure`, `detach`, `dispose`, `openTab`, `closeTab`, `reload`, `enter`, `leave`, `reset`, `setContext` | the lifecycle command, as a host would issue it; `ensure` and `detach` attach and end one use, as a screen mounting and unmounting (rule 73) | settle |
 | `guards(answers)` | the stand-in host's answers from now on (2.10.12) | nothing to settle |
 | `dehydrate`, `hydrate` | Testing O7; dehydrate's time motion follows 2.10.3, deadline by deadline; a source runs on the run's clock (2.10.11) | settle |
 | `checkpoint(name, { at? })` | nothing: it names the latest step cut (2.10.6) | nothing |
@@ -4592,9 +4984,13 @@ each a step. After the reopen, restore, `Restored` endings, held lanes, parked e
 any external event are records and frames. A tab opened while another holds the scope runs without persistence
 (`SecondTabNoPersistence` in `cp.tabs.b?.inspection`'s persistence status). While a tab is closed, `read({ actor, tab })` is
 `undefined` and its records stay (STR55, STF69). A focused machine Story's actor is a local identity, whose lanes are
-never persisted (brief C14), so `closeTab` and `reload` there are type errors. Rebind is `dispose()` then `ensure()`; retain
-expiry is `dispose(ref)` then `advance` past the retain; `dispose(ref, { how: "now" })` is `disposeActor` and
-`{ how: "forget" }` is `forget` (STR9, STF43). Upgrades start from `storage: Fake.storage.from(oldStory)` (STR41).
+never persisted (brief C14), so `closeTab` and `reload` there are type errors. A focused machine Story holds its subject for the whole run, so
+`detach` is a type error there, and its `dispose()` then `ensure()` is a rebind. In an app Story, `ensure(ref)` attaches
+one use, as a mounted screen does, and `detach(ref)` ends one (with none held by this Story it is
+`StoryInvalidCommand { reason: "ActorAbsent" }`); an `advance` past the grace then ends an actor with no use and no work
+in flight, and one kept by a write stays until its ending's turn has run (rule 73). `dispose(ref)` is `disposeActor` and
+`{ how: "forget" }` is `forget` (STR9, STF43); no Story step ends an actor and keeps its record while it writes.
+`openTab({ from })` and `reload` re-attach the uses this Story held in that tab's latest life, in first-ensure order. Upgrades start from `storage: Fake.storage.from(oldStory)` (STR41).
 
 #### 2.10.11 SSR and lazy entries
 
@@ -4711,8 +5107,9 @@ tests over the policy suite's machines search for (STR65, STR66).
 | SSR hydration | `dehydrate` with a commit held on the wire, then `hydrate` |
 | Runtime disposal | the policy suite's internal step only (Stories T2) |
 
-The `cancel`/`allow` table adds `turn end`, reached by settling; `Held (parked)` by a persisted identity disposed by
-retain expiry (`dispose`, `advance`), an unknown answer released while it has no actor, then `ensure`. 2.9.3's rows:
+The `cancel`/`allow` table adds `turn end`, reached by settling; `Held (parked)` by a reload or a dormant lazy record of a
+persisted identity, an unknown answer released while it has no actor, then `ensure` (rule 73: an implicit end never
+meets an `InFlight` lane). 2.9.3's rows:
 another path's member by two copies whose commits share a key; freeze and thaw by `leave()` and `enter()` on a
 resumable placement; parking in a live actor by removing the copy; the releasing rows by a `whenAbandoned` cancel and
 a removal in each state, restore by `reload`, and the cleared mark by re-adding the copy before the lane is `Idle`. The
@@ -4889,7 +5286,7 @@ extended with them and re-run ([merged/story-checks/model/RESULTS.md](merged/sto
 | `advance(d)` | open | each deadline ≤ now + d, then now + d | at each deadline (2.10.17.5), then at now + d | one | `InvalidDuration`, `StoryTurnLimit` (per instant; `reason: "Advance"` past 100,000 deadlines) |
 | `advance({ next })`, `advance({ to })` | open | to the earliest unfrozen deadline the address matches; to `to` | as `advance` | one | `NoDeadline`, `InvalidDuration` |
 | `advance(d, { suspended })` | the tab runs nothing during the move | as `advance`, the tab's sleeps skipped | at each world deadline; then the tab's overdue ones in deadline order, then its queued transport input | one | as `advance` |
-| `ensure`, `dispose`, `enter`, `leave`, `reset`, `setContext` | open | fixed | after | one | `AlreadyEntered`, `NotEntered`, `ActorAbsent` |
+| `ensure`, `detach`, `dispose`, `enter`, `leave`, `reset`, `setContext` | open | fixed | after | one | `AlreadyEntered`, `NotEntered`, `ActorAbsent` |
 | `openTab(name, { from? })` | open | fixed | after bootstrap, then after each ensure `from` repeats | one | `TabOpen` |
 | `closeTab(name)` | the tab stops | fixed | after (other tabs; remote requests keep travelling; local writes abort) | one | `TabClosed` |
 | `reload(name)` | as `closeTab` then `openTab(name, { from: name })` | fixed | as both | one | as both |
@@ -5207,7 +5604,7 @@ The two walks that need a persisted identity are app Stories (`ShopSetup` persis
 
 ```ts
 const shop = (id: string) => Story.app(ShopSetup, { id, fixtures: [StripeFake] })  // [W1]
-  .ensure(Checkout1, { input: { intentId: "pi_1" } })                               // a reopened tab repeats it
+  .ensure(Checkout1)                                                                // a reopened tab repeats it; Checkout1 = actorRef(CheckoutMachine, { intentId: "pi_1" }, { persist: true })
 
 export const cancelledInAckWindow = shop("checkout/cancel-before-send")
   .world(Fake.storage.write.hold({ match: { purpose: "acknowledge" } }))            // bootstrap restore is unaffected
@@ -5395,7 +5792,7 @@ The operations record's 8.2 `CloseAnyway` then unmount, and a reload, are `reope
 ```ts
 const c7 = Issues.add({ id: "c7", projectId: "p1", likes: 3 })                     // user-defined control
 const desk = (id: string) => Story.app(IssuesSetup, { id, fixtures: [IssuesFake], world: [c7] })   // the server holds c7 before bootstrap
-  .ensure(BoardP1, { input: { projectId: "p1" } })
+  .ensure(BoardP1)
 const toggle = (liked: boolean) => Board.E.likes.key("c7").Toggle({ liked })
 
 export const unknownLikeKept = desk("board/unknown-like-kept")
@@ -5407,7 +5804,7 @@ export const unknownLikeKept = desk("board/unknown-like-kept")
   .checkpoint("reconciled")
 
 export const queueAcrossActors = desk("board/queue-across-actors")
-  .ensure(IssuePageC7, { input: { issueId: "c7" } })
+  .ensure(IssuePageC7)
   .world(Issues.setLike.hold())
   .send(BoardP1, toggle(true))                                                       // heads c7's record queue, in transit
   .send(IssuePageC7, IssuePage.E.like.Toggle({ liked: false }))                      // joins behind it: predicted, not sent
@@ -5415,9 +5812,11 @@ export const queueAcrossActors = desk("board/queue-across-actors")
   .world(Issues.setLike.release())
   .checkpoint("drained")
 
-const pages = Array.from({ length: 64 }, (_, i) => issuePageRef(`c7-${i}`))          // user-defined: 64 actors on one issue
+// user-defined: Liker, a machine whose input names each actor (rule 74): memory { issueId: Flow.input(Schema.String),
+// seat: Flow.input(Schema.String) }, placing the same `like` trait as IssuePage; likerRef = (v) => actorRef(LikerMachine, v)
+const pages = Array.from({ length: 64 }, (_, i) => likerRef({ issueId: "c7", seat: `s${i}` }))   // 64 actors on one issue (OD30 I18)
 export const overloaded = pages
-  .reduce((s, page) => s.ensure(page, { input: { issueId: "c7" } }).send(page, IssuePage.E.like.Toggle({ liked: false })),
+  .reduce((s, page) => s.ensure(page).send(page, Liker.E.like.Toggle({ liked: false })),
     desk("board/65th-write").world(Issues.setLike.hold()).send(BoardP1, toggle(true)))   // 1 held head + 63 queued; the 65th is refused
   .checkpoint("refused")
 
@@ -5458,7 +5857,7 @@ the same test file can also hand to `propertyTest` (W25):
 
 ```ts
 export const created = Story.app(IssuesSetup, { id: "list/created", fixtures: [IssuesFake] })
-  .ensure(ListP1, { input: { projectId: "p1" } })
+  .ensure(ListP1)
   .send(ListP1, List.E.Create({ draftId: "dr1", title: "New" }))
 
 const shownTwice = (frame: Story.Frame<typeof IssuesSetup>) => {                     // user-defined; Story.Frame, by subject [P, SA RV1 M7]
@@ -5543,7 +5942,7 @@ export const likeAlone = Story.fragment(LikeButton, { id: "like/alone", fixtures
   .checkpoint("reconciled")
 
 export const bothHosts = desk("like/both-hosts")                                     // 2.10.18.4's desk: one Runtime, two hosts of one fragment
-  .ensure(IssuePageC7, { input: { issueId: "c7" } })
+  .ensure(IssuePageC7)
   .world(Issues.setLike.drop({ at: "response", match: { actor: IssuePageC7 } }))     // only the page's request
   .send(BoardP1, Board.E.likes.key("c7").Toggle({ liked: true }))
   .send(IssuePageC7, IssuePage.E.like.Toggle({ liked: true }))
@@ -5730,8 +6129,8 @@ messages: stream({
   delivers: "every",   // S11
   position: "cursor",   // the NAME of a field of `output`. Its Schema comes with it
   subscribe: ({ roomId }, { from }) => Effect.map(ChatSocket, (chat) => chat.room(roomId, from)).pipe(Stream.unwrap),   // user-defined: ChatSocket, a service, below. As commit calls StripeApi. E is inferred from the service
-  catchUp: ({ roomId }, { from, next, signal }) =>
-    fetchPage(roomId, next ?? from, signal).pipe(Effect.map((p) =>        // user-defined: fetchPage
+  catchUp: ({ roomId }, { from, next }) =>
+    fetchPage(roomId, next ?? from).pipe(Effect.map((p) =>        // user-defined: fetchPage, which passes tryPromise's signal
       p.truncated ? Feed.gone({ reason: `history starts at ${show(p.oldest)}`, items: p.messages, next: p.next })
       : p.complete ? Feed.done({ items: p.messages, proof: "server: page.complete", through: p.head })   // proof is required
       : Feed.more({ items: p.messages, next: p.next, through: p.next }))),   // p.next is the page token and, on this server, also a position
@@ -5809,10 +6208,10 @@ export class ChatSocket extends Context.Service<ChatSocket, {
 stream({
   id, input, output, key,
   delivers: "every" | "latest",   // S11
-  subscribe: (input, { from, signal }) => Stream<A | Signal, E, R>,   // from: when position is set
+  subscribe: (input, { from }) => Stream<A | Signal, E, R>,   // from: when position is set
   // every only (type error on latest):
   position?: keyof A,                               // the NAME of a field of output, as key names input's
-  catchUp?: (input, { from, next, signal }) => Effect<Feed.more | Feed.done | Feed.gone, E, R>,   // requires position
+  catchUp?: (input, { from, next }) => Effect<Feed.more | Feed.done | Feed.gone, E, R>,   // requires position
   // written last, so `e` is typed:
   reconnect?: { while?: (e: E) => boolean, schedule?: Schedule },   // Effect.retry's two options. With:
   idleTime?: Duration.Input,                        // required exactly when reconnect is present. "Infinity": no deadline
@@ -5864,7 +6263,7 @@ Each `head`, `through`, `restartAt`, `at` is typed `P` and **decoded against the
 
 ```ts
 // GET /messages?limit=50: the newest 50, no cursor parameter
-catchUp: ({ roomId }, { from, signal }) => latest50(roomId, signal).pipe(Effect.map((p) =>   // user-defined
+catchUp: ({ roomId }, { from }) => latest50(roomId).pipe(Effect.map((p) =>   // user-defined
   from === undefined ? Feed.done({ items: p.messages, proof: "first load: newest 50", through: p.head })
   : p.messages.some((m) => sameCursor(m.cursor, from)) ? Feed.done({ items: p.messages, proof: "page overlaps the bookmark", through: p.head })
   : Feed.gone({ reason: "more than 50 since the bookmark", items: p.messages, through: p.head }))),   // a notice, never a silent gap
@@ -5985,7 +6384,7 @@ LIVE: { schedules: { healthy: { schedule: "1 minute", send: E.Healthy } },
 - `connect`: clear `wiped`, `greeted`, `noted`. If `b` exists, `filled`, and the field is empty: `wiped = true`, `b = { at: undefined, filled: false }` **at once**, so leaving before registering stays owed. `claim = b.at`; `subscribe(input, { from: claim })`; `Connecting`.
 - `register(a)`: `regInConn` read then set; `owed = false`; `noted = false`; `liveSince = now`; `drop = none`; re-arm the deadline; Streams T2. `latest`: Streams T5.
 - `notice(why)`: if not `noted`: queue `missed why`, `noted = true`.
-- `abandon`: interrupt the read, aborting `signal`; `buf = []`; `lastRead = none`.
+- `abandon`: interrupt the read; `buf = []`; `lastRead = none`.
 - `lose(e)`: `abandon`; read `liveSince`, then **clear it**. If in `Repairing` with `e = Overflow` and not `movedHere`: `stalls += 1`. If `reconnect` and (`e` is Flow's, or `while(e)`, or no `while`): under the default: step `n` for the delay, which never exhausts; unless `e = Silent`, `flaps += 1` if `liveSince` was set and `healthy` had not elapsed; `flaps = 8` ends `Flapping`. A `Silent` end neither adds nor resets `flaps`: 8, none healthy in between. With a written `schedule`: step `n`, exhausted ends `e`. Otherwise `Waiting`, `drop = e`, `dropAt = now`, `regInConn = false`, discard this connection's frames. No `reconnect`, or not retried: `end(e)`.
 - `end(f)`: `Ended { f }`; queue `failure f`.
 - `complete(through?)`: `stalls = 0`; queue `settle(through ?? lastRead ?? greeted)`; if none, it makes `{ at: undefined }` when there is no record; queue each of `buf`; `buf = []`; `Live`.
@@ -6254,10 +6653,10 @@ As in the record's v2 4.4: **a streaming write stays a transaction.** Nothing he
 ask: transaction({
   id: "Assistant.ask", input: { threadId: Schema.String, prompt: Schema.String }, output: Answer, key: ["threadId"],
   progress: { text: Schema.String }, concurrency: "reject",
-  commit: (input, { attempt, signal, progress }) => Effect.gen(function* () {
+  commit: (input, { attempt, progress }) => Effect.gen(function* () {
     const http = yield* FetchHttpClient.Fetch   // the seam Fake.fetch binds
     const res = yield* Effect.tryPromise({
-      try: () => http("/api/ask", { method: "POST", body: JSON.stringify(input), headers: { "Idempotency-Key": attempt.id }, signal }),
+      try: (signal) => http("/api/ask", { method: "POST", body: JSON.stringify(input), headers: { "Idempotency-Key": attempt.id }, signal }),   // tryPromise's signal; fromReadableStream below cancels the body
       catch: () => Outcome.unknown(new NoResponse()) })
     if (!res.ok) return yield* (res.status >= 500 ? Outcome.unknown(new ServerError({ status: res.status })) : Outcome.failure(new Refused({ status: res.status })))
     let text = ""
@@ -6293,7 +6692,7 @@ As in the record's v2 4.5.
 put: transaction({
   id: "Uploads.put", input: { ref: Schema.String, file: Schema.instanceOf(File) }, output: Stored, key: ["ref"],
   progress: { sent: Schema.Number, total: Schema.Number }, concurrency: "reject",
-  commit: ({ ref, file }, { attempt, signal, progress }) => Effect.callback<Stored, Outcome.Unknown<UploadLost> | Outcome.Failure<TooLarge>>((resume) => {
+  commit: ({ ref, file }, { attempt, progress }) => Effect.callback<Stored, Outcome.Unknown<UploadLost> | Outcome.Failure<TooLarge>>((resume, signal) => {
     const xhr = new XMLHttpRequest()
     xhr.upload.onprogress = (e) => { if (e.lengthComputable) progress({ sent: e.loaded, total: e.total }) }
     xhr.onload = () => resume(xhr.status === 201 ? Effect.succeed(JSON.parse(xhr.responseText)) : xhr.status === 413 ? Outcome.failure(new TooLarge()) : Outcome.unknown(new UploadLost({ status: xhr.status })))
@@ -6383,8 +6782,8 @@ Streams T2's row 7 covers this. REST history read first: one notice per load. Wi
 ```ts
 delivers: "every", position: "serial",
 subscribe: ({ name }) => Effect.map(AblyChannel, (c) => c.messages(name)).pipe(Stream.unwrap),   // user-defined: AblyChannel, below
-catchUp: ({ name }, { from, next, signal }: { from: Serial | undefined; next: Walk | undefined; signal: AbortSignal }) =>   // annotated: a richer token. user-defined: Walk
-  history(name, from, next?.page, signal).pipe(Effect.map((p) => {        // newest first
+catchUp: ({ name }, { from, next }: { from: Serial | undefined; next: Walk | undefined }) =>   // annotated: a richer token. user-defined: Walk
+  history(name, from, next?.page).pipe(Effect.map((p) => {        // newest first; history uses tryPromise's signal
     const head = next?.head ?? p.firstSerial                              // the walk's first page: where this read ends
     const items = [...p.items].reverse()
     return p.reachedRetention ? Feed.gone({ reason: "past retention", items, through: head })
@@ -6468,11 +6867,10 @@ An SDK self-rejoin sends the stale `from`: more replay. Safe: duplicates.
 ```ts
 delivers: "latest",
 subscribe: ({ where }) => Feed.callback<Rows, ElectricDown>((emit) => Effect.gen(function* () {
-  const ctl = new AbortController()
-  const stream = new ShapeStream({ url, params: { table: "tickets", where }, signal: ctl.signal })
+  const signal = yield* Effect.abortSignal   // aborted when the register's scope closes
+  const stream = new ShapeStream({ url, params: { table: "tickets", where }, signal })
   stream.subscribe((msgs) => { if (msgs.some((m) => m.headers?.control === "up-to-date")) emit(Feed.live({ proof: "electric up-to-date" })) }, (e) => emit.fail(new ElectricDown({ e })))
   new Shape(stream).subscribe(({ rows }) => emit(rows))
-  yield* Effect.addFinalizer(() => Effect.sync(() => ctl.abort()))
 })),
 reconnect: { while: (e) => e._tag === "ElectricDown" }, idleTime: "45 seconds",
 ```
@@ -6518,9 +6916,9 @@ A poll from `from` sees all, but `head` alone is unproven: a reconnect's first a
 
 ```ts
 delivers: "every", position: "seq",
-subscribe: ({ feedId }, { from, signal }) => Stream.unwrap(Effect.gen(function* () {
+subscribe: ({ feedId }, { from }) => Stream.unwrap(Effect.gen(function* () {
   const http = yield* FetchHttpClient.Fetch   // the seam Fake.fetch binds. A global fetch reaches no fake
-  const res = yield* Effect.tryPromise({ try: () => http(feedUrl(feedId, from), { signal }), catch: () => new BodyDropped() })
+  const res = yield* Effect.tryPromise({ try: (signal) => http(feedUrl(feedId, from), { signal }), catch: () => new BodyDropped() })
   if (res.status === 401) return yield* new SignedOut()
   if (!res.ok) return yield* new BodyDropped()
   const hello = res.headers.get("x-replayed-from") === String(from) ? Feed.live({ proof: "server replayed" }) : Feed.live()
@@ -7378,9 +7776,9 @@ turn (rule 6).
 
 | Kind | Words |
 |---|---|
-| **New, fragments** | `trait`, `subroutine`, `traits` (root and node), `Flow.state`, `.resumable()`, `.each` (`of`, `max`, `by`), `key` / `item` in fillings and copy views, `.key(k)`, `hostEvents`, `guards`, `callbacks`, `exits` (declarations and fillings), `notify`, the `Flow` module (`Flow.Guard`, `Flow.Callback`, `Flow.Exit`, `Flow.optional`, `Flow.uncertain`, `Flow.annotate`, `Flow.input`, `Flow.initial`, `Flow.private`, `Flow.Denial`, `Flow.entry`), `raise`, `resetOn`, `whenAbandoned`, the definition's `handler` / `guard`, state tokens in guard arrays; (operations in fragments) `operations` in a trait or subroutine declaration, `O` in a fragment body, `Fragment.O.<write>.get` / `.idle` / `.retryable` outside it, `activities` in a trait body, `s.operations.<instance>.<name>`, a string `resetOn` on a writing trait, key-less `O.x.cancel` in `whenAbandoned` (existing words, new meanings; no new word) |
+| **New, fragments** | `trait`, `subroutine`, `traits` (root and node), `Flow.state`, `.resumable()`, `.each` (`of`, `max`, `by`), `key` / `item` in fillings and copy views, `.key(k)`, `hostEvents`, `guards`, `callbacks`, `exits` (declarations and fillings), `notify`, the `Flow` module (`Flow.Guard`, `Flow.Callback`, `Flow.Exit`, `Flow.optional`, `Flow.uncertain`, `Flow.annotate`, `Flow.input`, `Flow.initial`, `Flow.private`, `Flow.Denial`, `Flow.entry`), `raise`, `resetOn`, `whenAbandoned`, the definition's `handler` / `guard`, state tokens in guard arrays; (operations in fragments) `operations` in a trait or subroutine declaration, `O` in a fragment body, `Fragment.O.<write>.get` / `.idle` / `.retryable` outside it, `activities` in a trait body, `s.operations.<instance>.<name>`, a string `resetOn` on a writing trait (absent: not placed, with `key` in its filling, OD29 F), key-less `O.x.cancel` in `whenAbandoned` (existing words, new meanings; no new word) |
 | **New, plans** | `Outcome.success`, `Outcome.failure`, `Outcome.unknown`; Flow's reasons `NotSent { why }` (`Cancelled`, `Restored`, `Rejected`, `Overloaded`, `StorageRefused`, `Disposed`), `Cancelled`, `Restored`, `Interrupted`, `Defect`, `StillUnknown { failure }`, `StorageRefused`; evidence `Superseded`, `Released`, `NothingToResend`, `InFlight`; (operations merge) contracts with `input`, `output` (omitted: `Schema.Void`) and a required `key: [...]` field list, in `*.contracts.ts`; `operations: ({ E }) => ({ … })` with `contract.outcomes({ … })` (`unknown` may be a record by tag); the handles `O.x` with `commit(select)`, `lookup(select)`, `subscribe(select)`, `subscribe.each(select)`, `retry(k?)`, `cancel(k?)`, `idle(k?)` (a partial key allowed), `retryable(k?, { times })`, `refetch`, `get(s, k?)`; the rows `s.operations.<name>` with `pending`, `uncertain`, `waiting`, `retryCount`, `progress`, `outstanding`; the mapper's `{ input, attempt, progress, key }`; the operation's options argument `.outcomes(mapping, { writes })` and the commit's `{ optimistic }` (OD26); `runtime.unsettledWrites()`; the findings `SharedContract`, `DuplicatePlacement`, `VerbMismatch`, `KeyRequired`, `UnresolvedHold`, `KeyOmitsInput`, `UnusedOperation`; the denials `Uncertain`, `RetryLimit`; `DehydrateCommitInFlight`; `attempt.id`, `attempt.retryCount`, `attempt.mayHaveApplied`; `concurrency: "latest"`; the record read `{ data, predicted, uncertain, unconfirmed }` (`predicted` replaces the record's and the resource lane's `pending`); (merge 5) the condition operators `or`, `not`, `gt`, `gte`, `lt`, `lte`, `isNull`, a predicted field's `(beneath, input) => value`, the Runtime option `checkReplays`, the warning `PredictionNotRetained`; the codes `InFlight` and `LateMayNotLeave`; `keys` on keyed schedules (key records); `orphaned`; `.history` (and `.history.child`); `armOn`; `disarmOn`; `s.schedules`; `dueAt` (`model()` and its options are removed: T1, C82) |
-| **New, Stories** | (rules 61–66, 2.10; common) `Story.machine` (`id`, `fixtures`, `world`), `send`, `advance` (settles at every deadline; `{ next: address }`), `checkpoint`, `world`, `run`, `run.checkpoints`, `run.end`, the reads `read`, `lane`, `records` (`since`), `attempt` (`n`), `now` beside the existing `state`, `memory`, `operations`, `schedules`, `Fake.server` (`truth`, `initial`, `endpoints`, `controls`), `Fake.call` (`request`, `handle`, `response`), `Fake.control`, `Fake.Lost`, `hold`, `release`, `drop`, `at`, `times`; (uncommon) `Story.app`, `Story.fragment`, `together` (`{ advance }`), `duplicate`, `match` (`purpose`, `input`), `after`, `Fake.storage`, `Fake.stream` (`frame`, `open`, `ping`, `every`, `frames`, `refuse`, `end`), `send` on a result, `.frames`, `.close`, `.end`, `Fake.webSocket`, `Fake.fetch` (`endpoint`, `input`, `params`, `query`, `body`, `headers`), `Fake.Refused`, `Fake.Closed`, `dispose` (`how`), `reload`, `guards`, `inspection` (`work`, `incarnations`), `tabs`, `entity`, `run.frames` (`truncated`), `advance(…, { suspended })`, `checkpoint(…, { at })` (`settled`, `turn`, `step`), `openTab(…, { from })`, `enter(input, { subject })`, `leave({ end })`; (rare) `advance({ to })`, `reset` (a fragment alone), `release({ nth })`, `storage`, `seed`, `Fake.storage.seed`, `Fake.storage.from(story)`, `propertyTest(story, …)` (`steps`, `properties`, `whenQuiet`, `runs`, `length`, `quietWithin`), `domainPropertyOptions`, the types `Story.Frame`, `Story.Step`; the errors `StoryInvalidCommand`, `NoConnection`, `NoDeadline`, `HostTimeWait`, `AmbiguousRead`, `PropertyTestFailed` (with the reason `PropertyDefect`), `StoryFakeError`, `SubjectAbsent`, the diagnostic `UnusedWireRule`, and the `Fail` reason `FramesTruncated`; twenty-one record kinds that `records` takes (read, not written). Reused: `ensure`, `closeTab`, `setContext`, `dehydrate`, `hydrate`, `within`, `maxBytes`, `label`, `serverView`. The address is a shape, not a word |
+| **New, Stories** | (rules 61–66, 2.10; common) `Story.machine` (`id`, `fixtures`, `world`), `send`, `advance` (settles at every deadline; `{ next: address }`), `checkpoint`, `world`, `run`, `run.checkpoints`, `run.end`, the reads `read`, `lane`, `records` (`since`), `attempt` (`n`), `now` beside the existing `state`, `memory`, `operations`, `schedules`, `Fake.server` (`truth`, `initial`, `endpoints`, `controls`), `Fake.call` (`request`, `handle`, `response`), `Fake.control`, `Fake.Lost`, `hold`, `release`, `drop`, `at`, `times`; (uncommon) `Story.app`, `Story.fragment`, `together` (`{ advance }`), `duplicate`, `match` (`purpose`, `input`), `after`, `Fake.storage`, `Fake.stream` (`frame`, `open`, `ping`, `every`, `frames`, `refuse`, `end`), `send` on a result, `.frames`, `.close`, `.end`, `Fake.webSocket`, `Fake.fetch` (`endpoint`, `input`, `params`, `query`, `body`, `headers`), `Fake.Refused`, `Fake.Closed`, `dispose` (`how`), `detach`, `reload`, `guards`, `inspection` (`work`, `incarnations`), `tabs`, `entity`, `run.frames` (`truncated`), `advance(…, { suspended })`, `checkpoint(…, { at })` (`settled`, `turn`, `step`), `openTab(…, { from })`, `enter(input, { subject })`, `leave({ end })`; (rare) `advance({ to })`, `reset` (a fragment alone), `release({ nth })`, `storage`, `seed`, `Fake.storage.seed`, `Fake.storage.from(story)`, `propertyTest(story, …)` (`steps`, `properties`, `whenQuiet`, `runs`, `length`, `quietWithin`), `domainPropertyOptions`, the types `Story.Frame`, `Story.Step`; the errors `StoryInvalidCommand`, `NoConnection`, `NoDeadline`, `HostTimeWait`, `AmbiguousRead`, `PropertyTestFailed` (with the reason `PropertyDefect`), `StoryFakeError`, `SubjectAbsent`, the diagnostic `UnusedWireRule`, and the `Fail` reason `FramesTruncated`; twenty-one record kinds that `records` takes (read, not written). Reused: `ensure`, `closeTab`, `setContext`, `dehydrate`, `hydrate`, `within`, `maxBytes`, `label`, `serverView`. The address is a shape, not a word |
 | **New, streams** | (rules 67–72, 2.11; common) `reconnect` (`while`, `schedule`), `idleTime`, `position`, `from`, `Feed.callback` (`emit`, `emit.fail`, `emit.end`), `Feed.live`, `proof`, `Feed.ping`, `missed`, `fills`, the `Feed` key of `failure`, and on the row `drop`, `value`, `last`, `connection`'s literals; (uncommon) `Feed.down`, `catchUp`, `next`, `Feed.more`, `Feed.done`, `Feed.gone`, `head`, `through`, `pages`, `catchingUp`, `O.x.bookmark` (`at`), `Feed.Signal`; (rare) `restartAt`, `why`. 29 in all (2.11.14). Read-only: the reasons `Closed`, `Overflow`, `Silent`, `Flapping`. New, not counted (S11): `delivers`' values `"every" \| "latest"`. Existing: `progress(p)` in a commit's context (rule 39). Existing with a new meaning: `O.x.refetch(k?)` on a stream. New concepts, not words: the **bookmark**, **cleared** and **wiped**, a **connection** within a **session** |
 | **New concepts, not words** | **incarnation** (one life of a fragment instance), **frozen** (a resumable trait while its node is inactive), **summary** (a contract's inferred per-alternative effects), the memory views **before**, **before-walk** and **after** (2.5, rule 22), pending reset, the three **channels** (2.7.1), a **write** (one Attempt) and a **send** (one invocation), a **contract** and an **operation** (rules 39, 40), the **write lane** with its states **`Idle`**, **`InFlight`**, **`Held`** and **`HeldThisTurn`** and its queued commits **`W`** (rule 21, 2.7.13), the **hold**, the lane's **addressable Attempt**, **after lanes**, the **binding incarnation**, an **unbound lane**, an **unplaced lane**, a **releasing lane**, the **subject path** (rules 51, 53, 60), **rebind**, **actor identity**, a **pending mapped outcome** (rule 44), a **keyed list** (rules 21, N1, N2), a call's **owner** and its **current** or **late** ending (rule 14), **late turn** (rule 15), the **Attempt's ending** (rule 18); the **record queue** (per record, across actors, rule 29), the **uncertain mark** (per record and Attempt, rule 32), **settlement** versus **admission** (rule 27), a **create draft** (`creating`, a convention, rule 33); (merge 5) yes / no / maybe, a **carried path**, the **record beneath**, an **uncomputed** prediction, a **prediction fault**, `many` |
 | **Existing** | `definition`, `machine`, `states`, `default`, `events`, `internalEvents`, `input` (caller side only: `ensure`, `useActor`, a host's filling), `memory`, `on`, `target`, `guard`, `updateMemory`, `actions`, `schedules`, `restartOn`, `transaction`, `key`, `concurrency`, `commit`, `outcomes`, `optimistic`, `setData`, the Attempt, `deny`, `check`, `S`, `E`, `O`, `.from`, `payload` |
@@ -7613,6 +8011,30 @@ The streams merge ([merged/streams/proposal-v3.md](merged/streams/proposal-v3.md
 | C101 | CommandLine O5 | `flow check` and `flow explain` as 2.11.13 | Adds |
 | C102 | Package O1 | `Feed` is exported beside `stream` [P, merge] | Adds |
 | C103 | Diagnostics | The finding names of 2.11.13 and `Feed`'s reasons | Adds |
+| C104 | Runtime O3 | Rule 73 (OD31): uses (an attached hook from its passive commit effect, a live snapshots subscription, a bound context consumer, Flow's holds for dehydrate and Hydrate); finite work in flight keeps an actor until its ending's turn has run; schedules wait while nothing uses it; free for 100 ms on the Runtime Clock it ends, its record encoded in that step; a persisted identity returns from the Runtime's copy; `actorRef` has no `retain`; `ConflictingActorRef` covers `persist` and `context`; host `createActor` actors live until disposed | Replaces "A use is an attached React consumer, a live snapshots subscription or a bound context consumer", "With retain (a Duration), a shared actor is disposed once retain has passed since its last use ended; a new use cancels that", "A provider with bound consumers never expires", "Without retain a shared actor lives until explicit or Runtime disposal" and "Retain expiry of a persisted actor disposes the live actor but keeps its saved record, so a later ensure restores it"; drops `retain?` from the signature and "retain" from "different persist, retain or context" (C117 rewrites the rest) |
+| C105 | Runtime O4, LazyFeatures O2, React O3 | 2.7.17's send table for action and handle sends; reasons `NoRecord`, `RecordUndecodable`, `NotAdopted`; a send never creates and may restore; a snapshots subscription completes when its subscriber stops or after the terminal snapshot of disposeActor, forget or Runtime disposal, and on an identity with no actor waits as a use | Replaces "Sends to a disposing or disposed actor are dropped and reported as SendTargetAbsent, never thrown", "If the target is absent or disposing the event is dropped with SendTargetAbsent", "Sends through a handle whose actor is disposed are dropped as SendTargetAbsent" and "A snapshots subscription completes only at the actor's disposal, after its terminal snapshot"; "never adopts or creates its target" becomes "never adopts a lazy entry or creates an actor; it may restore one from its record" |
+| C106 | Persistence O3, O4 | O3: an ended actor's record is encoded in the end step and kept; over the bounds, records equal to a fresh start drop first, then the capture is rejected naming the oldest ended identities. O4: restored records stay records until reached, except identities owed an ending (a lane `InFlight` at capture, a parked ending), restored live and kept until those turns run | Replaces "a persisted actor whose retain expired keeps its saved record (@plan.Runtime.O3)", "Exceeding either bound rejects the whole capture without eviction", "Restored stable actors are active without another ensure" (the rest of that sentence is C120's) and "Their retain clock starts at ready" |
+| C107 | ServerRendering O1, O5 | O1: dehydrate's Runtime holds a use on each shared actor from its install to capture or rejection. O5: Hydrate holds each inserted actor until its first consumer attaches or the boundary unmounts | Replaces "Shared actor retention starts at activation"; adds to O1 after "it may ensureActor, createActor and send on handles" |
+| C108 | React O2, O3, V4 | Uses from passive commit effects (re-suspension keeps them, Activity hiding ends them); a lookup of an identity with a record returns the record view; a pre-attach handle reads the Runtime's copy; local actors keep the 100 ms grace and gain the in-flight exception and the remount rule; during the grace activities run and schedules wait; across hiding, persist or hold a use outside the hidden subtree | Replaces "missing or disposed means null", "Shared ensuring hooks count as uses until cleanup; retention follows @plan.Runtime.O3", "Work continues during grace" and "Shared refs with retain are the way to keep state across hiding"; amends "Local cleanup leaves the actor active for 100 milliseconds on the Runtime Clock"; V4's "retention" becomes "uses and work in flight" |
+| C109 | Runtime V4 | The end after the grace on the TestClock; Strict Mode inside it; a chain of two or more writes and reads in one incarnation; schedules waiting without a use | Replaces "retain expiry on the TestClock" |
+| C110 | Testing O1 | App ensure attaches one use and detach(ref) ends one (`ActorAbsent` with none held); dispose is disposeActor, `{ how: "forget" }` is forget; openTab and reload re-attach the Story's uses; a focused Story holds its subject; send may restore, never create | Amends "App ensure(ref, options?) follows @plan.Runtime.O3 at the chosen step" and "send never creates an absent actor"; replaces C110's `Story.release(ref)` |
+| C111 | Inspection O1 | Per actor `uses: { consumers, subscriptions, contexts, pendingEnsures, busy }` with subscription owners; ends and returns as trace records; a create within 5 s of an end carries how long ago; printing per rule 74 | Replaces "issues and retain" with "issues and uses" (C122 amends the naming) |
+| C112 | Operations O2, O5 | `Flow.ignore` as a mapping value (no event, no handler; an ignored unknown is released); forbidden on stream keys and `listen` entries (2.7.18, OD28) | Adds |
+| C113 | Operations O5, EntityDomains O1 | An unknown that is not retained (bare, ignored, `HeldThisTurn`'s turn end) is `Released` to the store; a release before the forced repair removes nothing (OD28 P1) | Adds |
+| C114 | Machines O1 | A `resetOn` returning `null` or `undefined` means the trait is not placed; becoming absent ends the incarnation (`whenAbandoned` runs, and a key-less `cancel` there releases, rule 60), becoming present starts one; the filling's parts receive `key`, the present reset value (the copy key under `.each`); a writing placement's `resetOn` returns a string, `null` or `undefined` (rules 1, 9, 48, 51; OD29 F) | Amends C54's "any with a string `resetOn`" |
+| C115 | EntityDomains O1 | `Entity.patch`, `Entity.delete`, `Entity.fields` and `.byKey` take any value carrying the key's fields, or an array of them; the parameter is the key type, so a fresh literal with an extra field is a type error; Flow keeps only the `primaryKey` fields (2.8.8; OD29 J) | Amends "predicts returns Entity.patch(key, fields) or Entity.delete(key, { version? })" and "Entity.fields(key, fields)" |
+| C116 | Operations O1, O7 | Contexts carry no `signal`: Flow interrupts the fiber, and adapters take `Effect.tryPromise`'s or `Effect.callback`'s signal, or a scoped `Effect.abortSignal` (rule 39; OD29 E) | Replaces "lookup(params, { signal }) and commit(params, { signal, attempt, basedOn }) return Effects; subscribe(params, { signal }) returns a Stream." with the same contexts without `signal`, and O7's "Planned release aborts the signal and runs finalizers once" with "Planned release interrupts the fiber and runs finalizers once" |
+| C117 | Runtime O3 | Rule 74: `actorRef(machine, nameOrValue, options?)`; a value carrying the machine's `Flow.input` fields names the actor and is its input, so `ensureActor(ref)` takes none; a singleton has a literal name and takes input at ensure, the only place `InputIgnored` remains; a machine with no input is a singleton; one machine in both forms is `ConflictingActorRef` [P] (OD30 Q1, Q4) | Replaces "id is a string or a readonly array of strings; arrays encode unambiguously, so ["a/b", "c"] and ["a", "b/c"] are different actors" and "The first accepted input initializes it; later ensures never reset memory, and a different later input reports InputIgnored" |
+| C118 | Runtime V1, V4 | V1: an unambiguous identity encoding (fields in name order, strings). V4: first input wins only for a singleton; a value-named ref given input is a type error; a mismatched ref and input cannot be written | Replaces "unambiguous id parts" and "first input wins with a diagnostic" |
+| C119 | React O2 | A value-named ref takes no input; `useActorByRef(ref, {})` ensures it (OD30 Q8); a singleton's input never resets an existing actor | Amends "Declared input must have its exact type"; replaces "Shared input never resets an existing actor" |
+| C120 | Persistence O2, O4, O5 | O2: `actorRef(machine, nameOrValue, { persist: true })`. O4: only a singleton has fresh input to ignore. O5: a saved record of another input field set is an old-version record, listed at ready (`OldVersionActor` [P]), never renamed, removed by `forget` (OD30 Q3) | Replaces "actorRef(machine, id, { persist: true }) selects a stable shared actor" and "ensureActor returns the restored actor and ignores fresh input"; adds to O5's version-change paragraph |
+| C121 | Machines O1, Diagnostics | A machine's `Flow.input` fields are read-only (a type error to write one); on a value-named machine they are required, default-free and string-encoded (`IdentityFieldOptional` [P]); a fragment's input stays writable (2.2.2; OD30 Q5, Q6) | Amends the fragments' Machines O1 row "Memory fields carry `Flow.input` (supplied by the creator…)"; adds two finding names to Diagnostics |
+| C122 | Inspection O1, O4, Testing O1 | Actors are named by machine and input fields, or a singleton's name, in `inspect(runtime)`, traces and Story records; an app Story's `ensure(ref)` takes input only for a singleton (rule 74) | Amends "per actor its state, revision, mailbox depth…" and C111 |
+| C123 | Machines O1 | A handler's target may be omitted; omitted means "self" (OD29, decision 3 B) | Replaces "target is required and is this machine's token or "self"" |
+| C124 | Machines O5 | Schedules fire only while their actor is used (@plan.Runtime.O3); a deadline due while it is unused waits and fires once when a use returns, as an overdue one does | Amends "On restore or resume, a Duration preserves its deadline and fires once if overdue" to "On restore, resume, a return after an end, or a use returning to an actor whose schedules waited, a Duration preserves its deadline and fires once if overdue" |
+| C125 | Diagnostics O2, CommandLine O5 | `ScheduleLeadsToWrite` (warning or info) and its `flow explain` path; the development warning `EndedWithWork` | Adds to CommandLine O5's "Owner plans add findings of their own" and Diagnostics O2's codes; replaces no sentence |
+| C126 | Operations O3 | `unknown { Restored }` means a new incarnation (a reload or a return after an end), once per incarnation | Amends "work with an acknowledged Attempt restores as unknown unless a durable settled result is known" |
+| C127 | `references/design/multi-tab.md` 4, 5.3, V-MT2 | A follower's attachments are uses in the leader; a new leader waits for no one | Replaces "It releases that follower's attachments (retain)" with "its uses", "`retain` counts attachments in every tab" with "A follower's attachments are uses in the leader", the heading "Sends, dispose and retain" with "Sends, dispose and uses", and V-MT2's "retain across tabs" with "uses across tabs" |
 
 ### For tooling
 
@@ -7749,7 +8171,7 @@ Found while merging:
     is moot, the definition exports `O`; Story drives for dispose, rebind and restore (2.7.13); the parked lane's flags
     (2.7.13).
 20. **Typing risks** (operations in fragments, 2.7.16): `Fragment.O`, branded members, key-less `cancel` in
-    `whenAbandoned`, rows under `.each`, the fragment's `R` reaching the host, string-only `resetOn`; no type spike;
+    `whenAbandoned`, rows under `.each`, the fragment's `R` reaching the host, `resetOn` returning a string or absent (the `key` type spiked, OD29 F); no type spike;
     `flow check` is the fallback.
 21. **A cancelled Attempt's stored acknowledgement** (Stories merge; for the owner). A cancel that ends a never-sent
     commit `NotSent { Cancelled }` queues the capture that clears its acknowledgement; if the tab crashes after the
@@ -8317,6 +8739,55 @@ operations-in-fragments, the lane model and the reviews cite them.
   rebind or reload; `optimistic` stays the commit's only option, `O.x.commit(select, { optimistic })`, because it reads
   the starting turn's memory and event (rule 36). Domain writes take no `optimistic` (they predict records with
   `.predicts`); their `writes` may only invalidate, now on the operation. (2026-10-30)
+- **OD27** The user, 2026-11-07, in the Claude Code session: add actor lifetime to this design (rule 73, 2.7.17).
+  `retain` is removed; a shared actor lives while it is used, and work in progress is a use. The use list, the internal
+  grace, the Runtime's copy, the send conditions, local scope and multi-tab are the main session's calls from the
+  independent review and the round-14x run (`../../proposals/actor-lifetime/proposal.md`). Public API round, same day, all the
+  recommended option: Q1 `SendTargetAbsent` carries `reason: "NotAdopted" | "RecordUndecodable" | "NotPersisted"`; Q2
+  a host `ensureActor` is not a use (no `release` on handles; a host keeps an actor with a `snapshots` subscription);
+  Q3 no dedicated keep-alive API; Q4 `Story.release(ref)`; Q5 Inspection's `uses` per actor; Q6 the grace stays
+  internal. (2026-11-07) *Amended by OD31: work in progress is not a use (work in flight keeps an actor and ends; schedules wait); `NotPersisted` is `NoRecord`; `Story.release(ref)` is `detach(ref)`; the grace is shared with local actors.*
+- **OD28** The user, 2026-11-07: accepted from the absorb-wiring proposal (revision 2): B, `Flow.ignore` (2.7.18,
+  rules 13, 17, 20, 40, 45), checked cell by cell against 2.7.13 and rule 30 and confirmed by an independent review;
+  P1, every unretained unknown is `Released` (rule 40, 2.8.6; it makes the uncertain mark clearable, and a later
+  write's success still clears it, rule 32); G, apps classify lost errors with Effect's own
+  `Effect.catchTag(["NoResponse", "ServerError"], Outcome.unknown)`, no new Flow word; E step 1, apps stop passing
+  `signal` to ports (no design change). A catch-all `Flow` key was dropped. (2026-11-07)
+- **OD29** The user, 2026-11-07: accepted from the absorb-wiring proposal (revision 3): J, an entity's `patch`,
+  `delete`, `fields` and a read's `.byKey` take any value carrying the key's fields (2.8.8; the parameter is the key
+  type itself, never a type variable; Flow keeps only the `primaryKey` fields); E step 2, the `lookup`, `commit`,
+  `subscribe` and `catchUp` contexts carry no `signal` (rule 39), which overturns proposal-v3's word-table row
+  "`signal`: Keep" (S14), and an adapter that reads a body after `fetch` does it in the same `tryPromise` or shares one
+  `Effect.abortSignal`; F, a `resetOn` returning `null` or `undefined` means "not placed", and the filling's parts
+  receive `key`, the present reset value (rules 1, 9, 48, 51, 60). Also (decision 3 B): a handler's `target` may be omitted and means `"self"`, as the prototype already allows. (2026-11-07)
+- **OD30** The user, 2026-11-07: accepted the actor-identity proposal, every question option A (rule 74, 2.7.19).
+  Q1, an actor is its machine plus its input: a ref built from a value is named by the machine's `Flow.input` fields;
+  a singleton has a literal name and takes input at ensure. Q2, visit's guard reads the `Ticket` record and `assignee`
+  leaves input. Q3, changing a persisted value-named machine's input fields is a new version: old records are listed
+  at ready, never renamed (the prototype's D221, for actors). Q4, singleton names are literal strings. Q5, a machine's
+  input fields are read-only. Q6, identity fields encode to strings, in field-name order. Q7, no Flow-written identity
+  selector (absorb-wiring's D dropped). Q8, value refs ensure with `useActorByRef(ref, {})` (React O2). Settled at
+  merge [P]: `ConflictingActorRef` for one machine reached in both forms; the names `IdentityFieldOptional` and
+  `OldVersionActor`. (2026-11-07)
+- **OD31** The user, 2026-11-07, in the Claude Code session: actor lifetime, the on-screen rule
+  (../../proposals/actor-lifetime/proposal-v6.md; rule 73, 2.7.17, rule 44). A shared actor lives while it is used
+  (an attached hook from its passive commit effect, a `snapshots` subscription, a bound context consumer, Flow's holds
+  for `dehydrate` and `Hydrate`), plus until its finite work in flight returns (an `InFlight` write; a read started in
+  the turn that handles such work's ending, transitively; an ending owed at `ready`). Free for 100 ms (internal,
+  Runtime Clock, shared with local actors), it ends; a persisted record is encoded in that step, and the end waits
+  while it cannot be encoded. Keeping an actor alive is lifting its use up (app shell, layout, tab strip, a host
+  subscription); no `keepAlive`, no `lifetime` option, no memory-only record for ended non-persisted actors. Lift
+  services and data; keep screen-dependent work in the screen's state. Diagnostics: `EndedWithWork` in development,
+  a create within 5 s of an end noted in Inspection, `flow check`'s `ScheduleLeadsToWrite`. Schedules wait while
+  nothing uses the actor. Records cliff: only records equal to a fresh start are dropped, otherwise the capture is
+  rejected naming the oldest ended actors. Local actors get the in-flight exception, and a remount of an equal local
+  identity disposes a predecessor kept only by work. `<Hydrate>` holds each inserted actor until its first consumer
+  attaches; a subscription on an identity with no actor waits as a use; a lookup and a handle follow the identity;
+  sends restore, queue for an ending persisted target, or drop with `NoRecord` (replacing `NotPersisted`),
+  `RecordUndecodable` or `NotAdopted`; `Restored` means a new incarnation, delivered once per incarnation; one
+  `onContext` on a return within a Runtime, a reload silent. Stories: `detach(ref)` (renaming OD27 Q4's `release`),
+  `ensure` attaches a use, `dispose` is `disposeActor` (amends the Stories decision W27: `{ how: "now" }` removed), `ActorAbsent` for a
+  `detach` with no use held. Amends OD27. (2026-11-07)
 - **OD24** Process, delegated by the owner (2026-10-30): the main session approves the merge change lists for merges 4
   and 5 and for operations-in-definition, and treats operations as accepted for merging, unless a conflict needs an
   owner decision; only then is the owner asked. The streams direction review remains the owner's. (2026-10-30) *Process,
@@ -8511,7 +8982,7 @@ S1–S10 decided [proposal-v2](merged/streams/proposal-v2.md), S11 and S12 are t
 - **S11** Walkthrough, group 1, owner's answers, for inclusion when streams is next revised: a session reads `input` once, at start, so a non-key field never restarts it; `DuplicateStreamSession` goes, two operations on one contract and key are two sessions, with a `DuplicateSession` warning; one `stream` function, spelled `delivers: "every" \| "latest"` (not `"facts" \| "state"`; those stay as the docs' words for the concepts). (2026-11-01)
 - **S12** Walkthrough, group 2: the owner finds the API acceptable and delegates behaviour to the main session, including re-judging earlier decisions from the ground up (S1–S11 are not binding on that review). Spellings kept for now: signals in-band; `Feed.live({ proof \| lost, restartAt })`, `Feed.down`, names `Feed`, `live`, `down`. (2026-11-01) *`lost` is overturned; S15, proposal-v3.*
 - **S13** The owner delegates the streams design: write a new proposal (`proposal-v3.md`) carrying v2's learnings, taking the best ideas from v2 and the blind design, then three review rounds. Its contents are the main session's proposal, not owner decisions, until the owner reads them. (2026-11-01)
-- **S14** Streams' vocabulary and conventions follow Effect's and what `transaction` and `resource` already use. The owner delegates the resulting word choices to the main session. (2026-11-01)
+- **S14** Streams' vocabulary and conventions follow Effect's and what `transaction` and `resource` already use. The owner delegates the resulting word choices to the main session. (2026-11-01) *The word table's "`signal`: Keep" is overturned by OD29: contexts carry no `signal`.*
 - **S15** Owner confirmed proposal-v3's recommendations, Q1-Q4 of the round: Flow runs connections when the contract declares `reconnect` and `idleTime`, amending rule 25, and never re-opens a session; the default retries while offline and ends `Flapping` after 8 registered flaps; Flow keeps the position, with `fills`, falling back to trimmed v2 if a fourth High appears in real code; the silent-loss cases are documented limits. The word list and spellings stay the main session's proposal (S14). (2026-11-01)
 - **S16** Delegated: the owner left the remaining questions to the main session unless they really matter. proposal-v3 merges. Trial 2's page-order finding (C1) is not S15's fourth High: its cause is a missing contract on read order, now stated in v3 3.4, not how the bookmark ties to memory. `Feed` keeps its name; the `Flow` rename and the other absorb-wiring questions stay in that exploration and do not touch this merge. (2026-11-01)
 
