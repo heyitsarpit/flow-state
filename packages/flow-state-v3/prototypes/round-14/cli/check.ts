@@ -100,12 +100,12 @@ const leavingAlts = (b: Body, leaf: string): Array<{ alt: Alternative; event: st
   });
 const mappedEvents = (op: Op) => {
   const u = op.outcomes.unknown;
-  const unknown = u ? ("byReason" in u ? Object.values(u.byReason).map((m) => m.event) : [u.event]) : [];
+  const unknown = (u ? ("byReason" in u ? Object.values(u.byReason) : [u]) : []).filter((m) => !m.ignore).map((m) => m.event); // OD28: ignored maps no event
   return {
-    success: op.outcomes.success ? [op.outcomes.success.event] : [],
-    failure: Object.values(op.outcomes.failure).map((m) => m.event),
+    success: op.outcomes.success && !op.outcomes.success.ignore ? [op.outcomes.success.event] : [],
+    failure: Object.values(op.outcomes.failure).filter((m) => !m.ignore).map((m) => m.event),
     unknown,
-    all: [...new Set([...(op.outcomes.success ? [op.outcomes.success.event] : []), ...Object.values(op.outcomes.failure).map((m) => m.event), ...unknown])],
+    all: [...new Set([...(op.outcomes.success && !op.outcomes.success.ignore ? [op.outcomes.success.event] : []), ...Object.values(op.outcomes.failure).filter((m) => !m.ignore).map((m) => m.event), ...unknown])],
   };
 };
 const isBare = (op: Op) => !op.outcomes.success && Object.keys(op.outcomes.failure).length === 0 && !op.outcomes.unknown;
@@ -147,6 +147,11 @@ const checkBody = (b: Body, machine: string, push: (f: Finding) => void, persist
         push({ severity: "info", rule: "BareWrite", machine, path: `operations.${name}`, op: name, message: `${name}: maps nothing, so it never holds (rule 40)`, help: "intended for a write nobody needs to hear about" });
       continue;
     }
+    // OD28 (2.7.18): every ignored unknown is info, beside bare writes.
+    const u = op.outcomes.unknown;
+    const ignoredUnknown = u === undefined ? [] : "byReason" in u ? Object.entries(u.byReason).filter(([, m]) => m.ignore).map(([r]) => r) : u.ignore ? ["unknown"] : [];
+    if (op.kind === "write" && ignoredUnknown.length)
+      push({ severity: "info", rule: "IgnoredUnknown", machine, path: `operations.${name}.unknown`, op: name, message: `${name}.unknown → ignored (released): ${ignoredUnknown.join(", ")} (rule 40, OD28)`, help: "intended when no arrival of the unknown needs the machine" });
     const ev = mappedEvents(op);
     const users = alts.filter((w) => w.alt.members.some((m) => m.op === name && (m.verb === "commit" || m.verb === "lookup" || m.verb === "retry")));
     // ── Rule 20, current and late. Owner: the state the transition names (rule 14).

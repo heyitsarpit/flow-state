@@ -551,7 +551,24 @@ export const makeHarness = (port: Port) => (): Harness => {
     if (att === undefined) return false;
     const actor = attemptActor.get(att);
     if (actor === undefined) return false;
-    return lifeOver(att) === true || moveLetsGo(actor, op, att) || cancelSeen(actor, op, self ? undefined : att, att);
+    return lifeOver(att) === true || moveLetsGo(actor, op, att) || cancelSeen(actor, op, self ? undefined : att, att) || ignoredUnknown.has(att);
+  };
+  // Round 14 (OD28): whether the compiled mapping says `Flow.ignore` for an `ignored` evidence's channel and reason. Undefined: no owner the suite knows.
+  // A decline has no attempt; its owners are the actors whose declines of the op the suite placed.
+  const ignoredUnknown = new Set<string>(); // attempts whose unknown the mapping ignores: rule 40 releases them, a cause the suite saw (P1)
+  const ignoreMapped = (x: Record<string, any>): boolean | undefined => {
+    const att = String(x["attempt"] ?? "");
+    // A decline (no attempt) of an op: owned by an actor the suite addressed whose machine declares the op.
+    const owners = att ? [attemptActor.get(att)].filter((a): a is string => a !== undefined) : [...known].filter((a) => refm().machine(machineOf(a))?.ops[String(x["op"])] !== undefined);
+    if (owners.length === 0) return undefined;
+    const ch = String(x["channel"]);
+    const r = String(x["reason"]);
+    return owners.some((owner) => {
+      const o = refm().machine(machineOf(owner))?.ops[String(x["op"])] as any;
+      const u = o?.outcomes.unknown;
+      const mp = !o ? undefined : ch === "success" ? o.outcomes.success : ch === "failure" ? (o.outcomes.failure?.[r] ?? (NOT_SENT.has(r) ? o.outcomes.failure?.["NotSent"] : undefined)) : u?.byReason ? u.byReason[r] : u;
+      return mp?.ignore === true;
+    });
   };
   const mayBeEvidence = (x: Record<string, any>, batch: readonly Record<string, any>[]) => {
     const att = String(x["attempt"] ?? "");
@@ -697,6 +714,7 @@ export const makeHarness = (port: Port) => (): Harness => {
   };
   const ledger = (e: readonly Record<string, any>[]) => {
     unpaid = [];
+    for (const x of e) if (x["kind"] === "ignored" && x["channel"] === "unknown" && x["attempt"] && ignoreMapped(x)) ignoredUnknown.add(String(x["attempt"]));
     const booting = e.some((x) => x["kind"] === "boot");
     if (booting) bootSeen = true;
     for (const x of e) if (x["kind"] === "ending" && x["attempt"] !== undefined && x["attempt"] !== "") endingOf.set(String(x["attempt"]), { ch: String(x["channel"]), reason: String(x["reason"]) });
@@ -984,6 +1002,14 @@ export const makeHarness = (port: Port) => (): Harness => {
           // alternative of the state handles, or every alternative refused by a token) is heard by the batch's `turn`/`Denied`/`Unhandled`.
           if (ob || heard) bump(told, k, -1);
           else unpaid.push(k);
+          break;
+        }
+        case "ignored": {
+          // Round 14 (OD28, 2.7.18): an ignored ending is admitted with no turn. It pays its debt only where the compiled mapping, the suite's own
+          // data, says `Flow.ignore` for that channel and reason; anywhere else it is an ending hidden as a reaction nobody needs.
+          const v = ignoreMapped(x);
+          if (v === true) bump(told, k, -1);
+          else if (v === false) missing.push(`(j) ignored, and the compiled mapping is not Flow.ignore: ${x["op"]} ${x["attempt"]} (${x["channel"]} ${x["reason"]})`);
           break;
         }
         case "evidenceOnly":

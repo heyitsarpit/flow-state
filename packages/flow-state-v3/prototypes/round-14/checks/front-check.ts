@@ -300,6 +300,30 @@ const attacks: Array<[string, (x: Record<string, any>) => void]> = [
 ];
 for (const [what, f] of attacks) if (!seenBy(corrupt(f))) fails.push(`the check missed: ${what}`);
 
+// ── 4. Round 14 (OD28, 2.7.18): `Flow.ignore` compiles wherever an operation's mapping takes one event, D220's `Flow.uncertain` check included, and is
+// refused on every stream key and every `listen` entry, by name.
+const said = (f: () => unknown) => {
+  try {
+    f();
+    return "compiles";
+  } catch (e) {
+    return String((e as Error).message).split(":")[0];
+  }
+};
+const igOp = transaction({ id: "t/ig", input: {}, key: [], concurrency: "reject", commit: () => Effect.void });
+const igDef = (extra: Record<string, unknown>) =>
+  definition({ id: "T/Ignore", states: ["A"], events: {}, internalEvents: { Ok: {} }, memory: {}, operations: ({ E }) => ({ ig: igOp.outcomes({ success: E.Ok, failure: { NotSent: Flow.ignore }, unknown: Flow.ignore }) }), ...extra } as never);
+const igMachine = (extra: Record<string, unknown>) => machine(igDef(extra), ({ S: St }: any) => ({ default: St.A, on: { Ok: {} } }));
+eq("OD28: unknown and a NotSent may be Flow.ignore (D220's check accepts it)", said(() => igMachine({})), "compiles");
+eq("OD28: an ignored unknown compiles as no event", (igMachine({}).compiled.ops["ig"] as { outcomes: { unknown?: unknown } }).outcomes.unknown, { event: "", ignore: true });
+const fn = () => Effect.void;
+const stream = (value: unknown) => ({ streams: ({ E }: any) => ({ s: { key: fn, backoff: fn, subscribe: fn, value, missed: E.Ok, failure: E.Ok } }) });
+eq("OD28: a stream's value may not be Flow.ignore", said(() => igMachine(stream(Flow.ignore))), "IgnoreForbidden");
+eq("OD28: a stream's missed may not be Flow.ignore", said(() => igMachine({ streams: ({ E }: any) => ({ s: { key: fn, backoff: fn, subscribe: fn, value: E.Ok, missed: Flow.ignore, failure: E.Ok } }) })), "IgnoreForbidden");
+eq("OD28: a stream's failure may not be Flow.ignore", said(() => igMachine({ streams: ({ E }: any) => ({ s: { key: fn, backoff: fn, subscribe: fn, value: E.Ok, missed: E.Ok, failure: Flow.ignore } }) })), "IgnoreForbidden");
+eq("OD28: a stream's pages may not be Flow.ignore", said(() => igMachine({ streams: ({ E }: any) => ({ s: { key: fn, backoff: fn, subscribe: fn, value: E.Ok, missed: E.Ok, failure: E.Ok, pages: Flow.ignore } }) })), "IgnoreForbidden");
+eq("OD28: a listen entry may not be Flow.ignore", said(() => igMachine({ domain: { writes: {}, repair: fn, listens: { x: Flow.ignore } } })), "IgnoreForbidden");
+
 for (const f of fails) console.log(`FAIL  ${f}`);
 console.log(`${fails.length ? "FRONT FAIL" : "FRONT PASS"}  ${pins} pins, ${machines} typed machines through CompiledData and the structure check, ${attacks.length} corruptions seen`);
 process.exit(fails.length ? 1 : 0);

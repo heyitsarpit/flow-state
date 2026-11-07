@@ -4,7 +4,7 @@
 import { Effect, Schema, type Context } from "effect";
 import { OutcomeFailure, OutcomeUnknown, type CommitCtx, type CompiledOp, type CompiledOutput, type Mapped, type Op, type TokenGuard } from "../fixtures/compiled.ts";
 import { slotOf, type Fields, type Tagged, type TypeOf } from "./core.ts";
-import { isUncertain, type EndCtx, type From, type Token } from "./events.ts";
+import { isIgnore, isUncertain, type EndCtx, type From, type Ignore, type Token } from "./events.ts";
 
 // ── Services (D213, rule 57): named on the contract as values; `tsc` refuses a list that misses one of the commit's `R`.
 export type Svc = Context.Key<any, any>;
@@ -21,8 +21,8 @@ type Reason<E> = E extends OutcomeUnknown<unknown> ? never : E extends OutcomeFa
 type TagsOf<E> = Reason<E> extends infer X ? (X extends Tagged ? X["_tag"] : never) : never;
 type OfTag<E, T> = Reason<E> extends infer X ? (X extends { readonly _tag: T } ? X : never) : never;
 type NoPayload = Readonly<Record<string, never>>;
-// An ending mapped with no `.from` needs an event that takes nothing.
-type Target<V> = From<V> | Token<string, NoPayload>;
+// An ending mapped with no `.from` needs an event that takes nothing. Round 14 (OD28): or `Flow.ignore`, no event at all.
+type Target<V> = From<V> | Token<string, NoPayload> | Ignore;
 export type Outcomes<O, E> = {
   readonly success?: Target<O>;
   readonly failure: { readonly [T in TagsOf<E>]?: Target<OfTag<E, T>> } & {
@@ -133,6 +133,7 @@ export const handles = <O extends Readonly<Record<string, AnyBound>>, M>(ops: O)
 
 // ── The compile of one operation.
 const compileMapped = (definition: string, op: string, name: string, t: unknown): Mapped => {
+  if (isIgnore(t)) return { event: "", ignore: true }; // OD28: admitted with no turn (2.7.18)
   const x = t as { readonly tag: string; readonly fromFn?: unknown };
   return { event: x.tag, ...(x.fromFn ? { from: slotOf(definition, `operations.${op}.${name}`, x.fromFn) } : {}) };
 };
@@ -191,8 +192,9 @@ export const compileOp = (definition: string, name: string, b: AnyBound, events:
   }
   const inputNotCarried = Object.entries(c.input as Record<string, { ast: Ast }>).flatMap(([f, s]) => notCarried(s.ast, f));
   const u0 = m.unknown as Readonly<Record<string, unknown>> | undefined;
-  const u = u0 === undefined ? undefined : typeof u0["tag"] === "string" ? u0 : { byReason: u0 }; // a token's `tag` is a string; a reason's value is a token
-  const unknownTags = u === undefined ? [] : "byReason" in u ? Object.values(u.byReason as Record<string, { tag: string }>).map((t) => t.tag) : [(u as { tag: string }).tag];
+  const u = u0 === undefined ? undefined : typeof u0["tag"] === "string" || isIgnore(u0) ? u0 : { byReason: u0 }; // a token's `tag` is a string; a reason's value is a token
+  // D220's check, with OD28: `unknown: Flow.ignore` (or one reason's) maps no event, so it needs no `Flow.uncertain` one.
+  const unknownTags = (u === undefined ? [] : "byReason" in u ? Object.values(u.byReason as Record<string, unknown>) : [u]).filter((t) => !isIgnore(t)).map((t) => (t as { tag: string }).tag);
   for (const t of unknownTags)
     if (!isUncertain(events[t])) throw new Error(`UnknownNotUncertain: ${definition} operations.${name} maps unknown to ${t}, which is not Flow.uncertain (rule 13)`);
   return {

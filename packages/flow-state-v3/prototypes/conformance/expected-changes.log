@@ -1270,3 +1270,31 @@ output:R14-ID-03/a-singleton-takes-its-input-at-ensure hash:efe12c2c893d | rule 
 output:R14-ID-03/one-machine-in-both-forms-is-conflicting hash:7008ccfab3bd | rule 74: R14-ID-03's conflict variant's whole output, new
 file:expected-recipients.txt hash:d06a7e5bd0d8 | rule 74: R14-ID-01..03 observe 2 more deliveries and check 2 more start nodes
 round:mutants-lifetime.ts hash:38cb13759cbf | rule 74: a wrong runtime that ignores the value as input, so R14-ID-01 has a runtime red too
+--- round 14, area 3: Flow.ignore and P1 (OD28, 2.7.18), by hand
+R14-IGN-01 hash:4bac9fe58447 | OD28: one variant per InFlight cell 2.7.18 changes (success, failure, unknown, interrupt, NotSent, no incarnation)
+R14-IGN-02 hash:50b73d4b7c10 | OD28: an ignored Restored releases, at a return after an end and at a reload
+R14-IGN-03 hash:4df0be904698 | OD28 P1: an ignored domain unknown is Released and its mark cleared by a later success (rule 32)
+file:scenarios/ctx.ts hash:fe3a8de04a97 | OD28: checkEndings counts an ignored ending as admitted
+file:scenarios/ignore.scenario.ts hash:b644a7a50c1d | OD28: R14-IGN-01..03
+file:typed/ignore.ts hash:475f63c8c9e2 | OD28: Lab/Ignore, with ignored channels on reject, serialize and a by-reason unknown
+file:typed/issues.ts hash:b0845203c033 | OD28 P1: an issues variant whose like ignores its unknown
+file:compile/events.ts hash:d76a9f1ee8c8 | OD28: Flow.ignore, a value with no tag
+file:compile/index.ts hash:49f4aab3b2c1 | OD28: Flow.ignore joins the Flow module
+file:compile/machine.ts hash:1054a98aad0b | OD28: Flow.ignore refused on every stream key and listen entry (IgnoreForbidden)
+file:compile/operations.ts hash:4b502985a7e5 | OD28: a mapping may be Flow.ignore; D220's uncertain check skips it
+file:main.ts hash:a23643d94fed | OD28: the ignore scenarios join the suite
+file:drive.ts hash:bbd0aea185b8 | OD28: the ledger pays an ignored ending only where the compiled mapping ignores it, and takes its unknown's release as a seen cause
+round:cli/check.ts hash:5f833cadc227 | OD28: flow check lists an ignored unknown as info (IgnoredUnknown); ignored mappings name no event
+round:checks/front-check.ts hash:0aa29b253d9e | OD28: seven pins, ignore accepted by D220's check and refused on stream keys and listen entries
+round:mutants-lifetime.ts hash:cbb12e5553e9 | OD28: three ignore wrong runtimes join the lifetime ones
+output:R14-IGN-01/a-decline-is-ignored hash:e935de128774 | OD28: R14-IGN-01's decline variant, new
+output:R14-IGN-01/a-failure-tag-resolves-with-no-turn hash:f7d922ca9a71 | OD28: R14-IGN-01's failure variant, new
+output:R14-IGN-01/a-released-unknown-promotes-the-waiting-commit hash:fc34d9e4d6cb | OD28: R14-IGN-01's promotion variant, new
+output:R14-IGN-01/a-success-resolves-with-no-turn hash:9b50f6f9283a | OD28: R14-IGN-01's success variant, new
+output:R14-IGN-01/an-interrupt-is-released hash:514178f7f76b | OD28: R14-IGN-01's interrupt variant, new
+output:R14-IGN-01/an-unknown-is-released hash:ec93884f7b72 | OD28: R14-IGN-01's unknown variant, new
+output:R14-IGN-01/with-no-incarnation-it-is-applied-not-parked hash:2f4a6cc045d9 | OD28: R14-IGN-01's no-incarnation variant, new
+output:R14-IGN-02/a-reloads-restored-is-released-at-ready hash:255a1abd00aa | OD28: R14-IGN-02's reload variant, new
+output:R14-IGN-02/a-returns-restored-is-released hash:5d3487c4ffba | OD28: R14-IGN-02's return variant, new
+output:R14-IGN-03 hash:657cedaf99c2 | OD28 P1: R14-IGN-03's whole output, new
+file:expected-recipients.txt hash:315202bfaabe | OD28: R14-IGN observe 4 more deliveries and anchor 1 more restored state

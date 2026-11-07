@@ -142,6 +142,7 @@ export type Activity = {
 };
 export type Mapped = {
   readonly event: string;
+  readonly ignore?: true; // round 14 (OD28, 2.7.18): `Flow.ignore`; `event` is "" and nothing runs
   // rule 13's ctx: `input` and `key` of the call that ended; `reason` for an unknown; `key` absent never
   readonly from?: Slot<
     (v: any, c: { readonly key: any; readonly input: any; readonly reason?: string }) => object

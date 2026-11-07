@@ -188,7 +188,7 @@ const build = (Slot: S.Top) => {
     memory: Memory,
     whenAbandoned: opt(S.Struct({ notify: opt(S.Array(Notify)), release: opt(S.Array(S.String)) })),
   });
-  const Mapped = S.Struct({ event: S.String, from: opt(Slot) });
+  const Mapped = S.Struct({ event: S.String, from: opt(Slot), ignore: opt(S.Literal(true)) }); // round 14 (OD28): Flow.ignore
   const Op = S.Struct({
     id: S.String,
     contract: S.String,
@@ -219,6 +219,7 @@ const build = (Slot: S.Top) => {
     domain: opt(S.Unknown), // round 11: typed by the entity step, not here (HANDOFF step 4)
     fragments: opt(S.Record(S.String, Fragment)),
     local: opt(S.Literal(true)),
+    identityFields: opt(S.Array(S.String)), // round 14 (rule 74): a value ref's identity fields
     streams: opt(S.Unknown), // the same: the sessions module's data, typed with streams
     events: Events, // round 12 (D216): required; round 13 (M3): with payloads
   });

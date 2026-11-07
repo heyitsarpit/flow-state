@@ -11,6 +11,12 @@ export type EventToken<Tag extends string, P> = Token<Tag, P> & {
 export type EventsOf<Ev extends Readonly<Record<string, Fields>>> = { readonly [K in keyof Ev & string]: EventToken<K, TypeOf<Ev[K]>> };
 export type EventPayloads<Ev extends Readonly<Record<string, Fields>>> = { readonly [K in keyof Ev]: TypeOf<Ev[K]> };
 
+// Round 14 (OD28, 2.7.18): `Flow.ignore`, an ending that needs no reaction. It stands wherever an operation's mapping takes one event; it has no `tag`,
+// so a stream key or a `listen` entry, which take an event token or a function, cannot be given it (both forbidden, 2.11.6, rules 25, 71).
+export type Ignore = { readonly "~flowIgnore": true };
+export const ignore: Ignore = Object.freeze({ "~flowIgnore": true as const });
+export const isIgnore = (t: unknown): t is Ignore => typeof t === "object" && t !== null && (t as { "~flowIgnore"?: unknown })["~flowIgnore"] === true;
+
 const uncertainSet = new WeakSet<object>();
 export const uncertain = <F extends Fields>(fields: F): F => {
   uncertainSet.add(fields);

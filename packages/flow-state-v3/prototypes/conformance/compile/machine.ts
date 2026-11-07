@@ -3,7 +3,7 @@
 // every placement at its node and writes the handlers. Compiles to `CompiledOutput`, with every placed fragment and its operations hoisted (rules 49, 51).
 import type { CompiledOutput, DomainSpec, Mapped, StreamSpec } from "../fixtures/compiled.ts";
 import { slotOf, type Fields } from "./core.ts";
-import { payloadsOf, tokens, uncertainOf, type EventPayloads, type EventsOf } from "./events.ts";
+import { isIgnore, payloadsOf, tokens, uncertainOf, type EventPayloads, type EventsOf } from "./events.ts";
 import { compileMemory, type MemoryFields, type MemoryOf } from "./memory.ts";
 import { identityFieldsOf } from "./ref.ts";
 import type { ReqsOf } from "./fragment.ts";
@@ -45,7 +45,16 @@ const compileDomain = (id: string, d: DomainIn): DomainSpec =>
       Object.entries(d.writes).map(([op, w]) => [op, { predicts: slotOf(id, `domain.writes.${op}.predicts`, w.predicts), ...(w.confirms ? { confirms: slotOf(id, `domain.writes.${op}.confirms`, w.confirms) } : {}) }]),
     ),
     reads: Object.fromEntries(Object.entries(d.reads ?? {}).map(([op, f]) => [op, slotOf(id, `domain.reads.${op}`, f)])),
-    ...(d.listens ? { listens: Object.fromEntries(Object.entries(d.listens).map(([op, f]) => [op, slotOf(id, `domain.listens.${op}`, f)])) } : {}),
+    ...(d.listens
+      ? {
+          listens: Object.fromEntries(
+            Object.entries(d.listens).map(([op, f]) => {
+              if (isIgnore(f)) throw new Error(`IgnoreForbidden: ${id} domain.listens.${op} may not be Flow.ignore (2.7.18)`); // OD28
+              return [op, slotOf(id, `domain.listens.${op}`, f)];
+            }),
+          ),
+        }
+      : {}),
     repair: slotOf(id, "domain.repair", d.repair),
     ...(d.version ? { version: slotOf(id, "domain.version", d.version) } : {}),
     ...(d.versionOrder === undefined ? {} : { versionOrder: d.versionOrder === "lexical" ? "lexical" : slotOf(id, "domain.versionOrder", d.versionOrder) }),
@@ -64,7 +73,11 @@ export type StreamIn = Omit<StreamSpec, "key" | "backoff" | "subscribe" | "recon
   readonly failureBy?: Readonly<Record<string, MappedIn>>;
   readonly pages?: MappedIn;
 };
-const streamMapped = (id: string, op: string, name: string, t: MappedIn): Mapped => ({ event: t.tag, ...(t.fromFn ? { from: slotOf(id, `streams.${op}.${name}`, t.fromFn) } : {}) });
+const streamMapped = (id: string, op: string, name: string, t: MappedIn): Mapped => {
+  // OD28 (2.7.18): forbidden on every stream key. A gap must reach the consumer, pages move the bookmark, a dead session must be seen.
+  if (isIgnore(t)) throw new Error(`IgnoreForbidden: ${id} streams.${op}.${name} may not be Flow.ignore (2.7.18)`);
+  return { event: t.tag, ...(t.fromFn ? { from: slotOf(id, `streams.${op}.${name}`, t.fromFn) } : {}) };
+};
 const compileStreams = (id: string, s: Readonly<Record<string, StreamIn>>): Readonly<Record<string, StreamSpec>> =>
   Object.fromEntries(
     Object.entries(s).map(([op, x]) => {

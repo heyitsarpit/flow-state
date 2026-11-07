@@ -39,6 +39,7 @@ import { cancelRead, dropReadsOf, lookup, lookupUnencodable } from "./reads.ts";
 import { armTimer, disarmTimer, scheduleKey } from "./timers.ts";
 import {
   deleteLane,
+  endingReason,
   enqueue,
   fragOf,
   issue,
@@ -1134,6 +1135,16 @@ const admitEnding = (tx: Tx, item: EndingMail): void => {
   }
   // D72: this restored ending is now mail no more. The record on disk may follow.
   if (item.restored) tx.touchedLanes.set(laneId, item.actor);
+  // OD28 (2.7.18): an ignored ending is admitted with no turn. Its cell's lane effect applied above; an unknown also releases the Attempt, as `cancel`
+  // does in Held (rule 40, P1: 2.8.6's `Released` row), at admission. No event, no handler, no late route, no parking, with or without an incarnation.
+  const mm = machine === undefined ? undefined : tx.machines[machine];
+  if (mm && mappedFor(mm, item)?.ignore) {
+    note(tx, "ignored", { op: item.op, attempt: item.attempt ?? "", channel: item.ending.ch, reason: endingReason(item.ending) });
+    const cur = tx.w.lanes[laneId];
+    if (item.ending.ch === "unknown" && cur?.head?.phase.t === "held" && cur.head.id === item.attempt) cell(tx, "cancel", cur, argsOf(cur));
+    tx.visible = true;
+    return;
+  }
   const a = getActor(tx.w.actors, item.actor);
   const lane = tx.w.lanes[laneId];
   if (!a) {
@@ -1154,6 +1165,11 @@ const admitRead = (tx: Tx, item: EndingMail) => {
   const a = getActor(tx.w.actors, item.actor);
   const path = a && pathOfId(a.root, item.inc!);
   if (!a || !path) return note(tx, "evidenceOnly", { op: item.op, attempt: item.attempt ?? "" });
+  if (mappedFor(machineOf(tx, a), item)?.ignore) {
+    note(tx, "ignored", { op: item.op, attempt: item.attempt ?? "", channel: item.ending.ch, reason: endingReason(item.ending) }); // OD28: a read's too
+    tx.visible = true;
+    return;
+  }
   deliver(tx, a, path, item);
 };
 const deliver = (tx: Tx, a: ActorRec, path: Path, item: EndingMail) => {

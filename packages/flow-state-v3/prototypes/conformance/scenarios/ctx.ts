@@ -119,6 +119,7 @@ export const checkEndings = (r: Reads) => {
         owed.set(ko(e), (owed.get(ko(e)) ?? 0) + 1);
         break;
       case "parked": // rule 53: owed to whoever comes
+      case "ignored": // OD28: admitted with no turn; whether the mapping says so is the ledger's call (drive.ts)
       case "evidenceOnly": {
         // rule 60, rule 44: nobody is owed it. Here only counted; whether it may be evidence is the ledger's call, from what the suite sees (drive.ts, re-audit H1)
         if (ended) break;

@@ -43,5 +43,9 @@ export const MUTANTS = [
   m("id.old-version-restored", "OD:30", "durable.ts", "if (Array.isArray(v.fields) && (v.fields.length", "if (false && Array.isArray(v.fields) && (v.fields.length"),
   m("id.no-conflict", "rule:74", "step.ts", "if (was !== undefined && was !== form && tx.machines[machine]?.identityFields)", "if (false)"),
   m("id.dispose-drops-lanes", "rule:46", "step.ts", 'if (m.local && how !== "remount")', 'if (how !== "remount")'),
+  // Flow.ignore (OD28, 2.7.18), area 3.
+  m("ign.runs-a-turn", "OD:28", "turn.ts", "if (mm && mappedFor(mm, item)?.ignore) {", "if (false) {"),
+  m("ign.unknown-held", "rule:40", "turn.ts", 'if (item.ending.ch === "unknown" && cur?.head?.phase.t === "held" && cur.head.id === item.attempt) cell(tx, "cancel", cur, argsOf(cur));', ""),
+  m("ign.parked-without-incarnation", "OD:28", "turn.ts", "if (mm && mappedFor(mm, item)?.ignore) {", "if (mm && getActor(tx.w.actors, item.actor) && mappedFor(mm, item)?.ignore) {"),
   m("id.value-is-not-the-input", "rule:74", "step.ts", "memory: run(m.memory.initial, input as never),", "memory: run(m.memory.initial, (identity ? {} : input) as never),"),
 ];

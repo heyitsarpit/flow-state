@@ -3,7 +3,7 @@
 // What the suite boots is their output and nothing else. Where they differ from the design: `round-12/api-changes.md`. Seams (not public API) are marked.
 import { deny } from "../fixtures/compiled.ts";
 import { state } from "./body.ts";
-import { uncertain } from "./events.ts";
+import { ignore, uncertain } from "./events.ts";
 import { Callback, Exit, Guard } from "./fragment.ts";
 import { initial, input, privately } from "./memory.ts";
 import type { Act, In, OpGuard } from "./operations.ts";
@@ -26,6 +26,7 @@ export const Flow = {
   Guard,
   uncertain,
   state,
+  ignore, // round 14 (OD28, 2.7.18)
 };
 
 // SEAM (D212): NOT public API. A host asking or cancelling its placed fragment's operation, which rule 50 forbids. Edge's IfJob, pay-full's shipping guard,

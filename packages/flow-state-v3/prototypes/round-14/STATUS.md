@@ -15,4 +15,10 @@ Prototype, for evidence; never production code.
 - Runtime: a record keeps the fields a value ref named it by; `OldVersionActor` at boot; `ConflictingActorRef`.
 - R14-ID-01..03; 805/805 locked; falsify: 32 wrong runtimes red, every case red on one.
 
-Next: area 3, `Flow.ignore` and P1 (OD28).
+## Checkpoint 3: area 3, `Flow.ignore` and P1 (OD28) done
+
+- Compiler: `Flow.ignore` in any operation mapping, D220's check skips it, `IgnoreForbidden` on stream keys and listen entries (front-check, 7 pins).
+- Runtime: an ignored ending is admitted with no turn; its cell applies; an unknown is released (cancel in Held); never parked.
+- `flow check`: `IgnoredUnknown` info. R14-IGN-01..03; 815/815 locked; 35 wrong runtimes red, every case red on one.
+
+Next: area 4, F (OD29).

@@ -11,7 +11,7 @@ import { MAX_LIKE_RESENDS, issueRef } from "../fixtures/issues.compiled.ts";
 
 const S = Schema;
 const U = S.Unknown;
-type Opts = { readonly persisted?: boolean; readonly local?: boolean; readonly throwing?: boolean; readonly doubleCancel?: boolean; readonly denySettled?: boolean };
+type Opts = { readonly persisted?: boolean; readonly local?: boolean; readonly throwing?: boolean; readonly doubleCancel?: boolean; readonly denySettled?: boolean; readonly ignoreUnknown?: boolean };
 const contracts = (throwing: boolean) => ({
   like: transaction({ id: "issues/like", input: { id: U, liked: U }, key: ["id"], concurrency: "latest", services: [FakeApi], commit: write<unknown, "Gone" | "Refused">("like") }),
   rename: transaction({ id: "issues/rename", input: { id: U, title: U }, key: ["id"], concurrency: "latest", services: [FakeApi], commit: write<unknown, "Gone" | "Refused">("rename") }),
@@ -75,7 +75,7 @@ const issues = (o: Opts) => (api: Api) => {
     operations: ({ E }) => {
       const fail = (message: string) => E.Failed.from(() => ({ message }));
       return {
-        like: c.like.outcomes({ success: E.Settled, failure: { Gone: E.IssueGone, Refused: fail("Could not update"), NotSent: fail("Could not update") }, unknown: E.LikeUnsure.from((_v, x) => ({ id: (x.key as { readonly id: unknown }).id })) }),
+        like: c.like.outcomes({ success: E.Settled, failure: { Gone: E.IssueGone, Refused: fail("Could not update"), NotSent: fail("Could not update") }, unknown: o.ignoreUnknown ? Flow.ignore : E.LikeUnsure.from((_v, x) => ({ id: (x.key as { readonly id: unknown }).id })) }), // round 14: OD28 P1's variant
         rename: c.rename.outcomes({ success: E.Settled, failure: { Gone: E.IssueGone, Refused: fail("Couldn't save the title"), NotSent: fail("Couldn't save the title") }, unknown: E.RenameUnsure.from(() => ({ message: "Couldn't confirm" })) }),
         remove: c.remove.outcomes({ success: E.Settled, failure: { Gone: E.Settled, Refused: fail("Couldn't delete"), NotSent: fail("Couldn't delete") }, unknown: E.RemoveUnsure.from(() => ({ message: "Couldn't confirm" })) }),
         list: c.list.outcomes({ success: E.Listed, failure: { NoResponse: E.ListFailed, Defect: E.ListFailed, Interrupted: E.ListFailed } }),
@@ -131,3 +131,4 @@ export const issuesLocal = fixture(issues({ local: true }), server);
 export const issuesThrowing = fixture(issues({ throwing: true }), server);
 export const issuesDoubleCancel = fixture(issues({ doubleCancel: true }), server);
 export const issuesDenySettled = fixture(issues({ denySettled: true }), server);
+export const issuesIgnoring = fixture(issues({ ignoreUnknown: true }), server); // round 14 (OD28 P1): `like`'s unknown is Flow.ignore
