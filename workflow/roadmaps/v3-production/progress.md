@@ -85,8 +85,8 @@ further each time (round 10, stages C-J), until convergence in stages K and L.
 
 | Agent | Started | Last checkpoint | Last review |
 | --- | --- | --- | --- |
-| Builder, round 14 fix pass (Opus), worktree | 2026-11-08 | — | final review of `ad2a6315` |
-| Builder, phase 0b design catch-up (Opus), main checkout | 2026-11-08 | — | — |
+| Builder, round 14 fix pass (Opus), worktree | 2026-11-07 | — | final review of `ad2a6315` |
+| Builder, phase 0b design catch-up (Opus), main checkout | 2026-11-07 | — | — |
 
 ## Calls for the user's read
 
@@ -198,8 +198,8 @@ One line per iteration. Results live in the records; link them.
 - 2026-11-07 OD28-OD31 merged into machine-design.md (`6d02bef6`); stage A reordered (round 4): phase 0
   reconcile, phase 1 pre-work prototype, phase 2 plan merge; round 14 started as phase 0's first iteration.
 - 2026-11-07 roadmap approved (`309c87e4`); cold read run after approval; its wording fixes applied as amendment 1 (`fadf004f`); round 14 continues with the review's fixes and D1-D7.
-- 2026-11-08 0a.1 `ad2a6315` (worktree branch): round 14 done, 822/822, lock clean, every gate green except `fragstore.row` (failing differently: an ending reached nobody after dispose and reload); 46 lifetime mutants red; D1-D7 and the mid-review fixes in. Final independent review started; phase 0b (design catches up, `proposals/design-catch-up/`) started alongside, separate write scope. Usage: not measured.
-- 2026-11-08 0a.1 final review of `ad2a6315`: not merged yet. H-A: Runtime disposal pinned to `Interrupted` against Runtime O6 (two cases rewritten to the runtime); `fragstore.row` misdiagnosed (a suite-ledger gap: boot mail on a record kept at ready has no evidence, not a D6 hole); D1 lost when woken at ready; D3 unguarded; prototype call 2 departs from rule 73; persist order-dependent; 12 templated output reasons hide real differences; a lie retired on weak grounds. 0a.2 fix pass started in the worktree; the review's nine design corrections passed to phase 0b for labelling.
+- 2026-11-07 0a.1 `ad2a6315` (worktree branch): round 14 done, 822/822, lock clean, every gate green except `fragstore.row` (failing differently: an ending reached nobody after dispose and reload); 46 lifetime mutants red; D1-D7 and the mid-review fixes in. Final independent review started; phase 0b (design catches up, `proposals/design-catch-up/`) started alongside, separate write scope. Usage: not measured.
+- 2026-11-07 0a.1 final review of `ad2a6315`: not merged yet. H-A: Runtime disposal pinned to `Interrupted` against Runtime O6 (two cases rewritten to the runtime); `fragstore.row` misdiagnosed (a suite-ledger gap: boot mail on a record kept at ready has no evidence, not a D6 hole); D1 lost when woken at ready; D3 unguarded; prototype call 2 departs from rule 73; persist order-dependent; 12 templated output reasons hide real differences; a lie retired on weak grounds. 0a.2 fix pass started in the worktree; the review's nine design corrections passed to phase 0b for labelling.
 - 2026-11-08 0b `818bd236`, `d1117383`: design catch-up. Inventory of D1-D228, FOR-ARPIT, R14 D1-D7 and the final
   review's nine items (`workflow/plans/flow/references/proposals/design-catch-up/inventory.md`); change list applied
   to machine-design.md, 52 blocks, none skipped: OD32-OD44 (FOR-ARPIT accepted), OD45 (R14 D1-D7), OD46
@@ -211,4 +211,4 @@ One line per iteration. Results live in the records; link them.
   recorded as the user's (OD47); stale reason lists fixed; `UnencodableValue` back with U6; accepted names marked
   decided, the rest batched as U18; C128, C144 fixed, C147-C149 added. OD1-OD47 and C1-C149 unique, links resolve.
   Waiting on the user: U1-U18. Usage: not measured.
-
+- 2026-11-07 0b.2 `9cccc580`: the 0b review's 16 findings applied (R14R 7 overturned to U17; D30/D48/D94's unbounded waits to U16; D2 recorded as the user's Q3 A; stale reason lists fixed; names batched as U18). Phase 0b now blocks on the user's label round (U1-U18); its completion audit follows it. Round 14 fix pass running.
