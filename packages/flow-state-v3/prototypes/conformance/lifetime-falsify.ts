@@ -3,7 +3,7 @@
 import { cpSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
-import { watched } from "./watch.ts";
+import { judged } from "./watch.ts";
 
 const here = import.meta.dir;
 const i = process.argv.indexOf("--runtime");
@@ -30,7 +30,7 @@ const runOne = async (edits: ReadonlyArray<readonly [string, string, string]>) =
     if (!flex(find).test(text)) throw new Error(`edit does not apply to ${file}: ${find}`);
     writeFileSync(p, text.replace(flex(find), () => rep));
   }
-  const r = await watched(
+  const r = await judged(
     ["bun", join(dir, "conformance/main.ts"), "--round", "99", "--no-catalog", "--no-output", "--runtime", `../${basename(source)}/adapter.ts`, "--only", ONLY],
     { rssMb: 1500, seconds: 120, capture: true },
   );

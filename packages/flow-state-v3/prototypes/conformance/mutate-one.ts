@@ -6,6 +6,7 @@ import { existsSync, readdirSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { makeHarness } from "./drive.ts";
 import type { RuntimeModule } from "./harness.ts";
+import { CLOCK_TRIP } from "./watch.ts";
 import { searchChain } from "./search/chain.search.ts";
 import { searchFlush } from "./search/flush.search.ts";
 
@@ -36,10 +37,28 @@ const started = async (...cmd: string[]): Promise<Ran> => {
 // independent gates run at once and the first in the order below that kills is the answer, as it would have been one at a time.
 const serial = process.argv.includes("--serial");
 const gates = new Map<string, Promise<Ran>>();
-const gate = (name: string, ...cmd: string[]): Promise<Ran> => {
+const tripped = new Set<string>();
+const begin = (name: string, ...cmd: string[]): Promise<Ran> => {
   let g = gates.get(name);
   if (!g) gates.set(name, (g = started(...cmd)));
   return g;
+};
+const rerun = new Map<string, Promise<Ran>>();
+const gate = async (name: string, ...cmd: string[]): Promise<Ran> => {
+  const r = await begin(name, ...cmd);
+  if (!r.out.includes(CLOCK_TRIP)) return r;
+  if (serial || process.env["FLOW_DEFER_UNKNOWN"] === "1") {
+    tripped.add(name);
+    return r;
+  }
+  let again = rerun.get(name);
+  if (!again) {
+    again = Promise.all([...gates.values()]).then(() => started(...cmd));
+    rerun.set(name, again);
+  }
+  const a = await again;
+  if (a.out.includes(CLOCK_TRIP)) tripped.add(name);
+  return a;
 };
 const swaps = existsSync(join(round, "typed/swaps.ts"));
 const cli = existsSync(join(round, "cli/main.ts"));
@@ -48,20 +67,20 @@ const plainArgs = ["main.ts", "--round", "99", "--no-catalog", "--runtime", runt
 const swapArgs = ["main.ts", "--round", "99", "--no-catalog", "--swap", join(round, "typed/swaps.ts"), "--runtime", runtimeArg];
 const gate5sArgs = ["gate5s.ts", "--runtime", runtimeArg];
 if (!serial && !process.argv.includes("--search-only")) {
-  void gate("plain", ...plainArgs);
+  void begin("plain", ...plainArgs);
   if (swaps) {
-    void gate("swap", ...swapArgs);
-    for (const f of ["typed/compare.ts", "typed/date-check.ts"]) void gate(f, join(round, f));
+    void begin("swap", ...swapArgs);
+    for (const f of ["typed/compare.ts", "typed/date-check.ts"]) void begin(f, join(round, f));
   }
-  if (cli) void gate("cli", join(round, "cli/main.ts"));
-  void gate("gate", ...gate5sArgs);
+  if (cli) void begin("cli", join(round, "cli/main.ts"));
+  void begin("gate", ...gate5sArgs);
 }
 const done = (killedBy: string | null, killers: readonly string[], search = "not run") => {
   for (const pid of running)
     try {
       process.kill(-pid, 9);
     } catch {}
-  console.log(JSON.stringify({ killedBy, killers, search }));
+  console.log(JSON.stringify({ killedBy, killers, search, ...(tripped.size ? { unknown: `${CLOCK_TRIP}: ${[...tripped].join(" ")}` } : {}) }));
   process.exit(0);
 };
 // Round 8's question: what does a search see on its own? No scenario first, so a mutant a scenario would kill still reaches it. By a state budget, so a busy machine changes nothing.

@@ -1,11 +1,12 @@
 // bun mutate.ts --runtime ../round-2 --list mutants.ts --out mutants.json
 // One process per mutant, in the OS temp folder, under the watchdog (review L3; a mutant reached 11.9 GB in round 1). Each
 // mutant is a source edit of a scratch copy. An edit that no longer applies fails the run, so the list cannot rot silently.
-// A mutant the watchdog kills counts as killed, by resources, and says so.
+// A mutant the watchdog kills for memory counts as killed, by resources, and says so. A time kill, or a settle stopped by the wall clock, is
+// the load's answer, not the mutant's: the run is made once more, alone (`judged`), and only that answer counts.
 import { cpSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join, resolve } from "node:path";
-import { watched } from "./watch.ts";
+import { judged } from "./watch.ts";
 
 export type Mutant = {
   id: string;
@@ -27,7 +28,7 @@ const withSearch = process.argv.includes("--search");
 const searchOnly = process.argv.includes("--search-only");
 const extra = ["--serial", ...(withSearch ? ["--search"] : []), ...(searchOnly ? ["--search-only"] : [])];
 const parallel = Math.min(8, Math.max(1, Number(arg("--parallel", "1")) || 1));
-const rssMb = Number(arg("--rss-mb", "1700")) || 1700;
+const rssMb = Number(arg("--rss-mb", "2600")) || 2600;
 const { MUTANTS } = (await import(listFile)) as { MUTANTS: readonly Mutant[] };
 const rootModules = resolve(here, "../../../../node_modules");
 const scratch = mkdtempSync(join(tmpdir(), "flow-mut-"));
@@ -42,7 +43,7 @@ cpSync(source, join(pristine, basename(source)), { recursive: true });
   const dir = join(scratch, "control");
   cpSync(join(pristine, "conformance"), join(dir, "conformance"), { recursive: true });
   cpSync(join(pristine, basename(source)), join(dir, basename(source)), { recursive: true });
-  const r = await watched(["bun", join(dir, "conformance/mutate-one.ts"), "--runtime", `../${basename(source)}/adapter.ts`, ...extra], {
+  const r = await judged(["bun", join(dir, "conformance/mutate-one.ts"), "--runtime", `../${basename(source)}/adapter.ts`, ...extra], {
     rssMb,
     seconds: 240,
     capture: true,
@@ -120,7 +121,7 @@ const one = async (m: Mutant, i: number) => {
     settle(i, { id: m.id, kills: m.kills, killed: false, killers: [], author, by: "invalid", peakMb: 0 }, `INVALID  ${m.id.padEnd(36)} does not parse: ${unparsed[0]}`);
     return;
   }
-  const r = await watched(
+  const r = await judged(
     [
       "bun",
       join(dir, "conformance/mutate-one.ts"),
@@ -140,8 +141,9 @@ const one = async (m: Mutant, i: number) => {
   }
   const killers = parsed?.killers ?? [];
   // D132, bugs M2: it parsed and the control ran, so a run with no answer is a run this mutant broke. Killed, by `crash`, and counted apart: it shrank the denominator before.
-  const killed = r.killed !== null || !parsed || (parsed?.killedBy ?? null) !== null;
-  if (!killed) survived++;
+  const unknown = r.unknown;
+  const killed = !unknown && (r.killed !== null || !parsed || (parsed?.killedBy ?? null) !== null);
+  if (!killed && !unknown) survived++;
   settle(
     i,
     {
@@ -150,10 +152,11 @@ const one = async (m: Mutant, i: number) => {
       killed,
       killers,
       author,
-      by: r.killed ?? (parsed ? (parsed.killedBy ?? "survived") : "crash"),
+      by: unknown ? `unknown:${unknown}` : (r.killed ?? (parsed ? (parsed.killedBy ?? "survived") : "crash")),
+      ...(r.rerunFor ? { rerunFor: r.rerunFor } : {}),
       peakMb: r.peakMb,
     },
-    `${killed ? "KILLED  " : "SURVIVED"} ${m.id.padEnd(36)} ${r.killed ? `watchdog ${r.killed} at ${r.peakMb} MB` : parsed ? `${parsed.killedBy ?? "nothing"}: ${killers.length}: ${killers.slice(0, 4).join(" ")}${killers.length > 4 ? " ..." : ""}` : `crash: ${r.stdout.slice(-200)}`}`,
+    `${unknown ? "UNKNOWN " : killed ? "KILLED  " : "SURVIVED"} ${m.id.padEnd(36)} ${r.rerunFor ? `(again, alone, after ${r.rerunFor}) ` : ""}${r.killed ? `watchdog ${r.killed} at ${r.peakMb} MB` : parsed ? `${parsed.killedBy ?? "nothing"}: ${killers.length}: ${killers.slice(0, 4).join(" ")}${killers.length > 4 ? " ..." : ""}` : `crash: ${r.stdout.slice(-200)}`}`,
   );
 };
 // `--parallel N` (N <= 8): N mutants at once, each in its own copy and under its own watchdog, after the control. Reported in list order.
@@ -166,6 +169,7 @@ await Promise.all(
 const done = results as Array<{ id: string; by: string }>;
 const invalid = done.filter((x) => x.by === "invalid").map((x) => x.id);
 const byWatchdog = done.filter((x) => x.by === "rss" || x.by === "time").map((x) => x.id);
+const unknowns = done.filter((x) => x.by.startsWith("unknown:")).map((x) => x.id);
 rmSync(scratch, { recursive: true, force: true });
 writeFileSync(out, JSON.stringify(results, null, 1));
-console.log(`\n${results.length - survived - invalid.length}/${results.length - invalid.length} killed (${author}); by the watchdog: ${byWatchdog.join(" ") || "none"}; invalid: ${invalid.join(" ") || "none"}`);
+console.log(`\n${results.length - survived - invalid.length - unknowns.length}/${results.length - invalid.length - unknowns.length} killed (${author}); by the watchdog: ${byWatchdog.join(" ") || "none"}; invalid: ${invalid.join(" ") || "none"}${unknowns.length ? `; unknown under load: ${unknowns.join(" ")}` : ""}`);

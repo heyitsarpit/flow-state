@@ -7,7 +7,8 @@ import { FakeWorld, NoHeldRequest } from "./fake-world.ts";
 import { canonText } from "./output.ts";
 import { legacySlots } from "./legacy.ts";
 import { machineOfKey, Reference } from "./reference/model.ts";
-import type { FaultState, Harness, Instance, Port, Step } from "./harness.ts";
+import { CLOCK_TRIP } from "./watch.ts";
+import { inPlaceGuard, type FaultState, type Harness, type Instance, type Port, type Step } from "./harness.ts";
 
 // Stage G: how each delivery's recipient was settled, over the whole run (printed by `main.ts`). `unobserved` is allowance A2's remainder.
 // Stage H: `ambiguous` (a view with no suite identity, or one no incarnation publishes) must be 0; `bySend` are runs paid by the suite's own sends.
@@ -41,6 +42,9 @@ export const rowKey =(op: string, key: unknown) => `${op}|${JSON.stringify(key)}
 // `|` too: a lane's id starts with its actor's key and a `|`, so an id holding one would name another actor's lane.
 const actorKey = (a: { actor: string; id: string }) => `${a.actor}/${a.id.replaceAll("%", "%25").replaceAll("/", "%2F").replaceAll("|", "%7C")}`;
 
+const COPIES_CHECK = process.env["FLOW_COPIES_CHECK"] === "1";
+const copiesChecked = { hits: 0, differ: 0 };
+if (COPIES_CHECK) process.on("exit", () => console.log(`COPIES-CHECK hits ${copiesChecked.hits}, differ ${copiesChecked.differ}`));
 export const makeHarness = (port: Port) => (): Harness => {
   let fake: FakeWorld;
   let compiled: Compiled[] = [];
@@ -201,6 +205,8 @@ export const makeHarness = (port: Port) => (): Harness => {
   type Copy = { path: string[]; resets: string[] };
   type Copies = { list: Copy[]; byPath: Map<string, Copy>; slots: string[]; threw: boolean };
   let copiesMemo: { inst: Instance; ref: Reference; world: unknown; at: Map<string, Copies> } | undefined;
+  const versions = inPlaceGuard();
+  let copiesChecking = false;
   const copiesFresh = (actor: string, machine: string, f: string): Copies => {
     const tape = { slots: [] as string[], threw: false };
     const was = slotTape;
@@ -230,10 +236,25 @@ export const makeHarness = (port: Port) => (): Harness => {
     if (!m || f === undefined) return undefined;
     const world = inst.version?.();
     if (world === undefined) return copiesFresh(actor, m.id, f);
+    versions.guard(world);
     if (copiesMemo?.inst !== inst || copiesMemo.ref !== refm() || copiesMemo.world !== world) copiesMemo = { inst, ref: refm(), world, at: new Map() };
     const key = `${actor}\u0000${m.id}\u0000${f}`;
     const hit = copiesMemo.at.get(key);
     if (hit && !hit.slots.some((p) => throwIn.get(p))) {
+      if (COPIES_CHECK) {
+        copiesChecking = true;
+        let again: Copies;
+        try {
+          again = copiesFresh(actor, m.id, f);
+        } finally {
+          copiesChecking = false;
+        }
+        copiesChecked.hits++;
+        if (again.threw || JSON.stringify([again.list, again.slots]) !== JSON.stringify([hit.list, hit.slots])) {
+          copiesChecked.differ++;
+          throw new Error("copies memo differs from a fresh run");
+        }
+      }
       if (!replaying) slotRuns.push(...hit.slots);
       return hit;
     }
@@ -1281,11 +1302,12 @@ export const makeHarness = (port: Port) => (): Harness => {
       return {
         ...v,
         run: (...a: unknown[]) => {
-          if (!replaying) slotRuns.push(path);
+          if (!replaying && !copiesChecking) slotRuns.push(path);
           slotTape?.slots.push(path);
           const n = throwIn.get(path);
           if (n) {
             if (slotTape) slotTape.threw = true;
+            if (copiesChecking) return v.run(...a);
             throwIn.set(path, n - 1);
             throw new Error(`fault at ${path}`);
           }
@@ -1375,7 +1397,8 @@ export const makeHarness = (port: Port) => (): Harness => {
         return;
       }
       // A step that never settles is a spin nobody said to expect: fail it here, rather than leave it to the watchdog.
-      if (fake.tasks - firstTask > 5_000 || (guard % 4096 === 4095 && Date.now() - t0 > 20_000)) throw new Error("settle: did not quiesce");
+      if (fake.tasks - firstTask > 5_000) throw new Error("settle: did not quiesce");
+      if (guard % 4096 === 4095 && Date.now() - t0 > 20_000) throw new Error(CLOCK_TRIP);
       if (plan && fake.scheduler.picks >= plan.at) {
         const { inject } = plan;
         plan = undefined;
@@ -1732,6 +1755,8 @@ export const makeHarness = (port: Port) => (): Harness => {
           break;
         }
       }
+      const was = versions.written();
+      if (result.same && was.arrays > 0) result = { same: false, firstDiff: { writtenInPlace: was, published: true } };
       throwIn.clear();
       for (const [k, v] of liveThrow) throwIn.set(k, v);
       faults.moduleThrows.clear();

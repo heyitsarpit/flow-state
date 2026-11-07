@@ -168,3 +168,31 @@ Findings:
   and the suite exits 1 although 834/834 pass and no output or RECIPIENTS changes. Logging and `--lock` were not allowed in this task
   (the brief keeps `expected.lock` and `expected-changes.log` untouched; the permission check refused a `--lock` run). The user
   decides: log one line per changed file and relock, or not. `bun main.ts ... --no-search --hashes` prints the lines needed.
+
+## Speed pass 2 (2026-11-08)
+
+Baselines (0d), recorded at c391d008 before any change, in the session scratchpad `cp2-baseline/`: the ok/BAD lines of falsify suite1,
+suite2, suite3, mutants, lies `--parallel 4`, lifetime-falsify, the suite's SUMMARY and RECIPIENTS, and the whole stdout of the suite on
+`null-adapter.ts` and on each of the eight broken runtimes, plain and `--no-output` (18 runs; first-failure messages, in order).
+
+| Step | State | Commit | Before | After | Sameness shown by |
+| --- | --- | --- | --- | --- | --- |
+| 0a in-place writes checked by default | done | (this) | guard only under `FLOW_DEEP_FREEZE=1`, which no gate set; suite 17.2-17.4 s, 1.79 GB; the old full freeze 23.3 s, 2.14 GB | `inPlaceGuard` (harness.ts) on every logged step (input and output), every published world (`version`), every replayed world, and the suite's own read of `version` in drive.ts; suite 19.2-20.6 s, 1.72-1.73 GB | 834/834, outputs and RECIPIENTS identical; the 18 broken-runtime outputs identical to 0d (source positions and the lock's id list normalised); lies `w.patch-in-place` (red in 162 cases by "Attempted to assign to readonly property") and `w.row-in-place` (red in 227 by `writtenInPlace`); `FLOW_COPIES_CHECK=1`: 186075 memo hits recomputed, 0 differ |
+| 0b mutate.ts time kills | done | (this) | any watchdog kill counted as killed; `--rss-mb` 1700, control red by default | a time kill (or a clock trip) is rerun once alone (`judged`, watch.ts); only that answer counts; under `FLOW_DEFER_UNKNOWN=1` it is UNKNOWN, counted apart; default 2600 MB | control green at the default (peak 1846 MB, `--serial`); judged tested on a planted slow run and a planted trip |
+| 0c settle's wall-clock trip | done | (this) | one message for the 5000-task bound and the 20 s clock | the task bound keeps its words (deterministic, a verdict); the clock trip says `CLOCK_TRIP` (watch.ts); mutate-one reruns a tripped gate after the others end, and reports `unknown` when it still trips or runs `--serial`; falsify, lifetime-falsify and mutate.ts read a trip as unknown and rerun alone | planted trip (clock at 1 ms in a scratch copy): 16 cases trip; mutate-one reran plain and said `unknown` |
+
+How 0a works, and why not a plain freeze: JavaScriptCore takes a frozen array off its fast paths (`includes`, `map`, `every`, for-in over
+frozen buckets): the old `FLOW_DEEP_FREEZE` cost 6 s and 350 MB on the suite. A weak table of every guarded value cost more in GC (23.8 s).
+So a plain object is frozen (a write throws where it happens; in a step that is Fatal), and an array is fingerprinted by its length and
+each element's identity (two 32-bit mixes; objects and strings by a per-guard id) and checked when the harness replays: at the start of
+each replay (logged and published), and at its end (replayed). A frozen object is taken as guarded with all it holds. Limits, stated: a
+class instance or Map in a world (MailQ) is not guarded; an array's non-index properties are not; a moved array is found at the replay,
+not at the write, so a case reads red as "S11 replay differs: writtenInPlace", never green. The two lies are red without the guard too
+(by other oracles); with it they are red by the guard's own words. `FLOW_NO_FREEZE=1` turns the guard off, for measurement only.
+
+`FLOW_COPIES_CHECK=1` (drive.ts): on every hit of the copies memo, the copies are recomputed with no side effect (no Slot run counted, no
+armed throw spent) and compared with the hit (list, resets, Slot tape); a difference throws. Costs about 25 s on the suite, so it stays off
+by default and in every gate; run once per pass.
+
+`--rss-mb` 2600 for mutate.ts: mutate.ts runs each mutate-one `--serial`, so its tree is one suite at a time, measured at 1.80-1.85 GB;
+2600 is about 40% over that, and still stops a mutant that balloons (11.9 GB in round 1) long before the machine is short.

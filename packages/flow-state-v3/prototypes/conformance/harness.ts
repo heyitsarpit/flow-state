@@ -316,3 +316,77 @@ export type DiskCodec = {
 export type Port = { boot(a: BootArgs): Instance; disk: DiskCodec };
 export type RuntimeModule = { port: Port };
 export type { Host };
+
+// What the suite's memos rest on: a published or logged value is never written in place. A plain object is frozen, so a write throws
+// where it happens (a step's throw is Fatal). An array is fingerprinted instead, by its length and each element's identity, and checked
+// when asked: JavaScriptCore takes a frozen array off its fast paths, and a weak table of every value costs more in GC than the suite.
+// A frozen object is taken as guarded with all it holds. A class or a Map is left as it is.
+const NO_GUARD = (globalThis as { process?: { env: Record<string, string | undefined> } }).process?.env["FLOW_NO_FREEZE"] === "1";
+export type InPlaceGuard = { guard(v: unknown): void; written(): { arrays: number; first?: string } };
+export const inPlaceGuard = (): InPlaceGuard => {
+  const arrays: unknown[][] = [];
+  const fp: number[] = [];
+  const objects = new Map<object, number>();
+  const strings = new Map<string, number>();
+  const idOf = <K>(m: Map<K, number>, k: K) => {
+    let n = m.get(k);
+    if (n === undefined) {
+      n = m.size + 1;
+      m.set(k, n);
+    }
+    return n;
+  };
+  const prints = (a: readonly unknown[]): [number, number] => {
+    let h1 = Math.imul(a.length, 0x9e3779b1) ^ 0x85ebca6b;
+    let h2 = Math.imul(a.length, 0xc2b2ae35) ^ 0x27d4eb2f;
+    for (let j = 0; j < a.length; j++) {
+      const e = a[j];
+      const t = typeof e;
+      const kind = !(j in a) ? 1 : e === null ? 2 : t === "object" || t === "function" ? 3 : t === "string" ? 4 : t === "number" ? 5 : 6;
+      const n =
+        kind === 3
+          ? idOf(objects, e as object)
+          : kind === 4
+            ? idOf(strings, e as string)
+            : kind === 5 && ((e as number) | 0) === e && !Object.is(e, -0)
+              ? (e as number)
+              : kind <= 2
+                ? 0
+                : idOf(strings, `${t}:${String(e)}`);
+      h1 = Math.imul(h1 ^ kind, 0x01000193);
+      h1 = Math.imul(h1 ^ n, 0x01000193);
+      h2 = Math.imul(((h2 << 5) | (h2 >>> 27)) ^ (Math.imul(n, 0x9e3779b1) + kind), 0x85ebca77);
+    }
+    return [h1, h2];
+  };
+  const guard = (v: unknown): void => {
+    if (NO_GUARD || v === null || typeof v !== "object" || Object.isFrozen(v)) return;
+    const proto = Object.getPrototypeOf(v);
+    if (proto === Array.prototype) {
+      const a = v as unknown[];
+      if (objects.has(a)) return;
+      idOf(objects, a);
+      for (let j = 0; j < a.length; j++) guard(a[j]);
+      const [h1, h2] = prints(a);
+      arrays.push(a);
+      fp.push(h1, h2);
+      return;
+    }
+    if (proto !== Object.prototype) return;
+    Object.freeze(v);
+    for (const k of Object.keys(v)) guard((v as Record<string, unknown>)[k]);
+  };
+  const written = () => {
+    let n = 0;
+    let first: string | undefined;
+    for (let i = 0; i < arrays.length; i++) {
+      const [h1, h2] = prints(arrays[i]!);
+      if (h1 !== fp[2 * i] || h2 !== fp[2 * i + 1]) {
+        n++;
+        first ??= `an array now of ${arrays[i]!.length}, written after it was published or logged`;
+      }
+    }
+    return { arrays: n, ...(first === undefined ? {} : { first }) };
+  };
+  return { guard, written };
+};

@@ -92,6 +92,59 @@ export const watched = async (
   return { code, peakMb: Math.round(peakMb), killed, ms: Date.now() - t0, stdout, leftovers: left.length };
 };
 
+// A settle stopped by the wall clock, not by its task bound: the machine's load answered, not the runtime. drive.ts says it in these words.
+export const CLOCK_TRIP = "settle: did not quiesce in 20 s of wall clock, unknown under load";
+export type Unknown = "time" | "clock";
+export const loadUnknown = (r: Pick<Watched, "killed" | "stdout">): Unknown | undefined =>
+  r.killed === "time" ? "time" : r.stdout.includes(CLOCK_TRIP) ? "clock" : undefined;
+// Runs that share this process: any number together, or one alone. A run whose answer was the load (a time kill, a clock trip) is run
+// once more, alone, and that answer is the run's. Under FLOW_DEFER_UNKNOWN=1 (a scheduler running other processes beside this one) it is
+// not rerun here: an UNKNOWN line says so, and the scheduler reruns the whole job alone.
+let together = 0;
+let toIdle: Array<() => void> = [];
+let aloneQueued = 0;
+let blocked: Promise<void> | undefined;
+let unblock: (() => void) | undefined;
+let aloneChain: Promise<unknown> = Promise.resolve();
+const idle = () => (together === 0 ? Promise.resolve() : new Promise<void>((r) => toIdle.push(r)));
+const shared = async <T>(f: () => Promise<T>): Promise<T> => {
+  while (blocked) await blocked;
+  together++;
+  try {
+    return await f();
+  } finally {
+    if (--together === 0) for (const w of toIdle.splice(0)) w();
+  }
+};
+const alone = <T>(f: () => Promise<T>): Promise<T> => {
+  if (aloneQueued++ === 0) blocked = new Promise<void>((r) => (unblock = r));
+  const p = aloneChain.then(async () => {
+    await idle();
+    return f();
+  });
+  aloneChain = p.catch(() => undefined);
+  return p.finally(() => {
+    if (--aloneQueued === 0) {
+      const u = unblock;
+      blocked = undefined;
+      unblock = undefined;
+      u?.();
+    }
+  });
+};
+export type Judged = Watched & { rerunFor?: Unknown; unknown?: Unknown };
+export const judged = async (cmd: readonly string[], o: Parameters<typeof watched>[1], isUnknown = loadUnknown): Promise<Judged> => {
+  const first = await shared(() => watched(cmd, o));
+  const why = isUnknown(first);
+  if (!why) return first;
+  if (process.env["FLOW_DEFER_UNKNOWN"] === "1") {
+    console.log(`UNKNOWN ${why}: ${cmd.join(" ").slice(0, 200)}`);
+    return { ...first, unknown: why };
+  }
+  const again = await alone(() => watched(cmd, o));
+  return { ...again, rerunFor: why };
+};
+
 if (import.meta.main) {
   const argv = process.argv.slice(2);
   const sep = argv.indexOf("--");

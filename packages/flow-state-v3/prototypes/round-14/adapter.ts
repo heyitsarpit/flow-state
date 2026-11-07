@@ -2,7 +2,7 @@
 // fault module and the machines proxy reach the core through what production has: a module and data.
 import { allActors, getActor } from "./actors.ts";
 import type { Compiled } from "../conformance/fixtures/compiled.ts";
-import type { BootArgs, Instance, Port } from "../conformance/harness.ts";
+import { inPlaceGuard, type BootArgs, type Instance, type Port } from "../conformance/harness.ts";
 import { createRuntime, type StepRecord } from "./driver.ts";
 import { entities, readAll, type Slice } from "./entities.ts";
 import { engine } from "./engine-spike.ts";
@@ -17,7 +17,6 @@ import { defaultBounds, emptyWorld, type Machines, type World } from "./world.ts
 
 const REGISTRY: Readonly<Record<string, Module<any>>> = { entities, sessions, engine };
 const DRAIN = process.env["FLOW_DRAIN_MS"];
-const FREEZE = process.env["FLOW_DEEP_FREEZE"] === "1";
 const STEP_HOOKS = new Set([
   "prepare",
   "start",
@@ -250,15 +249,8 @@ export const port: Port = {
         },
       });
     const log: StepRecord[] = [];
-    // The purity check: world, inputs and outputs frozen around every step. A step that writes in place throws, and that is Fatal.
-    const deepFreeze = (v: any, seen = new Set<unknown>()): void => {
-      if (v === null || typeof v !== "object" || seen.has(v) || Object.isFrozen(v)) return;
-      const proto = Object.getPrototypeOf(v);
-      if (proto !== Object.prototype && proto !== Array.prototype) return; // plain objects only
-      seen.add(v);
-      Object.freeze(v);
-      for (const k of Object.keys(v)) deepFreeze(v[k], seen);
-    };
+    // The purity check: every logged step, input and output, guarded against a write in place (`inPlaceGuard`).
+    const logged = inPlaceGuard();
     // Rule 69: the suite's read. A session's deliveries are named `${session}#n`.
     let peakInMail = 0;
     const countMail = (w: World) => {
@@ -301,7 +293,11 @@ export const port: Port = {
         const i = r && kidAt(r, path);
         return i && { state: i.leaf, memory: viewOf(i) };
       },
-      version: () => cur(),
+      version: () => {
+        const w = cur();
+        logged.guard(w);
+        return w;
+      },
     };
     a.reads?.(reads);
     const rt = createRuntime({
@@ -312,10 +308,8 @@ export const port: Port = {
       modules,
       bounds,
       onStep: (r) => {
-        if (FREEZE) {
-          deepFreeze(r.input);
-          if (r.out !== "fatal") deepFreeze(r.out);
-        }
+        logged.guard(r.input);
+        if (r.out !== "fatal") logged.guard(r.out);
         log.push(r);
         a.faults.onLogged?.(log.length);
         if (r.out !== "fatal") countMail(r.out.world);
@@ -403,6 +397,9 @@ export const port: Port = {
       },
       // S11: pure re-execution of this boot's input log, with its logged draws, against what was published.
       replay: (before) => {
+        const was = logged.written();
+        if (was.arrays > 0) return { same: false, firstDiff: { writtenInPlace: was } };
+        const replayed = inPlaceGuard();
         let w: World = emptyWorld;
         const compare = canonComparer();
         const sameCanon = (x: unknown, y: unknown) => {
@@ -423,6 +420,7 @@ export const port: Port = {
           const env = { now: e.now, id: () => e.ids[d++]! };
           try {
             const out = step(w, e.input, env, sys);
+            replayed.guard(out);
             if (e.out === "fatal")
               return { same: false, firstDiff: { step: i, input: e.input.k, was: "fatal" } };
             const same = sameCanon([out.commands, out.frame?.seq, out.world], [e.out.commands, e.out.frame?.seq, e.out.world]);
@@ -443,6 +441,9 @@ export const port: Port = {
             break;
           }
         }
+        const now = replayed.written();
+        const then = logged.written();
+        if (now.arrays > 0 || then.arrays > 0) return { same: false, firstDiff: { writtenInPlace: now.arrays > 0 ? now : then, replayed: now.arrays > 0 } };
         return { same: true };
       },
       subscribe: (f) => rt.subscribe(f),

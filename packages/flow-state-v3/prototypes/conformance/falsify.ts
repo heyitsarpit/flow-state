@@ -3,7 +3,7 @@
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
-import { watched } from "./watch.ts";
+import { judged, watched } from "./watch.ts";
 
 const here = import.meta.dir;
 const argIdx = process.argv.indexOf("--runtime");
@@ -20,7 +20,7 @@ const say = (ok: boolean, what: string, detail = "") => {
   if (!ok) bad.push(what);
 };
 // Rule 73: FRAG-15's search reaches more states (its grace timers and use counts make them distinct), and the suite peaks near 1.75 GB.
-const run = (cmd: string[], env: Record<string, string> = {}, cwd = here) => watched(cmd, { rssMb: 2000, seconds: 200, capture: true, env, cwd });
+const run = (cmd: string[], env: Record<string, string> = {}, cwd = here) => judged(cmd, { rssMb: 2000, seconds: 200, capture: true, env, cwd });
 
 // ── The watchdog itself.
 if (part("watch")) {
@@ -382,7 +382,14 @@ try {
       // says Unhandled, a legitimate word when no handler exists. Red only since the free-handler check runs for a late start too.
       ["g.late-unhandled", "a late ending said delivered and Unhandled, run nowhere (H7, late)", [["turn.ts", `${ROUTE} ${RUNT}`, `${ROUTE} if (late) { note(tx, "Unhandled", { event: ev.tag }); return; } ${RUNT}`]], "(j) delivered, and no handler ran"],
     ];
-    const ALL = [...LIES, ...LIES10D, ...LIES10F, ...LIES10G, ...LIES10H, ...LIES10I, ...LIES10K, ...LIES10L];
+    // The memos of `drive.ts` (copies by published world) and of the replay (pairs found equal) hold only while no world
+    // is written in place. A turn's patch written into the published memory (an object: the write throws), and an actor put into the
+    // published table's row (an array: its fingerprint moves). Red by the guard, whatever the memos say.
+    const LIES_INPLACE: ReadonlyArray<readonly [string, string, Edits, string]> = [
+      ["w.patch-in-place", "a turn's patch written into the published memory in place", [["turn.ts", "w.root = withKid(w.root, path, (i) => ({ ...i, memory: { ...i.memory, ...patch } }));", "Object.assign(inc.memory as object, patch);"]], "Attempted to assign to readonly property"],
+      ["w.row-in-place", "an actor put into the published table's row in place", [["actors.ts", "const row = (t[h & 63] ?? empty).slice();", "const row = (t[h & 63] as Array<Bucket | null> | null) ?? empty.slice();"]], "writtenInPlace"],
+    ];
+    const ALL = [...LIES, ...LIES10D, ...LIES10F, ...LIES10G, ...LIES10H, ...LIES10I, ...LIES10K, ...LIES10L, ...LIES_INPLACE];
     // `--slice i/n`: the i-th of n parts (each fits a 5-minute command).
     const sl = process.argv.indexOf("--slice");
     const [si, sn] = sl < 0 ? [1, 1] : process.argv[sl + 1]!.split("/").map(Number) as [number, number];
