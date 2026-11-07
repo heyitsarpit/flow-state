@@ -8,9 +8,9 @@ The lint rules for Flow State v3 production code. The config is the `lint` block
 ## Source
 
 - Vendored from `/Users/arpit/Developer/workflow/lint-bomb` at commit
-  `183d43b995bc5488a811c19e326a463eafbb4c67` ("Five rule changes from Flow State"), with no local
-  changes. Copied: `src/`,
-  `test/rules.test.ts`, `LICENSE`, `RULES.md`, `STYLE.md` and `examples/`, as its README says.
+  `59ee78311065e30137d31c5293304a6ddc9e0815` ("Style: store facts, derive views;
+  booking derives remaining seats"), with no local changes. Copied: `src/`, `test/rules.test.ts`,
+  `LICENSE`, `RULES.md`, `STYLE.md` and `examples/`, as its README says.
 - Oxlint loads `src/index.ts` directly, the same way lint-bomb's own config does. So there is no
   esbuild step and no new dependency. The repo already pins `oxlint` and `@oxlint/plugins` at
   1.89.0, and the copied rule tests pass on 1.89.0 (`nub run lint:rules`). lint-bomb itself was
@@ -69,8 +69,9 @@ Review signals, which RULES.md itself says syntax can't prove:
 - `no-eager-stateful-effect-succeed`, `no-stateful-effect-construction`: `warn`. RULES.md: "a
   review warning, not proof of a leak".
 - `no-god-service-shape`: `warn` at 16. RULES.md: "a review prompt, not proof".
-- `no-large-production-file`: `warn` at 500 lines, 1000 for tests. Line count alone doesn't
-  justify a split, and a lane or edge module owns one invariant. 173 of Effect's 417 source
+- `no-large-production-file`: `warn` at 500 lines, 1000 for tests, not counting comment-only
+  lines (2026-11-07), since public docs live in the source. Line count alone doesn't justify a
+  split, and a lane or edge module owns one invariant. 173 of Effect's 417 source
   files are over 500 lines.
 
 Rules that misfire on a library with public types:
@@ -82,9 +83,9 @@ Rules that misfire on a library with public types:
   module.
 - `no-readonly`: `off` (Arpit, 2026-11-04). The rule exists to stop agents overusing `readonly`.
   Here `readonly` is the only zero-cost guard against a turn mutating the previous turn's state:
-  316 internal findings on the round 13 runtime (`packages/flow-state-v3/lint-eval.md`). Its
+  316 internal findings on the round 13 runtime. Its
   `allowInExportedTypes` option stays in lint-bomb for other projects.
-- New in lint-bomb on 2026-11-04, from the prototype's failure history (`packages/flow-state-v3/lint-eval.md`):
+- New in lint-bomb on 2026-11-04, from the prototype's failure history:
   - `no-throw-in-core`: `error` on `src`. The core returns expected failures as values; only
     `Defect` and `unreachable` may be thrown. The names are proposed until the issue catalog exists.
   - `no-allocation-in-loop`: `warn` on `src`, a review signal (Arpit asked for it). It reports

@@ -558,7 +558,8 @@ The explicit {{target}} type on {{subject}} discards known type evidence. Preser
 
 Review cohesion and the number of concerns a reader must trace. Split independent responsibilities
 at meaningful boundaries when justified. Keep one invariant owner intact; line count alone does not
-justify more files. This example uses `productionThreshold: 3`; the default is 500 lines.
+justify more files. Lines that hold only a comment do not count, so documentation never pushes a
+module over. This example uses `productionThreshold: 3`; the default is 500 lines.
 
 **Failing target**
 
@@ -573,7 +574,7 @@ const customValue3 = 3;
 
 **Shipped message**
 
-This source module is {{lines}} lines long. Review whether its responsibilities remain cohesive and extract independent concerns when justified. Keep related invariants and their owner together; line count alone does not justify arbitrary file splits.
+This source module has {{lines}} lines, not counting comments. Review whether its responsibilities remain cohesive and extract independent concerns when justified. Keep related invariants and their owner together; line count alone does not justify arbitrary file splits.
 
 ## no-local-definite-assignment
 

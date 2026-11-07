@@ -15,6 +15,7 @@ This is an example review, not an accepted Workflow Spec or a full application c
 
 [booking.ts](booking.ts) owns the workshop scenario; [routing.ts](routing.ts) owns routing and its sandbox.
 [style.ts](style.ts) supplies separate recipes. Its settings and filesystem adapter have integration checks.
+[lifecycle.ts](lifecycle.ts) models an upload's phases and its one transition, `advanceUpload`.
 No check claims durable storage, remote delivery, authentication, or distributed atomicity.
 
 ## Requirements first
@@ -39,29 +40,30 @@ B-R7 names the two exercised interruption points; it is not evidence for every i
 
 ### Routing and shared capabilities
 
-| ID    | Intended observable requirement                                                               |
-| ----- | --------------------------------------------------------------------------------------------- |
-| P-R1  | Admit declared channel variants, complete severity routes, and bounded fields.                |
-| P-R2  | Resolve every route target to exactly one declared channel.                                   |
-| P-R3  | Apply the default only to a missing limit; reject malformed present values.                   |
-| P-R4  | Preview precisely the selected targets in channel declaration order.                          |
-| P-R5  | Preserve policy meaning across wire encoding; summaries expose only summary fields.           |
-| P-R6  | Declared channel IDs are unique, including unused channels.                                   |
-| P-R7  | Each severity route names a target at most once.                                              |
-| P-R8  | Admit Webhook destinations only when they use HTTPS.                                          |
-| P-R9  | Reject Webhook destinations with embedded credentials.                                        |
-| P-R10 | A preview returns detached channel definitions.                                               |
-| G-R1  | One gateway build accepts at most four simulated attempts.                                    |
-| G-R2  | Successful attempts receive distinct increasing sequence numbers in that build.               |
-| G-R3  | Both consumers of one shared gateway observe the same quota.                                  |
-| G-R4  | Separate builds and explicitly fresh branches have independent gateway state.                 |
-| G-R5  | Gateway construction failures remain in the composed application's failure channel.           |
-| G-R6  | Each gateway outcome identifies its originating channel.                                      |
-| G-R7  | Each successful gateway outcome preserves its originating message.                            |
-| G-R8  | Retaining services capture their own validated policy; later caller mutation cannot alter it. |
-| G-R9  | Reject a policy invalidated before capture rather than retaining invalid relationships.       |
-| S-R1  | A checked setting retains its codec and supplies a valid value to its real consumer.          |
-| S-R2  | The filesystem adapter returns real content or a typed error retaining the foreign cause.     |
+| ID    | Intended observable requirement                                                                |
+| ----- | ---------------------------------------------------------------------------------------------- |
+| P-R1  | Admit declared channel variants, complete severity routes, and bounded fields.                 |
+| P-R2  | Resolve every route target to exactly one declared channel.                                    |
+| P-R3  | Apply the default only to a missing limit; reject malformed present values.                    |
+| P-R4  | Preview precisely the selected targets in channel declaration order.                           |
+| P-R5  | Preserve policy meaning across wire encoding; summaries expose only summary fields.            |
+| P-R6  | Declared channel IDs are unique, including unused channels.                                    |
+| P-R7  | Each severity route names a target at most once.                                               |
+| P-R8  | Admit Webhook destinations only when they use HTTPS.                                           |
+| P-R9  | Reject Webhook destinations with embedded credentials.                                         |
+| P-R10 | A preview returns detached channel definitions.                                                |
+| G-R1  | One gateway build accepts at most four simulated attempts.                                     |
+| G-R2  | Successful attempts receive distinct increasing sequence numbers in that build.                |
+| G-R3  | Both consumers of one shared gateway observe the same quota.                                   |
+| G-R4  | Separate builds and explicitly fresh branches have independent gateway state.                  |
+| G-R5  | Gateway construction failures remain in the composed application's failure channel.            |
+| G-R6  | Each gateway outcome identifies its originating channel.                                       |
+| G-R7  | Each successful gateway outcome preserves its originating message.                             |
+| G-R8  | Retaining services capture their own validated policy; later caller mutation cannot alter it.  |
+| G-R9  | Reject a policy invalidated before capture rather than retaining invalid relationships.        |
+| S-R1  | A checked setting retains its codec and supplies a valid value to its real consumer.           |
+| S-R2  | The filesystem adapter returns real content or a typed error retaining the foreign cause.      |
+| L-R1  | An upload changes phase only through `advanceUpload`; every other phase-event pair is refused. |
 
 Schema values belong to callers and are not frozen. Policy queries assume their own input remains valid.
 A Service retaining policy captures and validates a detached copy at entry; subsequent caller writes
@@ -86,7 +88,8 @@ Each row states one independently challengeable property; implementation choices
 | B-I7 | A committed price never exceeds its admitted budget.                                            | B-R2    | B01, B10, B11 |
 | B-I8 | Retained receipt facts remain the original committed facts despite writes to returned receipts. | B-R9    | B12           |
 
-B-I2/I4/I5 concern committed facts, not merely counters. B12 exercises caller mutation. B13 enters
+B-I2/I4/I5 concern committed facts, not merely counters. B-I2 holds by construction: availability
+is derived from committed receipts, not stored beside them. B12 exercises caller mutation. B13 enters
 through the public Service directly; no public quote-taking reservation port remains.
 
 ### Routing value relationships
@@ -145,6 +148,7 @@ These are postconditions and lifetime checks, not additional state invariants.
 | Construction failures remain typed                 | The composed application reports GatewayUnavailable.                             | G04           |
 | Checked settings cross actual boundaries           | Setting → codec → real Counter service → observation.                            | S01           |
 | Foreign failures retain evidence                   | Real file read and missing-file failure carry original cause.                    | S02           |
+| Lifecycles refuse unaccepted events                | Every refused phase and event pair names both; accepted pairs move once.         | L01, L02      |
 | Receipt isolation                                  | Changes to returned receipts do not alter replay or availability.                | B12           |
 | Service admission                                  | Direct Service calls validate before committing reservations.                    | B13           |
 | Preview isolation                                  | Changing a preview destination does not change subsequent previews.              | P09           |

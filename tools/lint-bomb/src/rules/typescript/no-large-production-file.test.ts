@@ -24,6 +24,14 @@ tester.run("no-large-production-file", noLargeProductionFileRule, {
 			filename: "/project/packages/demo/src/value.ts",
 		},
 		{
+			code:
+				"/**\n" +
+				Array.from({ length: 600 }, (_, index) => ` * Documentation line ${index}.`).join("\n") +
+				"\n */\n" +
+				Array.from({ length: 400 }, (_, index) => `const documented${index} = ${index}; // trailing`).join("\n"),
+			filename: "/project/packages/demo/src/documented.ts",
+		},
+		{
 			code: Array.from({ length: 1001 }, (_, index) => `declare const value${index}: string;`).join("\n"),
 			filename: "/project/packages/demo/src/types.d.ts",
 		},
@@ -50,6 +58,13 @@ tester.run("no-large-production-file", noLargeProductionFileRule, {
 			filename: "/project/packages/demo/src/custom.test.ts",
 			options: [{ testThreshold: 3 }],
 			errors: [{ messageId: "largeFile", line: 1, column: 0 }],
+		},
+		{
+			code:
+				"/** Module summary. */\n" +
+				Array.from({ length: 501 }, (_, index) => `const counted${index} = ${index}; // trailing`).join("\n"),
+			filename: "/project/packages/demo/src/counted.ts",
+			errors: [{ messageId: "largeFile", line: 2, column: 0 }],
 		},
 		{
 			code: windowsProductionFile,

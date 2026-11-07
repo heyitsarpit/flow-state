@@ -209,10 +209,13 @@ export type DeliveryOutcome = Data.TaggedEnum<{
 
 export const DeliveryOutcome = Data.taggedEnum<DeliveryOutcome>();
 
+// The quota is a bound, not a phase: one named limit, read wherever the count is judged.
+const attemptQuota = 4;
+
 // This pure transition returns the Ref result and next count together; nothing is sent remotely.
 const simulateAttempt = (count: number, channelId: ChannelId, message: string) => {
-  if (count >= 4) {
-    return Tuple.make(DeliveryOutcome.QuotaReached({ channelId, limit: 4 }), count);
+  if (count >= attemptQuota) {
+    return Tuple.make(DeliveryOutcome.QuotaReached({ channelId, limit: attemptQuota }), count);
   }
 
   return Tuple.make(
@@ -242,7 +245,7 @@ export class DeliveryGateway extends Context.Service<
         );
 
       const usage = Ref.get(accepted).pipe(
-        Effect.map((count) => ({ accepted: count, remaining: 4 - count })),
+        Effect.map((count) => ({ accepted: count, remaining: attemptQuota - count })),
       );
 
       return DeliveryGateway.of({ record, usage });

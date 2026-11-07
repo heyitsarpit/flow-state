@@ -120,8 +120,22 @@ type BookingFailure = InvalidBooking | BudgetExceeded | ReservationFailure;
 
 // Concern: resolve identity and capacity together; only the ledger invokes this transition.
 type LedgerState = {
-  remaining: number;
   bookings: HashMap.HashMap<string, { request: BookingRequest; receipt: BookingReceipt }>;
+};
+
+const seatCapacity = 5;
+
+// STORE FACTS, DERIVE VIEWS: committed receipts are the facts; remaining seats are a view of them.
+// A stored count beside the bookings would let a later transition, such as a cancel, change one
+// and forget the other.
+const remainingSeats = (state: LedgerState) => {
+  let committed = 0;
+
+  for (const { receipt } of HashMap.values(state.bookings)) {
+    committed += receipt.seats;
+  }
+
+  return seatCapacity - committed;
 };
 
 // A pure transition keeps reservation policy readable. Only the owner calls it, inside Ref.modify.
@@ -145,12 +159,14 @@ const decideReservation = (current: LedgerState, quote: BookingQuote) => {
   }
 
   // RECHECK AT USE: only the atomic owner can establish current seat availability.
-  if (quote.request.seats > current.remaining) {
+  const remaining = remainingSeats(current);
+
+  if (quote.request.seats > remaining) {
     return Tuple.make(
       Result.fail(
         new SoldOut({
           requested: quote.request.seats,
-          remaining: current.remaining,
+          remaining,
         }),
       ),
       current,
@@ -164,11 +180,10 @@ const decideReservation = (current: LedgerState, quote: BookingQuote) => {
     totalCents: quote.totalCents,
   });
 
-  // PUBLICATION: observers cannot see a seat debit without its retry receipt, or vice versa.
+  // PUBLICATION: the receipt is the debit, so one write publishes both and they cannot disagree.
   // Tuple expresses Ref.modify's result/next-state protocol; all refusal paths keep current.
   // No external effects belong here: local atomicity cannot make payment or email atomic.
   return Tuple.make(Result.succeed({ ...receipt }), {
-    remaining: current.remaining - receipt.seats,
     bookings: HashMap.set(current.bookings, receipt.requestId, { request: quote.request, receipt }),
   });
 };
@@ -181,7 +196,7 @@ const decideReservation = (current: LedgerState, quote: BookingQuote) => {
 // Contract: JSON -> BookingReceipt; fails BookingFailure; state belongs to this Layer build.
 // Owner: BookingLedger controls capacity and committed identities during one Layer build.
 // Invariant B-I2: remaining + committed seat quantities = 5 at every public Observation.
-// Enforcement: one Ref.modify publishes the receipt and matching debit together.
+// Enforcement: remaining seats are derived from committed receipts, so B-I2 holds by construction.
 // Rejection and replay preserve state; detached receipts protect retained facts from caller mutation.
 export class BookingLedger extends Context.Service<
   BookingLedger,
@@ -193,7 +208,7 @@ export class BookingLedger extends Context.Service<
   static layer = Layer.effect(
     BookingLedger,
     Effect.gen(function* () {
-      const state = yield* Ref.make<LedgerState>({ remaining: 5, bookings: HashMap.empty() });
+      const state = yield* Ref.make<LedgerState>({ bookings: HashMap.empty() });
 
       const book = Effect.fn("BookingLedger.book")(function* (json: string) {
         const request = yield* decodeBooking(json).pipe(
@@ -210,9 +225,9 @@ export class BookingLedger extends Context.Service<
 
       // Publish derived observations, not the Ref or registry; callers cannot perform half-updates.
       const availability = Ref.get(state).pipe(
-        Effect.map(({ remaining, bookings }) => ({
-          remaining,
-          bookings: HashMap.size(bookings),
+        Effect.map((current) => ({
+          remaining: remainingSeats(current),
+          bookings: HashMap.size(current.bookings),
         })),
       );
 

@@ -17,6 +17,27 @@ function isLintTarget(filename: string): boolean {
 	);
 }
 
+function countCodeLines(text: string, comments: ReadonlyArray<{ range: [number, number] }>): number {
+	if (text === "") return 0;
+	let stripped = "";
+	let cursor = 0;
+	for (const comment of comments) {
+		const [start, end] = comment.range;
+		if (start < cursor) continue;
+		stripped += text.slice(cursor, start) + text.slice(start, end).replace(/[^\r\n]/gu, " ");
+		cursor = end;
+	}
+	stripped += text.slice(cursor);
+	const trim = (value: string) => value.replace(/(?:\r\n|\n|\r)+$/u, "");
+	const original = trim(text).split(/\r\n|\n|\r/u);
+	const code = trim(stripped).split(/\r\n|\n|\r/u);
+	let commentOnly = 0;
+	for (const [index, line] of original.entries()) {
+		if (line.trim() !== "" && (code[index] ?? "").trim() === "") commentOnly += 1;
+	}
+	return original.length - commentOnly;
+}
+
 function optionThreshold(
 	option: unknown,
 	key: "threshold" | "productionThreshold" | "testThreshold",
@@ -27,7 +48,7 @@ function optionThreshold(
 	return typeof value === "number" && Number.isInteger(value) && value > 0 ? value : fallback;
 }
 
-/** Turn oversized package modules into review prompts with separate test and production caps. */
+/** Turn oversized package modules into review prompts with separate test and production caps; comment-only lines do not count. */
 export const noLargeProductionFileRule = defineRule({
 	meta: {
 		type: "suggestion",
@@ -37,7 +58,7 @@ export const noLargeProductionFileRule = defineRule({
 		},
 		messages: {
 			largeFile:
-				"This source module is {{lines}} lines long. Review whether its responsibilities remain cohesive and extract independent concerns when justified. Keep related invariants and their owner together; line count alone does not justify arbitrary file splits.",
+				"This source module has {{lines}} lines, not counting comments. Review whether its responsibilities remain cohesive and extract independent concerns when justified. Keep related invariants and their owner together; line count alone does not justify arbitrary file splits.",
 		},
 		schema: [
 			{
@@ -65,8 +86,7 @@ export const noLargeProductionFileRule = defineRule({
 					optionThreshold(option, "threshold", DEFAULT_PRODUCTION_THRESHOLD),
 				);
 				const testThreshold = optionThreshold(option, "testThreshold", DEFAULT_TEST_THRESHOLD);
-					const text = context.sourceCode.getText(node);
-					const lines = text === "" ? 0 : text.replace(/(?:\r\n|\n|\r)+$/u, "").split(/\r\n|\n|\r/u).length;
+				const lines = countCodeLines(context.sourceCode.text, context.sourceCode.getAllComments());
 				const threshold = isTestFile(context.filename) ? testThreshold : productionThreshold;
 				if (lines > threshold) {
 					context.report({ loc: node.loc.start, messageId: "largeFile", data: { lines } });

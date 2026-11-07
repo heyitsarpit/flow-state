@@ -72,10 +72,25 @@ BookingRequest and BookingOutcome describe different facts; they do not duplicat
 | Expected absence                    | `Option`                                             |
 | Pure recoverable success or failure | `Result`                                             |
 | Total case handling                 | Enum `$match`, `Option.match`, or `Result.match`     |
+| A value computed from other values  | A derived view; store only the facts                 |
+| A lifecycle with phases             | One closed variant of phases and one transition      |
 
 Put required case-specific fields in their variant, not independent flags and optional fields.
 Require every case in total handlers. Adding a variant must force an explicit decision.
 Represent partial matches explicitly.
+
+### Store facts, derive views
+
+Store facts; derive views. A fact was decided at a moment (a price paid); a view follows from facts (a total, a count).
+Never store a view beside its facts, even in one owner. Cache only when measured, updated by the same transition.
+See [booking.ts](examples/booking.ts).
+
+### No implicit state machines
+
+Name every state machine: one closed variant of phases, each holding only its own facts.
+Never rebuild a phase from flags, optional fields, or comparisons.
+Change phase only in one pure transition, exhaustive over phase and event; refuse unaccepted, late or repeated events explicitly.
+See [lifecycle.ts](examples/lifecycle.ts).
 
 Use `Schema` for external or serialized contracts; derive the admitted type and decode once.
 Declare each codec once; derive only the parser functions its consumers use.
