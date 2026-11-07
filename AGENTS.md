@@ -21,12 +21,15 @@ workflow check       # see .agents/skills/workflow-cli/SKILL.md before editing W
 
 ## Code style (v3 production)
 - Write in lint-bomb's style before linting: read `tools/lint-bomb/STYLE.md` with its code
-  companion `tools/lint-bomb/examples/style.ts`, the composed examples (`booking.ts`,
-  `tracking.ts`), and `packages/flow-state-v3/src/_example/edge.ts` (house style).
+  companion `tools/lint-bomb/examples/style.ts` and the composed examples (`booking.ts`,
+  `tracking.ts`).
   `tools/lint-bomb/FLOW-STATE.md` says which rules apply here and why. The examples' Effect
   workflows, `Ref`, `Layer`, HTTP and SQL recipes are for the host and app edges, not the core.
 - House rules: each fact lives in one place; decode once at the boundary with Schema and trust
   the result.
+- Store facts, derive views: never store a value other fields already determine, such as a count
+  beside its list. Cache only when measured, and update it in the same transition.
+- Don't write any implicit state machines, find and refactor any implicit state machine you find.
 - The core (everything outside `src/host/`) is plain TypeScript:
   - pure and synchronous: no Effect runtime (`Effect.gen`, `run*`, `try`), no promises or timers.
     A turn runs in about 0.2 ms, and Effect there costs 20-25x per call;
