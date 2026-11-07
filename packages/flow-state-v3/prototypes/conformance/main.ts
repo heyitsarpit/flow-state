@@ -193,7 +193,7 @@ export const runScenarios = (
           tracked.push(rec);
         };
         const note = (step: any) => {
-          for (const a of [step?.ensure, step?.send, step?.burst, step?.dispose, step?.attach, step?.detach]) if (a?.actor !== undefined) rec.actors.set(`${a.actor}/${a.id}`, a);
+          for (const a of [step?.ensure, step?.send, step?.burst, step?.dispose, step?.attach, step?.release]) if (a?.actor !== undefined) rec.actors.set(`${a.actor}/${a.id}`, a);
           rec.steps++;
         };
         const hashed = () => {

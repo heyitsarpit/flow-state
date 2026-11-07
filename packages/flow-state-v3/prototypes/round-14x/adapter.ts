@@ -11,17 +11,13 @@ import { kidAt, viewOf } from "./inc.ts";
 import { MailQ } from "./mailq.ts";
 import { row as rowOf, view, waitsOf } from "./publish.ts";
 import type { Module } from "./seam.ts";
-import { busy, step } from "./step.ts";
+import { step } from "./step.ts";
 import { bindingIn } from "./turn.ts";
 import { defaultBounds, emptyWorld, type Machines, type World } from "./world.ts";
 
 const REGISTRY: Readonly<Record<string, Module<any>>> = { entities, sessions, engine };
 const DRAIN = process.env["FLOW_DRAIN_MS"];
 const FREEZE = process.env["FLOW_DEEP_FREEZE"] === "1";
-// Lifetime experiment. `uses`: the suite's `ensure` is its one consumer attaching, and its `dispose` (retain expiry) is that consumer
-// detaching, so the actor goes only once idle. `uses+boot`: and what a reload restores starts with no uses. Unset: a bare ensure, as round 13.
-const LIFETIME = process.env["FLOW_LIFETIME"];
-const PROBE = process.env["FLOW_LIFETIME_PROBE"] === "1"; // prints whether each `dispose` the suite drives meets an actor with work in progress
 const STEP_HOOKS = new Set([
   "prepare",
   "start",
@@ -225,7 +221,6 @@ export const port: Port = {
     a.reads?.(reads);
     const rt = createRuntime({
       host: a.host,
-      ...(LIFETIME === "uses+boot" ? { unusedAtBoot: true } : {}),
       machines: a.compiled, // D77: createRuntime seals
       ...(a.services ? { services: a.services } : {}), // D211
       around: faultedMachines,
@@ -258,15 +253,11 @@ export const port: Port = {
     const store = (w: World) => w.ext["entities"] as Slice | undefined;
     const reg = REGISTRY["entities"]!;
     return {
-      ensure: (actor, machine, input) =>
-        rt.input(LIFETIME ? { k: "attach", actor, machine, input, once: true } : { k: "ensure", actor, machine, input }),
+      ensure: (actor, machine, input) => rt.input({ k: "ensure", actor, machine, input }),
       send: (actor, event) => rt.input({ k: "send", actor, event }),
-      dispose: (actor) => {
-        if (PROBE && getActor(rt.world().actors, actor)) console.log(`LIFETIME-PROBE dispose ${actor} ${busy(rt.world(), actor) ? "busy" : "idle"}`);
-        rt.input(LIFETIME ? { k: "detach", actor, all: true } : { k: "dispose", actor });
-      },
-      attach: (actor, machine, input) => rt.input({ k: "attach", actor, machine, input }),
-      detach: (actor) => rt.input({ k: "detach", actor }),
+      dispose: (actor) => rt.input({ k: "dispose", actor }), // Story `dispose(ref)`: the explicit rebind, the record kept
+      attach: (actor, machine, input, existing) => rt.input({ k: "attach", actor, machine, input, ...(existing ? { existing: true } : {}) }),
+      release: (actor) => rt.input({ k: "release", actor }),
       disposeRuntime: () => rt.input({ k: "disposeRuntime" }),
       repeatLastCompletion: () => {
         if (lastCompletion) rt.input(lastCompletion);

@@ -60,9 +60,10 @@ export type Step =
   | { ensure: ActorRef; input?: unknown }
   | { send: ActorRef; event: string; payload?: unknown; to?: readonly string[] }
   | { dispose: ActorRef } // the actor's life ends. Its lanes stay the Runtime's (OD19)
-  // Lifetime proposal: a use of a shared actor begins (ensuring it) or ends. With no uses and no work in progress it goes after the host's task.
+  // Rule 73: a consumer of a shared actor attaches (ensuring it), or a use ends (Story.release, OD27 Q4), which disposes nothing. The suite's
+  // `ensure` attaches its own consumer on a runtime with uses; `release` ends it. With no uses and nothing busy, the actor goes after the grace.
   | { attach: ActorRef; input?: unknown }
-  | { detach: ActorRef }
+  | { release: ActorRef }
   | { advance: number }
   | { answer: RequestMatch; with: Answer; where?: Readonly<Record<string, unknown>> }
   // crashAfterBoot: the first boot dies with its mail undelivered (review M1). Needs drainMs -1. tear: only the first n writes of the last batch landed
@@ -256,8 +257,8 @@ export type Instance = {
   ensure(actor: string, machine: string, input: unknown): void;
   send(actor: string, event: Ev): void;
   dispose(actor: string): void;
-  attach?(actor: string, machine: string, input: unknown): void; // lifetime proposal: a runtime without uses has none
-  detach?(actor: string): void;
+  attach?(actor: string, machine: string, input: unknown, existing?: boolean): void; // rule 73: a runtime without uses has none. `existing`: only onto a live actor
+  release?(actor: string): void;
   disposeRuntime(): void;
   repeatLastCompletion(): void;
   pending(): boolean;

@@ -308,7 +308,7 @@ export const round7Scenarios: readonly Scenario[] = [
         c0.yes("L4", threw.includes("DuplicateMachine"));
       },
       "the-queue-has-a-bound"(c0) {
-        const c = fresh(c0, { bootQueue: 2 });
+        const c = fresh(c0, { bootQueue: 3 }); // rule 73: the consumer re-attaching at the reload takes a slot, as a remount's would
         c.do({ reload: true, load: "hang" });
         c.h.do({ ensure: A });
         c.h.do({ send: A, event: "Note", payload: { text: "1" } });

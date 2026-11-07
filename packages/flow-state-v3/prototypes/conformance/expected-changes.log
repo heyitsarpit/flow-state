@@ -989,3 +989,45 @@ output:LIFE-04/one-of-two-uses-ending-keeps-it hash:6c4be5a2c69d | lifetime expe
 output:LIFE-05 hash:2b1ed77782a5 | lifetime experiment: LIFE-05's whole output on round-14x
 file:expected-recipients.txt hash:cd0cd7f0fdf9 | lifetime experiment: LIFE-01..05 observe 6 more deliveries and check 6 more start nodes
 file:broken-adapter.ts hash:f2dd36df0db9 | lifetime experiment, falsify suite3: bogusIssue breaks an attach as it breaks an ensure, so a case that only attaches sees it
+--- rule 73 as written (machine-design OD27, 2.7.17, C104-C111): round-14x reworked to the design
+ORDER-01 hash:892590586861 | rule 73, C105: the send to absent, non-persisted c3 is SendTargetAbsent NotPersisted, named, with its reason read
+REV7-M2 hash:86f921a16d6d | rule 73: the consumer re-attaching at the reload takes a boot-queue slot, so the bound is 3 for the same one drop
+LIFE-01 hash:0d0742db50b5 | rule 73: an InFlight write keeps a persisted actor past its last use; it goes a grace after, record kept
+LIFE-02 hash:b3ad24e8e1da | rule 73: a non-persisted shared actor goes a grace after its write lands, nothing kept; idle, a grace after release
+LIFE-03 hash:6f67e1de8bac | rule 73, C105: a send to an absent persisted target restores it and delivers in order; it goes again a grace after
+LIFE-04 hash:8d08fa3af926 | rule 73: release and attach in one task or within the grace keep the incarnation; past the grace it goes; counted
+LIFE-05 hash:c51a08bb685f | rule 73, rule 44: a parked ending is no use; persisted Notes goes and its next incarnation's copy hears it once
+LIFE-06 hash:d606fe359b36 | rule 73, rule 44: Held is no use; the actor goes, the hold is unbound, the next incarnation hears Restored once
+LIFE-07 hash:4313a783ad20 | rule 73: an armed schedule is no use; the record keeps the deadline, and the overdue one fires once at restore
+LIFE-08 hash:ac7563abddf3 | rule 73: a send during the grace is mail, a use; the same incarnation hears it and the grace starts again
+LIFE-09 hash:338dfe21298c | rule 73, C105: a send to an absent non-persisted target is SendTargetAbsent NotPersisted and creates nothing
+LIFE-10 hash:dc3baa9f6547 | rule 73, C108: a pre-attach handle reads the Runtime's copy; no publication shows initial memory
+file:scenarios/lifetime.scenario.ts hash:4f87e8cd756d | rule 73 as written: LIFE-01..10, release for a use's end, the grace, the design's use list, by hand
+file:scenarios/order.scenario.ts hash:bab64e34870a | rule 73, C105: ORDER-01 names SendTargetAbsent and reads its NotPersisted reason
+file:scenarios/round7.scenario.ts hash:e39a9b1b13e0 | rule 73: REV7-M2's boot queue bound counts the remount's re-attach
+file:main.ts hash:99cab8c98fa4 | rule 73: a release step names its actor for the output, as attach does
+file:harness.ts hash:6ab99530a8cc | rule 73: release replaces detach (Story.release, OD27 Q4); attach may be onto an existing actor only
+file:drive.ts hash:addd130f193f | rule 73: the suite's ensure attaches its own consumer; release and dispose end it; a reload re-attaches it
+round:mutants-lifetime.ts hash:46615b6e482c | rule 73 as written: thirteen wrong runtimes, one per clause, for LIFE-01..10
+round:adapter.ts hash:0a20357ceaba | rule 73 as written: ensure is no use, attach and release, the mapping modes and the probe removed
+output:FRAG-15 hash:7c90adf47c3c | rule 73: a send-restored Notes has no uses, so its grace runs and the search reaches more states
+output:LIFE-01 hash:2d44a32de396 | rule 73: LIFE-01's whole output, with the grace
+output:LIFE-02/busy-until-its-write-lands-then-gone hash:2b49e0100799 | rule 73: LIFE-02 busy variant's whole output, with the grace
+output:LIFE-02/idle-with-no-uses-is-gone-after-the-grace hash:14b3bdcc2657 | rule 73: LIFE-02 idle variant's whole output, renamed for the grace
+output:LIFE-03 hash:da14e6335a10 | rule 73: LIFE-03's whole output, with the grace
+output:LIFE-04/an-attach-within-the-grace-keeps-the-incarnation-and-past-it-is-disposed hash:85ed5c0693f4 | rule 73: LIFE-04 grace variant's whole output
+output:LIFE-04/one-of-two-uses-ending-keeps-it hash:5a51c066a1a6 | rule 73: LIFE-04 counted variant's whole output, with the grace
+output:LIFE-04/release-then-attach-in-one-task-disposes-nothing hash:5fc4a69aa52e | rule 73: LIFE-04 Strict Mode variant's whole output, release for detach
+output:LIFE-05 hash:29c8f91863c5 | rule 73: LIFE-05's whole output, the parked ending delivered to the next life
+output:LIFE-06 hash:f4aacac8af75 | rule 73: LIFE-06's whole output
+output:LIFE-07 hash:dc18969c63bd | rule 73: LIFE-07's whole output
+output:LIFE-08 hash:b1c89de73e8b | rule 73: LIFE-08's whole output
+output:LIFE-09 hash:876aa6d378e6 | rule 73: LIFE-09's whole output
+output:LIFE-10 hash:ac0fca244b52 | rule 73: LIFE-10's whole output
+output:ORDER-01 hash:47597c09a030 | rule 73, C105: ORDER-01's output, SendTargetAbsent in place of unbound evidence
+removed:variant:LIFE-02/idle-with-no-uses-is-gone | renamed LIFE-02/idle-with-no-uses-is-gone-after-the-grace: rule 73 disposes after the grace
+removed:variant:LIFE-04/detach-then-attach-in-one-task-disposes-nothing | renamed LIFE-04/release-then-attach-in-one-task-disposes-nothing (Story.release)
+removed:output:LIFE-02/idle-with-no-uses-is-gone | the variant was renamed for the grace; its output line goes with it
+removed:output:LIFE-04/detach-then-attach-in-one-task-disposes-nothing | the variant was renamed for release; its output line goes with it
+file:expected-recipients.txt hash:a1cc52436a3e | rule 73: LIFE-06..10 observe 21 more deliveries and check 21 more start nodes
+file:falsify.ts hash:818fc3570334 | rule 73: FRAG-15's search reaches more states, the suite peaks near 1.75 GB; a child's bound is 2 GB, the user's limit

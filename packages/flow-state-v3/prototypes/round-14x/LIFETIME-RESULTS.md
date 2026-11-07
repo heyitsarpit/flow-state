@@ -1,95 +1,91 @@
-# Lifetime experiment: round 13 under "an actor lives while it is used"
+# Rule 73 on round 13's runtime: "a shared actor lives while it is used"
 
-Status: **experiment, PROPOSED.** This tests `workflow/plans/flow/references/explorations/actor-lifetime/proposal.md` on a copy of round 13. It never
-becomes production code, and nothing here is decided. Marks: [ran], [read], [reasoning].
+Status: **experiment.** This builds rule 73 and 2.7.17 as `machine-design.md` now writes them (decided, OD27, with Q1-Q5; C104-C111) on a copy
+of round 13. It never becomes production code. Marks: [ran], [read], [reasoning].
 
-## Commands and results
+## Commands and results (final tree) [ran]
 
-| Run | Command (from the repo root) | Result |
+| Gate | Command, from `packages/flow-state-v3/prototypes/conformance/` | Result |
 | --- | --- | --- |
-| Baseline | `bun packages/flow-state-v3/prototypes/conformance/main.ts --round 13 --runtime ../round-13/adapter.ts --no-search` | 761/761, lock clean, exit 0 [ran] |
-| A: rule on, suite as written | `… main.ts --round 14 --runtime ../round-14x/adapter.ts --no-search` | first run 759/761 (2 ledger reds, fixed in the suite); final **768/768, lock clean, recipients as written, exit 0** [ran] |
-| B: `ensure` = attach, `dispose` = last detach | `FLOW_LIFETIME=uses …` (same command) | 24 cases red by a named oracle; the rest only by output [ran] |
-| C: B, and a reload starts with no uses | `FLOW_LIFETIME=uses+boot …` | 93 red by a named oracle (B's 24, plus 69 reads after a reload) [ran] |
-| Round 13 on the new suite | `… --runtime ../round-13/adapter.ts` | 760/768: the 7 LIFE cases red (no uses), FRAG-15 by output (a send no longer restores), round files unlogged [ran] |
-| New cases, fail side | `bun packages/flow-state-v3/prototypes/conformance/lifetime-falsify.ts --runtime ../round-14x/adapter.ts` | control 7/7 green; all 7 wrong runtimes red [ran] |
-| falsify | `bun conformance/falsify.ts --runtime ../round-14x/adapter.ts --part suite1/suite2/suite3/mutants` | every gate fails on what it should, after one fix to `broken-adapter.ts` [ran] |
+| Suite | `bun main.ts --round 14 --runtime ../round-14x/adapter.ts --no-search` | **774/774**; output alone 0; unlogged none; removed none; stale lock 0; catalog none; recipients as written; exit 0; peak 1.73 GB |
+| Lock | the same with `--lock` | written after comparing, nothing unlogged |
+| Round 13 on this suite | `… --runtime ../round-13/adapter.ts` | 758/774: the 13 LIFE cases throw (no uses), ORDER-01 has no `SendTargetAbsent`, REV7-M2 drops one input fewer, FRAG-15 differs by output |
+| Lifetime falsify | `bun lifetime-falsify.ts --runtime ../round-14x/adapter.ts` | control 13/13; all 13 wrong runtimes red |
+| falsify | `bun falsify.ts --runtime ../round-14x/adapter.ts --part suite1 / suite2 / suite3 / mutants` | each `ok` |
+| Lies, targeted | `… --part lies` (`--parallel 8`) | 75 of 75 red on their recorded cases; none fell back to the whole suite; 254 s |
 
-`FLOW_LIFETIME_PROBE=1` prints whether each `dispose` the suite drives meets an actor that has work in progress. In run A, 26 cases dispose a busy actor. 22 of B's 24 reds are among them.
+Baseline before any change: round 13, 761/761, lock clean.
 
-## The runtime change (round-14x; +117 −8 lines)
+## The runtime (round-14x vs round-13: +94 −1 lines)
 
-- `world.ts` (+11 −1): `World.uses`, the use count for each identity under the rule. Inputs: `attach` (with `once`), `detach` (with `all`), `sweep`. Boot can take `unused`.
-- `step.ts` (+78 −2):
-  - `busy(world, key)`: work in progress is a lane with a head, waiting commits or a parked ending; an armed schedule; a kept fire; a read in flight; mail or follow-ups for the actor.
-  - `sweepDue`, `onAttach`, `onDetach`, `onSweep`. The sweep disposes every identity with 0 uses and no work through the existing `onDisposeActor`, so a persisted record is kept.
-  - `restoreForSend`: a send to an absent identity with a kept record restores it before the send is queued, and puts it under the rule with 0 uses.
-  - An explicit dispose drops the identity's uses.
-- `driver.ts` (+14 −2): at the end of a drain, if a sweep is due, one `sweep` input is queued in the host's next task (`host.later`). Boot passes `unusedAtBoot`.
-- `adapter.ts` (+14 −3): `attach` and `detach` on the port; the `FLOW_LIFETIME` mapping modes; the probe.
-- `mutants-lifetime.ts`: seven wrong runtimes.
+- **`step.ts` (+80):**
+  - `busy` counts mail and follow-ups for the actor, and a write lane whose head is not `Held` or that has waiting commits. Nothing else counts.
+  - A level-triggered `lifetime` pass runs after every step, as dispatch does (D4). A counted actor with 0 uses that is not busy gets a `grace/<actor>` timer (`graceMs` = 100, React O3's), with the deadline as its generation, so no id is drawn. Any use or work disarms it.
+  - `onGrace` disposes through the existing dispose, which keeps a persisted record and the Runtime's copy.
+  - `onAttach` and `onRelease` change the count. An ensure puts a shared actor under the rule with 0 uses (OD27 Q2). A boot restores every shared actor at 0.
+  - A send to an absent target restores it from the Runtime's copy and delivers after what the restore adopted. Otherwise it is dropped with `SendTargetAbsent { reason: "NotPersisted" }`.
+  - Local actors are never counted.
+- **`world.ts` (+11):** `World.uses`, the `grace` timer kind, `attach` (with `existing`) and `release` inputs, `Bounds.graceMs`.
+- **`adapter.ts` (+3 −1):** `ensure` is a bare ensure; `attach` and `release` on the port; `dispose` is unchanged.
+- **`driver.ts`:** unchanged from round 13. The first run's next-task sweep is gone.
+- **`mutants-lifetime.ts`:** 13 wrong runtimes.
 
-Explicit `dispose` is unchanged, and it keeps the record. Round 13 has no record-removing `disposeActor` or `forget`. Neither did this experiment add them.
+`disposeActor` and `forget` were not added: no case needs them (see below).
 
-## Suite changes
+## The suite
 
-- `harness.ts`: `attach` and `detach` steps; optional `Instance.attach` and `detach`.
-- `drive.ts`: `attach` makes an actor live. `detach` ends what the suite owes it, but its life goes on. A send to a disposed persisted actor clears its ghost mark (Runtime O4 under the rule). A runtime without uses throws on `attach`.
-- `main.ts`, `SCENARIOS.md`: LIFE-01..05 are wired in and catalogued as R 14.
-- `broken-adapter.ts`: `bogusIssue` also breaks `attach`. Without that, falsify suite3 found that every LIFE case stayed green under it.
-- The lock, the log (21 lines), outputs and recipients now follow round-14x.
+- **`harness.ts`:** an `attach` step and a `release` step; `release` replaces `detach` (Story.release, Q4). `Instance.attach` may be `existing`-only.
+- **`drive.ts`:** the suite's `ensure` step attaches the suite's own consumer, once per actor, because an ensure alone is no use (Q2). `release` and `dispose` end it. A reload re-attaches each held actor that has a record, as remounting components would: it attaches onto what the boot restored and ensures nothing. A send to a disposed persisted actor is a restore, not a ghost.
+- **`broken-adapter.ts`:** `bogusIssue` breaks `attach` too.
+- **`falsify.ts`:** a child's memory bound is 2,000 MB (it was 1,700). FRAG-15's search now reaches 4,067 harnesses instead of 3,306, because the grace timers and use counts make more states distinct. The suite peaks at 1.73 GB, under the user's 2 GB limit.
 
-## Cases whose verdict changed
+## Cases rewritten or deleted
 
-**Run A (2, both the rule, both fixed in the suite).** FRAG-15 and SEARCH-ODD-SMALL search through `dispose` then `send`. A send now restores the disposed persisted actor, and the ledger called the restored actor a ghost. Fix: the `drive.ts` line above. FRAG-15's output moves (`unbound` becomes `restoredBySend`), and its new output is logged.
+- **No case was deleted, and the 22 that dispose a busy actor were not rewritten.** The design keeps Stories' `dispose(ref)`: "Rebind is `dispose()` then `ensure()`", and `dispose(ref, { how: "now" })` is `disposeActor`. Q4 says "`dispose(ref)` keeps its meaning". So the suite's `dispose` step has a public counterpart, the Story rebind, and those cases still test it. Rule 73 changes only what happens without it.
+- **ORDER-01** sends to an absent, non-persisted `c3`. It now names `SendTargetAbsent` and reads `{ reason: "NotPersisted" }` (C105). It used to be silent `unbound` evidence.
+- **REV7-M2/the-queue-has-a-bound:** `bootQueue` goes from 2 to 3. The re-attach at the reload takes a boot-queue slot, as a remount's would; it is still one drop.
+- **FRAG-24 and R10-BOOT-ORDER** need no change. The dispose that waits on a slow load is the explicit rebind, and the re-attach happens before it.
+- **The first run's mode C (69 reads after a reload)** is gone. The harness re-attaches what the suite had attached.
+- **LIFE-01..05** were rewritten to the design (`release`, the grace, the narrowed use list). LIFE-05 was wrong in the first run: Notes is persisted. A parked ending is not a use, the actor goes, and the next incarnation's copy hears the ending once (rule 44).
 
-**Run B, made impossible by the rule (22): the case disposes an actor while it has work.**
+## New cases (LIFE-06..10) and fail-then-pass [ran]
 
-| Group | Cases | What the suite should do |
-| --- | --- | --- |
-| A persisted identity disposed mid-flight, its ending parked for the next life | FRAG-08/persisted-disposed-ending-parked-delivered-once, FRAG-08/rebind-delivers-a-hold-once, FRAG-20/adopted-ending-is-current-from-the-active-leaf, REV5-H5H6 ×5, REV5-M1 ×2, REV8-PINS/D72, REV9-EDGE/a-new-persisted-life-does-hear-it, REV9-EDGE/a-new-life-tries-a-kept-ending-once | Where the subject is "a parked ending survives and is delivered once", **rewrite it on a reload**, which still parks for the identity. Where the subject is the dispose itself, **delete it**. |
-| Unbound lanes of a non-persisted actor | FRAG-08/non-persisted-with-no-return-is-evidence, FRAG-12/unbound-hold-with-a-waiter-yields, FRAG-20/no-waiter-left-no-yield, FRAG-15 (in B) | **Rewrite to explicit `disposeActor`**. The design keeps a disposed actor's non-Idle lanes as unbound lanes. |
-| Local actors | FRAG-13, FRAG-20/local-sent-finishes-to-evidence, REV9-EDGE/a-new-local-life-hears-nothing-of-the-old | **Keep.** A local actor lives as long as its component does, outside the shared rule. Its unmount is an explicit dispose. |
-| A kept deadline | REV9-KEPT/a-kept-deadline-goes-with-a-disposed-actor-and-comes-back | **Rewrite to `disposeActor`**, or delete. A kept fire is a use. |
-| A spin | REV9-LOOP/a-dispose-during-a-spin-ends-it | **Rewrite to `disposeActor`.** Mail is work, so an actor stuck in a loop never goes on its own; in B the settle never quiesces. |
-
-**Run B, the reload (2): under-specified, not a regression.** FRAG-24/a-dispose-waiting-on-a-slow-load-… and R10-BOOT-ORDER/inputs-that-wait-on-a-slow-load-… queue the dispose behind a slow load. Uses are not persisted, so the detach meets a restored actor that no one attached in this boot, and it does nothing.
-
-**Run C (69 more): the reload.** 52 are "(j) X stopped publishing, and the suite never disposed it"; the rest read state or memory after a reload. A restored actor with no consumer goes once idle. In React the page's components remount and attach again, so the right suite change is in the harness: a `reload` attaches again each actor the suite had attached. Not built.
-
-No regression was found: every changed verdict traces to the rule or to the reload question.
-
-## New cases: LIFE-01..05
-
-Expected results come from the rule, by hand. They are red on round 13 (no uses), and each is red on at least one wrong runtime [ran]:
+Expected results come from the design text, by hand. On round 13 each throws, because the runtime has no uses. On round-14x each is green, and each is red on at least one wrong runtime:
 
 | Case | Pins | Red on |
 | --- | --- | --- |
-| LIFE-01 | Pay mid-charge: the last detach leaves it alive, the endings reach the same life, it goes after `place` settles, its record is kept, the next attach is PAID | busy-ignored, no-sweep, sweep-drops-record |
-| LIFE-02 ×2 | non-persisted: busy until its write lands, then gone with nothing kept; idle with no uses, gone at once | busy-ignored, no-sweep |
-| LIFE-03 | a send to an absent persisted Pay restores it (intent `pi1`), delivers CardChosen then PayRequested in order, then it goes again | send-no-restore, busy-ignored, sweep-same-task (3 disposals instead of 2), sweep-drops-record |
-| LIFE-04 ×2 | a detach and an attach in one task dispose nothing; uses are counted | sweep-same-task, uses-not-counted, no-sweep |
-| LIFE-05 | an ending parked for a removed copy's path keeps the unused actor until a copy takes it | parked-not-a-use (the only kill), busy-ignored, no-sweep |
+| LIFE-06 | a Held lane is no use: the actor goes, the hold is unbound, the next incarnation hears `unknown { Restored }` once | held-is-a-use |
+| LIFE-07 | an armed schedule is no use: the actor goes, the record keeps the deadline, the overdue one fires once at restore | schedule-is-a-use, disposal-drops-record, restore-from-initial |
+| LIFE-08 | a send during the grace is mail, so a use: the same incarnation hears it, and the grace starts over | mail-not-a-use, no-grace |
+| LIFE-09 | a send to an absent non-persisted target is `SendTargetAbsent { NotPersisted }` and creates nothing | send-absent-silent |
+| LIFE-10 | a pre-attach handle reads the Runtime's copy: no publication shows `initial` memory | restore-from-initial, disposal-drops-record |
+| LIFE-04 (grace) | release, advance 99 ms, attach: the same incarnation; past 100 ms: disposed | no-grace |
 
-## What the rule makes unnecessary, and what stays
+Two more wrong runtimes, `ensure-is-a-use` (Q2) and `grace-never-ends`, each turn 12 cases red.
 
-- **Never reached by implicit disposal:** parking for a persisted identity with no live actor (2.9.x, "disposed by retain expiry"); `retired` records carrying frozen timers and kept fires (D118); unbound holds and their five-minute yield (D15); `releasing` lanes. A busy actor is never swept, so a swept record has no lanes, timers or parked endings.
-- **Must stay:**
-  - **Reload:** lanes restored before their actor, endings parked for the identity, `NotSent { Restored }`.
-  - **`disposeActor`:** unbound lanes, evidence-only endings, D15's yield.
-  - **Local actors:** D21's release at once, never adopted.
-  - **Parked-for-path endings** inside a live actor (rule 53).
-- **The record-keeping explicit dispose** is used only by the suite. The proposal has no public way to dispose a busy actor and keep its record. If nothing else needs it, the 13 persisted cases above move to reload, and `onDisposeActor`'s `retired` branch serves the sweep alone (with no timers to carry).
+## How each update was handled
 
-## Under-specified in the proposal, and what I chose
+- **Q1:** `SendTargetAbsent` carries `reason`. Only `NotPersisted` is reachable: there are no lazy entries here (so never `NotAdopted`), and the Runtime's copy is held decoded (so never `RecordUndecodable`).
+- **Q2:** a bare ensure is no use. The harness's `ensure` step attaches the suite's own consumer.
+- **Q4:** `release` is its own input and step, and it disposes nothing. `dispose` is still the explicit rebind.
+- **Q5** (Inspection's `uses` per actor): not built. The prototype counts consumers and computes `busy`; it has no subscription, context or pending-ensure kinds.
+- **Restored actors start the grace from ready:** a boot puts them at 0 uses. The grace starts once their restored endings have turned, unless a consumer re-attaches.
 
-1. **A bare ensure with no use.** The proposal drops "forever without it", but the suite's `ensure` has no consumer. Chose: an identity enters the rule only by `attach`, a send that restores it, or (in mode C) a boot. Otherwise it is kept until disposed, as in round 13.
-2. **Uses across a reload.** The proposal speaks of server-rendering hydration only. Uses are the host's and are not persisted. Whether a restored actor starts with 0 uses is mode C's question, and it decides 69 cases.
-3. **"After the host's current React commit."** The core has no commit, so I used the next host task. LIFE-04 and the sweep-same-task mutant show the timing matters for send-restores too: swept in the same task, an actor restored by the first of two sends would be disposed before the second.
-4. **A parked ending for a path that never returns** keeps its actor forever, like open item 2. LIFE-05 pins the proposal as written.
-5. **Mail is work.** An actor that spins is never disposed on its own (REV9-LOOP).
-6. **An explicit dispose while uses remain:** chose to drop the uses.
-7. **A send to an absent non-persisted target:** unchanged. Round 13 notes `unbound` evidence and raises no `SendTargetAbsent`, which is a gap against Runtime O4 either way.
-8. **Order on a send-restore:** the restore runs before the send is queued, so the restored life's adopted endings run first, then the sends in order.
-9. **Module sessions** (streams, sockets) are not work here, because the proposal does not list them.
-10. **Schedules count** (open item 3, taken as written). No case pins a schedule as the only use: Pay's PAYING always has a lane as well.
+## Under-specified, or wrong when built
+
+1. **A persisted target with no record at all** (never created): none of the three reasons fits. I chose `NotPersisted`.
+2. **"A send to a target that is disposing queues for its next incarnation"** has no window here: disposal is atomic in one step. During the grace the actor is live, and a send is mail, a use (LIFE-08). The clause needs a defined disposing phase, perhaps module or session teardown.
+3. **What a remount after a reload does when the record is quarantined.** A real component would ensure and get a fresh actor. Thirteen quarantine cases (REV4-H3 ×12, HIGH-02), and six more by output, say "no actor until asked". I chose a re-attach that waits on an absent actor as a pending use and ensures nothing. That is close to a pre-attach handle, but 2.7.17 does not say whether such a handle creates the actor.
+4. **Parked-for-path endings of a non-persisted shared actor at disposal.** Rule 44 makes an ending evidence "with no live actor incarnation" and no record. It does not say what happens to endings already parked while the actor was alive. Round 13 keeps them for the next incarnation; I left that unchanged and unpinned.
+5. **The grace with no task boundary.** Strict Mode survives even a 0 ms grace here, because the timer fires in a later task (the `no-grace` mutant leaves LIFE-04's Strict Mode variant green). The 100 ms matters only for route changes.
+6. **Stories' `dispose()` (the rebind) has no host counterpart.** Runtime O3 lists only `disposeActor` and `forget`. The suite's 22 busy-dispose cases test a Story-only step.
+7. **Memory:** the grace timer and use counts enter the state hash, and a state-space search grows by about 23%. Excluding them from search hashing would be a design call.
+
+## First run (superseded)
+
+That run built the proposal before rule 73 was written:
+- uses with a next-task sweep;
+- work in progress that also counted schedules, kept fires, reads and parked endings;
+- send-restores.
+
+It found 22 cases that dispose a busy actor, 2 that dispose behind a slow load, and 69 reads after a reload with no re-attach. Commit `eea597fb`.

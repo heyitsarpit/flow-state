@@ -451,6 +451,21 @@ export const makeHarness = (port: Port) => (): Harness => {
   const notRestored = new Set<string>();
   let restoreThrew = false; // a compiled `memory.restore` threw on a stored record (the suite's own wrap saw it)
   const ensured = new Set<string>(); // the suite ensured it, and has not disposed it; at a reload, kept only with a record on disk
+  // Rule 73 (OD27 Q2): an ensure is no use, so on a runtime with uses the suite's `ensure` attaches the suite's own consumer, once per actor, as a
+  // component using the actor would. `release` and `dispose` end it; a reload re-attaches it, as remounting components would.
+  const held = new Set<string>();
+  const use = (key: string, machine: string, input: unknown) => {
+    if (inst.attach && !held.has(key)) {
+      held.add(key);
+      inst.attach(key, machine, input);
+    } else inst.ensure(key, machine, input);
+  };
+  const reattach = () => {
+    for (const a of [...held]) {
+      if (!ensured.has(a) || !inst.attach) held.delete(a);
+      else inst.attach(a, machineOf(a), undefined, true); // onto what the boot restored; it ensures nothing, so a quarantined record stays absent until a case asks
+    }
+  };
   const ghosts = new Set<string>(); // the suite disposed it and has not ensured it since (review H5)
   const ghostsPending = new Set<string>(); // disposed by a step that has not settled yet
   const lifeBefore = new Map<string, number>(); // the life a dispose ended, so a dispose a kill undid can be undone (D80)
@@ -1229,7 +1244,7 @@ export const makeHarness = (port: Port) => (): Harness => {
   };
   // D146: what needs the page's own JS cannot happen on a frozen page: a press, a hide event, an ensure. It is dropped and counted, and a case that drops one is told so at its end.
   let frozenDrops = 0;
-  const PAGE_INPUT = ["ensureAs", "ensure", "attach", "detach", "burst", "send", "sendMany", "dispose", "hide", "disposeRuntime", "advanceNow", "nextYield"];
+  const PAGE_INPUT = ["ensureAs", "ensure", "attach", "release", "burst", "send", "sendMany", "dispose", "hide", "disposeRuntime", "advanceNow", "nextYield"];
   const run = (s: Step) => {
     if (fake.freezeTimers && PAGE_INPUT.some((k) => k in s)) {
       frozenDrops++;
@@ -1248,12 +1263,14 @@ export const makeHarness = (port: Port) => (): Harness => {
     if ("ensureAs" in s) machineOfActor.set(actorKey(s.ensureAs.key), s.ensureAs.machine);
     // Stage L (review H3, H5): alive by the suite's own steps.
     const madeLive = "ensure" in s ? actorKey(s.ensure) : "attach" in s ? actorKey(s.attach) : "ensureAs" in s ? actorKey(s.ensureAs.key) : undefined;
-    // Lifetime proposal: a detach may end the life once the actor is idle, which only the runtime knows. It is no longer owed to stay alive; its life is not
-    // over at the step (its work still lands in it), so it is no ghost.
-    if ("detach" in s) {
-      ensured.delete(actorKey(s.detach));
-      seenLive.delete(actorKey(s.detach));
+    // Rule 73: a release may end the life after the grace, once the actor is idle, which only the runtime knows. It is no longer owed to stay
+    // alive; its life is not over at the step (its work still lands in it), so it is no ghost.
+    if ("release" in s) {
+      ensured.delete(actorKey(s.release));
+      seenLive.delete(actorKey(s.release));
+      held.delete(actorKey(s.release));
     }
+    if ("dispose" in s) held.delete(actorKey(s.dispose)); // an explicit dispose clears the identity's uses (2.7.17)
     // Lifetime proposal, Runtime O4: a send to an absent persisted target restores it from its kept record. Its next publish is that new life, not a ghost.
     for (const a of "send" in s ? [actorKey(s.send)] : "burst" in s ? [actorKey(s.burst)] : "sendMany" in s ? s.sendMany.map(([x]) => actorKey(x)) : [])
       if ((ghosts.has(a) || ghostsPending.has(a)) && compiled.find((c) => c.id === machineOf(a))?.persisted) {
@@ -1272,13 +1289,13 @@ export const makeHarness = (port: Port) => (): Harness => {
       lifeBefore.set(actorKey(s.dispose), lifeOf.get(actorKey(s.dispose)) ?? 0);
     }
     if ("ensureAs" in s) inst.ensure(actorKey(s.ensureAs.key), s.ensureAs.machine); // D137: a key and a machine that do not agree, as a host's bug would give
-    else if ("ensure" in s) inst.ensure(actorKey(s.ensure), s.ensure.actor, s.input);
+    else if ("ensure" in s) use(actorKey(s.ensure), s.ensure.actor, s.input);
     else if ("attach" in s) {
       if (!inst.attach) throw new Error("this runtime has no uses: attach");
       inst.attach(actorKey(s.attach), s.attach.actor, s.input);
-    } else if ("detach" in s) {
-      if (!inst.detach) throw new Error("this runtime has no uses: detach");
-      inst.detach(actorKey(s.detach));
+    } else if ("release" in s) {
+      if (!inst.release) throw new Error("this runtime has no uses: release");
+      inst.release(actorKey(s.release));
     }
     else if ("burst" in s) for (let i = 0; i < s.n; i++) inst.send(actorKey(s.burst), { tag: s.event, payload: {} });
     else if ("send" in s && ((stepTo = { actor: actorKey(s.send), event: s.event, to: s.to ?? [] }), true))
@@ -1378,10 +1395,12 @@ export const makeHarness = (port: Port) => (): Harness => {
     fake.freezeTimers = false; // D146: a discard of a frozen tab, and the next life is a new page
     if (s.load) fake.loadMode = s.load;
     boot();
+    reattach();
     if (s.crashAfterBoot) {
       owedAtBoot();
       fake.killProcess();
       boot();
+      reattach();
     }
   };
   // Stage L (review M1, M2, H5): at the end of each step the suite drove. A disposed actor is a ghost once the step that disposed it ran;

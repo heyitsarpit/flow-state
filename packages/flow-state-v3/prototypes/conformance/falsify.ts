@@ -19,7 +19,8 @@ const say = (ok: boolean, what: string, detail = "") => {
   console.log(`${ok ? "ok  " : "BAD "} ${what}${detail ? `  ${detail}` : ""}`);
   if (!ok) bad.push(what);
 };
-const run = (cmd: string[], env: Record<string, string> = {}, cwd = here) => watched(cmd, { rssMb: 1700, seconds: 200, capture: true, env, cwd });
+// Rule 73: FRAG-15's search reaches more states (its grace timers and use counts make them distinct), and the suite peaks near 1.75 GB.
+const run = (cmd: string[], env: Record<string, string> = {}, cwd = here) => watched(cmd, { rssMb: 2000, seconds: 200, capture: true, env, cwd });
 
 // ── The watchdog itself.
 if (part("watch")) {

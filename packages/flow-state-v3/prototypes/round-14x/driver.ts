@@ -11,7 +11,7 @@ import { encodeRecord } from "./record.ts";
 import { makeEdge } from "./edge.ts";
 import { sealAll } from "./gate.ts";
 import type { Module } from "./seam.ts";
-import { step, sweepDue } from "./step.ts";
+import { step } from "./step.ts";
 import {
   defaultBounds,
   emptyWorld,
@@ -54,7 +54,6 @@ export const createRuntime = (cfg: {
   host: Host;
   machines: Machines | readonly Compiled[]; // D77: sealed here. A new host cannot forget
   around?: (sealed: Machines) => Machines; // a test build's own read of the sealed table
-  unusedAtBoot?: boolean; // lifetime: what a boot restores starts with no uses, and goes once idle unless something attaches
   persistence?: boolean; // false: O7's second tab, or a refused store. Machines run unpersisted, and nothing is read or written
   modules: readonly Module<any>[];
   bounds?: Partial<Bounds>;
@@ -239,16 +238,6 @@ export const createRuntime = (cfg: {
   let yielding = false;
   let heard = false;
   let owed = false;
-  // Lifetime: a sweep runs in the host's next task, so a use that ends and another that begins in one task (StrictMode, a route change) dispose nothing.
-  let sweepAsked = false;
-  const askSweep = () => {
-    if (sweepAsked || fatal || work() || !sweepDue(world)) return;
-    sweepAsked = true;
-    host.later(() => {
-      sweepAsked = false;
-      if (sweepDue(world)) input({ k: "sweep" });
-    });
-  };
   // D136, review H1: the bill runs from the last yield, not the last pump. A listener's time and a commit's tail are the page's time too, and they fall between pumps.
   let mark = clock();
   const yieldToPage = () => {
@@ -315,7 +304,6 @@ export const createRuntime = (cfg: {
     } finally {
       running = false;
     }
-    askSweep();
     notify();
   };
   // D136, review M3: one notify per task. Answers over microtasks each end a pump, and a listener per answer made its cost the row's. The first end in a task is heard in its stack; the rest are one notify in the next task. A listener sees a cut, which is what S1 promises.
@@ -369,7 +357,7 @@ export const createRuntime = (cfg: {
   const realInput = input;
   const boot = (records: ReadonlyMap<string, string>, persistence: boolean) => {
     booted = true;
-    realInput({ k: "boot", records: [...records], persistence, ...(cfg.unusedAtBoot ? { unused: true } : {}) });
+    realInput({ k: "boot", records: [...records], persistence });
     for (const i of waitingBoot.splice(0)) realInput(i);
   };
   const outer = (i: Input) => {

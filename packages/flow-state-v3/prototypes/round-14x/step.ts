@@ -188,6 +188,8 @@ const onTimer = (tx: Tx, i: Extract<Input, { k: "timer" }>) => {
       return yieldHold(tx, t.attempt);
     case "dispose":
       return finishDisposal(tx);
+    case "grace":
+      return onGrace(tx, t.actor);
     case "module":
       return moduleInput(tx, t.module, { k: "timer", key: t.key });
   }
@@ -340,6 +342,7 @@ const onEnsure = (tx: Tx, key: string, machine: string, input: unknown) => {
   tx.inTurn = true;
   try {
     startRoot(tx, key, machine, input);
+    if (shared(tx, machine) && tx.w.uses[key] === undefined) setUses(tx, key, 0); // rule 73: an ensure alone is no use (OD27 Q2)
   } catch (e) {
     if (!(e instanceof Refused)) throw e;
     tx.w = kept.w;
@@ -352,72 +355,76 @@ const onEnsure = (tx: Tx, key: string, machine: string, input: unknown) => {
   }
 };
 
-// ── Lifetime (proposal actor-lifetime): an actor lives while it is used. Work in progress is a use: a lane that is not Idle (a head on the
-// wire, held, durable, queued or ready; commits waiting; a parked ending), an armed or kept schedule, a read in flight, mail not yet turned.
+// ── Rule 73, 2.7.17: a shared actor lives while it is used. Uses are the counted consumers (`uses`), plus two kinds of work: mail not yet
+// processed, and a write lane that is InFlight or has waiting commits. Not uses: Held, armed schedules, placements, stream sessions, reads,
+// parked endings. Local actors keep React O3: they are never counted, and go only by an explicit dispose.
 export const busy = (w: World, key: string): boolean => {
   for (const id in w.lanes) {
     const l = w.lanes[id]!;
-    if (l.actor === key && (l.head !== undefined || l.w.length > 0 || l.parked.length > 0)) return true;
+    if (l.actor === key && ((l.head !== undefined && l.head.phase.t !== "held") || l.w.length > 0)) return true;
   }
-  for (const id in w.timers) {
-    const t = w.timers[id]!;
-    if (t.kind === "schedule" && t.actor === key) return true;
-  }
-  for (const id in w.reads) if (w.reads[id]!.actor === key) return true;
-  return w.keptFires.some((f) => f.actor === key) || w.mail.has(key) || w.follow.some((m) => m.actor === key);
+  return w.mail.has(key) || w.follow.some((m) => m.actor === key);
 };
-// What the driver asks after a drain: is there an identity a sweep would dispose? Never true for a busy one, so no sweep loops.
-export const sweepDue = (w: World): boolean => {
-  if (w.status !== "live") return false;
-  for (const key in w.uses) if (w.uses[key] === 0 && (!getActor(w.actors, key) || !busy(w, key))) return true;
-  return false;
-};
+const shared = (tx: Tx, machine: string | undefined) => machine !== undefined && !tx.machines[machine]?.local;
 const setUses = (tx: Tx, key: string, n: number | undefined) => {
   if (tx.w.uses[key] === n) return;
   tx.w = { ...tx.w, uses: n === undefined ? without(tx.w.uses, key) : { ...tx.w.uses, [key]: n } };
 };
-const onAttach = (tx: Tx, i: Extract<Input, { k: "attach" }>) => {
-  const n = tx.w.uses[i.actor] ?? 0;
-  setUses(tx, i.actor, i.once ? Math.max(n, 1) : n + 1);
-  note(tx, "attached", { actor: i.actor, uses: tx.w.uses[i.actor] });
-  onEnsure(tx, i.actor, i.machine, i.input);
-};
-const onDetach = (tx: Tx, i: Extract<Input, { k: "detach" }>) => {
-  const n = tx.w.uses[i.actor];
-  if (n === undefined || n === 0) return note(tx, "detachUnused", { actor: i.actor });
-  setUses(tx, i.actor, i.all ? 0 : n - 1);
-  note(tx, "detached", { actor: i.actor, uses: tx.w.uses[i.actor] });
-};
-const onSweep = (tx: Tx) => {
+const graceKey = (key: string) => `grace/${key}`;
+// Level-triggered, as dispatch is (D4): after every step, each counted actor with no uses and nothing busy has its grace running, and every
+// other has none. A new use, or new work, cancels it; idle again, it starts over. The generation is the deadline, so no id is drawn.
+const lifetime = (tx: Tx) => {
   if (tx.w.status !== "live") return;
-  for (const key of Object.keys(tx.w.uses).sort()) {
-    if (tx.w.uses[key] !== 0) continue;
+  for (const key in tx.w.uses) {
+    const t = graceKey(key);
     if (!getActor(tx.w.actors, key)) {
-      setUses(tx, key, undefined); // an explicit dispose came first
+      if (!tx.w.uses[key]) setUses(tx, key, undefined); // a consumer waiting on an absent actor (a remount before it is asked for) stays a use
+      disarmTimer(tx, t);
       continue;
     }
-    if (busy(tx.w, key)) continue;
-    note(tx, "unused", { actor: key });
-    setUses(tx, key, undefined);
-    onDisposeActor(tx, key);
+    const idle = tx.w.uses[key] === 0 && !busy(tx.w, key);
+    if (idle && !tx.w.timers[t]) {
+      const dueAt = tx.env.now + tx.bounds.graceMs;
+      const gen = `${t}@${dueAt}`;
+      tx.w = { ...tx.w, timers: { ...tx.w.timers, [t]: { key: t, gen, dueAt, kind: "grace", actor: key } } };
+      tx.commands.push({ k: "arm", timer: t, gen, at: dueAt });
+    } else if (!idle) disarmTimer(tx, t);
   }
 };
-// Runtime O4 under the rule: a send to an absent persisted target restores it from its kept record, then delivers. It has no uses, so the
-// sweep disposes it again once it is idle. A target with no kept record is unchanged.
-const restoreForSend = (tx: Tx, key: string) => {
-  if (getActor(tx.w.actors, key)) return;
+const onGrace = (tx: Tx, key: string) => {
+  if (tx.w.uses[key] !== 0 || !getActor(tx.w.actors, key) || busy(tx.w, key)) return;
+  note(tx, "unused", { actor: key });
+  onDisposeActor(tx, key);
+};
+const onAttach = (tx: Tx, i: Extract<Input, { k: "attach" }>) => {
+  if (!i.existing) onEnsure(tx, i.actor, i.machine, i.input);
+  const live = getActor(tx.w.actors, i.actor);
+  // A refused ensure makes no actor and no use; a remount may wait on an absent one (its record quarantined, the disk unread) until a case asks.
+  if ((live || i.existing) && shared(tx, live?.machine ?? i.machine)) setUses(tx, i.actor, (tx.w.uses[i.actor] ?? 0) + 1);
+};
+const onRelease = (tx: Tx, key: string) => {
+  const n = tx.w.uses[key];
+  if (n !== undefined && n > 0) setUses(tx, key, n - 1);
+};
+// Runtime O4 under rule 73 (C105). A send to an absent persisted target with a record restores it, and the send is delivered after what the
+// restore adopted. Otherwise the send is dropped with `SendTargetAbsent`. This runtime has no lazy entries (every entry is adopted) and keeps its
+// copy decoded, so `NotPersisted` is the one reason it can give.
+const sendTarget = (tx: Tx, key: string): boolean => {
+  if (getActor(tx.w.actors, key)) return true;
   const kept = own(tx.w.retired, key);
-  if (!kept) return;
-  note(tx, "restoredBySend", { actor: key });
-  onEnsure(tx, key, kept.machine, undefined);
-  if (getActor(tx.w.actors, key) && tx.w.uses[key] === undefined) setUses(tx, key, 0);
+  if (kept) {
+    note(tx, "restoredBySend", { actor: key });
+    onEnsure(tx, key, kept.machine, undefined);
+    if (getActor(tx.w.actors, key)) return true;
+  }
+  issue(tx, { code: "SendTargetAbsent", origin: `send ${key}`, input: { reason: "NotPersisted" } });
+  return false;
 };
 
 const onBoot = (
   tx: Tx,
   records: ReadonlyArray<readonly [string, string]>,
   persistence: boolean,
-  unused = false,
 ) => {
   note(tx, "boot", {});
   tx.w = {
@@ -427,7 +434,8 @@ const onBoot = (
     ext: Object.fromEntries(tx.modules.map((m) => [m.id, m.init()])),
   };
   restore(tx, records);
-  if (unused) tx.w = { ...tx.w, uses: Object.fromEntries(allActors(tx.w.actors).map((a) => [a.key, 0])) };
+  // Rule 73, C106: what the boot restores has no uses yet; its grace starts once it is ready (its restored endings turned), unless a consumer attaches.
+  tx.w = { ...tx.w, uses: Object.fromEntries(allActors(tx.w.actors).filter((a) => shared(tx, a.machine)).map((a) => [a.key, 0])) };
   // Rule 1, rule 51: a reset lost by the reload runs first. Then what restore queued, in order.
   const recheck = allActors(tx.w.actors)
     .filter((a) => hasResetOn(tx, a))
@@ -519,7 +527,7 @@ export const step = (world: World, input: Input, env: Env, sys: System): StepOut
   }
   switch (input.k) {
     case "boot":
-      onBoot(tx, input.records, input.persistence ?? true, input.unused);
+      onBoot(tx, input.records, input.persistence ?? true);
       break;
     case "ensure":
       onEnsure(tx, input.actor, input.machine, input.input);
@@ -530,11 +538,8 @@ export const step = (world: World, input: Input, env: Env, sys: System): StepOut
     case "attach":
       onAttach(tx, input);
       break;
-    case "detach":
-      onDetach(tx, input);
-      break;
-    case "sweep":
-      onSweep(tx);
+    case "release":
+      onRelease(tx, input.actor);
       break;
     case "sent":
       onSent(tx, input);
@@ -552,10 +557,8 @@ export const step = (world: World, input: Input, env: Env, sys: System): StepOut
       if (tx.w.status !== "live") note(tx, "dropped", { input: "send" });
       else if (typeof input.event?.tag !== "string")
         issue(tx, { code: "InvalidTurn", origin: `send ${input.actor}` }); // D65: what enters mail has a shape
-      else {
-        restoreForSend(tx, input.actor);
-        enqueue(tx, { k: "send", actor: input.actor, event: input.event });
-      }
+      else if (!sendTarget(tx, input.actor)) break;
+      else enqueue(tx, { k: "send", actor: input.actor, event: input.event });
       break;
     case "turn":
       onTurn(tx);
@@ -566,6 +569,7 @@ export const step = (world: World, input: Input, env: Env, sys: System): StepOut
   }
   tell(tx, world);
   dispatch(tx);
+  lifetime(tx);
   if (tx.w.status === "disposing" && wires(tx.w).length === 0 && input.k !== "disposeRuntime")
     finishDisposal(tx);
   flush(tx);

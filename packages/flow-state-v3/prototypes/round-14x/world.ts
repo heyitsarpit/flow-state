@@ -89,6 +89,7 @@ export type Timer = {
   | { readonly kind: "timeout" | "storage" | "stall" | "yield"; readonly attempt: string }
   | { readonly kind: "module"; readonly module: string }
   | { readonly kind: "dispose" }
+  | { readonly kind: "grace"; readonly actor: string } // rule 73: a shared actor with no uses goes when this fires
 );
 export type FrozenTimer = Extract<Timer, { kind: "schedule" }>;
 // D52: one life of a placement. An actor's root is one too, with path [] and frag null.
@@ -181,8 +182,8 @@ export type World = {
   readonly disabled: Readonly<Record<string, true>>;
   readonly stalled: Readonly<Record<string, "storage" | "record" | "module">>; // D49, by Attempt
   readonly ext: Readonly<Record<string, unknown>>;
-  // Lifetime (proposal actor-lifetime): an identity under the use rule, by its count of uses. Absent: a bare ensure, kept until an explicit dispose.
-  // At 0 it is disposed at the next sweep once it has no work in progress. Not persisted: uses are the host's, and a reload starts with none.
+  // Rule 73, 2.7.17: each live shared actor's attached consumers (a React consumer, a snapshots subscription, a bound context consumer or a
+  // pre-attach handle; the port's `attach`). A host ensure is not one. At 0 with nothing busy, the grace runs. Not persisted: a reload starts at 0.
   readonly uses: Readonly<Record<string, number>>;
 };
 export const emptyWorld: World = {
@@ -222,8 +223,7 @@ export type SendExit =
   | { readonly t: "defect"; readonly cause: unknown }
   | { readonly t: "interrupted"; readonly cause: unknown };
 export type Input =
-  // `unused`: every actor the boot restores starts under the use rule with no uses (a reloaded page has mounted nothing yet).
-  | { readonly k: "boot"; readonly records: ReadonlyArray<readonly [string, string]>; readonly persistence?: boolean; readonly unused?: boolean }
+  | { readonly k: "boot"; readonly records: ReadonlyArray<readonly [string, string]>; readonly persistence?: boolean }
   | { readonly k: "sent"; readonly attempt: string; readonly send: string; readonly exit: SendExit }
   | { readonly k: "timer"; readonly timer: string; readonly gen: string }
   | {
@@ -241,11 +241,10 @@ export type Input =
       readonly input: unknown;
     }
   | { readonly k: "dispose"; readonly actor: string }
-  // A use of a shared actor begins (and ensures it) or ends. `once`: the suite's one consumer, so a second attach adds none; `all`: every use ends.
-  | { readonly k: "attach"; readonly actor: string; readonly machine: string; readonly input: unknown; readonly once?: boolean }
-  | { readonly k: "detach"; readonly actor: string; readonly all?: boolean }
-  // After the host's task: every identity with no uses and no work in progress is disposed, its record kept if persisted.
-  | { readonly k: "sweep" }
+  // Rule 73: a use begins (ensuring the actor) or ends. A release disposes nothing; the grace decides (Story.release, OD27 Q4).
+  // `existing`: a consumer remounting after a reload attaches only onto what the boot restored.
+  | { readonly k: "attach"; readonly actor: string; readonly machine: string; readonly input: unknown; readonly existing?: true }
+  | { readonly k: "release"; readonly actor: string }
   | { readonly k: "turn" }
   | { readonly k: "disposeRuntime" };
 
@@ -296,6 +295,7 @@ export type Bounds = {
   readonly queueMax: number;
   readonly recordStallMs: number; // D49
   readonly unboundHoldMs: number; // D15
+  readonly graceMs: number; // rule 73: React O3's grace, on the Runtime Clock. Internal, never a user option
 };
 export const defaultBounds: Bounds = {
   drainMs: 8,
@@ -313,6 +313,7 @@ export const defaultBounds: Bounds = {
   queueMax: 64,
   recordStallMs: 30_000,
   unboundHoldMs: 300_000,
+  graceMs: 100,
 };
 export type Machines = Readonly<Record<string, Compiled>>;
 export type System = {
