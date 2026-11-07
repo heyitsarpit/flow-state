@@ -1229,7 +1229,7 @@ export const makeHarness = (port: Port) => (): Harness => {
   };
   // D146: what needs the page's own JS cannot happen on a frozen page: a press, a hide event, an ensure. It is dropped and counted, and a case that drops one is told so at its end.
   let frozenDrops = 0;
-  const PAGE_INPUT = ["ensureAs", "ensure", "burst", "send", "sendMany", "dispose", "hide", "disposeRuntime", "advanceNow", "nextYield"];
+  const PAGE_INPUT = ["ensureAs", "ensure", "attach", "detach", "burst", "send", "sendMany", "dispose", "hide", "disposeRuntime", "advanceNow", "nextYield"];
   const run = (s: Step) => {
     if (fake.freezeTimers && PAGE_INPUT.some((k) => k in s)) {
       frozenDrops++;
@@ -1244,9 +1244,22 @@ export const makeHarness = (port: Port) => (): Harness => {
     stepTo = undefined; // stage F: set again below for a `send`
     if ("advanceNow" in s) driveTimers();
     if ("ensure" in s) known.add(actorKey(s.ensure));
+    if ("attach" in s) known.add(actorKey(s.attach));
     if ("ensureAs" in s) machineOfActor.set(actorKey(s.ensureAs.key), s.ensureAs.machine);
     // Stage L (review H3, H5): alive by the suite's own steps.
-    const madeLive = "ensure" in s ? actorKey(s.ensure) : "ensureAs" in s ? actorKey(s.ensureAs.key) : undefined;
+    const madeLive = "ensure" in s ? actorKey(s.ensure) : "attach" in s ? actorKey(s.attach) : "ensureAs" in s ? actorKey(s.ensureAs.key) : undefined;
+    // Lifetime proposal: a detach may end the life once the actor is idle, which only the runtime knows. It is no longer owed to stay alive; its life is not
+    // over at the step (its work still lands in it), so it is no ghost.
+    if ("detach" in s) {
+      ensured.delete(actorKey(s.detach));
+      seenLive.delete(actorKey(s.detach));
+    }
+    // Lifetime proposal, Runtime O4: a send to an absent persisted target restores it from its kept record. Its next publish is that new life, not a ghost.
+    for (const a of "send" in s ? [actorKey(s.send)] : "burst" in s ? [actorKey(s.burst)] : "sendMany" in s ? s.sendMany.map(([x]) => actorKey(x)) : [])
+      if ((ghosts.has(a) || ghostsPending.has(a)) && compiled.find((c) => c.id === machineOf(a))?.persisted) {
+        ghosts.delete(a);
+        ghostsPending.delete(a);
+      }
     if (madeLive !== undefined) {
       ensured.add(madeLive);
       ghosts.delete(madeLive);
@@ -1260,6 +1273,13 @@ export const makeHarness = (port: Port) => (): Harness => {
     }
     if ("ensureAs" in s) inst.ensure(actorKey(s.ensureAs.key), s.ensureAs.machine); // D137: a key and a machine that do not agree, as a host's bug would give
     else if ("ensure" in s) inst.ensure(actorKey(s.ensure), s.ensure.actor, s.input);
+    else if ("attach" in s) {
+      if (!inst.attach) throw new Error("this runtime has no uses: attach");
+      inst.attach(actorKey(s.attach), s.attach.actor, s.input);
+    } else if ("detach" in s) {
+      if (!inst.detach) throw new Error("this runtime has no uses: detach");
+      inst.detach(actorKey(s.detach));
+    }
     else if ("burst" in s) for (let i = 0; i < s.n; i++) inst.send(actorKey(s.burst), { tag: s.event, payload: {} });
     else if ("send" in s && ((stepTo = { actor: actorKey(s.send), event: s.event, to: s.to ?? [] }), true))
       inst.send(actorKey(s.send), {

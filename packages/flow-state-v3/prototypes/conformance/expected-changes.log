@@ -968,3 +968,24 @@ round:cli/story.ts hash:51bc9efbb26b | round 13, D221: the trace names BesideOld
 round:mutants-r6.ts hash:b6c3802cca2e | round 13, D221: d78-no-rekey retargeted to the two-pass placement
 file:falsify.ts hash:1325749ba53f | round 13, Arpit's parallel rule: lies targeted by default on their recorded cases, --full records them, --parallel N up to 8
 file:falsify.ts hash:ba6fcdfbfcbd | round 13: each lie's record is its own file, written as it ends, so a killed slice keeps what it learnt
+LIFE-01 hash:7e503d415609 | lifetime experiment (PROPOSED): work in progress keeps a persisted actor past its last use; its record kept after
+LIFE-02 hash:5475979f7357 | lifetime experiment (PROPOSED): a non-persisted actor goes with no uses once its write lands, nothing kept
+LIFE-03 hash:3fab1e04d671 | lifetime experiment (PROPOSED): a send to an absent persisted target restores it and delivers in order
+LIFE-04 hash:400e04928186 | lifetime experiment (PROPOSED): a detach and attach in one host task dispose nothing; uses are counted
+LIFE-05 hash:5cb7f2474075 | lifetime experiment (PROPOSED): an ending parked for a removed copy's path is a use until a copy takes it
+file:scenarios/lifetime.scenario.ts hash:54453452820a | lifetime experiment: LIFE-01..05, the rule's clauses, expected by hand from the proposal
+file:main.ts hash:3d55a41e0c4b | lifetime experiment: lifetime.scenario.ts wired in; attach and detach steps name their actor for the output
+file:harness.ts hash:a91b9b549fca | lifetime experiment: attach and detach steps, and the optional Instance methods a runtime with uses has
+file:drive.ts hash:25bb656d98cb | lifetime experiment: attach makes live, detach owes no life; a send to a disposed persisted actor is a restore, not a ghost
+round:mutants-lifetime.ts hash:f51e9c7da963 | lifetime experiment: seven wrong runtimes for LIFE-01..05, run by lifetime-falsify.ts
+round:adapter.ts hash:3d8168bb21c8 | lifetime experiment (round-14x): attach, detach, the FLOW_LIFETIME mapping modes and the busy probe
+output:FRAG-15 hash:8884adc765be | lifetime experiment: a send to a disposed persisted Notes restores it (Runtime O4 under the rule), so the search reaches more states
+output:LIFE-01 hash:990ad8239b57 | lifetime experiment: LIFE-01's whole output on round-14x
+output:LIFE-02/busy-until-its-write-lands-then-gone hash:3e63ff383e87 | lifetime experiment: LIFE-02 busy variant's whole output on round-14x
+output:LIFE-02/idle-with-no-uses-is-gone hash:2e00e53469b9 | lifetime experiment: LIFE-02 idle variant's whole output on round-14x
+output:LIFE-03 hash:746089a76b34 | lifetime experiment: LIFE-03's whole output on round-14x
+output:LIFE-04/detach-then-attach-in-one-task-disposes-nothing hash:3ce557479d0f | lifetime experiment: LIFE-04 StrictMode variant's whole output on round-14x
+output:LIFE-04/one-of-two-uses-ending-keeps-it hash:6c4be5a2c69d | lifetime experiment: LIFE-04 counted variant's whole output on round-14x
+output:LIFE-05 hash:2b1ed77782a5 | lifetime experiment: LIFE-05's whole output on round-14x
+file:expected-recipients.txt hash:cd0cd7f0fdf9 | lifetime experiment: LIFE-01..05 observe 6 more deliveries and check 6 more start nodes
+file:broken-adapter.ts hash:f2dd36df0db9 | lifetime experiment, falsify suite3: bogusIssue breaks an attach as it breaks an ensure, so a case that only attaches sees it
