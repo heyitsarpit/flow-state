@@ -33,17 +33,29 @@ Waiting on the user:
   leaving removes a waiting deadline; D3 a return mints a new incarnation id; D5 a local actor's
   remount within the grace; D6 whether `disposeActor` still parks endings; D7 `getSnapshot` for an
   undecodable record (all approved). **Recorded** in machine-design.md as OD45 (phase 0b, `d1117383`);
-- phase 0's label round on the user-judged conflicts of the design catch-up, U1-U15 in
-  `workflow/plans/flow/references/proposals/design-catch-up/change-list.md` (none applied; recommendation in
-  brackets): U1 operation timeouts (keep the design: the timeout is the commit's Effect); U2 key-less members name
-  the ending's own Attempt only (prototype); U3 restore order within a lane, `W` first (prototype); U4 an undecodable
-  lane key quarantines instead of `orphaned`, key-equality adoption cut (prototype); U5 cut `allow` from v1 (cut); U6
-  `NotSent { Unencodable }`, encoding never fails a turn (prototype); U7 a module defect fails closed (settle in
-  phase 1); U8 sends before ready queue (prototype); U9 creation checks input, no transforming decode (prototype);
-  U10 rule 32 two levels against OD28 P1's wording (Q7 A, written in phase 1); U11 entity-store decisions (defer to
-  phase 1); U12 may a memory default read a clock (no: pure defaults only); U13 Runtime disposal past its bound
-  (`unknown { Disposed }`); U14 `disposeActor` durability (flush the removal at once); U15 `persist` per ref or per
-  machine (per machine);
+- phase 0's label round on the user-judged conflicts of the design catch-up, U1-U18 in
+  `workflow/plans/flow/references/proposals/design-catch-up/change-list.md` (none decided; recommendation after each):
+  - U1 operation timeouts: keep the design, the timeout is the commit's Effect (this overturns the user's own remark
+    of 2026-11-01, "rule 25 is cancelled, timeouts return");
+  - U2 key-less members: name the ending's own Attempt only (prototype);
+  - U3 restore order within a lane: `W`'s `NotSent { Restored }` first, then the head's unknown (prototype);
+  - U4 a lane whose key no longer decodes: quarantine it, keep the hold, cut key-equality adoption (prototype);
+  - U5 `concurrency: "allow"`: cut from v1, text to `revisit.md`;
+  - U6 values that cannot be encoded: `NotSent { Unencodable }` and `UnencodableValue`, encoding never fails a turn
+    (prototype);
+  - U7 a module's defect: settle in phase 1 with the entity store;
+  - U8 sends before ready: queue until boot (prototype);
+  - U9 creation checks input by its type side, no transforming decode (prototype);
+  - U10 rule 32: Q7 A's two levels of doubt, written in phase 1;
+  - U11 entity-store decisions: defer to phase 1;
+  - U12 defaults must be pure; an Effect-valued default is a construction error;
+  - U13 Runtime disposal past its bound: `unknown { Disposed }`;
+  - U14 `disposeActor` durability: flush the removal at once; an unbound lane record ends at an adopting ensure or
+    `forget`, listed meanwhile;
+  - U15 `persist`: per machine, not per ref;
+  - U16 waits on storage (D30, D48, D94): no bound, the limit stated, `StorageSilent` names it;
+  - U17 a new version: type and encoded side, ignoring annotations, for actors and operation keys (amends Q1 A);
+  - U18 the proposed names `ReservedStateName`, `InputFieldForm`, `StorageSilent`, `RestoreMissingInput`: accept;
 - phase 2's label round, then its user-judged decisions;
 - which example apps to build, any time before phase 6. Candidates are below.
 
@@ -97,23 +109,33 @@ call, its reason, its evidence, and how reversible it is.
   `workflow/plans/flow/references/proposals/design-catch-up/change-list.md`). Agent-judged rulings applied, each
   reversible by editing machine-design.md (nothing is built on them yet; overruling now costs one edit):
   - D48 (rule 24): a cancel or `latest` replacement waits while a never-sent Attempt's acknowledgement is being
-    written. Reason: a cancelled Attempt whose acknowledgement lands restores as unknown. Evidence: convergence-3, M1.
+    written. Reason: a cancelled Attempt whose acknowledgement lands restores as unknown (safety). Evidence:
+    convergence-3, M1. Its price, no bound on a hung disk, is U16 (pass 2).
   - D145 (rule 19): servers may prune keys; a re-send on an old key reads first; Flow keeps no key age. Evidence:
     convergence-10's owed edit 8.
-  - 2.7.20's store contract, silent storage (`StorageSilent` [P] at 10 s), frozen page, ids never repeated (D30, D83,
-    D94, D95, D99, D111, D146). Reason: they state what the host already had to do for the accepted calls 1, 4 and 9.
-    Evidence: convergence-7 to 10, `safari/RESULTS.md`.
+  - 2.7.20's store contract, frozen page, ids never repeated (D83, D95, D99, D111, D146). Reason: they state what the
+    host already had to do for the accepted calls 1, 4 and 9. Evidence: convergence-7 to 10, `safari/RESULTS.md`.
+    D30 (silent storage) and D94 (an awaited write's wait) moved to U16 in pass 2.
   - 2.6.1's `Compiled` contents, key from key fields, every closure a Slot (D206, D215, D216, D223). Reason: internal
     representation under the accepted call 14. Evidence: convergence-11 to 13.
-  - Proposed names [P]: `ReservedStateName`, `UnknownNotUncertain`, `UnencodableValue`, `InputFieldForm`,
-    `StorageSilent`, `TurnStorm`, `AsksForever`, `KeyFieldOptional`, `OldVersionLane`, `TwoDefaults`,
-    `RestoreMissingInput`. Reason: the prototype's names; MD marks proposed names [P] as OD30 did.
   - Round 14's final review: R14R 2 (a reload and a return mint new ids for the actor and every restored fragment
     incarnation; the round-14 builder's "a kept record keeps its root id" disagrees and should follow), R14R 3
     (`ready` creates nothing; a kept record holding a `Held` lane is named), R14R 6 (an "undecodable record" state in
-    2.7.17's table), R14R 7 (versions compare encoded Schemas structurally, ignoring annotations, as Q1 A says for
-    keys), R14R 9 (R14 D1's `Interrupted` on every path back, after rule 44's deliveries). R14R 5 judged "the design
-    stands" (waiting commits behind a `Held` head are not owed at ready).
+    2.7.17's table), R14R 9 (R14 D1's `Interrupted` on every path back, after rule 44's deliveries). R14R 5 judged "the
+    design stands" (waiting commits behind a `Held` head are not owed at ready). R14R 7 was overturned in pass 2 and
+    is U17.
+  - The round-14 builder's call that a previous incarnation's ending is delivered as adopted (2.7.17), marked agent
+    in pass 2 (pass 1 had folded it into the user's approval, OD45).
+  - Pass 2 (`workflow/plans/flow/references/proposals/design-catch-up/change-list.md` E50-E70, after an independent
+    review): the follow-up bound, 64 per admitted event, then `InvalidTurn` naming the chain (D13, D35; 2.5 step 1,
+    C149); one notify per task (D136; C147 against React O3). Reason: the review asked for the bound to be defined, and
+    both are Runtime timing the prototype proved. Reversible: one edit each.
+  - For the user, not built: convergence-9 withdrew "a reload asks again". A boot forgets a stranded read, so a machine
+    with no recurring schedule stays where it was (now in rule 8). The prototype proposed a table lint for that case
+    and never built it; whether to add one is yours.
+  - Names the user already accepted, now recorded as decided (OD47): `KeyFieldOptional` (call 11), `TwoDefaults` (call
+    13), `OldVersionLane` (Q2 A), `UnknownNotUncertain` (section 4), `TurnStorm` and `AsksForever` (call 5). The rest
+    are U18.
   - Readings to check: FOR-ARPIT section 4's change log is "already in the design" (its "after" spellings are the
     design's own); R14 D4's "identity encoded with its Schema" is read as the Schema's encoded form, keeping OD30 Q6's
     string rule; the H1 fix's per-actor default is recorded, and its clash with creation's purity is U12.
@@ -184,4 +206,9 @@ One line per iteration. Results live in the records; link them.
   (agent-judged), plan rows C128-C146. Fifteen user-judged conflicts U1-U15 not applied, waiting for the label round.
   OD and C ids unique, links resolve; `workflow check` shows only the worktree's `DUPLICATE_SPEC_ID` and
   `SPEC_INDEX_STALE` (no `.spec` touched). Not yet reviewed by an independent agent. Usage: not measured.
+- 2026-11-08 0b pass 2: an independent review upheld pass 1 with 16 findings, all applied (change-list E50-E70, 34
+  blocks, none skipped): R14R 7 overturned to U17; D30, D94 and D48's wait to U16; D2 and call 19's third part
+  recorded as the user's (OD47); stale reason lists fixed; `UnencodableValue` back with U6; accepted names marked
+  decided, the rest batched as U18; C128, C144 fixed, C147-C149 added. OD1-OD47 and C1-C149 unique, links resolve.
+  Waiting on the user: U1-U18. Usage: not measured.
 
