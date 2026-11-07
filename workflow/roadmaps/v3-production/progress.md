@@ -27,8 +27,23 @@ explicit paths. Never push. Do not spawn extra fix passes, audits or re-reviews 
 review, before the plan merge, is its completion audit. Stop only at the roadmap's blocking stops or at 95%
 usage. A session cron (`CronCreate`, hourly at an off minute) can wake you for the reviews; re-create it.
 
+**No worktrees (the user, 2026-11-08: "the work is serial"; Q2 A):** builders work in the main checkout on
+`flow-rewrite`. Round 14's branch was merged as is (`482e8e2b`); its remaining gates and review run on `flow-rewrite`.
+The old worktree is removed once the timing survey that runs in it finishes.
+
 **The queue (stage A, by actual work):**
-1. **Finish round 14** (in the worktree, at `f49ec387`): all nine fix items after round 14's final review are done
+0. **Harness speed pass, before round 14's remaining gates** (the user, 2026-11-08, Q3 A; a Task inside phase 0 under runner
+   rule 4). Fixes 1-4 from the speed survey, one builder pass, each with a before and after profile and a full suite run
+   showing identical results (`expected-output.txt`, RECIPIENTS, every verdict): (1) memoise `copiesOf`/`bindsCopy` per
+   published world in `conformance/drive.ts`, hoisting `chain.flatMap` in `reference/model.ts`, after checking that the
+   reference model's own Slot calls are not counted in `slotRuns`; linear `viewOf` in `round-14/inc.ts`; (2) canonical text
+   cached per subtree in replay (`round-14/adapter.ts` canon, byte-identical, under `FLOW_DEEP_FREEZE`), `ranked()` by Map;
+   (3) skip the per-step `stateHash` under `--no-output`; (4) `mutate-one.ts` suites run concurrently, and `mutate.ts`
+   gains a `--parallel N` pool. Targets (the user, 2026-11-08, Q4 A; on this MacBook, checks unchanged): the suite in
+   one process ≤ 15 s (65 s now); peak RSS per suite process ≤ 600 MB (1.7 GB now); the builder's fast loop (suite,
+   `round-14/checks/*.ts`, typed `tsc`, CLI pins) ≤ 30 s wall; every final-commit gate at up to 8 in parallel ≤ 10 min
+   wall (to be confirmed once the lies are timed). Baseline: "Gate timings" below.
+1. **Finish round 14** (merged into `flow-rewrite` at `482e8e2b`, from `f49ec387`): all nine fix items after round 14's final review are done
    and committed (`0dd9e9f3`, `76e65e3e`, `8b737bdc`); the suite is 834/834 with a clean lock, the suite with its
    searches exits 0, 57 lifetime wrong runtimes are red. **Left:** run the four gates the hand-off stopped
    (`mutate-one.ts` control, `graph-gate.ts`, falsify `suite1`-`suite3` and `mutants`, the full targeted lies
@@ -50,8 +65,26 @@ State: stopped for hand-off, 2026-11-08; stage A in progress (phase 0b done; rou
 point)
 Phase: 0 (reconcile the design and the prototype): 0b done (`818bd236` to `5132591c`, plus U19); 0a's round 14 fix
 pass stopped for hand-off. Revision: see `git log` on `flow-rewrite`
-Budget used: rounds: round 14 (lifetime experiment, round 14, its fix pass); usage not measured
-Next action: queue item 1, finish round 14.
+Budget used: rounds: round 14 (lifetime experiment, round 14, its fix pass); usage 2026-11-08 at the loop's start:
+weekly 19% (resets 2026-11-13), 5-hour 36%
+
+## Gate timings (baseline, 2026-11-08, round 14 at `f49ec387`, serial on an idle machine; 12 cores, 24 GB)
+
+| Gate | Exit | Wall s | Cores | Peak MB |
+| --- | --- | --- | --- | --- |
+| `main.ts --no-search` (suite, 834 cases) | 0 | 65 | 1.2 | 1715 |
+| `main.ts` (searches are not run by it) | 0 | 66 | 1.2 | 1750 |
+| `mutate-one.ts` control (`killedBy: null`) | 0 | 206 | 1.2 | 1756 |
+| `graph-gate.ts --no-search` / full | 0 | 67 / 66 | 1.2 | 1787 |
+| `falsify.ts --part watch` / `suite1` / `suite2` / `suite3` | 0 | 1 / 75 / 223 / 102 | 1.3-1.4 | 1755 |
+| `falsify.ts --part search` | **1: `chain` red on the real runtime** | 47 | 1.6 | 304 |
+| `falsify.ts --part tamper` | 0 | 4 | 2.9 | 275 |
+| mutants, lies, `lifetime-falsify`, checks, `tsc`, `nub` | not timed (stopped for the speed pass) | | | |
+
+Survey findings (read-only Opus agent): `REV9-BURST/300-rows-each-asking-once-all-end` is 43.7 s of the suite, cubic in its
+row count, 79% in the oracle's ledger (`drive.ts` `copiesOf`); replay's whole-world `canon` (`adapter.ts:319`) is 35-61%
+of the next heavy cases; tree copies (9 ms) and imports (110 ms) are negligible.
+Next action: queue item 0, the harness speed pass (builder running), then item 1.
 Owed to the prototype (queue item 2): the label round's rulings that change it, now in machine-design.md (OD48): U2
 key-less members name only the ending's own Attempt; U3 restore delivers `W`'s `NotSent { Restored }` before the head's
 unknown; U4 quarantine, no key-equality adoption, no `orphaned`; U5 no `allow`; U6 `NotSent { Unencodable }` and
@@ -234,3 +267,5 @@ One line per iteration. Results live in the records; link them.
 
 - 2026-11-08 amendment 4 (the user, "let's fix it as 3 for now"): convergence on the third review in a row with the same root-cause class in the same part; roadmap version 5. Uncommitted.
 - 2026-11-08 amendment 5 (the user, Q1 A): up to 4 Haiku agents for read-only research fan-out in phase 0's close-out and phase 2, only while no builder runs; tables, never verdicts; one Opus reviewer judges. Roadmap version 6. Uncommitted.
+- 2026-11-08 round 14 merged into `flow-rewrite` as is (`482e8e2b`; the user's Q2 A, no worktrees from now on). Gate timing survey running (results in the session scratchpad, to be summarised here); a read-only research agent is surveying per-process speed and memory techniques for the gates.
+- 2026-11-08 speed survey: baseline above; the user accepted the speed pass as queue item 0 (Q3 A) and its targets (Q4 A). New: `falsify --part search` red on `chain` (the real runtime), for round 14's remaining work. Worktree removed. Loop started, item 0's builder launched.
