@@ -24,11 +24,15 @@ completion audit at the end of stage A, before the plan merge. Stop only at the 
 usage. A session cron (`CronCreate`, hourly at an off minute) can wake you for the reviews; re-create it.
 
 **The queue (stage A, by actual work):**
-1. **Finish round 14** (in the worktree): the fix pass after round 14's final review was stopped at a clean point for
-   this hand-off; its STATUS.md hand-off section lists the items left (of H-A, fragstore.row, M1, M2, M4 done at
-   `0dd9e9f3` and `76e65e3e`; M3, M5, M6 and the Low items as recorded there), then the full gates. Then one review;
-   if no High, merge the branch into `flow-rewrite` and remove the worktree (`git worktree remove`), which also clears
-   `workflow check`'s DUPLICATE_SPEC_ID and SPEC_INDEX_STALE.
+1. **Finish round 14** (in the worktree, at `f49ec387`): all nine fix items after round 14's final review are done
+   and committed (`0dd9e9f3`, `76e65e3e`, `8b737bdc`); the suite is 834/834 with a clean lock, the suite with its
+   searches exits 0, 57 lifetime wrong runtimes are red. **Left:** run the four gates the hand-off stopped
+   (`mutate-one.ts` control, `graph-gate.ts`, falsify `suite1`-`suite3` and `mutants`, the full targeted lies
+   `--parallel 4`) and update RESULTS.md's gate table (it still shows the pre-fix numbers); diagnose `fragstore.row`,
+   which now fails at depth 7 on round 13's rule 17 class ("delivered once, still parked"), not yet understood. The
+   exact steps are in `round-14/STATUS.md`, "Hand-off (2026-11-08)". Then one review; if no High, merge the branch
+   into `flow-rewrite` and remove the worktree (`git worktree remove`), which also clears `workflow check`'s
+   DUPLICATE_SPEC_ID and SPEC_INDEX_STALE.
 2. **Round 15:** bring the prototype to the rulings it owes (listed under "Owed to the prototype" below), each with a
    case seen failing first.
 3. **Phase 1, one area after another in the same builder thread:** H1, H2 and round 13's M2 (the missing D221 pins);
@@ -222,4 +226,5 @@ One line per iteration. Results live in the records; link them.
   `revisit.md`; the U marks and the five names' [P] removed. OD1-OD48 and C1-C161 unique, links resolve. U1-U18 are
   off "Waiting on the user"; the prototype owes U2-U6, U8, U9, U13-U15, U17 (see Resume). Usage: not measured.
 - 2026-11-08 phase 0b completion audit: failed on minor items, fixed inline (`5132591c`); the `persist` placement went to the user and was ruled U19 A (on the definition). The user asked for one busy builder thread, an hourly review and no extra passes or audits for minor findings, then stopped the session for a hand-off; the round 14 builder was told to stop at a clean point and write what is left in its STATUS.md.
+- 2026-11-08 0a round 14 fix pass stopped for hand-off at `f49ec387`: nine items done, four gates left (see the queue). The builder ran `git stash`/`pop` in the worktree, which briefly applied the user's `stash@{0}` there; it undid it, and the stash entry is intact (checked). Note for the next agent: never use bare `git stash` in a worktree; the stash stack is shared.
 
