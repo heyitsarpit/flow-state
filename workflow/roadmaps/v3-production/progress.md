@@ -233,6 +233,19 @@ applied as amendment <n>, or rejected).
   - Class: **performance work**. Draws from `playbook-performance`, `performance`, `check-benchmark` (`9b1dd09`).
   - Goal: peak RSS per suite process ≤ 600 MB and every final-commit gate ≤ 10 min at up to 8 in parallel, with the
     same checks.
+  - First, the CP1 close-out review's findings (PASS with findings, 2026-11-08; no High; sidecars agreed):
+    0a. make the no-in-place-write assumption checked, not trusted: the harness freezes every published and logged
+        world by default (what `FLOW_DEEP_FREEZE=1` does today), so an in-place write is Fatal for any runtime, and
+        the fix 1 and fix 2 memos stay sound against wrong runtimes; add one lie that writes a published world in
+        place and confirm it goes red; measure the freeze's cost;
+    0b. `mutate.ts`: a watchdog time kill reads as unknown and is rerun serially, never killed; `--rss-mb` default
+        above the suite's own peak (step 6 below);
+    0c. `drive.ts:1378`'s 20 s wall-clock "did not quiesce" (older than CP1): under parallel load a correct runtime
+        can hit it; make a clock-only trip read as unknown and rerun, keeping the 5000-task bound as the
+        deterministic guard;
+    0d. record the falsify and lifetime ok/BAD lines at the start of CP2 (the review could not re-check "identical
+        to `f0771187`", because no baseline lines were kept), and compare against them at the end.
+    One relock at the end of CP2 covers CP1 and CP2 (each relock needs the user while the classifier refuses it).
   - Steps, each profiled before it is kept:
     1. finish each harness's end checks and output line as soon as the harness is done, instead of keeping every
        harness to the case's end (`main.ts` tracked list; FRAG-15 about 4059, DRV-01 2160);
@@ -333,3 +346,4 @@ One line per iteration. Results live in the records; link them.
 - 2026-11-08 round 14 merged into `flow-rewrite` as is (`482e8e2b`; the user's Q2 A, no worktrees from now on). Gate timing survey running (results in the session scratchpad, to be summarised here); a read-only research agent is surveying per-process speed and memory techniques for the gates.
 - 2026-11-08 speed survey: baseline above; the user accepted the speed pass as queue item 0 (Q3 A) and its targets (Q4 A). New: `falsify --part search` red on `chain` (the real runtime), for round 14's remaining work. Worktree removed. Loop started, item 0's builder launched.
 - 2026-11-08 CP1 speed pass built (`0806c7de`..`b2fd9218`): suite 65 s → 17.1 s, mutate-one 206 s → 20 s, graph gate 67 s → 16 s, lies at 4 in 29 s, lifetime-falsify 32 s (57/57 red), fast loop 21 s, final-commit gates about 3 min; every falsify and lifetime ok/BAD line identical to `f0771187`. Missed: suite 15 s (17.1 s) and RSS 600 MB (1.75 GB), carried to CP2. The suite exits 1 only on the lock (seven harness files hashed by D113); relock refused by the permission classifier for the builder and for the runner, so it waits on the user. Close-out review with `check-benchmark` started; CP2 waits for it (its timing re-runs need an idle machine).
+- 2026-11-08 CP1 close-out review (Opus, high, with four Haiku sidecars): PASS with findings, no High. Re-measured: suite 16.5 s (2 runs), mutate-one 19.5 s, falsify suite2 50.7 s, `FLOW_CANON_CHECK` 205650 steps 0 differ. Findings: the memos trust that no world is written in place, unchecked for wrong runtimes (Medium; sidecar 2 reproduced a false equal on an in-place write); `mutate.ts` counts a time kill as killed, riskier under `--parallel` (Low-Medium; sidecar 3 called it High); a 20 s wall-clock settle trip in `drive.ts` (Medium, older); the identical-lines claim had no recorded baseline (Low). All four go first in CP2 (0a-0d); relock moved to the end of CP2.
