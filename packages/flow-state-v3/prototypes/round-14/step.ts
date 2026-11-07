@@ -242,6 +242,9 @@ const onDisposeRuntime = (tx: Tx) => {
 // the record is removed, and the lanes stay unbound for the identity's next ensure (rule 46). `remount`: a local predecessor kept only by work;
 // its lanes stay for the new incarnation to adopt.
 const onDisposeActor = (tx: Tx, key: string, how: "end" | "dispose" | "remount") => {
+  // M3 (fix pass): `disposeActor` forgets which `persist` the identity's first ref said; the next ref to ensure it is the first again. The
+  // design does not yet say who wins across a dispose (STATUS.md, open question).
+  if (how === "dispose" && tx.w.refPersist[key] !== undefined) tx.w = { ...tx.w, refPersist: without(tx.w.refPersist, key) };
   const a = getActor(tx.w.actors, key);
   if (!a) {
     if (how === "dispose" && own(tx.w.retired, key)) {
@@ -342,7 +345,9 @@ const startRoot = (tx: Tx, key: string, machine: string, input: unknown, identit
     const recheck = fromBoot && hasResetOn(tx, fresh) ? [{ k: "recheck" as const, actor: key }] : [];
     const cut = stoppedEndings(tx, key, stopped, old, inc);
     tx.w = { ...tx.w, follow: [...recheck, ...adopted, ...cut, ...tx.w.follow] };
-    tx.touchedActors.add(key);
+    // M5 (fix pass): a record kept at ready is on disk as it is now (live, this record), so its return writes nothing; a turn that changes it
+    // will. A return after an end changes the disk's word (retired, a new incarnation).
+    if (!fromBoot) tx.touchedActors.add(key);
     tx.visible = true;
     return;
   }

@@ -37,12 +37,29 @@ const encodeField = (machine: string, f: string, schema: unknown, v: unknown): s
   if (typeof out !== "string") throw new Error(`IdentityFieldNotString: ${machine} ${f} encodes to ${typeof out} (OD30 Q6)`);
   return out;
 };
-// OD30 Q3: the version of a value-named machine's identity: its field set and each field's Schema, type and encoded side, in field-name order.
+// The encoded side's structure: each node's tag and data, in key order, without annotations (a description or a title is no new version).
+// Gotcha: a check is seen only as there or not (its kind lives in annotations), so `minLength(1)` and `minLength(2)` read the same.
+const structure = (x: unknown, seen: Set<unknown> = new Set()): string => {
+  if (x === null || typeof x !== "object") return typeof x === "function" ? "fn" : String(JSON.stringify(x));
+  if (seen.has(x)) return "cycle";
+  seen.add(x);
+  if (Array.isArray(x)) return `[${x.map((y) => structure(y, seen)).join(",")}]`;
+  const o = x as Record<string, unknown>;
+  const keys = Object.keys(o).filter((k) => k !== "annotations" && typeof o[k] !== "function").sort();
+  return `${String(o["_tag"] ?? "")}{${keys.map((k) => `${k}:${structure(o[k], seen)}`).join(",")}}`;
+};
+// OD30 Q3, rule 74 (fix pass L1): the version of a value-named machine's identity is its field set and each field's **encoded** Schema,
+// compared by structure, in field-name order. A field whose type changes over the same encoded side (String to NumberFromString) is no new version.
 export const identityVersionOf = (fields: Readonly<Record<string, { readonly schema: unknown }>>, names: readonly string[]): readonly string[] =>
   names.map((f) => {
     const ast = (fields[f]!.schema as Schema.Top).ast;
-    return `${f}:${String(ast)}<-${String(SchemaAST.toEncoded(ast))}`;
+    return `${f}:${String(SchemaAST.toEncoded(ast))}#${hash(structure(SchemaAST.toEncoded(ast)))}`;
   });
+const hash = (s: string) => {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619) >>> 0;
+  return h.toString(16).padStart(8, "0");
+};
 
 // D4 (the user, after the round 14 review): the form is fixed per machine. A machine with input fields is named only by value; one with no
 // input only by a literal name, so a singleton takes no input at ensure.

@@ -55,8 +55,11 @@ const canon = (v: unknown, up: readonly unknown[] = []): unknown => {
 // Everything that decides the future, normalised: ids and generations by first occurrence, mints and positions by order, times
 // from now. Saved records are in (L9): what storage last heard changes what a capture writes.
 const normalise = (w: World, now: number, outside: string): string => {
-  // Round 14 (review M5): `soon` and `warned` feed diagnostics only (a create's age, a once-only warning), so they decide no future.
-  const { nextId: _i, nextMint: _m, seq: _s, boot: _b, asked: _t, soon: _so, warned: _w, ...rest } = w as World & { asked?: unknown };
+  // Fix pass L2: `warned` decides whether a later `EndedWithWork` or `RecordUnencodable` is said, and `soon` whether a create carries
+  // `createdSoonAfterEnd`, so both are in: `soon` as the time left, only while it can still fire (its incarnation id decides nothing).
+  const { nextId: _i, nextMint: _m, seq: _s, boot: _b, asked: _t, soon: soon0, ...rest0 } = w as World & { asked?: unknown };
+  const soonLeft = Object.fromEntries(Object.entries(soon0).filter(([, s]) => s.dueAt > now).map(([k, s]) => [k, s.dueAt - now]));
+  const rest = { ...rest0, soon: soonLeft };
   // D143, over-assumptions F2: the ranks below are for the runtime's own fields. A user's memory, payload, input or value is theirs: written with no `"`, so no rank can reach a `pos` or a `since` in it, and `{pos:1}` and `{pos:2}` stay two states.
   // Its copies inside the edge's bytes and the fake's open requests are still ranked; one exact copy in the world is enough to keep the two states apart.
   const USER = new Set(["memory", "payload", "input", "value"]);

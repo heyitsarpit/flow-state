@@ -1450,3 +1450,38 @@ output:REV5-H3/w-is-off-the-disk-once-it-has-ended hash:26a569228b50 | fragstore
 output:REV6-H5/a-release-that-changes-a-key-does-not-mint-beside-a-hold hash:ca8899c5b20d | fragstore.row: REV6-H5 changes-a-key, the rekeyed hold's Restored parked in the record at ready and unparked
 output:REV6-H5/the-rekeyed-lane-is-what-a-guard-reads hash:7c260378359f | fragstore.row: REV6-H5 guard-reads, the rekeyed hold's Restored parked in the record at ready and unparked
 output:REV8-M3/a-hold-does-not-rewrite-per-boot hash:cf5fdf3de810 | fragstore.row: REV8-M3 per-boot, three boots each park the hold's Restored in the record at ready and unpark it at the return
+R14-ID-02 hash:3548ba2f4425 | L1, rule 74 ("changing a field's encoded Schema"): String to NumberFromString keeps the encoded side, so no new version and the record is restored; a check on the encoded side is one (new variant); field names compared by name
+R14-ID-03 hash:51e084049e6f | M3: persist conflicts in the other order, and a disposeActor forgets the first ref's persist
+R14-FIX-01 hash:61f132a9d4b5 | M5: R14-FIX-01 adds a return from ready that writes nothing
+file:scenarios/fixpass.scenario.ts hash:efbcb4cf531d | M5: the return-from-ready variant
+file:scenarios/identity.scenario.ts hash:5e6519d8a2bd | L1, M3: R14-ID-02 and R14-ID-03 variants
+file:typed/identity.ts hash:da3035bdd084 | L1: release 4, ticketId a NonEmptyString (a check on the encoded side); release 3's comment says it is no new version
+file:compile/ref.ts hash:dcd440330640 | L1: the identity version is each field's encoded Schema by structure, annotations left out
+file:falsify.ts hash:4245acd14de8 | M6: k.ghost-life restored, red on R14-FIX-01 and 02 by their not-woken check
+round:mutants-lifetime.ts hash:652fad1e312f | fix pass: wrong runtimes for M5 (a return from ready writes), L1 (type side, printed name), M3 (persist survives dispose)
+round:adapter.ts hash:03d53b17242c | L2: warned and soon (time left) are in the state hash, since they decide later diagnostics
+file:expected-recipients.txt hash:bb488944a920 | M5, L1, M3: the new variants add deliveries observed and restored states anchored
+removed:variant:R14-ID-02/a-fields-schema-changed-is-a-new-version | L1: the design says only the encoded side decides a version; replaced by a-type-change-over-the-same-encoded-side-is-no-new-version
+removed:output:R14-ID-02/a-fields-schema-changed-is-a-new-version | L1: its variant went; its output line goes with it
+output:FRAG-12/unbound-hold-with-no-waiter-stays hash:9dcdc04d3997 | L2: FRAG-12's end leaves a soon entry (or a warning) that is now in the hash: one more distinct state (7)
+output:FRAG-15 hash:77e70618a2ae | M5: FRAG-15's returns from ready no longer capture, so three frames reach one state fewer (5)
+output:LIFE-14/not-persisted-the-debounce-is-lost hash:ae552334d22c | L2: LIFE-14's end leaves a soon entry, its time left one more state (6)
+output:LIFE-22 hash:27f458bdcb64 | L2: LIFE-22's codec warning is in the hash, one more state (6)
+output:LIFE-29 hash:6ab57edb60ed | L2: LIFE-29's EndedWithWork warnings and soon entries, four more states (9)
+output:LIFE-30 hash:63b6bd03ea59 | L2: LIFE-30's soon window (340 ms, then 5 s), two more states (5)
+output:R14-FIX-01/a-return-from-ready-writes-nothing hash:73a7b71815da | M5: R14-FIX-01's return-from-ready variant, new
+output:R14-ID-02/a-type-change-over-the-same-encoded-side-is-no-new-version hash:c074ac54ec90 | L1: R14-ID-02's same-encoded-side variant, new
+output:R14-ID-02/an-encoded-side-change-is-a-new-version hash:49e6331a6acf | L1: R14-ID-02's encoded-side variant, new
+output:R14-ID-03/after-dispose-the-next-ref-is-the-first hash:416c5ca67f41 | M3: R14-ID-03's after-dispose variant, new
+output:R14-ID-03/the-other-order-conflicts-the-other-way hash:4bd65bf83eed | M3: R14-ID-03's other-order variant, new
+output:REV5-H2/a-frozen-ending-of-a-removed-operation-is-orphaned-not-fatal hash:338065066a7f | M5, diffed against ed3e1a29: round 14's extra capture at the return gave one more state (8); with it gone, 7 as at ed3e1a29
+output:REV6-CAPTURE/a-crash-loses-plain-memory-and-only-that hash:3cd7ef0d13ba | M5, diffed against ed3e1a29: the outstanding capture timer round 14 added (2) was the return's needless write; one, as at ed3e1a29
+output:REV6-CAPTURE/an-awaited-write-carries-what-waits-with-it hash:48209f63c4d1 | M5, diffed against ed3e1a29: the awaited-write case no longer leaves the return's capture timer (0) nor its extra state (3), as at ed3e1a29
+output:REV6-TEAR/a-store-with-no-atomic-batch-strands-nothing-silently hash:0dfe4e863d43 | M5, diffed against ed3e1a29: round 14 merged two states through the return's write (4); without it, 5 as at ed3e1a29
+output:REV7-D80/a-kill-before-any-flush-loses-only-plain-memory hash:bb333d06942a | M5, diffed against ed3e1a29: the kill-before-flush case leaves no return capture timer, 3 states, as at ed3e1a29
+output:REV7-D80/hidden-flushes-at-once hash:b157117d726c | M5, diffed against ed3e1a29: hidden-flushes leaves no return capture timer, 3 states, as at ed3e1a29
+output:REV7-M1/a-success-does-not-come-back-as-a-hold hash:4b17bc1c11d6 | M5, diffed against ed3e1a29: REV7-M1 leaves no return capture timer, 4 states, as at ed3e1a29
+output:REV7-M8/a-quarantined-lane-refuses-a-second-attempt hash:d6a665338439 | M5, diffed against ed3e1a29: the quarantined-lane case is back to 10 states; round 14's return write had merged one
+output:REV8-M3/a-lane-alone-still-floors-the-boot hash:66997a0a74d6 | M5, diffed against ed3e1a29: the return's write consumed the failing write, so one UnencodableValue went missing; back to 2, no capture timer left, as at ed3e1a29
+output:REV8-PINS/D88-a-keyless-idle-sees-a-quarantined-hold hash:e015f26110a2 | M5, diffed against ed3e1a29: D88 keyless-idle back to 6 states without the return's write
+output:REV8-PINS/D88-a-lane-record-whose-id-disagrees-is-quarantined hash:5c52afddd72d | M5, diffed against ed3e1a29: D88 id-disagrees back to 6 states without the return's write

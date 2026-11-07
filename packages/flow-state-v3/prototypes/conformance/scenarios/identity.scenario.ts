@@ -2,7 +2,7 @@
 // fields, in field-name order, and only those; the value is the input. A singleton has a literal name and takes input at ensure. Every
 // expectation is the design's text, worked by hand.
 import { actorRef, ensureArgs, type ActorRefOf } from "../compile/index.ts";
-import { Editor1, Editor2, Editor3, EditorId, editorFixture, editorRef, SessionRef, sessionFixture, type Release } from "../typed/identity.ts";
+import { Editor1, Editor2, Editor3, Editor4, EditorId, editorFixture, editorRef, SessionRef, sessionFixture, type Release } from "../typed/identity.ts";
 import type { Step } from "../harness.ts";
 import { Ctx, type Scenario } from "./ctx.ts";
 import { GRACE } from "./lifetime.scenario.ts";
@@ -67,15 +67,18 @@ export const identityScenarios: readonly Scenario[] = [
         c.answer("save", { ok: {} });
         c.h.release(() => void (rel.v = 2), () => void (rel.v = 1));
         c.reload();
-        c.eq("listed at ready, by field set and Schema", c.r.evidence("OldVersionActor").map((e) => [e["fields"], e["now"]]), [[["ticketId:<String><-<String>", "workspaceId:<String><-<String>"], ["region:<String><-<String>", "ticketId:<String><-<String>", "workspaceId:<String><-<String>"]]]);
+        const names = (v: unknown) => (v as string[]).map((f) => f.split(":")[0]);
+        c.eq("listed at ready, by field set", c.r.evidence("OldVersionActor").map((e) => [names(e["fields"]), names(e["now"])]), [[["ticketId", "workspaceId"], ["region", "ticketId", "workspaceId"]]]);
         c.eq("never restored", c.r.state(at(r1)), undefined);
         const r2 = actorRef(Editor2, { ...T42, region: "eu" });
         c.do(ensureStep(ensureArgs(r2)));
         c.eq("a fresh actor of the new version", [c.r.memory(at(r2))?.title, c.r.memory(at(r2))?.region], ["", "eu"]);
         c.yes("the old record is still on disk, for forget", c.record(at(r1)) !== undefined);
       },
-      // The same names, one field's Schema changed (a string becomes a number encoded as a string): a new version too, not a rename.
-      "a-fields-schema-changed-is-a-new-version"(c0) {
+      // Fix pass L1, back to rule 74's words ("changing a field's encoded Schema"): a string becomes a number encoded as a string. The encoded
+      // side is unchanged, so this is no new version: the record is restored and the new ref, which encodes to the same name, finds it.
+      // Changed from "a new version" (round 14's M3 compared the type side too).
+      "a-type-change-over-the-same-encoded-side-is-no-new-version"(c0) {
         const rel: Release = { v: 1 };
         const r1 = editorRef({ workspaceId: "north", ticketId: "42" });
         const c = new Ctx(c0.fresh([editorFixture(rel)], { captureMs: 0 }), at(r1));
@@ -85,11 +88,28 @@ export const identityScenarios: readonly Scenario[] = [
         c.answer("save", { ok: {} });
         c.h.release(() => void (rel.v = 3), () => void (rel.v = 1));
         c.reload();
-        c.eq("listed at ready", c.r.evidence("OldVersionActor").map((e) => e["now"]), [["ticketId:<Number><-<String>", "workspaceId:<String><-<String>"]]);
+        c.eq("not listed", c.r.evidence("OldVersionActor").length, 0);
         const r3 = actorRef(Editor3, { workspaceId: "north", ticketId: 42 });
         c.eq("the same encoded name", r3.id, r1.id);
         c.do(ensureStep(ensureArgs(r3)));
-        c.eq("a fresh actor, the old record not matched", c.r.memory(at(r3))?.title, "");
+        c.eq("its record, restored", c.r.memory(at(r3))?.title, "Foyer");
+      },
+      // L1: a check on the encoded side (a string becomes a non-empty string) changes the encoded Schema: a new version, not a rename.
+      "an-encoded-side-change-is-a-new-version"(c0) {
+        const rel: Release = { v: 1 };
+        const r1 = editorRef({ workspaceId: "north", ticketId: "42" });
+        const c = new Ctx(c0.fresh([editorFixture(rel)], { captureMs: 0 }), at(r1));
+        c.do(ensureStep(ensureArgs(r1)));
+        c.send("Title", { title: "Foyer" });
+        c.ack();
+        c.answer("save", { ok: {} });
+        c.h.release(() => void (rel.v = 4), () => void (rel.v = 1));
+        c.reload();
+        c.eq("listed at ready", c.r.evidence("OldVersionActor").length, 1);
+        const r4 = actorRef(Editor4, { workspaceId: "north", ticketId: "42" });
+        c.eq("the same encoded name", r4.id, r1.id);
+        c.do(ensureStep(ensureArgs(r4)));
+        c.eq("a fresh actor, the old record not matched", c.r.memory(at(r4))?.title, "");
       },
     },
   },
@@ -120,6 +140,28 @@ export const identityScenarios: readonly Scenario[] = [
         c.do(ensureStep(ensureArgs(r2)));
         c.eq("refused at ensure", c.r.issues().filter((i) => i.code === "ConflictingActorRef").map((i) => i.input), [{ key: c.r.actorKey(at(r1)), persist: [true, false] }]);
         void EditorId;
+      },
+      // M3 (fix pass): the other order; the first ref of the identity says persist, so the refusal names it first.
+      "the-other-order-conflicts-the-other-way"(c0) {
+        const r1 = editorRef(T42);
+        const r2 = actorRef(Editor1, T42, { persist: false });
+        const c = new Ctx(c0.fresh([editorFixture()]), at(r1));
+        c.do(ensureStep(ensureArgs(r2)));
+        c.do(ensureStep(ensureArgs(r1)));
+        c.eq("refused at ensure", c.r.issues().filter((i) => i.code === "ConflictingActorRef").map((i) => i.input), [{ key: c.r.actorKey(at(r1)), persist: [false, true] }]);
+      },
+      // M3: `disposeActor` ends the identity for every user (Runtime O6), so the next ref to ensure it is its first; no conflict. Who wins across
+      // a dispose is the runtime's call here, not yet the design's (STATUS.md).
+      "after-dispose-the-next-ref-is-the-first"(c0) {
+        const r1 = editorRef(T42);
+        const r2 = actorRef(Editor1, T42, { persist: false });
+        const c = new Ctx(c0.fresh([editorFixture()]), at(r1));
+        c.do(ensureStep(ensureArgs(r1)));
+        c.dispose(at(r1));
+        c.do(ensureStep(ensureArgs(r2)));
+        c.eq("no conflict", c.r.issues().filter((i) => i.code === "ConflictingActorRef").length, 0);
+        c.do(ensureStep(ensureArgs(r1)));
+        c.eq("now r2's persist is the first", c.r.issues().filter((i) => i.code === "ConflictingActorRef").map((i) => i.input), [{ key: c.r.actorKey(at(r1)), persist: [false, true] }]);
       },
     },
   },

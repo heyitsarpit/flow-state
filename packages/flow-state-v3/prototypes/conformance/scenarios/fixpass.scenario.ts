@@ -101,6 +101,20 @@ export const fixpassScenarios: readonly Scenario[] = [
         c.ensure();
         c.eq("heard once", heard() - before, 1);
       },
+      // M5 (fix pass): a record kept at ready is on disk as it is; its return is no change, so nothing is written for it (the outputs round 14
+      // had changed: one more capture timer outstanding after each return).
+      "a-return-from-ready-writes-nothing"(c0) {
+        const c = new Ctx(c0.fresh([lifeFixture()], { captureMs: 0 }), X);
+        c.ensure(X);
+        c.send("Look");
+        c.answer("look", { ok: {} });
+        c.do({ hide: true });
+        const writes = () => c.r.outside().batches.filter((b) => b.writes.some((w) => w.key === `actor/${c.r.actorKey(X)}`)).length;
+        const n = writes();
+        c.reload(); // the Story's use is attached again: the record at ready returns in this step
+        c.eq("returned, its record as on disk", [c.r.evidence("recordAtReady").length, c.r.evidence("returned").length, c.mem(X)?.log], [1, 1, ["looked"]]);
+        c.eq("no write of it", writes(), n);
+      },
       // An end before the reload: the identity is a retired record, its lanes' endings park on the lane at the boot (rule 44). The dispose
       // removes the record, so the next incarnation starts fresh from input (D6) and hears each once, W first (D107).
       "a-dispose-of-that-record-keeps-its-endings-on-the-lane"(c0) {
