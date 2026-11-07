@@ -7,6 +7,7 @@ import { payFixedFixture } from "../fixtures/pay.fixed.ts";
 import { s1Fixture } from "../typed/stores.ts";
 import type { RuntimeModule } from "../harness.ts";
 import { searchChain } from "./chain.search.ts";
+import { engine } from "./engine.ts";
 import { searchCross } from "./cross.search.ts";
 import { searchFlush } from "./flush.search.ts";
 import { searchCrash } from "./crash.search.ts";
@@ -27,6 +28,8 @@ const mod = (await import(
 )) as RuntimeModule;
 if (arg("--swap", "")) swapFixtures((await import(resolve(import.meta.dir, arg("--swap", "")))).swaps);
 const make = makeHarness(mod.port);
+// A read that hides the page (FLOW_TEST_FLUSH's probes) writes to the parent, so it keeps one parent per action.
+engine.onePre = !process.env["FLOW_TEST_FLUSH"];
 const o = {
   depth: Number(arg("--depth", "8")),
   maxStates: Number(arg("--states", "400000")),

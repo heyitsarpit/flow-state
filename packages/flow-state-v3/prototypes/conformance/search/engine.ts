@@ -23,6 +23,10 @@ export type Report = {
   peakRssMb: number;
 };
 
+// `onePre`: a state's script is replayed once as the parent of all its actions, not once per action. Sound when no guard (`on`) and no edge
+// oracle writes to the parent (each reads only), which holds for every search here. Only for a search in a process of its own (search/run.ts):
+// inside a case every harness made is tracked, checked and counted (RECIPIENTS), so the count of replays is part of what the case says.
+export const engine = { onePre: false };
 export const bfs = (o: {
   make: () => Harness;
   actions: readonly Action[];
@@ -97,11 +101,16 @@ export const bfs = (o: {
     for (let d = 1; d <= o.depth; d++) {
       const next: Action[][] = [];
       for (const script of frontier) {
+        let parent: Harness | undefined;
+        let parentText: string | undefined;
+        const endPre = (h: Harness) => {
+          if (!engine.onePre) h.end?.();
+        };
         for (const a of o.actions) {
           if (out()) return done("inconclusive", depthCompleted);
-          const pre = run(script);
+          const pre = engine.onePre ? (parent ??= run(script)) : run(script);
           if (a.on && !a.on(pre)) {
-            pre.end?.();
+            endPre(pre);
             continue;
           }
           tried.add(a.name);
@@ -118,8 +127,9 @@ export const bfs = (o: {
             throw new Oracle(`${(e as Error).message} on ${names(s).join(" ")}`);
           }
           const k = key(post, s);
-          if (key(pre, s) !== k) moved.add(a.name);
-          pre.end?.();
+          const kp = engine.onePre ? Bun.hash(`${(parentText ??= pre.read.stateHash())}|${o.extra?.(s) ?? ""}`) : key(pre, s);
+          if (kp !== k) moved.add(a.name);
+          endPre(pre);
           if (seen.has(k)) {
             post.end?.();
             continue;
@@ -135,6 +145,7 @@ export const bfs = (o: {
           post.end?.();
           if (seen.size % 500 === 0) peak = Math.max(peak, process.memoryUsage().rss);
         }
+        parent?.end?.();
       }
       perDepth.push(next.length);
       depthCompleted = d;
