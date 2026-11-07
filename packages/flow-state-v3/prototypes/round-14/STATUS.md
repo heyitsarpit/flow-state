@@ -198,8 +198,9 @@ not at the write, so a case reads red as "S11 replay differs: writtenInPlace", n
 armed throw spent) and compared with the hit (list, resets, Slot tape); a difference throws. Costs about 25 s on the suite, so it stays off
 by default and in every gate; run once per pass.
 
-`--rss-mb` 2600 for mutate.ts: mutate.ts runs each mutate-one `--serial`, so its tree is one suite at a time, measured at 1.80-1.85 GB;
-2600 is about 40% over that, and still stops a mutant that balloons (11.9 GB in round 1) long before the machine is short.
+`--rss-mb` for mutate.ts: 2600 at 93005ef6, now 2000. mutate.ts runs each mutate-one `--serial`, so its tree is one suite at a time:
+measured after step 3 at 1354-1397 MB (control, twice); 2000 is about 45% over that, and stops a mutant that balloons (11.9 GB in
+round 1) long before the machine is short.
 
 Memory, what is left (step 3's measurements): with a 150 MB threshold the suite peaks at 745 MB in 31.7 s; adaptive (live + 100 MB)
 629 MB in 45 s; minor collections do not help (1.3-1.5 GB). The limiters: DRV-01 makes 2160 harnesses its body may still read until it
@@ -244,3 +245,34 @@ Corrections and boundaries after the review of a84b1c2a (stated, not hidden):
   An ended harness also refuses `release` and `subscribe`. Lie marks checked without the guard (`FLOW_NO_FREEZE=1`): `w.patch-in-place`
   is "red by Attempted to assign to readonly property: 0 of 534" and `w.row-in-place` "red by writtenInPlace: 0 of 649" (both BAD): the
   marks come from the guard alone; both are red there by other oracles.
+
+End gates (2026-11-08, after c4acf0dc; one `gates.ts` run, 22 jobs, up to 8 slots; wall and peak are under that load):
+
+| Gate | Exit | Wall | Peak |
+| --- | --- | --- | --- |
+| suite `--no-search` | 1, the lock only (834/834, by output 0, removed none, catalog none) | 32.4 s (18.1-18.5 s alone) | 1301 MB (1.0-1.3 GB alone) |
+| suite, `FLOW_CANON_CHECK=1` | 1, the lock only; 205650 steps, 0 differ | 30.7 s | 1393 MB |
+| suite, `FLOW_COPIES_CHECK=1` | 1, the lock only; 186075 hits, 0 differ | 43.9 s | 1205 MB |
+| mutate-one (alone, after) | 0, `killedBy` null | 21.3 s | 3393 MB |
+| graph-gate | 0, GRAPH PASS | 26.9 s | 1068 MB |
+| falsify suite1 / suite2 / suite3 | 0 / 0 / 0 | 41 / 89 / 32 s | 1237 / 1366 / 955 MB |
+| falsify tamper | 1, control red on the lock only | 6.5 s | 329 MB |
+| falsify mutants | 0 | 94 s | 1267 MB |
+| falsify lies, 4 slices | 0 each (77 lies) | 38-56 s | 1036-1181 MB |
+| falsify search | 1, `chain` (known) | 59 s | 320 MB |
+| lifetime-falsify `--parallel 3` | 0, 57 of 57 red | 14.3 s | 1832 MB |
+| checks (6), typed tsc, CLI pins | 0 each | 0.1-4.1 s | under 300 MB |
+| all, by `gates.ts` | 1 (the three known reds) | 115 s | |
+
+0d diff: falsify suite1, suite2, suite3, mutants: ok/BAD lines identical; lies: identical but the two new lies (both ok); lifetime-falsify:
+identical but the copy's temp-folder name in four FAIL texts (each wrong runtime now has its own folder); the 18 broken-runtime suite
+outputs identical (source positions and the lock's id list normalised); the suite's SUMMARY and RECIPIENTS identical but the unlogged
+`file:`/`round:` ids.
+
+Targets: suite 15 s in one process: missed, 18.1-18.5 s alone (17.2 s at CP1; the guard costs about 2 s, measured 19.2 against 17.3).
+Peak RSS 600 MB per suite process: missed, 1.0-1.3 GB (1.82 GB at CP1); limiters above (DRV-01's 2160 live harnesses; R10-RUNTIME's
+110k-step log; JavaScriptCore keeping RSS at 3-4 times the live heap); 630 MB is reachable at 45 s. Fast loop 30 s: met (checks, typed
+tsc and CLI pins under 6 s together). Every final-commit gate within 10 min at up to 8 in parallel: met, 115 s for all.
+
+Left for the runner: one relock covering CP1 and CP2 (`bun main.ts ... --no-search --hashes`); FRAG-15's and SEARCH-ODD-SMALL's wall-clock
+deadlines (an expected-result change, the user's).

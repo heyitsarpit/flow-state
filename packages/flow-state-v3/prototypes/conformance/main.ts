@@ -128,6 +128,7 @@ const SHARED = [
   "expected-recipients.txt", // stage L (review M8): the coverage counts of (j)
   "mutate.ts",
   "mutate-one.ts",
+  "gates.ts", // the scheduler the final-commit gates run under
   "harness.ts",
   "drive.ts",
   "fake-world.ts",
