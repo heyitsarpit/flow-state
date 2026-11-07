@@ -29,9 +29,29 @@ Searches `listen.load` and `fragstore.row` (`bun search/run.ts --which … --run
 | listen.load | failed, 1026 states, "silently wrong" (the entity store) | threw at 0 states | failed, 1026 states, the same "silently wrong" |
 | fragstore.row | failed, 22531 states, rule 17 "delivered once, still parked" | vacuous (every action dead) | failed, 5698 states: "(j) an ending reached nobody: put … on Go ack GiveUp Resend dispose reload" |
 
-The fragstore failure changed: `dispose` is now `disposeActor` (the record goes, D6 keeps endings on the lane), and an ending restored at
-the next boot for an identity with no record is not paid by the ledger. Not resolved: it may be a ledger gap or a runtime gap in D6's
-"with no record at all, evidence only" at a boot.
+Corrected by the fix pass (below): the explanation above was wrong. In `Go ack GiveUp Resend dispose reload`, a pending capture means the
+dispose's record removal never reached disk (D80); the stale live record is restored at the boot, its lane is Held, so it stays a record
+at ready, and the head's `unknown { Restored }` went into that record's boot mail with no evidence, so the ledger's debt was never paid.
+
+## Fix pass after the independent final review [ran]
+
+| Item | Fix | Case | Wrong runtime (red) |
+| --- | --- | --- | --- |
+| H-A | Runtime disposal interrupts nothing; a commit settles within `disposeMs` and is parked; a settled head is not left Held | REV5-M1, LIFE-28 (back to Runtime O6), PAY-16 (new bound variant), SURV-08 | `o6.dispose-interrupts-wire`, `o6.settled-in-bound-stays-held`, `o6.no-bound` |
+| fragstore.row | boot mail of a record kept at ready is said (`parked`, `record: true`), listed as a wait, unparked at the return; a dispose parks it on the lane (D6); the ledger moves it to `parkedOwed` only at a boot that kept that record | R14-FIX-01 (three variants) | `boot.mail-unsaid`, `boot.mail-lost-at-dispose` |
+| M1 | D1 on every return path, the woken-at-ready one included; `stopped` decoded by a Schema | LIFE-13 (after a reload; woken at ready) | `d1.woken-drops-stopped`, `d1.reload-drops-stopped` |
+| M2 | D3 guarded | R14-FIX-03 (three ends, three ids) | `d3.return-keeps-old-id` |
+| M4 | a Held head's waiting commits are not owed; the actor stays a record | R14-FIX-02 | `m4.held-w-owed`; no earlier verdict changed |
+| M3 | `disposeActor` clears `refPersist` | R14-ID-03 (other order; after dispose) | `m3.persist-survives-dispose` |
+| M5 | the 12 outputs: round 14's return from a record at ready touched the record, a needless capture (one more timer, merged states, one `UnencodableValue` lost). Fixed; each output logged on its own; the other 64 differ from ed3e1a29 only by `recordAtReady`, `returned` and one frame per return (checked) | R14-FIX-01/a-return-from-ready-writes-nothing | `m5.return-from-ready-writes` |
+| M6 | `k.ghost-life` restored: an ending does reach a record-only identity (the boot's restore of an ended record's lanes) | R14-FIX-01, R14-FIX-02 | the lie, red by "not woken" |
+| L1 | identity version = each field's encoded Schema by structure, annotations left out | R14-ID-02 (String to NumberFromString is no new version; a check on the encoded side is one) | `l1.version-by-type-side`, `l1.version-by-printed-name` |
+| L2 | `warned` and `soon` (time left) are in the state hash | outputs' state counts | none (hash only) |
+
+The fragstore.row search, re-run after the fix: the boot-mail failure is gone, and so are two ledger findings it hid (the store's forced
+repair counted as the actor's work in flight: it is the record queue's, 2.8; the dispose of a record at ready). It now fails at depth 7,
+95084 states, by rule 17's "delivered once, and still parked on disk ... restored again at this boot" on `Go ack GiveUp Resend Away refuse
+t30s reload`: round 13's class, not diagnosed in this pass.
 
 ## What was built, by area
 
@@ -46,10 +66,8 @@ See STATUS.md for each checkpoint. Commits on `worktree-agent-acee8f40b71d961fd`
 3. A record kept at ready keeps its root id when it returns (the boot's incarnation); a return after an end mints a new id (D3).
 4. The end is atomic in this runtime (no `stopped` input), so the send table's "ending" rows and `NotAdopted` cannot occur.
 5. `RecordUndecodable` at an ensure is evidence, not an issue, so the twelve REV4-H3 quarantine cases need no new named issue.
-6. T3 (Runtime disposal) parks `unknown { Interrupted }` for an interruptible commit (Runtime O6 interrupts the wire); REV5-M1's two
-   variants now expect that, where proposal-v5 said "unchanged".
-7. `k.ghost-life` is retired: with `disposeActor` removing the record and no implicit end meeting an InFlight lane, no ending reaches an
-   actor that is only a record.
+6. Withdrawn by the fix pass (H-A): Runtime O6 lets an invoked commit settle within the bound; nothing interrupts the wire.
+7. Withdrawn by the fix pass (M6): `k.ghost-life` is back, and R14-FIX-01 and 02 catch it.
 8. Output and Story records leave out the invariants' bookkeeping evidence (`incarnation`, `fired`).
 
 ## Not built
