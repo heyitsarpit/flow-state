@@ -190,7 +190,30 @@ call, its reason, its evidence, and how reversible it is.
 One entry each (runner rule 4): the kind (insert, modify, split, reorder, reclassify), why, the
 class, gates and misfire of anything new, the budget cost, the judge, and its state (proposed,
 applied as amendment <n>, or rejected).
-- (none yet)
+- **CP1, the harness speed pass (queue item 0).** Kind: insert, a Task inside phase 0, before round 14's remaining
+  gates. Judge: the user (Q3 A and Q4 A, 2026-11-08). State: applied; builder running. Built with the roadmap skill
+  (amendment 6, applied after the builder started; recorded here, and the brief was already consistent with it):
+  - Class: **performance work** (done means numbers on a named workload). Draws from `playbook-performance`,
+    `performance` and `check-benchmark` at `/Users/arpit/Developer/workflow/skills/suites/workflow/NAME/SKILL.md`
+    (`9b1dd09`): find the limiter, reduce work, keep a change only when the checked comparison shows a gain.
+  - Goal: the gates run much faster with exactly the same checks. Workload: round 14's gates on this MacBook (12
+    cores, 24 GB), baseline in "Gate timings" above.
+  - Verified by: before and after profiles per fix; a full suite run with `expected-output.txt`, RECIPIENTS and every
+    verdict byte-identical; `mutate-one` still `{"killedBy":null}`; every lie and all 57 lifetime wrong runtimes still
+    red; then `check-benchmark` on the baseline and final numbers, by an agent that did not do the work.
+  - One iteration: one fix (1 ledger memo and linear `viewOf`; 2 canon cache; 3 hash skip; 4 gate concurrency),
+    measured against the accepted baseline.
+  - Done when: the Q4 A targets are met (suite ≤ 15 s, peak ≤ 600 MB, fast loop ≤ 30 s, final-commit gates ≤ 10 min
+    at up to 8 in parallel) with no verdict changed, or the gap is reported with its limiter.
+  - Likely misfire: a speedup that skips work, such as a memo hiding a Slot run the oracle should count, or a cache
+    reused after an in-place write. Caught by the byte-identical outputs, the differential canon mode, the lies and
+    mutants staying red, and `check-benchmark` comparing the work done.
+  - Gates: the suite and its lock, falsify (suite1-3, tamper, mutants, lies), `lifetime-falsify`, `mutate-one`, the
+    graph gate. Each must still fail on its null, broken or lying runtime.
+  - Budget: up to 2 builder rounds. Blocking: a change to any expected result or guarantee. Reviews: the hourly
+    review, `check-benchmark` at the end, and the final numbers in the log.
+  - Cold read: not run separately. The user ruled the targets directly; a cold read of this entry is owed at the
+    next review.
 
 ## Example app candidates (proposed, for the user's pick)
 

@@ -2,7 +2,7 @@
 
 Status: approved by the user on 2026-11-07, in the Claude Code session ("the roadmap is approved"), handing
 its execution to Claude as the agent runner.
-Version: 6, approved 2026-11-07, after amendment 5.
+Version: 7, approved 2026-11-07, after amendment 6.
 Shape confirmed: 2026-11-04, in the Claude Code session. The user gave points 1-10: plans first,
 conformance rewritten, the core, features, Next.js hardening, examples and docs.
 Goal: production code for Flow State v3 at high quality, with good error messages and the
@@ -601,6 +601,12 @@ Numbered, oldest first (runner rule 4).
    Each takes a slice (a plan file or a range of C rows) and returns a table of locations and matches, never a
    verdict; one Opus reviewer judges from those tables and the text. Version 6. Phases worked out again: none (how
    they run only).
+6. 2026-11-08, judge the user ("any new task added to a roadmap has to use the roadmap skill to construct it"):
+   runner rule 4 gains "Build every new item with the roadmap skill", and the roadmap skill's own runner rule 4
+   gains the same text, so every roadmap it writes carries it (skill edited in
+   `/Users/arpit/Developer/workflow/skills/suites/workflow/roadmap/SKILL.md`, not yet committed in that repository;
+   "Built from" stays at `9b1dd09` until it is). Version 7. Applied at once to the speed pass (queue item 0, added
+   before this rule): rebuilt as a change proposal in progress.md. Phases worked out again: none.
 
 ## Runner rules
 
@@ -629,6 +635,15 @@ Numbered, oldest first (runner rule 4).
    replacement. "Done" is judged against the current version. If the roadmap looks wrong (the
    wrong class, a check that cannot be built, the named misfire happening, a step that contradicts
    one of the user's constraints), that is a change proposal too.
+
+   **Build every new item with the roadmap skill** (amendment 6). Any phase, Task or queue item added to
+   this roadmap after approval, by either judge, is constructed with the `roadmap` skill
+   (`/Users/arpit/Developer/workflow/skills/suites/workflow/roadmap/SKILL.md`), not written freehand. Choose its
+   class (section 1); choose and pin the packages it draws from, and write its goal, verification, one iteration,
+   done condition, likely misfire, gates, budget, and blocking stops and reviews (section 2, steps 3-5, 7 and 10),
+   in the template's phase shape; then cold-read the new item alone (step 13). An item too small for a phase, such
+   as one Task inside a phase, still names its class, its acceptance, its gates and its misfire. Record in its
+   change proposal that it was built this way.
 5. **Never weaken a check to pass it.** An expected result changes only for a specific reason,
    logged in the record that owns it. Relaxing a check, target, or budget needs the user.
 6. **Count only gates that can fail.** A gate counts only if it has been seen failing on a wrong
