@@ -133,7 +133,7 @@ const one = async (m: Mutant, i: number) => {
   );
   rmSync(dir, { recursive: true, force: true });
   const line = r.stdout.trim().split("\n").at(-1) ?? "";
-  let parsed: { killedBy: string | null; killers: string[]; search: string } | undefined;
+  let parsed: { killedBy: string | null; killers: string[]; search: string; unknown?: string } | undefined;
   try {
     parsed = JSON.parse(line);
   } catch {
@@ -141,7 +141,7 @@ const one = async (m: Mutant, i: number) => {
   }
   const killers = parsed?.killers ?? [];
   // D132, bugs M2: it parsed and the control ran, so a run with no answer is a run this mutant broke. Killed, by `crash`, and counted apart: it shrank the denominator before.
-  const unknown = r.unknown;
+  const unknown = r.unknown ?? (parsed?.unknown ? "clock" : undefined);
   const killed = !unknown && (r.killed !== null || !parsed || (parsed?.killedBy ?? null) !== null);
   if (!killed && !unknown) survived++;
   settle(
@@ -170,6 +170,7 @@ const done = results as Array<{ id: string; by: string }>;
 const invalid = done.filter((x) => x.by === "invalid").map((x) => x.id);
 const byWatchdog = done.filter((x) => x.by === "rss" || x.by === "time").map((x) => x.id);
 const unknowns = done.filter((x) => x.by.startsWith("unknown:")).map((x) => x.id);
+process.exitCode = unknowns.length ? 1 : 0;
 rmSync(scratch, { recursive: true, force: true });
 writeFileSync(out, JSON.stringify(results, null, 1));
-console.log(`\n${results.length - survived - invalid.length - unknowns.length}/${results.length - invalid.length - unknowns.length} killed (${author}); by the watchdog: ${byWatchdog.join(" ") || "none"}; invalid: ${invalid.join(" ") || "none"}${unknowns.length ? `; unknown under load: ${unknowns.join(" ")}` : ""}`);
+console.log(`\n${results.length - survived - invalid.length - unknowns.length}/${results.length - invalid.length} killed (${author}); by the watchdog: ${byWatchdog.join(" ") || "none"}; invalid: ${invalid.join(" ") || "none"}${unknowns.length ? `; unknown under load, so this run proves nothing for them: ${unknowns.join(" ")}` : ""}`);

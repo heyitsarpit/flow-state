@@ -84,19 +84,27 @@ export const bfs = (o: {
     };
   };
   const names = (s: readonly Action[]) => s.map((a) => a.name);
-  const out = () => seen.size >= o.maxStates || Date.now() - t0 > o.deadlineMs;
+  // The suite's own work on an ended harness (its end checks, `end`) is not the search's: kept off its deadline, as when it ran after the search.
+  let ending = 0;
+  const finish = (h: Harness) => {
+    if (!h.end) return;
+    const t = Date.now();
+    h.end();
+    ending += Date.now() - t;
+  };
+  const out = () => seen.size >= o.maxStates || Date.now() - t0 - ending > o.deadlineMs;
   let frontier: Action[][] = [[]];
   let depthCompleted = 0;
   try {
     const root = run([]);
     seen.add(key(root, []));
     o.state(root, []);
-    root.end?.();
+    finish(root);
     perDepth.push(1);
     if (o.drain) {
       const h = run([]);
       o.drain(h, [], report([]));
-      h.end?.();
+      finish(h);
     }
     for (let d = 1; d <= o.depth; d++) {
       const next: Action[][] = [];
@@ -104,7 +112,7 @@ export const bfs = (o: {
         let parent: Harness | undefined;
         let parentText: string | undefined;
         const endPre = (h: Harness) => {
-          if (!engine.onePre) h.end?.();
+          if (!engine.onePre) finish(h);
         };
         for (const a of o.actions) {
           if (out()) return done("inconclusive", depthCompleted);
@@ -131,7 +139,7 @@ export const bfs = (o: {
           if (kp !== k) moved.add(a.name);
           endPre(pre);
           if (seen.has(k)) {
-            post.end?.();
+            finish(post);
             continue;
           }
           seen.add(k);
@@ -142,10 +150,11 @@ export const bfs = (o: {
           } catch (e) {
             throw new Oracle(`${(e as Error).message} on ${names(s).join(" ")}`);
           }
-          post.end?.();
+          finish(post);
           if (seen.size % 500 === 0) peak = Math.max(peak, process.memoryUsage().rss);
         }
-        parent?.end?.();
+        if (parent && parentText !== undefined && parent.read.stateHash() !== parentText) throw new Error(`a guard or an edge oracle wrote to the shared parent of ${names(script).join(" ") || "the root"}`);
+        if (parent) finish(parent);
       }
       perDepth.push(next.length);
       depthCompleted = d;

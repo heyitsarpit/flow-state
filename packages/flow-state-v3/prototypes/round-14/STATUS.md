@@ -181,7 +181,7 @@ suite2, suite3, mutants, lies `--parallel 4`, lifetime-falsify, the suite's SUMM
 | 0b mutate.ts time kills | done | (this) | any watchdog kill counted as killed; `--rss-mb` 1700, control red by default | a time kill (or a clock trip) is rerun once alone (`judged`, watch.ts); only that answer counts; under `FLOW_DEFER_UNKNOWN=1` it is UNKNOWN, counted apart; default 2600 MB | control green at the default (peak 1846 MB, `--serial`); judged tested on a planted slow run and a planted trip |
 | 0c settle's wall-clock trip | done | (this) | one message for the 5000-task bound and the 20 s clock | the task bound keeps its words (deterministic, a verdict); the clock trip says `CLOCK_TRIP` (watch.ts); mutate-one reruns a tripped gate after the others end, and reports `unknown` when it still trips or runs `--serial`; falsify, lifetime-falsify and mutate.ts read a trip as unknown and rerun alone | planted trip (clock at 1 ms in a scratch copy): 16 cases trip; mutate-one reran plain and said `unknown` |
 | 1 finish harnesses early | done | (this) | FRAG-15 alone 3.5 s, peak 1797 MB (4058 harnesses kept to the case end) | a harness its maker ends (`Harness.end`, called by the search engine after a state's last edge) is checked and its output line made then, and let go, when no name the case can still add changes its verdict (names only grow; else it waits for the end as before); the end loop reads the kept results in the same order; FRAG-15 alone 3.4 s, 301 MB | 834/834, outputs and RECIPIENTS identical; the 18 broken-runtime outputs identical to 0d (first failures and their order) |
-| 3 GC in long runs | done | (this) | suite peak 1.82 GB (REV9-BURST, R10-RUNTIME, DRV-01 ratchet it) | a look every 256 steps (evidence batches), tasks and replayed steps: a full collection when the JS heap passes 250 MB; replay keeps no table of its own worlds (objects frozen only); suite 18.1-18.7 s, peak 1005-1021 MB | 834/834, outputs, RECIPIENTS, 18 broken outputs identical; nothing weak exists (no WeakRef or FinalizationRegistry in conformance, round-14, or the `effect` index they import) |
+| 3 GC in long runs | done | 3348071d, then (this) | suite peak 1.82 GB (REV9-BURST, R10-RUNTIME, DRV-01 ratchet it) | a look every 64 steps (evidence batches), tasks and replayed steps: a full collection each time the resident size has grown 100 MB since the last (first: when the JS heap passed 250 MB, but `heapSize` cost 0.3 ms a call, 0.66 s a suite; `rss()` costs under 1 us); replay keeps no table of its own worlds (objects frozen only); suite 18.1-18.5 s, peak 1.0-1.2 GB (noisy run to run) | 834/834, outputs, RECIPIENTS, 18 broken outputs identical; nothing weak exists (no WeakRef or FinalizationRegistry in conformance, round-14, or the `effect` index they import) |
 | 2 one parent per script | done | (this) | the 14 searches (depth 4, 4000 states, real runtime, 7 at once) 27.9 s | `engine.onePre`, set by search/run.ts: a state's script replayed once for all its actions, its hash once (`extra` still per action); guards and edge oracles only read the parent (each checked); off inside the suite (FRAG-15's harnesses are tracked and counted) and under `FLOW_TEST_FLUSH` (its probes hide the page) | 14.4 s | every search's JSON identical but `ms`, `peakRssMb`, `steps` (verdict, states, edges, perDepth, classes, failure, deadActions) |
 
 How 0a works, and why not a plain freeze: JavaScriptCore takes a frozen array off its fast paths (`includes`, `map`, `every`, for-in over
@@ -207,3 +207,32 @@ steps, kept for S11's replay (about 195 MB live during the replay), and JavaScri
 collections. 250 MB is kept: the time target is the tighter one.
 The replay's own worlds are frozen (objects) but not fingerprinted: a table of them kept every replayed world alive to the end of the
 replay. A deterministic step writes the same arrays in place at its run as at its replay, and the run's are fingerprinted (logged).
+
+Corrections and boundaries after the review of a84b1c2a (stated, not hidden):
+- An in-place write to a plain object throws where it happens (a step's throw is Fatal). An in-place write to an array is detected at
+  the replay, which every tracked harness gets at its case's end (and at its early end), so such a case is red, never green; until then an
+  identity-keyed memo (the copies memo, `stateText`'s last answer, the replay's pairs) may serve the old value. Arrays are not frozen
+  because a frozen array costs the suite 6 s of 17 (measured, the old `FLOW_DEEP_FREEZE`). Not covered: harnesses no case tracks (SEARCH-*
+  cases, search/run.ts), which are never replayed; their objects are still frozen.
+- drive.ts's own guard of `version()` finds nothing for round-14 (its adapter has already frozen that world, and a frozen object is taken
+  as guarded); it is there for a Port whose `version()` returns an unguarded world.
+- The guard skips what is not a plain object or array: MailQ (which appends to its buffer in place, by design, mailq.ts), Map, Set, Date,
+  class instances. Safe for the memos because none keys on them: the copies memo reads leaves and memories, the replay compares MailQ
+  and other non-plain values by their canon text every time (never memoised). Fixtures that put a Map or Set in memory exist
+  (typed/round8.ts `NoteMap`, `BadReset`; round9 `spinRead`'s Set; a Set-valued `resetOn`): a runtime writing into such a value in place is
+  not caught by the guard.
+- `FLOW_NO_FREEZE=1` now says on stderr that nothing is guarded.
+- A load trip never counts as a catch: falsify, lifetime-falsify and mutate.ts drop CLOCK_TRIP FAIL lines, rerun alone, and if the alone
+  run is still the load's (a clock trip, or for falsify and lifetime a time kill), the part fails as unknown and exits nonzero; mutate.ts
+  keeps unknowns in the denominator, lists them and exits 1; mutate.ts reads mutate-one's `unknown` too. Planted in a scratch copy (clock at
+  0 ms): a no-op lie whose only FAILs are trips reads "red by a named oracle: 0 of 0" (BAD) plus "unknown under load"; a lifetime wrong
+  runtime that only trips reads "0 red" (BAD) plus unknown. lifetime-falsify takes `--parallel N`, each wrong runtime in its own copy.
+- The search engine keeps the suite's work on an ended harness off the search's deadline (FRAG-15 asks 8 s for 1200 states; the search
+  completes at 642 states in about 3.4 s idle). FRAG-15 and SEARCH-ODD-SMALL still stop on a wall-clock deadline at all, which a loaded
+  machine can reach before their state bound, and a `--no-output` run would then pass with less coverage (a plain run is red by output).
+  That predates this pass; making them deterministic changes the scenarios' text, an expected-result change for the user, so it is left.
+- With `onePre`, the engine checks the shared parent's state hash after its actions and fails the search if a guard or an edge oracle
+  wrote to it (`stored()`, for one, settles). No search does today.
+- Serials (drive.ts `WHO`) advance when an early end replays mid-case. They are a symbol key, read only for equality (pairing a delivery
+  with its incarnation); no text, hash, output or message holds their value (checked by grep), and outputs and RECIPIENTS are identical.
+- Step 4 (`encodeRecord` memo) not done: profiled at 133 ms inclusive of a whole suite, no gain worth a cache.

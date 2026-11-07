@@ -3,7 +3,7 @@
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
-import { judged, watched } from "./watch.ts";
+import { CLOCK_TRIP, judged, watched } from "./watch.ts";
 
 const here = import.meta.dir;
 const argIdx = process.argv.indexOf("--runtime");
@@ -20,7 +20,14 @@ const say = (ok: boolean, what: string, detail = "") => {
   if (!ok) bad.push(what);
 };
 // Rule 73: FRAG-15's search reaches more states (its grace timers and use counts make them distinct), and the suite peaks near 1.75 GB.
-const run = (cmd: string[], env: Record<string, string> = {}, cwd = here) => judged(cmd, { rssMb: 2000, seconds: 200, capture: true, env, cwd });
+// A run whose answer was the load (a time kill, a settle stopped by the clock) is run again alone (`judged`). If it still is, nothing it says
+// counts: its FAIL lines are no catch, and the part fails as unknown.
+const unknowns: string[] = [];
+const run = async (cmd: string[], env: Record<string, string> = {}, cwd = here) => {
+  const r = await judged(cmd, { rssMb: 2000, seconds: 200, capture: true, env, cwd });
+  if (r.unknown !== undefined || r.killed === "time" || r.stdout.includes(CLOCK_TRIP)) unknowns.push(`${cmd.slice(1, 3).join(" ")} ${cwd === here ? "" : cwd}`.trim());
+  return { ...r, stdout: r.stdout.split("\n").filter((l) => !l.includes(CLOCK_TRIP)).join("\n") };
+};
 
 // ── The watchdog itself.
 if (part("watch")) {
@@ -468,5 +475,6 @@ try {
 } finally {
   rmSync(scratch, { recursive: true, force: true });
 }
+if (unknowns.length) say(false, `unknown under load, so these runs prove nothing: ${unknowns.join("; ")}`);
 console.log(`\nFALSIFY  ${bad.length ? `${bad.length} gate(s) stayed green or broke: ${bad.join("; ")}` : "every gate fails on what it should"}`);
 process.exit(bad.length ? 1 : 0);
