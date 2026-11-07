@@ -13,7 +13,7 @@ saved trace or a specific declared story.
 This page organizes the jobs, then points you back to the owner pages for the
 deeper contracts.
 
-## 1. Declared Facts
+## Declared Facts
 
 Start here when the question is about the app's declared contract:
 
@@ -35,7 +35,7 @@ Read next:
 [API Reference](/reference/api), and
 [Current Status](/reference/status).
 
-## 2. Path Discovery
+## Path Discovery
 
 Start here when you need a legal event sequence before executing a scenario.
 
@@ -56,7 +56,7 @@ Read next:
 [Testing Reference](/reference/testing) and
 [Current Status](/reference/status).
 
-## 3. Reproducible Execution
+## Reproducible Execution
 
 Start here when you want one declared scenario to run against the real harness
 surface.
@@ -79,7 +79,7 @@ Read next:
 [Behavior Contract](/reference/behavior), and
 [Current Status](/reference/status).
 
-## 4. Runtime Evidence
+## Runtime Evidence
 
 Start here when you already have a saved trace or proof input and need to
 explain what happened.

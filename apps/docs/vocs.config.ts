@@ -5,12 +5,6 @@ const config: Config = defineConfig({
   title: "Flow State",
   description: "Effect-native state machines for frontend applications.",
   codeHighlight: { themes: { light: paper, dark: chalk } },
-  topNav: [
-    { text: "Start", link: "/" },
-    { text: "Guides", link: "/guide/ownership-and-runtime-facts" },
-    { text: "Reference", link: "/reference/api" },
-    { text: "Status", link: "/reference/status" },
-  ],
   sidebar: [
     {
       text: "Start",

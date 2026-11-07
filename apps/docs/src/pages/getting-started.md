@@ -4,7 +4,7 @@ This is the supported alpha onboarding path. It builds one Effect service into a
 cached resource, a small workflow and view, a React screen, a deterministic test,
 and a CLI-inspectable behavior contract.
 
-## 1. Install the alpha
+## Install the alpha
 
 Flow State is ESM-only and requires Node 22.18 or newer. React is optional unless
 you import `flow-state/react`.
@@ -14,7 +14,7 @@ nub add flow-state@0.1.0-alpha.0 effect@4.0.0-rc.112
 nub add react@^18 react-dom@^18
 ```
 
-## 2. Put I/O behind an Effect service
+## Put I/O behind an Effect service
 
 ```ts
 import { Context, Effect, Layer } from "effect";
@@ -38,7 +38,7 @@ const PostsLive = Layer.succeed(
 The Layer remains the only I/O boundary, so production and deterministic tests
 can install different implementations without changing the resource or machine.
 
-## 3. Define the resource, machine, and view
+## Define the resource, machine, and view
 
 ```ts
 import { Effect } from "effect";
@@ -86,7 +86,7 @@ Resources own canonical server data, while the machine owns the workflow state.
 The view is a reusable projection; it does not copy resource data into machine
 context.
 
-## 4. Assemble one app and runtime
+## Assemble one app and runtime
 
 ```ts
 const PostsModule = flow.module("Posts", {
@@ -110,7 +110,7 @@ const createPostsRuntime = () =>
 The caller owns this runtime and must dispose it when the application boundary
 unmounts.
 
-## 5. Read the same owners from React
+## Read the same owners from React
 
 ```tsx
 import { useEffect, useMemo, useState } from "react";
@@ -149,7 +149,7 @@ export function App() {
 lifecycle. The root cleanup disposes every owned resource, actor, stream, timer,
 and child when this generation unmounts.
 
-## 6. Prove it deterministically
+## Prove it deterministically
 
 Use `test(machine).with(...).run()` for the first executable proof; move to
 `test.app(App).scenario(machine)` only when named app fixtures or inventory are

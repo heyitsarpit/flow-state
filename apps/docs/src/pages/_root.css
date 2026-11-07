@@ -35,8 +35,8 @@
   --fs-ink-faint: light-dark(hsl(150 6% 58%), oklch(0.56 0.02 140));
   --fs-mark: light-dark(oklch(0.47 0.13 252), oklch(0.89 0.12 95));
   --fs-mark-wash: light-dark(oklch(0.47 0.13 252 / 9%), oklch(0.89 0.12 95 / 12%));
-  --fs-grid-minor: light-dark(oklch(0.62 0.07 165 / 7%), oklch(0.95 0.01 100 / 3.5%));
-  --fs-grid-major: light-dark(oklch(0.55 0.08 165 / 13%), oklch(0.95 0.01 100 / 6.5%));
+  --fs-grid-minor: light-dark(oklch(0.62 0.07 165 / 4.5%), oklch(0.95 0.01 100 / 3.5%));
+  --fs-grid-major: light-dark(oklch(0.55 0.08 165 / 8%), oklch(0.95 0.01 100 / 6.5%));
   --fs-cell: 24px;
 
   --fs-serif: "Source Serif 4 Variable", "Source Serif 4 Variable Fallback", Georgia, serif;
@@ -136,8 +136,20 @@
 }
 
 [data-fs-grid="figures"],
-[data-fs-grid="off"] {
+[data-fs-grid="off"],
+:root[data-vocs-theme="light"],
+:root:not([data-vocs-theme="dark"]) {
   --fs-backdrop: var(--fs-paper);
+}
+
+:root[data-vocs-theme="dark"]:not([data-fs-grid="figures"], [data-fs-grid="off"]) {
+  --fs-backdrop: var(--fs-sheet);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-vocs-theme="light"], [data-fs-grid="figures"], [data-fs-grid="off"]) {
+    --fs-backdrop: var(--fs-sheet);
+  }
 }
 
 :root {
@@ -234,6 +246,167 @@ body {
   background: var(--fs-ink-faint);
 }
 
+
+/* ------------------------------------------------------------------ */
+/* Icons: Vocs draws Lucide; "square" sharpens it, "pixel" swaps in   */
+/* Pixelarticons (MIT, /icons/pixel/LICENSE)                          */
+/* ------------------------------------------------------------------ */
+
+[data-fs-icons="square"] svg:not(.fs-figure svg) :is(path, g, line, polyline, polygon, rect, circle) {
+  stroke-linecap: square;
+  stroke-linejoin: miter;
+  stroke-width: 1.75;
+}
+
+[data-fs-icons="pixel"] :is(
+    [data-v-gutter-top] button[aria-haspopup="dialog"] svg,
+    button[aria-label="Search"] svg,
+    button[aria-label="Open menu"] svg,
+    [aria-label="Light theme"] svg,
+    [aria-label="Dark theme"] svg,
+    [aria-label="System theme"] svg,
+    [data-v-outline] svg,
+    [data-v-copy-for-ai] svg,
+    pre.shiki > button[aria-label="Copy code"] svg,
+    [data-v-pagination] svg,
+    [role="dialog"] svg
+  ) {
+  background: currentColor;
+  mask: var(--fs-icon, url("/icons/pixel/chevron-right.svg")) center / contain no-repeat;
+  image-rendering: pixelated;
+}
+
+[data-fs-icons="pixel"] :is(
+    [data-v-gutter-top] button[aria-haspopup="dialog"],
+    button[aria-label="Search"],
+    button[aria-label="Open menu"],
+    [aria-label="Light theme"],
+    [aria-label="Dark theme"],
+    [aria-label="System theme"],
+    [data-v-outline],
+    [data-v-copy-for-ai],
+    pre.shiki > button[aria-label="Copy code"],
+    [data-v-pagination],
+    [role="dialog"]
+  )
+  svg > * {
+  visibility: hidden;
+}
+
+[data-fs-icons="pixel"] {
+  & [data-v-gutter-top] button[aria-haspopup="dialog"] svg,
+  & button[aria-label="Search"] svg,
+  & [role="dialog"] :not(a) > svg:first-child {
+    --fs-icon: url("/icons/pixel/search.svg");
+  }
+  & button[aria-label="Open menu"] svg {
+    --fs-icon: url("/icons/pixel/menu.svg");
+  }
+  & [aria-label="Light theme"] svg {
+    --fs-icon: url("/icons/pixel/sun.svg");
+  }
+  & [aria-label="Dark theme"] svg {
+    --fs-icon: url("/icons/pixel/moon.svg");
+  }
+  & [aria-label="System theme"] svg {
+    --fs-icon: url("/icons/pixel/monitor.svg");
+  }
+  & [data-v-outline-nav] > div > svg,
+  & [data-v-outline-mobile] button:not([class*="ml-auto"]) > svg:first-child {
+    --fs-icon: url("/icons/pixel/text-align-left.svg");
+  }
+  & [data-v-outline-mobile] button[class*="ml-auto"] svg {
+    --fs-icon: url("/icons/pixel/arrow-up.svg");
+  }
+  & [data-v-copy-for-ai] svg,
+  & pre.shiki > button[aria-label="Copy code"] svg {
+    --fs-icon: url("/icons/pixel/copy.svg");
+  }
+  & pre.shiki > button[aria-label="Copy code"][data-copied="true"] svg {
+    --fs-icon: url("/icons/pixel/check.svg");
+  }
+  & [data-v-pagination] svg:first-child {
+    --fs-icon: url("/icons/pixel/arrow-left.svg");
+  }
+  & [data-v-pagination] svg:last-child {
+    --fs-icon: url("/icons/pixel/arrow-right.svg");
+  }
+}
+
+/* Theme toggle and other round Vocs chrome: square it off */
+
+[role="radiogroup"][aria-label="Theme selection"],
+[role="radiogroup"][aria-label="Theme selection"] * {
+  border-radius: 0;
+  border-color: transparent;
+  background: transparent;
+}
+
+[role="radiogroup"][aria-label="Theme selection"] [aria-checked="true"] {
+  color: var(--fs-ink);
+}
+
+/* ------------------------------------------------------------------ */
+/* Search dialog (⌘K): smaller type, square sheet                     */
+/* ------------------------------------------------------------------ */
+
+[role="dialog"]:has(input[aria-controls="search-results"]) {
+  font-size: 0.875rem;
+  border: 0;
+  border-radius: 0;
+  background: var(--fs-paper);
+  box-shadow: 0 18px 50px -12px oklch(0 0 0 / 25%);
+}
+
+[role="dialog"]:has(input[aria-controls="search-results"]) * {
+  border-color: transparent;
+  border-radius: 0;
+}
+
+[role="dialog"] input[aria-controls="search-results"] {
+  font-size: 0.9375rem;
+}
+
+[role="dialog"]:has(input[aria-controls="search-results"]) [class*="text-sm"] {
+  font-size: 0.8125rem;
+}
+
+[role="dialog"]:has(input[aria-controls="search-results"]) kbd {
+  font-family: var(--fs-mono);
+  background: var(--fs-paper-deep);
+}
+
+/* ------------------------------------------------------------------ */
+/* Ask AI: bottom right, flat. Vocs marks these !important inside a   */
+/* layer, so the override must sit in the first layer to win.         */
+/* ------------------------------------------------------------------ */
+
+@layer vocs_theme {
+  [data-v-ask-ai-container] {
+    left: auto !important;
+    right: 1.25rem !important;
+    bottom: 1rem !important;
+    translate: none !important;
+    transform: none !important;
+  }
+
+  [data-v-ask-ai-container] > button {
+    width: 15rem !important;
+    height: 2.25rem !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: var(--fs-paper-deep) !important;
+    backdrop-filter: none !important;
+    font-size: 0.8125rem !important;
+  }
+
+  [data-v-ask-ai-container] > button * {
+    border-radius: 0 !important;
+    border-color: transparent !important;
+    background: transparent !important;
+  }
+}
+
 /* ------------------------------------------------------------------ */
 /* Top bar: plain words                                               */
 /* ------------------------------------------------------------------ */
@@ -261,13 +434,6 @@ body {
   color: var(--fs-ink);
 }
 
-[data-v-ask-ai-container] > * {
-  border: 0;
-  border-radius: 0;
-  box-shadow: none;
-  background: var(--fs-paper-deep) !important;
-  backdrop-filter: none !important;
-}
 
 @media (width >= 1080px) {
   [data-v-sidebar] > [data-v-gutter-top] [data-v-gutter-top-left] {
@@ -646,7 +812,8 @@ body {
   padding-block: var(--fs-cell);
 }
 
-[data-fs-grid="figures"] .fs-figure {
+[data-fs-grid="figures"] .fs-figure,
+:root:not([data-vocs-theme="dark"], [data-fs-grid="off"]) .fs-figure {
   background: var(--fs-sheet);
 }
 
@@ -755,7 +922,7 @@ body {
 .fs-lab {
   position: fixed;
   right: 1.25rem;
-  bottom: 1rem;
+  bottom: 3.75rem;
   z-index: 50;
   display: grid;
   gap: 0.125rem;
