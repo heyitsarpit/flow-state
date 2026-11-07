@@ -485,7 +485,10 @@ export const makeHarness = (port: Port) => (): Harness => {
     const c = compiled.find((x) => x.id === machineOf(key));
     return c !== undefined && (!c.local || (mounts.get(key) ?? 0) > 0);
   };
-  const inFlightOf = (key: string) => inst.waits().filter((w) => INFLIGHT.has(w.kind) && "attempt" in w && w.attempt && attemptActor.get(w.attempt) === key);
+  // The store's forced repair for an unknown is the record queue's, across actors (2.8), not the actor's work (rule 73: "other reads"); a
+  // head waiting on its repair is listed by its lane, and that one is.
+  const inFlightOf = (key: string) =>
+    inst.waits().filter((w) => INFLIGHT.has(w.kind) && "attempt" in w && w.attempt && attemptActor.get(w.attempt) === key && (w as { store?: boolean }).store !== true);
   // Kept reads, by the suite's own sight: a read invoked in the batch that delivered an ending of the actor's write (or a kept read's), until it ends.
   const keptReads = new Map<string, Set<string>>(); // actor -> read attempts
   const admittedAtt = new Set<string>(); // attempts whose ending the runtime admitted (a turn, a park, evidence, an ignore)
@@ -1041,6 +1044,16 @@ export const makeHarness = (port: Port) => (): Harness => {
           // owner's life is over. A live owner whose published state binds the op is owed the ending: red, whatever a wait says.
           const att = String(x["attempt"] ?? "");
           const owner = attemptActor.get(att);
+          // Rule 73, C106 (fix pass, fragstore.row): a boot keeps an unowed identity a record; what the restore queued for it waits in that
+          // record. Allowed only at a boot that said so for this owner, and only while no actor of it is live; owed (and waited on) until
+          // its return unparks it.
+          if (x["record"] === true) {
+            const rec = owner !== undefined && booting && e.some((y) => y["kind"] === "recordAtReady" && y["actor"] === owner) && leafOf(owner) === undefined;
+            if (!rec && owner !== undefined && !off(owner)) missing.push(`(j) parked in a record, and no boot kept that record at ready: ${x["op"]} ${att} of ${owner}`);
+            bump(told, k, -1);
+            bump(parkedOwed, k);
+            break;
+          }
           // Stage F (M1'''): a keyed, nested or resumable copy is answered by the copy the suite recorded for the attempt, not `unknown`.
           // A decline has no attempt: its copy is the one the suite drove the declining turn in.
           const op = String(x["op"]);

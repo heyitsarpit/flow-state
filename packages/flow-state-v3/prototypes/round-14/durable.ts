@@ -1,6 +1,7 @@
 // Write-ahead, in the core (D26). An Attempt reaches the disk as a lane's head, in a batch whose ticket lets it leave. So a head on disk may have been sent (D96): it restores as
 // unknown { Restored }. `W` never left, and restores NotSent { Restored }. D30: silence is not refusal. D46: restore is per record;
 // a record that does not decode, or names what this release removed, is quarantined and the rest boots.
+import { Option, Schema } from "effect";
 import { getActor, setActor, noActors, type Actors } from "./actors.ts";
 import { canon, carried, standIn, text, own, Unencodable, validActor, validLane } from "./gate.ts";
 import type { Compiled } from "../conformance/fixtures/compiled.ts";
@@ -222,6 +223,14 @@ const parse = (tx: Tx, key: string, text: string) => {
     return undefined;
   }
 };
+const OwnerSchema = Schema.Struct({
+  inc: Schema.String,
+  node: Schema.String,
+  activation: Schema.String,
+  chain: Schema.Array(Schema.Struct({ node: Schema.String, activation: Schema.String })),
+});
+const StoppedReads = Schema.Array(Schema.Struct({ op: Schema.String, key: Schema.Unknown, owner: OwnerSchema, input: Schema.Unknown, inc: Schema.String }));
+const decodeStopped = Schema.decodeUnknownOption(StoppedReads);
 const revive = (a: SavedAttempt, phase: Phase, mayHaveApplied: boolean): Attempt => {
   const { held: _h, ext: _e, ...rest } = a;
   return { ...rest, phase, mayHaveApplied, sentAt: 0 };
@@ -291,9 +300,16 @@ export const restore = (tx: Tx, records: ReadonlyArray<readonly [string, string]
         undecodable[k.slice(6)] = true;
         continue;
       }
+      // D1: the reads its end stopped, decoded once here (M1); a list this release cannot read makes the record unreadable.
+      const stopped = v.stopped === undefined ? Option.some(undefined) : decodeStopped(v.stopped);
+      if (Option.isNone(stopped)) {
+        quarantine(tx, k, "stopped reads this release cannot decode");
+        undecodable[k.slice(6)] = true;
+        continue;
+      }
       const root = orphanFrozen(tx, mm, decoded);
       if (v.retired)
-        retired.push([v.key, { key: v.key, machine: v.machine, root, timers: v.timers, ...(Array.isArray(v.fields) ? { fields: v.fields } : {}), ...(Array.isArray(v.stopped) ? { stopped: v.stopped } : {}) }]); // D1: reads its end stopped
+        retired.push([v.key, { key: v.key, machine: v.machine, root, timers: v.timers, ...(Array.isArray(v.fields) ? { fields: v.fields } : {}), ...(stopped.value ? { stopped: stopped.value } : {}) }]);
       else {
         actors.push([v.key, { key: v.key, machine: v.machine, root, ...(Array.isArray(v.fields) ? { fields: v.fields } : {}) }]);
         timers.push(...v.timers);
@@ -367,7 +383,7 @@ export const restore = (tx: Tx, records: ReadonlyArray<readonly [string, string]
       const e: Ending = { ch: "failure", tag: "NotSent", value: { why: "Restored" } };
       noteEnding(tx, { op: l.op, attempt: a.id }, e);
       if (l.releasing) note(tx, "evidenceOnly", { op: l.op, attempt: a.id });
-      else mail(tx, l, a, e, false);
+      else mail(tx, l, a, e, false, !h.held); // rule 73 as merged: a Held lane, with or without waiting commits, keeps nothing (M4)
     }
     const ownParked = parked.some((p) => p.attempt === h.id);
     const ending: Ending = { ch: "unknown", reason: "Restored" }; // D96

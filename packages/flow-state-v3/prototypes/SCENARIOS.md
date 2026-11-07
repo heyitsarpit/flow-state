@@ -528,3 +528,6 @@ Convergence-8. Old unbuilt rows (`STORY-ALL`, `BROWSER-*`, `SSR-01`) renumbered 
 | R14-IGN-02 | 14 | example | design | OD:28, sec:2.7.18, rule:44 |  | OD28: an ignored Restored releases the hold, at a return after an end and at a reload |
 | R14-F-01 | 14 | example | design | OD:29, rule:1, rule:9, rule:51, rule:56 |  | OD29 F: a resetOn returning null is not placed (M8 impossible); present, its filling reads key; A, none, A adopts A's post |
 | R14-IGN-03 | 14 | example | design | OD:28, rule:40, rule:32, sec:2.8.6 |  | OD28 P1: an ignored unknown on a domain write is Released; the mark stays until a later write's success clears it |
+| R14-FIX-01 | 14 | fault | design | rule:44, C106, OD:31 |  | fragstore.row: a Held record kept at ready names the Restored it is owed (evidence, a wait); a dispose of it parks what the boot queued on the lane, each heard once |
+| R14-FIX-02 | 14 | example | design | rule:73, C106 |  | M4: a Held lane with a waiting commit keeps nothing, so the identity is not woken at ready; the next use hears both |
+| R14-FIX-03 | 14 | example | design | rule:73, C2 |  | D3: three lives of one persisted identity, each a return after an end, carry three distinct incarnation ids |

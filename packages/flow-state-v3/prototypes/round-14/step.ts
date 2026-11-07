@@ -27,6 +27,7 @@ import {
   fragOf,
   issue,
   reapStranded,
+  laneKey,
   laneOfAttempt,
   nextGen,
   note,
@@ -244,6 +245,17 @@ const onDisposeActor = (tx: Tx, key: string, how: "end" | "dispose" | "remount")
   const a = getActor(tx.w.actors, key);
   if (!a) {
     if (how === "dispose" && own(tx.w.retired, key)) {
+      // D6: what a boot queued for a record kept at ready is a disposed identity's ending now; it waits raw on its lane (rule 44), so the
+      // next incarnation hears it once (a Held head's own Restored is then delivered from the parked list, not told again).
+      for (const m of (own(tx.w.retired, key) as { bootMail?: readonly Mail[] }).bootMail ?? []) {
+        if (m.k !== "ending") continue;
+        const l = tx.w.lanes[laneKey(m.actor, m.op, m.key)];
+        if (!l) {
+          note(tx, "evidenceOnly", { op: m.op, attempt: m.attempt ?? "" });
+          continue;
+        }
+        setLane(tx, { ...l, parked: [...l.parked, { ...(m.attempt ? { attempt: m.attempt } : {}), ending: m.ending, owner: m.owner, input: m.input }] });
+      }
       tx.w = { ...tx.w, retired: without(tx.w.retired, key) };
       tx.touchedActors.add(key);
       tx.dropped.add(key);
@@ -287,6 +299,14 @@ const onDisposeActor = (tx: Tx, key: string, how: "end" | "dispose" | "remount")
   note(tx, "disposed", { actor: key, inc: a.root.id, how });
   tx.visible = true;
 };
+// D1 (OD31 correction): each read the end stopped ends `failure { Interrupted }`, as rule 52's freeze does, heard after the restored
+// deliveries, on every path that brings the identity back (an ensure, a subscription, a send, woken at ready).
+const stoppedEndings = (tx: Tx, key: string, stopped: readonly StoppedRead[] | undefined, old: string, inc: string): Mail[] =>
+  (stopped ?? []).map((r) => {
+    const ending = { ch: "failure" as const, tag: "Interrupted", value: {} };
+    noteEnding(tx, { op: r.op }, ending);
+    return { k: "ending", actor: key, op: r.op, key: r.key, owner: r.owner, ending, input: r.input, inc: r.inc === old ? inc : r.inc };
+  });
 const startRoot = (tx: Tx, key: string, machine: string, input: unknown, identity?: readonly string[]) => {
   const m: Compiled = tx.machines[machine]!;
   const retired = own(tx.w.retired, key);
@@ -318,13 +338,9 @@ const startRoot = (tx: Tx, key: string, machine: string, input: unknown, identit
     note(tx, "incarnation", { actor: key, from: "record" });
     // Computed first: `{ ...tx.w, follow: [...adoption()] }` spreads a world before adoption's own writes, and loses them.
     const adopted = bootMail ? bootMail : rebindActor(tx, fresh); // the first return after a boot hears what the restore queued, not a second Restored
+    for (const m of bootMail ?? []) if (m.k === "ending") note(tx, "unparked", { op: m.op, attempt: m.attempt ?? "", record: true });
     const recheck = fromBoot && hasResetOn(tx, fresh) ? [{ k: "recheck" as const, actor: key }] : [];
-    // D1 (OD31 correction): each read the end stopped ends `failure { Interrupted }`, as rule 52's freeze does, heard after the restored deliveries.
-    const cut: Mail[] = (stopped ?? []).map((r) => {
-      const ending = { ch: "failure" as const, tag: "Interrupted", value: {} };
-      noteEnding(tx, { op: r.op }, ending);
-      return { k: "ending", actor: key, op: r.op, key: r.key, owner: r.owner, ending, input: r.input, inc: r.inc === old ? inc : r.inc };
-    });
+    const cut = stoppedEndings(tx, key, stopped, old, inc);
     tx.w = { ...tx.w, follow: [...recheck, ...adopted, ...cut, ...tx.w.follow] };
     tx.touchedActors.add(key);
     tx.visible = true;
@@ -606,12 +622,13 @@ const onBoot = (
   for (const [key, r] of Object.entries(tx.w.retired))
     if (owedTo.has(key) && shared(tx, r.machine)) {
       // Live from its record, with no adoption: the restore has already queued every ending its lanes owe it (rule 44, once).
-      const { timers, ...rec } = r as ActorRec & { timers?: readonly FrozenTimer[] };
+      const { timers, stopped, ...rec } = r as ActorRec & { timers?: readonly FrozenTimer[]; stopped?: readonly StoppedRead[] };
       tx.w = { ...tx.w, retired: without(tx.w.retired, key), actors: setActor(tx.w.actors, key, rec) };
       for (const t of timers ?? []) {
         const { gen: _g, ...spec } = t;
         armTimer(tx, spec);
       }
+      for (const m of stoppedEndings(tx, key, stopped, rec.root.id, rec.root.id)) enqueue(tx, m); // D1, after what the restore queued
       tx.touchedActors.add(key);
       woken.add(key);
       note(tx, "wokenAtReady", { actor: key });
@@ -623,6 +640,8 @@ const onBoot = (
     for (const t of armed) disarmTimer(tx, t.key);
     // What the restore queued for it (each held head's unknown { Restored }, once) waits in the record for its return.
     const bootMail = [...tx.w.mail, ...tx.w.follow].filter((m) => m.actor === a.key);
+    // Each ending it is owed waits with the record, so evidence names it (the fix pass's fragstore.row diagnosis); the return unparks it.
+    for (const m of bootMail) if (m.k === "ending") note(tx, "parked", { op: m.op, attempt: m.attempt ?? "", record: true });
     tx.w = {
       ...tx.w,
       actors: deleteActor(tx.w.actors, a.key),

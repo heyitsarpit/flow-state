@@ -5,7 +5,7 @@ import type { Claim, Module } from "./seam.ts";
 import { canon, text } from "./gate.ts";
 import { viewOf, walkIncs } from "./inc.ts";
 import { sameSubject } from "./inc.ts";
-import { laneKey, type Lane, type Machines, type World } from "./world.ts";
+import { laneKey, type Lane, type Machines, type Mail, type World } from "./world.ts";
 
 // D118: an ending the machine has not heard is on the row, so the app can read what Inspection can.
 export const rowOf = (w: World, l: Lane | undefined) => {
@@ -67,6 +67,9 @@ export const waitsOf = (w: World, modules: readonly Module<any>[], machines: Mac
     walkIncs(a.root, (i) => {
       for (const p of i.frozen?.parked ?? []) if (p.k === "ending") out.push({ kind: "parked", op: p.op, attempt: p.attempt ?? "", frozen: true });
     });
+  // A record kept at ready: what the boot queued for it waits in the record until its return.
+  for (const r of Object.values(w.retired))
+    for (const m of (r as { bootMail?: readonly Mail[] }).bootMail ?? []) if (m.k === "ending") out.push({ kind: "parked", op: m.op, attempt: m.attempt ?? "", record: true });
   for (const f of w.keptFires) out.push({ kind: "parked", op: f.event.tag, firing: true }); // D118
   for (const l of Object.values(w.lanes)) {
     for (const p of l.parked) out.push({ kind: "parked", op: l.op, attempt: p.attempt ?? "" });
@@ -113,7 +116,7 @@ export const waitsOf = (w: World, modules: readonly Module<any>[], machines: Mac
   }
   for (const m of mods)
     for (const x of m.waits?.(w.ext[m.id]) ?? [])
-      out.push({ kind: "repair", op: x.op, attempt: x.attempt, ref: x.ref });
+      out.push({ kind: "repair", op: x.op, attempt: x.attempt, ref: x.ref, store: true }); // the record queue's (2.8), across actors
   for (const r of Object.values(w.reads)) out.push({ kind: "wire", op: r.op });
   for (const t of Object.values(w.timers)) out.push({ kind: "timer", key: t.key, at: t.dueAt });
   return out;

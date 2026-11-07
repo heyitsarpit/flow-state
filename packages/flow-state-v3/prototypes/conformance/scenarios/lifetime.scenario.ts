@@ -420,6 +420,46 @@ function newLifetimeScenarios(): Scenario[] {
           c.eq("the next incarnation hears the stopped read as Interrupted", log(c), ["lookFailed"]);
           c.state("IDLE", X);
         },
+        // M1 (fix pass): D1 holds across a reload. The record carries the stopped read (decoded by its Schema at the boot), and the return
+        // hears it.
+        "a-stopped-read-is-heard-after-a-reload"(c0) {
+          const c = onLife(c0);
+          c.ensure(X);
+          c.send("Look");
+          c.detach(X);
+          c.advance(GRACE);
+          c.eq("ended with its read open", c.r.state(X), undefined);
+          c.do({ hide: true });
+          c.reload();
+          c.eq("a record at ready", c.r.state(X), undefined);
+          c.ensure(X);
+          c.eq("the return hears the stopped read as Interrupted", log(c), ["lookFailed"]);
+          c.state("IDLE", X);
+        },
+        // M1 (fix pass): D1 on the woken-at-ready path. An ended record that carries a stopped read and is owed a parked ending is woken at
+        // ready; it hears the parked ending first (rule 44), then the stopped read as Interrupted. No step of this fixture reaches that disk
+        // (an end needs no InFlight lane, and a parked ending needs one), so LIFE-28's disk is edited to say the end landed: a stated limit.
+        "a-stopped-read-is-heard-when-woken-at-ready"(c0) {
+          const c = onLife(c0);
+          c.ensure(X);
+          confirm(c, true);
+          c.detach(X);
+          c.do({ disposeRuntime: true });
+          c.answer("confirm", { ok: {} });
+          c.fault({
+            corruptStored: {
+              match: "actor/",
+              edit: (raw) => {
+                const v = JSON.parse(raw);
+                const r = v.root;
+                const owner = { activation: r.activations[r.leaf], chain: [{ activation: r.activations.root, node: "root" }], inc: r.id, node: r.leaf };
+                return JSON.stringify({ ...v, retired: true, stopped: [{ inc: r.id, input: {}, key: {}, op: "look", owner }] });
+              },
+            },
+          });
+          c.reload();
+          c.eq("woken at ready: the parked ending, then the stopped read", log(c), ["confirmed", "lookFailed"]);
+        },
         "a-read-a-send-restore-starts-is-cut-too"(c0) {
           const c = onLife(c0);
           c.ensure(X);

@@ -62,4 +62,14 @@ export const MUTANTS = [
   m("o6.dispose-interrupts-wire", "Runtime O6", "lane.ts", "disposeWire() {},", 'disposeWire(tx, l) { const h = l!.head!; if (h.phase.t === "wire") tx.commands.push({ k: "interrupt", attempt: h.id, send: h.phase.gen }); },'),
   m("o6.settled-in-bound-stays-held", "Runtime O6", "lane.ts", "const { head: _h, ...rest } = parkWaiting(tx, parked); return setLane(tx, rest);", 'return setLane(tx, parkWaiting(tx, { ...parked, head: { ...next.head!, phase: { t: "held" as const } } }));'),
   m("o6.no-bound", "Runtime O6", "step.ts", "if (wires(tx.w).length === 0) finishDisposal(tx);", "if (true) finishDisposal(tx);"),
+  // fragstore.row: what a boot queues for a record kept at ready is said, waited on, and kept by a dispose (D6).
+  { id: "boot.mail-unsaid", kills: ["rule:44"], edits: [
+    ["step.ts", 'for (const m of bootMail) if (m.k === "ending") note(tx, "parked", { op: m.op, attempt: m.attempt ?? "", record: true });', ""],
+    ["step.ts", 'for (const m of bootMail ?? []) if (m.k === "ending") note(tx, "unparked", { op: m.op, attempt: m.attempt ?? "", record: true });', ""],
+  ] as ReadonlyArray<readonly [string, string, string]> },
+  m("d3.return-keeps-old-id", "OD:31", "step.ts", "const inc = fromBoot ? old : nextGen(tx);", "const inc = old;"),
+  m("d1.woken-drops-stopped", "OD:31", "step.ts", "for (const m of stoppedEndings(tx, key, stopped, rec.root.id, rec.root.id)) enqueue(tx, m);", ""),
+  m("d1.reload-drops-stopped", "OD:31", "durable.ts", "...(stopped.value ? { stopped: stopped.value } : {})", ""),
+  m("m4.held-w-owed", "rule:73", "durable.ts", "else mail(tx, l, a, e, false, !h.held);", "else mail(tx, l, a, e, false);"),
+  m("boot.mail-lost-at-dispose", "OD:31", "step.ts", "setLane(tx, { ...l, parked: [...l.parked, { ...(m.attempt ? { attempt: m.attempt } : {}), ending: m.ending, owner: m.owner, input: m.input }] });", ""),
 ];

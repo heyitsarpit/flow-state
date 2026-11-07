@@ -1415,3 +1415,38 @@ output:REV8-PINS/D72-a-parked-ending-survives-a-kill-before-delivery hash:14d6d0
 output:SURV-07 hash:fda08f3fabd8 | H-A: the uninterruptible like's late answer settles within the bound; with no unknown there is no repair read during disposal
 output:SURV-08 hash:016a205debf8 | H-A: no interrupt, so no unknown and no repair read; the head stays on the wire to the bound
 file:expected-recipients.txt hash:347b630e68d1 | H-A: LIFE-28's chain after the reload is one more delivery observed
+LIFE-13 hash:30ec0f68a778 | M1 (D1 on every return path): LIFE-13 adds a stopped read heard after a reload and one heard when woken at ready
+R14-FIX-01 hash:28b508cc53c6 | fragstore.row: a Held record kept at ready names what the boot queued; a dispose of it parks that on the lane (D6); an ended record's dispose keeps the W order
+R14-FIX-02 hash:022e63be1f0b | M4 (call 2, rule 73 as merged): a Held lane with a waiting commit keeps nothing; not woken at ready
+R14-FIX-03 hash:e5ab12a86da6 | M2 (D3): three returns after an end carry three distinct incarnation ids
+file:scenarios/fixpass.scenario.ts hash:b5cd50df7017 | fix pass: R14-FIX-01..03, new
+file:scenarios/lifetime.scenario.ts hash:94467bcf0817 | M1: LIFE-13's two D1 variants
+file:main.ts hash:784fc9989834 | fix pass: fixpass.scenario.ts registered
+file:drive.ts hash:7b85ecb6447c | fragstore.row: a park into a record kept at ready moves the debt to parkedOwed, only at a boot that kept that record; the store's repair wait is not the actor's work in flight
+round:mutants-lifetime.ts hash:dd9871293a11 | fix pass: wrong runtimes for boot mail (unsaid, lost at dispose), M4 (W owed), D1 (woken, reload), D3 (old id kept)
+file:expected-recipients.txt hash:e2330661f78b | fix pass: the new FIX and LIFE-13 cases add ten deliveries observed and nine start nodes checked
+output:FRAG-15 hash:d5f356740560 | fragstore.row: FRAG-15's records kept at ready now say their boot mail (parked, then unparked at the return) at each reload frame
+output:LIFE-13/a-stopped-read-is-heard-after-a-reload hash:1ad1eec81651 | M1: LIFE-13's reload variant, new
+output:LIFE-13/a-stopped-read-is-heard-when-woken-at-ready hash:d664f27b165c | M1: LIFE-13's woken-at-ready variant, new
+output:PAY-08/reload-while-reconciling hash:b3beb38ca5af | fragstore.row: PAY-08's held pay restored into a record at ready is parked there, then unparked at the ensure
+output:PAY-15/dispose-held hash:607de9e8d651 | fragstore.row: PAY-15 dispose-held's Restored waits in the record at ready (parked, unparked)
+output:PAY-15/reload-holds-exactly-once hash:f522d770beb5 | fragstore.row: PAY-15 reload-holds-exactly-once's Restored waits in the record at ready (parked, unparked)
+output:PAY-16/retry-count-persists hash:b511cf5a9c8d | fragstore.row: PAY-16 retry-count-persists' Restored waits in the record at ready (parked, unparked)
+output:R12-KEYS/a-release-that-adds-a-key-field-declines-beside-the-older-lane hash:87ade82420d7 | fragstore.row: R12-KEYS added-field variant, its old-version hold's Restored parked in the record at ready, unparked at the return
+output:R12-KEYS/a-typed-release-that-changes-the-key-keeps-the-old-version-hold-and-does-not-mint hash:87ade82420d7 | fragstore.row: R12-KEYS changed-key variant, its old-version hold's Restored parked in the record at ready, unparked at the return
+output:R13-KEYS/a-keyed-idle-sees-an-old-version-hold hash:7f464d41e0ee | fragstore.row: R13-KEYS keyed-idle, one Restored parked in the record at ready and unparked
+output:R13-KEYS/a-release-that-adds-a-key-field-declines-every-commit-until-the-old-hold-ends hash:cf80fc4e242d | fragstore.row: R13-KEYS add-a-key-field, one Restored parked in the record at ready and unparked
+output:R13-KEYS/a-release-that-removes-a-key-field-keeps-every-old-hold-eu-first hash:1881fbc3cdfd | fragstore.row: R13-KEYS remove-a-key-field eu first, two Restored (one per old hold) parked in the record and unparked
+output:R13-KEYS/a-release-that-removes-a-key-field-keeps-every-old-hold-us-first hash:55836f86abbb | fragstore.row: R13-KEYS remove-a-key-field us first, two Restored (one per old hold) parked in the record and unparked
+output:R13-KEYS/a-reload-in-between-keeps-the-old-version-hold hash:ca2914de5743 | fragstore.row: R13-KEYS reload-in-between, a Restored parked and unparked at each of its two reloads
+output:R13-KEYS/another-actor-is-not-held hash:28bde781c8d3 | fragstore.row: R13-KEYS another-actor, the held actor's Restored parked in its record and unparked
+output:R13-KEYS/serialize-declines-beside-an-old-version-hold-and-queues-nothing hash:b354c918bdbd | fragstore.row: R13-KEYS serialize-declines, one Restored parked in the record at ready and unparked
+output:R14-FIX-01/a-dispose-of-a-record-at-ready-parks-what-the-boot-queued hash:b5b7f80d0dba | fragstore.row: R14-FIX-01 dispose-at-ready variant, new
+output:R14-FIX-01/a-dispose-of-that-record-keeps-its-endings-on-the-lane hash:26598272b9cc | fragstore.row: R14-FIX-01 ended-then-disposed variant, new
+output:R14-FIX-01/a-held-record-at-ready-names-what-it-is-owed hash:44c67355c431 | fragstore.row: R14-FIX-01 named-at-ready variant, new
+output:R14-FIX-02 hash:ca1261f2c728 | M4: R14-FIX-02's output, new
+output:R14-FIX-03 hash:732e30e07b9f | M2 (D3): R14-FIX-03's output, new
+output:REV5-H3/w-is-off-the-disk-once-it-has-ended hash:26a569228b50 | fragstore.row: REV5-H3's restored head waits in the record at ready (parked, unparked)
+output:REV6-H5/a-release-that-changes-a-key-does-not-mint-beside-a-hold hash:ca8899c5b20d | fragstore.row: REV6-H5 changes-a-key, the rekeyed hold's Restored parked in the record at ready and unparked
+output:REV6-H5/the-rekeyed-lane-is-what-a-guard-reads hash:7c260378359f | fragstore.row: REV6-H5 guard-reads, the rekeyed hold's Restored parked in the record at ready and unparked
+output:REV8-M3/a-hold-does-not-rewrite-per-boot hash:cf5fdf3de810 | fragstore.row: REV8-M3 per-boot, three boots each park the hold's Restored in the record at ready and unpark it at the return
