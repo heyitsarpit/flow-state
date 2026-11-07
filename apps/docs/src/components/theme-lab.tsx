@@ -3,18 +3,17 @@
 import { useEffect, useState } from "react";
 
 type Axis = {
-  readonly key: "icons" | "grid";
+  readonly key: "grid";
   readonly options: ReadonlyArray<readonly [value: string, label: string]>;
 };
 
 const axes: ReadonlyArray<Axis> = [
-  { key: "icons", options: [["lucide", "lucide"], ["square", "square"], ["pixel", "pixel"]] },
   { key: "grid", options: [["page", "page"], ["figures", "figures"], ["off", "off"]] },
 ];
 
 type Choice = Readonly<Record<Axis["key"], string>>;
 
-const initial: Choice = { icons: "pixel", grid: "page" };
+const initial: Choice = { grid: "page" };
 
 const read = (key: string): string | null => {
   try {

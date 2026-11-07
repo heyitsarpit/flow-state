@@ -248,90 +248,118 @@ body {
 
 
 /* ------------------------------------------------------------------ */
-/* Icons: Vocs draws Lucide; "square" sharpens it, "pixel" swaps in   */
-/* Pixelarticons (MIT, /icons/pixel/LICENSE)                          */
+/* Icons                                                              */
 /* ------------------------------------------------------------------ */
 
-[data-fs-icons="square"] svg:not(.fs-figure svg) :is(path, g, line, polyline, polygon, rect, circle) {
-  stroke-linecap: square;
-  stroke-linejoin: miter;
-  stroke-width: 1.75;
+/* Icons: our own drawn set (/icons/drawn). Vocs draws Lucide; we hide it and draw ours in place. */
+
+[data-v-gutter-top] button[aria-haspopup="dialog"] > div:first-child > svg,
+button[aria-label="Search"] > svg,
+[role="dialog"] div:has(> input[aria-controls="search-results"]) > svg,
+button[aria-label="Open menu"] > svg,
+[aria-label="Light theme"] svg,
+[aria-label="Dark theme"] svg,
+[aria-label="System theme"] svg,
+[data-v-outline-nav] > div:first-child > svg,
+[data-v-outline-mobile] button:not([class*="ml-auto"]) svg,
+[data-v-outline-mobile] button[class*="ml-auto"] > svg,
+[data-v-copy-for-ai] svg,
+pre.shiki > button[aria-label="Copy code"]:not([data-copied="true"]) svg,
+pre.shiki > button[aria-label="Copy code"][data-copied="true"] svg,
+[data-v-pagination] > :first-child > span:first-child > svg,
+[data-v-pagination] > :last-child > span:first-child > svg {
+  display: none;
 }
 
-[data-fs-icons="pixel"] :is(
-    [data-v-gutter-top] button[aria-haspopup="dialog"] svg,
-    button[aria-label="Search"] svg,
-    button[aria-label="Open menu"] svg,
-    [aria-label="Light theme"] svg,
-    [aria-label="Dark theme"] svg,
-    [aria-label="System theme"] svg,
-    [data-v-outline] svg,
-    [data-v-copy-for-ai] svg,
-    pre.shiki > button[aria-label="Copy code"] svg,
-    [data-v-pagination] svg,
-    [role="dialog"] svg
-  ) {
+[data-v-gutter-top] button[aria-haspopup="dialog"] > div:first-child::before,
+button[aria-label="Search"]::before,
+[role="dialog"] div:has(> input[aria-controls="search-results"])::before,
+button[aria-label="Open menu"]::before,
+[aria-label="Light theme"]::before,
+[aria-label="Dark theme"]::before,
+[aria-label="System theme"]::before,
+[data-v-outline-nav] > div:first-child::before,
+[data-v-outline-mobile] button:not([class*="ml-auto"])::before,
+[data-v-outline-mobile] button[class*="ml-auto"]::before,
+[data-v-copy-for-ai]::before,
+pre.shiki > button[aria-label="Copy code"]:not([data-copied="true"])::before,
+pre.shiki > button[aria-label="Copy code"][data-copied="true"]::before,
+[data-v-pagination] > :first-child > span:first-child::before,
+[data-v-pagination] > :last-child > span:first-child::after,
+[data-v-ask-ai-container] > button > div:first-child::before {
+  content: "";
+  display: inline-flex;
+  flex: none;
+  width: 0.95em;
+  height: 0.95em;
   background: currentColor;
-  mask: var(--fs-icon, url("/icons/pixel/chevron-right.svg")) center / contain no-repeat;
-  image-rendering: pixelated;
+  mask: var(--fs-icon) center / contain no-repeat;
 }
 
-[data-fs-icons="pixel"] :is(
-    [data-v-gutter-top] button[aria-haspopup="dialog"],
-    button[aria-label="Search"],
-    button[aria-label="Open menu"],
-    [aria-label="Light theme"],
-    [aria-label="Dark theme"],
-    [aria-label="System theme"],
-    [data-v-outline],
-    [data-v-copy-for-ai],
-    pre.shiki > button[aria-label="Copy code"],
-    [data-v-pagination],
-    [role="dialog"]
-  )
-  svg > * {
-  visibility: hidden;
+[data-v-gutter-top] button[aria-haspopup="dialog"] > div:first-child::before {
+  --fs-icon: url("/icons/drawn/search.svg");
 }
 
-[data-fs-icons="pixel"] {
-  & [data-v-gutter-top] button[aria-haspopup="dialog"] svg,
-  & button[aria-label="Search"] svg,
-  & [role="dialog"] :not(a) > svg:first-child {
-    --fs-icon: url("/icons/pixel/search.svg");
-  }
-  & button[aria-label="Open menu"] svg {
-    --fs-icon: url("/icons/pixel/menu.svg");
-  }
-  & [aria-label="Light theme"] svg {
-    --fs-icon: url("/icons/pixel/sun.svg");
-  }
-  & [aria-label="Dark theme"] svg {
-    --fs-icon: url("/icons/pixel/moon.svg");
-  }
-  & [aria-label="System theme"] svg {
-    --fs-icon: url("/icons/pixel/monitor.svg");
-  }
-  & [data-v-outline-nav] > div > svg,
-  & [data-v-outline-mobile] button:not([class*="ml-auto"]) > svg:first-child {
-    --fs-icon: url("/icons/pixel/text-align-left.svg");
-  }
-  & [data-v-outline-mobile] button[class*="ml-auto"] svg {
-    --fs-icon: url("/icons/pixel/arrow-up.svg");
-  }
-  & [data-v-copy-for-ai] svg,
-  & pre.shiki > button[aria-label="Copy code"] svg {
-    --fs-icon: url("/icons/pixel/copy.svg");
-  }
-  & pre.shiki > button[aria-label="Copy code"][data-copied="true"] svg {
-    --fs-icon: url("/icons/pixel/check.svg");
-  }
-  & [data-v-pagination] svg:first-child {
-    --fs-icon: url("/icons/pixel/arrow-left.svg");
-  }
-  & [data-v-pagination] svg:last-child {
-    --fs-icon: url("/icons/pixel/arrow-right.svg");
-  }
+button[aria-label="Search"]::before {
+  --fs-icon: url("/icons/drawn/search.svg");
 }
+
+[role="dialog"] div:has(> input[aria-controls="search-results"])::before {
+  --fs-icon: url("/icons/drawn/search.svg");
+}
+
+button[aria-label="Open menu"]::before {
+  --fs-icon: url("/icons/drawn/menu.svg");
+}
+
+[aria-label="Light theme"]::before {
+  --fs-icon: url("/icons/drawn/light.svg");
+}
+
+[aria-label="Dark theme"]::before {
+  --fs-icon: url("/icons/drawn/dark.svg");
+}
+
+[aria-label="System theme"]::before {
+  --fs-icon: url("/icons/drawn/system.svg");
+}
+
+[data-v-outline-nav] > div:first-child::before {
+  --fs-icon: url("/icons/drawn/contents.svg");
+}
+
+[data-v-outline-mobile] button:not([class*="ml-auto"])::before {
+  --fs-icon: url("/icons/drawn/contents.svg");
+}
+
+[data-v-outline-mobile] button[class*="ml-auto"]::before {
+  --fs-icon: url("/icons/drawn/top.svg");
+}
+
+[data-v-copy-for-ai]::before {
+  --fs-icon: url("/icons/drawn/copy.svg");
+}
+
+pre.shiki > button[aria-label="Copy code"]:not([data-copied="true"])::before {
+  --fs-icon: url("/icons/drawn/copy.svg");
+}
+
+pre.shiki > button[aria-label="Copy code"][data-copied="true"]::before {
+  --fs-icon: url("/icons/drawn/copied.svg");
+}
+
+[data-v-pagination] > :first-child > span:first-child::before {
+  --fs-icon: url("/icons/drawn/prev.svg");
+}
+
+[data-v-pagination] > :last-child > span:first-child::after {
+  --fs-icon: url("/icons/drawn/next.svg");
+}
+
+[data-v-ask-ai-container] > button > div:first-child::before {
+  --fs-icon: url("/icons/drawn/ask.svg");
+}
+
 
 /* Theme toggle and other round Vocs chrome: square it off */
 
