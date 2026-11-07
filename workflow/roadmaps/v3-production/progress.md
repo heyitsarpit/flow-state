@@ -62,7 +62,7 @@ further each time (round 10, stages C-J), until convergence in stages K and L.
 
 | Agent | Started | Last checkpoint | Last review |
 | --- | --- | --- | --- |
-| Reviewer, round 14 final (Opus), read-only on `ad2a6315` | 2026-11-08 | — | — |
+| Builder, round 14 fix pass (Opus), worktree | 2026-11-08 | — | final review of `ad2a6315` |
 | Builder, phase 0b design catch-up (Opus), main checkout | 2026-11-08 | — | — |
 
 ## Calls for the user's read
@@ -77,6 +77,10 @@ call, its reason, its evidence, and how reversible it is.
   text with the user's own decisions; reversible by reverting `fadf004f`. Not changed, for the user's
   read: the cold read also noted that "business keys for money" binds no phase explicitly, and that
   phase 1's number of areas is implied (entities, streams, migration, H1/H2) rather than counted.
+
+- Round 14's builder pinned two cases to its own Runtime-disposal behaviour against Runtime O6; the
+  runner judged the design wins and ordered them reverted (agent-level: the design text is explicit).
+  Reversible: if the user prefers interrupting the wire at disposal, it becomes a design change.
 
 ## Change proposals
 
@@ -137,4 +141,5 @@ One line per iteration. Results live in the records; link them.
   reconcile, phase 1 pre-work prototype, phase 2 plan merge; round 14 started as phase 0's first iteration.
 - 2026-11-07 roadmap approved (`309c87e4`); cold read run after approval; its wording fixes applied as amendment 1 (`fadf004f`); round 14 continues with the review's fixes and D1-D7.
 - 2026-11-08 0a.1 `ad2a6315` (worktree branch): round 14 done, 822/822, lock clean, every gate green except `fragstore.row` (failing differently: an ending reached nobody after dispose and reload); 46 lifetime mutants red; D1-D7 and the mid-review fixes in. Final independent review started; phase 0b (design catches up, `proposals/design-catch-up/`) started alongside, separate write scope. Usage: not measured.
+- 2026-11-08 0a.1 final review of `ad2a6315`: not merged yet. H-A: Runtime disposal pinned to `Interrupted` against Runtime O6 (two cases rewritten to the runtime); `fragstore.row` misdiagnosed (a suite-ledger gap: boot mail on a record kept at ready has no evidence, not a D6 hole); D1 lost when woken at ready; D3 unguarded; prototype call 2 departs from rule 73; persist order-dependent; 12 templated output reasons hide real differences; a lie retired on weak grounds. 0a.2 fix pass started in the worktree; the review's nine design corrections passed to phase 0b for labelling.
 
