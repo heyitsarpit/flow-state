@@ -25,7 +25,9 @@ const only = arg("--only", "");
 const checkOnly = process.argv.includes("--check");
 const withSearch = process.argv.includes("--search");
 const searchOnly = process.argv.includes("--search-only");
-const extra = [...(withSearch ? ["--search"] : []), ...(searchOnly ? ["--search-only"] : [])];
+const extra = ["--serial", ...(withSearch ? ["--search"] : []), ...(searchOnly ? ["--search-only"] : [])];
+const parallel = Math.min(8, Math.max(1, Number(arg("--parallel", "1")) || 1));
+const rssMb = Number(arg("--rss-mb", "1700")) || 1700;
 const { MUTANTS } = (await import(listFile)) as { MUTANTS: readonly Mutant[] };
 const rootModules = resolve(here, "../../../../node_modules");
 const scratch = mkdtempSync(join(tmpdir(), "flow-mut-"));
@@ -41,7 +43,7 @@ cpSync(source, join(pristine, basename(source)), { recursive: true });
   cpSync(join(pristine, "conformance"), join(dir, "conformance"), { recursive: true });
   cpSync(join(pristine, basename(source)), join(dir, basename(source)), { recursive: true });
   const r = await watched(["bun", join(dir, "conformance/mutate-one.ts"), "--runtime", `../${basename(source)}/adapter.ts`, ...extra], {
-    rssMb: 1700,
+    rssMb,
     seconds: 240,
     capture: true,
   });
@@ -61,24 +63,43 @@ cpSync(source, join(pristine, basename(source)), { recursive: true });
   }
   console.log(`control: the unmutated code passes every gate (${(r.ms / 1000).toFixed(0)} s)`);
 }
-const invalid: string[] = [];
-const byWatchdog: string[] = [];
 let survived = 0;
 const list = only ? MUTANTS.filter((m) => only.split(",").includes(m.id)) : MUTANTS;
+const flexible = (find: string) =>
+  new RegExp(
+    find
+      .split(/\s+/)
+      .map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+      .join("\\s*"),
+  );
 for (const m of list) {
-  const dir = join(scratch, "m");
+  const texts = new Map<string, string>();
+  for (const [file, find, replace] of m.edits) {
+    const text = texts.get(file) ?? readFileSync(join(pristine, basename(source), file), "utf8");
+    if (!flexible(find).test(text)) throw new Error(`${m.id}: edit does not apply to ${file}: ${find}`);
+    texts.set(file, text.replace(flexible(find), () => replace));
+  }
+}
+const lines: Array<string | undefined> = [];
+const rows: unknown[] = [];
+let printed = 0;
+const settle = (i: number, row: unknown, line: string) => {
+  rows[i] = row;
+  lines[i] = line;
+  for (; printed < list.length && lines[printed] !== undefined; printed++) {
+    results.push(rows[printed]);
+    console.log(lines[printed]);
+  }
+};
+const one = async (m: Mutant, i: number) => {
+  const dir = join(scratch, `m-${i}`);
   rmSync(dir, { recursive: true, force: true });
   cpSync(join(pristine, "conformance"), join(dir, "conformance"), { recursive: true });
   cpSync(join(pristine, basename(source)), join(dir, basename(source)), { recursive: true });
   for (const [file, find, replace] of m.edits) {
     const p = join(dir, basename(source), file);
     const text = readFileSync(p, "utf8");
-    const pattern = new RegExp(
-      find
-        .split(/\s+/)
-        .map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
-        .join("\\s*"),
-    );
+    const pattern = flexible(find);
     if (!pattern.test(text)) throw new Error(`${m.id}: edit does not apply to ${file}: ${find}`);
     writeFileSync(
       p,
@@ -95,10 +116,9 @@ for (const m of list) {
     }
   });
   if (unparsed.length) {
-    invalid.push(m.id);
-    console.log(`INVALID  ${m.id.padEnd(36)} does not parse: ${unparsed[0]}`);
-    results.push({ id: m.id, kills: m.kills, killed: false, killers: [], author, by: "invalid", peakMb: 0 });
-    continue;
+    rmSync(dir, { recursive: true, force: true });
+    settle(i, { id: m.id, kills: m.kills, killed: false, killers: [], author, by: "invalid", peakMb: 0 }, `INVALID  ${m.id.padEnd(36)} does not parse: ${unparsed[0]}`);
+    return;
   }
   const r = await watched(
     [
@@ -108,8 +128,9 @@ for (const m of list) {
       `../${basename(source)}/adapter.ts`,
       ...extra,
     ],
-    { rssMb: 1700, seconds: 240, capture: true },
+    { rssMb, seconds: 240, capture: true },
   );
+  rmSync(dir, { recursive: true, force: true });
   const line = r.stdout.trim().split("\n").at(-1) ?? "";
   let parsed: { killedBy: string | null; killers: string[]; search: string } | undefined;
   try {
@@ -119,22 +140,32 @@ for (const m of list) {
   }
   const killers = parsed?.killers ?? [];
   // D132, bugs M2: it parsed and the control ran, so a run with no answer is a run this mutant broke. Killed, by `crash`, and counted apart: it shrank the denominator before.
-  if (r.killed !== null) byWatchdog.push(m.id);
   const killed = r.killed !== null || !parsed || (parsed?.killedBy ?? null) !== null;
   if (!killed) survived++;
-  results.push({
-    id: m.id,
-    kills: m.kills,
-    killed,
-    killers,
-    author,
-    by: r.killed ?? (parsed ? (parsed.killedBy ?? "survived") : "crash"),
-    peakMb: r.peakMb,
-  });
-  console.log(
+  settle(
+    i,
+    {
+      id: m.id,
+      kills: m.kills,
+      killed,
+      killers,
+      author,
+      by: r.killed ?? (parsed ? (parsed.killedBy ?? "survived") : "crash"),
+      peakMb: r.peakMb,
+    },
     `${killed ? "KILLED  " : "SURVIVED"} ${m.id.padEnd(36)} ${r.killed ? `watchdog ${r.killed} at ${r.peakMb} MB` : parsed ? `${parsed.killedBy ?? "nothing"}: ${killers.length}: ${killers.slice(0, 4).join(" ")}${killers.length > 4 ? " ..." : ""}` : `crash: ${r.stdout.slice(-200)}`}`,
   );
-}
+};
+// `--parallel N` (N <= 8): N mutants at once, each in its own copy and under its own watchdog, after the control. Reported in list order.
+const queue = list.map((m, i) => [m, i] as const);
+await Promise.all(
+  Array.from({ length: Math.min(parallel, queue.length) }, async () => {
+    for (let x = queue.shift(); x; x = queue.shift()) await one(x[0], x[1]);
+  }),
+);
+const done = results as Array<{ id: string; by: string }>;
+const invalid = done.filter((x) => x.by === "invalid").map((x) => x.id);
+const byWatchdog = done.filter((x) => x.by === "rss" || x.by === "time").map((x) => x.id);
 rmSync(scratch, { recursive: true, force: true });
 writeFileSync(out, JSON.stringify(results, null, 1));
 console.log(`\n${results.length - survived - invalid.length}/${results.length - invalid.length} killed (${author}); by the watchdog: ${byWatchdog.join(" ") || "none"}; invalid: ${invalid.join(" ") || "none"}`);
