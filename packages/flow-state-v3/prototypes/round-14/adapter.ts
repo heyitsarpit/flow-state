@@ -257,10 +257,11 @@ export const port: Port = {
     const store = (w: World) => w.ext["entities"] as Slice | undefined;
     const reg = REGISTRY["entities"]!;
     return {
-      ensure: (actor, machine, input) => rt.input({ k: "ensure", actor, machine, input }),
+      ensure: (actor, machine, input, identity) => rt.input({ k: "ensure", actor, machine, input, ...(identity ? { identity } : {}) }),
       send: (actor, event) => rt.input({ k: "send", actor, event }),
       dispose: (actor) => rt.input({ k: "dispose", actor }), // Story `dispose(ref)` is `disposeActor` (OD31): the record goes
-      attach: (actor, machine, input, owner, existing) => rt.input({ k: "attach", actor, machine, input, owner, ...(existing ? { existing: true } : {}) }),
+      attach: (actor, machine, input, owner, existing, identity) =>
+        rt.input({ k: "attach", actor, machine, input, owner, ...(existing ? { existing: true } : {}), ...(identity ? { identity } : {}) }),
       detach: (actor, owner) => rt.input({ k: "detach", actor, owner }),
       codec: (actor, fails) => rt.input({ k: "codec", actor, fails }),
       // Reads (2.7.17): a handle follows the identity. The live incarnation; with none, a persisted identity's record in the Runtime's copy

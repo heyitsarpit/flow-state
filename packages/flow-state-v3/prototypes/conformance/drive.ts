@@ -458,11 +458,11 @@ export const makeHarness = (port: Port) => (): Harness => {
   const subs = new Map<string, number>();
   const mounts = new Map<string, number>();
   const usesHeld = (key: string) => (held.get(key) ?? 0) + (subs.get(key) ?? 0) + (mounts.get(key) ?? 0);
-  const use = (key: string, machine: string, input: unknown) => {
+  const use = (key: string, machine: string, input: unknown, identity?: readonly string[]) => {
     if (inst.attach) {
       bump(held, key, 1);
-      inst.attach(key, machine, input, "story");
-    } else inst.ensure(key, machine, input);
+      inst.attach(key, machine, input, "story", false, identity);
+    } else inst.ensure(key, machine, input, identity);
   };
   // Onto what the boot restored, or a record kept at ready: a re-attach restores it from the Runtime's copy and creates nothing, so a record
   // quarantined at boot stays absent until a case asks (a pending use, as a subscription on an identity with neither waits).
@@ -585,7 +585,9 @@ export const makeHarness = (port: Port) => (): Harness => {
   // must be restored, the codec must read its leaf (no answer is red, not a skip), and every live copy must be in both the record and what
   // the runtime publishes. A record the runtime quarantined is excused only for a cause the suite drove: a release, or bytes it edited.
   const quarantined = (actor: string) =>
-    (releases.length > 0 || off(actor) || restoreThrew) && issues.some((i) => i.code === "RecordQuarantined" && port.disk.scope(String(i.input ?? "").split(": ")[0]!) === actor);
+    ((releases.length > 0 || off(actor) || restoreThrew) && issues.some((i) => i.code === "RecordQuarantined" && port.disk.scope(String(i.input ?? "").split(": ")[0]!) === actor)) ||
+    // Rule 74 (OD30 Q3): a release that changed a value-named machine's input fields leaves an old-version record, listed and never restored.
+    (releases.length > 0 && evidence.some((e) => e["kind"] === "OldVersionActor" && e["actor"] === actor));
   // Rule 73 (OD31, Ready and hydration): a record the boot keeps as a record is restored when the suite's re-attach reaches it. Its anchor
   // waits for that incarnation, before any run in it; still absent at the end of the step that booted, it was not restored.
   const deferredAnchor = new Set<string>();
@@ -1364,7 +1366,7 @@ export const makeHarness = (port: Port) => (): Harness => {
       lifeBefore.set(actorKey(s.dispose), lifeOf.get(actorKey(s.dispose)) ?? 0);
     }
     if ("ensureAs" in s) inst.ensure(actorKey(s.ensureAs.key), s.ensureAs.machine); // D137: a key and a machine that do not agree, as a host's bug would give
-    else if ("ensure" in s) use(actorKey(s.ensure), s.ensure.actor, s.input);
+    else if ("ensure" in s) use(actorKey(s.ensure), s.ensure.actor, s.input, s.identity);
     else if ("hostEnsure" in s) inst.ensure(actorKey(s.hostEnsure), s.hostEnsure.actor, s.input);
     else if ("detach" in s || "unsubscribe" in s || "unmount" in s || "subscribe" in s || "mount" in s || "codecFails" in s) {
       if (!inst.attach || !inst.detach) throw new Error("this runtime has no uses");

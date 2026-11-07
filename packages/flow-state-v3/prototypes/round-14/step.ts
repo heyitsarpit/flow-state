@@ -285,7 +285,7 @@ const onDisposeActor = (tx: Tx, key: string, how: "end" | "dispose" | "remount")
   note(tx, "disposed", { actor: key, inc: a.root.id, how });
   tx.visible = true;
 };
-const startRoot = (tx: Tx, key: string, machine: string, input: unknown) => {
+const startRoot = (tx: Tx, key: string, machine: string, input: unknown, identity?: readonly string[]) => {
   const m: Compiled = tx.machines[machine]!;
   const retired = own(tx.w.retired, key);
   const soon = tx.w.soon[key];
@@ -361,7 +361,7 @@ const startRoot = (tx: Tx, key: string, machine: string, input: unknown) => {
   for (const s of started) armAll(s.inc, s.entered);
   note(tx, "initial", { actor: key });
   note(tx, "incarnation", { actor: key, from: "input" });
-  const rec: ActorRec = { key, machine, root };
+  const rec: ActorRec = { key, machine, root, ...(identity ? { fields: [...identity].sort() } : {}) };
   tx.w = { ...tx.w, actors: setActor(tx.w.actors, key, rec) };
   tx.touchedActors.add(key);
   tx.visible = true;
@@ -371,7 +371,13 @@ const startRoot = (tx: Tx, key: string, machine: string, input: unknown) => {
   ];
   tx.w = { ...tx.w, follow: [...adopted, ...tx.w.follow] };
 };
-const onEnsure = (tx: Tx, key: string, machine: string, input: unknown) => {
+const onEnsure = (tx: Tx, key: string, machine: string, input: unknown, identity?: readonly string[]) => {
+  // Rule 74: one machine reached as a singleton and by value refs has two meanings of input: `ConflictingActorRef` at ensure [P].
+  const form = identity ? "value" : "singleton";
+  const was = tx.w.forms[machine];
+  if (was !== undefined && was !== form && tx.machines[machine]?.identityFields)
+    return issue(tx, { code: "ConflictingActorRef", origin: `ensure ${machine}`, input: { key, was, now: form } });
+  if (was === undefined && tx.machines[machine]?.identityFields) tx.w = { ...tx.w, forms: { ...tx.w.forms, [machine]: form } };
   const live = getActor(tx.w.actors, key);
   if (live) {
     // D137: a key names one machine. Saying nothing here let two machines share an actor.
@@ -382,7 +388,7 @@ const onEnsure = (tx: Tx, key: string, machine: string, input: unknown) => {
   const kept = { w: tx.w, commands: tx.commands.length, evidence: tx.evidence.length };
   tx.inTurn = true;
   try {
-    startRoot(tx, key, machine, input);
+    startRoot(tx, key, machine, input, identity);
     if (shared(tx, machine) && tx.w.uses[key] === undefined) setUses(tx, key, []); // rule 73: an ensure alone is no use (OD27 Q2)
     if (usesOf(tx.w, key) > 0) wake(tx, key); // uses pending on the identity (a subscription that waited) are held at once
   } catch (e) {
@@ -520,7 +526,7 @@ const remount = (tx: Tx, key: string) => {
 const onAttach = (tx: Tx, i: Extract<Input, { k: "attach" }>) => {
   const component = i.owner === "component";
   if (component) remount(tx, i.actor);
-  if (!i.existing) onEnsure(tx, i.actor, i.machine, i.input);
+  if (!i.existing) onEnsure(tx, i.actor, i.machine, i.input, i.identity);
   else if (!getActor(tx.w.actors, i.actor) && own(tx.w.retired, i.actor)) returnActor(tx, i.actor, "subscription");
   const live = getActor(tx.w.actors, i.actor);
   const machine = live?.machine ?? i.machine;
@@ -536,7 +542,7 @@ const onDetach = (tx: Tx, key: string, owner: string) => {
 const returnActor = (tx: Tx, key: string, by: string) => {
   const kept = own(tx.w.retired, key)!;
   note(tx, "returned", { actor: key, by });
-  onEnsure(tx, key, kept.machine, undefined);
+  onEnsure(tx, key, kept.machine, undefined, kept.fields);
 };
 // The send table (2.7.17, amends Runtime O4). A send never creates; it may restore. This runtime's end is atomic (no ending phase) and has no
 // lazy entries, so the ending rows and `NotAdopted` cannot occur here.
@@ -696,7 +702,7 @@ export const step = (world: World, input: Input, env: Env, sys: System): StepOut
       onBoot(tx, input.records, input.persistence ?? true);
       break;
     case "ensure":
-      onEnsure(tx, input.actor, input.machine, input.input);
+      onEnsure(tx, input.actor, input.machine, input.input, input.identity);
       break;
     case "dispose":
       onDisposeActor(tx, input.actor, "dispose");

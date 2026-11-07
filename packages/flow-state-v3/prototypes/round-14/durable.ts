@@ -277,6 +277,12 @@ export const restore = (tx: Tx, records: ReadonlyArray<readonly [string, string]
         undecodable[k.slice(6)] = true;
         continue;
       }
+      // Rule 74 (OD30 Q3): a value-named record made under other input fields is an old-version record. Listed at ready, never renamed or matched
+      // by shared fields, never restored: no ref can spell its identity. Its lanes stay unbound (rule 44).
+      if (Array.isArray(v.fields) && (v.fields.length !== (mm.identityFields ?? []).length || v.fields.some((f: string, i: number) => f !== mm.identityFields![i]))) {
+        note(tx, "OldVersionActor", { actor: v.key, fields: v.fields, now: mm.identityFields ?? [] });
+        continue;
+      }
       const decoded = restoredMemory(mm, v.root);
       if (!decoded) {
         quarantine(tx, k, "memory this release cannot decode");
@@ -285,9 +291,9 @@ export const restore = (tx: Tx, records: ReadonlyArray<readonly [string, string]
       }
       const root = orphanFrozen(tx, mm, decoded);
       if (v.retired)
-        retired.push([v.key, { key: v.key, machine: v.machine, root, timers: v.timers }]);
+        retired.push([v.key, { key: v.key, machine: v.machine, root, timers: v.timers, ...(Array.isArray(v.fields) ? { fields: v.fields } : {}) }]);
       else {
-        actors.push([v.key, { key: v.key, machine: v.machine, root }]);
+        actors.push([v.key, { key: v.key, machine: v.machine, root, ...(Array.isArray(v.fields) ? { fields: v.fields } : {}) }]);
         timers.push(...v.timers);
       }
     } else if (k.startsWith("lane/")) {

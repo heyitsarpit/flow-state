@@ -112,7 +112,8 @@ export type Inc = {
   readonly frozen?: { readonly timers: readonly FrozenTimer[]; readonly parked: readonly Mail[] };
   readonly kids: Readonly<Record<string, Inc>>; // "summary", "CHALLENGE", "uploads:r1"
 };
-export type ActorRec = { readonly key: string; readonly machine: string; readonly root: Inc };
+// Round 14, rule 74: `fields`, the input fields a value ref named this actor by. A release that changes them makes this an old-version record.
+export type ActorRec = { readonly key: string; readonly machine: string; readonly root: Inc; readonly fields?: readonly string[] };
 export type EndingMail = {
   readonly k: "ending";
   readonly actor: string;
@@ -194,6 +195,7 @@ export type World = {
   readonly warned: Readonly<Record<string, true>>; // `EndedWithWork` and the codec's diagnostic, once per machine and kind per Runtime
   readonly undecodable: Readonly<Record<string, true>>; // an actor record this release could not decode at boot: a send says RecordUndecodable
   readonly unencodable: Readonly<Record<string, true>>; // the codec fails on this actor's record (a core input): its end waits
+  readonly forms: Readonly<Record<string, "value" | "singleton">>; // rule 74: the form each machine was first reached in, this Runtime
 };
 export const emptyWorld: World = {
   boot: 0,
@@ -229,6 +231,7 @@ export const emptyWorld: World = {
   warned: {},
   undecodable: {},
   unencodable: {},
+  forms: {},
 };
 
 export type SendExit =
@@ -254,11 +257,12 @@ export type Input =
       readonly actor: string;
       readonly machine: string;
       readonly input: unknown;
+      readonly identity?: readonly string[]; // rule 74: a value ref's fields; absent for a singleton's name
     }
   | { readonly k: "dispose"; readonly actor: string } // `disposeActor`: the live actor and a persisted record go; lanes stay unbound (rule 46)
   // Rule 73 (OD31): a use begins or ends. `owner` is its kind. An attach ensures the actor; `existing` is a subscription: it restores from a
   // record and creates nothing, and on an identity with neither it waits as a use. A detach ends nothing by itself: the grace decides.
-  | { readonly k: "attach"; readonly actor: string; readonly machine: string; readonly input: unknown; readonly owner: string; readonly existing?: true }
+  | { readonly k: "attach"; readonly actor: string; readonly machine: string; readonly input: unknown; readonly owner: string; readonly existing?: true; readonly identity?: readonly string[] }
   | { readonly k: "detach"; readonly actor: string; readonly owner: string }
   | { readonly k: "codec"; readonly actor: string; readonly fails: boolean } // a core input: the codec cannot encode this actor's record
   | { readonly k: "turn" }

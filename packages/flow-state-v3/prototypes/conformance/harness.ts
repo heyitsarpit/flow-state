@@ -57,7 +57,7 @@ export type Fault =
 
 export type Step =
   | { burst: ActorRef; event: string; n: number } // round 9: many sends in one tick, as a bulk flow does
-  | { ensure: ActorRef; input?: unknown }
+  | { ensure: ActorRef; input?: unknown; identity?: readonly string[] } // round 14, rule 74: `identity`, a value ref's fields (compile/ref.ts)
   | { send: ActorRef; event: string; payload?: unknown; to?: readonly string[] }
   | { dispose: ActorRef } // `disposeActor` (OD31): the actor and a persisted record go. Its lanes stay the Runtime's (OD19, rule 46)
   // Rule 73 (OD31, 2.10.10). `ensure` attaches one use, as a mounted screen; `detach` ends one (`StoryInvalidCommand { ActorAbsent }` with
@@ -266,11 +266,11 @@ export type BootReads = Pick<Instance, "state" | "binding" | "memory" | "inner">
 export type Snapshot = { lifecycle: "active" | "disposed" | "pre-attach"; state?: string; memory?: unknown };
 export type Inspected = { uses: readonly string[]; busy: readonly string[]; grace?: number; waiting: readonly string[] };
 export type Instance = {
-  ensure(actor: string, machine: string, input: unknown): void;
+  ensure(actor: string, machine: string, input: unknown, identity?: readonly string[]): void;
   send(actor: string, event: Ev): void;
   dispose(actor: string): void;
   // Rule 73: a runtime without uses has none. `owner`: the use's kind ("story", "host", "component"). `existing`: a subscription, never a create.
-  attach?(actor: string, machine: string, input: unknown, owner: string, existing?: boolean): void;
+  attach?(actor: string, machine: string, input: unknown, owner: string, existing?: boolean, identity?: readonly string[]): void;
   detach?(actor: string, owner: string): void;
   codec?(actor: string, fails: boolean): void;
   snapshot?(actor: string): Snapshot;

@@ -521,3 +521,6 @@ Convergence-8. Old unbuilt rows (`STORY-ALL`, `BROWSER-*`, `SSR-01`) renumbered 
 | LIFE-28 | 14 | example | design | rule:73, rule:44, C106 |  | C106: Runtime disposal parks the wire's ending; at the reload the unheld identity is woken at ready, hears it once, then ends |
 | LIFE-29 | 14 | example | design | rule:73, C125 |  | C125: EndedWithWork once per machine and kind of work; none for an end with nothing live |
 | LIFE-30 | 14 | example | design | rule:73, C111 |  | C111: a create within 5 s of an end carries how long ago; at 5 s it does not |
+| R14-ID-01 | 14 | example | design | rule:74, sec:2.7.19 |  | rule 74: a value ref is named by its input fields in field-name order, keeps only them, and is the input; an equal value adopts the identity's lane |
+| R14-ID-02 | 14 | fault | design | rule:74, OD:30 |  | OD30 Q3: a release that changes a value-named machine's input fields leaves an old-version record, listed at ready and never restored |
+| R14-ID-03 | 14 | example | design | rule:74, sec:2.7.19 |  | rule 74: a singleton has a literal name and takes input at ensure; one machine in both forms is ConflictingActorRef |

@@ -1247,3 +1247,26 @@ removed:output:LIFE-02/idle-with-no-uses-is-gone-after-the-grace | the variant w
 removed:output:LIFE-04/an-attach-within-the-grace-keeps-the-incarnation-and-past-it-is-disposed | the variant was renamed for ensure; its output line goes with it
 removed:output:LIFE-04/release-then-attach-in-one-task-disposes-nothing | the variant was renamed for detach; its output line goes with it
 file:expected-recipients.txt hash:562449060cba | rule 73 (OD31): LIFE-11..30 observe 20 more deliveries; 53 more restored states anchored at their return
+--- round 14, area 2: identity (OD30, rule 74, 2.7.19), by hand
+R14-ID-01 hash:66448a5f75cc | rule 74: a value ref's identity is its input fields in name order, kept alone; an equal value adopts the lane
+R14-ID-02 hash:794cf57ff3e2 | OD30 Q3: changed input fields make an old-version record, listed at ready (OldVersionActor), never restored
+R14-ID-03 hash:0c6068934d5e | rule 74: a singleton's literal name and input at ensure; one machine in both forms is ConflictingActorRef
+file:scenarios/identity.scenario.ts hash:c2188a234399 | rule 74: R14-ID-01..03, the refs as the suite's ensure steps
+file:typed/identity.ts hash:3a4ab594f024 | rule 74: a value-named Editor in two releases and a singleton Session, with their refs
+file:compile/index.ts hash:96184eac5e17 | rule 74: actorRef and ensureArgs are public API
+file:compile/machine.ts hash:47908c245bbe | rule 74: a machine's identity fields (its Flow.input fields, sorted) are compiled, and its memory type is carried for refs
+file:compile/memory.ts hash:7552de9cc6cb | rule 74: Flow.input's type says input, so a ref can find the identity fields
+file:compile/ref.ts hash:013760674106 | rule 74: actorRef from a value or a literal name, the identity encoding, ensureArgs
+file:main.ts hash:aa8005078f7f | rule 74: the identity scenarios join the suite
+file:harness.ts hash:352ca5492da6 | rule 74: an ensure step and the port carry a value ref's identity fields
+file:drive.ts hash:e38d4575d720 | rule 74: identity passes through the Story's ensure; an old-version record after a release is excused from the anchor
+round:typed/type-tests.ts hash:21cf9ebbee77 | rule 74: type pins for value refs, singleton names, string-encoded fields and ensure without input
+round:mutants-lifetime.ts hash:95c3a4410b68 | rule 74: four identity wrong runtimes join the lifetime ones
+round:adapter.ts hash:9c8435d4a07a | rule 74: the port passes identity to ensure and attach
+output:R14-ID-01/a-value-names-the-actor-and-is-its-input hash:13fe06e416b5 | rule 74: R14-ID-01's naming variant's whole output, new
+output:R14-ID-01/an-equal-value-adopts-the-identitys-lane hash:e7abfb8d781e | rule 74: R14-ID-01's adoption variant's whole output, new
+output:R14-ID-02 hash:22c63d45d1c3 | OD30 Q3: R14-ID-02's whole output, new
+output:R14-ID-03/a-singleton-takes-its-input-at-ensure hash:efe12c2c893d | rule 74: R14-ID-03's singleton variant's whole output, new
+output:R14-ID-03/one-machine-in-both-forms-is-conflicting hash:7008ccfab3bd | rule 74: R14-ID-03's conflict variant's whole output, new
+file:expected-recipients.txt hash:d06a7e5bd0d8 | rule 74: R14-ID-01..03 observe 2 more deliveries and check 2 more start nodes
+round:mutants-lifetime.ts hash:38cb13759cbf | rule 74: a wrong runtime that ignores the value as input, so R14-ID-01 has a runtime red too

@@ -38,4 +38,10 @@ export const MUTANTS = [
   m("life.handle-not-identity", "C108", "adapter.ts", "const live = getActor(w.actors, actor) ?? w.retired[actor];", "const live = getActor(w.actors, actor);"),
   m("life.no-ended-with-work", "C125", "step.ts", 'note(tx, "EndedWithWork",', 'void (tx, "EndedWithWork",'),
   m("life.no-soon-note", "C111", "step.ts", "if (tx.env.now < soon.dueAt) note(", "if (false) note("),
+  // Identity (rule 74, OD30), area 2.
+  m("id.record-without-fields", "rule:74", "step.ts", "...(identity ? { fields: [...identity].sort() } : {})", ""),
+  m("id.old-version-restored", "OD:30", "durable.ts", "if (Array.isArray(v.fields) && (v.fields.length", "if (false && Array.isArray(v.fields) && (v.fields.length"),
+  m("id.no-conflict", "rule:74", "step.ts", "if (was !== undefined && was !== form && tx.machines[machine]?.identityFields)", "if (false)"),
+  m("id.dispose-drops-lanes", "rule:46", "step.ts", 'if (m.local && how !== "remount")', 'if (how !== "remount")'),
+  m("id.value-is-not-the-input", "rule:74", "step.ts", "memory: run(m.memory.initial, input as never),", "memory: run(m.memory.initial, (identity ? {} : input) as never),"),
 ];

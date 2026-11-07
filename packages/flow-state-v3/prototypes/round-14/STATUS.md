@@ -9,4 +9,10 @@ Prototype, for evidence; never production code.
 - Not built: LIFE-19, 20 (Hydrate, dehydrate), 25 (records cliff), 26 (context providers); the ending phase
   (`stopped` input) and `NotAdopted` (no lazy entries).
 
-Next: area 2, identity (OD30).
+## Checkpoint 2: area 2, identity (OD30) done
+
+- `compile/ref.ts`: `actorRef` from a value or a literal name, `ensureArgs`; type pins in `typed/type-tests.ts` (tsc clean).
+- Runtime: a record keeps the fields a value ref named it by; `OldVersionActor` at boot; `ConflictingActorRef`.
+- R14-ID-01..03; 805/805 locked; falsify: 32 wrong runtimes red, every case red on one.
+
+Next: area 3, `Flow.ignore` and P1 (OD28).

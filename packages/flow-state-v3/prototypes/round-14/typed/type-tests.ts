@@ -1,7 +1,7 @@
 // What the types refuse. Each `@ts-expect-error` must be an error, or `tsc` fails: a compile-time pin of D91, not a claim.
 import { Context, Effect, Schema } from "effect";
 import { OutcomeUnknown } from "../../conformance/fixtures/compiled.ts";
-import { definition, Flow, machine, servicesFor, subroutine, trait, transaction } from "../../conformance/compile/index.ts";
+import { actorRef, definition, ensureArgs, Flow, machine, servicesFor, subroutine, trait, transaction } from "../../conformance/compile/index.ts";
 
 type Refused = { readonly _tag: "Refused"; readonly why: string };
 const save = transaction({
@@ -121,3 +121,31 @@ machine(D, ({ S, O }) => ({
     },
   },
 }));
+
+// Round 14 (OD30, rule 74, 2.7.19): refs. A value ref is named by the input fields; a singleton by a literal name.
+const ED = definition({ id: "T/Editor", states: ["A"], events: {}, internalEvents: {}, memory: { workspaceId: Flow.input(Schema.String), ticketId: Flow.input(Schema.String), title: Flow.initial(Schema.String, "") }, operations: () => ({}) });
+const EM = machine(ED, ({ S }) => ({ default: S.A }));
+const T42 = { workspaceId: "north", ticketId: "T-42" };
+const editor = actorRef(EM, T42, { persist: true });
+ensureArgs(editor);
+// @ts-expect-error a value-named ref takes no input at ensure: the value is the input
+ensureArgs(editor, { input: T42 });
+// @ts-expect-error a value missing an input field names no actor
+actorRef(EM, { workspaceId: "north" });
+// @ts-expect-error a fresh literal with an extra field: Flow keeps only the input fields
+actorRef(EM, { workspaceId: "north", ticketId: "T-42", assignee: "ana" });
+const wide = { workspaceId: "north", ticketId: "T-42", assignee: "ana" };
+actorRef(EM, wide); // NOT refused: a wider value is kept to its input fields (OD29 J's rule, applied to refs)
+const singleton = actorRef(EM, "main");
+ensureArgs(singleton, { input: T42 });
+declare const runtimeName: string;
+// @ts-expect-error a singleton's name is a literal; a runtime string is a type error (OD30 Q4)
+actorRef(EM, runtimeName);
+const ND2 = definition({ id: "T/Counted", states: ["A"], events: {}, internalEvents: {}, memory: { n: Flow.input(Schema.Number) }, operations: () => ({}) });
+const NM2 = machine(ND2, ({ S }) => ({ default: S.A }));
+// @ts-expect-error identity fields encode to strings (OD30 Q6): a number field has no value form
+actorRef(NM2, { n: 1 });
+actorRef(NM2, "counter"); // a singleton: its input given at ensure
+const NoIn = machine(definition({ id: "T/NoInput", states: ["A"], events: {}, internalEvents: {}, memory: {}, operations: () => ({}) }), ({ S }) => ({ default: S.A }));
+// @ts-expect-error a machine with no input can only be a singleton
+actorRef(NoIn, {});

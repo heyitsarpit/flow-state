@@ -1,0 +1,71 @@
+// Round 14 (OD30, rule 74, 2.7.19): an actor is its machine plus its input. Editor is named by its value (`workspaceId`, `ticketId`); release 2 adds
+// `region`, a new version. Session is a singleton, its input given at ensure.
+import { Schema } from "effect";
+import { actorRef, definition, Flow, machine, transaction } from "../compile/index.ts";
+import { FakeApi, fixture, write } from "./lab.ts";
+
+export const EditorId = "Lab/Editor";
+export const SessionId = "Lab/Session";
+const S = Schema;
+export type Release = { v: number };
+const save = transaction({ id: "ed/save", input: { ticketId: S.String, title: S.String }, key: ["ticketId"], concurrency: "reject", services: [FakeApi], commit: write("save") });
+const editorEvents = { Title: { title: S.String } } as const;
+const editorInternal = { Saved: {}, SaveNo: {}, SaveUnsure: Flow.uncertain({}) } as const;
+const editorOps = ({ E }: { E: any }) => ({ save: save.outcomes({ success: E.Saved, failure: { NotSent: E.SaveNo }, unknown: E.SaveUnsure }) });
+const editorV1 = () => {
+  const d = definition({
+    id: EditorId,
+    states: ["OPEN"],
+    events: editorEvents,
+    internalEvents: editorInternal,
+    memory: { workspaceId: Flow.input(S.String), ticketId: Flow.input(S.String), title: Flow.initial(S.String, ""), saved: Flow.initial(S.Number, 0) },
+    persisted: true,
+    operations: editorOps,
+  });
+  return machine(d, ({ S: St, O }) => ({
+    default: St.OPEN,
+    on: {
+      Title: { updateMemory: ({ event }) => ({ title: event.title }), actions: [O.save.commit(({ memory, event }) => ({ ticketId: memory.ticketId, title: event.title }))] },
+      Saved: { updateMemory: ({ memory }) => ({ saved: memory.saved + 1 }) },
+      SaveNo: {},
+      SaveUnsure: {},
+    },
+  }));
+};
+const editorV2 = () => {
+  const d = definition({
+    id: EditorId,
+    states: ["OPEN"],
+    events: editorEvents,
+    internalEvents: editorInternal,
+    memory: { workspaceId: Flow.input(S.String), ticketId: Flow.input(S.String), region: Flow.input(S.String), title: Flow.initial(S.String, ""), saved: Flow.initial(S.Number, 0) },
+    persisted: true,
+    operations: editorOps,
+  });
+  return machine(d, ({ S: St, O }) => ({
+    default: St.OPEN,
+    on: {
+      Title: { updateMemory: ({ event }) => ({ title: event.title }), actions: [O.save.commit(({ memory, event }) => ({ ticketId: memory.ticketId, title: event.title }))] },
+      Saved: { updateMemory: ({ memory }) => ({ saved: memory.saved + 1 }) },
+      SaveNo: {},
+      SaveUnsure: {},
+    },
+  }));
+};
+export const Editor1 = editorV1();
+export const Editor2 = editorV2();
+export const editorFixture = (rel: Release = { v: 1 }) => fixture(() => (rel.v === 1 ? Editor1 : Editor2));
+const session = definition({
+  id: SessionId,
+  states: ["ON"],
+  events: { Ping: {} },
+  internalEvents: {},
+  memory: { userId: Flow.input(S.String), pings: Flow.initial(S.Number, 0) },
+  persisted: true,
+  operations: () => ({}),
+});
+export const Session = machine(session, ({ S: St }) => ({ default: St.ON, on: { Ping: { updateMemory: ({ memory }) => ({ pings: memory.pings + 1 }) } } }));
+export const sessionFixture = fixture(Session);
+// The refs, as an app writes them (2.7.19).
+export const editorRef = (ticket: { readonly workspaceId: string; readonly ticketId: string }) => actorRef(Editor1, ticket, { persist: true });
+export const SessionRef = actorRef(Session, "coordinator", { persist: true });
