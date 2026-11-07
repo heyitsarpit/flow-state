@@ -2,7 +2,7 @@
 
 Status: approved by the user on 2026-11-07, in the Claude Code session ("the roadmap is approved"), handing
 its execution to Claude as the agent runner.
-Version: 1, before approval; amendments start after it.
+Version: 2, approved 2026-11-07, after amendment 1.
 Shape confirmed: 2026-11-04, in the Claude Code session. The user gave points 1-10: plans first,
 conformance rewritten, the core, features, Next.js hardening, examples and docs.
 Goal: production code for Flow State v3 at high quality, with good error messages and the
@@ -18,7 +18,8 @@ Records:
   `workflow/plans/archive/flow-design-2026-11/` (read-only).
 - Prototype record: `FOR-ARPIT.md` (accepted by the user on 2026-11-07, every recommended answer; deleted,
   read it with `git show 04e314f4:packages/flow-state-v3/prototypes/FOR-ARPIT.md`), `HANDOFF.md`,
-  `convergence-1.md` to `convergence-13.md` and `round-13/review.md`, all in that folder.
+  `convergence-1.md` to `convergence-13.md` and `round-13/review.md`, all in
+  `packages/flow-state-v3/prototypes/`.
 - Epic, Specs and Tasks: none yet. Specs are written in phase 2. Tasks are drafted with `to-task`
   at the start of phases 4 and 5; drafting Tasks is not a plan edit.
 Source of truth, by area:
@@ -46,7 +47,8 @@ log it.
   converge again (session, 2026-11-04; reordered 2026-11-07; whole run).
 - Everything merges into machine-design.md first; the plans are written from it once, in phase 2,
   from its plan-amendment rows (session, 2026-11-07; whole run).
-- The plans are stale. Merge the design and the open proposals into them, find and mark every
+- The plans are stale. Merge the open proposals into machine-design.md first, then the design into
+  the plans, find and mark every
   decision the prototype superseded, and keep the plans where the prototype never went. Merging
   is approved (session, 2026-11-04; phase 2, after phases 0 and 1 have settled the design, 2026-11-07).
 - Conformance is rewritten cleanly as a new suite, copying what is clean. It is ported first and
@@ -74,8 +76,8 @@ log it.
 - Commit locally with explicit paths; never push (AGENTS.md; whole run).
 - Ask the user in numbered rounds, and never present a recommendation as decided (AGENTS.md;
   whole run).
-- One or two agents at a time by default; limits must last the project (memory, 2026-11-03;
-  whole run).
+- One or two agents at a time by default; up to 3 when the work does not overlap (the user,
+  2026-11-07); limits must last the project (memory, 2026-11-03; whole run).
 - No fixed time caps. Review at each 60-minute checkpoint while the builder keeps going (memory,
   2026-11-02, widened 2026-11-03; whole run).
 - Deterministic work runs up to 8 processes in parallel, about 16 GB in total. Real-browser runs
@@ -125,13 +127,20 @@ log it.
 - **Guarantee map:** a table, one row per guarantee: the checks that cover it, the lie that breaks
   it, and its audit state. Read instead of the tests.
 - **Guarantee change:** any finding, fix or design that adds, drops or changes a guarantee recorded
-  in a Spec. It always blocks on the user.
+  in a Spec, or, before phase 2 writes the Specs, in machine-design.md. It always blocks on the user.
 - **Amendment:** a numbered, recorded change to this file (runner rule 4).
+- **The lock:** the suite's recorded expected results (`conformance/expected.lock`); a changed verdict
+  must be logged in `conformance/expected-changes.log`. **Searches:** generated-input runs under
+  `conformance/search/`. **Front-check:** pins on the compiler's findings. **CLI pins:** expected
+  `flow` command outputs. **Story checks:** `round-N/checks/story-check.ts`. **Reference model:** the
+  suite's independent model of the expected endings. **Type tests:** `typed/type-tests.ts`, which must
+  compile. All under `packages/flow-state-v3/prototypes/`.
+- **Section 5:** machine-design.md's plan amendments, the C rows naming each plan sentence they replace.
 - **`watch.ts`:** the process watchdog, `packages/flow-state-v3/prototypes/conformance/watch.ts`.
 
 ## Stops and the review queue
 
-A blocking stop halts the run until the user answers. There are only these: the label round and
+A blocking stop halts the run until the user answers. There are only these, plus the user-decided items under Authority: the label round and
 the user-judged decisions of a judgment phase (phases 2, 6 and 7), a conflict between the design and
 the prototype that only the user can decide (phase 0), public entrypoint names, a
 public API change beyond what the user accepted, a guarantee that can't be met, a guarantee
@@ -148,7 +157,7 @@ A decision found during a phase is labelled by the same rule: a user label block
 goes to the review queue with the agent's ruling and reasons. Criteria for a judgment phase are
 drafted by the runner before the first draft and approved by each decision's judge.
 
-Everything else is a review, including every agent-judged ruling: the runner records it under
+Every other call within Authority is a review, including every agent-judged ruling: the runner records it under
 "Calls for the user's read" in progress.md, with its reason, evidence and how reversible it is, and keeps working. The user works
 through the queue at their own pace, ideally daily, and may overrule any item. Overruling late
 costs rework of what was built on the call; the runner names that cost in each entry.
@@ -181,6 +190,7 @@ Methods are pinned at `/Users/arpit/Developer/workflow/skills/suites/workflow/NA
 - `check-benchmark`: on any performance number.
 - `interview`: for every question round.
 - `to-task`: when drafting Tasks.
+- `to-spec`: when writing the Specs in phase 2.
 
 ### 0. Reconcile the design and the prototype: not readily verifiable goal
 
@@ -188,7 +198,9 @@ Goal: one source of truth before any plan is written, reconciled in both directi
 - **The prototype and suite are brought up to machine-design.md's newest decisions:** OD28
   (`Flow.ignore`, P1), OD29 (J, E step 2, F, the optional handler target), OD30 (identity folded into
   input) and OD31 (actor lifetime). Round 14, started on 2026-11-07 at the user's request in the
-  worktree `.claude/worktrees/agent-acee8f40b71d961fd`, is this phase's first iteration.
+  worktree `/Users/arpit/Developer/flow-state/.claude/worktrees/agent-acee8f40b71d961fd` (branch
+  `worktree-agent-acee8f40b71d961fd`), is this phase's first iteration. It started before the label
+  round, by the user's request; its conflicts are labelled at the end of the iteration instead.
 - **machine-design.md is brought up to the prototype** where the prototype's decisions are newer and
   win: `convergence-1.md` to `convergence-13.md` (D1-D222, for example D221's key versions and D222's
   single default), `round-13/api-changes.md`, the `services` list, and `FOR-ARPIT.md`'s accepted calls,
@@ -369,8 +381,9 @@ One iteration: the next ready Task of the earliest feature. One feature at a tim
 reviewer (R4 B).
 Done when: each feature's slice passes on production after its audit, and the user accepts the CLI
 outputs.
-Blocking: a feature whose plan has an open call that only the user can make. Reviews: the CLI
-output mocks, batched for one review, and the end.
+Blocking: a feature whose plan has an open call that only the user can make; a guarantee change;
+the user's acceptance of the CLI outputs, batched for one round. Reviews: the CLI output mocks
+before that round, and the end.
 Could succeed at the wrong thing by: a slice too lenient to fail. Caught by: lying implementations
 in each feature's audit.
 Budget: up to 8 rounds per feature and 40 in total; stop after 2 same-class failures after
@@ -419,7 +432,7 @@ Blocking: the docs criteria, once. Reviews: each section's draft and its ruling.
 Decisions (proposed labels): the docs criteria, user; each section against the criteria, agent;
 any public name a section introduces, user.
 Could succeed at the wrong thing by: documenting the planned API rather than the built one.
-Caught by: examples compiled against the packed package.
+Caught by: examples compiled against the package packed locally (`npm pack`), as phase 9 checks it.
 Budget: up to 3 rounds per section.
 
 ### 8. Hardening and budgets: readily verifiable goal
@@ -475,8 +488,9 @@ User decides (blocking): public entrypoint names, public API changes beyond what
 relaxing a gate, plan edits beyond the approved merge, scope, budgets, the example apps, a
 guarantee change, user-judged decisions and change proposals, and running more than two agents at
 once.
-Runner decides, then reviews: the suite's location and layout, the internal module layout, and
-budget targets proposed from baselines; each goes to the review queue and the user may overrule.
+Runner decides, then reviews: the suite's location and layout, and the internal module layout;
+each goes to the review queue and the user may overrule. Budget targets are proposed by the runner
+from baselines and set by the user (phase 8).
 Everything else still needs the user.
 
 ## Agents
@@ -498,8 +512,8 @@ Everything else still needs the user.
 
 ## Budget
 
-Total: the round caps per phase above, about 128 rounds. Running out is a stop, not success.
-Pace: one builder and one reviewer at a time. Usage is measured against the weekly limit on the
+Total: the round caps per phase above, about 128 rounds (round 2's about 120, plus phase 0's 8). Running out is a stop, not success.
+Pace: one builder and one reviewer at a time; up to 3 agents for non-overlapping work. Usage is measured against the weekly limit on the
 user's plan; check it between agents and log it every iteration. Reserve: 5% of the weekly limit,
 kept for the user: stop at 95% (R3 A).
 
@@ -529,10 +543,11 @@ Round 3, the roadmap skill, on 2026-11-07 (this file rebuilt from it):
 - Not verifiable goals become judgment goals: each decision names its judge, agent or user, up
   front with a recommended answer. The runner proposes the labels; the user confirms them once
   per phase (Q1 B).
-- A new phase always needs the user's yes (Q2 A).
+- A new phase always needs the user's yes (Q2 A). This means a phase added by amendment; starting
+  the next planned phase after its audit is Authority's.
 - The guarantee map, one guarantee-change event, criteria approved by their judge, and back moves
   for a wrong check (Q3 A).
-- The skill changes first, then this roadmap is rebuilt from it before phase 1 (Q4 B).
+- The skill changes first, then this roadmap is rebuilt from it before phase 1 (Q4 B; phase numbers before round 4's reorder).
 - Two files only; `handoff.md` is deleted and `progress.md` carries a Resume block (Q5 A).
 
 Round 4, on 2026-11-07, in the Claude Code session:
@@ -553,7 +568,16 @@ Round 5, on 2026-11-07, in the Claude Code session (at approval):
 
 ## Amendments
 
-None yet. Numbered, oldest first, once the roadmap is approved (runner rule 4).
+Numbered, oldest first (runner rule 4).
+1. 2026-11-07, judge agent (the runner), from the cold read after approval: wording only, no change to
+   scope, classes or budgets beyond the user's own decisions. Version 2. The agent count, the stop
+   list and Authority made consistent with the user's approval (up to 3 agents for non-overlapping
+   work; user-decided Authority items block); "everything else" scoped to Authority; budget targets
+   set by the user, as phase 8 says; phase 5 blocks on the CLI outputs and a guarantee change; a
+   guarantee change defined before Specs exist; "a new phase" means one added by amendment; round 14
+   labels its conflicts at its end; the constraint on merging says proposals go into machine-design.md
+   first; packing for phase 7; full paths; glossary terms; `to-spec` in the methods; the round total
+   explained. Phases worked out again: none.
 
 ## Runner rules
 
