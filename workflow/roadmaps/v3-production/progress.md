@@ -2,50 +2,64 @@
 
 ## Resume
 
-A fresh context reads, in order:
-1. `AGENTS.md`, then the memory index
-   `/Users/arpit/.claude/projects/-Users-arpit-Developer-flow-state/memory/MEMORY.md` and the files
-   it points to;
-2. `workflow/roadmaps/v3-production/roadmap.md`;
-3. this file;
-4. `FOR-ARPIT.md` from git (`git show 04e314f4:packages/flow-state-v3/prototypes/FOR-ARPIT.md`; accepted
-   on 2026-11-07, deleted), then `packages/flow-state-v3/prototypes/HANDOFF.md`
-   ("Where it stopped") and `packages/flow-state-v3/prototypes/round-13/review.md`;
-5. the roadmap skill, `/Users/arpit/Developer/workflow/skills/suites/workflow/roadmap/SKILL.md`;
-   other pinned packages only when the roadmap's triggers fire.
+**Hand-off, 2026-11-08 (from the first runner session).** A new agent runs this roadmap's loop for the user. Read, in
+order:
+1. `AGENTS.md`, then the memory index `/Users/arpit/.claude/projects/-Users-arpit-Developer-flow-state/memory/MEMORY.md`
+   and the files it points to; especially `one-busy-builder.md`, `v3-roadmap-handed-off.md`,
+   `merge-into-machine-design-first.md`, `preserve-usage-limits.md`, `shell-commands-must-be-bounded.md`.
+2. `workflow/roadmaps/v3-production/roadmap.md` (approved 2026-11-07; amendment 2 below changes stage A's running).
+3. This file, all of it.
+4. The design, `workflow/plans/flow/references/explorations/machine-fragments/machine-design.md` (OD1-OD48, C1-C161):
+   rules 73-74 and 2.7.17-2.7.20 are today's.
+5. The prototype round in flight: the worktree `/Users/arpit/Developer/flow-state/.claude/worktrees/agent-acee8f40b71d961fd`
+   (branch `worktree-agent-acee8f40b71d961fd`), `packages/flow-state-v3/prototypes/round-14/STATUS.md` (its
+   "Hand-off (2026-11-08)" section says what is done and what is left) and `RESULTS.md`.
 
-First action: the same as Next action below.
+**How to run the loop (the user's rule, 2026-11-08):** one builder thread, always busy, working down the queue below;
+one independent Opus review of the latest committed checkpoint every 60 minutes (a second agent); a third agent only
+for genuinely separate work. The runner (you) fixes minor findings inline, writes each round's design corrections
+into machine-design.md, merges finished rounds into `flow-rewrite`, keeps this file current and commits locally with
+explicit paths. Never push. Do not spawn extra fix passes, completion audits or re-reviews for minor findings; one
+completion audit at the end of stage A, before the plan merge. Stop only at the roadmap's blocking stops or at 95%
+usage. A session cron (`CronCreate`, hourly at an off minute) can wake you for the reviews; re-create it.
+
+**The queue (stage A, by actual work):**
+1. **Finish round 14** (in the worktree): the fix pass after round 14's final review was stopped at a clean point for
+   this hand-off; its STATUS.md hand-off section lists the items left (of H-A, fragstore.row, M1, M2, M4 done at
+   `0dd9e9f3` and `76e65e3e`; M3, M5, M6 and the Low items as recorded there), then the full gates. Then one review;
+   if no High, merge the branch into `flow-rewrite` and remove the worktree (`git worktree remove`), which also clears
+   `workflow check`'s DUPLICATE_SPEC_ID and SPEC_INDEX_STALE.
+2. **Round 15:** bring the prototype to the rulings it owes (listed under "Owed to the prototype" below), each with a
+   case seen failing first.
+3. **Phase 1, one area after another in the same builder thread:** H1, H2 and round 13's M2 (the missing D221 pins);
+   entities (`packages/flow-state-v3/prototypes/round-9/entity-proposal-2.md`, settling U7, U10, U11 and D3's price,
+   which is the user's); streams; record migration. Each area's settled design goes into machine-design.md.
+4. **Stop for the user: phase 2, the plan merge** (writes the `.plan` files from machine-design.md's C rows). Before
+   it: the one completion audit of stage A.
 
 Roadmap: roadmap.md
-State: running: approved 2026-11-07; phase 0, iteration 1 (round 14)
-Phase: 0 (reconcile the design and the prototype), iteration 1 running before approval, at the user's
-request: prototype round 14. Revision: see `git log` on `flow-rewrite`
-Budget used: none of the proposed total
-Next action: take round 14's results (the merged OD28-OD31 on the prototype and suite) and continue
-phase 0: record the prototype's newer decisions (D1-D222, api-changes, FOR-ARPIT's accepted calls and answers) in
-machine-design.md, then review. The plan merge (now phase 2) and its label round come after phases 0
-and 1.
-Owed to the prototype (phase 0a's next round, or phase 1 for what it builds): the label round's rulings that change
-it, now in machine-design.md (OD48): U2 key-less members name only the ending's own Attempt; U3 restore delivers `W`'s
-`NotSent { Restored }` before the head's unknown; U4 quarantine, no key-equality adoption, no `orphaned`; U5 no
-`allow`; U6 `NotSent { Unencodable }` and `UnencodableValue`, with a lookup ending `Defect`; U8 sends queue until boot;
-U9 creation checks the type side; U13 `unknown { Disposed }` past the disposal bound; U14 `disposeActor` flushes at
-once, and an unbound lane record is listed and reported until adopted or forgotten; U15 `persist` on the definition,
-not the ref; U17 versions and key fingerprints compare the type and encoded sides.
+State: stopped for hand-off, 2026-11-08; stage A in progress (phase 0b done; round 14's fix pass stopped at a clean
+point)
+Phase: 0 (reconcile the design and the prototype): 0b done (`818bd236` to `5132591c`, plus U19); 0a's round 14 fix
+pass stopped for hand-off. Revision: see `git log` on `flow-rewrite`
+Budget used: rounds: round 14 (lifetime experiment, round 14, its fix pass); usage not measured
+Next action: queue item 1, finish round 14.
+Owed to the prototype (queue item 2): the label round's rulings that change it, now in machine-design.md (OD48): U2
+key-less members name only the ending's own Attempt; U3 restore delivers `W`'s `NotSent { Restored }` before the head's
+unknown; U4 quarantine, no key-equality adoption, no `orphaned`; U5 no `allow`; U6 `NotSent { Unencodable }` and
+`UnencodableValue`, with a lookup ending `Defect`; U8 sends queue until boot; U9 creation checks the type side; U13
+`unknown { Disposed }` past the disposal bound; U14 `disposeActor` flushes at once, and an unbound lane record is listed
+and reported until adopted or forgotten; U15 and U19 `persist` on the definition, `definition({ id, persist: true })`,
+not the ref; U17 versions and key fingerprints compare the type and encoded sides. Also the completion-audit fixes of
+`5132591c` (`Rejected` mapped for kept endings and quarantined lanes; `Disposed` a reserved reason).
 Waiting on the user:
-- phase 0's conflicts between the design and the prototype, as they are found. **Approved by the user
-  (2026-11-07)**, to be written into machine-design.md in phase 0; from the round-14
-  review at `48d1dc46`: D1 an end parks `Interrupted` for each read it stops (user's call); D4 the ref
-  form fixed per machine in the types, identity encoded with its Schema (user's call); D2 re-arming or
-  leaving removes a waiting deadline; D3 a return mints a new incarnation id; D5 a local actor's
-  remount within the grace; D6 whether `disposeActor` still parks endings; D7 `getSnapshot` for an
-  undecodable record (all approved). **Recorded** in machine-design.md as OD45 (phase 0b, `d1117383`);
+- nothing blocking now: U1-U19 are ruled (U1-U18 on 2026-11-07, all at the recommended option; U19 A on 2026-11-08);
 - phase 2's label round, then its user-judged decisions;
 - which example apps to build, any time before phase 6. Candidates are below.
 
 ## Phases
 
-- [ ] 0 Reconcile the design and the prototype: iteration 1 (round 14) running
+- [ ] 0 Reconcile the design and the prototype: 0b done (design caught up, U1-U19 ruled); 0a's round 14 fix pass stopped for hand-off
 - [ ] 1 Pre-work prototype (entities, streams, migration; round 13's H1 and H2): not started
 - [ ] 2 Plan merge: not started
 - [ ] 3 Conformance rewrite: not started
@@ -69,7 +83,7 @@ further each time (round 10, stages C-J), until convergence in stages K and L.
 
 | Agent | Started | Last checkpoint | Last review |
 | --- | --- | --- | --- |
-| Builder, round 14 fix pass (Opus), worktree | 2026-11-07 | — | final review of `ad2a6315` |
+| (none: the round 14 builder was stopped for the hand-off, 2026-11-08) | | | |
 
 ## Calls for the user's read
 
@@ -207,3 +221,5 @@ One line per iteration. Results live in the records; link them.
   user's 2026-11-01 timeout remark; U17 amends Q1 A); plan rows C150-C161; `allow` and `orphaned` moved to
   `revisit.md`; the U marks and the five names' [P] removed. OD1-OD48 and C1-C161 unique, links resolve. U1-U18 are
   off "Waiting on the user"; the prototype owes U2-U6, U8, U9, U13-U15, U17 (see Resume). Usage: not measured.
+- 2026-11-08 phase 0b completion audit: failed on minor items, fixed inline (`5132591c`); the `persist` placement went to the user and was ruled U19 A (on the definition). The user asked for one busy builder thread, an hourly review and no extra passes or audits for minor findings, then stopped the session for a hand-off; the round 14 builder was told to stop at a clean point and write what is left in its STATUS.md.
+

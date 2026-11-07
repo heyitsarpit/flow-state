@@ -1250,8 +1250,8 @@ decisions (F1–F10).
       description is not (decided, U17 B, OD48). A saved record of another field set is an **old-version record**:
       listed at ready (`OldVersionActor` [P]), never renamed or matched by shared fields, removed by `forget`. Its
       non-`Idle` lanes stay unbound and listed (rule 44), since no ref can spell its identity.
-    - **Persistence is the machine's** (decided, U15 B, OD48). Where it is spelled is **proposed** (agent, awaiting the
-      user, OD48): `definition({ id, persist: true, … })`, beside `id`,
+    - **Persistence is the machine's** (decided, U15 B, OD48). It is spelled on the definition (decided, U19 A,
+      2026-11-08): `definition({ id, persist: true, … })`, beside `id`,
       which names the machine in every saved record; refs carry no `persist`, so every ref of an identity agrees by
       construction. The definition is the place because it holds the machine's declarations (`context` is there too,
       and fragments may declare neither), `machine()` takes no options, and the persisted-value type rule reads the
@@ -3158,13 +3158,13 @@ ensured first. Now an actor is its machine plus its input, shared or local.
 actorRef(EditorMachine, [ticket.workspaceId, ticket.ticketId], { persist: true });   // parts
 useActorByRef(editorRef(ticket), { input: ticket });                                  // the same values again
 // after
-export const Editor = definition({ id: "Editor", persist: true, /* … */ });   // NEW: persist on the definition (U15 B; the placement is proposed)
+export const Editor = definition({ id: "Editor", persist: true, /* … */ });   // NEW: persist on the definition (U15 B, U19 A)
 actorRef(EditorMachine, ticket);                        // new meaning: a value carrying the input fields; no persist
 useActorByRef(editorRef(ticket), {});                   // `{}` selects ensure (React O2); no input
 actorRef(SessionMachine, "coordinator");   // a singleton: a literal name, no input (R14 D4); Session's definition persists
 ```
 
-- **Persistence.** `persist` is a property of the machine (U15 B), on its definition (proposed placement; rule 74), so two refs of one
+- **Persistence.** `persist` is a property of the machine (U15 B), on its definition (U19 A; rule 74), so two refs of one
   identity cannot disagree about it; a ref's options keep only `context`.
 - **Where non-naming data goes.** Data that does not name the actor comes from a record read, an event or context,
   never input: the visit's `assignee` is read from the `Ticket` record, which a reassignment changes.
@@ -8287,7 +8287,7 @@ The streams merge ([merged/streams/proposal-v3.md](merged/streams/proposal-v3.md
 | C157 | Machines O1, Diagnostics | A memory default is pure: an Effect-valued default is a construction error; a time or an id comes from an event or the Runtime's mint (2.2.2; U12 B, OD48) | Keeps Machines O1's "initial is pure: it reads no clock or randomness"; amends C137 |
 | C158 | Runtime O6, Operations O3 | Runtime disposal: a call that settles within the bound is parked; past it the Attempt ends `unknown { Disposed }` (2.7.1, 2.7.13; U13, OD48) | Replaces Runtime O6's "after 5 seconds a commit still in flight becomes unknown with its Attempt" (now `unknown { Disposed }`); adds `Disposed` to C2's unknowns |
 | C159 | Runtime O6, Persistence O3, Inspection O1 | `disposeActor` flushes its removal at once; an unbound lane record it leaves ends at an adopting ensure or `forget`, listed as unbound under the identity and reported at each boot until then (2.7.13, 2.7.20; U14, OD48) | Adds to Runtime O6's "runtime.disposeActor(actor) disposes the actor for every user"; amends C45 |
-| C160 | Persistence O2, Runtime O3, Machines O1 | `persist` is a property of the machine (U15 B), on its definition (`definition({ id, persist: true, … })`, placement proposed); refs carry no `persist`; `ConflictingActorRef` for `context` only (rule 74; U15 B, OD48) | Replaces Persistence O2's "actorRef(machine, id, { persist: true }) selects a stable shared actor" (C120's `actorRef(machine, nameOrValue, { persist: true })`) and Runtime O3's "different persist, retain or context" (C104, C144: `persist` and `context`); amends C104, C120, C144 |
+| C160 | Persistence O2, Runtime O3, Machines O1 | `persist` is a property of the machine (U15 B), on its definition (`definition({ id, persist: true, … })`, U19 A); refs carry no `persist`; `ConflictingActorRef` for `context` only (rule 74; U15 B, OD48) | Replaces Persistence O2's "actorRef(machine, id, { persist: true }) selects a stable shared actor" (C120's `actorRef(machine, nameOrValue, { persist: true })`) and Runtime O3's "different persist, retain or context" (C104, C144: `persist` and `context`); amends C104, C120, C144 |
 | C161 | Runtime O3, Operations O1, Persistence O5 | An actor version and an operation key's fingerprint compare each field's type side and encoded side, ignoring annotations (rule 74, 2.7.15; U17 B, OD48) | Amends C135's fingerprint ("each key field's encoded JSON Schema") and C120's O5 version rule; amends FOR-ARPIT Q1 A |
 
 ### For tooling
@@ -9132,8 +9132,8 @@ operations-in-fragments, the lane model and the reviews cite them.
   `unknown { Disposed }`; within the bound it settles and is parked (2.7.1, 2.7.13). **U14**: `disposeActor` flushes
   its removal at once; an unbound lane record left after it ends when an ensure of the identity adopts it or `forget`
   removes it, and until then Inspection lists it as unbound under the identity and each boot reports it (2.7.13,
-  2.7.20). **U15 B**: `persist` is a property of the machine, and refs lose it; declaring it on its definition
-  (`definition({ id, persist: true, … })`) is the agent's proposal, for the user; `ConflictingActorRef` remains for `context` only (rule 74, 2.7.17, 2.7.19). **U16
+  2.7.20). **U15 B**: `persist` is a property of the machine, and refs lose it; it is declared on its definition
+  (`definition({ id, persist: true, … })`; the user, U19 A, 2026-11-08); `ConflictingActorRef` remains for `context` only (rule 74, 2.7.17, 2.7.19). **U16
   A**: storage waits have no bound; `StorageSilent` names a write unanswered after 10 s and decides nothing; the limit
   is stated in rule 24 and 2.7.20. **U17 B**: an actor version and an operation key's fingerprint compare the type
   side and the encoded side, ignoring annotations (a transformation change is a new version; a brand or description
@@ -9142,8 +9142,8 @@ operations-in-fragments, the lane model and the reviews cite them.
   public names. Agent calls made in applying them (the builder of pass 3): a lane whose operation is gone is kept
   like a quarantined lane until `forget`; a quarantined lane's `cancel` may come from any subject path; `Unencodable`
   must be mapped where an input or key Schema admits a value with no form; 2.8.6's reason list gains `NoPersistence`
-  and `OldVersion` (as rule 30, pass 2; reversible by deleting two words); `persist` on the definition is proposed,
-  not decided (completion audit, 2026-11-08); `Rejected` must be mapped where a kept ending (rule 21) or a quarantined
+  and `OldVersion` (as rule 30, pass 2; reversible by deleting two words); `persist`'s placement went to the user and was
+  decided on the definition (U19 A, 2026-11-08); `Rejected` must be mapped where a kept ending (rule 21) or a quarantined
   lane (rule 46) can decline; `Disposed` joins rule 13's reserved reasons and 2.7.1's inferred unknown channel. Plan rows
   C150-C161. (2026-11-07)
 - **OD24** Process, delegated by the owner (2026-10-30): the main session approves the merge change lists for merges 4

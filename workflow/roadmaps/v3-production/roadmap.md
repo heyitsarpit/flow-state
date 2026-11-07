@@ -2,7 +2,7 @@
 
 Status: approved by the user on 2026-11-07, in the Claude Code session ("the roadmap is approved"), handing
 its execution to Claude as the agent runner.
-Version: 2, approved 2026-11-07, after amendment 1.
+Version: 3, approved 2026-11-07, after amendment 2.
 Shape confirmed: 2026-11-04, in the Claude Code session. The user gave points 1-10: plans first,
 conformance rewritten, the core, features, Next.js hardening, examples and docs.
 Goal: production code for Flow State v3 at high quality, with good error messages and the
@@ -578,6 +578,12 @@ Numbered, oldest first (runner rule 4).
    labels its conflicts at its end; the constraint on merging says proposals go into machine-design.md
    first; packing for phase 7; full paths; glossary terms; `to-spec` in the methods; the round total
    explained. Phases worked out again: none.
+2. 2026-11-08, judge the user (in the Claude Code session: "you need a busy thread all the time, i need a simpler
+   phase ordering, by actual work"): stage A runs as one queue of actual work (finish round 14; round 15, the rulings
+   owed to the prototype; phase 1's areas one after another) in one continuously busy builder thread, with one
+   independent review every 60 minutes and one completion audit at the end of stage A, instead of a review and an
+   audit for every pass and phase. Minor findings are fixed inline by the runner. Phases worked out again: 0 and 1
+   (their content is unchanged; only how they are run). progress.md's Resume block holds the queue.
 
 ## Runner rules
 
