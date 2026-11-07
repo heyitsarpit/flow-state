@@ -10,7 +10,7 @@
 //
 // Every answer is three-valued. `unknown` is where this model cannot see (a keyed `.each` placement, a fragment placed inside a fragment,
 // a fragment's own states). An oracle may excuse only on a certain answer, and the cross-check compares only certain answers.
-import type { Alternative, Compiled, Node } from "../fixtures/compiled.ts";
+import type { Alternative, Compiled, Node, Placement } from "../fixtures/compiled.ts";
 
 export type Answer = "yes" | "no" | "unknown";
 
@@ -60,6 +60,24 @@ export class Reference {
     return this.placed(m, o.fragment, leaf);
   };
 
+  private readonly placementsMemo = new WeakMap<object, Map<string, readonly Placement[]>>();
+  private placementsAt = (nodes: Readonly<Record<string, Node>>, at: string): readonly Placement[] => {
+    let byLeaf = this.placementsMemo.get(nodes);
+    if (!byLeaf) this.placementsMemo.set(nodes, (byLeaf = new Map()));
+    const hit = byLeaf.get(at);
+    if (hit) return hit;
+    const chain: Node[] = [];
+    for (let id: string | undefined = at, n = 0; id !== undefined && n < 1000; n++) {
+      const node: Node | undefined = nodes[id];
+      if (!node) break;
+      chain.push(node);
+      id = node.parent;
+    }
+    const out = chain.flatMap((n) => [...(n.placements ?? []), ...(n.subroutine ? [n.subroutine] : [])]);
+    byLeaf.set(at, out);
+    return out;
+  };
+
   // Stage F: the live copies of `frag` in an actor, as paths (`name` or `name:key` per level, the runtime's own path form), from what the
   // actor publishes: its leaf and memory, the `.each` membership in a host's memory, and each copy's own published state (`inner`, undefined
   // while not live: left, frozen, or never entered). A copy's `resetOn` values ride along, by the compiled slot on its host's published memory.
@@ -70,14 +88,7 @@ export class Reference {
     const seen = new Set<string>();
     const walk = (nodes: Readonly<Record<string, Node>>, at: string, mem: any, here: string[], resets: string[], depth: number) => {
       if (depth > 8) return;
-      const chain: Node[] = [];
-      for (let id: string | undefined = at, n = 0; id !== undefined && n < 1000; n++) {
-        const node: Node | undefined = nodes[id];
-        if (!node) break;
-        chain.push(node);
-        id = node.parent;
-      }
-      for (const p of chain.flatMap((n) => [...(n.placements ?? []), ...(n.subroutine ? [n.subroutine] : [])])) {
+      for (const p of this.placementsAt(nodes, at)) {
         const items: unknown[] = p.each ? (Array.isArray(mem?.[p.each.of]) ? mem[p.each.of] : []) : [undefined];
         let reset: string | undefined;
         if (p.resetOn) {

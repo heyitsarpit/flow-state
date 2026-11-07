@@ -109,3 +109,22 @@ For the next builder:
 - `git stash` in a worktree shares the main checkout's stash list. On a clean tree `git stash; git stash pop` pops the user's
   `stash@{0}` ("preserve pre-integration lint edits"); that happened once here, was undone in this worktree only, and the stash is
   still kept. Do not use stash.
+
+## Speed pass (2026-11-08)
+
+Baseline (serial, 12 cores / 24 GB): suite `--no-search` 67 s wall, 1745 MB peak, 834/834; REV9-BURST/300-rows 44.9 s of it.
+
+| Fix | State | Commit | Before | After | Sameness shown by |
+| --- | --- | --- | --- | --- | --- |
+| 1 ledger memo, linear `viewOf`, placements hoisted; `bindingIn` stops at its first match | done | (this commit) | suite 67 s; rows probe N=120 body 2284 ms; 300-rows case 44.9 s | suite 27.7 s; N=120 555 ms; 300-rows 5.9 s | 834/834, every output compared equal, RECIPIENTS line identical; a temporary differential run recomputed every memo hit (186075) and compared copies, resets and the Slot-path tape: 0 differences |
+
+Findings:
+- `slotRuns` does count the reference model's `resetOn` runs: `compiled` is wrapped (`wrap` in drive.ts) before `new Reference(compiled)`,
+  so `Reference.copies` runs the wrapped Slot, which pushes to `slotRuns` and spends an armed `throwIn` (frag.scenario.ts arms
+  `traits.check.resetOn`). The memo keeps both: a miss records the Slot paths it ran; a hit pushes the same paths (when not replaying)
+  and is skipped while any of them is armed; an entry whose run threw is not kept.
+- The lock blocks a clean exit for this whole task. D113 hashes every harness file (`file:drive.ts`, `file:harness.ts`,
+  `file:reference/model.ts`, `round:adapter.ts`, and later main.ts, mutate*.ts), so any edit shows as "unlogged expectation changes"
+  and the suite exits 1 although 834/834 pass and no output or RECIPIENTS changes. Logging and `--lock` were not allowed in this task
+  (the brief keeps `expected.lock` and `expected-changes.log` untouched; the permission check refused a `--lock` run). The user
+  decides: log one line per changed file and relock, or not. `bun main.ts ... --no-search --hashes` prints the lines needed.

@@ -73,11 +73,18 @@ export const viewOf = (i: Inc): any => {
   if (names.length === 0 && !i.each?.length) return base;
   const out: Record<string, unknown> = { ...base };
   for (const n of i.each ?? []) out[n] = [];
+  let lists: Map<string, unknown[]> | undefined;
   for (const n of names) {
     const k = i.kids[n]!;
-    if (k.key !== undefined)
-      out[k.name!] = [...((out[k.name!] as unknown[] | undefined) ?? []), viewOf(k)];
-    else out[k.name!] = viewOf(k);
+    if (k.key !== undefined) {
+      let list = lists?.get(k.name!);
+      if (list === undefined || out[k.name!] !== list) {
+        list = [...((out[k.name!] as unknown[] | undefined) ?? [])];
+        (lists ??= new Map()).set(k.name!, list);
+        out[k.name!] = list;
+      }
+      list.push(viewOf(k));
+    } else out[k.name!] = viewOf(k);
   }
   return out;
 };

@@ -223,6 +223,7 @@ export const port: Port = {
         const i = r && kidAt(r, path);
         return i && { state: i.leaf, memory: viewOf(i) };
       },
+      version: () => cur(),
     };
     a.reads?.(reads);
     const rt = createRuntime({

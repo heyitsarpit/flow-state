@@ -1063,11 +1063,17 @@ export const bindingIn = (
 ): Path | undefined => {
   const frag = machines[a.machine]!.ops[op]?.fragment ?? null;
   if (frag === null) return [];
-  let found: Path | undefined;
-  walkIncs(a.root, (i, p) => {
-    if (i.frag === frag && !i.frozen && sameSubject(i.subject, subject)) found ??= p;
-  });
-  return found;
+  const here: string[] = [];
+  const find = (i: Inc): boolean => {
+    if (i.frag === frag && !i.frozen && sameSubject(i.subject, subject)) return true;
+    for (const name of Object.keys(i.kids)) {
+      here.push(name);
+      if (find(i.kids[name]!)) return true;
+      here.pop();
+    }
+    return false;
+  };
+  return find(a.root) ? [...here] : undefined;
 };
 // D123: it stays with what owes it, and ends with that. A read's answer is owed to the life that asked: a wait until its next ask, or its end. A write's ending and a decline go on the lane of their key: on disk if persisted, and heard at the next boot or adoption. A hold's lane already holds it. Only an ending that was sent blocks its key (`columnOf`), and a newer decline says all an older one did.
 const keepEnding = (tx: Tx, a: ActorRec, item: EndingMail) => {

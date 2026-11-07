@@ -261,7 +261,7 @@ export type BootArgs = {
   // needs `Effect.provide` around it (finding F10: that wrapper is a step a scheduler can see).
   readonly services?: Context.Context<never>;
 };
-export type BootReads = Pick<Instance, "state" | "binding" | "memory" | "inner">;
+export type BootReads = Pick<Instance, "state" | "binding" | "memory" | "inner" | "version">;
 // 2.7.17 Reads: what a handle shows for an identity. Inspection O1's `uses` per actor, the armed grace's deadline and the waiting schedules.
 export type Snapshot = { lifecycle: "active" | "disposed" | "pre-attach" | "quarantined"; state?: string; memory?: unknown; issue?: string };
 export type Inspected = { uses: readonly string[]; busy: readonly string[]; grace?: number; waiting: readonly string[] };
@@ -284,6 +284,9 @@ export type Instance = {
   binding?(actor: string, op: string, subject: readonly string[]): readonly string[] | undefined;
   memory(actor: string): unknown;
   inner(actor: string, path: readonly string[]): { state: string; memory: any } | undefined;
+  // What the reads above answer from: the same value until a step publishes another, never one changed in place. Optional; the suite
+  // re-reads everything on each ask without it.
+  version?(): unknown;
   row(actor: string, op: string, key: unknown): Row | undefined;
   record(ref: string): RecordRead | undefined;
   module(id: string, ref: string): any;

@@ -82,6 +82,7 @@ export const makeHarness = (port: Port) => (): Harness => {
   const tryAgain = new Map<string, number>();
   const refusedAt = new Map<string, number>(); // event -> how many Slot runs the suite had seen when it was refused
   const slotRuns: string[] = []; // every wrapped Slot's path, in the order the suite saw it run (not in replay)
+  let slotTape: { slots: string[]; threw: boolean } | undefined;
   let keptNow: Array<{ op: string; attempt: string }> = [];
   let keptNames: Array<{ op: string; attempt: string }> = [];
   let ledgerOff = false; // a disposed runtime, or a disk edited or wiped by the case
@@ -197,18 +198,51 @@ export const makeHarness = (port: Port) => (): Harness => {
       return undefined;
     }
   };
-  const copiesOf = (actor: string, op: string) => {
+  type Copy = { path: string[]; resets: string[] };
+  type Copies = { list: Copy[]; byPath: Map<string, Copy>; slots: string[]; threw: boolean };
+  let copiesMemo: { inst: Instance; ref: Reference; world: unknown; at: Map<string, Copies> } | undefined;
+  const copiesFresh = (actor: string, machine: string, f: string): Copies => {
+    const tape = { slots: [] as string[], threw: false };
+    const was = slotTape;
+    slotTape = tape;
+    let list: Copy[];
+    try {
+      list = refm().copies(machine, f, leafOf(actor), memoryOf(actor), (p) => {
+        try {
+          return inst.inner(actor, p);
+        } catch {
+          return undefined;
+        }
+      });
+    } finally {
+      slotTape = was;
+    }
+    const byPath = new Map<string, Copy>();
+    for (const c of list) {
+      const k = JSON.stringify(c.path);
+      if (!byPath.has(k)) byPath.set(k, c);
+    }
+    return { list, byPath, slots: tape.slots, threw: tape.threw };
+  };
+  const copiesEntry = (actor: string, op: string): Copies | undefined => {
     const m = refm().machine(machineOf(actor));
     const f = m?.ops[op]?.fragment;
-    if (!m || f === undefined) return [];
-    return refm().copies(m.id, f, leafOf(actor), memoryOf(actor), (p) => {
-      try {
-        return inst.inner(actor, p);
-      } catch {
-        return undefined;
-      }
-    });
+    if (!m || f === undefined) return undefined;
+    const world = inst.version?.();
+    if (world === undefined) return copiesFresh(actor, m.id, f);
+    if (copiesMemo?.inst !== inst || copiesMemo.ref !== refm() || copiesMemo.world !== world) copiesMemo = { inst, ref: refm(), world, at: new Map() };
+    const key = `${actor}\u0000${m.id}\u0000${f}`;
+    const hit = copiesMemo.at.get(key);
+    if (hit && !hit.slots.some((p) => throwIn.get(p))) {
+      if (!replaying) slotRuns.push(...hit.slots);
+      return hit;
+    }
+    const got = copiesFresh(actor, m.id, f);
+    if (got.threw) copiesMemo.at.delete(key);
+    else copiesMemo.at.set(key, got);
+    return got;
   };
+  const copiesOf = (actor: string, op: string): Copy[] => copiesEntry(actor, op)?.list ?? [];
   const samePath = (a: readonly string[], b: readonly string[]) => a.length === b.length && a.every((x, i) => x === b[i]);
   const prefix = (a: readonly string[], b: readonly string[]) => a.length <= b.length && a.every((x, i) => x === b[i]);
   const keyOf = new Map<string, string | undefined>(); // attempt -> the `.each` key its asking copy's view showed (the suite's wrap)
@@ -230,7 +264,7 @@ export const makeHarness = (port: Port) => (): Harness => {
     if (!m?.ops[op]) return "unknown";
     if (m.ops[op]!.fragment === undefined) return refm().binds(m.id, op, leaf);
     if (!copy) return refm().binds(m.id, op, leaf);
-    const c = copiesOf(actor, op).find((x) => samePath(x.path, copy.path));
+    const c = copiesEntry(actor, op)?.byPath.get(JSON.stringify(copy.path));
     return c && JSON.stringify(c.resets) === JSON.stringify(copy.resets) ? "yes" : "no";
   };
   // Stage G (convergence rule, re-check H1''''): who received an ending is OBSERVED, not reported. The suite adds a guard of its own, first,
@@ -1248,8 +1282,10 @@ export const makeHarness = (port: Port) => (): Harness => {
         ...v,
         run: (...a: unknown[]) => {
           if (!replaying) slotRuns.push(path);
+          slotTape?.slots.push(path);
           const n = throwIn.get(path);
           if (n) {
+            if (slotTape) slotTape.threw = true;
             throwIn.set(path, n - 1);
             throw new Error(`fault at ${path}`);
           }
