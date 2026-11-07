@@ -29,15 +29,15 @@ Change-list entries are `E` numbers; user-judged conflicts are `U` numbers; both
 | Decision | Label | Where, or why |
 | --- | --- | --- |
 | D1 one Runtime FIFO, follow-ups next | conflict, superseded by D122 | E19 records D122's order (FOR-ARPIT call 6 accepted) |
-| D2 `send` runs synchronously when idle (owner's Q3 A, 2026-10-28) | prototype-only | a driver timing; the design's turn (2.5) is silent on it and needs nothing |
+| D2 `send` runs synchronously when idle (the user's Q3 A, 2026-10-28) | newer (decided: the user's Q3 A; pass 2) | E57 (2.5 step 1, OD47, C148); pass 1 had it prototype-only |
 | D4 eligibility recomputed after every step | prototype-only | lane-table implementation |
 | D5 generations on commands and inputs | prototype-only | the driver's fence; the design's arming ids (P11) already state the outcome |
 | D6 driver: `runFork` + `addObserver` | prototype-only | host implementation |
-| D13, D35 follow-up bound 64 and notify chain | prototype-only | Runtime bounds; `InvalidTurn` on a chain is rule 22's existing defect |
+| D13, D35 follow-up bound 64 and notify chain | newer, agent-judged (pass 2) | E67 (2.5 step 1, C149): 64 follow-ups per admitted event, then `InvalidTurn` naming the chain; the notify chain stays driver-only |
 | D110 rate budget | superseded (D115, then D122) | |
 | D115 pacing by depth | superseded (D122) | |
 | D122 a slice, then a task; mail per actor in rotation; spins never stopped; `TurnStorm`, `AsksForever` | newer (decided: calls 5, 6, Q5 A) | E19, E20, E21 |
-| D136 one notify per task | prototype-only | publication timing in the driver; React O3's notify is unchanged |
+| D136 one notify per task | newer, agent-judged (pass 2) | E63's last 2.5 sentence and C147 against React O3 |
 | D140 mail as a persistent queue | prototype-only | |
 | FOR-ARPIT call 5, Q5 A (spins) | newer (decided) | E21 |
 | FOR-ARPIT call 6 (per-actor order) | newer (decided) | E19, E20 |
@@ -53,7 +53,8 @@ Change-list entries are `E` numbers; user-judged conflicts are `U` numbers; both
 | D46 one rule for a throw, by who threw; a module defect fails closed (`NotSent { ModuleDisabled }`); a core bug is fatal until reload; restore per record | conflict, user (U7) | a new Flow reason and a stated Runtime guarantee; the module seam is the entity store's (phase 1) |
 | D50 a refused ending turn is redelivered once | newer (decided with call 10) | E01 |
 | D57, D65, D77, D207 one gate; the sealed `Compiled`; every closure a Slot | newer (decided with call 14, agent-judged detail) | E23 (`Compiled` holds Slots); the seal's checks are prototype-only |
-| D109, D118 a turn never loses a completion; `Kept` | superseded in form by D123 | |
+| D109, D118 a turn never loses a completion; `Kept` | superseded in form by D123, except D109's "the machine stays where it is, shown, no fallback alternative or API" | that part is decided (FOR-ARPIT call 19, round 8 call 1): E64, OD47 |
+| FOR-ARPIT call 19 (smaller calls) | D119 newer (decided): E08, OD44; "a kept ending stays in `W` and shows it" newer (decided): E64, OD47; D228 prototype-only | pass 1 missed the third part |
 | D123 what a turn refused twice stays with what owes it, and ends with that | newer (decided: call 10) | E01, E02 |
 | D133 `fatal` must be named | prototype-only | suite |
 | D138 a state named `self` or `__proto__` is refused (`ReservedStateName`) | newer, agent-judged | E26 |
@@ -68,7 +69,7 @@ Change-list entries are `E` numbers; user-judged conflicts are `U` numbers; both
 | D114 a decline carries what the turn asked to send | conflict, user (U6) | part of the same door |
 | D119 `canon` and `carried`; `1n` restores as `"$1n"` | newer (decided: call 19) | E27 |
 | D120, D124 `InputFieldForm` lint and `inputNotCarried` | newer, agent-judged | E26 (a `flow check` finding name [P]) |
-| D139 a `Symbol` or a value with no form is `UnencodableValue` | newer, agent-judged | E26 |
+| D139 a `Symbol` or a value with no form is `UnencodableValue` | conflict, user (U6) | pass 2: part of U6's door; E62 took it out of E26 |
 | D141, D143 the hash and replay see values | prototype-only | suite |
 
 ## 4. Write lanes and the lane table
@@ -84,7 +85,7 @@ Change-list entries are `E` numbers; user-judged conflicts are `U` numbers; both
 | D28 `Attempt.phase` | prototype-only | the table's columns are the design's states |
 | D43 `serialize`, `W` at most 64 | in | rule 21, 2.7.13 |
 | D45 `Attempt.sent` | prototype-only | 2.7.13 already says an Attempt remembers whether it was ever sent |
-| D48 a never-sent cancel or replace waits for its acknowledgement | newer, agent-judged | E05 |
+| D48 a never-sent cancel or replace waits for its acknowledgement | the safety rule: newer, agent-judged (E05); its unbounded wait: conflict, user (U16) | on a hung disk the cancel never takes effect; stated limit in rule 24 (E52) |
 | D72 boot forgets a stored ending only once delivered | prototype-only | Persistence O4's at-least-once restore already holds it |
 | D78 restore re-derives a held lane's key | superseded by D221 for every typed contract | kept only for the suite's hand key closures (prototype-only) |
 | D88 a quarantined lane keeps its id and hold; a commit declines; `cancel` clears; `orphaned` unbuilt | conflict, user (U4) | the design sends such a lane to `orphaned` (P19) |
@@ -101,7 +102,7 @@ Change-list entries are `E` numbers; user-judged conflicts are `U` numbers; both
 | --- | --- | --- |
 | D14 storage bounded at 10 s, refused | superseded (D30) | |
 | D26 write-ahead is core | in | Persistence O6, rules 38, 46 |
-| D30 silent storage means pending; evidence at 10 s | newer, agent-judged | E22 (the design never bounded storage; evidence only) |
+| D30 silent storage means pending; evidence at 10 s | conflict, user (U16) | E22, E54: kept in 2.7.20 and marked U16; it drops a bound on waiting (a shopper can sit on "Paying…" with a dead disk) |
 | D49 a stall bound and sign; later left the public row | phase 1 (U11) for the record-queue half; storage half in E22 | |
 | D73, D93 `retired` identities | superseded by OD31 (`disposeActor` removes the record) | |
 | D80 plain memory coalesces at 5 s, flushed on hide (decided 2026-11-02) | newer (decided: call 4) | E22 |
@@ -110,7 +111,8 @@ Change-list entries are `E` numbers; user-judged conflicts are `U` numbers; both
 | D85 a strict marker before ready | prototype-only | an H3 experiment that did not close it |
 | D86, D96 a first send is one batch; `acked` gone; `NotSent { Restored }` only for `W` | newer (decided: call 1, Q3 A) | E30 |
 | D87 sends before boot queue until boot | conflict, user (U8) | 2.10.17.6 says `ActorAbsent` |
-| D94, D95 an awaited write waits for its actor's plain batch; one plain write per key | newer, agent-judged | E22 |
+| D94 an awaited write waits for its actor's plain batch | conflict, user (U16) | E22, E53: a hung plain batch stalls an awaited write |
+| D95 one plain write per key | newer, agent-judged | E22 |
 | D97 a hidden page issues at once, backoff apart | newer (decided with call 4's hidden flush) | E22 |
 | D99, D111 a record names its boot; ids never repeat | newer, agent-judged | E22 |
 | D104, D105, D106 a wiped origin; named kills | prototype-only (suite); H3's finding is call 2 | |
@@ -228,7 +230,7 @@ Labelled by the roadmap's judge rule. R14R numbers are this list's order.
 | R14R 4 `disposeActor` durability: a crash before its capture brings the record back | conflict, user (U14) | a durability guarantee: state a limit, or flush the removal |
 | R14R 5 waiting commits behind a `Held` head at ready: owed or not | in | rule 73 and 2.7.17's Ready: not owed; the prototype is being changed back. The design's behaviour is the better one: those `W` entries were never sent, their `NotSent { Restored }` reaches the next use, and waking every such actor at ready restores screens nobody opened |
 | R14R 6 R14 D7 and 2.7.17's state table: `Quarantined` is terminal; an undecodable record needs its own state, left by a fresh ensure or `forget`; `RestoreDiscarded` | newer, agent-judged (follows the approved R14 D7) | E18, E36 |
-| R14R 7 rule 74's versions: the encoded side only, or type and encoded; Schemas compared structurally, ignoring annotations | newer, agent-judged (the user's Q1 A, applied to actor versions) | E09, E37 |
+| R14R 7 rule 74's versions: the encoded side only, or type and encoded; Schemas compared structurally, ignoring annotations | conflict, user (U17) | pass 1 ruled it agent (E12, E37); overturned by the review: with every identity field a string, `Schema.String` to `NumberFromString` would not be a new version; E50 reverts it to open |
 | R14R 8 `persist` is per ref in the API, per identity in effect: who wins | conflict, user (U15) | API shape |
 | R14R 9 R14 D1's `Interrupted` on every path that brings an ended identity back, and its order against rule 44 | newer, agent-judged (completes the approved R14 D1) | E13 |
 
@@ -236,13 +238,16 @@ Labelled by the roadmap's judge rule. R14R numbers are this list's order.
 
 | Source | Items | Recorded (E) | Already in | Prototype-only | Superseded | Phase 1 | Conflicts (U) |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| D1-D228 (230 ids with D149b), counted by hand, within about 3 | 230 | 46 | 17 | 128 | 15 | 15 | 9 |
+| D1-D228 (230 ids with D149b), counted by hand, within about 3 | 230 | 47 | 17 | 124 | 15 | 15 | 12 |
 | FOR-ARPIT calls 1-20 | 20 | 17 | 0 | 2 (19's D228, 20) | 0 | 0 | 1 (call 7) |
 | FOR-ARPIT Q1-Q8 | 8 | 7 | 0 | 0 | 0 | 0 | 1 (Q7) |
 | FOR-ARPIT section 4 rows | 13 | 5 | 8 | 0 | 0 | 0 | 0 |
 | FOR-ARPIT section 6 items | 4 | 2 | 0 | 2 | 0 | 0 | 0 |
 | R14 D1-D7 | 7 | 7 | 0 | 0 | 0 | 0 | 0 |
-| Round 14's final review, R14R 1-9 | 9 | 5 | 1 | 0 | 0 | 0 | 3 |
+| Round 14's final review, R14R 1-9 | 9 | 4 | 1 | 0 | 0 | 0 | 4 |
 
 The D counts are by the labels above, each id once by its main label; a conflict that is also superseded in part
-counts as a conflict. U11 (the entity group) and U12 (a default's purity) have no single D id.
+counts as a conflict. U11 (the entity group) and U12 (a default's purity) have no single D id. Pass 2 (the review's
+findings) moved D2, D13, D35 and D136 into the record (D2 decided; the rest agent), D30, D48's wait, D94 and D139 to
+conflicts (U16, U6), and R14R 7 to U17; U18 batches the proposed names. D48 counts as recorded (its rule) and D95
+stays recorded.
