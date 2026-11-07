@@ -1205,8 +1205,9 @@ export const round4Scenarios: readonly Scenario[] = [
     actor: AT,
     cites: ["D57"],
     run(c) {
-      const r = searchOdd(c.make, { depth: 2, maxStates: 800, deadlineMs: 6_000 });
+      const r = searchOdd(c.make, { depth: 2, maxStates: 800 });
       c.eq("no oracle failed", r.failure ?? "none", "none");
+      c.eq("it ends on its state bound, not a clock: the verdict and the depth it completed", [r.verdict, r.depthCompleted], ["completed", 2]);
       c.yes("it searched", r.states > 30);
     },
   },

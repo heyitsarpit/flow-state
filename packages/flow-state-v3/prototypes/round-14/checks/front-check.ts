@@ -1,14 +1,16 @@
 // Round 11, review H3, M1, M3, M6: what the front end must compile, pinned by its output, and the data contract run on every typed machine the suite boots.
 // Gated by mutate-one.ts, as every `checks/*.ts` of a round. bun round-11/checks/front-check.ts. Exits 1 on any failure, and on a corruption it fails to see.
-import { Context, Effect, Schema } from "effect";
 import type { Api } from "../../conformance/fake-world.ts";
 import type { Alternative, Compiled, Fragment, Node } from "../../conformance/fixtures/compiled.ts";
-import { legacySlots } from "../../conformance/legacy.ts";
-import { definition, deny, Flow, machine, subroutine, trait, transaction } from "../../conformance/compile/index.ts";
-import { CompiledData, toData } from "../codec/codec.ts";
-import { seal } from "../gate.ts";
-import { pairs } from "../typed/pairs.ts";
+import { checkItems, stated } from "../../conformance/verdicts/state.ts";
 
+await stated("checks/front-check.ts", async () => {
+const { Context, Effect, Schema } = await import("effect");
+const { legacySlots } = await import("../../conformance/legacy.ts");
+const { definition, deny, Flow, machine, subroutine, trait, transaction } = await import("../../conformance/compile/index.ts");
+const { CompiledData, toData } = await import("../codec/codec.ts");
+const { seal } = await import("../gate.ts");
+const { pairs } = await import("../typed/pairs.ts");
 class ProbeClock extends Context.Service<ProbeClock, { readonly now: () => number }>()("Probe/Clock") {}
 
 const fails: string[] = [];
@@ -326,4 +328,5 @@ eq("OD28: a listen entry may not be Flow.ignore", said(() => igMachine({ domain:
 
 for (const f of fails) console.log(`FAIL  ${f}`);
 console.log(`${fails.length ? "FRONT FAIL" : "FRONT PASS"}  ${pins} pins, ${machines} typed machines through CompiledData and the structure check, ${attacks.length} corruptions seen`);
-process.exit(fails.length ? 1 : 0);
+return checkItems("front", fails);
+});

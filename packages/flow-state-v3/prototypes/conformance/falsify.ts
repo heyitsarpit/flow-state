@@ -1,66 +1,96 @@
 // D132: a green must be able to go red. Every gate, on runtimes and copies known to be broken. Any that stays green fails this. bun falsify.ts --runtime ../round-10/adapter.ts [--quick]
 // The other side, the same gates green on the real runtime, is run here too, at the same small depth, so a red below is about the breakage.
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
-import { CLOCK_TRIP, judged, watched } from "./watch.ts";
+import { stated } from "./verdicts/state.ts";
 
+const SEARCH_EXPECT: Readonly<Record<string, string>> = { odd: "inconclusive", session: "inconclusive" };
+
+await stated("falsify", async (scope) => {
+const { SCRIPT, SEARCH, SUITE } = await import("./limits.ts");
+const { describe, outcome } = await import("./verdicts/read.ts");
+const { final, job } = await import("./verdicts/runner.ts");
+const { applyEdits, check, copyOf } = await import("./verdicts/snapshot.ts");
+const { spawnRun } = await import("./verdicts/spawn.ts");
+const { isScored } = await import("./verdicts/verdict.ts");
+type Item = import("./verdicts/verdict.ts").Item;
+type Reading = import("./verdicts/read.ts").Reading;
 const here = import.meta.dir;
 const argIdx = process.argv.indexOf("--runtime");
 const runtimeArg = argIdx < 0 ? "../round-13/adapter.ts" : process.argv[argIdx + 1]!;
 const runtime = resolve(here, runtimeArg);
 const roundDir = dirname(runtime);
+const tree = basename(roundDir);
 const quick = process.argv.includes("--quick");
 // Each part fits a 5-minute command. No `--part`: all of them.
 const partArg = process.argv.indexOf("--part");
 const part = (x: string) => partArg < 0 || process.argv[partArg + 1] === x;
+const pi = process.argv.indexOf("--parallel");
+const parallel = Math.min(8, Math.max(1, pi < 0 ? 1 : Number(process.argv[pi + 1]) || 1));
 const bad: string[] = [];
-const say = (ok: boolean, what: string, detail = "") => {
+const items: Item[] = [];
+// A check reads finished runs only. A run the machine ended (a time kill, a memory kill near its limit, a signal, a broken contract) states
+// nothing: the check is unknown, never a catch.
+const say = (ok: boolean, what: string, detail = "", from: readonly Reading[] = []) => {
+  const lost = from.filter((r) => r.answer === "none");
+  if (lost.length) {
+    console.log(`UNKN ${what}  ${describe(lost[0]!)}`);
+    items.push({ kind: "check", name: what, outcome: "unknown", why: describe(lost[0]!) });
+    return;
+  }
   console.log(`${ok ? "ok  " : "BAD "} ${what}${detail ? `  ${detail}` : ""}`);
   if (!ok) bad.push(what);
+  items.push({ kind: "check", name: what, outcome: ok ? "pass" : "fail", why: ok ? "" : detail.slice(0, 300) });
 };
-// Rule 73: FRAG-15's search reaches more states (its grace timers and use counts make them distinct), and the suite peaks near 1.75 GB.
-// A run whose answer was the load (a time kill, a settle stopped by the clock) is run again alone (`judged`). If it still is, nothing it says
-// counts: its FAIL lines are no catch, and the part fails as unknown.
-const unknowns: string[] = [];
-const run = async (cmd: string[], env: Record<string, string> = {}, cwd = here) => {
-  const r = await judged(cmd, { rssMb: 2000, seconds: 200, capture: true, env, cwd });
-  if (r.unknown !== undefined || r.killed === "time" || r.stdout.includes(CLOCK_TRIP)) unknowns.push(`${cmd.slice(1, 3).join(" ")} ${cwd === here ? "" : cwd}`.trim());
-  return { ...r, stdout: r.stdout.split("\n").filter((l) => !l.includes(CLOCK_TRIP)).join("\n") };
+const runner = scope.runner({ slots: parallel, mb: parallel * SUITE.size.peakMb, budgetS: null });
+const run = async (gate: string, cmd: string[], env: Record<string, string> = {}, cwd = here, b = SUITE) =>
+  final(await runner.run(job(`${gate} ${cmd.slice(1, 4).join(" ")}`, { gate, cmd, cwd, env, limits: b.limits, contract: "gate" }, b.size)));
+const scored = (r: Reading) => (r.answer === "stated" ? r.verdict.items.filter(isScored) : []);
+const cases = (r: Reading) => scored(r).filter((x) => x.kind === "case");
+const outputs = new Map<Reading, Set<string>>();
+const passedNames = (r: Reading) => {
+  let bad = outputs.get(r);
+  if (!bad) outputs.set(r, (bad = new Set(scored(r).filter((x) => x.kind === "output" && x.outcome !== "pass").map((x) => x.name))));
+  return cases(r).filter((x) => x.outcome === "pass" && !bad.has(x.name)).map((x) => x.name);
 };
+const failLines = (r: Reading) => cases(r).filter((x) => x.outcome === "fail").map((x) => `${x.name}\t${x.why}`);
+const tally = (r: Reading) => (r.answer === "stated" ? `${passedNames(r).length}/${cases(r).length} pass` : r.answer === "bound" ? "killed by memory" : "no verdict");
+const red = (r: Reading) => r.answer === "bound" || (r.answer === "stated" && outcome(r) === "fail");
+const lockOf = (r: Reading) => scored(r).find((x) => x.kind === "lock");
+const unloggedIn = (r: Reading) => ((lockOf(r)?.detail as { unlogged?: readonly string[] } | undefined)?.unlogged ?? []) as readonly string[];
+const searchOf = (r: Reading) => scored(r).find((x) => x.kind === "search")?.detail as { verdict?: string; failure?: string; deadActions?: readonly string[] } | undefined;
 
 // ── The watchdog itself.
 if (part("watch")) {
-  const a = await watched(["sh", "-c", `bun -e "const a=[];for(let i=0;i<40;i++)a.push(new Uint8Array(32e6).fill(1));await Bun.sleep(9000)" & wait`], { rssMb: 300, seconds: 30, capture: true });
-  say(a.killed === "rss", "watch: a grandchild's memory counts", `peak ${a.peakMb} MB, killed ${a.killed}`);
-  const b = await watched(["sh", "-c", "sleep 79 & wait"], { rssMb: 300, seconds: 1, capture: true });
-  const left = Bun.spawnSync(["pgrep", "-fx", "sleep 79"]).stdout.toString().trim();
-  say(b.killed === "time" && left === "", "watch: a kill ends the tree", left ? `left: ${left}` : "");
-  const c = await watched(["sh", "-c", "sleep 78 & exit 0"], { rssMb: 300, seconds: 5, capture: true });
-  const left2 = Bun.spawnSync(["pgrep", "-fx", "sleep 78"]).stdout.toString().trim();
-  say(left2 === "", "watch: an orphan after a normal exit is ended", `leftovers ${c.leftovers}`);
+  const stop = new AbortController().signal;
+  const launch = (cmd: string[], mb: number, seconds: number) => ({ gate: "watch", cmd, cwd: here, env: {}, limits: { mb, seconds }, contract: "tool" as const, run: "watch", referenceMb: null, pool: { slots: 1, mb }, alone: false });
+  const a = await spawnRun(launch(["sh", "-c", `bun -e "const a=[];for(let i=0;i<40;i++)a.push(new Uint8Array(32e6).fill(1));await Bun.sleep(9000)" & wait`], 300, 30), { echo: false, stop });
+  say(a.kind === "ended" && a.killed && a.decided === "rss", "watch: a grandchild's memory counts", a.kind === "ended" ? `killed ${a.decided}` : a.message);
+  const b = await spawnRun(launch(["sh", "-c", "sleep 79 & wait"], 300, 1), { echo: false, stop });
+  const left = Bun.spawnSync(["pgrep", "-fx", "sleep 79"], { stdin: "ignore" }).exitCode === 0;
+  say(b.kind === "ended" && b.decided === "time" && !left, "watch: a kill ends the tree", left ? "left: sleep 79" : "");
+  await spawnRun(launch(["sh", "-c", "sleep 78 & exit 0"], 300, 5), { echo: false, stop });
+  const left2 = Bun.spawnSync(["pgrep", "-fx", "sleep 78"], { stdin: "ignore" }).exitCode === 0;
+  say(!left2, "watch: an orphan after a normal exit is ended");
 }
 
 // ── The suite on broken runtimes.
 const suite = (rt: string, env: Record<string, string> = {}, extra: string[] = []) =>
-  run(["bun", "main.ts", "--round", "99", "--no-catalog", "--runtime", rt, ...extra], env);
-const summary = (out: string) => /SUMMARY\s+(\d+)\/(\d+)/.exec(out);
+  run("suite", ["bun", "main.ts", "--round", "99", "--no-catalog", "--runtime", rt, ...extra], env);
 // Stage J: `--part suite` is twelve suite runs, about 7 minutes. `suite1` (null, three broken), `suite2` (four broken) and `suite3` (the
 // no-output oracles and `--only` of nothing) each fit a 5-minute command; `suite` is still all three.
 const BROKEN = ["constantHash", "lyingFatal", "noEvidence", "noWaits", "bogusIssue", "lyingReplay", "junkDiskKey"];
 const suitePart = (n: 1 | 2 | 3) => part("suite") || part(`suite${n}`);
 if (suitePart(1)) {
   const n = await suite("./null-adapter.ts");
-  const m = summary(n.stdout);
-  const passed = n.stdout.split("\n").filter((l) => l.startsWith("PASS")).map((l) => l.slice(4).split("\t")[0]!.trim());
-  say(n.code !== 0 && m !== null, "suite: red on null, with a verdict", m ? `${m[1]}/${m[2]} pass` : "no SUMMARY");
-  say(passed.length === 0, "suite: no case passes on no runtime", passed.join(" "));
+  const passed = passedNames(n);
+  say(n.answer === "stated" && outcome(n) === "fail", "suite: red on null, with a verdict", tally(n), [n]);
+  say(n.answer === "stated" && passed.length === 0, "suite: no case passes on no runtime", passed.join(" "), [n]);
 }
 for (const [i, k] of (quick ? BROKEN.slice(0, 2) : BROKEN).entries()) {
   if (!suitePart(i < 3 ? 1 : 2)) continue;
   const r = await suite("./broken-adapter.ts", { FLOW_BROKEN: k, FLOW_BROKEN_BASE: runtime });
-  const m = summary(r.stdout);
-  say(r.code !== 0 && m !== null && m[1] !== m[2], `suite: red on ${k}`, m ? `${m[1]}/${m[2]} pass` : "no SUMMARY");
+  say(r.answer === "stated" && outcome(r) === "fail" && passedNames(r).length !== cases(r).length, `suite: red on ${k}`, tally(r), [r]);
 }
 if (suitePart(3)) {
   // A named oracle must see these too, not only the output: run with no output compare, and count.
@@ -69,52 +99,46 @@ if (suitePart(3)) {
   const NO_BOOT = ["REV7-M2/two-machines-under-one-id-is-an-error", "REV8-PINS/D77-a-closure-the-seal-does-not-know-is-an-error", "R10-RUNTIME/a-state-named-self-is-refused-at-the-seal"];
   for (const [k, allowed] of [["bogusIssue", [...SEARCHES_OWN, ...NO_BOOT]], ["lyingReplay", SEARCHES_OWN]] as const) {
     const r = await suite("./broken-adapter.ts", { FLOW_BROKEN: k, FLOW_BROKEN_BASE: runtime }, ["--no-output"]);
-    const passed = r.stdout.split("\n").filter((l) => l.startsWith("PASS")).map((l) => l.slice(4).split("\t")[0]!.trim());
-    const extra = passed.filter((p) => !(allowed as readonly string[]).includes(p));
-    say(summary(r.stdout) !== null && extra.length === 0, `oracles: every case sees ${k} (D130)`, extra.join(" "));
+    const extra = passedNames(r).filter((p) => !(allowed as readonly string[]).includes(p));
+    say(r.answer === "stated" && extra.length === 0, `oracles: every case sees ${k} (D130)`, extra.join(" "), [r]);
   }
 }
 if (suitePart(3)) {
   const r = await suite("./broken-adapter.ts", { FLOW_BROKEN: "x", FLOW_BROKEN_BASE: join(here, "null-adapter.ts") }, ["--only", "NOPE-99"]);
-  say(r.code !== 0, "suite: --only of nothing is red");
+  say(red(r), "suite: --only of nothing is red", "", [r]);
 }
 
-// ── Searches: exit 1 on no runtime and on a constant hash, 0 on the real one.
+// ── Searches: by their state budget and the verdict each states on the real runtime. Red on no runtime and on a constant hash means
+// `failed` or `vacuous`, not merely not green.
 const SEARCHES = ["pay", "like", "chain", "crash", "cross", "frag", "odd", "session", "repairing", "listen.load", "fragstore.row", "flush.bare.tight", "flush.serialize.directed", "flush.bare.capture"];
+const EXPECT: Record<string, string> = Object.fromEntries(SEARCHES.map((w) => [w, SEARCH_EXPECT[w] ?? "completed"]));
 const search = (w: string, rt: string, env: Record<string, string> = {}, depth = "4") =>
-  run(["bun", "search/run.ts", "--which", w, "--runtime", rt, "--depth", depth, "--states", "4000", "--seconds", "60"], env);
+  run("search", ["bun", "search/run.ts", "--which", w, "--runtime", rt, "--depth", depth, "--states", "4000", "--expect", EXPECT[w]!], env, here, SEARCH);
+const redSearch = (r: Reading) => ["failed", "vacuous"].includes(searchOf(r)?.verdict ?? "");
 if (part("search")) for (const w of quick ? SEARCHES.slice(0, 3) : SEARCHES) {
   const nul = await search(w, "../null-adapter.ts");
-  say(nul.code !== 0, `search ${w}: not green on null`, /"verdict": "(\w+)"/.exec(nul.stdout)?.[1] ?? "crash");
+  say(redSearch(nul), `search ${w}: not green on null`, searchOf(nul)?.verdict ?? tally(nul), [nul]);
   const con = await search(w, "../broken-adapter.ts", { FLOW_BROKEN: "constantHash", FLOW_BROKEN_BASE: runtime });
-  say(con.code !== 0, `search ${w}: not green on a constant hash`, /"verdict": "(\w+)"/.exec(con.stdout)?.[1] ?? "crash");
+  say(redSearch(con), `search ${w}: not green on a constant hash`, searchOf(con)?.verdict ?? tally(con), [con]);
   const real = await search(w, runtime);
-  const dead = /"deadActions": \[([^\]]*)\]/.exec(real.stdout)?.[1]?.replace(/\s+/g, " ");
+  const dead = searchOf(real)?.deadActions?.join(" ");
   // Known to fail, for entities: H2's class, on rounds 7 to 9 (RESULTS). It must go on failing for that reason until entities answer it.
-  if (w === "listen.load") say(real.code !== 0 && real.stdout.includes("silently wrong"), "search listen.load: fails as known, H2's class");
-  else say(real.code === 0, `search ${w}: green on the real runtime`, `${/"verdict": "(\w+)"/.exec(real.stdout)?.[1] ?? real.stdout.slice(-200)}${dead ? ` dead:${dead}` : ""}`);
+  if (w === "listen.load") say(searchOf(real)?.verdict === "failed" && (searchOf(real)?.failure ?? "").includes("silently wrong"), "search listen.load: fails as known, H2's class", "", [real]);
+  else say(real.answer === "stated" && outcome(real) === "pass", `search ${w}: green on the real runtime`, `${searchOf(real)?.verdict ?? tally(real)}${dead ? ` dead: ${dead}` : ""}`, [real]);
 }
 
-// ── Gates by tampering a copy: compare, the lock, the log.
-const scratch = mkdtempSync(join(tmpdir(), "flow-falsify-"));
-// Re-check (stage E): the copies need `node_modules` with `tsc`. Up from here first; a fresh worktree has none, so then the main checkout's,
-// by git's common dir. With neither, say so plainly instead of three "no tsc found" BADs.
-const nodeModules = (() => {
-  for (let d = here; dirname(d) !== d; d = dirname(d)) if (existsSync(join(d, "node_modules/.bin/tsc"))) return join(d, "node_modules");
-  const common = Bun.spawnSync(["git", "rev-parse", "--path-format=absolute", "--git-common-dir"], { cwd: here, stdin: "ignore" }).stdout.toString().trim();
-  const main = common && join(dirname(common), "node_modules");
-  if (main && existsSync(join(main, ".bin/tsc"))) return main;
-  return undefined;
-})();
-if (nodeModules) symlinkSync(nodeModules, join(scratch, "node_modules"));
-else if (part("tamper")) say(false, "tamper: no node_modules with tsc above this checkout or in its main checkout; run `nub install`");
-const conf = join(scratch, "conformance");
-const round = join(scratch, basename(roundDir));
+// ── Gates by tampering a copy: compare, the lock, the log. Each copy is of one snapshot taken here.
+const snap = scope.snapshot([here, roundDir]);
+let conf = "";
+let round = "";
+let closeCopy = () => {};
 const reset = () => {
-  rmSync(conf, { recursive: true, force: true });
-  rmSync(round, { recursive: true, force: true });
-  cpSync(here, conf, { recursive: true });
-  cpSync(roundDir, round, { recursive: true });
+  closeCopy();
+  const c = copyOf(snap, tree, []);
+  if (c._tag === "Failure") throw new Error(c.failure);
+  conf = c.success.tree("conformance");
+  round = c.success.tree(tree);
+  closeCopy = c.success.close;
 };
 const edit = (file: string, f: (s: string) => string) => {
   const t = readFileSync(file, "utf8");
@@ -122,79 +146,79 @@ const edit = (file: string, f: (s: string) => string) => {
   if (n === t) throw new Error(`falsify: edit did nothing: ${file}`);
   writeFileSync(file, n);
 };
-const scratchSuite = (only: string) => run(["bun", "main.ts", "--round", "99", "--no-catalog", "--only", only, "--runtime", `../${basename(roundDir)}/adapter.ts`], {}, conf);
+const scratchSuite = (only: string) => run("suite", ["bun", "main.ts", "--round", "99", "--no-catalog", "--only", only, "--runtime", `../${tree}/adapter.ts`], {}, conf);
+const checkWhy = (r: Reading) => scored(r).map((x) => x.why).join("\n");
 try {
   if (part("tamper")) {
   reset();
   // Round 11 (D205): typed Pay lives in `conformance/typed/`, beside every typed fixture.
   edit(join(conf, "typed/pay.ts"), (s) => s.replace("target: S.CARD", "target: S.IDLE"));
-  const t = await run(["bun", join(round, "typed/compare.ts")], {}, conf);
-  say(t.code !== 0, "typed compare: red on a changed target");
+  const t = await run("typed/compare.ts", ["bun", join(round, "typed/compare.ts")], {}, conf, SCRIPT);
+  say(red(t), "typed compare: red on a changed target", "", [t]);
   // Round 11, review H2: the typed fixtures the suite boots are under the lock. A one-token change to one is red by the lock.
   reset();
   edit(join(conf, "typed/round7.ts"), (s) => s.replace("Go: { target: St.W,", "Go: { target: St.B,"));
   const ty = await scratchSuite("PAY-01");
-  say(ty.code !== 0 && /unlogged expectation changes: [^;]*file:typed\/round7\.ts/.test(ty.stdout), "lock: a one-token change to a typed fixture is red");
+  say(red(ty) && unloggedIn(ty).includes("file:typed/round7.ts"), "lock: a one-token change to a typed fixture is red", "", [ty]);
 
   // H4: weaken a case, paste the hash the run prints, into the lock. No log line.
   reset();
   edit(join(conf, "scenarios/pay.scenario.ts"), (s) => s.replace('c.eq("charges", c.r.truth().charges, 0);', ""));
-  const h = await run(["bun", "main.ts", "--round", "99", "--no-catalog", "--only", "PAY-01", "--hashes", "--runtime", `../${basename(roundDir)}/adapter.ts`], {}, conf);
+  const h = await run("suite", ["bun", "main.ts", "--round", "99", "--no-catalog", "--only", "PAY-01", "--hashes", "--runtime", `../${tree}/adapter.ts`], {}, conf);
   let lock = readFileSync(join(conf, "expected.lock"), "utf8");
-  for (const l of h.stdout.split("\n").filter((x) => x.startsWith("HASH "))) {
-    const [, id, hh] = /^HASH (\S+) hash:(\S+)/.exec(l)!;
-    lock = lock.replace(new RegExp(`^${id!.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")} .*$`, "m"), () => `${id} ${hh}`);
-  }
+  const pasted = Object.entries(((lockOf(h)?.detail as { hashes?: Record<string, string> } | undefined)?.hashes ?? {}) as Record<string, string>);
+  for (const [id, hh] of pasted) lock = lock.replace(new RegExp(`^${id.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")} .*$`, "m"), () => `${id} ${hh}`);
   writeFileSync(join(conf, "expected.lock"), lock);
   const after = await scratchSuite("PAY-01");
-  say(after.code !== 0 && /unlogged expectation changes: (?!none)/.test(after.stdout), "lock: a pasted hash with no log line is red");
+  say(pasted.length > 0 && red(after) && unloggedIn(after).length > 0, "lock: a pasted hash with no log line is red", "", [h, after]);
 
   // H5: a removed newline lets a comment swallow an oracle.
   reset();
   // Found by the oracle it swallows, not by the comment's words, which change.
   edit(join(conf, "scenarios/ctx.ts"), (s) => s.replace(/(\/\/[^\n]*)\n(\s*if \(!q\.idle\) throw)/, "$1 $2"));
   const j = await scratchSuite("PAY-01");
-  say(j.code !== 0 && /unlogged expectation changes: (?!none)/.test(j.stdout), "lock: a comment swallowing an oracle is red");
+  say(red(j) && unloggedIn(j).length > 0, "lock: a comment swallowing an oracle is red", "", [j]);
 
   // A bulk reason: the same reason on more than three lines.
   reset();
   const ids = ["PAY-01", "PAY-02", "PAY-03", "PAY-04"];
   edit(join(conf, "expected-changes.log"), (s) => s + ids.map((i) => `${i} hash:000000000000 | same words\n`).join(""));
   const k = await scratchSuite("PAY-01");
-  say(k.code !== 0, "log: a line whose hash is not the current one is red");
+  say(red(k), "log: a line whose hash is not the current one is red", "", [k]);
   // Re-check M2''' (stage F): the reference model is under the lock. The re-check's one-token tamper is red by the lock.
   reset();
   edit(join(conf, "reference/model.ts"), (s) => s.replace('if (o.fragment === undefined) return "yes";', 'if (o.fragment === undefined) return "unknown";'));
   const rf = await scratchSuite("PAY-01");
-  say(rf.code !== 0 && /unlogged expectation changes: [^;]*file:reference\/model\.ts/.test(rf.stdout), "lock: a one-token change to reference/model.ts is red");
+  say(red(rf) && unloggedIn(rf).includes("file:reference/model.ts"), "lock: a one-token change to reference/model.ts is red", "", [rf]);
   // Re-audit H2: D91's type pins. A directive removed and its refusal widened with `as any` compiles; the check and the lock must both see it.
-  const typesCheck = () => run(["bun", join(round, "checks/types-check.ts")], {}, conf);
+  const typesCheck = () => run("checks/types-check.ts", ["bun", join(round, "checks/types-check.ts")], {}, conf, SCRIPT);
   reset();
   edit(join(round, "typed/type-tests.ts"), (s) => s.replace(/\/\/ @ts-expect-error a key names a field that is not the input's\n(.*)key: \["b"\],/, '$1key: ["b"] as any,'));
-  say((await typesCheck()).code !== 0, "types: a pin removed with its refusal widened is red");
+  const widened = await typesCheck();
+  say(red(widened), "types: a pin removed with its refusal widened is red", "", [widened]);
   const w = await scratchSuite("PAY-01");
-  say(w.code !== 0 && /unlogged expectation changes: [^;]*round:typed\/type-tests\.ts/.test(w.stdout), "lock: a type-only change to typed/ is red");
+  say(red(w) && unloggedIn(w).includes("round:typed/type-tests.ts"), "lock: a type-only change to typed/ is red", "", [w]);
   reset();
   edit(join(round, "typed/type-tests.ts"), (s) => s.replace("// @ts-expect-error a key names a field that is not the input's\n", ""));
   const d = await typesCheck();
-  say(d.code !== 0 && /tsc exit/.test(d.stdout), "types: a refusal with no directive fails tsc");
+  say(red(d) && /tsc exit/.test(checkWhy(d)), "types: a refusal with no directive fails tsc", "", [d]);
   // Re-check M1', D156: the directive's words moved into a comment that only mentions them, and its refusal widened. The count is kept; the words are not.
   reset();
   edit(join(round, "typed/type-tests.ts"), (s) => s.replace(/\/\/ @ts-expect-error a key names a field that is not the input's\n(.*)key: \["b"\],/, '// see the @ts-expect-error notes below\n$1key: ["b"] as any,'));
   const moved = await typesCheck();
-  say(moved.code !== 0 && /no @ts-expect-error directive pins: a key names/.test(moved.stdout), "types: a directive turned into a mention is red, by its words");
+  say(red(moved) && /no @ts-expect-error directive pins: a key names/.test(checkWhy(moved)), "types: a directive turned into a mention is red, by its words", "", [moved]);
   // Re-check L1: a typo under a kept directive. The directive and its words stay; its line now errors for the typo, not its refusal.
   reset();
   edit(join(round, "typed/type-tests.ts"), (s) => s.replace('key: ["b"], concurrency: "reject"', 'key: ["a"], concurrency: "rejct"'));
   const typo = await typesCheck();
-  say(typo.code !== 0 && /errors for something else/.test(typo.stdout), "types: a typo under a kept directive is red, by its error");
+  say(red(typo) && /errors for something else/.test(checkWhy(typo)), "types: a typo under a kept directive is red, by its error", "", [typo]);
   reset();
   const tc = await typesCheck();
-  say(tc.code === 0, "control: the types check is green untampered", tc.code === 0 ? "" : tc.stdout.slice(-300));
+  say(tc.answer === "stated" && outcome(tc) === "pass", "control: the types check is green untampered", outcome(tc) === "pass" ? "" : describe(tc), [tc]);
   // A green control in the same copy, so the reds above are about the tamper.
   reset();
   const ctl = await scratchSuite("PAY-01");
-  say(ctl.code === 0, "control: the copy is green untampered", ctl.code === 0 ? "" : ctl.stdout.slice(-300));
+  say(ctl.answer === "stated" && outcome(ctl) === "pass", "control: the copy is green untampered", outcome(ctl) === "pass" ? "" : describe(ctl), [ctl]);
   }
   // ── Re-audit H1, M3: named oracles alone (`--no-output`) must kill these, each in at least `min` cases.
   if (part("mutants")) {
@@ -211,11 +235,10 @@ try {
   for (const [id, edits, min] of NAMED) {
     reset();
     // As mutate.ts reads a find: whitespace-insensitive, so `vp fmt` does not rot the list.
-    const flex = (find: string) => new RegExp(find.trim().split(/\s+/).map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("\\s*"));
-    for (const [f, find, rep] of edits) edit(join(round, f), (s) => s.replace(flex(find), () => rep));
-    const r = await run(["bun", "main.ts", "--round", "99", "--no-catalog", "--no-output", "--runtime", `../${basename(roundDir)}/adapter.ts`], {}, conf);
-    const named = r.stdout.split("\n").filter((l) => l.startsWith("FAIL") && !l.split("\t")[1]?.startsWith("output:")).map((l) => l.slice(4).split("\t")[0]!.trim());
-    say(summary(r.stdout) !== null && named.length >= min, `mutant ${id}: killed by named oracles in ${min}+ case(s)`, `${named.length}: ${named.slice(0, 4).join(" ")}`);
+    for (const [f, find, rep] of edits) edit(join(round, f), (s) => applyEdits(s, find, rep) ?? s);
+    const r = await run("suite", ["bun", "main.ts", "--round", "99", "--no-catalog", "--no-output", "--runtime", `../${tree}/adapter.ts`], {}, conf);
+    const named = cases(r).filter((x) => x.outcome === "fail").map((x) => x.name);
+    say(r.answer === "stated" && named.length >= min, `mutant ${id}: killed by named oracles in ${min}+ case(s)`, `${named.length}: ${named.slice(0, 4).join(" ")}`, [r]);
   }
   }
   // ── D155: lying runtimes, a standing part. For each self-report an oracle reads (convergence-10's inventory), a runtime that says it falsely
@@ -299,7 +322,6 @@ try {
       ["a4p.refused-turn", "A4' a false turn pays a refusal", [["turn.ts", "enqueue(tx, { ...rest, redelivered: true });", 'note(tx, "turn", { actor: item.actor, event: tag, from: "a", to: "a" });']], "(j) refused once"],
       ["ref.binding-first-copy", "the runtime's `binding` ignores the subject; delivery is right", [["adapter.ts", "return r && bindingIn(byId, r, op, subject);", "return r && bindingIn(byId, r, op, []) !== undefined ? bindingIn(byId, r, op, []) : r && (() => { let s: any; walkIncs(r.root, (i: any) => { if (i.frag === byId[r.machine]!.ops[op]?.fragment && !i.frozen) s ??= i.subject; }); return s ? bindingIn(byId, r, op, s) : bindingIn(byId, r, op, subject); })();"], ["adapter.ts", 'import { bindingIn } from "./turn.ts";', 'import { bindingIn } from "./turn.ts"; import { walkIncs } from "./inc.ts";']], "(ref) binding with subject"],
     ];
-    const flex = (find: string) => new RegExp(find.trim().split(/\s+/).map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("\\s*"));
     // Stage G: the stage F re-check's lies (`conformance-audit/recheck10f-scripts/run-mut.ts`). Each is red by the observed recipient, not
     // by anything the runtime says of the delivery: the wrong actor with `at: []` said truthfully, and the wrong copy with the right `at`.
     const WA = (cond: string) => `const a0 = getActor(tx.w.actors, item.actor); const other = a0 && item.attempt && ${cond} ? (tx.w.actors as any).flat().filter(Boolean).flatMap((b: any) => Object.values(b)).find((x: any) => x.machine === a0.machine && x.key !== a0.key) : undefined; const a = other ?? a0; const lane = tx.w.lanes[laneId];`;
@@ -410,8 +432,6 @@ try {
     // recorded cases: the claim checked is the same ("red by its oracle"), on fewer cases. A lie with no record, or one whose recorded cases no longer go red,
     // runs the whole suite instead, so a stale record costs time and never passes a lie. `--parallel N` (N <= 8) runs N lies at once, each in its own copy.
     const full = process.argv.includes("--full");
-    const pi = process.argv.indexOf("--parallel");
-    const parallel = Math.min(8, Math.max(1, pi < 0 ? 1 : Number(process.argv[pi + 1]) || 1));
     const RECORDS = join(here, "lie-cases");
     const record: Record<string, readonly string[]> = {};
     if (existsSync(RECORDS)) for (const f of readdirSync(RECORDS).filter((x) => x.endsWith(".json")).sort()) Object.assign(record, JSON.parse(readFileSync(join(RECORDS, f), "utf8")));
@@ -422,59 +442,57 @@ try {
       mkdirSync(RECORDS, { recursive: true });
       for (const [k, v] of Object.entries(recorded)) writeFileSync(join(RECORDS, `${k}.json`), `${JSON.stringify({ [k]: v })}\n`);
     };
-    let copies = 0;
-    const copy = () => {
-      const d = join(scratch, `lie-${copies++}`);
-      cpSync(here, join(d, "conformance"), { recursive: true });
-      cpSync(roundDir, join(d, basename(roundDir)), { recursive: true });
-      if (nodeModules) symlinkSync(nodeModules, join(d, "node_modules"));
-      return d;
-    };
     const named = async (edits: Edits, cases?: readonly string[]) => {
-      const d = copy();
-      try {
-        for (const [f, find, rep] of edits) edit(join(d, basename(roundDir), f), (s) => s.replace(flex(find), () => rep));
-        // `--cases A,B`: only these cases (a diagnosis, never a gate run). Prints their FAIL lines too.
-        const ci = process.argv.indexOf("--cases");
-        const only = ci >= 0 ? process.argv[ci + 1]! : cases?.join(",");
-        const r = await run(["bun", "main.ts", "--round", "99", "--no-catalog", "--no-output", ...(only ? ["--only", only] : []), "--runtime", `../${basename(roundDir)}/adapter.ts`], {}, join(d, "conformance"));
-        if (ci >= 0 || process.env["FALSIFY_LIST"]) console.log(r.stdout.split("\n").filter((l) => l.startsWith("FAIL")).map((l) => l.slice(0, 300)).join("\n"));
-        return { r, fails: r.stdout.split("\n").filter((l) => l.startsWith("FAIL") && !l.split("\t")[1]?.startsWith("output:")) };
-      } finally {
-        rmSync(d, { recursive: true, force: true });
-      }
+      // `--cases A,B`: only these cases (a diagnosis, never a gate run). Prints their FAIL lines too.
+      const ci = process.argv.indexOf("--cases");
+      const only = ci >= 0 ? process.argv[ci + 1]! : cases?.join(",");
+      const r = final(
+        await runner.run({
+          name: "lie",
+          size: SUITE.size,
+          open: async () => {
+            const c = copyOf(snap, tree, edits);
+            if (c._tag === "Failure") throw new Error(c.failure);
+            const cwd = c.success.tree("conformance");
+            return { spec: { gate: "suite", cmd: ["bun", "main.ts", "--round", "99", "--no-catalog", "--no-output", ...(only ? ["--only", only] : []), "--runtime", `../${tree}/adapter.ts`], cwd, env: {}, limits: SUITE.limits, contract: "gate" }, close: c.success.close };
+          },
+        }),
+      );
+      if (ci >= 0 || process.env["FALSIFY_LIST"]) console.log(failLines(r).map((l) => `FAIL  ${l}`.slice(0, 300)).join("\n"));
+      return { r, fails: failLines(r) };
     };
-    const caseOf = (l: string) => l.slice(4).split("\t")[0]!.trim().split("/")[0]!;
-    const one = async ([id, about, edits, mark]: (typeof chosen)[number]) => {
+    const caseOf = (l: string) => l.split("\t")[0]!.trim().split("/")[0]!;
+    const caseName = (l: string) => l.split("\t")[0]!.trim();
+    type Said = readonly [ok: boolean, what: string, detail: string, from: readonly Reading[]];
+    const one = async ([id, about, edits, mark]: (typeof chosen)[number]): Promise<Said> => {
+      const rot = check(snap, tree, id, edits);
+      if (rot) return [false, `lie ${id} (${about}): ${rot.problem}`, rot.why, []];
       const cases = full ? undefined : record[id];
       let { r, fails } = await named(edits, cases?.length ? cases : undefined);
       let by = fails.filter((l) => l.includes(mark));
       let how = cases?.length ? `targeted, ${cases.length} case(s)` : "full";
-      if (cases?.length && by.length === 0) {
+      if (cases?.length && by.length === 0 && r.answer !== "none") {
         ({ r, fails } = await named(edits)); // a stale record: the whole suite decides
         by = fails.filter((l) => l.includes(mark));
         how = "full, the record was stale";
       }
-      if (by.length === 0 && fails.length === 0 && vacuous.has(id)) {
+      if (r.answer === "stated" && by.length === 0 && fails.length === 0 && vacuous.has(id)) {
         const p = await named(vacuous.get(id)!);
         const fired = p.fails.filter((l) => l.includes("ProbeFired"));
-        say(summary(p.r.stdout) !== null && fired.length === 0, `lie ${id} (${about}): vacuous, its trigger fires in no case`, fired.slice(0, 3).map((l) => l.slice(4).split("\t")[0]!.trim()).join(" "));
-        return;
+        return [p.r.answer === "stated" && fired.length === 0, `lie ${id} (${about}): vacuous, its trigger fires in no case`, fired.slice(0, 3).map(caseName).join(" "), [p.r]];
       }
-      if (how.startsWith("full") && by.length) {
+      if (r.answer === "stated" && how.startsWith("full") && by.length) {
         recorded[id] = [...new Set(by.map(caseOf))];
         save(); // after each lie, so a killed slice keeps what it learnt
       }
-      say(summary(r.stdout) !== null && by.length > 0, `lie ${id} (${about}): red by ${mark || "a named oracle"} [${how}]`, `${by.length} of ${fails.length}: ${by.slice(0, 3).map((l) => l.slice(4).split("\t")[0]!.trim()).join(" ")}`);
+      return [r.answer === "stated" && by.length > 0, `lie ${id} (${about}): red by ${mark || "a named oracle"} [${how}]`, `${by.length} of ${fails.length}: ${by.slice(0, 3).map(caseName).join(" ")}`, [r]];
     };
-    const queue = [...chosen];
-    await Promise.all(Array.from({ length: Math.min(parallel, queue.length) }, async () => {
-      for (let x = queue.shift(); x; x = queue.shift()) await one(x);
-    }));
+    const said = await Promise.all(chosen.map((x) => one(x)));
+    for (const s of said) say(...s);
   }
 } finally {
-  rmSync(scratch, { recursive: true, force: true });
+  closeCopy();
 }
-if (unknowns.length) say(false, `unknown under load, so these runs prove nothing: ${unknowns.join("; ")}`);
 console.log(`\nFALSIFY  ${bad.length ? `${bad.length} gate(s) stayed green or broke: ${bad.join("; ")}` : "every gate fails on what it should"}`);
-process.exit(bad.length ? 1 : 0);
+return items.length ? items : [{ kind: "check", name: "falsify", outcome: "fail" as const, why: "no part ran" }];
+});

@@ -71,7 +71,7 @@ const drain = (h: Harness) => {
 export const searchLike = (
   make: () => Harness,
   fixtures: readonly Fixture[],
-  opts: { depth: number; maxStates: number; deadlineMs: number },
+  opts: { depth: number; maxStates: number },
 ): Report => {
   const boot = withV(() => {
     const h = make();
@@ -84,7 +84,6 @@ export const searchLike = (
     actions: ALPHABET.map((a) => (a.name.startsWith("commit.") ? { ...a, on: commitBudget } : a)),
     depth: opts.depth,
     maxStates: opts.maxStates,
-    deadlineMs: opts.deadlineMs,
     extra: (s) => `${commitsIn(s)}`,
     edge(pre, post) {
       // S5: at most one Attempt on the wire per record. An interrupted send may still be open at the server; its re-send

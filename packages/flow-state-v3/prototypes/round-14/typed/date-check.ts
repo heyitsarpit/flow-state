@@ -1,10 +1,12 @@
 // Review H2: a typed `Schema.Date` must survive a reload. Goes through the adapter, as any runtime would. bun round-9/typed/date-check.ts
-import { Effect, Schema } from "effect";
-import { makeHarness } from "../../conformance/drive.ts";
 import type { Fixture } from "../../conformance/harness.ts";
-import { port } from "../adapter.ts";
-import { definition, Flow, machine, transaction } from "../../conformance/compile/index.ts";
+import { checkItems, stated } from "../../conformance/verdicts/state.ts";
 
+await stated("typed/date-check.ts", async () => {
+const { Effect, Schema } = await import("effect");
+const { makeHarness } = await import("../../conformance/drive.ts");
+const { port } = await import("../adapter.ts");
+const { definition, Flow, machine, transaction } = await import("../../conformance/compile/index.ts");
 const save = transaction({ id: "t/save", input: { id: Schema.String }, key: ["id"], concurrency: "reject", commit: () => Effect.void });
 const D = definition({
   id: "T/Date",
@@ -28,4 +30,5 @@ h.do({ reload: true });
 const m = h.read.memory(A) as any;
 const ok = m?.at instanceof Date && m.at.getTime() === 86_400_000 && Number.isNaN(m.n) && m.big === 2n;
 console.log(ok ? "PASS" : "FAIL", String(m?.at), m?.n, String(m?.big), JSON.stringify(h.read.issues()));
-process.exit(ok ? 0 : 1);
+return checkItems("date", ok ? [] : ["a typed Schema.Date, NaN or BigInt did not survive a reload"]);
+});

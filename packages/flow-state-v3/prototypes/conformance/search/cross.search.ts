@@ -66,7 +66,7 @@ const budget = (h: Harness) =>
 
 export const searchCross = (
   make: () => Harness,
-  opts: { depth: number; maxStates: number; deadlineMs: number },
+  opts: { depth: number; maxStates: number },
 ): Report => {
   const boot = withV(() => {
     const h = make();
@@ -79,7 +79,6 @@ export const searchCross = (
     actions: ALPHABET.map((a) => (a.name.startsWith("commit.") ? { ...a, on: budget } : a)),
     depth: opts.depth,
     maxStates: opts.maxStates,
-    deadlineMs: opts.deadlineMs,
     extra: (s) => `${commitsIn(s)}`,
     edge(_pre, post) {
       // R17: once unknown, never a definite ending for that Attempt (rule 17, rule 18, 2.7.13's restore row).

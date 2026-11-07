@@ -1,11 +1,13 @@
 // The typed Pay and fragments against the hand-flattened fixtures, as data: every target, token, member, schedule and path. A closure is compared by where it sits, not what
 // it does; what it does is the scenarios' job (main.ts --swap). bun round-9/typed/compare.ts
-import { payFixture } from "../../conformance/fixtures/pay.compiled.ts";
-import { payFullFixture } from "../../conformance/fixtures/pay-full.compiled.ts";
 import type { Api } from "../../conformance/fake-world.ts";
-import { Countdown, ThreeDS } from "../../conformance/typed/threeds.ts";
-import { typedPayFixture } from "../../conformance/typed/pay.ts";
+import { checkItems, stated } from "../../conformance/verdicts/state.ts";
 
+await stated("typed/compare.ts", async () => {
+const { payFixture } = await import("../../conformance/fixtures/pay.compiled.ts");
+const { payFullFixture } = await import("../../conformance/fixtures/pay-full.compiled.ts");
+const { Countdown, ThreeDS } = await import("../../conformance/typed/threeds.ts");
+const { typedPayFixture } = await import("../../conformance/typed/pay.ts");
 const api = new Proxy({}, { get: () => () => undefined }) as Api;
 const shape = (v: unknown, skip: ReadonlySet<string>): unknown => {
   if (typeof v === "function") return "(closure)";
@@ -56,4 +58,5 @@ const legitimate = (l: string) => {
 const unexplained = out.filter((l) => !legitimate(l));
 console.log(unexplained.join("\n"));
 console.log(`differences: ${out.length}; stated as legitimate: ${out.length - unexplained.length}; unexplained: ${unexplained.length}`);
-process.exit(unexplained.length ? 1 : 0);
+return checkItems("compare", unexplained);
+});

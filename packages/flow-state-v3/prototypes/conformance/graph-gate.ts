@@ -5,12 +5,15 @@
 // unmarked edge nobody took is listed: the graph says more than the suite showed.
 // bun conformance/graph-gate.ts --runtime ../round-13/adapter.ts [--no-search] [--json out]. Exits 1 on any disagreement, or on no observation at all.
 import { resolve } from "node:path";
-import { makeHarness, observeBoots } from "./drive.ts";
 import type { Compiled } from "./fixtures/compiled.ts";
-import { edgeOf, graphOf, isUnder, nodesOf, type Edge, type Graph, type Observed } from "./graph.ts";
+import type { Edge, Graph, Observed } from "./graph.ts";
 import type { RuntimeModule } from "./harness.ts";
-import { allScenarios, runScenarios } from "./main.ts";
+import { stated } from "./verdicts/state.ts";
 
+await stated("graph-gate", async () => {
+const { makeHarness, observeBoots } = await import("./drive.ts");
+const { edgeOf, graphOf, isUnder, nodesOf } = await import("./graph.ts");
+const { allScenarios, runScenarios } = await import("./suite.ts");
 const arg = (k: string) => {
   const i = process.argv.indexOf(k);
   return i < 0 ? undefined : process.argv[i + 1];
@@ -132,4 +135,9 @@ const out = arg("--json");
 if (out) await Bun.write(out, JSON.stringify({ line, disagreements: [...disagreements.values()], untaken: shown.map((x) => ({ machine: x.machine, definition: x.edge.definition, at: x.edge.at, from: x.edge.from, event: x.edge.event, target: x.edge.target })) }, null, 1));
 const bad = disagreements.size > 0 || turns === 0 || parts === 0 || failed.length > 0;
 console.log(bad ? "GRAPH FAIL" : "GRAPH PASS  every transition the runtime took is an edge of its graph, from its node, to its target");
-process.exit(bad ? 1 : 0);
+const { seconds: _seconds, ...counts } = line;
+return [
+  { kind: "graph", name: "graph", outcome: disagreements.size > 0 || turns === 0 || parts === 0 ? "fail" : "pass", why: [...disagreements.values()].slice(0, 3).map((d) => d.what).join("; ") || (turns === 0 || parts === 0 ? "no observation at all" : ""), detail: counts },
+  ...results.map((r) => ({ kind: "case", name: r.variant ? `${r.id}/${r.variant}` : r.id, outcome: r.ok ? ("pass" as const) : ("fail" as const), why: r.ok ? "" : (r.why ?? "") })),
+];
+});

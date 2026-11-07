@@ -28,7 +28,7 @@ const ALPHABET: readonly Action[] = [
 ];
 export const searchCrash = (
   make: () => Harness,
-  o: { depth: number; maxStates: number; deadlineMs: number },
+  o: { depth: number; maxStates: number },
   bounds: Record<string, number> = { captureMs: 0 },
 ): Report =>
   bfs({

@@ -98,7 +98,7 @@ const ACTIONS: readonly Action[] = [
 ];
 export const searchOdd = (
   make: () => Harness,
-  o: { depth: number; maxStates: number; deadlineMs: number },
+  o: { depth: number; maxStates: number },
 ): Report =>
   bfs({
     make: () => {
@@ -110,7 +110,6 @@ export const searchOdd = (
     actions: ACTIONS,
     depth: o.depth,
     maxStates: o.maxStates,
-    deadlineMs: o.deadlineMs,
     edge(_pre, post) {
       if (post.read.quiet().fatal) throw new Oracle("D57: a value stopped the Runtime");
       const i = post.read.issues().find((x) => x.code === "Fatal" || x.code === "ModuleDefect");

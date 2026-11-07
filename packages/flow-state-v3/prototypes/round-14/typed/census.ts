@@ -2,7 +2,7 @@
 // Runs the suite once on round 11 with every harness's `start` observed, so inline fixtures in scenarios are counted too.
 import { makeHarness } from "../../conformance/drive.ts";
 import type { Fixture, Harness } from "../../conformance/harness.ts";
-import { runScenarios } from "../../conformance/main.ts";
+import { runScenarios } from "../../conformance/suite.ts";
 import type { Api } from "../../conformance/fake-world.ts";
 import { port } from "../adapter.ts";
 

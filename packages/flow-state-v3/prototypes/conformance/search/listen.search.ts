@@ -83,7 +83,7 @@ const afterWas = (s: readonly Action[]) => {
 export const searchListen = (
   make: () => Harness,
   shape: "version" | "none",
-  o: { depth: number; maxStates: number; deadlineMs: number },
+  o: { depth: number; maxStates: number },
   firstLoad: "load" | "none" = "load", // review H6: `load` is what hid H1: the record was always already held
 ): Report => {
   const fixture = shape === "version" ? deskListenFixture : deskListenNoVersionFixture;
@@ -116,7 +116,6 @@ export const searchListen = (
     actions: ACTIONS,
     depth: o.depth,
     maxStates: o.maxStates,
-    deadlineMs: o.deadlineMs,
     extra: (s) => {
       behindNow = bumps(s);
       wasNow = shape === "none" && afterWas(s);

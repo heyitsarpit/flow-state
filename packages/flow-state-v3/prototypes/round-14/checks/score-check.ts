@@ -1,8 +1,10 @@
 // D144: the scorer of real runs must fail what it says it fails. Chrome is not run here; the scorer is, on made results and on the results this round keeps.
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { score, scoreAsked } from "../reality/score.ts";
+import { checkItems, stated } from "../../conformance/verdicts/state.ts";
 
+await stated("checks/score-check.ts", async () => {
+const { score, scoreAsked } = await import("../reality/score.ts");
 const bad: string[] = [];
 const want = (label: string, out: unknown, code: 0 | 1) => {
   const s = score(out);
@@ -61,4 +63,5 @@ for (const f of readdirSync(dir).filter((x) => x.startsWith("results-") && x.end
   console.log(`${f}: ${s.code ? `FAILS: ${s.bad.join("; ")}` : "passes"}`);
 }
 console.log(bad.length ? `FAIL\n${bad.join("\n")}` : "PASS score");
-process.exit(bad.length ? 1 : 0);
+return checkItems("score", bad);
+});

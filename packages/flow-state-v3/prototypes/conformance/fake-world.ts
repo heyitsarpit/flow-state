@@ -140,6 +140,9 @@ export class FakeWorld {
   private sinceTask = 0;
   tasks = 0; // how many tasks the page has had
   private work = 0;
+  spent = 0;
+  private spentFrom = 0;
+  spendLimit = Infinity;
   yields = 0;
 
   readonly kv = new Map<string, string>();
@@ -795,7 +798,17 @@ export class FakeWorld {
 
   // ── Settling and time
   // A microtask runs before any task, and the page has nothing until the queue is empty. So a chain of them with no task between is a frozen page, and the suite can say so (oracle k).
+  markCall() {
+    this.spentFrom = this.spent;
+  }
+  spentInCall() {
+    return this.spent - this.spentFrom;
+  }
+  private spend() {
+    if (++this.spent - this.spentFrom > this.spendLimit) throw new Error(`harness: did not quiesce in ${this.spendLimit} work units in one call`);
+  }
   settleStep() {
+    this.spend();
     if (this.micro.length) {
       if (++this.sinceTask > FROZEN_AFTER) throw new Error(`(k) the page froze: ${FROZEN_AFTER} answers with no task between`);
       this.micro.shift()!();
@@ -821,6 +834,7 @@ export class FakeWorld {
         .filter((t) => t.at <= end)
         .sort((a, b) => a.at - b.at || a.seq - b.seq)[0];
       if (!due) break;
+      this.spend();
       this.timers = this.timers.filter((t) => t !== due);
       this.now = Math.max(this.now, due.at);
       due.f();

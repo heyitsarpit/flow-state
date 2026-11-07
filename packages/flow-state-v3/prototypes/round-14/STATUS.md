@@ -276,3 +276,38 @@ tsc and CLI pins under 6 s together). Every final-commit gate within 10 min at u
 
 Left for the runner: one relock covering CP1 and CP2 (`bun main.ts ... --no-search --hashes`); FRAG-15's and SEARCH-ODD-SMALL's wall-clock
 deadlines (an expected-result change, the user's).
+
+## Verdicts (CP3, 2026-11-08)
+
+The build of `conformance/VERDICTS-PROPOSAL-2.md`: one reading of a child's run (`conformance/verdicts/`), every gate and the scheduler
+on it. Baselines at c73ad862, before any change, in the session scratchpad `cp3-baseline/` (gates.ts, the 18 suite runs, an exported
+tree of the old commit for black-box runs, and mutate.ts over `mutants.ts` slices 1-11).
+
+| Step | State | Commit | Evidence |
+| --- | --- | --- | --- |
+| 0 baselines | done | (before c73ad862 changed) | `gates.ts` 115 s, 19/22 exit 0 (the three known reds); 18 suite runs; old mutate.ts over 196 mutants in 13 slices of 16: 157 killed, 16 survived, 3 invalid; slices 12-13 stop up front, list rot (`drain-not-waited`, `h2-json-only` no longer apply) |
+| 1 module | done | (this) | `verdicts/verdict.ts`, `read.ts`, `spawn.ts`, `runner.ts`, `snapshot.ts`, `state.ts`, `limits.ts`; smoke runs of every ending (pass, fail, threw, EMFILE, 1 MB stderr, 20 MB stdout, time, memory bound and near) read as section 2 says, alone attempts never overlapped (`events()`) |
+| 2 consumers | done | (this) | main.ts (entry) over suite.ts (library), the six checks, typed compare and date check, CLI pins (`program`), gate5s, graph-gate, mutate-one, mutate, lifetime-falsify, falsify, search/run.ts, gates.ts, watch.ts (a person's CLI now); `gates.ts` minus plants: 126 s, 19/24 ok, BAD only the suite, canon and copies on the lock, tamper's control on the lock, search `chain`; falsify and lifetime ok/BAD lines identical to the baseline but the rows below |
+| 3 landing measurements | in progress | | `WORK_PER_CALL`: largest work of one call 4809 (ORDER-04/a-legitimate-hour-of-polling, in the suite, its 5 s pass and its swap pass; searches at most 111), so 100 000 |
+| 4 plants | to do | | |
+| 5 standing checks | to do | | |
+
+Differences from the baseline so far, each a named row:
+- E6/E3: `lifetime-falsify` `life.no-grace` was "6 red" from a run killed at 1500 MB (the partial lines were scored); now the work bound
+  stops LIFE-22's spin as a FAIL in 0.8 s and the whole run states 9 red (LIFE-27 and LIFE-30 newly reached). With the provisional 10M bound
+  the same run grew past 2.7 GB and read "red by memory, by no named oracle" (BAD), which is E6 as written.
+- E13: `suite canon` and `suite copies` are jobs, red on the lock as the suite is.
+- Detail text only: falsify search's `dead:` list prints names without quotes; tamper's control prints the reading, not the stdout tail.
+
+Deviations from the design (minimal, each for a reason):
+- `suite.ts` holds what main.ts was; main.ts is the entry (`stated`, then a dynamic import), so a throw while loading the suite is `threw`
+  (the entry rule). graph-gate, census and the plannedCases readers import suite.ts.
+- `Runner.program(job)`: runs a `program` contract (the `flow` CLI, tsc in types-check) and returns the raw run, never `read` (which refuses
+  programs) and never rerun; a run that did not end by itself makes the pins unknown.
+- The parent kill-limit rule waits for room rather than refusing a launch that only fails to fit beside running siblings; a launch that
+  cannot fit even alone is the thrown defect. Budgets beside the design's: `SCRIPT` (1200 MB, checks and scripts), `PROGRAM` (600 MB, the
+  `flow` CLI, tsc), `SUITE_PARENT` (3200 MB, gate5s, whose child is a suite).
+- Snapshots copy the trees under their common ancestor, with read-only context files (`CATALOG_CONTEXT`: SCENARIOS.md, convergence-1..8,
+  machine-design.md), so the gates' suite jobs, which read the catalog, run in copies too.
+- The canon and copies checks print their counts on stderr at exit (stdout's last line is the VERDICT); a difference already throws.
+- `--hashes` puts the hashes into the lock item's detail, which falsify's pasted-hash tamper reads (it parsed `HASH` lines before).

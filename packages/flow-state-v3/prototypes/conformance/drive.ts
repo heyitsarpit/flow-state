@@ -7,7 +7,7 @@ import { FakeWorld, NoHeldRequest } from "./fake-world.ts";
 import { canonText } from "./output.ts";
 import { legacySlots } from "./legacy.ts";
 import { machineOfKey, Reference } from "./reference/model.ts";
-import { CLOCK_TRIP } from "./watch.ts";
+import { WORK_PER_CALL } from "./limits.ts";
 import { inPlaceGuard, type FaultState, type Harness, type Instance, type Port, type Step } from "./harness.ts";
 
 // Stage G: how each delivery's recipient was settled, over the whole run (printed by `main.ts`). `unobserved` is allowance A2's remainder.
@@ -58,7 +58,7 @@ const collectSometimes = () => {
 if (process.env["FLOW_NO_FREEZE"] === "1") console.error("FLOW_NO_FREEZE=1: no published or logged world is guarded against a write in place; for measurement only, never a verdict");
 const COPIES_CHECK = process.env["FLOW_COPIES_CHECK"] === "1";
 const copiesChecked = { hits: 0, differ: 0 };
-if (COPIES_CHECK) process.on("exit", () => console.log(`COPIES-CHECK hits ${copiesChecked.hits}, differ ${copiesChecked.differ}`));
+if (COPIES_CHECK) process.on("exit", () => console.error(`COPIES-CHECK hits ${copiesChecked.hits}, differ ${copiesChecked.differ}`));
 export const makeHarness = (port: Port) => (): Harness => {
   let fake: FakeWorld;
   let compiled: Compiled[] = [];
@@ -1402,9 +1402,8 @@ export const makeHarness = (port: Port) => (): Harness => {
   let spinning = false;
   const settle = () => {
     const firstTask = fake.tasks;
-    const t0 = Date.now();
     spinning = false;
-    for (let guard = 0; ; guard++) {
+    for (;;) {
       // D146, assumptions #6: a frozen page runs nothing. No task, no microtask, no answer heard, no storage answer, until a thaw or a kill.
       if (fake.freezeTimers) return;
       if (tasksPerStep !== null && fake.tasks - firstTask >= tasksPerStep) {
@@ -1413,7 +1412,6 @@ export const makeHarness = (port: Port) => (): Harness => {
       }
       // A step that never settles is a spin nobody said to expect: fail it here, rather than leave it to the watchdog.
       if (fake.tasks - firstTask > 5_000) throw new Error("settle: did not quiesce");
-      if (guard % 4096 === 4095 && Date.now() - t0 > 20_000) throw new Error(CLOCK_TRIP);
       if (plan && fake.scheduler.picks >= plan.at) {
         const { inject } = plan;
         plan = undefined;
@@ -1784,9 +1782,23 @@ export const makeHarness = (port: Port) => (): Harness => {
       return result;
     },
   };
-  return {
+  let depth = 0;
+  const call =
+    <A extends unknown[], R>(f: (...a: A) => R) =>
+    (...a: A): R => {
+      if (depth++ === 0) fake?.markCall();
+      try {
+        return f(...a);
+      } finally {
+        depth--;
+      }
+    };
+  const stored = reads.stored;
+  reads.stored = call(stored);
+  const h: Harness = {
     start(cfg) {
       fake = new FakeWorld(cfg.seed, cfg.machines.find((m) => m.server)?.server);
+      fake.spendLimit = WORK_PER_CALL;
       // Round 7: the older cases were written with plain writes landing at once. D80's 5 s is the runtime's default; a case that means it says so.
       // `runtimeDefault`: a case that reads the runtime's own default says so, and is given no bound at all.
       const { runtimeDefault, ...named } = (cfg.bounds ?? {}) as Record<string, number>;
@@ -1913,6 +1925,7 @@ export const makeHarness = (port: Port) => (): Harness => {
     },
     read: reads,
   };
+  return { ...h, start: call(h.start), raw: call(h.raw), release: call(h.release), subscribe: call(h.subscribe), send: call(h.send), do: call(h.do) };
 };
 // Round 7: classifying what fails at D80's interval. A flush, through the host's own hide, before a disk read, or before a kill. Off in a normal run.
 const TEST_FLUSH = process.env["FLOW_TEST_FLUSH"] ?? "";

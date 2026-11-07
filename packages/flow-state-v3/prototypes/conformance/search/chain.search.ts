@@ -32,7 +32,7 @@ const ACTIONS: readonly Action[] = [
   { name: "refuseRow", step: { fault: { throwIn: "on.RowOk[1].updateMemory", times: 2 } } },
   { name: "refuseWrite", step: { fault: { throwIn: "on.SaveOk[1].updateMemory", times: 2 } } },
 ];
-export const searchChain = (make: () => Harness, o: { depth: number; maxStates: number; deadlineMs: number }): Report =>
+export const searchChain = (make: () => Harness, o: { depth: number; maxStates: number }): Report =>
   bfs({
     make: () => {
       const h = make();
@@ -48,7 +48,6 @@ export const searchChain = (make: () => Harness, o: { depth: number; maxStates: 
     actions: ACTIONS,
     depth: o.depth,
     maxStates: o.maxStates,
-    deadlineMs: o.deadlineMs,
     edge(pre, post, last) {
       if (last === "Press.b") {
         const was = (pre.read.memory(B) as any)?.presses;

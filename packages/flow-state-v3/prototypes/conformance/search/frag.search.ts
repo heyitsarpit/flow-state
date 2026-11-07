@@ -42,7 +42,7 @@ const ACTIONS: readonly Action[] = [
 ];
 export const searchFrag = (
   make: () => Harness,
-  o: { depth: number; maxStates: number; deadlineMs: number },
+  o: { depth: number; maxStates: number },
 ): Report =>
   bfs({
     make: () => {
@@ -54,7 +54,6 @@ export const searchFrag = (
     actions: ACTIONS,
     depth: o.depth,
     maxStates: o.maxStates,
-    deadlineMs: o.deadlineMs,
     edge(_pre, post) {
       if (post.read.quiet().fatal) throw new Oracle("fatal");
       // Rule 73 (OD31): `dispose` is `disposeActor`, so a later send has no record and is dropped with SendTargetAbsent on the sender (C105).

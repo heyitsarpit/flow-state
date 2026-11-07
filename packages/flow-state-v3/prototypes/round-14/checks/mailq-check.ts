@@ -1,8 +1,10 @@
 // D140: the mailbox's own contract, as a unit. Not in the suite: it never touches a runtime through the port, so it passed on the null runtime there (falsify.ts).
 // An old world is a value. A rollback (a refused turn's `tx.w = kept.w`) then a push must not write into the newer world's window.
 // Gated by mutate-one.ts, as every `checks/*.ts` of a round. bun round-10/checks/mailq-check.ts
-import { MailQ } from "../mailq.ts";
+import { checkItems, stated } from "../../conformance/verdicts/state.ts";
 
+await stated("checks/mailq-check.ts", async () => {
+const { MailQ } = await import("../mailq.ts");
 const bad: string[] = [];
 const eq = (label: string, a: unknown, b: unknown) => {
   if (JSON.stringify(a) !== JSON.stringify(b)) bad.push(`${label}: expected ${JSON.stringify(b)}, got ${JSON.stringify(a)}`);
@@ -37,4 +39,5 @@ eq("restored counted", r.restored, 1);
 eq("restored taken", r.takeFirst()!.rest.restored, 0);
 eq("restored filtered", r.filter((x) => x.n === 1).restored, 1);
 console.log(bad.length ? `FAIL\n${bad.join("\n")}` : "PASS mailq");
-process.exit(bad.length ? 1 : 0);
+return checkItems("mailq", bad);
+});

@@ -62,7 +62,7 @@ const withV = (make: () => Harness) => () => {
 export const searchFragStore = (
   make: () => Harness,
   shape: StoreShape,
-  o: { depth: number; maxStates: number; deadlineMs: number },
+  o: { depth: number; maxStates: number },
 ): Report =>
   bfs({
     make: withV(() => {
@@ -76,7 +76,6 @@ export const searchFragStore = (
     ),
     depth: o.depth,
     maxStates: o.maxStates,
-    deadlineMs: o.deadlineMs,
     extra: (s) => `${s.filter((a) => a.name === "Go").length}`,
     edge(_pre, post) {
       if (post.read.quiet().fatal) throw new Oracle("fatal");

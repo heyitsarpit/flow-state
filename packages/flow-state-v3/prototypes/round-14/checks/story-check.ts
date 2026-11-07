@@ -1,15 +1,17 @@
 // Round 13: the Stories' tests (machine-design 2.10.18's `*.test.ts`), with this file's `eq` standing in for the runner's `expect` (rule 63: the checks are
 // the test's, read from checkpoints after the run). Then the Story errors the design names, each made to happen. Gated by mutate-one.ts, as every
 // `checks/*.ts`. bun round-13/checks/story-check.ts. Exits 1 on any failure.
-import { Schema } from "effect";
-import { paidFirstTime, pressedTwice, busyThenPaid, reloadMidCharge, Shop, start, pay } from "../story/pay.story.ts";
-import { helpAndBack, timedOut } from "../story/threeds.story.ts";
-import { archiveTwice, renameLatest, Tickets } from "../story/desk.story.ts";
-import { stories } from "../story/index.ts";
-import { Fake } from "../story/fake.ts";
-import { Story } from "../story/story.ts";
-import { payFixture } from "../../conformance/typed/pay.ts";
+import { checkItems, stated } from "../../conformance/verdicts/state.ts";
 
+await stated("checks/story-check.ts", async () => {
+const { Schema } = await import("effect");
+const { paidFirstTime, pressedTwice, busyThenPaid, reloadMidCharge, Shop, start, pay } = await import("../story/pay.story.ts");
+const { helpAndBack, timedOut } = await import("../story/threeds.story.ts");
+const { archiveTwice, renameLatest, Tickets } = await import("../story/desk.story.ts");
+const { stories } = await import("../story/index.ts");
+const { Fake } = await import("../story/fake.ts");
+const { Story } = await import("../story/story.ts");
+const { payFixture } = await import("../../conformance/typed/pay.ts");
 const fails: string[] = [];
 let n = 0;
 const eq = (what: string, got: unknown, want: unknown) => {
@@ -133,4 +135,5 @@ throws("an internal event is not sendable from outside", () => (paidFirstTime.E 
 
 for (const f of fails) console.log(`FAIL  ${f}`);
 console.log(fails.length ? "STORY FAIL" : `STORY PASS  ${stories.length} Stories, ${n} checks`);
-process.exit(fails.length ? 1 : 0);
+return checkItems("story", fails);
+});

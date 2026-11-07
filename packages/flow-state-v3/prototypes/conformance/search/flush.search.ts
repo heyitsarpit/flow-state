@@ -50,7 +50,7 @@ const CFG: Record<Target, { fixture: Fixture; actors: readonly Who[]; op: string
 export const searchFlush = (
   make: () => Harness,
   target: Target,
-  o: { depth: number; maxStates: number; deadlineMs: number },
+  o: { depth: number; maxStates: number },
   tight = false,
   wide = false, // one store: only the oldest batch can answer, so a hang holds everyone
   directed: false | "store" | "queue" | "burst" | "wipe" | "capture" = false, // a small alphabet for one risk. "store": a ticket beside a slow store; review: finds in 44 s what the wide one misses in 110 s. "queue": what waits behind a head

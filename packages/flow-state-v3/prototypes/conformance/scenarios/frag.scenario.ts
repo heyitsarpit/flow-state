@@ -834,8 +834,9 @@ export const fragScenarios: readonly Scenario[] = [
     cites: ["rule:53", "rule:54", "L3"],
     namedIssues: ["SendTargetAbsent"], // rule 73 (OD31): a send after `disposeActor` has no record (C105)
     run(c) {
-      const r = searchFrag(c.make, { depth: 5, maxStates: 1200, deadlineMs: 8_000 });
+      const r = searchFrag(c.make, { depth: 5, maxStates: 1200 });
       c.eq("no oracle failed", r.failure ?? "none", "none");
+      c.eq("it ends on its state bound, not a clock: the verdict and the depth it completed", [r.verdict, r.depthCompleted], ["completed", 5]);
       c.yes("it searched", r.states > 50);
     },
   },

@@ -54,7 +54,7 @@ const ACTIONS: readonly Action[] = [
 ];
 export const searchSession = (
   make: () => Harness,
-  o: { depth: number; maxStates: number; deadlineMs: number },
+  o: { depth: number; maxStates: number },
 ): Report =>
   bfs({
     make: withValues(() => {
@@ -66,7 +66,6 @@ export const searchSession = (
     actions: ACTIONS,
     depth: o.depth,
     maxStates: o.maxStates,
-    deadlineMs: o.deadlineMs,
     edge(_pre, post) {
       if (post.read.quiet().fatal) throw new Oracle("a session stopped the Runtime");
       const i = post.read
@@ -148,7 +147,7 @@ const REPAIR: readonly Action[] = [
 ];
 export const searchRepairing = (
   make: () => Harness,
-  o: { depth: number; maxStates: number; deadlineMs: number },
+  o: { depth: number; maxStates: number },
 ): Report =>
   bfs({
     make: () => {
@@ -160,7 +159,6 @@ export const searchRepairing = (
     actions: REPAIR,
     depth: o.depth,
     maxStates: o.maxStates,
-    deadlineMs: o.deadlineMs,
     edge(_pre, post) {
       if (post.read.quiet().fatal) throw new Oracle("fatal");
       const i = post.read

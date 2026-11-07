@@ -3,7 +3,19 @@
 // mentions the words is no directive), and each is pinned by its own text, so "which refusal" is part of the gate, not only "how many".
 import { existsSync, readFileSync, symlinkSync, unlinkSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { checkItems, stated } from "../../conformance/verdicts/state.ts";
 
+await stated("checks/types-check.ts", async (scope) => {
+const { job } = await import("../../conformance/verdicts/runner.ts");
+const { programOutput } = await import("../../conformance/verdicts/spawn.ts");
+const { PROGRAM } = await import("../../conformance/limits.ts");
+const runner = scope.runner({ slots: 1, mb: PROGRAM.size.peakMb, budgetS: null });
+const tscRun = async (args: readonly string[]) => {
+  const r = await runner.program(job("tsc", { gate: "tsc", cmd: [tsc, ...args], cwd: import.meta.dir, env: {}, limits: PROGRAM.limits, contract: "program" }, PROGRAM.size));
+  const p = r.kind === "ended" && !r.killed && r.signal === null ? programOutput(r) : null;
+  return p ?? { unknown: `tsc did not end by itself: ${r.kind === "ended" ? (r.decided ?? r.signal) : r.message}` };
+};
+const unknownItem = (why: string) => [{ kind: "check", name: "types", outcome: "unknown" as const, why }];
 const typed = join(import.meta.dir, "../typed");
 let dir = import.meta.dir;
 while (!existsSync(join(dir, "node_modules/.bin/tsc")) && dirname(dir) !== dir) dir = dirname(dir);
@@ -26,12 +38,13 @@ if (!existsSync(tsc)) {
 }
 if (!existsSync(tsc)) {
   console.log("FAIL  types: no tsc found");
-  process.exit(1);
+  return checkItems("types", ["no tsc found"]);
 }
-const p = Bun.spawnSync([tsc, "-p", join(typed, "tsconfig.json")], { stdin: "ignore", timeout: 150_000 });
-const out = p.stdout.toString() + p.stderr.toString();
+const p = await tscRun(["-p", join(typed, "tsconfig.json")]);
+if ("unknown" in p) return unknownItem(p.unknown);
+const out = p.stdout + p.stderr;
 const bad: string[] = [];
-if (p.exitCode !== 0) bad.push(`tsc exit ${p.exitCode}: ${out.split("\n").filter(Boolean).slice(0, 3).join(" | ")}`);
+if (p.exit !== 0) bad.push(`tsc exit ${p.exit}: ${out.split("\n").filter(Boolean).slice(0, 3).join(" | ")}`);
 // The pins this round states, by their words. A refusal removed with its directive compiles; a missing text here does not.
 const PINS = [
   "a key names a field that is not the input's",
@@ -64,7 +77,7 @@ const PINS = [
 // The installed TypeScript is 7 (native), with no JS scanner to call, so this is a scanner of comment and string tokens, not a text search:
 // a `//` inside a string, a template or a block comment is no comment, and a comment that only mentions the words is no directive.
 // That each directive is used (its line errors) is `tsc`'s own check above.
-export const directives = (text: string): string[] => {
+const directives = (text: string): string[] => {
   const found: string[] = [];
   let i = 0;
   const n = text.length;
@@ -136,8 +149,9 @@ const ERRORS: Record<string, readonly [string, string]> = {
   writeFileSync(join(typed, `${tag}.ts`), stripped);
   writeFileSync(join(typed, `${tag}.json`), JSON.stringify({ extends: "./tsconfig.json", files: [`${tag}.ts`] }));
   try {
-    const q = Bun.spawnSync([tsc, "-p", join(typed, `${tag}.json`)], { stdin: "ignore", timeout: 150_000 });
-    const errs = (q.stdout.toString() + q.stderr.toString()).split("\n").map((l) => /^\S+\((\d+),\d+\): error (TS\d+): (.*)$/.exec(l)).filter((m): m is RegExpExecArray => m !== null);
+    const q = await tscRun(["-p", join(typed, `${tag}.json`)]);
+    if ("unknown" in q) return unknownItem(q.unknown);
+    const errs = (q.stdout + q.stderr).split("\n").map((l) => /^\S+\((\d+),\d+\): error (TS\d+): (.*)$/.exec(l)).filter((m): m is RegExpExecArray => m !== null);
     for (const [line, words] of under) {
       const want = ERRORS[words];
       const here = errs.filter((m) => Number(m[1]) === line);
@@ -151,4 +165,5 @@ const ERRORS: Record<string, readonly [string, string]> = {
 }
 for (const b of bad) console.log(`FAIL  types: ${b}`);
 console.log(bad.length ? "TYPES FAIL" : `TYPES PASS  tsc clean, ${got.length} directives, each by its words`);
-process.exit(bad.length ? 1 : 0);
+return checkItems("types", bad);
+});

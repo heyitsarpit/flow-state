@@ -19,8 +19,6 @@ export type Report = {
   depthCompleted: number;
   failure?: string;
   classes: Readonly<Record<string, { count: number; witness: string }>>;
-  ms: number;
-  peakRssMb: number;
 };
 
 // `onePre`: a state's script is replayed once as the parent of all its actions, not once per action. Sound when no guard (`on`) and no edge
@@ -32,14 +30,11 @@ export const bfs = (o: {
   actions: readonly Action[];
   depth: number;
   maxStates: number;
-  deadlineMs: number;
   extra?: (script: readonly Action[]) => string; // search-level state that belongs in the key (a commit budget)
   edge: (pre: Harness, post: Harness, last: Action) => void; // pre is the parent replayed
   state: Probe; // on each new state
   drain?: (h: Harness, script: readonly string[], report: (cls: string) => void) => void; // on each new state, destroys h
 }): Report => {
-  const t0 = Date.now();
-  let peak = 0;
   let edges = 0;
   let steps = 0;
   const seen = new Set<bigint | number>();
@@ -79,20 +74,11 @@ export const bfs = (o: {
     depthCompleted,
     ...(failure ? { failure } : {}),
     classes,
-    ms: Date.now() - t0,
-    peakRssMb: Math.round(peak / 1e6),
     };
   };
   const names = (s: readonly Action[]) => s.map((a) => a.name);
-  // The suite's own work on an ended harness (its end checks, `end`) is not the search's: kept off its deadline, as when it ran after the search.
-  let ending = 0;
-  const finish = (h: Harness) => {
-    if (!h.end) return;
-    const t = Date.now();
-    h.end();
-    ending += Date.now() - t;
-  };
-  const out = () => seen.size >= o.maxStates || Date.now() - t0 - ending > o.deadlineMs;
+  const finish = (h: Harness) => h.end?.();
+  const out = () => seen.size >= o.maxStates;
   let frontier: Action[][] = [[]];
   let depthCompleted = 0;
   try {
@@ -151,7 +137,6 @@ export const bfs = (o: {
             throw new Oracle(`${(e as Error).message} on ${names(s).join(" ")}`);
           }
           finish(post);
-          if (seen.size % 500 === 0) peak = Math.max(peak, process.memoryUsage().rss);
         }
         if (parent && parentText !== undefined && parent.read.stateHash() !== parentText) throw new Error(`a guard or an edge oracle wrote to the shared parent of ${names(script).join(" ") || "the root"}`);
         if (parent) finish(parent);

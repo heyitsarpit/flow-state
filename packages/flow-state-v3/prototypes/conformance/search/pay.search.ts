@@ -186,7 +186,6 @@ export const searchPay = (
   opts: {
     depth: number;
     maxStates: number;
-    deadlineMs: number;
     pins?: readonly Pin[];
   },
 ): Report & { unpinned: readonly string[] } => {
@@ -204,7 +203,6 @@ export const searchPay = (
     actions: ALPHABET,
     depth: opts.depth,
     maxStates: opts.maxStates,
-    deadlineMs: opts.deadlineMs,
     edge(pre, post) {
       // S6, independent of endings (H5): no new id for an intent while the fake says an earlier id may be at the server,
       // unless the machine released it. It does not read the ending it judges.
