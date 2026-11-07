@@ -267,6 +267,31 @@ applied as amendment <n>, or rejected).
     `check-benchmark` at the end.
   - Left out: clonefile copies (measured 9 ms); indexes for lanes, mail and rota in the runtime (`turn.ts:851`,
     `mailq.ts`), unless step 4's profile shows the runtime is now the limiter.
+  - State: built (`93005ef6`..`9724ef88`); close-out PASS with findings; its verdict-reading findings converge in CP3.
+- **CP3, verdict convergence (queue item 0c, after CP2).** Kind: insert, a Task inside phase 0. Judge: agent (the
+  runner), under roadmap amendment 4: three reviews in a row (CP1 close-out, CP2 mid-task, CP2 close-out) found the
+  same root-cause class in the same part, how a gate reads a child's run. State: started 2026-11-08. Built with the
+  roadmap skill (amendment 6):
+  - Class: **not readily verifiable** for the redesign (the gates' own correctness shows only under many
+    conditions: load, kills, partial output), done through `policy-convergence`
+    (`/Users/arpit/Developer/workflow/skills/suites/workflow/policy-convergence/SKILL.md`, `9b1dd09`) and
+    `policy-testing`.
+  - Goal: one way to read a run, with typed pass/fail/unknown and its evidence; no clock deciding correctness;
+    controls pinned; all evidence read. Requirements and the 17 findings by class:
+    `packages/flow-state-v3/prototypes/conformance/VERDICTS-CONVERGENCE.md`.
+  - Steps: (1) a from-scratch design by an Opus designer given the problems, traces and requirements, not the
+    current scripts' design, written as `conformance/VERDICTS-PROPOSAL.md`; (2) one adversarial review (Opus plus
+    four Haiku sidecars); (3) one revision into `VERDICTS-PROPOSAL-2.md`; (4) build it, with a planted failure per
+    finding, each red on the old code where it was wrong.
+  - Done when: every finding's planted case is handled; every gate's verdict is unchanged on the real, null, broken,
+    lying, mutant and lifetime runtimes except where the old one was wrong (each named); the speed targets CP1 and
+    CP2 met still hold.
+  - Likely misfire: a design that names one more special case per finding instead of one rule. Caught by the review
+    judging it against "one reading", and by the planted cases.
+  - Gates: as CP2, plus the planted cases. Budget: 1 design, 1 review, 1 build round. Blocking: a changed expected
+    result that is not one of the named wrong verdicts (FRAG-15 and SEARCH-ODD-SMALL asserting their verdict are
+    named here and logged). Reviews: the hourly review and the close-out.
+  - Relock: after CP3, one relock for CP1-CP3.
 
 ## Example app candidates (proposed, for the user's pick)
 
@@ -351,3 +376,4 @@ One line per iteration. Results live in the records; link them.
 - 2026-11-08 03:09 review of CP2 checkpoint `a84b1c2a` (`93005ef6`..`a84b1c2a`): Opus high plus four Haiku sidecars (freeze coverage; unknown vs real failure; early harness release; shared `pre` in searches). Usage: weekly 21%, 5-hour 54%.
 - 2026-11-08 review of `a84b1c2a`: PASS with findings, no check weakened. Medium: the in-place guard skips objects frozen by an earlier harness (shared constants), arrays only fingerprinted, one inert check (`versions.written()`), a clock-trip FAIL could count as a lie's catch, FRAG-15's coverage depends on an 8 s wall-clock deadline. Lows: unknowns dropped from tallies, ended harnesses still accept release/subscribe, the shared search parent unchecked, `--rss-mb` loose, STATUS text. All sent to the CP2 builder to fix before it finishes.
 - 2026-11-08 CP2 built (`93005ef6`..`9724ef88`): suite alone 18.1-18.5 s (the in-place guard costs about 2 s), peak 1.0-1.3 GB (FRAG-15 1797 → 301 MB); every final-commit gate via `conformance/gates.ts` in 115 s; lifetime-falsify 14 s at `--parallel 3`; two in-place lies red; copies and canon checks 0 differ; 0d baselines identical except the new lies. Missed with named limiters: suite 15 s, peak 600 MB (DRV-01 holds 2160 harnesses its body may read; R10-RUNTIME keeps about 110k logged steps for replay). Step 4 (encodeRecord memo) skipped: 133 ms per suite. Close-out review (Opus with `check-benchmark`, plus four Haiku sidecars) started.
+- 2026-11-08 CP2 close-out (Opus with `check-benchmark`, four sidecars): PASS with findings; suite measured 17.4-17.75 s, FRAG-15 318 MB, `gates.ts` 115 s, every comparison identical. Highs: `gates.ts` reads mutate-one by exit code only (it always exits 0); a recurring time kill still counts as killed; clock trips in mutate-one's search paths and gate5s are false kills; `lifetime-falsify`'s control can pass partially after a memory kill. Third review in a row with the same class (reading a run), so CP3 converges it (amendment 4).
