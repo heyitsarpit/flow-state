@@ -7,7 +7,8 @@ Budget used: none of the proposed total
 Next action: on approval, start phase 1 (the plan merge, approved on 2026-11-04), with
 `FOR-ARPIT.md` Q1-Q8 in the first question round.
 Waiting on the user:
-- answers to R1, R4, R5 and R7 (round 2), then approval of roadmap.md;
+- round 2: R1, R4, R5, R7, and the `nub run verify` fix (drop the frozen build, or fix it);
+  then approval of roadmap.md;
 - `FOR-ARPIT.md` Q1-Q8 and the 20 calls (phase 1's first rounds);
 - which example apps to build, any time before phase 6. Candidates are below.
 
