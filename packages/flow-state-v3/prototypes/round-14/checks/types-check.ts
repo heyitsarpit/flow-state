@@ -50,6 +50,13 @@ const PINS = [
   "a boot that does not give a nested fragment's service", // round 13, round 12 review L1
   "a boot that does not give a node trait's service", // round 13, round 12 review L1
   "a boot that does not give a subroutine's service", // round 13, round 12 review L1
+  "the commit context has no `signal` (OD29 E step 2)", // round 14
+  "a value-named ref takes no input at ensure: the value is the input", // round 14, rule 74
+  "a value missing an input field names no actor", // round 14, rule 74
+  "a fresh literal with an extra field: Flow keeps only the input fields", // round 14, rule 74
+  "a singleton's name is a literal; a runtime string is a type error (OD30 Q4)", // round 14, rule 74
+  "identity fields encode to strings (OD30 Q6): a number field has no value form", // round 14, rule 74
+  "a machine with no input can only be a singleton", // round 14, rule 74
 ];
 // What TypeScript itself takes for a directive: a single-line comment token whose text matches its own rule, `^\/\/\/?\s*@ts-expect-error`.
 // The installed TypeScript is 7 (native), with no JS scanner to call, so this is a scanner of comment and string tokens, not a text search:
@@ -103,6 +110,14 @@ const ERRORS: Record<string, readonly [string, string]> = {
   "a boot that does not give a nested fragment's service": ["TS2345", "Argument of type 'Context<Other>' is not assignable"],
   "a boot that does not give a node trait's service": ["TS2345", "Argument of type 'Context<Other>' is not assignable"],
   "a boot that does not give a subroutine's service": ["TS2345", "Argument of type 'Context<Other>' is not assignable"],
+  "the commit context has no `signal` (OD29 E step 2)": ["TS2339", "Property 'signal' does not exist on type 'CommitCtx'"], // round 14
+  "a value-named ref takes no input at ensure: the value is the input": ["TS2554", "Expected 1 arguments, but got 2"], // round 14, rule 74
+  // Round 14, rule 74: `actorRef`'s two forms are overloads, so tsc's first line is the same for each refusal; which form refused is in its later lines.
+  "a value missing an input field names no actor": ["TS2769", "No overload matches this call"],
+  "a fresh literal with an extra field: Flow keeps only the input fields": ["TS2769", "No overload matches this call"],
+  "a singleton's name is a literal; a runtime string is a type error (OD30 Q4)": ["TS2769", "No overload matches this call"],
+  "identity fields encode to strings (OD30 Q6): a number field has no value form": ["TS2769", "No overload matches this call"],
+  "a machine with no input can only be a singleton": ["TS2769", "No overload matches this call"],
 };
 {
   const src = readFileSync(join(typed, "type-tests.ts"), "utf8").split("\n");

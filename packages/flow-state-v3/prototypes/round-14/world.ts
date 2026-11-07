@@ -194,7 +194,6 @@ export type World = {
   readonly soon: Readonly<Record<string, { readonly dueAt: number; readonly inc: string }>>; // an end in the last 5 s: a create carries how long ago
   readonly warned: Readonly<Record<string, true>>; // `EndedWithWork` and the codec's diagnostic, once per machine and kind per Runtime
   readonly undecodable: Readonly<Record<string, true>>; // an actor record this release could not decode at boot: a send says RecordUndecodable
-  readonly unencodable: Readonly<Record<string, true>>; // the codec fails on this actor's record (a core input): its end waits
   readonly forms: Readonly<Record<string, "value" | "singleton">>; // rule 74: the form each machine was first reached in, this Runtime
 };
 export const emptyWorld: World = {
@@ -230,7 +229,6 @@ export const emptyWorld: World = {
   soon: {},
   warned: {},
   undecodable: {},
-  unencodable: {},
   forms: {},
 };
 
@@ -264,7 +262,6 @@ export type Input =
   // record and creates nothing, and on an identity with neither it waits as a use. A detach ends nothing by itself: the grace decides.
   | { readonly k: "attach"; readonly actor: string; readonly machine: string; readonly input: unknown; readonly owner: string; readonly existing?: true; readonly identity?: readonly string[] }
   | { readonly k: "detach"; readonly actor: string; readonly owner: string }
-  | { readonly k: "codec"; readonly actor: string; readonly fails: boolean } // a core input: the codec cannot encode this actor's record
   | { readonly k: "turn" }
   | { readonly k: "disposeRuntime" };
 

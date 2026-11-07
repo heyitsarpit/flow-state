@@ -190,6 +190,7 @@ export type Compiled = {
   readonly fragments?: Readonly<Record<string, Fragment>>;
   readonly local?: true; // a local identity: lanes never adopted (D21)
   readonly identityFields?: readonly string[]; // round 14, rule 74: the `Flow.input` fields, sorted; a value ref's identity
+  readonly identityVersion?: readonly string[]; // OD30 Q3: each identity field with its Schema (type and encoded side), in name order
   readonly streams?: Readonly<Record<string, StreamSpec>>; // data for a sessions module
   // Round 7, D91, rule 47: what a typed definition declares. Absent on hand-written fixtures, so `flow check` infers it and says so.
   readonly events?: Events;

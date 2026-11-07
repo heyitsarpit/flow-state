@@ -5,7 +5,7 @@ import type { CompiledOutput, DomainSpec, Mapped, StreamSpec } from "../fixtures
 import { slotOf, type Fields } from "./core.ts";
 import { isIgnore, payloadsOf, tokens, uncertainOf, type EventPayloads, type EventsOf } from "./events.ts";
 import { compileMemory, type MemoryFields, type MemoryOf } from "./memory.ts";
-import { identityFieldsOf } from "./ref.ts";
+import { identityFieldsOf, identityVersionOf } from "./ref.ts";
 import type { ReqsOf } from "./fragment.ts";
 import { compileOp, handles, type AnyBound, type HandleOf, type RequirementsOf, type Typed } from "./operations.ts";
 import {
@@ -171,6 +171,7 @@ export const machine = <
     default: b.default.node,
     memory: compileMemory(d.id, d.memory),
     ...(identityFieldsOf(d.memory).length ? { identityFields: identityFieldsOf(d.memory) } : {}), // round 14, rule 74
+    ...(identityFieldsOf(d.memory).length ? { identityVersion: identityVersionOf(compileMemory(d.id, d.memory).fields!, identityFieldsOf(d.memory)) } : {}), // OD30 Q3
     ops: { ...Object.fromEntries(Object.entries(d.ops).map(([k, x]) => [k, compileOp(d.id, k, x, events)])), ...fragOps },
     ...(frags.length ? { fragments: Object.fromEntries(frags.map((f) => [f.id, f.compiled])) } : {}),
     persisted: d.persisted ?? true,

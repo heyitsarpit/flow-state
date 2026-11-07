@@ -62,14 +62,13 @@ export type Step =
   | { dispose: ActorRef } // `disposeActor` (OD31): the actor and a persisted record go. Its lanes stay the Runtime's (OD19, rule 46)
   // Rule 73 (OD31, 2.10.10). `ensure` attaches one use, as a mounted screen; `detach` ends one (`StoryInvalidCommand { ActorAbsent }` with
   // none held). `subscribe` is a host `snapshots` subscription (restores a record, waits on an identity with neither); `mount` is `useActor`
-  // of a local machine. `codecFails`: the core's codec input.
+  // of a local machine.
   | { detach: ActorRef }
   | { hostEnsure: ActorRef; input?: unknown } // a host `ensureActor`: no use (OD27 Q2)
   | { subscribe: ActorRef }
   | { unsubscribe: ActorRef }
   | { mount: ActorRef; input?: unknown }
   | { unmount: ActorRef }
-  | { codecFails: ActorRef; on: boolean }
   | { advance: number }
   | { answer: RequestMatch; with: Answer; where?: Readonly<Record<string, unknown>> }
   // crashAfterBoot: the first boot dies with its mail undelivered (review M1). Needs drainMs -1. tear: only the first n writes of the last batch landed
@@ -272,7 +271,6 @@ export type Instance = {
   // Rule 73: a runtime without uses has none. `owner`: the use's kind ("story", "host", "component"). `existing`: a subscription, never a create.
   attach?(actor: string, machine: string, input: unknown, owner: string, existing?: boolean, identity?: readonly string[]): void;
   detach?(actor: string, owner: string): void;
-  codec?(actor: string, fails: boolean): void;
   snapshot?(actor: string): Snapshot;
   inspect?(actor: string): Inspected;
   disposeRuntime(): void;

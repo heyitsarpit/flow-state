@@ -840,6 +840,8 @@ const reapTimers = (w: Walk) => {
     if (!inc || (!inc.frozen && !Object.values(inc.activations).includes(t.activation)))
       disarmTimer(tx, t.key);
   }
+  // Round 14 (rule 73): a waiting deadline of an activation that has ended goes with it, as its armed timer would.
+  for (const t of Object.values(tx.w.waiting)) if (t.actor === w.a.key && !live(t.inc, t.activation)) disarmTimer(tx, t.key);
 };
 // Adoption (rule 54): per lane whose path is its own, parked endings, then a held head's unknown { Restored } once.
 export const adoption = (tx: Tx, a: ActorRec, inc: Inc, thawing = false): Mail[] => {

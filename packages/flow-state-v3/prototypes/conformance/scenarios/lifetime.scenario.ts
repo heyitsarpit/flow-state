@@ -405,6 +405,9 @@ function newLifetimeScenarios(): Scenario[] {
       actor: X,
       cites: ["rule:73", "sec:2.7.17"],
       variants: {
+        // Kept as it is (round 14 review): this pins a design hole. The stopped unkept read leaves the persisted actor restored in LOOKING with no
+        // read running and nothing to move it: hung on return. 2.7.17 does not say what a return does about a read the end stopped; do not change
+        // this case until the design decides.
         "a-pressed-read-is-cut-by-the-end"(c0) {
           const c = onLife(c0);
           c.ensure(X);
@@ -468,6 +471,23 @@ function newLifetimeScenarios(): Scenario[] {
           c.eq("fired once, late", log(c), ["saveDue"]);
           c.ack();
           c.eq("one save", c.reqs("save").length, 1);
+        },
+        // Only the latest arming waits (round 14 review M1): a send in the grace re-arms the debounce, so the waiting deadline goes; when the use
+        // returns nothing is overdue, and the re-armed one fires once, at its own deadline.
+        "a-re-armed-debounce-drops-the-waiting-deadline"(c0) {
+          const c = onLife(c0);
+          c.ensure(X);
+          c.send("Edit");
+          c.detach(X);
+          c.advance(60);
+          c.eq("waiting", c.r.inspect(X)?.waiting, ["save"]);
+          c.send("Edit");
+          c.eq("re-armed, nothing waits", c.r.inspect(X)?.waiting, []);
+          c.advance(10);
+          c.ensure(X);
+          c.eq("the old deadline does not fire", log(c), []);
+          c.advance(40);
+          c.eq("the re-armed one fires once", log(c), ["saveDue"]);
         },
         "a-use-back-in-the-grace-fires-it-once"(c0) {
           const c = onLife(c0);
@@ -571,7 +591,7 @@ function newLifetimeScenarios(): Scenario[] {
           c.detach(X);
           c.reload();
           c.eq("not live", c.r.state(X), undefined);
-          c.eq("the handle reads the record", c.snap(X), { lifecycle: "active", state: "IDLE", memory: { log: ["looked"] } });
+          c.eq("the handle reads the record", c.snap(X), { lifecycle: "active", state: "IDLE", memory: { log: ["looked"], blob: null } });
           c.to(X, "Look");
           c.eq("a send restores it", [c.r.state(X), log(c)], ["LOOKING", ["looked"]]);
         },
@@ -606,7 +626,7 @@ function newLifetimeScenarios(): Scenario[] {
           c.advance(GRACE);
           c.eq("ended", c.r.state(X), undefined);
           c.yes("its record is on disk, encoded in the end step", c.record(X) !== undefined);
-          c.eq("the handle reads the record, never initial", c.snap(X), { lifecycle: "active", state: "IDLE", memory: { log: ["looked"] } });
+          c.eq("the handle reads the record, never initial", c.snap(X), { lifecycle: "active", state: "IDLE", memory: { log: ["looked"], blob: null } });
         },
         "not-persisted-reads-its-terminal-snapshot"(c0) {
           const c = onLife(c0, { persisted: false });
@@ -615,29 +635,30 @@ function newLifetimeScenarios(): Scenario[] {
           c.answer("look", { ok: {} });
           c.detach(X);
           c.advance(GRACE);
-          c.eq("terminal", c.snap(X), { lifecycle: "disposed", state: "IDLE", memory: { log: ["looked"] } });
+          c.eq("terminal", c.snap(X), { lifecycle: "disposed", state: "IDLE", memory: { log: ["looked"], blob: null } });
         },
       },
     },
     {
-      // An unencodable record (Persistence O5): the end waits, retried at each expiry, the diagnostic once; once it encodes, it ends.
+      // An unencodable record (Persistence O5): memory that really cannot encode (a bigint, as HIGH-02's), so the record the end step encodes
+      // with the driver's codec fails. The end waits, retried at each expiry, the diagnostic once; once the memory encodes again, it ends.
       id: "LIFE-22",
       kind: "example",
       fixtures: [lifeFixture()],
       actor: X,
       cites: ["rule:73", "sec:2.7.17"],
-      namedIssues: ["RecordUnencodable"],
+      namedIssues: ["RecordUnencodable", "UnencodableValue"],
       run(c0) {
         const c = onLife(c0);
         c.ensure(X);
-        c.do({ codecFails: X, on: true });
+        c.send("Poison");
         c.detach(X);
         c.advance(GRACE);
         c.state("IDLE", X);
         c.advance(GRACE);
         c.state("IDLE", X);
         c.eq("said once", c.r.issues().filter((i) => i.code === "RecordUnencodable").length, 1);
-        c.do({ codecFails: X, on: false });
+        c.send("Heal");
         c.advance(GRACE);
         c.eq("ended once it encodes", c.r.state(X), undefined);
         c.eq("one end", ends(c, X), 1);

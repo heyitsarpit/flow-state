@@ -16,6 +16,7 @@ export const MUTANTS = [
   // Schedules wait (C124).
   m("life.schedule-fires-unused", "C124", "step.ts", "if (counted(tx, t.actor) && usesOf(tx.w, t.actor) === 0) {", "if (false) {"),
   m("life.waiting-never-wakes", "C124", "step.ts", "if (was === 0 && getActor(tx.w.actors, key)) wake(tx, key);", ""),
+  m("life.waiting-survives-re-arm", "C124", "timers.ts", "const dropWaiting = (tx: Tx, key: string) => {", "const dropWaiting = (tx: Tx, key: string) => { return;"),
   m("life.waiting-lost-at-end", "C124", "step.ts", "const timers = [...armed, ...waiting,", "const timers = [...armed,"),
   // The grace.
   m("life.no-grace", "rule:73", "step.ts", "const dueAt = tx.env.now + tx.bounds.graceMs;", "const dueAt = tx.env.now;"),
@@ -24,7 +25,7 @@ export const MUTANTS = [
   // The end and the record.
   m("life.end-drops-record", "rule:73", "step.ts", 'const keep = m.persisted && how === "end";', "const keep = false;"),
   m("life.dispose-keeps-record", "OD31", "step.ts", 'const keep = m.persisted && how === "end";', "const keep = m.persisted;"),
-  m("life.end-ignores-codec", "rule:73", "step.ts", "if (tx.machines[a.machine]!.persisted && tx.w.unencodable[key]) {", "if (false) {"),
+  m("life.end-ignores-codec", "rule:73", "step.ts", "if (tx.machines[a.machine]!.persisted && !encodes(tx, a)) {", "if (false) {"),
   m("life.restored-once-per-runtime", "C126", "step.ts", "const adopted = bootMail ? bootMail : rebindActor(tx, fresh);", "const adopted = bootMail ? bootMail : [];"),
   // Sends (C105).
   m("life.send-no-restore", "C105", "step.ts", 'returnActor(tx, key, "send");', ""),
@@ -41,6 +42,7 @@ export const MUTANTS = [
   // Identity (rule 74, OD30), area 2.
   m("id.record-without-fields", "rule:74", "step.ts", "...(identity ? { fields: [...identity].sort() } : {})", ""),
   m("id.old-version-restored", "OD:30", "durable.ts", "if (Array.isArray(v.fields) && (v.fields.length", "if (false && Array.isArray(v.fields) && (v.fields.length"),
+  m("id.version-by-names-only", "OD:30", "durable.ts", "v.fields.some((f: string, i: number) => f !== now[i])", "v.fields.some((f: string, i: number) => f.split(\":\")[0] !== now[i]!.split(\":\")[0])"),
   m("id.no-conflict", "rule:74", "step.ts", "if (was !== undefined && was !== form && tx.machines[machine]?.identityFields)", "if (false)"),
   m("id.dispose-drops-lanes", "rule:46", "step.ts", 'if (m.local && how !== "remount")', 'if (how !== "remount")'),
   // Flow.ignore (OD28, 2.7.18), area 3.

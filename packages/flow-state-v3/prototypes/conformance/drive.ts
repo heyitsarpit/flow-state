@@ -486,14 +486,34 @@ export const makeHarness = (port: Port) => (): Harness => {
     return c !== undefined && (!c.local || (mounts.get(key) ?? 0) > 0);
   };
   const inFlightOf = (key: string) => inst.waits().filter((w) => INFLIGHT.has(w.kind) && "attempt" in w && w.attempt && attemptActor.get(w.attempt) === key);
+  // Kept reads, by the suite's own sight: a read invoked in the batch that delivered an ending of the actor's write (or a kept read's), until it ends.
+  const keptReads = new Map<string, Set<string>>(); // actor -> read attempts
+  const admittedAtt = new Set<string>(); // attempts whose ending the runtime admitted (a turn, a park, evidence, an ignore)
   const lifetimeCheck = (e: readonly Record<string, any>[]) => {
     if (!inst.inspect) return;
+    const keptTurnOf = new Set<string>();
     for (const x of e) {
+      if (["delivered", "parked", "evidenceOnly", "ignored"].includes(x["kind"]) && x["attempt"]) admittedAtt.add(String(x["attempt"]));
+      if (x["kind"] === "delivered" && x["attempt"]) {
+        const att = String(x["attempt"]);
+        const a = attemptActor.get(att) ?? [...keptReads].find(([, s]) => s.has(att))?.[0];
+        if (a !== undefined && (attemptActor.has(att) || keptReads.get(a)?.has(att))) keptTurnOf.add(a);
+      }
+      if (x["kind"] === "invoked" && String(x["attempt"] ?? "").startsWith("read/"))
+        for (const a of keptTurnOf) if (String(x["attempt"]).startsWith(`read/${a}/`)) keptReads.set(a, new Set([...(keptReads.get(a) ?? []), String(x["attempt"])]));
+      if ((x["kind"] === "ending" || x["kind"] === "Superseded") && String(x["attempt"] ?? "").startsWith("read/"))
+        for (const s of keptReads.values()) if (x["kind"] === "Superseded") s.delete(String(x["attempt"]));
+      if (x["kind"] === "delivered" && String(x["attempt"] ?? "").startsWith("read/")) for (const s of keptReads.values()) s.delete(String(x["attempt"]));
       if (x["kind"] === "ended") {
         const a = String(x["actor"]);
         if (usesHeld(a) > 0) violations.push(`(73) safety: ${a} ended while the suite holds ${usesHeld(a)} use(s)`);
         const w = inFlightOf(a);
         if (w.length > 0) violations.push(`(73) same incarnation: ${a} ended with work in flight: ${w.map((y) => `${y.op} ${(y as { attempt: string }).attempt}`).join(", ")}`);
+        const r = [...(keptReads.get(a) ?? [])];
+        if (r.length > 0) violations.push(`(73) same incarnation: ${a} ended with a kept read open: ${r.join(", ")}`);
+        // An ending owed at ready (2.7.17 Ready): due to this actor at the reload and not yet heard.
+        const owed = [...due].filter(([att, d]) => d.actor === a && !d.over && !admittedAtt.has(att));
+        if (owed.length > 0) violations.push(`(73) same incarnation: ${a} ended owing endings from ready: ${owed.map(([att]) => att).join(", ")}`);
       }
       if (x["kind"] === "fired") {
         const a = String(x["actor"]);
@@ -1340,7 +1360,7 @@ export const makeHarness = (port: Port) => (): Harness => {
   };
   // D146: what needs the page's own JS cannot happen on a frozen page: a press, a hide event, an ensure. It is dropped and counted, and a case that drops one is told so at its end.
   let frozenDrops = 0;
-  const PAGE_INPUT = ["ensureAs", "ensure", "hostEnsure", "detach", "subscribe", "unsubscribe", "mount", "unmount", "codecFails", "burst", "send", "sendMany", "dispose", "hide", "disposeRuntime", "advanceNow", "nextYield"];
+  const PAGE_INPUT = ["ensureAs", "ensure", "hostEnsure", "detach", "subscribe", "unsubscribe", "mount", "unmount", "burst", "send", "sendMany", "dispose", "hide", "disposeRuntime", "advanceNow", "nextYield"];
   const run = (s: Step) => {
     if (fake.freezeTimers && PAGE_INPUT.some((k) => k in s)) {
       frozenDrops++;
@@ -1376,6 +1396,8 @@ export const makeHarness = (port: Port) => (): Harness => {
       seenLive.delete(lastUse);
     }
     if ("dispose" in s) {
+      // Rule 73 (OD31): `disposeActor` removes the record, and a frozen copy's read endings (rule 52) live in it: their parking is owed to nobody now.
+      for (const k of [...parkedOwed.keys()]) if (k.slice(k.indexOf(" ") + 1).startsWith(`read/${actorKey(s.dispose)}/`)) parkedOwed.delete(k);
       held.delete(actorKey(s.dispose)); // `disposeActor` ends the identity's uses (2.7.17)
       subs.delete(actorKey(s.dispose));
       mounts.delete(actorKey(s.dispose));
@@ -1394,7 +1416,7 @@ export const makeHarness = (port: Port) => (): Harness => {
     if ("ensureAs" in s) inst.ensure(actorKey(s.ensureAs.key), s.ensureAs.machine); // D137: a key and a machine that do not agree, as a host's bug would give
     else if ("ensure" in s) use(actorKey(s.ensure), s.ensure.actor, s.input, s.identity);
     else if ("hostEnsure" in s) inst.ensure(actorKey(s.hostEnsure), s.hostEnsure.actor, s.input);
-    else if ("detach" in s || "unsubscribe" in s || "unmount" in s || "subscribe" in s || "mount" in s || "codecFails" in s) {
+    else if ("detach" in s || "unsubscribe" in s || "unmount" in s || "subscribe" in s || "mount" in s) {
       if (!inst.attach || !inst.detach) throw new Error("this runtime has no uses");
       if ("detach" in s) inst.detach(lastUse!, "story");
       else if ("unsubscribe" in s) inst.detach(lastUse!, "host");
@@ -1405,9 +1427,6 @@ export const makeHarness = (port: Port) => (): Harness => {
       } else if ("mount" in s) {
         bump(mounts, actorKey(s.mount), 1);
         inst.attach(actorKey(s.mount), s.mount.actor, s.input, "component");
-      } else if ("codecFails" in s) {
-        if (!inst.codec) throw new Error("this runtime has no codec input");
-        inst.codec(actorKey(s.codecFails), s.on);
       }
     }
     else if ("burst" in s) for (let i = 0; i < s.n; i++) inst.send(actorKey(s.burst), { tag: s.event, payload: {} });

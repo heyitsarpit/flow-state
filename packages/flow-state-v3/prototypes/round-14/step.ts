@@ -13,6 +13,7 @@ import {
   toldAll,
 } from "./hooks.ts";
 import { flush, onStorageBound, onStored, restore } from "./durable.ts";
+import { encodeRecord } from "./record.ts";
 import { own } from "./gate.ts";
 import { down, placementsActive, seedKids, up, walkIncs, viewOf, type Started } from "./inc.ts";
 import { cell, dropParked, parkWaiting, settleSend } from "./lane.ts";
@@ -295,9 +296,15 @@ const startRoot = (tx: Tx, key: string, machine: string, input: unknown, identit
   }
   if (retired) {
     // Return (2.7.17): a new incarnation from the Runtime's copy, never re-read from storage. A record kept at ready runs the reset the reload lost.
-    // The root keeps its id, as a reload's restore does, so rule 14's test reads an old ending the same way; the suite numbers incarnations
-    // from this evidence.
-    const { timers, fromBoot, bootMail, ...fresh } = retired as ActorRec & { timers: readonly FrozenTimer[]; fromBoot?: true; bootMail?: readonly Mail[] };
+    // A return after an end is a new incarnation (2.7.17): its root gets a new id, so an ending of the old one is adopted, current from the
+    // active leaf (rule 14's adopted row), as `Restored` is. A record kept at ready is the boot's own incarnation and keeps its id, as a live restore does.
+    const { timers: kept0, fromBoot, bootMail, ...rec0 } = retired as ActorRec & { timers: readonly FrozenTimer[]; fromBoot?: true; bootMail?: readonly Mail[] };
+    const old = rec0.root.id;
+    const inc = fromBoot ? old : nextGen(tx);
+    const fresh: ActorRec = fromBoot ? rec0 : { ...rec0, root: { ...rec0.root, id: inc } };
+    const timers = kept0.map((t) =>
+      t.inc !== old || fromBoot ? t : { ...t, inc, key: t.key.startsWith("fired/") ? `fired/${inc}/${t.send}` : scheduleKey(key, inc, t.activation, t.id) },
+    );
     tx.w = {
       ...tx.w,
       retired: without(tx.w.retired, key),
@@ -479,10 +486,19 @@ const warnOnce = (tx: Tx, k: string) => {
 };
 // The end (2.7.17): the record is encoded in this step, or the end waits; then the existing disposal hands the lanes to the Runtime (rule 44)
 // and stops the live work, which the trace record lists. Ending is atomic here: this runtime's cleanup is done within the step.
+const encodes = (tx: Tx, a: ActorRec) => {
+  try {
+    encodeRecord(tx.machines, { ...a, boot: tx.w.boot, timers: [] });
+    return true;
+  } catch {
+    return false;
+  }
+};
 const endActor = (tx: Tx, key: string) => {
   const a = getActor(tx.w.actors, key)!;
   if (tx.w.endDue[key]) tx.w = { ...tx.w, endDue: without(tx.w.endDue, key) };
-  if (tx.machines[a.machine]!.persisted && tx.w.unencodable[key]) {
+  // The record is encoded in this step, with the codec the driver writes with (`record.ts`); if it cannot be, the end waits (Persistence O5).
+  if (tx.machines[a.machine]!.persisted && !encodes(tx, a)) {
     if (warnOnce(tx, `codec|${key}`)) issue(tx, { code: "RecordUnencodable", origin: `end ${key}`, input: { actor: key } });
     note(tx, "endBlocked", { actor: key, why: "RecordUnencodable" });
     disarmTimer(tx, graceKey(key)); // armed again by the pass: the end is retried at each expiry
@@ -712,10 +728,6 @@ export const step = (world: World, input: Input, env: Env, sys: System): StepOut
       break;
     case "detach":
       onDetach(tx, input.actor, input.owner);
-      break;
-    case "codec":
-      tx.w = { ...tx.w, unencodable: input.fails ? { ...tx.w.unencodable, [input.actor]: true } : without(tx.w.unencodable, input.actor) };
-      tx.visible = true;
       break;
     case "sent":
       onSent(tx, input);

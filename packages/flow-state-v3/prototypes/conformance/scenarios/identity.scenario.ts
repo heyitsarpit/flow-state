@@ -2,7 +2,7 @@
 // fields, in field-name order, and only those; the value is the input. A singleton has a literal name and takes input at ensure. Every
 // expectation is the design's text, worked by hand.
 import { actorRef, ensureArgs, type ActorRefOf } from "../compile/index.ts";
-import { Editor1, Editor2, EditorId, editorFixture, editorRef, SessionRef, sessionFixture, type Release } from "../typed/identity.ts";
+import { Editor1, Editor2, Editor3, EditorId, editorFixture, editorRef, SessionRef, sessionFixture, type Release } from "../typed/identity.ts";
 import type { Step } from "../harness.ts";
 import { Ctx, type Scenario } from "./ctx.ts";
 import { GRACE } from "./lifetime.scenario.ts";
@@ -56,22 +56,41 @@ export const identityScenarios: readonly Scenario[] = [
     kind: "fault",
     fixtures: [editorFixture({ v: 1 })],
     cites: ["rule:74", "OD:30"],
-    run(c0) {
-      const rel: Release = { v: 1 };
-      const r1 = editorRef(T42);
-      const c = new Ctx(c0.fresh([editorFixture(rel)], { captureMs: 0 }), at(r1));
-      c.do(ensureStep(ensureArgs(r1)));
-      c.send("Title", { title: "Foyer" });
-      c.ack();
-      c.answer("save", { ok: {} });
-      c.h.release(() => void (rel.v = 2), () => void (rel.v = 1));
-      c.reload();
-      c.eq("listed at ready", c.r.evidence("OldVersionActor").map((e) => [e["fields"], e["now"]]), [[["ticketId", "workspaceId"], ["region", "ticketId", "workspaceId"]]]);
-      c.eq("never restored", c.r.state(at(r1)), undefined);
-      const r2 = actorRef(Editor2, { ...T42, region: "eu" });
-      c.do(ensureStep(ensureArgs(r2)));
-      c.eq("a fresh actor of the new version", [c.r.memory(at(r2))?.title, c.r.memory(at(r2))?.region], ["", "eu"]);
-      c.yes("the old record is still on disk, for forget", c.record(at(r1)) !== undefined);
+    variants: {
+      "a-field-added-is-a-new-version"(c0) {
+        const rel: Release = { v: 1 };
+        const r1 = editorRef(T42);
+        const c = new Ctx(c0.fresh([editorFixture(rel)], { captureMs: 0 }), at(r1));
+        c.do(ensureStep(ensureArgs(r1)));
+        c.send("Title", { title: "Foyer" });
+        c.ack();
+        c.answer("save", { ok: {} });
+        c.h.release(() => void (rel.v = 2), () => void (rel.v = 1));
+        c.reload();
+        c.eq("listed at ready, by field set and Schema", c.r.evidence("OldVersionActor").map((e) => [e["fields"], e["now"]]), [[["ticketId:<String><-<String>", "workspaceId:<String><-<String>"], ["region:<String><-<String>", "ticketId:<String><-<String>", "workspaceId:<String><-<String>"]]]);
+        c.eq("never restored", c.r.state(at(r1)), undefined);
+        const r2 = actorRef(Editor2, { ...T42, region: "eu" });
+        c.do(ensureStep(ensureArgs(r2)));
+        c.eq("a fresh actor of the new version", [c.r.memory(at(r2))?.title, c.r.memory(at(r2))?.region], ["", "eu"]);
+        c.yes("the old record is still on disk, for forget", c.record(at(r1)) !== undefined);
+      },
+      // The same names, one field's Schema changed (a string becomes a number encoded as a string): a new version too, not a rename.
+      "a-fields-schema-changed-is-a-new-version"(c0) {
+        const rel: Release = { v: 1 };
+        const r1 = editorRef({ workspaceId: "north", ticketId: "42" });
+        const c = new Ctx(c0.fresh([editorFixture(rel)], { captureMs: 0 }), at(r1));
+        c.do(ensureStep(ensureArgs(r1)));
+        c.send("Title", { title: "Foyer" });
+        c.ack();
+        c.answer("save", { ok: {} });
+        c.h.release(() => void (rel.v = 3), () => void (rel.v = 1));
+        c.reload();
+        c.eq("listed at ready", c.r.evidence("OldVersionActor").map((e) => e["now"]), [["ticketId:<Number><-<String>", "workspaceId:<String><-<String>"]]);
+        const r3 = actorRef(Editor3, { workspaceId: "north", ticketId: 42 });
+        c.eq("the same encoded name", r3.id, r1.id);
+        c.do(ensureStep(ensureArgs(r3)));
+        c.eq("a fresh actor, the old record not matched", c.r.memory(at(r3))?.title, "");
+      },
     },
   },
   {

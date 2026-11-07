@@ -17,7 +17,7 @@ const life = (persisted: boolean, local = false) => {
   const d = definition({
     id: LifeId,
     states: ["IDLE", "CONFIRMING", "REFRESHING", "PLACING", "DONE", "LOOKING", "DIRTY", "BEAT"],
-    events: { Confirm: {}, Look: {}, Edit: {}, Beat: {}, Stop: {} },
+    events: { Confirm: {}, Look: {}, Edit: {}, Beat: {}, Stop: {}, Poison: {}, Heal: {} },
     internalEvents: {
       Confirmed: {}, ConfirmNo: {}, ConfirmUnsure: Flow.uncertain({}),
       CartRead: {}, CartFailed: {},
@@ -26,7 +26,7 @@ const life = (persisted: boolean, local = false) => {
       SaveDue: {}, Saved: {}, SaveNo: {}, SaveUnsure: Flow.uncertain({}),
       BeatDue: {}, Pinged: {}, PingNo: {}, PingUnsure: Flow.uncertain({}),
     },
-    memory: { log: Flow.initial(S.Array(S.String), []) },
+    memory: { log: Flow.initial(S.Array(S.String), []), blob: Flow.initial(U, null) }, // `blob`: a bigint cannot encode (LIFE-22, as HIGH-02)
     persisted,
     ...(local ? { local: true as const } : {}),
     operations: ({ E }) => ({
@@ -62,12 +62,15 @@ const life = (persisted: boolean, local = false) => {
         SaveUnsure: { updateMemory: heard("saveUnsure") },
         Beat: St.BEAT,
         Stop: St.IDLE,
+        Poison: { updateMemory: () => ({ blob: 10n }) },
+        Heal: { updateMemory: () => ({ blob: null }) },
         Pinged: { updateMemory: heard("pinged") },
         PingNo: { updateMemory: heard("pingNo") },
         PingUnsure: { updateMemory: heard("pingUnsure") },
       },
       states: {
-        DIRTY: { schedules: { save: { schedule: "50 millis", send: E.SaveDue } } },
+        // Another edit while dirty re-arms the debounce in the same activation (round 14 review M1).
+        DIRTY: { schedules: { save: { schedule: "50 millis", send: E.SaveDue, armOn: ["entry", "Edit"] } }, on: { Edit: {} } },
         BEAT: {
           schedules: { beat: { schedule: "30 millis", send: E.BeatDue, armOn: ["entry", "BeatDue"] } },
           on: { BeatDue: { updateMemory: heard("beat"), actions: [O.ping.commit(() => ({}))] } },

@@ -1311,3 +1311,43 @@ output:R14-F-01/a-none-a-adopts-as-save hash:5a3b68dfa85f | OD29 F: R14-F-01's w
 output:R14-F-01/not-placed-while-absent-so-a-post-goes-nowhere hash:bbb061c5b93c | OD29 F: R14-F-01's not-placed variant, new
 output:R14-F-01/present-it-is-placed-with-key hash:4ef445cbcc72 | OD29 F: R14-F-01's key variant, new
 file:expected-recipients.txt hash:63755331c03e | OD29 F: R14-F-01 observes one more delivery and checks one more start node
+--- round 14, the independent review's fixes (H1, H3, M1, M2, M3, M5)
+LIFE-14 hash:f8e9a6a65cee | review M1: a send in the grace re-arms the debounce; the waiting deadline goes, only the latest fires
+LIFE-18 hash:20d976b336d8 | review H3: Lab/Life's memory gains blob, so the handle's record view shows it
+LIFE-21 hash:265f7b16f4e6 | review H3: the record and terminal views show Lab/Life's blob field
+LIFE-22 hash:107ca8969947 | review H3: the end encodes with the real codec; memory that cannot encode blocks it, no test-only input
+R14-ID-02 hash:c5ea00f46a3c | review M3: the version is each field's Schema too; a Schema changed under the same names is a new version
+file:scenarios/identity.scenario.ts hash:31027e090791 | review M3: R14-ID-02's two variants, a field added and a field's Schema changed
+file:scenarios/lifetime.scenario.ts hash:02c6661e7883 | review M1, H3, item 7: LIFE-14's re-arm variant, LIFE-22 from real memory, LIFE-13's hole stated
+file:typed/identity.ts hash:c726314139de | review M3: Editor release 3, ticketId a number encoded as a string
+file:typed/lifetime.ts hash:07ef6580c627 | review M1, H3: DIRTY re-arms on Edit; Poison and Heal set memory that cannot encode
+file:compile/machine.ts hash:e2fa13aeb869 | review M3: a value-named machine compiles its identity version (fields with their Schemas)
+file:compile/ref.ts hash:6d08dcdab9de | review M3: identity fields encode by their Schemas to strings; the version by field set and Schema
+file:falsify.ts hash:c17661f54f34 | rule 73 (OD31): k.ghost-life retired as unreachable; k.held-silent follows the restore's owed flag
+file:harness.ts hash:cd85980bb413 | review H3: the test-only codecFails step and port input are gone
+file:drive.ts hash:8a7e57b85e7f | review M2: same incarnation covers kept reads and endings owed at ready; disposeActor excuses a frozen copy's parked reads
+round:cli/check.ts hash:85abedb7f765 | review H1: an ignored unknown counts as mapped, so it never reaches UnresolvedHold (rule 45)
+round:cli/main.ts hash:b107979a738a | review H1: pins for IgnoredUnknown and no UnresolvedHold on removeFile and ignore.ts's send and put
+round:checks/types-check.ts hash:cedacf66968c | round 14: the new type directives pinned by code and words
+round:mutants-lifetime.ts hash:eebc5d85f2a0 | review M1, M3, H3: wrong runtimes for a surviving waiting deadline, a names-only version, the real codec
+round:adapter.ts hash:7086253bc4c2 | review H3, M5: no codec input; soon and warned leave the state hash
+output:FRAG-12/unbound-hold-with-no-waiter-stays hash:d265544208a3 | review M5: FRAG-12's state count, with soon and warned out of the hash
+output:LIFE-12 hash:cd9ea5870b99 | review H3: LIFE-12's memory shows blob
+output:LIFE-13/a-pressed-read-is-cut-by-the-end hash:62ef4b463cc2 | review H3: LIFE-13's memory shows blob
+output:LIFE-14/a-re-armed-debounce-drops-the-waiting-deadline hash:bd0b6f36ae4d | review M1: LIFE-14's re-arm variant, new
+output:LIFE-14/a-use-back-in-the-grace-fires-it-once hash:c13a361ba934 | review H3: LIFE-14's use-back variant's memory shows blob
+output:LIFE-14/not-persisted-the-debounce-is-lost hash:5847f2c24dd7 | review H3, M5: LIFE-14's lost variant, blob and fewer hashed states
+output:LIFE-14/persisted-it-fires-once-at-the-next-ensure hash:84b5f5405916 | review H3: LIFE-14's persisted variant's memory shows blob
+output:LIFE-17 hash:d9408a572725 | review H3: LIFE-17's memory shows blob
+output:LIFE-18/a-plain-record-stays-a-record hash:1556ddb3e95c | review H3: LIFE-18's record variant's memory shows blob
+output:LIFE-22 hash:b345a41627c0 | review H3: LIFE-22's output from real unencodable memory
+output:LIFE-23/undecodable-then-an-ensure-discards-it hash:fb1feac751cf | review H3: LIFE-23's undecodable variant's memory shows blob
+output:LIFE-27/a-remount-while-kept-adopts-the-ending hash:5f335b03eb66 | review H3: LIFE-27's remount variant's memory shows blob
+output:LIFE-29 hash:f650aef346e8 | review M5: LIFE-29's state count, with warned out of the hash
+output:LIFE-30 hash:cde8e730fabb | review M5: LIFE-30's state count, with soon out of the hash, and blob
+output:R14-ID-02/a-field-added-is-a-new-version hash:22c63d45d1c3 | review M3: R14-ID-02's added-field variant, the former whole case
+output:R14-ID-02/a-fields-schema-changed-is-a-new-version hash:411d62a9856c | review M3: R14-ID-02's Schema variant, new
+removed:output:R14-ID-02 | R14-ID-02 became two variants; its output line is the added-field variant's
+file:expected-recipients.txt hash:5d15f9b53c18 | review M1, M3: one more delivery observed and start node checked
+REV7-M2 hash:089e0ad0a4e0 | rule 73: the queue bound's case flushes before the reload, so the re-attach takes its slot under the 5 s gate too
+file:scenarios/round7.scenario.ts hash:efc231c8408e | rule 73: REV7-M2's bound case hides first, so its record is on disk at any capture interval

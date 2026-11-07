@@ -95,5 +95,22 @@ const gf = j("graph", "pay-full");
 eq("graph: a fragment's table and its exits", [gf.doc.edges.some((e: { definition: string; at: string }) => e.definition === "ThreeDS" && e.at === "states.OPEN.states.EXPIRED.on.GiveUp[0]"), gf.doc.edges.filter((e: { kind: string }) => e.kind === "exit").map((e: { event: string }) => e.event).sort()], [true, ["Declined", "Passed", "TimedOut"]]);
 const gp = j("graph", "panels");
 eq("graph: a resumable trait's whenAbandoned callback fires from anywhere", gp.doc.edges.filter((e: { onAbandon?: string }) => e.onAbandon !== undefined).map((e: { event: string; onAbandon: string }) => `${e.event}:${e.onAbandon}`), ["onGone:frozen"]);
+// Round 14 (OD28, rule 45): an ignored unknown counts as mapped, so it never reaches UnresolvedHold; it is listed as IgnoredUnknown info.
+{
+  const { check } = await import("./check.ts");
+  const { ignoreFixture } = await import("../../conformance/typed/ignore.ts");
+  const { Effect, Schema } = await import("effect");
+  const { definition, Flow, machine, transaction } = await import("../../conformance/compile/index.ts");
+  const api = new Proxy({}, { get: () => () => Effect.void }) as never;
+  const rulesOf = (c: Parameters<typeof check>[0]) => [...new Set(check(c).findings.map((f) => `${f.severity}:${f.rule}${f.op ? `:${f.op}` : ""}`))].sort();
+  const ig = rulesOf(ignoreFixture().make(api));
+  eq("check: ignore.ts's send and put, ignored unknowns, no UnresolvedHold for them", [ig.includes("info:IgnoredUnknown:send"), ig.includes("info:IgnoredUnknown:put"), ig.some((r) => r.startsWith("error:UnresolvedHold:send") || r.startsWith("error:UnresolvedHold:put") || r.startsWith("warn:UnresolvedHold:send") || r.startsWith("warn:UnresolvedHold:put"))], [true, true, false]);
+  // 2.7.18's removeFile, as the design writes it.
+  const remove = transaction({ id: "a/remove", input: { fileId: Schema.String }, key: ["fileId"], concurrency: "reject", commit: () => Effect.void as never as Effect.Effect<void, { readonly _tag: "RemoveRefused"; readonly uploadedBy: string }> });
+  const d = definition({ id: "T/Attachments", states: ["A"], events: { Remove: { fileId: Schema.String } }, internalEvents: { FileKept: { uploadedBy: Schema.String } }, memory: {}, operations: ({ E }) => ({ removeFile: remove.outcomes({ success: Flow.ignore, failure: { RemoveRefused: E.FileKept.from((e) => ({ uploadedBy: e.uploadedBy })), NotSent: Flow.ignore }, unknown: Flow.ignore }) }) });
+  const m = machine(d, ({ S, O }) => ({ default: S.A, on: { Remove: { actions: [O.removeFile.commit(({ event }) => ({ fileId: event.fileId }))] }, FileKept: {} } }));
+  const rf = rulesOf(m.compiled as never);
+  eq("check: 2.7.18's removeFile, IgnoredUnknown info, no UnresolvedHold", [rf.includes("info:IgnoredUnknown:removeFile"), rf.some((r) => r.includes("UnresolvedHold"))], [true, false]);
+}
 console.log(`\nCLI pins: ${bad === 0 ? "all pass" : `${bad} failed`}`);
 process.exit(bad ? 1 : 0);

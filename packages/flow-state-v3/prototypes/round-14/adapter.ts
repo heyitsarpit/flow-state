@@ -55,7 +55,8 @@ const canon = (v: unknown, up: readonly unknown[] = []): unknown => {
 // Everything that decides the future, normalised: ids and generations by first occurrence, mints and positions by order, times
 // from now. Saved records are in (L9): what storage last heard changes what a capture writes.
 const normalise = (w: World, now: number, outside: string): string => {
-  const { nextId: _i, nextMint: _m, seq: _s, boot: _b, asked: _t, ...rest } = w;
+  // Round 14 (review M5): `soon` and `warned` feed diagnostics only (a create's age, a once-only warning), so they decide no future.
+  const { nextId: _i, nextMint: _m, seq: _s, boot: _b, asked: _t, soon: _so, warned: _w, ...rest } = w as World & { asked?: unknown };
   // D143, over-assumptions F2: the ranks below are for the runtime's own fields. A user's memory, payload, input or value is theirs: written with no `"`, so no rank can reach a `pos` or a `since` in it, and `{pos:1}` and `{pos:2}` stay two states.
   // Its copies inside the edge's bytes and the fake's open requests are still ranked; one exact copy in the world is enough to keep the two states apart.
   const USER = new Set(["memory", "payload", "input", "value"]);
@@ -263,7 +264,6 @@ export const port: Port = {
       attach: (actor, machine, input, owner, existing, identity) =>
         rt.input({ k: "attach", actor, machine, input, owner, ...(existing ? { existing: true } : {}), ...(identity ? { identity } : {}) }),
       detach: (actor, owner) => rt.input({ k: "detach", actor, owner }),
-      codec: (actor, fails) => rt.input({ k: "codec", actor, fails }),
       // Reads (2.7.17): a handle follows the identity. The live incarnation; with none, a persisted identity's record in the Runtime's copy
       // (lifecycle active); with neither, the last incarnation's terminal snapshot (disposed), or the pre-attach snapshot (none).
       snapshot: (actor) => {

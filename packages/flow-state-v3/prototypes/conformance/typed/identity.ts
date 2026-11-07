@@ -52,9 +52,23 @@ const editorV2 = () => {
     },
   }));
 };
+// Release 3: the same field names, `ticketId` now a number encoded as a string. A field's encoded Schema changed: a new version too (OD30 Q3).
+const editorV3 = () => {
+  const d = definition({
+    id: EditorId,
+    states: ["OPEN"],
+    events: editorEvents,
+    internalEvents: editorInternal,
+    memory: { workspaceId: Flow.input(S.String), ticketId: Flow.input(S.NumberFromString), title: Flow.initial(S.String, ""), saved: Flow.initial(S.Number, 0) },
+    persisted: true,
+    operations: () => ({}),
+  });
+  return machine(d, ({ S: St }) => ({ default: St.OPEN, on: { Title: { updateMemory: ({ event }) => ({ title: event.title }) } } }));
+};
 export const Editor1 = editorV1();
 export const Editor2 = editorV2();
-export const editorFixture = (rel: Release = { v: 1 }) => fixture(() => (rel.v === 1 ? Editor1 : Editor2));
+export const Editor3 = editorV3();
+export const editorFixture = (rel: Release = { v: 1 }) => fixture(() => (rel.v === 1 ? Editor1 : rel.v === 2 ? Editor2 : Editor3));
 const session = definition({
   id: SessionId,
   states: ["ON"],

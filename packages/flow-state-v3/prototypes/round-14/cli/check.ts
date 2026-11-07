@@ -179,6 +179,8 @@ const checkBody = (b: Body, machine: string, push: (f: Finding) => void, persist
     if ((op.concurrency === "reject" || op.concurrency === "serialize" || persisted) && !op.outcomes.failure["NotSent"])
       push({ severity: "error", rule: "Rule20NotSent", machine, path: `operations.${name}.failure`, op: name, message: `\`${name}\` can end \`NotSent\` here (${op.concurrency}${persisted ? ", persisted" : ""}) and does not map it`, help: "map failure.NotSent" });
     // ── 2.7.14.
+    // Rule 45 (OD28): `unknown: Flow.ignore` counts as mapped; an ignored unknown is released, so it never holds and needs no handler.
+    if (op.outcomes.unknown !== undefined && ev.unknown.length === 0) continue;
     if (ev.unknown.length === 0) {
       push({ severity: "error", rule: "UnresolvedHold", machine, path: `operations.${name}`, op: name, message: `\`${name}\` maps endings but not \`unknown\`: the lane reaches Held with no handler (rule 45, case 1)`, help: "map `unknown` to an event, and handle it where a hold can arrive" });
       continue;

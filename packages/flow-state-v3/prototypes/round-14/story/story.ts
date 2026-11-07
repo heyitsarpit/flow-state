@@ -261,6 +261,7 @@ const execute = (story: Story<string>): StoryRun<string> => {
   const rules = new Map<string, { hold: boolean; drops: Array<{ at: "request" | "response" }> }>();
   const rule = (k: string) => rules.get(k) ?? (rules.set(k, { hold: false, drops: [] }), rules.get(k)!);
   const h: Harness = makeHarness(port)();
+  const records = () => h.read.evidence().filter((r) => r["kind"] !== "incarnation" && r["kind"] !== "fired"); // round 14: the invariants' bookkeeping
   h.start({ machines: [s.fixture], seed: 1 });
   const A: ActorRef = { actor: s.compiled.id, id: "story" };
   const entries: Entry[] = [];
@@ -403,7 +404,7 @@ const execute = (story: Story<string>): StoryRun<string> => {
       lanes,
       truth: Object.fromEntries([...truth].map(([k, v]) => [k, structuredClone(v)])),
       requests,
-      evidence: h.read.evidence().length,
+      evidence: records().length,
       issues: h.read.issues().length,
       frames: h.read.frames().length,
     });
@@ -424,10 +425,10 @@ const execute = (story: Story<string>): StoryRun<string> => {
     if ("send" in st) {
       const e = st.send[0];
       sentPayloads.push(e.payload);
-      const from = h.read.evidence().length;
+      const from = records().length;
       h.do({ send: A, event: e.tag, payload: e.payload, ...(s.kind === "fragment" ? { to: [s.instance] } : {}) });
       // 2.10.6's `verdict`, one per send: the Runtime's first word on this event in this step (`turn`, `Denied` or `Unhandled`).
-      const ev = h.read.evidence();
+      const ev = records();
       for (let i = from; i < ev.length; i++) {
         const r = ev[i]!;
         if (r["event"] !== e.tag || !["turn", "Denied", "Unhandled"].includes(r["kind"])) continue;
@@ -458,7 +459,7 @@ const execute = (story: Story<string>): StoryRun<string> => {
     cut(st);
   });
   // A held request at the end is the Story's own business (rule 61's finish is not built: there is no host work in this harness to wait for).
-  const evidence = h.read.evidence().map((r, seq) => ({ ...r, seq }) as Record_);
+  const evidence = records().map((r, seq) => ({ ...r, seq }) as Record_);
   const data: StoryRunData = { records: [...evidence, ...verdicts].sort((a, b) => a.seq - b.seq || (a.kind === "verdict" ? -1 : 1)), issues: h.read.issues() };
   const end = new Checkpoint(data, cuts.at(-1)!);
   return {

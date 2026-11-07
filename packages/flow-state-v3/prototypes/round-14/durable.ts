@@ -279,8 +279,10 @@ export const restore = (tx: Tx, records: ReadonlyArray<readonly [string, string]
       }
       // Rule 74 (OD30 Q3): a value-named record made under other input fields is an old-version record. Listed at ready, never renamed or matched
       // by shared fields, never restored: no ref can spell its identity. Its lanes stay unbound (rule 44).
-      if (Array.isArray(v.fields) && (v.fields.length !== (mm.identityFields ?? []).length || v.fields.some((f: string, i: number) => f !== mm.identityFields![i]))) {
-        note(tx, "OldVersionActor", { actor: v.key, fields: v.fields, now: mm.identityFields ?? [] });
+      // The version is the field set and each field's Schema (type and encoded side), not the names alone.
+      const now = mm.identityVersion ?? [];
+      if (Array.isArray(v.fields) && (v.fields.length !== now.length || v.fields.some((f: string, i: number) => f !== now[i]))) {
+        note(tx, "OldVersionActor", { actor: v.key, fields: v.fields, now });
         continue;
       }
       const decoded = restoredMemory(mm, v.root);

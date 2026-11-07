@@ -220,6 +220,7 @@ const build = (Slot: S.Top) => {
     fragments: opt(S.Record(S.String, Fragment)),
     local: opt(S.Literal(true)),
     identityFields: opt(S.Array(S.String)), // round 14 (rule 74): a value ref's identity fields
+    identityVersion: opt(S.Array(S.String)), // OD30 Q3: and their Schemas
     streams: opt(S.Unknown), // the same: the sessions module's data, typed with streams
     events: Events, // round 12 (D216): required; round 13 (M3): with payloads
   });
