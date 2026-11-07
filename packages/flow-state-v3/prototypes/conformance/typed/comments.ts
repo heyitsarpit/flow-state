@@ -165,3 +165,25 @@ const queue = (api: Api) =>
   );
 export const editorFixture = fixture(editor, handEditor.server);
 export const queueFixture = fixture(queue, handEditor.server);
+// Round 14 (OD29 F): the same trait, placed only while a preview is chosen. `resetOn` returning `null` means not placed; the filling reads `key`.
+const previewer = (api: Api) =>
+  machine(
+    definition({
+      id: "Desk/Previewer",
+      states: ["READY"],
+      events: { Preview: { id: S.NullOr(S.String) } },
+      internalEvents: {},
+      memory: { previewId: Flow.initial(S.NullOr(S.String), null) },
+      persisted: false,
+      uses: ["entities"],
+      domain: domainOf(api),
+      traits: { comments: Comments },
+      operations: () => ({}),
+    }),
+    ({ S: St }) => ({
+      default: St.READY,
+      on: { Preview: { updateMemory: ({ event }) => ({ previewId: event.id }) } },
+      traits: { comments: { input: ({ key }) => ({ ticketId: key as string }), resetOn: ({ memory }) => memory.previewId } }, // NEW: key, and absent
+    }),
+  );
+export const previewerFixture = fixture(previewer, handEditor.server);

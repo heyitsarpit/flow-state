@@ -617,7 +617,7 @@ export const round8Scenarios: readonly Scenario[] = [
         const c = on(c0, serialBareFixture(), { drainMs: -1 });
         c.send("Go");
         c.ack();
-        c.dispose();
+        c.do({ disposeRuntime: true }); // T3 (rule 73): Runtime disposal, the answer inside its 5 s bound is parked
         c.answer("charge", { ok: {} });
         c.do({ hide: true });
         c.yes("parked on disk", (disk(c, KEY)?.parked ?? []).length > 0);

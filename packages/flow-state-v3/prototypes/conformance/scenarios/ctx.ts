@@ -24,6 +24,8 @@ export const checkClaims = (r: Reads) => {
   // D117, oracle (j): what a committed turn asked for became something, and what no turn could take left a wait.
   const gone = r.missingEndings();
   if (gone.length) throw new Mismatch(gone.join("; "));
+  const life = r.lifetimeViolations(); // rule 73's global invariants, after every step
+  if (life.length) throw new Mismatch(life.join("; "));
   // D112, oracle (h), in every step of every case and search: a request at the server has its Attempt as the head on disk, until it is decided or released.
   const lies = r.writeAheadLies();
   if (lies.length) throw new Mismatch(`(h) may be at the server, and no head on disk says so: ${lies.join(" ")}`);
@@ -117,6 +119,7 @@ export const checkEndings = (r: Reads) => {
         owed.set(ko(e), (owed.get(ko(e)) ?? 0) + 1);
         break;
       case "parked": // rule 53: owed to whoever comes
+      case "ignored": // OD28: admitted with no turn; whether the mapping says so is the ledger's call (drive.ts)
       case "evidenceOnly": {
         // rule 60, rule 44: nobody is owed it. Here only counted; whether it may be evidence is the ledger's call, from what the suite sees (drive.ts, re-audit H1)
         if (ended) break;
@@ -236,7 +239,11 @@ export class Ctx {
   // An event for a fragment instance: E.summary.PayPressed, E.uploads.key("r1").Cancel.
   into = (path: readonly string[], event: string, payload: unknown = {}, a: ActorRef = this.A) =>
     this.do({ send: a, event, payload, to: path });
-  dispose = (a: ActorRef = this.A) => this.do({ dispose: a });
+  dispose = (a: ActorRef = this.A) => this.do({ dispose: a }); // `disposeActor` (OD31)
+  detach = (a: ActorRef = this.A) => this.do({ detach: a }); // rule 73: the Story ends one use; the grace decides
+  snap = (a: ActorRef = this.A) => this.r.snapshot(a);
+  // How many incarnations the actor has had in this run, and the one now live (rule 73's "same incarnation").
+  incarnations = (a: ActorRef = this.A) => this.r.evidence("incarnation").filter((e) => e["actor"] === this.r.actorKey(a)).length;
   inner = (path: readonly string[], a: ActorRef = this.A) => this.r.inner(a, path);
   ack = (match?: string) => this.do({ storage: "ack", ...(match ? { match } : {}) });
   answer = (op: string, a: Answer, where?: Readonly<Record<string, unknown>>) =>

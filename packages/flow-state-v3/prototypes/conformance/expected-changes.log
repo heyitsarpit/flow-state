@@ -968,3 +968,520 @@ round:cli/story.ts hash:51bc9efbb26b | round 13, D221: the trace names BesideOld
 round:mutants-r6.ts hash:b6c3802cca2e | round 13, D221: d78-no-rekey retargeted to the two-pass placement
 file:falsify.ts hash:1325749ba53f | round 13, Arpit's parallel rule: lies targeted by default on their recorded cases, --full records them, --parallel N up to 8
 file:falsify.ts hash:ba6fcdfbfcbd | round 13: each lie's record is its own file, written as it ends, so a killed slice keeps what it learnt
+LIFE-01 hash:7e503d415609 | lifetime experiment (PROPOSED): work in progress keeps a persisted actor past its last use; its record kept after
+LIFE-02 hash:5475979f7357 | lifetime experiment (PROPOSED): a non-persisted actor goes with no uses once its write lands, nothing kept
+LIFE-03 hash:3fab1e04d671 | lifetime experiment (PROPOSED): a send to an absent persisted target restores it and delivers in order
+LIFE-04 hash:400e04928186 | lifetime experiment (PROPOSED): a detach and attach in one host task dispose nothing; uses are counted
+LIFE-05 hash:5cb7f2474075 | lifetime experiment (PROPOSED): an ending parked for a removed copy's path is a use until a copy takes it
+file:scenarios/lifetime.scenario.ts hash:54453452820a | lifetime experiment: LIFE-01..05, the rule's clauses, expected by hand from the proposal
+file:main.ts hash:3d55a41e0c4b | lifetime experiment: lifetime.scenario.ts wired in; attach and detach steps name their actor for the output
+file:harness.ts hash:a91b9b549fca | lifetime experiment: attach and detach steps, and the optional Instance methods a runtime with uses has
+file:drive.ts hash:25bb656d98cb | lifetime experiment: attach makes live, detach owes no life; a send to a disposed persisted actor is a restore, not a ghost
+round:mutants-lifetime.ts hash:f51e9c7da963 | lifetime experiment: seven wrong runtimes for LIFE-01..05, run by lifetime-falsify.ts
+round:adapter.ts hash:3d8168bb21c8 | lifetime experiment (round-14x): attach, detach, the FLOW_LIFETIME mapping modes and the busy probe
+output:FRAG-15 hash:8884adc765be | lifetime experiment: a send to a disposed persisted Notes restores it (Runtime O4 under the rule), so the search reaches more states
+output:LIFE-01 hash:990ad8239b57 | lifetime experiment: LIFE-01's whole output on round-14x
+output:LIFE-02/busy-until-its-write-lands-then-gone hash:3e63ff383e87 | lifetime experiment: LIFE-02 busy variant's whole output on round-14x
+output:LIFE-02/idle-with-no-uses-is-gone hash:2e00e53469b9 | lifetime experiment: LIFE-02 idle variant's whole output on round-14x
+output:LIFE-03 hash:746089a76b34 | lifetime experiment: LIFE-03's whole output on round-14x
+output:LIFE-04/detach-then-attach-in-one-task-disposes-nothing hash:3ce557479d0f | lifetime experiment: LIFE-04 StrictMode variant's whole output on round-14x
+output:LIFE-04/one-of-two-uses-ending-keeps-it hash:6c4be5a2c69d | lifetime experiment: LIFE-04 counted variant's whole output on round-14x
+output:LIFE-05 hash:2b1ed77782a5 | lifetime experiment: LIFE-05's whole output on round-14x
+file:expected-recipients.txt hash:cd0cd7f0fdf9 | lifetime experiment: LIFE-01..05 observe 6 more deliveries and check 6 more start nodes
+file:broken-adapter.ts hash:f2dd36df0db9 | lifetime experiment, falsify suite3: bogusIssue breaks an attach as it breaks an ensure, so a case that only attaches sees it
+--- rule 73 as written (machine-design OD27, 2.7.17, C104-C111): round-14x reworked to the design
+ORDER-01 hash:892590586861 | rule 73, C105: the send to absent, non-persisted c3 is SendTargetAbsent NotPersisted, named, with its reason read
+REV7-M2 hash:86f921a16d6d | rule 73: the consumer re-attaching at the reload takes a boot-queue slot, so the bound is 3 for the same one drop
+LIFE-01 hash:0d0742db50b5 | rule 73: an InFlight write keeps a persisted actor past its last use; it goes a grace after, record kept
+LIFE-02 hash:b3ad24e8e1da | rule 73: a non-persisted shared actor goes a grace after its write lands, nothing kept; idle, a grace after release
+LIFE-03 hash:6f67e1de8bac | rule 73, C105: a send to an absent persisted target restores it and delivers in order; it goes again a grace after
+LIFE-04 hash:8d08fa3af926 | rule 73: release and attach in one task or within the grace keep the incarnation; past the grace it goes; counted
+LIFE-05 hash:c51a08bb685f | rule 73, rule 44: a parked ending is no use; persisted Notes goes and its next incarnation's copy hears it once
+LIFE-06 hash:d606fe359b36 | rule 73, rule 44: Held is no use; the actor goes, the hold is unbound, the next incarnation hears Restored once
+LIFE-07 hash:4313a783ad20 | rule 73: an armed schedule is no use; the record keeps the deadline, and the overdue one fires once at restore
+LIFE-08 hash:ac7563abddf3 | rule 73: a send during the grace is mail, a use; the same incarnation hears it and the grace starts again
+LIFE-09 hash:338dfe21298c | rule 73, C105: a send to an absent non-persisted target is SendTargetAbsent NotPersisted and creates nothing
+LIFE-10 hash:dc3baa9f6547 | rule 73, C108: a pre-attach handle reads the Runtime's copy; no publication shows initial memory
+file:scenarios/lifetime.scenario.ts hash:4f87e8cd756d | rule 73 as written: LIFE-01..10, release for a use's end, the grace, the design's use list, by hand
+file:scenarios/order.scenario.ts hash:bab64e34870a | rule 73, C105: ORDER-01 names SendTargetAbsent and reads its NotPersisted reason
+file:scenarios/round7.scenario.ts hash:e39a9b1b13e0 | rule 73: REV7-M2's boot queue bound counts the remount's re-attach
+file:main.ts hash:99cab8c98fa4 | rule 73: a release step names its actor for the output, as attach does
+file:harness.ts hash:6ab99530a8cc | rule 73: release replaces detach (Story.release, OD27 Q4); attach may be onto an existing actor only
+file:drive.ts hash:addd130f193f | rule 73: the suite's ensure attaches its own consumer; release and dispose end it; a reload re-attaches it
+round:mutants-lifetime.ts hash:46615b6e482c | rule 73 as written: thirteen wrong runtimes, one per clause, for LIFE-01..10
+round:adapter.ts hash:0a20357ceaba | rule 73 as written: ensure is no use, attach and release, the mapping modes and the probe removed
+output:FRAG-15 hash:7c90adf47c3c | rule 73: a send-restored Notes has no uses, so its grace runs and the search reaches more states
+output:LIFE-01 hash:2d44a32de396 | rule 73: LIFE-01's whole output, with the grace
+output:LIFE-02/busy-until-its-write-lands-then-gone hash:2b49e0100799 | rule 73: LIFE-02 busy variant's whole output, with the grace
+output:LIFE-02/idle-with-no-uses-is-gone-after-the-grace hash:14b3bdcc2657 | rule 73: LIFE-02 idle variant's whole output, renamed for the grace
+output:LIFE-03 hash:da14e6335a10 | rule 73: LIFE-03's whole output, with the grace
+output:LIFE-04/an-attach-within-the-grace-keeps-the-incarnation-and-past-it-is-disposed hash:85ed5c0693f4 | rule 73: LIFE-04 grace variant's whole output
+output:LIFE-04/one-of-two-uses-ending-keeps-it hash:5a51c066a1a6 | rule 73: LIFE-04 counted variant's whole output, with the grace
+output:LIFE-04/release-then-attach-in-one-task-disposes-nothing hash:5fc4a69aa52e | rule 73: LIFE-04 Strict Mode variant's whole output, release for detach
+output:LIFE-05 hash:29c8f91863c5 | rule 73: LIFE-05's whole output, the parked ending delivered to the next life
+output:LIFE-06 hash:f4aacac8af75 | rule 73: LIFE-06's whole output
+output:LIFE-07 hash:dc18969c63bd | rule 73: LIFE-07's whole output
+output:LIFE-08 hash:b1c89de73e8b | rule 73: LIFE-08's whole output
+output:LIFE-09 hash:876aa6d378e6 | rule 73: LIFE-09's whole output
+output:LIFE-10 hash:ac0fca244b52 | rule 73: LIFE-10's whole output
+output:ORDER-01 hash:47597c09a030 | rule 73, C105: ORDER-01's output, SendTargetAbsent in place of unbound evidence
+removed:variant:LIFE-02/idle-with-no-uses-is-gone | renamed LIFE-02/idle-with-no-uses-is-gone-after-the-grace: rule 73 disposes after the grace
+removed:variant:LIFE-04/detach-then-attach-in-one-task-disposes-nothing | renamed LIFE-04/release-then-attach-in-one-task-disposes-nothing (Story.release)
+removed:output:LIFE-02/idle-with-no-uses-is-gone | the variant was renamed for the grace; its output line goes with it
+removed:output:LIFE-04/detach-then-attach-in-one-task-disposes-nothing | the variant was renamed for release; its output line goes with it
+file:expected-recipients.txt hash:a1cc52436a3e | rule 73: LIFE-06..10 observe 21 more deliveries and check 21 more start nodes
+file:falsify.ts hash:818fc3570334 | rule 73: FRAG-15's search reaches more states, the suite peaks near 1.75 GB; a child's bound is 2 GB, the user's limit
+--- round 14, area 1: rule 73 as merged (OD31, proposal-v6), by hand from 2.7.17
+ORDER-01 hash:afaf7bedf2be | rule 73, C105 (OD31): the send to a never-created c3 is SendTargetAbsent { NoRecord }; NotPersisted is gone
+FRAG-08 hash:46bfbe73b8a0 | rule 73 (OD31): FRAG-08's dispose steps rewritten by proposal-v6 7.1 (T1, T2, T4) and a T1 sibling for the non-persisted ending
+FRAG-12 hash:3f1b4c17c4ad | rule 73 (OD31): FRAG-12's two disposes become detach and the grace (T2); results unchanged
+FRAG-20 hash:cdd91b858b54 | rule 73 (OD31): FRAG-20's T2 disposes become detach (no advance, and with the grace); FRAG-15 names SendTargetAbsent
+SPIKE-04 hash:cc985c8074bf | rule 73 (OD31): SPIKE-04's dispose-then-ensure becomes detach and the grace (T2); the record comes back whole
+REV5-H5H6 hash:d5dc066995a8 | rule 73 (OD31): REV5-H5H6's disposes rewritten (T1, T2); the lost answer now hears Restored at the return; a disposed identity is woken at ready
+REV5-M1 hash:814796634b89 | rule 73 (OD31): REV5-M1 parks through Runtime disposal (T3); Runtime O6 interrupts the wire, so the parked ending is unknown Interrupted
+REV8-PINS hash:052bd1bfdc68 | rule 73 (OD31): REV8-PINS D72 parks through Runtime disposal (T3) in place of a dispose
+REV9-KEPT hash:af6cd3cc2e52 | rule 73 (OD31): REV9-KEPT's kept firing goes with an end after the grace (T2), not a dispose
+REV9-EDGE hash:9864be804f64 | rule 73 (OD31): REV9-EDGE's persisted disposes become detach and the grace (T2); the sleeping actor is woken at ready and tries once
+LIFE-01 hash:6e5e19e96caf | rule 73 (OD31): LIFE-01 with detach for release, one incarnation pinned
+LIFE-02 hash:c8dfbd181e8d | rule 73 (OD31): LIFE-02 with detach, variants renamed for the kept write and the free actor
+LIFE-03 hash:09132e2cbfa2 | rule 73 (OD31): LIFE-03 with detach; a send to an ended persisted actor restores it
+LIFE-04 hash:4c9091159bc1 | rule 73 (OD31): LIFE-04 with ensure and detach, variants renamed
+LIFE-05 hash:f061d69deaab | rule 73 (OD31): LIFE-05 with detach; the unplaced lane keeps the actor until the failure lands
+LIFE-06 hash:6741e4332d35 | rule 73 (OD31): LIFE-06 with detach; Held keeps nothing
+LIFE-07 hash:aade7e680c10 | rule 73 (OD31): LIFE-07 with detach and C124 cited
+LIFE-08 hash:d9c4b9dc6ede | rule 73 (OD31): LIFE-08 inverted: mail does not restart the grace; it ends at 100 ms
+LIFE-09 hash:0c8d3badd2d3 | rule 73 (OD31): LIFE-09 reads NoRecord
+LIFE-10 hash:9857dacde0c5 | rule 73 (OD31): LIFE-10 with detach and ensure
+LIFE-11 hash:87c6b91dcebf | rule 73 (OD31): LIFE-11 added: a chain of three after the last use ends, one incarnation
+LIFE-12 hash:159e97bb35e0 | rule 73 (OD31): LIFE-12 added: write, read, write persisted; the kept read keeps for 10 s
+LIFE-13 hash:676762048fb4 | rule 73 (OD31): LIFE-13 added: a pressed read and a send-restore's read keep nothing
+LIFE-14 hash:4b2864fb3991 | rule 73, C124 (OD31): LIFE-14 added: schedules wait, lost, late or fired at a use's return
+LIFE-15 hash:70cfcb46d02d | rule 73 (OD31): LIFE-15 added: a heartbeat whose ping outlasts its period
+LIFE-16 hash:618869275ff9 | rule 73 (OD31): LIFE-16 added: a stale grace expiry does nothing
+LIFE-17 hash:8d8bae4b1a3a | rule 73, C126 (OD31): LIFE-17 added: Restored once per incarnation across two returns
+LIFE-18 hash:3344f17a6379 | rule 73, C106 (OD31): LIFE-18 added: a record at ready, and one woken for its owed ending
+LIFE-21 hash:d7f08618b6ae | rule 73, C108 (OD31): LIFE-21 added: reads follow the identity after the end
+LIFE-22 hash:cde68b8415b5 | rule 73 (OD31): LIFE-22 added: an unencodable record blocks the end until it encodes
+LIFE-23 hash:6574a215b8b8 | rule 73, C105 (OD31): LIFE-23 added: the send table's disposed and undecodable rows
+LIFE-24 hash:df90dec47f85 | rule 73, C105 (OD31): LIFE-24 added: a host ensure keeps nothing; a waiting subscription does
+LIFE-27 hash:2465270e0541 | rule 73 (OD31): LIFE-27 added: a local actor's in-flight exception and the remount rule
+LIFE-28 hash:6e826d10c343 | rule 73, C106 (OD31): LIFE-28 added: Runtime disposal's parked ending wakes the unheld identity at ready
+LIFE-29 hash:98da614dba8f | rule 73, C125 (OD31): LIFE-29 added: EndedWithWork once per machine and kind
+LIFE-30 hash:a19f15c2e26d | rule 73, C111 (OD31): LIFE-30 added: a create within 5 s of an end carries its age
+file:scenarios/ctx.ts hash:a1565c0d717d | rule 73 (OD31): ctx checks the lifetime invariants after every step; detach, snap and incarnations helpers
+file:scenarios/frag.scenario.ts hash:64ef2bebe1fa | rule 73 (OD31): FRAG-08, FRAG-12, FRAG-20 dispose steps rewritten by case id; FRAG-15 names SendTargetAbsent
+file:scenarios/lifetime.scenario.ts hash:82d7c4ed6a1a | rule 73 (OD31): LIFE-01..10 migrated, LIFE-11..30 added (19, 20, 25, 26 not built), by hand from 2.7.17
+file:scenarios/order.scenario.ts hash:20b00317218b | rule 73 (OD31): ORDER-01 reads NoRecord
+file:scenarios/round5.scenario.ts hash:2f8d3531851f | rule 73 (OD31): REV5-H5H6 and REV5-M1 dispose steps rewritten by case id (T1, T2, T3)
+file:scenarios/round8.scenario.ts hash:2406686c8a64 | rule 73 (OD31): REV8-PINS D72 parks through Runtime disposal (T3)
+file:scenarios/round9.scenario.ts hash:1dd88f0e8237 | rule 73 (OD31): REV9-KEPT's dispose becomes detach and the grace (T2)
+file:scenarios/round9b.scenario.ts hash:67a333d4c763 | rule 73 (OD31): REV9-EDGE's persisted disposes become detach and the grace (T2); the boot case gains its try count
+file:scenarios/stream.scenario.ts hash:fd840cc9e99b | rule 73 (OD31): SPIKE-04's dispose becomes detach and the grace (T2)
+file:search/frag.search.ts hash:facb38bd926f | rule 73 (OD31): the FRAG search's dispose is disposeActor, so a later send's SendTargetAbsent NoRecord is allowed
+file:typed/lifetime.ts hash:dddee372b69d | rule 73 (OD31): Lab/Life, a chain, a pressed read, a debounce and a heartbeat, persisted, not, and local
+file:output.ts hash:e71c883f3443 | rule 73 (OD31): output leaves out the invariants' bookkeeping evidence (incarnation, fired)
+file:broken-adapter.ts hash:9393cebdf936 | rule 73 (OD31): bogusIssue passes attach's owner and subscription mode through
+file:harness.ts hash:d76c2e215cee | rule 73 (OD31): detach, subscribe, unsubscribe, mount, unmount, hostEnsure, codecFails; Snapshot, Inspected and the invariant read
+file:drive.ts hash:e280b22ef4eb | rule 73 (OD31): uses by kind, a Story ensure is one use, detach and ActorAbsent, the real re-attach, the invariants, the deferred anchor
+round:mutants-lifetime.ts hash:d6ed7178db6a | rule 73 (OD31): 27 wrong runtimes, one per clause of 2.7.17 as merged
+round:adapter.ts hash:5afa13a132b1 | rule 73 (OD31): attach with owner, detach, codec, the handle's snapshot by identity, inspect, the grace's deadline hashed relative
+output:FRAG-06/reload-of-a-releasing-lane-delivers-nothing hash:9f79fee13277 | rule 73, C106 (OD31): FRAG-06/reload-of-a-releasing-lane-delivers-nothing's record stays a record at ready and returns at the suite's re-attach, one publication later
+output:FRAG-08/non-persisted-detached-hears-its-ending hash:d8018b31482a | rule 73 (OD31): FRAG-08/non-persisted-detached-hears-its-ending's whole output, new
+output:FRAG-08/persisted-disposed-ending-parked-delivered-once hash:9a6c93596b94 | rule 73 (OD31): FRAG-08/persisted-disposed-ending-parked-delivered-once's output after its dispose steps were rewritten by case id (proposal-v6 7.1)
+output:FRAG-08/rebind-delivers-a-hold-once hash:8e11d5341fbd | rule 73 (OD31): FRAG-08/rebind-delivers-a-hold-once's output after its dispose steps were rewritten by case id (proposal-v6 7.1)
+output:FRAG-12/unbound-hold-with-a-waiter-yields hash:c2b5663db46e | rule 73 (OD31): FRAG-12/unbound-hold-with-a-waiter-yields's output after its dispose steps were rewritten by case id (proposal-v6 7.1)
+output:FRAG-12/unbound-hold-with-no-waiter-stays hash:9dcdc04d3997 | rule 73 (OD31): FRAG-12/unbound-hold-with-no-waiter-stays's output after its dispose steps were rewritten by case id (proposal-v6 7.1)
+output:FRAG-15 hash:fd5b1201f779 | rule 73 (OD31): FRAG-15's search: disposeActor drops the record, records stay records at ready; 4058 harnesses
+output:FRAG-18/a-live-lookup-is-not-persisted hash:83d8b2712245 | rule 73, C106 (OD31): FRAG-18/a-live-lookup-is-not-persisted's record stays a record at ready and returns at the suite's re-attach, one publication later
+output:FRAG-18/reload-while-frozen-keeps-the-parked-ending hash:ac62bf4a50ed | rule 73, C106 (OD31): FRAG-18/reload-while-frozen-keeps-the-parked-ending's record stays a record at ready and returns at the suite's re-attach, one publication later
+output:FRAG-20/a-bound-hold-never-yields-an-actor-back-in-time hash:803b64fe41ca | rule 73 (OD31): FRAG-20/a-bound-hold-never-yields-an-actor-back-in-time's output after its dispose steps were rewritten by case id (proposal-v6 7.1)
+output:FRAG-20/no-waiter-left-no-yield hash:9bdf5f4de03b | rule 73 (OD31): FRAG-20/no-waiter-left-no-yield's output after its dispose steps were rewritten by case id (proposal-v6 7.1)
+output:FRAG-24/a-dispose-waiting-on-a-slow-load-runs-after-both-copies-restored-endings hash:a4d388f47eef | OD31: FRAG-24/a-dispose-waiting-on-a-slow-load-runs-after-both-copies-restored-endings's dispose is disposeActor, so the persisted record leaves the disk
+output:HIGH-02/actor-of-a-removed-machine hash:5b0b99642a86 | rule 73, 2.7.17 Return: HIGH-02/actor-of-a-removed-machine's ensure over a record that does not decode discards it (RestoreDiscarded)
+output:HIGH-02/lane-does-not-parse hash:9a7cfedced3e | rule 73, C106 (OD31): HIGH-02/lane-does-not-parse's record stays a record at ready and returns at the suite's re-attach, one publication later
+output:HIGH-02/lane-names-a-removed-operation hash:73d9039ee5ba | rule 73, C106 (OD31): HIGH-02/lane-names-a-removed-operation's record stays a record at ready and returns at the suite's re-attach, one publication later
+output:HIGH-02/persisted-memory-that-cannot-encode hash:f9799f06f14a | rule 73, C106 (OD31): HIGH-02/persisted-memory-that-cannot-encode's record stays a record at ready and returns at the suite's re-attach, one publication later
+output:LIFE-01 hash:af7290118d5b | rule 73 (OD31): LIFE-01's output: the end's trace record (ended), no unused, the create-soon note on a return
+output:LIFE-02/free-with-no-uses-is-gone-after-the-grace hash:06de87291305 | rule 73 (OD31): LIFE-02/free-with-no-uses-is-gone-after-the-grace's whole output, new
+output:LIFE-02/kept-until-its-write-lands-then-gone hash:5a779bf7c46c | rule 73 (OD31): LIFE-02/kept-until-its-write-lands-then-gone's whole output, new
+output:LIFE-03 hash:d062163da49f | rule 73 (OD31): LIFE-03's output: the end's trace record (ended), no unused, the create-soon note on a return
+output:LIFE-04/an-ensure-within-the-grace-keeps-the-incarnation-and-past-it-ends hash:5abc0357fa9c | rule 73 (OD31): LIFE-04/an-ensure-within-the-grace-keeps-the-incarnation-and-past-it-ends's whole output, new
+output:LIFE-04/detach-then-ensure-in-one-task-ends-nothing hash:5fc4a69aa52e | rule 73 (OD31): LIFE-04/detach-then-ensure-in-one-task-ends-nothing's whole output, new
+output:LIFE-04/one-of-two-uses-ending-keeps-it hash:5abc0357fa9c | rule 73 (OD31): LIFE-04/one-of-two-uses-ending-keeps-it's output: the end's trace record (ended), no unused, the create-soon note on a return
+output:LIFE-05 hash:f1cb5ab9beda | rule 73 (OD31): LIFE-05's output: the end's trace record (ended), no unused, the create-soon note on a return
+output:LIFE-06 hash:b1d0463ae203 | rule 73 (OD31): LIFE-06's output: the end's trace record (ended), no unused, the create-soon note on a return
+output:LIFE-07 hash:40e78e4b8a41 | rule 73 (OD31): LIFE-07's output: the end's trace record (ended), no unused, the create-soon note on a return
+output:LIFE-08 hash:6970dba6ca2d | rule 73 (OD31): LIFE-08's output: the end's trace record (ended), no unused, the create-soon note on a return
+output:LIFE-09 hash:0fdf7307249d | rule 73 (OD31): LIFE-09's output: the end's trace record (ended), no unused, the create-soon note on a return
+output:LIFE-10 hash:2f37b5291d5d | rule 73 (OD31): LIFE-10's output: the end's trace record (ended), no unused, the create-soon note on a return
+output:LIFE-11 hash:c8c8e3b63eef | rule 73 (OD31): LIFE-11's whole output, new
+output:LIFE-12 hash:378b36bd1c1a | rule 73 (OD31): LIFE-12's whole output, new
+output:LIFE-13/a-pressed-read-is-cut-by-the-end hash:25c4bfd2e307 | rule 73 (OD31): LIFE-13/a-pressed-read-is-cut-by-the-end's whole output, new
+output:LIFE-13/a-read-a-send-restore-starts-is-cut-too hash:c0e60c5c03e2 | rule 73 (OD31): LIFE-13/a-read-a-send-restore-starts-is-cut-too's whole output, new
+output:LIFE-14/a-use-back-in-the-grace-fires-it-once hash:e2d1244fb478 | rule 73 (OD31): LIFE-14/a-use-back-in-the-grace-fires-it-once's whole output, new
+output:LIFE-14/not-persisted-the-debounce-is-lost hash:772a75debd6d | rule 73 (OD31): LIFE-14/not-persisted-the-debounce-is-lost's whole output, new
+output:LIFE-14/persisted-it-fires-once-at-the-next-ensure hash:5ad758cefd00 | rule 73 (OD31): LIFE-14/persisted-it-fires-once-at-the-next-ensure's whole output, new
+output:LIFE-15 hash:03d283c6402d | rule 73 (OD31): LIFE-15's whole output, new
+output:LIFE-16 hash:cff1497b6a90 | rule 73 (OD31): LIFE-16's whole output, new
+output:LIFE-17 hash:ddeb89b720d4 | rule 73 (OD31): LIFE-17's whole output, new
+output:LIFE-18/a-plain-record-stays-a-record hash:83e35ee464ad | rule 73 (OD31): LIFE-18/a-plain-record-stays-a-record's whole output, new
+output:LIFE-18/owed-an-ending-it-is-woken hash:32fe728f9cb5 | rule 73 (OD31): LIFE-18/owed-an-ending-it-is-woken's whole output, new
+output:LIFE-21/not-persisted-reads-its-terminal-snapshot hash:6687c7b5406e | rule 73 (OD31): LIFE-21/not-persisted-reads-its-terminal-snapshot's whole output, new
+output:LIFE-21/persisted-reads-its-record hash:91748c75ed60 | rule 73 (OD31): LIFE-21/persisted-reads-its-record's whole output, new
+output:LIFE-22 hash:75d50c019a86 | rule 73 (OD31): LIFE-22's whole output, new
+output:LIFE-23/disposed-is-no-record hash:148ac7f416c6 | rule 73 (OD31): LIFE-23/disposed-is-no-record's whole output, new
+output:LIFE-23/undecodable-then-an-ensure-discards-it hash:74a335d4864d | rule 73 (OD31): LIFE-23/undecodable-then-an-ensure-discards-it's whole output, new
+output:LIFE-24/a-host-ensure-alone-keeps-nothing hash:6c0379cdde00 | rule 73 (OD31): LIFE-24/a-host-ensure-alone-keeps-nothing's whole output, new
+output:LIFE-24/ensure-then-subscribe-in-one-task-keeps hash:113907ba412b | rule 73 (OD31): LIFE-24/ensure-then-subscribe-in-one-task-keeps's whole output, new
+output:LIFE-24/subscribe-then-ensure-keeps hash:3281a8e8bebf | rule 73 (OD31): LIFE-24/subscribe-then-ensure-keeps's whole output, new
+output:LIFE-27/a-remount-while-kept-adopts-the-ending hash:408397b6a86d | rule 73 (OD31): LIFE-27/a-remount-while-kept-adopts-the-ending's whole output, new
+output:LIFE-27/unmounted-mid-confirm-it-finishes-the-chain hash:c8c8e3b63eef | rule 73 (OD31): LIFE-27/unmounted-mid-confirm-it-finishes-the-chain's whole output, new
+output:LIFE-28 hash:0806837b3155 | rule 73 (OD31): LIFE-28's whole output, new
+output:LIFE-29 hash:6ab57edb60ed | rule 73 (OD31): LIFE-29's whole output, new
+output:LIFE-30 hash:4b7591668896 | rule 73 (OD31): LIFE-30's whole output, new
+output:PAY-08/reload-while-reconciling hash:2efbaa9712aa | rule 73, C106 (OD31): PAY-08/reload-while-reconciling's record stays a record at ready and returns at the suite's re-attach, one publication later
+output:PAY-09/ack-not-stored hash:898bab802a14 | rule 73, C106 (OD31): PAY-09/ack-not-stored's record stays a record at ready and returns at the suite's re-attach, one publication later
+output:PAY-13/waiting-flush-lost hash:92430f2f27f7 | rule 73, C106 (OD31): PAY-13/waiting-flush-lost's record stays a record at ready and returns at the suite's re-attach, one publication later
+output:PAY-15/dispose-held hash:d2e55c8ee102 | rule 73, C106 (OD31): PAY-15/dispose-held's record stays a record at ready and returns at the suite's re-attach, one publication later
+output:PAY-15/reload-holds-exactly-once hash:a70b0c4bc815 | rule 73, C106 (OD31): PAY-15/reload-holds-exactly-once's record stays a record at ready and returns at the suite's re-attach, one publication later
+output:PAY-16/retry-count-persists hash:85904e0999f3 | rule 73, C106 (OD31): PAY-16/retry-count-persists's record stays a record at ready and returns at the suite's re-attach, one publication later
+output:R10-BOOT-ORDER/inputs-that-wait-on-a-slow-load-run-after-the-restored-endings hash:a31079e794f6 | OD31: R10-BOOT-ORDER/inputs-that-wait-on-a-slow-load-run-after-the-restored-endings's dispose is disposeActor, so the persisted record leaves the disk
+output:R12-DOORS/a-computed-field-a-release-adds-is-computed-from-the-restored-fields hash:84ff236a049a | rule 73, C106 (OD31): R12-DOORS/a-computed-field-a-release-adds-is-computed-from-the-restored-fields's record stays a record at ready and returns at the suite's re-attach, one publication later
+output:R12-KEYS/a-release-that-adds-a-key-field-declines-beside-the-older-lane hash:d44fd212613d | rule 73, C106 (OD31): R12-KEYS/a-release-that-adds-a-key-field-declines-beside-the-older-lane's record stays a record at ready and returns at the suite's re-attach, one publication later
+output:R12-KEYS/a-typed-release-that-changes-the-key-keeps-the-old-version-hold-and-does-not-mint hash:d44fd212613d | rule 73, C106 (OD31): R12-KEYS/a-typed-release-that-changes-the-key-keeps-the-old-version-hold-and-does-not-mint's record stays a record at ready and returns at the suite's re-attach, one publication later
+output:R12-MEMORY hash:ef9b9de083f9 | rule 73, C106 (OD31): R12-MEMORY's record stays a record at ready and returns at the suite's re-attach, one publication later
+output:R13-DEFAULTS/a-constructor-default-applies-at-creation-and-at-restore hash:9f9819c3a97a | rule 73, C106 (OD31): R13-DEFAULTS/a-constructor-default-applies-at-creation-and-at-restore's record stays a record at ready and returns at the suite's re-attach, one publication later
+output:R13-DEFAULTS/a-decoding-default-applies-at-creation-and-at-restore hash:56d776cd5f90 | rule 73, C106 (OD31): R13-DEFAULTS/a-decoding-default-applies-at-creation-and-at-restore's record stays a record at ready and returns at the suite's re-attach, one publication later
+output:R13-KEYS/a-keyed-idle-sees-an-old-version-hold hash:969c8f479d8d | rule 73, C106 (OD31): R13-KEYS/a-keyed-idle-sees-an-old-version-hold's record stays a record at ready and returns at the suite's re-attach, one publication later
+output:R13-KEYS/a-release-that-adds-a-key-field-declines-every-commit-until-the-old-hold-ends hash:07e96cb12a1f | rule 73, C106 (OD31): R13-KEYS/a-release-that-adds-a-key-field-declines-every-commit-until-the-old-hold-ends's record stays a record at ready and returns at the suite's re-attach, one publication later
+output:R13-KEYS/a-release-that-removes-a-key-field-keeps-every-old-hold-eu-first hash:089cf9a19cb5 | rule 73, C106 (OD31): R13-KEYS/a-release-that-removes-a-key-field-keeps-every-old-hold-eu-first's record stays a record at ready and returns at the suite's re-attach, one publication later
+output:R13-KEYS/a-release-that-removes-a-key-field-keeps-every-old-hold-us-first hash:52e748ee0163 | rule 73, C106 (OD31): R13-KEYS/a-release-that-removes-a-key-field-keeps-every-old-hold-us-first's record stays a record at ready and returns at the suite's re-attach, one publication later
+output:R13-KEYS/a-reload-in-between-keeps-the-old-version-hold hash:343e4027da50 | rule 73, C106 (OD31): R13-KEYS/a-reload-in-between-keeps-the-old-version-hold's record stays a record at ready and returns at the suite's re-attach, one publication later
+output:R13-KEYS/another-actor-is-not-held hash:a9e38668b63a | rule 73, C106 (OD31): R13-KEYS/another-actor-is-not-held's record stays a record at ready and returns at the suite's re-attach, one publication later
+output:R13-KEYS/serialize-declines-beside-an-old-version-hold-and-queues-nothing hash:8c96a3c0ab25 | rule 73, C106 (OD31): R13-KEYS/serialize-declines-beside-an-old-version-hold-and-queues-nothing's record stays a record at ready and returns at the suite's re-attach, one publication later
+output:REAL-04/r51-a-reset-a-reload-lost-runs-at-boot hash:9779e9b64e74 | rule 73, C106 (OD31): REAL-04/r51-a-reset-a-reload-lost-runs-at-boot's record stays a record at ready and returns at the suite's re-attach, one publication later
+output:REV4-H3/activations-for-a-leaf-gone hash:3793aae9eee0 | rule 73, 2.7.17 Return: REV4-H3/activations-for-a-leaf-gone's ensure over a record that does not decode discards it (RestoreDiscarded)
+output:REV4-H3/frozen-of-no-shape hash:3793aae9eee0 | rule 73, 2.7.17 Return: REV4-H3/frozen-of-no-shape's ensure over a record that does not decode discards it (RestoreDiscarded)
+output:REV4-H3/history-names-a-removed-node hash:3793aae9eee0 | rule 73, 2.7.17 Return: REV4-H3/history-names-a-removed-node's ensure over a record that does not decode discards it (RestoreDiscarded)
+output:REV4-H3/kid-frag-is-another-fragment hash:3793aae9eee0 | rule 73, 2.7.17 Return: REV4-H3/kid-frag-is-another-fragment's ensure over a record that does not decode discards it (RestoreDiscarded)
+output:REV4-H3/kid-frag-this-release-removed hash:3793aae9eee0 | rule 73, 2.7.17 Return: REV4-H3/kid-frag-this-release-removed's ensure over a record that does not decode discards it (RestoreDiscarded)
+output:REV4-H3/kid-leaf-removed hash:3793aae9eee0 | rule 73, 2.7.17 Return: REV4-H3/kid-leaf-removed's ensure over a record that does not decode discards it (RestoreDiscarded)
+output:REV4-H3/lane-head-of-no-shape hash:16735be1e460 | rule 73, C106 (OD31): REV4-H3/lane-head-of-no-shape's record stays a record at ready and returns at the suite's re-attach, one publication later
+output:REV4-H3/lane-without-w hash:f69fbb2b4c71 | rule 73, C106 (OD31): REV4-H3/lane-without-w's record stays a record at ready and returns at the suite's re-attach, one publication later
+output:REV4-H3/leaf-this-release-removed hash:3793aae9eee0 | rule 73, 2.7.17 Return: REV4-H3/leaf-this-release-removed's ensure over a record that does not decode discards it (RestoreDiscarded)
+output:REV4-H3/memory-not-an-object hash:3793aae9eee0 | rule 73, 2.7.17 Return: REV4-H3/memory-not-an-object's ensure over a record that does not decode discards it (RestoreDiscarded)
+output:REV4-H3/no-kids hash:3793aae9eee0 | rule 73, 2.7.17 Return: REV4-H3/no-kids's ensure over a record that does not decode discards it (RestoreDiscarded)
+output:REV4-H3/no-timers hash:3793aae9eee0 | rule 73, 2.7.17 Return: REV4-H3/no-timers's ensure over a record that does not decode discards it (RestoreDiscarded)
+output:REV4-H3/placement-removed hash:3793aae9eee0 | rule 73, 2.7.17 Return: REV4-H3/placement-removed's ensure over a record that does not decode discards it (RestoreDiscarded)
+output:REV4-H3/timer-of-no-shape hash:3793aae9eee0 | rule 73, 2.7.17 Return: REV4-H3/timer-of-no-shape's ensure over a record that does not decode discards it (RestoreDiscarded)
+output:REV4-H4/a-success-of-a-bigint-parked-on-a-persisted-lane hash:466390faf596 | rule 73, C106 (OD31): REV4-H4/a-success-of-a-bigint-parked-on-a-persisted-lane's record stays a record at ready and returns at the suite's re-attach, one publication later
+output:REV4-H5/key "quoted": armed, sent, stored hash:c88fb97c2607 | rule 73, C106 (OD31): REV4-H5/key "quoted": armed, sent, stored's record stays a record at ready and returns at the suite's re-attach, one publication later
+output:REV4-H5/key 2026-11-02T00:00:00Z: armed, sent, stored hash:349ca40142fb | rule 73, C106 (OD31): REV4-H5/key 2026-11-02T00:00:00Z: armed, sent, stored's record stays a record at ready and returns at the suite's re-attach, one publication later
+output:REV4-H5/key a/b: armed, sent, stored hash:aa3ed2545119 | rule 73, C106 (OD31): REV4-H5/key a/b: armed, sent, stored's record stays a record at ready and returns at the suite's re-attach, one publication later
+output:REV4-H5/key g1.2: armed, sent, stored hash:e6df98720460 | rule 73, C106 (OD31): REV4-H5/key g1.2: armed, sent, stored's record stays a record at ready and returns at the suite's re-attach, one publication later
+output:REV4-H5/key gid://shop/Product/1: armed, sent, stored hash:b120e29db0ef | rule 73, C106 (OD31): REV4-H5/key gid://shop/Product/1: armed, sent, stored's record stays a record at ready and returns at the suite's re-attach, one publication later
+output:REV4-H5/key with space: armed, sent, stored hash:216b6f4b411e | rule 73, C106 (OD31): REV4-H5/key with space: armed, sent, stored's record stays a record at ready and returns at the suite's re-attach, one publication later
+output:REV5-H2/a-frozen-ending-of-a-removed-operation-is-orphaned-not-fatal hash:613529e6c7ff | rule 73, C106 (OD31): REV5-H2/a-frozen-ending-of-a-removed-operation-is-orphaned-not-fatal's record stays a record at ready and returns at the suite's re-attach, one publication later
+output:REV5-H2/junk-in-frozen-quarantines-at-boot hash:d45163733e54 | rule 73, 2.7.17 Return: REV5-H2/junk-in-frozen-quarantines-at-boot's ensure over a record that does not decode discards it (RestoreDiscarded)
+output:REV5-H2/stored-names-like-prototype-keys hash:52e11f40e317 | rule 73, C106 (OD31): REV5-H2/stored-names-like-prototype-keys's record stays a record at ready and returns at the suite's re-attach, one publication later
+output:REV5-H3/w-is-off-the-disk-once-it-has-ended hash:939732a21e07 | rule 73, C106 (OD31): REV5-H3/w-is-off-the-disk-once-it-has-ended's record stays a record at ready and returns at the suite's re-attach, one publication later
+output:REV5-H5H6/a-disposed-identity-sleeps-through-a-reload hash:b5ad1efc727d | rule 73 (OD31): REV5-H5H6/a-disposed-identity-sleeps-through-a-reload's output after its dispose steps were rewritten by case id (proposal-v6 7.1)
+output:REV5-H5H6/a-frozen-kid-adopts-at-the-thaw-not-at-the-rebind hash:b7d182a50c06 | rule 73 (OD31): REV5-H5H6/a-frozen-kid-adopts-at-the-thaw-not-at-the-rebind's output after its dispose steps were rewritten by case id (proposal-v6 7.1)
+output:REV5-H5H6/a-hold-heard-before-disposal-is-restored-to-the-rebound-life hash:9a380c162dbb | rule 73 (OD31): REV5-H5H6/a-hold-heard-before-disposal-is-restored-to-the-rebound-life's output after its dispose steps were rewritten by case id (proposal-v6 7.1)
+output:REV5-H5H6/a-persisted-rebind-adopts-its-fragments-ending hash:705c627e1c30 | rule 73 (OD31): REV5-H5H6/a-persisted-rebind-adopts-its-fragments-ending's output after its dispose steps were rewritten by case id (proposal-v6 7.1)
+output:REV5-H5H6/and-its-lost-answer-once-with-no-restored hash:9a380c162dbb | rule 73 (OD31): REV5-H5H6/and-its-lost-answer-once-with-no-restored's output after its dispose steps were rewritten by case id (proposal-v6 7.1)
+output:REV5-M1/a-crash-during-recovery-loses-no-parked-ending hash:fdf22eea7414 | rule 73 (OD31): REV5-M1/a-crash-during-recovery-loses-no-parked-ending's output after its dispose steps were rewritten by case id (proposal-v6 7.1)
+output:REV5-M1/the-record-goes-once-delivered hash:ef2b1600a06f | rule 73 (OD31): REV5-M1/the-record-goes-once-delivered's output after its dispose steps were rewritten by case id (proposal-v6 7.1)
+output:REV5-SESS/a-notice-and-a-value-at-once-are-still-one-at-a-time hash:67d88a169761 | rule 73, C106 (OD31): REV5-SESS/a-notice-and-a-value-at-once-are-still-one-at-a-time's record stays a record at ready and returns at the suite's re-attach, one publication later
+output:REV5-SESS/a-proof-with-nothing-claimed-is-not-believed hash:fd3084554291 | rule 73, C106 (OD31): REV5-SESS/a-proof-with-nothing-claimed-is-not-believed's record stays a record at ready and returns at the suite's re-attach, one publication later
+output:REV5-SESS/end-behind-a-queued-value-under-a-slow-drain hash:7bbbcc692b67 | rule 73, C106 (OD31): REV5-SESS/end-behind-a-queued-value-under-a-slow-drain's record stays a record at ready and returns at the suite's re-attach, one publication later
+output:REV5-SESS/under-pull-a-drop-cannot-overtake-a-value-already-taken hash:e9a94b9b195f | rule 73, C106 (OD31): REV5-SESS/under-pull-a-drop-cannot-overtake-a-value-already-taken's record stays a record at ready and returns at the suite's re-attach, one publication later
+output:REV6-CAPTURE/a-crash-loses-plain-memory-and-only-that hash:0299bd6f730f | rule 73, C106 (OD31): REV6-CAPTURE/a-crash-loses-plain-memory-and-only-that's record stays a record at ready and returns at the suite's re-attach, one publication later
+output:REV6-CAPTURE/an-awaited-write-carries-what-waits-with-it hash:a77d590d4c9b | rule 73, C106 (OD31): REV6-CAPTURE/an-awaited-write-carries-what-waits-with-it's record stays a record at ready and returns at the suite's re-attach, one publication later
+output:REV6-H5/a-release-that-changes-a-key-does-not-mint-beside-a-hold hash:f01a541645a8 | rule 73, C106 (OD31): REV6-H5/a-release-that-changes-a-key-does-not-mint-beside-a-hold's record stays a record at ready and returns at the suite's re-attach, one publication later
+output:REV6-H5/the-rekeyed-lane-is-what-a-guard-reads hash:2656e374ad06 | rule 73, C106 (OD31): REV6-H5/the-rekeyed-lane-is-what-a-guard-reads's record stays a record at ready and returns at the suite's re-attach, one publication later
+output:REV6-M7/a-failed-write-survives-a-reload-as-the-last-good-capture hash:20c9c1147313 | rule 73, C106 (OD31): REV6-M7/a-failed-write-survives-a-reload-as-the-last-good-capture's record stays a record at ready and returns at the suite's re-attach, one publication later
+output:REV6-TEAR/a-store-with-no-atomic-batch-strands-nothing-silently hash:fe3cf057c511 | rule 73, C106 (OD31): REV6-TEAR/a-store-with-no-atomic-batch-strands-nothing-silently's record stays a record at ready and returns at the suite's re-attach, one publication later
+output:REV7-D80/D93-a-dispose-is-not-lost-to-a-kill hash:047ccb98d7f3 | OD31: REV7-D80/D93-a-dispose-is-not-lost-to-a-kill's dispose is disposeActor, so the persisted record leaves the disk
+output:REV7-D80/a-kill-before-any-flush-loses-only-plain-memory hash:c3bba226e426 | rule 73, C106 (OD31): REV7-D80/a-kill-before-any-flush-loses-only-plain-memory's record stays a record at ready and returns at the suite's re-attach, one publication later
+output:REV7-D80/hidden-flushes-at-once hash:6fb4098cc9e7 | rule 73, C106 (OD31): REV7-D80/hidden-flushes-at-once's record stays a record at ready and returns at the suite's re-attach, one publication later
+output:REV7-EDGE/H1-one-actors-bad-record-stops-nobody-else hash:b8bd38a08c4e | rule 73, C106 (OD31): REV7-EDGE/H1-one-actors-bad-record-stops-nobody-else's record stays a record at ready and returns at the suite's re-attach, one publication later
+output:REV7-EDGE/M2-a-released-hold-does-not-come-back hash:1587a86f9726 | rule 73, C106 (OD31): REV7-EDGE/M2-a-released-hold-does-not-come-back's record stays a record at ready and returns at the suite's re-attach, one publication later
+output:REV7-EDGE/a-hidden-page-in-a-frozen-tab-loses-nothing-to-a-discard hash:d49018c44d9b | rule 73, C106 (OD31): REV7-EDGE/a-hidden-page-in-a-frozen-tab-loses-nothing-to-a-discard's record stays a record at ready and returns at the suite's re-attach, one publication later
+output:REV7-M1/a-success-does-not-come-back-as-a-hold hash:f9913dfd5f63 | rule 73, C106 (OD31): REV7-M1/a-success-does-not-come-back-as-a-hold's record stays a record at ready and returns at the suite's re-attach, one publication later
+output:REV7-M2/a-slow-read-queues-a-click-in-order hash:227731370950 | rule 73, C106 (OD31): REV7-M2/a-slow-read-queues-a-click-in-order's record stays a record at ready and returns at the suite's re-attach, one publication later
+output:REV7-M2/the-queue-has-a-bound hash:d83c2ee09a61 | rule 73, C106 (OD31): REV7-M2/the-queue-has-a-bound's record stays a record at ready and returns at the suite's re-attach, one publication later
+output:REV7-M8/a-quarantined-lane-refuses-a-second-attempt hash:a6f6703e51fa | rule 73, C106 (OD31): REV7-M8/a-quarantined-lane-refuses-a-second-attempt's record stays a record at ready and returns at the suite's re-attach, one publication later
+output:REV7-M8/commit-declines-while-it-stands-and-the-record-stays hash:3d71f48b141f | rule 73, C106 (OD31): REV7-M8/commit-declines-while-it-stands-and-the-record-stays's record stays a record at ready and returns at the suite's re-attach, one publication later
+output:REV8-H1/a-refused-first-send-leaves-no-hold hash:0c6e88438b29 | rule 73, C106 (OD31): REV8-H1/a-refused-first-send-leaves-no-hold's record stays a record at ready and returns at the suite's re-attach, one publication later
+output:REV8-M3/a-boot-lost-apart-from-its-records-reaches-no-other-copy hash:961f4abe42ef | rule 73, C106 (OD31): REV8-M3/a-boot-lost-apart-from-its-records-reaches-no-other-copy's record stays a record at ready and returns at the suite's re-attach, one publication later
+output:REV8-M3/a-hold-does-not-rewrite-per-boot hash:584754876919 | rule 73, C106 (OD31): REV8-M3/a-hold-does-not-rewrite-per-boot's record stays a record at ready and returns at the suite's re-attach, one publication later
+output:REV8-M3/a-lane-alone-still-floors-the-boot hash:dd9c14d43051 | rule 73, C106 (OD31): REV8-M3/a-lane-alone-still-floors-the-boot's record stays a record at ready and returns at the suite's re-attach, one publication later
+output:REV8-M3/frame-numbers-do-not-repeat-across-a-lost-meta hash:631980529e84 | rule 73, C106 (OD31): REV8-M3/frame-numbers-do-not-repeat-across-a-lost-meta's record stays a record at ready and returns at the suite's re-attach, one publication later
+output:REV8-PINS/D72-a-parked-ending-survives-a-kill-before-delivery hash:e17f2edc6f4d | rule 73 (OD31): REV8-PINS/D72-a-parked-ending-survives-a-kill-before-delivery's output after its dispose steps were rewritten by case id (proposal-v6 7.1)
+output:REV8-PINS/D88-a-keyless-idle-sees-a-quarantined-hold hash:b1df3d05f84b | rule 73, C106 (OD31): REV8-PINS/D88-a-keyless-idle-sees-a-quarantined-hold's record stays a record at ready and returns at the suite's re-attach, one publication later
+output:REV8-PINS/D88-a-lane-record-whose-id-disagrees-is-quarantined hash:58b0f2ae816e | rule 73, C106 (OD31): REV8-PINS/D88-a-lane-record-whose-id-disagrees-is-quarantined's record stays a record at ready and returns at the suite's re-attach, one publication later
+output:REV8-PINS/L6-a-firing-before-its-turn-survives-a-kill hash:4495adf33335 | rule 73, C106 (OD31): REV8-PINS/L6-a-firing-before-its-turn-survives-a-kill's record stays a record at ready and returns at the suite's re-attach, one publication later
+output:REV9-EDGE/a-new-life-tries-a-kept-ending-once hash:c68bc6566f46 | rule 73 (OD31): REV9-EDGE/a-new-life-tries-a-kept-ending-once's output after its dispose steps were rewritten by case id (proposal-v6 7.1)
+output:REV9-EDGE/a-new-persisted-life-does-hear-it hash:36f656c9f3b2 | rule 73 (OD31): REV9-EDGE/a-new-persisted-life-does-hear-it's output after its dispose steps were rewritten by case id (proposal-v6 7.1)
+output:REV9-EDGE/a-sleeping-actors-kept-ending-stays-kept-through-a-boot hash:e8657286090a | rule 73 (OD31): REV9-EDGE/a-sleeping-actors-kept-ending-stays-kept-through-a-boot's output after its dispose steps were rewritten by case id (proposal-v6 7.1)
+output:REV9-EDGE/a-stranded-wait-ends-with-its-actor hash:e0539c1b3a32 | rule 73 (OD31): REV9-EDGE/a-stranded-wait-ends-with-its-actor's output after its dispose steps were rewritten by case id (proposal-v6 7.1)
+output:REV9-KEPT/a-kept-deadline-goes-with-a-disposed-actor-and-comes-back hash:64c6d57c7280 | rule 73 (OD31): REV9-KEPT/a-kept-deadline-goes-with-a-disposed-actor-and-comes-back's output after its dispose steps were rewritten by case id (proposal-v6 7.1)
+output:REV9-KEPT/a-kept-deadline-goes-with-its-activation hash:e5290d80a0bb | rule 73, C106 (OD31): REV9-KEPT/a-kept-deadline-goes-with-its-activation's record stays a record at ready and returns at the suite's re-attach, one publication later
+output:REV9-KEPT/a-refused-deadline-stays-on-the-record hash:01adefb5023c | rule 73, C106 (OD31): REV9-KEPT/a-refused-deadline-stays-on-the-record's record stays a record at ready and returns at the suite's re-attach, one publication later
+output:REV9-STREAM/a-refused-stream-failure-is-a-stranded-wait hash:bd5c8db3dd3b | rule 73, C106 (OD31): REV9-STREAM/a-refused-stream-failure-is-a-stranded-wait's record stays a record at ready and returns at the suite's re-attach, one publication later
+output:SPIKE-02/a-reload-restores-memory-and-bookmark-together hash:4bb869c484d2 | rule 73, C106 (OD31): SPIKE-02/a-reload-restores-memory-and-bookmark-together's record stays a record at ready and returns at the suite's re-attach, one publication later
+output:SPIKE-02/the-servers-echo-is-proof-no-notice hash:5baeeaa7d327 | rule 73, C106 (OD31): SPIKE-02/the-servers-echo-is-proof-no-notice's record stays a record at ready and returns at the suite's re-attach, one publication later
+output:SPIKE-03/refetch-forgets-the-place hash:5237e6d58b22 | rule 73, C106 (OD31): SPIKE-03/refetch-forgets-the-place's record stays a record at ready and returns at the suite's re-attach, one publication later
+output:SPIKE-04/a-frozen-partition-survives-a-reload hash:7338be75e8e3 | rule 73, C106 (OD31): SPIKE-04/a-frozen-partition-survives-a-reload's record stays a record at ready and returns at the suite's re-attach, one publication later
+output:SPIKE-04/dispose-then-ensure-brings-both-back hash:0602f7ef4818 | rule 73 (OD31): SPIKE-04/dispose-then-ensure-brings-both-back's output after its dispose steps were rewritten by case id (proposal-v6 7.1)
+output:SPIKE-05/a-module-defect-fails-closed-and-no-value-is-lost hash:d2990a608bdf | rule 73, C106 (OD31): SPIKE-05/a-module-defect-fails-closed-and-no-value-is-lost's record stays a record at ready and returns at the suite's re-attach, one publication later
+output:STORE-04/Restored hash:9fa8cda75160 | rule 73, C106 (OD31): STORE-04/Restored's record stays a record at ready and returns at the suite's re-attach, one publication later
+output:STREAM5-REPAIR/a-reload-during-a-read-reads-again hash:4396e0efe827 | rule 73, C106 (OD31): STREAM5-REPAIR/a-reload-during-a-read-reads-again's record stays a record at ready and returns at the suite's re-attach, one publication later
+removed:variant:LIFE-02/busy-until-its-write-lands-then-gone | renamed LIFE-02/kept-until-its-write-lands-then-gone: OD31's work in flight keeps, it is no use
+removed:variant:LIFE-02/idle-with-no-uses-is-gone-after-the-grace | renamed LIFE-02/free-with-no-uses-is-gone-after-the-grace: 2.7.17's word is free
+removed:variant:LIFE-04/release-then-attach-in-one-task-disposes-nothing | renamed LIFE-04/detach-then-ensure-in-one-task-ends-nothing: Story.release is detach (OD31)
+removed:variant:LIFE-04/an-attach-within-the-grace-keeps-the-incarnation-and-past-it-is-disposed | renamed LIFE-04/an-ensure-within-the-grace-keeps-the-incarnation-and-past-it-ends (OD31)
+removed:output:LIFE-02/busy-until-its-write-lands-then-gone | the variant was renamed; its output line goes with it
+removed:output:LIFE-02/idle-with-no-uses-is-gone-after-the-grace | the variant was renamed for 2.7.17's word; its output line goes with it
+removed:output:LIFE-04/an-attach-within-the-grace-keeps-the-incarnation-and-past-it-is-disposed | the variant was renamed for ensure; its output line goes with it
+removed:output:LIFE-04/release-then-attach-in-one-task-disposes-nothing | the variant was renamed for detach; its output line goes with it
+file:expected-recipients.txt hash:562449060cba | rule 73 (OD31): LIFE-11..30 observe 20 more deliveries; 53 more restored states anchored at their return
+--- round 14, area 2: identity (OD30, rule 74, 2.7.19), by hand
+R14-ID-01 hash:66448a5f75cc | rule 74: a value ref's identity is its input fields in name order, kept alone; an equal value adopts the lane
+R14-ID-02 hash:794cf57ff3e2 | OD30 Q3: changed input fields make an old-version record, listed at ready (OldVersionActor), never restored
+R14-ID-03 hash:0c6068934d5e | rule 74: a singleton's literal name and input at ensure; one machine in both forms is ConflictingActorRef
+file:scenarios/identity.scenario.ts hash:c2188a234399 | rule 74: R14-ID-01..03, the refs as the suite's ensure steps
+file:typed/identity.ts hash:3a4ab594f024 | rule 74: a value-named Editor in two releases and a singleton Session, with their refs
+file:compile/index.ts hash:96184eac5e17 | rule 74: actorRef and ensureArgs are public API
+file:compile/machine.ts hash:47908c245bbe | rule 74: a machine's identity fields (its Flow.input fields, sorted) are compiled, and its memory type is carried for refs
+file:compile/memory.ts hash:7552de9cc6cb | rule 74: Flow.input's type says input, so a ref can find the identity fields
+file:compile/ref.ts hash:013760674106 | rule 74: actorRef from a value or a literal name, the identity encoding, ensureArgs
+file:main.ts hash:aa8005078f7f | rule 74: the identity scenarios join the suite
+file:harness.ts hash:352ca5492da6 | rule 74: an ensure step and the port carry a value ref's identity fields
+file:drive.ts hash:e38d4575d720 | rule 74: identity passes through the Story's ensure; an old-version record after a release is excused from the anchor
+round:typed/type-tests.ts hash:21cf9ebbee77 | rule 74: type pins for value refs, singleton names, string-encoded fields and ensure without input
+round:mutants-lifetime.ts hash:95c3a4410b68 | rule 74: four identity wrong runtimes join the lifetime ones
+round:adapter.ts hash:9c8435d4a07a | rule 74: the port passes identity to ensure and attach
+output:R14-ID-01/a-value-names-the-actor-and-is-its-input hash:13fe06e416b5 | rule 74: R14-ID-01's naming variant's whole output, new
+output:R14-ID-01/an-equal-value-adopts-the-identitys-lane hash:e7abfb8d781e | rule 74: R14-ID-01's adoption variant's whole output, new
+output:R14-ID-02 hash:22c63d45d1c3 | OD30 Q3: R14-ID-02's whole output, new
+output:R14-ID-03/a-singleton-takes-its-input-at-ensure hash:efe12c2c893d | rule 74: R14-ID-03's singleton variant's whole output, new
+output:R14-ID-03/one-machine-in-both-forms-is-conflicting hash:7008ccfab3bd | rule 74: R14-ID-03's conflict variant's whole output, new
+file:expected-recipients.txt hash:d06a7e5bd0d8 | rule 74: R14-ID-01..03 observe 2 more deliveries and check 2 more start nodes
+round:mutants-lifetime.ts hash:38cb13759cbf | rule 74: a wrong runtime that ignores the value as input, so R14-ID-01 has a runtime red too
+--- round 14, area 3: Flow.ignore and P1 (OD28, 2.7.18), by hand
+R14-IGN-01 hash:4bac9fe58447 | OD28: one variant per InFlight cell 2.7.18 changes (success, failure, unknown, interrupt, NotSent, no incarnation)
+R14-IGN-02 hash:50b73d4b7c10 | OD28: an ignored Restored releases, at a return after an end and at a reload
+R14-IGN-03 hash:4df0be904698 | OD28 P1: an ignored domain unknown is Released and its mark cleared by a later success (rule 32)
+file:scenarios/ctx.ts hash:fe3a8de04a97 | OD28: checkEndings counts an ignored ending as admitted
+file:scenarios/ignore.scenario.ts hash:b644a7a50c1d | OD28: R14-IGN-01..03
+file:typed/ignore.ts hash:475f63c8c9e2 | OD28: Lab/Ignore, with ignored channels on reject, serialize and a by-reason unknown
+file:typed/issues.ts hash:b0845203c033 | OD28 P1: an issues variant whose like ignores its unknown
+file:compile/events.ts hash:d76a9f1ee8c8 | OD28: Flow.ignore, a value with no tag
+file:compile/index.ts hash:49f4aab3b2c1 | OD28: Flow.ignore joins the Flow module
+file:compile/machine.ts hash:1054a98aad0b | OD28: Flow.ignore refused on every stream key and listen entry (IgnoreForbidden)
+file:compile/operations.ts hash:4b502985a7e5 | OD28: a mapping may be Flow.ignore; D220's uncertain check skips it
+file:main.ts hash:a23643d94fed | OD28: the ignore scenarios join the suite
+file:drive.ts hash:bbd0aea185b8 | OD28: the ledger pays an ignored ending only where the compiled mapping ignores it, and takes its unknown's release as a seen cause
+round:cli/check.ts hash:5f833cadc227 | OD28: flow check lists an ignored unknown as info (IgnoredUnknown); ignored mappings name no event
+round:checks/front-check.ts hash:0aa29b253d9e | OD28: seven pins, ignore accepted by D220's check and refused on stream keys and listen entries
+round:mutants-lifetime.ts hash:cbb12e5553e9 | OD28: three ignore wrong runtimes join the lifetime ones
+output:R14-IGN-01/a-decline-is-ignored hash:e935de128774 | OD28: R14-IGN-01's decline variant, new
+output:R14-IGN-01/a-failure-tag-resolves-with-no-turn hash:f7d922ca9a71 | OD28: R14-IGN-01's failure variant, new
+output:R14-IGN-01/a-released-unknown-promotes-the-waiting-commit hash:fc34d9e4d6cb | OD28: R14-IGN-01's promotion variant, new
+output:R14-IGN-01/a-success-resolves-with-no-turn hash:9b50f6f9283a | OD28: R14-IGN-01's success variant, new
+output:R14-IGN-01/an-interrupt-is-released hash:514178f7f76b | OD28: R14-IGN-01's interrupt variant, new
+output:R14-IGN-01/an-unknown-is-released hash:ec93884f7b72 | OD28: R14-IGN-01's unknown variant, new
+output:R14-IGN-01/with-no-incarnation-it-is-applied-not-parked hash:2f4a6cc045d9 | OD28: R14-IGN-01's no-incarnation variant, new
+output:R14-IGN-02/a-reloads-restored-is-released-at-ready hash:255a1abd00aa | OD28: R14-IGN-02's reload variant, new
+output:R14-IGN-02/a-returns-restored-is-released hash:5d3487c4ffba | OD28: R14-IGN-02's return variant, new
+output:R14-IGN-03 hash:657cedaf99c2 | OD28 P1: R14-IGN-03's whole output, new
+file:expected-recipients.txt hash:315202bfaabe | OD28: R14-IGN observe 4 more deliveries and anchor 1 more restored state
+--- round 14, areas 4 and 5: F, E step 2, the optional target and G (OD29, OD28), by hand
+R14-F-01 hash:02fb76024a05 | OD29 F: an absent resetOn value places nothing (M8 impossible), key reaches the filling, A none A adopts A's post
+file:scenarios/absorb.scenario.ts hash:9763d1722ca6 | OD29 F: R14-F-01
+file:typed/comments.ts hash:cc42058312d2 | OD29 F: Desk/Previewer, the comments trait placed only while a preview is chosen, its input from key
+file:typed/lab.ts hash:08c9d1e19058 | OD28 G: the lost tags classified with Effect.catchTag, results unchanged
+file:typed/pay.ts hash:ec1cf13ca03a | OD28 G: Pay's two lost classifiers with Effect.catchTag, results unchanged
+file:main.ts hash:a44694a6b3b1 | OD29 F: the absorb scenarios join the suite
+round:typed/type-tests.ts hash:c4369a72842c | OD29 E step 2, OD28, OD29 target: no signal in a commit's context; Flow.ignore types; target omitted compiles
+round:mutants-lifetime.ts hash:5af65ffd2607 | OD29 F: three wrong runtimes for the absent reset value and the filling's key
+output:R14-F-01/a-none-a-adopts-as-save hash:5a3b68dfa85f | OD29 F: R14-F-01's walk variant, new
+output:R14-F-01/not-placed-while-absent-so-a-post-goes-nowhere hash:bbb061c5b93c | OD29 F: R14-F-01's not-placed variant, new
+output:R14-F-01/present-it-is-placed-with-key hash:4ef445cbcc72 | OD29 F: R14-F-01's key variant, new
+file:expected-recipients.txt hash:63755331c03e | OD29 F: R14-F-01 observes one more delivery and checks one more start node
+--- round 14, the independent review's fixes (H1, H3, M1, M2, M3, M5)
+LIFE-14 hash:f8e9a6a65cee | review M1: a send in the grace re-arms the debounce; the waiting deadline goes, only the latest fires
+LIFE-18 hash:20d976b336d8 | review H3: Lab/Life's memory gains blob, so the handle's record view shows it
+LIFE-21 hash:265f7b16f4e6 | review H3: the record and terminal views show Lab/Life's blob field
+LIFE-22 hash:107ca8969947 | review H3: the end encodes with the real codec; memory that cannot encode blocks it, no test-only input
+R14-ID-02 hash:c5ea00f46a3c | review M3: the version is each field's Schema too; a Schema changed under the same names is a new version
+file:scenarios/identity.scenario.ts hash:31027e090791 | review M3: R14-ID-02's two variants, a field added and a field's Schema changed
+file:scenarios/lifetime.scenario.ts hash:02c6661e7883 | review M1, H3, item 7: LIFE-14's re-arm variant, LIFE-22 from real memory, LIFE-13's hole stated
+file:typed/identity.ts hash:c726314139de | review M3: Editor release 3, ticketId a number encoded as a string
+file:typed/lifetime.ts hash:07ef6580c627 | review M1, H3: DIRTY re-arms on Edit; Poison and Heal set memory that cannot encode
+file:compile/machine.ts hash:e2fa13aeb869 | review M3: a value-named machine compiles its identity version (fields with their Schemas)
+file:compile/ref.ts hash:6d08dcdab9de | review M3: identity fields encode by their Schemas to strings; the version by field set and Schema
+file:falsify.ts hash:c17661f54f34 | rule 73 (OD31): k.ghost-life retired as unreachable; k.held-silent follows the restore's owed flag
+file:harness.ts hash:cd85980bb413 | review H3: the test-only codecFails step and port input are gone
+file:drive.ts hash:8a7e57b85e7f | review M2: same incarnation covers kept reads and endings owed at ready; disposeActor excuses a frozen copy's parked reads
+round:cli/check.ts hash:85abedb7f765 | review H1: an ignored unknown counts as mapped, so it never reaches UnresolvedHold (rule 45)
+round:cli/main.ts hash:b107979a738a | review H1: pins for IgnoredUnknown and no UnresolvedHold on removeFile and ignore.ts's send and put
+round:checks/types-check.ts hash:cedacf66968c | round 14: the new type directives pinned by code and words
+round:mutants-lifetime.ts hash:eebc5d85f2a0 | review M1, M3, H3: wrong runtimes for a surviving waiting deadline, a names-only version, the real codec
+round:adapter.ts hash:7086253bc4c2 | review H3, M5: no codec input; soon and warned leave the state hash
+output:FRAG-12/unbound-hold-with-no-waiter-stays hash:d265544208a3 | review M5: FRAG-12's state count, with soon and warned out of the hash
+output:LIFE-12 hash:cd9ea5870b99 | review H3: LIFE-12's memory shows blob
+output:LIFE-13/a-pressed-read-is-cut-by-the-end hash:62ef4b463cc2 | review H3: LIFE-13's memory shows blob
+output:LIFE-14/a-re-armed-debounce-drops-the-waiting-deadline hash:bd0b6f36ae4d | review M1: LIFE-14's re-arm variant, new
+output:LIFE-14/a-use-back-in-the-grace-fires-it-once hash:c13a361ba934 | review H3: LIFE-14's use-back variant's memory shows blob
+output:LIFE-14/not-persisted-the-debounce-is-lost hash:5847f2c24dd7 | review H3, M5: LIFE-14's lost variant, blob and fewer hashed states
+output:LIFE-14/persisted-it-fires-once-at-the-next-ensure hash:84b5f5405916 | review H3: LIFE-14's persisted variant's memory shows blob
+output:LIFE-17 hash:d9408a572725 | review H3: LIFE-17's memory shows blob
+output:LIFE-18/a-plain-record-stays-a-record hash:1556ddb3e95c | review H3: LIFE-18's record variant's memory shows blob
+output:LIFE-22 hash:b345a41627c0 | review H3: LIFE-22's output from real unencodable memory
+output:LIFE-23/undecodable-then-an-ensure-discards-it hash:fb1feac751cf | review H3: LIFE-23's undecodable variant's memory shows blob
+output:LIFE-27/a-remount-while-kept-adopts-the-ending hash:5f335b03eb66 | review H3: LIFE-27's remount variant's memory shows blob
+output:LIFE-29 hash:f650aef346e8 | review M5: LIFE-29's state count, with warned out of the hash
+output:LIFE-30 hash:cde8e730fabb | review M5: LIFE-30's state count, with soon out of the hash, and blob
+output:R14-ID-02/a-field-added-is-a-new-version hash:22c63d45d1c3 | review M3: R14-ID-02's added-field variant, the former whole case
+output:R14-ID-02/a-fields-schema-changed-is-a-new-version hash:411d62a9856c | review M3: R14-ID-02's Schema variant, new
+removed:output:R14-ID-02 | R14-ID-02 became two variants; its output line is the added-field variant's
+file:expected-recipients.txt hash:5d15f9b53c18 | review M1, M3: one more delivery observed and start node checked
+REV7-M2 hash:089e0ad0a4e0 | rule 73: the queue bound's case flushes before the reload, so the re-attach takes its slot under the 5 s gate too
+file:scenarios/round7.scenario.ts hash:efc231c8408e | rule 73: REV7-M2's bound case hides first, so its record is on disk at any capture interval
+--- round 14, the user's design corrections D1, D4-D7 (after the review; D2 and D3 are the review's M1 and M2 above)
+LIFE-13 hash:90492c10c900 | D1: an end parks failure Interrupted for each read it stops; the returned actor leaves LOOKING by its mapping
+LIFE-23 hash:5d37d6853e90 | D6, D7: a disposed identity's ending waits on its lane for the next ensure; an undecodable identity reads quarantined
+LIFE-27 hash:91306d83d4b2 | D5: a local remount within the grace reuses the same actor
+R14-ID-03 hash:2b62d348ac1e | D4: a singleton is a machine with no input; ConflictingActorRef only for refs that disagree on persist
+file:scenarios/identity.scenario.ts hash:17f46e629ecb | D4: R14-ID-03 rewritten; ensure steps carry the ref's persist
+file:scenarios/lifetime.scenario.ts hash:f803972999e7 | D1, D5, D6, D7: LIFE-13 flipped, LIFE-27's grace remount, LIFE-23's dispose and quarantine variants
+file:typed/identity.ts hash:803ada613de4 | D4: Session has no input
+file:compile/ref.ts hash:42a1fd43fa74 | D4: the form fixed per machine in the types; a singleton takes no input; ensureArgs carries persist
+file:broken-adapter.ts hash:3855a9bcf482 | D4: bogusIssue passes identity and persist through attach
+file:harness.ts hash:face8f8590b9 | D4, D7: an ensure carries persist; a snapshot may be quarantined with its issue
+file:drive.ts hash:78fe5b26ffdf | D4: the Story's ensure passes the ref's persist
+round:typed/type-tests.ts hash:1cb30a0fc2b3 | D4: pins for value-only and name-only machines and a singleton with no input
+round:checks/types-check.ts hash:e96fcfd0ef1d | D4: the two new directives pinned by code and words
+round:mutants-lifetime.ts hash:9461fd7f6023 | D1, D5, D6, D7: a wrong runtime for each correction
+round:adapter.ts hash:ec6fd53c1c16 | D4, D7: ensure and attach pass persist; an undecodable identity's snapshot is quarantined
+output:HIGH-02/actor-of-a-removed-machine hash:66683002845a | D7: HIGH-02's ensure over an undecodable record reports RecordUndecodable, not RestoreDiscarded
+output:LIFE-13/a-pressed-read-is-cut-by-the-end hash:965ec4e41154 | D1: LIFE-13's pressed-read variant, the Interrupted ending heard
+output:LIFE-23/after-dispose-an-ending-waits-on-its-lane-and-an-ensure-adopts-it hash:652663546c64 | D6: LIFE-23's dispose variant, new
+output:LIFE-23/undecodable-then-an-ensure-discards-it hash:8bf66a44632e | D7: LIFE-23's undecodable variant, RecordUndecodable at the ensure
+output:LIFE-27/a-remount-within-the-grace-reuses-the-actor hash:495b305bc3bf | D5: LIFE-27's grace remount variant, new
+output:R14-ID-03/a-singleton-is-its-name hash:e272c84b0542 | D4: R14-ID-03's singleton variant, new
+output:R14-ID-03/two-refs-that-disagree-on-persist-conflict hash:4bd65bf83eed | D4: R14-ID-03's persist variant, new
+output:REV4-H3/activations-for-a-leaf-gone hash:2fb139bbecdc | D7: REV4-H3 activations-for-a-leaf-gone's ensure reports RecordUndecodable
+output:REV4-H3/frozen-of-no-shape hash:2fb139bbecdc | D7: REV4-H3 frozen-of-no-shape's ensure reports RecordUndecodable
+output:REV4-H3/history-names-a-removed-node hash:2fb139bbecdc | D7: REV4-H3 history-names-a-removed-node's ensure reports RecordUndecodable
+output:REV4-H3/kid-frag-is-another-fragment hash:2fb139bbecdc | D7: REV4-H3 kid-frag-is-another-fragment's ensure reports RecordUndecodable
+output:REV4-H3/kid-frag-this-release-removed hash:2fb139bbecdc | D7: REV4-H3 kid-frag-this-release-removed's ensure reports RecordUndecodable
+output:REV4-H3/kid-leaf-removed hash:2fb139bbecdc | D7: REV4-H3 kid-leaf-removed's ensure reports RecordUndecodable
+output:REV4-H3/leaf-this-release-removed hash:2fb139bbecdc | D7: REV4-H3 leaf-this-release-removed's ensure reports RecordUndecodable
+output:REV4-H3/memory-not-an-object hash:2fb139bbecdc | D7: REV4-H3 memory-not-an-object's ensure reports RecordUndecodable
+output:REV4-H3/no-kids hash:2fb139bbecdc | D7: REV4-H3 no-kids's ensure reports RecordUndecodable
+output:REV4-H3/no-timers hash:2fb139bbecdc | D7: REV4-H3 no-timers's ensure reports RecordUndecodable
+output:REV4-H3/placement-removed hash:2fb139bbecdc | D7: REV4-H3 placement-removed's ensure reports RecordUndecodable
+output:REV4-H3/timer-of-no-shape hash:2fb139bbecdc | D7: REV4-H3 timer-of-no-shape's ensure reports RecordUndecodable
+output:REV5-H2/junk-in-frozen-quarantines-at-boot hash:e25175523b6b | D7: REV5-H2's ensure over the quarantined record reports RecordUndecodable
+removed:variant:R14-ID-03/a-singleton-takes-its-input-at-ensure | D4: a singleton takes no input; replaced by a-singleton-is-its-name
+removed:variant:R14-ID-03/one-machine-in-both-forms-is-conflicting | D4: both forms are a type error now; replaced by the persist variant
+removed:output:R14-ID-03/a-singleton-takes-its-input-at-ensure | D4: the variant went; its output line goes with it
+removed:output:R14-ID-03/one-machine-in-both-forms-is-conflicting | D4: the variant went with the form conflict; its output line goes with it
+file:expected-recipients.txt hash:a900c468aaf7 | D1, D6: one more delivery observed and start node checked
+PAY-16 hash:7002c94be212 | H-A, back to Runtime O6: a commit on the wire at Runtime disposal settles within the bound and is parked; one still out at the bound restores unknown (new variant); cancelled-does-not-stick uses the effect's own interrupt
+SURV-08 hash:3fd5ea9dad55 | H-A, back to Runtime O6: W's NotSent { Disposed } waits for the head's ending or the bound (2.7.13's Runtime disposal row), so the case advances to the bound
+REV5-M1 hash:52d279d780b3 | H-A, back to Runtime O6: the put settles within the bound, so the parked ending is its success (ok:a), and the lane is off the disk once delivered, as before round 14
+LIFE-28 hash:2a9468836fec | H-A, back to Runtime O6: the success parked within the bound is delivered at ready (confirmed); its chained read and place keep the woken actor until they run
+file:scenarios/lifetime.scenario.ts hash:88d2fb1e5165 | H-A, back to Runtime O6: LIFE-28 expects the success settled within the bound
+file:scenarios/pay.scenario.ts hash:537fa932871b | H-A, back to Runtime O6: PAY-16's disposal variants follow the bound
+file:scenarios/review.scenario.ts hash:42114a2ac13d | H-A, back to Runtime O6: SURV-08 reaches the bound before W's prediction goes
+file:scenarios/round5.scenario.ts hash:e7d05b218930 | H-A, back to Runtime O6: REV5-M1 expects the settled success
+file:harness.ts hash:d62a2e32efc8 | H-A: an `interrupted` answer, the effect's own fiber interrupted, now that disposal interrupts nothing
+file:fake-world.ts hash:71dfce0a8544 | H-A: the fake answers `interrupted` with Effect.interrupt
+round:mutants-lifetime.ts hash:288096d29bf7 | H-A: three wrong runtimes for Runtime O6 (interrupt at disposal, a settled head left Held, no bound)
+output:DRV-01 hash:c05230f3e64e | H-A, back to Runtime O6: at each disposal tick the commit is not interrupted; a defect inside the bound is an issue, a hang is AbandonedFiber at the bound
+output:LIFE-28 hash:e789c6e67975 | H-A, back to Runtime O6: LIFE-28 runs its chain after the reload and ends with no lane on disk
+output:PAY-16/cancelled-does-not-stick hash:9be0bf1c13f5 | H-A: the re-send ends by its own interrupt with no disposal, so the run stays live (UNSURE)
+output:PAY-16/disposal-ends-with-the-last-fiber hash:f396dbe03f5d | H-A: the head settled within the bound is parked with no Held head left on the lane
+output:PAY-16/on-the-wire-at-the-bound-restores-unknown hash:7f9f4a82fc15 | H-A: PAY-16's bound variant, new
+output:PAY-16/settled-during-disposal-parked hash:fcd4885496c9 | H-A: the pay's success within the bound is parked and delivered after the reload (PLACING)
+output:REV5-M1/a-crash-during-recovery-loses-no-parked-ending hash:c31985ac0a1e | H-A: REV5-M1's crash variant delivers ok:a and leaves no lane record
+output:REV5-M1/the-record-goes-once-delivered hash:abf6575a96b3 | H-A: REV5-M1's record variant delivers ok:a and the lane goes
+output:REV8-PINS/D72-a-parked-ending-survives-a-kill-before-delivery hash:14d6d06b70a9 | H-A: D72's parked ending is the charge's success (state B), not an interrupt
+output:SURV-07 hash:fda08f3fabd8 | H-A: the uninterruptible like's late answer settles within the bound; with no unknown there is no repair read during disposal
+output:SURV-08 hash:016a205debf8 | H-A: no interrupt, so no unknown and no repair read; the head stays on the wire to the bound
+file:expected-recipients.txt hash:347b630e68d1 | H-A: LIFE-28's chain after the reload is one more delivery observed
+LIFE-13 hash:30ec0f68a778 | M1 (D1 on every return path): LIFE-13 adds a stopped read heard after a reload and one heard when woken at ready
+R14-FIX-01 hash:28b508cc53c6 | fragstore.row: a Held record kept at ready names what the boot queued; a dispose of it parks that on the lane (D6); an ended record's dispose keeps the W order
+R14-FIX-02 hash:022e63be1f0b | M4 (call 2, rule 73 as merged): a Held lane with a waiting commit keeps nothing; not woken at ready
+R14-FIX-03 hash:e5ab12a86da6 | M2 (D3): three returns after an end carry three distinct incarnation ids
+file:scenarios/fixpass.scenario.ts hash:b5cd50df7017 | fix pass: R14-FIX-01..03, new
+file:scenarios/lifetime.scenario.ts hash:94467bcf0817 | M1: LIFE-13's two D1 variants
+file:main.ts hash:784fc9989834 | fix pass: fixpass.scenario.ts registered
+file:drive.ts hash:7b85ecb6447c | fragstore.row: a park into a record kept at ready moves the debt to parkedOwed, only at a boot that kept that record; the store's repair wait is not the actor's work in flight
+round:mutants-lifetime.ts hash:dd9871293a11 | fix pass: wrong runtimes for boot mail (unsaid, lost at dispose), M4 (W owed), D1 (woken, reload), D3 (old id kept)
+file:expected-recipients.txt hash:e2330661f78b | fix pass: the new FIX and LIFE-13 cases add ten deliveries observed and nine start nodes checked
+output:FRAG-15 hash:d5f356740560 | fragstore.row: FRAG-15's records kept at ready now say their boot mail (parked, then unparked at the return) at each reload frame
+output:LIFE-13/a-stopped-read-is-heard-after-a-reload hash:1ad1eec81651 | M1: LIFE-13's reload variant, new
+output:LIFE-13/a-stopped-read-is-heard-when-woken-at-ready hash:d664f27b165c | M1: LIFE-13's woken-at-ready variant, new
+output:PAY-08/reload-while-reconciling hash:b3beb38ca5af | fragstore.row: PAY-08's held pay restored into a record at ready is parked there, then unparked at the ensure
+output:PAY-15/dispose-held hash:607de9e8d651 | fragstore.row: PAY-15 dispose-held's Restored waits in the record at ready (parked, unparked)
+output:PAY-15/reload-holds-exactly-once hash:f522d770beb5 | fragstore.row: PAY-15 reload-holds-exactly-once's Restored waits in the record at ready (parked, unparked)
+output:PAY-16/retry-count-persists hash:b511cf5a9c8d | fragstore.row: PAY-16 retry-count-persists' Restored waits in the record at ready (parked, unparked)
+output:R12-KEYS/a-release-that-adds-a-key-field-declines-beside-the-older-lane hash:87ade82420d7 | fragstore.row: R12-KEYS added-field variant, its old-version hold's Restored parked in the record at ready, unparked at the return
+output:R12-KEYS/a-typed-release-that-changes-the-key-keeps-the-old-version-hold-and-does-not-mint hash:87ade82420d7 | fragstore.row: R12-KEYS changed-key variant, its old-version hold's Restored parked in the record at ready, unparked at the return
+output:R13-KEYS/a-keyed-idle-sees-an-old-version-hold hash:7f464d41e0ee | fragstore.row: R13-KEYS keyed-idle, one Restored parked in the record at ready and unparked
+output:R13-KEYS/a-release-that-adds-a-key-field-declines-every-commit-until-the-old-hold-ends hash:cf80fc4e242d | fragstore.row: R13-KEYS add-a-key-field, one Restored parked in the record at ready and unparked
+output:R13-KEYS/a-release-that-removes-a-key-field-keeps-every-old-hold-eu-first hash:1881fbc3cdfd | fragstore.row: R13-KEYS remove-a-key-field eu first, two Restored (one per old hold) parked in the record and unparked
+output:R13-KEYS/a-release-that-removes-a-key-field-keeps-every-old-hold-us-first hash:55836f86abbb | fragstore.row: R13-KEYS remove-a-key-field us first, two Restored (one per old hold) parked in the record and unparked
+output:R13-KEYS/a-reload-in-between-keeps-the-old-version-hold hash:ca2914de5743 | fragstore.row: R13-KEYS reload-in-between, a Restored parked and unparked at each of its two reloads
+output:R13-KEYS/another-actor-is-not-held hash:28bde781c8d3 | fragstore.row: R13-KEYS another-actor, the held actor's Restored parked in its record and unparked
+output:R13-KEYS/serialize-declines-beside-an-old-version-hold-and-queues-nothing hash:b354c918bdbd | fragstore.row: R13-KEYS serialize-declines, one Restored parked in the record at ready and unparked
+output:R14-FIX-01/a-dispose-of-a-record-at-ready-parks-what-the-boot-queued hash:b5b7f80d0dba | fragstore.row: R14-FIX-01 dispose-at-ready variant, new
+output:R14-FIX-01/a-dispose-of-that-record-keeps-its-endings-on-the-lane hash:26598272b9cc | fragstore.row: R14-FIX-01 ended-then-disposed variant, new
+output:R14-FIX-01/a-held-record-at-ready-names-what-it-is-owed hash:44c67355c431 | fragstore.row: R14-FIX-01 named-at-ready variant, new
+output:R14-FIX-02 hash:ca1261f2c728 | M4: R14-FIX-02's output, new
+output:R14-FIX-03 hash:732e30e07b9f | M2 (D3): R14-FIX-03's output, new
+output:REV5-H3/w-is-off-the-disk-once-it-has-ended hash:26a569228b50 | fragstore.row: REV5-H3's restored head waits in the record at ready (parked, unparked)
+output:REV6-H5/a-release-that-changes-a-key-does-not-mint-beside-a-hold hash:ca8899c5b20d | fragstore.row: REV6-H5 changes-a-key, the rekeyed hold's Restored parked in the record at ready and unparked
+output:REV6-H5/the-rekeyed-lane-is-what-a-guard-reads hash:7c260378359f | fragstore.row: REV6-H5 guard-reads, the rekeyed hold's Restored parked in the record at ready and unparked
+output:REV8-M3/a-hold-does-not-rewrite-per-boot hash:cf5fdf3de810 | fragstore.row: REV8-M3 per-boot, three boots each park the hold's Restored in the record at ready and unpark it at the return
+R14-ID-02 hash:3548ba2f4425 | L1, rule 74 ("changing a field's encoded Schema"): String to NumberFromString keeps the encoded side, so no new version and the record is restored; a check on the encoded side is one (new variant); field names compared by name
+R14-ID-03 hash:51e084049e6f | M3: persist conflicts in the other order, and a disposeActor forgets the first ref's persist
+R14-FIX-01 hash:61f132a9d4b5 | M5: R14-FIX-01 adds a return from ready that writes nothing
+file:scenarios/fixpass.scenario.ts hash:efbcb4cf531d | M5: the return-from-ready variant
+file:scenarios/identity.scenario.ts hash:5e6519d8a2bd | L1, M3: R14-ID-02 and R14-ID-03 variants
+file:typed/identity.ts hash:da3035bdd084 | L1: release 4, ticketId a NonEmptyString (a check on the encoded side); release 3's comment says it is no new version
+file:compile/ref.ts hash:dcd440330640 | L1: the identity version is each field's encoded Schema by structure, annotations left out
+file:falsify.ts hash:4245acd14de8 | M6: k.ghost-life restored, red on R14-FIX-01 and 02 by their not-woken check
+round:mutants-lifetime.ts hash:652fad1e312f | fix pass: wrong runtimes for M5 (a return from ready writes), L1 (type side, printed name), M3 (persist survives dispose)
+round:adapter.ts hash:03d53b17242c | L2: warned and soon (time left) are in the state hash, since they decide later diagnostics
+file:expected-recipients.txt hash:bb488944a920 | M5, L1, M3: the new variants add deliveries observed and restored states anchored
+removed:variant:R14-ID-02/a-fields-schema-changed-is-a-new-version | L1: the design says only the encoded side decides a version; replaced by a-type-change-over-the-same-encoded-side-is-no-new-version
+removed:output:R14-ID-02/a-fields-schema-changed-is-a-new-version | L1: its variant went; its output line goes with it
+output:FRAG-12/unbound-hold-with-no-waiter-stays hash:9dcdc04d3997 | L2: FRAG-12's end leaves a soon entry (or a warning) that is now in the hash: one more distinct state (7)
+output:FRAG-15 hash:77e70618a2ae | M5: FRAG-15's returns from ready no longer capture, so three frames reach one state fewer (5)
+output:LIFE-14/not-persisted-the-debounce-is-lost hash:ae552334d22c | L2: LIFE-14's end leaves a soon entry, its time left one more state (6)
+output:LIFE-22 hash:27f458bdcb64 | L2: LIFE-22's codec warning is in the hash, one more state (6)
+output:LIFE-29 hash:6ab57edb60ed | L2: LIFE-29's EndedWithWork warnings and soon entries, four more states (9)
+output:LIFE-30 hash:63b6bd03ea59 | L2: LIFE-30's soon window (340 ms, then 5 s), two more states (5)
+output:R14-FIX-01/a-return-from-ready-writes-nothing hash:73a7b71815da | M5: R14-FIX-01's return-from-ready variant, new
+output:R14-ID-02/a-type-change-over-the-same-encoded-side-is-no-new-version hash:c074ac54ec90 | L1: R14-ID-02's same-encoded-side variant, new
+output:R14-ID-02/an-encoded-side-change-is-a-new-version hash:49e6331a6acf | L1: R14-ID-02's encoded-side variant, new
+output:R14-ID-03/after-dispose-the-next-ref-is-the-first hash:416c5ca67f41 | M3: R14-ID-03's after-dispose variant, new
+output:R14-ID-03/the-other-order-conflicts-the-other-way hash:4bd65bf83eed | M3: R14-ID-03's other-order variant, new
+output:REV5-H2/a-frozen-ending-of-a-removed-operation-is-orphaned-not-fatal hash:338065066a7f | M5, diffed against ed3e1a29: round 14's extra capture at the return gave one more state (8); with it gone, 7 as at ed3e1a29
+output:REV6-CAPTURE/a-crash-loses-plain-memory-and-only-that hash:3cd7ef0d13ba | M5, diffed against ed3e1a29: the outstanding capture timer round 14 added (2) was the return's needless write; one, as at ed3e1a29
+output:REV6-CAPTURE/an-awaited-write-carries-what-waits-with-it hash:48209f63c4d1 | M5, diffed against ed3e1a29: the awaited-write case no longer leaves the return's capture timer (0) nor its extra state (3), as at ed3e1a29
+output:REV6-TEAR/a-store-with-no-atomic-batch-strands-nothing-silently hash:0dfe4e863d43 | M5, diffed against ed3e1a29: round 14 merged two states through the return's write (4); without it, 5 as at ed3e1a29
+output:REV7-D80/a-kill-before-any-flush-loses-only-plain-memory hash:bb333d06942a | M5, diffed against ed3e1a29: the kill-before-flush case leaves no return capture timer, 3 states, as at ed3e1a29
+output:REV7-D80/hidden-flushes-at-once hash:b157117d726c | M5, diffed against ed3e1a29: hidden-flushes leaves no return capture timer, 3 states, as at ed3e1a29
+output:REV7-M1/a-success-does-not-come-back-as-a-hold hash:4b17bc1c11d6 | M5, diffed against ed3e1a29: REV7-M1 leaves no return capture timer, 4 states, as at ed3e1a29
+output:REV7-M8/a-quarantined-lane-refuses-a-second-attempt hash:d6a665338439 | M5, diffed against ed3e1a29: the quarantined-lane case is back to 10 states; round 14's return write had merged one
+output:REV8-M3/a-lane-alone-still-floors-the-boot hash:66997a0a74d6 | M5, diffed against ed3e1a29: the return's write consumed the failing write, so one UnencodableValue went missing; back to 2, no capture timer left, as at ed3e1a29
+output:REV8-PINS/D88-a-keyless-idle-sees-a-quarantined-hold hash:e015f26110a2 | M5, diffed against ed3e1a29: D88 keyless-idle back to 6 states without the return's write
+output:REV8-PINS/D88-a-lane-record-whose-id-disagrees-is-quarantined hash:5c52afddd72d | M5, diffed against ed3e1a29: D88 id-disagrees back to 6 states without the return's write

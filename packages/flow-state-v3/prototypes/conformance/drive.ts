@@ -451,6 +451,89 @@ export const makeHarness = (port: Port) => (): Harness => {
   const notRestored = new Set<string>();
   let restoreThrew = false; // a compiled `memory.restore` threw on a stored record (the suite's own wrap saw it)
   const ensured = new Set<string>(); // the suite ensured it, and has not disposed it; at a reload, kept only with a record on disk
+  // Rule 73 (OD31, 2.10.10): in an app Story, `ensure(ref)` attaches one use, as a mounted screen does, and `detach(ref)` ends one. The suite
+  // counts the uses it holds, by kind: the Story's own ("story"), host subscriptions ("host") and mounted local actors ("component"). A reload
+  // re-attaches the Story's uses and subscriptions held in that life, in first-ensure order.
+  const held = new Map<string, number>();
+  const subs = new Map<string, number>();
+  const mounts = new Map<string, number>();
+  const usesHeld = (key: string) => (held.get(key) ?? 0) + (subs.get(key) ?? 0) + (mounts.get(key) ?? 0);
+  const use = (key: string, machine: string, input: unknown, identity?: readonly string[], persist?: boolean) => {
+    if (inst.attach) {
+      bump(held, key, 1);
+      inst.attach(key, machine, input, "story", false, identity, persist);
+    } else inst.ensure(key, machine, input, identity, persist);
+  };
+  // Onto what the boot restored, or a record kept at ready: a re-attach restores it from the Runtime's copy and creates nothing, so a record
+  // quarantined at boot stays absent until a case asks (a pending use, as a subscription on an identity with neither waits).
+  const reattach = () => {
+    if (!inst.attach) return;
+    for (const [a, n] of [...held]) {
+      if (!ensured.has(a)) held.delete(a);
+      else for (let i = 0; i < n; i++) inst.attach(a, machineOf(a), undefined, "story", true);
+    }
+    for (const [a, n] of [...subs]) for (let i = 0; i < n; i++) inst.attach(a, machineOf(a), undefined, "host", true);
+    mounts.clear(); // a local actor's component mounts again as a new actor, which no case here drives
+  };
+  // Rule 73's global invariants (proposal-v5 11.4), from the suite's own facts: the uses it holds, the attempts it saw minted and the waits it
+  // checks against the fake. (1) safety and (3) same incarnation: an end while the suite holds a use, or while a write the actor minted is in
+  // flight (its ending then reaches another incarnation); (2) liveness: a counted actor free past its grace with no end; (4) no schedule fires
+  // on an incarnation with no use.
+  const violations: string[] = [];
+  const INFLIGHT = new Set(["wire", "mail", "ready", "queue", "repair", "ack", "capture", "disabled"]);
+  const counted = (key: string) => {
+    const c = compiled.find((x) => x.id === machineOf(key));
+    return c !== undefined && (!c.local || (mounts.get(key) ?? 0) > 0);
+  };
+  // The store's forced repair for an unknown is the record queue's, across actors (2.8), not the actor's work (rule 73: "other reads"); a
+  // head waiting on its repair is listed by its lane, and that one is.
+  const inFlightOf = (key: string) =>
+    inst.waits().filter((w) => INFLIGHT.has(w.kind) && "attempt" in w && w.attempt && attemptActor.get(w.attempt) === key && (w as { store?: boolean }).store !== true);
+  // Kept reads, by the suite's own sight: a read invoked in the batch that delivered an ending of the actor's write (or a kept read's), until it ends.
+  const keptReads = new Map<string, Set<string>>(); // actor -> read attempts
+  const admittedAtt = new Set<string>(); // attempts whose ending the runtime admitted (a turn, a park, evidence, an ignore)
+  const lifetimeCheck = (e: readonly Record<string, any>[]) => {
+    if (!inst.inspect) return;
+    const keptTurnOf = new Set<string>();
+    for (const x of e) {
+      if (["delivered", "parked", "evidenceOnly", "ignored"].includes(x["kind"]) && x["attempt"]) admittedAtt.add(String(x["attempt"]));
+      if (x["kind"] === "delivered" && x["attempt"]) {
+        const att = String(x["attempt"]);
+        const a = attemptActor.get(att) ?? [...keptReads].find(([, s]) => s.has(att))?.[0];
+        if (a !== undefined && (attemptActor.has(att) || keptReads.get(a)?.has(att))) keptTurnOf.add(a);
+      }
+      if (x["kind"] === "invoked" && String(x["attempt"] ?? "").startsWith("read/"))
+        for (const a of keptTurnOf) if (String(x["attempt"]).startsWith(`read/${a}/`)) keptReads.set(a, new Set([...(keptReads.get(a) ?? []), String(x["attempt"])]));
+      if ((x["kind"] === "ending" || x["kind"] === "Superseded") && String(x["attempt"] ?? "").startsWith("read/"))
+        for (const s of keptReads.values()) if (x["kind"] === "Superseded") s.delete(String(x["attempt"]));
+      if (x["kind"] === "delivered" && String(x["attempt"] ?? "").startsWith("read/")) for (const s of keptReads.values()) s.delete(String(x["attempt"]));
+      if (x["kind"] === "ended") {
+        const a = String(x["actor"]);
+        if (usesHeld(a) > 0) violations.push(`(73) safety: ${a} ended while the suite holds ${usesHeld(a)} use(s)`);
+        const w = inFlightOf(a);
+        if (w.length > 0) violations.push(`(73) same incarnation: ${a} ended with work in flight: ${w.map((y) => `${y.op} ${(y as { attempt: string }).attempt}`).join(", ")}`);
+        const r = [...(keptReads.get(a) ?? [])];
+        if (r.length > 0) violations.push(`(73) same incarnation: ${a} ended with a kept read open: ${r.join(", ")}`);
+        // An ending owed at ready (2.7.17 Ready): due to this actor at the reload and not yet heard.
+        const owed = [...due].filter(([att, d]) => d.actor === a && !d.over && !admittedAtt.has(att));
+        if (owed.length > 0) violations.push(`(73) same incarnation: ${a} ended owing endings from ready: ${owed.map(([att]) => att).join(", ")}`);
+      }
+      if (x["kind"] === "fired") {
+        const a = String(x["actor"]);
+        if (counted(a) && usesHeld(a) === 0) violations.push(`(73) a schedule fired with no use: ${x["id"]} of ${a}`);
+      }
+    }
+  };
+  const livenessCheck = () => {
+    if (!inst.inspect || fake.freezeTimers) return;
+    for (const a of known) {
+      if (inst.state(a) === undefined || !counted(a) || usesHeld(a) > 0) continue;
+      const i = inst.inspect(a);
+      if (i.uses.length > 0 || i.busy.length > 0 || inFlightOf(a).length > 0) continue;
+      if (i.grace === undefined) violations.push(`(73) liveness: ${a} is free and no grace is armed`);
+      else if (i.grace <= fake.now) violations.push(`(73) liveness: ${a} is free past its grace (${i.grace} <= ${fake.now})`);
+    }
+  };
   const ghosts = new Set<string>(); // the suite disposed it and has not ensured it since (review H5)
   const ghostsPending = new Set<string>(); // disposed by a step that has not settled yet
   const lifeBefore = new Map<string, number>(); // the life a dispose ended, so a dispose a kill undid can be undone (D80)
@@ -491,7 +574,24 @@ export const makeHarness = (port: Port) => (): Harness => {
     if (att === undefined) return false;
     const actor = attemptActor.get(att);
     if (actor === undefined) return false;
-    return lifeOver(att) === true || moveLetsGo(actor, op, att) || cancelSeen(actor, op, self ? undefined : att, att);
+    return lifeOver(att) === true || moveLetsGo(actor, op, att) || cancelSeen(actor, op, self ? undefined : att, att) || ignoredUnknown.has(att);
+  };
+  // Round 14 (OD28): whether the compiled mapping says `Flow.ignore` for an `ignored` evidence's channel and reason. Undefined: no owner the suite knows.
+  // A decline has no attempt; its owners are the actors whose declines of the op the suite placed.
+  const ignoredUnknown = new Set<string>(); // attempts whose unknown the mapping ignores: rule 40 releases them, a cause the suite saw (P1)
+  const ignoreMapped = (x: Record<string, any>): boolean | undefined => {
+    const att = String(x["attempt"] ?? "");
+    // A decline (no attempt) of an op: owned by an actor the suite addressed whose machine declares the op.
+    const owners = att ? [attemptActor.get(att)].filter((a): a is string => a !== undefined) : [...known].filter((a) => refm().machine(machineOf(a))?.ops[String(x["op"])] !== undefined);
+    if (owners.length === 0) return undefined;
+    const ch = String(x["channel"]);
+    const r = String(x["reason"]);
+    return owners.some((owner) => {
+      const o = refm().machine(machineOf(owner))?.ops[String(x["op"])] as any;
+      const u = o?.outcomes.unknown;
+      const mp = !o ? undefined : ch === "success" ? o.outcomes.success : ch === "failure" ? (o.outcomes.failure?.[r] ?? (NOT_SENT.has(r) ? o.outcomes.failure?.["NotSent"] : undefined)) : u?.byReason ? u.byReason[r] : u;
+      return mp?.ignore === true;
+    });
   };
   const mayBeEvidence = (x: Record<string, any>, batch: readonly Record<string, any>[]) => {
     const att = String(x["attempt"] ?? "");
@@ -525,7 +625,20 @@ export const makeHarness = (port: Port) => (): Harness => {
   // must be restored, the codec must read its leaf (no answer is red, not a skip), and every live copy must be in both the record and what
   // the runtime publishes. A record the runtime quarantined is excused only for a cause the suite drove: a release, or bytes it edited.
   const quarantined = (actor: string) =>
-    (releases.length > 0 || off(actor) || restoreThrew) && issues.some((i) => i.code === "RecordQuarantined" && port.disk.scope(String(i.input ?? "").split(": ")[0]!) === actor);
+    ((releases.length > 0 || off(actor) || restoreThrew) && issues.some((i) => i.code === "RecordQuarantined" && port.disk.scope(String(i.input ?? "").split(": ")[0]!) === actor)) ||
+    // Rule 74 (OD30 Q3): a release that changed a value-named machine's input fields leaves an old-version record, listed and never restored.
+    (releases.length > 0 && evidence.some((e) => e["kind"] === "OldVersionActor" && e["actor"] === actor));
+  // Rule 73 (OD31, Ready and hydration): a record the boot keeps as a record is restored when the suite's re-attach reaches it. Its anchor
+  // waits for that incarnation, before any run in it; still absent at the end of the step that booted, it was not restored.
+  const deferredAnchor = new Set<string>();
+  const anchorDeferred = (e: readonly Record<string, any>[]) => {
+    if (deferredAnchor.size === 0 || !reloadFacts) return;
+    for (const x of e)
+      if (x["kind"] === "incarnation" && deferredAnchor.has(String(x["actor"]))) {
+        deferredAnchor.delete(String(x["actor"]));
+        anchorActor(String(x["actor"]), new Map(reloadFacts.kv));
+      }
+  };
   const anchorOnce = () => {
     if (anchored || !reloadFacts || !given()) return;
     anchored = true;
@@ -533,14 +646,24 @@ export const makeHarness = (port: Port) => (): Harness => {
     for (const actor of reloadFacts.alive) {
       const m = refm().machine(machineOf(actor));
       if (!m || off(actor)) continue;
+      if (leafOf(actor) === undefined && usesHeld(actor) > 0) {
+        deferredAnchor.add(actor);
+        continue;
+      }
+      anchorActor(actor, kv);
+    }
+  };
+  const anchorActor = (actor: string, kv: Map<string, string>) => {
+    {
+      const m = refm().machine(machineOf(actor))!;
       if (leafOf(actor) === undefined) {
         notRestored.add(actor); // judged at the end of the step, when the boot's issues (a quarantine) have come
-        continue;
+        return;
       }
       const ls = port.disk.leaves(kv, actor);
       if (!ls?.some((x) => x.path.length === 0)) {
         missing.push(`(j) the codec reads no leaf for ${actor}'s record, which the runtime restored`);
-        continue;
+        return;
       }
       const onDisk = new Set(ls.map((x) => JSON.stringify(x.path)));
       for (const { path, leaf } of ls) {
@@ -614,6 +737,7 @@ export const makeHarness = (port: Port) => (): Harness => {
   };
   const ledger = (e: readonly Record<string, any>[]) => {
     unpaid = [];
+    for (const x of e) if (x["kind"] === "ignored" && x["channel"] === "unknown" && x["attempt"] && ignoreMapped(x)) ignoredUnknown.add(String(x["attempt"]));
     const booting = e.some((x) => x["kind"] === "boot");
     if (booting) bootSeen = true;
     for (const x of e) if (x["kind"] === "ending" && x["attempt"] !== undefined && x["attempt"] !== "") endingOf.set(String(x["attempt"]), { ch: String(x["channel"]), reason: String(x["reason"]) });
@@ -903,6 +1027,14 @@ export const makeHarness = (port: Port) => (): Harness => {
           else unpaid.push(k);
           break;
         }
+        case "ignored": {
+          // Round 14 (OD28, 2.7.18): an ignored ending is admitted with no turn. It pays its debt only where the compiled mapping, the suite's own
+          // data, says `Flow.ignore` for that channel and reason; anywhere else it is an ending hidden as a reaction nobody needs.
+          const v = ignoreMapped(x);
+          if (v === true) bump(told, k, -1);
+          else if (v === false) missing.push(`(j) ignored, and the compiled mapping is not Flow.ignore: ${x["op"]} ${x["attempt"]} (${x["channel"]} ${x["reason"]})`);
+          break;
+        }
         case "evidenceOnly":
           if (mayBeEvidence(x, e)) bump(told, k, -1);
           else if (process.env["FLOW_DEBUG_EO"]) console.error("EO-UNPAID", JSON.stringify(x), attemptActor.get(String(x["attempt"])), e.map((y) => y["kind"]).join(","));
@@ -912,6 +1044,16 @@ export const makeHarness = (port: Port) => (): Harness => {
           // owner's life is over. A live owner whose published state binds the op is owed the ending: red, whatever a wait says.
           const att = String(x["attempt"] ?? "");
           const owner = attemptActor.get(att);
+          // Rule 73, C106 (fix pass, fragstore.row): a boot keeps an unowed identity a record; what the restore queued for it waits in that
+          // record. Allowed only at a boot that said so for this owner, and only while no actor of it is live; owed (and waited on) until
+          // its return unparks it.
+          if (x["record"] === true) {
+            const rec = owner !== undefined && booting && e.some((y) => y["kind"] === "recordAtReady" && y["actor"] === owner) && leafOf(owner) === undefined;
+            if (!rec && owner !== undefined && !off(owner)) missing.push(`(j) parked in a record, and no boot kept that record at ready: ${x["op"]} ${att} of ${owner}`);
+            bump(told, k, -1);
+            bump(parkedOwed, k);
+            break;
+          }
           // Stage F (M1'''): a keyed, nested or resumable copy is answered by the copy the suite recorded for the attempt, not `unknown`.
           // A decline has no attempt: its copy is the one the suite drove the declining turn in.
           const op = String(x["op"]);
@@ -1146,8 +1288,10 @@ export const makeHarness = (port: Port) => (): Harness => {
     if (releases.length > 0) compiled = compileAll();
     const seen = observing(compiled);
     const onEvidence = (e: readonly Record<string, any>[]) => {
+      anchorDeferred(e);
       judgeAsks(e);
       ledger(e);
+      lifetimeCheck(e);
       evidence.push(...e);
       seen?.(e);
     };
@@ -1229,7 +1373,7 @@ export const makeHarness = (port: Port) => (): Harness => {
   };
   // D146: what needs the page's own JS cannot happen on a frozen page: a press, a hide event, an ensure. It is dropped and counted, and a case that drops one is told so at its end.
   let frozenDrops = 0;
-  const PAGE_INPUT = ["ensureAs", "ensure", "burst", "send", "sendMany", "dispose", "hide", "disposeRuntime", "advanceNow", "nextYield"];
+  const PAGE_INPUT = ["ensureAs", "ensure", "hostEnsure", "detach", "subscribe", "unsubscribe", "mount", "unmount", "burst", "send", "sendMany", "dispose", "hide", "disposeRuntime", "advanceNow", "nextYield"];
   const run = (s: Step) => {
     if (fake.freezeTimers && PAGE_INPUT.some((k) => k in s)) {
       frozenDrops++;
@@ -1244,9 +1388,33 @@ export const makeHarness = (port: Port) => (): Harness => {
     stepTo = undefined; // stage F: set again below for a `send`
     if ("advanceNow" in s) driveTimers();
     if ("ensure" in s) known.add(actorKey(s.ensure));
+    if ("mount" in s) known.add(actorKey(s.mount));
+    if ("hostEnsure" in s) known.add(actorKey(s.hostEnsure));
+    if ("subscribe" in s) known.add(actorKey(s.subscribe));
     if ("ensureAs" in s) machineOfActor.set(actorKey(s.ensureAs.key), s.ensureAs.machine);
     // Stage L (review H3, H5): alive by the suite's own steps.
-    const madeLive = "ensure" in s ? actorKey(s.ensure) : "ensureAs" in s ? actorKey(s.ensureAs.key) : undefined;
+    const madeLive = "ensure" in s ? actorKey(s.ensure) : "mount" in s ? actorKey(s.mount) : "ensureAs" in s ? actorKey(s.ensureAs.key) : undefined;
+    // Rule 73: the last use ending may end the life after the grace, once nothing is in flight, which only the runtime knows. It is no longer
+    // owed to stay alive; its life is not over at the step (its work still lands in it), so it is no ghost.
+    const lastUse = "detach" in s ? actorKey(s.detach) : "unsubscribe" in s ? actorKey(s.unsubscribe) : "unmount" in s ? actorKey(s.unmount) : undefined;
+    if ("detach" in s && (held.get(lastUse!) ?? 0) === 0 && inst.attach) {
+      issues.push({ code: "StoryInvalidCommand", origin: `detach ${lastUse}`, input: { reason: "ActorAbsent" } });
+      return;
+    }
+    if ("detach" in s) bump(held, lastUse!, -1);
+    if ("unsubscribe" in s) bump(subs, lastUse!, -1);
+    if ("unmount" in s) bump(mounts, lastUse!, -1);
+    if (lastUse !== undefined && usesHeld(lastUse) === 0) {
+      ensured.delete(lastUse);
+      seenLive.delete(lastUse);
+    }
+    if ("dispose" in s) {
+      // Rule 73 (OD31): `disposeActor` removes the record, and a frozen copy's read endings (rule 52) live in it: their parking is owed to nobody now.
+      for (const k of [...parkedOwed.keys()]) if (k.slice(k.indexOf(" ") + 1).startsWith(`read/${actorKey(s.dispose)}/`)) parkedOwed.delete(k);
+      held.delete(actorKey(s.dispose)); // `disposeActor` ends the identity's uses (2.7.17)
+      subs.delete(actorKey(s.dispose));
+      mounts.delete(actorKey(s.dispose));
+    }
     if (madeLive !== undefined) {
       ensured.add(madeLive);
       ghosts.delete(madeLive);
@@ -1259,7 +1427,21 @@ export const makeHarness = (port: Port) => (): Harness => {
       lifeBefore.set(actorKey(s.dispose), lifeOf.get(actorKey(s.dispose)) ?? 0);
     }
     if ("ensureAs" in s) inst.ensure(actorKey(s.ensureAs.key), s.ensureAs.machine); // D137: a key and a machine that do not agree, as a host's bug would give
-    else if ("ensure" in s) inst.ensure(actorKey(s.ensure), s.ensure.actor, s.input);
+    else if ("ensure" in s) use(actorKey(s.ensure), s.ensure.actor, s.input, s.identity, s.persist);
+    else if ("hostEnsure" in s) inst.ensure(actorKey(s.hostEnsure), s.hostEnsure.actor, s.input);
+    else if ("detach" in s || "unsubscribe" in s || "unmount" in s || "subscribe" in s || "mount" in s) {
+      if (!inst.attach || !inst.detach) throw new Error("this runtime has no uses");
+      if ("detach" in s) inst.detach(lastUse!, "story");
+      else if ("unsubscribe" in s) inst.detach(lastUse!, "host");
+      else if ("unmount" in s) inst.detach(lastUse!, "component");
+      else if ("subscribe" in s) {
+        bump(subs, actorKey(s.subscribe), 1);
+        inst.attach(actorKey(s.subscribe), s.subscribe.actor, undefined, "host", true);
+      } else if ("mount" in s) {
+        bump(mounts, actorKey(s.mount), 1);
+        inst.attach(actorKey(s.mount), s.mount.actor, s.input, "component");
+      }
+    }
     else if ("burst" in s) for (let i = 0; i < s.n; i++) inst.send(actorKey(s.burst), { tag: s.event, payload: {} });
     else if ("send" in s && ((stepTo = { actor: actorKey(s.send), event: s.event, to: s.to ?? [] }), true))
       inst.send(actorKey(s.send), {
@@ -1345,7 +1527,8 @@ export const makeHarness = (port: Port) => (): Harness => {
         if (records.has(a) && port.disk.leaves(new Map(kv), a) !== undefined) {
           ghosts.delete(a);
           ghostsPending.delete(a);
-          ensured.add(a);
+          // Rule 73 (OD31): the record is back, but nothing uses it, so at ready it stays a record and owes nothing alive.
+          if (!inst.attach) ensured.add(a);
           if (lifeBefore.has(a)) lifeOf.set(a, lifeBefore.get(a)!);
         }
       lifeAtReload = new Map(lifeOf);
@@ -1358,10 +1541,12 @@ export const makeHarness = (port: Port) => (): Harness => {
     fake.freezeTimers = false; // D146: a discard of a frozen tab, and the next life is a new page
     if (s.load) fake.loadMode = s.load;
     boot();
+    reattach();
     if (s.crashAfterBoot) {
       owedAtBoot();
       fake.killProcess();
       boot();
+      reattach();
     }
   };
   // Stage L (review M1, M2, H5): at the end of each step the suite drove. A disposed actor is a ghost once the step that disposed it ran;
@@ -1374,6 +1559,8 @@ export const makeHarness = (port: Port) => (): Harness => {
     ghostsPending.clear();
     if (!reloadFacts || !given() || ledgerOff) return;
     anchorOnce();
+    for (const a of deferredAnchor) notRestored.add(a);
+    deferredAnchor.clear();
     for (const a of notRestored) if (!quarantined(a) && !off(a)) missing.push(`(j) not restored: ${a} has a record on disk, and the suite never disposed it`);
     notRestored.clear();
     if (!bootSeen && !saidNoBoot) {
@@ -1429,6 +1616,9 @@ export const makeHarness = (port: Port) => (): Harness => {
     record: (ref) => inst.record(ref),
     module: (id, ref) => inst.module(id, ref),
     peakDeliveriesInMail: () => Math.max(0, ...instances.map((i) => i.peakDeliveriesInMail())),
+    snapshot: (a) => inst.snapshot?.(actorKey(a)),
+    inspect: (a) => inst.inspect?.(actorKey(a)),
+    lifetimeViolations: () => [...violations],
     requests: () => fake.publicRequests(),
     truth: () => fake.truth(),
     frames: () => instances.flatMap((i) => i.frames()),
@@ -1561,6 +1751,7 @@ export const makeHarness = (port: Port) => (): Harness => {
         settle();
         fake.advanceWith(s.advance, settle);
         afterStep();
+        livenessCheck();
         return;
       }
       if ("reload" in s) {

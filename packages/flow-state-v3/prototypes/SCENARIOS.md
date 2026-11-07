@@ -495,3 +495,39 @@ Convergence-8. Old unbuilt rows (`STORY-ALL`, `BROWSER-*`, `SSR-01`) renumbered 
 | R12-BOOT | 12 | fault | hostile | rule:57 |  | mid review M3: a boot that does not give a machine's service is refused at the seal, by name |
 | R13-KEYS | 13 | fault | hostile | D221, D217, D78, rule:39, rule:46, rule:16 |  | round 12 review H1, round 13 mid review H1, M1, M4: a release that changes an op's key fields leaves old-version holds, never renamed; every commit declines beside one, under reject and serialize, across reloads; its own old key reaches it; a field removed with two holds in either mint order keeps both; another actor and no release are untouched |
 | R13-DEFAULTS | 13 | fault | hostile | D222, D219, D214, D46 |  | round 13 mid review M2: a field's one default, constructor or decoding, applies at creation and at restore alike |
+| LIFE-01 | 14 | example | design | rule:73, rule:44, sec:2.7.17 |  | rule 73: a persisted actor whose last use ends mid-charge stays while its writes are InFlight, hears its endings in the same life, and goes a grace after with its record kept |
+| LIFE-02 | 14 | example | design | rule:73, sec:2.7.17 |  | rule 73: a non-persisted shared actor stays while its write is out and is gone a grace after, nothing kept |
+| LIFE-03 | 14 | example | design | rule:73, sec:2.7.17, C105 |  | C105: a send to an absent persisted target restores it from its record and delivers in order; idle again, it goes again |
+| LIFE-04 | 14 | example | design | rule:73, sec:2.7.17, C109 |  | rule 73: a release and an attach in one task, or within the grace, keep the incarnation; past the grace it goes; uses are counted |
+| LIFE-05 | 14 | example | design | rule:73, rule:44, rule:53 |  | rule 73: an ending parked for a removed copy's path is no use; the persisted actor goes, and its next incarnation's copy hears the ending once |
+| LIFE-06 | 14 | example | design | rule:73, rule:44 |  | rule 73: a Held lane is no use; the actor goes, the hold is unbound and the next incarnation hears unknown Restored once |
+| LIFE-07 | 14 | example | design | rule:73, sec:2.7.17, C124 |  | rule 73: an armed schedule keeps nothing; the persisted record keeps the deadline and the overdue one fires once at restore |
+| LIFE-08 | 14 | example | design | rule:73, sec:2.7.17 |  | rule 73 (OD31, inverted): a send in the grace is delivered to the same incarnation and does not restart the grace |
+| LIFE-09 | 14 | example | design | rule:73, C105 |  | C105: a send to an ended non-persisted target is SendTargetAbsent NoRecord and creates nothing |
+| LIFE-10 | 14 | example | design | rule:73, C108 |  | C108: an ensure of an ended persisted identity reads the Runtime's copy, with no flash of initial memory |
+| LIFE-11 | 14 | example | design | rule:73, sec:2.7.17, C109 |  | rule 73: a chain of three (confirm, a cart read started in its kept turn, place) runs in one incarnation after the last use ends, then it ends |
+| LIFE-12 | 14 | example | design | rule:73, sec:2.7.17 |  | rule 73: write, read, write, persisted: a kept read keeps however long it takes; the record holds the chain after the end |
+| LIFE-13 | 14 | example | design | rule:73, sec:2.7.17 |  | rule 73, D1: a read started by a press, or by a send-restore, keeps nothing; the end cuts it and the next incarnation hears failure Interrupted |
+| LIFE-14 | 14 | example | design | rule:73, sec:2.7.17, C124 |  | C124: a debounce due with no use waits; lost at a non-persisted end, fired once at the next ensure when persisted, fired once when a use returns in the grace |
+| LIFE-15 | 14 | example | design | rule:73, sec:2.7.17 |  | rule 73: a heartbeat whose ping outlasts its period: the next tick waits, the ping keeps the actor, it ends when the ping returns |
+| LIFE-16 | 14 | example | design | rule:73, sec:2.7.17 |  | rule 73: an expiry whose deadline is not the armed grace's does nothing |
+| LIFE-17 | 14 | example | design | rule:73, rule:44, C126 |  | C126: Held keeps nothing; unknown Restored is heard once per incarnation, at each return after an end |
+| LIFE-18 | 14 | example | design | rule:73, C106 |  | C106: at ready a plain record stays a record a handle reads and a send restores; one owed an ending is woken, hears it, then ends |
+| LIFE-21 | 14 | example | design | rule:73, C108 |  | C108: reads follow the identity: an ended persisted actor reads as its record, a non-persisted one as its terminal snapshot, one never created as pre-attach |
+| LIFE-22 | 14 | example | design | rule:73, sec:2.7.17 |  | rule 73: an unencodable record blocks the end, retried at each expiry with one diagnostic, until it encodes |
+| LIFE-23 | 14 | example | design | rule:73, C105 |  | C105: a send after disposeActor is NoRecord; one to a record that does not decode is RecordUndecodable, and an ensure discards it |
+| LIFE-24 | 14 | example | design | rule:73, C105 |  | C105, OD27 Q2: a host ensure keeps nothing; a subscription on an identity with no actor waits as a use, in either order with the ensure |
+| LIFE-27 | 14 | example | design | rule:73, sec:2.7.17, C108 |  | rule 73: a mounted local actor finishes its chain after unmount; a remount while it is kept only by work disposes it and adopts the ending |
+| LIFE-28 | 14 | example | design | rule:73, rule:44, C106 |  | C106: Runtime disposal parks the wire's ending; at the reload the unheld identity is woken at ready, hears it once, then ends |
+| LIFE-29 | 14 | example | design | rule:73, C125 |  | C125: EndedWithWork once per machine and kind of work; none for an end with nothing live |
+| LIFE-30 | 14 | example | design | rule:73, C111 |  | C111: a create within 5 s of an end carries how long ago; at 5 s it does not |
+| R14-ID-01 | 14 | example | design | rule:74, sec:2.7.19 |  | rule 74: a value ref is named by its input fields in field-name order, keeps only them, and is the input; an equal value adopts the identity's lane |
+| R14-ID-02 | 14 | fault | design | rule:74, OD:30 |  | OD30 Q3: a release that changes a value-named machine's input fields leaves an old-version record, listed at ready and never restored |
+| R14-ID-03 | 14 | example | design | rule:74, sec:2.7.19 |  | rule 74, D4: a singleton (no input) is its literal name; two refs of one identity disagreeing on persist are ConflictingActorRef |
+| R14-IGN-01 | 14 | example | design | OD:28, sec:2.7.18, rule:13, rule:40 |  | OD28: an ignored success, failure tag, unknown, interrupt and NotSent each apply their lane effect with no turn; an unknown is released (a waiting commit promoted); with no incarnation it is not parked |
+| R14-IGN-02 | 14 | example | design | OD:28, sec:2.7.18, rule:44 |  | OD28: an ignored Restored releases the hold, at a return after an end and at a reload |
+| R14-F-01 | 14 | example | design | OD:29, rule:1, rule:9, rule:51, rule:56 |  | OD29 F: a resetOn returning null is not placed (M8 impossible); present, its filling reads key; A, none, A adopts A's post |
+| R14-IGN-03 | 14 | example | design | OD:28, rule:40, rule:32, sec:2.8.6 |  | OD28 P1: an ignored unknown on a domain write is Released; the mark stays until a later write's success clears it |
+| R14-FIX-01 | 14 | fault | design | rule:44, C106, OD:31 |  | fragstore.row: a Held record kept at ready names the Restored it is owed (evidence, a wait); a dispose of it parks what the boot queued on the lane, each heard once |
+| R14-FIX-02 | 14 | example | design | rule:73, C106 |  | M4: a Held lane with a waiting commit keeps nothing, so the identity is not woken at ready; the next use hears both |
+| R14-FIX-03 | 14 | example | design | rule:73, C2 |  | D3: three lives of one persisted identity, each a return after an end, carry three distinct incarnation ids |

@@ -38,6 +38,16 @@ export const port: Port = {
               saidBogus = true;
               i.ensure(x, m, input);
             },
+            // Lifetime experiment: an attach is an ensure too, and a case may make its actor live only by attaching.
+            ...(i.attach
+              ? {
+                  attach: (x: string, m: string, input: unknown, owner: string, existing?: boolean, identity?: readonly string[], persist?: boolean) => {
+                    if (!saidBogus) a.onIssue([{ code: "BOGUS_UNNAMED" }]);
+                    saidBogus = true;
+                    i.attach!(x, m, input, owner, existing, identity, persist);
+                  },
+                }
+              : {}),
           }
         : {}),
     };

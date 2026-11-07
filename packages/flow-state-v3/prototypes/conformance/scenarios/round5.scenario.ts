@@ -20,6 +20,7 @@ import { ODD_KINDS, oddAllFixture } from "../fixtures/oddall.compiled.ts";
 import type { Fixture, Harness, Step } from "../harness.ts";
 import { NoHeldRequest } from "../fake-world.ts";
 import { checkClaims, checkEndings, checkMints, Ctx, Mismatch, type Scenario } from "./ctx.ts";
+import { GRACE } from "./lifetime.scenario.ts";
 
 const T = { actor: "Desk/Tickets", id: "a" };
 const T1 = ticketRef("t1");
@@ -582,45 +583,62 @@ export const round5Scenarios: readonly Scenario[] = [
     actor: TW,
     cites: ["rule:54", "rule:45", "rule:17", "C2", "D72", "D73"],
     variants: {
+      // Proposal-v6 7.1, T1 (rule 73): the screen leaves with the fragment's write in flight; the write keeps the actor and the same
+      // incarnation hears it. No rebind.
       "a-persisted-rebind-adopts-its-fragments-ending"(c0) {
         const c = at(c0, traitWriteFixture, TW);
         c.into(["t"], "Go");
         c.ack();
-        c.dispose();
+        c.detach();
+        c.advance(GRACE);
         c.answer("put", { ok: {} });
-        c.ensure();
-        c.eq("no reload needed", got(c), ["ok:a"]);
+        c.eq("no reload needed, no rebind", got(c), ["ok:a"]);
+        c.eq("one incarnation", c.incarnations(TW), 1);
       },
+      // T1: the lost answer reaches the same incarnation; the Held lane keeps nothing, so it ends; its return hears Restored (rule 44, once
+      // per incarnation). Changed from ["unsure:a:NoResponse"] (proposal-v5 11.1).
       "and-its-lost-answer-once-with-no-restored"(c0) {
         const c = at(c0, traitWriteFixture, TW);
         c.into(["t"], "Go");
         c.ack();
-        c.dispose();
+        c.detach();
         c.answer("put", { lost: true });
+        c.eq("the same incarnation, once", got(c), ["unsure:a:NoResponse"]);
+        c.advance(GRACE);
+        c.eq("held keeps nothing: ended", c.r.state(TW), undefined);
         c.ensure();
-        c.eq("once", got(c), ["unsure:a:NoResponse"]);
+        c.eq("the return hears Restored once", got(c), ["unsure:a:NoResponse", "unsure:a:Restored"]);
         c.eq(
           "a hold with an owner",
           c.r.quiet().waits.find((w) => w.kind === "held")?.owner,
           "bound",
         );
       },
+      // T2: detach, past the grace, ensure.
       "a-hold-heard-before-disposal-is-restored-to-the-rebound-life"(c0) {
         const c = at(c0, traitWriteFixture, TW);
         c.into(["t"], "Go");
         c.ack();
         c.answer("put", { lost: true });
-        c.dispose();
+        c.detach();
+        c.advance(GRACE);
+        c.eq("ended", c.r.state(TW), undefined);
         c.ensure();
         c.eq("told", got(c), ["unsure:a:NoResponse", "unsure:a:Restored"]);
       },
+      // T1 then T2: the unplaced lane is InFlight, so it keeps the actor until the answer lands; that ending is parked for the frozen path,
+      // which keeps nothing; the actor ends, the parked ending stays on the lane record (rule 44), and `Back` in the next incarnation hears it.
       "a-frozen-kid-adopts-at-the-thaw-not-at-the-rebind"(c0) {
         const c = at(c0, traitWriteFixture, TW);
         c.into(["t"], "Go");
         c.ack();
         c.send("Away");
-        c.dispose();
+        c.detach();
+        c.advance(GRACE);
+        c.yes("kept by the unplaced lane", c.r.state(TW) !== undefined);
         c.answer("put", { ok: {} });
+        c.advance(GRACE);
+        c.eq("then ended", c.r.state(TW), undefined);
         c.ensure();
         c.eq("not yet", got(c), []);
         c.send("Back");
@@ -647,15 +665,20 @@ export const round5Scenarios: readonly Scenario[] = [
         );
         c.eq("the hold stayed", c.r.quiet().waits.filter((w) => w.kind === "held").length, 1);
       },
+      // Inverted (proposal-v5 11.1; 2.7.17 Ready and hydration): its lane was InFlight at capture, so the identity is owed an ending and is
+      // woken at ready. It hears unknown { Restored }, which is work in flight until its turn has run, then, with no use, it ends.
       "a-disposed-identity-sleeps-through-a-reload"(c0) {
         const c = at(c0, traitWriteFixture, TW);
         c.into(["t"], "Go");
         c.ack();
-        c.dispose();
+        c.detach();
         c.reload();
-        c.eq("not woken", c.r.state(TW), undefined);
+        c.yes("woken at ready", c.r.state(TW) !== undefined);
+        c.eq("it heard Restored", got(c), ["unsure:a:Restored"]);
+        c.advance(GRACE);
+        c.eq("then ended, with no use", c.r.state(TW), undefined);
         c.ensure();
-        c.eq("its memory came back", got(c), ["unsure:a:Restored"]);
+        c.eq("its memory came back, and the return is a new incarnation: Restored once more (rule 44)", got(c), ["unsure:a:Restored", "unsure:a:Restored"]);
       },
     },
   },
@@ -668,14 +691,16 @@ export const round5Scenarios: readonly Scenario[] = [
     bounds: { drainMs: -1 },
     variants: {
       "a-crash-during-recovery-loses-no-parked-ending"(c0) {
+        // T3 (rule 73): Runtime disposal is the one way left to park an ending with no live actor. Back to Runtime O6: the commit is
+        // allowed to settle within the bound, so its success is the parked ending (2.7.13's Runtime disposal row).
         const c = at(c0, traitWriteFixture, TW, { drainMs: -1 });
         c.into(["t"], "Go");
         c.ack();
-        c.dispose();
+        c.do({ disposeRuntime: true });
         c.answer("put", { ok: {} });
         c.do({ reload: true, crashAfterBoot: true });
         c.ensure();
-        c.eq("delivered", got(c), ["ok:a"]);
+        c.eq("delivered once across the crash", got(c), ["ok:a"]);
       },
       "nor-a-w-behind-an-acked-head"(c0) {
         const c = at(c0, traitWriteFixture, TW, { drainMs: -1 });
@@ -687,18 +712,16 @@ export const round5Scenarios: readonly Scenario[] = [
         c.yes("the second", got(c).includes("no:a:Restored"));
       },
       "the-record-goes-once-delivered"(c0) {
+        // T3, as above: the parked success is delivered at ready and its record goes (back to Runtime O6, as before round 14).
         const c = at(c0, traitWriteFixture, TW, { drainMs: -1 });
         c.into(["t"], "Go");
         c.ack();
-        c.dispose();
+        c.do({ disposeRuntime: true });
         c.answer("put", { ok: {} });
         c.reload();
         c.ensure();
-        c.eq(
-          "the lane is off the disk",
-          c.laneKeys(),
-          [],
-        );
+        c.eq("the lane is off the disk", c.laneKeys(), []);
+        c.eq("delivered once", got(c), ["ok:a"]);
       },
     },
   },

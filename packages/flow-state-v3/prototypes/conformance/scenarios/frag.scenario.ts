@@ -16,6 +16,7 @@ import { payFixture } from "../typed/pay.ts";
 import { searchFrag } from "../search/frag.search.ts";
 import type { Scenario } from "./ctx.ts";
 import { Ctx } from "./ctx.ts";
+import { GRACE } from "./lifetime.scenario.ts";
 
 const F = { actor: "Form", id: "a" };
 const N = { actor: "Notes", id: "a" };
@@ -384,27 +385,34 @@ export const fragScenarios: readonly Scenario[] = [
     actor: L,
     cites: ["rule:44", "OD:21", "OD:22", "cell:lane.rebind.Held"],
     variants: {
+      // Proposal-v6 7.1, T1 (rule 73, OD31): the screen leaves mid-charge. The InFlight lane keeps Pay, so its ending reaches the same
+      // incarnation (PLACING), once, and `place` keeps it again. Formerly a dispose parked the ending for a rebind.
       "persisted-disposed-ending-parked-delivered-once"(c0) {
         const c = new Ctx(c0.fresh([payFixture]), P);
         c.ensure();
         c.send("Start", CART);
         c.send("PayRequested", { paymentMethodId: "visa" });
         c.ack();
-        c.dispose();
-        c.eq("actor gone", c.r.state(P), undefined);
+        c.detach();
+        c.advance(GRACE);
+        c.state("PAYING");
         c.answer("pay", { ok: CAP });
-        c.eq("lane cell applied", c.r.row(P, "pay", { intentId: "pi1" }), undefined);
-        c.ensure();
         c.state("PLACING");
         c.eq("once", c.r.evidence("delivered").filter((e) => e["op"] === "pay").length, 1);
-        c.eq("memory came back", c.mem().intentId, "pi1");
+        c.eq("the same incarnation", c.incarnations(P), 1);
+        c.eq("its memory", c.mem().intentId, "pi1");
+        c.advance(GRACE);
+        c.state("PLACING");
       },
+      // T2: detach, past the grace (the Held lane keeps nothing), ensure.
       "rebind-delivers-a-hold-once"(c) {
         c.ensure(L);
         c.to(L, "Toggle", { id: "i1", liked: true });
         c.answer("like", { lost: true });
         c.answer("repair", { truth: true });
-        c.dispose();
+        c.detach(L);
+        c.advance(GRACE);
+        c.eq("ended", c.r.state(L), undefined);
         c.eq(
           "listed unbound",
           c.r.quiet().waits.some((w) => w.kind === "held" && w.owner === "unbound"),
@@ -422,6 +430,7 @@ export const fragScenarios: readonly Scenario[] = [
         // blind-derivation: the line above stayed true with `ReconcileLike` removed. The re-send is the proof: a second request on the one key.
         c.eq("and re-sends on it", c.reqs("like").length, 2);
       },
+      // T4: `disposeActor` is explicit; the non-persisted actor's ending is evidence.
       "non-persisted-with-no-return-is-evidence"(c) {
         c.ensure(L);
         c.to(L, "Toggle", { id: "i1", liked: true });
@@ -429,6 +438,20 @@ export const fragScenarios: readonly Scenario[] = [
         c.answer("like", { apply: true });
         c.eq("applied", c.r.row(L, "like", K), undefined);
         c.eq("store confirmed", c.r.record(I1)?.predicted ?? false, false);
+      },
+      // T1, the sibling (proposal-v5 11.1): the screen leaves instead. The write keeps the actor, so the ending is delivered, not evidence.
+      "non-persisted-detached-hears-its-ending"(c) {
+        c.ensure(L);
+        c.to(L, "Toggle", { id: "i1", liked: true });
+        c.detach(L);
+        c.advance(GRACE);
+        c.state("READY", L);
+        c.answer("like", { apply: true });
+        c.eq("delivered to the same incarnation", c.r.evidence("delivered").filter((e) => e["op"] === "like").length, 1);
+        c.eq("no evidence-only ending", c.r.evidence("evidenceOnly").length, 0);
+        c.eq("one incarnation", c.incarnations(L), 1);
+        c.advance(GRACE);
+        c.eq("then it ends", c.r.state(L), undefined);
       },
     },
   },
@@ -722,7 +745,9 @@ export const fragScenarios: readonly Scenario[] = [
         c.answer("like", { lost: true });
         c.answer("repair", { truth: true });
         c.to(B, "Toggle", { id: "i1", liked: false });
-        c.dispose(L);
+        c.detach(L); // T2 (rule 73): the Held lane keeps nothing; the actor ends after the grace and the hold is unbound
+        c.advance(GRACE);
+        c.eq("ended", c.r.state(L), undefined);
         c.advance(299_999);
         c.eq("waits", c.reqs("like").length, 1);
         c.advance(1);
@@ -752,7 +777,9 @@ export const fragScenarios: readonly Scenario[] = [
         c.to(L, "Toggle", { id: "i1", liked: true });
         c.answer("like", { lost: true });
         c.answer("repair", { truth: true });
-        c.dispose(L);
+        c.detach(L); // T2 (rule 73)
+        c.advance(GRACE);
+        c.eq("ended", c.r.state(L), undefined);
         c.advance(3_600_000);
         c.eq("no release", c.r.evidence("Released").length, 0);
       },
@@ -805,6 +832,7 @@ export const fragScenarios: readonly Scenario[] = [
     fixtures: [notesFixture],
     actor: N,
     cites: ["rule:53", "rule:54", "L3"],
+    namedIssues: ["SendTargetAbsent"], // rule 73 (OD31): a send after `disposeActor` has no record (C105)
     run(c) {
       const r = searchFrag(c.make, { depth: 5, maxStates: 1200, deadlineMs: 8_000 });
       c.eq("no oracle failed", r.failure ?? "none", "none");
@@ -1174,8 +1202,9 @@ export const fragScenarios: readonly Scenario[] = [
         c.answer("like", { lost: true });
         c.answer("repair", { truth: true });
         c.to(B, "Toggle", { id: "i1", liked: false });
-        c.dispose(L);
+        c.detach(L); // T2 with no advance (rule 73): detach and ensure in one step, the same incarnation
         c.ensure(L);
+        c.eq("one incarnation", c.incarnations(L), 1);
         c.advance(300_000);
         c.eq("no release", c.r.evidence("Released").length, 0);
       },
@@ -1187,7 +1216,9 @@ export const fragScenarios: readonly Scenario[] = [
         c.answer("like", { lost: true });
         c.answer("repair", { truth: true });
         c.to(B, "Toggle", { id: "i1", liked: false });
-        c.dispose(L);
+        c.detach(L); // T2 (rule 73): the Held lane keeps nothing
+        c.advance(GRACE);
+        c.eq("ended", c.r.state(L), undefined);
         c.to(B, "Delete", { id: "i9" }); // a bystander
         c.to(B, "CancelLike", { id: "i1" });
         c.advance(300_000);

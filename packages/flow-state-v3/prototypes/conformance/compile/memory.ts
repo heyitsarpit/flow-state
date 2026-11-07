@@ -16,7 +16,7 @@ export const initial = <S extends Schema.Top>(schema: S, value: S["Type"] | ((st
   isFn(value) && !Schema.isSchema(value)
     ? { schema, from: "initial", computed: value as (start: Readonly<Record<string, unknown>>) => S["Type"] }
     : { schema, from: "initial", value: value as S["Type"] };
-export const input = <S extends Schema.Top>(schema: S): MemorySpec<S> => ({ schema, from: "input" });
+export const input = <S extends Schema.Top>(schema: S): MemorySpec<S> & { readonly from: "input" } => ({ schema, from: "input" }); // round 14: the type says "input", for rule 74's refs
 export const privately = <S extends Schema.Top>(m: MemorySpec<S>): MemorySpec<S> => ({ ...m, private: true });
 
 // "an optional key starts absent", written as the bare Schema (`Schema.optionalKey(Schema.String)`), with no `Flow` marker (2.2.2).

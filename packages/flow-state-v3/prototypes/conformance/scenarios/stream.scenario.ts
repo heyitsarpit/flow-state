@@ -291,7 +291,8 @@ export const streamScenarios: readonly Scenario[] = [
         c.ensure();
         hello(c);
         value(c, "a", 1);
-        c.dispose();
+        c.detach(); // T2 (rule 73): the session does not keep it; it ends after the grace and its record keeps the bookmark
+        c.advance(100);
         closes(c);
         c.eq("released", openConns(c), 0);
         c.ensure();

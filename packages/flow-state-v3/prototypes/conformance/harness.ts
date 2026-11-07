@@ -23,6 +23,7 @@ export type Answer =
   | { lost: true }
   | { lostButLanded: unknown }
   | { die: string }
+  | { interrupted: true } // the effect's own fiber is interrupted (an inner race or abort), not Flow's cancel
   | { never: true }
   | { apply: true } // the server model applies it and answers, or refuses. Idempotent per key
   | { applyLost: true } // the server model applies it; the answer is lost
@@ -57,9 +58,18 @@ export type Fault =
 
 export type Step =
   | { burst: ActorRef; event: string; n: number } // round 9: many sends in one tick, as a bulk flow does
-  | { ensure: ActorRef; input?: unknown }
+  | { ensure: ActorRef; input?: unknown; identity?: readonly string[]; persist?: boolean } // round 14, rule 74: a ref's fields and `persist` (compile/ref.ts)
   | { send: ActorRef; event: string; payload?: unknown; to?: readonly string[] }
-  | { dispose: ActorRef } // the actor's life ends. Its lanes stay the Runtime's (OD19)
+  | { dispose: ActorRef } // `disposeActor` (OD31): the actor and a persisted record go. Its lanes stay the Runtime's (OD19, rule 46)
+  // Rule 73 (OD31, 2.10.10). `ensure` attaches one use, as a mounted screen; `detach` ends one (`StoryInvalidCommand { ActorAbsent }` with
+  // none held). `subscribe` is a host `snapshots` subscription (restores a record, waits on an identity with neither); `mount` is `useActor`
+  // of a local machine.
+  | { detach: ActorRef }
+  | { hostEnsure: ActorRef; input?: unknown } // a host `ensureActor`: no use (OD27 Q2)
+  | { subscribe: ActorRef }
+  | { unsubscribe: ActorRef }
+  | { mount: ActorRef; input?: unknown }
+  | { unmount: ActorRef }
   | { advance: number }
   | { answer: RequestMatch; with: Answer; where?: Readonly<Record<string, unknown>> }
   // crashAfterBoot: the first boot dies with its mail undelivered (review M1). Needs drainMs -1. tear: only the first n writes of the last batch landed
@@ -206,6 +216,9 @@ export type Reads = {
   module(id: string, ref: string): any; // a module's `read`: a stream's row
   peakDeliveriesInMail(): number; // rule 69: the most a single session has ever had in mail at once, over every step
   replay(): { same: boolean; firstDiff?: unknown };
+  snapshot(a: ActorRef): Snapshot | undefined; // rule 73: undefined on a runtime with no uses
+  inspect(a: ActorRef): Inspected | undefined;
+  lifetimeViolations(): readonly string[]; // rule 73's global invariants, checked by the suite after every step
 };
 export type Bounds = {
   drainMs: number;
@@ -249,10 +262,18 @@ export type BootArgs = {
   readonly services?: Context.Context<never>;
 };
 export type BootReads = Pick<Instance, "state" | "binding" | "memory" | "inner">;
+// 2.7.17 Reads: what a handle shows for an identity. Inspection O1's `uses` per actor, the armed grace's deadline and the waiting schedules.
+export type Snapshot = { lifecycle: "active" | "disposed" | "pre-attach" | "quarantined"; state?: string; memory?: unknown; issue?: string };
+export type Inspected = { uses: readonly string[]; busy: readonly string[]; grace?: number; waiting: readonly string[] };
 export type Instance = {
-  ensure(actor: string, machine: string, input: unknown): void;
+  ensure(actor: string, machine: string, input: unknown, identity?: readonly string[], persist?: boolean): void;
   send(actor: string, event: Ev): void;
   dispose(actor: string): void;
+  // Rule 73: a runtime without uses has none. `owner`: the use's kind ("story", "host", "component"). `existing`: a subscription, never a create.
+  attach?(actor: string, machine: string, input: unknown, owner: string, existing?: boolean, identity?: readonly string[], persist?: boolean): void;
+  detach?(actor: string, owner: string): void;
+  snapshot?(actor: string): Snapshot;
+  inspect?(actor: string): Inspected;
   disposeRuntime(): void;
   repeatLastCompletion(): void;
   pending(): boolean;

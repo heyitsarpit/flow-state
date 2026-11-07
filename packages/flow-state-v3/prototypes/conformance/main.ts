@@ -25,6 +25,11 @@ import { round9bScenarios } from "./scenarios/round9b.scenario.ts";
 import { round10Scenarios } from "./scenarios/round10.scenario.ts";
 import { round12Scenarios } from "./scenarios/round12.scenario.ts";
 import { round13Scenarios } from "./scenarios/round13.scenario.ts";
+import { lifetimeScenarios } from "./scenarios/lifetime.scenario.ts";
+import { identityScenarios } from "./scenarios/identity.scenario.ts";
+import { ignoreScenarios } from "./scenarios/ignore.scenario.ts";
+import { absorbScenarios } from "./scenarios/absorb.scenario.ts";
+import { fixpassScenarios } from "./scenarios/fixpass.scenario.ts";
 import { streams5Scenarios } from "./scenarios/streams5.scenario.ts";
 import { flowScenarios } from "./scenarios/flows.scenario.ts";
 import { fragScenarios } from "./scenarios/frag.scenario.ts";
@@ -55,6 +60,11 @@ export const allScenarios: readonly Scenario[] = [
   ...round10Scenarios,
   ...round12Scenarios,
   ...round13Scenarios,
+  ...lifetimeScenarios,
+  ...identityScenarios,
+  ...ignoreScenarios,
+  ...absorbScenarios,
+  ...fixpassScenarios,
 ];
 
 const here = import.meta.dir;
@@ -191,7 +201,7 @@ export const runScenarios = (
           tracked.push(rec);
         };
         const note = (step: any) => {
-          for (const a of [step?.ensure, step?.send, step?.burst, step?.dispose]) if (a?.actor !== undefined) rec.actors.set(`${a.actor}/${a.id}`, a);
+          for (const a of [step?.ensure, step?.send, step?.burst, step?.dispose, step?.attach, step?.release]) if (a?.actor !== undefined) rec.actors.set(`${a.actor}/${a.id}`, a);
           rec.steps++;
         };
         const hashed = () => {

@@ -3,7 +3,7 @@
 // What the suite boots is their output and nothing else. Where they differ from the design: `round-12/api-changes.md`. Seams (not public API) are marked.
 import { deny } from "../fixtures/compiled.ts";
 import { state } from "./body.ts";
-import { uncertain } from "./events.ts";
+import { ignore, uncertain } from "./events.ts";
 import { Callback, Exit, Guard } from "./fragment.ts";
 import { initial, input, privately } from "./memory.ts";
 import type { Act, In, OpGuard } from "./operations.ts";
@@ -14,6 +14,7 @@ export { definition, machine, type DomainIn, type StreamIn } from "./machine.ts"
 export { subroutine, trait } from "./fragment.ts";
 export { notCarried, resource, servicesFor, transaction, type Typed } from "./operations.ts";
 export type { FragmentValue, Placed } from "./body.ts";
+export { actorRef, ensureArgs, type ActorRefOf, type InputOf } from "./ref.ts"; // round 14: rule 74, 2.7.19
 
 // 2.2.1: one module for what Schema cannot say. `Flow.private` is `privately` here only because `private` is a reserved word for a binding.
 export const Flow = {
@@ -25,6 +26,7 @@ export const Flow = {
   Guard,
   uncertain,
   state,
+  ignore, // round 14 (OD28, 2.7.18)
 };
 
 // SEAM (D212): NOT public API. A host asking or cancelling its placed fragment's operation, which rule 50 forbids. Edge's IfJob, pay-full's shipping guard,

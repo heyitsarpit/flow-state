@@ -62,7 +62,8 @@ export const outputOf = (t: Tracked): Record<Section, unknown> => {
   const actors = Object.fromEntries(
     [...t.actors].sort().map(([k, a]) => [k, { state: r.state(a) ?? null, memory: brief(rank(canonText(r.memory(a)))) }]),
   );
-  const evidence = counts(r.evidence().map((e) => String(e["kind"])));
+  // Rule 73's invariants read `incarnation` and `fired` after every step; they say what other evidence already counts, so output leaves them out.
+  const evidence = counts(r.evidence().map((e) => String(e["kind"])).filter((k) => k !== "incarnation" && k !== "fired"));
   const waits = counts(r.quiet().waits.map((w) => `${w.kind}:${"op" in w ? w.op : ""}`));
   const o = r.outside();
   return {

@@ -6,6 +6,7 @@ import { keptFixture, KeptId } from "../typed/round9.ts";
 import { loopFixture, LoopId } from "../typed/round8.ts";
 import type { Fixture } from "../harness.ts";
 import { Ctx, type Scenario } from "./ctx.ts";
+import { GRACE } from "./lifetime.scenario.ts";
 
 const A = { actor: ChainId, id: "a" };
 const B = { actor: ChainId, id: "b" };
@@ -418,7 +419,9 @@ export const round9bScenarios: readonly Scenario[] = [
         c.send("Go");
         c.ack();
         c.answer("save", { ok: { v: "boom" } });
-        c.dispose();
+        c.detach(); // T2 (rule 73): a kept ending keeps nothing; the actor ends, the record and the ending stay
+        c.advance(GRACE);
+        c.eq("ended", c.r.state(E), undefined);
         healed(c, () => c.ensure());
         c.state("B");
       },
@@ -428,18 +431,27 @@ export const round9bScenarios: readonly Scenario[] = [
         c.ack();
         c.answer("save", { ok: { v: "boom" } });
         const n = code(c, "InvalidTurn").length;
-        c.dispose();
+        c.detach(); // T2
+        c.advance(GRACE);
         c.ensure();
         c.eq("one more", code(c, "InvalidTurn").length, n + 1);
       },
+      // T2 then a reload (proposal-v5 11.1): a parked ending is owed at ready, so the identity is woken and tries it once; `InvalidTurn`
+      // again keeps it on the row. With no use, it ends after the grace.
       "a-sleeping-actors-kept-ending-stays-kept-through-a-boot"(c0) {
         const c = on(c0, edgeFixture(), E);
         c.send("Go");
         c.ack();
         c.answer("save", { ok: { v: "boom" } });
-        c.dispose();
+        c.detach();
+        c.advance(GRACE);
+        c.eq("ended", c.r.state(E), undefined);
+        const n = code(c, "InvalidTurn").length;
         c.reload();
+        c.eq("woken at ready, tried once", code(c, "InvalidTurn").length, n + 1);
         c.eq("still on the row", (c.r.row(E, "save", { id: "a" }) as any)?.undelivered, 1);
+        c.advance(GRACE);
+        c.eq("then ended, with no use", c.r.state(E), undefined);
       },
       // Two rows' writes share an op and a key, and each life lets go only of its own.
       "a-key-less-cancel-stays-in-its-own-life"(c0) {
@@ -494,7 +506,9 @@ export const round9bScenarios: readonly Scenario[] = [
         c.send("Set", { ids: ["r1"] });
         c.into(["r:r1"], "Ask");
         c.answer("rowRead", { ok: {} });
-        c.dispose();
+        c.detach(); // T2 (rule 73): a stranded answer keeps nothing
+        c.advance(GRACE);
+        c.eq("ended", c.r.state(E), undefined);
         c.eq("gone", waits(c, "stranded").length, 0);
       },
       // Survivors of the review. An ordinary parked ending (rule 53) has been told nothing refused: its key is free.
