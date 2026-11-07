@@ -187,6 +187,16 @@ call, its reason, its evidence, and how reversible it is.
   (`definition({ id, persist: true, … })`), since `machine()` takes no options and the definition holds `context` and
   the persisted memory. Decision entries before OD48 stay as history.
 
+- 2026-11-08, CP1 relock (the user: "you decide what's best and more correct"). The runner's call: log one line per
+  changed harness file in `conformance/expected-changes.log` and relock, but only after CP1's close-out review passes,
+  so the log line can name the review as its evidence. Reason: the lock exists to force a logged reason for a harness
+  change; here the reason is checkable (834/834, every output, RECIPIENTS and falsify verdict identical), and an
+  unrelocked suite would exit 1 on every run and hide a real unlogged change. If the review finds a High, fix first.
+  If the permission classifier refuses the relock again, the user runs the two commands. Reversible: revert the lock
+  and the seven log lines.
+- 2026-11-08, `mutate.ts`'s `--rss-mb` default (1700 MB is below the suite's own 1745 MB peak): the runner raises it in
+  CP2, with time kills read as unknown. Reversible: one default.
+
 ## Change proposals
 
 One entry each (runner rule 4): the kind (insert, modify, split, reorder, reclassify), why, the

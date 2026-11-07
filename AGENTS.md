@@ -86,6 +86,10 @@ workflow check       # see .agents/skills/workflow-cli/SKILL.md before editing W
 ### Agents
 - You decide. Reviewer findings are advice, and you have the most context.
 - Opus: design, proposals, from-scratch redesigns, and reviews (one Opus covers correctness and real code against the proposal; flag hacks and faked features). Sonnet: simple coding work, such as executable models. Haiku: research fan-out only.
+- Every review, research or survey task given to Opus launches with 4 Haiku sidecars at the same time, each
+  attacking the same problem from a different named angle. Sidecars are read-only, run no gates or benchmarks, and
+  return findings with file:line evidence, not verdicts. Read them beside the Opus report and verify any finding
+  before acting on it.
 - Lenses (correctness, simplicity, agent UX, generality, consistency, semantics, type spike) are for judging proposals, not for shaping them.
 - From-scratch agents get the problem and the gaps, not the old draft, so they don't inherit its assumptions.
 - Watch usage limits. Check that running agents are actually making progress.

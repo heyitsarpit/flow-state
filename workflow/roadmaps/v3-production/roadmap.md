@@ -2,7 +2,7 @@
 
 Status: approved by the user on 2026-11-07, in the Claude Code session ("the roadmap is approved"), handing
 its execution to Claude as the agent runner.
-Version: 7, approved 2026-11-07, after amendment 6.
+Version: 8, approved 2026-11-07, after amendment 7.
 Shape confirmed: 2026-11-04, in the Claude Code session. The user gave points 1-10: plans first,
 conformance rewritten, the core, features, Next.js hardening, examples and docs.
 Goal: production code for Flow State v3 at high quality, with good error messages and the
@@ -498,7 +498,13 @@ Everything else still needs the user.
 - Builders: Opus, medium effort, every third round high. Reviewers: Opus, high; never the builder.
 - Agents at once: one builder and, at review time, one reviewer; work runs serially (the user,
   2026-11-08, replacing the 2026-11-07 allowance of 3). Exception (amendment 5): up to 4 Haiku research agents,
-  read-only, in phase 0's close-out and phase 2, while no builder runs; they return tables, never verdicts. The procedure: Work serially: one builder at a time, always busy on the queue. One independent Opus review of the latest committed checkpoint every 60 minutes, and one close-out review when a round or area finishes. Reviews only report; the runner fixes minor findings itself. When several reviews in a row keep finding many issues, stop patching: collect every finding as a requirement and run one convergence pass (`policy-convergence`), then keep going.
+  read-only, in phase 0's close-out and phase 2, while no builder runs; they return tables, never verdicts.
+  **Haiku sidecars (amendment 7):** every review, research or survey task given to Opus is launched with 4 Haiku
+  sidecars at the same time, each attacking the same problem from a different named angle (for a code review, for
+  example: soundness of each change, equivalence of a rewrite, concurrency and shared state, purity and determinism).
+  Sidecars are read-only, run no gates or benchmarks, and return findings with file:line evidence, never verdicts.
+  The runner reads their findings beside the Opus report, verifies any it acts on, and records which were used. They
+  count outside the one-builder, one-reviewer limit. The procedure: Work serially: one builder at a time, always busy on the queue. One independent Opus review of the latest committed checkpoint every 60 minutes, and one close-out review when a round or area finishes. Reviews only report; the runner fixes minor findings itself. When several reviews in a row keep finding many issues, stop patching: collect every finding as a requirement and run one convergence pass (`policy-convergence`), then keep going.
 
 - Processes at once: up to 8 deterministic processes, about 16 GB in total, after checking
   `vm_stat`. Always alone: real-browser runs and benchmarks.
@@ -607,6 +613,10 @@ Numbered, oldest first (runner rule 4).
    `/Users/arpit/Developer/workflow/skills/suites/workflow/roadmap/SKILL.md`, not yet committed in that repository;
    "Built from" stays at `9b1dd09` until it is). Version 7. Applied at once to the speed pass (queue item 0, added
    before this rule): rebuilt as a change proposal in progress.md. Phases worked out again: none.
+7. 2026-11-08, judge the user ("every review or research or survey task that requires opus will launch 4 haiku
+   sidecars that attack the problem from different angles"): the Agents section gains Haiku sidecars, four per Opus
+   review, research or survey task, read-only, each with its own angle, outside the agent-count limit. Also in
+   `AGENTS.md`, section "Agents". Version 8. Phases worked out again: none (how they run only).
 
 ## Runner rules
 
