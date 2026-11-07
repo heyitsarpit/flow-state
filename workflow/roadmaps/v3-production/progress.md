@@ -32,7 +32,18 @@ Waiting on the user:
   form fixed per machine in the types, identity encoded with its Schema (user's call); D2 re-arming or
   leaving removes a waiting deadline; D3 a return mints a new incarnation id; D5 a local actor's
   remount within the grace; D6 whether `disposeActor` still parks endings; D7 `getSnapshot` for an
-  undecodable record (all approved);
+  undecodable record (all approved). **Recorded** in machine-design.md as OD45 (phase 0b, `d1117383`);
+- phase 0's label round on the user-judged conflicts of the design catch-up, U1-U15 in
+  `workflow/plans/flow/references/proposals/design-catch-up/change-list.md` (none applied; recommendation in
+  brackets): U1 operation timeouts (keep the design: the timeout is the commit's Effect); U2 key-less members name
+  the ending's own Attempt only (prototype); U3 restore order within a lane, `W` first (prototype); U4 an undecodable
+  lane key quarantines instead of `orphaned`, key-equality adoption cut (prototype); U5 cut `allow` from v1 (cut); U6
+  `NotSent { Unencodable }`, encoding never fails a turn (prototype); U7 a module defect fails closed (settle in
+  phase 1); U8 sends before ready queue (prototype); U9 creation checks input, no transforming decode (prototype);
+  U10 rule 32 two levels against OD28 P1's wording (Q7 A, written in phase 1); U11 entity-store decisions (defer to
+  phase 1); U12 may a memory default read a clock (no: pure defaults only); U13 Runtime disposal past its bound
+  (`unknown { Disposed }`); U14 `disposeActor` durability (flush the removal at once); U15 `persist` per ref or per
+  machine (per machine);
 - phase 2's label round, then its user-judged decisions;
 - which example apps to build, any time before phase 6. Candidates are below.
 
@@ -81,6 +92,31 @@ call, its reason, its evidence, and how reversible it is.
 - Round 14's builder pinned two cases to its own Runtime-disposal behaviour against Runtime O6; the
   runner judged the design wins and ordered them reverted (agent-level: the design text is explicit).
   Reversible: if the user prefers interrupting the wire at disposal, it becomes a design change.
+
+- Phase 0b, design catch-up (`d1117383`, OD46 in machine-design.md; entries in
+  `workflow/plans/flow/references/proposals/design-catch-up/change-list.md`). Agent-judged rulings applied, each
+  reversible by editing machine-design.md (nothing is built on them yet; overruling now costs one edit):
+  - D48 (rule 24): a cancel or `latest` replacement waits while a never-sent Attempt's acknowledgement is being
+    written. Reason: a cancelled Attempt whose acknowledgement lands restores as unknown. Evidence: convergence-3, M1.
+  - D145 (rule 19): servers may prune keys; a re-send on an old key reads first; Flow keeps no key age. Evidence:
+    convergence-10's owed edit 8.
+  - 2.7.20's store contract, silent storage (`StorageSilent` [P] at 10 s), frozen page, ids never repeated (D30, D83,
+    D94, D95, D99, D111, D146). Reason: they state what the host already had to do for the accepted calls 1, 4 and 9.
+    Evidence: convergence-7 to 10, `safari/RESULTS.md`.
+  - 2.6.1's `Compiled` contents, key from key fields, every closure a Slot (D206, D215, D216, D223). Reason: internal
+    representation under the accepted call 14. Evidence: convergence-11 to 13.
+  - Proposed names [P]: `ReservedStateName`, `UnknownNotUncertain`, `UnencodableValue`, `InputFieldForm`,
+    `StorageSilent`, `TurnStorm`, `AsksForever`, `KeyFieldOptional`, `OldVersionLane`, `TwoDefaults`,
+    `RestoreMissingInput`. Reason: the prototype's names; MD marks proposed names [P] as OD30 did.
+  - Round 14's final review: R14R 2 (a reload and a return mint new ids for the actor and every restored fragment
+    incarnation; the round-14 builder's "a kept record keeps its root id" disagrees and should follow), R14R 3
+    (`ready` creates nothing; a kept record holding a `Held` lane is named), R14R 6 (an "undecodable record" state in
+    2.7.17's table), R14R 7 (versions compare encoded Schemas structurally, ignoring annotations, as Q1 A says for
+    keys), R14R 9 (R14 D1's `Interrupted` on every path back, after rule 44's deliveries). R14R 5 judged "the design
+    stands" (waiting commits behind a `Held` head are not owed at ready).
+  - Readings to check: FOR-ARPIT section 4's change log is "already in the design" (its "after" spellings are the
+    design's own); R14 D4's "identity encoded with its Schema" is read as the Schema's encoded form, keeping OD30 Q6's
+    string rule; the H1 fix's per-actor default is recorded, and its clash with creation's purity is U12.
 
 ## Change proposals
 
@@ -142,4 +178,10 @@ One line per iteration. Results live in the records; link them.
 - 2026-11-07 roadmap approved (`309c87e4`); cold read run after approval; its wording fixes applied as amendment 1 (`fadf004f`); round 14 continues with the review's fixes and D1-D7.
 - 2026-11-08 0a.1 `ad2a6315` (worktree branch): round 14 done, 822/822, lock clean, every gate green except `fragstore.row` (failing differently: an ending reached nobody after dispose and reload); 46 lifetime mutants red; D1-D7 and the mid-review fixes in. Final independent review started; phase 0b (design catches up, `proposals/design-catch-up/`) started alongside, separate write scope. Usage: not measured.
 - 2026-11-08 0a.1 final review of `ad2a6315`: not merged yet. H-A: Runtime disposal pinned to `Interrupted` against Runtime O6 (two cases rewritten to the runtime); `fragstore.row` misdiagnosed (a suite-ledger gap: boot mail on a record kept at ready has no evidence, not a D6 hole); D1 lost when woken at ready; D3 unguarded; prototype call 2 departs from rule 73; persist order-dependent; 12 templated output reasons hide real differences; a lie retired on weak grounds. 0a.2 fix pass started in the worktree; the review's nine design corrections passed to phase 0b for labelling.
+- 2026-11-08 0b `818bd236`, `d1117383`: design catch-up. Inventory of D1-D228, FOR-ARPIT, R14 D1-D7 and the final
+  review's nine items (`workflow/plans/flow/references/proposals/design-catch-up/inventory.md`); change list applied
+  to machine-design.md, 52 blocks, none skipped: OD32-OD44 (FOR-ARPIT accepted), OD45 (R14 D1-D7), OD46
+  (agent-judged), plan rows C128-C146. Fifteen user-judged conflicts U1-U15 not applied, waiting for the label round.
+  OD and C ids unique, links resolve; `workflow check` shows only the worktree's `DUPLICATE_SPEC_ID` and
+  `SPEC_INDEX_STALE` (no `.spec` touched). Not yet reviewed by an independent agent. Usage: not measured.
 
