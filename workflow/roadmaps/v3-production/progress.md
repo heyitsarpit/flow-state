@@ -25,6 +25,13 @@ Next action: take round 14's results (the merged OD28-OD31 on the prototype and 
 phase 0: record the prototype's newer decisions (D1-D222, api-changes, FOR-ARPIT's accepted calls and answers) in
 machine-design.md, then review. The plan merge (now phase 2) and its label round come after phases 0
 and 1.
+Owed to the prototype (phase 0a's next round, or phase 1 for what it builds): the label round's rulings that change
+it, now in machine-design.md (OD48): U2 key-less members name only the ending's own Attempt; U3 restore delivers `W`'s
+`NotSent { Restored }` before the head's unknown; U4 quarantine, no key-equality adoption, no `orphaned`; U5 no
+`allow`; U6 `NotSent { Unencodable }` and `UnencodableValue`, with a lookup ending `Defect`; U8 sends queue until boot;
+U9 creation checks the type side; U13 `unknown { Disposed }` past the disposal bound; U14 `disposeActor` flushes at
+once, and an unbound lane record is listed and reported until adopted or forgotten; U15 `persist` on the definition,
+not the ref; U17 versions and key fingerprints compare the type and encoded sides.
 Waiting on the user:
 - phase 0's conflicts between the design and the prototype, as they are found. **Approved by the user
   (2026-11-07)**, to be written into machine-design.md in phase 0; from the round-14
@@ -33,29 +40,6 @@ Waiting on the user:
   leaving removes a waiting deadline; D3 a return mints a new incarnation id; D5 a local actor's
   remount within the grace; D6 whether `disposeActor` still parks endings; D7 `getSnapshot` for an
   undecodable record (all approved). **Recorded** in machine-design.md as OD45 (phase 0b, `d1117383`);
-- phase 0's label round on the user-judged conflicts of the design catch-up, U1-U18 in
-  `workflow/plans/flow/references/proposals/design-catch-up/change-list.md` (none decided; recommendation after each):
-  - U1 operation timeouts: keep the design, the timeout is the commit's Effect (this overturns the user's own remark
-    of 2026-11-01, "rule 25 is cancelled, timeouts return");
-  - U2 key-less members: name the ending's own Attempt only (prototype);
-  - U3 restore order within a lane: `W`'s `NotSent { Restored }` first, then the head's unknown (prototype);
-  - U4 a lane whose key no longer decodes: quarantine it, keep the hold, cut key-equality adoption (prototype);
-  - U5 `concurrency: "allow"`: cut from v1, text to `revisit.md`;
-  - U6 values that cannot be encoded: `NotSent { Unencodable }` and `UnencodableValue`, encoding never fails a turn
-    (prototype);
-  - U7 a module's defect: settle in phase 1 with the entity store;
-  - U8 sends before ready: queue until boot (prototype);
-  - U9 creation checks input by its type side, no transforming decode (prototype);
-  - U10 rule 32: Q7 A's two levels of doubt, written in phase 1;
-  - U11 entity-store decisions: defer to phase 1;
-  - U12 defaults must be pure; an Effect-valued default is a construction error;
-  - U13 Runtime disposal past its bound: `unknown { Disposed }`;
-  - U14 `disposeActor` durability: flush the removal at once; an unbound lane record ends at an adopting ensure or
-    `forget`, listed meanwhile;
-  - U15 `persist`: per machine, not per ref;
-  - U16 waits on storage (D30, D48, D94): no bound, the limit stated, `StorageSilent` names it;
-  - U17 a new version: type and encoded side, ignoring annotations, for actors and operation keys (amends Q1 A);
-  - U18 the proposed names `ReservedStateName`, `InputFieldForm`, `StorageSilent`, `RestoreMissingInput`: accept;
 - phase 2's label round, then its user-judged decisions;
 - which example apps to build, any time before phase 6. Candidates are below.
 
@@ -139,6 +123,13 @@ call, its reason, its evidence, and how reversible it is.
     design's own); R14 D4's "identity encoded with its Schema" is read as the Schema's encoded form, keeping OD30 Q6's
     string rule; the H1 fix's per-actor default is recorded, and its clash with creation's purity is U12.
 
+- Phase 0b pass 3 (the label round's rulings, change-list E71-E90, OD48). Agent calls made in applying them, each one
+  edit to reverse: a lane whose operation is gone is kept like a quarantined lane until `forget` (U4 names only an
+  undecodable key); a quarantined path's `cancel` may come from any subject path (rule 51 would decline it); rule 20
+  requires `Unencodable` where an input or key Schema admits a value with no form; `persist` sits on the definition
+  (`definition({ id, persist: true, … })`), since `machine()` takes no options and the definition holds `context` and
+  the persisted memory. Decision entries before OD48 stay as history.
+
 ## Change proposals
 
 One entry each (runner rule 4): the kind (insert, modify, split, reorder, reclassify), why, the
@@ -211,3 +202,8 @@ One line per iteration. Results live in the records; link them.
   decided, the rest batched as U18; C128, C144 fixed, C147-C149 added. OD1-OD47 and C1-C149 unique, links resolve.
   Waiting on the user: U1-U18. Usage: not measured.
 - 2026-11-07 0b.2 `9cccc580`: the 0b review's 16 findings applied (R14R 7 overturned to U17; D30/D48/D94's unbounded waits to U16; D2 recorded as the user's Q3 A; stale reason lists fixed; names batched as U18). Phase 0b now blocks on the user's label round (U1-U18); its completion audit follows it. Round 14 fix pass running.
+- 2026-11-07 0b pass 3: the user ruled U1-U18 in the label round, all at the recommended option. Written into
+  machine-design.md as change-list E71-E90 (98 blocks, none skipped): OD48 records each ruling (U1 overturns the
+  user's 2026-11-01 timeout remark; U17 amends Q1 A); plan rows C150-C161; `allow` and `orphaned` moved to
+  `revisit.md`; the U marks and the five names' [P] removed. OD1-OD48 and C1-C161 unique, links resolve. U1-U18 are
+  off "Waiting on the user"; the prototype owes U2-U6, U8, U9, U13-U15, U17 (see Resume). Usage: not measured.
