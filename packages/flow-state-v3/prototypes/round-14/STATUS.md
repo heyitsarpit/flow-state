@@ -116,9 +116,19 @@ Baseline (serial, 12 cores / 24 GB): suite `--no-search` 67 s wall, 1745 MB peak
 
 | Fix | State | Commit | Before | After | Sameness shown by |
 | --- | --- | --- | --- | --- | --- |
-| 1 ledger memo, linear `viewOf`, placements hoisted; `bindingIn` stops at its first match | done | (this commit) | suite 67 s; rows probe N=120 body 2284 ms; 300-rows case 44.9 s | suite 27.7 s; N=120 555 ms; 300-rows 5.9 s | 834/834, every output compared equal, RECIPIENTS line identical; a temporary differential run recomputed every memo hit (186075) and compared copies, resets and the Slot-path tape: 0 differences |
+| 1 ledger memo, linear `viewOf`, placements hoisted; `bindingIn` stops at its first match | done | 0806c7de | suite 67 s; rows probe N=120 body 2284 ms; 300-rows case 44.9 s | suite 27.7 s; N=120 555 ms; 300-rows 5.9 s | 834/834, every output compared equal, RECIPIENTS line identical; a temporary differential run recomputed every memo hit (186075) and compared copies, resets and the Slot-path tape: 0 differences |
+| 2 canon: ancestor `Set` with add/delete; replay compares pairs of plain subtrees, memoised; `ranked()` by a Map | done | (this commit) | suite 27.7 s; DRV-01 2.6 s, FRAG-15 4.7 s, R10 listener 3.2 s, 300-sends 2.3 s | suite 19.7 s; 1.6 s, 3.7 s, 2.3 s, 1.2 s | 834/834, outputs and RECIPIENTS identical; `FLOW_CANON_CHECK=1` (kept) recomputes the old whole-text comparison on every replayed step: 205650 steps, 0 differ; `FLOW_DEEP_FREEZE=1` suite 834/834 |
 
 Findings:
+- Fix 2 departs from "cache canonical text per subtree": a text cache still pays the root's concatenation every step (most of
+  the text built was the root tuple and the world object). The replay instead walks the replayed and the logged step side by side
+  over plain arrays and objects (what `FLOW_DEEP_FREEZE` freezes) and keeps each pair found equal, so an unchanged subtree costs one
+  lookup. Equal exactly when the two `JSON.stringify(canon(...))` texts are: JSON texts are self-delimiting and an object's key order
+  is a function of its key set; leaves, and anything not plain (MailQ, Map, Set, Date), are compared by their canon text. A cycle
+  seen anywhere switches that replay to whole texts. canon itself keeps its lines (the `d141.date-collapses` and `d143.user-ranked`
+  mutants still apply), and returns the same values.
+- No logged world is written in place: the suite passes 834/834 under `FLOW_DEEP_FREEZE=1`, which freezes every logged step's input
+  and output (plain objects and arrays) so an in-place write throws and is Fatal.
 - `slotRuns` does count the reference model's `resetOn` runs: `compiled` is wrapped (`wrap` in drive.ts) before `new Reference(compiled)`,
   so `Reference.copies` runs the wrapped Slot, which pushes to `slotRuns` and spends an armed `throwIn` (frag.scenario.ts arms
   `traits.check.resetOn`). The memo keeps both: a miss records the Slot paths it ran; a hit pushes the same paths (when not replaying)

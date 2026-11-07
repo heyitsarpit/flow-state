@@ -33,14 +33,25 @@ export { sessions };
 
 // For the suite's hash and replay only. Total: a world may hold what never needed encoding (D57).
 // D141, bugs M3: what decides a future is the value, not the JSON it makes. A Date, a Map, a Set, a NaN each say what they are, so two states with different dates are two states.
-const canon = (v: unknown, up: readonly unknown[] = []): unknown => {
+let cycles = 0;
+const canon = (v: unknown, up: Set<object> = new Set()): unknown => {
   if (typeof v === "bigint") return `${v}n`;
   if (typeof v === "function") return undefined;
   if (typeof v === "symbol") return `$symbol:${String(v)}`;
   if (typeof v === "number" && !Number.isFinite(v)) return `$number:${v}`;
   if (v === null || typeof v !== "object") return v;
-  if (up.includes(v)) return "(cycle)";
-  const next = [...up, v];
+  if (up.has(v)) {
+    cycles++;
+    return "(cycle)";
+  }
+  up.add(v);
+  try {
+    return canonObject(v, up);
+  } finally {
+    up.delete(v);
+  }
+};
+const canonObject = (v: object, next: Set<object>): unknown => {
   if (Array.isArray(v)) return v.map((x) => canon(x, next));
   if (v instanceof MailQ) return [...v].map((x) => canon(x, next));
   if (v instanceof Date) return `$date:${v.getTime()}`;
@@ -52,6 +63,72 @@ const canon = (v: unknown, up: readonly unknown[] = []): unknown => {
       .map((k) => [k, canon((v as Record<string, unknown>)[k], next)]),
   );
 };
+const inText = (x: unknown) => x !== undefined && typeof x !== "function";
+class Cycle extends Error {}
+// Whether `JSON.stringify(canon(a)) === JSON.stringify(canon(b))`, walking plain arrays and objects side by side: a JSON value's text
+// is self-delimiting and an object's keys are in an order its key set decides, so two texts are equal exactly when their parts are.
+// Logged and replayed worlds are never written in place, so a pair of subtrees found equal stays equal, and the next step pays only
+// for what it changed. A cycle anywhere: whole texts from then on.
+const canonComparer = () => {
+  const equal = new WeakMap<object, object>();
+  let whole = false;
+  const upA = new Set<object>();
+  const upB = new Set<object>();
+  const plain = (v: unknown): v is object =>
+    v !== null && typeof v === "object" && (Array.isArray(v) || Object.getPrototypeOf(v) === Object.prototype);
+  const scratch = new Set<object>();
+  const text = (v: unknown) => JSON.stringify(canon(v, scratch));
+  const item = (v: unknown) => text(v) ?? "null";
+  const eq = (a: unknown, b: unknown, inArray: boolean): boolean => {
+    const ta = typeof a;
+    if (ta === typeof b && (ta === "string" || ta === "boolean" || (ta === "number" && Number.isFinite(a) && Number.isFinite(b)))) return a === b;
+    if (!plain(a) || !plain(b)) return inArray ? item(a) === item(b) : text(a) === text(b);
+    if (equal.get(a) === b) return true;
+    if (Array.isArray(a) !== Array.isArray(b)) return false;
+    if (upA.has(a) || upB.has(b)) throw new Cycle();
+    upA.add(a);
+    upB.add(b);
+    try {
+      if (Array.isArray(a)) {
+        const y = b as unknown[];
+        if (a.length !== y.length) return false;
+        for (let i = 0; i < a.length; i++) if (!eq(i in a ? a[i] : undefined, i in y ? y[i] : undefined, true)) return false;
+      } else {
+        const x = a as Record<string, unknown>;
+        const y = b as Record<string, unknown>;
+        let nb = 0;
+        for (const k of Object.keys(y)) if (inText(y[k])) nb++;
+        let na = 0;
+        for (const k of Object.keys(x)) {
+          if (!inText(x[k])) continue;
+          na++;
+          if (!Object.hasOwn(y, k) || !inText(y[k]) || !eq(x[k], y[k], false)) return false;
+        }
+        if (na !== nb) return false;
+      }
+    } finally {
+      upA.delete(a);
+      upB.delete(b);
+    }
+    equal.set(a, b);
+    return true;
+  };
+  return (a: unknown, b: unknown): boolean => {
+    const before = cycles;
+    if (!whole)
+      try {
+        const same = eq(a, b, false);
+        if (cycles === before) return same;
+      } catch (x) {
+        if (!(x instanceof Cycle)) throw x;
+      }
+    whole = true;
+    return text(a) === text(b);
+  };
+};
+const CANON_CHECK = process.env["FLOW_CANON_CHECK"] === "1";
+const canonChecked = { steps: 0, differ: 0 };
+if (CANON_CHECK) process.on("exit", () => console.log(`CANON-CHECK steps ${canonChecked.steps}, differ ${canonChecked.differ}`));
 // Everything that decides the future, normalised: ids and generations by first occurrence, mints and positions by order, times
 // from now. Saved records are in (L9): what storage last heard changes what a capture writes.
 const normalise = (w: World, now: number, outside: string): string => {
@@ -77,7 +154,8 @@ const normalise = (w: World, now: number, outside: string): string => {
     const seen = [...new Set([...text.matchAll(re)].map((m) => Number(m[2])))].sort(
       (a, b) => a - b,
     );
-    text = text.replace(re, (_x, k, n) => `${k}${Number(n) === 0 ? "z" : seen.indexOf(Number(n))}`);
+    const rank = new Map(seen.map((n, i) => [n, i]));
+    text = text.replace(re, (_x, k, n) => `${k}${Number(n) === 0 ? "z" : (rank.get(Number(n)) ?? -1)}`);
   };
   ranked(/(\\?"mint\\?":)(\d+)/g);
   ranked(/(\\?"boot\\?":)(\d+)/g); // D99: a record's stamp. What matters is which are the same
@@ -319,6 +397,18 @@ export const port: Port = {
       // S11: pure re-execution of this boot's input log, with its logged draws, against what was published.
       replay: (before) => {
         let w: World = emptyWorld;
+        const compare = canonComparer();
+        const sameCanon = (x: unknown, y: unknown) => {
+          const same = compare(x, y);
+          if (CANON_CHECK) {
+            canonChecked.steps++;
+            if (same !== (JSON.stringify(canon(x)) === JSON.stringify(canon(y)))) {
+              canonChecked.differ++;
+              throw new Error(`canon comparison differs from canon text: ${same}`);
+            }
+          }
+          return same;
+        };
         for (let i = 0; i < log.length; i++) {
           before(i);
           const e = log[i]!;
@@ -328,9 +418,7 @@ export const port: Port = {
             const out = step(w, e.input, env, sys);
             if (e.out === "fatal")
               return { same: false, firstDiff: { step: i, input: e.input.k, was: "fatal" } };
-            const same =
-              JSON.stringify(canon([out.commands, out.frame?.seq, out.world])) ===
-              JSON.stringify(canon([e.out.commands, e.out.frame?.seq, e.out.world]));
+            const same = sameCanon([out.commands, out.frame?.seq, out.world], [e.out.commands, e.out.frame?.seq, e.out.world]);
             if (!same) {
               if (process.env["FLOW_REPLAY_TRACE"]) {
                 const a = JSON.stringify(canon([out.commands, out.frame?.seq, out.world]));
