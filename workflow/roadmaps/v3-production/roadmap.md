@@ -36,11 +36,11 @@ Progress: progress.md, beside this file.
 
 Each constraint has its source, date and scope. A step that contradicts one is a defect: stop and
 log it.
-- No new prototyping, except in phase 2: entities, streams, record migration, and (if R2 is A)
-  round 13's H1 and H2. Production work may converge again (session, 2026-11-04; whole run).
+- No new prototyping, except in phase 2: entities, streams, record migration, and round 13's H1
+  and H2. Production work may converge again (session, 2026-11-04; whole run).
 - The plans are stale. Merge the design and the open proposals into them, find and mark every
   decision the prototype superseded, and keep the plans where the prototype never went. Merging
-  is approved (session, 2026-11-04; phase 1, and phase 2's results if R6 is A).
+  is approved (session, 2026-11-04; phase 1, and phase 2's results, 2026-11-07).
 - Conformance is rewritten cleanly as a new suite, copying what is clean. It is ported first and
   runs against the prototype runtime and the new one. Only the latest conformance and prototype
   are used (session, 2026-11-04; phase 3).
@@ -113,6 +113,19 @@ log it.
   real-browser runs), run before a phase's final commit.
 - **`watch.ts`:** the process watchdog, `packages/flow-state-v3/prototypes/conformance/watch.ts`.
 
+## Stops and the review queue
+
+A blocking stop halts the run until the user answers. There are only these: phase 1's question
+rounds, public entrypoint names, a public API change beyond what the user accepted, a guarantee
+that can't be met, a feature call only the user can make, picking the example apps, the docs
+criteria, a finding whose fix changes a guarantee, the real-phone run (that item only), and each
+ship stage.
+
+Everything else is a review: the runner records it under "Calls for the user's read" in
+progress.md, with its reason, evidence and how reversible it is, and keeps working. The user works
+through the queue at their own pace, ideally daily, and may overrule any item. Overruling late
+costs rework of what was built on the call; the runner names that cost in each entry.
+
 ## How to run
 
 Repeat until a stop. Reread this file, progress.md, and the current phase's records. Do one
@@ -161,21 +174,22 @@ Done when:
 - `FOR-ARPIT.md`'s 20 calls and Q1-Q8 are answered, or listed as open;
 - no plan text claims a decision the user didn't make;
 - `workflow check` passes.
-Stops for the user: each question round; the end, with a page listing what changed.
+Blocking: each question round. Reviews: a page listing what changed, at the end.
 Could succeed at the wrong thing by: merging from the stale design where the prototype replaced
 it, or recording a recommendation as decided. Caught by: the audit, rule by rule, against the
 latest convergence decision and the user's words.
 Budget: up to 10 merge iterations and 3 question rounds; small usage (no builders).
 Steps:
 - Ask `FOR-ARPIT.md` Q1-Q8 first, since Q1 and Q2 block the most work. Then the 20 calls, then
-  the services choice (no `services` list, types only, is recommended).
+  the remaining open calls. The services choice is settled: a required `services` list on every
+  operation (Q2 B, 2026-11-07).
 - Merge one plan or area per iteration, with `workflow check` after each.
 - Write the Specs last, from the merged plans.
 
 ### 2. Pre-work prototype: not readily verifiable goal
 
 Goal: the last prototyping, for entities (`packages/flow-state-v3/prototypes/round-9/entity-proposal-2.md`),
-streams, and persisted record migration across deploys. If R2 is A, also round 13's H1 (a default
+streams, and persisted record migration across deploys. Also round 13's H1 (a default
 computed once) and H2 (key versions told apart by field names only), so the prototype the new
 suite ports from is right. Settle round 13's M5 (a cancel inside its own unknown handler) from its
 traces.
@@ -186,13 +200,13 @@ broken or lying runtime. Falsified by: `packages/flow-state-v3/prototypes/confor
 each part.
 One iteration: one round on one area, building against its slice.
 Done when:
-- each area's design is settled, and recorded in the plans if R6 is A, or listed for the user if not;
+- each area's design is settled and recorded in the plans, listed for the user's read;
 - its slice passes and is audited;
 - `listen.load` and `fragstore.row` pass;
-- H1 and H2 are fixed and pinned (if R2 is A);
+- H1 and H2 are fixed and pinned;
 - M5 is settled, or listed for the user.
-Stops for the user: before each area's first round, to settle its decisions; at the end, with one
-page for the user's read.
+Blocking: none. Reviews: each area's settled decisions, and one page at the end, in the review
+queue.
 Could succeed at the wrong thing by: designs that fit the harness but not real apps. Caught by: one
 path per area that takes the data from a real source, such as a real `fetch` or SDK call.
 Budget: up to 6 rounds per area and 15 in total; stop after 2 same-class failures after
@@ -228,8 +242,8 @@ Done when:
 - it catches every lie the old suite catches;
 - it passes its re-audit;
 - its fast gates run in `nub run verify`.
-Stops for the user: the suite's location and layout (it is API for contributors); when it first
-passes its audit; the end.
+Blocking: none. Reviews: the suite's location and layout (the runner decides; the user may
+overrule), its first audit pass, and the end.
 Could succeed at the wrong thing by: agreeing with the old suite because it was copied, weaknesses
 included. Caught by: the four-angle audit on the new suite, not the old one.
 Budget: up to 12 rounds; stop after 2 same-class failures after convergence.
@@ -256,8 +270,8 @@ Done when:
 - every gate fails on its broken runtime;
 - `nub run verify` passes;
 - the completion audit passes.
-Stops for the user: the module layout and entrypoint names; a public API change beyond what the
-user accepted; a guarantee that can't be met; the end.
+Blocking: public entrypoint names; a public API change beyond what the user accepted; a guarantee
+that can't be met. Reviews: the internal module layout (the runner decides) and the end.
 Could succeed at the wrong thing by: the production adapter doing work the runtime should. Caught
 by: lies and mutants against the production adapter, and a review section on the adapter's role.
 Budget: up to 25 rounds; stop after 2 same-class failures after convergence.
@@ -281,7 +295,8 @@ One iteration: the next ready Task of the earliest feature. Up to two features m
 once the core is stable, or up to four if the user allows (R4).
 Done when: each feature's slice passes on production after its audit, and the user accepts the CLI
 outputs.
-Stops for the user: before each feature whose plan has open calls; the CLI output mocks; the end.
+Blocking: a feature whose plan has an open call that only the user can make. Reviews: the CLI
+output mocks, batched for one review, and the end.
 Could succeed at the wrong thing by: a slice too lenient to fail. Caught by: lying implementations
 in each feature's audit.
 Budget: up to 8 rounds per feature and 40 in total; stop after 2 same-class failures after
@@ -298,7 +313,8 @@ Gates relied on: each app's Stories in `nub run verify`. Fails on: a broken Stor
 deliberately broken Story per app.
 One iteration: one app's next slice, reviewed, then shown to the user.
 Done when: the user accepts each app.
-Stops for the user: picking the apps; each app's first working version.
+Blocking: picking the apps, answerable any time before this phase. Reviews: each app's first
+working version.
 Could succeed at the wrong thing by: a demo that hides the guarantee it claims to show. Caught by:
 the user's review against the app's own write-up.
 Budget: up to 6 rounds per app.
@@ -320,7 +336,7 @@ page.
 One iteration: draft or revise one section, get an independent review, then put open choices to
 the user as numbered questions.
 Done when: the user accepts each section, and the checkable part passes.
-Stops for the user: the criteria; each section's draft.
+Blocking: the docs criteria, once. Reviews: each section's draft.
 Could succeed at the wrong thing by: documenting the planned API rather than the built one.
 Caught by: examples compiled against the packed package.
 Budget: up to 3 rounds per section.
@@ -341,8 +357,8 @@ Done when:
 - quota and disk durability are measured on a real phone, run by the user, since an agent here
   reaches only browsers and a simulator;
 - `nub run verify` and the final-commit gates pass.
-Stops for the user: agreeing budget targets after baselines; the real-phone run; a finding whose
-fix changes a guarantee; the end.
+Blocking: the real-phone run (only that item; other work continues); a finding whose fix changes a
+guarantee. Reviews: budget targets, which the runner proposes from the baselines, and the end.
 Could succeed at the wrong thing by: closing findings as "dropped" to finish. Caught by: the audit
 checking each drop's reason against the spec.
 Budget: up to 10 rounds; budget targets set by the user after baselines.
@@ -356,7 +372,7 @@ Gates relied on: the packed-consumer check. Fails on: a route missing from the t
 by: packing with one entrypoint removed.
 One iteration: implement, check independently, repair.
 Done when: acceptance passes at the final revision, and each requested ship stage is confirmed.
-Stops for the user: before each ship stage (publish, land, tag).
+Blocking: before each ship stage (publish, land, tag).
 Could succeed at the wrong thing by: publishing a package whose installed form differs from what
 was tested. Caught by: the packed-consumer check.
 Budget: one Task.
@@ -368,14 +384,16 @@ Also allowed, by the user's approval of this roadmap:
 - commit locally to `flow-rewrite` with explicit paths; never push;
 - start builder and reviewer agents as the Agents section says;
 - apply the plan merge in phase 1 (approved 2026-11-04), and write the Specs;
-- record phase 2's settled designs in the plans, if R6 is A;
+- record phase 2's settled designs in the plans;
 - draft Tasks with `to-task`;
 - start the next phase after its audit passes, unless it starts with a stop for the user.
 Runner decides: design calls in phases 2-5 and 8, recorded with reasons in progress.md for the
 user's read.
-User decides: public API names and changes beyond what was accepted, relaxing a gate, plan edits
-beyond the approved merge, scope, budgets, the module layout and entrypoints, the suite's location,
-the example apps, and running more than two agents at once.
+User decides (blocking): public entrypoint names, public API changes beyond what was accepted,
+relaxing a gate, plan edits beyond the approved merge, scope, budgets, the example apps, and running
+more than two agents at once.
+Runner decides, then reviews: the suite's location and layout, the internal module layout, and
+budget targets proposed from baselines; each goes to the review queue and the user may overrule.
 Everything else still needs the user.
 
 ## Agents
@@ -399,27 +417,26 @@ Everything else still needs the user.
 
 Total: the round caps per phase above, about 120 rounds. Running out is a stop, not success.
 Pace: one builder and one reviewer at a time. Usage is measured against the weekly limit on the
-user's plan; check it between agents and log it every iteration. Reserve: set by R3; until then,
-stop at 95% of the weekly limit.
+user's plan; check it between agents and log it every iteration. Reserve: 5% of the weekly limit,
+kept for the user: stop at 95% (R3 A).
 
 ## Decisions about this run
 
 Confirmed by the user (2026-11-04 unless dated): every item in "The user's constraints", the shape
-above, and the plan merge.
+above, and the plan merge. Round 1, on 2026-11-07:
+- Stops block only where the work can't go on without the user; everything else goes to a
+  non-blocking review queue (Q1 A). See "Stops and the review queue".
+- Every operation declares a required `services` list, checked against the commit's `R` (Q2 B).
+- Phase 2 fixes round 13's H1 and H2 in the prototype before the suite is rewritten (Q3 A, R2).
+- No weekly stop; a 5% reserve is kept for the user (Q4 A, R3).
+- Phase 2's settled designs go straight into the plans, listed for the user's read (Q5 A, R6).
 
 Proposed, as questions (answer `R1 A`):
 - **R1.** Phases as above, nine phases in five stages, with examples before docs because the docs
   pull snippets from the examples. A: accept. B: change. Rec. A.
-- **R2.** Phase 2 also fixes round 13's H1 and H2 in the prototype before the suite is rewritten.
-  A: yes, so the new suite has a correct runtime to pass on. B: fix them only in production.
-  Rec. A.
-- **R3.** Usage reserve for production. A: no weekly stop, with a 5% reserve kept for you. B: stop
-  at 90% weekly. C: another reserve. Rec. A, since you upgrade when needed.
 - **R4.** Runner and parallelism. A: Claude as an agent runner until a stop, with up to 4 agents in
   phase 5. B: the same, with 2 agents throughout. C: you run one phase at a time. Rec. A.
 - **R5.** Lint choices in `tools/lint-bomb/FLOW-STATE.md`. A: accept. B: change. Rec. A.
-- **R6.** Phase 2's settled designs go straight into the plans, under the merge approval, listed for
-  your read. A: yes. B: list them for you first, and edit the plans only after your yes. Rec. A.
 - **R7.** The round caps above, about 120 in total. A: accept. B: change them. Rec. A.
 
 ## Runner rules
@@ -460,7 +477,7 @@ Proposed, as questions (answer `R1 A`):
     processes or anything by name.
 13. **Stop** when:
     - a phase is done and the next is not authorized;
-    - a stop for the user is reached;
+    - a blocking stop for the user is reached (a review is not a stop: record it and go on);
     - the budget or the reserve runs out (report it as not done, with the gap);
     - a converged part fails on the same class as many times as the phase's stop count (report a
       stated limit, with the evidence);

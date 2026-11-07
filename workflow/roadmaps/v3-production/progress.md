@@ -7,11 +7,9 @@ Budget used: none of the proposed total
 Next action: on approval, start phase 1 (the plan merge, approved on 2026-11-04), with
 `FOR-ARPIT.md` Q1-Q8 in the first question round.
 Waiting on the user:
-- approval of roadmap.md and answers to R1-R7;
-- `FOR-ARPIT.md` Q1-Q8 and the 20 calls;
-- the services choice: no `services` list, types only (recommended), or a required list on every
-  operation;
-- which example apps to build (phase 6). Candidates are below.
+- answers to R1, R4, R5 and R7 (round 2), then approval of roadmap.md;
+- `FOR-ARPIT.md` Q1-Q8 and the 20 calls (phase 1's first rounds);
+- which example apps to build, any time before phase 6. Candidates are below.
 
 ## Phases
 
@@ -85,3 +83,8 @@ One line per iteration. Results live in the records; link them.
   - paths are written in full, and a glossary added;
   - a real phone is the user's step.
   A second cold read has not been run.
+- 2026-11-07 round 1 answered (Q1 A, Q2 B, Q3 A, Q4 A, Q5 A). Stops are now blocking only where
+  the work can't go on without the user; everything else goes to the review queue. Every
+  operation declares a `services` list. H1 and H2 are fixed in phase 2. There's a 5% reserve, and
+  phase 2's designs go straight into the plans. The roadmap skill gained the same blocking/review
+  split, uncommitted in the suite.
