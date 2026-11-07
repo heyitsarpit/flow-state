@@ -1,6 +1,7 @@
 # Roadmap: Flow State v3 production
 
-Status: proposed. Not yet approved by the user. A runner never starts an unapproved roadmap.
+Status: approved by the user on 2026-11-07, in the Claude Code session ("the roadmap is approved"), handing
+its execution to Claude as the agent runner.
 Version: 1, before approval; amendments start after it.
 Shape confirmed: 2026-11-04, in the Claude Code session. The user gave points 1-10: plans first,
 conformance rewritten, the core, features, Next.js hardening, examples and docs.
@@ -10,19 +11,22 @@ Runner: agent, until a stop (proposed). Claude coordinates and starts builders a
 Built from: suite commit `9b1dd09b1b4436e26e103f9632bb63153593d5e3`
 (`/Users/arpit/Developer/workflow/skills/suites/workflow`).
 Records:
-- Plans: `workflow/plans/flow/*.plan` (stale until phase 1).
+- Plans: `workflow/plans/flow/*.plan` (stale until phase 2 writes them from the settled design).
 - Design: `workflow/plans/flow/references/explorations/machine-fragments/machine-design.md`.
 - Open proposals: every file under `workflow/plans/flow/references/proposals/`, and
   `packages/flow-state-v3/prototypes/round-9/entity-proposal-2.md`. History is in
   `workflow/plans/archive/flow-design-2026-11/` (read-only).
-- Prototype record: `packages/flow-state-v3/prototypes/FOR-ARPIT.md`, `HANDOFF.md`,
+- Prototype record: `FOR-ARPIT.md` (accepted by the user on 2026-11-07, every recommended answer; deleted,
+  read it with `git show 04e314f4:packages/flow-state-v3/prototypes/FOR-ARPIT.md`), `HANDOFF.md`,
   `convergence-1.md` to `convergence-13.md` and `round-13/review.md`, all in that folder.
-- Epic, Specs and Tasks: none yet. Specs are written in phase 1. Tasks are drafted with `to-task`
+- Epic, Specs and Tasks: none yet. Specs are written in phase 2. Tasks are drafted with `to-task`
   at the start of phases 4 and 5; drafting Tasks is not a plan edit.
 Source of truth, by area:
-- Until phase 1 merges the plans, the latest prototype is authoritative for everything it built:
-  `packages/flow-state-v3/prototypes/round-13/` and `packages/flow-state-v3/prototypes/conformance/`,
-  with the decisions in the prototype record above.
+- Until phase 0 reconciles them, the latest prototype is authoritative for everything it built
+  (`packages/flow-state-v3/prototypes/round-13/`, `packages/flow-state-v3/prototypes/conformance/`,
+  and the decisions in the prototype record above), and machine-design.md for its decisions newer
+  than the prototype (OD28-OD31). After phase 0, machine-design.md is the one source until phase 2
+  writes the plans from it.
 - For everything the prototype never touched, the plans and the design are authoritative.
 - Code style: `AGENTS.md`, section "Code style (v3 production)", and
   `tools/lint-bomb/FLOW-STATE.md`.
@@ -37,11 +41,14 @@ Progress: progress.md, beside this file.
 
 Each constraint has its source, date and scope. A step that contradicts one is a defect: stop and
 log it.
-- No new prototyping, except in phase 2: entities, streams, record migration, and round 13's H1
-  and H2. Production work may converge again (session, 2026-11-04; whole run).
+- No new prototyping, except in phases 0 and 1: the reconciliation with the design (phase 0), and
+  entities, streams, record migration and round 13's H1 and H2 (phase 1). Production work may
+  converge again (session, 2026-11-04; reordered 2026-11-07; whole run).
+- Everything merges into machine-design.md first; the plans are written from it once, in phase 2,
+  from its plan-amendment rows (session, 2026-11-07; whole run).
 - The plans are stale. Merge the design and the open proposals into them, find and mark every
   decision the prototype superseded, and keep the plans where the prototype never went. Merging
-  is approved (session, 2026-11-04; phase 1, and phase 2's results, 2026-11-07).
+  is approved (session, 2026-11-04; phase 2, after phases 0 and 1 have settled the design, 2026-11-07).
 - Conformance is rewritten cleanly as a new suite, copying what is clean. It is ported first and
   runs against the prototype runtime and the new one. Only the latest conformance and prototype
   are used (session, 2026-11-04; phase 3).
@@ -125,10 +132,21 @@ log it.
 ## Stops and the review queue
 
 A blocking stop halts the run until the user answers. There are only these: the label round and
-the user-judged decisions of a judgment phase (phases 1, 6 and 7), public entrypoint names, a
+the user-judged decisions of a judgment phase (phases 2, 6 and 7), a conflict between the design and
+the prototype that only the user can decide (phase 0), public entrypoint names, a
 public API change beyond what the user accepted, a guarantee that can't be met, a guarantee
 change, a feature call only the user can make, a change proposal whose judge is the user, the
 real-phone run (that item only), and each ship stage.
+
+**Who judges a decision.** In a judgment phase, and for any conflict phase 0 finds, each decision is
+labelled up front with the question, the recommended answer and its reason, the judge and how
+reversible it is. **The judge is the user** when the decision is a public name or API shape, a
+guarantee, scope or budget, or touches a preference the user has stated; **otherwise it is a
+reviewing agent that did not write the draft**. The runner proposes every label; the user confirms
+the labels once per phase, before its first iteration, and may move any decision to either judge.
+A decision found during a phase is labelled by the same rule: a user label blocks, an agent label
+goes to the review queue with the agent's ruling and reasons. Criteria for a judgment phase are
+drafted by the runner before the first draft and approved by each decision's judge.
 
 Everything else is a review, including every agent-judged ruling: the runner records it under
 "Calls for the user's read" in progress.md, with its reason, evidence and how reversible it is, and keeps working. The user works
@@ -146,7 +164,7 @@ the work. On PASS, start the next phase if Authority allows it; otherwise stop.
 
 | Stage | Phases | Gate to the next stage |
 | --- | --- | --- |
-| A. Settle | 1, 2 | Plans merged and marked; phase 2 settled entities, streams and migration |
+| A. Settle | 0, 1, 2 | The design and the prototype agree; entities, streams and migration settled into the design; plans written from it and marked |
 | B. Suite and core | 3, 4 | The new suite audited and green on both runtimes; the core passes it alone |
 | C. Features | 5 | Each feature's slice audited, then green on production |
 | D. Examples and docs | 6, 7 | Example apps run in real browsers; docs generated from source |
@@ -164,44 +182,42 @@ Methods are pinned at `/Users/arpit/Developer/workflow/skills/suites/workflow/NA
 - `interview`: for every question round.
 - `to-task`: when drafting Tasks.
 
-### 1. Plan merge: judgment goal
+### 0. Reconcile the design and the prototype: not readily verifiable goal
 
-Goal: current plans, and Specs for production. The design, the open proposals and the prototype's
-decisions are merged into the plans. Every superseded decision is found and marked with a pointer
-to its replacement. The plans keep their content where the prototype never went. Specs record the
-guarantees (`to-spec`), so later phases test what is supposed to happen.
-Verified by: each decision's judge, `workflow check`, and an audit that compares each merged rule
-with the latest decision that touches it.
-Gates relied on: `workflow check`. Fails on: a record with a broken reference or schema.
-Falsified by: running it on a deliberately broken copy of one plan.
-One iteration: one plan or area. List the edits as before and after, with the decision behind
-each. Apply them, under the user's approval of the merge, and run `workflow check`.
+Goal: one source of truth before any plan is written, reconciled in both directions.
+- **The prototype and suite are brought up to machine-design.md's newest decisions:** OD28
+  (`Flow.ignore`, P1), OD29 (J, E step 2, F, the optional handler target), OD30 (identity folded into
+  input) and OD31 (actor lifetime). Round 14, started on 2026-11-07 at the user's request in the
+  worktree `.claude/worktrees/agent-acee8f40b71d961fd`, is this phase's first iteration.
+- **machine-design.md is brought up to the prototype** where the prototype's decisions are newer and
+  win: `convergence-1.md` to `convergence-13.md` (D1-D222, for example D221's key versions and D222's
+  single default), `round-13/api-changes.md`, the `services` list, and `FOR-ARPIT.md`'s accepted calls,
+  questions, change log and carry-over requirements (from git, `04e314f4`). Each goes in with its decision entry and plan rows. A conflict the design and the
+  prototype disagree on is a decision with a judge, never a silent edit.
+Verified by: suite cases derived from the design's text, each seen failing on a wrong runtime first;
+the gates; an independent review comparing the design and the prototype area by area.
+Gates relied on: the suite and its lock, falsify, lies, mutants, the searches, the graph gate, the type
+tests, front-check, the CLI pins, the Story checks. Fails on: a null, broken or lying runtime.
+Falsified by: `packages/flow-state-v3/prototypes/conformance/falsify.ts`, each part.
+One iteration: one area: implement it in the prototype or record it in the design, run the suite,
+review.
 Done when:
-- every `.plan` the prototype touched is merged;
-- every superseded decision is marked;
-- Specs exist for each production area;
-- `FOR-ARPIT.md`'s 20 calls and Q1-Q8 have a ruling from their judge, or are listed as open;
-- no plan text claims a decision the user didn't make;
-- `workflow check` passes.
-Blocking: the label round, then each round of user-judged decisions. Reviews: agent-judged
-rulings, and a page listing what changed, at the end.
-Decisions: `FOR-ARPIT.md` Q1-Q8 and its 20 calls, and each conflict found while merging. The
-first round labels every one (the recommended answer and why, the judge, how reversible it is),
-and the user confirms the labels. Merge edits that follow a ruled decision are the approved merge,
-not new decisions.
-Could succeed at the wrong thing by: merging from the stale design where the prototype replaced
-it, or recording a recommendation as decided. Caught by: the audit, rule by rule, against the
-latest convergence decision and the user's words.
-Budget: up to 10 merge iterations and 3 question rounds; small usage (no builders).
-Steps:
-- Label round first. Then the user-judged ones among `FOR-ARPIT.md` Q1-Q8, since Q1 and Q2 block
-  the most work, then the 20 calls, then the remaining open calls; agent-judged ones are ruled by
-  the reviewer and queued. The services choice is settled: a required `services` list on every
-  operation (Q2 B, 2026-11-07).
-- Merge one plan or area per iteration, with `workflow check` after each.
-- Write the Specs last, from the merged plans.
+- every decision in machine-design.md has prototype cases that pass;
+- every prototype decision is in machine-design.md, or listed as a conflict for the user;
+- the review finds no remaining disagreement between the two;
+- the gates pass at the final commit.
+Blocking: a guarantee change; a conflict between the design and the prototype that only the user can
+decide. Reviews: each area's reconciliation, and one page at the end.
+Decisions: each conflict between machine-design.md and the prototype, labelled by "Who judges a
+decision" (for example: a public API shape or a guarantee, user; which of two equivalent internal
+spellings, agent). The first iteration lists the conflicts it can foresee from the prototype record
+(D1-D222 against the design) with proposed labels, and the user confirms them in one round.
+Could succeed at the wrong thing by: bending cases to fit the code, or copying the prototype's choices
+into the design without the user. Caught by: expected results derived from the design; the review
+checks each design change against its decision record.
+Budget: up to 8 rounds; stop after 2 same-class failures after convergence.
 
-### 2. Pre-work prototype: not readily verifiable goal
+### 1. Pre-work prototype: not readily verifiable goal
 
 Goal: the last prototyping, for entities (`packages/flow-state-v3/prototypes/round-9/entity-proposal-2.md`),
 streams, and persisted record migration across deploys. Also round 13's H1 (a default
@@ -215,7 +231,8 @@ broken or lying runtime. Falsified by: `packages/flow-state-v3/prototypes/confor
 each part.
 One iteration: one round on one area, building against its slice.
 Done when:
-- each area's design is settled and recorded in the plans, listed for the user's read;
+- each area's design is settled and recorded in machine-design.md (its decision and plan rows), listed
+  for the user's read;
 - its slice passes and is audited;
 - `listen.load` and `fragstore.row` pass;
 - H1 and H2 are fixed and pinned;
@@ -227,6 +244,45 @@ Could succeed at the wrong thing by: designs that fit the harness but not real a
 path per area that takes the data from a real source, such as a real `fetch` or SDK call.
 Budget: up to 6 rounds per area and 15 in total; stop after 2 same-class failures after
 convergence.
+
+### 2. Plan merge: judgment goal
+
+Goal: current plans, and Specs for production, written once from the design settled by phases 0 and
+1. machine-design.md's plan-amendment rows (section 5) are the change list, merged into the plans. Every superseded decision is found and marked with a pointer
+to its replacement. The plans keep their content where the prototype never went. Specs record the
+guarantees (`to-spec`), so later phases test what is supposed to happen.
+Verified by: each decision's judge, `workflow check`, and an audit that compares each merged rule
+with the latest decision that touches it.
+Gates relied on: `workflow check`. Fails on: a record with a broken reference or schema.
+Falsified by: running it on a deliberately broken copy of one plan.
+One iteration: one plan or area. List the edits as before and after, with the decision behind
+each. Apply them, under the user's approval of the merge, and run `workflow check`.
+Done when:
+- every `.plan` the prototype touched is merged;
+- every superseded decision is marked;
+- Specs exist for each production area;
+- no plan text claims a decision the user didn't make;
+- `workflow check` passes.
+Blocking: the label round, then each round of user-judged decisions. Reviews: agent-judged
+rulings, and a page listing what changed, at the end.
+Criteria (drafted by the runner before the first merge, approved by the user): the plans say what
+machine-design.md says and nothing it doesn't; every superseded sentence is marked with its
+replacement; a reader of one plan needs no other document to know its contract.
+Decisions: each conflict found while merging (`FOR-ARPIT.md`'s Q1-Q8 and 20 calls are accepted and
+recorded in phase 0). The
+first round labels every one (the recommended answer and why, the judge, how reversible it is),
+and the user confirms the labels. Merge edits that follow a ruled decision are the approved merge,
+not new decisions.
+Could succeed at the wrong thing by: merging from the stale design where the prototype replaced
+it, or recording a recommendation as decided. Caught by: the audit, rule by rule, against the
+latest convergence decision and the user's words.
+Budget: up to 10 merge iterations and 3 question rounds; small usage (no builders).
+Steps:
+- Label round first, then the remaining open calls; agent-judged ones are ruled by
+  the reviewer and queued. The services choice is settled: a required `services` list on every
+  operation (Q2 B, 2026-11-07).
+- Merge one plan or area per iteration, with `workflow check` after each.
+- Write the Specs last, from the merged plans.
 
 ### 3. Conformance rewrite: readily verifiable goal
 
@@ -333,6 +389,9 @@ One iteration: one app's next slice, reviewed, then shown to the user.
 Done when: every decision has its judge's ruling, and each app is accepted.
 Blocking: picking the apps (answerable any time before this phase), and accepting each app.
 Reviews: each app's first working version, and agent-judged slice calls.
+Criteria (drafted by the runner before the first app, approved by the user): each app explains
+what it demos with a write-up and in-place tooltips; it shows one guarantee happening, not just a UI;
+it runs in real Chrome and Safari; one app demos Story presentation.
 Decisions (proposed labels): which apps, user; each app's acceptance, user, since the user set
 its requirements; design calls inside an app's slice, agent.
 Could succeed at the wrong thing by: a demo that hides the guarantee it claims to show. Caught by:
@@ -404,14 +463,14 @@ By default: read, edit within the phase's scope, run checks, repair own defects,
 Also allowed, by the user's approval of this roadmap:
 - commit locally to `flow-rewrite` with explicit paths; never push;
 - start builder and reviewer agents as the Agents section says;
-- apply the plan merge in phase 1 (approved 2026-11-04), and write the Specs;
-- record phase 2's settled designs in the plans;
+- apply the plan merge in phase 2 (approved 2026-11-04), and write the Specs;
+- record phases 0 and 1's settled designs in machine-design.md, not the plans;
 - draft Tasks with `to-task`;
 - start the next phase after its audit passes, unless it starts with a stop for the user;
 - apply agent-judged change proposals as amendments (runner rule 4), each also in the review
   queue.
-Runner decides: design calls in phases 2-5 and 8, and agent-judged decisions in phases 1, 6 and
-7, recorded with reasons in progress.md for the user's read.
+Runner decides: design calls in phases 0, 1, 3-5 and 8, and agent-judged decisions in phases 2, 6
+and 7, recorded with reasons in progress.md for the user's read.
 User decides (blocking): public entrypoint names, public API changes beyond what was accepted,
 relaxing a gate, plan edits beyond the approved merge, scope, budgets, the example apps, a
 guarantee change, user-judged decisions and change proposals, and running more than two agents at
@@ -423,7 +482,8 @@ Everything else still needs the user.
 ## Agents
 
 - Builders: Opus, medium effort, every third round high. Reviewers: Opus, high; never the builder.
-- Agents at once: 2 throughout, a builder and its reviewer (R4 B).
+- Agents at once: 2 by default, a builder and its reviewer (R4 B); up to 3 when it makes sense and the
+  work does not overlap (separate write scopes, no shared files), confirmed by the user on 2026-11-07.
 - Processes at once: up to 8 deterministic processes, about 16 GB in total, after checking
   `vm_stat`. Always alone: real-browser runs and benchmarks.
 - Review interval: 60 minutes on the latest committed checkpoint; a trigger, never a stop. Time
@@ -438,7 +498,7 @@ Everything else still needs the user.
 
 ## Budget
 
-Total: the round caps per phase above, about 120 rounds. Running out is a stop, not success.
+Total: the round caps per phase above, about 128 rounds. Running out is a stop, not success.
 Pace: one builder and one reviewer at a time. Usage is measured against the weekly limit on the
 user's plan; check it between agents and log it every iteration. Reserve: 5% of the weekly limit,
 kept for the user: stop at 95% (R3 A).
@@ -450,12 +510,15 @@ above, and the plan merge. Round 1, on 2026-11-07:
 - Stops block only where the work can't go on without the user; everything else goes to a
   non-blocking review queue (Q1 A). See "Stops and the review queue".
 - Every operation declares a required `services` list, checked against the commit's `R` (Q2 B).
-- Phase 2 fixes round 13's H1 and H2 in the prototype before the suite is rewritten (Q3 A, R2).
+- Phase 2 fixes round 13's H1 and H2 in the prototype before the suite is rewritten (Q3 A, R2). (Now
+  phase 1, after round 4's reorder.)
 - No weekly stop; a 5% reserve is kept for the user (Q4 A, R3).
 - Phase 2's settled designs go straight into the plans, listed for the user's read (Q5 A, R6).
+  **Superseded by round 4:** they go into machine-design.md first.
 
 Round 2, on 2026-11-07:
-- The phases as above, nine phases in five stages, examples before docs (R1 A).
+- The phases as above, nine phases in five stages, examples before docs (R1 A). (Ten phases after
+  round 4.)
 - Claude runs as an agent runner until a stop, with 2 agents at once throughout (R4 B).
 - The lint choices in `tools/lint-bomb/FLOW-STATE.md` are accepted (R5 A).
 - The round caps above, about 120 in total (R7 A).
@@ -471,6 +534,22 @@ Round 3, the roadmap skill, on 2026-11-07 (this file rebuilt from it):
   for a wrong check (Q3 A).
 - The skill changes first, then this roadmap is rebuilt from it before phase 1 (Q4 B).
 - Two files only; `handoff.md` is deleted and `progress.md` carries a Resume block (Q5 A).
+
+Round 4, on 2026-11-07, in the Claude Code session:
+- Stage A is reordered so the plans are written once, from a settled design: phase 0 reconciles
+  machine-design.md and the prototype in both directions (round 14 is its first iteration); phase 1
+  is the pre-work prototype (entities, streams, migration, H1, H2), recorded in machine-design.md;
+  phase 2 is the plan merge from the design's plan-amendment rows. Phases 3-9 are unchanged.
+- Everything merges into machine-design.md first; the plans are written from it once.
+
+Round 5, on 2026-11-07, in the Claude Code session (at approval):
+- The roadmap is approved, with its proposed items at their recommended answers.
+- D1-D7 from the round-14 review are approved: an end parks `Interrupted` for each read it stops; the
+  ref form is fixed per machine in the types and identity is encoded with its Schema; re-arming or
+  leaving removes a waiting deadline; a return mints a new incarnation id; a local actor's remount
+  within the grace reuses it; `disposeActor`'s endings stay on lane records; an undecodable record
+  reads as quarantined. They go into machine-design.md in phase 0.
+- Up to 3 agents when the work does not overlap; reviews every 60 minutes.
 
 ## Amendments
 
