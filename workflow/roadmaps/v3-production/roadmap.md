@@ -2,7 +2,7 @@
 
 Status: approved by the user on 2026-11-07, in the Claude Code session ("the roadmap is approved"), handing
 its execution to Claude as the agent runner.
-Version: 3, approved 2026-11-07, after amendment 2.
+Version: 4, approved 2026-11-07, after amendment 3.
 Shape confirmed: 2026-11-04, in the Claude Code session. The user gave points 1-10: plans first,
 conformance rewritten, the core, features, Next.js hardening, examples and docs.
 Goal: production code for Flow State v3 at high quality, with good error messages and the
@@ -496,8 +496,9 @@ Everything else still needs the user.
 ## Agents
 
 - Builders: Opus, medium effort, every third round high. Reviewers: Opus, high; never the builder.
-- Agents at once: 2 by default, a builder and its reviewer (R4 B); up to 3 when it makes sense and the
-  work does not overlap (separate write scopes, no shared files), confirmed by the user on 2026-11-07.
+- Agents at once: one builder and, at review time, one reviewer; work runs serially (the user,
+  2026-11-08, replacing the 2026-11-07 allowance of 3). The procedure: Work serially: one builder at a time, always busy on the queue. One independent Opus review of the latest committed checkpoint every 60 minutes, and one close-out review when a round or area finishes. Reviews only report; the runner fixes minor findings itself. When several reviews in a row keep finding many issues, stop patching: collect every finding as a requirement and run one convergence pass (`policy-convergence`), then keep going.
+
 - Processes at once: up to 8 deterministic processes, about 16 GB in total, after checking
   `vm_stat`. Always alone: real-browser runs and benchmarks.
 - Review interval: 60 minutes on the latest committed checkpoint; a trigger, never a stop. Time
@@ -584,6 +585,12 @@ Numbered, oldest first (runner rule 4).
    independent review every 60 minutes and one completion audit at the end of stage A, instead of a review and an
    audit for every pass and phase. Minor findings are fixed inline by the runner. Phases worked out again: 0 and 1
    (their content is unchanged; only how they are run). progress.md's Resume block holds the queue.
+3. 2026-11-08, judge the user ("work serially. one builder, one review every 60 minutes and one close out review,
+   after multiple rounds of reviews finding lots of issues you collect all issues as requirements and do a convergence
+   pass. and keep going"): replaces amendment 2's agent counts and audit cadence. One builder at a time; one review
+   every 60 minutes; one close-out review per round or area; repeated heavy findings trigger one convergence pass;
+   the run continues. The stage A completion audit before the plan merge is the close-out review of stage A.
+   Phases worked out again: none (how they run only).
 
 ## Runner rules
 

@@ -15,12 +15,14 @@ order:
    (branch `worktree-agent-acee8f40b71d961fd`), `packages/flow-state-v3/prototypes/round-14/STATUS.md` (its
    "Hand-off (2026-11-08)" section says what is done and what is left) and `RESULTS.md`.
 
-**How to run the loop (the user's rule, 2026-11-08):** one builder thread, always busy, working down the queue below;
-one independent Opus review of the latest committed checkpoint every 60 minutes (a second agent); a third agent only
-for genuinely separate work. The runner (you) fixes minor findings inline, writes each round's design corrections
+**How to run the loop (the user's rule, 2026-11-08, roadmap amendment 3):** Work serially: one builder at a time, always busy on the queue. One independent Opus review of the latest
+committed checkpoint every 60 minutes, and one close-out review when a round or area finishes. Reviews only report;
+the runner fixes minor findings itself. When several reviews in a row keep finding many issues, stop patching:
+collect every finding as a requirement and run one convergence pass (`policy-convergence`), then keep going.
+The runner (you) fixes minor findings inline, writes each round's design corrections
 into machine-design.md, merges finished rounds into `flow-rewrite`, keeps this file current and commits locally with
-explicit paths. Never push. Do not spawn extra fix passes, completion audits or re-reviews for minor findings; one
-completion audit at the end of stage A, before the plan merge. Stop only at the roadmap's blocking stops or at 95%
+explicit paths. Never push. Do not spawn extra fix passes, audits or re-reviews for minor findings; stage A's close-out
+review, before the plan merge, is its completion audit. Stop only at the roadmap's blocking stops or at 95%
 usage. A session cron (`CronCreate`, hourly at an off minute) can wake you for the reviews; re-create it.
 
 **The queue (stage A, by actual work):**
