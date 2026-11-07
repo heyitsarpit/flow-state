@@ -46,4 +46,9 @@ Prototype, for evidence; never production code.
   - E step 2 is pinned for a commit's context only.
   - `soon` and `warned` are out of the state hash (diagnostics only).
 
-Next: the end gates.
+## Checkpoint 6: the user's corrections D1-D7 done; final gates in RESULTS.md
+
+- D1: an end parks `failure { Interrupted }` per stopped read; the return hears it after its restored deliveries; LIFE-13 flipped.
+- D2, D3: as M1, M2 above. D4: the ref form is fixed per machine in the types; `ConflictingActorRef` only for persist mismatches.
+- D5: a local remount within the grace reuses the actor (LIFE-27). D6: a disposed identity's ending waits on its lane (LIFE-23).
+- D7: an undecodable identity reads "quarantined"; an ensure starts fresh and reports `RecordUndecodable` (evidence).

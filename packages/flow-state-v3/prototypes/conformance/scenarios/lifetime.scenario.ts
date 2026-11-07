@@ -405,9 +405,9 @@ function newLifetimeScenarios(): Scenario[] {
       actor: X,
       cites: ["rule:73", "sec:2.7.17"],
       variants: {
-        // Kept as it is (round 14 review): this pins a design hole. The stopped unkept read leaves the persisted actor restored in LOOKING with no
-        // read running and nothing to move it: hung on return. 2.7.17 does not say what a return does about a read the end stopped; do not change
-        // this case until the design decides.
+        // Flipped by D1 (the user, after the round 14 review): an end parks `failure { Interrupted }` for each read it stops, as rule 52's freeze
+        // does, and the next incarnation hears it after its restored deliveries. The returned actor leaves LOOKING by its Interrupted mapping,
+        // instead of hanging there (the hole the earlier version pinned).
         "a-pressed-read-is-cut-by-the-end"(c0) {
           const c = onLife(c0);
           c.ensure(X);
@@ -417,8 +417,8 @@ function newLifetimeScenarios(): Scenario[] {
           c.eq("ended with its read open", c.r.state(X), undefined);
           c.tryAnswer("look", { ok: {} });
           c.ensure(X);
-          c.eq("the next incarnation heard nothing of it", log(c), []);
-          c.state("LOOKING", X);
+          c.eq("the next incarnation hears the stopped read as Interrupted", log(c), ["lookFailed"]);
+          c.state("IDLE", X);
         },
         "a-read-a-send-restore-starts-is-cut-too"(c0) {
           const c = onLife(c0);
@@ -666,7 +666,8 @@ function newLifetimeScenarios(): Scenario[] {
     },
     {
       // The send table's rows this runtime can reach (2.7.17 Sends): disposed (`disposeActor`) has no record; a record that does not decode
-      // is RecordUndecodable and stays for an ensure, which discards it (RestoreDiscarded) and creates from input.
+      // is RecordUndecodable and stays for an ensure, which starts fresh from input and reports RecordUndecodable (D7); a handle reads the
+      // identity as quarantined meanwhile. D6: after `disposeActor` an ending stays on the lane record, unbound, and a later ensure adopts it.
       id: "LIFE-23",
       kind: "example",
       fixtures: [lifeFixture()],
@@ -683,6 +684,16 @@ function newLifetimeScenarios(): Scenario[] {
           c.eq("not created", c.r.state(X), undefined);
           c.eq("why", c.r.issues().filter((i) => i.code === "SendTargetAbsent").map((i) => i.input), [{ reason: "NoRecord" }]);
         },
+        "after-dispose-an-ending-waits-on-its-lane-and-an-ensure-adopts-it"(c0) {
+          const c = onLife(c0);
+          c.ensure(X);
+          confirm(c, true);
+          c.dispose(X);
+          c.answer("confirm", { ok: {} });
+          c.eq("parked on the lane, not evidence", [c.r.evidence("parked").length, c.r.evidence("evidenceOnly").length], [1, 0]);
+          c.ensure(X);
+          c.eq("a fresh incarnation adopts it", log(c), ["confirmed"]);
+        },
         "undecodable-then-an-ensure-discards-it"(c0) {
           const c = onLife(c0);
           c.ensure(X);
@@ -692,11 +703,12 @@ function newLifetimeScenarios(): Scenario[] {
           c.detach(X);
           c.fault({ corruptStored: { match: "actor/", edit: () => "{{{" } });
           c.reload();
+          c.eq("a handle reads it as quarantined", c.snap(X), { lifecycle: "quarantined", issue: "RecordUndecodable" });
           c.to(X, "Look");
           c.eq("dropped", c.r.state(X), undefined);
           c.eq("why", c.r.issues().filter((i) => i.code === "SendTargetAbsent").map((i) => i.input), [{ reason: "RecordUndecodable" }]);
           c.ensure(X);
-          c.eq("discarded and created from input", [c.r.evidence("RestoreDiscarded").length, log(c)], [1, []]);
+          c.eq("fresh from input, and said", [c.r.evidence("RecordUndecodable").length, log(c)], [1, []]);
         },
       },
     },
@@ -757,6 +769,16 @@ function newLifetimeScenarios(): Scenario[] {
           c.eq("one incarnation placed it", [log(c), c.incarnations(X)], [["confirmed", "cart", "placed"], 1]);
           c.advance(GRACE);
           c.eq("then ended", c.r.state(X), undefined);
+        },
+        // D5: a remount within the grace (Strict Mode, a quick route back) reuses the same actor.
+        "a-remount-within-the-grace-reuses-the-actor"(c0) {
+          const c = onLife(c0, { local: true });
+          c.do({ mount: X });
+          c.send("Edit");
+          c.do({ unmount: X });
+          c.advance(40);
+          c.do({ mount: X });
+          c.eq("the same incarnation, still dirty", [c.incarnations(X), c.r.state(X), c.r.evidence("remounted").length], [1, "DIRTY", 0]);
         },
         "a-remount-while-kept-adopts-the-ending"(c0) {
           const c = onLife(c0, { local: true });

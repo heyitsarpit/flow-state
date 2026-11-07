@@ -1,5 +1,5 @@
 // Round 14 (OD30, rule 74, 2.7.19): an actor is its machine plus its input. Editor is named by its value (`workspaceId`, `ticketId`); release 2 adds
-// `region`, a new version. Session is a singleton, its input given at ensure.
+// `region`, a new version. Session is a singleton, a machine with no input (D4).
 import { Schema } from "effect";
 import { actorRef, definition, Flow, machine, transaction } from "../compile/index.ts";
 import { FakeApi, fixture, write } from "./lab.ts";
@@ -74,7 +74,7 @@ const session = definition({
   states: ["ON"],
   events: { Ping: {} },
   internalEvents: {},
-  memory: { userId: Flow.input(S.String), pings: Flow.initial(S.Number, 0) },
+  memory: { pings: Flow.initial(S.Number, 0) }, // D4: a singleton's machine has no input
   persisted: true,
   operations: () => ({}),
 });

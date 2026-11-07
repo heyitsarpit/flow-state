@@ -1351,3 +1351,44 @@ removed:output:R14-ID-02 | R14-ID-02 became two variants; its output line is the
 file:expected-recipients.txt hash:5d15f9b53c18 | review M1, M3: one more delivery observed and start node checked
 REV7-M2 hash:089e0ad0a4e0 | rule 73: the queue bound's case flushes before the reload, so the re-attach takes its slot under the 5 s gate too
 file:scenarios/round7.scenario.ts hash:efc231c8408e | rule 73: REV7-M2's bound case hides first, so its record is on disk at any capture interval
+--- round 14, the user's design corrections D1, D4-D7 (after the review; D2 and D3 are the review's M1 and M2 above)
+LIFE-13 hash:90492c10c900 | D1: an end parks failure Interrupted for each read it stops; the returned actor leaves LOOKING by its mapping
+LIFE-23 hash:5d37d6853e90 | D6, D7: a disposed identity's ending waits on its lane for the next ensure; an undecodable identity reads quarantined
+LIFE-27 hash:91306d83d4b2 | D5: a local remount within the grace reuses the same actor
+R14-ID-03 hash:2b62d348ac1e | D4: a singleton is a machine with no input; ConflictingActorRef only for refs that disagree on persist
+file:scenarios/identity.scenario.ts hash:17f46e629ecb | D4: R14-ID-03 rewritten; ensure steps carry the ref's persist
+file:scenarios/lifetime.scenario.ts hash:f803972999e7 | D1, D5, D6, D7: LIFE-13 flipped, LIFE-27's grace remount, LIFE-23's dispose and quarantine variants
+file:typed/identity.ts hash:803ada613de4 | D4: Session has no input
+file:compile/ref.ts hash:42a1fd43fa74 | D4: the form fixed per machine in the types; a singleton takes no input; ensureArgs carries persist
+file:broken-adapter.ts hash:3855a9bcf482 | D4: bogusIssue passes identity and persist through attach
+file:harness.ts hash:face8f8590b9 | D4, D7: an ensure carries persist; a snapshot may be quarantined with its issue
+file:drive.ts hash:78fe5b26ffdf | D4: the Story's ensure passes the ref's persist
+round:typed/type-tests.ts hash:1cb30a0fc2b3 | D4: pins for value-only and name-only machines and a singleton with no input
+round:checks/types-check.ts hash:e96fcfd0ef1d | D4: the two new directives pinned by code and words
+round:mutants-lifetime.ts hash:9461fd7f6023 | D1, D5, D6, D7: a wrong runtime for each correction
+round:adapter.ts hash:ec6fd53c1c16 | D4, D7: ensure and attach pass persist; an undecodable identity's snapshot is quarantined
+output:HIGH-02/actor-of-a-removed-machine hash:66683002845a | D7: HIGH-02's ensure over an undecodable record reports RecordUndecodable, not RestoreDiscarded
+output:LIFE-13/a-pressed-read-is-cut-by-the-end hash:965ec4e41154 | D1: LIFE-13's pressed-read variant, the Interrupted ending heard
+output:LIFE-23/after-dispose-an-ending-waits-on-its-lane-and-an-ensure-adopts-it hash:652663546c64 | D6: LIFE-23's dispose variant, new
+output:LIFE-23/undecodable-then-an-ensure-discards-it hash:8bf66a44632e | D7: LIFE-23's undecodable variant, RecordUndecodable at the ensure
+output:LIFE-27/a-remount-within-the-grace-reuses-the-actor hash:495b305bc3bf | D5: LIFE-27's grace remount variant, new
+output:R14-ID-03/a-singleton-is-its-name hash:e272c84b0542 | D4: R14-ID-03's singleton variant, new
+output:R14-ID-03/two-refs-that-disagree-on-persist-conflict hash:4bd65bf83eed | D4: R14-ID-03's persist variant, new
+output:REV4-H3/activations-for-a-leaf-gone hash:2fb139bbecdc | D7: REV4-H3 activations-for-a-leaf-gone's ensure reports RecordUndecodable
+output:REV4-H3/frozen-of-no-shape hash:2fb139bbecdc | D7: REV4-H3 frozen-of-no-shape's ensure reports RecordUndecodable
+output:REV4-H3/history-names-a-removed-node hash:2fb139bbecdc | D7: REV4-H3 history-names-a-removed-node's ensure reports RecordUndecodable
+output:REV4-H3/kid-frag-is-another-fragment hash:2fb139bbecdc | D7: REV4-H3 kid-frag-is-another-fragment's ensure reports RecordUndecodable
+output:REV4-H3/kid-frag-this-release-removed hash:2fb139bbecdc | D7: REV4-H3 kid-frag-this-release-removed's ensure reports RecordUndecodable
+output:REV4-H3/kid-leaf-removed hash:2fb139bbecdc | D7: REV4-H3 kid-leaf-removed's ensure reports RecordUndecodable
+output:REV4-H3/leaf-this-release-removed hash:2fb139bbecdc | D7: REV4-H3 leaf-this-release-removed's ensure reports RecordUndecodable
+output:REV4-H3/memory-not-an-object hash:2fb139bbecdc | D7: REV4-H3 memory-not-an-object's ensure reports RecordUndecodable
+output:REV4-H3/no-kids hash:2fb139bbecdc | D7: REV4-H3 no-kids's ensure reports RecordUndecodable
+output:REV4-H3/no-timers hash:2fb139bbecdc | D7: REV4-H3 no-timers's ensure reports RecordUndecodable
+output:REV4-H3/placement-removed hash:2fb139bbecdc | D7: REV4-H3 placement-removed's ensure reports RecordUndecodable
+output:REV4-H3/timer-of-no-shape hash:2fb139bbecdc | D7: REV4-H3 timer-of-no-shape's ensure reports RecordUndecodable
+output:REV5-H2/junk-in-frozen-quarantines-at-boot hash:e25175523b6b | D7: REV5-H2's ensure over the quarantined record reports RecordUndecodable
+removed:variant:R14-ID-03/a-singleton-takes-its-input-at-ensure | D4: a singleton takes no input; replaced by a-singleton-is-its-name
+removed:variant:R14-ID-03/one-machine-in-both-forms-is-conflicting | D4: both forms are a type error now; replaced by the persist variant
+removed:output:R14-ID-03/a-singleton-takes-its-input-at-ensure | D4: the variant went; its output line goes with it
+removed:output:R14-ID-03/one-machine-in-both-forms-is-conflicting | D4: the variant went with the form conflict; its output line goes with it
+file:expected-recipients.txt hash:a900c468aaf7 | D1, D6: one more delivery observed and start node checked

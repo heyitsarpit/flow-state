@@ -43,12 +43,16 @@ export const MUTANTS = [
   m("id.record-without-fields", "rule:74", "step.ts", "...(identity ? { fields: [...identity].sort() } : {})", ""),
   m("id.old-version-restored", "OD:30", "durable.ts", "if (Array.isArray(v.fields) && (v.fields.length", "if (false && Array.isArray(v.fields) && (v.fields.length"),
   m("id.version-by-names-only", "OD:30", "durable.ts", "v.fields.some((f: string, i: number) => f !== now[i])", "v.fields.some((f: string, i: number) => f.split(\":\")[0] !== now[i]!.split(\":\")[0])"),
-  m("id.no-conflict", "rule:74", "step.ts", "if (was !== undefined && was !== form && tx.machines[machine]?.identityFields)", "if (false)"),
+  m("id.no-conflict", "rule:74", "step.ts", "if (was !== undefined && was !== persist) return issue(", "if (false) return issue("),
   m("id.dispose-drops-lanes", "rule:46", "step.ts", 'if (m.local && how !== "remount")', 'if (how !== "remount")'),
   // Flow.ignore (OD28, 2.7.18), area 3.
   m("ign.runs-a-turn", "OD:28", "turn.ts", "if (mm && mappedFor(mm, item)?.ignore) {", "if (false) {"),
   m("ign.unknown-held", "rule:40", "turn.ts", 'if (item.ending.ch === "unknown" && cur?.head?.phase.t === "held" && cur.head.id === item.attempt) cell(tx, "cancel", cur, argsOf(cur));', ""),
   m("ign.parked-without-incarnation", "OD:28", "turn.ts", "if (mm && mappedFor(mm, item)?.ignore) {", "if (mm && getActor(tx.w.actors, item.actor) && mappedFor(mm, item)?.ignore) {"),
+  m("d5.remount-in-grace-is-fresh", "OD:31", "step.ts", "usesOf(tx.w, key) !== 0 || !busy(tx.w, key)) return;", "usesOf(tx.w, key) !== 0) return;"),
+  m("d6.disposed-ending-is-evidence", "OD:31", "turn.ts", "(own(tx.w.retired, item.actor) !== undefined || tx.machines[machine]?.persisted);", "own(tx.w.retired, item.actor) !== undefined;"),
+  m("d7.undecodable-reads-pre-attach", "OD:31", "adapter.ts", 'if (w.undecodable[actor]) return { lifecycle: "quarantined", issue: "RecordUndecodable" };', ""),
+  m("d1.stopped-read-lost", "OD:31", "step.ts", "if (kept && cutReads.length)", "if (false && kept && cutReads.length)"),
   // F (OD29), area 4.
   m("f.absent-is-placed", "OD:29", "inc.ts", "if (p.resetOn && absentReset(p, { memory: viewOf(cur), event: {} })) continue;", ""),
   m("f.filling-has-no-key", "OD:29", "inc.ts", "(present?.ok ? { ...hv, key: present.v } : hv)", "hv"),

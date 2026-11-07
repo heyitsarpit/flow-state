@@ -57,6 +57,8 @@ const PINS = [
   "a singleton's name is a literal; a runtime string is a type error (OD30 Q4)", // round 14, rule 74
   "identity fields encode to strings (OD30 Q6): a number field has no value form", // round 14, rule 74
   "a machine with no input can only be a singleton", // round 14, rule 74
+  "a machine with input fields is named only by value (D4)", // round 14, D4
+  "a singleton takes no input at ensure (D4)", // round 14, D4
 ];
 // What TypeScript itself takes for a directive: a single-line comment token whose text matches its own rule, `^\/\/\/?\s*@ts-expect-error`.
 // The installed TypeScript is 7 (native), with no JS scanner to call, so this is a scanner of comment and string tokens, not a text search:
@@ -118,6 +120,8 @@ const ERRORS: Record<string, readonly [string, string]> = {
   "a singleton's name is a literal; a runtime string is a type error (OD30 Q4)": ["TS2769", "No overload matches this call"],
   "identity fields encode to strings (OD30 Q6): a number field has no value form": ["TS2769", "No overload matches this call"],
   "a machine with no input can only be a singleton": ["TS2769", "No overload matches this call"],
+  "a machine with input fields is named only by value (D4)": ["TS2769", "No overload matches this call"],
+  "a singleton takes no input at ensure (D4)": ["TS2554", "Expected 1 arguments, but got 2"],
 };
 {
   const src = readFileSync(join(typed, "type-tests.ts"), "utf8").split("\n");

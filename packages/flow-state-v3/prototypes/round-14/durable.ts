@@ -293,7 +293,7 @@ export const restore = (tx: Tx, records: ReadonlyArray<readonly [string, string]
       }
       const root = orphanFrozen(tx, mm, decoded);
       if (v.retired)
-        retired.push([v.key, { key: v.key, machine: v.machine, root, timers: v.timers, ...(Array.isArray(v.fields) ? { fields: v.fields } : {}) }]);
+        retired.push([v.key, { key: v.key, machine: v.machine, root, timers: v.timers, ...(Array.isArray(v.fields) ? { fields: v.fields } : {}), ...(Array.isArray(v.stopped) ? { stopped: v.stopped } : {}) }]); // D1: reads its end stopped
       else {
         actors.push([v.key, { key: v.key, machine: v.machine, root, ...(Array.isArray(v.fields) ? { fields: v.fields } : {}) }]);
         timers.push(...v.timers);

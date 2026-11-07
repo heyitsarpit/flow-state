@@ -194,7 +194,7 @@ export type World = {
   readonly soon: Readonly<Record<string, { readonly dueAt: number; readonly inc: string }>>; // an end in the last 5 s: a create carries how long ago
   readonly warned: Readonly<Record<string, true>>; // `EndedWithWork` and the codec's diagnostic, once per machine and kind per Runtime
   readonly undecodable: Readonly<Record<string, true>>; // an actor record this release could not decode at boot: a send says RecordUndecodable
-  readonly forms: Readonly<Record<string, "value" | "singleton">>; // rule 74: the form each machine was first reached in, this Runtime
+  readonly refPersist: Readonly<Record<string, boolean>>; // rule 74, D4: the `persist` the first ref of each identity said, this Runtime
 };
 export const emptyWorld: World = {
   boot: 0,
@@ -229,7 +229,7 @@ export const emptyWorld: World = {
   soon: {},
   warned: {},
   undecodable: {},
-  forms: {},
+  refPersist: {},
 };
 
 export type SendExit =
@@ -256,11 +256,12 @@ export type Input =
       readonly machine: string;
       readonly input: unknown;
       readonly identity?: readonly string[]; // rule 74: a value ref's fields; absent for a singleton's name
+      readonly persist?: boolean; // D4: the ref's `persist`, when a ref made the ensure
     }
   | { readonly k: "dispose"; readonly actor: string } // `disposeActor`: the live actor and a persisted record go; lanes stay unbound (rule 46)
   // Rule 73 (OD31): a use begins or ends. `owner` is its kind. An attach ensures the actor; `existing` is a subscription: it restores from a
   // record and creates nothing, and on an identity with neither it waits as a use. A detach ends nothing by itself: the grace decides.
-  | { readonly k: "attach"; readonly actor: string; readonly machine: string; readonly input: unknown; readonly owner: string; readonly existing?: true; readonly identity?: readonly string[] }
+  | { readonly k: "attach"; readonly actor: string; readonly machine: string; readonly input: unknown; readonly owner: string; readonly existing?: true; readonly identity?: readonly string[]; readonly persist?: boolean }
   | { readonly k: "detach"; readonly actor: string; readonly owner: string }
   | { readonly k: "turn" }
   | { readonly k: "disposeRuntime" };

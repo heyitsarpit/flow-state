@@ -154,16 +154,19 @@ actorRef(EM, { workspaceId: "north" });
 actorRef(EM, { workspaceId: "north", ticketId: "T-42", assignee: "ana" });
 const wide = { workspaceId: "north", ticketId: "T-42", assignee: "ana" };
 actorRef(EM, wide); // NOT refused: a wider value is kept to its input fields (OD29 J's rule, applied to refs)
-const singleton = actorRef(EM, "main");
-ensureArgs(singleton, { input: T42 });
-declare const runtimeName: string;
-// @ts-expect-error a singleton's name is a literal; a runtime string is a type error (OD30 Q4)
-actorRef(EM, runtimeName);
+// @ts-expect-error a machine with input fields is named only by value (D4)
+actorRef(EM, "main");
 const ND2 = definition({ id: "T/Counted", states: ["A"], events: {}, internalEvents: {}, memory: { n: Flow.input(Schema.Number) }, operations: () => ({}) });
 const NM2 = machine(ND2, ({ S }) => ({ default: S.A }));
 // @ts-expect-error identity fields encode to strings (OD30 Q6): a number field has no value form
 actorRef(NM2, { n: 1 });
-actorRef(NM2, "counter"); // a singleton: its input given at ensure
 const NoIn = machine(definition({ id: "T/NoInput", states: ["A"], events: {}, internalEvents: {}, memory: {}, operations: () => ({}) }), ({ S }) => ({ default: S.A }));
 // @ts-expect-error a machine with no input can only be a singleton
 actorRef(NoIn, {});
+const singleton = actorRef(NoIn, "main");
+ensureArgs(singleton);
+// @ts-expect-error a singleton takes no input at ensure (D4)
+ensureArgs(singleton, { input: {} });
+declare const runtimeName: string;
+// @ts-expect-error a singleton's name is a literal; a runtime string is a type error (OD30 Q4)
+actorRef(NoIn, runtimeName);

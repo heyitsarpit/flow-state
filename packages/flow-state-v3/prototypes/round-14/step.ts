@@ -41,6 +41,7 @@ import {
   type Input,
   type Lane,
   type Mail,
+  type ReadLane,
   type SendExit,
   type StepOut,
   type System,
@@ -298,7 +299,7 @@ const startRoot = (tx: Tx, key: string, machine: string, input: unknown, identit
     // Return (2.7.17): a new incarnation from the Runtime's copy, never re-read from storage. A record kept at ready runs the reset the reload lost.
     // A return after an end is a new incarnation (2.7.17): its root gets a new id, so an ending of the old one is adopted, current from the
     // active leaf (rule 14's adopted row), as `Restored` is. A record kept at ready is the boot's own incarnation and keeps its id, as a live restore does.
-    const { timers: kept0, fromBoot, bootMail, ...rec0 } = retired as ActorRec & { timers: readonly FrozenTimer[]; fromBoot?: true; bootMail?: readonly Mail[] };
+    const { timers: kept0, fromBoot, bootMail, stopped, ...rec0 } = retired as ActorRec & { timers: readonly FrozenTimer[]; fromBoot?: true; bootMail?: readonly Mail[]; stopped?: readonly StoppedRead[] };
     const old = rec0.root.id;
     const inc = fromBoot ? old : nextGen(tx);
     const fresh: ActorRec = fromBoot ? rec0 : { ...rec0, root: { ...rec0.root, id: inc } };
@@ -318,13 +319,19 @@ const startRoot = (tx: Tx, key: string, machine: string, input: unknown, identit
     // Computed first: `{ ...tx.w, follow: [...adoption()] }` spreads a world before adoption's own writes, and loses them.
     const adopted = bootMail ? bootMail : rebindActor(tx, fresh); // the first return after a boot hears what the restore queued, not a second Restored
     const recheck = fromBoot && hasResetOn(tx, fresh) ? [{ k: "recheck" as const, actor: key }] : [];
-    tx.w = { ...tx.w, follow: [...recheck, ...adopted, ...tx.w.follow] };
+    // D1 (OD31 correction): each read the end stopped ends `failure { Interrupted }`, as rule 52's freeze does, heard after the restored deliveries.
+    const cut: Mail[] = (stopped ?? []).map((r) => {
+      const ending = { ch: "failure" as const, tag: "Interrupted", value: {} };
+      noteEnding(tx, { op: r.op }, ending);
+      return { k: "ending", actor: key, op: r.op, key: r.key, owner: r.owner, ending, input: r.input, inc: r.inc === old ? inc : r.inc };
+    });
+    tx.w = { ...tx.w, follow: [...recheck, ...adopted, ...cut, ...tx.w.follow] };
     tx.touchedActors.add(key);
     tx.visible = true;
     return;
   }
   if (tx.w.undecodable[key]) {
-    note(tx, "RestoreDiscarded", { actor: key }); // an ensure over a record that does not decode discards it and creates from input
+    note(tx, "RecordUndecodable", { actor: key, discarded: true }); // D7: an ensure over a record that does not decode starts fresh from input and says so
     tx.w = { ...tx.w, undecodable: without(tx.w.undecodable, key) };
   }
   const frag = m;
@@ -378,13 +385,13 @@ const startRoot = (tx: Tx, key: string, machine: string, input: unknown, identit
   ];
   tx.w = { ...tx.w, follow: [...adopted, ...tx.w.follow] };
 };
-const onEnsure = (tx: Tx, key: string, machine: string, input: unknown, identity?: readonly string[]) => {
-  // Rule 74: one machine reached as a singleton and by value refs has two meanings of input: `ConflictingActorRef` at ensure [P].
-  const form = identity ? "value" : "singleton";
-  const was = tx.w.forms[machine];
-  if (was !== undefined && was !== form && tx.machines[machine]?.identityFields)
-    return issue(tx, { code: "ConflictingActorRef", origin: `ensure ${machine}`, input: { key, was, now: form } });
-  if (was === undefined && tx.machines[machine]?.identityFields) tx.w = { ...tx.w, forms: { ...tx.w.forms, [machine]: form } };
+const onEnsure = (tx: Tx, key: string, machine: string, input: unknown, identity?: readonly string[], persist?: boolean) => {
+  // Rule 74, D4: the form is fixed per machine by the types, so `ConflictingActorRef` is left for two refs of one identity that disagree on persist.
+  if (persist !== undefined) {
+    const was = tx.w.refPersist[key];
+    if (was !== undefined && was !== persist) return issue(tx, { code: "ConflictingActorRef", origin: `ensure ${machine}`, input: { key, persist: [was, persist] } });
+    if (was === undefined) tx.w = { ...tx.w, refPersist: { ...tx.w.refPersist, [key]: persist } };
+  }
   const live = getActor(tx.w.actors, key);
   if (live) {
     // D137: a key names one machine. Saying nothing here let two machines share an actor.
@@ -486,6 +493,7 @@ const warnOnce = (tx: Tx, k: string) => {
 };
 // The end (2.7.17): the record is encoded in this step, or the end waits; then the existing disposal hands the lanes to the Runtime (rule 44)
 // and stops the live work, which the trace record lists. Ending is atomic here: this runtime's cleanup is done within the step.
+type StoppedRead = Pick<ReadLane, "op" | "key" | "owner" | "input" | "inc">;
 const encodes = (tx: Tx, a: ActorRec) => {
   try {
     encodeRecord(tx.machines, { ...a, boot: tx.w.boot, timers: [] });
@@ -513,7 +521,11 @@ const endActor = (tx: Tx, key: string) => {
   for (const kind of new Set(stopped.map((s) => s.split(":")[0]!)))
     if (warnOnce(tx, `work|${a.machine}|${kind}`)) note(tx, "EndedWithWork", { actor: key, machine: a.machine, work: kind, persisted: tx.machines[a.machine]!.persisted === true });
   tx.w = { ...tx.w, soon: { ...tx.w.soon, [key]: { dueAt: tx.env.now + 5_000, inc: a.root.id } } };
+  // D1: the reads this end stops are owed `failure { Interrupted }` by the next incarnation; a persisted record carries them.
+  const cutReads: StoppedRead[] = Object.values(tx.w.reads).filter((r) => r.actor === key).map((r) => ({ op: r.op, key: r.key, owner: r.owner, input: r.input, inc: r.inc }));
   onDisposeActor(tx, key, "end");
+  const kept = own(tx.w.retired, key);
+  if (kept && cutReads.length) tx.w = { ...tx.w, retired: { ...tx.w.retired, [key]: { ...kept, stopped: cutReads } as ActorRec } };
 };
 // A use returning before the end: each deadline that came due while it was unused fires once, in deadline order (Machines O5's overdue rule).
 const wake = (tx: Tx, key: string) => {
@@ -542,7 +554,7 @@ const remount = (tx: Tx, key: string) => {
 const onAttach = (tx: Tx, i: Extract<Input, { k: "attach" }>) => {
   const component = i.owner === "component";
   if (component) remount(tx, i.actor);
-  if (!i.existing) onEnsure(tx, i.actor, i.machine, i.input, i.identity);
+  if (!i.existing) onEnsure(tx, i.actor, i.machine, i.input, i.identity, i.persist);
   else if (!getActor(tx.w.actors, i.actor) && own(tx.w.retired, i.actor)) returnActor(tx, i.actor, "subscription");
   const live = getActor(tx.w.actors, i.actor);
   const machine = live?.machine ?? i.machine;
@@ -718,7 +730,7 @@ export const step = (world: World, input: Input, env: Env, sys: System): StepOut
       onBoot(tx, input.records, input.persistence ?? true);
       break;
     case "ensure":
-      onEnsure(tx, input.actor, input.machine, input.input, input.identity);
+      onEnsure(tx, input.actor, input.machine, input.input, input.identity, input.persist);
       break;
     case "dispose":
       onDisposeActor(tx, input.actor, "dispose");

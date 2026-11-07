@@ -458,11 +458,11 @@ export const makeHarness = (port: Port) => (): Harness => {
   const subs = new Map<string, number>();
   const mounts = new Map<string, number>();
   const usesHeld = (key: string) => (held.get(key) ?? 0) + (subs.get(key) ?? 0) + (mounts.get(key) ?? 0);
-  const use = (key: string, machine: string, input: unknown, identity?: readonly string[]) => {
+  const use = (key: string, machine: string, input: unknown, identity?: readonly string[], persist?: boolean) => {
     if (inst.attach) {
       bump(held, key, 1);
-      inst.attach(key, machine, input, "story", false, identity);
-    } else inst.ensure(key, machine, input, identity);
+      inst.attach(key, machine, input, "story", false, identity, persist);
+    } else inst.ensure(key, machine, input, identity, persist);
   };
   // Onto what the boot restored, or a record kept at ready: a re-attach restores it from the Runtime's copy and creates nothing, so a record
   // quarantined at boot stays absent until a case asks (a pending use, as a subscription on an identity with neither waits).
@@ -1414,7 +1414,7 @@ export const makeHarness = (port: Port) => (): Harness => {
       lifeBefore.set(actorKey(s.dispose), lifeOf.get(actorKey(s.dispose)) ?? 0);
     }
     if ("ensureAs" in s) inst.ensure(actorKey(s.ensureAs.key), s.ensureAs.machine); // D137: a key and a machine that do not agree, as a host's bug would give
-    else if ("ensure" in s) use(actorKey(s.ensure), s.ensure.actor, s.input, s.identity);
+    else if ("ensure" in s) use(actorKey(s.ensure), s.ensure.actor, s.input, s.identity, s.persist);
     else if ("hostEnsure" in s) inst.ensure(actorKey(s.hostEnsure), s.hostEnsure.actor, s.input);
     else if ("detach" in s || "unsubscribe" in s || "unmount" in s || "subscribe" in s || "mount" in s) {
       if (!inst.attach || !inst.detach) throw new Error("this runtime has no uses");

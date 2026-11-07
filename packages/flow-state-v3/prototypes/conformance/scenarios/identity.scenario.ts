@@ -10,7 +10,7 @@ import { GRACE } from "./lifetime.scenario.ts";
 const T42 = { workspaceId: "north", ticketId: "T-42" };
 // A ref as the suite's step: the actor it names, and the ensure the design gives it (a value ref with its value as input, and no input of its own).
 const at = <I, F extends "value" | "singleton">(r: ActorRefOf<I, F>) => ({ actor: r.machine, id: r.id });
-const ensureStep = (a: ReturnType<typeof ensureArgs>): Step => ({ ensure: { actor: a.machine, id: a.id }, ...(a.input === undefined ? {} : { input: a.input }), ...(a.identity ? { identity: a.identity } : {}) });
+const ensureStep = (a: ReturnType<typeof ensureArgs>): Step => ({ ensure: { actor: a.machine, id: a.id }, ...(a.input === undefined ? {} : { input: a.input }), ...(a.identity ? { identity: a.identity } : {}), persist: a.persist });
 
 export const identityScenarios: readonly Scenario[] = [
   {
@@ -94,30 +94,31 @@ export const identityScenarios: readonly Scenario[] = [
     },
   },
   {
-    // A singleton: a literal name, its input given at ensure (rule 74). One machine reached in both forms is ConflictingActorRef at ensure.
+    // A singleton: a literal name, for a machine with no input (rule 74, D4: the form is fixed per machine by the types). `ConflictingActorRef` is
+    // left for two refs of one identity that disagree on `persist`.
     id: "R14-ID-03",
     kind: "example",
     fixtures: [sessionFixture, editorFixture()],
     cites: ["rule:74", "sec:2.7.19"],
     namedIssues: ["ConflictingActorRef"],
     variants: {
-      "a-singleton-takes-its-input-at-ensure"(c0) {
+      "a-singleton-is-its-name"(c0) {
         c0.eq("its name is its identity", SessionRef.id, "coordinator");
         const c = new Ctx(c0.fresh([sessionFixture]), at(SessionRef));
-        c.do(ensureStep(ensureArgs(SessionRef, { input: { userId: "u1" } })));
-        c.eq("input at ensure", c.mem().userId, "u1");
+        c.do(ensureStep(ensureArgs(SessionRef)));
+        c.send("Ping");
         c.detach();
         c.advance(GRACE);
         c.do(ensureStep(ensureArgs(SessionRef)));
-        c.eq("returned from its record", c.mem().userId, "u1");
+        c.eq("returned from its record", c.mem().pings, 1);
       },
-      "one-machine-in-both-forms-is-conflicting"(c0) {
+      "two-refs-that-disagree-on-persist-conflict"(c0) {
         const r1 = editorRef(T42);
         const c = new Ctx(c0.fresh([editorFixture()]), at(r1));
         c.do(ensureStep(ensureArgs(r1)));
-        const main = actorRef(Editor1, "main");
-        c.do(ensureStep(ensureArgs(main, { input: T42 })));
-        c.eq("refused at ensure", [c.r.state(at(main)), c.r.issues().filter((i) => i.code === "ConflictingActorRef").length], [undefined, 1]);
+        const r2 = actorRef(Editor1, T42, { persist: false });
+        c.do(ensureStep(ensureArgs(r2)));
+        c.eq("refused at ensure", c.r.issues().filter((i) => i.code === "ConflictingActorRef").map((i) => i.input), [{ key: c.r.actorKey(at(r1)), persist: [true, false] }]);
         void EditorId;
       },
     },
