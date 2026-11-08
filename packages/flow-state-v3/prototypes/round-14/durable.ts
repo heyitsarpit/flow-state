@@ -355,6 +355,8 @@ export const restore = (tx: Tx, records: ReadonlyArray<readonly [string, string]
     quarantined: quarantinedLanes,
     undecodable,
   };
+  const recorded = new Set([...actors, ...retired].map(([k]) => k));
+  for (const [, l] of lanes) if (!recorded.has(l.actor) && !undecodable[l.actor]) note(tx, "UnboundLane", { actor: l.actor, op: l.op, lane: l.id });
   for (const t of timers) {
     const { gen: _g, ...spec } = t;
     armTimer(tx, spec);

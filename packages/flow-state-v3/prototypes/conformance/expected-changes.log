@@ -1637,3 +1637,10 @@ output:PAY-13/hung-commit hash:95d0a59d6881 | U13: the hung pay ends unknown { D
 output:PAY-16/on-the-wire-at-the-bound-restores-unknown hash:ff0cbd687cb3 | U13: the pay on the wire at the bound is parked as unknown { Disposed } and unparked at the reload (one lane cell fewer)
 output:R15-01/past-the-disposal-bound-the-attempt-ends-unknown-disposed hash:c0e9863becda | new output: head unknown { Disposed } then W NotSent { Disposed } at the bound, both heard after the reload
 output:SURV-08 hash:d5c0333b018c | U13: the like on the wire at the bound ends unknown { Disposed }, parked beside W's NotSent { Disposed } (two parked:like waits)
+R15-01 hash:1d96bab7a618 | new variant an-unbound-lane-left-by-dispose-is-listed-and-reported-until-adopted (U14, 2.7.13)
+file:scenarios/round15.scenario.ts hash:c8e20204063d | holds R15-01's U14 variant (Inspection's unbound list, the boot's UnboundLane)
+round:mutants-r15.ts hash:86c33fe02c81 | adds r15.unbound-lane-unreported and r15.unbound-lane-unlisted (U14 undone at the boot, at Inspection)
+round:adapter.ts hash:19b8fbdbad1b | inspect lists an identity's lanes as unbound when no record or incarnation binds them (U14)
+output:FRAG-15 hash:effe8769e9ba | U14: the search's boot after a dispose reports the unbound lane record (one UnboundLane)
+output:R15-01/an-unbound-lane-left-by-dispose-is-listed-and-reported-until-adopted hash:0336bda6bb53 | new output: a held lane disposed, reported once at the boot, adopted by the ensure
+file:expected-recipients.txt hash:c5e0e57dc1af | +3 observed, +1 restored, +3 start nodes: R15-01's U14 variant (its ensure after the reload adopts the held lane)

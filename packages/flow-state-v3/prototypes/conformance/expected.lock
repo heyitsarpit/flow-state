@@ -231,7 +231,7 @@ R14-F-01 02fb76024a05
 R14-FIX-03 e5ab12a86da6
 R14-FIX-01 e8a5adb33fa2
 R14-FIX-02 022e63be1f0b
-R15-01 ac1a92c3fc5e
+R15-01 1d96bab7a618
 variant:PAY-06/interruptible present
 variant:PAY-06/uninterruptible present
 variant:PAY-07/leaveMidCharge present
@@ -989,6 +989,7 @@ variant:R14-FIX-01/a-dispose-of-that-record-keeps-its-endings-on-the-lane presen
 variant:R15-01/a-late-exit-that-cancels-the-lane-may-leave-its-promoted-head present
 variant:R15-01/a-late-exit-that-does-not-cancel-may-not-leave-its-promoted-head present
 variant:R15-01/past-the-disposal-bound-the-attempt-ends-unknown-disposed present
+variant:R15-01/an-unbound-lane-left-by-dispose-is-listed-and-reported-until-adopted present
 file:scenarios/absorb.scenario.ts 9763d1722ca6
 file:scenarios/ctx.ts fe3a8de04a97
 file:scenarios/fixpass.scenario.ts 1a46432b7fe7
@@ -1003,7 +1004,7 @@ file:scenarios/review.scenario.ts 42114a2ac13d
 file:scenarios/round10.scenario.ts 9a79cf927e08
 file:scenarios/round12.scenario.ts 3b48ce8a6478
 file:scenarios/round13.scenario.ts 21bc66a212dd
-file:scenarios/round15.scenario.ts 7f4d8e5c9040
+file:scenarios/round15.scenario.ts c8e20204063d
 file:scenarios/round4.scenario.ts c5b1413bfa40
 file:scenarios/round5.scenario.ts 679d136cdedf
 file:scenarios/round6.scenario.ts 72e2a778f2b5
@@ -1121,7 +1122,7 @@ file:report.ts 7e305fd3110b
 file:watch.ts 93b7fe49b6da
 file:gate5s.ts d8a24cbd10f4
 file:gate-5s-expected.txt 076d1f268376
-file:expected-recipients.txt 148b79e984da
+file:expected-recipients.txt c5e0e57dc1af
 file:mutate.ts 90691b4a787c
 file:mutate-one.ts a48188cfc0d7
 file:gates.ts e1f36b72d88b
@@ -1169,7 +1170,7 @@ round:mutants-lifetime-pins-b.ts 6739b5b020ec
 round:mutants-lifetime.ts 4bc1d3d15031
 round:mutants-lost.ts 341cf4c256c6
 round:mutants-r10.ts b33f543d803a
-round:mutants-r15.ts a2b791891877
+round:mutants-r15.ts 86c33fe02c81
 round:mutants-r5.ts 140a4de2354a
 round:mutants-r6.ts b6c3802cca2e
 round:mutants-r7.ts 8714ead920f9
@@ -1178,7 +1179,7 @@ round:mutants-r9.ts b9904f5525b2
 round:mutants-r9b.ts a63507e3087f
 round:mutants.ts 9ced0df5e862
 round:run-plants.sh e7e8fcfb75a7
-round:adapter.ts b38e1cebc4dc
+round:adapter.ts 19b8fbdbad1b
 output:CART-01 cfd438e7ae1b
 output:CART-02/at-most-nine fd17f07a683d
 output:CART-02/coupon cffb0eef99f3
@@ -1245,7 +1246,7 @@ output:FRAG-12/unbound-hold-with-a-waiter-yields c2b5663db46e
 output:FRAG-12/unbound-hold-with-no-waiter-stays 9dcdc04d3997
 output:FRAG-13 00351ac29977
 output:FRAG-14 d726222d15bc
-output:FRAG-15 77e70618a2ae
+output:FRAG-15 effe8769e9ba
 output:FRAG-16/denied-keeps-the-cell-and-promotes 8e8b9ebec277
 output:FRAG-17/a-child-that-cannot-react-refuses-the-whole-turn a26d05fd286d
 output:FRAG-17/leaving-cancels-a-node-traits-schedule 632de70877b5
@@ -1507,6 +1508,7 @@ output:R14-IGN-02/a-returns-restored-is-released 5d3487c4ffba
 output:R14-IGN-03 657cedaf99c2
 output:R15-01/a-late-exit-that-cancels-the-lane-may-leave-its-promoted-head 3dfc72f83d7f
 output:R15-01/a-late-exit-that-does-not-cancel-may-not-leave-its-promoted-head 6d750f15fcd4
+output:R15-01/an-unbound-lane-left-by-dispose-is-listed-and-reported-until-adopted 0336bda6bb53
 output:R15-01/past-the-disposal-bound-the-attempt-ends-unknown-disposed c0e9863becda
 output:REAL-01/a-callback-only-where-written dc513934a867
 output:REAL-01/a-denied-guard-keeps-the-field b9f4bcb42f60

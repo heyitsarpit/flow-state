@@ -642,6 +642,8 @@ Round 15 continues in round-14's folder (the runtime is the same one, evolved; a
 | --- | --- | --- | --- | --- |
 | Rule 15 cancel exemption over a head promoted at settlement (runner) | done: `leavesWork` (turn.ts) exempts a never-sent head (`sentAt` 0, not `mayHaveApplied`) of an op the late transition cancels key-less | (this) | `R15-01/a-late-exit-that-cancels-the-lane-may-leave-its-promoted-head`: `no denial: expected [], got [["LateMayNotLeave","LateMayNotLeave"]]` | `r15.late-cancel-keeps-promoted-head`; control `r15.late-promoted-head-not-live` (only a wire head is live) red on the denied control |
 | U13 `unknown { Disposed }` past the disposal bound | done: `finishDisposal` (step.ts) calls `endPastDisposal` (lane.ts): the head's ending `unknown { Disposed }` is noted and parked, the head kept Held on disk (mayHaveApplied), W parked after it as `NotSent { Disposed }`; the restore delivers both from the parked list, head first, and the hold stays | 2nd | `R15-01/past-the-disposal-bound-the-attempt-ends-unknown-disposed`: `expected [["unknown","Disposed"],["failure","Disposed"]], got [["failure","Disposed"]]` | `r15.past-bound-captured-inflight` (red: the reload hears W, then Restored) |
+| U14 `disposeActor` flushes at once | already true: `flush` (durable.ts) writes a dropped identity's removal `now` (D93) | - | `REV7-D80/D93-a-dispose-is-not-lost-to-a-kill` passes before and after | none new (no one-edit target in the lifetime list; REV7-D80 is not in it) |
+| U14 unbound lane listed and reported until adopted or forgotten | partly done: Inspection (`inspect`, adapter.ts) lists an identity's lanes as `unbound` while no record or incarnation binds them; the restore (durable.ts) notes `UnboundLane` per lane record with no actor record, each boot; an ensure adopts (already true, rule 44). **`forget` not built** (see findings) | 3rd | `R15-01/an-unbound-lane-left-by-dispose-is-listed-and-reported-until-adopted`: `listed as unbound under the identity: expected 1, got 0` | `r15.unbound-lane-unreported`, `r15.unbound-lane-unlisted` |
 
 Findings for the design:
 1. Rule 15's exemption and U2 pull apart. A key-less `cancel` in a success or failure handler does nothing (U2: the ending's Attempt is
@@ -664,3 +666,12 @@ Findings for the design:
    start nothing is invoked" (SURV-08 showed a `repair` request). Built: the store is not told past the bound; it hears the Attempt at the
    restore (`restored`). The store's reaction to an unknown during disposal is phase 1's (U10, U11); the design should say no module
    starts work once disposal starts.
+5. `forget` does not exist in the prototype (no runtime input, no Story step, no harness step), though three rulings end things by it: U14's
+   unbound lane record, U4's lane whose operation is gone, and rule 74's old-version record. Stopped here rather than built: the suite's
+   oracles (rule 17's ledgers in drive.ts: `due`, `told`, `parkedOwed`) would need a rule for what `forget` does to an ending owed to the
+   identity, and the design does not say. Decision needed: does `forget` deliver nothing and leave evidence for each parked ending and
+   held lane it removes (the 2.9.3 "evidence only" shape), and is a held lane's hold dropped by it (a key the server may hold then has no
+   record, as in finding 2)? The second is a guarantee: today nothing drops a hold except its owner's `cancel`.
+6. "Unbound" needed a definition to build. Built: a lane is unbound when its identity has no decoded actor record (live or retired) and no
+   incarnation; an undecodable record's lanes are not reported (a fresh incarnation adopts them, 2.7.13), an old-version record's lanes are
+   (rule 74: "stay unbound and listed"). The design should say which identities' lanes count.

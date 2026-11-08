@@ -58,6 +58,26 @@ export const round15Scenarios: readonly Scenario[] = [
         c.eq("the restored incarnation hears both, head first", c.r.evidence("turn").slice(before).map((t) => t["event"]), ["Unsure", "No"]);
         c.eq("no Restored", c.endings("charge").some((e) => e["reason"] === "Restored"), false);
       },
+      // U14 (OD48; 2.7.13): an unbound lane record left by `disposeActor` ends when an ensure of the identity adopts it; until then Inspection
+      // lists it as unbound under the identity, and each boot reports it, as OldVersionLane does for an old-version hold.
+      "an-unbound-lane-left-by-dispose-is-listed-and-reported-until-adopted"(c0) {
+        const c = new Ctx(c0.fresh([r15LateFixture()]), RL);
+        c.ensure(RL);
+        c.send("Go");
+        c.ack();
+        c.answer("charge", { lost: true });
+        c.state("A");
+        c.dispose();
+        const unbound = () => c.r.inspect(RL)?.unbound ?? [];
+        c.eq("listed as unbound under the identity", unbound().length, 1);
+        c.reload();
+        c.eq("the boot reports it", c.r.evidence("UnboundLane").map((e) => e["op"]), ["charge"]);
+        c.eq("still listed", unbound().length, 1);
+        c.ensure(RL);
+        c.eq("adopted: no longer unbound", unbound(), []);
+        c.reload();
+        c.eq("no boot reports it now", c.r.evidence("UnboundLane").length, 1);
+      },
     },
   },
 ];
