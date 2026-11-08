@@ -13,6 +13,9 @@ const OWN: readonly M[] = [
   // The auditor's `1b.r15-lateness-transitive` reads `w.late`, which `runTurn` clears before any member runs, so it changes nothing (vacuous). This
   // one makes lateness transitive where it can: a call started in a late turn takes the late ending's owner.
   { id: "a2.lateness-transitive", kills: ["R15-01/audit-a-call-started-in-a-late-turn-ends-current"], edits: [["turn.ts", "const ownerOf = (w: Walk, part: Part): Owner => {", 'const ownerOf = (w: Walk, part: Part): Owner => { if (w.lateFill && w.item?.k === "ending") return w.item.owner as Owner;']] },
+  // The runner's ruling on finding 1 (rule 30, 2.8.5): a sent hold holds its record only until its forced repair settles. Wrong: held until resolved or
+  // released (D3's old price; replaces `p1e.sent-hold-passed`, which pinned that price).
+  { id: "a2.record-held-past-the-repair", kills: [`${P}a-sent-hold-releases-its-record-when-its-repair-settles`, `${P}audit-a-sent-write-is-not-rebased-and-its-retry-keeps-its-base`], edits: [[E, "const holds = (x: string) => !s.entries[x]?.settled?.includes(ref);", "const holds = (x: string) => x.length >= 0;"]] },
   { id: "a2.cover-last-known-base-only", kills: [`${P}audit-a-gap-marks-a-record-that-may-have-moved-into-the-cover`], edits: [[E, "  return [...within, ...Object.entries(s.records)", "  return [...within]; [...Object.entries(s.records)"]] },
 ];
 // The auditors' survivors, each aimed at the case written for it (the kills here replace their broad `P1-E`).
@@ -32,6 +35,7 @@ const AIM: Readonly<Record<string, readonly string[]>> = {
   "audit-2.contradicted-on-resend": [`${P}audit-a-re-sent-success-over-a-known-stale-base-is-no-contradiction`],
   "audit-2.gone-refetch-ignored": [`${P}audit-a-gap-refetch-that-answers-the-gone-tag-removes-the-row`],
   "audit-2.cap-global": [`${P}audit-the-cap-counts-each-entity-apart`],
+  "audit-2.rebase-after-send": [`${P}audit-a-sent-write-is-not-rebased-and-its-retry-keeps-its-base`],
   "audit-2.cap-is-64": [`${P}audit-the-many-bound-is-4096-and-the-cap-is-past-64`],
   "1b.disposal-definite-w-first": ["R15-01/audit-a-definite-ending-during-disposal-is-parked-before-w-and-drops-the-head"],
   "1b.disposal-definite-keeps-head": ["R15-01/audit-a-definite-ending-during-disposal-is-parked-before-w-and-drops-the-head"],

@@ -100,18 +100,19 @@ export const storeScenarios: readonly Scenario[] = [
       commit(c, a0, 3, 1);
       wOf(c, a0, { lost: true });
       repairs(c);
+      // Audit gaps, the runner's ruling (rule 30, 2.8.5): a0's repair has settled, so its hold no longer holds r1 and r2; it keeps its own lane.
       commit(c, a1, 3, 2);
-      c.eq("a1 waits behind a0's hold", c.reqs("w").length, 1);
+      c.eq("a1 goes past a0's settled hold", c.reqs("w").length, 2);
       c.to(a0, "Retry");
+      c.eq("a0's re-send waits behind a1, on the wire", c.reqs("w").length, 2);
       c.to(a1, "Retry"); // InFlight: evidence, no re-send
-      c.eq("only a0 re-sent", c.reqs("w").length, 2);
-      wOf(c, a0, { apply: true });
-      c.eq("a1 goes", c.reqs("w").length, 3);
-      commit(c, a0, 1, 3);
       wOf(c, a1, { apply: true });
+      c.eq("then a0 re-sends", c.reqs("w").length, 3);
+      commit(c, a0, 1, 3);
       wOf(c, a0, { apply: true });
-      c.eq("finishes, in order", records(c), { r1: 3, r2: 2 });
-      c.eq("no inversion", c.r.truth().server.inverted, false);
+      wOf(c, a0, { apply: true });
+      c.eq("finishes in send order: a0's late re-send of v1 lands over a1's v2 on r2 (no version: the stated limit)", records(c), { r1: 3, r2: 1 });
+      c.eq("S1's commit-order oracle sees it", c.r.truth().server.inverted, true);
     },
   },
   {
@@ -126,13 +127,13 @@ export const storeScenarios: readonly Scenario[] = [
       wOf(c, a0, { lost: true });
       repairs(c);
       commit(c, a0, 2, 2); // a draft: in a0's W behind its own hold, it holds no record (D3 as directed)
-      commit(c, a1, 3, 3); // waits on r1 behind a0's sent hold, and is first on r2
+      commit(c, a1, 3, 3); // a0's hold has settled its repair (the runner's ruling): a1 goes at once
+      c.eq("a1 goes before a0's re-send and its draft", c.reqs("w").at(-1)?.input.v, 3);
       c.to(a0, "Retry");
-      wOf(c, a0, { apply: true });
-      c.eq("a1 goes before a0's draft", c.reqs("w").at(-1)?.input.v, 3);
       wOf(c, a1, { apply: true });
       wOf(c, a0, { apply: true });
-      c.eq("finishes, in the order sends began", records(c), { r1: 3, r2: 2 });
+      wOf(c, a0, { apply: true });
+      c.eq("finishes, in the order sends began", records(c), { r1: 1, r2: 2 });
       c.eq("S1's commit-order oracle sees the late draft land last", c.r.truth().server.inverted, true);
     },
   },
@@ -147,30 +148,14 @@ export const storeScenarios: readonly Scenario[] = [
       toggle(c, true);
       c.answer("like", { lost: true });
       c.answer("repair", { truth: true });
+      // Audit gaps, the runner's ruling (rule 30, 2.8.5): A's repair has settled, so its hold keeps its own lane and no longer holds the record.
       toggle(c, true, B);
-      c.eq("B not sent", c.reqs("like").length, 1);
-      c.eq("B's row is pending, not `waiting`: W is empty", row(c, "like", B), {
-        pending: true,
-        uncertain: false,
-        waiting: false,
-        retryCount: 0,
-        outstanding: 0,
-      });
+      c.eq("B sent at once", c.reqs("like").length, 2);
       const held = c.r.quiet().waits.find((w) => w.kind === "held");
-      const queued = c.r.quiet().waits.find((w) => w.kind === "queue");
-      c.yes(
-        "Inspection names the holder",
-        held && held.kind === "held" && held.actor === "Issues/List/a",
-      );
-      c.yes(
-        "and who waits on it",
-        queued &&
-          queued.kind === "queue" &&
-          held &&
-          queued.behind.includes((held as { attempt: string }).attempt),
-      );
+      c.yes("Inspection still names A's hold", held && held.kind === "held" && held.actor === "Issues/List/a");
+      c.eq("and nothing waits on it", c.r.quiet().waits.filter((w) => w.kind === "queue").length, 0);
       c.to(A, "CancelLike", { id: "i1" });
-      c.eq("holder cancels: it goes", c.reqs("like").length, 2);
+      c.eq("A gives up: released, nothing re-sent", [c.r.evidence("Released").length, c.reqs("like").length], [1, 2]);
     },
   },
   {
@@ -283,7 +268,7 @@ export const storeScenarios: readonly Scenario[] = [
       c.answer("repair", { truth: true });
       c.eq("the repair ends A's prediction; B's still shows", c.rec(I1)?.predicted, true);
       c.eq("the mark stays", c.rec(I1)?.uncertain, true);
-      c.eq("entry stays: B still waits (changed from 2.8.6's table)", c.reqs("like").length, 1);
+      c.eq("the repair settled: B goes (rule 30, the runner's ruling)", c.reqs("like").length, 2);
     },
   },
   {
@@ -510,9 +495,15 @@ export const storeScenarios: readonly Scenario[] = [
         c.answer("like", { lost: true });
         c.answer("repair", { truth: true });
         toggle(c, false, B);
+        c.answer("like", { apply: true }, { liked: false });
         c.to(A, "ReconcileLike", { id: "i1" });
+        c.eq("A re-sent", c.reqs("like").length, 3);
         c.answer("like", { fail: { tag: "Refused" } });
-        c.eq("StillUnknown is unknown, not failure: B still waits", c.reqs("like").length, 2);
+        c.eq("StillUnknown is unknown, not failure", [c.lastEnding("like")?.["channel"], c.lastEnding("like")?.["reason"]], ["unknown", "StillUnknown"]);
+        toggle(c, true, B);
+        c.eq("it holds the record again until its forced repair settles: B waits", c.reqs("like").length, 3);
+        c.answer("repair", { truth: true });
+        c.eq("then B goes", c.reqs("like").length, 4);
       },
     },
   },

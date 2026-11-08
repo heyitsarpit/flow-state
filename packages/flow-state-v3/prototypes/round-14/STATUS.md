@@ -1180,7 +1180,7 @@ fixes, pins), `33383b92` (checkpoint 2: excuses, lock).
 | --- | --- | --- | --- |
 | 1 business-key replay | closed | P1-E `audit-a-business-key-success-under-another-key-ends-nothing`, `...-of-another-contract-ends-nothing` (fixture `p1GuardKeysFixture`: t2, `save` keyed by id) | `replay-ignores-values`, `replay-across-contracts`: `close's doubt stays: expected ["Done",[false,["status"]]], got ["Done",[false,[]]]` |
 | 2 `guarded` proofs | closed | `audit-a-feed-frame-past-the-sent-base-ends-a-guarded-doubt` (read after the session is lost, so hidden is not ended), `audit-another-writes-success-past-the-sent-base-...` | `guard-proof-reads-only`: `expected ["C",false,[]], got ["C",false,["title"]]` |
-| 3 no rebase after send | **not closable: Finding 1** | none | `rebase-after-send` stays unkilled: no path reaches it (below) |
+| 3 no rebase after send | **closed after the runner's ruling on Finding 1** (below) | `audit-a-sent-write-is-not-rebased-and-its-retry-keeps-its-base` (PostgREST tickets: b overtakes a's draft, is sent over revision 2, lost; b's repair settles, a2 lands revision 3; b's retry) | `rebase-after-send`: `b's retry keeps the base it was sent with: expected {"id":"t1","revision":2}, got {"id":"t1","revision":3}` |
 | 4 rule 28 | closed | `audit-a-two-record-write-waits-on-its-second-records-queue` (S1) | `r28-first-record-only`: `not invoked while r2 is held: expected 1, got 2` |
 | 5 unresolved mark stays | closed | `audit-an-unresolved-mark-stays-beside-a-business-key-success` (new `p1PayFixture`, key by order, lane by bill); `...-beside-a-full-cap` | `replay-ends-unresolved`: `expected ["Done",true], got ["Done",false]`; `cap-evicts-unresolved`: `expected [0,true,true], got [1,true,false]` |
 | 6 `.covers` mask | closed | `audit-a-cover-registered-after-the-give-up-hides-and-ends-nothing`, `audit-a-cover-does-not-hide-an-unresolved-doubt`, `...-with-an-open-gap-hides-nothing`, `...-a-removals-doubt` (new unguarded `remove` on the guard fixture); the written-field limit was already killed | `covers-ends-marks`, `covers-hides-unresolved`, `covers-hides-behind`, `covers-hides-removal`, each red on its own case |
@@ -1218,8 +1218,21 @@ Gates (final): `bun gates.ts --budget 290` **24/25 ok, 0 BAD**, lifetime-falsify
 alone rerun); rerun alone, `--only lifetime-falsify`: **ok, 261 pass**, 96 s (its row says 22 s: re-measure owed in `limits.ts`). Directly with
 `--parallel 6`: control 269 pass, every lifetime wrong runtime red, 56 s. Suite 970/970, lock clean (unlogged none, stale 0).
 
+**Runner ruling on Finding 1 (under the user's D3 delegation), built.** Rule 30 and 2.8.5 win: a record's queue is released once the unknown's forced
+repair settles (answered; a failed or re-asked repair has not settled, so `RepairOverdue` still holds it); the held write keeps its lane's hold and
+blocks no other actor's write to the record; its re-send waits behind whatever holds the record then, and holds it again once sent (entities.ts:
+`Entry.settled`, set in `endRepair`, cleared in `sent`, read in `blocks`). Failing first: P1-E `a-sent-hold-releases-its-record-when-its-repair-settles`
+(the old `a-sent-hold-still-stalls-...`, reversed and renamed); wrong runtime `a2.record-held-past-the-repair` (`expected [[1,2],1], got [[1],1]`), which
+replaces `p1e.sent-hold-passed` (it pinned the old price). Re-pinned to the ruling, each by assertion: LIKE-02, LIKE-03 (the late re-send now lands last on
+r1), LIKE-04, STORE-03, STORE-11 (StillUnknown re-holds until its new repair), LIB-02 (now unlike DB's KeyScheduler prior art), MED-02 (`RecordHeld` only
+while the repair runs), FRAG-12 and P1-E's D15 case (the yield releases; the waiter goes when the repair settles), P1-E's rule 28 case; FRAG-13, FRAG-20
+moved by output only. Searches like, pay, crash, cross, repairing stay completed. lifetime-falsify's row re-measured in `limits.ts` (22 s to 100 s).
+Gates after the ruling: `bun gates.ts --budget 290` **25/25 ok, 0 BAD, 0 unknown**, 267 s; suite 971/971, lock clean.
+Finding from it: D15's yield is now only liveness for the lane hold; the record is freed by the repair alone, so an unbound hold with a waiter frees
+nothing sooner than a bound one.
+
 Findings for the design (this batch):
-1. **Item 3 is unreachable under D3 as directed, and the design disagrees with itself.** Q5 rebases "only until sent". For a sent write to be rebased, an
+1. **Item 3 is unreachable (resolved by the runner's ruling above) under D3 as directed, and the design disagrees with itself.** Q5 rebases "only until sent". For a sent write to be rebased, an
    earlier-minted write must succeed on the record while the sent one still stands; but a sent write heads the record queue ahead of anything sent later
    (D3: the order sends began), and a sent hold keeps its place until resolved or released (D3's price, `a-sent-hold-still-stalls-...`). A restore puts
    held heads back in lane-creation order, but both would have to be sent before the kill, which the queue forbids. So `audit-2.rebase-after-send` changes

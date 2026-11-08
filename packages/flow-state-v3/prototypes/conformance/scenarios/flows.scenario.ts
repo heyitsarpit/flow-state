@@ -267,18 +267,20 @@ export const flowScenarios: readonly Scenario[] = [
     actor: IA,
     cites: ["D3"],
     run(c) {
-      // DB KeyScheduler.test.ts:106,226: a later ready write does not pass an earlier retry.
+      // DB KeyScheduler.test.ts:106,226: a later ready write does not pass an earlier retry. Audit gaps, the runner's ruling (rule 30, 2.8.5): it does,
+      // once the unknown's forced repair settles; the earlier write keeps its own lane, and its retry then waits behind the later one.
       c.ensure(IA);
       c.ensure(IB);
       c.to(IA, "Toggle", { id: "i1", liked: true });
       c.answer("like", { lost: true });
       c.to(IB, "Toggle", { id: "i1", liked: false });
+      c.eq("the later write waits while the repair runs", c.reqs("like").length, 1);
       c.answer("repair", { truth: true });
-      c.eq("the later write waits", c.reqs("like").length, 1);
+      c.eq("the repair settled: the later write goes", c.reqs("like").at(-1)?.input.liked, false);
       c.to(IA, "ReconcileLike", { id: "i1" });
-      c.eq("the retry goes first", c.reqs("like").at(-1)?.input.liked, true);
+      c.eq("the retry waits behind it", c.reqs("like").length, 2);
       c.answer("like", { apply: true });
-      c.eq("then the later one", c.reqs("like").at(-1)?.input.liked, false);
+      c.eq("then the retry", c.reqs("like").at(-1)?.input.liked, true);
     },
   },
   {

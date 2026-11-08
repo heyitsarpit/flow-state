@@ -382,7 +382,7 @@ export const reviewScenarios: readonly Scenario[] = [
         opened(c, B);
         c.to(A, "Edit", { id: "i1", title: "x" });
         c.answer("rename", { lost: true });
-        c.answer("repair", { truth: true });
+        // Audit gaps, the runner's ruling (rule 30, 2.8.5): the record is held only while the forced repair runs, so it is left unanswered here.
         toggle(c, true, B);
         c.advance(29_999);
         c.eq("not yet", c.r.evidence("RecordHeld").length, 0);
@@ -401,8 +401,8 @@ export const reviewScenarios: readonly Scenario[] = [
           [c.r.evidence("RecordHeld").length, c.reqs("like").length],
           [1, 0],
         );
-        c.to(A, "CancelRename", k);
-        c.eq("the holder gives up: it goes", c.reqs("like").length, 1);
+        c.answer("repair", { truth: true });
+        c.eq("the repair settles: it goes, the holder still holds its lane", [c.reqs("like").length, c.r.evidence("Released").length], [1, 0]);
         c.eq("it clears", c.stalled("like"), undefined);
       },
     },

@@ -32,6 +32,7 @@ type Entry = {
   readonly sends: number; // 0, 1, or 2 for re-sent: only "was this success its first send" is read. A restored Attempt may have been sent: 1
   readonly unsure?: true; // restored from a lane record written before its send: the base it was sent with may be a later one (a rebase)
   readonly known: Readonly<Record<string, Ver | undefined>>; // per target, the version the store held when the first send began
+  readonly settled?: readonly string[]; // records whose forced repair has settled for this unknown: it no longer holds their queues until re-sent
 };
 // Rule 32 as U10 rules it: `given` is the position of the give-up (null while the lane can still re-send); `quiet` once a read asked after it, or a
 // later write's success, has landed: `unconfirmed` on its fields, never `uncertain`. Its exits (Q1 A, the convergence's rules): `guard`, on a target of
@@ -675,7 +676,8 @@ const endRepair = (s: Slice, ref: string, cx: Cx): Slice => {
     const e = out.entries[id];
     if (!e?.unknown) continue;
     const predicted = e.predicted.filter((p) => p.ref !== ref);
-    out = { ...out, entries: { ...out.entries, [id]: { ...e, predicted } } };
+    const settled = e.released || cur.again || e.settled?.includes(ref) ? e.settled : [...(e.settled ?? []), ref]; // asked again: not settled yet
+    out = { ...out, entries: { ...out.entries, [id]: { ...e, predicted, ...(settled ? { settled } : {}) } } };
     if (e.released && !e.refs.some((x) => own(out.repairs, x))) out = removeEntry(out, id);
   }
   cx.visible();
@@ -998,9 +1000,14 @@ export const entities: Module<Slice> = {
     const e = s.entries[attempt];
     if (!e) return { s };
     const basedOn = e.refs.length === 1 ? e.basedOn[e.refs[0]!] : e.refs.some((r) => e.basedOn[r] !== undefined) ? e.basedOn : undefined;
-    if (e.sends >= 2) return { s, basedOn };
+    if (e.sends >= 2) {
+      if (!e.settled) return { s, basedOn };
+      const { settled: _free, ...again } = e;
+      return { s: { ...s, entries: { ...s.entries, [attempt]: again } }, basedOn };
+    }
     const known = e.sends === 0 ? Object.fromEntries(e.targets.map((t) => [t, recOf(s, t).version])) : e.known;
-    return { s: { ...s, entries: { ...s.entries, [attempt]: { ...e, sent: true, sends: e.sends + 1, known } } }, basedOn };
+    const { settled: _free, ...held } = e; // on the wire again: it holds its records' queues again
+    return { s: { ...s, entries: { ...s.entries, [attempt]: { ...held, sent: true, sends: e.sends + 1, known } } }, basedOn };
   },
   sending(s, attempt) {
     const e = s.entries[attempt];
@@ -1015,8 +1022,12 @@ export const entities: Module<Slice> = {
     if (!e) return false;
     for (const ref of e.refs) {
       const q = recOf(s, ref).queue;
-      const at = q.indexOf(attempt);
-      if (at > 0) return { on: "queue", behind: q.slice(0, at) };
+      // Rule 30, 2.8.5 (the runner's ruling on audit finding 1): an unknown holds the record queue until its forced repair settles, then no longer;
+      // its own re-send waits behind whatever holds the record now.
+      const holds = (x: string) => !s.entries[x]?.settled?.includes(ref);
+      const live = e.settled?.includes(ref) ? [...q.filter((x) => x !== attempt && holds(x)), attempt] : q.filter((x) => x === attempt || holds(x));
+      const at = live.indexOf(attempt);
+      if (at > 0) return { on: "queue", behind: live.slice(0, at) };
     }
     // D39, narrowed by D47: a re-send waits for its own repair. A new write need not: a repair it overtakes answers stale.
     if (e.unknown) for (const ref of e.refs) if (own(s.repairs, ref)) return { on: "repair", ref };

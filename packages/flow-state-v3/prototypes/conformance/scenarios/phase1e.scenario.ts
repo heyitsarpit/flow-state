@@ -119,20 +119,22 @@ export const phase1eScenarios: readonly Scenario[] = [
         c.eq("no stall named, however long the hold lasts", c.r.evidence("RecordHeld").length, 0);
         c.answer("w", { apply: true }, { actor: "a1" });
       },
-      // The price that stays (D3, rule 29): a sent hold keeps its place. a1's write to r1 waits behind a0's Held head however long it lasts.
-      "a-sent-hold-still-stalls-another-actor-on-its-record"(c0) {
+      // Audit gaps, the runner's ruling on finding 1 (rule 30: unknown "holds the record queue until that repair settles"; 2.8.5's example): a sent hold
+      // holds its record only while its forced repair runs. a1's write to r1 then goes; a0 keeps its lane's hold, and its re-send waits behind a1.
+      "a-sent-hold-releases-its-record-when-its-repair-settles"(c0) {
         const c = new Ctx(c0.fresh([s1Fixture]), a0);
         c.ensure(a0);
         c.ensure(a1);
         s1Commit(c, a0, 1, 1);
         c.answer("w", { lost: true }, { actor: "a0" });
         s1Commit(c, a1, 1, 2);
-        c.eq("a1 waits behind the hold", c.reqs("w").length, 1);
+        c.eq("a1 waits while the repair runs", c.reqs("w").length, 1);
         c.answer("repair", { truth: true });
-        c.eq("the forced repair does not release it (D3: resolved or released)", c.reqs("w").length, 1);
+        c.eq("the repair settled: a1 goes; a0 still holds its lane", [c.reqs("w").map((r) => r.input.v), c.r.quiet().waits.filter((w) => w.kind === "held").length], [[1, 2], 1]);
         c.to(a0, "Retry");
-        c.answer("w", { apply: true }, { actor: "a0" });
-        c.eq("then goes", c.reqs("w").map((r) => r.input.v), [1, 1, 2]);
+        c.eq("a0's re-send waits behind a1", c.reqs("w").length, 2);
+        c.answer("w", { apply: true }, { actor: "a1" });
+        c.eq("then goes", c.reqs("w").map((r) => r.input.v), [1, 2, 1]);
       },
       // U10 (OD48; FOR-ARPIT Q7 A; entity-proposal-2 section 5 and its 2.5 table): a later success cannot clear a mark, nor can time. After give-up
       // (OD28 P1's release) the mark is `uncertain` until a read asked after the give-up lands, then `unconfirmed` on its fields, quiet, asking nothing.
@@ -336,12 +338,13 @@ export const phase1eScenarios: readonly Scenario[] = [
         c.ensure(IB);
         c.to(IA, "Toggle", { id: "i1", liked: true });
         c.answer("like", { lost: true });
-        c.answer("repair", { truth: true });
-        c.to(IB, "Toggle", { id: "i1", liked: false });
+        c.to(IB, "Toggle", { id: "i1", liked: false }); // audit gaps: while the forced repair runs, the hold holds the record (rule 30)
         c.detach(IA);
         c.eq("bound: B waits", c.reqs("like").length, 1);
         c.advance(GRACE);
-        c.eq("unbound: yielded at once, the waiter sent, a read asked, the mark kept", [c.reqs("like").length, c.reqs("repair").length, c.rec(I1)?.uncertain], [2, 2, true]);
+        c.eq("unbound: yielded at once (released), the mark kept", [c.r.evidence("Released").length, c.rec(I1)?.uncertain], [1, true]);
+        c.answer("repair", { truth: true });
+        c.eq("its repair settles: the waiter is sent", c.reqs("like").length, 2);
       },
       // U10's cap (proposal 4.5), set small here: given-up marks per entity, oldest out, named.
       "the-given-up-mark-cap-evicts-the-oldest"(c0) {
@@ -716,6 +719,30 @@ export const phase1eScenarios: readonly Scenario[] = [
         c.answer("close", { apply: true });
         c.eq("close landed revision 2: save's doubt ended", [c.rec(GT1)?.data.revision, ...marks(c, GT1)], [2, false, []]);
       },
+      // Item 3, reachable since the runner's ruling. Q5 A: the narrowed rebase holds "only until sent"; rule 31: a retry "sends the Attempt's input and
+      // `basedOn` unchanged". a's draft (a2) is overtaken by b's save, which is sent over revision 2 and lost; once b's repair settles, a2 goes and
+      // succeeds at revision 3. b, already sent, keeps its base: its retry is sent over revision 2 and meets the version check.
+      "audit-a-sent-write-is-not-rebased-and-its-retry-keeps-its-base"(c0) {
+        const TB = { actor: P1TicketId, id: "b" };
+        const c = new Ctx(c0.fresh([p1TicketFixture()]), TK);
+        c.ensure(TK);
+        c.ensure(TB);
+        c.send("Load");
+        c.answer("tickets", { truth: true });
+        c.send("Save", { id: "t1", title: "a1" });
+        c.send("Save", { id: "t1", title: "a2" });
+        c.to(TB, "Save", { id: "t1", title: "b" });
+        c.answer("save", { apply: true });
+        c.eq("b goes next, over a1's revision", c.reqs("save").map((r) => [r.input.patch.title, r.input.match.revision]), [["a1", 1], ["b", 2]]);
+        c.answer("save", { lost: true });
+        c.answer("ticket", { never: true }); // b's handler reads the row; the person presses Retry instead
+        c.answer("repair", { truth: true });
+        c.eq("b's repair settled: a's draft goes, over a1's revision", c.reqs("save").at(-1)?.input.match.revision, 2);
+        c.answer("save", { apply: true });
+        c.eq("a2 landed revision 3", c.r.truth().server.tickets.t1.revision, 3);
+        c.to(TB, "Retry", { id: "t1" });
+        c.eq("b's retry keeps the base it was sent with", c.reqs("save").at(-1)?.input.match, { id: "t1", revision: 2 });
+      },
       // Rule 28: "invoked only once ... it heads every queue it joined". a0's write joins r1 (free) and r2 (a1's sent hold): it waits on r2.
       "audit-a-two-record-write-waits-on-its-second-records-queue"(c0) {
         const c = new Ctx(c0.fresh([s1Fixture]), a0);
@@ -724,11 +751,9 @@ export const phase1eScenarios: readonly Scenario[] = [
         s1Commit(c, a1, 2, 1);
         c.answer("w", { lost: true }, { actor: "a1" });
         s1Commit(c, a0, 3, 2);
-        c.eq("not invoked while r2 is held", c.reqs("w").length, 1);
+        c.eq("not invoked while r2 is held (a1's repair runs)", c.reqs("w").length, 1);
         c.answer("repair", { truth: true });
-        c.to(a1, "Retry");
-        c.answer("w", { apply: true }, { actor: "a1" });
-        c.eq("then invoked", c.reqs("w").map((r) => r.input.v), [1, 1, 2]);
+        c.eq("then invoked", c.reqs("w").map((r) => r.input.v), [1, 2]);
       },
       // Rule 32: "a mark whose Attempt is still unresolved stays", and 4.2's business-key row ends only given-up doubts. b1's pay is held when b2's
       // pay under the same order key succeeds.

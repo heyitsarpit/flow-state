@@ -24,7 +24,7 @@ export const GATE_ROWS: Readonly<Record<string, { readonly mb: number; readonly 
   "falsify mutants": { mb: 2000, s: 60 },
   "falsify search": { mb: 600, s: 40 },
   "falsify lies": { mb: 1500, s: 32 },
-  "lifetime-falsify": { mb: 3800, s: 22 },
+  "lifetime-falsify": { mb: 3800, s: 100 }, // re-measured after audit gaps 2 and 1b: 96 s alone (261 cases, the a2 list)
   checks: { mb: SCRIPT.size.peakMb, s: SCRIPT.size.aloneS },
   "typed tsc": { mb: SCRIPT.size.peakMb, s: SCRIPT.size.aloneS },
   "cli pins": { mb: SCRIPT.size.peakMb, s: 5 },

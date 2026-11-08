@@ -743,14 +743,15 @@ export const fragScenarios: readonly Scenario[] = [
         c.ensure(B);
         c.to(L, "Toggle", { id: "i1", liked: true });
         c.answer("like", { lost: true });
-        c.answer("repair", { truth: true });
+        // Audit gaps, the runner's ruling (rule 30, 2.8.5): the record is held only while the forced repair runs, so it stays unanswered here.
         c.to(B, "Toggle", { id: "i1", liked: false });
         c.detach(L); // T2 (rule 73): the Held lane keeps nothing; the actor ends after the grace and the hold is unbound
         c.eq("waits while the hold is bound", c.reqs("like").length, 1);
         c.advance(GRACE);
         c.eq("ended", c.r.state(L), undefined);
-        c.eq("D15 as ruled: yielded as soon as it was unbound with a waiter, no clock", c.reqs("like").length, 2);
-        c.eq("released with evidence", c.r.evidence("Released").length, 1);
+        c.eq("D15 as ruled: released as soon as it was unbound with a waiter, no clock", c.r.evidence("Released").length, 1);
+        c.answer("repair", { truth: true });
+        c.eq("the waiter goes when the repair settles (rule 30)", c.reqs("like").length, 2);
         c.eq("mark kept", c.rec(I1)?.uncertain, true);
         c.ensure(L);
         c.eq(
@@ -767,8 +768,8 @@ export const fragScenarios: readonly Scenario[] = [
         c.answer("repair", { truth: true });
         c.to(B, "Toggle", { id: "i1", liked: false });
         c.advance(3_600_000);
-        c.eq("A holds", c.r.row(L, "like", K)?.uncertain, true);
-        c.eq("B waits", c.reqs("like").length, 1);
+        c.eq("A holds its lane, never released", [c.r.row(L, "like", K)?.uncertain, c.r.evidence("Released").length], [true, 0]);
+        c.eq("its repair settled, so B went (the runner's ruling, rule 30)", c.reqs("like").length, 2);
       },
       "unbound-hold-with-no-waiter-stays"(c) {
         c.ensure(L);

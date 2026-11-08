@@ -2241,3 +2241,37 @@ output:P1-E/audit-the-many-bound-is-4096-and-the-cap-is-past-64 hash:aafecf9a057
 file:expected-recipients.txt hash:13a85dc2fb7b | Audit 2: the split bulk case adds one delivery and one start-node check; no red count moved
 removed:variant:P1-E/audit-the-cap-and-the-many-bound-are-4096 | split into P1-E/audit-the-many-bound-is-4096-and-the-cap-is-past-64 and P1-E-CAP
 removed:output:P1-E/audit-the-cap-and-the-many-bound-are-4096 | its case split, see the variant's line
+LIKE-02 hash:8671ff5c7ada | Runner ruling on finding 1 (rule 30, 2.8.5): a1 passes a0's hold once its repair settles; a0's re-send waits behind a1
+LIKE-03 hash:88aca34a4f88 | Runner ruling on finding 1: a1 goes at once past a0's settled hold; the late re-send lands last on r1
+LIKE-04 hash:3dde7a377fb5 | Runner ruling on finding 1: B is sent once A's repair settles; A keeps its lane hold until it cancels
+STORE-03 hash:618fad6e1f78 | Runner ruling on finding 1: the unknown's queue entry stops holding when the forced repair settles
+STORE-11 hash:2e2413f98df0 | Runner ruling on finding 1: StillUnknown holds the record again until its new forced repair settles
+LIB-02 hash:fa2782753aeb | Runner ruling on finding 1: a later write passes an earlier unknown once its repair settles (unlike DB's KeyScheduler)
+MED-02 hash:9451a5c27bd4 | Runner ruling on finding 1: RecordHeld only while the forced repair runs; it goes when the repair settles
+FRAG-12 hash:5364af0d0e72 | Runner ruling on finding 1: D15's yield releases the hold; the waiter goes when the repair settles; a bound hold keeps its lane only
+P1-E hash:18a66d30fd3c | Runner ruling on finding 1: the sent-hold case reversed and renamed, D15 and rule 28 cases re-timed, item 3's rebase case added
+file:scenarios/flows.scenario.ts hash:03d32d837bd4 | Runner ruling on finding 1 in flows.scenario.ts (LIB-02)
+file:scenarios/frag.scenario.ts hash:9dd4fc012afc | Runner ruling on finding 1 in frag.scenario.ts (FRAG-12)
+file:scenarios/phase1e.scenario.ts hash:6a1407c36000 | Runner ruling on finding 1 in phase1e.scenario.ts
+file:scenarios/review.scenario.ts hash:665946ad13c8 | Runner ruling on finding 1 in review.scenario.ts (MED-02)
+file:scenarios/store.scenario.ts hash:9df81012ef66 | Runner ruling on finding 1 in store.scenario.ts (LIKE-02..04, STORE-03, STORE-11)
+file:limits.ts hash:9a56d887d01b | lifetime-falsify's row re-measured: 96 s alone with the a2 list
+file:expected-recipients.txt hash:c9336df24f98 | Runner ruling on finding 1: more sends reach their recipients in the re-timed cases; no red count moved
+round:mutants-a2.ts hash:9b253adbb1b6 | Runner ruling on finding 1: a2.record-held-past-the-repair, and audit-2.rebase-after-send aimed at item 3's case
+round:mutants-p1e.ts hash:903288352d72 | Runner ruling on finding 1: p1e.sent-hold-passed pinned D3's old price, now the runtime; replaced by a2.record-held-past-the-repair
+output:FRAG-12/bound-hold-never-yields hash:bea560388847 | ruling output: B sent after the repair settles
+output:FRAG-13 hash:c2ba468ee62d | ruling output: B sent before the dispose
+output:FRAG-20/a-bound-hold-never-yields-an-actor-back-in-time hash:d54fb6095daa | ruling output: the waiter sent, no RecordHeld
+output:FRAG-20/no-waiter-left-no-yield hash:56fcb657afef | ruling output: the waiter sent before it leaves
+output:LIB-02 hash:1fa7729e2613 | ruling output: the later write first, then the retry
+output:LIKE-02 hash:1ce37b21e940 | ruling output: a1 before a0's re-send
+output:LIKE-03 hash:b09c081a4792 | ruling output: a1 at once
+output:LIKE-04 hash:0553adc98788 | ruling output: B at once after the repair
+output:MED-02/record-held-names-holder-and-waiter hash:78f611fe24a7 | ruling output: RecordHeld during the repair
+output:P1-E/a-sent-hold-releases-its-record-when-its-repair-settles hash:ff50f67d2be9 | new output: the record released at the repair
+output:P1-E/audit-a-sent-write-is-not-rebased-and-its-retry-keeps-its-base hash:5a93469b6783 | new output: item 3, no rebase after send
+output:P1-E/audit-a-two-record-write-waits-on-its-second-records-queue hash:789a1fa90b90 | ruling output: invoked when the repair settles
+output:STORE-03 hash:617ad7b59b6a | ruling output: B sent
+output:STORE-11/stillunknown-keeps-its-place hash:b92fe4ec1ca2 | ruling output: StillUnknown re-holds
+removed:variant:P1-E/a-sent-hold-still-stalls-another-actor-on-its-record | reversed by the runner's ruling on finding 1; now a-sent-hold-releases-its-record-when-its-repair-settles
+removed:output:P1-E/a-sent-hold-still-stalls-another-actor-on-its-record | its case reversed and renamed, see the variant's line
