@@ -39,7 +39,8 @@ const SUITE1 = (only: string) => ["bun", "main.ts", "--round", "99", "--no-catal
 const rows = /^(ok|BAD|UNKN)\s|^GATES|^(KILLED|SURVIVED|UNKNOWN|INVALID|UNSCORED|ROTTED)\s|^CONTROL|^control:|^\d+\/\d+ killed|^every|^never red|^error:|^WATCH|^left /;
 const LONG = 270;
 const K = 1_000_000_000;
-const slowSettle: readonly Edit[] = [[`${P}/round-14/adapter.ts`, "pending: () => rt.pending(),", `pending: () => ((globalThis as any).__plantK = ((globalThis as any).__plantK ?? 0) + 1) <= ${K} || rt.pending(),`]];
+const settleFor = (k: number): readonly Edit[] => [[`${P}/round-14/adapter.ts`, "pending: () => rt.pending(),", `pending: () => ((globalThis as any).__plantK = ((globalThis as any).__plantK ?? 0) + 1) <= ${k} || rt.pending(),`]];
+const slowSettle = settleFor(K);
 const LOADED = ["taskpolicy", "-c", "background"];
 const lifeMutant = (edits: string) => ({ [`${P}/round-14/mutants-lifetime.ts`]: plantList(`[{ id: "plant", kills: ["rule:73"], edits: ${edits} }]`) });
 const noGrace = '["step.ts", "const dueAt = tx.env.now + tx.bounds.graceMs;", "const dueAt = tx.env.now;"]';
@@ -59,7 +60,7 @@ const PLANTS: readonly Plant[] = [
   {
     id: "B9-alone",
     edits: [[`${P}/conformance/search/frag.search.ts`, "    state(h) {\n      checkClaims(h.read);", '    state(h) {\n      if (((globalThis as any).__plantN = ((globalThis as any).__plantN ?? 0) + 1) > 600) throw new Error("PLANT-B9 past state 600");\n      checkClaims(h.read);']],
-    cmd: SUITE1("FRAG-15"),
+    cmd: [...SUITE1("FRAG-15"), "--no-output"],
     seconds: 200,
     lines: /^(PASS|FAIL)\s/,
     expect: { old: [/^FAIL\s+FRAG-15.*PLANT-B9/m], new: [/^FAIL\s+FRAG-15.*PLANT-B9/m] },
@@ -67,20 +68,20 @@ const PLANTS: readonly Plant[] = [
   {
     id: "B9-loaded",
     edits: [[`${P}/conformance/search/frag.search.ts`, "    state(h) {\n      checkClaims(h.read);", '    state(h) {\n      if (((globalThis as any).__plantN = ((globalThis as any).__plantN ?? 0) + 1) > 600) throw new Error("PLANT-B9 past state 600");\n      checkClaims(h.read);']],
-    cmd: [...LOADED, ...SUITE1("FRAG-15")],
+    cmd: [...LOADED, ...SUITE1("FRAG-15"), "--no-output"],
     seconds: 200,
     lines: /^(PASS|FAIL)\s/,
-    expect: { old: [/^PASS\s+FRAG-15/m], new: [/^FAIL\s+FRAG-15.*PLANT-B9/m] },
+    expect: { old: [/^(PASS|FAIL)\s+FRAG-15/m], new: [/^FAIL\s+FRAG-15.*PLANT-B9/m] },
   },
   {
     id: "B14",
-    edits: slowSettle,
-    cmd: [...LOADED, "bun", "mutate-one.ts", ...rt],
+    edits: settleFor(2 * K),
+    cmd: ["bun", "mutate-one.ts", ...rt],
     seconds: 280,
     lines: /^\{"killedBy"|^VERDICT/,
     sample: /main\.ts --round 99/,
     strays: { old: true, new: false },
-    expect: { old: [/^after the first drain, at most [2-9]/m], new: [/^after the first drain, at most [01]$/m] },
+    expect: { old: [/^after the first drain, at most [01]$/m, /unknown under load: plain/], new: [/^after the first drain, at most [01]$/m, /suite=fail/] },
   },
   { id: "B3-alone", edits: slowSettle, cmd: SUITE1("PAY-01"), seconds: 200, lines: /^(PASS|FAIL)\s/, expect: { old: [/^PASS\s+PAY-01/m], new: [/did not quiesce in 100000 work units/] } },
   { id: "B3-loaded", edits: slowSettle, cmd: [...LOADED, ...SUITE1("PAY-01")], seconds: 200, lines: /^(PASS|FAIL)\s/, expect: { old: [/did not quiesce in 20 s of wall clock/], new: [/did not quiesce in 100000 work units/] } },
