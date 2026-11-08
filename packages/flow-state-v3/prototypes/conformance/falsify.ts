@@ -286,6 +286,9 @@ try {
       // Phase 1 (R11): `replacedUnderCancel` read an op's policy by its name across every fixture. Beside R15Switch's `search` (cancel), this runtime
       // replaces P1Latest's `search` (latest) head on the wire as `cancel` would: the replaced Attempt's ending reaches nobody.
       ["lie.latest-as-cancel-by-name", "interruptedBy, a latest op named as a cancel op", [["lane.ts", "    if (policy === \"cancel\") return replaceHead(tx, l!, a);", "    if (policy === \"cancel\" || a.machine === \"Lab/P1Latest\") return replaceHead(tx, l!, a);"]], "(j)"],
+      // Audit 1 (item 5): `replacedUnderCancel` took the runtime's `mint` evidence of a newer Attempt as the cause. This runtime says a newer `search`
+      // (cancel) was minted and makes the delivered success evidence; no newer Attempt was ever sent, which the suite sees at the fake.
+      ["lie.fake-newer-mint-under-cancel", "mint, a newer Attempt never sent", [["turn.ts", G125, when('item.op === "search" && item.ending.ch === "success"', 'note(tx, "mint", { op: item.op, attempt: `${String(item.attempt)}-newer`, mint: 1e9 });')]], "(j)"],
       ["lie.serialize-as-latest", "Superseded, a serialize queue", [["lane.ts", 'if (policy === "latest") { for (const x of l.w) supersede(tx, a.op, x);', 'if (policy === "latest" || policy === "serialize") { for (const x of l.w) supersede(tx, a.op, x);']], "(j) superseded"],
       ["lie.dispose-start", "DisposeStart, no dispose", [["turn.ts", G125, other('note(tx, "DisposeStart", {});')]], "(j) DisposeStart"],
       ["lie.settled-released", "Released, a settled head (checkMints)", [["lane.ts", "  settleHead(tx, next, final);", '  note(tx, "Released", { op: next.op, attempt: next.head?.id }); setLane(tx, next);']], ""], // (j) runs first and sees it; `checkMints` behind it

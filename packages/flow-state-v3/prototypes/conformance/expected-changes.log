@@ -2175,3 +2175,4 @@ output:P1-E/a-replayed-business-key-success-is-no-contradiction hash:62fe07b75cb
 output:P1-E/a-business-key-success-ends-a-given-up-doubt hash:44e95313ddaf | new output: a same-key success ends a given-up doubt
 output:P1-E/a-restored-given-up-doubt-is-proven-by-the-base-its-lane-saved hash:977a745fefa6 | new output: the lane record's sent base proves a restored doubt
 output:P1-E/a-doubt-restored-from-a-record-written-before-its-send-is-not-proven hash:ed8c3a24c412 | new output: a pre-send lane record's base is not trusted
+file:falsify.ts hash:5d2b9190a615 | Audit 1 item 5: a lie that fakes a newer mint under cancel, so replacedUnderCancel's report alone excuses nothing; red by (j)
