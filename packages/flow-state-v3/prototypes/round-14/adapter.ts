@@ -355,7 +355,7 @@ export const port: Port = {
       inspect: (actor) => {
         const w = rt.world();
         const t = w.timers[`grace/${actor}`];
-        const bound = getActor(w.actors, actor) ?? w.retired[actor];
+        const bound = getActor(w.actors, actor) ?? w.retired[actor] ?? w.undecodable[actor];
         const unbound = bound ? [] : Object.values(w.lanes).filter((l) => l.actor === actor).map((l) => l.id);
         return { uses: w.uses[actor] ?? [], busy: busyOf(w, actor), ...(t ? { grace: t.dueAt } : {}), waiting: Object.values(w.waiting).filter((x) => x.actor === actor).map((x) => x.id), unbound };
       },

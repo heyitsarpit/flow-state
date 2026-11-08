@@ -1644,3 +1644,16 @@ round:adapter.ts hash:19b8fbdbad1b | inspect lists an identity's lanes as unboun
 output:FRAG-15 hash:effe8769e9ba | U14: the search's boot after a dispose reports the unbound lane record (one UnboundLane)
 output:R15-01/an-unbound-lane-left-by-dispose-is-listed-and-reported-until-adopted hash:0336bda6bb53 | new output: a held lane disposed, reported once at the boot, adopted by the ensure
 file:expected-recipients.txt hash:c5e0e57dc1af | +3 observed, +1 restored, +3 start nodes: R15-01's U14 variant (its ensure after the reload adopts the held lane)
+R15-02 hash:4392b13a3195 | new case: U2 and U3 already true (key-less cancel in a keyed success and in a NotSent handler does nothing; W heard before the held head)
+R15-03 hash:ab4d17f6cd6b | new case: U9 already true (creation refuses "3" for a NumberFromString input by its type side)
+file:scenarios/round15b.scenario.ts hash:5b7c68e323cc | new scenario file holding R15-02 and R15-03, the already-true rulings' gap variants
+file:typed/round15b.ts hash:1274aca544b9 | new fixtures: Lab/R15Keyed (key-less cancel on success), Lab/R15Reject (keyed reject, cancel on NotSent), Lab/R15Num (NumberFromString input)
+file:suite.ts hash:92f52b05280e | registers round15bScenarios
+round:mutants-lifetime.ts hash:5e606c86a4e4 | spreads mutants-r15b.ts (the already-true rulings' wrong runtimes)
+round:mutants-r15b.ts hash:44330dc5a778 | new: three wrong runtimes for R15-02 (key lane by key, NotSent acts on the live lane, head heard before W)
+round:adapter.ts hash:217ecf85ece3 | inspect: an undecodable record binds its lanes too (review finding on U14), so they are not listed unbound
+output:R15-02/a-key-less-cancel-in-a-keyed-success-handler-does-nothing hash:05f304c3de64 | new output: the promoted commit sends, nothing released
+output:R15-02/a-key-less-cancel-in-a-not-sent-handler-does-nothing hash:2ea4ebf313a5 | new output: the second commit declines Rejected, the head succeeds into B
+output:R15-02/on-a-reload-each-queued-commit-is-heard-before-the-held-head hash:ca701cdeae42 | new output: No, No, then Unsure at the reload
+output:R15-03/creation-checks-an-input-by-its-type-side-and-refuses-a-transforming-decode hash:3dc242f11cee | new output: no actor for "3", InputRefused; the actor for 3
+file:expected-recipients.txt hash:3b1047ddb0cb | +5 observed, +1 restored, +5 start nodes: R15-02 and R15-03's four new variants

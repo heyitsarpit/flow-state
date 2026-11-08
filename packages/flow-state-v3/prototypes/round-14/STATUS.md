@@ -644,6 +644,11 @@ Round 15 continues in round-14's folder (the runtime is the same one, evolved; a
 | U13 `unknown { Disposed }` past the disposal bound | done: `finishDisposal` (step.ts) calls `endPastDisposal` (lane.ts): the head's ending `unknown { Disposed }` is noted and parked, the head kept Held on disk (mayHaveApplied), W parked after it as `NotSent { Disposed }`; the restore delivers both from the parked list, head first, and the hold stays | 2nd | `R15-01/past-the-disposal-bound-the-attempt-ends-unknown-disposed`: `expected [["unknown","Disposed"],["failure","Disposed"]], got [["failure","Disposed"]]` | `r15.past-bound-captured-inflight` (red: the reload hears W, then Restored) |
 | U14 `disposeActor` flushes at once | already true: `flush` (durable.ts) writes a dropped identity's removal `now` (D93) | - | `REV7-D80/D93-a-dispose-is-not-lost-to-a-kill` passes before and after | none new (no one-edit target in the lifetime list; REV7-D80 is not in it) |
 | U14 unbound lane listed and reported until adopted or forgotten | partly done: Inspection (`inspect`, adapter.ts) lists an identity's lanes as `unbound` while no record or incarnation binds them; the restore (durable.ts) notes `UnboundLane` per lane record with no actor record, each boot; an ensure adopts (already true, rule 44). **`forget` not built** (see findings) | 3rd | `R15-01/an-unbound-lane-left-by-dispose-is-listed-and-reported-until-adopted`: `listed as unbound under the identity: expected 1, got 0` | `r15.unbound-lane-unreported`, `r15.unbound-lane-unlisted` |
+| U2 key-less names only the ending's own Attempt | already true (turn.ts `laneOfAttempt`, D22): FRAG-14 (`[cancel, cancel]`), and new `R15-02/a-key-less-cancel-in-a-keyed-success-handler-does-nothing`, `R15-02/a-key-less-cancel-in-a-not-sent-handler-does-nothing`, green on arrival | 4th | none (green first) | `r15b.keyless-success-names-key-lane`, `r15b.keyless-notsent-acts-live-lane` |
+| U3 W's `NotSent { Restored }` before the head's unknown | already true (durable.ts, D107): fixpass `a-dispose-of-that-record-keeps-its-endings-on-the-lane`, R14-FIX-02, new `R15-02/on-a-reload-each-queued-commit-is-heard-before-the-held-head` (two queued) | 4th | none | `r15b.reload-head-before-w` (one edit, so the head is heard twice: red on 9 cases, an artifact; no honest one-edit reorder exists) |
+| U5 no `allow` | already true: `Op["concurrency"]` is `reject \| latest \| serialize` (fixtures/compiled.ts), the codec's literals the same (codec/codec.ts); never built | - | - | none (a type-level absence; no case can name it) |
+| U8 sends queue until boot | already true (driver.ts, D87): REV7-M2 (queue runs after boot; a read that never answers: `StorageFailure`, runs unpersisted; the queue's bound) | - | - | none new |
+| U9 creation checks the type side | already true (compile/memory.ts, D219): new `R15-03/creation-checks-an-input-by-its-type-side-and-refuses-a-transforming-decode` | 4th | none | none possible: the check lives in the typed front end (conformance/compile), outside the runtime tree a wrong runtime edits (so R15-03 is not in lifetime-falsify) |
 
 Findings for the design:
 1. Rule 15's exemption and U2 pull apart. A key-less `cancel` in a success or failure handler does nothing (U2: the ending's Attempt is
@@ -675,3 +680,28 @@ Findings for the design:
 6. "Unbound" needed a definition to build. Built: a lane is unbound when its identity has no decoded actor record (live or retired) and no
    incarnation; an undecodable record's lanes are not reported (a fresh incarnation adopts them, 2.7.13), an old-version record's lanes are
    (rule 74: "stay unbound and listed"). The design should say which identities' lanes count.
+7. Rule 43 has two readings for an unkeyed operation's `NotSent` handler: "On an unkeyed operation a key-less member names its one lane",
+   and "in a `NotSent` ending they do nothing". The runtime does nothing (no Attempt). The design should say the NotSent clause wins for
+   unkeyed operations too (R15-02 tests the keyed case only, which is unambiguous).
+8. U9's check lives only in the typed front end (`compile/memory.ts`); a hand-compiled machine gets no creation check from the runtime.
+   Consistent with "the public API compiles to Compiled", but the guarantee is the compiler's, not the Runtime's; Stories and `check()`
+   must go through the same door.
+9. The review of U13 noted the store hears `unknown { Restored }` at the restore (`restoredHook`), while the machine hears the parked
+   `unknown { Disposed }`: two reasons for one Attempt. Harmless now (the store reads only "unknown"), but rule 30/32's store wording
+   should name which reason it sees (phase 1).
+10. Harness: oracle (h) (drive.ts `writeAheadLies`, `cancelSeen`) does not count an unknown handler's own key-less cancel as a cause for
+   releasing that hold, so a fixture whose restored unknown cancels its own persisted hold is red by (h). Avoided in R15Late (its Unsure
+   keeps the hold); not changed, since it gives no wrong verdict on the runtime's behaviour so far.
+
+Log (start-end, who, redone):
+
+| Task | Start | End | Who | Redone |
+| --- | --- | --- | --- | --- |
+| rule 15 promoted head: case, runtime, mutants, locks | 10:05 | 10:30 | lead | |
+| U13: case, runtime (two tries: (h) caught the first), mutant, locks | 10:30 | 10:45 | lead | yes, once (head kept on disk) |
+| gates at the U13 commit | 10:40 | 10:43 | lead | 25/25 ok |
+| U14: case, runtime, two mutants, locks | 10:45 | 11:00 | lead | |
+| review of the three runtime diffs (rule 15, U13, U14) | 11:00 | 11:02 | reviewer (Haiku) | its U14 bug acted on (inspect skipped undecodable); others recorded as findings 1, 9 |
+| map U2-U9 to proving cases and code | 11:02 | 11:05 | runner (Haiku) | none; gaps it found became R15-02, R15-03 |
+| R15-02/R15-03 variants | 11:05 | 11:07 | coder (Haiku) | lead made the NotSent variant keyed (finding 7), split U9 into R15-03 |
+| R15-02 wrong runtimes | 11:07 | 11:09 | coder (Haiku) | none; the reload one is an artifact, kept and said so |

@@ -532,3 +532,5 @@ Convergence-8. Old unbuilt rows (`STORY-ALL`, `BROWSER-*`, `SSR-01`) renumbered 
 | R14-FIX-02 | 14 | example | design | rule:73, C106 |  | M4: a Held lane with a waiting commit keeps nothing, so the identity is not woken at ready; the next use hears both |
 | R14-FIX-03 | 14 | example | design | rule:73, C2 |  | D3: three lives of one persisted identity, each a return after an end, carry three distinct incarnation ids |
 | R15-01 | 14 | fault | design | rule:15, rule:43 |  | Round 15, the rulings owed (OD48): rule 15's cancel exemption covers a never-sent head promoted at settlement |
+| R15-02 | 14 | fault | design | rule:43, rule:16, rule:44 |  | Round 15, rulings already true (U2, U3): key-less cancel in a keyed success or a NotSent handler does nothing; two queued commits heard before the held head at a reload |
+| R15-03 | 14 | fault | design | sec:2.2.2 |  | Round 15, U9 already true: creation checks input by its type side, so "3" for a NumberFromString field is refused |

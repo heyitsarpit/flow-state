@@ -232,6 +232,8 @@ R14-FIX-03 e5ab12a86da6
 R14-FIX-01 e8a5adb33fa2
 R14-FIX-02 022e63be1f0b
 R15-01 1d96bab7a618
+R15-02 4392b13a3195
+R15-03 ab4d17f6cd6b
 variant:PAY-06/interruptible present
 variant:PAY-06/uninterruptible present
 variant:PAY-07/leaveMidCharge present
@@ -990,6 +992,10 @@ variant:R15-01/a-late-exit-that-cancels-the-lane-may-leave-its-promoted-head pre
 variant:R15-01/a-late-exit-that-does-not-cancel-may-not-leave-its-promoted-head present
 variant:R15-01/past-the-disposal-bound-the-attempt-ends-unknown-disposed present
 variant:R15-01/an-unbound-lane-left-by-dispose-is-listed-and-reported-until-adopted present
+variant:R15-02/a-key-less-cancel-in-a-keyed-success-handler-does-nothing present
+variant:R15-02/a-key-less-cancel-in-a-not-sent-handler-does-nothing present
+variant:R15-02/on-a-reload-each-queued-commit-is-heard-before-the-held-head present
+variant:R15-03/creation-checks-an-input-by-its-type-side-and-refuses-a-transforming-decode present
 file:scenarios/absorb.scenario.ts 9763d1722ca6
 file:scenarios/ctx.ts fe3a8de04a97
 file:scenarios/fixpass.scenario.ts 1a46432b7fe7
@@ -1005,6 +1011,7 @@ file:scenarios/round10.scenario.ts 9a79cf927e08
 file:scenarios/round12.scenario.ts 3b48ce8a6478
 file:scenarios/round13.scenario.ts 21bc66a212dd
 file:scenarios/round15.scenario.ts c8e20204063d
+file:scenarios/round15b.scenario.ts 5b7c68e323cc
 file:scenarios/round4.scenario.ts c5b1413bfa40
 file:scenarios/round5.scenario.ts 679d136cdedf
 file:scenarios/round6.scenario.ts 72e2a778f2b5
@@ -1080,6 +1087,7 @@ file:typed/real.ts 9ce741bef76b
 file:typed/round10.ts feddb1eaa7a1
 file:typed/round13.ts 8329def56a59
 file:typed/round15.ts f1462ebc75e2
+file:typed/round15b.ts 1274aca544b9
 file:typed/round6.ts 9d04476c5d39
 file:typed/round7.ts d311490fd524
 file:typed/round8.ts 83315840f130
@@ -1100,7 +1108,7 @@ file:legacy.ts 2c8abbeed313
 file:graph.ts 62d146b2355b
 file:graph-gate.ts bce83ecc9dd6
 file:main.ts 8920aa772ee4
-file:suite.ts 68e89690ad0a
+file:suite.ts 92f52b05280e
 file:limits.ts fd0c948acc21
 file:verdicts/core.ts 9892f5372974
 file:verdicts/programs.ts c39198361792
@@ -1122,7 +1130,7 @@ file:report.ts 7e305fd3110b
 file:watch.ts 93b7fe49b6da
 file:gate5s.ts d8a24cbd10f4
 file:gate-5s-expected.txt 076d1f268376
-file:expected-recipients.txt c5e0e57dc1af
+file:expected-recipients.txt 3b1047ddb0cb
 file:mutate.ts 90691b4a787c
 file:mutate-one.ts a48188cfc0d7
 file:gates.ts e1f36b72d88b
@@ -1167,10 +1175,11 @@ round:mutants-lifetime-misc.ts 01e8867b91ce
 round:mutants-lifetime-pay16.ts 5f6cdabd5c3f
 round:mutants-lifetime-pins-a.ts 2112467de82b
 round:mutants-lifetime-pins-b.ts 6739b5b020ec
-round:mutants-lifetime.ts 4bc1d3d15031
+round:mutants-lifetime.ts 5e606c86a4e4
 round:mutants-lost.ts 341cf4c256c6
 round:mutants-r10.ts b33f543d803a
 round:mutants-r15.ts 86c33fe02c81
+round:mutants-r15b.ts 44330dc5a778
 round:mutants-r5.ts 140a4de2354a
 round:mutants-r6.ts b6c3802cca2e
 round:mutants-r7.ts 8714ead920f9
@@ -1179,7 +1188,7 @@ round:mutants-r9.ts b9904f5525b2
 round:mutants-r9b.ts a63507e3087f
 round:mutants.ts 9ced0df5e862
 round:run-plants.sh e7e8fcfb75a7
-round:adapter.ts 19b8fbdbad1b
+round:adapter.ts 217ecf85ece3
 output:CART-01 cfd438e7ae1b
 output:CART-02/at-most-nine fd17f07a683d
 output:CART-02/coupon cffb0eef99f3
@@ -1510,6 +1519,10 @@ output:R15-01/a-late-exit-that-cancels-the-lane-may-leave-its-promoted-head 3dfc
 output:R15-01/a-late-exit-that-does-not-cancel-may-not-leave-its-promoted-head 6d750f15fcd4
 output:R15-01/an-unbound-lane-left-by-dispose-is-listed-and-reported-until-adopted 0336bda6bb53
 output:R15-01/past-the-disposal-bound-the-attempt-ends-unknown-disposed c0e9863becda
+output:R15-02/a-key-less-cancel-in-a-keyed-success-handler-does-nothing 05f304c3de64
+output:R15-02/a-key-less-cancel-in-a-not-sent-handler-does-nothing 2ea4ebf313a5
+output:R15-02/on-a-reload-each-queued-commit-is-heard-before-the-held-head ca701cdeae42
+output:R15-03/creation-checks-an-input-by-its-type-side-and-refuses-a-transforming-decode 3dc242f11cee
 output:REAL-01/a-callback-only-where-written dc513934a867
 output:REAL-01/a-denied-guard-keeps-the-field b9f4bcb42f60
 output:REAL-01/history-returns-to-the-exact-field-not-the-default b240d96bc43d

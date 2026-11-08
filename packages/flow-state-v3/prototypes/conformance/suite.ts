@@ -33,6 +33,7 @@ import { ignoreScenarios } from "./scenarios/ignore.scenario.ts";
 import { absorbScenarios } from "./scenarios/absorb.scenario.ts";
 import { fixpassScenarios } from "./scenarios/fixpass.scenario.ts";
 import { round15Scenarios } from "./scenarios/round15.scenario.ts";
+import { round15bScenarios } from "./scenarios/round15b.scenario.ts";
 import { streams5Scenarios } from "./scenarios/streams5.scenario.ts";
 import { flowScenarios } from "./scenarios/flows.scenario.ts";
 import { fragScenarios } from "./scenarios/frag.scenario.ts";
@@ -69,6 +70,7 @@ export const allScenarios: readonly Scenario[] = [
   ...absorbScenarios,
   ...fixpassScenarios,
   ...round15Scenarios,
+  ...round15bScenarios,
 ];
 
 const here = import.meta.dir;
