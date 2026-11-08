@@ -5,13 +5,16 @@ import { definition, ensureArgs, Flow, machine } from "../compile/index.ts";
 import { KeyCollideId, keyCollideFixture } from "../fixtures/phase1h.compiled.ts";
 import type { Release } from "../fixtures/round6.compiled.ts";
 import type { Step } from "../harness.ts";
-import { editor1Format1, editorRef } from "../typed/identity.ts";
+import { editor1Format1, editorFixture, editorRef } from "../typed/identity.ts";
+import { A1KeyedId, a1KeyedFixture } from "../typed/audit1.ts";
 import { editorFormat1Of, keyStampFormat1Fixture, P1AllId, p1AllFixture, P1GoneId, p1GoneFixture, P1LatestId, p1LatestFixture, P1RelId, p1RelFixture } from "../typed/phase1h.ts";
 import { ctorInputFixture, keyStampFixture } from "../typed/round13.ts";
 import { preVersionStampFixture, r15StayFixture, r15SwitchFixture, R15StayId, R15SwitchId } from "../typed/round15.ts";
 import { Ctx, type Scenario } from "./ctx.ts";
+import { GRACE } from "./lifetime.scenario.ts";
 
 const SW = { actor: R15SwitchId, id: "a" };
+const AK = { actor: A1KeyedId, id: "a" };
 const RS = { actor: R15StayId, id: "a" };
 const KS = { actor: "Lab/KeyStamp", id: "a" };
 const PA = { actor: P1AllId, id: "a" };
@@ -92,9 +95,11 @@ export const phase1hScenarios: readonly Scenario[] = [
           code(memOf({ at: Flow.input(S.NumberFromString.pipe(S.withDecodingDefaultTypeKey(Effect.sync(() => ++ran)))) })),
           code(memOf({ at: Flow.input(S.Struct({ t: S.Number.pipe(S.withConstructorDefault(Effect.sync(() => ++ran))) })) })),
           code(memOf({ at: Flow.input(S.suspend(() => S.Struct({ t: S.Number.pipe(S.withConstructorDefault(Effect.sync(() => ++ran))) }))) })),
-        ], ["ImpureDefault", "ImpureDefault", "ImpureDefault", "ImpureDefault", "ImpureDefault"]);
+        ].map((x) => x !== ""), [true, true, true, true, true]); // Audit 1: refused; the name `ImpureDefault` is proposed, so the spelling is not pinned
         c.eq("never run", ran, 0);
         c.eq("a value is a default", code(memOf({ at: Flow.input(S.Number.pipe(S.withConstructorDefault(Effect.succeed(7)))) })), "");
+        // Audit 1, C184: a failed Exit is an Effect too, not a value: refused, constructor and decoding alike.
+        c.eq("a failing default is refused", [code(memOf({ at: Flow.input(S.Number.pipe(S.withConstructorDefault(Effect.fail("no") as never))) })), code(memOf({ at: Flow.input(S.Number.pipe(S.withDecodingDefaultKey(Effect.fail("no") as never))) }))].map((x) => x !== ""), [true, true]);
         c.ensure(CI);
         c.eq("and the Runtime starts an actor with it", c.mem(CI), { seen: 1, n: 7 });
       },
@@ -316,6 +321,67 @@ export const phase1hScenarios: readonly Scenario[] = [
       "an-actor-record-in-format-1-of-an-unchanged-schema-restores"(c0) {
         const c = editorAcross(c0, 0, 1);
         c.eq("not listed", c.r.evidence("OldVersionActor").length, 0);
+      },
+      // Audit 1, R10 (OD51; rule 24): beside a release, `cancelAll` ends the queue and "the head is left to the release": the release's own cancel
+      // (the trait's `whenAbandoned`) is the one cancel the head gets, so it is interrupted once, and its ending is evidence when it lands.
+      "audit-a-cancel-all-beside-a-release-leaves-the-head-to-the-release"(c0) {
+        const c = new Ctx(c0.fresh([p1RelFixture()]), PR);
+        c.ensure(PR);
+        c.into(["t"], "Go", { n: 1 });
+        c.ack();
+        c.into(["t"], "Go", { n: 2 });
+        c.send("Leave");
+        c.eq("one cancel for the head: the release's", c.cells("q").filter((x) => String(x).startsWith("lane.cancel.")).length, 1);
+        c.answer("q", { ok: {} });
+        c.eq("its ending is evidence, heard by nobody", [c.r.evidence("delivered").filter((d) => d["op"] === "q").length], [0]);
+      },
+      // Audit 1, Q3 A (rule 24): `cancelAll(k)` takes its key as `cancel` does: outside an ending it ends that key's lane and no other.
+      "audit-a-keyed-cancel-all-ends-only-its-keys-lane"(c0) {
+        const c = new Ctx(c0.fresh([a1KeyedFixture()]), AK);
+        c.ensure(AK);
+        for (const [k, n] of [["a", 1], ["a", 2], ["b", 1], ["b", 2]] as const) c.send("Go", { k, n });
+        c.send("AllOf", { k: "a" });
+        const cancelled = c.endings("put").filter((e) => e["reason"] === "Cancelled").length;
+        c.eq("a's queued commit ends Cancelled, and its head is cancelled; b's lane is untouched", [cancelled > 0, c.r.row(AK, "put", { k: "b" })?.waiting], [true, true]);
+      },
+      // Audit 1, rule 74 (2.7.13 Unbound): an old-version record's held lane stays unbound: listed under the identity and reported at each boot.
+      "audit-an-old-version-records-held-lane-is-unbound-listed-and-reported"(c0) {
+        const rel: Release = { v: 1 };
+        const r1 = editorRef({ workspaceId: "north", ticketId: "42" });
+        const at = { actor: r1.machine, id: r1.id };
+        const c = new Ctx(c0.fresh([editorFixture(rel)], { captureMs: 0 }), at);
+        c.do(ensureStep(ensureArgs(r1)));
+        c.send("Title", { title: "Foyer" });
+        c.ack();
+        c.answer("save", { lost: true });
+        c.detach(at); // rule 73: its use ends, so after the grace its record is kept (retired) with the hold's lane
+        c.advance(GRACE);
+        c.h.release(() => void (rel.v = 2), () => void (rel.v = 1));
+        c.reload();
+        c.eq("an old-version record", c.r.evidence("OldVersionActor").length, 1);
+        c.eq("its held lane is unbound, listed and reported", [c.r.inspect(at)?.unbound?.length, c.r.evidence("UnboundLane").map((e) => e["op"])], [1, ["save"]]);
+      },
+      // Audit 1, C173 (R9): `forget` removes an old-version record, as it does a retired or undecodable one.
+      "audit-forget-removes-an-old-version-record"(c0) {
+        const c = editorAcross(c0, 1, 2);
+        const r1 = editorRef({ workspaceId: "north", ticketId: "42" });
+        const at = { actor: r1.machine, id: r1.id };
+        c.eq("an old-version record on disk", [c.r.evidence("OldVersionActor").length, c.record(at) !== undefined], [1, true]);
+        c.do({ forget: at });
+        c.eq("forget removed it", c.record(at), undefined);
+        c.reload();
+        c.eq("no boot lists it again", c.r.evidence("OldVersionActor").length, 1);
+      },
+      // Audit 1, C181 (R7): a stamp saved in a format newer than the running Flow's (a downgrade) reads as an old version.
+      "audit-a-key-stamp-in-a-newer-format-is-an-old-version"(c0) {
+        const c = new Ctx(c0.fresh([keyStampFixture({ v: 1 })], { captureMs: 0 }), KS);
+        c.ensure(KS);
+        c.send("Go", { k: "a" });
+        c.ack();
+        c.answer("charge", { lost: true });
+        c.fault({ corruptStored: { match: "lane/", edit: (raw: string) => raw.replaceAll("#2:", "#9:") } });
+        c.reload();
+        c.eq("an old-version hold", c.r.evidence("OldVersionLane").length, 1);
       },
     },
   },

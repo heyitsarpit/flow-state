@@ -2064,3 +2064,38 @@ file:scenarios/review.scenario.ts hash:c8c6ce4bf237 | SURV-05's tryAnswer loop
 file:scenarios/store.scenario.ts hash:6e60c1224c18 | STORE-07's tryAnswer loop
 round:mutants-lifetime-misc.ts hash:fde1dd816853 | the misc mutant's lane.ts import anchor follows the new sentAll import
 round:mutants-p1e.ts hash:efd72c6ec6a3 | p1e.no-rebase anchor follows the stale-success guard
+LIFE-13 hash:1fe74141f451 | Audit 1, OD49: the stopped read's late LookFailed is denied, REFRESHING's cart lookup being InFlight live work
+R14-FIX-01 hash:4c7ad9d0838a | Audit 1, rule 15: a late turn may not leave an active subroutine
+R15-01 hash:b76b7c4d9c5f | Audit 1: C179 disposal order re-pinned (W before the head's unknown); undecodable lanes not unbound; forget removes undecodable; forget keeps the queue
+R15-02 hash:6f1cf57fcc52 | Audit 1, rule 43 (R2): an unkeyed key-less cancel in a NotSent handler names the lane
+P1-H hash:4e133817ba19 | Audit 1: R10 head left to the release, keyed cancelAll, old-version unbound lane, forget of old-version, newer format, failing default; ImpureDefault spelling unpinned
+file:scenarios/fixpass.scenario.ts hash:830244fe3948 | Audit 1's R14-FIX-01 subroutine variant
+file:scenarios/lifetime.scenario.ts hash:c5e8d9eb9159 | Audit 1's LIFE-13 re-pin for OD49
+file:scenarios/phase1h.scenario.ts hash:273e984e7338 | Audit 1's P1-H variants
+file:scenarios/round15.scenario.ts hash:238daf0444c8 | Audit 1's R15-01 variants and the disposal order
+file:scenarios/round15b.scenario.ts hash:6bf1c55203e2 | Audit 1's R15-02 variant
+file:typed/audit1.ts hash:46f14d581835 | Audit 1's fixtures: keyed cancelAll, unkeyed reject with a NotSent cancel, a host with a subroutine
+file:compile/memory.ts hash:585a8ff29306 | C184: a default must be a succeeded Exit; a failed one is refused
+file:drive.ts hash:820390d91cc4 | Audit 1: a forget step on a runtime with no forget excuses nothing
+file:expected-recipients.txt hash:6fae9c9991a4 | Audit 1's 12 variants: 12 more recipients and start nodes; no red count moved
+round:mutants-a1.ts hash:752ee488680b | Audit 1: the lead's wrong runtimes and the auditor's standing ones
+round:mutants-lifetime.ts hash:f128a55614c2 | Audit 1's wrong runtimes spread in
+output:LIFE-13/a-stopped-read-is-heard-when-woken-at-ready hash:9e62558699f6 | Audit 1: the late read turn denied, its log unchanged
+output:P1-H/audit-a-cancel-all-beside-a-release-leaves-the-head-to-the-release hash:cd89967f3c9e | new output: Audit 1 R10
+output:P1-H/audit-a-failing-effect-default-is-refused hash:97d170e1550e | new output: Audit 1 C184
+output:P1-H/audit-a-key-stamp-in-a-newer-format-is-an-old-version hash:13c5398df372 | new output: Audit 1 C181
+output:P1-H/audit-a-keyed-cancel-all-ends-only-its-keys-lane hash:2ab2ab7d948b | new output: Audit 1 keyed cancelAll
+output:P1-H/audit-an-old-version-records-held-lane-is-unbound-listed-and-reported hash:ca3e11de47c9 | new output: Audit 1 rule 74 unbound
+output:P1-H/audit-forget-removes-an-old-version-record hash:061793741075 | new output: Audit 1 C173 old-version forget
+output:R14-FIX-01/audit-a-late-turn-may-not-leave-an-active-subroutine hash:f681aa618a80 | new output: Audit 1 subroutine
+output:R15-01/audit-an-undecodable-records-lanes-are-not-unbound hash:3a407cbed55d | new output: Audit 1 OD50 undecodable
+output:R15-01/audit-forget-keeps-a-held-lane-with-its-queued-commits hash:b1b1607a42e3 | new output: Audit 1 Q1 A queue kept
+output:R15-01/audit-forget-removes-an-undecodable-record hash:cc532a53e24d | new output: Audit 1 C173 undecodable forget
+output:R15-02/audit-an-unkeyed-key-less-cancel-in-a-not-sent-handler-names-the-lane hash:e7421487af4b | new output: Audit 1 R2
+P1-H hash:84d7edabfa21 | Audit 1: C184's failing default folded into the H1 variant, which drives a runtime (falsify suite1, suite3)
+file:scenarios/phase1h.scenario.ts hash:781645b5bcfb | the fold of the C184 check into H1's variant
+round:mutants-a1.ts hash:aa25e7cd9fe0 | a1.a-failed-default-is-a-value kills H1's variant
+round:mutants-lifetime.ts hash:7d73334090e4 | o6.settled-in-bound-stays-held re-anchored on the new parkAtDisposal
+removed:variant:P1-H/audit-a-failing-effect-default-is-refused | folded into P1-H/a-default-that-runs-is-refused-at-construction-and-never-runs
+removed:output:P1-H/audit-a-failing-effect-default-is-refused | the same fold
+round:mutants-r15d.ts hash:900384cea662 | r15d.forget-keeps-the-record re-anchored: forget's record line also names old-version records

@@ -1579,6 +1579,8 @@ export const makeHarness = (port: Port) => (): Harness => {
     }
     else if ("forget" in s) {
       // Q1 A: what the identity was owed (an ending parked for it, not yet delivered) is evidence from here: the suite drove the cause.
+      // Audit 1: only if the runtime has `forget`; a runtime without it is excused nothing.
+      if (!inst.forget) throw new Error("forget: this runtime has no forget");
       const key = actorKey(s.forget);
       if (forgetLive) lifeOf.set(key, (lifeOf.get(key) ?? 0) + 1); // W27: a live actor is disposed first, so its life is over as at a dispose
       const parkedNow = new Set(evidence.filter((e) => e["kind"] === "parked").map((e) => String(e["attempt"])));

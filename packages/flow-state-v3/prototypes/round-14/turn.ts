@@ -203,6 +203,9 @@ const leavesWork = (w: Walk, inc: Inc, alt: Alternative) => {
   const frag = fragOf(w.m, inc);
   if (exits.some((n) => frag.nodes[n]!.subroutine)) return true;
   const it = w.item;
+  // OD49: an InFlight lookup owned by an exited state is live work too, unless it is this ending's own.
+  for (const [id, r] of Object.entries(w.tx.w.reads))
+    if (r.actor === w.a.key && ownedByExited(inc, exits, r.owner) && !(it?.k === "ending" && it.attempt === id)) return true;
   return Object.values(w.tx.w.lanes).some((l) => {
     if (l.actor !== w.a.key) return false;
     if (l.w.some((x) => ownedByExited(inc, exits, x.owner))) return true;

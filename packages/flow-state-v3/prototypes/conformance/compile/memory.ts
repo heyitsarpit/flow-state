@@ -62,8 +62,10 @@ const effectfulDefault = (x: unknown, seen: Set<unknown> = new Set()): boolean =
   seen.add(x);
   const o = x as Record<string, unknown>;
   const ctor = (o["context"] as { readonly constructorDefault?: unknown } | undefined)?.constructorDefault;
-  if (ctor !== undefined && !Exit.isExit(ctor)) return true;
-  if (o["_tag"] === "TransformOptionalEffect" && typeof o["transform"] === "function" && !Exit.isExit(absentResult(o["transform"] as (o: Option.Option<unknown>, options: object) => unknown))) return true;
+  // C184: a default is a value, a succeeded Exit; a failed one (`Effect.fail(...)`) is refused as one to run.
+  const value = (v: unknown) => Exit.isExit(v) && Exit.isSuccess(v);
+  if (ctor !== undefined && !value(ctor)) return true;
+  if (o["_tag"] === "TransformOptionalEffect" && typeof o["transform"] === "function" && !value(absentResult(o["transform"] as (o: Option.Option<unknown>, options: object) => unknown))) return true;
   if (o["_tag"] === "Suspend" && typeof o["thunk"] === "function" && effectfulDefault((o["thunk"] as () => unknown)(), seen)) return true;
   return Object.entries(o).some(([key, v]) => key !== "annotations" && effectfulDefault(v, seen));
 };

@@ -270,9 +270,9 @@ const onForget = (tx: Tx, key: string) => {
   };
   const r = own(tx.w.retired, key) as (ActorRec & { bootMail?: readonly Mail[] }) | undefined;
   for (const m of r?.bootMail ?? []) if (m.k === "ending") owed(m.op, m.attempt, true);
-  if (r || Object.hasOwn(tx.w.undecodable, key)) {
+  if (r || Object.hasOwn(tx.w.undecodable, key) || Object.hasOwn(tx.w.oldVersion, key)) {
     const { [key]: _u, ...undecodable } = tx.w.undecodable;
-    tx.w = { ...tx.w, retired: without(tx.w.retired, key), undecodable };
+    tx.w = { ...tx.w, retired: without(tx.w.retired, key), undecodable, oldVersion: without(tx.w.oldVersion, key) };
     tx.touchedActors.add(key);
     tx.dropped.add(key);
   }
@@ -411,6 +411,7 @@ const startRoot = (tx: Tx, key: string, machine: string, input: unknown, identit
     note(tx, "RecordUndecodable", { actor: key, discarded: true }); // D7: an ensure over a record that does not decode starts fresh from input and says so
     tx.w = { ...tx.w, undecodable: without(tx.w.undecodable, key) };
   }
+  if (tx.w.oldVersion[key]) tx.w = { ...tx.w, oldVersion: without(tx.w.oldVersion, key) }; // a fresh actor's record replaces the old-version one
   const frag = m;
   const leaf = down(frag, frag.default);
   const active = up(frag, leaf);

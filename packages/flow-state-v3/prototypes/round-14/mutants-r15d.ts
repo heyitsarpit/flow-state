@@ -22,7 +22,7 @@ export const MUTANTS: ReadonlyArray<{ readonly id: string; readonly kills: reado
   ] },
   { id: "r15d.forget-refuses-a-live-actor", kills: ["R15-01/forget-of-a-live-actor-disposes-it-then-forgets"], edits: [["step.ts", "  if (getActor(tx.w.actors, key)) onDisposeActor(tx, key, \"dispose\");", "  if (getActor(tx.w.actors, key)) return issue(tx, { code: \"ForgetLiveActor\", origin: `forget ${key}` });"]] },
   { id: "r15d.forget-keeps-boot-mail", kills: ["R15-01/forget-also-turns-a-boot-queued-ending-into-evidence"], edits: [["step.ts", "  for (const m of r?.bootMail ?? []) if (m.k === \"ending\") owed(m.op, m.attempt, true);", "  for (const m of [] as Mail[]) if (m.k === \"ending\") owed(m.op, m.attempt, true);"]] },
-  { id: "r15d.forget-keeps-the-record", kills: ["R15-01/forget-also-turns-a-boot-queued-ending-into-evidence"], edits: [["step.ts", "  if (r || Object.hasOwn(tx.w.undecodable, key)) {", "  if (false) {"]] },
+  { id: "r15d.forget-keeps-the-record", kills: ["R15-01/forget-also-turns-a-boot-queued-ending-into-evidence"], edits: [["step.ts", "  if (r || Object.hasOwn(tx.w.undecodable, key) || Object.hasOwn(tx.w.oldVersion, key)) {", "  if (false) {"]] },
   { id: "r15d.forget-keeps-a-gone-op-hold", kills: ["P1-H/forget-drops-a-hold-whose-operation-is-gone-with-evidence"], edits: [["step.ts", "    if (goneOp(tx, id, key)) {", "    if (false) {"]] },
   { id: "r15d.local-persisted", kills: ["R15-01/a-local-identity-of-a-persisted-machine-is-not-persisted"], edits: [["gate.ts", "persisted: c.persisted === true && c.local !== true,", "persisted: c.persisted === true,"]] },
 ];

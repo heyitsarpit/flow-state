@@ -194,7 +194,8 @@ export const round15Scenarios: readonly Scenario[] = [
         c.eq("the bound ends the head unknown { Disposed }, then W", c.endings("charge").map((e) => [e["channel"], e["reason"]]), [["unknown", "Disposed"], ["failure", "Disposed"]]);
         const before = c.r.evidence("delivered").length;
         c.reload();
-        c.eq("the restored incarnation hears both, head first, as parked", c.r.evidence("delivered").slice(before).map((d) => [d["event"], d["reason"]]), [["Unsure", "Disposed"], ["No", "Disposed"]]);
+        // C179 (OD51): an ending that leaves a hold is delivered last: W's NotSent { Disposed }, then the head's unknown.
+        c.eq("the restored incarnation hears both, the hold's ending last", c.r.evidence("delivered").slice(before).map((d) => [d["event"], d["reason"]]), [["No", "Disposed"], ["Unsure", "Disposed"]]);
         c.eq("no Restored", c.endings("charge").some((e) => e["reason"] === "Restored"), false);
         c.eq("its handler's cancel releases the hold it kept", c.r.evidence("Released").length, 1);
       },
@@ -347,6 +348,51 @@ export const round15Scenarios: readonly Scenario[] = [
         c.send("Go", { k: "b" });
         c.ack();
         c.eq("another key sends", [c.mem(KS)?.declined, c.reqs("charge").length], [0, 2]);
+      },
+      // Audit 1, 2.7.13 Unbound (OD50): "An undecodable record's lanes are not unbound": its identity still has a record, so Inspection does not list
+      // them as unbound and no boot reports them.
+      "audit-an-undecodable-records-lanes-are-not-unbound"(c0) {
+        const c = new Ctx(c0.fresh([r15LateFixture()]), RL);
+        c.ensure(RL);
+        c.send("Go");
+        c.ack();
+        c.answer("charge", { lost: true });
+        c.fault({ corruptStored: { match: "actor/", edit: () => "{{{" } });
+        c.reload();
+        c.namedIssues = ["RecordQuarantined"];
+        c.eq("not unbound, not reported", [c.r.inspect(RL)?.unbound ?? [], c.r.evidence("UnboundLane").length], [[], 0]);
+      },
+      // Audit 1, C173 (R9): `forget` removes an undecodable record, as it does a retired or old-version one.
+      "audit-forget-removes-an-undecodable-record"(c0) {
+        const c = new Ctx(c0.fresh([r15LateFixture()]), RL);
+        c.ensure(RL);
+        c.send("Go");
+        c.ack();
+        c.answer("charge", { ok: {} });
+        c.fault({ corruptStored: { match: "actor/", edit: () => "{{{" } });
+        c.reload();
+        c.namedIssues = ["RecordQuarantined"];
+        const named = () => c.r.issues().filter((i) => i.code === "RecordQuarantined").length;
+        c.eq("the boot named the undecodable record", named(), 1);
+        c.do({ forget: RL });
+        c.reload();
+        c.eq("forget removed it: the next boot finds nothing to name", named(), 1);
+      },
+      // Audit 1, Q1 A (C173): `forget` keeps a Held lane with its queued commits: the hold and its queue stay unbound, so an adopting ensure hears the
+      // queued commit's NotSent { Restored } and then the hold's unknown { Restored } (rule 44, U3).
+      "audit-forget-keeps-a-held-lane-with-its-queued-commits"(c0) {
+        const c = new Ctx(c0.fresh([r15LateFixture()]), RL);
+        c.ensure(RL);
+        c.send("Go");
+        c.ack();
+        c.answer("charge", { lost: true });
+        c.send("Go");
+        c.ack();
+        c.do({ forget: RL });
+        c.reload();
+        const before = c.r.evidence("delivered").length;
+        c.ensure(RL);
+        c.eq("the queue, then the hold", c.r.evidence("delivered").slice(before).map((d) => [d["event"], d["reason"]]), [["No", "Restored"], ["Unsure", "Restored"]]);
       },
     },
   },

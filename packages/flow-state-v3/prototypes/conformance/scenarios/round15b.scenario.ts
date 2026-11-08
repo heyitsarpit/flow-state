@@ -14,9 +14,11 @@ import {
   r15NumFixture,
   r15RejectFixture,
 } from "../typed/round15b.ts";
+import { A1RejectId, a1RejectFixture } from "../typed/audit1.ts";
 import { Ctx, type Scenario } from "./ctx.ts";
 
 const KA = { actor: R15KeyedId, id: "a" };
+const AR = { actor: A1RejectId, id: "a" };
 const RJ = { actor: R15RejectId, id: "a" };
 const FA = { actor: R15FailId, id: "a" };
 const HA = { actor: R15HeldId, id: "a" };
@@ -34,6 +36,15 @@ export const round15bScenarios: readonly Scenario[] = [
     actor: KA,
     cites: ["rule:43", "rule:16", "rule:44"],
     variants: {
+      // Audit 1, rule 43 (R2, OD50): on an unkeyed operation a key-less member names its one lane in every handler, a NotSent ending's included. The
+      // second `Go` is refused (`reject`, the lane busy) and its `No` handler's key-less `cancel` names the lane: the head on the wire is cancelled.
+      "audit-an-unkeyed-key-less-cancel-in-a-not-sent-handler-names-the-lane"(c0) {
+        const c = new Ctx(c0.fresh([a1RejectFixture()]), AR);
+        c.ensure(AR);
+        c.send("Go", { n: 1 });
+        c.send("Go", { n: 2 });
+        c.eq("the refused commit's NotSent handler cancelled the lane's head", c.cells("once").some((x) => String(x).startsWith("lane.cancel.InFlight")), true);
+      },
       // Rule 43 (U2): "In a success or failure handler of a keyed operation, the ending's Attempt is already resolved, so a key-less `cancel` there does nothing."
       "a-key-less-cancel-in-a-keyed-success-handler-does-nothing"(c0) {
         const c = new Ctx(c0.fresh([r15KeyedFixture()]), KA);

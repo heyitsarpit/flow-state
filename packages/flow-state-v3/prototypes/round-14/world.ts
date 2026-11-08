@@ -195,6 +195,7 @@ export type World = {
   readonly soon: Readonly<Record<string, { readonly dueAt: number; readonly inc: string }>>; // an end in the last 5 s: a create carries how long ago
   readonly warned: Readonly<Record<string, true>>; // `EndedWithWork` and the codec's diagnostic, once per machine and kind per Runtime
   readonly undecodable: Readonly<Record<string, true>>; // an actor record this release could not decode at boot: a send says RecordUndecodable
+  readonly oldVersion: Readonly<Record<string, true>>; // rule 74: an old-version record kept on disk, never restored; its lanes are unbound; `forget` removes it (C173)
 };
 export const emptyWorld: World = {
   boot: 0,
@@ -229,6 +230,7 @@ export const emptyWorld: World = {
   soon: {},
   warned: {},
   undecodable: {},
+  oldVersion: {},
 };
 
 export type SendExit =

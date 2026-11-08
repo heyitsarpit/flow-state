@@ -225,9 +225,12 @@ export const parkWaiting = (tx: Tx, lane: Lane): Lane => {
 const parkAtDisposal = (tx: Tx, lane: Lane, e: Ending) => {
   const h = lane.head!;
   note(tx, "parked", { op: lane.op, attempt: h.id });
-  const parked = [...lane.parked, { attempt: h.id, ending: e, owner: h.owner, input: h.input }];
+  const own = { attempt: h.id, ending: e, owner: h.owner, input: h.input };
   const { head: _h, ...rest } = lane;
-  setLane(tx, parkWaiting(tx, e.ch === "unknown" ? { ...lane, head: { ...h, mayHaveApplied: true, phase: { t: "held" } }, parked } : { ...rest, parked }));
+  // C179 (OD51): an ending that leaves a hold is delivered last, so an unknown is parked after W's `NotSent { Disposed }`.
+  if (e.ch !== "unknown") return setLane(tx, parkWaiting(tx, { ...rest, parked: [...lane.parked, own] }));
+  const waited = parkWaiting(tx, { ...lane, head: { ...h, mayHaveApplied: true, phase: { t: "held" } } });
+  setLane(tx, { ...waited, parked: [...waited.parked, own] });
 };
 export const endPastDisposal = (tx: Tx, lane: Lane) => {
   const h = lane.head!;

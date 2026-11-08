@@ -458,7 +458,9 @@ function newLifetimeScenarios(): Scenario[] {
             },
           });
           c.reload();
-          c.eq("woken at ready: the parked ending, then the stopped read", log(c), ["confirmed", "lookFailed"]);
+          // OD49 (rule 15): the parked `Confirmed` runs and starts the cart lookup in REFRESHING; the stopped read's ending is late (its owner, LOOKING,
+          // is left), and its `LookFailed` would leave REFRESHING, whose lookup is InFlight: live work, so the turn is denied. It still counts as delivered.
+          c.eq("woken at ready: the parked ending runs; the stopped read's late turn is denied", [log(c), c.r.evidence("Denied").some((d) => String(d["reasons"]).includes("LateMayNotLeave"))], [["confirmed"], true]);
         },
         "a-read-a-send-restore-starts-is-cut-too"(c0) {
           const c = onLife(c0);

@@ -279,6 +279,7 @@ export const restore = (tx: Tx, records: ReadonlyArray<readonly [string, string]
   const saved: Record<string, string> = {};
   const quarantinedLanes: Record<string, true> = {};
   const undecodable: Record<string, true> = {}; // rule 73: a send to one says RecordUndecodable; an ensure discards it
+  const oldVersion: Record<string, true> = {};
   for (const [k, text] of records) {
     if (k.startsWith("actor/")) {
       const v = parse(tx, k, text);
@@ -297,6 +298,7 @@ export const restore = (tx: Tx, records: ReadonlyArray<readonly [string, string]
       const older = mm.identityVersion ? mm.identityVersionByFormat : undefined;
       if (Array.isArray(v.fields) && !sameVersion(v.fields, now, older)) {
         note(tx, "OldVersionActor", { actor: v.key, fields: v.fields, now });
+        oldVersion[k.slice(6)] = true;
         continue;
       }
       const decoded = restoredMemory(mm, v.root);
@@ -359,6 +361,7 @@ export const restore = (tx: Tx, records: ReadonlyArray<readonly [string, string]
     savedLanes: saved,
     quarantined: quarantinedLanes,
     undecodable,
+    oldVersion,
   };
   const recorded = new Set([...actors, ...retired].map(([k]) => k));
   for (const [, l] of lanes) if (!recorded.has(l.actor) && !Object.hasOwn(undecodable, l.actor)) note(tx, "UnboundLane", { actor: l.actor, op: l.op, lane: l.id });

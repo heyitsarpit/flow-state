@@ -10,6 +10,7 @@ import { MUTANTS as R15C } from "./mutants-r15c.ts";
 import { MUTANTS as R15D } from "./mutants-r15d.ts";
 import { MUTANTS as P1H } from "./mutants-p1h.ts";
 import { MUTANTS as P1E } from "./mutants-p1e.ts";
+import { MUTANTS as A1 } from "./mutants-a1.ts";
 const m = (id: string, kills: string, file: string, find: string, replace = "") => ({ id, kills: [kills], edits: [[file, find, replace]] as ReadonlyArray<readonly [string, string, string]> });
 const WRITE = 'if (l.actor === key && l.head !== undefined && l.head.phase.t !== "held") out.push(`write:${l.op}`);';
 const READ = "for (const id in w.reads) if (w.reads[id]!.actor === key && w.reads[id]!.kept) out.push(`read:${w.reads[id]!.op}`);";
@@ -69,7 +70,7 @@ export const MUTANTS = [
   m("id.value-is-not-the-input", "R14-ID-01/a-value-names-the-actor-and-is-its-input", "step.ts", "memory: run(m.memory.initial, input as never),", "memory: run(m.memory.initial, (identity ? {} : input) as never),"),
   // Fix pass after the final review (H-A): Runtime O6 lets an invoked commit settle within the disposal bound.
   m("o6.dispose-interrupts-wire", "PAY-16/on-the-wire-at-the-bound-ends-unknown-disposed", "lane.ts", "disposeWire() {},", 'disposeWire(tx, l) { const h = l!.head!; if (h.phase.t === "wire") tx.commands.push({ k: "interrupt", attempt: h.id, send: h.phase.gen }); },'),
-  m("o6.settled-in-bound-stays-held", "REV5-M1/the-record-goes-once-delivered", "lane.ts", 'e.ch === "unknown" ? { ...lane, head:', 'e.ch !== "parked" ? { ...lane, head:'),
+  m("o6.settled-in-bound-stays-held", "REV5-M1/the-record-goes-once-delivered", "lane.ts", '  if (e.ch !== "unknown") return setLane(tx, parkWaiting(tx, { ...rest, parked: [...lane.parked, own] }));', '  if (e.ch === "parked") return setLane(tx, parkWaiting(tx, { ...rest, parked: [...lane.parked, own] }));'),
   m("o6.no-bound", "PAY-16/disposal-ends-with-the-last-fiber", "step.ts", "if (wires(tx.w).length === 0) finishDisposal(tx);", "if (true) finishDisposal(tx);"),
   // fragstore.row: what a boot queues for a record kept at ready is said, waited on, and kept by a dispose (D6).
   { id: "boot.mail-unsaid", kills: ["R14-FIX-01/a-held-record-at-ready-names-what-it-is-owed"], edits: [
@@ -93,4 +94,5 @@ export const MUTANTS = [
   ...R15D,
   ...P1H,
   ...P1E,
+  ...A1,
 ];

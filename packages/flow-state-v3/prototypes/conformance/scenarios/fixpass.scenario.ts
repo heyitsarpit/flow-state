@@ -5,10 +5,12 @@ import { LifeId, lifeFixture } from "../typed/lifetime.ts";
 import { BareId } from "../typed/round7.ts";
 import { serialBareFixture } from "../typed/round8.ts";
 import { LateQueueId, lateQueueFixture } from "../typed/latequeue.ts";
+import { A1SubId, a1SubFixture } from "../typed/audit1.ts";
 import { Ctx, type Scenario } from "./ctx.ts";
 import { GRACE } from "./lifetime.scenario.ts";
 
 const TW = { actor: "Lab/TraitWrite", id: "a" };
+const SB1 = { actor: A1SubId, id: "a" };
 const TS = { actor: "Lab/TraitStore", id: "a" };
 const got = (c: Ctx) => c.inner(["t"])?.memory.got;
 const onTW = (c0: Ctx) => {
@@ -69,6 +71,17 @@ export const fixpassScenarios: readonly Scenario[] = [
     actor: TW,
     cites: ["rule:44", "C106", "OD:31"],
     variants: {
+      // Audit 1, rule 15: "a late turn may not leave a state that owns ... an active subroutine". W's commit lands late, in SUB, where A1Mini runs; the
+      // root's `Ok` would leave SUB, so the turn is denied and the subroutine keeps running.
+      "audit-a-late-turn-may-not-leave-an-active-subroutine"(c0) {
+        const c = new Ctx(c0.fresh([a1SubFixture()]), SB1);
+        c.ensure(SB1);
+        c.send("Go");
+        c.send("Open");
+        c.state("SUB", SB1);
+        c.answer("pay", { ok: {} });
+        c.eq("denied: still in SUB", [c.r.state(SB1), c.r.evidence("Denied").some((d) => String(d["reasons"]).includes("LateMayNotLeave"))], ["SUB", true]);
+      },
       // The search's walk (fragstore.row): the dispose's record removal is still in a pending capture at the reload (D80), so the disk's live
       // record is restored; its lane is Held, so it stays a record at ready, owed the head's Restored.
       "a-held-record-at-ready-names-what-it-is-owed"(c0) {

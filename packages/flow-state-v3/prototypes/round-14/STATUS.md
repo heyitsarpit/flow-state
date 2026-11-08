@@ -1005,3 +1005,44 @@ Sidecar log (Haiku, effort high; every finding verified by the lead):
 | --- | --- | --- | --- |
 | review of the round 2 runtime diff against six rules | reviewer | changed | acted on: a stale success rebased unsent writes (now not). Recorded: count reset (finding 5), hung repair (3), second-record yield (4), `basedOn` lost at restore (2), fake ledgers (7); its "eviction groups by `|`" is wrong (refs are `entity|key` by the `Predicted` contract); "a removal mark is demoted by any field success" is right by proposal 2.2 (`$present` is a field a row carries); a non-placed answer resetting the count is minor |
 | probe of S13 and the drain oracle for vacuity | runner | accepted | both never fired at depth 4 on 12 edits; recorded in ruling 5 |
+
+## Audit 1: closing the adversarial audit of rounds 14-15b and area H (2026-11-08)
+
+The auditor's wrong runtimes are in `mutants-audit-1.ts` (theirs, unedited). Each survivor got a case from the design text; the ones the new cases turn red on
+the cases they name are kept as a standing gate in `mutants-a1.ts` (spread into `mutants-lifetime.ts`), beside the lead's own wrong runtimes for its fixes.
+All run on copies by the lead (`all-p1e.ts`, `MFILE=mutants-a1.ts`), each red by the assertion named.
+
+| Survivor / item | Case (design text) | Fix | Red on |
+| --- | --- | --- | --- |
+| 1 disposal order (C179, OD51) | R15-01 `past-the-disposal-bound...` re-pinned: W's `NotSent { Disposed }`, then the head's unknown | `parkAtDisposal` (lane.ts) parks the unknown after W | `a1.disposal-head-before-w`; `correct:audit-1.disposal-w-before-unknown-head` is now the runtime |
+| 2 keyed `cancelAll(k)` | P1-H `audit-a-keyed-cancel-all-ends-only-its-keys-lane` | none needed | `audit-1.cancel-all-keyed-does-nothing` |
+| 3 OD50 undecodable lanes not unbound | R15-01 `audit-an-undecodable-records-lanes-are-not-unbound` (Inspection and the boot) | none | `audit-1.unbound-lists-undecodable`, `audit-1.unbound-reports-undecodable` |
+| 4 rule 74 old-version held lane unbound | P1-H `audit-an-old-version-records-held-lane-...` (the actor ended first, so the reload has no live owner) | none | `audit-1.old-version-record-as-undecodable` |
+| 5 C173 forget removes undecodable / old-version | R15-01 `audit-forget-removes-an-undecodable-record`; P1-H `audit-forget-removes-an-old-version-record` | **built**: `oldVersion` (World) set at boot, cleared by an ensure, removed by `forget` | `a1.forget-keeps-undecodable` (the auditor's re-anchored: its line changed), `a1.old-version-record-untracked` |
+| 6 Q1 A forget keeps the queue | R15-01 `audit-forget-keeps-a-held-lane-with-its-queued-commits` (adopting ensure hears `No`, then `Unsure`, both Restored) | none | `audit-1.forget-drops-the-queue` |
+| 7 R2 unkeyed key-less in NotSent | R15-02 `audit-an-unkeyed-key-less-cancel-in-a-not-sent-handler-names-the-lane` | none | `audit-1.unkeyed-keyless-in-ending-keyed-rule` |
+| 8 C181 downgrade | P1-H `audit-a-key-stamp-in-a-newer-format-is-an-old-version` (stamp rewritten to format 9) | none | `audit-1.newer-format-is-current` |
+| 9 R10 head left to the release | P1-H `audit-a-cancel-all-beside-a-release-leaves-the-head-to-the-release` (one cancel cell for the head) | none | `audit-1.cancel-all-release-also-cancels-head` |
+| 10 rule 15 active subroutine | R14-FIX-01 `audit-a-late-turn-may-not-leave-an-active-subroutine` | none | `audit-1.r15-subroutine-ignored` |
+| C184 failing default | P1-H H1 variant: `Effect.fail` refused, constructor and decoding | **built**: memory.ts needs a succeeded Exit | `a1.a-failed-default-is-a-value` |
+| OD49 InFlight lookup is live work | LIFE-13 re-pinned: the stopped read's late `LookFailed` is denied while REFRESHING's cart lookup is InFlight | **built**: `leavesWork` (turn.ts) counts reads owned by an exited activation | `a1.reads-are-not-live-work` |
+| forget excuse with no `forget` | drive.ts: a `forget` step on a runtime with no `forget` throws, excusing nothing | built | - |
+| `ImpureDefault` spelling | H1 variant asserts refusal, not the proposed name | built | - |
+
+**Not done in this batch, for the next** (each needs harness work larger than this batch; nothing claimed): the chain oracle (n) for a spin from nothing; the
+four excuses built from runtime evidence (oracle (h)'s turn-end exemption, `replacedUnderCancel`, the self-release cause in drive.ts ~1011, the forget step's
+`parked` excuse), to rebuild from the harness's own record of steps and sends or narrow with a lie each; the other proposed-name pins (`ParkedForgotten`,
+`UnboundLane`, `LaneRekeyed`; my own new cases use `UnboundLane` and `OldVersionLane` too), hash-shape and store-key-prefix pins, and the custom-filter
+stated limit asserted as behaviour. The auditor's mutants the suite kills only outside their named cases (`r15-queue-behind-held-not-live`, `r15-held-head-is-live`,
+`r15-own-op-only`, `disposal-definite-keeps-head`, `old-version-declines-under-reject-only`, `restore-lanes-newest-first`) are left to the full suite, not the
+lifetime list; `forget-gone-op-hold-silent` is the auditor's own vacuous one.
+
+Findings for the design (audit 1):
+1. OD49's read clause changes LIFE-13: a stopped read's ending, delivered after the identity is woken, is late, and leaving the state that started a new lookup
+   is denied. The design should say whether a read restarted by a parked ending's handler is "live work" for a stopped read's ending (as built: yes).
+2. The (j) oracle assumes a restored ending's owner alive at a reload is bound after it; rule 74's old-version record breaks that (the owner's record is never
+   restored). The case dodged it by ending the actor first; the oracle should learn rule 74 from the release (the identity version changed), not from evidence.
+
+Sidecar log: one Haiku reviewer on the batch's runtime and harness diff. Acted on: `oldVersion` survived an ensure of the same key (now cleared). Recorded: the
+own-read exemption in `leavesWork` is dead (a read is taken before its ending is enqueued), harmless; a kept read owned by an exited state now denies a late
+turn (as OD49 reads); restore of an old-version actor's lane with a parked ending is not traced (no case reaches it).
