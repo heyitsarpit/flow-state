@@ -237,7 +237,7 @@ R15-03 d6438a24faf6
 P1-H 004dbf1ee238
 P1-E 89fe79495769
 P1-E-CAP d877e498f227
-P1-S 5ab8f24f7240
+P1-S ebe10615bc01
 variant:PAY-06/interruptible present
 variant:PAY-06/uninterruptible present
 variant:PAY-07/leaveMidCharge present
@@ -1174,6 +1174,8 @@ variant:P1-S/each-default-delay-draws-its-own-jitter present
 variant:P1-S/a-down-keeps-an-unconfirmed-last-at present
 variant:P1-S/a-lose-keeps-an-unconfirmed-last-at present
 variant:P1-S/a-second-drop-sets-dropat-again present
+variant:P1-S/a-connection-that-never-registered-keeps-the-earlier-dropat present
+variant:P1-S/a-down-on-a-first-connection-sets-dropat present
 variant:P1-S/joining-an-open-socket-adds-only-a-keys-first-session present
 variant:P1-S/a-key-unwatched-while-the-socket-connects-is-never-added present
 variant:P1-S/returning-to-a-key-with-its-own-bookmark-is-not-flagged present
@@ -1198,7 +1200,7 @@ file:scenarios/order.scenario.ts 20b00317218b
 file:scenarios/pay.scenario.ts ef1bc2e0c261
 file:scenarios/phase1e.scenario.ts f25ac4fcc993
 file:scenarios/phase1h.scenario.ts 0884b26cad17
-file:scenarios/phase1s.scenario.ts 3776e99d3959
+file:scenarios/phase1s.scenario.ts 483d82fe4b03
 file:scenarios/review.scenario.ts 665946ad13c8
 file:scenarios/round10.scenario.ts c9f44683aeaf
 file:scenarios/round12.scenario.ts 52e9bd888cdf
@@ -1331,7 +1333,7 @@ file:report.ts 7e305fd3110b
 file:watch.ts 93b7fe49b6da
 file:gate5s.ts d8a24cbd10f4
 file:gate-5s-expected.txt 076d1f268376
-file:expected-recipients.txt bacf4f8b35f0
+file:expected-recipients.txt de5e2c1c1c29
 file:mutate.ts 90691b4a787c
 file:mutate-one.ts a48188cfc0d7
 file:gates.ts f4712265fc32
@@ -1383,15 +1385,16 @@ round:mutants-audit-2.ts 33edcaa1d34f
 round:mutants-audit-3.ts 91e4fb64ca8e
 round:mutants-audit-3b.ts c591eac6b1b7
 round:mutants-audit-s1.ts 216f2c1e2e72
-round:mutants-audit-s1b.ts 3308d4fdd4f2
+round:mutants-audit-s1b.ts 34393b730ae0
 round:mutants-lifetime-misc.ts fde1dd816853
 round:mutants-lifetime-pay16.ts 5f6cdabd5c3f
 round:mutants-lifetime-pins-a.ts 2112467de82b
 round:mutants-lifetime-pins-b.ts 6739b5b020ec
-round:mutants-lifetime.ts be1dddca0c16
+round:mutants-lifetime.ts 7fb96a17857a
 round:mutants-lost.ts 341cf4c256c6
 round:mutants-p1e.ts 903288352d72
 round:mutants-p1h.ts 512fd8952e35
+round:mutants-p1m.ts c41ce32e12cc
 round:mutants-p1s.ts bb15aa6d99ca
 round:mutants-r10.ts b33f543d803a
 round:mutants-r15.ts 9709edd023e0
@@ -1690,7 +1693,9 @@ output:P1-H/the-decline-beside-an-old-version-hold-is-not-sent-old-version 9d003
 output:P1-H/under-cancel-a-refused-acknowledgement-of-a-replaced-head-is-superseded b19ec9714cd5
 output:P1-H/under-latest-a-refused-acknowledgement-of-a-replaced-head-is-superseded a42b44c6e177
 output:P1-H/under-latest-beside-a-same-named-cancel-op-a-commit-over-the-wire-queues 086aebc930ba
+output:P1-S/a-connection-that-never-registered-keeps-the-earlier-dropat 9632b5a961f1
 output:P1-S/a-down-keeps-an-unconfirmed-last-at 5baa2c9f7aba
+output:P1-S/a-down-on-a-first-connection-sets-dropat c16962d124c8
 output:P1-S/a-down-stamps-last-at 1508659beb75
 output:P1-S/a-dropped-session-reads-connecting a198b14a481d
 output:P1-S/a-frame-during-a-release-is-discarded 0a9f2918b2c6

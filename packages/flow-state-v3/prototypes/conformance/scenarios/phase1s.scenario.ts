@@ -594,6 +594,38 @@ export const phase1sScenarios: readonly Scenario[] = [
         c.do({ feed: "price", frame: { price: 11 } });
         c.eq("aged from the second drop", [priceRow(c)?.last?.value, priceRow(c)?.last?.at], [{ price: 11 }, second]);
       },
+      // T1's `dropAt` (OD53 (11)): "set on leaving `Live` or `Repairing` (`down`, or `lose` with `liveSince` set), and by a `down` or `lose`
+      // when none is set (a first connection); a connection that never registered keeps the earlier one". A lose while Live, a reconnect that
+      // never registers and is lost too, then a drop: a value while Dropped ages from the first loss.
+      "a-connection-that-never-registered-keeps-the-earlier-dropat"(c0) {
+        const c = at(c0, priceFixture, P);
+        c.do({ feed: "price", frame: live() });
+        c.do({ feed: "price", frame: { price: 10 } });
+        c.advance(1000);
+        const first = c.r.now();
+        c.do({ feed: "price", end: true });
+        const n = feeds(c, "price").length;
+        c.yes("reconnected", until(c, 10, 3000, () => feeds(c, "price").length > n) >= 0);
+        c.advance(2000);
+        c.eq("not registered", priceRow(c)?.connection, "Connecting");
+        c.do({ feed: "price", end: true });
+        const m = feeds(c, "price").length;
+        c.yes("reconnected again", until(c, 10, 3000, () => feeds(c, "price").length > m) >= 0);
+        c.do({ feed: "price", frame: down });
+        c.advance(2000);
+        c.do({ feed: "price", frame: { price: 11 } });
+        c.eq("aged from the first loss", [priceRow(c)?.last?.value, priceRow(c)?.last?.at], [{ price: 11 }, first]);
+      },
+      // The same rule's first connection: T1's `down` row in `Connecting`, "`dropAt = now` if none".
+      "a-down-on-a-first-connection-sets-dropat"(c0) {
+        const c = at(c0, priceFixture, P);
+        c.advance(1000);
+        const t = c.r.now();
+        c.do({ feed: "price", frame: down });
+        c.advance(2000);
+        c.do({ feed: "price", frame: { price: 11 } });
+        c.eq("aged from the drop", [priceRow(c)?.last?.value, priceRow(c)?.last?.at], [{ price: 11 }, t]);
+      },
       // Q1 B: "`add`, the first session of a key". Sessions joining an open socket: a new key (C) is added once; another actor's sessions of
       // keys already added (A twice, B) send nothing, and, the server having registered those keys, are registered at once (2.11.12.3: a quiet
       // symbol is `Live` on its registration), not left `Connecting` until `idle` makes them `Silent`.

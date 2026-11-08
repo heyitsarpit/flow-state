@@ -2441,3 +2441,11 @@ file:scenarios/phase1s.scenario.ts hash:3776e99d3959 | Streams last batch: the c
 file:expected-recipients.txt hash:bacf4f8b35f0 | Streams last batch: the claim-at-connect variant places 2 more stream deliveries and checks 1 more restored state; no red count moved
 round:mutants-as1b.ts hash:00b9e14faaab | Streams last batch: s1.from-is-first-claim aimed at the claim-at-connect variant
 output:P1-S/a-reconnect-claims-the-bookmark-at-that-connect hash:39a814c765ab | new output: from 1 after the reload, nothing after the refetch, one more notice
+P1-S hash:ebe10615bc01 | OD53 (11): two dropAt variants, a never-registered connection keeps the earlier dropAt and a down on a first connection sets it
+file:scenarios/phase1s.scenario.ts hash:483d82fe4b03 | OD53 (11): the two dropAt variants from T1's down row and the dropAt note
+round:mutants-audit-s1b.ts hash:34393b730ae0 | OD53 (11): s1b.dropat-first-only re-anchored on the fixed down line, the same wrong rule (only the first drop sets dropAt)
+round:mutants-lifetime.ts hash:7fb96a17857a | Phase 1 migration: spreads mutants-p1m.ts (OD53's two dropAt wrong runtimes first)
+round:mutants-p1m.ts hash:c41ce32e12cc | OD53 (11): od53.lose-always-stamps and od53.down-first-unset, each red on its own P1-S variant
+file:expected-recipients.txt hash:de5e2c1c1c29 | OD53 (11): the first-connection down variant places one more stream delivery (its value while Dropped); no red count moved
+output:P1-S/a-connection-that-never-registered-keeps-the-earlier-dropat hash:9632b5a961f1 | new output: a lose, an unregistered reconnect lost, a down, a value aged from the first loss
+output:P1-S/a-down-on-a-first-connection-sets-dropat hash:c16962d124c8 | new output: a down before the first registration, a value aged from that down

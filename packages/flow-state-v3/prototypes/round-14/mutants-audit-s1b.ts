@@ -21,7 +21,7 @@ export const MUTANTS = [
   // The same row through `lose` (a stream failing or ending while Live).
   m("s1b.lose-stamps-unconfirmed", STREAMS, [[S, "const last = x.last && x.confirmed ? { last: { ...x.last, at: cx.now } } : {};", "const last = x.last ? { last: { ...x.last, at: cx.now } } : {};"]]),
   // T1 `down(r)` in `Live`: "`dropAt = now`". Wrong: only the first drop of the session sets it, so a value after a later drop ages from an older loss.
-  m("s1b.dropat-first-only", STREAMS, [[S, "...(leaving ? { dropAt: cx.now } : {}),", "...(leaving && x.dropAt === undefined ? { dropAt: cx.now } : {}),"]]),
+  m("s1b.dropat-first-only", STREAMS, [[S, "...(leaving || x.dropAt === undefined ? { dropAt: cx.now } : {}),", "...(x.dropAt === undefined ? { dropAt: cx.now } : {}),"]]),
   // Q2 A: `FillsOtherKey` when a key's first registration finds no record and the field filled by another key. Wrong: also on a return to a key
   // that has its own record.
   m("s1b.fills-other-key-on-return", [P], [[S, "if (!b && !E && otherFilled(cx, x))", "if (!E && otherFilled(cx, x))"]]),

@@ -556,7 +556,7 @@ const lose = (
     ...rest,
     ...last,
     st: "Waiting",
-    dropAt: cx.now,
+    ...(x.liveSince !== undefined || x.dropAt === undefined ? { dropAt: cx.now } : {}),
     n: x.n + 1,
     flaps,
     stalls,
@@ -826,7 +826,7 @@ const onFrame = (
       const leaving = x.st === "Live" || x.st === "Repairing";
       const y: Session = {
         ...rest,
-        ...(leaving ? { dropAt: cx.now } : {}),
+        ...(leaving || x.dropAt === undefined ? { dropAt: cx.now } : {}),
         ...(leaving && x.last && x.confirmed ? { last: { ...x.last, at: cx.now } } : {}), // T5: leaving `Live`
         st: "Dropped",
         owed: false,

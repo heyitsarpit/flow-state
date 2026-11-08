@@ -16,6 +16,7 @@ import { MUTANTS as A2 } from "./mutants-a2.ts";
 import { MUTANTS as A3 } from "./mutants-a3.ts";
 import { MUTANTS as AS1 } from "./mutants-as1.ts";
 import { MUTANTS as AS1B } from "./mutants-as1b.ts";
+import { MUTANTS as P1M } from "./mutants-p1m.ts";
 const m = (id: string, kills: string, file: string, find: string, replace = "") => ({ id, kills: [kills], edits: [[file, find, replace]] as ReadonlyArray<readonly [string, string, string]> });
 const WRITE = 'if (l.actor === key && l.head !== undefined && l.head.phase.t !== "held") out.push(`write:${l.op}`);';
 const READ = "for (const id in w.reads) if (w.reads[id]!.actor === key && w.reads[id]!.kept) out.push(`read:${w.reads[id]!.op}`);";
@@ -105,4 +106,5 @@ export const MUTANTS = [
   ...A3,
   ...AS1,
   ...AS1B,
+  ...P1M,
 ];
