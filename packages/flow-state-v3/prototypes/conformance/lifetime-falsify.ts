@@ -87,7 +87,7 @@ await stated("lifetime-falsify", async (scope) => {
   items.push({
     kind: "coverage",
     name: "every case red on some wrong runtime",
-    outcome: neverRed.length === 0 ? "pass" : unknownRuns > 0 ? "unknown" : "fail",
+    outcome: ci.outcome !== "pass" ? ci.outcome : neverRed.length === 0 ? "pass" : unknownRuns > 0 ? "unknown" : "fail",
     why: neverRed.length === 0 ? "" : `never red${unknownRuns ? ` (${unknownRuns} wrong runtime(s) unknown)` : ""}: ${neverRed.join(" ")}`,
   });
   const bad = items.filter((x) => isScored(x) && x.outcome !== "pass");

@@ -36,27 +36,35 @@ const mailqTop = "// D140: the mailbox's own contract, as a unit.";
 const plantList = (mutants: string) => `export const MUTANTS = ${mutants};\n`;
 const MUT = ["bun", "mutate.ts", "--runtime", "../round-14", "--list", "plant-mutants.ts", "--out", "/dev/null"];
 const GATES = (only: string) => ["bun", "gates.ts", ...rt, "--round", "14", "--only", only];
-const lineRows = /^(ok|BAD|UNKN)\s|^GATES|^(KILLED|SURVIVED|UNKNOWN|INVALID|UNSCORED|ROTTED)\s|^CONTROL|^control:|^\d+\/\d+ killed|^FALSIFY|^every|^never red|^error:|^WATCH/;
+const LONG = 270;
+const lineRows =/^(ok|BAD|UNKN)\s|^GATES|^(KILLED|SURVIVED|UNKNOWN|INVALID|UNSCORED|ROTTED)\s|^CONTROL|^control:|^\d+\/\d+ killed|^FALSIFY|^every|^never red|^error:|^WATCH/;
 
+const K = Number(process.env["PLANT_K"] ?? "40000000");
+const slowSettle: readonly Edit[] = [[`${P}/round-14/adapter.ts`, "pending: () => rt.pending(),", `pending: () => ((globalThis as any).__plantK = ((globalThis as any).__plantK ?? 0) + 1) <= ${K} || rt.pending(),`]];
+const LOADED = ["taskpolicy", "-c", "background"];
 const PLANTS: readonly Plant[] = [
-  { id: "B1", edits: [[`${P}/round-14/typed/swaps.ts`, "[typedPayFixture, payFixture],", "[typedPayFixture, payFullFixture],"]], cmd: GATES("mutate-one"), seconds: 290, lines: /^(ok|BAD|UNKN)\s+mutate-one|^GATES/ },
+  { id: "B3-alone", edits: slowSettle, cmd: ["bun", "main.ts", "--round", "99", "--no-catalog", ...rt, "--only", "PAY-01"], seconds: 200, lines: /^(PASS|FAIL)\s/ },
+  { id: "B3-loaded", edits: slowSettle, cmd: [...LOADED, bun, "main.ts", "--round", "99", "--no-catalog", ...rt, "--only", "PAY-01"], seconds: 200, lines: /^(PASS|FAIL)\s/ },
+  { id: "B4-alone", edits: slowSettle, cmd: ["bun", "gate5s.ts", ...rt], seconds: 200, lines: /^GATE-5S/ },
+  { id: "B4-loaded", edits: slowSettle, cmd: [...LOADED, bun, "gate5s.ts", ...rt], seconds: 200, lines: /^GATE-5S/ },
+  { id: "B1", edits: [[`${P}/round-14/typed/swaps.ts`, "[typedPayFixture, payFixture],", "[typedPayFixture, payFullFixture],"]], cmd: GATES("mutate-one"), seconds: LONG, lines: /^(ok|BAD|UNKN)\s+mutate-one|^GATES/ },
   {
     id: "B5",
     edits: [[`${P}/conformance/scenarios/lifetime.scenario.ts`, 'cites: ["rule:73", "C108"],\n    run(c0) {', `cites: ["rule:73", "C108"],\n    run(c0) {\n      ${alloc4g}`]],
     cmd: ["bun", "lifetime-falsify.ts", ...rt, "--mutants", "life.no-grace"],
-    seconds: 290,
+    seconds: LONG,
     lines: /^(ok|BAD|UNKN)\s+control|^every lifetime|survivor/,
   },
   {
     id: "B6",
     files: { [`${P}/round-14/plant-mutants.ts`]: plantList(`[{ id: "plant.alloc-at-boot", kills: ["PAY-01"], edits: [["adapter.ts", "import { allActors, getActor } from \\"./actors.ts\\";", "import { allActors, getActor } from \\"./actors.ts\\"; ${alloc4g.replace(/"/g, '\\"')}"]] }]`) },
     cmd: MUT,
-    seconds: 290,
+    seconds: LONG,
     lines: lineRows,
   },
   { id: "B8", edits: [[`${P}/round-14/adapter.ts`, "pending: () => rt.pending(),", "pending: () => true,"]], cmd: ["bun", "main.ts", "--round", "99", "--no-catalog", ...rt, "--only", "PAY-01"], seconds: 120, lines: /^(PASS|FAIL)\s/ },
-  { id: "B10", edits: [[`${P}/round-14/checks/mailq-check.ts`, mailqTop, `process.stderr.write("x".repeat(1 << 20));\n${mailqTop}`]], cmd: GATES("checks/mailq"), seconds: 290, lines: /^(ok|BAD|UNKN)\s+checks\/mailq|^GATES/ },
-  { id: "B11", edits: [[`${P}/round-14/checks/mailq-check.ts`, mailqTop, `${alloc4g}\n${mailqTop}`]], cmd: GATES("checks/mailq"), seconds: 290, lines: /^(ok|BAD|UNKN)\s+checks\/mailq|^GATES/ },
+  { id: "B10", edits: [[`${P}/round-14/checks/mailq-check.ts`, mailqTop, `process.stderr.write("x".repeat(1 << 20));\n${mailqTop}`]], cmd: GATES("checks/mailq"), seconds: LONG, lines: /^(ok|BAD|UNKN)\s+checks\/mailq|^GATES/ },
+  { id: "B11", edits: [[`${P}/round-14/checks/mailq-check.ts`, mailqTop, `${alloc4g}\n${mailqTop}`]], cmd: GATES("checks/mailq"), seconds: LONG, lines: /^(ok|BAD|UNKN)\s+checks\/mailq|^GATES/ },
   {
     id: "B12a",
     edits: [[`${P}/round-14/mutants-lifetime.ts`, '"const dueAt = tx.env.now + tx.bounds.graceMs;", "const dueAt = tx.env.now;"', '"const dueAt = no such text;", "x"']],
@@ -68,7 +76,7 @@ const PLANTS: readonly Plant[] = [
     id: "B12b",
     edits: {
       old: [[`${P}/conformance/gates.ts`, "const jobs: Job[] = [", 'const jobs: Job[] = [\n  { name: "plant", cmd: ["/nonexistent/flow-plant"], slots: 1, mb: 100, s: 1, limit: 10 },']],
-      new: [[`${P}/conformance/gates.ts`, "const specs: Spec[] = [", 'const specs: Spec[] = [\n  { name: "plant", gate: "plant", cmd: () => ["/nonexistent/flow-plant"], slots: 1, mb: 100, s: 1, limit: 10 },']],
+      new: [[`${P}/conformance/gates.ts`, "const specsOf = (L: typeof import(\"./limits.ts\")): Spec[] => [", 'const specsOf = (L: typeof import("./limits.ts")): Spec[] => [\n  { name: "plant", gate: "plant", cmd: () => ["/nonexistent/flow-plant"], slots: 1, mb: 100, s: 1, limit: 10 },']],
     },
     cmd: GATES("plant,checks/mailq"),
     seconds: 200,
@@ -78,11 +86,11 @@ const PLANTS: readonly Plant[] = [
     id: "B13",
     files: { [`${P}/round-14/plant-mutants.ts`]: plantList(`[{ id: "plant.commutes-claims", kills: ["PAY-01"], edits: [["step.ts", "const dueAt = tx.env.now + tx.bounds.graceMs;", "const dueAt = tx.bounds.graceMs + tx.env.now;"]] }, { id: "plant.commutes-claims-nothing", kills: [], edits: [["step.ts", "const dueAt = tx.env.now + tx.bounds.graceMs;", "const dueAt = tx.bounds.graceMs + tx.env.now;"]] }]`) },
     cmd: MUT,
-    seconds: 290,
+    seconds: LONG,
     lines: lineRows,
   },
   { id: "B15", cmd: ["bun", "watch.ts", "--rss-mb", "300", "--seconds", "1", "--", "sh", "-c", "sleep 0.99"], seconds: 20, lines: /^WATCH/, repeat: 50 },
-  { id: "B17", edits: [[`${P}/round-14/adapter.ts`, "if (same !== (JSON.stringify(canon(x)) === JSON.stringify(canon(y)))) {", "if (true) {"]], cmd: GATES("suite canon"), seconds: 290, lines: /^(ok|BAD|UNKN)\s+suite canon|^GATES/ },
+  { id: "B17", edits: [[`${P}/round-14/adapter.ts`, "if (same !== (JSON.stringify(canon(x)) === JSON.stringify(canon(y)))) {", "if (true) {"]], cmd: GATES("suite canon"), seconds: LONG, lines: /^(ok|BAD|UNKN)\s+suite canon|^GATES/ },
   { id: "B18", edits: [[`${P}/round-14/checks/score-check.ts`, scoreTop, `process.exit(0);\n${scoreTop}`]], cmd: GATES("checks/score"), seconds: 200, lines: /^(ok|BAD|UNKN)\s+checks\/score|^GATES/ },
   {
     id: "B19",
@@ -102,7 +110,7 @@ const PLANTS: readonly Plant[] = [
       new: [[`${P}/conformance/mutate-one.ts`, 'await stated("mutate-one", async (scope) => {', 'await stated("mutate-one", async (scope) => {\n  if (require("node:fs").readFileSync(join(resolve(import.meta.dir, dirname(process.argv[process.argv.indexOf("--runtime") + 1]!)), "world.ts"), "utf8").includes("plant-b20")) console.log(\'VERDICT {"gate":"mutate-one","run":"top.9","items":[]}\');']],
     },
     cmd: MUT,
-    seconds: 290,
+    seconds: LONG,
     lines: lineRows,
   },
   {
@@ -120,11 +128,11 @@ const PLANTS: readonly Plant[] = [
     id: "B23",
     files: { [`${P}/round-14/plant-mutants.ts`]: plantList(`[{ id: "plant.throws-at-load", kills: ["PAY-01"], edits: [["adapter.ts", "import { allActors, getActor } from \\"./actors.ts\\";", "import { allActors, getActor } from \\"./actors.ts\\"; throw new Error(\\"plant\\");"]] }]`) },
     cmd: MUT,
-    seconds: 290,
+    seconds: LONG,
     lines: lineRows,
   },
   { id: "B24", cmd: ["sh", "-c", `ulimit -n 40; exec ${bun} gates.ts ${rt.join(" ")} --round 14 --only checks/front`], seconds: 200, lines: /^(ok|BAD|UNKN)\s+checks\/front|^GATES|^error:/ },
-  { id: "B25", edits: [[`${P}/round-14/checks/mailq-check.ts`, mailqTop, `for (let __i = 0; __i < 20; __i++) await new Promise((r) => process.stdout.write("y".repeat((1 << 20) - 1) + "\\n", r));\n${mailqTop}`]], cmd: GATES("checks/mailq"), seconds: 290, lines: /^(ok|BAD|UNKN)\s+checks\/mailq|^GATES/ },
+  { id: "B25", edits: [[`${P}/round-14/checks/mailq-check.ts`, mailqTop, `for (let __i = 0; __i < 20; __i++) await new Promise((r) => process.stdout.write("y".repeat((1 << 20) - 1) + "\\n", r));\n${mailqTop}`]], cmd: GATES("checks/mailq"), seconds: LONG, lines: /^(ok|BAD|UNKN)\s+checks\/mailq|^GATES/ },
   {
     id: "B26",
     edits: { old: [], new: [] },
@@ -135,8 +143,8 @@ const PLANTS: readonly Plant[] = [
   {
     id: "B28",
     edits: [[`${P}/round-14/checks/front-check.ts`, "// Round 11, review H3, M1, M3, M6:", "while (true) {}\n// Round 11, review H3, M1, M3, M6:"]],
-    cmd: ["bun", "mutate-one.ts", ...rt.slice(0, 1), "../round-14/adapter.ts"],
-    seconds: 295,
+    cmd: ["bun", "mutate-one.ts", ...rt],
+    seconds: 290,
     lines: /^\{"killedBy"|^VERDICT/,
   },
 ];

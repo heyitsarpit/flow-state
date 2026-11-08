@@ -50,7 +50,7 @@ export const stated = async (gate: string, body: (scope: Scope) => Promise<reado
     } catch {}
     await write([{ kind: "machine", name: "interrupted", outcome: "unknown", why: `interrupted by ${signal}` }]);
   };
-  for (const s of ["SIGINT", "SIGTERM", "SIGHUP"] as const) process.on(s, interrupted(s));
+  for (const s of ["SIGINT", "SIGTERM", "SIGHUP", "SIGALRM"] as const) process.on(s, interrupted(s));
   let items: readonly Item[];
   try {
     const { makeRunner } = await import("./runner.ts");
