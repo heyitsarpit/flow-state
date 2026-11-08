@@ -192,7 +192,8 @@ export const payScenarios: readonly Scenario[] = [
         c.advance(52000);
         c.state("UNSURE");
         c.eq("uncertain", row(c)?.uncertain, true);
-        c.eq("reason", c.lastEnding("pay")?.reason, "TimedOut");
+        // Audit 1b: U1 B (OD48) took no Flow timeout word, so the deadline's ending is asserted as an unknown, not by a reason's spelling.
+        c.eq("an unknown", c.lastEnding("pay")?.["channel"], "unknown");
         c.eq("interrupted", c.r.evidence("interrupt").length, 1);
         c.eq("fence", c.r.evidence("fence").length, 1); // the interrupted fiber's own exit, before any answer
         c.fault({ lateAnswer: ["pay", req_cap] });
@@ -738,7 +739,7 @@ export const payScenarios: readonly Scenario[] = [
         c.state("PAYING");
         c.advance(1);
         c.state("UNSURE");
-        c.eq("reason", c.lastEnding("pay")?.reason, "TimedOut");
+        c.eq("an unknown, per send", [c.lastEnding("pay")?.["channel"], c.endings("pay").length], ["unknown", 2]);
       },
       // The re-send half of the storage row, and H3: after a refused capture the next retry still works.
       "resend-refused-capture"(c) {

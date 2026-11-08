@@ -25,7 +25,8 @@ const kSchema = (v: number) =>
 // Phase 1 (round 13's H2, K1): release 10 keeps the name `k` and makes it a number, a new version. Release 11 is release 2's key reordered (M2).
 const fieldsOf = (v: number) => (v === 2 ? (["k", "region"] as const) : v === 11 ? (["region", "k"] as const) : (["k"] as const));
 const regionRequired = (v: number) => v === 2 || v === 11;
-const stamped = (rel: Release, policy: Op["concurrency"]) => {
+// `unsureCommits` (audit 1b): the unknown's handler also commits key b, so a commit can meet a `cancel`-policy hold inside the hold's own turn.
+const stamped = (rel: Release, policy: Op["concurrency"], unsureCommits = false) => {
   const charge = transaction({
     id: "lab/stamp-charge",
     input: { k: kSchema(rel.v), id: S.String, region: regionRequired(rel.v) ? S.String : S.optionalKey(S.String) },
@@ -74,11 +75,11 @@ const stamped = (rel: Release, policy: Op["concurrency"]) => {
       ],
       Ok: { updateMemory: ({ memory }) => ({ oks: memory.oks + 1 }) },
       No: { updateMemory: ({ memory, event }) => ({ declined: memory.declined + 1, why: event.why }) },
-      Unsure: { updateMemory: ({ memory }) => ({ unsure: memory.unsure + 1 }) },
+      Unsure: { updateMemory: ({ memory }) => ({ unsure: memory.unsure + 1 }), actions: unsureCommits ? [O.charge.commit(() => input({ k: "b", region: "eu" }) as never)] : [] },
     },
   }));
 };
-export const keyStampFixture = (rel: Release, policy: Op["concurrency"] = "reject") => fixture(() => stamped(rel, policy));
+export const keyStampFixture = (rel: Release, policy: Op["concurrency"] = "reject", unsureCommits = false) => fixture(() => stamped(rel, policy, unsureCommits));
 
 // D222 (Arpit's call via the coordinator, proposed): a field has one default, and it applies at creation and at restore alike. Release 1 has no `n`;
 // release 2 adds it, with a constructor default (`CtorInput`) or a decoding default (`DecodeInput`): an old actor restores with it, a new one starts with it.

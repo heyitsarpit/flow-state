@@ -114,6 +114,7 @@ type Rec = {
   readonly claim?: Claim;
   readonly early?: Early;
   readonly behind?: number; // Q3 A: a covering session's unproven registration at this position; `unconfirmed` until a read asked after it lands
+  readonly keyed?: readonly string[]; // the entity's key fields, which have no cell (entity-proposal-2 2.2): never `unconfirmed` by a gap
 };
 type Repair = {
   readonly gen: string;
@@ -207,7 +208,7 @@ export const readRecord = (s: Slice, ref: string) => {
   const marks = r.marks.filter((m) => !hidden(s, ref, r, m));
   const uncertain = marks.some((m) => !m.quiet) || r.doubt !== undefined;
   const quiet = marks.filter((m) => m.quiet).flatMap((m) => m.fields);
-  const gapped = r.behind !== undefined && r.base ? Object.keys(r.base) : [];
+  const gapped = r.behind !== undefined && r.base ? Object.keys(r.base).filter((f) => !r.keyed?.includes(f)) : [];
   const unconfirmed = quiet.length || gapped.length ? [...new Set([...r.unconfirmed, ...quiet, ...gapped])] : r.unconfirmed;
   if (r.base === undefined && !predicted && !uncertain && r.queue.length === 0) return undefined;
   return { data, predicted, uncertain, unconfirmed };
@@ -220,6 +221,7 @@ export const readAll = (s: Slice) =>
   );
 
 const REPAIR_ASKS = 3;
+const MANY_MAX = 4_096;
 const startRepair = (s: Slice, ref: string, machine: string, cx: Cx): Slice => {
   const cur = own(s.repairs, ref);
   if (cur) return { ...s, repairs: { ...s.repairs, [ref]: { ...cur, again: true } } };
@@ -866,9 +868,19 @@ const coveredBy = (s: Slice, g: Extract<Told, { k: "gap" }>, cx: Cx): readonly s
   if (!c) return s.delivered[g.session] ?? [];
   const input = (g.input ?? {}) as Readonly<Record<string, unknown>>;
   const eq = fieldEq(domainOf(cx, g.machine));
-  return Object.entries(s.records)
+  const within = Object.entries(s.records)
     .filter(([ref, r]) => ref.startsWith(`${c.entity}|`) && r.base !== undefined && c.where.every((t) => eq(t.field, r.base![t.field], "input" in t ? input[t.input] : t.value)))
     .map(([ref]) => ref);
+  // Over-marking is the safe direction (Q3): a record whose filter fields this store holds in doubt, or predicts into the cover, may be in it.
+  const mayBeIn = (ref: string, r: Rec) => {
+    const shown = readRecord(s, ref)?.data as Readonly<Record<string, unknown>> | undefined;
+    return c.where.every((t) => {
+      const want = "input" in t ? input[t.input] : t.value;
+      return eq(t.field, r.base![t.field], want) || (shown !== undefined && eq(t.field, shown[t.field], want)) || r.doubt !== undefined || r.unconfirmed.includes(t.field) || r.marks.some((m) => m.fields.includes(t.field));
+    });
+  };
+  const sure = new Set(within);
+  return [...within, ...Object.entries(s.records).filter(([ref, r]) => !sure.has(ref) && ref.startsWith(`${c.entity}|`) && r.base !== undefined && mayBeIn(ref, r)).map(([ref]) => ref)];
 };
 // T7: a gap starts a refetch of each answer read earlier. One at a time per answer: its generation fences a slow one. Q3 A: an unproven
 // registration marks what the session covers as behind, until a read asked after it lands; a session that ends forgets what it delivered.
@@ -878,6 +890,8 @@ const onGap = (s0: Slice, g: Extract<Told, { k: "gap" }>, cx: Cx): Slice => {
     const refs = coveredBy(s, g, cx);
     if (refs.length) {
       const at = cx.pos();
+      const keys = domainOf(cx, g.machine)?.primaryKey;
+      if (keys) for (const ref of refs) s = withRec(s, ref, (r) => ({ ...r, keyed: keys[ref.slice(0, ref.indexOf("|"))] ?? [] }));
       for (const ref of refs) s = withRec(s, ref, (r) => ({ ...r, behind: at }));
       cx.visible();
     }
@@ -968,6 +982,10 @@ export const entities: Module<Slice> = {
     const p = prepared as { predicted: readonly Predicted[] } | undefined;
     if (!p) return { s, ok: true };
     const refs = [...new Set(p.predicted.map((x) => x.ref))];
+    // Rule 35: a `many` key array (the write's `targets`) past 4,096 items is `Overloaded`, before any join.
+    const many = domainOf(cx, w.machine)?.writes[w.op]?.targets;
+    const keys: unknown = many ? cx.user(many, [w.input], () => [] as readonly string[]) : [];
+    if (Array.isArray(keys) && keys.length > MANY_MAX) return { s, ok: false };
     // Rule 35: no partial join.
     if (refs.some((ref) => recOf(s, ref).queue.length + draftsOf(s, ref).length >= cx.queueMax)) return { s, ok: false };
     const basedOn = Object.fromEntries(refs.map((ref) => [ref, recOf(s, ref).version]));

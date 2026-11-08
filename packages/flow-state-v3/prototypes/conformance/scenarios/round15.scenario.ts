@@ -5,7 +5,9 @@ import { keyStampFixture } from "../typed/round13.ts";
 import { EdgeId, edgeFixture } from "../typed/round9b.ts";
 import { deskListenFixture } from "../typed/desk.ts";
 import { preVersionStampFixture, R15LateId, R15PlainId, R15StayId, R15SwitchId, r15LateFixture, r15PlainFixture, r15StayFixture, r15SwitchFixture } from "../typed/round15.ts";
+import { A1bDenyId, a1bDenyFixture, A1bHeldId, a1bHeldFixture, A1bHistId, a1bHistFixture, A1bTransId, a1bTransFixture } from "../typed/audit1b.ts";
 import { Ctx, type Scenario } from "./ctx.ts";
+import { GRACE } from "./lifetime.scenario.ts";
 
 const RL = { actor: R15LateId, id: "a" };
 const KS = { actor: "Lab/KeyStamp", id: "a" };
@@ -397,6 +399,105 @@ export const round15Scenarios: readonly Scenario[] = [
         const before = c.r.evidence("delivered").length;
         c.ensure(RL);
         c.eq("the queue, then the hold", c.r.evidence("delivered").slice(before).map((d) => [d["event"], d["reason"]]), [["No", "Restored"], ["Unsure", "Restored"]]);
+      },
+      // ── Audit 1b's gaps. Each from the design text it cites; none from a wrong runtime.
+      // 2.7.13's disposal row (OD50, amended by OD51 R5): "a definite ending drops the head", and "a definite ending keeps lane order, the head's first".
+      // The head succeeds within Runtime O6's bound with a commit queued behind it; after the final capture a reload delivers the head's Ok, then W's
+      // NotSent { Disposed }, and no hold is left.
+      "audit-a-definite-ending-during-disposal-is-parked-before-w-and-drops-the-head"(c0) {
+        const c = new Ctx(c0.fresh([r15LateFixture()]), RL);
+        c.ensure(RL);
+        c.send("Go");
+        c.ack();
+        c.send("Go");
+        c.do({ disposeRuntime: true });
+        c.advance(1_000);
+        c.answer("charge", { ok: {} });
+        c.advance(4_000);
+        const before = c.r.evidence("delivered").length;
+        c.reload();
+        c.eq("the head's success, then W's NotSent { Disposed }", c.r.evidence("delivered").slice(before).map((d) => [d["event"], d["event"] === "No" ? d["reason"] : null]), [["Ok", null], ["No", "Disposed"]]);
+        c.eq("the head dropped: nothing held, nothing on disk for the lane", [c.r.quiet().waits.filter((w) => w.kind === "held").length, c.lanesOf(RL).length], [0, 0]);
+      },
+      // Rule 15: "A call started in a late turn is an ordinary call with its own owner: lateness is not transitive". The late `Ok` (W was left) stays
+      // put at the root and commits `note`, owned by the root, alive: `note`'s ending is current and routes from the active leaf, B.
+      "audit-a-call-started-in-a-late-turn-ends-current"(c0) {
+        const TR = { actor: A1bTransId, id: "a" };
+        const c = new Ctx(c0.fresh([a1bTransFixture()]), TR);
+        c.ensure(TR);
+        c.send("Go");
+        c.send("Leave");
+        c.answer("charge", { ok: {} });
+        c.eq("the late Ok committed note", c.reqs("note").length, 1);
+        c.answer("note", { ok: {} });
+        c.eq("note's ending is current: B's handler", [c.r.state(TR), c.mem(TR)?.noted], ["B", "B"]);
+      },
+      // Rule 15 and 2.7.13 (F8): "an ending admitted in a turn denied this way still counts as delivered and keeps its lane effect ..., and a hold it
+      // leaves stays until a later turn's keyed cancel(k) or cancelAll(k)". The late Unsure would leave W, which owns the queued commit: denied. Its
+      // cell holds the head: still uncertain, nothing new sent; `cancelAll` then gives it up and ends the queued commit.
+      "audit-a-denied-late-unknown-keeps-its-hold-until-cancel-all"(c0) {
+        const DN = { actor: A1bDenyId, id: "a" };
+        const c = new Ctx(c0.fresh([a1bDenyFixture()]), DN);
+        c.ensure(DN);
+        c.send("Go");
+        c.send("Go");
+        c.ack();
+        c.answer("charge", { lost: true });
+        c.eq("denied", c.r.evidence("Denied").at(-1)?.["reasons"]?.includes("LateMayNotLeave"), true);
+        c.eq("the hold stays, nothing new sent, nothing released", [c.r.quiet().waits.filter((w) => w.kind === "held" && w.op === "charge").length, c.reqs("charge").length, c.r.evidence("Released").length], [1, 1, 0]);
+        c.send("Stop");
+        c.eq("cancelAll gives it up: released, the queued commit NotSent { Cancelled }", [c.r.evidence("Released").length, c.endings("charge").map((e) => e["reason"]).at(-1), c.reqs("charge").length], [1, "Cancelled", 1]);
+      },
+      // Rule 14 (OD49): re-entry "is a new activation; so is any other re-entry (a history target, rule 1, is one case). A call the old activation owns
+      // is then late when it ends". `Reset` re-enters P and X by P's history while X's call is in flight; its Ok is late and routes from the root.
+      "audit-a-history-re-entry-makes-an-in-flight-calls-ending-late"(c0) {
+        const HI = { actor: A1bHistId, id: "a" };
+        const c = new Ctx(c0.fresh([a1bHistFixture()]), HI);
+        c.ensure(HI);
+        c.send("Go");
+        c.send("Reset");
+        c.answer("charge", { ok: {} });
+        c.eq("late: heard at the root, not in X", c.mem(HI)?.heard, "root");
+      },
+      // Rule 15 (OD49): "A `Held` head is not live work: its call has returned". The late `Paid` (L was left) leaves H, which owns only charge's Held
+      // head: it goes.
+      "audit-a-late-exit-may-leave-another-operations-held-head"(c0) {
+        const HE = { actor: A1bHeldId, id: "a" };
+        const c = new Ctx(c0.fresh([a1bHeldFixture()]), HE);
+        c.ensure(HE);
+        c.send("Hold");
+        c.answer("charge", { lost: true });
+        c.send("Start");
+        c.send("ToM");
+        c.answer("pay", { ok: {} });
+        c.eq("not denied: out of H", [c.r.evidence("Denied").length, c.r.state(HE)], [0, "OUT"]);
+      },
+      // Rule 15 (OD49): the live work is "every call owned by an activation it exits", whatever its operation. With charge InFlight the same late exit
+      // is denied, and the walk goes on to the root's alternative, which stays put.
+      "audit-a-late-exit-may-not-leave-another-operations-in-flight-head"(c0) {
+        const HE = { actor: A1bHeldId, id: "a" };
+        const c = new Ctx(c0.fresh([a1bHeldFixture()]), HE);
+        c.ensure(HE);
+        c.send("Hold");
+        c.send("Start");
+        c.send("ToM");
+        c.answer("pay", { ok: {} });
+        c.eq("H's exit denied: still in H", c.r.state(HE), "M");
+      },
+      // 2.7.13 Unbound (OD50): "a lane is unbound while its identity has no decoded actor record (live or retired) and no incarnation". The actor ends
+      // after the grace with its hold (rule 73), so its record is kept, retired: its held lane is not unbound, not listed, and no boot reports it.
+      "audit-a-retired-records-held-lane-is-not-unbound"(c0) {
+        const c = new Ctx(c0.fresh([r15LateFixture()]), RL);
+        c.ensure(RL);
+        c.send("Go");
+        c.ack();
+        c.answer("charge", { lost: true });
+        c.detach(RL);
+        c.advance(GRACE);
+        c.eq("a retired record, a held lane", [c.r.state(RL), c.record(RL) !== undefined, c.lanesOf(RL).length], [undefined, true, 1]);
+        c.eq("not listed as unbound", c.r.inspect(RL)?.unbound ?? [], []);
+        c.reload();
+        c.eq("no boot reports it", [c.reportsOf("charge").length, c.r.inspect(RL)?.unbound ?? []], [0, []]);
       },
     },
   },

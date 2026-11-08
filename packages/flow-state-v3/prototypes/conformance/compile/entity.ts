@@ -40,6 +40,7 @@ export const entity = <const F extends Fields, const K extends readonly (keyof F
   return {
     id: e.id,
     fields: e.fields,
+    primaryKey: e.primaryKey,
     version: e.version,
     ref,
     patch: (key: KeyOf<F, K[number]>, fields: Rest<F, K[number]>): Patch => ({ ref: ref(key), patch: fields as Readonly<Record<string, unknown>> }),

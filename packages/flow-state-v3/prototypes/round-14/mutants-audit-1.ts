@@ -44,7 +44,6 @@ export const MUTANTS = [
   // C173 / Q1 A: "a Held lane, with its queued commits, stays an unbound lane"; rule 24: nothing drops a queued commit silently. Wrong: forget drops W.
   m("audit-1.forget-drops-the-queue", ["R15-01", "P1-H"], [["step.ts", "else setLane(tx, { ...l, parked: [] });", "else setLane(tx, { ...l, parked: [], w: [] });"]]),
   // C173 (amendment 9): a gone op's hold "is dropped, with evidence HoldForgotten". Wrong: dropped silently.
-  m("audit-1.forget-gone-op-hold-silent", ["P1-H"], [["step.ts", 'if (l.head) note(tx, "HoldForgotten", { op: l.op, attempt: l.head.id });', ""]], "vacuous: a lane whose operation is gone is quarantined at the boot and never reaches this loop (a probe throw there reached no case)"),
   // 2.7.13 Unbound (OD50): "An undecodable record's lanes are not unbound". Wrong: Inspection lists them as unbound.
   m("audit-1.unbound-lists-undecodable", ["R15-01", "LIFE-24"], [["adapter.ts", "|| Object.hasOwn(w.undecodable, actor);", ";"]]),
   // Same rule, the boot's report: wrong: each boot reports an undecodable record's lanes as UnboundLane.

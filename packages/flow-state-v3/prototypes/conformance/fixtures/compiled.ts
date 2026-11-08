@@ -263,6 +263,7 @@ export type DomainSpec = {
   readonly versionOrder?: "lexical" | ((a: unknown, b: unknown) => number); // D75: numbers order. A string orders only if declared
   readonly listens?: Readonly<Record<string, (value: any) => readonly Carried[]>>; // a domain's `listen(...).as(...)`: a stream's values as changes
   readonly covers?: Readonly<Record<string, Covers>>; // by listen: what its session watches. Absent: the records it has itself delivered
+  readonly primaryKey?: Readonly<Record<string, readonly string[]>>; // by entity (`entity({ primaryKey })`): key fields have no cell (entity-proposal-2 2.2)
   readonly fields?: Readonly<Record<string, Schema.Top>>; // the entity's field Schemas (`entity({ fields })`): the judge compares by `Schema.toEquivalence`
 };
 

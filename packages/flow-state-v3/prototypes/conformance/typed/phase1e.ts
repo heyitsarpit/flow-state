@@ -277,22 +277,33 @@ const queueServer: ServerModel = {
     },
   }),
   apply: (_op, _i, s) => ({ s }),
-  read: (op, i, s) => (op === "tickets" ? Object.values(s.tickets) : (s.tickets[i.ref.split("|")[1]] ?? null)),
+  read: (op, i, s) => (op === "tickets" ? Object.values(s.tickets) : op === "one" ? (s.tickets[i.id] ?? null) : (s.tickets[i.ref.split("|")[1]] ?? null)),
 };
 const qTickets = resource({ id: "lab/p1QTickets", input: {}, key: [], services: [FakeApi], lookup: (i) => Effect.flatMap(call<unknown, "NoResponse">("tickets")(i), (v) => Effect.orDie(Schema.decodeUnknownEffect(S.Array(QRow))(v))) });
+// `.one(QTicket).byKey(({ input }) => ({ id: input.id })).gone("TicketNotFound")`: PostgREST's `.single()`, a missing row is PGRST116.
+type OneError = { readonly _tag: "TicketNotFound" } | { readonly _tag: "NoResponse" };
+const qOne = resource({
+  id: "lab/p1QOne",
+  input: { id: S.String },
+  key: ["id"],
+  services: [FakeApi],
+  lookup: (i) => Effect.flatMap(call<QRow | null, "NoResponse">("one")(i), (v) => (v === null ? Effect.fail<OneError>({ _tag: "TicketNotFound" }) : Effect.orDie(Schema.decodeUnknownEffect(QRow)(v)))),
+});
 const queueOf = (covers: boolean) => (api: Api) =>
   machine(
     definition({
       id: P1QueueId,
       persist: false,
       states: ["A"],
-      events: { Load: {} },
-      internalEvents: { Listed: {}, ListFailed: {}, Unused: {}, Failed: {} },
+      events: { Load: {}, One: { id: S.String } },
+      internalEvents: { Listed: {}, ListFailed: {}, Unused: {}, Failed: {}, Found: {}, NotFound: {} },
       memory: { queueId: Flow.initial(S.String, "q1") },
       uses: ["entities", "sessions"],
       domain: {
         writes: {},
-        reads: { tickets: (v: readonly QRow[]) => v.map((r) => ({ ref: QTicket.ref(r), fields: r })) },
+        reads: { tickets: (v: readonly QRow[]) => v.map((r) => ({ ref: QTicket.ref(r), fields: r })), one: (v: QRow) => [{ ref: QTicket.ref(v), fields: v }] },
+        gone: { one: { tag: "TicketNotFound", ref: (i: { readonly id: string }) => QTicket.ref(i) } },
+        primaryKey: { [QTicket.id]: QTicket.primaryKey },
         listens: { changes: toChange },
         // `.covers(({ input, record }) => eq(record.queueId, input.queueId))`
         ...(covers ? { covers: { changes: { entity: QTicket.id, where: [{ field: "queueId", input: "queueId" }] } } } : {}),
@@ -315,11 +326,14 @@ const queueOf = (covers: boolean) => (api: Api) =>
           failure: E.Failed,
         },
       }),
-      operations: ({ E }) => ({ tickets: qTickets.outcomes({ success: E.Listed, failure: { NoResponse: E.ListFailed, Defect: E.ListFailed, Interrupted: E.ListFailed } }) }),
+      operations: ({ E }) => ({
+        tickets: qTickets.outcomes({ success: E.Listed, failure: { NoResponse: E.ListFailed, Defect: E.ListFailed, Interrupted: E.ListFailed } }),
+        one: qOne.outcomes({ success: E.Found, failure: { TicketNotFound: E.NotFound, NoResponse: E.ListFailed, Defect: E.ListFailed, Interrupted: E.ListFailed } }),
+      }),
     }),
     ({ S: St, O }) => ({
       default: St.A,
-      on: { Load: { actions: [O.tickets.lookup(() => ({}))] }, Listed: {}, ListFailed: {}, Unused: {}, Failed: {} },
+      on: { Load: { actions: [O.tickets.lookup(() => ({}))] }, One: { actions: [O.one.lookup(({ event }) => ({ id: event.id }))] }, Listed: {}, ListFailed: {}, Unused: {}, Failed: {}, Found: {}, NotFound: {} },
       states: { A: { activities: [{ op: "changes", input: ({ memory }: { readonly memory: { readonly queueId: string } }) => ({ queueId: memory.queueId }) }] } },
     }),
   );
@@ -341,19 +355,25 @@ const GQueue = S.Struct({ id: S.String, openCount: S.Number, revision: S.Number 
 type GT = typeof GTicket.Type;
 type GQ = typeof GQueue.Type;
 const rows = (data: readonly unknown[]) => ({ data, error: null, count: null, status: 200, statusText: "OK" });
-const guardServer = (honest: boolean): ServerModel => ({
+const guardServer = (honest: boolean, o: { readonly twoTickets?: boolean; readonly saveKey?: boolean } = {}): ServerModel => ({
   init: () => ({
-    tickets: { t1: { id: "t1", title: "A", queueId: "q1", status: "open", revision: 1 } },
-    queues: { q1: { id: "q1", openCount: 1, revision: 1 }, q2: { id: "q2", openCount: 0, revision: 1 } },
+    tickets: { t1: { id: "t1", title: "A", queueId: "q1", status: "open", revision: 1 }, ...(o.twoTickets ? { t2: { id: "t2", title: "B2", queueId: "q2", status: "open", revision: 1 } } : {}) },
+    queues: { q1: { id: "q1", openCount: 1, revision: 1 }, q2: { id: "q2", openCount: o.twoTickets ? 1 : 0, revision: 1 } },
   }),
   apply(op, i, s) {
     const t = s.tickets[i.id];
     // The app's server keeps an idempotency table for `close` by ticket id: a second request with the key is replayed the stored answer.
     if (op === "close" && s.closeKeys?.[i.id]) return { s, value: s.closeKeys[i.id] };
+    if (op === "save" && o.saveKey && s.saveKeys?.[i.id]) return { s, value: s.saveKeys[i.id] };
     if (!t || (honest && t.revision !== i.revision)) return { s, value: rows([]) };
     if (op === "save") {
       const n = { ...t, title: i.title, revision: t.revision + 1 };
-      return { s: { ...s, tickets: { ...s.tickets, [t.id]: n } }, value: rows([{ title: n.title, revision: n.revision }]) };
+      const value = rows([{ title: n.title, revision: n.revision }]);
+      return { s: { ...s, tickets: { ...s.tickets, [t.id]: n }, ...(o.saveKey ? { saveKeys: { ...s.saveKeys, [t.id]: value } } : {}) }, value };
+    }
+    if (op === "remove") {
+      const { [t.id]: _gone, ...tickets } = s.tickets;
+      return { s: { ...s, tickets }, value: rows([{ id: t.id }]) };
     }
     if (op === "move") {
       const from = s.queues[i.from];
@@ -394,8 +414,12 @@ const gSave = transaction({ id: "lab/gSave", input: { id: S.String, title: S.Str
 const gMove = transaction({ id: "lab/gMove", input: { id: S.String, from: S.String, to: S.String }, key: ["id"], concurrency: "latest", guarded: true, services: [FakeApi], commit: (i, c) => sendG("move", { ...i, revision: baseOf(c.basedOn, gTicketRef(i.id)) }, c.attempt.id, false).pipe(Effect.flatMap(rowOf(S.Struct({ queueId: S.String, revision: S.Number })))) });
 const closeOf = (guarded: boolean) =>
   transaction({ id: "lab/gClose", input: { id: S.String }, key: ["id"], concurrency: "latest", ...(guarded ? { guarded: true as const } : {}), services: [FakeApi], commit: (i, c) => sendG("close", { ...i, revision: c.basedOn }, c.attempt.id, false).pipe(Effect.flatMap(rowOf(S.Struct({ status: S.String, revision: S.Number })))) });
+const gRemove = transaction({ id: "lab/gRemove", input: { id: S.String }, key: ["id"], concurrency: "latest", services: [FakeApi], commit: (i, c) => sendG("remove", { ...i, revision: c.basedOn }, c.attempt.id, false).pipe(Effect.flatMap(rowOf(S.Struct({ id: S.String })))) });
 const board = resource({ id: "lab/gBoard", input: {}, key: [], services: [FakeApi], lookup: (i) => Effect.flatMap(call<unknown, "NoResponse">("board")(i), (v) => Effect.orDie(Schema.decodeUnknownEffect(S.Struct({ tickets: S.Array(GTicket), queues: S.Array(GQueue) }))(v))) });
-const guardOf = (o: { readonly honest: boolean; readonly closeGuarded: boolean }) => {
+// The audit-gap variants: `twoTickets` adds t2 in q2; `saveKey` gives `save` a business key by ticket id (the server dedupes it as it does `close`);
+// every variant also has `RetrySave` and an unguarded removal (`Remove`, `GiveUpRemove`).
+type GuardOpts = { readonly honest: boolean; readonly closeGuarded: boolean; readonly twoTickets?: boolean; readonly saveKey?: boolean };
+const guardOf = (o: GuardOpts) => {
   const f = fixture(
     (api: Api) =>
       machine(
@@ -403,7 +427,7 @@ const guardOf = (o: { readonly honest: boolean; readonly closeGuarded: boolean }
           id: P1GuardId,
           persist: true,
           states: ["A"],
-          events: { Load: {}, Save: { id: S.String, title: S.String }, Move: { id: S.String, from: S.String, to: S.String }, Close: { id: S.String }, GiveUpSave: { id: S.String }, GiveUpMove: { id: S.String }, GiveUpClose: { id: S.String } },
+          events: { Load: {}, Save: { id: S.String, title: S.String }, Move: { id: S.String, from: S.String, to: S.String }, Close: { id: S.String }, GiveUpSave: { id: S.String }, GiveUpMove: { id: S.String }, GiveUpClose: { id: S.String }, RetrySave: { id: S.String }, Remove: { id: S.String }, GiveUpRemove: { id: S.String } },
           internalEvents: { Listed: {}, ListFailed: {}, Done: {}, Changed: {}, Failed: {}, Unsure: Flow.uncertain({}), Unused: {}, FeedFailed: {} },
           memory: { queueId: Flow.initial(S.String, "q1") },
           uses: ["entities", "sessions"],
@@ -421,11 +445,13 @@ const guardOf = (o: { readonly honest: boolean; readonly closeGuarded: boolean }
                 targets: (i: { readonly id: string }) => [gTicketRef(i.id)],
               },
               close: { predicts: (i: { readonly id: string }) => [{ ref: gTicketRef(i.id), patch: { status: "closed" } }], confirms: (v: { readonly status: string; readonly revision: number }, i: { readonly id: string }) => [{ ref: gTicketRef(i.id), fields: v }], targets: (i: { readonly id: string }) => [gTicketRef(i.id)] },
+              remove: { predicts: (i: { readonly id: string }) => [{ ref: gTicketRef(i.id), remove: true as const }], confirms: (_v: unknown, i: { readonly id: string }) => [{ ref: gTicketRef(i.id), removed: true as const }] },
             },
             reads: { board: (v: { readonly tickets: readonly GT[]; readonly queues: readonly GQ[] }) => [...v.tickets.map((t) => ({ ref: gTicketRef(t.id), fields: t })), ...v.queues.map((q) => ({ ref: gQueueRef(q.id), fields: q }))] },
             listens: { changes: (e: { readonly ticket: GT }) => [{ ref: gTicketRef(e.ticket.id), fields: e.ticket }] },
             // `.covers(({ input, record }) => eq(record.queueId, input.queueId))`: the queue's channel, `queue_id=eq.<queueId>`
             covers: { changes: { entity: "Ticket", where: [{ field: "queueId", input: "queueId" }] } },
+            primaryKey: { Ticket: ["id"], Queue: ["id"] },
             repair: (ref: string) => api.call("repair", { ref }) as Effect.Effect<unknown, unknown, never>,
             version: () => "revision",
           },
@@ -451,6 +477,7 @@ const guardOf = (o: { readonly honest: boolean; readonly closeGuarded: boolean }
               save: gSave.outcomes(out),
               move: gMove.outcomes(out),
               close: closeOf(o.closeGuarded).outcomes(out),
+              remove: gRemove.outcomes(out),
               board: board.outcomes({ success: E.Listed, failure: { NoResponse: E.ListFailed, Defect: E.ListFailed, Interrupted: E.ListFailed } }),
             };
           },
@@ -465,6 +492,9 @@ const guardOf = (o: { readonly honest: boolean; readonly closeGuarded: boolean }
             GiveUpSave: { actions: [O.save.cancel(({ event }) => ({ id: event.id }))] },
             GiveUpMove: { actions: [O.move.cancel(({ event }) => ({ id: event.id }))] },
             GiveUpClose: { actions: [O.close.cancel(({ event }) => ({ id: event.id }))] },
+            RetrySave: { actions: [O.save.retry(({ event }) => ({ id: event.id }))] },
+            Remove: { actions: [O.remove.commit(({ event }) => ({ id: event.id }))] },
+            GiveUpRemove: { actions: [O.remove.cancel(({ event }) => ({ id: event.id }))] },
             Listed: {},
             ListFailed: {},
             Done: {},
@@ -477,10 +507,10 @@ const guardOf = (o: { readonly honest: boolean; readonly closeGuarded: boolean }
           states: { A: { activities: [{ op: "changes", input: ({ memory }: { readonly memory: { readonly queueId: string } }) => ({ queueId: memory.queueId }) }] } },
         }),
       ),
-    guardServer(o.honest),
+    guardServer(o.honest, o),
   );
   // C129's business key, the design's word, set on `Compiled` (this prototype's `transaction` has no `idempotency` yet): the server dedupes `close` on the ticket id.
-  return { ...f, make: (api: Api) => { const c = f.make(api); return { ...c, ops: { ...c.ops, close: { ...c.ops["close"]!, idempotency: ["id"] } } }; } };
+  return { ...f, make: (api: Api) => { const c = f.make(api); return { ...c, ops: { ...c.ops, close: { ...c.ops["close"]!, idempotency: ["id"] }, ...(o.saveKey ? { save: { ...c.ops["save"]!, idempotency: ["id"] } } : {}) } }; } };
 };
 const guardFx = guardOf({ honest: true, closeGuarded: true });
 const guardLyingFx = guardOf({ honest: false, closeGuarded: true });
@@ -488,3 +518,101 @@ const guardUnguardedCloseFx = guardOf({ honest: true, closeGuarded: false });
 export const p1GuardFixture = () => guardFx;
 export const p1GuardLyingFixture = () => guardLyingFx;
 export const p1GuardUnguardedCloseFixture = () => guardUnguardedCloseFx;
+const guardKeysFx = guardOf({ honest: true, closeGuarded: false, twoTickets: true, saveKey: true });
+const guardTwoFx = guardOf({ honest: true, closeGuarded: true, twoTickets: true });
+export const p1GuardKeysFixture = () => guardKeysFx;
+export const p1GuardTwoFixture = () => guardTwoFx;
+
+// Rule 32 beside a business key: paying a bill goes through the app's server, which keys its idempotency table by order (C129's `idempotency:
+// ["orderId"]`, set on `Compiled` as above), so two bills of one order share the key; the lane is per bill.
+export const P1PayId = "Lab/P1Pay";
+export const billRef = (id: string) => `Bill|${id}`;
+const pay = transaction({ id: "lab/p1Pay", input: { orderId: S.String, bill: S.String }, key: ["bill"], concurrency: "latest", services: [FakeApi], commit: write("pay") });
+const bills = resource({ id: "lab/p1Bills", input: {}, key: [], services: [FakeApi], lookup: (i) => call<unknown, "NoResponse">("bills")(i) });
+const payFx0 = fixture(
+  (api: Api) =>
+    machine(
+      definition({
+        id: P1PayId,
+        persist: false,
+        states: ["A"],
+        events: { Load: {}, Pay: { orderId: S.String, bill: S.String } },
+        internalEvents: { Listed: {}, ListFailed: {}, Done: {}, No: {}, Unsure: Flow.uncertain({}) },
+        memory: {},
+        uses: ["entities"],
+        domain: {
+          writes: {
+            pay: {
+              predicts: (i: { readonly bill: string }) => [{ ref: billRef(i.bill), patch: { paid: true } }],
+              confirms: (_v: unknown, i: { readonly bill: string }) => [{ ref: billRef(i.bill), fields: { paid: true } }],
+            },
+          },
+          reads: { bills: (v: readonly { readonly id: string; readonly paid: boolean }[]) => v.map((b) => ({ ref: billRef(b.id), fields: b })) },
+          repair: (ref: string) => api.call("repair", { ref }) as Effect.Effect<unknown, unknown, never>,
+        },
+        operations: ({ E }) => ({
+          pay: pay.outcomes({ success: E.Done, failure: { NotSent: E.No }, unknown: E.Unsure }),
+          bills: bills.outcomes({ success: E.Listed, failure: { NoResponse: E.ListFailed, Defect: E.ListFailed, Interrupted: E.ListFailed } }),
+        }),
+      }),
+      ({ S: St, O }) => ({
+        default: St.A,
+        on: { Load: { actions: [O.bills.lookup(() => ({}))] }, Pay: { actions: [O.pay.commit(({ event }) => ({ orderId: event.orderId, bill: event.bill }))] }, Listed: {}, ListFailed: {}, Done: {}, No: {}, Unsure: {} },
+      }),
+    ),
+  {
+    init: () => ({ bills: { b1: { id: "b1", paid: false }, b2: { id: "b2", paid: false } } }),
+    apply: (op, i, s) => (op === "pay" ? { s: { bills: { ...s.bills, [i.bill]: { id: i.bill, paid: true } } }, value: { id: i.bill, paid: true } } : { s }),
+    read: (op, i, s) => (op === "bills" ? Object.values(s.bills) : (s.bills[i.ref.split("|")[1]] ?? null)),
+  },
+);
+const payFx = { ...payFx0, make: (api: Api) => { const c = payFx0.make(api); return { ...c, ops: { ...c.ops, pay: { ...c.ops["pay"]!, idempotency: ["orderId"] } } }; } };
+export const p1PayFixture = () => payFx;
+
+// Rule 35 and U10's cap at their values: a bulk close is one `many` write (its `targets` are the key array), one Attempt over every listed item.
+export const P1BulkId = "Lab/P1Bulk";
+export const itemRef = (id: string) => `Item|${id}`;
+const closeAll = transaction({ id: "lab/p1CloseAll", input: { ids: S.Array(S.String) }, key: [], concurrency: "latest", services: [FakeApi], commit: write("closeAll") });
+const closeOne = transaction({ id: "lab/p1CloseOne", input: { id: S.String }, key: ["id"], concurrency: "latest", services: [FakeApi], commit: write("closeOne") });
+const bulkFx = fixture(
+  (api: Api) =>
+    machine(
+      definition({
+        id: P1BulkId,
+        persist: false,
+        states: ["A"],
+        events: { CloseAll: { ids: S.Array(S.String) }, GiveUpAll: {}, Close: { id: S.String }, GiveUp: { id: S.String } },
+        internalEvents: { Done: {}, No: {}, Unsure: Flow.uncertain({}) },
+        memory: {},
+        uses: ["entities"],
+        domain: {
+          writes: {
+            closeAll: {
+              predicts: (i: { readonly ids: readonly string[] }) => i.ids.map((id) => ({ ref: itemRef(id), patch: { open: false } })),
+              targets: (i: { readonly ids: readonly string[] }) => i.ids.map(itemRef),
+            },
+            closeOne: { predicts: (i: { readonly id: string }) => [{ ref: itemRef(i.id), patch: { open: false } }], targets: (i: { readonly id: string }) => [itemRef(i.id)] },
+          },
+          repair: (ref: string) => api.call("repair", { ref }) as Effect.Effect<unknown, unknown, never>,
+        },
+        operations: ({ E }) => ({
+          closeAll: closeAll.outcomes({ success: E.Done, failure: { NotSent: E.No }, unknown: E.Unsure }),
+          closeOne: closeOne.outcomes({ success: E.Done, failure: { NotSent: E.No }, unknown: E.Unsure }),
+        }),
+      }),
+      ({ S: St, O }) => ({
+        default: St.A,
+        on: {
+          CloseAll: { actions: [O.closeAll.commit(({ event }) => ({ ids: event.ids }))] },
+          GiveUpAll: { actions: [O.closeAll.cancel(() => ({}))] },
+          Close: { actions: [O.closeOne.commit(({ event }) => ({ id: event.id }))] },
+          GiveUp: { actions: [O.closeOne.cancel(({ event }) => ({ id: event.id }))] },
+          Done: {},
+          No: {},
+          Unsure: {},
+        },
+      }),
+    ),
+  { init: () => ({}), apply: (_op, _i, s) => ({ s, value: {} }), read: () => null },
+);
+export const p1BulkFixture = () => bulkFx;

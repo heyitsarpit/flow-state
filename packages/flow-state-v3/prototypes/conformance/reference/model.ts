@@ -149,6 +149,29 @@ export class Reference {
     return alts.some((x) => chain.includes(x.node)) ? "yes" : "no";
   };
 
+  // Rule 14 (OD49): an event's walk from `leafBefore` that re-enters active nodes (a target naming a node of the active chain, or its history) exits
+  // them and starts new activations, which a published leaf cannot show. `taken`: the first handling node's first alternative has no guard, so it is
+  // the one that runs, and these nodes were re-entered. `may`: some alternative could re-enter them. Undefined where the reference cannot see.
+  reentries = (machine: string, ev: string, leafBefore: string | undefined): { readonly taken: readonly string[]; readonly may: readonly string[] } | undefined => {
+    const m = this.byId.get(machine);
+    if (!m || leafBefore === undefined) return undefined;
+    const chain = this.chain(m, leafBefore);
+    if (!chain) return undefined;
+    const ids = chain.map((n) => n.id);
+    const upTo = (t: string) => (ids.includes(t) ? ids.slice(0, ids.indexOf(t) + 1) : []);
+    const may = new Set<string>();
+    let taken: readonly string[] = [];
+    let first = true;
+    for (const n of chain) {
+      const alts = n.on?.[ev] ?? [];
+      if (alts.length === 0) continue;
+      for (const a of alts) if (a.target !== "self") for (const x of upTo(a.target)) may.add(x);
+      if (first && alts[0]!.guards.length === 0 && alts[0]!.tokens.length === 0 && alts[0]!.target !== "self") taken = upTo(alts[0]!.target);
+      first = false;
+    }
+    return { taken, may: [...may] };
+  };
+
   // D154's "owner moved", per owner: between the leaf before and after a batch, did the owner's machine take an alternative that cancels
   // `op`, leave every state that binds it, or leave a fragment whose `whenAbandoned.release` names it?
   moveLetsGo = (machine: string, op: string, before: string | undefined, after: string | undefined): Answer => {

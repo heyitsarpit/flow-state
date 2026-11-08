@@ -395,6 +395,7 @@ export type SealedDomain = Pick<DomainSpec, "writes"> & {
   readonly gone?: Readonly<Record<string, { readonly tag: string; readonly ref: Slot<(input: any) => string> }>>;
   readonly listens?: Readonly<Record<string, Slot<(value: any) => readonly Carried[]>>>;
   readonly covers?: DomainSpec["covers"];
+  readonly primaryKey?: DomainSpec["primaryKey"];
   readonly repair: Slot<DomainSpec["repair"]>;
   readonly version?: Slot<NonNullable<DomainSpec["version"]>>;
   readonly versionOrder?: "lexical" | Slot<(a: unknown, b: unknown) => number>;

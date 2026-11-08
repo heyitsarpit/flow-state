@@ -41,6 +41,7 @@ export type DomainIn = {
   readonly version?: Fn;
   readonly versionOrder?: "lexical" | Fn;
   readonly fields?: DomainSpec["fields"]; // the entity's field Schemas, for the judge's equality
+  readonly primaryKey?: DomainSpec["primaryKey"]; // by entity, from `entity({ primaryKey })`
 };
 const compileDomain = (id: string, d: DomainIn): DomainSpec =>
   ({
@@ -64,6 +65,7 @@ const compileDomain = (id: string, d: DomainIn): DomainSpec =>
     ...(d.version ? { version: slotOf(id, "domain.version", d.version) } : {}),
     ...(d.versionOrder === undefined ? {} : { versionOrder: d.versionOrder === "lexical" ? "lexical" : slotOf(id, "domain.versionOrder", d.versionOrder) }),
     ...(d.fields ? { fields: d.fields } : {}),
+    ...(d.primaryKey ? { primaryKey: d.primaryKey } : {}),
   }) as unknown as DomainSpec;
 type MappedIn = { readonly tag: string; readonly fromFn?: unknown };
 export type StreamIn = Omit<StreamSpec, "key" | "backoff" | "subscribe" | "reconnectWhile" | "pageRetryWhile" | "catchUp" | "value" | "missed" | "failure" | "failureBy" | "pages"> & {

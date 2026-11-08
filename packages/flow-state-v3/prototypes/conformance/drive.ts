@@ -617,7 +617,8 @@ export const makeHarness = (port: Port) => (): Harness => {
   let askOwners: Array<{ op: string; machine: string; frag: string | undefined; node: string; serial: number | undefined }> = [];
   // An attempt's owner (rule 14): the node its transition names, in the incarnation of `serial`, and the ancestors of that node that
   // stayed in the incarnation's published chain at every batch since the ask. `undefined` once the suite cannot tell (a resend by a retry).
-  const ownerOf = new Map<string, { machine: string; frag: string | undefined; node: string; serial: number; live: Set<string> } | undefined>();
+  // `unsure`: a driven event may have re-entered one of its live nodes (rule 14, OD49), which no published leaf shows: its start is not checked.
+  const ownerOf = new Map<string, { machine: string; frag: string | undefined; node: string; serial: number; live: Set<string>; unsure?: true } | undefined>();
   const offActors = new Set<string>(); // review M9: actors whose bytes the case edited or tore; their obligations only are excused
   const off = (actor: string | undefined) => ledgerOff || (actor !== undefined && offActors.has(actor));
   // A stored key's actor, by the codec; a key it scopes to no actor (meta, host) excuses the case, as before.
@@ -816,7 +817,7 @@ export const makeHarness = (port: Port) => (): Harness => {
   const startOf = (att: string, who: Who, leaf: string): { node: string; late: boolean } | undefined => {
     if (due.has(att) || who.life !== (attemptLife.get(att) ?? 0)) return { node: leaf, late: false };
     const o = ownerOf.get(att);
-    if (!o) return undefined;
+    if (!o || o.unsure) return undefined;
     const ow = resolve(o.serial);
     if (!ow || ow.actor !== who.actor || !samePath(ow.path, who.path)) return { node: leaf, late: false };
     if (o.live.has(o.node)) return { node: leaf, late: false };
@@ -905,7 +906,25 @@ export const makeHarness = (port: Port) => (): Harness => {
       }
       if (x["kind"] === "turn") {
         const who = String(x["actor"]);
-        if (stepTo && who === stepTo.actor && String(x["event"]) === stepTo.event) stepTo = undefined;
+        if (stepTo && who === stepTo.actor && String(x["event"]) === stepTo.event) {
+          // Rule 14 (OD49): re-entry is a new activation, which no published leaf shows. The suite's own send, at the turn that runs it (before that
+          // turn's own mints): for each earlier owner in this actor, the nodes its walk certainly re-enters end; if it could re-enter a live one, the
+          // owner's start is no longer the suite's to check (the reference's `reentries`, from the compiled data only).
+          const was = published.get(who); // not yet moved to this batch's reading (below)
+          const leafBefore = was === undefined ? undefined : (JSON.parse(was) as [string, string])[0];
+          if (stepTo.to.length === 0)
+            for (const o of ownerOf.values()) {
+              const ow = o && resolve(o.serial);
+              if (!o || !ow || ow.actor !== who || ow.path.length > 0 || o.frag !== undefined) continue;
+              const r = refm().reentries(o.machine, stepTo.event, leafBefore);
+              if (!r) o.unsure = true;
+              else {
+                for (const n of r.taken) o.live.delete(n);
+                if (r.may.some((n) => o.live.has(n))) o.unsure = true;
+              }
+            }
+          stepTo = undefined;
+        }
         for (const d of declines.splice(0)) declineCopy.set(d.op, { actor: who, copy: placeFor(who, d.op, d.cause) });
         cause = null;
         // Re-check M2'' (A1): attribute only to an actor the suite addressed or that publishes. A turn of any other is itself red.

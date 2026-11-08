@@ -269,8 +269,12 @@ export const phase1hScenarios: readonly Scenario[] = [
         c.h.release(() => void (rel.v = 2), () => void (rel.v = 1));
         c.reload();
         c.eq("quarantined at the boot", [c.r.issues().filter((i) => i.code === "RecordQuarantined").length, c.r.inspect(PG)?.quarantined?.length], [1, 1]);
+        const from = c.r.evidence().length;
         c.do({ forget: PG });
-        c.eq("dropped, with evidence", [c.r.evidence("HoldForgotten").length, c.r.inspect(PG)?.quarantined?.length], [1, 0]);
+        // Audit 1b: `HoldForgotten` is a proposed name, and the design says only "with evidence": asserted as evidence beyond the identity's own
+        // dispose and forget, whatever it is called.
+        const said = c.r.evidence().slice(from).filter((e) => !["disposed", "forgotten", "lane"].includes(String(e["kind"]))).length;
+        c.eq("dropped, with evidence", [said > 0, c.r.inspect(PG)?.quarantined?.length], [true, 0]);
         c.eq("its record is gone", c.laneKeys().length, 0);
         c.reload();
         c.eq("not named again", c.r.issues().filter((i) => i.code === "RecordQuarantined").length, 1);
@@ -381,6 +385,27 @@ export const phase1hScenarios: readonly Scenario[] = [
         c.fault({ corruptStored: { match: "lane/", edit: (raw: string) => raw.replaceAll("#2:", "#9:") } });
         c.reload();
         c.eq("an old-version hold", c.r.evidence("OldVersionLane").length, 1);
+      },
+      // Audit 1b, 2.7.15 (Q2 A, M2): beside an old-version hold a commit "ends NotSent { why: "OldVersion" } and its transition runs, under every
+      // policy". `latest` and `cancel` too: nothing sent, the decline heard.
+      "audit-under-latest-a-commit-beside-an-old-version-hold-declines-old-version"(c0) {
+        const c = holdAcross(c0, (rel) => keyStampFixture(rel, "latest"), 1, 2);
+        c.send("Go", { k: "b", region: "eu" });
+        c.ack();
+        c.eq("NotSent { OldVersion }, nothing sent", [c.mem(KS)?.why, c.lastEnding("charge")?.["reason"], c.reqs("charge").length], ["OldVersion", "OldVersion", 1]);
+      },
+      // Under `cancel` an unknown is held only for its own turn (R15-01), so the old-version hold lives through the restored unknown's turn; its
+      // handler's commit of key b meets it there.
+      "audit-under-cancel-a-commit-beside-an-old-version-hold-declines-old-version"(c0) {
+        const rel: Release = { v: 1 };
+        const c = new Ctx(c0.fresh([keyStampFixture(rel, "cancel", true)], { captureMs: 0 }), KS);
+        c.ensure(KS);
+        c.send("Go", { k: "a" });
+        c.ack();
+        c.h.release(() => void (rel.v = 2), () => void (rel.v = 1));
+        c.reload();
+        c.eq("an old-version hold, its unknown heard", [c.r.evidence("OldVersionLane").length, c.mem(KS)?.unsure], [1, 1]);
+        c.eq("the handler's commit: NotSent { OldVersion }, nothing sent", [c.mem(KS)?.why, c.lastEnding("charge")?.["reason"], c.reqs("charge").length], ["OldVersion", "OldVersion", 1]);
       },
     },
   },

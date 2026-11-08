@@ -15,6 +15,7 @@ import {
   r15RejectFixture,
 } from "../typed/round15b.ts";
 import { A1RejectId, a1RejectFixture } from "../typed/audit1.ts";
+import { keyStampFixture } from "../typed/round13.ts";
 import { Ctx, type Scenario } from "./ctx.ts";
 
 const KA = { actor: R15KeyedId, id: "a" };
@@ -36,6 +37,22 @@ export const round15bScenarios: readonly Scenario[] = [
     actor: KA,
     cites: ["rule:43", "rule:16", "rule:44"],
     variants: {
+      // Audit 1b, rule 44: a starting incarnation receives "per lane in creation order" each held head's `unknown { Restored }`. Keys a then b, each
+      // held; the reload delivers a's first.
+      "audit-a-reload-restores-held-lanes-in-creation-order"(c0) {
+        const KS = { actor: "Lab/KeyStamp", id: "a" };
+        const c = new Ctx(c0.fresh([keyStampFixture({ v: 1 })], { captureMs: 0 }), KS);
+        c.ensure(KS);
+        for (const k of ["a", "b"]) {
+          c.send("Go", { k });
+          c.ack();
+          c.answer("charge", { lost: true }, { k });
+        }
+        const made = c.r.evidence("mint").filter((e) => e["op"] === "charge").map((e) => e["attempt"]);
+        const before = c.r.evidence("delivered").length;
+        c.reload();
+        c.eq("a's hold first, then b's", c.r.evidence("delivered").slice(before).map((d) => [d["attempt"], d["reason"]]), made.map((a) => [a, "Restored"]));
+      },
       // Audit 1, rule 43 (R2, OD50): on an unkeyed operation a key-less member names its one lane in every handler, a NotSent ending's included. The
       // second `Go` is refused (`reject`, the lane busy) and its `No` handler's key-less `cancel` names the lane: the head on the wire is cancelled.
       "audit-an-unkeyed-key-less-cancel-in-a-not-sent-handler-names-the-lane"(c0) {

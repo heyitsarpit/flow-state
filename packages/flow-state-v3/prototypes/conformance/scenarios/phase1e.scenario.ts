@@ -1,8 +1,16 @@
 // Phase 1, area E: the entity store, and the runner's two items from area H. Every expectation is the design's or the proposal's text
 // (round-9/entity-proposal-2.md), or a ruling, worked out by hand before the runtime was changed; each variant names its rule.
 import {
+  billRef,
   gQueueRef,
   gTicketRef,
+  itemRef,
+  P1BulkId,
+  p1BulkFixture,
+  p1GuardKeysFixture,
+  p1GuardTwoFixture,
+  P1PayId,
+  p1PayFixture,
   p1GuardFixture,
   P1GuardId,
   p1GuardLyingFixture,
@@ -42,10 +50,12 @@ const heard = (c: Ctx) => c.r.evidence("delivered").map((d) => d["event"]);
 const QA = { actor: P1QueueId, id: "a" };
 const Q1 = qTicketRef("t1");
 const Q2 = qTicketRef("t2");
-const ALL_Q = ["id", "queueId", "title", "revision", "note"];
+// Audit 2: `unconfirmed` is a set (the design fixes no order), and key fields have no cell (entity-proposal-2 2.2), so `id` is never in it.
+const asSet = (x: readonly string[] | undefined) => [...(x ?? [])].sort();
+const ALL_Q = ["note", "queueId", "revision", "title"];
 const GA = { actor: P1GuardId, id: "a" };
 const GT1 = gTicketRef("t1");
-const marks = (c: Ctx, ref: string) => [c.rec(ref)?.uncertain, c.rec(ref)?.unconfirmed];
+const marks = (c: Ctx, ref: string) => [c.rec(ref)?.uncertain, asSet(c.rec(ref)?.unconfirmed)];
 const board = (c: Ctx) => {
   c.send("Load");
   c.answer("board", { truth: true });
@@ -135,17 +145,17 @@ export const phase1eScenarios: readonly Scenario[] = [
         c.answer("like", { lost: true });
         c.eq("held: uncertain", c.rec(I1)?.uncertain, true);
         c.to(IA, "CancelLike", { id: "i1" });
-        c.eq("given up, no read since: uncertain", [c.rec(I1)?.uncertain, c.rec(I1)?.unconfirmed], [true, []]);
+        c.eq("given up, no read since: uncertain", [c.rec(I1)?.uncertain, asSet(c.rec(I1)?.unconfirmed)], [true, []]);
         c.answer("repair", { truth: true });
         c.eq("the forced repair was asked before the give-up: still uncertain", c.rec(I1)?.uncertain, true);
         c.eq("the give-up asked one read", c.reqs("repair").length, 2);
         c.answer("repair", { truth: true });
-        c.eq("a read asked after: quiet", [c.rec(I1)?.uncertain, c.rec(I1)?.unconfirmed], [false, ["liked", "likes"]]);
+        c.eq("a read asked after: quiet", [c.rec(I1)?.uncertain, asSet(c.rec(I1)?.unconfirmed)], [false, ["liked", "likes"]]);
         c.advance(3_600_000);
-        c.eq("time clears nothing", c.rec(I1)?.unconfirmed, ["liked", "likes"]);
+        c.eq("time clears nothing", asSet(c.rec(I1)?.unconfirmed), ["liked", "likes"]);
         c.to(IB, "Toggle", { id: "i1", liked: false });
         c.answer("like", { apply: true });
-        c.eq("a later success clears nothing", [c.rec(I1)?.uncertain, c.rec(I1)?.unconfirmed], [false, ["liked", "likes"]]);
+        c.eq("a later success clears nothing", [c.rec(I1)?.uncertain, asSet(c.rec(I1)?.unconfirmed)], [false, ["liked", "likes"]]);
         c.eq("and asks nothing", c.reqs("repair").length, 2);
       },
       // U10: a later write's success, landing before any read after the give-up, demotes the mark too (section 5: "that read lands, or C succeeds").
@@ -161,7 +171,7 @@ export const phase1eScenarios: readonly Scenario[] = [
         c.to(IA, "CancelLike", { id: "i1" });
         c.to(IB, "Toggle", { id: "i1", liked: false });
         c.answer("like", { apply: true });
-        c.eq("quiet, not clean", [c.rec(I1)?.uncertain, c.rec(I1)?.unconfirmed], [false, ["liked", "likes"]]);
+        c.eq("quiet, not clean", [c.rec(I1)?.uncertain, asSet(c.rec(I1)?.unconfirmed)], [false, ["liked", "likes"]]);
       },
       // The real source shape (supabase-js's PostgREST update): its response carries `title` and `revision`, decoded by the adapter's Schema; the store
       // takes both at settlement (2.8.1, 2.8.4), and `slug`, predicted and not carried, is `unconfirmed` (2.8.6's success row; proposal 4.3).
@@ -174,7 +184,7 @@ export const phase1eScenarios: readonly Scenario[] = [
         c.eq("predicted", [c.rec(T1)?.data.title, c.rec(T1)?.data.slug, c.rec(T1)?.predicted], ["New", "new", true]);
         c.eq("sent with Flow's basedOn, the row's revision", c.reqs("save").map((r) => r.input.match.revision), [1]);
         c.answer("save", { apply: true });
-        c.eq("confirmed from the response", [c.rec(T1)?.data, c.rec(T1)?.predicted, c.rec(T1)?.uncertain, c.rec(T1)?.unconfirmed], [{ id: "t1", title: "New", slug: "new", revision: 2 }, false, false, ["slug"]]);
+        c.eq("confirmed from the response", [c.rec(T1)?.data, c.rec(T1)?.predicted, c.rec(T1)?.uncertain, asSet(c.rec(T1)?.unconfirmed)], [{ id: "t1", title: "New", slug: "new", revision: 2 }, false, false, ["slug"]]);
         c.eq("heard", heard(c), ["Listed", "Saved"]);
       },
       // A stale write meets the server's version check as an ordinary conflict. PostgREST's is "no row matched": `data: []`, status 200. The adapter makes it
@@ -314,7 +324,7 @@ export const phase1eScenarios: readonly Scenario[] = [
         c.answer("rename", { apply: true });
         c.eq("a title's success says nothing of liked: still uncertain", c.rec(I1)?.uncertain, true);
         c.answer("repair", { truth: true });
-        c.eq("the give-up's read demotes it", [c.rec(I1)?.uncertain, c.rec(I1)?.unconfirmed], [false, ["liked", "likes"]]);
+        c.eq("the give-up's read demotes it", [c.rec(I1)?.uncertain, asSet(c.rec(I1)?.unconfirmed)], [false, ["liked", "likes"]]);
       },
       // D15 as ruled (runner, item 2): no 5-minute clock. An unbound sent hold (its actor gone) with a write waiting behind it on its record yields at once:
       // released, its one read asked, its mark kept (rule 32), and the waiter goes.
@@ -344,7 +354,7 @@ export const phase1eScenarios: readonly Scenario[] = [
           c.to(IA, "CancelLike", { id });
           c.answer("repair", { truth: true });
         }
-        c.eq("i1's evicted, i2's kept", [c.r.evidence("UnsettledEvicted").map((e) => e["ref"]), c.rec(issueRef("i1"))?.unconfirmed, c.rec(issueRef("i2"))?.unconfirmed], [[issueRef("i1")], [], ["liked", "likes"]]);
+        c.eq("i1's evicted, i2's kept", [c.r.evidence("UnsettledEvicted").map((e) => e["ref"]), asSet(c.rec(issueRef("i1"))?.unconfirmed), asSet(c.rec(issueRef("i2"))?.unconfirmed)], [[issueRef("i1")], [], ["liked", "likes"]]);
       },
       // Q1 A, `guarded: true`, with the convergence's rules (round-9/released-write-proof-proposal-2.md 4.1, spelled `guarded`). Example 1: B is sent over
       // revision 1, lost, given up. While the row is at 1 the request may still land; once an answer shows revision 2 it cannot, and the doubt ends.
@@ -395,7 +405,7 @@ export const phase1eScenarios: readonly Scenario[] = [
         c.eq("the read shows 2: ended", marks(c, GT1), [false, []]);
       },
       // 4.1 is about a given-up write: a held one may still be re-sent, so a version past its base ends nothing while held. At the give-up the store
-      // already holds one, so it ends there, and the give-up asks no read.
+      // already holds one, so it ends there. Whether the give-up still asks its one read the design does not say (audit 2: not pinned).
       "a-held-doubt-is-not-ended-and-the-proof-already-held-ends-it-at-the-give-up"(c0) {
         const c = new Ctx(c0.fresh([p1GuardFixture()]), GA);
         c.ensure(GA);
@@ -407,7 +417,7 @@ export const phase1eScenarios: readonly Scenario[] = [
         c.answer("repair", { truth: true });
         c.eq("held: still uncertain", c.rec(GT1)?.uncertain, true);
         c.send("GiveUpSave", { id: "t1" });
-        c.eq("given up past its base: clean, no read asked", [...marks(c, GT1), c.reqs("repair").length], [false, [], 1]);
+        c.eq("given up past its base: clean", marks(c, GT1), [false, []]);
       },
       // G5 (the round 3 runtime review): the lane record written ahead of the send may hold a base a rebase later moved. A doubt restored from it has no
       // base it can trust, so no version proves it: the cap. Here the reload lands after the send and before the record that says so.
@@ -560,10 +570,10 @@ export const phase1eScenarios: readonly Scenario[] = [
         c.send("Load");
         c.answer("tickets", { truth: true });
         c.do({ feed: "changes", frame: { _feed: "live" } });
-        c.eq("q1's ticket is behind, q2's untouched", [c.rec(Q1)?.unconfirmed, c.rec(Q2)?.unconfirmed], [ALL_Q, []]);
+        c.eq("q1's ticket is behind, q2's untouched", [asSet(c.rec(Q1)?.unconfirmed), asSet(c.rec(Q2)?.unconfirmed)], [ALL_Q, []]);
         c.eq("one refetch asked", c.reqs("tickets").length, 2);
         c.answer("tickets", { truth: true });
-        c.eq("the refetch, asked after the gap, clears it", c.rec(Q1)?.unconfirmed, []);
+        c.eq("the refetch, asked after the gap, clears it", asSet(c.rec(Q1)?.unconfirmed), []);
       },
       // Q3 A's default with no `.covers`: a session covers what it has itself delivered. It delivered t1, never t2; after a flap only t1 is behind.
       "with-no-covers-a-gap-marks-what-the-session-delivered"(c0) {
@@ -572,14 +582,14 @@ export const phase1eScenarios: readonly Scenario[] = [
         c.send("Load");
         c.answer("tickets", { truth: true });
         c.do({ feed: "changes", frame: { _feed: "live" } });
-        c.eq("the first registration: nothing delivered yet, nothing behind", [c.rec(Q1)?.unconfirmed, c.rec(Q2)?.unconfirmed], [[], []]);
+        c.eq("the first registration: nothing delivered yet, nothing behind", [asSet(c.rec(Q1)?.unconfirmed), asSet(c.rec(Q2)?.unconfirmed)], [[], []]);
         c.answer("tickets", { truth: true });
         c.fault({ mutateServer: (s: any) => ({ tickets: { ...s.tickets, t1: { ...s.tickets.t1, title: "A2", revision: 2 } } }) });
         c.do({ feed: "changes", frame: { eventType: "UPDATE", columns: "changed", new: { id: "t1", title: "A2", revision: 2 } } });
         c.do({ feed: "changes", fail: { _tag: "SocketDropped" } });
         c.advance(1_000);
         c.do({ feed: "changes", frame: { _feed: "live" } });
-        c.eq("t1 is behind, t2 untouched", [c.rec(Q1)?.unconfirmed, c.rec(Q2)?.unconfirmed], [ALL_Q, []]);
+        c.eq("t1 is behind, t2 untouched", [asSet(c.rec(Q1)?.unconfirmed), asSet(c.rec(Q2)?.unconfirmed)], [ALL_Q, []]);
       },
       // Q3 A: only a read asked after the gap clears it. A read asked before, landing after, does not.
       "a-read-asked-before-the-gap-does-not-clear-it"(c0) {
@@ -590,9 +600,9 @@ export const phase1eScenarios: readonly Scenario[] = [
         c.send("Load");
         c.do({ feed: "changes", frame: { _feed: "live" } });
         c.answer("tickets", { truth: true });
-        c.eq("asked before: still behind", c.rec(Q1)?.unconfirmed, ALL_Q);
+        c.eq("asked before: still behind", asSet(c.rec(Q1)?.unconfirmed), ALL_Q);
         c.answer("tickets", { truth: true });
-        c.eq("the refetch clears it", c.rec(Q1)?.unconfirmed, []);
+        c.eq("the refetch clears it", asSet(c.rec(Q1)?.unconfirmed), []);
       },
       // Q4 A: `Ticket.row(e.new)`, a whole row. What it omits is absent, not unknown: the note the read held is gone.
       "a-row-frame-replaces-the-row-what-it-omits-is-absent"(c0) {
@@ -655,6 +665,257 @@ export const phase1eScenarios: readonly Scenario[] = [
         c.eq("re-sent over revision 1", c.reqs("save").map((r) => r.input.match.revision), [1, 1]);
         c.answer("save", { apply: true });
         c.eq("saved", [c.r.truth().server.tickets.t1.title, heard(c).at(-1)], ["New", "Saved"]);
+      },
+      // ── Audit 2's gaps. Each from the design or the proposal text it cites; none from a wrong runtime.
+      // released-write-proof-proposal-2 4.2, the business-key row: "a success of any later Attempt of the same contract with the same key values". t2's
+      // close has another key (t2), so t1's given-up close keeps its doubt.
+      "audit-a-business-key-success-under-another-key-ends-nothing"(c0) {
+        const c = new Ctx(c0.fresh([p1GuardKeysFixture()]), GA);
+        c.ensure(GA);
+        board(c);
+        lostThenGivenUp(c, "Close", { id: "t1" }, "close", "GiveUpClose");
+        c.eq("quiet", marks(c, GT1), [false, ["status"]]);
+        c.send("Close", { id: "t2" });
+        c.ack();
+        c.answer("close", { apply: true });
+        c.eq("t2's key succeeded; t1's doubt stays", [heard(c).at(-1), marks(c, GT1)], ["Done", [false, ["status"]]]);
+      },
+      // The same row: "of the same contract". `save` here has a business key with the same value (the ticket id), but it is another contract.
+      "audit-a-business-key-success-of-another-contract-ends-nothing"(c0) {
+        const c = new Ctx(c0.fresh([p1GuardKeysFixture()]), GA);
+        c.ensure(GA);
+        board(c);
+        lostThenGivenUp(c, "Close", { id: "t1" }, "close", "GiveUpClose");
+        c.send("Save", { id: "t1", title: "X" });
+        c.ack();
+        c.answer("save", { apply: true });
+        c.eq("save's key succeeded; close's doubt stays", [heard(c).at(-1), marks(c, GT1)], ["Done", [false, ["status"]]]);
+      },
+      // 4.2's precondition row: the proof is "an answer carrying that record's version v > the base it was sent with (a read, a feed frame, any write's
+      // success)". A frame: hidden while the session is live (4.4), so read after the session is lost, when a doubt not ended would show again.
+      "audit-a-feed-frame-past-the-sent-base-ends-a-guarded-doubt"(c0) {
+        const c = new Ctx(c0.fresh([p1GuardFixture()]), GA);
+        c.ensure(GA);
+        board(c);
+        lostThenGivenUp(c, "Save", { id: "t1", title: "B" }, "save", "GiveUpSave");
+        c.do({ feed: "changes", frame: { _feed: "live", proof: "resumed" } });
+        c.do({ feed: "changes", frame: { ticket: { id: "t1", title: "C", queueId: "q1", status: "open", revision: 2 } } });
+        c.do({ feed: "changes", fail: { _tag: "SocketDropped" } });
+        c.eq("revision 2 by a frame: ended, not hidden", [c.rec(GT1)?.data.title, ...marks(c, GT1)], ["C", false, []]);
+      },
+      // The same row: any write's success. `close` succeeds at revision 2, past the base `save` was sent with.
+      "audit-another-writes-success-past-the-sent-base-ends-a-guarded-doubt"(c0) {
+        const c = new Ctx(c0.fresh([p1GuardFixture()]), GA);
+        c.ensure(GA);
+        board(c);
+        lostThenGivenUp(c, "Save", { id: "t1", title: "B" }, "save", "GiveUpSave");
+        c.send("Close", { id: "t1" });
+        c.ack();
+        c.answer("close", { apply: true });
+        c.eq("close landed revision 2: save's doubt ended", [c.rec(GT1)?.data.revision, ...marks(c, GT1)], [2, false, []]);
+      },
+      // Rule 28: "invoked only once ... it heads every queue it joined". a0's write joins r1 (free) and r2 (a1's sent hold): it waits on r2.
+      "audit-a-two-record-write-waits-on-its-second-records-queue"(c0) {
+        const c = new Ctx(c0.fresh([s1Fixture]), a0);
+        c.ensure(a0);
+        c.ensure(a1);
+        s1Commit(c, a1, 2, 1);
+        c.answer("w", { lost: true }, { actor: "a1" });
+        s1Commit(c, a0, 3, 2);
+        c.eq("not invoked while r2 is held", c.reqs("w").length, 1);
+        c.answer("repair", { truth: true });
+        c.to(a1, "Retry");
+        c.answer("w", { apply: true }, { actor: "a1" });
+        c.eq("then invoked", c.reqs("w").map((r) => r.input.v), [1, 1, 2]);
+      },
+      // Rule 32: "a mark whose Attempt is still unresolved stays", and 4.2's business-key row ends only given-up doubts. b1's pay is held when b2's
+      // pay under the same order key succeeds.
+      "audit-an-unresolved-mark-stays-beside-a-business-key-success"(c0) {
+        const PA = { actor: P1PayId, id: "a" };
+        const c = new Ctx(c0.fresh([p1PayFixture()]), PA);
+        c.ensure(PA);
+        c.send("Load");
+        c.answer("bills", { truth: true });
+        c.send("Pay", { orderId: "o1", bill: "b1" });
+        c.answer("pay", { lost: true }, { bill: "b1" });
+        c.eq("held: uncertain", c.rec(billRef("b1"))?.uncertain, true);
+        c.send("Pay", { orderId: "o1", bill: "b2" });
+        c.answer("pay", { apply: true }, { bill: "b2" });
+        c.eq("b2 paid under the same key; b1, unresolved, still uncertain", [heard(c).at(-1), c.rec(billRef("b1"))?.uncertain], ["Done", true]);
+      },
+      // Rule 32 and U10's cap (proposal 4.5: given-up marks per entity): an unresolved mark is not a given-up one, so it neither counts nor goes.
+      "audit-an-unresolved-mark-stays-beside-a-full-cap"(c0) {
+        const c = new Ctx(c0.fresh([issuesFixture], { unsettledMax: 1 }), IA);
+        const I2 = issueRef("i2");
+        c.ensure(IA);
+        c.to(IA, "Load");
+        c.answer("list", { truth: true });
+        c.to(IA, "Toggle", { id: "i2", liked: true });
+        c.answer("like", { lost: true }, { id: "i2" });
+        c.to(IA, "Toggle", { id: "i1", liked: true });
+        c.answer("like", { lost: true }, { id: "i1" });
+        c.answer("repair", { truth: true }, { ref: I1 });
+        c.to(IA, "CancelLike", { id: "i1" });
+        c.eq("one given-up mark, at the cap: nothing evicted; i2 held", [c.r.evidence("UnsettledEvicted").length, c.rec(I1)?.uncertain, c.rec(I2)?.uncertain], [0, true, true]);
+      },
+      // 4.4: hidden "while" a covering session is live, "ends nothing". A session registered after the give-up hides the doubt; lost, it shows again.
+      "audit-a-cover-registered-after-the-give-up-hides-and-ends-nothing"(c0) {
+        const c = new Ctx(c0.fresh([p1GuardFixture()]), GA);
+        c.ensure(GA);
+        board(c);
+        lostThenGivenUp(c, "Save", { id: "t1", title: "B" }, "save", "GiveUpSave");
+        c.do({ feed: "changes", frame: { _feed: "live", proof: "resumed" } });
+        c.eq("hidden", marks(c, GT1), [false, []]);
+        c.do({ feed: "changes", fail: { _tag: "SocketDropped" } });
+        c.eq("lost: shown again", marks(c, GT1), [false, ["title"]]);
+      },
+      // 4.1: the mask is for "a given-up write's doubt". A held one may still be re-sent and is never hidden.
+      "audit-a-cover-does-not-hide-an-unresolved-doubt"(c0) {
+        const c = new Ctx(c0.fresh([p1GuardFixture()]), GA);
+        c.ensure(GA);
+        board(c);
+        c.do({ feed: "changes", frame: { _feed: "live", proof: "resumed" } });
+        c.send("Save", { id: "t1", title: "B" });
+        c.ack();
+        c.answer("save", { lost: true });
+        c.eq("held under a live cover: uncertain", c.rec(GT1)?.uncertain, true);
+      },
+      // 4.2's `.covers` row: "a live, covering session with no open gap". After an unproven re-registration the record is behind: shown.
+      "audit-a-cover-with-an-open-gap-hides-nothing"(c0) {
+        const c = new Ctx(c0.fresh([p1GuardFixture()]), GA);
+        c.ensure(GA);
+        board(c);
+        c.do({ feed: "changes", frame: { _feed: "live", proof: "resumed" } });
+        c.send("Save", { id: "t1", title: "B" });
+        c.ack();
+        c.answer("save", { lost: true });
+        c.answer("repair", { truth: true });
+        c.send("GiveUpSave", { id: "t1" });
+        c.eq("given up, hidden", c.rec(GT1)?.uncertain, false);
+        c.do({ feed: "changes", fail: { _tag: "SocketDropped" } });
+        c.advance(1_000);
+        c.do({ feed: "changes", frame: { _feed: "live" } });
+        c.eq("live again, but behind: shown", c.rec(GT1)?.uncertain, true);
+      },
+      // 4.4 (and the round 3 review): a removal moves the record out of every cover, so its landing would go unheard. Never hidden.
+      "audit-a-cover-does-not-hide-a-removals-doubt"(c0) {
+        const c = new Ctx(c0.fresh([p1GuardFixture()]), GA);
+        c.ensure(GA);
+        board(c);
+        c.do({ feed: "changes", frame: { _feed: "live", proof: "resumed" } });
+        c.send("Remove", { id: "t1" });
+        c.ack();
+        c.answer("remove", { lost: true });
+        c.answer("repair", { truth: true });
+        c.send("GiveUpRemove", { id: "t1" });
+        c.eq("given up under a live cover, not yet read: uncertain", c.rec(GT1)?.uncertain, true);
+      },
+      // U10 field-scoped (rule 32 as decided, proposal section 5): demoted only by a success that "carried every field the mark is on". b's save
+      // carries `title` and `revision`, not `slug`, which a's given-up save predicted too.
+      "audit-a-later-success-carrying-some-of-the-marks-fields-demotes-nothing"(c0) {
+        const TB = { actor: P1TicketId, id: "b" };
+        const c = new Ctx(c0.fresh([p1TicketFixture()]), TK);
+        c.ensure(TK);
+        c.ensure(TB);
+        c.send("Load");
+        c.answer("tickets", { truth: true });
+        c.send("Save", { id: "t1", title: "New" });
+        c.answer("save", { lost: true });
+        c.answer("repair", { truth: true });
+        c.answer("ticket", { truth: true });
+        c.eq("given up, not yet read", [c.mem(TK)?.toast, c.rec(T1)?.uncertain], ["Not saved", true]);
+        c.to(TB, "Save", { id: "t1", title: "X" });
+        c.answer("save", { apply: true });
+        c.eq("b's success carried title, not slug: still uncertain", c.rec(T1)?.uncertain, true);
+      },
+      // Rule 32 as decided: "uncertain until the next read". A feed frame is no read: a move's doubt (shown, the cover reads queueId) stays uncertain.
+      "audit-a-feed-frame-does-not-demote-a-given-up-mark"(c0) {
+        const c = new Ctx(c0.fresh([p1GuardFixture()]), GA);
+        c.ensure(GA);
+        board(c);
+        c.do({ feed: "changes", frame: { _feed: "live", proof: "resumed" } });
+        c.send("Move", { id: "t1", from: "q1", to: "q2" });
+        c.ack();
+        c.answer("move", { lost: true });
+        c.answer("repair", { truth: true });
+        c.send("GiveUpMove", { id: "t1" });
+        c.eq("given up, not yet read", c.rec(GT1)?.uncertain, true);
+        c.do({ feed: "changes", frame: { ticket: { id: "t1", title: "A", queueId: "q1", status: "open", revision: 1 } } });
+        c.eq("a frame at the same revision: still uncertain", c.rec(GT1)?.uncertain, true);
+      },
+      // 4.6: the tripwire fires on "a precondition contract's first send (a re-send may replay a stored success)". The first send began over base 1
+      // with revision 2 known, and was lost; the re-send succeeds on a server ignoring the filter: no contradiction.
+      "audit-a-re-sent-success-over-a-known-stale-base-is-no-contradiction"(c0) {
+        const c = new Ctx(c0.fresh([p1GuardLyingFixture()]), GA);
+        c.ensure(GA);
+        board(c);
+        c.send("Save", { id: "t1", title: "B" });
+        elsewhere(c, { title: "C", revision: 2 });
+        board(c);
+        c.ack();
+        c.answer("save", { lost: true });
+        c.answer("repair", { truth: true });
+        c.send("RetrySave", { id: "t1" });
+        for (let i = 0; i < 4 && c.r.quiet().waits.some((w) => w.kind === "ack" || w.kind === "capture"); i++) c.ack();
+        c.answer("save", { apply: true });
+        c.eq("re-sent, heard, no contradiction", [c.reqs("save").length, heard(c).at(-1), c.r.evidence("GuardContradicted").length], [2, "Done", 0]);
+      },
+      // Q2 A: "the read's failure removes the row", a gap's refetch of that read included (T7 reruns the read). t1 was deleted during the gap.
+      "audit-a-gap-refetch-that-answers-the-gone-tag-removes-the-row"(c0) {
+        const c = new Ctx(c0.fresh([p1QueueFixture()]), QA);
+        c.ensure(QA);
+        c.send("One", { id: "t1" });
+        c.answer("one", { truth: true });
+        c.eq("held", c.rec(Q1)?.data.title, "A");
+        c.fault({ mutateServer: (s: any) => ({ tickets: { t2: s.tickets.t2 } }) });
+        c.do({ feed: "changes", frame: { _feed: "live" } });
+        c.eq("the gap reruns the read", c.reqs("one").length, 2);
+        c.answer("one", { truth: true });
+        c.eq("its TicketNotFound removes the row", c.rec(Q1), undefined);
+      },
+      // U10's cap (proposal 4.5): "per entity". A move's given-up marks are one Ticket and two Queues: two per entity is within a cap of 2.
+      "audit-the-cap-counts-each-entity-apart"(c0) {
+        const c = new Ctx(c0.fresh([p1GuardFixture()], { unsettledMax: 2 }), GA);
+        c.ensure(GA);
+        board(c);
+        lostThenGivenUp(c, "Move", { id: "t1", from: "q1", to: "q2" }, "move", "GiveUpMove");
+        c.eq("nothing evicted", [c.r.evidence("UnsettledEvicted").length, marks(c, GT1), marks(c, gQueueRef("q1")), marks(c, gQueueRef("q2"))], [0, [false, ["queueId"]], [false, ["openCount"]], [false, ["openCount"]]]);
+      },
+      // U10's cap at its value (entity-proposal-2: "4,096 per entity, oldest out") and rule 35's `many` bound ("a `many` key array past 4,096 items ...
+      // ends NotSent { why: "Overloaded" }, with no prediction and no queue join"). A bulk close of 4,096 is sent; given up, all 4,096 marks stay; one more
+      // given-up mark on the entity evicts one, named. 4,097 keys are declined before any join.
+      "audit-the-cap-and-the-many-bound-are-4096"(c0) {
+        const BK = { actor: P1BulkId, id: "a" };
+        const ids = (n: number, p: string) => Array.from({ length: n }, (_, k) => `${p}${k}`);
+        const c = new Ctx(c0.fresh([p1BulkFixture()]), BK);
+        c.ensure(BK);
+        c.send("CloseAll", { ids: ids(4_097, "x") });
+        c.eq("4,097 keys: Overloaded, nothing sent or joined", [heard(c), c.lastEnding("closeAll")?.["reason"], c.reqs("closeAll").length, c.rec(itemRef("x0"))], [["No"], "Overloaded", 0, undefined]);
+        c.send("CloseAll", { ids: ids(4_096, "i") });
+        c.eq("4,096: sent", c.reqs("closeAll").length, 1);
+        c.answer("closeAll", { lost: true });
+        c.send("GiveUpAll");
+        c.eq("4,096 given-up marks: none evicted", [c.r.evidence("UnsettledEvicted").length, c.rec(itemRef("i4095"))?.uncertain], [0, true]);
+        c.send("Close", { id: "extra" });
+        c.answer("closeOne", { lost: true });
+        c.send("GiveUp", { id: "extra" });
+        c.eq("one more: the oldest evicted, named", c.r.evidence("UnsettledEvicted").length, 1);
+      },
+      // Q3 A's over-marking ("both defaults over-mark, and that is the safe direction"): t2's last-known row is in q2, but its given-up move to q1 may
+      // have landed, so it may be in q1's cover. A gap marks it behind with the covered records.
+      "audit-a-gap-marks-a-record-that-may-have-moved-into-the-cover"(c0) {
+        const c = new Ctx(c0.fresh([p1GuardTwoFixture()]), GA);
+        const GT2 = gTicketRef("t2");
+        c.ensure(GA);
+        board(c);
+        c.send("Move", { id: "t2", from: "q2", to: "q1" });
+        c.ack();
+        c.answer("move", { lost: true });
+        c.send("GiveUpMove", { id: "t2" });
+        for (let i = 0; i < 12 && c.tryAnswer("repair", { truth: true }); i++);
+        c.eq("quiet: queueId", marks(c, GT2), [false, ["queueId"]]);
+        c.do({ feed: "changes", frame: { _feed: "live" } });
+        c.eq("t1 (in q1) and t2 (may be) behind: every field but the key", [asSet(c.rec(GT1)?.unconfirmed), asSet(c.rec(GT2)?.unconfirmed)], [["queueId", "revision", "status", "title"], ["queueId", "revision", "status", "title"]]);
       },
     },
   },
