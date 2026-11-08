@@ -32,6 +32,7 @@ import {
   nextGen,
   note,
   noteEnding,
+  deleteLane,
   setLane,
   without,
   type ActorRec,
@@ -246,6 +247,38 @@ const onDisposeRuntime = (tx: Tx) => {
   else armTimer(tx, { key: "dispose", kind: "dispose", dueAt: tx.env.now + tx.bounds.disposeMs });
 };
 
+// Q1 A: `forget` of an identity with no live actor. What its lanes hold for it (parked endings) is evidence now, never delivered; a hold stays,
+// since only its owner's `cancel` drops one (the key the server may hold keeps its record). Its lanes stop being reported unbound until an incarnation binds them.
+const onForget = (tx: Tx, key: string) => {
+  if (getActor(tx.w.actors, key)) return issue(tx, { code: "ForgetLiveActor", origin: `forget ${key}` });
+  for (const l of Object.values(tx.w.lanes)) {
+    if (l.actor !== key) continue;
+    for (const p of l.parked) {
+      note(tx, "unparked", { op: l.op, attempt: p.attempt ?? "" });
+      note(tx, "ParkedForgotten", { op: l.op, attempt: p.attempt ?? "" });
+      note(tx, "evidenceOnly", { op: l.op, attempt: p.attempt ?? "" });
+    }
+    if (!l.head && l.w.length === 0) deleteLane(tx, l.id);
+    else setLane(tx, { ...l, parked: [], forgotten: true });
+  }
+  // What a boot queued for a record kept at ready waits in that record (`bootMail`): owed to the identity the same way, so evidence too.
+  const r = own(tx.w.retired, key) as (ActorRec & { bootMail?: readonly Mail[] }) | undefined;
+  if (r?.bootMail?.length) {
+    for (const m of r.bootMail)
+      if (m.k === "ending") {
+        note(tx, "unparked", { op: m.op, attempt: m.attempt ?? "", record: true });
+        note(tx, "ParkedForgotten", { op: m.op, attempt: m.attempt ?? "" });
+        note(tx, "evidenceOnly", { op: m.op, attempt: m.attempt ?? "" });
+      }
+    tx.w = { ...tx.w, retired: { ...tx.w.retired, [key]: { ...r, bootMail: [] } as ActorRec } };
+    tx.touchedActors.add(key);
+  }
+  note(tx, "forgotten", { actor: key });
+  tx.visible = true;
+};
+const unforget = (tx: Tx, key: string) => {
+  for (const l of Object.values(tx.w.lanes)) if (l.actor === key && l.forgotten) setLane(tx, (({ forgotten: _f, ...rest }) => rest)(l));
+};
 // ── An actor's life. D21: a local identity's hold releases at once and is never adopted. Otherwise the lanes stay the Runtime's.
 // `end`: rule 73's end; a persisted actor's record goes to the Runtime's copy with its armed and waiting deadlines. `dispose`: `disposeActor`;
 // the record is removed, and the lanes stay unbound for the identity's next ensure (rule 46). `remount`: a local predecessor kept only by work;
@@ -345,6 +378,7 @@ const startRoot = (tx: Tx, key: string, machine: string, input: unknown, identit
       armTimer(tx, spec);
     }
     note(tx, "incarnation", { actor: key, from: "record" });
+    unforget(tx, key);
     // Computed first: `{ ...tx.w, follow: [...adoption()] }` spreads a world before adoption's own writes, and loses them.
     const adopted = bootMail ? bootMail : rebindActor(tx, fresh); // the first return after a boot hears what the restore queued, not a second Restored
     for (const m of bootMail ?? []) if (m.k === "ending") note(tx, "unparked", { op: m.op, attempt: m.attempt ?? "", record: true });
@@ -406,6 +440,7 @@ const startRoot = (tx: Tx, key: string, machine: string, input: unknown, identit
   tx.w = { ...tx.w, actors: setActor(tx.w.actors, key, rec) };
   tx.touchedActors.add(key);
   tx.visible = true;
+  unforget(tx, key);
   const adopted = [
     ...startActor(tx, rec),
     ...started.flatMap((s) => startActor(tx, { ...rec, root: s.inc })),
@@ -638,6 +673,7 @@ const onBoot = (
       woken.add(key);
       note(tx, "wokenAtReady", { actor: key });
       note(tx, "incarnation", { actor: key, from: "record" });
+      unforget(tx, key);
     }
   for (const a of allActors(tx.w.actors)) {
     if (!shared(tx, a.machine) || owedTo.has(a.key)) continue;
@@ -758,6 +794,9 @@ export const step = (world: World, input: Input, env: Env, sys: System): StepOut
       break;
     case "dispose":
       onDisposeActor(tx, input.actor, "dispose");
+      break;
+    case "forget":
+      onForget(tx, input.actor);
       break;
     case "attach":
       onAttach(tx, input);

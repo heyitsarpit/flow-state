@@ -1836,3 +1836,13 @@ file:falsify.ts hash:1fbe5b7e2836 | adds lie.held-released-unguarded: a hold rel
 file:drive.ts hash:d82e9fba2382 | oracle (h): a hold released by its own ending's handler is caused only if that cancel's cell ran on the held lane in the step
 round:mutants-lifetime.ts hash:d2bb7750c1e0 | id.old-version-restored and l1.version-by-printed-name re-anchored on sameVersion and versioned()
 round:mutants-r15d.ts hash:cc00c79ed1cb | adds r15d.cancel-turn-end-drops-a-resend, the HeldThisTurn retry case's own wrong runtime
+R15-01 hash:ff85df58357d | Q1 A: three forget variants (parked endings to evidence and the hold kept; a boot-queued ending; a live actor refused)
+file:scenarios/round15.scenario.ts hash:4efe7c000b58 | round 15b: R15-01's forget variants, from Q1 A and the review's boot-mail path
+file:drive.ts hash:adc16c14b9cc | the forget step: an ending parked for the identity and not yet delivered may go as evidence (the suite drove it)
+round:mutants-r15.ts hash:544e575108a0 | r15.unbound-lane-unlisted and -unreported re-anchored on the forgotten filter
+round:mutants-r15d.ts hash:f162d4645fdc | adds five forget wrong runtimes (parked delivered, hold dropped, still reported, live forgotten, boot mail kept)
+round:adapter.ts hash:ac75b2283613 | forget input; Inspection lists a forgotten identity's lanes as forgotten, not unbound
+file:expected-recipients.txt hash:c4b5fe13b002 | the forget variants: 3 more recipients observed, 3 more start nodes
+output:R15-01/forget-also-turns-a-boot-queued-ending-into-evidence hash:04822a9b2c12 | new output: a record kept at ready, forgotten, its Restored evidence
+output:R15-01/forget-of-a-live-actor-is-refused hash:f787ba9ccfae | new output: ForgetLiveActor, the ending heard
+output:R15-01/forget-turns-parked-endings-into-evidence-and-keeps-the-hold hash:e852b20f038b | new output: parked ending forgotten, the hold adopted

@@ -233,6 +233,57 @@ export const round15Scenarios: readonly Scenario[] = [
         c.reload();
         c.eq("no boot reports it now", c.r.evidence("UnboundLane").length, 2);
       },
+      // Q1 A: `forget` of an identity with no live actor. Its parked ending (the lost answer that landed after the dispose) becomes evidence and is
+      // never delivered; the hold stays (only its owner's cancel drops one), listed as forgotten, not unbound, and no boot reports it. An ensure binds
+      // the lane again: it hears the hold's `unknown { Restored }`, not the forgotten `NoResponse`.
+      "forget-turns-parked-endings-into-evidence-and-keeps-the-hold"(c0) {
+        const c = new Ctx(c0.fresh([r15LateFixture()]), RL);
+        c.ensure(RL);
+        c.send("Go");
+        c.ack();
+        c.dispose(RL);
+        c.answer("charge", { lost: true });
+        c.eq("parked for the identity", c.r.evidence("parked").length, 1);
+        const before = c.r.evidence("delivered").length;
+        c.do({ forget: RL });
+        c.eq("its parked ending is evidence", c.r.evidence("ParkedForgotten").length, 1);
+        c.eq("the hold stays, listed as forgotten, not unbound", [c.r.inspect(RL)?.forgotten?.length, c.r.inspect(RL)?.unbound?.length], [1, 0]);
+        c.reload();
+        c.eq("no boot reports it", c.r.evidence("UnboundLane").length, 0);
+        c.ensure(RL);
+        c.eq("bound again: the hold's Restored, not the forgotten ending", c.r.evidence("delivered").slice(before).map((d) => [d["event"], d["reason"]]), [["Unsure", "Restored"]]);
+        c.eq("its cancel is the owner's: the hold is still there to hear it", c.r.row(RL, "charge", {})?.uncertain, true);
+      },
+      // Q1 A across a reload (the round 15b review): the boot queues the held head's `unknown { Restored }` for a record kept at ready, in the record.
+      // `forget` makes that evidence too; the next ensure hears nothing, and the hold stays.
+      "forget-also-turns-a-boot-queued-ending-into-evidence"(c0) {
+        const c = new Ctx(c0.fresh([r15LateFixture()]), RL);
+        c.ensure(RL);
+        c.send("Go");
+        c.ack();
+        c.answer("charge", { lost: true });
+        c.detach(RL);
+        c.reload();
+        c.eq("kept at ready, its Restored queued in the record", c.r.evidence("recordAtReady").length, 1);
+        const before = c.r.evidence("delivered").length;
+        c.do({ forget: RL });
+        c.eq("evidence now", c.r.evidence("ParkedForgotten").length, 1);
+        c.ensure(RL);
+        c.eq("nothing delivered", c.r.evidence("delivered").slice(before).length, 0);
+        c.eq("the hold stays", c.r.row(RL, "charge", {})?.uncertain, true);
+      },
+      // Q1 A: `forget` is for an identity with no live actor; with one, it is refused and nothing changes.
+      "forget-of-a-live-actor-is-refused"(c0) {
+        const c = new Ctx(c0.fresh([r15LateFixture()]), RL);
+        c.namedIssues = ["ForgetLiveActor"];
+        c.ensure(RL);
+        c.send("Go");
+        c.ack();
+        c.do({ forget: RL });
+        c.eq("refused", c.r.issues().filter((i) => i.code === "ForgetLiveActor").length, 1);
+        c.answer("charge", { ok: {} });
+        c.eq("its ending is heard", c.r.evidence("delivered").map((d) => d["event"]), ["Ok"]);
+      },
       // U17 (OD48; 2.7.15): an operation key's fingerprint compares each key field's type side and encoded side, ignoring annotations. `k` from
       // String to Trim keeps the encoded side (a string) and changes the type side: a new version of the op, so the hold is an old-version hold
       // and every commit of the op declines beside it, whatever its key (D221).

@@ -338,6 +338,7 @@ export const port: Port = {
       ensure: (actor, machine, input, identity) => rt.input({ k: "ensure", actor, machine, input, ...(identity ? { identity } : {}) }),
       send: (actor, event) => rt.input({ k: "send", actor, event }),
       dispose: (actor) => rt.input({ k: "dispose", actor }), // Story `dispose(ref)` is `disposeActor` (OD31): the record goes
+      forget: (actor) => rt.input({ k: "forget", actor }),
       attach: (actor, machine, input, owner, existing, identity) =>
         rt.input({ k: "attach", actor, machine, input, owner, ...(existing ? { existing: true } : {}), ...(identity ? { identity } : {}) }),
       detach: (actor, owner) => rt.input({ k: "detach", actor, owner }),
@@ -356,9 +357,11 @@ export const port: Port = {
         const w = rt.world();
         const t = w.timers[`grace/${actor}`];
         const bound = getActor(w.actors, actor) !== undefined || Object.hasOwn(w.retired, actor) || Object.hasOwn(w.undecodable, actor);
-        const unbound = bound ? [] : Object.values(w.lanes).filter((l) => l.actor === actor).map((l) => l.id);
+        const mine = bound ? [] : Object.values(w.lanes).filter((l) => l.actor === actor);
+        const unbound = mine.filter((l) => !l.forgotten).map((l) => l.id);
+        const forgotten = mine.filter((l) => l.forgotten).map((l) => l.id);
         const quarantined = Object.keys(w.quarantined).filter((id) => id.startsWith(`${actor}|`));
-        return { uses: w.uses[actor] ?? [], busy: busyOf(w, actor), ...(t ? { grace: t.dueAt } : {}), waiting: Object.values(w.waiting).filter((x) => x.actor === actor).map((x) => x.id), unbound, quarantined };
+        return { uses: w.uses[actor] ?? [], busy: busyOf(w, actor), ...(t ? { grace: t.dueAt } : {}), waiting: Object.values(w.waiting).filter((x) => x.actor === actor).map((x) => x.id), unbound, forgotten, quarantined };
       },
       disposeRuntime: () => rt.input({ k: "disposeRuntime" }),
       repeatLastCompletion: () => {

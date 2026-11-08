@@ -1172,6 +1172,7 @@ const admitEnding = (tx: Tx, item: EndingMail): void => {
     const local = tx.machines[machine ?? ""]?.local;
     const keep =
       !local &&
+      !lane?.forgotten &&
       machine !== undefined &&
       (own(tx.w.retired, item.actor) !== undefined || tx.machines[machine]?.persisted);
     if (keep) return parkEnding(tx, item, lane, subject, machine);

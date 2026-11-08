@@ -1565,6 +1565,15 @@ export const makeHarness = (port: Port) => (): Harness => {
       lifeOf.set(actorKey(s.dispose), (lifeOf.get(actorKey(s.dispose)) ?? 0) + 1); // the suite's own: this life of the actor is over
       inst.dispose(actorKey(s.dispose));
     }
+    else if ("forget" in s) {
+      // Q1 A: what the identity was owed (an ending parked for it, not yet delivered) is evidence from here: the suite drove the cause.
+      const key = actorKey(s.forget);
+      const parkedNow = new Set(evidence.filter((e) => e["kind"] === "parked").map((e) => String(e["attempt"])));
+      for (const e of evidence) if (e["kind"] === "delivered") parkedNow.delete(String(e["attempt"]));
+      for (const [att, a] of attemptActor) if (a === key && parkedNow.has(att)) lettingGo.add(att);
+      for (const k of [...parkedOwed.keys()]) if (attemptActor.get(k.slice(k.indexOf(" ") + 1)) === key) parkedOwed.delete(k);
+      inst.forget?.(key);
+    }
     else if ("answer" in s) fake.answer(s.answer, s.with, s.where);
     else if ("reload" in s) die(s);
     else if ("storage" in s) fake.storageStep(s.storage, s.match);

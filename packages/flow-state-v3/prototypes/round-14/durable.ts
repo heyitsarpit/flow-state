@@ -94,6 +94,7 @@ const laneBody = (tx: Tx, l: Lane) =>
     w: l.w.map((a) => saveAttempt(tx, a)),
     parked: storableParked(tx, l),
     ...(l.releasing ? { releasing: true } : {}),
+    ...(l.forgotten ? { forgotten: true } : {}),
   });
 const stamped = (tx: Tx, body: string) => `{"boot":${tx.w.boot},${body.slice(1)}`; // D99
 // D80: a reference, not bytes. The world is immutable, so this is already a whole publication; the driver encodes it when it writes.
@@ -356,7 +357,7 @@ export const restore = (tx: Tx, records: ReadonlyArray<readonly [string, string]
     undecodable,
   };
   const recorded = new Set([...actors, ...retired].map(([k]) => k));
-  for (const [, l] of lanes) if (!recorded.has(l.actor) && !Object.hasOwn(undecodable, l.actor)) note(tx, "UnboundLane", { actor: l.actor, op: l.op, lane: l.id });
+  for (const [, l] of lanes) if (!recorded.has(l.actor) && !Object.hasOwn(undecodable, l.actor) && !l.forgotten) note(tx, "UnboundLane", { actor: l.actor, op: l.op, lane: l.id });
   for (const t of timers) {
     const { gen: _g, ...spec } = t;
     armTimer(tx, spec);

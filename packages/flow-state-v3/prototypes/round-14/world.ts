@@ -58,6 +58,7 @@ export type Lane = {
   readonly w: readonly Attempt[];
   readonly parked: readonly Parked[];
   readonly releasing?: true; // rule 60
+  readonly forgotten?: true; // Q1 A: its identity was forgotten: an ending with no actor is evidence, and it is not reported unbound, until an incarnation binds it
   // Round 13 (D221, round 12 review H1): the key fields this lane's key was made under, stamped at mint and by a rekey. A lane is "under an older key"
   // only when this differs from its operation's current `keyFields`: a release boundary, never a key's shape. Absent: a hand key closure (F2), no fields.
   readonly keyFields?: readonly string[];
@@ -257,6 +258,7 @@ export type Input =
       readonly identity?: readonly string[]; // rule 74: a value ref's fields; absent for a singleton's name
     }
   | { readonly k: "dispose"; readonly actor: string } // `disposeActor`: the live actor and a persisted record go; lanes stay unbound (rule 46)
+  | { readonly k: "forget"; readonly actor: string } // Q1 A: an identity with no live actor; its parked endings become evidence, its holds stay
   // Rule 73 (OD31): a use begins or ends. `owner` is its kind. An attach ensures the actor; `existing` is a subscription: it restores from a
   // record and creates nothing, and on an identity with neither it waits as a use. A detach ends nothing by itself: the grace decides.
   | { readonly k: "attach"; readonly actor: string; readonly machine: string; readonly input: unknown; readonly owner: string; readonly existing?: true; readonly identity?: readonly string[] }

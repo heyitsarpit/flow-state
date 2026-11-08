@@ -61,6 +61,7 @@ export type Step =
   | { ensure: ActorRef; input?: unknown; identity?: readonly string[] } // round 14, rule 74: a ref's fields (compile/ref.ts); U15: no `persist`
   | { send: ActorRef; event: string; payload?: unknown; to?: readonly string[] }
   | { dispose: ActorRef } // `disposeActor` (OD31): the actor and a persisted record go. Its lanes stay the Runtime's (OD19, rule 46)
+  | { forget: ActorRef } // Q1 A: an identity with no live actor; its parked endings become evidence, its holds stay, its unbound lanes stop being reported
   // Rule 73 (OD31, 2.10.10). `ensure` attaches one use, as a mounted screen; `detach` ends one (`StoryInvalidCommand { ActorAbsent }` with
   // none held). `subscribe` is a host `snapshots` subscription (restores a record, waits on an identity with neither); `mount` is `useActor`
   // of a local machine.
@@ -265,11 +266,12 @@ export type BootArgs = {
 export type BootReads = Pick<Instance, "state" | "binding" | "memory" | "inner" | "version">;
 // 2.7.17 Reads: what a handle shows for an identity. Inspection O1's `uses` per actor, the armed grace's deadline and the waiting schedules.
 export type Snapshot = { lifecycle: "active" | "disposed" | "pre-attach" | "quarantined"; state?: string; memory?: unknown; issue?: string };
-export type Inspected = { uses: readonly string[]; busy: readonly string[]; grace?: number; waiting: readonly string[]; unbound?: readonly string[]; quarantined?: readonly string[] };
+export type Inspected = { uses: readonly string[]; busy: readonly string[]; grace?: number; waiting: readonly string[]; unbound?: readonly string[]; forgotten?: readonly string[]; quarantined?: readonly string[] };
 export type Instance = {
   ensure(actor: string, machine: string, input: unknown, identity?: readonly string[]): void;
   send(actor: string, event: Ev): void;
   dispose(actor: string): void;
+  forget?(actor: string): void;
   // Rule 73: a runtime without uses has none. `owner`: the use's kind ("story", "host", "component"). `existing`: a subscription, never a create.
   attach?(actor: string, machine: string, input: unknown, owner: string, existing?: boolean, identity?: readonly string[]): void;
   detach?(actor: string, owner: string): void;

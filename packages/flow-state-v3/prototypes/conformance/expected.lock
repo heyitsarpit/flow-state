@@ -231,7 +231,7 @@ R14-F-01 02fb76024a05
 R14-FIX-03 e5ab12a86da6
 R14-FIX-01 2fcc28f2e2ad
 R14-FIX-02 022e63be1f0b
-R15-01 1cb6518359c2
+R15-01 ff85df58357d
 R15-02 00ecafaf2c4c
 R15-03 d6438a24faf6
 variant:PAY-06/interruptible present
@@ -1001,6 +1001,9 @@ variant:R15-01/a-key-less-cancel-on-an-unkeyed-op-outside-an-ending-names-its-on
 variant:R15-01/past-the-disposal-bound-the-attempt-ends-unknown-disposed present
 variant:R15-01/a-kill-inside-the-disposal-window-restores-the-wire-head-unknown-restored present
 variant:R15-01/an-unbound-lane-left-by-dispose-is-listed-and-reported-until-adopted present
+variant:R15-01/forget-turns-parked-endings-into-evidence-and-keeps-the-hold present
+variant:R15-01/forget-also-turns-a-boot-queued-ending-into-evidence present
+variant:R15-01/forget-of-a-live-actor-is-refused present
 variant:R15-01/a-key-fields-type-side-change-is-a-new-version-of-the-op present
 variant:R15-01/a-names-only-stamp-from-before-the-upgrade-is-the-current-version present
 variant:R15-01/a-key-fields-check-parameter-change-is-a-new-version-of-the-op present
@@ -1027,7 +1030,7 @@ file:scenarios/review.scenario.ts 42114a2ac13d
 file:scenarios/round10.scenario.ts 9a79cf927e08
 file:scenarios/round12.scenario.ts 3b48ce8a6478
 file:scenarios/round13.scenario.ts 21bc66a212dd
-file:scenarios/round15.scenario.ts 447b0f465e6b
+file:scenarios/round15.scenario.ts 4efe7c000b58
 file:scenarios/round15b.scenario.ts 2ba091366c02
 file:scenarios/round4.scenario.ts c5b1413bfa40
 file:scenarios/round5.scenario.ts 679d136cdedf
@@ -1147,12 +1150,12 @@ file:report.ts 7e305fd3110b
 file:watch.ts 93b7fe49b6da
 file:gate5s.ts d8a24cbd10f4
 file:gate-5s-expected.txt 076d1f268376
-file:expected-recipients.txt 17b77223822f
+file:expected-recipients.txt c4b5fe13b002
 file:mutate.ts 90691b4a787c
 file:mutate-one.ts a48188cfc0d7
 file:gates.ts e1f36b72d88b
 file:harness.ts 85062d272130
-file:drive.ts d82e9fba2382
+file:drive.ts adc16c14b9cc
 file:fake-world.ts ec2f3d444d7b
 round:cli/broken.ts e08d83ca3eb4
 round:cli/check.ts 3f99b0e17cf7
@@ -1195,10 +1198,10 @@ round:mutants-lifetime-pins-b.ts 6739b5b020ec
 round:mutants-lifetime.ts d2bb7750c1e0
 round:mutants-lost.ts 341cf4c256c6
 round:mutants-r10.ts b33f543d803a
-round:mutants-r15.ts 25b5195d7cbd
+round:mutants-r15.ts 544e575108a0
 round:mutants-r15b.ts c8d3fa054d92
 round:mutants-r15c.ts 0626ad481bc1
-round:mutants-r15d.ts cc00c79ed1cb
+round:mutants-r15d.ts f162d4645fdc
 round:mutants-r5.ts 140a4de2354a
 round:mutants-r6.ts b6c3802cca2e
 round:mutants-r7.ts 8714ead920f9
@@ -1207,7 +1210,7 @@ round:mutants-r9.ts b9904f5525b2
 round:mutants-r9b.ts a63507e3087f
 round:mutants.ts 9ced0df5e862
 round:run-plants.sh e7e8fcfb75a7
-round:adapter.ts 3e43b31ee5c9
+round:adapter.ts ac75b2283613
 output:CART-01 cfd438e7ae1b
 output:CART-02/at-most-nine fd17f07a683d
 output:CART-02/coupon cffb0eef99f3
@@ -1546,6 +1549,9 @@ output:R15-01/a-local-identity-of-a-persisted-machine-is-not-persisted c38389f60
 output:R15-01/a-names-only-stamp-from-before-the-upgrade-is-the-current-version d8244d6283b8
 output:R15-01/a-stay-put-cancel-all-gives-up-every-queued-commit bf0a0f57036d
 output:R15-01/an-unbound-lane-left-by-dispose-is-listed-and-reported-until-adopted bf1bf65f491a
+output:R15-01/forget-also-turns-a-boot-queued-ending-into-evidence 04822a9b2c12
+output:R15-01/forget-of-a-live-actor-is-refused f787ba9ccfae
+output:R15-01/forget-turns-parked-endings-into-evidence-and-keeps-the-hold e852b20f038b
 output:R15-01/no-module-starts-work-once-disposal-starts f4ad81cb6bcf
 output:R15-01/past-the-disposal-bound-the-attempt-ends-unknown-disposed ffa65becd64e
 output:R15-01/under-cancel-a-commit-interrupts-the-attempt-on-the-wire 2e771850b0c3
