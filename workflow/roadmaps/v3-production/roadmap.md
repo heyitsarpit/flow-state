@@ -507,7 +507,10 @@ Everything else still needs the user.
   The Opus agent that owns the task starts its own sidecars and receives their findings; it verifies them and folds
   them into its one report to the runner, which names the sidecar findings it used or rejected. Sidecars never report
   to the runner (the user, 2026-11-08: "sidecars should report the owner opus, not to you"). They count outside the
-  one-builder, one-reviewer limit. Haiku agents run at effort high.
+  one-builder, one-reviewer limit. Haiku agents run at effort high. The owner exercises its own judgement and never
+  accepts a sidecar result on its word: it reads every line of sidecar code, re-runs each check itself, confirms a
+  wrong runtime fails for the expected reason, verifies each finding, and logs every result as accepted, changed or
+  rejected (the user, 2026-11-08).
   **Builder sidecars (amendment 8):** in prototype work, the Opus builder is a lead that plans its round's tasks up
   front and delegates bounded ones to up to 4 Haiku sidecars at a time: coders (a disjoint file or function each,
   with an acceptance check), runners (gates, searches, traces; they report results, never fix) and reviewers (one diff

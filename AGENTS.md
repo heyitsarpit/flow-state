@@ -90,6 +90,9 @@ workflow check       # see .agents/skills/workflow-cli/SKILL.md before editing W
   attacking the same problem from a different named angle. Sidecars are read-only, run no gates or benchmarks, and
   return findings with file:line evidence, not verdicts. The owning Opus agent starts its own sidecars, receives
   their findings, verifies them and folds them into its one report; sidecars never report to the coordinator.
+- The owner exercises its own judgement on every Haiku result and never accepts one on the sidecar's word: it reads
+  every line of a sidecar's code, re-runs the check itself, confirms a wrong runtime fails for the expected reason,
+  verifies each finding before using it, and logs each result as accepted, changed or rejected, with why.
 - Haiku agents always run at effort high (sidecars, research fan-out, review sidecars); set `effort: "high"`
   whenever starting one, and tell any lead that starts its own to do the same.
 - In prototype work the Opus builder is a lead (adopted 2026-11-08; runners get the oracle code, a reviewer
