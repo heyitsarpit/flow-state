@@ -587,8 +587,8 @@ Delegation (the trial): 7 sidecars (4 coders, 2 runners, 1 reviewer), all Haiku,
 - C3, plant reasons and preconditions: B12a, B17 on old, the B15 race, the B11/B4/B9 reasons, the B5 119 and K numbers.
 - bare's depth-12 search budget (still pinned inconclusive at 3000 states).
 - work-peak re-measured for the current search configurations.
-- The 34 lifetime cases never red on any wrong runtime (PAY-16 ×12, REV8-PINS ×18, FRAG-08 1, REV5-H5H6 1, LIFE-04 1, LIFE-24 1).
-- `queue` and `chain` red in search mode, to diagnose.
+- Done in the round 14 finish (158cb5db): the 34 never-red lifetime cases, `chain`. Still open: `queue` (rule 15, the user's call, above).
+- Search oracles that keep history outside the state hash (`deliveredOnce`): verdicts depend on path order (finding 5 above).
 - Stated OS limits: uninterruptible sleep, `setsid` between polls, a foreign SIGKILL, ResolveMessage EMFILE; and two top-level runs at
   once, unsupported since C2.
 - From the last review: partly-blind evidence and leftovers when `ps` fails; the reach pin applies to the control only (not `isTop`);
