@@ -543,46 +543,39 @@ export const storeScenarios: readonly Scenario[] = [
     actor: A,
     cites: ["D40"],
     variants: {
-      "released-entry-leaves-at-the-bound"(c) {
+      // D12/D40 as ruled: a repair ends when it answers or fails, bounded by a count of asks, never a clock.
+      "released-entry-leaves-when-its-repair-fails"(c) {
         opened(c, B);
         toggle(c, true);
         c.answer("like", { lost: true });
-        c.answer("repair", { never: true });
         c.to(A, "CancelLike", { id: "i1" });
         toggle(c, false, B);
-        c.advance(29_999);
-        c.eq("B waits", c.reqs("like").length, 1);
-        c.advance(1);
-        c.eq("the bound frees the queue", c.reqs("like").length, 2);
+        c.advance(3_600_000);
+        c.eq("B waits: no clock frees the queue", c.reqs("like").length, 1);
+        c.answer("repair", { fail: { tag: "NoResponse" } });
+        c.eq("the failed repair frees the queue", c.reqs("like").length, 2);
         c.eq("mark stays", c.rec(I1)?.uncertain, true);
-        c.eq("evidence", c.r.evidence("RepairOverdue").length, 1);
       },
-      "a-live-hold-outranks-the-bound"(c) {
+      "a-live-hold-outranks-three-failed-repairs"(c) {
         opened(c, B);
         toggle(c, true);
         c.answer("like", { lost: true });
-        c.answer("repair", { never: true });
         toggle(c, false, B);
-        c.advance(30_000);
+        for (let i = 0; i < 3; i++) c.tryAnswer("repair", { fail: { tag: "NoResponse" } });
+        c.eq("overdue", c.r.evidence("RepairOverdue").length, 1);
         c.eq("A still holds: D3", row(c)?.uncertain, true);
         c.eq("B still waits", c.reqs("like").length, 1);
         c.eq("A's prediction ended; B's shows", c.rec(I1)?.data.liked, false);
         c.to(A, "ReconcileLike", { id: "i1" });
-        c.eq("D39: the bound lets the re-send go", c.reqs("like").length, 2);
+        c.eq("D39: no repair runs, so the re-send goes", c.reqs("like").length, 2);
       },
-      "a-late-repair-is-fenced"(c) {
+      "a-hung-repair-holds-with-no-flow-bound"(c) {
         opened(c);
-        c.fault({ uninterruptibleHang: "repair" }); // M7: an ordinary one is stopped at the bound; this one cannot be
+        c.fault({ uninterruptibleHang: "repair" });
         toggle(c, true);
         c.answer("like", { lost: true });
-        c.fault({ mutateServer: (s: any) => s });
-        c.advance(30_000);
-        const before = c.rec(I1)?.data.title;
-        c.fault({
-          lateAnswer: ["repair", { ok: { id: "i1", title: "stale", liked: false, likes: 0 } }],
-        });
-        c.eq("dropped", c.rec(I1)?.data.title, before);
-        c.yes("fence evidence", c.r.evidence("fence").length > 0);
+        c.advance(3_600_000);
+        c.eq("no overdue, the mark stays", [c.r.evidence("RepairOverdue").length, c.rec(I1)?.uncertain], [0, true]);
       },
     },
   },

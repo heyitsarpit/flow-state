@@ -341,7 +341,7 @@ const checkSlots = (c: Compiled) => {
   const seen = new Set<object>();
   const walk = (v: unknown, p: string) => {
     // Round 13 (M3): a payload field's or a port field's Schema, the same (a Schema may itself be callable), and only there.
-    if (/(^|\.)events\.payloads\.[^.]+\.[^.]+$|(^|\.)ports\.(exits|callbacks)\.[^.]+\.fields\.[^.]+$/.test(p) && Schema.isSchema(v)) return;
+    if (/(^|\.)events\.payloads\.[^.]+\.[^.]+$|(^|\.)ports\.(exits|callbacks)\.[^.]+\.fields\.[^.]+$|(^|\.)domain\.fields\.[^.]+$/.test(p) && Schema.isSchema(v)) return;
     if (typeof v === "function") throw new Error(`SealUnknownClosure: ${c.id} ${p}`);
     if (v === null || typeof v !== "object" || seen.has(v)) return;
     seen.add(v);
@@ -395,6 +395,7 @@ export type SealedDomain = Pick<DomainSpec, "writes"> & {
   readonly repair: Slot<DomainSpec["repair"]>;
   readonly version?: Slot<NonNullable<DomainSpec["version"]>>;
   readonly versionOrder?: "lexical" | Slot<(a: unknown, b: unknown) => number>;
+  readonly fields?: DomainSpec["fields"];
 };
 const sealDomain = (id: string, d: DomainSpec): SealedDomain => {
   known(d, DOMAIN_CLOSURES, `${id} domain`);

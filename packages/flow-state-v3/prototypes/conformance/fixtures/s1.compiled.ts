@@ -72,19 +72,21 @@ const make = (api: Api): Compiled => ({
 });
 
 const server: ServerModel = {
-  init: () => ({ records: { r1: 0, r2: 0 }, inverted: false, mine: {}, selfInverted: false }),
+  init: () => ({ records: { r1: 0, r2: 0 }, inverted: false, mine: {}, selfInverted: false, applied: { r1: [], r2: [] } }),
   apply: (_op, i, s) => {
     let inverted = s.inverted;
     let selfInverted = s.selfInverted;
     const records = { ...s.records };
+    const applied = { ...s.applied };
     const own = { ...s.mine[i.actor] };
     for (const r of recsOf(i.mask)) {
       if (records[r] > i.v) inverted = true;
       if ((own[r] ?? 0) > i.v) selfInverted = true;
       records[r] = i.v;
+      applied[r] = [...applied[r], i.v];
       own[r] = Math.max(own[r] ?? 0, i.v);
     }
-    return { s: { records, inverted, mine: { ...s.mine, [i.actor]: own }, selfInverted }, value: { v: i.v } };
+    return { s: { records, inverted, mine: { ...s.mine, [i.actor]: own }, selfInverted, applied }, value: { v: i.v } };
   },
   read: (_op, i, s) => ({ v: s.records[i.ref.split("|")[1]] }),
 };

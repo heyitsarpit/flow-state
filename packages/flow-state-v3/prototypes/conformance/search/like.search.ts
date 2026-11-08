@@ -52,6 +52,39 @@ const withV = (make: () => Harness) => () => {
 
 const commitsIn = (s: readonly Action[]) => s.filter((a) => a.name.startsWith("commit.")).length;
 
+// S13, D3 as directed: across actors a record takes sends in the order they began, not mint order (LIKE-05: 1, 3, 2). Within one actor's lane,
+// first sends stay in mint order. Checked after drain too, so a late draft's send is seen.
+const sendOrder = (h: Harness) => {
+  const mint = new Map(h.read.evidence("mint").map((e) => [e["attempt"], e["mint"]]));
+  for (const rec of [1, 2])
+    for (const a of actors) {
+      const firsts = new Set<string>();
+      let last = -1;
+      for (const r of h.read.requests()) {
+        if (r.op !== "w" || r.input.actor !== a.id || (r.input.mask & rec) === 0 || firsts.has(r.idempotencyKey!)) continue;
+        firsts.add(r.idempotencyKey!);
+        const m = mint.get(r.idempotencyKey!) ?? 0;
+        if (m < last) throw new Oracle(`S13: ${a.id}'s sends out of mint order on record ${rec}`);
+        last = m;
+      }
+    }
+};
+// After drain: per record, the server applied writes in the order they were sent (the last sent wins), and a settled screen is the server.
+const settled = (h: Harness) => {
+  const server = h.read.truth().server;
+  for (const [rec, r] of [[1, "r1"], [2, "r2"]] as const) {
+    const sent = h.read.requests().filter((q) => q.op === "w" && (q.input.mask & rec) !== 0).map((q) => q.input.v as number);
+    let at = 0;
+    for (const v of server.applied[r] as readonly number[]) {
+      while (at < sent.length && sent[at] !== v) at++;
+      if (at === sent.length) throw new Oracle(`drain: ${r} applied ${v} out of send order`);
+    }
+    const row = h.read.record(`R|${r}`) as { data?: { v?: number }; uncertain: boolean; predicted: boolean; unconfirmed: readonly string[] } | undefined;
+    if (row?.data?.v !== undefined && !row.uncertain && !row.predicted && row.unconfirmed.length === 0 && row.data.v !== server.records[r])
+      throw new Oracle(`drain: ${r} shows ${row.data.v}, settled, and the server holds ${server.records[r]}`);
+  }
+};
+
 const drain = (h: Harness) => {
   for (let i = 0; i < 24; i++) {
     const o = h.read.outside();
@@ -99,19 +132,7 @@ export const searchLike = (
         );
         if (n.size > 1) throw new Oracle(`S5: ${n.size} Attempts on the wire for one record`);
       }
-      // S13, D3: first sends per record in mint order.
-      const mint = new Map(post.read.evidence("mint").map((e) => [e["attempt"], e["mint"]]));
-      for (const rec of [1, 2]) {
-        const firsts = new Set<string>();
-        let last = -1;
-        for (const r of post.read.requests()) {
-          if (r.op !== "w" || (r.input.mask & rec) === 0 || firsts.has(r.idempotencyKey!)) continue;
-          firsts.add(r.idempotencyKey!);
-          const m = mint.get(r.idempotencyKey!) ?? 0;
-          if (m < last) throw new Oracle(`S13: a send out of mint order on record ${rec}`);
-          last = m;
-        }
-      }
+      sendOrder(post);
       void pre;
     },
     state(h) {
@@ -127,6 +148,8 @@ export const searchLike = (
       checkClaims(h.read);
       if (h.read.truth().server.selfInverted && h.read.evidence("Released").length === 0)
         throw new Oracle("the server went backwards after drain");
+      sendOrder(h);
+      settled(h);
       const stuck = h.read.quiet().waits.filter((w) => w.kind !== "timer" && w.kind !== "held");
       if (stuck.length) throw new Oracle(`drain left work: ${JSON.stringify(stuck[0])}`);
     },

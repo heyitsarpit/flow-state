@@ -280,6 +280,7 @@ export type Command =
       readonly op: string;
       readonly input: unknown;
       readonly ctx: { readonly id: string; readonly mayHaveApplied: boolean };
+      readonly basedOn?: unknown;
     }
   | { readonly k: "interrupt"; readonly attempt: string; readonly send: string }
   | { readonly k: "arm"; readonly timer: string; readonly gen: string; readonly at: number }
@@ -313,6 +314,7 @@ export type Bounds = {
   readonly recordStallMs: number; // D49
   readonly unboundHoldMs: number; // D15
   readonly graceMs: number; // rule 73: React O3's grace, on the Runtime Clock. Internal, never a user option
+  readonly unsettledMax: number; // U10: given-up marks kept per entity, oldest out (`UnsettledEvicted`). A count, not a clock
 };
 export const defaultBounds: Bounds = {
   drainMs: 8,
@@ -331,6 +333,7 @@ export const defaultBounds: Bounds = {
   recordStallMs: 30_000,
   unboundHoldMs: 300_000,
   graceMs: 100,
+  unsettledMax: 4_096,
 };
 export type Machines = Readonly<Record<string, Compiled>>;
 export type System = {

@@ -1,6 +1,6 @@
 // The write lane: 2.7.13's table as data (D17, D28). A row and a column pick one action; a pair the table says cannot occur
 // raises an issue (S12). Columns are phases, and "by history" is one bit (D45). 2.9.3's releasing rows are rows here too.
-import { hook, startAll } from "./hooks.ts";
+import { hook, sentAll, startAll } from "./hooks.ts";
 import { requestDurable } from "./durable.ts";
 import { armTimer, disarmTimer } from "./timers.ts";
 import { same } from "./gate.ts";
@@ -477,6 +477,7 @@ const ACTIONS: Readonly<Record<Action, (tx: Tx, lane: Lane | undefined, a: CellA
       },
     });
     note(tx, "invoked", { op: l!.op, attempt: h.id, send: gen });
+    const basedOn = sentAll(tx, h.id);
     tx.commands.push({
       k: "invoke",
       attempt: h.id,
@@ -485,6 +486,7 @@ const ACTIONS: Readonly<Record<Action, (tx: Tx, lane: Lane | undefined, a: CellA
       op: l!.op,
       input: h.input,
       ctx: { id: h.id, mayHaveApplied: h.mayHaveApplied },
+      ...(basedOn === undefined ? {} : { basedOn }),
     });
   },
   refuseFirst(tx, l) {

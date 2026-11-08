@@ -148,7 +148,7 @@ const onSent = (tx: Tx, i: Extract<Input, { k: "sent" }>) => {
 const yieldHold = (tx: Tx, attempt: string) => {
   const l = laneOfAttempt(tx.w, attempt);
   if (!l?.head || l.head.phase.t !== "held" || getActor(tx.w.actors, l.actor)) return;
-  // "With a waiter": it may have gone in the five minutes. Dispatch arms this again if another comes.
+  // "With a waiter": dispatch calls this when a ready write waits behind it on a record; a stale timer from an older world finds none.
   const waited = Object.keys(tx.w.ready).some((id) => {
     const b = blockedBy(tx, tx.w.lanes[id]!.head!.id, tx.w.lanes[id]!.machine);
     return b && b.on === "queue" && b.behind.includes(attempt);
@@ -735,9 +735,13 @@ const dispatch = (tx: Tx) => {
   if (tx.w.status !== "live") return;
   joinHeads(tx);
   for (const id of Object.keys(tx.w.ready)) {
-    const l = tx.w.lanes[id]!;
-    const h = l.head!;
-    const b = blockedBy(tx, h.id, l.machine);
+    const l = tx.w.lanes[id];
+    const h = l?.head;
+    if (!l || !h || h.phase.t !== "ready") continue;
+    const first = blockedBy(tx, h.id, l.machine);
+    // D15 as ruled: no clock. An unbound sent hold gives way as soon as a write waits behind it on its record.
+    if (first && first.on === "queue") for (const holder of first.behind) yieldHold(tx, holder);
+    const b = first && first.on === "queue" ? blockedBy(tx, h.id, l.machine) : first;
     if (!b) {
       disarmTimer(tx, `stall/${h.id}`);
       clearStall(tx, h.id);
@@ -757,16 +761,6 @@ const dispatch = (tx: Tx) => {
         attempt: h.id,
         dueAt: tx.env.now + tx.bounds.recordStallMs,
       });
-    for (const holder of b.behind) {
-      const hl = laneOfAttempt(tx.w, holder);
-      if (hl?.head?.phase.t === "held" && !getActor(tx.w.actors, hl.actor) && !tx.w.timers[`yield/${holder}`])
-        armTimer(tx, {
-          key: `yield/${holder}`,
-          kind: "yield",
-          attempt: holder,
-          dueAt: tx.env.now + tx.bounds.unboundHoldMs,
-        });
-    }
   }
 };
 

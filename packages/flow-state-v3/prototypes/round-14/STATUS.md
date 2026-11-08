@@ -965,3 +965,43 @@ Sidecar log (Haiku, effort high; the lead read every line and reran every check)
 | --- | --- | --- | --- |
 | review of the D3 join, U10 and the oracle against three rules | reviewer | changed | acted on: a head set by `lifetime` after `dispatch` was never joined (now `joinHeads` runs after `lifetime` and over ready heads too); "no stall named" was vacuous (now after 600 s); a weak label. Recorded: success demotes by time not mint (finding 4); a read demotes only what it carries (correct: it speaks for nothing else); quiet marks on base-less records are not shown (as before); no join-order oracle (stated); heads promoted during disposal join at the restore |
 | review of 0a, 0b, `joinHeads` | reviewer | changed | recorded, not acted: its "revert 0b" is against the runner's ruling (finding 7); joining an ack-pending head is intended (finding 2); a refused ack with `then: "cancel"` ends `StorageRefused` (MED-01 pins that, pre-existing). It confirmed 0a's promotion path and `sending`'s idempotence |
+
+## Phase 1: entities, round 2 (2026-11-08)
+
+The runner's rulings 1-8 on round 1. Same suite; P1-E grew to 19 variants; wrong runtimes in `mutants-p1e.ts` (every one run on a copy by the lead with
+`all-p1e.ts` in the scratchpad and red by the line it names; SURV-05 added to lifetime-falsify). User questions drafted in `ENTITIES-QUESTIONS.md`.
+
+| Ruling | State | Failing first (wrong runtime) |
+| --- | --- | --- |
+| 1 `basedOn` rebase, narrowed | **built**: an entry keeps `basedOn` per record (the store's version at mint); a success with version v rebases every unsent write on that record minted after it over the same base (`rebase`, entities.ts; not on a stale success); a new seam hook `sent` hands it to the commit (`ctx.basedOn`, one record: the value; several: a map); a re-send keeps its first's. The PostgREST fixture now sends Flow's `basedOn` | `a-double-save-rebases-...`: `expected [1,2], got [1,1]` (`p1e.no-rebase`); `an-overtaken-draft-...`: `a's draft ... expected 2, got 3` (`p1e.rebase-past-an-overtaker`) |
+| 2 D12/D40 by count; D15 with no clock | **built**: no repair timer; a failed repair is asked again; at most 3 asks, then `RepairOverdue`, and the next news asks again; a placed answer resets the count. D15: `dispatch` yields an unbound sent hold as soon as a ready write waits behind it, then re-checks the waiter. STORE-07, MED-07, SURV-05, FRAG-12, FRAG-20 rewritten (the timer was their subject) | SURV-05 `expected [1,3], got [0,4]` (`p1e.repair-uncounted`), `p1e.failed-repair-not-asked-again`; `an-unbound-hold-yields-...` `expected [2,2,true], got [1,1,true]` (`p1e.unbound-hold-never-yields`) |
+| 3 judge | lower version: already silently stale with `Stale` evidence; higher version: already applies when no claim, asked any time (the "open" branch is only a version-less claim); **built** equality: `domain.fields` (field Schemas, compiled through, accepted by the seal) and `Schema.toEquivalence` per field, else `same` | `a-lower-version-...` (`p1e.lower-version-doubts`); `a-higher-version-...` (`p1e.higher-needs-asked-after`); `equality-is-...` `expected [false,0], got [true,1]` (`p1e.equality-structural`) |
+| 4 U10 field-scoped | **built**: a success demotes a given-up mark only if it carried every field of the mark (a removal covers all) | `a-later-success-on-other-fields-...` (`p1e.success-demotes-any-field`) |
+| 5 oracles | S13 is now per actor (cross-actor order is the send order itself, so no independent check exists without join evidence); a drain oracle: per record the server applied writes in send order, and a settled row shows the server's value. Stale text fixed (SCENARIOS LIKE-05, entities.ts header and `queue`). **A Haiku runner found both vacuous at depth 4**: S13 per actor is implied by one head per lane (S5 fires first on every reorder it tried); no single edit made the drain oracle fire. Stated, not fixed | - |
+| 6 PostgREST realism | **built**: `dedupe: false` in the fake (each send applied); a Retry of a landed write gets `200 []`, which rule 18 makes `StillUnknown`, and the app settles it by a read (2.7.20) and gives the hold up; an undecodable answer is unknown (`Undecodable`). Zero rows cannot be split into version / RLS / missing on `update` (stated in the adapter; `.gone` is Q2) | `...-settled-by-a-read` (`p1e.no-rule-18`); `...-does-not-decode-...` (`p1e.adapter-undecodable-dies`, a fixture mutant: it pins the adapter) |
+| 7 cap | **built**: `unsettledMax` (Bounds, 4,096), given-up marks per entity, oldest given first, `UnsettledEvicted` evidence | `the-given-up-mark-cap-...` (`p1e.no-eviction`) |
+| 8 questions | `round-14/ENTITIES-QUESTIONS.md`: Q1 `guarded`, Q2 `.gone`, Q3 `.covers`, Q4 `delta`/`row`, Q5 the narrowed rebase | - |
+
+Findings for the design (round 2):
+1. **Rule 29 and 2.8.5 must say:** a record queue orders sends by when each began (its Attempt heads its lane), not by mint; a commit in W is a draft and holds
+   no place; within one lane mint order holds. A source with no version check is last-writer-wins by send order (LIKE-05: the earlier commit sent last wins);
+   a version-checked source turns an overtaken draft into an ordinary conflict, because `basedOn` rebases only across earlier-minted writes (OD19 Q32 A, narrowed).
+2. 2.8.6's `basedOn` paragraph: "takes the version the write ahead of it returns" becomes "... returns, if that write was minted earlier". Restore is a gap:
+   `save` keeps only refs, so a restored re-send carries no `basedOn` (a PostgREST re-send then matches nothing). The lane record should save `basedOn`.
+3. D12/D40: with no timer, a hung repair holds its record's re-sends (D39) for as long as the repair's own Effect allows. U1 B puts that deadline in the author's
+   repair Effect; the design should say so next to the forced repair.
+4. D15 as ruled is level-triggered: a waiter that came while the hold was bound makes it yield the moment it becomes unbound. Only the first record's holders
+   yield per dispatch (`blockedBy` returns the first claim); a write on two held records yields one per step.
+5. The count resets on any placed answer and after `RepairOverdue`, so a doubt that keeps getting news is asked 3 times per news, not 3 times in all (the
+   reviewer's finding; proposal 2.4 says "per doubt", and a new unknown is a new doubt). The design should say which.
+6. The judge's equality needs the entity's field Schemas in `Compiled` (`domain.fields`); today the domain carries none, so an app without it compares
+   structurally. `entity({ fields })` (proposal 3.2) is where they come from.
+7. PostgREST: the fake's other ledgers (`applications`, `charged`) still key by the request key under `dedupe: false` (reviewer); fine for this fixture, not
+   for a money one.
+
+Sidecar log (Haiku, effort high; every finding verified by the lead):
+
+| Task | Who | Result | Why |
+| --- | --- | --- | --- |
+| review of the round 2 runtime diff against six rules | reviewer | changed | acted on: a stale success rebased unsent writes (now not). Recorded: count reset (finding 5), hung repair (3), second-record yield (4), `basedOn` lost at restore (2), fake ledgers (7); its "eviction groups by `|`" is wrong (refs are `entity|key` by the `Predicted` contract); "a removal mark is demoted by any field success" is right by proposal 2.2 (`$present` is a field a row carries); a non-placed answer resetting the count is minor |
+| probe of S13 and the drain oracle for vacuity | runner | accepted | both never fired at depth 4 on 12 edits; recorded in ruling 5 |

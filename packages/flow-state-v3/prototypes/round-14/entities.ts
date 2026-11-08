@@ -1,5 +1,6 @@
 // The entities module (2.8). The core knows nothing of this file: it sees a Module. Records, predictions over a confirmed base,
-// the record queue in mint order (D3), marks (rule 32), forced repair with a bound (D40), answer positions (D47). A sync engine
+// the record queue in the order sends began (D3 as directed), `basedOn` rebased by mint (OD19 Q32 A, narrowed), marks (rule 32, U10), forced repair
+// bounded by a count of asks, never a clock (D12/D40 as ruled), answer positions (D47). A sync engine
 // would implement the same hooks with `blocks: false`; no such engine here. It stays optional: no core file imports it.
 //
 // Prior art, read: a retry stays in place and the first unresolved blocks: codebases/tanstack-query/packages/query-core/src/
@@ -8,7 +9,7 @@
 // codebases/db/packages/db/src/collection/state.ts:580. A stale read must not win over a confirmed write:
 // codebases/tanstack-query/packages/query-core/src/mutationObserver.ts's cancelQueries convention, here a position compare.
 import type { Carried, Compiled, Predicted, Slot } from "../conformance/fixtures/compiled.ts";
-import { Effect } from "effect";
+import { Effect, Schema } from "effect";
 import type { Claim as QueueClaim, Cx, Ended, Module, ReadAnswer, Told } from "./seam.ts";
 import { own, same, text, type SealedDomain } from "./gate.ts";
 import type { Ending } from "./world.ts";
@@ -24,6 +25,9 @@ type Entry = {
   readonly unknown: boolean;
   readonly released: boolean;
   readonly joined: boolean;
+  readonly sent: boolean;
+  // OD19 Q32 A, narrowed: per record, the version it was minted over; rebased only across an earlier-minted write's success, and only until sent.
+  readonly basedOn: Readonly<Record<string, Ver | undefined>>;
 };
 // Rule 32 as U10 rules it: `given` is the position of the give-up (null while the lane can still re-send); `quiet` once a read asked after it, or a
 // later write's success, has landed: `unconfirmed` on its fields, never `uncertain`, and it has no exit here (no `guarded` proof is built).
@@ -62,7 +66,8 @@ type Rec = {
   readonly base?: Readonly<Record<string, unknown>>;
   readonly unconfirmed: readonly string[];
   readonly marks: readonly Mark[];
-  readonly queue: readonly string[]; // mint order by construction: mints only grow, a retry never rejoins (S13)
+  readonly queue: readonly string[]; // the order sends began (D3 as directed); a retry never rejoins
+  readonly asks?: number; // repairs asked for the open doubt; past 3, `RepairOverdue` and no more until news
   readonly landedAt: number; // D58: the tick at which what this record holds arrived
   readonly doubt?: number; // D58: the tick a doubt began. Goes only by a read that started after it
   readonly version?: Ver; // the highest placed. On a tombstone: its floor
@@ -102,7 +107,6 @@ const withRec = (s: Slice, ref: string, f: (r: Rec) => Rec): Slice => ({
 // D77: sealed. Every closure in it is a Slot.
 const domainOf = (cx: { machine(id: string): Compiled }, machine: string) =>
   cx.machine(machine).domain as unknown as SealedDomain | undefined;
-const TIMER = "repair/";
 const asSlot = <F>(machine: string, path: string, run: F): Slot<F> => ({
   run,
   at: { definition: machine, path },
@@ -155,17 +159,24 @@ export const readAll = (s: Slice) =>
       .filter(([, v]) => v),
   );
 
+const REPAIR_ASKS = 3;
 const startRepair = (s: Slice, ref: string, machine: string, cx: Cx): Slice => {
   const cur = own(s.repairs, ref);
   if (cur) return { ...s, repairs: { ...s.repairs, [ref]: { ...cur, again: true } } };
   if (!cx.live) return s;
+  const asks = recOf(s, ref).asks ?? 0;
+  if (asks >= REPAIR_ASKS) {
+    cx.note("RepairOverdue", { ref }); // the mark stays; the next news asks again
+    return withRec(s, ref, (r) => ({ ...r, asks: 0 }));
+  }
   const gen = cx.gen();
   const pos = cx.pos();
   cx.command({ k: "repair", ref, gen, machine });
-  cx.arm(`${TIMER}${ref}`, cx.now + cx.repairMs);
   cx.note("repair", { ref });
-  return { ...s, repairs: { ...s.repairs, [ref]: { gen, machine, again: false, pos } } };
+  return withRec({ ...s, repairs: { ...s.repairs, [ref]: { gen, machine, again: false, pos } } }, ref, (r) => ({ ...r, asks: asks + 1 }));
 };
+// An answer placed: the doubt it was asked for is answered, so the count starts again.
+const answered = (s: Slice, ref: string): Slice => (recOf(s, ref).asks ? withRec(s, ref, (r) => ({ ...r, asks: 0 })) : s);
 const removeEntry = (s: Slice, attempt: string): Slice => {
   const e = s.entries[attempt];
   if (!e) return s;
@@ -175,16 +186,57 @@ const removeEntry = (s: Slice, attempt: string): Slice => {
     out = withRec(out, ref, (r) => ({ ...r, queue: r.queue.filter((x) => x !== attempt) }));
   return out;
 };
-const clearMarks = (s: Slice, e: Entry): Slice => {
+// Rule 32 (U10, field-scoped): its own mark goes; a given-up mark is demoted only by a success that carried every field the mark is on.
+type Covered = ReadonlyMap<string, "all" | readonly string[]>;
+const clearMarks = (s: Slice, e: Entry, covered: Covered): Slice => {
   let out = s;
-  for (const ref of e.refs)
-    if (recOf(out, ref).marks.length)
-      out = withRec(out, ref, (x) => demote({ ...x, marks: x.marks.filter((m) => m.attempt !== e.attempt) }, () => true));
+  for (const ref of e.refs) {
+    if (!recOf(out, ref).marks.length) continue;
+    const c = covered.get(ref);
+    const covers = (m: Mark) => c === "all" || (c !== undefined && m.fields.every((f) => c.includes(f)));
+    out = withRec(out, ref, (x) => demote({ ...x, marks: x.marks.filter((m) => m.attempt !== e.attempt) }, covers));
+  }
+  return out;
+};
+// U10's row cap (proposal 4.5): given-up marks per entity, oldest out. A count, never a clock.
+const evict = (s: Slice, cx: Cx): Slice => {
+  const given = Object.entries(s.records).flatMap(([ref, r]) => r.marks.filter((m) => m.given !== null).map((m) => ({ ref, m })));
+  const byEntity = new Map<string, typeof given>();
+  for (const g of given) {
+    const ent = g.ref.slice(0, g.ref.indexOf("|"));
+    byEntity.set(ent, [...(byEntity.get(ent) ?? []), g]);
+  }
+  let out = s;
+  for (const list of byEntity.values()) {
+    if (list.length <= cx.unsettledMax) continue;
+    for (const { ref, m } of [...list].sort((a, b) => a.m.given! - b.m.given!).slice(0, list.length - cx.unsettledMax)) {
+      cx.note("UnsettledEvicted", { ref, attempt: m.attempt });
+      out = withRec(out, ref, (r) => ({ ...r, marks: r.marks.filter((x) => x !== m) }));
+    }
+  }
   return out;
 };
 // ── D74: evidence is placed, then disposed. Two questions, two functions, one table (convergence-6). Every caller obeys.
 type Ver = number | string;
+type FieldEq = (field: string, a: unknown, b: unknown) => boolean;
+// The judge's equality (proposal 2.2): the field's `Schema.toEquivalence` where the domain gives its Schema, else structural. A throw is "differs".
+const eqCache = new WeakMap<object, FieldEq>();
+const fieldEq = (d: SealedDomain | undefined): FieldEq => {
+  const fields = d?.fields;
+  if (!fields) return (_f, a, b) => same(a, b);
+  const hit = eqCache.get(fields);
+  if (hit) return hit;
+  const eqs = new Map(Object.entries(fields).map(([f, sc]) => [f, Schema.toEquivalence(sc as Schema.Schema<unknown>)]));
+  const eq: FieldEq = (f, a, b) => {
+    const e = eqs.get(f);
+    if (!e || a === undefined || b === undefined) return same(a, b);
+    return safely(() => e(a, b), false);
+  };
+  eqCache.set(fields, eq);
+  return eq;
+};
 type Evidence = {
+  readonly eq: FieldEq;
   readonly kind: "read" | "success" | "frame" | "repair" | "early";
   readonly start?: number; // a frame has none
   readonly carried: Carried;
@@ -236,7 +288,7 @@ const againstClaim = (r: Rec, ev: Evidence) => {
   const c = ev.carried;
   if (cl.removed) return !c.removed;
   if (c.removed) return true;
-  return cl.fields.some((f) => c.fields && f in c.fields && !same(c.fields[f], heldValue(r, f)));
+  return cl.fields.some((f) => c.fields && f in c.fields && !ev.eq(f, c.fields[f], heldValue(r, f)));
 };
 // H2 row 2: an echo carries *every* field the write established. A partial frame says nothing about the rest.
 const echoes = (r: Rec, ev: Evidence) => {
@@ -247,13 +299,13 @@ const echoes = (r: Rec, ev: Evidence) => {
   if (c.removed) return false;
   return (
     cl.fields.length > 0 &&
-    cl.fields.every((f) => c.fields && f in c.fields && same(c.fields[f], heldValue(r, f)))
+    cl.fields.every((f) => c.fields && f in c.fields && ev.eq(f, c.fields[f], heldValue(r, f)))
   );
 };
 const heldDiffers = (r: Rec, ev: Evidence) => {
   if (ev.carried.removed) return r.base !== undefined;
   if (r.base === undefined) return r.gone === true;
-  return carriedFields(ev).some((f) => !same(r.base?.[f], ev.carried.fields?.[f]));
+  return carriedFields(ev).some((f) => !ev.eq(f, r.base?.[f], ev.carried.fields?.[f]));
 };
 const dispose = (r: Rec, ev: Evidence, p: Place, order: Order): Verb => {
   const repair = ev.kind === "repair";
@@ -330,6 +382,7 @@ const evidenceOf = (
   const { field, version } = versionOf(c, machine, cx);
   return {
     kind,
+    eq: fieldEq(domainOf(cx, machine)),
     carried: c,
     ...(start === undefined ? {} : { start }),
     ...(version === undefined ? {} : { version }),
@@ -453,7 +506,14 @@ const carriedOf = (v: unknown, cx: Cx, where: string): readonly Carried[] => {
   return Array.isArray(v) ? v.filter(ok) : [];
 };
 // D66: a success moves the record whatever it carried. The table's five rows.
-const confirm = (s: Slice, e: Entry, value: unknown, sentAt: number, cx: Cx): Slice => {
+const rebase = (s: Slice, e: Entry, ref: string, v: Ver): Slice => {
+  let out = s;
+  for (const x of Object.values(s.entries))
+    if (x !== e && !x.sent && x.mint > e.mint && x.refs.includes(ref) && same(x.basedOn[ref], e.basedOn[ref]))
+      out = { ...out, entries: { ...out.entries, [x.attempt]: { ...x, basedOn: { ...x.basedOn, [ref]: v } } } };
+  return out;
+};
+const confirm = (s: Slice, e: Entry, value: unknown, sentAt: number, cx: Cx): { s: Slice; covered: Covered } => {
   const fn = domainOf(cx, e.machine)?.writes[e.op]?.confirms;
   let threw = false;
   const raw = fn
@@ -463,10 +523,11 @@ const confirm = (s: Slice, e: Entry, value: unknown, sentAt: number, cx: Cx): Sl
       })
     : [];
   let out = s;
+  const covered = new Map<string, "all" | readonly string[]>();
   // D46: nothing can be believed: the prediction ends, the record is in doubt.
   if (threw) {
     for (const ref of e.refs) out = doubted(out, ref, e.machine, cx);
-    return out;
+    return { s: out, covered };
   }
   const carried = carriedOf(raw, cx, `domain.${e.op}.confirms`);
   const verdicts = new Map<string, Verb>();
@@ -475,6 +536,9 @@ const confirm = (s: Slice, e: Entry, value: unknown, sentAt: number, cx: Cx): Sl
     const r = admit(out, ev, e.machine, cx);
     out = r.s;
     verdicts.set(c.ref, r.v);
+    covered.set(c.ref, c.removed ? "all" : Object.keys(c.fields ?? {}));
+    // OD19 Q32 A, narrowed: a never-sent write minted after this one, over the same base, takes the version this success returned.
+    if (ev.version !== undefined && r.v !== "stale") out = rebase(out, e, c.ref, ev.version);
     // D74's success row: the version places it, or it stands as a claim until an echo or a later read.
     if (r.v !== "stale" && ev.version === undefined) {
       const at = recOf(out, c.ref).landedAt;
@@ -497,7 +561,7 @@ const confirm = (s: Slice, e: Entry, value: unknown, sentAt: number, cx: Cx): Sl
         if (!c) {
           const at = cx.pos();
           out = withRec(out, ref, (x) =>
-            addClaim(take(x, { kind: "success", carried: { ref, removed: true } }, at), at, [], {
+            addClaim(take(x, { kind: "success", eq: (_f, a, b) => same(a, b), carried: { ref, removed: true } }, at), at, [], {
               removed: true,
             }),
           );
@@ -533,13 +597,12 @@ const confirm = (s: Slice, e: Entry, value: unknown, sentAt: number, cx: Cx): Sl
       });
     }
   }
-  return out;
+  return { s: out, covered };
 };
 // A repair has ended, however: the held Attempts' predictions on this record go, released entries may leave, the queue moves.
 const endRepair = (s: Slice, ref: string, cx: Cx): Slice => {
   const cur = own(s.repairs, ref);
   if (!cur) return s;
-  cx.disarm(`${TIMER}${ref}`);
   const { [ref]: _gone, ...repairs } = s.repairs;
   let out: Slice = { ...s, repairs };
   for (const id of recOf(out, ref).queue) {
@@ -582,11 +645,13 @@ const onEnded = (s: Slice, { attempt, how, sentAt }: Ended, cx: Cx): Slice => {
       ? { ...out, entries: { ...out.entries, [attempt]: { ...e, released: true } } }
       : removeEntry(out, attempt);
     for (const ref of e.refs) if (recOf(out, ref).marks.some((m) => m.attempt === attempt)) out = startRepair(out, ref, e.machine, cx);
-    return out;
+    return evict(out, cx);
   }
   const ending: Ending = how;
-  if (ending.ch === "success")
-    return removeEntry(clearMarks(confirm(s, e, ending.value, sentAt, cx), e), attempt);
+  if (ending.ch === "success") {
+    const c = confirm(s, e, ending.value, sentAt, cx);
+    return removeEntry(clearMarks(c.s, e, c.covered), attempt);
+  }
   if (ending.ch === "failure") return removeEntry(s, attempt);
   return holdFor(s, e, cx);
 };
@@ -632,7 +697,7 @@ const onRepair = (s: Slice, a: RepairAnswer, cx: Cx): Slice => {
   const cur = own(s.repairs, a.ref);
   if (!cur || cur.gen !== a.gen) {
     cx.note("fence", { repair: a.ref });
-    return s; // D40: a late answer, after the bound
+    return s; // an answer to a repair this store no longer runs
   }
   if (
     !a.ok ||
@@ -640,8 +705,8 @@ const onRepair = (s: Slice, a: RepairAnswer, cx: Cx): Slice => {
       a.value !== undefined &&
       (typeof a.value !== "object" || Array.isArray(a.value)))
   ) {
-    cx.note("RepairFailed", { ref: a.ref }); // the doubt and the mark stay
-    return endRepair(s, a.ref, cx);
+    cx.note("RepairFailed", { ref: a.ref }); // the doubt and the mark stay; asked again, up to the count
+    return endRepair({ ...s, repairs: { ...s.repairs, [a.ref]: { ...cur, again: true } } }, a.ref, cx);
   }
   const gone = a.value === null || a.value === undefined;
   const c: Carried = gone ? { ref: a.ref, removed: true } : { ref: a.ref, fields: a.value };
@@ -655,10 +720,9 @@ const onRepair = (s: Slice, a: RepairAnswer, cx: Cx): Slice => {
   // D58: a repair that started before something newer landed asks again, rather than go backwards. One judge: this branch only acts on it.
   if (v === "again" && !same(r.base ?? null, a.value ?? null)) {
     const { [a.ref]: _g, ...repairs } = out.repairs;
-    cx.disarm(`${TIMER}${a.ref}`);
     return startRepair({ ...out, repairs }, a.ref, cur.machine, cx);
   }
-  return endRepair(out, a.ref, cx);
+  return endRepair(answered(out, a.ref), a.ref, cx);
 };
 // A push (2.8.14): "applied in order as they arrive, in a store publication, never through a turn". A patch of a record no list
 // holds changes nothing (feed.domain.ts's stated gap); a tombstone is kept, so an older row cannot come back.
@@ -742,10 +806,17 @@ export const entities: Module<Slice> = {
     const refs = [...new Set(p.predicted.map((x) => x.ref))];
     // Rule 35: no partial join.
     if (refs.some((ref) => recOf(s, ref).queue.length + draftsOf(s, ref).length >= cx.queueMax)) return { s, ok: false };
-    const e: Entry = { ...w, refs, predicted: p.predicted, unknown: false, released: false, joined: false };
+    const basedOn = Object.fromEntries(refs.map((ref) => [ref, recOf(s, ref).version]));
+    const e: Entry = { ...w, refs, predicted: p.predicted, unknown: false, released: false, joined: false, sent: false, basedOn };
     let out: Slice = { ...s, entries: { ...s.entries, [w.attempt]: e } };
     for (const ref of refs) out = withRec(out, ref, (r) => r);
     return { s: out, ok: true };
+  },
+  sent(s, attempt) {
+    const e = s.entries[attempt];
+    if (!e) return { s };
+    const basedOn = e.refs.length === 1 ? e.basedOn[e.refs[0]!] : e.refs.some((r) => e.basedOn[r] !== undefined) ? e.basedOn : undefined;
+    return { s: e.sent ? s : { ...s, entries: { ...s.entries, [attempt]: { ...e, sent: true } } }, basedOn };
   },
   sending(s, attempt) {
     const e = s.entries[attempt];
@@ -776,7 +847,7 @@ export const entities: Module<Slice> = {
     const refs: readonly string[] = Array.isArray(saved)
       ? saved.filter((x): x is string => typeof x === "string")
       : [];
-    const e: Entry = { ...w, refs, predicted: [], unknown: true, released: false, joined: true };
+    const e: Entry = { ...w, refs, predicted: [], unknown: true, released: false, joined: true, sent: true, basedOn: {} };
     let out: Slice = { ...s, entries: { ...s.entries, [w.attempt]: e } };
     for (const ref of refs) {
       out = withRec(out, ref, (r) => ({
@@ -795,7 +866,7 @@ export const entities: Module<Slice> = {
     return s;
   },
   input(s, payload, cx) {
-    const p = payload as RepairAnswer | Reread | { k: "timer"; key: string };
+    const p = payload as RepairAnswer | Reread;
     if (p.k === "repair") return onRepair(s, p, cx);
     if (p.k === "reread")
       return p.ok
@@ -812,11 +883,7 @@ export const entities: Module<Slice> = {
             cx,
           )
         : s;
-    if (p.k !== "timer") return s;
-    const ref = p.key.slice(TIMER.length);
-    cx.note("RepairOverdue", { ref }); // the mark stays
-    cx.command({ k: "stop", ref, gen: own(s.repairs, ref)?.gen });
-    return endRepair(s, ref, cx);
+    return s;
   },
   read: readRecord,
   waits(s) {

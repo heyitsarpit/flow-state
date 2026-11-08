@@ -493,14 +493,15 @@ export const reviewScenarios: readonly Scenario[] = [
     actor: A,
     cites: ["D51", "D40", "D6"],
     variants: {
-      "repair-stops-at-its-bound"(c) {
+      // D12/D40 as ruled: no Flow timer. A hung repair is the repair Effect's own deadline to end (U1 B); Flow does not stop it.
+      "a-hung-repair-is-not-stopped-by-a-flow-timer"(c) {
         opened(c);
         toggle(c, true);
         c.answer("like", { lost: true });
         c.answer("repair", { never: true });
         c.eq("live: the repair", c.r.outside().live, 1);
-        c.advance(30_000);
-        c.eq("stopped at the bound", c.r.outside().live, 0);
+        c.advance(3_600_000);
+        c.eq("still live, nothing overdue", [c.r.outside().live, c.r.evidence("RepairOverdue").length], [1, 0]);
       },
       "disposal-stops-module-fibers"(c) {
         opened(c);
@@ -637,29 +638,17 @@ export const reviewScenarios: readonly Scenario[] = [
     actor: A,
     cites: ["D40"],
     run(c) {
-      // D40's fence with a repair running: an old repair's late answer, after its bound and after a new repair began.
+      // D12/D40 as ruled: a repair is bounded by a count of asks. Three failed asks, then `RepairOverdue`; the next news asks again.
       opened(c);
-      c.fault({ uninterruptibleHang: "repair" });
       toggle(c, true);
       c.answer("like", { lost: true });
-      c.advance(30_000);
-      c.eq("overdue", c.r.evidence("RepairOverdue").length, 1);
+      for (let i = 0; i < 3; i++) c.tryAnswer("repair", { fail: { tag: "NoResponse" } });
+      c.eq("overdue after three asks", [c.r.evidence("RepairOverdue").length, c.reqs("repair").length], [1, 3]);
       c.to(A, "ReconcileLike", k);
-      c.answer("like", { lost: true }); // StillUnknown: a second repair
-      c.eq("two repairs asked", c.reqs("repair").length, 2);
-      c.do({
-        fault: {
-          lateAnswer: [
-            "repair",
-            { ok: { id: "i1", title: "ancient", slug: "s", liked: false, likes: 0 } },
-          ],
-        },
-      });
-      c.eq("fenced", c.rec(I1)?.data.title, "title i1");
-      c.yes(
-        "evidence",
-        c.r.evidence("fence").some((e) => e["repair"] === I1),
-      );
+      c.answer("like", { lost: true }); // StillUnknown: news, so a fourth repair
+      c.eq("asked again", c.reqs("repair").length, 4);
+      c.answer("repair", { truth: true });
+      c.eq("answered: the count starts again, the hold's mark stays", [c.r.evidence("RepairOverdue").length, c.rec(I1)?.uncertain], [1, true]);
     },
   },
   {

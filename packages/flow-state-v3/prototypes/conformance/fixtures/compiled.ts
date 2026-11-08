@@ -1,6 +1,6 @@
 // The compiled format of convergence-1 section 7, the subset rounds 1 and 2 use, plus Flow's commit vocabulary (2.7.1).
 // Hand-written until round 6. `uses` and `domain` name a module's data; the core reads neither.
-import { Context, Data, Effect, Stream } from "effect";
+import { Context, Data, Effect, type Schema, Stream } from "effect";
 
 export type At = { readonly definition: string; readonly path: string };
 export type Slot<F> = { readonly run: F; readonly at: At };
@@ -150,6 +150,7 @@ export type Mapped = {
 };
 export type CommitCtx = {
   readonly attempt: { readonly id: string; readonly mayHaveApplied: boolean };
+  readonly basedOn?: unknown; // OD19 Q32 A, narrowed: the version of the record this write was minted over, rebased in its record queue; a map by ref for several
 };
 export type Op = {
   readonly id: string;
@@ -249,6 +250,7 @@ export type DomainSpec = {
   readonly version?: (ref: string) => string | undefined; // D67: the entity's `version: "revision"`, the name of the field, per record
   readonly versionOrder?: "lexical" | ((a: unknown, b: unknown) => number); // D75: numbers order. A string orders only if declared
   readonly listens?: Readonly<Record<string, (value: any) => readonly Carried[]>>; // a domain's `listen(...).as(...)`: a stream's values as changes
+  readonly fields?: Readonly<Record<string, Schema.Top>>; // the entity's field Schemas (`entity({ fields })`): the judge compares by `Schema.toEquivalence`
 };
 
 // ── A stream contract, compiled (2.11.3). The thin spike's subset: no catchUp, no `latest`.

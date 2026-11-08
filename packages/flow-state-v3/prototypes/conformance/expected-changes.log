@@ -1966,3 +1966,101 @@ output:STORE-05/an-unresolved-mark-outlives-another-success hash:90a568b66dc0 | 
 output:STORE-06 hash:3a678b990a5e | S1's server state gained two fields, as in STORE-05
 output:P1-E/a-draft-behind-its-own-hold-stalls-no-other-actor hash:f1fa1fa1b5d7 | S1's new server fields in P1-E's draft variant
 output:P1-E/a-sent-hold-still-stalls-another-actor-on-its-record hash:cb817f843629 | S1's new server fields in P1-E's sent-hold variant
+STORE-07 hash:24d20b367026 | D12/D40 as ruled: three variants rewritten for a count of asks, no clock
+MED-07 hash:11ca3973501f | D12/D40 as ruled: repair-stops-at-its-bound became a-hung-repair-is-not-stopped-by-a-flow-timer
+SURV-05 hash:7a2a23fea4b8 | D12/D40 as ruled: three failed asks then RepairOverdue; the late-answer fence after a bound is gone
+FRAG-12 hash:947549d7bee8 | D15 as ruled: an unbound hold with a waiter yields at once, no 5 min clock
+FRAG-20 hash:3e0aa7ce0d64 | D15 as ruled: no-waiter-left-no-yield has the waiter leave while the hold is still bound
+P1-E hash:af4335ab7b15 | phase 1 E round 2: rebase, repair count, judge, U10 field-scoped, cap, PostgREST realism variants
+file:scenarios/frag.scenario.ts hash:79009c966c57 | FRAG-12 and FRAG-20 for D15 with no clock
+file:scenarios/phase1e.scenario.ts hash:607f7b376e2e | round 2 variants of P1-E
+file:scenarios/review.scenario.ts hash:324df69c9061 | MED-07 and SURV-05 for a repair bounded by count
+file:scenarios/store.scenario.ts hash:3e44687d5f5e | STORE-07 for a repair bounded by count
+file:search/like.search.ts hash:b98b555f39bb | S13 per actor, drain oracle: applied in send order, settled screen equals server
+file:fixtures/s1.compiled.ts hash:44843c482fb9 | S1 server keeps the applied list per record, for the drain oracle
+file:typed/phase1e.ts hash:72d61b77d734 | PostgREST fixture: Flow basedOn, no dedupe, settle by read, undecodable is unknown; Profile with field Schemas
+file:compile/machine.ts hash:638b7a617c34 | domain.fields compiled through, for the judge equality
+file:fake-world.ts hash:3cceb1e1af3f | dedupe false: a server with no idempotency applies each send
+file:expected-recipients.txt hash:d12cc44f2150 | round 2's new P1-E variants and rewritten STORE-07: 28 more recipients observed, 23 more start nodes; no red count moved
+round:mutants-audit-1.ts hash:5a67f61c4f68 | the auditor file, committed by the auditor; hash seen first here
+round:mutants-p1e.ts hash:09d4da1772d5 | round 2 wrong runtimes for P1-E, SURV-05, STORE-07, FRAG-12
+removed:variant:STORE-07/released-entry-leaves-at-the-bound | D12/D40 as ruled: no 30 s bound; now released-entry-leaves-when-its-repair-fails
+removed:output:STORE-07/released-entry-leaves-at-the-bound | the same: no bound
+removed:variant:STORE-07/a-live-hold-outranks-the-bound | D12/D40 as ruled: now a-live-hold-outranks-three-failed-repairs
+removed:output:STORE-07/a-live-hold-outranks-the-bound | the same: three failed asks, not 30 s
+removed:variant:STORE-07/a-late-repair-is-fenced | D12/D40 as ruled: no bound ends a hung repair, so nothing answers late after one; now a-hung-repair-holds-with-no-flow-bound
+removed:output:STORE-07/a-late-repair-is-fenced | the same: no late answer after a bound
+removed:variant:MED-07/repair-stops-at-its-bound | D12/D40 as ruled: Flow does not stop a repair; now a-hung-repair-is-not-stopped-by-a-flow-timer
+removed:output:MED-07/repair-stops-at-its-bound | the same: no stop at a bound
+output:CART-01 hash:37b6ecc0035e | no repair timer (D12/D40 as ruled), waits and outside: CART-01
+output:CART-02/repriced-under-pending hash:e61700220a65 | no repair timer (D12/D40 as ruled), waits and outside: CART-02/repriced-under-pending
+output:FRAG-12/unbound-hold-with-a-waiter-yields hash:f2707415b84b | D15 yields before the stall notice: FRAG-12/unbound-hold-with-a-waiter-yields
+output:FRAG-13 hash:c885192792a8 | no repair timer (D12/D40 as ruled), waits and outside: FRAG-13
+output:FRAG-14 hash:6351a6f3f1fd | no repair timer (D12/D40 as ruled), waits and outside: FRAG-14
+output:HIGH-01/retry-then-cancel-releases hash:53a477d94fa0 | no repair timer (D12/D40 as ruled), waits and outside: HIGH-01/retry-then-cancel-releases
+output:LIB-02 hash:b61bf15e5f65 | no repair timer (D12/D40 as ruled), waits and outside: LIB-02
+output:LIKE-02 hash:ead66ca3984d | S1 server state also lists applied, and no repair timer: LIKE-02
+output:LIKE-03 hash:a43d9102264b | S1 server state also lists applied, and no repair timer: LIKE-03
+output:LIKE-04 hash:dd63103fe93a | S1 server state also lists applied, and no repair timer: LIKE-04
+output:LIKE-05 hash:6cb181ea18f3 | S1 server state also lists applied, and no repair timer: LIKE-05
+output:MED-01/landed-without-ack-then-reload hash:200426d46ef0 | no repair timer (D12/D40 as ruled), waits and outside: MED-01/landed-without-ack-then-reload
+output:MED-01/other-actor-behind-a-hung-ack hash:831186b19cf2 | no repair timer (D12/D40 as ruled), waits and outside: MED-01/other-actor-behind-a-hung-ack
+output:MED-02/record-held-names-holder-and-waiter hash:aef7baedf42e | no repair timer (D12/D40 as ruled), waits and outside: MED-02/record-held-names-holder-and-waiter
+output:MED-03/stale-repair-runs-again hash:373501e58a54 | no repair timer (D12/D40 as ruled), waits and outside: MED-03/stale-repair-runs-again
+output:MED-07/a-hung-repair-is-not-stopped-by-a-flow-timer hash:01affa654319 | new output for the count-bounded repair: MED-07/a-hung-repair-is-not-stopped-by-a-flow-timer
+output:P1-E/a-double-save-rebases-onto-its-own-earlier-write hash:a6ec31b10a77 | new or changed output: a-double-save-rebases-onto-its-own-earlier-write
+output:P1-E/a-draft-behind-its-own-hold-stalls-no-other-actor hash:601d1cf05d6f | new or changed output: a-draft-behind-its-own-hold-stalls-no-other-actor
+output:P1-E/a-higher-version-applies-whenever-it-was-asked hash:99f5a7e759ae | new or changed output: a-higher-version-applies-whenever-it-was-asked
+output:P1-E/a-later-success-demotes-a-given-up-mark-and-does-not-clear-it hash:c819e2c45d9e | new or changed output: a-later-success-demotes-a-given-up-mark-and-does-not-clear-it
+output:P1-E/a-later-success-on-other-fields-leaves-a-given-up-mark-uncertain hash:264017806cd8 | new or changed output: a-later-success-on-other-fields-leaves-a-given-up-mark-uncertain
+output:P1-E/a-lower-version-is-silently-stale-with-evidence hash:ccd7459edc38 | new or changed output: a-lower-version-is-silently-stale-with-evidence
+output:P1-E/a-postgrest-answer-that-does-not-decode-is-unknown hash:6f9fea582bbf | new or changed output: a-postgrest-answer-that-does-not-decode-is-unknown
+output:P1-E/a-postgrest-re-send-of-a-landed-write-is-settled-by-a-read hash:2758c3716d11 | new or changed output: a-postgrest-re-send-of-a-landed-write-is-settled-by-a-read
+output:P1-E/a-postgrest-status-0-is-unknown-and-forces-a-repair hash:e9fcac9bd214 | new or changed output: a-postgrest-status-0-is-unknown-and-forces-a-repair
+output:P1-E/a-postgrest-update-response-confirms-what-it-carries hash:79f795f8adbf | new or changed output: a-postgrest-update-response-confirms-what-it-carries
+output:P1-E/a-postgrest-update-that-matches-no-row-is-a-definite-conflict hash:b2cf942c7098 | new or changed output: a-postgrest-update-that-matches-no-row-is-a-definite-conflict
+output:P1-E/a-sent-hold-still-stalls-another-actor-on-its-record hash:3bb4f51b6bda | new or changed output: a-sent-hold-still-stalls-another-actor-on-its-record
+output:P1-E/an-overtaken-draft-meets-the-version-check-as-a-conflict hash:16f58373f367 | new or changed output: an-overtaken-draft-meets-the-version-check-as-a-conflict
+output:P1-E/equality-is-the-field-schemas-equivalence hash:277a5958eca9 | new or changed output: equality-is-the-field-schemas-equivalence
+output:P1-E/the-given-up-mark-cap-evicts-the-oldest hash:b8de2a777f45 | new or changed output: the-given-up-mark-cap-evicts-the-oldest
+output:R14-FIX-01/a-dispose-of-a-record-at-ready-parks-what-the-boot-queued hash:b63801613167 | no repair timer (D12/D40 as ruled), waits and outside: R14-FIX-01/a-dispose-of-a-record-at-ready-parks-what-the-boot-queued
+output:R14-FIX-01/a-held-record-at-ready-names-what-it-is-owed hash:5eeecc0f0a45 | no repair timer (D12/D40 as ruled), waits and outside: R14-FIX-01/a-held-record-at-ready-names-what-it-is-owed
+output:R14-FIX-01/a-refused-resend-parked-before-a-kill-is-heard-once-after hash:c271f64e2d62 | no timer-driven RepairOverdue or fence: R14-FIX-01/a-refused-resend-parked-before-a-kill-is-heard-once-after
+output:R14-IGN-03 hash:9df464718bf0 | no repair timer (D12/D40 as ruled), waits and outside: R14-IGN-03
+output:REAL-03/persisted-host-with-the-store hash:88e55907b490 | no repair timer (D12/D40 as ruled), waits and outside: REAL-03/persisted-host-with-the-store
+output:REAL-05/pin-unsure-releases-and-the-look-stays-marked hash:03c82abf77dd | no repair timer (D12/D40 as ruled), waits and outside: REAL-05/pin-unsure-releases-and-the-look-stays-marked
+output:REFUND-01/unsure-holds-the-charge hash:76fba7b65440 | no repair timer (D12/D40 as ruled), waits and outside: REFUND-01/unsure-holds-the-charge
+output:REV4-H1/the-doubt-outlives-a-failed-repair hash:a53c7b36c214 | a failed repair is asked again (count of asks): REV4-H1/the-doubt-outlives-a-failed-repair
+output:REV4-H2/a-confirms-mapper-that-throws-keeps-the-mark hash:0b33208b46ab | a failed repair is asked again (count of asks): REV4-H2/a-confirms-mapper-that-throws-keeps-the-mark
+output:REV4-H2/one-failed-repair-does-not-leave-the-screen-wrong-and-clean hash:f3b0f4b8a664 | a failed repair is asked again (count of asks): REV4-H2/one-failed-repair-does-not-leave-the-screen-wrong-and-clean
+output:REV5-H8/a-mark-is-not-a-versions-to-clear hash:33aca56b6438 | no repair timer (D12/D40 as ruled), waits and outside: REV5-H8/a-mark-is-not-a-versions-to-clear
+output:REV6-H1/a-remove-before-the-first-row-stays-removed hash:507066f0c309 | no repair timer (D12/D40 as ruled), waits and outside: REV6-H1/a-remove-before-the-first-row-stays-removed
+output:REV6-H2/a-differing-newer-frame-over-a-claim-is-doubted hash:b673b82e578c | no repair timer (D12/D40 as ruled), waits and outside: REV6-H2/a-differing-newer-frame-over-a-claim-is-doubted
+output:REV6-H2/gone-keeps-its-version-and-a-row-there-is-older hash:dec4561b3d78 | no repair timer (D12/D40 as ruled), waits and outside: REV6-H2/gone-keeps-its-version-and-a-row-there-is-older
+output:REV6-H3/a-string-write-still-defends-itself-by-claim hash:b673b82e578c | no repair timer (D12/D40 as ruled), waits and outside: REV6-H3/a-string-write-still-defends-itself-by-claim
+output:REV8-H1/checkout-refunds-does-not-send-a-second-key hash:58e74088586b | no repair timer (D12/D40 as ruled), waits and outside: REV8-H1/checkout-refunds-does-not-send-a-second-key
+output:STORE-04/Restored-W hash:8c4bd841b6bf | no repair timer (D12/D40 as ruled), waits and outside: STORE-04/Restored-W
+output:STORE-05/a-later-failure-does-not hash:cc49192737e6 | no repair timer (D12/D40 as ruled), waits and outside: STORE-05/a-later-failure-does-not
+output:STORE-05/an-unresolved-mark-outlives-another-success hash:5c8fcc73b019 | S1 server state also lists applied, and no repair timer: STORE-05/an-unresolved-mark-outlives-another-success
+output:STORE-05/failed-retry-does-not hash:1616c3ffc87e | no repair timer (D12/D40 as ruled), waits and outside: STORE-05/failed-retry-does-not
+output:STORE-06 hash:795c583d9e6f | S1 server state also lists applied, and no repair timer: STORE-06
+output:STORE-07/a-hung-repair-holds-with-no-flow-bound hash:e43be4e5615b | new output for the count-bounded repair: STORE-07/a-hung-repair-holds-with-no-flow-bound
+output:STORE-07/a-live-hold-outranks-three-failed-repairs hash:a69211e0e9c3 | new output for the count-bounded repair: STORE-07/a-live-hold-outranks-three-failed-repairs
+output:STORE-07/released-entry-leaves-when-its-repair-fails hash:6b3df868c3fb | new output for the count-bounded repair: STORE-07/released-entry-leaves-when-its-repair-fails
+output:STORE-09 hash:36bb07bf9e3c | no repair timer (D12/D40 as ruled), waits and outside: STORE-09
+output:STORE-11/cancel-a-waiting-resend hash:6920da01df8c | no repair timer (D12/D40 as ruled), waits and outside: STORE-11/cancel-a-waiting-resend
+output:STORE-11/stillunknown-keeps-its-place hash:4fbb0c21321b | no repair timer (D12/D40 as ruled), waits and outside: STORE-11/stillunknown-keeps-its-place
+output:SURV-03 hash:652784b22366 | no repair timer (D12/D40 as ruled), waits and outside: SURV-03
+output:SURV-05 hash:b96fbf2fa87a | count-bounded repair: SURV-05 rewritten
+output:SURV-06 hash:3ad9ea0c189e | no repair timer (D12/D40 as ruled), waits and outside: SURV-06
+P1-E hash:8a8b5b52221f | P1-E's D15 variant, so lifetime-falsify kills it inside its list
+file:scenarios/phase1e.scenario.ts hash:ca8314e80733 | the D15 variant in P1-E
+round:mutants-p1e.ts hash:014315792d41 | kills moved into lifetime-falsify's list (SURV-05, P1-E's D15 variant)
+output:P1-E/an-unbound-hold-yields-to-a-waiting-write-with-no-clock hash:f2d8b2f286fa | new output: D15 with no clock
+file:expected-recipients.txt hash:d002f466104c | the D15 variant: one more recipient and start node
+STORE-07 hash:6dafae116a15 | three failed asks via tryAnswer, so a wrong runtime that stops asking is red by the overdue assertion, not a throw
+SURV-05 hash:eb1a0a8339f1 | the same tryAnswer loop as STORE-07
+file:scenarios/review.scenario.ts hash:c8c6ce4bf237 | SURV-05's tryAnswer loop
+file:scenarios/store.scenario.ts hash:6e60c1224c18 | STORE-07's tryAnswer loop
+round:mutants-lifetime-misc.ts hash:fde1dd816853 | the misc mutant's lane.ts import anchor follows the new sentAll import
+round:mutants-p1e.ts hash:efd72c6ec6a3 | p1e.no-rebase anchor follows the stale-success guard

@@ -38,6 +38,7 @@ export type DomainIn = {
   readonly repair: Fn;
   readonly version?: Fn;
   readonly versionOrder?: "lexical" | Fn;
+  readonly fields?: DomainSpec["fields"]; // the entity's field Schemas, for the judge's equality
 };
 const compileDomain = (id: string, d: DomainIn): DomainSpec =>
   ({
@@ -58,6 +59,7 @@ const compileDomain = (id: string, d: DomainIn): DomainSpec =>
     repair: slotOf(id, "domain.repair", d.repair),
     ...(d.version ? { version: slotOf(id, "domain.version", d.version) } : {}),
     ...(d.versionOrder === undefined ? {} : { versionOrder: d.versionOrder === "lexical" ? "lexical" : slotOf(id, "domain.versionOrder", d.versionOrder) }),
+    ...(d.fields ? { fields: d.fields } : {}),
   }) as unknown as DomainSpec;
 type MappedIn = { readonly tag: string; readonly fromFn?: unknown };
 export type StreamIn = Omit<StreamSpec, "key" | "backoff" | "subscribe" | "reconnectWhile" | "pageRetryWhile" | "catchUp" | "value" | "missed" | "failure" | "failureBy" | "pages"> & {

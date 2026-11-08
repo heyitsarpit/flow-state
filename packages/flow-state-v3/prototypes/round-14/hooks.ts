@@ -21,6 +21,7 @@ const cxFor = (tx: Tx, m: Module<any>): Cx => ({
   live: tx.w.status === "live",
   queueMax: tx.bounds.queueMax,
   repairMs: tx.bounds.repairMs,
+  unsettledMax: tx.bounds.unsettledMax,
   pageMs: tx.bounds.pageMs,
   gen: () => nextGen(tx),
   pos: () => position(tx),
@@ -198,6 +199,25 @@ export const startAll = (
     if (why) return why;
   }
   return undefined;
+};
+// OD19 Q32 A, narrowed: what a module adds to the send (an entity write's `basedOn`), read as the send leaves; a re-send is told again.
+export const sentAll = (tx: Tx, attempt_: string): unknown => {
+  let out: unknown;
+  for (const m of tx.modules) {
+    if (!m.sent || !active(tx, m)) continue;
+    attempt(
+      tx,
+      m,
+      "sent",
+      () => {
+        const r = m.sent!(tx.w.ext[m.id], attempt_);
+        tx.w = { ...tx.w, ext: { ...tx.w.ext, [m.id]: r.s } };
+        if (r.basedOn !== undefined) out = r.basedOn;
+      },
+      () => undefined,
+    );
+  }
+  return out;
 };
 export const blockedBy = (tx: Tx, attempt_: string, machine: string): false | Claim => {
   for (const m of tx.modules) {

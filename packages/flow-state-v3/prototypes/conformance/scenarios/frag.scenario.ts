@@ -746,12 +746,10 @@ export const fragScenarios: readonly Scenario[] = [
         c.answer("repair", { truth: true });
         c.to(B, "Toggle", { id: "i1", liked: false });
         c.detach(L); // T2 (rule 73): the Held lane keeps nothing; the actor ends after the grace and the hold is unbound
+        c.eq("waits while the hold is bound", c.reqs("like").length, 1);
         c.advance(GRACE);
         c.eq("ended", c.r.state(L), undefined);
-        c.advance(299_999);
-        c.eq("waits", c.reqs("like").length, 1);
-        c.advance(1);
-        c.eq("yielded", c.reqs("like").length, 2);
+        c.eq("D15 as ruled: yielded as soon as it was unbound with a waiter, no clock", c.reqs("like").length, 2);
         c.eq("released with evidence", c.r.evidence("Released").length, 1);
         c.eq("mark kept", c.rec(I1)?.uncertain, true);
         c.ensure(L);
@@ -1217,11 +1215,11 @@ export const fragScenarios: readonly Scenario[] = [
         c.answer("like", { lost: true });
         c.answer("repair", { truth: true });
         c.to(B, "Toggle", { id: "i1", liked: false });
+        c.to(B, "Delete", { id: "i9" }); // a bystander
+        c.to(B, "CancelLike", { id: "i1" }); // the waiter leaves while the hold is still bound
         c.detach(L); // T2 (rule 73): the Held lane keeps nothing
         c.advance(GRACE);
         c.eq("ended", c.r.state(L), undefined);
-        c.to(B, "Delete", { id: "i9" }); // a bystander
-        c.to(B, "CancelLike", { id: "i1" });
         c.advance(300_000);
         c.eq("the hold stays", c.r.row(L, "like", K)?.uncertain, true);
       },

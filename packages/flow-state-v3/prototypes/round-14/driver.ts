@@ -146,7 +146,7 @@ export const createRuntime = (cfg: {
   host.onHidden?.(() => edge.hide());
   const invoke = (c: Extract<Command, { k: "invoke" }>) => {
     try {
-      const effect = (machines[c.machine]!.ops[c.op]!.commit as Slot<CommitFn>).run(c.input, { attempt: c.ctx });
+      const effect = (machines[c.machine]!.ops[c.op]!.commit as Slot<CommitFn>).run(c.input, { attempt: c.ctx, ...(c.basedOn === undefined ? {} : { basedOn: c.basedOn }) });
       fork(`${c.attempt}#${c.send}`, effect, (exit) =>
         input({ k: "sent", attempt: c.attempt, send: c.send, exit }),
       );

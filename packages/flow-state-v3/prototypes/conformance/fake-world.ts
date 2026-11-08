@@ -34,7 +34,7 @@ export type ServerModel = {
 };
 type E = Effect.Effect<unknown, any>;
 export type Api = {
-  call(op: string, input: unknown, o?: { idempotencyKey?: string }): E;
+  call(op: string, input: unknown, o?: { idempotencyKey?: string; dedupe?: false }): E;
   track(op: string, key: string, body: E): E; // a request whose body is the fixture's own effect
   confirm(i: unknown, o: { idempotencyKey: string }): E;
   placeOrder(i: unknown, o: { idempotencyKey: string }): E;
@@ -96,6 +96,7 @@ type Held = Request & {
   tracked?: boolean;
   resume?: ((e: E) => void) | undefined;
   process: number;
+  noDedupe?: boolean; // a server with no idempotency (PostgREST): the key labels the request, the server applies each send
 };
 const capturable = (v: any) => v?.status === "requires_capture" || v?.status === "succeeded";
 const matches = (input: any, where?: Readonly<Record<string, unknown>>) =>
@@ -367,7 +368,7 @@ export class FakeWorld {
 
   // ── Fake server
   readonly api: Api = {
-    call: (op, input, o) => this.call(op, input, o?.idempotencyKey),
+    call: (op, input, o) => this.call(op, input, o?.idempotencyKey, o?.dedupe === false),
     track: (op, key, body) => this.track(op, key, body),
     confirm: (input, o) => this.call("pay", input, o.idempotencyKey),
     placeOrder: (input, o) => this.call("place", input, o.idempotencyKey),
@@ -484,7 +485,7 @@ export class FakeWorld {
         }
     }
   }
-  private call(op: string, input: unknown, key?: string): E {
+  private call(op: string, input: unknown, key?: string, noDedupe = false): E {
     const isRead = key === undefined;
     const r: Held = {
       op,
@@ -493,6 +494,7 @@ export class FakeWorld {
       answered: false,
       process: this.process,
       ...(key === undefined ? {} : { idempotencyKey: key }),
+      ...(noDedupe ? { noDedupe } : {}),
     };
     const sync = this.syncAnswers.get(op);
     let body: E = Effect.suspend(() => {
@@ -543,7 +545,7 @@ export class FakeWorld {
   // Applied once per key, whoever sends it and however many times, while the server remembers the key (D145: `forgetKeys` is Stripe's pruning after 24 hours).
   // D145, assumptions #5: the same key with another body is refused, as Stripe does; nothing lands.
   private landOnServer(r: Held): { value?: unknown; fail?: any } {
-    const key = r.idempotencyKey;
+    const key = r.noDedupe ? undefined : r.idempotencyKey;
     const prior = key === undefined ? undefined : this.landed.get(key);
     if (prior) {
       const first = this.landedBody.get(key!);

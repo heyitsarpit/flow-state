@@ -29,6 +29,7 @@ export type Cx = {
   readonly live: boolean; // false from Runtime disposal's start: a module starts no new work (Runtime O6)
   readonly queueMax: number;
   readonly repairMs: number;
+  readonly unsettledMax: number;
   readonly pageMs: number;
   gen(): string;
   pos(): number; // D47
@@ -108,6 +109,7 @@ export type Module<S> = {
   prepare?(s: S, w: Omit<WriteRef, "attempt" | "mint">, cx: Cx): unknown; // P5: dry
   start?(s: S, w: WriteRef, prepared: unknown, cx: Cx): { readonly s: S; readonly ok: boolean }; // P6
   ended?(s: S, e: Ended, cx: Cx): S; // N: rule 27. Before any routing
+  sent?(s: S, attempt: string): { readonly s: S; readonly basedOn?: unknown }; // the send leaves now; a re-send too. What it adds to the commit
   sending?(s: S, attempt: string, cx: Cx): S; // D3 as directed: the Attempt heads its lane, so its send has begun (the write-ahead first). A commit in W has not
   blocks?(s: S, attempt: string): false | Claim; // D
   told?(s: S, fact: Told, cx: Cx): S; // D68: the core's facts
