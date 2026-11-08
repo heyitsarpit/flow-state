@@ -6,11 +6,11 @@ import { dirname, join, resolve } from "node:path";
 import { stated } from "./verdicts/state.ts";
 
 const SEARCH_EXPECT = {
-  store: "inconclusive",
-  queue: "completed",
-  bare: "inconclusive",
-  directed: "completed",
-  chain: "completed",
+  store: { verdict: "completed", states: 1810 },
+  queue: { verdict: "completed", states: null },
+  bare: { verdict: "completed", states: 2491 },
+  directed: { verdict: "completed", states: 5969 },
+  chain: { verdict: "completed", states: null },
 } as const;
 
 await stated("mutate-one", async (scope) => {
@@ -42,16 +42,17 @@ await stated("mutate-one", async (scope) => {
     const mod = (await import(resolve(here, runtimeArg))) as import("./harness.ts").RuntimeModule;
     const make = makeHarness(mod.port);
     const item = (name: keyof typeof SEARCH_EXPECT, r: import("./search/engine.ts").Report): Item => {
+      const want = SEARCH_EXPECT[name];
       const detail = { verdict: r.verdict, states: r.states, failed: r.failure ? [r.failure.slice(0, 200)] : [] };
-      if (r.verdict === SEARCH_EXPECT[name]) return { kind: "search", name: `search ${name}`, outcome: "pass", why: "", detail };
-      if (r.verdict === "failed" || r.verdict === "vacuous") return { kind: "search", name: `search ${name}`, outcome: "fail", why: `${r.verdict}, ${SEARCH_EXPECT[name]} expected${r.failure ? `: ${r.failure.slice(0, 200)}` : ""}`, detail };
-      return { kind: "search-budget", name: `search ${name}`, note: `${r.verdict} at ${r.states} states, ${SEARCH_EXPECT[name]} expected: the budget, not a catch`, detail };
+      const got = `${r.verdict} at ${r.states} states, ${want.verdict}${want.states === null ? "" : ` at ${want.states}`} expected`;
+      if (r.verdict === want.verdict && (want.states === null || r.states === want.states)) return { kind: "search", name: `search ${name}`, outcome: "pass", why: "", detail };
+      if (r.verdict === "inconclusive") return { kind: "search-budget", name: `search ${name}`, note: `${got}: the budget, not a catch`, detail };
+      return { kind: "search", name: `search ${name}`, outcome: "fail", why: `${got}${r.failure ? `: ${r.failure.slice(0, 200)}` : ""}`, detail };
     };
     if (which === "only") {
-      const o = { depth: 12, maxStates: 3_000 };
-      push(item("store", searchFlush(make, "serialize", o, false, false, "store")));
-      if (!stop()) push(item("queue", searchFlush(make, "serialize", o, false, false, "queue")));
-      if (!stop()) push(item("bare", searchFlush(make, "bare", o, true)));
+      push(item("store", searchFlush(make, "serialize", { depth: 9, maxStates: 3_000 }, false, false, "store")));
+      if (!stop()) push(item("queue", searchFlush(make, "serialize", { depth: 9, maxStates: 3_000 }, false, false, "queue")));
+      if (!stop()) push(item("bare", searchFlush(make, "bare", { depth: 5, maxStates: 3_000 }, true)));
       return;
     }
     push(item("directed", searchFlush(make, "serialize", { depth: 11, maxStates: 8_000 }, false, false, "store")));

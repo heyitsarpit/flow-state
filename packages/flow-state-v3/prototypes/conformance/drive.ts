@@ -1761,6 +1761,7 @@ export const makeHarness = (port: Port) => (): Harness => {
         for (const [k, v] of at.after) faults.moduleThrowsAfter.set(k, v);
         faults.coreThrows = at.core;
         const r = instances[si]!.replay((i) => {
+          fake.markCall();
           collectSometimes();
           fireReleases(si, i);
           for (const a of armed) if (a.segment === si && a.at === i) a.arm();

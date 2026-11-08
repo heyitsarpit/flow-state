@@ -32,6 +32,8 @@ export type Ended = {
   readonly stdout: Stream;
   readonly stderr: Stream;
   readonly leftovers: number;
+  readonly unreaped: boolean;
+  readonly blindTicks: number;
 };
 export type Unstarted = { readonly kind: "unstarted"; readonly launch: Launch; readonly message: string };
 export type Run = Ended | Unstarted;
@@ -40,11 +42,22 @@ export const HEAD_BYTES = 8 * 1024 * 1024;
 export const TAIL_BYTES = 1024 * 1024;
 export const LAST_LINE_BYTES = 64 * 1024 * 1024;
 export const DRAIN_GRACE_MS = 2000;
+export const REAP_GRACE_MS = 10_000;
+export const PS_TIMEOUT_MS = 5000;
 
 export const killed = (decided: Decision | null, sentToLive: boolean, signal: string | null): boolean => decided !== null && sentToLive && signal !== null;
 export const isTop = (): boolean => process.env["FLOW_NESTED"] !== "1";
 export const isAlone = (): boolean => process.env["FLOW_ALONE"] === "1";
 export const runId = (): string => process.env["FLOW_RUN"] || "top";
+export const processStart = (pid: number): string | null => {
+  try {
+    const p = Bun.spawnSync(["ps", "-o", "lstart=", "-p", String(pid)], { stdin: "ignore", timeout: PS_TIMEOUT_MS });
+    const s = p.exitCode === 0 ? p.stdout.toString().trim() : "";
+    return s === "" ? null : s;
+  } catch {
+    return null;
+  }
+};
 export const inheritedPool = (): { readonly slots: number; readonly mb: number } | null => {
   const m = /^(\d+):(\d+)$/.exec(process.env["FLOW_POOL"] ?? "");
   return m ? { slots: Number(m[1]), mb: Number(m[2]) } : null;
@@ -160,7 +173,7 @@ const drain = (s: ReadableStream<Uint8Array>, c: Collector) => {
 type Proc = { pid: number; ppid: number; pgid: number; rssKb: number; started: string };
 const table = (): Proc[] | null => {
   try {
-    const p = Bun.spawnSync(["ps", "-Ao", "pid=,ppid=,pgid=,rss=,lstart="], { stdin: "ignore" });
+    const p = Bun.spawnSync(["ps", "-Ao", "pid=,ppid=,pgid=,rss=,lstart="], { stdin: "ignore", timeout: PS_TIMEOUT_MS });
     if (p.exitCode !== 0) return null;
     const out: Proc[] = [];
     for (const l of p.stdout.toString().split("\n")) {
@@ -231,11 +244,13 @@ export const spawnRun = async (launch: Launch, o: { readonly echo: boolean | "sa
     } catch {}
     return procs;
   };
+  let blindTicks = 0;
   while (!done) {
     await Bun.sleep(40);
     if (done) break;
     const procs = table();
-    if (procs !== null) {
+    if (procs === null) blindTicks++;
+    else {
       const tree = treeOf(child.pid, procs, seen);
       for (const p of tree) seen.set(p.pid, p.started);
       peakMb = Math.max(peakMb, tree.reduce((n, p) => n + p.rssKb, 0) / 1024);
@@ -246,15 +261,14 @@ export const spawnRun = async (launch: Launch, o: { readonly echo: boolean | "sa
     if (decided === null && performance.now() - t0 > launch.limits.seconds * 1000) decided = "time";
     if (decided) {
       sentToLive = child.exitCode === null && child.signalCode === null;
-      try {
-        process.kill(child.pid, 9);
-      } catch {}
       endTree();
       break;
     }
   }
-  await child.exited;
-  const signal = child.signalCode ?? null;
+  let reapTimer: ReturnType<typeof setTimeout> | undefined;
+  const reaped = await Promise.race([child.exited.then(() => true), new Promise<false>((r) => (reapTimer = setTimeout(() => r(false), REAP_GRACE_MS)))]);
+  clearTimeout(reapTimer);
+  const signal = reaped ? (child.signalCode ?? null) : "SIGKILL";
   const left = decided ? [] : endTree();
   let timer: ReturnType<typeof setTimeout> | undefined;
   const grace = new Promise<"late">((r) => (timer = setTimeout(() => r("late"), DRAIN_GRACE_MS)));
@@ -276,5 +290,7 @@ export const spawnRun = async (launch: Launch, o: { readonly echo: boolean | "sa
     stdout: out.collector.done(drained === "late"),
     stderr: err.collector.done(drained === "late"),
     leftovers: left.length,
+    unreaped: !reaped,
+    blindTicks,
   };
 };

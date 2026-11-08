@@ -37,7 +37,7 @@ await stated("gate-5s", async (scope) => {
   if (always.length) return always.map((x) => ({ ...x, kind: "gate-5s", name: `gate-5s ${x.name}` }));
   const partial = sameCases(plannedCases(undefined))(r.verdict);
   if (partial !== null) return [{ kind: "gate-5s", name: "gate-5s", outcome: "fail", why: partial }];
-  const cases = r.verdict.items.filter(isScored).filter((x) => x.kind === "case");
+  const cases = r.verdict.items.filter(isScored).filter((x) => x.kind === "case" || x.kind === "work-bound");
   const failed = new Map(cases.filter((x) => x.outcome === "fail").map((x) => [x.name, x.why] as const));
   // Round 8: the review's worry about a free-text allow list. A listed case must still fail as it was read to fail.
   const allowed = new Map(

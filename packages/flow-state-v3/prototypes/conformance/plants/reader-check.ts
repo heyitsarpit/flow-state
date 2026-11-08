@@ -23,10 +23,15 @@ const READERS = new Set(["verdicts/spawn.ts", "verdicts/read.ts", "verdicts/verd
 const EXEMPT: Readonly<Record<string, string>> = {
   "plants/blackbox.ts": "it reads the old commit's human output, which has nothing else",
   "watch.ts": "a person's command line, not a gate: it ends with its child's exit",
-  "plants/plants.ts": "its planted children break the contract on purpose, in the strings it writes",
   "plants/reader-check.ts": "it holds the patterns",
 };
-const PROGRAMS = "a program under test, read through programOutput";
+const EXEMPT_LINES: Readonly<Record<string, ReadonlyArray<{ readonly re: RegExp; readonly why: string }>>> = {
+  "plants/plants.ts": [
+    { re: /script\(|\bgate\("|^\s*\["[a-z0-9-]+", /, why: "a planted child's source, written to break the contract on purpose" },
+    { re: /Bun\.spawnSync\(\["(pgrep|ps)"/, why: "a plant checks that nothing of its own is left running" },
+  ],
+  "../round-14/checks/types-check.ts": [{ re: /\((p|q)\.stdout \+ (p|q)\.stderr\)|const out = p\.stdout \+ p\.stderr/, why: "tsc, a program under test, read through programOutput" }],
+};
 const CLOCKS: Readonly<Record<string, string>> = {
   "verdicts/spawn.ts": "the watchdog's time limit and the run's evidence ms",
   "verdicts/runner.ts": "the global budget",
@@ -45,12 +50,11 @@ await stated("reader-check", async () => {
     if (READERS.has(name)) continue;
     const text = readFileSync(f, "utf8");
     const lines = text.split("\n");
-    const program = text.includes("programOutput(") ? PROGRAMS : undefined;
     lines.forEach((raw, i) => {
       const l = raw.replace(/(^|\s)\/\/.*$/, "");
       const at = `${name}:${i + 1}`;
-      if (EXEMPT[name] === undefined) {
-        if (/\b(stdout|stderr)\b[^;]*\.(split|match|includes|test|startsWith|search|indexOf|replace)\(/.test(l) && !/process\.(stdout|stderr)|Bun\.(stdout|stderr)/.test(l) && program === undefined) bad.push(`${at}: a child's output searched`);
+      if (EXEMPT[name] === undefined && !(EXEMPT_LINES[name] ?? []).some((x) => x.re.test(l))) {
+        if (/\b(stdout|stderr)\b[^;]*\.(split|match|includes|test|startsWith|search|indexOf|replace)\(/.test(l) && !/process\.(stdout|stderr)|Bun\.(stdout|stderr)/.test(l)) bad.push(`${at}: a child's output searched`);
         if (/\.(stdout|stderr)\.toString\(\)/.test(l) && !/git", "rev-parse"/.test(l)) bad.push(`${at}: a child's output read`);
         if (/startsWith\("(PASS|FAIL)/.test(l)) bad.push(`${at}: PASS/FAIL lines parsed`);
         if (/\.exitCode\s*[!=]==|\.code\s*[!=]==\s*\d/.test(l) && !/Bun\.spawnSync\(\["(pgrep|git)"/.test(l)) bad.push(`${at}: an exit compared outside read`);

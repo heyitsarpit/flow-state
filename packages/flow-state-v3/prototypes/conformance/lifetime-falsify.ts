@@ -78,11 +78,11 @@ await stated("lifetime-falsify", async (scope) => {
       continue;
     }
     const red = failText(r);
-    for (const x of caseItems(r).filter((x) => x.outcome === "fail")) everRed.add(x.name.split("/")[0]!.trim());
+    for (const x of caseItems(r).filter((x) => x.outcome === "fail")) everRed.add(x.name);
     items.push({ kind: "wrong runtime", name: m.id, outcome: red.length ? "pass" : "fail", why: red.length ? "" : "0 red", detail: { failed: caseItems(r).filter((x) => x.outcome === "fail").map((x) => x.name) } });
     console.log(`${red.length ? "ok  " : "BAD "} ${m.id} (${m.kills.join(",")}): ${red.length} red${red.length ? `\n       ${red.join("\n       ")}` : ""}`);
   }
-  const neverRed = [...new Set(passed.map((p) => p.split("/")[0]!.trim()))].filter((id) => !everRed.has(id));
+  const neverRed = passed.filter((name) => !everRed.has(name));
   console.log(neverRed.length === 0 ? "every case is red on some wrong runtime" : `never red: ${neverRed.join(" ")}`);
   items.push({
     kind: "coverage",

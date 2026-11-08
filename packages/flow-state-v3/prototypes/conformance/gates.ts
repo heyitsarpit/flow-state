@@ -18,7 +18,7 @@ const roundDir = dirname(resolve(here, runtime));
 const tree = basename(roundDir);
 const out = resolve(arg("--out", "") || mkdtempSync(join(tmpdir(), "flow-gates-")));
 const maxJobs = Math.min(8, Math.max(1, Number(arg("--jobs", "8")) || 8));
-const maxMb = Number(arg("--mb", "16000")) || 16000;
+const mbArg = Number(arg("--mb", "")) || null;
 const budgetS = Number(arg("--budget", "600")) || 600;
 const only = arg("--only", "");
 
@@ -30,11 +30,12 @@ const rt = ["--runtime", `../${tree}/adapter.ts`];
 const falsify = (part: string, extra: string[] = []) => () => ["bun", "falsify.ts", ...rt, "--part", part, ...extra];
 const suite = (name: string, env: Record<string, string>, mb: number, s: number): Spec => ({ name, gate: "suite", cmd: () => ["bun", "main.ts", "--round", round, ...rt, "--no-search"], env, slots: 1, mb, s, limit: 280 });
 const LIE_SLICES = 4;
-const killMb = (s: Spec) => s.kill ?? Math.max(s.mb * 2, 3000);
+let killFloor = 3100;
+const killMb = (s: Spec) => s.kill ?? Math.max(s.mb * 2, killFloor);
 const specsOf = (L: typeof import("./limits.ts")): Spec[] => [
-  suite("suite", {}, 1400, 19),
-  suite("suite canon", { FLOW_CANON_CHECK: "1" }, 1500, 30),
-  suite("suite copies", { FLOW_COPIES_CHECK: "1" }, 1300, 43),
+  suite("suite", {}, L.SUITE.size.peakMb, L.SUITE.size.aloneS),
+  suite("suite canon", { FLOW_CANON_CHECK: "1" }, L.SUITE.size.peakMb, 30),
+  suite("suite copies", { FLOW_COPIES_CHECK: "1" }, L.SUITE.size.peakMb, 43),
   { name: "mutate-one", gate: "mutate-one", cmd: () => ["bun", "mutate-one.ts", ...rt], slots: 2, mb: 3500, s: 55, limit: 280 },
   { name: "graph-gate", gate: "graph-gate", cmd: () => ["bun", "graph-gate.ts", ...rt], slots: 1, mb: 2100, s: 16, limit: 280 },
   { name: "falsify suite1", gate: "falsify", cmd: falsify("suite1"), slots: 1, mb: 1700, s: 23, limit: 290 },
@@ -48,8 +49,8 @@ const specsOf = (L: typeof import("./limits.ts")): Spec[] => [
   ...readdirSync(join(roundDir, "checks"))
     .filter((f) => f.endsWith(".ts"))
     .sort()
-    .map((f): Spec => ({ name: `checks/${f}`, gate: `checks/${f}`, cmd: (d) => ["bun", join(d.round, "checks", f)], slots: 1, mb: L.SCRIPT.size.peakMb, s: 1, limit: L.SCRIPT.limits.seconds, kill: L.SCRIPT.limits.mb })),
-  { name: "typed tsc", gate: "typed tsc", cmd: (d) => [resolve(here, "../../../../node_modules/.bin/tsc"), "-p", join(d.round, "typed/tsconfig.json")], slots: 1, mb: L.SCRIPT.size.peakMb, s: 1, limit: L.SCRIPT.limits.seconds, tool: true, kill: L.SCRIPT.limits.mb },
+    .map((f): Spec => ({ name: `checks/${f}`, gate: `checks/${f}`, cmd: (d) => ["bun", join(d.round, "checks", f)], slots: 1, mb: L.SCRIPT.size.peakMb, s: L.SCRIPT.size.aloneS, limit: L.SCRIPT.limits.seconds, kill: L.SCRIPT.limits.mb })),
+  { name: "typed tsc", gate: "typed tsc", cmd: (d) => [resolve(here, "../../../../node_modules/.bin/tsc"), "-p", join(d.round, "typed/tsconfig.json")], slots: 1, mb: L.SCRIPT.size.peakMb, s: L.SCRIPT.size.aloneS, limit: L.SCRIPT.limits.seconds, tool: true, kill: L.SCRIPT.limits.mb },
   { name: "cli pins", gate: "cli", cmd: (d) => ["bun", join(d.round, "cli/main.ts")], slots: 1, mb: L.SCRIPT.size.peakMb, s: 5, limit: L.SCRIPT.limits.seconds, kill: L.SCRIPT.limits.mb },
   { name: "verdict plants", gate: "plants", cmd: () => ["bun", "plants/plants.ts"], slots: 2, mb: 1200, s: 60, limit: 290 },
 ];
@@ -57,10 +58,11 @@ const label = { pass: "ok  ", fail: "BAD ", unknown: "UNKN" } as const;
 
 await stated("gates", async (scope) => {
   const { describe, outcome } = await import("./verdicts/read.ts");
-  const { final } = await import("./verdicts/runner.ts");
+  const { final, OWN_MB } = await import("./verdicts/runner.ts");
   const { copyOf } = await import("./verdicts/snapshot.ts");
   const L = await import("./limits.ts");
   const { CATALOG_CONTEXT } = L;
+  killFloor = L.SUITE.limits.mb + OWN_MB;
   const specs = specsOf(L);
   type Job = import("./verdicts/runner.ts").Job;
   const chosen = only ? specs.filter((j) => only.split(",").some((o) => j.name.startsWith(o))) : specs;
@@ -79,7 +81,7 @@ await stated("gates", async (scope) => {
       };
     },
   });
-  const runner = scope.runner({ slots: maxJobs, mb: maxMb, budgetS });
+  const runner = scope.runner({ slots: maxJobs, mb: mbArg ?? L.MACHINE_MB, budgetS });
   const done = await Promise.all(chosen.map((s) => runner.run(asJob(s))));
   mkdirSync(out, { recursive: true });
   const rows: string[] = [];

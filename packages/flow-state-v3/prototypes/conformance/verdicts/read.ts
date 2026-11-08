@@ -2,7 +2,7 @@ import { Result } from "effect";
 import { text, type Ended, type Run } from "./spawn.ts";
 import { causeText, EXIT, firstFail, isScored, outcomeOf, theVerdict, unknowns, type Outcome, type Unstated, type Verdict } from "./verdict.ts";
 
-export const MEMORY_MARGIN = 1.5;
+export const MEMORY_MARGIN = 2;
 
 export type NoAnswer =
   | { readonly kind: "unstarted"; readonly message: string }
@@ -11,6 +11,7 @@ export type NoAnswer =
   | { readonly kind: "closed" }
   | { readonly kind: "memory-near"; readonly peakMb: number; readonly limitMb: number; readonly referenceMb: number | null }
   | { readonly kind: "signal"; readonly signal: string }
+  | { readonly kind: "abandoned" }
   | { readonly kind: "disagree"; readonly exit: number | null; readonly stated: Outcome }
   | Unstated;
 export type Bound = { readonly kind: "memory"; readonly peakMb: number; readonly limitMb: number; readonly referenceMb: number };
@@ -43,6 +44,7 @@ export const read = (run: Run): Reading => {
   if (run.signal !== null) return { answer: "none", cause: { kind: "signal", signal: run.signal }, run };
   if (run.launch.contract === "program") throw new Error(`read of a program under test: ${run.launch.gate}`);
   if (run.launch.contract === "tool") return { answer: "stated", verdict: toolVerdict(run), run };
+  if (run.stdout.abandoned) return { answer: "none", cause: { kind: "abandoned" }, run };
   const v = theVerdict(text(run.stdout), { gate: run.launch.gate, run: run.launch.run }, run.stdout.marks);
   if (Result.isFailure(v)) return { answer: "none", cause: v.failure, run };
   const o = outcomeOf(v.success.items);
@@ -54,13 +56,21 @@ export const outcome = (r: Reading, kinds?: readonly string[]): Outcome =>
   r.answer === "stated" ? outcomeOf(r.verdict.items, kinds) : r.answer === "bound" ? "fail" : "unknown";
 
 export const describe = (r: Reading): string => {
-  const s = r.run.kind === "ended" ? r.run.stdout : undefined;
-  const lost = s && (s.dropped > 0 || s.abandoned) ? ` [stdout: ${s.dropped} bytes dropped${s.abandoned ? ", pipes abandoned after the kill" : ""}]` : "";
-  return `${describeAnswer(r)}${lost}`;
+  const e = r.run.kind === "ended" ? r.run : undefined;
+  const notes = e
+    ? [
+        ...(e.stdout.abandoned ? ["stdout abandoned after the grace"] : []),
+        ...(e.stdout.dropped > 0 ? [`stdout ${e.stdout.dropped} bytes dropped`] : []),
+        ...(e.leftovers > 0 ? [`${e.leftovers} leftover process(es) ended`] : []),
+        ...(e.unreaped ? ["not reaped after the kill"] : []),
+        ...(e.blindTicks > 0 ? [`memory unread for ${e.blindTicks} poll(s)`] : []),
+      ]
+    : [];
+  return `${notes.length ? `[${notes.join("; ")}] ` : ""}${describeAnswer(r)}`;
 };
 const describeAnswer = (r: Reading): string => {
   if (r.answer === "none") return causeText(r);
-  if (r.answer === "bound") return "fail: killed by memory, the limit at least 1.5 times the reference peak";
+  if (r.answer === "bound") return `fail: killed by memory, the limit at least ${MEMORY_MARGIN} times the reference peak`;
   const items = r.verdict.items;
   const scored = items.filter(isScored);
   const o = outcomeOf(items);
@@ -68,8 +78,7 @@ const describeAnswer = (r: Reading): string => {
   const u = unknowns(items);
   const counts = `${scored.filter((i) => i.outcome === "pass").length} pass, ${scored.filter((i) => i.outcome === "fail").length} fail, ${u.length} unknown, ${items.length - scored.length} noted`;
   if (f) return `fail: ${f.name}${f.why ? `: ${f.why.slice(0, 200)}` : ""} (${counts})`;
-  if (o === "unknown") return `unknown: ${u.slice(0, 4).join(" ")} (${counts})`;
-  if (o === "fail") return `fail: nothing was scored (${counts})`;
+  if (o === "unknown") return scored.length === 0 ? `unknown: nothing was scored (${counts})` : `unknown: ${u.slice(0, 4).join(" ")} (${counts})`;
   return `pass (${counts})`;
 };
 

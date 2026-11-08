@@ -16,7 +16,7 @@ import {
   openCase,
   type Scenario,
 } from "./scenarios/ctx.ts";
-import { resourceErrno } from "./verdicts/core.ts";
+import { resourceErrno, WORK_BOUND } from "./verdicts/core.ts";
 import type { Item } from "./verdicts/verdict.ts";
 import { round5Scenarios } from "./scenarios/round5.scenario.ts";
 import { round6Scenarios } from "./scenarios/round6.scenario.ts";
@@ -520,7 +520,8 @@ export const cli = async (): Promise<readonly Item[]> => {
       items.push({ kind: "machine", name: name(r), outcome: "unknown", why: `the machine (${r.machine}): ${r.why ?? ""}` });
       continue;
     }
-    items.push({ kind: "case", name: name(r), outcome: r.ok ? "pass" : "fail", why: r.ok ? "" : (r.why ?? ""), ...(r.trace ? { detail: { trace: r.trace } } : {}) });
+    const bounded = !r.ok && (r.why ?? "").includes(WORK_BOUND);
+    items.push({ kind: bounded ? "work-bound" : "case", name: name(r), outcome: r.ok ? "pass" : "fail", why: r.ok ? "" : (r.why ?? ""), ...(r.trace ? { detail: { trace: r.trace } } : {}) });
     if (compared && r.ok) items.push({ kind: "output", name: name(r), outcome: r.output ? "fail" : "pass", why: r.output ? `output: ${r.output}` : "" });
   }
   const lockBad = [...unlogged.map((x) => `unlogged ${x}`), ...gone.map((x) => `removed with no log line ${x}`), ...(stale.length ? [`stale lock ${stale.length}`] : [])];

@@ -27,7 +27,7 @@ await stated("plants", async (scope) => {
     // ── The reader, on built runs: section 2's table.
     const launch = (o: Partial<Launch> = {}): Launch => ({ gate: "g", cmd: [], cwd: tmp, env: {}, limits: { mb: 300, seconds: 2 }, contract: "gate", run: "top.1", referenceMb: 100, pool: { slots: 1, mb: 100 }, alone: false, ...o });
     const stream = (s: string, marks?: number) => ({ head: s, tail: "", lastLine: "", dropped: 0, marks: marks ?? s.split("\n").filter((l) => l.startsWith("VERDICT ")).length, abandoned: false });
-    const ended = (o: Partial<Ended> & { out?: string }): Ended => ({ kind: "ended", launch: launch(), exit: 0, signal: null, decided: null, killed: false, peakMb: 50, ms: 10, stdout: stream(o.out ?? ""), stderr: stream(""), leftovers: 0, ...o });
+    const ended = (o: Partial<Ended> & { out?: string }): Ended => ({ kind: "ended", launch: launch(), exit: 0, signal: null, decided: null, killed: false, peakMb: 50, ms: 10, stdout: stream(o.out ?? ""), stderr: stream(""), leftovers: 0, unreaped: false, blindTicks: 0, ...o });
     const v = (items: Item[], run = "top.1", gate = "g") => `human\n${encode({ gate, run, items })}\n`;
     const pass: Item = { kind: "case", name: "a", outcome: "pass", why: "" };
     const fail: Item = { kind: "case", name: "a", outcome: "fail", why: "x" };
@@ -48,7 +48,7 @@ await stated("plants", async (scope) => {
       ["time kill", read(ended({ decided: "time", killed: true, signal: "SIGKILL", exit: null })), "time"],
       ["budget kill", read(ended({ decided: "budget", killed: true, signal: "SIGKILL", exit: null })), "budget"],
       ["memory kill, limit 3 x reference", read(ended({ decided: "rss", killed: true, signal: "SIGKILL", exit: null })), "bound"],
-      ["memory kill, limit 1.2 x reference", read(ended({ launch: launch({ referenceMb: 250 }), decided: "rss", killed: true, signal: "SIGKILL", exit: null })), "memory-near"],
+      ["memory kill, limit 1.2 x reference (no launch is built so; R2)",read(ended({ launch: launch({ referenceMb: 250 }), decided: "rss", killed: true, signal: "SIGKILL", exit: null })), "memory-near"],
       ["memory kill, no reference", read(ended({ launch: launch({ referenceMb: null }), decided: "rss", killed: true, signal: "SIGKILL", exit: null })), "memory-near"],
       ["a signal the watchdog did not send", read(ended({ signal: "SIGTERM", exit: null })), "signal"],
       ["decided, but the child exited first (the race)", read(ended({ decided: "time", killed: false, exit: 0, out: v([pass]) })), "stated"],
@@ -68,7 +68,7 @@ await stated("plants", async (scope) => {
     const dupMiddle = read({ ...ended({ out: v([pass]) }), stdout: { ...stream(v([pass])), marks: 2, dropped: 5_000_000 } });
     plant("read: a second VERDICT in the dropped middle is still a duplicate (counted as it passed)", cause(dupMiddle) === "duplicate", cause(dupMiddle));
     plant("read: a kill at close is its own cause", cause(read(ended({ decided: "closed", killed: true, signal: "SIGKILL", exit: null }))) === "closed", "not closed");
-    plant("outcomeOf: [unknown, fail] is fail; [] is fail; [pass, unknown] is unknown", outcomeOf([unk, fail]) === "fail" && outcomeOf([]) === "fail" && outcomeOf([pass, unk]) === "unknown", "wrong");
+    plant("outcomeOf: [unknown, fail] is fail; [] is fail; [pass, unknown] is unknown", outcomeOf([unk, fail]) === "fail" && outcomeOf([]) === "unknown" && outcomeOf([pass, unk]) === "unknown", "wrong");
     plant("outcomeOf: a threw item is judged whatever kinds are asked", outcomeOf([pass, { kind: "threw", name: "threw", outcome: "fail", why: "" }], ["case"]) === "fail", "not judged");
     const stOk = read(ended({ out: v([pass]) }));
     const stFail = read(ended({ out: v([fail]), exit: 1 }));
@@ -77,7 +77,9 @@ await stated("plants", async (scope) => {
     plant("expect: none is unknown", expect("g", "x", none, "pass").outcome === "unknown", "not unknown");
     plant("expect: a memory bound answers want fail, not want pass", expect("g", "x", bound, "fail").outcome === "pass" && expect("g", "x", bound, "pass").outcome === "fail", "wrong");
     plant("expect: the failing names travel in detail.failed", JSON.stringify((expect("g", "x", stFail, "pass").detail as { failed: string[] }).failed) === '["a"]', "lost");
-    plant("expect: nothing of the judged kinds scored is a fail, never a pass, whatever is wanted", expect("g", "x", stOk, "fail", { kinds: ["output"] }).outcome === "fail" && expect("g", "x", stOk, "pass", { kinds: ["output"] }).outcome === "fail", "passed vacuously");
+    plant("expect: nothing of the judged kinds scored is unknown, never a pass, whatever is wanted (R1)", expect("g", "x", stOk, "fail", { kinds: ["output"] }).outcome === "unknown" && expect("g", "x", stOk, "pass", { kinds: ["output"] }).outcome === "unknown", "scored vacuously");
+    plant("read: an abandoned stdout is unknown, a VERDICT may be lost", cause(read({ ...ended({ out: v([pass]) }), stdout: { ...stream(v([pass])), abandoned: true } })) === "abandoned", "read it");
+    plant("read: a VERDICT with no items is unknown, exit 2 (R1)", outcome(read(ended({ out: v([]), exit: 2 }))) === "unknown", "not unknown");
     const { resourceErrno } = await import("../verdicts/core.ts");
     plant("errno: a resource errno is found through cause and AggregateError", resourceErrno(new Error("x", { cause: Object.assign(new Error("y"), { code: "EMFILE" }) })) === "EMFILE" && resourceErrno(new AggregateError([Object.assign(new Error("z"), { code: "ENOSPC" })])) === "ENOSPC" && resourceErrno(new Error("plain")) === undefined, "missed");
     plant("expect: a control short of its planned cases fails",expect("g", "x", stOk, "pass", { holds: sameCases(["a", "c"]) }).outcome === "fail", "partial control passed");
@@ -91,7 +93,7 @@ await stated("plants", async (scope) => {
       const i = await mutantItem(mm, r);
       return "outcome" in i ? i.outcome : "noted";
     };
-    plant("mutant: killed by memory at 1.5 x the control's peak", (await itemOf(m, bound)) === "pass", "not killed");
+    plant("mutant: killed by memory at 2 x the control's peak", (await itemOf(m, bound)) === "pass", "not killed");
     plant("mutant: unknown is unknown, never killed", (await itemOf(m, none)) === "unknown", "counted");
     plant("mutant: a survivor that claims kills fails the run", (await itemOf(m, stOk)) === "fail", "passed");
     plant("mutant: a survivor that claims nothing is noted", (await itemOf(claimless, stOk)) === "noted", "scored");
@@ -205,6 +207,26 @@ await stated("plants", async (scope) => {
     const aloneAt = await Promise.all(["a", "b"].map(async (n) => Number(await Bun.file(join(tmp, `top-${n}.json.alone`)).text())));
     const apart = Math.abs(aloneAt[0]! - aloneAt[1]!);
     plant("live: two top processes rerun alone one after the other, never together (the machine-wide lock)", both.every((b) => b.alone) && apart >= 1000, `alone ${both.map((b) => b.alone).join(",")}, alone starts ${apart} ms apart`);
+    // ── Standing forms of B1, B5 and B17: the planted edit in a copy of this tree, the smallest child that shows it.
+    const { SUITE } = await import("../limits.ts");
+    const conf = join(import.meta.dir, "..");
+    const roundDir = join(conf, "../round-14");
+    const snap = scope.snapshot([conf, roundDir]);
+    const inCopy = async (name: string, edits: readonly (readonly [string, string, string])[], args: readonly string[], env: Record<string, string> = {}, mb = SUITE.limits.mb) => {
+      const c = copyOf(snap, "round-14", edits);
+      if (c._tag === "Failure") return null;
+      try {
+        return final(await runner.run(job(name, { gate: "suite", cmd: ["bun", "main.ts", "--round", "99", "--no-catalog", "--runtime", "../round-14/adapter.ts", ...args], cwd: c.success.tree("conformance"), env, limits: { ...SUITE.limits, mb }, contract: "gate" }, { slots: 1, peakMb: 0, aloneS: 5 })));
+      } finally {
+        c.success.close();
+      }
+    };
+    const b1Swap = await inCopy("B1 standing (swap in the copy)", [["typed/swaps.ts", "[typedPayFixture, payFixture],", "[typedPayFixture, payFullFixture],"]], ["--swap", "../round-14/typed/swaps.ts", "--only", "PAY-01"]);
+    plant("B1 standing: a swap suite red on the unmutated runtime is a fail in mutate-one's swap gate, not ok", b1Swap !== null && expect("gate", "swap", b1Swap, "pass", { kinds: ["case"] }).outcome === "fail", b1Swap ? cause(b1Swap) : "edit did not apply");
+    const b5 = await inCopy("B5 standing", [["../conformance/scenarios/lifetime.scenario.ts", 'cites: ["rule:73", "C108"], run(c0) {', `cites: ["rule:73", "C108"], run(c0) { const __a: Uint8Array[] = ((globalThis as any).__plantA = []); for (let __i = 0; __i < 40; __i++) __a.push(new Uint8Array(32e6).fill(1)); Bun.sleepSync(500);`]], ["--no-output", "--only", "LIFE-09,LIFE-10,LIFE-11"], {}, 900);
+    plant("B5 standing: a control killed by memory halfway is never a pass", b5 !== null && expect("control", "control", b5, "pass", { kinds: ["case"], holds: sameCases(["LIFE-09", "LIFE-10", "LIFE-11"]) }).outcome !== "pass", b5 ? cause(b5) : "edit did not apply");
+    const b17 = await inCopy("B17 standing", [["adapter.ts", "if (same !== (JSON.stringify(canon(x)) === JSON.stringify(canon(y)))) {", "if (true) {"]], ["--only", "PAY-01"], { FLOW_CANON_CHECK: "1" });
+    plant("B17 standing: the canon check's difference makes the canon suite red", b17 !== null && b17.answer === "stated" && outcome(b17, ["case"]) === "fail", b17 ? cause(b17) : "edit did not apply");
     // ── S1, one reader: the structural check, as a child.
     const s1 = final(await runner.run(job("reader-check", { gate: "reader-check", cmd: ["bun", join(import.meta.dir, "reader-check.ts")], cwd: tmp, env: {}, limits: { mb: 600, seconds: 60 }, contract: "gate" }, { slots: 1, peakMb: 100, aloneS: 1 })));
     plant("S1: nothing outside verdicts/ reads a child's output, ends itself, or loads what it tests before stated", outcome(s1) === "pass", s1.answer === "stated" ? s1.verdict.items.map((i) => ("why" in i ? i.why : "")).filter(Boolean).slice(0, 3).join("; ") : cause(s1));
@@ -220,7 +242,7 @@ await stated("plants", async (scope) => {
     // ── A process that escaped the tree and holds the pipes cannot hang the reading (review of 76328de4, 2).
     const pidFile = join(tmp, "escaped.pid");
     const escaped = final(await child("escaped", gate("escaped", `await Bun.spawn(["sh", "-c", "sleep 31.7 & echo $! > " + ${JSON.stringify(pidFile)}], { stdin: "ignore", stdout: "inherit", stderr: "inherit", detached: true }).exited`)));
-    plant("live: a process holding the pipes after the child ends is abandoned after the grace (or ended as a leftover), the verdict still read", outcome(escaped) === "pass" && escaped.run.kind === "ended" && (escaped.run.stdout.abandoned || escaped.run.leftovers > 0), `${cause(escaped)} ${escaped.run.kind === "ended" ? `abandoned ${escaped.run.stdout.abandoned} leftovers ${escaped.run.leftovers}` : ""}`);
+    plant("live: a process holding the pipes after the child ends is abandoned after the grace (unknown) or ended as a leftover (read)", escaped.run.kind === "ended" && ((escaped.run.stdout.abandoned && cause(escaped) === "abandoned") || (escaped.run.leftovers > 0 && outcome(escaped) === "pass")), `${cause(escaped)} ${escaped.run.kind === "ended" ? `abandoned ${escaped.run.stdout.abandoned} leftovers ${escaped.run.leftovers}` : ""}`);
     const strayPid = Number(await Bun.file(pidFile).text().catch(() => "0"));
     if (strayPid > 0 && Bun.spawnSync(["ps", "-p", String(strayPid), "-o", "command="], { stdin: "ignore" }).stdout.toString().trim() === "sleep 31.7")
       try {

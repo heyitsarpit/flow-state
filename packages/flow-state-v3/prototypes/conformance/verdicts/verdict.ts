@@ -78,7 +78,8 @@ export const theVerdict = (
   return Result.succeed(v.success);
 };
 
-export type Holds = (v: Verdict) => string | null;
+export const CASE_KINDS: readonly string[] = ["case", "work-bound", "machine"];
+export type Holds =(v: Verdict) => string | null;
 export type Judge = { readonly kinds?: readonly string[]; readonly holds?: Holds };
 
 const failedNames = (v: Verdict, kinds?: readonly string[]) =>
@@ -92,7 +93,7 @@ export const expect = (kind: string, name: string, r: Reading, want: "pass" | "f
     return want === "fail" && judge.holds === undefined
       ? { kind, name, outcome: "pass", why: "answered by memory" }
       : { kind, name, outcome: "fail", why: "answered by memory, not stated" };
-  if (judged(r.verdict.items, judge.kinds).length === 0) return { kind, name, outcome: "fail", why: `nothing of the judged kinds (${judge.kinds?.join(", ") ?? "any"}) was scored` };
+  if (judged(r.verdict.items, judge.kinds).length === 0) return { kind, name, outcome: "unknown", why: `unknown: nothing of the judged kinds (${judge.kinds?.join(", ") ?? "any"}) was scored` };
   const o = outcomeOf(r.verdict.items, judge.kinds);
   const failed = failedNames(r.verdict, judge.kinds);
   const detail = { failed };
@@ -105,7 +106,7 @@ export const expect = (kind: string, name: string, r: Reading, want: "pass" | "f
 export const sameCases =
   (planned: readonly string[]): Holds =>
   (v) => {
-    const got = v.items.filter((i) => i.kind === "case").map((i) => i.name);
+    const got = v.items.filter((i) => CASE_KINDS.includes(i.kind)).map((i) => i.name);
     const want = new Set(planned);
     const have = new Set(got);
     const missing = planned.filter((p) => !have.has(p));
@@ -133,6 +134,8 @@ const describeCause = (r: Extract<Reading, { answer: "none" }>): string => {
       return "unknown: budget";
     case "closed":
       return "unknown: closed, its parent ended";
+    case "abandoned":
+      return "unknown: stdout abandoned after the grace, so a VERDICT may be lost";
     case "memory-near":
       return `unknown: memory near the limit${c.referenceMb === null ? ", no reference" : ""}`;
     case "signal":
