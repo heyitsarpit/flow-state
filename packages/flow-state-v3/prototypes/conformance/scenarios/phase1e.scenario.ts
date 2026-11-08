@@ -8,6 +8,9 @@ import {
   P1BulkId,
   p1BulkFixture,
   p1GuardKeysFixture,
+  P1ItemsId,
+  p1ItemsFixture,
+  qItemRef,
   p1GuardTwoFixture,
   P1PayId,
   p1PayFixture,
@@ -30,7 +33,7 @@ import {
   qTicketRef,
 } from "../typed/phase1e.ts";
 import { issueRef, issuesFixture } from "../typed/issues.ts";
-import { s1Fixture, s1Ref } from "../typed/stores.ts";
+import { s1Fixture, s1Persisted, s1Ref } from "../typed/stores.ts";
 import { Ctx, type Scenario } from "./ctx.ts";
 import { GRACE } from "./lifetime.scenario.ts";
 
@@ -743,6 +746,133 @@ export const phase1eScenarios: readonly Scenario[] = [
         c.to(TB, "Retry", { id: "t1" });
         c.eq("b's retry keeps the base it was sent with", c.reqs("save").at(-1)?.input.match, { id: "t1", revision: 2 });
       },
+      // ── Audit 3's gaps. Each from the design text it cites.
+      // Rule 30: "`Released` keeps the mark (rule 32) and withdraws a waiting re-send's queue entry". After three failed repairs (`RepairOverdue`, no
+      // repair running) A still holds the record; its give-up withdraws the entry at once, so B goes before any answer.
+      "audit-a-release-after-repair-overdue-frees-the-record-at-once"(c0) {
+        const c = new Ctx(c0.fresh([issuesFixture]), IA);
+        c.ensure(IA);
+        c.ensure(IB);
+        c.to(IA, "Load");
+        c.answer("list", { truth: true });
+        c.to(IA, "Toggle", { id: "i1", liked: true });
+        c.answer("like", { lost: true });
+        c.to(IB, "Toggle", { id: "i1", liked: false });
+        for (let i = 0; i < 3; i++) c.tryAnswer("repair", { fail: { tag: "NoResponse" } });
+        c.eq("overdue, unsettled: B waits", [c.r.evidence("RepairOverdue").length, c.reqs("like").length], [1, 1]);
+        c.to(IA, "CancelLike", { id: "i1" });
+        c.eq("released: B goes at once", [c.r.evidence("Released").length, c.reqs("like").length], [1, 2]);
+      },
+      // Rule 30 as ruled: unknown "holds the record queue until that repair settles": each record's own forced repair. a0's two-record write is lost;
+      // r1's repair settling frees r1 only.
+      "audit-a-two-record-unknown-frees-each-record-by-its-own-repair"(c0) {
+        const c = new Ctx(c0.fresh([s1Fixture]), a0);
+        c.ensure(a0);
+        c.ensure(a1);
+        s1Commit(c, a0, 3, 1);
+        c.answer("w", { lost: true }, { actor: "a0" });
+        s1Commit(c, a1, 2, 2);
+        c.answer("repair", { truth: true }, { ref: s1Ref("r1") });
+        c.eq("r2's repair still runs: a1's write to r2 waits", c.reqs("w").length, 1);
+        c.answer("repair", { truth: true }, { ref: s1Ref("r2") });
+        c.eq("then it goes", c.reqs("w").map((r) => r.input.v), [1, 2]);
+      },
+      // Rule 31 and the ruling: a re-send is on the wire again and holds its records. The first.
+      "audit-a-first-re-send-holds-the-record-again"(c0) {
+        const c = new Ctx(c0.fresh([s1Fixture]), a0);
+        c.ensure(a0);
+        c.ensure(a1);
+        s1Commit(c, a0, 1, 1);
+        c.answer("w", { lost: true }, { actor: "a0" });
+        c.answer("repair", { truth: true });
+        c.to(a0, "Retry");
+        c.eq("the re-send is on the wire", c.reqs("w").length, 2);
+        s1Commit(c, a1, 1, 2);
+        c.eq("a1 waits behind it", c.reqs("w").length, 2);
+        c.answer("w", { apply: true }, { actor: "a0" });
+        c.eq("then goes", c.reqs("w").map((r) => r.input.v), [1, 1, 2]);
+      },
+      // The same for every re-send, the second too.
+      "audit-a-second-re-send-holds-the-record-again"(c0) {
+        const c = new Ctx(c0.fresh([s1Fixture]), a0);
+        c.ensure(a0);
+        c.ensure(a1);
+        s1Commit(c, a0, 1, 1);
+        c.answer("w", { lost: true }, { actor: "a0" });
+        c.answer("repair", { truth: true });
+        c.to(a0, "Retry");
+        c.answer("w", { lost: true }, { actor: "a0" });
+        c.answer("repair", { truth: true });
+        c.to(a0, "Retry");
+        c.eq("the second re-send is on the wire", c.reqs("w").length, 3);
+        s1Commit(c, a1, 1, 2);
+        c.eq("a1 waits behind it", c.reqs("w").length, 3);
+      },
+      // Rule 30 for a restored unknown (rule 44's `unknown { Restored }`, rule 30: "a restored unknown forces a repair"): it holds the record until that
+      // boot repair settles.
+      "audit-a-restored-unknown-holds-its-record-until-the-boot-repair-settles"(c0) {
+        const c = new Ctx(c0.fresh([s1Persisted], { captureMs: 0 }), a0);
+        c.ensure(a0);
+        c.ensure(a1);
+        s1Commit(c, a0, 1, 1);
+        c.ack();
+        c.answer("w", { lost: true }, { actor: "a0" });
+        c.reload();
+        s1Commit(c, a1, 1, 2);
+        for (let i = 0; i < 4 && c.r.quiet().waits.some((w) => w.kind === "ack" || w.kind === "capture"); i++) c.ack();
+        c.eq("the boot repair runs: a1 waits", c.reqs("w").length, 1);
+        c.answer("repair", { truth: true });
+        for (let i = 0; i < 4 && c.r.quiet().waits.some((w) => w.kind === "ack" || w.kind === "capture"); i++) c.ack();
+        c.eq("settled: a1 goes", c.reqs("w").length, 2);
+      },
+      // Q3 A's over-marking ("both defaults over-mark"): a record the store predicts into the cover is marked at a gap. t2's move to q1 is on the wire.
+      "audit-a-gap-marks-a-record-predicted-into-the-cover"(c0) {
+        const c = new Ctx(c0.fresh([p1GuardTwoFixture()]), GA);
+        const GT2 = gTicketRef("t2");
+        c.ensure(GA);
+        board(c);
+        c.send("Move", { id: "t2", from: "q2", to: "q1" });
+        c.ack();
+        c.do({ feed: "changes", frame: { _feed: "live" } });
+        c.yes("t2 behind: its title unconfirmed", asSet(c.rec(GT2)?.unconfirmed).includes("title"));
+      },
+      // The same, for a record in doubt (D46: a `confirms` that throws leaves the record in doubt, any field possibly different).
+      "audit-a-gap-marks-a-record-in-doubt"(c0) {
+        const c = new Ctx(c0.fresh([p1GuardTwoFixture()]), GA);
+        const GT2 = gTicketRef("t2");
+        c.namedIssues = ["UserClosure"]; // the throwing `confirms`, named (D46)
+        c.ensure(GA);
+        board(c);
+        c.send("Touch", { id: "t2" });
+        c.ack();
+        c.answer("touch", { apply: true });
+        c.eq("in doubt", c.rec(GT2)?.uncertain, true);
+        c.do({ feed: "changes", frame: { _feed: "live" } });
+        c.yes("t2 behind: its title unconfirmed", asSet(c.rec(GT2)?.unconfirmed).includes("title"));
+      },
+      // The same, for a filter field already `unconfirmed` (2.8.4: the response omitted it). t2 relocated to q3, the queue unconfirmed: it may be q1.
+      "audit-a-gap-marks-a-record-whose-filter-field-is-unconfirmed"(c0) {
+        const c = new Ctx(c0.fresh([p1GuardTwoFixture()]), GA);
+        const GT2 = gTicketRef("t2");
+        c.ensure(GA);
+        board(c);
+        c.send("Relocate", { id: "t2", to: "q3" });
+        c.ack();
+        c.answer("relocate", { apply: true });
+        c.eq("queueId unconfirmed", [c.rec(GT2)?.data.queueId, asSet(c.rec(GT2)?.unconfirmed)], ["q3", ["queueId"]]);
+        c.do({ feed: "changes", frame: { _feed: "live" } });
+        c.yes("t2 behind: its title unconfirmed", asSet(c.rec(GT2)?.unconfirmed).includes("title"));
+      },
+      // Entity-proposal-2 2.2: "Key fields have no cell", the entity's own key. Items are keyed by `code`; `id` is an ordinary field.
+      "audit-a-gap-leaves-out-the-entitys-own-key-fields"(c0) {
+        const IT = { actor: P1ItemsId, id: "a" };
+        const c = new Ctx(c0.fresh([p1ItemsFixture()]), IT);
+        c.ensure(IT);
+        c.send("Load");
+        c.answer("items", { truth: true });
+        c.do({ feed: "changes", frame: { _feed: "live" } });
+        c.eq("every field but code", asSet(c.rec(qItemRef("a"))?.unconfirmed), ["id", "queueId", "revision", "title"]);
+      },
       // Rule 28: "invoked only once ... it heads every queue it joined". a0's write joins r1 (free) and r2 (a1's sent hold): it waits on r2.
       "audit-a-two-record-write-waits-on-its-second-records-queue"(c0) {
         const c = new Ctx(c0.fresh([s1Fixture]), a0);
@@ -914,8 +1044,10 @@ export const phase1eScenarios: readonly Scenario[] = [
       "audit-the-many-bound-is-4096-and-the-cap-is-past-64"(c0) {
         const c = new Ctx(c0.fresh([p1BulkFixture()]), BK);
         c.ensure(BK);
+        c.send("CloseAll", { ids: [...bulkIds(4_096, "y"), "y0"] });
+        c.eq("4,097 items with a repeat: Overloaded (items, not distinct keys)", [c.lastEnding("closeAll")?.["reason"], c.reqs("closeAll").length], ["Overloaded", 0]);
         c.send("CloseAll", { ids: bulkIds(4_097, "x") });
-        c.eq("4,097 keys: Overloaded, nothing sent or joined", [heard(c), c.lastEnding("closeAll")?.["reason"], c.reqs("closeAll").length, c.rec(itemRef("x0"))], [["No"], "Overloaded", 0, undefined]);
+        c.eq("4,097 keys: Overloaded, nothing sent or joined", [heard(c).slice(1), c.lastEnding("closeAll")?.["reason"], c.reqs("closeAll").length, c.rec(itemRef("x0"))], [["No"], "Overloaded", 0, undefined]);
         c.send("CloseAll", { ids: bulkIds(65, "i") });
         c.answer("closeAll", { lost: true });
         c.send("GiveUpAll");
@@ -958,7 +1090,8 @@ export const phase1eScenarios: readonly Scenario[] = [
       c.send("Close", { id: "extra" });
       c.answer("closeOne", { lost: true });
       c.send("GiveUp", { id: "extra" });
-      c.eq("one more: the oldest evicted, named", c.r.evidence("UnsettledEvicted").length, 1);
+      const gone = c.r.evidence("UnsettledEvicted").map((e) => String(e["ref"]));
+      c.eq("one more: one of the oldest (the bulk's) evicted, named; the newest kept", [gone.length, gone[0]?.startsWith(itemRef("i")), c.rec(itemRef("extra"))?.uncertain], [1, true, true]);
     },
   },
 ];

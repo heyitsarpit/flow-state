@@ -2275,3 +2275,36 @@ output:STORE-03 hash:617ad7b59b6a | ruling output: B sent
 output:STORE-11/stillunknown-keeps-its-place hash:b92fe4ec1ca2 | ruling output: StillUnknown re-holds
 removed:variant:P1-E/a-sent-hold-still-stalls-another-actor-on-its-record | reversed by the runner's ruling on finding 1; now a-sent-hold-releases-its-record-when-its-repair-settles
 removed:output:P1-E/a-sent-hold-still-stalls-another-actor-on-its-record | its case reversed and renamed, see the variant's line
+LIKE-06 hash:d614b93a3c1d | Audit 3 pins: unconfirmed compared as a set (store.scenario.ts)
+STORE-01 hash:6e89429f4a42 | Audit 3 pins: unconfirmed compared as a set in STORE-01
+R10-AUDIT hash:e90dcfdc0c43 | Audit 3 pins: the re-send's deadline asserted as an unknown, not TimedOut (U1 B)
+R15-01 hash:1114bd9f7dab | Audit 3 pins: unbound lists asserted through an Inspection that answers
+P1-E hash:db5012ac57c3 | Audit 3: rule 30 per record, re-sends and restores re-hold, release after overdue frees at once, over-marking by prediction, doubt and unconfirmed, a key not named id, many counts items
+P1-E-CAP hash:d877e498f227 | Audit 3 pins: the cap asserts which mark went (one of the oldest, the newest kept)
+file:scenarios/ctx.ts hash:7e87a2ef5937 | Audit 3 harness: checkMints accounts a wait only by what the fake shows; spare requests unkeyed or business-keyed only
+file:scenarios/phase1e.scenario.ts hash:24d86857f7d7 | Audit 3 cases in phase1e.scenario.ts
+file:scenarios/round10.scenario.ts hash:c9f44683aeaf | Audit 3 pins in round10.scenario.ts (TimedOut)
+file:scenarios/round15.scenario.ts hash:f7a2a9dc1317 | Audit 3 pins in round15.scenario.ts (Inspection must answer)
+file:scenarios/store.scenario.ts hash:2d7e08c58448 | Audit 3 pins in store.scenario.ts (unconfirmed as a set)
+file:search/like.search.ts hash:d6bcca855787 | Audit 3 harness: the drain reds a missing row the server holds a value for
+file:typed/phase1e.ts hash:014cd64d9595 | Audit 3 fixtures: guard relocate (queueId unconfirmed) and touch (confirms throws), items keyed by code
+file:falsify.ts hash:8e0b4136120b | Audit 3: search kill drain.row-hidden and lie.boot-says-disposed, each red by its oracle
+file:expected-recipients.txt hash:f78d3c801aa0 | Audit 3: the new variants add deliveries and start checks only; no red count moved
+file:drive.ts hash:d52967995bf3 | Audit 3 harness: runtimeDisposed cleared at a kill; a keyed cancel names the lane only by its key as the suite reads it
+round:mutants-a3.ts hash:d38c5580833a | Audit 3: the standing list, every auditor wrong runtime aimed at its case
+round:mutants-audit-3.ts hash:91e4fb64ca8e | Audit 3: the re-auditor's own wrong runtimes, committed unedited
+round:mutants-lifetime.ts hash:d46349f50abe | Audit 3: mutants-a3.ts spread into the lifetime list
+output:P1-E/audit-a-first-re-send-holds-the-record-again hash:3bb4f51b6bda | new output: the first re-send re-holds
+output:P1-E/audit-a-gap-leaves-out-the-entitys-own-key-fields hash:de4b42fdb035 | new output: a key named code has no cell
+output:P1-E/audit-a-gap-marks-a-record-in-doubt hash:f0f04d26c107 | new output: a record in doubt is over-marked
+output:P1-E/audit-a-gap-marks-a-record-predicted-into-the-cover hash:bf34d57c846d | new output: a predicted record is over-marked
+output:P1-E/audit-a-gap-marks-a-record-whose-filter-field-is-unconfirmed hash:6ec0b901d81b | new output: an unconfirmed filter field over-marks
+output:P1-E/audit-a-release-after-repair-overdue-frees-the-record-at-once hash:5acd8a04a119 | new output: a release after overdue frees at once
+output:P1-E/audit-a-restored-unknown-holds-its-record-until-the-boot-repair-settles hash:e52c0e90c36c | new output: a restored unknown holds until its repair
+output:P1-E/audit-a-second-re-send-holds-the-record-again hash:57c78a38ebba | new output: the second re-send re-holds
+output:P1-E/audit-a-two-record-unknown-frees-each-record-by-its-own-repair hash:6a047a6ede5d | new output: per-record repair settling
+output:P1-E/audit-the-many-bound-is-4096-and-the-cap-is-past-64 hash:87e4d50ef88b | output moved: 4,097 items with a repeat declined first
+file:drive.ts hash:88cbb8e8814d | Audit 3 harness: a keyed cancel's lane key read by the op's key closure where a hand fixture has no keyFields (the --swap pass)
+P1-E hash:29c6f12dd975 | Audit 3: the restored-unknown case captures at once (captureMs 0), as the other reload cases do, so the 5 s gate reads it the same
+file:scenarios/phase1e.scenario.ts hash:7d214e03cd73 | Audit 3: captureMs 0 on the restored-unknown case
+round:mutants-a3.ts hash:f335885ecd92 | Audit 3: the overdue and failed-repair wrong runtimes aimed at P1-E's release-after-overdue case (STORE-07 is outside the lifetime list)

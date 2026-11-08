@@ -169,9 +169,10 @@ export const checkEndings = (r: Reads) => {
   const attemptsOpen = new Set([...open].map((k) => k.split("#")[0]!));
   const byKey = new Set<string>();
   const spare = new Map<string, number>();
+  // Audit 3: a spare is a request with no key, or a key that names no Attempt (a business key): never another Attempt's late request.
   for (const o of r.outside().open) {
     if (o.key !== undefined && attemptsOpen.has(o.key)) byKey.add(o.key);
-    else spare.set(o.op, (spare.get(o.op) ?? 0) + 1);
+    else if (o.key === undefined || o.key.startsWith("business:")) spare.set(o.op, (spare.get(o.op) ?? 0) + 1);
   }
   for (const k of open) {
     const attempt = k.split("#")[0]!;
@@ -198,7 +199,25 @@ export const checkMints = (r: Reads) => {
       accounted.add(e["attempt"]);
   }
   if (disposed) return;
-  for (const w of q.waits) if ("attempt" in w) accounted.add(w.attempt);
+  // Audit 3: a wait the runtime names accounts for a mint only where the suite can see why: its request reached the fake (on the wire, or a hold
+  // whose head (h) checks on disk), an acknowledgement the fake still holds, or it queues behind an Attempt accounted that way.
+  const sent = new Set(r.requests().map((x) => x.idempotencyKey).filter((k): k is string => k !== undefined));
+  const storage = r.outside().storage;
+  const named = new Map<string, Extract<(typeof q.waits)[number], { attempt: string }>>();
+  for (const w of q.waits) if ("attempt" in w && w.attempt) named.set(w.attempt, w as never);
+  const seen = (att: string, depth: number): boolean => {
+    if (accounted.has(att) || sent.has(att)) return true;
+    const w = named.get(att);
+    if (!w || depth > 64) return false;
+    if ((w.kind === "ack" || w.kind === "capture") && storage.some((s) => s.keys.some((k) => k === w.key || (r.diskScope(k) !== undefined && r.diskScope(k) === r.diskScope(w.key))))) return true;
+    // D106: a request the server recognises by a business key, not the Attempt's id. D46: a disabled module, as `checkClaims` takes it (the module's
+    // own `ModuleDefect` issue: a runtime report, the stated limit of this one kind).
+    if ((w.kind === "held" || w.kind === "repair" || w.kind === "wire") && r.requests().some((x) => x.op === w.op && x.idempotencyKey?.startsWith("business:"))) return true;
+    if (w.kind === "disabled" && r.issues().some((i) => i.code === "ModuleDefect" && i.origin?.startsWith(w.module))) return true;
+    if (w.kind === "queue" || w.kind === "W") return w.behind.some((b) => seen(b, depth + 1));
+    return false;
+  };
+  for (const att of named.keys()) if (seen(att, 0)) accounted.add(att);
   for (const e of r.evidence("mint"))
     if (!accounted.has(e["attempt"]))
       throw new Mismatch(`a minted Attempt vanished: ${e["op"]} ${e["attempt"]}`);

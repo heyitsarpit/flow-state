@@ -366,7 +366,7 @@ export const round15Scenarios: readonly Scenario[] = [
         c.fault({ corruptStored: { match: "actor/", edit: () => "{{{" } });
         c.reload();
         c.namedIssues = ["RecordQuarantined"];
-        c.eq("not unbound, not reported", [c.r.inspect(RL)?.unbound ?? [], c.reportsOf("charge").length], [[], 0]);
+        c.eq("not unbound, not reported (Inspection must answer: audit 3)", [c.r.inspect(RL)?.unbound, c.reportsOf("charge").length], [[], 0]);
       },
       // Audit 1, C173 (R9): `forget` removes an undecodable record, as it does a retired or old-version one.
       "audit-forget-removes-an-undecodable-record"(c0) {
@@ -495,9 +495,10 @@ export const round15Scenarios: readonly Scenario[] = [
         c.detach(RL);
         c.advance(GRACE);
         c.eq("a retired record, a held lane", [c.r.state(RL), c.record(RL) !== undefined, c.lanesOf(RL).length], [undefined, true, 1]);
-        c.eq("not listed as unbound", c.r.inspect(RL)?.unbound ?? [], []);
+        // Audit 3: Inspection must answer; a runtime with none is not "nothing unbound".
+        c.eq("not listed as unbound", c.r.inspect(RL)?.unbound, []);
         c.reload();
-        c.eq("no boot reports it", [c.reportsOf("charge").length, c.r.inspect(RL)?.unbound ?? []], [0, []]);
+        c.eq("no boot reports it", [c.reportsOf("charge").length, c.r.inspect(RL)?.unbound], [0, []]);
       },
     },
   },

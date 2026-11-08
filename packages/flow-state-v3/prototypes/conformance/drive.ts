@@ -318,7 +318,7 @@ export const makeHarness = (port: Port) => (): Harness => {
   // carries a serial the suite mints where the memory is made (the compiled `memory.initial`, and `memory.restore` at a boot). A symbol
   // key: no canon, JSON, disk, hash or output sees it, and a patch (`{ ...memory, ...patch }`) keeps it. Two views never share one.
   // `leaf`: the recipient's published leaf when its run began, for rule 14's start node (stage L, review H6).
-  type Ear = { ev: string; machine: string; node: string; frag: string | undefined; serial: number | undefined; who: Who | undefined; seq: number; leaf: string | undefined };
+  type Ear = { ev: string; machine: string; node: string; frag: string | undefined; serial: number | undefined; who: Who | undefined; seq: number; leaf: string | undefined; view?: unknown };
   let earSeq = 0; // the order the suite heard runs in, across batches: D11's order is judged by it
   let ears: Ear[] = [];
   const seenViews = new WeakSet<object>();
@@ -412,7 +412,7 @@ export const makeHarness = (port: Port) => (): Harness => {
           if (![...sids].some((sid) => opened.has(`${serial}|${sid}`))) missing.push(`(j) a stream's delivery of ${ev} ran in ${say(who)}, which opened no session of ${[...sids].join(", ")}`);
           return true;
         }
-        ears.push({ ev, machine: c.id, node, frag, serial, who, seq: earSeq++, leaf });
+        ears.push({ ev, machine: c.id, node, frag, serial, who, seq: earSeq++, leaf, view: g });
         return true;
       },
     });
@@ -446,8 +446,11 @@ export const makeHarness = (port: Port) => (): Harness => {
                       ...m.input,
                       run: (a: any) => {
                         const s = a?.memory?.[WHO];
-                        if (!replaying) askOwners.push({ op: m.op, machine: c.id, frag, node: alt.target === "self" || alt.target === undefined ? node : alt.target, serial: typeof s === "number" ? s : undefined });
-                        return m.input.run(a);
+                        const ask: (typeof askOwners)[number] = { op: m.op, machine: c.id, frag, node: alt.target === "self" || alt.target === undefined ? node : alt.target, serial: typeof s === "number" ? s : undefined };
+                        if (!replaying) askOwners.push(ask);
+                        const v = m.input.run(a);
+                        ask.input = v; // audit 3: the input the suite saw asked, so a keyed member's key can be compared with the lane's
+                        return v;
                       },
                     },
                   }
@@ -615,7 +618,8 @@ export const makeHarness = (port: Port) => (): Harness => {
   const lifeBefore = new Map<string, number>(); // the life a dispose ended, so a dispose a kill undid can be undone (D80)
   const seenLive = new Set<string>(); // ensured actors this instance has published: one that stops is red (review H3)
   const opened = new Set<string>(); // `${serial}|${stream}`: the incarnations that opened a stream's session (review M5)
-  let askOwners: Array<{ op: string; machine: string; frag: string | undefined; node: string; serial: number | undefined }> = [];
+  let askOwners: Array<{ op: string; machine: string; frag: string | undefined; node: string; serial: number | undefined; input?: unknown }> = [];
+  const askedInput = new Map<string, unknown>(); // attempt -> the commit input the suite's wrap saw (audit 3)
   // An attempt's owner (rule 14): the node its transition names, in the incarnation of `serial`, and the ancestors of that node that
   // stayed in the incarnation's published chain at every batch since the ask. `undefined` once the suite cannot tell (a resend by a retry).
   // `unsure`: a driven event may have re-entered one of its live nodes (rule 14, OD49), which no published leaf shows: its start is not checked.
@@ -809,22 +813,46 @@ export const makeHarness = (port: Port) => (): Harness => {
     return out;
   };
   // Audit 1b: from `start` up, every alternative on `ev` at each handling node, up to the first with one no guard or token can refuse, cancels `op`.
-  const cancelsWherever = (machine: string, frag: string | undefined, start: string, ev: string, op: string) => {
+  const cancelsWherever = (machine: string, frag: string | undefined, start: string, ev: string, op: string, view?: unknown, att?: string) => {
     const ns = nodesOf(machine, frag);
+    // Audit 3: a key-less member names the ending's own lane (rule 43); a keyed one only if its key, read from the walk's view the suite's wrap
+    // saw, is the lane key of the input the suite saw asked (the compiled op's own key Slot). Anything the suite cannot read names nothing here.
+    const opOf = ((refm().machine(machine) as any)?.ops?.[op] ?? (frag === undefined ? undefined : (refm().machine(machine) as any)?.fragments?.[frag]?.ops?.[op])) as { keyFields?: readonly string[]; key?: { run: (i: unknown) => unknown } } | undefined;
+    const fields = opOf?.keyFields;
+    // `keyFields` where the compiled data has them; a hand fixture's key closure otherwise (the `--swap` pass), run on both sides alike.
+    const pick = (o: unknown) => {
+      if (fields !== undefined && fields.length > 0) return JSON.stringify(fields.map((f) => (o as Record<string, unknown> | null)?.[f]));
+      if (opOf?.key === undefined) return undefined;
+      try {
+        return JSON.stringify(opOf.key.run(o));
+      } catch {
+        return undefined;
+      }
+    };
+    const laneKey = att === undefined || !askedInput.has(att) ? undefined : pick(askedInput.get(att));
+    const names = (m: any) => {
+      if (m.key === undefined) return true;
+      if (view === undefined || laneKey === undefined) return false;
+      try {
+        return pick(m.key.run(view)) === laneKey;
+      } catch {
+        return false;
+      }
+    };
     for (const n of chainOf(ns, start)) {
       const alts = ns[n]?.on?.[ev] as any[] | undefined;
       if (!alts?.length) continue;
-      if (!alts.every((a) => a.members?.some((m: any) => (m.verb === "cancel" || m.verb === "cancelAll") && m.op === op))) return false;
+      if (!alts.every((a) => a.members?.some((m: any) => (m.verb === "cancel" || m.verb === "cancelAll") && m.op === op && names(m)))) return false;
       if (alts.some((a) => (a.guards ?? []).every((g: any) => String(g.at?.path ?? "").endsWith("#heard")) && (a.tokens ?? []).length === 0)) return true;
     }
     return false;
   };
-  const selfCancelHeard = (op: string, att: string, heard: ReadonlyArray<{ ev: string; machine: string; node: string; frag: string | undefined; who?: Who | undefined }>) => {
+  const selfCancelHeard = (op: string, att: string, heard: ReadonlyArray<{ ev: string; machine: string; node: string; frag: string | undefined; who?: Who | undefined; view?: unknown }>) => {
     const owner = attemptActor.get(att);
     if (owner === undefined) return false;
     const evs = refm().mappedEvents(machineOf(owner), op);
     const copy = attemptCopy.get(att);
-    return heard.some((h) => h.who?.actor === owner && (!copy || samePath(copy.path, h.who.path)) && evs.includes(h.ev) && cancelsWherever(h.machine, h.frag, h.node, h.ev, op));
+    return heard.some((h) => h.who?.actor === owner && (!copy || samePath(copy.path, h.who.path)) && evs.includes(h.ev) && cancelsWherever(h.machine, h.frag, h.node, h.ev, op, h.view, att));
   };
   const freeHandler = (machine: string, frag: string | undefined, start: string, ev: string) => {
     const ns = nodesOf(machine, frag);
@@ -915,6 +943,7 @@ export const makeHarness = (port: Port) => (): Harness => {
         // Review H6: the attempt's owner, from the ask the suite saw, with every ancestor of the owner node alive so far.
         const j = askOwners.findIndex((q) => q.op === x["op"]);
         const q = j >= 0 ? askOwners.splice(j, 1)[0]! : undefined;
+        if (q && "input" in q && !askedInput.has(String(x["attempt"]))) askedInput.set(String(x["attempt"]), q.input);
         if (q && q.serial !== undefined && !ownerOf.has(String(x["attempt"]))) ownerOf.set(String(x["attempt"]), { machine: q.machine, frag: q.frag, node: q.node, serial: q.serial, live: new Set(chainOf(nodesOf(q.machine, q.frag), q.node)) });
       }
       if ((x["kind"] === "mint" || x["kind"] === "invoked") && x["send"] !== undefined && (sends.get(String(x["attempt"]))?.length ?? 0) >= 1 && !(sends.get(String(x["attempt"])) ?? []).includes(String(x["send"])))
@@ -1656,6 +1685,7 @@ export const makeHarness = (port: Port) => (): Harness => {
   const die = (s: Extract<Step, { reload: true }>) => {
     plan = undefined;
     disposeMark = undefined;
+    runtimeDisposed = false; // audit 3: a disposal is of one process; the next boot is a live Runtime again
     // D154: a reload the suite drove. What was in flight restores as an ending, which the compiled data maps to events: those count as driven.
     // The reload is the seen cause here, not the ending, so a restored ending's event may let its own op go.
     // Per owner (re-check inventory 3): only the attempts still open, each to its own actor, by its own machine's mapping.

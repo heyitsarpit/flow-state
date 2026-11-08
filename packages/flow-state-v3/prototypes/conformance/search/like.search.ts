@@ -90,7 +90,11 @@ const settled = (h: Harness) => {
   const server = h.read.truth().server;
   for (const [i, r] of (["r1", "r2"] as const).entries()) {
     const row = h.read.record(`R|${r}`) as { data?: { v?: number }; uncertain: boolean; predicted: boolean; unconfirmed: readonly string[] } | undefined;
-    if (row === undefined) continue;
+    // Audit 3: a record the server holds a written value for (S1 starts at 0, every commit's `v` is 1 or more) must have a row after the drain.
+    if (row === undefined) {
+      if (server.records[r] !== 0) throw new Oracle(`drain: ${r} has no row, and the server holds ${server.records[r]}`);
+      continue;
+    }
     if (row.uncertain || row.predicted) throw new Oracle(`drain: ${r} still ${row.uncertain ? "uncertain" : "predicted"} after the drain`);
     if (row.unconfirmed.length > 0 && !gaveUp(h).recs.has(i + 1)) throw new Oracle(`drain: ${r} unconfirmed, and the suite gave no write on it up`);
     if (row.data?.v !== undefined && row.unconfirmed.length === 0 && row.data.v !== server.records[r])

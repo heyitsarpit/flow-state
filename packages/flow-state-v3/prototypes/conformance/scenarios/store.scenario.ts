@@ -19,6 +19,8 @@ const opened = (c: Ctx, ...others: Array<typeof A>) => {
 const toggle = (c: Ctx, liked: boolean, a = A) => c.to(a, "Toggle", { id: "i1", liked });
 const row = (c: Ctx, op = "like", a = A) => c.r.row(a, op, k);
 const server = (c: Ctx) => c.r.truth().server.issues;
+// Audit 3: `unconfirmed` is a set; the design fixes no order.
+const unconfirmedOf = (c: Ctx) => [...(c.rec(I1)?.unconfirmed ?? [])].sort();
 
 const a0 = { actor: "S1", id: "a0" };
 const a1 = { actor: "S1", id: "a1" };
@@ -200,15 +202,15 @@ export const storeScenarios: readonly Scenario[] = [
       c.eq("mark stays after release", c.rec(I1)?.uncertain, true);
       toggle(c, false, B);
       c.answer("like", { apply: true });
-      c.eq("rule 32 (U10): a later success demotes a released mark, never clears it", [c.rec(I1)?.uncertain, c.rec(I1)?.unconfirmed], [false, ["liked", "likes"]]);
+      c.eq("rule 32 (U10): a later success demotes a released mark, never clears it", [c.rec(I1)?.uncertain, unconfirmedOf(c)], [false, ["liked", "likes"]]);
       c.eq("the give-up asked one read", c.reqs("repair").length, 2);
       c.answer("repair", { truth: true });
       c.fault({ landLate: "like" });
       c.eq("the world moved, unseen", server(c).i1.liked, true);
-      c.eq("the screen is stale, but marked: unconfirmed, not clean", [c.rec(I1)?.data.liked, c.rec(I1)?.unconfirmed], [false, ["liked", "likes"]]);
+      c.eq("the screen is stale, but marked: unconfirmed, not clean", [c.rec(I1)?.data.liked, unconfirmedOf(c)], [false, ["liked", "likes"]]);
       c.to(A, "Load");
       c.answer("list", { truth: true });
-      c.eq("a read repairs it, and the mark stays: nothing proves it was the last", [c.rec(I1)?.data.liked, c.rec(I1)?.unconfirmed], [true, ["liked", "likes"]]);
+      c.eq("a read repairs it, and the mark stays: nothing proves it was the last", [c.rec(I1)?.data.liked, unconfirmedOf(c)], [true, ["liked", "likes"]]);
     },
   },
   {
@@ -228,11 +230,11 @@ export const storeScenarios: readonly Scenario[] = [
       c.answer("rename", { apply: true });
       c.eq("confirmed field replaced", c.rec(I1)?.data.title, "New");
       c.eq("no live prediction", c.rec(I1)?.predicted, false);
-      c.eq("omitted field unconfirmed", c.rec(I1)?.unconfirmed, ["slug"]);
+      c.eq("omitted field unconfirmed", unconfirmedOf(c), ["slug"]);
       c.eq("and still shown", c.rec(I1)?.data.slug, "new");
       c.to(A, "Load");
       c.answer("list", { truth: true });
-      c.eq("a read confirms it", c.rec(I1)?.unconfirmed, []);
+      c.eq("a read confirms it", unconfirmedOf(c), []);
     },
   },
   {

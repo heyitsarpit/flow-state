@@ -339,6 +339,65 @@ const queueOf = (covers: boolean) => (api: Api) =>
   );
 const queueCoversFx = fixture(queueOf(true), queueServer);
 const queueFx = fixture(queueOf(false), queueServer);
+// Audit 3: key fields have no cell whatever they are called. A queue of items keyed by `code` (the SKU), with an `id` field that is not the key.
+export const P1ItemsId = "Lab/P1Items";
+const IRow = S.Struct({ code: S.String, id: S.String, queueId: S.String, title: S.String, revision: S.Number });
+type IRow = typeof IRow.Type;
+const QItem = entity({ id: "QItem", fields: IRow.fields, primaryKey: ["code"], version: "revision" });
+export const qItemRef = (code: string) => QItem.ref({ code });
+const itemsServer: ServerModel = {
+  init: () => ({ items: { a: { code: "a", id: "legacy-7", queueId: "q1", title: "A", revision: 1 } } }),
+  apply: (_op, _i, s) => ({ s }),
+  read: (op, i, s) => (op === "items" ? Object.values(s.items) : (s.items[i.ref.split("|")[1]] ?? null)),
+};
+const qItems = resource({ id: "lab/p1QItems", input: {}, key: [], services: [FakeApi], lookup: (i) => Effect.flatMap(call<unknown, "NoResponse">("items")(i), (v) => Effect.orDie(Schema.decodeUnknownEffect(S.Array(IRow))(v))) });
+const itemsFx = fixture(
+  (api: Api) =>
+    machine(
+      definition({
+        id: P1ItemsId,
+        persist: false,
+        states: ["A"],
+        events: { Load: {} },
+        internalEvents: { Listed: {}, ListFailed: {}, Unused: {}, Failed: {} },
+        memory: { queueId: Flow.initial(S.String, "q1") },
+        uses: ["entities", "sessions"],
+        domain: {
+          writes: {},
+          reads: { items: (v: readonly IRow[]) => v.map((r) => ({ ref: QItem.ref(r), fields: r })) },
+          primaryKey: { [QItem.id]: QItem.primaryKey },
+          listens: { changes: changesOf((e: IRow) => [QItem.row(e)]) },
+          covers: { changes: { entity: QItem.id, where: [{ field: "queueId", input: "queueId" }] } },
+          repair: (ref: string) => api.call("repair", { ref }) as Effect.Effect<unknown, unknown, never>,
+          version: () => "revision",
+        },
+        streams: ({ E }) => ({
+          changes: {
+            id: "changes",
+            listen: true as const,
+            key: () => ({}),
+            position: "revision",
+            reconnect: true,
+            idleMs: Number.MAX_SAFE_INTEGER / 2,
+            healthyMs: 60_000,
+            backoff: (n: number) => Math.min(30_000, 1000 * 2 ** n),
+            subscribe: (i: unknown, { from }: { readonly from: unknown }) => api.socket("changes", i, from),
+            value: E.Unused,
+            missed: E.Unused,
+            failure: E.Failed,
+          },
+        }),
+        operations: ({ E }) => ({ items: qItems.outcomes({ success: E.Listed, failure: { NoResponse: E.ListFailed, Defect: E.ListFailed, Interrupted: E.ListFailed } }) }),
+      }),
+      ({ S: St, O }) => ({
+        default: St.A,
+        on: { Load: { actions: [O.items.lookup(() => ({}))] }, Listed: {}, ListFailed: {}, Unused: {}, Failed: {} },
+        states: { A: { activities: [{ op: "changes", input: ({ memory }: { readonly memory: { readonly queueId: string } }) => ({ queueId: memory.queueId }) }] } },
+      }),
+    ),
+  itemsServer,
+);
+export const p1ItemsFixture = () => itemsFx;
 export const p1QueueCoversFixture = () => queueCoversFx;
 export const p1QueueFixture = () => queueFx;
 
@@ -374,6 +433,11 @@ const guardServer = (honest: boolean, o: { readonly twoTickets?: boolean; readon
     if (op === "remove") {
       const { [t.id]: _gone, ...tickets } = s.tickets;
       return { s: { ...s, tickets }, value: rows([{ id: t.id }]) };
+    }
+    // Audit 3: `relocate` answers only the new revision (`select("revision")`); `touch` bumps the status and answers the revision too.
+    if (op === "relocate" || op === "touch") {
+      const n = op === "relocate" ? { ...t, queueId: i.to, revision: t.revision + 1 } : { ...t, status: "touched", revision: t.revision + 1 };
+      return { s: { ...s, tickets: { ...s.tickets, [t.id]: n } }, value: rows([{ revision: n.revision }]) };
     }
     if (op === "move") {
       const from = s.queues[i.from];
@@ -414,6 +478,8 @@ const gSave = transaction({ id: "lab/gSave", input: { id: S.String, title: S.Str
 const gMove = transaction({ id: "lab/gMove", input: { id: S.String, from: S.String, to: S.String }, key: ["id"], concurrency: "latest", guarded: true, services: [FakeApi], commit: (i, c) => sendG("move", { ...i, revision: baseOf(c.basedOn, gTicketRef(i.id)) }, c.attempt.id, false).pipe(Effect.flatMap(rowOf(S.Struct({ queueId: S.String, revision: S.Number })))) });
 const closeOf = (guarded: boolean) =>
   transaction({ id: "lab/gClose", input: { id: S.String }, key: ["id"], concurrency: "latest", ...(guarded ? { guarded: true as const } : {}), services: [FakeApi], commit: (i, c) => sendG("close", { ...i, revision: c.basedOn }, c.attempt.id, false).pipe(Effect.flatMap(rowOf(S.Struct({ status: S.String, revision: S.Number })))) });
+const gRelocate = transaction({ id: "lab/gRelocate", input: { id: S.String, to: S.String }, key: ["id"], concurrency: "latest", services: [FakeApi], commit: (i, c) => sendG("relocate", { ...i, revision: c.basedOn }, c.attempt.id, false).pipe(Effect.flatMap(rowOf(S.Struct({ revision: S.Number })))) });
+const gTouch = transaction({ id: "lab/gTouch", input: { id: S.String }, key: ["id"], concurrency: "latest", services: [FakeApi], commit: (i, c) => sendG("touch", { ...i, revision: c.basedOn }, c.attempt.id, false).pipe(Effect.flatMap(rowOf(S.Struct({ revision: S.Number })))) });
 const gRemove = transaction({ id: "lab/gRemove", input: { id: S.String }, key: ["id"], concurrency: "latest", services: [FakeApi], commit: (i, c) => sendG("remove", { ...i, revision: c.basedOn }, c.attempt.id, false).pipe(Effect.flatMap(rowOf(S.Struct({ id: S.String })))) });
 const board = resource({ id: "lab/gBoard", input: {}, key: [], services: [FakeApi], lookup: (i) => Effect.flatMap(call<unknown, "NoResponse">("board")(i), (v) => Effect.orDie(Schema.decodeUnknownEffect(S.Struct({ tickets: S.Array(GTicket), queues: S.Array(GQueue) }))(v))) });
 // The audit-gap variants: `twoTickets` adds t2 in q2; `saveKey` gives `save` a business key by ticket id (the server dedupes it as it does `close`);
@@ -427,7 +493,7 @@ const guardOf = (o: GuardOpts) => {
           id: P1GuardId,
           persist: true,
           states: ["A"],
-          events: { Load: {}, Save: { id: S.String, title: S.String }, Move: { id: S.String, from: S.String, to: S.String }, Close: { id: S.String }, GiveUpSave: { id: S.String }, GiveUpMove: { id: S.String }, GiveUpClose: { id: S.String }, RetrySave: { id: S.String }, Remove: { id: S.String }, GiveUpRemove: { id: S.String } },
+          events: { Load: {}, Save: { id: S.String, title: S.String }, Move: { id: S.String, from: S.String, to: S.String }, Close: { id: S.String }, GiveUpSave: { id: S.String }, GiveUpMove: { id: S.String }, GiveUpClose: { id: S.String }, RetrySave: { id: S.String }, Remove: { id: S.String }, GiveUpRemove: { id: S.String }, Relocate: { id: S.String, to: S.String }, Touch: { id: S.String } },
           internalEvents: { Listed: {}, ListFailed: {}, Done: {}, Changed: {}, Failed: {}, Unsure: Flow.uncertain({}), Unused: {}, FeedFailed: {} },
           memory: { queueId: Flow.initial(S.String, "q1") },
           uses: ["entities", "sessions"],
@@ -446,6 +512,15 @@ const guardOf = (o: GuardOpts) => {
               },
               close: { predicts: (i: { readonly id: string }) => [{ ref: gTicketRef(i.id), patch: { status: "closed" } }], confirms: (v: { readonly status: string; readonly revision: number }, i: { readonly id: string }) => [{ ref: gTicketRef(i.id), fields: v }], targets: (i: { readonly id: string }) => [gTicketRef(i.id)] },
               remove: { predicts: (i: { readonly id: string }) => [{ ref: gTicketRef(i.id), remove: true as const }], confirms: (_v: unknown, i: { readonly id: string }) => [{ ref: gTicketRef(i.id), removed: true as const }] },
+              // Audit 3: the response carries the revision, not the queue it moved to, so `queueId` stays `unconfirmed` (2.8.4).
+              relocate: { predicts: (i: { readonly id: string; readonly to: string }) => [{ ref: gTicketRef(i.id), patch: { queueId: i.to } }], confirms: (v: { readonly revision: number }, i: { readonly id: string }) => [{ ref: gTicketRef(i.id), fields: v }] },
+              // Audit 3: a `confirms` that throws (D46: nothing can be believed, the record is in doubt).
+              touch: {
+                predicts: (i: { readonly id: string }) => [{ ref: gTicketRef(i.id), patch: { status: "touched" } }],
+                confirms: (): readonly { readonly ref: string }[] => {
+                  throw new Error("the response's shape changed");
+                },
+              },
             },
             reads: { board: (v: { readonly tickets: readonly GT[]; readonly queues: readonly GQ[] }) => [...v.tickets.map((t) => ({ ref: gTicketRef(t.id), fields: t })), ...v.queues.map((q) => ({ ref: gQueueRef(q.id), fields: q }))] },
             listens: { changes: (e: { readonly ticket: GT }) => [{ ref: gTicketRef(e.ticket.id), fields: e.ticket }] },
@@ -478,6 +553,8 @@ const guardOf = (o: GuardOpts) => {
               move: gMove.outcomes(out),
               close: closeOf(o.closeGuarded).outcomes(out),
               remove: gRemove.outcomes(out),
+              relocate: gRelocate.outcomes(out),
+              touch: gTouch.outcomes(out),
               board: board.outcomes({ success: E.Listed, failure: { NoResponse: E.ListFailed, Defect: E.ListFailed, Interrupted: E.ListFailed } }),
             };
           },
@@ -495,6 +572,8 @@ const guardOf = (o: GuardOpts) => {
             RetrySave: { actions: [O.save.retry(({ event }) => ({ id: event.id }))] },
             Remove: { actions: [O.remove.commit(({ event }) => ({ id: event.id }))] },
             GiveUpRemove: { actions: [O.remove.cancel(({ event }) => ({ id: event.id }))] },
+            Relocate: { actions: [O.relocate.commit(({ event }) => ({ id: event.id, to: event.to }))] },
+            Touch: { actions: [O.touch.commit(({ event }) => ({ id: event.id }))] },
             Listed: {},
             ListFailed: {},
             Done: {},

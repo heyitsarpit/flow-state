@@ -362,7 +362,7 @@ export const round10Scenarios: readonly Scenario[] = [
         c.yes("the old timer fired and was fenced", c.r.evidence("fence").some((e) => String(e["timer"]).startsWith("timeout/")));
         c.advance(4000);
         c.state("UNSURE");
-        c.eq("then the resend's own timeout", c.lastEnding("pay")?.reason, "TimedOut");
+        c.eq("then the resend's own deadline: an unknown (U1 B took no TimedOut word; audit 3)", c.lastEnding("pay")?.["channel"], "unknown");
       },
     },
   },

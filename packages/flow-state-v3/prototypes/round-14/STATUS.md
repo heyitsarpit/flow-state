@@ -1262,3 +1262,40 @@ Sidecar log (Haiku, effort high; every finding verified by the lead):
 | review of the entities.ts runtime diff (rule 35, key fields, over-marking) | reviewer | changed | acted on: the `many` count lacked a shape check (now `Array.isArray`); `within.includes` in a filter (now a Set). Rejected: "no `primaryKey` still marks `id`" (the store cannot know a key it is not told; over-marking is the safe side); "check in `prepare`" (no prediction is applied on `ok: false`; the queue bound has the same order); "base-less records under-marked" (round 3 finding 6: a record with no row has nothing to doubt). Recorded: `keyed` is derived data, constant per entity; the targets closure runs twice for a guarded write |
 | review of the rule 14 re-entry oracle | reviewer | changed | acted on: `sentNow` went stale across `advance`/`reload`/`fault` steps and later batches, and an owner minted by the re-entering turn itself was wrongly ended: now applied once, at the send's own turn, to owners minted before it, with the leaf before that batch. Recorded: only root sends are read (timers, answers, follow-ups, raises, fragments leave the old reading); `unsure` is sticky |
 | review of the rebuilt excuses | reviewer | changed | acted on: the self-release cause ignored the attempt's copy (now the heard run must be in its copy); `drain.uncertain-forever`'s words matched the new step-limit message too (now `drain: r`). Verified, not acted on: `lie.self-release-faked` is red by (h) on its case (run). Recorded, not in this list: `checkMints` still excuses a minted Attempt by a runtime wait, `Superseded`/`AbandonedFiber` still close a send, `boot` still resets; a lie for the ctx and chain rebuilds is not added (they read the fake only) |
+
+## Audit gaps 3 (2026-11-08)
+
+The list is `AUDIT-GAPS-3.md` (re-audit after the rule 30 ruling; the auditor's wrong runtimes in `mutants-audit-3.ts`, unedited). Standing gate:
+`mutants-a3.ts` (spread into `mutants-lifetime.ts`): every auditor wrong runtime that the suite kills, and audit 2's regression, aimed at its case. Each was
+run by the lead on a copy and fails ON TARGET by the assertion quoted. No runtime change was needed: every survivor was a missing case.
+
+| Item | Case (P1-E unless named) | Red on |
+| --- | --- | --- |
+| 1 regression `audit-2.r30-release-stays-queued` | `audit-a-release-after-repair-overdue-frees-the-record-at-once` (rule 30: `Released` "withdraws a waiting re-send's queue entry"; three failed repairs, then the give-up frees B before any answer) | `released: B goes at once: expected [1,2], got [1,1]` |
+| 2 per record | `audit-a-two-record-unknown-frees-each-record-by-its-own-repair` | `a3.r30-settle-every-record`: `a1's write to r2 waits: expected 1, got 2` |
+| 3 re-send re-holds | `audit-a-first-re-send-holds-the-record-again`, `audit-a-second-re-send-holds-the-record-again` | `a3.r30-first-resend-no-rehold`: `expected 2, got 3`; `a3.r30-resend-no-rehold`: `expected 3, got 4` |
+| 4 restored unknown holds | `audit-a-restored-unknown-holds-its-record-until-the-boot-repair-settles` (persisted S1) | `a3.r30-restored-holds-nothing` |
+| 5 many counts items | the bulk case: 4,097 items with one repeat are `Overloaded` | `a3.many-distinct-keys` |
+| 6 over-marking | `audit-a-gap-marks-a-record-predicted-into-the-cover` (a move on the wire), `...-in-doubt` (new guard `touch`, its `confirms` throws, D46), `...-whose-filter-field-is-unconfirmed` (new guard `relocate`, its response omits `queueId`) | `a3.cover-ignores-prediction`, `-doubt`, `-unconfirmed`, each on its case |
+| 7 key not named `id` | `audit-a-gap-leaves-out-the-entitys-own-key-fields` (new `p1ItemsFixture`, keyed by `code`, with an ordinary `id`) | `a3.key-field-is-id` |
+| 8 like drain row | **rebuilt**: a record the server holds a written value for (S1 starts at 0) must have a row after the drain; search kill `drain.row-hidden` (the auditor's lie) | `drain: r1 has no row, and the server holds 1` |
+| 9 `checkMints` waits | **rebuilt**: a wait accounts for a mint only when its request reached the fake, an acknowledgement the fake holds for its key, a queue behind such an Attempt, or a business-key request (D106); `disabled` stays on the module's own `ModuleDefect` (stated: a runtime report, as `checkClaims`) | suite |
+| 9 `spare` | **narrowed**: only an unkeyed or business-keyed open request | suite |
+| 9 `cancelsWherever` key | **fixed**: a keyed cancel names the lane only when its key, read from the walk's view the suite's wrap saw, equals the lane key (`keyFields`) of the input the suite saw asked; FRAG-10's keyed `authenticate.cancel(intent)` still pays | suite |
+| 10 `runtimeDisposed` | **cleared at a kill**; lie `lie.boot-says-disposed` | `(j) DisposeStart, and the suite disposed no runtime` (many cases) |
+| 11 pins | `unconfirmed` as a set (STORE-01, LIKE-06); `TimedOut` as an unknown (R10-AUDIT); `inspect(...)?.unbound` with no `?? []` (R15-01, two sites); P1-E-CAP names the evicted mark (one of the oldest, the newest kept) | - |
+
+Follow-ups found by the gates: the `--swap` pass's hand fixtures have no `keyFields`, so a keyed cancel's lane key is read by the op's key closure there;
+STORE-07 is outside lifetime-falsify's list, so `a3.r30-failed-repair-settles` and `a3.r30-overdue-settles` are aimed at P1-E's release-after-overdue case
+(red: `overdue, unsettled: B waits: expected [1,1], got [1,2]`); `a3.many-at-4096` is red on P1-E-CAP in the plain suite and left to it (P1-E-CAP is outside
+the lifetime list for cost); the restored-unknown case captures at once (`captureMs: 0`) for the 5 s gate.
+
+Gates: `bun gates.ts --budget 290` 18/25 ok, 0 BAD, 7 unknown by budget (the machine under outside load, 9.5 load average, no strays of mine); the 7
+plus `suite copies` rerun alone (`--only`): **8/8 ok**. Before that run, mutate-one and lifetime-falsify were BAD (the swap key and the STORE-07 aims
+above) and fixed. Suite 980/980, lock clean.
+
+Sidecar log: one Haiku reviewer on the harness diff. Acted on: `spare` read the runtime's `invoked` evidence (now the fake's key shape only); the ack
+excuse ignored the wait's key (now matched as `checkClaims` does); `disabled` ignored the module (now matched by origin); an empty key field list
+matched any lane (now names nothing). Rejected: "`askedInput` binds a retry's ask to the next mint" (`askOwners` is cleared at each batch's end, so an
+unconsumed ask does not carry). Recorded: business keys are matched by op only; a key Slot run on the guard view rather than the after view (FRAG-10's,
+which reads the event, agrees; a Slot reading after-memory would name nothing here, a stated limit that can only red).

@@ -252,6 +252,8 @@ try {
     ["like", "drain.old-base-wins", [["entities.ts", "base: how === \"replace\" ? fields : { ...r.base, ...fields },", "base: how === \"replace\" ? fields : { ...fields, ...r.base },"]], "drain: "],
     // Audit 2: the drain no longer skips a row the runtime calls uncertain. This runtime keeps a given-up mark uncertain after its read.
     ["like", "drain.uncertain-forever", [["entities.ts", "const uncertain = marks.some((m) => !m.quiet) || r.doubt !== undefined;", "const uncertain = marks.length > 0 || r.doubt !== undefined;"]], "drain: r"],
+    // Audit 3: the drain skipped a row the runtime reports absent. This runtime keeps a given-up mark uncertain and hides every uncertain row.
+    ["like", "drain.row-hidden", [["entities.ts", "const uncertain = marks.some((m) => !m.quiet) || r.doubt !== undefined;", "const uncertain = marks.length > 0 || r.doubt !== undefined;"], ["entities.ts", "if (r.base === undefined && !predicted && !uncertain && r.queue.length === 0) return undefined;", "if ((r.base === undefined && !predicted && !uncertain && r.queue.length === 0) || uncertain) return undefined;"]], "drain: r1 has no row"],
     ["like", "s13.older-sent-after-newer", [["lane.ts", "    for (const x of l.w) supersede(tx, a.op, x);\n    setLane(tx, { ...tx.w.lanes[l.id]!, w: [made.attempt] });", "    setLane(tx, { ...tx.w.lanes[l.id]!, w: [made.attempt, ...l.w] });"]], "S13: "],
   ];
   for (const [w, id, edits, words] of SEARCH_KILLS) {
@@ -287,6 +289,9 @@ try {
       ["lie.turn-end-after-a-resend", "lane.turnEnd.HeldThisTurn, a re-sent unknown", [["lane.ts", "l.head.id !== attempt || l.head.phase.t !== \"held\" ||", "l.head.id !== attempt ||"]], "(h)"],
       // Audit 1b: the self-release cause took the runtime's `lane.cancel.Held` cell as proof the handler's cancel ran. This runtime releases every
       // restored hold after its restored delivery and says that cell, whether or not a cancel ran (the auditor's `lie:1b.self-release-faked`).
+      // Audit 3: `runtimeDisposed` was never cleared at a reload, so a later process's `DisposeStart` turned the ledger off. This runtime drops a held
+      // head's restored ending at boot and says `DisposeStart` instead (the auditor's `lie:a3.boot-says-disposed`).
+      ["lie.boot-says-disposed", "DisposeStart at a boot, a restored ending dropped", [["durable.ts", "mail(tx, l, h, ending, true, !h.held);", 'if (h.held) note(tx, "DisposeStart", {}); else mail(tx, l, h, ending, true, !h.held);']], "(j)"],
       ["lie.self-release-faked", "lane.cancel.Held, a restored hold no cancel released", [["turn.ts", 'if (ran && item.ending.ch === "unknown") endHeldThisTurn(tx, item.attempt);', 'if (ran && item.ending.ch === "unknown") { endHeldThisTurn(tx, item.attempt); const sl = tx.w.lanes[tx.w.byAttempt[item.attempt ?? ""] ?? ""]; if (item.restored && sl?.head?.id === item.attempt && sl.head.phase.t === "held") cell(tx, "cancel", sl, argsOf(sl)); }']], "(h)"],
       // Phase 1 (R11): `replacedUnderCancel` read an op's policy by its name across every fixture. Beside R15Switch's `search` (cancel), this runtime
       // replaces P1Latest's `search` (latest) head on the wire as `cancel` would: the replaced Attempt's ending reaches nobody.
