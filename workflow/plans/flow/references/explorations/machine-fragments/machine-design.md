@@ -519,7 +519,8 @@ after rule 47, let fragments declare operations (2.9); 61–66, after rule 60, a
      reads no memory, so rule 22 and `KeyRequired` do not apply.
    - **A late ending never leaves live work.** A late turn may not exit a state that owns another pending call, or
      an active subroutine (rule 15). Live work there is an `InFlight` head or a queued commit, behind a `Held` head
-     too; a `Held` head is not (rule 15; OD49).
+     too; a `Held` head is not (rule 15; OD49). Nothing is exempt: a late handler that gives work up does it in an
+     alternative that stays put, with `cancelAll` or a keyed `cancel` (rule 15; R1, OD50).
 7. **One turn.** A transition and everything it raises, notifies, exits, resets and leaves compile
    into one transition, run by the algorithm in 2.5. That algorithm is normative for the runtime
    and for `check()`.
@@ -655,7 +656,10 @@ declarer" (a definition or a fragment), and "binding actor" as "binding incarnat
     (**new**; 2.7.18): no event and no handler; never on a stream key or a `listen` entry. Every `unknown:` target is a
     `Flow.uncertain` event or `Flow.ignore`. A read's `failure:` carries its tags plus Flow's `Defect` and `Interrupted` (rule 37). An
     author error whose tag is one of Flow's reasons (`NotSent`, `Cancelled`, `Restored`, `Interrupted`, `Defect`,
-    `StillUnknown`, `StorageRefused`, `Disposed`) is a type error; on a stream, so is one of `Feed`'s reasons (`Closed`, `Overflow`, `Silent`, `Flapping`) or the tag `Feed`, the map's own key [P, merge]. A commit's context also gives `progress(p)`, which sets its row's `progress` with no turn (Streams T8).
+    `StillUnknown`, `StorageRefused`, `Disposed`) is a type error, and compile refuses it as `ReservedReason` (proposed
+    name) wherever a tag is declared: a write's or read's failure record and a stream's, beyond the `Defect` and
+    `Interrupted` a read carries (rule 37); an `unknown:` record's `byReason` keys must be Flow's reasons (decided by
+    the runner, OD50); on a stream, so is one of `Feed`'s reasons (`Closed`, `Overflow`, `Silent`, `Flapping`) or the tag `Feed`, the map's own key [P, merge]. A commit's context also gives `progress(p)`, which sets its row's `progress` with no turn (Streams T8).
 14. **Owner, current, late, decided at admission.** Stream deliveries are always current from the active leaf; a session's owner is its placement's activation or incarnation, and release discards rather than routing late (rule 70). Otherwise, a commit, lookup or retry of an operation is owned by the activation
     of the state its transition names (`"self"`: the handler's own state). When the ending's turn is **admitted** (2.5
     step 1), Flow maps the ending through the operation's `outcomes` and tests the owner against the pre-turn snapshot.
@@ -674,19 +678,30 @@ declarer" (a definition or a fragment), and "binding actor" as "binding incarnat
     it as owned by an exited activation. `"self"` moves nothing and keeps the activation.
 15. **Late turns.** In a late event's turn, an alternative whose target would exit a state that owns another pending
     call, or an active subroutine, is denied (`LateMayNotLeave`); so a late handler ends in an alternative that does not
-    move (`flow check`). A call started in a late turn is an ordinary call with its own owner: lateness is not
+    move (`flow check`). **`flow check` errors on a late handler with no alternative that stays put** (decided, Q4 A,
+    OD50); the runtime is unchanged: an ending admitted in a turn denied this way still counts as delivered and keeps
+    its lane effect (2.7.13), and a hold it leaves stays until a later turn's keyed `cancel(k)` or `cancelAll(k)`. A call started in a late turn is an ordinary call with its own owner: lateness is not
     transitive. Only the host's own operations count: a fragment's work belongs to its incarnation (rules 52, 53), so
     ending a placement never leaves live work.
     **What counts as a pending call here** (decided by the runner under the user's delegation, 2026-11-08; OD49). The
     live work an alternative would leave is every call owned by an activation it exits: a lookup or write head that is
     `InFlight`, and every queued commit (`W`) of a write lane, including a commit queued behind a `Held` head. A `Held`
     head is not live work: its call has returned, and rule 44 hands the hold off. A queued commit whose lane the late
-    transition itself cancels, by a key-less `cancel` it lists, is not live work either. This set is wider than a row's
+    transition itself cancels, by a key-less `cancel` it lists, is not live work either. *Superseded by OD50 (R1): the
+    cancel exemption is dropped.* This set is wider than a row's
     `pending`, which is `InFlight` only (2.7.3, 2.7.13): `pending` is a view flag, and this clause is a guarantee.
     `flow check`'s static rule 15 counts the same set: under `serialize` a queued commit is pending, behind a `Held` head
     too. *Proposed, for the user's read:* the cancel exemption also covers a head promoted at settlement and never sent,
     since a never-sent head is cancellable as `NotSent { Cancelled }`; as decided it covers queued commits only, so a
-    late transition that cancels the lane cannot leave a just-promoted head.
+    late transition that cancels the lane cannot leave a just-promoted head. *Superseded by OD50 (R1): not taken.*
+    **No exemption** (decided by the runner under the user's delegation, 2026-11-08; R1, OD50). A late alternative that
+    exits may not leave any of that set, whatever it cancels: a key-less `cancel` in a success or failure handler names
+    a resolved Attempt and does nothing (rule 43), and cancelling a hold promotes the queue, so the exempted work was
+    sent anyway and its ending was late again. A late handler gives work up in an alternative that stays put: with
+    `cancelAll` (2.7.13), or a keyed `cancel(k)`; the work then ends as a current ending (`NotSent { Cancelled }` for a
+    queued commit), and a later turn may move. Under `serialize`, a key-less `cancel` in a late unknown's handler
+    releases its own hold, which promotes the queue's head; that never-sent head is cancelled only by its key (a second
+    key-less `cancel` does nothing, 2.7.13), while `cancelAll` ends the whole queue before anything is promoted.
 16. **Declines are endings; Flow adds no guard.** A decline refuses only the write, never the transition that asked for
     it: the transition's target, memory and other actions run as written. Under `concurrency: "reject"`, a commit on a
     lane that is `InFlight` or `Held` invokes nothing and ends `NotSent { why: "Rejected" }`. A commit past its lane's
@@ -817,6 +832,13 @@ declarer" (a definition or a fragment), and "binding actor" as "binding incarnat
     nothing, with evidence. It never drops a queued commit silently, except a release on leave the fragment declares, whose cells act on every
     lane of the subject path and end its queued commits as evidence (rule 60). **A settled ending is never rewritten.** A one-off
     read's `cancel` is rule 42's. On a domain write, rule 30 gives each ending's store effects (rule 29).
+    **`O.x.cancelAll(k?)`, a whole-lane cancel** (**new**; decided, Q3 A, OD50; the name was the runner's proposal,
+    accepted with the recommendation). On a write lane it ends every queued commit `NotSent { why: "Cancelled" }`,
+    delivered in lane order, and acts on the addressable Attempt as `cancel` does; the queue is emptied first, so
+    nothing is promoted. On a `Held` lane it releases the hold and the lane is `Idle`. It is how a late handler gives up
+    queued work in an alternative that stays put (rule 15). It takes its key as `cancel` does (rule 43). *Agent reading
+    (the design writer, OD50):* on an `InFlight` head on the wire it interrupts, as `cancel` does, so the lane stays
+    `InFlight` until `unknown { Cancelled }` is admitted (→ `Held`, with an empty `W`).
 25. **No Flow timeout and no Flow retry, of a session or a call** (amended, S15; decided, U1 B, OD48: the user
     overturned their remark of 2026-11-01, "rule 25 is cancelled, timeouts return", so the prototype's `timeout` and
     `TimedOut` (D8) are not taken; a call's deadline is its commit's Effect,
@@ -976,7 +998,10 @@ decision (E1–E18). Rules 13–25 and N1–N3 still apply.
     operation alone maps, naming that ending's own Attempt only (decided, U2, OD48; D22 cut the clause "and, once it
     is resolved or released, the lane's addressable one"); once that Attempt is resolved or released, a key-less member
     acts as on an `Idle` lane (2.7.13); under `serialize`, only in the head's own ending's handler; in a `NotSent`
-    ending they do nothing; anywhere else a key-less member is `KeyRequired`. A key-less `O.x.cancel` in `whenAbandoned` is not
+    ending they do nothing; anywhere else a key-less member is `KeyRequired`. These limits are a keyed operation's: on an
+    unkeyed one a key-less member names its one lane in every handler, a `NotSent` ending's included (decided by the
+    runner under the user's delegation, R2, OD50); U2's "that ending's own Attempt only" reads for keyed operations.
+    `cancelAll` takes its key as `cancel` does. A key-less `O.x.cancel` in `whenAbandoned` is not
     `KeyRequired`: it names every lane of the incarnation's subject path (rule 60). `idle` and `get` always take a key on a keyed operation.
     Members take any value carrying the key's fields.
 44. **A hold outlives its actor and its fragment incarnation; handle it at the root of its declarer** (OD19–OD22, OD23
@@ -1016,7 +1041,9 @@ decision (E1–E18). Rules 13–25 and N1–N3 still apply.
     OD48; D88): it keeps its id (the record's key text) and its hold; a commit of that operation whose key's
     canonical text is that id declines `NotSent { why: "Rejected" }` and its transition runs; the record stays on
     disk; Inspection lists it and each boot reports it; a `cancel` on that key clears it. A lane whose operation is
-    gone is kept the same way, listed and reported, until `forget` removes it (agent, OD48). Restore is per record
+    gone is kept the same way, listed and reported, until `forget` removes it (agent, OD48). *Superseded in part by
+    OD50 (Q1 A): `forget` drops no hold, so its parked endings become evidence and its hold stays; a lane whose
+    operation is gone has no member to cancel it, an open gap (OD50).* Restore is per record
     (U7). A lane record names no instance path; it carries the subject path (strings) and the releasing mark (a
     flag), both decoding without the machine. A recorded path the placement cannot produce is quarantined the same
     way; key-equality adoption is cut (decided, U4, OD48; D20) (rule 51; 2.9.4). `orphaned` (P19) is not in v1; its
@@ -1277,6 +1304,14 @@ decisions (F1–F10).
       description is not (decided, U17 B, OD48). A saved record of another field set is an **old-version record**:
       listed at ready (`OldVersionActor` [P]), never renamed or matched by shared fields, removed by `forget`. Its
       non-`Idle` lanes stay unbound and listed (rule 44), since no ref can spell its identity.
+      **What "structurally, ignoring annotations" compares** (decided, Q2 A, OD50). In Effect 4 a check's parameters
+      live in its annotations, so the type side compares each check by its `representation: { id, payload }`
+      (`minLength(1)` and `minLength(2)` differ) and ignores every other annotation. Stated limit: a custom filter with
+      no `representation`, and a transformation whose two sides are unchanged (`String` through an upper-casing
+      transform to `String`), are not seen by the version. **Flow's own version encodings** (an actor version and an
+      operation's lane stamp) carry a format tag (decided by the runner under the user's delegation, R3, OD50): a change
+      to Flow's encoding is a migration Flow owes, never a new version of the user's machine, and the tag tells an old
+      record from a new one. A stamp from before the tag (field names only) compares by names (R3).
     - **Persistence is the machine's** (decided, U15 B, OD48). It is spelled on the definition (decided, U19 A,
       2026-11-08): `definition({ id, persist: true, … })`, beside `id`,
       which names the machine in every saved record; refs carry no `persist`, so every ref of an identity agrees by
@@ -1285,6 +1320,12 @@ decisions (F1–F10).
       definition's memory (Persistence O2). A local actor of a persisted machine is not persisted (Persistence O2).
       Two refs of one identity with different `context` are `ConflictingActorRef` at ensure [P]; one machine in both
       forms cannot be written (R14 D4).
+      **`persist` defaults to `false`** (decided, Q5 A, OD50): persistence is opt-in, `definition({ id, persist: true })`.
+      A local identity of a persisted machine writes no record; the round 15 prototype writing one is a runtime bug,
+      with no change here (OD50). `ConflictingActorRef` is kept for `context` (C160). *Proposed, for the user's read
+      (OD50):* whether `persist` belongs on the machine rather than the definition, since several machines may come
+      from one definition; the runner's answer is to keep U19 A, because persistence describes the stored record, and
+      the definition holds what that record is (its `id` and memory).
     - Uses (rule 73) count per identity. Inspection, `flow trace` and Story records name an actor by its machine and
       fields, `Editor{workspaceId: "north", ticketId: "T-42"}`, or a singleton's name. The multi-tab leader and a
       server-rendered payload carry the encoded identity; the client's ref recomputes it from the same value.
@@ -2449,7 +2490,16 @@ a return after an end (rule 73), bind the incarnation to the Runtime's one lane,
 The removal is flushed at once, as a lane batch is (decided, U14, OD48; D93), so a crash cannot bring the record
 back. An unbound lane record left by `disposeActor` ends when an ensure of the identity adopts it or `forget` removes
 it; until then Inspection lists it as unbound under the identity, and each boot reports it, as `OldVersionLane` does
-for an old-version hold. A local
+for an old-version hold. **Unbound** (agent, round 15 as built; OD50): a lane is unbound while its identity has no
+decoded actor record (live or retired) and no incarnation. An undecodable record's lanes are not unbound (a fresh
+incarnation adopts them, below); an old-version record's lanes are (rule 74).
+**What `forget` does to a lane** (decided, Q1 A, OD50). `forget` removes the identity's record and makes each of its
+parked endings evidence: no one hears them, and the evidence names each (the 2.9.3 "evidence only" shape). It drops
+no hold: a `Held` lane, with its queued commits, stays an unbound lane, listed and reported, until its owner's
+`cancel` (keyed, or `previous[i].cancel` for an old-version hold), or an ensure of the identity adopts it; only the
+owner's `cancel` drops a hold. A lane left with nothing but parked endings ends with them. *Superseded in part by
+OD50:* "`forget` removes both" above and "or `forget` removes it" read: `forget` removes the record and the parked
+endings, never a hold. A local
 actor's lanes are never persisted (Persistence O2). When an actor record no longer decodes but its lane records do
 (they decode by the contract's `input` pick, independent of the machine), the fresh incarnation adopts them in its
 initial leaf. Amends Persistence O2 ("pending writes follow their actor's identity"), O3 (a capture's contents) and O6
@@ -2521,13 +2571,17 @@ release);
 | **dispose** (the binding incarnation ends: the actor is disposed, or the incarnation with the lane's path ends; cells unchanged except the parking row, 2.9.3; R7 K17) | nothing (virtual idle lane) | unchanged: the Attempt stays waiting or on the wire, and the Runtime invokes it; its ending is applied, and is a pending mapped outcome of the identity's saved record if one exists, else evidence (OD21). An acknowledged re-send still waiting for its lane record's capture is unchanged: the Runtime owns the lane (OD19), so it captures it later and then invokes it (decided, OD25; lane model C8) | unchanged; the hold and `W` stay in the Runtime |
 | **rebind** (an incarnation of **the same identity** starts and adopts the lane, OD20) | cannot occur (no lane) | unchanged; the new incarnation receives the ending when it lands | the hold is delivered **exactly once**, as `unknown { Restored }`, routed by the owner test below (OD20 F3, OD21, OD22), `retryCount` kept, unless that Attempt's outcome is already parked (G3; R10 L1); `W` stays queued |
 | **restore** (Persistence O6) | nothing (virtual idle lane) | an Attempt acknowledged once (per Attempt, OD20 F2) restores as `unknown { Restored }`, delivered → `Held`, even if its current re-send was waiting, and even if it was acknowledged but never invoked: the Runtime cannot know whether invocation began before the crash (G1), so `retry` may be its first send, which the idempotency key makes safe; a first send's capture and acknowledgement are one batch with the turn that committed it, so a kill before that batch lands restores the state before that turn, with no lane and no ending (decided, OD32; FOR-ARPIT call 1); each `W` entry ends `NotSent { Restored }`, delivered (C2); if a saved pending outcome exists for this Attempt, that outcome is delivered instead, once (G3) | stays `Held`, and the hold is delivered **exactly once**, as `unknown { Restored }`, from the restored incarnation's saved leaf (OD20 F3, OD21), unless the hold's own unknown is already among the record's pending outcomes (G3); `W` as in `InFlight` |
-| **Runtime disposal** (OD20, K23; R8 M2; R9 H2) | nothing (virtual idle lane) | from its start nothing is invoked. Waiting, never sent: ends `NotSent { Disposed }`; predictions removed (rule 30); **for a persisted identity it is saved with the final capture as a pending mapped outcome and delivered to the restored incarnation** (OD21), else evidence. Waiting re-send: → `Held`. On the wire: Runtime O6: within its bound it settles (saved as below); past the bound it ends `unknown { Disposed }` (decided, U13, OD48); an ending that settles before the final capture is saved as a pending mapped outcome (Persistence O3). Each `W` entry ends `NotSent { Disposed }` when the head's ending is admitted, or when Runtime O6's bound ends, so a lane's parked endings keep lane order (R10 M4). If the final capture fails, the last good capture's lane record restores per the restore row, which is also safe | stays `Held`; captured if the identity persists, else gone with the Runtime (evidence); each `W` entry as in `InFlight` |
+| **Runtime disposal** (OD20, K23; R8 M2; R9 H2) | nothing (virtual idle lane) | from its start nothing is invoked. Waiting, never sent: ends `NotSent { Disposed }`; predictions removed (rule 30); **for a persisted identity it is saved with the final capture as a pending mapped outcome and delivered to the restored incarnation** (OD21), else evidence. Waiting re-send: → `Held`. On the wire: Runtime O6: within its bound it settles (saved as below); past the bound it ends `unknown { Disposed }` (decided, U13, OD48); an ending that settles before the final capture is saved as a pending mapped outcome (Persistence O3). Each `W` entry ends `NotSent { Disposed }` when the head's ending is admitted, or when Runtime O6's bound ends, so a lane's parked endings keep lane order (R10 M4). If the final capture fails, the last good capture's lane record restores per the restore row, which is also safe. **One shape for an ending during disposal** (decided by the runner under the user's delegation, 2026-11-08; OD50): the ending is parked and each `W` entry's `NotSent { Disposed }` after it; an unknown (`unknown { Disposed }` past the bound, or any unknown within it) keeps its head `Held` on disk, since the server may hold the key and only the head's record can re-send it; a definite ending drops the head. The **final capture** is the one disposal writes after Runtime O6's bound or the last wire ending: a kill before it restores from the last capture taken in the window, where a head on the wire is an acknowledged `InFlight` lane record, so the restore row gives `unknown { Restored }`; after it, the head restores `Held` with its `unknown { Disposed }` parked, delivered once (G3). The entity store is not told an ending during disposal; at the restore it hears the parked ending, with its reason, not `Restored`. Runtime O6's "nothing starts once disposal starts" binds modules too: no module (the entity store's repair or gap fetch, a session's start) starts work, and the module seam carries a `live` flag | stays `Held`; captured if the identity persists, else gone with the Runtime (evidence); each `W` entry as in `InFlight` |
 | **SSR hydration** (OD20, K23; R8 M3) | lanes are never hydrated from the server; only resource entries are. A commit in flight at dehydration is reported (`DehydrateCommitInFlight`, ServerRendering O3, naming the actor, its state and, for a fragment's operation, its instance path) and is evidence; no client lane is created. The transferred actor receives no ending for it: a state that waits for one waits until its own timers or the user move it, and a later client write to that key is unordered with the server's (stated limit, R9 M4) | cannot occur (no client lane exists before hydration) | cannot occur |
 
 **A head's own parked ending restores as parked** (round 14; OD49). When the head's Attempt already has its ending
 among the record's pending outcomes, the restore row delivers that ending, once, and never `unknown { Restored }`
 for the same Attempt (G3), in `InFlight` and `Held` alike. A storage-refused re-send is the one row that delivers a
 second ending for one Attempt (rule 17); each ending is still delivered once.
+
+**`cancelAll`** (decided, Q3 A, OD50; rule 24) is not a row of its own: it is the `cancel` row applied to the head
+after every `W` entry has ended `NotSent { Cancelled }`, delivered in lane order, so its `cancel` promotes nothing. In
+`Held` the lane ends `Idle`; in `Idle` it does nothing, with evidence.
 
 That is 16 rows by 3 states, 48 cells; 15 are "cannot occur" (an ending, an invocation or a storage refusal only
 exists for an Attempt that is `InFlight`; a rebind needs a lane; hydration creates none), and 33 are reachable, of
@@ -2570,14 +2624,16 @@ Once that Attempt is resolved or released, a key-less member acts as on an `Idle
 an unknown's handler releases the ending's Attempt (→ promote), and the second `cancel` does nothing, with evidence;
 the promoted commit is reached only by its key. In a **success or failure** handler of a keyed operation, the
 ending's Attempt is already resolved, so a key-less `cancel` there does nothing (R7 L2's reading and R7 M2's step are
-cut with the clause). In a `NotSent` ending there is no Attempt (rule 16), so a key-less member does nothing. On
+cut with the clause). In a `NotSent` ending there is no Attempt (rule 16), so a key-less member does nothing; on an
+unkeyed operation it names the one lane there too (rule 43; R2, OD50). On
 `serialize`, key-less `retry`, `retryable` and `cancel` stand only in a handler of the head's own ending; per-item
 stops use a keyed design (decided, OD19: Q35 A; narrows OD8 for one policy).
 
 Documented default, not a rule (R6 L6): re-send an unknown on a timer (5.1's `UNSURE`, 5.3's reconcile), not in the
 unknown's own handler; offline, an immediate 3-send budget is spent in milliseconds.
 
-**The policy that does not hold** (decided, OD19; R6 M3, R7 M2; `allow` cut, U5, OD48). Under `cancel` concurrency at most one Attempt
+**The policy that does not hold** (decided, OD19; R6 M3, R7 M2; `allow` cut, U5, OD48). `cancel` concurrency stays
+in v1 (C153; the runner, OD50); the round 15 prototype does not build it yet. Under `cancel` concurrency at most one Attempt
 is live; an unknown is held only for its own ending's turn (**`HeldThisTurn`**, a table label):
 
 | Row | `Idle` | `InFlight` | `HeldThisTurn` |
@@ -2594,7 +2650,7 @@ is live; an unknown is held only for its own ending's turn (**`HeldThisTurn`**, 
 | **dispose** | nothing | unchanged; the Runtime invokes it; its ending is a pending outcome of the saved record if one exists, else evidence (OD21) | cannot outlast its turn |
 | **rebind** | cannot occur | unchanged; the new incarnation receives the ending, current | cannot occur |
 | **restore** | nothing | acknowledged: delivered as `unknown { Restored }` → `HeldThisTurn` in its delivery turn (R10 L3); never acknowledged: cannot occur, since its first send's batch never landed (OD32) | cannot occur |
-| **Runtime disposal** | nothing | from its start nothing is invoked; a waiting, never-sent Attempt ends `NotSent { Disposed }`. An Attempt on the wire follows Runtime O6: within the bound it settles, and past it it ends `unknown { Disposed }` (U13). For a persisted identity, `NotSent { Disposed }` and an ending that settles before the final capture are parked (OD21, OD22); a waiting re-send, or an Attempt still on the wire at the final capture, is captured as an acknowledged `InFlight` lane record, so a reload uses this table's restore cell (`unknown { Restored }` → `HeldThisTurn`, where a key-less `retry` re-sends the same id). Otherwise they are evidence. The live lane ends `Idle`: nothing is held past a turn (G2; R10 H2, K30). | cannot occur |
+| **Runtime disposal** | nothing | from its start nothing is invoked; a waiting, never-sent Attempt ends `NotSent { Disposed }`. An Attempt on the wire follows Runtime O6: within the bound it settles, and past it it ends `unknown { Disposed }` (U13). For a persisted identity, `NotSent { Disposed }` and an ending that settles before the final capture are parked (OD21, OD22); a waiting re-send, or an Attempt still on the wire at the final capture, is captured as an acknowledged `InFlight` lane record, so a reload uses this table's restore cell (`unknown { Restored }` → `HeldThisTurn`, where a key-less `retry` re-sends the same id). *Superseded in part by OD50:* "or an Attempt still on the wire at the final capture" contradicts U13, since the final capture follows the bound; the holding table's one shape applies (a kill before the final capture restores `unknown { Restored }`; after it, `unknown { Disposed }` is parked and the lane is `Held` (parked) on disk until delivery, OD25). Otherwise they are evidence. The live lane ends `Idle`: nothing is held past a turn (G2; R10 H2, K30). | cannot occur |
 | **SSR hydration** | as the holding table | cannot occur | cannot occur |
 
 **The between-turns state for a persisted identity** (decided, OD25; lane model C5, inv 18). Under `cancel`, an `unknown` that lands while a persisted identity has no live actor is parked, and its lane stays
@@ -2822,7 +2878,9 @@ Rule 46 is normative. Per kind (OD3):
   fingerprint: the field names and each key field's Schema, its type side and its encoded side, compared structurally,
   ignoring annotations (so a branded or described `Schema.String` keeps the version, and `Schema.String` to
   `Schema.Number`, or to `Schema.NumberFromString`, under one name does not; Q1 A, amended by U17 B, OD48: Q1 A
-  compared the encoded side only). A release that changes it makes a new version of the operation; reordering key fields changes nothing. A lane
+  compared the encoded side only; a check compares by its `representation`, and a custom filter or a transformation
+  with unchanged sides is a stated limit, Q2 A, OD50; the stamp carries Flow's format tag, R3, OD50; both as rule 74's
+  versions). A release that changes it makes a new version of the operation; reordering key fields changes nothing. A lane
   of another version is an **old-version hold**: never renamed or matched against a new key, and reported at each boot
   (`OldVersionLane`, an issue; decided, Q2 A). Until it ends, every commit of that operation for that actor declines
   `NotSent { why: "OldVersion" }` and its transition runs, under every policy, `serialize` included, and a keyed
@@ -2839,7 +2897,9 @@ Rule 46 is normative. Per kind (OD3):
   an unknown `cancel` released. Endings come from fakes (rule 62), and `lane` records name their cell, so `flow stories
   --coverage` counts cells (2.10.14); a Story reaches the cells its
   machine's transitions allow, and all reachable cells belong to a policy suite in Flow's own tests (2.7.13). The
-  walks listed in 2.7.13 are Stories by steps.
+  walks listed in 2.7.13 are Stories by steps. Stories and `check()` go through the same compile step as the Runtime,
+  so the checks that live there (creation by the type side, U9; reserved reasons, rule 13) hold for them; the
+  guarantee is the compiler's, and a hand-compiled machine gets none of it from the Runtime (the runner, OD50).
 - `flow check`: errors `SharedContract` (per actor tree, F2; a warning for `key: []` on a placement whose path is not
   empty), `DuplicatePlacement`, `VerbMismatch` (2.7.3, proposed), `KeyRequired` (2.7.3,
   decided, OD8), `UnresolvedHold` (2.7.13, decided, OD6 and OD10, a check over the write-lane graph from tokens; a warning when only
@@ -8348,6 +8408,14 @@ The streams merge ([merged/streams/proposal-v3.md](merged/streams/proposal-v3.md
 | C167 | Persistence O4, O6 | A head whose own ending is parked restores as that parked ending, delivered once, never also `unknown { Restored }` (rule 17, 2.7.13 G3; OD49) | Amends C17's "an Attempt acknowledged once ends `unknown` (`Restored`)" |
 | C168 | Runtime O6, Persistence O3 | `disposeActor` and `forget` stop a send's restore only once their removal is acknowledged; after a crash before that, the identity behaves as persisted: a plain send restores it, and with no use it ends after the grace (2.7.17; D80; OD49) | Amends C159 ("`disposeActor` flushes its removal at once") and 2.7.17's "a send must not resurrect a disposed or forgotten identity" |
 | C169 | EntityDomains O1, O4 | With no version on either side, a frame differing from an unechoed write is doubted, not applied, until a read started after it or a matching frame; with no write unechoed, a late unversioned frame is applied (stated limit) (2.8.14; D67, OD49) | Adds; the entity-store decisions stay deferred to phase 1 (U11) |
+| C170 | Machines O6, Operations O2, CommandLine O5 | A late alternative that exits may not leave an `InFlight` head or any queued commit of an exited activation, whatever it cancels; a late handler gives work up in an alternative that stays put (`cancelAll` or a keyed `cancel`); `flow check` errors on a late handler with no alternative that stays put; the runtime is unchanged (rule 15; R1, Q4 A, OD50) | Amends C162 (drops "nor a queued commit whose lane the transition cancels key-less") and C12, C18 (the late-turn check becomes an error) |
+| C171 | Operations O1, O3 | `O.x.cancelAll(k?)` ends every queued commit `NotSent { Cancelled }`, then acts on the head as `cancel`, promoting nothing; a `Held` lane ends `Idle` (rules 24, 43; 2.7.13; Q3 A, OD50) | Adds to Operations O3's members beside `cancel` |
+| C172 | Operations O3 | On an unkeyed operation a key-less member names its one lane in every handler, a `NotSent` ending's included; U2's own-Attempt limit is for keyed operations (rule 43; R2, OD50) | Amends C150's U2 reading (OD48) for unkeyed operations |
+| C173 | Runtime O6, Persistence O3, Inspection O1 | `forget` removes the identity's record and makes its parked endings evidence; it drops no hold: a `Held` lane stays unbound, listed and reported, until its owner's `cancel` or an adopting ensure; a lane is unbound while its identity has no decoded actor record and no incarnation (2.7.13; Q1 A, OD50) | Amends C159 ("ends at an adopting ensure or `forget`"), C152's "until `forget` removes it" for a lane whose operation is gone, and 2.7.13's "`forget` removes both" |
+| C174 | Runtime O3, Persistence O5 | A version compares each check by its `representation: { id, payload }` on the type side and ignores other annotations; a custom filter and a transformation with unchanged sides are a stated limit; Flow's version encodings carry a format tag, a change to them is a migration Flow owes, and a names-only stamp compares by names (rule 74, 2.7.15; Q2 A, R3, OD50) | Amends C161 ("ignoring annotations") |
+| C175 | Persistence O2, Machines O1 | `persist` defaults to `false`: `definition({ id, persist: true })` opts in (rule 74; Q5 A, OD50) | Amends C160 |
+| C176 | Runtime O6, Persistence O3, EntityDomains O1 | An ending during Runtime disposal is parked with `W` after it; an unknown keeps its head `Held` on disk, a definite ending drops it; a kill before the final capture restores `unknown { Restored }`, after it `unknown { Disposed }` is parked; no module starts work once disposal starts (a `live` flag on the module seam); the store hears the parked reason at the restore (2.7.13; OD50) | Amends C158 and C43; replaces 2.7.13's cancel-table "an Attempt still on the wire at the final capture is captured as an acknowledged `InFlight` lane record" |
+| C177 | Operations O1, CommandLine O5 | A Flow reason as a declared failure tag is refused at compile (`ReservedReason`, proposed name) wherever a tag is declared; `byReason` keys must be Flow reasons; Stories and `check()` use the same compile step (rule 13, 2.7.16; OD50) | Adds to C2's reserved reasons |
 
 ### For tooling
 
@@ -9211,7 +9279,8 @@ operations-in-fragments, the lane model and the reviews cite them.
   ("for the rest you decide what's correct"); none changes public API. **Decided by the runner under that delegation:**
   (1) rule 15's pending calls in a late turn are an `InFlight` head and every queued commit owned by an exited
   activation, behind a `Held` head too; a `Held` head is not live work; a queued commit whose lane the late transition
-  cancels key-less is not live work (option A, then the close-out refinement); the row flag `pending` stays `InFlight`
+  cancels key-less is not live work (option A, then the close-out refinement; *this exemption is superseded by OD50,
+  R1*); the row flag `pending` stays `InFlight`
   only (rules 6, 15, 2.5 step 3, 2.7.3, 2.7.13); (2) `flow check`'s static rule 15 counts the same set under
   `serialize` (rule 15). **Agent (the runner), restating what the tables and earlier decisions already imply:**
   (3) rule 17 names the storage-refused re-send's second ending for one Attempt, and delivery is counted per ending
@@ -9224,9 +9293,47 @@ operations-in-fragments, the lane model and the reviews cite them.
   **The user's earlier call, written in:** (9) D67's unversioned limit (convergence-5): with no version, a frame that
   differs from an unechoed write is doubted until a read after it; with none unechoed, a late frame is applied
   (2.8.6, 2.8.14). **Proposed, for the user's read:** (10) the cancel exemption of (1) also covers a head promoted at
-  settlement and never sent (cancellable as `NotSent { Cancelled }`), the runner's proposed answer, yes (rule 15);
+  settlement and never sent (cancellable as `NotSent { Cancelled }`), the runner's proposed answer, yes (rule 15;
+  *superseded by OD50, R1: no exemption*);
   (11) evidence for a kept ending's try per boot and for a stranded read let go, a stated gap today (rule 8).
   Skipped: D77's closure check (finding 9) is not named in this design. Plan rows C162-C169. (2026-11-08)
+- **OD50** Round 15's design corrections (2026-11-08), from the round 15 build and its close-out review
+  (`packages/flow-state-v3/prototypes/round-14/STATUS.md`, "Round 15 (2026-11-08)", findings 1-22;
+  `workflow/roadmaps/v3-production/progress.md`, 2026-11-08: the runner's rulings R1-R4 and the user's answers Q1-Q5).
+  **Decided by the user** (2026-11-08, "all recommendations are accepted"): (Q1 A, finding 5) `forget` makes an
+  identity's parked endings evidence, heard by no one; it drops no hold, since only the owner's `cancel` drops a hold
+  (2.7.13, rule 46); (Q2 A, finding 11) a version compares each check's `representation: { id, payload }` (Effect 4)
+  on the type side and ignores every other annotation; a custom filter and a transformation with unchanged sides are a
+  stated limit (rule 74, 2.7.15); (Q3 A, findings 1, 14) a whole-lane cancel, `O.x.cancelAll(k?)` (the runner's
+  proposed name, accepted with the recommendation), releases the lane's hold and ends every queued commit
+  `NotSent { Cancelled }`; a late handler gives up queued work with it in an alternative that stays put (rules 15,
+  24, 2.7.13); (Q4 A, finding 16, R4's option c) `flow check` errors on a late handler with no alternative that stays
+  put, and the runtime is unchanged (rule 15); (Q5 A, finding 20) `persist` defaults to `false`,
+  `definition({ id, persist: true })` (rule 74). **Decided by the runner under the user's delegation:** (R1, finding 1)
+  rule 15's cancel exemption is dropped, both halves (OD49 item 1's exemption and item 10's proposal are superseded):
+  a late ending may not leave an `InFlight` head or any queued commit of the exited activation, behind a `Held` head
+  too; a `Held` head is excluded (rules 6, 15); (R2, finding 7) on an unkeyed operation a key-less member names its
+  one lane, in an ending or not; U2's "that ending's own Attempt only" is for keyed operations (rule 43, 2.7.13);
+  (R3 and the close-out, findings 12-13) Flow's version encodings (op lane stamps and actor versions) carry a format
+  tag, so a change to Flow's encoding is a migration Flow owes and an old record is told from a new one; a
+  names-only stamp compares by names (rule 74, 2.7.15; for phase 1's record migration); (close-out, findings 2-4, 9,
+  17, 18) 2.7.13's disposal row: one shape for an ending during disposal (parked, `W` after it; an unknown keeps its
+  head `Held` on disk, a definite ending drops it); a kill before the final capture restores `unknown { Restored }`,
+  after it the head stays `Held` with `unknown { Disposed }` parked; the cancel table's "on the wire at the final
+  capture" clause is superseded; Runtime O6 binds modules (none starts work once disposal starts; the module seam
+  carries a `live` flag); the store hears the parked reason at the restore; (finding 6) "unbound" as built: no decoded
+  actor record (live or retired) and no incarnation (2.7.13); (finding 21) a local identity is not persisted
+  (Persistence O2): the prototype writing its record is a runtime bug, no design change; (findings 15, completion
+  audit) Flow reasons are refused wherever a tag is declared, `byReason` keys must be Flow reasons, `ReservedReason`
+  a proposed name (rule 13); (finding 8) Stories and `check()` go through the same compile step (2.7.16); (finding 22)
+  `ConflictingActorRef` is kept for `context` (C160); `cancel` concurrency stays in v1 per C153, not yet in the
+  prototype (2.7.13). **Agent (the design writer):** `cancelAll` on an `InFlight` head on the wire interrupts as
+  `cancel` does (rule 24). **Proposed, for the user's read:** (a) whether `persist` belongs on the machine rather
+  than the definition (the user asked); the runner's answer is to keep U19 A, since persistence describes the stored
+  record, which the definition holds (rule 74); (b) open gap from Q1: a lane whose operation is gone keeps its hold
+  after `forget` and has no member to cancel it (rule 46). Not placed: finding 10 and 19 (harness oracle (h)), finding
+  14's `flow check` hint for a single `cancel` on `serialize` (Q4's error covers the leaving case). Plan rows
+  C170-C177. (2026-11-08)
 - **OD24** Process, delegated by the owner (2026-10-30): the main session approves the merge change lists for merges 4
   and 5 and for operations-in-definition, and treats operations as accepted for merging, unless a conflict needs an
   owner decision; only then is the owner asked. The streams direction review remains the owner's. (2026-10-30) *Process,
