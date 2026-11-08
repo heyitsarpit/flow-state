@@ -203,12 +203,11 @@ const leavesWork = (w: Walk, inc: Inc, alt: Alternative) => {
   const frag = fragOf(w.m, inc);
   if (exits.some((n) => frag.nodes[n]!.subroutine)) return true;
   const it = w.item;
-  const cancels = (op: string) => alt.members.some((m) => m.verb === "cancel" && m.op === op && m.key === undefined);
   return Object.values(w.tx.w.lanes).some((l) => {
     if (l.actor !== w.a.key) return false;
-    if (!cancels(l.op) && l.w.some((x) => ownedByExited(inc, exits, x.owner))) return true;
+    if (l.w.some((x) => ownedByExited(inc, exits, x.owner))) return true;
     const h = l.head;
-    return h !== undefined && h.phase.t !== "held" && !(cancels(l.op) && h.sentAt === 0 && !h.mayHaveApplied) && ownedByExited(inc, exits, h.owner) && !(it?.k === "ending" && it.attempt === h.id);
+    return h !== undefined && h.phase.t !== "held" && ownedByExited(inc, exits, h.owner) && !(it?.k === "ending" && it.attempt === h.id);
   });
 };
 const IMPLICIT = (id: string): Alternative => ({
@@ -747,7 +746,7 @@ const applyMembers = (w: Walk) => {
     }
     const it = w.item;
     // D123: a key-less `cancel` outside an ending names no Attempt (D22), and every kept ending of the op it can see is its to let go.
-    if (mem.verb === "cancel" && !mem.key && it?.k !== "ending") {
+    if (mem.verb === "cancel" && !mem.key && it?.k !== "ending" && op.keyFields?.length !== 0) {
       for (const l of Object.values(tx.w.lanes))
         if (l.actor === w.a.key && l.op === mem.op && sameSubject(l.subject, subject)) letGoKept(tx, l);
       continue;
@@ -755,7 +754,9 @@ const applyMembers = (w: Walk) => {
     // D221: a keyed `retry(k)`/`cancel(k)` names the lane of exactly that key. An old-version hold is named by its own old key: the owner's way out.
     const named = mem.key
       ? tx.w.lanes[laneKey(w.a.key, mem.op, r.key)]
-      : it?.k === "ending" && it.op === mem.op && it.attempt
+      : op.keyFields?.length === 0
+        ? tx.w.lanes[laneKey(w.a.key, mem.op, {})] // rule 43: on an unkeyed operation a key-less member names its one lane, in an ending or not
+        : it?.k === "ending" && it.op === mem.op && it.attempt
         ? laneOfAttempt(tx.w, it.attempt) // D22: key-less names the ending's own Attempt only
         : undefined;
     const lane = named && mem.verb === "cancel" && sameSubject(named.subject, subject) ? letGoKept(tx, named) : named;
@@ -1190,7 +1191,7 @@ const deliver = (tx: Tx, a: ActorRec, path: Path, item: EndingMail) => {
   const inc = kidAt(a.root, path)!;
   const mapped = mappedFor(m, item);
   if (!item.redelivered || item.kept)
-    note(tx, "delivered", { op: item.op, attempt: item.attempt ?? "", event: mapped?.event, at: path }); // stage F: the copy it runs in
+    note(tx, "delivered", { op: item.op, attempt: item.attempt ?? "", event: mapped?.event, at: path, reason: endingReason(item.ending) }); // stage F: the copy it runs in
   if (!mapped)
     return issue(tx, {
       code: "UnmappedEnding",

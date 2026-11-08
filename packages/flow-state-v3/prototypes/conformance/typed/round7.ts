@@ -27,7 +27,7 @@ const bare = (persisted: boolean) => {
       last: Flow.initial(S.Unknown, null),
       who: Flow.input(S.Unknown.pipe(S.withDecodingDefaultKey(Effect.succeed("a")))),
     },
-    persisted,
+    persist: persisted,
     operations: ({ E }) => ({
       charge: charge.outcomes({ success: E.Ok.from((v: unknown) => ({ value: v })), failure: { NotSent: E.No }, unknown: E.Unsure }),
     }),

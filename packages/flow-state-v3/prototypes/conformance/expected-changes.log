@@ -1681,3 +1681,82 @@ round:typed/compare.ts hash:e916dcde0dae | keyVersion is typed only, stated with
 round:checks/front-check.ts hash:2dd4f32097f8 | pins rule 13's reserved failure tags (seven refused, NotSent and an author's tag compile)
 round:mutants-lifetime.ts hash:c393496cb0a0 | drops l1.version-by-type-side (U17 B makes the type side the rule); l1.version-by-printed-name retargeted to the new version line
 round:mutants-r15.ts hash:97019a6272e9 | adds r15.schema-version-encoded-only and r15.creation-decodes-input (compile-side wrong runtimes, R15-03 now in the lifetime list)
+removed:variant:R14-FIX-01/a-late-exit-whose-transition-cancels-the-lane-goes | R1 (runner, round 15): no cancel exemption; the same walk is now ...-is-denied
+removed:variant:R15-01/a-late-exit-that-cancels-the-lane-may-leave-its-promoted-head | R1: the promoted head is not exempt either; now ...-may-not-leave-its-promoted-head
+removed:variant:R15-01/a-late-exit-that-does-not-cancel-may-not-leave-its-promoted-head | R1: with no exemption the cancelling walk is the denied case, so this control says nothing more
+REV7-M8 hash:e63b46f2b3c1 | U4 (OD48): Inspection lists a quarantined lane under its identity, and nothing once cancel clears it
+R14-FIX-01 hash:2fcc28f2e2ad | R1: a late exit whose transition cancels the lane is denied LateMayNotLeave and stays in W
+R15-01 hash:6686cf7eb47b | R1 denied promoted head, stay-put pattern, R2 key-less on unkeyed outside an ending, R3 names-only stamp, U13 kill inside the window, U14 two boots and the adoption's Restored
+R15-02 hash:97053fbc069b | U2 failure handler and Held-plus-W NotSent variants; U3 asserts each reason; no interrupt or release in the NotSent variant
+R15-03 hash:d6438a24faf6 | U9: refinements kept on creation input (NonEmptyString refuses "")
+file:scenarios/fixpass.scenario.ts hash:abfa4d967da0 | holds R14-FIX-01's R1 denied variant and its group comment
+file:scenarios/round15.scenario.ts hash:9f49aa15b049 | holds R15-01's R1, R2, R3, U13 and U14 changes
+file:scenarios/round15b.scenario.ts hash:76cf25d6e690 | holds R15-02/R15-03's strengthened and new variants (a Haiku coder's, read and run by the lead)
+file:scenarios/round7.scenario.ts hash:70d0aca6473c | REV7-M8 reads Inspection's quarantined list (U4)
+file:typed/round15.ts hash:884e733f96ce | R15Late's Unsure cancels its hold after Cancelling (oracle (h) fixed instead); new R15Stay (stay-put and Drop) and the pre-version stamp fixture
+file:typed/round15b.ts hash:7d75042efcfd | new fixtures R15Fail (a definite failure), R15Held (held head, queued W, unencodable decline), R15NonEmpty
+file:compile/operations.ts hash:90e8d54e1645 | a key field that is not an input field is a compile error (SealKeyField) before its Schema version is read
+file:drive.ts hash:0f92abb5c282 | oracle (h): a hold released by its own ending's handler cancel has a cause; at a reload, parked endings on disk count as driven like open ones
+round:typed/type-tests.ts hash:c804905fcee8 | U5: concurrency allow (and today's missing cancel) refused by the types
+round:mutants-lifetime-misc.ts hash:642c29f08660 | misc.late-leaves-queued follows the new line; misc.late-cancel-ignored dropped (R1 removed the exemption it undid)
+round:mutants-lifetime.ts hash:6e685c273dd0 | spreads mutants-r15c.ts
+round:mutants-r15.ts hash:8fa5864627e5 | R1 exemption mutants, R2, R3, the exact U13 undo, the disposal-window mutant, quarantine listing and decline
+round:mutants-r15b.ts hash:c8d3fa054d92 | a clean head-before-W reorder replaces the double-delivery one
+round:mutants-r15c.ts hash:0626ad481bc1 | new: U9 refusal skipped, U8 pre-boot queue dropped, failed read keeps persistence, duplicate machine allowed
+round:adapter.ts hash:fef83a2997fe | inspect lists quarantined lanes (U4) and reads actor-keyed maps with Object.hasOwn
+output:DRV-01 hash:ee0c61209d04 | U13 shape: an unknown settled within the disposal bound keeps its head Held on disk, so a disposing:job wait shows
+output:R14-FIX-01/a-late-exit-whose-transition-cancels-the-lane-is-denied hash:40d13019c630 | new output: denied, the queue stays in W
+output:R15-01/a-key-less-cancel-on-an-unkeyed-op-outside-an-ending-names-its-one-lane hash:a31f395762dc | new output: Drop cancels the never-sent head, NotSent Cancelled after the ack
+output:R15-01/a-kill-inside-the-disposal-window-restores-the-wire-head-unknown-restored hash:9c3602cd8440 | new output: the reload inside the window restores unknown Restored
+output:R15-01/a-late-exit-that-cancels-the-lane-may-not-leave-its-promoted-head hash:d2d9e960d145 | new output: denied, stays in W with the promoted head
+output:R15-01/a-names-only-stamp-from-before-the-upgrade-is-the-current-version hash:d8244d6283b8 | new output: no old-version hold, key b sends
+output:R15-01/a-stay-put-alternative-gives-up-the-work-and-the-current-ending-moves hash:e57471206e15 | new output: release, then NotSent Cancelled for the promoted head, to A
+output:R15-01/an-unbound-lane-left-by-dispose-is-listed-and-reported-until-adopted hash:bf1bf65f491a | U14: one more boot, so a second UnboundLane before the adoption
+output:R15-01/past-the-disposal-bound-the-attempt-ends-unknown-disposed hash:ffa65becd64e | U13: the restored Unsure cancels its hold (Cancelling set), so the lane record goes
+output:R15-02/a-key-less-cancel-in-a-failure-handler-does-nothing-and-the-queue-goes-on hash:061ca0835eaa | new output: Declined, the queued commit sends and succeeds
+output:R15-02/a-key-less-cancel-in-a-not-sent-handler-leaves-a-held-head-and-its-queue hash:f63176892d49 | new output: Unencodable decline beside a held head and W
+output:R15-03/creation-checks-a-present-input-by-its-type-side-and-keeps-its-refinements hash:4c194572b987 | new output: no actor for "", the actor for "x"
+file:expected-recipients.txt hash:af7d97c52af9 | +7 observed, +1 restored, +7 start nodes: round 15's new R15-01, R15-02, R15-03 variants
+removed:variant:R14-ID-03/two-refs-that-disagree-on-persist-conflict | U15 B (OD48): refs carry no persist, so two refs cannot disagree; the call is now a type error (type-tests.ts)
+removed:variant:R14-ID-03/the-other-order-conflicts-the-other-way | U15 B: the same conflict in the other order cannot be written either
+removed:variant:R14-ID-03/after-dispose-the-next-ref-is-the-first | U15 B: no ref says persist, so who wins across a dispose is no longer a question
+R14-ID-03 hash:834206ab6832 | U15 B, U19 A: two refs of one identity agree by construction; the definition's persist keeps the record
+file:scenarios/identity.scenario.ts hash:96a32c2d5a59 | ensureStep drops persist; R14-ID-03's three persist-conflict variants become one agreement variant
+file:typed/cart.ts hash:7f17656ca2f5 | U19 A spelling: two definitions say persist instead of persisted
+file:typed/chat.ts hash:d4aeb16abff1 | U19 A spelling: chat's definition says persist
+file:typed/comments.ts hash:525195043023 | U19 A spelling: comments' three definitions say persist
+file:typed/desk.ts hash:4ca21795891c | U19 A spelling: desk's five definitions say persist (traitWrite maps its persisted option)
+file:typed/identity.ts hash:8f7a91e4ec74 | U19 A spelling: Editor and Session definitions say persist; editorRef and SessionRef lose their third argument
+file:typed/ignore.ts hash:cc94907e5676 | U19 A spelling: the ignoring helper maps its persisted option to persist
+file:typed/issues.ts hash:07ddd13664de | U19 A spelling: issues maps o.persisted to persist (default false, as before)
+file:typed/lab-machines.ts hash:ccb3aff0ffd8 | U19 A spelling: one lab machine's definition says persist
+file:typed/lifetime.ts hash:1729b6ceb582 | U19 A spelling: the life helper maps its persisted option to persist
+file:typed/order.ts hash:2358c748917d | U19 A spelling: order's two definitions say persist
+file:typed/real.ts hash:639284a39f47 | U19 A spelling: real's three definitions say persist
+file:typed/round10.ts hash:6a89dd03e692 | U19 A spelling: round 10's definition says persist
+file:typed/round6.ts hash:da49bc8b4cae | U19 A spelling: round 6's two definitions say persist
+file:typed/round7.ts hash:c89b2475caad | U19 A spelling: the bare helper maps its persisted option to persist
+file:typed/round8.ts hash:708b9febe29b | U19 A spelling: round 8's definition says persist
+file:typed/round9.ts hash:c33dbf308ecc | U19 A spelling: round 9's two definitions say persist (kept maps its option)
+file:typed/round9b.ts hash:88a89782dd84 | U19 A spelling: chain and edge map their persisted options to persist
+file:typed/stores.ts hash:2ba1248da14c | U19 A spelling: stores' two definitions say persist (s1 maps its option)
+file:compile/machine.ts hash:99a5a4fc1cc5 | U15 B, U19 A: the definition takes persist (default unchanged: true), compiled to the internal persisted
+file:compile/ref.ts hash:ad0017e72178 | U15 B: actorRef takes no options; ActorRefOf and ensureArgs carry no persist
+file:drive.ts hash:72e03f58c5c7 | the ensure step and use() pass no persist (U15 B)
+round:typed/type-tests.ts hash:4ca10c7a2a33 | U15 pins: a ref with a persist option is a type error; a definition takes persist: true
+round:checks/types-check.ts hash:ea306c95c3ed | states round 15's three directives (allow, cancel, a ref's persist) and their errors
+round:mutants-lifetime.ts hash:58138df1db68 | o6.settled-in-bound-stays-held retargeted: a definite ending kept Held in the disposal bound (an unknown now stays Held by design)
+round:mutants-r15.ts hash:c71514d22cab | adds r15.definition-persist-ignored (the definition's persist not read)
+round:adapter.ts hash:3e43b31ee5c9 | ensure and attach pass no persist (U15 B)
+output:R14-ID-02/a-description-change-is-no-new-version hash:002780d029c3 | U15: refPersist is gone from the world, so one fewer distinct state (6 to 5)
+output:R14-ID-03/two-refs-of-one-identity-agree-on-persistence-by-construction hash:453505b490d5 | new output: two ensures, one actor, its record kept after the grace
+removed:output:R14-FIX-01/a-late-exit-whose-transition-cancels-the-lane-goes | its variant was renamed ...-is-denied by R1; the stale output line goes with it
+removed:output:R14-ID-02/a-type-change-over-the-same-encoded-side-is-no-new-version | its variant was reversed by U17 B and renamed; the stale output line goes
+removed:output:R14-ID-03/after-dispose-the-next-ref-is-the-first | its variant was removed by U15 B; the stale output line goes
+removed:output:R14-ID-03/the-other-order-conflicts-the-other-way | its variant was removed by U15 B (the other order); its output line goes
+removed:output:R14-ID-03/two-refs-that-disagree-on-persist-conflict | its variant was removed by U15 B (refs carry no persist); its output line goes
+removed:output:R15-01/a-late-exit-that-cancels-the-lane-may-leave-its-promoted-head | its variant was reversed by R1; the stale output line goes
+removed:output:R15-01/a-late-exit-that-does-not-cancel-may-not-leave-its-promoted-head | its variant was dropped as redundant under R1; its output line goes
+round:mutants-lifetime.ts hash:210e501983d3 | drops id.no-conflict and m3.persist-survives-dispose (U15 removed the refPersist code they undid)
+round:mutants-lifetime-misc.ts hash:23ccbd628198 | misc.host-ensure-ends-at-once follows onEnsure's call without persist (U15)
+round:mutants-r15.ts hash:a95b87aa6157 | adds r15.restored-ending-not-owed-on-disk: REV8-PINS/D72 lost its only incidental killer when the old o6 mutant was retargeted

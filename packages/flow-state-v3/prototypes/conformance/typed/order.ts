@@ -17,7 +17,7 @@ const ring = definition({
   events: { Say: { n: U }, SayThenX: { n: U }, Loop: { n: U }, Nest: { n: U }, Nest1: { n: U }, Boom: { n: U }, WorkBad: { n: U, who: U }, Work: { n: U, who: U } },
   internalEvents: { JobDone: {}, JobUnsure: Flow.uncertain({}), JobRefused: {} },
   memory: { log: Flow.initial(S.Array(U), []) },
-  persisted: false,
+  persist: false,
   operations: ({ E }) => ({ job: job.outcomes({ success: E.JobDone, failure: { NotSent: E.JobRefused }, unknown: E.JobUnsure }) }),
 });
 export const ringFixture = fixture(
@@ -64,7 +64,7 @@ const drvMachine = (api: Api) => {
   events: { Go: { behaviour: U }, GoOther: { behaviour: U }, GoBoth: { behaviour: U }, Cancel: {} },
   internalEvents: { Ended: Flow.uncertain({ how: S.String }) },
   memory: { ends: Flow.initial(S.Array(U), []) },
-  persisted: false,
+  persist: false,
   operations: ({ E }) => {
     const outcomes = { success: E.Ended.from(() => ({ how: "success" })), failure: { Nope: E.Ended.from(() => ({ how: "failure" })), NotSent: E.Ended.from(() => ({ how: "notSent" })) }, unknown: E.Ended.from(() => ({ how: "unknown" })) };
     return { job: jobOp.outcomes(outcomes), other: otherOp.outcomes(outcomes) };

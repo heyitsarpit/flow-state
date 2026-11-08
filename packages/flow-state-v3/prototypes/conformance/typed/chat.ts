@@ -124,7 +124,7 @@ const presence = (api: Api) =>
       events: { Off: {} },
       internalEvents: { Seen: { who: U }, Ended: {} },
       memory: { seen: Flow.initial(S.Array(U), []) },
-      persisted: false,
+      persist: false,
       uses: ["sessions"],
       operations: () => ({}),
       streams: ({ E }) => ({

@@ -190,7 +190,8 @@ export const compileOp = (definition: string, name: string, b: AnyBound, events:
   // D221 (rule 39, round 13 mid review L5): a key field is required and has no default, so every key names its server thing by values the caller gave.
   for (const f of keyFields) {
     const s = (c.input as Record<string, Schema.Top>)[f];
-    if (s && (optionalOrDefaulted(f, s))) throw new Error(`KeyFieldOptional: ${definition} operations.${name} key field ${f} is optional or has a default (rule 39)`);
+    if (!s) throw new Error(`SealKeyField: ${definition} operations.${name} key field ${f} is not an input field (rule 39)`);
+    if (optionalOrDefaulted(f, s)) throw new Error(`KeyFieldOptional: ${definition} operations.${name} key field ${f} is optional or has a default (rule 39)`);
   }
   for (const tag of Object.keys((m.failure ?? {}) as object))
     if (FLOW_REASONS.has(tag) && !(c.kind !== "write" && (tag === "Defect" || tag === "Interrupted"))) throw new Error(`ReservedReason: ${definition} operations.${name} maps a failure tag ${tag}, which is one of Flow's reasons (rule 13)`);

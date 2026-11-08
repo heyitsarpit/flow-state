@@ -10,7 +10,7 @@ import { GRACE } from "./lifetime.scenario.ts";
 const T42 = { workspaceId: "north", ticketId: "T-42" };
 // A ref as the suite's step: the actor it names, and the ensure the design gives it (a value ref with its value as input, and no input of its own).
 const at = <I, F extends "value" | "singleton">(r: ActorRefOf<I, F>) => ({ actor: r.machine, id: r.id });
-const ensureStep = (a: ReturnType<typeof ensureArgs>): Step => ({ ensure: { actor: a.machine, id: a.id }, ...(a.input === undefined ? {} : { input: a.input }), ...(a.identity ? { identity: a.identity } : {}), persist: a.persist });
+const ensureStep = (a: ReturnType<typeof ensureArgs>): Step => ({ ensure: { actor: a.machine, id: a.id }, ...(a.input === undefined ? {} : { input: a.input }), ...(a.identity ? { identity: a.identity } : {}) });
 
 export const identityScenarios: readonly Scenario[] = [
   {
@@ -130,13 +130,12 @@ export const identityScenarios: readonly Scenario[] = [
     },
   },
   {
-    // A singleton: a literal name, for a machine with no input (rule 74, D4: the form is fixed per machine by the types). `ConflictingActorRef` is
-    // left for two refs of one identity that disagree on `persist`.
+    // A singleton: a literal name, for a machine with no input (rule 74, D4: the form is fixed per machine by the types). Persistence is the
+    // machine's (U15 B), so refs cannot disagree on it.
     id: "R14-ID-03",
     kind: "example",
     fixtures: [sessionFixture, editorFixture()],
     cites: ["rule:74", "sec:2.7.19"],
-    namedIssues: ["ConflictingActorRef"],
     variants: {
       "a-singleton-is-its-name"(c0) {
         c0.eq("its name is its identity", SessionRef.id, "coordinator");
@@ -148,36 +147,20 @@ export const identityScenarios: readonly Scenario[] = [
         c.do(ensureStep(ensureArgs(SessionRef)));
         c.eq("returned from its record", c.mem().pings, 1);
       },
-      "two-refs-that-disagree-on-persist-conflict"(c0) {
+      // U15 B, U19 A (OD48; rule 74): "refs carry no `persist`, so every ref of an identity agrees by construction". Two refs of one identity,
+      // made apart, ensure the one persisted actor with no ConflictingActorRef; its record is saved at the end, as the definition says.
+      "two-refs-of-one-identity-agree-on-persistence-by-construction"(c0) {
         const r1 = editorRef(T42);
+        const r2 = actorRef(Editor1, T42);
         const c = new Ctx(c0.fresh([editorFixture()]), at(r1));
         c.do(ensureStep(ensureArgs(r1)));
-        const r2 = actorRef(Editor1, T42, { persist: false });
         c.do(ensureStep(ensureArgs(r2)));
-        c.eq("refused at ensure", c.r.issues().filter((i) => i.code === "ConflictingActorRef").map((i) => i.input), [{ key: c.r.actorKey(at(r1)), persist: [true, false] }]);
+        c.eq("one identity, no conflict", [r2.id === r1.id, c.r.issues().filter((i) => i.code === "ConflictingActorRef").length], [true, 0]);
+        c.detach(at(r1));
+        c.detach(at(r1));
+        c.advance(GRACE);
+        c.yes("persisted by the definition: its record stays", c.record(at(r1)) !== undefined);
         void EditorId;
-      },
-      // M3 (fix pass): the other order; the first ref of the identity says persist, so the refusal names it first.
-      "the-other-order-conflicts-the-other-way"(c0) {
-        const r1 = editorRef(T42);
-        const r2 = actorRef(Editor1, T42, { persist: false });
-        const c = new Ctx(c0.fresh([editorFixture()]), at(r1));
-        c.do(ensureStep(ensureArgs(r2)));
-        c.do(ensureStep(ensureArgs(r1)));
-        c.eq("refused at ensure", c.r.issues().filter((i) => i.code === "ConflictingActorRef").map((i) => i.input), [{ key: c.r.actorKey(at(r1)), persist: [false, true] }]);
-      },
-      // M3: `disposeActor` ends the identity for every user (Runtime O6), so the next ref to ensure it is its first; no conflict. Who wins across
-      // a dispose is the runtime's call here, not yet the design's (STATUS.md).
-      "after-dispose-the-next-ref-is-the-first"(c0) {
-        const r1 = editorRef(T42);
-        const r2 = actorRef(Editor1, T42, { persist: false });
-        const c = new Ctx(c0.fresh([editorFixture()]), at(r1));
-        c.do(ensureStep(ensureArgs(r1)));
-        c.dispose(at(r1));
-        c.do(ensureStep(ensureArgs(r2)));
-        c.eq("no conflict", c.r.issues().filter((i) => i.code === "ConflictingActorRef").length, 0);
-        c.do(ensureStep(ensureArgs(r1)));
-        c.eq("now r2's persist is the first", c.r.issues().filter((i) => i.code === "ConflictingActorRef").map((i) => i.input), [{ key: c.r.actorKey(at(r1)), persist: [false, true] }]);
       },
     },
   },

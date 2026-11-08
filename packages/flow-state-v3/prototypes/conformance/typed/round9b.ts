@@ -30,7 +30,7 @@ const chain = (persisted: boolean, local: boolean) => {
       n: Flow.initial(S.Number, 0), i: Flow.initial(S.Number, 0), ok: Flow.initial(S.Number, 0), dup: Flow.initial(S.Number, 0),
       spun: Flow.initial(S.Number, 0), stopped: Flow.initial(S.Boolean, false), presses: Flow.initial(S.Number, 0), heard: Flow.initial(S.Boolean, false),
     },
-    persisted,
+    persist: persisted,
     ...(local ? { local: true as const } : {}),
     operations: ({ E }) => ({
       row: row.outcomes({ success: E.RowOk, failure: { Duplicate: E.RowDup, NoResponse: E.RowLost, Defect: E.RowLost, Interrupted: E.RowLost } }),
@@ -161,7 +161,7 @@ const edge = (persisted: boolean, local: boolean) => {
       BigOk: {}, BigNo: {}, BigUnsure: Flow.uncertain({}),
     },
     memory: { presses: Flow.initial(S.Number, 0), ids: Flow.initial(S.Array(S.String), []), last: Flow.initial(U, null), qd: S.optionalKey(S.Boolean) },
-    persisted,
+    persist: persisted,
     ...(local ? { local: true as const } : {}),
     operations: ({ E }) => ({
       save: edgeSave.outcomes({

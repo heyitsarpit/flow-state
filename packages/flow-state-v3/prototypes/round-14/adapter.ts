@@ -335,11 +335,11 @@ export const port: Port = {
     const store = (w: World) => w.ext["entities"] as Slice | undefined;
     const reg = REGISTRY["entities"]!;
     return {
-      ensure: (actor, machine, input, identity, persist) => rt.input({ k: "ensure", actor, machine, input, ...(identity ? { identity } : {}), ...(persist === undefined ? {} : { persist }) }),
+      ensure: (actor, machine, input, identity) => rt.input({ k: "ensure", actor, machine, input, ...(identity ? { identity } : {}) }),
       send: (actor, event) => rt.input({ k: "send", actor, event }),
       dispose: (actor) => rt.input({ k: "dispose", actor }), // Story `dispose(ref)` is `disposeActor` (OD31): the record goes
-      attach: (actor, machine, input, owner, existing, identity, persist) =>
-        rt.input({ k: "attach", actor, machine, input, owner, ...(existing ? { existing: true } : {}), ...(identity ? { identity } : {}), ...(persist === undefined ? {} : { persist }) }),
+      attach: (actor, machine, input, owner, existing, identity) =>
+        rt.input({ k: "attach", actor, machine, input, owner, ...(existing ? { existing: true } : {}), ...(identity ? { identity } : {}) }),
       detach: (actor, owner) => rt.input({ k: "detach", actor, owner }),
       // Reads (2.7.17): a handle follows the identity. The live incarnation; with none, a persisted identity's record in the Runtime's copy
       // (lifecycle active); with neither, the last incarnation's terminal snapshot (disposed), or the pre-attach snapshot (none).
@@ -355,9 +355,10 @@ export const port: Port = {
       inspect: (actor) => {
         const w = rt.world();
         const t = w.timers[`grace/${actor}`];
-        const bound = getActor(w.actors, actor) ?? w.retired[actor] ?? w.undecodable[actor];
+        const bound = getActor(w.actors, actor) !== undefined || Object.hasOwn(w.retired, actor) || Object.hasOwn(w.undecodable, actor);
         const unbound = bound ? [] : Object.values(w.lanes).filter((l) => l.actor === actor).map((l) => l.id);
-        return { uses: w.uses[actor] ?? [], busy: busyOf(w, actor), ...(t ? { grace: t.dueAt } : {}), waiting: Object.values(w.waiting).filter((x) => x.actor === actor).map((x) => x.id), unbound };
+        const quarantined = Object.keys(w.quarantined).filter((id) => id.startsWith(`${actor}|`));
+        return { uses: w.uses[actor] ?? [], busy: busyOf(w, actor), ...(t ? { grace: t.dueAt } : {}), waiting: Object.values(w.waiting).filter((x) => x.actor === actor).map((x) => x.id), unbound, quarantined };
       },
       disposeRuntime: () => rt.input({ k: "disposeRuntime" }),
       repeatLastCompletion: () => {

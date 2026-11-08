@@ -55,7 +55,7 @@ const page = (api: Api) =>
         removing: Flow.initial(U, null),
         coupon: Flow.initial(U, { code: null, status: "none", predictedTotalCents: null, reason: null }),
       },
-      persisted: false,
+      persist: false,
       uses: ["entities"],
       domain: domainOf(api),
       operations: ({ E }) => ({
@@ -126,7 +126,7 @@ const mini = (api: Api) =>
       events: { Remove: { lineId: S.String } },
       internalEvents: { Removed: {}, RemoveUnsure: Flow.uncertain({}) },
       memory: { cartId: Flow.input(U) },
-      persisted: false,
+      persist: false,
       uses: ["entities"],
       domain: domainOf(api),
       operations: ({ E }) => ({ removeLine: removeLine.outcomes({ success: E.Removed, failure: { LineGone: E.Removed, NotSent: E.Removed }, unknown: E.RemoveUnsure }) }),

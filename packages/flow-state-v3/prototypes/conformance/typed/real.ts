@@ -62,7 +62,7 @@ const addr = definition({
   events: { Leave: {}, Go: {} },
   internalEvents: {},
   memory: { address: Flow.initial(U, null), addressDraft: Flow.initial(U, emptyAddress), quotes: Flow.initial(S.Array(U), []) },
-  persisted: false,
+  persist: false,
   operations: () => ({}),
 });
 export const addressFixture = fixture(
@@ -123,7 +123,7 @@ const ticket = definition({
   events: { Close: {}, Resolve: {} },
   internalEvents: {},
   memory: { drafts: Flow.initial(S.Array(U), []), resolved: Flow.initial(U, null), discarded: Flow.initial(U, null), sideGone: Flow.initial(S.Number, 0) },
-  persisted: false,
+  persist: false,
   operations: () => ({}),
 });
 export const ticketFixture = fixture(
@@ -397,7 +397,7 @@ const deepDef = definition({
   events: { Far: {}, Near: {}, SetRows: { rows: S.Array(S.String) }, Away: {}, Back: {}, Mid: {}, Poke: {}, OddEntry: {}, ToC: {}, Run: {}, TypeAndLeave: {} },
   internalEvents: { Done: {}, Failed: {}, Unsure: Flow.uncertain({}), GiveUp: {} },
   memory: { at: Flow.initial(U, null), gone: Flow.initial(U, null), rows: Flow.initial(S.Array(S.String), []), pokes: Flow.initial(S.Number, 0) },
-  persisted: false,
+  persist: false,
   operations: ({ E }) => ({ job: job.outcomes({ success: E.Done, failure: { NotSent: E.Failed }, unknown: E.Unsure }) }),
 });
 const deep = (start: "A" | "B" | "C" | "FAR" | "FIELD" | "MID" | "AWAY" | "HERE" | "WAIT" | "BADMS") =>

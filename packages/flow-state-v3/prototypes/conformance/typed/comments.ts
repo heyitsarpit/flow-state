@@ -140,7 +140,7 @@ const domainOf = (api: Api): DomainIn => ({
 });
 const editor = (api: Api) =>
   machine(
-    definition({ id: "Desk/Editor", states: ["READY"], events: {}, internalEvents: {}, memory: {}, persisted: false, uses: ["entities"], domain: domainOf(api), traits: { comments: Comments }, operations: () => ({}) }),
+    definition({ id: "Desk/Editor", states: ["READY"], events: {}, internalEvents: {}, memory: {}, persist: false, uses: ["entities"], domain: domainOf(api), traits: { comments: Comments }, operations: () => ({}) }),
     ({ S: St }) => ({ default: St.READY, traits: { comments: { input: () => ({ ticketId: "T-42" }) } } }),
   );
 const queue = (api: Api) =>
@@ -151,7 +151,7 @@ const queue = (api: Api) =>
       events: { Preview: { id: U } },
       internalEvents: {},
       memory: { previewId: Flow.initial(U, "T-1") },
-      persisted: false,
+      persist: false,
       uses: ["entities"],
       domain: domainOf(api),
       traits: { comments: Comments },
@@ -174,7 +174,7 @@ const previewer = (api: Api) =>
       events: { Preview: { id: S.NullOr(S.String) } },
       internalEvents: {},
       memory: { previewId: Flow.initial(S.NullOr(S.String), null) },
-      persisted: false,
+      persist: false,
       uses: ["entities"],
       domain: domainOf(api),
       traits: { comments: Comments },

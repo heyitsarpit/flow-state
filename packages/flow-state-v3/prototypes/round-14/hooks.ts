@@ -18,6 +18,7 @@ export const run = <A extends unknown[], B>(slot: Slot<(...a: A) => B>, ...a: A)
 };
 const cxFor = (tx: Tx, m: Module<any>): Cx => ({
   now: tx.env.now,
+  live: tx.w.status === "live",
   queueMax: tx.bounds.queueMax,
   repairMs: tx.bounds.repairMs,
   pageMs: tx.bounds.pageMs,

@@ -502,7 +502,7 @@ export const makeHarness = (port: Port) => (): Harness => {
   };
   const ended = new Set<string>(); // attempts with an `ending` said
   const openAttempts = (op?: string) => [...attemptActor].filter(([a]) => !ended.has(a) && (op === undefined || madeOp.get(a) === op));
-  const cancelSeen = (actor: string, op: string, att?: string, placed = att) => {
+  const cancelSeen = (actor: string, op: string, att?: string, placed = att, own = false) => {
     const evs = drivenTo.get(actor);
     if (!evs) return false;
     // Stage G, per copy: an event the suite sent to one copy (`to`) cancels nothing in another copy of the attempt's.
@@ -510,7 +510,8 @@ export const makeHarness = (port: Port) => (): Harness => {
     const reaches = (ev: string) => !copy || copy.path.length === 0 || [...(drivenPath.get(actor)?.get(ev) ?? [""])].some((p) => p === "" || prefix(JSON.parse(p), copy.path) || prefix(copy.path, JSON.parse(p)));
     // An ending's own mapped event is no cause for that same op's ending: an ending hidden as evidence would excuse itself (lie.like2nc-released).
     // Stage E: nor is a restored ending's, after a reload, a cause for that same attempt (SURV-03's lie: `reload:` names the attempt).
-    for (const [ev, from] of evs) if ([...from].some((o) => o !== op && o !== `reload:${att}`) && reaches(ev) && refm().cancelsOn(machineOf(actor), op, ev, leafPrev.get(actor) ?? leafOf(actor)) !== "no") return true;
+    // Round 15: for (h) only (`own`), a hold released by its own ending's handler (`cancel` in the unknown's handler, live or restored) has a cause.
+    for (const [ev, from] of evs) if ([...from].some((o) => own || (o !== op && o !== `reload:${att}`)) && reaches(ev) && refm().cancelsOn(machineOf(actor), op, ev, leafPrev.get(actor) ?? leafOf(actor)) !== "no") return true;
     return false;
   };
   // Stage K, D9 and D11 (`conformance-audit/ending-check-design.md`): a restored ending is due at the boot, before any input the suite drove
@@ -532,11 +533,11 @@ export const makeHarness = (port: Port) => (): Harness => {
   const subs = new Map<string, number>();
   const mounts = new Map<string, number>();
   const usesHeld = (key: string) => (held.get(key) ?? 0) + (subs.get(key) ?? 0) + (mounts.get(key) ?? 0);
-  const use = (key: string, machine: string, input: unknown, identity?: readonly string[], persist?: boolean) => {
+  const use = (key: string, machine: string, input: unknown, identity?: readonly string[]) => {
     if (inst.attach) {
       bump(held, key, 1);
-      inst.attach(key, machine, input, "story", false, identity, persist);
-    } else inst.ensure(key, machine, input, identity, persist);
+      inst.attach(key, machine, input, "story", false, identity);
+    } else inst.ensure(key, machine, input, identity);
   };
   // Onto what the boot restored, or a record kept at ready: a re-attach restores it from the Runtime's copy and creates nothing, so a record
   // quarantined at boot stays absent until a case asks (a pending use, as a subscription on an identity with neither waits).
@@ -649,7 +650,7 @@ export const makeHarness = (port: Port) => (): Harness => {
     if (att === undefined) return false;
     const actor = attemptActor.get(att);
     if (actor === undefined) return false;
-    return lifeOver(att) === true || moveLetsGo(actor, op, att) || cancelSeen(actor, op, self ? undefined : att, att) || ignoredUnknown.has(att);
+    return lifeOver(att) === true || moveLetsGo(actor, op, att) || cancelSeen(actor, op, self ? undefined : att, att, self) || ignoredUnknown.has(att);
   };
   // Round 14 (OD28): whether the compiled mapping says `Flow.ignore` for an `ignored` evidence's channel and reason. Undefined: no owner the suite knows.
   // A decline has no attempt; its owners are the actors whose declines of the op the suite placed.
@@ -1526,7 +1527,7 @@ export const makeHarness = (port: Port) => (): Harness => {
       lifeBefore.set(actorKey(s.dispose), lifeOf.get(actorKey(s.dispose)) ?? 0);
     }
     if ("ensureAs" in s) inst.ensure(actorKey(s.ensureAs.key), s.ensureAs.machine); // D137: a key and a machine that do not agree, as a host's bug would give
-    else if ("ensure" in s) use(actorKey(s.ensure), s.ensure.actor, s.input, s.identity, s.persist);
+    else if ("ensure" in s) use(actorKey(s.ensure), s.ensure.actor, s.input, s.identity);
     else if ("hostEnsure" in s) inst.ensure(actorKey(s.hostEnsure), s.hostEnsure.actor, s.input);
     else if ("detach" in s || "unsubscribe" in s || "unmount" in s || "subscribe" in s || "mount" in s) {
       if (!inst.attach || !inst.detach) throw new Error("this runtime has no uses");
@@ -1584,6 +1585,13 @@ export const makeHarness = (port: Port) => (): Harness => {
     // The reload is the seen cause here, not the ending, so a restored ending's event may let its own op go.
     // Per owner (re-check inventory 3): only the attempts still open, each to its own actor, by its own machine's mapping.
     for (const [att, owner] of openAttempts()) for (const ev of refm().mappedEvents(machineOf(owner), madeOp.get(att)!)) drive(owner, ev, `reload:${att}`);
+    // Round 15: an ending parked on disk (ended, so not open) is delivered at the boot too; its mapped events are as driven as an open one's.
+    for (const p of port.disk.parked(new Map(fake.kv))) {
+      const scope = port.disk.scope(p.lane);
+      if (scope === undefined || offActors.has(scope)) continue; // bytes the case edited or tore drive nothing
+      const owner = attemptActor.get(String(p.attempt));
+      if (owner !== undefined) for (const ev of refm().mappedEvents(machineOf(owner), String(p.op))) drive(owner, ev, `reload:${p.attempt}`);
+    }
     // Review M6: a parked ending a run took is written away. At a kill with every write landed and no capture interval (the suite's bounds),
     // one still parked on disk is red: the next boot would deliver it again (rule 17).
     {

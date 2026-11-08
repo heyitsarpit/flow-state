@@ -19,7 +19,6 @@ export type ActorRefOf<I, F extends "value" | "singleton"> = {
   readonly form: F;
   readonly fields: readonly string[]; // the identity's version: each field with its Schema, in name order (empty for a singleton)
   readonly input: F extends "value" ? I : undefined; // the value is the input
-  readonly persist: boolean;
   readonly _I?: (i: I) => I;
 };
 type MachineTyped<M extends MemoryFields> = { readonly compiled: Typed<never>["compiled"]; readonly _M?: (m: M) => M };
@@ -71,19 +70,17 @@ type NoInput<M extends MemoryFields> = [InputKeys<M>] extends [never] ? unknown 
 export function actorRef<M extends MemoryFields, const N extends string>(
   machine: MachineTyped<M> & NoInput<M>,
   name: NameArg<N>,
-  options?: { readonly persist?: boolean },
 ): ActorRefOf<InputOf<M>, "singleton">;
 export function actorRef<M extends MemoryFields>(
   machine: MachineTyped<M> & (StringEncoded<M> extends true ? unknown : never),
   value: InputOf<M>, // not a type variable: a fresh literal's extra field is an excess property; a wider value is kept to its fields
-  options?: { readonly persist?: boolean },
 ): ActorRefOf<InputOf<M>, "value">;
-export function actorRef(machine: { readonly compiled: Typed<never>["compiled"] }, nameOrValue: unknown, options?: { readonly persist?: boolean }): ActorRefOf<any, any> {
+// U15 B, U19 A (OD48): a ref carries no `persist`; persistence is the machine's, on its definition, so every ref of an identity agrees.
+export function actorRef(machine: { readonly compiled: Typed<never>["compiled"] }, nameOrValue: unknown): ActorRefOf<any, any> {
   const c = machine.compiled;
-  const persist = options?.persist ?? c.persisted;
   if (typeof nameOrValue === "string") {
     if (c.identityFields?.length) throw new Error(`ValueNamedMachine: ${c.id} has input fields, so it is named only by value (D4)`);
-    return { machine: c.id, id: nameOrValue, form: "singleton", fields: [], input: undefined, persist };
+    return { machine: c.id, id: nameOrValue, form: "singleton", fields: [], input: undefined };
   }
   const fields = [...(c.identityFields ?? [])];
   if (fields.length === 0) throw new Error(`NoIdentityFields: ${c.id} has no Flow.input fields, so it can only be a singleton (rule 74)`);
@@ -91,16 +88,13 @@ export function actorRef(machine: { readonly compiled: Typed<never>["compiled"] 
   for (const f of fields) if (!(f in given)) throw new Error(`IdentityFieldMissing: ${c.id} ${f} (rule 74)`);
   const input = Object.fromEntries(fields.map((f) => [f, given[f]])); // Flow keeps only the input fields
   const encoded = Object.fromEntries(fields.map((f) => [f, encodeField(c.id, f, c.memory.fields![f]!.schema, given[f])]));
-  return { machine: c.id, id: encodeId(fields, encoded), form: "value", fields: c.identityVersion ?? fields, input, persist };
+  return { machine: c.id, id: encodeId(fields, encoded), form: "value", fields: c.identityVersion ?? fields, input };
 }
-// Ensuring (2.7.19, D4): a value ref takes no input, because the value is the input; a singleton has none. The ref's `persist` goes with the
-// ensure, so two refs of one identity that disagree are `ConflictingActorRef` there.
+// Ensuring (2.7.19, D4): a value ref takes no input, because the value is the input; a singleton has none.
 export const ensureArgs = <I, F extends "value" | "singleton">(
   ref: ActorRefOf<I, F>,
-): { readonly machine: string; readonly id: string; readonly input: unknown; readonly identity?: readonly string[]; readonly persist: boolean } =>
-  ref.form === "value"
-    ? { machine: ref.machine, id: ref.id, input: ref.input, identity: ref.fields, persist: ref.persist }
-    : { machine: ref.machine, id: ref.id, input: undefined, persist: ref.persist };
+): { readonly machine: string; readonly id: string; readonly input: unknown; readonly identity?: readonly string[] } =>
+  ref.form === "value" ? { machine: ref.machine, id: ref.id, input: ref.input, identity: ref.fields } : { machine: ref.machine, id: ref.id, input: undefined };
 // The identity fields, as the compiler finds them: every `Flow.input` field, sorted by name (the order a reorder cannot change).
 export const identityFieldsOf = (m: MemoryFields): readonly string[] =>
   Object.entries(m)

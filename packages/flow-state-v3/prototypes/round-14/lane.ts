@@ -220,13 +220,21 @@ export const parkWaiting = (tx: Tx, lane: Lane): Lane => {
   });
   return { ...lane, w: [], parked: [...lane.parked, ...parked] };
 };
+// Runtime O6: an ending during disposal is a pending mapped outcome, parked, W after it in lane order. An unknown keeps its head on disk Held, so the
+// key the server may hold can be re-sent by the same Attempt; a definite ending leaves no head.
+const parkAtDisposal = (tx: Tx, lane: Lane, e: Ending) => {
+  const h = lane.head!;
+  note(tx, "parked", { op: lane.op, attempt: h.id });
+  const parked = [...lane.parked, { attempt: h.id, ending: e, owner: h.owner, input: h.input }];
+  const { head: _h, ...rest } = lane;
+  setLane(tx, parkWaiting(tx, e.ch === "unknown" ? { ...lane, head: { ...h, mayHaveApplied: true, phase: { t: "held" } }, parked } : { ...rest, parked }));
+};
 export const endPastDisposal = (tx: Tx, lane: Lane) => {
   const h = lane.head!;
   const e: Ending = { ch: "unknown", reason: "Disposed" };
   noteEnding(tx, { op: lane.op, attempt: h.id }, e);
-  note(tx, "parked", { op: lane.op, attempt: h.id });
-  const head = { ...h, mayHaveApplied: true, phase: { t: "held" } as const };
-  setLane(tx, parkWaiting(tx, { ...lane, head, parked: [...lane.parked, { attempt: h.id, ending: e, owner: h.owner, input: h.input }] }));
+  tellEnded(tx, h.id, e, h.sentAt);
+  parkAtDisposal(tx, lane, e);
 };
 // The lane is empty: gone, unless a parked ending still needs it (2.9.3).
 const emptied = (tx: Tx, lane: Lane) => {
@@ -542,8 +550,12 @@ const ACTIONS: Readonly<Record<Action, (tx: Tx, lane: Lane | undefined, a: CellA
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
 // The same key fields, in any order: the same op version (a reorder changes no key, since a key is a record).
+// A stamp written before Schema versions joined it (bare field names) compares by names: a change of Flow's own stamp format is no new version.
+const nameOf = (f: string) => f.split("#")[0];
 export const sameFields = (a: readonly string[] | undefined, b: readonly string[] | undefined) =>
-  a === undefined || b === undefined || (a.length === b.length && a.every((f) => b.includes(f)));
+  a === undefined ||
+  b === undefined ||
+  (a.length === b.length && ([...a, ...b].some((f) => !f.includes("#")) ? a.every((f) => b.some((g) => nameOf(g) === nameOf(f))) : a.every((f) => b.includes(f))));
 // Round 13 (D221): a mint stamps the fields its key is made under now; U17 B, each with its Schema's version where the compiler gave one.
 export const stampFields = (o: { readonly keyFields?: readonly string[]; readonly keyVersion?: readonly string[] } | undefined) => o?.keyVersion ?? o?.keyFields;
 function stampOf(tx: Tx, machine: string, op: string): { keyFields?: readonly string[] } {
@@ -625,17 +637,7 @@ export const settleSend = (tx: Tx, lane: Lane, send: string, ending: Ending) => 
     head: { ...h, mayHaveApplied: h.mayHaveApplied || final.ch === "unknown" },
   };
   tellEnded(tx, h.id, final, h.sentAt);
-  if (tx.w.status === "disposing") {
-    // Runtime O6: settled within the bound, the ending is a pending mapped outcome, as `disposeSettled` parks one; the Attempt has ended,
-    // so no head is left Held (a parked unknown holds again when it is delivered, `byEnding`).
-    const parked = {
-      ...next,
-      parked: [...next.parked, { attempt: h.id, ending: final, owner: h.owner, input: h.input }],
-    };
-    note(tx, "parked", { op: lane.op, attempt: h.id });
-    const { head: _h, ...rest } = parkWaiting(tx, parked);
-    return setLane(tx, rest);
-  }
+  if (tx.w.status === "disposing") return parkAtDisposal(tx, next, final);
   settleHead(tx, next, final);
 };
 export const interruptReason = (e: Ending) =>

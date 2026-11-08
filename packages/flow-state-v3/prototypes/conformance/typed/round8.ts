@@ -264,7 +264,7 @@ const loop = definition({
   events: { Go: {} },
   internalEvents: { Ok: {}, No: {}, Unsure: Flow.uncertain({}) },
   memory: { loops: Flow.initial(S.Number, 0) },
-  persisted: false,
+  persist: false,
   operations: ({ E }) => ({ w: w.outcomes({ success: E.Ok, failure: { NotSent: E.No }, unknown: E.Unsure }) }),
 });
 export const loopFixture = fixture(

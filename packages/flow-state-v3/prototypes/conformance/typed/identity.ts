@@ -19,7 +19,7 @@ const editorV1 = () => {
     events: editorEvents,
     internalEvents: editorInternal,
     memory: { workspaceId: Flow.input(S.String), ticketId: Flow.input(S.String), title: Flow.initial(S.String, ""), saved: Flow.initial(S.Number, 0) },
-    persisted: true,
+    persist: true,
     operations: editorOps,
   });
   return machine(d, ({ S: St, O }) => ({
@@ -39,7 +39,7 @@ const editorV2 = () => {
     events: editorEvents,
     internalEvents: editorInternal,
     memory: { workspaceId: Flow.input(S.String), ticketId: Flow.input(S.String), region: Flow.input(S.String), title: Flow.initial(S.String, ""), saved: Flow.initial(S.Number, 0) },
-    persisted: true,
+    persist: true,
     operations: editorOps,
   });
   return machine(d, ({ S: St, O }) => ({
@@ -62,7 +62,7 @@ const editorV3 = (ticketId: typeof S.NumberFromString | typeof S.NonEmptyString 
     events: editorEvents,
     internalEvents: editorInternal,
     memory: { workspaceId: Flow.input(S.String), ticketId: Flow.input(ticketId), title: Flow.initial(S.String, ""), saved: Flow.initial(S.Number, 0) },
-    persisted: true,
+    persist: true,
     operations: () => ({}),
   });
   return machine(d, ({ S: St }) => ({ default: St.OPEN, on: { Title: { updateMemory: ({ event }) => ({ title: event.title }) } } }));
@@ -79,11 +79,11 @@ const session = definition({
   events: { Ping: {} },
   internalEvents: {},
   memory: { pings: Flow.initial(S.Number, 0) }, // D4: a singleton's machine has no input
-  persisted: true,
+  persist: true,
   operations: () => ({}),
 });
 export const Session = machine(session, ({ S: St }) => ({ default: St.ON, on: { Ping: { updateMemory: ({ memory }) => ({ pings: memory.pings + 1 }) } } }));
 export const sessionFixture = fixture(Session);
 // The refs, as an app writes them (2.7.19).
-export const editorRef = (ticket: { readonly workspaceId: string; readonly ticketId: string }) => actorRef(Editor1, ticket, { persist: true });
-export const SessionRef = actorRef(Session, "coordinator", { persist: true });
+export const editorRef = (ticket: { readonly workspaceId: string; readonly ticketId: string }) => actorRef(Editor1, ticket);
+export const SessionRef = actorRef(Session, "coordinator");

@@ -356,7 +356,7 @@ export const restore = (tx: Tx, records: ReadonlyArray<readonly [string, string]
     undecodable,
   };
   const recorded = new Set([...actors, ...retired].map(([k]) => k));
-  for (const [, l] of lanes) if (!recorded.has(l.actor) && !undecodable[l.actor]) note(tx, "UnboundLane", { actor: l.actor, op: l.op, lane: l.id });
+  for (const [, l] of lanes) if (!recorded.has(l.actor) && !Object.hasOwn(undecodable, l.actor)) note(tx, "UnboundLane", { actor: l.actor, op: l.op, lane: l.id });
   for (const t of timers) {
     const { gen: _g, ...spec } = t;
     armTimer(tx, spec);
@@ -393,7 +393,7 @@ export const restore = (tx: Tx, records: ReadonlyArray<readonly [string, string]
       // Delivered from the parked list. A hold stays a hold: rule 17, and a new write beside it would be a second charge.
       if (h.held) {
         setLane(tx, { ...base, head: revive(h, { t: "held" }, true), subject: l.subject ?? [] });
-        restoredHook(tx, l, h, { ch: "unknown", reason: "Restored" });
+        restoredHook(tx, l, h, parked.find((p) => p.attempt === h.id)!.ending);
       } else deleteOnly(tx, l.id, l.actor);
     } else {
       noteEnding(tx, { op: l.op, attempt: h.id }, ending);

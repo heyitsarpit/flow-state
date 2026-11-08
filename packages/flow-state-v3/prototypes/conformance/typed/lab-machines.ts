@@ -52,7 +52,7 @@ const form = definition({
     goneRows: Flow.initial(S.Array(U), []), dirty: Flow.initial(Strs, []), spin: Flow.initial(S.Number, 0), kick: Flow.initial(S.Number, 0),
     spinning: Flow.initial(S.Boolean, false), resets: Flow.initial(S.Number, 0), flashes: Flow.initial(S.Number, 0), moved: Flow.initial(S.Boolean, false),
   },
-  persisted: false,
+  persist: false,
   traits: { check: Field, rows: Field.each({ of: "rowIds", max: 2 }), osc: Osc },
   operations: () => ({}),
 });

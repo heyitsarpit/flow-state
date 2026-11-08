@@ -134,6 +134,12 @@ transaction({
     return Effect.void;
   },
 });
+// Round 15 (U5, OD48): `allow` is cut from v1, so `transaction` takes `reject`, `latest` or `serialize`. `cancel` is refused too: a test of today's
+// API (`Op["concurrency"]`), which the design lists as a v1 policy (C153), so this pin records the gap rather than endorsing it.
+// @ts-expect-error `allow` is cut from v1 (U5)
+transaction({ id: "t/allow", input: {}, key: [], concurrency: "allow", commit: () => Effect.void });
+// @ts-expect-error `cancel` is not in today's `transaction` concurrency type (C153 lists it)
+transaction({ id: "t/cancel", input: {}, key: [], concurrency: "cancel", commit: () => Effect.void });
 // Round 14 (OD28): `Flow.ignore` stands wherever a mapping takes one event.
 const TI = definition({ id: "T/Ign", states: ["A"], events: {}, internalEvents: { Ok: {} }, memory: {}, operations: ({ E }) => ({ s: save.outcomes({ success: Flow.ignore, failure: { Refused: Flow.ignore, NotSent: E.Ok }, unknown: Flow.ignore }) }) });
 void TI;
@@ -144,8 +150,12 @@ machine(TI, ({ S }) => ({ default: S.A, on: { Ok: { updateMemory: () => ({}) } }
 const ED = definition({ id: "T/Editor", states: ["A"], events: {}, internalEvents: {}, memory: { workspaceId: Flow.input(Schema.String), ticketId: Flow.input(Schema.String), title: Flow.initial(Schema.String, "") }, operations: () => ({}) });
 const EM = machine(ED, ({ S }) => ({ default: S.A }));
 const T42 = { workspaceId: "north", ticketId: "T-42" };
-const editor = actorRef(EM, T42, { persist: true });
+const editor = actorRef(EM, T42);
 ensureArgs(editor);
+// @ts-expect-error a ref carries no persist: persistence is the machine's, on its definition (U15, U19)
+actorRef(EM, T42, { persist: true });
+const PD = definition({ id: "T/Persisted", states: ["A"], events: {}, internalEvents: {}, memory: {}, persist: true, operations: () => ({}) });
+void PD;
 // @ts-expect-error a value-named ref takes no input at ensure: the value is the input
 ensureArgs(editor, { input: T42 });
 // @ts-expect-error a value missing an input field names no actor

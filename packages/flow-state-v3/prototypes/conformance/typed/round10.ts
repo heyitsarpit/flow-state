@@ -24,7 +24,7 @@ const d = definition({
   events: { ToF: {}, Out: {}, Forget: {} },
   internalEvents: {},
   memory: {},
-  persisted: false,
+  persist: false,
   operations: () => ({}),
 });
 // The host's `cancel` of its fragment's op: rule 50 forbids it, so it is the named seam `labHostOp` (D212, finding F3).

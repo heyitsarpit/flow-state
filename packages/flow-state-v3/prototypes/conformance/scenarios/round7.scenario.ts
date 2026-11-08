@@ -339,6 +339,7 @@ export const round7Scenarios: readonly Scenario[] = [
         c.fault({ corruptStored: { match: "lane/", edit: () => '{"head":"junk"}' } });
         c.reload();
         c.eq("named", c.r.issues().filter((i) => i.code === "RecordQuarantined").length, 1);
+        c.eq("U4 (OD48): Inspection lists it under the identity", c.r.inspect(A)?.quarantined?.length, 1);
         c.eq("the row says uncertain", c.r.row(A, "charge", {})?.uncertain, true);
         const p = c.mem().peeks;
         c.send("IfIdle");
@@ -347,6 +348,7 @@ export const round7Scenarios: readonly Scenario[] = [
         c.eq("a commit declines", c.lastEnding("charge")?.["reason"], "Rejected");
         c.send("Forget"); // U's owner: clears it, and the record goes
         c.eq("the row says", c.r.row(A, "charge", {})?.uncertain ?? false, false);
+        c.eq("and Inspection lists nothing", c.r.inspect(A)?.quarantined, []);
         c.reload();
         c.eq("gone for good: not named again", c.r.issues().filter((i) => i.code === "RecordQuarantined").length, 1);
       },

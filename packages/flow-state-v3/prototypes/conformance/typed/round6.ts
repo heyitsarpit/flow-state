@@ -102,7 +102,7 @@ const diesD = definition({
   events: { Go: {} },
   internalEvents: { Ok: {}, No: {}, Unsure: Flow.uncertain({}) },
   memory: {},
-  persisted: false,
+  persist: false,
   operations: ({ E }) => ({ dies: dies.outcomes({ success: E.Ok, failure: { NotSent: E.No }, unknown: E.Unsure }) }),
 });
 export const diesFixture = fixture(machine(diesD, ({ O }) => ({ default: { node: "root" }, on: { Go: { actions: [O.dies.commit(() => ({}))] }, Ok: {}, No: {}, Unsure: { actions: [O.dies.cancel] } } })));
@@ -141,7 +141,7 @@ const engine = (api: Api) =>
       events: { Rename: { id: S.Unknown, title: S.Unknown } },
       internalEvents: { Done: {}, No: {}, Unsure: Flow.uncertain({}) },
       memory: {},
-      persisted: false,
+      persist: false,
       uses: ["engine", "sessions"],
       domain: {
         writes: { rename: { predicts: (i: { readonly id: string; readonly title: unknown }) => [{ ref: engineRef(i.id), patch: { title: i.title } }] } },

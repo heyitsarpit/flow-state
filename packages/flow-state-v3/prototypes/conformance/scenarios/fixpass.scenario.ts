@@ -128,8 +128,8 @@ export const fixpassScenarios: readonly Scenario[] = [
         c.eq("heard once, as the re-send's StorageRefused", [heard().length - before, c.lastEnding("put")?.reason], [1, "StorageRefused"]);
       },
       // Rule 15 and 1.6 ("a late ending never leaves live work"), ruled for the round 14 finish: an InFlight head and every queued commit of the
-      // exited activation are live work, a commit queued behind a Held head included; a Held head is not; a transition that cancels the lane
-      // (key-less) takes its queue with it. The queue search's walk: the head's late NotSent { Cancelled } routes from the root.
+      // exited activation are live work, a commit queued behind a Held head included; a Held head is not; a cancel in the leaving transition
+      // exempts nothing (round 15, R1). The queue search's walk: the head's late NotSent { Cancelled } routes from the root.
       "a-late-ending-may-not-leave-a-queued-commit"(c0) {
         const c = new Ctx(c0.fresh([serialBareFixture()]), SB);
         c.ensure(SB);
@@ -152,7 +152,9 @@ export const fixpassScenarios: readonly Scenario[] = [
         c.eq("the late Unsure is denied", c.r.evidence("Denied").at(-1)?.["reasons"]?.includes("LateMayNotLeave"), true);
         c.state("W");
       },
-      "a-late-exit-whose-transition-cancels-the-lane-goes"(c0) {
+      // Round 15 (R1, the runner's ruling): no cancel exemption. A late exit whose transition cancels the lane still leaves the queued commit, so it
+      // is denied; giving the work up is written in an alternative that stays put (R15-01).
+      "a-late-exit-whose-transition-cancels-the-lane-is-denied"(c0) {
         const c = new Ctx(c0.fresh([lateQueueFixture()]), LQ);
         c.ensure(LQ);
         c.send("Go");
@@ -160,8 +162,8 @@ export const fixpassScenarios: readonly Scenario[] = [
         c.send("Cancelling");
         c.ack();
         c.answer("charge", { lost: true });
-        c.eq("no denial", c.r.evidence("Denied").length, 0);
-        c.state("A");
+        c.eq("the late Unsure is denied", c.r.evidence("Denied").at(-1)?.["reasons"]?.includes("LateMayNotLeave"), true);
+        c.state("W");
       },
       "a-late-exit-with-nothing-queued-goes"(c0) {
         const c = new Ctx(c0.fresh([lateQueueFixture()]), LQ);

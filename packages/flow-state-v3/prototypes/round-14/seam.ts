@@ -26,6 +26,7 @@ export type Claim =
 export type ModuleWait = { readonly attempt: string; readonly op: string; readonly ref: string };
 export type Cx = {
   readonly now: number;
+  readonly live: boolean; // false from Runtime disposal's start: a module starts no new work (Runtime O6)
   readonly queueMax: number;
   readonly repairMs: number;
   readonly pageMs: number;

@@ -35,7 +35,7 @@ const bulk = definition({
     deleting: Flow.initial(S.Array(S.String), []), done: Flow.initial(S.Number, 0), ids: Flow.initial(S.Array(S.String), []),
     queue: Flow.initial(S.Number, 0), ran: Flow.initial(S.Number, 0),
   },
-  persisted: false,
+  persist: false,
   operations: ({ E }) => ({
     del: del.outcomes({
       success: E.DelOk.from((_v, c) => ({ id: (c.input as { readonly id: string }).id })),
@@ -136,7 +136,7 @@ const kept = (persisted: boolean) => {
       presses: Flow.initial(S.Number, 0), ids: Flow.initial(S.Array(S.String), ["x"]), who: Flow.initial(U, "1"),
       last: S.optionalKey(U), gaveUp: S.optionalKey(U), note: S.optionalKey(U), raised: S.optionalKey(U), whoOdd: S.optionalKey(U),
     },
-    persisted,
+    persist: persisted,
     traits: { c: Kid.each({ of: "ids", max: 4 }), s: Kid, z: Kid },
     operations: ({ E }) => ({
       save: save.outcomes({

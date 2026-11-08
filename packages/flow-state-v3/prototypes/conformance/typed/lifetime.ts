@@ -27,7 +27,7 @@ const life = (persisted: boolean, local = false) => {
       BeatDue: {}, Pinged: {}, PingNo: {}, PingUnsure: Flow.uncertain({}),
     },
     memory: { log: Flow.initial(S.Array(S.String), []), blob: Flow.initial(U, null) }, // `blob`: a bigint cannot encode (LIFE-22, as HIGH-02)
-    persisted,
+    persist: persisted,
     ...(local ? { local: true as const } : {}),
     operations: ({ E }) => ({
       confirm: confirm.outcomes({ success: E.Confirmed, failure: { NotSent: E.ConfirmNo }, unknown: E.ConfirmUnsure }),

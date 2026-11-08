@@ -242,9 +242,6 @@ const onDisposeRuntime = (tx: Tx) => {
 // the record is removed, and the lanes stay unbound for the identity's next ensure (rule 46). `remount`: a local predecessor kept only by work;
 // its lanes stay for the new incarnation to adopt.
 const onDisposeActor = (tx: Tx, key: string, how: "end" | "dispose" | "remount") => {
-  // M3 (fix pass): `disposeActor` forgets which `persist` the identity's first ref said; the next ref to ensure it is the first again. The
-  // design does not yet say who wins across a dispose (STATUS.md, open question).
-  if (how === "dispose" && tx.w.refPersist[key] !== undefined) tx.w = { ...tx.w, refPersist: without(tx.w.refPersist, key) };
   const a = getActor(tx.w.actors, key);
   if (!a) {
     if (how === "dispose" && own(tx.w.retired, key)) {
@@ -406,13 +403,7 @@ const startRoot = (tx: Tx, key: string, machine: string, input: unknown, identit
   ];
   tx.w = { ...tx.w, follow: [...adopted, ...tx.w.follow] };
 };
-const onEnsure = (tx: Tx, key: string, machine: string, input: unknown, identity?: readonly string[], persist?: boolean) => {
-  // Rule 74, D4: the form is fixed per machine by the types, so `ConflictingActorRef` is left for two refs of one identity that disagree on persist.
-  if (persist !== undefined) {
-    const was = tx.w.refPersist[key];
-    if (was !== undefined && was !== persist) return issue(tx, { code: "ConflictingActorRef", origin: `ensure ${machine}`, input: { key, persist: [was, persist] } });
-    if (was === undefined) tx.w = { ...tx.w, refPersist: { ...tx.w.refPersist, [key]: persist } };
-  }
+const onEnsure = (tx: Tx, key: string, machine: string, input: unknown, identity?: readonly string[]) => {
   const live = getActor(tx.w.actors, key);
   if (live) {
     // D137: a key names one machine. Saying nothing here let two machines share an actor.
@@ -575,7 +566,7 @@ const remount = (tx: Tx, key: string) => {
 const onAttach = (tx: Tx, i: Extract<Input, { k: "attach" }>) => {
   const component = i.owner === "component";
   if (component) remount(tx, i.actor);
-  if (!i.existing) onEnsure(tx, i.actor, i.machine, i.input, i.identity, i.persist);
+  if (!i.existing) onEnsure(tx, i.actor, i.machine, i.input, i.identity);
   else if (!getActor(tx.w.actors, i.actor) && own(tx.w.retired, i.actor)) returnActor(tx, i.actor, "subscription");
   const live = getActor(tx.w.actors, i.actor);
   const machine = live?.machine ?? i.machine;
@@ -754,7 +745,7 @@ export const step = (world: World, input: Input, env: Env, sys: System): StepOut
       onBoot(tx, input.records, input.persistence ?? true);
       break;
     case "ensure":
-      onEnsure(tx, input.actor, input.machine, input.input, input.identity, input.persist);
+      onEnsure(tx, input.actor, input.machine, input.input, input.identity);
       break;
     case "dispose":
       onDisposeActor(tx, input.actor, "dispose");

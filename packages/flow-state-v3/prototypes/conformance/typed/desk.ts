@@ -53,7 +53,7 @@ const desk = (o: DeskOpts) => (api: Api) => {
     events: { Load: {}, Archive: { id: U }, Remove: { id: U }, Purge: { id: U }, MarkRead: { ids: U, at: U }, Rename: { id: U, title: U }, Retitle: { id: U, title: U }, Reconcile: { id: U } },
     internalEvents: { Listed: {}, ListFailed: {}, Settled: {}, Failed: {}, Unsure: Flow.uncertain({ id: U, op: U }), Unused: {} },
     memory: {},
-    persisted: false,
+    persist: false,
     uses: o.listen ? ["entities", "sessions"] : ["entities"],
     domain: {
       writes: {
@@ -152,7 +152,7 @@ const traitWrite = (policy: Op["concurrency"], persisted: boolean) => {
       },
     }),
   );
-  const d = definition({ id: TW, states: [{ TAB: Flow.state({ traits: { t: Trait.resumable() } }) }, "AWAY"], events: { Away: {}, Back: {} }, internalEvents: {}, memory: {}, persisted, operations: () => ({}) });
+  const d = definition({ id: TW, states: [{ TAB: Flow.state({ traits: { t: Trait.resumable() } }) }, "AWAY"], events: { Away: {}, Back: {} }, internalEvents: {}, memory: {}, persist: persisted, operations: () => ({}) });
   return machine(d, ({ S: St }) => ({ default: St.TAB, on: { Away: St.AWAY, Back: St.TAB } }));
 };
 export const traitWriteFixture = fixture(traitWrite("serialize", true));
@@ -178,7 +178,7 @@ const Copy = trait(
     },
   }),
 );
-const eachWrite = definition({ id: EW, states: [], events: {}, internalEvents: {}, memory: { ids: Flow.initial(Strs, ["x", "y"]) }, persisted: false, traits: { c: Copy.each({ of: "ids", max: 8 }) }, operations: () => ({}) });
+const eachWrite = definition({ id: EW, states: [], events: {}, internalEvents: {}, memory: { ids: Flow.initial(Strs, ["x", "y"]) }, persist: false, traits: { c: Copy.each({ of: "ids", max: 8 }) }, operations: () => ({}) });
 export const eachWriteFixture = fixture(machine(eachWrite, () => ({ default: { node: "root" } })));
 
 // ── Rule 15 in step 3: a late ending's filling may not leave what the host's state still owns.
@@ -208,7 +208,7 @@ const lateFill = definition({
   events: { HostGo: {} },
   internalEvents: { Failed: {}, Unsure: Flow.uncertain({}), HostDone: {} },
   memory: {},
-  persisted: false,
+  persist: false,
   operations: ({ E }) => ({ hostPut: hostPut.outcomes({ success: E.HostDone, failure: { NotSent: E.Failed }, unknown: E.Unsure }) }),
 });
 export const lateFillFixture = fixture(
@@ -224,7 +224,7 @@ const ER = "Lab/EachReset";
 const Item = trait({ id: "Item", events: { Bump: {} }, callbacks: { Bumped: Flow.Callback({}) }, memory: { fresh: Flow.initial(S.Boolean, true) } }, ({ callbacks }) => ({
   on: { Bump: { notify: [callbacks.Bumped] } },
 }));
-const eachReset = definition({ id: ER, states: [], events: {}, internalEvents: {}, memory: { ids: Flow.initial(Strs, ["x", "y"]), v: Flow.initial(S.Number, 0) }, persisted: false, traits: { c: Item.each({ of: "ids", max: 8 }) }, operations: () => ({}) });
+const eachReset = definition({ id: ER, states: [], events: {}, internalEvents: {}, memory: { ids: Flow.initial(Strs, ["x", "y"]), v: Flow.initial(S.Number, 0) }, persist: false, traits: { c: Item.each({ of: "ids", max: 8 }) }, operations: () => ({}) });
 export const eachResetFixture = fixture(
   machine(eachReset, () => ({
     default: { node: "root" },

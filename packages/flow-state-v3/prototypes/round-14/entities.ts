@@ -133,6 +133,7 @@ export const readAll = (s: Slice) =>
 const startRepair = (s: Slice, ref: string, machine: string, cx: Cx): Slice => {
   const cur = own(s.repairs, ref);
   if (cur) return { ...s, repairs: { ...s.repairs, [ref]: { ...cur, again: true } } };
+  if (!cx.live) return s;
   const gen = cx.gen();
   const pos = cx.pos();
   cx.command({ k: "repair", ref, gen, machine });

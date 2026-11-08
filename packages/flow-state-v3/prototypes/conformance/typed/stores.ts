@@ -90,7 +90,7 @@ const s1 = (persisted: boolean) => (api: Api) =>
       events: { Commit: { mask: U, v: U }, Retry: {}, Cancel: {} },
       internalEvents: { Done: {}, Refused: {}, NotSent: {}, Unsure: Flow.uncertain({}) },
       memory: {},
-      persisted,
+      persist: persisted,
       uses: ["entities"],
       domain: {
         writes: {
@@ -132,7 +132,7 @@ const docs = (api: Api) =>
       events: { Open: {}, Close: {}, Save: { id: U, title: U }, Touch: { id: U } },
       internalEvents: { Saved: {}, Touched: {}, Unsure: Flow.uncertain({}), Failed: {} },
       memory: { saved: Flow.initial(S.Number, 0), lateSaved: Flow.initial(S.Number, 0) },
-      persisted: false,
+      persist: false,
       uses: ["entities"],
       domain: {
         writes: {

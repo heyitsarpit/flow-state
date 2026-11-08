@@ -110,7 +110,7 @@ type DefIn<T extends StateList, Ev, In_, M extends MemoryFields, O, Tr extends T
   readonly internalEvents: In_;
   readonly memory: M;
   readonly traits?: Tr; // the root node's traits (2.3); a node's are on `Flow.state(..., { traits })`
-  readonly persisted?: boolean;
+  readonly persist?: boolean; // U15 B, U19 A (OD48): persistence is the machine's, spelled on its definition; refs carry none
   readonly local?: true; // a local identity (D21), whose lanes are never adopted
   readonly uses?: readonly string[]; // the modules its operations import, by name (D44)
   readonly operations: (t: { readonly E: EventsOf<In_ & {}> }) => O;
@@ -174,7 +174,7 @@ export const machine = <
     ...(identityFieldsOf(d.memory).length ? { identityVersion: identityVersionOf(compileMemory(d.id, d.memory).fields!, identityFieldsOf(d.memory)) } : {}), // OD30 Q3
     ops: { ...Object.fromEntries(Object.entries(d.ops).map(([k, x]) => [k, compileOp(d.id, k, x, events)])), ...fragOps },
     ...(frags.length ? { fragments: Object.fromEntries(frags.map((f) => [f.id, f.compiled])) } : {}),
-    persisted: d.persisted ?? true,
+    persisted: d.persist ?? true,
     ...(d.local ? { local: true as const } : {}),
     uses: d.uses ?? [],
     ...(d.domain ? { domain: compileDomain(d.id, d.domain) } : {}),

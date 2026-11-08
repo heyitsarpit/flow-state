@@ -16,7 +16,7 @@ const ignoring = (persisted: boolean) => {
     events: { Send: {}, Put: { n: S.Number }, Hold: {}, CancelSend: {}, Note: {} },
     internalEvents: { KeptIt: {}, PutOk: {}, PutNo: {}, Unsure: Flow.uncertain({}), HoldOk: {}, HoldNo: {} },
     memory: { log: Flow.initial(S.Array(S.String), []) },
-    persisted,
+    persist: persisted,
     operations: ({ E }) => ({
       send: send.outcomes({ success: Flow.ignore, failure: { Refused: Flow.ignore, Kept: E.KeptIt, NotSent: Flow.ignore }, unknown: Flow.ignore }),
       put: put.outcomes({ success: E.PutOk, failure: { NotSent: E.PutNo }, unknown: Flow.ignore }),

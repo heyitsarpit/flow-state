@@ -68,7 +68,7 @@ const issues = (o: Opts) => (api: Api) => {
     },
     internalEvents: { Listed: {}, ListFailed: {}, Settled: {}, IssueGone: {}, Failed: { message: S.String }, LikeUnsure: Flow.uncertain({ id: U }), RenameUnsure: Flow.uncertain({ message: S.String }), RemoveUnsure: Flow.uncertain({ message: S.String }) },
     memory: { toast: Flow.initial(U, null) },
-    persisted: o.persisted ?? false,
+    persist: o.persisted ?? false,
     ...(o.local ? { local: true as const } : {}),
     uses: ["entities"],
     domain: domainOf(api, o.throwing ?? false),

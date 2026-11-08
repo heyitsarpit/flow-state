@@ -523,7 +523,7 @@ Convergence-8. Old unbuilt rows (`STORY-ALL`, `BROWSER-*`, `SSR-01`) renumbered 
 | LIFE-30 | 14 | example | design | rule:73, C111 |  | C111: a create within 5 s of an end carries how long ago; at 5 s it does not |
 | R14-ID-01 | 14 | example | design | rule:74, sec:2.7.19 |  | rule 74: a value ref is named by its input fields in field-name order, keeps only them, and is the input; an equal value adopts the identity's lane |
 | R14-ID-02 | 14 | fault | design | rule:74, OD:30 |  | OD30 Q3: a release that changes a value-named machine's input fields leaves an old-version record, listed at ready and never restored |
-| R14-ID-03 | 14 | example | design | rule:74, sec:2.7.19 |  | rule 74, D4: a singleton (no input) is its literal name; two refs of one identity disagreeing on persist are ConflictingActorRef |
+| R14-ID-03 | 14 | example | design | rule:74, sec:2.7.19 |  | rule 74, D4: a singleton (no input) is its literal name; U15 B: two refs of one identity agree on persistence by construction (the definition's) |
 | R14-IGN-01 | 14 | example | design | OD:28, sec:2.7.18, rule:13, rule:40 |  | OD28: an ignored success, failure tag, unknown, interrupt and NotSent each apply their lane effect with no turn; an unknown is released (a waiting commit promoted); with no incarnation it is not parked |
 | R14-IGN-02 | 14 | example | design | OD:28, sec:2.7.18, rule:44 |  | OD28: an ignored Restored releases the hold, at a return after an end and at a reload |
 | R14-F-01 | 14 | example | design | OD:29, rule:1, rule:9, rule:51, rule:56 |  | OD29 F: a resetOn returning null is not placed (M8 impossible); present, its filling reads key; A, none, A adopts A's post |
