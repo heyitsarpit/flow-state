@@ -2,7 +2,7 @@
 
 Status: approved by the user on 2026-11-07, in the Claude Code session ("the roadmap is approved"), handing
 its execution to Claude as the agent runner.
-Version: 9, approved 2026-11-07, after amendment 8.
+Version: 10, approved 2026-11-07, after amendment 9.
 Shape confirmed: 2026-11-04, in the Claude Code session. The user gave points 1-10: plans first,
 conformance rewritten, the core, features, Next.js hardening, examples and docs.
 Goal: production code for Flow State v3 at high quality, with good error messages and the
@@ -484,7 +484,10 @@ Also allowed, by the user's approval of this roadmap:
   queue.
 Runner decides: design calls in phases 0, 1, 3-5 and 8, and agent-judged decisions in phases 2, 6
 and 7, recorded with reasons in progress.md for the user's read.
-User decides (blocking): public entrypoint names, public API changes beyond what was accepted,
+Runner decides, then reviews (amendment 9): small public API changes (a flag, a default, a member's name, where an
+option sits), recorded for the user's read. Large ones stay the user's: a new concept, a change to how app code is
+structured, removing a feature, or anything touching many call sites.
+User decides (blocking): public entrypoint names, large public API changes beyond what was accepted,
 relaxing a gate, plan edits beyond the approved merge, scope, budgets, the example apps, a
 guarantee change, user-judged decisions and change proposals, and running more than two agents at
 once.
@@ -639,6 +642,10 @@ Numbered, oldest first (runner rule 4).
    redone. Two refinements from it: runners get the oracle code they check against, and a reviewer sidecar checks
    every oracle, harness or runtime change. Applied from round 15's remaining rulings on. Also in `AGENTS.md`. Version 9. Phases worked out again: none (how
    they run only).
+9. 2026-11-08, judge the user ("going forward i'm leaving public api changes to your hand as well, except for large
+   changes, small stuff like the persist flag can be decided by you"): small public API changes move to "runner
+   decides, then reviews"; large ones (a new concept, a change to how app code is structured, removing a feature,
+   many call sites) stay blocking for the user. Version 10. Phases worked out again: none.
 
 ## Runner rules
 
