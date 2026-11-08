@@ -207,6 +207,7 @@ export type Reads = {
   frozenDrops(): number; // D146: steps a frozen page could not take
   diskScope(key: string): string | undefined; // D142
   releaseSeen(attempt: string): boolean; // D158: the ledger saw a cause for this attempt's release (D154)
+  disposeDrivenAt(): number | undefined; // audit 2: the suite drove `disposeRuntime` in this process; the evidence's length then (the suite's step, not the runtime's word)
   actorKey(a: ActorRef): string; // D158: the id the suite names an actor by to the runtime, which `diskScope` answers in. One spelling, the suite's
   // Stage K: `loading`, the runtime has not booted yet (a slow `storage.load`). What it will restore is on disk only, and nothing waits on it
   quiet(): { idle: boolean; fatal: boolean; waits: readonly Wait[]; spinning?: boolean; frozen?: boolean; loading?: boolean };

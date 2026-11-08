@@ -110,6 +110,7 @@ export const makeHarness = (port: Port) => (): Harness => {
   let keptNames: Array<{ op: string; attempt: string }> = [];
   let ledgerOff = false; // a disposed runtime, or a disk edited or wiped by the case
   let runtimeDisposed = false; // the suite's own: it drove a `disposeRuntime` step
+  let disposeMark: number | undefined; // the same, in this process: the evidence's length when the suite drove it (cleared by a kill)
   const bump = (m: Map<string, number>, k: string, by = 1) => {
     const n = (m.get(k) ?? 0) + by;
     if (n > 0) m.set(k, n);
@@ -807,6 +808,24 @@ export const makeHarness = (port: Port) => (): Harness => {
     }
     return out;
   };
+  // Audit 1b: from `start` up, every alternative on `ev` at each handling node, up to the first with one no guard or token can refuse, cancels `op`.
+  const cancelsWherever = (machine: string, frag: string | undefined, start: string, ev: string, op: string) => {
+    const ns = nodesOf(machine, frag);
+    for (const n of chainOf(ns, start)) {
+      const alts = ns[n]?.on?.[ev] as any[] | undefined;
+      if (!alts?.length) continue;
+      if (!alts.every((a) => a.members?.some((m: any) => (m.verb === "cancel" || m.verb === "cancelAll") && m.op === op))) return false;
+      if (alts.some((a) => (a.guards ?? []).every((g: any) => String(g.at?.path ?? "").endsWith("#heard")) && (a.tokens ?? []).length === 0)) return true;
+    }
+    return false;
+  };
+  const selfCancelHeard = (op: string, att: string, heard: ReadonlyArray<{ ev: string; machine: string; node: string; frag: string | undefined; who?: Who | undefined }>) => {
+    const owner = attemptActor.get(att);
+    if (owner === undefined) return false;
+    const evs = refm().mappedEvents(machineOf(owner), op);
+    const copy = attemptCopy.get(att);
+    return heard.some((h) => h.who?.actor === owner && (!copy || samePath(copy.path, h.who.path)) && evs.includes(h.ev) && cancelsWherever(h.machine, h.frag, h.node, h.ev, op));
+  };
   const freeHandler = (machine: string, frag: string | undefined, start: string, ev: string) => {
     const ns = nodesOf(machine, frag);
     return chainOf(ns, start).find((n) => (ns[n]?.on?.[ev] as any[] | undefined)?.some((a) => (a.tokens ?? []).length === 0));
@@ -1025,9 +1044,10 @@ export const makeHarness = (port: Port) => (): Harness => {
       if (x["kind"] === "Released" || (x["kind"] === "lane" && String(x["cell"]).startsWith("lane.release."))) {
         const att = x["attempt"] === undefined ? undefined : String(x["attempt"]);
         if (releaseSeen(String(x["op"]), att)) lettingGo.add(String(att));
-        // (h) and `checkMints` take it; (j) does not. Round 15b: the handler's cancel must have run (its cell on the held lane, this step), not only exist
-        // on the event, since a guard may keep it from running.
-        else if (releaseSeen(String(x["op"]), att, true) && e.some((y) => y["kind"] === "lane" && y["cell"] === "lane.cancel.Held" && y["attempt"] === att)) releasedBySelf.add(String(att));
+        // (h) and `checkMints` take it; (j) does not. Round 15b: the handler's cancel must have run, not only exist on the event, since a guard may keep
+        // it from running. Audit 1b: known from what the suite saw, never the runtime's `lane.cancel.Held` cell: its own wrap heard the ending's event
+        // run in the owner this step, and every alternative the walk could take from where it ran cancels the op (the compiled data).
+        else if (att !== undefined && releaseSeen(String(x["op"]), att, true) && selfCancelHeard(String(x["op"]), att, heardNow)) releasedBySelf.add(att);
       }
     // Review M5: `delivered` is the runtime's word. It pays only if the same step shows the machine took it: a turn, a denial, an unhandled, or a refusal. Otherwise the debt stays.
     const heard = e.some((x) => x["kind"] === "turn" || x["kind"] === "Denied" || x["kind"] === "Unhandled" || x["kind"] === "refused");
@@ -1602,9 +1622,7 @@ export const makeHarness = (port: Port) => (): Harness => {
       if (!inst.forget) throw new Error("forget: this runtime has no forget");
       const key = actorKey(s.forget);
       if (forgetLive) lifeOf.set(key, (lifeOf.get(key) ?? 0) + 1); // W27: a live actor is disposed first, so its life is over as at a dispose
-      const parkedNow = new Set(evidence.filter((e) => e["kind"] === "parked").map((e) => String(e["attempt"])));
-      for (const e of evidence) if (e["kind"] === "delivered") parkedNow.delete(String(e["attempt"]));
-      for (const [att, a] of attemptActor) if (a === key && parkedNow.has(att)) lettingGo.add(att);
+      // Audit 1b: the excuse built on the runtime's `parked` and `delivered` is gone (no case used it); what the suite itself owed is dropped.
       for (const k of [...parkedOwed.keys()]) if (attemptActor.get(k.slice(k.indexOf(" ") + 1)) === key) parkedOwed.delete(k);
       inst.forget?.(key);
     }
@@ -1629,6 +1647,7 @@ export const makeHarness = (port: Port) => (): Harness => {
       fake.feedStep(s.feed, s);
     } else if ("disposeRuntime" in s) {
       runtimeDisposed = true;
+      disposeMark ??= evidence.length;
       inst.disposeRuntime();
     }
     else throw new Error(`raw: not a plain step: ${Object.keys(s)[0]}`);
@@ -1636,6 +1655,7 @@ export const makeHarness = (port: Port) => (): Harness => {
   // A kill and the next boot. `do` settles after it; a kill at a yield is already inside a settle.
   const die = (s: Extract<Step, { reload: true }>) => {
     plan = undefined;
+    disposeMark = undefined;
     // D154: a reload the suite drove. What was in flight restores as an ending, which the compiled data maps to events: those count as driven.
     // The reload is the seen cause here, not the ending, so a restored ending's event may let its own op go.
     // Per owner (re-check inventory 3): only the attempts still open, each to its own actor, by its own machine's mapping.
@@ -1813,6 +1833,7 @@ export const makeHarness = (port: Port) => (): Harness => {
     diskScope: (k) => port.disk.scope(k),
     actorKey: (a) => actorKey(a),
     releaseSeen: (attempt) => lettingGo.has(attempt) || releasedBySelf.has(attempt),
+    disposeDrivenAt: () => disposeMark,
     quiet: () => ({
       idle: !inst.pending() && !fake.hasWork(),
       fatal: inst.fatal(),

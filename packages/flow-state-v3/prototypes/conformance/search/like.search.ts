@@ -37,14 +37,29 @@ const ALPHABET: readonly Action[] = [
   { name: "landLate", step: { fault: { landLate: "w" } }, on: (h) => h.read.outside().lost > 0 },
 ];
 // `v` must grow with the script, which a fixed alphabet cannot say: the action is rewritten at replay by counting.
+// Audit 2: the suite's own record of what it gave up. A `Cancel` it sent may release its actor's open requests (OD20 F1's stated limit): those
+// keys, and the records that actor's commits touched, are the only ones the oracles below excuse, never the runtime's `Released`.
+type GivenUp = { readonly keys: Set<string>; readonly recs: Set<number> };
+const givenUp = new WeakMap<Harness, GivenUp>();
+const gaveUp = (h: Harness): GivenUp => givenUp.get(h) ?? { keys: new Set(), recs: new Set() };
 const withV = (make: () => Harness) => () => {
   const h = make();
   let commits = 0;
+  const g: GivenUp = { keys: new Set(), recs: new Set() };
+  givenUp.set(h, g);
   const inner = h.do.bind(h);
   h.do = (s: Step) => {
     if ("send" in s && s.event === "Commit") {
       commits++;
       inner({ ...s, payload: { ...(s.payload as object), v: commits } });
+    } else if ("send" in s && s.event === "Cancel") {
+      const id = (s.send as { id: string }).id;
+      for (const r of h.read.requests())
+        if (r.op === "w" && r.input.actor === id) {
+          g.keys.add(r.idempotencyKey!);
+          for (const rec of [1, 2]) if ((r.input.mask & rec) !== 0) g.recs.add(rec);
+        }
+      inner(s);
     } else inner(s);
   };
   return h;
@@ -69,17 +84,23 @@ const sendOrder = (h: Harness) => {
       }
     }
 };
+// Audit 2: after the drain every repair and write is answered and every hold retried, so nothing is predicted or uncertain; a field is left
+// `unconfirmed` only on a record the suite itself gave a write up on (U10's quiet mark), and only there may the value differ from the server.
 const settled = (h: Harness) => {
   const server = h.read.truth().server;
-  for (const r of ["r1", "r2"] as const) {
+  for (const [i, r] of (["r1", "r2"] as const).entries()) {
     const row = h.read.record(`R|${r}`) as { data?: { v?: number }; uncertain: boolean; predicted: boolean; unconfirmed: readonly string[] } | undefined;
-    if (row?.data?.v !== undefined && !row.uncertain && !row.predicted && row.unconfirmed.length === 0 && row.data.v !== server.records[r])
+    if (row === undefined) continue;
+    if (row.uncertain || row.predicted) throw new Oracle(`drain: ${r} still ${row.uncertain ? "uncertain" : "predicted"} after the drain`);
+    if (row.unconfirmed.length > 0 && !gaveUp(h).recs.has(i + 1)) throw new Oracle(`drain: ${r} unconfirmed, and the suite gave no write on it up`);
+    if (row.data?.v !== undefined && row.unconfirmed.length === 0 && row.data.v !== server.records[r])
       throw new Oracle(`drain: ${r} shows ${row.data.v}, settled, and the server holds ${server.records[r]}`);
   }
 };
 
+const DRAIN_STEPS = 24;
 const drain = (h: Harness) => {
-  for (let i = 0; i < 24; i++) {
+  for (let i = 0; i < DRAIN_STEPS; i++) {
     const o = h.read.outside();
     if (o.open.some((x) => x.op === "repair" && !x.never))
       h.do({ answer: "repair", with: { truth: true } });
@@ -92,6 +113,7 @@ const drain = (h: Harness) => {
           h.do({ send: { actor: "S1", id: w.actor.split("/")[1]! }, event: "Retry", payload: {} });
     }
   }
+  throw new Oracle(`drain: work left after ${DRAIN_STEPS} steps`);
 };
 
 export const searchLike = (
@@ -115,10 +137,10 @@ export const searchLike = (
       // S5: at most one Attempt on the wire per record. An interrupted send may still be open at the server; its re-send
       // has the same id, which is the point of the id.
       // A released Attempt's request may also still be out there: the stated limit (OD20 F1).
-      const released = new Set(post.read.evidence("Released").map((e) => e["attempt"]));
+      const released = gaveUp(post).keys;
       const onWire = post.read
         .requests()
-        .filter((r) => r.op === "w" && !r.answered && !released.has(r.idempotencyKey));
+        .filter((r) => r.op === "w" && !r.answered && !released.has(r.idempotencyKey!));
       for (const rec of [1, 2]) {
         const n = new Set(
           onWire.filter((r) => (r.input.mask & rec) !== 0).map((r) => r.idempotencyKey),
@@ -133,14 +155,14 @@ export const searchLike = (
       checkEndings(h.read);
       // Last intent, per actor (D3 as directed keeps send order across actors, not commit order): with nothing released, no actor's own
       // commits land backwards. A release is the stated limit (OD20 F1).
-      if (h.read.truth().server.selfInverted && h.read.evidence("Released").length === 0)
+      if (h.read.truth().server.selfInverted && gaveUp(h).keys.size === 0)
         throw new Oracle("the server went backwards with nothing released");
     },
     drain(h) {
       drain(h);
       checkClaims(h.read);
       sendOrder(h);
-      if (h.read.truth().server.selfInverted && h.read.evidence("Released").length === 0)
+      if (h.read.truth().server.selfInverted && gaveUp(h).keys.size === 0)
         throw new Oracle("the server went backwards after drain");
       settled(h);
       const stuck = h.read.quiet().waits.filter((w) => w.kind !== "timer" && w.kind !== "held");

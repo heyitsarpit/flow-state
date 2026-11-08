@@ -71,11 +71,18 @@ export const searchChain = (make: () => Harness, o: { depth: number; maxStates: 
         else break;
       }
       const m = h.read.memory(A) as any;
+      // Audit 2: the reasons are the suite's own: a refusal, kill or disposal it drove, or work the fake world still holds (an open request, a
+      // write not yet stored). Never the runtime's `InvalidTurn` or its waits.
       if (m && m.n > 0 && m.i + 1 < m.n) {
-        const said = h.read.issues().some((i) => i.code === "InvalidTurn") || script.includes("KILL") || script.includes("Dispose");
-        if (!said && !h.read.quiet().waits.some((w) => w.kind !== "timer")) throw new Oracle(`(m) a queue stopped at ${m.i} of ${m.n} with nothing to say why`);
+        const said = script.some((s) => s === "refuseRow" || s === "refuseWrite" || s === "KILL" || s === "Dispose");
+        const out = h.read.outside();
+        if (!said && out.open.length === 0 && out.storage.length === 0) throw new Oracle(`(m) a queue stopped at ${m.i} of ${m.n} with nothing to say why`);
       }
-      const spunOnDisk = () => (h.read.stored().get("actor/Lab/Chain/a") as any)?.root?.memory?.spun;
+      // Audit 2: the actor's record by the codec, not a spelled disk key.
+      const spunOnDisk = () => {
+        for (const [k, v] of h.read.stored()) if (h.read.diskKind(k) === "actor" && h.read.diskScope(k) === h.read.actorKey(A)) return (v as any)?.root?.memory?.spun;
+        return undefined;
+      };
       // Audit 1: with the actor and its record both gone, the baseline is a fresh actor's (`spun` starts at 0), so a spin from nothing is one too.
       const n = m?.spun ?? spunOnDisk() ?? 0;
       h.do({ advance: 60_000 });

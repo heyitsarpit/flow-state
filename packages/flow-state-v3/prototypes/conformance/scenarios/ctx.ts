@@ -100,16 +100,27 @@ export const checkClaims = (r: Reads) => {
 
 // Each invoked send has one ending, and each ending is delivered. Evidence is read in order, so a reload's dead sends
 // and a disposal's abandoned ones are accounted for by name rather than by exemption.
+// Audit 2: what is owed stops at a disposal the suite drove (its own step, `disposeDrivenAt`), never at the runtime's `DisposeStart`. And a send
+// still open is excused only by a request the fake world holds open for it: by its key, or else one of that op's open requests with no key of an
+// open send (a lookup's, a business key's), one each; never by the runtime's own wire wait.
 export const checkEndings = (r: Reads) => {
   const open = new Set<string>();
+  const opOf = new Map<string, string>();
   const owed = new Map<string, number>();
   let ended = false;
   const ko = (e: Record<string, any>) => `${e["op"]}/${e["attempt"] ?? ""}`;
-  for (const e of r.evidence()) {
+  const all = r.evidence();
+  const dm = r.disposeDrivenAt();
+  for (const [i, e] of all.entries()) {
+    if (dm !== undefined && i === dm) {
+      ended = true;
+      owed.clear();
+    }
     const k = `${e["attempt"]}#${e["send"]}`;
     switch (e["kind"]) {
       case "invoked":
         open.add(k);
+        opOf.set(k, String(e["op"]));
         break;
       case "ending":
         if (e["send"] !== undefined) {
@@ -141,10 +152,6 @@ export const checkEndings = (r: Reads) => {
       case "AbandonedFiber":
         open.delete(k);
         break;
-      case "DisposeStart":
-        ended = true;
-        owed.clear();
-        break;
       case "boot":
         ended = false;
         open.clear();
@@ -153,13 +160,26 @@ export const checkEndings = (r: Reads) => {
       default:
     }
   }
+  if (dm !== undefined && dm >= all.length) {
+    ended = true;
+    owed.clear();
+  }
   const q = r.quiet();
   if (q.fatal || q.spinning || q.frozen) return;
-  const wires = q.waits.filter((w) => w.kind === "wire");
+  const attemptsOpen = new Set([...open].map((k) => k.split("#")[0]!));
+  const byKey = new Set<string>();
+  const spare = new Map<string, number>();
+  for (const o of r.outside().open) {
+    if (o.key !== undefined && attemptsOpen.has(o.key)) byKey.add(o.key);
+    else spare.set(o.op, (spare.get(o.op) ?? 0) + 1);
+  }
   for (const k of open) {
     const attempt = k.split("#")[0]!;
-    if (!wires.some((w) => !("attempt" in w) || w.attempt === attempt) && !ended)
-      throw new Mismatch(`a send never ended: ${k}`);
+    if (ended || byKey.has(attempt)) continue;
+    const op = opOf.get(k) ?? "";
+    const n = spare.get(op) ?? 0;
+    if (n === 0) throw new Mismatch(`a send never ended: ${k}`);
+    spare.set(op, n - 1);
   }
   if (q.idle)
     for (const [k, n] of owed) if (n > 0) throw new Mismatch(`an ending was never delivered: ${k}`);
@@ -171,9 +191,8 @@ export const checkMints = (r: Reads) => {
   const q = r.quiet();
   if (q.fatal || !q.idle || q.loading) return; // stage K: before a slow load answers, what was in flight is on disk only
   const accounted = new Set<unknown>();
-  let disposed = false;
+  const disposed = r.disposeDrivenAt() !== undefined; // audit 2: the suite's own disposal step, not the runtime's `DisposeStart`
   for (const e of r.evidence()) {
-    if (e["kind"] === "DisposeStart") disposed = true;
     // D158: `Released` accounts only with a cause the ledger saw; `Superseded` is held to its own oracle there (D154).
     if (["ending", "Superseded", "lostWithProcess"].includes(e["kind"]) || (e["kind"] === "Released" && r.releaseSeen(String(e["attempt"]))))
       accounted.add(e["attempt"]);

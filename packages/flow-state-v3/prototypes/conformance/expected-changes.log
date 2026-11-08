@@ -2176,3 +2176,59 @@ output:P1-E/a-business-key-success-ends-a-given-up-doubt hash:44e95313ddaf | new
 output:P1-E/a-restored-given-up-doubt-is-proven-by-the-base-its-lane-saved hash:977a745fefa6 | new output: the lane record's sent base proves a restored doubt
 output:P1-E/a-doubt-restored-from-a-record-written-before-its-send-is-not-proven hash:ed8c3a24c412 | new output: a pre-send lane record's base is not trusted
 file:falsify.ts hash:5d2b9190a615 | Audit 1 item 5: a lie that fakes a newer mint under cancel, so replacedUnderCancel's report alone excuses nothing; red by (j)
+PAY-06 hash:1811645b5f70 | Audit 1b pins: the deadline's ending asserted as an unknown, not the TimedOut spelling U1 B did not take
+PAY-16 hash:be5095d7862f | Audit 1b pins: a re-send's deadline asserted as an unknown per send, not the TimedOut spelling
+R15-01 hash:46c2b7a42a1f | Audit 1b: nine variants (definite disposal order, lateness not transitive, denied unknown keeps its hold, history re-entry, retired lanes not unbound, Held vs InFlight live work)
+R15-02 hash:e633630fc03f | Audit 1b: rule 44's restore per lane in creation order, aimed at audit 1's restore-lanes-newest-first
+P1-H hash:004dbf1ee238 | Audit 1b: old-version declines under latest and cancel; the HoldForgotten pin asserted as evidence, not its proposed name
+P1-E hash:ad436bc60522 | Audit 2: eighteen variants for the entities survivors and runtime bugs; unconfirmed compared as a set without key fields; the give-up read not pinned
+file:scenarios/ctx.ts hash:e2130c035569 | Audit 2 excuses: owed endings stop at the suite's own disposal step, and an open send is excused only by a request the fake holds
+file:scenarios/pay.scenario.ts hash:ef1bc2e0c261 | Audit 1b pins in pay.scenario.ts: TimedOut no longer spelled
+file:scenarios/phase1e.scenario.ts hash:e6f4835703eb | Audit 2 cases in phase1e.scenario.ts and its loosened unconfirmed pins
+file:scenarios/phase1h.scenario.ts hash:0884b26cad17 | Audit 1b cases in phase1h.scenario.ts (2.7.15 under every policy) and the HoldForgotten pin
+file:scenarios/round15.scenario.ts hash:eaee2dea76de | Audit 1b cases in round15.scenario.ts, each from the design sentence it quotes
+file:scenarios/round15b.scenario.ts hash:95edf203bf81 | Audit 1b case in round15b.scenario.ts: restore order per lane
+file:search/chain.search.ts hash:3a929dc56899 | Audit 2 excuses: chain (m) excused only by the suite's own refusal, kill or disposal or the fake's open work; the disk key read by the codec
+file:search/like.search.ts hash:9df6ef8aee39 | Audit 2 excuses: like search excuses only what the suite gave up; the drain reds uncertain or predicted rows and a drain that does not finish
+file:reference/model.ts hash:231cbdfab024 | Rule 14 (OD49): the reference learns which nodes a driven event re-enters, from the compiled data
+file:typed/audit1b.ts hash:8679d0d0c6d4 | Audit 1b fixtures: lateness, denial, history re-entry, Held vs InFlight live work
+file:typed/phase1e.ts hash:9571b122165c | Audit 2 fixtures: guard variants (two tickets, save business key, retry, removal), queue gone read, pay by order key, bulk many write
+file:typed/round13.ts hash:de1cbc599c7e | Audit 1b: KeyStamp's unknown handler may commit, so a cancel-policy hold meets a commit in its own turn
+file:compile/entity.ts hash:87e836ba2311 | entity() exposes its primaryKey, so a domain can say which fields have no cell
+file:compile/machine.ts hash:7296fba7b3df | the domain carries primaryKey by entity into Compiled (internal data, no public word)
+file:falsify.ts hash:78cb657f5ba1 | Audit 2 and 1b: a search kill for an uncertain-forever drain row and a lie faking the self-release cell, each red by its oracle
+file:expected-recipients.txt hash:da30887d9152 | Audit gaps: the new variants add deliveries and start-node checks only; no red count moved
+file:drive.ts hash:df19833a0b9c | Audit gaps: rule 14 re-entry learned at the suite's own send; self-release cause from the suite's own wrap; forget excuse deleted; disposeDrivenAt
+round:mutants-a2.ts hash:c33b5f760391 | Audit gaps: the standing list, the lead's wrong runtimes and the auditors' survivors aimed at their cases
+round:mutants-audit-1.ts hash:a94dab75ab6b | Audit 1b: the vacuous forget-gone-op-hold-silent deleted, as the gap list says
+round:mutants-audit-1b.ts hash:62f99de2617c | Audit 1b: the re-auditor's own wrong runtimes, committed unedited
+round:mutants-audit-2.ts hash:33edcaa1d34f | Audit 2: the entities auditor's own wrong runtimes, committed unedited
+round:mutants-lifetime.ts hash:365a4a662b4f | Audit gaps: mutants-a2.ts spread into the lifetime list
+output:P1-E/audit-a-business-key-success-of-another-contract-ends-nothing hash:a2416de4f890 | new output: another contract's same-key success ends nothing
+output:P1-E/audit-a-business-key-success-under-another-key-ends-nothing hash:eaafbad6b775 | new output: another key's success ends nothing
+output:P1-E/audit-a-cover-does-not-hide-a-removals-doubt hash:52e8820133fa | new output: a removal's doubt is never hidden
+output:P1-E/audit-a-cover-does-not-hide-an-unresolved-doubt hash:4e84ccf949ec | new output: an unresolved doubt is never hidden
+output:P1-E/audit-a-cover-registered-after-the-give-up-hides-and-ends-nothing hash:fd344b06e77e | new output: a later registration hides and ends nothing
+output:P1-E/audit-a-cover-with-an-open-gap-hides-nothing hash:337c8cfd4bf9 | new output: an open gap hides nothing
+output:P1-E/audit-a-feed-frame-does-not-demote-a-given-up-mark hash:d6c7c8fab885 | new output: a frame demotes no given-up mark
+output:P1-E/audit-a-feed-frame-past-the-sent-base-ends-a-guarded-doubt hash:d0ae3d688685 | new output: a frame past the sent base proves
+output:P1-E/audit-a-gap-marks-a-record-that-may-have-moved-into-the-cover hash:8ab2cd6cec16 | new output: a gap over-marks a record that may be in the cover
+output:P1-E/audit-a-gap-refetch-that-answers-the-gone-tag-removes-the-row hash:f1fc113e0335 | new output: a refetch's gone tag removes the row
+output:P1-E/audit-a-later-success-carrying-some-of-the-marks-fields-demotes-nothing hash:9314566ff396 | new output: a partial-overlap success demotes nothing
+output:P1-E/audit-a-re-sent-success-over-a-known-stale-base-is-no-contradiction hash:bb379e69c5ad | new output: a re-send is no contradiction
+output:P1-E/audit-a-two-record-write-waits-on-its-second-records-queue hash:d6397f2684da | new output: rule 28 waits on every joined queue
+output:P1-E/audit-an-unresolved-mark-stays-beside-a-business-key-success hash:82f0135facdf | new output: an unresolved mark outlives a same-key success
+output:P1-E/audit-an-unresolved-mark-stays-beside-a-full-cap hash:0444964485a2 | new output: an unresolved mark neither counts nor goes at the cap
+output:P1-E/audit-another-writes-success-past-the-sent-base-ends-a-guarded-doubt hash:27adcaf33b02 | new output: another write's success proves
+output:P1-E/audit-the-cap-and-the-many-bound-are-4096 hash:2581e375db31 | new output: 4,096 for the cap and the many bound
+output:P1-E/audit-the-cap-counts-each-entity-apart hash:80978de21f7d | new output: the cap is per entity
+output:P1-H/audit-under-cancel-a-commit-beside-an-old-version-hold-declines-old-version hash:8b14e18b36a5 | new output: OldVersion under cancel
+output:P1-H/audit-under-latest-a-commit-beside-an-old-version-hold-declines-old-version hash:9d00307162f5 | new output: OldVersion under latest
+output:R15-01/audit-a-call-started-in-a-late-turn-ends-current hash:387efca894b2 | new output: lateness is not transitive
+output:R15-01/audit-a-definite-ending-during-disposal-is-parked-before-w-and-drops-the-head hash:571c46754d47 | new output: a definite disposal ending first, the head dropped
+output:R15-01/audit-a-denied-late-unknown-keeps-its-hold-until-cancel-all hash:8441c000ad0f | new output: a denied unknown keeps its hold
+output:R15-01/audit-a-history-re-entry-makes-an-in-flight-calls-ending-late hash:86e90583d00c | new output: a history re-entry makes the ending late
+output:R15-01/audit-a-late-exit-may-leave-another-operations-held-head hash:e22e632295d9 | new output: a Held head is not live work
+output:R15-01/audit-a-late-exit-may-not-leave-another-operations-in-flight-head hash:3bad49a6d551 | new output: another op's InFlight head is live work
+output:R15-01/audit-a-retired-records-held-lane-is-not-unbound hash:3a2bcd17bcd0 | new output: a retired record's lane is not unbound
+output:R15-02/audit-a-reload-restores-held-lanes-in-creation-order hash:23ccaeeb4f63 | new output: restore per lane in creation order

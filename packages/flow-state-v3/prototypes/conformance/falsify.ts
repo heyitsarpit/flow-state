@@ -250,6 +250,8 @@ try {
   // Phase 1 E round 3: a search oracle has its own wrong runtime, red by that oracle's words, so the oracle is shown able to fail.
   const SEARCH_KILLS: ReadonlyArray<readonly [string, string, ReadonlyArray<readonly [string, string, string]>, string]> = [
     ["like", "drain.old-base-wins", [["entities.ts", "base: how === \"replace\" ? fields : { ...r.base, ...fields },", "base: how === \"replace\" ? fields : { ...fields, ...r.base },"]], "drain: "],
+    // Audit 2: the drain no longer skips a row the runtime calls uncertain. This runtime keeps a given-up mark uncertain after its read.
+    ["like", "drain.uncertain-forever", [["entities.ts", "const uncertain = marks.some((m) => !m.quiet) || r.doubt !== undefined;", "const uncertain = marks.length > 0 || r.doubt !== undefined;"]], "drain: r"],
     ["like", "s13.older-sent-after-newer", [["lane.ts", "    for (const x of l.w) supersede(tx, a.op, x);\n    setLane(tx, { ...tx.w.lanes[l.id]!, w: [made.attempt] });", "    setLane(tx, { ...tx.w.lanes[l.id]!, w: [made.attempt, ...l.w] });"]], "S13: "],
   ];
   for (const [w, id, edits, words] of SEARCH_KILLS) {
@@ -283,6 +285,9 @@ try {
       // Phase 1 (R11): oracle (h)'s turn-end exemption took the runtime's `HeldThisTurn` note as the cause. This runtime notes it and releases an
       // unknown re-sent in its own turn (the key may be at the server, and the re-send is gone with no head on disk).
       ["lie.turn-end-after-a-resend", "lane.turnEnd.HeldThisTurn, a re-sent unknown", [["lane.ts", "l.head.id !== attempt || l.head.phase.t !== \"held\" ||", "l.head.id !== attempt ||"]], "(h)"],
+      // Audit 1b: the self-release cause took the runtime's `lane.cancel.Held` cell as proof the handler's cancel ran. This runtime releases every
+      // restored hold after its restored delivery and says that cell, whether or not a cancel ran (the auditor's `lie:1b.self-release-faked`).
+      ["lie.self-release-faked", "lane.cancel.Held, a restored hold no cancel released", [["turn.ts", 'if (ran && item.ending.ch === "unknown") endHeldThisTurn(tx, item.attempt);', 'if (ran && item.ending.ch === "unknown") { endHeldThisTurn(tx, item.attempt); const sl = tx.w.lanes[tx.w.byAttempt[item.attempt ?? ""] ?? ""]; if (item.restored && sl?.head?.id === item.attempt && sl.head.phase.t === "held") cell(tx, "cancel", sl, argsOf(sl)); }']], "(h)"],
       // Phase 1 (R11): `replacedUnderCancel` read an op's policy by its name across every fixture. Beside R15Switch's `search` (cancel), this runtime
       // replaces P1Latest's `search` (latest) head on the wire as `cancel` would: the replaced Attempt's ending reaches nobody.
       ["lie.latest-as-cancel-by-name", "interruptedBy, a latest op named as a cancel op", [["lane.ts", "    if (policy === \"cancel\") return replaceHead(tx, l!, a);", "    if (policy === \"cancel\" || a.machine === \"Lab/P1Latest\") return replaceHead(tx, l!, a);"]], "(j)"],
