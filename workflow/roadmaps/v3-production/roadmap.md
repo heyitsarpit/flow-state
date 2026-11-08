@@ -628,7 +628,10 @@ Numbered, oldest first (runner rule 4).
    disjoint files, runners, reviewers), planned up front; the lead integrates, reviews every diff and alone commits.
    A **trial** on round 14's remaining work only (the user: "use the second variant for one test only so we can judge
    well it worked and how long it took"); later rounds use it only if the user adopts it after seeing the trial's
-   timings and rework. Also in `AGENTS.md`. Version 9. Phases worked out again: none (how
+   timings and rework. **Adopted 2026-11-08** (the user: "well you tell me, was it good enough. 39 minutes sounds
+   good"; the runner judged it good enough): the trial took 39 minutes from plan to done with 7 sidecars and no diff
+   redone. Two refinements from it: runners get the oracle code they check against, and a reviewer sidecar checks
+   every oracle, harness or runtime change. Applied from round 15's remaining rulings on. Also in `AGENTS.md`. Version 9. Phases worked out again: none (how
    they run only).
 
 ## Runner rules
