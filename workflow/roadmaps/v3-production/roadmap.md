@@ -2,7 +2,7 @@
 
 Status: approved by the user on 2026-11-07, in the Claude Code session ("the roadmap is approved"), handing
 its execution to Claude as the agent runner.
-Version: 8, approved 2026-11-07, after amendment 7.
+Version: 9, approved 2026-11-07, after amendment 8.
 Shape confirmed: 2026-11-04, in the Claude Code session. The user gave points 1-10: plans first,
 conformance rewritten, the core, features, Next.js hardening, examples and docs.
 Goal: production code for Flow State v3 at high quality, with good error messages and the
@@ -504,7 +504,13 @@ Everything else still needs the user.
   example: soundness of each change, equivalence of a rewrite, concurrency and shared state, purity and determinism).
   Sidecars are read-only, run no gates or benchmarks, and return findings with file:line evidence, never verdicts.
   The runner reads their findings beside the Opus report, verifies any it acts on, and records which were used. They
-  count outside the one-builder, one-reviewer limit. The procedure: Work serially: one builder at a time, always busy on the queue. One independent Opus review of the latest committed checkpoint every 60 minutes, and one close-out review when a round or area finishes. Reviews only report; the runner fixes minor findings itself. When several reviews in a row keep finding many issues, stop patching: collect every finding as a requirement and run one convergence pass (`policy-convergence`), then keep going.
+  count outside the one-builder, one-reviewer limit.
+  **Builder sidecars (amendment 8):** in prototype work, the Opus builder is a lead that plans its round's tasks up
+  front and delegates bounded ones to up to 4 Haiku sidecars at a time: coders (a disjoint file or function each,
+  with an acceptance check), runners (gates, searches, traces; they report results, never fix) and reviewers (one diff
+  against one rule). The lead owns the design, integrates, reads every diff before it lands, and is the only one who
+  commits; sidecars never edit the design, the plans or expected results. This is separate from the hourly review.
+  The procedure: Work serially: one builder at a time, always busy on the queue. One independent Opus review of the latest committed checkpoint every 60 minutes, and one close-out review when a round or area finishes. Reviews only report; the runner fixes minor findings itself. When several reviews in a row keep finding many issues, stop patching: collect every finding as a requirement and run one convergence pass (`policy-convergence`), then keep going.
 
 - Processes at once: up to 8 deterministic processes, about 16 GB in total, after checking
   `vm_stat`. Always alone: real-browser runs and benchmarks.
@@ -617,6 +623,11 @@ Numbered, oldest first (runner rule 4).
    sidecars that attack the problem from different angles"): the Agents section gains Haiku sidecars, four per Opus
    review, research or survey task, read-only, each with its own angle, outside the agent-count limit. Also in
    `AGENTS.md`, section "Agents". Version 8. Phases worked out again: none (how they run only).
+8. 2026-11-08, judge the user ("the opus agent is responsible to managing and delegating. i want you to apply this
+   strategy for the next prototype work"): in prototype work the Opus builder leads up to 4 Haiku sidecars (coders on
+   disjoint files, runners, reviewers), planned up front; the lead integrates, reviews every diff and alone commits.
+   First applied to round 14's remaining work. Also in `AGENTS.md`. Version 9. Phases worked out again: none (how
+   they run only).
 
 ## Runner rules
 
