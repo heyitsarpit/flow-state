@@ -195,19 +195,6 @@ await stated("plants", async (scope) => {
     const s26 = final(await runner.run(job("search budget", { gate: "search", cmd: ["bun", "search/run.ts", "--which", "frag", "--runtime", "../../round-14/adapter.ts", "--depth", "9", "--states", "50", "--expect", "completed"], cwd: join(import.meta.dir, ".."), env: {}, limits: { mb: 1200, seconds: 120 }, contract: "gate" }, { slots: 1, peakMb: 300, aloneS: 2 })));
     const sv = s26.answer === "stated" ? (s26.verdict.items[0]?.detail as { verdict?: string } | undefined)?.verdict : undefined;
     plant("search: a budget hit where completed is expected fails", outcome(s26) === "fail" && sv === "inconclusive", `${outcome(s26)} ${sv}`);
-    // ── Alone attempts never overlap, across two top processes (#23): each top runs one unknown job, and writes its events.
-    const stamp = script("stamp", `if (process.env.FLOW_ALONE === "1") await Bun.write(process.argv[2], String(Date.now()));\nawait Bun.sleep(5000);\n`);
-    const topScript = script("top", `import { makeRunner, job } from ${JSON.stringify(join(import.meta.dir, "../verdicts/runner.ts"))};\nconst r = makeRunner({ slots: 1, mb: 100, budgetS: null });\nconst d = await r.run(job("u", { gate: "u", cmd: ["bun", ${JSON.stringify(stamp)}, process.argv[2] + ".alone"], cwd: ${JSON.stringify(tmp)}, env: {}, limits: { mb: 300, seconds: 1 }, contract: "gate" }, { slots: 1, peakMb: 10, aloneS: 1 }));\nawait r.close();\nawait Bun.write(process.argv[2], JSON.stringify({ alone: d.alone !== null }));\n`);
-    const tops = await Promise.all(
-      ["a", "b"].map((n) =>
-        runner.program(job(`top ${n}`, { gate: "top", cmd: ["bun", topScript, join(tmp, `top-${n}.json`)], cwd: tmp, env: { FLOW_NESTED: "", FLOW_RUN: "", FLOW_POOL: "", FLOW_LIMIT_MB: "", FLOW_ALONE: "", FLOW_VERDICTS_DIR: join(tmp, "lock") }, limits: { mb: 600, seconds: 60 }, contract: "program" }, { slots: 1, peakMb: 10, aloneS: 1 })),
-      ),
-    );
-    void tops;
-    const both = await Promise.all(["a", "b"].map(async (n) => JSON.parse(await Bun.file(join(tmp, `top-${n}.json`)).text()) as { alone: boolean }));
-    const aloneAt = await Promise.all(["a", "b"].map(async (n) => Number(await Bun.file(join(tmp, `top-${n}.json.alone`)).text())));
-    const apart = Math.abs(aloneAt[0]! - aloneAt[1]!);
-    plant("live: two top processes rerun alone one after the other, never together (the machine-wide lock)", both.every((b) => b.alone) && apart >= 1000, `alone ${both.map((b) => b.alone).join(",")}, alone starts ${apart} ms apart`);
     // ── Standing forms of B1, B5 and B17: the planted edit in a copy of this tree, the smallest child that shows it.
     const { SUITE } = await import("../limits.ts");
     const conf = join(import.meta.dir, "..");
@@ -231,14 +218,13 @@ await stated("plants", async (scope) => {
     // ── S1, one reader: the structural check, as a child.
     const s1 = final(await runner.run(job("reader-check", { gate: "reader-check", cmd: ["bun", join(import.meta.dir, "reader-check.ts")], cwd: tmp, env: {}, limits: { mb: 600, seconds: 60 }, contract: "gate" }, { slots: 1, peakMb: 100, aloneS: 1 })));
     plant("S1: nothing outside verdicts/ reads a child's output, ends itself, or loads what it tests before stated", outcome(s1) === "pass", s1.answer === "stated" ? s1.verdict.items.map((i) => ("why" in i ? i.why : "")).filter(Boolean).slice(0, 3).join("; ") : cause(s1));
-    // ── The budget bounds every queued attempt, also while another top holds the alone lock (review of 76328de4, 1).
-    const budgetScript = script("budget", `import { writeFileSync, mkdirSync } from "node:fs";\nimport { makeRunner, job, final } from ${JSON.stringify(join(import.meta.dir, "../verdicts/runner.ts"))};\nimport { describe } from ${JSON.stringify(join(import.meta.dir, "../verdicts/read.ts"))};\nif (process.argv[3] === "blocked") { mkdirSync(process.env.FLOW_VERDICTS_DIR, { recursive: true }); writeFileSync(process.env.FLOW_VERDICTS_DIR + "/alone.lock", String(process.ppid)); }\nconst r = makeRunner({ slots: 1, mb: 100, budgetS: 2 });\nconst j = (n) => r.run(job(n, { gate: n, cmd: ["sleep", "1.5"], cwd: ${JSON.stringify(tmp)}, env: {}, limits: { mb: 100, seconds: 10 }, contract: "gate" }, { slots: 1, peakMb: 10, aloneS: 1 }));\nconst done = await Promise.all(["a", "b", "c"].map(j));\nawait r.close();\nawait Bun.write(process.argv[2], JSON.stringify(done.map((d) => describe(final(d)))));\n`);
-    for (const how of ["free", "blocked"] as const) {
-      const f = join(tmp, `budget-${how}.json`);
-      const b = await runner.program(job(`budget ${how}`, { gate: "budget", cmd: ["bun", budgetScript, f, how], cwd: tmp, env: { FLOW_NESTED: "", FLOW_RUN: "", FLOW_POOL: "", FLOW_LIMIT_MB: "", FLOW_ALONE: "", FLOW_VERDICTS_DIR: join(tmp, `lock-${how}`) }, limits: { mb: 600, seconds: 30 }, contract: "program" }, { slots: 1, peakMb: 10, aloneS: 1 }));
+    // ── The budget bounds every queued attempt, running and queued (review of 76328de4, 1).
+    const budgetScript = script("budget", `import { writeFileSync } from "node:fs";\nimport { makeRunner, job, final } from ${JSON.stringify(join(import.meta.dir, "../verdicts/runner.ts"))};\nimport { describe } from ${JSON.stringify(join(import.meta.dir, "../verdicts/read.ts"))};\nconst r = makeRunner({ slots: 1, mb: 100, budgetS: 2 });\nconst j = (n) => r.run(job(n, { gate: n, cmd: ["sleep", "1.5"], cwd: ${JSON.stringify(tmp)}, env: {}, limits: { mb: 100, seconds: 10 }, contract: "gate" }, { slots: 1, peakMb: 10, aloneS: 1 }));\nconst done = await Promise.all(["a", "b", "c"].map(j));\nawait r.close();\nawait Bun.write(process.argv[2], JSON.stringify(done.map((d) => describe(final(d)))));\n`);
+    {
+      const f = join(tmp, "budget.json");
+      const b = await runner.program(job("budget", { gate: "budget", cmd: ["bun", budgetScript, f], cwd: tmp, env: { FLOW_NESTED: "", FLOW_RUN: "", FLOW_POOL: "", FLOW_LIMIT_MB: "", FLOW_ALONE: "" }, limits: { mb: 600, seconds: 30 }, contract: "program" }, { slots: 1, peakMb: 10, aloneS: 1 }));
       const got = b.kind === "ended" && b.exit === 0 ? (JSON.parse(await Bun.file(f).text()) as string[]) : [];
-      const want = how === "free" ? /^unknown: budget|unknown: unstarted: no budget left/ : /unknown: unstarted: no budget left/;
-      plant(`budget: every queued attempt ends at the budget (${how === "free" ? "running and queued" : "while another top holds the lock"})`, got.length === 3 && got.slice(how === "free" ? 1 : 0).every((x) => want.test(x)), JSON.stringify(got));
+      plant("budget: every queued attempt ends at the budget (running and queued)", got.length === 3 && got.slice(1).every((x) => /^unknown: budget|unknown: unstarted: no budget left/.test(x)), JSON.stringify(got));
     }
     // ── A process that escaped the tree and holds the pipes cannot hang the reading (review of 76328de4, 2).
     const pidFile = join(tmp, "escaped.pid");

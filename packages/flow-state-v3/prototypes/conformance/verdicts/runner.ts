@@ -1,8 +1,6 @@
-import { existsSync, linkSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import { outcome, read, type Reading } from "./read.ts";
-import { inheritedLimitMb, isTop, processStart, runId, spawnRun, type Launch, type Run, type RunSpec } from "./spawn.ts";
+import { inheritedLimitMb, isTop, runId, spawnRun, type Launch, type Run, type RunSpec } from "./spawn.ts";
+import { classify } from "./core.ts";
 
 export type Size = { readonly slots: number; readonly peakMb: number; readonly aloneS: number; readonly limitMb?: number };
 export type Pool = { readonly slots: number; readonly mb: number; readonly budgetS: number | null; readonly echo?: boolean };
@@ -19,8 +17,6 @@ export type Runner = {
 };
 
 export const OWN_MB = 300;
-export const LOCK_POLL_MS = 200;
-export const LOCK_WAIT_MS = 600_000;
 export const final = (d: Done): Reading => d.alone ?? d.first;
 export const aloneLimit = (first: number, size: Size): number => Math.min(first, Math.max(30, 3 * size.aloneS));
 export const aloneCost = (size: Size): number => Math.max(30, 3 * size.aloneS);
@@ -30,109 +26,9 @@ export const admittedAt = (top: boolean) => (s: Size): number => (top ? (s.limit
 export const parentLimitHolds = (parentMb: number | null, running: readonly number[], next: number): boolean =>
   parentMb === null || running.reduce((a, b) => a + b, 0) + next + OWN_MB <= parentMb;
 
-const DIR = process.env["FLOW_VERDICTS_DIR"] || join(tmpdir(), "flow-verdicts");
-const TOPS = join(DIR, "tops");
-const LOCK = join(DIR, "alone.lock");
-const alive = (pid: number) => {
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch (e) {
-    return (e as { code?: string }).code === "EPERM";
-  }
-};
-let ownStart: string | null | undefined;
-const me = () => (ownStart ??= processStart(process.pid));
-const same = (pid: number, start: unknown) => {
-  if (!alive(pid)) return false;
-  if (typeof start !== "string" || start === "") return true;
-  const now = processStart(pid);
-  return now === null || now === start;
-};
-const FOREIGN = -1;
-const readLock = (path: string): string | null | typeof FOREIGN => {
-  try {
-    return readFileSync(path, "utf8");
-  } catch (e) {
-    return (e as { code?: string }).code === "ENOENT" ? null : FOREIGN;
-  }
-};
-const holderOf = (text: string): number | null => {
-  if (text.trim() === "") return null;
-  const [p, ...start] = text.trim().split("|");
-  const pid = Number(p);
-  if (!Number.isFinite(pid) || pid <= 0) return FOREIGN;
-  return same(pid, start.join("|")) ? pid : null;
-};
-const lockHolder = (): number | null => {
-  const text = readLock(LOCK);
-  if (text === null) return null;
-  if (text === FOREIGN) return FOREIGN;
-  return holderOf(text);
-};
-const takeLock = (): boolean => {
-  mkdirSync(DIR, { recursive: true });
-  const mine = join(DIR, `alone.${process.pid}`);
-  try {
-    writeFileSync(mine, `${process.pid}|${me() ?? ""}`);
-  } catch {
-    return false;
-  }
-  try {
-    for (let i = 0; i < 2; i++) {
-      try {
-        linkSync(mine, LOCK);
-        return true;
-      } catch (e) {
-        if ((e as { code?: string }).code !== "EEXIST") return false;
-        const text = readLock(LOCK);
-        if (text === FOREIGN) return false;
-        if (text === null) continue;
-        const h = holderOf(text);
-        if (h === process.pid) return true;
-        if (h !== null) return false;
-        const aside = join(DIR, `alone.stale.${process.pid}`);
-        try {
-          renameSync(LOCK, aside);
-        } catch {
-          continue;
-        }
-        if (readLock(aside) !== text)
-          try {
-            linkSync(aside, LOCK);
-          } catch {}
-        rmSync(aside, { force: true });
-      }
-    }
-    return false;
-  } finally {
-    rmSync(mine, { force: true });
-  }
-};
-const dropLock = () => {
-  if (lockHolder() === process.pid) rmSync(LOCK, { force: true });
-};
-const register = (running: number) => {
-  mkdirSync(TOPS, { recursive: true });
-  writeFileSync(join(TOPS, `${process.pid}.json`), JSON.stringify({ running, start: me() }));
-};
-const unregister = () => rmSync(join(TOPS, `${process.pid}.json`), { force: true });
-const othersIdle = (): boolean => {
-  if (!existsSync(TOPS)) return true;
-  for (const f of readdirSync(TOPS)) {
-    const pid = Number(f.replace(/\.json$/, ""));
-    if (pid === process.pid || !alive(pid)) continue;
-    try {
-      const e = JSON.parse(readFileSync(join(TOPS, f), "utf8")) as { running: number; start?: string };
-      if (e.running > 0 && same(pid, e.start)) return false;
-    } catch {
-      return false;
-    }
-  }
-  return true;
-};
-
 type Waiting = { readonly job: Job; readonly seq: number; readonly start: () => void };
+
+class BudgetGone extends Error {}
 
 export const makeRunner = (pool: Pool): Runner => {
   const top = isTop();
@@ -148,20 +44,13 @@ export const makeRunner = (pool: Pool): Runner => {
   let mb = 0;
   let runningFirst = 0;
   let runningAlone = 0;
-  let cooldownUntil = 0;
-  let lockWaitFrom: number | undefined;
-  let gaveUp = false;
   const limits: number[] = [];
   const limitWaiters: Array<() => void> = [];
   const firsts: Waiting[] = [];
   const alones: Waiting[] = [];
   let closed = false;
-  let poll: ReturnType<typeof setTimeout> | undefined;
   const budgetLeft = () => (pool.budgetS === null ? Infinity : pool.budgetS - (performance.now() - t0) / 1000);
   const running = () => runningFirst + runningAlone;
-  const later = () => {
-    if (poll === undefined && !closed) poll = setTimeout(() => ((poll = undefined), pump()), LOCK_POLL_MS);
-  };
   const startFirst = (w: Waiting) => {
     firsts.splice(firsts.indexOf(w), 1);
     slots += w.job.size.slots;
@@ -169,61 +58,34 @@ export const makeRunner = (pool: Pool): Runner => {
     runningFirst++;
     w.start();
   };
+  const startAlone = () => {
+    runningAlone++;
+    alones.shift()!.start();
+  };
   const pump = () => {
     if (closed) return;
     if (stop.signal.aborted) {
       for (const w of limitWaiters.splice(0)) w();
       for (const w of [...firsts]) startFirst(w);
-      while (alones.length) {
-        runningAlone++;
-        alones.shift()!.start();
-      }
-      if (top) register(running());
+      while (alones.length) startAlone();
       return;
     }
     firsts.sort((a, b) => b.job.size.aloneS - a.job.size.aloneS || a.seq - b.seq);
-    if (top && runningAlone === 0 && firsts.length) register(running() + 1);
-    const blocked = top && (() => {
-      const h = lockHolder();
-      return h !== null && h !== process.pid;
-    })();
-    if (!blocked && runningAlone === 0) {
+    if (runningAlone === 0)
       for (const w of [...firsts]) {
         const fits = running() === 0 || (slots + w.job.size.slots <= pool.slots && mb + admitted(w.job.size) <= pool.mb);
         if (fits) startFirst(w);
       }
-    } else if (blocked && firsts.length) later();
-    if (top) register(running());
-    if (top && alones.length && running() === 0 && firsts.length === 0) {
-      if (performance.now() < cooldownUntil) return later();
-      lockWaitFrom ??= performance.now();
-      if (takeLock() && othersIdle()) {
-        lockWaitFrom = undefined;
-        const w = alones.shift()!;
-        runningAlone++;
-        if (top) register(running());
-        w.start();
-      } else {
-        dropLock();
-        if (gaveUp || performance.now() - lockWaitFrom > LOCK_WAIT_MS) {
-          lockWaitFrom = undefined;
-          gaveUp = true;
-          while (alones.length) {
-            runningAlone++;
-            alones.shift()!.start();
-          }
-        } else later();
-      }
-    }
+    if (alones.length && running() === 0 && firsts.length === 0) startAlone();
   };
   const budgetTimer = pool.budgetS === null ? undefined : setTimeout(() => (stop.abort("budget"), pump()), Math.max(0, pool.budgetS * 1000));
-  if (top) register(0);
+  const gone = () => new BudgetGone(stop.signal.reason === "closed" ? "closed before it started" : "no budget left");
   const attempt = async (j: Job, id: string, alone: boolean, seconds: (s: number) => number): Promise<Run> => {
     log.push({ job: j.name, attempt: alone ? "alone" : "first", at: "start" });
     let opened: Opened | undefined;
     let launch: Launch | undefined;
     try {
-      if (stop.signal.aborted) throw new BudgetGone(stop.signal.reason === "closed" ? "closed before it started" : "no budget left");
+      if (stop.signal.aborted) throw gone();
       opened = await j.open();
       const spec = opened.spec;
       launch = {
@@ -238,7 +100,7 @@ export const makeRunner = (pool: Pool): Runner => {
         throw new Error(`defect: ${j.name}'s kill limit ${launch.limits.mb} MB does not fit its parent's ${parentMb} MB even alone`);
       while (!parentLimitHolds(parentMb, limits, launch.limits.mb)) {
         await new Promise<void>((r) => limitWaiters.push(r));
-        if (stop.signal.aborted) throw new BudgetGone(stop.signal.reason === "closed" ? "closed before it started" : "no budget left");
+        if (stop.signal.aborted) throw gone();
       }
       limits.push(launch.limits.mb);
       try {
@@ -250,7 +112,7 @@ export const makeRunner = (pool: Pool): Runner => {
     } catch (e) {
       if (e instanceof Error && e.message.startsWith("defect:")) throw e;
       const l: Launch = launch ?? { gate: j.name, cmd: [], cwd: "", env: {}, limits: { mb: 0, seconds: 0 }, contract: "gate", run: id, referenceMb: null, pool: { slots: j.size.slots, mb: j.size.peakMb }, alone };
-      return { kind: "unstarted", launch: l, message: String((e as Error).message ?? e) };
+      return { kind: "unstarted", launch: l, message: e instanceof BudgetGone ? e.message : classify(e).message };
     } finally {
       try {
         opened?.close();
@@ -276,11 +138,9 @@ export const makeRunner = (pool: Pool): Runner => {
           job: j,
           seq: mySeq,
           start: () => {
-            if (gaveUp || budgetLeft() < aloneCost(j.size) || stop.signal.aborted) {
+            if (budgetLeft() < aloneCost(j.size) || stop.signal.aborted) {
               runningAlone--;
-              dropLock();
-              const skipped = gaveUp ? `waited ${LOCK_WAIT_MS / 1000} s for the machine-wide alone lock` : stop.signal.reason === "closed" ? "closed before the alone rerun" : "no budget left for the alone rerun";
-              resolve({ job: j, first, alone: null, skipped });
+              resolve({ job: j, first, alone: null, skipped: stop.signal.reason === "closed" ? "closed before the alone rerun" : "no budget left for the alone rerun" });
               queueMicrotask(pump);
               return;
             }
@@ -289,8 +149,6 @@ export const makeRunner = (pool: Pool): Runner => {
               .catch(reject)
               .finally(() => {
                 runningAlone--;
-                dropLock();
-                cooldownUntil = performance.now() + 2 * LOCK_POLL_MS;
                 pump();
               });
           },
@@ -346,18 +204,10 @@ export const makeRunner = (pool: Pool): Runner => {
         mb += admitted(w.job.size);
         w.start();
       }
-      for (const w of alones.splice(0)) {
-        runningAlone++;
-        w.start();
-      }
+      while (alones.length) startAlone();
       await Promise.race([Promise.allSettled([...live]), Bun.sleep(50)]);
     }
     if (budgetTimer) clearTimeout(budgetTimer);
-    if (poll) clearTimeout(poll);
-    dropLock();
-    if (top) unregister();
   };
   return { run, program, close, events: () => log, pool };
 };
-
-class BudgetGone extends Error {}

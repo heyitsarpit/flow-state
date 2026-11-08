@@ -506,3 +506,28 @@ The VERDICT items of every gate in the loaded `gates.ts` run (8 slots, copies) a
   `file:watch.ts`, `file:search/*.ts`, `file:scenarios/frag.scenario.ts`, `file:scenarios/round4.scenario.ts`; round ids `round:adapter.ts`
   (the canon count on stderr), `round:checks/*.ts`, `round:cli/main.ts`, `round:typed/compare.ts`, `round:typed/date-check.ts`,
   `round:typed/census.ts`, `round:run-plants.sh`. `--hashes` prints them.
+
+### Cut short (the user's word): the lock removed, the last runs
+
+- C2 done, a deviation: the cross-process alone lock and its registry are gone from `verdicts/runner.ts`. Alone reruns are serialised
+  inside one top process only; two top-level runs at once are no longer supported (they can overlap their alone reruns). Rows 1, 5 and
+  fix 6 above that mention the lock, the two-top plant and the budget's "blocked" variant no longer apply; plants.ts has 73 items, all
+  green. A budget-gone attempt reads `unstarted: no budget left`; other unstarted throws read through `classify` in `verdicts/core.ts`.
+- The suite (`main.ts --round 14 --no-search`), once: 834/834, by output 0; the same PASS/FAIL set and RECIPIENTS line as
+  `cp3-baseline`; exit 1 on the lock only (unlogged FRAG-15, SEARCH-ODD-SMALL, REV7-M2, REV8-PINS, R12-BOOT and file ids).
+- `bun gates.ts`, once: exit 1, 151 s, 19/25 ok, 0 unknown. BAD: suite, suite canon, suite copies and tamper's control on the lock
+  (E13); falsify search on `chain` (known); lifetime-falsify coverage (34 never-red full names). No case verdict or output changed
+  beyond the named E/N rows.
+
+### Carried to the phase 3 conformance rewrite
+
+- C1, the errno rule: catch sites that rewrap lose the code; reader-check needs recursive rules for them.
+- C3, plant reasons and preconditions: B12a, B17 on old, the B15 race, the B11/B4/B9 reasons, the B5 119 and K numbers.
+- bare's depth-12 search budget (still pinned inconclusive at 3000 states).
+- work-peak re-measured for the current search configurations.
+- The 34 lifetime cases never red on any wrong runtime (PAY-16 ×12, REV8-PINS ×18, FRAG-08 1, REV5-H5H6 1, LIFE-04 1, LIFE-24 1).
+- `queue` and `chain` red in search mode, to diagnose.
+- Stated OS limits: uninterruptible sleep, `setsid` between polls, a foreign SIGKILL, ResolveMessage EMFILE; and two top-level runs at
+  once, unsupported since C2.
+- From the last review: partly-blind evidence and leftovers when `ps` fails; the reach pin applies to the control only (not `isTop`);
+  the `search-budget`/`search-reach` notes listed in mutate.ts's output.

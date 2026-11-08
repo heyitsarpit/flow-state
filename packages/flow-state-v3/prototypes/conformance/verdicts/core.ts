@@ -21,7 +21,7 @@ export const resourceErrno = (e: unknown, seen: Set<object> = new Set()): string
   seen.add(e);
   const code = (e as { code?: unknown }).code;
   if (typeof code === "string" && MACHINE_ERRNOS.includes(code)) return code;
-  if (e instanceof RangeError && /out of memory/i.test(e.message)) return "ERR_OUT_OF_MEMORY";
+  if (e instanceof RangeError && e.message === "Out of memory" && (e as { code?: unknown }).code === undefined) return "ERR_OUT_OF_MEMORY";
   const named = /\b(EMFILE|ENFILE|ENOSPC|ENOMEM|EAGAIN|ENOBUFS|EDQUOT)\b/.exec(String((e as { message?: unknown }).message ?? ""));
   if (named && (e as { name?: unknown }).name === "ResolveMessage") return named[1];
   const errors = (e as { errors?: unknown }).errors;
@@ -32,3 +32,14 @@ export const resourceErrno = (e: unknown, seen: Set<object> = new Set()): string
     }
   return resourceErrno((e as { cause?: unknown }).cause, seen);
 };
+
+export type Classified = { readonly machine: string | undefined; readonly message: string };
+export const describeError = (e: unknown, lines = 3): string =>
+  e instanceof Error ? (e.stack?.split("\n").slice(0, lines).join(" ") ?? `${e.name}: ${e.message}`) : typeof e === "string" ? e : (() => {
+    try {
+      return JSON.stringify(e) ?? String(e);
+    } catch {
+      return Object.prototype.toString.call(e);
+    }
+  })();
+export const classify = (e: unknown, lines = 3): Classified => ({ machine: resourceErrno(e), message: describeError(e, lines) });
