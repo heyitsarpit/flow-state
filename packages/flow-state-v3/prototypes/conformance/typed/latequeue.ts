@@ -9,6 +9,7 @@ export const LateQueueId = "Lab/LateQueue";
 const charge = transaction({ id: "lab/lateCharge", input: { who: S.Unknown }, key: [], concurrency: "serialize", services: [FakeApi], commit: write("charge") });
 const d = definition({
   id: LateQueueId,
+  persist: true,
   states: ["A", "W", "B"],
   events: { Go: {}, Away: {}, Cancelling: {} },
   internalEvents: { Ok: {}, No: {}, Unsure: Flow.uncertain({}) },

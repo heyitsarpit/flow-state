@@ -36,16 +36,18 @@ const encodeField = (machine: string, f: string, schema: unknown, v: unknown): s
   if (typeof out !== "string") throw new Error(`IdentityFieldNotString: ${machine} ${f} encodes to ${typeof out} (OD30 Q6)`);
   return out;
 };
-// The encoded side's structure: each node's tag and data, in key order, without annotations (a description or a title is no new version).
-// Gotcha: a check is seen only as there or not (its kind lives in annotations), so `minLength(1)` and `minLength(2)` read the same.
+// A side's structure: each node's tag and data, in key order, without annotations (a description or a title is no new version), except a check's
+// `representation` ({ id, payload }), which names the check and its parameters (Q2 A): `minLength(1)` and `minLength(2)` differ.
+// Gotcha: a custom filter has no representation, so a change to its predicate is no new version; nor is a transformation whose two sides stay the same.
 const structure = (x: unknown, seen: Set<unknown> = new Set()): string => {
   if (x === null || typeof x !== "object") return typeof x === "function" ? "fn" : String(JSON.stringify(x));
   if (seen.has(x)) return "cycle";
   seen.add(x);
   const o = x as Record<string, unknown>;
+  const rep = (o["annotations"] as { readonly representation?: { readonly id: unknown; readonly payload?: unknown } } | undefined)?.representation;
   const out = Array.isArray(x)
     ? `[${x.map((y) => structure(y, seen)).join(",")}]`
-    : `${String(o["_tag"] ?? "")}{${Object.keys(o).filter((k) => k !== "annotations" && typeof o[k] !== "function").sort().map((k) => `${k}:${structure(o[k], seen)}`).join(",")}}`;
+    : `${String(o["_tag"] ?? "")}{${Object.keys(o).filter((k) => k !== "annotations" && typeof o[k] !== "function").sort().map((k) => `${k}:${structure(o[k], seen)}`).join(",")}${rep ? `,representation:${structure({ id: rep.id, payload: rep.payload }, seen)}` : ""}}`;
   seen.delete(x);
   return out;
 };
@@ -57,7 +59,11 @@ export const schemaVersion = (schema: unknown): string => {
 };
 // OD30 Q3, rule 74: the version of a value-named machine's identity is its field set and each field's Schema version, in field-name order.
 export const identityVersionOf = (fields: Readonly<Record<string, { readonly schema: unknown }>>, names: readonly string[]): readonly string[] =>
-  names.map((f) => `${f}:${String(SchemaAST.toEncoded((fields[f]!.schema as Schema.Top).ast))}#${schemaVersion(fields[f]!.schema)}`);
+  names.map((f) => versioned(`${f}:${String(SchemaAST.toEncoded((fields[f]!.schema as Schema.Top).ast))}`, fields[f]!.schema));
+// Flow's version encoding is tagged with its format (2: type side, encoded side and check representations), so a record written by an earlier
+// format is told apart and compared by the part every format writes alike.
+export const VERSION_FORMAT = 2;
+export const versioned = (name: string, schema: unknown) => `${name}#${VERSION_FORMAT}:${schemaVersion(schema)}`;
 const hash = (s: string) => {
   let h = 2166136261;
   for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619) >>> 0;

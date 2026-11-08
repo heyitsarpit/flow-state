@@ -7,7 +7,7 @@ import { isIgnore, payloadsOf, tokens, uncertainOf, type EventPayloads, type Eve
 import { compileMemory, type MemoryFields, type MemoryOf } from "./memory.ts";
 import { identityFieldsOf, identityVersionOf } from "./ref.ts";
 import type { ReqsOf } from "./fragment.ts";
-import { compileOp, handles, type AnyBound, type HandleOf, type RequirementsOf, type Typed } from "./operations.ts";
+import { compileOp, FLOW_REASONS, handles, WRITE_ONLY_REASONS, type AnyBound, type HandleOf, type RequirementsOf, type Typed } from "./operations.ts";
 import {
   collect,
   compileNodes,
@@ -78,11 +78,15 @@ const streamMapped = (id: string, op: string, name: string, t: MappedIn): Mapped
   if (isIgnore(t)) throw new Error(`IgnoreForbidden: ${id} streams.${op}.${name} may not be Flow.ignore (2.7.18)`);
   return { event: t.tag, ...(t.fromFn ? { from: slotOf(id, `streams.${op}.${name}`, t.fromFn) } : {}) };
 };
+// Feed's reasons and `Feed`, the stream's own failure key: an adapter tag in `failureBy` may be none of them.
+const FEED_TAGS = new Set(["Closed", "Overflow", "Silent", "Flapping", "Feed"]);
 const compileStreams = (id: string, s: Readonly<Record<string, StreamIn>>): Readonly<Record<string, StreamSpec>> =>
   Object.fromEntries(
     Object.entries(s).map(([op, x]) => {
       const sl = (n: string, f: Fn | undefined) => (f ? { [n]: slotOf(id, `streams.${op}.${n === "reconnectWhile" ? "reconnect.while" : n === "pageRetryWhile" ? "page.while" : n}`, f) } : {});
       const { key, backoff, subscribe, reconnectWhile, pageRetryWhile, catchUp, value, missed, failure, failureBy, pages, ...data } = x;
+      for (const tag of Object.keys(failureBy ?? {}))
+        if (FLOW_REASONS.has(tag) || WRITE_ONLY_REASONS.has(tag) || FEED_TAGS.has(tag)) throw new Error(`ReservedReason: ${id} streams.${op}.failureBy declares tag ${tag}, which is one of Flow's or Feed's reasons (rule 13)`);
       return [
         op,
         {
@@ -174,7 +178,7 @@ export const machine = <
     ...(identityFieldsOf(d.memory).length ? { identityVersion: identityVersionOf(compileMemory(d.id, d.memory).fields!, identityFieldsOf(d.memory)) } : {}), // OD30 Q3
     ops: { ...Object.fromEntries(Object.entries(d.ops).map(([k, x]) => [k, compileOp(d.id, k, x, events)])), ...fragOps },
     ...(frags.length ? { fragments: Object.fromEntries(frags.map((f) => [f.id, f.compiled])) } : {}),
-    persisted: d.persist ?? true,
+    persisted: d.persist ?? false,
     ...(d.local ? { local: true as const } : {}),
     uses: d.uses ?? [],
     ...(d.domain ? { domain: compileDomain(d.id, d.domain) } : {}),

@@ -8,6 +8,7 @@ export const R15KeyedId = "Lab/R15Keyed";
 const keyedWrite = transaction({ id: "lab/r15Keyed", input: { k: S.String }, key: ["k"], concurrency: "serialize", services: [FakeApi], commit: write("keyed") });
 const keyed = definition({
   id: R15KeyedId,
+  persist: true,
   states: ["A", "W"],
   events: { Go: { k: S.String } },
   internalEvents: { Ok: {}, No: {}, Unsure: Flow.uncertain({}) },
@@ -31,6 +32,7 @@ export const R15RejectId = "Lab/R15Reject";
 const rejectWrite = transaction({ id: "lab/r15Reject", input: { k: S.String }, key: ["k"], concurrency: "reject", services: [FakeApi], commit: write("rej") });
 const reject = definition({
   id: R15RejectId,
+  persist: true,
   states: ["A", "W", "B"],
   events: { Go: {} },
   internalEvents: { Ok: {}, No: {}, Unsure: Flow.uncertain({}) },
@@ -61,6 +63,7 @@ const declining = transaction({
 });
 const fail = definition({
   id: R15FailId,
+  persist: true,
   states: ["A", "W"],
   events: { Go: { k: S.String } },
   internalEvents: { Ok: {}, Fail: {}, Unsure: Flow.uncertain({}) },
@@ -84,6 +87,7 @@ export const R15HeldId = "Lab/R15Held";
 const holding = transaction({ id: "lab/r15Held", input: { k: S.String }, key: ["k"], concurrency: "serialize", services: [FakeApi], commit: write("holding") });
 const held = definition({
   id: R15HeldId,
+  persist: true,
   states: ["A", "W"],
   events: { Go: { k: S.String }, GoBad: { k: S.String } },
   internalEvents: { Ok: {}, No: {}, Unsure: Flow.uncertain({}) },
@@ -105,11 +109,11 @@ const heldFx = fixture(
 export const r15HeldFixture = () => heldFx;
 
 export const R15NumId = "Lab/R15Num";
-const numIn = definition({ id: R15NumId, states: [], events: {}, internalEvents: {}, memory: { n: Flow.input(S.NumberFromString) }, operations: () => ({}) });
+const numIn = definition({ id: R15NumId, persist: true, states: [], events: {}, internalEvents: {}, memory: { n: Flow.input(S.NumberFromString) }, operations: () => ({}) });
 const numFx = fixture(machine(numIn, () => ({ default: { node: "root" } })));
 export const r15NumFixture = () => numFx;
 
 export const R15NonEmptyId = "Lab/R15NonEmpty";
-const nonEmptyIn = definition({ id: R15NonEmptyId, states: [], events: {}, internalEvents: {}, memory: { s: Flow.input(S.NonEmptyString) }, operations: () => ({}) });
+const nonEmptyIn = definition({ id: R15NonEmptyId, persist: true, states: [], events: {}, internalEvents: {}, memory: { s: Flow.input(S.NonEmptyString) }, operations: () => ({}) });
 const nonEmptyFx = fixture(machine(nonEmptyIn, () => ({ default: { node: "root" } })));
 export const r15NonEmptyFixture = () => nonEmptyFx;

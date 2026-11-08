@@ -23,7 +23,7 @@ const timed = transaction({ id: "t/timed", input: {}, key: [], concurrency: "rej
 // @ts-expect-error a contract that does not name its commit's service has no `outcomes`
 void timed.outcomes;
 const timedOk = transaction({ id: "t/timed", input: {}, key: [], concurrency: "reject", services: [Clock], commit: () => Effect.map(Effect.service(Clock), (c) => c.now()) });
-const TD = definition({ id: "T/Timed", states: ["A"], events: {}, internalEvents: { Ok: {}, No: {}, Unsure: Flow.uncertain({}) }, memory: {}, operations: ({ E }) => ({ t: timedOk.outcomes({ success: E.Ok, failure: { NotSent: E.No }, unknown: E.Unsure }) }) });
+const TD = definition({ id: "T/Timed", persist: true, states: ["A"], events: {}, internalEvents: { Ok: {}, No: {}, Unsure: Flow.uncertain({}) }, memory: {}, operations: ({ E }) => ({ t: timedOk.outcomes({ success: E.Ok, failure: { NotSent: E.No }, unknown: E.Unsure }) }) });
 const TM = machine(TD, ({ S }) => ({ default: S.A, on: { Ok: {}, No: {}, Unsure: {} } }));
 class Other extends Context.Service<Other, { readonly x: number }>()("Probe/Other") {}
 // @ts-expect-error a boot that does not give a machine's service
@@ -31,25 +31,25 @@ servicesFor(TM, Context.make(Other, { x: 1 }));
 servicesFor(TM, Context.make(Clock, { now: () => 0 }));
 // Mid review H1 (rule 57): a fragment's operation's service reaches its host's requirements.
 const Ticker = trait({ id: "Ticker", internalEvents: { Ok: {}, No: {}, Unsure: Flow.uncertain({}) }, operations: ({ E }) => ({ t: timedOk.outcomes({ success: E.Ok, failure: { NotSent: E.No }, unknown: E.Unsure }) }) }, () => ({ on: { Ok: {}, No: {}, Unsure: {} } }));
-const HD = definition({ id: "T/Host", states: ["A"], events: {}, internalEvents: {}, memory: {}, traits: { ticker: Ticker }, operations: () => ({}) });
+const HD = definition({ id: "T/Host", persist: true, states: ["A"], events: {}, internalEvents: {}, memory: {}, traits: { ticker: Ticker }, operations: () => ({}) });
 const HM = machine(HD, ({ S }) => ({ default: S.A }));
 // @ts-expect-error a boot that does not give a placed fragment's service
 servicesFor(HM, Context.make(Other, { x: 1 }));
 servicesFor(HM, Context.make(Clock, { now: () => 0 }));
 // Round 13 (round 12 review L1): D218 below the root trait. A trait placed in a trait, a trait placed on a node, and a subroutine's operation each reach the host.
 const Outer = trait({ id: "Outer", traits: { inner: Ticker } }, () => ({}));
-const OD = definition({ id: "T/Nested", states: ["A"], events: {}, internalEvents: {}, memory: {}, traits: { outer: Outer }, operations: () => ({}) });
+const OD = definition({ id: "T/Nested", persist: true, states: ["A"], events: {}, internalEvents: {}, memory: {}, traits: { outer: Outer }, operations: () => ({}) });
 const OM = machine(OD, ({ S }) => ({ default: S.A }));
 // @ts-expect-error a boot that does not give a nested fragment's service
 servicesFor(OM, Context.make(Other, { x: 1 }));
 servicesFor(OM, Context.make(Clock, { now: () => 0 }));
-const ND = definition({ id: "T/Node", states: [{ A: Flow.state({ traits: { ticker: Ticker } }) }, "B"], events: {}, internalEvents: {}, memory: {}, operations: () => ({}) });
+const ND = definition({ id: "T/Node", persist: true, states: [{ A: Flow.state({ traits: { ticker: Ticker } }) }, "B"], events: {}, internalEvents: {}, memory: {}, operations: () => ({}) });
 const NM = machine(ND, ({ S }) => ({ default: S.A }));
 // @ts-expect-error a boot that does not give a node trait's service
 servicesFor(NM, Context.make(Other, { x: 1 }));
 servicesFor(NM, Context.make(Clock, { now: () => 0 }));
 const Sub = subroutine({ id: "Sub", internalEvents: { Ok: {}, No: {}, Unsure: Flow.uncertain({}) }, operations: ({ E }) => ({ t: timedOk.outcomes({ success: E.Ok, failure: { NotSent: E.No }, unknown: E.Unsure }) }) }, () => ({ on: { Ok: {}, No: {}, Unsure: {} } }));
-const SD = definition({ id: "T/Sub", states: ["A", { S: Sub }], events: {}, internalEvents: {}, memory: {}, operations: () => ({}) });
+const SD = definition({ id: "T/Sub", persist: true, states: ["A", { S: Sub }], events: {}, internalEvents: {}, memory: {}, operations: () => ({}) });
 const SM = machine(SD, ({ S }) => ({ default: S.A }));
 // @ts-expect-error a boot that does not give a subroutine's service
 servicesFor(SM, Context.make(Other, { x: 1 }));
@@ -62,6 +62,7 @@ void loose.outcomes;
 
 const D = definition({
   id: "T",
+  persist: true,
   states: ["A", "B"],
   events: { Go: { text: Schema.String } },
   internalEvents: { Saved: { revision: Schema.Number }, Refused: { why: Schema.String }, NotSent: {} },
@@ -134,20 +135,18 @@ transaction({
     return Effect.void;
   },
 });
-// Round 15 (U5, OD48): `allow` is cut from v1, so `transaction` takes `reject`, `latest` or `serialize`. `cancel` is refused too: a test of today's
-// API (`Op["concurrency"]`), which the design lists as a v1 policy (C153), so this pin records the gap rather than endorsing it.
+// Round 15 (U5, OD48; C153): `allow` is cut from v1, so `transaction` takes `reject`, `latest`, `cancel` or `serialize`.
 // @ts-expect-error `allow` is cut from v1 (U5)
 transaction({ id: "t/allow", input: {}, key: [], concurrency: "allow", commit: () => Effect.void });
-// @ts-expect-error `cancel` is not in today's `transaction` concurrency type (C153 lists it)
 transaction({ id: "t/cancel", input: {}, key: [], concurrency: "cancel", commit: () => Effect.void });
 // Round 14 (OD28): `Flow.ignore` stands wherever a mapping takes one event.
-const TI = definition({ id: "T/Ign", states: ["A"], events: {}, internalEvents: { Ok: {} }, memory: {}, operations: ({ E }) => ({ s: save.outcomes({ success: Flow.ignore, failure: { Refused: Flow.ignore, NotSent: E.Ok }, unknown: Flow.ignore }) }) });
+const TI = definition({ id: "T/Ign", persist: true, states: ["A"], events: {}, internalEvents: { Ok: {} }, memory: {}, operations: ({ E }) => ({ s: save.outcomes({ success: Flow.ignore, failure: { Refused: Flow.ignore, NotSent: E.Ok }, unknown: Flow.ignore }) }) });
 void TI;
 // OD29 (decision 3 B): a handler's `target` may be omitted and means "self" (already accepted; pinned as compiling).
 machine(TI, ({ S }) => ({ default: S.A, on: { Ok: { updateMemory: () => ({}) } } }));
 
 // Round 14 (OD30, rule 74, 2.7.19): refs. A value ref is named by the input fields; a singleton by a literal name.
-const ED = definition({ id: "T/Editor", states: ["A"], events: {}, internalEvents: {}, memory: { workspaceId: Flow.input(Schema.String), ticketId: Flow.input(Schema.String), title: Flow.initial(Schema.String, "") }, operations: () => ({}) });
+const ED = definition({ id: "T/Editor", persist: true, states: ["A"], events: {}, internalEvents: {}, memory: { workspaceId: Flow.input(Schema.String), ticketId: Flow.input(Schema.String), title: Flow.initial(Schema.String, "") }, operations: () => ({}) });
 const EM = machine(ED, ({ S }) => ({ default: S.A }));
 const T42 = { workspaceId: "north", ticketId: "T-42" };
 const editor = actorRef(EM, T42);
@@ -166,11 +165,11 @@ const wide = { workspaceId: "north", ticketId: "T-42", assignee: "ana" };
 actorRef(EM, wide); // NOT refused: a wider value is kept to its input fields (OD29 J's rule, applied to refs)
 // @ts-expect-error a machine with input fields is named only by value (D4)
 actorRef(EM, "main");
-const ND2 = definition({ id: "T/Counted", states: ["A"], events: {}, internalEvents: {}, memory: { n: Flow.input(Schema.Number) }, operations: () => ({}) });
+const ND2 = definition({ id: "T/Counted", persist: true, states: ["A"], events: {}, internalEvents: {}, memory: { n: Flow.input(Schema.Number) }, operations: () => ({}) });
 const NM2 = machine(ND2, ({ S }) => ({ default: S.A }));
 // @ts-expect-error identity fields encode to strings (OD30 Q6): a number field has no value form
 actorRef(NM2, { n: 1 });
-const NoIn = machine(definition({ id: "T/NoInput", states: ["A"], events: {}, internalEvents: {}, memory: {}, operations: () => ({}) }), ({ S }) => ({ default: S.A }));
+const NoIn = machine(definition({ id: "T/NoInput", persist: true, states: ["A"], events: {}, internalEvents: {}, memory: {}, operations: () => ({}) }), ({ S }) => ({ default: S.A }));
 // @ts-expect-error a machine with no input can only be a singleton
 actorRef(NoIn, {});
 const singleton = actorRef(NoIn, "main");

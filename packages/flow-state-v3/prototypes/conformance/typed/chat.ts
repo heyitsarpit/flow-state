@@ -17,6 +17,7 @@ const upsert = (list: readonly unknown[], e: unknown) =>
 const chat = (o: ChatOpts) => (api: Api) => {
   const d = definition({
     id: "Lab/Chat",
+    persist: true,
     states: ["OPEN", "CLOSED", "BANNED"],
     events: { Leave: {}, Open: {}, Jump: { at: U }, Refetch: {}, Mute: {}, Unmute: {} },
     internalEvents: { Message: { message: U }, Page: { items: S.Array(U) }, Missed: {}, Ended: { why: U }, Banned: {} },

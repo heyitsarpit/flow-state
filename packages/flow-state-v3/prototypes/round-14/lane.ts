@@ -205,7 +205,7 @@ const toMail = (tx: Tx, lane: Lane, h: Attempt, e: Ending) =>
     attempt: h.id,
     onLane: true,
   });
-const tellEnded = (tx: Tx, attempt: string, how: Ending | "superseded" | "released", sentAt = 0) =>
+export const tellEnded = (tx: Tx, attempt: string, how: Ending | "superseded" | "released", sentAt = 0) =>
   hook(tx, "ended", (m, s, cx) => m.ended!(s, { attempt, how, sentAt }, cx));
 const settleHead = (tx: Tx, lane: Lane, e: Ending) => {
   setLane(tx, { ...lane, head: { ...lane.head!, phase: { t: "settled", ending: e } } });
@@ -305,6 +305,36 @@ const queueBehind = (tx: Tx, l: Lane, a: CellArgs, policy: string) => {
   setLane(tx, { ...tx.w.lanes[l.id]!, w: [...l.w, made.attempt] });
   return true;
 };
+// 2.7.13's `cancel` table: at most one Attempt is live. The one there becomes evidence (on the wire it is interrupted, and its ending, when it lands, is
+// evidence by Attempt id; a settled ending not yet admitted is evidence; a held one or a waiting re-send is released), and the new one is minted.
+const replaceHead = (tx: Tx, l: Lane, a: CellArgs) => {
+  const old = l.head!;
+  const made = newAttempt(tx, a);
+  if ("no" in made) return decline(tx, a, made.no);
+  if (old.phase.t === "wire") {
+    tx.commands.push({ k: "interrupt", attempt: old.id, send: old.phase.gen });
+    tx.w = { ...tx.w, interrupted: { ...tx.w.interrupted, [old.id]: { op: l.op } } };
+    note(tx, "interruptedBy", { op: l.op, attempt: old.id, by: made.attempt.id });
+  } else if (old.phase.t === "settled") {
+    tx.w = { ...tx.w, interrupted: { ...tx.w.interrupted, [old.id]: { op: l.op } } };
+    note(tx, "evidenceOnly", { op: l.op, attempt: old.id });
+  } else {
+    note(tx, "Released", { op: l.op, attempt: old.id });
+    tellEnded(tx, old.id, "released", old.sentAt);
+  }
+  disarmTimer(tx, `storage/${old.id}`);
+  disarmTimer(tx, `timeout/${old.id}`);
+  clearStall(tx, old.id);
+  const cur = tx.w.lanes[l.id]!;
+  setLane(tx, { ...cur, w: [], head: { ...made.attempt, phase: requestDurable(tx, cur, made.attempt, "ack") } });
+};
+// Under `cancel` an unknown is held only for its own ending's turn (HeldThisTurn): at the turn's end, the hold is released and the unknown is evidence.
+export const endHeldThisTurn = (tx: Tx, attempt: string | undefined) => {
+  const l = attempt === undefined ? undefined : tx.w.lanes[tx.w.byAttempt[attempt] ?? ""];
+  if (!l?.head || l.head.id !== attempt || l.head.phase.t !== "held" || tx.machines[l.machine]?.ops[l.op]?.concurrency !== "cancel") return;
+  note(tx, "lane", { cell: "lane.turnEnd.HeldThisTurn", op: l.op, attempt });
+  release(tx, l);
+};
 // The ack may be on disk: a NotSent now could restore as unknown after the fact (D48, M1).
 const ackOut = (h: Attempt) => h.phase.t === "durable" && h.phase.on === "ack";
 const endNeverSent = (tx: Tx, l: Lane) => {
@@ -366,6 +396,7 @@ const ACTIONS: Readonly<Record<Action, (tx: Tx, lane: Lane | undefined, a: CellA
   busy(tx, l, a) {
     const policy = tx.machines[a.machine]!.ops[a.op]!.concurrency;
     if (policy === "reject") return decline(tx, a, "Rejected");
+    if (policy === "cancel") return replaceHead(tx, l!, a);
     void queueBehind(tx, l!, a, policy);
   },
   // OD20 F4: under `latest` a never-sent, never-invoked head is replaced, and W with it. D48: not while its ack is out.
@@ -375,7 +406,7 @@ const ACTIONS: Readonly<Record<Action, (tx: Tx, lane: Lane | undefined, a: CellA
     if (policy === "serialize") return void queueBehind(tx, l!, a, policy);
     const old = l!.head!;
     if (ackOut(old) && old.phase.t === "durable") {
-      if (!queueBehind(tx, l!, a, policy)) return; // M1: `then` only if the queue took it
+      if (!queueBehind(tx, l!, a, policy === "cancel" ? "latest" : policy)) return; // M1: `then` only if the queue took it; under `cancel` one waits, as under `latest`
       const cur = tx.w.lanes[l!.id]!;
       return setLane(tx, { ...cur, head: { ...old, phase: { ...old.phase, then: "replace" } } });
     }
@@ -549,13 +580,20 @@ const ACTIONS: Readonly<Record<Action, (tx: Tx, lane: Lane | undefined, a: CellA
 };
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
-// The same key fields, in any order: the same op version (a reorder changes no key, since a key is a record).
-// A stamp written before Schema versions joined it (bare field names) compares by names: a change of Flow's own stamp format is no new version.
-const nameOf = (f: string) => f.split("#")[0];
-export const sameFields = (a: readonly string[] | undefined, b: readonly string[] | undefined) =>
-  a === undefined ||
-  b === undefined ||
-  (a.length === b.length && ([...a, ...b].some((f) => !f.includes("#")) ? a.every((f) => b.some((g) => nameOf(g) === nameOf(f))) : a.every((f) => b.includes(f))));
+// A version entry is `name#format:hash`; the format tag says which Flow wrote it. Untagged: a bare name is format 0, `name#hash` format 1.
+const nameOf = (f: string) => f.split("#")[0]!;
+const formatOf = (f: string) => {
+  const v = f.split("#")[1];
+  return v === undefined ? 0 : v.includes(":") ? Number(v.split(":")[0]) : 1;
+};
+// Two version lists, in any order (a key is a record). Written by one format, they compare whole; across formats, by the part every format writes
+// alike (the name): a change of Flow's own encoding is no new version.
+export const sameVersion = (a: readonly string[], b: readonly string[]) => {
+  if (a.length !== b.length) return false;
+  const one = new Set([...a, ...b].map(formatOf)).size === 1;
+  return one ? a.every((f) => b.includes(f)) : a.every((f) => b.some((g) => nameOf(g) === nameOf(f)));
+};
+export const sameFields = (a: readonly string[] | undefined, b: readonly string[] | undefined) => a === undefined || b === undefined || sameVersion(a, b);
 // Round 13 (D221): a mint stamps the fields its key is made under now; U17 B, each with its Schema's version where the compiler gave one.
 export const stampFields = (o: { readonly keyFields?: readonly string[]; readonly keyVersion?: readonly string[] } | undefined) => o?.keyVersion ?? o?.keyFields;
 function stampOf(tx: Tx, machine: string, op: string): { keyFields?: readonly string[] } {
@@ -613,6 +651,20 @@ export const guardCell = (
   note(tx, "lane", { cell: `lane.${verb}.${label(col)}`, op });
   const v = GUARD[verb][col];
   return v === "pass" || (v === "budget" && lane!.head!.retryCount < (times ?? Infinity));
+};
+// The whole lane: the head as `cancel` has it, then every queued commit ends NotSent { Cancelled }, a current ending, in lane order.
+export const cancelAll = (tx: Tx, lane: Lane | undefined, a: CellArgs) => {
+  if (!lane?.w.length) return cell(tx, "cancel", lane, a);
+  const queued = lane.w;
+  const cleared = { ...lane, w: [] };
+  setLane(tx, cleared);
+  cell(tx, "cancel", cleared, a);
+  for (const x of queued) {
+    const e = declined("Cancelled");
+    noteEnding(tx, { op: lane.op, attempt: x.id }, e);
+    tellEnded(tx, x.id, e);
+    enqueue(tx, { k: "ending", actor: lane.actor, machine: lane.machine, op: lane.op, key: lane.key, owner: x.owner, ending: e, input: x.input, subject: lane.subject, attempt: x.id });
+  }
 };
 // D48: storage has answered, so what was waiting for it may run.
 export const afterAck = (tx: Tx, l: Lane, then: "cancel" | "replace") => {

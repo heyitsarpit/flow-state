@@ -146,6 +146,7 @@ const Receipt = Schema.Struct({
 });
 const Pay = definition({
   id: "Checkout/Pay",
+  persist: true,
   states: ["IDLE", "CARD", "PAYING", "WAITING", "UNSURE", "PLACING", "PAID", "STUCK", "LEFT"],
   events: {
     CardChosen: { paymentMethodId: Schema.String },

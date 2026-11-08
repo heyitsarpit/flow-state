@@ -17,6 +17,7 @@ const memoryRelease = (rel: Release, decode: boolean) => {
   const Extra = S.Struct({ n: S.Number });
   const d = definition({
     id: M,
+    persist: true,
     states: [],
     events: { Go: {} },
     internalEvents: { Ok: {}, No: {}, Unsure: Flow.uncertain({}) },
@@ -47,6 +48,7 @@ const keyRelease = (rel: Release) => {
   const charge = transaction({ id: "lab/charge", input: { k: S.Unknown, id: S.Unknown, region: rel.v === 3 ? S.Unknown : S.optionalKey(S.Unknown) }, key: keys, concurrency: "reject", services: [FakeApi], commit: write("charge") });
   const d = definition({
     id: "Lab/KeyReleaseTyped",
+    persist: true,
     states: [],
     events: { Go: {} },
     internalEvents: { Ok: {}, No: {}, Unsure: Flow.uncertain({}) },
@@ -70,6 +72,7 @@ export const keyReleaseTypedFixture = (rel: Release) => fixture(() => keyRelease
 // red in the suite and not only in `typed/date-check.ts`. A Date, a NaN and a bigint.
 const dateD = definition({
   id: "Lab/Dates",
+  persist: true,
   states: [],
   events: { Touch: {} },
   internalEvents: {},
@@ -86,12 +89,12 @@ const memRelease = (rel: Release) => {
     ...(rel.v >= 2 ? { twice: Flow.initial(S.Number, ({ n }: Readonly<Record<string, unknown>>) => (n as number) * 2) } : {}),
     ...(rel.v >= 3 ? { who: Flow.input(S.String) } : {}),
   };
-  const d = definition({ id: "Lab/MemDoors", states: [], events: { Bump: {} }, internalEvents: {}, memory: memory as { readonly n: ReturnType<typeof Flow.initial<typeof S.Number>> }, operations: () => ({}) });
+  const d = definition({ id: "Lab/MemDoors", persist: true, states: [], events: { Bump: {} }, internalEvents: {}, memory: memory as { readonly n: ReturnType<typeof Flow.initial<typeof S.Number>> }, operations: () => ({}) });
   return machine(d, () => ({ default: { node: "root" }, on: { Bump: { updateMemory: ({ memory: m }) => ({ n: m.n + 3 }) } } }));
 };
 export const memReleaseFixture = (rel: Release) => fixture(() => memRelease(rel));
 // A required input, for creation's door (2.2.2: "decode the input with the derived `Input` schema").
-const inputD = definition({ id: "Lab/Input", states: [], events: {}, internalEvents: {}, memory: { who: Flow.input(S.String) }, operations: () => ({}) });
+const inputD = definition({ id: "Lab/Input", persist: true, states: [], events: {}, internalEvents: {}, memory: { who: Flow.input(S.String) }, operations: () => ({}) });
 export const inputFixture = fixture(machine(inputD, () => ({ default: { node: "root" } })));
 
 // Round 12 (review H1): a commit that dies says what died. Before, the `Defect` issue named the operation only.
@@ -111,6 +114,7 @@ const RM = "Lab/RowMove";
 // Stage J (re-check 10i S1): a row moves while its write is out. Each state handles the write's unknown its own way.
 const rowMove = definition({
   id: RM,
+  persist: true,
   states: ["EDITING", "SAVING", "REVIEW"],
   events: { Go: {}, Review: {} },
   internalEvents: { Ok: {}, No: {}, Unsure: Flow.uncertain({}) },
@@ -174,7 +178,7 @@ export const engineFixture = fixture(engine);
 
 const G = "Lab/Getter";
 // M11: a patch with a throwing getter: a lazy class instance, a Proxy. Not a memory value any Schema decodes, so only a cast writes it (finding F1).
-const getter = definition({ id: G, states: [], events: { Trap: {} }, internalEvents: {}, memory: { x: Flow.initial(S.Number, 0) }, operations: () => ({}) });
+const getter = definition({ id: G, persist: true, states: [], events: { Trap: {} }, internalEvents: {}, memory: { x: Flow.initial(S.Number, 0) }, operations: () => ({}) });
 export const getterFixture = fixture(
   machine(getter, () => ({
     default: { node: "root" },

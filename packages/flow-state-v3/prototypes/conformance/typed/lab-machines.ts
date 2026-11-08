@@ -180,6 +180,7 @@ const Upload = trait(
 );
 const notes = definition({
   id: "Notes",
+  persist: true,
   states: ["READY"],
   events: { SetDocs: { docs: Strs }, SetDocsThen: { docs: Strs }, SetFiles: { files: Strs }, KickAndDrop: { key: S.String } },
   internalEvents: {},
@@ -236,7 +237,7 @@ const Tail = trait(
     },
   }),
 );
-const feed = definition({ id: "Feed", states: [{ LIVE: Flow.state({ traits: { tail: Tail.resumable() } }) }, "AWAY"], events: { Away: {}, Live: {} }, internalEvents: {}, memory: {}, operations: () => ({}) });
+const feed = definition({ id: "Feed", persist: true, states: [{ LIVE: Flow.state({ traits: { tail: Tail.resumable() } }) }, "AWAY"], events: { Away: {}, Live: {} }, internalEvents: {}, memory: {}, operations: () => ({}) });
 export const feedFixture = fixture(
   machine(feed, ({ S: St }) => ({
     default: St.LIVE,
@@ -248,6 +249,7 @@ export const feedFixture = fixture(
 const bad = transaction({ id: "lab/bad", input: { id: U }, key: ["id"], concurrency: "reject", services: [FakeApi], commit: write("bad") });
 const odd = definition({
   id: "Odd",
+  persist: true,
   states: ["READY"],
   events: { BadKey: {}, BadMemory: {}, Fine: {} },
   internalEvents: { Done: Flow.uncertain({}) },

@@ -4,7 +4,7 @@
 import { Effect, Schema, type Context } from "effect";
 import { OutcomeFailure, OutcomeUnknown, type CommitCtx, type CompiledOp, type CompiledOutput, type Mapped, type Op, type TokenGuard } from "../fixtures/compiled.ts";
 import { slotOf, type Fields, type Tagged, type TypeOf } from "./core.ts";
-import { schemaVersion } from "./ref.ts";
+import { versioned } from "./ref.ts";
 import { isIgnore, isUncertain, type EndCtx, type From, type Ignore, type Token } from "./events.ts";
 
 // ── Services (D213, rule 57): named on the contract as values; `tsc` refuses a list that misses one of the commit's `R`.
@@ -91,7 +91,7 @@ export type In<M, Ev> = { readonly memory: M; readonly event: Ev; readonly key?:
 export type AnyEvent = { readonly [k: string]: unknown };
 type ActData =
   | { readonly member: "commit" | "lookup"; readonly op: string; readonly f: unknown }
-  | { readonly member: "retry" | "cancel"; readonly op: string; readonly keyFn?: unknown }
+  | { readonly member: "retry" | "cancel" | "cancelAll"; readonly op: string; readonly keyFn?: unknown }
   | { readonly member: "module"; readonly op: string; readonly module: string; readonly name: string; readonly f?: unknown };
 // `Ev = unknown` for a member with no select (`O.x.cancel`), which fits any handler.
 export type Act<Ev = unknown> = ActData & { readonly _ev?: (e: Ev) => void };
@@ -109,6 +109,7 @@ type WriteHandle<I extends Fields, K extends keyof I, M> = {
   };
   readonly retry: Act & (<Ev = AnyEvent>(key: (a: In<M, Ev>) => KeyOf<I, K>) => Act<Ev>);
   readonly cancel: Act & (<Ev = AnyEvent>(key: (a: In<M, Ev>) => KeyOf<I, K>) => Act<Ev>);
+  readonly cancelAll: Act & (<Ev = AnyEvent>(key: (a: In<M, Ev>) => KeyOf<I, K>) => Act<Ev>);
 };
 type ReadHandle<I extends Fields, M> = {
   readonly lookup: <Ev = AnyEvent>(f: (a: In<M, Ev>) => TypeOf<I>) => Act<Ev>;
@@ -128,6 +129,7 @@ export const handles = <O extends Readonly<Record<string, AnyBound>>, M>(ops: O)
           typeof a === "function" ? { opGuard: { op, verb: "retryable", times: b!.times }, keyFn: a } : { opGuard: { op, verb: "retryable", times: (a as { times: number }).times } },
         retry: member((keyFn: unknown): Act => ({ member: "retry", op, keyFn }), { member: "retry" as const, op }),
         cancel: member((keyFn: unknown): Act => ({ member: "cancel", op, keyFn }), { member: "cancel" as const, op }),
+        cancelAll: member((keyFn: unknown): Act => ({ member: "cancelAll", op, keyFn }), { member: "cancelAll" as const, op }),
       },
     ]),
   ) as { readonly [K in keyof O]: HandleOf<O[K], M> };
@@ -181,7 +183,10 @@ const optionalOrDefaulted = (f: string, s: Schema.Top): boolean => {
     return false;
   }
 };
-const FLOW_REASONS = new Set(["Cancelled", "Restored", "Interrupted", "Defect", "StillUnknown", "StorageRefused", "Disposed"]);
+export const FLOW_REASONS = new Set(["Cancelled", "Restored", "Interrupted", "Defect", "StillUnknown", "StorageRefused", "Disposed"]);
+export const WRITE_ONLY_REASONS = new Set(["NotSent"]);
+// A contract's own unknown tags live in its commit's type, which this compile cannot read; what it can refuse is a key naming one of Flow's never-unknown reasons.
+const NEVER_UNKNOWN = new Set([...WRITE_ONLY_REASONS, "Rejected", "Overloaded", "Unencodable", "NoPersistence"]);
 // `events`: the declaring definition's or fragment's event records, so `unknown:` is checked against `Flow.uncertain` (rule 13).
 export const compileOp = (definition: string, name: string, b: AnyBound, events: Readonly<Record<string, Fields>>, fragment?: string): CompiledOp => {
   const c = b.contract;
@@ -194,10 +199,14 @@ export const compileOp = (definition: string, name: string, b: AnyBound, events:
     if (optionalOrDefaulted(f, s)) throw new Error(`KeyFieldOptional: ${definition} operations.${name} key field ${f} is optional or has a default (rule 39)`);
   }
   for (const tag of Object.keys((m.failure ?? {}) as object))
-    if (FLOW_REASONS.has(tag) && !(c.kind !== "write" && (tag === "Defect" || tag === "Interrupted"))) throw new Error(`ReservedReason: ${definition} operations.${name} maps a failure tag ${tag}, which is one of Flow's reasons (rule 13)`);
+    if ((FLOW_REASONS.has(tag) && !(c.kind !== "write" && (tag === "Defect" || tag === "Interrupted"))) || (c.kind === "read" && WRITE_ONLY_REASONS.has(tag)))
+      throw new Error(`ReservedReason: ${definition} operations.${name} maps a failure tag ${tag}, which is one of Flow's reasons (rule 13)`);
   const inputNotCarried = Object.entries(c.input as Record<string, { ast: Ast }>).flatMap(([f, s]) => notCarried(s.ast, f));
   const u0 = m.unknown as Readonly<Record<string, unknown>> | undefined;
   const u = u0 === undefined ? undefined : typeof u0["tag"] === "string" || isIgnore(u0) ? u0 : { byReason: u0 }; // a token's `tag` is a string; a reason's value is a token
+  if (u && "byReason" in u)
+    for (const k of Object.keys(u.byReason as object))
+      if (NEVER_UNKNOWN.has(k)) throw new Error(`ReservedReason: ${definition} operations.${name} maps unknown reason ${k}, which is Flow's and never an unknown (rule 13)`);
   // D220's check, with OD28: `unknown: Flow.ignore` (or one reason's) maps no event, so it needs no `Flow.uncertain` one.
   const unknownTags = (u === undefined ? [] : "byReason" in u ? Object.values(u.byReason as Record<string, unknown>) : [u]).filter((t) => !isIgnore(t)).map((t) => (t as { tag: string }).tag);
   for (const t of unknownTags)
@@ -209,7 +218,7 @@ export const compileOp = (definition: string, name: string, b: AnyBound, events:
     kind: c.kind,
     ...(fragment ? { fragment } : {}),
     keyFields, // rule 39's field list: the one source of the lane's key (D215); the seal makes the key from it
-    keyVersion: keyFields.map((f) => `${f}#${schemaVersion((c.input as Record<string, Schema.Top>)[f])}`),
+    keyVersion: keyFields.map((f) => versioned(f, (c.input as Record<string, Schema.Top>)[f])),
     inputFields: Object.keys(c.input),
     services: (c.services ?? []).map((s) => s.key),
     concurrency: c.concurrency,

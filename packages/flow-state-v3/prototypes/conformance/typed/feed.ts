@@ -53,6 +53,7 @@ const peek = resource({ id: "desk/peek", input: {}, key: [], services: [FakeApi]
 const deskFeed = (reconnect: boolean) => (api: Api) => {
   const d = definition({
     id: "DispatchDesk/DeskFeed",
+    persist: true,
     states: ["LIVE", "RETRY_WAIT", "SIGNED_OUT"],
     events: { DismissNotice: {}, SessionExpired: {}, Jump: { at: U }, JumpThenThrow: { at: U }, Refetch: {}, Clear: {}, ClearAndLeave: {}, Peek: {}, SignOut: {}, BreakInput: {}, Open: {} },
     internalEvents: { Peeked: {}, Entry: { entry: U }, MayHaveMissed: {}, FeedEnded: {}, Healthy: {}, Reopen: {} },
@@ -157,6 +158,7 @@ const rooms = (api: Api) =>
   machine(
     definition({
       id: "Desk/Rooms",
+      persist: true,
       states: [{ TAB: Flow.state({ traits: { room: Room.resumable() } }) }, "AWAY"],
       events: { ShowRoom: { roomId: U }, Away: {}, Back: {} },
       internalEvents: { Entry: { entry: U }, MayHaveMissed: {}, FeedEnded: {} },

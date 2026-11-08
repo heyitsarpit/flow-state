@@ -27,6 +27,7 @@ const refunds = (api: Api) =>
   machine(
     definition({
       id: "Checkout/Refunds",
+      persist: true,
       states: ["READY"],
       events: { Open: {}, RefundAsked: { chargeId: U, orderId: U, amountCents: U } },
       internalEvents: { Listed: {}, ListFailed: {}, Refunded: { orderId: U }, OverRefund: { leftCents: S.Number }, RefundNotSent: { why: U }, RefundUnsure: Flow.uncertain({}) },

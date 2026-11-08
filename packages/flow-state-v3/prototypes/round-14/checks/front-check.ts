@@ -7,7 +7,7 @@ import { checkItems, stated } from "../../conformance/verdicts/state.ts";
 await stated("checks/front-check.ts", async () => {
 const { Context, Effect, Schema } = await import("effect");
 const { legacySlots } = await import("../../conformance/legacy.ts");
-const { definition, deny, Flow, machine, subroutine, trait, transaction } = await import("../../conformance/compile/index.ts");
+const { definition, deny, Flow, machine, resource, subroutine, trait, transaction } = await import("../../conformance/compile/index.ts");
 const { CompiledData, toData } = await import("../codec/codec.ts");
 const { seal } = await import("../gate.ts");
 const { pairs } = await import("../typed/pairs.ts");
@@ -330,6 +330,20 @@ eq("OD28: a stream's missed may not be Flow.ignore", said(() => igMachine({ stre
 eq("OD28: a stream's failure may not be Flow.ignore", said(() => igMachine({ streams: ({ E }: any) => ({ s: { key: fn, backoff: fn, subscribe: fn, value: E.Ok, missed: E.Ok, failure: Flow.ignore } }) })), "IgnoreForbidden");
 eq("OD28: a stream's pages may not be Flow.ignore", said(() => igMachine({ streams: ({ E }: any) => ({ s: { key: fn, backoff: fn, subscribe: fn, value: E.Ok, missed: E.Ok, failure: E.Ok, pages: Flow.ignore } }) })), "IgnoreForbidden");
 eq("OD28: a listen entry may not be Flow.ignore", said(() => igMachine({ domain: { writes: {}, repair: fn, listens: { x: Flow.ignore } } })), "IgnoreForbidden");
+// Round 15b (rule 13, 2.11.6): an `unknown:` key may not be one of Flow's never-unknown reasons; a read refuses NotSent; a stream's failureBy refuses Flow's and Feed's tags.
+const unknownBy = (key: string) => () => machine(definition({ id: "T/U", states: ["A"], events: {}, internalEvents: { Ok: {}, Unsure: Flow.uncertain({}) }, memory: {}, operations: ({ E }) => ({ p: plain.outcomes({ success: E.Ok, unknown: { [key]: E.Unsure } as never }) }) }), ({ S: St }) => ({ default: St.A, on: { Ok: {} } }));
+eq("rule 13 (a): unknown: Cancelled, a Flow reason, compiles", threw(unknownBy("Cancelled")), "");
+eq("rule 13 (a): unknown: NoResponse, a contract's own, compiles", threw(unknownBy("NoResponse")), "");
+eq("rule 13 (a): unknown: Rejected, a NotSent reason, is refused", threw(unknownBy("Rejected")), "ReservedReason");
+eq("rule 13 (a): unknown: NotSent is refused", threw(unknownBy("NotSent")), "ReservedReason");
+const rd = resource({ id: "t/rd", input: {}, key: [], lookup: () => Effect.void });
+const readBy = (tag: string) => () => machine(definition({ id: "T/Rd", states: ["A"], events: {}, internalEvents: { Ok: {} }, memory: {}, operations: ({ E }) => ({ r: rd.outcomes({ success: E.Ok, failure: { [tag]: E.Ok } as never }) }) }), ({ S: St }) => ({ default: St.A, on: { Ok: {} } }));
+eq("rule 13 (b): a read's failure NotSent is refused", threw(readBy("NotSent")), "ReservedReason");
+eq("rule 37: a read's failure Defect compiles", threw(readBy("Defect")), "");
+const streamBy = (tag: string) => () => igMachine({ streams: ({ E }: any) => ({ s: { key: fn, backoff: fn, subscribe: fn, value: E.Ok, missed: E.Ok, failure: E.Ok, failureBy: { [tag]: E.Ok } } }) });
+eq("rule 13 (c): a stream's failureBy Closed, a Feed reason, is refused", threw(streamBy("Closed")), "ReservedReason");
+eq("rule 13 (c): a stream's failureBy tag Feed is refused", threw(streamBy("Feed")), "ReservedReason");
+eq("rule 13 (c): a stream's failureBy Banned, an adapter's own tag, compiles", threw(streamBy("Banned")), "");
 
 for (const f of fails) console.log(`FAIL  ${f}`);
 console.log(`${fails.length ? "FRONT FAIL" : "FRONT PASS"}  ${pins} pins, ${machines} typed machines through CompiledData and the structure check, ${attacks.length} corruptions seen`);

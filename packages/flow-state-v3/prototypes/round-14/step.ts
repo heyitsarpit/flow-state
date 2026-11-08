@@ -16,7 +16,7 @@ import { flush, onStorageBound, onStored, restore } from "./durable.ts";
 import { encodeRecord } from "./record.ts";
 import { own } from "./gate.ts";
 import { down, placementsActive, seedKids, up, walkIncs, viewOf, type Started } from "./inc.ts";
-import { cell, dropParked, endPastDisposal, settleSend } from "./lane.ts";
+import { cell, dropParked, endPastDisposal, settleSend, tellEnded } from "./lane.ts";
 import { dropReadsOf, takeRead } from "./reads.ts";
 import { armTimer, disarmTimer, scheduleKey } from "./timers.ts";
 import { onTurn, rebindActor, startActor } from "./turn.ts";
@@ -130,6 +130,15 @@ const onSent = (tx: Tx, i: Extract<Input, { k: "sent" }>) => {
       inc: r.inc,
       ...(r.kept ? { keeps: true as const } : {}),
     });
+  }
+  const was = tx.w.interrupted?.[i.attempt];
+  if (was) {
+    const e = classify(i.exit, true);
+    noteEnding(tx, { op: was.op, attempt: i.attempt, send: i.send }, e);
+    tellEnded(tx, i.attempt, e);
+    note(tx, "evidenceOnly", { op: was.op, attempt: i.attempt });
+    tx.w = { ...tx.w, interrupted: without(tx.w.interrupted!, i.attempt) };
+    return;
   }
   note(tx, "fence", { attempt: i.attempt, send: i.send });
 };

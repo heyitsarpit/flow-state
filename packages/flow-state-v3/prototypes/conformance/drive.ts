@@ -669,12 +669,22 @@ export const makeHarness = (port: Port) => (): Harness => {
       return mp?.ignore === true;
     });
   };
+  // C153, 2.7.13's `cancel` table: an Attempt a newer commit of the same op by the same actor replaced is evidence ("its ending is evidence by Attempt id").
+  // Only while it had not ended: a newer mint seen before this Attempt's ending.
+  const replacedUnderCancel = (att: string, op: string) => {
+    if (!compiled.some((c) => (c.ops as any)[op]?.concurrency === "cancel")) return false;
+    const owner = attemptActor.get(att);
+    const mine = made.get(att) ?? Infinity;
+    const ended = evidence.findIndex((e) => e["kind"] === "ending" && e["attempt"] === att);
+    return evidence.some((e, i) => e["kind"] === "mint" && e["op"] === op && (ended < 0 || i < ended) && (made.get(String(e["attempt"])) ?? -1) > mine && attemptActor.get(String(e["attempt"])) === owner);
+  };
   const mayBeEvidence = (x: Record<string, any>, batch: readonly Record<string, any>[]) => {
     const att = String(x["attempt"] ?? "");
     if (lettingGo.has(att)) return true;
     const actor = attemptActor.get(att);
     if (actor === undefined) return false;
     if (lifeOver(att)) return true;
+    if (replacedUnderCancel(att, String(x["op"]))) return true;
     // A lane let go this batch: its queued commits and parked endings go as evidence (rule 60). The runtime names the head; the suite needs its cause.
     // The sign says a release of the op happened; the cause is checked against THIS attempt's owner, so a sign from anyone's lane pays nothing alone.
     return batch.some((y) => y["op"] === x["op"] && (y["kind"] === "Released" || (y["kind"] === "lane" && String(y["cell"]).startsWith("lane.release.")))) && releaseSeen(String(x["op"]), att);
@@ -982,7 +992,7 @@ export const makeHarness = (port: Port) => (): Harness => {
       const order = sends.get(att) ?? [];
       // A newer send of the same lookup, seen invoked; or a newer ask of it, seen by the suite's own wrap of its input Slot (D108's unencodable ask)
       const resent = order.indexOf(String(x["send"])) < order.length - 1 || askedNow.includes(String(x["op"]));
-      if (att.startsWith("read/") ? !(newer || resent || (owner !== undefined && moved.has(owner))) : policy !== "latest" || !newer) missing.push(`(j) superseded with no newer attempt under a policy that supersedes: ${x["op"]} ${att} (${policy})`);
+      if (att.startsWith("read/") ? !(newer || resent || (owner !== undefined && moved.has(owner))) : (policy !== "latest" && policy !== "cancel") || !newer) missing.push(`(j) superseded with no newer attempt under a policy that supersedes: ${x["op"]} ${att} (${policy})`);
       // Review L1 (2.7.13 item 1): a write the fake saw sent is never replaceable.
       else if (!att.startsWith("read/") && fake.requests.some((r) => r.idempotencyKey === att)) missing.push(`(j) superseded after it was sent: ${x["op"]} ${att}`);
     }
@@ -991,7 +1001,9 @@ export const makeHarness = (port: Port) => (): Harness => {
       if (x["kind"] === "Released" || (x["kind"] === "lane" && String(x["cell"]).startsWith("lane.release."))) {
         const att = x["attempt"] === undefined ? undefined : String(x["attempt"]);
         if (releaseSeen(String(x["op"]), att)) lettingGo.add(String(att));
-        else if (releaseSeen(String(x["op"]), att, true)) releasedBySelf.add(String(att)); // (h) and `checkMints` take it; (j) does not
+        // (h) and `checkMints` take it; (j) does not. Round 15b: the handler's cancel must have run (its cell on the held lane, this step), not only exist
+        // on the event, since a guard may keep it from running.
+        else if (releaseSeen(String(x["op"]), att, true) && e.some((y) => y["kind"] === "lane" && y["cell"] === "lane.cancel.Held" && y["attempt"] === att)) releasedBySelf.add(String(att));
       }
     // Review M5: `delivered` is the runtime's word. It pays only if the same step shows the machine took it: a turn, a denial, an unhandled, or a refusal. Otherwise the debt stays.
     const heard = e.some((x) => x["kind"] === "turn" || x["kind"] === "Denied" || x["kind"] === "Unhandled" || x["kind"] === "refused");
@@ -1709,11 +1721,15 @@ export const makeHarness = (port: Port) => (): Harness => {
       const undecided = fake.mayHave();
       if (undecided.length === 0) return [];
       const heads = new Set(port.disk.heads(new Map(fake.kv))); // D142; review L4: on a copy
-      const writes = new Set(compiled.filter((c) => c.persisted).flatMap((c) => Object.values(c.ops).filter((o) => o.kind === "write").map((o) => o.id)));
+      const writes = new Set(compiled.filter((c) => c.persisted && !c.local).flatMap((c) => Object.values(c.ops).filter((o) => o.kind === "write").map((o) => o.id)));
       const released = new Set(evidence.filter((e) => e["kind"] === "Released" && (lettingGo.has(String(e["attempt"])) || releasedBySelf.has(String(e["attempt"])))).map((e) => e["attempt"])); // D158: a release the ledger saw a cause for
+      // C153: under `cancel` nothing is held past its ending's turn, and a replaced Attempt is evidence: neither is owed a head on disk.
+      const cancelOp = (op: string) => compiled.some((c) => (c.ops as any)[op]?.concurrency === "cancel");
+      const heard = new Set(evidence.filter((e) => e["kind"] === "delivered").map((e) => String(e["attempt"])));
+      const turnEnd = new Set(evidence.filter((e) => e["kind"] === "lane" && e["cell"] === "lane.turnEnd.HeldThisTurn" && cancelOp(String(e["op"])) && heard.has(String(e["attempt"]))).map((e) => String(e["attempt"])));
       return undecided.filter((key) => {
         const q = fake.requests.find((r) => r.idempotencyKey === key)!;
-        return writes.has(q.op) && !heads.has(key) && !released.has(key) && !excused.has(key) && !key.startsWith("business:");
+        return writes.has(q.op) && !heads.has(key) && !released.has(key) && !excused.has(key) && !turnEnd.has(key) && !replacedUnderCancel(key, q.op) && !key.startsWith("business:");
       });
     },
     state: (a) => inst.state(actorKey(a)),

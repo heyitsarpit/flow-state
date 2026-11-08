@@ -8,12 +8,23 @@ import { FakeApi, fixture, write } from "./lab.ts";
 const S = Schema;
 // D221: an op's key fields are part of its identity. Release 1 keys `charge` by `k`; release 2 by `k` and `region` (a field added, required); release 3 by
 // `k` again (the field removed). A key field is required wherever it is one; elsewhere `region` is an optional input. Round 15 (U17): release 4
-// keys by `k` as `Trim` (the type side changes, the encoded side is a string still); release 5 by `k` with a description only.
+// keys by `k` as `Trim` (the type side changes, the encoded side is a string still); release 5 by `k` with a description only. Round 15b (Q2 A):
+// releases 6 and 7 check `k` with `isMinLength(1)` and `isMinLength(2)`; releases 8 and 9 with two custom filters (no representation).
+const kSchema = (v: number) =>
+  v === 4
+    ? S.Trim
+    : v === 5
+      ? S.String.annotate({ description: "the order" })
+      : v === 6 || v === 7
+        ? S.String.check(S.isMinLength(v - 5))
+        : v === 8 || v === 9
+          ? S.String.check(S.makeFilter((s: string) => s.length < (v === 8 ? 10 : 20)))
+          : S.String;
 const fieldsOf = (v: number) => (v === 2 ? (["k", "region"] as const) : (["k"] as const));
 const stamped = (rel: Release, policy: Op["concurrency"]) => {
   const charge = transaction({
     id: "lab/stamp-charge",
-    input: { k: rel.v === 4 ? S.Trim : rel.v === 5 ? S.String.annotate({ description: "the order" }) : S.String, id: S.String, region: rel.v === 2 ? S.String : S.optionalKey(S.String) },
+    input: { k: kSchema(rel.v), id: S.String, region: rel.v === 2 ? S.String : S.optionalKey(S.String) },
     key: fieldsOf(rel.v),
     concurrency: policy,
     services: [FakeApi],
@@ -22,6 +33,7 @@ const stamped = (rel: Release, policy: Op["concurrency"]) => {
   const Key = { k: S.String, region: S.optionalKey(S.String) };
   const d = definition({
     id: "Lab/KeyStamp",
+    persist: true,
     states: [],
     events: { Go: Key, Guarded: Key, Retry: Key, Cancel: Key },
     internalEvents: { Ok: {}, No: { why: S.String }, Unsure: Flow.uncertain({}) },
@@ -58,6 +70,7 @@ export const keyStampFixture = (rel: Release, policy: Op["concurrency"] = "rejec
 const withDefault = (id: string, rel: Release, decoding: boolean) =>
   definition({
     id,
+    persist: true,
     states: [],
     events: {},
     internalEvents: {},

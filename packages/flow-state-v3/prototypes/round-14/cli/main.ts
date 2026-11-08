@@ -133,6 +133,12 @@ eq("graph: a resumable trait's whenAbandoned callback fires from anywhere", gp.d
   const remove = transaction({ id: "a/remove", input: { fileId: Schema.String }, key: ["fileId"], concurrency: "reject", commit: () => Effect.void as never as Effect.Effect<void, { readonly _tag: "RemoveRefused"; readonly uploadedBy: string }> });
   const d = definition({ id: "T/Attachments", states: ["A"], events: { Remove: { fileId: Schema.String } }, internalEvents: { FileKept: { uploadedBy: Schema.String } }, memory: {}, operations: ({ E }) => ({ removeFile: remove.outcomes({ success: Flow.ignore, failure: { RemoveRefused: E.FileKept.from((e) => ({ uploadedBy: e.uploadedBy })), NotSent: Flow.ignore }, unknown: Flow.ignore }) }) });
   const m = machine(d, ({ S, O }) => ({ default: S.A, on: { Remove: { actions: [O.removeFile.commit(({ event }) => ({ fileId: event.fileId }))] }, FileKept: {} } }));
+  // Round 15b (Q4 A, rule 15): on a `serialize` op owned below the root, a late handler needs an alternative that stays put. R15Late's late Ok, No
+  // and Unsure all leave; R15Stay's late Unsure stays put (it cancels the lane there), its Ok and No leave.
+  const { r15LateFixture, r15StayFixture } = await import("../../conformance/typed/round15.ts");
+  const leaves = (f: { make: (a: never) => unknown }) => check(f.make(api) as never).findings.filter((x) => x.rule === "Rule15LateLeaves").map((x) => `${x.severity}:${x.event}`).sort();
+  eq("check: rule 15, every late alternative of R15Late leaves", leaves(r15LateFixture()), ["error:No", "error:Ok", "error:Unsure"]);
+  eq("check: rule 15, R15Stay's late Unsure stays put", leaves(r15StayFixture()), ["error:No", "error:Ok"]);
   const rf = rulesOf(m.compiled as never);
   eq("check: 2.7.18's removeFile, IgnoredUnknown info, no UnresolvedHold", [rf.includes("info:IgnoredUnknown:removeFile"), rf.some((r) => r.includes("UnresolvedHold"))], [true, false]);
 }

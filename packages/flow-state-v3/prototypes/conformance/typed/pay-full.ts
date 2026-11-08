@@ -83,6 +83,7 @@ const authenticate = transaction({
 });
 const PayFull = definition({
   id: "Checkout/Pay",
+  persist: true,
   states: ["IDLE", "CARD", "PAYING", "WAITING", "UNSURE", "PLACING", "PAID", "STUCK", "LEFT", { CHALLENGE: ThreeDS }],
   events: {
     CardChosen: { paymentMethodId: S.String },

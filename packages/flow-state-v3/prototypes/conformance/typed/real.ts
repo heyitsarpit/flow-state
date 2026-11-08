@@ -207,6 +207,7 @@ const attach = (omit: readonly string[], store?: Api) => {
   const Upload = upload(omit);
   const d = definition({
     id: "Desk/Attach",
+    persist: true,
     uses: store ? ["entities"] : [],
     ...(store
       ? {
@@ -297,6 +298,7 @@ const History = trait(
 );
 const panels = definition({
   id: "Desk/Panels",
+  persist: true,
   states: [{ TABS: [{ HISTORY: Flow.state({ traits: { history: History.resumable() } }) }, "CUSTOMER", "PARTS"] }],
   events: { ShowTicket: { ticketId: U }, OpenTab: { tab: U }, ShowEntry: { entryId: U } },
   internalEvents: {},

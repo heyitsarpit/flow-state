@@ -10,6 +10,7 @@ const { definition, Flow, machine, transaction } = await import("../../conforman
 const save = transaction({ id: "t/save", input: { id: Schema.String }, key: ["id"], concurrency: "reject", commit: () => Effect.void });
 const D = definition({
   id: "T/Date",
+  persist: true,
   states: ["A"],
   events: { Touch: {} },
   internalEvents: { Ok: {}, No: {}, Unsure: Flow.uncertain({}) },

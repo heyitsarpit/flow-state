@@ -88,6 +88,7 @@ export const round15bScenarios: readonly Scenario[] = [
         c.ack();
         c.answer("holding", { lost: true });
         c.send("Go", { k: "a" });
+        c.yes("the second commit queued behind a Held head", c.hitCell("lane.commit.Held"));
         c.send("GoBad", { k: "a" });
         c.eq("the unencodable commit ended NotSent { Unencodable }", c.endings("holding").filter((e) => e["channel"] === "failure").map((e) => e["reason"]), ["Unencodable"]);
         c.eq("the held head is the only request", c.reqs("holding").length, 1);
@@ -106,14 +107,16 @@ export const round15bScenarios: readonly Scenario[] = [
         c.ensure(SB);
         c.send("Go");
         c.ack();
+        c.answer("charge", { lost: true });
         c.send("Go");
         c.send("Go");
+        c.yes("the queued commits wait behind a Held head", c.hitCell("lane.commit.Held"));
         const before = c.r.evidence("turn").length;
         c.reload();
         c.eq("each queued commit, then the head", c.r.evidence("turn").slice(before).map((t) => t["event"]), ["No", "No", "Unsure"]);
         c.eq(
           "each queued commit ends NotSent { Restored }, then the head unknown { Restored }",
-          c.endings("charge").map((e) => [e["channel"], e["reason"]]),
+          c.endings("charge").slice(1).map((e) => [e["channel"], e["reason"]]),
           [
             ["failure", "Restored"],
             ["failure", "Restored"],

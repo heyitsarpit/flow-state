@@ -9,6 +9,7 @@ const formFixture = (id: string, input: Fields, key: readonly string[]): Fixture
     const save = transaction({ id: `${id}/save`, input, key: key as never, concurrency: "reject", commit: () => Effect.succeed({}) });
     const d = definition({
       id,
+      persist: true,
       states: ["A"],
       events: {},
       internalEvents: { Saved: {}, No: {}, Unsure: Flow.uncertain({}) },

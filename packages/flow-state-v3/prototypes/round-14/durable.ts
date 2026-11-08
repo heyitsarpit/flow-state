@@ -6,7 +6,7 @@ import { getActor, setActor, noActors, type Actors } from "./actors.ts";
 import { canon, carried, standIn, text, own, Unencodable, validActor, validLane } from "./gate.ts";
 import type { Compiled } from "../conformance/fixtures/compiled.ts";
 import { hook, saveAll } from "./hooks.ts";
-import { afterAck, cell, sameFields, stampFields } from "./lane.ts";
+import { afterAck, cell, sameFields, sameVersion, stampFields } from "./lane.ts";
 import { armTimer, disarmTimer } from "./timers.ts";
 import {
   clearStall,
@@ -290,7 +290,7 @@ export const restore = (tx: Tx, records: ReadonlyArray<readonly [string, string]
       // by shared fields, never restored: no ref can spell its identity. Its lanes stay unbound (rule 44).
       // The version is the field set and each field's Schema (type and encoded side), not the names alone.
       const now = mm.identityVersion ?? [];
-      if (Array.isArray(v.fields) && (v.fields.length !== now.length || v.fields.some((f: string, i: number) => f !== now[i]))) {
+      if (Array.isArray(v.fields) && !sameVersion(v.fields, now)) {
         note(tx, "OldVersionActor", { actor: v.key, fields: v.fields, now });
         continue;
       }

@@ -92,6 +92,7 @@ const PairTrait = trait(
 );
 const pair = definition({
   id: FragPairId,
+  persist: true,
   states: [{ TAB: Flow.state({ traits: { t: PairTrait.resumable() } }) }, "AWAY"],
   events: { Away: {}, Back: {} },
   internalEvents: {},

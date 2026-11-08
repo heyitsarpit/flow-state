@@ -427,6 +427,7 @@ export const seal = (c: Compiled, given?: ReadonlySet<string>): Compiled => {
   if (!c.events) throw new Error(`SealIncomplete: ${c.id} has no events`);
   const out = {
     ...c,
+    persisted: c.persisted === true && c.local !== true, // Persistence O2: a local actor of a persisted machine is not persisted
     nodes: table(c.nodes, sealNode),
     memory: sealMemory(c.memory, c.id),
     ops: table(c.ops, (o: Op) => sealOp(o, c.id, given)),

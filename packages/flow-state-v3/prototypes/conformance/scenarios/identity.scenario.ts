@@ -2,7 +2,7 @@
 // fields, in field-name order, and only those; the value is the input. A singleton has a literal name and takes input at ensure. Every
 // expectation is the design's text, worked by hand.
 import { actorRef, ensureArgs, type ActorRefOf } from "../compile/index.ts";
-import { Editor1, Editor2, Editor3, Editor4, Editor5, EditorId, editorFixture, editorRef, SessionRef, sessionFixture, type Release } from "../typed/identity.ts";
+import { Editor1, Editor2, Editor3, Editor4, Editor5, EditorId, editorFixture, editorFormat1Fixture, editorRef, SessionRef, sessionFixture, type Release } from "../typed/identity.ts";
 import type { Step } from "../harness.ts";
 import { Ctx, type Scenario } from "./ctx.ts";
 import { GRACE } from "./lifetime.scenario.ts";
@@ -94,6 +94,24 @@ export const identityScenarios: readonly Scenario[] = [
         c.do(ensureStep(ensureArgs(r3)));
         c.eq("a fresh actor, the old record not matched", c.r.memory(at(r3))?.title, "");
       },
+      // The runner's format tag: Flow's version encoding says which format wrote it. A record saved before U17 (untagged format 1) is told apart from
+      // one saved now (format 2) and compared by the part both write alike (`field:encoded`): with no Schema change it restores, no OldVersionActor.
+      "a-record-saved-by-an-earlier-version-format-restores-when-its-schema-did-not-change"(c0) {
+        const rel: Release = { v: 0 };
+        const r1 = editorRef({ workspaceId: "north", ticketId: "42" });
+        const r0 = { ...r1, fields: r1.fields.map((f) => `${f.split("#")[0]}#0c0ffee0`) }; // the same ref as that Flow spelled it
+        const c = new Ctx(c0.fresh([editorFormat1Fixture(rel)], { captureMs: 0 }), at(r1));
+        c.do(ensureStep(ensureArgs(r0)));
+        c.send("Title", { title: "Foyer" });
+        c.ack();
+        c.answer("save", { ok: {} });
+        c.yes("saved in the untagged format", JSON.stringify([...c.r.stored().values()]).includes("#0c0ffee0"));
+        c.h.release(() => void (rel.v = 1), () => void (rel.v = 0));
+        c.reload();
+        c.eq("not listed", c.r.evidence("OldVersionActor").length, 0);
+        c.do(ensureStep(ensureArgs(r1)));
+        c.eq("its record, restored", c.r.memory(at(r1))?.title, "Foyer");
+      },
       // U17 B: "a brand or a description is not" a new version. The record is restored under the annotated field.
       "a-description-change-is-no-new-version"(c0) {
         const rel: Release = { v: 1 };
@@ -155,8 +173,10 @@ export const identityScenarios: readonly Scenario[] = [
         const c = new Ctx(c0.fresh([editorFixture()]), at(r1));
         c.do(ensureStep(ensureArgs(r1)));
         c.do(ensureStep(ensureArgs(r2)));
-        c.eq("one identity, no conflict", [r2.id === r1.id, c.r.issues().filter((i) => i.code === "ConflictingActorRef").length], [true, 0]);
+        c.eq("one identity", r2.id === r1.id, true);
         c.detach(at(r1));
+        c.advance(GRACE);
+        c.yes("still live: both ensures are uses of one actor", c.r.state(at(r1)) !== undefined);
         c.detach(at(r1));
         c.advance(GRACE);
         c.yes("persisted by the definition: its record stays", c.record(at(r1)) !== undefined);

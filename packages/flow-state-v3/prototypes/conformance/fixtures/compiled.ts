@@ -25,7 +25,7 @@ export type Member =
   | { readonly op: string; readonly verb: "commit"; readonly input: Slot<(a: AfterIn) => unknown> }
   | {
       readonly op: string;
-      readonly verb: "retry" | "cancel";
+      readonly verb: "retry" | "cancel" | "cancelAll";
       readonly key?: Slot<(a: AfterIn) => unknown>;
     }
   | { readonly op: string; readonly verb: "lookup"; readonly input: Slot<(a: AfterIn) => unknown> }
@@ -162,7 +162,7 @@ export type Op = {
   readonly inputFields?: readonly string[];
   // Round 12 (D213, review H1): the service keys the commit asks for (rule 57's requirements, as data). The seal refuses a boot that does not give one.
   readonly services?: readonly string[];
-  readonly concurrency: "reject" | "latest" | "serialize";
+  readonly concurrency: "reject" | "latest" | "cancel" | "serialize";
   readonly timeoutMs?: number;
   readonly fragment?: string; // the declaring fragment (rule 49). Absent: the machine. One per actor (rule 51)
   // Round 7, D91: a Slot from the typed path, and after the seal always. A bare function is the hand-written fixtures' spelling.

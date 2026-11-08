@@ -265,6 +265,9 @@ try {
       ["lie.like2nc-released", "Released, narrowest", [["turn.ts", G125, when(LIKE2NC, REL)]], "(j)"],
       ["lie.save-released", "Released, keyed rows", [["turn.ts", G125, when('item.ending.ch !== "success" && item.op === "save"', REL)]], "(j)"],
       ["lie.settled-superseded", "Superseded, a settled head", [["lane.ts", "  settleHead(tx, next, final);", '  note(tx, "Superseded", { op: next.op, attempt: next.head?.id }); setLane(tx, next);']], "(j)"],
+      // Round 15b: oracle (h) took any cancel alternative on the ending's event as the cause, whatever its guard. R15Late's Unsure cancels only while
+      // `cancelling`; this runtime releases the hold at admission all the same, a key the server may hold with no head on disk.
+      ["lie.held-released-unguarded", "Released, a hold whose handler's cancel is guarded out", [["lane.ts", 'hold(tx, l) { setLane(tx, { ...l!, head: { ...l!.head!, phase: { t: "held" } } }); },', 'hold(tx, l) { setLane(tx, { ...l!, head: { ...l!.head!, phase: { t: "held" } } }); if (l!.machine === "Lab/R15Late") release(tx, tx.w.lanes[l!.id]!); },']], "(h)"],
       ["lie.serialize-as-latest", "Superseded, a serialize queue", [["lane.ts", 'if (policy === "latest") { for (const x of l.w) supersede(tx, a.op, x);', 'if (policy === "latest" || policy === "serialize") { for (const x of l.w) supersede(tx, a.op, x);']], "(j) superseded"],
       ["lie.dispose-start", "DisposeStart, no dispose", [["turn.ts", G125, other('note(tx, "DisposeStart", {});')]], "(j) DisposeStart"],
       ["lie.settled-released", "Released, a settled head (checkMints)", [["lane.ts", "  settleHead(tx, next, final);", '  note(tx, "Released", { op: next.op, attempt: next.head?.id }); setLane(tx, next);']], ""], // (j) runs first and sees it; `checkMints` behind it

@@ -125,7 +125,7 @@ export class Reference {
     const scan = (nodes: Readonly<Record<string, Node>>, inFragment: boolean) => {
       for (const node of Object.values(nodes))
         for (const [ev, alts] of Object.entries(node.on ?? {}))
-          for (const alt of alts ?? []) if (alt.members?.some((x) => x.verb === "cancel" && x.op === op)) out.push({ node, ev, alt, inFragment });
+          for (const alt of alts ?? []) if (alt.members?.some((x) => (x.verb === "cancel" || x.verb === "cancelAll") && x.op === op)) out.push({ node, ev, alt, inFragment });
     };
     scan(m.nodes, false);
     for (const f of Object.values(m.fragments ?? {})) scan(f.nodes, true);
@@ -133,7 +133,7 @@ export class Reference {
     const placementsOf = (nodes: Readonly<Record<string, Node>>) => Object.values(nodes).flatMap((n) => [...(n.placements ?? []), ...(n.subroutine ? [n.subroutine] : [])].map((p) => ({ n, p })));
     for (const { n, p } of [...placementsOf(m.nodes), ...Object.values(m.fragments ?? {}).flatMap((f) => placementsOf(f.nodes))])
       for (const [ev, alts] of [...Object.entries(p.callbacks ?? {}), ...Object.entries(p.exits ?? {})])
-        for (const alt of alts ?? []) if (alt.members?.some((x) => x.verb === "cancel" && x.op === op)) out.push({ node: n, ev, alt, inFragment: true });
+        for (const alt of alts ?? []) if (alt.members?.some((x) => (x.verb === "cancel" || x.verb === "cancelAll") && x.op === op)) out.push({ node: n, ev, alt, inFragment: true });
     return out;
   };
 

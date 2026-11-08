@@ -792,16 +792,19 @@ export const payScenarios: readonly Scenario[] = [
         c.state("PLACING");
         c.eq("no Restored: the parked ending is delivered", c.endings("pay").some((e) => e["reason"] === "Restored"), false);
       },
-      // Runtime O6's bound: still on the wire at 5 s, the Attempt is captured InFlight; its late result is ignored; a reload restores it unknown.
-      "on-the-wire-at-the-bound-restores-unknown"(c) {
+      // U13 (Runtime O6's bound, 5 s): an Attempt still on the wire at the bound ends unknown { Disposed } and is parked; the reload delivers
+      // that parked ending, not a Restored one.
+      "on-the-wire-at-the-bound-ends-unknown-disposed"(c) {
         onWire(c);
         c.do({ disposeRuntime: true });
         c.advance(4_999);
         c.eq("within the bound", c.r.evidence("Disposed").length, 0);
         c.advance(1);
         c.eq("the bound ends it", c.r.evidence("Disposed").length, 1);
+        c.eq("unknown { Disposed }", [c.lastEnding("pay")?.["channel"], c.lastEnding("pay")?.["reason"]], ["unknown", "Disposed"]);
         c.reload();
         c.state("UNSURE");
+        c.eq("no Restored: the parked ending is delivered", c.endings("pay").some((e) => e["reason"] === "Restored"), false);
       },
       // D5: an older send's exit, while its own Attempt's re-send is on the wire, is stale.
       "stale-send-fenced"(c) {

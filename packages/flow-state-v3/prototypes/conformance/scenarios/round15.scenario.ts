@@ -2,21 +2,26 @@
 // worked out by hand before the runtime was changed; each variant names its rule.
 import type { Release } from "../fixtures/round6.compiled.ts";
 import { keyStampFixture } from "../typed/round13.ts";
-import { preVersionStampFixture, R15LateId, R15StayId, r15LateFixture, r15StayFixture } from "../typed/round15.ts";
+import { EdgeId, edgeFixture } from "../typed/round9b.ts";
+import { deskListenFixture } from "../typed/desk.ts";
+import { preVersionStampFixture, R15LateId, R15PlainId, R15StayId, R15SwitchId, r15LateFixture, r15PlainFixture, r15StayFixture, r15SwitchFixture } from "../typed/round15.ts";
 import { Ctx, type Scenario } from "./ctx.ts";
 
 const RL = { actor: R15LateId, id: "a" };
 const KS = { actor: "Lab/KeyStamp", id: "a" };
 const RS = { actor: R15StayId, id: "a" };
+const RP = { actor: R15PlainId, id: "a" };
+const ED = { actor: EdgeId, id: "a" };
+const SW = { actor: R15SwitchId, id: "a" };
 const denials = (c: Ctx) => c.r.evidence("Denied").map((e) => e["reasons"]);
-const keyHoldThen = (c0: Ctx, to: number) => {
-  const rel: Release = { v: 1 };
+const keyHoldThen = (c0: Ctx, to: number, from = 1) => {
+  const rel: Release = { v: from };
   const c = new Ctx(c0.fresh([keyStampFixture(rel)], { captureMs: 0 }), KS);
   c.ensure(KS);
-  c.send("Go", { k: "a" });
+  c.send("Go", { k: from === 1 ? "a" : "ab" });
   c.ack();
   c.answer("charge", { lost: true });
-  c.h.release(() => void (rel.v = to), () => void (rel.v = 1));
+  c.h.release(() => void (rel.v = to), () => void (rel.v = from));
   c.reload();
   return c;
 };
@@ -25,7 +30,7 @@ export const round15Scenarios: readonly Scenario[] = [
   {
     id: "R15-01",
     kind: "fault",
-    fixtures: [r15LateFixture(), r15StayFixture(), keyStampFixture({ v: 1 })],
+    fixtures: [r15LateFixture(), r15StayFixture(), r15PlainFixture(), edgeFixture({ local: true }), deskListenFixture, r15SwitchFixture(), keyStampFixture({ v: 1 })],
     actor: RL,
     cites: ["rule:15", "rule:43"],
     variants: {
@@ -43,20 +48,121 @@ export const round15Scenarios: readonly Scenario[] = [
         c.eq("denied", (denials(c).at(-1) as string[] | undefined)?.includes("LateMayNotLeave"), true);
         c.state("W");
       },
-      // R1's pattern: to give the work up, the late handler cancels in an alternative that stays put (key-less on an unkeyed op names its one lane,
-      // rule 43 as ruled, R2). The first cancel releases the late unknown's own hold, which promotes the queued commit; the second cancels that
-      // never-sent head, which ends NotSent { Cancelled } as a current ending (its owner, the re-entered W, is current), and its handler moves.
-      "a-stay-put-alternative-gives-up-the-work-and-the-current-ending-moves"(c0) {
+      // R1's pattern with Q3 A: to give the work up, the late handler cancels the whole lane in an alternative that stays put (key-less on an unkeyed
+      // op names its one lane, rule 43 as ruled, R2). `cancelAll` releases the late unknown's own hold and ends each of the two queued commits
+      // NotSent { Cancelled }, in lane order, delivered as endings (not evidence); nothing more is sent, and their handlers move the actor to A.
+      "a-stay-put-cancel-all-gives-up-every-queued-commit"(c0) {
         const c = new Ctx(c0.fresh([r15StayFixture()]), RS);
         c.ensure(RS);
         c.send("Go");
         c.ack();
         c.send("Go");
+        c.send("Go");
         c.answer("charge", { lost: true });
-        c.ack();
         c.eq("no denial", denials(c), []);
-        c.eq("the promoted head ends NotSent { Cancelled }, never sent", [c.endings("charge").map((e) => [e["channel"], e["reason"]]).at(-1), c.reqs("charge").length], [["failure", "Cancelled"], 1]);
+        c.eq("its own hold released", c.r.evidence("Released").length, 1);
+        c.eq("both queued commits end NotSent { Cancelled }, never sent", [c.endings("charge").map((e) => [e["channel"], e["reason"]]), c.reqs("charge").length], [[["unknown", "NoResponse"], ["failure", "Cancelled"], ["failure", "Cancelled"]], 1]);
+        c.eq("each is heard", c.r.evidence("delivered").map((d) => d["event"]), ["Unsure", "No", "No"]);
         c.state("A", RS);
+        c.eq("the lane is gone", c.r.quiet().waits.filter((w) => "op" in w && w.op === "charge").length, 0);
+      },
+      // Q5 A: `persist` defaults to false. A definition that does not say `persist: true` writes nothing ahead: its commit is sent at once (no
+      // acknowledgement to wait for), and a reload finds no record and restores nothing.
+      "a-definition-with-no-persist-is-not-persisted"(c0) {
+        const c = new Ctx(c0.fresh([r15PlainFixture()]), RP);
+        c.ensure(RP);
+        c.send("Go");
+        c.eq("sent with no write-ahead", c.reqs("charge").length, 1);
+        c.eq("nothing stored", [...c.r.stored().keys()].filter((k) => k.includes(R15PlainId)), []);
+        c.reload();
+        c.eq("no record and nothing restored", [c.record(RP), c.endings("charge").length], [undefined, 0]);
+      },
+      // Persistence O2: "a local actor of a persisted machine is not persisted". Lab/Edge's definition says `persist: true`; its local identity
+      // writes nothing ahead (its commit goes out with no acknowledgement) and leaves no record or lane on disk, before or after a dispose.
+      "a-local-identity-of-a-persisted-machine-is-not-persisted"(c0) {
+        const c = new Ctx(c0.fresh([edgeFixture({ local: true })]), ED);
+        c.ensure(ED);
+        c.send("Go");
+        c.eq("sent with no write-ahead", c.reqs("save").length, 1);
+        c.answer("save", { ok: { v: "x" } });
+        c.dispose(ED);
+        c.eq("nothing of it on disk", [...c.r.stored().keys()].filter((k) => k.includes(EdgeId)), []);
+      },
+      // Runtime O6, as the runner ruled it for modules: "from its start nothing is invoked", and no module starts work once disposal starts.
+      // Disposal releases the listen session, and a release is a gap (Streams T7), which would make the store read again what it read before.
+      // Nothing is read: the only `list` request is the one the Load made.
+      "no-module-starts-work-once-disposal-starts"(c0) {
+        const T = { actor: "Desk/Tickets", id: "a" };
+        const c = new Ctx(c0.fresh([deskListenFixture]), T);
+        c.ensure(T);
+        c.to(T, "Load");
+        c.answer("list", { truth: true });
+        c.do({ feed: "changes", frame: { _feed: "live", proof: "resumed" } });
+        c.eq("one read", c.reqs("list").length, 1);
+        c.do({ disposeRuntime: true });
+        c.advance(5_000);
+        c.eq("no read after disposal starts", c.reqs("list").length, 1);
+      },
+      // C153, 2.7.13's `cancel` table, row `commit`, column `InFlight` on the wire: "interrupt it (its ending is evidence by Attempt id), mint →
+      // InFlight". The first Attempt's answer, when it lands, is not delivered; the second's is. Two requests, two keys, one `Ok`.
+      "under-cancel-a-commit-interrupts-the-attempt-on-the-wire"(c0) {
+        const c = new Ctx(c0.fresh([r15SwitchFixture()]), SW);
+        c.ensure(SW);
+        c.send("Go", { q: "a" });
+        c.ack();
+        c.send("Go", { q: "ab" });
+        c.ack();
+        c.eq("two sends, two Attempts", [c.reqs("search").length, c.keys("search").length], [2, 2]);
+        c.yes("the newer commit hit the InFlight cell", c.hitCell("lane.commit.InFlight"));
+        c.eq("the first was interrupted: unknown { Cancelled }, as evidence", c.endings("search").map((e) => [e["channel"], e["reason"]]), [["unknown", "Cancelled"]]);
+        c.answer("search", { ok: {} }); // the interrupted request's answer goes nowhere
+        c.answer("search", { ok: {} });
+        c.eq("only the newer Attempt's ending is heard", c.r.evidence("delivered").map((d) => d["event"]), ["Ok"]);
+        c.eq("one Ok in memory", c.mem(SW)?.oks, 1);
+        c.state("A", SW);
+      },
+      // Row `commit`, `InFlight` waiting to be invoked and never sent: "it ends `Superseded` (evidence), mint". Only the newer commit is sent.
+      "under-cancel-a-never-sent-attempt-is-superseded"(c0) {
+        const c = new Ctx(c0.fresh([r15SwitchFixture()]), SW);
+        c.ensure(SW);
+        c.send("Go", { q: "a" });
+        c.send("Go", { q: "ab" });
+        c.send("Go", { q: "abc" });
+        c.ack();
+        c.ack();
+        c.eq("one send, the last", [c.reqs("search").length, c.reqs("search")[0]?.input], [1, { q: "abc" }]);
+        c.eq("the two before it are Superseded, as evidence", c.r.evidence("Superseded").length, 2);
+        c.answer("search", { ok: {} });
+        c.eq("one Ok heard", c.r.evidence("delivered").map((d) => d["event"]), ["Ok"]);
+      },
+      // Rows `unknown` (InFlight → HeldThisTurn) and `turn end` (→ Idle; "the unknown is evidence"): an unknown holds only for its own ending's turn.
+      // `Unsure` neither retries nor cancels, so after its turn the lane is Idle and the next commit is sent at once, minted fresh.
+      "under-cancel-an-unknown-is-held-only-for-its-own-turn"(c0) {
+        const c = new Ctx(c0.fresh([r15SwitchFixture()]), SW);
+        c.ensure(SW);
+        c.send("Go", { q: "a" });
+        c.ack();
+        c.answer("search", { lost: true });
+        c.eq("heard once", c.r.evidence("delivered").map((d) => d["event"]), ["Unsure"]);
+        c.eq("released at the turn's end", [c.hitCell("lane.turnEnd.HeldThisTurn"), c.r.evidence("Released").length], [true, 1]);
+        c.eq("no hold on the row", c.r.row(SW, "search", {})?.uncertain ?? false, false);
+        c.send("Go", { q: "b" });
+        c.ack();
+        c.eq("the next commit goes out, a new Attempt", [c.reqs("search").length, c.keys("search").length], [2, 2]);
+      },
+      // Row `retry`, column `HeldThisTurn`: "re-send, same id → InFlight". A key-less `retry` in the unknown's own handler re-sends the same Attempt.
+      "under-cancel-a-retry-in-the-unknowns-turn-re-sends-the-same-id"(c0) {
+        const c = new Ctx(c0.fresh([r15SwitchFixture()]), SW);
+        c.ensure(SW);
+        c.send("Retrying");
+        c.send("Go", { q: "a" });
+        c.ack();
+        c.answer("search", { lost: true });
+        c.ack();
+        c.eq("re-sent with the same key", [c.reqs("search").length, c.keys("search").length], [2, 1]);
+        c.eq("not released", c.r.evidence("Released").length, 0);
+        c.answer("search", { ok: {} });
+        c.eq("its success is heard", c.r.evidence("delivered").map((d) => d["event"]), ["Unsure", "Ok"]);
       },
       // Rule 43 as ruled (R2): "On an unkeyed operation (`key: []`) a key-less member names its one lane", outside an ending too. `Drop` cancels the
       // never-sent head; once its acknowledgement lands (rule 24) it ends NotSent { Cancelled } and nothing is sent.
@@ -151,6 +257,24 @@ export const round15Scenarios: readonly Scenario[] = [
         c.reload();
         c.eq("no old-version hold", c.r.evidence("OldVersionLane").length, 0);
         c.send("Go", { k: "b" });
+        c.ack();
+        c.eq("another key sends", [c.mem(KS)?.declined, c.reqs("charge").length], [0, 2]);
+      },
+      // Q2 A: a check is compared by its `representation` ({ id, payload }): `isMinLength(1)` to `isMinLength(2)` is a new version of the op, so the
+      // hold is an old-version hold and another key's commit declines beside it.
+      "a-key-fields-check-parameter-change-is-a-new-version-of-the-op"(c0) {
+        const c = keyHoldThen(c0, 7, 6);
+        c.eq("an old-version hold, said at the boot", c.r.evidence("OldVersionLane").length, 1);
+        c.send("Go", { k: "cd" });
+        c.ack();
+        c.eq("declined beside it, nothing sent", [c.mem(KS)?.declined, c.reqs("charge").length], [1, 1]);
+      },
+      // Q2 A's stated limit: a custom filter has no representation, so a change of its predicate is no new version (the hold stays current and
+      // another key's commit sends). This case documents the limit; it is not a guarantee.
+      "a-custom-filter-change-is-no-new-version-a-stated-limit"(c0) {
+        const c = keyHoldThen(c0, 9, 8);
+        c.eq("no old-version hold", c.r.evidence("OldVersionLane").length, 0);
+        c.send("Go", { k: "cd" });
         c.ack();
         c.eq("another key sends", [c.mem(KS)?.declined, c.reqs("charge").length], [0, 2]);
       },

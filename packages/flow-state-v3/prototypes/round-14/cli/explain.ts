@@ -6,7 +6,7 @@ const keyText = (op: Op) =>
   op.keyFields ? (op.keyFields.length ? `one lane per ${op.keyFields.join(", ")}` : "one lane") : "key: opaque closure";
 const memberText = (c: Compiled, m: Member) => {
   const op = c.ops[m.op];
-  const verb = { commit: "commits", lookup: "looks up", retry: "retries", cancel: "cancels", module: "calls" }[m.verb];
+  const verb = { commit: "commits", lookup: "looks up", retry: "retries", cancel: "cancels", cancelAll: "cancels the whole lane of", module: "calls" }[m.verb];
   if (!op) return { verb, text: m.op };
   return { verb, text: `${m.op} (${op.contract}${m.verb === "commit" ? `, ${op.concurrency}` : ""}, ${keyText(op)})` };
 };

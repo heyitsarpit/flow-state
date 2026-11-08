@@ -67,7 +67,7 @@ const allAlts = (b: Body): Where[] =>
     ...Object.entries(n.on).flatMap(([event, l]) => l.map((alt) => ({ alt, event, node: n.id }))),
     ...placedAlts(n).map((alt) => ({ alt, event: "(port)", node: n.id })),
   ]);
-const mem = (a: Alternative, verb: Member["verb"], op: string) => a.members.some((m) => m.op === op && m.verb === verb);
+const mem = (a: Alternative, verb: Member["verb"], op: string) => a.members.some((m) => m.op === op && (m.verb === verb || (verb === "cancel" && m.verb === "cancelAll")));
 const hasTok = (a: Alternative, verb: "idle" | "retryable", op: string) =>
   a.tokens.some((t) => "op" in t && t.op === op && t.verb === verb);
 const applies = (nodes: Nodes, a: Alternative, leaf: string) => {
@@ -166,6 +166,11 @@ const checkBody = (b: Body, machine: string, push: (f: Finding) => void, persist
           const lateOk = anc.some((n) => (b.nodes[n]?.on[e] ?? []).some((a) => unguarded(a) || a.tokens.some((t) => "node" in t)));
           if (!lateOk)
             push({ severity: "error", rule: "Rule20Late", machine, path: `states.${owner}`, op: name, event: e, state: owner, message: `\`${e}\` from \`${name}\` can arrive after ${owner} is left, and no strict ancestor of ${owner} handles it`, help: 'add a handler at an ancestor; `{ target: "self" }` is the explicit ignore' });
+          // Rule 15 (Q4 A): a late ending may not leave live work, and under `serialize` or `latest` commits of the left state may still be queued. A late
+          // handler whose every alternative leaves could then be denied every time, so it needs one that stays put.
+          const lateAlts = anc.flatMap((n) => b.nodes[n]?.on[e] ?? []);
+          if (op.kind === "write" && (op.concurrency === "serialize" || op.concurrency === "latest") && lateAlts.length > 0 && !lateAlts.some((a) => a.target === "self" && !a.exit && !a.history))
+            push({ severity: "error", rule: "Rule15LateLeaves", machine, path: `states.${owner}`, op: name, event: e, state: owner, message: `\`${e}\` from \`${name}\` can arrive late, after ${owner} is left, while its later commits wait; every late alternative leaves, and rule 15 denies leaving live work`, help: "add a late alternative that stays put (no target), and cancel the lane there (`cancelAll`) to give the work up" });
         }
       }
     }
@@ -241,7 +246,7 @@ const checkBody = (b: Body, machine: string, push: (f: Finding) => void, persist
   // ── KeyRequired (OD8): a key-less retry or cancel on a keyed write, outside a handler of an event that operation alone maps.
   for (const w of alts)
     for (const m of w.alt.members) {
-      if ((m.verb !== "retry" && m.verb !== "cancel") || ("key" in m && m.key)) continue;
+      if ((m.verb !== "retry" && m.verb !== "cancel" && m.verb !== "cancelAll") || ("key" in m && m.key)) continue;
       const op = b.ops[m.op];
       if (!op || op.kind !== "write" || op.keyFields?.length === 0 || !op.keyFields) continue;
       const others = Object.entries(b.ops).filter(([n, o]) => n !== m.op && mappedEvents(o).all.includes(w.event));
@@ -288,10 +293,11 @@ export const check = (raw: Compiled): { findings: Finding[]; callbacksRun: numbe
   };
   const incomplete: string[] = [];
   const machineOps = Object.fromEntries(Object.entries(c.ops).filter(([, o]) => !o.fragment));
-  checkBody({ id: c.id, nodes: c.nodes, root: c.root, dflt: c.default, ops: machineOps }, c.id, push, c.persisted);
+  const persisted = c.persisted === true && c.local !== true;
+  checkBody({ id: c.id, nodes: c.nodes, root: c.root, dflt: c.default, ops: machineOps }, c.id, push, persisted);
   for (const [fid, f] of Object.entries<Fragment>(c.fragments ?? {})) {
     const ops = Object.fromEntries(Object.entries(c.ops).filter(([, o]) => o.fragment === fid));
-    checkBody({ id: fid, nodes: f.nodes, root: f.root, dflt: f.default, ops }, `${c.id} > ${fid}`, push, c.persisted);
+    checkBody({ id: fid, nodes: f.nodes, root: f.root, dflt: f.default, ops }, `${c.id} > ${fid}`, push, persisted);
   }
   // ── Events: declared, or inferred, and said so.
   const bodies: Array<{ id: string; nodes: Nodes }> = [{ id: c.id, nodes: c.nodes }];

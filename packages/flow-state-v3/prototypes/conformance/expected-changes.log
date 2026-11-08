@@ -1760,3 +1760,79 @@ removed:output:R15-01/a-late-exit-that-does-not-cancel-may-not-leave-its-promote
 round:mutants-lifetime.ts hash:210e501983d3 | drops id.no-conflict and m3.persist-survives-dispose (U15 removed the refPersist code they undid)
 round:mutants-lifetime-misc.ts hash:23ccbd628198 | misc.host-ensure-ends-at-once follows onEnsure's call without persist (U15)
 round:mutants-r15.ts hash:a95b87aa6157 | adds r15.restored-ending-not-owed-on-disk: REV8-PINS/D72 lost its only incidental killer when the old o6 mutant was retargeted
+PAY-16 hash:e83310c612db | round 15b: the bound variant renamed ...-ends-unknown-disposed (U13), asserts the Disposed ending and no Restored after the reload
+R14-ID-03 hash:93e477daaaf4 | round 15b: the two-refs variant's vacuous ConflictingActorRef count replaced by one actor kept by two uses (red on a second identity)
+R15-01 hash:823bfdc6ce3b | round 15b: cancelAll (Q3 A) replaces [cancel, cancel] with two queued; persist opt-in (Q5 A); local not persisted (O2); no module starts in disposal
+R15-02 hash:00ecafaf2c4c | round 15b: U3's reload case now has a Held head (lost answer first) and asserts it; the NotSent variant asserts its Held head
+file:scenarios/identity.scenario.ts hash:3a2997d6ae29 | round 15b: R14-ID-03's two-refs variant made able to fail
+file:scenarios/pay.scenario.ts hash:7006173a7d86 | round 15b: PAY-16's stale bound variant renamed and strengthened (U13)
+file:scenarios/round15.scenario.ts hash:94c0897def7f | round 15b: R15-01 variants for cancelAll, persist opt-in, local identities, modules in disposal
+file:scenarios/round15b.scenario.ts hash:2ba091366c02 | round 15b: R15-02's held-head claims asserted; U3's head made Held
+file:reference/model.ts hash:12cfbb58aef0 | round 15b: the cancel-by-event model counts cancelAll as a cancel of its op
+file:typed/chat.ts hash:1639f35e80d9 | Q5 A persist opt-in: Lab/Chat said nothing and was persisted by the old default; now persist: true
+file:typed/feed.ts hash:7e098be55a34 | Q5 A persist opt-in: DispatchDesk/DeskFeed and Desk/Rooms now say persist: true (were persisted by default)
+file:typed/form.ts hash:5c49b8d1d19d | Q5 A persist opt-in: formFixture's definition now says persist: true, as the old default gave it
+file:typed/lab-machines.ts hash:dc70caed4392 | Q5 A persist opt-in: Notes, Feed and Odd now say persist: true (the old default persisted them)
+file:typed/latequeue.ts hash:2d4bd01e6374 | Q5 A persist opt-in: Lab/LateQueue now says persist: true; its reload cases need the record
+file:typed/pay-full.ts hash:22433f423455 | Q5 A persist opt-in: the full Checkout/Pay definition now says persist: true (its write-ahead cases)
+file:typed/pay.ts hash:0277bac8d592 | Q5 A persist opt-in: Checkout/Pay now says persist: true; PAY-01's no-send-before-ack needs it
+file:typed/real.ts hash:aa6f08094bab | Q5 A persist opt-in: Desk/Attach and Desk/Panels now say persist: true (old default)
+file:typed/round13.ts hash:17f39eed09dc | Q5 A persist opt-in: Lab/KeyStamp and the withDefault helper's definition now say persist: true
+file:typed/round15.ts hash:e4f218dddead | round 15b: R15Stay cancels with cancelAll; R15Late and R15Stay say persist: true; R15Plain omits it (Q5 A)
+file:typed/round15b.ts hash:0c86964fcbe6 | Q5 A persist opt-in: the six R15-02/R15-03 definitions now say persist: true (old default)
+file:typed/round6.ts hash:df2fae781e3c | Q5 A persist opt-in: round 6's seven memory-release definitions now say persist: true (old default)
+file:typed/round7.ts hash:86c16cae75fc | Q5 A persist opt-in: FragPair now says persist: true, as the old default gave it
+file:typed/round8.ts hash:82dfa6444782 | Q5 A persist opt-in: Bare (twice), Doors and Copies now say persist: true (old default)
+file:typed/stores.ts hash:e611f8c3da70 | Q5 A persist opt-in: Checkout/Refunds now says persist: true; REFUND-01's reload needs its record
+file:compile/machine.ts hash:edcfa353254a | Q5 A: a definition's persist defaults to false; stream failureBy refuses Flow's and Feed's reasons (rule 13)
+file:compile/operations.ts hash:67132dc56496 | round 15b: cancelAll handle; a read's NotSent and an unknown key naming a never-unknown reason refused (rule 13)
+file:drive.ts hash:e7cde02fef72 | oracle (h): a local machine's writes are not write-ahead (Persistence O2), so no head on disk is owed for them
+round:cli/check.ts hash:be59ee6ed765 | round 15b: cancelAll counts as cancel for UnresolvedHold and KeyRequired; a local machine is not persisted for Rule20NotSent
+round:cli/explain.ts hash:9eabda74fdcb | round 15b: explain names the cancelAll verb
+round:typed/date-check.ts hash:cc774aecc1b3 | Q5 A persist opt-in: T/Date now says persist: true (old default)
+round:typed/type-tests.ts hash:010fa9268434 | Q5 A persist opt-in: ten type-test definitions now say persist: true, as before (no type changes)
+round:checks/front-check.ts hash:ee70cd1c4050 | round 15b: rule 13 pins for unknown keys, a read's NotSent and a stream's failureBy tags
+round:mutants-lifetime.ts hash:7f1c22a60b28 | round 15b: spreads mutants-r15d.ts
+round:mutants-r15d.ts hash:203b34c92b65 | round 15b: wrong runtimes for cancelAll, persist default, local persisted, module starts in disposal
+removed:variant:PAY-16/on-the-wire-at-the-bound-restores-unknown | renamed ...-ends-unknown-disposed: since U13 the bound ends the Attempt unknown { Disposed }, parked, not Restored
+removed:variant:R15-01/a-stay-put-alternative-gives-up-the-work-and-the-current-ending-moves | replaced by ...-stay-put-cancel-all-gives-up-every-queued-commit (Q3 A, two queued)
+removed:output:PAY-16/on-the-wire-at-the-bound-restores-unknown | its variant was renamed (U13: ends unknown { Disposed }); the stale output line goes
+removed:output:R15-01/a-stay-put-alternative-gives-up-the-work-and-the-current-ending-moves | its variant was replaced by the cancelAll one (Q3 A); its output line goes
+output:PAY-16/on-the-wire-at-the-bound-ends-unknown-disposed hash:ff0cbd687cb3 | new output: the renamed bound variant (same steps as before the rename)
+output:R15-01/a-definition-with-no-persist-is-not-persisted hash:b763eec57511 | new output: Q5 A, an unpersisted commit sent at once, nothing stored, nothing restored
+output:R15-01/a-local-identity-of-a-persisted-machine-is-not-persisted hash:c38389f600b7 | new output: O2, a local Edge sends at once and leaves nothing on disk
+output:R15-01/a-stay-put-cancel-all-gives-up-every-queued-commit hash:bf0a0f57036d | new output: Q3 A, one release and two NotSent { Cancelled } deliveries
+output:R15-01/no-module-starts-work-once-disposal-starts hash:f4ad81cb6bcf | new output: a listen session released at disposal, no reread
+output:R15-02/on-a-reload-each-queued-commit-is-heard-before-the-held-head hash:b44823b74c5a | the head is now Held before the reload: one more delivery, turn and lane cell, three parked
+R15-01 hash:1cb6518359c2 | round 15b: cancel concurrency rows (C153) and U17 check representations (Q2 A) join R15-01
+file:scenarios/round15.scenario.ts hash:447b0f465e6b | round 15b: four under-cancel variants from 2.7.13's cancel table; two Q2 A key-check variants
+file:typed/round13.ts hash:10e8c1d30123 | round 15b: KeyStamp releases 6-9 (isMinLength 1 and 2; two custom filters) for Q2 A
+file:typed/round15.ts hash:1192c3267cc3 | round 15b: Lab/R15Switch, one unkeyed `cancel` lane whose Unsure re-sends while retrying
+file:compile/ref.ts hash:bd3bb7f97e40 | Q2 A: a Schema version reads each check's representation { id, payload }; custom filters a stated limit
+file:drive.ts hash:abbf7eaa3fea | oracles (j), (h) and Superseded: under cancel a replaced Attempt is evidence, an unknown held only for its turn
+round:typed/type-tests.ts hash:1343cf4e4dc7 | C153: the pin refusing concurrency cancel is removed; cancel now type-checks (allow stays refused)
+round:mutants-r15.ts hash:a24056689076 | r15.definition-persist-ignored re-anchored on the opt-in default (persist ?? false)
+round:mutants-r15d.ts hash:6fc9c4316e14 | round 15b: wrong runtimes for cancel concurrency (five) and check representations
+output:R15-01/a-custom-filter-change-is-no-new-version-a-stated-limit hash:4f0654f97f66 | new output: a custom filter change keeps the hold current
+output:R15-01/a-key-fields-check-parameter-change-is-a-new-version-of-the-op hash:fbee8c674ee2 | new output: isMinLength 1 to 2, an old-version hold
+output:R15-01/under-cancel-a-commit-interrupts-the-attempt-on-the-wire hash:2e771850b0c3 | new output: cancel, the wire Attempt interrupted, one Ok
+output:R15-01/under-cancel-a-never-sent-attempt-is-superseded hash:e2d1e402eabd | new output: cancel, two never-sent Attempts superseded, one send
+output:R15-01/under-cancel-a-retry-in-the-unknowns-turn-re-sends-the-same-id hash:a66b2f9d4e52 | new output: cancel, HeldThisTurn retry, same key twice
+output:R15-01/under-cancel-an-unknown-is-held-only-for-its-own-turn hash:a43ef34c24fd | new output: cancel, an unknown released at its turn's end
+R14-ID-02 hash:f5d5b9d5d4a1 | round 15b: a record in the untagged pre-U17 version format restores when its Schema did not change (the format tag)
+file:scenarios/identity.scenario.ts hash:359e9db18a2a | round 15b: R14-ID-02 gains the earlier-format record variant
+file:typed/identity.ts hash:050e9a538fce | round 15b: editorFormat1Fixture, Editor1 as a pre-U17 Flow compiled it (untagged identity version)
+file:compile/operations.ts hash:5c657bad4af7 | the runner's format tag: an op's keyVersion entries are written name#2:hash
+file:compile/ref.ts hash:f74a3c6eafc2 | the runner's format tag: VERSION_FORMAT 2 and versioned(); identity versions are field:encoded#2:hash
+file:expected-recipients.txt hash:17b77223822f | round 15b's new cases: 14 more recipients observed, 3 more restored states, 13 more start nodes
+round:cli/check.ts hash:3f99b0e17cf7 | Q4 A: Rule15LateLeaves, an error for a late handler on a serialize or latest op with no stay-put alternative
+round:cli/main.ts hash:ee9a204eb55c | Q4 A: two CLI pins, R15Late's late handlers all leave; R15Stay's Unsure stays put
+round:checks/types-check.ts hash:77e4023d7fa8 | C153: the pinned refusal of concurrency cancel is gone with its type-test line
+round:mutants-lifetime.ts hash:fffd0f384181 | o6.dispose-interrupts-wire names PAY-16's renamed variant; id.version-by-names-only anchors on sameVersion
+round:mutants-r15.ts hash:25b5195d7cbd | actor-version and names-only-stamp mutants re-anchored on sameVersion (the format-tagged compare)
+round:mutants-r15d.ts hash:e0a511085074 | adds r15d.version-format-ignored; cancel-never-sent-kept anchors on commitOverWaiting's call
+output:R14-ID-02/a-record-saved-by-an-earlier-version-format-restores-when-its-schema-did-not-change hash:002780d029c3 | new output: an untagged record restored under format 2
+file:falsify.ts hash:1fbe5b7e2836 | adds lie.held-released-unguarded: a hold released though the handler's cancel is guarded out must be red by (h)
+file:drive.ts hash:d82e9fba2382 | oracle (h): a hold released by its own ending's handler is caused only if that cancel's cell ran on the held lane in the step
+round:mutants-lifetime.ts hash:d2bb7750c1e0 | id.old-version-restored and l1.version-by-printed-name re-anchored on sameVersion and versioned()
+round:mutants-r15d.ts hash:cc00c79ed1cb | adds r15d.cancel-turn-end-drops-a-resend, the HeldThisTurn retry case's own wrong runtime

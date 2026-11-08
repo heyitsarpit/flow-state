@@ -124,7 +124,7 @@ const build = (Slot: S.Top) => {
   ]);
   const Member = S.Union([
     S.Struct({ op: S.String, verb: S.Literals(["commit", "lookup"]), input: Slot }),
-    S.Struct({ op: S.String, verb: S.Literals(["retry", "cancel"]), key: opt(Slot) }),
+    S.Struct({ op: S.String, verb: S.Literals(["retry", "cancel", "cancelAll"]), key: opt(Slot) }),
     S.Struct({ op: S.String, verb: S.Literal("module"), module: S.String, name: S.String, value: opt(Slot) }),
   ]);
   const Alternative = S.Struct({
@@ -193,7 +193,7 @@ const build = (Slot: S.Top) => {
     id: S.String,
     contract: S.String,
     kind: S.Literals(["write", "read"]),
-    concurrency: S.Literals(["reject", "latest", "serialize"]),
+    concurrency: S.Literals(["reject", "latest", "cancel", "serialize"]),
     timeoutMs: opt(S.Finite),
     fragment: opt(S.String),
     commit: Slot,

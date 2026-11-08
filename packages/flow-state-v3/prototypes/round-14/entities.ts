@@ -654,6 +654,7 @@ const onPushed = (s: Slice, p: Extract<Told, { k: "pushed" }>, cx: Cx): Slice =>
 };
 // T7: a gap starts a refetch of each answer read earlier. One at a time per answer: its generation fences a slow one.
 const onGap = (s: Slice, g: { machine: string }, cx: Cx): Slice => {
+  if (!cx.live) return s;
   const at = cx.pos();
   for (const a of Object.values(s.answers)) {
     if (a.machine !== g.machine || a.start > at) continue;

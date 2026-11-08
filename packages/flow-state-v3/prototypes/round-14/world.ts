@@ -184,6 +184,7 @@ export type World = {
   readonly keptFires: readonly FireMail[]; // D118: a deadline no turn could take. On the record until a turn commits it, or its activation ends
   readonly disabled: Readonly<Record<string, true>>;
   readonly stalled: Readonly<Record<string, "storage" | "record" | "module">>; // D49, by Attempt
+  readonly interrupted?: Readonly<Record<string, { readonly op: string }>>; // under `cancel`, an Attempt a newer commit replaced: its ending is evidence
   readonly ext: Readonly<Record<string, unknown>>;
   // Rule 73, 2.7.17 (OD31): each counted actor's uses, by owner kind, sorted ("story", "consumer", "host", "component"). A host ensure is
   // none. An identity with uses and no actor holds them as pending: the ensure that creates it finds them. Not persisted: a reload starts at none.

@@ -19,6 +19,7 @@ const bareMemory = {
 const serialCharge = transaction({ id: "lab/charge", input: { who: U }, key: [], concurrency: "serialize", services: [FakeApi], commit: write("charge") });
 const serial = definition({
   id: BareId,
+  persist: true,
   states: ["A", "W", "B", "U", "T", "TF"],
   events: { ...bareEvents, Two: {}, NoteMap: {}, IfIdleK: {}, Arm: {}, ArmFar: {} },
   internalEvents: { Ok: { value: U }, No: { why: U, who: U }, Unsure: Flow.uncertain({}), Fired: {} },
@@ -83,6 +84,7 @@ const businessCharge = transaction({
 });
 const business = definition({
   id: BareId,
+  persist: true,
   states: ["A", "W", "B", "U"],
   events: bareEvents,
   internalEvents: { Ok: { value: U }, No: {}, Unsure: Flow.uncertain({}) },
@@ -131,6 +133,7 @@ const readLoop = resource({ id: "lab/readLoop", input: { v: U }, key: [], servic
 const readKey = resource({ id: "lab/readKey", input: { v: U }, key: [], services: [FakeApi], lookup: (i) => call<unknown, "NoResponse">("readKey")(i) });
 const doors = definition({
   id: DoorsId,
+  persist: true,
   states: ["A", "W", "B", "C"],
   events: {
     Go: {}, OnlyKeyed: { v: U }, Look: { v: U }, LookKeyBad: {}, CancelBad: { v: U }, RetryBad: { v: U }, GoOther: { v: U }, GoBoom: {}, ReadBoom: {},
@@ -227,6 +230,7 @@ const IdCopy = trait(
 );
 const copies = definition({
   id: CopiesId,
+  persist: true,
   states: [],
   events: { Add: { id: S.String }, Note: { text: U }, BadReset: {}, RaiseTwice: {} },
   internalEvents: {},

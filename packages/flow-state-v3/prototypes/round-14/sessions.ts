@@ -387,6 +387,7 @@ const reconcile = (s: SessionsSlice, x0: Session, spec: StreamSpec, cx: Cx): Ses
   return pump(s, x, spec, cx);
 };
 const connect = (s: SessionsSlice, x0: Session, spec: StreamSpec, cx: Cx): SessionsSlice => {
+  if (!cx.live) return s;
   let x: Session = { ...x0, wiped: false, noted: false, connected: true, waitingForPull: false };
   if (spec.listen || spec.delivers === "latest") {
     const conn = cx.gen();
