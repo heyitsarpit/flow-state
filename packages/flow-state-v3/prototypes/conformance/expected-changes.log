@@ -1672,3 +1672,12 @@ output:R14-ID-02/a-type-change-over-the-same-encoded-side-is-a-new-version hash:
 output:R15-01/a-key-fields-description-change-is-no-new-version-of-the-op hash:d9f972011348 | new output: no old-version hold, key b sends
 output:R15-01/a-key-fields-type-side-change-is-a-new-version-of-the-op hash:2fde2b1d4ec0 | new output: OldVersionLane once, key b declined beside it
 file:expected-recipients.txt hash:4ff9975fa648 | +5 observed, +2 restored, +5 start nodes: R15-01's two U17 variants and R14-ID-02's description variant
+file:compile/operations.ts hash:be565b373454 | rule 13 (completion audit): a write's failure tag that is one of Flow's reasons, Disposed among them, is ReservedReason; a read keeps Defect and Interrupted
+round:cli/broken.ts hash:e08d83ca3eb4 | new CLI fixture unencodable-no-notsent: a latest, unpersisted write whose input admits a value with no form, NotSent unmapped
+round:cli/check.ts hash:fccb80e30ebe | rule 20 (U6 agent call): Rule20NotSent also where an input field cannot be carried (NotSent { Unencodable })
+round:cli/flow.ts hash:e158c7ffe479 | registers the unencodable-no-notsent CLI fixture
+round:cli/main.ts hash:2652a2c48be1 | pins Rule20NotSent on unencodable-no-notsent
+round:typed/compare.ts hash:e916dcde0dae | keyVersion is typed only, stated with keyFields (U17)
+round:checks/front-check.ts hash:2dd4f32097f8 | pins rule 13's reserved failure tags (seven refused, NotSent and an author's tag compile)
+round:mutants-lifetime.ts hash:c393496cb0a0 | drops l1.version-by-type-side (U17 B makes the type side the rule); l1.version-by-printed-name retargeted to the new version line
+round:mutants-r15.ts hash:97019a6272e9 | adds r15.schema-version-encoded-only and r15.creation-decodes-input (compile-side wrong runtimes, R15-03 now in the lifetime list)

@@ -37,6 +37,7 @@ eq("dup-session", await rules("dup-session"), { code: 0, rules: ["warn:Duplicate
 eq("no-owner", await rules("no-owner"), { code: 1, rules: ["error:UnresolvedHold"], callbacks: 0, complete: false });
 eq("no-owner-unreachable", await rules("no-owner-unreachable"), { code: 0, rules: ["warn:UnresolvedHold"], callbacks: 0, complete: false });
 eq("no-notsent: a persisted write must map NotSent", (await rules("no-notsent")).rules.includes("error:Rule20NotSent"), true);
+eq("unencodable-no-notsent: a write whose input admits a value with no form must map NotSent (rule 20, U6)", (await rules("unencodable-no-notsent")).rules.includes("error:Rule20NotSent"), true);
 eq("unknown-event: a handled event nothing declares", (await rules("unknown-event")).rules.includes("error:UnknownEvent"), true);
 const rb = await rules("read-bad");
 eq("read-bad", rb.rules.includes("error:Rule20Current") && rb.rules.includes("error:Rule20Read"), true);

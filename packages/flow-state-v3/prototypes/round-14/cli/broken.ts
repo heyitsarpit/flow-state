@@ -167,6 +167,13 @@ const gapOp = (failure: object) => ({
 });
 const evs = (...extra: string[]) => ({ external: ["Go"], internal: ["Ok", "No", "Unsure", ...extra] });
 export const noNotSentFixture: Fixture = { id: G, make: () => gapMachine(gapOp({}), {}, evs()) as never };
+export const unencodableNoNotSentFixture: Fixture = {
+  id: G,
+  make: () => {
+    const op = gapOp({}).charge;
+    return { ...gapMachine({ charge: { ...op, concurrency: "latest", inputFields: ["x"], inputNotCarried: ["x"] } }, {}, evs()), persisted: false } as never;
+  },
+};
 export const unknownEventFixture: Fixture = { id: G, make: () => gapMachine(gapOp({ NotSent: { event: "No" } }), { Nobody: [{}] }, evs()) as never };
 
 // D124: the lint reads tables only: this one has no Schema behind it. `typed/form.typed.ts` is the front end's half.

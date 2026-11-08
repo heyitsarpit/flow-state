@@ -315,6 +315,11 @@ const said = (f: () => unknown) => {
 const igOp = transaction({ id: "t/ig", input: {}, key: [], concurrency: "reject", commit: () => Effect.void });
 const igDef = (extra: Record<string, unknown>) =>
   definition({ id: "T/Ignore", states: ["A"], events: {}, internalEvents: { Ok: {} }, memory: {}, operations: ({ E }) => ({ ig: igOp.outcomes({ success: E.Ok, failure: { NotSent: Flow.ignore }, unknown: Flow.ignore }) }), ...extra } as never);
+// Round 15 (rule 13; completion audit of OD48): an author failure tag that is one of Flow's reasons is refused, `Disposed` among them; `NotSent` is the map's own key.
+const tagged = (tag: string) => () => machine(definition({ id: "T/R", states: ["A"], events: {}, internalEvents: { Ok: {} }, memory: {}, operations: ({ E }) => ({ p: plain.outcomes({ success: E.Ok, failure: { [tag]: E.Ok } as never }) }) }), ({ S: St }) => ({ default: St.A, on: { Ok: {} } }));
+for (const r of ["Cancelled", "Restored", "Interrupted", "Defect", "StillUnknown", "StorageRefused", "Disposed"]) eq(`rule 13: a failure tag ${r} is refused`, threw(tagged(r)), "ReservedReason");
+eq("rule 13: NotSent is the map's own key", threw(tagged("NotSent")), "");
+eq("rule 13: an author's own tag compiles", threw(tagged("Busy")), "");
 const igMachine = (extra: Record<string, unknown>) => machine(igDef(extra), ({ S: St }: any) => ({ default: St.A, on: { Ok: {} } }));
 eq("OD28: unknown and a NotSent may be Flow.ignore (D220's check accepts it)", said(() => igMachine({})), "compiles");
 eq("OD28: an ignored unknown compiles as no event", (igMachine({}).compiled.ops["ig"] as { outcomes: { unknown?: unknown } }).outcomes.unknown, { event: "", ignore: true });

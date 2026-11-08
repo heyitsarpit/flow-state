@@ -198,6 +198,7 @@ const build = (Slot: S.Top) => {
     fragment: opt(S.String),
     commit: Slot,
     keyFields: S.Array(S.String), // round 12 (D215): the one source of the key, so no `key` Slot
+    keyVersion: S.optionalKey(S.Array(S.String)), // U17 B: each key field with its Schema's version, the lane's stamp
     inputFields: S.Array(S.String),
     services: S.Array(S.String), // D213
     inputNotCarried: opt(S.Array(S.String)),

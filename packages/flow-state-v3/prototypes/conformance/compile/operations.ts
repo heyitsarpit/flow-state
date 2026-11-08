@@ -181,6 +181,7 @@ const optionalOrDefaulted = (f: string, s: Schema.Top): boolean => {
     return false;
   }
 };
+const FLOW_REASONS = new Set(["Cancelled", "Restored", "Interrupted", "Defect", "StillUnknown", "StorageRefused", "Disposed"]);
 // `events`: the declaring definition's or fragment's event records, so `unknown:` is checked against `Flow.uncertain` (rule 13).
 export const compileOp = (definition: string, name: string, b: AnyBound, events: Readonly<Record<string, Fields>>, fragment?: string): CompiledOp => {
   const c = b.contract;
@@ -191,6 +192,8 @@ export const compileOp = (definition: string, name: string, b: AnyBound, events:
     const s = (c.input as Record<string, Schema.Top>)[f];
     if (s && (optionalOrDefaulted(f, s))) throw new Error(`KeyFieldOptional: ${definition} operations.${name} key field ${f} is optional or has a default (rule 39)`);
   }
+  for (const tag of Object.keys((m.failure ?? {}) as object))
+    if (FLOW_REASONS.has(tag) && !(c.kind !== "write" && (tag === "Defect" || tag === "Interrupted"))) throw new Error(`ReservedReason: ${definition} operations.${name} maps a failure tag ${tag}, which is one of Flow's reasons (rule 13)`);
   const inputNotCarried = Object.entries(c.input as Record<string, { ast: Ast }>).flatMap(([f, s]) => notCarried(s.ast, f));
   const u0 = m.unknown as Readonly<Record<string, unknown>> | undefined;
   const u = u0 === undefined ? undefined : typeof u0["tag"] === "string" || isIgnore(u0) ? u0 : { byReason: u0 }; // a token's `tag` is a string; a reason's value is a token
