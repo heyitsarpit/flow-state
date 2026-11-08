@@ -12,6 +12,7 @@ export type NoAnswer =
   | { readonly kind: "memory-near"; readonly peakMb: number; readonly limitMb: number; readonly referenceMb: number | null }
   | { readonly kind: "signal"; readonly signal: string }
   | { readonly kind: "abandoned" }
+  | { readonly kind: "blind"; readonly ticks: number }
   | { readonly kind: "disagree"; readonly exit: number | null; readonly stated: Outcome }
   | Unstated;
 export type Bound = { readonly kind: "memory"; readonly peakMb: number; readonly limitMb: number; readonly referenceMb: number };
@@ -45,6 +46,7 @@ export const read = (run: Run): Reading => {
   if (run.launch.contract === "program") throw new Error(`read of a program under test: ${run.launch.gate}`);
   if (run.launch.contract === "tool") return { answer: "stated", verdict: toolVerdict(run), run };
   if (run.stdout.abandoned) return { answer: "none", cause: { kind: "abandoned" }, run };
+  if (run.ticks > 0 && run.blindTicks === run.ticks) return { answer: "none", cause: { kind: "blind", ticks: run.ticks }, run };
   const v = theVerdict(text(run.stdout), { gate: run.launch.gate, run: run.launch.run }, run.stdout.marks);
   if (Result.isFailure(v)) return { answer: "none", cause: v.failure, run };
   const o = outcomeOf(v.success.items);

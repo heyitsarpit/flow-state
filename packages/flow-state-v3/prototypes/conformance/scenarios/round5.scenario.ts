@@ -182,6 +182,7 @@ const oddOne = (make: () => Harness, kind: string, v: unknown) => {
       if (!(e instanceof NoHeldRequest))
         throw new Mismatch(
           `D65: ${label} threw at ${JSON.stringify(Object.keys(step))}: ${String(e)}`,
+          { cause: e },
         );
     }
     if ("reload" in step) {

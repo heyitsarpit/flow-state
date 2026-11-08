@@ -71,17 +71,20 @@ if (import.meta.main)
         const c = copyOf(snap, tree, edits);
         if (c._tag === "Failure") throw new Error(c.failure);
         const cwd = c.success.tree("conformance");
-        return { spec: { gate: "mutate-one", cmd: ["bun", join(cwd, "mutate-one.ts"), "--runtime", `../${tree}/adapter.ts`, ...extra], cwd, env: {}, limits, contract: "gate" }, close: c.success.close };
+        return { spec: { gate: "mutate-one", cmd: ["bun", join(cwd, "mutate-one.ts"), "--runtime", `../${tree}/adapter.ts`, ...extra], cwd, env: id === "control" ? { FLOW_PIN_REACH: "1" } : {}, limits, contract: "gate" }, close: c.success.close };
       },
     });
     const runner = scope.runner({ slots: parallel, mb: Math.min(MACHINE_MB, parallel * limits.mb), budgetS });
     const control = final(await runner.run(mutantJob("control", [], 0, 0)));
     if (outcome(control) !== "pass") {
-      console.log(`CONTROL FAILED: the unmutated code: ${describe(control)}`);
+      const known = describe(control).includes("[known red,");
+      console.log(`CONTROL FAILED${known ? " on a known red of round 14" : ""}: the unmutated code: ${describe(control)}`);
       return [{ kind: "control", name: "control", outcome: outcome(control) === "unknown" ? "unknown" : "fail", why: describe(control) }];
     }
     const ref = control.run.kind === "ended" ? control.run.peakMb : 0;
     const aloneS = control.run.kind === "ended" ? control.run.ms / 1000 : 60;
+    const { MEMORY_MARGIN } = await import("./verdicts/read.ts");
+    if (limits.mb < MEMORY_MARGIN * ref) throw new Error(`defect: the mutant kill limit ${limits.mb} MB is under ${MEMORY_MARGIN} x the control's peak ${ref} MB`);
     console.log(`control: the unmutated code passes every gate (${Math.round(aloneS)} s, ${ref} MB)`);
     const runs = scored.map((m, i) => (problems[i] ? undefined : runner.run(mutantJob(m.id, m.edits as readonly Edit[], ref, aloneS))));
     const items: Item[] = [{ kind: "control", name: "control", outcome: "pass", why: "" }];

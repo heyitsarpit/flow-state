@@ -8,6 +8,7 @@ import { checkItems, stated } from "../../conformance/verdicts/state.ts";
 await stated("checks/types-check.ts", async (scope) => {
 const { job } = await import("../../conformance/verdicts/runner.ts");
 const { programOutput } = await import("../../conformance/verdicts/spawn.ts");
+const { firstLines, tscDiagnostics } = await import("../../conformance/verdicts/programs.ts");
 const { PROGRAM } = await import("../../conformance/limits.ts");
 const runner = scope.runner({ slots: 1, mb: PROGRAM.size.peakMb, budgetS: null });
 const tscRun = async (args: readonly string[]) => {
@@ -42,9 +43,8 @@ if (!existsSync(tsc)) {
 }
 const p = await tscRun(["-p", join(typed, "tsconfig.json")]);
 if ("unknown" in p) return unknownItem(p.unknown);
-const out = p.stdout + p.stderr;
 const bad: string[] = [];
-if (p.exit !== 0) bad.push(`tsc exit ${p.exit}: ${out.split("\n").filter(Boolean).slice(0, 3).join(" | ")}`);
+if (p.exit !== 0) bad.push(`tsc exit ${p.exit}: ${firstLines(p, 3).join(" | ")}`);
 // The pins this round states, by their words. A refusal removed with its directive compiles; a missing text here does not.
 const PINS = [
   "a key names a field that is not the input's",
@@ -151,12 +151,12 @@ const ERRORS: Record<string, readonly [string, string]> = {
   try {
     const q = await tscRun(["-p", join(typed, `${tag}.json`)]);
     if ("unknown" in q) return unknownItem(q.unknown);
-    const errs = (q.stdout + q.stderr).split("\n").map((l) => /^\S+\((\d+),\d+\): error (TS\d+): (.*)$/.exec(l)).filter((m): m is RegExpExecArray => m !== null);
+    const errs = tscDiagnostics(q);
     for (const [line, words] of under) {
       const want = ERRORS[words];
-      const here = errs.filter((m) => Number(m[1]) === line);
+      const here = errs.filter((m) => m.line === line);
       if (!want) bad.push(`no error pinned for the directive: ${words}`);
-      else if (here.length !== 1 || here[0]![2] !== want[0] || !here[0]![3]!.includes(want[1])) bad.push(`the line under "${words}" errors for something else: ${here.map((m) => `${m[2]} ${m[3]!.slice(0, 90)}`).join(" | ") || "no error"}`);
+      else if (here.length !== 1 || here[0]!.code !== want[0] || !here[0]!.message.includes(want[1])) bad.push(`the line under "${words}" errors for something else: ${here.map((m) => `${m.code} ${m.message.slice(0, 90)}`).join(" | ") || "no error"}`);
     }
   } finally {
     rmSync(join(typed, `${tag}.ts`), { force: true });

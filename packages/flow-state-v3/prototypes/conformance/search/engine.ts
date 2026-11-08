@@ -3,6 +3,7 @@
 // is opaque text from the runtime and the fake, reduced to 64 bits by Bun.hash. Oracles run per edge and on each state, so
 // no history is needed beyond what the hash carries.
 import type { Harness, Step } from "../harness.ts";
+import { resourceErrno } from "../verdicts/core.ts";
 
 // D131: `idle`: this action never changes the state hash, and why that is true. Otherwise an action no edge moved makes the verdict `vacuous`.
 export type Action = { name: string; step: Step; on?: (h: Harness) => boolean; idle?: string };
@@ -147,6 +148,7 @@ export const bfs = (o: {
       frontier = next;
     }
   } catch (e) {
+    if (resourceErrno(e) !== undefined) throw e;
     // M2: a throw anywhere is this search's verdict, never a crash with none: an oracle in the fake throws a plain Error.
     return done("failed", depthCompleted, e instanceof Oracle ? e.message : `threw: ${(e as Error).message}`);
   }

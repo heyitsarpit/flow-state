@@ -20,6 +20,7 @@ export const checkItems = (name: string, bad: readonly string[]): readonly Item[
   bad.length === 0 ? [{ kind: "check", name, outcome: "pass", why: "" }] : bad.map((b) => ({ kind: "check", name, outcome: "fail", why: b }));
 
 export const TIDY_MS = 15_000;
+export const FLUSH_MS = 5000;
 const flushed =(s: NodeJS.WriteStream, text: string) => new Promise<void>((resolve) => s.write(text, () => resolve()));
 const COPY = /\/[^\s"'(]*?(?:\/flow-snap-[A-Za-z0-9]+)+\/(?:c-\d+-\d+|pristine)/g;
 
@@ -29,7 +30,9 @@ export const stated = async (gate: string, body: (scope: Scope) => Promise<reado
   const snaps: Snapshot[] = [];
   let finished = false;
   let ending = false;
+  let tidied = false;
   const tidy = async () => {
+    tidied = true;
     const r = runner;
     runner = undefined;
     if (r) await r.r.close();
@@ -41,9 +44,10 @@ export const stated = async (gate: string, body: (scope: Scope) => Promise<reado
   const write = async (items: readonly Item[]): Promise<never> => {
     finished = true;
     const v = { gate, run, items: normalise(items) };
-    await flushed(process.stderr, "");
-    await flushed(process.stdout, "");
-    await flushed(process.stdout, `\n${MARK}${JSON.stringify(v)}\n`);
+    const bounded = (p: Promise<void>) => Promise.race([p, Bun.sleep(FLUSH_MS)]);
+    await bounded(flushed(process.stderr, ""));
+    await bounded(flushed(process.stdout, ""));
+    await bounded(flushed(process.stdout, `\n${MARK}${JSON.stringify(v)}\n`));
     process.exit(EXIT[outcomeOfCore(v.items)]);
   };
   const hardExit = (why: string): never => {
@@ -69,6 +73,7 @@ export const stated = async (gate: string, body: (scope: Scope) => Promise<reado
     const { inheritedPool, isAlone, isTop } = await import("./spawn.ts");
     const live: Scope = {
       runner: (top) => {
+        if (tidied) throw new Error("defect: a runner asked for after the scope was tidied");
         if (runner) {
           if (JSON.stringify(runner.pool) !== JSON.stringify(top)) throw new Error("defect: one runner per process, asked again with another pool");
           return runner.r;

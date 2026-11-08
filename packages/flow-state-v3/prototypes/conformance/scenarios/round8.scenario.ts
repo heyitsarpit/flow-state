@@ -8,6 +8,7 @@ import { businessKeyFixture, copiesFixture, CopiesId, doorsFixture, DoorsId, loo
 import { doorsFixture as handDoorsFixture } from "../fixtures/round8.compiled.ts";
 import type { Fixture } from "../harness.ts";
 import { Ctx, type Scenario } from "./ctx.ts";
+import { resourceErrno } from "../verdicts/core.ts";
 
 const A = { actor: BareId, id: "a" };
 const B = { actor: BareId, id: "b" };
@@ -780,6 +781,7 @@ export const round8Scenarios: readonly Scenario[] = [
         try {
           c0.fresh([odd]);
         } catch (e) {
+          if (resourceErrno(e) !== undefined) throw e;
           threw = String(e);
         }
         c0.yes("refused at the seal", threw.includes("SealUnknownClosure"));

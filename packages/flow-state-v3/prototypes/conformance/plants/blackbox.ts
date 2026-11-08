@@ -21,6 +21,8 @@ type Plant = {
   readonly repeat?: number;
   readonly signal?: { readonly after: number; readonly name: NodeJS.Signals };
   readonly midEdit?: { readonly after: RegExp; readonly edit: Edit };
+  readonly sample?: RegExp;
+  readonly strays?: BySide<boolean>;
 };
 
 const P = "packages/flow-state-v3/prototypes";
@@ -47,12 +49,38 @@ const PLANTS: readonly Plant[] = [
   { id: "B1", edits: [[`${P}/round-14/typed/swaps.ts`, "[typedPayFixture, payFixture],", "[typedPayFixture, payFullFixture],"]], cmd: GATES("mutate-one"), seconds: LONG, lines: /^(ok|BAD|UNKN)\s+mutate-one|^GATES/, expect: { old: [/^ok\s+mutate-one/m, /^exit 0$/m], new: [/^BAD\s+mutate-one.*swap/m, /^exit 1$/m] } },
   {
     id: "B2",
-    sides: ["new"],
     files: { [`${P}/round-14/plant-mutants.ts`]: plantList(`[{ id: "plant.hang", kills: ["PAY-01"], edits: [["adapter.ts", ${JSON.stringify(adapterImport)}, ${JSON.stringify(`${adapterImport} while (true) {}`)}]] }]`) },
     cmd: [...MUT, "--budget", "280"],
-    seconds: 295,
+    seconds: 288,
     lines: rows,
-    expect: { old: [], new: [/^UNKNOWN\s+plant\.hang/m, /^exit 2$/m] },
+    strays: { old: true, new: false },
+    expect: { old: [/^control: the unmutated code passes/m, /^exit 142$/m, not(/^UNKNOWN/m)], new: [/^UNKNOWN\s+plant\.hang/m, /^exit 2$/m] },
+  },
+  {
+    id: "B9-alone",
+    edits: [[`${P}/conformance/search/frag.search.ts`, "    state(h) {\n      checkClaims(h.read);", '    state(h) {\n      if (((globalThis as any).__plantN = ((globalThis as any).__plantN ?? 0) + 1) > 600) throw new Error("PLANT-B9 past state 600");\n      checkClaims(h.read);']],
+    cmd: SUITE1("FRAG-15"),
+    seconds: 200,
+    lines: /^(PASS|FAIL)\s/,
+    expect: { old: [/^FAIL\s+FRAG-15.*PLANT-B9/m], new: [/^FAIL\s+FRAG-15.*PLANT-B9/m] },
+  },
+  {
+    id: "B9-loaded",
+    edits: [[`${P}/conformance/search/frag.search.ts`, "    state(h) {\n      checkClaims(h.read);", '    state(h) {\n      if (((globalThis as any).__plantN = ((globalThis as any).__plantN ?? 0) + 1) > 600) throw new Error("PLANT-B9 past state 600");\n      checkClaims(h.read);']],
+    cmd: [...LOADED, ...SUITE1("FRAG-15")],
+    seconds: 200,
+    lines: /^(PASS|FAIL)\s/,
+    expect: { old: [/^PASS\s+FRAG-15/m], new: [/^FAIL\s+FRAG-15.*PLANT-B9/m] },
+  },
+  {
+    id: "B14",
+    edits: slowSettle,
+    cmd: [...LOADED, "bun", "mutate-one.ts", ...rt],
+    seconds: 280,
+    lines: /^\{"killedBy"|^VERDICT/,
+    sample: /main\.ts --round 99/,
+    strays: { old: true, new: false },
+    expect: { old: [/^after the first drain, at most [2-9]/m], new: [/^after the first drain, at most [01]$/m] },
   },
   { id: "B3-alone", edits: slowSettle, cmd: SUITE1("PAY-01"), seconds: 200, lines: /^(PASS|FAIL)\s/, expect: { old: [/^PASS\s+PAY-01/m], new: [/did not quiesce in 100000 work units/] } },
   { id: "B3-loaded", edits: slowSettle, cmd: [...LOADED, ...SUITE1("PAY-01")], seconds: 200, lines: /^(PASS|FAIL)\s/, expect: { old: [/did not quiesce in 20 s of wall clock/], new: [/did not quiesce in 100000 work units/] } },
@@ -72,7 +100,7 @@ const PLANTS: readonly Plant[] = [
     cmd: MUT,
     seconds: LONG,
     lines: rows,
-    expect: { old: [/^KILLED\s+plant\.alloc-at-boot\s+watchdog rss/m], new: [/^KILLED\s+plant\.alloc-at-boot/m, /^exit 0$/m] },
+    expect: { old: [/^KILLED\s+plant\.alloc-at-boot\s+watchdog rss/m], new: [/^KILLED\s+plant\.alloc-at-boot\s+(rss|suite): 0/m, /^exit 0$/m] },
   },
   {
     id: "B7",
@@ -120,14 +148,14 @@ const PLANTS: readonly Plant[] = [
     lines: rows,
     expect: { old: [/^SURVIVED\s+plant\.commutes-claims\s/m, /^exit 0$/m], new: [/plant\.commutes-claims=fail/, /plant\.commutes-claims-nothing=noted/, /^exit 1$/m] },
   },
-  { id: "B15", cmd: ["bun", "watch.ts", "--rss-mb", "300", "--seconds", "1", "--", "sh", "-c", "sleep 0.99"], seconds: 20, lines: /^WATCH/, repeat: 50, expect: { old: [/WATCH #, #, exit 0, killed time/], new: [not(/exit 0, killed time/)] } },
+  { id: "B15", cmd: ["bun", "watch.ts", "--rss-mb", "300", "--seconds", "1", "--", "sh", "-c", "sleep 0.99"], seconds: 20, lines: /^WATCH/, repeat: 50, expect: { old: [/WATCH #, #, exit 0, killed time/, /^repeats 50 of 50 WATCH lines$/m], new: [not(/exit 0, killed time/), /^repeats 50 of 50 WATCH lines$/m] } },
   {
     id: "B16",
     cmd: ["bun", "lifetime-falsify.ts", ...rt, "--mutants", "life.no-grace,life.grace-never-ends"],
     seconds: LONG,
     lines: /MIDRUN-PLANT|^(ok|BAD|UNKN)\s/,
     midEdit: { after: /control: \d+ pass/, edit: [`${P}/round-14/adapter.ts`, adapterImport, `${adapterImport} throw new Error("MIDRUN-PLANT");`] },
-    expect: { old: [/^BAD\s+life\.no-grace \(rule:73\): 0 red/m, /^BAD\s+life\.grace-never-ends \(rule:73\): 0 red/m], new: [/^ok\s+life\.no-grace/m, /^ok\s+life\.grace-never-ends/m, not(/MIDRUN-PLANT/)] },
+    expect: { old: [/^mid-edit applied$/m, /^BAD\s+life\.no-grace \(rule:73\): 0 red/m, /^BAD\s+life\.grace-never-ends \(rule:73\): 0 red/m], new: [/^mid-edit applied$/m, /^ok\s+life\.no-grace/m, /^ok\s+life\.grace-never-ends/m, not(/MIDRUN-PLANT/)] },
   },
   { id: "B17", edits: [[`${P}/round-14/adapter.ts`, "if (same !== (JSON.stringify(canon(x)) === JSON.stringify(canon(y)))) {", "if (true) {"]], cmd: GATES("suite canon"), seconds: LONG, lines: /^(ok|BAD|UNKN)\s+suite canon|^GATES/, expect: { old: [/GATES\s+0\/0/, /^exit 0$/m], new: [/^BAD\s+suite canon/m] } },
   { id: "B18", edits: [[`${P}/round-14/checks/score-check.ts`, scoreTop, `process.exit(0);\n${scoreTop}`]], cmd: GATES("checks/score"), seconds: 200, lines: /^(ok|BAD|UNKN)\s+checks\/score|^GATES/, expect: { old: [/^ok\s+checks\/score/m], new: [/^UNKN.*silent/m] } },
@@ -172,7 +200,7 @@ const PLANTS: readonly Plant[] = [
     cmd: MUT,
     seconds: LONG,
     lines: rows,
-    expect: { old: [/^KILLED\s+plant\.throws-at-load\s+crash/m], new: [/^KILLED\s+plant\.throws-at-load/m] },
+    expect: { old: [/^KILLED\s+plant\.throws-at-load\s+crash/m], new: [/^KILLED\s+plant\.throws-at-load\s+suite: \d+: threw/m] },
   },
   { id: "B25", edits: [[`${P}/round-14/checks/mailq-check.ts`, mailqTop, `for (let __i = 0; __i < 20; __i++) await new Promise((r) => process.stdout.write("y".repeat((1 << 20) - 1) + "\\n", r));\n${mailqTop}`]], cmd: GATES("checks/mailq"), seconds: LONG, lines: /^(ok|BAD|UNKN)\s+checks\/mailq|^GATES/, expect: { old: [/^ok\s+checks\/mailq/m], new: [/^ok\s+checks\/mailq.*bytes dropped/m] } },
   {
@@ -185,9 +213,9 @@ const PLANTS: readonly Plant[] = [
     lines: /"verdict"/,
     expect: { old: [/"verdict": "inconclusive"/, /^exit 0$/m], new: [/inconclusive, completed expected/, /^exit 1$/m] },
   },
-  { id: "B28", edits: [[`${P}/round-14/checks/front-check.ts`, "// Round 11, review H3, M1, M3, M6:", "while (true) {}\n// Round 11, review H3, M1, M3, M6:"]], cmd: ["bun", "mutate-one.ts", ...rt], seconds: 295, lines: /^\{"killedBy"/, expect: { old: [/^exit 142$/m], new: [/checks\/front-check\.ts=unknown\(unknown: time\)/, /^exit 2$/m] } },
+  { id: "B28", edits: [[`${P}/round-14/checks/front-check.ts`, "// Round 11, review H3, M1, M3, M6:", "while (true) {}\n// Round 11, review H3, M1, M3, M6:"]], cmd: ["bun", "mutate-one.ts", ...rt], seconds: 290, lines: /^\{"killedBy"/, strays: { old: true, new: false }, expect: { old: [/^exit 142$/m], new: [/checks\/front-check\.ts=unknown\(unknown: time\)/, /^exit 2$/m] } },
   ...(["SIGINT", "SIGTERM", "SIGALRM"] as const).map(
-    (s): Plant => ({ id: `B29-${s}`, cmd: GATES("falsify suite1"), seconds: 120, lines: rows, signal: { after: 20, name: s }, expect: { old: [/^left [1-9]/m], new: [/^left 0$/m, new RegExp(`interrupted by ${s}`), /^exit 2$/m] } }),
+    (s): Plant => ({ id: `B29-${s}`, cmd: GATES("falsify suite1"), seconds: 120, lines: rows, signal: { after: 20, name: s }, strays: { old: true, new: false }, expect: { old: [/^tree [1-9]/m, /^left [1-9]/m], new: [/^tree [1-9]/m, /^left 0$/m, new RegExp(`interrupted by ${s}`), /^exit 2$/m] } }),
   ),
   { id: "B30", edits: [[`${P}/round-14/checks/score-check.ts`, scoreTop, `console.log("VERDICT {garbled");\nprocess.exit(0);\n${scoreTop}`]], cmd: GATES("checks/score"), seconds: 200, lines: /^(ok|BAD|UNKN)\s+checks\/score|^GATES/, expect: { old: [/^ok\s+checks\/score/m], new: [/^UNKN.*garbled/m] } },
 ];
@@ -218,9 +246,12 @@ await stated("blackbox", async () => {
     writeFileSync(join(base, ".commit"), sha);
   }
   if (readFileSync(join(base, ".commit"), "utf8").trim() !== sha) throw new Error(`blackbox: ${base} holds another commit`);
+  const hasVerdicts = existsSync(join(pristine, P, "conformance/verdicts"));
+  if (hasVerdicts !== (side === "new")) throw new Error(`blackbox: --side ${side} does not fit ${sha.slice(0, 8)} (${hasVerdicts ? "it has" : "it has no"} verdicts/)`);
   const pick = <T>(x: BySide<T> | T): T => (x !== null && typeof x === "object" && "old" in (x as object) && "new" in (x as object) ? (x as BySide<T>)[side] : (x as T));
+  const PS_MS = 5000;
   const strays = (work: string): number[] => {
-    const p = Bun.spawnSync(["pgrep", "-f", work], { stdin: "ignore" });
+    const p = Bun.spawnSync(["pgrep", "-f", work], { stdin: "ignore", timeout: PS_MS });
     return p.stdout.toString().split("\n").map(Number).filter((n) => n > 0 && n !== process.pid);
   };
   const alive = (pid: number) => {
@@ -232,10 +263,13 @@ await stated("blackbox", async () => {
     }
   };
   const descendants = (root: number): number[] => {
-    const rows = Bun.spawnSync(["ps", "-Ao", "pid=,ppid="], { stdin: "ignore" }).stdout.toString().trim().split("\n").map((l) => l.trim().split(/\s+/).map(Number) as [number, number]);
-    const out: number[] = [];
+    const rows = Bun.spawnSync(["ps", "-Ao", "pid=,ppid=,command="], { stdin: "ignore", timeout: PS_MS }).stdout.toString().trim().split("\n").map((l) => {
+      const m = /^\s*(\d+)\s+(\d+)\s+(.*)$/.exec(l);
+      return m ? ([Number(m[1]), Number(m[2]), m[3]!] as const) : ([0, 0, ""] as const);
+    });
+    const out: Array<{ pid: number; command: string }> = [];
     const walk = (p: number) => {
-      for (const [pid, ppid] of rows) if (ppid === p && !out.includes(pid)) (out.push(pid), walk(pid));
+      for (const [pid, ppid, command] of rows) if (ppid === p && !out.some((x) => x.pid === pid)) (out.push({ pid, command }), walk(pid));
     };
     walk(root);
     return out;
@@ -251,7 +285,7 @@ await stated("blackbox", async () => {
     }
     tree.clear();
     for (const pid of strays(work)) {
-      const cmd = Bun.spawnSync(["ps", "-o", "command=", "-p", String(pid)], { stdin: "ignore" }).stdout.toString();
+      const cmd = Bun.spawnSync(["ps", "-o", "command=", "-p", String(pid)], { stdin: "ignore", timeout: PS_MS }).stdout.toString();
       if (!cmd.includes(work)) continue;
       try {
         process.kill(pid, 9);
@@ -263,7 +297,7 @@ await stated("blackbox", async () => {
   const items: Item[] = [];
   for (const p of PLANTS.filter((x) => !only || only.includes(x.id))) {
     if (p.sides && !p.sides.includes(side)) {
-      items.push({ kind: "plant", name: `${p.id} ${side}`, note: "not run on this side (past a 5-minute command)" });
+      items.push({ kind: "plant", name: `${p.id} ${side}`, outcome: "fail", why: "not built for this side" });
       continue;
     }
     const work = join(base, `w-${p.id}`);
@@ -292,9 +326,20 @@ await stated("blackbox", async () => {
         const child = Bun.spawn(["perl", "-e", `alarm ${p.seconds}; exec @ARGV`, "--", ...cmd], { cwd, stdin: "ignore", stdout: "pipe", stderr: "pipe", env });
         if (p.signal)
           setTimeout(() => {
-            for (const d of descendants(child.pid)) tree.add(d);
+            for (const d of descendants(child.pid)) tree.add(d.pid);
+            seen.push(`tree ${tree.size}`);
             child.kill(p.signal!.name);
           }, p.signal.after * 1000);
+        let phase: "none" | "seen" | "drained" = "none";
+        let after = 0;
+        const sampler = p.sample
+          ? setInterval(() => {
+              const n = descendants(child.pid).filter((d) => p.sample!.test(d.command)).length;
+              if (phase === "none" && n > 0) phase = "seen";
+              else if (phase === "seen" && n === 0) phase = "drained";
+              if (phase === "drained") after = Math.max(after, n);
+            }, 100)
+          : undefined;
         let midDone = false;
         const watch = async (s: ReadableStream<Uint8Array>) => {
           let all = "";
@@ -305,13 +350,19 @@ await stated("blackbox", async () => {
               midDone = true;
               const [f, find, rep] = p.midEdit.edit;
               const text = readFileSync(join(work, f), "utf8");
-              writeFileSync(join(work, f), text.replace(find, () => rep));
+              const next = text.replace(find, () => rep);
+              writeFileSync(join(work, f), next);
+              seen.push(next !== text ? "mid-edit applied" : "mid-edit did not apply");
             }
           }
           return all;
         };
         const [out, err] = await Promise.all([watch(child.stdout as ReadableStream<Uint8Array>), watch(child.stderr as ReadableStream<Uint8Array>)]);
         exit = await child.exited;
+        if (sampler) {
+          clearInterval(sampler);
+          seen.push(`after the first drain, at most ${after}`);
+        }
         for (const l of `${out}\n${err}`.split("\n")) if (p.lines.test(l)) seen.push(l.slice(0, 260));
         const v = out.split("\n").filter((l) => l.startsWith("VERDICT ")).at(-1);
         if (v)
@@ -328,9 +379,10 @@ await stated("blackbox", async () => {
       }
     const left = killStrays(work);
     const ms = Math.round(performance.now() - t0);
-    const lines = p.repeat ? [...new Set(seen.map((l) => l.replace(/[\d.]+ s|peak \d+ MB/g, "#")))].map((k) => `${seen.filter((l) => l.replace(/[\d.]+ s|peak \d+ MB/g, "#") === k).length} x ${k}`) : seen;
+    const lines = p.repeat ? [...[...new Set(seen.map((l) => l.replace(/[\d.]+ s|peak \d+ MB/g, "#")))].map((k) => `${seen.filter((l) => l.replace(/[\d.]+ s|peak \d+ MB/g, "#") === k).length} x ${k}`), `repeats ${p.repeat} of ${seen.filter((l) => l.startsWith("WATCH")).length} WATCH lines`] : seen;
     const observed = `exit ${exit}\n${lines.join("\n")}\nVERDICT ${verdict}`;
-    const misses = missed ? [missed] : p.expect[side].filter((x) => (x instanceof RegExp ? !x.test(observed) : x.not.test(observed))).map((x) => (x instanceof RegExp ? `wanted ${x}` : `wanted no ${x.not}`));
+    const strayMiss = left > 0 && !(p.strays ? p.strays[side] : false) ? [`${left} stray process(es) left`] : [];
+    const misses = missed ? [missed] : [...strayMiss, ...p.expect[side].filter((x) => (x instanceof RegExp ? !x.test(observed) : x.not.test(observed))).map((x) => (x instanceof RegExp ? `wanted ${x}` : `wanted no ${x.not}`))];
     items.push({ kind: "plant", name: `${p.id} ${side}`, outcome: misses.length ? "fail" : "pass", why: misses.join("; ").slice(0, 300), detail: { observed: observed.slice(0, 1500), strays: left } });
     console.log(`${misses.length ? "BAD " : "ok  "} ${p.id} ${side}  exit ${exit}  ${(ms / 1000).toFixed(1)} s${left ? `  (${left} stray process(es) killed)` : ""}${misses.length ? `  ${misses.join("; ")}` : ""}\n    ${lines.join("\n    ")}${verdict ? `\n    VERDICT ${verdict.slice(0, 400)}` : ""}`);
     rmSync(work, { recursive: true, force: true });

@@ -134,6 +134,8 @@ const describeCause = (r: Extract<Reading, { answer: "none" }>): string => {
       return "unknown: budget";
     case "closed":
       return "unknown: closed, its parent ended";
+    case "blind":
+      return `unknown: memory never read (${c.ticks} polls with no process table), so no memory limit held`;
     case "abandoned":
       return "unknown: stdout abandoned after the grace, so a VERDICT may be lost";
     case "memory-near":

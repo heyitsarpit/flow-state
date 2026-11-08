@@ -5,10 +5,10 @@ import { basename, dirname, join, resolve } from "node:path";
 import { stated } from "./verdicts/state.ts";
 
 const SEARCH_EXPECT: Readonly<Record<string, string>> = {};
-const SEARCH_DEPTH: Readonly<Record<string, string>> = { odd: "3", session: "3" };
+const SEARCH_STATES: Readonly<Record<string, string>> = { odd: "8000", session: "6000" };
 const SEARCH_REACH: Readonly<Record<string, { states: number; perDepth: readonly number[] }>> = {
-  odd: { states: 1483, perDepth: [1, 22, 200, 1260] },
-  session: { states: 968, perDepth: [1, 16, 133, 818] },
+  odd: { states: 7269, perDepth: [1, 22, 200, 1260, 5786] },
+  session: { states: 5262, perDepth: [1, 16, 133, 818, 4294] },
 };
 
 await stated("falsify", async (scope) => {
@@ -118,7 +118,7 @@ if (suitePart(3)) {
 const SEARCHES = ["pay", "like", "chain", "crash", "cross", "frag", "odd", "session", "repairing", "listen.load", "fragstore.row", "flush.bare.tight", "flush.serialize.directed", "flush.bare.capture"];
 const EXPECT: Record<string, string> = Object.fromEntries(SEARCHES.map((w) => [w, SEARCH_EXPECT[w] ?? "completed"]));
 const search = (w: string, rt: string, env: Record<string, string> = {}) =>
-  run("search", ["bun", "search/run.ts", "--which", w, "--runtime", rt, "--depth", SEARCH_DEPTH[w] ?? "4", "--states", "4000", "--expect", EXPECT[w]!], env, here, SEARCH);
+  run("search", ["bun", "search/run.ts", "--which", w, "--runtime", rt, "--depth", "4", "--states", SEARCH_STATES[w] ?? "4000", "--expect", EXPECT[w]!], env, here, SEARCH);
 const redSearch = (r: Reading) => ["failed", "vacuous"].includes(searchOf(r)?.verdict ?? "");
 if (part("search")) for (const w of quick ? SEARCHES.slice(0, 3) : SEARCHES) {
   const nul = await search(w, "../null-adapter.ts");

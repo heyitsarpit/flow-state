@@ -7,7 +7,12 @@ import { FakeWorld, NoHeldRequest } from "./fake-world.ts";
 import { canonText } from "./output.ts";
 import { legacySlots } from "./legacy.ts";
 import { machineOfKey, Reference } from "./reference/model.ts";
+import { appendFileSync } from "node:fs";
 import { WORK_PER_CALL } from "./limits.ts";
+
+const WORK_PEAK = process.env["FLOW_WORK_PEAK"];
+const workPeak = { max: 0 };
+if (WORK_PEAK) process.on("exit", () => appendFileSync(WORK_PEAK, `${workPeak.max} ${process.argv.slice(2).join(" ")}\n`));
 import { inPlaceGuard, type FaultState, type Harness, type Instance, type Port, type Step } from "./harness.ts";
 
 // Stage G: how each delivery's recipient was settled, over the whole run (printed by `main.ts`). `unobserved` is allowance A2's remainder.
@@ -1792,6 +1797,7 @@ export const makeHarness = (port: Port) => (): Harness => {
         return f(...a);
       } finally {
         depth--;
+        if (WORK_PEAK && depth === 0 && fake) workPeak.max = Math.max(workPeak.max, fake.spentInCall());
       }
     };
   const stored = reads.stored;

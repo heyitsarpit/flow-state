@@ -50,17 +50,19 @@ await stated("lifetime-falsify", async (scope) => {
         };
       },
     });
-  const caseItems = (r: Reading) => (r.answer === "stated" ? r.verdict.items.filter(isScored).filter((x) => x.kind === "case") : []);
+  const caseItems = (r: Reading) => (r.answer === "stated" ? r.verdict.items.filter(isScored).filter((x) => x.kind === "case" || x.kind === "work-bound") : []);
   const failText = (r: Reading) => caseItems(r).filter((x) => x.outcome === "fail").map((x) => `${x.name}: ${x.why.slice(0, 140)}`);
   const items: Item[] = [];
   const control = final(await runJob("control", [], 0));
-  const ci = expect("control", "control", control, "pass", { kinds: ["case"], holds: sameCases(plannedCases(new Set(ONLY))) });
+  const ci = expect("control", "control", control, "pass", { kinds: ["case", "only"], holds: sameCases(plannedCases(new Set(ONLY))) });
   items.push(ci);
   const passed = caseItems(control).filter((x) => x.outcome === "pass").map((x) => x.name);
   const cf = failText(control);
   console.log(`${ci.outcome === "pass" ? "ok  " : ci.outcome === "unknown" ? "UNKN" : "BAD "} control: ${passed.length} pass, ${cf.length} fail${cf.length ? `\n       ${cf.join("\n       ")}` : ""}${ci.outcome !== "pass" ? `  ${ci.why}` : ""}`);
   // Fail-then-pass: every case green on the control must be red on at least one wrong runtime.
   const ref = control.run.kind === "ended" ? control.run.peakMb : 0;
+  const { MEMORY_MARGIN } = await import("./verdicts/read.ts");
+  if (SUITE.limits.mb < MEMORY_MARGIN * ref) throw new Error(`defect: the kill limit ${SUITE.limits.mb} MB is under ${MEMORY_MARGIN} x the control's peak ${ref} MB`);
   const runs = MUTANTS.map((m) => runJob(m.id, m.edits, ref));
   const everRed = new Set<string>();
   let unknownRuns = 0;

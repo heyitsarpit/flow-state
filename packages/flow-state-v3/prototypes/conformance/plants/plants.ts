@@ -27,7 +27,7 @@ await stated("plants", async (scope) => {
     // ── The reader, on built runs: section 2's table.
     const launch = (o: Partial<Launch> = {}): Launch => ({ gate: "g", cmd: [], cwd: tmp, env: {}, limits: { mb: 300, seconds: 2 }, contract: "gate", run: "top.1", referenceMb: 100, pool: { slots: 1, mb: 100 }, alone: false, ...o });
     const stream = (s: string, marks?: number) => ({ head: s, tail: "", lastLine: "", dropped: 0, marks: marks ?? s.split("\n").filter((l) => l.startsWith("VERDICT ")).length, abandoned: false });
-    const ended = (o: Partial<Ended> & { out?: string }): Ended => ({ kind: "ended", launch: launch(), exit: 0, signal: null, decided: null, killed: false, peakMb: 50, ms: 10, stdout: stream(o.out ?? ""), stderr: stream(""), leftovers: 0, unreaped: false, blindTicks: 0, ...o });
+    const ended = (o: Partial<Ended> & { out?: string }): Ended => ({ kind: "ended", launch: launch(), exit: 0, signal: null, decided: null, killed: false, peakMb: 50, ms: 10, stdout: stream(o.out ?? ""), stderr: stream(""), leftovers: 0, unreaped: false, blindTicks: 0, ticks: 1, ...o });
     const v = (items: Item[], run = "top.1", gate = "g") => `human\n${encode({ gate, run, items })}\n`;
     const pass: Item = { kind: "case", name: "a", outcome: "pass", why: "" };
     const fail: Item = { kind: "case", name: "a", outcome: "fail", why: "x" };
@@ -79,6 +79,7 @@ await stated("plants", async (scope) => {
     plant("expect: the failing names travel in detail.failed", JSON.stringify((expect("g", "x", stFail, "pass").detail as { failed: string[] }).failed) === '["a"]', "lost");
     plant("expect: nothing of the judged kinds scored is unknown, never a pass, whatever is wanted (R1)", expect("g", "x", stOk, "fail", { kinds: ["output"] }).outcome === "unknown" && expect("g", "x", stOk, "pass", { kinds: ["output"] }).outcome === "unknown", "scored vacuously");
     plant("read: an abandoned stdout is unknown, a VERDICT may be lost", cause(read({ ...ended({ out: v([pass]) }), stdout: { ...stream(v([pass])), abandoned: true } })) === "abandoned", "read it");
+    plant("read: a run whose every poll had no process table is unknown (no memory limit held)", cause(read(ended({ out: v([pass]), ticks: 5, blindTicks: 5 }))) === "blind", "read it");
     plant("read: a VERDICT with no items is unknown, exit 2 (R1)", outcome(read(ended({ out: v([]), exit: 2 }))) === "unknown", "not unknown");
     const { resourceErrno } = await import("../verdicts/core.ts");
     plant("errno: a resource errno is found through cause and AggregateError", resourceErrno(new Error("x", { cause: Object.assign(new Error("y"), { code: "EMFILE" }) })) === "EMFILE" && resourceErrno(new AggregateError([Object.assign(new Error("z"), { code: "ENOSPC" })])) === "ENOSPC" && resourceErrno(new Error("plain")) === undefined, "missed");

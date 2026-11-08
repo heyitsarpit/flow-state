@@ -3,6 +3,7 @@ import { payFixture } from "../typed/pay.ts";
 import { datesFixture, diesFixture, inputFixture, keyReleaseTypedFixture, memReleaseFixture, type Release } from "../typed/round6.ts";
 import type { Fixture } from "../harness.ts";
 import { Ctx, type Scenario } from "./ctx.ts";
+import { resourceErrno } from "../verdicts/core.ts";
 
 const K = { actor: "Lab/KeyReleaseTyped", id: "a" };
 const on = (c0: Ctx, fs: readonly Fixture[], a: { actor: string; id: string }, bounds?: Record<string, number>) => {
@@ -149,6 +150,7 @@ export const round12Scenarios: readonly Scenario[] = [
       try {
         c0.fresh([bare as Fixture]);
       } catch (e) {
+        if (resourceErrno(e) !== undefined) throw e;
         threw = String(e);
       }
       c0.yes("refused at the seal", threw.includes("SealMissingService"));

@@ -34,6 +34,7 @@ export type Ended = {
   readonly leftovers: number;
   readonly unreaped: boolean;
   readonly blindTicks: number;
+  readonly ticks: number;
 };
 export type Unstarted = { readonly kind: "unstarted"; readonly launch: Launch; readonly message: string };
 export type Run = Ended | Unstarted;
@@ -245,9 +246,12 @@ export const spawnRun = async (launch: Launch, o: { readonly echo: boolean | "sa
     return procs;
   };
   let blindTicks = 0;
+  let ticks = 0;
+  let killedTree: { pid: number }[] = [];
   while (!done) {
     await Bun.sleep(40);
     if (done) break;
+    ticks++;
     const procs = table();
     if (procs === null) blindTicks++;
     else {
@@ -261,7 +265,7 @@ export const spawnRun = async (launch: Launch, o: { readonly echo: boolean | "sa
     if (decided === null && performance.now() - t0 > launch.limits.seconds * 1000) decided = "time";
     if (decided) {
       sentToLive = child.exitCode === null && child.signalCode === null;
-      endTree();
+      killedTree = endTree();
       break;
     }
   }
@@ -269,7 +273,7 @@ export const spawnRun = async (launch: Launch, o: { readonly echo: boolean | "sa
   const reaped = await Promise.race([child.exited.then(() => true), new Promise<false>((r) => (reapTimer = setTimeout(() => r(false), REAP_GRACE_MS)))]);
   clearTimeout(reapTimer);
   const signal = reaped ? (child.signalCode ?? null) : "SIGKILL";
-  const left = decided ? [] : endTree();
+  const left = decided ? killedTree.filter((p) => p.pid !== child.pid) : endTree();
   let timer: ReturnType<typeof setTimeout> | undefined;
   const grace = new Promise<"late">((r) => (timer = setTimeout(() => r("late"), DRAIN_GRACE_MS)));
   const drained = await Promise.race([Promise.all([out.finished, err.finished]).then(() => "drained" as const), grace]);
@@ -292,5 +296,6 @@ export const spawnRun = async (launch: Launch, o: { readonly echo: boolean | "sa
     leftovers: left.length,
     unreaped: !reaped,
     blindTicks,
+    ticks,
   };
 };

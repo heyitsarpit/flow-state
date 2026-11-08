@@ -341,7 +341,7 @@ export const runScenarios = (
           why:
             e instanceof Mismatch
               ? e.message
-              : `threw: ${(e as Error).stack?.split("\n").slice(0, 3).join(" ") ?? `${(e as Error).name}: ${(e as Error).message}`}`,
+              : `threw: ${e instanceof Error ? (e.stack?.split("\n").slice(0, 3).join(" ") ?? `${e.name}: ${e.message}`) : String(e)}`,
           ...((globalThis as any).__kills?.length ? { trace: (globalThis as any).__kills.join(" ; ") } : {}),
           ...(resourceErrno(e) !== undefined ? { machine: resourceErrno(e)! } : {}),
           ms: performance.now() - t,

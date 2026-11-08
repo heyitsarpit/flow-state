@@ -288,9 +288,9 @@ tree of the old commit for black-box runs, and mutate.ts over `mutants.ts` slice
 | 0 baselines | done | (before c73ad862 changed) | `gates.ts` 115 s, 19/22 exit 0 (the three known reds); 18 suite runs; old mutate.ts over 196 mutants in 13 slices of 16: 157 killed, 16 survived, 3 invalid; slices 12-13 stop up front, list rot (`drain-not-waited`, `h2-json-only` no longer apply) |
 | 1 module | done | (this) | `verdicts/verdict.ts`, `read.ts`, `spawn.ts`, `runner.ts`, `snapshot.ts`, `state.ts`, `limits.ts`; smoke runs of every ending (pass, fail, threw, EMFILE, 1 MB stderr, 20 MB stdout, time, memory bound and near) read as section 2 says, alone attempts never overlapped (`events()`) |
 | 2 consumers | done | (this) | main.ts (entry) over suite.ts (library), the six checks, typed compare and date check, CLI pins (`program`), gate5s, graph-gate, mutate-one, mutate, lifetime-falsify, falsify, search/run.ts, gates.ts, watch.ts (a person's CLI now); `gates.ts` minus plants: 126 s, 19/24 ok, BAD only the suite, canon and copies on the lock, tamper's control on the lock, search `chain`; falsify and lifetime ok/BAD lines identical to the baseline but the rows below |
-| 3 landing measurements | in progress | | `WORK_PER_CALL`: largest work of one call 4809 (ORDER-04/a-legitimate-hour-of-polling, in the suite, its 5 s pass and its swap pass; searches at most 111), so 100 000 |
-| 4 plants | to do | | |
-| 5 standing checks | to do | | |
+| 3 landing measurements | done | 2d103851 | below, "Landing measurements" |
+| 4 plants | done | 2d103851, 5614feda | `plants/plants.ts` (69 standing items, the `verdict plants` job, 14-21 s); `plants/blackbox.ts` (the old/new driver); below, "Plants" |
+| 5 standing checks | done | 2d103851 | S1 `plants/reader-check.ts` (a child of the plants job): green on the new tree, 179 findings on c73ad862's; S2 and S3 below |
 
 Differences from the baseline so far, each a named row:
 - E6/E3: `lifetime-falsify` `life.no-grace` was "6 red" from a run killed at 1500 MB (the partial lines were scored); now the work bound
@@ -330,7 +330,7 @@ Deviations from the design (minimal, each for a reason):
 | 12 | yes | The collector counts `VERDICT ` line starts as bytes pass (`Stream.marks`), so a second line in the dropped middle reads `duplicate`; `describe` shows dropped bytes. Plant: duplicate in the dropped middle. |
 | 13 | yes | `stated` writes `"\n"` before the VERDICT line. |
 | 14 | yes | `verdicts/core.ts` (no dependencies): `MARK`, `EXIT`, `ALWAYS_JUDGED`, `MACHINE_ERRNOS`, `outcomeOfCore`, `resourceErrno`; verdict.ts and state.ts import it. |
-| 15 | changed, not as asked | With nothing of the judged kinds scored, `expect` is a **fail** for either `want` ("nothing of the judged kinds was scored"), never a pass. Not unknown: the child finished and stated; nothing the machine did. |
+| 15 | superseded by R1 | Nothing of the judged kinds scored is **unknown** (the runner's ruling R1, below); it was a fail here at 2d103851. |
 | 16 | yes | falsify pins what `odd` and `session` reach on the real runtime: 4000 states, perDepth [1,22,200,1260] and [1,16,133,818] (measured alone, workmax run). |
 | 17 | yes | mutate-one: a search item passes on its pinned verdict, fails (a kill) only on `failed` or `vacuous`; any other mismatch is a noted `search-budget` item. Measured in process, alone: `--search-only` store 3000 states inconclusive (15 s with queue), queue **fails on the real runtime** (`(j) a late turn … rule 15`, the same on c73ad862: pre-existing, not a gate), bare inconclusive 7.0 s; `--search` directed completed at 5969 states 33.6 s, chain failed (the known `chain` red), whole `--serial --search` 89 s alone, so `MUTANT_SEARCH.seconds` 270. |
 | 18 | yes | E16 (below). |
@@ -341,3 +341,168 @@ Deviations from the design (minimal, each for a reason):
 Undocumented deviations, now stated: `FLOW_LIMIT_MB` (a child's own kill limit, so its runner can check `parentLimitHolds`) and `OWN_MB` 300 (a parent's own share); an alone attempt is started only when `max(30, 3 × aloneS)` seconds of budget are left (an upper bound of its limit, since the spec is known only after `open`); `programOutput` returns stderr too (the pins read `flow`'s stderr JSON); two search expectation tables (falsify's `SEARCH_EXPECT`/`SEARCH_REACH` for search/run.ts children, mutate-one's `SEARCH_EXPECT` for its in-process searches), each measured on the real runtime.
 
 E16 (new, a correction class): a child that ends with no answer and no throw (a `process.exit` inside the code under test, a crash by signal) is unknown, not "killed by crash". A throw at load or in a case is still `threw`, a kill (D132 kept for throws).
+
+### The review of 2d103851 and 5614feda: rulings (decided by the runner, for the user) and fixes
+
+Rulings, recorded as decided by the runner:
+- R1. Nothing scored is **unknown** everywhere (`outcomeOfCore`, `expect`, every row), not fail. A deviation from the design ("a verdict
+  with no scored item is fail"): a run that judged nothing answered nothing. Replaces my row 15 above.
+- R2. Memory: kill limits at 2× the measured reference (`MEMORY_MARGIN` 2), so a memory kill is the program's fail. One reference each,
+  in limits.ts: `SUITE` peak 1400 (measured 1.0-1.33 GB alone), kill 2800; gates.ts reads it (no second copy), `--mb` defaults to
+  `MACHINE_MB`, the script rows' alone time is `SCRIPT.size.aloneS`. The near band survives only where no reference exists (a control,
+  peak 0), which reads unknown and is red.
+- R3. FRAG-15 and SEARCH-ODD-SMALL assert `[verdict, depthCompleted]` on their state bounds: decided by the runner. Changed lock ids:
+  the two case ids; no `output:` id moved.
+- R4. Stated limits of the watchdog, accepted: (a) a process in uninterruptible sleep is never reaped: the reap waits `REAP_GRACE_MS`
+  (10 s), then the run is read as killed and `unreaped` shows in the reading; (b) a `setsid` grandchild born and reparented to launchd
+  between two 40 ms polls is never in the tree: its memory is not counted and it is not killed; its pipes are bounded by the drain grace;
+  (c) on macOS a foreign SIGKILL in the same tick as our decision reads as ours, since the status carries no sender. Each is accepted
+  because closing it needs kernel help (a process-tree cgroup or `kqueue` NOTE_EXIT tracking) that the harness has no seam for; each can
+  only make a run unknown or a kill attributed to us, never a pass. `leftovers` (and `unreaped`, and polls with no `ps` table) now show
+  first in `describe`.
+
+Fixes:
+
+| # | Done | How |
+| --- | --- | --- |
+| 1 | yes | `endTree` reads the table first, then kills every pid of the tree and the group (the root is no longer killed before the read). |
+| 2 | yes | `plants/blackbox.ts` is a `stated` gate: each plant carries its Old and New patterns (`expect.old`, `expect.new`, `not` for absences); an edit that does not apply, or any pattern that does not hold, is a fail item; exit nonzero on any. |
+| 3 | yes | `--commit` (resolved to a full sha), `--side old\|new` and `--tree` are required; the export lives at `<tree>/<sha>/pristine` with a `.commit` file checked on every run; old or new edits and commands come from `--side`; each plant gets its own `TMPDIR` and `FLOW_VERDICTS_DIR` under its work dir, and after each plant every process whose command names that work dir, or that descends from the plant's child, is killed by exact pid. |
+| 4 | mostly | Added black-box B2 (new side only: the old needs 240 + 240 s of watchdog), B7, B8b, B16, B29 (SIGINT, SIGTERM, SIGALRM), B30 (a garbled VERDICT); standing forms of B1, B5, B17 in plants.ts; B27 is the measurement section below; B28's alarm is 295 s, past the check's own 200 s limit plus its 30 s alone rerun. Not built: B9 (a lie that fails only past state 600 at depth 5; the deadline it tested is gone and B3/B4 show load-independence), B14 (two reruns overlapping inside an old mutate-one; the new runner never reruns nested, shown by the standing two-top and alone plants). B3 and B4 run on `main.ts --only PAY-01` and on `gate5s.ts` rather than `mutate-one --serial --search`: the clock trip lives in drive.ts's settle, reached the same way by every gate, and the shorter command fits one 5-minute run per side. B26 has an explicit command per side (no edit: the plant is the budget, not the code). |
+| 5 | yes | One handler for SIGINT, SIGTERM, SIGHUP, SIGALRM: the first starts a tidy bounded by `TIDY_MS` (15 s) and a backstop timer that writes a minimal VERDICT and exits; a second signal does that at once. |
+| 6 | yes | The lock holds `pid\|start` (ps `lstart`); a holder is alive only with the same start, so a reused pid holds nothing; `openSync("wx")` failing with anything but EEXIST, or a lock that cannot be read, is never removed; registry entries carry the start too. A top with no budget waits at most `LOCK_WAIT_MS` (600 s) for the lock, then the rerun is skipped with that reason. |
+| 7 | yes | The reap after a kill is bounded (`REAP_GRACE_MS`, `unreaped` in the reading); `ps` runs with a 5 s timeout and a failed table counts in `blindTicks`. |
+| 8 | yes | `read` returns `none: abandoned` for an abandoned stdout; notices come first in a row's text. |
+| 9 | yes | `stated` installs `uncaughtException` and `unhandledRejection` handlers that end the process with a VERDICT (`defect`, threw); every runner chain ends in `.catch(reject)`. |
+| 10 | yes | falsify: `odd` and `session` run at depth 3, where they complete within 4000 states (measured alone: 1483 states, perDepth [1,22,200,1260], 2.2 s; 968 states, [1,16,133,818], 0.7 s); pinned `completed` plus states and perDepth. mutate-one: store at depth 9 (completed, 1810 states, 8.2 s), bare at depth 5 (completed, 2491 states, 5.4 s), directed pinned at 5969 states; only `inconclusive` is a `search-budget` note, any other mismatch is scored. |
+| 11 | yes | A case that hits the work bound is a `work-bound` item (always judged, so still a kill; not a named-oracle catch: lifetime-falsify, falsify's lies and mutants count `case` items only). `do`/`send`/`release`/`start`/`raw`/`subscribe`/`stored` are wrapped as the 4809 measurement was. Replay marks the work per replayed step (the runtime's replay spends no fake work, so a loop inside one replayed step stays U1). |
+| 12 | yes, and it is now red | Coverage is keyed on the full case name. LIFE-19, 20, 25 and 26 do not exist (numbers never used). With full names, 34 cases are never red on any wrong runtime: 32 are variants of the wider families the list includes (PAY-16's 12, REV8-PINS's 18, FRAG-08 1, REV5-H5H6 1) and two are lifetime variants, `LIFE-04/detach-then-ensure-in-one-task-ends-nothing` and `LIFE-24/ensure-then-subscribe-in-one-task-keeps`. lifetime-falsify is BAD on that item until the wrong-runtime list covers them or the list is narrowed: not my call (an expected result outside the E rows), reported. |
+| 13 | yes | Added ENOBUFS, EADDRNOTAVAIL, ETXTBSY, EDQUOT, ERR_OUT_OF_MEMORY and RangeError "out of memory". The scenario rewraps (round5 :183, round7 :305, round8 :782, round12 :151) are in-process only and lose the code: a resource errno inside one of those reads as that case's FAIL, stated here, not changed (each rewrap is under the lock). |
+| 14 | yes | reader-check exempts plants.ts and types-check.ts by line patterns (planted sources, the plant's own `pgrep`/`ps`, tsc read through `programOutput`), each with its reason; whole files only for blackbox.ts, watch.ts and reader-check.ts. |
+| 15 | yes | The parent-limit wait checks the abort (unstarted); `FLOW_RUN` empty reads as `top` in both state.ts and spawn.ts. |
+| 16 | recorded | `queue` (mutate-one `--search-only`, `(j) a late turn … rule 15`) is a known red of round 14, with `chain`, to diagnose; it blocks `mutate.ts --search-only` controls as `chain` blocks `--search`; the searches are unchanged. |
+
+### Landing measurements (each alone, nothing else running, 12 cores / 24 GB)
+
+- `WORK_PER_CALL` = 100 000. An instrumented copy (max of `spentInCall` at every depth-0 harness call) over the suite, its 5 s pass, its swap
+  pass and the 14 searches of falsify at depth 4 / 4000 states: largest 4809 (ORDER-04/a-legitimate-hour-of-polling, the same in all three
+  suite passes); searches at most 111 (chain). 20 × 4809 = 96 180, next power of ten 100 000. A no-task spin and a re-armed timer reach it in
+  6-8 ms (plants), a slow settle on the planted runtime in 0.2 s.
+- Search budgets (each at most a third of its watchdog): falsify's 14 searches (`SEARCH` 120 s): largest odd 17.3 s, session 7.2 s, the rest
+  0.3-5.5 s, peak 292 MB; mutate-one in process (`MUTANT_SEARCH`, 270 s = 3 × the 89 s whole `--serial --search` run): directed 33.6 s (5969
+  states, completed), chain 0.8 s (failed: the known `chain` red), `--search-only` store 15 s (3000 states, inconclusive, pinned), bare 7.0 s
+  (inconclusive, pinned), queue fails on the real runtime (pre-existing, same on c73ad862); FRAG-15 5.8 s under load / 3.4 s alone (`SUITE`
+  240 s), SEARCH-ODD-SMALL 0.7 s; search-vacuity's 6/30 search 0.3 s in its check.
+- Each gates.ts job alone, in alone mode (`FLOW_ALONE=1`, serial inside), seconds and tree peak MB: suite 18.7 / 1332; canon 29.3 / 1304;
+  copies 42.3 / 1294; mutate-one 55.2 / 1439; graph-gate 15.1 / 1278; falsify suite1 22.8 / 1270, suite2 54.7 / 1423, suite3 17.8 / 975, tamper
+  4.8 / 397, mutants 59.6 / 1271, search 29.8 / 358, lies 31.6, 28.5, 23.1, 21.2 / 1084-1224; lifetime-falsify 22.3 / 489; checks 0.1-0.5 /
+  36-319; typed tsc 0.2 / 264; CLI pins 4.8 / 106; verdict plants 14-21 / 745-886. The rows' `s` are these, rounded up; their `mb` stay the
+  declared peaks (all at or above the measured ones), and the kill limits follow `max(2 × mb, 3000)` or the row's budget.
+- Reference peaks (final, limits.ts): `SUITE` 1700 MB with a 3400 MB kill, over the largest measured suite process (1360 MB alone, 1423 MB
+  for a falsify tree under load) with about 25% margin; `SUITE_PARENT` 3800, `MUTANT` 4200 (each at least its children's kill plus 300 and 2×
+  the control's measured peak, 1396-1438 MB, checked at launch); every gates.ts row's reference is `GATE_ROWS` in limits.ts.
+
+### Plants (black-box, asserting: `plants/blackbox.ts --commit … --side …`; Old c73ad862, New 817fead9)
+
+Every row below is now an item of the driver, which checks the side's patterns: **Old 28 of 28 ok, New 31 of 31 ok** (B2 new only), each
+run with its own `TMPDIR` and lock directory, strays killed by pid after each plant (B28 old left its check running; B29 old left 2
+processes per signal; both counted, then killed). Rows added in the second round: B2 (new: `UNKNOWN plant.hang: budget`, exit 2, at the
+280 s budget), B7 (old: `ok plant: 6 red` from a run killed at 1500 MB, the partial lines scored; new: `UNKN plant`, budget, exit 2), B8b (a
+timer re-armed at `now`, LIFE-02: old no answer before alarm 120 s; new FAIL by the work bound in 0.2 s), B16 (an edit to the runtime after
+the control line: old both wrong runtimes "0 red", the edit reached their copies; new both red as usual, no trace of the edit), B29 SIGINT,
+SIGTERM, SIGALRM to `gates.ts` after 20 s (old: 2 processes left each; new: none left, VERDICT `interrupted by …`, exit 2), B30 (a garbled
+VERDICT: old ok; new `UNKN: garbled`).
+
+| Plant | Old (observed) | New (observed) |
+| --- | --- | --- |
+| B1 swap fixture wrong, `gates.ts --only mutate-one` | `ok mutate-one`, exit 0, `killedBy` swap ignored (**wrong**) | `BAD mutate-one`, killed by swap, exit 1 |
+| B3 slow settle (pending true for 10^9 checks), the suite on PAY-01 | alone PASS in 12.3 s; loaded (`taskpolicy -c background`) FAIL by `CLOCK_TRIP` (**wrong**: load decides) | alone and loaded the same FAIL, `did not quiesce in 100000 work units`, 0.2 / 0.6 s |
+| B4 the same edit, gate5s | alone exit 0; loaded exit 1, PAY-01 unexpected (**wrong**) | alone and loaded the same, red by the work bound |
+| B5 4 GB inside LIFE-10, lifetime-falsify | `ok control: 60 pass` of 119, "every lifetime mutant goes red" (**wrong**: a partial control) | `UNKN control`, memory near the limit with no reference, exit 2; coverage follows the control |
+| B6 4 GB at the mutant's adapter boot | KILLED, watchdog rss at 2811 MB | KILLED (by the suite gate, whose child was killed by memory: a bound; the same verdict) |
+| B8 pending always true, PAY-01 | FAIL `CLOCK_TRIP` after 20.2 s (**wrong**) | FAIL by the work bound in 0.2 s |
+| B10 1 MB to stderr in mailq-check | ok (not reproduced: Bun drops pending stderr at exit, nothing blocked) | ok |
+| B11 4 GB in mailq-check | BAD exit 137 | BAD, killed by memory (bound) |
+| B12a a rotted lifetime edit | no final line before alarm 120 s (**wrong**: a hang) | `BAD life.no-grace: does not apply`, exit 1, at once |
+| B12b a job whose binary does not exist | crash, no GATES line, exit 1 (**wrong**) | `UNKN plant: unstarted ENOENT` (again, alone), the other job ok |
+| B13 a commutative `+` swapped, claiming PAY-01 and claiming nothing | both SURVIVED, exit 0 (**wrong** for the claiming one) | claiming: fail, exit 1; claim-less: noted |
+| B15 `sh -c 'sleep 0.99'` under 1 s, 50 times | 21 of 50 "killed time" with exit 0 (**wrong**) | 48 not killed; 2 killed with a SIGKILL status; never killed without one |
+| B17 the canon check always differs, `--only "suite canon"` | `GATES 0/0`, exit 0 (**wrong**: no such job) | `BAD suite canon` (834 cases red by S11) |
+| B18 score-check `process.exit(0)` first | ok (**wrong**) | `UNKN`: silent, after an alone rerun |
+| B19 old: `FAIL x`, exit 0; new: a pass VERDICT, exit 1 | ok (**wrong**) | `UNKN`: disagree |
+| B20 a mutate-one that prints a forged answer after its own | SURVIVED (**wrong**: the forged line won) | UNKNOWN: duplicate VERDICT lines (2), after an alone rerun |
+| B21 the answer on stderr only | ok | `UNKN`: silent |
+| B22 SIGTERM to itself | BAD, exit 143 | `UNKN`: signal SIGTERM |
+| B23 a throw at the adapter's top level | KILLED, crash | KILLED (`threw`, D132 kept) |
+| B25 20 MB to stdout, then finish | ok | ok, `[stdout: 11534348 bytes dropped]` in the reading |
+| B26 frag search, depth 9, 50 states | exit 0 on inconclusive (**wrong**) | fail: inconclusive, completed expected |
+| B28 front-check `while (true) {}`, `mutate-one.ts` by hand | no answer before the 290 s alarm, and the check left running (`spawnSync` unbounded; killed here by pid) (**wrong**) | VERDICT in 280 s: `checks/front-check.ts` unknown: time, every other gate pass, exit 2 |
+
+Not built: B2 old (240 + 240 s of watchdog, past a 5-minute command), B9, B14 (reasons in the fix table, row 4), B24 (`ulimit -n 40`
+gave no EMFILE on either commit; the errno mapping stands white-box). In the first round, eight drivers sharing one lock directory made
+each other's alone reruns wait (as designed); since the second round every plant has its own.
+
+Standing (plants.ts, 74 items, every one green on the new tree, in the plants job nested and as a top): the standing forms of B1, B5 and B17;
+`read` on built runs for every ending (20 rows, including the race, `sh` exit 137, a tool exiting 2, a duplicate in the dropped middle, a
+kill at close, an abandoned stdout, an empty VERDICT), `killed`,
+`outcomeOf`, `expect` (none, bound, failed names, nothing judged, a short control), `aloneLimit`, the parent limit, `mutantItem` (5),
+snapshots and list rot (4), the work bound (2), live children (14: 1 MB stderr, 20 MB stdout, silent, disagree, forged, foreign, stderr-only,
+SIGTERM, a throw at load, EMFILE, a time kill, memory far and near, unstarted and a throwing `open`), every started attempt ended, the
+search expectation, S1, the budget (free and while another top holds the lock), pipes held after the child ends, two tops alone one after
+the other, and SIGINT.
+
+### End gates (2026-11-08, at 5614feda; exit, wall, peak)
+
+Final, at 817fead9. `bun gates.ts` (default budget 600 s): exit 1, 143 s wall, 19/25 ok; BAD: the suite, suite canon and suite copies on
+the lock (E13), tamper's control on the lock, falsify search on `chain` (known), and lifetime-falsify on the full-name coverage (fix 12,
+new, reported). No unknown, no alone rerun. Tree peaks per job: suites 1193-1337 MB, mutate-one 2374, graph 1064, falsify parts 309-1377,
+lies 1086-1189, lifetime 660, plants 1407. (At 5614feda, before the second review: 142 s, 20/25, the same reds but lifetime.)
+
+Serially, alone, at 817fead9 (wall; peak of the largest process, `time -l`):
+
+| Gate | Exit | Wall | Peak |
+| --- | --- | --- | --- |
+| suite `--no-search` | 1, the lock only (834/834, by output 0, removed none, catalog none) | 18.4 s | 1360 MB |
+| suite, `FLOW_CANON_CHECK=1` | 1, the lock only; 205650 steps, 0 differ | 28.9 s | 1299 MB |
+| suite, `FLOW_COPIES_CHECK=1` | 1, the lock only; 186075 hits, 0 differ | 42.5 s | 1309 MB |
+| mutate-one | 0, 13 gates pass | 49.6 s | 1337 MB |
+| graph-gate | 0, GRAPH PASS | 14.8 s | 1173 MB |
+| falsify suite1 / suite2 / suite3 | 0 / 0 / 0 | 22.3 / 53.0 / 17.5 s | 1214 / 1305 / 911 MB |
+| falsify tamper | 1, control red on the lock only | 4.7 s | 279 MB |
+| falsify mutants | 0 | 58.7 s | 1179 MB |
+| falsify lies `--parallel 4` | 0, 77 lies | 34.3 s | 1076 MB |
+| falsify search | 1, `chain` (known) | 19.2 s | 231 MB |
+| lifetime-falsify `--parallel 2` | 1, control 119, 57 of 57 red; coverage BAD (34 never-red full names) | 12.9 s | 381 MB |
+| checks (6), typed tsc, CLI pins, plants | 0 each | 0.05-0.5 s, 0.17 s, 4.6 s, 23.9 s | 51-274, 274, 80, 1330 MB |
+
+`mutate-one` and `--search`: see the measurements; mutate.ts: below.
+
+### S2 parity against the baseline (cp3-baseline)
+
+- The 18 suite runs (real, null and seven broken runtimes, plain and `--no-output`): the same PASS/FAIL set and the same RECIPIENTS line in
+  all 18. Text differences only: stack frames name `suite.ts` and drive.ts's call wrapper where they named `main.ts`; the stale-lock count;
+  on `constantHash`, FRAG-15 and SEARCH-ODD-SMALL fail with the new assertion's words (`["vacuous",1]`, E7), red before and after.
+- falsify suite1-3, mutants, lies, tamper: identical ok/BAD lines but tamper's control detail (the reading, not the stdout tail). falsify
+  search: identical but the `dead:` list format, and `odd` and `session` now `completed` at depth 3 (were `inconclusive` at the 4000-state
+  budget, E7 / fix 10). lifetime-falsify: identical ok/BAD lines but `life.no-grace` 6 red → 8 named red plus LIFE-22 as a `work-bound`
+  item (E3, E6), and the new coverage item (fix 12).
+- gates.ts: the same three known reds; plus suite canon and copies, now jobs (E13), red on the lock; plus lifetime-falsify's coverage.
+- The 18 suite runs repeated at 817fead9: the same PASS/FAIL sets and RECIPIENTS lines in all 18.
+- mutate.ts: below (L1).
+
+### S3 determinism
+
+The VERDICT items of every gate in the loaded `gates.ts` run (8 slots, copies) and in the serial alone runs (in the tree) are byte-identical:
+20 gates compared (typed tsc has no VERDICT line), 0 differ; at 5614feda and again at 817fead9.
+
+### Changed lock ids, for the runner's log
+
+- Case ids: `FRAG-15`, `SEARCH-ODD-SMALL` (E7, R3 decided by the runner: each asserts the verdict and depth its search reaches on its
+  state budget, `completed` at 5 and 2; the deadline is gone). Their outputs (`output:` ids) are unchanged: 834/834, "by output alone: 0".
+- No `output:` id and no RECIPIENTS line changed.
+- File ids changed or new (harness code; one reason each): `file:main.ts`, `file:suite.ts` (new), `file:limits.ts` (new), `file:verdicts/*.ts`
+  (new: core, read, runner, snapshot, spawn, state, verdict), `file:plants/*.ts` (new: plants, blackbox, reader-check), `file:drive.ts`,
+  `file:fake-world.ts`, `file:falsify.ts`, `file:gate5s.ts`, `file:gates.ts`, `file:graph-gate.ts`, `file:mutate.ts`, `file:mutate-one.ts`,
+  `file:watch.ts`, `file:search/*.ts`, `file:scenarios/frag.scenario.ts`, `file:scenarios/round4.scenario.ts`; round ids `round:adapter.ts`
+  (the canon count on stderr), `round:checks/*.ts`, `round:cli/main.ts`, `round:typed/compare.ts`, `round:typed/date-check.ts`,
+  `round:typed/census.ts`, `round:run-plants.sh`. `--hashes` prints them.

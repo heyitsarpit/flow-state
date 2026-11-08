@@ -1,4 +1,4 @@
-import { closeSync, existsSync, mkdirSync, openSync, readdirSync, readFileSync, rmSync, writeFileSync, writeSync } from "node:fs";
+import { existsSync, linkSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { outcome, read, type Reading } from "./read.ts";
@@ -43,37 +43,71 @@ const alive = (pid: number) => {
 };
 let ownStart: string | null | undefined;
 const me = () => (ownStart ??= processStart(process.pid));
-const same = (pid: number, start: unknown) => alive(pid) && (typeof start !== "string" || processStart(pid) === start);
+const same = (pid: number, start: unknown) => {
+  if (!alive(pid)) return false;
+  if (typeof start !== "string" || start === "") return true;
+  const now = processStart(pid);
+  return now === null || now === start;
+};
 const FOREIGN = -1;
-const lockHolder = (): number | null => {
-  let text: string;
+const readLock = (path: string): string | null | typeof FOREIGN => {
   try {
-    text = readFileSync(LOCK, "utf8");
+    return readFileSync(path, "utf8");
   } catch (e) {
     return (e as { code?: string }).code === "ENOENT" ? null : FOREIGN;
   }
+};
+const holderOf = (text: string): number | null => {
+  if (text.trim() === "") return null;
   const [p, ...start] = text.trim().split("|");
   const pid = Number(p);
   if (!Number.isFinite(pid) || pid <= 0) return FOREIGN;
-  return same(pid, start.length ? start.join("|") : undefined) ? pid : null;
+  return same(pid, start.join("|")) ? pid : null;
+};
+const lockHolder = (): number | null => {
+  const text = readLock(LOCK);
+  if (text === null) return null;
+  if (text === FOREIGN) return FOREIGN;
+  return holderOf(text);
 };
 const takeLock = (): boolean => {
   mkdirSync(DIR, { recursive: true });
-  for (let i = 0; i < 2; i++) {
-    try {
-      const fd = openSync(LOCK, "wx");
-      writeSync(fd, `${process.pid}|${me() ?? ""}`);
-      closeSync(fd);
-      return true;
-    } catch (e) {
-      if ((e as { code?: string }).code !== "EEXIST") return false;
-      const h = lockHolder();
-      if (h === process.pid) return true;
-      if (h !== null) return false;
-      rmSync(LOCK, { force: true });
-    }
+  const mine = join(DIR, `alone.${process.pid}`);
+  try {
+    writeFileSync(mine, `${process.pid}|${me() ?? ""}`);
+  } catch {
+    return false;
   }
-  return false;
+  try {
+    for (let i = 0; i < 2; i++) {
+      try {
+        linkSync(mine, LOCK);
+        return true;
+      } catch (e) {
+        if ((e as { code?: string }).code !== "EEXIST") return false;
+        const text = readLock(LOCK);
+        if (text === FOREIGN) return false;
+        if (text === null) continue;
+        const h = holderOf(text);
+        if (h === process.pid) return true;
+        if (h !== null) return false;
+        const aside = join(DIR, `alone.stale.${process.pid}`);
+        try {
+          renameSync(LOCK, aside);
+        } catch {
+          continue;
+        }
+        if (readLock(aside) !== text)
+          try {
+            linkSync(aside, LOCK);
+          } catch {}
+        rmSync(aside, { force: true });
+      }
+    }
+    return false;
+  } finally {
+    rmSync(mine, { force: true });
+  }
 };
 const dropLock = () => {
   if (lockHolder() === process.pid) rmSync(LOCK, { force: true });
@@ -171,13 +205,13 @@ export const makeRunner = (pool: Pool): Runner => {
         w.start();
       } else {
         dropLock();
-        if (performance.now() - lockWaitFrom > LOCK_WAIT_MS) {
+        if (gaveUp || performance.now() - lockWaitFrom > LOCK_WAIT_MS) {
           lockWaitFrom = undefined;
           gaveUp = true;
-          const w = alones.shift()!;
-          runningAlone++;
-          w.start();
-          gaveUp = false;
+          while (alones.length) {
+            runningAlone++;
+            alones.shift()!.start();
+          }
         } else later();
       }
     }

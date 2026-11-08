@@ -6,7 +6,7 @@ export type CoreItem =
 export const MARK = "VERDICT ";
 export const EXIT = { pass: 0, fail: 1, unknown: 2 } as const satisfies Record<Outcome, number>;
 export const ALWAYS_JUDGED: readonly string[] = ["threw", "machine", "work-bound"];
-export const MACHINE_ERRNOS: readonly string[] = ["EMFILE", "ENFILE", "ENOSPC", "EAGAIN", "ENOMEM", "EBUSY", "ENOBUFS", "EADDRNOTAVAIL", "ETXTBSY", "EDQUOT", "ERR_OUT_OF_MEMORY"];
+export const MACHINE_ERRNOS: readonly string[] = ["EMFILE", "ENFILE", "ENOSPC", "EAGAIN", "ENOMEM", "EBUSY", "ENOBUFS", "EADDRNOTAVAIL", "ETXTBSY", "EDQUOT", "ERR_OUT_OF_MEMORY", "ERR_WORKER_OUT_OF_MEMORY", "ERR_CHILD_PROCESS_STDIO_MAXBUFFER"];
 export const WORK_BOUND = "harness: did not quiesce in";
 
 export const outcomeOfCore = (items: readonly CoreItem[], kinds?: readonly string[]): Outcome => {
@@ -16,16 +16,19 @@ export const outcomeOfCore = (items: readonly CoreItem[], kinds?: readonly strin
   return "pass";
 };
 
-export const resourceErrno = (e: unknown, depth = 0): string | undefined => {
-  if (e === null || typeof e !== "object" || depth > 4) return undefined;
+export const resourceErrno = (e: unknown, seen: Set<object> = new Set()): string | undefined => {
+  if (e === null || typeof e !== "object" || seen.has(e)) return undefined;
+  seen.add(e);
   const code = (e as { code?: unknown }).code;
   if (typeof code === "string" && MACHINE_ERRNOS.includes(code)) return code;
   if (e instanceof RangeError && /out of memory/i.test(e.message)) return "ERR_OUT_OF_MEMORY";
+  const named = /\b(EMFILE|ENFILE|ENOSPC|ENOMEM|EAGAIN|ENOBUFS|EDQUOT)\b/.exec(String((e as { message?: unknown }).message ?? ""));
+  if (named && (e as { name?: unknown }).name === "ResolveMessage") return named[1];
   const errors = (e as { errors?: unknown }).errors;
   if (Array.isArray(errors))
     for (const x of errors) {
-      const c = resourceErrno(x, depth + 1);
+      const c = resourceErrno(x, seen);
       if (c) return c;
     }
-  return resourceErrno((e as { cause?: unknown }).cause, depth + 1);
+  return resourceErrno((e as { cause?: unknown }).cause, seen);
 };

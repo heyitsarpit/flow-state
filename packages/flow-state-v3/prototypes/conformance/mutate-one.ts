@@ -5,19 +5,20 @@ import { existsSync, readdirSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { stated } from "./verdicts/state.ts";
 
-const SEARCH_EXPECT = {
-  store: { verdict: "completed", states: 1810 },
-  queue: { verdict: "completed", states: null },
-  bare: { verdict: "completed", states: 2491 },
-  directed: { verdict: "completed", states: 5969 },
-  chain: { verdict: "completed", states: null },
-} as const;
+type Pin = { readonly depth: number; readonly maxStates: number; readonly verdict: string; readonly states: number | null; readonly perDepth: readonly number[] | null; readonly knownRed?: string };
+const SEARCHES: Readonly<Record<"store" | "queue" | "bare" | "directed" | "chain", Pin>> = {
+  store: { depth: 12, maxStates: 12_000, verdict: "completed", states: 10862, perDepth: [1, 3, 7, 16, 31, 61, 131, 255, 469, 836, 1483, 2676, 4893] },
+  queue: { depth: 12, maxStates: 12_000, verdict: "completed", states: null, perDepth: null, knownRed: "round 14: (j) a late turn of charge att-1-1 left W pending (rule 15), to diagnose" },
+  bare: { depth: 12, maxStates: 3_000, verdict: "inconclusive", states: 3000, perDepth: [1, 7, 31, 131, 502, 1819] },
+  directed: { depth: 11, maxStates: 8_000, verdict: "completed", states: 5969, perDepth: null },
+  chain: { depth: 4, maxStates: 6_000, verdict: "completed", states: null, perDepth: null, knownRed: "round 14: (n) a stopped spin went on, the known chain red, to diagnose" },
+};
 
 await stated("mutate-one", async (scope) => {
   const { SCRIPT, SUITE, SUITE_PARENT } = await import("./limits.ts");
   const { plannedCases } = await import("./suite.ts");
   const { final, job } = await import("./verdicts/runner.ts");
-  const { isAlone } = await import("./verdicts/spawn.ts");
+  const { isAlone, isTop } = await import("./verdicts/spawn.ts");
   const { expect, firstFail, isScored, sameCases } = await import("./verdicts/verdict.ts");
   type Item = import("./verdicts/verdict.ts").Item;
   type Scored = import("./verdicts/verdict.ts").Scored;
@@ -41,22 +42,28 @@ await stated("mutate-one", async (scope) => {
     const { searchFlush } = await import("./search/flush.search.ts");
     const mod = (await import(resolve(here, runtimeArg))) as import("./harness.ts").RuntimeModule;
     const make = makeHarness(mod.port);
-    const item = (name: keyof typeof SEARCH_EXPECT, r: import("./search/engine.ts").Report): Item => {
-      const want = SEARCH_EXPECT[name];
-      const detail = { verdict: r.verdict, states: r.states, failed: r.failure ? [r.failure.slice(0, 200)] : [] };
-      const got = `${r.verdict} at ${r.states} states, ${want.verdict}${want.states === null ? "" : ` at ${want.states}`} expected`;
-      if (r.verdict === want.verdict && (want.states === null || r.states === want.states)) return { kind: "search", name: `search ${name}`, outcome: "pass", why: "", detail };
-      if (r.verdict === "inconclusive") return { kind: "search-budget", name: `search ${name}`, note: `${got}: the budget, not a catch`, detail };
-      return { kind: "search", name: `search ${name}`, outcome: "fail", why: `${got}${r.failure ? `: ${r.failure.slice(0, 200)}` : ""}`, detail };
+    const pinned = isTop() || process.env["FLOW_PIN_REACH"] === "1";
+    const item = (name: keyof typeof SEARCHES, r: import("./search/engine.ts").Report): Item => {
+      const want = SEARCHES[name];
+      const detail = { verdict: r.verdict, states: r.states, perDepth: r.perDepth, failed: r.failure ? [r.failure.slice(0, 200)] : [], ...(want.knownRed ? { knownRed: want.knownRed } : {}) };
+      const got = `${r.verdict} at ${r.states} states ${JSON.stringify(r.perDepth)}, ${want.verdict} expected`;
+      if (r.verdict === "failed" || r.verdict === "vacuous") return { kind: "search", name: `search ${name}`, outcome: "fail", why: `${want.knownRed ? `[known red, ${want.knownRed}] ` : ""}${got}${r.failure ? `: ${r.failure.slice(0, 200)}` : ""}`, detail };
+      const reached = (want.states === null || r.states === want.states) && (want.perDepth === null || JSON.stringify(r.perDepth) === JSON.stringify(want.perDepth));
+      if (r.verdict === want.verdict && reached) return { kind: "search", name: `search ${name}`, outcome: "pass", why: "", detail };
+      if (pinned) return { kind: "search", name: `search ${name}`, outcome: "fail", why: `the real runtime moved: ${got}${want.states === null ? "" : `, ${want.states} states pinned`}`, detail };
+      return { kind: r.verdict === "inconclusive" ? "search-budget" : "search-reach", name: `search ${name}`, note: `${got}: not a catch`, detail };
+    };
+    const go = (name: keyof typeof SEARCHES, run: (o: { depth: number; maxStates: number }) => import("./search/engine.ts").Report) => {
+      if (!stop()) push(item(name, run({ depth: SEARCHES[name].depth, maxStates: SEARCHES[name].maxStates })));
     };
     if (which === "only") {
-      push(item("store", searchFlush(make, "serialize", { depth: 9, maxStates: 3_000 }, false, false, "store")));
-      if (!stop()) push(item("queue", searchFlush(make, "serialize", { depth: 9, maxStates: 3_000 }, false, false, "queue")));
-      if (!stop()) push(item("bare", searchFlush(make, "bare", { depth: 5, maxStates: 3_000 }, true)));
+      go("store", (o) => searchFlush(make, "serialize", o, false, false, "store"));
+      go("queue", (o) => searchFlush(make, "serialize", o, false, false, "queue"));
+      go("bare", (o) => searchFlush(make, "bare", o, true));
       return;
     }
-    push(item("directed", searchFlush(make, "serialize", { depth: 11, maxStates: 8_000 }, false, false, "store")));
-    if (!stop()) push(item("chain", searchChain(make, { depth: 4, maxStates: 6_000 })));
+    go("directed", (o) => searchFlush(make, "serialize", o, false, false, "store"));
+    go("chain", (o) => searchChain(make, o));
   };
   if (process.argv.includes("--search-only")) {
     await searches("only");

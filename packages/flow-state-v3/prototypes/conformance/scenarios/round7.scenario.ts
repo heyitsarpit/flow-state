@@ -3,6 +3,7 @@ import { bareFixture, BareId } from "../typed/round7.ts";
 import { chatFixture } from "../typed/chat.ts";
 import type { Fixture } from "../harness.ts";
 import { Ctx, type Scenario } from "./ctx.ts";
+import { resourceErrno } from "../verdicts/core.ts";
 
 const A = { actor: BareId, id: "a" };
 const KEY = `lane/${A.actor}/${A.id}|charge|{}`;
@@ -303,6 +304,7 @@ export const round7Scenarios: readonly Scenario[] = [
         try {
           c0.fresh([bareFixture(), bareFixture()]);
         } catch (e) {
+          if (resourceErrno(e) !== undefined) throw e;
           threw = String(e);
         }
         c0.yes("L4", threw.includes("DuplicateMachine"));
