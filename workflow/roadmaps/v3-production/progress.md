@@ -55,8 +55,12 @@ The old worktree is removed once the timing survey that runs in it finishes.
 2. **Round 15:** bring the prototype to the rulings it owes (listed under "Owed to the prototype" below), each with a
    case seen failing first.
 3. **Phase 1, one area after another in the same builder thread:** H1, H2 and round 13's M2 (the missing D221 pins);
-   entities (`packages/flow-state-v3/prototypes/round-9/entity-proposal-2.md`, settling U7, U10, U11 and D3's price,
-   which is the user's); streams; record migration. Each area's settled design goes into machine-design.md.
+   entities (`packages/flow-state-v3/prototypes/round-9/entity-proposal-2.md`, settling U7, U10, U11 and D3's price;
+   the user delegated D3 to the runner on 2026-11-08, "fine pick whatever is more correct": keep strict per-record
+   order, but a write joins its record's queue when it is sent, not when it is minted, so an unconfirmed (held) write
+   is draft state and stalls no other actor; a late draft re-bases its prediction and meets the server's version check
+   as an ordinary conflict. Verify against the prototype's meaning of "pressed"/held first; if D3's "joined at commit"
+   already means at send, record that and change nothing); streams; record migration. Each area's settled design goes into machine-design.md.
 4. **Stop for the user: phase 2, the plan merge** (writes the `.plan` files from machine-design.md's C rows). Before
    it: the one completion audit of stage A.
 
