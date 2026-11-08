@@ -8,7 +8,7 @@ const SEARCH_EXPECT: Readonly<Record<string, string>> = {};
 const SEARCH_STATES: Readonly<Record<string, string>> = { odd: "8000", session: "8000", chain: "12000" };
 const SEARCH_REACH: Readonly<Record<string, { states: number; perDepth: readonly number[] }>> = {
   odd: { states: 7269, perDepth: [1, 22, 200, 1260, 5786] },
-  session: { states: 6181, perDepth: [1, 17, 147, 937, 5079] },
+  session: { states: 6896, perDepth: [1, 17, 150, 1000, 5728] },
   chain: { states: 9700, perDepth: [1, 12, 111, 995, 8581] },
 };
 
@@ -257,6 +257,10 @@ try {
     // Audit 3b: the drain compared a row's value only when it had one. This runtime reports an uncertain record as a settled row with no data.
     ["like", "drain.row-empty", [["entities.ts", "const uncertain = marks.some((m) => !m.quiet) || r.doubt !== undefined;", "const uncertain = marks.length > 0 || r.doubt !== undefined;"], ["entities.ts", "  return { data, predicted, uncertain, unconfirmed };", "  return uncertain ? { predicted: false, uncertain: false, unconfirmed: [] } : { data, predicted, uncertain, unconfirmed };"]], "drain: r1 shows undefined"],
     ["like", "s13.older-sent-after-newer", [["lane.ts", "    for (const x of l.w) supersede(tx, a.op, x);\n    setLane(tx, { ...tx.w.lanes[l.id]!, w: [made.attempt] });", "    setLane(tx, { ...tx.w.lanes[l.id]!, w: [made.attempt, ...l.w] });"]], "S13: "],
+    // Streams round 2: rule 70's oracle no longer switches off at the runtime's first `ReleaseOverdue` (audit S1's lie: no wait, and the word at every close).
+    ["session", "lie:s1.overdue-excuse", [["sessions.ts", "Object.values(s.closing).some((c) => c.actor === actor && c.slot === slot);", "false;"], ["sessions.ts", '  cx.command({ k: "close", conn: x.conn });\n  cx.arm(`overdue/', '  cx.command({ k: "close", conn: x.conn });\n  cx.note("ReleaseOverdue", { op: x.op });\n  cx.arm(`overdue/']], "rule 70: "],
+    // Rule 71's disk check reads every entry: this runtime saves a bookmark one past the value it delivered.
+    ["session", "r71.bookmark-ahead", [["sessions.ts", "writeMark(cx, x, { at: at ?? b?.at, filled: b?.filled ?? false }); // T3", "writeMark(cx, x, { at: (at as any)?.seq !== undefined ? { ...(at as object), seq: (at as any).seq + 1 } : (at ?? b?.at), filled: b?.filled ?? false }); // T3"]], "rule 71: "],
   ];
   for (const [w, id, edits, words] of SEARCH_KILLS) {
     reset();

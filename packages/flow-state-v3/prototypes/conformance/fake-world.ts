@@ -39,11 +39,22 @@ export type FakeEventSource = {
   onerror: ((e: { readonly type: "error" }) => void) | null;
   readyState: 0 | 1 | 2;
   close(): void;
+  addEventListener(type: string, fn: (e: any) => void): void;
+  removeEventListener(type: string, fn: (e: any) => void): void;
+};
+export type FakeWebSocket = {
+  readyState: 0 | 1 | 2 | 3;
+  addEventListener(type: "open" | "message" | "close" | "error", fn: (e: any) => void): void;
+  removeEventListener(type: "open" | "message" | "close" | "error", fn: (e: any) => void): void;
+  send(data: string): void;
+  close(code?: number): void;
 };
 type RawEvent =
   | { type: "open" }
-  | { type: "message"; data: string; lastEventId: string }
-  | { type: "error"; fatal?: boolean };
+  | { type: "message"; data: string; lastEventId?: string; event?: string }
+  | { type: "error"; fatal?: boolean }
+  | { type: "retry"; ms: number };
+type RawSocket = { type: "open" } | { type: "message"; data: string } | { type: "close"; code?: number };
 export type Api = {
   call(op: string, input: unknown, o?: { idempotencyKey?: string; dedupe?: false }): E;
   track(op: string, key: string, body: E): E; // a request whose body is the fixture's own effect
@@ -56,6 +67,8 @@ export type Api = {
   pulled(op: string, input: unknown, from: unknown): unknown; // hands over one backlog item per pull (T4)
   feed(op: string, input: unknown, from: unknown, bound?: number): unknown; // T6: a `Feed.callback`. The queue is the runtime's
   eventSource(op: string, input: unknown, from: unknown): FakeEventSource; // a browser's EventSource: the raw events a scenario pushes
+  webSocket(op: string, url?: string): FakeWebSocket; // a browser's WebSocket: the raw events a scenario pushes; `sent` is what the runtime sent
+  page(): number; // which page load this is: a fixture's module state (an app-wide socket hub) belongs to one, as a browser's does
 };
 type Conn = {
   op: string;
@@ -72,6 +85,10 @@ type Conn = {
   push?: (f: unknown) => void;
   end?: () => void;
   fail?: (e: unknown) => void;
+  closingAt?: number; // the first time `closing` became true, on the fake clock
+  sent?: string[]; // a WebSocket's frames the runtime sent
+  lastEventIdHeader?: string; // an EventSource's reconnect: the Last-Event-ID the browser sent
+  heldAtOpen: number;
 };
 
 class StepScheduler implements Scheduler.Scheduler {
@@ -117,8 +134,23 @@ const stable = (v: unknown): string =>
   );
 const matches = (input: any, where?: Readonly<Record<string, unknown>>) =>
   !where || Object.entries(where).every(([k, v]) => input?.[k] === v);
+type Listener = (e: any) => void;
+const eventTarget = () => {
+  const byType = new Map<string, Set<Listener>>();
+  return {
+    add: (type: string, fn: Listener) => {
+      byType.set(type, (byType.get(type) ?? new Set<Listener>()).add(fn));
+    },
+    remove: (type: string, fn: Listener) => void byType.get(type)?.delete(fn),
+    fire: (type: string, e: unknown, handler?: Listener | null) => {
+      handler?.(e);
+      for (const fn of [...(byType.get(type) ?? [])]) fn(e);
+    },
+  };
+};
 
 const FROZEN_AFTER = 5_000;
+const NORMAL_CLOSE = 1000; // a WebSocket's clean close code
 export class FakeWorld {
   now = 0; // monotonic: what timers run on
   clockOffset = 0; // how far the wall clock the host reads has been set back
@@ -440,8 +472,13 @@ export class FakeWorld {
         },
       });
     },
+    // WHATWG HTML "server-sent events": the remembered last event id, retry time, named events, and a self-reconnect after a non-fatal error.
     eventSource: (op, input, from) => {
-      const c = this.newConn(op, input, from);
+      let cur = this.newConn(op, input, from);
+      let lastId = "";
+      let retryMs = 3000;
+      let armed: { live: boolean } | undefined;
+      const on = eventTarget();
       const es: FakeEventSource = {
         onopen: null,
         onmessage: null,
@@ -449,29 +486,106 @@ export class FakeWorld {
         readyState: 0,
         close: () => {
           es.readyState = 2;
-          c.open = false;
-          c.closing = true;
+          if (armed) armed.live = false;
+          armed = undefined;
+          cur.open = false;
+          this.markClosing(cur);
         },
+        addEventListener: on.add,
+        removeEventListener: on.remove,
       };
-      c.push = (raw) => {
+      const handle = (raw: RawEvent) => {
         if (es.readyState === 2) return;
-        const e = raw as RawEvent;
-        if (e.type === "open") {
+        if (raw.type === "open") {
           es.readyState = 1;
-          es.onopen?.({ type: "open" });
-        } else if (e.type === "message") {
-          es.onmessage?.({ type: "message", data: e.data, lastEventId: e.lastEventId });
+          on.fire("open", { type: "open" }, es.onopen);
+        } else if (raw.type === "message") {
+          if (raw.lastEventId !== undefined) lastId = raw.lastEventId;
+          const type = raw.event ?? "message";
+          if (raw.data !== "") on.fire(type, { type, data: raw.data, lastEventId: lastId }, type === "message" ? es.onmessage : null);
+        } else if (raw.type === "retry") {
+          retryMs = raw.ms;
         } else {
-          es.readyState = e.fatal === true ? 2 : 0;
-          es.onerror?.({ type: "error" });
+          cur.open = false;
+          es.readyState = raw.fatal === true ? 2 : 0;
+          on.fire("error", { type: "error" }, es.onerror);
+          if (es.readyState === 0) {
+            const token = { live: true };
+            armed = token;
+            this.after(retryMs, cur.process, () => {
+              if (!token.live) return;
+              armed = undefined;
+              cur = this.newConn(op, input, from);
+              if (lastId !== "") cur.lastEventIdHeader = lastId;
+              attach(cur);
+            });
+          }
         }
       };
+      const attach = (c: Conn) => {
+        c.push = (raw) => handle(raw as RawEvent);
+        c.end = () => handle({ type: "error" });
+        c.fail = () => handle({ type: "error", fatal: true });
+      };
+      attach(cur);
       return es;
+    },
+    page: () => this.process,
+    webSocket: (op, url) => {
+      const c = this.newConn(op, url, undefined);
+      const sent: string[] = [];
+      c.sent = sent;
+      const on = eventTarget();
+      const ws: FakeWebSocket = {
+        readyState: 0,
+        addEventListener: on.add,
+        removeEventListener: on.remove,
+        send: (data) => {
+          if (ws.readyState === 0) throw new Error("InvalidStateError");
+          if (ws.readyState === 1) sent.push(data); // a closing or closed socket drops it, as a browser does
+        },
+        close: (code) => {
+          if (ws.readyState === 2 || ws.readyState === 3) return;
+          ws.readyState = 2;
+          this.markClosing(c);
+          if (this.closeMs === Infinity) return;
+          this.after(this.closeMs, c.process, () => {
+            if (ws.readyState === 3) return;
+            ws.readyState = 3;
+            c.open = false;
+            on.fire("close", { type: "close", code: code ?? 1000, wasClean: true });
+          });
+        },
+      };
+      const handle = (raw: RawSocket) => {
+        if (ws.readyState === 3) return;
+        if (raw.type === "open") {
+          ws.readyState = 1;
+          on.fire("open", { type: "open" });
+        } else if (raw.type === "message") {
+          on.fire("message", { type: "message", data: raw.data });
+        } else {
+          ws.readyState = 3;
+          c.open = false;
+          const { code = 1006 } = raw;
+          const clean = code === NORMAL_CLOSE;
+          if (!clean) on.fire("error", { type: "error" });
+          on.fire("close", { type: "close", code, wasClean: clean });
+        }
+      };
+      c.push = (raw) => handle(raw as RawSocket);
+      c.end = () => handle({ type: "close", code: 1000 });
+      c.fail = () => handle({ type: "close", code: 1006 });
+      return ws;
     },
   };
   readonly conns: Conn[] = [];
   closeMs = 20; // review H7: a real close takes time. `Infinity` never finishes (`ReleaseOverdue`)
   private newConn(op: string, input: unknown, from: unknown): Conn {
+    // Rule 70, as the world saw it: how many connections of this op and input were held (open, and not closing for 5 s) when this one opened.
+    const heldAtOpen = this.conns.filter(
+      (x) => x.op === op && x.process === this.process && x.open && stable(x.input) === stable(input) && !(x.closing === true && x.closingAt !== undefined && this.now - x.closingAt >= 5000),
+    ).length;
     const c: Conn = {
       op,
       input,
@@ -480,14 +594,23 @@ export class FakeWorld {
       open: true,
       pulled: 0,
       backlog: [],
+      heldAtOpen,
     };
     this.conns.push(c);
     return c;
   }
+  private markClosing(c: Conn) {
+    if (c.closing === true) return;
+    c.closing = true;
+    c.closingAt = this.now;
+  }
+  private after(ms: number, process: number, f: () => void) {
+    this.timers.push({ at: this.now + ms, claim: this.now + ms - this.clockOffset, seq: ++this.timerSeq, process, f });
+  }
   // A server's end needs no handshake. Ours does.
   private closeConn(c: Conn): Effect.Effect<void> {
     if (!c.open) return Effect.void;
-    c.closing = true;
+    this.markClosing(c);
     const ms = this.closeMs;
     return Effect.callback<void>((resume) => {
       if (ms === Infinity) return;
@@ -507,17 +630,19 @@ export class FakeWorld {
   // What a `feed` step does: the newest open connection of this op says something, or ends.
   feedStep(
     op: string,
-    s: { frame?: unknown; frames?: readonly unknown[]; end?: true; fail?: unknown; to?: unknown; all?: true },
+    s: { frame?: unknown; frames?: readonly unknown[]; end?: true; fail?: unknown; to?: unknown; all?: true; nth?: number; closing?: true },
   ) {
     const open = this.conns.filter(
-      (x) => x.op === op && x.open && !x.closing && x.process === this.process,
+      (x) => x.op === op && x.open && (s.closing === true || !x.closing) && x.process === this.process,
     );
     const candidates = s.to === undefined ? open : open.filter((x) => stable(x.input) === stable(s.to));
     if (candidates.length === 0)
       throw new NoHeldRequest(
         `feed: no open connection for ${op}${s.to === undefined ? "" : ` to ${JSON.stringify(s.to)}`}`,
       );
-    for (const c of s.all ? candidates : [candidates.at(-1)!]) {
+    const pick = s.nth === undefined ? candidates.at(-1) : candidates[s.nth];
+    if (!s.all && pick === undefined) throw new NoHeldRequest(`feed: no open connection #${s.nth} for ${op}`);
+    for (const c of s.all ? candidates : [pick!]) {
       if (s.end) {
         if (c.push) c.open = false;
         c.end?.();
@@ -812,6 +937,10 @@ export class FakeWorld {
           closing: c.closing === true,
           pulled: c.pulled,
           backlog: c.backlog.length,
+          ...(c.closingAt === undefined ? {} : { closingAt: c.closingAt }),
+          ...(c.lastEventIdHeader === undefined ? {} : { lastEventIdHeader: c.lastEventIdHeader }),
+          sent: [...(c.sent ?? [])],
+          heldAtOpen: c.heldAtOpen,
         })),
       scheduler: { picks: this.scheduler.picks, choices: this.scheduler.choices },
       failing: this.lateReports.length + this.laterFailing,

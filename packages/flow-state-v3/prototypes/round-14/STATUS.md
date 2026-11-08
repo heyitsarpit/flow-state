@@ -1395,3 +1395,107 @@ Sidecar log (Haiku, effort high; the lead read every line and reran every check)
 | --- | --- | --- | --- |
 | fake world: feed step `to`/`all`; a browser-shaped `api.eventSource` | coder | accepted | read every line; behaviour without `to`/`all` is the old `findLast`; 981/981 kept; the lock line for `fake-world.ts` was the lead's (a sidecar may not write the log) |
 | review of the sessions/codec/compile diff against rules 68, 41, 70, T9, T5, 2.11.10 | reviewer | changed | acted on: `ofPlacement` matched by an id prefix, which another actor's key could share; now by actor, incarnation, activation and op. Recorded: the select's per-turn cost and repeated issue (finding 1); `undefined` releases silently (finding 2); no entry removal (finding 3); one slot for two placements, `woken` wakes one (finding 8). Rejected: "`text(key)` can be undefined": a key Slot is gated by `encodable` at seal (D108), so a key with no text is refused before it is an id. Rejected: write only `last`/`heard` in a `latest` entry: `at: undefined, filled: false` is the empty bookmark T3 already reads, and the end-of-turn `filled` write sees no change |
+
+## Phase 1: streams round 2 (2026-11-09)
+
+Round 2 of phase 1's streams area. P1-S grows from 14 to 45 variants (`conformance/scenarios/phase1s.scenario.ts`; fixtures `typed/phase1s.ts` gain
+`Lab/Price`, a plain `latest` feed, and `Lab/Mirror`, two operations on one contract with no `backoff`). Standing gate `mutants-as1.ts` (spread into
+`mutants-lifetime.ts`): audit S1's 16 survivors, each aimed at its case, and the round's own wrong runtimes. `bun lifetime-falsify.ts --mutants
+s1.,lie:s1.,as1.,p1s.`: control 325 pass; every one red on its target by assertion (the lead read each red line).
+
+| Item | State | Case (P1-S) | Wrong runtime, red by |
+| --- | --- | --- | --- |
+| Q1 B, `Feed.multiplex` | **built**, library code beside `Feed.callback` (`conformance/fixtures/multiplex.ts`), no runtime change. One connection while any key has a session; `add`/`remove` on a key's first/last session; `emit.to`, `emit.all`, `emit.fail`; `hub.stream(key)` a `Feed.callback` with its bound. Proposed beyond Q1's AFTER: `emit.fail(e, key)` fails one key (finding 1). The ticker is rewritten over it and one browser-shaped WebSocket; cases from 2.11.12.3 | `each-places-...`, `a-quiet-symbol-...`, `unwatching-...`, `the-socket-closes-with-the-last-key-...`, `a-key-shared-by-two-actors-...`, `a-symbols-own-failure-...`, `a-socket-drop-...`, `an-equal-price-after-a-reconnect-...`, `a-tick-in-mail-before-a-drop-...`, `re-watching-...`, `a-reload-...` | `as1.hub-add-per-session` (`subscribe A` twice), `as1.hub-remove-per-session` (`b still watches A`), `as1.hub-never-closes`, `as1.hub-one-socket-per-key` (`one socket: expected 1, got 2`), `as1.hub-key-fail-drops-all` (`heard ["A","B"]`), `as1.hub-refused-key-removed` |
+| Q2 A, `FillsOtherKey` | **built**: an Inspection note at a registration with no entry for its key, a filled field, and another key's entry of the operation filled; the app's rule is to empty the field in the same turn (no runtime wipe) | `a-key-change-that-keeps-the-old-keys-items-is-flagged` (flag and T2 row 7's one notice), `a-key-change-that-empties-the-field-is-a-first-open` | `as1.no-fills-other-key`, `as1.fills-other-key-always` |
+| Rulings: select each turn; a throw keeps what is placed, one issue; `undefined` releases with an issue; rule 71 saves `last`/`heard` | select each turn and the throw: as built in round 1. **New**: `undefined` (or not a list under `.each`) releases with one `SelectedNoKey` issue (proposed name) when something was placed. Rule 71's `last`/`heard`: as built; now also asserted across a leave and re-watch (T9) | `a-select-returning-undefined-releases-with-an-issue`, `re-watching-...` | `as1.select-undefined-silent`, `as1.select-undefined-keeps` |
+
+Audit S1's survivors (`mutants-audit-s1.ts`, unedited; one re-anchored in `mutants-as1.ts` where the line moved, the edit otherwise the same). All
+**closed**, each by a case written from the design text:
+
+| Survivor | Case | Red by |
+| --- | --- | --- |
+| `s1.wait-per-op` (rule 70) | `a-new-key-does-not-wait-for-another-keys-close` | `r2 open now: expected ["r2"], got []` |
+| `s1.wait-ignores-actor` (rule 70, per actor) | `equal-keys-in-two-actors-do-not-wait-on-each-other` | `b's r1 open: ... got [["r1",true]]` |
+| `s1.leave-forgets-last` (T9) | `re-watching-a-symbol-restores-its-last` | `dim, restored: ... got [..,"$undefined"]` |
+| `s1.ping-dropped-arms` (T1) | `pings-while-dropped-do-not-arm-the-deadline` (the fake's one connection, never replaced) | `expected [true], got [false,true]` |
+| `s1.silent-resets-flaps`, `s1.value-resets-flaps` (T1 `lose`) | `a-silent-end-neither-adds-nor-resets-flaps`, `values-do-not-reset-flaps` | `the eighth ends it: expected "Flapping", got ""` |
+| `s1.unregistered-flaps` (2.11.10) | `connections-that-never-register-never-flap` (no throw: it counts tries) | `expected [12,1,""], got [8,0,"Flapping"]` |
+| `s1.leave-live-no-stamp` (T5) | `a-quiet-symbol-...` (`dim with true age`) | `expected [..,85000], got [..,0]` |
+| `s1.dropped-value-own` (T5) | `a-value-while-dropped-is-aged-from-the-drop-and-a-proof-does-not-confirm-it` | `got [{"price":11},[10,11]]` |
+| `s1.reconnect-forgets-heard` (2.11.12.3) | `an-equal-price-after-a-reconnect-is-undimmed-and-not-heard` | `got [..,["A:10","A:10"]]` |
+| `s1.no-fence-in-mail` (T4) | `a-tick-in-mail-before-a-drop-is-fenced` | `fenced: expected [], got ["A:10"]` |
+| `s1.bookmark-max` (T3) | `the-bookmark-moves-backward` | `from 3: expected 3, got 5` |
+| `s1.merge-upgrades`, `s1.merge-hides-down` (T6) | `a-merged-group-keeps-the-weaker-registration`, `a-merged-group-keeps-a-drop-after-a-registration` | `one notice: expected 1, got 0`; `expected ["Dropped",2], got ["Live",1]` |
+| `s1.callback-bound-4096` (2.11.4) | `a-pushed-source-holds-1024-by-default` | `none past the queue's 1,024 and the one the session holds: got ["m1025",...]` |
+| `lie:s1.row-says-live` (T1 Row) | `a-dropped-session-reads-connecting` | `expected "Connecting", got "Live"` |
+
+Runtime bugs, each failing first (its fix undone is a wrong runtime in `mutants-as1.ts`, red on its case):
+- `down` from `Live`/`Repairing` stamps `last.at` (T5 leaving `Live`) and sets `dropAt`; `lose` sets `dropAt`. `a-down-stamps-last-at`; `as1.down-keeps-the-age`.
+- A `latest` value while `Dropped` is aged from `dropAt` (T5). `as1.dropped-value-aged-now`: `aged from the drop: expected [..,1000], got [..,6000]`.
+- T3's bound, 256 entries per operation, oldest out (least recently written). Asserted by behaviour, not the disk's spelling: the evicted key
+  reads first open, a kept `{ at: undefined }` owes row 7's notice. `as1.no-bookmark-bound`.
+- Entries and the rule-70 wait keyed per operation, not per contract id (`slotOfKey`): two operations on one contract and key are two sessions with
+  their own bookmarks (rule 70, S11; `flow check`'s `DuplicateSession` already exists in `cli/check.ts`). It also fixes members parsing the slot's
+  prefix as an op name. `two-operations-...`; `as1.slot-per-contract`: `copy from its own empty place: expected [1,undefined], got [1,1]`.
+- 2.11.10's default schedule when `backoff` is absent: 500 ms x 2^n, jittered 0.8-1.2 (Effect's `jittered`), then capped at 30 s; `backoff` is
+  optional in Compiled, the compiler and the seal. Jitter comes from a hash of the session id and step: deterministic. `with-no-backoff-...`;
+  `as1.old-default-backoff`, `as1.default-not-jittered` (`two sessions do not reconnect together: 500,500`).
+
+Harness:
+- Rule 70's oracle (SEARCH-SESSION, SEARCH-REPAIR) no longer switches off at the runtime's `ReleaseOverdue`: it excuses a connection only when the
+  fake's own clock says its close began 5 s ago (`closingAt`), and the fake records at each open how many connections of that op and input were
+  held then (`heldAtOpen`), so a step that crosses 5 s cannot hide an overlap. Search kill `lie:s1.overdue-excuse`: `rule 70: 2 connections for
+  {"workspaceId":"w1"} on Away Back`.
+- Rule 71's disk check reads every entry of every node and every epoch (epoch 1 names a value in memory; another epoch only a reset's place, and
+  only after the suite sent a reset). Search kill `r71.bookmark-ahead`: `rule 71: a bookmark at {"epoch":1,"seq":2} with no such value`.
+- The fake world: a feed step may address an older duplicate (`nth`) or a connection being closed (`closing`); `end`/`fail` reach an
+  EventSource's recipe; the EventSource reconnects by itself after a non-fatal error unless closed (`lastEventIdHeader`), keeps the last id for an
+  id-less message, routes named events away from `onmessage`, drops empty data; a browser WebSocket (`send` throws only while connecting, a
+  closing socket drops it; `error` before an abnormal `close`). The ticker's checks read the fake's socket (`sent`, open, closing) and the
+  machine's memory beside the row.
+- Reality cases: `eventsource-a-server-end-reaches-the-recipe-and-the-browser-never-retries`, `-a-failed-request-reaches-the-recipe`,
+  `-an-id-less-message-keeps-the-bookmark`, `-a-named-event-never-reaches-the-recipe`, `-a-replayed-id-is-one-notice-and-the-bookmark-follows`,
+  `a-frame-during-a-release-is-discarded`, and the drop reaching symbols over several steps (`a-socket-drop-...`: each key's jittered backoff, the
+  first reopens the socket, the second joins it).
+- Pins: the select-throw case counts only `UserClosure`; the bound case does not count the value the session holds; the 256 case reads behaviour.
+- SEARCH-SESSION re-pinned at 6,896 states (`dropAt` splits states), completed at depth 4, budget 8,000. SCENARIOS.md's P1-S row cites the new rules.
+
+Findings for the design:
+1. `Feed.multiplex` needs a per-key failure. 2.11.12.3's `QuoteEnded` per symbol (req C10) has no route through Q1's AFTER, whose `emit.fail` fails
+   every key. Built: `emit.fail(e, key)`, proposed; a key the server refused sends no `remove` when its last session goes, and a retry adds it again.
+2. The hub belongs to the app's Layer, built per Runtime. As module state it outlives a reload in the fake (fixtures persist across a boot), and
+   failing the old page's sessions woke a dead page's fibers into the live harness (oracle (j)). The fixture keeps one hub per page (`api.page()`).
+   The docs should say where the hub lives.
+3. T5 and T1 disagree on `Waiting`: T5's row says a value in `Dropped, Waiting` sets `last`; T1 discards a Waiting session's frames (`—`).
+4. `dropAt` after `Connecting` then `down`: T1's `Connecting` row sets none, so a value then ages from the previous connection's loss, or from now
+   on a first connection. The design should say which age a never-live connection's value has.
+5. T3's "oldest out" does not say oldest by creation or by last write. Built: last write (a busy key is never the one evicted). Carried: two writes
+   that can re-create an evicted entry (a Reset's notice admission, a value's move) take `filled: false`, not the field, against T3's "every write
+   that creates an entry takes `filled` from the field". Reachable only past the bound under `.each`; no case yet.
+6. "Jittered" needs a source the core can use (no randomness): built from the session id and step. The 0.8-1.2 range is Effect's `jittered`.
+7. EventSource recipe (2.11.12.8): an id-less message carries the browser's last id, so `toNote` reading `lastEventId` repeats the previous id (the
+   upsert overwrites that note, the bookmark stays); a named event never reaches `onmessage`, so "unless a named `ping` event" needs
+   `addEventListener("ping", ...)` in the recipe; an over-replay after a reconnect is T2 row 6's one notice. The docs should say all three.
+8. Names proposed here: `SelectedNoKey` (the ruling) and `FillsOtherKey` (Q2 A) for 2.11.13's list. A select stuck throwing issues once per turn.
+9. `Feed.callback`'s 1,024 counts its queue; the value the session holds in mail is outside it (1,025 arrive from a burst). Worth one sentence.
+
+Gates: the first `bun gates.ts --budget 280` (load average 7) was 6/25 ok, 1 BAD, 18 unknown by budget. BAD: verdict plants' S1 (`fake-world.ts`
+compared a close code to a number literal, its exit-compare rule); fixed by a named constant, logged. Then every gate in three `--only` batches
+(budget 270-285): 8/8 (plants, tsc, cli pins, graph-gate, falsify suite3, front, mailq; tamper BAD on the unlogged fake-world line, then logged)
+and 10/10 (suite, suite canon, suite copies, mutate-one, falsify suite1, tamper, score, search-vacuity, story, types-check), then 5/6 (falsify
+suite2, lies 1-4; lifetime-falsify unknown by budget). lifetime-falsify run alone (`--parallel 7`): control 325 pass, **every lifetime mutant goes
+red**, every case red on some wrong runtime. falsify mutants and falsify search passed in the first run (before the plants fix, which changes no
+behaviour). Stated: lifetime-falsify at the gate's `--parallel 2` no longer fits 290 s with this round's 50 more wrong runtimes under load; the
+gate row's parallelism or limit needs raising. Suite 1026/1026, lock clean (3 lock uses).
+
+Sidecar log (Haiku, effort high; the lead read every line and reran every check):
+
+| Task | Who | Result | Why |
+| --- | --- | --- | --- |
+| fake world: `nth`, `closingAt`, `sent`, EventSource as a browser, a browser WebSocket | coder | accepted, then changed | read every line; 995/995 kept, tsc clean. Changed by the lead: `closing` addressing, `page()`, `heldAtOpen`, and reviewer 3's realism fixes. The lead's own first try, firing a dead page's sockets' `close` at a kill, was removed (finding 2) |
+| review: sessions.ts diff vs rules 68-71, T1-T9, 2.11.10 | reviewer | recorded | acted on: none in code. Recorded: findings 3, 4, 5 (the `filled` re-creation, carried), 8. Rejected: "`op` stored twice beside the slot" (the slot predates this round and is the partition's key; not a stored count); "`dropAt` duplicates `last.at`" (T1 and T5 name both; they differ after an unconfirmed value) |
+| review: `Feed.multiplex` vs Q1 B | reviewer | changed | acted on all six: a route's `added` flag (no `add` for a key that left during connect, no `remove` for one never added, no double add); a failed member takes no more frames and `early` is bounded (Overflow); a refused key's route is unmapped at once, so a new session re-adds it; the member and its finalizer are registered before the connection starts; a dying `remove` cannot skip the close; an interruption inside `connect` fails the members (`Interrupted`) instead of wedging them. No case for the races (they need a scheduler interleaving the cases do not build); stated |
+| review: oracles, fakes, P1-S pins | reviewer | changed | acted on: the open-time rule-70 record; a reset must have been sent for an epoch-2 place; WebSocket `send` and `error`-before-`close`; EventSource empty data; the 256 case by behaviour. Rejected: "400-600 ms is not the design's" (2.11.10: `exponential("500 millis")`, jittered, Effect's range); "frame order pins" (`unsubscribe` then `subscribe` is causal); "12 tries at 1 s, not 30 s" (the case is about never flapping; the fixture's `backoff`); a root-level bookmark would be red (no runtime places one; a stated limit that can only red) |
+
+Dropped from the gate: `as1.hub-fail-keeps-socket` (a hub that keeps a dead socket current): equivalent here, since every failed session's release
+runs before its backoff and the last release clears it.

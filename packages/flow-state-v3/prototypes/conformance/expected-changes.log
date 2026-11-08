@@ -2359,3 +2359,57 @@ output:STREAM5-LOSE/silence-is-not-a-flap hash:7b5df5b6a9fa | output moved: nine
 P1-S hash:c8210727cbd3 | Phase 1 streams: the two reload variants capture at once (captureMs 0), as P1-E's reload cases do, so the 5 s gate reads them the same
 file:scenarios/phase1s.scenario.ts hash:ea7c1ff5abdf | Phase 1 streams: P1-S's reload variants capture at once
 file:falsify.ts hash:61262a8fabe9 | Phase 1 streams: SEARCH-SESSION re-pinned at 6,181 states, completed and green at depth 4 (a session's `pinged` and its key in the id split states); budget 8,000
+P1-S hash:8845d4bb02b2 | Streams round 2: audit S1's gaps as design-cited variants, the ticker over Feed.multiplex, T5's ages, FillsOtherKey, the default schedule, two ops on one contract, a browser's EventSource
+file:scenarios/phase1s.scenario.ts hash:8c012bcc24ab | Streams round 2: P1-S's variants (31 new; the ticker's rewritten over one WebSocket and read through the fake's socket and memory)
+file:search/session.search.ts hash:204decf86569 | Streams round 2: rule 70's oracle excuses only a close 5 s old by the fake's clock and checks at each open; rule 71's disk check reads every entry and epoch
+file:fixtures/multiplex.ts hash:7594248dd0ba | Streams round 2: Feed.multiplex (Q1 B), library code beside Feed.callback; per-key fail proposed
+file:typed/phase1s.ts hash:9c57f606d39c | Streams round 2: Ticker over Feed.multiplex and a browser WebSocket (one hub per page); Price, Mirror; Room's Switch and Off
+file:compile/machine.ts hash:642b46d03cc1 | Streams round 2: a stream's `backoff` is optional (2.11.10's default schedule when absent)
+file:falsify.ts hash:ec9caaf5e484 | Streams round 2: SEARCH-SESSION re-pinned at 6,896 (a session's dropAt splits states); the overdue-excuse lie and a bookmark-ahead runtime red by the session search's own oracles
+file:fake-world.ts hash:9ade7da18d54 | Streams round 2: a browser WebSocket; EventSource as WHATWG (kept last id, named events, self-reconnect, end and fail reach it); nth and closing-connection addressing; closingAt and heldAtOpen; page()
+round:mutants-as1.ts hash:c85d223dd9b9 | Streams round 2: audit S1's 16 survivors aimed at their cases, and the round's own wrong runtimes (fixes undone, the hub's promises undone)
+round:mutants-audit-s1.ts hash:216f2c1e2e72 | Audit S1: the streams auditor's wrong runtimes, committed unedited at 103a35bc
+round:mutants-lifetime.ts hash:1cb7a5100709 | Streams round 2: mutants-as1 spread in
+round:mutants-p1s.ts hash:bb15aa6d99ca | Streams round 2: p1s.restored-last-is-own aimed at the Price reload variant (the proof row moved off the multiplexed ticker)
+output:P1-S/a-down-stamps-last-at hash:1508659beb75 | new output: a down from Live dims the price as of the drop
+output:P1-S/a-dropped-session-reads-connecting hash:a198b14a481d | new output: a Dropped row reads Connecting
+output:P1-S/a-frame-during-a-release-is-discarded hash:0a9f2918b2c6 | new output: a value from a releasing connection is not delivered
+output:P1-S/a-key-change-releases-the-session-and-opens-the-new-key hash:b5e19698bbf1 | output moved: Room's memory gains `off` (the select-undefined variant); nothing else
+output:P1-S/a-key-change-that-empties-the-field-is-a-first-open hash:3a7fcc9965c9 | new output: Switch empties the field, r2 is a first open
+output:P1-S/a-key-change-that-keeps-the-old-keys-items-is-flagged hash:dce16f6d01ff | new output: FillsOtherKey and one Unproven notice
+output:P1-S/a-key-shared-by-two-actors-is-subscribed-once-and-removed-with-the-last hash:ffdb52976752 | new output: two actors share A on one socket
+output:P1-S/a-merged-group-keeps-a-drop-after-a-registration hash:6d8da40c082e | new output: a merged group keeps its down
+output:P1-S/a-merged-group-keeps-the-weaker-registration hash:0bcb036d49e1 | new output: a merged group keeps the weaker live
+output:P1-S/a-new-key-does-not-wait-for-another-keys-close hash:ea5c45ed6a66 | new output: r2 opens while r1 is still closing
+output:P1-S/a-non-key-field-change-keeps-the-session-and-its-input hash:b8edb53585fd | output moved: Room's memory gains `off`; the one connection kept
+output:P1-S/a-pushed-source-holds-1024-by-default hash:684c15e3bac7 | new output: a burst past 1,024 overflows and reconnects
+output:P1-S/a-quiet-symbol-stays-live-on-the-sockets-pings-and-a-half-open-socket-is-silent hash:f953bc735d46 | output moved: the ticker over one WebSocket; the Silent sessions release and close it (fewer timers, no live connection at the end)
+output:P1-S/a-reload-restores-last-and-an-equal-value-is-not-heard-again hash:3ae1b2e05acc | output moved: the ticker's reload over a new page's socket; the proof step moved to the Price variant
+output:P1-S/a-restored-last-is-not-confirmed-by-a-proof hash:03fb67c03c61 | new output: Price's restored last is not confirmed by a proof
+output:P1-S/a-select-returning-undefined-releases-with-an-issue hash:36f64f9ef839 | new output: Off releases, one SelectedNoKey
+output:P1-S/a-select-that-throws-later-keeps-the-session-with-one-issue hash:4bbcc4abefde | output moved: Room's memory gains `off`; one UserClosure, the session stays
+output:P1-S/a-silent-end-neither-adds-nor-resets-flaps hash:ecc9c0c0ee97 | new output: 4 flaps, a Silent end, 4 flaps is Flapping
+output:P1-S/a-silent-end-with-no-ping-in-the-connection-is-flagged hash:6e66cb84ad4d | output moved: Room's memory gains `off`; one IdleWithoutPing
+output:P1-S/a-socket-drop-reaches-every-symbol-and-each-reconnects hash:12fa24ab9102 | output moved: the drop over one WebSocket, stepped by 10 ms to see each jittered reconnect (more hashes)
+output:P1-S/a-symbols-own-failure-ends-only-that-key-and-names-it hash:4a950eb06444 | output moved: a per-key error frame over the hub fails B alone; a retry subscribes again
+output:P1-S/a-tick-in-mail-before-a-drop-is-fenced hash:6e990fade2e2 | new output: a tick in mail before the socket closes is fenced
+output:P1-S/a-value-while-dropped-is-aged-from-the-drop-and-a-proof-does-not-confirm-it hash:8d9145bb821c | new output: a Dropped value aged from the drop, not confirmed
+output:P1-S/an-equal-price-after-a-reconnect-is-undimmed-and-not-heard hash:58136311958a | new output: an equal price after a reconnect is not heard
+output:P1-S/at-most-256-bookmarks-per-operation-oldest-out hash:c3098d8dd340 | new output: 261 keys, the oldest evicted reads first open
+output:P1-S/connections-that-never-register-never-flap hash:e26cae234c0e | new output: twelve unregistered tries, nothing ends
+output:P1-S/equal-keys-in-two-actors-do-not-wait-on-each-other hash:55e701a23dee | new output: b's r1 opens while a's closes
+output:P1-S/eventsource-a-failed-request-reaches-the-recipe hash:9d4dedf71895 | new output: a fatal EventSource error reconnects from the bookmark
+output:P1-S/eventsource-a-named-event-never-reaches-the-recipe hash:9d4dedf71895 | new output: a named event is not delivered
+output:P1-S/eventsource-a-replayed-id-is-one-notice-and-the-bookmark-follows hash:1c75f0275c66 | new output: a replayed id, one notice, bookmark at 3
+output:P1-S/eventsource-a-server-end-reaches-the-recipe-and-the-browser-never-retries hash:ea787b56cf80 | new output: a server end reconnects once, by Flow
+output:P1-S/eventsource-an-id-less-message-keeps-the-bookmark hash:bb73a1e9f289 | new output: an id-less message keeps the bookmark at 2
+output:P1-S/pings-while-dropped-do-not-arm-the-deadline hash:4f2b10685e69 | new output: pings while Dropped never end it
+output:P1-S/re-watching-a-symbol-restores-its-last hash:5d584d27a33f | new output: re-watching restores last and heard
+output:P1-S/returning-to-a-key-continues-from-its-own-bookmark hash:d744ebddcfc6 | output moved: Room's memory gains `off`; r1 resumes from 1
+output:P1-S/the-bookmark-moves-backward hash:12dd15cac7d1 | new output: the bookmark at 3 after 5
+output:P1-S/the-socket-closes-with-the-last-key-and-reopens-for-the-next hash:4d7626acd58c | new output: the last key closes the socket; C opens another
+output:P1-S/two-operations-on-one-contract-and-key-keep-their-own-bookmarks hash:286e856ea9b0 | new output: main and copy reconnect from their own places
+output:P1-S/values-do-not-reset-flaps hash:9c6ad1571f20 | new output: 8 flaps with values is Flapping
+output:P1-S/with-no-backoff-the-default-schedule-runs hash:93bed64eaa16 | new output: the default schedule's jitter and 30 s cap
+file:expected-recipients.txt hash:7fc8eef2cb6f | Streams round 2: P1-S places 1,084 more stream deliveries (the 1,024 burst among them) and checks one more restored state; no red count moved
+file:fake-world.ts hash:f3aa506bf58a | Streams round 2: the WebSocket's close code read through a named constant (verdict plants' exit-compare rule); behaviour unchanged

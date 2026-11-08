@@ -10,11 +10,16 @@ import { bfs, Oracle, type Action, type Report } from "./engine.ts";
 const R = { actor: "Desk/Rooms", id: "a" };
 const OP = "activity";
 const anyOpen = (h: Harness) => h.read.outside().feeds.some((f) => f.open && !f.closing);
+// The connections rule 70 counts: open, or closing for less than T1's 5 s. The fake says when each close began; the runtime's word is not read.
+const held = (h: Harness) =>
+  h.read.outside().feeds.filter((f) => f.open && !(f.closing && f.closingAt !== undefined && h.read.now() - f.closingAt >= 5000));
+const resetSent = new WeakSet<Harness>(); // the suite's own record: a reset frame was pushed, so a restart place may exist
 const withValues = (make: () => Harness) => () => {
   const h = make();
   let n = 0;
   const inner = h.do.bind(h);
   h.do = (s: Step) => {
+    if ("feed" in s && (s.frame as any)?.t === "reset") resetSent.add(h);
     if ("feed" in s && (s.frame as any)?.t === "activity") {
       n++;
       const entry = (s.frame as any).noPosition
@@ -72,13 +77,12 @@ export const searchSession = (
         .issues()
         .find((x) => x.code === "Fatal" || x.code === "ModuleDefect" || x.code === "CannotOccur");
       if (i) throw new Oracle(`${i.code} ${i.origin ?? ""} ${String(i.input ?? "")}`);
-      // Rule 70: one connection per key, a closing one included, until its overdue.
-      if (!post.read.evidence("ReleaseOverdue").length) {
-        const per = new Map<string, number>();
-        for (const f of post.read.outside().feeds)
-          if (f.open) per.set(JSON.stringify(f.input), (per.get(JSON.stringify(f.input)) ?? 0) + 1);
-        for (const [k, n] of per) if (n > 1) throw new Oracle(`rule 70: ${n} connections for ${k}`);
-      }
+      // Rule 70: one connection per key, a closing one included, until its own close is 5 s old by the fake's clock (`ReleaseOverdue`).
+      const per = new Map<string, number>();
+      for (const f of held(post)) per.set(JSON.stringify(f.input), (per.get(JSON.stringify(f.input)) ?? 0) + 1);
+      for (const [k, n] of per) if (n > 1) throw new Oracle(`rule 70: ${n} connections for ${k}`);
+      const early = post.read.outside().feeds.find((f) => f.heldAtOpen > 0);
+      if (early) throw new Oracle(`rule 70: a connection for ${JSON.stringify(early.input)} opened while another was held`);
       if (post.read.peakDeliveriesInMail() > 1) throw new Oracle("rule 69: two in mail");
     },
     state(h) {
@@ -87,13 +91,16 @@ export const searchSession = (
       checkMints(h.read);
       // Rule 71, on the disk: a bookmark at a value's position sits in one record with that value's memory. Level: a placed, thawed
       // tab has a live connection or is on its way to one.
+      // Every entry of every node: values are epoch 1, so an epoch-1 place names a value in that node's memory, and any other epoch is a
+      // reset's `restartAt` (seq 0), the only place a reset says.
       const rec = h.read.stored().get(`actor/${R.actor}/${R.id}`) as any;
-      const room = rec?.root?.kids?.room;
-      if (room) {
-        const mark: any = Object.values(room.partition?.sessions ?? {})[0];
-        const seq = mark?.at?.epoch === 1 ? mark.at.seq : undefined;
-        if (seq !== undefined && !room.memory.activity.some((e: any) => e.cursor?.seq === seq))
-          throw new Oracle(`rule 71: a bookmark at ${seq} with no such value in the same record`);
+      for (const node of [rec?.root, ...Object.values(rec?.root?.kids ?? {})] as any[]) {
+        for (const mark of Object.values(node?.partition?.sessions ?? {}) as any[]) {
+          const at = mark?.at;
+          if (at === undefined) continue;
+          if (at.epoch === 1 ? !(node.memory?.activity ?? []).some((e: any) => e.cursor?.epoch === 1 && e.cursor.seq === at.seq) : at.seq !== 0 || !resetSent.has(h))
+            throw new Oracle(`rule 71: a bookmark at ${JSON.stringify(at)} with no such value in the same record`);
+        }
       }
       const q = h.read.quiet();
       if (!q.fatal && h.read.state(R) === "TAB") {
@@ -166,9 +173,7 @@ export const searchRepairing = (
         .find((x) => x.code === "Fatal" || x.code === "ModuleDefect" || x.code === "CannotOccur");
       if (i) throw new Oracle(`${i.code} ${i.origin ?? ""} ${String(i.input ?? "")}`);
       if (post.read.peakDeliveriesInMail() > 1) throw new Oracle("rule 69");
-      const per = post.read.outside().feeds.filter((f) => f.open).length;
-      if (per > 1 && !post.read.evidence("ReleaseOverdue").length)
-        throw new Oracle("rule 70: two connections");
+      if (held(post).length > 1 || post.read.outside().feeds.some((f) => f.heldAtOpen > 0)) throw new Oracle("rule 70: two connections");
       // At most one read of history outstanding: T1's "one page at a time".
       if (post.read.outside().open.filter((x) => x.op === "history").length > 1)
         throw new Oracle("two reads");

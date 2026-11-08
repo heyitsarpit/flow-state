@@ -321,7 +321,7 @@ export type SealedStream = Omit<
   "key" | "backoff" | "subscribe" | "reconnectWhile" | "pageRetryWhile" | "catchUp"
 > & {
   readonly key: Slot<StreamSpec["key"]>;
-  readonly backoff: Slot<StreamSpec["backoff"]>;
+  readonly backoff?: Slot<NonNullable<StreamSpec["backoff"]>>;
   readonly subscribe: Slot<StreamSpec["subscribe"]>;
   readonly reconnectWhile?: Slot<NonNullable<StreamSpec["reconnectWhile"]>>;
   readonly pageRetryWhile?: Slot<NonNullable<StreamSpec["pageRetryWhile"]>>;
@@ -368,7 +368,7 @@ const sealStream = (id: string, op: string, x: StreamSpec): SealedStream => {
   return {
     ...x,
     key: g(x.key, "key", nameable),
-    backoff: g(x.backoff, "backoff", finiteMs),
+    ...(x.backoff ? { backoff: g(x.backoff, "backoff", finiteMs) } : {}),
     subscribe: g(x.subscribe, "subscribe", anEffect),
     ...(x.reconnectWhile ? { reconnectWhile: g(x.reconnectWhile, "reconnect.while", truthy) } : {}),
     ...(x.pageRetryWhile ? { pageRetryWhile: g(x.pageRetryWhile, "page.while", truthy) } : {}),

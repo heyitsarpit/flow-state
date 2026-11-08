@@ -1,6 +1,9 @@
 # Streams: questions for the user
 
-Status: **proposed**. Nothing here is decided or built. These are the questions phase 1's streams round 1 left for you: each needs a new public word
+Status: **answered**. Q1 B (the user's) and Q2 A (the runner's), both built in streams round 2 (STATUS.md, "Phase 1: streams round 2"); Q1's
+helper gained one proposed addition there, `emit.fail(e, key)`. The text below is the question as asked.
+
+Status when asked: **proposed**. Nothing here is decided or built. These are the questions phase 1's streams round 1 left for you: each needs a new public word
 or changes how app code is written. Each has the problem, where the data comes from, a complete before/after, the options and a recommendation.
 Reply `Q1 A`.
 

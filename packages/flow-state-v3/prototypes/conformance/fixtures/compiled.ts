@@ -309,7 +309,7 @@ export type StreamSpec = {
   readonly reconnect: boolean;
   readonly idleMs: number;
   readonly healthyMs: number;
-  readonly backoff: (n: number) => number;
+  readonly backoff?: (n: number) => number; // absent: 2.11.10's default schedule
   readonly subscribe: (input: any, c: { readonly from: unknown }) => unknown; // Stream<value | Signal, E>
   readonly value: Mapped;
   readonly missed: Mapped;

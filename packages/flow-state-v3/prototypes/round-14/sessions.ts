@@ -45,6 +45,7 @@ type Session = {
   readonly tags: number;
   readonly flaps: number;
   readonly liveSince?: number;
+  readonly dropAt?: number;
   // T1's Repairing variables.
   readonly rid?: string;
   readonly buf: readonly Item[];
@@ -91,10 +92,19 @@ const isSignal = (f: any): f is Signal =>
   typeof f === "object" &&
   f !== null &&
   (f._feed === "live" || f._feed === "ping" || f._feed === "down");
-const slotOfKey = (spec: StreamSpec, key: unknown) => `${spec.id}|${text(key)}`;
-// The design's capped schedule stands in for a `backoff` that says nothing usable (D77, L5).
-const delayOf = (spec: StreamSpec, n: number, cx: Cx) =>
-  cx.user(spec.backoff, [n], () => Math.min(30_000, 1000 * 2 ** n));
+const slotOfKey = (op: string, key: unknown) => `${op}|${text(key)}`;
+// 2.11.10's default: `exponential("500 millis")`, jittered (Effect's 0.8 to 1.2), then capped at 30 s. The jitter is drawn from the
+// session's id and step, so a run replays exactly. It also stands in for a `backoff` that says nothing usable (D77, L5).
+const unit = (s: string) => {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619);
+  return (h >>> 0) / 4294967296;
+};
+const byDefault = (id: string, n: number) =>
+  Math.min(30_000, Math.round(500 * 2 ** n * (0.8 + 0.4 * unit(`${id}#${n}`))));
+const delayOf = (spec: StreamSpec, n: number, cx: Cx, id: string) =>
+  spec.backoff ? cx.user(spec.backoff, [n], () => byDefault(id, n)) : byDefault(id, n);
+const BOUND = 256;
 const put = (s: SessionsSlice, x: Session): SessionsSlice => ({
   ...s,
   sessions: { ...s.sessions, [x.id]: x },
@@ -110,9 +120,20 @@ const markOf = (cx: Cx, x: { actor: string; inc: string; slot: string }) =>
   own(marks(cx, x), x.slot);
 const writeMark = (cx: Cx, x: { actor: string; inc: string; slot: string }, m: Mark | undefined) =>
   cx.partition(x.actor, x.inc, (old) => {
-    const { [x.slot]: _g, ...rest } = (old ?? {}) as Record<string, Mark>;
-    return m ? { ...rest, [x.slot]: m } : rest;
+    const { [x.slot]: had, ...rest } = (old ?? {}) as Record<string, Mark>;
+    if (!m) return rest;
+    if (had === undefined) {
+      // T3's bound (req M1): 256 entries per operation in a slice, oldest out. An entry is as old as its last write.
+      const op = x.slot.slice(0, x.slot.indexOf("|") + 1);
+      const same = Object.keys(rest).filter((k) => k.startsWith(op));
+      for (const k of same.slice(0, Math.max(0, same.length - (BOUND - 1)))) delete rest[k];
+    }
+    return { ...rest, [x.slot]: m };
   });
+const otherFilled = (cx: Cx, x: { actor: string; inc: string; slot: string }) => {
+  const op = x.slot.slice(0, x.slot.indexOf("|") + 1);
+  return Object.entries(marks(cx, x)).some(([k, b]) => k !== x.slot && k.startsWith(op) && b.filled);
+};
 const fieldEmpty = (spec: StreamSpec, memory: any) => {
   if (!spec.fills) return true; // `fills: false` is always empty
   const f = memory?.[spec.fills];
@@ -343,7 +364,7 @@ const onPage = (
       spec.pageRetryWhile &&
       cx.user(spec.pageRetryWhile, [p.exit.reason], () => false) // D77: a throw means not retried
     ) {
-      cx.arm(`page/${x.id}`, cx.now + delayOf(spec, x.pageN, cx)); // the socket stays open
+      cx.arm(`page/${x.id}`, cx.now + delayOf(spec, x.pageN, cx, `page/${x.id}`)); // the socket stays open
       return put(s, { ...x, pageN: x.pageN + 1 });
     }
     return end(s, x, spec, cx, p.exit.reason?._tag ?? "Defect", p.exit.reason);
@@ -467,6 +488,7 @@ const register = (
   const C = spec.catchUp !== undefined;
   const greet = (y: Session): Session =>
     sig.head === undefined ? y : { ...y, greeted: { at: sig.head } };
+  if (!b && !E && otherFilled(cx, x)) cx.note("FillsOtherKey", { op: x.op }); // Q2 A: the field holds another key's items
   if (sig.restartAt !== undefined) {
     if (!b && E) writeMark(cx, x, { at: sig.restartAt, filled: false }); // row 1
     else x = notice(x, "Reset", { at: sig.restartAt }); // row 2: at missed Reset's admission
@@ -523,7 +545,7 @@ const lose = (
     return end(s, y, spec, cx, retried ? "Flapping" : why, e);
   }
   if (spec.listen) gap(x, cx, "lost");
-  cx.arm(`backoff/${x.id}`, cx.now + delayOf(spec, x.n, cx));
+  cx.arm(`backoff/${x.id}`, cx.now + delayOf(spec, x.n, cx, x.id));
   const out = closedAlready ? s : closeConn(s, x, cx);
   // T1: this connection's frames are discarded. Notices stay: one interruption, one answer.
   const { liveSince: _l, ...rest } = withoutRead(x);
@@ -532,6 +554,7 @@ const lose = (
     ...rest,
     ...last,
     st: "Waiting",
+    dropAt: cx.now,
     n: x.n + 1,
     flaps,
     stalls,
@@ -608,7 +631,6 @@ const fresh = (
   p: PlacedActivity,
   input: unknown,
   key: unknown,
-  spec: StreamSpec,
 ): Session => ({
   id: idOf(a.key, p, key),
   actor: a.key,
@@ -616,7 +638,7 @@ const fresh = (
   inc: p.inc,
   activation: p.activation,
   op: p.activity.op,
-  slot: slotOfKey(spec, key),
+  slot: slotOfKey(p.activity.op, key),
   key,
   input,
   st: "Queued",
@@ -670,7 +692,12 @@ const onActors = (s0: SessionsSlice, changed: readonly ActorChange[], cx: Cx): S
         for (const x of ofPlacement(s, a.key, p)) wanted.push({ p, input: x.input, key: x.key, id: x.id });
         continue;
       }
-      for (const input of p.activity.each ? (Array.isArray(got) ? got : []) : [got]) {
+      const list = p.activity.each ? (Array.isArray(got) ? got : undefined) : got === undefined ? undefined : [got];
+      if (list === undefined) {
+        if (ofPlacement(s, a.key, p).length > 0) cx.issue("SelectedNoKey", { op: p.activity.op }); // the runner's ruling: not silent
+        continue;
+      }
+      for (const input of list) {
         if (input === undefined || !carried(input)) continue;
         const KEY_FAILED = {};
         const key = cx.user(spec.key, [input], () => KEY_FAILED);
@@ -705,7 +732,7 @@ const onActors = (s0: SessionsSlice, changed: readonly ActorChange[], cx: Cx): S
     for (const { p, input, key, id } of wanted) {
       if (own(s.sessions, id)) continue;
       const spec = specOf(cx, a.machine, p.activity.op);
-      const made = fresh(a, p, input, key, spec);
+      const made = fresh(a, p, input, key);
       const x = spec.delivers === "latest" ? restoredLatest(cx, made) : made;
       s = busy(s, a.key, x.slot) ? put(s, x) : connect(s, x, spec, cx);
     }
@@ -794,7 +821,15 @@ const onFrame = (
       cx.disarm(`healthy/${x.id}`); // L2: T1's `—`
       abandon(x, cx);
       const { liveSince: _l, ...rest } = withoutRead(x);
-      const y: Session = { ...rest, st: "Dropped", owed: false, confirmed: false };
+      const leaving = x.st === "Live" || x.st === "Repairing";
+      const y: Session = {
+        ...rest,
+        ...(leaving ? { dropAt: cx.now } : {}),
+        ...(leaving && x.last && x.confirmed ? { last: { ...x.last, at: cx.now } } : {}), // T5: leaving `Live`
+        st: "Dropped",
+        owed: false,
+        confirmed: false,
+      };
       return spec.delivers === "latest" ? reconcile(s, y, spec, cx) : put(s, y);
     }
     // T1: a position fails to decode at intake: Defect, so one bad frame cannot stop saving.
@@ -832,7 +867,7 @@ const onFrame = (
     const live = y0.st === "Live";
     const y: Session = {
       ...y0,
-      last: { v: f, at: cx.now, own: live },
+      last: { v: f, at: live ? cx.now : (y0.dropAt ?? cx.now), own: live },
       confirmed: live,
     };
     return reconcile(s, y, spec, cx);
@@ -910,7 +945,7 @@ export const sessions: Module<SessionsSlice> = {
           ...s,
           pending: [
             ...s.pending,
-            { actor: fact.actor, inc: fact.inc, slot: slotOfKey(spec, key), name: fact.name, at },
+            { actor: fact.actor, inc: fact.inc, slot: slotOfKey(fact.op, key), name: fact.name, at },
           ],
         };
       }

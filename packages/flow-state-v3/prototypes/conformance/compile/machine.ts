@@ -70,7 +70,7 @@ const compileDomain = (id: string, d: DomainIn): DomainSpec =>
 type MappedIn = { readonly tag: string; readonly fromFn?: unknown };
 export type StreamIn = Omit<StreamSpec, "key" | "backoff" | "subscribe" | "reconnectWhile" | "pageRetryWhile" | "catchUp" | "value" | "missed" | "failure" | "failureBy" | "pages"> & {
   readonly key: Fn;
-  readonly backoff: Fn;
+  readonly backoff?: Fn;
   readonly subscribe: Fn;
   readonly reconnectWhile?: Fn;
   readonly pageRetryWhile?: Fn;

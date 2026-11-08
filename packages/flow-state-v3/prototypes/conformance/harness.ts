@@ -90,7 +90,7 @@ export type Step =
   | { storeWide: boolean } // round 7: one store: only the oldest batch can be answered
   | { hide: true; stay?: true } // round 7, D80: `visibilitychange` to hidden, or `pagehide`
   // A stream's server says something. `frames`: a burst, with no settling between them. `fail`: the connection fails with this.
-  | { feed: string; frame?: unknown; frames?: readonly unknown[]; end?: true; fail?: unknown; to?: unknown; all?: true }
+  | { feed: string; frame?: unknown; frames?: readonly unknown[]; end?: true; fail?: unknown; to?: unknown; all?: true; nth?: number; closing?: true }
   | { fault: Fault }
   | { tasksPerStep: number | null } // D122: a spin never settles. From now on a step ends after this many tasks, and `quiet().spinning` says so
   | { disposeRuntime: true };
@@ -179,6 +179,10 @@ export type Outside = {
     closing: boolean;
     pulled: number;
     backlog: number;
+    closingAt?: number;
+    sent: readonly string[];
+    lastEventIdHeader?: string;
+    heldAtOpen: number; // connections of this op and input held (open, not 5 s into a close) when this one opened, by the fake's clock
   }>;
   live: number;
   scheduler: { picks: number; choices: number };
