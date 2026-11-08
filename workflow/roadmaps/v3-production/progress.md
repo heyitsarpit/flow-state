@@ -2,7 +2,7 @@
 
 ## Resume
 
-**Now (2026-11-09 ~01:00):** entities settled (OD52); phase 1 streams round 1 done, audit running; then streams round 2, OD53, record migration, stage A close-out, the phase 2 stop. **Earlier (2026-11-08, ~14:30):** phase 0's queue is done (round 14, round 15, round 15b; design
+**Now (2026-11-09 ~03:15):** entities settled (OD52); streams: rounds 1-2 and two audits done, the LAST streams batch running (then no more re-audit); next OD53 (streams settled + OD52 owed items (c)-(i) + streams findings), then record migration (phase 1 last area, with its own adversarial audit), stage A close-out, phase 2 merge WITHOUT a stop (amendment 11), then phase 3. Runner context near full: after a compaction re-read this file and re-create the review cron. **Earlier (2026-11-08, ~14:30):** phase 0's queue is done (round 14, round 15, round 15b; design
 OD49-OD50, OD51 being written). Phase 1 is running: area H (H1, H2, M2) done at `e6b0db23`; **entities** in progress
 (lead builder with Haiku sidecars); then streams, record migration; then stage A's close-out and the stop for phase 2's
 label round. How the loop runs now: roadmap amendments 4-9 (converge on the third same-class review; Haiku research
