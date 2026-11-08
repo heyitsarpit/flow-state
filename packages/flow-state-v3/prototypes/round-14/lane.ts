@@ -220,6 +220,14 @@ export const parkWaiting = (tx: Tx, lane: Lane): Lane => {
   });
   return { ...lane, w: [], parked: [...lane.parked, ...parked] };
 };
+export const endPastDisposal = (tx: Tx, lane: Lane) => {
+  const h = lane.head!;
+  const e: Ending = { ch: "unknown", reason: "Disposed" };
+  noteEnding(tx, { op: lane.op, attempt: h.id }, e);
+  note(tx, "parked", { op: lane.op, attempt: h.id });
+  const head = { ...h, mayHaveApplied: true, phase: { t: "held" } as const };
+  setLane(tx, parkWaiting(tx, { ...lane, head, parked: [...lane.parked, { attempt: h.id, ending: e, owner: h.owner, input: h.input }] }));
+};
 // The lane is empty: gone, unless a parked ending still needs it (2.9.3).
 const emptied = (tx: Tx, lane: Lane) => {
   if (lane.parked.length === 0) return deleteLane(tx, lane.id);
@@ -486,7 +494,7 @@ const ACTIONS: Readonly<Record<Action, (tx: Tx, lane: Lane | undefined, a: CellA
     setLane(tx, parkWaiting(tx, { ...l!, head: { ...l!.head!, phase: { t: "held" } } }));
   },
   // Runtime O6: an invoked commit is allowed to settle within the disposal bound; its ending is parked (settleSend), and one still on the wire
-  // at the bound is captured as InFlight, so a reload restores it unknown { Restored } (2.7.13's Runtime disposal row).
+  // at the bound ends unknown { Disposed }, parked the same way (`endPastDisposal`).
   disposeWire() {},
   disposeSettled(tx, l) {
     const h = l!.head!;

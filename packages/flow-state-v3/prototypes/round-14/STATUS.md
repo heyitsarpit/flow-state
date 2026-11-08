@@ -641,6 +641,7 @@ Round 15 continues in round-14's folder (the runtime is the same one, evolved; a
 | Ruling | State | Commit | Failing first | Wrong runtime |
 | --- | --- | --- | --- | --- |
 | Rule 15 cancel exemption over a head promoted at settlement (runner) | done: `leavesWork` (turn.ts) exempts a never-sent head (`sentAt` 0, not `mayHaveApplied`) of an op the late transition cancels key-less | (this) | `R15-01/a-late-exit-that-cancels-the-lane-may-leave-its-promoted-head`: `no denial: expected [], got [["LateMayNotLeave","LateMayNotLeave"]]` | `r15.late-cancel-keeps-promoted-head`; control `r15.late-promoted-head-not-live` (only a wire head is live) red on the denied control |
+| U13 `unknown { Disposed }` past the disposal bound | done: `finishDisposal` (step.ts) calls `endPastDisposal` (lane.ts): the head's ending `unknown { Disposed }` is noted and parked, the head kept Held on disk (mayHaveApplied), W parked after it as `NotSent { Disposed }`; the restore delivers both from the parked list, head first, and the hold stays | 2nd | `R15-01/past-the-disposal-bound-the-attempt-ends-unknown-disposed`: `expected [["unknown","Disposed"],["failure","Disposed"]], got [["failure","Disposed"]]` | `r15.past-bound-captured-inflight` (red: the reload hears W, then Restored) |
 
 Findings for the design:
 1. Rule 15's exemption and U2 pull apart. A key-less `cancel` in a success or failure handler does nothing (U2: the ending's Attempt is
@@ -649,3 +650,17 @@ Findings for the design:
    is "the transition declares it lets the op go", not "the work is gone"; 1.6's "a late ending never leaves live work" is false under it as
    written. The design should say which: (a) the exemption stands and 1.6 says "except work of an op the late transition cancels"; or (b) a
    late key-less cancel also cancels the never-sent work it exempts (a new meaning for a key-less member, against U2).
+2. U13 contradicts the 2.7.13 table's own text. Row "Runtime disposal" (InFlight column) says past the bound the Attempt "ends
+   `unknown { Disposed }`", and in the same sentence that "an Attempt still on the wire at the final capture is captured as an acknowledged
+   `InFlight` lane record, so a reload uses this table's restore cell (`unknown { Restored }`)". The final capture follows the bound, so
+   both cannot hold. Built: the ending is `unknown { Disposed }`, parked as a pending mapped outcome, and the head stays on disk Held. The
+   head must stay on disk: with only a parked unknown and no head, the key the server may hold has no record to re-send it by (the suite's
+   D112 oracle (h) went red on the first try, which parked the ending and dropped the head, as a within-bound unknown is parked today).
+   The design should drop the "captured as InFlight ... Restored" clause, and say the head stays Held on disk with its ending parked.
+3. Same root, a latent gap: an unknown that settles within the bound (`settleSend` while disposing) parks its ending and drops its head,
+   so it has the same "no head on disk" exposure for a persisted write. Not built here (no ruling); the design's row should say the head
+   stays Held there too.
+4. The entity store and `unknown { Disposed }`: telling the store (`ended`) makes it start a repair read after disposal, against "from its
+   start nothing is invoked" (SURV-08 showed a `repair` request). Built: the store is not told past the bound; it hears the Attempt at the
+   restore (`restored`). The store's reaction to an unknown during disposal is phase 1's (U10, U11); the design should say no module
+   starts work once disposal starts.

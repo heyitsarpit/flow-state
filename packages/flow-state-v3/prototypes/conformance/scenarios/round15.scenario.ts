@@ -39,6 +39,25 @@ export const round15Scenarios: readonly Scenario[] = [
         c.eq("denied", (denials(c).at(-1) as string[] | undefined)?.includes("LateMayNotLeave"), true);
         c.state("W");
       },
+      // U13 (OD48; 2.7.13's Runtime-disposal row, 2.7.1): an Attempt still on the wire past Runtime O6's bound ends unknown { Disposed }; each W
+      // entry ends NotSent { Disposed } when the bound ends, after the head, so the lane's parked endings keep lane order. For a persisted
+      // identity both are pending mapped outcomes, delivered to the restored incarnation: no unknown { Restored }.
+      "past-the-disposal-bound-the-attempt-ends-unknown-disposed"(c0) {
+        const c = new Ctx(c0.fresh([r15LateFixture()]), RL);
+        c.ensure(RL);
+        c.send("Go");
+        c.ack();
+        c.send("Go");
+        c.do({ disposeRuntime: true });
+        c.advance(4_999);
+        c.eq("within the bound nothing ends", c.endings("charge").length, 0);
+        c.advance(1);
+        c.eq("the bound ends the head unknown { Disposed }, then W", c.endings("charge").map((e) => [e["channel"], e["reason"]]), [["unknown", "Disposed"], ["failure", "Disposed"]]);
+        const before = c.r.evidence("turn").length;
+        c.reload();
+        c.eq("the restored incarnation hears both, head first", c.r.evidence("turn").slice(before).map((t) => t["event"]), ["Unsure", "No"]);
+        c.eq("no Restored", c.endings("charge").some((e) => e["reason"] === "Restored"), false);
+      },
     },
   },
 ];

@@ -16,7 +16,7 @@ import { flush, onStorageBound, onStored, restore } from "./durable.ts";
 import { encodeRecord } from "./record.ts";
 import { own } from "./gate.ts";
 import { down, placementsActive, seedKids, up, walkIncs, viewOf, type Started } from "./inc.ts";
-import { cell, dropParked, parkWaiting, settleSend } from "./lane.ts";
+import { cell, dropParked, endPastDisposal, settleSend } from "./lane.ts";
 import { dropReadsOf, takeRead } from "./reads.ts";
 import { armTimer, disarmTimer, scheduleKey } from "./timers.ts";
 import { onTurn, rebindActor, startActor } from "./turn.ts";
@@ -213,7 +213,7 @@ const finishDisposal = (tx: Tx) => {
   for (const l of wires(tx.w)) {
     const p = l.head!.phase;
     if (p.t === "wire") note(tx, "AbandonedFiber", { op: l.op, attempt: l.head!.id, send: p.gen });
-    setLane(tx, parkWaiting(tx, l));
+    endPastDisposal(tx, l);
   }
   note(tx, "Disposed", {});
   disarmTimer(tx, "dispose");

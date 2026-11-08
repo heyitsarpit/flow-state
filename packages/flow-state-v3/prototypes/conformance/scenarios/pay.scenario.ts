@@ -543,9 +543,9 @@ export const payScenarios: readonly Scenario[] = [
           c.laneKeys().length > 0,
           true,
         );
-        c.reload(); // next boot delivers Restored
+        c.reload(); // U13 (OD48): past the bound the Attempt ended unknown { Disposed }, parked; the next boot delivers it, not Restored
         c.state("UNSURE");
-        c.eq("reason", c.lastEnding("pay")?.reason, "Restored");
+        c.eq("reason", c.lastEnding("pay")?.reason, "Disposed");
       },
       // Added: the never-sent half of the same cell. The final capture queues behind the held ack on the same key.
       "waiting-flushed"(c) {

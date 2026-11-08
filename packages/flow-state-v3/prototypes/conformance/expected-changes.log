@@ -1626,3 +1626,14 @@ round:mutants-r15.ts hash:689cb755a60a | new: round 15's wrong runtimes, first t
 output:R15-01/a-late-exit-that-cancels-the-lane-may-leave-its-promoted-head hash:3dfc72f83d7f | new output: the late Ok cancels and leaves W for A, the promoted head left to run
 output:R15-01/a-late-exit-that-does-not-cancel-may-not-leave-its-promoted-head hash:6d750f15fcd4 | new output: the late Ok is denied LateMayNotLeave and stays in W
 file:expected-recipients.txt hash:148b79e984da | +2 observed, +2 start nodes: R15-01's two new variants
+PAY-13 hash:064a8e21ba2d | hung-commit: U13 (OD48), the reload delivers the parked unknown { Disposed } the bound ended, not unknown { Restored }
+R15-01 hash:ac1a92c3fc5e | new variant past-the-disposal-bound-the-attempt-ends-unknown-disposed (U13, 2.7.13's Runtime-disposal row)
+file:scenarios/pay.scenario.ts hash:43724b6f76b8 | holds PAY-13/hung-commit's U13 expectation (reason Disposed)
+file:scenarios/round15.scenario.ts hash:7f4d8e5c9040 | holds R15-01's U13 variant
+file:typed/round15.ts hash:f1462ebc75e2 | R15Late's Unsure leaves the hold (no cancel), so a restored unknown keeps its head on disk (D112)
+round:mutants-r15.ts hash:a2b791891877 | adds r15.past-bound-captured-inflight (the bound captures InFlight again, U13 undone)
+output:DRV-01 hash:84aa68006093 | U13: the job still on the wire at the bound ends unknown { Disposed } and is parked: one more ending and parked, a parked:job wait
+output:PAY-13/hung-commit hash:95d0a59d6881 | U13: the hung pay ends unknown { Disposed } at the bound, parked, and is delivered from the parked list at the reload
+output:PAY-16/on-the-wire-at-the-bound-restores-unknown hash:ff0cbd687cb3 | U13: the pay on the wire at the bound is parked as unknown { Disposed } and unparked at the reload (one lane cell fewer)
+output:R15-01/past-the-disposal-bound-the-attempt-ends-unknown-disposed hash:c0e9863becda | new output: head unknown { Disposed } then W NotSent { Disposed } at the bound, both heard after the reload
+output:SURV-08 hash:d5c0333b018c | U13: the like on the wire at the bound ends unknown { Disposed }, parked beside W's NotSent { Disposed } (two parked:like waits)

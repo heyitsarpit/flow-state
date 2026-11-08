@@ -10,7 +10,7 @@ PAY-09 8b16d77a968c
 PAY-10 493df09be5aa
 PAY-11 f70a1303d962
 PAY-12 8fdefe5a927c
-PAY-13 ddd5a14e0bdb
+PAY-13 064a8e21ba2d
 PAY-14 55852c242d72
 PAY-15 ce7ebcfb82ce
 PAY-16 7002c94be212
@@ -231,7 +231,7 @@ R14-F-01 02fb76024a05
 R14-FIX-03 e5ab12a86da6
 R14-FIX-01 e8a5adb33fa2
 R14-FIX-02 022e63be1f0b
-R15-01 9acb1f6cad0e
+R15-01 ac1a92c3fc5e
 variant:PAY-06/interruptible present
 variant:PAY-06/uninterruptible present
 variant:PAY-07/leaveMidCharge present
@@ -988,6 +988,7 @@ variant:R14-FIX-01/a-return-from-ready-writes-nothing present
 variant:R14-FIX-01/a-dispose-of-that-record-keeps-its-endings-on-the-lane present
 variant:R15-01/a-late-exit-that-cancels-the-lane-may-leave-its-promoted-head present
 variant:R15-01/a-late-exit-that-does-not-cancel-may-not-leave-its-promoted-head present
+variant:R15-01/past-the-disposal-bound-the-attempt-ends-unknown-disposed present
 file:scenarios/absorb.scenario.ts 9763d1722ca6
 file:scenarios/ctx.ts fe3a8de04a97
 file:scenarios/fixpass.scenario.ts 1a46432b7fe7
@@ -997,12 +998,12 @@ file:scenarios/identity.scenario.ts ca34e05c1c83
 file:scenarios/ignore.scenario.ts b644a7a50c1d
 file:scenarios/lifetime.scenario.ts 8eab9d8bf2ed
 file:scenarios/order.scenario.ts 20b00317218b
-file:scenarios/pay.scenario.ts 537fa932871b
+file:scenarios/pay.scenario.ts 43724b6f76b8
 file:scenarios/review.scenario.ts 42114a2ac13d
 file:scenarios/round10.scenario.ts 9a79cf927e08
 file:scenarios/round12.scenario.ts 3b48ce8a6478
 file:scenarios/round13.scenario.ts 21bc66a212dd
-file:scenarios/round15.scenario.ts db8599bf527b
+file:scenarios/round15.scenario.ts 7f4d8e5c9040
 file:scenarios/round4.scenario.ts c5b1413bfa40
 file:scenarios/round5.scenario.ts 679d136cdedf
 file:scenarios/round6.scenario.ts 72e2a778f2b5
@@ -1077,7 +1078,7 @@ file:typed/pay.ts ec1cf13ca03a
 file:typed/real.ts 9ce741bef76b
 file:typed/round10.ts feddb1eaa7a1
 file:typed/round13.ts 8329def56a59
-file:typed/round15.ts 1f408d9baf3c
+file:typed/round15.ts f1462ebc75e2
 file:typed/round6.ts 9d04476c5d39
 file:typed/round7.ts d311490fd524
 file:typed/round8.ts 83315840f130
@@ -1168,7 +1169,7 @@ round:mutants-lifetime-pins-b.ts 6739b5b020ec
 round:mutants-lifetime.ts 4bc1d3d15031
 round:mutants-lost.ts 341cf4c256c6
 round:mutants-r10.ts b33f543d803a
-round:mutants-r15.ts 689cb755a60a
+round:mutants-r15.ts a2b791891877
 round:mutants-r5.ts 140a4de2354a
 round:mutants-r6.ts b6c3802cca2e
 round:mutants-r7.ts 8714ead920f9
@@ -1186,7 +1187,7 @@ output:CART-02/lines-independent 17783ece6e82
 output:CART-02/page-and-header 92bae1351e9a
 output:CART-02/remove-asked 9e5bde0e2cbb
 output:CART-02/repriced-under-pending 4b3b671f147b
-output:DRV-01 c05230f3e64e
+output:DRV-01 84aa68006093
 output:DRV-02 87cd452511fe
 output:DRV-03/a-disabled-store-declines-what-would-join 0d7ef73a881f
 output:DRV-03/a-disabled-store-holds-its-queue bdcaf364758d
@@ -1388,7 +1389,7 @@ output:PAY-12/defect 75a60063b7f1
 output:PAY-12/duplicate 1ec5ddb804e1
 output:PAY-12/shuffle 89ffd5721ddf
 output:PAY-12/sync 32f1856a9c5e
-output:PAY-13/hung-commit 8177375018de
+output:PAY-13/hung-commit 95d0a59d6881
 output:PAY-13/waiting-flush-lost 92430f2f27f7
 output:PAY-13/waiting-flushed 553c50d2829b
 output:PAY-14 77ab8c3d68c3
@@ -1403,7 +1404,7 @@ output:PAY-15/retry-budget 8bc677b7ed1c
 output:PAY-16/cancelled-does-not-stick 9be0bf1c13f5
 output:PAY-16/disposal-ends-with-the-last-fiber f396dbe03f5d
 output:PAY-16/dispose-waiting-resend 6d4544d261ac
-output:PAY-16/on-the-wire-at-the-bound-restores-unknown 7f9f4a82fc15
+output:PAY-16/on-the-wire-at-the-bound-restores-unknown ff0cbd687cb3
 output:PAY-16/parked-success-is-delivered 630cee4c527c
 output:PAY-16/read-defect-issue 6204df2859d9
 output:PAY-16/rejected-is-delivered 027bb0b2a622
@@ -1506,6 +1507,7 @@ output:R14-IGN-02/a-returns-restored-is-released 5d3487c4ffba
 output:R14-IGN-03 657cedaf99c2
 output:R15-01/a-late-exit-that-cancels-the-lane-may-leave-its-promoted-head 3dfc72f83d7f
 output:R15-01/a-late-exit-that-does-not-cancel-may-not-leave-its-promoted-head 6d750f15fcd4
+output:R15-01/past-the-disposal-bound-the-attempt-ends-unknown-disposed c0e9863becda
 output:REAL-01/a-callback-only-where-written dc513934a867
 output:REAL-01/a-denied-guard-keeps-the-field b9f4bcb42f60
 output:REAL-01/history-returns-to-the-exact-field-not-the-default b240d96bc43d
@@ -2015,7 +2017,7 @@ output:SURV-04 3c01cfe80d6f
 output:SURV-05 74254d340dd4
 output:SURV-06 8ce768d47a3b
 output:SURV-07 fda08f3fabd8
-output:SURV-08 016a205debf8
+output:SURV-08 d5c0333b018c
 output:SURV-09 dbcaa96cb21b
 output:SURV-10 67abeeea4998
 output:SURV-11 c03a7846ca33

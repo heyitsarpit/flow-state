@@ -23,7 +23,7 @@ const lateFx = fixture(
       Cancelling: { updateMemory: () => ({ cancelling: true }) },
       Ok: [{ guard: [({ memory }) => memory.cancelling || deny("plain")], target: St.A, actions: [O.charge.cancel] }, { target: St.A }],
       No: St.A,
-      Unsure: { target: St.A, actions: [O.charge.cancel] },
+      Unsure: St.A,
     },
   })),
 );

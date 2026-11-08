@@ -1,4 +1,5 @@
 export const MUTANTS: ReadonlyArray<{ readonly id: string; readonly kills: readonly string[]; readonly edits: ReadonlyArray<readonly [string, string, string]> }> = [
   { id: "r15.late-cancel-keeps-promoted-head", kills: ["R15-01/a-late-exit-that-cancels-the-lane-may-leave-its-promoted-head"], edits: [["turn.ts", "!(cancels(l.op) && h.sentAt === 0 && !h.mayHaveApplied) && ", ""]] },
   { id: "r15.late-promoted-head-not-live", kills: ["R15-01/a-late-exit-that-does-not-cancel-may-not-leave-its-promoted-head"], edits: [["turn.ts", 'return h !== undefined && h.phase.t !== "held" && !(cancels', 'return h !== undefined && h.phase.t === "wire" && !(cancels']] },
+  { id: "r15.past-bound-captured-inflight", kills: ["R15-01/past-the-disposal-bound-the-attempt-ends-unknown-disposed"], edits: [["lane.ts", "  const head = { ...h, mayHaveApplied: true, phase: { t: \"held\" } as const };\n  setLane(tx, parkWaiting(tx, { ...lane, head, parked: [...lane.parked, { attempt: h.id, ending: e, owner: h.owner, input: h.input }] }));", "  setLane(tx, parkWaiting(tx, lane));"]] },
 ];
