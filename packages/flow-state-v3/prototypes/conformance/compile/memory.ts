@@ -1,7 +1,7 @@
 // Round 12, compile prototype: memory fields (machine-design 2.2.2), for machines and fragments alike. Each field has one source, `Flow.input`,
 // `Flow.initial` (constant or computed) or absence for an optional key; `Flow.private` hides it from outside. Compiles to `Compiled.memory`: the fields
 // as data (D214) and the three Slots the Runtime runs, made from them.
-import { Schema } from "effect";
+import { Exit, Option, Schema } from "effect";
 import type { CompiledMemory, MemoryField as CompiledField } from "../fixtures/compiled.ts";
 import { isFn, lazy, slotOf } from "./core.ts";
 
@@ -46,7 +46,29 @@ const constructorDefault = (k: string, s: Schema.Top): { readonly has: boolean; 
   const o = (Schema.Struct({ [k]: s }) as unknown as { makeOption: (i: unknown) => { _tag: string; value?: Record<string, unknown> } }).makeOption({});
   return o._tag === "Some" && o.value && k in o.value ? { has: true, v: o.value[k] } : { has: false };
 };
+// U12 B (OD48): a default is pure. In Effect 4 every default is an Effect; a plain value is a succeeded `Exit` (`Effect.succeed(v)`), anything else
+// (`Effect.sync`, a mapped or failing Effect) is run per call and refused. Read from the Schema's structure: a constructor default sits on the AST's
+// `context`; a decoding default is a getter whose transform, given an absent key, returns the default's Effect without running it.
+// Gotcha: the getter is asked for its absent-key result, which builds an Effect and runs nothing; a custom getter that throws on it is no default.
+const absentResult = (transform: (o: Option.Option<unknown>, options: object) => unknown): unknown => {
+  try {
+    return transform(Option.none(), {});
+  } catch {
+    return Exit.void;
+  }
+};
+const effectfulDefault = (x: unknown, seen: Set<unknown> = new Set()): boolean => {
+  if (x === null || typeof x !== "object" || seen.has(x)) return false;
+  seen.add(x);
+  const o = x as Record<string, unknown>;
+  const ctor = (o["context"] as { readonly constructorDefault?: unknown } | undefined)?.constructorDefault;
+  if (ctor !== undefined && !Exit.isExit(ctor)) return true;
+  if (o["_tag"] === "TransformOptionalEffect" && typeof o["transform"] === "function" && !Exit.isExit(absentResult(o["transform"] as (o: Option.Option<unknown>, options: object) => unknown))) return true;
+  if (o["_tag"] === "Suspend" && typeof o["thunk"] === "function" && effectfulDefault((o["thunk"] as () => unknown)(), seen)) return true;
+  return Object.entries(o).some(([key, v]) => key !== "annotations" && effectfulDefault(v, seen));
+};
 const defaultOf = (definition: string, k: string, f: MemorySpec): { readonly has: boolean; readonly v?: unknown } => {
+  if (effectfulDefault(f.schema.ast)) throw new Error(`ImpureDefault: ${definition} memory ${k} has a default that is an Effect to run, not a value (U12): a time or an id comes from an event or the Runtime's mint`);
   const c = constructorDefault(k, f.schema);
   const d = missingDefault(k, f.schema);
   if (f.from === "initial" && (c.has || d.has)) throw new Error(`TwoDefaults: ${definition} memory ${k} is Flow.initial and its Schema states a default too`);

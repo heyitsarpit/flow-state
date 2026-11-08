@@ -358,10 +358,9 @@ export const port: Port = {
         const t = w.timers[`grace/${actor}`];
         const bound = getActor(w.actors, actor) !== undefined || Object.hasOwn(w.retired, actor) || Object.hasOwn(w.undecodable, actor);
         const mine = bound ? [] : Object.values(w.lanes).filter((l) => l.actor === actor);
-        const unbound = mine.filter((l) => !l.forgotten).map((l) => l.id);
-        const forgotten = mine.filter((l) => l.forgotten).map((l) => l.id);
+        const unbound = mine.map((l) => l.id);
         const quarantined = Object.keys(w.quarantined).filter((id) => id.startsWith(`${actor}|`));
-        return { uses: w.uses[actor] ?? [], busy: busyOf(w, actor), ...(t ? { grace: t.dueAt } : {}), waiting: Object.values(w.waiting).filter((x) => x.actor === actor).map((x) => x.id), unbound, forgotten, quarantined };
+        return { uses: w.uses[actor] ?? [], busy: busyOf(w, actor), ...(t ? { grace: t.dueAt } : {}), waiting: Object.values(w.waiting).filter((x) => x.actor === actor).map((x) => x.id), unbound, quarantined };
       },
       disposeRuntime: () => rt.input({ k: "disposeRuntime" }),
       repeatLastCompletion: () => {

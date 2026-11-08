@@ -39,31 +39,46 @@ const encodeField = (machine: string, f: string, schema: unknown, v: unknown): s
 // A side's structure: each node's tag and data, in key order, without annotations (a description or a title is no new version), except a check's
 // `representation` ({ id, payload }), which names the check and its parameters (Q2 A): `minLength(1)` and `minLength(2)` differ.
 // Gotcha: a custom filter has no representation, so a change to its predicate is no new version; nor is a transformation whose two sides stay the same.
-const structure = (x: unknown, seen: Set<unknown> = new Set()): string => {
+const structure = (x: unknown, reps: boolean, seen: Set<unknown> = new Set()): string => {
   if (x === null || typeof x !== "object") return typeof x === "function" ? "fn" : String(JSON.stringify(x));
   if (seen.has(x)) return "cycle";
   seen.add(x);
   const o = x as Record<string, unknown>;
-  const rep = (o["annotations"] as { readonly representation?: { readonly id: unknown; readonly payload?: unknown } } | undefined)?.representation;
+  const rep = reps ? (o["annotations"] as { readonly representation?: { readonly id: unknown; readonly payload?: unknown } } | undefined)?.representation : undefined;
   const out = Array.isArray(x)
-    ? `[${x.map((y) => structure(y, seen)).join(",")}]`
-    : `${String(o["_tag"] ?? "")}{${Object.keys(o).filter((k) => k !== "annotations" && typeof o[k] !== "function").sort().map((k) => `${k}:${structure(o[k], seen)}`).join(",")}${rep ? `,representation:${structure({ id: rep.id, payload: rep.payload }, seen)}` : ""}}`;
+    ? `[${x.map((y) => structure(y, reps, seen)).join(",")}]`
+    : `${String(o["_tag"] ?? "")}{${Object.keys(o).filter((k) => k !== "annotations" && typeof o[k] !== "function").sort().map((k) => `${k}:${structure(o[k], reps, seen)}`).join(",")}${rep ? `,representation:${structure({ id: rep.id, payload: rep.payload }, reps, seen)}` : ""}}`;
   seen.delete(x);
   return out;
 };
+const sides = (schema: unknown, reps: boolean) => {
+  const ast = (schema as Schema.Top).ast;
+  return hash(`${structure(SchemaAST.toType(ast), reps)}|${structure(SchemaAST.toEncoded(ast), reps)}`);
+};
 // U17 B (OD48), rule 74 and 2.7.15: a Schema's version is its type side and its encoded side, compared by structure, without annotations: a
 // transformation change (String to NumberFromString) is a new version, a brand or a description is not.
-export const schemaVersion = (schema: unknown): string => {
-  const ast = (schema as Schema.Top).ast;
-  return hash(`${structure(SchemaAST.toType(ast))}|${structure(SchemaAST.toEncoded(ast))}`);
+export const schemaVersion = (schema: unknown): string => sides(schema, true);
+// Flow's version encoding is tagged with its format, and each older format's function is kept: a version read in an older format is compared with
+// the current Schema written in that format, so a Schema change made in the same release as a Flow upgrade is still seen. Format 0 (a bare name)
+// had no Schema in it: across it only the name is compared, a stated limit. Format 1 (`name#hash`, untagged) hashed both sides with no check
+// representation; format 2 (`name#2:hash`) adds them (Q2 A).
+export const VERSION_FORMAT = 2;
+const FORMATS: Readonly<Record<number, (name: string, schema: unknown) => string>> = {
+  0: (name) => name,
+  1: (name, schema) => `${name}#${sides(schema, false)}`,
+  2: (name, schema) => `${name}#2:${schemaVersion(schema)}`,
 };
+export const versionedIn = (format: number, name: string, schema: unknown) => FORMATS[format]!(name, schema);
+export const versioned = (name: string, schema: unknown) => versionedIn(VERSION_FORMAT, name, schema);
+// Each older format's spelling of the same entries, for the Runtime's compare (data in `Compiled`, no Schema at the Runtime).
+export const olderFormats = (entries: ReadonlyArray<readonly [string, unknown]>): Readonly<Record<string, readonly string[]>> =>
+  Object.fromEntries(Object.keys(FORMATS).map(Number).filter((f) => f < VERSION_FORMAT).map((f) => [String(f), entries.map(([n, s]) => versionedIn(f, n, s))]));
+const identityEntries = (fields: Readonly<Record<string, { readonly schema: unknown }>>, names: readonly string[]) =>
+  names.map((f) => [`${f}:${String(SchemaAST.toEncoded((fields[f]!.schema as Schema.Top).ast))}`, fields[f]!.schema] as const);
 // OD30 Q3, rule 74: the version of a value-named machine's identity is its field set and each field's Schema version, in field-name order.
 export const identityVersionOf = (fields: Readonly<Record<string, { readonly schema: unknown }>>, names: readonly string[]): readonly string[] =>
-  names.map((f) => versioned(`${f}:${String(SchemaAST.toEncoded((fields[f]!.schema as Schema.Top).ast))}`, fields[f]!.schema));
-// Flow's version encoding is tagged with its format (2: type side, encoded side and check representations), so a record written by an earlier
-// format is told apart and compared by the part every format writes alike.
-export const VERSION_FORMAT = 2;
-export const versioned = (name: string, schema: unknown) => `${name}#${VERSION_FORMAT}:${schemaVersion(schema)}`;
+  identityEntries(fields, names).map(([n, s]) => versioned(n, s));
+export const identityVersionByFormatOf = (fields: Readonly<Record<string, { readonly schema: unknown }>>, names: readonly string[]) => olderFormats(identityEntries(fields, names));
 const hash = (s: string) => {
   let h = 2166136261;
   for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619) >>> 0;

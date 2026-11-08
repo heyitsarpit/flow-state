@@ -34,7 +34,8 @@ const diff = (a: unknown, b: unknown, path: string, out: string[]) => {
 // New on the typed side, stated: `keyFields`, `events`, `memory.restore`, and a Slot for `commit`.
 // Round 12 (D213-D215): `inputFields`, `services` and memory `fields` too, and `key`, which the typed side no longer writes (the seal makes it).
 // Round 13 (round 12 review M3): a fragment's `kind` and `ports`, and its `events` (already skipped), typed only. Round 15 (U17): `keyVersion`, typed only.
-const skip = new Set(["keyFields", "keyVersion", "events", "restore", "commit", "key", "inputFields", "services", "fields", "kind", "ports"]);
+// Phase 1 (R7): `keyVersionByFormat`, typed only.
+const skip = new Set(["keyFields", "keyVersion", "keyVersionByFormat", "events", "restore", "commit", "key", "inputFields", "services", "fields", "kind", "ports"]);
 const out: string[] = [];
 diff(shape(payFixture.make(api), skip), shape(typedPayFixture.make(api), skip), "Pay", out);
 const full = payFullFixture.make(api);

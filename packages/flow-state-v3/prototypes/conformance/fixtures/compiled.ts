@@ -171,6 +171,7 @@ export type Op = {
     | Slot<(input: any, ctx: CommitCtx) => Effect.Effect<unknown, unknown, never>>;
   readonly keyFields?: readonly string[]; // Round 7, D91: rule 39's field list, as data. Hand-written fixtures have a closure only
   readonly keyVersion?: readonly string[]; // U17 B (OD48), 2.7.15: each key field with its Schema's version (type and encoded side); the lane's stamp
+  readonly keyVersionByFormat?: Readonly<Record<string, readonly string[]>>; // R7: the same Schemas in each older version format, for a cross-format compare
   readonly inputNotCarried?: readonly string[]; // D124: which input fields, by path, have a decoded form the door refuses. For `flow check`
   readonly outcomes: {
     readonly success?: Mapped;
@@ -192,6 +193,7 @@ export type Compiled = {
   readonly local?: true; // a local identity: lanes never adopted (D21)
   readonly identityFields?: readonly string[]; // round 14, rule 74: the `Flow.input` fields, sorted; a value ref's identity
   readonly identityVersion?: readonly string[]; // OD30 Q3: each identity field with its Schema (type and encoded side), in name order
+  readonly identityVersionByFormat?: Readonly<Record<string, readonly string[]>>; // R7: the same in each older version format
   readonly streams?: Readonly<Record<string, StreamSpec>>; // data for a sessions module
   // Round 7, D91, rule 47: what a typed definition declares. Absent on hand-written fixtures, so `flow check` infers it and says so.
   readonly events?: Events;

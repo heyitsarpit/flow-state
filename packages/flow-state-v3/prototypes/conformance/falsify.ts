@@ -268,6 +268,12 @@ try {
       // Round 15b: oracle (h) took any cancel alternative on the ending's event as the cause, whatever its guard. R15Late's Unsure cancels only while
       // `cancelling`; this runtime releases the hold at admission all the same, a key the server may hold with no head on disk.
       ["lie.held-released-unguarded", "Released, a hold whose handler's cancel is guarded out", [["lane.ts", 'hold(tx, l) { setLane(tx, { ...l!, head: { ...l!.head!, phase: { t: "held" } } }); },', 'hold(tx, l) { setLane(tx, { ...l!, head: { ...l!.head!, phase: { t: "held" } } }); if (l!.machine === "Lab/R15Late") release(tx, tx.w.lanes[l!.id]!); },']], "(h)"],
+      // Phase 1 (R11): oracle (h)'s turn-end exemption took the runtime's `HeldThisTurn` note as the cause. This runtime notes it and releases an
+      // unknown re-sent in its own turn (the key may be at the server, and the re-send is gone with no head on disk).
+      ["lie.turn-end-after-a-resend", "lane.turnEnd.HeldThisTurn, a re-sent unknown", [["lane.ts", "l.head.id !== attempt || l.head.phase.t !== \"held\" ||", "l.head.id !== attempt ||"]], "(h)"],
+      // Phase 1 (R11): `replacedUnderCancel` read an op's policy by its name across every fixture. Beside R15Switch's `search` (cancel), this runtime
+      // replaces P1Latest's `search` (latest) head on the wire as `cancel` would: the replaced Attempt's ending reaches nobody.
+      ["lie.latest-as-cancel-by-name", "interruptedBy, a latest op named as a cancel op", [["lane.ts", "    if (policy === \"cancel\") return replaceHead(tx, l!, a);", "    if (policy === \"cancel\" || a.machine === \"Lab/P1Latest\") return replaceHead(tx, l!, a);"]], "(j)"],
       ["lie.serialize-as-latest", "Superseded, a serialize queue", [["lane.ts", 'if (policy === "latest") { for (const x of l.w) supersede(tx, a.op, x);', 'if (policy === "latest" || policy === "serialize") { for (const x of l.w) supersede(tx, a.op, x);']], "(j) superseded"],
       ["lie.dispose-start", "DisposeStart, no dispose", [["turn.ts", G125, other('note(tx, "DisposeStart", {});')]], "(j) DisposeStart"],
       ["lie.settled-released", "Released, a settled head (checkMints)", [["lane.ts", "  settleHead(tx, next, final);", '  note(tx, "Released", { op: next.op, attempt: next.head?.id }); setLane(tx, next);']], ""], // (j) runs first and sees it; `checkMints` behind it

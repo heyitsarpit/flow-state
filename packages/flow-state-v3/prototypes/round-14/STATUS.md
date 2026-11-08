@@ -825,3 +825,68 @@ Findings for the design (round 15b):
 9. `concurrency: "cancel"` on a predicting write (rule 29's `flow check` error) is not built: no prototype fixture predicts under `cancel`.
 10. `forget` needed decisions Q1 did not make; the runner's builds, for the user's read: it is refused for a live actor (`ForgetLiveActor`); it leaves the identity's actor record alone (an old-version or retired record stays; rule 74's "ends by forget" for an old-version record is not built); queued commits stay with their held head (they are part of the hold's lane, and a reload ends them `NotSent { Restored }`, evidence for a forgotten lane); a later binding incarnation clears the mark and adopts the hold, so the hold is again the owner's to cancel. A lane with only parked endings is deleted, and with it the mark, so mail still queued for the identity at that moment would park again on a new lane.
 11. After `forget`, a hold whose only delivery was forgotten is reachable only by a keyed `cancel(k)` or, on an unkeyed op, a key-less `cancel` outside an ending (rule 43 as ruled). The design should say how an app gives up a forgotten hold, since no ending will prompt it.
+
+Phase 1 update (R9 below): finding 10's builds are superseded: `forget` removes the record, disposes a live actor first, and has no mark. Finding 11 is softened: an adopting ensure hears the hold's `unknown { Restored }`, so the new owner is prompted.
+
+## Phase 1: H1, H2, M2 (2026-11-08)
+
+Phase 1's first area: round 13's H1, H2 and M2 (`round-13/review.md`), and the runner's rulings R5-R12 on round 15b. Same runtime and suite. New: case
+`P1-H` (`conformance/scenarios/phase1h.scenario.ts`, 20 variants; fixtures `typed/phase1h.ts`, `fixtures/phase1h.compiled.ts`), wrong runtimes in
+`mutants-p1h.ts` (spread into `mutants-lifetime.ts`; `P1-H` is in lifetime-falsify's list). Every wrong runtime below was run by the lead on a copy
+(`try.ts` in the scratchpad: the named mutant's edits, the named cases) and went red by the line given. `known-failing-h2.ts` is round 8's entity H2,
+not round 13's; out of this area.
+
+| Item | State | Commit | Failing first (on the wrong runtime) | Wrong runtime |
+| --- | --- | --- | --- | --- |
+| H1 a default computed once | **built** as U12 B rules (OD48: "a default is pure"). Under U12 B per-door evaluation and once-only evaluation give the same value, so the open part was the refusal: `effectfulDefault` (compile/memory.ts) reads the AST, never runs a default: a constructor default that is not a succeeded `Exit`, or a decoding getter whose absent-key result is not one, is `ImpureDefault` (proposed name), nested, under `suspend`, type-side included | 1st | `P1-H/a-default-that-runs-is-refused-at-construction-and-never-runs`: `refused: expected [ImpureDefault x5], got ["","","","",""]`; front-check pins `U12 ...` (six) | `p1h.default-runs`, `p1h.default-decoding-unread` (decoding ones only: `got [ImpureDefault,"","",ImpureDefault,...]`) |
+| H2 key versions by names | **done already** by U17 B (round 15, `keyVersion`) and the format tag; K1 itself (`k` String to Number, same name) had no case. Added | 1st | `P1-H/a-key-field-changed-from-string-to-number-under-its-name-is-a-new-version`: `an old-version hold: expected 1, got 0` (the stamp by names: a second lane `{"k":1}`, a second send) | `p1h.key-version-by-names` (= round 13's D221) |
+| M2 D221's unpinned paths | **built**, each with its own case: the old hold back on the wire still declines (`old-held-only`); a new-version key names nothing (`member-names-old`); `retryable(k)` sees its own lane only (`retryable-sees-old`); the decline's reason; reorder only (`samefields-ordered`); the hand-closure rename onto a kept name in both mint orders (`unstamped-collision-unchecked`, `unstamped-one-pass`; a Haiku runner showed both survived the whole suite, 885/885); two equal defaults (front-check). **The decline's reason was wrong**: the runtime said `NotSent { Rejected }`, the design `NotSent { OldVersion }` (2.7.15, the NotSent table); built | 1st | `declined beside it: expected [1,2], got [0,3]`; `nothing re-sent: expected [1,0], got [2,0]`; `no, and nothing sent: expected [1,1], got [0,1]`; `NotSent { OldVersion }: ... got ["Rejected","Rejected"]`; `no old-version hold: expected 0, got 1`; the collision pair red by (h) `may be at the server, and no head on disk says so` | `p1h.old-hold-only-when-held`, `-member-names-old`, `-retryable-sees-old`, `-decline-why-rejected`, `-same-fields-ordered`, `-unstamped-collision-unchecked`, `-unstamped-one-pass` |
+| R5 live `cancelAll` order | as **reversed** by the runner: the build's order stands (queued commits' `NotSent { Cancelled }` in mint order, the interrupted head's `unknown { Cancelled }` last). No runtime change; cases for a head on the wire and an Idle lane | 1st | green first (the behaviour was the build's); red on the wrong runtimes: `by Attempt: ... expected [att-1-2, att-1-3, att-1-1], got [att-1-3, att-1-2, att-1-1]`; `no ending ...: expected [0,0,0], got [1,0,0]` | `p1h.cancel-all-queue-reversed`, `-leaves-the-wire`, `-idle-declines` |
+| R6 refused ack of a replaced head | **built**: `onStored` (durable.ts) with `then: "replace"` and a refusal runs `afterAck("replace")`: the old head is `Superseded`, `StorageFailure` stays evidence, the newer commit is acknowledged and sent; under `cancel` and `latest` | 1st | `nothing heard: expected [], got ["No"]`; `nothing declined, nothing heard: expected [0,[]], got [1,["No"]]` | `p1h.refused-replace-delivers-old-head` |
+| R7 cross-format compare | **built**: the compiler keeps each format's function (`FORMATS`, compile/ref.ts; format 1 = both sides, no check representation, the same as `1a616443^`'s, confirmed by the reviewer) and emits `keyVersionByFormat` / `identityVersionByFormat`; `sameVersion(a, b, older)` (lane.ts) compares the lower-format side with the current Schema in that format, symmetric; format 0 stays names only (a stated limit, its own case) | 1st | `...-in-the-release-that-upgrades-the-format-...`: `an old-version hold: expected 1, got 0`; `an-actor-record-in-format-1-across-a-type-change-...`: `listed at ready: expected 1, got 0` | `p1h.cross-format-by-names` (= round 15b's), `p1h.cross-format-always-old` |
+| R8 rule 15 check | **kept strict** as ruled: R15Stay's late `Ok`/`No` leave while later commits may be queued, which R1 denies. Stated limit: the static check reads only this op's lane, not other ops' work | - | - | - |
+| R9 `forget` (C173) | **built**: removes the record (retired or undecodable; the next ensure starts from its input); parked and boot-queued endings are evidence; no `forgotten` mark: a held lane stays unbound, listed and reported at every boot; a live actor is disposed first (`ForgetLiveActor` gone); a quarantined hold whose operation is gone is dropped with `HoldForgotten` evidence (runner's call) | 1st | `the hold stays, listed as unbound: expected 1, got 0` (the mark); `no live actor, no record: expected [undefined,false], got ["W",true]`; `the record is gone: expected true, got false`; `dropped, with evidence: expected [1,0], got [0,1]` | `r15d.forgotten-not-reported` (inverted: restores the mark), `-forget-refuses-a-live-actor`, `-forget-keeps-the-record`, `-forget-keeps-a-gone-op-hold`, and the re-anchored `-delivers-parked`, `-drops-the-hold`, `-keeps-boot-mail` |
+| R10 `cancelAll` beside a rule 60 release | **built**: `cancelAll(..., released)`; when the same transition releases the lane, the queue ends as evidence (`dropW`) and the head is left to the release | 1st | `(j) an ending reached nobody: q att-1-2; ... att-1-3` | `p1h.cancel-all-beats-release` |
+| R11 oracle loosenings | **built**: `cancelOf` reads the Attempt's own machine's op (both exemptions); the turn-end exemption needs the ending heard and no re-send since (`invoked` or a `lane.retry.*` cell). Two lies in falsify.ts: `lie.turn-end-after-a-resend` (green on the old oracle, red by (h) now), `lie.latest-as-cancel-by-name` (green by every oracle before, red by (j) now; its control `P1-H/under-latest-beside-...`) | 1st | the lies, checked on old and new oracle by the lead | the two lies; `p1h.latest-as-cancel-by-name` |
+| R12 small | done: `p1h.session-connects-in-disposal` (two edits; the call alone, gate kept, stays green); `mutants-r15.ts:4`'s kill renamed; the format-1 case compares a real format 1 hash (`editor1Format1`) | 1st | `no session opened after disposal starts: expected 1, got 2` | `p1h.session-connects-in-disposal` |
+
+Harness fixes found on the way (each a wrong verdict of the oracles, not a looser one): the reference model was built once per run, so after a
+release it answered for release 1 (`refm()`; it hid D221's "op removed" exemption and made R9's gone-op case red by (j)); it is rebuilt at each boot
+that follows a release. A `forget` step now ends the actor's uses and life as a `dispose` step does, when the actor is live.
+
+Findings for the design:
+1. H1: under U12 B, 2.2.2's "a default is evaluated for each actor at each door, never computed once and shared" cannot be observed: a pure default
+   is one value. Keep it as an implementation freedom or drop it. U12 B's check needs the default's structure: in Effect 4 every default is an
+   Effect, and a value is a succeeded `Exit`; a decoding default lives in a getter closure, read by asking it for the absent key (it builds the
+   Effect, runs nothing). A custom getter that is not a default is asked too (a stated limit; one that throws is taken as no default).
+2. M2: the decline beside an old-version hold was `Rejected` in the runtime while 2.7.15 and the NotSent table say `OldVersion`. Now `OldVersion`.
+   `OldVersionLane` is still evidence, not the issue Q2 A decided, and `previous: [{ key }]` is not built (round 13's M3; not this area).
+3. R7: two untagged writers existed in the prototype's history (round 14's L1 actor hash over the encoded side only, then U17's both sides); both
+   read as format 1. The kept function is U17's. A record of the L1 writer reads as an old version, the safe direction. Production should tag from
+   its first release. A saved format newer than the running Flow (a downgrade) is an old version; before R7 it compared by names.
+4. R9: 2.7.13 (rule 44's text near "It is evidence only when no record of the identity survives at all (`forget`, ...)") says an ending after
+   `forget` is evidence. With no mark, an ending that lands after `forget` on the surviving held lane is kept on it, as after `disposeActor`, and the
+   adopting ensure hears it (`forget-of-a-live-actor-disposes-it-then-forgets`). The sentence should drop `forget` or say "for the lanes forget removes".
+5. R9: `forget` makes only a record's boot-queued endings evidence; other boot mail (sends, fires) goes with the record silently, as `disposeActor`
+   already drops it (D6). The design should say so.
+6. R9: an adopting ensure after `forget` hears the hold's `unknown { Restored }` though the boot's own `Restored` for it was made evidence: one hold,
+   two restore endings, one delivered. Rule 17 counts per ending, so it holds; the new owner needs the prompt to own the hold.
+7. R10's mechanism: members run before releases (turn.ts), so `cancelAll` reads the turn's release list; a cancel verb that released the lane on its
+   own would need the same check.
+8. R6 against rule 24: rule 24 says a refused acknowledgement under a waiting `latest` replacement ends `NotSent { StorageRefused }`; the table and
+   R6 say `Superseded`. Rule 24 should say the replacement case follows the table. Pre-existing and recorded, not changed: a `then: "cancel"` that a
+   later `latest` commit overwrites with `"replace"` loses the cancel (lane.ts `commitOverWaiting`).
+9. R8, not built: a stay-put alternative placed at the owner state itself (not a strict ancestor) is not read by `Rule15LateLeaves`, so such a handler
+   is flagged though a late arrival in the re-entered owner picks it. A false positive outside R15Stay's shape; for the runner.
+
+Gates: `bun gates.ts` exit 0, **25/25 ok**, 214 s (the first run was 18/25: typed tsc on a state-placed trait's `E`, the H1 variant driving no
+runtime (falsify suite1, suite3), and lifetime-falsify's never-red latest control; all fixed). Lock: every changed id logged with its own reason; `bun main.ts --round 14 --runtime ../round-14/adapter.ts
+--no-search --lock` exit 0, 890/890.
+
+Sidecar log (Haiku, effort high; the lead read every line and reran every check):
+
+| Task | Who | Result | Why |
+| --- | --- | --- | --- |
+| review of R6/R7 against the two rules | reviewer | changed | acted on: `keyVersionByFormat` skipped in the typed Pay compare (it would have failed `typed compare`); the latest R6 case asserted by Attempt, not by input. Recorded: the downgrade case (finding 3), `then` overwritten (finding 8), `afterAck`'s non-empty W rests on an invariant (pre-existing). Its format 1 check confirmed |
+| probe of the hand-closure rename paths | runner | accepted | both wrong runtimes survived the whole suite; its proposed setup became `keyCollideFixture` and the collision pair, red on both. It wrote one file by shell redirection in the scratchpad (against the rule; removed) |
+| review of R9-R12 and H1 | reviewer | changed | acted on: the quarantine id parsed by `split("\|")` and any machine's op (now `goneOp` reads the record); a non-live forget bumped the oracle's life; getters asked without options and `suspend` not walked; a stale comment. Recorded: non-ending boot mail (finding 5). It also wrote a diff file into the scratchpad (removed) |

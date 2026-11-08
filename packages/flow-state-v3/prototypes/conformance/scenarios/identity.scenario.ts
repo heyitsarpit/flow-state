@@ -2,7 +2,7 @@
 // fields, in field-name order, and only those; the value is the input. A singleton has a literal name and takes input at ensure. Every
 // expectation is the design's text, worked by hand.
 import { actorRef, ensureArgs, type ActorRefOf } from "../compile/index.ts";
-import { Editor1, Editor2, Editor3, Editor4, Editor5, EditorId, editorFixture, editorFormat1Fixture, editorRef, SessionRef, sessionFixture, type Release } from "../typed/identity.ts";
+import { Editor1, Editor2, Editor3, Editor4, Editor5, EditorId, editor1Format1, editorFixture, editorFormat1Fixture, editorRef, SessionRef, sessionFixture, type Release } from "../typed/identity.ts";
 import type { Step } from "../harness.ts";
 import { Ctx, type Scenario } from "./ctx.ts";
 import { GRACE } from "./lifetime.scenario.ts";
@@ -99,13 +99,13 @@ export const identityScenarios: readonly Scenario[] = [
       "a-record-saved-by-an-earlier-version-format-restores-when-its-schema-did-not-change"(c0) {
         const rel: Release = { v: 0 };
         const r1 = editorRef({ workspaceId: "north", ticketId: "42" });
-        const r0 = { ...r1, fields: r1.fields.map((f) => `${f.split("#")[0]}#0c0ffee0`) }; // the same ref as that Flow spelled it
+        const r0 = { ...r1, fields: editor1Format1 }; // the same ref as that Flow spelled it
         const c = new Ctx(c0.fresh([editorFormat1Fixture(rel)], { captureMs: 0 }), at(r1));
         c.do(ensureStep(ensureArgs(r0)));
         c.send("Title", { title: "Foyer" });
         c.ack();
         c.answer("save", { ok: {} });
-        c.yes("saved in the untagged format", JSON.stringify([...c.r.stored().values()]).includes("#0c0ffee0"));
+        c.yes("saved in the untagged format, a real format 1 hash", editor1Format1.every((f) => /#[0-9a-f]{8}$/.test(f)) && editor1Format1.every((f) => JSON.stringify([...c.r.stored().values()]).includes(f)));
         c.h.release(() => void (rel.v = 1), () => void (rel.v = 0));
         c.reload();
         c.eq("not listed", c.r.evidence("OldVersionActor").length, 0);

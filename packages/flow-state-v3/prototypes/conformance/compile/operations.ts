@@ -4,7 +4,7 @@
 import { Effect, Schema, type Context } from "effect";
 import { OutcomeFailure, OutcomeUnknown, type CommitCtx, type CompiledOp, type CompiledOutput, type Mapped, type Op, type TokenGuard } from "../fixtures/compiled.ts";
 import { slotOf, type Fields, type Tagged, type TypeOf } from "./core.ts";
-import { versioned } from "./ref.ts";
+import { olderFormats, versioned } from "./ref.ts";
 import { isIgnore, isUncertain, type EndCtx, type From, type Ignore, type Token } from "./events.ts";
 
 // ── Services (D213, rule 57): named on the contract as values; `tsc` refuses a list that misses one of the commit's `R`.
@@ -186,7 +186,7 @@ const optionalOrDefaulted = (f: string, s: Schema.Top): boolean => {
 export const FLOW_REASONS = new Set(["Cancelled", "Restored", "Interrupted", "Defect", "StillUnknown", "StorageRefused", "Disposed"]);
 export const WRITE_ONLY_REASONS = new Set(["NotSent"]);
 // A contract's own unknown tags live in its commit's type, which this compile cannot read; what it can refuse is a key naming one of Flow's never-unknown reasons.
-const NEVER_UNKNOWN = new Set([...WRITE_ONLY_REASONS, "Rejected", "Overloaded", "Unencodable", "NoPersistence"]);
+const NEVER_UNKNOWN = new Set([...WRITE_ONLY_REASONS, "Rejected", "Overloaded", "Unencodable", "NoPersistence", "OldVersion"]);
 // `events`: the declaring definition's or fragment's event records, so `unknown:` is checked against `Flow.uncertain` (rule 13).
 export const compileOp = (definition: string, name: string, b: AnyBound, events: Readonly<Record<string, Fields>>, fragment?: string): CompiledOp => {
   const c = b.contract;
@@ -219,6 +219,7 @@ export const compileOp = (definition: string, name: string, b: AnyBound, events:
     ...(fragment ? { fragment } : {}),
     keyFields, // rule 39's field list: the one source of the lane's key (D215); the seal makes the key from it
     keyVersion: keyFields.map((f) => versioned(f, (c.input as Record<string, Schema.Top>)[f])),
+    keyVersionByFormat: olderFormats(keyFields.map((f) => [f, (c.input as Record<string, Schema.Top>)[f]] as const)),
     inputFields: Object.keys(c.input),
     services: (c.services ?? []).map((s) => s.key),
     concurrency: c.concurrency,

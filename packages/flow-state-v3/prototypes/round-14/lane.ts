@@ -581,21 +581,32 @@ const ACTIONS: Readonly<Record<Action, (tx: Tx, lane: Lane | undefined, a: CellA
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
 // A version entry is `name#format:hash`; the format tag says which Flow wrote it. Untagged: a bare name is format 0, `name#hash` format 1.
-const nameOf = (f: string) => f.split("#")[0]!;
 const formatOf = (f: string) => {
   const v = f.split("#")[1];
   return v === undefined ? 0 : v.includes(":") ? Number(v.split(":")[0]) : 1;
 };
-// Two version lists, in any order (a key is a record). Written by one format, they compare whole; across formats, by the part every format writes
-// alike (the name): a change of Flow's own encoding is no new version.
-export const sameVersion = (a: readonly string[], b: readonly string[]) => {
+const formatOfAll = (xs: readonly string[]) => (new Set(xs.map(formatOf)).size === 1 ? formatOf(xs[0]!) : undefined);
+const sameSet = (a: readonly string[], b: readonly string[]) => a.length === b.length && a.every((f) => b.includes(f)) && b.every((f) => a.includes(f));
+// Two version lists, in any order (a key is a record). Written by one format, they compare whole. Across formats, each side is compared with the
+// other's spelling of the current Schema in its own format (`older`, from the compiler), so a Schema change made in the same release as a Flow
+// upgrade is still a new version; with no spelling in that format, they differ.
+export type OlderFormats = Readonly<Record<string, readonly string[]>> | undefined;
+export const sameVersion = (a: readonly string[], b: readonly string[], older?: OlderFormats) => {
   if (a.length !== b.length) return false;
-  const one = new Set([...a, ...b].map(formatOf)).size === 1;
-  return one ? a.every((f) => b.includes(f)) : a.every((f) => b.some((g) => nameOf(g) === nameOf(f)));
+  if (a.length === 0) return true;
+  const fa = formatOfAll(a);
+  const fb = formatOfAll(b);
+  if (fa === undefined || fb === undefined) return false;
+  if (fa === fb) return sameSet(a, b);
+  const theirs = older?.[String(Math.min(fa, fb))];
+  return theirs !== undefined && sameSet(fa < fb ? a : b, theirs);
 };
-export const sameFields = (a: readonly string[] | undefined, b: readonly string[] | undefined) => a === undefined || b === undefined || sameVersion(a, b);
+export const sameFields = (a: readonly string[] | undefined, b: readonly string[] | undefined, older?: OlderFormats) =>
+  a === undefined || b === undefined || sameVersion(a, b, older);
 // Round 13 (D221): a mint stamps the fields its key is made under now; U17 B, each with its Schema's version where the compiler gave one.
 export const stampFields = (o: { readonly keyFields?: readonly string[]; readonly keyVersion?: readonly string[] } | undefined) => o?.keyVersion ?? o?.keyFields;
+export const olderOf = (o: { readonly keyVersion?: readonly string[]; readonly keyVersionByFormat?: OlderFormats } | undefined): OlderFormats =>
+  o?.keyVersion ? o.keyVersionByFormat : undefined;
 function stampOf(tx: Tx, machine: string, op: string): { keyFields?: readonly string[] } {
   const f = stampFields(tx.machines[machine]?.ops[op]);
   return f ? { keyFields: [...f] } : {};
@@ -607,7 +618,8 @@ function stampOf(tx: Tx, machine: string, op: string): { keyFields?: readonly st
 export const oldVersionLane = (tx: Tx, actor: string, machine: string, op: string): Lane | undefined => {
   const fields = stampFields(tx.machines[machine]?.ops[op]);
   if (!fields) return undefined;
-  return Object.values(tx.w.lanes).find((l) => l.actor === actor && l.op === op && l.keyFields !== undefined && !sameFields(l.keyFields, fields) && columnOf(l) !== "Idle");
+  const older = olderOf(tx.machines[machine]?.ops[op]);
+  return Object.values(tx.w.lanes).find((l) => l.actor === actor && l.op === op && l.keyFields !== undefined && !sameFields(l.keyFields, fields, older) && columnOf(l) !== "Idle");
 };
 // The one way a lane changes. A lane's status changes only through here (S3).
 export const cell = (tx: Tx, row: Row, lane: Lane | undefined, a: CellArgs) => {
@@ -629,7 +641,7 @@ export const cell = (tx: Tx, row: Row, lane: Lane | undefined, a: CellArgs) => {
     const old = oldVersionLane(tx, a.actor, a.machine, a.op);
     if (old) {
       note(tx, "BesideOldVersion", { op: a.op, lane: old.id });
-      return decline(tx, a, "Rejected");
+      return decline(tx, a, "OldVersion");
     }
   }
   const col = columnOf(lane);
@@ -652,8 +664,10 @@ export const guardCell = (
   const v = GUARD[verb][col];
   return v === "pass" || (v === "budget" && lane!.head!.retryCount < (times ?? Infinity));
 };
-// The whole lane: the head as `cancel` has it, then every queued commit ends NotSent { Cancelled }, a current ending, in lane order.
-export const cancelAll = (tx: Tx, lane: Lane | undefined, a: CellArgs) => {
+// The whole lane: the head as `cancel` has it, then every queued commit ends NotSent { Cancelled }, a current ending, in lane order. When the same
+// transition releases the lane (rule 60), the release wins: the head is left to it, and the queued commits end as evidence, owed to no one.
+export const cancelAll = (tx: Tx, lane: Lane | undefined, a: CellArgs, released = false) => {
+  if (released && lane) return setLane(tx, dropW(tx, lane));
   if (!lane?.w.length) return cell(tx, "cancel", lane, a);
   const queued = lane.w;
   const cleared = { ...lane, w: [] };

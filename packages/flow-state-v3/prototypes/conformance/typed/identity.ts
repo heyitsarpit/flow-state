@@ -73,13 +73,14 @@ export const Editor3 = editorV3();
 export const Editor4 = editorV3(S.NonEmptyString);
 export const Editor5 = editorV3(S.String.annotate({ description: "the ticket" }));
 export const editorFixture = (rel: Release = { v: 1 }) => fixture(() => (rel.v === 1 ? Editor1 : rel.v === 2 ? Editor2 : rel.v === 3 ? Editor3 : rel.v === 4 ? Editor4 : Editor5));
-// Round 15b (the runner's format tag): release 0 is Editor1 compiled by a Flow from before U17, whose identity version is the untagged format 1
-// (`field:encoded#hash`, the hash over the encoded side only; its value cannot be read by today's Flow, so a placeholder stands for it).
+// Round 15b (the runner's format tag): release 0 is Editor1 compiled by a Flow from before the tag, whose identity version is the untagged format 1
+// (`field:encoded#hash`, both sides hashed, no check representation). R7 (phase 1): the compiler keeps format 1's function, so the spelling is real.
 export const editorFormat1Fixture = (rel: Release) => {
   const fx = editorFixture({ v: 1 });
-  const format1 = (c: ReturnType<typeof fx.make>) => ({ ...c, identityVersion: c.identityVersion?.map((f) => `${f.split("#")[0]}#0c0ffee0`) });
+  const format1 = (c: ReturnType<typeof fx.make>) => ({ ...c, identityVersion: c.identityVersionByFormat!["1"]! });
   return { ...fx, make: (api: Parameters<typeof fx.make>[0]) => (rel.v === 0 ? format1(fx.make(api)) : fx.make(api)) };
 };
+export const editor1Format1 = Editor1.compiled.identityVersionByFormat!["1"]!;
 const session = definition({
   id: SessionId,
   states: ["ON"],

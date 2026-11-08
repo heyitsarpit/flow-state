@@ -19,12 +19,16 @@ const kSchema = (v: number) =>
         ? S.String.check(S.isMinLength(v - 5))
         : v === 8 || v === 9
           ? S.String.check(S.makeFilter((s: string) => s.length < (v === 8 ? 10 : 20)))
-          : S.String;
-const fieldsOf = (v: number) => (v === 2 ? (["k", "region"] as const) : (["k"] as const));
+          : v === 10
+            ? S.Number
+            : S.String;
+// Phase 1 (round 13's H2, K1): release 10 keeps the name `k` and makes it a number, a new version. Release 11 is release 2's key reordered (M2).
+const fieldsOf = (v: number) => (v === 2 ? (["k", "region"] as const) : v === 11 ? (["region", "k"] as const) : (["k"] as const));
+const regionRequired = (v: number) => v === 2 || v === 11;
 const stamped = (rel: Release, policy: Op["concurrency"]) => {
   const charge = transaction({
     id: "lab/stamp-charge",
-    input: { k: kSchema(rel.v), id: S.String, region: rel.v === 2 ? S.String : S.optionalKey(S.String) },
+    input: { k: kSchema(rel.v), id: S.String, region: regionRequired(rel.v) ? S.String : S.optionalKey(S.String) },
     key: fieldsOf(rel.v),
     concurrency: policy,
     services: [FakeApi],
@@ -35,16 +39,23 @@ const stamped = (rel: Release, policy: Op["concurrency"]) => {
     id: "Lab/KeyStamp",
     persist: true,
     states: [],
-    events: { Go: Key, Guarded: Key, Retry: Key, Cancel: Key },
+    events: { Go: Key, Guarded: Key, Retry: Key, Cancel: Key, Retryable: Key },
     internalEvents: { Ok: {}, No: { why: S.String }, Unsure: Flow.uncertain({}) },
-    memory: { unsure: Flow.initial(S.Number, 0), declined: Flow.initial(S.Number, 0), guardedOut: Flow.initial(S.Number, 0), oks: Flow.initial(S.Number, 0) },
+    memory: {
+      unsure: Flow.initial(S.Number, 0),
+      declined: Flow.initial(S.Number, 0),
+      guardedOut: Flow.initial(S.Number, 0),
+      oks: Flow.initial(S.Number, 0),
+      why: Flow.initial(S.String, ""),
+      notRetryable: Flow.initial(S.Number, 0),
+    },
     operations: ({ E }) => ({
       charge: charge.outcomes({ success: E.Ok, failure: { NotSent: E.No.from((r: { why: string }) => ({ why: r.why })) }, unknown: E.Unsure }),
     }),
   });
   type K = { readonly k: string; readonly region?: string };
   // A commit's input; a member's key is exactly the event's fields, so an old-version hold is named by its own old key (an exact lane id).
-  const input = (e: K) => ({ k: e.k, id: `${e.k}-${e.region ?? "none"}-${rel.v}`, ...(e.region === undefined ? (rel.v === 2 ? { region: "eu" } : {}) : { region: e.region }) });
+  const input = (e: K) => ({ k: rel.v === 10 ? Number(e.k) : e.k, id: `${e.k}-${e.region ?? "none"}-${rel.v}`, ...(e.region === undefined ? (regionRequired(rel.v) ? { region: "eu" } : {}) : { region: e.region }) });
   const keyOf = (e: K) => (e.region === undefined ? { k: e.k } : { k: e.k, region: e.region });
   return machine(d, ({ O }) => ({
     default: { node: "root" },
@@ -57,8 +68,12 @@ const stamped = (rel: Release, policy: Op["concurrency"]) => {
       // `as never`: a typed member names the current version's key; an old version's key has another shape, which no typed handle has yet (owed).
       Retry: { actions: [O.charge.retry(({ event }) => keyOf(event) as never)] },
       Cancel: { actions: [O.charge.cancel(({ event }) => keyOf(event) as never)] },
+      Retryable: [
+        { guard: [O.charge.retryable(({ event }) => keyOf(event) as never, { times: 3 })], actions: [O.charge.retry(({ event }) => keyOf(event) as never)] },
+        { updateMemory: ({ memory }) => ({ notRetryable: memory.notRetryable + 1 }) },
+      ],
       Ok: { updateMemory: ({ memory }) => ({ oks: memory.oks + 1 }) },
-      No: { updateMemory: ({ memory }) => ({ declined: memory.declined + 1 }) },
+      No: { updateMemory: ({ memory, event }) => ({ declined: memory.declined + 1, why: event.why }) },
       Unsure: { updateMemory: ({ memory }) => ({ unsure: memory.unsure + 1 }) },
     },
   }));

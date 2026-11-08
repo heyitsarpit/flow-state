@@ -6,7 +6,7 @@ import { getActor, setActor, noActors, type Actors } from "./actors.ts";
 import { canon, carried, standIn, text, own, Unencodable, validActor, validLane } from "./gate.ts";
 import type { Compiled } from "../conformance/fixtures/compiled.ts";
 import { hook, saveAll } from "./hooks.ts";
-import { afterAck, cell, sameFields, sameVersion, stampFields } from "./lane.ts";
+import { afterAck, cell, olderOf, sameFields, sameVersion, stampFields } from "./lane.ts";
 import { armTimer, disarmTimer } from "./timers.ts";
 import {
   clearStall,
@@ -44,6 +44,10 @@ export const onStored = (tx: Tx, i: { attempt: string; ticket: string; ok: boole
     return note(tx, "fence", { stored: i.attempt });
   disarmTimer(tx, `storage/${i.attempt}`);
   clearStall(tx, i.attempt);
+  if (!i.ok && p.then === "replace") {
+    note(tx, "StorageFailure", { op: l.op, attempt: i.attempt });
+    return afterAck(tx, { ...l, head: { ...l.head!, phase: { t: "ready" } } }, "replace");
+  }
   if (!i.ok) {
     return cell(tx, "storageRefused", l, {
       actor: l.actor,
@@ -94,7 +98,6 @@ const laneBody = (tx: Tx, l: Lane) =>
     w: l.w.map((a) => saveAttempt(tx, a)),
     parked: storableParked(tx, l),
     ...(l.releasing ? { releasing: true } : {}),
-    ...(l.forgotten ? { forgotten: true } : {}),
   });
 const stamped = (tx: Tx, body: string) => `{"boot":${tx.w.boot},${body.slice(1)}`; // D99
 // D80: a reference, not bytes. The world is immutable, so this is already a whole publication; the driver encodes it when it writes.
@@ -291,7 +294,8 @@ export const restore = (tx: Tx, records: ReadonlyArray<readonly [string, string]
       // by shared fields, never restored: no ref can spell its identity. Its lanes stay unbound (rule 44).
       // The version is the field set and each field's Schema (type and encoded side), not the names alone.
       const now = mm.identityVersion ?? [];
-      if (Array.isArray(v.fields) && !sameVersion(v.fields, now)) {
+      const older = mm.identityVersion ? mm.identityVersionByFormat : undefined;
+      if (Array.isArray(v.fields) && !sameVersion(v.fields, now, older)) {
         note(tx, "OldVersionActor", { actor: v.key, fields: v.fields, now });
         continue;
       }
@@ -357,7 +361,7 @@ export const restore = (tx: Tx, records: ReadonlyArray<readonly [string, string]
     undecodable,
   };
   const recorded = new Set([...actors, ...retired].map(([k]) => k));
-  for (const [, l] of lanes) if (!recorded.has(l.actor) && !Object.hasOwn(undecodable, l.actor) && !l.forgotten) note(tx, "UnboundLane", { actor: l.actor, op: l.op, lane: l.id });
+  for (const [, l] of lanes) if (!recorded.has(l.actor) && !Object.hasOwn(undecodable, l.actor)) note(tx, "UnboundLane", { actor: l.actor, op: l.op, lane: l.id });
   for (const t of timers) {
     const { gen: _g, ...spec } = t;
     armTimer(tx, spec);
@@ -436,7 +440,7 @@ const placeLanes = (tx: Tx, lanes: ReadonlyArray<readonly [string, SavedLane]>):
   const taken = new Set(lanes.filter((_, i) => moves[i] === undefined).map(([, v]) => v.id));
   return lanes.map(([k, v], i): [string, SavedLane] => {
     const fields = stampFields(tx.machines[v.machine]!.ops[v.op]);
-    if (v.keyFields !== undefined && fields && !sameFields(v.keyFields, fields)) note(tx, "OldVersionLane", { op: v.op, lane: v.id, keyFields: v.keyFields });
+    if (v.keyFields !== undefined && fields && !sameFields(v.keyFields, fields, olderOf(tx.machines[v.machine]!.ops[v.op]))) note(tx, "OldVersionLane", { op: v.op, lane: v.id, keyFields: v.keyFields });
     const fresh = moves[i];
     if (fresh === undefined) return [k, v];
     const id = laneKey(v.actor, v.op, fresh);

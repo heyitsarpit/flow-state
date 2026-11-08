@@ -1846,3 +1846,75 @@ file:expected-recipients.txt hash:c4b5fe13b002 | the forget variants: 3 more rec
 output:R15-01/forget-also-turns-a-boot-queued-ending-into-evidence hash:04822a9b2c12 | new output: a record kept at ready, forgotten, its Restored evidence
 output:R15-01/forget-of-a-live-actor-is-refused hash:f787ba9ccfae | new output: ForgetLiveActor, the ending heard
 output:R15-01/forget-turns-parked-endings-into-evidence-and-keeps-the-hold hash:e852b20f038b | new output: parked ending forgotten, the hold adopted
+R14-ID-02 hash:838efa571a49 | phase 1 R12: the format-1 case's record carries the compiler's real format 1 hash, not a placeholder
+R15-01 hash:444075e90839 | phase 1 R9 (C173): forget removes the record and keeps the hold unbound and reported; a live actor is disposed first
+P1-H hash:678d6ee8d592 | phase 1 area H: H1, H2, M2 pins and the runner's R5-R7, R9-R12 cases
+file:scenarios/identity.scenario.ts hash:100997aa0db3 | R12: the format-1 ref is spelled by the kept format 1 function
+file:scenarios/phase1h.scenario.ts hash:7512aeca8a04 | new: phase 1 area H's case file
+file:scenarios/round15.scenario.ts hash:194a28c1444a | R9's three forget variants rewritten to C173; R12's no-session-after-disposal assertion
+file:fixtures/phase1h.compiled.ts hash:0b6411dd7de0 | new: KeyCollide, a hand key closure whose release moves a lane onto a kept name (M2)
+file:typed/identity.ts hash:bc146a33c84f | R12: editorFormat1Fixture writes a real format 1 identity version
+file:typed/phase1h.ts hash:dd30baed4f66 | new: P1All, P1Q/P1Rel, P1Latest, P1Gone and the format 1 helpers
+file:typed/round13.ts hash:e9b8dbf27da8 | KeyStamp: releases 10 (k a number) and 11 (key reordered), a Retryable event, why and notRetryable in memory
+file:compile/machine.ts hash:96cfc9a32d16 | R7: identityVersionByFormat, each older format's spelling of the identity version
+file:compile/memory.ts hash:ce3d0b774a47 | H1 by U12 B: an Effect-valued default is ImpureDefault at construction, read from the AST, never run
+file:compile/operations.ts hash:fdfc27cfc11d | R7: keyVersionByFormat; OldVersion is a never-unknown Flow reason
+file:compile/ref.ts hash:79f9291609d3 | R7: each older format's function kept (format 1: both sides, no check representation)
+file:suite.ts hash:08d9b98feee4 | registers phase1h.scenario.ts
+file:falsify.ts hash:af7ac830e2b3 | R11: two lies, a faked HeldThisTurn after a re-send and a latest op read as a same-named cancel op
+file:drive.ts hash:104300e40a83 | R11 oracle scoping (own op's policy; no re-send since heard); the reference rebuilt per release; forget ends the actor as dispose does; OldVersion a NotSent why
+round:typed/compare.ts hash:97f76edf3397 | R7: keyVersionByFormat is typed only, skipped in the Pay compare
+round:checks/front-check.ts hash:bae623d11e84 | H1 (U12 B) refusal pins and M2's two equal defaults pin
+round:mutants-lifetime.ts hash:c74f443ebe53 | spreads mutants-p1h.ts; three anchors moved by R7's sameVersion arguments
+round:mutants-p1h.ts hash:12eb8ea509ce | new: phase 1 area H's wrong runtimes
+round:mutants-r15.ts hash:9709edd023e0 | R12: stale kill name fixed; anchors moved by R7 and R9 (no forgotten mark)
+round:mutants-r15d.ts hash:76b24000018b | R9: forget mutants re-anchored, forgotten-not-reported inverted, three added
+round:adapter.ts hash:c9a4de726b18 | R9: Inspection has no forgotten list; a forgotten identity's held lane is unbound
+output:P1-H/a-bare-stamp-across-a-type-change-is-compared-by-name-a-stated-limit hash:14a4237c5009 | new output: R7's format 0 limit
+output:P1-H/a-cancel-all-in-a-turn-that-releases-the-lane-ends-the-queue-as-evidence hash:7f96770b3be4 | new output: R10, the queue as evidence
+output:P1-H/a-cancel-all-on-an-idle-lane-does-nothing hash:5db8afe44a19 | new output: R5, cancelAll on Idle
+output:P1-H/a-cancel-all-with-its-head-on-the-wire-hears-the-queue-first-and-the-held-head-last hash:af0d0a35aca8 | new output: R5, queue then held head
+output:P1-H/a-default-that-runs-is-refused-at-construction-and-never-runs hash:97d170e1550e | new output: H1, nothing driven
+output:P1-H/a-format-1-stamp-of-an-unchanged-key-is-the-current-version hash:6c74ffd9deda | new output: R7 control, op key
+output:P1-H/a-hand-key-rename-onto-a-kept-name-is-refused-loudly-keeper-first hash:ada6de0380fa | new output: M2 collision, keeper minted first
+output:P1-H/a-hand-key-rename-onto-a-kept-name-is-refused-loudly-mover-first hash:e5f1b32b199a | new output: M2 collision, mover minted first
+output:P1-H/a-key-field-changed-from-string-to-number-under-its-name-is-a-new-version hash:34f60a023ddd | new output: H2's K1
+output:P1-H/a-keyed-member-with-a-new-version-key-names-nothing hash:fc7dbccf2cf6 | new output: M2, a new key names nothing
+output:P1-H/a-keyed-retryable-sees-its-own-lane-only hash:01956642bb91 | new output: M2, retryable by its own lane
+output:P1-H/a-release-that-only-reorders-key-fields-is-the-same-version hash:16db6b559166 | new output: M2, reorder only
+output:P1-H/a-type-change-in-the-release-that-upgrades-the-format-is-a-new-version-of-the-op hash:9d00307162f5 | new output: R7, format 1 stamp across Trim
+output:P1-H/an-actor-record-in-format-1-across-a-type-change-is-an-old-version-record hash:3a720ed937a3 | new output: R7, actor record across NumberFromString
+output:P1-H/an-actor-record-in-format-1-of-an-unchanged-schema-restores hash:38365c548b9b | new output: R7 control, actor record
+output:P1-H/an-old-version-hold-back-on-the-wire-still-declines-every-commit hash:da8beba40a8d | new output: M2, the old hold on the wire
+output:P1-H/forget-drops-a-hold-whose-operation-is-gone-with-evidence hash:a2a8dffaa71e | new output: R9, a gone op's hold dropped at forget
+output:P1-H/the-decline-beside-an-old-version-hold-is-not-sent-old-version hash:9d00307162f5 | new output: M2, the OldVersion reason
+output:P1-H/under-cancel-a-refused-acknowledgement-of-a-replaced-head-is-superseded hash:b19ec9714cd5 | new output: R6 under cancel
+output:P1-H/under-latest-a-refused-acknowledgement-of-a-replaced-head-is-superseded hash:a42b44c6e177 | new output: R6 under latest
+output:P1-H/under-latest-beside-a-same-named-cancel-op-a-commit-over-the-wire-queues hash:086aebc930ba | new output: R11 control, latest beside cancel
+output:R13-KEYS/a-keyed-idle-sees-an-old-version-hold hash:66039f5180e4 | KeyStamp memory gains why and notRetryable (idle case)
+output:R13-KEYS/a-release-that-adds-a-key-field-declines-every-commit-until-the-old-hold-ends hash:4264b0648163 | KeyStamp memory gains why and notRetryable; why is OldVersion now
+output:R13-KEYS/a-release-that-removes-a-key-field-keeps-every-old-hold-eu-first hash:a99145d75286 | KeyStamp memory: why OldVersion after the eu-first declines
+output:R13-KEYS/a-release-that-removes-a-key-field-keeps-every-old-hold-us-first hash:c78442f42e2b | KeyStamp memory: why OldVersion after the us-first decline
+output:R13-KEYS/a-reload-in-between-keeps-the-old-version-hold hash:db4674622584 | KeyStamp memory: why OldVersion across a reload
+output:R13-KEYS/another-actor-is-not-held hash:aa558290cc11 | KeyStamp memory gains two fields, for both actors
+output:R13-KEYS/serialize-declines-beside-an-old-version-hold-and-queues-nothing hash:9fabe915a4b8 | KeyStamp memory: why OldVersion under serialize
+output:R13-KEYS/with-no-release-two-keys-are-two-lanes hash:d66e90d6bbc7 | KeyStamp memory gains two fields, nothing declined
+output:R15-01/a-custom-filter-change-is-no-new-version-a-stated-limit hash:4c07e60b2db8 | KeyStamp memory fields added; no decline (custom filter)
+output:R15-01/a-key-fields-check-parameter-change-is-a-new-version-of-the-op hash:e3e8a576168e | KeyStamp memory: why OldVersion (check parameter)
+output:R15-01/a-key-fields-description-change-is-no-new-version-of-the-op hash:d63602b14d18 | KeyStamp memory fields added; no decline (description)
+output:R15-01/a-key-fields-type-side-change-is-a-new-version-of-the-op hash:9d00307162f5 | KeyStamp memory: why OldVersion (type side)
+output:R15-01/a-names-only-stamp-from-before-the-upgrade-is-the-current-version hash:00112b51e99c | KeyStamp memory fields added; no decline (bare stamp)
+output:R15-01/forget-also-turns-a-boot-queued-ending-into-evidence hash:698b1b345617 | R9: the record removed, the fresh actor adopts the hold and hears Restored
+output:R15-01/forget-of-a-live-actor-disposes-it-then-forgets hash:fdff1af58a5f | new output: R9, dispose then forget
+output:R15-01/forget-turns-parked-endings-into-evidence-and-keeps-the-hold hash:1c7aebdc2209 | R9: UnboundLane at each boot, no forgotten list
+removed:variant:R15-01/forget-of-a-live-actor-is-refused | phase 1 R9 (W27): forget of a live actor disposes it first; now forget-of-a-live-actor-disposes-it-then-forgets
+removed:output:R15-01/forget-of-a-live-actor-is-refused | phase 1 R9: same; the refusal is gone
+file:expected-recipients.txt hash:e1009d50ab26 | P1-H's 20 variants: 36 more recipients observed, 13 restored states, 35 start nodes; no red count moved
+P1-H hash:0e33b51a2203 | gate fixes: the H1 variant drives the runtime (falsify suite1 and suite3) and refuses a default under suspend
+file:scenarios/phase1h.scenario.ts hash:c033a184a4f9 | the same H1 variant change
+file:typed/phase1h.ts hash:c0bfbce35074 | typed tsc: a state-placed trait's raise is cast (E types the definition's own traits only)
+file:compile/memory.ts hash:c767ac128869 | review: a getter that throws on an absent key is no default; Suspend is walked
+file:drive.ts hash:72441251888d | review: forget of an identity with no actor ends no life and no uses
+round:mutants-p1h.ts hash:512fd8952e35 | the latest-as-cancel lie as a wrong runtime, for lifetime-falsify
+round:mutants-r15d.ts hash:1a6b6c422c2b | the gone-op mutant re-anchored on goneOp
+output:P1-H/a-default-that-runs-is-refused-at-construction-and-never-runs hash:60bcfa62c806 | output now has the CtorInput actor

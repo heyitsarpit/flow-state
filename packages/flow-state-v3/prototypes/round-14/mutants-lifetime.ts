@@ -8,6 +8,7 @@ import { MUTANTS as R15 } from "./mutants-r15.ts";
 import { MUTANTS as R15B } from "./mutants-r15b.ts";
 import { MUTANTS as R15C } from "./mutants-r15c.ts";
 import { MUTANTS as R15D } from "./mutants-r15d.ts";
+import { MUTANTS as P1H } from "./mutants-p1h.ts";
 const m = (id: string, kills: string, file: string, find: string, replace = "") => ({ id, kills: [kills], edits: [[file, find, replace]] as ReadonlyArray<readonly [string, string, string]> });
 const WRITE = 'if (l.actor === key && l.head !== undefined && l.head.phase.t !== "held") out.push(`write:${l.op}`);';
 const READ = "for (const id in w.reads) if (w.reads[id]!.actor === key && w.reads[id]!.kept) out.push(`read:${w.reads[id]!.op}`);";
@@ -49,8 +50,8 @@ export const MUTANTS = [
   m("life.no-soon-note", "LIFE-30", "step.ts", "if (tx.env.now < soon.dueAt) note(", "if (false) note("),
   // Identity (rule 74, OD30), area 2.
   m("id.record-without-fields", "R14-ID-02/a-field-added-is-a-new-version", "step.ts", "...(identity ? { fields: [...identity].sort() } : {})", ""),
-  m("id.old-version-restored", "R14-ID-02/a-field-added-is-a-new-version", "durable.ts", "if (Array.isArray(v.fields) && !sameVersion(v.fields, now))", "if (false && Array.isArray(v.fields) && !sameVersion(v.fields, now))"),
-  m("id.version-by-names-only", "R14-ID-02/an-encoded-side-change-is-a-new-version", "durable.ts", "!sameVersion(v.fields, now)", "!sameVersion(v.fields.map((f: string) => f.split(\":\")[0]!), now.map((f) => f.split(\":\")[0]!))"),
+  m("id.old-version-restored", "R14-ID-02/a-field-added-is-a-new-version", "durable.ts", "if (Array.isArray(v.fields) && !sameVersion(v.fields, now, older))", "if (false && Array.isArray(v.fields) && !sameVersion(v.fields, now, older))"),
+  m("id.version-by-names-only", "R14-ID-02/an-encoded-side-change-is-a-new-version", "durable.ts", "!sameVersion(v.fields, now, older)", "!sameVersion(v.fields.map((f: string) => f.split(\":\")[0]!), now.map((f) => f.split(\":\")[0]!))"),
   m("id.dispose-drops-lanes", "FRAG-08/rebind-delivers-a-hold-once", "step.ts", 'if (m.local && how !== "remount")', 'if (how !== "remount")'),
   // Flow.ignore (OD28, 2.7.18), area 3.
   m("ign.runs-a-turn", "R14-IGN-01", "turn.ts", "if (mm && mappedFor(mm, item)?.ignore) {", "if (false) {"),
@@ -75,7 +76,7 @@ export const MUTANTS = [
     ["step.ts", 'for (const m of bootMail ?? []) if (m.k === "ending") note(tx, "unparked", { op: m.op, attempt: m.attempt ?? "", record: true });', ""],
   ] as ReadonlyArray<readonly [string, string, string]> },
   m("m5.return-from-ready-writes", "R14-FIX-01/a-return-from-ready-writes-nothing", "step.ts", "if (!fromBoot) tx.touchedActors.add(key);", "tx.touchedActors.add(key);"),
-  m("l1.version-by-printed-name", "R14-ID-02/an-encoded-side-change-is-a-new-version", "../conformance/compile/ref.ts", "names.map((f) => versioned(`${f}:${String(SchemaAST.toEncoded((fields[f]!.schema as Schema.Top).ast))}`, fields[f]!.schema));", "names.map((f) => `${f}:${String(SchemaAST.toEncoded((fields[f]!.schema as Schema.Top).ast))}`);"),
+  m("l1.version-by-printed-name", "R14-ID-02/an-encoded-side-change-is-a-new-version", "../conformance/compile/ref.ts", "identityEntries(fields, names).map(([n, s]) => versioned(n, s));", "identityEntries(fields, names).map(([n]) => n);"),
   m("d3.return-keeps-old-id", "R14-FIX-03", "step.ts", "const inc = fromBoot ? old : nextGen(tx);", "const inc = old;"),
   m("d1.woken-drops-stopped", "LIFE-13/a-stopped-read-is-heard-when-woken-at-ready", "step.ts", "for (const m of stoppedEndings(tx, key, stopped, rec.root.id, rec.root.id)) enqueue(tx, m);", ""),
   m("d1.reload-drops-stopped", "LIFE-13/a-stopped-read-is-heard-after-a-reload", "durable.ts", "...(stopped.value ? { stopped: stopped.value } : {})", ""),
@@ -89,4 +90,5 @@ export const MUTANTS = [
   ...R15B,
   ...R15C,
   ...R15D,
+  ...P1H,
 ];

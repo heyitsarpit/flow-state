@@ -266,7 +266,7 @@ export type BootArgs = {
 export type BootReads = Pick<Instance, "state" | "binding" | "memory" | "inner" | "version">;
 // 2.7.17 Reads: what a handle shows for an identity. Inspection O1's `uses` per actor, the armed grace's deadline and the waiting schedules.
 export type Snapshot = { lifecycle: "active" | "disposed" | "pre-attach" | "quarantined"; state?: string; memory?: unknown; issue?: string };
-export type Inspected = { uses: readonly string[]; busy: readonly string[]; grace?: number; waiting: readonly string[]; unbound?: readonly string[]; forgotten?: readonly string[]; quarantined?: readonly string[] };
+export type Inspected = { uses: readonly string[]; busy: readonly string[]; grace?: number; waiting: readonly string[]; unbound?: readonly string[]; quarantined?: readonly string[] };
 export type Instance = {
   ensure(actor: string, machine: string, input: unknown, identity?: readonly string[]): void;
   send(actor: string, event: Ev): void;

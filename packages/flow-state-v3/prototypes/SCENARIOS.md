@@ -534,3 +534,4 @@ Convergence-8. Old unbuilt rows (`STORY-ALL`, `BROWSER-*`, `SSR-01`) renumbered 
 | R15-01 | 14 | fault | design | rule:15, rule:43 |  | Round 15, the rulings owed (OD48): rule 15's cancel exemption covers a never-sent head promoted at settlement |
 | R15-02 | 14 | fault | design | rule:43, rule:16, rule:44 |  | Round 15, rulings already true (U2, U3): key-less cancel in a keyed success or a NotSent handler does nothing; two queued commits heard before the held head at a reload |
 | R15-03 | 14 | fault | design | sec:2.2.2 |  | Round 15, U9 already true: creation checks input by its type side, so "3" for a NumberFromString field is refused |
+| P1-H | 14 | fault | design | rule:24, sec:2.7.13, D48 |  | Phase 1 area H: round 13's H1 (impure defaults refused), H2 (K1), M2 (D221's unpinned paths), and the runner's R5-R7, R9-R12 |

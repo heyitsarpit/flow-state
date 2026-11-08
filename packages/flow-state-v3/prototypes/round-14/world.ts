@@ -58,7 +58,6 @@ export type Lane = {
   readonly w: readonly Attempt[];
   readonly parked: readonly Parked[];
   readonly releasing?: true; // rule 60
-  readonly forgotten?: true; // Q1 A: its identity was forgotten: an ending with no actor is evidence, and it is not reported unbound, until an incarnation binds it
   // Round 13 (D221, round 12 review H1): the key fields this lane's key was made under, stamped at mint and by a rekey. A lane is "under an older key"
   // only when this differs from its operation's current `keyFields`: a release boundary, never a key's shape. Absent: a hand key closure (F2), no fields.
   readonly keyFields?: readonly string[];

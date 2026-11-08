@@ -199,6 +199,7 @@ const build = (Slot: S.Top) => {
     commit: Slot,
     keyFields: S.Array(S.String), // round 12 (D215): the one source of the key, so no `key` Slot
     keyVersion: S.optionalKey(S.Array(S.String)), // U17 B: each key field with its Schema's version, the lane's stamp
+    keyVersionByFormat: S.optionalKey(S.Record(S.String, S.Array(S.String))), // R7: in each older version format
     inputFields: S.Array(S.String),
     services: S.Array(S.String), // D213
     inputNotCarried: opt(S.Array(S.String)),
@@ -222,6 +223,7 @@ const build = (Slot: S.Top) => {
     local: opt(S.Literal(true)),
     identityFields: opt(S.Array(S.String)), // round 14 (rule 74): a value ref's identity fields
     identityVersion: opt(S.Array(S.String)), // OD30 Q3: and their Schemas
+    identityVersionByFormat: opt(S.Record(S.String, S.Array(S.String))), // R7: in each older version format
     streams: opt(S.Unknown), // the same: the sessions module's data, typed with streams
     events: Events, // round 12 (D216): required; round 13 (M3): with payloads
   });

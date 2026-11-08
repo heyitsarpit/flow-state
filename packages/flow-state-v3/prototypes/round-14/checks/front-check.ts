@@ -205,6 +205,15 @@ eq("D222 the restore door takes the constructor default too", (r13.memory.restor
 eq("D222 a decoding default at creation", (memOf({ n: Flow.input(S.Number.pipe(S.withDecodingDefaultKey(Effect.succeed(4)))) })().compiled.memory.initial.run({}) as { n: number }).n, 4);
 eq("D222 two different defaults", threw(memOf({ n: Flow.input(S.Number.pipe(S.withDecodingDefaultKey(Effect.succeed(4)), S.withConstructorDefault(Effect.succeed(7)))) })), "TwoDefaults");
 eq("D222 a default beside Flow.initial", threw(memOf({ n: Flow.initial(S.Number.pipe(S.withConstructorDefault(Effect.succeed(7))), 1) })), "TwoDefaults");
+eq("D222 two equal defaults are one default", threw(memOf({ n: Flow.input(S.Number.pipe(S.withDecodingDefaultKey(Effect.succeed(7)), S.withConstructorDefault(Effect.succeed(7)))) })), "");
+// U12 B (OD48): a default is pure; one that is an Effect to run is refused at construction, and is never run.
+let ran = 0;
+eq("U12 a constructor default that runs is refused", threw(memOf({ n: Flow.input(S.Number.pipe(S.withConstructorDefault(Effect.sync(() => ++ran)))) })), "ImpureDefault");
+eq("U12 a decoding default that runs is refused", threw(memOf({ n: Flow.input(S.Number.pipe(S.withDecodingDefaultKey(Effect.sync(() => ++ran)))) })), "ImpureDefault");
+eq("U12 a type-side decoding default that runs is refused", threw(memOf({ n: Flow.input(S.NumberFromString.pipe(S.withDecodingDefaultTypeKey(Effect.sync(() => ++ran)))) })), "ImpureDefault");
+eq("U12 a nested field's default that runs is refused", threw(memOf({ n: Flow.input(S.Struct({ at: S.Number.pipe(S.withConstructorDefault(Effect.sync(() => ++ran))) })) })), "ImpureDefault");
+eq("U12 a mapped Effect is not a value", threw(memOf({ n: Flow.input(S.Number.pipe(S.withConstructorDefault(Effect.succeed(1).pipe(Effect.map((x) => x + 1))))) })), "ImpureDefault");
+eq("U12 no refused default ran", ran, 0);
 // D221 (rule 39): a key field is required and has no default.
 const keyed = (k: Schema.Top) => () =>
   machine(definition({ id: "T/Key", states: ["A"], events: {}, internalEvents: { Ok: {}, No: {}, Unsure: Flow.uncertain({}) }, memory: {}, operations: ({ E }) => ({ o: transaction({ id: "t/key", input: { k }, key: ["k"], concurrency: "reject", commit: () => Effect.void }).outcomes({ success: E.Ok, failure: { NotSent: E.No }, unknown: E.Unsure }) }) }), ({ S: St }) => ({ default: St.A, on: { Ok: {}, No: {}, Unsure: {} } }));

@@ -671,8 +671,13 @@ export const makeHarness = (port: Port) => (): Harness => {
   };
   // C153, 2.7.13's `cancel` table: an Attempt a newer commit of the same op by the same actor replaced is evidence ("its ending is evidence by Attempt id").
   // Only while it had not ended: a newer mint seen before this Attempt's ending.
+  // The policy of this Attempt's own op: its owner's machine, never another fixture's op of the same name (phase 1, R11).
+  const cancelOf = (att: string, op: string) => {
+    const owner = attemptActor.get(att);
+    return owner !== undefined && (compiled.find((c) => c.id === machineOf(owner))?.ops as any)?.[op]?.concurrency === "cancel";
+  };
   const replacedUnderCancel = (att: string, op: string) => {
-    if (!compiled.some((c) => (c.ops as any)[op]?.concurrency === "cancel")) return false;
+    if (!cancelOf(att, op)) return false;
     const owner = attemptActor.get(att);
     const mine = made.get(att) ?? Infinity;
     const ended = evidence.findIndex((e) => e["kind"] === "ending" && e["attempt"] === att);
@@ -769,7 +774,7 @@ export const makeHarness = (port: Port) => (): Harness => {
     }
   };
   // A `NotSent` ending's `why`s (rule 13, 2.7.13): the reason its evidence carries in place of the tag.
-  const NOT_SENT = new Set(["Restored", "Ended", "NotLive", "Unencodable", "Unproven", "Cancelled", "Disposed", "StorageRefused", "Rejected", "Overloaded"]);
+  const NOT_SENT = new Set(["Restored", "Ended", "NotLive", "Unencodable", "Unproven", "Cancelled", "Disposed", "StorageRefused", "Rejected", "Overloaded", "OldVersion"]);
   // Review M2: loading is the fake's fact (a load the suite has not answered), ended early only by a boot the runtime said with none.
   const loadingNow = () => fake.loadPending && !bootSeen;
   // Rule 13: the event an ending maps to, from the compiled outcomes and what the ending is (its channel and reason).
@@ -1396,7 +1401,10 @@ export const makeHarness = (port: Port) => (): Harness => {
     bootSeen = false;
     saidNoBoot = false;
     anchored = reloadFacts === undefined; // a crash after a boot boots again from the same reload
-    if (releases.length > 0) compiled = compileAll();
+    if (releases.length > 0) {
+      compiled = compileAll();
+      reference = undefined; // the reference answers for the release this boot runs, not the first one
+    }
     const seen = observing(compiled);
     const onEvidence = (e: readonly Record<string, any>[]) => {
       collectSometimes();
@@ -1520,23 +1528,27 @@ export const makeHarness = (port: Port) => (): Harness => {
       ensured.delete(lastUse);
       seenLive.delete(lastUse);
     }
-    if ("dispose" in s) {
+    // W27 (phase 1, R9): `forget` of a live actor disposes it first, so it ends the actor as a dispose does; of one with no actor, it ends no life.
+    const forgot = "forget" in s ? actorKey(s.forget) : undefined;
+    const forgetLive = forgot !== undefined && (ensured.has(forgot) || seenLive.has(forgot));
+    const ended = "dispose" in s ? actorKey(s.dispose) : forgetLive ? forgot : undefined;
+    if (ended !== undefined) {
       // Rule 73 (OD31): `disposeActor` removes the record, and a frozen copy's read endings (rule 52) live in it: their parking is owed to nobody now.
-      for (const k of [...parkedOwed.keys()]) if (k.slice(k.indexOf(" ") + 1).startsWith(`read/${actorKey(s.dispose)}/`)) parkedOwed.delete(k);
-      held.delete(actorKey(s.dispose)); // `disposeActor` ends the identity's uses (2.7.17)
-      subs.delete(actorKey(s.dispose));
-      mounts.delete(actorKey(s.dispose));
+      for (const k of [...parkedOwed.keys()]) if (k.slice(k.indexOf(" ") + 1).startsWith(`read/${ended}/`)) parkedOwed.delete(k);
+      held.delete(ended); // `disposeActor` ends the identity's uses (2.7.17)
+      subs.delete(ended);
+      mounts.delete(ended);
     }
     if (madeLive !== undefined) {
       ensured.add(madeLive);
       ghosts.delete(madeLive);
       ghostsPending.delete(madeLive);
     }
-    if ("dispose" in s) {
-      ensured.delete(actorKey(s.dispose));
-      seenLive.delete(actorKey(s.dispose));
-      ghostsPending.add(actorKey(s.dispose)); // a ghost once the step that disposes it has run (it may wait on a slow load)
-      lifeBefore.set(actorKey(s.dispose), lifeOf.get(actorKey(s.dispose)) ?? 0);
+    if (ended !== undefined) {
+      ensured.delete(ended);
+      seenLive.delete(ended);
+      ghostsPending.add(ended); // a ghost once the step that disposes it has run (it may wait on a slow load)
+      lifeBefore.set(ended, lifeOf.get(ended) ?? 0);
     }
     if ("ensureAs" in s) inst.ensure(actorKey(s.ensureAs.key), s.ensureAs.machine); // D137: a key and a machine that do not agree, as a host's bug would give
     else if ("ensure" in s) use(actorKey(s.ensure), s.ensure.actor, s.input, s.identity);
@@ -1568,6 +1580,7 @@ export const makeHarness = (port: Port) => (): Harness => {
     else if ("forget" in s) {
       // Q1 A: what the identity was owed (an ending parked for it, not yet delivered) is evidence from here: the suite drove the cause.
       const key = actorKey(s.forget);
+      if (forgetLive) lifeOf.set(key, (lifeOf.get(key) ?? 0) + 1); // W27: a live actor is disposed first, so its life is over as at a dispose
       const parkedNow = new Set(evidence.filter((e) => e["kind"] === "parked").map((e) => String(e["attempt"])));
       for (const e of evidence) if (e["kind"] === "delivered") parkedNow.delete(String(e["attempt"]));
       for (const [att, a] of attemptActor) if (a === key && parkedNow.has(att)) lettingGo.add(att);
@@ -1733,9 +1746,16 @@ export const makeHarness = (port: Port) => (): Harness => {
       const writes = new Set(compiled.filter((c) => c.persisted && !c.local).flatMap((c) => Object.values(c.ops).filter((o) => o.kind === "write").map((o) => o.id)));
       const released = new Set(evidence.filter((e) => e["kind"] === "Released" && (lettingGo.has(String(e["attempt"])) || releasedBySelf.has(String(e["attempt"])))).map((e) => e["attempt"])); // D158: a release the ledger saw a cause for
       // C153: under `cancel` nothing is held past its ending's turn, and a replaced Attempt is evidence: neither is owed a head on disk.
-      const cancelOp = (op: string) => compiled.some((c) => (c.ops as any)[op]?.concurrency === "cancel");
-      const heard = new Set(evidence.filter((e) => e["kind"] === "delivered").map((e) => String(e["attempt"])));
-      const turnEnd = new Set(evidence.filter((e) => e["kind"] === "lane" && e["cell"] === "lane.turnEnd.HeldThisTurn" && cancelOp(String(e["op"])) && heard.has(String(e["attempt"]))).map((e) => String(e["attempt"])));
+      // The runtime's `HeldThisTurn` note is not the cause alone (R11): the suite saw the ending heard, and no re-send of it since, which would make it live.
+      const lastHeard = new Map<string, number>();
+      evidence.forEach((e, i) => e["kind"] === "delivered" && lastHeard.set(String(e["attempt"]), i));
+      const resentSince = (att: string) =>
+        evidence.some((e, i) => i > lastHeard.get(att)! && e["attempt"] === att && (e["kind"] === "invoked" || (e["kind"] === "lane" && String(e["cell"]).startsWith("lane.retry."))));
+      const turnEnd = new Set(
+        evidence
+          .filter((e) => e["kind"] === "lane" && e["cell"] === "lane.turnEnd.HeldThisTurn" && cancelOf(String(e["attempt"]), String(e["op"])) && lastHeard.has(String(e["attempt"])) && !resentSince(String(e["attempt"])))
+          .map((e) => String(e["attempt"])),
+      );
       return undecided.filter((key) => {
         const q = fake.requests.find((r) => r.idempotencyKey === key)!;
         return writes.has(q.op) && !heads.has(key) && !released.has(key) && !excused.has(key) && !turnEnd.has(key) && !replacedUnderCancel(key, q.op) && !key.startsWith("business:");

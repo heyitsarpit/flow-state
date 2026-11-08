@@ -247,37 +247,54 @@ const onDisposeRuntime = (tx: Tx) => {
   else armTimer(tx, { key: "dispose", kind: "dispose", dueAt: tx.env.now + tx.bounds.disposeMs });
 };
 
-// Q1 A: `forget` of an identity with no live actor. What its lanes hold for it (parked endings) is evidence now, never delivered; a hold stays,
-// since only its owner's `cancel` drops one (the key the server may hold keeps its record). Its lanes stop being reported unbound until an incarnation binds them.
+// A quarantined lane record of this identity that reads, under an operation its machine no longer has (a record that does not read is kept).
+const goneOp = (tx: Tx, id: string, key: string): boolean => {
+  let v: { readonly actor?: unknown; readonly machine?: unknown; readonly op?: unknown } | undefined;
+  try {
+    v = JSON.parse(tx.w.savedLanes[id] ?? "null") as typeof v;
+  } catch {
+    return false;
+  }
+  return v?.actor === key && typeof v.machine === "string" && typeof v.op === "string" && tx.machines[v.machine]?.ops[v.op] === undefined;
+};
+// Q1 A, C173: `forget` removes the identity's record (the next ensure starts fresh) and makes what its lanes hold for it (parked endings, and what a
+// boot queued in a record kept at ready) evidence, never delivered. It drops no hold: only its owner's `cancel` does (the key the server may hold keeps
+// its record), so a held lane stays unbound, listed and reported at each boot, until a cancel or an adopting ensure. A live actor is disposed first,
+// as `disposeActor` (W27, 2.10.10: a Story's `{ how: "forget" }` is `forget`). A hold of an operation the release no longer has has no owner who could cancel it: dropped, with evidence.
 const onForget = (tx: Tx, key: string) => {
-  if (getActor(tx.w.actors, key)) return issue(tx, { code: "ForgetLiveActor", origin: `forget ${key}` });
+  if (getActor(tx.w.actors, key)) onDisposeActor(tx, key, "dispose");
+  const owed = (op: string, attempt: string | undefined, record?: true) => {
+    note(tx, "unparked", { op, attempt: attempt ?? "", ...(record ? { record } : {}) });
+    note(tx, "ParkedForgotten", { op, attempt: attempt ?? "" });
+    note(tx, "evidenceOnly", { op, attempt: attempt ?? "" });
+  };
+  const r = own(tx.w.retired, key) as (ActorRec & { bootMail?: readonly Mail[] }) | undefined;
+  for (const m of r?.bootMail ?? []) if (m.k === "ending") owed(m.op, m.attempt, true);
+  if (r || Object.hasOwn(tx.w.undecodable, key)) {
+    const { [key]: _u, ...undecodable } = tx.w.undecodable;
+    tx.w = { ...tx.w, retired: without(tx.w.retired, key), undecodable };
+    tx.touchedActors.add(key);
+    tx.dropped.add(key);
+  }
   for (const l of Object.values(tx.w.lanes)) {
     if (l.actor !== key) continue;
-    for (const p of l.parked) {
-      note(tx, "unparked", { op: l.op, attempt: p.attempt ?? "" });
-      note(tx, "ParkedForgotten", { op: l.op, attempt: p.attempt ?? "" });
-      note(tx, "evidenceOnly", { op: l.op, attempt: p.attempt ?? "" });
+    for (const p of l.parked) owed(l.op, p.attempt);
+    if (!tx.machines[l.machine]?.ops[l.op]) {
+      if (l.head) note(tx, "HoldForgotten", { op: l.op, attempt: l.head.id });
+      for (const x of l.w) note(tx, "evidenceOnly", { op: l.op, attempt: x.id });
+      deleteLane(tx, l.id);
+    } else if (!l.head && l.w.length === 0) deleteLane(tx, l.id);
+    else setLane(tx, { ...l, parked: [] });
+  }
+  for (const id of Object.keys(tx.w.quarantined))
+    if (goneOp(tx, id, key)) {
+      note(tx, "HoldForgotten", { lane: id });
+      const { [id]: _q, ...quarantined } = tx.w.quarantined;
+      tx.w = { ...tx.w, quarantined };
+      tx.touchedLanes.set(id, key);
     }
-    if (!l.head && l.w.length === 0) deleteLane(tx, l.id);
-    else setLane(tx, { ...l, parked: [], forgotten: true });
-  }
-  // What a boot queued for a record kept at ready waits in that record (`bootMail`): owed to the identity the same way, so evidence too.
-  const r = own(tx.w.retired, key) as (ActorRec & { bootMail?: readonly Mail[] }) | undefined;
-  if (r?.bootMail?.length) {
-    for (const m of r.bootMail)
-      if (m.k === "ending") {
-        note(tx, "unparked", { op: m.op, attempt: m.attempt ?? "", record: true });
-        note(tx, "ParkedForgotten", { op: m.op, attempt: m.attempt ?? "" });
-        note(tx, "evidenceOnly", { op: m.op, attempt: m.attempt ?? "" });
-      }
-    tx.w = { ...tx.w, retired: { ...tx.w.retired, [key]: { ...r, bootMail: [] } as ActorRec } };
-    tx.touchedActors.add(key);
-  }
   note(tx, "forgotten", { actor: key });
   tx.visible = true;
-};
-const unforget = (tx: Tx, key: string) => {
-  for (const l of Object.values(tx.w.lanes)) if (l.actor === key && l.forgotten) setLane(tx, (({ forgotten: _f, ...rest }) => rest)(l));
 };
 // ── An actor's life. D21: a local identity's hold releases at once and is never adopted. Otherwise the lanes stay the Runtime's.
 // `end`: rule 73's end; a persisted actor's record goes to the Runtime's copy with its armed and waiting deadlines. `dispose`: `disposeActor`;
@@ -378,7 +395,6 @@ const startRoot = (tx: Tx, key: string, machine: string, input: unknown, identit
       armTimer(tx, spec);
     }
     note(tx, "incarnation", { actor: key, from: "record" });
-    unforget(tx, key);
     // Computed first: `{ ...tx.w, follow: [...adoption()] }` spreads a world before adoption's own writes, and loses them.
     const adopted = bootMail ? bootMail : rebindActor(tx, fresh); // the first return after a boot hears what the restore queued, not a second Restored
     for (const m of bootMail ?? []) if (m.k === "ending") note(tx, "unparked", { op: m.op, attempt: m.attempt ?? "", record: true });
@@ -440,7 +456,6 @@ const startRoot = (tx: Tx, key: string, machine: string, input: unknown, identit
   tx.w = { ...tx.w, actors: setActor(tx.w.actors, key, rec) };
   tx.touchedActors.add(key);
   tx.visible = true;
-  unforget(tx, key);
   const adopted = [
     ...startActor(tx, rec),
     ...started.flatMap((s) => startActor(tx, { ...rec, root: s.inc })),
@@ -673,7 +688,6 @@ const onBoot = (
       woken.add(key);
       note(tx, "wokenAtReady", { actor: key });
       note(tx, "incarnation", { actor: key, from: "record" });
-      unforget(tx, key);
     }
   for (const a of allActors(tx.w.actors)) {
     if (!shared(tx, a.machine) || owedTo.has(a.key)) continue;

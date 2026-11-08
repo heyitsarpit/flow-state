@@ -769,7 +769,8 @@ const applyMembers = (w: Walk) => {
       note(tx, mem.verb === "retry" ? "NothingToResend" : "OtherPath", { op: mem.op }); // rule 51
       continue;
     }
-    if (mem.verb === "cancelAll") cancelAll(tx, lane, { ...base, key: lane?.key ?? r.key });
+    if (mem.verb === "cancelAll")
+      cancelAll(tx, lane, { ...base, key: lane?.key ?? r.key }, lane !== undefined && w.releases.some((x) => x.op === mem.op && sameSubject(x.subject, lane.subject)));
     else cell(tx, mem.verb, lane, { ...base, key: lane?.key ?? r.key });
   }
   // Rule 60: after every member.
@@ -1172,7 +1173,6 @@ const admitEnding = (tx: Tx, item: EndingMail): void => {
     const local = tx.machines[machine ?? ""]?.local;
     const keep =
       !local &&
-      !lane?.forgotten &&
       machine !== undefined &&
       (own(tx.w.retired, item.actor) !== undefined || tx.machines[machine]?.persisted);
     if (keep) return parkEnding(tx, item, lane, subject, machine);
