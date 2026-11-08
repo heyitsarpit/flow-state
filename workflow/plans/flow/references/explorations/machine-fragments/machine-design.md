@@ -662,7 +662,7 @@ declarer" (a definition or a fragment), and "binding actor" as "binding incarnat
     (**new**; 2.7.18): no event and no handler; never on a stream key or a `listen` entry. Every `unknown:` target is a
     `Flow.uncertain` event or `Flow.ignore`. A read's `failure:` carries its tags plus Flow's `Defect` and `Interrupted` (rule 37). An
     author error whose tag is one of Flow's reasons (`NotSent`, `Cancelled`, `Restored`, `Interrupted`, `Defect`,
-    `StillUnknown`, `StorageRefused`, `Disposed`) is a type error, and compile refuses it as `ReservedReason` (proposed
+    `StillUnknown`, `StorageRefused`, `Disposed`; *added by OD52 (22):* `ModuleDisabled`, proposed) is a type error, and compile refuses it as `ReservedReason` (proposed
     name) wherever a tag is declared: a write's or read's failure record and a stream's, beyond the `Defect` and
     `Interrupted` a read carries (rule 37); an `unknown:` record's `byReason` keys must be Flow's reasons (decided by
     the runner, OD50); on a stream, so is one of `Feed`'s reasons (`Closed`, `Overflow`, `Silent`, `Flapping`) or the tag `Feed`, the map's own key [P, merge]. A commit's context also gives `progress(p)`, which sets its row's `progress` with no turn (Streams T8).
@@ -713,7 +713,10 @@ declarer" (a definition or a fragment), and "binding actor" as "binding incarnat
     even where a given run would leave nothing queued. Stated limit: the check reads only the late ending's own
     operation's lane, never other operations' work owned by the left state, which the runtime still denies.
     *Proposed (the runner to rule after a case; OD51):* a stay-put alternative written at the owner state itself, not
-    only at a strict ancestor, counts as one, since a late arrival in the re-entered owner picks it.
+    only at a strict ancestor, counts as one, since a late arrival in the re-entered owner picks it. *Decided by the
+    runner under the user's delegation (OD52 (20)):* it counts; the check reads stay-put alternatives at the owner and
+    its ancestors. Accepted risk: a late ending landing while the owner is not re-entered starts at an ancestor whose
+    alternatives may all leave, and the runtime denies it (rule 15's denial).
 16. **Declines are endings; Flow adds no guard.** A decline refuses only the write, never the transition that asked for
     it: the transition's target, memory and other actions run as written. Under `concurrency: "reject"`, a commit on a
     lane that is `InFlight` or `Held` invokes nothing and ends `NotSent { why: "Rejected" }`. A commit past its lane's
@@ -841,7 +844,10 @@ declarer" (a definition or a fragment), and "binding actor" as "binding incarnat
     replacement (a `latest` commit, or a commit under `cancel` concurrency) follows the table (2.7.13): the replaced
     head ends `Superseded` (evidence), the `StorageFailure` stays evidence, and the newer commit is acknowledged and
     sent. *Open, owed (not decided; OD51):* a later `latest` commit over a head whose acknowledgement is being written
-    turns a waiting `cancel` (`then: "cancel"`) into a replacement (`"replace"`), so the cancel is lost. Stated limit (decided, U16 A, OD48): nothing bounds that wait, so
+    turns a waiting `cancel` (`then: "cancel"`) into a replacement (`"replace"`), so the cancel is lost. *Closed by OD52
+    (21), decided by the runner under the user's delegation:* a pending cancel is never lost: a later `latest` or
+    `cancel`-concurrency commit waiting on the same acknowledgement keeps `then: "cancel"`; once stored, the earlier
+    commit ends `NotSent { Cancelled }` (heard) and the later is promoted and sent. Stated limit (decided, U16 A, OD48): nothing bounds that wait, so
     on a disk that never answers the cancel never takes effect; `StorageSilent` names it after 10 s (2.7.20) and
     decides nothing.
     In `Held` it releases the Attempt (`Released`, evidence) and promotes the next queued commit. In `Idle` it does
@@ -912,19 +918,34 @@ decision (E1–E18). Rules 13–25 and N1–N3 still apply.
     its prediction in the starting turn's publication (2.5 steps 5–6). A start declined as `Rejected` or `Overloaded`
     applies nothing. A `latest` or `serialize` commit queued behind an `InFlight` or `Held` Attempt (`W`) joins and
     predicts at commit too, and is invoked only once its lane promotes it and it heads every queue it joined (2.7.13;
-    the cross-actor wait this causes is a stated limit there).
+    the cross-actor wait this causes is a stated limit there). *Superseded by OD52 (7), D3 as built (the runner under
+    the user's delegation):* a commit in `W` is a **draft**: it predicts at commit (its prediction replays after the
+    joined entries) and holds no place in any record queue; it joins its records' queues when its Attempt heads its
+    lane, including while its write-ahead acknowledgement is out, and is invoked once it heads every queue it joined.
+    A refused acknowledgement leaves the queues cleanly. A record queue's bound (rule 35) counts drafts.
 29. **The actor first, then the record queue** (E5). Actor concurrency (`reject`, `latest`, `serialize`)
     decides whether a start is admitted; the record queue decides when it is sent. A `latest` waiting commit joins
-    the record queue; a newer commit replaces a never-sent queued write, or a never-sent head not yet invoked: evidence
+    the record queue (*superseded by OD52 (7): it is a draft and joins when it heads its lane, rule 28*); a newer commit replaces a never-sent queued write, or a never-sent head not yet invoked: evidence
     `Superseded`, prediction removed, queue entry removed, no repair, delivered to no handler (rule 17).
+    **D3's price** (OD52 (7)): per record, writes go in **send order** (the order their Attempts began), and within
+    one lane in mint order. Across actors, commit order holds only through the server's version check, where an
+    overtaken draft meets an ordinary conflict. On a last-writer-wins source an earlier draft may silently overwrite a
+    later commit from another actor; this is the same class as the two-tabs limit (OD19 Q31 A).
     `concurrency: "cancel"` on a predicting write is a `flow check` error; `O.x.cancel(k?)` follows rule 24 and the
     table (2.7.13), with rule 30's store effects.
 30. **The store follows the Attempt's ending** (E8). Success confirms; a definite failure removes predictions without
     repair; `NotSent` (`Rejected`, `Overloaded`, `Cancelled`, `Restored`, `StorageRefused`,
-    `Disposed`, `NoPersistence`, `OldVersion`, `Unencodable`) and evidence `Superseded` remove or never apply them, without repair (2.8.5); `Released` keeps the mark
+    `Disposed`, `NoPersistence`, `OldVersion`, `Unencodable`; *added by OD52 (22):* `ModuleDisabled`) and evidence `Superseded` remove or never apply them, without repair (2.8.5); `Released` keeps the mark
     (rule 32) and withdraws a waiting re-send's queue entry (2.8.6); unknown, including `StillUnknown`, keeps live
     predictions until a forced repair lands, holds the record queue until that repair settles, and marks the record
-    uncertain for that Attempt. **Revision (multiplicity audit, 2026-10-31) (E18).** A prediction over a record the store does not hold (never held,
+    uncertain for that Attempt. **As ruled** (OD52 (9)-(11), the runner under the user's delegation): per record, the
+    queue is released once that record's forced repair settles (answered; a failed or re-asked repair has not settled);
+    the held write keeps its lane's hold and blocks no other actor's write to the record; its re-send waits behind
+    whatever holds the record then and holds it again once sent; a restored unknown holds its record until the boot's
+    repair settles. A failed repair is asked again, at most 3 asks, then `RepairOverdue` (evidence; the mark and the
+    hold stay) and the next news asks again; a placed answer resets the count; no timer. `Released` of an unknown
+    never re-sent frees its queue entry at once, the next writer goes (the person let it go; the lane's own outcome is
+    still reported), as a release after `RepairOverdue` does; its predictions still end with the forced repair. **Revision (multiplicity audit, 2026-10-31) (E18).** A prediction over a record the store does not hold (never held,
     or deleted beneath it by an earlier write or a push) shows nothing, and the record reads absent; it stays with its
     Attempt for the record queue and settlement, and its field functions run only once a base exists.
 31. **A retry is the same request** (E2, E7). `O.x.retry(k?)` is the only re-send of a domain write. **Revision
@@ -943,7 +964,21 @@ decision (E1–E18). Rules 13–25 and N1–N3 still apply.
     in phase 1 with the entity store** (U10, OD48; FOR-ARPIT call 7, Q7 A): a later success cannot clear a mark, nor
     can time; after give-up a mark is `uncertain` until the next read, then `unconfirmed`, quiet, until proof; OD28
     P1's release is what moves a mark from `uncertain` to `unconfirmed`. Until phase 1 rewrites them, the sentences
-    above that let a later write's success clear a mark are superseded.
+    above that let a later write's success clear a mark are superseded. **Written in by OD52** (U10; (14), (15) the
+    runner under the user's delegation; (1), (6) `guarded`, the user's word with the runner's rules): the sentence
+    "a success of a later write to the record clears every mark ..." is *superseded*. A mark ends only by its own
+    Attempt's success (a re-send) or, once given up, by `guarded`'s proof. Given up (a release, an ignored unknown, a
+    D15 yield), it is `uncertain` and asks one read; a read or repair asked at or after the give-up, or a later
+    success that carried **every** field of the mark (a removal carries all; a feed frame demotes nothing), makes it
+    quiet: `unconfirmed` on the fields its prediction touched, asking nothing, never `uncertain` again. A held mark is
+    never demoted. **`guarded: true`** on the contract (decided, Q1 A): a quiet mark ends on an answer (read, repair,
+    frame, any write's success) showing the record's version strictly past the base the write was **sent** with, on
+    the write's targets only (`.one`/`many`; `.alsoChanges` records are never fenced), or on a later success of the
+    same contract with the same business-key values (C129's `idempotency`). An equal version, a refusal, or a held
+    mark proves nothing; no clock. A live `.covers` session (no open gap) whose filter reads no field the write
+    changes hides a given-up doubt without ending it; a removal is never hidden; a lost or ended session shows it
+    again. **Cap:** at most 4,096 given-up marks per entity; past it the oldest given up is evicted with evidence
+    `UnsettledEvicted`; an unresolved mark is never evicted.
 33. **No temporary ids** (E9). A domain list holds only records the server returned. A pending create is a memory draft
     the view shows apart from the answer; membership appears when an answer's refetch holds its key.
 34. **The key of a domain write** (E10, superseded by OD15; 2.8.8). A domain write states `key` like every contract
@@ -954,6 +989,8 @@ decision (E1–E18). Rules 13–25 and N1–N3 still apply.
     several records or none.
 35. **Overflow is an ending** (E11). A commit that would exceed its lane's queued commits (`W`, 64 under `serialize`) or any record queue, or a `many`
     key array past 4,096 items (merge 5, M5-D10), ends `NotSent { why: "Overloaded" }`, with no prediction and no queue join; the transition and its other actions run.
+    The `many` bound counts items, a repeated key included, read from the write's targets before any join (OD52 (17),
+    the runner under the user's delegation); a record queue's bound counts drafts (rule 28).
 36. **Callback reads** (E12, amends rule 22; OD26). `optimistic`, the commit's only option
     (`O.x.commit(select, { optimistic })`), reads the starting turn's after memory, captured at commit. `writes`, the
     operation's option (`contract.outcomes(mapping, { writes })`), receives `{ value, input }` and reads no memory, so it
@@ -963,10 +1000,20 @@ decision (E1–E18). Rules 13–25 and N1–N3 still apply.
     or interruption ends on `failure` as `Defect` or `Interrupted`, a lookup cut by a freeze included (rule 52); a tag record must map them (rule 20;
     2.8.10). A read whose mapper throws, or returns something with no shape, ends in `failure` as `Defect`, and the
     store's `UserClosure` issue says why: a machine never hears success for data the store could not take (decided,
-    OD37). On a stream, `failure` maps Flow's reasons by name or by the one key `Feed` (2.11.6); an `every` feed maps `value`, `missed`, `fills` and `failure`, or is a `listen` entry.
+    OD37). A read's own failure (never a defect or an interruption) also reaches the store, at the read's position,
+    so a read declared `.gone(tag)` (decided, Q2 A, OD52 (2)) removes its key's row when it fails with that tag: a
+    tombstone judged like any read, so asked before a newer row landed, or against an open claim, it is a doubt with a
+    repair, not a removal. The machine hears the failure unchanged. The tag is the adapter's, never a status; a gap's
+    refetch failing with it is a tombstone too. `flow check` refuses `.gone` on a read with no `.byKey` (no key to
+    remove; the name is owed). On a stream, `failure` maps Flow's reasons by name or by the one key `Feed` (2.11.6); an `every` feed maps `value`, `missed`, `fills` and `failure`, or is a `listen` entry.
 38. **Lanes and predicted keys persist together** (E14; amended by OD20). A domain write's lane record, its Attempt and
     that Attempt's predicted keys are written in one capture, the Attempt's one Persistence O6 acknowledgement before
-    its first invocation (rule 46). Prediction values are never persisted.
+    its first invocation (rule 46). Prediction values are never persisted. **Amended by OD52** (26), with `guarded`'s
+    rules (6), the runner under the user's delegation): the lane record also saves the write's `basedOn` per record when
+    a version was known at mint, and a restored re-send carries it; it says `sent` once re-written after the send, and
+    a doubt restored from a record written before its send (where a later rebase may have moved the base) trusts no
+    base, so only the cap ends it. *Text, no decision (U10):* the predicted keys carry the fields each prediction
+    touched, so a restored quiet mark still shows them as `unconfirmed` (not built in the prototype).
 
 **Operations in the definition** (2.7, 2.7.13–2.7.16). Rules 39–47 are the operations merge's
 ([merged/operations/proposal.md](merged/operations/proposal.md)); each names its decisions.
@@ -2793,7 +2840,8 @@ non-initial leaf.
   22), so its `basedOn` is rebased **along the record queue** (above, merge 4): it takes the version returned by the
   write ahead of it in the record's queue if that write's committed base equals its own, transitively, across lanes
   and actors in the Runtime. Computing `basedOn` at send time (revision 6) would make `If-Match` pass against a
-  version the user never saw. Plain transactions get no rebase.
+  version the user never saw. Plain transactions get no rebase. *Narrowed by OD52 (5), (8) (Q5 A, the user):* the
+  rebase crosses a write ahead only if that write was minted earlier over the same base; see 2.8.6.
 - **Work over a dynamic set of keys in one turn** (R6 M9) cannot be written: an action list holds a fixed number of
   members, and `commit`, `retry` and `cancel` have no per-key form (archive selected threads, flush N held notes on
   reconnect, retry all unsure, cancel all uploads). The pattern is a bulk contract: one request over the set, one
@@ -3370,10 +3418,10 @@ LIST is [merged/server-calls/rewrites/list.ts](merged/server-calls/rewrites/list
 `references/design/entity-domain-examples.md`, REV the entities review. "The store" is the Runtime's record store
 (EDP:6, EDP:62-64). A test reads the store with `cp.entity`, and its queues and marks in `cp.inspection` (2.10.8).
 
-**Deferred to phase 1** (decided, U11, OD48): the prototype's entity-store decisions (D3, D12, D15, D18, D39, D40,
-D49's record half, D47 to D76's judge) are settled when phase 1 builds `round-9/entity-proposal-2.md`. D3's price (a
-person who has not pressed can stall another actor's writes to one record, made visible as evidence) is a guarantee
-and comes back to the user there. A module's defect (D46) is settled there too (U7).
+**Settled in phase 1** (OD52; deferred there by U11, OD48): the entity-store decisions (D3, D12, D15, D18, D39, D40,
+D49's record half, D47 to D76's judge), a module's defect (D46, U7), U10's mark levels and the user's five words
+(`guarded`, `.gone`, `.covers`, `delta`/`row`, the narrowed rebase) are listed in OD52 with who decided each, and
+written where each rule lives below (rules 28-35, 38; 2.8.5, 2.8.6, 2.8.14). D3's price is stated in rule 29 and 2.8.5.
 
 #### 2.8.1 Where the data comes from
 
@@ -3383,7 +3431,7 @@ Three places hold facts about one write. Each has one writer and one moment.
 | --- | --- | --- | --- | --- |
 | The record's confirmed fields, versions, positions | the store (EDP:62-70) | responses, pushes, a write's success | when the response lands; a write's at **settlement** | views (`Issue.get`), answers, `value` outcomes |
 | A prediction | the store, per record and Attempt (EDP:64-65) | the domain's predicted fields' functions `(beneath, input) => value`, with the real input; `.predicts` itself runs once, at construction, for structure (EDP:51-52) | joined at the **start**, in the starting turn's publication (rule 28) | views, as `predicted` |
-| The record queue | the store, per record, across actors (EDP:112-116) | Flow, from starts and retries | joined at start or retry; released at **settlement**, or after the forced repair for an unknown | Flow; `Entity.queue` in Stories (EDP:138) |
+| The record queue | the store, per record, across actors (EDP:112-116) | Flow, from starts and retries | joined at start or retry (*OD52: when the Attempt heads its lane; a `W` commit is a draft*); released at **settlement**, or after the forced repair for an unknown | Flow; `Entity.queue` in Stories (EDP:138) |
 | `uncertain` | the store, per record and Attempt (EDP:103-106) | Flow, from the Attempt's ending | set at **settlement** of an unknown; cleared per rule 32 | views, as `uncertain` |
 | `unconfirmed` fields | the store (EDP:93-100) | Flow, from a success that omitted a predicted field | **settlement**; cleared by a confirming read | views |
 | The lane's state: `pending`, `uncertain`, `waiting`, `retryCount` | the Runtime's write lane (rule 21) | Flow | at admission, or in a Runtime step for an unbound lane; `pending` while `InFlight` | guards and views, `O.like.get(s, issue)`, never the store |
@@ -3777,6 +3825,9 @@ shared and decides when a send leaves.
 // R settles unknown → the queue holds A until R's forced repair settles (EDP:115-116); then A is sent, then C
 ```
 
+*Amended by OD52 (7):* B and C wait in `W` as drafts: their predictions show, and they hold no queue place, so the
+queue at t1 and t2 is `[R, A]`; C joins when it heads its lane, after A settles. The rest of the walk stands.
+
 - **E5. A `latest` waiting start joins the record queue.** Superseding it removes a queued, never-invoked write,
   which EDP already allows (EDP:114-115): it becomes evidence `Superseded`, delivered to no handler, with its
   prediction removed and no repair (rule 17). The record queue, not merge 2's settlement rule (2.7.12), releases the next send, so a waiting `latest`
@@ -3809,17 +3860,39 @@ failure: { …, NotSent: fail("Could not update") },   // Overloaded (a replaced
 | `NothingToResend` (evidence) | none: no write | none | none | unchanged |
 | `StorageRefused` (acknowledgement failed) | removed | removed | none | unchanged |
 | `Disposed` (Runtime disposal, never sent) | removed | removed | none | unchanged |
+| `ModuleDisabled` (OD52 (22); the store's module failed) | never applied | never joined | none | unchanged |
 
 This replaces ED:650-651's "settles interrupted" for a queued cancel.
 
 **A queued commit behind a hold waits in the record queue** (stated limit, 2.7.13). A commit in `W` joins its records'
 queues at commit, so while its lane holds an unknown it can head record r's queue: every other actor's write to r waits
-as long as the hold lasts. The order is kept on purpose (rule 29).
+as long as the hold lasts. The order is kept on purpose (rule 29). *Superseded by OD52 (7), (9):* a commit in `W` is
+a draft and holds no queue place; a sent hold holds its record only until its forced repair settles (rule 30).
+
+**D3 as built, and its price** (OD52 (7), (9), (12); the runner under the user's delegation). A domain write joins its
+records' queues when its Attempt heads its lane, never at mint or commit; per record the order is send order, and
+commit order across actors holds only through a version check, where an overtaken draft meets an ordinary conflict
+(the narrowed rebase does not carry it past a write it did not see, 2.8.6). On a last-writer-wins source an earlier
+draft may silently overwrite a later commit from another actor (send order wins), the same class as the two-tabs
+limit (OD19 Q31 A). A sent unknown holds its record until its forced repair settles, then frees it; its write keeps
+the lane hold. While the repair runs, `RecordHeld` evidence and Inspection's `stalled: "record"` name the wait and
+decide nothing (D49's record half, as U16 A's `StorageSilent`). A hung repair holds the record for as long as the
+repair's own Effect allows, since its deadline is the author's (U1 B). **D15, no clock:** an unbound sent hold (no
+incarnation can press) yields as soon as a ready write waits behind it on a record: it is released, its ending
+`unknown { Abandoned }` (proposed reason) is parked for whoever adopts the identity, and its mark stays. The yield is
+level-triggered, one holder per record per step; since the repair alone frees the record, it is liveness for the
+lane hold only.
+
+**A module's defect** (D46, U7; OD52 (22), shown by the prototype). The store fails closed: a write that would join
+declines `NotSent { ModuleDisabled }` and the store's queues hold. Price: one store bug stops every write of every
+machine using the module until reload.
 
 #### 2.8.6 Unknown, retry and uncertain (E2, E3, E7, E8)
 
 **Phase 1** (U10, U11; OD48): what clears `uncertain` is FOR-ARPIT Q7 A (rule 32's last sentences), written here with
 the entity store; where this section lets a later write's success clear a mark, it is superseded until then.
+*Settled by OD52:* rule 32's OD52 paragraph is the rule; this section's sentences that let a later write's success
+clear a mark are superseded, and the judge, the repair bound and `guarded` are at the end of this section.
 
 **E2. One retry shape.** `O.x.retry(k?)` (2.7.3, rule 19) replaces `O.x.retry(select)` in OPS O3 (OPS:113-117) and
 EDP O1 (EDP:107-108), with OPS's "known settled result settles immediately" (OPS:114-115): under rule 21 a lane whose
@@ -3840,7 +3913,7 @@ ReconcileLike: { target: "self", actions: [O.like.retry(named)] },
   may be the reason the version moved. The loop REV:45 fears is bounded by the machine's `retryable({ times })` budget.
   A never-sent queued write's `basedOn` is rebased along the record queue instead: it takes the version the write
   ahead of it returns when that write's committed base equals its own, transitively (OD19 Q32); a re-send keeps its
-  first send's.
+  first send's. *Narrowed by OD52 (5) (Q5 A):* "... returns, if that write was minted earlier".
 - **No prediction.** The Attempt's prediction ended when its forced repair landed (EDP:103-105); re-applying it
   would show a value the server just contradicted.
 - **It joins the record queue** (found checking E7). E7 does not say; it must, because "one write in flight per
@@ -3864,6 +3937,9 @@ uncertain. It never takes the failure row (predictions removed, no repair).
 // not cleared: a read, a failed or StillUnknown retry, a later write that fails, the forced repair landing
 ```
 
+*Superseded in part by OD52 (U10, rule 32):* a later write's success no longer clears a mark; once the mark is given
+up, it demotes it to `unconfirmed` only if it carried every field of the mark.
+
 A read never clears it: a read cannot prove the write will not still land (ED:656-658). The mark is per record and
 Attempt (found checking E3): a record reads `uncertain` while any of its marks remains; a retry's success clears that
 Attempt's mark, and a later write's success clears every mark on the record whose Attempt is resolved or
@@ -3877,19 +3953,26 @@ released (rule 32; EDP:105-106).
 | failure (author's tag) | removed | none (C4) | at settlement | unchanged |
 | failure `NotSent` | 2.8.5's table | none | at settlement | unchanged |
 | unknown (author's, `Cancelled`, `Restored`, `Interrupted`, `Defect`, `StillUnknown`) | kept until the forced repair lands | forced | after the forced repair settles | set for this Attempt |
-| `Released` (`cancel` in `Held`, an ignored unknown, any unknown not retained: rule 40) | ended by the forced repair; a release before the repair lands removes nothing, and predictions end with the repair, as for unknown | none | a waiting re-send's entry withdrawn | kept until a later write's success (rule 32) |
+| `Released` (`cancel` in `Held`, an ignored unknown, any unknown not retained: rule 40) | ended by the forced repair; a release before the repair lands removes nothing, and predictions end with the repair, as for unknown | none | a waiting re-send's entry withdrawn; an unknown never re-sent frees its entry at once (OD52 (10)) | kept until a later write's success (rule 32); *superseded by OD52:* given up, then quiet per rule 32 |
+
+The success row's "the record's marks whose Attempts are resolved or released, cleared" is *superseded by OD52*
+(rule 32): only this Attempt's mark is cleared; a given-up mark on the record is demoted if this success carried all
+its fields.
 
 **Facts the record queue owns** (decided as behaviour, OD19, OD20; R7 K20, M3, M4). The record queue is shared, applied at
 settlement (rule 27), and orders writes to a record across lanes and actors (rule 29). Two facts move there:
 
 - **Marks (rule 32, amended per Attempt):** a later write's success clears every mark on the record whose Attempt is
-  resolved or released; a mark whose Attempt is still unresolved stays. `Released` (the table's `cancel` cells) is a
+  resolved or released (*superseded by OD52, rule 32*); a mark whose Attempt is still unresolved stays. `Released` (the table's `cancel` cells) is a
   store effect: it tells the record queue the Attempt is given up. Disposal is not a release (the lane lives on,
   OD19), so a disposed actor's held write keeps its mark while its Attempt is unresolved; an unbound lane that no
   incarnation of its identity adopts keeps it until the Runtime ends, and Inspection lists it (R8 M4).
 - **`basedOn` rebase (decided, OD19: Q32 A, owner moved to the record queue):** a queued write whose `basedOn` for
   record r equals the committed base of the write ahead of it **in r's record queue** takes that write's returned
-  version for r, transitively. A like and a rename of issue 1 committed on v4 no longer 412 each other (R7 M4);
+  version for r, transitively. *Narrowed by OD52 (5), (8) (Q5 A, the user; the runner's D18 ruling):* only when the
+  write ahead was minted earlier, over the same base; a stale success rebases nothing; a sent write is never rebased,
+  and its re-send keeps the base it was sent with. A draft is never rebased past a write the person never saw, so
+  under D3 an overtaken draft meets the server's version check as an ordinary conflict. A like and a rename of issue 1 committed on v4 no longer 412 each other (R7 M4);
   revision 8's lane chain is the special case. A released predecessor returns no version, so the queued write keeps
   its base (a 412 may follow, stated). The rebase applies to never-sent writes only: a re-send keeps its first
   send's input and `basedOn` under its own idempotency key (R8 L5). Plain transactions have no record queue and get
@@ -3899,6 +3982,31 @@ The other merge 4 facts are unchanged: a queued `latest` commit applies its pred
 queue (rules 28, 29); `Superseded` and `NotSent { Cancelled | Rejected | Overloaded | Restored | StorageRefused | Disposed | NoPersistence | OldVersion | Unencodable }` remove its
 prediction without repair (rule 30); rule 30's record-queue hold and the lane hold agree. A re-send joins its record
 queues again (rule 31), which is why a re-send can wait to be invoked across turns (the `cancel` cell's re-send case).
+
+**Settled in phase 1** (OD52; who decided each is there).
+
+- **The judge** (D47-D76; the runner under the user's delegation). An answer with a lower version than the record's
+  is silently stale, with `Stale` evidence (proposal 2's `VersionWentBack` conflict is not taken). A higher version
+  applies whenever it was asked, unless a version-less claim is open. Equality is `Schema.toEquivalence` per field,
+  from the entity's field Schemas (`entity({ fields })`, in `Compiled`); a domain without them compares structurally.
+- **The forced repair** (D12, D40). No timer: a failed repair is asked again, at most 3 asks, then `RepairOverdue`
+  (evidence; the mark and the record hold stay); the next news asks again, and a placed answer resets the count. A
+  re-send waits for its record's repair (D39, shown by the prototype).
+- **Marks** follow rule 32's OD52 paragraph: a given-up mark asks one read and goes quiet; `guarded: true` (Q1 A) is
+  its only exit, by a version past the base sent or a same-key success; the 4,096 cap per entity evicts the oldest
+  given up (`UnsettledEvicted`).
+- **`guarded`'s internal rules** (the runner, from `round-9/released-write-proof-proposal-2.md` 4.1-4.6; no public
+  word beyond `guarded`). It needs a per-record version and a target: `flow check` reports `GuardedUnbound`,
+  `GuardedWithoutVersion` and `GuardedWithoutTarget` (proposed names). The write's targets are new data in
+  `Compiled`, from `.one`/`many`. `GuardContradicted` (internal evidence, proposed name): a first send that succeeds
+  over a base the store already knew was stale, skipped under a business key. It voids the claim for the Runtime, in
+  memory only, and is a tripwire, never a verification. `allOrNothing` is not added (revisit.md), and neither is
+  `precondition: { failure }` (the user rejected it).
+- **A source with no idempotency** (PostgREST; the runner). Each send is applied: a re-send of a write that landed
+  answers `200 []`, which rule 18 makes `StillUnknown`, and the app settles the unknown by a read (2.7.20) and gives
+  the hold up. Zero rows on an `update` cannot be split into version, RLS or missing. The adapter maps a resolved
+  error value (`status: 0`) and an undecodable answer to unknown (shown by the prototype; the contract's commit as
+  written fits both, and a version check may be a filter rather than a 412).
 
 #### 2.8.7 Creates (E9)
 
@@ -4031,6 +4139,27 @@ it is doubted, not applied,
 until a read started after the write, or a matching frame. **Stated limit:** with no write of ours unechoed, nothing
 orders an unversioned frame, so a late one (out of its server's order, possible across a reconnect, not over one
 connection) is applied unmarked, and the record is wrong until its next read. Real entities declare a version.
+
+**`.covers` and the gap** (decided, Q3 A, the user; OD52 (3), (18), (19)). `listen(c).covers(({ input, record }) =>
+eq(record.f, input.g))` says what a session watches, as `eq` terms that `flow explain` prints. Only an **unproven
+registration** marks: every field of each record the session covers reads `unconfirmed` until a read or repair asked
+after it lands; a lost connection resumed with proof, or a released session, marks nothing (a release stays a
+refetch, Streams T7). With no `.covers` a session covers the records it has itself delivered, a set kept per
+session and dropped when the session ends. Both defaults over-mark, the safe side. Coverage compares with the
+field's Schema equivalence, the judge's equality; a record with no row is never covered. **Over-marking** (the
+runner under the user's delegation): a record is also marked when what the store knows could put it in the cover:
+its base, a prediction into the cover, or a filter field in doubt (a mark, `unconfirmed`, or the record in doubt).
+Another client's move into the cover during a gap is unknowable, and the gap's refetch finds it. **Key fields have no
+cell** (the runner): a gap never marks the entity's own key fields, read per entity from `entity({ primaryKey })`.
+
+**`delta` and `row`** (decided, Q4 A, the user; OD52 (4)). `Ticket.patch` is for `.predicts` only. In `listen`,
+`Ticket.delta(key, fields)` is a partial change and a type error without the version field; `Ticket.row(value)` is a
+whole row, where an omitted field is absent, not unknown; `Ticket.delete` stays. A placed whole row replaces; a delta
+merges; a decoded delta that still lacks its version is dropped with `UserClosure`, with D57's values from outside;
+an early whole row stays whole when placed over a read. `entity({ id, fields, primaryKey, version })` is where the
+field Schemas, key and version come from. **Stated limit, the author's risk:** on Supabase realtime with every
+column sent, Postgres omits unchanged TOAST-stored columns from an `UPDATE`'s payload, so `row` reads them as absent;
+such a source must map to `delta`.
 
 ### 2.9 Operations in fragments
 
@@ -7092,6 +7221,7 @@ export const Tickets = { changes: stream({
 }) }
 // tickets.domain.ts
 changes: listen(Tickets.changes).as([Ticket], (c) => c.kind === "delete" ? Ticket.delete({ id: c.id }, { version: c.version }) : Ticket.patch({ id: c.id }, c.fields)),
+// superseded by OD52 (Q4 A): in `listen`, `Ticket.patch` becomes `Ticket.delta({ id: c.id }, c.fields)` (fields carry the version) or `Ticket.row(c.row)`; `.covers` (Q3 A) may say what the queue's filter watches (2.8.14)
 // queue.definition.ts
 operations: ({ E }) => ({ changes: TicketsDomain.changes.outcomes({ failure: { SignedOut: E.SignedOut, ChannelDown: E.PushEnded, Feed: E.PushEnded } }) }),
 // queue.machine.ts
@@ -8466,6 +8596,22 @@ The streams merge ([merged/streams/proposal-v3.md](merged/streams/proposal-v3.md
 | C182 | CommandLine O5 | `flow check`'s rule 15 error is strict: a late alternative that leaves while later commits may be queued is an error; it reads only the operation's own lane, a stated limit (rule 15; R8, OD51) | Amends C170's `flow check` clause |
 | C183 | Operations O3, O7 | A rule 60 release wins over `cancelAll` in the same transition: the queued commits end as evidence and the head is left to the release (rules 24, 60; R10, OD51) | Amends C171 beside C68 |
 | C184 | Machines O1, Diagnostics | A memory default whose Effect is not a succeeded `Exit` is `ImpureDefault` (proposed name), found from the Schema without running it; per-door evaluation is an implementation freedom (2.2.2; H1, U12 B, OD51) | Amends C157 (names the error) |
+| C185 | Machines O6, CommandLine O5 | `flow check`'s rule 15 check counts a stay-put alternative at the owner state and its ancestors; a late ending that lands while the owner is not re-entered, at an ancestor whose alternatives all leave, is denied at run time, an accepted risk (rule 15; OD52 (20)) | Amends C182 |
+| C186 | Operations O2 | A pending cancel is never lost: a later `latest` or `cancel`-concurrency commit waiting on the same acknowledgement keeps the cancel; once stored, the earlier commit ends `NotSent { Cancelled }` (heard) and the later is sent (rule 24; OD52 (21)) | Amends C146 and C180 |
+| C187 | EntityDomains O1, Operations O3 | A domain write joins its record queues when its Attempt heads its lane (including while its acknowledgement is out), never at mint or commit; a `W` commit is a draft that predicts and holds no queue place; per record, send order; across actors commit order only through a version check; on a last-writer-wins source an earlier draft may overwrite a later commit, a stated limit like two tabs (rules 28, 29, 2.8.5; D3, OD52 (7)) | Replaces rule 28's "joins and predicts at commit" and 2.8.5's queued-commit limit; amends C24 |
+| C188 | EntityDomains O1 | `basedOn` rebases across a write ahead only if it was minted earlier over the same base; a stale success rebases nothing; a sent write is never rebased (2.7.13, 2.8.6; Q5 A, D18, OD52 (5), (8)) | Amends OD19 Q32 A's rebase |
+| C189 | EntityDomains O1 | Per record, an unknown holds the record queue until that record's forced repair settles; the write keeps its lane hold, and its re-send queues behind whoever holds the record then and holds it again once sent; a restored unknown holds until the boot repair settles; `Released` of a never-re-sent unknown frees its entry at once, its predictions ending with the repair (rule 30, 2.8.6; OD52 (9), (10)) | Amends C24 and rule 30's `Released` clause |
+| C190 | EntityDomains O1, Inspection | No repair timer: a failed forced repair is asked again up to 3 times, then `RepairOverdue` (evidence), and the next news asks again; an unbound sent hold yields, with no clock, once a ready write waits behind it on a record (`unknown { Abandoned }`, proposed reason, parked); `RecordHeld` and `stalled: "record"` name the wait while the repair runs (rule 30, 2.8.5, 2.8.6; D12, D15, D40, D49, OD52 (11), (12), (24)) | Adds; replaces the D12/D40/D15 timers |
+| C191 | EntityDomains O1, Operations O1 | A store module's defect fails closed: a write that would join declines `NotSent { ModuleDisabled }` (proposed name, a reserved Flow reason) until reload (rules 13, 30, 2.8.5; D46, U7, OD52 (22)) | Adds a `NotSent` row |
+| C192 | EntityDomains O1 | A later write's success no longer clears a mark; a given-up mark is `uncertain` and asks one read, then quiet `unconfirmed` on its prediction's fields after a read or repair asked at or after the give-up, or a later success carrying every field of the mark; a frame demotes nothing (rule 32, 2.8.6; U10, OD52 (14)) | Replaces C25's "a later successful write clears every mark …" |
+| C193 | Operations O1, EntityDomains O1, CommandLine O5 | `guarded: true` on a transaction: a quiet mark ends on an answer showing the target record's version past the base sent, or a same-key success (C129); equal, refusal and held marks prove nothing; a live `.covers` session hides a doubt whose write changes no filter field; `GuardContradicted` evidence; `flow check` `GuardedUnbound`, `GuardedWithoutVersion`, `GuardedWithoutTarget` (proposed names); targets in `Compiled` (rule 32, 2.8.6; Q1 A, OD52 (1), (6)) | Adds |
+| C194 | EntityDomains O1, Inspection | At most 4,096 given-up marks per entity; past it the oldest given up is evicted with `UnsettledEvicted` evidence; an unresolved mark is never evicted (rule 32; OD52 (15)) | Adds |
+| C195 | EntityDomains O1 | The judge: a lower version is silently stale with `Stale` evidence; a higher version applies whenever asked unless a version-less claim is open; equality is `Schema.toEquivalence` per field from `entity({ fields })`, else structural (2.8.6; D47-D76, OD52 (13)) | Adds |
+| C196 | EntityDomains O1, Operations O2 | A read's own failure reaches the store at the read's position; `.gone(tag)` on a read with `.byKey` turns that tag into a tombstone judged like any read; the machine hears the failure; `flow check` refuses `.gone` without `.byKey` (name owed) (rule 37; Q2 A, OD52 (2)) | Adds |
+| C197 | EntityDomains O1, O4, Operations O4 | `listen(c).covers(pred)` in `eq` terms, printed by `flow explain`; default: the records the session delivered; only an unproven registration marks, every non-key field of each covered record, plus records that may be in the cover by base, prediction or a filter field in doubt (2.8.14; Q3 A, OD52 (3), (18), (19)) | Adds; amends 2.8.14's "a gap marks" |
+| C198 | EntityDomains O1 | `Entity.patch` is for `.predicts` only; `listen` maps to `Entity.delta` (partial, a type error without the version) or `Entity.row` (whole; an omitted field is absent); an unversioned delta at run time is dropped with `UserClosure`; `entity({ id, fields, primaryKey, version })` (2.8.14; Q4 A, OD52 (4)) | Amends C115 |
+| C199 | Operations O3, EntityDomains O1 | A `many` key array's 4,096 bound counts items, repeats included, from the write's targets before any join; a record queue's bound counts drafts (rule 35; OD52 (17)) | Amends C22 |
+| C200 | Persistence O6, EntityDomains O1 | A domain write's lane record saves its `basedOn` per record when known, and `sent` once re-written after the send; a doubt restored from a pre-send record trusts no base; predicted keys carry the fields each prediction touched (rule 38; OD52 (6), (26)) | Amends rule 38's record |
 
 ### For tooling
 
@@ -9303,7 +9449,7 @@ operations-in-fragments, the lane model and the reviews cite them.
   2.2.2). **U10**: rule 32 follows FOR-ARPIT Q7 A (a later success cannot clear a mark, nor can time; after give-up
   `uncertain` until the next read, then `unconfirmed`, quiet, until proof), keeping OD28 P1's release as what moves a
   mark from `uncertain` to `unconfirmed`; written into rule 32 and 2.8.6 in phase 1 with the entity store. **U11**:
-  the entity-store decisions are deferred to phase 1 (2.8). **U12 B**: memory defaults are pure; an Effect-valued
+  the entity-store decisions are deferred to phase 1 (2.8). *U7, U10 and U11 are settled by OD52.* **U12 B**: memory defaults are pure; an Effect-valued
   default is a construction error; a time or an id comes from an event or the Runtime's mint; E10's per-actor
   evaluation stays (2.2.2; closes OD40's open point). **U13**: Runtime disposal past its bound ends the Attempt
   `unknown { Disposed }`; within the bound it settles and is parked (2.7.1, 2.7.13). **U14**: `disposeActor` flushes
@@ -9410,11 +9556,88 @@ operations-in-fragments, the lane model and the reviews cite them.
   unobservable under U12 B and stays an implementation freedom (2.2.2). **Agent (the design writer), restating the
   design:** (9) M2: a commit declined beside an old-version hold ends `NotSent { OldVersion }`, as 2.7.15 says; the
   prototype's `Rejected` was a runtime bug (2.7.15). **Proposed, for the runner to rule after a case:** (10) a stay-put
-  alternative written at the owner state itself, not only a strict ancestor, counts for rule 15's check (rule 15).
+  alternative written at the owner state itself, not only a strict ancestor, counts for rule 15's check (rule 15;
+  *ruled, OD52 (20)*).
   **Open, owed (not decided):** (11) a later `latest` commit can overwrite a pending cancel (`then: "cancel"` to
-  `"replace"`), losing the cancel (rule 24); (12) owed to phase 1's record migration: `OldVersionLane` as an issue and
+  `"replace"`), losing the cancel (rule 24; *closed by OD52 (21)*); (12) owed to phase 1's record migration: `OldVersionLane` as an issue and
   `previous: [{ key }]` (round 13's M3) are not built (2.7.15). H2 (key versions by names) was already true by U17 B and
   the format tag; no text. Plan rows C178-C184. (2026-11-08)
+- **OD52** Phase 1's entities area, **settled** (2026-11-09), from its three build rounds, the audit gap batches and
+  audit 3b (`packages/flow-state-v3/prototypes/round-14/STATUS.md`, "Phase 1: entities" rounds 1-3, "Q1 `guarded`",
+  "Audit gaps 2 and 1b", "Audit gaps 3", "Audit 3b", "Carried to the phase 3 conformance rewrite";
+  `round-14/ENTITIES-QUESTIONS.md`; `workflow/roadmaps/v3-production/progress.md`, 2026-11-08 "phase 1 entities
+  round 1" to 2026-11-09; rules only from `round-9/entity-proposal-2.md` and
+  `round-9/released-write-proof-proposal-2.md`). It closes U7, U10 and U11 (OD48) and OD51 (10), (11), and replaces
+  2.8's deferral note. **Decided by the user** (2026-11-08, "all accepted", ENTITIES-QUESTIONS Q1-Q5 A): (1) Q1 A
+  `guarded: true` on a transaction: the author's claim that the commit sends `basedOn` as a version precondition, so
+  a version past it ends a given-up mark's doubt (rule 32); (2) Q2 A `.gone(tag)` on a read: that failure removes the
+  key's row, and the machine still hears it (rule 37); (3) Q3 A `.covers(pred)` on `listen`, in `eq` terms, with "the
+  records it delivered" as the default when absent (2.8.14); (4) Q4 A `delta` (partial, versioned, `listen` only) and
+  `row` (whole) split from `patch` (predictions only) (2.8.14); (5) Q5 A the narrowed `basedOn` rebase, only across an
+  earlier-minted write over the same base, revising OD19 Q32 A (2.7.13, 2.8.6). The user also rejected
+  `precondition: { failure }` and kept the surface to these words, so `guarded`'s soundness rules are internal.
+  **Decided by the runner under the user's delegation** (D3 and the entity-store calls; amendment 9 for small API):
+  (6) `guarded`'s internal rules, from the convergence (released-write-proof-proposal-2 4.1-4.6): proof only from an
+  answer (read, repair, frame, any write's success) showing the target record's version strictly past the base
+  **sent**, on `.one`/`many` targets only, or a later success of the same contract with the same business-key values
+  (C129); an equal version, a refusal or a held mark proves nothing; no clock; a live `.covers` session whose filter
+  reads no written field hides a given-up doubt without ending it, never a removal; `GuardContradicted` (internal
+  evidence) on a first send succeeding over a base known stale, skipped under a business key, memory only;
+  `GuardedUnbound`, `GuardedWithoutVersion`, `GuardedWithoutTarget` (`flow check`); the sent base durable (26);
+  `allOrNothing` not added (revisit.md); runtime visibility of the server contract abandoned (the user's
+  no-networking line) (rule 32, 2.8.6); (7) **D3 as built**: a write joins its records' queues when its Attempt heads
+  its lane, including while its acknowledgement is out; a `W` commit is a draft. **Its price, plainly:** per record,
+  send order; across actors, commit order holds only through a version check; on a last-writer-wins source an earlier
+  draft may silently overwrite a later commit from another actor, the same class as the two-tabs limit (OD19 Q31 A)
+  (rules 28, 29, 2.8.5); (8) D18 narrowed, the rule Q5 confirmed: a stale success rebases nothing, a sent write is
+  never rebased, a re-send keeps its sent base (2.8.6); (9) rule 30 wins over D3's old price (the audit's finding 1):
+  per record, the queue is released once the forced repair settles (a failed or re-asked repair has not), the write
+  keeps its lane hold and blocks no other actor's write, its re-send queues behind the record's holder then and
+  holds again once sent; a restored unknown holds until the boot repair settles (rule 30); (10) the auditor's open
+  question: `Released` frees the record-queue entry of an unknown never re-sent at once (the person let it go; the
+  lane's own outcome is still reported), as a release after `RepairOverdue` frees the next writer; predictions still
+  end with the forced repair (rule 30, 2.8.6); (11) D12/D40: no repair timer; at most 3 asks, then `RepairOverdue`,
+  the next news asks again, a placed answer resets the count; a hung repair's deadline is its own Effect's (U1 B)
+  (rule 30, 2.8.6); (12) D15 with no clock: an unbound sent hold yields once a ready write waits behind it on a
+  record, `unknown { Abandoned }` parked, the mark kept; under (9) it is liveness for the lane hold only (2.8.5);
+  (13) the judge: a lower version is silently stale with `Stale` evidence, a higher version applies when ordered,
+  equality is `Schema.toEquivalence` per field (2.8.6); (14) U10 field-scoped: a later success demotes a given-up
+  mark only if it carried every field of the mark; a frame demotes nothing (rule 32); (15) the 4,096 cap of given-up
+  marks per entity, `UnsettledEvicted`; an unresolved mark is never evicted (rule 32); (16) PostgREST without
+  idempotency: an unknown is settled by a read (2.8.6); (17) rule 35's `many` cap counts items, repeats included
+  (rule 35); (18) key fields have no cell, per entity from `entity({ primaryKey })` (2.8.14); (19) `.covers`
+  over-marks by what the store knows: base, prediction into the cover, a filter field in doubt (2.8.14); (20) OD51
+  (10): a stay-put at the owner state counts for rule 15's check, its risk accepted (rule 15); (21) OD51 (11): a
+  pending cancel is never lost (rule 24). **Shown by the prototype** (already true, no change of rule): (22) U7/D46:
+  a module's defect fails closed, `NotSent { ModuleDisabled }`, until reload; the price is stated (2.8.5; the reason
+  name added to rules 13 and 30); (23) D39: a re-send waits for its record's repair (2.8.6); (24) D49's record half:
+  `RecordHeld` and `stalled: "record"`, deciding nothing, only while the repair runs (2.8.5); (25) a real
+  supabase-js PostgREST update fits the contract's commit as written: it resolves with an error value (`status: 0`
+  maps to unknown), conflicts are `data: []` with 200 (a version filter, not a 412), and rule 18 makes a landed
+  write's re-send `StillUnknown` (2.8.6); (26) `basedOn` on the lane record, `sent` after the send, a pre-send record
+  trusting no base (rule 38). **Text, needing no decision** (written in): a read's failure reaches the store, and
+  `.gone` is judged like any read, by an adapter's tag, also on a gap's refetch (rule 37); `.covers`' unproven
+  registration is what marks, compared by the field's Schema, a record with no row never covered, one set per session
+  for the default; a whole row replaces wherever placed; an unversioned delta is dropped with `UserClosure`
+  (2.8.14); `targets` is new data in `Compiled`; the predicted keys carry the fields their prediction touched, so a
+  restored quiet mark still shows them (rule 38; not built); 2.7.15's old-version hold under `cancel` lasts only
+  through its own restored unknown's turn, so only that turn's handler commits beside it. **Stated limits:**
+  `GuardContradicted` under-detects across a reload (a restored Attempt is never a first send); a tripwire, never a
+  verification, its probe owed to revisit.md; Supabase realtime with every column sent omits unchanged TOAST-stored
+  columns from an `UPDATE`, which makes `row` unsafe there, an author risk (2.8.14); the harness's `disabled` wait
+  excuse rests on the runtime's own `ModuleDefect` issue, a runtime report like `checkClaims`'s; the PostgREST fake's
+  other ledgers still key by request key, fine for that fixture, not for a money one. **Open, owed (not decided):**
+  (a) the repair count is 3 per news as built, or 3 per doubt (proposal 2's 2.4); (b) U10's "later success" is read
+  by landing time as built, or by mint; (c) what a quiet removal doubt shows (as built, nothing: `unconfirmed: []`);
+  (d) whether a version field reads `unconfirmed` after a gap (as built, yes; only key fields are left out); (e)
+  whether a read's `.one(...)` answer is whole in `row`'s sense (as built, the store replaces on any placed whole
+  row) or reads merge; (f) what an unnamed report carries, or its name: a rekey (D78: the lane, its old and new key)
+  and an unbound lane; (g) a spelling for a collection-wide version (`flow check` sees only per-record ones); (h) the
+  `flow check` name for `.gone` without `.byKey`; (i) `ModuleDisabled`, `Abandoned`, `RepairOverdue`,
+  `UnsettledEvicted`, `GuardContradicted` and the three `Guarded*` checks are proposed names, recorded for the
+  user's read (amendment 9), and whether `Abandoned` joins rule 13's reserved reasons. **Not design:** seven
+  combination survivors carried to the phase 3 conformance rewrite (STATUS, that section), and the harness's own
+  findings (oracles, excuses, pins). Plan rows C185-C200. (2026-11-09)
 - **OD24** Process, delegated by the owner (2026-10-30): the main session approves the merge change lists for merges 4
   and 5 and for operations-in-definition, and treats operations as accepted for merging, unless a conflict needs an
   owner decision; only then is the owner asked. The streams direction review remains the owner's. (2026-10-30) *Process,
