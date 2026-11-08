@@ -2,7 +2,7 @@
 
 Status: approved by the user on 2026-11-07, in the Claude Code session ("the roadmap is approved"), handing
 its execution to Claude as the agent runner.
-Version: 11, approved 2026-11-07, after amendment 10.
+Version: 12, approved 2026-11-07, after amendment 11.
 Shape confirmed: 2026-11-04, in the Claude Code session. The user gave points 1-10: plans first,
 conformance rewritten, the core, features, Next.js hardening, examples and docs.
 Goal: production code for Flow State v3 at high quality, with good error messages and the
@@ -657,6 +657,12 @@ Numbered, oldest first (runner rule 4).
    adversarial testing against these proposals and prototypes"): phase 1 adds an adversarial four-angle re-audit per
    area by an independent Opus auditor with four Haiku sidecars, writing its own wrong runtimes and lies from the
    proposal and design; also once for rounds 14, 15, 15b and area H. Version 11. Phases worked out again: 1.
+11. 2026-11-09, judge the user ("the plans will be so massive that i obviously won't read them, and the prototype will be
+   the main source of truth anyways. so don't need to stop just keep going"): phase 2 runs without a stop for the user.
+   The runner proposes the labels and the criteria; every merge decision is judged by an independent reviewing agent,
+   recorded for the user's read; the plan merge is applied without waiting for the user's yes. The prototype stays the
+   main source of truth where plans and prototype disagree. Large public API changes and the roadmap's other hard stops
+   still block. Version 12. Phases worked out again: 2.
 
 ## Runner rules
 
