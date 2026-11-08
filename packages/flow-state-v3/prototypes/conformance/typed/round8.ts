@@ -3,6 +3,7 @@
 import { Effect, Schema } from "effect";
 import { definition, deny, Flow, machine, resource, trait, transaction } from "../compile/index.ts";
 import { call, FakeApi, fixture, unknownWhenLost, write } from "./lab.ts";
+import type { Api } from "../fake-world.ts";
 import { BareId } from "./round7.ts";
 
 const S = Schema;
@@ -118,7 +119,10 @@ const businessFx = fixture(
     },
   })),
 );
-export const businessKeyFixture = () => businessFx;
+// Audit 3b: the business key is the contract's (C129's `idempotency`, set on `Compiled` as phase 1's fixtures do), so the suite reads it from the
+// compiled data, never from the shape of a request's key.
+const businessKeyedFx = { ...businessFx, make: (api: Api) => { const c = businessFx.make(api); return { ...c, ops: { ...c.ops, charge: { ...c.ops["charge"]!, idempotency: ["who"] } } }; } };
+export const businessKeyFixture = () => businessKeyedFx;
 
 export const DoorsId = "Lab/Doors";
 const heal = () => (globalThis as { __healed?: boolean }).__healed === true;

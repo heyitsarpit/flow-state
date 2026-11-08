@@ -38,7 +38,7 @@ export const checkClaims = (r: Reads) => {
     switch (w.kind) {
       case "wire":
         if (
-          !out.open.some((o) => o.op === w.op && (w.attempt === undefined || o.key === w.attempt || o.key?.startsWith("business:"))) // D106: a key the server recognises
+          !out.open.some((o) => o.op === w.op && (w.attempt === undefined || o.key === w.attempt || r.businessKeyed(o.op))) // D106: a key the server recognises (audit 3b: by the contract)
         )
           throw new Mismatch(`L3: wire claim for ${w.op} with no request outside`);
         break;
@@ -172,7 +172,7 @@ export const checkEndings = (r: Reads) => {
   // Audit 3: a spare is a request with no key, or a key that names no Attempt (a business key): never another Attempt's late request.
   for (const o of r.outside().open) {
     if (o.key !== undefined && attemptsOpen.has(o.key)) byKey.add(o.key);
-    else if (o.key === undefined || o.key.startsWith("business:")) spare.set(o.op, (spare.get(o.op) ?? 0) + 1);
+    else if (o.key === undefined || r.businessKeyed(o.op)) spare.set(o.op, (spare.get(o.op) ?? 0) + 1); // audit 3b: the contract says, not the key
   }
   for (const k of open) {
     const attempt = k.split("#")[0]!;
@@ -212,7 +212,7 @@ export const checkMints = (r: Reads) => {
     if ((w.kind === "ack" || w.kind === "capture") && storage.some((s) => s.keys.some((k) => k === w.key || (r.diskScope(k) !== undefined && r.diskScope(k) === r.diskScope(w.key))))) return true;
     // D106: a request the server recognises by a business key, not the Attempt's id. D46: a disabled module, as `checkClaims` takes it (the module's
     // own `ModuleDefect` issue: a runtime report, the stated limit of this one kind).
-    if ((w.kind === "held" || w.kind === "repair" || w.kind === "wire") && r.requests().some((x) => x.op === w.op && x.idempotencyKey?.startsWith("business:"))) return true;
+    if ((w.kind === "held" || w.kind === "repair" || w.kind === "wire") && r.businessKeyed(w.op) && r.requests().some((x) => x.op === w.op && x.idempotencyKey !== undefined)) return true;
     if (w.kind === "disabled" && r.issues().some((i) => i.code === "ModuleDefect" && i.origin?.startsWith(w.module))) return true;
     if (w.kind === "queue" || w.kind === "W") return w.behind.some((b) => seen(b, depth + 1));
     return false;

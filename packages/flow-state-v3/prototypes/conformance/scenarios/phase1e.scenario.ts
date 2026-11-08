@@ -763,6 +763,20 @@ export const phase1eScenarios: readonly Scenario[] = [
         c.to(IA, "CancelLike", { id: "i1" });
         c.eq("released: B goes at once", [c.r.evidence("Released").length, c.reqs("like").length], [1, 2]);
       },
+      // Audit 3b, 2.8.6's Released row and rule 30 ("Released keeps the mark"; unknown "keeps live predictions until a forced repair lands"): a give-up
+      // before the repair lands removes nothing. The prediction still shows, the record still uncertain, until that repair lands.
+      "audit-a-release-before-the-repair-lands-keeps-the-prediction"(c0) {
+        const c = new Ctx(c0.fresh([issuesFixture]), IA);
+        c.ensure(IA);
+        c.to(IA, "Load");
+        c.answer("list", { truth: true });
+        c.to(IA, "Toggle", { id: "i1", liked: true });
+        c.answer("like", { lost: true });
+        c.to(IA, "CancelLike", { id: "i1" });
+        c.eq("released, the repair out: still predicted, still uncertain", [c.r.evidence("Released").length, c.rec(I1)?.predicted, c.rec(I1)?.data.liked, c.rec(I1)?.uncertain], [1, true, true, true]);
+        c.answer("repair", { truth: true });
+        c.eq("the repair landed: the prediction ends", c.rec(I1)?.predicted, false);
+      },
       // Rule 30 as ruled: unknown "holds the record queue until that repair settles": each record's own forced repair. a0's two-record write is lost;
       // r1's repair settling frees r1 only.
       "audit-a-two-record-unknown-frees-each-record-by-its-own-repair"(c0) {
@@ -771,8 +785,10 @@ export const phase1eScenarios: readonly Scenario[] = [
         c.ensure(a1);
         s1Commit(c, a0, 3, 1);
         c.answer("w", { lost: true }, { actor: "a0" });
-        s1Commit(c, a1, 2, 2);
         c.answer("repair", { truth: true }, { ref: s1Ref("r1") });
+        // Audit 3b, 2.8.6's unknown row ("kept until the forced repair lands"), per record: r1's repair ends the prediction on r1 only.
+        c.eq("r1's repair landed: r1 no longer predicted, r2 still is", [c.rec(s1Ref("r1"))?.predicted ?? false, c.rec(s1Ref("r2"))?.predicted], [false, true]);
+        s1Commit(c, a1, 2, 2);
         c.eq("r2's repair still runs: a1's write to r2 waits", c.reqs("w").length, 1);
         c.answer("repair", { truth: true }, { ref: s1Ref("r2") });
         c.eq("then it goes", c.reqs("w").map((r) => r.input.v), [1, 2]);

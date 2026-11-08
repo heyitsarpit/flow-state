@@ -109,6 +109,7 @@ export const makeHarness = (port: Port) => (): Harness => {
   let keptNow: Array<{ op: string; attempt: string }> = [];
   let keptNames: Array<{ op: string; attempt: string }> = [];
   let ledgerOff = false; // a disposed runtime, or a disk edited or wiped by the case
+  let ledgerOffDisk = false; // audit 3b: the disk's reason, which outlives a kill; a disposal's is this process only and clears at the kill
   let runtimeDisposed = false; // the suite's own: it drove a `disposeRuntime` step
   let disposeMark: number | undefined; // the same, in this process: the evidence's length when the suite drove it (cleared by a kill)
   const bump = (m: Map<string, number>, k: string, by = 1) => {
@@ -629,7 +630,7 @@ export const makeHarness = (port: Port) => (): Harness => {
   // A stored key's actor, by the codec; a key it scopes to no actor (meta, host) excuses the case, as before.
   const offActor = (key: string) => {
     const a = port.disk.scope(key);
-    if (a === undefined) ledgerOff = true;
+    if (a === undefined) ledgerOff = ledgerOffDisk = true;
     else offActors.add(a);
   };
   const deliveredOnce = new Set<string>(); // review M6: attempts whose ending a run took, across boots (rule 17)
@@ -1686,6 +1687,7 @@ export const makeHarness = (port: Port) => (): Harness => {
     plan = undefined;
     disposeMark = undefined;
     runtimeDisposed = false; // audit 3: a disposal is of one process; the next boot is a live Runtime again
+    ledgerOff = ledgerOffDisk; // audit 3b: so is the ledger's pause for it
     // D154: a reload the suite drove. What was in flight restores as an ending, which the compiled data maps to events: those count as driven.
     // The reload is the seen cause here, not the ending, so a restored ending's event may let its own op go.
     // Per owner (re-check inventory 3): only the attempts still open, each to its own actor, by its own machine's mapping.
@@ -1721,7 +1723,7 @@ export const makeHarness = (port: Port) => (): Harness => {
         `kill: held back ${inst.stateText("").split("|").at(-1)}; on disk ${[...fake.kv.keys()].filter((k) => k !== "meta" && k !== "host/ready").join(",") || "nothing"}`,
       );
     noteLost();
-    if (s.wipe) ledgerOff = true; // every record is gone: nothing is owed by anyone (rule 46)
+    if (s.wipe) ledgerOff = ledgerOffDisk = true; // every record is gone: nothing is owed by anyone (rule 46)
     credits = []; // mail dies with the process: a send not yet run pays nothing after the kill
     lifeAtReload = new Map(lifeOf); // stage K: the lives a restored ending is owed to, as at the reload the suite drove
     // Stage L (review R6): the reload's facts, the suite's own. What is on disk now is what the next boot is given, if its load answers.
@@ -1829,7 +1831,7 @@ export const makeHarness = (port: Port) => (): Harness => {
       );
       return undecided.filter((key) => {
         const q = fake.requests.find((r) => r.idempotencyKey === key)!;
-        return writes.has(q.op) && !heads.has(key) && !released.has(key) && !excused.has(key) && !turnEnd.has(key) && !replacedUnderCancel(key, q.op) && !key.startsWith("business:");
+        return writes.has(q.op) && !heads.has(key) && !released.has(key) && !excused.has(key) && !turnEnd.has(key) && !replacedUnderCancel(key, q.op) && !compiled.some((m) => Array.isArray(m.ops[q.op]?.idempotency)); // audit 3b: a business key by the contract
       });
     },
     state: (a) => inst.state(actorKey(a)),
@@ -1864,6 +1866,7 @@ export const makeHarness = (port: Port) => (): Harness => {
     actorKey: (a) => actorKey(a),
     releaseSeen: (attempt) => lettingGo.has(attempt) || releasedBySelf.has(attempt),
     disposeDrivenAt: () => disposeMark,
+    businessKeyed: (op) => compiled.some((m) => Array.isArray(m.ops[op]?.idempotency)),
     quiet: () => ({
       idle: !inst.pending() && !fake.hasWork(),
       fatal: inst.fatal(),

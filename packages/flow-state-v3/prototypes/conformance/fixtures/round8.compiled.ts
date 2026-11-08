@@ -56,6 +56,7 @@ export const businessKeyFixture = (): Fixture => ({
       ops: {
         charge: {
           ...m.ops["charge"]!,
+          idempotency: ["who"], // audit 3b: the business key is the contract's, read by the suite from here
           commit: (input: unknown) =>
             api.call("charge", input, { idempotencyKey: "business:charge:a" }).pipe(unknownWhenLost) as Effect.Effect<unknown, unknown>,
         },

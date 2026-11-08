@@ -235,7 +235,7 @@ R15-01 1114bd9f7dab
 R15-02 e633630fc03f
 R15-03 d6438a24faf6
 P1-H 004dbf1ee238
-P1-E 29c6f12dd975
+P1-E 89fe79495769
 P1-E-CAP d877e498f227
 variant:PAY-06/interruptible present
 variant:PAY-06/uninterruptible present
@@ -1107,6 +1107,7 @@ variant:P1-E/audit-a-feed-frame-past-the-sent-base-ends-a-guarded-doubt present
 variant:P1-E/audit-another-writes-success-past-the-sent-base-ends-a-guarded-doubt present
 variant:P1-E/audit-a-sent-write-is-not-rebased-and-its-retry-keeps-its-base present
 variant:P1-E/audit-a-release-after-repair-overdue-frees-the-record-at-once present
+variant:P1-E/audit-a-release-before-the-repair-lands-keeps-the-prediction present
 variant:P1-E/audit-a-two-record-unknown-frees-each-record-by-its-own-repair present
 variant:P1-E/audit-a-first-re-send-holds-the-record-again present
 variant:P1-E/audit-a-second-re-send-holds-the-record-again present
@@ -1130,7 +1131,7 @@ variant:P1-E/audit-the-cap-counts-each-entity-apart present
 variant:P1-E/audit-the-many-bound-is-4096-and-the-cap-is-past-64 present
 variant:P1-E/audit-a-gap-marks-a-record-that-may-have-moved-into-the-cover present
 file:scenarios/absorb.scenario.ts 9763d1722ca6
-file:scenarios/ctx.ts 7e87a2ef5937
+file:scenarios/ctx.ts e760bdc1d6f9
 file:scenarios/fixpass.scenario.ts 830244fe3948
 file:scenarios/flows.scenario.ts 03d32d837bd4
 file:scenarios/frag.scenario.ts 9dd4fc012afc
@@ -1139,7 +1140,7 @@ file:scenarios/ignore.scenario.ts b644a7a50c1d
 file:scenarios/lifetime.scenario.ts c5e8d9eb9159
 file:scenarios/order.scenario.ts 20b00317218b
 file:scenarios/pay.scenario.ts ef1bc2e0c261
-file:scenarios/phase1e.scenario.ts 7d214e03cd73
+file:scenarios/phase1e.scenario.ts f25ac4fcc993
 file:scenarios/phase1h.scenario.ts 0884b26cad17
 file:scenarios/review.scenario.ts 665946ad13c8
 file:scenarios/round10.scenario.ts c9f44683aeaf
@@ -1164,7 +1165,7 @@ file:search/engine.ts f92dd6638d2f
 file:search/flush.search.ts 27e5d64f6e2e
 file:search/frag.search.ts ed2babd50fc0
 file:search/fragstore.search.ts 1177d6786ffe
-file:search/like.search.ts d6bcca855787
+file:search/like.search.ts 33187cccb89c
 file:search/listen.search.ts 97e961b7b8ce
 file:search/odd.search.ts ab20e1e819cf
 file:search/pay.search.ts 3eaa513287a8
@@ -1191,7 +1192,7 @@ file:fixtures/real.compiled.ts ac7cc254f1f2
 file:fixtures/refunds.compiled.ts b6b198f1e5e7
 file:fixtures/round6.compiled.ts 41ebd8a9e557
 file:fixtures/round7.compiled.ts c71362ffec27
-file:fixtures/round8.compiled.ts 10a48ef13d49
+file:fixtures/round8.compiled.ts e77c6b3c5daf
 file:fixtures/round9.compiled.ts 9225ebc0fcbb
 file:fixtures/round9b.compiled.ts 7b1a38250dc4
 file:fixtures/s1.compiled.ts 44843c482fb9
@@ -1230,7 +1231,7 @@ file:typed/round15.ts 1192c3267cc3
 file:typed/round15b.ts 0c86964fcbe6
 file:typed/round6.ts df2fae781e3c
 file:typed/round7.ts 86c16cae75fc
-file:typed/round8.ts 82dfa6444782
+file:typed/round8.ts eee1b0044c75
 file:typed/round9.ts c33dbf308ecc
 file:typed/round9b.ts 88a89782dd84
 file:typed/stores.ts e611f8c3da70
@@ -1264,19 +1265,19 @@ file:plants/plants.ts fa81e4b3247a
 file:plants/reader-check.ts 5dfc9f51e6e1
 file:plants/work-peak.ts de8403a304aa
 file:output.ts 19300f7a0e5f
-file:falsify.ts 8e0b4136120b
+file:falsify.ts 908ed4ea0d9e
 file:broken-adapter.ts 3855a9bcf482
 file:null-adapter.ts 08e834229edc
 file:report.ts 7e305fd3110b
 file:watch.ts 93b7fe49b6da
 file:gate5s.ts d8a24cbd10f4
 file:gate-5s-expected.txt 076d1f268376
-file:expected-recipients.txt f78d3c801aa0
+file:expected-recipients.txt 6d3d08c5f847
 file:mutate.ts 90691b4a787c
 file:mutate-one.ts a48188cfc0d7
 file:gates.ts e1f36b72d88b
 file:harness.ts 85062d272130
-file:drive.ts 88cbb8e8814d
+file:drive.ts 54dc5c74afc4
 file:fake-world.ts 3cceb1e1af3f
 round:cli/broken.ts e08d83ca3eb4
 round:cli/check.ts 9a2fa77c77e0
@@ -1314,11 +1315,12 @@ round:reality/task.ts 926e9597f22d
 round:edge-plants.py df98c1a965d0
 round:mutants-a1.ts aa25e7cd9fe0
 round:mutants-a2.ts 9b253adbb1b6
-round:mutants-a3.ts f335885ecd92
+round:mutants-a3.ts 9a5b2d9afe43
 round:mutants-audit-1.ts a94dab75ab6b
 round:mutants-audit-1b.ts 62f99de2617c
 round:mutants-audit-2.ts 33edcaa1d34f
 round:mutants-audit-3.ts 91e4fb64ca8e
+round:mutants-audit-3b.ts c591eac6b1b7
 round:mutants-lifetime-misc.ts fde1dd816853
 round:mutants-lifetime-pay16.ts 5f6cdabd5c3f
 round:mutants-lifetime-pins-a.ts 2112467de82b
@@ -1581,6 +1583,7 @@ output:P1-E/audit-a-gap-refetch-that-answers-the-gone-tag-removes-the-row f1fc11
 output:P1-E/audit-a-later-success-carrying-some-of-the-marks-fields-demotes-nothing 9314566ff396
 output:P1-E/audit-a-re-sent-success-over-a-known-stale-base-is-no-contradiction bb379e69c5ad
 output:P1-E/audit-a-release-after-repair-overdue-frees-the-record-at-once 5acd8a04a119
+output:P1-E/audit-a-release-before-the-repair-lands-keeps-the-prediction 653c773630b1
 output:P1-E/audit-a-restored-unknown-holds-its-record-until-the-boot-repair-settles e52c0e90c36c
 output:P1-E/audit-a-second-re-send-holds-the-record-again 57c78a38ebba
 output:P1-E/audit-a-sent-write-is-not-rebased-and-its-retry-keeps-its-base 5a93469b6783

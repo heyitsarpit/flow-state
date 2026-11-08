@@ -203,6 +203,7 @@ const build = (Slot: S.Top) => {
     inputFields: S.Array(S.String),
     services: S.Array(S.String), // D213
     inputNotCarried: opt(S.Array(S.String)),
+    idempotency: S.optionalKey(S.Union([S.Literal("attempt"), S.Array(S.String)])), // C129: the contract's business key, data (audit 3b reads it)
     outcomes: S.Struct({
       success: opt(Mapped),
       failure: S.Record(S.String, Mapped),

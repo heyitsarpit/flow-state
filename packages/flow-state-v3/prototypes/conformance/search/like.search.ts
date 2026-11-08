@@ -97,8 +97,10 @@ const settled = (h: Harness) => {
     }
     if (row.uncertain || row.predicted) throw new Oracle(`drain: ${r} still ${row.uncertain ? "uncertain" : "predicted"} after the drain`);
     if (row.unconfirmed.length > 0 && !gaveUp(h).recs.has(i + 1)) throw new Oracle(`drain: ${r} unconfirmed, and the suite gave no write on it up`);
-    if (row.data?.v !== undefined && row.unconfirmed.length === 0 && row.data.v !== server.records[r])
-      throw new Oracle(`drain: ${r} shows ${row.data.v}, settled, and the server holds ${server.records[r]}`);
+    // Audit 3b: a settled row is compared whatever it shows, an empty one too (a row with no value is 0, S1's start), so an uncertain record
+    // reported as an empty settled row is red.
+    if (row.unconfirmed.length === 0 && (row.data?.v ?? 0) !== server.records[r])
+      throw new Oracle(`drain: ${r} shows ${row.data?.v}, settled, and the server holds ${server.records[r]}`);
   }
 };
 

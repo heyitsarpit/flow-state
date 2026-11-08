@@ -4,6 +4,7 @@
 // 4,096 records cost seconds a run), so that one is left to the full suite.
 import { MUTANTS as AUDIT2 } from "./mutants-audit-2.ts";
 import { MUTANTS as AUDIT3 } from "./mutants-audit-3.ts";
+import { MUTANTS as AUDIT3B } from "./mutants-audit-3b.ts";
 
 type M = { readonly id: string; readonly kills: readonly string[]; readonly edits: ReadonlyArray<readonly [string, string, string]> };
 const P = "P1-E/";
@@ -24,5 +25,11 @@ const AIM: Readonly<Record<string, readonly string[]>> = {
   "a3.cover-ignores-unconfirmed": [`${P}audit-a-gap-marks-a-record-whose-filter-field-is-unconfirmed`],
   "a3.cover-ignores-marks": [`${P}audit-a-gap-marks-a-record-that-may-have-moved-into-the-cover`],
 };
+// Audit 3b (`mutants-audit-3b.ts`): the two survivors reached by existing cases but never asserted.
+const AIM_3B: Readonly<Record<string, readonly string[]>> = {
+  "a3b.release-drops-predictions": [`${P}audit-a-release-before-the-repair-lands-keeps-the-prediction`],
+  "a3b.repair-ends-every-prediction": [`${P}audit-a-two-record-unknown-frees-each-record-by-its-own-repair`],
+};
+const aimed3b = (list: readonly M[]) => list.filter((m) => Object.hasOwn(AIM_3B, m.id)).map((m) => ({ ...m, kills: AIM_3B[m.id]! }));
 const aimed = (list: readonly M[]) => list.filter((m) => Object.hasOwn(AIM, m.id)).map((m) => ({ ...m, kills: AIM[m.id]! }));
-export const MUTANTS: readonly M[] = [...aimed(AUDIT2 as readonly M[]), ...aimed(AUDIT3 as readonly M[])];
+export const MUTANTS: readonly M[] = [...aimed(AUDIT2 as readonly M[]), ...aimed(AUDIT3 as readonly M[]), ...aimed3b(AUDIT3B as readonly M[])];

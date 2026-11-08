@@ -2307,4 +2307,16 @@ output:P1-E/audit-the-many-bound-is-4096-and-the-cap-is-past-64 hash:87e4d50ef88
 file:drive.ts hash:88cbb8e8814d | Audit 3 harness: a keyed cancel's lane key read by the op's key closure where a hand fixture has no keyFields (the --swap pass)
 P1-E hash:29c6f12dd975 | Audit 3: the restored-unknown case captures at once (captureMs 0), as the other reload cases do, so the 5 s gate reads it the same
 file:scenarios/phase1e.scenario.ts hash:7d214e03cd73 | Audit 3: captureMs 0 on the restored-unknown case
+P1-E hash:89fe79495769 | Audit 3b: a release before the repair keeps its prediction; a two-record unknown's repair ends only its record's prediction
+file:scenarios/ctx.ts hash:e760bdc1d6f9 | Audit 3b: business keys from the compiled contract, never a key's prefix (spare, checkMints, the wire claim)
+file:scenarios/phase1e.scenario.ts hash:f25ac4fcc993 | Audit 3b assertions in phase1e.scenario.ts (2.8.6's Released and unknown rows)
+file:search/like.search.ts hash:33187cccb89c | Audit 3b: the drain compares a settled row's value even when it has no data
+file:fixtures/round8.compiled.ts hash:e77c6b3c5daf | Audit 3b: the hand business-key fixture declares idempotency (C129), read by the suite
+file:typed/round8.ts hash:eee1b0044c75 | Audit 3b: the typed business-key fixture declares idempotency (C129) on Compiled
+file:falsify.ts hash:908ed4ea0d9e | Audit 3b: search kill drain.row-empty and lie.boot-drops-held, each red by its oracle
+file:drive.ts hash:54dc5c74afc4 | Audit 3b: ledgerOff clears at a kill unless the disk set it; (h)'s business key from the contract
+file:expected-recipients.txt hash:6d3d08c5f847 | Audit 3b: the ledger now reads restored states after a disposal's kill too (more checked); no red count moved
+round:mutants-audit-3b.ts hash:c591eac6b1b7 | Audit 3b: the re-auditor's own wrong runtimes, committed unedited
+output:P1-E/audit-a-release-before-the-repair-lands-keeps-the-prediction hash:653c773630b1 | new output: a release keeps the prediction until the repair
 round:mutants-a3.ts hash:f335885ecd92 | Audit 3: the overdue and failed-repair wrong runtimes aimed at P1-E's release-after-overdue case (STORE-07 is outside the lifetime list)
+round:mutants-a3.ts hash:9a5b2d9afe43 | Audit 3b: the two reached survivors aimed at their asserting cases

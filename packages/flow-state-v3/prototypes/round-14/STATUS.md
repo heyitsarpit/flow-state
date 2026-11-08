@@ -1294,6 +1294,44 @@ Gates: `bun gates.ts --budget 290` 18/25 ok, 0 BAD, 7 unknown by budget (the mac
 plus `suite copies` rerun alone (`--only`): **8/8 ok**. Before that run, mutate-one and lifetime-falsify were BAD (the swap key and the STORE-07 aims
 above) and fixed. Suite 980/980, lock clean.
 
+### Audit 3b (the last entities batch, 2026-11-08)
+
+`mutants-audit-3b.ts` (the narrow re-audit). Done, each red by assertion on its case and standing in `mutants-a3.ts`:
+- `a3b.release-drops-predictions`: P1-E `audit-a-release-before-the-repair-lands-keeps-the-prediction` (2.8.6's Released row; rule 30: unknown keeps
+  live predictions until the forced repair lands): `expected [1,true,true,true], got [1,false,false,true]`.
+- `a3b.repair-ends-every-prediction`: the assertion added to `audit-a-two-record-unknown-frees-each-record-by-its-own-repair` (2.8.6's unknown row,
+  per record): `r2 still is: expected [false,true], got [false,false]`.
+- The like drain compares a settled row's value even with no data (an empty row is S1's 0); search kill `drain.row-empty` (the auditor's
+  `lie:a3b.like-row-empty`): `drain: r1 shows undefined, settled, and the server holds 1`.
+- Business keys come from the compiled contract (`Reads.businessKeyed`, C129's `idempotency`, now declared on round 8's business-key fixture, typed
+  and hand), never from a request key's `business:` prefix: `spare`, `checkMints`, the wire claim (ctx.ts) and (h) (drive.ts). The auditor's
+  `lie:a3b.ids-look-business` now changes no verdict (it renames ids and drops nothing, so with no prefix read it is no wrong runtime).
+- `ledgerOff` clears at a kill unless the disk's own reason set it (`ledgerOffDisk`); lie `lie.boot-drops-held`, red by (j).
+- `codec.ts`'s `CompiledData` gains the optional `idempotency` (front-check refused the round 8 fixture's new field).
+- Gates: `bun gates.ts --budget 290` 23/25 ok, 0 BAD, 2 unknown by budget (graph-gate, falsify suite3); both rerun alone: ok. Suite 981/981, lock clean.
+
+## Carried to the phase 3 conformance rewrite
+
+Entities is settled after audit 3b. These wrong runtimes survive; each needs a combination the current suite does not build. The case each needs:
+- `a3b.resend-behind-settled` (rule 30 as ruled: a re-send "retries behind whatever holds the record then"): a settled hold's re-send while another
+  settled hold is ahead on the record; the re-send must not wait behind the settled one, only behind live holders.
+- `a3b.keyed-from-first-entity` (proposal 2 §2.2, the entity's own key fields): a gap over a domain with two entities whose key fields differ
+  (e.g. Ticket by `id`, Queue by `slug`), each record's gap leaving out its own entity's key.
+- `a3b.restored-counts-unsent` (rule 31; the runner's note: a restored Attempt counts as sent once): a restored guarded write whose re-send succeeds
+  over a base the store knew stale: no `GuardContradicted`, and its `known` kept.
+- `a3b.keyed-cancel-names-the-ending` (rule 43: a keyed member names its key's lane): an ending's handler whose keyed `cancel(k)` names another
+  key's lane, which must be the one cancelled, not the ending's own.
+- `audit-2.covers-ended-remembers` (Q3 A: a session that ends forgets what it delivered): a no-`.covers` session that delivered t1, ends, and a new
+  session's first unproven registration marks nothing.
+- `audit-2.rebase-any-base` (Q5 A: rebase only "over the same base"): an earlier-minted write succeeding while a later never-sent write on the record
+  was minted over a different base (a read landed between their mints); the later keeps its base.
+- `1b.r15-lateness-transitive` (rule 15: lateness is not transitive): vacuous as written (`w.late` is cleared before members run); a wrong runtime
+  that reads the late flag where members run is `a2.lateness-transitive`, which the case already kills. Phase 3 should re-express it.
+
+Open question (the auditor's): **should `Released` free an unknown that was never re-sent?** Today a release withdraws the entry at once when no repair
+runs, else when its repair ends (rule 30's "withdraws a waiting re-send's queue entry"); the text names only a waiting re-send, so a never-re-sent
+unknown's release freeing the record is the runtime's reading, not the design's sentence. Not ruled; for the runner.
+
 Sidecar log: one Haiku reviewer on the harness diff. Acted on: `spare` read the runtime's `invoked` evidence (now the fake's key shape only); the ack
 excuse ignored the wait's key (now matched as `checkClaims` does); `disabled` ignored the module (now matched by origin); an empty key field list
 matched any lane (now names nothing). Rejected: "`askedInput` binds a retry's ask to the next mint" (`askOwners` is cleared at each batch's end, so an
