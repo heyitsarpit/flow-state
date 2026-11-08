@@ -43,18 +43,22 @@ const structure = (x: unknown, seen: Set<unknown> = new Set()): string => {
   if (x === null || typeof x !== "object") return typeof x === "function" ? "fn" : String(JSON.stringify(x));
   if (seen.has(x)) return "cycle";
   seen.add(x);
-  if (Array.isArray(x)) return `[${x.map((y) => structure(y, seen)).join(",")}]`;
   const o = x as Record<string, unknown>;
-  const keys = Object.keys(o).filter((k) => k !== "annotations" && typeof o[k] !== "function").sort();
-  return `${String(o["_tag"] ?? "")}{${keys.map((k) => `${k}:${structure(o[k], seen)}`).join(",")}}`;
+  const out = Array.isArray(x)
+    ? `[${x.map((y) => structure(y, seen)).join(",")}]`
+    : `${String(o["_tag"] ?? "")}{${Object.keys(o).filter((k) => k !== "annotations" && typeof o[k] !== "function").sort().map((k) => `${k}:${structure(o[k], seen)}`).join(",")}}`;
+  seen.delete(x);
+  return out;
 };
-// OD30 Q3, rule 74 (fix pass L1): the version of a value-named machine's identity is its field set and each field's **encoded** Schema,
-// compared by structure, in field-name order. A field whose type changes over the same encoded side (String to NumberFromString) is no new version.
+// U17 B (OD48), rule 74 and 2.7.15: a Schema's version is its type side and its encoded side, compared by structure, without annotations: a
+// transformation change (String to NumberFromString) is a new version, a brand or a description is not.
+export const schemaVersion = (schema: unknown): string => {
+  const ast = (schema as Schema.Top).ast;
+  return hash(`${structure(SchemaAST.toType(ast))}|${structure(SchemaAST.toEncoded(ast))}`);
+};
+// OD30 Q3, rule 74: the version of a value-named machine's identity is its field set and each field's Schema version, in field-name order.
 export const identityVersionOf = (fields: Readonly<Record<string, { readonly schema: unknown }>>, names: readonly string[]): readonly string[] =>
-  names.map((f) => {
-    const ast = (fields[f]!.schema as Schema.Top).ast;
-    return `${f}:${String(SchemaAST.toEncoded(ast))}#${hash(structure(SchemaAST.toEncoded(ast)))}`;
-  });
+  names.map((f) => `${f}:${String(SchemaAST.toEncoded((fields[f]!.schema as Schema.Top).ast))}#${schemaVersion(fields[f]!.schema)}`);
 const hash = (s: string) => {
   let h = 2166136261;
   for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619) >>> 0;

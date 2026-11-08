@@ -4,6 +4,7 @@
 import { Effect, Schema, type Context } from "effect";
 import { OutcomeFailure, OutcomeUnknown, type CommitCtx, type CompiledOp, type CompiledOutput, type Mapped, type Op, type TokenGuard } from "../fixtures/compiled.ts";
 import { slotOf, type Fields, type Tagged, type TypeOf } from "./core.ts";
+import { schemaVersion } from "./ref.ts";
 import { isIgnore, isUncertain, type EndCtx, type From, type Ignore, type Token } from "./events.ts";
 
 // ── Services (D213, rule 57): named on the contract as values; `tsc` refuses a list that misses one of the commit's `R`.
@@ -204,6 +205,7 @@ export const compileOp = (definition: string, name: string, b: AnyBound, events:
     kind: c.kind,
     ...(fragment ? { fragment } : {}),
     keyFields, // rule 39's field list: the one source of the lane's key (D215); the seal makes the key from it
+    keyVersion: keyFields.map((f) => `${f}#${schemaVersion((c.input as Record<string, Schema.Top>)[f])}`),
     inputFields: Object.keys(c.input),
     services: (c.services ?? []).map((s) => s.key),
     concurrency: c.concurrency,

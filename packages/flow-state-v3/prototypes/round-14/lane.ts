@@ -544,9 +544,10 @@ const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === "obj
 // The same key fields, in any order: the same op version (a reorder changes no key, since a key is a record).
 export const sameFields = (a: readonly string[] | undefined, b: readonly string[] | undefined) =>
   a === undefined || b === undefined || (a.length === b.length && a.every((f) => b.includes(f)));
-// Round 13 (D221): a mint stamps the fields its key is made under now.
+// Round 13 (D221): a mint stamps the fields its key is made under now; U17 B, each with its Schema's version where the compiler gave one.
+export const stampFields = (o: { readonly keyFields?: readonly string[]; readonly keyVersion?: readonly string[] } | undefined) => o?.keyVersion ?? o?.keyFields;
 function stampOf(tx: Tx, machine: string, op: string): { keyFields?: readonly string[] } {
-  const f = tx.machines[machine]?.ops[op]?.keyFields;
+  const f = stampFields(tx.machines[machine]?.ops[op]);
   return f ? { keyFields: [...f] } : {};
 }
 // Round 13 (D221, Arpit's call on required key fields; replaces D217's shape test and the first D221's projection). An op's key fields are part of its
@@ -554,7 +555,7 @@ function stampOf(tx: Tx, machine: string, op: string): { keyFields?: readonly st
 // never matched against a new key. It stays reachable by its own old key (`retry(k)`, `cancel(k)`, an exact lane id), and until it ends every commit of
 // this actor's op declines, whatever its key, and a keyed `idle` says no. A lane with no stamp (a hand key closure, F2) has no version.
 export const oldVersionLane = (tx: Tx, actor: string, machine: string, op: string): Lane | undefined => {
-  const fields = tx.machines[machine]?.ops[op]?.keyFields;
+  const fields = stampFields(tx.machines[machine]?.ops[op]);
   if (!fields) return undefined;
   return Object.values(tx.w.lanes).find((l) => l.actor === actor && l.op === op && l.keyFields !== undefined && !sameFields(l.keyFields, fields) && columnOf(l) !== "Idle");
 };

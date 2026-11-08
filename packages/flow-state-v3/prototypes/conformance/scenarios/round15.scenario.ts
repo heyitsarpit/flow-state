@@ -1,16 +1,30 @@
 // Round 15: the design rulings the runtime still owed (OD48, and the round 14 runner ruling on rule 15). Every expectation is the design's text,
 // worked out by hand before the runtime was changed; each variant names its rule.
+import type { Release } from "../fixtures/round6.compiled.ts";
+import { keyStampFixture } from "../typed/round13.ts";
 import { R15LateId, r15LateFixture } from "../typed/round15.ts";
 import { Ctx, type Scenario } from "./ctx.ts";
 
 const RL = { actor: R15LateId, id: "a" };
+const KS = { actor: "Lab/KeyStamp", id: "a" };
 const denials = (c: Ctx) => c.r.evidence("Denied").map((e) => e["reasons"]);
+const keyHoldThen = (c0: Ctx, to: number) => {
+  const rel: Release = { v: 1 };
+  const c = new Ctx(c0.fresh([keyStampFixture(rel)], { captureMs: 0 }), KS);
+  c.ensure(KS);
+  c.send("Go", { k: "a" });
+  c.ack();
+  c.answer("charge", { lost: true });
+  c.h.release(() => void (rel.v = to), () => void (rel.v = 1));
+  c.reload();
+  return c;
+};
 
 export const round15Scenarios: readonly Scenario[] = [
   {
     id: "R15-01",
     kind: "fault",
-    fixtures: [r15LateFixture()],
+    fixtures: [r15LateFixture(), keyStampFixture({ v: 1 })],
     actor: RL,
     cites: ["rule:15", "rule:43"],
     variants: {
@@ -77,6 +91,24 @@ export const round15Scenarios: readonly Scenario[] = [
         c.eq("adopted: no longer unbound", unbound(), []);
         c.reload();
         c.eq("no boot reports it now", c.r.evidence("UnboundLane").length, 1);
+      },
+      // U17 (OD48; 2.7.15): an operation key's fingerprint compares each key field's type side and encoded side, ignoring annotations. `k` from
+      // String to Trim keeps the encoded side (a string) and changes the type side: a new version of the op, so the hold is an old-version hold
+      // and every commit of the op declines beside it, whatever its key (D221).
+      "a-key-fields-type-side-change-is-a-new-version-of-the-op"(c0) {
+        const c = keyHoldThen(c0, 4);
+        c.eq("an old-version hold, said at the boot", c.r.evidence("OldVersionLane").length, 1);
+        c.send("Go", { k: "b" });
+        c.ack();
+        c.eq("declined beside it, nothing sent", [c.mem(KS)?.declined, c.reqs("charge").length], [1, 1]);
+      },
+      // U17: "a brand or a description is not" a new version. The hold is current; another key's commit sends.
+      "a-key-fields-description-change-is-no-new-version-of-the-op"(c0) {
+        const c = keyHoldThen(c0, 5);
+        c.eq("no old-version hold", c.r.evidence("OldVersionLane").length, 0);
+        c.send("Go", { k: "b" });
+        c.ack();
+        c.eq("another key sends", [c.mem(KS)?.declined, c.reqs("charge").length], [0, 2]);
       },
     },
   },

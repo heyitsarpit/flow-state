@@ -2,7 +2,7 @@
 // fields, in field-name order, and only those; the value is the input. A singleton has a literal name and takes input at ensure. Every
 // expectation is the design's text, worked by hand.
 import { actorRef, ensureArgs, type ActorRefOf } from "../compile/index.ts";
-import { Editor1, Editor2, Editor3, Editor4, EditorId, editorFixture, editorRef, SessionRef, sessionFixture, type Release } from "../typed/identity.ts";
+import { Editor1, Editor2, Editor3, Editor4, Editor5, EditorId, editorFixture, editorRef, SessionRef, sessionFixture, type Release } from "../typed/identity.ts";
 import type { Step } from "../harness.ts";
 import { Ctx, type Scenario } from "./ctx.ts";
 import { GRACE } from "./lifetime.scenario.ts";
@@ -75,10 +75,10 @@ export const identityScenarios: readonly Scenario[] = [
         c.eq("a fresh actor of the new version", [c.r.memory(at(r2))?.title, c.r.memory(at(r2))?.region], ["", "eu"]);
         c.yes("the old record is still on disk, for forget", c.record(at(r1)) !== undefined);
       },
-      // Fix pass L1, back to rule 74's words ("changing a field's encoded Schema"): a string becomes a number encoded as a string. The encoded
-      // side is unchanged, so this is no new version: the record is restored and the new ref, which encodes to the same name, finds it.
-      // Changed from "a new version" (round 14's M3 compared the type side too).
-      "a-type-change-over-the-same-encoded-side-is-no-new-version"(c0) {
+      // U17 B (OD48; rule 74): a version compares each field's type side and encoded side, ignoring annotations. A string becomes a number
+      // encoded as a string: the encoded side is unchanged, the type side is not, so this is a new version, listed, and the new ref, which
+      // encodes to the same name, starts fresh. Changed back from fix pass L1's "no new version" (encoded side only).
+      "a-type-change-over-the-same-encoded-side-is-a-new-version"(c0) {
         const rel: Release = { v: 1 };
         const r1 = editorRef({ workspaceId: "north", ticketId: "42" });
         const c = new Ctx(c0.fresh([editorFixture(rel)], { captureMs: 0 }), at(r1));
@@ -88,11 +88,27 @@ export const identityScenarios: readonly Scenario[] = [
         c.answer("save", { ok: {} });
         c.h.release(() => void (rel.v = 3), () => void (rel.v = 1));
         c.reload();
-        c.eq("not listed", c.r.evidence("OldVersionActor").length, 0);
+        c.eq("listed at ready", c.r.evidence("OldVersionActor").length, 1);
         const r3 = actorRef(Editor3, { workspaceId: "north", ticketId: 42 });
         c.eq("the same encoded name", r3.id, r1.id);
         c.do(ensureStep(ensureArgs(r3)));
-        c.eq("its record, restored", c.r.memory(at(r3))?.title, "Foyer");
+        c.eq("a fresh actor, the old record not matched", c.r.memory(at(r3))?.title, "");
+      },
+      // U17 B: "a brand or a description is not" a new version. The record is restored under the annotated field.
+      "a-description-change-is-no-new-version"(c0) {
+        const rel: Release = { v: 1 };
+        const r1 = editorRef({ workspaceId: "north", ticketId: "42" });
+        const c = new Ctx(c0.fresh([editorFixture(rel)], { captureMs: 0 }), at(r1));
+        c.do(ensureStep(ensureArgs(r1)));
+        c.send("Title", { title: "Foyer" });
+        c.ack();
+        c.answer("save", { ok: {} });
+        c.h.release(() => void (rel.v = 5), () => void (rel.v = 1));
+        c.reload();
+        c.eq("not listed", c.r.evidence("OldVersionActor").length, 0);
+        const r5 = actorRef(Editor5, { workspaceId: "north", ticketId: "42" });
+        c.do(ensureStep(ensureArgs(r5)));
+        c.eq("its record, restored", c.r.memory(at(r5))?.title, "Foyer");
       },
       // L1: a check on the encoded side (a string becomes a non-empty string) changes the encoded Schema: a new version, not a rename.
       "an-encoded-side-change-is-a-new-version"(c0) {

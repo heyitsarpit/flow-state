@@ -1657,3 +1657,18 @@ output:R15-02/a-key-less-cancel-in-a-not-sent-handler-does-nothing hash:2ea4ebf3
 output:R15-02/on-a-reload-each-queued-commit-is-heard-before-the-held-head hash:ca701cdeae42 | new output: No, No, then Unsure at the reload
 output:R15-03/creation-checks-an-input-by-its-type-side-and-refuses-a-transforming-decode hash:3dc242f11cee | new output: no actor for "3", InputRefused; the actor for 3
 file:expected-recipients.txt hash:3b1047ddb0cb | +5 observed, +1 restored, +5 start nodes: R15-02 and R15-03's four new variants
+removed:variant:R14-ID-02/a-type-change-over-the-same-encoded-side-is-no-new-version | U17 B (OD48) reverses it: a type change over the same encoded side is a new version; renamed ...-is-a-new-version
+R14-ID-02 hash:c097f0037364 | U17 B: String to NumberFromString is a new actor version (listed, fresh actor); new variant a-description-change-is-no-new-version
+R15-01 hash:eb9026606ba5 | new variants for U17 on an op key: String to Trim is a new version (old-version hold), a description is not
+file:scenarios/identity.scenario.ts hash:808218ccc5fc | holds R14-ID-02's U17 reversal and its description variant
+file:scenarios/round15.scenario.ts hash:2ffe57cf4001 | holds R15-01's two U17 op-key variants and their keyHoldThen helper
+file:typed/identity.ts hash:26ba579d6453 | Editor release 5: ticketId with a description only; release 3's comment says U17 B
+file:typed/round13.ts hash:c1a428fad6f9 | KeyStamp releases 4 (k as Trim) and 5 (k with a description) for U17's op-key fingerprint
+file:compile/operations.ts hash:bb44dd66c90f | compileOp writes keyVersion: each key field with its Schema version (U17 B)
+file:compile/ref.ts hash:6adf7ff0dfb3 | schemaVersion compares type and encoded side (U17 B); structure tracks ancestors only, so a shared node is not read as a cycle (review)
+round:mutants-r15.ts hash:88c5e493b616 | adds four U17 wrong runtimes: key stamp by names, every release new for keys, actor version by encoded side, every release new for actors
+output:R14-ID-02/a-description-change-is-no-new-version hash:db5584506678 | new output: release 5 restores the record, not listed
+output:R14-ID-02/a-type-change-over-the-same-encoded-side-is-a-new-version hash:411d62a9856c | new output (renamed variant): listed at ready, a fresh actor
+output:R15-01/a-key-fields-description-change-is-no-new-version-of-the-op hash:d9f972011348 | new output: no old-version hold, key b sends
+output:R15-01/a-key-fields-type-side-change-is-a-new-version-of-the-op hash:2fde2b1d4ec0 | new output: OldVersionLane once, key b declined beside it
+file:expected-recipients.txt hash:4ff9975fa648 | +5 observed, +2 restored, +5 start nodes: R15-01's two U17 variants and R14-ID-02's description variant

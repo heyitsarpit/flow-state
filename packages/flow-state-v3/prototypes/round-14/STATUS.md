@@ -649,6 +649,7 @@ Round 15 continues in round-14's folder (the runtime is the same one, evolved; a
 | U5 no `allow` | already true: `Op["concurrency"]` is `reject \| latest \| serialize` (fixtures/compiled.ts), the codec's literals the same (codec/codec.ts); never built | - | - | none (a type-level absence; no case can name it) |
 | U8 sends queue until boot | already true (driver.ts, D87): REV7-M2 (queue runs after boot; a read that never answers: `StorageFailure`, runs unpersisted; the queue's bound) | - | - | none new |
 | U9 creation checks the type side | already true (compile/memory.ts, D219): new `R15-03/creation-checks-an-input-by-its-type-side-and-refuses-a-transforming-decode` | 4th | none | none possible: the check lives in the typed front end (conformance/compile), outside the runtime tree a wrong runtime edits (so R15-03 is not in lifetime-falsify) |
+| U17 versions compare type and encoded side | done. Actor: `identityVersionOf` (compile/ref.ts) hashes `schemaVersion` = structure of the type side and the encoded side, no annotations. Op key: the compiler writes `keyVersion` (each key field with its `schemaVersion`); the runtime stamps and compares lanes by `stampFields` (lane.ts: `keyVersion ?? keyFields`), in `stampOf`, `oldVersionLane` and the restore's `OldVersionLane`. Before, an op key compared field **names** only (D221), so even Q1 A's encoded side was not built | 5th | `R14-ID-02/a-type-change-over-the-same-encoded-side-is-a-new-version`: `listed at ready: expected 1, got 0`; `R15-01/a-key-fields-type-side-change-is-a-new-version-of-the-op`: `an old-version hold, said at the boot: expected 1, got 0` | `r15.key-version-by-names`, `r15.key-version-any-release`, `r15.actor-version-encoded-only`, `r15.actor-version-any-release` |
 
 Findings for the design:
 1. Rule 15's exemption and U2 pull apart. A key-less `cancel` in a success or failure handler does nothing (U2: the ending's Attempt is
@@ -692,6 +693,16 @@ Findings for the design:
 10. Harness: oracle (h) (drive.ts `writeAheadLies`, `cancelSeen`) does not count an unknown handler's own key-less cancel as a cause for
    releasing that hold, so a fixture whose restored unknown cancels its own persisted hold is red by (h). Avoided in R15Late (its Unsure
    keeps the hold); not changed, since it gives no wrong verdict on the runtime's behaviour so far.
+11. U17 "ignoring annotations" cannot be built as written for checks: in Effect 4 a check's parameters live in its annotations and closures, so
+   `minLength(1)`, `minLength(2)` and `NonEmptyString` compare equal (structure sees `Filter`); and `toType`/`toEncoded` strip the
+   encoding chain, so a transformation whose two sides stay the same (`String` decoded through an upper-casing transform to `String`) is
+   no new version, against "a transformation change is a new version". Both are reviewer findings, confirmed against the installed effect.
+   Decision needed: name what is compared (a check's identity and parameters? a transformation's identity?) or state these as limits.
+12. U17 changes what a lane's stamp holds (names, now names with Schema versions). A lane saved by a release before the change restores as an
+   old-version hold, and every commit of its op declines beside it until it ends, though no key changed. The design needs a stamp format
+   that is stable across Flow versions, or a rule that a names-only stamp compares by names (a migration). Not built.
+13. The prototype's D221 (round 13) compared op key fields by name only; Q1 A (encoded side) had never been built, so U17 is the first time
+   an op key's Schema joins its version. The codec's `Op` schema (codec/codec.ts) has no `keyVersion`; it is not on the runtime's path.
 
 Log (start-end, who, redone):
 
@@ -705,3 +716,6 @@ Log (start-end, who, redone):
 | map U2-U9 to proving cases and code | 11:02 | 11:05 | runner (Haiku) | none; gaps it found became R15-02, R15-03 |
 | R15-02/R15-03 variants | 11:05 | 11:07 | coder (Haiku) | lead made the NotSent variant keyed (finding 7), split U9 into R15-03 |
 | R15-02 wrong runtimes | 11:07 | 11:09 | coder (Haiku) | none; the reload one is an artifact, kept and said so |
+| completion audit: does `flow check` require NotSent where Rejected can decline | 11:09 | 11:10 | runner (Haiku) | none; result in the audit row |
+| U17: cases, compile and runtime, four mutants, locks | 11:10 | 11:30 | lead | |
+| review of the U17 diff (Haiku, effort high from here on) | 11:25 | 11:28 | reviewer (Haiku) | its cycle bug in `structure` fixed; check and transformation limits, stamp upgrade, recorded as findings 11-13 |

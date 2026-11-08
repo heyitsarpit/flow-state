@@ -7,12 +7,13 @@ import { FakeApi, fixture, write } from "./lab.ts";
 
 const S = Schema;
 // D221: an op's key fields are part of its identity. Release 1 keys `charge` by `k`; release 2 by `k` and `region` (a field added, required); release 3 by
-// `k` again (the field removed). A key field is required wherever it is one; elsewhere `region` is an optional input.
+// `k` again (the field removed). A key field is required wherever it is one; elsewhere `region` is an optional input. Round 15 (U17): release 4
+// keys by `k` as `Trim` (the type side changes, the encoded side is a string still); release 5 by `k` with a description only.
 const fieldsOf = (v: number) => (v === 2 ? (["k", "region"] as const) : (["k"] as const));
 const stamped = (rel: Release, policy: Op["concurrency"]) => {
   const charge = transaction({
     id: "lab/stamp-charge",
-    input: { k: S.String, id: S.String, region: rel.v === 2 ? S.String : S.optionalKey(S.String) },
+    input: { k: rel.v === 4 ? S.Trim : rel.v === 5 ? S.String.annotate({ description: "the order" }) : S.String, id: S.String, region: rel.v === 2 ? S.String : S.optionalKey(S.String) },
     key: fieldsOf(rel.v),
     concurrency: policy,
     services: [FakeApi],

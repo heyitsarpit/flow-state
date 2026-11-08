@@ -52,9 +52,10 @@ const editorV2 = () => {
     },
   }));
 };
-// Release 3: the same field names, `ticketId` now a number encoded as a string. Its encoded Schema is still a string, so by rule 74 ("changing
-// a field's encoded Schema") it is no new version (fix pass L1). Release 4: `ticketId` a non-empty string, a check on the encoded side: a new version.
-const editorV3 = (ticketId: typeof S.NumberFromString | typeof S.NonEmptyString = S.NumberFromString) => {
+// Release 3: the same field names, `ticketId` now a number encoded as a string: the encoded side is a string still, the type side changed, so by
+// rule 74 (U17 B) a new version. Release 4: `ticketId` a non-empty string, a check on both sides: a new version. Release 5: `ticketId` with a
+// description only: no new version.
+const editorV3 = (ticketId: typeof S.NumberFromString | typeof S.NonEmptyString | typeof S.String = S.NumberFromString) => {
   const d = definition({
     id: EditorId,
     states: ["OPEN"],
@@ -70,7 +71,8 @@ export const Editor1 = editorV1();
 export const Editor2 = editorV2();
 export const Editor3 = editorV3();
 export const Editor4 = editorV3(S.NonEmptyString);
-export const editorFixture = (rel: Release = { v: 1 }) => fixture(() => (rel.v === 1 ? Editor1 : rel.v === 2 ? Editor2 : rel.v === 3 ? Editor3 : Editor4));
+export const Editor5 = editorV3(S.String.annotate({ description: "the ticket" }));
+export const editorFixture = (rel: Release = { v: 1 }) => fixture(() => (rel.v === 1 ? Editor1 : rel.v === 2 ? Editor2 : rel.v === 3 ? Editor3 : rel.v === 4 ? Editor4 : Editor5));
 const session = definition({
   id: SessionId,
   states: ["ON"],

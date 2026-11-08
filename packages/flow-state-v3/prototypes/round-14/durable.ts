@@ -6,7 +6,7 @@ import { getActor, setActor, noActors, type Actors } from "./actors.ts";
 import { canon, carried, standIn, text, own, Unencodable, validActor, validLane } from "./gate.ts";
 import type { Compiled } from "../conformance/fixtures/compiled.ts";
 import { hook, saveAll } from "./hooks.ts";
-import { afterAck, cell, sameFields } from "./lane.ts";
+import { afterAck, cell, sameFields, stampFields } from "./lane.ts";
 import { armTimer, disarmTimer } from "./timers.ts";
 import {
   clearStall,
@@ -434,7 +434,7 @@ const placeLanes = (tx: Tx, lanes: ReadonlyArray<readonly [string, SavedLane]>):
   const moves = lanes.map(([, v]) => freshOf(v));
   const taken = new Set(lanes.filter((_, i) => moves[i] === undefined).map(([, v]) => v.id));
   return lanes.map(([k, v], i): [string, SavedLane] => {
-    const fields = tx.machines[v.machine]!.ops[v.op]!.keyFields;
+    const fields = stampFields(tx.machines[v.machine]!.ops[v.op]);
     if (v.keyFields !== undefined && fields && !sameFields(v.keyFields, fields)) note(tx, "OldVersionLane", { op: v.op, lane: v.id, keyFields: v.keyFields });
     const fresh = moves[i];
     if (fresh === undefined) return [k, v];
