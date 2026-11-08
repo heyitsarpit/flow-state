@@ -662,7 +662,7 @@ declarer" (a definition or a fragment), and "binding actor" as "binding incarnat
     (**new**; 2.7.18): no event and no handler; never on a stream key or a `listen` entry. Every `unknown:` target is a
     `Flow.uncertain` event or `Flow.ignore`. A read's `failure:` carries its tags plus Flow's `Defect` and `Interrupted` (rule 37). An
     author error whose tag is one of Flow's reasons (`NotSent`, `Cancelled`, `Restored`, `Interrupted`, `Defect`,
-    `StillUnknown`, `StorageRefused`, `Disposed`; *added by OD52 (22):* `ModuleDisabled`, proposed) is a type error, and compile refuses it as `ReservedReason` (proposed
+    `StillUnknown`, `StorageRefused`, `Disposed`; *added by OD52 (22):* `ModuleDisabled`, proposed; *added by OD53 (21):* `Abandoned`, proposed) is a type error, and compile refuses it as `ReservedReason` (proposed
     name) wherever a tag is declared: a write's or read's failure record and a stream's, beyond the `Defect` and
     `Interrupted` a read carries (rule 37); an `unknown:` record's `byReason` keys must be Flow's reasons (decided by
     the runner, OD50); on a stream, so is one of `Feed`'s reasons (`Closed`, `Overflow`, `Silent`, `Flapping`) or the tag `Feed`, the map's own key [P, merge]. A commit's context also gives `progress(p)`, which sets its row's `progress` with no turn (Streams T8).
@@ -943,7 +943,10 @@ decision (E1–E18). Rules 13–25 and N1–N3 still apply.
     the held write keeps its lane's hold and blocks no other actor's write to the record; its re-send waits behind
     whatever holds the record then and holds it again once sent; a restored unknown holds its record until the boot's
     repair settles. A failed repair is asked again, at most 3 asks, then `RepairOverdue` (evidence; the mark and the
-    hold stay) and the next news asks again; a placed answer resets the count; no timer. `Released` of an unknown
+    hold stay) and the next news asks again; a placed answer resets the count; no timer. *Superseded by OD53 (8), the
+    runner:* "the next news asks again" and "resets the count": the bound is 3 asks per doubt in total, so after
+    `RepairOverdue` nothing asks again for that doubt; its mark and hold stay until a release (below) or a reload's
+    boot repair, a new doubt with its own 3. `Released` of an unknown
     never re-sent frees its queue entry at once, the next writer goes (the person let it go; the lane's own outcome is
     still reported), as a release after `RepairOverdue` does; its predictions still end with the forced repair. **Revision (multiplicity audit, 2026-10-31) (E18).** A prediction over a record the store does not hold (never held,
     or deleted beneath it by an earlier write or a push) shows nothing, and the record reads absent; it stays with its
@@ -970,7 +973,7 @@ decision (E1–E18). Rules 13–25 and N1–N3 still apply.
     Attempt's success (a re-send) or, once given up, by `guarded`'s proof. Given up (a release, an ignored unknown, a
     D15 yield), it is `uncertain` and asks one read; a read or repair asked at or after the give-up, or a later
     success that carried **every** field of the mark (a removal carries all; a feed frame demotes nothing), makes it
-    quiet: `unconfirmed` on the fields its prediction touched, asking nothing, never `uncertain` again. A held mark is
+    quiet: `unconfirmed` on the fields its prediction touched, asking nothing, never `uncertain` again. *OD53 (9), (15), the runner:* "later" is by landing order, a success admitted after the give-up whatever its mint; a quiet removal doubt over a row a read shows present reads `unconfirmed` on every non-key field, over an absent row nothing. A held mark is
     never demoted. **`guarded: true`** on the contract (decided, Q1 A): a quiet mark ends on an answer (read, repair,
     frame, any write's success) showing the record's version strictly past the base the write was **sent** with, on
     the write's targets only (`.one`/`many`; `.alsoChanges` records are never fenced), or on a later success of the
@@ -1005,7 +1008,7 @@ decision (E1–E18). Rules 13–25 and N1–N3 still apply.
     tombstone judged like any read, so asked before a newer row landed, or against an open claim, it is a doubt with a
     repair, not a removal. The machine hears the failure unchanged. The tag is the adapter's, never a status; a gap's
     refetch failing with it is a tombstone too. `flow check` refuses `.gone` on a read with no `.byKey` (no key to
-    remove; the name is owed). On a stream, `failure` maps Flow's reasons by name or by the one key `Feed` (2.11.6); an `every` feed maps `value`, `missed`, `fills` and `failure`, or is a `listen` entry.
+    remove; the name is owed; *named by OD53 (20):* `GoneWithoutKey`, proposed). On a stream, `failure` maps Flow's reasons by name or by the one key `Feed` (2.11.6); an `every` feed maps `value`, `missed`, `fills` and `failure`, or is a `listen` entry.
 38. **Lanes and predicted keys persist together** (E14; amended by OD20). A domain write's lane record, its Attempt and
     that Attempt's predicted keys are written in one capture, the Attempt's one Persistence O6 acknowledgement before
     its first invocation (rule 46). Prediction values are never persisted. **Amended by OD52** (26), with `guarded`'s
@@ -1033,7 +1036,7 @@ decision (E1–E18). Rules 13–25 and N1–N3 still apply.
     an optional or defaulted one is a construction error (`KeyFieldOptional`; decided, call 11, OD39), since an absent value
     is never a key value. A key is stored in its canonical text, and a value JSON cannot carry gets a stable name, so
     a `bigint` key `1n` restores as `"$1n"` and names the same lane (decided, OD44). On a resource, every `input` field that
-    changes the output is in `key` (`KeyOmitsInput` warns otherwise); a stream's position is not in `input`: the contract names a field of `output` (`position`), and the bookmark holds it (rule 71; overturns OD12's clause, S15). A session reads `input` once, at start, so a non-key field never restarts it (S11). No Rpc inside; a `fromRpc` adapter comes later.
+    changes the output is in `key` (`KeyOmitsInput` warns otherwise); a stream's position is not in `input`: the contract names a field of `output` (`position`), and the bookmark holds it (rule 71; overturns OD12's clause, S15). A session reads `input` once, at start, so a non-key field never restarts it (S11). *Amended by OD53 (3):* the input it reads once; its select runs each committed turn to find the key (rule 68). No Rpc inside; a `fromRpc` adapter comes later.
 40. **Operations** (OD3, OD9 Q4, Q7, OD17 Q15, Q16). A definition or a fragment declares every server interaction once, by name, under
     `operations: ({ E }) => ({ name: contract.outcomes({ … }) | contract })`; an operation holds no select, trigger, key
     or verb, and its mappings live only there. One write operation per write contract **per actor**, counting the definition and every fragment placement in its
@@ -1051,7 +1054,9 @@ decision (E1–E18). Rules 13–25 and N1–N3 still apply.
     (rule 52). A stream's placement is one session per (actor incarnation, placement path, operation, key) (rule 68). The verb decides one-off or live and must agree with the mapping (`success` only with `lookup`,
     `value` only with `subscribe`); one operation uses one verb (`VerbMismatch`). A live operation is placed in one
     state or trait incarnation at a time unless state tokens in `when` make placements exclusive (`DuplicatePlacement`). Each select is typed
-    by its transition.
+    by its transition. *Added by OD53 (5), the runner:* a stream's select that returns `undefined`, or under `.each`
+    something not a list, reads as "no key": what was placed is released, with one `SelectedNoKey` issue (proposed
+    name) when something was placed; a select that throws keeps what is placed, with one `UserClosure` issue (rule 68).
 42. **Reads** (OD9 Q6, Q21, Q23, Q26; OD23 Q33). A one-off read operation has one lane (in a fragment, one per
     incarnation: actor, operation, incarnation; rule 52); a lookup releases the previous
     lookup of the same operation, whose settlement is evidence (`Superseded`), and only the latest lookup's ending is
@@ -1340,10 +1345,10 @@ decisions (F1–F10).
 **Streams** (2.11). Rules 67–72 are streams' ([merged/streams/proposal-v3.md](merged/streams/proposal-v3.md)). Each is [P] but for the clause that cites S11 or S15. **One interruption, one answer** and **freshness is a function of the present** are their principles.
 
 67. **Kinds.** The spelling is S11's; the meanings are [P]. `delivers` is the data's meaning. `every`: never skipped or silenced, one per turn, or one page per turn from a read. `latest`: newest wins, current only while this connection confirmed it.
-68. **One session table** (behaviour, S15; Streams T1 is [P]). Streams T1. Flow runs connections by `reconnect` and `idleTime`, sessions only by placement. One session per (actor incarnation, placement path, operation, key); a session reads `input` once, at start (S11).
+68. **One session table** (behaviour, S15; Streams T1 is [P]). Streams T1. Flow runs connections by `reconnect` and `idleTime`, sessions only by placement. One session per (actor incarnation, placement path, operation, key); a session reads `input` once, at start (S11). *Amended by OD53 (3)-(5), the runner under the user's delegation:* "once" is the session's parameters; its select runs on every committed turn of the actor to find the key (Operations O4's identity), a cost per turn per placed activity. A select that throws keeps what is placed, with one `UserClosure` issue each turn it throws (as T9's `when`); one that returns no key releases what was placed (rule 41).
 69. **Delivery.** Streams T4. Deliveries are outside the mailbox cap: they are bounded by what Flow has pulled, not by Runtime O4's limit.
 70. **Ownership.** A session belongs to its placement's activation. Identity per placement path; the wait for a releasing predecessor per (actor, operation, key) at any path. A released session's undelivered items are discarded with evidence. Two operations on one contract and key are two sessions, with a `DuplicateSession` warning (S11).
-71. **The bookmark** (that Flow keeps it, S15; its shape is [P]). A Flow-private partition of the slice's saved record, per (operation, key), holding `at` and `filled`. It is not a memory field and has no patch, and no guard reads it, so "memory changes only through `updateMemory`" stays true; it is also not `Flow.private`, which is a memory field a fragment hides (2.2.2) [P, merge]. It says what the consumer was offered: a `Denied` value moves it, with `DeliveryDenied`. Streams T2, T3; `fills` (2.11.7) ties it to memory.
+71. **The bookmark** (that Flow keeps it, S15; its shape is [P]). A Flow-private partition of the slice's saved record, per (operation, key), holding `at` and `filled` (*amended by OD53 (6), the runner:* and, for a `latest` operation, `last` and `heard`, the home T9's restore and freeze rows need; one partition write per changed `last`, for a persisted actor a save per change until the 5 s capture coalesces it; Streams T3's 256 bound is the only cap). It is not a memory field and has no patch, and no guard reads it, so "memory changes only through `updateMemory`" stays true; it is also not `Flow.private`, which is a memory field a fragment hides (2.2.2) [P, merge]. It says what the consumer was offered: a `Denied` value moves it, with `DeliveryDenied`. Streams T2, T3; `fills` (2.11.7) ties it to memory.
 72. **`listen`.** Streams T7.
 73. **A shared actor lives while it is used, and until its finite work in flight has returned** (decided, OD27,
     OD31; 2.7.17). A use is an attached consumer (from its passive commit effect, never from render), a live
@@ -2583,7 +2588,7 @@ endings, never a hold. **`forget` in full** (decided by the runner under the use
 as built). It removes the identity's record (retired, old-version or undecodable), so the next ensure starts fresh from
 its input; its parked and boot-queued endings become evidence; it drops the record's other boot mail (sends, fires)
 silently, as `disposeActor` does (D6). A held lane stays an unbound lane, with no mark, listed and reported at each
-boot, until its owner's `cancel` or an adopting ensure, which hears the hold's `unknown { Restored }`. A hold on a lane
+boot, until its owner's `cancel` or an adopting ensure, which hears the hold's `unknown { Restored }`. *Named by OD53 (18), the runner (proposed names):* that report is `UnboundLane` (the lane, its identity, operation and key); a rekey (D78) is `LaneRekeyed` (the lane, its old and new key). A hold on a lane
 whose operation no longer exists is dropped, with evidence **`HoldForgotten`** (proposed name, the runner's), since no
 member can ever cancel it; holds of live operations stay (Q1 A). `forget` of a live actor disposes it first. A local
 actor's lanes are never persisted (Persistence O2). When an actor record no longer decodes but its lane records do
@@ -3990,7 +3995,7 @@ queues again (rule 31), which is why a re-send can wait to be invoked across tur
   applies whenever it was asked, unless a version-less claim is open. Equality is `Schema.toEquivalence` per field,
   from the entity's field Schemas (`entity({ fields })`, in `Compiled`); a domain without them compares structurally.
 - **The forced repair** (D12, D40). No timer: a failed repair is asked again, at most 3 asks, then `RepairOverdue`
-  (evidence; the mark and the record hold stay); the next news asks again, and a placed answer resets the count. A
+  (evidence; the mark and the record hold stay); the next news asks again, and a placed answer resets the count. *Superseded by OD53 (8):* 3 asks per doubt in total (rule 30). A
   re-send waits for its record's repair (D39, shown by the prototype).
 - **Marks** follow rule 32's OD52 paragraph: a given-up mark asks one read and goes quiet; `guarded: true` (Q1 A) is
   its only exit, by a version past the base sent or a same-key success; the 4,096 cap per entity evicts the oldest
@@ -4149,7 +4154,7 @@ session and dropped when the session ends. Both defaults over-mark, the safe sid
 field's Schema equivalence, the judge's equality; a record with no row is never covered. **Over-marking** (the
 runner under the user's delegation): a record is also marked when what the store knows could put it in the cover:
 its base, a prediction into the cover, or a filter field in doubt (a mark, `unconfirmed`, or the record in doubt).
-Another client's move into the cover during a gap is unknowable, and the gap's refetch finds it. **Key fields have no
+Another client's move into the cover during a gap is unknowable, and the gap's refetch finds it. *OD53 (16), the runner:* the version field is one of the marked fields (only key fields are left out): the server may move it unseen. **Key fields have no
 cell** (the runner): a gap never marks the entity's own key fields, read per entity from `entity({ primaryKey })`.
 
 **`delta` and `row`** (decided, Q4 A, the user; OD52 (4)). `Ticket.patch` is for `.predicts` only. In `listen`,
@@ -4160,6 +4165,11 @@ an early whole row stays whole when placed over a read. `entity({ id, fields, pr
 field Schemas, key and version come from. **Stated limit, the author's risk:** on Supabase realtime with every
 column sent, Postgres omits unchanged TOAST-stored columns from an `UPDATE`'s payload, so `row` reads them as absent;
 such a source must map to `delta`.
+*OD53 (17), (19), the runner:* a read's `.one(...)` answer is whole in `row`'s sense and replaces wherever placed (as
+built); a read that selects fewer columns than `entity({ fields })` is the author's to widen. `entity({ version })`
+names a per-record field only: a collection-wide version (a table LSN) has no spelling; an adapter that has only one
+copies it onto each row as its version, which is correct for the judge, and for `guarded` only when the server's
+precondition checks that same value (for revisit.md).
 
 ### 2.9 Operations in fragments
 
@@ -6596,6 +6606,10 @@ test("resumes from where it stopped", async () => {
 Streams (merge 6, [merged/streams/proposal-v3.md](merged/streams/proposal-v3.md), merged 2026-11-01; decisions S1–S16 in "Decisions"; plan
 [merged/streams/merge-plan.md](merged/streams/merge-plan.md)). Rules 67–72 (2.4) and the tables of 2.11.11 are normative; the rest shows them.
 
+**Settled in phase 1** (OD53; who decided each is there): rule 68's select on each turn, rule 41's `SelectedNoKey`, rule
+71's `last` and `heard`, `Feed.multiplex` (Q1 B, 2.11.4), a key change with `fills` (Q2 A, 2.11.7), T1's `dropAt`,
+T3's eviction order, T5's `Waiting`, and 2.11.10's jitter, written where each lives below.
+
 **Marks.** **S15** confirmed four behaviours: Flow runs connections when the contract declares `reconnect` and `idleTime` (rule 25, as amended), and never re-opens a session; the default retries while offline and ends `Flapping` after 8 registered flaps; Flow keeps the position, with `fills`; the silent-loss cases are documented limits (section 7 item 23). **S11** confirmed that a session reads `input` once, `delivers: "every" | "latest"`, and two operations on one contract and key are two sessions with a warning. **S12** kept the spellings `Feed`, `live`, `down`, `proof`, `restartAt`. **S14** delegated the other words, and **S16** the remaining questions. So **everything else in this section, tables included, is [P]**: the proposal's, approved as a whole, not read row by row. **[P, merge]** is a resolution made at this merge (the plan's 1.4).
 
 **Evidence.** "Spike" is `tsc` against real Effect and a stand-in Flow; "model" is a small executable model of these tables, by their author ([model/v3/](merged/streams/model/v3/)). Neither ran Flow, which does not exist yet (section 7 item 23).
@@ -6750,7 +6764,25 @@ stream({
 
 Each `head`, `through`, `restartAt`, `at` is typed `P` and **decoded against the position's Schema at intake; a failure is `Defect`**, so one bad frame cannot stop saving (Persistence O5, O2). Undefined means no change.
 
-**`Feed.callback<A, E, R>(register)`:** shaped as `Stream.callback`, returns a Stream. `register(emit)` is a scoped Effect. `emit(x)` offers a value or a signal; `emit.fail(e)` and `emit.end()` match `Queue.fail` and `Queue.end`. Bounded at 1,024; `emit` resolves when there is room (S7 Q20). It reads the session's kind from a `Context.Reference`, so no argument is needed: outside a session it behaves as `every`, which fails rather than drops. A signal offered through it is not checked against the position type at compile time, only at intake. ST Q10 says why it is not `Stream.callback`.
+**`Feed.callback<A, E, R>(register)`:** shaped as `Stream.callback`, returns a Stream. `register(emit)` is a scoped Effect. `emit(x)` offers a value or a signal; `emit.fail(e)` and `emit.end()` match `Queue.fail` and `Queue.end`. Bounded at 1,024; `emit` resolves when there is room (S7 Q20). It reads the session's kind from a `Context.Reference`, so no argument is needed: outside a session it behaves as `every`, which fails rather than drops. A signal offered through it is not checked against the position type at compile time, only at intake. ST Q10 says why it is not `Stream.callback`. *OD53 (14), the runner:* the 1,024 is the queue's own bound; the delivery the session holds in mail (Streams T4's
+`inFlight`) is outside it, so a burst holds 1,025 before `Overflow`.
+
+**`Feed.multiplex<K, A, E>({ connect })`** (**new**; decided, Q1 B, the user, OD53 (1); library code beside
+`Feed.callback`, no runtime concept). For one connection carrying many keys (a market socket, Phoenix channels,
+graphql-ws, Pusher). Built in the app's service Layer, it returns a hub; `hub.stream(key)` is one `Feed.callback` per
+session, with its bound. The hub holds one connection while any key has a session: `connect(emit)` opens it and
+returns `{ add, remove }`; `add(key)` runs on a key's first session, `remove(key)` on its last, and the connection
+closes with the last key. `emit.to(key, x)` reaches one key's sessions, `emit.all(x)` every key's (a ping), and
+`emit.fail(e)` fails every session (the next one reconnects). **`emit.fail(e, key)`** (**new**; the runner's under
+amendment 9, OD53 (7); req C10's per-key end) fails one key's sessions: a key the server refused sends no `remove`
+when its last session goes, and a retry adds it again. *Text, OD53:* registration is per server subscription, not per
+session, so a session joining a key already registered hears a plain `Feed.live()` at once (never a proof or a reset,
+which name another session's place); a key that leaves while the connection opens is never added; an interruption
+inside `connect` fails the members `Interrupted`. **The hub lives in the app's Layer, built per Runtime**, never in
+module state, which outlives a reload and would wake a dead page's sessions. Flow still sees one independent session
+per key: a drop is N failures and N jittered backoffs (the first reopens the connection, the rest join it), with N
+idle timers and N flap counts that reach `Flapping` together, the stated price of B over a runtime-owned connection
+(Q1 C, not taken). 2.11.12.3 shows it.
 
 #### 2.11.5 A read's answer
 
@@ -6802,6 +6834,13 @@ catchUp: ({ roomId }, { from }) => latest50(roomId).pipe(Effect.map((p) =>   // 
 | Stores nothing, or a short-lived list such as toasts | `fills: false` | Never wiped. Continues from the bookmark |
 | **The list lives in a parent, or a fragment wants a parent's field** | **Not nameable: a compile error.** | **One answer: place the operation in the machine that owns the list, or keep the list in the fragment and expose it.** `fills: false` compiles and is the stated silent limit |
 | Nested in a struct | Lift the list to a top-level field | |
+
+**A key change empties the field in the same turn** (decided, Q2 A, OD53 (2): the runner's call, inside the user's
+"all accepted"). A handler that changes a placed session's key while the state stays put also writes the field
+empty (`messages: []`), since the field holds one key's items; Flow never wipes it. Otherwise the new key's first
+registration finds no entry and a filled field: Streams T2 row 7's one `Unproven` notice. Inspection's
+`FillsOtherKey` (proposed name) flags it: a registration whose key has no entry while the field is filled and
+another key's entry of the same operation is filled. A return to a key with its own entry is not flagged.
 
 **When is memory saved?** Only for a persisted actor. Not persisted: a reload is a new slice, and the feed starts fresh.
 
@@ -6857,7 +6896,7 @@ The parts of the record's section 4 that state behaviour. Its options and eviden
 
 **`idleTime`** is armed by Machines O5's rule, "fires once if overdue", compared on the Clock at resume, while a pull is outstanding.
 
-**Default `schedule`.** `exponential("500 millis")`, jittered, then capped at 30 s, in that order, with `Schedule.modifyDelay`. **8 connections in a row that register and die within `healthy` (1 minute) end `Flapping`.** A connection that never registers spends and restores nothing, so offline waits forever at one try per 30 s. **A connection ended by `Silent` is not a flap:** a server with no heartbeat under a duration reconnects each `idle`, flagged `IdleWithoutPing`, and does not end (ST AT 9's trap). `pageSched` is a copy of it, so a 503 forever reads `catchingUp` forever: visible. `healthy` of exactly 1 minute sits on common proxy idle timeouts: docs.
+**Default `schedule`.** `exponential("500 millis")`, jittered, then capped at 30 s, in that order, with `Schedule.modifyDelay`. **Jitter's source** (decided by the runner under the user's delegation, OD53 (13)): the core has no randomness, so each delay's factor, in Effect's `jittered` range 0.8-1.2, comes from a well-mixed hash of the session's id and the step `n` (it must avalanche, or one session's successive delays share a factor); a Story or search replays it exactly, and no seed is saved. `backoff` is optional in `Compiled`; absent, this default applies. **8 connections in a row that register and die within `healthy` (1 minute) end `Flapping`.** A connection that never registers spends and restores nothing, so offline waits forever at one try per 30 s. **A connection ended by `Silent` is not a flap:** a server with no heartbeat under a duration reconnects each `idle`, flagged `IdleWithoutPing`, and does not end (ST AT 9's trap). *Text, OD53:* `IdleWithoutPing` is a `Silent` end of a connection that had no ping since its `connect`, so a server that sends values but never pings is flagged too, which is what "no heartbeat" means. `pageSched` is a copy of it, so a 503 forever reads `catchingUp` forever: visible. `healthy` of exactly 1 minute sits on common proxy idle timeouts: docs.
 
 **Escalating re-open stays a machine recipe (ST DT 3.11).** After `Ended`, re-open is states and a schedule, with its delay in memory so a reload keeps the deadline:
 
@@ -6897,7 +6936,7 @@ LIVE: { schedules: { healthy: { schedule: "1 minute", send: E.Healthy } },
 | `live()`, `live({ head })` | `register` | `register` | `abandon`; restart from `b.at`; one budget step; `RegistrationChurn`; no second notice | `register` | — | — | discard, evidence |
 | `live({ proof })` | `register` | `register` | evidence; stay | `register` | — | — | discard, evidence |
 | `live({ restartAt })` | Streams T2 rows 1, 2 | Streams T2 rows 1, 2 | `abandon`; Streams T2 rows 1, 2 | Streams T2 rows 1, 2 | — | — | discard, evidence |
-| `down(r)` | `Dropped`, `drop = r` | `Dropped`, `drop = r`, `dropAt = now`, `liveSince = none` | `abandon`; as `Live` | `drop = r`, `owed = false` | — | — | discard, evidence |
+| `down(r)` | `Dropped`, `drop = r`; `dropAt = now` if none (OD53 (11)) | `Dropped`, `drop = r`, `dropAt = now`, `liveSince = none` | `abandon`; as `Live` | `drop = r`, `owed = false` | — | — | discard, evidence |
 | `ping` | evidence, `PingsWithoutLive`. **Does not re-arm** | re-arm the deadline | re-arm | evidence | — | — | discard |
 | value v | `register(live())`, then this row in the new state | re-arm; queue v, moves | re-arm; append to `buf`; at 1,024, stop pulling | no record and empty field: make `{ at: undefined }`, no notice. Else if not `owed`: `noted = false`, `notice(Unproven)`, `owed = true`. Queue v, moves. Stay | — | — | discard, evidence |
 | stream fails e | `lose(e)` | `lose(e)` | `lose(e)` | `lose(e)` | — | — | discard |
@@ -6921,6 +6960,12 @@ LIVE: { schedules: { healthy: { schedule: "1 minute", send: E.Healthy } },
 **Any `O.x.bookmark` or `O.x.refetch` cell** also makes queued values stop moving and drops queued `settle`s. **With no session placed** (`LOADING`, SSR) it is Streams T3 only.
 
 **The deadline is armed** from connect, re-armed by `register`, a value and a ping, only while a pull is outstanding, so a slow consumer of a pulled source does not look dead, and not in `Dropped`.
+
+**`dropAt`** (decided by the runner under the user's delegation, OD53 (11)) marks the start of the present not-live
+period: it is set on leaving `Live` or `Repairing` (`down`, or `lose` with `liveSince` set), and by a `down` or `lose`
+when none is set (a first connection); a connection that never registered keeps the earlier one, since nothing was
+confirmed after that loss. So a value while `Dropped` never reads fresher than the last moment the feed was known
+current. *Supersedes in part* `lose`'s unconditional `dropAt = now` for a connection that never registered.
 
 **Row.** `connection`: `Connecting` for `Connecting`, `Dropped`, `Waiting`; `Live` for `Live`, `Repairing`; `Ended`; undefined for `Releasing`, `Released`. `catchingUp` = `Repairing`.
 
@@ -6958,7 +7003,7 @@ A proof at a first registration with nothing to name a place is not believed: `P
 | New slice: `resetOn`, new incarnation, `.each` re-add, subroutine, dispose then `ensure` | — | none: the partition is new |
 | A position inside an entry fails to decode | at restore | `{ at: undefined }`: owes. **Persistence O5 must allow this.** A partition failing its own shape discards the scope, as O5. A removed operation's entries are dropped |
 
-**Bound (req M1).** 256 entries per operation in a slice, oldest out. A missing entry reads none: filled, it owes; empty, nothing is held. Under `subscribe.each`, an evicted, quiet, empty key reads first open: req G11 at scale, stated beside req M9. **SSR's total bound binds first** (262,144 bytes).
+**Bound (req M1).** 256 entries per operation in a slice, oldest out. *OD53 (12), the runner:* oldest by last write, so a busy key is never the one evicted. A re-created evicted entry, at a `Reset` notice's admission or a moving value's, takes `filled` from the field, as this table's first row says. A missing entry reads none: filled, it owes; empty, nothing is held. Under `subscribe.each`, an evicted, quiet, empty key reads first open: req G11 at scale, stated beside req M9. **SSR's total bound binds first** (262,144 bytes).
 
 **`from` is the bookmark at connect.** A queued page may land after: duplicates only. A `missed Reset` not yet admitted at connect asks the old log: one extra notice.
 
@@ -6982,10 +7027,14 @@ A proof at a first registration with nothing to name a place is not believed: `P
 | --- | --- | --- | --- |
 | `Connecting` | implicit live; `last = { v, now, own }`, confirmed, reconcile | `Live`, `value` undefined | `Live`; confirmed only if `last.own` |
 | `Live` | `last = { v, now, own }`, confirmed, reconcile. Equal confirms, not heard | not confirmed | confirmed if `last.own` |
-| `Dropped`, `Waiting` | `last = { v, dropAt, not own }`, nothing delivered | `Live`, not confirmed | as `Connecting` |
+| `Dropped` (*`Waiting` superseded by OD53 (10)*) | `last = { v, dropAt, not own }`, nothing delivered | `Live`, not confirmed | as `Connecting` |
 | Leaving `Live` | `last.at = now` if confirmed; not confirmed | | |
 
 `value` = `last.value` iff `Live ∧ confirmed`. Age is transferred across reload and SSR and rebased.
+
+*Decided by the runner under the user's delegation (OD53 (10)):* Streams T1 wins over this table's old `Dropped,
+Waiting` row. `Waiting` has no connection, so no value arrives there; the lost connection's frames are discarded at
+`lose` (one interruption, one answer). A value in `Dropped` ages from `dropAt` (T1's `dropAt` note).
 
 ##### Streams T6. `Feed.callback`'s queue
 
@@ -7132,6 +7181,41 @@ row?.value ? <Price value={row.value.price} />
 ```
 
 Quiet market: `Feed.live()` at subscribe registers it, and pings keep it `Live`. Half-open: 25 s, `Silent`, dim with true age. Equal price after reconnect: undimmed, not heard. A queued tick from before a drop is fenced and discarded (req F4, req F5). `subscribe.each` has no cap of its own (req M9).
+
+*Amended by OD53 (1), Q1 B, the user:* the service is written with `Feed.multiplex` (2.11.4), so the frames it
+yields are already `Quote | Feed.Signal` and the contract's `subscribe` is `mf.frames(symbol)` with no `Stream.map`.
+`QuoteEnded` per symbol (req C10) comes from a per-symbol failure the server sends, routed with `emit.fail(e,
+symbol)` (OD53 (7)); a socket drop is `emit.fail(e)` for every symbol.
+
+```ts
+export class MarketFeed extends Context.Service<MarketFeed, {          // user-defined
+  readonly frames: (symbol: string) => Stream.Stream<Quote | Feed.Signal, MarketDropped>
+}>()("app/MarketFeed") {
+  static readonly layer = Layer.effect(MarketFeed, Effect.gen(function* () {
+    const open = yield* Socket.WebSocketConstructor
+    const hub = yield* Feed.multiplex<string, Quote, MarketDropped>({     // NEW: Feed.multiplex. One connection while any key has a session
+      connect: (emit) => Effect.gen(function* () {                       // NEW: connect, given emit with .to, .all, .fail
+        const ws = open("wss://market.example/v1")
+        const opened = Effect.callback<void>((resume) => ws.addEventListener("open", () => resume(Effect.void)))
+        ws.addEventListener("message", (e) => {
+          const f = JSON.parse(String(e.data)) as { t: "ping" } | { t: "subscribed"; symbol: string } | { t: "quote"; quote: Quote }
+          if (f.t === "ping") emit.all(Feed.ping)                         // NEW: emit.all, every key's session
+          else if (f.t === "subscribed") emit.to(f.symbol, Feed.live())   // NEW: emit.to, one key's sessions
+          else emit.to(f.quote.symbol, f.quote)
+        })
+        ws.addEventListener("close", () => emit.fail(new MarketDropped()))   // every key's session fails; the next subscribe reconnects
+        yield* Effect.addFinalizer(() => Effect.sync(() => ws.close()))
+        yield* opened
+        return {
+          add: (symbol) => Effect.sync(() => ws.send(JSON.stringify({ op: "subscribe", symbol }))),     // NEW: add, the first session of a key
+          remove: (symbol) => Effect.sync(() => ws.send(JSON.stringify({ op: "unsubscribe", symbol }))), // NEW: remove, its last session gone
+        }
+      }),
+    })
+    return { frames: (symbol) => hub.stream(symbol) }                     // NEW: hub.stream(key), a Stream per key, bounded as Feed.callback
+  }))
+}
+```
 
 ##### 2.11.12.4 Counter
 
@@ -7399,7 +7483,7 @@ subscribe: ({ userId }, { from }) => Feed.callback<Note, SseDropped>((emit) => E
 reconnect: { while: (e) => e._tag === "SseDropped" }, idleTime: "Infinity",
 ```
 
-Why `reconnect` here: this adapter closes on error, so the browser's retry never runs. Costs: quiet reconnect stays `Connecting`; sparse ids unproven each time (req FC74); `onerror` hides status, so authenticated SSE uses `fetch` (req C11); six per origin (req L10).
+Why `reconnect` here: this adapter closes on error, so the browser's retry never runs. *Text, OD53 (shown over a browser-shaped `EventSource`):* the recipe registers on the first message, which is what lets that message prove contiguity (Streams T2 row 4); registering on `onopen` would make a quiet reconnect `Live`, but every reconnect would then owe row 6's notice, which a later proof cannot take back, so `onopen` is not used. An id-less message carries the browser's last id, so `toNote` reading `lastEventId` repeats the previous id (the upsert overwrites that note; the bookmark stays). A named event never reaches `onmessage`: "unless a named `ping` event" needs `es.addEventListener("ping", () => emit(Feed.ping))`. An over-replay after a reconnect is row 6's one notice. Costs: quiet reconnect stays `Connecting`; sparse ids unproven each time (req FC74); `onerror` hides status, so authenticated SSE uses `fetch` (req C11); six per origin (req L10).
 
 **Polling** (`every`). The desk's technician pulse needs `idleTime` too. A first answer registers; a hung first GET ends `Silent`.
 
@@ -7444,7 +7528,7 @@ A body end is `Closed`, retried. req V8: a terminator becomes a typed error outs
 
 **`flow explain`:** `LIVE subscribes messages (Chat.messages, every, one session per room, fills messages, idle 45s, reconnects by predicate, catches up)`.
 
-**Inspection:** per session: state, `drop`, Streams T2 row and basis, each `proof`, losses, bookmark and `filled`, bound, release; counters plus a ring of the last 256. Flags: `ValuesWhileDown`, `RegistrationChurn`, `ReleaseOverdue`, `ProofWithoutPosition`, `PingsWithoutLive`, `IdleWithoutPing`, `DeliveryDenied`, `FillsUntouched`. Stories templates assert no flags.
+**Inspection:** per session: state, `drop`, Streams T2 row and basis, each `proof`, losses, bookmark and `filled`, bound, release; counters plus a ring of the last 256. Flags: `ValuesWhileDown`, `RegistrationChurn`, `ReleaseOverdue`, `ProofWithoutPosition`, `PingsWithoutLive`, `IdleWithoutPing`, `DeliveryDenied`, `FillsUntouched`; *added by OD53:* `FillsOtherKey` (Q2 A, proposed name; 2.11.7). Issues: `SelectedNoKey` (proposed name; rule 41) when a select releases what was placed by returning no key, and `UserClosure` each turn a select throws (rule 68). Stories templates assert no flags.
 
 **The chat Story**, as [the Stories record](merged/story-checks/stories-amended.md) section 11 fixed it. Illustrative; not run.
 
@@ -8612,6 +8696,15 @@ The streams merge ([merged/streams/proposal-v3.md](merged/streams/proposal-v3.md
 | C198 | EntityDomains O1 | `Entity.patch` is for `.predicts` only; `listen` maps to `Entity.delta` (partial, a type error without the version) or `Entity.row` (whole; an omitted field is absent); an unversioned delta at run time is dropped with `UserClosure`; `entity({ id, fields, primaryKey, version })` (2.8.14; Q4 A, OD52 (4)) | Amends C115 |
 | C199 | Operations O3, EntityDomains O1 | A `many` key array's 4,096 bound counts items, repeats included, from the write's targets before any join; a record queue's bound counts drafts (rule 35; OD52 (17)) | Amends C22 |
 | C200 | Persistence O6, EntityDomains O1 | A domain write's lane record saves its `basedOn` per record when known, and `sent` once re-written after the send; a doubt restored from a pre-send record trusts no base; predicted keys carry the fields each prediction touched (rule 38; OD52 (6), (26)) | Amends rule 38's record |
+| C201 | Operations O4, Inspection | A stream's select runs on every committed turn to find the key; the session reads its `input` once; a select that throws keeps what is placed, one `UserClosure` issue per turn; one returning `undefined` (under `.each`, not a list) releases with one `SelectedNoKey` issue (proposed name) (rules 41, 68; OD53 (3)-(5)) | Amends C87's "a session reads `input` once" |
+| C202 | Operations O4, Persistence O3 | Rule 71's partition entry also holds a `latest` operation's `last` and `heard`; one partition write per changed `last`; the 256-per-operation bound is the only cap, oldest by last write; a re-created entry takes `filled` from the field (rule 71, Streams T3; OD53 (6), (12)) | Amends rule 71's entry |
+| C203 | Operations O4 | `Feed.multiplex({ connect })`, library code beside `Feed.callback`: one connection while any key has a session, `add`/`remove` on a key's first and last session, `emit.to`, `emit.all`, `emit.fail(e)`, `emit.fail(e, key)`, `hub.stream(key)`; a joiner of a registered key hears `Feed.live()` at once; the hub lives in the app's Layer per Runtime (2.11.4, 2.11.12.3; Q1 B, OD53 (1), (7)) | Adds |
+| C204 | Operations O4, Inspection | A key change while the state stays put empties the `fills` field in the same turn; Flow never wipes it; `FillsOtherKey` (proposed name) flags a registration with no entry, a filled field and another key's filled entry (2.11.7; Q2 A, OD53 (2)) | Adds to 2.11.7 |
+| C205 | Operations O4 | `Waiting` has no connection, so T5's `Waiting` value row is superseded (T1's `—`); `dropAt` is set on leaving `Live` or `Repairing` and when none is set, and kept across connections that never register (Streams T1, T5; OD53 (10), (11)) | Amends Streams T1's `down`/`lose` and T5 |
+| C206 | Operations O4, Inspection | The default schedule's jitter is a well-mixed hash of (session id, step), factor 0.8-1.2, no saved seed; `backoff` is optional in `Compiled`; `IdleWithoutPing` is a `Silent` end of a connection with no ping since `connect`; `Feed.callback`'s 1,024 counts its queue, not the delivery in mail (2.11.4, 2.11.10; OD53 (13), (14)) | Amends 2.11.10's default schedule |
+| C207 | EntityDomains O1 | The forced repair asks at most 3 times per doubt in total, then `RepairOverdue`, and nothing asks again for that doubt; a reload's boot repair is a new doubt; U10's later success is by landing order after the give-up (rules 30, 32, 2.8.6; OD53 (8), (9)) | Amends C190 and C192 |
+| C208 | EntityDomains O1 | A quiet removal doubt over a present row reads `unconfirmed` on every non-key field; a gap marks the version field; a read's `.one` answer is a whole row; a collection-wide version has no spelling (rule 32, 2.8.14; OD53 (15)-(17), (19)) | Amends C192, C197, C198 |
+| C209 | CommandLine O5, Inspection, Operations O1 | Proposed names: `GoneWithoutKey` (`.gone` without `.byKey`), `UnboundLane`, `LaneRekeyed`; `Abandoned` joins rule 13's reserved reasons (rules 13, 37, 2.7.13; OD53 (18), (20), (21)) | Amends C196 and C177 |
 
 ### For tooling
 
@@ -9627,7 +9720,7 @@ operations-in-fragments, the lane model and the reviews cite them.
   columns from an `UPDATE`, which makes `row` unsafe there, an author risk (2.8.14); the harness's `disabled` wait
   excuse rests on the runtime's own `ModuleDefect` issue, a runtime report like `checkClaims`'s; the PostgREST fake's
   other ledgers still key by request key, fine for that fixture, not for a money one. **Open, owed (not decided):**
-  (a) the repair count is 3 per news as built, or 3 per doubt (proposal 2's 2.4); (b) U10's "later success" is read
+  *all closed by OD53 ((a), (b) the runner's rulings of 2026-11-09; (c)-(i) the runner under amendment 9):* (a) the repair count is 3 per news as built, or 3 per doubt (proposal 2's 2.4); (b) U10's "later success" is read
   by landing time as built, or by mint; (c) what a quiet removal doubt shows (as built, nothing: `unconfirmed: []`);
   (d) whether a version field reads `unconfirmed` after a gap (as built, yes; only key fields are left out); (e)
   whether a read's `.one(...)` answer is whole in `row`'s sense (as built, the store replaces on any placed whole
@@ -9638,6 +9731,66 @@ operations-in-fragments, the lane model and the reviews cite them.
   user's read (amendment 9), and whether `Abandoned` joins rule 13's reserved reasons. **Not design:** seven
   combination survivors carried to the phase 3 conformance rewrite (STATUS, that section), and the harness's own
   findings (oracles, excuses, pins). Plan rows C185-C200. (2026-11-09)
+- **OD53** Phase 1's streams area, **settled** (2026-11-09), from its two build rounds, audits S1 and S1b and the last
+  batch (`packages/flow-state-v3/prototypes/round-14/STATUS.md`, "Phase 1: streams", "streams round 2", "streams last
+  batch", "Carried to the phase 3 conformance rewrite"; `round-14/STREAMS-QUESTIONS.md`;
+  `workflow/roadmaps/v3-production/progress.md`, 2026-11-09). It also closes OD52's owed items (a)-(i). **Decided by
+  the user:** (1) Q1 B (accepted 2026-11-09): `Feed.multiplex`, a library helper beside `Feed.callback` for one
+  connection carrying many keys; no runtime concept, Flow still sees one session per key (2.11.4, 2.11.12.3). **The
+  runner's call, inside the user's "all accepted"** (STREAMS-QUESTIONS records it as the runner's): (2) Q2 A: a key
+  change empties its `fills` field in the same turn, and Inspection's `FillsOtherKey` (proposed name) flags the form
+  that does not; Flow never wipes it (2.11.7). **The runner's rulings** (progress, 2026-11-09, under the user's
+  delegation): (3) a stream's select runs on every committed turn to find the key; "reads `input` once" is its
+  parameters (rules 39, 68); (4) a select that throws keeps what is placed, one `UserClosure` issue each turn (as T9's
+  `when`) (rule 68); (5) a select returning `undefined` (under `.each`, not a list) releases what was placed with one
+  `SelectedNoKey` issue (proposed name) (rule 41); (6) rule 71's entry also holds `latest`'s `last` and `heard` (rule
+  71); (7) `emit.fail(e, key)` on `Feed.multiplex`, a small API under amendment 9, for req C10's per-key end (2.11.4);
+  (8) OD52 (a): the forced repair asks at most 3 times per doubt in total, not per news: bounded, and the simplest
+  count (rule 30, 2.8.6); (9) OD52 (b): U10's "later success" is by landing order after the give-up, since the mark is
+  about what the server holds after it (rule 32). **Decided by the runner under the user's delegation (amendment 9 /
+  11)**, each the most correct option: (10) T1 wins over T5 on `Waiting`: `Waiting` has no connection, so no value
+  arrives, and the lost connection's frames are discarded at `lose` (one interruption, one answer) (T5); (11) `dropAt`
+  marks the start of the present not-live period: set on leaving `Live` or `Repairing` and when none is set (a first
+  connection's `down` or `lose`), kept across connections that never register, so a value while `Dropped` never reads
+  fresher than the last moment the feed was known current (T1; the prototype's `lose` sets it every time, owed to the
+  builder); (12) T3's "oldest out" is by last write: creation order would evict a busy key and owe it a false notice
+  (T3); (13) jitter's source is a well-mixed hash of (session id, step), in Effect's 0.8-1.2: deterministic and
+  replayable with no saved seed, which a seeded generator would need (2.11.10); (14) `Feed.callback`'s 1,024 stays the
+  queue's own bound, and the delivery the session holds in mail is outside it, stated: that is the session's stage,
+  not the source's (2.11.4); (15) OD52 (c): a quiet removal doubt over a row a read shows present reads `unconfirmed`
+  on every non-key field, over an absent row nothing: the removal may still land and would change every field, as
+  `.covers` marks (C197) (rule 32); (16) OD52 (d): a gap marks the version field, as built: the server may move it
+  unseen; only key fields, which name the record, are left out (2.8.14); (17) OD52 (e): a read's `.one(...)` answer is
+  whole in `row`'s sense and replaces wherever placed, as built: a read says what the server holds, so a merge would
+  keep fields the server dropped (2.8.14); (18) OD52 (f): `UnboundLane` (the lane, its identity, operation and key)
+  and `LaneRekeyed` (D78: the lane, its old and new key), proposed names: a report a test cannot name it cannot assert
+  (2.7.13); (19) OD52 (g): no spelling for a collection-wide version: the judge and `guarded` compare per record, and
+  an adapter with only a table-wide value copies it onto each row; for revisit.md (2.8.14); (20) OD52 (h):
+  `GoneWithoutKey`, proposed: it names what is missing, as `KeyRequired` does (rule 37); (21) OD52 (i):
+  `ModuleDisabled`, `Abandoned`, `RepairOverdue`, `UnsettledEvicted`, `GuardContradicted` and the three `Guarded*`
+  checks stay proposed names for the user's read; `Abandoned` joins rule 13's reserved reasons, since it is a Flow
+  reason an author tag could shadow (C177) (rule 13). **Shown by the prototype** (already true, no change of rule):
+  (22) a session's identity is (incarnation, placement, op, key); a key change releases the old session and opens the
+  new key's, which waits only on its own predecessor; entries and the rule 70 wait are per operation, so two
+  operations on one contract and key are two sessions (rules 68, 70); (23) `subscribe.each` over one multiplexed
+  socket: one session per distinct key, a key's own failure with `ctx.key`, per-key backoff (rule 41); (24) the
+  default schedule as 2.11.10 states it (500 ms x 2^n, jittered, capped at 30 s); (25) T1-T6 as written: `down` stamps
+  `last.at` only if confirmed, a `Silent` end neither adds nor resets flaps, values do not reset flaps, connections
+  that never register never flap, T6's merge keeps the weaker registration and a later drop, the bookmark may move
+  backward, 256 entries per operation, `Feed.callback` holds 1,024 by default; (26) a browser-shaped `EventSource`
+  fits 2.11.12.8's recipe with no runtime change. **Text, needing no decision** (written in): `Feed.multiplex`
+  registers a late joiner of a registered key at once with a plain `Feed.live()` (registration is per server
+  subscription, not per session), never adds a key that left during connect, and its hub lives in the app's Layer per
+  Runtime, never module state; its price, N timers, backoffs and flap counts (2.11.4); a hash-derived jitter must
+  avalanche (2.11.10); `IdleWithoutPing`'s condition (2.11.10); the EventSource notes: why `onopen` is not used, an
+  id-less message repeats the last id, a named `ping` needs `addEventListener`, an over-replay is row 6's notice
+  (2.11.12.8); a re-created evicted entry takes `filled` from the field (T3); `SelectedNoKey` and `FillsOtherKey` in
+  2.11.13. **Stated limits:** two placements of one op and key share one slot (one `last`/`heard`, last writer wins;
+  `woken` connects only the first waiter), predating phase 1 and reachable only around rule 41's one-at-a-time
+  placement; a bookmark saved wrong but never resumed from is invisible on the wire until the next reconnect or
+  reload. **Not design:** T3's bound across two operations and rule 70's wait per operation under a key change,
+  carried to the phase 3 conformance rewrite (STATUS, that section); the harness's oracles, fakes and gate settings.
+  Plan rows C201-C209. (2026-11-09)
 - **OD24** Process, delegated by the owner (2026-10-30): the main session approves the merge change lists for merges 4
   and 5 and for operations-in-definition, and treats operations as accepted for merging, unless a conflict needs an
   owner decision; only then is the owner asked. The streams direction review remains the owner's. (2026-10-30) *Process,
