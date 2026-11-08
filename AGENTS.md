@@ -88,8 +88,8 @@ workflow check       # see .agents/skills/workflow-cli/SKILL.md before editing W
 - Opus: design, proposals, from-scratch redesigns, and reviews (one Opus covers correctness and real code against the proposal; flag hacks and faked features). Sonnet: simple coding work, such as executable models. Haiku: research fan-out only.
 - Every review, research or survey task given to Opus launches with 4 Haiku sidecars at the same time, each
   attacking the same problem from a different named angle. Sidecars are read-only, run no gates or benchmarks, and
-  return findings with file:line evidence, not verdicts. Read them beside the Opus report and verify any finding
-  before acting on it.
+  return findings with file:line evidence, not verdicts. The owning Opus agent starts its own sidecars, receives
+  their findings, verifies them and folds them into its one report; sidecars never report to the coordinator.
 - Haiku agents always run at effort high (sidecars, research fan-out, review sidecars); set `effort: "high"`
   whenever starting one, and tell any lead that starts its own to do the same.
 - In prototype work the Opus builder is a lead (adopted 2026-11-08; runners get the oracle code, a reviewer

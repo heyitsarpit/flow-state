@@ -504,8 +504,10 @@ Everything else still needs the user.
   sidecars at the same time, each attacking the same problem from a different named angle (for a code review, for
   example: soundness of each change, equivalence of a rewrite, concurrency and shared state, purity and determinism).
   Sidecars are read-only, run no gates or benchmarks, and return findings with file:line evidence, never verdicts.
-  The runner reads their findings beside the Opus report, verifies any it acts on, and records which were used. They
-  count outside the one-builder, one-reviewer limit.
+  The Opus agent that owns the task starts its own sidecars and receives their findings; it verifies them and folds
+  them into its one report to the runner, which names the sidecar findings it used or rejected. Sidecars never report
+  to the runner (the user, 2026-11-08: "sidecars should report the owner opus, not to you"). They count outside the
+  one-builder, one-reviewer limit. Haiku agents run at effort high.
   **Builder sidecars (amendment 8):** in prototype work, the Opus builder is a lead that plans its round's tasks up
   front and delegates bounded ones to up to 4 Haiku sidecars at a time: coders (a disjoint file or function each,
   with an acceptance check), runners (gates, searches, traces; they report results, never fix) and reviewers (one diff
