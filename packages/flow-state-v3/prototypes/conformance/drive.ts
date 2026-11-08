@@ -996,9 +996,17 @@ export const makeHarness = (port: Port) => (): Harness => {
     const heard = e.some((x) => x["kind"] === "turn" || x["kind"] === "Denied" || x["kind"] === "Unhandled" || x["kind"] === "refused");
     const wanted: Array<{ op: string; att: string; evs: readonly string[]; all: readonly string[]; want: Who; copied: boolean; owed: string | undefined }> = []; // expected deliveries no run of their recipient answered
     const refusedEvs = new Set(e.filter((x) => x["kind"] === "refused").map((x) => String(x["event"])));
+    for (const x of e)
+      if (x["kind"] === "kept") for (const d of e) if (d["kind"] === "delivered" && d["attempt"] === x["attempt"]) refusedEvs.add(String(d["event"]));
     const dueRan = new Set<string>(); // actors a restored ending of ran in, this batch (review M4)
+    if (booting) {
+      keptNames = keptNames.filter((n) => !n.attempt.startsWith("read/"));
+      endedAgain.clear();
+    }
     for (const x of e) {
       const k = ledgerKey(x);
+      if ((x["kind"] === "invoked" || x["kind"] === "ended" || x["kind"] === "disposed") && keptNames.length > 0)
+        keptNames = keptNames.filter((n) => !(n.attempt.startsWith("read/") && (x["kind"] === "invoked" ? n.op === x["op"] && n.attempt === x["attempt"] : n.attempt.startsWith(`read/${x["actor"]}/`))));
       switch (x["kind"]) {
         case "ending":
           bump(told, k);
@@ -1174,7 +1182,11 @@ export const makeHarness = (port: Port) => (): Harness => {
         case "ParkedLetGo":
           // The same question for a let-go: a cause the suite sees. The owner's turn this step (a cancel, an ended fragment), a newer keep of the op, or its life over.
           if (mayLetGo(x, e)) bump(parkedOwed, k, -1);
-          if (x["kind"] === "KeptLetGo") bump(keptOwed, k, -1);
+          if (x["kind"] === "KeptLetGo") {
+            bump(keptOwed, k, -1);
+            const gone = keptNames.findIndex((n) => n.op === x["op"] && n.attempt === (x["attempt"] ?? ""));
+            if (gone >= 0) keptNames.splice(gone, 1);
+          }
           else if (process.env["FLOW_DEBUG_EO"]) console.error("LG-UNPAID", JSON.stringify(x), attemptActor.get(String(x["attempt"])), e.map((y) => y["kind"]).join(","));
           break;
         case "refused":
@@ -1185,7 +1197,7 @@ export const makeHarness = (port: Port) => (): Harness => {
           // Re-check A4' (stage F): a turn pays a refusal only as a denial does (D162): a Slot of that event's alternatives ran after the refusal.
           const ev = String(x["event"]);
           const since = refusedAt.get(ev);
-          if (!tryAgain.has(ev) || since === undefined || slotRuns.slice(since).some((p) => p.includes(`on.${ev}[`))) bump(tryAgain, ev, -1);
+          if (!tryAgain.has(ev) || since === undefined || slotRuns.slice(since).some((p) => p.includes(`on.${ev}[`) || p.startsWith("operations."))) bump(tryAgain, ev, -1);
           break;
         }
         case "Denied":
@@ -1217,6 +1229,11 @@ export const makeHarness = (port: Port) => (): Harness => {
       if (x["kind"] === "refused") {
         const o = heardNow.find((h) => h.used && h.ev === String(x["event"]) && h.who);
         if (o) credit(o.who!.actor, o.ev, o.who!.path);
+        else {
+          const d = e.find((y) => y["kind"] === "delivered" && y["event"] === x["event"]);
+          const owner = d === undefined ? undefined : d["attempt"] ? attemptActor.get(String(d["attempt"])) : declineCopy.get(String(d["op"]))?.actor;
+          if (owner !== undefined) credit(owner, String(x["event"]), null);
+        }
       }
     for (const o of heardNow) {
       if (o.used) continue;
@@ -1736,7 +1753,10 @@ export const makeHarness = (port: Port) => (): Harness => {
       if (TEST_FLUSH.includes("probes")) fake.hide();
       return { ...fake.outside(), live: inst.live(), injections };
     },
-    stateHash: () => inst.stateText(fake.stateText()),
+    stateHash: () => {
+      const armed = [...throwIn].filter(([, n]) => n > 0).sort(([a], [b]) => (a < b ? -1 : 1));
+      return inst.stateText(fake.stateText()) + (armed.length ? `|armed ${JSON.stringify(armed)}` : "");
+    },
     // S11: pure re-execution of each boot's input log, with its logged draws, against what was published.
     replay: () => {
       replaying = true;

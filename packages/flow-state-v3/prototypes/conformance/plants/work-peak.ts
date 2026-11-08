@@ -22,7 +22,7 @@ await stated("work-peak", async (scope) => {
   suite("suite", []);
   suite("5 s pass", [], { FLOW_RUNTIME_DEFAULT: "1", FLOW_TEST_FLUSH: "reads,faults" });
   suite("swap pass", ["--swap", "../round-14/typed/swaps.ts"]);
-  for (const w of ["pay", "like", "chain", "crash", "cross", "frag", "odd", "session", "repairing", "listen.version", "listen.none", "fragstore.row", "flush.bare.tight", "flush.serialize.directed", "flush.bare.capture"])
+  for (const w of ["pay", "like", "chain", "crash", "cross", "frag", "odd", "session", "repairing", "listen.version", "listen.none", "listen.version.noload", "listen.none.noload", "fragstore.row", "flush.bare.tight", "flush.serialize.directed", "flush.bare.capture"])
     runs.push(runner.run(job(`search ${w}`, { gate: "search", cmd: ["bun", "search/run.ts", "--which", w, "--runtime", "../../round-14/adapter.ts", "--depth", "4", "--states", "4000", "--expect", "completed"], cwd: conf, env, limits: SEARCH.limits, contract: "gate" }, SEARCH.size)));
   const mi = process.argv.indexOf("--mutants");
   if (mi > 0)

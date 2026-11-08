@@ -195,24 +195,20 @@ const exitSet = (w: Walk, inc: Inc, target: string, history: boolean) => {
   return { exits: from.slice(0, cut), enters: toTarget.slice(0, cutTo).reverse(), dest };
 };
 // Rule 15: a late turn may not leave a state that owns another pending call, or an active subroutine. Only the host's own.
+const ownedByExited = (inc: Inc, exits: readonly string[], owner: { readonly inc: string; readonly node: string; readonly activation: string }) =>
+  owner.inc === inc.id && exits.includes(owner.node) && inc.activations[owner.node] === owner.activation;
 const leavesWork = (w: Walk, inc: Inc, alt: Alternative) => {
   if (alt.target === "self") return false;
   const { exits } = exitSet(w, inc, alt.target, alt.history === true);
   const frag = fragOf(w.m, inc);
   if (exits.some((n) => frag.nodes[n]!.subroutine)) return true;
   const it = w.item;
+  const cancels = (op: string) => alt.members.some((m) => m.verb === "cancel" && m.op === op && m.key === undefined);
   return Object.values(w.tx.w.lanes).some((l) => {
-    if (l.actor === w.a.key && l.w.some((x) => x.owner.inc === inc.id && exits.includes(x.owner.node) && inc.activations[x.owner.node] === x.owner.activation)) return true;
+    if (l.actor !== w.a.key) return false;
+    if (!cancels(l.op) && l.w.some((x) => ownedByExited(inc, exits, x.owner))) return true;
     const h = l.head;
-    return (
-      h &&
-      l.actor === w.a.key &&
-      h.phase.t !== "held" &&
-      h.owner.inc === inc.id &&
-      exits.includes(h.owner.node) &&
-      inc.activations[h.owner.node] === h.owner.activation &&
-      !(it?.k === "ending" && it.attempt === h.id)
-    );
+    return h !== undefined && h.phase.t !== "held" && ownedByExited(inc, exits, h.owner) && !(it?.k === "ending" && it.attempt === h.id);
   });
 };
 const IMPLICIT = (id: string): Alternative => ({

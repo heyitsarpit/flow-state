@@ -30,7 +30,7 @@ export const identityScenarios: readonly Scenario[] = [
         c0.eq("Flow keeps only the input fields", r3.input, { ticketId: "T-42", workspaceId: "north" });
         const c = new Ctx(c0.fresh([editorFixture()]), at(r1));
         c.do(ensureStep(ensureArgs(r1)));
-        c.eq("the value is the input", [c.mem().workspaceId, c.mem().ticketId], ["north", "T-42"]);
+        c.eq("the value is the input", [c.mem()?.workspaceId, c.mem()?.ticketId], ["north", "T-42"]);
         c.to(at(r2), "Title", { title: "Foyer" });
         c.eq("the reordered ref reached the same actor", [c.mem().title, c.incarnations(at(r1))], ["Foyer", 1]);
       },

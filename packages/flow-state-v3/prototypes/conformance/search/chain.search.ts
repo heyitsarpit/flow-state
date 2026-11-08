@@ -75,9 +75,10 @@ export const searchChain = (make: () => Harness, o: { depth: number; maxStates: 
         const said = h.read.issues().some((i) => i.code === "InvalidTurn") || script.includes("KILL") || script.includes("Dispose");
         if (!said && !h.read.quiet().waits.some((w) => w.kind !== "timer")) throw new Oracle(`(m) a queue stopped at ${m.i} of ${m.n} with nothing to say why`);
       }
-      const n = m?.spun;
+      const spunOnDisk = () => (h.read.stored().get("actor/Lab/Chain/a") as any)?.root?.memory?.spun;
+      const n = m?.spun ?? spunOnDisk();
       h.do({ advance: 60_000 });
-      const after = (h.read.memory(A) as any)?.spun;
-      if (after !== undefined && after !== n) throw new Oracle("(n) a stopped spin went on");
+      const after = (h.read.memory(A) as any)?.spun ?? spunOnDisk();
+      if (after !== undefined && n !== undefined && after !== n) throw new Oracle("(n) a stopped spin went on");
     },
   });

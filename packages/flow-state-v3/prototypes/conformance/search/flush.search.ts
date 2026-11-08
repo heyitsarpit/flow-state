@@ -149,7 +149,7 @@ export const searchFlush = (
   const tightNames = /^(Go|Note|Set|NoteBad|Peek|Forget|failHeld|sayFailed|ack|FLUSH|KILL|lost|ok|Pay|pay\.ok|pay\.lost)/;
   const directedNames =
     directed === "capture" ? /^(Go|Note$|Note2$|ok|ack|tick|tickLong|HIDE|FLUSH|failNext|holdPlain|hang)$/
-    : directed === "queue" ? /^(Go|ok|lost|Retry|Forget|ack|landNoAck|KILL)$/
+    : directed === "queue" ? /^(Go|ok|lost|Retry|Forget|ack|landNoAck|KILL|refuseOk|refuseNo)$/
     : directed === "burst" ? /^(Burst|Go|ok|ack|refuse|refuseNo|refuseOk|KILL)$/
     : directed === "wipe" ? /^(Go|Note$|ok|lost|ack|KILL|WIPE|Ensure|Forget|FLUSH)$/
     : /^(Go|Note$|holdPlain|FLUSH|ack|KILL)$/;
@@ -197,7 +197,7 @@ export const searchFlush = (
       }
       ptr.set(k, i);
       // Memory ahead of a lane: every frame of this cut has a lane this disk lacks.
-      const lanes = new Set([...stored.keys()].filter((x) => x.startsWith(`lane/${k}|`) && (stored.get(x) as any)?.head));
+      const lanes = new Set([...stored.keys()].filter((x) => x.startsWith(`lane/${k}|`) && ((stored.get(x) as any)?.head || (stored.get(x) as any)?.parked?.length)));
       const same = frames.filter((f) => f.view[k] && cut(f.view[k]) === diskCut);
       if (lanes.size === 0 && same.length > 0 && same.every((f) => Object.keys(f.view[k].rows).length > 0))
         bad.set(h, `(e) memory ahead of its lane: ${diskCut.slice(0, 120)}`);

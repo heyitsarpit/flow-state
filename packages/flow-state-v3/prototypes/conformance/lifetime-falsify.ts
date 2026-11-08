@@ -80,9 +80,13 @@ await stated("lifetime-falsify", async (scope) => {
       continue;
     }
     const red = failText(r);
-    for (const x of caseItems(r).filter((x) => x.outcome === "fail")) everRed.add(x.name);
-    items.push({ kind: "wrong runtime", name: m.id, outcome: red.length ? "pass" : "fail", why: red.length ? "" : "0 red", detail: { failed: caseItems(r).filter((x) => x.outcome === "fail").map((x) => x.name) } });
-    console.log(`${red.length ? "ok  " : "BAD "} ${m.id} (${m.kills.join(",")}): ${red.length} red${red.length ? `\n       ${red.join("\n       ")}` : ""}`);
+    const failed = caseItems(r).filter((x) => x.outcome === "fail");
+    for (const x of failed) everRed.add(x.name);
+    const aimed = failed.filter((x) => x.kind === "case" && m.kills.some((k) => x.name === k || x.name.startsWith(`${k}/`)));
+    const asserted = aimed.filter((x) => !x.why.startsWith("threw"));
+    const why = red.length === 0 ? "0 red" : aimed.length === 0 ? `no target red (${m.kills.join(", ")})` : asserted.length === 0 ? `target red only by a throw: ${aimed[0]!.why.slice(0, 120)}` : "";
+    items.push({ kind: "wrong runtime", name: m.id, outcome: why === "" ? "pass" : "fail", why, detail: { failed: failed.map((x) => x.name) } });
+    console.log(`${why === "" ? "ok  " : "BAD "} ${m.id} (${m.kills.join(",")}): ${red.length} red${why ? `; ${why}` : ""}${red.length ? `\n       ${red.join("\n       ")}` : ""}`);
   }
   const neverRed = passed.filter((name) => !everRed.has(name));
   console.log(neverRed.length === 0 ? "every case is red on some wrong runtime" : `never red: ${neverRed.join(" ")}`);

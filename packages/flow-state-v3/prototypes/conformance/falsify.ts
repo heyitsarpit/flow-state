@@ -5,11 +5,11 @@ import { basename, dirname, join, resolve } from "node:path";
 import { stated } from "./verdicts/state.ts";
 
 const SEARCH_EXPECT: Readonly<Record<string, string>> = {};
-const SEARCH_STATES: Readonly<Record<string, string>> = { odd: "8000", session: "6000", chain: "8000" };
+const SEARCH_STATES: Readonly<Record<string, string>> = { odd: "8000", session: "6000", chain: "12000" };
 const SEARCH_REACH: Readonly<Record<string, { states: number; perDepth: readonly number[] }>> = {
   odd: { states: 7269, perDepth: [1, 22, 200, 1260, 5786] },
   session: { states: 5262, perDepth: [1, 16, 133, 818, 4294] },
-  chain: { states: 6573, perDepth: [1, 10, 84, 711, 5767] },
+  chain: { states: 9700, perDepth: [1, 12, 111, 995, 8581] },
 };
 
 await stated("falsify", async (scope) => {
@@ -116,7 +116,7 @@ if (suitePart(3)) {
 
 // ── Searches: by their state budget and the verdict each states on the real runtime. Red on no runtime and on a constant hash means
 // `failed` or `vacuous`, not merely not green.
-const SEARCHES = ["pay", "like", "chain", "crash", "cross", "frag", "odd", "session", "repairing", "listen.version", "listen.none", "fragstore.row", "flush.bare.tight", "flush.serialize.directed", "flush.bare.capture"];
+const SEARCHES = ["pay", "like", "chain", "crash", "cross", "frag", "odd", "session", "repairing", "listen.version", "listen.none", "listen.version.noload", "listen.none.noload", "fragstore.row", "flush.bare.tight", "flush.serialize.directed", "flush.bare.capture"];
 const EXPECT: Record<string, string> = Object.fromEntries(SEARCHES.map((w) => [w, SEARCH_EXPECT[w] ?? "completed"]));
 const search = (w: string, rt: string, env: Record<string, string> = {}) =>
   run("search", ["bun", "search/run.ts", "--which", w, "--runtime", rt, "--depth", "4", "--states", SEARCH_STATES[w] ?? "4000", "--expect", EXPECT[w]!], env, here, SEARCH);

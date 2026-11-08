@@ -4,6 +4,7 @@ import { traitStoreFixture, traitWriteFixture } from "../typed/desk.ts";
 import { LifeId, lifeFixture } from "../typed/lifetime.ts";
 import { BareId } from "../typed/round7.ts";
 import { serialBareFixture } from "../typed/round8.ts";
+import { LateQueueId, lateQueueFixture } from "../typed/latequeue.ts";
 import { Ctx, type Scenario } from "./ctx.ts";
 import { GRACE } from "./lifetime.scenario.ts";
 
@@ -35,6 +36,7 @@ const parkedInRecord = (c: Ctx) => c.r.quiet().waits.filter((w) => w.kind === "p
 
 const X = { actor: LifeId, id: "a" };
 const SB = { actor: BareId, id: "a" };
+const LQ = { actor: LateQueueId, id: "a" };
 
 export const fixpassScenarios: readonly Scenario[] = [
   {
@@ -63,7 +65,7 @@ export const fixpassScenarios: readonly Scenario[] = [
     // the record first, what the boot queued waits raw on its lane, and the next incarnation hears each once.
     id: "R14-FIX-01",
     kind: "fault",
-    fixtures: [traitWriteFixture, traitStoreFixture("row"), serialBareFixture()],
+    fixtures: [traitWriteFixture, traitStoreFixture("row"), serialBareFixture(), lateQueueFixture()],
     actor: TW,
     cites: ["rule:44", "C106", "OD:31"],
     variants: {
@@ -125,8 +127,9 @@ export const fixpassScenarios: readonly Scenario[] = [
         c.send("Back");
         c.eq("heard once, as the re-send's StorageRefused", [heard().length - before, c.lastEnding("put")?.reason], [1, "StorageRefused"]);
       },
-      // Rule 15 and 1.6 ("a late ending never leaves live work"), ruled for the round 14 finish: a queued commit is live work. The queue search's
-      // walk: the head's late NotSent { Cancelled } routes from the root, and its `No: A` would exit W, whose newer queued commit it owns.
+      // Rule 15 and 1.6 ("a late ending never leaves live work"), ruled for the round 14 finish: an InFlight head and every queued commit of the
+      // exited activation are live work, a commit queued behind a Held head included; a Held head is not; a transition that cancels the lane
+      // (key-less) takes its queue with it. The queue search's walk: the head's late NotSent { Cancelled } routes from the root.
       "a-late-ending-may-not-leave-a-queued-commit"(c0) {
         const c = new Ctx(c0.fresh([serialBareFixture()]), SB);
         c.ensure(SB);
@@ -138,7 +141,65 @@ export const fixpassScenarios: readonly Scenario[] = [
         c.ack();
         c.eq("the late turn is denied", c.r.evidence("Denied").at(-1)?.["reasons"], ["LateMayNotLeave"]);
         c.state("W");
-        c.eq("the queued commit still waits", c.r.quiet().waits.filter((w) => w.kind === "W" || w.kind === "ack").length > 0, true);
+      },
+      "a-commit-queued-behind-a-held-head-is-live-work"(c0) {
+        const c = new Ctx(c0.fresh([lateQueueFixture()]), LQ);
+        c.ensure(LQ);
+        c.send("Go");
+        c.send("Go");
+        c.ack();
+        c.answer("charge", { lost: true });
+        c.eq("the late Unsure is denied", c.r.evidence("Denied").at(-1)?.["reasons"]?.includes("LateMayNotLeave"), true);
+        c.state("W");
+      },
+      "a-late-exit-whose-transition-cancels-the-lane-goes"(c0) {
+        const c = new Ctx(c0.fresh([lateQueueFixture()]), LQ);
+        c.ensure(LQ);
+        c.send("Go");
+        c.send("Go");
+        c.send("Cancelling");
+        c.ack();
+        c.answer("charge", { lost: true });
+        c.eq("no denial", c.r.evidence("Denied").length, 0);
+        c.state("A");
+      },
+      "a-late-exit-with-nothing-queued-goes"(c0) {
+        const c = new Ctx(c0.fresh([lateQueueFixture()]), LQ);
+        c.ensure(LQ);
+        c.send("Go");
+        c.send("Away");
+        c.ack();
+        c.answer("charge", { lost: true });
+        c.eq("no denial", c.r.evidence("Denied").length, 0);
+        c.state("A");
+      },
+      "a-late-exit-of-a-state-that-does-not-own-the-queue-goes"(c0) {
+        const c = new Ctx(c0.fresh([lateQueueFixture()]), LQ);
+        c.ensure(LQ);
+        c.send("Go");
+        c.send("Go");
+        c.send("Away");
+        c.ack();
+        c.answer("charge", { lost: true });
+        c.eq("no denial", c.r.evidence("Denied").length, 0);
+        c.state("A");
+      },
+      // Rule 8 (OD38): a turn refused at admission (the outcome mapper throws) is delivered once more, after the mail already queued. At the
+      // boot the two queued commits' NotSent { Restored } are refused once each, the head's unknown { Restored } runs, then each No.
+      "a-mapper-refused-at-the-boot-is-tried-once-more-after-queued-mail"(c0) {
+        const c = new Ctx(c0.fresh([serialBareFixture()]), SB);
+        c.ensure(SB);
+        c.send("Go");
+        c.send("Go");
+        c.send("Go");
+        c.ack();
+        c.do({ fault: { throwIn: "operations.charge.failure.NotSent", times: 2 } });
+        const before = c.r.evidence("turn").length;
+        c.reload();
+        c.eq("Unsure, then each No once", c.r.evidence("turn").slice(before).map((t) => t["event"]), ["Unsure", "No", "No"]);
+        c.eq("each refusal is an issue", c.r.issues().filter((i) => i.code === "InvalidTurn").length, 2);
+        c.namedIssues = ["InvalidTurn"];
+        c.state("A");
       },
       // M5 (fix pass): a record kept at ready is on disk as it is; its return is no change, so nothing is written for it (the outputs round 14
       // had changed: one more capture timer outstanding after each return).

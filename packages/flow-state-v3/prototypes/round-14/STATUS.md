@@ -583,6 +583,42 @@ Findings for the design:
 
 Delegation (the trial): 7 sidecars (4 coders, 2 runners, 1 reviewer), all Haiku, each 1.5-3.5 minutes; 0 diffs redone; one review finding acted on. What worked: one file per coder, spread into the main list, so four ran at once with no clash; runners' replay scripts saved the tracing. What I would change: give runners the oracle code to read up front (the fragstore runner reported the search passing, which needed the lead to see that the oracle is path-dependent); ask coders for the failure text per case in a table (they did); a reviewer on every harness oracle change, since that is where a fix can hide a bug.
 
+### Close-out fix batch (2026-11-08, after the PASS-with-findings review)
+
+Plan: lead does the oracle and runtime parts (items 1-5, 7); three Haiku coders retarget and rework the wrong runtimes (item 6), one file
+group each; one Haiku runner measures every search under the new key. Log:
+
+| Task | Start | End | Who | Redo |
+| --- | --- | --- | --- | --- |
+| 1 armed faults in the state hash | 09:45 | 09:47 | lead | |
+| 1 every search under the new key | 09:47 | 09:50 | runner (Haiku) | none |
+| 2a keptNames (KeptLetGo; stranded reads asked again, ended, disposed, booted) | 09:50 | 09:54 | lead | |
+| 2b refuseNo walk diagnosed, oracle fixed, case | 09:54 | 10:06 | lead | |
+| 6 kills name target cases (main list) | 09:56 | 09:59 | coder (Haiku) | none; one target left red only by a throw (case fixed by lead) |
+| 6 pay16 + misc rework | 09:56 | 09:59 | coder (Haiku) | kept the two-edit FRAG-08 mutant (no honest one-edit fault) |
+| 6 pins rework, closure split | 09:56 | 09:59 | coder (Haiku) | the two single-edit halves were green alone; lead removed them (finding 9) |
+| 4 rule 15 refinement, controls, wrong runtimes | 09:59 | 10:03 | lead | |
+| 5, 7, 3, locks, gates | 10:03 | 10:15 | lead | |
+
+| Item | Result |
+| --- | --- |
+| 1 | `stateHash` appends the armed `throwIn` counts (n > 0) only, so fault-free states keep their hashes: every pinned falsify search reached the same states and perDepth. 25 outputs moved by one distinct state each (the armed state), each logged. `refuseOk`/`refuseNo` back in the queue search. chain now completes at 9700 states [1,12,111,995,8581] (falsify and mutate-one repinned, budget 12000); burst completes at depth 4 (253 states; in no gate) |
+| 2a | harness false red, as the review said. Also a stranded read: rule 8 says a read's answer is stranded "until that life asks again, ends, or a boot", and the runtime emits no evidence when it goes, so keptNames drops a read's entry on `invoked` of the same read, `ended`/`disposed` of its actor, or a boot |
+| 2b | the oracle, not the runtime. Rule 8 (OD38): a refused turn's ending is delivered once more after the mail already queued; the runtime does that when the outcome mapper throws at admission. Three oracle gaps: no handler ear runs on a refusal at admission, so the retry's run was "unaccounted"; `tryAgain` was paid only by an `on.<event>[` Slot (a target-only `No: A` runs none; the retry re-runs the mapper Slot); a kept ending's one try per boot emits `kept` with no `refused`. Fixed all three; case R14-FIX-01/`a-mapper-refused-at-the-boot-is-tried-once-more-after-queued-mail`, red on the old drive.ts by the search's messages; wrong runtime `misc.refused-once-dropped`. The queue search then found a fourth: oracle (e) took a lane record holding only parked endings as no lane (rows come from kept endings); fixed |
+| 3 | queue pinned at depth 12, budget 6000: `inconclusive`, 6000 states, [1,5,12,28,79,235,700,2036], depth 7 complete, 15 s alone |
+| 4 | `ownedByExited` (turn.ts) shared by the head and queue checks; live work = an InFlight head plus every queued commit of the exited activation, behind a Held head too; a Held head excluded; a key-less cancel of that op in the late transition exempts its queue. Five variants on a new `typed/latequeue.ts` fixture plus the serial-bare walk: two denied, three allowed. Wrong runtimes `misc.late-leaves-queued`, `misc.late-always-leaves`, `misc.late-cancel-ignored`, each red on its targets |
+| 5 | chain (n) reads the persisted record when the actor is gone. The chain machine has no schedule, so the "schedule fires in the grace" wrong runtime cannot reach this search; that class stays covered by LIFE-14/15/29 via `life.schedule-fires-unused`. fragstore: `endedAgain` cleared at boot; a delivery counts per ending through `endedAgain` (an ending after a delivery), not a send-keyed set, since a refused re-send's ending has no send id. Wrong runtime `misc.adopted-ending-twice` (an adopted parked ending delivered twice) red on the refused-re-send variant and six others |
+| 6 | `kills` names target cases; a wrong runtime passes only if a target fails by assertion (not `threw`). LIFE-24 asserts presence before the grace; R14-ID-01 reads memory with `?.`. Reworked: pay16 schedule mutant (stale valid memory, red at 499 ms), pinsb NaN only, pinsa D84 (a batch inside the drain), pinsa hide (red by its `eq`); closure: the two halves are each green alone, kept as one two-edit mutant (finding 9); `misc.ended-actor-unheard-by-store` kept as two edits (an import and one condition; no honest one-edit fault, the coder showed one candidate at 0 red). lifetime-falsify: 98 ok, every case red on a target |
+| 7 | `listen.version.noload` (976 states) and `listen.none.noload` (1326) join falsify's searches and work-peak |
+
+More findings for the design:
+6. (above) armed faults: done here.
+7. Rule 8's "an ending whose turn is refused (InvalidTurn)" covers a refusal at admission (the outcome mapper throws). The design should say so in 2.5 step 1; the runtime does it.
+8. A stranded read, and a kept ending's one try per boot, leave no evidence when they go or are retried; an oracle must infer them. Inspection or evidence should name "stranded read released (asked again / ended / boot)" and a refused kept try.
+9. D77 is checked twice (`sealOp`'s `known` and `checkSlots`' walk): either alone refuses the unknown closure, so no single-edit fault is visible to REV8-PINS/D77. Keep both (defence in depth) or drop one; the case cannot tell.
+10. `flow check`'s static rule 15 must treat queued commits under `serialize` as pending (the runtime now does); a commit queued behind a Held head too.
+11. A head promoted at settlement is the new head before the late turn runs, so the cancel exemption (queued only, as ruled) does not cover it: a late transition that cancels the lane still cannot leave a just-promoted, never-sent head. Whether the exemption covers that head is open.
+
 ### Carried to the phase 3 conformance rewrite
 
 - C1, the errno rule: catch sites that rewrap lose the code; reader-check needs recursive rules for them.
@@ -590,7 +626,7 @@ Delegation (the trial): 7 sidecars (4 coders, 2 runners, 1 reviewer), all Haiku,
 - bare's depth-12 search budget (still pinned inconclusive at 3000 states).
 - work-peak re-measured for the current search configurations.
 - Done in the round 14 finish (158cb5db): the 34 never-red lifetime cases, `chain`. `queue` done after the rule 15 ruling. Armed faults outside the search key (finding 6).
-- Search oracles that keep history outside the state hash (`deliveredOnce`): verdicts depend on path order (finding 5 above).
+- Search oracles that keep history outside the state hash (`deliveredOnce`, `keptNames`, `endedAgain`): verdicts depend on path order (finding 5 above).
 - Stated OS limits: uninterruptible sleep, `setsid` between polls, a foreign SIGKILL, ResolveMessage EMFILE; and two top-level runs at
   once, unsupported since C2.
 - From the last review: partly-blind evidence and leftovers when `ps` fails; the reach pin applies to the control only (not `isTop`);

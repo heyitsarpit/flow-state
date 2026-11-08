@@ -782,6 +782,7 @@ function newLifetimeScenarios(): Scenario[] {
           const c = onLife(c0, { persisted: false });
           c.h.raw({ hostEnsure: X });
           c.do({ subscribe: X });
+          c.state("IDLE", X);
           c.advance(GRACE * 5);
           c.state("IDLE", X);
         },
