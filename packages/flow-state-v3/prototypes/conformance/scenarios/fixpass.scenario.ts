@@ -101,6 +101,27 @@ export const fixpassScenarios: readonly Scenario[] = [
         c.ensure();
         c.eq("heard once", heard() - before, 1);
       },
+      // fragstore.row's depth-7 walk. 2.7.11's storage-refused row: a re-send whose capture is refused returns to Held and its unknown event
+      // is delivered again, with reason StorageRefused; the screen is away, so it parks (rule 44) and is on disk at the kill. It is the
+      // re-send's own ending, never delivered, so the boot restores it (2.7.13: a head's own parked ending, not Restored) and the return hears it once.
+      "a-refused-resend-parked-before-a-kill-is-heard-once-after"(c0) {
+        const c = new Ctx(c0.fresh([traitStoreFixture("row")]), TS);
+        c.ensure();
+        c.into(["t"], "Go", { v: 1 });
+        c.ack();
+        c.into(["t"], "GiveUp");
+        c.into(["t"], "Resend");
+        c.send("Away");
+        c.do({ storage: "refuse" });
+        c.eq("parked while away", c.r.quiet().waits.filter((w) => w.kind === "parked" && w.op === "put").length, 1);
+        c.advance(30_000);
+        c.reload();
+        c.eq("still owed after the kill", c.r.quiet().waits.filter((w) => w.kind === "parked" && w.op === "put").length, 1);
+        const heard = () => c.r.evidence("delivered").filter((e) => e["op"] === "put");
+        const before = heard().length;
+        c.send("Back");
+        c.eq("heard once, as the re-send's StorageRefused", [heard().length - before, c.lastEnding("put")?.reason], [1, "StorageRefused"]);
+      },
       // M5 (fix pass): a record kept at ready is on disk as it is; its return is no change, so nothing is written for it (the outputs round 14
       // had changed: one more capture timer outstanding after each return).
       "a-return-from-ready-writes-nothing"(c0) {

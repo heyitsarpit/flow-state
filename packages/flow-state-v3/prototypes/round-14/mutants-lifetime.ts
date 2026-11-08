@@ -1,5 +1,9 @@
 // Rule 73's wrong runtimes (OD31): each breaks one clause of rule 73 or 2.7.17, and some LIFE case must go red on it by a named oracle.
 // Same shape as mutate.ts's lists; run by ../conformance/lifetime-falsify.ts, which also lists any LIFE case no mutant turns red.
+import { MUTANTS as MISC } from "./mutants-lifetime-misc.ts";
+import { MUTANTS as PAY16 } from "./mutants-lifetime-pay16.ts";
+import { MUTANTS as PINS_A } from "./mutants-lifetime-pins-a.ts";
+import { MUTANTS as PINS_B } from "./mutants-lifetime-pins-b.ts";
 const m = (id: string, kills: string, file: string, find: string, replace = "") => ({ id, kills: [kills], edits: [[file, find, replace]] as ReadonlyArray<readonly [string, string, string]> });
 const WRITE = 'if (l.actor === key && l.head !== undefined && l.head.phase.t !== "held") out.push(`write:${l.op}`);';
 const READ = "for (const id in w.reads) if (w.reads[id]!.actor === key && w.reads[id]!.kept) out.push(`read:${w.reads[id]!.op}`);";
@@ -76,4 +80,8 @@ export const MUTANTS = [
   m("d1.reload-drops-stopped", "OD:31", "durable.ts", "...(stopped.value ? { stopped: stopped.value } : {})", ""),
   m("m4.held-w-owed", "rule:73", "durable.ts", "else mail(tx, l, a, e, false, !h.held);", "else mail(tx, l, a, e, false);"),
   m("boot.mail-lost-at-dispose", "OD:31", "step.ts", "setLane(tx, { ...l, parked: [...l.parked, { ...(m.attempt ? { attempt: m.attempt } : {}), ending: m.ending, owner: m.owner, input: m.input }] });", ""),
+  ...PAY16,
+  ...PINS_A,
+  ...PINS_B,
+  ...MISC,
 ];

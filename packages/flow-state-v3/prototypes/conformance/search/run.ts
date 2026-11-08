@@ -39,6 +39,10 @@ await stated("search", async () => {
   // A read that hides the page (FLOW_TEST_FLUSH's probes) writes to the parent, so it keeps one parent per action.
   engine.onePre = !process.env["FLOW_TEST_FLUSH"];
   const o = { depth, maxStates };
+  const listenShape = (v: string | undefined) => {
+    if (v !== "version" && v !== "none") throw new Error(`search/run.ts: listen.${v}: the shape is version or none`);
+    return v;
+  };
   const which = arg("--which") ?? "pay";
   const t0 = performance.now(); // evidence only: the human line below, never the verdict
   if (which === "oddall") {
@@ -74,7 +78,7 @@ await stated("search", async () => {
                       : which === "session"
                         ? searchSession(make, o)
                         : which.startsWith("listen.")
-                          ? searchListen(make, which.split(".")[1] as never, o, which.endsWith(".noload") ? "none" : "load")
+                          ? searchListen(make, listenShape(which.split(".")[1]), o, which.endsWith(".noload") ? "none" : "load")
                           : which === "repairing"
                             ? searchRepairing(make, o)
                             : which.startsWith("fragstore.")

@@ -77,6 +77,7 @@ export const searchChain = (make: () => Harness, o: { depth: number; maxStates: 
       }
       const n = m?.spun;
       h.do({ advance: 60_000 });
-      if ((h.read.memory(A) as any)?.spun !== n) throw new Oracle("(n) a stopped spin went on");
+      const after = (h.read.memory(A) as any)?.spun;
+      if (after !== undefined && after !== n) throw new Oracle("(n) a stopped spin went on");
     },
   });

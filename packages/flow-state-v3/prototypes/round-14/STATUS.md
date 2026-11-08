@@ -519,6 +519,68 @@ The VERDICT items of every gate in the loaded `gates.ts` run (8 slots, copies) a
   (E13); falsify search on `chain` (known); lifetime-falsify coverage (34 never-red full names). No case verdict or output changed
   beyond the named E/N rows.
 
+## Round 14 finish (2026-11-08)
+
+Lead (Opus) plans, decides, fixes the runtime, reviews every sidecar diff and alone commits; up to 4 Haiku sidecars.
+
+Plan:
+
+| Task | Who |
+| --- | --- |
+| 1 `chain` red: decide runtime or oracle from the design, fix | lead |
+| 2 `queue` red (mutate-one in process): same | lead |
+| 3 `fragstore.row` depth 7 (rule 17): run, trace, diagnose | runner sidecar runs and traces; lead decides |
+| 4 `listen.load`: same | runner sidecar runs and traces; lead decides |
+| 5 the 34 never-red lifetime cases: one-edit wrong runtimes, or a reason why not | 4 coder sidecars, one file each: `mutants-lifetime-pay16.ts` (PAY-16 ×12), `-pins-a.ts` and `-pins-b.ts` (REV8-PINS 9 + 9), `-misc.ts` (FRAG-08, REV5-H5H6, LIFE-04, LIFE-24); spread into `mutants-lifetime.ts` |
+| 6 gates, STATUS, commits | lead |
+
+Log (start-end, who, redo):
+
+| Task | Start | End | Who | Redo |
+| --- | --- | --- | --- | --- |
+| plan, group files wired | 08:40 | 08:50 | lead | |
+| 1 chain: trace, cause, oracle fix, budgets pinned | 08:42 | 09:03 | lead | |
+| 5 PAY-16 ×12 mutants | 08:51 | 08:54 | coder (Haiku) | none |
+| 5 REV8-PINS ×9 (a) mutants | 08:51 | 08:53 | coder (Haiku) | none |
+| 5 REV8-PINS ×9 (b) mutants | 08:51 | 08:55 | coder (Haiku) | none (it broke the Write/Edit rule once and said so) |
+| 5 FRAG-08, REV5-H5H6, LIFE-04, LIFE-24 mutants | 08:51 | 08:54 | coder (Haiku) | none |
+| 5 review of the four mutant files, full lifetime-falsify | 08:54 | 08:57 | lead | |
+| 3 fragstore.row depth 7 run and replay | 08:57 | 09:00 | runner (Haiku) | none |
+| 4 listen.load run, replay, history | 08:57 | 08:59 | runner (Haiku) | none |
+| 3 diagnosis, oracle fix, case, wrong runtime | 09:00 | 09:06 | lead | |
+| 2 queue: trace, rule 15, option A measured, stopped | 09:03 | 09:06 | lead | |
+| 4 listen: shape fix, falsify list | 09:06 | 09:07 | lead | |
+| locks: log, outputs, RECIPIENTS, relock | 09:07 | 09:13 | lead | |
+| review of the drive.ts rule-17 change | 09:14 | 09:15 | reviewer (Haiku) | its finding was right; lead rewrote the line (a park clears the delivery only after a new ending) |
+| gates, STATUS, commit | 09:13 | 09:20 | lead | |
+
+Gates on the final tree: `bun gates.ts` exit 0, **25/25 ok**, 0 BAD, 0 unknown, 166 s (the first all-green run of round 14: chain, the lock and lifetime coverage were the old reds). Suite 835/835, locked, RECIPIENTS moved by the new variant only (bisected). lifetime-falsify 94 items pass.
+
+Items:
+
+| Item | Cause | State | Evidence |
+| --- | --- | --- | --- |
+| 1 `chain` | the search's oracle (n). `Writes Dispose KILL`: the dispose's record removal and the commit's acknowledge batch were unacked at the kill (D80), so the disk's first record (n 0) is a record; the drain's `Stop` restores it (2.7.17 send table: ended, persisted, record decodes) and with no use it ends after the grace; (n) read its absent memory as a spin | fixed in `search/chain.search.ts` (gone is not spinning); falsify and mutate-one pin `completed` at depth 4: 6573 states, [1,10,84,711,5767], budget 8000 (4000 stopped at depth 3) | chain completed on the real runtime, 21.8 s alone |
+| 2 `queue` | open: rule 15's "pending call" | **stopped, for the user** (below) | `Go Go Forget Go ack` on `serialBareFixture` |
+| 3 `fragstore.row` | the oracle. drive.ts keyed rule 17's "delivered once" by Attempt, for good; 2.7.11's storage-refused row delivers a re-send's `unknown { StorageRefused }` again for the same Attempt; parked while away (rule 44), it is owed across the kill (2.7.13), so "delivered once, still parked / restored again" was a false red | fixed: an ending of an already delivered Attempt marks it, and a park of that new ending (outside a boot) clears the delivery; a park with no new ending still counts as delivered (the review's case) | R14-FIX-01/`a-refused-resend-parked-before-a-kill-is-heard-once-after`: red on the old oracle by exactly the search's message, green now; wrong runtime `misc.refused-resend-unheard` (refused re-send not delivered) red on it and PAY-16/resend-refused-capture. The depth-7 search itself now completes at 43508 states either way (see findings) |
+| 4 `listen.load` | the harness. `run.ts` passed the shape `"load"` (cast `as never`) to `searchListen`, which ran the no-version fixture without D67's stated-limit excuse (round 5: an unversioned entity can take a late frame; "with versions, the version decides", 2.8 E7). Red since round 7, and falsify asserted it stays red | fixed: `listen.<shape>` takes `version` or `none` only (else throws); falsify and work-peak run `listen.version` (completed, 1184 states) and `listen.none` (completed, 1755) | the walk `hello other frame.now frame.was` passes on `none` (excused) and `version` (frame refused) |
+| 5 34 never-red lifetime cases | no wrong runtime targeted them | done: 35 new wrong runtimes in four group files spread into `mutants-lifetime.ts` | `lifetime-falsify` (92 wrong runtimes then; 93 with `misc.refused-resend-unheard`): control green, every one red, "every case is red on some wrong runtime"; no vacuous case |
+
+Item 2, for the user. Walk: `Go` (W#1, att-1-1 head), `Go` (W→W re-entry, W#2, att-1-2 queued), `Forget` (to A; cancel of the head), `Go` (W#3, att-1-3 queued), `ack`: att-1-1 ends `NotSent { Cancelled }`, late (W#1 gone), routed from the root; `No: A` exits W#3, which owns the queued att-1-3. The oracle (drive.ts, rule 15) counts any unended attempt as pending; the runtime's `leavesWork` (turn.ts) counts only an InFlight head.
+- Rule 15 / 1.6: "a state that owns another pending call" and "a late ending never leaves live work". The row vocabulary (2.7.3, line 735) says `pending` is `InFlight` and `waiting` is `W` not empty, so the words support both readings.
+- Option A (recommended): queued commits count; one condition in `leavesWork`. Measured in place and reverted: the suite stays 835/835 with no output change, the queue search passes every oracle (it then reads `vacuous` at 12000 states for `refuseOk`/`refuseNo`, a budget pin to set).
+- Option B: only InFlight heads count; the oracle drops queued attempts and the design states that a late turn may leave queued work, which ends late later.
+- Not decided here (it fixes the meaning of a guarantee).
+
+Findings for the design:
+1. Rule 15's "pending call" is undefined for queued commits (W) under `serialize`. Needs a decision (item 2, A or B).
+2. 2.7.11's storage-refused re-send row means one Attempt can deliver two endings (the first send's unknown, then `unknown { StorageRefused }`), while rule 17's headline says "every commit ends once". Rule 17's "every retry that sends delivers exactly one ending" covers a sending retry, not a refused one; the refused re-send's second delivery should be named in rule 17's text.
+3. A re-entering self-transition (`Go` from W to W) gives a new activation, and the queue's earlier commit becomes late: whether `target: self-state` re-enters is load-bearing for rules 14 and 15 and should be stated with them.
+4. The send table's "ended, persisted, record decodes: restored ... ends after the grace" applies after a dispose whose removal never landed (D80): a disposed identity can come back by a plain send after a crash. Consistent with the table, but worth a sentence where `disposeActor` is said to make "no record".
+5. Oracles that keep history outside the state hash (drive.ts's `deliveredOnce`) make a search's verdict depend on which path reaches a hash first: the depth-7 walk fails by replay but the search completes, because another script reached the same hash first. Search oracles should read only what the hash carries, or the history must join the key (phase 3).
+
+Delegation (the trial): 7 sidecars (4 coders, 2 runners, 1 reviewer), all Haiku, each 1.5-3.5 minutes; 0 diffs redone; one review finding acted on. What worked: one file per coder, spread into the main list, so four ran at once with no clash; runners' replay scripts saved the tracing. What I would change: give runners the oracle code to read up front (the fragstore runner reported the search passing, which needed the lead to see that the oracle is path-dependent); ask coders for the failure text per case in a table (they did); a reviewer on every harness oracle change, since that is where a fix can hide a bug.
+
 ### Carried to the phase 3 conformance rewrite
 
 - C1, the errno rule: catch sites that rewrap lose the code; reader-check needs recursive rules for them.

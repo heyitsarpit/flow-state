@@ -626,6 +626,7 @@ export const makeHarness = (port: Port) => (): Harness => {
     else offActors.add(a);
   };
   const deliveredOnce = new Set<string>(); // review M6: attempts whose ending a run took, across boots (rule 17)
+  const endedAgain = new Set<string>();
   const endingOf = new Map<string, { ch: string; reason: string }>(); // review M3: what each attempt's ending is
   const declineEndingOf = new Map<string, { ch: string; reason: string }>(); // and each op's latest decline's
   const bootDeclines = new Map<string, number>(); // lane -> how far its restored declines have run, during the step that boots
@@ -1002,6 +1003,7 @@ export const makeHarness = (port: Port) => (): Harness => {
         case "ending":
           bump(told, k);
           if (x["attempt"] !== undefined) ended.add(String(x["attempt"]));
+          if (deliveredOnce.has(String(x["attempt"] ?? ""))) endedAgain.add(String(x["attempt"]));
           break;
         case "delivered": {
           // Stage G: to whom, as the suite observed it (see `ears`). The recipient the suite expects is total: the attempt's owner (the
@@ -1082,6 +1084,7 @@ export const makeHarness = (port: Port) => (): Harness => {
                 }
               }
               if (!refusedEvs.has(ob.ev)) deliveredOnce.add(att!);
+              endedAgain.delete(att!);
               // Review M7: a lane's parked endings run in their saved order (rule 44).
               const d = due.get(att!);
               if (d) {
@@ -1143,6 +1146,7 @@ export const makeHarness = (port: Port) => (): Harness => {
           if (dc) (declineOwners.get(op) ?? declineOwners.set(op, new Set()).get(op)!).add(dc.actor);
           if (dc && dc.copy && !ledgerOff && !runtimeDisposed && !moved.has(dc.actor) && bindsCopy(dc.actor, op, dc.copy) === "yes")
             missing.push(`(j) a decline parked, and its live owner binds it (reference): ${op} in ${dc.actor} [${dc.copy.path.join(" / ")}]`);
+          if (!booting && endedAgain.delete(att)) deliveredOnce.delete(att);
           bump(told, k, -1);
           bump(parkedOwed, k);
           break;

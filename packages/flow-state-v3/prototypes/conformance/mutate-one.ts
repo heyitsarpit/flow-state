@@ -11,7 +11,7 @@ const SEARCHES: Readonly<Record<"store" | "queue" | "bare" | "directed" | "chain
   queue: { depth: 12, maxStates: 12_000, verdict: "completed", states: null, perDepth: null, knownRed: "round 14: (j) a late turn of charge att-1-1 left W pending (rule 15), to diagnose" },
   bare: { depth: 12, maxStates: 3_000, verdict: "inconclusive", states: 3000, perDepth: [1, 7, 31, 131, 502, 1819] },
   directed: { depth: 11, maxStates: 8_000, verdict: "completed", states: 5969, perDepth: null },
-  chain: { depth: 4, maxStates: 6_000, verdict: "completed", states: null, perDepth: null, knownRed: "round 14: (n) a stopped spin went on, the known chain red, to diagnose" },
+  chain: { depth: 4, maxStates: 8_000, verdict: "completed", states: 6573, perDepth: [1, 10, 84, 711, 5767] },
 };
 
 await stated("mutate-one", async (scope) => {

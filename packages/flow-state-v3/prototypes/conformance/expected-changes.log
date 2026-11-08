@@ -1546,3 +1546,18 @@ round:checks/story-check.ts hash:e5b066b88e22 | harness edit in checks/story-che
 round:checks/types-check.ts hash:d6d04622d17b | harness edit in checks/types-check.ts by the speed passes and verdicts work (87d47cac 76328de4); 834/834, every output and RECIPIENTS identical to baseline; reviews logged in progress.md
 round:run-plants.sh hash:e7e8fcfb75a7 | harness edit in run-plants.sh by the speed passes and verdicts work (76328de4); 834/834, every output and RECIPIENTS identical to baseline; reviews logged in progress.md
 round:adapter.ts hash:b38e1cebc4dc | harness edit in adapter.ts by the speed passes and verdicts work (76328de4 3348071d 93005ef6 917b8ffb 546634af 0806c7de); 834/834, every output and RECIPIENTS identical to baseline; reviews logged in progress.md
+R14-FIX-01 hash:7ee3d98a732b | new variant a-refused-resend-parked-before-a-kill-is-heard-once-after: fragstore.row's depth-7 walk, 2.7.11 storage-refused row (a refused re-send is delivered again as unknown StorageRefused), parked (rule 44), owed across the kill (2.7.13)
+file:scenarios/fixpass.scenario.ts hash:f1ab20b4cbaa | holds the new R14-FIX-01 variant for the refused re-send parked before a kill (round 14 finish, item 3)
+file:drive.ts hash:2c7ac49f7425 | rule 17 oracle keyed an attempt's delivery for good; a later ending of the same attempt (a refused re-send, 2.7.11) that parks outside a boot is owed again; a park with no new ending still counts as delivered
+file:search/chain.search.ts hash:c5954f389840 | (n) read an ended actor's absent memory as a spin; 2.7.17's send table restores an ended persisted identity and ends it after the grace with no use
+file:falsify.ts hash:5e373ad43843 | chain pinned completed at depth 4 (6573 states) once (n) was fixed; listen.load was an invalid shape (run.ts): listen.version and listen.none replace it, each green
+file:mutate-one.ts hash:2411426a4649 | in-process chain search pinned completed at depth 4, 6573 states [1,10,84,711,5767], budget 8000; the known-red note is gone
+file:search/run.ts hash:5c812d67e12f | listen.<shape> accepts version or none only; listen.load had run the no-version fixture without D67's stated-limit excuse, the cause of its red since round 7
+file:plants/work-peak.ts hash:4ba01d0d7481 | the measured search list follows falsify's: listen.version and listen.none in place of the invalid listen.load
+round:mutants-lifetime.ts hash:c2bc037bd1a6 | spreads four group lists of wrong runtimes for the 34 never-red lifetime-falsify cases (round 14 finish, item 5)
+round:mutants-lifetime-pay16.ts hash:e0fb4c6fe3a9 | new: one wrong runtime per never-red PAY-16 variant (12), each red on its own case
+round:mutants-lifetime-pins-a.ts hash:f80d0db414ad | new: wrong runtimes for nine never-red REV8-PINS variants (D80, D84, D89 x2, L6, rule 1, D57, D88 x2)
+round:mutants-lifetime-pins-b.ts hash:a4bc37503bce | new: wrong runtimes for nine never-red REV8-PINS variants (D65, D89 map, L10, D83 x2, D111, D29, D46, D77)
+round:mutants-lifetime-misc.ts hash:ed170eb7f510 | new: wrong runtimes for FRAG-08, REV5-H5H6, LIFE-04, LIFE-24 variants and the refused re-send (2.7.11) of R14-FIX-01's new variant
+output:R14-FIX-01/a-refused-resend-parked-before-a-kill-is-heard-once-after hash:acf216daa8c7 | new output of the new variant (refused re-send parked before a kill, heard once after): recorded from the run after its assertions passed by hand from 2.7.11 and 2.7.13
+file:expected-recipients.txt hash:f9c7c4c28fb5 | +2 observed, +1 restored state checked, +2 start nodes: the new R14-FIX-01 refused-re-send variant alone (bisected: the suite without it prints the old line)

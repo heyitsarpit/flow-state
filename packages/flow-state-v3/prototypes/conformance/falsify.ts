@@ -5,10 +5,11 @@ import { basename, dirname, join, resolve } from "node:path";
 import { stated } from "./verdicts/state.ts";
 
 const SEARCH_EXPECT: Readonly<Record<string, string>> = {};
-const SEARCH_STATES: Readonly<Record<string, string>> = { odd: "8000", session: "6000" };
+const SEARCH_STATES: Readonly<Record<string, string>> = { odd: "8000", session: "6000", chain: "8000" };
 const SEARCH_REACH: Readonly<Record<string, { states: number; perDepth: readonly number[] }>> = {
   odd: { states: 7269, perDepth: [1, 22, 200, 1260, 5786] },
   session: { states: 5262, perDepth: [1, 16, 133, 818, 4294] },
+  chain: { states: 6573, perDepth: [1, 10, 84, 711, 5767] },
 };
 
 await stated("falsify", async (scope) => {
@@ -115,7 +116,7 @@ if (suitePart(3)) {
 
 // ── Searches: by their state budget and the verdict each states on the real runtime. Red on no runtime and on a constant hash means
 // `failed` or `vacuous`, not merely not green.
-const SEARCHES = ["pay", "like", "chain", "crash", "cross", "frag", "odd", "session", "repairing", "listen.load", "fragstore.row", "flush.bare.tight", "flush.serialize.directed", "flush.bare.capture"];
+const SEARCHES = ["pay", "like", "chain", "crash", "cross", "frag", "odd", "session", "repairing", "listen.version", "listen.none", "fragstore.row", "flush.bare.tight", "flush.serialize.directed", "flush.bare.capture"];
 const EXPECT: Record<string, string> = Object.fromEntries(SEARCHES.map((w) => [w, SEARCH_EXPECT[w] ?? "completed"]));
 const search = (w: string, rt: string, env: Record<string, string> = {}) =>
   run("search", ["bun", "search/run.ts", "--which", w, "--runtime", rt, "--depth", "4", "--states", SEARCH_STATES[w] ?? "4000", "--expect", EXPECT[w]!], env, here, SEARCH);
@@ -127,14 +128,10 @@ if (part("search")) for (const w of quick ? SEARCHES.slice(0, 3) : SEARCHES) {
   say(redSearch(con), `search ${w}: not green on a constant hash`, searchOf(con)?.verdict ?? tally(con), [con]);
   const real = await search(w, runtime);
   const dead = searchOf(real)?.deadActions?.join(" ");
-  // Known to fail, for entities: H2's class, on rounds 7 to 9 (RESULTS). It must go on failing for that reason until entities answer it.
-  if (w === "listen.load") say(searchOf(real)?.verdict === "failed" && (searchOf(real)?.failure ?? "").includes("silently wrong"), "search listen.load: fails as known, H2's class", "", [real]);
-  else {
-    const reach = SEARCH_REACH[w];
-    const got = searchOf(real) as { states?: number; perDepth?: readonly number[] } | undefined;
-    const reached = reach === undefined || (got?.states === reach.states && JSON.stringify(got?.perDepth) === JSON.stringify(reach.perDepth));
-    say(real.answer === "stated" && outcome(real) === "pass" && reached, `search ${w}: green on the real runtime`, `${searchOf(real)?.verdict ?? tally(real)}${dead ? ` dead: ${dead}` : ""}${reached ? "" : `, reached ${got?.states} states ${JSON.stringify(got?.perDepth)}, pinned ${JSON.stringify(reach)}`}`, [real]);
-  }
+  const reach = SEARCH_REACH[w];
+  const got = searchOf(real) as { states?: number; perDepth?: readonly number[] } | undefined;
+  const reached = reach === undefined || (got?.states === reach.states && JSON.stringify(got?.perDepth) === JSON.stringify(reach.perDepth));
+  say(real.answer === "stated" && outcome(real) === "pass" && reached, `search ${w}: green on the real runtime`, `${searchOf(real)?.verdict ?? tally(real)}${dead ? ` dead: ${dead}` : ""}${reached ? "" : `, reached ${got?.states} states ${JSON.stringify(got?.perDepth)}, pinned ${JSON.stringify(reach)}`}`, [real]);
 }
 
 // ── Gates by tampering a copy: compare, the lock, the log. Each copy is of one snapshot taken here.
