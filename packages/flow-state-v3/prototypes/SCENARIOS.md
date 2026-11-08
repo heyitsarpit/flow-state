@@ -531,3 +531,4 @@ Convergence-8. Old unbuilt rows (`STORY-ALL`, `BROWSER-*`, `SSR-01`) renumbered 
 | R14-FIX-01 | 14 | fault | design | rule:44, C106, OD:31 |  | fragstore.row: a Held record kept at ready names the Restored it is owed (evidence, a wait); a dispose of it parks what the boot queued on the lane, each heard once |
 | R14-FIX-02 | 14 | example | design | rule:73, C106 |  | M4: a Held lane with a waiting commit keeps nothing, so the identity is not woken at ready; the next use hears both |
 | R14-FIX-03 | 14 | example | design | rule:73, C2 |  | D3: three lives of one persisted identity, each a return after an end, carry three distinct incarnation ids |
+| R15-01 | 14 | fault | design | rule:15, rule:43 |  | Round 15, the rulings owed (OD48): rule 15's cancel exemption covers a never-sent head promoted at settlement |

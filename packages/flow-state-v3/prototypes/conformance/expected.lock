@@ -231,6 +231,7 @@ R14-F-01 02fb76024a05
 R14-FIX-03 e5ab12a86da6
 R14-FIX-01 e8a5adb33fa2
 R14-FIX-02 022e63be1f0b
+R15-01 9acb1f6cad0e
 variant:PAY-06/interruptible present
 variant:PAY-06/uninterruptible present
 variant:PAY-07/leaveMidCharge present
@@ -985,6 +986,8 @@ variant:R14-FIX-01/a-late-exit-of-a-state-that-does-not-own-the-queue-goes prese
 variant:R14-FIX-01/a-mapper-refused-at-the-boot-is-tried-once-more-after-queued-mail present
 variant:R14-FIX-01/a-return-from-ready-writes-nothing present
 variant:R14-FIX-01/a-dispose-of-that-record-keeps-its-endings-on-the-lane present
+variant:R15-01/a-late-exit-that-cancels-the-lane-may-leave-its-promoted-head present
+variant:R15-01/a-late-exit-that-does-not-cancel-may-not-leave-its-promoted-head present
 file:scenarios/absorb.scenario.ts 9763d1722ca6
 file:scenarios/ctx.ts fe3a8de04a97
 file:scenarios/fixpass.scenario.ts 1a46432b7fe7
@@ -999,6 +1002,7 @@ file:scenarios/review.scenario.ts 42114a2ac13d
 file:scenarios/round10.scenario.ts 9a79cf927e08
 file:scenarios/round12.scenario.ts 3b48ce8a6478
 file:scenarios/round13.scenario.ts 21bc66a212dd
+file:scenarios/round15.scenario.ts db8599bf527b
 file:scenarios/round4.scenario.ts c5b1413bfa40
 file:scenarios/round5.scenario.ts 679d136cdedf
 file:scenarios/round6.scenario.ts 72e2a778f2b5
@@ -1073,6 +1077,7 @@ file:typed/pay.ts ec1cf13ca03a
 file:typed/real.ts 9ce741bef76b
 file:typed/round10.ts feddb1eaa7a1
 file:typed/round13.ts 8329def56a59
+file:typed/round15.ts 1f408d9baf3c
 file:typed/round6.ts 9d04476c5d39
 file:typed/round7.ts d311490fd524
 file:typed/round8.ts 83315840f130
@@ -1093,7 +1098,7 @@ file:legacy.ts 2c8abbeed313
 file:graph.ts 62d146b2355b
 file:graph-gate.ts bce83ecc9dd6
 file:main.ts 8920aa772ee4
-file:suite.ts a121dd5a9cee
+file:suite.ts 68e89690ad0a
 file:limits.ts fd0c948acc21
 file:verdicts/core.ts 9892f5372974
 file:verdicts/programs.ts c39198361792
@@ -1115,7 +1120,7 @@ file:report.ts 7e305fd3110b
 file:watch.ts 93b7fe49b6da
 file:gate5s.ts d8a24cbd10f4
 file:gate-5s-expected.txt 076d1f268376
-file:expected-recipients.txt 80334ed8fc74
+file:expected-recipients.txt 148b79e984da
 file:mutate.ts 90691b4a787c
 file:mutate-one.ts a48188cfc0d7
 file:gates.ts e1f36b72d88b
@@ -1160,9 +1165,10 @@ round:mutants-lifetime-misc.ts 01e8867b91ce
 round:mutants-lifetime-pay16.ts 5f6cdabd5c3f
 round:mutants-lifetime-pins-a.ts 2112467de82b
 round:mutants-lifetime-pins-b.ts 6739b5b020ec
-round:mutants-lifetime.ts a022720a92d6
+round:mutants-lifetime.ts 4bc1d3d15031
 round:mutants-lost.ts 341cf4c256c6
 round:mutants-r10.ts b33f543d803a
+round:mutants-r15.ts 689cb755a60a
 round:mutants-r5.ts 140a4de2354a
 round:mutants-r6.ts b6c3802cca2e
 round:mutants-r7.ts 8714ead920f9
@@ -1498,6 +1504,8 @@ output:R14-IGN-01/with-no-incarnation-it-is-applied-not-parked 2f4a6cc045d9
 output:R14-IGN-02/a-reloads-restored-is-released-at-ready 255a1abd00aa
 output:R14-IGN-02/a-returns-restored-is-released 5d3487c4ffba
 output:R14-IGN-03 657cedaf99c2
+output:R15-01/a-late-exit-that-cancels-the-lane-may-leave-its-promoted-head 3dfc72f83d7f
+output:R15-01/a-late-exit-that-does-not-cancel-may-not-leave-its-promoted-head 6d750f15fcd4
 output:REAL-01/a-callback-only-where-written dc513934a867
 output:REAL-01/a-denied-guard-keeps-the-field b9f4bcb42f60
 output:REAL-01/history-returns-to-the-exact-field-not-the-default b240d96bc43d

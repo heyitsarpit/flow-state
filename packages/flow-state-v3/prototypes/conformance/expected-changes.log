@@ -1617,3 +1617,12 @@ output:REV9-M1/a-refused-rejected-is-kept-too hash:8646987cd1d6 | REV9-M1/a-refu
 output:REV9-STREAM/a-refused-stream-failure-is-a-stranded-wait hash:e7e3594b5578 | REV9-STREAM/a-refused-stream-failure-is-a-stranded-wait: an armed fault is now part of the state hash, so the armed state is its own: distinct states 2 to 3; fault-free hashes unchanged
 output:SPIKE-05/a-failure-delivery-refused-once-comes-again hash:93d3bee315d6 | SPIKE-05/a-failure-delivery-refused-once-comes-again: an armed fault is now part of the state hash, so the armed state is its own: distinct states 3 to 4; fault-free hashes unchanged
 file:expected-recipients.txt hash:80334ed8fc74 | +5 observed, +5 start nodes, +1 restored, +2 unobserved and +2 paid by sends: R14-FIX-01's five new variants (R14-FIX-01 alone rose 11 to 16; the mapper variant's two refusals at admission are unobserved and their retries credited)
+R15-01 hash:9acb1f6cad0e | new case for round 15: rule 15's cancel exemption over a never-sent head promoted at settlement (runner ruling), with its denied control
+file:scenarios/round15.scenario.ts hash:db8599bf527b | new scenario file for round 15's rulings, first holding R15-01's two rule 15 variants
+file:typed/round15.ts hash:1f408d9baf3c | new fixture Lab/R15Late: a serialize queue whose late Ok cancels the lane key-less after Cancelling
+file:suite.ts hash:68e89690ad0a | registers round15Scenarios
+round:mutants-lifetime.ts hash:4bc1d3d15031 | spreads round 15's wrong runtimes (mutants-r15.ts) into the lifetime list
+round:mutants-r15.ts hash:689cb755a60a | new: round 15's wrong runtimes, first the two rule 15 promoted-head mutants
+output:R15-01/a-late-exit-that-cancels-the-lane-may-leave-its-promoted-head hash:3dfc72f83d7f | new output: the late Ok cancels and leaves W for A, the promoted head left to run
+output:R15-01/a-late-exit-that-does-not-cancel-may-not-leave-its-promoted-head hash:6d750f15fcd4 | new output: the late Ok is denied LateMayNotLeave and stays in W
+file:expected-recipients.txt hash:148b79e984da | +2 observed, +2 start nodes: R15-01's two new variants

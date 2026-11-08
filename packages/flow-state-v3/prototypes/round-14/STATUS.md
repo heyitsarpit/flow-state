@@ -631,3 +631,21 @@ More findings for the design:
   once, unsupported since C2.
 - From the last review: partly-blind evidence and leftovers when `ps` fails; the reach pin applies to the control only (not `isTop`);
   the `search-budget`/`search-reach` notes listed in mutate.ts's output.
+
+## Round 15 (2026-11-08)
+
+Round 15 continues in round-14's folder (the runtime is the same one, evolved; a new folder would copy 11k lines for no gain). New: the case
+`R15-01` in `conformance/scenarios/round15.scenario.ts`, its fixtures in `conformance/typed/round15.ts`, the wrong runtimes in
+`mutants-r15.ts` (spread into `mutants-lifetime.ts`, run by `lifetime-falsify`, which now lists `R15-01`).
+
+| Ruling | State | Commit | Failing first | Wrong runtime |
+| --- | --- | --- | --- | --- |
+| Rule 15 cancel exemption over a head promoted at settlement (runner) | done: `leavesWork` (turn.ts) exempts a never-sent head (`sentAt` 0, not `mayHaveApplied`) of an op the late transition cancels key-less | (this) | `R15-01/a-late-exit-that-cancels-the-lane-may-leave-its-promoted-head`: `no denial: expected [], got [["LateMayNotLeave","LateMayNotLeave"]]` | `r15.late-cancel-keeps-promoted-head`; control `r15.late-promoted-head-not-live` (only a wire head is live) red on the denied control |
+
+Findings for the design:
+1. Rule 15's exemption and U2 pull apart. A key-less `cancel` in a success or failure handler does nothing (U2: the ending's Attempt is
+   resolved), so the "cancel" that exempts the promoted head does not cancel it: the head is sent after the late turn, and its ending is late
+   again. The same holds for the queued exemption under an unknown (the cancel releases the hold, which promotes the queue). So the exemption
+   is "the transition declares it lets the op go", not "the work is gone"; 1.6's "a late ending never leaves live work" is false under it as
+   written. The design should say which: (a) the exemption stands and 1.6 says "except work of an op the late transition cancels"; or (b) a
+   late key-less cancel also cancels the never-sent work it exempts (a new meaning for a key-less member, against U2).

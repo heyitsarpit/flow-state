@@ -4,6 +4,7 @@ import { MUTANTS as MISC } from "./mutants-lifetime-misc.ts";
 import { MUTANTS as PAY16 } from "./mutants-lifetime-pay16.ts";
 import { MUTANTS as PINS_A } from "./mutants-lifetime-pins-a.ts";
 import { MUTANTS as PINS_B } from "./mutants-lifetime-pins-b.ts";
+import { MUTANTS as R15 } from "./mutants-r15.ts";
 const m = (id: string, kills: string, file: string, find: string, replace = "") => ({ id, kills: [kills], edits: [[file, find, replace]] as ReadonlyArray<readonly [string, string, string]> });
 const WRITE = 'if (l.actor === key && l.head !== undefined && l.head.phase.t !== "held") out.push(`write:${l.op}`);';
 const READ = "for (const id in w.reads) if (w.reads[id]!.actor === key && w.reads[id]!.kept) out.push(`read:${w.reads[id]!.op}`);";
@@ -84,4 +85,5 @@ export const MUTANTS = [
   ...PINS_A,
   ...PINS_B,
   ...MISC,
+  ...R15,
 ];

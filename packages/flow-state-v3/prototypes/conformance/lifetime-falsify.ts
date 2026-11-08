@@ -18,7 +18,7 @@ await stated("lifetime-falsify", async (scope) => {
   const i = process.argv.indexOf("--runtime");
   const source = dirname(resolve(here, i < 0 ? "../round-14x/adapter.ts" : process.argv[i + 1]!));
   // Round 14 (OD31): LIFE-01..30 as built, and the rewritten dispose cases whose result the rule changed.
-  const ONLY = [...Array.from({ length: 30 }, (_, k) => `LIFE-${String(k + 1).padStart(2, "0")}`).filter((id) => !["LIFE-19", "LIFE-20", "LIFE-25", "LIFE-26"].includes(id)), "REV5-H5H6", "FRAG-08", "R14-ID-01", "R14-ID-02", "R14-ID-03", "R14-IGN-01", "R14-IGN-02", "R14-IGN-03", "R14-F-01", "R14-FIX-01", "R14-FIX-02", "R14-FIX-03", "REV5-M1", "PAY-16", "SURV-08", "REV8-PINS"];
+  const ONLY = [...Array.from({ length: 30 }, (_, k) => `LIFE-${String(k + 1).padStart(2, "0")}`).filter((id) => !["LIFE-19", "LIFE-20", "LIFE-25", "LIFE-26"].includes(id)), "REV5-H5H6", "FRAG-08", "R14-ID-01", "R14-ID-02", "R14-ID-03", "R14-IGN-01", "R14-IGN-02", "R14-IGN-03", "R14-F-01", "R14-FIX-01", "R14-FIX-02", "R14-FIX-03", "R15-01", "REV5-M1", "PAY-16", "SURV-08", "REV8-PINS"];
   const { MUTANTS: ALL } = (await import(join(source, "mutants-lifetime.ts"))) as {
     MUTANTS: ReadonlyArray<{ id: string; kills: readonly string[]; edits: readonly Edit[] }>;
   };

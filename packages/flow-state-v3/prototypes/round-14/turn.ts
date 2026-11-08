@@ -208,7 +208,7 @@ const leavesWork = (w: Walk, inc: Inc, alt: Alternative) => {
     if (l.actor !== w.a.key) return false;
     if (!cancels(l.op) && l.w.some((x) => ownedByExited(inc, exits, x.owner))) return true;
     const h = l.head;
-    return h !== undefined && h.phase.t !== "held" && ownedByExited(inc, exits, h.owner) && !(it?.k === "ending" && it.attempt === h.id);
+    return h !== undefined && h.phase.t !== "held" && !(cancels(l.op) && h.sentAt === 0 && !h.mayHaveApplied) && ownedByExited(inc, exits, h.owner) && !(it?.k === "ending" && it.attempt === h.id);
   });
 };
 const IMPLICIT = (id: string): Alternative => ({
