@@ -626,7 +626,9 @@ Numbered, oldest first (runner rule 4).
 8. 2026-11-08, judge the user ("the opus agent is responsible to managing and delegating. i want you to apply this
    strategy for the next prototype work"): in prototype work the Opus builder leads up to 4 Haiku sidecars (coders on
    disjoint files, runners, reviewers), planned up front; the lead integrates, reviews every diff and alone commits.
-   First applied to round 14's remaining work. Also in `AGENTS.md`. Version 9. Phases worked out again: none (how
+   A **trial** on round 14's remaining work only (the user: "use the second variant for one test only so we can judge
+   well it worked and how long it took"); later rounds use it only if the user adopts it after seeing the trial's
+   timings and rework. Also in `AGENTS.md`. Version 9. Phases worked out again: none (how
    they run only).
 
 ## Runner rules

@@ -90,7 +90,7 @@ workflow check       # see .agents/skills/workflow-cli/SKILL.md before editing W
   attacking the same problem from a different named angle. Sidecars are read-only, run no gates or benchmarks, and
   return findings with file:line evidence, not verdicts. Read them beside the Opus report and verify any finding
   before acting on it.
-- In prototype work the Opus builder is a lead: it plans the round's tasks up front and delegates bounded ones to up
+- On trial (round 14's finish only, until adopted): in prototype work the Opus builder is a lead: it plans the round's tasks up front and delegates bounded ones to up
   to 4 Haiku sidecars at once (coders on disjoint files with an acceptance check, runners for gates and traces,
   reviewers of one diff against one rule). The lead owns the design, reads every diff, and alone commits.
 - Lenses (correctness, simplicity, agent UX, generality, consistency, semantics, type spike) are for judging proposals, not for shaping them.
