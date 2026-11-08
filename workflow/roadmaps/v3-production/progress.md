@@ -2,6 +2,15 @@
 
 ## Resume
 
+**Now (2026-11-08, ~14:30, second runner session):** phase 0's queue is done (round 14, round 15, round 15b; design
+OD49-OD50, OD51 being written). Phase 1 is running: area H (H1, H2, M2) done at `e6b0db23`; **entities** in progress
+(lead builder with Haiku sidecars); then streams, record migration; then stage A's close-out and the stop for phase 2's
+label round. How the loop runs now: roadmap amendments 4-9 (converge on the third same-class review; Haiku research
+fan-out; every new item built with the roadmap skill; Opus reviews own 4 Haiku sidecars at effort high; prototype
+builders are leads with Haiku sidecars and must scrutinise every result; small public API calls are the runner's).
+The hourly review cron (session-only) must be re-created after a restart: `CronList`, then `CronCreate` hourly at :07
+with the review prompt. The log below is the record; the latest lines are the state.
+
 **Hand-off, 2026-11-08 (from the first runner session).** A new agent runs this roadmap's loop for the user. Read, in
 order:
 1. `AGENTS.md`, then the memory index `/Users/arpit/.claude/projects/-Users-arpit-Developer-flow-state/memory/MEMORY.md`
