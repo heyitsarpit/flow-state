@@ -33,15 +33,16 @@ export const round13Scenarios: readonly Scenario[] = [
     fixtures: [keyStampFixture({ v: 1 })],
     actor: A,
     cites: ["D221", "D217", "D78", "rule:39", "rule:46", "rule:16"],
+    namedIssues: ["OldVersionLane"], // 2.7.15 (Q2 A): an old-version hold is an issue at each boot
     variants: {
       // A field added. Without D221: the new key names a new lane, and a second charge goes beside the unsure one.
       "a-release-that-adds-a-key-field-declines-every-commit-until-the-old-hold-ends"(c0) {
         const c = holdThen(c0, 1, 2, [{ k: "a" }]);
-        c.eq("said once", c.r.evidence("OldVersionLane").length, 1);
+        c.eq("said once", c.r.issues().filter((i) => i.code === "OldVersionLane").length, 1);
         c.send("Go", { k: "a", region: "eu" });
         c.send("Go", { k: "b", region: "eu" });
         c.eq("both declined, whatever their key", [c.mem().declined, c.r.evidence("BesideOldVersion").length, sent(c)], [2, 2, 1]);
-        c.send("Retry", { k: "a" }); // its own old key
+        c.send("OldRetry", { k: "a" }); // its own old key, through `previous[0]` (2.7.15)
         c.ack();
         c.eq("the old hold is resent, as the same Attempt", [sent(c), c.keys("charge").length], [2, 1]);
         c.answer("charge", { ok: {} });
@@ -53,21 +54,21 @@ export const round13Scenarios: readonly Scenario[] = [
       // silently in one mint order (mid review H1); now neither moves, so no collision can occur, in either order.
       "a-release-that-removes-a-key-field-keeps-every-old-hold-eu-first"(c0) {
         const c = holdThen(c0, 2, 3, [{ k: "a", region: "eu" }, { k: "a", region: "us" }]);
-        c.eq("both kept, both said", c.r.evidence("OldVersionLane").length, 2);
+        c.eq("both kept, both said", c.r.issues().filter((i) => i.code === "OldVersionLane").length, 2);
         c.eq("two lanes on disk", c.laneKeys().length, 2);
         c.send("Go", { k: "a" });
         c.eq("declined", [c.mem().declined, sent(c)], [1, 2]);
-        c.send("Cancel", { k: "a", region: "eu" });
+        c.send("OldCancel", { k: "a", region: "eu" });
         c.send("Go", { k: "a" });
         c.eq("one old hold left: still declined", [c.mem().declined, sent(c)], [2, 2]);
-        c.send("Cancel", { k: "a", region: "us" });
+        c.send("OldCancel", { k: "a", region: "us" });
         c.send("Go", { k: "a" });
         c.ack();
         c.eq("both gone: it sends", [sent(c), c.mem().declined], [3, 2]);
       },
       "a-release-that-removes-a-key-field-keeps-every-old-hold-us-first"(c0) {
         const c = holdThen(c0, 2, 3, [{ k: "a", region: "us" }, { k: "a", region: "eu" }]);
-        c.eq("both kept, both said", [c.r.evidence("OldVersionLane").length, c.laneKeys().length], [2, 2]);
+        c.eq("both kept, both said", [c.r.issues().filter((i) => i.code === "OldVersionLane").length, c.laneKeys().length], [2, 2]);
         c.send("Go", { k: "a" });
         c.eq("declined", [c.mem().declined, sent(c)], [1, 2]);
       },
@@ -83,7 +84,7 @@ export const round13Scenarios: readonly Scenario[] = [
         c.send("Go", { k: "a", region: "eu" });
         c.ack();
         c.eq("declined, not queued", [c.mem().declined, sent(c)], [1, 1]);
-        c.send("Cancel", { k: "a" });
+        c.send("OldCancel", { k: "a" });
         c.send("Go", { k: "a", region: "eu" });
         c.ack();
         c.eq("then it sends", sent(c), 2);
@@ -94,7 +95,7 @@ export const round13Scenarios: readonly Scenario[] = [
         c.reload();
         c.send("Go", { k: "a", region: "eu" });
         c.eq("still declined", [c.mem().declined, sent(c)], [1, 1]);
-        c.eq("said at each boot", c.r.evidence("OldVersionLane").length, 2);
+        c.eq("said at each boot", c.r.issues().filter((i) => i.code === "OldVersionLane").length, 2);
       },
       // Another actor's lanes are its own.
       "another-actor-is-not-held"(c0) {
@@ -115,7 +116,7 @@ export const round13Scenarios: readonly Scenario[] = [
         c.send("Go", { k: "a", region: "us" });
         c.ack();
         c.reload();
-        c.eq("two requests, nothing old", [sent(c), c.r.evidence("OldVersionLane").length, c.r.evidence("BesideOldVersion").length], [2, 0, 0]);
+        c.eq("two requests, nothing old", [sent(c), c.r.issues().filter((i) => i.code === "OldVersionLane").length, c.r.evidence("BesideOldVersion").length], [2, 0, 0]);
       },
     },
   },

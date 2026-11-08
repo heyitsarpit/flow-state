@@ -191,7 +191,7 @@ const compileAlt = <M, Ev>(definition: string, path: string, oneAlt: OneAlt<M, E
     if (a.member === "commit" || a.member === "lookup") return { op: a.op, verb: a.member, input: slotOf(definition, p, a.f) };
     if (a.member === "module") return { op: a.op, verb: "module", module: a.module, name: a.name, ...(a.f ? { value: slotOf(definition, p, a.f) } : {}) };
     const keyFn = "keyFn" in a ? a.keyFn : undefined;
-    return { op: a.op, verb: a.member, ...(keyFn ? { key: slotOf(definition, p, keyFn) } : {}) };
+    return { op: a.op, verb: a.member, ...(keyFn ? { key: slotOf(definition, p, keyFn) } : {}), ...("previous" in a && a.previous !== undefined ? { previous: a.previous } : {}) };
   });
   const raises = (one.raise ?? []).map(
     (r, i): Raise => ({

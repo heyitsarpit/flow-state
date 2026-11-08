@@ -34,6 +34,7 @@ export const round12Scenarios: readonly Scenario[] = [
     fixtures: [keyReleaseTypedFixture({ v: 1 })],
     actor: K,
     cites: ["D78", "rule:39", "rule:46"],
+    namedIssues: ["OldVersionLane"], // 2.7.15 (Q2 A): an old-version hold is an issue at each boot
     variants: {
       // Round 13 (D221): a release that changes the key's fields is a new version of the op. The hold is never renamed; the commit declines beside it.
       // Without D221: a second Attempt beside the hold, two requests.
@@ -41,7 +42,7 @@ export const round12Scenarios: readonly Scenario[] = [
         const c = heldThenRelease(c0, 2);
         c.eq("the request count stays", c.reqs("charge").length, 1);
         c.eq("no second Attempt", c.keys("charge").length, 1);
-        c.eq("not renamed: one lane, an old-version hold, said", [c.laneKeys().length, c.r.evidence("OldVersionLane").length], [1, 1]);
+        c.eq("not renamed: one lane, an old-version hold, said", [c.laneKeys().length, c.r.issues().filter((i) => i.code === "OldVersionLane").length], [1, 1]);
         c.eq("declined beside it", c.r.evidence("BesideOldVersion").length, 1);
       },
       // Mid review M2, D217 (proposed): a release adds a key field, and the new commit supplies it. The held lane's stored input lacks the field, so it

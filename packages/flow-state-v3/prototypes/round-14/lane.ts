@@ -612,6 +612,16 @@ export const sameFields = (a: readonly string[] | undefined, b: readonly string[
 export const stampFields = (o: { readonly keyFields?: readonly string[]; readonly keyVersion?: readonly string[] } | undefined) => o?.keyVersion ?? o?.keyFields;
 export const olderOf = (o: { readonly keyVersion?: readonly string[]; readonly keyVersionByFormat?: OlderFormats } | undefined): OlderFormats =>
   o?.keyVersion ? o.keyVersionByFormat : undefined;
+// Phase 1 migration (2.7.15, Q2 A): a keyed member names the lane of its key only in its own version, the current key's or `previous[i]`'s.
+// An old-version hold is never matched against a new key, and an earlier key never names a current lane. An unstamped lane has no version.
+type Versioned = { readonly keyFields?: readonly string[]; readonly keyVersion?: readonly string[]; readonly keyVersionByFormat?: OlderFormats };
+export const ofVersion = (lane: Lane | undefined, o: (Versioned & { readonly previous?: readonly Versioned[] }) | undefined, previous?: number): Lane | undefined => {
+  if (!lane || lane.keyFields === undefined) return previous === undefined ? lane : undefined;
+  const p = previous === undefined ? o : o?.previous?.[previous];
+  const fields = previous === undefined ? stampFields(p) : p?.keyVersion;
+  if (fields === undefined) return previous === undefined ? lane : undefined;
+  return sameFields(lane.keyFields, fields, p?.keyVersion ? p.keyVersionByFormat : undefined) ? lane : undefined;
+};
 function stampOf(tx: Tx, machine: string, op: string): { keyFields?: readonly string[] } {
   const f = stampFields(tx.machines[machine]?.ops[op]);
   return f ? { keyFields: [...f] } : {};

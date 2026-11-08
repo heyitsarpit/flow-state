@@ -25,12 +25,18 @@ const kSchema = (v: number) =>
 // Phase 1 (round 13's H2, K1): release 10 keeps the name `k` and makes it a number, a new version. Release 11 is release 2's key reordered (M2).
 const fieldsOf = (v: number) => (v === 2 ? (["k", "region"] as const) : v === 11 ? (["region", "k"] as const) : (["k"] as const));
 const regionRequired = (v: number) => v === 2 || v === 11;
+// Phase 1 migration (2.7.15, Q2 A): the key each release's old holds were made under, as the contract declares it. Releases 2, 4 and 10 follow
+// release 1 (`k` a string); release 3 follows release 2 (`k` and `region`). Typed as one shape here because the fixture builds every release.
+const previousOf = (v: number) =>
+  (v === 2 || v === 4 || v === 10 ? [{ key: { k: S.String } }] : v === 3 ? [{ key: { k: S.String, region: S.String } }] : []) as unknown as readonly [{ readonly key: { readonly k: typeof S.String } }];
 // `unsureCommits` (audit 1b): the unknown's handler also commits key b, so a commit can meet a `cancel`-policy hold inside the hold's own turn.
 const stamped = (rel: Release, policy: Op["concurrency"], unsureCommits = false) => {
+  const previous = previousOf(rel.v);
   const charge = transaction({
     id: "lab/stamp-charge",
     input: { k: kSchema(rel.v), id: S.String, region: regionRequired(rel.v) ? S.String : S.optionalKey(S.String) },
     key: fieldsOf(rel.v),
+    previous,
     concurrency: policy,
     services: [FakeApi],
     commit: write("charge"),
@@ -40,7 +46,7 @@ const stamped = (rel: Release, policy: Op["concurrency"], unsureCommits = false)
     id: "Lab/KeyStamp",
     persist: true,
     states: [],
-    events: { Go: Key, Guarded: Key, Retry: Key, Cancel: Key, Retryable: Key },
+    events: { Go: Key, Guarded: Key, Retry: Key, Cancel: Key, Retryable: Key, OldRetry: Key, OldCancel: Key },
     internalEvents: { Ok: {}, No: { why: S.String }, Unsure: Flow.uncertain({}) },
     memory: {
       unsure: Flow.initial(S.Number, 0),
@@ -73,6 +79,9 @@ const stamped = (rel: Release, policy: Op["concurrency"], unsureCommits = false)
         { guard: [O.charge.retryable(({ event }) => keyOf(event) as never, { times: 3 })], actions: [O.charge.retry(({ event }) => keyOf(event) as never)] },
         { updateMemory: ({ memory }) => ({ notRetryable: memory.notRetryable + 1 }) },
       ],
+      // 2.7.15: an old-version hold is named by its own key through `previous`; a release with no earlier key has nothing to name.
+      OldRetry: previous.length ? { actions: [O.charge.previous[0].retry(({ event }) => keyOf(event) as never)] } : {},
+      OldCancel: previous.length ? { actions: [O.charge.previous[0].cancel(({ event }) => keyOf(event) as never)] } : {},
       Ok: { updateMemory: ({ memory }) => ({ oks: memory.oks + 1 }) },
       No: { updateMemory: ({ memory, event }) => ({ declined: memory.declined + 1, why: event.why }) },
       Unsure: { updateMemory: ({ memory }) => ({ unsure: memory.unsure + 1 }), actions: unsureCommits ? [O.charge.commit(() => input({ k: "b", region: "eu" }) as never)] : [] },

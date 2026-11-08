@@ -80,6 +80,8 @@ const PINS = [
   "a row is whole: a required field missing is a type error (an optional one may be left out, and is then absent)", // phase 1 E round 3, Q4 A
   "a removal's version is the version field's type", // phase 1 E round 3, Q4 A
   "a patch names no key field", // phase 1 E round 3, Q4 A
+  "release 1's key has no `rev`: the current key's shape is not an earlier one", // phase 1 migration, 2.7.15 (Q2 A)
+  "one earlier key is declared, so there is no `previous[1]`", // phase 1 migration, 2.7.15 (Q2 A)
 ];
 // What TypeScript itself takes for a directive: a single-line comment token whose text matches its own rule, `^\/\/\/?\s*@ts-expect-error`.
 // The installed TypeScript is 7 (native), with no JS scanner to call, so this is a scanner of comment and string tokens, not a text search:
@@ -151,6 +153,8 @@ const ERRORS: Record<string, readonly [string, string]> = {
   "a row is whole: a required field missing is a type error (an optional one may be left out, and is then absent)": ["TS2741", "Property 'revision' is missing in type '{ id: string; title: string; }'"],
   "a removal's version is the version field's type": ["TS2322", "Type 'string' is not assignable to type 'number'"],
   "a patch names no key field": ["TS2353", "'id' does not exist in type"],
+  "release 1's key has no `rev`: the current key's shape is not an earlier one": ["TS2741", "Property 'k' is missing in type '{ rev: string; }'"], // phase 1 migration
+  "one earlier key is declared, so there is no `previous[1]`": ["TS2493", "of length '1' has no element at index '1'"], // phase 1 migration
 };
 {
   const src = readFileSync(join(typed, "type-tests.ts"), "utf8").split("\n");

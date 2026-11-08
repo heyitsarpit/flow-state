@@ -197,3 +197,14 @@ Ticket.row({ id: "t1", title: "x" });
 Ticket.delete({ id: "t1" }, { version: "3" });
 // @ts-expect-error a patch names no key field
 Ticket.patch({ id: "t1" }, { id: "t2" });
+
+// Phase 1 migration (2.7.15, Q2 A): `O.x.previous[i]` takes release i's key, by its own fields, and only declared releases exist.
+const rekeyed = transaction({ id: "t/rekeyed", input: { k: Schema.String, rev: Schema.String }, key: ["k", "rev"], previous: [{ key: { k: Schema.String } }], concurrency: "reject", commit: () => Effect.void });
+const RD = definition({ id: "T/Rekeyed", persist: true, states: ["A"], events: { Go: {} }, internalEvents: { Ok: {}, No: {}, Unsure: Flow.uncertain({}) }, memory: {}, operations: ({ E }) => ({ r: rekeyed.outcomes({ success: E.Ok, failure: { NotSent: E.No }, unknown: E.Unsure }) }) });
+machine(RD, ({ S, O }) => {
+  // @ts-expect-error release 1's key has no `rev`: the current key's shape is not an earlier one
+  void O.r.previous[0].cancel(() => ({ rev: "1" }));
+  // @ts-expect-error one earlier key is declared, so there is no `previous[1]`
+  void O.r.previous[1];
+  return { default: S.A, on: { Go: { actions: [O.r.previous[0].cancel(() => ({ k: "a" })), O.r.previous[0].retry(() => ({ k: "a" }))] }, Ok: {}, No: {}, Unsure: {} } };
+});

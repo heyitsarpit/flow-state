@@ -529,6 +529,7 @@ export const makeHarness = (port: Port) => (): Harness => {
   let lifeAtReload = new Map<string, number>();
   let bootSeen = false; // this instance's `boot` evidence has come
   const notRestored = new Set<string>();
+  const parkedAtBoot: Array<{ readonly actor: string; readonly said: string }> = [];
   let restoreThrew = false; // a compiled `memory.restore` threw on a stored record (the suite's own wrap saw it)
   const ensured = new Set<string>(); // the suite ensured it, and has not disposed it; at a reload, kept only with a record on disk
   // Rule 73 (OD31, 2.10.10): in an app Story, `ensure(ref)` attaches one use, as a mounted screen does, and `detach(ref)` ends one. The suite
@@ -726,6 +727,12 @@ export const makeHarness = (port: Port) => (): Harness => {
     ((releases.length > 0 || off(actor) || restoreThrew) && issues.some((i) => i.code === "RecordQuarantined" && port.disk.scope(String(i.input ?? "").split(": ")[0]!) === actor)) ||
     // Rule 74 (OD30 Q3): a release that changed a value-named machine's input fields leaves an old-version record, listed and never restored.
     (releases.length > 0 && evidence.some((e) => e["kind"] === "OldVersionActor" && e["actor"] === actor));
+  // The same quarantine, at the boot after the last reload the suite drove, with a release since the reload before it (phase 1 migration's (j) excuse).
+  let issuesAtReload = 0;
+  let releasesAtReload = 0;
+  let releasedBeforeReload = false;
+  const quarantinedAtReload = (actor: string) =>
+    releasedBeforeReload && issues.slice(issuesAtReload).some((i) => i.code === "RecordQuarantined" && port.disk.scope(String(i.input ?? "").split(": ")[0]!) === actor);
   // Rule 73 (OD31, Ready and hydration): a record the boot keeps as a record is restored when the suite's re-attach reaches it. Its anchor
   // waits for that incarnation, before any run in it; still absent at the end of the step that booted, it was not restored.
   const deferredAnchor = new Set<string>();
@@ -1232,9 +1239,14 @@ export const makeHarness = (port: Port) => (): Harness => {
           const d = due.get(att);
           // Stage K, D11; stage L (review H4): a restored ending whose owner was alive at the reload, parked because the owner was disposed
           // since or is gone: an input ran before its restored endings, which rule 44 puts first. For every op, a copy's included; only a
-          // copy's own unplacement (a lost reset, rule 1) stays the binding check's below (limit L7).
-          if (d && !d.over && !off(d.actor) && !runtimeDisposed && ((lifeOf.get(d.actor) ?? 0) !== (lifeAtReload.get(d.actor) ?? 0) || leafOf(d.actor) === undefined))
-            missing.push(`(j) a restored ending parked, and its owner was alive at the reload: ${op} ${att} in ${d.actor}; an input ran before the restored endings (rule 44)`);
+          // copy's own unplacement (a lost reset, rule 1) stays the binding check's below (limit L7). Phase 1 migration (rule 46, 2.7.17): a record
+          // a release quarantined has no incarnation to hear it; its lanes wait, owed, for the ensure that starts fresh and adopts them. Judged
+          // at the end of the boot's step, when its quarantine issues have come.
+          if (d && !d.over && !off(d.actor) && !runtimeDisposed && ((lifeOf.get(d.actor) ?? 0) !== (lifeAtReload.get(d.actor) ?? 0) || leafOf(d.actor) === undefined)) {
+            const said = `(j) a restored ending parked, and its owner was alive at the reload: ${op} ${att} in ${d.actor}; an input ran before the restored endings (rule 44)`;
+            if (booting) parkedAtBoot.push({ actor: d.actor, said });
+            else if (!quarantinedAtReload(d.actor)) missing.push(said);
+          }
           else if (owner !== undefined && !off(owner) && !runtimeDisposed && !lifeOver(att) && !moveLetsGo(owner, op, att) && bindsCopy(owner, op, attemptCopy.get(att)) === "yes")
             missing.push(`(j) parked, and its live owner binds it (reference): ${op} ${att} in ${owner} at ${leafOf(owner)}`);
           const dc = att === "" ? declineCopy.get(op) : undefined;
@@ -1726,6 +1738,9 @@ export const makeHarness = (port: Port) => (): Harness => {
     if (s.wipe) ledgerOff = ledgerOffDisk = true; // every record is gone: nothing is owed by anyone (rule 46)
     credits = []; // mail dies with the process: a send not yet run pays nothing after the kill
     lifeAtReload = new Map(lifeOf); // stage K: the lives a restored ending is owed to, as at the reload the suite drove
+    issuesAtReload = issues.length;
+    releasedBeforeReload = releases.length > releasesAtReload;
+    releasesAtReload = releases.length;
     // Stage L (review R6): the reload's facts, the suite's own. What is on disk now is what the next boot is given, if its load answers.
     // Who stays alive: an actor the suite ensured and did not dispose, with an actor record on disk. One with none went with the process.
     {
@@ -1771,6 +1786,8 @@ export const makeHarness = (port: Port) => (): Harness => {
     bootDeclines.clear(); // the restored declines ran in the step that booted, or not at all
     for (const a of ghostsPending) ghosts.add(a);
     ghostsPending.clear();
+    for (const p of parkedAtBoot) if (!quarantinedAtReload(p.actor)) missing.push(p.said);
+    parkedAtBoot.length = 0;
     if (!reloadFacts || !given() || ledgerOff) return;
     anchorOnce();
     for (const a of deferredAnchor) notRestored.add(a);

@@ -57,6 +57,7 @@ export const phase1hScenarios: readonly Scenario[] = [
     fixtures: [r15SwitchFixture(), r15StayFixture()],
     actor: SW,
     cites: ["rule:24", "sec:2.7.13", "D48"],
+    namedIssues: ["OldVersionLane"], // 2.7.15 (Q2 A): an old-version hold is an issue at each boot
     variants: {
       // R6 (2.7.13's `cancel` and `latest` commit rows): a commit over a never-sent head whose acknowledgement is out waits for storage (D48); the
       // replaced head "ends `Superseded`" and the new commit becomes the addressable Attempt. A refused acknowledgement changes nothing in that:
@@ -107,7 +108,7 @@ export const phase1hScenarios: readonly Scenario[] = [
       // commit of `{ k: 1 }` declines beside it, so no second charge goes out for the same order.
       "a-key-field-changed-from-string-to-number-under-its-name-is-a-new-version"(c0) {
         const c = holdAcross(c0, (rel) => keyStampFixture(rel), 1, 10, "1");
-        c.eq("an old-version hold", c.r.evidence("OldVersionLane").length, 1);
+        c.eq("an old-version hold", c.r.issues().filter((i) => i.code === "OldVersionLane").length, 1);
         c.send("Go", { k: "1" });
         c.ack();
         c.eq("declined, one send, one lane", [c.mem(KS)?.declined, c.reqs("charge").length, c.laneKeys().length], [1, 1, 1]);
@@ -116,7 +117,7 @@ export const phase1hScenarios: readonly Scenario[] = [
       // beside it; once it ends, commits send.
       "an-old-version-hold-back-on-the-wire-still-declines-every-commit"(c0) {
         const c = holdAcross(c0, (rel) => keyStampFixture(rel), 1, 2);
-        c.send("Retry", { k: "a" });
+        c.send("OldRetry", { k: "a" });
         c.ack();
         c.eq("re-sent, on the wire", c.reqs("charge").length, 2);
         c.send("Go", { k: "b", region: "eu" });
@@ -138,15 +139,18 @@ export const phase1hScenarios: readonly Scenario[] = [
         c.send("Go", { k: "b", region: "eu" });
         c.eq("the hold stands", c.mem(KS)?.declined, 1);
       },
-      // M2 (`retryable-sees-old`; rule 77 of the assumptions: "`retryable(k)` sees its own lane only, by design"): with a new-version key it says no;
-      // with the old hold's own key it says yes and the retry re-sends that hold.
+      // M2 (`retryable-sees-old`; rule 77 of the assumptions: "`retryable(k)` sees its own lane only, by design"): with a new-version key it says no.
+      // Phase 1 migration (2.7.15: an old-version hold is "never matched against a new key"; `previous[i]` names it by its own key): the current
+      // handle given the old key's spelling says no too, and `previous[0].retry` re-sends the hold.
       "a-keyed-retryable-sees-its-own-lane-only"(c0) {
         const c = holdAcross(c0, (rel) => keyStampFixture(rel), 1, 2);
         c.send("Retryable", { k: "a", region: "eu" });
         c.eq("no, and nothing sent", [c.mem(KS)?.notRetryable, c.reqs("charge").length], [1, 1]);
         c.send("Retryable", { k: "a" });
+        c.eq("the old key's spelling on the current handle: no", [c.mem(KS)?.notRetryable, c.reqs("charge").length], [2, 1]);
+        c.send("OldRetry", { k: "a" });
         c.ack();
-        c.eq("its own key: yes, re-sent", [c.mem(KS)?.notRetryable, c.reqs("charge").length], [1, 2]);
+        c.eq("previous[0].retry: re-sent", c.reqs("charge").length, 2);
       },
       // M2 (`decline-why`; 2.7.15 and the NotSent table: "every commit of that operation for that actor declines `NotSent { why: "OldVersion" }`").
       "the-decline-beside-an-old-version-hold-is-not-sent-old-version"(c0) {
@@ -165,7 +169,7 @@ export const phase1hScenarios: readonly Scenario[] = [
         c.answer("charge", { lost: true });
         c.h.release(() => void (rel.v = 11), () => void (rel.v = 2));
         c.reload();
-        c.eq("no old-version hold", c.r.evidence("OldVersionLane").length, 0);
+        c.eq("no old-version hold", c.r.issues().filter((i) => i.code === "OldVersionLane").length, 0);
         c.send("Go", { k: "a", region: "eu" });
         c.eq("its own key meets the hold: busy, not sent", [c.mem(KS)?.why, c.reqs("charge").length], ["Rejected", 1]);
         c.send("Go", { k: "b", region: "eu" });
@@ -296,7 +300,7 @@ export const phase1hScenarios: readonly Scenario[] = [
       // the Flow upgrade and the Schema change in one release. Format 1 hashed both sides, so the change is seen: an old-version hold, a decline.
       "a-type-change-in-the-release-that-upgrades-the-format-is-a-new-version-of-the-op"(c0) {
         const c = holdAcross(c0, keyStampFormat1Fixture, 0, 4);
-        c.eq("an old-version hold, said at the boot", c.r.evidence("OldVersionLane").length, 1);
+        c.eq("an old-version hold, said at the boot", c.r.issues().filter((i) => i.code === "OldVersionLane").length, 1);
         c.send("Go", { k: "b" });
         c.ack();
         c.eq("declined beside it, nothing sent", [c.mem(KS)?.declined, c.reqs("charge").length], [1, 1]);
@@ -304,7 +308,7 @@ export const phase1hScenarios: readonly Scenario[] = [
       // R7: with no Schema change across the upgrade, the format 1 stamp is the current version.
       "a-format-1-stamp-of-an-unchanged-key-is-the-current-version"(c0) {
         const c = holdAcross(c0, keyStampFormat1Fixture, 0, 1);
-        c.eq("no old-version hold", c.r.evidence("OldVersionLane").length, 0);
+        c.eq("no old-version hold", c.r.issues().filter((i) => i.code === "OldVersionLane").length, 0);
         c.send("Go", { k: "b" });
         c.ack();
         c.eq("another key sends", [c.mem(KS)?.declined, c.reqs("charge").length], [0, 2]);
@@ -313,7 +317,7 @@ export const phase1hScenarios: readonly Scenario[] = [
       // type change in the upgrading release is not seen. This case documents the limit; it is not a guarantee.
       "a-bare-stamp-across-a-type-change-is-compared-by-name-a-stated-limit"(c0) {
         const c = holdAcross(c0, preVersionStampFixture, 0, 4);
-        c.eq("no old-version hold", c.r.evidence("OldVersionLane").length, 0);
+        c.eq("no old-version hold", c.r.issues().filter((i) => i.code === "OldVersionLane").length, 0);
       },
       // R7 for actors (rule 74): Editor release 0 is release 1 under format 1; release 3 makes `ticketId` a NumberFromString (encoded side a string
       // still, the type side a number). Before R7 the cross-format compare read only `ticketId:string` and restored the record into the new Schema.
@@ -384,7 +388,7 @@ export const phase1hScenarios: readonly Scenario[] = [
         c.answer("charge", { lost: true });
         c.fault({ corruptStored: { match: "lane/", edit: (raw: string) => raw.replaceAll("#2:", "#9:") } });
         c.reload();
-        c.eq("an old-version hold", c.r.evidence("OldVersionLane").length, 1);
+        c.eq("an old-version hold", c.r.issues().filter((i) => i.code === "OldVersionLane").length, 1);
       },
       // Audit 1b, 2.7.15 (Q2 A, M2): beside an old-version hold a commit "ends NotSent { why: "OldVersion" } and its transition runs, under every
       // policy". `latest` and `cancel` too: nothing sent, the decline heard.
@@ -404,7 +408,7 @@ export const phase1hScenarios: readonly Scenario[] = [
         c.ack();
         c.h.release(() => void (rel.v = 2), () => void (rel.v = 1));
         c.reload();
-        c.eq("an old-version hold, its unknown heard", [c.r.evidence("OldVersionLane").length, c.mem(KS)?.unsure], [1, 1]);
+        c.eq("an old-version hold, its unknown heard", [c.r.issues().filter((i) => i.code === "OldVersionLane").length, c.mem(KS)?.unsure], [1, 1]);
         c.eq("the handler's commit: NotSent { OldVersion }, nothing sent", [c.mem(KS)?.why, c.lastEnding("charge")?.["reason"], c.reqs("charge").length], ["OldVersion", "OldVersion", 1]);
       },
     },

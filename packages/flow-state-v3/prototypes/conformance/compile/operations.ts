@@ -42,21 +42,24 @@ type Spec<I extends Fields, K extends keyof I, Sv extends readonly Svc[]> = {
   readonly timeoutMs?: number;
   readonly services?: Sv;
 };
-export type Contract<I extends Fields, K extends keyof I, A, E, R> = {
+// 2.7.15 (Q2 A): an earlier release's key, as its own fields and Schemas. Its old-version holds are named only through `O.x.previous[i]`.
+export type Previous = { readonly key: Fields };
+export type Contract<I extends Fields, K extends keyof I, A, E, R, P extends readonly Previous[] = readonly []> = {
   readonly id: string;
   readonly input: I;
   readonly key: readonly K[];
+  readonly previous?: P;
   readonly timeoutMs?: number;
   readonly services?: readonly Svc[];
   readonly kind: "write" | "read";
   readonly concurrency: Op["concurrency"];
   readonly guarded?: true;
   readonly commit: (input: TypeOf<I>, c: CommitCtx) => Effect.Effect<A, E, R>;
-  readonly outcomes: (o: Outcomes<A, E>) => Bound<I, K, A, E, R>;
+  readonly outcomes: (o: Outcomes<A, E>) => Bound<I, K, A, E, R, P>;
 };
-export type Bound<I extends Fields, K extends keyof I, A, E, R> = { readonly contract: Contract<I, K, A, E, R>; readonly mapped: Outcomes<A, E> };
-const contract = <I extends Fields, K extends keyof I, A, E, R>(c: Omit<Contract<I, K, A, E, R>, "outcomes">): Contract<I, K, A, E, R> => {
-  const self: Contract<I, K, A, E, R> = { ...c, outcomes: (mapped) => ({ contract: self, mapped }) };
+export type Bound<I extends Fields, K extends keyof I, A, E, R, P extends readonly Previous[] = readonly []> = { readonly contract: Contract<I, K, A, E, R, P>; readonly mapped: Outcomes<A, E> };
+const contract = <I extends Fields, K extends keyof I, A, E, R, P extends readonly Previous[]>(c: Omit<Contract<I, K, A, E, R, P>, "outcomes">): Contract<I, K, A, E, R, P> => {
+  const self: Contract<I, K, A, E, R, P> = { ...c, outcomes: (mapped) => ({ contract: self, mapped }) };
   return self;
 };
 // 2.7.3: a write's function is `commit`, a read's `lookup`.
@@ -75,14 +78,14 @@ const contract = <I extends Fields, K extends keyof I, A, E, R>(c: Omit<Contract
  * timestamp, not a client-side transaction, not a read-then-write in your server, not a content-hash ETag. A first send
  * that succeeds over a base Flow already knew was stale is evidence (`GuardContradicted`) and voids the claim until reload.
  */
-export const transaction = <I extends Fields, K extends keyof I, A, E, R, const Sv extends readonly Svc[] = readonly []>(
-  s: Spec<I, K, Sv> & { readonly concurrency: Op["concurrency"]; readonly guarded?: true; readonly commit: (input: TypeOf<I>, c: CommitCtx) => Effect.Effect<A, E, R> },
-): Covered<R, Sv, Contract<I, K, A, E, R>> => contract<I, K, A, E, R>({ ...s, kind: "write" }) as never;
+export const transaction = <I extends Fields, K extends keyof I, A, E, R, const Sv extends readonly Svc[] = readonly [], const P extends readonly Previous[] = readonly []>(
+  s: Spec<I, K, Sv> & { readonly previous?: P; readonly concurrency: Op["concurrency"]; readonly guarded?: true; readonly commit: (input: TypeOf<I>, c: CommitCtx) => Effect.Effect<A, E, R> },
+): Covered<R, Sv, Contract<I, K, A, E, R, P>> => contract<I, K, A, E, R, P>({ ...s, kind: "write" }) as never;
 export const resource = <I extends Fields, K extends keyof I, A, E, R, const Sv extends readonly Svc[] = readonly []>(
   s: Spec<I, K, Sv> & { readonly lookup: (input: TypeOf<I>, c: CommitCtx) => Effect.Effect<A, E, R> },
 ): Covered<R, Sv, Contract<I, K, A, E, R>> => {
   const { lookup, ...rest } = s;
-  return contract<I, K, A, E, R>({ ...rest, kind: "read", concurrency: "reject", commit: lookup }) as never; // D23: concurrency unused for a read
+  return contract<I, K, A, E, R, readonly []>({ ...rest, kind: "read", concurrency: "reject", commit: lookup }) as never; // D23: concurrency unused for a read
 };
 
 // `never` for a bound's unused slots, so each one's own types stay out of the handle's.
@@ -94,13 +97,14 @@ export type AnyBound = {
     readonly guarded?: true;
     readonly input: Fields;
     readonly key: readonly PropertyKey[];
+    readonly previous?: readonly Previous[];
     readonly timeoutMs?: number;
     readonly services?: readonly Svc[];
     readonly commit: unknown;
   };
   readonly mapped: { readonly success?: unknown; readonly failure: unknown; readonly unknown?: unknown };
 };
-export type RequirementsOf<O> = { [K in keyof O]-?: NonNullable<O[K]> extends Bound<Fields, never, infer _A, infer _E, infer R> ? R : never }[keyof O];
+export type RequirementsOf<O> = { [K in keyof O]-?: NonNullable<O[K]> extends Bound<Fields, never, infer _A, infer _E, infer R, infer _P> ? R : never }[keyof O];
 
 // ── What the machine writes with `O.x`, typed where it is used (2.7.3: "the select is typed where it is used"). `Ev` is the event of the handler the
 // member sits in, taken from its place by return-type inference; a member written outside a handler (a shared const) reads the event as `unknown` fields.
@@ -108,7 +112,7 @@ export type In<M, Ev> = { readonly memory: M; readonly event: Ev; readonly key?:
 export type AnyEvent = { readonly [k: string]: unknown };
 type ActData =
   | { readonly member: "commit" | "lookup"; readonly op: string; readonly f: unknown }
-  | { readonly member: "retry" | "cancel" | "cancelAll"; readonly op: string; readonly keyFn?: unknown }
+  | { readonly member: "retry" | "cancel" | "cancelAll"; readonly op: string; readonly keyFn?: unknown; readonly previous?: number }
   | { readonly member: "module"; readonly op: string; readonly module: string; readonly name: string; readonly f?: unknown };
 // `Ev = unknown` for a member with no select (`O.x.cancel`), which fits any handler.
 export type Act<Ev = unknown> = ActData & { readonly _ev?: (e: Ev) => void };
@@ -116,7 +120,13 @@ export type OpGuard<Ev = unknown> = { readonly opGuard: TokenGuard; readonly key
 // Round 13 (D221, Arpit's call): key fields are required, so the key is a plain required pick of the input. The compile refuses an optional or defaulted
 // key field (`KeyFieldOptional`, below): an absent value is never a key value.
 type KeyOf<I extends Fields, K extends keyof I> = Required<Pick<TypeOf<I>, K & keyof TypeOf<I>>>;
-type WriteHandle<I extends Fields, K extends keyof I, M> = {
+// 2.7.15 (Q2 A): `O.x.previous[i].retry(k)` and `.cancel(k)` name the old-version holds of release i's key, by that key's own fields.
+type PreviousHandle<PK extends Fields, M> = {
+  readonly retry: <Ev = AnyEvent>(key: (a: In<M, Ev>) => Required<TypeOf<PK>>) => Act<Ev>;
+  readonly cancel: <Ev = AnyEvent>(key: (a: In<M, Ev>) => Required<TypeOf<PK>>) => Act<Ev>;
+};
+type WriteHandle<I extends Fields, K extends keyof I, M, P extends readonly Previous[] = readonly []> = {
+  readonly previous: { readonly [N in keyof P]: P[N] extends Previous ? PreviousHandle<P[N]["key"], M> : never };
   readonly commit: <Ev = AnyEvent>(f: (a: In<M, Ev>) => TypeOf<I>) => Act<Ev>;
   // 2.7.3: `idle(k?)`, `retry(k?)`, `cancel(k?)`; key-less names the one lane, or the ending's Attempt (OD8). `retryable({ times })`, `retryable(k, { times })`.
   readonly idle: (<Ev = AnyEvent>(key: (a: In<M, Ev>) => KeyOf<I, K>) => OpGuard<Ev>) & OpGuard;
@@ -132,7 +142,7 @@ type ReadHandle<I extends Fields, M> = {
   readonly lookup: <Ev = AnyEvent>(f: (a: In<M, Ev>) => TypeOf<I>) => Act<Ev>;
   readonly cancel: Act;
 };
-export type HandleOf<B, M> = B extends Bound<infer I, infer K, infer _A, infer _E, infer _R> ? WriteHandle<I, K, M> & ReadHandle<I, M> : never;
+export type HandleOf<B, M> = B extends Bound<infer I, infer K, infer _A, infer _E, infer _R, infer P> ? WriteHandle<I, K, M, P> & ReadHandle<I, M> : never;
 const member = <F extends (...a: never[]) => unknown, T extends object>(f: F, data: T): F & T => Object.assign(f, data);
 export const handles = <O extends Readonly<Record<string, AnyBound>>, M>(ops: O) =>
   Object.fromEntries(
@@ -147,9 +157,13 @@ export const handles = <O extends Readonly<Record<string, AnyBound>>, M>(ops: O)
         retry: member((keyFn: unknown): Act => ({ member: "retry", op, keyFn }), { member: "retry" as const, op }),
         cancel: member((keyFn: unknown): Act => ({ member: "cancel", op, keyFn }), { member: "cancel" as const, op }),
         cancelAll: member((keyFn: unknown): Act => ({ member: "cancelAll", op, keyFn }), { member: "cancelAll" as const, op }),
+        previous: (ops[op]!.contract.previous ?? []).map((_, previous) => ({
+          retry: (keyFn: unknown): Act => ({ member: "retry", op, keyFn, previous }),
+          cancel: (keyFn: unknown): Act => ({ member: "cancel", op, keyFn, previous }),
+        })),
       },
     ]),
-  ) as { readonly [K in keyof O]: HandleOf<O[K], M> };
+  ) as unknown as { readonly [K in keyof O]: HandleOf<O[K], M> };
 
 // ── The compile of one operation.
 const compileMapped = (definition: string, op: string, name: string, t: unknown): Mapped => {
@@ -218,6 +232,16 @@ export const compileOp = (definition: string, name: string, b: AnyBound, events:
   for (const tag of Object.keys((m.failure ?? {}) as object))
     if ((FLOW_REASONS.has(tag) && !(c.kind !== "write" && (tag === "Defect" || tag === "Interrupted"))) || (c.kind === "read" && WRITE_ONLY_REASONS.has(tag)))
       throw new Error(`ReservedReason: ${definition} operations.${name} maps a failure tag ${tag}, which is one of Flow's reasons (rule 13)`);
+  const keyVersion = keyFields.map((f) => versioned(f, (c.input as Record<string, Schema.Top>)[f]));
+  const sameEntries = (a: readonly string[], b: readonly string[]) => a.length === b.length && a.every((x) => b.includes(x));
+  const previous = (c.previous ?? []).map((p, i) => {
+    const fields = Object.keys(p.key);
+    for (const f of fields)
+      if (optionalOrDefaulted(f, p.key[f]!)) throw new Error(`KeyFieldOptional: ${definition} operations.${name} previous[${i}] key field ${f} is optional or has a default (rule 39)`);
+    const version = fields.map((f) => versioned(f, p.key[f]));
+    if (sameEntries(version, keyVersion)) throw new Error(`PreviousIsCurrent: ${definition} operations.${name} previous[${i}] is the current key's version (2.7.15)`);
+    return { keyFields: fields, keyVersion: version, keyVersionByFormat: olderFormats(fields.map((f) => [f, p.key[f]] as const)) };
+  });
   const inputNotCarried = Object.entries(c.input as Record<string, { ast: Ast }>).flatMap(([f, s]) => notCarried(s.ast, f));
   const u0 = m.unknown as Readonly<Record<string, unknown>> | undefined;
   const u = u0 === undefined ? undefined : typeof u0["tag"] === "string" || isIgnore(u0) ? u0 : { byReason: u0 }; // a token's `tag` is a string; a reason's value is a token
@@ -235,8 +259,9 @@ export const compileOp = (definition: string, name: string, b: AnyBound, events:
     kind: c.kind,
     ...(fragment ? { fragment } : {}),
     keyFields, // rule 39's field list: the one source of the lane's key (D215); the seal makes the key from it
-    keyVersion: keyFields.map((f) => versioned(f, (c.input as Record<string, Schema.Top>)[f])),
+    keyVersion,
     keyVersionByFormat: olderFormats(keyFields.map((f) => [f, (c.input as Record<string, Schema.Top>)[f]] as const)),
+    ...(previous.length ? { previous } : {}),
     inputFields: Object.keys(c.input),
     services: (c.services ?? []).map((s) => s.key),
     concurrency: c.concurrency,

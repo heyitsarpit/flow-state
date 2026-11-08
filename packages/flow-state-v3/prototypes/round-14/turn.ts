@@ -34,7 +34,7 @@ import { resetValue,
   type Path,
   type Started,
 } from "./inc.ts";
-import { admitRow, cancelAll, cell, decline, endHeldThisTurn, guardCell, letGoKept, oldVersionLane } from "./lane.ts";
+import { admitRow, cancelAll, cell, decline, endHeldThisTurn, guardCell, letGoKept, ofVersion, oldVersionLane } from "./lane.ts";
 import { cancelRead, dropReadsOf, lookup, lookupUnencodable } from "./reads.ts";
 import { armTimer, disarmTimer, scheduleKey } from "./timers.ts";
 import {
@@ -177,7 +177,7 @@ const laneOfToken = (
 ): Lane | undefined => {
   // D221: a keyed `idle` says what its commit would meet: its own lane, else an old-version hold of the op (every commit declines beside one). A keyed
   // `retryable` names its own lane only.
-  if (t.key) return w.tx.w.lanes[laneKey(w.a.key, t.op, key)] ?? (t.verb === "idle" ? oldVersionLane(w.tx, w.a.key, w.a.machine, t.op) : undefined);
+  if (t.key) return ofVersion(w.tx.w.lanes[laneKey(w.a.key, t.op, key)], w.m.ops[t.op]) ?? (t.verb === "idle" ? oldVersionLane(w.tx, w.a.key, w.a.machine, t.op) : undefined);
   const it = w.item;
   if (it?.k === "ending" && it.op === t.op && it.attempt) return laneOfAttempt(w.tx.w, it.attempt);
   return undefined;
@@ -755,9 +755,10 @@ const applyMembers = (w: Walk) => {
         if (l.actor === w.a.key && l.op === mem.op && sameSubject(l.subject, subject)) letGoKept(tx, l);
       continue;
     }
-    // D221: a keyed `retry(k)`/`cancel(k)` names the lane of exactly that key. An old-version hold is named by its own old key: the owner's way out.
+    // D221: a keyed `retry(k)`/`cancel(k)` names the lane of exactly that key, in its own version: an old-version hold is named by its own old
+    // key through `previous[i]` (2.7.15), the owner's way out.
     const named = mem.key
-      ? tx.w.lanes[laneKey(w.a.key, mem.op, r.key)]
+      ? ofVersion(tx.w.lanes[laneKey(w.a.key, mem.op, r.key)], op, mem.previous)
       : op.keyFields?.length === 0
         ? tx.w.lanes[laneKey(w.a.key, mem.op, {})] // rule 43: on an unkeyed operation a key-less member names its one lane, in an ending or not
         : it?.k === "ending" && it.op === mem.op && it.attempt

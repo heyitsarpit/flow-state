@@ -1571,3 +1571,69 @@ Sidecar log (Haiku, effort high; the lead read every line and reran every check)
 | review: the new P1-S variants vs 2.11.10, T1-T5, Q1 B, Q2 A | reviewer | changed | acted on: a late joiner of a registered key never went `Live` (the multiplex fix, finding 1); the departed-key wrong runtime was red for another reason (new case); the "257 entries" label (257 keys, 256 kept). Recorded: the first delay as 500 ms is Effect's `exponential` (attempt 1 = base); the 0.02 spread is the lead's threshold, fair for four independent draws. Rejected: "`as1b.jitter-unmixed` depends on the id" (deterministic for Mirror's `main`; red as run) |
 
 The lead's own slip: one line of `fake-world.ts` (`heldAtOpen: [...c.heldAtOpen]`) was edited with `sed`, not Edit; the content is the intended one.
+
+## Phase 1: record migration (2026-11-09)
+
+Round 1 of up to 6 for this area. New: case `P1-M` (`conformance/scenarios/phase1m.scenario.ts`, 7 variants; fixtures `typed/phase1m.ts`, the
+persisted singleton `Lab/Memo` in four releases), wrong runtimes in `mutants-p1m.ts` (spread into `mutants-lifetime.ts`; `P1-M` and `R13-KEYS`
+added to lifetime-falsify's list). The large API question is in `MIGRATION-QUESTIONS.md` (Q1, not built). First, the runner's OD53 (11) fix.
+
+| Item | State | Commit | Failing first | Wrong runtime |
+| --- | --- | --- | --- | --- |
+| OD53 (11) `dropAt` | **built**: `lose` sets it only with `liveSince` set or none set; `down` also when none is set (sessions.ts) | fe343c92 | P1-S `a-connection-that-never-registered-keeps-the-earlier-dropat`: `expected [{"price":11},1000], got [..,4000]`; `a-down-on-a-first-connection-sets-dropat`: `got [..,3000]` | `od53.lose-always-stamps`, `od53.down-first-unset`; `s1b.dropat-first-only` re-anchored |
+| M3b `previous: [{ key }]` | **built** as 2.7.15 says: `transaction({ …, previous: [{ key }] })`, typed `O.x.previous[i].retry(k)` / `.cancel(k)` (no cast; type pins in `typed/type-tests.ts`), compiled `previous` versions (codec too). `ofVersion` (lane.ts): a keyed member names the lane of its key only in its own version, used for keyed retry/cancel/cancelAll (turn.ts) and keyed guards. Runner's calls (proposed): a current keyed member never names an old-version lane even by the same text; an earlier key equal to the current one is `PreviousIsCurrent` | 2nd | `a-current-keyed-member-never-names-...-even-by-the-same-text` (Trim): `expected ["OldVersion",1], got ["",1]`; `a-previous-member-names-only-a-lane-of-its-own-version`: `expected ["Rejected",2], got ["",2]`; P1-H's retryable variant `expected [2,1], got [1,1]` | `p1m.current-names-old`, `-previous-any-version`, `-previous-names-nothing`, `-previous-is-current-allowed` |
+| M3a `OldVersionLane` an issue | **built**: the boot's `placeLanes` raises it (origin the machine and op); R12-KEYS, R13-KEYS, R15-01, P1-H name it and read it from issues | 2nd | `release-1-records-...`: `the old hold is an issue at the boot: expected 1, got 0` | `p1m.old-version-lane-evidence` (11 red) |
+| Release 1 to release 2 path | **settled by the design as written, plus `previous`**: release 1 holds `{ memoId }` unsure in `SENT`; release 2 migrates `title` by its Schema (decode-old-then-map), drops `legacy`, computes `words` over the restored body, keys `save` by `memoId, rev`; reload; the record restores in `SENT`, the hold is heard again, a commit declines `OldVersion`, `previous[0].cancel` lets it go, the new key sends; the next boot is clean and reads release 2's encoding | 2nd | red only on the issue line before the build (the rest passed: the Schema path needs no runtime) | `p1m.restore-raw-memory`, `-restore-skips-computed`, `-previous-names-nothing`, `-old-version-lane-evidence` |
+| No migration | **settled by the design as written** (2.7.17, rule 46): a removed state or an unreadable field quarantines the record; an ensure starts fresh (`RecordUndecodable`) and adopts the hold, which is heard and still holds its key. **The oracle was wrong**: (j) called the parked restored ending "an input ran before the restored endings"; it now excuses a park for a record a release quarantined at the boot after the last reload (judged at the step's end, owed until adopted) | 2nd | green on the runtime from the start; red by (j) before the oracle fix | `p1m.undecodable-memory-kept` (assertion), `p1m.undecodable-drops-lanes` (red by (j) "parked, and no wait says so", not by assertion) |
+| Pure, deterministic, replayable | **settled for the harness, a stated limit for Flow**: a probe (not kept) made the title's decode count calls; S11 went red at the boot (`S11 replay differs: {"segment":1,"step":0,"input":"boot"}`). Flow cannot refuse an impure transformation at construction | - | - | - |
+| App-level memory and state migration | **question**: `MIGRATION-QUESTIONS.md` Q1 (A Schema only, B `previous` on the definition, recommended, C version number) | - | - | - |
+| Flow's record envelope format | **proposed, not built** (runner's call): a format tag on every record and pure upgrades Flow keeps; no envelope change exists to test against. Next round | - | - | - |
+
+Findings for the design:
+1. 2.7.15's `previous` needs the rule it implies stated: a current keyed member (`retry(k)`, `cancel(k)`, keyed `idle`/`retryable`) names only
+   a lane of the current version; before this, a type-side change that keeps the key's text (`Trim`) let the current `cancel({ k: a })` drop an
+   old-version hold, which is "matched against a new key".
+2. `previous[i]` has `retry` and `cancel` only (as written). A keyed `retryable` on an old hold has no spelling; the current handle's says no.
+   The design should say whether `previous[i].retryable(k, { times })` exists. A keyed `idle` needs none: it already says no beside any old hold.
+3. An earlier key equal to the current key's version names nothing old and would let `previous[i]` name current lanes: refused as
+   `PreviousIsCurrent` (proposed). Two equal `previous` entries are not refused (the reviewer's; both name the same lanes).
+4. The design has no app-level migration beyond 2.2.2's per-field decode and computed initials, which already migrate one field's shape and
+   derive new fields; a state removed or renamed, or a field renamed, loses the memory (Q1).
+5. A field a release stops declaring is dropped at restore, silently. 2.2.2 says what a missing field takes, not what an extra one does.
+6. Oracle (j)'s rule-44 check assumed a restored ending always has an owner at the boot; rule 46's undecodable record is the case where it
+   waits for an ensure. Since the conformance harness ports to production, this is a harness fix the design text already implied.
+7. `ready` and a Held hold of an undecodable record: the boot parks its `unknown { Restored }` on the lane until an ensure; nothing reports
+   that the hold now waits on an identity whose record is gone (an `UnboundLane`-like report is said only for a lane with no record at all).
+   The design should say whether a quarantined record's held lanes are reported as such.
+8. The reviewer's: on a fragment op, a commit whose key's text meets an old-version hold of another subject declines `Rejected` (rule 51)
+   before the old-version check (`OldVersion`). Pre-existing, no fixture; the order of the two declines is unstated. For round 2.
+9. A key-less `cancel` outside an ending (D123) lets go of the kept endings of every lane of the op, old-version holds' included; it drops
+   no hold. Consistent with D123; noted since `previous[i].cancel` is the old hold's own way out.
+10. OD53 review (Haiku): a `Dropped` catch-up session made `Repairing` with no `liveSince` resets `dropAt` on `down` ("as `Live`") but keeps it on
+    `lose` (`liveSince` unset): the two tests of "leaving" disagree there. `dropAt` is not persisted, so after a reload a value while
+    `Dropped` ages from the reload's `down`, not from the restored `last.at`. The `lose` procedure (T1) still reads `dropAt = now`
+    unconditionally; only the note supersedes it.
+
+Gate fixes after the first full run (18/25 ok, 7 BAD; each fixed, then rerun):
+- `checks/types-check.ts` (and mutate-one, tamper through it): the two `previous[i]` pins were not stated; now stated with their own errors
+  (TS2741 `k` missing, TS2493 no element at index 1).
+- falsify suite1, suite3: the `PreviousIsCurrent` variant drove no runtime; it now also starts release 2's Memo.
+- falsify search: SEARCH-SESSION reached 7,328 states, pinned 6,896. The cause is OD53's fix, not migration: on a scratch copy of this tree with
+  only the two `dropAt` lines undone, the same search reached 6,896 (the lead ran both). Re-pinned. **The OD53 commit fe343c92 left this pin
+  stale**; this commit fixes it.
+- lifetime-falsify: `p1h.member-names-old` was anchored on the turn.ts line `ofVersion` replaced (re-anchored, same wrong rule); with `R13-KEYS`
+  in the list, `another-actor-is-not-held` had no killer: `p1m.old-version-any-actor` ("every commit ... for that actor"), red by assertion
+  `it sends: expected [2,0], got [1,1]`.
+- Not run by any gate and left unedited (an audit record): `a3b.keyed-cancel-names-the-ending` in `mutants-audit-3b.ts` is anchored on the
+  old line too.
+
+Gates, after the fixes: lifetime-falsify alone (231 s, 349 pass); then `--only` batches of 9/9 ok and 15/15 ok: **25/25 ok, 0 BAD**.
+Suite 1045/1045, lock clean. Wrong runtimes: `bun lifetime-falsify.ts --mutants p1m.,od53.`: every one red on its target, by assertion
+except `p1m.undecodable-drops-lanes` (by (j)); the lead read each red line.
+
+Sidecar log (Haiku, effort high; the lead read every line and reran every check):
+
+| Task | Who | Result | Why |
+| --- | --- | --- | --- |
+| review: OD53's sessions.ts diff, the two P1-S variants and the wrong runtimes vs T1 and the `dropAt` note | reviewer | accepted, recorded | confirmed the fix, both variants and both wrong runtimes; its gaps (Repairing without `liveSince`, `dropAt` not persisted, T1's `lose` text) are finding 10; rejected: "the re-anchored mutant's comment is stale" (the audit file's comment describes its kill case, a drop from `Live`) |
+| review: `previous`, `ofVersion`, `OldVersionLane`, the (j) excuse, compile and codec vs 2.7.15, rule 46, 2.7.17 | reviewer | changed | acted on: the excuse read "any release in the run", now "a release since the reload before" (`releasedBeforeReload`). Recorded: the fragment-op decline order (finding 8), key-less cancel and kept endings (finding 9), duplicate `previous` entries (finding 3), the dead `OldVersionLane` case in `cli/story.ts` (evidence kind no longer made). Its "add a second boot" was already pinned: R13-KEYS's reload variant is red on `p1m.old-version-lane-evidence` |

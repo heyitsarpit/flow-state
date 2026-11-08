@@ -2449,3 +2449,57 @@ round:mutants-p1m.ts hash:c41ce32e12cc | OD53 (11): od53.lose-always-stamps and 
 file:expected-recipients.txt hash:de5e2c1c1c29 | OD53 (11): the first-connection down variant places one more stream delivery (its value while Dropped); no red count moved
 output:P1-S/a-connection-that-never-registered-keeps-the-earlier-dropat hash:9632b5a961f1 | new output: a lose, an unregistered reconnect lost, a down, a value aged from the first loss
 output:P1-S/a-down-on-a-first-connection-sets-dropat hash:c16962d124c8 | new output: a down before the first registration, a value aged from that down
+R12-KEYS hash:3973f7800d07 | Phase 1 migration: OldVersionLane is an issue (2.7.15, Q2 A); the scenario names it and reads it from issues, the counts unchanged
+R13-KEYS hash:bfed748b2ce1 | Phase 1 migration: OldVersionLane read from issues, and the old holds reached through previous[0] (OldRetry, OldCancel), not the current handle's cast
+R15-01 hash:924bc681fbbc | Phase 1 migration: R15-01 names the OldVersionLane issue and reads its two old-version counts from issues
+P1-H hash:b538e66ab301 | Phase 1 migration: P1-H reads OldVersionLane from issues; the retryable variant's old key on the current handle now says no, previous[0].retry re-sends
+P1-M hash:bea867f3ce4d | Phase 1 migration: new scenario P1-M, release 1 to release 2 across a reload, previous[i], OldVersionLane as an issue, no-migration quarantines
+file:scenarios/phase1h.scenario.ts hash:f2dedeff0424 | Phase 1 migration: phase1h's OldRetry for the on-the-wire variant, the retryable variant from 2.7.15's never matched against a new key, issues
+file:scenarios/phase1m.scenario.ts hash:7377ea8e0a9f | Phase 1 migration: the P1-M scenario file, seven variants each citing its rule
+file:scenarios/round12.scenario.ts hash:9fdedd251a13 | Phase 1 migration: round12's R12-KEYS names OldVersionLane and counts it as an issue
+file:scenarios/round13.scenario.ts hash:c2444d403318 | Phase 1 migration: round13's old-key Retry and Cancel sends become OldRetry and OldCancel; OldVersionLane counted from issues
+file:scenarios/round15.scenario.ts hash:81316931852a | Phase 1 migration: round15's R15-01 header names OldVersionLane; its counts read from issues
+file:typed/phase1m.ts hash:b32924f5f589 | Phase 1 migration: Lab/Memo releases 1-4 (release 2 migrates by Schema and declares previous; 3 and 4 change with no migration)
+file:typed/round13.ts hash:68625e8a4e56 | Phase 1 migration: KeyStamp declares previous per release (2, 4, 10 after release 1; 3 after 2) and handles OldRetry, OldCancel through it
+file:compile/body.ts hash:867f668b6149 | Phase 1 migration: a retry or cancel member carries its previous index into Compiled
+file:compile/operations.ts hash:141d7d25c0b3 | Phase 1 migration: transaction previous, typed O.x.previous[i].retry and cancel, compiled previous versions, KeyFieldOptional and PreviousIsCurrent on them
+file:suite.ts hash:ef09fd7b82fb | Phase 1 migration: the suite lists phase1mScenarios
+file:drive.ts hash:019816fcedd5 | Phase 1 migration: oracle (j) excuses a restored ending parked for a record a release quarantined at the boot (rule 46, 2.7.17), owed until the adopting ensure
+round:typed/type-tests.ts hash:2c0100cb0ef2 | Phase 1 migration: type pins, previous[0] takes release 1's key only and previous[1] does not exist
+round:mutants-p1m.ts hash:1466d02c5bac | Phase 1 migration: nine wrong runtimes for previous, OldVersionLane, the memory restore and the no-migration paths
+file:expected-recipients.txt hash:60b52843b72b | Phase 1 migration: P1-M adds 14 observed deliveries, 5 restored states checked and 14 start nodes; no red count moved
+output:P1-H/a-key-field-changed-from-string-to-number-under-its-name-is-a-new-version hash:6400ff321871 | OldVersionLane moved from evidence to issues: the K1 String-to-Number variant
+output:P1-H/a-keyed-member-with-a-new-version-key-names-nothing hash:d1445ce250a4 | OldVersionLane moved from evidence to issues: the member-names-old variant
+output:P1-H/a-keyed-retryable-sees-its-own-lane-only hash:14d62894fc4a | the retryable variant: one more Retryable turn says no (notRetryable 2), OldVersionLane an issue, one more frame
+output:P1-H/a-type-change-in-the-release-that-upgrades-the-format-is-a-new-version-of-the-op hash:9d5cdb8e3d5f | OldVersionLane moved from evidence to issues: the cross-format variant
+output:P1-H/an-old-version-hold-back-on-the-wire-still-declines-every-commit hash:40c6bbe45a76 | OldVersionLane moved from evidence to issues: the old-held-only variant
+output:P1-H/audit-a-key-stamp-in-a-newer-format-is-an-old-version hash:40e13f5d76b9 | OldVersionLane moved from evidence to issues: audit's newer-format stamp
+output:P1-H/audit-under-cancel-a-commit-beside-an-old-version-hold-declines-old-version hash:a370d1de0af5 | OldVersionLane moved from evidence to issues: audit's cancel-policy decline
+output:P1-H/audit-under-latest-a-commit-beside-an-old-version-hold-declines-old-version hash:9d5cdb8e3d5f | OldVersionLane moved from evidence to issues: audit's latest-policy decline
+output:P1-H/the-decline-beside-an-old-version-hold-is-not-sent-old-version hash:9d5cdb8e3d5f | OldVersionLane moved from evidence to issues: the decline-why variant
+output:P1-M/a-current-keyed-member-never-names-an-old-version-hold-even-by-the-same-text hash:044edbcbe198 | new output: Trim release, the current Cancel names nothing, previous[0].cancel lets go, then a send
+output:P1-M/a-memory-field-reshaped-with-no-migration-quarantines-the-record-and-an-ensure-starts-fresh hash:67b55596b943 | new output: release 4, record quarantined, fresh struct title, the hold heard by the new incarnation
+output:P1-M/a-previous-key-equal-to-the-current-key-is-refused hash:97d170e1550e | new output: the PreviousIsCurrent refusal, no runtime steps beside the default boot
+output:P1-M/a-previous-member-names-only-a-lane-of-its-own-version hash:4267b75cc9c3 | new output: a current hold b stands against previous[0].cancel of b; its own key busy
+output:P1-M/a-state-a-release-removed-quarantines-the-record-and-an-ensure-starts-fresh-and-adopts-the-hold hash:53546e5b408e | new output: release 3, SENT gone, fresh DRAFT, the adopted hold declines its key
+output:P1-M/previous-retry-re-sends-the-old-hold-as-the-same-attempt hash:3ddfe93fa849 | new output: previous[0].retry re-sends att-1-1 with release 1's body
+output:P1-M/release-1-records-restore-under-release-2-across-a-reload hash:3d6024186be8 | new output: the release 1 to 2 path, migrated memory, OldVersion decline, Abandon, a send under the new key, a clean boot
+output:R12-KEYS/a-release-that-adds-a-key-field-declines-beside-the-older-lane hash:8f9a57255656 | OldVersionLane moved from evidence to issues: R12's added key field
+output:R12-KEYS/a-typed-release-that-changes-the-key-keeps-the-old-version-hold-and-does-not-mint hash:8f9a57255656 | OldVersionLane moved from evidence to issues: R12's typed key change
+output:R13-KEYS/a-keyed-idle-sees-an-old-version-hold hash:f445b5fab22b | OldVersionLane moved from evidence to issues: R13's keyed idle
+output:R13-KEYS/a-release-that-adds-a-key-field-declines-every-commit-until-the-old-hold-ends hash:484812514d1d | OldVersionLane moved from evidence to issues: R13's added field, the old hold re-sent through previous[0]
+output:R13-KEYS/a-release-that-removes-a-key-field-keeps-every-old-hold-eu-first hash:5361f9aafb45 | OldVersionLane moved from evidence to issues: R13's removed field, eu first, two issues
+output:R13-KEYS/a-release-that-removes-a-key-field-keeps-every-old-hold-us-first hash:2d878465f85a | OldVersionLane moved from evidence to issues: R13's removed field, us first, two issues
+output:R13-KEYS/a-reload-in-between-keeps-the-old-version-hold hash:10012f59a036 | OldVersionLane moved from evidence to issues: R13's reload in between, one issue per boot
+output:R13-KEYS/another-actor-is-not-held hash:46efa5472cb0 | OldVersionLane moved from evidence to issues: R13's other actor
+output:R13-KEYS/serialize-declines-beside-an-old-version-hold-and-queues-nothing hash:acf3ef13c3ff | OldVersionLane moved from evidence to issues: R13's serialize decline, cancelled through previous[0]
+output:R15-01/a-key-fields-check-parameter-change-is-a-new-version-of-the-op hash:81bce11af1cb | OldVersionLane moved from evidence to issues: R15's check-parameter change
+output:R15-01/a-key-fields-type-side-change-is-a-new-version-of-the-op hash:9d5cdb8e3d5f | OldVersionLane moved from evidence to issues: R15's type-side change
+P1-M hash:789dd4f28771 | Phase 1 migration gates: the PreviousIsCurrent variant also starts release 2's Memo, so it drives a runtime (falsify suite1, suite3)
+file:scenarios/phase1m.scenario.ts hash:d44a5efce1db | Phase 1 migration gates: the refusal variant ensures release 2's Memo after the compile check
+file:falsify.ts hash:55f94dcf9a80 | OD53 (11): SEARCH-SESSION re-measured, 7,328 states (6,896 on the same tree with only the dropAt fix undone, run by the lead)
+round:checks/types-check.ts hash:1d98d72cca75 | Phase 1 migration gates: the two previous[i] type pins stated by their words
+round:mutants-p1h.ts hash:0e88b3e5ee2e | Phase 1 migration: p1h.member-names-old re-anchored on the ofVersion line, the same wrong rule (a new-version key falls back to an old hold)
+output:P1-M/a-previous-key-equal-to-the-current-key-is-refused hash:11fc52bed9f7 | new output: the refusal, then release 2's Memo started in DRAFT
+round:checks/types-check.ts hash:adb9b53f2e17 | Phase 1 migration gates: each previous[i] pin's own tsc error, TS2741 (k missing) and TS2493 (no element at index 1)
+round:mutants-p1m.ts hash:9c4d63904f3f | Phase 1 migration gates: p1m.old-version-any-actor, so R13-KEYS's other-actor variant (now in lifetime-falsify's list) has a killer

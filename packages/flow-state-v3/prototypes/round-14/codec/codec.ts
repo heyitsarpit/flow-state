@@ -124,7 +124,7 @@ const build = (Slot: S.Top) => {
   ]);
   const Member = S.Union([
     S.Struct({ op: S.String, verb: S.Literals(["commit", "lookup"]), input: Slot }),
-    S.Struct({ op: S.String, verb: S.Literals(["retry", "cancel", "cancelAll"]), key: opt(Slot) }),
+    S.Struct({ op: S.String, verb: S.Literals(["retry", "cancel", "cancelAll"]), key: opt(Slot), previous: opt(S.Number) }),
     S.Struct({ op: S.String, verb: S.Literal("module"), module: S.String, name: S.String, value: opt(Slot) }),
   ]);
   const Alternative = S.Struct({
@@ -200,6 +200,7 @@ const build = (Slot: S.Top) => {
     keyFields: S.Array(S.String), // round 12 (D215): the one source of the key, so no `key` Slot
     keyVersion: S.optionalKey(S.Array(S.String)), // U17 B: each key field with its Schema's version, the lane's stamp
     keyVersionByFormat: S.optionalKey(S.Record(S.String, S.Array(S.String))), // R7: in each older version format
+    previous: S.optionalKey(S.Array(S.Struct({ keyFields: S.Array(S.String), keyVersion: S.Array(S.String), keyVersionByFormat: S.optionalKey(S.Record(S.String, S.Array(S.String))) }))), // 2.7.15 (Q2 A)
     inputFields: S.Array(S.String),
     services: S.Array(S.String), // D213
     inputNotCarried: opt(S.Array(S.String)),

@@ -35,6 +35,7 @@ export const round15Scenarios: readonly Scenario[] = [
     fixtures: [r15LateFixture(), r15StayFixture(), r15PlainFixture(), edgeFixture({ local: true }), deskListenFixture, r15SwitchFixture(), keyStampFixture({ v: 1 })],
     actor: RL,
     cites: ["rule:15", "rule:43"],
+    namedIssues: ["OldVersionLane"], // 2.7.15 (Q2 A): an old-version hold is an issue at each boot
     variants: {
       // Rule 15 and 1.6 ("a late ending never leaves live work"), as ruled for round 15 (R1: no cancel exemption). The late success settles the
       // first head; the second commit, queued by the re-entered W, is promoted before the late turn runs. The late Ok's alternative that cancels the
@@ -307,7 +308,7 @@ export const round15Scenarios: readonly Scenario[] = [
       // and every commit of the op declines beside it, whatever its key (D221).
       "a-key-fields-type-side-change-is-a-new-version-of-the-op"(c0) {
         const c = keyHoldThen(c0, 4);
-        c.eq("an old-version hold, said at the boot", c.r.evidence("OldVersionLane").length, 1);
+        c.eq("an old-version hold, said at the boot", c.r.issues().filter((i) => i.code === "OldVersionLane").length, 1);
         c.send("Go", { k: "b" });
         c.ack();
         c.eq("declined beside it, nothing sent", [c.mem(KS)?.declined, c.reqs("charge").length], [1, 1]);
@@ -324,7 +325,7 @@ export const round15Scenarios: readonly Scenario[] = [
         c.yes("stamped with bare names", JSON.stringify([...c.r.stored().values()]).includes('"keyFields":["k"]'));
         c.h.release(() => void (rel.v = 1), () => void (rel.v = 0));
         c.reload();
-        c.eq("no old-version hold", c.r.evidence("OldVersionLane").length, 0);
+        c.eq("no old-version hold", c.r.issues().filter((i) => i.code === "OldVersionLane").length, 0);
         c.send("Go", { k: "b" });
         c.ack();
         c.eq("another key sends", [c.mem(KS)?.declined, c.reqs("charge").length], [0, 2]);
@@ -333,7 +334,7 @@ export const round15Scenarios: readonly Scenario[] = [
       // hold is an old-version hold and another key's commit declines beside it.
       "a-key-fields-check-parameter-change-is-a-new-version-of-the-op"(c0) {
         const c = keyHoldThen(c0, 7, 6);
-        c.eq("an old-version hold, said at the boot", c.r.evidence("OldVersionLane").length, 1);
+        c.eq("an old-version hold, said at the boot", c.r.issues().filter((i) => i.code === "OldVersionLane").length, 1);
         c.send("Go", { k: "cd" });
         c.ack();
         c.eq("declined beside it, nothing sent", [c.mem(KS)?.declined, c.reqs("charge").length], [1, 1]);
@@ -350,7 +351,7 @@ export const round15Scenarios: readonly Scenario[] = [
       // U17: "a brand or a description is not" a new version. The hold is current; another key's commit sends.
       "a-key-fields-description-change-is-no-new-version-of-the-op"(c0) {
         const c = keyHoldThen(c0, 5);
-        c.eq("no old-version hold", c.r.evidence("OldVersionLane").length, 0);
+        c.eq("no old-version hold", c.r.issues().filter((i) => i.code === "OldVersionLane").length, 0);
         c.send("Go", { k: "b" });
         c.ack();
         c.eq("another key sends", [c.mem(KS)?.declined, c.reqs("charge").length], [0, 2]);

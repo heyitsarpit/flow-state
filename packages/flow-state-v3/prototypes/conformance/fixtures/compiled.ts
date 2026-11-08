@@ -27,6 +27,7 @@ export type Member =
       readonly op: string;
       readonly verb: "retry" | "cancel" | "cancelAll";
       readonly key?: Slot<(a: AfterIn) => unknown>;
+      readonly previous?: number; // 2.7.15 (Q2 A): `O.x.previous[i]`, naming only lanes of the op's `previous[i]` version
     }
   | { readonly op: string; readonly verb: "lookup"; readonly input: Slot<(a: AfterIn) => unknown> }
   // A module's member (M8, D63): `O.x.bookmark`, `O.x.refetch`. In action order, with the turn's rollback.
@@ -180,6 +181,8 @@ export type Op = {
   readonly keyFields?: readonly string[]; // Round 7, D91: rule 39's field list, as data. Hand-written fixtures have a closure only
   readonly keyVersion?: readonly string[]; // U17 B (OD48), 2.7.15: each key field with its Schema's version (type and encoded side); the lane's stamp
   readonly keyVersionByFormat?: Readonly<Record<string, readonly string[]>>; // R7: the same Schemas in each older version format, for a cross-format compare
+  // 2.7.15 (Q2 A): each earlier key the contract declares, as `keyVersion` is written, so an old-version hold is named by its own version.
+  readonly previous?: ReadonlyArray<{ readonly keyFields: readonly string[]; readonly keyVersion: readonly string[]; readonly keyVersionByFormat?: Readonly<Record<string, readonly string[]>> }>;
   readonly inputNotCarried?: readonly string[]; // D124: which input fields, by path, have a decoded form the door refuses. For `flow check`
   readonly outcomes: {
     readonly success?: Mapped;

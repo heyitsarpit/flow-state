@@ -443,7 +443,8 @@ const placeLanes = (tx: Tx, lanes: ReadonlyArray<readonly [string, SavedLane]>):
   const taken = new Set(lanes.filter((_, i) => moves[i] === undefined).map(([, v]) => v.id));
   return lanes.map(([k, v], i): [string, SavedLane] => {
     const fields = stampFields(tx.machines[v.machine]!.ops[v.op]);
-    if (v.keyFields !== undefined && fields && !sameFields(v.keyFields, fields, olderOf(tx.machines[v.machine]!.ops[v.op]))) note(tx, "OldVersionLane", { op: v.op, lane: v.id, keyFields: v.keyFields });
+    if (v.keyFields !== undefined && fields && !sameFields(v.keyFields, fields, olderOf(tx.machines[v.machine]!.ops[v.op])))
+      issue(tx, { code: "OldVersionLane", origin: `${v.machine} ${v.op}`, input: { lane: v.id, keyFields: v.keyFields } }); // 2.7.15 (Q2 A): an issue at each boot
     const fresh = moves[i];
     if (fresh === undefined) return [k, v];
     const id = laneKey(v.actor, v.op, fresh);
