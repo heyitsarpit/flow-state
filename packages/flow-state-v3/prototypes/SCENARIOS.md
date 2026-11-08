@@ -536,3 +536,4 @@ Convergence-8. Old unbuilt rows (`STORY-ALL`, `BROWSER-*`, `SSR-01`) renumbered 
 | R15-03 | 14 | fault | design | sec:2.2.2 |  | Round 15, U9 already true: creation checks input by its type side, so "3" for a NumberFromString field is refused |
 | P1-H | 14 | fault | design | rule:24, sec:2.7.13, D48 |  | Phase 1 area H: round 13's H1 (impure defaults refused), H2 (K1), M2 (D221's unpinned paths), and the runner's R5-R7, R9-R12 |
 | P1-E | 14 | fault | design | rule:24, sec:2.7.13, D48, D3, rule:29, rule:32, sec:2.8.5, sec:2.8.6 |  | Phase 1 area E: the runner's 0a (a pending cancel survives a later latest commit), D3 as directed (a W commit is a draft), U10 (rule 32's two levels), a PostgREST-shaped source |
+| P1-E-CAP | 14 | bounded | design | rule:32, rule:35 |  | Audit 2: U10's given-up mark cap at its value, 4,096 per entity, oldest out and named |

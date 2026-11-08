@@ -1167,3 +1167,85 @@ Sidecar log (Haiku, effort high; every finding verified by the lead):
 | review of the round 3 harness diff (oracles, loosened pins) against "every check can fail; excuse only what the harness saw; a loosened pin keeps its kills" | reviewer | changed | acted on: S13 restored on the suite's own number (its removal lost released paths); `madeEvidence` now excludes every Attempt lifecycle kind the runtime notes; the custom-filter case counts distinct Attempts; the collision asserted loud (one issue) with both lanes keeping their keys; `ImpureDefault`'s stand-in requires a named refusal. Recorded: `mutants-r6`'s `d78-no-evidence` (drop the rekey report) now survives REV6-H5, since the design names no rekey report and says nothing it carries (finding 12); R13-KEYS no longer catches both holds renamed to fresh keys (finding 12); `reportsOf`'s `kind !== "lane"` clause is dead (harmless) |
 | review of the `guarded` runtime diff against the convergence's rules G1-G5 | reviewer | changed | acted on: a lane record written before the send may hold a base a rebase later moved (G5: now `sent` on the record, and a pre-send record trusts no base, with a case and `p1e.guard-trusts-a-pre-send-record`); a removal passed the cover mask's field test vacuously (now a removal is never hidden; no case, the fixture has no removal write); the restored `sends: 1` comment. Rejected: "a read quiets a given-up mark without proof" (that is U10's demotion, not an ending: the mark stays `unconfirmed`); "a business-key success ends non-target records" (4.2's row: the server holds the key for the whole request); "clearMarks ends its own Attempt's marks" (its own success, rule 32); "the cap" (named, intended). Recorded: findings 13, 16, 17, 18 |
 | review of the round 3 runtime diff against Q1-Q4 and 8a | reviewer | changed | acted on: a gap refetch failing with the `.gone` tag was ignored (now a tombstone); an early whole row lost `whole` (now kept, with a case and `p1e.early-row-merges`); `.covers` used structural equality (now the field's Schema); `delivered` copied on every frame and was kept for `.covers` sessions (now only on a new record, only without `.covers`); duplicate saved refs (now deduped and an issue). Recorded: a released entry's prediction shows until its repair ends (pre-existing); whole on reads (finding 8); a tombstone against a claim is a doubt (finding 2); `guarded` on an unversioned entity (finding 11) |
+
+## Audit gaps 2 and 1b (2026-11-08)
+
+The list is `AUDIT-GAPS-2.md`. Each survivor got a case from the design text it quotes (never from the wrong runtime); the standing gate is
+`mutants-a2.ts` (spread into `mutants-lifetime.ts`): the lead's own wrong runtimes for each fix, and every auditor survivor (unedited, from
+`mutants-audit-2.ts`, `mutants-audit-1b.ts`, `mutants-audit-1.ts`) with its `kills` aimed at the case written for it. Every one was run by the lead on a
+copy (`mrun.ts` in the scratchpad, the suite with `--only`) and is red ON TARGET by the assertion quoted. Commits: `b0360416` (checkpoint 1: cases, runtime
+fixes, pins), `33383b92` (checkpoint 2: excuses, lock).
+
+| Item | State | Case | Red on (wrong runtime: the line) |
+| --- | --- | --- | --- |
+| 1 business-key replay | closed | P1-E `audit-a-business-key-success-under-another-key-ends-nothing`, `...-of-another-contract-ends-nothing` (fixture `p1GuardKeysFixture`: t2, `save` keyed by id) | `replay-ignores-values`, `replay-across-contracts`: `close's doubt stays: expected ["Done",[false,["status"]]], got ["Done",[false,[]]]` |
+| 2 `guarded` proofs | closed | `audit-a-feed-frame-past-the-sent-base-ends-a-guarded-doubt` (read after the session is lost, so hidden is not ended), `audit-another-writes-success-past-the-sent-base-...` | `guard-proof-reads-only`: `expected ["C",false,[]], got ["C",false,["title"]]` |
+| 3 no rebase after send | **not closable: Finding 1** | none | `rebase-after-send` stays unkilled: no path reaches it (below) |
+| 4 rule 28 | closed | `audit-a-two-record-write-waits-on-its-second-records-queue` (S1) | `r28-first-record-only`: `not invoked while r2 is held: expected 1, got 2` |
+| 5 unresolved mark stays | closed | `audit-an-unresolved-mark-stays-beside-a-business-key-success` (new `p1PayFixture`, key by order, lane by bill); `...-beside-a-full-cap` | `replay-ends-unresolved`: `expected ["Done",true], got ["Done",false]`; `cap-evicts-unresolved`: `expected [0,true,true], got [1,true,false]` |
+| 6 `.covers` mask | closed | `audit-a-cover-registered-after-the-give-up-hides-and-ends-nothing`, `audit-a-cover-does-not-hide-an-unresolved-doubt`, `...-with-an-open-gap-hides-nothing`, `...-a-removals-doubt` (new unguarded `remove` on the guard fixture); the written-field limit was already killed | `covers-ends-marks`, `covers-hides-unresolved`, `covers-hides-behind`, `covers-hides-removal`, each red on its own case |
+| 7 U10 | closed | `audit-a-later-success-carrying-some-of-the-marks-fields-demotes-nothing` (PostgREST: title+revision carried, slug not); `audit-a-feed-frame-does-not-demote-a-given-up-mark` | `u10-demote-any-field`, `u10-frame-demotes`: `still uncertain: expected true, got false` |
+| 8 `GuardContradicted` first send only | closed | `audit-a-re-sent-success-over-a-known-stale-base-is-no-contradiction` (lying server, `RetrySave`) | `contradicted-on-resend`: `expected [2,"Done",0], got [2,"Done",1]` |
+| 9 `.gone` on a refetch | closed | `audit-a-gap-refetch-that-answers-the-gone-tag-removes-the-row` (queue fixture gains a `.one` read with `.gone`) | `gone-refetch-ignored`: `expected "$undefined", got {data…}` |
+| 10 cap scope and value | closed | `audit-the-cap-counts-each-entity-apart`; `audit-the-many-bound-is-4096-and-the-cap-is-past-64` (new `p1BulkFixture`, 65 given-up marks kept); the exact value in the new scenario **P1-E-CAP** (4,096 kept, the 4,097th evicts one), kept out of the lifetime list since its 4,096 open repairs cost 6 s a run | `cap-global`: `expected [0,…], got [1,…]`; `cap-is-64`: `65 given-up marks: none evicted: expected [0,true], got [1,false]` (and P1-E-CAP `got [4032,true]`) |
+| bug: rule 35 `many` | **fixed** (entities.ts `start`: a write's `targets` past 4,096 is `Overloaded`, before any join) | same P1-E case: 4,097 keys | `a2.many-unbounded`: `expected [["No"],"Overloaded",0,undefined], got [[],undefined,1,{…}]` |
+| bug: key fields get no cell | **fixed** (domain `primaryKey` by entity, new internal `Compiled` data from `entity({ primaryKey })`; a gap never marks a key field) | the three gap cases re-pinned (`ALL_Q` without `id`, compared as a set) | `a2.key-fields-marked`: `got [["id","note",…]]` in four cases |
+| bug: `coveredBy` over-marks | **fixed** (a record whose filter fields the store holds in doubt, or predicts into the cover, is marked too) | `audit-a-gap-marks-a-record-that-may-have-moved-into-the-cover` (`p1GuardTwoFixture`) | `a2.cover-last-known-base-only`: `got [[…],["queueId"]]` |
+| 11 disposal, definite first | closed | R15-01 `audit-a-definite-ending-during-disposal-is-parked-before-w-and-drops-the-head` | `1b.disposal-definite-w-first` and (now on target) `1b.disposal-definite-keeps-head`: `expected [["Ok",null],["No","Disposed"]], got [["No","Disposed"],["Ok",null]]` |
+| 12 lateness not transitive | closed by case; **the auditor's wrong runtime is vacuous** | `audit-a-call-started-in-a-late-turn-ends-current` (new `a1bTransFixture`) | `1b.r15-lateness-transitive` reads `w.late`, which `runTurn` clears before members run: it changes nothing. The lead's `a2.lateness-transitive` (same idea on `w.lateFill`): `expected ["B","B"], got ["B","root"]` |
+| 13 denied keeps its lane effect | closed | `audit-a-denied-late-unknown-keeps-its-hold-until-cancel-all` (`a1bDenyFixture`: LateQueue plus `cancelAll`) | `1b.r15-denied-late-releases-hold`: `expected [1,1,0], got [0,1,1]` |
+| 14 history re-entry | closed, with a harness fix | `audit-a-history-re-entry-makes-an-in-flight-calls-ending-late` (`a1bHistFixture`) | `1b.r14-history-reentry-keeps-activation`: red by (j) first, `charge att-1-1 started at X ...; rule 14 starts it late from root`. The oracle was wrong before: it took a re-entry for a kept activation (below) |
+| 15 retired lanes | closed (as the design reads: a retired record's lanes are **not** unbound) | `audit-a-retired-records-held-lane-is-not-unbound` | `1b.unbound-lists-retired`: `not listed: expected [], got [lane]`; `1b.unbound-reports-retired`: `expected [0,[]], got [1,[]]` |
+| 16 old-version, every policy | closed | P1-H `audit-under-latest-...`, `audit-under-cancel-...` (under `cancel` the hold lives only through the restored unknown's turn, so KeyStamp's `Unsure` commits key b there) | `1b.old-version-latest-cancel-send` and audit 1's `old-version-declines-under-reject-only`: `expected ["OldVersion",…,1], got ["","Restored",2]` |
+| off-target, aimed | closed | R15-01 `audit-a-late-exit-may-leave-another-operations-held-head` / `...-may-not-leave-another-operations-in-flight-head` (`a1bHeldFixture`); R15-02 `audit-a-reload-restores-held-lanes-in-creation-order` | `r15-held-head-is-live`, `r15-own-op-only`, `restore-lanes-newest-first`, each red on its case; `forget-gone-op-hold-silent` deleted from `mutants-audit-1.ts` |
+| excuse: `ctx.ts` wire wait | **rebuilt**: an open send is excused only by a request the fake holds open (its key, else one spare request of its op each) | suite | - |
+| excuse: `DisposeStart` (`checkEndings`, `checkMints`) | **rebuilt** on the suite's own `disposeRuntime` step (`Reads.disposeDrivenAt`, cleared by a kill); `lie.dispose-start` stands | suite | - |
+| excuse: like drain rows | **rebuilt**: after the drain a row uncertain or predicted is red, and `unconfirmed` only on a record the suite itself gave a write up on; new search kill `drain.uncertain-forever` | like search | `drain: r1 still uncertain after the drain on commit.a0.m1 cancel.a0 cancel.a0` |
+| excuse: like `Released` (S5, server backwards) | **rebuilt** on the suite's own `Cancel` sends (their actor's request keys and records) | like search | - |
+| excuse: drain stops after 24 | **rebuilt**: a drain that does not finish is red | like search | - |
+| excuse: chain (m) | **rebuilt** on the suite's own refusals, kills and disposals, or the fake's open work | chain search | - |
+| excuse: self-release cause | **rebuilt**: the suite's own guard wrap heard the ending's event run in the owner (its copy), and every alternative the walk could take from there cancels the op (compiled data); the four cases it carried stay green; new `lie.self-release-faked` | FRAG-10, REAL-03 x2, R15-01 | the auditor's lie: `R15-01/a-kill-inside-the-disposal-window...: (h) may be at the server, and no head on disk says so` |
+| excuse: forget step | **deleted** (no case used it) | - | - |
+| pins | **loosened**: `unconfirmed` as a set, without key fields; the give-up's read count (~410); `HoldForgotten` asserted as evidence beyond the identity's own dispose/forget; `TimedOut` as an unknown (PAY-06, PAY-16); chain's disk key by the codec | - | - |
+
+The harness change for item 14: the start-node oracle tracked an owner's activation only by the published leaf chain, so a re-entry (exit and enter in one
+step, the leaf unchanged) looked like a kept activation. The reference model now says which nodes a driven send re-enters (`reentries`: certain when the
+first handling node's first alternative has no guard or token; possible otherwise), applied at the send's own turn to owners minted before it: certain
+nodes end, possible ones make that owner's start unchecked (`unsure`). Stated limits: only the suite's root sends are read; a timer, an answer, a follow-up
+or a raised event that re-enters leaves the old reading (as before).
+
+Gates (final): `bun gates.ts --budget 290` **24/25 ok, 0 BAD**, lifetime-falsify unknown by budget (starved under the full load, no budget left for its
+alone rerun); rerun alone, `--only lifetime-falsify`: **ok, 261 pass**, 96 s (its row says 22 s: re-measure owed in `limits.ts`). Directly with
+`--parallel 6`: control 269 pass, every lifetime wrong runtime red, 56 s. Suite 970/970, lock clean (unlogged none, stale 0).
+
+Findings for the design (this batch):
+1. **Item 3 is unreachable under D3 as directed, and the design disagrees with itself.** Q5 rebases "only until sent". For a sent write to be rebased, an
+   earlier-minted write must succeed on the record while the sent one still stands; but a sent write heads the record queue ahead of anything sent later
+   (D3: the order sends began), and a sent hold keeps its place until resolved or released (D3's price, `a-sent-hold-still-stalls-...`). A restore puts
+   held heads back in lane-creation order, but both would have to be sent before the kill, which the queue forbids. So `audit-2.rebase-after-send` changes
+   no reachable run here. 2.8.5's example says the opposite of D3's price ("R settles unknown → the queue holds A until R's forced repair settles; then A
+   is sent"), and rule 30 says unknown "holds the record queue until that repair settles". Under that text item 3's case exists. The design should say
+   which: the queue released at the repair (2.8.5, rule 30) or the hold kept until resolved or released (D3 as directed).
+2. **Rule 15's lateness clause is enforced by the runtime's turn structure, not a check**: `runTurn` drops the late flag before any member runs, so a
+   call started in a late turn takes the turn's own owner. The auditor's wrong runtime cannot express the bug; the lead's can.
+3. **A quiet removal doubt shows nothing.** U10's quiet level is "`unconfirmed` on its fields"; a removal predicts no field, so after its read a
+   given-up delete reads clean (`unconfirmed: []`, not uncertain). The design should say what a quiet removal doubt shows.
+4. **Over-marking can only use what the store knows.** "Filter on the record's possible values" is read as: the base, a prediction, or a field in doubt
+   (a mark on it, `unconfirmed`, or the record in doubt). Another client's move into the cover during a gap is unknowable from the base; Q3's accepted
+   text keeps another queue's ticket untouched, so the gap's refetch is what finds it.
+5. **2.7.15 "under every policy" for `cancel`**: an old-version hold under `cancel` lasts only through its own restored unknown's turn (a `cancel`
+   unknown is held only for its own turn), so only that turn's handler can commit beside it. The rule holds there; the design could say so.
+6. **The version field still gets a cell at a gap** (only key fields are left out, per proposal 2.2); the design should say whether a version field is
+   `unconfirmed` after a gap.
+7. **The many bound reads the write's `targets`** (".one record or each many key"): the prototype has no separate `many` marker in `Compiled`.
+
+Process slips: one `typed/phase1e.ts` edit was made with a `python3` heredoc and one empty scratch file with `cat >`, against the Write/Edit rule; both
+read back (the edit is the intended one; the scratch file is empty and outside the repo).
+
+Sidecar log (Haiku, effort high; every finding verified by the lead):
+
+| Task | Who | Result | Why |
+| --- | --- | --- | --- |
+| review of the entities.ts runtime diff (rule 35, key fields, over-marking) | reviewer | changed | acted on: the `many` count lacked a shape check (now `Array.isArray`); `within.includes` in a filter (now a Set). Rejected: "no `primaryKey` still marks `id`" (the store cannot know a key it is not told; over-marking is the safe side); "check in `prepare`" (no prediction is applied on `ok: false`; the queue bound has the same order); "base-less records under-marked" (round 3 finding 6: a record with no row has nothing to doubt). Recorded: `keyed` is derived data, constant per entity; the targets closure runs twice for a guarded write |
+| review of the rule 14 re-entry oracle | reviewer | changed | acted on: `sentNow` went stale across `advance`/`reload`/`fault` steps and later batches, and an owner minted by the re-entering turn itself was wrongly ended: now applied once, at the send's own turn, to owners minted before it, with the leaf before that batch. Recorded: only root sends are read (timers, answers, follow-ups, raises, fragments leave the old reading); `unsure` is sticky |
+| review of the rebuilt excuses | reviewer | changed | acted on: the self-release cause ignored the attempt's copy (now the heard run must be in its copy); `drain.uncertain-forever`'s words matched the new step-limit message too (now `drain: r`). Verified, not acted on: `lie.self-release-faked` is red by (h) on its case (run). Recorded, not in this list: `checkMints` still excuses a minted Attempt by a runtime wait, `Superseded`/`AbandonedFiber` still close a send, `boot` still resets; a lie for the ctx and chain rebuilds is not added (they read the fake only) |

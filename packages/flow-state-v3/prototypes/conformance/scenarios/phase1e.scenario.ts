@@ -54,6 +54,8 @@ const Q2 = qTicketRef("t2");
 const asSet = (x: readonly string[] | undefined) => [...(x ?? [])].sort();
 const ALL_Q = ["note", "queueId", "revision", "title"];
 const GA = { actor: P1GuardId, id: "a" };
+const BK = { actor: P1BulkId, id: "a" };
+const bulkIds = (n: number, p: string) => Array.from({ length: n }, (_, k) => `${p}${k}`);
 const GT1 = gTicketRef("t1");
 const marks = (c: Ctx, ref: string) => [c.rec(ref)?.uncertain, asSet(c.rec(ref)?.unconfirmed)];
 const board = (c: Ctx) => {
@@ -881,25 +883,18 @@ export const phase1eScenarios: readonly Scenario[] = [
         lostThenGivenUp(c, "Move", { id: "t1", from: "q1", to: "q2" }, "move", "GiveUpMove");
         c.eq("nothing evicted", [c.r.evidence("UnsettledEvicted").length, marks(c, GT1), marks(c, gQueueRef("q1")), marks(c, gQueueRef("q2"))], [0, [false, ["queueId"]], [false, ["openCount"]], [false, ["openCount"]]]);
       },
-      // U10's cap at its value (entity-proposal-2: "4,096 per entity, oldest out") and rule 35's `many` bound ("a `many` key array past 4,096 items ...
-      // ends NotSent { why: "Overloaded" }, with no prediction and no queue join"). A bulk close of 4,096 is sent; given up, all 4,096 marks stay; one more
-      // given-up mark on the entity evicts one, named. 4,097 keys are declined before any join.
-      "audit-the-cap-and-the-many-bound-are-4096"(c0) {
-        const BK = { actor: P1BulkId, id: "a" };
-        const ids = (n: number, p: string) => Array.from({ length: n }, (_, k) => `${p}${k}`);
+      // Rule 35's `many` bound ("a `many` key array past 4,096 items ... ends NotSent { why: "Overloaded" }, with no prediction and no queue join") and
+      // U10's cap past 64 (entity-proposal-2: "4,096 per entity"): 4,097 keys are declined before any join; 65 given-up marks all stay. The cap at its
+      // exact value is P1-E-CAP (4,096 open repairs are too slow for every wrong runtime's run).
+      "audit-the-many-bound-is-4096-and-the-cap-is-past-64"(c0) {
         const c = new Ctx(c0.fresh([p1BulkFixture()]), BK);
         c.ensure(BK);
-        c.send("CloseAll", { ids: ids(4_097, "x") });
+        c.send("CloseAll", { ids: bulkIds(4_097, "x") });
         c.eq("4,097 keys: Overloaded, nothing sent or joined", [heard(c), c.lastEnding("closeAll")?.["reason"], c.reqs("closeAll").length, c.rec(itemRef("x0"))], [["No"], "Overloaded", 0, undefined]);
-        c.send("CloseAll", { ids: ids(4_096, "i") });
-        c.eq("4,096: sent", c.reqs("closeAll").length, 1);
+        c.send("CloseAll", { ids: bulkIds(65, "i") });
         c.answer("closeAll", { lost: true });
         c.send("GiveUpAll");
-        c.eq("4,096 given-up marks: none evicted", [c.r.evidence("UnsettledEvicted").length, c.rec(itemRef("i4095"))?.uncertain], [0, true]);
-        c.send("Close", { id: "extra" });
-        c.answer("closeOne", { lost: true });
-        c.send("GiveUp", { id: "extra" });
-        c.eq("one more: the oldest evicted, named", c.r.evidence("UnsettledEvicted").length, 1);
+        c.eq("65 given-up marks: none evicted", [c.r.evidence("UnsettledEvicted").length, c.rec(itemRef("i0"))?.uncertain], [0, true]);
       },
       // Q3 A's over-marking ("both defaults over-mark, and that is the safe direction"): t2's last-known row is in q2, but its given-up move to q1 may
       // have landed, so it may be in q1's cover. A gap marks it behind with the covered records.
@@ -917,6 +912,28 @@ export const phase1eScenarios: readonly Scenario[] = [
         c.do({ feed: "changes", frame: { _feed: "live" } });
         c.eq("t1 (in q1) and t2 (may be) behind: every field but the key", [asSet(c.rec(GT1)?.unconfirmed), asSet(c.rec(GT2)?.unconfirmed)], [["queueId", "revision", "status", "title"], ["queueId", "revision", "status", "title"]]);
       },
+    },
+  },
+  {
+    // Audit 2: U10's cap at its value (entity-proposal-2: "4,096 per entity, oldest out", named). Apart from P1-E, so lifetime-falsify's wrong runtimes
+    // do not each pay its 4,096 open repairs.
+    id: "P1-E-CAP",
+    kind: "bounded",
+    fixtures: [p1BulkFixture()],
+    actor: BK,
+    cites: ["rule:32", "rule:35"],
+    run(c0) {
+      const c = new Ctx(c0.fresh([p1BulkFixture()]), BK);
+      c.ensure(BK);
+      c.send("CloseAll", { ids: bulkIds(4_096, "i") });
+      c.eq("4,096 keys: sent", c.reqs("closeAll").length, 1);
+      c.answer("closeAll", { lost: true });
+      c.send("GiveUpAll");
+      c.eq("4,096 given-up marks: none evicted", [c.r.evidence("UnsettledEvicted").length, c.rec(itemRef("i4095"))?.uncertain], [0, true]);
+      c.send("Close", { id: "extra" });
+      c.answer("closeOne", { lost: true });
+      c.send("GiveUp", { id: "extra" });
+      c.eq("one more: the oldest evicted, named", c.r.evidence("UnsettledEvicted").length, 1);
     },
   },
 ];

@@ -8,7 +8,7 @@ type M = { readonly id: string; readonly kills: readonly string[]; readonly edit
 const E = "entities.ts";
 const P = "P1-E/";
 const OWN: readonly M[] = [
-  { id: "a2.many-unbounded", kills: [`${P}audit-the-cap-and-the-many-bound-are-4096`], edits: [[E, "    if (Array.isArray(keys) && keys.length > MANY_MAX) return { s, ok: false };\n", ""]] },
+  { id: "a2.many-unbounded", kills: [`${P}audit-the-many-bound-is-4096-and-the-cap-is-past-64`], edits: [[E, "    if (Array.isArray(keys) && keys.length > MANY_MAX) return { s, ok: false };\n", ""]] },
   { id: "a2.key-fields-marked", kills: [`${P}covers-a-gap-marks-only-the-covered-records`, `${P}audit-a-gap-marks-a-record-that-may-have-moved-into-the-cover`], edits: [[E, "Object.keys(r.base).filter((f) => !r.keyed?.includes(f))", "Object.keys(r.base)"]] },
   // The auditor's `1b.r15-lateness-transitive` reads `w.late`, which `runTurn` clears before any member runs, so it changes nothing (vacuous). This
   // one makes lateness transitive where it can: a call started in a late turn takes the late ending's owner.
@@ -32,7 +32,7 @@ const AIM: Readonly<Record<string, readonly string[]>> = {
   "audit-2.contradicted-on-resend": [`${P}audit-a-re-sent-success-over-a-known-stale-base-is-no-contradiction`],
   "audit-2.gone-refetch-ignored": [`${P}audit-a-gap-refetch-that-answers-the-gone-tag-removes-the-row`],
   "audit-2.cap-global": [`${P}audit-the-cap-counts-each-entity-apart`],
-  "audit-2.cap-is-64": [`${P}audit-the-cap-and-the-many-bound-are-4096`],
+  "audit-2.cap-is-64": [`${P}audit-the-many-bound-is-4096-and-the-cap-is-past-64`],
   "1b.disposal-definite-w-first": ["R15-01/audit-a-definite-ending-during-disposal-is-parked-before-w-and-drops-the-head"],
   "1b.disposal-definite-keeps-head": ["R15-01/audit-a-definite-ending-during-disposal-is-parked-before-w-and-drops-the-head"],
   "1b.r15-denied-late-releases-hold": ["R15-01/audit-a-denied-late-unknown-keeps-its-hold-until-cancel-all"],

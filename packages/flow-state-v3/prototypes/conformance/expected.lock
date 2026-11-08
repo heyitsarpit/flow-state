@@ -235,7 +235,8 @@ R15-01 46c2b7a42a1f
 R15-02 e633630fc03f
 R15-03 d6438a24faf6
 P1-H 004dbf1ee238
-P1-E ad436bc60522
+P1-E 54359ae6255c
+P1-E-CAP 42a31483d156
 variant:PAY-06/interruptible present
 variant:PAY-06/uninterruptible present
 variant:PAY-07/leaveMidCharge present
@@ -1116,7 +1117,7 @@ variant:P1-E/audit-a-feed-frame-does-not-demote-a-given-up-mark present
 variant:P1-E/audit-a-re-sent-success-over-a-known-stale-base-is-no-contradiction present
 variant:P1-E/audit-a-gap-refetch-that-answers-the-gone-tag-removes-the-row present
 variant:P1-E/audit-the-cap-counts-each-entity-apart present
-variant:P1-E/audit-the-cap-and-the-many-bound-are-4096 present
+variant:P1-E/audit-the-many-bound-is-4096-and-the-cap-is-past-64 present
 variant:P1-E/audit-a-gap-marks-a-record-that-may-have-moved-into-the-cover present
 file:scenarios/absorb.scenario.ts 9763d1722ca6
 file:scenarios/ctx.ts e2130c035569
@@ -1128,7 +1129,7 @@ file:scenarios/ignore.scenario.ts b644a7a50c1d
 file:scenarios/lifetime.scenario.ts c5e8d9eb9159
 file:scenarios/order.scenario.ts 20b00317218b
 file:scenarios/pay.scenario.ts ef1bc2e0c261
-file:scenarios/phase1e.scenario.ts e6f4835703eb
+file:scenarios/phase1e.scenario.ts 6274b1afdf2e
 file:scenarios/phase1h.scenario.ts 0884b26cad17
 file:scenarios/review.scenario.ts 4bdd7f0aba36
 file:scenarios/round10.scenario.ts 9a79cf927e08
@@ -1260,7 +1261,7 @@ file:report.ts 7e305fd3110b
 file:watch.ts 93b7fe49b6da
 file:gate5s.ts d8a24cbd10f4
 file:gate-5s-expected.txt 076d1f268376
-file:expected-recipients.txt da30887d9152
+file:expected-recipients.txt 13a85dc2fb7b
 file:mutate.ts 90691b4a787c
 file:mutate-one.ts a48188cfc0d7
 file:gates.ts e1f36b72d88b
@@ -1302,7 +1303,7 @@ round:reality/spin.ts aa245e389f65
 round:reality/task.ts 926e9597f22d
 round:edge-plants.py df98c1a965d0
 round:mutants-a1.ts aa25e7cd9fe0
-round:mutants-a2.ts c33b5f760391
+round:mutants-a2.ts be1620e5f131
 round:mutants-audit-1.ts a94dab75ab6b
 round:mutants-audit-1b.ts 62f99de2617c
 round:mutants-audit-2.ts 33edcaa1d34f
@@ -1512,6 +1513,7 @@ output:ORDER-04/a-legitimate-hour-of-polling 2d54905cf8c4
 output:ORDER-04/follow-up-chain f7d50216005a
 output:ORDER-04/subscriber-ping-pong 671cc2c1f4cd
 output:ORDER-05 35832e3cd91c
+output:P1-E-CAP 9816a0d3416f
 output:P1-E/a-business-key-success-ends-a-given-up-doubt 44e95313ddaf
 output:P1-E/a-delta-frame-changes-only-what-it-carries 998366eb3f97
 output:P1-E/a-delta-without-its-version-is-dropped-and-named ebc43605522d
@@ -1565,8 +1567,8 @@ output:P1-E/audit-a-two-record-write-waits-on-its-second-records-queue d6397f268
 output:P1-E/audit-an-unresolved-mark-stays-beside-a-business-key-success 82f0135facdf
 output:P1-E/audit-an-unresolved-mark-stays-beside-a-full-cap 0444964485a2
 output:P1-E/audit-another-writes-success-past-the-sent-base-ends-a-guarded-doubt 27adcaf33b02
-output:P1-E/audit-the-cap-and-the-many-bound-are-4096 2581e375db31
 output:P1-E/audit-the-cap-counts-each-entity-apart 80978de21f7d
+output:P1-E/audit-the-many-bound-is-4096-and-the-cap-is-past-64 aafecf9a0575
 output:P1-E/covers-a-gap-marks-only-the-covered-records 8df995360735
 output:P1-E/equality-is-the-field-schemas-equivalence 277a5958eca9
 output:P1-E/the-given-up-mark-cap-evicts-the-oldest b8de2a777f45

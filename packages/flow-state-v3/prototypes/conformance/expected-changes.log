@@ -2232,3 +2232,12 @@ output:R15-01/audit-a-late-exit-may-leave-another-operations-held-head hash:e22e
 output:R15-01/audit-a-late-exit-may-not-leave-another-operations-in-flight-head hash:3bad49a6d551 | new output: another op's InFlight head is live work
 output:R15-01/audit-a-retired-records-held-lane-is-not-unbound hash:3a2bcd17bcd0 | new output: a retired record's lane is not unbound
 output:R15-02/audit-a-reload-restores-held-lanes-in-creation-order hash:23ccaeeb4f63 | new output: restore per lane in creation order
+P1-E hash:54359ae6255c | Audit 2: the 4,096-mark cap moved to P1-E-CAP (each lifetime wrong runtime paid its 4,096 repairs); P1-E keeps the many bound and a cap past 64
+P1-E-CAP hash:42a31483d156 | Audit 2: new scenario, U10's cap at its exact value, outside the lifetime list
+file:scenarios/phase1e.scenario.ts hash:6274b1afdf2e | Audit 2: the bulk case split into a cheap P1-E variant and P1-E-CAP
+round:mutants-a2.ts hash:be1620e5f131 | Audit 2: the bulk wrong runtimes aimed at the cheap P1-E variant
+output:P1-E-CAP hash:9816a0d3416f | new output: the cap at 4,096
+output:P1-E/audit-the-many-bound-is-4096-and-the-cap-is-past-64 hash:aafecf9a0575 | new output: the many bound, and 65 given-up marks kept
+file:expected-recipients.txt hash:13a85dc2fb7b | Audit 2: the split bulk case adds one delivery and one start-node check; no red count moved
+removed:variant:P1-E/audit-the-cap-and-the-many-bound-are-4096 | split into P1-E/audit-the-many-bound-is-4096-and-the-cap-is-past-64 and P1-E-CAP
+removed:output:P1-E/audit-the-cap-and-the-many-bound-are-4096 | its case split, see the variant's line
