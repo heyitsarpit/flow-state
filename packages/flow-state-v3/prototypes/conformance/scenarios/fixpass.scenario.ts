@@ -2,6 +2,8 @@
 // 2.7.17 (Ready and hydration, its stated limits), Runtime O6, D6 (OD31).
 import { traitStoreFixture, traitWriteFixture } from "../typed/desk.ts";
 import { LifeId, lifeFixture } from "../typed/lifetime.ts";
+import { BareId } from "../typed/round7.ts";
+import { serialBareFixture } from "../typed/round8.ts";
 import { Ctx, type Scenario } from "./ctx.ts";
 import { GRACE } from "./lifetime.scenario.ts";
 
@@ -32,6 +34,7 @@ const heldThenReload = (c0: Ctx, waiting: boolean) => {
 const parkedInRecord = (c: Ctx) => c.r.quiet().waits.filter((w) => w.kind === "parked" && (w as { record?: boolean }).record === true).length;
 
 const X = { actor: LifeId, id: "a" };
+const SB = { actor: BareId, id: "a" };
 
 export const fixpassScenarios: readonly Scenario[] = [
   {
@@ -60,7 +63,7 @@ export const fixpassScenarios: readonly Scenario[] = [
     // the record first, what the boot queued waits raw on its lane, and the next incarnation hears each once.
     id: "R14-FIX-01",
     kind: "fault",
-    fixtures: [traitWriteFixture, traitStoreFixture("row")],
+    fixtures: [traitWriteFixture, traitStoreFixture("row"), serialBareFixture()],
     actor: TW,
     cites: ["rule:44", "C106", "OD:31"],
     variants: {
@@ -121,6 +124,21 @@ export const fixpassScenarios: readonly Scenario[] = [
         const before = heard().length;
         c.send("Back");
         c.eq("heard once, as the re-send's StorageRefused", [heard().length - before, c.lastEnding("put")?.reason], [1, "StorageRefused"]);
+      },
+      // Rule 15 and 1.6 ("a late ending never leaves live work"), ruled for the round 14 finish: a queued commit is live work. The queue search's
+      // walk: the head's late NotSent { Cancelled } routes from the root, and its `No: A` would exit W, whose newer queued commit it owns.
+      "a-late-ending-may-not-leave-a-queued-commit"(c0) {
+        const c = new Ctx(c0.fresh([serialBareFixture()]), SB);
+        c.ensure(SB);
+        c.send("Go");
+        c.send("Go");
+        c.send("Forget");
+        c.send("Go");
+        c.state("W");
+        c.ack();
+        c.eq("the late turn is denied", c.r.evidence("Denied").at(-1)?.["reasons"], ["LateMayNotLeave"]);
+        c.state("W");
+        c.eq("the queued commit still waits", c.r.quiet().waits.filter((w) => w.kind === "W" || w.kind === "ack").length > 0, true);
       },
       // M5 (fix pass): a record kept at ready is on disk as it is; its return is no change, so nothing is written for it (the outputs round 14
       // had changed: one more capture timer outstanding after each return).

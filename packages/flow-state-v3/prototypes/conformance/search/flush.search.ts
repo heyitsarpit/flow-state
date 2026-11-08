@@ -149,7 +149,7 @@ export const searchFlush = (
   const tightNames = /^(Go|Note|Set|NoteBad|Peek|Forget|failHeld|sayFailed|ack|FLUSH|KILL|lost|ok|Pay|pay\.ok|pay\.lost)/;
   const directedNames =
     directed === "capture" ? /^(Go|Note$|Note2$|ok|ack|tick|tickLong|HIDE|FLUSH|failNext|holdPlain|hang)$/
-    : directed === "queue" ? /^(Go|ok|lost|Retry|Forget|ack|landNoAck|KILL|refuseOk|refuseNo)$/
+    : directed === "queue" ? /^(Go|ok|lost|Retry|Forget|ack|landNoAck|KILL)$/
     : directed === "burst" ? /^(Burst|Go|ok|ack|refuse|refuseNo|refuseOk|KILL)$/
     : directed === "wipe" ? /^(Go|Note$|ok|lost|ack|KILL|WIPE|Ensure|Forget|FLUSH)$/
     : /^(Go|Note$|holdPlain|FLUSH|ack|KILL)$/;

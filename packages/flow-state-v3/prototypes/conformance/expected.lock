@@ -229,7 +229,7 @@ R14-IGN-02 50b73d4b7c10
 R14-IGN-03 4df0be904698
 R14-F-01 02fb76024a05
 R14-FIX-03 e5ab12a86da6
-R14-FIX-01 7ee3d98a732b
+R14-FIX-01 e632a52f56be
 R14-FIX-02 022e63be1f0b
 variant:PAY-06/interruptible present
 variant:PAY-06/uninterruptible present
@@ -977,11 +977,12 @@ variant:R14-F-01/a-none-a-adopts-as-save present
 variant:R14-FIX-01/a-held-record-at-ready-names-what-it-is-owed present
 variant:R14-FIX-01/a-dispose-of-a-record-at-ready-parks-what-the-boot-queued present
 variant:R14-FIX-01/a-refused-resend-parked-before-a-kill-is-heard-once-after present
+variant:R14-FIX-01/a-late-ending-may-not-leave-a-queued-commit present
 variant:R14-FIX-01/a-return-from-ready-writes-nothing present
 variant:R14-FIX-01/a-dispose-of-that-record-keeps-its-endings-on-the-lane present
 file:scenarios/absorb.scenario.ts 9763d1722ca6
 file:scenarios/ctx.ts fe3a8de04a97
-file:scenarios/fixpass.scenario.ts f1ab20b4cbaa
+file:scenarios/fixpass.scenario.ts 199875a54de7
 file:scenarios/flows.scenario.ts e329300beea5
 file:scenarios/frag.scenario.ts cd620a65814c
 file:scenarios/identity.scenario.ts 5e6519d8a2bd
@@ -1007,7 +1008,7 @@ file:search/chain.search.ts c5954f389840
 file:search/crash.search.ts c6677852d117
 file:search/cross.search.ts da5a1665f36b
 file:search/engine.ts f92dd6638d2f
-file:search/flush.search.ts 3f9969317a20
+file:search/flush.search.ts 9dbd588115d9
 file:search/frag.search.ts ed2babd50fc0
 file:search/fragstore.search.ts 1177d6786ffe
 file:search/like.search.ts 7bc26a053ade
@@ -1108,9 +1109,9 @@ file:report.ts 7e305fd3110b
 file:watch.ts 93b7fe49b6da
 file:gate5s.ts d8a24cbd10f4
 file:gate-5s-expected.txt 076d1f268376
-file:expected-recipients.txt f9c7c4c28fb5
+file:expected-recipients.txt b38aa01ad493
 file:mutate.ts 90691b4a787c
-file:mutate-one.ts 2411426a4649
+file:mutate-one.ts 3198b06af2fd
 file:gates.ts e1f36b72d88b
 file:harness.ts 85062d272130
 file:drive.ts 2c7ac49f7425
@@ -1149,7 +1150,7 @@ round:reality/spin-page.ts 02e65021c549
 round:reality/spin.ts aa245e389f65
 round:reality/task.ts 926e9597f22d
 round:edge-plants.py df98c1a965d0
-round:mutants-lifetime-misc.ts ed170eb7f510
+round:mutants-lifetime-misc.ts 8c56fb8532f7
 round:mutants-lifetime-pay16.ts e0fb4c6fe3a9
 round:mutants-lifetime-pins-a.ts f80d0db414ad
 round:mutants-lifetime-pins-b.ts a4bc37503bce
@@ -1462,6 +1463,7 @@ output:R14-F-01/present-it-is-placed-with-key 4ef445cbcc72
 output:R14-FIX-01/a-dispose-of-a-record-at-ready-parks-what-the-boot-queued b5b7f80d0dba
 output:R14-FIX-01/a-dispose-of-that-record-keeps-its-endings-on-the-lane 26598272b9cc
 output:R14-FIX-01/a-held-record-at-ready-names-what-it-is-owed 44c67355c431
+output:R14-FIX-01/a-late-ending-may-not-leave-a-queued-commit 40ffa2a6adb9
 output:R14-FIX-01/a-refused-resend-parked-before-a-kill-is-heard-once-after acf216daa8c7
 output:R14-FIX-01/a-return-from-ready-writes-nothing 73a7b71815da
 output:R14-FIX-02 ca1261f2c728

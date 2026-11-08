@@ -1561,3 +1561,10 @@ round:mutants-lifetime-pins-b.ts hash:a4bc37503bce | new: wrong runtimes for nin
 round:mutants-lifetime-misc.ts hash:ed170eb7f510 | new: wrong runtimes for FRAG-08, REV5-H5H6, LIFE-04, LIFE-24 variants and the refused re-send (2.7.11) of R14-FIX-01's new variant
 output:R14-FIX-01/a-refused-resend-parked-before-a-kill-is-heard-once-after hash:acf216daa8c7 | new output of the new variant (refused re-send parked before a kill, heard once after): recorded from the run after its assertions passed by hand from 2.7.11 and 2.7.13
 file:expected-recipients.txt hash:f9c7c4c28fb5 | +2 observed, +1 restored state checked, +2 start nodes: the new R14-FIX-01 refused-re-send variant alone (bisected: the suite without it prints the old line)
+R14-FIX-01 hash:e632a52f56be | new variant a-late-ending-may-not-leave-a-queued-commit: the queue search's walk; rule 15 ruled for the round 14 finish (a queued commit is live work, 1.6), so the late No is denied LateMayNotLeave
+file:scenarios/fixpass.scenario.ts hash:199875a54de7 | holds the rule 15 queued-commit variant of R14-FIX-01 (serialBareFixture added to its fixtures)
+output:R14-FIX-01/a-late-ending-may-not-leave-a-queued-commit hash:40ffa2a6adb9 | new output of the rule 15 variant, recorded after its assertions (denied LateMayNotLeave, still in W) passed as worked by hand
+file:search/flush.search.ts hash:9dbd588115d9 | queue alphabet drops refuseOk and refuseNo: an armed fault is not in the state hash, so their subtrees were pruned as seen states (same perDepth with or without them) and made the search vacuous
+file:mutate-one.ts hash:3198b06af2fd | queue pinned completed at depth 8, 4345 states [1,3,5,15,42,121,353,993,2812], budget 6000 (11.5 s alone), after the rule 15 fix; known-red note gone
+round:mutants-lifetime-misc.ts hash:8c56fb8532f7 | adds misc.late-leaves-queued: drops the queued-commit condition from leavesWork; red on the rule 15 variant
+file:expected-recipients.txt hash:b38aa01ad493 | +1 observed, +1 start node: the rule 15 variant's late ending (the only new case since the last line)

@@ -8,7 +8,7 @@ import { stated } from "./verdicts/state.ts";
 type Pin = { readonly depth: number; readonly maxStates: number; readonly verdict: string; readonly states: number | null; readonly perDepth: readonly number[] | null; readonly knownRed?: string };
 const SEARCHES: Readonly<Record<"store" | "queue" | "bare" | "directed" | "chain", Pin>> = {
   store: { depth: 12, maxStates: 12_000, verdict: "completed", states: 10862, perDepth: [1, 3, 7, 16, 31, 61, 131, 255, 469, 836, 1483, 2676, 4893] },
-  queue: { depth: 12, maxStates: 12_000, verdict: "completed", states: null, perDepth: null, knownRed: "round 14: (j) a late turn of charge att-1-1 left W pending (rule 15), to diagnose" },
+  queue: { depth: 8, maxStates: 6_000, verdict: "completed", states: 4345, perDepth: [1, 3, 5, 15, 42, 121, 353, 993, 2812] },
   bare: { depth: 12, maxStates: 3_000, verdict: "inconclusive", states: 3000, perDepth: [1, 7, 31, 131, 502, 1819] },
   directed: { depth: 11, maxStates: 8_000, verdict: "completed", states: 5969, perDepth: null },
   chain: { depth: 4, maxStates: 8_000, verdict: "completed", states: 6573, perDepth: [1, 10, 84, 711, 5767] },

@@ -202,6 +202,7 @@ const leavesWork = (w: Walk, inc: Inc, alt: Alternative) => {
   if (exits.some((n) => frag.nodes[n]!.subroutine)) return true;
   const it = w.item;
   return Object.values(w.tx.w.lanes).some((l) => {
+    if (l.actor === w.a.key && l.w.some((x) => x.owner.inc === inc.id && exits.includes(x.owner.node) && inc.activations[x.owner.node] === x.owner.activation)) return true;
     const h = l.head;
     return (
       h &&
