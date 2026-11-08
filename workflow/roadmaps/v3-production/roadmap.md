@@ -2,7 +2,7 @@
 
 Status: approved by the user on 2026-11-07, in the Claude Code session ("the roadmap is approved"), handing
 its execution to Claude as the agent runner.
-Version: 10, approved 2026-11-07, after amendment 9.
+Version: 11, approved 2026-11-07, after amendment 10.
 Shape confirmed: 2026-11-04, in the Claude Code session. The user gave points 1-10: plans first,
 conformance rewritten, the core, features, Next.js hardening, examples and docs.
 Goal: production code for Flow State v3 at high quality, with good error messages and the
@@ -237,7 +237,13 @@ computed once) and H2 (key versions told apart by field names only), so the prot
 suite ports from is right. Settle round 13's M5 (a cancel inside its own unknown handler) from its
 traces.
 Verified by: each area's suite slice, test first, audited against lies, with a review at each
-60-minute checkpoint and a final independent review.
+60-minute checkpoint and a final independent review. **Adversarial re-audit (amendment 10):** before an area is
+settled, its suite slice gets a four-angle audit (`policy-testing`) by an Opus auditor that did not build it, owning
+four Haiku sidecars (one per angle: harness bugs; false assumptions in fakes and cases; assumptions too narrow for a
+correct variation; missing requirements a wrong runtime passes). The auditor writes its own wrong runtimes and lies
+from the proposal and the design, never from the builder's code, and each must be caught by a named check; an
+uncaught one is a gap the builder closes, then the slice is re-audited. Applied also, once, to rounds 14, 15, 15b
+and area H's additions.
 Gates relied on: the suite, falsify, lies, the graph gate, the reference model. Fails on: a null,
 broken or lying runtime. Falsified by: `packages/flow-state-v3/prototypes/conformance/falsify.ts`,
 each part.
@@ -646,6 +652,11 @@ Numbered, oldest first (runner rule 4).
    changes, small stuff like the persist flag can be decided by you"): small public API changes move to "runner
    decides, then reviews"; large ones (a new concept, a change to how app code is structured, removing a feature,
    many call sites) stay blocking for the user. Version 10. Phases worked out again: none.
+10. 2026-11-08, judge the user ("we need to make sure that the test suite and conformance suites are re-audited once
+   more to make sure that these are not passing through incorrectly and that we are actually doing properly
+   adversarial testing against these proposals and prototypes"): phase 1 adds an adversarial four-angle re-audit per
+   area by an independent Opus auditor with four Haiku sidecars, writing its own wrong runtimes and lies from the
+   proposal and design; also once for rounds 14, 15, 15b and area H. Version 11. Phases worked out again: 1.
 
 ## Runner rules
 
