@@ -87,5 +87,8 @@ export const overview = (raw: Compiled) => {
         });
         lines.push(`${ev}  ${from} -> ${to}${what.length ? `; ${what.join("; ")}` : ""}`);
       }
+  // Q3 A: what each listen session covers, as the `eq` terms it compiled to.
+  for (const [op, cv] of Object.entries(c.domain?.covers ?? {}))
+    lines.push(`${op} covers ${cv.entity} where ${cv.where.map((t) => `${t.field} = ${"input" in t ? `input.${t.input}` : JSON.stringify(t.value)}`).join(" and ")}`);
   return lines;
 };

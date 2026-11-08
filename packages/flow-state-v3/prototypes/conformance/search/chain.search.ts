@@ -76,9 +76,10 @@ export const searchChain = (make: () => Harness, o: { depth: number; maxStates: 
         if (!said && !h.read.quiet().waits.some((w) => w.kind !== "timer")) throw new Oracle(`(m) a queue stopped at ${m.i} of ${m.n} with nothing to say why`);
       }
       const spunOnDisk = () => (h.read.stored().get("actor/Lab/Chain/a") as any)?.root?.memory?.spun;
-      const n = m?.spun ?? spunOnDisk();
+      // Audit 1: with the actor and its record both gone, the baseline is a fresh actor's (`spun` starts at 0), so a spin from nothing is one too.
+      const n = m?.spun ?? spunOnDisk() ?? 0;
       h.do({ advance: 60_000 });
       const after = (h.read.memory(A) as any)?.spun ?? spunOnDisk();
-      if (after !== undefined && n !== undefined && after !== n) throw new Oracle("(n) a stopped spin went on");
+      if (after !== undefined && after !== n) throw new Oracle(`(n) a stopped spin went on${m === undefined ? ", from nothing" : ""}`);
     },
   });

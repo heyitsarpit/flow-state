@@ -14,6 +14,7 @@ import { loopFixture } from "../../conformance/typed/round8.ts";
 import { bulkFixture } from "../../conformance/typed/round9.ts";
 import { formFixtures } from "../../conformance/typed/form.ts";
 import { typedPayFixture } from "../../conformance/typed/pay.ts";
+import { p1QueueCoversFixture } from "../../conformance/typed/phase1e.ts";
 import { check, type Finding } from "./check.ts";
 import { bigintKeyFixture, brokenFixture, dupSessionFixture, keylessFixture, noNotSentFixture, noOwnerFixture, unencodableNoNotSentFixture, readBadFixture, unknownEventFixture } from "./broken.ts";
 import { explain, explainText, overview } from "./explain.ts";
@@ -44,6 +45,7 @@ export const TARGETS: Readonly<Record<string, Fixture>> = {
   "unknown-event": unknownEventFixture,
   "bigint-key": bigintKeyFixture,
   "asks-forever": loopFixture,
+  "p1-queue": p1QueueCoversFixture(),
   queue: bulkFixture,
   ...formFixtures,
   // Round 13 (mid review M3): Attach with its upload fragment's `Stored` taken out of the fragment's declarations, so its op maps an undeclared event.

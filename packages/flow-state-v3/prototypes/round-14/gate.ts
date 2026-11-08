@@ -391,7 +391,9 @@ export type SealedDomain = Pick<DomainSpec, "writes"> & {
     >
   >;
   readonly reads: Readonly<Record<string, Slot<(value: any, input: any) => readonly Carried[]>>>;
+  readonly gone?: Readonly<Record<string, { readonly tag: string; readonly ref: Slot<(input: any) => string> }>>;
   readonly listens?: Readonly<Record<string, Slot<(value: any) => readonly Carried[]>>>;
+  readonly covers?: DomainSpec["covers"];
   readonly repair: Slot<DomainSpec["repair"]>;
   readonly version?: Slot<NonNullable<DomainSpec["version"]>>;
   readonly versionOrder?: "lexical" | Slot<(a: unknown, b: unknown) => number>;
@@ -407,6 +409,7 @@ const sealDomain = (id: string, d: DomainSpec): SealedDomain => {
       return { ...w, ...(w.confirms ? { confirms: asSlot(w.confirms, id, `domain.writes.${op}.confirms`) } : {}) };
     }),
     reads: tableK(d.reads, (op, f) => asSlot(f, id, `domain.reads.${op}`)),
+    ...(d.gone ? { gone: tableK(d.gone, (op, g) => ({ tag: g.tag, ref: asSlot(g.ref, id, `domain.gone.${op}`) })) } : {}),
     ...(d.listens ? { listens: tableK(d.listens, (op, f) => asSlot(f, id, `domain.listens.${op}`)) } : {}),
     repair: asSlot(d.repair, id, "domain.repair"),
     ...(d.version ? { version: asSlot(d.version, id, "domain.version") } : {}),

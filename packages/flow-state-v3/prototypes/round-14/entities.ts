@@ -61,6 +61,7 @@ type Early = {
   readonly since: number;
   readonly fields: Readonly<Record<string, unknown>>;
   readonly version?: Ver;
+  readonly whole?: true; // Q4 A: a whole row is among them, so what they omit is absent
 };
 type Rec = {
   readonly base?: Readonly<Record<string, unknown>>;
@@ -74,6 +75,7 @@ type Rec = {
   readonly gone?: true; // absence is evidence: a row at this version is from before it (H2)
   readonly claim?: Claim;
   readonly early?: Early;
+  readonly behind?: number; // Q3 A: a covering session's unproven registration at this position; `unconfirmed` until a read asked after it lands
 };
 type Repair = {
   readonly gen: string;
@@ -88,6 +90,7 @@ export type Slice = {
   // T7, thin: answers landed, so a gap can re-read what was read before it. No cache here: it reruns the read's own commit.
   readonly answers: Readonly<Record<string, Answered>>;
   readonly earlyOrder: readonly string[]; // D76: refs with a stub, oldest first. Bounded
+  readonly delivered: Readonly<Record<string, readonly string[]>>; // Q3 A's default: per live session, the records it has itself delivered
 };
 type Answered = {
   readonly machine: string;
@@ -98,7 +101,7 @@ type Answered = {
 const NONE: Rec = { unconfirmed: [], marks: [], queue: [], landedAt: 0 };
 const EARLY_BOUND = 1024;
 // D65: `ref` comes from a closure: "constructor" is a name like any other.
-const empty: Slice = { records: {}, entries: {}, repairs: {}, answers: {}, earlyOrder: [] };
+const empty: Slice = { records: {}, entries: {}, repairs: {}, answers: {}, earlyOrder: [], delivered: {} };
 const recOf = (s: Slice, ref: string): Rec => own(s.records, ref) ?? NONE;
 const withRec = (s: Slice, ref: string, f: (r: Rec) => Rec): Slice => ({
   ...s,
@@ -148,7 +151,8 @@ export const readRecord = (s: Slice, ref: string) => {
   }
   const uncertain = r.marks.some((m) => !m.quiet) || r.doubt !== undefined;
   const quiet = r.marks.filter((m) => m.quiet).flatMap((m) => m.fields);
-  const unconfirmed = quiet.length ? [...new Set([...r.unconfirmed, ...quiet])] : r.unconfirmed;
+  const gapped = r.behind !== undefined && r.base ? Object.keys(r.base) : [];
+  const unconfirmed = quiet.length || gapped.length ? [...new Set([...r.unconfirmed, ...quiet, ...gapped])] : r.unconfirmed;
   if (r.base === undefined && !predicted && !uncertain && r.queue.length === 0) return undefined;
   return { data, predicted, uncertain, unconfirmed };
 };
@@ -337,6 +341,10 @@ const withoutDoubtIf = (r: Rec, ev: Evidence): Rec => {
   const { doubt: _d, ...rest } = r;
   return rest;
 };
+const caughtUp = (r: Rec): Rec => {
+  const { behind: _b, ...rest } = r;
+  return rest;
+};
 const withoutClaim = (r: Rec): Rec => {
   const { claim: _c, ...rest } = r;
   return rest;
@@ -424,10 +432,9 @@ const take = (
 const admit = (s0: Slice, ev: Evidence, machine: string, cx: Cx): { s: Slice; v: Verb } => {
   const ref = ev.carried.ref;
   const asked = ev.start;
-  const s =
-    (ev.kind === "read" || ev.kind === "repair") && asked !== undefined && recOf(s0, ref).marks.length
-      ? withRec(s0, ref, (x) => demote(x, (m) => m.given! <= asked))
-      : s0;
+  const asking = (ev.kind === "read" || ev.kind === "repair") && asked !== undefined;
+  const s1 = asking && recOf(s0, ref).marks.length ? withRec(s0, ref, (x) => demote(x, (m) => m.given! <= asked)) : s0;
+  const s = asking && recOf(s1, ref).behind !== undefined && asked >= recOf(s1, ref).behind! ? withRec(s1, ref, caughtUp) : s1;
   const r = recOf(s, ref);
   const order = compareVersions(ev.version, r.version, domainOf(cx, machine)?.versionOrder, cx);
   const p = place(r, ev, order);
@@ -448,7 +455,7 @@ const admit = (s0: Slice, ev: Evidence, machine: string, cx: Cx): { s: Slice; v:
     const over = { ...r.claim?.values };
     const taken = take(r, ev, at);
     next = { ...taken, base: { ...taken.base, ...over } };
-  } else next = take(r, ev, at, v === "replace" ? "replace" : "merge", heldBack);
+  } else next = take(r, ev, at, v === "replace" || (v === "apply" && ev.carried.evidence === "whole") ? "replace" : "merge", heldBack);
   next = withoutDoubtIf(next, ev);
   if (placed) next = withoutClaim(next);
   const out = withRec(s, ref, () => next);
@@ -466,7 +473,7 @@ const foldEarly = (s: Slice, ev: Evidence, ref: string, machine: string, cx: Cx)
     earlyOrder: s.earlyOrder.filter((x) => x !== ref),
   };
   if (ev.start !== undefined && ev.start > e.since) return out; // the read started after it
-  const c: Carried = { ref, fields: e.fields };
+  const c: Carried = { ref, fields: e.fields, ...(e.whole ? { evidence: "whole" as const } : {}) };
   const replay = evidenceOf("early", c, undefined, machine, cx);
   return admit(out, replay, machine, cx).s;
 };
@@ -479,8 +486,9 @@ const keepEarly = (s: Slice, c: Carried, ev: Evidence, machine: string, cx: Cx):
     ...r,
     early: {
       since: old?.since ?? cx.pos(),
-      fields: { ...old?.fields, ...c.fields },
+      fields: c.evidence === "whole" ? { ...c.fields } : { ...old?.fields, ...c.fields },
       ...(ev.version === undefined ? {} : { version: ev.version }),
+      ...(c.evidence === "whole" || old?.whole ? { whole: true as const } : {}),
     },
   }));
   if (old) return out;
@@ -677,6 +685,19 @@ const onAnswered = (s: Slice, a: ReadAnswer, cx: Cx): Slice => {
     out = admit(out, evidenceOf("read", c, a.pos, a.machine, cx), a.machine, cx).s;
   return out;
 };
+// Q2 A: a read's `.gone(tag)`: that failure is a tombstone for the read's key, judged at the read's position like any answer. The machine
+// still hears the failure; the core routes it as before.
+const onFailed = (s: Slice, f: Extract<Told, { k: "failed" }>, cx: Cx): Slice => {
+  const g = domainOf(cx, f.machine)?.gone?.[f.op];
+  if (!g || g.tag !== f.tag) return s;
+  const ref = cx.user(g.ref, [f.input], () => undefined as unknown as string);
+  if (typeof ref !== "string") {
+    if (ref !== undefined) cx.issue("UserClosure", { where: `domain.gone.${f.op}`, why: "a key of no shape" });
+    return s;
+  }
+  cx.visible();
+  return admit(s, evidenceOf("read", { ref, removed: true }, f.pos, f.machine, cx), f.machine, cx).s;
+};
 type Reread = {
   readonly k: "reread";
   readonly machine: string;
@@ -685,6 +706,7 @@ type Reread = {
   readonly pos: number;
   readonly ok: boolean;
   readonly value?: unknown;
+  readonly tag?: string; // a failure's own tag, so a refetch's `.gone` answer is one too
 };
 type RepairAnswer = {
   readonly k: "repair";
@@ -732,8 +754,17 @@ const onPushed = (s: Slice, p: Extract<Told, { k: "pushed" }>, cx: Cx): Slice =>
   const raw = cx.user(fn, [p.value], () => []);
   let out = s;
   cx.visible();
+  const tracks = domainOf(cx, p.machine)?.covers?.[p.op] === undefined;
+  const had = out.delivered[p.session] ?? [];
+  const mine = new Set(had);
   for (const c of carriedOf(raw, cx, `domain.${p.op}.listen`)) {
     const ev = evidenceOf("frame", c, undefined, p.machine, cx);
+    // Q4 A: a delta is ordered by its version or it is nothing; the type refuses one without, so this is a value from outside.
+    if (c.evidence === "partial" && ev.version === undefined) {
+      cx.issue("UserClosure", { where: `domain.${p.op}.listen`, why: "a delta without its version" });
+      continue;
+    }
+    mine.add(c.ref);
     const held = recOf(out, c.ref);
     if (!c.removed && held.base === undefined && !held.gone && !held.claim) {
       cx.note("NotHeld", { ref: c.ref });
@@ -742,10 +773,35 @@ const onPushed = (s: Slice, p: Extract<Told, { k: "pushed" }>, cx: Cx): Slice =>
     }
     out = admit(out, ev, p.machine, cx).s;
   }
-  return out;
+  return tracks && mine.size > had.length ? { ...out, delivered: { ...out.delivered, [p.session]: [...mine] } } : out;
 };
-// T7: a gap starts a refetch of each answer read earlier. One at a time per answer: its generation fences a slow one.
-const onGap = (s: Slice, g: { machine: string }, cx: Cx): Slice => {
+// Q3 A: what a session covers. `.covers` is a conjunction of `eq` terms, each a record field against an input field or a value; absent, the
+// records this session has itself delivered. A record with no row has nothing to cover.
+const coveredBy = (s: Slice, g: Extract<Told, { k: "gap" }>, cx: Cx): readonly string[] => {
+  const c = domainOf(cx, g.machine)?.covers?.[g.op];
+  if (!c) return s.delivered[g.session] ?? [];
+  const input = (g.input ?? {}) as Readonly<Record<string, unknown>>;
+  const eq = fieldEq(domainOf(cx, g.machine));
+  return Object.entries(s.records)
+    .filter(([ref, r]) => ref.startsWith(`${c.entity}|`) && r.base !== undefined && c.where.every((t) => eq(t.field, r.base![t.field], "input" in t ? input[t.input] : t.value)))
+    .map(([ref]) => ref);
+};
+// T7: a gap starts a refetch of each answer read earlier. One at a time per answer: its generation fences a slow one. Q3 A: an unproven
+// registration marks what the session covers as behind, until a read asked after it lands; a session that ends forgets what it delivered.
+const onGap = (s0: Slice, g: Extract<Told, { k: "gap" }>, cx: Cx): Slice => {
+  let s = s0;
+  if (g.why === "unproven") {
+    const refs = coveredBy(s, g, cx);
+    if (refs.length) {
+      const at = cx.pos();
+      for (const ref of refs) s = withRec(s, ref, (r) => ({ ...r, behind: at }));
+      cx.visible();
+    }
+  }
+  if (g.why === "ended" && s.delivered[g.session]) {
+    const { [g.session]: _gone, ...delivered } = s.delivered;
+    s = { ...s, delivered };
+  }
   if (!cx.live) return s;
   const at = cx.pos();
   for (const a of Object.values(s.answers)) {
@@ -760,6 +816,18 @@ const onGap = (s: Slice, g: { machine: string }, cx: Cx): Slice => {
     });
   }
   return s;
+};
+const isVer = (v: unknown): v is Ver => (typeof v === "number" && Number.isFinite(v)) || typeof v === "string";
+const savedOf = (saved: unknown): { refs: readonly string[]; basedOn: Readonly<Record<string, Ver>>; fine: boolean } => {
+  const strings = (v: unknown) => (Array.isArray(v) ? [...new Set(v.filter((x): x is string => typeof x === "string"))] : []);
+  if (saved === undefined) return { refs: [], basedOn: {}, fine: true };
+  if (Array.isArray(saved)) return { refs: strings(saved), basedOn: {}, fine: strings(saved).length === saved.length };
+  const o = saved as { refs?: unknown; basedOn?: unknown };
+  const refs = strings(o?.refs);
+  const raw = typeof o?.basedOn === "object" && o.basedOn !== null && !Array.isArray(o.basedOn) ? (o.basedOn as Record<string, unknown>) : {};
+  const basedOn = Object.fromEntries(Object.entries(raw).filter((kv): kv is [string, Ver] => refs.includes(kv[0]) && isVer(kv[1])));
+  const fine = Array.isArray(o?.refs) && refs.length === (o.refs as unknown[]).length && Object.keys(basedOn).length === Object.keys(raw).length;
+  return { refs, basedOn, fine };
 };
 export const entities: Module<Slice> = {
   id: "entities",
@@ -838,16 +906,18 @@ export const entities: Module<Slice> = {
     if (e.unknown) for (const ref of e.refs) if (own(s.repairs, ref)) return { on: "repair", ref };
     return false;
   },
-  save: (s, attempt) => s.entries[attempt]?.refs,
+  // The lane record carries what a restored re-send needs: the records, and the `basedOn` each was sent over (a precondition re-sent).
+  save: (s, attempt) => {
+    const e = s.entries[attempt];
+    if (!e) return undefined;
+    const basedOn = Object.fromEntries(Object.entries(e.basedOn).filter(([, v]) => v !== undefined));
+    return Object.keys(basedOn).length ? { refs: e.refs, basedOn } : e.refs;
+  },
   restored(s, w, cx) {
     // D57: what is on disk is a value from outside. This module's own to check.
-    const saved = w.saved;
-    if (saved !== undefined && !(Array.isArray(saved) && saved.every((x) => typeof x === "string")))
-      cx.issue("UserClosure", { where: "a saved entry", why: "a value of no shape" });
-    const refs: readonly string[] = Array.isArray(saved)
-      ? saved.filter((x): x is string => typeof x === "string")
-      : [];
-    const e: Entry = { ...w, refs, predicted: [], unknown: true, released: false, joined: true, sent: true, basedOn: {} };
+    const { refs, basedOn, fine } = savedOf(w.saved);
+    if (!fine) cx.issue("UserClosure", { where: "a saved entry", why: "a value of no shape" });
+    const e: Entry = { ...w, refs, predicted: [], unknown: true, released: false, joined: true, sent: true, basedOn };
     let out: Slice = { ...s, entries: { ...s.entries, [w.attempt]: e } };
     for (const ref of refs) {
       out = withRec(out, ref, (r) => ({
@@ -861,6 +931,7 @@ export const entities: Module<Slice> = {
   },
   told(s, fact: Told, cx) {
     if (fact.k === "answered") return onAnswered(s, fact, cx);
+    if (fact.k === "failed") return onFailed(s, fact, cx);
     if (fact.k === "pushed") return onPushed(s, fact, cx);
     if (fact.k === "gap") return onGap(s, fact, cx);
     return s;
@@ -882,7 +953,9 @@ export const entities: Module<Slice> = {
             },
             cx,
           )
-        : s;
+        : p.tag === undefined
+          ? s
+          : onFailed(s, { k: "failed", machine: p.machine, op: p.op, input: p.input, tag: p.tag, pos: p.pos }, cx);
     return s;
   },
   read: readRecord,
@@ -925,6 +998,7 @@ export const entities: Module<Slice> = {
           pos: c.pos,
           ok: exit.t === "ok",
           ...(exit.t === "ok" ? { value: exit.value } : {}),
+          ...(exit.t === "failure" && typeof (exit.reason as { _tag?: unknown })?._tag === "string" ? { tag: (exit.reason as { _tag: string })._tag } : {}),
         } satisfies Reread),
       );
     }

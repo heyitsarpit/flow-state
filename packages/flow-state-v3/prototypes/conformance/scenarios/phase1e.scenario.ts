@@ -1,6 +1,20 @@
 // Phase 1, area E: the entity store, and the runner's two items from area H. Every expectation is the design's or the proposal's text
 // (round-9/entity-proposal-2.md), or a ruling, worked out by hand before the runtime was changed; each variant names its rule.
-import { P1ProfileId, p1ProfileFixture, p1ProfileRef, P1StopId, p1StopFixture, P1TicketId, p1TicketFixture, p1TicketRef } from "../typed/phase1e.ts";
+import {
+  p1PersistedTicketFixture,
+  P1ProfileId,
+  p1ProfileFixture,
+  p1ProfileRef,
+  p1QueueCoversFixture,
+  p1QueueFixture,
+  P1QueueId,
+  P1StopId,
+  p1StopFixture,
+  P1TicketId,
+  p1TicketFixture,
+  p1TicketRef,
+  qTicketRef,
+} from "../typed/phase1e.ts";
 import { issueRef, issuesFixture } from "../typed/issues.ts";
 import { s1Fixture, s1Ref } from "../typed/stores.ts";
 import { Ctx, type Scenario } from "./ctx.ts";
@@ -19,6 +33,11 @@ const a0 = { actor: "S1", id: "a0" };
 const a1 = { actor: "S1", id: "a1" };
 const s1Commit = (c: Ctx, a: typeof a0, mask: number, v: number) => c.to(a, "Commit", { actor: a.id, mask, v });
 const heard = (c: Ctx) => c.r.evidence("delivered").map((d) => d["event"]);
+const QA = { actor: P1QueueId, id: "a" };
+const Q1 = qTicketRef("t1");
+const Q2 = qTicketRef("t2");
+const ALL_Q = ["id", "queueId", "title", "revision", "note"];
+const PGRST116 = { data: null, error: { message: "JSON object requested, multiple (or no) rows returned", code: "PGRST116", details: "The result contains 0 rows", hint: null }, count: null, status: 406, statusText: "Not Acceptable" };
 
 export const phase1eScenarios: readonly Scenario[] = [
   {
@@ -297,6 +316,155 @@ export const phase1eScenarios: readonly Scenario[] = [
           c.answer("repair", { truth: true });
         }
         c.eq("i1's evicted, i2's kept", [c.r.evidence("UnsettledEvicted").map((e) => e["ref"]), c.rec(issueRef("i1"))?.unconfirmed, c.rec(issueRef("i2"))?.unconfirmed], [[issueRef("i1")], [], ["liked", "likes"]]);
+      },
+      // Q2 A: `.gone("TicketNotFound")` on a read. PostgREST's `.single()` answers a deleted row with PGRST116 (406); the adapter fails with the tag.
+      // The row is removed (a tombstone at the read's position) and the machine still hears the failure.
+      "a-postgrest-single-not-found-removes-the-row"(c0) {
+        const c = new Ctx(c0.fresh([p1TicketFixture()]), TK);
+        c.ensure(TK);
+        c.send("Load");
+        c.answer("tickets", { truth: true });
+        c.fault({ mutateServer: () => ({ tickets: {} }) });
+        c.send("Single", { id: "t1" });
+        c.answer("single", { truth: true });
+        c.eq("removed, and heard", [c.rec(T1), heard(c)], [undefined, ["Listed", "NotFound"]]);
+      },
+      "a-rest-404-removes-the-row"(c0) {
+        const c = new Ctx(c0.fresh([p1TicketFixture()]), TK);
+        c.ensure(TK);
+        c.send("Load");
+        c.answer("tickets", { truth: true });
+        c.fault({ mutateServer: () => ({ tickets: {} }) });
+        c.send("Rest", { id: "t1" });
+        c.answer("rest", { truth: true });
+        c.eq("removed, and heard", [c.rec(T1), heard(c)], [undefined, ["Listed", "NotFound"]]);
+      },
+      // Q2 A: only the named tag is "no such record". Another failure of the same read leaves the row.
+      "another-failure-of-a-gone-read-leaves-the-row"(c0) {
+        const c = new Ctx(c0.fresh([p1TicketFixture()]), TK);
+        c.ensure(TK);
+        c.send("Load");
+        c.answer("tickets", { truth: true });
+        c.send("Single", { id: "t1" });
+        c.answer("single", { ok: { data: null, error: { message: "permission denied", code: "42501", details: null, hint: null }, count: null, status: 403, statusText: "Forbidden" } });
+        c.eq("kept, and the failure heard", [c.rec(T1)?.data.title, heard(c)], ["Old", ["Listed", "ReadFailed"]]);
+      },
+      // Q2 A, "at the read's position": the read was asked before our save landed revision 2. Its not-found cannot be ordered after that row (it has
+      // no version), so it decides nothing: the row stays, the record is in doubt and one repair is asked (2.2's judge, a removal as any answer).
+      "a-gone-answer-asked-before-a-newer-row-landed-is-judged-at-its-position"(c0) {
+        const c = new Ctx(c0.fresh([p1TicketFixture()]), TK);
+        c.ensure(TK);
+        c.send("Load");
+        c.answer("tickets", { truth: true });
+        c.send("Single", { id: "t1" });
+        c.send("Save", { id: "t1", title: "New" });
+        c.answer("save", { apply: true });
+        c.answer("single", { ok: PGRST116 });
+        c.eq("kept, in doubt, repaired", [c.rec(T1)?.data.title, c.rec(T1)?.uncertain, c.reqs("repair").length], ["New", true, 1]);
+      },
+      // Q3 A: `.covers(({ input, record }) => eq(record.queueId, input.queueId))`. Supabase's registration proves nothing, so the first one is a gap:
+      // what was read before it and is in queue q1 is `unconfirmed` until a read asked after lands; q2's ticket is untouched.
+      "covers-a-gap-marks-only-the-covered-records"(c0) {
+        const c = new Ctx(c0.fresh([p1QueueCoversFixture()]), QA);
+        c.ensure(QA);
+        c.send("Load");
+        c.answer("tickets", { truth: true });
+        c.do({ feed: "changes", frame: { _feed: "live" } });
+        c.eq("q1's ticket is behind, q2's untouched", [c.rec(Q1)?.unconfirmed, c.rec(Q2)?.unconfirmed], [ALL_Q, []]);
+        c.eq("one refetch asked", c.reqs("tickets").length, 2);
+        c.answer("tickets", { truth: true });
+        c.eq("the refetch, asked after the gap, clears it", c.rec(Q1)?.unconfirmed, []);
+      },
+      // Q3 A's default with no `.covers`: a session covers what it has itself delivered. It delivered t1, never t2; after a flap only t1 is behind.
+      "with-no-covers-a-gap-marks-what-the-session-delivered"(c0) {
+        const c = new Ctx(c0.fresh([p1QueueFixture()]), QA);
+        c.ensure(QA);
+        c.send("Load");
+        c.answer("tickets", { truth: true });
+        c.do({ feed: "changes", frame: { _feed: "live" } });
+        c.eq("the first registration: nothing delivered yet, nothing behind", [c.rec(Q1)?.unconfirmed, c.rec(Q2)?.unconfirmed], [[], []]);
+        c.answer("tickets", { truth: true });
+        c.fault({ mutateServer: (s: any) => ({ tickets: { ...s.tickets, t1: { ...s.tickets.t1, title: "A2", revision: 2 } } }) });
+        c.do({ feed: "changes", frame: { eventType: "UPDATE", columns: "changed", new: { id: "t1", title: "A2", revision: 2 } } });
+        c.do({ feed: "changes", fail: { _tag: "SocketDropped" } });
+        c.advance(1_000);
+        c.do({ feed: "changes", frame: { _feed: "live" } });
+        c.eq("t1 is behind, t2 untouched", [c.rec(Q1)?.unconfirmed, c.rec(Q2)?.unconfirmed], [ALL_Q, []]);
+      },
+      // Q3 A: only a read asked after the gap clears it. A read asked before, landing after, does not.
+      "a-read-asked-before-the-gap-does-not-clear-it"(c0) {
+        const c = new Ctx(c0.fresh([p1QueueCoversFixture()]), QA);
+        c.ensure(QA);
+        c.send("Load");
+        c.answer("tickets", { truth: true });
+        c.send("Load");
+        c.do({ feed: "changes", frame: { _feed: "live" } });
+        c.answer("tickets", { truth: true });
+        c.eq("asked before: still behind", c.rec(Q1)?.unconfirmed, ALL_Q);
+        c.answer("tickets", { truth: true });
+        c.eq("the refetch clears it", c.rec(Q1)?.unconfirmed, []);
+      },
+      // Q4 A: `Ticket.row(e.new)`, a whole row. What it omits is absent, not unknown: the note the read held is gone.
+      "a-row-frame-replaces-the-row-what-it-omits-is-absent"(c0) {
+        const c = new Ctx(c0.fresh([p1QueueFixture()]), QA);
+        c.ensure(QA);
+        c.send("Load");
+        c.answer("tickets", { truth: true });
+        c.do({ feed: "changes", frame: { _feed: "live", proof: "resumed" } });
+        c.do({ feed: "changes", frame: { eventType: "UPDATE", columns: "all", new: { id: "t1", queueId: "q1", title: "A2", revision: 2 } } });
+        c.eq("the whole row, and no note", c.rec(Q1)?.data, { id: "t1", queueId: "q1", title: "A2", revision: 2 });
+      },
+      // Q4 A with D76: a whole row that arrives before any read holds the record waits, and is placed over the read that started earlier. It is
+      // still whole: the read's note, which the row omits, is absent.
+      "an-early-whole-row-is-still-whole-when-placed-over-a-read"(c0) {
+        const c = new Ctx(c0.fresh([p1QueueFixture()]), QA);
+        c.ensure(QA);
+        c.send("Load");
+        c.do({ feed: "changes", frame: { _feed: "live", proof: "resumed" } });
+        c.do({ feed: "changes", frame: { eventType: "UPDATE", columns: "all", new: { id: "t1", queueId: "q1", title: "A2", revision: 2 } } });
+        c.answer("tickets", { truth: true });
+        c.eq("the row, placed by its revision, and no note", c.rec(Q1)?.data, { id: "t1", queueId: "q1", title: "A2", revision: 2 });
+      },
+      // Q4 A: `Ticket.delta(key, e.new)`, ordered by its revision. It speaks only to what it carries: the note stays.
+      "a-delta-frame-changes-only-what-it-carries"(c0) {
+        const c = new Ctx(c0.fresh([p1QueueFixture()]), QA);
+        c.ensure(QA);
+        c.send("Load");
+        c.answer("tickets", { truth: true });
+        c.do({ feed: "changes", frame: { _feed: "live", proof: "resumed" } });
+        c.do({ feed: "changes", frame: { eventType: "UPDATE", columns: "changed", new: { id: "t1", title: "A2", revision: 2 } } });
+        c.eq("title and revision moved, the note kept", c.rec(Q1)?.data, { id: "t1", queueId: "q1", title: "A2", revision: 2, note: "n" });
+        c.do({ feed: "changes", frame: { eventType: "UPDATE", columns: "changed", new: { id: "t1", title: "A1", revision: 1 } } });
+        c.eq("an older delta is placed by its revision: dropped", c.rec(Q1)?.data.title, "A2");
+      },
+      // Q4 A: a delta must carry the version; the type refuses one without. One that arrives anyway (a value from outside) is dropped and named.
+      "a-delta-without-its-version-is-dropped-and-named"(c0) {
+        const c = new Ctx(c0.fresh([p1QueueFixture()]), QA);
+        c.namedIssues = ["UserClosure"];
+        c.ensure(QA);
+        c.send("Load");
+        c.answer("tickets", { truth: true });
+        c.do({ feed: "changes", frame: { _feed: "live", proof: "resumed" } });
+        c.do({ feed: "changes", frame: { eventType: "UPDATE", columns: "changed", new: { id: "t1", title: "A2" } } });
+        c.eq("dropped, named", [c.rec(Q1)?.data.title, c.r.issues().filter((i) => i.code === "UserClosure").length], ["A", 1]);
+      },
+      // Round 2's finding 2: the lane record saves `basedOn`, so a re-send restored after a reload carries the precondition it was first sent with.
+      // Without it a PostgREST re-send has no revision filter to match, and the save fails as a conflict.
+      "a-restored-re-send-carries-its-based-on"(c0) {
+        const c = new Ctx(c0.fresh([p1PersistedTicketFixture()]), TK);
+        c.ensure(TK);
+        c.send("Load");
+        c.answer("tickets", { truth: true });
+        c.send("Save", { id: "t1", title: "New" });
+        c.ack();
+        c.answer("save", { lost: true });
+        c.reload();
+        c.send("Retry", { id: "t1" });
+        c.ack();
+        c.answer("repair", { truth: true });
+        c.eq("re-sent over revision 1", c.reqs("save").map((r) => r.input.match.revision), [1, 1]);
+        c.answer("save", { apply: true });
+        c.eq("saved", [c.r.truth().server.tickets.t1.title, heard(c).at(-1)], ["New", "Saved"]);
       },
     },
   },

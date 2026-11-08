@@ -117,7 +117,7 @@ const onSent = (tx: Tx, i: Extract<Input, { k: "sent" }>) => {
         pos: r.pos,
       });
       if (tx.issues.slice(before).some((x) => x.code === "UserClosure")) e = { ch: "failure", tag: "Defect", value: {} };
-    }
+    } else if (e.ch === "failure" && i.exit.t === "failure") toldAll(tx, { k: "failed", machine: r.machine, op: r.op, input: r.input, tag: e.tag, pos: r.pos });
     noteEnding(tx, { op: r.op, attempt: i.attempt, send: i.send }, e);
     return enqueue(tx, {
       k: "ending",

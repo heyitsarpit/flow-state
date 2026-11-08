@@ -137,11 +137,12 @@ export const reviewScenarios: readonly Scenario[] = [
       "lane-does-not-parse"(c) {
         payTo(c);
         c.ack();
+        const lanes = c.laneKeys();
         c.fault({ corruptStored: { match: "lane/", edit: () => "{{{" } });
         for (const _ of [1, 2]) {
           c.reload();
           c.eq("alive", c.r.quiet().fatal, false);
-          c.eq("named", String(c.r.issues().at(-1)?.input).includes("lane/"), true);
+          c.eq("named", lanes.some((k) => String(c.r.issues().at(-1)?.input).includes(k)), true);
         }
         c.send("Leave");
         c.state("LEFT");

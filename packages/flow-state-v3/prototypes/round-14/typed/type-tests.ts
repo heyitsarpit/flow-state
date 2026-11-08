@@ -1,7 +1,7 @@
 // What the types refuse. Each `@ts-expect-error` must be an error, or `tsc` fails: a compile-time pin of D91, not a claim.
 import { Context, Effect, Schema } from "effect";
 import { OutcomeUnknown } from "../../conformance/fixtures/compiled.ts";
-import { actorRef, definition, ensureArgs, Flow, machine, servicesFor, subroutine, trait, transaction } from "../../conformance/compile/index.ts";
+import { actorRef, changesOf, definition, ensureArgs, entity, Flow, machine, predictionsOf, servicesFor, subroutine, trait, transaction } from "../../conformance/compile/index.ts";
 
 type Refused = { readonly _tag: "Refused"; readonly why: string };
 const save = transaction({
@@ -179,3 +179,21 @@ ensureArgs(singleton, { input: {} });
 declare const runtimeName: string;
 // @ts-expect-error a singleton's name is a literal; a runtime string is a type error (OD30 Q4)
 actorRef(NoIn, runtimeName);
+
+// Phase 1 E round 3 (Q4 A): `patch` split into `delta` and `row`. A delta must carry the version field; a patch is a prediction only.
+const Ticket = entity({ id: "Ticket", fields: { id: Schema.String, title: Schema.String, revision: Schema.Number, note: Schema.optional(Schema.String) }, primaryKey: ["id"], version: "revision" });
+type TicketEvent = { readonly title: string; readonly revision: number };
+changesOf((e: TicketEvent) => [Ticket.delta({ id: "t1" }, { title: e.title, revision: e.revision }), Ticket.row({ id: "t1", title: e.title, revision: e.revision }), Ticket.delete({ id: "t1" }, { version: e.revision })]);
+predictionsOf((i: { readonly title: string }) => [Ticket.patch({ id: "t1" }, { title: i.title })]);
+// @ts-expect-error a delta without the version field
+Ticket.delta({ id: "t1" }, { title: "x" });
+// @ts-expect-error a patch in a `listen` mapper: a prediction is not a server's change
+changesOf((e: TicketEvent) => [Ticket.patch({ id: "t1" }, { title: e.title })]);
+// @ts-expect-error a delta in `.predicts`: a server's change is not a prediction
+predictionsOf((i: { readonly title: string }) => [Ticket.delta({ id: "t1" }, { title: i.title, revision: 1 })]);
+// @ts-expect-error a row is whole: a required field missing is a type error (an optional one may be left out, and is then absent)
+Ticket.row({ id: "t1", title: "x" });
+// @ts-expect-error a removal's version is the version field's type
+Ticket.delete({ id: "t1" }, { version: "3" });
+// @ts-expect-error a patch names no key field
+Ticket.patch({ id: "t1" }, { id: "t2" });

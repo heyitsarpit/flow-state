@@ -247,6 +247,18 @@ try {
     const named = cases(r).filter((x) => x.outcome === "fail").map((x) => x.name);
     say(r.answer === "stated" && named.length >= min, `mutant ${id}: killed by named oracles in ${min}+ case(s)`, `${named.length}: ${named.slice(0, 4).join(" ")}`, [r]);
   }
+  // Phase 1 E round 3: a search oracle has its own wrong runtime, red by that oracle's words, so the oracle is shown able to fail.
+  const SEARCH_KILLS: ReadonlyArray<readonly [string, string, ReadonlyArray<readonly [string, string, string]>, string]> = [
+    ["like", "drain.old-base-wins", [["entities.ts", "base: how === \"replace\" ? fields : { ...r.base, ...fields },", "base: how === \"replace\" ? fields : { ...fields, ...r.base },"]], "drain: "],
+    ["like", "s13.older-sent-after-newer", [["lane.ts", "    for (const x of l.w) supersede(tx, a.op, x);\n    setLane(tx, { ...tx.w.lanes[l.id]!, w: [made.attempt] });", "    setLane(tx, { ...tx.w.lanes[l.id]!, w: [made.attempt, ...l.w] });"]], "S13: "],
+  ];
+  for (const [w, id, edits, words] of SEARCH_KILLS) {
+    reset();
+    for (const [f, find, rep] of edits) edit(join(round, f), (s) => applyEdits(s, find, rep) ?? s);
+    const r = await run("search", ["bun", "search/run.ts", "--which", w, "--runtime", join(round, "adapter.ts"), "--depth", "4", "--states", SEARCH_STATES[w] ?? "4000", "--expect", "completed"], {}, conf, SEARCH);
+    const why = String((searchOf(r) as { failure?: string } | undefined)?.failure ?? "");
+    say(r.answer === "stated" && searchOf(r)?.verdict === "failed" && why.startsWith(words), `search mutant ${id}: ${w} red by its \`${words.trim()}\` oracle`, why || tally(r), [r]);
+  }
   }
   // ── D155: lying runtimes, a standing part. For each self-report an oracle reads (convergence-10's inventory), a runtime that says it falsely
   // must go red by the named oracle, with no output compare. From the re-check of stage C (`conformance-audit/recheck10c-scripts/run-mut.ts`).

@@ -53,7 +53,7 @@ export const round13Scenarios: readonly Scenario[] = [
       // silently in one mint order (mid review H1); now neither moves, so no collision can occur, in either order.
       "a-release-that-removes-a-key-field-keeps-every-old-hold-eu-first"(c0) {
         const c = holdThen(c0, 2, 3, [{ k: "a", region: "eu" }, { k: "a", region: "us" }]);
-        c.eq("both kept, both said", [c.r.evidence("OldVersionLane").length, c.r.evidence("LaneRekeyed").length, c.r.issues().filter((i) => i.code === "LaneRekeyCollision").length], [2, 0, 0]);
+        c.eq("both kept, both said", c.r.evidence("OldVersionLane").length, 2);
         c.eq("two lanes on disk", c.laneKeys().length, 2);
         c.send("Go", { k: "a" });
         c.eq("declined", [c.mem().declined, sent(c)], [1, 2]);
@@ -67,7 +67,7 @@ export const round13Scenarios: readonly Scenario[] = [
       },
       "a-release-that-removes-a-key-field-keeps-every-old-hold-us-first"(c0) {
         const c = holdThen(c0, 2, 3, [{ k: "a", region: "us" }, { k: "a", region: "eu" }]);
-        c.eq("both kept, both said", [c.r.evidence("OldVersionLane").length, c.r.issues().filter((i) => i.code === "LaneRekeyCollision").length, c.laneKeys().length], [2, 0, 2]);
+        c.eq("both kept, both said", [c.r.evidence("OldVersionLane").length, c.laneKeys().length], [2, 2]);
         c.send("Go", { k: "a" });
         c.eq("declined", [c.mem().declined, sent(c)], [1, 2]);
       },

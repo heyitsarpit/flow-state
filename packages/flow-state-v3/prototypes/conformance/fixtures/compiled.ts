@@ -235,6 +235,10 @@ export type Carried = {
   readonly version?: unknown; // a tombstone's: `Ticket.delete(key, { version })`. A row's comes from its fields, by the entity's field
   readonly evidence?: "whole" | "partial"; // Round 7: additive, unread until round 8's per-field versions. Evidence can say what it speaks for
 };
+export type Gone = { readonly tag: string; readonly ref: (input: any) => string };
+// Q3 A: `listen(c).covers(({ input, record }) => eq(record.f, input.g))`, compiled to data so `flow explain` can print it: every term holds.
+export type CoverTerm = { readonly field: string; readonly input: string } | { readonly field: string; readonly value: unknown };
+export type Covers = { readonly entity: string; readonly where: readonly CoverTerm[] };
 export type DomainSpec = {
   readonly writes: Readonly<
     Record<
@@ -246,10 +250,12 @@ export type DomainSpec = {
     >
   >;
   readonly reads: Readonly<Record<string, (value: any, input: any) => readonly Carried[]>>;
+  readonly gone?: Readonly<Record<string, Gone>>; // Q2 A: a read's `.gone(tag)`, by read: that failure is a tombstone for the read's key (`.byKey`)
   readonly repair: (ref: string) => Effect.Effect<any, any, never>; // a forced repair: the record's fields, or null
   readonly version?: (ref: string) => string | undefined; // D67: the entity's `version: "revision"`, the name of the field, per record
   readonly versionOrder?: "lexical" | ((a: unknown, b: unknown) => number); // D75: numbers order. A string orders only if declared
   readonly listens?: Readonly<Record<string, (value: any) => readonly Carried[]>>; // a domain's `listen(...).as(...)`: a stream's values as changes
+  readonly covers?: Readonly<Record<string, Covers>>; // by listen: what its session watches. Absent: the records it has itself delivered
   readonly fields?: Readonly<Record<string, Schema.Top>>; // the entity's field Schemas (`entity({ fields })`): the judge compares by `Schema.toEquivalence`
 };
 

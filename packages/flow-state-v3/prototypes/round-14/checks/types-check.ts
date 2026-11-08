@@ -74,6 +74,12 @@ const PINS = [
   "a singleton takes no input at ensure (D4)", // round 14, D4
   "`allow` is cut from v1 (U5)", // round 15
   "a ref carries no persist: persistence is the machine's, on its definition (U15, U19)", // round 15
+  "a delta without the version field", // phase 1 E round 3, Q4 A
+  "a patch in a `listen` mapper: a prediction is not a server's change", // phase 1 E round 3, Q4 A
+  "a delta in `.predicts`: a server's change is not a prediction", // phase 1 E round 3, Q4 A
+  "a row is whole: a required field missing is a type error (an optional one may be left out, and is then absent)", // phase 1 E round 3, Q4 A
+  "a removal's version is the version field's type", // phase 1 E round 3, Q4 A
+  "a patch names no key field", // phase 1 E round 3, Q4 A
 ];
 // What TypeScript itself takes for a directive: a single-line comment token whose text matches its own rule, `^\/\/\/?\s*@ts-expect-error`.
 // The installed TypeScript is 7 (native), with no JS scanner to call, so this is a scanner of comment and string tokens, not a text search:
@@ -139,6 +145,12 @@ const ERRORS: Record<string, readonly [string, string]> = {
   "a singleton takes no input at ensure (D4)": ["TS2554", "Expected 1 arguments, but got 2"],
   "`allow` is cut from v1 (U5)": ["TS2322", `Type '"allow"' is not assignable`],
   "a ref carries no persist: persistence is the machine's, on its definition (U15, U19)": ["TS2554", "Expected 2 arguments, but got 3"],
+  "a delta without the version field": ["TS2345", "Argument of type '{ title: string; }' is not assignable"],
+  "a patch in a `listen` mapper: a prediction is not a server's change": ["TS2345", "Argument of type '(e: TicketEvent) => Patch[]' is not assignable"],
+  "a delta in `.predicts`: a server's change is not a prediction": ["TS2345", "Argument of type '(i: { readonly title: string; }) => Delta[]' is not assignable"],
+  "a row is whole: a required field missing is a type error (an optional one may be left out, and is then absent)": ["TS2741", "Property 'revision' is missing in type '{ id: string; title: string; }'"],
+  "a removal's version is the version field's type": ["TS2322", "Type 'string' is not assignable to type 'number'"],
+  "a patch names no key field": ["TS2353", "'id' does not exist in type"],
 };
 {
   const src = readFileSync(join(typed, "type-tests.ts"), "utf8").split("\n");

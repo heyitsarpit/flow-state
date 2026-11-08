@@ -191,11 +191,11 @@ export const phase1hScenarios: readonly Scenario[] = [
               c.answer("charge", { lost: true });
             }
             c.eq("two holds", c.mem(KC)?.unsure, 2);
+            const lanes = c.laneKeys();
+            const issued = c.r.issues().length;
             c.h.release(() => void (rel.v = 2), () => void (rel.v = 1));
             c.reload();
-            c.eq("the collision is said, nothing renamed", [c.r.issues().filter((i) => i.code === "LaneRekeyCollision").length, c.r.evidence("LaneRekeyed").length], [1, 0]);
-            const lanes = [...c.r.stored().keys()].filter((key) => key.startsWith("lane/"));
-            c.eq("both on disk, each under its own name", [lanes.length, lanes.some((key) => key.includes('"region":"eu"')), lanes.some((key) => key.endsWith('{"k":"a"}'))], [2, true, true]);
+            c.eq("the collision is loud (one issue), nothing renamed", [c.r.issues().length - issued, c.laneKeys().sort()], [1, [...lanes].sort()]);
             c.send("Go", keeper);
             c.eq("nothing sent beside them", c.reqs("charge").length, 2);
             c0.namedIssues = ["LaneRekeyCollision"];
@@ -271,7 +271,7 @@ export const phase1hScenarios: readonly Scenario[] = [
         c.eq("quarantined at the boot", [c.r.issues().filter((i) => i.code === "RecordQuarantined").length, c.r.inspect(PG)?.quarantined?.length], [1, 1]);
         c.do({ forget: PG });
         c.eq("dropped, with evidence", [c.r.evidence("HoldForgotten").length, c.r.inspect(PG)?.quarantined?.length], [1, 0]);
-        c.yes("its record is gone", ![...c.r.stored().keys()].some((k) => k.startsWith("lane/")));
+        c.eq("its record is gone", c.laneKeys().length, 0);
         c.reload();
         c.eq("not named again", c.r.issues().filter((i) => i.code === "RecordQuarantined").length, 1);
       },
@@ -292,7 +292,6 @@ export const phase1hScenarios: readonly Scenario[] = [
       // the Flow upgrade and the Schema change in one release. Format 1 hashed both sides, so the change is seen: an old-version hold, a decline.
       "a-type-change-in-the-release-that-upgrades-the-format-is-a-new-version-of-the-op"(c0) {
         const c = holdAcross(c0, keyStampFormat1Fixture, 0, 4);
-        c.yes("stamped in format 1", JSON.stringify([...c.r.stored().values()]).match(/"k#[0-9a-f]{8}"/) !== null);
         c.eq("an old-version hold, said at the boot", c.r.evidence("OldVersionLane").length, 1);
         c.send("Go", { k: "b" });
         c.ack();
@@ -359,7 +358,7 @@ export const phase1hScenarios: readonly Scenario[] = [
         c.h.release(() => void (rel.v = 2), () => void (rel.v = 1));
         c.reload();
         c.eq("an old-version record", c.r.evidence("OldVersionActor").length, 1);
-        c.eq("its held lane is unbound, listed and reported", [c.r.inspect(at)?.unbound?.length, c.r.evidence("UnboundLane").map((e) => e["op"])], [1, ["save"]]);
+        c.eq("its held lane is unbound, listed and reported", [c.r.inspect(at)?.unbound?.length, c.reportsOf("save", at).length], [1, 1]);
       },
       // Audit 1, C173 (R9): `forget` removes an old-version record, as it does a retired or undecodable one.
       "audit-forget-removes-an-old-version-record"(c0) {

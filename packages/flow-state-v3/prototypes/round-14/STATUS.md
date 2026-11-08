@@ -1046,3 +1046,71 @@ Findings for the design (audit 1):
 Sidecar log: one Haiku reviewer on the batch's runtime and harness diff. Acted on: `oldVersion` survived an ensure of the same key (now cleared). Recorded: the
 own-read exemption in `leavesWork` is dead (a read is taken before its ending is enqueued), harmless; a kept read owned by an exited state now denies a late
 turn (as OD49 reads); restore of an old-version actor's lane with a parked ending is not traced (no case reaches it).
+
+## Phase 1: entities round 3 (2026-11-08)
+
+The user's answers to `ENTITIES-QUESTIONS.md` (all A). **Q1 `guarded` is on hold** (the runner, mid-round: a convergence pass first, since the truth it
+claims lives in the app's service code, which Flow cannot see). It was built, then reverted before any commit; its four cases are kept as prior art in
+the scratchpad (`q1-guarded-held-cases.ts.txt`), not in the suite. Every runtime change was built before its case was run, so each "failing first" below is
+the case red on the wrong runtime that undoes that change (`all-p1e.ts`, run by the lead on a copy, each red by the assertion quoted). P1-E is 30 variants.
+
+| Item | State | Case (P1-E unless named) | Red on (wrong runtime: the line) |
+| --- | --- | --- | --- |
+| Q1 `guarded` | **held** (runner); reverted, uncommitted | - | - |
+| Q2 `.gone(tag)` | **built**: the core tells the store a read's own failure (`{ k: "failed" }`, seam.ts; never a defect or interruption); `domain.gone[read] = { tag, ref }` (compiled from `.byKey`) turns that tag into a removal judged as a read at the read's position; the machine hears the failure unchanged. A refetch at a gap that fails with the tag is one too | `a-postgrest-single-not-found-removes-the-row` (PGRST116, 406), `a-rest-404-removes-the-row`, `another-failure-of-a-gone-read-leaves-the-row` (42501, 403), `a-gone-answer-asked-before-a-newer-row-landed-is-judged-at-its-position` | `p1e.gone-ignored`: `removed, and heard: expected [undefined,["Listed","NotFound"]], got [{data…}]`; `p1e.gone-any-tag`: `kept…: expected ["Old",…], got [undefined,…]`; `p1e.gone-unpositioned`: `expected ["New",true,1], got [undefined,undefined,0]`; `p1e.gone-swallows-the-failure`: `got [undefined,["Listed","Found"]]` |
+| Q3 `.covers(pred)` | **built**: `domain.covers[listen] = { entity, where: [{ field, input } \| { field, value }] }` (data, so `flow explain` prints it: `changes covers QTicket where queueId = input.queueId`, a CLI pin). An unproven registration (`gap`, `why: "unproven"`) marks what the session covers `behind`: every field `unconfirmed` until a read or repair asked after it lands. Absent `.covers`, the session covers what it has itself delivered (`delivered`, per session, dropped when the session ends). Gaps now say why (`unproven`, `lost`, `ended`) and which session; only `unproven` marks | `covers-a-gap-marks-only-the-covered-records`, `with-no-covers-a-gap-marks-what-the-session-delivered` (a flap), `a-read-asked-before-the-gap-does-not-clear-it`; CLI pin `explain: a listen's .covers prints as its eq terms` | `p1e.gap-marks-nothing`: `q1's ticket is behind…: expected [[id,queueId,title,revision,note],[]], got [[],[]]`; `p1e.covers-unread`: q2 marked too; `p1e.no-covers-marks-everything`: `the first registration…: expected [[],[]], got [[…],[…]]`; `p1e.gap-cleared-by-any-read`: `asked before: still behind…, got []` |
+| Q4 `delta` / `row` | **built**: `entity({ id, fields, primaryKey, version })` (compile/entity.ts) gives `patch` (a `Patch`), `delta` (`evidence: "partial"`, a type error without the version field), `row` (`evidence: "whole"`), `delete`; `changesOf` / `predictionsOf` stand in for `listen(c).as` / `write(c).predicts` and refuse the wrong one by type. The store: a placed whole row replaces (what it omits is absent); a delta merges; a delta with no version is dropped with `UserClosure`; an early whole row stays whole when placed over a read (D76) | `a-row-frame-replaces-the-row-what-it-omits-is-absent`, `a-delta-frame-changes-only-what-it-carries` (an older delta dropped by revision), `a-delta-without-its-version-is-dropped-and-named`, `an-early-whole-row-is-still-whole-when-placed-over-a-read`; 6 type tests in typed/type-tests.ts, each pinned by its words and error in checks/types-check.ts | `p1e.row-merges`: `the whole row, and no note: … got {…"note":"n"…}`; `p1e.delta-replaces`: `the note kept: … got {id,revision,title}`; `p1e.delta-unversioned-applies`: `dropped, named: expected ["A",1], got ["A2",0]`; `p1e.early-row-merges`: note kept |
+| 8a `basedOn` in the lane record | **built**: `save` writes `{ refs, basedOn }` when any `basedOn` is known (a bare `refs` array otherwise, so no other disk output moved); `restored` decodes both forms (`savedOf`; a malformed or duplicated value is an issue) and a restored re-send carries it | `a-restored-re-send-carries-its-based-on` (persisted PostgREST ticket, reload, Retry) | `p1e.save-drops-based-on`: `re-sent over revision 1: expected [1,1], got [1,undefined]` |
+| 8b vacuous oracles | **one removed, two proved**: "applied in send order" compared the fake's arrival log with its request log, one fact twice: removed, reason in like.search.ts. S13 per actor read the runtime's own `mint` evidence: rebuilt on the suite's own commit number `v`, and checked before the server model's `selfInverted`, which is exempt on any path with a release (the harness reviewer's point: removing S13 lost those paths). The drain's "a settled screen is the server" stays. Each has a standing wrong runtime in `falsify --part mutants` (new `SEARCH_KILLS`) | like search | `s13.older-sent-after-newer` (under `latest`, the replaced commit kept behind the newer): `S13: a0's first sends out of commit order on record 1 on commit.a0.m1 commit.a0.m1 commit.a0.m1`; `drain.old-base-wins` (`take` keeps the old base): `drain: r1 shows 1, settled, and the server holds 2 on commit.a0.m1 commit.a0.m1` |
+| 6 chain (n) from nothing | **fixed, no wrong runtime**: with the actor and its record both gone the baseline is a fresh actor's `spun: 0`, so any spin after the drain's 60 s is red ("from nothing"). Chain stays completed at its pin (9700 states, [1,12,111,995,8581]). No runtime path reaches a spin from nothing that I could build in bounds (the drain's `Stop` makes a fresh actor `stopped`); stated | chain search | none |
+| 7 spelling pins | **done for the named ones**: `UnboundLane` and `ParkedForgotten` asserted by what they report (`Ctx.reportsOf`, `Ctx.madeEvidence`: any entry naming the lane, or the attempt, that is not its own lifecycle); `LaneRekeyed` as one lane on disk; `LaneRekeyCollision` counts dropped (the suite's unnamed-issue check still needs the code named in `namedIssues`: a stated limit of the harness); `ImpureDefault` as a refusal that is none of the other named refusals (front-check); the two hash-shape pins and the five store-key-prefix pins replaced by the codec's own lane keys or the record; the custom-filter stated limit asserts only what holds either way (hold kept, the other commit sent or declined once). `OldVersionLane` stays: the design names it (decided, Q2 A). **Not done**: round7/8/9/9b's literal lane/actor key templates (about 40 assertions; `ctx.ts` already says a case naming a key pins the format) | R15-01, P1-H, R12-KEYS, R13-KEYS, REV6-H5, R14-ID-02, STORE-09, HIGH-02 | - |
+| 5 excuses from runtime evidence | **stopped** (below) | | |
+
+Gates (checkpoint 1, before `guarded`): `bun gates.ts --budget 285` exit 0, **25/25 ok**, 243 s (one earlier run with `--budget 60` ran out of budget and
+started almost nothing; rerun whole). Lock: every changed id logged with its own reason; `--lock` exit 0, 930/930; `expected-recipients.txt` moved by the
+new variants only (no red count).
+
+Item 5, stopped, with the plan for the next batch. Each of the four excuses reads the runtime's report: oracle (h)'s turn-end exemption (`delivered`,
+`lane.turnEnd.HeldThisTurn`, `invoked`), `replacedUnderCancel` (`mint`, `ending`), the self-release cause (`lane.cancel.Held`), the forget step's excuse
+(`parked`, `delivered`). Underneath all four is one root: the suite attributes attempts to actors and ops from the runtime's `mint`/`turn` evidence
+(`attemptActor`, `made`), so even a rebuilt excuse inherits a reported fact. The policy's two routes, and the one I recommend: give the suite its own
+attempt ledger from what it observes (the fake world's request log by idempotency key, and the steps it drove), then rebuild each excuse on it; until then,
+one lie per excuse in `falsify --part lies` (a runtime that fakes that report and drops an owed ending) to show which excuses are unsound today. This is a
+drive.ts change across its ledger, larger than this round's bound; nothing is claimed for it.
+
+Findings for the design (round 3):
+1. **Q2: a read's failure has to reach the store.** Today the core tells a store only a read's success. `.gone` needs the failure's tag at the read's
+   position; the design's 2.8.1 data path should name it (a read's `failure` evidence, never a defect or an interruption). PostgREST's PGRST116 is a 406,
+   a REST 404 is a 404, and both reach Flow only as the adapter's tag, so `.gone` names a tag, never a status.
+2. **Q2: a tombstone is a version-less answer**, so it decides only what it can be ordered after: asked before a newer row landed (or against an open
+   claim) it is a doubt with a repair, not a removal. The design should say `.gone` is judged like any read, so "the row is removed" holds for a read asked
+   after what the store holds.
+3. **Q2's key comes from `.byKey`.** A read with `.gone` and no `.byKey` has no key to remove; `flow check` should refuse it.
+4. **Q3: only an unproven registration marks.** A lost connection or a released session is not yet a gap in what the store holds: a resume with proof
+   misses nothing, and a released session no longer promises anything. The design's "a gap marks" should be "an unproven registration marks"; a release
+   stays a refetch (T7) and marks nothing.
+5. **Q3: the marked fields are every field of the row**, including key and version fields, because `Compiled` has no `primaryKey`. The design's readout
+   should leave key fields out, which needs the entity's key in `Compiled` (`entity({ primaryKey })` compiles to it).
+6. **Q3: `.covers` compares with the field's Schema equivalence**, the judge's equality, so coverage and placement agree. A record with no row is never
+   covered (nothing to doubt).
+7. **Q3's default costs a set per session** (the records it delivered, kept until the session ends); a stale frame still adds its record. Two existing
+   outputs gained one store state each from it (REV6-H3, REV6-TWOFEEDS).
+8. **Q4: "whole" is a property of the evidence, not of `listen`.** The store replaces on any placed whole row, read or frame. The design should say a read's
+   `.one(Ticket)` is whole in the same sense, or keep `row` in `listen` only and say reads merge.
+9. **Q4: a delta without its version has nowhere to go at run time** (the type refuses it, but a decoded value can still lack it); dropped with
+   `UserClosure`. The design should list it with D57's values from outside.
+10. **8a: `basedOn` is part of what a lane record must save** for any precondition re-send (2.8.6, rule 38); the record grows a field only when a version was
+   known at mint.
+11. **Q1 (held), for the convergence pass**: as built, the proof needed the record's version at mint (`basedOn`), so `guarded` on an unversioned entity can
+   never end a mark, silently; and a held (not given-up) mark must not end by it, since its lane may re-send with the same `basedOn` legitimately.
+12. **Reports the design leaves unnamed can only be checked by what they carry.** A rekey (D78) and an unbound lane are "reported", with no name and no
+   stated content, so a runtime that drops the rekey report, or renames two old holds to fresh keys, passes a spelling-free suite. The design should say
+   what each report carries (the lane, its old and new key), or name it; the suite's unnamed-issue check also still needs an issue's code by name.
+
+Sidecar log (Haiku, effort high; every finding verified by the lead):
+
+| Task | Who | Result | Why |
+| --- | --- | --- | --- |
+| inventory of spelling pins (proposed names, hash shapes, key prefixes, stated limits) | researcher | accepted | file:line list used for item 7; its `OldVersionLane` sites kept (the design names it); round7-9b key templates left (stated) |
+| review of the round 3 harness diff (oracles, loosened pins) against "every check can fail; excuse only what the harness saw; a loosened pin keeps its kills" | reviewer | changed | acted on: S13 restored on the suite's own number (its removal lost released paths); `madeEvidence` now excludes every Attempt lifecycle kind the runtime notes; the custom-filter case counts distinct Attempts; the collision asserted loud (one issue) with both lanes keeping their keys; `ImpureDefault`'s stand-in requires a named refusal. Recorded: `mutants-r6`'s `d78-no-evidence` (drop the rekey report) now survives REV6-H5, since the design names no rekey report and says nothing it carries (finding 12); R13-KEYS no longer catches both holds renamed to fresh keys (finding 12); `reportsOf`'s `kind !== "lane"` clause is dead (harmless) |
+| review of the round 3 runtime diff against Q1-Q4 and 8a | reviewer | changed | acted on: a gap refetch failing with the `.gone` tag was ignored (now a tombstone); an early whole row lost `whole` (now kept, with a case and `p1e.early-row-merges`); `.covers` used structural equality (now the field's Schema); `delivered` copied on every frame and was kept for `.covers` sessions (now only on a new record, only without `.covers`); duplicate saved refs (now deduped and an issue). Recorded: a released entry's prediction shows until its repair ends (pre-existing); whole on reads (finding 8); a tombstone against a claim is a doubt (finding 2); `guarded` on an unversioned entity (finding 11) |

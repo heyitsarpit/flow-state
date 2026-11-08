@@ -559,7 +559,7 @@ export const round6Scenarios: readonly Scenario[] = [
         c.send("Go");
         c.eq("the request count stays", c.reqs("charge").length, 1);
         c.eq("no second Attempt", c.keys("charge").length, 1);
-        c.eq("said", c.r.evidence("LaneRekeyed").length, 1);
+        c.eq("one hold, moved, not doubled", c.laneKeys().length, 1);
       },
       "the-rekeyed-lane-is-what-a-guard-reads"(c0) {
         const rel: Release = { v: 1 };

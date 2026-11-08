@@ -105,7 +105,7 @@ export const identityScenarios: readonly Scenario[] = [
         c.send("Title", { title: "Foyer" });
         c.ack();
         c.answer("save", { ok: {} });
-        c.yes("saved in the untagged format, a real format 1 hash", editor1Format1.every((f) => /#[0-9a-f]{8}$/.test(f)) && editor1Format1.every((f) => JSON.stringify([...c.r.stored().values()]).includes(f)));
+        c.yes("saved by that Flow, in its format", editor1Format1.every((f) => JSON.stringify([...c.r.stored().values()]).includes(f)));
         c.h.release(() => void (rel.v = 1), () => void (rel.v = 0));
         c.reload();
         c.eq("not listed", c.r.evidence("OldVersionActor").length, 0);

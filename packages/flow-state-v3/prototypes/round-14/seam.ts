@@ -68,13 +68,17 @@ export type StoreFact =
       readonly k: "pushed";
       readonly machine: string;
       readonly op: string;
+      readonly session: string;
       readonly value: unknown;
     }
-  | { readonly k: "gap"; readonly machine: string; readonly op: string };
+  // `why`: "unproven", a registration with no proof that nothing was missed (coverage resumes, behind); "lost", a connection gone and retried;
+  // "ended", the session is over (failed for good, or released).
+  | { readonly k: "gap"; readonly machine: string; readonly op: string; readonly session: string; readonly input: unknown; readonly why: "unproven" | "lost" | "ended" };
 // What `told` receives from the core. Closed: an unlisted kind cannot arrive.
 export type Told =
   | { readonly k: "actors"; readonly changed: readonly ActorChange[] }
   | ReadAnswer
+  | ReadFailed
   | StoreFact
   | { readonly k: "turned"; readonly tag: string; readonly outcome: "ran" | "invalid" | "fenced" }
   | {
@@ -128,5 +132,14 @@ export type ReadAnswer = {
   readonly op: string;
   readonly input: unknown;
   readonly value: unknown;
+  readonly pos: number;
+};
+// A read's own failure, by its tag (only a failure the read's Effect gave, never a defect or an interruption). A store may read a tag as "no such record".
+export type ReadFailed = {
+  readonly k: "failed";
+  readonly machine: string;
+  readonly op: string;
+  readonly input: unknown;
+  readonly tag: string;
   readonly pos: number;
 };

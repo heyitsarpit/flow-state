@@ -185,6 +185,8 @@ export const checkMints = (r: Reads) => {
       throw new Mismatch(`a minted Attempt vanished: ${e["op"]} ${e["attempt"]}`);
 };
 
+// What an Attempt's own life says about it, which is never its ending made evidence (the round 3 reviewer's list, from round-14's notes).
+const LIFECYCLE: ReadonlySet<string> = new Set(["parked", "unparked", "delivered", "ending", "lane", "mint", "invoked", "turn", "Superseded", "interrupt", "Released", "fence", "AbandonedFiber", "interruptedBy", "StorageFailure", "KeptLetGo", "ParkedLetGo", "HoldForgotten"]);
 export class Ctx {
   get namedIssues(): string[] {
     return caseNamed ?? [];
@@ -270,6 +272,13 @@ export class Ctx {
   endings = (op: string) => this.r.evidence("ending").filter((e) => e["op"] === op);
   lastEnding = (op: string) => this.endings(op).at(-1);
   rec = (ref: string) => this.r.record(ref);
+  // Audit 1: a report the design leaves unnamed or proposed is checked by what it is about, never by its spelling. `reportsOf`: the entries, of
+  // any kind but the lane cells, that name this actor's lane of `op`. `madeEvidence`: the entries since `from` that name `attempt` and are
+  // neither its parking nor its delivery nor its own lifecycle, so an ending turned into evidence is seen whatever the runtime calls it.
+  reportsOf = (op: string, a: ActorRef = this.A) =>
+    this.r.evidence().filter((e) => e["op"] === op && e["actor"] === this.r.actorKey(a) && "lane" in e && e["kind"] !== "lane");
+  madeEvidence = (attempt: string, from = 0) =>
+    this.r.evidence().slice(from).filter((e) => e["attempt"] === attempt && !LIFECYCLE.has(e["kind"]));
   // D49 (changed): Inspection's answer about a stall, not the row's.
   stalled = (op: string, attempt?: unknown) =>
     this.r

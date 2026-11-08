@@ -2099,3 +2099,59 @@ round:mutants-lifetime.ts hash:7d73334090e4 | o6.settled-in-bound-stays-held re-
 removed:variant:P1-H/audit-a-failing-effect-default-is-refused | folded into P1-H/a-default-that-runs-is-refused-at-construction-and-never-runs
 removed:output:P1-H/audit-a-failing-effect-default-is-refused | the same fold
 round:mutants-r15d.ts hash:900384cea662 | r15d.forget-keeps-the-record re-anchored: forget's record line also names old-version records
+P1-E hash:01458ca9791b | Phase 1 E round 3: Q2 .gone, Q3 .covers, Q4 delta/row, an early whole row, and a restored re-send's basedOn, each a variant
+file:scenarios/phase1e.scenario.ts hash:6ccb11bbcd32 | the round 3 variants of P1-E and their helpers
+file:typed/phase1e.ts hash:01a14067ed43 | round 3 fixtures: the ticket's .single() and REST reads with .gone, a persisted ticket, the Realtime-shaped queue
+file:compile/entity.ts hash:ec10dcd36559 | Q4 A: entity() with patch, delta, row, delete, typed so the split is a type error
+file:compile/index.ts hash:3a74a6689e37 | exports entity, changesOf, predictionsOf for Q4 A
+file:compile/machine.ts hash:45eda6f440dc | a domain's gone (Q2 A) and covers (Q3 A) compile into DomainSpec
+round:cli/explain.ts hash:30d4349227c0 | Q3 A: flow explain prints a listen's covers as its eq terms
+round:cli/flow.ts hash:d74873538b7d | the p1-queue target, a machine whose listen declares covers
+round:cli/main.ts hash:0eb7150e6ada | a CLI pin: explain prints covers (Q3 A)
+round:typed/type-tests.ts hash:4c8b54f0e4ac | Q4 A's type tests: a delta needs the version, patch only in predicts, a row is whole
+round:checks/types-check.ts hash:5eb0843f6e25 | the six Q4 A directives pinned by their words and errors
+round:mutants-p1e.ts hash:494eb2f59352 | round 3 wrong runtimes for .gone, .covers, delta/row, the early row and the saved basedOn, each red by assertion
+output:P1-E/a-postgrest-single-not-found-removes-the-row hash:1393474b9f34 | new output: Q2 A, PGRST116 removes the row
+output:P1-E/a-rest-404-removes-the-row hash:cc6aa477dd8f | new output: Q2 A, a REST 404 removes the row
+output:P1-E/another-failure-of-a-gone-read-leaves-the-row hash:5304a3a54c93 | new output: Q2 A, another failure tag removes nothing
+output:P1-E/a-gone-answer-asked-before-a-newer-row-landed-is-judged-at-its-position hash:d54600381104 | new output: Q2 A, a tombstone judged at its read's position
+output:P1-E/covers-a-gap-marks-only-the-covered-records hash:8df995360735 | new output: Q3 A, covers narrows a gap's marks
+output:P1-E/with-no-covers-a-gap-marks-what-the-session-delivered hash:6b59cd2e6a82 | new output: Q3 A's default, what the session delivered
+output:P1-E/a-read-asked-before-the-gap-does-not-clear-it hash:514d4f011032 | new output: Q3 A, only a read asked after the gap clears it
+output:P1-E/a-row-frame-replaces-the-row-what-it-omits-is-absent hash:f9efcedee918 | new output: Q4 A, a whole row replaces
+output:P1-E/a-delta-frame-changes-only-what-it-carries hash:998366eb3f97 | new output: Q4 A, a delta speaks only to what it carries
+output:P1-E/a-delta-without-its-version-is-dropped-and-named hash:ebc43605522d | new output: Q4 A, a delta without its version is dropped
+output:P1-E/an-early-whole-row-is-still-whole-when-placed-over-a-read hash:5b38c32887ce | new output: Q4 A with D76, an early row stays whole
+output:P1-E/a-restored-re-send-carries-its-based-on hash:54b21161884e | new output: the lane record saves basedOn (round 2 finding 2)
+output:REV6-H3/a-declared-lexical-order-compares hash:83986dcdf0ce | Q3 A's default: the store records what each session delivered, so a stale frame adds one store state
+output:REV6-TWOFEEDS/with-a-version-frames-may-cross hash:0f9fb852bd56 | Q3 A's default: a crossing frame from the second session adds its record to that session's set, one more state
+file:search/like.search.ts hash:aa1274266654 | S13 per actor and the applied-in-send-order half removed: neither could fail (stated in the file)
+file:falsify.ts hash:de48d323097f | the like search's drain oracle gets a standing wrong runtime, drain.old-base-wins
+file:search/chain.search.ts hash:67c7b81191b2 | oracle (n) takes a fresh actor's baseline when the actor and its record are both gone
+file:scenarios/ctx.ts hash:022926029f26 | Audit 1: reportsOf and madeEvidence check unnamed or proposed reports by what they are about
+round:checks/front-check.ts hash:b129381f68dc | Audit 1: ImpureDefault is proposed; U12's pins assert the refusal, not the spelling
+R15-01 hash:e651d060e03e | Audit 1: UnboundLane and ParkedForgotten asserted by what they report; the custom-filter limit asserts what holds either way
+file:scenarios/round15.scenario.ts hash:0b190705c2e7 | the R15-01 loosening, and the actor-prefix pins replaced by the record itself
+P1-H hash:1b7530ce7f61 | Audit 1: UnboundLane by what it reports, the lane-prefix and stamp-shape pins replaced by lane counts
+file:scenarios/phase1h.scenario.ts hash:32ccbe433a7a | the P1-H loosening; LaneRekeyCollision stays named only where the issue check needs it
+R12-KEYS hash:89dcafabaaba | Audit 1: LaneRekeyed is unnamed in the design; not renamed is one lane on disk
+file:scenarios/round12.scenario.ts hash:52e9bd888cdf | the R12-KEYS loosening
+R13-KEYS hash:ecb51209d7c7 | Audit 1: the LaneRekeyed and LaneRekeyCollision counts dropped; the issue check already refuses an unnamed issue
+file:scenarios/round13.scenario.ts hash:c11165ee2b60 | the R13-KEYS loosening
+REV6-H5 hash:94b2f0e1b738 | Audit 1: a rekey asserted as one hold moved, not doubled, instead of the LaneRekeyed name
+file:scenarios/round6.scenario.ts hash:e640660fa05a | the REV6-H5 loosening
+R14-ID-02 hash:e9546f58672f | Audit 1: the stamp's hash shape is not pinned, only that the older Flow's own fields were written
+file:scenarios/identity.scenario.ts hash:2f2590d6fb45 | the R14-ID-02 loosening
+STORE-09 hash:6c6aed7e4195 | Audit 1: the lane-key prefix replaced by the codec's own lane keys
+file:scenarios/store.scenario.ts hash:bc023b1392b4 | the STORE-09 loosening
+HIGH-02 hash:6c4e3629650c | Audit 1: the issue names the lane's own key, not a key prefix
+file:scenarios/review.scenario.ts hash:4bdd7f0aba36 | the HIGH-02 loosening
+file:expected-recipients.txt hash:e527af1bea1b | Phase 1 E round 3's 13 variants: 21 more recipients, 19 more start nodes, one more restored state; no red count moved
+R15-01 hash:b2e4eed59531 | round 3 harness review: the custom-filter case counts distinct Attempts, so a re-send of the hold is not the other commit
+P1-H hash:837e15e78c34 | round 3 harness review: the key collision is asserted loud (one issue at that boot) and both lanes keep their keys
+file:scenarios/ctx.ts hash:20507f08ab65 | round 3 harness review: madeEvidence excludes every Attempt lifecycle kind the runtime notes
+file:scenarios/phase1h.scenario.ts hash:98c421259eda | the collision assertion from the round 3 harness review
+file:scenarios/round15.scenario.ts hash:7148fd583c60 | the custom-filter assertion from the round 3 harness review
+file:search/like.search.ts hash:ebf1667a5019 | S13 kept, rebuilt on the suite's own commit number and checked before the released-path exemption
+file:falsify.ts hash:3d3e278145b1 | the like search's S13 gets a standing wrong runtime, s13.older-sent-after-newer
+round:checks/front-check.ts hash:4b90085f2db4 | U12's refusal must be a named refusal, so a crash in the refusal path is not one

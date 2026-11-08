@@ -615,7 +615,7 @@ export const storeScenarios: readonly Scenario[] = [
       c.ack();
       c.eq("on the wire", c.reqs("refund").length, 1);
       const stored = JSON.stringify(
-        [...c.r.stored().entries()].filter(([k2]) => k2.startsWith("lane/")),
+        [...c.r.stored().entries()].filter(([k2]) => c.laneKeys().includes(k2)),
       );
       c.yes("predicted keys persist with the lane", stored.includes(O9));
       c.eq("prediction values do not", stored.includes("refundedCents"), false);

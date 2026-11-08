@@ -206,13 +206,18 @@ eq("D222 a decoding default at creation", (memOf({ n: Flow.input(S.Number.pipe(S
 eq("D222 two different defaults", threw(memOf({ n: Flow.input(S.Number.pipe(S.withDecodingDefaultKey(Effect.succeed(4)), S.withConstructorDefault(Effect.succeed(7)))) })), "TwoDefaults");
 eq("D222 a default beside Flow.initial", threw(memOf({ n: Flow.initial(S.Number.pipe(S.withConstructorDefault(Effect.succeed(7))), 1) })), "TwoDefaults");
 eq("D222 two equal defaults are one default", threw(memOf({ n: Flow.input(S.Number.pipe(S.withDecodingDefaultKey(Effect.succeed(7)), S.withConstructorDefault(Effect.succeed(7)))) })), "");
-// U12 B (OD48): a default is pure; one that is an Effect to run is refused at construction, and is never run.
+// U12 B (OD48): a default is pure; one that is an Effect to run is refused at construction, and is never run. `ImpureDefault` is a proposed name
+// (2.2.2, C184), so the pin is the refusal and its reason being no other refusal this check names, not the spelling.
 let ran = 0;
-eq("U12 a constructor default that runs is refused", threw(memOf({ n: Flow.input(S.Number.pipe(S.withConstructorDefault(Effect.sync(() => ++ran)))) })), "ImpureDefault");
-eq("U12 a decoding default that runs is refused", threw(memOf({ n: Flow.input(S.Number.pipe(S.withDecodingDefaultKey(Effect.sync(() => ++ran)))) })), "ImpureDefault");
-eq("U12 a type-side decoding default that runs is refused", threw(memOf({ n: Flow.input(S.NumberFromString.pipe(S.withDecodingDefaultTypeKey(Effect.sync(() => ++ran)))) })), "ImpureDefault");
-eq("U12 a nested field's default that runs is refused", threw(memOf({ n: Flow.input(S.Struct({ at: S.Number.pipe(S.withConstructorDefault(Effect.sync(() => ++ran))) })) })), "ImpureDefault");
-eq("U12 a mapped Effect is not a value", threw(memOf({ n: Flow.input(S.Number.pipe(S.withConstructorDefault(Effect.succeed(1).pipe(Effect.map((x) => x + 1))))) })), "ImpureDefault");
+const impure = (f: () => unknown) => {
+  const t = threw(f);
+  return /^[A-Z][A-Za-z]+$/.test(t) && !["TwoDefaults", "KeyFieldOptional"].includes(t);
+};
+eq("U12 a constructor default that runs is refused", impure(memOf({ n: Flow.input(S.Number.pipe(S.withConstructorDefault(Effect.sync(() => ++ran)))) })), true);
+eq("U12 a decoding default that runs is refused", impure(memOf({ n: Flow.input(S.Number.pipe(S.withDecodingDefaultKey(Effect.sync(() => ++ran)))) })), true);
+eq("U12 a type-side decoding default that runs is refused", impure(memOf({ n: Flow.input(S.NumberFromString.pipe(S.withDecodingDefaultTypeKey(Effect.sync(() => ++ran)))) })), true);
+eq("U12 a nested field's default that runs is refused", impure(memOf({ n: Flow.input(S.Struct({ at: S.Number.pipe(S.withConstructorDefault(Effect.sync(() => ++ran))) })) })), true);
+eq("U12 a mapped Effect is not a value", impure(memOf({ n: Flow.input(S.Number.pipe(S.withConstructorDefault(Effect.succeed(1).pipe(Effect.map((x) => x + 1))))) })), true);
 eq("U12 no refused default ran", ran, 0);
 // D221 (rule 39): a key field is required and has no default.
 const keyed = (k: Schema.Top) => () =>

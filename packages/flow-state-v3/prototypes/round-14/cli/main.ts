@@ -103,6 +103,8 @@ const trAt = await j("trace", "threeds/timed-out", "--at", "expired");
 eq("trace --at stops at the checkpoint", [trAt.doc.lines.some((l: string) => l.includes("GiveUp")), trAt.doc.lines.at(-1)], [false, "      checkpoint expired  seq 5"]);
 const trWire = await j("trace", "checkout/reload-mid-charge");
 eq("trace: the wire as it stood", trWire.doc.lines.filter((l: string) => l.trim().startsWith("wire  Shop.confirm")).map((l: string) => l.trim()),["wire  Shop.confirm  held  att-1-1", "wire  Shop.confirm  held -> orphan  att-1-1"]);
+const qx = await j("explain", "p1-queue");
+eq("explain: a listen's `.covers` prints as its `eq` terms (Q3 A)", qx.doc.lines.filter((l: string) => l.includes(" covers ")), ["changes covers QTicket where queueId = input.queueId"]);
 const g = await j("graph", "typed-pay");
 eq("graph: from Compiled, nothing run", [g.code, g.doc.callbacksRun, g.doc.machine], [0, 0, "Checkout/Pay"]);
 eq("graph: an edge names its alternative", g.doc.edges.find((e: { at: string }) => e.at === "states.IDLE.on.Start[0]"), { definition: "Checkout/Pay", at: "states.IDLE.on.Start[0]", kind: "on", from: "IDLE", event: "Start", target: "CARD", guarded: [], members: [], raises: [], notifies: [], status: "takeable" });

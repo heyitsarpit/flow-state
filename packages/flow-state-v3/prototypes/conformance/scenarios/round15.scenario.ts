@@ -225,16 +225,16 @@ export const round15Scenarios: readonly Scenario[] = [
         const unbound = () => c.r.inspect(RL)?.unbound ?? [];
         c.eq("listed as unbound under the identity", unbound().length, 1);
         c.reload();
-        c.eq("the boot reports it", c.r.evidence("UnboundLane").map((e) => e["op"]), ["charge"]);
+        c.eq("the boot reports it", c.reportsOf("charge").length, 1);
         c.reload();
-        c.eq("and each boot again", c.r.evidence("UnboundLane").length, 2);
+        c.eq("and each boot again", c.reportsOf("charge").length, 2);
         c.eq("still listed", unbound().length, 1);
         const before = c.r.evidence("delivered").length;
         c.ensure(RL);
         c.eq("adopted: the hold's unknown { Restored } is heard", c.r.evidence("delivered").slice(before).map((d) => [d["event"], d["reason"]]), [["Unsure", "Restored"]]);
         c.eq("no longer unbound", unbound(), []);
         c.reload();
-        c.eq("no boot reports it now", c.r.evidence("UnboundLane").length, 2);
+        c.eq("no boot reports it now", c.reportsOf("charge").length, 2);
       },
       // Q1 A, C173 (phase 1, R9): `forget` makes the identity's parked ending (the lost answer that landed after the dispose) evidence, never
       // delivered; it drops no hold: the held lane stays an unbound lane, listed and reported at each boot, until its owner's cancel or an adopting
@@ -248,13 +248,15 @@ export const round15Scenarios: readonly Scenario[] = [
         c.answer("charge", { lost: true });
         c.eq("parked for the identity", c.r.evidence("parked").length, 1);
         const before = c.r.evidence("delivered").length;
+        const parked = String(c.r.evidence("parked")[0]?.["attempt"]);
+        const n0 = c.r.evidence().length;
         c.do({ forget: RL });
-        c.eq("its parked ending is evidence", c.r.evidence("ParkedForgotten").length, 1);
+        c.yes("its parked ending is evidence", c.madeEvidence(parked, n0).length > 0);
         c.eq("the hold stays, listed as unbound", c.r.inspect(RL)?.unbound?.length, 1);
         c.reload();
-        c.eq("each boot reports it", c.r.evidence("UnboundLane").length, 1);
+        c.eq("each boot reports it", c.reportsOf("charge").length, 1);
         c.reload();
-        c.eq("and the next", c.r.evidence("UnboundLane").length, 2);
+        c.eq("and the next", c.reportsOf("charge").length, 2);
         c.ensure(RL);
         c.eq("bound again: the hold's Restored, not the forgotten ending", c.r.evidence("delivered").slice(before).map((d) => [d["event"], d["reason"]]), [["Unsure", "Restored"]]);
         c.eq("its cancel is the owner's: the hold is still there to hear it", c.r.row(RL, "charge", {})?.uncertain, true);
@@ -272,9 +274,11 @@ export const round15Scenarios: readonly Scenario[] = [
         c.reload();
         c.eq("kept at ready, its Restored queued in the record", c.r.evidence("recordAtReady").length, 1);
         const before = c.r.evidence("delivered").length;
+        const head = String(c.r.evidence("mint").find((e) => e["op"] === "charge")?.["attempt"]);
+        const n0 = c.r.evidence().length;
         c.do({ forget: RL });
-        c.eq("evidence now", c.r.evidence("ParkedForgotten").length, 1);
-        c.yes("the record is gone", ![...c.r.stored().keys()].some((k) => k.startsWith("actor/")));
+        c.yes("evidence now", c.madeEvidence(head, n0).length > 0);
+        c.eq("the record is gone", c.record(RL), undefined);
         c.ensure(RL);
         c.eq("a fresh actor, from its input", [c.r.evidence("incarnation").at(-1)?.["from"], c.mem(RL)?.cancelling], ["input", false]);
         c.eq("it adopts the hold and hears it as its new owner, once", c.r.evidence("delivered").slice(before).map((d) => [d["event"], d["reason"]]), [["Unsure", "Restored"]]);
@@ -289,7 +293,7 @@ export const round15Scenarios: readonly Scenario[] = [
         c.send("Go");
         c.ack();
         c.do({ forget: RL });
-        c.eq("no live actor, no record", [c.r.state(RL), [...c.r.stored().keys()].some((k) => k.startsWith("actor/"))], [undefined, false]);
+        c.eq("no live actor, no record", [c.r.state(RL), c.record(RL)], [undefined, undefined]);
         c.answer("charge", { ok: {} });
         c.eq("its ending is heard by no one yet", c.r.evidence("delivered").length, 0);
         c.ensure(RL);
@@ -332,14 +336,14 @@ export const round15Scenarios: readonly Scenario[] = [
         c.ack();
         c.eq("declined beside it, nothing sent", [c.mem(KS)?.declined, c.reqs("charge").length], [1, 1]);
       },
-      // Q2 A's stated limit: a custom filter has no representation, so a change of its predicate is no new version (the hold stays current and
-      // another key's commit sends). This case documents the limit; it is not a guarantee.
+      // Q2 A's stated limit: a custom filter has no representation, so a change of its predicate need not be a new version. A limit is not a
+      // guarantee (audit 1): a runtime that does see the change is as correct. What holds either way: the hold is kept, and another key's commit
+      // is either sent or declined beside it, never lost.
       "a-custom-filter-change-is-no-new-version-a-stated-limit"(c0) {
         const c = keyHoldThen(c0, 9, 8);
-        c.eq("no old-version hold", c.r.evidence("OldVersionLane").length, 0);
         c.send("Go", { k: "cd" });
         c.ack();
-        c.eq("another key sends", [c.mem(KS)?.declined, c.reqs("charge").length], [0, 2]);
+        c.eq("the hold kept; the other commit sent or declined, once", [c.laneKeys().length > 0, (c.mem(KS)?.declined ?? 0) + c.keys("charge").length - 1], [true, 1]);
       },
       // U17: "a brand or a description is not" a new version. The hold is current; another key's commit sends.
       "a-key-fields-description-change-is-no-new-version-of-the-op"(c0) {
@@ -360,7 +364,7 @@ export const round15Scenarios: readonly Scenario[] = [
         c.fault({ corruptStored: { match: "actor/", edit: () => "{{{" } });
         c.reload();
         c.namedIssues = ["RecordQuarantined"];
-        c.eq("not unbound, not reported", [c.r.inspect(RL)?.unbound ?? [], c.r.evidence("UnboundLane").length], [[], 0]);
+        c.eq("not unbound, not reported", [c.r.inspect(RL)?.unbound ?? [], c.reportsOf("charge").length], [[], 0]);
       },
       // Audit 1, C173 (R9): `forget` removes an undecodable record, as it does a retired or old-version one.
       "audit-forget-removes-an-undecodable-record"(c0) {

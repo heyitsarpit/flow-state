@@ -41,8 +41,7 @@ export const round12Scenarios: readonly Scenario[] = [
         const c = heldThenRelease(c0, 2);
         c.eq("the request count stays", c.reqs("charge").length, 1);
         c.eq("no second Attempt", c.keys("charge").length, 1);
-        c.eq("not renamed", c.r.evidence("LaneRekeyed").length, 0);
-        c.eq("an old-version hold, said", c.r.evidence("OldVersionLane").length, 1);
+        c.eq("not renamed: one lane, an old-version hold, said", [c.laneKeys().length, c.r.evidence("OldVersionLane").length], [1, 1]);
         c.eq("declined beside it", c.r.evidence("BesideOldVersion").length, 1);
       },
       // Mid review M2, D217 (proposed): a release adds a key field, and the new commit supplies it. The held lane's stored input lacks the field, so it
@@ -52,7 +51,7 @@ export const round12Scenarios: readonly Scenario[] = [
         const c = heldThenRelease(c0, 3);
         c.eq("the request count stays", c.reqs("charge").length, 1);
         c.eq("no second Attempt", c.keys("charge").length, 1);
-        c.eq("not rekeyed", c.r.evidence("LaneRekeyed").length, 0);
+        c.eq("not rekeyed: one lane", c.laneKeys().length, 1);
         c.eq("declined beside the old version", c.r.evidence("BesideOldVersion").length, 1); // round 13 (D221): renamed from BesideOlderKey
       },
     },

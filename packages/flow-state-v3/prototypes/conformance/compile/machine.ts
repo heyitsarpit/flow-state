@@ -34,7 +34,9 @@ type Fn = (...a: never[]) => unknown;
 export type DomainIn = {
   readonly writes: Readonly<Record<string, { readonly predicts: Fn; readonly confirms?: Fn }>>;
   readonly reads?: Readonly<Record<string, Fn>>;
+  readonly gone?: Readonly<Record<string, { readonly tag: string; readonly ref: Fn }>>;
   readonly listens?: Readonly<Record<string, Fn>>;
+  readonly covers?: DomainSpec["covers"];
   readonly repair: Fn;
   readonly version?: Fn;
   readonly versionOrder?: "lexical" | Fn;
@@ -46,6 +48,8 @@ const compileDomain = (id: string, d: DomainIn): DomainSpec =>
       Object.entries(d.writes).map(([op, w]) => [op, { predicts: slotOf(id, `domain.writes.${op}.predicts`, w.predicts), ...(w.confirms ? { confirms: slotOf(id, `domain.writes.${op}.confirms`, w.confirms) } : {}) }]),
     ),
     reads: Object.fromEntries(Object.entries(d.reads ?? {}).map(([op, f]) => [op, slotOf(id, `domain.reads.${op}`, f)])),
+    ...(d.gone ? { gone: Object.fromEntries(Object.entries(d.gone).map(([op, g]) => [op, { tag: g.tag, ref: slotOf(id, `domain.gone.${op}`, g.ref) }])) } : {}),
+    ...(d.covers ? { covers: d.covers } : {}),
     ...(d.listens
       ? {
           listens: Object.fromEntries(

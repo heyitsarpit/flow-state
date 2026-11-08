@@ -15,6 +15,7 @@ export { subroutine, trait } from "./fragment.ts";
 export { notCarried, resource, servicesFor, transaction, type Typed } from "./operations.ts";
 export type { FragmentValue, Placed } from "./body.ts";
 export { actorRef, ensureArgs, type ActorRefOf, type InputOf } from "./ref.ts"; // round 14: rule 74, 2.7.19
+export { changesOf, entity, predictionsOf, type Change, type Delta, type Patch, type Removal, type WholeRow } from "./entity.ts"; // phase 1 E round 3 (Q4 A)
 
 // 2.2.1: one module for what Schema cannot say. `Flow.private` is `privately` here only because `private` is a reserved word for a binding.
 export const Flow = {

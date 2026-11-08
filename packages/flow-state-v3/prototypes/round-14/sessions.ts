@@ -225,7 +225,7 @@ const end = (
 ): SessionsSlice => {
   disarmAll(cx, x);
   abandon(x, cx);
-  if (spec.listen) gap(x, cx);
+  if (spec.listen) gap(x, cx, "ended");
   const closed = x.st === "Waiting" || x.st === "Queued" ? s : closeConn(s, x, cx);
   return pump(
     closed,
@@ -250,7 +250,8 @@ const withoutRead = (x: Session): Session => {
   const { rid: _r, lastRead: _l, prevNext: _p, wantNext: _w, greeted: _g, from: _f, ...rest } = x;
   return { ...rest, buf: [], emptyRun: 0, pageN: 0, movedHere: false };
 };
-const gap = (x: Session, cx: Cx) => cx.publish({ k: "gap", machine: x.machine, op: x.op });
+const gap = (x: Session, cx: Cx, why: "unproven" | "lost" | "ended") =>
+  cx.publish({ k: "gap", machine: x.machine, op: x.op, session: x.id, input: x.input, why });
 const requestPage = (
   s: SessionsSlice,
   x: Session,
@@ -427,7 +428,7 @@ const register = (
   cx.arm(`healthy/${x.id}`, cx.now + spec.healthyMs);
   armIdle(cx, x, spec);
   if (spec.listen) {
-    if (!sig.proof) gap(x, cx); // T7: an unproven registration, the first included
+    if (!sig.proof) gap(x, cx, "unproven"); // T7: an unproven registration, the first included
     return put(s, x);
   }
   if (spec.delivers === "latest") {
@@ -494,7 +495,7 @@ const lose = (
     const y: Session = closedAlready ? { ...x, st: "Waiting" } : x;
     return end(s, y, spec, cx, retried ? "Flapping" : why, e);
   }
-  if (spec.listen) gap(x, cx);
+  if (spec.listen) gap(x, cx, "lost");
   cx.arm(`backoff/${x.id}`, cx.now + delayOf(spec, x.n, cx));
   const out = closedAlready ? s : closeConn(s, x, cx);
   // T1: this connection's frames are discarded. Notices stay: one interruption, one answer.
@@ -521,7 +522,7 @@ const release = (s: SessionsSlice, x: Session, cx: Cx): SessionsSlice => {
     cx.note("discarded", { op: x.op, item: q.kind });
   disarmAll(cx, x);
   abandon(x, cx);
-  if (cx.machine(x.machine).streams?.[x.op]?.listen) gap(x, cx); // T7: a release is a gap
+  if (cx.machine(x.machine).streams?.[x.op]?.listen) gap(x, cx, "ended"); // T7: a release is a gap
   const out = drop(s, x.id);
   return x.st === "Waiting" || x.st === "Queued" || x.st === "Ended" ? out : closeConn(out, x, cx);
 };
@@ -770,7 +771,7 @@ const onFrame = (
   if (spec.listen) {
     const y0 =
       x.st === "Connecting" ? register(s, x, { _feed: "live" }, spec, cx).sessions[x.id]! : x;
-    cx.publish({ k: "pushed", machine: x.machine, op: x.op, value: f });
+    cx.publish({ k: "pushed", machine: x.machine, op: x.op, session: x.id, value: f });
     const at = spec.position ? (f as any)?.[spec.position] : undefined;
     armIdle(cx, y0, spec);
     cx.command({ k: "pull", conn: y0.conn });
