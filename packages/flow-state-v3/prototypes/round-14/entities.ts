@@ -23,8 +23,28 @@ type Entry = {
   readonly predicted: readonly Predicted[];
   readonly unknown: boolean;
   readonly released: boolean;
+  readonly joined: boolean;
 };
-type Mark = { readonly attempt: string; readonly mint: number; readonly given: boolean };
+// Rule 32 as U10 rules it: `given` is the position of the give-up (null while the lane can still re-send); `quiet` once a read asked after it, or a
+// later write's success, has landed: `unconfirmed` on its fields, never `uncertain`, and it has no exit here (no `guarded` proof is built).
+type Mark = {
+  readonly attempt: string;
+  readonly mint: number;
+  readonly given: number | null;
+  readonly quiet: boolean;
+  readonly fields: readonly string[];
+};
+const markOf = (e: Entry, ref: string): Mark => ({
+  attempt: e.attempt,
+  mint: e.mint,
+  given: null,
+  quiet: false,
+  fields: [...new Set(e.predicted.filter((p) => p.ref === ref).flatMap((p) => Object.keys(p.patch ?? {})))],
+});
+const demote = (r: Rec, when: (m: Mark) => boolean): Rec =>
+  r.marks.some((m) => !m.quiet && m.given !== null && when(m))
+    ? { ...r, marks: r.marks.map((m) => (!m.quiet && m.given !== null && when(m) ? { ...m, quiet: true } : m)) }
+    : r;
 // D74: what a confirmed write established and which fields, until a version or a later read places it. Replaces `unechoed`.
 type Claim = {
   readonly since: number; // the newest such write's success landed here
@@ -104,13 +124,16 @@ const safely = <A>(f: () => A, fallback: A): A => {
     return fallback;
   }
 };
+const draftsOf = (s: Slice, ref: string) =>
+  Object.values(s.entries)
+    .filter((e) => !e.joined && e.refs.includes(ref))
+    .sort((a, b) => a.mint - b.mint);
 export const readRecord = (s: Slice, ref: string) => {
   const r = own(s.records, ref);
   if (!r) return undefined;
   let data: any = r.base;
   let predicted = false;
-  for (const id of r.queue) {
-    const e = s.entries[id];
+  for (const e of [...r.queue.map((id) => s.entries[id]), ...draftsOf(s, ref)]) {
     if (!e) continue;
     for (const p of e.predicted) {
       if (p.ref !== ref) continue;
@@ -119,9 +142,11 @@ export const readRecord = (s: Slice, ref: string) => {
       data = safely(() => applyPatch(before, p, e.input), before);
     }
   }
-  const uncertain = r.marks.length > 0 || r.doubt !== undefined;
+  const uncertain = r.marks.some((m) => !m.quiet) || r.doubt !== undefined;
+  const quiet = r.marks.filter((m) => m.quiet).flatMap((m) => m.fields);
+  const unconfirmed = quiet.length ? [...new Set([...r.unconfirmed, ...quiet])] : r.unconfirmed;
   if (r.base === undefined && !predicted && !uncertain && r.queue.length === 0) return undefined;
-  return { data, predicted, uncertain, unconfirmed: r.unconfirmed };
+  return { data, predicted, uncertain, unconfirmed };
 };
 export const readAll = (s: Slice) =>
   Object.fromEntries(
@@ -150,16 +175,11 @@ const removeEntry = (s: Slice, attempt: string): Slice => {
     out = withRec(out, ref, (r) => ({ ...r, queue: r.queue.filter((x) => x !== attempt) }));
   return out;
 };
-const clearMarks = (s: Slice, e: Entry, cx: Cx): Slice => {
+const clearMarks = (s: Slice, e: Entry): Slice => {
   let out = s;
-  for (const ref of e.refs) {
-    const r = recOf(out, ref);
-    // Rule 32: its own mark, and every mark on the record given up by an older Attempt. An unresolved one stays.
-    const gone = r.marks.filter((m) => m.attempt === e.attempt || (m.given && m.mint < e.mint));
-    out = withRec(out, ref, (x) => ({ ...x, marks: x.marks.filter((m) => !gone.includes(m)) }));
-    // D55: a given-up write may still land. Look once, so a late landing is usually seen.
-    if (gone.some((m) => m.given)) out = startRepair(out, ref, e.machine, cx);
-  }
+  for (const ref of e.refs)
+    if (recOf(out, ref).marks.length)
+      out = withRec(out, ref, (x) => demote({ ...x, marks: x.marks.filter((m) => m.attempt !== e.attempt) }, () => true));
   return out;
 };
 // ── D74: evidence is placed, then disposed. Two questions, two functions, one table (convergence-6). Every caller obeys.
@@ -348,8 +368,13 @@ const take = (
   };
 };
 // The one way evidence touches a record.
-const admit = (s: Slice, ev: Evidence, machine: string, cx: Cx): { s: Slice; v: Verb } => {
+const admit = (s0: Slice, ev: Evidence, machine: string, cx: Cx): { s: Slice; v: Verb } => {
   const ref = ev.carried.ref;
+  const asked = ev.start;
+  const s =
+    (ev.kind === "read" || ev.kind === "repair") && asked !== undefined && recOf(s0, ref).marks.length
+      ? withRec(s0, ref, (x) => demote(x, (m) => m.given! <= asked))
+      : s0;
   const r = recOf(s, ref);
   const order = compareVersions(ev.version, r.version, domainOf(cx, machine)?.versionOrder, cx);
   const p = place(r, ev, order);
@@ -534,7 +559,7 @@ const holdFor = (s: Slice, e: Entry, cx: Cx): Slice => {
     out = withRec(out, ref, (r) =>
       r.marks.some((m) => m.attempt === e.attempt)
         ? r
-        : { ...r, marks: [...r.marks, { attempt: e.attempt, mint: e.mint, given: false }] },
+        : { ...r, marks: [...r.marks, markOf(e, ref)] },
     );
     out = startRepair(out, ref, e.machine, cx);
   }
@@ -547,18 +572,21 @@ const onEnded = (s: Slice, { attempt, how, sentAt }: Ended, cx: Cx): Slice => {
   if (how === "superseded") return removeEntry(s, attempt);
   if (how === "released") {
     let out: Slice = s;
+    const at = cx.pos();
     for (const ref of e.refs)
       out = withRec(out, ref, (r) => ({
         ...r,
-        marks: r.marks.map((m) => (m.attempt === attempt ? { ...m, given: true } : m)),
+        marks: r.marks.map((m) => (m.attempt === attempt ? { ...m, given: at } : m)),
       }));
-    return e.refs.some((r) => own(s.repairs, r))
+    out = e.refs.some((r) => own(s.repairs, r))
       ? { ...out, entries: { ...out.entries, [attempt]: { ...e, released: true } } }
       : removeEntry(out, attempt);
+    for (const ref of e.refs) if (recOf(out, ref).marks.some((m) => m.attempt === attempt)) out = startRepair(out, ref, e.machine, cx);
+    return out;
   }
   const ending: Ending = how;
   if (ending.ch === "success")
-    return removeEntry(clearMarks(confirm(s, e, ending.value, sentAt, cx), e, cx), attempt);
+    return removeEntry(clearMarks(confirm(s, e, ending.value, sentAt, cx), e), attempt);
   if (ending.ch === "failure") return removeEntry(s, attempt);
   return holdFor(s, e, cx);
 };
@@ -713,12 +741,18 @@ export const entities: Module<Slice> = {
     if (!p) return { s, ok: true };
     const refs = [...new Set(p.predicted.map((x) => x.ref))];
     // Rule 35: no partial join.
-    if (refs.some((ref) => recOf(s, ref).queue.length >= cx.queueMax)) return { s, ok: false };
-    const e: Entry = { ...w, refs, predicted: p.predicted, unknown: false, released: false };
+    if (refs.some((ref) => recOf(s, ref).queue.length + draftsOf(s, ref).length >= cx.queueMax)) return { s, ok: false };
+    const e: Entry = { ...w, refs, predicted: p.predicted, unknown: false, released: false, joined: false };
     let out: Slice = { ...s, entries: { ...s.entries, [w.attempt]: e } };
-    for (const ref of refs)
-      out = withRec(out, ref, (r) => ({ ...r, queue: [...r.queue, w.attempt] }));
+    for (const ref of refs) out = withRec(out, ref, (r) => r);
     return { s: out, ok: true };
+  },
+  sending(s, attempt) {
+    const e = s.entries[attempt];
+    if (!e || e.joined) return s;
+    let out: Slice = { ...s, entries: { ...s.entries, [attempt]: { ...e, joined: true } } };
+    for (const ref of e.refs) out = withRec(out, ref, (r) => ({ ...r, queue: [...r.queue, attempt] }));
+    return out;
   },
   ended: onEnded,
   blocks(s, attempt): false | QueueClaim {
@@ -742,13 +776,13 @@ export const entities: Module<Slice> = {
     const refs: readonly string[] = Array.isArray(saved)
       ? saved.filter((x): x is string => typeof x === "string")
       : [];
-    const e: Entry = { ...w, refs, predicted: [], unknown: true, released: false };
+    const e: Entry = { ...w, refs, predicted: [], unknown: true, released: false, joined: true };
     let out: Slice = { ...s, entries: { ...s.entries, [w.attempt]: e } };
     for (const ref of refs) {
       out = withRec(out, ref, (r) => ({
         ...r,
         queue: [...r.queue, w.attempt],
-        marks: [...r.marks, { attempt: w.attempt, mint: w.mint, given: false }],
+        marks: [...r.marks, markOf(e, ref)],
       }));
       out = startRepair(out, ref, w.machine, cx);
     }

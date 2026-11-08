@@ -59,9 +59,12 @@ export const checkClaims = (r: Reads) => {
           // A wait must chain to something real: the holder itself claims a wait, checked in its own turn here.
           if (!claimed.has(b))
             throw new Mismatch(`L3: ${w.op} waits behind ${b}, which waits on nothing`);
+          // D3 as directed: a record queue is in the order sends began, and a commit still in W (a draft) holds no record.
+          if (w.kind === "queue" && claimed.get(b) === "W")
+            throw new Mismatch(`D3: ${w.attempt} waits on a record behind ${b}, a commit not yet sent`);
           const mine = mints.get(w.attempt);
           const theirs = mints.get(b);
-          if (mine !== undefined && theirs !== undefined && theirs >= mine)
+          if (w.kind === "W" && mine !== undefined && theirs !== undefined && theirs >= mine)
             throw new Mismatch(
               `L2: ${w.attempt} (mint ${mine}) waits behind ${b} (mint ${theirs})`,
             );

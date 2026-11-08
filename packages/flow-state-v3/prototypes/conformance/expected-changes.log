@@ -1918,3 +1918,51 @@ file:drive.ts hash:72441251888d | review: forget of an identity with no actor en
 round:mutants-p1h.ts hash:512fd8952e35 | the latest-as-cancel lie as a wrong runtime, for lifetime-falsify
 round:mutants-r15d.ts hash:1a6b6c422c2b | the gone-op mutant re-anchored on goneOp
 output:P1-H/a-default-that-runs-is-refused-at-construction-and-never-runs hash:60bcfa62c806 | output now has the CtorInput actor
+P1-E hash:d6b56279381c | phase 1 E: new case, 0a pending cancel, D3 send-time join, U10 rule 32, the PostgREST source path
+file:scenarios/phase1e.scenario.ts hash:cb6e078acd05 | phase 1 E: the new case file
+file:typed/phase1e.ts hash:5e2423c40f8d | phase 1 E: fixtures for 0a, 0b, and the PostgREST-shaped ticket
+file:suite.ts hash:5e9c055a37f7 | phase1eScenarios registered
+LIKE-03 hash:e4dbfa0d13d7 | D3 as directed: a0's W commit is a draft, a1 goes first on r2; S1's commit-order oracle now sees inversion
+LIKE-05 hash:af2aa6c68625 | D3 as directed: the draft behind a0's wire head joins at its send, after a1's head; sent 1, 3, 2
+LIKE-06 hash:e3a1c5a57386 | U10: the later success demotes the released mark to unconfirmed and it stays after the late landing and a read
+file:scenarios/store.scenario.ts hash:14339e3e28de | the LIKE-03, LIKE-05 and LIKE-06 rewrites
+file:scenarios/ctx.ts hash:67770284deae | D3 oracle: a queue wait behind a W commit is a violation; the mint-order check stays for W waits
+round:cli/check.ts hash:5e7441a557e8 | 0b: Rule15LateLeaves counts a stay-put alternative at the owner state
+round:cli/main.ts hash:8da154ae92ff | 0b: the CLI pin for a stay-put Unsure at the owner state
+round:mutants-lifetime.ts hash:28620e3a1707 | phase 1 E's wrong runtimes spread in
+round:mutants-p1e.ts hash:6e00e4233224 | phase 1 E's wrong runtimes
+output:LIKE-03 hash:08fe75095e8f | D3 as directed: a1's w is sent before a0's draft
+output:LIKE-05 hash:36785a63c6e6 | D3 as directed: send order 1, 3, 2
+output:LIKE-04 hash:802af2fad46d | U10: the give-up asks one read, a second repair request
+output:LIKE-06 hash:bd6d09fdb4c3 | U10: the give-up's read replaces D55's repair after the later success
+output:R14-IGN-03 hash:7a0b6e507ffb | U10: the give-up's read (an ignored unknown releases) comes before the later like
+output:STORE-05/a-later-failure-does-not hash:7773493b622b | U10, the give-up read: one more repair after the release
+output:STORE-07/released-entry-leaves-at-the-bound hash:efdbb316a1f4 | U10, the give-up read: one more repair after the release
+output:STORE-11/cancel-a-waiting-resend hash:4ae00ea479b0 | U10, the give-up read: one more repair after the release
+output:HIGH-01/retry-then-cancel-releases hash:535e598b9b56 | U10: a cancel in Held gives up and asks one read
+output:MED-02/record-held-names-holder-and-waiter hash:faacd3f19237 | U10: the released rename asks one read before the like goes
+output:FRAG-12/unbound-hold-with-a-waiter-yields hash:009798439aed | U10: D15's yield is a give-up, so it asks one read
+output:FRAG-13 hash:dbaca5876c45 | U10: D15's yield asks one read, as in FRAG-12
+output:FRAG-14 hash:9b188a21b3d7 | U10: D15's yield asks one read, as in FRAG-12 and FRAG-13
+output:REAL-03/persisted-host-with-the-store hash:5ea535620855 | U10: the released File upload asks one read
+output:REAL-05/pin-unsure-releases-and-the-look-stays-marked hash:448b5b6d91d7 | U10: the released pin asks one read
+output:P1-E/a-pending-cancel-survives-a-later-latest-commit hash:24cf0419dbee | new output: 0a
+output:P1-E/a-draft-behind-its-own-hold-stalls-no-other-actor hash:c2b34b4d842b | new output: D3's draft
+output:P1-E/a-sent-hold-still-stalls-another-actor-on-its-record hash:f3a133efc80f | new output: D3's price kept
+output:P1-E/a-given-up-mark-is-uncertain-until-a-read-asked-after-then-quiet-for-good hash:caae8e373bb4 | new output: U10, two levels
+output:P1-E/a-later-success-demotes-a-given-up-mark-and-does-not-clear-it hash:ff22f8422da1 | new output: U10, a later success demotes
+output:P1-E/a-postgrest-update-response-confirms-what-it-carries hash:856e519aa988 | new output: the PostgREST success
+output:P1-E/a-postgrest-update-that-matches-no-row-is-a-definite-conflict hash:2b64c84c05b6 | new output: the PostgREST conflict
+output:P1-E/a-postgrest-status-0-is-unknown-and-forces-a-repair hash:95cc9f4e674c | new output: the PostgREST dropped connection
+file:expected-recipients.txt hash:4bace1bcdfd3 | P1-E's 8 variants: 18 more recipients observed, 17 more start nodes; no red count moved
+file:search/like.search.ts hash:cba4a6b0186c | D3 as directed: the like search's last-intent oracle is per actor (selfInverted); commit order across actors is not kept
+file:fixtures/s1.compiled.ts hash:26c4a917cab9 | S1's server also says selfInverted: one actor's own commits landing backwards
+file:typed/phase1e.ts hash:241df3ee3dc0 | typed tsc: the PostgREST adapter's answer typed explicitly
+round:mutants-p1e.ts hash:505fae812576 | lifetime-falsify: a wrong runtime for each P1-E and DRV-03 variant
+output:LIKE-02 hash:b27101b28640 | S1's server state carries mine and selfInverted
+output:LIKE-03 hash:d148ab87f3c6 | S1's server state carries mine and selfInverted, as in LIKE-02
+output:LIKE-05 hash:81780347c946 | S1's server state carries mine and selfInverted, as in LIKE-02 and LIKE-03
+output:STORE-05/an-unresolved-mark-outlives-another-success hash:90a568b66dc0 | S1's server state gained two fields
+output:STORE-06 hash:3a678b990a5e | S1's server state gained two fields, as in STORE-05
+output:P1-E/a-draft-behind-its-own-hold-stalls-no-other-actor hash:f1fa1fa1b5d7 | S1's new server fields in P1-E's draft variant
+output:P1-E/a-sent-hold-still-stalls-another-actor-on-its-record hash:cb817f843629 | S1's new server fields in P1-E's sent-hold variant

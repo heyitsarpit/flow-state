@@ -725,8 +725,15 @@ const hasResetOn = (tx: Tx, a: ActorRec) => {
 };
 
 // ── D: after every step, over the lanes whose head is `ready`. Level-triggered (D4). D49: a wait past its bound gets a sign. D15.
+const joinHeads = (tx: Tx) => {
+  if (tx.w.status !== "live") return;
+  const ids = new Set([...tx.touchedLanes.keys(), ...Object.keys(tx.w.ready)]);
+  const heads = [...ids].flatMap((id) => tx.w.lanes[id]?.head ?? []).sort((a, b) => a.mint - b.mint);
+  for (const h of heads) hook(tx, "sending", (m, s, cx) => m.sending!(s, h.id, cx));
+};
 const dispatch = (tx: Tx) => {
   if (tx.w.status !== "live") return;
+  joinHeads(tx);
   for (const id of Object.keys(tx.w.ready)) {
     const l = tx.w.lanes[id]!;
     const h = l.head!;
@@ -847,6 +854,7 @@ export const step = (world: World, input: Input, env: Env, sys: System): StepOut
   tell(tx, world);
   dispatch(tx);
   lifetime(tx);
+  joinHeads(tx);
   if (tx.w.status === "disposing" && wires(tx.w).length === 0 && input.k !== "disposeRuntime")
     finishDisposal(tx);
   flush(tx);

@@ -1,5 +1,6 @@
 // S1's model as a real machine: one `latest` lane per actor, 2 records, a commit predicts mask 1, 2 or 3. `v` is the
-// commit's order in the script, so the server can tell an inversion without any Flow vocabulary (a design-free oracle).
+// commit's order in the script, so the server can tell an inversion without any Flow vocabulary (a design-free oracle). `inverted` is
+// across actors (commit order, which D3 as directed no longer keeps); `selfInverted` is one actor's own commits landing backwards.
 import { Effect } from "effect";
 import type { Fixture } from "../harness.ts";
 import type { Api, ServerModel } from "../fake-world.ts";
@@ -71,15 +72,19 @@ const make = (api: Api): Compiled => ({
 });
 
 const server: ServerModel = {
-  init: () => ({ records: { r1: 0, r2: 0 }, inverted: false }),
+  init: () => ({ records: { r1: 0, r2: 0 }, inverted: false, mine: {}, selfInverted: false }),
   apply: (_op, i, s) => {
     let inverted = s.inverted;
+    let selfInverted = s.selfInverted;
     const records = { ...s.records };
+    const own = { ...s.mine[i.actor] };
     for (const r of recsOf(i.mask)) {
       if (records[r] > i.v) inverted = true;
+      if ((own[r] ?? 0) > i.v) selfInverted = true;
       records[r] = i.v;
+      own[r] = Math.max(own[r] ?? 0, i.v);
     }
-    return { s: { records, inverted }, value: { v: i.v } };
+    return { s: { records, inverted, mine: { ...s.mine, [i.actor]: own }, selfInverted }, value: { v: i.v } };
   },
   read: (_op, i, s) => ({ v: s.records[i.ref.split("|")[1]] }),
 };

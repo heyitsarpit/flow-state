@@ -890,3 +890,78 @@ Sidecar log (Haiku, effort high; the lead read every line and reran every check)
 | review of R6/R7 against the two rules | reviewer | changed | acted on: `keyVersionByFormat` skipped in the typed Pay compare (it would have failed `typed compare`); the latest R6 case asserted by Attempt, not by input. Recorded: the downgrade case (finding 3), `then` overwritten (finding 8), `afterAck`'s non-empty W rests on an invariant (pre-existing). Its format 1 check confirmed |
 | probe of the hand-closure rename paths | runner | accepted | both wrong runtimes survived the whole suite; its proposed setup became `keyCollideFixture` and the collision pair, red on both. It wrote one file by shell redirection in the scratchpad (against the rule; removed) |
 | review of R9-R12 and H1 | reviewer | changed | acted on: the quarantine id parsed by `split("\|")` and any machine's op (now `goneOp` reads the record); a non-live forget bumped the oracle's life; getters asked without options and `suspend` not walked; a stale comment. Recorded: non-ending boot mail (finding 5). It also wrote a diff file into the scratchpad (removed) |
+
+## Phase 1: entities (2026-11-08)
+
+Phase 1's entities area, round 1 of up to 6. Same runtime and suite. New: case `P1-E` (`conformance/scenarios/phase1e.scenario.ts`, 8 variants;
+fixtures `typed/phase1e.ts`), wrong runtimes in `mutants-p1e.ts` (spread into `mutants-lifetime.ts`; `P1-E`, `DRV-03`, `LIKE-03`, `LIKE-05`,
+`LIKE-06` added to lifetime-falsify's list). Every wrong runtime was run by the lead on a copy (`try.ts` in the scratchpad) and went red by the line
+given. Process slips: `suite.ts` (two lines) was edited once with `perl -pi` and `entities.ts` (one call site) once with `sed -i`, against the
+Write/Edit rule; both results were read back and are the lines intended.
+
+| Item | State | Commit | Failing first | Wrong runtime |
+| --- | --- | --- | --- | --- |
+| 0a pending cancel | **built**: `commitOverWaiting` (lane.ts) keeps `then: "cancel"` when a later `latest`/`cancel` commit waits on the same ack; after the ack the earlier commit ends `NotSent { Cancelled }` (heard) and the later is promoted and sent | 1st | `a-pending-cancel-survives-a-later-latest-commit`: `the first is cancelled and heard: expected [["No"],["Cancelled"]], got [[],[]]` | `p1e.cancel-overwritten-by-replace` |
+| 0b rule 15 check | **built** as ruled: `Rule15LateLeaves` (cli/check.ts) reads stay-put alternatives at `[owner, ...ancestors]` | 1st | CLI pin `check: rule 15, a stay-put Unsure at the owner state counts`: `expected ["error:No","error:Ok"], got [...,"error:Unsure"]` | none (CLI is outside lifetime-falsify; the pin is the check) |
+| D3 (directed) | **changed**: the prototype joined at **mint** (`newAttempt` → `startAll` → `entities.start` pushed to each record queue), so a commit in W behind its own hold headed the record's queue; D3's "joined at commit" did not mean send. Now `start` records the entry and prediction only; a new seam hook `sending` (called from `joinHeads`, step.ts, for every lane head, any phase, in mint order, in `dispatch` and again after `lifetime`) joins it. Drafts replay after joined entries; queueMax counts drafts. "Pressed" in D3's price is the owner of a Held head who has not pressed retry or cancel (convergence-3); that price stays for a **sent** hold | 1st | `a-draft-behind-its-own-hold-stalls-no-other-actor` red by the new claim oracle: `D3: att-1-3 waits on a record behind att-1-2, a commit not yet sent`; LIKE-03 and LIKE-05 rewritten (send order 1, 3, 2) | `p1e.join-at-mint` |
+| U10 rule 32 | **built** per Q7 A and proposal section 5: a mark carries `given` (the give-up's position) and `quiet`; a release asks one read; a read or repair asked at or after `given`, or any later success, makes it quiet: `unconfirmed` on the fields its prediction touched, never `uncertain`, asking nothing. Nothing clears a given-up mark (no `guarded` proof built). D55's repair-on-clear is gone (the give-up's read replaces it). Its own re-send's success still removes it | 1st | `a-given-up-mark-...-quiet-for-good`; `a-later-success-demotes-...`; LIKE-06: `expected [false,["liked","likes"]], got [false,[]]` | `p1e.later-success-clears`, `p1e.read-before-give-up-demotes`, `p1e.read-never-demotes`, `p1e.give-up-asks-nothing` |
+| U7 module defect (D46) | **already built** (fail closed; DRV-03), now pinned by wrong runtimes | - | green first | `p1e.disabled-store-fails-open` (DRV-03 `a-disabled-store-holds-its-queue`), `p1e.disabled-store-takes-a-join` (DRV-03 `disabled-survives-a-refused-turn`; `a-disabled-store-declines-what-would-join` stays green on it, so it is not the kill) |
+| Real source | **green first, no runtime change**: a supabase-js PostgREST update (`PostgrestResponse`: resolves, never rejects; conflict is `data: []` with 200; a dropped connection is `error` with status 0), decoded by the adapter's Schema; success confirms `title`, `revision`, leaves `slug` unconfirmed; the conflict takes the failure row; status 0 is unknown | 1st | three P1-E variants | `p1e.failure-forces-repair` |
+| D12, D40 repair bound | **decision needed** (below) | | | |
+| D15 unbound-hold yield | **decision needed** (below) | | | |
+| D18 rebase cut | **proposed settled**: the direction's "a late draft ... meets the server's version check as an ordinary conflict" holds only with no `basedOn` rebase; the PostgREST conflict variant shows the shape. Reverses OD19 Q32 A (2.8.6), so the user's yes is owed | | | |
+| D39 re-send waits for its repair | **settled as built** (`blocks`' repair claim); `a-sent-hold-still-stalls-...` answers the repair before the retry | | | |
+| D49 record half | **settled as built**: `RecordHeld` evidence and Inspection's `stalled: "record"`, deciding nothing (as U16 A's `StorageSilent`); MED-02 | | | |
+| D47-D76 judge | **decision needed** (below) | | | |
+
+Harness changes, each for a rule that moved: the claim oracle (ctx.ts) checks a queue wait is never behind a W commit, and keeps the mint check for W waits
+only; S1's server (fixtures/s1.compiled.ts) also says `selfInverted`, and the like search's last-intent oracle reads it (per actor) instead of commit order
+across actors, which the first gate run showed D3 as directed breaks (`commit.a0.m1 commit.a0.m1 commit.a1.m1`, LIKE-05's trace). The cross search still
+reads commit order and stays green at its budget; it should move to `selfInverted` too when it next reaches that trace. Wrong runtimes added for
+lifetime-falsify's every-case-red rule: `p1e.module-throw-unnamed`, `p1e.sent-hold-passed`, `p1e.omitted-field-confirmed`, `p1e.unknown-forces-no-repair`, each
+red by assertion on its kill.
+
+Decisions needed, for the user:
+1. D12/D40 (30 s forced-repair bound, `RepairOverdue`) and D15 (5 min unbound-hold yield, `unknown { Abandoned }`) are Flow timers. U1 B (no Flow timeout; a call's
+   deadline is its commit's Effect) and proposal 2's "no wall clock decides anything" (its 4.4: "a record's queue releases when that record's own repair lands or
+   fails ... never by a timer") point the other way. Options: A keep both timers; B drop D12/D40 (the repair's own Effect carries its deadline, a failed repair
+   ends it, the mark stays) and keep D15; C drop both (an unbound hold across reloads then stalls its record until `forget` or a cancel). Recommendation: **B**:
+   it is U1 B applied to the repair, and D15 guards a case no person can press (the actor is gone), which a timer is the only thing able to end.
+2. The judge. Proposal 2's `position` and the prototype's D74 `place` differ: (a) an earlier version asked after we knew is `backwards`, a conflict named
+   `VersionWentBack`, in the proposal; the prototype's `place` returns `"older"` for any lower version (entities.ts `place`), silently stale; (b) a higher version
+   is `after` whenever asked in the proposal; the prototype needs it past the claim, else `"open"`; (c) equality is `Schema.toEquivalence` in the proposal,
+   `same` (structural) here; (d) the proposal's public words `.covers`, `.gone`, `Ticket.delta`/`.row`, `guarded` and pick-as-target are not in the prototype.
+   (d) is a public API change, so it is written up, not built. Recommendation: build (a)-(c) inside the module next round (no public word), and bring (d) to
+   the user as one round with before/after.
+
+Findings for the design:
+1. D3 as directed changes rule 29 and 2.8.5's stated limit: "A commit in W joins its records' queues at commit" becomes "when its lane sends it". The S1 model's
+   commit-order oracle no longer holds across actors: LIKE-05's a0 commits v2 before a1's v3 but v2 is sent last and wins on a server with no version check. With
+   a version check it is an ordinary conflict for a0 (the PostgREST variant). The design should say commit order across actors is not kept, only send order.
+2. "Sent" had to be fixed: an Attempt joins when it heads its lane, including while its write-ahead ack is out (MED-01 needs a head that may be on disk to hold
+   its record), not at invocation. A refused ack leaves the queue cleanly.
+3. U10 needs the mark's fields. The prototype saves only the refs of a held Attempt (`save`), so a restored mark has no fields and, once quiet, shows nothing
+   in `unconfirmed` (proposal 4.1's row with `fields` is not built). The design's rule 38/4.1 row is what makes the quiet level visible after a reload.
+4. U10's "later success" is read by time (a success landing after the give-up), not mint; the reviewer noted the old code used mint. The design should say which.
+5. A quiet mark has no exit in the prototype: `guarded` (proposal 5) is not built, and no eviction cap (4,096, `UnsettledEvicted`) either. Until then it lives as
+   long as the store.
+6. The give-up asks one read (proposal 2.5); 14 existing outputs gained one repair request. Under `Flow.ignore`'d unknowns and D15 yields too, since both are a
+   release.
+7. 0b as ruled admits a shape where a late ending, landing while the owner is not re-entered, starts at an ancestor whose alternatives all leave and is denied
+   (the reviewer's C1). The rule counts the owner's stay-put because a re-entered owner picks it; the design should say rule 15's check accepts that risk.
+8. A module defect (U7, D46): `NotSent { ModuleDisabled }` is not in the design's NotSent table or rule 13's reserved reasons; the design should add it (a
+   reason name, small) and state the price (one store bug stops every write of every machine using it until reload).
+9. The PostgREST source shows two facts the design's write path assumes away: a client that resolves with an error value instead of failing (the adapter must
+   map `status: 0` to unknown), and a version check that is a filter, not a 412. Both fit the contract's commit as written; the fake world dedupes by key
+   (Stripe's semantics), which PostgREST does not, a stated limit of the fixture.
+
+Gates: `bun gates.ts` exit 0, **25/25 ok**, 222 s (the first run was 19/25: typed tsc on the PostgREST adapter's union, the like search's commit-order
+oracle against D3 as directed, and four lifetime-falsify cases with no wrong runtime; all fixed). Lock: every changed id logged with its own reason;
+`bun main.ts --round 14 --runtime ../round-14/adapter.ts --no-search --lock` exit 0, 898/898.
+
+Sidecar log (Haiku, effort high; the lead read every line and reran every check):
+
+| Task | Who | Result | Why |
+| --- | --- | --- | --- |
+| review of the D3 join, U10 and the oracle against three rules | reviewer | changed | acted on: a head set by `lifetime` after `dispatch` was never joined (now `joinHeads` runs after `lifetime` and over ready heads too); "no stall named" was vacuous (now after 600 s); a weak label. Recorded: success demotes by time not mint (finding 4); a read demotes only what it carries (correct: it speaks for nothing else); quiet marks on base-less records are not shown (as before); no join-order oracle (stated); heads promoted during disposal join at the restore |
+| review of 0a, 0b, `joinHeads` | reviewer | changed | recorded, not acted: its "revert 0b" is against the runner's ruling (finding 7); joining an ack-pending head is intended (finding 2); a refused ack with `then: "cancel"` ends `StorageRefused` (MED-01 pins that, pre-existing). It confirmed 0a's promotion path and `sending`'s idempotence |

@@ -408,7 +408,7 @@ const ACTIONS: Readonly<Record<Action, (tx: Tx, lane: Lane | undefined, a: CellA
     if (ackOut(old) && old.phase.t === "durable") {
       if (!queueBehind(tx, l!, a, policy === "cancel" ? "latest" : policy)) return; // M1: `then` only if the queue took it; under `cancel` one waits, as under `latest`
       const cur = tx.w.lanes[l!.id]!;
-      return setLane(tx, { ...cur, head: { ...old, phase: { ...old.phase, then: "replace" } } });
+      return setLane(tx, { ...cur, head: { ...old, phase: { ...old.phase, then: old.phase.then === "cancel" ? "cancel" : "replace" } } });
     }
     const made = newAttempt(tx, a);
     if ("no" in made) return decline(tx, a, made.no);

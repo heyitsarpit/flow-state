@@ -111,7 +111,7 @@ const attempt = <R>(tx: Tx, m: Module<any>, name: string, f: () => R, onThrow: (
 // A hook that returns the module's next slice.
 export const hook = (
   tx: Tx,
-  name: "ended" | "dispose" | "restored",
+  name: "ended" | "dispose" | "restored" | "sending",
   f: (m: Module<any>, s: any, cx: Cx) => unknown,
 ) => {
   for (const m of tx.modules) {

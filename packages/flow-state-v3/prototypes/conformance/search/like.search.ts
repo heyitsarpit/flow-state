@@ -117,14 +117,15 @@ export const searchLike = (
     state(h) {
       checkClaims(h.read);
       checkEndings(h.read);
-      // Last intent: with nothing released, the server never goes backwards. A release is the stated limit (OD20 F1).
-      if (h.read.truth().server.inverted && h.read.evidence("Released").length === 0)
+      // Last intent, per actor (D3 as directed keeps send order across actors, not commit order): with nothing released, no actor's own
+      // commits land backwards. A release is the stated limit (OD20 F1).
+      if (h.read.truth().server.selfInverted && h.read.evidence("Released").length === 0)
         throw new Oracle("the server went backwards with nothing released");
     },
     drain(h) {
       drain(h);
       checkClaims(h.read);
-      if (h.read.truth().server.inverted && h.read.evidence("Released").length === 0)
+      if (h.read.truth().server.selfInverted && h.read.evidence("Released").length === 0)
         throw new Oracle("the server went backwards after drain");
       const stuck = h.read.quiet().waits.filter((w) => w.kind !== "timer" && w.kind !== "held");
       if (stuck.length) throw new Oracle(`drain left work: ${JSON.stringify(stuck[0])}`);

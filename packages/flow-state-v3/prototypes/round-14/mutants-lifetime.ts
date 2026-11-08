@@ -9,6 +9,7 @@ import { MUTANTS as R15B } from "./mutants-r15b.ts";
 import { MUTANTS as R15C } from "./mutants-r15c.ts";
 import { MUTANTS as R15D } from "./mutants-r15d.ts";
 import { MUTANTS as P1H } from "./mutants-p1h.ts";
+import { MUTANTS as P1E } from "./mutants-p1e.ts";
 const m = (id: string, kills: string, file: string, find: string, replace = "") => ({ id, kills: [kills], edits: [[file, find, replace]] as ReadonlyArray<readonly [string, string, string]> });
 const WRITE = 'if (l.actor === key && l.head !== undefined && l.head.phase.t !== "held") out.push(`write:${l.op}`);';
 const READ = "for (const id in w.reads) if (w.reads[id]!.actor === key && w.reads[id]!.kept) out.push(`read:${w.reads[id]!.op}`);";
@@ -91,4 +92,5 @@ export const MUTANTS = [
   ...R15C,
   ...R15D,
   ...P1H,
+  ...P1E,
 ];

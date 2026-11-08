@@ -125,14 +125,15 @@ export const storeScenarios: readonly Scenario[] = [
       commit(c, a0, 1, 1);
       wOf(c, a0, { lost: true });
       repairs(c);
-      commit(c, a0, 2, 2);
-      commit(c, a1, 3, 3);
+      commit(c, a0, 2, 2); // a draft: in a0's W behind its own hold, it holds no record (D3 as directed)
+      commit(c, a1, 3, 3); // waits on r1 behind a0's sent hold, and is first on r2
       c.to(a0, "Retry");
       wOf(c, a0, { apply: true });
-      wOf(c, a0, { apply: true });
+      c.eq("a1 goes before a0's draft", c.reqs("w").at(-1)?.input.v, 3);
       wOf(c, a1, { apply: true });
-      c.eq("finishes", records(c), { r1: 3, r2: 3 });
-      c.eq("no inversion", c.r.truth().server.inverted, false);
+      wOf(c, a0, { apply: true });
+      c.eq("finishes, in the order sends began", records(c), { r1: 3, r2: 2 });
+      c.eq("S1's commit-order oracle sees the late draft land last", c.r.truth().server.inverted, true);
     },
   },
   {
@@ -185,17 +186,17 @@ export const storeScenarios: readonly Scenario[] = [
       commit(c, a0, 1, 2);
       commit(c, a1, 1, 3);
       wOf(c, a0, { apply: true });
-      c.eq("second goes", c.reqs("w").at(-1)?.input.v, 2);
-      c.eq("third still waits", c.reqs("w").length, 2);
-      wOf(c, a0, { apply: true });
-      c.eq("third goes", c.reqs("w").at(-1)?.input.v, 3);
+      c.eq("a1's head goes before a0's draft", c.reqs("w").at(-1)?.input.v, 3);
+      c.eq("the draft waits", c.reqs("w").length, 2);
       wOf(c, a1, { apply: true });
+      c.eq("the draft goes", c.reqs("w").at(-1)?.input.v, 2);
+      wOf(c, a0, { apply: true });
       c.eq(
-        "sent in mint order",
+        "sent in the order sends began (D3 as directed), not mint order",
         c.reqs("w").map((r) => r.input.v),
-        [1, 2, 3],
+        [1, 3, 2],
       );
-      c.eq("last intent holds", records(c).r1, 3);
+      c.eq("the last sent holds: no version check here, so nothing names the conflict", records(c).r1, 2);
     },
   },
   {
@@ -205,7 +206,7 @@ export const storeScenarios: readonly Scenario[] = [
     actor: A,
     cites: ["sec:2.7.14", "OD:20.F1", "D55"],
     run(c) {
-      // Stated limit: a released unknown may land after a newer write. Rule 32 clears the mark on the newer success.
+      // Stated limit: a released unknown may land after a newer write. Rule 32 (U10): the newer success demotes the mark to `unconfirmed`; it stays.
       opened(c, B);
       toggle(c, true);
       c.answer("like", { lost: true });
@@ -214,15 +215,15 @@ export const storeScenarios: readonly Scenario[] = [
       c.eq("mark stays after release", c.rec(I1)?.uncertain, true);
       toggle(c, false, B);
       c.answer("like", { apply: true });
-      c.eq("rule 32: a later success clears a released mark", c.rec(I1)?.uncertain, false);
-      c.eq("D55: which forces one repair", c.reqs("repair").length, 2);
+      c.eq("rule 32 (U10): a later success demotes a released mark, never clears it", [c.rec(I1)?.uncertain, c.rec(I1)?.unconfirmed], [false, ["liked", "likes"]]);
+      c.eq("the give-up asked one read", c.reqs("repair").length, 2);
       c.answer("repair", { truth: true });
       c.fault({ landLate: "like" });
       c.eq("the world moved, unseen", server(c).i1.liked, true);
-      c.eq("the screen is wrong: the stated limit", c.rec(I1)?.data.liked, false);
+      c.eq("the screen is stale, but marked: unconfirmed, not clean", [c.rec(I1)?.data.liked, c.rec(I1)?.unconfirmed], [false, ["liked", "likes"]]);
       c.to(A, "Load");
       c.answer("list", { truth: true });
-      c.eq("a read repairs it", c.rec(I1)?.data.liked, true);
+      c.eq("a read repairs it, and the mark stays: nothing proves it was the last", [c.rec(I1)?.data.liked, c.rec(I1)?.unconfirmed], [true, ["liked", "likes"]]);
     },
   },
   {

@@ -108,6 +108,7 @@ export type Module<S> = {
   prepare?(s: S, w: Omit<WriteRef, "attempt" | "mint">, cx: Cx): unknown; // P5: dry
   start?(s: S, w: WriteRef, prepared: unknown, cx: Cx): { readonly s: S; readonly ok: boolean }; // P6
   ended?(s: S, e: Ended, cx: Cx): S; // N: rule 27. Before any routing
+  sending?(s: S, attempt: string, cx: Cx): S; // D3 as directed: the Attempt heads its lane, so its send has begun (the write-ahead first). A commit in W has not
   blocks?(s: S, attempt: string): false | Claim; // D
   told?(s: S, fact: Told, cx: Cx): S; // D68: the core's facts
   input?(s: S, payload: unknown, cx: Cx): S; // D68: its own driver half and its own timers, nothing else

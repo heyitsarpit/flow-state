@@ -139,6 +139,9 @@ eq("graph: a resumable trait's whenAbandoned callback fires from anywhere", gp.d
   const leaves = (f: { make: (a: never) => unknown }) => check(f.make(api) as never).findings.filter((x) => x.rule === "Rule15LateLeaves").map((x) => `${x.severity}:${x.event}`).sort();
   eq("check: rule 15, every late alternative of R15Late leaves", leaves(r15LateFixture()), ["error:No", "error:Ok", "error:Unsure"]);
   eq("check: rule 15, R15Stay's late Unsure stays put", leaves(r15StayFixture()), ["error:No", "error:Ok"]);
+  // The runner (after phase 1 H): a stay-put alternative at the owner state itself counts, since a late arrival in the re-entered owner picks it.
+  const { p1OwnerStayFixture } = await import("../../conformance/typed/phase1e.ts");
+  eq("check: rule 15, a stay-put Unsure at the owner state counts", leaves(p1OwnerStayFixture()), ["error:No", "error:Ok"]);
   const rf = rulesOf(m.compiled as never);
   eq("check: 2.7.18's removeFile, IgnoredUnknown info, no UnresolvedHold", [rf.includes("info:IgnoredUnknown:removeFile"), rf.some((r) => r.includes("UnresolvedHold"))], [true, false]);
 }

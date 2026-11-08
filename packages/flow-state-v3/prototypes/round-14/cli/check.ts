@@ -169,7 +169,8 @@ const checkBody = (b: Body, machine: string, push: (f: Finding) => void, persist
           // Rule 15 (Q4 A): a late ending may not leave live work, and under `serialize` or `latest` commits of the left state may still be queued. A late
           // handler whose every alternative leaves could then be denied every time, so it needs one that stays put.
           const lateAlts = anc.flatMap((n) => b.nodes[n]?.on[e] ?? []);
-          if (op.kind === "write" && (op.concurrency === "serialize" || op.concurrency === "latest") && lateAlts.length > 0 && !lateAlts.some((a) => a.target === "self" && !a.exit && !a.history))
+          const stays = [owner, ...anc].flatMap((n) => b.nodes[n]?.on[e] ?? []).some((a) => a.target === "self" && !a.exit && !a.history);
+          if (op.kind === "write" && (op.concurrency === "serialize" || op.concurrency === "latest") && lateAlts.length > 0 && !stays)
             push({ severity: "error", rule: "Rule15LateLeaves", machine, path: `states.${owner}`, op: name, event: e, state: owner, message: `\`${e}\` from \`${name}\` can arrive late, after ${owner} is left, while its later commits wait; every late alternative leaves, and rule 15 denies leaving live work`, help: "add a late alternative that stays put (no target), and cancel the lane there (`cancelAll`) to give the work up" });
         }
       }
