@@ -88,7 +88,7 @@ type Conn = {
   closingAt?: number; // the first time `closing` became true, on the fake clock
   sent?: string[]; // a WebSocket's frames the runtime sent
   lastEventIdHeader?: string; // an EventSource's reconnect: the Last-Event-ID the browser sent
-  heldAtOpen: number;
+  heldAtOpen: readonly unknown[];
 };
 
 class StepScheduler implements Scheduler.Scheduler {
@@ -582,10 +582,11 @@ export class FakeWorld {
   readonly conns: Conn[] = [];
   closeMs = 20; // review H7: a real close takes time. `Infinity` never finishes (`ReleaseOverdue`)
   private newConn(op: string, input: unknown, from: unknown): Conn {
-    // Rule 70, as the world saw it: how many connections of this op and input were held (open, and not closing for 5 s) when this one opened.
-    const heldAtOpen = this.conns.filter(
-      (x) => x.op === op && x.process === this.process && x.open && stable(x.input) === stable(input) && !(x.closing === true && x.closingAt !== undefined && this.now - x.closingAt >= 5000),
-    ).length;
+    // Rule 70, as the world saw it: the inputs of this op's connections held (open, and not closing for 5 s) when this one opened. An oracle
+    // keys them as the contract does; the fake does not know the key.
+    const heldAtOpen = this.conns
+      .filter((x) => x.op === op && x.process === this.process && x.open && !(x.closing === true && x.closingAt !== undefined && this.now - x.closingAt >= 5000))
+      .map((x) => x.input);
     const c: Conn = {
       op,
       input,
@@ -940,7 +941,7 @@ export class FakeWorld {
           ...(c.closingAt === undefined ? {} : { closingAt: c.closingAt }),
           ...(c.lastEventIdHeader === undefined ? {} : { lastEventIdHeader: c.lastEventIdHeader }),
           sent: [...(c.sent ?? [])],
-          heldAtOpen: c.heldAtOpen,
+          heldAtOpen: [...c.heldAtOpen],
         })),
       scheduler: { picks: this.scheduler.picks, choices: this.scheduler.choices },
       failing: this.lateReports.length + this.laterFailing,

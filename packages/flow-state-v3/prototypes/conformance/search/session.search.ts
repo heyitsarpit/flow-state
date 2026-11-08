@@ -1,6 +1,7 @@
 // SEARCH-SESSION: sessions crossed with what they have been crossed with least: reload, freeze, reset, dispose, a slow close and one
-// that never finishes, ahead of a value in mail. Oracles read what the suite owns: the fake's connections, and the disk. Review H7,
-// H9. Values are numbered as sent, so an edge can say which it was; their positions rise, so the disk can be checked (rule 71).
+// that never finishes, ahead of a value in mail. Oracles read what the suite owns: the fake's connections and what each was asked to
+// resume from. Review H7, H9. Values are numbered as sent, so an edge can say which it was; their positions rise, so a `from` can be
+// checked against memory (rule 71).
 import { chatFixture } from "../typed/chat.ts";
 import { roomsFixture } from "../typed/feed.ts";
 import type { Harness, Step } from "../harness.ts";
@@ -13,13 +14,16 @@ const anyOpen = (h: Harness) => h.read.outside().feeds.some((f) => f.open && !f.
 // The connections rule 70 counts: open, or closing for less than T1's 5 s. The fake says when each close began; the runtime's word is not read.
 const held = (h: Harness) =>
   h.read.outside().feeds.filter((f) => f.open && !(f.closing && f.closingAt !== undefined && h.read.now() - f.closingAt >= 5000));
-const resetSent = new WeakSet<Harness>(); // the suite's own record: a reset frame was pushed, so a restart place may exist
+// Rule 70's wait is per (actor, operation, key). One actor here; `activity`'s contract keys by `workspaceId` (typed/feed.ts), so a field
+// the input carries beyond it does not make another key.
+const keyOf = (op: string, input: unknown) => `${op} ${JSON.stringify({ workspaceId: (input as { workspaceId?: unknown } | undefined)?.workspaceId })}`;
+const resetsSent = new WeakMap<Harness, Set<number>>(); // the suite's own record: the epochs of the reset frames it pushed
 const withValues = (make: () => Harness) => () => {
   const h = make();
   let n = 0;
   const inner = h.do.bind(h);
   h.do = (s: Step) => {
-    if ("feed" in s && (s.frame as any)?.t === "reset") resetSent.add(h);
+    if ("feed" in s && (s.frame as any)?.t === "reset") resetsSent.set(h, new Set([...(resetsSent.get(h) ?? []), (s.frame as any).epoch]));
     if ("feed" in s && (s.frame as any)?.t === "activity") {
       n++;
       const entry = (s.frame as any).noPosition
@@ -71,7 +75,7 @@ export const searchSession = (
     actions: ACTIONS,
     depth: o.depth,
     maxStates: o.maxStates,
-    edge(_pre, post) {
+    edge(pre, post, last) {
       if (post.read.quiet().fatal) throw new Oracle("a session stopped the Runtime");
       const i = post.read
         .issues()
@@ -79,29 +83,29 @@ export const searchSession = (
       if (i) throw new Oracle(`${i.code} ${i.origin ?? ""} ${String(i.input ?? "")}`);
       // Rule 70: one connection per key, a closing one included, until its own close is 5 s old by the fake's clock (`ReleaseOverdue`).
       const per = new Map<string, number>();
-      for (const f of held(post)) per.set(JSON.stringify(f.input), (per.get(JSON.stringify(f.input)) ?? 0) + 1);
+      for (const f of held(post)) per.set(keyOf(f.op, f.input), (per.get(keyOf(f.op, f.input)) ?? 0) + 1);
       for (const [k, n] of per) if (n > 1) throw new Oracle(`rule 70: ${n} connections for ${k}`);
-      const early = post.read.outside().feeds.find((f) => f.heldAtOpen > 0);
-      if (early) throw new Oracle(`rule 70: a connection for ${JSON.stringify(early.input)} opened while another was held`);
+      const early = post.read.outside().feeds.find((f) => f.heldAtOpen.some((x) => keyOf(f.op, x) === keyOf(f.op, f.input)));
+      if (early) throw new Oracle(`rule 70: a connection for ${keyOf(early.op, early.input)} opened while another was held`);
       if (post.read.peakDeliveriesInMail() > 1) throw new Oracle("rule 69: two in mail");
+      // Rule 71, on the wire: a connection opened in this step resumes from the bookmark, which sits in one record with its value's memory.
+      // Values are epoch 1, so an epoch-1 `from` names a value in the room's memory now; any other epoch is the `restartAt` (seq 0) of a
+      // reset the suite pushed. A reload starts a new page, whose connections are all new.
+      const before = "reload" in last.step ? 0 : pre.read.outside().feeds.length;
+      const activity = (post.read.inner(R, ["room"])?.memory?.activity ?? []) as any[];
+      for (const f of post.read.outside().feeds.slice(before)) {
+        const at = f.from as any;
+        if (at === undefined) continue;
+        const named =
+          at !== null && typeof at === "object" && (at.epoch === 1 ? activity.some((e) => e.cursor?.epoch === 1 && e.cursor.seq === at.seq) : at.seq === 0 && resetsSent.get(post)?.has(at.epoch) === true);
+        if (!named)
+          throw new Oracle(`rule 71: resumed from ${JSON.stringify(at)} with no such value in the same record`);
+      }
     },
     state(h) {
       checkClaims(h.read);
       checkEndings(h.read);
       checkMints(h.read);
-      // Rule 71, on the disk: a bookmark at a value's position sits in one record with that value's memory. Level: a placed, thawed
-      // tab has a live connection or is on its way to one.
-      // Every entry of every node: values are epoch 1, so an epoch-1 place names a value in that node's memory, and any other epoch is a
-      // reset's `restartAt` (seq 0), the only place a reset says.
-      const rec = h.read.stored().get(`actor/${R.actor}/${R.id}`) as any;
-      for (const node of [rec?.root, ...Object.values(rec?.root?.kids ?? {})] as any[]) {
-        for (const mark of Object.values(node?.partition?.sessions ?? {}) as any[]) {
-          const at = mark?.at;
-          if (at === undefined) continue;
-          if (at.epoch === 1 ? !(node.memory?.activity ?? []).some((e: any) => e.cursor?.epoch === 1 && e.cursor.seq === at.seq) : at.seq !== 0 || !resetSent.has(h))
-            throw new Oracle(`rule 71: a bookmark at ${JSON.stringify(at)} with no such value in the same record`);
-        }
-      }
       const q = h.read.quiet();
       if (!q.fatal && h.read.state(R) === "TAB") {
         const st = h.read.module("sessions", `${R.actor}/${R.id}|${OP}`)?.st;
@@ -173,7 +177,7 @@ export const searchRepairing = (
         .find((x) => x.code === "Fatal" || x.code === "ModuleDefect" || x.code === "CannotOccur");
       if (i) throw new Oracle(`${i.code} ${i.origin ?? ""} ${String(i.input ?? "")}`);
       if (post.read.peakDeliveriesInMail() > 1) throw new Oracle("rule 69");
-      if (held(post).length > 1 || post.read.outside().feeds.some((f) => f.heldAtOpen > 0)) throw new Oracle("rule 70: two connections");
+      if (held(post).length > 1 || post.read.outside().feeds.some((f) => f.heldAtOpen.length > 0)) throw new Oracle("rule 70: two connections");
       // At most one read of history outstanding: T1's "one page at a time".
       if (post.read.outside().open.filter((x) => x.op === "history").length > 1)
         throw new Oracle("two reads");
@@ -182,12 +186,15 @@ export const searchRepairing = (
       checkClaims(h.read);
       checkEndings(h.read);
       checkMints(h.read);
-      // A live session on an open tab has somewhere to go: Repairing has a read, or a page timer, or a queue, never a silent wait.
-      const r = h.read.module("sessions", `${C.actor}/${C.id}|${M}`);
-      if (r?.st === "Repairing" && r.inFlight === false && r.queued === 0) {
-        const out = h.read.outside();
-        if (!out.open.some((x) => x.op === "history") && out.timers.length === 0)
-          throw new Oracle("Repairing with nothing to wake it");
-      }
+    },
+    // A repair always has its next read coming (2.11.10: "one page at a time; pages retry with the socket open"). Judged on the fake's own
+    // record: a Repairing session with no read of history open must have one opened, or have left Repairing, within 2^depth s, the longest
+    // page retry `depth` failures can stack under Chat's `1000 x 2^n` (16 s at depth 4, inside `idle`'s 45 s; `idle` and `healthy` are not the
+    // repair's to wake). The runtime's queue and timer words are not read. The steps here run no edge oracle; they only look for the read.
+    drain(h) {
+      const repairing = () => h.read.module("sessions", `${C.actor}/${C.id}|${M}`)?.st === "Repairing";
+      const reading = () => h.read.outside().open.some((x) => x.op === "history");
+      for (let t = 0; t < 2 ** o.depth && repairing() && !reading(); t++) h.do({ advance: 1000 });
+      if (repairing() && !reading()) throw new Oracle("Repairing with no read of history coming");
     },
   });

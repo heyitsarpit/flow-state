@@ -43,7 +43,7 @@ const specsOf = (L: typeof import("./limits.ts")): Spec[] => {
     { name: "graph-gate", gate: "graph-gate", cmd: () => ["bun", "graph-gate.ts", ...rt], slots: 1, ...row("graph-gate"), limit: 280 },
     ...["suite1", "suite2", "suite3", "tamper", "mutants", "search"].map((p): Spec => ({ name: `falsify ${p}`, gate: "falsify", cmd: falsify(p), slots: 1, ...row(`falsify ${p}`), limit: 290 })),
     ...Array.from({ length: LIE_SLICES }, (_, k): Spec => ({ name: `falsify lies ${k + 1}/${LIE_SLICES}`, gate: "falsify", cmd: falsify("lies", ["--slice", `${k + 1}/${LIE_SLICES}`]), slots: 1, ...row("falsify lies"), limit: 290 })),
-    { name: "lifetime-falsify", gate: "lifetime-falsify", cmd: () => ["bun", "lifetime-falsify.ts", ...rt, "--parallel", "2"], slots: 2, ...row("lifetime-falsify"), limit: 290 },
+    { name: "lifetime-falsify", gate: "lifetime-falsify", cmd: () => ["bun", "lifetime-falsify.ts", ...rt, "--parallel", "4"], slots: 4, ...row("lifetime-falsify"), limit: 290 },
     ...readdirSync(join(roundDir, "checks"))
       .filter((f) => f.endsWith(".ts"))
       .sort()

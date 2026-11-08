@@ -1328,6 +1328,14 @@ Entities is settled after audit 3b. These wrong runtimes survive; each needs a c
 - `1b.r15-lateness-transitive` (rule 15: lateness is not transitive): vacuous as written (`w.late` is cleared before members run); a wrong runtime
   that reads the late flag where members run is `a2.lateness-transitive`, which the case already kills. Phase 3 should re-express it.
 
+Streams is settled after its last batch (2026-11-09). Carried, each needing a fixture the suite does not have:
+- T3's bound **across two operations**: 256 entries per operation, so one operation's 256 keys must not evict another's. Needs a fixture with two
+  operations under `subscribe.each` (Mirror's two are not keyed by a select; Ticker has one operation).
+- Rule 70's wait **per operation**: two operations on one contract and key, one releasing, the other opening must not wait on it. Mirror's two
+  sessions never release and reopen one key while the other holds it; needs a key change on one of two keyed operations.
+
+`s1.from-is-first-claim`, listed to carry as unreachable, was reached and is closed (the last batch's section).
+
 Open question (the auditor's): **should `Released` free an unknown that was never re-sent?** Today a release withdraws the entry at once when no repair
 runs, else when its repair ends (rule 30's "withdraws a waiting re-send's queue entry"); the text names only a waiting re-send, so a never-re-sent
 unknown's release freeing the record is the runtime's reading, not the design's sentence. Not ruled; for the runner.
@@ -1499,3 +1507,67 @@ Sidecar log (Haiku, effort high; the lead read every line and reran every check)
 
 Dropped from the gate: `as1.hub-fail-keeps-socket` (a hub that keeps a dead socket current): equivalent here, since every failed session's release
 runs before its backoff and the last release clears it.
+
+## Phase 1: streams last batch (2026-11-09)
+
+The last streams batch of phase 1: audit S1b's survivors and search lies, and the gate's time. Streams is settled; what is left is in "Carried to the
+phase 3 conformance rewrite" above. Standing gate `mutants-as1b.ts` (spread into `mutants-lifetime.ts`): audit S1b's survivors (`mutants-audit-s1b.ts`,
+unedited) aimed at their cases, its three suite kills kept standing, two audit S1 ids, and two fixes undone. `bun lifetime-falsify.ts --mutants
+s1b.,lie:s1b.,as1b.,s1.silent-unpinged,s1.from-is-first-claim`: control 335 pass; every one red on its target by assertion (the lead read each line).
+
+| Survivor | Case (P1-S), from the design | Red by |
+| --- | --- | --- |
+| `s1b.bound-128` (T3: 256 per operation, oldest out) | `the-256th-bookmark-keeps-the-oldest-and-the-257th-evicts-it`: r1 and 255 more keys, r1 kept (T2 row 7's notice); 256 more, r1 a first open | `256 entries: r1 kept, owes its notice: expected 1, got 0` |
+| `s1b.backoff-factor-4` (2.11.10 `exponential("500 millis")`) | `the-default-delay-doubles-each-try`: delays in 400..600, 800..1200, 1600..2400 | `478,2103,-1: expected true` |
+| `s1b.jitter-per-session` (jittered per delay) | `each-default-delay-draws-its-own-jitter`: four factors each in 0.8..1.2, spread over 0.02 | `the factors vary: 0.984,0.985,0.985,0.985` |
+| `s1b.down-stamps-unconfirmed`, `s1b.lose-stamps-unconfirmed` (T5: stamp only if confirmed) | `a-down-keeps-an-unconfirmed-last-at`, `a-lose-keeps-an-unconfirmed-last-at`: a restored `last`, `live()`, 5 s, then `down` / an end | `expected [..,0], got [..,5000]` |
+| `s1b.dropat-first-only` (T1: `down` in Live sets `dropAt`) | `a-second-drop-sets-dropat-again`: two drops, a value aged from the second | `expected [{"price":11},4000], got [..,0]` |
+| `s1b.hub-readd-on-join` (Q1 B: `add` on a key's first session) | `joining-an-open-socket-adds-only-a-keys-first-session`: C added once after open; actor b's A, A, B send nothing | `got [1,["subscribe A","subscribe A",..]]` |
+| `s1b.fills-other-key-on-return` (Q2 A) | `returning-to-a-key-with-its-own-bookmark-is-not-flagged` | `r1 not flagged: expected 1, got 2` |
+| `s1.silent-unpinged-ends` (audit S1; 2.11.10: Silent reconnects, does not end), red only by a throw before | `a-silent-end-with-no-ping-in-the-connection-is-flagged` now asserts the reconnect before feeding it | `expected [2,1,""], got [1,0,"Silent"]` |
+| `s1.from-is-first-claim` (T1 `connect`: `claim = b.at`), the brief's "unreachable" | `a-reconnect-claims-the-bookmark-at-that-connect` over Chat: a reload (claim 1), `O.x.refetch`, a reconnect claims nothing, so a proof is not believed (T2 row 4 needs a claim), row 7's notice | `one more notice: expected 1, got 0` |
+| Kept standing: `s1b.hub-adds-departed-key`, `lie:s1b.fail-skips-finalizer`, `lie:s1b.hub-add-unsent` | new `a-key-unwatched-while-the-socket-connects-is-never-added` for the first (the round-2 kill came from a joiner dropped, not a departed key) | `expected ["subscribe A"], got ["subscribe A","subscribe B"]` |
+
+Runtime and library fixes, each failing first (undone, a wrong runtime in `mutants-as1b.ts`):
+- The jitter's hash (FNV-1a) had no final mix, so one session's successive delays drew nearly one factor (0.848, 0.847, 0.8515, 0.85 for Mirror's
+  `main`). A murmur3 finalizer now mixes it. `as1b.jitter-unmixed`. It moves `with-no-backoff-...` and `a-socket-drop-...` outputs (logged).
+- `Feed.multiplex`: a session joining a key the server already registered sent no `add`, so heard no `subscribed`, and stayed `Connecting` until `idle`
+  made it `Silent`, every 25 s, forever. A route now remembers that it was registered (a `Feed.live` routed to it) and a later member registers at
+  once. Found by the case reviewer. `as1b.hub-late-member-unregistered`: `b's keys registered: expected ["Live","Live"], got ["Connecting","Connecting"]`.
+
+Search oracles (`search/session.search.ts`), each with a kill in falsify's `SEARCH_KILLS`, red by its oracle's words:
+- Rule 70 keys connections by the contract's key (`workspaceId`, `typed/feed.ts`), not the whole input. The fake's `heldAtOpen` is now the inputs of the
+  op's held connections, keyed by the oracle. `lie:s1b.r70-input-nonce`: `rule 70: 2 connections for activity {"workspaceId":"w1"} on Away Back`.
+- Rule 71 reads what the world saw: each connection opened in a step must resume (`from`) from an epoch-1 value in the room's memory, or from seq 0
+  of an epoch a reset the suite pushed named. The runtime's saved layout is not read. `lie:s1b.r71-hidden-mark` and `r71.bookmark-ahead`: `resumed
+  from {"epoch":1,"seq":2} ... on value reload`; `lie:s1b.r71-any-epoch`: `resumed from {"epoch":99,"seq":0} ... on reset reload`.
+- The Repairing oracle was vacuous, not only trusting: it fired on `inFlight === false && queued === 0` with no timers at all, and `idle`'s and
+  `healthy`'s deadlines are always armed. Now a `drain`: a Repairing session with no read of history open must open one, or leave Repairing, within
+  2^depth s (Chat's `1000 x 2^n` page retries), on the fake's record only. `lie:s1c.repair-wedge-says-inflight` (no next page after `more`, and the row
+  says a delivery is in flight): `Repairing with no read of history coming on live more`; the plain wedge without the lie is red the same way.
+- SEARCH-SESSION and SEARCH-REPAIR unchanged in reach: 6,896 and 3,119 states, completed at depth 4.
+
+Gate fix (item 0): lifetime-falsify at `--parallel 4` on 4 slots. Measured alone: 209 s at 4, 210 s at 6: it is CPU-bound (about 1,290 CPU-s), so
+more parallelism buys nothing; `limits.ts` row 210 s, 7,200 MB (4 suites at 1,700 MB, estimated from SUITE's peak, not measured per child). In the
+full run it passed in 214 s of its 290 s limit, beside the other gates.
+
+Findings for the design:
+1. Q1 B's helper (and its BEFORE) never registers a late session of an already-subscribed key: the protocol's reply went to the first session only.
+   Built: the hub replays a plain `Feed.live` to a member joining a registered route (proposed). Not a proof or a reset: those name another session's
+   place. The docs should say a multiplexed key is registered once per server subscription, not per session.
+2. "Jittered" needs a well-mixed source: a deterministic hash of (session, step) must avalanche, or one session's delays share a factor.
+3. Rule 71 as observed: a bookmark that is saved wrong but never resumed from is invisible to the world, so the wire check cannot see it; it is seen at
+   the next reload or reconnect, which the search reaches at depth 2. The disk-layout check that could see it was the lie's way in.
+
+Gates: `bun gates.ts --budget 280` was 11/25 ok, 0 BAD, 14 unknown by budget (lifetime-falsify ok in 214 s); the 14 in two `--only` batches: 8/8 ok
+and 6/6 ok. After the claim-at-connect case, every gate again in three `--only` batches: 11/11 (lifetime-falsify 216 s, 337 pass), 8/8, 6/6:
+**25/25 ok, 0 BAD**. Suite 1036/1036, lock clean (2 lock uses).
+
+Sidecar log (Haiku, effort high; the lead read every line and reran every check):
+
+| Task | Who | Result | Why |
+| --- | --- | --- | --- |
+| review: the oracle, fake-world, falsify and jitter diff vs rules 70, 71, T1, 2.11.10 | reviewer | changed | acted on: a `null` `from` threw a TypeError instead of naming rule 71 (now a rule-71 failure); the drain's 10 s bound depended on depth (now 2^depth s from Chat's schedule). Recorded: a never-resumed bad bookmark is unseen (finding 3); drain steps run no edge oracle (stated in its comment); `keyOf` names `workspaceId` rather than calling the contract's key (the search's one contract). Rejected: "Repairing's rule-70 check ignores the key" (one room, so stricter than the rule; can only red); "the lie's `inFlight` edit is inert" (it is what fooled the old oracle; kept to show the new one does not read it) |
+| review: the new P1-S variants vs 2.11.10, T1-T5, Q1 B, Q2 A | reviewer | changed | acted on: a late joiner of a registered key never went `Live` (the multiplex fix, finding 1); the departed-key wrong runtime was red for another reason (new case); the "257 entries" label (257 keys, 256 kept). Recorded: the first delay as 500 ms is Effect's `exponential` (attempt 1 = base); the 0.02 spread is the lead's threshold, fair for four independent draws. Rejected: "`as1b.jitter-unmixed` depends on the id" (deterministic for Mirror's `main`; red as run) |
+
+The lead's own slip: one line of `fake-world.ts` (`heldAtOpen: [...c.heldAtOpen]`) was edited with `sed`, not Edit; the content is the intended one.

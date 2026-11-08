@@ -503,11 +503,150 @@ export const phase1sScenarios: readonly Scenario[] = [
         c.advance(45_000);
         c.eq("flagged once", c.r.evidence("IdleWithoutPing").length, 1);
         c.advance(1000);
+        c.eq("reconnected after the backoff, not ended", [feeds(c, "messages").length, openOf(c, "messages").length, c.mem().ended], [2, 1, ""]);
         c.do({ feed: "messages", frame: live() });
         c.do({ feed: "messages", frame: ping });
         c.advance(45_000);
         c.eq("a connection that pinged is not flagged", c.r.evidence("IdleWithoutPing").length, 1);
         c.eq("not ended", c.mem().ended, "");
+      },
+
+      // ── Audit S1b: each row's edge, written from the design text.
+      // T3 "256 entries per operation in a slice, oldest out"; T2 row 7: a kept `{ at: undefined }` owes one notice; an evicted, quiet, empty
+      // key reads first open. r1 registered, then 255 more keys: 256 entries, r1 kept. One key more: 257, r1 out.
+      "the-256th-bookmark-keeps-the-oldest-and-the-257th-evicts-it"(c0) {
+        const fill = (keys: number) => {
+          const c = at(c0, roomFixture, R);
+          const visit = (room: string) => {
+            c.send("Retarget", { roomId: room });
+            c.do({ advance: 50 });
+            c.do({ feed: "messages", frame: live() });
+          };
+          c.do({ feed: "messages", frame: live() });
+          for (let i = 1; i < keys; i++) visit(`q${i}`);
+          visit("r1");
+          return c.mem().notices;
+        };
+        c0.eq("256 entries: r1 kept, owes its notice", fill(256), 1);
+        c0.eq("257 keys: r1 evicted, a first open", fill(257), 0);
+      },
+      // 2.11.10: "`exponential(\"500 millis\")`, jittered, then capped at 30 s": the n-th delay is 500 x 2^n, times 0.8-1.2 (Effect's
+      // `jittered`). Mirror declares no `backoff`; its connections never register, so nothing resets `n`.
+      "the-default-delay-doubles-each-try"(c0) {
+        const c = at(c0, mirrorFixture, M);
+        const d: number[] = [];
+        for (let i = 0; i < 3; i++) {
+          const n = feeds(c, "main").length;
+          c.do({ feed: "main", end: true });
+          d.push(until(c, 1, 3000, () => feeds(c, "main").length > n));
+        }
+        c.yes(`first 400..600, second 800..1200, third 1600..2400: ${d}`, d[0]! >= 400 && d[0]! <= 600 && d[1]! >= 800 && d[1]! <= 1200 && d[2]! >= 1600 && d[2]! <= 2400);
+      },
+      // 2.11.10 "jittered", Effect's `jittered`: each delay draws its own factor in 0.8-1.2, so one session's delays are not one factor apart.
+      "each-default-delay-draws-its-own-jitter"(c0) {
+        const c = at(c0, mirrorFixture, M);
+        const f: number[] = [];
+        for (let i = 0; i < 4; i++) {
+          const n = feeds(c, "main").length;
+          c.do({ feed: "main", end: true });
+          f.push(until(c, 1, 9000, () => feeds(c, "main").length > n) / (500 * 2 ** i));
+        }
+        c.yes(`each factor in 0.8..1.2: ${f}`, f.every((x) => x >= 0.799 && x <= 1.201));
+        c.yes(`the factors vary: ${f}`, Math.max(...f) - Math.min(...f) > 0.02);
+      },
+      // T5 "Leaving `Live`: `last.at = now` if confirmed"; T9: a restored `last` is not this session's own, and T5's `live()` row does not
+      // confirm it. T1's `down` leaves `Live`: the restored age stays.
+      "a-down-keeps-an-unconfirmed-last-at"(c0) {
+        const c = at(c0, priceFixture, P, { captureMs: 0 });
+        c.do({ feed: "price", frame: live() });
+        c.do({ feed: "price", frame: { price: 10 } });
+        c.reload();
+        c.do({ feed: "price", frame: live() });
+        const before = priceRow(c)?.last?.at;
+        c.advance(5000);
+        c.do({ feed: "price", frame: down });
+        c.eq("Live, not confirmed, then dropped: not stamped", [typeof before, priceRow(c)?.value, priceRow(c)?.last?.at], ["number", undefined, before]);
+      },
+      // The same T5 row through T1 `lose`: a stream that completes while `Live`.
+      "a-lose-keeps-an-unconfirmed-last-at"(c0) {
+        const c = at(c0, priceFixture, P, { captureMs: 0 });
+        c.do({ feed: "price", frame: live() });
+        c.do({ feed: "price", frame: { price: 10 } });
+        c.reload();
+        c.do({ feed: "price", frame: live() });
+        const before = priceRow(c)?.last?.at;
+        c.advance(5000);
+        c.do({ feed: "price", end: true });
+        c.eq("Live, not confirmed, then lost: not stamped", [typeof before, priceRow(c)?.value, priceRow(c)?.last?.at], ["number", undefined, before]);
+      },
+      // T1 `down(r)` in `Live`: "`dropAt = now`", every time; T5 `Dropped`: a value is aged from `dropAt`. Two drops: the second one's time.
+      "a-second-drop-sets-dropat-again"(c0) {
+        const c = at(c0, priceFixture, P);
+        c.do({ feed: "price", frame: live() });
+        c.do({ feed: "price", frame: { price: 10 } });
+        c.do({ feed: "price", frame: down });
+        c.advance(1000);
+        c.do({ feed: "price", frame: live() });
+        c.advance(3000);
+        const second = c.r.now();
+        c.do({ feed: "price", frame: down });
+        c.advance(2000);
+        c.do({ feed: "price", frame: { price: 11 } });
+        c.eq("aged from the second drop", [priceRow(c)?.last?.value, priceRow(c)?.last?.at], [{ price: 11 }, second]);
+      },
+      // Q1 B: "`add`, the first session of a key". Sessions joining an open socket: a new key (C) is added once; another actor's sessions of
+      // keys already added (A twice, B) send nothing, and, the server having registered those keys, are registered at once (2.11.12.3: a quiet
+      // symbol is `Live` on its registration), not left `Connecting` until `idle` makes them `Silent`.
+      "joining-an-open-socket-adds-only-a-keys-first-session"(c0) {
+        const c = at(c0, tickerFixture, T);
+        const B2 = { actor: T.actor, id: "b" };
+        watching(c);
+        c.send("Watch", { symbol: "C" });
+        c.do({ advance: 50 });
+        c.ensure(B2);
+        c.do({ advance: 50 });
+        c.eq("one add per key, on the one socket", [sockets(c).length, sent(sockets(c)[0]!).sort()], [1, ["subscribe A", "subscribe B", "subscribe C"]]);
+        c.eq("b's keys registered with no reply of their own", [quoteRow(c, "A", B2)?.connection, quoteRow(c, "B", B2)?.connection], ["Live", "Live"]);
+      },
+      // Q1 B: `add` only for a key that has a session when the socket opens. B unwatched while the socket connects is never added.
+      "a-key-unwatched-while-the-socket-connects-is-never-added"(c0) {
+        const c = at(c0, tickerFixture, T);
+        c.send("Unwatch", { symbol: "B" });
+        c.do({ advance: 50 });
+        market(c, { type: "open" });
+        c.eq("only A, once", sent(sockets(c)[0]!), ["subscribe A"]);
+      },
+      // Q2 A: `FillsOtherKey` at "a registration with no entry for its key, a filled field, and another key's entry filled". Back to r1, which
+      // has its own entry: not flagged again.
+      "returning-to-a-key-with-its-own-bookmark-is-not-flagged"(c0) {
+        const c = at(c0, roomFixture, R);
+        c.do({ feed: "messages", frame: live() });
+        c.do({ feed: "messages", frame: { id: "m1", cursor: 1 } });
+        c.send("Retarget", { roomId: "r2" });
+        c.do({ advance: 50 });
+        c.do({ feed: "messages", frame: live() });
+        c.eq("r2 flagged", c.r.evidence("FillsOtherKey").length, 1);
+        c.send("Retarget", { roomId: "r1" });
+        c.do({ advance: 50 });
+        c.do({ feed: "messages", frame: live() });
+        c.eq("r1 not flagged", c.r.evidence("FillsOtherKey").length, 1);
+      },
+      // T1 `connect`: "`claim = b.at`", the bookmark at this connect. After a reload the session's first claim is 1; `O.x.refetch` (T3: `b =
+      // { at: undefined, filled: false }`) then a reconnect claims nothing, so a proof at that first registration is not believed (T2 row 4
+      // needs `claim` defined or not `first`) and row 7 owes its notice.
+      "a-reconnect-claims-the-bookmark-at-that-connect"(c0) {
+        const c = at(c0, chatFixture({}), C, { captureMs: 0 });
+        c.do({ feed: "messages", frame: live() });
+        c.do({ feed: "messages", frame: { id: "m1", cursor: 1 } });
+        c.reload();
+        c.eq("resumes from 1", feeds(c, "messages").at(-1)?.from, 1);
+        c.send("Refetch");
+        const before = c.mem(C).notices;
+        c.do({ feed: "messages", end: true });
+        c.advance(1000);
+        c.eq("claims nothing", feeds(c, "messages").at(-1)?.from, undefined);
+        c.do({ feed: "messages", frame: live({ proof: "p" }) });
+        c.eq("the proof is not believed: one more notice", c.mem(C).notices, before + 1);
       },
       // 2.11.12.8, EventSource: dense ids, no greeting. The first message decides: contiguous after the bookmark is a proof (T2 row 4), no notice.
       "eventsource-contiguous-ids-after-the-bookmark-are-a-proof"(c0) {

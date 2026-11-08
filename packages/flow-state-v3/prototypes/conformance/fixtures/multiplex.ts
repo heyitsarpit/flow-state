@@ -17,8 +17,9 @@ export type HubOps<K> = {
 export type Multiplex<K, A, E> = { readonly stream: (key: K) => Stream.Stream<A | Signal, E> };
 
 type Member = { emit?: Emit; readonly early: unknown[]; failed?: { readonly e: unknown } };
-// `added`: the server was told `add` for this route and not yet `remove`. A key the server refused is a route no longer mapped.
-type Route<K> = { readonly key: K; readonly members: Set<Member>; added: boolean };
+// `added`: the server was told `add` for this route and not yet `remove`. A key the server refused is a route no longer mapped. `live`: the
+// server registered the key (a `Feed.live` sent to it), so a session joining later registers at once; it never sends `add` and hears no reply.
+type Route<K> = { readonly key: K; readonly members: Set<Member>; added: boolean; live: boolean };
 type Conn<K> = {
   readonly scope: Scope.Closeable;
   readonly routes: Map<string, Route<K>>;
@@ -50,7 +51,11 @@ export const feedMultiplex = <K, A, E>(o: {
       const every = (f: (m: Member) => void) => c.routes.forEach((r) => r.members.forEach(f));
       const emit: HubEmit<K, A, E> = {
         to: (k, x) => {
-          if (!c.dead) c.routes.get(name(k))?.members.forEach((m) => say(m, x));
+          if (c.dead) return;
+          const r = c.routes.get(name(k));
+          if (!r) return;
+          if ((x as { _feed?: unknown } | null)?._feed === "live") r.live = true;
+          r.members.forEach((m) => say(m, x));
         },
         all: (x) => {
           if (!c.dead) every((m) => say(m, x));
@@ -97,9 +102,9 @@ export const feedMultiplex = <K, A, E>(o: {
         const conn: Conn<K> = current ?? { scope: Scope.makeUnsafe(), routes: new Map(), dead: false, size: 0 };
         current = conn;
         const k = name(key);
-        const route = conn.routes.get(k) ?? { key, members: new Set<Member>(), added: false };
+        const route = conn.routes.get(k) ?? { key, members: new Set<Member>(), added: false, live: false };
         conn.routes.set(k, route);
-        const member: Member = { early: [] };
+        const member: Member = { early: route.live ? [{ _feed: "live" }] : [] };
         route.members.add(member);
         conn.size++;
         yield* Effect.addFinalizer(() =>

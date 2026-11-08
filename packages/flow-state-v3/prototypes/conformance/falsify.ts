@@ -248,6 +248,7 @@ try {
     say(r.answer === "stated" && named.length >= min, `mutant ${id}: killed by named oracles in ${min}+ case(s)`, `${named.length}: ${named.slice(0, 4).join(" ")}`, [r]);
   }
   // Phase 1 E round 3: a search oracle has its own wrong runtime, red by that oracle's words, so the oracle is shown able to fail.
+  const { MUTANTS: S1B } = (await import(join(roundDir, "mutants-audit-s1b.ts"))) as { MUTANTS: ReadonlyArray<{ id: string; edits: ReadonlyArray<readonly [string, string, string]> }> };
   const SEARCH_KILLS: ReadonlyArray<readonly [string, string, ReadonlyArray<readonly [string, string, string]>, string]> = [
     ["like", "drain.old-base-wins", [["entities.ts", "base: how === \"replace\" ? fields : { ...r.base, ...fields },", "base: how === \"replace\" ? fields : { ...fields, ...r.base },"]], "drain: "],
     // Audit 2: the drain no longer skips a row the runtime calls uncertain. This runtime keeps a given-up mark uncertain after its read.
@@ -261,6 +262,12 @@ try {
     ["session", "lie:s1.overdue-excuse", [["sessions.ts", "Object.values(s.closing).some((c) => c.actor === actor && c.slot === slot);", "false;"], ["sessions.ts", '  cx.command({ k: "close", conn: x.conn });\n  cx.arm(`overdue/', '  cx.command({ k: "close", conn: x.conn });\n  cx.note("ReleaseOverdue", { op: x.op });\n  cx.arm(`overdue/']], "rule 70: "],
     // Rule 71's disk check reads every entry: this runtime saves a bookmark one past the value it delivered.
     ["session", "r71.bookmark-ahead", [["sessions.ts", "writeMark(cx, x, { at: at ?? b?.at, filled: b?.filled ?? false }); // T3", "writeMark(cx, x, { at: (at as any)?.seq !== undefined ? { ...(at as object), seq: (at as any).seq + 1 } : (at ?? b?.at), filled: b?.filled ?? false }); // T3"]], "rule 71: "],
+    // Audit S1b's three lies that passed SEARCH-SESSION: rule 70 now keys by the contract's key, rule 71 reads the `from` each connection was
+    // asked to resume from (not the runtime's saved layout), and another epoch must be one a reset the suite pushed named.
+    ...([["lie:s1b.r70-input-nonce", "rule 70: "],["lie:s1b.r71-hidden-mark", "rule 71: "], ["lie:s1b.r71-any-epoch", "rule 71: "]] as const).map(([id, words]) => ["session", id, S1B.find((m) => m.id === id)!.edits, words] as const),
+    // The Repairing oracle trusted the runtime's `inFlight`/`queued`, and `idle`'s deadline always counted as a wake. This runtime never asks for
+    // the next page after `more` and says a delivery is in flight.
+    ["repairing", "lie:s1c.repair-wedge-says-inflight", [["sessions.ts", "return pump(s, { ...y, emptyRun, wantNext: { next: a.next } }, spec, cx);", "return pump(s, { ...y, emptyRun }, spec, cx);"], ["sessions.ts", "inFlight: x.inFlight !== undefined,", 'inFlight: x.inFlight !== undefined || x.st === "Repairing",']], "Repairing with no read"],
   ];
   for (const [w, id, edits, words] of SEARCH_KILLS) {
     reset();

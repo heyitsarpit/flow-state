@@ -182,7 +182,7 @@ export type Outside = {
     closingAt?: number;
     sent: readonly string[];
     lastEventIdHeader?: string;
-    heldAtOpen: number; // connections of this op and input held (open, not 5 s into a close) when this one opened, by the fake's clock
+    heldAtOpen: readonly unknown[]; // the inputs of this op's connections held (open, not 5 s into a close) when this one opened, by the fake's clock
   }>;
   live: number;
   scheduler: { picks: number; choices: number };

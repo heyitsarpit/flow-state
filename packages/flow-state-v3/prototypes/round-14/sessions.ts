@@ -98,7 +98,9 @@ const slotOfKey = (op: string, key: unknown) => `${op}|${text(key)}`;
 const unit = (s: string) => {
   let h = 2166136261;
   for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619);
-  return (h >>> 0) / 4294967296;
+  h = Math.imul(h ^ (h >>> 16), 0x85ebca6b);
+  h = Math.imul(h ^ (h >>> 13), 0xc2b2ae35);
+  return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
 };
 const byDefault = (id: string, n: number) =>
   Math.min(30_000, Math.round(500 * 2 ** n * (0.8 + 0.4 * unit(`${id}#${n}`))));

@@ -2413,3 +2413,31 @@ output:P1-S/values-do-not-reset-flaps hash:9c6ad1571f20 | new output: 8 flaps wi
 output:P1-S/with-no-backoff-the-default-schedule-runs hash:93bed64eaa16 | new output: the default schedule's jitter and 30 s cap
 file:expected-recipients.txt hash:7fc8eef2cb6f | Streams round 2: P1-S places 1,084 more stream deliveries (the 1,024 burst among them) and checks one more restored state; no red count moved
 file:fake-world.ts hash:f3aa506bf58a | Streams round 2: the WebSocket's close code read through a named constant (verdict plants' exit-compare rule); behaviour unchanged
+P1-S hash:dd2eb1c199e6 | Streams last batch: ten variants for audit S1b's survivors (the 256/257 edge, the default delay's doubling and per-delay jitter, unconfirmed last.at through down and lose, dropAt on a second drop, a late joiner's add and registration, a departed key never added, FillsOtherKey on a return)
+file:scenarios/phase1s.scenario.ts hash:432ed3ed52fa | Streams last batch: the S1b variants, and the Silent-without-ping case asserts the reconnect before feeding it, so s1.silent-unpinged-ends is red by assertion
+file:search/session.search.ts hash:56ba5bee52e1 | Streams last batch: rule 70 keys by the contract's key, rule 71 checks the from each new connection resumes from, another epoch must be a sent reset's, Repairing judged by the fake's read record in a drain
+file:fixtures/multiplex.ts hash:6afe01a43520 | Streams last batch: a session joining a key the server already registered is registered at once (it sends no add and hears no reply); found by review of the late-joiner case
+file:limits.ts hash:f3503e3ea389 | Streams last batch: lifetime-falsify re-measured at 209 s alone at --parallel 4, 7,200 MB for four suites
+file:falsify.ts hash:3eec0f0dad8d | Streams last batch: four search kills, audit S1b's three lies on SEARCH-SESSION and a Repairing wedge that says a delivery is in flight
+file:expected-recipients.txt hash:95ab4edd0996 | Streams last batch: the new P1-S variants place 7 more stream deliveries and check 2 more restored states; no red count moved
+file:gates.ts hash:f4712265fc32 | Streams last batch: lifetime-falsify at --parallel 4 on 4 slots, since 2 no longer fits 290 s with round 2's 50 more wrong runtimes
+file:fake-world.ts hash:648da8c95758 | Streams last batch: heldAtOpen lists the inputs of the op's held connections, so an oracle keys them as the contract does
+round:mutants-as1b.ts hash:ae77c7fe5e4d | Streams last batch: new standing list, audit S1b's survivors aimed at their cases plus two runtime fixes undone
+round:mutants-audit-s1b.ts hash:3308d4fdd4f2 | Streams last batch: the narrow re-audit's own list, committed by the auditor at 3528cdeb, now read by mutants-as1b and falsify
+round:mutants-lifetime.ts hash:be1dddca0c16 | Streams last batch: mutants-as1b spread into the lifetime list
+output:P1-S/a-down-keeps-an-unconfirmed-last-at hash:5baa2c9f7aba | new output: a down keeps a restored last's age
+output:P1-S/a-key-unwatched-while-the-socket-connects-is-never-added hash:12157e970e60 | new output: only A is subscribed after B leaves during connect
+output:P1-S/a-lose-keeps-an-unconfirmed-last-at hash:9dcdd78964eb | new output: a lose keeps a restored last's age
+output:P1-S/a-second-drop-sets-dropat-again hash:8937c1d43808 | new output: a value after the second drop is aged from it
+output:P1-S/a-socket-drop-reaches-every-symbol-and-each-reconnects hash:1a48e609676a | output moved: the jitter hash is mixed, so the two symbols' backoffs land at other times
+output:P1-S/each-default-delay-draws-its-own-jitter hash:4992addfd559 | new output: four default delays with four factors
+output:P1-S/joining-an-open-socket-adds-only-a-keys-first-session hash:a4ebbedc562d | new output: one add per key; a late actor's keys Live at once
+output:P1-S/returning-to-a-key-with-its-own-bookmark-is-not-flagged hash:39da4c5f3f3b | new output: FillsOtherKey once, for r2
+output:P1-S/the-256th-bookmark-keeps-the-oldest-and-the-257th-evicts-it hash:870f6d0c7dbc | new output: the 256/257 eviction edge
+output:P1-S/the-default-delay-doubles-each-try hash:eaac527a8fd6 | new output: three default delays doubling
+output:P1-S/with-no-backoff-the-default-schedule-runs hash:02e091aa38e8 | output moved: the mixed jitter hash gives other first delays and other times to the cap
+P1-S hash:5ab8f24f7240 | Streams last batch: one more variant, a reconnect after a reload and a refetch claims nothing, so a proof there is not believed (s1.from-is-first-claim reached)
+file:scenarios/phase1s.scenario.ts hash:3776e99d3959 | Streams last batch: the claim-at-connect variant over Chat, from T1 connect and T2 rows 4 and 7
+file:expected-recipients.txt hash:bacf4f8b35f0 | Streams last batch: the claim-at-connect variant places 2 more stream deliveries and checks 1 more restored state; no red count moved
+round:mutants-as1b.ts hash:00b9e14faaab | Streams last batch: s1.from-is-first-claim aimed at the claim-at-connect variant
+output:P1-S/a-reconnect-claims-the-bookmark-at-that-connect hash:39a814c765ab | new output: from 1 after the reload, nothing after the refetch, one more notice
