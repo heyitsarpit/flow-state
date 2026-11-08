@@ -5,10 +5,10 @@ import { basename, dirname, join, resolve } from "node:path";
 import { stated } from "./verdicts/state.ts";
 
 const SEARCH_EXPECT: Readonly<Record<string, string>> = {};
-const SEARCH_STATES: Readonly<Record<string, string>> = { odd: "8000", session: "6000", chain: "12000" };
+const SEARCH_STATES: Readonly<Record<string, string>> = { odd: "8000", session: "8000", chain: "12000" };
 const SEARCH_REACH: Readonly<Record<string, { states: number; perDepth: readonly number[] }>> = {
   odd: { states: 7269, perDepth: [1, 22, 200, 1260, 5786] },
-  session: { states: 5262, perDepth: [1, 16, 133, 818, 4294] },
+  session: { states: 6181, perDepth: [1, 17, 147, 937, 5079] },
   chain: { states: 9700, perDepth: [1, 12, 111, 995, 8581] },
 };
 

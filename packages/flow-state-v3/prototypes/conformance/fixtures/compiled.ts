@@ -139,6 +139,7 @@ export type Activity = {
   readonly op: string;
   readonly input: Slot<(a: AfterIn) => unknown>;
   readonly when?: Slot<(a: AfterIn) => boolean>; // 2.7.3's `when`: placed while true. Read on each change (level-triggered)
+  readonly each?: true; // `subscribe.each` (rule 41): `input` selects a list, one session per distinct key
 };
 export type Mapped = {
   readonly event: string;

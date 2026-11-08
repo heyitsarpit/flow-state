@@ -33,6 +33,17 @@ export type ServerModel = {
   read?(op: string, input: any, s: any, t: World0): unknown;
 };
 type E = Effect.Effect<unknown, any>;
+export type FakeEventSource = {
+  onopen: ((e: { readonly type: "open" }) => void) | null;
+  onmessage: ((e: { readonly type: "message"; readonly data: string; readonly lastEventId: string }) => void) | null;
+  onerror: ((e: { readonly type: "error" }) => void) | null;
+  readyState: 0 | 1 | 2;
+  close(): void;
+};
+type RawEvent =
+  | { type: "open" }
+  | { type: "message"; data: string; lastEventId: string }
+  | { type: "error"; fatal?: boolean };
 export type Api = {
   call(op: string, input: unknown, o?: { idempotencyKey?: string; dedupe?: false }): E;
   track(op: string, key: string, body: E): E; // a request whose body is the fixture's own effect
@@ -44,6 +55,7 @@ export type Api = {
   socket(op: string, input: unknown, from: unknown): unknown; // Stream of what the server pushes, until a `feed` step ends it
   pulled(op: string, input: unknown, from: unknown): unknown; // hands over one backlog item per pull (T4)
   feed(op: string, input: unknown, from: unknown, bound?: number): unknown; // T6: a `Feed.callback`. The queue is the runtime's
+  eventSource(op: string, input: unknown, from: unknown): FakeEventSource; // a browser's EventSource: the raw events a scenario pushes
 };
 type Conn = {
   op: string;
@@ -99,6 +111,10 @@ type Held = Request & {
   noDedupe?: boolean; // a server with no idempotency (PostgREST): the key labels the request, the server applies each send
 };
 const capturable = (v: any) => v?.status === "requires_capture" || v?.status === "succeeded";
+const stable = (v: unknown): string =>
+  JSON.stringify(v, (_: string, x: any) =>
+    x && typeof x === "object" && !Array.isArray(x) ? Object.fromEntries(Object.keys(x).sort().map((k) => [k, x[k]])) : x,
+  );
 const matches = (input: any, where?: Readonly<Record<string, unknown>>) =>
   !where || Object.entries(where).every(([k, v]) => input?.[k] === v);
 
@@ -424,6 +440,34 @@ export class FakeWorld {
         },
       });
     },
+    eventSource: (op, input, from) => {
+      const c = this.newConn(op, input, from);
+      const es: FakeEventSource = {
+        onopen: null,
+        onmessage: null,
+        onerror: null,
+        readyState: 0,
+        close: () => {
+          es.readyState = 2;
+          c.open = false;
+          c.closing = true;
+        },
+      };
+      c.push = (raw) => {
+        if (es.readyState === 2) return;
+        const e = raw as RawEvent;
+        if (e.type === "open") {
+          es.readyState = 1;
+          es.onopen?.({ type: "open" });
+        } else if (e.type === "message") {
+          es.onmessage?.({ type: "message", data: e.data, lastEventId: e.lastEventId });
+        } else {
+          es.readyState = e.fatal === true ? 2 : 0;
+          es.onerror?.({ type: "error" });
+        }
+      };
+      return es;
+    },
   };
   readonly conns: Conn[] = [];
   closeMs = 20; // review H7: a real close takes time. `Infinity` never finishes (`ReleaseOverdue`)
@@ -463,26 +507,32 @@ export class FakeWorld {
   // What a `feed` step does: the newest open connection of this op says something, or ends.
   feedStep(
     op: string,
-    s: { frame?: unknown; frames?: readonly unknown[]; end?: true; fail?: unknown },
+    s: { frame?: unknown; frames?: readonly unknown[]; end?: true; fail?: unknown; to?: unknown; all?: true },
   ) {
-    const c = this.conns.findLast(
+    const open = this.conns.filter(
       (x) => x.op === op && x.open && !x.closing && x.process === this.process,
     );
-    if (!c) throw new NoHeldRequest(`feed: no open connection for ${op}`);
-    if (s.end) {
-      if (c.push) c.open = false;
-      c.end?.();
-    } else if (s.fail !== undefined) {
-      if (c.push) c.open = false;
-      c.fail?.(s.fail);
-    } else {
-      const items = s.frames ?? [s.frame];
-      if (c.push) for (const f of items) c.push(f);
-      else
-        for (const f of items) {
-          c.backlog.push(f);
-          c.wake?.();
-        }
+    const candidates = s.to === undefined ? open : open.filter((x) => stable(x.input) === stable(s.to));
+    if (candidates.length === 0)
+      throw new NoHeldRequest(
+        `feed: no open connection for ${op}${s.to === undefined ? "" : ` to ${JSON.stringify(s.to)}`}`,
+      );
+    for (const c of s.all ? candidates : [candidates.at(-1)!]) {
+      if (s.end) {
+        if (c.push) c.open = false;
+        c.end?.();
+      } else if (s.fail !== undefined) {
+        if (c.push) c.open = false;
+        c.fail?.(s.fail);
+      } else {
+        const items = s.frames ?? [s.frame];
+        if (c.push) for (const f of items) c.push(f);
+        else
+          for (const f of items) {
+            c.backlog.push(f);
+            c.wake?.();
+          }
+      }
     }
   }
   private call(op: string, input: unknown, key?: string, noDedupe = false): E {

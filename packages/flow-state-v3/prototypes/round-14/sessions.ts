@@ -38,6 +38,7 @@ type Session = {
   readonly claim: unknown;
   readonly wiped: boolean;
   readonly connected: boolean;
+  readonly pinged: boolean;
   readonly waitingForPull: boolean; // a value has been taken; the next waits for its go-ahead
   readonly queue: readonly Item[];
   readonly inFlight?: { readonly tag: string; readonly item: Item };
@@ -63,7 +64,12 @@ type Session = {
   // T7: "`from` is the session's own last position".
   readonly listenAt?: unknown;
 };
-type Mark = { readonly at: unknown; readonly filled: boolean }; // the bookmark
+type Mark = {
+  readonly at: unknown;
+  readonly filled: boolean;
+  readonly last?: { readonly v: unknown; readonly at: number };
+  readonly heard?: string;
+};
 type Pending = {
   readonly actor: string;
   readonly inc: string;
@@ -385,11 +391,31 @@ const reconcile = (s: SessionsSlice, x0: Session, spec: StreamSpec, cx: Cx): Ses
   if (current && t !== x.heard && !x.inFlight)
     x = { ...x, queue: [{ kind: "value", v: x.last!.v, moves: false }] };
   else if (x.inFlight === undefined) x = { ...x, queue: x.queue.filter((q) => q.kind !== "value") };
+  keepLatest(cx, x);
   return pump(s, x, spec, cx);
+};
+const keepLatest = (cx: Cx, x: Session) => {
+  const b = markOf(cx, x);
+  const last = x.last ? { v: x.last.v, at: x.last.at } : undefined;
+  if (text(b?.last) === text(last) && b?.heard === x.heard) return;
+  writeMark(cx, x, {
+    at: b?.at,
+    filled: b?.filled ?? false,
+    ...(last ? { last } : {}),
+    ...(x.heard !== undefined ? { heard: x.heard } : {}),
+  });
+};
+const restoredLatest = (cx: Cx, x: Session): Session => {
+  const b = markOf(cx, x);
+  return {
+    ...x,
+    ...(b?.last ? { last: { v: b.last.v, at: b.last.at, own: false } } : {}),
+    ...(b?.heard !== undefined ? { heard: b.heard } : {}),
+  };
 };
 const connect = (s: SessionsSlice, x0: Session, spec: StreamSpec, cx: Cx): SessionsSlice => {
   if (!cx.live) return s;
-  let x: Session = { ...x0, wiped: false, noted: false, connected: true, waitingForPull: false };
+  let x: Session = { ...x0, wiped: false, noted: false, connected: true, pinged: false, waitingForPull: false };
   if (spec.listen || spec.delivers === "latest") {
     const conn = cx.gen();
     const from = spec.listen ? x.listenAt : undefined;
@@ -570,7 +596,13 @@ const afterMember = (
 };
 
 // ── The level-triggered fact: which sessions should exist is a function of this actor's tree. D69: the core says what is placed.
-const idOf = (a: string, p: PlacedActivity) => `${a}/${p.inc}/${p.activation}/${p.activity.op}`;
+const placementOf = (a: string, p: PlacedActivity) => `${a}/${p.inc}/${p.activation}/${p.activity.op}`;
+const idOf = (a: string, p: PlacedActivity, key: unknown) => `${placementOf(a, p)}/${text(key)}`;
+const ofPlacement = (s: SessionsSlice, a: string, p: PlacedActivity) =>
+  Object.values(s.sessions).filter(
+    (x) => x.actor === a && x.inc === p.inc && x.activation === p.activation && x.op === p.activity.op,
+  );
+type Wanted = { readonly p: PlacedActivity; readonly input: unknown; readonly key: unknown; readonly id: string };
 const fresh = (
   a: ActorChange,
   p: PlacedActivity,
@@ -578,7 +610,7 @@ const fresh = (
   key: unknown,
   spec: StreamSpec,
 ): Session => ({
-  id: idOf(a.key, p),
+  id: idOf(a.key, p, key),
   actor: a.key,
   machine: a.machine,
   inc: p.inc,
@@ -596,6 +628,7 @@ const fresh = (
   claim: undefined,
   wiped: false,
   connected: false,
+  pinged: false,
   waitingForPull: false,
   queue: [],
   tags: 0,
@@ -620,11 +653,32 @@ const onActors = (s0: SessionsSlice, changed: readonly ActorChange[], cx: Cx): S
         cx.user(
           when as never,
           [{ memory: cx.slice(a.key, p.inc)?.memory, event: {} }] as never,
-          (() => own(s.sessions, idOf(a.key, p)) !== undefined) as never,
+          (() => ofPlacement(s, a.key, p).length > 0) as never,
         ) === true
       );
     });
-    const ids = new Set(here.map((p) => idOf(a.key, p)));
+    const wanted: Wanted[] = [];
+    for (const p of here) {
+      const spec = specOf(cx, a.machine, p.activity.op);
+      const SELECT_FAILED = {};
+      const got = cx.user(
+        p.activity.input as never,
+        [{ memory: cx.slice(a.key, p.inc)?.memory, event: {} }] as never,
+        (() => SELECT_FAILED) as never,
+      );
+      if (got === SELECT_FAILED) {
+        for (const x of ofPlacement(s, a.key, p)) wanted.push({ p, input: x.input, key: x.key, id: x.id });
+        continue;
+      }
+      for (const input of p.activity.each ? (Array.isArray(got) ? got : []) : [got]) {
+        if (input === undefined || !carried(input)) continue;
+        const KEY_FAILED = {};
+        const key = cx.user(spec.key, [input], () => KEY_FAILED);
+        if (key === KEY_FAILED) continue;
+        wanted.push({ p, input, key, id: idOf(a.key, p, key) });
+      }
+    }
+    const ids = new Set(wanted.map((w) => w.id));
     // Members of this turn, on after memory, in action order (T3). The turn is committed; no guard read them.
     const members = s.pending.filter((p) => p.actor === a.key);
     s = { ...s, pending: s.pending.filter((p) => p.actor !== a.key) };
@@ -648,21 +702,11 @@ const onActors = (s0: SessionsSlice, changed: readonly ActorChange[], cx: Cx): S
         writeMark(cx, x, { ...b, filled: true });
       s = release(s, x, cx);
     }
-    for (const p of here) {
-      const id = idOf(a.key, p);
+    for (const { p, input, key, id } of wanted) {
       if (own(s.sessions, id)) continue;
       const spec = specOf(cx, a.machine, p.activity.op);
-      // Rule 68: read once, at start. A throw means no session, with an issue (D46).
-      const input = cx.user(
-        p.activity.input as never,
-        [{ memory: cx.slice(a.key, p.inc)?.memory, event: {} }] as never,
-        (() => undefined) as never,
-      );
-      if (input === undefined || !carried(input)) continue;
-      const KEY_FAILED = {};
-      const key = cx.user(spec.key, [input], () => KEY_FAILED); // D77: no session, one issue
-      if (key === KEY_FAILED) continue;
-      const x = fresh(a, p, input, key, spec);
+      const made = fresh(a, p, input, key, spec);
+      const x = spec.delivers === "latest" ? restoredLatest(cx, made) : made;
       s = busy(s, a.key, x.slot) ? put(s, x) : connect(s, x, spec, cx);
     }
     // T3: end of any committed turn whose session stays placed and has connected: `filled` is the field. On a change only.
@@ -736,13 +780,14 @@ const onFrame = (
   const f = p.f;
   if (isSignal(f)) {
     if (f._feed === "ping") {
+      const y = x.pinged ? s : put(s, { ...x, pinged: true });
       if (x.st === "Connecting") {
         cx.note("PingsWithoutLive", { op: x.op }); // does not re-arm
-        return s;
+        return y;
       }
-      if (x.st === "Dropped") return s;
+      if (x.st === "Dropped") return y;
       armIdle(cx, x, spec);
-      return s;
+      return y;
     }
     if (f._feed === "down") {
       cx.disarm(`idle/${x.id}`);
@@ -902,7 +947,10 @@ export const sessions: Module<SessionsSlice> = {
     const x = own(s.sessions, id);
     if (!x) return s;
     const spec = specOf(cx, x.machine, x.op);
-    if (kind === "idle") return lose(s, x, spec, cx, "Silent", false);
+    if (kind === "idle") {
+      if (!x.pinged) cx.note("IdleWithoutPing", { op: x.op });
+      return lose(s, x, spec, cx, "Silent", false);
+    }
     if (kind === "pageSilent") {
       if (x.st !== "Repairing") return s;
       cx.note("PageSilent", { op: x.op });
@@ -917,7 +965,9 @@ export const sessions: Module<SessionsSlice> = {
     return s;
   },
   read(s, ref) {
-    const x = Object.values(s.sessions).find((y) => `${y.actor}|${y.op}` === ref);
+    const x = Object.values(s.sessions).find(
+      (y) => `${y.actor}|${y.op}` === ref || `${y.actor}|${y.op}|${text(y.key)}` === ref,
+    );
     if (!x) return undefined;
     const c =
       x.st === "Live" || x.st === "Repairing" ? "Live" : x.st === "Ended" ? "Ended" : "Connecting";

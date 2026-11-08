@@ -2320,3 +2320,42 @@ round:mutants-audit-3b.ts hash:c591eac6b1b7 | Audit 3b: the re-auditor's own wro
 output:P1-E/audit-a-release-before-the-repair-lands-keeps-the-prediction hash:653c773630b1 | new output: a release keeps the prediction until the repair
 round:mutants-a3.ts hash:f335885ecd92 | Audit 3: the overdue and failed-repair wrong runtimes aimed at P1-E's release-after-overdue case (STORE-07 is outside the lifetime list)
 round:mutants-a3.ts hash:9a5b2d9afe43 | Audit 3b: the two reached survivors aimed at their asserting cases
+P1-S hash:5ab616ab49e9 | Phase 1 streams: new case: rule 68's key in a session's identity, subscribe.each over one multiplexed socket, latest across a reload, IdleWithoutPing, an EventSource source
+REV5-SESS hash:0d0d53a7817c | Phase 1 streams: the select runs on each change to find rule 68's key, so a select that throws later is one UserClosure issue; the session stays placed and keeps its input
+file:scenarios/phase1s.scenario.ts hash:a31ce3e64bf7 | Phase 1 streams: P1-S's scenario file
+file:scenarios/round5.scenario.ts hash:cce7558675b8 | Phase 1 streams: REV5-SESS's input-is-read-once now expects one issue (rule 68's key needs the select on each change)
+file:typed/phase1s.ts hash:b300d3bd03c8 | Phase 1 streams: P1-S's fixtures (Room, Ticker with subscribe.each, Notes over a browser-shaped EventSource)
+file:compile/body.ts hash:d8b469dfbe6f | Phase 1 streams: an activity carries `each` (subscribe.each, rule 41) into Compiled
+file:suite.ts hash:c4480c5faf4c | Phase 1 streams: P1-S added to the suite
+file:expected-recipients.txt hash:9dbcf1aa96af | Phase 1 streams: P1-S adds 18 stream deliveries placed and 2 restored states checked; no red count moved
+file:fake-world.ts hash:eb8f86c4830e | Phase 1 streams: a feed step may name a connection by input (`to`) or reach every one (`all`), as a multiplexing app service does; a browser-shaped EventSource
+round:mutants-lifetime.ts hash:62a825920894 | Phase 1 streams: P1-S's wrong runtimes spread in
+round:mutants-p1s.ts hash:47993901804d | Phase 1 streams: P1-S's wrong runtimes, each aimed at its case
+output:P1-S/a-key-change-releases-the-session-and-opens-the-new-key hash:5e0985eb174a | new output: a key change closes r1 and opens r2
+output:P1-S/a-non-key-field-change-keeps-the-session-and-its-input hash:0af37ed0142f | new output: a non-key change keeps the one connection
+output:P1-S/a-quiet-symbol-stays-live-on-the-sockets-pings-and-a-half-open-socket-is-silent hash:97620554217f | new output: pings keep both symbols Live; 25 s with none is Silent for both
+output:P1-S/a-reload-restores-last-and-an-equal-value-is-not-heard-again hash:29953b49e2b9 | new output: last and heard restored from the partition
+output:P1-S/a-select-that-throws-later-keeps-the-session-with-one-issue hash:64e4bbcc1ed2 | new output: one UserClosure, the session stays
+output:P1-S/a-silent-end-with-no-ping-in-the-connection-is-flagged hash:d50a232e43c9 | new output: one IdleWithoutPing
+output:P1-S/a-socket-drop-reaches-every-symbol-and-each-reconnects hash:0b51d6ff1b5b | new output: two sessions wait and reconnect
+output:P1-S/a-symbols-own-failure-ends-only-that-key-and-names-it hash:e13e49c3309c | new output: B ends with its key, A stays
+output:P1-S/each-places-one-session-per-distinct-key hash:7d0a5280abd9 | new output: two sessions for A, B, A
+output:P1-S/eventsource-a-reload-asks-after-the-saved-bookmark hash:28ea954a64e8 | new output: the reload asks after 2
+output:P1-S/eventsource-a-skipped-id-is-one-notice-and-a-quiet-reconnect-stays-connecting hash:a6a67b9eccc4 | new output: one Unproven notice
+output:P1-S/eventsource-contiguous-ids-after-the-bookmark-are-a-proof hash:8f2809b8300e | new output: a proof by contiguous ids, no notice
+output:P1-S/returning-to-a-key-continues-from-its-own-bookmark hash:f48d4ec5d438 | new output: r1 resumes from its own bookmark
+output:P1-S/unwatching-a-symbol-releases-only-its-session hash:72cf89b1af42 | new output: only B's connection closes
+output:REV5-SESS/a-value-re-arms-idle hash:ed4d60e1e771 | output moved: the Silent end of a connection that never pinged is flagged IdleWithoutPing (2.11.10, built)
+output:REV5-SESS/input-is-read-once hash:66bcc329898b | output moved: one UserClosure issue from the select run for rule 68's key
+output:REV6-H7/a-read-that-never-answers-does-not-wedge hash:1d07ed8937f4 | output moved: the session's new `pinged` field adds distinct states (hashes); nothing else
+output:REV6-STREAMS/M13-a-ping-does-not-re-arm-connecting hash:783c87cc9190 | output moved: the session's new `pinged` field adds a distinct state (hashes); nothing else
+output:SPIKE-02/idle-loses-it-a-ping-re-arms-it-a-ping-before-hello-does-not hash:8774d1c041e3 | output moved: the session's new `pinged` field adds a distinct state (hashes); nothing else
+output:STREAM5-LATEST/a-drop-stops-value-being-current hash:78f12a6d7f1b | output moved: a latest session's last and heard are written to the partition (T9 restore), one publication each change
+output:STREAM5-LATEST/a-value-is-implicit-live-and-delivers hash:d94d044b1e23 | output moved: latest's last and heard in the partition, one more frame
+output:STREAM5-LATEST/an-equal-value-confirms-and-is-not-heard-again hash:0ea57631abcd | output moved: latest's last and heard in the partition, one more frame
+output:STREAM5-LATEST/live-alone-does-not-confirm-proof-confirms-its-own hash:a5a6891c91dd | output moved: latest's last and heard in the partition, one more frame
+output:STREAM5-LATEST/newest-wins-while-a-turn-is-behind hash:82a0287838e5 | output moved: latest's last in the partition for each value taken in, three more frames under the slow drain
+output:STREAM5-LOSE/silence-is-not-a-flap hash:7b5df5b6a9fa | output moved: nine Silent ends with no ping, nine IdleWithoutPing, as 2.11.10 says
+P1-S hash:c8210727cbd3 | Phase 1 streams: the two reload variants capture at once (captureMs 0), as P1-E's reload cases do, so the 5 s gate reads them the same
+file:scenarios/phase1s.scenario.ts hash:ea7c1ff5abdf | Phase 1 streams: P1-S's reload variants capture at once
+file:falsify.ts hash:61262a8fabe9 | Phase 1 streams: SEARCH-SESSION re-pinned at 6,181 states, completed and green at depth 4 (a session's `pinged` and its key in the id split states); budget 8,000

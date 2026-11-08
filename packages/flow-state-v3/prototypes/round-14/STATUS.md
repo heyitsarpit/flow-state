@@ -1337,3 +1337,61 @@ excuse ignored the wait's key (now matched as `checkClaims` does); `disabled` ig
 matched any lane (now names nothing). Rejected: "`askedInput` binds a retry's ask to the next mint" (`askOwners` is cleared at each batch's end, so an
 unconsumed ask does not carry). Recorded: business keys are matched by op only; a key Slot run on the guard view rather than the after view (FRAG-10's,
 which reads the event, agrees; a Slot reading after-memory would name nothing here, a stated limit that can only red).
+
+## Phase 1: streams (2026-11-09)
+
+Phase 1's streams area, round 1 of up to 6. New case `P1-S` (`conformance/scenarios/phase1s.scenario.ts`, 14 variants; fixtures `typed/phase1s.ts`:
+`Lab/Room`, `Lab/Ticker` under `subscribe.each`, `Lab/Notes` over a browser-shaped EventSource). Wrong runtimes in `mutants-p1s.ts` (spread into
+`mutants-lifetime.ts`; `P1-S` added to lifetime-falsify's list). `bun lifetime-falsify.ts --mutants p1s.`: control 294 pass; every one of the 11 red,
+each by the assertion quoted below; no P1-S variant never red. Questions in `STREAMS-QUESTIONS.md` (Q1 multiplexed sockets, Q2 a key change with `fills`).
+
+| Item | State | Failing first | Wrong runtime |
+| --- | --- | --- | --- |
+| Lifetime: identity is (incarnation, placement, op, **key**) (rule 68, Operations O4 "changing identity releases it before opening another") | **built**: the select runs on each committed change; a session's id carries `text(key)`; a key change releases the old session and opens the new key's, which waits only on its own (actor, slot) predecessor; the session keeps the input it read at start (S11). Proposed: a select that throws keeps what is placed, with one `UserClosure` issue (as T9's `when`) | `a-key-change-...`: `r1's connection is closed: expected [false], got [true]`; `returning-to-a-key-...`: `expected [["r1",1]], got [["r1","$undefined"]]` | `p1s.key-not-in-identity` (7 variants red), `p1s.input-follows-the-select` (`expected ["en"], got ["fr"]`), `p1s.select-throw-releases` (`still placed: expected [1,"Live"], got [0,"$undefined"]`) |
+| Multiplexed socket, `subscribe.each` (rule 41, 2.11.12.3) | **built**: `each` on an activity (Compiled, codec, `compile/body.ts`); one session per distinct key (A, B, A is two); a key leaving releases only its session; a key's own failure reaches the machine with `ctx.key`; a socket drop the service fans out gives each key its own backoff; pings fanned out keep a quiet symbol Live, none for 25 s is Silent for every symbol, dim with `last`. The fake gains `to`/`all` on a feed step (the app service's routing) | `each-places-...`: `expected ["A","B"], got ["$undefined"]` | `p1s.key-not-in-identity` |
+| Liveness, `IdleWithoutPing` (2.11.10, 2.11.13) | **built**: a connection's `pinged`; a Silent end of a connection that had no ping is flagged; it still reconnects and is not a flap (STREAM5-LOSE's `silence-is-not-a-flap` now shows 9 flags) | `a-silent-end-...`: `flagged once: expected 1, got 0` | `p1s.no-idle-flag`, `p1s.idle-flag-ignores-pings` (`expected 1, got 2`) |
+| Persistence across reload, `latest` (T9 Restore, 2.7 "restores `last` and its baseline", 2.11.12.3 "Equal price after reconnect: undimmed, not heard") | **built**: `last` and `heard` live in the partition entry beside the bookmark (proposed placement), written in `reconcile`; a restored `last` is not this session's own, so T5's proof does not confirm it | blocked by `each` before; its kills prove it: `dim after the reload: expected [..,{"price":10}], got [..,"$undefined"]` | `p1s.last-not-saved`, `p1s.heard-not-restored` (`expected ["A:10"], got ["A:10","A:10"]`), `p1s.restored-last-is-own` |
+| Real source: EventSource (2.11.12.8) | **green first, no runtime change**: the design's recipe over a fake `EventSource` (`onopen`, `onmessage` with `lastEventId`, `onerror`, `close()`, `readyState`); contiguous ids after the bookmark are a proof (T2 row 4), a skipped id one `Unproven` (row 6), `open` alone does not register (quiet reconnect stays Connecting: the stated cost), a reload asks after the saved bookmark | three variants | `p1s.first-proof-needs-a-second-registration`, `p1s.unproven-reconnect-silent`, `p1s.connect-forgets-the-bookmark` |
+| Reconnect, gaps and resume proofs (T1, T2 rows 1-7, 2.11.10) | **settled as built**: STREAM-01..16 (S5's table), STREAM5-REPAIR (16), STREAM5-LOSE (Flapping, healthy, Silent, `while`), SPIKE-02, REV6-STREAMS; pinned by mutants-r5/r6 | - | existing |
+| Backpressure, queue bounds (T4, T6, rule 69) | **settled as built**: STREAM5-PULL, REV6-STREAMS overflow (out of band, drain then fail), STREAM5-LOSE overflow with no reconnect, STREAM5-LATEST newest-wins | - | existing |
+| Ordering of frames vs writes and other mail (rule 69, 2.4's mailbox) | **settled as built, by the text**: deliveries are outside the mailbox cap and a session moves one delivery at a time, so a write's ending or a send interleaves with a burst at admission (REV5-SESS `a-burst-keeps-one-in-mail`, SPIKE-01 `values-in-order-one-in-mail`); for entities, STREAM5-LISTEN `a-frame-before-a-confirmed-write-does-not-silently-undo-it` | - | existing |
+| Outcomes reaching machines (2.11.6, T9 Ending) | **settled as built**: failure behind queued items (REV5-SESS `end-delivers-what-is-queued-first`, m5 mutant), a named reason beats `Feed` (STREAM5-LOSE), a refused failure comes again (SPIKE-05); per key with `ctx.key` (P1-S) | - | existing |
+| Multiplexed fan-out as app wiring | **decision needed**: STREAMS-QUESTIONS Q1 (recommend B, a `Feed.multiplex` helper, no runtime concept) | | |
+| Key change with a `fills` field | **decision needed**: STREAMS-QUESTIONS Q2 (recommend A, a rule plus `FillsOtherKey`) | | |
+
+Harness: `fake-world.ts` (a Haiku coder, below) gives a feed step `to` (a connection by input) and `all` (every one), and `api.eventSource`.
+REV5-SESS `input-is-read-once` now expects one issue (changed, logged): rule 68's key needs the select on each change, which the old case read as
+"input is read once". Output moves, each logged: `pinged` adds states (SPIKE-02, REV6-H7, M13), `IdleWithoutPing` evidence (REV5-SESS, STREAM5-LOSE),
+`latest`'s partition write adds a frame per change (STREAM5-LATEST).
+
+Findings for the design:
+1. Rule 68 and S11 read together: "a session reads `input` once" means its parameters, not its select. The select must run on every committed turn
+   of the actor to find the key (Operations O4's identity), so its cost is per turn, per placed activity, and a select that throws later throws on
+   every turn. The design should say the select runs each turn and what a throw does (proposed: keeps what is placed, one issue, as T9's `when`).
+2. A select that returns `undefined` (or, under `.each`, not a list) releases what was placed, with no issue: it reads as "no key". The design
+   should say so, beside rule 41.
+3. `latest`'s `last` and `heard` need a saved home. Rule 71 names only `at` and `filled`; T9's restore and freeze rows need the two more. Placed in
+   the same partition entry (proposed). It costs one partition write per changed `last` (a frame when no turn follows, as for an equal value) and,
+   for a persisted actor, a save per tick until the 5 s capture coalesces it. Nothing removes an entry: T3's 256-per-operation bound is the only cap.
+4. Multiplexing: with the app's routing, N independent sessions are correct, at the price of N idle timers, N backoffs after a drop and N flap
+   counts that reach `Flapping` together. Q1.
+5. EventSource: the recipe registers on the first message, which is what lets that message prove contiguity (T2 row 4). Registering on `open` would
+   make a quiet reconnect `Live`, but every reconnect would then owe a notice (row 6 fires at registration; a later proof cannot take it back). The
+   recipe's choice is right; the docs should say why `onopen` is not used.
+6. `IdleWithoutPing` as built: a Silent end of a connection that had no ping since `connect`. The design names the flag but not its condition; a
+   server that sends values but never pings is flagged too, which is what "no heartbeat" means.
+7. A key change with `fills`: Q2. The new key's first registration finds another key's items in the field (T2 row 7).
+8. Two placements of one op and key share one slot, so one `last`/`heard` (last writer wins) and, when several wait on a closing predecessor,
+   `woken` connects only the first. Both predate this round and need `DuplicateSession`'s shape (two placements, one key) to reach.
+
+Gates: the first `bun gates.ts --budget 280` was 21/25: mutate-one's 5 s gate (the two reload variants read before the 5 s capture; now
+`captureMs: 0`, as P1-E's) and `falsify search` (SEARCH-SESSION's pin: `pinged` and the key in the id split states; measured completed and green at
+6,181 states, re-pinned, budget 8,000). Second run: 23/25 ok, 0 BAD, 2 unknown by budget (graph-gate, falsify suite3, as audit 3b's); both rerun
+alone (`--only`): **2/2 ok**. Suite 995/995, lock clean (2 lock uses).
+
+Sidecar log (Haiku, effort high; the lead read every line and reran every check):
+
+| Task | Who | Result | Why |
+| --- | --- | --- | --- |
+| fake world: feed step `to`/`all`; a browser-shaped `api.eventSource` | coder | accepted | read every line; behaviour without `to`/`all` is the old `findLast`; 981/981 kept; the lock line for `fake-world.ts` was the lead's (a sidecar may not write the log) |
+| review of the sessions/codec/compile diff against rules 68, 41, 70, T9, T5, 2.11.10 | reviewer | changed | acted on: `ofPlacement` matched by an id prefix, which another actor's key could share; now by actor, incarnation, activation and op. Recorded: the select's per-turn cost and repeated issue (finding 1); `undefined` releases silently (finding 2); no entry removal (finding 3); one slot for two placements, `woken` wakes one (finding 8). Rejected: "`text(key)` can be undefined": a key Slot is gated by `encodable` at seal (D108), so a key with no text is refused before it is an id. Rejected: write only `last`/`heard` in a `latest` entry: `at: undefined, filled: false` is the empty bookmark T3 already reads, and the end-of-turn `filled` write sees no change |

@@ -10,6 +10,7 @@ import { MUTANTS as R15C } from "./mutants-r15c.ts";
 import { MUTANTS as R15D } from "./mutants-r15d.ts";
 import { MUTANTS as P1H } from "./mutants-p1h.ts";
 import { MUTANTS as P1E } from "./mutants-p1e.ts";
+import { MUTANTS as P1S } from "./mutants-p1s.ts";
 import { MUTANTS as A1 } from "./mutants-a1.ts";
 import { MUTANTS as A2 } from "./mutants-a2.ts";
 import { MUTANTS as A3 } from "./mutants-a3.ts";
@@ -96,6 +97,7 @@ export const MUTANTS = [
   ...R15D,
   ...P1H,
   ...P1E,
+  ...P1S,
   ...A1,
   ...A2,
   ...A3,

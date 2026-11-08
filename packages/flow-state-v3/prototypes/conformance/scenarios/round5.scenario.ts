@@ -767,6 +767,7 @@ export const round5Scenarios: readonly Scenario[] = [
     fixtures: [deskFeedFixture],
     actor: F,
     cites: ["rule:69", "rule:70", "rule:68", "T1", "T2:4", "T3:bookmark", "T3:filled", "T9", "D70"],
+    namedIssues: ["UserClosure"],
     bounds: {},
     variants: {
       "a-burst-keeps-one-in-mail"(c0) {
@@ -905,7 +906,7 @@ export const round5Scenarios: readonly Scenario[] = [
         const c = at(c0, deskFeedFixture, F);
         hello(c);
         c.send("BreakInput");
-        c.eq("no issue", c.r.issues().length, 0);
+        c.eq("the select runs on each change, for its key (rule 68): one issue, and what is placed stays", c.r.issues().length, 1);
         c.eq("still connected", [conns(c).at(-1)?.open, row(c).connection], [true, "Live"]);
       },
       "end-delivers-what-is-queued-first"(c0) {

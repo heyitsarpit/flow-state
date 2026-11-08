@@ -159,7 +159,7 @@ const build = (Slot: S.Top) => {
     armOn: S.Array(S.String),
     disarmOn: S.Array(S.String),
   });
-  const Activity = S.Struct({ op: S.String, input: Slot, when: opt(Slot) });
+  const Activity = S.Struct({ op: S.String, input: Slot, when: opt(Slot), each: opt(S.Literal(true)) });
   const Node = S.Struct({
     id: S.String,
     parent: opt(S.String),

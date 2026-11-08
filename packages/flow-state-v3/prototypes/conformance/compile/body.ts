@@ -143,7 +143,7 @@ export type Filling<M> = {
   readonly exits?: Readonly<Record<string, Handler<M, AnyEvent>>>;
 };
 // SEAM (D208): 2.7.3's `activities`, by the stream's name, until the sessions module has handles (`O.x.subscribe(select)`).
-export type Activities<M> = ReadonlyArray<{ readonly op: string; readonly input: (a: In<M, unknown>) => unknown; readonly when?: (a: In<M, unknown>) => boolean }>;
+export type Activities<M> = ReadonlyArray<{ readonly op: string; readonly input: (a: In<M, unknown>) => unknown; readonly when?: (a: In<M, unknown>) => boolean; readonly each?: true }>;
 // A state's body, nested as the states are (2.3's example: `TWO_FACTOR: { states: { ENTERING: ... } }`).
 export type StateBody<M, All> = Filling<M> & {
   readonly default?: StateTok;
@@ -254,6 +254,7 @@ const compileActivities = (definition: string, base: string, acts: Activities<un
           op: x.op,
           input: slotOf<(a: unknown) => unknown>(definition, `${base}activities[${i}]`, x.input),
           ...(x.when ? { when: slotOf<(a: unknown) => boolean>(definition, `${base}activities[${i}].when`, x.when) } : {}),
+          ...(x.each ? { each: true as const } : {}),
         })),
       }
     : {};
