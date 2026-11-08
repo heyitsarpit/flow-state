@@ -300,6 +300,16 @@ export const check = (raw: Compiled): { findings: Finding[]; callbacksRun: numbe
     const ops = Object.fromEntries(Object.entries(c.ops).filter(([, o]) => o.fragment === fid));
     checkBody({ id: fid, nodes: f.nodes, root: f.root, dflt: f.default, ops }, `${c.id} > ${fid}`, push, persisted);
   }
+  // Q1 A, the convergence's check: `guarded` claims a per-record version fence. With no version on the entity there is no base to pass, and a write
+  // the domain does not bind has no `basedOn` and no target. (This prototype's `version` is per record by construction; a collection-wide version
+  // would be refused here too, and has no spelling yet.)
+  for (const [name, o] of Object.entries(c.ops)) {
+    if (!o.guarded) continue;
+    const w = c.domain?.writes[name];
+    if (!w) push({ severity: "error", rule: "GuardedUnbound", machine: c.id, path: `operations.${name}`, op: name, message: `\`${name}\` is \`guarded\` but no domain write binds it, so it has no \`basedOn\``, help: "bind it as a domain write, or drop `guarded`" });
+    else if (!c.domain?.version) push({ severity: "error", rule: "GuardedWithoutVersion", machine: c.id, path: `operations.${name}`, op: name, message: `\`${name}\` is \`guarded\` and its entity has no per-record version, so no answer can show a version past its base`, help: "declare the entity's `version`, or drop `guarded`" });
+    else if (!w.targets) push({ severity: "error", rule: "GuardedWithoutTarget", machine: c.id, path: `domain.writes.${name}`, op: name, message: `\`${name}\` is \`guarded\` and fences no record: it has no \`.one\` or \`many\` target`, help: "give the write a target" });
+  }
   // ── Events: declared, or inferred, and said so.
   const bodies: Array<{ id: string; nodes: Nodes }> = [{ id: c.id, nodes: c.nodes }];
   const handled = new Set(bodies.flatMap((b) => Object.values(b.nodes).flatMap((n) => Object.keys(n.on))));

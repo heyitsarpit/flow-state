@@ -32,7 +32,7 @@ import {
 // entity API (2.8) or stream contract (2.11): those compile prototypes are the entity round's (HANDOFF plan cut, step 4).
 type Fn = (...a: never[]) => unknown;
 export type DomainIn = {
-  readonly writes: Readonly<Record<string, { readonly predicts: Fn; readonly confirms?: Fn }>>;
+  readonly writes: Readonly<Record<string, { readonly predicts: Fn; readonly confirms?: Fn; readonly targets?: Fn }>>;
   readonly reads?: Readonly<Record<string, Fn>>;
   readonly gone?: Readonly<Record<string, { readonly tag: string; readonly ref: Fn }>>;
   readonly listens?: Readonly<Record<string, Fn>>;
@@ -45,7 +45,7 @@ export type DomainIn = {
 const compileDomain = (id: string, d: DomainIn): DomainSpec =>
   ({
     writes: Object.fromEntries(
-      Object.entries(d.writes).map(([op, w]) => [op, { predicts: slotOf(id, `domain.writes.${op}.predicts`, w.predicts), ...(w.confirms ? { confirms: slotOf(id, `domain.writes.${op}.confirms`, w.confirms) } : {}) }]),
+      Object.entries(d.writes).map(([op, w]) => [op, { predicts: slotOf(id, `domain.writes.${op}.predicts`, w.predicts), ...(w.confirms ? { confirms: slotOf(id, `domain.writes.${op}.confirms`, w.confirms) } : {}), ...(w.targets ? { targets: slotOf(id, `domain.writes.${op}.targets`, w.targets) } : {}) }]),
     ),
     reads: Object.fromEntries(Object.entries(d.reads ?? {}).map(([op, f]) => [op, slotOf(id, `domain.reads.${op}`, f)])),
     ...(d.gone ? { gone: Object.fromEntries(Object.entries(d.gone).map(([op, g]) => [op, { tag: g.tag, ref: slotOf(id, `domain.gone.${op}`, g.ref) }])) } : {}),

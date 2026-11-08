@@ -428,6 +428,7 @@ const register = (
   cx.arm(`healthy/${x.id}`, cx.now + spec.healthyMs);
   armIdle(cx, x, spec);
   if (spec.listen) {
+    cx.publish({ k: "live", machine: x.machine, op: x.op, session: x.id, input: x.input });
     if (!sig.proof) gap(x, cx, "unproven"); // T7: an unproven registration, the first included
     return put(s, x);
   }

@@ -308,7 +308,7 @@ const STREAM_CLOSURES = new Set([
 ]);
 const DOMAIN_CLOSURES = new Set(["repair", "version", "versionOrder"]);
 const OP_CLOSURES = new Set(["commit"]);
-const WRITE_CLOSURES = new Set(["confirms"]);
+const WRITE_CLOSURES = new Set(["confirms", "targets"]);
 const known = (o: object, names: ReadonlySet<string>, where: string) => {
   for (const [k, v] of Object.entries(o))
     if (typeof v === "function" && !names.has(k))
@@ -387,6 +387,7 @@ export type SealedDomain = Pick<DomainSpec, "writes"> & {
       {
         readonly predicts: DomainSpec["writes"][string]["predicts"];
         readonly confirms?: Slot<(value: any, input: any) => readonly Carried[]>;
+        readonly targets?: Slot<(input: any) => readonly string[]>;
       }
     >
   >;
@@ -406,7 +407,11 @@ const sealDomain = (id: string, d: DomainSpec): SealedDomain => {
     ...d,
     writes: tableK(d.writes, (op, w) => {
       known(w, WRITE_CLOSURES, `${id} domain.writes`); // L4
-      return { ...w, ...(w.confirms ? { confirms: asSlot(w.confirms, id, `domain.writes.${op}.confirms`) } : {}) };
+      return {
+        ...w,
+        ...(w.confirms ? { confirms: asSlot(w.confirms, id, `domain.writes.${op}.confirms`) } : {}),
+        ...(w.targets ? { targets: asSlot(w.targets, id, `domain.writes.${op}.targets`) } : {}),
+      };
     }),
     reads: tableK(d.reads, (op, f) => asSlot(f, id, `domain.reads.${op}`)),
     ...(d.gone ? { gone: tableK(d.gone, (op, g) => ({ tag: g.tag, ref: asSlot(g.ref, id, `domain.gone.${op}`) })) } : {}),

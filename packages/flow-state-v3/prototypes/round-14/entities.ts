@@ -8,7 +8,7 @@
 // codebases/mono/packages/replicache/src/pending-mutations.ts. Replaying pending writes over a new base:
 // codebases/db/packages/db/src/collection/state.ts:580. A stale read must not win over a confirmed write:
 // codebases/tanstack-query/packages/query-core/src/mutationObserver.ts's cancelQueries convention, here a position compare.
-import type { Carried, Compiled, Predicted, Slot } from "../conformance/fixtures/compiled.ts";
+import type { Carried, Compiled, CoverTerm, Predicted, Slot } from "../conformance/fixtures/compiled.ts";
 import { Effect, Schema } from "effect";
 import type { Claim as QueueClaim, Cx, Ended, Module, ReadAnswer, Told } from "./seam.ts";
 import { own, same, text, type SealedDomain } from "./gate.ts";
@@ -28,23 +28,61 @@ type Entry = {
   readonly sent: boolean;
   // OD19 Q32 A, narrowed: per record, the version it was minted over; rebased only across an earlier-minted write's success, and only until sent.
   readonly basedOn: Readonly<Record<string, Ver | undefined>>;
+  readonly targets: readonly string[]; // the records a `guarded` server fences (the write's `.one` or `many` keys); others it only touches
+  readonly sends: number; // 0, 1, or 2 for re-sent: only "was this success its first send" is read. A restored Attempt may have been sent: 1
+  readonly unsure?: true; // restored from a lane record written before its send: the base it was sent with may be a later one (a rebase)
+  readonly known: Readonly<Record<string, Ver | undefined>>; // per target, the version the store held when the first send began
 };
 // Rule 32 as U10 rules it: `given` is the position of the give-up (null while the lane can still re-send); `quiet` once a read asked after it, or a
-// later write's success, has landed: `unconfirmed` on its fields, never `uncertain`, and it has no exit here (no `guarded` proof is built).
+// later write's success, has landed: `unconfirmed` on its fields, never `uncertain`. Its exits (Q1 A, the convergence's rules): `guard`, on a target of
+// a `guarded` write, the `basedOn` it was sent with, ended by an answer showing that record's version past it; `key`, a business key, ended by a
+// later Attempt's success with the same values (a replay). Otherwise the cap.
 type Mark = {
   readonly attempt: string;
   readonly mint: number;
+  readonly machine: string;
+  readonly op: string;
   readonly given: number | null;
   readonly quiet: boolean;
   readonly fields: readonly string[];
+  readonly guard?: Ver;
+  readonly key?: string;
+  readonly removes?: true; // a removal moves the record out of any cover
 };
-const markOf = (e: Entry, ref: string): Mark => ({
-  attempt: e.attempt,
-  mint: e.mint,
-  given: null,
-  quiet: false,
-  fields: [...new Set(e.predicted.filter((p) => p.ref === ref).flatMap((p) => Object.keys(p.patch ?? {})))],
-});
+const businessKey = (e: { machine: string; op: string; input: unknown }, cx: Cx): string | undefined => {
+  const by = cx.machine(e.machine).ops[e.op]?.idempotency;
+  return Array.isArray(by) ? text(by.map((f) => (e.input as Readonly<Record<string, unknown>>)?.[f])) : undefined;
+};
+const markOf = (e: Entry, ref: string, cx: Cx): Mark => {
+  const guard = cx.machine(e.machine).ops[e.op]?.guarded && e.targets.includes(ref) && !e.unsure ? e.basedOn[ref] : undefined;
+  const key = businessKey(e, cx);
+  const removes = e.predicted.some((p) => p.ref === ref && p.remove);
+  return {
+    attempt: e.attempt,
+    mint: e.mint,
+    machine: e.machine,
+    op: e.op,
+    given: null,
+    quiet: false,
+    fields: [...new Set(e.predicted.filter((p) => p.ref === ref).flatMap((p) => Object.keys(p.patch ?? {})))],
+    ...(guard === undefined ? {} : { guard }),
+    ...(key === undefined ? {} : { key }),
+    ...(removes ? { removes: true as const } : {}),
+  };
+};
+// Q1 A: an answer showing the target's version strictly past the base the write was sent with; equal proves nothing. Void once contradicted.
+const passed = (s: Slice, r: Rec, m: Mark, cx: Cx) => {
+  if (m.given === null || m.guard === undefined || s.voided.includes(`${m.machine}|${m.op}`)) return false;
+  const k = compareVersions(r.version, m.guard, domainOf(cx, m.machine)?.versionOrder, cx);
+  return typeof k === "number" && k > 0;
+};
+const prove = (s: Slice, ref: string, cx: Cx): Slice => {
+  const r = recOf(s, ref);
+  const gone = r.marks.filter((m) => passed(s, r, m, cx));
+  if (gone.length === 0) return s;
+  for (const m of gone) cx.note("GuardPassed", { ref, attempt: m.attempt });
+  return withRec(s, ref, (x) => ({ ...x, marks: x.marks.filter((m) => !gone.includes(m)) }));
+};
 const demote = (r: Rec, when: (m: Mark) => boolean): Rec =>
   r.marks.some((m) => !m.quiet && m.given !== null && when(m))
     ? { ...r, marks: r.marks.map((m) => (!m.quiet && m.given !== null && when(m) ? { ...m, quiet: true } : m)) }
@@ -91,7 +129,10 @@ export type Slice = {
   readonly answers: Readonly<Record<string, Answered>>;
   readonly earlyOrder: readonly string[]; // D76: refs with a stub, oldest first. Bounded
   readonly delivered: Readonly<Record<string, readonly string[]>>; // Q3 A's default: per live session, the records it has itself delivered
+  readonly live: Readonly<Record<string, Live>>; // registered `.covers` sessions, until lost or ended: what may hide a given-up doubt
+  readonly voided: readonly string[]; // `machine|op`: `guarded` writes contradicted in this Runtime (GuardContradicted). Memory only
 };
+type Live = { readonly entity: string; readonly where: readonly CoverTerm[]; readonly input: Readonly<Record<string, unknown>> };
 type Answered = {
   readonly machine: string;
   readonly op: string;
@@ -101,7 +142,7 @@ type Answered = {
 const NONE: Rec = { unconfirmed: [], marks: [], queue: [], landedAt: 0 };
 const EARLY_BOUND = 1024;
 // D65: `ref` comes from a closure: "constructor" is a name like any other.
-const empty: Slice = { records: {}, entries: {}, repairs: {}, answers: {}, earlyOrder: [], delivered: {} };
+const empty: Slice = { records: {}, entries: {}, repairs: {}, answers: {}, earlyOrder: [], delivered: {}, live: {}, voided: [] };
 const recOf = (s: Slice, ref: string): Rec => own(s.records, ref) ?? NONE;
 const withRec = (s: Slice, ref: string, f: (r: Rec) => Rec): Slice => ({
   ...s,
@@ -135,6 +176,20 @@ const draftsOf = (s: Slice, ref: string) =>
   Object.values(s.entries)
     .filter((e) => !e.joined && e.refs.includes(ref))
     .sort((a, b) => a.mint - b.mint);
+// The convergence's `.covers` mask: a given-up doubt is hidden, never ended, while a registered `.covers` session covers the record with no open gap on
+// it and its filter reads no field the write changed (a write that moves a record out of the cover would land unheard). Hidden is not proven: when the
+// session is lost or ends, the mark shows again.
+const hidden = (s: Slice, ref: string, r: Rec, m: Mark) =>
+  m.given !== null &&
+  !m.removes &&
+  r.behind === undefined &&
+  r.base !== undefined &&
+  Object.values(s.live).some(
+    (l) =>
+      ref.startsWith(`${l.entity}|`) &&
+      l.where.every((t) => same(r.base![t.field], "input" in t ? l.input[t.input] : t.value)) &&
+      !l.where.some((t) => m.fields.includes(t.field)),
+  );
 export const readRecord = (s: Slice, ref: string) => {
   const r = own(s.records, ref);
   if (!r) return undefined;
@@ -149,8 +204,9 @@ export const readRecord = (s: Slice, ref: string) => {
       data = safely(() => applyPatch(before, p, e.input), before);
     }
   }
-  const uncertain = r.marks.some((m) => !m.quiet) || r.doubt !== undefined;
-  const quiet = r.marks.filter((m) => m.quiet).flatMap((m) => m.fields);
+  const marks = r.marks.filter((m) => !hidden(s, ref, r, m));
+  const uncertain = marks.some((m) => !m.quiet) || r.doubt !== undefined;
+  const quiet = marks.filter((m) => m.quiet).flatMap((m) => m.fields);
   const gapped = r.behind !== undefined && r.base ? Object.keys(r.base) : [];
   const unconfirmed = quiet.length || gapped.length ? [...new Set([...r.unconfirmed, ...quiet, ...gapped])] : r.unconfirmed;
   if (r.base === undefined && !predicted && !uncertain && r.queue.length === 0) return undefined;
@@ -458,7 +514,7 @@ const admit = (s0: Slice, ev: Evidence, machine: string, cx: Cx): { s: Slice; v:
   } else next = take(r, ev, at, v === "replace" || (v === "apply" && ev.carried.evidence === "whole") ? "replace" : "merge", heldBack);
   next = withoutDoubtIf(next, ev);
   if (placed) next = withoutClaim(next);
-  const out = withRec(s, ref, () => next);
+  const out = prove(withRec(s, ref, () => next), ref, cx);
   const done = v === "applyDoubt" || v === "fill" ? doubted(out, ref, machine, cx) : out;
   return { s: foldEarly(done, ev, ref, machine, cx), v };
 };
@@ -630,10 +686,37 @@ const holdFor = (s: Slice, e: Entry, cx: Cx): Slice => {
     out = withRec(out, ref, (r) =>
       r.marks.some((m) => m.attempt === e.attempt)
         ? r
-        : { ...r, marks: [...r.marks, markOf(e, ref)] },
+        : { ...r, marks: [...r.marks, markOf(e, ref, cx)] },
     );
     out = startRepair(out, ref, e.machine, cx);
   }
+  return out;
+};
+// The convergence's tripwire (`GuardContradicted`, proposed): a `guarded` write's first send succeeded over a base the store already knew was stale
+// (known > base), which a server enforcing the claim would have refused. Skipped for a business key (a new Attempt may replay a stored success) and for
+// a re-send (it may replay its own). It catches a stale-base send only, never a commit that ignores a fresh base. The claim is void until a reload.
+const contradicted = (s: Slice, e: Entry, cx: Cx): Slice => {
+  const op = cx.machine(e.machine).ops[e.op];
+  const id = `${e.machine}|${e.op}`;
+  if (!op?.guarded || e.sends !== 1 || Array.isArray(op.idempotency) || s.voided.includes(id)) return s;
+  const order = domainOf(cx, e.machine)?.versionOrder;
+  const ref = e.targets.find((t) => {
+    const k = compareVersions(e.known[t], e.basedOn[t], order, cx);
+    return typeof k === "number" && 0 < k;
+  });
+  if (ref === undefined) return s;
+  cx.note("GuardContradicted", { contract: op.contract, attempt: e.attempt, record: ref, basedOn: e.basedOn[ref], known: e.known[ref] });
+  return { ...s, voided: [...s.voided, id] };
+};
+// A business key's success is a replay of every given-up Attempt of the same contract with the same values: the server holds the key, so a late
+// copy is replayed or refused as a whole. Every record those Attempts touched ends its doubt.
+const replayed = (s: Slice, e: Entry, cx: Cx): Slice => {
+  const key = businessKey(e, cx);
+  if (key === undefined) return s;
+  const ofKey = (m: Mark) => m.given !== null && m.machine === e.machine && m.op === e.op && m.key === key;
+  let out = s;
+  for (const [ref, r] of Object.entries(s.records))
+    if (r.marks.some(ofKey)) out = withRec(out, ref, (x) => ({ ...x, marks: x.marks.filter((m) => !ofKey(m)) }));
   return out;
 };
 const onEnded = (s: Slice, { attempt, how, sentAt }: Ended, cx: Cx): Slice => {
@@ -649,6 +732,7 @@ const onEnded = (s: Slice, { attempt, how, sentAt }: Ended, cx: Cx): Slice => {
         ...r,
         marks: r.marks.map((m) => (m.attempt === attempt ? { ...m, given: at } : m)),
       }));
+    for (const ref of e.refs) out = prove(out, ref, cx);
     out = e.refs.some((r) => own(s.repairs, r))
       ? { ...out, entries: { ...out.entries, [attempt]: { ...e, released: true } } }
       : removeEntry(out, attempt);
@@ -657,8 +741,8 @@ const onEnded = (s: Slice, { attempt, how, sentAt }: Ended, cx: Cx): Slice => {
   }
   const ending: Ending = how;
   if (ending.ch === "success") {
-    const c = confirm(s, e, ending.value, sentAt, cx);
-    return removeEntry(clearMarks(c.s, e, c.covered), attempt);
+    const c = confirm(contradicted(s, e, cx), e, ending.value, sentAt, cx);
+    return replayed(removeEntry(clearMarks(c.s, e, c.covered), attempt), e, cx);
   }
   if (ending.ch === "failure") return removeEntry(s, attempt);
   return holdFor(s, e, cx);
@@ -802,6 +886,11 @@ const onGap = (s0: Slice, g: Extract<Told, { k: "gap" }>, cx: Cx): Slice => {
     const { [g.session]: _gone, ...delivered } = s.delivered;
     s = { ...s, delivered };
   }
+  if (g.why !== "unproven" && s.live[g.session]) {
+    const { [g.session]: _gone, ...live } = s.live;
+    s = { ...s, live };
+    cx.visible();
+  }
   if (!cx.live) return s;
   const at = cx.pos();
   for (const a of Object.values(s.answers)) {
@@ -817,17 +906,24 @@ const onGap = (s0: Slice, g: Extract<Told, { k: "gap" }>, cx: Cx): Slice => {
   }
   return s;
 };
+// A `guarded` write's fenced records: the domain's `targets` (compiled from `.one` or `many`), only among the records it predicts. None declared, none fenced.
+const targetsOf = (w: { machine: string; op: string; input: unknown }, refs: readonly string[], cx: Cx): readonly string[] => {
+  const fn = domainOf(cx, w.machine)?.writes[w.op]?.targets;
+  if (!fn || !cx.machine(w.machine).ops[w.op]?.guarded) return [];
+  const got = cx.user(fn, [w.input], () => [] as readonly string[]);
+  return Array.isArray(got) ? got.filter((r): r is string => typeof r === "string" && refs.includes(r)) : [];
+};
 const isVer = (v: unknown): v is Ver => (typeof v === "number" && Number.isFinite(v)) || typeof v === "string";
-const savedOf = (saved: unknown): { refs: readonly string[]; basedOn: Readonly<Record<string, Ver>>; fine: boolean } => {
+const savedOf = (saved: unknown): { refs: readonly string[]; basedOn: Readonly<Record<string, Ver>>; sent: boolean; fine: boolean } => {
   const strings = (v: unknown) => (Array.isArray(v) ? [...new Set(v.filter((x): x is string => typeof x === "string"))] : []);
-  if (saved === undefined) return { refs: [], basedOn: {}, fine: true };
-  if (Array.isArray(saved)) return { refs: strings(saved), basedOn: {}, fine: strings(saved).length === saved.length };
-  const o = saved as { refs?: unknown; basedOn?: unknown };
+  if (saved === undefined) return { refs: [], basedOn: {}, sent: false, fine: true };
+  if (Array.isArray(saved)) return { refs: strings(saved), basedOn: {}, sent: false, fine: strings(saved).length === saved.length };
+  const o = saved as { refs?: unknown; basedOn?: unknown; sent?: unknown };
   const refs = strings(o?.refs);
   const raw = typeof o?.basedOn === "object" && o.basedOn !== null && !Array.isArray(o.basedOn) ? (o.basedOn as Record<string, unknown>) : {};
   const basedOn = Object.fromEntries(Object.entries(raw).filter((kv): kv is [string, Ver] => refs.includes(kv[0]) && isVer(kv[1])));
-  const fine = Array.isArray(o?.refs) && refs.length === (o.refs as unknown[]).length && Object.keys(basedOn).length === Object.keys(raw).length;
-  return { refs, basedOn, fine };
+  const fine = Array.isArray(o?.refs) && refs.length === (o.refs as unknown[]).length && Object.keys(basedOn).length === Object.keys(raw).length && (o.sent === undefined || o.sent === true);
+  return { refs, basedOn, sent: o.sent === true, fine };
 };
 export const entities: Module<Slice> = {
   id: "entities",
@@ -875,7 +971,7 @@ export const entities: Module<Slice> = {
     // Rule 35: no partial join.
     if (refs.some((ref) => recOf(s, ref).queue.length + draftsOf(s, ref).length >= cx.queueMax)) return { s, ok: false };
     const basedOn = Object.fromEntries(refs.map((ref) => [ref, recOf(s, ref).version]));
-    const e: Entry = { ...w, refs, predicted: p.predicted, unknown: false, released: false, joined: false, sent: false, basedOn };
+    const e: Entry = { ...w, refs, predicted: p.predicted, unknown: false, released: false, joined: false, sent: false, basedOn, targets: targetsOf(w, refs, cx), sends: 0, known: {} };
     let out: Slice = { ...s, entries: { ...s.entries, [w.attempt]: e } };
     for (const ref of refs) out = withRec(out, ref, (r) => r);
     return { s: out, ok: true };
@@ -884,7 +980,9 @@ export const entities: Module<Slice> = {
     const e = s.entries[attempt];
     if (!e) return { s };
     const basedOn = e.refs.length === 1 ? e.basedOn[e.refs[0]!] : e.refs.some((r) => e.basedOn[r] !== undefined) ? e.basedOn : undefined;
-    return { s: e.sent ? s : { ...s, entries: { ...s.entries, [attempt]: { ...e, sent: true } } }, basedOn };
+    if (e.sends >= 2) return { s, basedOn };
+    const known = e.sends === 0 ? Object.fromEntries(e.targets.map((t) => [t, recOf(s, t).version])) : e.known;
+    return { s: { ...s, entries: { ...s.entries, [attempt]: { ...e, sent: true, sends: e.sends + 1, known } } }, basedOn };
   },
   sending(s, attempt) {
     const e = s.entries[attempt];
@@ -911,19 +1009,20 @@ export const entities: Module<Slice> = {
     const e = s.entries[attempt];
     if (!e) return undefined;
     const basedOn = Object.fromEntries(Object.entries(e.basedOn).filter(([, v]) => v !== undefined));
-    return Object.keys(basedOn).length ? { refs: e.refs, basedOn } : e.refs;
+    // `sent`: written after the send, so `basedOn` is the base it went with. Written before (the write-ahead), a later rebase may have moved it.
+    return Object.keys(basedOn).length ? { refs: e.refs, basedOn, ...(e.sent ? { sent: true } : {}) } : e.refs;
   },
   restored(s, w, cx) {
     // D57: what is on disk is a value from outside. This module's own to check.
-    const { refs, basedOn, fine } = savedOf(w.saved);
+    const { refs, basedOn, sent, fine } = savedOf(w.saved);
     if (!fine) cx.issue("UserClosure", { where: "a saved entry", why: "a value of no shape" });
-    const e: Entry = { ...w, refs, predicted: [], unknown: true, released: false, joined: true, sent: true, basedOn };
+    const e: Entry = { ...w, refs, predicted: [], unknown: true, released: false, joined: true, sent: true, basedOn, targets: targetsOf(w, refs, cx), sends: 1, known: {}, ...(sent ? {} : { unsure: true as const }) };
     let out: Slice = { ...s, entries: { ...s.entries, [w.attempt]: e } };
     for (const ref of refs) {
       out = withRec(out, ref, (r) => ({
         ...r,
         queue: [...r.queue, w.attempt],
-        marks: [...r.marks, markOf(e, ref)],
+        marks: [...r.marks, markOf(e, ref, cx)],
       }));
       out = startRepair(out, ref, w.machine, cx);
     }
@@ -934,6 +1033,12 @@ export const entities: Module<Slice> = {
     if (fact.k === "failed") return onFailed(s, fact, cx);
     if (fact.k === "pushed") return onPushed(s, fact, cx);
     if (fact.k === "gap") return onGap(s, fact, cx);
+    if (fact.k === "live") {
+      const c = domainOf(cx, fact.machine)?.covers?.[fact.op];
+      if (!c) return s;
+      cx.visible();
+      return { ...s, live: { ...s.live, [fact.session]: { entity: c.entity, where: c.where, input: (fact.input ?? {}) as Readonly<Record<string, unknown>> } } };
+    }
     return s;
   },
   input(s, payload, cx) {

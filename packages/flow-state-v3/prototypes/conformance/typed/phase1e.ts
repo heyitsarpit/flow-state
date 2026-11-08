@@ -327,3 +327,164 @@ const queueCoversFx = fixture(queueOf(true), queueServer);
 const queueFx = fixture(queueOf(false), queueServer);
 export const p1QueueCoversFixture = () => queueCoversFx;
 export const p1QueueFixture = () => queueFx;
+
+// Q1 A, `guarded`, with the convergence's rules (round-9/released-write-proof-proposal-2.md, its example 1 and 3, spelled `guarded`). supabase-js
+// PostgREST: `save` is `update({ title }).eq("id").eq("revision", basedOn)`; `move` is an RPC (`move_ticket`) that checks the ticket's revision only and
+// bumps both queues' `open_count` in one transaction; `close` goes through the app's server, which keeps an idempotency table by ticket id (a business
+// key, Stripe's replay) and checks the revision in the body. `honest: false` is a server that ignores the revision filter: the claim is false. The
+// fake transport's key is the Attempt (the suite's oracles read it); the business key lives in the server model.
+export const P1GuardId = "Lab/P1Guard";
+export const gTicketRef = (id: string) => `Ticket|${id}`;
+export const gQueueRef = (id: string) => `Queue|${id}`;
+const GTicket = S.Struct({ id: S.String, title: S.String, queueId: S.String, status: S.String, revision: S.Number });
+const GQueue = S.Struct({ id: S.String, openCount: S.Number, revision: S.Number });
+type GT = typeof GTicket.Type;
+type GQ = typeof GQueue.Type;
+const rows = (data: readonly unknown[]) => ({ data, error: null, count: null, status: 200, statusText: "OK" });
+const guardServer = (honest: boolean): ServerModel => ({
+  init: () => ({
+    tickets: { t1: { id: "t1", title: "A", queueId: "q1", status: "open", revision: 1 } },
+    queues: { q1: { id: "q1", openCount: 1, revision: 1 }, q2: { id: "q2", openCount: 0, revision: 1 } },
+  }),
+  apply(op, i, s) {
+    const t = s.tickets[i.id];
+    // The app's server keeps an idempotency table for `close` by ticket id: a second request with the key is replayed the stored answer.
+    if (op === "close" && s.closeKeys?.[i.id]) return { s, value: s.closeKeys[i.id] };
+    if (!t || (honest && t.revision !== i.revision)) return { s, value: rows([]) };
+    if (op === "save") {
+      const n = { ...t, title: i.title, revision: t.revision + 1 };
+      return { s: { ...s, tickets: { ...s.tickets, [t.id]: n } }, value: rows([{ title: n.title, revision: n.revision }]) };
+    }
+    if (op === "move") {
+      const from = s.queues[i.from];
+      const to = s.queues[i.to];
+      const n = { ...t, queueId: i.to, revision: t.revision + 1 };
+      const queues = { ...s.queues, [from.id]: { ...from, openCount: from.openCount - 1, revision: from.revision + 1 }, [to.id]: { ...to, openCount: to.openCount + 1, revision: to.revision + 1 } };
+      return { s: { ...s, tickets: { ...s.tickets, [t.id]: n }, queues }, value: rows([{ queueId: n.queueId, revision: n.revision }]) };
+    }
+    if (op === "close") {
+      const n = { ...t, status: "closed", revision: t.revision + 1 };
+      const value = rows([{ status: n.status, revision: n.revision }]);
+      return { s: { ...s, tickets: { ...s.tickets, [t.id]: n }, closeKeys: { ...s.closeKeys, [t.id]: value } }, value };
+    }
+    return { s };
+  },
+  read: (op, i, s) =>
+    op === "board"
+      ? { tickets: Object.values(s.tickets), queues: Object.values(s.queues) }
+      : i.ref.startsWith("Queue|")
+        ? (s.queues[i.ref.split("|")[1]] ?? null)
+        : (s.tickets[i.ref.split("|")[1]] ?? null),
+});
+type GuardError = { readonly _tag: "TicketChanged" } | { readonly _tag: "Refused" } | OutcomeUnknown<{ readonly _tag: "NoResponse" } | { readonly _tag: "ServerError" } | { readonly _tag: "Undecodable" }>;
+const rowOf = <A, I>(sc: Schema.Codec<A, I>) => (res: PostgrestResponse<readonly unknown[]>): Effect.Effect<A, GuardError> =>
+  res.error !== null
+    ? res.status === 0 || res.status >= 500
+      ? Outcome.unknown({ _tag: "ServerError" as const })
+      : Effect.fail({ _tag: "Refused" as const })
+    : res.data === null || res.data.length === 0
+      ? Effect.fail({ _tag: "TicketChanged" as const })
+      : Schema.decodeUnknownEffect(sc)(res.data[0]).pipe(Effect.mapError(() => new OutcomeUnknown({ reason: { _tag: "Undecodable" as const } })));
+const sendG = (op: string, body: unknown, key: string, dedupe: boolean) =>
+  Effect.flatMap(Effect.service(FakeApi), (api) => api.call(op, body, { idempotencyKey: key, ...(dedupe ? {} : { dedupe: false as const }) }) as Effect.Effect<PostgrestResponse<readonly unknown[]>, { readonly _tag: "NoResponse" }>).pipe(
+    Effect.catchTag("NoResponse", (e) => Outcome.unknown(e)),
+  );
+const baseOf = (b: unknown, ref: string) => (typeof b === "object" && b !== null ? (b as Record<string, unknown>)[ref] : b);
+const gSave = transaction({ id: "lab/gSave", input: { id: S.String, title: S.String }, key: ["id"], concurrency: "latest", guarded: true, services: [FakeApi], commit: (i, c) => sendG("save", { ...i, revision: c.basedOn }, c.attempt.id, false).pipe(Effect.flatMap(rowOf(S.Struct({ title: S.String, revision: S.Number })))) });
+const gMove = transaction({ id: "lab/gMove", input: { id: S.String, from: S.String, to: S.String }, key: ["id"], concurrency: "latest", guarded: true, services: [FakeApi], commit: (i, c) => sendG("move", { ...i, revision: baseOf(c.basedOn, gTicketRef(i.id)) }, c.attempt.id, false).pipe(Effect.flatMap(rowOf(S.Struct({ queueId: S.String, revision: S.Number })))) });
+const closeOf = (guarded: boolean) =>
+  transaction({ id: "lab/gClose", input: { id: S.String }, key: ["id"], concurrency: "latest", ...(guarded ? { guarded: true as const } : {}), services: [FakeApi], commit: (i, c) => sendG("close", { ...i, revision: c.basedOn }, c.attempt.id, false).pipe(Effect.flatMap(rowOf(S.Struct({ status: S.String, revision: S.Number })))) });
+const board = resource({ id: "lab/gBoard", input: {}, key: [], services: [FakeApi], lookup: (i) => Effect.flatMap(call<unknown, "NoResponse">("board")(i), (v) => Effect.orDie(Schema.decodeUnknownEffect(S.Struct({ tickets: S.Array(GTicket), queues: S.Array(GQueue) }))(v))) });
+const guardOf = (o: { readonly honest: boolean; readonly closeGuarded: boolean }) => {
+  const f = fixture(
+    (api: Api) =>
+      machine(
+        definition({
+          id: P1GuardId,
+          persist: true,
+          states: ["A"],
+          events: { Load: {}, Save: { id: S.String, title: S.String }, Move: { id: S.String, from: S.String, to: S.String }, Close: { id: S.String }, GiveUpSave: { id: S.String }, GiveUpMove: { id: S.String }, GiveUpClose: { id: S.String } },
+          internalEvents: { Listed: {}, ListFailed: {}, Done: {}, Changed: {}, Failed: {}, Unsure: Flow.uncertain({}), Unused: {}, FeedFailed: {} },
+          memory: { queueId: Flow.initial(S.String, "q1") },
+          uses: ["entities", "sessions"],
+          domain: {
+            writes: {
+              save: { predicts: (i: { readonly id: string; readonly title: string }) => [{ ref: gTicketRef(i.id), patch: { title: i.title } }], confirms: (v: { readonly title: string; readonly revision: number }, i: { readonly id: string }) => [{ ref: gTicketRef(i.id), fields: v }], targets: (i: { readonly id: string }) => [gTicketRef(i.id)] },
+              // `.one(Ticket.pick("queueId", "revision"))` with `.alsoChanges` on both queues: the queues are touched, never fenced.
+              move: {
+                predicts: (i: { readonly id: string; readonly from: string; readonly to: string }) => [
+                  { ref: gTicketRef(i.id), patch: { queueId: i.to } },
+                  { ref: gQueueRef(i.from), patch: { openCount: (b: GQ) => b.openCount - 1 } },
+                  { ref: gQueueRef(i.to), patch: { openCount: (b: GQ) => b.openCount + 1 } },
+                ],
+                confirms: (v: { readonly queueId: string; readonly revision: number }, i: { readonly id: string }) => [{ ref: gTicketRef(i.id), fields: v }],
+                targets: (i: { readonly id: string }) => [gTicketRef(i.id)],
+              },
+              close: { predicts: (i: { readonly id: string }) => [{ ref: gTicketRef(i.id), patch: { status: "closed" } }], confirms: (v: { readonly status: string; readonly revision: number }, i: { readonly id: string }) => [{ ref: gTicketRef(i.id), fields: v }], targets: (i: { readonly id: string }) => [gTicketRef(i.id)] },
+            },
+            reads: { board: (v: { readonly tickets: readonly GT[]; readonly queues: readonly GQ[] }) => [...v.tickets.map((t) => ({ ref: gTicketRef(t.id), fields: t })), ...v.queues.map((q) => ({ ref: gQueueRef(q.id), fields: q }))] },
+            listens: { changes: (e: { readonly ticket: GT }) => [{ ref: gTicketRef(e.ticket.id), fields: e.ticket }] },
+            // `.covers(({ input, record }) => eq(record.queueId, input.queueId))`: the queue's channel, `queue_id=eq.<queueId>`
+            covers: { changes: { entity: "Ticket", where: [{ field: "queueId", input: "queueId" }] } },
+            repair: (ref: string) => api.call("repair", { ref }) as Effect.Effect<unknown, unknown, never>,
+            version: () => "revision",
+          },
+          streams: ({ E }) => ({
+            changes: {
+              id: "changes",
+              listen: true as const,
+              key: () => ({}),
+              position: "revision",
+              reconnect: true,
+              idleMs: Number.MAX_SAFE_INTEGER / 2,
+              healthyMs: 60_000,
+              backoff: (n: number) => Math.min(30_000, 1000 * 2 ** n),
+              subscribe: (i: unknown, { from }: { readonly from: unknown }) => api.socket("changes", i, from),
+              value: E.Unused,
+              missed: E.Unused,
+              failure: E.FeedFailed,
+            },
+          }),
+          operations: ({ E }) => {
+            const out = { success: E.Done, failure: { TicketChanged: E.Changed, Refused: E.Failed, NotSent: E.Failed }, unknown: E.Unsure };
+            return {
+              save: gSave.outcomes(out),
+              move: gMove.outcomes(out),
+              close: closeOf(o.closeGuarded).outcomes(out),
+              board: board.outcomes({ success: E.Listed, failure: { NoResponse: E.ListFailed, Defect: E.ListFailed, Interrupted: E.ListFailed } }),
+            };
+          },
+        }),
+        ({ S: St, O }) => ({
+          default: St.A,
+          on: {
+            Load: { actions: [O.board.lookup(() => ({}))] },
+            Save: { actions: [O.save.commit(({ event }) => ({ id: event.id, title: event.title }))] },
+            Move: { actions: [O.move.commit(({ event }) => ({ id: event.id, from: event.from, to: event.to }))] },
+            Close: { actions: [O.close.commit(({ event }) => ({ id: event.id }))] },
+            GiveUpSave: { actions: [O.save.cancel(({ event }) => ({ id: event.id }))] },
+            GiveUpMove: { actions: [O.move.cancel(({ event }) => ({ id: event.id }))] },
+            GiveUpClose: { actions: [O.close.cancel(({ event }) => ({ id: event.id }))] },
+            Listed: {},
+            ListFailed: {},
+            Done: {},
+            Changed: {},
+            Failed: {},
+            Unsure: {},
+            Unused: {},
+            FeedFailed: {},
+          },
+          states: { A: { activities: [{ op: "changes", input: ({ memory }: { readonly memory: { readonly queueId: string } }) => ({ queueId: memory.queueId }) }] } },
+        }),
+      ),
+    guardServer(o.honest),
+  );
+  // C129's business key, the design's word, set on `Compiled` (this prototype's `transaction` has no `idempotency` yet): the server dedupes `close` on the ticket id.
+  return { ...f, make: (api: Api) => { const c = f.make(api); return { ...c, ops: { ...c.ops, close: { ...c.ops["close"]!, idempotency: ["id"] } } }; } };
+};
+const guardFx = guardOf({ honest: true, closeGuarded: true });
+const guardLyingFx = guardOf({ honest: false, closeGuarded: true });
+const guardUnguardedCloseFx = guardOf({ honest: true, closeGuarded: false });
+export const p1GuardFixture = () => guardFx;
+export const p1GuardLyingFixture = () => guardLyingFx;
+export const p1GuardUnguardedCloseFixture = () => guardUnguardedCloseFx;

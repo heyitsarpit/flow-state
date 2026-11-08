@@ -1,6 +1,12 @@
 // Phase 1, area E: the entity store, and the runner's two items from area H. Every expectation is the design's or the proposal's text
 // (round-9/entity-proposal-2.md), or a ruling, worked out by hand before the runtime was changed; each variant names its rule.
 import {
+  gQueueRef,
+  gTicketRef,
+  p1GuardFixture,
+  P1GuardId,
+  p1GuardLyingFixture,
+  p1GuardUnguardedCloseFixture,
   p1PersistedTicketFixture,
   P1ProfileId,
   p1ProfileFixture,
@@ -37,6 +43,29 @@ const QA = { actor: P1QueueId, id: "a" };
 const Q1 = qTicketRef("t1");
 const Q2 = qTicketRef("t2");
 const ALL_Q = ["id", "queueId", "title", "revision", "note"];
+const GA = { actor: P1GuardId, id: "a" };
+const GT1 = gTicketRef("t1");
+const marks = (c: Ctx, ref: string) => [c.rec(ref)?.uncertain, c.rec(ref)?.unconfirmed];
+const board = (c: Ctx) => {
+  c.send("Load");
+  c.answer("board", { truth: true });
+};
+const elsewhere = (c: Ctx, t: Readonly<Record<string, unknown>>, queues = false) =>
+  c.fault({
+    mutateServer: (s: any) => ({
+      ...s,
+      tickets: { ...s.tickets, t1: { ...s.tickets.t1, ...t } },
+      queues: queues ? Object.fromEntries(Object.entries(s.queues).map(([k, q]: [string, any]) => [k, { ...q, revision: q.revision + 1 }])) : s.queues,
+    }),
+  });
+// The write is lost, the person gives up, and the forced repair and the give-up's one read land (U10: quiet from here).
+const lostThenGivenUp = (c: Ctx, ev: string, payload: Readonly<Record<string, unknown>>, op: string, giveUp: string) => {
+  c.send(ev, payload);
+  c.ack();
+  c.answer(op, { lost: true });
+  c.send(giveUp, { id: "t1" });
+  for (let i = 0; i < 12 && c.tryAnswer("repair", { truth: true }); i++);
+};
 const PGRST116 = { data: null, error: { message: "JSON object requested, multiple (or no) rows returned", code: "PGRST116", details: "The result contains 0 rows", hint: null }, count: null, status: 406, statusText: "Not Acceptable" };
 
 export const phase1eScenarios: readonly Scenario[] = [
@@ -316,6 +345,167 @@ export const phase1eScenarios: readonly Scenario[] = [
           c.answer("repair", { truth: true });
         }
         c.eq("i1's evicted, i2's kept", [c.r.evidence("UnsettledEvicted").map((e) => e["ref"]), c.rec(issueRef("i1"))?.unconfirmed, c.rec(issueRef("i2"))?.unconfirmed], [[issueRef("i1")], [], ["liked", "likes"]]);
+      },
+      // Q1 A, `guarded: true`, with the convergence's rules (round-9/released-write-proof-proposal-2.md 4.1, spelled `guarded`). Example 1: B is sent over
+      // revision 1, lost, given up. While the row is at 1 the request may still land; once an answer shows revision 2 it cannot, and the doubt ends.
+      "a-guarded-given-up-doubt-ends-on-an-answer-past-its-base"(c0) {
+        const c = new Ctx(c0.fresh([p1GuardFixture()]), GA);
+        c.ensure(GA);
+        board(c);
+        lostThenGivenUp(c, "Save", { id: "t1", title: "B" }, "save", "GiveUpSave");
+        c.eq("given up, read: quiet", marks(c, GT1), [false, ["title"]]);
+        elsewhere(c, { title: "C", revision: 2 });
+        board(c);
+        c.eq("revision 2 is past the base it was sent with: ended", [c.rec(GT1)?.data.title, ...marks(c, GT1)], ["C", false, []]);
+        c.send("Save", { id: "t1", title: "E" });
+        c.ack();
+        c.answer("save", { apply: true });
+        c.eq("an ordinary save over a fresh base: no contradiction", [heard(c).at(-1), c.r.evidence("GuardContradicted").length], ["Done", 0]);
+      },
+      // The base as sent is on the durable lane record (round 2's finding 2), so a doubt restored after a reload is proven the same way.
+      "a-restored-given-up-doubt-is-proven-by-the-base-its-lane-saved"(c0) {
+        const c = new Ctx(c0.fresh([p1GuardFixture()]), GA);
+        c.ensure(GA);
+        board(c);
+        c.send("Save", { id: "t1", title: "B" });
+        c.ack();
+        c.answer("save", { lost: true });
+        c.reload();
+        c.send("GiveUpSave", { id: "t1" });
+        c.eq("restored and given up, no read since: uncertain", c.rec(GT1)?.uncertain, true);
+        elsewhere(c, { title: "C", revision: 2 });
+        c.answer("repair", { truth: true }); // the restore's repair, asked before the give-up: it demotes nothing, but it carries revision 2
+        c.eq("past the saved base: ended", [c.rec(GT1)?.uncertain, c.rec(GT1)?.data.title], [false, "C"]);
+      },
+      // 4.1: "an equal version proves nothing", and "no refusal ... ends it" (RC8: PostgREST's zero rows may be row-level security). A later save over the
+      // same stale base is refused (`[]`, TicketChanged): still marked. Only the read showing revision 2 ends it.
+      "an-equal-version-and-a-refusal-prove-nothing"(c0) {
+        const c = new Ctx(c0.fresh([p1GuardFixture()]), GA);
+        c.ensure(GA);
+        board(c);
+        lostThenGivenUp(c, "Save", { id: "t1", title: "B" }, "save", "GiveUpSave");
+        board(c);
+        c.eq("revision 1 again: equal, still marked", marks(c, GT1), [false, ["title"]]);
+        elsewhere(c, { title: "C", revision: 2 });
+        c.send("Save", { id: "t1", title: "D" });
+        c.ack();
+        c.answer("save", { apply: true });
+        c.eq("refused over the stale base, and still marked", [heard(c).at(-1), ...marks(c, GT1)], ["Changed", false, ["title"]]);
+        board(c);
+        c.eq("the read shows 2: ended", marks(c, GT1), [false, []]);
+      },
+      // 4.1 is about a given-up write: a held one may still be re-sent, so a version past its base ends nothing while held. At the give-up the store
+      // already holds one, so it ends there, and the give-up asks no read.
+      "a-held-doubt-is-not-ended-and-the-proof-already-held-ends-it-at-the-give-up"(c0) {
+        const c = new Ctx(c0.fresh([p1GuardFixture()]), GA);
+        c.ensure(GA);
+        board(c);
+        c.send("Save", { id: "t1", title: "B" });
+        c.ack();
+        c.answer("save", { lost: true });
+        elsewhere(c, { title: "C", revision: 2 });
+        c.answer("repair", { truth: true });
+        c.eq("held: still uncertain", c.rec(GT1)?.uncertain, true);
+        c.send("GiveUpSave", { id: "t1" });
+        c.eq("given up past its base: clean, no read asked", [...marks(c, GT1), c.reqs("repair").length], [false, [], 1]);
+      },
+      // G5 (the round 3 runtime review): the lane record written ahead of the send may hold a base a rebase later moved. A doubt restored from it has no
+      // base it can trust, so no version proves it: the cap. Here the reload lands after the send and before the record that says so.
+      "a-doubt-restored-from-a-record-written-before-its-send-is-not-proven"(c0) {
+        const c = new Ctx(c0.fresh([p1GuardFixture()]), GA);
+        c.ensure(GA);
+        board(c);
+        c.send("Save", { id: "t1", title: "B" });
+        c.fault({ storageFails: 1 }); // the record written after the send never lands
+        c.ack();
+        c.eq("sent", c.reqs("save").length, 1);
+        c.namedIssues = ["StorageFailure"];
+        c.reload();
+        c.send("GiveUpSave", { id: "t1" });
+        elsewhere(c, { title: "C", revision: 2 });
+        c.answer("repair", { truth: true });
+        c.eq("no trusted base: still in doubt", c.rec(GT1)?.uncertain, true);
+      },
+      // RC6, 4.2's first row: `move_ticket` fences the ticket's revision, not the queues'. A version past each base ends only the target's doubt; the
+      // queues the write touched (`.alsoChanges`) keep theirs until the cap, though their own revisions moved too.
+      "a-two-record-write-is-fenced-on-its-target-only"(c0) {
+        const c = new Ctx(c0.fresh([p1GuardFixture()]), GA);
+        c.ensure(GA);
+        board(c);
+        lostThenGivenUp(c, "Move", { id: "t1", from: "q1", to: "q2" }, "move", "GiveUpMove");
+        c.eq("all three quiet", [marks(c, GT1), marks(c, gQueueRef("q1")), marks(c, gQueueRef("q2"))], [[false, ["queueId"]], [false, ["openCount"]], [false, ["openCount"]]]);
+        elsewhere(c, { revision: 2 }, true);
+        board(c);
+        c.eq("the ticket ended; the queues kept", [marks(c, GT1), marks(c, gQueueRef("q1")), marks(c, gQueueRef("q2"))], [[false, []], [false, ["openCount"]], [false, ["openCount"]]]);
+      },
+      // 4.4 (RC7): a live `.covers` session would hear the request land, so it hides the doubt, never ends it; when the session is lost the mark shows again.
+      "a-live-cover-hides-a-given-up-doubt-until-the-session-is-lost"(c0) {
+        const c = new Ctx(c0.fresh([p1GuardFixture()]), GA);
+        c.ensure(GA);
+        board(c);
+        c.do({ feed: "changes", frame: { _feed: "live", proof: "resumed" } });
+        lostThenGivenUp(c, "Save", { id: "t1", title: "B" }, "save", "GiveUpSave");
+        c.eq("hidden while the queue's channel is live", marks(c, GT1), [false, []]);
+        c.do({ feed: "changes", fail: { _tag: "SocketDropped" } });
+        c.eq("lost: shown again, nothing proven", marks(c, GT1), [false, ["title"]]);
+      },
+      // 4.4: a write that changes a field the cover reads can carry its record out of the cover, and its landing would go unheard. Never hidden.
+      "a-write-that-can-move-its-record-out-of-the-cover-is-not-hidden"(c0) {
+        const c = new Ctx(c0.fresh([p1GuardFixture()]), GA);
+        c.ensure(GA);
+        board(c);
+        c.do({ feed: "changes", frame: { _feed: "live", proof: "resumed" } });
+        lostThenGivenUp(c, "Move", { id: "t1", from: "q1", to: "q2" }, "move", "GiveUpMove");
+        c.eq("shown under the live cover", marks(c, GT1), [false, ["queueId"]]);
+      },
+      // 4.6 (RC9): a first send that succeeds over a base the store already knew was stale (known 2 > base 1) is something a server enforcing the claim
+      // would have refused. Here the server ignores the filter. Evidence, and the claim is void for the Runtime: a later given-up doubt keeps its mark.
+      "a-first-send-succeeding-over-a-known-stale-base-contradicts-the-claim"(c0) {
+        const c = new Ctx(c0.fresh([p1GuardLyingFixture()]), GA);
+        c.ensure(GA);
+        board(c);
+        c.send("Save", { id: "t1", title: "B" });
+        elsewhere(c, { title: "C", revision: 2 });
+        board(c);
+        c.ack();
+        c.answer("save", { apply: true });
+        c.eq("contradicted, named", c.r.evidence("GuardContradicted").map((e) => [e["record"], e["basedOn"], e["known"]]), [[GT1, 1, 2]]);
+        lostThenGivenUp(c, "Save", { id: "t1", title: "D" }, "save", "GiveUpSave");
+        elsewhere(c, { revision: 9 });
+        board(c);
+        c.eq("void: a version past the base proves nothing now", marks(c, GT1), [false, ["title"]]);
+      },
+      // 4.6's business-key row (R4): a new Attempt with the same key is replayed the stored success over its stale base. No contradiction.
+      "a-replayed-business-key-success-is-no-contradiction"(c0) {
+        const c = new Ctx(c0.fresh([p1GuardFixture()]), GA);
+        c.ensure(GA);
+        board(c);
+        c.send("Close", { id: "t1" });
+        c.ack();
+        c.answer("close", { applyLost: true });
+        c.send("GiveUpClose", { id: "t1" });
+        c.send("Close", { id: "t1" });
+        board(c);
+        for (let i = 0; i < 12 && c.tryAnswer("repair", { truth: true }); i++);
+        c.ack();
+        c.answer("close", { apply: true });
+        c.eq("replayed, heard, no contradiction", [heard(c).at(-1), c.r.evidence("GuardContradicted").length], ["Done", 0]);
+      },
+      // 4.2's business-key row: a later Attempt's success under the same key means the server holds the key, so the given-up copy can only be replayed:
+      // its doubt ends on every record it touched, though `close` here is not `guarded`.
+      "a-business-key-success-ends-a-given-up-doubt"(c0) {
+        const c = new Ctx(c0.fresh([p1GuardUnguardedCloseFixture()]), GA);
+        c.ensure(GA);
+        board(c);
+        lostThenGivenUp(c, "Close", { id: "t1" }, "close", "GiveUpClose");
+        c.eq("quiet", marks(c, GT1), [false, ["status"]]);
+        elsewhere(c, { title: "C", revision: 2 });
+        board(c);
+        c.eq("not guarded: a version past its base proves nothing", marks(c, GT1), [false, ["status"]]);
+        c.send("Close", { id: "t1" });
+        c.ack();
+        c.answer("close", { apply: true });
+        c.eq("the same key succeeded: ended", marks(c, GT1), [false, []]);
       },
       // Q2 A: `.gone("TicketNotFound")` on a read. PostgREST's `.single()` answers a deleted row with PGRST116 (406); the adapter fails with the tag.
       // The row is removed (a tombstone at the read's position) and the machine still hears the failure.

@@ -73,7 +73,9 @@ export type StoreFact =
     }
   // `why`: "unproven", a registration with no proof that nothing was missed (coverage resumes, behind); "lost", a connection gone and retried;
   // "ended", the session is over (failed for good, or released).
-  | { readonly k: "gap"; readonly machine: string; readonly op: string; readonly session: string; readonly input: unknown; readonly why: "unproven" | "lost" | "ended" };
+  | { readonly k: "gap"; readonly machine: string; readonly op: string; readonly session: string; readonly input: unknown; readonly why: "unproven" | "lost" | "ended" }
+  // A registration, proven or not: the session is live and will hear what its filter covers until a `lost` or `ended` gap.
+  | { readonly k: "live"; readonly machine: string; readonly op: string; readonly session: string; readonly input: unknown };
 // What `told` receives from the core. Closed: an unlisted kind cannot arrive.
 export type Told =
   | { readonly k: "actors"; readonly changed: readonly ActorChange[] }

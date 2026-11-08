@@ -50,6 +50,7 @@ export type Contract<I extends Fields, K extends keyof I, A, E, R> = {
   readonly services?: readonly Svc[];
   readonly kind: "write" | "read";
   readonly concurrency: Op["concurrency"];
+  readonly guarded?: true;
   readonly commit: (input: TypeOf<I>, c: CommitCtx) => Effect.Effect<A, E, R>;
   readonly outcomes: (o: Outcomes<A, E>) => Bound<I, K, A, E, R>;
 };
@@ -59,8 +60,23 @@ const contract = <I extends Fields, K extends keyof I, A, E, R>(c: Omit<Contract
   return self;
 };
 // 2.7.3: a write's function is `commit`, a read's `lookup`.
+/**
+ * A write contract: `commit` sends it, the record queue orders it, and its outcomes map to the machine's events.
+ *
+ * When to use `guarded: true`: your commit sends `basedOn` as a version condition the server enforces, such as PostgREST
+ * `.eq("revision", basedOn)`, `If-Match` with a revision ETag, or a compare-and-swap.
+ *
+ * Details: `guarded: true` states a check the server enforces, not one Flow runs (unlike `guard:`). After the write is given
+ * up, its doubt on a target record (the write's `.one` record, or each `many` key) ends only when an answer shows that
+ * record's version past the `basedOn` it was sent with. An equal version proves nothing, a refusal proves nothing, no clock
+ * ends it, and records the write touched but does not target keep their doubt.
+ *
+ * Gotchas: `flow check` cannot verify the claim, and refuses it on an entity whose version is not per record. Not a
+ * timestamp, not a client-side transaction, not a read-then-write in your server, not a content-hash ETag. A first send
+ * that succeeds over a base Flow already knew was stale is evidence (`GuardContradicted`) and voids the claim until reload.
+ */
 export const transaction = <I extends Fields, K extends keyof I, A, E, R, const Sv extends readonly Svc[] = readonly []>(
-  s: Spec<I, K, Sv> & { readonly concurrency: Op["concurrency"]; readonly commit: (input: TypeOf<I>, c: CommitCtx) => Effect.Effect<A, E, R> },
+  s: Spec<I, K, Sv> & { readonly concurrency: Op["concurrency"]; readonly guarded?: true; readonly commit: (input: TypeOf<I>, c: CommitCtx) => Effect.Effect<A, E, R> },
 ): Covered<R, Sv, Contract<I, K, A, E, R>> => contract<I, K, A, E, R>({ ...s, kind: "write" }) as never;
 export const resource = <I extends Fields, K extends keyof I, A, E, R, const Sv extends readonly Svc[] = readonly []>(
   s: Spec<I, K, Sv> & { readonly lookup: (input: TypeOf<I>, c: CommitCtx) => Effect.Effect<A, E, R> },
@@ -75,6 +91,7 @@ export type AnyBound = {
     readonly id: string;
     readonly kind: "write" | "read";
     readonly concurrency: Op["concurrency"];
+    readonly guarded?: true;
     readonly input: Fields;
     readonly key: readonly PropertyKey[];
     readonly timeoutMs?: number;
@@ -223,6 +240,7 @@ export const compileOp = (definition: string, name: string, b: AnyBound, events:
     inputFields: Object.keys(c.input),
     services: (c.services ?? []).map((s) => s.key),
     concurrency: c.concurrency,
+    ...(c.guarded ? { guarded: true } : {}),
     ...(c.timeoutMs === undefined ? {} : { timeoutMs: c.timeoutMs }),
     commit: slotOf(definition, `operations.${name}.commit`, c.commit),
     outcomes: {

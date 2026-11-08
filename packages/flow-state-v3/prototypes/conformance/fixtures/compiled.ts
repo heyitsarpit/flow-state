@@ -164,6 +164,12 @@ export type Op = {
   // Round 12 (D213, review H1): the service keys the commit asks for (rule 57's requirements, as data). The seal refuses a boot that does not give one.
   readonly services?: readonly string[];
   readonly concurrency: "reject" | "latest" | "cancel" | "serialize";
+  // Q1 A, with the convergence's rules (round-9/released-write-proof-proposal-2.md, named `guarded`): the author's claim that the server applies the
+  // commit only while each target record's version equals the `basedOn` it was sent with. Flow cannot check it.
+  readonly guarded?: true;
+  // C129 (the design's, not yet a word of this prototype's `transaction`; set on `Compiled` by a fixture): what the server dedupes on. A business key
+  // (input field names) makes a later Attempt's success with the same values a replay of this one.
+  readonly idempotency?: "attempt" | readonly string[];
   readonly timeoutMs?: number;
   readonly fragment?: string; // the declaring fragment (rule 49). Absent: the machine. One per actor (rule 51)
   // Round 7, D91: a Slot from the typed path, and after the seal always. A bare function is the hand-written fixtures' spelling.
@@ -246,6 +252,7 @@ export type DomainSpec = {
       {
         readonly predicts: Slot<(input: any) => readonly Predicted[]>;
         readonly confirms?: (value: any, input: any) => readonly Carried[];
+        readonly targets?: (input: any) => readonly string[]; // the `.one` record or each `many` key: the records whose base a `guarded` server fences
       }
     >
   >;

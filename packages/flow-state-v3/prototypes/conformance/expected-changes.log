@@ -2155,3 +2155,23 @@ file:scenarios/round15.scenario.ts hash:7148fd583c60 | the custom-filter asserti
 file:search/like.search.ts hash:ebf1667a5019 | S13 kept, rebuilt on the suite's own commit number and checked before the released-path exemption
 file:falsify.ts hash:3d3e278145b1 | the like search's S13 gets a standing wrong runtime, s13.older-sent-after-newer
 round:checks/front-check.ts hash:4b90085f2db4 | U12's refusal must be a named refusal, so a crash in the refusal path is not one
+P1-E hash:f576add5a2c3 | Q1 A guarded, back on with the convergence's soundness rules: eleven variants (proof, equal, refusal, held, target only, cover mask, tripwire, business key, restore)
+file:scenarios/phase1e.scenario.ts hash:315e492ae92e | the guarded variants and their helpers
+file:typed/phase1e.ts hash:b9892e79fc9a | the P1Guard fixture: PostgREST save and move_ticket, a business-keyed close, a lying server, the queue's covers
+file:compile/machine.ts hash:282005eb20c8 | a domain write's targets compile into DomainSpec (the fenced records)
+file:compile/operations.ts hash:60afed00ecf4 | guarded: true on transaction, with its doc comment (server-enforced, unverifiable, the soundness rules)
+file:expected-recipients.txt hash:49c1ea13a274 | the eleven guarded variants: 36 more recipients, 28 more start nodes, two more restored states; no red count moved
+round:cli/check.ts hash:9a2fa77c77e0 | flow check: GuardedUnbound, GuardedWithoutVersion, GuardedWithoutTarget
+round:cli/main.ts hash:4148ad753e04 | CLI pins for the three guarded check errors
+round:mutants-p1e.ts hash:953fcc88873a | guarded's wrong runtimes, each red by assertion; three older edits re-anchored on the new Entry and save lines
+output:P1-E/a-guarded-given-up-doubt-ends-on-an-answer-past-its-base hash:de45461f625b | new output: guarded, a version past the sent base ends the doubt
+output:P1-E/an-equal-version-and-a-refusal-prove-nothing hash:a3a8526f3113 | new output: guarded, equal and refused prove nothing
+output:P1-E/a-held-doubt-is-not-ended-and-the-proof-already-held-ends-it-at-the-give-up hash:957cf13d8029 | new output: guarded, a held doubt stays; proof at the give-up
+output:P1-E/a-two-record-write-is-fenced-on-its-target-only hash:f93b666fd1dd | new output: guarded, move_ticket fences the ticket only
+output:P1-E/a-live-cover-hides-a-given-up-doubt-until-the-session-is-lost hash:fd344b06e77e | new output: the covers mask hides, and a flap shows it again
+output:P1-E/a-write-that-can-move-its-record-out-of-the-cover-is-not-hidden hash:eed278feced1 | new output: the covers mask skips a write that changes a cover field
+output:P1-E/a-first-send-succeeding-over-a-known-stale-base-contradicts-the-claim hash:78e2bf0bec93 | new output: GuardContradicted, and the claim void
+output:P1-E/a-replayed-business-key-success-is-no-contradiction hash:62fe07b75cb1 | new output: a business-key replay is no contradiction
+output:P1-E/a-business-key-success-ends-a-given-up-doubt hash:44e95313ddaf | new output: a same-key success ends a given-up doubt
+output:P1-E/a-restored-given-up-doubt-is-proven-by-the-base-its-lane-saved hash:977a745fefa6 | new output: the lane record's sent base proves a restored doubt
+output:P1-E/a-doubt-restored-from-a-record-written-before-its-send-is-not-proven hash:ed8c3a24c412 | new output: a pre-send lane record's base is not trusted

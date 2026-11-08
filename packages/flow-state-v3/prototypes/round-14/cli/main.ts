@@ -144,6 +144,12 @@ eq("graph: a resumable trait's whenAbandoned callback fires from anywhere", gp.d
   // The runner (after phase 1 H): a stay-put alternative at the owner state itself counts, since a late arrival in the re-entered owner picks it.
   const { p1OwnerStayFixture } = await import("../../conformance/typed/phase1e.ts");
   eq("check: rule 15, a stay-put Unsure at the owner state counts", leaves(p1OwnerStayFixture()), ["error:No", "error:Ok"]);
+  // Q1 A, the convergence's check: `guarded` needs a per-record version and a target.
+  const { p1GuardFixture } = await import("../../conformance/typed/phase1e.ts");
+  const guarded = (edit: (c: any) => any) => rulesOf(edit(p1GuardFixture().make(api)) as never).filter((r) => r.includes("Guarded"));
+  eq("check: guarded, with a version and targets, is clean", guarded((c) => c), []);
+  eq("check: guarded on an entity with no version is an error", guarded((c) => ({ ...c, domain: { ...c.domain, version: undefined } })), ["error:GuardedWithoutVersion:close", "error:GuardedWithoutVersion:move", "error:GuardedWithoutVersion:save"]);
+  eq("check: guarded with no target is an error", guarded((c) => ({ ...c, domain: { ...c.domain, writes: { ...c.domain.writes, save: { ...c.domain.writes.save, targets: undefined } } } })), ["error:GuardedWithoutTarget:save"]);
   const rf = rulesOf(m.compiled as never);
   eq("check: 2.7.18's removeFile, IgnoredUnknown info, no UnresolvedHold", [rf.includes("info:IgnoredUnknown:removeFile"), rf.some((r) => r.includes("UnresolvedHold"))], [true, false]);
 }
