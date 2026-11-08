@@ -456,7 +456,8 @@ after rule 47, let fragments declare operations (2.9); 61–66, after rule 60, a
    - **History** (`S.X.history`) restores control only. Fragments placed at or below the restored
      child resume only if resumable. `flow check` warns when a history target can re-activate a node
      with non-resumable fragments under it, or a state that owns a call (re-entering it is a new activation, so the
-     old call's ending routes late and the state would wait with nothing pending).
+     old call's ending routes late and the state would wait with nothing pending). Any re-entry is a new activation, a
+     target naming the handler's own state included (rule 14; OD49).
    - **`resetOn`** returns a **reset value**, compared with `Equal.equals` as `restartOn` is. `null` and `undefined`
      are not reset values (decided, OD29 F): while `resetOn` returns one, the trait is **not placed**: no incarnation,
      its slice `undefined`, no subject part. Becoming absent ends the incarnation as removal does (`whenAbandoned`
@@ -517,7 +518,8 @@ after rule 47, let fragments declare operations (2.9); 61–66, after rule 60, a
      releases that operation's lanes of this incarnation's subject path in step 5, after every member (rule 60); it
      reads no memory, so rule 22 and `KeyRequired` do not apply.
    - **A late ending never leaves live work.** A late turn may not exit a state that owns another pending call, or
-     an active subroutine (rule 15).
+     an active subroutine (rule 15). Live work there is an `InFlight` head or a queued commit, behind a `Held` head
+     too; a `Held` head is not (rule 15; OD49).
 7. **One turn.** A transition and everything it raises, notifies, exits, resets and leaves compile
    into one transition, run by the algorithm in 2.5. That algorithm is normative for the runtime
    and for `check()`.
@@ -538,7 +540,9 @@ after rule 47, let fragments declare operations (2.9); 61–66, after rule 60, a
 
    **A refused delivery is kept, never lost** (decided, OD38). An ending whose turn is refused (`InvalidTurn`) is
    delivered once more, after the mail already queued; the second refusal is final and its issue says so (`cause`
-   names what was thrown). What was refused twice stays with what owes it, at that owner's durability, and ends with
+   names what was thrown). A refusal at admission is a refused turn too: when the operation's outcome mapper throws
+   in 2.5 step 1, the ending is redelivered once, after the mail already queued, as above (agent, round 14; OD49).
+   What was refused twice stays with what owes it, at that owner's durability, and ends with
    it: a sent write's ending is parked on its lane, on disk if persisted, and **kept** (rule 21) until it is heard, the
    lane is cancelled or released, or a local life ends; a hold stays the lane's head; a decline is kept on the lane of
    the key it asked for and blocks nothing, a newer decline replacing it; a deadline stays on its record until a turn
@@ -548,6 +552,10 @@ after rule 47, let fragments declare operations (2.9); 61–66, after rule 60, a
    FOR-ARPIT call 19, round 8 call 1, D109; OD47). A boot forgets a stranded read: a machine with a recurring schedule
    asks again (rule 42), and one without stays where it was (convergence-9 withdrew "a reload asks again"; a lint for
    that case is proposed, not built).
+
+   **Stated gap** (round 14; OD49). A kept ending's one try per boot or adoption, and a stranded read let go (asked
+   again, its life ended, or a boot), leave no evidence today; a reader of evidence must infer them. *Proposed, for the
+   user's read:* evidence for both, a refused kept try and a released stranded read naming its cause.
 9. **Many copies: `.each`.** Full design, reasons and nine worked examples:
    [merged/each.md](merged/each.md). `T.each({ of, max, by? })`
    places one copy of T per key in the memory field `of` names, of the placing definition or fragment, in
@@ -660,11 +668,25 @@ declarer" (a definition or a fragment), and "binding actor" as "binding incarnat
     within that incarnation, and an adopted ending is current from its active leaf (a trait: its own `on`). With no
     binding incarnation the ending is parked for the lane's path (rule 53), unless the lane is releasing (rule 60). Routing is never decided at settlement. Settlement decides only the Attempt's ending (rule 18) and, for
     a domain write, its store effects (rule 27).
+    **Re-entry is a new activation** (agent, round 14; OD49). A transition whose target names the handler's own state,
+    rather than `"self"`, exits and re-enters it, and the re-entry is a new activation; so is any other re-entry (a
+    history target, rule 1, is one case). A call the old activation owns is then late when it ends, and rule 15 counts
+    it as owned by an exited activation. `"self"` moves nothing and keeps the activation.
 15. **Late turns.** In a late event's turn, an alternative whose target would exit a state that owns another pending
     call, or an active subroutine, is denied (`LateMayNotLeave`); so a late handler ends in an alternative that does not
     move (`flow check`). A call started in a late turn is an ordinary call with its own owner: lateness is not
     transitive. Only the host's own operations count: a fragment's work belongs to its incarnation (rules 52, 53), so
     ending a placement never leaves live work.
+    **What counts as a pending call here** (decided by the runner under the user's delegation, 2026-11-08; OD49). The
+    live work an alternative would leave is every call owned by an activation it exits: a lookup or write head that is
+    `InFlight`, and every queued commit (`W`) of a write lane, including a commit queued behind a `Held` head. A `Held`
+    head is not live work: its call has returned, and rule 44 hands the hold off. A queued commit whose lane the late
+    transition itself cancels, by a key-less `cancel` it lists, is not live work either. This set is wider than a row's
+    `pending`, which is `InFlight` only (2.7.3, 2.7.13): `pending` is a view flag, and this clause is a guarantee.
+    `flow check`'s static rule 15 counts the same set: under `serialize` a queued commit is pending, behind a `Held` head
+    too. *Proposed, for the user's read:* the cancel exemption also covers a head promoted at settlement and never sent,
+    since a never-sent head is cancellable as `NotSent { Cancelled }`; as decided it covers queued commits only, so a
+    late transition that cancels the lane cannot leave a just-promoted head.
 16. **Declines are endings; Flow adds no guard.** A decline refuses only the write, never the transition that asked for
     it: the transition's target, memory and other actions run as written. Under `concurrency: "reject"`, a commit on a
     lane that is `InFlight` or `Held` invokes nothing and ends `NotSent { why: "Rejected" }`. A commit past its lane's
@@ -682,7 +704,12 @@ declarer" (a definition or a fragment), and "binding actor" as "binding incarnat
     that sends, delivers exactly one ending, to a live incarnation of its identity with the lane's subject path, or parked for it
     (rules 44, 53). This holds within one Runtime; across a crash the restore row decides (2.7.13): an Attempt whose
     acknowledgement was stored restores as `unknown { Restored }`, even if its `NotSent { Cancelled }` was delivered
-    before its record was cleared (Stories T7; section 7 item 21).
+    before its record was cleared (Stories T7; section 7 item 21), unless its own ending is already parked: that
+    ending restores as parked and is delivered instead, once (2.7.13's restore row, G3; OD49).
+    **One exception, by the table** (agent, round 14; OD49): a re-send whose lane-record capture is refused delivers a
+    second ending for the same Attempt, `unknown { StorageRefused }` (2.7.13's storage-refused row; OD20 F5), after
+    the ending that held the lane. Delivery is counted per ending, not per Attempt: each ending is delivered once, and
+    parking the same ending again (rule 44) is not a second delivery.
     Evidence, by declaration: a never-sent commit replaced under `latest` (`Superseded`); a lookup a newer lookup or
     `cancel` released (`Superseded`); a declined retry (`InFlight`, `NothingToResend`); a bare write's endings (rule
     40); an ending mapped to `Flow.ignore` (2.7.18); under `concurrency: "cancel"`, the ending of an Attempt a newer commit interrupted; a fragment's lookup whose
@@ -732,7 +759,7 @@ declarer" (a definition or a fragment), and "binding actor" as "binding incarnat
     **addressable Attempt** is the lane's one sent, unresolved Attempt (the head under `serialize`). **Rows**
     (`s.operations.<name>`; `O.<name>.get(s, k)`): `{ pending, uncertain, waiting, retryCount, progress? }`, plus
     `outstanding` under `serialize`; `{ pending, retryCount, progress? }` under `cancel` (`allow` is cut from v1:
-    decided, U5, OD48; D19). `pending` is `InFlight`; `uncertain` is `Held`; `waiting` is `W` not empty; `outstanding` counts
+    decided, U5, OD48; D19). `pending` is `InFlight` (rule 15's late-turn clause counts more: queued commits too, OD49); `uncertain` is `Held`; `waiting` is `W` not empty; `outstanding` counts
     unresolved commits other than the addressable Attempt; `retryCount` counts the addressable Attempt's invoked
     re-sends. A failed Attempt is resolved, not kept for `retry`. **Members:** `retry(k?)` and `cancel(k?)` in actions;
     `idle(k?)` (a partial key passes only when every lane it matches is `Idle`, OD23 Q34) and `retryable(k?, { times })`
@@ -1297,7 +1324,7 @@ denies `InFlight`.
      entities must not assume a global order; a session moves one delivery at a time from its own queue (Streams T4, rule 69).
    - **A call's ending is mapped here.** The Attempt's ending was decided at settlement (rules 18, 27), and for a
      domain write its store effects are already published; here the ending's cell is applied to the lane, which may promote the
-     next queued commit (rule 21, 2.7.13), the ending is mapped through its operation's `outcomes` (rule 13), and its owner is tested against the pre-turn
+     next queued commit (rule 21, 2.7.13), the ending is mapped through its operation's `outcomes` (rule 13; a mapper that throws refuses the turn, and rule 8 redelivers the ending once after queued mail), and its owner is tested against the pre-turn
      snapshot (rule 14): a current event starts at the active leaf, a late one at the owner's nearest surviving
      ancestor. The test runs inside the binding incarnation; an ending with no binding incarnation is parked for the
      lane's path or, on a releasing lane, applied and released (rules 53, 60).
@@ -1354,6 +1381,8 @@ denies `InFlight`.
      reads the old incarnation's pre-turn memory.
    - **Late turns.** In a late ending's turn, any alternative whose target would exit a state that owns another
      pending call, or an active subroutine, is denied as `LateMayNotLeave` (rule 15), in steps 2 and 3 alike.
+     "Pending" here is rule 15's set (OD49): an `InFlight` head and every queued commit owned by an exited activation,
+     behind a `Held` head too, less the queues of lanes the transition cancels key-less; not a row's `pending`.
 4. **Seed and compute.**
    - Seed every new incarnation (entered, reset or added) that is not yet seeded.
    - Compute every payload and patch from its memory view in the table above (before, before-walk or initial).
@@ -2467,6 +2496,9 @@ lane, when the lane record's capture of the re-send is written (not a new acknow
 
 A view that wants "not confirmed" to stay on during a re-send reads `uncertain || retryCount > 0`.
 
+The flags are views. Rule 15's `LateMayNotLeave` reads a wider set than `pending`: an `InFlight` head and every `W`
+entry owned by an exited activation, behind a `Held` head too (OD49).
+
 **Transitions** for a lane under `reject`, `latest` or `serialize`, the three policies that hold (cells decided,
 OD19: Q28 A). "Delivered" is a mapped event to the binding incarnation in a later turn, parked if the actor is alive without one
 (rule 53), or evidence if there is none; 2.9.3 adds the fragment rows (subject path, another path, freeze, thaw,
@@ -2491,6 +2523,11 @@ release);
 | **restore** (Persistence O6) | nothing (virtual idle lane) | an Attempt acknowledged once (per Attempt, OD20 F2) restores as `unknown { Restored }`, delivered → `Held`, even if its current re-send was waiting, and even if it was acknowledged but never invoked: the Runtime cannot know whether invocation began before the crash (G1), so `retry` may be its first send, which the idempotency key makes safe; a first send's capture and acknowledgement are one batch with the turn that committed it, so a kill before that batch lands restores the state before that turn, with no lane and no ending (decided, OD32; FOR-ARPIT call 1); each `W` entry ends `NotSent { Restored }`, delivered (C2); if a saved pending outcome exists for this Attempt, that outcome is delivered instead, once (G3) | stays `Held`, and the hold is delivered **exactly once**, as `unknown { Restored }`, from the restored incarnation's saved leaf (OD20 F3, OD21), unless the hold's own unknown is already among the record's pending outcomes (G3); `W` as in `InFlight` |
 | **Runtime disposal** (OD20, K23; R8 M2; R9 H2) | nothing (virtual idle lane) | from its start nothing is invoked. Waiting, never sent: ends `NotSent { Disposed }`; predictions removed (rule 30); **for a persisted identity it is saved with the final capture as a pending mapped outcome and delivered to the restored incarnation** (OD21), else evidence. Waiting re-send: → `Held`. On the wire: Runtime O6: within its bound it settles (saved as below); past the bound it ends `unknown { Disposed }` (decided, U13, OD48); an ending that settles before the final capture is saved as a pending mapped outcome (Persistence O3). Each `W` entry ends `NotSent { Disposed }` when the head's ending is admitted, or when Runtime O6's bound ends, so a lane's parked endings keep lane order (R10 M4). If the final capture fails, the last good capture's lane record restores per the restore row, which is also safe | stays `Held`; captured if the identity persists, else gone with the Runtime (evidence); each `W` entry as in `InFlight` |
 | **SSR hydration** (OD20, K23; R8 M3) | lanes are never hydrated from the server; only resource entries are. A commit in flight at dehydration is reported (`DehydrateCommitInFlight`, ServerRendering O3, naming the actor, its state and, for a fragment's operation, its instance path) and is evidence; no client lane is created. The transferred actor receives no ending for it: a state that waits for one waits until its own timers or the user move it, and a later client write to that key is unordered with the server's (stated limit, R9 M4) | cannot occur (no client lane exists before hydration) | cannot occur |
+
+**A head's own parked ending restores as parked** (round 14; OD49). When the head's Attempt already has its ending
+among the record's pending outcomes, the restore row delivers that ending, once, and never `unknown { Restored }`
+for the same Attempt (G3), in `InFlight` and `Held` alike. A storage-refused re-send is the one row that delivers a
+second ending for one Attempt (rule 17); each ending is still delivered once.
 
 That is 16 rows by 3 states, 48 cells; 15 are "cannot occur" (an ending, an invocation or a storage refusal only
 exists for an Attempt that is `InFlight`; a rebind needs a lane; hydration creates none), and 33 are reachable, of
@@ -2975,7 +3012,9 @@ reads lifecycle `"quarantined"` with its issue, R14 D7); with neither, the
 pre-attach snapshot (React O2) if the identity never had an incarnation in this Runtime, otherwise the last
 incarnation's terminal snapshot (lifecycle `disposed`). A lookup of an identity with a record returns that record
 view, never `null`; it is a read, not a use. A pre-attach handle reads the same copy, so a quick return never
-flashes `initial`.
+flashes `initial`. So an ended identity's memory is its saved record if it is persisted, and absent if it is not:
+there is no live memory, only the terminal snapshot. Absence is not a spin (2.5 step 1): nothing runs for an ended
+identity (round 14; OD49).
 
 Sends (amends Runtime O4 and LazyFeatures O2; action `send(ref, e)` and handle `send(e)` alike):
 
@@ -2993,7 +3032,10 @@ Sends (amends Runtime O4 and LazyFeatures O2; action `send(ref, e)` and handle `
 
 A send never creates: creating is an ensure's decision, and a send must not resurrect a disposed or forgotten
 identity, or adopt a lazy entry. Restoring is not creating: the record already
-holds state and memory. Reasons are reported on the sender and never roll back its turn.
+holds state and memory. The guarantee holds once the removal is acknowledged: storage writes off the turn (D80), and
+`disposeActor` flushes its removal at once (U14), but a crash can come first. Until the removal is on
+disk the identity behaves as persisted: after such a crash the disk still holds its record, so a plain send restores
+it (the row "ended, persisted, record decodes") and, with no use, it ends after the grace (round 14; OD49). Reasons are reported on the sender and never roll back its turn.
 
 Keeping an actor alive: lift its use up. Hold the use where the actor should live, as XState apps lift actors into a
 root provider:
@@ -3704,7 +3746,8 @@ ReconcileLike: { target: "self", actions: [O.like.retry(named)] },
   That is right when the server replays a stored response, and wrong when the server applies the request fresh,
   after the newer write. Flow cannot tell the two apart, and it does not have to: a field the response carries that
   differs from a newer value loses by position and is therefore **contested** (EDP:66-69, ED:598-601), so the
-  record's loader and holders refetch and the server decides. With versions, the version decides (EDP:65-66).
+  record's loader and holders refetch and the server decides. With versions, the version decides (EDP:65-66); without
+one, see 2.8.14's unversioned frames (D67).
 
 **E8. The store follows the Attempt's ending**, after rule 18, not the send's channel (F-M1, A-M4). A definite failure
 of a retry after an unknown send is `StillUnknown`: the store treats it as unknown, keeps any prediction still live
@@ -3877,6 +3920,14 @@ and `check()` still runs steps 2–6 and publishes nothing (2.5): it decides no 
 #### 2.8.14 `listen` and connections
 
 A domain's `listen` entry is a stream whose values are record changes. It has no bookmark: `from` is the session's own last position, and `listen` ignores a contract's `catchUp` (rule 72, Streams T7; [P]). "Reconnect" means rule 72's gaps: an unproven or reset registration, an `end` or a release starts a refetch of each subscribed answer read earlier, and an answer is current only while every session covering it is `Live` with no gap since its read. The example is 2.11.12.7. Costs: one refetch per subscribed list on re-entry; a change before registration, at most 2 reads; one connection cannot feed both records and a log.
+
+**Unversioned frames** (the user's call, D67 in `packages/flow-state-v3/prototypes/convergence-5.md`; OD49). Where
+both the frame and the record carry a version, the version decides: older drops, equal merges, newer applies. A write
+whose success carried no version, or any write on an entity with none, stays unechoed, and a frame that differs from
+it is doubted, not applied,
+until a read started after the write, or a matching frame. **Stated limit:** with no write of ours unechoed, nothing
+orders an unversioned frame, so a late one (out of its server's order, possible across a reconnect, not over one
+connection) is applied unmarked, and the record is wrong until its next read. Real entities declare a version.
 
 ### 2.9 Operations in fragments
 
@@ -8289,6 +8340,14 @@ The streams merge ([merged/streams/proposal-v3.md](merged/streams/proposal-v3.md
 | C159 | Runtime O6, Persistence O3, Inspection O1 | `disposeActor` flushes its removal at once; an unbound lane record it leaves ends at an adopting ensure or `forget`, listed as unbound under the identity and reported at each boot until then (2.7.13, 2.7.20; U14, OD48) | Adds to Runtime O6's "runtime.disposeActor(actor) disposes the actor for every user"; amends C45 |
 | C160 | Persistence O2, Runtime O3, Machines O1 | `persist` is a property of the machine (U15 B), on its definition (`definition({ id, persist: true, … })`, U19 A); refs carry no `persist`; `ConflictingActorRef` for `context` only (rule 74; U15 B, OD48) | Replaces Persistence O2's "actorRef(machine, id, { persist: true }) selects a stable shared actor" (C120's `actorRef(machine, nameOrValue, { persist: true })`) and Runtime O3's "different persist, retain or context" (C104, C144: `persist` and `context`); amends C104, C120, C144 |
 | C161 | Runtime O3, Operations O1, Persistence O5 | An actor version and an operation key's fingerprint compare each field's type side and encoded side, ignoring annotations (rule 74, 2.7.15; U17 B, OD48) | Amends C135's fingerprint ("each key field's encoded JSON Schema") and C120's O5 version rule; amends FOR-ARPIT Q1 A |
+| C162 | Machines O6, Operations O2 | In a late turn, the pending calls an alternative may not leave are every call owned by an activation it exits: an `InFlight` head and every queued commit, behind a `Held` head too; a `Held` head is not one, nor a queued commit whose lane the transition cancels key-less (rule 15; OD49) | Amends C12's "a late turn may not leave a state that owns another pending call" |
+| C163 | CommandLine O5 | `flow check`'s static rule 15 treats a queued commit under `serialize` as pending, behind a `Held` head too (rule 15; OD49) | Amends C12 and C18 (the late-turn check) |
+| C164 | Machines O6 | A transition whose target names the handler's own state re-enters it as a new activation, so a call the old activation owns ends late; `"self"` keeps the activation (rules 1, 14; OD49) | Adds to C12's owner test |
+| C165 | Operations O3 | Delivery is counted per ending: a re-send whose lane-record capture is refused delivers `unknown { StorageRefused }`, a second ending of the same Attempt; re-parking an ending is not a second delivery (rule 17, 2.7.13; OD49) | Amends C10's "Every commit and every retry that sends ends once" |
+| C166 | Runtime O4, Operations O3 | A throw from the outcome mapper at admission refuses the turn, and the ending is redelivered once after queued mail (rule 8, 2.5 step 1; OD49) | Amends C134's "A refused ending is redelivered once" |
+| C167 | Persistence O4, O6 | A head whose own ending is parked restores as that parked ending, delivered once, never also `unknown { Restored }` (rule 17, 2.7.13 G3; OD49) | Amends C17's "an Attempt acknowledged once ends `unknown` (`Restored`)" |
+| C168 | Runtime O6, Persistence O3 | `disposeActor` and `forget` stop a send's restore only once their removal is acknowledged; after a crash before that, the identity behaves as persisted: a plain send restores it, and with no use it ends after the grace (2.7.17; D80; OD49) | Amends C159 ("`disposeActor` flushes its removal at once") and 2.7.17's "a send must not resurrect a disposed or forgotten identity" |
+| C169 | EntityDomains O1, O4 | With no version on either side, a frame differing from an unechoed write is doubted, not applied, until a read started after it or a matching frame; with no write unechoed, a late unversioned frame is applied (stated limit) (2.8.14; D67, OD49) | Adds; the entity-store decisions stay deferred to phase 1 (U11) |
 
 ### For tooling
 
@@ -9146,6 +9205,28 @@ operations-in-fragments, the lane model and the reviews cite them.
   decided on the definition (U19 A, 2026-11-08); `Rejected` must be mapped where a kept ending (rule 21) or a quarantined
   lane (rule 46) can decline; `Disposed` joins rule 13's reserved reasons and 2.7.1's inferred unknown channel. Plan rows
   C150-C161. (2026-11-07)
+- **OD49** Round 14's design corrections (2026-11-08), from the round 14 finish and its close-out review
+  (`packages/flow-state-v3/prototypes/round-14/STATUS.md`, "Round 14 finish (2026-11-08)", findings 1-11;
+  `workflow/roadmaps/v3-production/progress.md`, 2026-11-08). The user delegated these calls to the runner that day
+  ("for the rest you decide what's correct"); none changes public API. **Decided by the runner under that delegation:**
+  (1) rule 15's pending calls in a late turn are an `InFlight` head and every queued commit owned by an exited
+  activation, behind a `Held` head too; a `Held` head is not live work; a queued commit whose lane the late transition
+  cancels key-less is not live work (option A, then the close-out refinement); the row flag `pending` stays `InFlight`
+  only (rules 6, 15, 2.5 step 3, 2.7.3, 2.7.13); (2) `flow check`'s static rule 15 counts the same set under
+  `serialize` (rule 15). **Agent (the runner), restating what the tables and earlier decisions already imply:**
+  (3) rule 17 names the storage-refused re-send's second ending for one Attempt, and delivery is counted per ending
+  (OD20 F5); (4) a refusal at admission (the outcome mapper throws) is a refused turn under rule 8 (OD38; 2.5 step 1);
+  (5) re-entering one's own state is a new activation and decides which calls are late (rules 1, 14, 15); (6) a
+  disposed or forgotten identity whose removal never reached disk restores on a plain send after a crash and ends
+  after the grace; "a send must not resurrect" holds once the removal is acknowledged (2.7.17; D80, U14); (7) an
+  ended identity's memory reads as its saved record (persisted) or absent (not persisted), and absence is not a spin
+  (2.7.17); (8) a head's own parked ending restores as parked, not as `unknown { Restored }` (rule 17, 2.7.13; G3).
+  **The user's earlier call, written in:** (9) D67's unversioned limit (convergence-5): with no version, a frame that
+  differs from an unechoed write is doubted until a read after it; with none unechoed, a late frame is applied
+  (2.8.6, 2.8.14). **Proposed, for the user's read:** (10) the cancel exemption of (1) also covers a head promoted at
+  settlement and never sent (cancellable as `NotSent { Cancelled }`), the runner's proposed answer, yes (rule 15);
+  (11) evidence for a kept ending's try per boot and for a stranded read let go, a stated gap today (rule 8).
+  Skipped: D77's closure check (finding 9) is not named in this design. Plan rows C162-C169. (2026-11-08)
 - **OD24** Process, delegated by the owner (2026-10-30): the main session approves the merge change lists for merges 4
   and 5 and for operations-in-definition, and treats operations as accepted for merging, unless a conflict needs an
   owner decision; only then is the owner asked. The streams direction review remains the owner's. (2026-10-30) *Process,
