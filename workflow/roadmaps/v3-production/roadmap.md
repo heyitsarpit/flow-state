@@ -495,7 +495,8 @@ Everything else still needs the user.
 
 ## Agents
 
-- Builders: Opus, medium effort, every third round high. Reviewers: Opus, high; never the builder.
+- Builders: Opus, medium effort, every third round high. Reviewers: Opus, high; never the builder. Haiku agents
+  (sidecars of any kind): always high (the user, 2026-11-08).
 - Agents at once: one builder and, at review time, one reviewer; work runs serially (the user,
   2026-11-08, replacing the 2026-11-07 allowance of 3). Exception (amendment 5): up to 4 Haiku research agents,
   read-only, in phase 0's close-out and phase 2, while no builder runs; they return tables, never verdicts.
