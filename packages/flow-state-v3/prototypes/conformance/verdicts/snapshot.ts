@@ -39,7 +39,8 @@ export const snapshot = (sources: readonly string[], context: readonly string[] 
   const abs = sources.map((s) => realpathSync(resolve(s)));
   const ctx = context.map((c) => resolve(c)).filter((c) => existsSync(c)).map((c) => realpathSync(c));
   const base = ancestor([...abs.map((a) => join(a, "x")), ...ctx]);
-  const root = realpathSync(mkdtempSync(join(tmpdir(), "flow-snap-")));
+  const scratch = process.env["FLOW_SCRATCH"];
+  const root = realpathSync(mkdtempSync(join(scratch && existsSync(scratch) ? scratch : tmpdir(), "flow-snap-")));
   const nm = nodeModules(abs[0]!);
   mkdirSync(join(root, "pristine"));
   if (nm) symlinkSync(nm, join(root, "node_modules"));

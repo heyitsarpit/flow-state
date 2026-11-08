@@ -1,4 +1,5 @@
 import { Result, Schema } from "effect";
+import { ALWAYS_JUDGED, MARK, outcomeOfCore } from "./core.ts";
 import type { Reading } from "./read.ts";
 
 export const Outcome = Schema.Literals(["pass", "fail", "unknown"]);
@@ -29,19 +30,13 @@ export const Verdict = Schema.Struct({
 });
 export type Verdict = typeof Verdict.Type;
 
-export const MARK = "VERDICT ";
-export const EXIT = { pass: 0, fail: 1, unknown: 2 } as const satisfies Record<Outcome, number>;
-export const ALWAYS_JUDGED: readonly string[] = ["threw", "machine"];
+export { ALWAYS_JUDGED, EXIT, MARK } from "./core.ts";
 
 export const isScored = (i: Item): i is Scored => "outcome" in i;
 export const judged = (items: readonly Item[], kinds?: readonly string[]): readonly Scored[] =>
   items.filter(isScored).filter((i) => kinds === undefined || kinds.includes(i.kind) || ALWAYS_JUDGED.includes(i.kind));
 
-export const outcomeOf = (items: readonly Item[], kinds?: readonly string[]): Outcome => {
-  const s = judged(items, kinds);
-  if (s.length === 0 || s.some((i) => i.outcome === "fail")) return "fail";
-  return s.some((i) => i.outcome === "unknown") ? "unknown" : "pass";
-};
+export const outcomeOf = (items: readonly Item[], kinds?: readonly string[]): Outcome => outcomeOfCore(items, kinds);
 export const firstFail = (items: readonly Item[], kinds?: readonly string[]): Scored | undefined =>
   judged(items, kinds).find((i) => i.outcome === "fail");
 export const unknowns = (items: readonly Item[]): readonly string[] =>
@@ -61,11 +56,13 @@ const decodeVerdict = Schema.decodeUnknownResult(Verdict);
 export const theVerdict = (
   stdout: string,
   expect: { readonly gate: string; readonly run: string },
+  marks?: number,
 ): Result.Result<Verdict, Unstated> => {
   const lines = stdout.split("\n");
   const marked = lines.filter((l) => l.startsWith(MARK));
+  const count = Math.max(marked.length, marks ?? 0);
+  if (count > 1) return Result.fail({ kind: "duplicate", count });
   if (marked.length === 0) return Result.fail({ kind: "silent" });
-  if (marked.length > 1) return Result.fail({ kind: "duplicate", count: marked.length });
   const last = lines.filter((l) => l.trim() !== "").at(-1);
   if (last !== marked[0]) return Result.fail({ kind: "garbled", issue: "the VERDICT line is not the last line" });
   let json: unknown;
@@ -95,6 +92,7 @@ export const expect = (kind: string, name: string, r: Reading, want: "pass" | "f
     return want === "fail" && judge.holds === undefined
       ? { kind, name, outcome: "pass", why: "answered by memory" }
       : { kind, name, outcome: "fail", why: "answered by memory, not stated" };
+  if (judged(r.verdict.items, judge.kinds).length === 0) return { kind, name, outcome: "fail", why: `nothing of the judged kinds (${judge.kinds?.join(", ") ?? "any"}) was scored` };
   const o = outcomeOf(r.verdict.items, judge.kinds);
   const failed = failedNames(r.verdict, judge.kinds);
   const detail = { failed };
@@ -133,6 +131,8 @@ const describeCause = (r: Extract<Reading, { answer: "none" }>): string => {
       return "unknown: time";
     case "budget":
       return "unknown: budget";
+    case "closed":
+      return "unknown: closed, its parent ended";
     case "memory-near":
       return `unknown: memory near the limit${c.referenceMb === null ? ", no reference" : ""}`;
     case "signal":

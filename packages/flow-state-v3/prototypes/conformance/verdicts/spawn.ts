@@ -1,3 +1,5 @@
+import { MARK } from "./core.ts";
+
 export type Limits = { readonly mb: number; readonly seconds: number };
 export type Contract = "gate" | "tool" | "program";
 
@@ -16,13 +18,14 @@ export type Launch = RunSpec & {
   readonly alone: boolean;
 };
 
-export type Stream = { readonly head: string; readonly tail: string; readonly lastLine: string; readonly dropped: number };
+export type Stream = { readonly head: string; readonly tail: string; readonly lastLine: string; readonly dropped: number; readonly marks: number; readonly abandoned: boolean };
+export type Decision = "rss" | "time" | "budget" | "closed";
 export type Ended = {
   readonly kind: "ended";
   readonly launch: Launch;
   readonly exit: number | null;
   readonly signal: string | null;
-  readonly decided: "rss" | "time" | "budget" | null;
+  readonly decided: Decision | null;
   readonly killed: boolean;
   readonly peakMb: number;
   readonly ms: number;
@@ -36,11 +39,12 @@ export type Run = Ended | Unstarted;
 export const HEAD_BYTES = 8 * 1024 * 1024;
 export const TAIL_BYTES = 1024 * 1024;
 export const LAST_LINE_BYTES = 64 * 1024 * 1024;
+export const DRAIN_GRACE_MS = 2000;
 
-export const killed = (decided: Ended["decided"], signal: string | null): boolean => decided !== null && signal !== null;
+export const killed = (decided: Decision | null, sentToLive: boolean, signal: string | null): boolean => decided !== null && sentToLive && signal !== null;
 export const isTop = (): boolean => process.env["FLOW_NESTED"] !== "1";
 export const isAlone = (): boolean => process.env["FLOW_ALONE"] === "1";
-export const runId = (): string => process.env["FLOW_RUN"] ?? "top";
+export const runId = (): string => process.env["FLOW_RUN"] || "top";
 export const inheritedPool = (): { readonly slots: number; readonly mb: number } | null => {
   const m = /^(\d+):(\d+)$/.exec(process.env["FLOW_POOL"] ?? "");
   return m ? { slots: Number(m[1]), mb: Number(m[2]) } : null;
@@ -53,6 +57,7 @@ export const text = (s: Stream): string => `${s.head}${s.tail}${s.lastLine}`;
 export const programOutput = (run: Ended): { readonly stdout: string; readonly stderr: string; readonly exit: number | null } | null =>
   run.launch.contract === "program" ? { stdout: text(run.stdout), stderr: text(run.stderr), exit: run.exit } : null;
 
+const MARK_BYTES = new TextEncoder().encode(MARK);
 class Collector {
   private head: Uint8Array[] = [];
   private headBytes = 0;
@@ -61,9 +66,32 @@ class Collector {
   private total = 0;
   private lastNl = -1;
   private prevNl = -1;
+  private marks = 0;
+  private lineHead = 0;
+  private lineMatches = true;
   constructor(private readonly echo: ((b: Uint8Array) => void) | null) {}
+  private count(chunk: Uint8Array) {
+    for (let i = 0; i < chunk.length; i++) {
+      const b = chunk[i]!;
+      if (b === 10) {
+        this.lineHead = 0;
+        this.lineMatches = true;
+        continue;
+      }
+      if (this.lineHead < MARK_BYTES.length) {
+        if (this.lineMatches && b !== MARK_BYTES[this.lineHead]) this.lineMatches = false;
+        this.lineHead++;
+        if (this.lineHead === MARK_BYTES.length && this.lineMatches) this.marks++;
+      } else {
+        const nl = chunk.indexOf(10, i);
+        if (nl < 0) return;
+        i = nl - 1;
+      }
+    }
+  }
   push(chunk: Uint8Array) {
     this.echo?.(chunk);
+    this.count(chunk);
     let c = chunk;
     if (this.headBytes < HEAD_BYTES) {
       const take = Math.min(c.length, HEAD_BYTES - this.headBytes);
@@ -97,34 +125,52 @@ class Collector {
       this.rest.shift();
     }
   }
-  done(): Stream {
-    const dec = (parts: readonly Uint8Array[]) => new TextDecoder().decode(Buffer.concat(parts));
-    const head = dec(this.head);
+  done(abandoned: boolean): Stream {
+    const dec = (b: Uint8Array) => new TextDecoder().decode(b);
+    const head = dec(Buffer.concat(this.head));
     const restBuf = Buffer.concat(this.rest);
     const lineAt = this.lineAt();
     const tailAt = Math.max(this.headBytes, lineAt - TAIL_BYTES, this.restStart);
     const off = (at: number) => Math.max(0, at - this.restStart);
-    const tail = new TextDecoder().decode(restBuf.subarray(off(tailAt), off(lineAt)));
-    const lastLine = new TextDecoder().decode(restBuf.subarray(off(lineAt)));
+    const tail = dec(restBuf.subarray(off(tailAt), off(lineAt)));
+    const lastLine = dec(restBuf.subarray(off(lineAt)));
     const kept = this.headBytes + (this.total - tailAt);
-    return { head, tail, lastLine, dropped: this.total - kept };
+    return { head, tail, lastLine, dropped: this.total - kept, marks: this.marks, abandoned };
   }
 }
 
-const drain = async (s: ReadableStream<Uint8Array>, c: Collector) => {
-  for await (const chunk of s) c.push(chunk);
-  return c.done();
+const drain = (s: ReadableStream<Uint8Array>, c: Collector) => {
+  const reader = s.getReader();
+  const finished = (async () => {
+    for (;;) {
+      const r = await reader.read();
+      if (r.done) return;
+      c.push(r.value);
+    }
+  })();
+  return {
+    finished,
+    abandon: () => {
+      void reader.cancel().catch(() => {});
+    },
+    collector: c,
+  };
 };
 
 type Proc = { pid: number; ppid: number; pgid: number; rssKb: number; started: string };
-const table = (): Proc[] => {
-  const p = Bun.spawnSync(["ps", "-Ao", "pid=,ppid=,pgid=,rss=,lstart="], { stdin: "ignore" });
-  const out: Proc[] = [];
-  for (const l of p.stdout.toString().split("\n")) {
-    const m = /^\s*(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(.*)$/.exec(l);
-    if (m) out.push({ pid: Number(m[1]), ppid: Number(m[2]), pgid: Number(m[3]), rssKb: Number(m[4]), started: m[5]! });
+const table = (): Proc[] | null => {
+  try {
+    const p = Bun.spawnSync(["ps", "-Ao", "pid=,ppid=,pgid=,rss=,lstart="], { stdin: "ignore" });
+    if (p.exitCode !== 0) return null;
+    const out: Proc[] = [];
+    for (const l of p.stdout.toString().split("\n")) {
+      const m = /^\s*(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(.*)$/.exec(l);
+      if (m) out.push({ pid: Number(m[1]), ppid: Number(m[2]), pgid: Number(m[3]), rssKb: Number(m[4]), started: m[5]! });
+    }
+    return out;
+  } catch {
+    return null;
   }
-  return out;
 };
 const treeOf = (root: number, procs: readonly Proc[], seen: ReadonlyMap<number, string>): Proc[] => {
   const kids = new Map<number, Proc[]>();
@@ -160,14 +206,7 @@ export const spawnRun = async (launch: Launch, o: { readonly echo: boolean | "sa
   const t0 = performance.now();
   let child: ReturnType<typeof Bun.spawn>;
   try {
-    child = Bun.spawn([...launch.cmd], {
-      stdin: "ignore",
-      stdout: "pipe",
-      stderr: "pipe",
-      env: childEnv(launch),
-      cwd: launch.cwd,
-      detached: true,
-    });
+    child = Bun.spawn([...launch.cmd], { stdin: "ignore", stdout: "pipe", stderr: "pipe", env: childEnv(launch), cwd: launch.cwd, detached: true });
   } catch (e) {
     return { kind: "unstarted", launch, message: (e as Error).message };
   }
@@ -176,12 +215,13 @@ export const spawnRun = async (launch: Launch, o: { readonly echo: boolean | "sa
   const out = drain(child.stdout as ReadableStream<Uint8Array>, new Collector(toOut));
   const err = drain(child.stderr as ReadableStream<Uint8Array>, new Collector(toErr));
   let peakMb = 0;
-  let decided: Ended["decided"] = null;
+  let decided: Decision | null = null;
+  let sentToLive = false;
   let done = false;
   const seen = new Map<number, string>();
   void child.exited.then(() => (done = true));
   const endTree = () => {
-    const procs = treeOf(child.pid, table(), seen);
+    const procs = treeOf(child.pid, table() ?? [], seen);
     for (const p of procs)
       try {
         process.kill(p.pid, 9);
@@ -194,15 +234,21 @@ export const spawnRun = async (launch: Launch, o: { readonly echo: boolean | "sa
   while (!done) {
     await Bun.sleep(40);
     if (done) break;
-    const tree = treeOf(child.pid, table(), seen);
-    for (const p of tree) seen.set(p.pid, p.started);
-    const mb = tree.reduce((n, p) => n + p.rssKb, 0) / 1024;
-    peakMb = Math.max(peakMb, mb);
+    const procs = table();
+    if (procs !== null) {
+      const tree = treeOf(child.pid, procs, seen);
+      for (const p of tree) seen.set(p.pid, p.started);
+      peakMb = Math.max(peakMb, tree.reduce((n, p) => n + p.rssKb, 0) / 1024);
+      if (!o.stop.aborted && tree.reduce((n, p) => n + p.rssKb, 0) / 1024 > launch.limits.mb) decided = "rss";
+    }
     if (done) break;
-    if (o.stop.aborted) decided = "budget";
-    else if (mb > launch.limits.mb) decided = "rss";
-    else if (performance.now() - t0 > launch.limits.seconds * 1000) decided = "time";
+    if (decided === null && o.stop.aborted) decided = o.stop.reason === "closed" ? "closed" : "budget";
+    if (decided === null && performance.now() - t0 > launch.limits.seconds * 1000) decided = "time";
     if (decided) {
+      sentToLive = child.exitCode === null && child.signalCode === null;
+      try {
+        process.kill(child.pid, 9);
+      } catch {}
       endTree();
       break;
     }
@@ -210,18 +256,25 @@ export const spawnRun = async (launch: Launch, o: { readonly echo: boolean | "sa
   await child.exited;
   const signal = child.signalCode ?? null;
   const left = decided ? [] : endTree();
-  const [stdout, stderr] = await Promise.all([out, err]);
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const grace = new Promise<"late">((r) => (timer = setTimeout(() => r("late"), DRAIN_GRACE_MS)));
+  const drained = await Promise.race([Promise.all([out.finished, err.finished]).then(() => "drained" as const), grace]);
+  clearTimeout(timer);
+  if (drained === "late") {
+    out.abandon();
+    err.abandon();
+  }
   return {
     kind: "ended",
     launch,
     exit: signal === null ? child.exitCode : null,
     signal,
     decided,
-    killed: killed(decided, signal),
+    killed: killed(decided, sentToLive, signal),
     peakMb: Math.round(peakMb),
     ms: Math.round(performance.now() - t0),
-    stdout,
-    stderr,
+    stdout: out.collector.done(drained === "late"),
+    stderr: err.collector.done(drained === "late"),
     leftovers: left.length,
   };
 };

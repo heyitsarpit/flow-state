@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { outcome, read, type Reading } from "./read.ts";
 import { inheritedLimitMb, isTop, runId, spawnRun, type Launch, type Run, type RunSpec } from "./spawn.ts";
 
-export type Size = { readonly slots: number; readonly peakMb: number; readonly aloneS: number };
+export type Size = { readonly slots: number; readonly peakMb: number; readonly aloneS: number; readonly limitMb?: number };
 export type Pool = { readonly slots: number; readonly mb: number; readonly budgetS: number | null; readonly echo?: boolean };
 export type Opened = { readonly spec: RunSpec; readonly close: () => void };
 export type Job = { readonly name: string; readonly size: Size; readonly open: () => Promise<Opened> };
@@ -19,14 +19,17 @@ export type Runner = {
 };
 
 export const OWN_MB = 300;
+export const LOCK_POLL_MS = 200;
 export const final = (d: Done): Reading => d.alone ?? d.first;
 export const aloneLimit = (first: number, size: Size): number => Math.min(first, Math.max(30, 3 * size.aloneS));
-export const job = (name: string, spec: RunSpec, size: Size): Job => ({ name, size, open: async () => ({ spec, close: () => {} }) });
+export const aloneCost = (size: Size): number => Math.max(30, 3 * size.aloneS);
+export const job = (name: string, spec: RunSpec, size: Size): Job => ({ name, size: { ...size, limitMb: size.limitMb ?? spec.limits.mb }, open: async () => ({ spec, close: () => {} }) });
+export const admittedAt = (top: boolean) => (s: Size): number => (top ? (s.limitMb ?? s.peakMb) : s.peakMb);
 
 export const parentLimitHolds = (parentMb: number | null, running: readonly number[], next: number): boolean =>
   parentMb === null || running.reduce((a, b) => a + b, 0) + next + OWN_MB <= parentMb;
 
-const DIR = join(tmpdir(), "flow-verdicts");
+const DIR = process.env["FLOW_VERDICTS_DIR"] || join(tmpdir(), "flow-verdicts");
 const TOPS = join(DIR, "tops");
 const LOCK = join(DIR, "alone.lock");
 const alive = (pid: number) => {
@@ -86,6 +89,7 @@ type Waiting = { readonly job: Job; readonly seq: number; readonly start: () => 
 
 export const makeRunner = (pool: Pool): Runner => {
   const top = isTop();
+  const admitted = admittedAt(top);
   const parent = runId();
   const parentMb = inheritedLimitMb();
   const t0 = performance.now();
@@ -97,6 +101,7 @@ export const makeRunner = (pool: Pool): Runner => {
   let mb = 0;
   let runningFirst = 0;
   let runningAlone = 0;
+  let cooldownUntil = 0;
   const limits: number[] = [];
   const limitWaiters: Array<() => void> = [];
   const firsts: Waiting[] = [];
@@ -104,39 +109,47 @@ export const makeRunner = (pool: Pool): Runner => {
   let closed = false;
   let poll: ReturnType<typeof setTimeout> | undefined;
   const budgetLeft = () => (pool.budgetS === null ? Infinity : pool.budgetS - (performance.now() - t0) / 1000);
-  const budgetTimer =
-    pool.budgetS === null ? undefined : setTimeout(() => stop.abort("budget"), Math.max(0, pool.budgetS * 1000));
-  if (top) register(0);
   const running = () => runningFirst + runningAlone;
-  const note = (e: Event) => {
-    log.push(e);
-    if (top) register(running());
-  };
   const later = () => {
-    if (poll === undefined && !closed) poll = setTimeout(() => ((poll = undefined), pump()), 200);
+    if (poll === undefined && !closed) poll = setTimeout(() => ((poll = undefined), pump()), LOCK_POLL_MS);
+  };
+  const startFirst = (w: Waiting) => {
+    firsts.splice(firsts.indexOf(w), 1);
+    slots += w.job.size.slots;
+    mb += admitted(w.job.size);
+    runningFirst++;
+    w.start();
   };
   const pump = () => {
     if (closed) return;
+    if (stop.signal.aborted) {
+      for (const w of [...firsts]) startFirst(w);
+      while (alones.length) {
+        runningAlone++;
+        alones.shift()!.start();
+      }
+      if (top) register(running());
+      return;
+    }
+    firsts.sort((a, b) => b.job.size.aloneS - a.job.size.aloneS || a.seq - b.seq);
+    if (top && runningAlone === 0 && firsts.length) register(running() + 1);
     const blocked = top && (() => {
       const h = lockHolder();
       return h !== null && h !== process.pid;
     })();
     if (!blocked && runningAlone === 0) {
-      firsts.sort((a, b) => b.job.size.aloneS - a.job.size.aloneS || a.seq - b.seq);
       for (const w of [...firsts]) {
-        const fits = running() === 0 || (slots + w.job.size.slots <= pool.slots && mb + w.job.size.peakMb <= pool.mb);
-        if (!fits) continue;
-        firsts.splice(firsts.indexOf(w), 1);
-        slots += w.job.size.slots;
-        mb += w.job.size.peakMb;
-        runningFirst++;
-        w.start();
+        const fits = running() === 0 || (slots + w.job.size.slots <= pool.slots && mb + admitted(w.job.size) <= pool.mb);
+        if (fits) startFirst(w);
       }
     } else if (blocked && firsts.length) later();
+    if (top) register(running());
     if (top && alones.length && running() === 0 && firsts.length === 0) {
+      if (performance.now() < cooldownUntil) return later();
       if (takeLock() && othersIdle()) {
         const w = alones.shift()!;
         runningAlone++;
+        if (top) register(running());
         w.start();
       } else {
         dropLock();
@@ -144,12 +157,14 @@ export const makeRunner = (pool: Pool): Runner => {
       }
     }
   };
+  const budgetTimer = pool.budgetS === null ? undefined : setTimeout(() => (stop.abort("budget"), pump()), Math.max(0, pool.budgetS * 1000));
+  if (top) register(0);
   const attempt = async (j: Job, id: string, alone: boolean, seconds: (s: number) => number): Promise<Run> => {
-    note({ job: j.name, attempt: alone ? "alone" : "first", at: "start" });
+    log.push({ job: j.name, attempt: alone ? "alone" : "first", at: "start" });
     let opened: Opened | undefined;
     let launch: Launch | undefined;
     try {
-      if (stop.signal.aborted) throw new BudgetGone();
+      if (stop.signal.aborted) throw new BudgetGone(stop.signal.reason === "closed" ? "closed before it started" : "no budget left");
       opened = await j.open();
       const spec = opened.spec;
       launch = {
@@ -172,26 +187,21 @@ export const makeRunner = (pool: Pool): Runner => {
       }
     } catch (e) {
       if (e instanceof Error && e.message.startsWith("defect:")) throw e;
-      const l: Launch = launch ?? {
-        gate: j.name,
-        cmd: [],
-        cwd: "",
-        env: {},
-        limits: { mb: 0, seconds: 0 },
-        contract: "gate",
-        run: id,
-        referenceMb: null,
-        pool: { slots: j.size.slots, mb: j.size.peakMb },
-        alone,
-      };
-      return { kind: "unstarted", launch: l, message: e instanceof BudgetGone ? "no budget left" : String((e as Error).message ?? e) };
+      const l: Launch = launch ?? { gate: j.name, cmd: [], cwd: "", env: {}, limits: { mb: 0, seconds: 0 }, contract: "gate", run: id, referenceMb: null, pool: { slots: j.size.slots, mb: j.size.peakMb }, alone };
+      return { kind: "unstarted", launch: l, message: String((e as Error).message ?? e) };
     } finally {
       try {
         opened?.close();
       } finally {
-        note({ job: j.name, attempt: alone ? "alone" : "first", at: "end" });
+        log.push({ job: j.name, attempt: alone ? "alone" : "first", at: "end" });
       }
     }
+  };
+  const settleFirst = (j: Job) => () => {
+    slots -= j.size.slots;
+    mb -= admitted(j.size);
+    runningFirst--;
+    pump();
   };
   const run = (j: Job): Promise<Done> => {
     if (closed) throw new Error("defect: the runner is closed");
@@ -200,23 +210,24 @@ export const makeRunner = (pool: Pool): Runner => {
     const p = new Promise<Done>((resolve, reject) => {
       const firstDone = (first: Reading) => {
         if (!top || outcome(first) !== "unknown") return resolve({ job: j, first, alone: null, skipped: null });
-        const limit = (s: number) => aloneLimit(s, j.size);
         alones.push({
           job: j,
           seq: mySeq,
           start: () => {
-            const est = Math.max(30, 3 * j.size.aloneS);
-            if (budgetLeft() < est || stop.signal.aborted) {
+            if (budgetLeft() < aloneCost(j.size) || stop.signal.aborted) {
               runningAlone--;
-              resolve({ job: j, first, alone: null, skipped: "no budget left for the alone rerun" });
+              dropLock();
+              resolve({ job: j, first, alone: null, skipped: stop.signal.reason === "closed" ? "closed before the alone rerun" : "no budget left for the alone rerun" });
               queueMicrotask(pump);
               return;
             }
-            attempt(j, `${id}.alone`, true, limit)
-              .then((alone) => resolve({ job: j, first, alone: read(alone), skipped: null }), reject)
+            attempt(j, `${id}.alone`, true, (s) => aloneLimit(s, j.size))
+              .then((alone) => resolve({ job: j, first, alone: read(alone), skipped: null }))
+              .catch(reject)
               .finally(() => {
                 runningAlone--;
                 dropLock();
+                cooldownUntil = performance.now() + 2 * LOCK_POLL_MS;
                 pump();
               });
           },
@@ -228,13 +239,9 @@ export const makeRunner = (pool: Pool): Runner => {
         seq: mySeq,
         start: () => {
           attempt(j, id, false, (s) => s)
-            .then((r) => firstDone(read(r)), reject)
-            .finally(() => {
-              slots -= j.size.slots;
-              mb -= j.size.peakMb;
-              runningFirst--;
-              pump();
-            });
+            .then((r) => firstDone(read(r)))
+            .catch(reject)
+            .finally(settleFirst(j));
         },
       });
     });
@@ -257,35 +264,31 @@ export const makeRunner = (pool: Pool): Runner => {
           seq: mySeq,
           start: () => {
             attempt(j, id, false, (s) => s)
-              .then(resolve, reject)
-              .finally(() => {
-                slots -= j.size.slots;
-                mb -= j.size.peakMb;
-                runningFirst--;
-                pump();
-              });
+              .then(resolve)
+              .catch(reject)
+              .finally(settleFirst(j));
           },
         });
       }),
     );
   };
   const close = async () => {
-    stop.abort("closed");
+    if (!stop.signal.aborted) stop.abort("closed");
+    pump();
     closed = true;
-    for (const w of firsts.splice(0)) {
-      slots += w.job.size.slots;
-      mb += w.job.size.peakMb;
-      runningFirst++;
-      w.start();
-    }
     while (live.size > 0) {
+      for (const w of firsts.splice(0)) {
+        runningFirst++;
+        slots += w.job.size.slots;
+        mb += admitted(w.job.size);
+        w.start();
+      }
       for (const w of alones.splice(0)) {
         runningAlone++;
         w.start();
       }
       await Promise.race([Promise.allSettled([...live]), Bun.sleep(50)]);
     }
-    await Promise.allSettled([...live]);
     if (budgetTimer) clearTimeout(budgetTimer);
     if (poll) clearTimeout(poll);
     dropLock();

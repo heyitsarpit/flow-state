@@ -16,6 +16,7 @@ import {
   openCase,
   type Scenario,
 } from "./scenarios/ctx.ts";
+import { resourceErrno } from "./verdicts/core.ts";
 import type { Item } from "./verdicts/verdict.ts";
 import { round5Scenarios } from "./scenarios/round5.scenario.ts";
 import { round6Scenarios } from "./scenarios/round6.scenario.ts";
@@ -41,7 +42,7 @@ import { round4Scenarios } from "./scenarios/round4.scenario.ts";
 import { storeScenarios } from "./scenarios/store.scenario.ts";
 import { streamScenarios } from "./scenarios/stream.scenario.ts";
 
-export type RunResult = { id: string; variant?: string; ok: boolean; why?: string; ms: number; trace?: string; output?: string };
+export type RunResult = { id: string; variant?: string; ok: boolean; why?: string; ms: number; trace?: string; output?: string; machine?: string };
 export const allScenarios: readonly Scenario[] = [
   ...payScenarios,
   ...orderScenarios,
@@ -342,6 +343,7 @@ export const runScenarios = (
               ? e.message
               : `threw: ${(e as Error).stack?.split("\n").slice(0, 3).join(" ")}`,
           ...((globalThis as any).__kills?.length ? { trace: (globalThis as any).__kills.join(" ; ") } : {}),
+          ...(resourceErrno(e) !== undefined ? { machine: resourceErrno(e)! } : {}),
           ms: performance.now() - t,
         });
       }
@@ -514,6 +516,10 @@ export const cli = async (): Promise<readonly Item[]> => {
   const compared = plain && !collect;
   const items: Item[] = [];
   for (const r of results) {
+    if (r.machine !== undefined) {
+      items.push({ kind: "machine", name: name(r), outcome: "unknown", why: `the machine (${r.machine}): ${r.why ?? ""}` });
+      continue;
+    }
     items.push({ kind: "case", name: name(r), outcome: r.ok ? "pass" : "fail", why: r.ok ? "" : (r.why ?? ""), ...(r.trace ? { detail: { trace: r.trace } } : {}) });
     if (compared && r.ok) items.push({ kind: "output", name: name(r), outcome: r.output ? "fail" : "pass", why: r.output ? `output: ${r.output}` : "" });
   }

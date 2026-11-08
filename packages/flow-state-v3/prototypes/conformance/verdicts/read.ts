@@ -8,6 +8,7 @@ export type NoAnswer =
   | { readonly kind: "unstarted"; readonly message: string }
   | { readonly kind: "time" }
   | { readonly kind: "budget" }
+  | { readonly kind: "closed" }
   | { readonly kind: "memory-near"; readonly peakMb: number; readonly limitMb: number; readonly referenceMb: number | null }
   | { readonly kind: "signal"; readonly signal: string }
   | { readonly kind: "disagree"; readonly exit: number | null; readonly stated: Outcome }
@@ -38,10 +39,11 @@ export const read = (run: Run): Reading => {
   if (run.killed && run.decided === "rss") return memory(run);
   if (run.killed && run.decided === "time") return { answer: "none", cause: { kind: "time" }, run };
   if (run.killed && run.decided === "budget") return { answer: "none", cause: { kind: "budget" }, run };
+  if (run.killed && run.decided === "closed") return { answer: "none", cause: { kind: "closed" }, run };
   if (run.signal !== null) return { answer: "none", cause: { kind: "signal", signal: run.signal }, run };
   if (run.launch.contract === "program") throw new Error(`read of a program under test: ${run.launch.gate}`);
   if (run.launch.contract === "tool") return { answer: "stated", verdict: toolVerdict(run), run };
-  const v = theVerdict(text(run.stdout), { gate: run.launch.gate, run: run.launch.run });
+  const v = theVerdict(text(run.stdout), { gate: run.launch.gate, run: run.launch.run }, run.stdout.marks);
   if (Result.isFailure(v)) return { answer: "none", cause: v.failure, run };
   const o = outcomeOf(v.success.items);
   if (run.exit !== EXIT[o]) return { answer: "none", cause: { kind: "disagree", exit: run.exit, stated: o }, run };
@@ -52,6 +54,11 @@ export const outcome = (r: Reading, kinds?: readonly string[]): Outcome =>
   r.answer === "stated" ? outcomeOf(r.verdict.items, kinds) : r.answer === "bound" ? "fail" : "unknown";
 
 export const describe = (r: Reading): string => {
+  const s = r.run.kind === "ended" ? r.run.stdout : undefined;
+  const lost = s && (s.dropped > 0 || s.abandoned) ? ` [stdout: ${s.dropped} bytes dropped${s.abandoned ? ", pipes abandoned after the kill" : ""}]` : "";
+  return `${describeAnswer(r)}${lost}`;
+};
+const describeAnswer = (r: Reading): string => {
   if (r.answer === "none") return causeText(r);
   if (r.answer === "bound") return "fail: killed by memory, the limit at least 1.5 times the reference peak";
   const items = r.verdict.items;

@@ -5,7 +5,7 @@ import { basename, dirname, join, resolve } from "node:path";
 import { stated } from "./verdicts/state.ts";
 
 await stated("lifetime-falsify", async (scope) => {
-  const { SUITE } = await import("./limits.ts");
+  const { MACHINE_MB, SUITE } = await import("./limits.ts");
   const { plannedCases } = await import("./suite.ts");
   const { describe } = await import("./verdicts/read.ts");
   const { final } = await import("./verdicts/runner.ts");
@@ -35,11 +35,11 @@ await stated("lifetime-falsify", async (scope) => {
     for (const p of problems) if (p) console.log(`BAD  ${p.id}: ${p.problem}: ${p.why}`);
     return problems.filter((p) => p !== null).map((p) => ({ kind: "list", name: p!.id, outcome: "fail" as const, why: `${p!.problem}: ${p!.why}` }));
   }
-  const runner = scope.runner({ slots: parallel, mb: parallel * SUITE.size.peakMb, budgetS: bi < 0 ? null : Number(process.argv[bi + 1]) });
+  const runner = scope.runner({ slots: parallel, mb: Math.min(MACHINE_MB, parallel * SUITE.limits.mb), budgetS: bi < 0 ? null : Number(process.argv[bi + 1]) });
   const runJob = (name: string, edits: readonly Edit[], peakMb: number) =>
     runner.run({
       name,
-      size: { ...SUITE.size, peakMb },
+      size: { ...SUITE.size, peakMb, limitMb: SUITE.limits.mb },
       open: async () => {
         const c = copyOf(snap, tree, edits);
         if (c._tag === "Failure") throw new Error(c.failure);

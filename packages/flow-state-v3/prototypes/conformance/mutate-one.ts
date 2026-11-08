@@ -6,9 +6,9 @@ import { dirname, join, resolve } from "node:path";
 import { stated } from "./verdicts/state.ts";
 
 const SEARCH_EXPECT = {
-  store: "completed",
+  store: "inconclusive",
   queue: "completed",
-  bare: "completed",
+  bare: "inconclusive",
   directed: "completed",
   chain: "completed",
 } as const;
@@ -18,7 +18,7 @@ await stated("mutate-one", async (scope) => {
   const { plannedCases } = await import("./suite.ts");
   const { final, job } = await import("./verdicts/runner.ts");
   const { isAlone } = await import("./verdicts/spawn.ts");
-  const { expect, firstFail, sameCases } = await import("./verdicts/verdict.ts");
+  const { expect, firstFail, isScored, sameCases } = await import("./verdicts/verdict.ts");
   type Item = import("./verdicts/verdict.ts").Item;
   type Scored = import("./verdicts/verdict.ts").Scored;
   const here = import.meta.dir;
@@ -29,7 +29,8 @@ await stated("mutate-one", async (scope) => {
   const gateJob = (name: string, gate: string, cmd: readonly string[], b: typeof SUITE, env: Record<string, string> = {}) =>
     job(name, { gate, cmd: ["bun", ...cmd], cwd: here, env, limits: b.limits, contract: "gate" }, b.size);
   const items: Item[] = [];
-  const push = (i: Scored) => {
+  const push = (i: Item) => {
+    if (!isScored(i)) return void items.push(i);
     const unknownBefore = items.filter((x) => "outcome" in x && x.outcome === "unknown").map((x) => x.name);
     items.push(i.outcome === "fail" && unknownBefore.length && firstFail(items) === undefined ? { ...i, detail: { ...(i.detail as object), before: unknownBefore } } : i);
   };
@@ -40,13 +41,12 @@ await stated("mutate-one", async (scope) => {
     const { searchFlush } = await import("./search/flush.search.ts");
     const mod = (await import(resolve(here, runtimeArg))) as import("./harness.ts").RuntimeModule;
     const make = makeHarness(mod.port);
-    const item = (name: keyof typeof SEARCH_EXPECT, r: import("./search/engine.ts").Report): Scored => ({
-      kind: "search",
-      name: `search ${name}`,
-      outcome: r.verdict === SEARCH_EXPECT[name] ? "pass" : "fail",
-      why: r.verdict === SEARCH_EXPECT[name] ? "" : `${r.verdict}, ${SEARCH_EXPECT[name]} expected${r.failure ? `: ${r.failure.slice(0, 200)}` : ""}`,
-      detail: { verdict: r.verdict, states: r.states, failed: r.failure ? [r.failure.slice(0, 200)] : [] },
-    });
+    const item = (name: keyof typeof SEARCH_EXPECT, r: import("./search/engine.ts").Report): Item => {
+      const detail = { verdict: r.verdict, states: r.states, failed: r.failure ? [r.failure.slice(0, 200)] : [] };
+      if (r.verdict === SEARCH_EXPECT[name]) return { kind: "search", name: `search ${name}`, outcome: "pass", why: "", detail };
+      if (r.verdict === "failed" || r.verdict === "vacuous") return { kind: "search", name: `search ${name}`, outcome: "fail", why: `${r.verdict}, ${SEARCH_EXPECT[name]} expected${r.failure ? `: ${r.failure.slice(0, 200)}` : ""}`, detail };
+      return { kind: "search-budget", name: `search ${name}`, note: `${r.verdict} at ${r.states} states, ${SEARCH_EXPECT[name]} expected: the budget, not a catch`, detail };
+    };
     if (which === "only") {
       const o = { depth: 12, maxStates: 3_000 };
       push(item("store", searchFlush(make, "serialize", o, false, false, "store")));

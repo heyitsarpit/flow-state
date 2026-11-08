@@ -31,7 +31,7 @@ export const mutantItem = async (m: Mutant, r: Reading): Promise<Item> => {
 
 if (import.meta.main)
   await stated("mutate", async (scope) => {
-    const { MUTANT, MUTANT_SEARCH } = await import("./limits.ts");
+    const { MACHINE_MB, MUTANT, MUTANT_SEARCH } = await import("./limits.ts");
     const { describe, outcome } = await import("./verdicts/read.ts");
     const { final } = await import("./verdicts/runner.ts");
     const { check, copyOf } = await import("./verdicts/snapshot.ts");
@@ -66,7 +66,7 @@ if (import.meta.main)
     const limits = withSearch || searchOnly ? MUTANT_SEARCH : MUTANT;
     const mutantJob = (id: string, edits: readonly Edit[], peakMb: number, aloneS: number): Job => ({
       name: id,
-      size: { slots: 1, peakMb, aloneS },
+      size: { slots: 1, peakMb, aloneS, limitMb: limits.mb },
       open: async () => {
         const c = copyOf(snap, tree, edits);
         if (c._tag === "Failure") throw new Error(c.failure);
@@ -74,7 +74,7 @@ if (import.meta.main)
         return { spec: { gate: "mutate-one", cmd: ["bun", join(cwd, "mutate-one.ts"), "--runtime", `../${tree}/adapter.ts`, ...extra], cwd, env: {}, limits, contract: "gate" }, close: c.success.close };
       },
     });
-    const runner = scope.runner({ slots: parallel, mb: parallel * limits.mb, budgetS });
+    const runner = scope.runner({ slots: parallel, mb: Math.min(MACHINE_MB, parallel * limits.mb), budgetS });
     const control = final(await runner.run(mutantJob("control", [], 0, 0)));
     if (outcome(control) !== "pass") {
       console.log(`CONTROL FAILED: the unmutated code: ${describe(control)}`);

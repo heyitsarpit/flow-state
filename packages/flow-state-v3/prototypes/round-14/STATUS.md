@@ -311,3 +311,33 @@ Deviations from the design (minimal, each for a reason):
   machine-design.md), so the gates' suite jobs, which read the catalog, run in copies too.
 - The canon and copies checks print their counts on stderr at exit (stdout's last line is the VERDICT); a difference already throws.
 - `--hashes` puts the hashes into the lock item's detail, which falsify's pasted-hash tamper reads (it parsed `HASH` lines before).
+
+### The review of 76328de4 (Opus PASS with findings, four sidecars): what was done, row by row
+
+| # | Done | How |
+| --- | --- | --- |
+| 1 | yes | The budget abort calls `pump`, which starts every queued first attempt (each ends `unstarted: no budget left`) and settles every queued alone attempt as skipped, also while another top holds the lock (lock waits are wall time, so they count). After an alone attempt a top waits two lock polls (400 ms) before taking the lock again, so another top's poll gets it. Plants: `budget: every queued attempt ends …` (free and blocked). |
+| 2 | yes | After the child ends, the drain gets `DRAIN_GRACE_MS` (2 s); then the readers are cancelled and `Stream.abandoned` is set, shown in `describe`. Plant: a pipe held by a process that left the tree. |
+| 3 | yes | `.then(f).catch(reject)` throughout runner.ts. |
+| 4 | yes | `Size.limitMb` (the kill limit); a top admits by kill limits, nested pools by peaks (their parent's kill limit is checked by `parentLimitHolds`). `MACHINE_MB` 16 000; gates.ts `--mb` 16 000; mutate.ts, falsify and lifetime-falsify cap their pools there. mutate-one's row is 2 slots / 3500 MB (kill 7000), lifetime-falsify's 2 slots / 3000 (kill 6000, `--parallel 2`); checks, tsc and CLI pins take `SCRIPT` (400 MB peak, 1200 kill). |
+| 5 | yes | The skipped path drops the lock. Ordering: a top registers its intent (`running + 1`) before it reads the lock; a top taking the lock reads the registry after it holds it, so one of the two always sees the other. Residual: a top that registered intent and then sees the lock backs off for one poll. |
+| 6 | yes | `stated` exports `FLOW_SCRATCH` (its first snapshot's root); a nested process makes its snapshots inside it, so the top's drop removes them, and a SIGKILLed child's scratch goes with its parent's. SIGHUP joins SIGINT and SIGTERM. |
+| 7 | yes | Decision `closed` (from the abort reason) is its own cause, `unknown: closed, its parent ended`. |
+| 8 | yes | `killed(decided, sentToLive, signal)`: the watchdog records whether the child was still running when it sent SIGKILL; a signal status from anything else is `signal`, unknown. |
+| 9 | kept, by the design | gates.ts keeps `max(2 × peakMb, 3000)` (design 4.4, "existing"), so a job's memory kill is a fail with cause memory, as finding 11 kept. The near band exists where the reference is the control's peak or null (mutants, controls). |
+| 10 | yes | `resourceErrno` looks through `cause` and `AggregateError.errors`. A case that throws one is a `machine` item (unknown), not a case FAIL, so an EMFILE inside a case is unknown at every level. |
+| 11 | yes | `ps` failures are contained (`table()` returns null, the poll skips the memory reading; time still bounds the run). |
+| 12 | yes | The collector counts `VERDICT ` line starts as bytes pass (`Stream.marks`), so a second line in the dropped middle reads `duplicate`; `describe` shows dropped bytes. Plant: duplicate in the dropped middle. |
+| 13 | yes | `stated` writes `"\n"` before the VERDICT line. |
+| 14 | yes | `verdicts/core.ts` (no dependencies): `MARK`, `EXIT`, `ALWAYS_JUDGED`, `MACHINE_ERRNOS`, `outcomeOfCore`, `resourceErrno`; verdict.ts and state.ts import it. |
+| 15 | changed, not as asked | With nothing of the judged kinds scored, `expect` is a **fail** for either `want` ("nothing of the judged kinds was scored"), never a pass. Not unknown: the child finished and stated; nothing the machine did. |
+| 16 | yes | falsify pins what `odd` and `session` reach on the real runtime: 4000 states, perDepth [1,22,200,1260] and [1,16,133,818] (measured alone, workmax run). |
+| 17 | yes | mutate-one: a search item passes on its pinned verdict, fails (a kill) only on `failed` or `vacuous`; any other mismatch is a noted `search-budget` item. Measured in process, alone: `--search-only` store 3000 states inconclusive (15 s with queue), queue **fails on the real runtime** (`(j) a late turn … rule 15`, the same on c73ad862: pre-existing, not a gate), bare inconclusive 7.0 s; `--search` directed completed at 5969 states 33.6 s, chain failed (the known `chain` red), whole `--serial --search` 89 s alone, so `MUTANT_SEARCH.seconds` 270. |
+| 18 | yes | E16 (below). |
+| 19 | partly | `read.replay` is wrapped (`call`), but replay re-runs the runtime's own log and spends no fake work, so a loop inside it is U1 (time, unknown). `WORK_PER_CALL` was measured on the real runtime only; a mutant needing more work per call than 100 000 reads red (FAIL by the bound), never silent. |
+| 20 | yes | One place: `SCRIPT` and `PROGRAM` in limits.ts, measured alone (checks 36-330 MB, tsc 264-275 MB, CLI pins 106-137 MB, flow CLI children under 100 MB); gates.ts reads them. |
+| S1 leftovers | stated | `checks/types-check.ts` and `cli/main.ts` read tsc's and `flow`'s output only through `programOutput` (programs under test; reader-check allows a file that uses it). `round-14/j-named.ts` (a round-9 measurement, not runnable on round 14) and `bench/*` (benchmarks) are not gates and not scanned. falsify's watchdog part tests `spawnRun` itself (`decided`, `killed`, `pgrep` exit status). gates.ts, mutate.ts and lifetime-falsify read `run.kind`, `ms` and `peakMb` only for evidence and files, never for an outcome. |
+
+Undocumented deviations, now stated: `FLOW_LIMIT_MB` (a child's own kill limit, so its runner can check `parentLimitHolds`) and `OWN_MB` 300 (a parent's own share); an alone attempt is started only when `max(30, 3 × aloneS)` seconds of budget are left (an upper bound of its limit, since the spec is known only after `open`); `programOutput` returns stderr too (the pins read `flow`'s stderr JSON); two search expectation tables (falsify's `SEARCH_EXPECT`/`SEARCH_REACH` for search/run.ts children, mutate-one's `SEARCH_EXPECT` for its in-process searches), each measured on the real runtime.
+
+E16 (new, a correction class): a child that ends with no answer and no throw (a `process.exit` inside the code under test, a crash by signal) is unknown, not "killed by crash". A throw at load or in a case is still `threw`, a kill (D132 kept for throws).

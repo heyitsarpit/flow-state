@@ -1795,6 +1795,7 @@ export const makeHarness = (port: Port) => (): Harness => {
     };
   const stored = reads.stored;
   reads.stored = call(stored);
+  reads.replay = call(reads.replay);
   const h: Harness = {
     start(cfg) {
       fake = new FakeWorld(cfg.seed, cfg.machines.find((m) => m.server)?.server);

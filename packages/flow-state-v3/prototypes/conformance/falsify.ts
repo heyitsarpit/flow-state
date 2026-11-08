@@ -5,9 +5,13 @@ import { basename, dirname, join, resolve } from "node:path";
 import { stated } from "./verdicts/state.ts";
 
 const SEARCH_EXPECT: Readonly<Record<string, string>> = { odd: "inconclusive", session: "inconclusive" };
+const SEARCH_REACH: Readonly<Record<string, { states: number; perDepth: readonly number[] }>> = {
+  odd: { states: 4000, perDepth: [1, 22, 200, 1260] },
+  session: { states: 4000, perDepth: [1, 16, 133, 818] },
+};
 
 await stated("falsify", async (scope) => {
-const { SCRIPT, SEARCH, SUITE } = await import("./limits.ts");
+const { MACHINE_MB, SCRIPT, SEARCH, SUITE } = await import("./limits.ts");
 const { describe, outcome } = await import("./verdicts/read.ts");
 const { final, job } = await import("./verdicts/runner.ts");
 const { applyEdits, check, copyOf } = await import("./verdicts/snapshot.ts");
@@ -42,7 +46,7 @@ const say = (ok: boolean, what: string, detail = "", from: readonly Reading[] = 
   if (!ok) bad.push(what);
   items.push({ kind: "check", name: what, outcome: ok ? "pass" : "fail", why: ok ? "" : detail.slice(0, 300) });
 };
-const runner = scope.runner({ slots: parallel, mb: parallel * SUITE.size.peakMb, budgetS: null });
+const runner = scope.runner({ slots: parallel, mb: Math.min(MACHINE_MB, parallel * SUITE.limits.mb), budgetS: null });
 const run = async (gate: string, cmd: string[], env: Record<string, string> = {}, cwd = here, b = SUITE) =>
   final(await runner.run(job(`${gate} ${cmd.slice(1, 4).join(" ")}`, { gate, cmd, cwd, env, limits: b.limits, contract: "gate" }, b.size)));
 const scored = (r: Reading) => (r.answer === "stated" ? r.verdict.items.filter(isScored) : []);
@@ -124,7 +128,12 @@ if (part("search")) for (const w of quick ? SEARCHES.slice(0, 3) : SEARCHES) {
   const dead = searchOf(real)?.deadActions?.join(" ");
   // Known to fail, for entities: H2's class, on rounds 7 to 9 (RESULTS). It must go on failing for that reason until entities answer it.
   if (w === "listen.load") say(searchOf(real)?.verdict === "failed" && (searchOf(real)?.failure ?? "").includes("silently wrong"), "search listen.load: fails as known, H2's class", "", [real]);
-  else say(real.answer === "stated" && outcome(real) === "pass", `search ${w}: green on the real runtime`, `${searchOf(real)?.verdict ?? tally(real)}${dead ? ` dead: ${dead}` : ""}`, [real]);
+  else {
+    const reach = SEARCH_REACH[w];
+    const got = searchOf(real) as { states?: number; perDepth?: readonly number[] } | undefined;
+    const reached = reach === undefined || (got?.states === reach.states && JSON.stringify(got?.perDepth) === JSON.stringify(reach.perDepth));
+    say(real.answer === "stated" && outcome(real) === "pass" && reached, `search ${w}: green on the real runtime`, `${searchOf(real)?.verdict ?? tally(real)}${dead ? ` dead: ${dead}` : ""}${reached ? "" : `, reached ${got?.states} states ${JSON.stringify(got?.perDepth)}, pinned ${JSON.stringify(reach)}`}`, [real]);
+  }
 }
 
 // ── Gates by tampering a copy: compare, the lock, the log. Each copy is of one snapshot taken here.

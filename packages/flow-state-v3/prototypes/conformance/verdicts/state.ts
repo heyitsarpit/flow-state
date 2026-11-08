@@ -1,3 +1,4 @@
+import { EXIT, MACHINE_ERRNOS, MARK, outcomeOfCore, resourceErrno } from "./core.ts";
 import type { Pool, Runner } from "./runner.ts";
 import type { Snapshot } from "./snapshot.ts";
 import type { Item } from "./verdict.ts";
@@ -6,30 +7,19 @@ export type Scope = {
   readonly runner: (top: Pool) => Runner;
   readonly snapshot: (sources: readonly string[], context?: readonly string[]) => Snapshot;
 };
-export const MACHINE_ERRNOS: readonly string[] = ["EMFILE", "ENFILE", "ENOSPC", "EAGAIN", "ENOMEM", "EBUSY"];
+export { MACHINE_ERRNOS };
 
-const MARK = "VERDICT ";
-const EXIT = { pass: 0, fail: 1, unknown: 2 } as const;
-
-const outcomeOf = (items: readonly Item[]): keyof typeof EXIT => {
-  const s = items.filter((i): i is Extract<Item, { outcome: unknown }> => "outcome" in i);
-  if (s.length === 0 || s.some((i) => i.outcome === "fail")) return "fail";
-  return s.some((i) => i.outcome === "unknown") ? "unknown" : "pass";
-};
-
-const thrown = (e: unknown): Item => {
-  const code = (e as { code?: unknown } | null)?.code;
+export const thrownItem = (e: unknown, name = "threw"): Item => {
   const message = e instanceof Error ? (e.stack ?? e.message).split("\n").slice(0, 4).join(" | ") : String(e);
-  return typeof code === "string" && MACHINE_ERRNOS.includes(code)
-    ? { kind: "machine", name: code, outcome: "unknown", why: `the machine: ${message}` }
-    : { kind: "threw", name: "threw", outcome: "fail", why: message };
+  const code = resourceErrno(e);
+  return code !== undefined ? { kind: "machine", name: name === "threw" ? code : name, outcome: "unknown", why: `the machine (${code}): ${message}` } : { kind: "threw", name, outcome: "fail", why: message };
 };
 
 export const checkItems = (name: string, bad: readonly string[]): readonly Item[] =>
   bad.length === 0 ? [{ kind: "check", name, outcome: "pass", why: "" }] : bad.map((b) => ({ kind: "check", name, outcome: "fail", why: b }));
 
-const flushed =(s: NodeJS.WriteStream, text: string) => new Promise<void>((resolve) => s.write(text, () => resolve()));
-const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const flushed = (s: NodeJS.WriteStream, text: string) => new Promise<void>((resolve) => s.write(text, () => resolve()));
+const COPY = /\/[^\s"'(]*?(?:\/flow-snap-[A-Za-z0-9]+)+\/(?:c-\d+-\d+|pristine)/g;
 
 export const stated = async (gate: string, body: (scope: Scope) => Promise<readonly Item[]>): Promise<never> => {
   const run = process.env["FLOW_RUN"] ?? "top";
@@ -43,29 +33,24 @@ export const stated = async (gate: string, body: (scope: Scope) => Promise<reado
     const { dropSnapshot } = await import("./snapshot.ts");
     for (const s of snaps.splice(0)) dropSnapshot(s);
   };
-  const roots: string[] = [];
-  const normalise = (items: readonly Item[]): readonly Item[] => {
-    if (roots.length === 0) return items;
-    const re = new RegExp(roots.map((r) => `${escape(r)}/[^/\\s"]+`).join("|"), "g");
-    return JSON.parse(JSON.stringify(items).replace(re, "<copy>")) as readonly Item[];
-  };
+  const normalise = (items: readonly Item[]): readonly Item[] => JSON.parse(JSON.stringify(items).replace(COPY, "<copy>")) as readonly Item[];
   const write = async (items: readonly Item[]): Promise<never> => {
     finished = true;
     const v = { gate, run, items: normalise(items) };
     await flushed(process.stderr, "");
     await flushed(process.stdout, "");
-    await flushed(process.stdout, `${MARK}${JSON.stringify(v)}\n`);
-    process.exit(EXIT[outcomeOf(v.items)]);
+    await flushed(process.stdout, `\n${MARK}${JSON.stringify(v)}\n`);
+    process.exit(EXIT[outcomeOfCore(v.items)]);
   };
   const interrupted = (signal: string) => async () => {
     if (finished) return;
+    finished = true;
     try {
       await tidy();
     } catch {}
     await write([{ kind: "machine", name: "interrupted", outcome: "unknown", why: `interrupted by ${signal}` }]);
   };
-  process.on("SIGINT", interrupted("SIGINT"));
-  process.on("SIGTERM", interrupted("SIGTERM"));
+  for (const s of ["SIGINT", "SIGTERM", "SIGHUP"] as const) process.on(s, interrupted(s));
   let items: readonly Item[];
   try {
     const { makeRunner } = await import("./runner.ts");
@@ -86,18 +71,19 @@ export const stated = async (gate: string, body: (scope: Scope) => Promise<reado
       snapshot: (sources, context) => {
         const s = snapshot(sources, context);
         snaps.push(s);
-        roots.push(s.root);
+        process.env["FLOW_SCRATCH"] ??= s.root;
         return s;
       },
     };
     items = await body(live);
   } catch (e) {
-    items = [thrown(e)];
+    items = [thrownItem(e)];
   }
   try {
     await tidy();
   } catch (e) {
-    items = [...items, thrown(e)];
+    items = [...items, thrownItem(e)];
   }
+  if (finished) return new Promise<never>(() => {});
   return write(items);
 };

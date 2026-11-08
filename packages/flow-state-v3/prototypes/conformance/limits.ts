@@ -8,8 +8,9 @@ export const PROGRAM: Budget = { limits: { mb: 600, seconds: 150 }, size: { slot
 export const SUITE_PARENT: Budget = { limits: { mb: 3200, seconds: 240 }, size: SUITE.size };
 export const SEARCH: Budget = { limits: { mb: 1200, seconds: 120 }, size: { slots: 1, peakMb: 300, aloneS: 40 } };
 export const MUTANT: Limits = { mb: 3500, seconds: 240 };
-export const MUTANT_SEARCH: Limits = { mb: 3500, seconds: 420 };
+export const MUTANT_SEARCH: Limits = { mb: 3500, seconds: 270 };
 export const WORK_PER_CALL = 100_000;
+export const MACHINE_MB = 16_000;
 export const CATALOG_CONTEXT: readonly string[] = [
   "../SCENARIOS.md",
   ...Array.from({ length: 8 }, (_, k) => `../convergence-${k + 1}.md`),
