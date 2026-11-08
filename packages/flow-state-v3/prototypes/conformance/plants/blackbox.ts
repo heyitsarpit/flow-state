@@ -86,7 +86,7 @@ const PLANTS: readonly Plant[] = [
   {
     id: "B8b",
     edits: [[`${P}/round-14/adapter.ts`, "boot(a: BootArgs): Instance {", "boot(a: BootArgs): Instance { { const __tick = () => void a.host.setTimer(a.host.now(), __tick); __tick(); }"]],
-    cmd: SUITE1("PAY-01"),
+    cmd: SUITE1("LIFE-02"),
     seconds: 120,
     lines: /^(PASS|FAIL)\s/,
     expect: { old: [/^exit 142$/m], new: [/did not quiesce in 100000 work units/, /^exit 1$/m] },
@@ -127,7 +127,7 @@ const PLANTS: readonly Plant[] = [
     seconds: LONG,
     lines: /MIDRUN-PLANT|^(ok|BAD|UNKN)\s/,
     midEdit: { after: /control: \d+ pass/, edit: [`${P}/round-14/adapter.ts`, adapterImport, `${adapterImport} throw new Error("MIDRUN-PLANT");`] },
-    expect: { old: [/MIDRUN-PLANT/], new: [not(/MIDRUN-PLANT/), /^exit 0$/m] },
+    expect: { old: [/^BAD\s+life\.no-grace \(rule:73\): 0 red/m, /^BAD\s+life\.grace-never-ends \(rule:73\): 0 red/m], new: [/^ok\s+life\.no-grace/m, /^ok\s+life\.grace-never-ends/m, not(/MIDRUN-PLANT/)] },
   },
   { id: "B17", edits: [[`${P}/round-14/adapter.ts`, "if (same !== (JSON.stringify(canon(x)) === JSON.stringify(canon(y)))) {", "if (true) {"]], cmd: GATES("suite canon"), seconds: LONG, lines: /^(ok|BAD|UNKN)\s+suite canon|^GATES/, expect: { old: [/GATES\s+0\/0/, /^exit 0$/m], new: [/^BAD\s+suite canon/m] } },
   { id: "B18", edits: [[`${P}/round-14/checks/score-check.ts`, scoreTop, `process.exit(0);\n${scoreTop}`]], cmd: GATES("checks/score"), seconds: 200, lines: /^(ok|BAD|UNKN)\s+checks\/score|^GATES/, expect: { old: [/^ok\s+checks\/score/m], new: [/^UNKN.*silent/m] } },
