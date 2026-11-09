@@ -1,6 +1,6 @@
 epic         V3
 title        Flow State v3 production
-status       draft
+status       active
 description
     **Goal:** "production code for Flow State v3 at high quality, with good error messages and the
     correctness guarantees the prototypes proved, plus example apps and generated documentation"
@@ -573,3 +573,5 @@ note 2026-11-09T14:11:00Z
     - P3 has 20 rounds left for about 40 oracle modules;
     - the Plans are agent-merged and unread (status proposed), and P4 and P5 build on them;
     - 20 decisions wait for the user's read, and overruling one late costs rework.
+note 2026-11-09T16:13:13Z
+    The user approved the Epic and its loop ("yes i approve", 2026-11-09); status active. The old roadmap folder is retired (last commit holding it: 7e8dd34e). Weekly usage is 94 percent against the 95 percent stop, so no building lead starts before the weekly reset (2026-11-13 22:00 UTC); the first Task is T4.
