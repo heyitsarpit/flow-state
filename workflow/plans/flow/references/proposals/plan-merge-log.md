@@ -204,3 +204,46 @@ Conflicts:
 Prototype check (S2): not built in the prototype, kept as contract: `NotAdopted` and the ending phase (`stopped`
 input), LIFE-19/20/25/26, `IdentityFieldOptional`, the read-only input pin, the context half of
 `ConflictingActorRef`. The prototype's per-door default evaluation and the B1 repair bound do not touch Runtime.
+
+## Persistence
+
+Rows merged: fragments row (Persistence O2), P5, P15, P19 (cut), C17, C23, C44-C48, C60-C62, C85, C86, C93-C95,
+C106, C120, C128, C130, C131, C135, C142, C144, C151, C152, C154, C155, C159-C161, C167, C168, C173-C176, C178,
+C179, C181, C200, C202, C210-C214.
+
+| # | Outcome | Before | After | Decision |
+| --- | --- | --- | --- | --- |
+| P-1 | goal | "within one app, scope and version" | "within one app and scope" | C211 |
+| P-2 | O1 | `persistence?: { version }`; "version is a required nonempty string and matches exactly" | no app-wide or manual version; per-record checks | C211 (the user's Q1 A) |
+| P-3 | O2 | `actorRef(machine, id, { persist: true })` | `definition({ id, persist: true })`, default false; local actors never persist | C120; C160; C175 |
+| P-4 | O2 | "pending writes follow their actor"; stream `persist` | lane records (contents, raw parked endings, pending mapped outcomes); bookmark partition | C17; C44; C60; C86; C93 |
+| P-5 | O2 | survive list | adds keyed timers, history, resumable slices, `.each` copies, reset values, identity encoding, canonical key text | fragments row; P5; C60; C142; C144 |
+| P-6 | O3 | disposed actors disappear; retain-expired record; bound rejects without eviction; coalescing | lanes in captures; end-step encoding; drop fresh-start records first; 5 s interval and immediate lane batches; store contract; `StorageSilent`; frozen page; ids never repeat; record formats; forget; resets keep writes | C45; C61; C106; C131; C159; C168; C173; C176; C178; C202; C210; C212 |
+| P-7 | O4 | restored actors active; ensure ignores input; retain clock | records stay records until reached, owed identities restored live | C106; C120; C144 |
+| P-8 | O4 | saved outcomes delivered in saved order | pending reset first; per lane: parked endings, `NotSent { Restored }`, then `unknown { Restored }`; parked ending restores as itself; kill before the first batch | C46; C62; C128; C151; C167; C179 |
+| P-9 | O4 | stream restore sentences | latest and every restore rows | C94 |
+| P-10 | O5 | `RestoreDiscarded`; no partial restore; undeclared machine id; dormant record discard | per-record restore; formats; quarantine; overwrite at first save (the runner's ruling); partitions; versions; old-version records and lanes; saved-shape resets; `FieldDropped`; lane quarantine; renames; boot queue | C47; C95; C120; C135; C143; C152; C154; C155; C161; C174; C181; C210-C214 |
+| P-11 | O6 | ack before invocation; failed ack via interrupt; crash restores unknown; `retry(attempt)` | one Attempt; once per Attempt per lane record, one batch with the turn; `StorageRefused`; `unknown { Restored }` or the parked ending; `retry(k?)`; `basedOn` | P15; C17; C23; C48; C128; C167; C200 |
+| P-12 | O7 | lock "independent of version" | back-forward cache rule; `NoPersistence`; cancel capture order | C85; C130; C131; C211 |
+| P-13 | V3, V4, V6, V7, V9 | verification lines | extended to the merged contract | follows P-1 to P-12 |
+
+Counts: 13 edits; 33 superseded sentences marked (O1: 2, O2: 4, O3: 6, O4: 7, O5: 7, O6: 4, O7: 1, plus additions
+noted).
+
+Conflicts:
+- **PC1, agent-judged, applied.** C47 discards a removed machine's actor records "with that machine id's lane
+  records, as evidence"; C152 (the user's U4, OD48, later) quarantines a lane "whose operation is gone", keeping its
+  hold, and OD50 Q1 A says nothing but its owner's cancel drops a hold (OD51 adds `HoldForgotten` at `forget`).
+  Recommended: the actor records are discarded with a diagnostic, and the lane records are quarantined as lanes whose
+  operation is gone, because a removed machine's operations are gone and the later user decision covers the case.
+  Judge: the runner (a reading of the user's U4; no new guarantee). Reversible: one sentence.
+- **PC2, agent-judged, applied.** The plan's dormant-record rule ("discards only that record ... the feature opens
+  fresh") is replaced by the undecodable-record quarantine (R14 D7, C143) for consistency with every other record.
+  Judge: the runner. Reversible: one sentence (also LazyFeatures O3).
+- **PC3, for the user's read (already listed as call 13 in progress.md).** O5 states the runner's ruling that any
+  structural Schema change to a stored field resets the record (OD54 (9), Q19), with its price. Not a new conflict;
+  marked as the runner's ruling in the plan.
+
+Prototype check (S2): the per-record reset, record formats 1-4, `FieldDropped`, `HoldWithoutRecord`, re-keying and
+`OpRenamed` are built (OD54) and merged. Not built, kept as contract: the restored quiet mark's fields (rule 38), the
+crash between two moves of a rename. Migration runs only against Flow's record in the fake store (carried to phase 3).
