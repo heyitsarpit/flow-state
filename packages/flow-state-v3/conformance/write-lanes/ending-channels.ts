@@ -7,7 +7,7 @@ import {
 } from "../fixtures/reference.ts";
 import { Observation } from "../port.ts";
 import { Answer, type Request, RequestPhase } from "../world/network.ts";
-import { Fact, type Facts, type Oracle, steps } from "./oracle.ts";
+import { Fact, type Facts, type Oracle, steps } from "../dsl/oracle.ts";
 
 type Ended = Extract<Observation, { readonly _tag: "Ended" }>;
 
@@ -274,8 +274,8 @@ const endedAsAnswered = (facts: Facts) => {
  * - An ending must come in the step its answer came; one in a later step is reported missing.
  * - Declines carry no Attempt id and are paired with deliveries in order per operation.
  */
-export const threeChannels: Oracle = {
-  name: "three-channels",
+export const endingChannels: Oracle = {
+  name: "ending-channels",
   guarantee: "WriteLanes I3",
   check: (facts: Facts) => [
     ...endedAsAnswered(facts),

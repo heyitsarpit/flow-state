@@ -1,4 +1,4 @@
-import type { Lie } from "./oracle.ts";
+import type { Mutant } from "../dsl/oracle.ts";
 
 const lane = (find: string, replace: string) => [{ file: "lane.ts", find, replace }];
 
@@ -6,12 +6,12 @@ const CANCEL_ALL =
   '  setLane(tx, cleared);\n  cell(tx, "cancel", cleared, a);\n  for (const x of queued) {';
 
 /**
- * Wrong runtimes the lane-cells oracle must catch: each edits one cell of the prototype's lane
+ * Wrong runtimes the lane-queue oracle must catch: each edits one cell of the prototype's lane
  * table.
  *
  * **Details**
  *
- * The names that match the prototype suite's lies and wrong runtimes are the same edits, so the
+ * The names that match the prototype suite's mutants and wrong runtimes are the same edits, so the
  * two suites' verdicts compare: `lie.serialize-as-latest`, `lane.queue-unbounded`,
  * `1b.cancel-all-queue-reversed`, `1b.cancel-all-promotes-before-emptying`,
  * `1b.cancel-all-wire-held-at-once`, `audit-1.cancel-all-leaves-the-head` and
@@ -20,7 +20,7 @@ const CANCEL_ALL =
  * (R8), `lane.cancel-held-keeps` (R14), `lane.cancel-wire-as-never-sent` (R14, I20) and
  * `lane.held-auto-resend`.
  */
-export const laneCellsLies: ReadonlyArray<Lie> = [
+export const laneQueueMutants: ReadonlyArray<Mutant> = [
   {
     name: "lie.serialize-as-latest",
     says: "a serialize commit supersedes the queued ones, as latest does",

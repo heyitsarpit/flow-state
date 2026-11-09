@@ -47,7 +47,7 @@ const toResend = (c: Case) => {
 /**
  * The Pay case `PAY-16`'s variants, ported from the prototype suite.
  */
-export const pay16Scenarios: ReadonlyArray<Scenario> = [
+export const paymentRetryScenarios: ReadonlyArray<Scenario> = [
   ...variants(
     {
       id: "PAY-16",

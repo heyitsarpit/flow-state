@@ -1,4 +1,4 @@
-import type { Lie } from "./oracle.ts";
+import type { Mutant } from "../dsl/oracle.ts";
 
 const SEND = "      input: h.input,\n      ctx: { id: h.id, mayHaveApplied: h.mayHaveApplied },";
 
@@ -11,9 +11,9 @@ const SEND = "      input: h.input,\n      ctx: { id: h.id, mayHaveApplied: h.ma
  * input; the third edits the report of an invoke, which names another operation than the one
  * the Attempt was minted under.
  */
-export const attemptIdentityLies: ReadonlyArray<Lie> = [
+export const attemptIdentityMutants: ReadonlyArray<Mutant> = [
   {
-    name: "lie.resend-new-id",
+    name: "mutant.resend-new-id",
     says: "a re-send gives its commit a new id while reporting the Attempt's own",
     runtime: "prototype",
     cases: ["PAY-04"],
@@ -27,7 +27,7 @@ export const attemptIdentityLies: ReadonlyArray<Lie> = [
     ],
   },
   {
-    name: "lie.resend-new-input",
+    name: "mutant.resend-new-input",
     says: "a re-send carries another input under the same id",
     runtime: "prototype",
     cases: ["PAY-04"],
@@ -41,7 +41,7 @@ export const attemptIdentityLies: ReadonlyArray<Lie> = [
     ],
   },
   {
-    name: "lie.sent-under-another-operation",
+    name: "mutant.sent-under-another-operation",
     says: "an invoke of a pay Attempt is reported under the place operation",
     runtime: "prototype",
     cases: ["PAY-01"],

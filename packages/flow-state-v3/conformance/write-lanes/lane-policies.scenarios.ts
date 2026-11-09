@@ -2,7 +2,7 @@ import { Option } from "effect";
 import type { Actor } from "../dsl/actor.ts";
 import type { Case, Scenario } from "../dsl/case.ts";
 import { Cells } from "../fixtures/pay.ts";
-import { Cancel, Latest, Serialize } from "../fixtures/lab.ts";
+import { Cancel, Latest, Serialize } from "../fixtures/one-lane.ts";
 import { Observation } from "../port.ts";
 import { Answer } from "../world/network.ts";
 
@@ -52,16 +52,16 @@ const serialize = (id: string, cites: ReadonlyArray<string>, run: Scenario["run"
 
 /**
  * The lane cases: one per cell of WriteLanes' table that the Pay cases do not reach, on one-lane
- * lab machines under `serialize`, `latest` and `cancel`, and on Pay with its `AbortPay` cancel.
+ * machines under `serialize`, `latest` and `cancel`, and on Pay with its `AbortPay` cancel.
  *
  * **Details**
  *
- * Each case's expectations come from the Requirement it cites; the `lane-cells` oracle checks the
+ * Each case's expectations come from the Requirement it cites; the `lane-queue` oracle checks the
  * cells of unkeyed lanes after every step. `LANE-01` to `LANE-05` and `LANE-10` run `serialize`
  * (`Lab/P1All`, whose `All` runs `cancelAll`), `LANE-06` `latest`, `LANE-07` `cancel`. `LANE-08`
  * and `LANE-09` cancel Pay's keyed write by its history, checked by their own expectations only.
  */
-export const laneScenarios: ReadonlyArray<Scenario> = [
+export const lanePoliciesScenarios: ReadonlyArray<Scenario> = [
   serialize("LANE-01", ["WriteLanes R7", "WriteLanes R8"], (c) => {
     const a = serial(c);
     a.ensure();

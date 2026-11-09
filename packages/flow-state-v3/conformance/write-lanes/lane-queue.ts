@@ -1,7 +1,7 @@
 import { Option } from "effect";
 import type { OperationReference, Reference } from "../fixtures/reference.ts";
 import { type ActorRef, Observation, sameActor, sameJson } from "../port.ts";
-import { Fact, type Facts, type Oracle, steps } from "./oracle.ts";
+import { Fact, type Facts, type Oracle, steps } from "../dsl/oracle.ts";
 
 type Phase = "queued" | "waiting" | "wire" | "held" | "replaced";
 
@@ -535,8 +535,8 @@ const judgeStep = (model: Model, facts: Facts, step: ReadonlyArray<Fact>, at: nu
  *   the restore oracle's. An Attempt known from before rejoins its lane as the head, when a report
  *   names it again and the lane has none.
  */
-export const laneCells: Oracle = {
-  name: "lane-cells",
+export const laneQueue: Oracle = {
+  name: "lane-queue",
   guarantee: "WriteLanes I8, I9, I11, I12, I20, I21",
   check: (facts: Facts) => {
     const model = fresh();

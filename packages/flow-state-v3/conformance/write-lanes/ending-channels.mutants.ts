@@ -1,17 +1,17 @@
-import type { Lie } from "./oracle.ts";
+import type { Mutant } from "../dsl/oracle.ts";
 
 /**
- * Wrong runtimes the three-channels oracle must catch.
+ * Wrong runtimes the ending-channels oracle must catch.
  *
  * **Details**
  *
- * - `lie.ending-without-id`: a send's ending names no Attempt, so the answered send has none.
+ * - `mutant.ending-without-id`: a send's ending names no Attempt, so the answered send has none.
  * - `k.failure-as-success`: a failure ending runs the success event.
- * - `lie.still-unknown-dropped`: a definite failure after an unknown send stays a failure.
+ * - `mutant.still-unknown-dropped`: a definite failure after an unknown send stays a failure.
  */
-export const threeChannelsLies: ReadonlyArray<Lie> = [
+export const endingChannelsMutants: ReadonlyArray<Mutant> = [
   {
-    name: "lie.ending-without-id",
+    name: "mutant.ending-without-id",
     says: "a send's ending is reported with no Attempt id",
     runtime: "prototype",
     cases: ["PAY-01"],
@@ -38,7 +38,7 @@ export const threeChannelsLies: ReadonlyArray<Lie> = [
     ],
   },
   {
-    name: "lie.still-unknown-dropped",
+    name: "mutant.still-unknown-dropped",
     says: "a definite failure after an unknown send is delivered as a failure, not unknown StillUnknown",
     runtime: "prototype",
     cases: ["PAY-05"],

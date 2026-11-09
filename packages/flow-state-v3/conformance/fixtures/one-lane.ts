@@ -4,7 +4,7 @@ import { type CancelsOf, type Concurrency, classifyWith } from "./reference.ts";
 
 const Unkeyed = Empty;
 
-const labWrite = <C extends Concurrency>(concurrency: C, cancels: CancelsOf<string>) =>
+const oneLaneWrite = <C extends Concurrency>(concurrency: C, cancels: CancelsOf<string>) =>
   writeOf(Unkeyed, {
     attempts: true,
     concurrency,
@@ -30,7 +30,7 @@ export const Serialize = {
   input: Empty,
   states: ["A"] as const,
   operations: {
-    put: labWrite("serialize", {
+    put: oneLaneWrite("serialize", {
       All: "cancelAll",
     } satisfies CancelsOf<keyof typeof serializeEvents>),
   },
@@ -47,7 +47,7 @@ export const Latest = {
   memory: Schema.Struct({}),
   input: Empty,
   states: ["A"] as const,
-  operations: { search: labWrite("latest", {}) },
+  operations: { search: oneLaneWrite("latest", {}) },
 } satisfies Fixture;
 
 /**
@@ -61,5 +61,5 @@ export const Cancel = {
   memory: Schema.Struct({ retrying: Schema.Boolean, oks: Schema.Number }),
   input: Empty,
   states: ["A", "W"] as const,
-  operations: { search: labWrite("cancel", {}) },
+  operations: { search: oneLaneWrite("cancel", {}) },
 } satisfies Fixture;

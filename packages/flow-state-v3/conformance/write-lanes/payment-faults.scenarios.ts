@@ -33,9 +33,9 @@ const onWire = (c: Case) => {
 /**
  * The Pay cases `PAY-10` and `PAY-12`, ported from the prototype suite with the same steps and
  * expectations; the variants that need slot or module faults or the scheduler's shuffle are not
- * here, and `PAY-13` (Runtime disposal) is in `disposal.ts`.
+ * here, and `PAY-13` (Runtime disposal) is in `actors/runtime-disposal.scenarios.ts`.
  */
-export const pay1013Scenarios: ReadonlyArray<Scenario> = [
+export const paymentFaultsScenarios: ReadonlyArray<Scenario> = [
   ...variants(
     {
       id: "PAY-10",

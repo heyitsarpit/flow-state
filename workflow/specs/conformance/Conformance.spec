@@ -84,7 +84,7 @@ requirements
 
     R4  Reports anchored to suite facts
         source  README decision 3; the Oracle contract
-                (code:packages/flow-state-v3/conformance/oracles/oracle.ts#Oracle).
+                (code:packages/flow-state-v3/conformance/dsl/oracle.ts#Oracle).
         must    Every Observation is the runtime's claim. An oracle judges each report against a fact the
                 suite owns: what it drove, what its fake world received or answered, or a fixture's
                 hand-written reference. A check that only compares reports with each other says so in its
@@ -319,10 +319,10 @@ open
         outcome  Phase 3 writes the verdict-compare mode (README work list item 4).
 
     Q8  Failure of R2: the `three-channels` oracle accepts any value when a report is absent (`onNone: () => true`, 
-        code:packages/flow-state-v3/conformance/oracles/three-channels.ts#onNone), which can accept a value that
+        code:packages/flow-state-v3/conformance/write-lanes/ending-channels.ts#onNone), which can accept a value that
         contradicts its rule rather than only skipping a report the runtime does not make. Likewise, `lane-cells`
         accepts a Held head's re-send after any suite-driven turn of its actor
-        (code:packages/flow-state-v3/conformance/oracles/lane-cells.ts#permittedResend), so a re-send riding on an
+        (code:packages/flow-state-v3/conformance/write-lanes/lane-queue.ts#permittedResend), so a re-send riding on an
         unrelated driven event passes on every runtime, production included (README, the `lane-cells` limit).
         outcome  A later Task narrows each such branch to a skip that a stated limit names, or a strict check; for
                  `lane-cells`, a per-operation map of retrying events in the reference.

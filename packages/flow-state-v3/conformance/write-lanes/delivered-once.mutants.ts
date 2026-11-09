@@ -1,4 +1,4 @@
-import type { Lie } from "./oracle.ts";
+import type { Mutant } from "../dsl/oracle.ts";
 
 const ADMIT = "  const a = getActor(tx.w.actors, item.actor);\n  const lane = tx.w.lanes[laneId];";
 
@@ -23,7 +23,7 @@ const OTHER_ACTOR =
 const when = (condition: string, body: string) => `${ADMIT}\n  if (a && ${condition}) { ${body} }`;
 
 /**
- * Wrong runtimes the one-delivery oracle must catch: each edits how the prototype admits an
+ * Wrong runtimes the delivered-once oracle must catch: each edits how the prototype admits an
  * ending.
  *
  * **Details**
@@ -33,12 +33,12 @@ const when = (condition: string, body: string) => `${ADMIT}\n  if (a && ${condit
  * - `d154.moved-fail-released`: the same ending is said released and recorded as evidence.
  * - `lie.released`: an ending not taken while another actor has mail is released and recorded.
  * - `e8.wa-failure`: a failure ending runs in another live actor of the same machine.
- * - `lie.superseded-claimed`: a failure ending is reported Superseded and recorded as evidence
+ * - `mutant.superseded-claimed`: a failure ending is reported Superseded and recorded as evidence
  *   instead of delivered, under an operation no later commit replaces or interrupts.
- * - `lie.delivered-during-disposal`: an ending that settles during the Runtime's disposal is
+ * - `mutant.delivered-during-disposal`: an ending that settles during the Runtime's disposal is
  *   delivered to its actor instead of parked.
  */
-export const oneDeliveryLies: ReadonlyArray<Lie> = [
+export const deliveredOnceMutants: ReadonlyArray<Mutant> = [
   {
     name: "a2.deliv-fail-samemail",
     says: "an ending is said delivered while its actor has mail, and no turn runs it",
@@ -82,7 +82,7 @@ export const oneDeliveryLies: ReadonlyArray<Lie> = [
     edits: [{ file: "turn.ts", find: ADMIT, replace: OTHER_ACTOR }],
   },
   {
-    name: "lie.superseded-claimed",
+    name: "mutant.superseded-claimed",
     says: "a failure ending is reported Superseded and recorded as evidence instead of delivered",
     runtime: "prototype",
     cases: ["DLV-03"],
@@ -98,7 +98,7 @@ export const oneDeliveryLies: ReadonlyArray<Lie> = [
     ],
   },
   {
-    name: "lie.delivered-during-disposal",
+    name: "mutant.delivered-during-disposal",
     says: "an ending that settles during the Runtime's disposal is delivered instead of parked",
     runtime: "prototype",
     cases: ["PAY-16/settled-during-disposal-parked"],

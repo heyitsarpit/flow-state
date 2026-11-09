@@ -12,7 +12,7 @@ import {
 import type { Network } from "../world/network.ts";
 import type { Page } from "../world/page.ts";
 import { type Purpose, Write } from "../world/storage.ts";
-import { observationsOf } from "./prototype-reports.ts";
+import { observationsOf } from "./prototype-observations.ts";
 
 declare const CompiledBrand: unique symbol;
 

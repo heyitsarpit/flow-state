@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { nullPort } from "../adapters/null.ts";
 import { loadPrototype, prototypePort } from "../adapters/prototype.ts";
 import { guarantees, oracles, scenarios } from "../suite.ts";
-import { falsifyOne, LieVerdict, suiteIn } from "./falsify.ts";
+import { falsifyOne, MutantVerdict, suiteIn } from "./falsify.ts";
 import { runCases } from "./run.ts";
 import { type CaseVerdict, VERDICTS_LINE, VerdictsJson } from "./verdict.ts";
 
@@ -122,28 +122,28 @@ const falsify = (args: ReadonlyArray<string>) =>
   Effect.gen(function* () {
     const runtime = resolve(Option.getOrElse(flag(args, "--runtime"), () => DEFAULT_RUNTIME));
     const scratch = resolve(Option.getOrElse(flag(args, "--scratch"), () => tmpdir()));
-    const only = list(flag(args, "--lie"));
+    const only = list(flag(args, "--mutant"));
     const sweep = args.includes("--sweep");
 
     const runnable = guarantees.map((g) => ({
       oracle: g.oracle.name,
-      lies: g.lies.filter((l) => l.runtime === "prototype"),
+      mutants: g.mutants.filter((m) => m.runtime === "prototype"),
     }));
 
-    const unfalsified = runnable.filter((g) => g.lies.length === 0).map((g) => g.oracle);
+    const unfalsified = runnable.filter((g) => g.mutants.length === 0).map((g) => g.oracle);
 
     yield* Console.log(
-      `${unfalsified.length === 0 ? "ok  " : "BAD "} every oracle has a lie${unfalsified.length === 0 ? "" : `; none for: ${unfalsified.join(" ")}`}`,
+      `${unfalsified.length === 0 ? "ok  " : "BAD "} every oracle has a mutant${unfalsified.length === 0 ? "" : `; none for: ${unfalsified.join(" ")}`}`,
     );
 
     const chosen = runnable.flatMap((g) =>
-      g.lies
-        .filter((l) =>
-          Option.match(only, { onNone: () => true, onSome: (names) => names.includes(l.name) }),
+      g.mutants
+        .filter((m) =>
+          Option.match(only, { onNone: () => true, onSome: (names) => names.includes(m.name) }),
         )
-        .map((lie) => ({
+        .map((mutant) => ({
           oracle: g.oracle,
-          lie: sweep ? { ...lie, cases: scenarios.map((s) => s.id) } : lie,
+          mutant: sweep ? { ...mutant, cases: scenarios.map((s) => s.id) } : mutant,
         })),
     );
 
@@ -167,7 +167,9 @@ const falsify = (args: ReadonlyArray<string>) =>
 
     yield* Console.log(`${nullRed ? "ok  " : "BAD "} null runtime: every case states a failure`);
 
-    const control = yield* stated(runtime, [...new Set(chosen.flatMap(({ lie }) => lie.cases))]);
+    const control = yield* stated(runtime, [
+      ...new Set(chosen.flatMap(({ mutant }) => mutant.cases)),
+    ]);
 
     const controlGreen = Option.match(control, {
       onNone: () => false,
@@ -175,28 +177,28 @@ const falsify = (args: ReadonlyArray<string>) =>
     });
 
     yield* Console.log(
-      `${controlGreen ? "ok  " : "BAD "} control: the lies' cases pass on the unedited runtime`,
+      `${controlGreen ? "ok  " : "BAD "} control: the mutants' cases pass on the unedited runtime`,
     );
 
     const verdicts = yield* Effect.forEach(
       chosen,
-      ({ oracle, lie }) => falsifyOne(MAIN, runtime, scratch, oracle, lie),
+      ({ oracle, mutant }) => falsifyOne(MAIN, runtime, scratch, oracle, mutant),
       { concurrency: parallelOf(args) },
     );
 
     for (const v of verdicts)
       yield* Console.log(
-        LieVerdict.$match(v, {
-          Caught: ({ lie, why, red, caughtIn }) =>
-            `ok   ${lie}  caught: ${why}${sweep ? `\n     red ${red.length}: ${red.join(" ")}\n     by its oracle ${caughtIn.length}: ${caughtIn.join(" ")}` : ""}`,
-          WrongReason: ({ lie, why, red }) =>
-            `BAD  ${lie}  red by another check: ${why}${sweep ? `\n     red ${red.length}: ${red.join(" ")}` : ""}`,
-          Survived: ({ lie }) => `BAD  ${lie}  survived`,
-          NotApplied: ({ lie, why }) => `BAD  ${lie}  does not apply: ${why}`,
-          NoVerdict: ({ lie, why }) => `BAD  ${lie}  no verdict: ${why}`,
+        MutantVerdict.$match(v, {
+          Caught: ({ mutant, why, red, caughtIn }) =>
+            `ok   ${mutant}  caught: ${why}${sweep ? `\n     red ${red.length}: ${red.join(" ")}\n     by its oracle ${caughtIn.length}: ${caughtIn.join(" ")}` : ""}`,
+          WrongReason: ({ mutant, why, red }) =>
+            `BAD  ${mutant}  red by another check: ${why}${sweep ? `\n     red ${red.length}: ${red.join(" ")}` : ""}`,
+          Survived: ({ mutant }) => `BAD  ${mutant}  survived`,
+          NotApplied: ({ mutant, why }) => `BAD  ${mutant}  does not apply: ${why}`,
+          NoVerdict: ({ mutant, why }) => `BAD  ${mutant}  no verdict: ${why}`,
         }),
       );
-    const caught = verdicts.filter(LieVerdict.$is("Caught")).length;
+    const caught = verdicts.filter(MutantVerdict.$is("Caught")).length;
 
     const ok =
       unfalsified.length === 0 &&
@@ -205,7 +207,9 @@ const falsify = (args: ReadonlyArray<string>) =>
       caught === verdicts.length &&
       verdicts.length > 0;
 
-    yield* Console.log(`VERDICT ${ok ? "pass" : "fail"} ${caught}/${verdicts.length} lies caught`);
+    yield* Console.log(
+      `VERDICT ${ok ? "pass" : "fail"} ${caught}/${verdicts.length} mutants caught`,
+    );
 
     if (!ok) process.exitCode = 1;
   });
@@ -218,7 +222,7 @@ const main = (args: ReadonlyArray<string>) => {
   if (mode === "falsify") return falsify(rest);
 
   return Console.error(
-    "usage: bun conformance/runner/main.ts suite|falsify [--runtime DIR] [--only IDS] [--lie NAMES] [--parallel N]",
+    "usage: bun conformance/runner/main.ts suite|falsify [--runtime DIR] [--only IDS] [--mutant NAMES] [--parallel N]",
   ).pipe(
     Effect.andThen(
       Effect.sync(() => {

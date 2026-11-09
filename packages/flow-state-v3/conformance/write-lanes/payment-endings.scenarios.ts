@@ -48,7 +48,7 @@ const toResend = (c: Case) => {
  * The Pay cases of the first slice, ported from the prototype suite's `PAY-01` to `PAY-05` with
  * the same steps and expectations.
  */
-export const payScenarios: ReadonlyArray<Scenario> = [
+export const paymentEndingsScenarios: ReadonlyArray<Scenario> = [
   {
     id: "PAY-01",
     cites: ["WriteLanes R2", "WriteLanes R5", "WriteLanes R8", "WriteAhead R4"],

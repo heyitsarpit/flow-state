@@ -46,7 +46,7 @@ const sent = (c: Case, operation: string) => c.requests(operation).length;
  * - `PAY-15/dispose-held` runs on `cells`; the `PAY-16` variants on `pay`, whose steps do not use
  *   `cells`' `AbortPay`.
  */
-export const disposalScenarios: ReadonlyArray<Scenario> = [
+export const runtimeDisposalScenarios: ReadonlyArray<Scenario> = [
   ...variants(
     {
       id: "PAY-13",

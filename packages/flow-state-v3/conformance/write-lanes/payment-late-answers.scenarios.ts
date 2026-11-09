@@ -52,7 +52,7 @@ const serverIntent = (c: Case) =>
  *   intent before any re-send), not a Flow guarantee. The fake server never dedupes by key, so the
  *   pruned-key variant needs no pruning fault.
  */
-export const pay1720Scenarios: ReadonlyArray<Scenario> = [
+export const paymentLateAnswersScenarios: ReadonlyArray<Scenario> = [
   {
     id: "PAY-18",
     cites: ["WriteAhead R13", "WriteAhead R14"],

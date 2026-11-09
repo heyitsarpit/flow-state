@@ -56,7 +56,7 @@ export type Facts = {
  *
  * **When to use**
  *
- * Write one oracle module per guarantee, with its lies beside it in `<name>.lies.ts`.
+ * Write one oracle module per guarantee, with its mutants beside it in `<name>.mutants.ts`.
  *
  * **Details**
  *
@@ -80,17 +80,17 @@ export type Oracle = {
  *
  * **When to use**
  *
- * Beside each oracle, in `<name>.lies.ts`. Falsify copies the runtime, applies the edits and runs
+ * Beside each oracle, in `<name>.mutants.ts`. Falsify copies the runtime, applies the edits and runs
  * the cases.
  *
  * **Details**
  *
  * - `runtime`: which adapter's source the edits apply to.
- * - `edits`: each `find` must occur exactly once in its file, or the lie is reported as not
+ * - `edits`: each `find` must occur exactly once in its file, or the mutant is reported as not
  *   applying, never as caught.
  * - `says`: what the wrong runtime does, in one sentence.
  */
-export type Lie = {
+export type Mutant = {
   readonly name: string;
   readonly says: string;
   readonly runtime: "prototype" | "production";
@@ -103,14 +103,14 @@ export type Lie = {
 };
 
 /**
- * One guarantee as the suite runs it: its oracle and the lies that oracle must catch.
+ * One guarantee as the suite runs it: its oracle and the mutants that oracle must catch.
  *
  * **Gotchas**
  *
- * - Falsify fails a guarantee with no lie for the runtime it runs on: an oracle nothing can turn
+ * - Falsify fails a guarantee with no mutant for the runtime it runs on: an oracle nothing can turn
  *   red proves nothing.
  */
-export type Guarantee = { readonly oracle: Oracle; readonly lies: ReadonlyArray<Lie> };
+export type Guarantee = { readonly oracle: Oracle; readonly mutants: ReadonlyArray<Mutant> };
 
 /**
  * The observations of a timeline, in order.

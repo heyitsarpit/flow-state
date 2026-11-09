@@ -1,6 +1,6 @@
 import { Data, Equal, Option, type Schema } from "effect";
 import { type Fixture, referenceFor } from "../fixtures/fixture.ts";
-import { Fact, type Oracle, reported } from "../oracles/oracle.ts";
+import { Fact, type Oracle, reported } from "./oracle.ts";
 import {
   type ActorRef,
   type EvidenceKind,

@@ -1,7 +1,7 @@
 import { Option } from "effect";
 import { operationNamed, type OperationReference, type Reference } from "../fixtures/reference.ts";
 import { type ActorRef, Observation, sameActor } from "../port.ts";
-import { Fact, type Facts, type Oracle, steps } from "./oracle.ts";
+import { Fact, type Facts, type Oracle, steps } from "../dsl/oracle.ts";
 
 const DECLINE = "(decline)";
 
@@ -395,8 +395,8 @@ const ledgerOf = (facts: Facts) => {
  *   lookup) need the fragment fixtures; until then they read as violations.
  * - A parked ending still parked at the end of a case is not yet checked.
  */
-export const oneDelivery: Oracle = {
-  name: "one-delivery",
+export const deliveredOnce: Oracle = {
+  name: "delivered-once",
   guarantee: "WriteLanes I15, I16, I22",
   check: (facts: Facts) => ledgerOf(facts),
 };

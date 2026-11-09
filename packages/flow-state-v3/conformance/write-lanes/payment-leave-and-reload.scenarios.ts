@@ -52,7 +52,7 @@ const reloadOnWire = (c: Case) => {
  * The Pay cases `PAY-06` to `PAY-09`, ported from the prototype suite with the same steps and
  * expectations.
  */
-export const pay0609Scenarios: ReadonlyArray<Scenario> = [
+export const paymentLeaveAndReloadScenarios: ReadonlyArray<Scenario> = [
   ...variants(
     {
       id: "PAY-06",

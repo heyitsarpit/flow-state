@@ -2,7 +2,7 @@ import { Option } from "effect";
 import { operationNamed, type Reference } from "../fixtures/reference.ts";
 import { Observation, sameJson } from "../port.ts";
 import type { Request } from "../world/network.ts";
-import { Fact, type Facts, type Oracle, reported, steps } from "./oracle.ts";
+import { Fact, type Facts, type Oracle, reported, steps } from "../dsl/oracle.ts";
 
 type Sent = Extract<Observation, { readonly _tag: "Sent" }>;
 

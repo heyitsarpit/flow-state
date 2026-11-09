@@ -1,4 +1,4 @@
-import type { Fact } from "../oracles/oracle.ts";
+import type { Fact } from "./oracle.ts";
 
 /**
  * One case's timeline: every fact, in the order it happened.

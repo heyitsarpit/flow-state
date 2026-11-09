@@ -19,7 +19,7 @@ const restored = (c: Case) => c.endings("pay").filter((e) => e.reason === "Resto
  * owners follow from the Specs (an Attempt on the wire at a kill restores as `unknown Restored`,
  * once, to its own actor); the states and notice come from the Pay fixture's mapping.
  */
-export const deliveryScenarios: ReadonlyArray<Scenario> = [
+export const endingDeliveryScenarios: ReadonlyArray<Scenario> = [
   {
     id: "DLV-01",
     cites: ["WriteLanes R10", "WriteLanes I15", "Restore I6"],

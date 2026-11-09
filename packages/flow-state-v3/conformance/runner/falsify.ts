@@ -2,26 +2,31 @@
 import { Data, Effect, Option, Schema } from "effect";
 import { cpSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { basename, join, resolve } from "node:path";
-import type { Lie } from "../oracles/oracle.ts";
+import type { Mutant } from "../dsl/oracle.ts";
 import { type ChildFailed, runChild } from "./child.ts";
 import { type CaseVerdict, VERDICTS_LINE, VerdictsJson } from "./verdict.ts";
 
 /**
- * What became of one lie: caught by its oracle, red for another reason, green, or not run.
- * `red` lists every case the lie turned red; `caughtIn` those its own oracle named.
+ * What became of one mutant: caught by its oracle, red for another reason, green, or not run.
+ * `red` lists every case the mutant turned red; `caughtIn` those its own oracle named.
  */
-export type LieVerdict = Data.TaggedEnum<{
-  Caught: { lie: string; why: string; red: ReadonlyArray<string>; caughtIn: ReadonlyArray<string> };
-  WrongReason: { lie: string; why: string; red: ReadonlyArray<string> };
-  Survived: { lie: string };
-  NotApplied: { lie: string; why: string };
-  NoVerdict: { lie: string; why: string };
+export type MutantVerdict = Data.TaggedEnum<{
+  Caught: {
+    mutant: string;
+    why: string;
+    red: ReadonlyArray<string>;
+    caughtIn: ReadonlyArray<string>;
+  };
+  WrongReason: { mutant: string; why: string; red: ReadonlyArray<string> };
+  Survived: { mutant: string };
+  NotApplied: { mutant: string; why: string };
+  NoVerdict: { mutant: string; why: string };
 }>;
 
 /**
- * Constructors and matchers for {@link LieVerdict}.
+ * Constructors and matchers for {@link MutantVerdict}.
  */
-export const LieVerdict = Data.taggedEnum<LieVerdict>();
+export const MutantVerdict = Data.taggedEnum<MutantVerdict>();
 
 class Unapplied extends Data.TaggedError("Unapplied")<{ readonly why: string }> {}
 
@@ -36,7 +41,7 @@ const copyRuntime = (runtimeDir: string, scratch: string) =>
   Effect.acquireRelease(
     Effect.try({
       try: () => {
-        const root = mkdtempSync(join(scratch, "flow-lie-"));
+        const root = mkdtempSync(join(scratch, "flow-mutant-"));
         const prototypes = join(root, "prototypes");
         cpSync(runtimeDir, join(prototypes, basename(runtimeDir)), {
           recursive: true,
@@ -55,7 +60,7 @@ const copyRuntime = (runtimeDir: string, scratch: string) =>
     ({ root }) => Effect.sync(() => rmSync(root, { recursive: true, force: true })),
   );
 
-const applyEdit = (runtime: string, edit: Lie["edits"][number]) =>
+const applyEdit = (runtime: string, edit: Mutant["edits"][number]) =>
   Effect.try({
     try: () => {
       const path = join(runtime, edit.file);
@@ -79,8 +84,8 @@ const applyEdit = (runtime: string, edit: Lie["edits"][number]) =>
     ),
   );
 
-const applyEdits = (runtime: string, lie: Lie) =>
-  Effect.forEach(lie.edits, (edit) => applyEdit(runtime, edit), { concurrency: 1 });
+const applyEdits = (runtime: string, mutant: Mutant) =>
+  Effect.forEach(mutant.edits, (edit) => applyEdit(runtime, edit), { concurrency: 1 });
 
 const verdictsOf = (stdout: string, stderr: string, code: number) =>
   Option.match(
@@ -98,16 +103,20 @@ const verdictsOf = (stdout: string, stderr: string, code: number) =>
     },
   );
 
-// RETURN_TYPE: each branch builds one variant; the union keeps them one LieVerdict.
-const judge = (lie: Lie, oracle: string, verdicts: ReadonlyArray<CaseVerdict>): LieVerdict => {
+// RETURN_TYPE: each branch builds one variant; the union keeps them one MutantVerdict.
+const judge = (
+  mutant: Mutant,
+  oracle: string,
+  verdicts: ReadonlyArray<CaseVerdict>,
+): MutantVerdict => {
   const red = verdicts.flatMap((v) => (v._tag === "Fail" ? [v] : []));
   const ids = red.map((v) => v.id);
   const caughtIn = red.filter((v) => v.oracles.includes(oracle));
   const [caught] = caughtIn;
 
   if (caught !== undefined)
-    return LieVerdict.Caught({
-      lie: lie.name,
+    return MutantVerdict.Caught({
+      mutant: mutant.name,
       why: `${caught.id}: ${caught.why}`,
       red: ids,
       caughtIn: caughtIn.map((v) => v.id),
@@ -115,9 +124,13 @@ const judge = (lie: Lie, oracle: string, verdicts: ReadonlyArray<CaseVerdict>): 
   const [other] = red;
 
   if (other !== undefined)
-    return LieVerdict.WrongReason({ lie: lie.name, why: `${other.id}: ${other.why}`, red: ids });
+    return MutantVerdict.WrongReason({
+      mutant: mutant.name,
+      why: `${other.id}: ${other.why}`,
+      red: ids,
+    });
 
-  return LieVerdict.Survived({ lie: lie.name });
+  return MutantVerdict.Survived({ mutant: mutant.name });
 };
 
 /**
@@ -144,8 +157,8 @@ export const suiteIn = (
   );
 
 /**
- * Applies one lie to a fresh copy of the runtime, runs its cases there and judges the result:
- * caught only when `oracle`, the oracle of the guarantee that holds the lie, is among those that
+ * Applies one mutant to a fresh copy of the runtime, runs its cases there and judges the result:
+ * caught only when `oracle`, the oracle of the guarantee that holds the mutant, is among those that
  * failed a case.
  *
  * **Details**
@@ -157,20 +170,20 @@ export const falsifyOne = (
   runtimeDir: string,
   scratch: string,
   oracle: string,
-  lie: Lie,
+  mutant: Mutant,
 ) =>
   Effect.scoped(
     Effect.gen(function* () {
       const copy = yield* copyRuntime(runtimeDir, scratch);
-      yield* applyEdits(copy.runtime, lie);
+      yield* applyEdits(copy.runtime, mutant);
 
-      return judge(lie, oracle, yield* suiteIn(main, copy.runtime, lie.cases, 120));
+      return judge(mutant, oracle, yield* suiteIn(main, copy.runtime, mutant.cases, 120));
     }),
   ).pipe(
     Effect.catchTags({
       Unapplied: (e: Unapplied) =>
-        Effect.succeed(LieVerdict.NotApplied({ lie: lie.name, why: e.why })),
+        Effect.succeed(MutantVerdict.NotApplied({ mutant: mutant.name, why: e.why })),
       NoVerdicts: (e: NoVerdicts) =>
-        Effect.succeed(LieVerdict.NoVerdict({ lie: lie.name, why: e.why })),
+        Effect.succeed(MutantVerdict.NoVerdict({ mutant: mutant.name, why: e.why })),
     }),
   );
