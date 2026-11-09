@@ -255,6 +255,18 @@ tasks
             - Accepted: Q11's misstatement.
             - Rejected: Invariants repeating R text (the core shape), trailing spaces (formatter output), `VERDICTS` spellings (the parent parses them) and decision-number references (they cite the README).
             - Rejected: the R2 quote check. `workflow check` is valid.
+        comment 2026-11-09T16:42:31Z
+            **Repair of the second check-spec ISSUES (gap → fix), @spec.Conformance.** Spec only; no suite code changed.
+
+            1. R12/I37 scope → R12 adds @spec.Compile, @spec.Diagnostics, @spec.Codec and @spec.StaticCli (source @task.V3.T13's acceptance, README's "or a static check"); a static case's expectation counts as a case expectation; model `StaticCase`. Knock-on fixes for the whole contract: R6/I12/I14/I15/R13/I17 and `Mutant` say "code under test" (a static case's mutant edits the compiler or CLI); R7/I18 apply null to cases that boot a runtime only (a static case passes on null by construction); R8's seeds apply to cases that boot a world; R12/I38 "judgeable by no case, through the Port or static".
+            2. R3 vs R2 → R3: a substitute (decision 8 Attempt ids, decision 10 actor attribution) is not a stated limit but a failure of R3 and R2, open until the runtime reports the fact; Q3 restated so; I5 drops "outside a stated limit" and forbids adapter-minted ids; I35 adds "no substitute".
+            3. Time bound → R8: every case runs under its own bound in every mode, in process or split; an overrun is a defect and changes no other verdict. I20 scoped to runs within the bound; I34 restated; T25 covers both modes. New Q12 (verified): in-process `suite` has no bound (main.ts:116-118); the split path bounds a whole slice (main.ts:78-86, child.ts:57-61), failing every slice case with one reason. Q12 opens R8 and R9.
+            4. Known violations → new Q13 (verified: no file under `scenarios/` mentions Reads): README marks Reads I1-I5, I18, I19 as "case" with no citing scenario, and pending oracle rows have no check; outcome @task.V3.T12 and the area Tasks. R12 open_by adds Q13. Q11 restated after reading the code: text names seed, step and label (run.ts `failed`), but only the first failing seed is kept (run.ts:58), a mismatch has no step, no cited rule reaches a verdict as data (a mismatch's text has none; a violation's rule is only in prose, one per oracle, dsl/case.ts:190-200), none are `CaseVerdict` fields (verdict.ts); containment adds the `node_modules` link (falsify.ts:46-49) and `applyEdit`'s unchecked path (falsify.ts:61). R10 open_by adds Q11.
+            5. R6/I12 "null excepted"; I28 adds I17 and I33; T26's production README half moved to phase 4.
+
+            Whole-Spec re-read done after the edits; the static-case scope was the one change that touched R6, R7, R8, R13 and their Invariants, fixed above. Pending agent decisions unchanged (R4, R6, R7, R9).
+
+            Gates: `workflow format --write` on the Spec, `workflow check` valid, `workflow refs --dangling` none, no line over 120 columns. Next: a fresh independent skill:check-spec.
     T5
         title       Suite renamed to Spec areas and behaviour names
         status      open

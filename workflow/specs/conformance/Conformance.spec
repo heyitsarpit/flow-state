@@ -61,9 +61,11 @@ requirements
                 Port values. It never fills a report in from the suite's facts or the world's state, and
                 never mints an id its runtime should mint.
 
-                Where a prototype cannot report a fact, the adapter's substitute is a stated limit
-                (decision 8: Attempt ids from the session seed; decision 10: actor attribution), bounded as
-                R2 bounds every limit. The production adapter uses none of them.
+                A substitute for a fact the runtime cannot report (decision 8: Attempt ids minted from the
+                session seed; decision 10: actor attribution) is not a stated limit, since it supplies a
+                value rather than skipping a report (R2). It is a failure of this Requirement and of R2,
+                recorded as an open item until the runtime reports the fact. The production adapter has
+                none.
 
     R4  Reports anchored to suite facts
         source  README decision 3; the Oracle contract
@@ -94,8 +96,10 @@ requirements
     R6  Every check has a mutant it kills
         source  skill:policy-verification#prove; README decision 5; the P3 gate "falsify, which rejects the
                 null runtime and every registered mutant".
-        must    Every check has at least one mutant for each runtime the suite runs on: a reapplicable edit
-                to that runtime that makes the mistake the check exists to catch.
+        must    Every check has at least one mutant: a reapplicable edit to the code under test that makes
+                the mistake the check exists to catch. For a check over a runtime, the code under test is
+                each runtime under test, null excepted, and each has its own mutant. For a static case (a
+                case over `Compiled` or the CLI), it is the compiler or CLI the case reads.
 
                 A check is one of:
 
@@ -112,8 +116,8 @@ requirements
                 per oracle and leave per-Invariant coverage to the audit. User's read: pending.
 
                 Falsify kills a mutant only when all of these hold: each of its edits applies exactly once
-                to a fresh copy of the runtime; its cases pass on the unedited runtime (the control); and,
-                on at least one seed of one of its cases, the check that holds it is among the checks that
+                to a fresh copy of the code under test; its cases pass on the unedited code (the control);
+                and, on at least one seed of one of its cases, the check that holds it is among the checks that
                 failed that case. Every failing seed is judged, not only one. A mutant's verdict is one of:
                 caught, red by another check, survived, not applied, no verdict. Every verdict but caught
                 fails falsify.
@@ -121,7 +125,9 @@ requirements
     R7  The null runtime fails every case
         source  README decision 5 and `nullPort` ("a case that passes here proves nothing"); the P3 gate.
         must    Under the null runtime (it boots, accepts every call, reports nothing and shows no actor),
-                every case fails by a stated failure: an oracle violation or a case expectation.
+                every case that boots a runtime fails by a stated failure: an oracle violation or a case
+                expectation. A static case boots none, so null proves nothing about it; its mutants (R6)
+                are its only proof of strength.
 
                 Decision (agent, 2026-11-09): a defect (R9) does not count as the case failing on null.
                 Why: such a case never reached a check, so it proves nothing about the null runtime; many
@@ -133,11 +139,15 @@ requirements
                 ordering").
         must    A case's verdict is a function of the suite's code, the runtime's code, the case and the
                 world seed only. The suite reads no wall clock, randomness or host state: the case owns its
-                world's clock, page, storage and network. The runner's time bound is the one wall-clock
-                read; a case that overruns it gets a defect (R9), never a stated failure.
+                world's clock, page, storage and network.
 
-                Each case runs under at least two fixed world seeds, chosen so that they change load order
-                and session seeds, each on a fresh world, and passes only when every seed passes. Each boot
+                Every case runs under a time bound of its own, in every runner mode, in process or split.
+                The bound is the one wall-clock read: a case that overruns it gets a defect (R9), never a
+                stated failure, and no other case's verdict changes.
+
+                Each case that boots a world runs under at least two fixed world seeds, chosen so that they
+                change load order and session seeds, each on a fresh world, and passes only when every seed passes. 
+                Each boot
                 gets a session seed derived from the world seed, distinct per page. Running a case alone,
                 with others, in another order or split over processes gives the same verdict.
 
@@ -191,20 +201,23 @@ requirements
     R12  The suite judges the core Specs
         source  The P3 goal "one oracle per guarantee with its mutants"; each P3 area Task's acceptance
                 "Every WriteLanes Invariant has its oracle or case" (and the same for Turn, Actors,
-                WriteAhead, Restore and Reads).
+                WriteAhead, Restore and Reads); @task.V3.T13's "Every Compile, Diagnostics, Codec and
+                StaticCli Invariant has a case"; README's "or a static check".
         must    For each core Spec in the suite's scope (@spec.WriteLanes, @spec.Turn, @spec.Actors,
-                @spec.WriteAhead, @spec.Restore, @spec.Reads), every Invariant has its oracle or case: an
-                (oracle, Invariant) check or a case expectation that checks it.
+                @spec.WriteAhead, @spec.Restore, @spec.Reads, @spec.Compile, @spec.Diagnostics,
+                @spec.Codec, @spec.StaticCli), every Invariant has its oracle or case: an (oracle,
+                Invariant) check or a case expectation that checks it. A static case's expectation counts
+                as a case expectation.
 
-                The guarantee map lists every Invariant of those Specs. An Invariant that cannot be judged
-                through the Port is listed with why; it counts as uncovered and is an open item for the
-                user's read, never as covered.
+                The guarantee map lists every Invariant of those Specs. An Invariant that neither a case
+                through the Port nor a static case can judge is listed with why; it counts as uncovered and
+                is an open item for the user's read, never as covered.
 
     R13  Mutants stay in their copy
         source  skill:policy-verification#prove (a mutant is an edit to the code under test); R6.
-        must    A mutant's edits change files only inside its own copy of the runtime. Nothing outside the
-                copy changes during or after falsify: not the runtime's own tree, not the suite, not any
-                file the copy links to. When falsify ends, no copy remains.
+        must    A mutant's edits change files only inside its own copy of the code under test. Nothing
+                outside the copy changes during or after falsify: not the original tree, not the suite, not
+                any file the copy links to. When falsify ends, no copy remains.
 
 open
     Q1  Most checks below are not built: each test says whether it exists or "phase 3 writes this".
@@ -215,10 +228,12 @@ open
         outcome  Phase 3 adds the defect verdict and makes each such case check a public result before it
                  answers a request the runtime should have made.
 
-    Q3  The prototype adapter's stated limits change verdicts against R2 and R3: actors attributed to the next turn 
-        (decision 10), Attempt ids from the session seed (decision 8), `Ended.failure` judged
-        only when reported, `Minted.key` always `None`.
-        outcome  Each is retired by the production adapter in phase 4, and its check made strict then.
+    Q3  Failure of R2 and R3: the prototype adapter substitutes facts its runtime does not report, actors attributed to 
+        the next turn (decision 10) and Attempt ids minted from the session seed (decision 8). Its
+        other stated limits, `Ended.failure` judged only when reported and `Minted.key` always `None`, are
+        skips R2 allows on a prototype.
+        outcome  The production adapter in phase 4 reports each fact from its runtime; every check is made
+                 strict then.
 
     Q4  The planned disk reader (`Port.disk`, README "Planned Port changes") reads the runtime's own format, which R1 
         allows only if it reports facts by meaning.
@@ -251,17 +266,40 @@ open
         reports with each other), and no case cites WriteLanes I9.
         outcome  A later Task anchors WriteLanes I9 to a suite fact or adds a case that checks it.
 
-    Q11  Failure of R9 (I32) and R13 (I33): verdicts name no seed or step and a mismatch names no
-        expectation label; and a mutant's copy links the original suite folder
-        (code:packages/flow-state-v3/conformance/runner/falsify.ts#symlinkSync), so an edit through it would change 
+    Q11  Failure of R9 (I32) and R13 (I33).
+
+        - Verdicts: a failure's text names the seed, a violation's step and a mismatch's label, but only the first
+            failing seed is kept (code:packages/flow-state-v3/conformance/runner/run.ts#runCase); a mismatch
+            names no step; no cited rule reaches a verdict as data (a mismatch's text has none, and a violation's
+            rule appears only in its prose, one violation per oracle); and none of these is a field of
+            `CaseVerdict`, only text in `why`.
+        - Containment: a mutant's copy links the original suite folder and the repository's `node_modules`
+            (code:packages/flow-state-v3/conformance/runner/falsify.ts#copyRuntime), and
+            code:packages/flow-state-v3/conformance/runner/falsify.ts#applyEdit joins an edit's file to the copy
+            without checking that the path stays inside it, so an edit through a link or a `..` path changes
             files outside the copy.
-        outcome  A later Task adds the verdict fields and copies or seals the linked folder.
+        outcome  A later Task adds the verdict fields, keeps every failing seed, copies or seals the linked
+                 folders and rejects an edit path outside the copy.
+
+    Q12  Failure of R8 and R9 (I20, I24, I34): the in-process `suite` path runs cases with no time bound
+        (code:packages/flow-state-v3/conformance/runner/main.ts#runCases), so a hung case gives no verdict; the
+        split path bounds a whole slice (code:packages/flow-state-v3/conformance/runner/main.ts#sliceVerdicts), so
+        an overrun fails every case of that slice with one reason, as a failure rather than a defect, and the
+        split changes verdicts.
+        outcome  Phase 3 bounds each case on its own in every mode and reports an overrun as a defect.
+
+    Q13  Failure of R12 (I38): the guarantee map marks Reads I1 to I5, I18 and I19 as "case", yet no scenario cites
+        any Reads rule; and its rows for oracles not yet built have no check at all.
+        outcome  P3's area Tasks (@task.V3.T12 for Reads, and each area's Task for its pending oracle rows)
+                 build the checks; until then those Invariants count as uncovered.
 
 model
     Check = an (oracle, Spec Invariant) pair, or a case expectation that is the only check of a Spec
         Invariant (R6).
 
     CaseOnlyInvariant = a Spec Invariant in scope (R12) whose only check is a case expectation.
+
+    StaticCase = a case over `Compiled` or the CLI; it boots no runtime (R6, R7, R12).
 
     StatedFailure = a case failed by an oracle violation (`Violated`) or a case expectation (`Mismatch`).
 
@@ -271,8 +309,8 @@ model
     StatedLimit = a recorded, prototype-only difference between adapters that skips judging a report the
         runtime does not make (R2).
 
-    Mutant = a named, reapplicable edit to one runtime's source with the cases it runs on, held by one
-        check (`Lie` until the rename, @task.V3.T5).
+    Mutant = a named, reapplicable edit to the code under test (a runtime's source, or for a static case the
+        compiler or CLI) with the cases it runs on, held by one check (`Lie` until the rename, @task.V3.T5).
 
     SuiteFact = a timeline entry the suite wrote itself (`Stepped`, `Drove`, `Requested`, `Answered`,
         `Reloaded` and the rest), the server's log, or a fixture's reference.
@@ -293,7 +331,7 @@ invariants
         where a stated limit names the case. [@R2]
 
     I5  Every Observation an adapter reports stands for a report its runtime made; none is derived from a suite fact or 
-        the world's state, outside a stated limit. [@R3]
+        the world's state, and no id in one was minted by the adapter. [@R3]
 
     I6  An oracle's result is a function of the case's facts only (its timeline, the server's log and the fixtures' 
         references). [@R4]
@@ -310,28 +348,29 @@ invariants
     I11  No expected value in a case or a fixture reference was copied from a runtime's output; a recorded
         output used as a change detector is labelled as one. [@R5]
 
-    I12  Every (oracle, Invariant) check has at least one mutant for each runtime the suite runs on. [@R6]
+    I12  Every check over a runtime has at least one mutant for each runtime under test, null excepted, and every
+        static case's check has at least one mutant of its compiler or CLI. [@R6]
 
     I13  Every case-only Invariant has at least one mutant whose cases fail with that expectation named as the
         failed check. [@R6]
 
-    I14  Every edit of every mutant occurs exactly once in its file of a fresh copy of the runtime. [@R6]
+    I14  Every edit of every mutant occurs exactly once in its file of a fresh copy of the code under test. [@R6]
 
-    I15  Every mutant's cases pass on the unedited runtime. [@R6]
+    I15  Every mutant's cases pass on the unedited code. [@R6]
 
     I16  Every mutant turns at least one of its cases red, on at least one seed, with its holding check among the
         checks that failed that case on that seed; every failing seed is judged. [@R6]
 
-    I17  After falsify, the runtime's own tree is unchanged and no copy remains in the scratch folder.
+    I17  After falsify, the code under test's own tree is unchanged and no copy remains in the scratch folder.
         [@R13]
 
-    I18  On the null runtime, every case's verdict is a stated failure, never a pass or a defect. [@R7]
+    I18  On the null runtime, every case that boots a runtime gets a stated failure, never a pass or a defect. [@R7]
 
     I19  Two runs of the same code, case and seed that finish within the time bound give the same verdict, byte for
         byte in machine form. [@R8]
 
-    I20  A case's verdict does not depend on which other cases run, their order, or the process split.
-        [@R8]
+    I20  For runs in which every case finishes within its time bound, a case's verdict does not depend on which
+        other cases run, their order, or the process split. [@R8]
 
     I21  A case passes only when it passes under every seed; a failure names each failing seed. [@R8, @R9]
 
@@ -349,7 +388,7 @@ invariants
     I27  The machine form decodes with the verdict Schema; the human form ends with exactly one `VERDICT`
         line. [@R9, @R10]
 
-    I28  Falsify passes only when I12, I13, I14, I15, I16 and I18 hold and at least one mutant ran. [@R10]
+    I28  Falsify passes only when I12, I13, I14, I15, I16, I17, I18 and I33 hold and at least one mutant ran. [@R10]
 
     I29  For every ported case and every old-suite mutant that applies to the old suite's runtime and that the old
         suite kills on that case, the new suite kills the mutant. [@R11]
@@ -365,10 +404,11 @@ invariants
     I33  No file outside a mutant's copy changes during or after its run, including files the copy links to.
         [@R13]
 
-    I34  A case that overruns the runner's time bound gets a defect verdict, never a stated failure or a pass.
-        [@R8, @R9]
+    I34  Every case runs under its own time bound in every runner mode; a case that overruns it gets a defect
+        verdict, never a stated failure or a pass, and no other case's verdict changes. [@R8, @R9]
 
-    I35  The production adapter has no stated limit. [@R2, @R3]
+    I35  The production adapter has no stated limit and no substitute: it supplies no value its runtime did not report. 
+         [@R2, @R3]
 
     I36  Every stated limit names its cases, its checks and the behaviour that retires it, and only skips judging a
         report the runtime does not make: no check accepts a value its rule contradicts, and no expected value
@@ -378,7 +418,7 @@ invariants
         `workflow/specs/core/`. [@R12]
 
     I38  Every Invariant in the guarantee map has an (oracle, Invariant) check or a case expectation, or is listed
-        as not judgeable through the Port with why and counted as uncovered. [@R12]
+        as judgeable by no case, through the Port or static, with why and counted as uncovered. [@R12]
 
     I39  No ported area is counted as ported while a difference read as a new-suite bug is unfixed. [@R11]
 
@@ -413,15 +453,15 @@ coverage
 
     @R8
         enforced_by  [@I19, @I20, @I21, @I22, @I23, @I34]
-        open_by      [@Q1]
+        open_by      [@Q1, @Q12]
 
     @R9
         enforced_by  [@I21, @I24, @I25, @I26, @I27, @I32, @I34]
-        open_by      [@Q1, @Q2, @Q11]
+        open_by      [@Q1, @Q2, @Q11, @Q12]
 
     @R10
         enforced_by  [@I26, @I27, @I28]
-        open_by      [@Q1, @Q5]
+        open_by      [@Q1, @Q5, @Q11]
 
     @R11
         enforced_by  [@I29, @I30, @I39]
@@ -429,7 +469,7 @@ coverage
 
     @R12
         enforced_by  [@I37, @I38]
-        open_by      [@Q1]
+        open_by      [@Q1, @Q13]
 
     @R13
         enforced_by  [@I17, @I33]
@@ -494,10 +534,12 @@ tests
             that only the world's hosts and the report sink are function-typed, seen rejecting a planted `Map` field.
             [@I31]
     T25  Defect verdicts. Phase 3 writes this: runner self-tests with a case that throws, a case that overruns a short
-            time bound and an unknown id, each seen giving a defect and exit 1. [@I25, @I34]
+            time bound (in process and split, its slice-mates unchanged) and an unknown id, each seen giving a defect 
+                and exit 1. [@I25, @I34]
     T26  Stated limits. Phase 3 writes this: the audit reads every stated limit and every adapter- or absence-dependent
             branch in the oracles and cases, and lists any that accepts a contradicting value or moves an expectation
-            from its rule; the production adapter's README section lists none. [@I35, @I36]
+            from its rule. Phase 4 writes this: the same audit of the production adapter, whose README section lists
+            no stated limit. [@I35, @I36]
     T27  Core coverage. Phase 3 writes this: a check that resolves the guarantee map against `workflow/specs/core/` and
             lists every in-scope Invariant with no check and no listed reason, seen failing on a deleted map row.
             [@I37, @I38]
