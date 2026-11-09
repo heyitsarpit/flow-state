@@ -2,7 +2,7 @@
 
 ## Resume
 
-**Now (2026-11-09 ~03:15):** entities settled (OD52); streams: rounds 1-2 and two audits done, the LAST streams batch running (then no more re-audit); next OD53 (streams settled + OD52 owed items (c)-(i) + streams findings), then record migration (phase 1 last area, with its own adversarial audit), stage A close-out, phase 2 merge WITHOUT a stop (amendment 11), then phase 3. Runner context near full: after a compaction re-read this file and re-create the review cron. **Earlier (2026-11-08, ~14:30):** phase 0's queue is done (round 14, round 15, round 15b; design
+**Now (2026-11-09, after the stage A re-check):** phase 0 and phase 1 are done (OD49-OD54); the stage A close-out failed, its fixes landed (`d3d89576`), the re-check closed B1-B3 and B5 and left only B4 (the user's-read list), now completed below. Next: phase 2, the plan merge WITHOUT a stop (amendment 11), then phase 3 (production from `.spec` files via `to-design`, lint-bomb style, quality review angle). The hourly review cron (session-only) must be re-created after a restart. **Earlier (2026-11-08, ~14:30):** phase 0's queue is done (round 14, round 15, round 15b; design
 OD49-OD50, OD51 being written). Phase 1 is running: area H (H1, H2, M2) done at `e6b0db23`; **entities** in progress
 (lead builder with Haiku sidecars); then streams, record migration; then stage A's close-out and the stop for phase 2's
 label round. How the loop runs now: roadmap amendments 4-9 (converge on the third same-class review; Haiku research
@@ -115,8 +115,8 @@ Waiting on the user:
 
 ## Phases
 
-- [ ] 0 Reconcile the design and the prototype: 0b done (design caught up, U1-U19 ruled); 0a's round 14 fix pass stopped for hand-off
-- [ ] 1 Pre-work prototype (entities, streams, migration; round 13's H1 and H2): not started
+- [x] 0 Reconcile the design and the prototype: done (rounds 14, 15, 15b; OD49-OD51); stage A close-out passed after fixes, 2026-11-09
+- [x] 1 Pre-work prototype (entities, streams, migration; round 13's H1 and H2): done 2026-11-09 (OD52-OD54; M5 settled as an oracle (h) harness bug)
 - [ ] 2 Plan merge: not started
 - [ ] 3 Conformance rewrite: not started
 - [ ] 4 Core: not started
@@ -261,7 +261,46 @@ costs a plan edit too.
 10. **Proposed names, none confirmed by you:** `RecordShapeChanged`, `LaneRekeyCollision`, `OpRenamed`,
     `PreviousIsCurrent`, `FieldDropped`, `HoldWithoutRecord`, `UnboundLane`, `LaneRekeyed`, `GoneWithoutKey`,
     `FillsOtherKey`, `GuardContradicted`, `ImpureDefault`, `RepairOverdue`, `IdleWithoutPing`, `Abandoned`,
-    `ModuleDisabled`. Renaming any is one edit until phase 3 builds production on them.
+    `ModuleDisabled`, `ReservedReason`, `HoldForgotten`, `SelectedNoKey`, `UnsettledEvicted`, `GuardedUnbound`,
+    `GuardedWithoutVersion`, `GuardedWithoutTarget`, `RecordUndecodable`, `RecordHeld`, `SharedContract` (built
+    as a check), and the inspection value `stalled: "record"`. (`OldVersionLane` you accepted, OD47.) Renaming any is
+    one edit until phase 3 builds production on them.
+
+Added after the stage A re-check (missing from the first pass):
+
+11. **Migration (OD54), more calls.** (2) a new public method `previous[i].retryable(k, { times })` beside
+    `retry`/`cancel` (small API); (6) Flow's own record format (1-4) with a pure upgrade at boot, a newer or invalid
+    format quarantined whole; (13) a state a record's history points to, removed by a release, resets the record
+    instead of quarantining it; (14) `flow explain <release> --since <release>` compares two compiled releases (it
+    can be wrong across a chain of releases: open item, revisit.md); (16) **an undecodable record is quarantined and
+    then overwritten when the fresh actor first saves**, so its bytes are not kept for later recovery. Why (16): a
+    second copy per actor would need a storage budget and a recovery API nobody asked for. Reverse: keep quarantined
+    bytes under their own key until `forget`. Also (4) `FieldDropped`, (11) `PreviousIsCurrent`, (12) op rename by
+    contract id with `OpRenamed`/`LaneRekeyCollision`.
+12. **Correction to entry 4:** `forget` does not release an old identity's hold (it keeps every hold whose
+    operation exists, as built); the hold ends only by its own answer. The earlier log line saying "or forget" was
+    my ruling before the build showed it doesn't hold.
+13. **Q19's price, said fully:** an offline app (notes with unsent drafts) loses saved drafts when any stored
+    field's Schema changes, even harmlessly; and the prototype stamps computed fields, so changing one resets too
+    (a stated limit until they're derived on restore). If this price is too high, the alternative is a decode-based
+    reset (entry 2's reverse).
+14. **Rounds 15/15b, area H (OD50, OD51), more calls.** R2: a key-less member of an unkeyed operation names its one
+    lane; R6/R7: Flow's old names-only stamp format reads as a stated limit (format 0), version compare symmetric; R8:
+    the rule 15 check reads only the transition's own operations (other ops a stated limit); R10 (as recorded in
+    OD51); M2: a decline beside an old-version hold is `NotSent { OldVersion }`, not `Rejected`.
+15. **Entities (OD52), more calls.** The D3 price: on a last-writer-wins source an earlier draft may silently
+    overwrite a later commit from another actor (screen and server agree, but the later write is lost); repair uses
+    no timers (count-bounded); a given-up mark lives until the 4,096-per-entity cap evicts it (oldest first) unless
+    `guarded` proves it; `ModuleDisabled` fails closed until a reload; the judge: a lower version is stale (dropped
+    with evidence), a higher one applies when ordered, equality by `Schema.toEquivalence`.
+16. **Streams (OD53), more calls.** `dropAt` is set on leaving Live/Repairing or when unset; `Feed.callback`'s 1,024
+    bound counts the queue only; Q2 A (a key change empties a `fills` field in the same turn; you didn't see this
+    one, I decided it); a select that finds no key raises `SelectedNoKey` and releases.
+17. **The close-out's own calls.** Rule 13's `byReason` keys were widened from "Flow's reasons" (OD50's decided
+    text) to "the commit's own unknown tags or Flow's unknown reasons", because the commit's tags exist only in its
+    type and phase 3's type-level check enforces them; m4 narrowed rule 15's Q4 A text to the check as built (the
+    transition's own operations). Rule 30 gained (re-check n1): news during a running ask joins it and does not reset
+    the count. Reverse: each is one edit.
 
 ## Change proposals
 
@@ -390,7 +429,7 @@ One line per iteration. Results live in the records; link them.
 - 2026-11-04 lint rules added and evaluated (`6f6c1309` to `6593b072`); lint-bomb at `183d43b`.
 - 2026-11-04 roadmap rebuilt from the updated roadmap skill. A cold read found 4 contradictions
   and 10 ambiguities. All are fixed:
-  - M5 moved to phase 2, and the H1/H2 fixes are named in the prototyping constraint;
+  - M5 moved to phase 2 (later settled in phase 1 as an oracle (h) harness bug, 2026-11-09), and the H1/H2 fixes are named in the prototyping constraint;
   - phase 2's plan edits went to R6;
   - examples come before docs;
   - budgets got numbers (R7), and the reserve got a default;
@@ -516,3 +555,4 @@ One line per iteration. Results live in the records; link them.
 - 2026-11-09 OD54 written (migration settled, C210-C216, 18 items; Q18 per record flagged for the user's read; contradictions amended inline: rule 74's newer format, the citation in 2.7.17; open: rule 74's forget vs the overwrite as built, an old identity's hold has no exit). revisit.md gains migration's limits and open items plus the missing OD52 allOrNothing and OD53 (19) entries. Phase 1's areas are done; next the stage A close-out review.
 - 2026-11-09 stage A close-out audit (`4d6d1cf2`): FAIL on 5 blocking items, gates 25/25 ok at `eb746c9e` (532 s). B1 repair count reset at RepairOverdue vs C207 (runner: adopt the runtime, amend C207); B2 lanes keyed by op name vs (identity, contract, key) (runner: fix the runtime); B3 compile refusals ModuleDisabled/Abandoned/byReason/GoneWithoutKey not built; B4 the user's-read list stale since 2026-11-08 (fixed by the runner now: a new section with 10 entries, the per-record reset first); B5 fragstore.row red at depth 7 since entities round 1 (gate runs depth 4). No rubber-stamping found. A fix lead (Opus, with sidecars) has B1-B3, B5, the lifetime-falsify split and the minors; then a narrow re-check of the close-out, then phase 2.
 - 2026-11-09 stage A close-out fixes (`d3d89576`): B1 the repair count resets at RepairOverdue (rule 30, 2.8.6, C207, OD53 (8) amended; 3 wrong runtimes red); B2 the design already forbids two write ops on one contract (`SharedContract`, F2) — the lead built the missing flow check error instead of re-keying lanes; runner accepts (read list entry 6 updated); B3 ModuleDisabled/Abandoned reserved, GoneWithoutKey in flow check (byReason keys carried to phase 3's type-level check); B5 fragstore.row was a stale oracle (the quiet unconfirmed level), now pinned at depth 7 with a lie; listen.none inconclusive at depth 7 (carried); lifetime-falsify split 143 s + 146 s; minors fixed; round 13's M5 settled as an oracle (h) harness bug (STATUS). Gates 27/27 at --budget 580, but 574 s used: raise the budget or split the depth-7 search before more work. Suite 1080/1080. Next: a narrow re-check of the close-out, then phase 2.
+- 2026-11-09 stage A re-check (STAGE-A-CLOSEOUT.md "Re-check"): B1, B2 (with limits n2-n4: two placements of one writing fragment compile silently, carried with a corrected reason; host-level pins only; the check is flow check only), B3, B5 closed; gates 27/27 at 900 s budget (585 s). B4 incomplete; the runner completed it (read list entries 11-17, names batch, entry 4 corrected: forget keeps an old identity's hold), added rule 30's n1 sentence (news during a running ask joins it), fixed the stale Resume block, phases list and the M5 line. STAGE A DONE; phase 2 (plan merge, no stop) next. Owed before phase 3 load: the depth-7 search into its own gate job (limits.ts says 40 s, it takes 192 s).

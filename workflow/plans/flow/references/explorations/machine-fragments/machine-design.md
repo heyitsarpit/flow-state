@@ -962,7 +962,7 @@ decision (E1–E18). Rules 13–25 and N1–N3 still apply.
     interval: at most 3, then `RepairOverdue`, and nothing asks again until news. **News** is an event that asks the
     record's repair afresh: a new unknown on the record (a re-send's `StillUnknown` is a new doubt), a release that
     leaves its mark, an answer whose effect the store cannot place (a doubt), a newer value landing past a running
-    repair (D58), and a reload's restored unknown. A placed answer also resets the count. No timer. `Released` of an unknown
+    repair (D58), and a reload's restored unknown. A placed answer also resets the count. *Amended by the stage A re-check (n1), the runner:* news that arrives while an ask is running joins that ask: it neither starts another ask nor resets the count, so news during the third ask still ends in `RepairOverdue`, and only news after it asks again. No timer. `Released` of an unknown
     never re-sent frees its queue entry at once, the next writer goes (the person let it go; the lane's own outcome is
     still reported), as a release after `RepairOverdue` does; its predictions still end with the forced repair. **Revision (multiplicity audit, 2026-10-31) (E18).** A prediction over a record the store does not hold (never held,
     or deleted beneath it by an earlier write or a push) shows nothing, and the record reads absent; it stays with its
