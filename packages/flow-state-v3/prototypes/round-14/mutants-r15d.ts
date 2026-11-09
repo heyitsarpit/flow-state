@@ -16,7 +16,7 @@ export const MUTANTS: ReadonlyArray<{ readonly id: string; readonly kills: reado
   { id: "r15d.forget-drops-the-hold", kills: ["R15-01/forget-turns-parked-endings-into-evidence-and-keeps-the-hold"], edits: [["step.ts", "    } else if (!l.head && l.w.length === 0) deleteLane(tx, l.id);", "    } else if (l) deleteLane(tx, l.id);"]] },
   { id: "r15d.forgotten-not-reported", kills: ["R15-01/forget-turns-parked-endings-into-evidence-and-keeps-the-hold"], edits: [
     ["step.ts", "    else setLane(tx, { ...l, parked: [] });", "    else setLane(tx, { ...l, parked: [], forgotten: true } as typeof l);"],
-    ["durable.ts", "!Object.hasOwn(undecodable, l.actor)) note(tx, \"UnboundLane\"", "!Object.hasOwn(undecodable, l.actor) && !(l as { forgotten?: true }).forgotten) note(tx, \"UnboundLane\""],
+    ["durable.ts", "!Object.hasOwn(undecodable, l.actor)) || !ofIdentity(tx, l as Lane)) note(tx, \"UnboundLane\"", "!Object.hasOwn(undecodable, l.actor) && !(l as { forgotten?: true }).forgotten) || !ofIdentity(tx, l as Lane)) note(tx, \"UnboundLane\""],
     ["durable.ts", "    ...(l.releasing ? { releasing: true } : {}),\n", "    ...(l.releasing ? { releasing: true } : {}),\n    ...((l as { forgotten?: true }).forgotten ? { forgotten: true } : {}),\n"],
     ["adapter.ts", "const unbound = mine.map((l) => l.id);", "const unbound = mine.filter((l) => !(l as { forgotten?: true }).forgotten).map((l) => l.id);"],
   ] },

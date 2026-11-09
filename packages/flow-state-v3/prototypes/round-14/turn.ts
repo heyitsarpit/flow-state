@@ -34,7 +34,7 @@ import { resetValue,
   type Path,
   type Started,
 } from "./inc.ts";
-import { admitRow, cancelAll, cell, decline, endHeldThisTurn, guardCell, letGoKept, ofVersion, oldVersionLane } from "./lane.ts";
+import { admitRow, cancelAll, cell, decline, endHeldThisTurn, guardCell, letGoKept, ofIdentity, ofVersion, oldVersionLane } from "./lane.ts";
 import { cancelRead, dropReadsOf, lookup, lookupUnencodable } from "./reads.ts";
 import { armTimer, disarmTimer, scheduleKey } from "./timers.ts";
 import {
@@ -855,7 +855,7 @@ export const adoption = (tx: Tx, a: ActorRec, inc: Inc, thawing = false): Mail[]
   const holds: Mail[] = []; // rule 54: every parked ending first, then each lane's hold
   const lanes = Object.values(tx.w.lanes).sort((x, y) => (x.head?.mint ?? 0) - (y.head?.mint ?? 0));
   for (const l of lanes) {
-    if (l.actor !== a.key || !sameSubject(l.subject, inc.subject)) continue;
+    if (l.actor !== a.key || !sameSubject(l.subject, inc.subject) || !ofIdentity(tx, l)) continue; // rule 74: never the old identity's
     const owner = m.ops[l.op]?.fragment ?? null;
     if (owner !== inc.frag) continue;
     for (const p of l.parked) {
@@ -1172,7 +1172,8 @@ const admitEnding = (tx: Tx, item: EndingMail): void => {
   }
   const a = getActor(tx.w.actors, item.actor);
   const lane = tx.w.lanes[laneId];
-  if (!a) {
+  if (!a || !ofIdentity(tx, lane)) {
+    // Rule 74 (migration round 3): an old identity's ending reaches no live actor of its name, which is another identity.
     // Rule 44: parked if a record of the identity survives; evidence otherwise. D15's Abandoned parks either way.
     const local = tx.machines[machine ?? ""]?.local;
     const keep =

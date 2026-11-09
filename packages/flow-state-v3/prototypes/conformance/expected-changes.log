@@ -2559,3 +2559,31 @@ output:STREAM5-LATEST/a-drop-stops-value-being-current hash:1a4e61132b80 | one m
 round:mutants-p1m.ts hash:a0b92cf8178d | Migration round 2 review: FieldDropped said after the stopped-reads check, so two p1m anchors follow restoredMemory back to its original shape
 round:mutants-p1s.ts hash:ad0bbd5399b3 | Migration round 2 gates: p1s.heard-not-restored re-anchored before restoredLatest's new dropAt line, the same wrong rule
 file:falsify.ts hash:d6a85d8ee970 | Migration round 2 gates: SEARCH-SESSION re-measured at 6,967 states (7,328 on the same tree with round 2's sessions.ts undone, run by the lead)
+P1-H hash:8d611d63b3de | Migration round 3: P1-H's old-version record variant asserts no HoldWithoutRecord (rule 74: its lane is unbound)
+P1-M hash:10dd194274f0 | Migration round 3: eleven variants for the audit's gaps (op rename, same-text identity, formats, format 1 lane and actor, budgets, FieldDropped, HoldWithoutRecord, fresh save, encoded side)
+file:scenarios/phase1h.scenario.ts hash:5cdb71fb3a97 | Migration round 3: the HoldWithoutRecord count of 0 on P1-H's old-version record variant
+file:scenarios/phase1m.scenario.ts hash:df7aa67cb89d | Migration round 3: the eleven P1-M variants and their helpers (probe op, value machine, fragment machine, format1), format 3 in the format cases
+file:drive.ts hash:68724df7b05f | Migration round 3 (the runner's): the not-restored and parked excuses from what the suite saw (an edit, or a release under which the suite reads the record unreadable), this boot only; an attempt of another identity version is never bound by a live actor of the same name
+round:mutants-am1.ts hash:cdc88cb5494a | Migration round 3: standing gate, audit M1's survivors aimed at their P1-M and P1-H cases, its lie, and three wrong runtimes undoing the op rename and identity fixes
+round:mutants-audit-m1.ts hash:38635dd6b852 | Audit M1: the migration auditor's own wrong runtimes, committed by the runner in df85105a; unedited by the lead
+round:mutants-lifetime.ts hash:d31478abdfb5 | Migration round 3: spreads mutants-am1.ts
+round:mutants-r15.ts hash:c15c4623bd42 | Migration round 3: r15.unbound-lane-unreported re-anchored on the UnboundLane line, which now also lists an old identity's lane
+round:mutants-r15d.ts hash:c68e6f31480e | Migration round 3: r15d.forgotten-not-reported re-anchored on the same UnboundLane line, the same wrong rule
+file:expected-recipients.txt hash:45a0aacc0051 | Migration round 3: the eleven P1-M variants add 21 observed deliveries, 8 restored states, 16 start nodes; no red count moved
+output:P1-M/a-format-1-actor-record-keeps-its-timers-and-stopped-reads hash:f57d5da1f80e | new output: two Life actors ended, format 1 records, lookFailed and saveDue after the return
+output:P1-M/a-format-1-lane-keeps-its-retry-count hash:63577e7ab996 | new output: three sends, a format 1 lane, one re-send left of three
+output:P1-M/a-fragment-field-a-release-stops-declaring-is-said hash:2412c34815d2 | new output: a copy's extra field dropped with FieldDropped, got restored
+output:P1-M/a-key-field-changing-only-its-encoded-side-is-a-new-version hash:48e64e4f69ba | new output: Number to NumberFromString, an old-version hold, OldVersion decline
+output:P1-M/a-new-version-actor-of-the-same-name-text-does-not-hear-the-old-hold hash:fd68dccd68d9 | new output: t "42" then 42, the old lane unbound at two boots, nothing heard
+output:P1-M/a-null-fractional-or-string-record-format-is-quarantined hash:2cba5907ecb9 | new output: three harnesses, each format quarantining both records
+output:P1-M/an-in-flight-head-on-a-gone-record-is-said hash:1e1db3215313 | new output: a head on the wire, release 3, quarantine and HoldWithoutRecord
+output:P1-M/no-field-dropped-for-a-record-then-quarantined hash:9c5af48f03ba | new output: release 2 and an unreadable stopped list, quarantined, no FieldDropped
+output:P1-M/previous-retryable-keeps-its-budget hash:21100a2f2f4f | new output: three previous-key re-sends, then no
+output:P1-M/renaming-an-operation-changes-nothing-persisted hash:94dc8c73b9b4 | new output: pay renamed charge, the hold heard and holding, one lane record
+output:P1-M/the-fresh-actor-over-a-quarantined-record-is-saved hash:eeb916ff2262 | new output: a fresh actor saved over a quarantined record, restored at the next boot
+P1-M hash:185116501411 | Migration round 3 review: an op of the old name over another contract does not take the lane; the rename case checks the record's new name
+file:scenarios/phase1m.scenario.ts hash:4b89d0f44396 | Migration round 3 review: probeOps' optional second op over p1m/other, the contract variant, the fresh-save disk assertion
+file:drive.ts hash:99f638ccdb7b | Migration round 3 review: no boot-wide restore flag; a compiled restore refusing this actor's own memory excuses it, read per record by the suite
+round:mutants-am1.ts hash:30f06c430f43 | Migration round 3 review: am1.op-name-wins-over-contract, and am1.op-rename-ignored re-anchored on the contract check
+file:expected-recipients.txt hash:23468cdc7057 | Migration round 3 review: the contract variant adds 2 observed deliveries, 1 restored state, 2 start nodes; no red count moved
+output:P1-M/a-new-op-of-the-old-name-over-another-contract-does-not-take-the-lane hash:01aec763bf5c | new output: pay renamed charge, a new pay over p1m/other sends, charge's key held

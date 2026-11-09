@@ -136,10 +136,16 @@ export const makeHarness = (port: Port) => (): Harness => {
   const made = new Map<string, number>(); // attempt -> order of its first mint or invoke
   const madeOp = new Map<string, string>();
   const sends = new Map<string, string[]>(); // attempt -> the send gens the suite saw invoked, in order
+  const attempted = new Map<string, string>(); // migration round 3: attempt -> its machine's identity version (compiled data) when it was made
+  const identityNow = (actor: string) => JSON.stringify([...(((refm().machine(machineOf(actor)) as any)?.identityVersion as string[] | undefined) ?? [])].sort());
   const attribute = (a: string, actor: string) => {
     attemptActor.set(a, actor);
     attemptLife.set(a, lifeOf.get(actor) ?? 0);
+    if (!attempted.has(a)) attempted.set(a, identityNow(actor));
   };
+  // Rule 74: an attempt made under another identity version of its actor's machine is the old identity's; a live actor of the same name text
+  // is another identity and never binds it (no ref can spell the old one).
+  const otherIdentity = (att: string, actor: string) => attempted.has(att) && attempted.get(att) !== identityNow(actor);
   // D154: an oracle excuses a missing obligation only for a cause the suite observed itself. A `Released` or a `lane.release.*` cell says WHICH
   // attempt is let go (a self-report, checked); WHY must be seen: the owner's life over (a `dispose` the suite drove), the owner gone from what
   // it publishes, or the owner's published state or memory moving in this batch while the compiled machine has a way to let the op go
@@ -487,12 +493,7 @@ export const makeHarness = (port: Port) => (): Harness => {
             restore: {
               ...mem.restore,
               run: (s: unknown) => {
-                try {
-                  return tag(mem.restore.run(s));
-                } catch (x) {
-                  restoreThrew = true; // stage L: the compiled restore refused this record, seen by the suite: a cause for its quarantine
-                  throw x;
-                }
+                return tag(mem.restore.run(s)); // migration round 3: a refusal is read per record by `unreadableNow`, not flagged for the whole boot
               },
             },
           }
@@ -530,7 +531,6 @@ export const makeHarness = (port: Port) => (): Harness => {
   let bootSeen = false; // this instance's `boot` evidence has come
   const notRestored = new Set<string>();
   const parkedAtBoot: Array<{ readonly actor: string; readonly said: string }> = [];
-  let restoreThrew = false; // a compiled `memory.restore` threw on a stored record (the suite's own wrap saw it)
   const ensured = new Set<string>(); // the suite ensured it, and has not disposed it; at a reload, kept only with a record on disk
   // Rule 73 (OD31, 2.10.10): in an app Story, `ensure(ref)` attaches one use, as a mounted screen does, and `detach(ref)` ends one. The suite
   // counts the uses it holds, by kind: the Story's own ("story"), host subscriptions ("host") and mounted local actors ("component"). A reload
@@ -722,17 +722,41 @@ export const makeHarness = (port: Port) => (): Harness => {
   // Stage L (review H1, H3, M1, M2): the anchor runs once per boot that was given the records, before the first run in it or at its
   // `boot` evidence or at the end of the suite's own step, whichever comes first. Every actor the suite left alive with a record on disk
   // must be restored, the codec must read its leaf (no answer is red, not a skip), and every live copy must be in both the record and what
-  // the runtime publishes. A record the runtime quarantined is excused only for a cause the suite drove: a release, or bytes it edited.
-  const quarantined = (actor: string) =>
-    ((releases.length > 0 || off(actor) || restoreThrew) && issues.some((i) => i.code === "RecordQuarantined" && port.disk.scope(String(i.input ?? "").split(": ")[0]!) === actor)) ||
-    // Rule 74 (OD30 Q3): a release that changed a value-named machine's input fields leaves an old-version record, listed and never restored.
-    (releases.length > 0 && evidence.some((e) => e["kind"] === "OldVersionActor" && e["actor"] === actor));
-  // The same quarantine, at the boot after the last reload the suite drove, with a release since the reload before it (phase 1 migration's (j) excuse).
-  let issuesAtReload = 0;
+  // the runtime publishes. A record not restored is excused only for a cause the suite drove: bytes it edited (`off`), or, this boot, a release
+  // under which the suite itself reads the record as unreadable. Migration round 3 (the runner's): built from what the suite observed, never from
+  // the runtime's own `RecordQuarantined` or `OldVersionActor`.
   let releasesAtReload = 0;
   let releasedBeforeReload = false;
-  const quarantinedAtReload = (actor: string) =>
-    releasedBeforeReload && issues.slice(issuesAtReload).some((i) => i.code === "RecordQuarantined" && port.disk.scope(String(i.input ?? "").split(": ")[0]!) === actor);
+  // The record by the declared codec (D142), against the release's compiled machine (the suite's data): its machine gone, an identity version
+  // other than this release's (rule 74's old-version record), a leaf or a fragment it no longer has, or memory its restore refuses.
+  // `memoryOnly`: only the compiled restore's refusal of the record's memory, a cause in the suite's own data with or without a release (stage L's).
+  const unreadableNow = (actor: string, memoryOnly = false): boolean => {
+    const kv = reloadFacts?.kv;
+    const key = kv && [...kv.keys()].find((k) => port.disk.kind(k) === "actor" && port.disk.scope(k) === actor);
+    if (!kv || key === undefined) return false;
+    let r: any;
+    try {
+      r = port.disk.decode(key, kv.get(key)!);
+    } catch {
+      return true;
+    }
+    const m = refm().machine(machineOf(actor)) as any;
+    if (!m || typeof r !== "object" || r === null) return !memoryOnly;
+    const sameSet = (a: readonly string[], b: readonly string[]) => a.length === b.length && a.every((x) => b.includes(x));
+    if (!memoryOnly && Array.isArray(r.fields) && Array.isArray(m.identityVersion) && !sameSet(r.fields, m.identityVersion)) return true;
+    const bad = (i: any, frag: string | null): boolean => {
+      const f = frag === null ? m : m.fragments?.[frag];
+      if (!f || typeof i?.leaf !== "string" || !f.nodes?.[i.leaf]) return !memoryOnly;
+      try {
+        f.memory?.restore?.run(i.memory ?? {});
+      } catch {
+        return true;
+      }
+      return Object.values(i.kids ?? {}).some((k: any) => bad(k, typeof k?.frag === "string" ? k.frag : null));
+    };
+    return bad(r.root, null);
+  };
+  const quarantined = (actor: string) => off(actor) || (releasedBeforeReload ? unreadableNow(actor) : unreadableNow(actor, true));
   // Rule 73 (OD31, Ready and hydration): a record the boot keeps as a record is restored when the suite's re-attach reaches it. Its anchor
   // waits for that incarnation, before any run in it; still absent at the end of the step that booted, it was not restored.
   const deferredAnchor = new Set<string>();
@@ -1245,9 +1269,9 @@ export const makeHarness = (port: Port) => (): Harness => {
           if (d && !d.over && !off(d.actor) && !runtimeDisposed && ((lifeOf.get(d.actor) ?? 0) !== (lifeAtReload.get(d.actor) ?? 0) || leafOf(d.actor) === undefined)) {
             const said = `(j) a restored ending parked, and its owner was alive at the reload: ${op} ${att} in ${d.actor}; an input ran before the restored endings (rule 44)`;
             if (booting) parkedAtBoot.push({ actor: d.actor, said });
-            else if (!quarantinedAtReload(d.actor)) missing.push(said);
+            else if (!quarantined(d.actor)) missing.push(said);
           }
-          else if (owner !== undefined && !off(owner) && !runtimeDisposed && !lifeOver(att) && !moveLetsGo(owner, op, att) && bindsCopy(owner, op, attemptCopy.get(att)) === "yes")
+          else if (owner !== undefined && !off(owner) && !runtimeDisposed && !lifeOver(att) && !otherIdentity(att, owner) && !moveLetsGo(owner, op, att) && bindsCopy(owner, op, attemptCopy.get(att)) === "yes")
             missing.push(`(j) parked, and its live owner binds it (reference): ${op} ${att} in ${owner} at ${leafOf(owner)}`);
           const dc = att === "" ? declineCopy.get(op) : undefined;
           if (dc) (declineOwners.get(op) ?? declineOwners.set(op, new Set()).get(op)!).add(dc.actor);
@@ -1738,7 +1762,6 @@ export const makeHarness = (port: Port) => (): Harness => {
     if (s.wipe) ledgerOff = ledgerOffDisk = true; // every record is gone: nothing is owed by anyone (rule 46)
     credits = []; // mail dies with the process: a send not yet run pays nothing after the kill
     lifeAtReload = new Map(lifeOf); // stage K: the lives a restored ending is owed to, as at the reload the suite drove
-    issuesAtReload = issues.length;
     releasedBeforeReload = releases.length > releasesAtReload;
     releasesAtReload = releases.length;
     // Stage L (review R6): the reload's facts, the suite's own. What is on disk now is what the next boot is given, if its load answers.
@@ -1786,7 +1809,7 @@ export const makeHarness = (port: Port) => (): Harness => {
     bootDeclines.clear(); // the restored declines ran in the step that booted, or not at all
     for (const a of ghostsPending) ghosts.add(a);
     ghostsPending.clear();
-    for (const p of parkedAtBoot) if (!quarantinedAtReload(p.actor)) missing.push(p.said);
+    for (const p of parkedAtBoot) if (!quarantined(p.actor)) missing.push(p.said);
     parkedAtBoot.length = 0;
     if (!reloadFacts || !given() || ledgerOff) return;
     anchorOnce();

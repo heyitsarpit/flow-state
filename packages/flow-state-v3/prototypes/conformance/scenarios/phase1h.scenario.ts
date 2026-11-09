@@ -365,7 +365,8 @@ export const phase1hScenarios: readonly Scenario[] = [
         c.advance(GRACE);
         c.h.release(() => void (rel.v = 2), () => void (rel.v = 1));
         c.reload();
-        c.eq("an old-version record", c.r.evidence("OldVersionActor").length, 1);
+        // Migration round 3 (rule 74: an old-version record's lanes are unbound, `UnboundLane`): not `HoldWithoutRecord`, which is a record unread.
+        c.eq("an old-version record, its hold not called a hold without a record", [c.r.evidence("OldVersionActor").length, c.r.issues().filter((i) => i.code === "HoldWithoutRecord").length], [1, 0]);
         c.eq("its held lane is unbound, listed and reported", [c.r.inspect(at)?.unbound?.length, c.reportsOf("save", at).length], [1, 1]);
       },
       // Audit 1, C173 (R9): `forget` removes an old-version record, as it does a retired or undecodable one.

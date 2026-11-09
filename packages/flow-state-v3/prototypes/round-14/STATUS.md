@@ -1681,3 +1681,40 @@ Sidecar log (Haiku, effort high; the lead read every line and reran every check)
 | Task | Who | Result | Why |
 | --- | --- | --- | --- |
 | review: the record format, `FieldDropped`, `HoldWithoutRecord`, `previous[i].retryable`, `dropAt` vs the rulings, rule 46, rule 74, T1 | reviewer | changed | acted on: `FieldDropped` fired for a record then quarantined (now said after the stopped-reads check); `pinsb.undecodable-memory-fatal` lost its anchor (restored); `format: null` read as format 1 (now quarantined). Recorded: findings 1-5. Its "clear `dropAt` in `complete()`" not built (unobservable, finding 2) |
+
+## Phase 1: record migration round 3 (2026-11-09)
+
+The runner's brief: close the migration audit's gaps (its wrong runtimes in `mutants-audit-m1.ts`, unedited; its probes read for the situation
+only; cases written from the design). Standing gate `mutants-am1.ts` (spread into `mutants-lifetime.ts`): audit M1's survivors aimed at their
+cases, its lie, and four wrong runtimes undoing this round's fixes. `bun lifetime-falsify.ts --mutants m1.,lie:m1.,am1.`: control 371 pass;
+every one red on its target, by assertion except the lie (by (j), in 26 cases); the lead read each red line.
+
+| Item | State | Failing first | Wrong runtime |
+| --- | --- | --- | --- |
+| Renaming an op changes nothing persisted (2.7.15: a lane is "(actor identity, contract id, key)") | **built**: Flow's record format 3 adds the lane's `contract`; `renamedOp` (durable.ts) moves a lane whose op name this release lacks to the one write op over its contract, as D78 moves a lane (old record deleted in the batch that writes the new); an op of the lane's name over another contract does not take it (quarantined if none matches; the reviewer's). Format 2 upgrades to 3 unchanged: an older lane is found by its name (stated) | `renaming-an-operation-...`: `nothing quarantined: expected 0, got 1` (the auditor's dev probe, red on the shipped runtime); `a-new-op-of-the-old-name-over-another-contract-...`: `expected [2,..], got [1,..]` on the name-first rule | `am1.op-rename-ignored`, `am1.lane-without-contract`, `am1.op-name-wins-over-contract` |
+| A new-version actor of the same name text does not hear the old hold (rule 74: an old-version record's lanes "stay unbound ... since no ref can spell its identity") | **built**: a lane is stamped at mint with its machine's identity version (`stampOf`, format 3 `identity`); `ofIdentity` (lane.ts) keeps another version's lane from adoption and its endings from any live actor; each boot lists it `UnboundLane` | `...-does-not-hear-the-old-hold`: `the new identity did not hear the old hold: expected 0, got 1` | `am1.old-identity-adopted` |
+| Survivors (each red by assertion on a design-cited P1-M case) | **standing**: null, 2.5, "2" formats; a format 1 lane after two re-sends then `retryable({ times: 3 })`; a format 1 actor with timers and stopped reads (two Life actors); `previous[i].retryable`'s budget; `FieldDropped` on a fragment field; none for a record then quarantined; `HoldWithoutRecord` for a head on the wire; P1-H's old-version variant asserts no `HoldWithoutRecord`; the fresh actor saved (its record on disk holds the fresh title, then a second boot); `Number` to `NumberFromString` is a new version | each passed first (the runtime was right; the gaps were the suite's) | the audit's `m1.*`, aimed in `mutants-am1.ts` |
+| Oracle (j)'s excuse | **rebuilt** (the runner's): from what the suite observed, this boot only: bytes it edited (`off`), or a release since the previous reload under which the suite itself reads the record unreadable (`unreadableNow`: by the declared codec, against the release's compiled machine: machine gone, identity version differs, a leaf or fragment it no longer has, memory its compiled restore refuses); without a release, only that compiled restore's refusal (REV8-PINS's broken restore). Never the runtime's `RecordQuarantined` text or `OldVersionActor`. `otherIdentity`: an attempt made under another identity version of its machine is never bound by a live actor of the same name. The boot-wide `restoreThrew` flag is gone (the reviewer's: it excused every actor) | the same-text case was red by (j) twice before (the live old-version actor's hold parking at boot; then the reference model binding it) | `lie:m1.quarantine-beside-old-hold` now red by (j) in 26 cases (the runtime's own word no longer excuses it) |
+
+Findings for the design:
+1. 2.7.15 says a lane is (identity, contract id, key), but the runtime keys lanes by op name in memory; two write ops over one contract in one
+   machine have two lanes, where the design says one. The rename move covers only a release boundary.
+2. Rule 74 says an old identity's lanes stay unbound; it does not say what the new identity's commit on the same key does. As built it meets
+   the old lane and declines busy (one lane id), and its keyed `cancel(k)` or `retry(k)` still names that lane: a leak to close or a rule to
+   state (the reviewer's). Not built: no case yet.
+3. Lanes written before format 3 carry no identity stamp or contract: such a lane is bound to any identity of its name and found only by its
+   name (stated limit, as format 0's names-only version).
+4. A crash between the batch that writes a moved lane under its new name and the one that deletes the old (an awaited write skips the old
+   name's removal, durable.ts `flush`) leaves both on disk; the next boot moves the old onto the new name with no collision check. Not built.
+5. A fresh ensure over an old-version record overwrites it (step.ts); the design says such a record is "removed by `forget`". Pre-existing.
+6. `off(actor)` excuses an edited actor for the whole case, not one boot; pre-existing, kept.
+
+Gates: lifetime-falsify alone 376 pass; batch A 9/9; batch B 10/15: falsify mutants and the four lie slices did not apply, anchored on the two
+`admitEnding` lines this round reordered. The lines were restored and the identity test moved onto the `if`, behaviour unchanged. Then those
+gates 8/8, lifetime-falsify again (376 pass), and the other 16 gates 16/16: **25/25 ok, 0 BAD**. Suite 1064/1064, lock clean.
+
+Sidecar log (Haiku, effort high; the lead read every line and reran every check):
+
+| Task | Who | Result | Why |
+| --- | --- | --- | --- |
+| review: op rename, identity stamps, the (j) excuse rebuild, the new cases and `mutants-am1.ts` vs 2.7.15, rule 74, 2.7.17 | reviewer | changed | acted on: the boot-wide restore flag excused every actor (removed; a refusal is read per record); an op of the old name over another contract took the lane (fixed, its own case and wrong runtime); the rename case counted any key name (now the new name). Recorded: findings 1, 2, 4, 5, 6, and pre-format-3 lanes (finding 3) |

@@ -6,7 +6,7 @@ import { getActor, setActor, noActors, type Actors } from "./actors.ts";
 import { canon, carried, standIn, text, own, Unencodable, validActor, validLane } from "./gate.ts";
 import type { Compiled } from "../conformance/fixtures/compiled.ts";
 import { hook, saveAll } from "./hooks.ts";
-import { afterAck, cell, olderOf, sameFields, sameVersion, stampFields } from "./lane.ts";
+import { afterAck, cell, ofIdentity, olderOf, sameFields, sameVersion, stampFields } from "./lane.ts";
 import { armTimer, disarmTimer } from "./timers.ts";
 import {
   clearStall,
@@ -91,6 +91,8 @@ const laneBody = (tx: Tx, l: Lane) =>
     actor: l.actor,
     machine: l.machine,
     op: l.op,
+    ...(tx.machines[l.machine]?.ops[l.op]?.contract ? { contract: tx.machines[l.machine]!.ops[l.op]!.contract } : {}), // 2.7.15: (identity, contract id, key)
+    ...(l.identity ? { identity: l.identity } : {}),
     key: l.key === undefined ? undefined : JSON.parse(canon(l.key)), // D119: the name's normal form. It restores to the same lane
     subject: l.subject,
     ...(l.keyFields ? { keyFields: l.keyFields } : {}), // D221: the stamp travels with the lane
@@ -127,10 +129,12 @@ const actorRecord = (tx: Tx, key: string): unknown => {
   const timers = live ? [...armed, ...firing] : (a.timers ?? []);
   return { format: RECORD_FORMAT, ...a, boot: tx.w.boot, timers, ...(live ? {} : { retired: true }) }; // D99
 };
-// Flow's own record format (rule 74's format tag, for the records themselves; phase 1 migration round 2, proposed). Format 1 is untagged and a lane
-// record stores its id beside the actor, op and key it is made of; format 2 tags every record and stores a lane's id once, as the record's key.
+// Flow's own record format (rule 74's format tag, for the records themselves; phase 1 migration rounds 2-3, proposed). Format 1 is untagged and a lane
+// record stores its id beside the actor, op and key it is made of; format 2 tags every record and stores a lane's id once, as the record's key;
+// format 3 adds to a lane record its contract id (2.7.15: a lane is (identity, contract id, key), so a renamed op finds it) and the actor identity
+// version it was minted under (rule 74). An older record has neither: it is found by its op name and bound to any identity of its name (stated).
 // Each older format reaches the current one by a pure step at the boot, before this release's checks; a newer format is quarantined, never misread.
-export const RECORD_FORMAT = 2;
+export const RECORD_FORMAT = 3;
 type Raw = Record<string, unknown>;
 const UPGRADE: Readonly<Record<number, (k: string, v: Raw) => Raw>> = {
   1: (k, v) => {
@@ -139,6 +143,7 @@ const UPGRADE: Readonly<Record<number, (k: string, v: Raw) => Raw>> = {
     const { id: _id, ...rest } = v;
     return rest;
   },
+  2: (_k, v) => v,
 };
 const upgraded = (tx: Tx, k: string, v: unknown): Raw | undefined => {
   if (typeof v !== "object" || v === null || Array.isArray(v)) return v as Raw | undefined;
@@ -366,10 +371,11 @@ export const restore = (tx: Tx, records: ReadonlyArray<readonly [string, string]
         hold();
         continue;
       }
+      const r = typeof v.machine === "string" && typeof v.op === "string" && validLane(v as never, k) ? renamedOp(tx, v) : v;
       if (
-        typeof v?.machine !== "string" ||
-        typeof v?.op !== "string" ||
-        !tx.machines[v.machine]?.ops[v.op] ||
+        typeof r?.machine !== "string" ||
+        typeof r?.op !== "string" ||
+        !tx.machines[r.machine]?.ops[r.op] ||
         !validLane(v as never, k)
       ) {
         quarantine(
@@ -382,7 +388,8 @@ export const restore = (tx: Tx, records: ReadonlyArray<readonly [string, string]
       }
       const { boot: _stamp, id: _id, ...body } = v;
       saved[v.id] = JSON.stringify({ format: RECORD_FORMAT, ...body }); // what `laneBody` writes for it unchanged, so an untouched lane is not rewritten
-      lanes.push([k, v]);
+      const { contract: _c, ...lane } = r as SavedLane & { contract?: string };
+      lanes.push([k, lane]);
     }
   }
   lanes.splice(0, lanes.length, ...placeLanes(tx, lanes));
@@ -397,7 +404,8 @@ export const restore = (tx: Tx, records: ReadonlyArray<readonly [string, string]
     oldVersion,
   };
   const recorded = new Set([...actors, ...retired].map(([k]) => k));
-  for (const [, l] of lanes) if (!recorded.has(l.actor) && !Object.hasOwn(undecodable, l.actor)) note(tx, "UnboundLane", { actor: l.actor, op: l.op, lane: l.id });
+  for (const [, l] of lanes)
+    if ((!recorded.has(l.actor) && !Object.hasOwn(undecodable, l.actor)) || !ofIdentity(tx, l as Lane)) note(tx, "UnboundLane", { actor: l.actor, op: l.op, lane: l.id }); // rule 74: an old identity's lane too
   // The runner's ruling (phase 1 migration round 2): a hold whose identity's record this boot could not read waits for an ensure, and the boot says so.
   for (const [, l] of lanes) if (l.head && Object.hasOwn(undecodable, l.actor)) issue(tx, { code: "HoldWithoutRecord", origin: `${l.machine} ${l.op}`, input: { lane: l.id } });
   for (const t of timers) {
@@ -493,6 +501,22 @@ const placeLanes = (tx: Tx, lanes: ReadonlyArray<readonly [string, SavedLane]>):
     tx.w = { ...tx.w, rekeyed: { ...tx.w.rekeyed, [id]: v.id } };
     return [k, { ...v, id, key: fresh }];
   });
+};
+// 2.7.15: "renaming an operation (`pay` to `charge`) changes nothing persisted": a lane is (actor identity, contract id, key). A lane whose op name
+// this release does not have is the lane of the one write op over its contract, under the new name, and moves to it as D78 moves a lane (the old
+// record goes in the batch that writes the new one). No contract on the record (before format 3): found by name. An op of its name over another
+// contract is not its op: with no one write op over its own contract, the lane is quarantined (undefined), never restored under the wrong contract.
+const renamedOp = (tx: Tx, v: SavedLane & { contract?: unknown }): SavedLane | undefined => {
+  const m = tx.machines[v.machine];
+  const here = m?.ops[v.op];
+  if (!m || typeof v.contract !== "string" || here?.contract === v.contract || (here && here.contract === undefined)) return v;
+  const same = Object.entries(m.ops).filter(([, o]) => o.kind === "write" && o.contract === v.contract);
+  if (same.length !== 1) return here ? undefined : v;
+  const op = same[0]![0];
+  const id = laneKey(v.actor, op, v.key);
+  note(tx, "OpRenamed", { from: v.op, to: op, lane: id }); // proposed name
+  tx.w = { ...tx.w, rekeyed: { ...tx.w.rekeyed, [id]: v.id } };
+  return { ...v, op, id };
 };
 // D82: a stand-in for Schema decode with defaults. Undefined: this record cannot be read by this release.
 // The runner's ruling (phase 1 migration round 2): a field this release no longer declares is dropped at restore; `dropped` collects it, for the

@@ -622,10 +622,19 @@ export const ofVersion = (lane: Lane | undefined, o: (Versioned & { readonly pre
   if (fields === undefined) return previous === undefined ? lane : undefined;
   return sameFields(lane.keyFields, fields, p?.keyVersion ? p.keyVersionByFormat : undefined) ? lane : undefined;
 };
-function stampOf(tx: Tx, machine: string, op: string): { keyFields?: readonly string[] } {
+function stampOf(tx: Tx, machine: string, op: string): { keyFields?: readonly string[]; identity?: readonly string[] } {
   const f = stampFields(tx.machines[machine]?.ops[op]);
-  return f ? { keyFields: [...f] } : {};
+  const id = tx.machines[machine]?.identityVersion;
+  return { ...(f ? { keyFields: [...f] } : {}), ...(id?.length ? { identity: [...id] } : {}) };
 }
+// Rule 74 (migration round 3): a value-named actor's lane is stamped with the identity version it was minted under. Under another version now, it is
+// the old identity's: never adopted or heard by the new identity, whose name may have the same text ("no ref can spell its identity"). No stamp:
+// a singleton, or a record written before Flow's record format 3.
+export const ofIdentity = (tx: Tx, l: Lane | undefined): boolean => {
+  const m = l && tx.machines[l.machine];
+  if (!l?.identity || !m?.identityVersion) return true;
+  return sameVersion(l.identity, m.identityVersion, m.identityVersionByFormat);
+};
 // Round 13 (D221, Arpit's call on required key fields; replaces D217's shape test and the first D221's projection). An op's key fields are part of its
 // identity: a release that changes them makes a new version of the op. A lane minted under the old fields (its stamp) is an old-version hold: never rekeyed,
 // never matched against a new key. It stays reachable by its own old key (`retry(k)`, `cancel(k)`, an exact lane id), and until it ends every commit of

@@ -555,6 +555,7 @@ export const validLane = (v: Record<string, unknown>, k: string) =>
   v["id"] === `${v["actor"]}|${v["op"]}|${canon(v["key"])}` && // what `laneKey` wrote: a release must not make an idle guard miss a hold
   strs(v["subject"]) &&
   (v["keyFields"] === undefined || strs(v["keyFields"])) && // D221: the stamp
+  (v["identity"] === undefined || strs(v["identity"])) && // rule 74 (migration round 3): the identity version at mint
   Array.isArray(v["w"]) &&
   v["w"].every(validAttempt) &&
   (v["head"] === undefined || validAttempt(v["head"])) &&
