@@ -783,6 +783,8 @@ type Answer = Data.TaggedEnum<{ Landed: {}; Refused: { reason: string } }>;
 
 `{}` accepts any non-nullish value, not an empty object. Declare the fields this value carries, use `Record<string, never>` for an object with no keys, or `unknown` for any value. An empty variant of a Data.TaggedEnum may keep `{}`.
 
+An empty interface accepts any non-nullish value. Declare its fields, or use a type alias for what it really means.
+
 ## no-object-freeze
 
 ### Prescription
@@ -1016,11 +1018,15 @@ diagnostics so the suggested correction does not trigger a conflicting rule.
 
 ```ts
 type Value = Readonly<{ readonly value: string }>;
+
+type Event = Data.TaggedEnum<{ Opened: { readonly id: string } }>;
 ```
 
 **Shipped message**
 
 This Readonly wrapper duplicates readonly members. If the contract requires readonly, keep one spelling; otherwise use a plain internal record. Preserve public guarantees and configure required readonly contracts as exceptions to the broader readonly review policy rather than removing them to silence another diagnostic.
+
+TaggedEnum already makes member fields readonly. Remove this readonly modifier; nested readonly types still need their own spelling.
 
 ## no-reflect-apply
 
