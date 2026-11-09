@@ -123,6 +123,7 @@ const falsify = (args: ReadonlyArray<string>) =>
     const runtime = resolve(Option.getOrElse(flag(args, "--runtime"), () => DEFAULT_RUNTIME));
     const scratch = resolve(Option.getOrElse(flag(args, "--scratch"), () => tmpdir()));
     const only = list(flag(args, "--lie"));
+    const sweep = args.includes("--sweep");
 
     const runnable = guarantees.map((g) => ({
       oracle: g.oracle.name,
@@ -140,7 +141,10 @@ const falsify = (args: ReadonlyArray<string>) =>
         .filter((l) =>
           Option.match(only, { onNone: () => true, onSome: (names) => names.includes(l.name) }),
         )
-        .map((lie) => ({ oracle: g.oracle, lie })),
+        .map((lie) => ({
+          oracle: g.oracle,
+          lie: sweep ? { ...lie, cases: scenarios.map((s) => s.id) } : lie,
+        })),
     );
 
     const stated = (run: string, ids: ReadonlyArray<string>) =>
@@ -183,8 +187,10 @@ const falsify = (args: ReadonlyArray<string>) =>
     for (const v of verdicts)
       yield* Console.log(
         LieVerdict.$match(v, {
-          Caught: ({ lie, why }) => `ok   ${lie}  caught: ${why}`,
-          WrongReason: ({ lie, why }) => `BAD  ${lie}  red by another check: ${why}`,
+          Caught: ({ lie, why, red, caughtIn }) =>
+            `ok   ${lie}  caught: ${why}${sweep ? `\n     red ${red.length}: ${red.join(" ")}\n     by its oracle ${caughtIn.length}: ${caughtIn.join(" ")}` : ""}`,
+          WrongReason: ({ lie, why, red }) =>
+            `BAD  ${lie}  red by another check: ${why}${sweep ? `\n     red ${red.length}: ${red.join(" ")}` : ""}`,
           Survived: ({ lie }) => `BAD  ${lie}  survived`,
           NotApplied: ({ lie, why }) => `BAD  ${lie}  does not apply: ${why}`,
           NoVerdict: ({ lie, why }) => `BAD  ${lie}  no verdict: ${why}`,

@@ -16,6 +16,7 @@ import type { Answer, Request } from "../world/network.ts";
  * - `Reported`: the runtime reported this observation.
  * - `Reloaded`: the suite killed the page and booted a new one.
  * - `Disposed`: the suite disposed this actor.
+ * - `Ensured`: the suite attached a use of this actor, creating it if needed.
  */
 export type Fact = Data.TaggedEnum<{
   Stepped: { readonly step: number; readonly what: string };
@@ -24,6 +25,7 @@ export type Fact = Data.TaggedEnum<{
   Reported: { readonly observation: Observation };
   Reloaded: {};
   Disposed: { readonly actor: ActorRef };
+  Ensured: { readonly actor: ActorRef };
 }>;
 
 /**

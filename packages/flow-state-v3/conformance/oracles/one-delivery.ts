@@ -47,10 +47,7 @@ const ownerOf = (ledger: Ledger, operation: string, attempt: Option.Option<strin
     : Option.flatten(Option.fromUndefinedOr(ledger.declineOwners.get(operation)?.[0]));
 
 const disposedOwner = (ledger: Ledger, owner: Option.Option<ActorRef>) =>
-  Option.match(owner, {
-    onNone: () => ledger.disposed.length > 0,
-    onSome: (o) => ledger.disposed.some((d) => sameData(d, o)),
-  });
+  Option.exists(owner, (o) => ledger.disposed.some((d) => sameData(d, o)));
 
 const recordedWithCause = (
   ledger: Ledger,
@@ -83,24 +80,39 @@ const learn = (ledger: Ledger, observed: Observation) => {
     ledger.superseded.add(observed.attempt.value);
 };
 
-const settleOne = (ledger: Ledger, reference: Reference, observed: Observation) => {
-  if (Observation.$is("Ended")(observed)) {
-    bump(ledger.owed, keyOf(observed.operation, observed.attempt), 1);
+const owe = (ledger: Ledger, ended: Extract<Observation, { readonly _tag: "Ended" }>) => {
+  bump(ledger.owed, keyOf(ended.operation, ended.attempt), 1);
 
-    if (Option.isNone(observed.attempt))
-      ledger.declineOwners.set(observed.operation, [
-        ...(ledger.declineOwners.get(observed.operation) ?? []),
-        observed.actor,
-      ]);
+  if (Option.isNone(ended.attempt))
+    ledger.declineOwners.set(ended.operation, [
+      ...(ledger.declineOwners.get(ended.operation) ?? []),
+      ended.actor,
+    ]);
 
-    return [];
+  return [];
+};
+
+const record = (
+  ledger: Ledger,
+  reference: Reference,
+  recorded: Extract<Observation, { readonly _tag: "Recorded" }>,
+) => {
+  const key = keyOf(recorded.operation, recorded.attempt);
+  const cause = recordedWithCause(ledger, reference, recorded);
+
+  if (recorded.why === "letGo" && (ledger.parked.get(key) ?? 0) > 0) {
+    bump(ledger.parked, key, -1);
+
+    return cause;
   }
 
-  if (Observation.$is("Recorded")(observed))
-    return [
-      ...recordedWithCause(ledger, reference, observed),
-      ...pay(ledger, keyOf(observed.operation, observed.attempt), "recorded"),
-    ];
+  return [...cause, ...pay(ledger, key, "recorded")];
+};
+
+const settleOne = (ledger: Ledger, reference: Reference, observed: Observation) => {
+  if (Observation.$is("Ended")(observed)) return owe(ledger, observed);
+
+  if (Observation.$is("Recorded")(observed)) return record(ledger, reference, observed);
 
   if (Observation.$is("Parked")(observed)) {
     const key = keyOf(observed.operation, observed.attempt);
@@ -177,6 +189,12 @@ const ledgerOf = (facts: Facts) => {
 
       if (Fact.$is("Disposed")(fact)) ledger.disposed.push(fact.actor);
 
+      if (Fact.$is("Ensured")(fact)) {
+        const at = ledger.disposed.findIndex((d) => sameData(d, fact.actor));
+
+        if (at >= 0) ledger.disposed.splice(at, 1);
+      }
+
       if (!Fact.$is("Reported")(fact)) return [];
       const observed = fact.observation;
       learn(ledger, observed);
@@ -217,10 +235,16 @@ const ledgerOf = (facts: Facts) => {
  *
  * **Gotchas**
  *
- * - Anchored to the suite's own steps (dispose) and the fixtures' references; who committed an
- *   Attempt, and whether it was superseded, are the runtime's reports.
+ * - Anchored to the suite's own steps (dispose, and an ensure that ends a disposal's excuse) and
+ *   the fixtures' references; who committed an Attempt, and whether it was superseded, are the
+ *   runtime's reports. An ending whose committing actor is unknown is never excused.
  * - A reload forgets what was owed: what survives on disk is owed again as the endings the new
  *   boot decides, which the restore oracle owns.
+ * - `Unhandled` and `Denied` carry no actor on the prototype, so they settle a delivery by its
+ *   event only.
+ * - Endings recorded for causes the suite cannot see yet (a releasing lane, an ended fragment's
+ *   lookup) need the fragment fixtures; until then they read as violations.
+ * - A parked ending still parked at the end of a case is not yet checked.
  */
 export const oneDelivery: Oracle = {
   name: "one-delivery",

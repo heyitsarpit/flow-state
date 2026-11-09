@@ -225,6 +225,7 @@ export const openCase = (
     ensure: () => c.ensureOf(scenario.actor, Option.none()),
     ensureOf: (actor, input) =>
       act(`ensure ${actor.id}`, () => {
+        timeline.push(Fact.Ensured({ actor }));
         uses.push([actor, "story"]);
         runtime.ensure(actor, input, "story");
       }),

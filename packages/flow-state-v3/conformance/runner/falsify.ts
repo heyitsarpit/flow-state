@@ -8,10 +8,16 @@ import { type CaseVerdict, VERDICTS_LINE, VerdictsJson } from "./verdict.ts";
 
 /**
  * What became of one lie: caught by its oracle, red for another reason, green, or not run.
+ * `red` lists every case the lie turned red; `caughtIn` those its own oracle named.
  */
 export type LieVerdict = Data.TaggedEnum<{
-  Caught: { readonly lie: string; readonly why: string };
-  WrongReason: { readonly lie: string; readonly why: string };
+  Caught: {
+    readonly lie: string;
+    readonly why: string;
+    readonly red: ReadonlyArray<string>;
+    readonly caughtIn: ReadonlyArray<string>;
+  };
+  WrongReason: { readonly lie: string; readonly why: string; readonly red: ReadonlyArray<string> };
   Survived: { readonly lie: string };
   NotApplied: { readonly lie: string; readonly why: string };
   NoVerdict: { readonly lie: string; readonly why: string };
@@ -100,14 +106,21 @@ const verdictsOf = (stdout: string, stderr: string, code: number) =>
 // RETURN_TYPE: each branch builds one variant; the union keeps them one LieVerdict.
 const judge = (lie: Lie, oracle: string, verdicts: ReadonlyArray<CaseVerdict>): LieVerdict => {
   const red = verdicts.flatMap((v) => (v._tag === "Fail" ? [v] : []));
-  const caught = red.find((v) => v.oracles.includes(oracle));
+  const ids = red.map((v) => v.id);
+  const caughtIn = red.filter((v) => v.oracles.includes(oracle));
+  const [caught] = caughtIn;
 
   if (caught !== undefined)
-    return LieVerdict.Caught({ lie: lie.name, why: `${caught.id}: ${caught.why}` });
+    return LieVerdict.Caught({
+      lie: lie.name,
+      why: `${caught.id}: ${caught.why}`,
+      red: ids,
+      caughtIn: caughtIn.map((v) => v.id),
+    });
   const [other] = red;
 
   if (other !== undefined)
-    return LieVerdict.WrongReason({ lie: lie.name, why: `${other.id}: ${other.why}` });
+    return LieVerdict.WrongReason({ lie: lie.name, why: `${other.id}: ${other.why}`, red: ids });
 
   return LieVerdict.Survived({ lie: lie.name });
 };

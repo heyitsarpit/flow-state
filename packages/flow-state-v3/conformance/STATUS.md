@@ -99,3 +99,100 @@ Take the ending ledger (`one-delivery`, WriteLanes I15, I16, I22) with the Pay c
 (PAY-06 to PAY-16), which brings the fake world's `lateAnswer`, `landLate`, storage `hang` and
 reload paths, and the lies `a2.deliv-fail-samemail`, `d154.moved-fail-released`, `lie.released`,
 `e8.wa-failure`. Then `lane-cells`. Compare verdicts on PAY-01..16 against the old suite.
+
+## Round 2 (2026-11-09): review fixes, Port additions, the ending ledger, PAY-06..16
+
+Latest numbers:
+
+- `suite`: 38/38 on round-14, every case under seeds 1 and 2 (31 Pay ids, 3 delivery cases,
+  PAY-01..05).
+- `suite --runtime null`: every case fails; `--json` exits 1.
+- `falsify --parallel 5`: every oracle has a lie, null red, control green, 9/9 lies caught by their
+  own guarantee's oracle.
+- `nub run check`: no errors, no warnings (30 files).
+
+Round 1 review findings, by item:
+
+- M1 **done**: `three-channels` requires an answered live send to end, under its id, in that step
+  (live: the newest request of the id, a send reported and no ending since). Lie
+  `lie.ending-without-id` (the send's ending names no Attempt): caught by `three-channels` on
+  PAY-01.
+- M2 **done**: `suite.ts` holds `guarantees` (each oracle with its lies); falsify fails an oracle
+  with no lie for the runtime it runs on. A verdict names every oracle that failed the step, so a
+  lie is judged by its own oracle even when another also fires.
+- M3 **done**: the planned Port is in the README; built now: `release` and `use` on
+  `ensure`/`ensureExisting`, actor on `Minted`, decline `Ended` and `Delivered`, `Parked`,
+  `Unparked`, `Recorded`, `Unhandled`, `Denied`, storage evidence, `Boot.sessionSeed`.
+- M4 **done** as a stated prototype limit (README decision 8): the suite supplies the seed;
+  round-14 asks its host for each id, so its adapter derives them from the seed. The seed cases and
+  their wrong runtime are phase 4 builds.
+- M5 **done**: the carry table in the README.
+- Lows **done**: `advance` capped at 100,000 firings; `--json` sets the exit code; `--parallel`
+  fails ids a child stated no verdict for; Spec ids out of doc comments (`guarantee` fields keep
+  them); seeds 1 and 2; `StillUnknown` keeps its tag when the runtime reports it (round-14 does
+  not: stated limit); `a3.like-row-hidden` moved to the cases row.
+
+Built: `oracles/one-delivery.ts` (WriteLanes I15, I16, I22: the ending ledger) and four lies;
+`scenarios/delivery.ts` (DLV-01..03, built so the lies' triggers fire: two endings owed to one
+actor at a boot, two actors' endings at a boot, a failure ending with a second live shopper); the
+`cells` fixture; fake-world late answers, late landings, uninterruptible calls, answers at once,
+storage `hang` and `landNoAck`; `falsify --sweep`.
+
+### Verdict comparison with the old suite (PAY-01..16)
+
+Old suite: `bun main.ts --round 14 --runtime <rt> --no-search --no-catalog --no-output --only
+PAY-01,...,PAY-16` (53 case items). New suite: `falsify --sweep` (38 cases). Runner sidecar runs;
+the lead re-ran the control and `lie.ending-without-id` (53/53 and 12/53, the same).
+
+| Runtime                                                              | Old suite                                                                                                                                                          | New suite                                                                        | Reading                                                                                                       |
+| -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| round-14                                                             | 53/53                                                                                                                                                              | 38/38                                                                            | same                                                                                                          |
+| `lie.ending-without-id`                                              | 41 red, by (j) "an ending reached nobody" (3 by S4 or a vanished mint)                                                                                             | 30 red, every one by `three-channels` (and `one-delivery`)                       | same verdict on every ported case with a write ending                                                         |
+| `a2.deliv-fail-samemail`, `d154.moved-fail-released`, `lie.released` | 53/53 green: the trigger (other mail when an ending is admitted) never fires on Pay traces (sidecar instrumented the copies: `tx.w.mail` empty at all 818 entries) | green on Pay; red on DLV-01/DLV-02, built to fire the trigger, by `one-delivery` | not a weakness of either suite on Pay; the old suite caught them on DRV-02, MED-01 and others, not ported yet |
+| `e8.wa-failure`                                                      | 1 red, PAY-12/shuffle, by (j) "delivered to the wrong recipient"                                                                                                   | red on DLV-03 by `one-delivery`                                                  | PAY-12/shuffle (scheduler shuffle) is not ported; DLV-03 drives the same trigger directly                     |
+
+No new-suite bug from the comparison. Two findings from the port, both oracle refinements that
+the old cases' expectations confirmed: PAY-07/late-may-not-leave delivers a late ending that the
+actor's guards deny (`Denied` was not an accepted outcome of a delivery: added, with the case's
+`LateMayNotLeave` assertion restored); PAY-16/stale-send-fenced answers an older send late after
+a re-send (the live-send check now applies only to the newest request of an id).
+
+### Ported Pay variants and gaps
+
+Ported (31): PAY-06/interruptible, uninterruptible; PAY-07/leaveMidCharge, late-in-a-new-PAYING,
+late-may-not-leave; PAY-08/reloadDuringCharge, reload-while-reconciling; PAY-09/ack-not-stored,
+ack-stored-confirmation-lost; PAY-10/refuse, hang; PAY-12/defect, sync, cancel-on-wire; PAY-14;
+PAY-15/press-pay-while-held, busy-then-new-write, reload-holds-exactly-once,
+dead-activation-timer, retry-budget, cancel-idle, cancel-on-wire; PAY-16/restore-keeps-
+mayHaveApplied, timeout-per-send, resend-refused-capture, retry-count-persists, stale-send-fenced,
+schedule-reads-after-memory, read-defect-issue, superseded-read.
+
+Not ported (17), each waiting on a planned Port part: PAY-11 (5 variants: slot and module
+faults), PAY-12/duplicate (a duplicated completion), PAY-12/shuffle (scheduler shuffle), PAY-13 (3:
+runtime disposal), PAY-15/dispose-held and PAY-16/settled-during-disposal-parked,
+on-the-wire-at-the-bound-ends-unknown-disposed, dispose-waiting-resend,
+disposal-ends-with-the-last-fiber (runtime disposal), PAY-16/parked-success-is-delivered (yield
+injection), PAY-16/cancelled-does-not-stick (an `interrupted` answer), PAY-16/rejected-is-delivered
+(dropped by its coder: both assertions read internals; to be re-expressed on `Delivered` and
+`Turn`), the hook-throw and core-throw variants (module and core faults: never a Port part; the
+Spec-level refusals they cover are the `refusal` oracle's).
+
+Dropped assertions (internals the Port does not show): lane cells, `fence`, `interrupt`,
+`initial`, boot frames, `replay`, `outside` except as the server's own request phases.
+
+### Sidecar log (round 2)
+
+| Sidecar                  | Task                                                       | Result                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| ------------------------ | ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Coder A                  | PAY-06..09                                                 | Accepted after reading the diff; the lead ported `ack-stored-confirmation-lost` (added storage `landNoAck`) and restored the `LateMayNotLeave` assertion (added `Denied`). Its failure report on late-may-not-leave was right: a missing `Denied` outcome in the oracle.                                                                                                                                                                                                                 |
+| Coder B                  | PAY-10..13                                                 | Changed: only PAY-10 was portable then; the lead added the `cells` fixture and ported PAY-12/defect, sync, cancel-on-wire, and restored PAY-10's storage evidence (added `StorageFailure`, `StorageSilent`).                                                                                                                                                                                                                                                                             |
+| Coder C                  | PAY-14, PAY-15                                             | Accepted; its fixture switch for the non-`AbortPay` variants is kept (`cells` is `pay` plus `AbortPay`); the lead ported the two `AbortPay` variants on `cells`.                                                                                                                                                                                                                                                                                                                         |
+| Coder D                  | PAY-16                                                     | Accepted; its stale-send-fenced failure was right (an oracle refinement, above). The lead restored "older was interrupted" through the server's request phases. Its skip of rejected-is-delivered is logged as a gap.                                                                                                                                                                                                                                                                    |
+| Runner                   | Old suite on PAY-01..16, control and five lies             | Accepted; re-ran two of its runs.                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| Reviewer (test the spec) | `one-delivery`, the changed checks, attribution, DLV cases | 19 findings. Accepted: 2 (a disposal excuse ended by a re-ensure), 3 (an unknown owner is never excused), 4 (an `ignored` record needs the mapping's cause), 8 (a let-go pays a parked ending), 18 (DLV doc overclaimed). Rejected 1 as stated (e8 is caught by `one-delivery`: B's IDLE root handles `Declined`, so a turn runs in B; falsify shows it) but kept its point as a stated limit: `Unhandled`/`Denied` match by event. Notes kept as limits: 6, 7, 9, 11. Others are notes. |
+
+### For round 3
+
+`lane-cells` (WriteLanes I8, I9, I11, I12, I20, I21) with its lies and the remaining Pay cases
+(PAY-17..20), and the Port's runtime disposal so PAY-13 and the disposal variants port. Then
+`members`.
