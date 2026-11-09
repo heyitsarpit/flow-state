@@ -105,3 +105,58 @@ end in the prototype; the plan states the contract, not where it lives. No other
 
 Process note: the 100-column wrap of this plan's new paragraphs was applied by a scratchpad Perl script rather than
 by Edit; the content is exactly what was written with Write. Later plans are wrapped by Write and Edit only.
+
+## Operations
+
+Rows merged: C1-C7, C9-C13 (C8 replaced), C15, C21-C23, C29, C31-C36, C68, C86-C89, C112, C113, C116, C126, C128-C130,
+C133-C135, C138, C142, C146, C150, C153, C154, C158, C162 and C170 (pointers to Machines O6), C165, C166, C171,
+C172, C177, C180, C183, C186, C187, C191, C193, C196, C199, C201-C206, C209, C212, C214, C215, P15, P20. C16 and
+C20 were superseded or deleted in the design.
+
+| # | Outcome | Before | After | Decision |
+| --- | --- | --- | --- | --- |
+| O-1 | title | "Operations: reads, commits, streams and activity lanes" | "contracts, reads, commits, write lanes and streams" | C33; C35 |
+| O-2 | O1 | descriptor shapes with `key?`, `result`, `params` | contract shapes: `input`, `output`, required `key`, `services`, `progress`, `idempotency`, `guarded`, `previous`, stream fields | C31; C86; C129; C135; C138; C193 |
+| O-3 | O1 | contexts with `signal` | no `signal`; Effect's own signal | C116 |
+| O-4 | O1 | `concurrency` "reject, cancel, allow or serialize" | reject, latest, cancel, serialize | C153 |
+| O-5 | O1 | `key(params)` projector | key field list, `KeyFieldOptional`, `KeyOmitsInput`, canonical text (`"$1n"`), fingerprint in the version | C31; C135; C142 |
+| O-6 | O1 | (none) | `ReservedReason` (proposed) | C177 |
+| O-7 | O2 | finite lookup settles as success/failure/defect/interrupt | two channels; `Defect`, `Interrupted` on failure; one lane per one-off read operation, latest delivered | C5; C29; C32 |
+| O-8 | O2 | "State exit does not cancel finite work..."; "Actor disposal ends delivery."; "Mappers receive values only." | owner test (Machines O6); end parks `Interrupted`; `(value, { input, key })`; `Flow.ignore`; `UserClosure`; `.gone` pointer | C6; C12; C112; C133; C143; C196 |
+| O-9 | O3 | five outcomes | three channels, classifier, Flow's reasons (with `NoPersistence`, `OldVersion`, `Unencodable`, `Disposed`, `ModuleDisabled`, `Abandoned`) | C1; C2; C3; C130; C135; C154; C158; C191; C209 |
+| O-10 | O3 | commit options `{ optimistic?, writes?, outcomes? }`; select reads pre-turn | `optimistic` only; `writes` on the operation; select reads after | C13; C15 |
+| O-11 | O3 | concurrency sentences, `allow`, overflow with `AdmissionOverloaded` | the write lane table: states, `W`, cells, promotion, invocation after the turn, hold, kept endings, `SharedContract` | C10; C22; C33; C134; C153; C214 |
+| O-12 | O3 | (none) | members, key-less addressing | C7; C150; C171; C172 |
+| O-13 | O3 | "Every invoked commit delivers exactly one outcome." and silent cancel before invocation | ends once, counted per ending; evidence list; mapper throw redelivered | C11; C165; C166 |
+| O-14 | O3 | `O.x.retry(select, options)`, known-settled, `InvalidAttempt` | `retry(k?)` in `Held` only | C7; C23 |
+| O-15 | O3 | restore sentences | one batch with its turn; `unknown { Restored }` once per incarnation; parked ending restores as itself; reset keeps writes; old-version holds and `previous[i]` | C126; C128; C167; C212; C135; C214; C215 |
+| O-16 | O3 | (none) | compensation recipe; late handler may commit | P20 |
+| O-17 | O3 | domain write publication "together before its event" | publication at settlement; `Overloaded` bounds; join at head; `ModuleDisabled` | C21; C22; C187; C191; C199 |
+| O-18 | O4 | stream text, `DuplicateStreamSession`, "Equal values are silent" | rewritten from the streams rules: contract fields, sessions, signals, `Feed.callback`, `Feed.multiplex`, outcomes, bookmark, `fills`, reconnect, dropAt | C87; C201-C206 |
+| O-19 | O5 | `pending`; failure/defect/interrupt removal; unknown invalidates | `predicted`; three channels; unknown keeps marked and refetches once; `Released` | C4; C27; C113 |
+| O-20 | O6 | `snapshot.activities.<name>`; "Transactions have outcomes, never lanes."; stream tags | `s.operations.<name>`; write rows; transactions have lanes; stream rows | C35; C41; C27; C88 |
+| O-21 | O7 | signal abort; cancel of queued and running commits; silent cancel; disposal waits | fiber interrupt; cancel by Attempt; acknowledgement wait; `cancelAll`; release on leave; disposal invokes nothing new | C11; C36; C43; C68; C116; C146; C158; C171; C180; C183; C186 |
+| O-22 | V1-V10, Q1 | verification and deferred list | extended; Q1's stream buffering decided by Streams T4 and T6, host-signal wiring by C116 | C89; C116 |
+
+Counts: 22 edits; 52 superseded sentences marked (O1: 7, O2: 8, O3: 21, O4: 6, O5: 3, O6: 6, O7: 6, counted per
+quoted sentence; several quote two sentences together).
+
+Conflicts:
+- **OC1, agent-judged, applied (small API name, the runner decides under amendment 9).** The plan's
+  `descriptor.get(snapshot, params)` has no design counterpart for resource entries (the design renames descriptors
+  to contracts, and C72 removes `descriptor.get` only on Story checkpoints). Recommended: keep the read, renamed
+  `contract.get(snapshot, input)`, marked proposed. Judge: the runner. Reversible: one name.
+- **OC2, agent-judged, applied.** Resource lane tags keep `Defect` and `Interrupted`: C5 and C29 move a read's
+  defect onto the failure channel for mapping, but no row changes the resource lane's tags. Recommended: keep both
+  (the row shows what the mapped ending shows). Judge: the runner. Reversible: one sentence.
+- **OC3, agent-judged, applied.** O5's write-batch bound (256 expanded identities, `AdmissionOverloaded`) is not in
+  the design (only its Open section names the code); the prototype never built `setData`/`invalidate` batches.
+  Recommended: keep (the plan keeps content where the prototype never went). Judge: the runner. Reversible: one
+  sentence.
+- **OC4, placement only.** C146, C180 and C186 name Operations O2 but are write-lane rules; merged into O7 with the
+  other cancel rules. C162 and C170 (Operations O2) are carried by Machines O6 with a pointer from O2.
+
+Prototype check (S2): STATUS.md's "not built" items stay in the plan as contract: concurrency `cancel` on a
+predicting write (a `flow check` error, CommandLine), `byReason` keys outside Flow's reasons (B3: the type-level half
+carried to phase 3). `emit.fail(e, key)` is marked as the runner's addition (OD53 (7)). The prototype's
+"lane keyed by operation name" is reconciled by B2 (`SharedContract`), as merged.
