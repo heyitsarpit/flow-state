@@ -288,6 +288,38 @@ tasks
             (d) restating and shape: rejected the `VERDICTS` format, session-seed derivation, cleanup wording, folder names and bundled Invariants (kept in earlier checks, core shape). Rejected the R2 quote (`workflow check` valid). Noted as writing only: broken wraps at :149-150, :503-506, :510-512, :522-523, :536-537 (stray line breaks from the formatter after trailing spaces).
 
             Next: repair gaps 1-4, then a fresh independent skill:check-spec.
+        comment 2026-11-09T16:58:03Z
+            **Convergence redesign of @spec.Conformance (Spec only, no suite code).** Three check-spec rounds each found ISSUES, and each patch opened new gaps where runtime-only wording met static cases. So the contract was redesigned once around one case model, with the old text kept as prior art.
+
+            **Design.**
+            - R14 says every case is one of two kinds, fixed by its subject: a runtime case (a runtime through the Port) or a static case (the compiler, Diagnostics, the codec or the CLI, through their public results). A table gives each kind's obligation for the boundary, implementations, runs, locus, judges, null, mutants and time bound. Every other Requirement binds both kinds.
+            - A *run* (`model`) replaces the seed as the unit. A runtime case has one run per world seed (at least two). A static case has one run per input seed, or exactly one on a fixed input. Verdict naming (R9, I32) gives each failing run's seed (none for a fixed input), its judge, its rule and its reason, plus the step for runtime cases only. I43 makes these machine-form fields.
+            - A check (R6) is a pair (judge, Invariant). The judge is an oracle (runtime only) or the case expectations citing that Invariant. Mutants are counted per implementation under test, null excepted.
+            - Null (R7): each kind has a null implementation, so falsify's null line covers every case, with no carve-out.
+
+            **Findings map.**
+            - Third check, gap 1: R9 and I32 are scoped per kind. Changed: R10 and T15 are not scoped to runtime cases. Instead, static cases get a null surface, so the null line holds for both kinds. This is a new agent decision in R7, user's read pending. Reverse: a runtime-only null line.
+            - Third check, gap 2: Q14 bounds the 45 static Invariants (17, 10, 6 and 12) that have no guarantee-map rows, and the missing static boundary, adapter and null surface. Outcome: @task.V3.T13. Q14 is in R12, R7, R1 and R14's open_by.
+            - Third check, gap 3: I41 (an expected value equals what its cited rule gives for the fixture) is tagged by T8, and Q9 cites it. I40 adds that every expectation cites a rule (T7).
+            - Third check, gap 4: Q11 is in @R6's open_by.
+            - Every round-1 and round-2 fix was carried over (sidecar a confirmed this line by line).
+
+            **Ids.** None renumbered. New: R14, I40 to I44, Q14, T28. Widened to both kinds under the same id: R1 to R3, R6 to R11, I2, I5, I12, I16, I18, I21, I22, I32 and I35. All of this is recorded in `basis`.
+
+            **Pending agent decisions.** R4, R6, R7 (defect is not a null failure), R7 (new: static null surface) and R9.
+
+            **Sidecar log** (2 Haiku, effort high, read-only).
+            - (a) Closure.
+              - Accepted: every round-1 and round-2 gap closed, and third-check gaps 2 to 4 closed.
+              - Changed: third-check gap 1's null half is closed by the alternative above, not left open.
+              - Rejected: "R10 coverage lost I13". The old text was the same, and I28 carries I13.
+              - Rejected: T23's "Exists by hand". It names an existing check.
+            - (b) Consistency.
+              - Accepted: I5 widened to static results; R1's `pending` exception scoped to runtime cases; R8's no-clock sentence and order clause qualified by the time bound; R6's run cited to R8; the step placement wording; I23 wording; R11 "mutant of that implementation"; T12 "code under test"; T18 adds a generated static seed; T1's planted import fixed (no public-entry carve-out, matching I2); `model` gains CaseExpectation, GuaranteeMap, Control and SessionSeed.
+              - Changed: "the null surface cannot fail absence-only cases" is the intended effect. Such a case fails R7 and needs a positive expectation. The R7 wording now says so.
+              - Rejected: I2's folder list (static cases live in `scenarios/`, per the README); a static data-type Invariant (the core Specs own those types, and I42 covers the boundary); fixed machine tag names (representation; I25 and I43 suffice).
+
+            Gates: `workflow format --write` on the Spec, `workflow check` valid, `workflow refs --dangling` none, no line over 120 columns. Next: a fresh independent skill:check-spec.
     T5
         title       Suite renamed to Spec areas and behaviour names
         status      open
