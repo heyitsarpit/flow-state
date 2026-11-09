@@ -202,6 +202,59 @@ tasks
             **Pending agent decisions:** R4 (consistency-only never alone), R6 (per-pair accounting, new), R7 (defect is not a null failure), R9 (`Defect`, now with overruns).
 
             Gates: `workflow format --write` on the Spec, `workflow check` valid, `workflow refs --dangling` none. Next: a fresh independent skill:check-spec.
+        comment 2026-11-09T16:39:23Z
+            **skill:check-spec re-check, independent (Opus lead, 4 Haiku sidecars), at `5959f541`.** Contract: **ISSUES**. Design: **NOT APPLICABLE**. Acceptance is not met yet; T4 stays in review. `workflow check` valid; no line over 120 columns.
+
+            **First-round gaps.** Closed in the text: 2 (R9 names the expectation by label and rule; R6, I13), 3 (pair accounting, I13 in I28 and R10), 5 (R2 bullets, I35, I36; see new gap 2), 6 (R13, I33), 7 (I32, I21, R6 every seed), 8 (R1, I31), 9 (Q10), 10 (T15), 11 (I25 in R7, I39). Partly closed: 1 (see gap 1) and 4 (see gap 3). The writing items are fixed.
+
+            **Remaining contract gaps, with fixes:**
+
+            1. R12's scope omits four core Specs that P3 requires. Spec:195-196 and I37 (:377) list six Specs. P3.task:395-415 requires that "Every Compile, Diagnostics, Codec and StaticCli Invariant has a case", and README:303 maps them. A suite with no static case passes R12. Fix: add @spec.Compile, @spec.Diagnostics, @spec.Codec and @spec.StaticCli to R12 and I37. Let "case expectation" include a case over `Compiled` or the CLI, which matches README:229's "or a static check".
+            2. R3 contradicts R2. R2:50 says a limit "may only skip". R3:64-66 makes the adapter's substitutes stated limits "bounded as R2 bounds every limit": Attempt ids minted from the session seed (decision 8) and actor attribution (decision 10). A substitute is not a skip, and minting breaks R3:62. Q3 already calls both failures of R2 and R3. Fix: in R3, call such a substitute a failure of R2 and R3 recorded as an open item (Q3), not a stated limit. Alternatively, R2 gains a named, bounded substitute clause.
+            3. No time bound is required. R8:136 and R9:154 assume one, but the in-process `suite` path has none (runner/main.ts:116-118). A hung case there gives no verdict, which breaks R9's "exactly one verdict" with no open item. I20 (:333) is not scoped to the bound either, and a slice overrun fails every case in the slice (main.ts:78-86), so the split changes verdicts. Fix:
+               - R8: every case runs under the runner's time bound.
+               - I20: hold within the bound, as I19 does.
+               - Record the in-process gap as an open item.
+            4. Known violations are unrecorded or misstated, so they are not bounded and named.
+               - R12/I38 does not hold today, and no open item says so. README rows marked "case" have no citing scenario: Reads I1-I5, I18 and I19 (no scenario cites any Reads rule). Pending oracle rows also have no check. R12's open_by has only Q1, which is about tests. Fix: a Q naming the uncovered rows, with P3's area Tasks as the outcome.
+               - Q11 (:254-255) misstates the code. A verdict's text does name the step, the label and the seed (run.ts:12, :17, :37). The real gaps are these:
+                 - only the first failing seed is kept (run.ts:58);
+                 - a `Mismatch` has no step;
+                 - no cited rule reaches a verdict;
+                 - none of these are fields.
+
+                 Q11 also omits the `node_modules` link (falsify.ts:46-49) and that `applyEdit` does not contain the edit path (falsify.ts:61). Fix: restate Q11 with these.
+            5. Smaller:
+               - R6:97 and I12 say "each runtime the suite runs on", which includes null. Say "each runtime under test, null excepted".
+               - I28 (:352) omits I17 and I33, though T14 expects falsify to fail on an escape. Add them.
+               - T26 (:500) checks a production README section in phase 3, but the production adapter comes in phase 4. Move that half to phase 4.
+
+            **Not a gap.** The repair added no Invariant that restates current code. I31-I39 each demand something today's code does not do, and each can fail. The four pending agent decisions are labelled consistently.
+
+            **Sidecar log.**
+
+            (a) Gap closure:
+            - Accepted: the R3 substitute conflict, the in-process bound, the Q11 omissions (`node_modules`, edit path) and the scope of R12 against README:303. I confirmed the scope in P3.task.
+            - Rejected: "guarantee map never located". It is the README's, as P3.task:83 names it.
+            - Rejected: the "not applied" vs "does not apply" wording. That is code, not contract.
+
+            (b) Consistency:
+            - Accepted: the I20 scope, the R6 runtime wording, I28 omitting R13 and the T26 phase.
+            - Rejected: Invariants depending on pending decisions should be marked provisional. The decisions are labelled, and that is enough for proposed status.
+            - Rejected: R1 vs Q4. Q4 defers by meaning.
+            - Rejected: duplicated term definitions in `model`. That is the house shape.
+
+            (c) Testability:
+            - Accepted: I38 fails today unrecorded (I grepped `scenarios/`: no Reads cite), the in-process I34 path and the T13/T15 notes, which the Spec already marks as phase 3.
+            - Changed: Q8's second `onNone` branch (three-channels.ts:143). It is `reasonRight`, true when the rule gives no reason. That is the rule leaving the reason open, not a limit, so I rejected it as a violation. The `failureKept` branch (:134) stays Q8's, because it applies to every runtime, production included.
+            - Rejected: the `one-delivery` owner-`None` branch (:263). The owner is the suite's reference, so this is rule-level.
+            - Rejected: I31 false because `Runtime` is functions. Those functions are the Port's operations, not values crossing it.
+            - Rejected: I35 vacuous. It binds phase 4.
+
+            (d) Restating and shape:
+            - Accepted: Q11's misstatement.
+            - Rejected: Invariants repeating R text (the core shape), trailing spaces (formatter output), `VERDICTS` spellings (the parent parses them) and decision-number references (they cite the README).
+            - Rejected: the R2 quote check. `workflow check` is valid.
     T5
         title       Suite renamed to Spec areas and behaviour names
         status      open
