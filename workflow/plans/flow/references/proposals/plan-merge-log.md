@@ -92,7 +92,7 @@ Counts: 25 edits; 15 superseded sentences marked (O1: 6, O2: 2, O3: 2, O4: 2, O5
 O8: 2; counted per quoted sentence).
 
 Conflicts:
-- **MC1, agent-judged, applied.** The design says a definition's `persist` sits on `definition(...)` (U19 A, OD51),
+- **MC1, the user's decision (label corrected by the fix pass), applied.** The design says a definition's `persist` sits on `definition(...)` (U19 A, OD51),
   while the prototype's STATUS.md recorded `persist ?? true` before Q5 A. Q5 A (OD50) and the prototype now agree on
   `false`. Recommended: `false`, opt in on the definition. Judge: the user (Q5 A, decided). Reversible: one default.
 - **MC2, agent-judged, applied.** The snapshot's `lifecycle` keeps the plan's `disposing` beside the design's
@@ -214,7 +214,7 @@ C179, C181, C200, C202, C210-C214.
 | # | Outcome | Before | After | Decision |
 | --- | --- | --- | --- | --- |
 | P-1 | goal | "within one app, scope and version" | "within one app and scope" | C211 |
-| P-2 | O1 | `persistence?: { version }`; "version is a required nonempty string and matches exactly" | no app-wide or manual version; per-record checks | C211 (the user's Q1 A) |
+| P-2 | O1 | `persistence?: { version }`; "version is a required nonempty string and matches exactly" | no app-wide or manual version; per definition (the user's Q1 A), decided per record (the runner's ruling, OD54 (8)) | C211 (corrected by the fix pass) |
 | P-3 | O2 | `actorRef(machine, id, { persist: true })` | `definition({ id, persist: true })`, default false; local actors never persist | C120; C160; C175 |
 | P-4 | O2 | "pending writes follow their actor"; stream `persist` | lane records (contents, raw parked endings, pending mapped outcomes); bookmark partition | C17; C44; C60; C86; C93 |
 | P-5 | O2 | survive list | adds keyed timers, history, resumable slices, `.each` copies, reset values, identity encoding, canonical key text | fragments row; P5; C60; C142; C144 |
@@ -338,8 +338,11 @@ Rows merged: C83, C103, C121, C125, C132, C145, C154, C157, C184 (the rows namin
 other merged plans now name (C18, C65, C75, C87, C143, C152, C177, C193, C209, C211-C215), so the closed vocabulary
 stays closed.
 
-Sidecar S3 (the named-diagnostic inventory): **accepted** as a location table after checking each name used here
-against the design by grep (all present) and against the merged plans. **Changed:** S3 listed `ModuleDefect`
+Sidecar S3 (the named-diagnostic inventory): **accepted** as a location table after checking each design-defined
+name used here against the design by grep and against the merged plans. *Corrected by the fix pass:* the names the
+plan carried before the merge (`InvalidConfiguration`, `SchemaValidation`, `HydrationRejected`, `DuplicateFixture`,
+`InvalidUsage`, `UnknownSelector` and others) are not in the design; they are kept as plan content, and the earlier
+"all present" claim was wrong as written. **Changed:** S3 listed `ModuleDefect`
 (design line 9786, OD52 (22)) as a runtime issue; the design names it only in a decision's prototype note, not as
 contract, so it is left out (ModuleDisabled, the `NotSent` reason, is the contract). **Rejected:** S3's suggestion
 that `DuplicateSession` has no severity; the design calls it a warning in rule 70 and S11, as merged.
@@ -398,10 +401,12 @@ Conflicts:
   come with Inspection O4's export". Recommended and applied: `diff --base` cut (the design never mentions it after
   2026-11-02, and `explain --since` covers release comparison); `trace diff` and artifact selectors kept, tied to the
   export, as the later OD43 says. Judge: the user (both are the user's words; the later one wins where they meet).
-  Reversible: one line each.
-- **CLC2, agent-judged, applied (small API name).** `flow stories --coverage` (the design's T2, C81) versus
-  `flow story list --coverage` (the user's 2026-11-02 CLI scope). Recommended: `story list --coverage`, inside the
-  user's command set. Judge: the runner (amendment 9, a small name). Reversible: one name.
+  Reversible: one line each. **Corrected by the fix pass:** the audit found that OD43's entry itself does not re-add
+  `diff` (only 2.10.14's body text does), so `trace diff` was re-added without a user record. The runner ruled it
+  cut; the 2026-11-02 scope is now recorded as OD55, and CommandLine O1 cites it.
+- **CLC2, the user's decision (label corrected by the fix pass), applied.** `flow stories --coverage` (the design's
+  T2, C81) versus `flow story list --coverage` (the user's 2026-11-02 CLI scope, now OD55). Applied: `story list
+  --coverage`. Judge: the user. Reversible: one name.
 - **CLC3, agent-judged, applied.** CommandLine O2's interruption sentences presumed a handler during a run; the
   design's run never yields, so none is installed (2.10.14, SA RV3 L5). Applied: interruption is handled before or
   after a run. Judge: the runner (follows decided Stories rules). Reversible: one paragraph.
@@ -579,7 +584,9 @@ All 14 plans merged, one commit each, `workflow check` and the reference check p
 | ServerRendering | 7 | 10 | SRC1 |
 | **Total** | **170** | **247** | **25, all applied** |
 
-Held for the user: none. No merge needed a large public API change or a guarantee change the user had not decided.
+Held for the user: none. *Corrected by the fix pass:* the first merge did re-add `trace diff`, which the user had
+cut; the fix pass cut it again (CLC1, B2). No other merge needed a large public API change or a guarantee change
+the user had not decided.
 For the user's read: PC3 (any structural Schema change resets a record, the runner's Q19 ruling, already call 13 in
 progress.md) and CLC1 (`diff --base` cut by the user's 2026-11-02 CLI scope, `trace diff` kept with the export by
 the later OD43).
@@ -592,3 +599,31 @@ Not placed in a plan:
 - `ModuleDefect` (named only in OD52's prototype note).
 - 2.7.13's "as built, not ruled" note (OD54 (c)): a fresh ensure of a new identity overwriting an old-version
   record; open in the design, so the plans keep "removed by forget" only.
+
+## Fix pass (audit)
+
+From the independent merge audit (`plan-merge-audit.md`, FAIL on B1-B8), with the runner's rulings. Same rules as the
+merge; `workflow check` and the reference check passed after every plan touched.
+
+| Item | Ruling | What changed |
+| --- | --- | --- |
+| B1 | per-record reset is the runner's narrowing of Q1 A (OD54 (8)) | Persistence O1 and O5 say "per definition (the user's Q1 A), decided per record (the runner's ruling)"; log P-2 corrected |
+| B2 | `trace diff` cut by the user's 2026-11-02 CLI scope | machine-design.md gains **OD55** (the user, 2026-11-02) recording the scope; CommandLine O1 lists only the kept commands and cites OD55; the `trace diff` command and its O4 paragraph are quoted as superseded; CLC1 corrected |
+| B3 | mark PC1, PC2, EC2 in plain words | Persistence O5 and LazyFeatures O3 say "the runner's ruling" with the reason; LazyFeatures no longer cites PC1/PC2; EntityDomains O1 marks `version?` |
+| B4 | the design never touches them, so restore | Operations O3 restores "Invalid success writes apply nothing and report InvalidWrite; the commit still succeeds" and the no-overwrite rule; Diagnostics' pointer now resolves |
+| B5 | one lane identity | "(identity with its version, contract id, key)" in Operations O3 (lane and its superseded note) and Persistence O2 |
+| B6 | flags as the design treats them | Diagnostics gains the stream session flags as diagnostic records; `ReleaseOverdue` is a flag in both Diagnostics and Inspection |
+| B7 | mark every unconfirmed name | first use marked proposed in each plan: `SharedContract`, `RecordUndecodable`, `RepairOverdue`, `RecordHeld`, `UnsettledEvicted`, `ModuleDisabled`, the Inspection boot-report names, `IdleWithoutPing`, `contract.get`; MC1 and CLC2 relabelled the user's |
+| B8 | read list | progress.md: header refreshed; entries 7, 8, 9, 11, 14, 15, 16 completed (reason, evidence, reversal; 11's numbering; 14's R6, R7, R10 content); new entries 18 (OD49 (11)), 19 (OD54 (c), (b), (d)), 20 (the OD52/OD53 as-built guarantees); a new "phase 2 plan merge" section listing every conflict with the audit's judgement |
+| minor 1 | owner plans name their codes | Runtime O3 `EndedWithWork`, Runtime O5 `ContextCycle`/`MissingContextProvider`, Persistence O5 `LaneRekeyed`, CommandLine `InvalidUsage`/`OutputFailed`/`ConfigLoadFailed`, ServerRendering O1 `DehydratePersistentSetup`; Diagnostics' denial-code pointers split by owner; `StoryInvalidCommand` points to Testing O8 |
+| minor 2 | PKC1 in Diagnostics | Diagnostics D1 names `PropertyTestFailed` as the one exception |
+| minor 3 | restore decided content | Runtime O4: a decline is kept and blocks nothing; no fallback alternative and no API; a boot forgets a stranded read; the stated gap |
+| minor 4 | wording | Machines' `IdentityFieldOptional` sentence; CommandLine "to be accepted by the user in phase 5"; "second-tab refusal" replaced in FlowState and Persistence V7; FlowState names fragments; "activities" read "placements" in Runtime, React, ServerRendering |
+| minor 5 | pointers | Machines' "rule 22" replaced by @O3; Inspection's `flow trace` points to CommandLine O2 |
+| minor 6 | labels | MC1, CLC2, P-2 |
+| minor 7 | log claims | S3's claim and the summary's claim corrected above |
+| minor 8 | quote or restate each | Operations (5), Machines (2), Runtime (1), React (2), EntityDomains (1), CommandLine (1): each restated in the contract or quoted with its row |
+| minor 9 | Specs settle the design-level ones | `StoryTurnLimit`'s reasons and `StoryFakeError`'s reasons now in Testing; the other three (dehydrate settling vs time, hydration rejection vs rethrow, Hydrate's owner) are carried to the Specs |
+
+Disagreements with the audit: none on substance. One note: `SharedContract` is marked proposed as the read list's
+entry 10 asks, though its meaning was decided earlier (F2).

@@ -212,9 +212,10 @@ call, its reason, its evidence, and how reversible it is.
 
 ## Calls for the user's read (added 2026-11-09, stage A close-out B4: every public API or guarantee call since OD49)
 
-Ordered by how much they touch your own decisions. Each: the call, why, evidence, how to reverse. Nothing below is
-built on by later phases yet unless it says so; phase 2's plans will be written from them, so overruling after phase 2
-costs a plan edit too.
+Ordered by how much they touch your own decisions. Each: the call, why, evidence, how to reverse. Phase 2 has
+written the plans from these calls (2026-11-09), so overruling one now costs a design edit and a plan edit; nothing
+below is built on by production yet. Q17-Q20 in entries 2-4 are the runner's migration-audit numbers, not your
+question numbers.
 
 1. **Migration reset is per record, not per definition (narrows your Q1).** You chose "A without optional manual
    version", which I summarised as "that definition's saved memory and state are discarded" (my paraphrase, not your
@@ -247,17 +248,24 @@ costs a plan edit too.
    `delta`/`row` and the narrowed rebase; under them I ruled: a guarded doubt ends only on an answer showing the
    record's version past the sent base or a same-key success; the record queue is released once the forced repair
    settles (rule 30), the held write keeps its own hold; `Released` frees a never-re-sent unknown's queue entry at
-   once; U10's later success is by landing order; `allOrNothing` not added (revisit.md). Evidence: audits 2, 3, 3b.
+   once; U10's later success is by landing order; `allOrNothing` not added (revisit.md). Why: each makes a doubt
+   end only on proof and keeps one actor's hold from blocking another's writes. Evidence: OD52 (1), (6), (9), (10),
+   (14), audits 2, 3, 3b. Reverse: one rule each in rules 30 and 32.
 8. **Streams calls (OD53).** `emit.fail(e, key)` added to `Feed.multiplex` (small API); a key change empties a `fills`
    field in the same turn with `FillsOtherKey`; a session's select runs every committed turn (a cost per turn per
    placed activity) and a throw keeps what is placed with one issue, `undefined` releases; the default backoff is
    500 ms x 2^n, jittered, capped at 30 s; 256 bookmarks per operation, oldest by last write dropped; T1 wins over T5
-   on Waiting. Evidence: audits S1, S1b.
+   on Waiting. Why: per-key failure for multiplexed sockets (req C10); a field holds one key's items; the key can
+   change any turn; a bounded, replayable backoff with no randomness in the core. Evidence: OD53 (1)-(7), (12),
+   (13), audits S1, S1b. Reverse: one rule each; the backoff and the 256 bound are constants.
 9. **Rounds 15/15b and area H (OD50, OD51).** `cancelAll` (accepted name) interrupts a head on the wire; a live
    `cancelAll` delivers the queue first and the hold-leaving head last (D107); rule 15's cancel exemption dropped
    (a late ending never leaves live work); `persist` stays on the definition; `forget` removes the record and a held
    lane stays unbound and reported; a hold whose operation is gone is dropped with evidence at `forget`; an Effect
-   default is a construction error.
+   default is a construction error. Why: the cancel exemption let exempted work be sent anyway (R1); the hold-last
+   order gives the hold's route the last word (D107); a hold no member can cancel needs one exit; a default that
+   runs breaks creation's purity (U12 B). Evidence: OD50, OD51, STATUS.md "Round 15", "Round 15b", "Phase 1: H1,
+   H2, M2". Reverse: one rule each.
 10. **Proposed names, none confirmed by you:** `RecordShapeChanged`, `LaneRekeyCollision`, `OpRenamed`,
     `PreviousIsCurrent`, `FieldDropped`, `HoldWithoutRecord`, `UnboundLane`, `LaneRekeyed`, `GoneWithoutKey`,
     `FillsOtherKey`, `GuardContradicted`, `ImpureDefault`, `RepairOverdue`, `IdleWithoutPing`, `Abandoned`,
@@ -275,8 +283,12 @@ Added after the stage A re-check (missing from the first pass):
     can be wrong across a chain of releases: open item, revisit.md); (16) **an undecodable record is quarantined and
     then overwritten when the fresh actor first saves**, so its bytes are not kept for later recovery. Why (16): a
     second copy per actor would need a storage budget and a recovery API nobody asked for. Reverse: keep quarantined
-    bytes under their own key until `forget`. Also (4) `FieldDropped`, (11) `PreviousIsCurrent`, (12) op rename by
-    contract id with `OpRenamed`/`LaneRekeyCollision`.
+    bytes under their own key until `forget`. Also (3) `FieldDropped`; (4) `HoldWithoutRecord`: a head whose
+    identity's record is reset or unreadable is reported at each boot; (5) on a fragment operation, another path's
+    `Rejected` comes before `OldVersion`; (11) `PreviousIsCurrent`; (12) op rename by contract id with
+    `OpRenamed`/`LaneRekeyCollision`. Why (all): each keeps writes in flight and data honest across a release, as
+    rule 74 and Q1 A require. Evidence: OD54, audit M2, STATUS.md "Phase 1: record migration". Reverse: one rule
+    each (the method in (2) is one member).
 12. **Correction to entry 4:** `forget` does not release an old identity's hold (it keeps every hold whose
     operation exists, as built); the hold ends only by its own answer. The earlier log line saying "or forget" was
     my ruling before the build showed it doesn't hold.
@@ -285,22 +297,78 @@ Added after the stage A re-check (missing from the first pass):
     (a stated limit until they're derived on restore). If this price is too high, the alternative is a decode-based
     reset (entry 2's reverse).
 14. **Rounds 15/15b, area H (OD50, OD51), more calls.** R2: a key-less member of an unkeyed operation names its one
-    lane; R6/R7: Flow's old names-only stamp format reads as a stated limit (format 0), version compare symmetric; R8:
-    the rule 15 check reads only the transition's own operations (other ops a stated limit); R10 (as recorded in
-    OD51); M2: a decline beside an old-version hold is `NotSent { OldVersion }`, not `Rejected`.
+    lane in every handler, a `NotSent` ending's included; R6: a refused acknowledgement of a head replaced under
+    `latest` or `cancel` concurrency ends it `Superseded` (evidence) with `StorageFailure` evidence and the newer
+    commit is acknowledged and sent, `NotSent { StorageRefused }` staying the `cancel` member's; R7: Flow keeps each
+    older version format's hash and reads an older-format version by recomputing in that format, symmetric, and
+    format 0 (names only) compares names, a stated limit; R8: the rule 15 check reads only the transition's own
+    operations (other ops a stated limit); R10: when the same transition releases the lane on leave (rule 60), the
+    release wins over `cancelAll`: the queued commits end as evidence and the head is left to the release; M2: a
+    decline beside an old-version hold is `NotSent { OldVersion }`, not `Rejected`. Why: R2 keeps the one-lane
+    promise; R6 stops a refused write from taking the newer commit down with it; R7 so an upgrade cannot hide a
+    type change; R8 is what a static check can read; R10 because a release is declared and wins; M2 makes the
+    decline name its cause. Evidence: OD50, OD51, STATUS.md "Round 15", "Round 15b", "Phase 1: H1, H2, M2".
+    Reverse: one rule each.
 15. **Entities (OD52), more calls.** The D3 price: on a last-writer-wins source an earlier draft may silently
     overwrite a later commit from another actor (screen and server agree, but the later write is lost); repair uses
     no timers (count-bounded); a given-up mark lives until the 4,096-per-entity cap evicts it (oldest first) unless
     `guarded` proves it; `ModuleDisabled` fails closed until a reload; the judge: a lower version is stale (dropped
-    with evidence), a higher one applies when ordered, equality by `Schema.toEquivalence`.
+    with evidence), a higher one applies when ordered, equality by `Schema.toEquivalence`. Why: D3 lets a held draft
+    stall no other actor; no timers (your U1 B); the cap bounds memory; failing closed is the safe default; the judge
+    is the version's own order. Evidence: OD52 (7), (11), (13), (15), (22), audits 2, 3, 3b. Reverse: one rule each
+    (D3's join point is the largest: joining at commit instead brings back the cross-actor stall).
 16. **Streams (OD53), more calls.** `dropAt` is set on leaving Live/Repairing or when unset; `Feed.callback`'s 1,024
     bound counts the queue only; Q2 A (a key change empties a `fills` field in the same turn; you didn't see this
-    one, I decided it); a select that finds no key raises `SelectedNoKey` and releases.
+    one, I decided it); a select that finds no key raises `SelectedNoKey` and releases. Why: the not-live period
+    needs a start; the adapter controls only its own queue; a field holds one key's items; a placement with no key
+    has nothing to watch. Evidence: OD53 (2), (5), (10)-(14), audits S1, S1b. Reverse: one rule each.
 17. **The close-out's own calls.** Rule 13's `byReason` keys were widened from "Flow's reasons" (OD50's decided
     text) to "the commit's own unknown tags or Flow's unknown reasons", because the commit's tags exist only in its
     type and phase 3's type-level check enforces them; m4 narrowed rule 15's Q4 A text to the check as built (the
     transition's own operations). Rule 30 gained (re-check n1): news during a running ask joins it and does not reset
     the count. Reverse: each is one edit.
+
+Added by phase 2's fix pass (2026-11-09, from the independent merge audit's read-list gaps):
+
+18. **Proposed, not built: evidence for kept and stranded deliveries (OD49 (11)).** A kept ending's one try per boot
+    or adoption, and a stranded read let go, leave no evidence today; the proposal is evidence for both, naming the
+    cause. The gap itself is stated in Runtime O4. Why proposed: a reader of evidence must infer both today.
+    Evidence: rule 8's stated gap, round 14. Reverse: nothing to reverse; yours to accept or drop.
+19. **Open, as built (OD54 (c)): a revert can meet an overwritten old-version record.** Release 2's ensure of the
+    new identity writes over release 1's old-version record (one record key), so after a revert release 3 sees one
+    unsure lane, not two, and `forget` is not the only removal of an old-version record. Also latent: (b) and (d), a
+    re-key persisted only when the lane is next written. Why open: no ruling yet; the plans keep "removed by
+    `forget`". Evidence: OD54's open items, record migration round 3. Reverse: a separate key per identity version
+    for actor records (a design change).
+20. **Entities and streams as built, not separately listed (OD52, OD53).** A gap marks the version field (only key
+    fields are left out); a read's `.one` answer replaces the whole row; a quiet removal doubt over a present row
+    reads `unconfirmed` on every non-key field; an unbound sent hold yields, with no clock, to a ready write behind
+    it (`unknown { Abandoned }`, proposed); two placements of one operation and key share one session slot. Why:
+    each is what the build showed safe (over-marking is the safe side; a yield keeps the record live). Evidence:
+    OD52 (12), OD53 (15)-(17), STATUS.md "Phase 1: streams". Reverse: one rule each.
+
+## Calls for the user's read (added 2026-11-09, phase 2 plan merge)
+
+The merge's conflicts, each with the merge lead's ruling and the independent merge audit's judgement
+(`workflow/plans/flow/references/proposals/plan-merge-audit.md`, 2026-11-09). Details: `plan-merge-log.md`.
+
+| Call | Ruling | Audit | Why | Reverse |
+| --- | --- | --- | --- | --- |
+| `trace diff` (CLC1) | cut, per your 2026-11-02 CLI scope, now recorded as OD55 | disagreed with the first merge (which kept it); agrees with the cut | you cut it; no later record re-adds it | re-add one command line and its paragraph |
+| `diff --base` (CLC1) | cut, per OD55 | agree | your CLI scope; `explain --since` compares releases | one command |
+| `story list --coverage` (CLC2) | your spelling (OD55) over the design's `flow stories --coverage` | agree (judge: you) | your words | one name |
+| Removed machine's lanes (PC1) | actor records discarded, lane records quarantined (the runner's ruling) | agree; marked | your U4 quarantines a lane whose operation is gone | discard the lanes as evidence (C47's text) |
+| Dormant undecodable record (PC2) | quarantined, ensure starts fresh (the runner's ruling) | agree; marked | one rule for every undecodable record (R14 D7) | discard alone, as the old plan said |
+| Per-record reset (P-2, B1) | your Q1 A per definition, decided per record (the runner's ruling) | agree; mark fixed | already entry 1 | entry 1's reverse |
+| `contract.get` (OC1) | kept, renamed from `descriptor.get`, proposed | agree | descriptors became contracts | one name |
+| 256-identity write batch (OC3) | kept, the plan's own bound | agree | the prototype never went there | one sentence |
+| `version?` optional (EC2) | optional (the runner's ruling) | agree; marked | unversioned entities are a stated case | make it required |
+| `length` default 40 (TC1) | `steps`' old default moved to `length` | agree | C73 renamed the option without a default | one number |
+| `PropertyTestFailed` class (PKC1) | exported, the one exception to "no capability error classes" | agree | C82 lists it | make it a `FlowError` code |
+| Trace's `persistenceVersion` (IC2) | dropped | agree | your Q1 A removed the app-wide version | restore the field |
+| Build target (FSC1) | `packages/flow-state-v3/src/` | agree (judge: you) | the approved roadmap and AGENTS.md | one sentence |
+| InvalidWrite and no-overwrite (B4) | restored in Operations O3 | agree | dropped silently by the merge; the design never removed them | none needed |
+| Others (MC1, MC2, OC2, OC4, RC1, RC2, PC3, EC1, IC1, DC1, DC2, CLC3, TC2, SRC1) | as in the log | agree | wording, readings of decided rows, or kept plan content | one edit each |
 
 ## Change proposals
 
