@@ -39,7 +39,9 @@ covered by Compile and Turn.
 
 ## The Specs
 
-Each plan outcome lands in exactly one Spec. Paths are under `specs/core/`.
+Each plan outcome lands in exactly one Spec, or in one area of the list below. Where a core Spec
+places an outcome but leaves some of its clauses for later, the list names those clauses. Paths
+are under `specs/core/`.
 
 1. **Compile** (`Compile.spec`): `definition`, `machine`, fragments, `app`, and the `Compiled`
    data view. Provides construction errors, inert construction and the closed app list.
@@ -52,8 +54,9 @@ Each plan outcome lands in exactly one Spec. Paths are under `specs/core/`.
    From @plan.Runtime.O2, O3, O4, O5, O6 and O7.
 4. **WriteLanes** (`WriteLanes.spec`): commits, endings, the Attempt, lane cells, members,
    cancellation. From @plan.Operations.O3 and O7.
-5. **Reads** (`Reads.spec`): contracts and keys, shared resource entries, cache writes,
-   optimistic values, rows. From @plan.Operations.O1, O2, O5 and O6.
+5. **Reads** (`Reads.spec`): contracts and keys, shared lookups, read endings, optimistic
+   endings, rows: the parts the prototype proved. From @plan.Operations.O1, O2, O5 and O6; the
+   unproved parts of those outcomes are listed below under "written when their phase starts".
 6. **WriteAhead** (`WriteAhead.spec`): persistence configuration, what a record holds, capture
    and its batching, durable Attempts. From @plan.Persistence.O1, O2, O3 and O6.
 7. **Restore** (`Restore.spec`): restore without replay, record formats, versions, saved-shape
@@ -70,7 +73,11 @@ Cross-Spec consistency points, each stated once in its owner and cited by the ot
   WriteAhead persists lanes, Restore re-delivers;
 - the delivery order at restore (Restore) and at disposal (Actors); both put the ending that
   leaves a hold last;
-- the codec's bounds (Codec); WriteAhead's scope bounds are its own.
+- the codec's bounds (Codec); WriteAhead's scope bounds are its own, and its records obey Codec's;
+- identity versions (Actors R11) and what the boot does with old versions (Restore R6);
+  `dispose({ forget: true })` (Restore R10); Attempt id uniqueness (WriteLanes R5);
+- each Spec's requirement sources name only the plan outcomes it places, and each public name is
+  provided by one Spec (`transaction` by Reads).
 
 ## Written when their phase starts
 
@@ -78,8 +85,9 @@ These areas have no Spec now. Each will draw from the plan outcomes listed.
 
 | Area | Phase | Plan outcomes |
 |---|---|---|
+| Reads built later (unproved by the prototype) | 4, when the operations module reaches them | the staleTime, gcTime, trailing refetch, setData, invalidate, clear, write batch (256 bound), placeholder, contract.get, key size bound and InvalidKey, focus and connection trigger, and optimistic stacking clauses of @plan.Operations.O1, O2, O5 and O6 |
 | Streams | 5 | @plan.Operations.O4 |
-| Entity store | 5 | @plan.EntityDomains.O1 to O5 |
+| Entity store | 5 | @plan.EntityDomains.O1 to O5, and the record-queue, Overloaded and ModuleDisabled clauses of @plan.Operations.O3 |
 | Multi-tab and sessions | 5 | @plan.Persistence.O7 |
 | Host adapters (IndexedDB, in-memory) | 5 | the `layerIndexedDb` part of @plan.Persistence.O1 |
 | Stories, `flow story`, `flow trace` | 5 | @plan.Testing.O1 to O4, O6 to O9; @plan.CommandLine.O2 and O4 |

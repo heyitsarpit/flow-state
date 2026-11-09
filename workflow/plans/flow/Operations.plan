@@ -224,7 +224,8 @@ outcomes
         @plan.Runtime.O6 (past its bound an Attempt still on the wire ends unknown { Disposed }). A
         reset of the actor's record keeps its writes in flight: lanes, holds and parked endings stay
         unbound until an adopting ensure. A lane is (identity with its version, contract id, key):
-        a lane of an older identity version, or of an older key fingerprint, is an old-version hold;
+        a lane of an older identity version is re-keyed at the boot and blocks nothing
+        (@plan.Persistence.O5); a lane of an older key fingerprint is an old-version hold;
         until it ends every commit of that operation for that identity declines
         NotSent { OldVersion } under every policy, and a keyed idle denies; the contract declares
         earlier keys, previous: [{ key }], giving O.x.previous[i].retry(k), .cancel(k) and

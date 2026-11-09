@@ -39,4 +39,59 @@ case was read.
 
 ## Changes
 
-None yet.
+### Fix pass after the phase 2 completion audit
+
+From `phase-2-completion-audit.md` (B1-B5, m1-m27, over-design 1-3) and the runner's rulings on it.
+
+- **B1, old-version lanes** (runner's ruling: the prototype and Persistence win). WriteLanes R11,
+  I17 and T7: only an older key fingerprint is a hold; an older identity version's lane is
+  re-keyed and blocks nothing. `Operations.plan` O3 changed to match @plan.Persistence.O5, since
+  the prototype re-keys (round-14/durable.ts) and declines only on the key fingerprint
+  (round-14/lane.ts).
+- **B2, delivery count** (runner's ruling). WriteLanes I15 now counts per Attempt and per
+  incarnation, with the exceptions written out (refused re-send capture, unknown { Restored } per
+  incarnation, redelivery after a refused admission, releasing lanes, evidence-only endings); R10
+  points to it. Turn R9 and I15 follow Machines O3: an ending admitted in a Denied or Unhandled
+  turn keeps its lane effects and counts as delivered.
+- **B3, Attempt ids** (the runner's ruling, a correctness call). Ids are unique across devices
+  and scopes, because a server may use the Attempt id as its idempotency key; the mint draws on
+  entropy the host supplies as data at boot (a random session seed), so the core stays
+  deterministic given its inputs. WriteLanes R5, I6, Q4, T18; WriteAhead R12 and I18 now say
+  "never equal to any id on disk"; Actors R24 points to WriteLanes R5. The prototype's
+  boot-floored counters do not meet this; phase 4 builds the seeded mint and phase 3 writes the
+  colliding-counter wrong runtime.
+- **B4, dead wrong runtimes.** Removed `d114.decline-no-input`, `d118.let-go-keeps`,
+  `d123.keyless-cancel-nothing`, `d122.mail-fifo`, `d122.rota-forgets`,
+  `durable.head-first-at-restore` and `durable.memory-decode-failure-ignored`; each guarantee
+  keeps a live wrong runtime, except mailbox FIFO, which is marked "phase 3 writes". The folded
+  check then found an eighth, `d78-old-id-stays` (its id has no dot, so `mutcheck.pl` skipped it);
+  removed. Mis-aimed ones moved or dropped (m24): `p1h.default-runs` to Compile T3 (ImpureDefault),
+  `m1.key-order-matters` to Reads T3 (key versions), `d74-*` and `d76-*` dropped from Reads T9
+  (they edit entities.ts), `o6.no-bound` relabelled as the last-fiber wait in Actors T16.
+- **B5.** WriteAhead R10, I12 and T5: a capture is issued within 5 s; nothing bounds the storage
+  wait; the frozen-page and Safari limits are carried in.
+- **Over-design (amendment 13).** Reads keeps what the prototype proved; staleTime, gcTime,
+  trailing refetch, setData, invalidate, clear, the 256 batch, placeholders, contract.get, key size
+  bounds and InvalidKey, focus triggers and optimistic stacking moved to `spec-split.md`'s
+  "written when their phase starts" (Reads R4, R7, R11, R12, R15 removed; R1, R3, R5, R8, R10, R13
+  narrowed). WriteLanes R13 keeps only the lane-side hook; record queues, their bounds and
+  ModuleDisabled moved to the entity store area. Codec and Diagnostics are headed as the Specs
+  most likely to change.
+- **Minors.** m1-m9 restored the dropped Machines rules in Turn R6, R7, R14, R16, R17, R18, R21,
+  R23 and Compile R11; m10 marks the rule order proposed; m11 Actors R9; m12 wiring gaps refused
+  at admission (Compile R18, T10); m13 WriteLanes R5; m14 the "(the runner's ruling)" and
+  "(agent-judged)" tags restored in Restore R5, R7, R8, WriteAhead R12, Actors R11; m15 proposed
+  names marked; m16 Reads R8, R10, R13; m17 bigint in Reads R3; m18 idempotency in Reads R1; m19 the
+  fresh-start limit in Restore R5 and I13; m20 Codec bounds in WriteAhead R4 and T13; m21
+  Diagnostics R8; m22 closed reasons deferred in Diagnostics R2 and T1; m23 InvalidTurn named as
+  check's denial (Turn T6, Q3; Actors R13); m25 every untested Invariant now has a test, most
+  marked "phase 3 writes"; m26 sources name only placed outcomes, the duplicated OldVersionActor
+  and forget rules point to Restore, and `transaction` is provided by Reads only; m27 the join
+  artifacts fixed.
+- **Checks.** `mutcheck.pl` is folded into `spec-refcheck.pl` as check 4 (a cited single-edit
+  wrong runtime must still apply); it was seen failing on the previous Actors.spec, naming the two
+  rotted `d122` ids. `invcheck.pl` reports no untested Invariant.
+- **Why m27 happened.** `workflow format` joins two words when it re-wraps a continuation line
+  that has no trailing space. Every Spec was unwrapped to one line per value, formatted to a fixed
+  point (`workflow format --check` passes on each), and scanned against a dictionary plus the plan
+  vocabulary; 30 joined words were split. Edit Specs by replacing whole values, then format.

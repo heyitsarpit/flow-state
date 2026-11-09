@@ -40,6 +40,30 @@ sub in_prototype {
   return $proto{$token} = $hit;
 }
 
+# Check 4 (folded in from mutcheck.pl): a cited wrong runtime defined as a single-edit mutant,
+# m("id", kills, "file", "find", ...) or { id: "id", ... edits: [["file", "find", ...,
+# must still apply: its find string occurs in the file it edits.
+my $r14 = 'packages/flow-state-v3/prototypes/round-14';
+my %def;
+for my $m (glob "$r14/mutants*.ts") {
+  open(my $h, '<', $m) or die "cannot read $m"; local $/; my $t = <$h>;
+  my $lit = qr/("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|`(?:[^`\\]|\\.)*`)/;
+  while ($t =~ /m\(\s*"([^"]+)",\s*"[^"]*",\s*"([^"]+\.ts)",\s*$lit/g) { $def{$1} //= [$2, $3] }
+  while ($t =~ /id:\s*"([^"]+)".{0,400}?edits:\s*\[\s*\[\s*"([^"]+\.ts)",\s*$lit/gs) { $def{$1} //= [$2, $3] }
+}
+sub rotted {
+  my ($id) = @_;
+  return '' unless $def{$id};
+  my ($file, $lit) = @{$def{$id}};
+  my ($q, $find) = (substr($lit, 0, 1), substr($lit, 1, -1));
+  if ($q eq '"' or $q eq "'") { $find =~ s/\\n/\n/g; $find =~ s/\\(["'\\])/$1/g }
+  my $path = "$r14/$file";
+  $path = "packages/flow-state-v3/prototypes/conformance/$file" unless -e $path;
+  open(my $h, '<', $path) or return "no file $file";
+  local $/; my $src = <$h>;
+  return index($src, $find) >= 0 ? '' : "edit not found in $file";
+}
+
 my $miss = 0;
 for my $file (@ARGV) {
   open(my $f, '<', $file) or die "cannot read $file";
@@ -59,7 +83,9 @@ for my $file (@ARGV) {
     }
     if ($file =~ /\.spec$/ && $section eq 'tests') {
       while ($line =~ /`([^`\s]+)`/g) {
-        if (!in_prototype($1)) { print "$file:$n: prototype id `$1` not found\n"; $miss++ }
+        my $id = $1;
+        if (!in_prototype($id)) { print "$file:$n: prototype id `$id` not found\n"; $miss++ }
+        elsif (my $why = rotted($id)) { print "$file:$n: wrong runtime `$id` no longer applies ($why)\n"; $miss++ }
       }
     }
   }
