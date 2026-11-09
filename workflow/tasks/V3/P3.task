@@ -182,6 +182,26 @@ tasks
             **Author's points.** `derives_from [@task.V3.T4]`: allowed (to-spec spec-author.md:36); add @plan.Runtime's verification target once the user approves that Plan edit (P3.task:21). Agent decisions: agree with all three. R4 (consistency-only never alone) follows policy-testing's "excuse only what the harness observed", though gap 9 suggests it fails today. R7 (a thrown defect is not a null failure): a defect reached no check. R9 (`Defect` kind): needed to make R7 and gap 2 checkable; extend it to overruns (gap 4).
 
             **Sidecar log.** (a) faithfulness: accepted the coverage-completeness, R1 JSON, R2 to R11 clause and I25 findings; rejected "policy quotes absent" (both are in policy-verification) and the speed targets, `nub run verify` and the coverage record as Spec gaps (they are P3 exit criteria and belong in the Plan record). (b) testability: accepted the null gate, first-seed judge, symlink escape, I8 and T5/T1 limits after reading the code; rejected the overlapping-occurrence edge as not verdict-changing; noted the non-parallel load failure with no per-id verdicts (main.ts:232-243) as a code violation of I24, not a Spec gap. (c) restating: accepted the seeds, round-14, labels and first-seed items; kept the `VERDICTS` line format, since the parent process parses it. (d) house shape: accepted the change-log location, name drift, repeated count and run results; rejected trailing spaces and continuation indents (formatter output, matching core) and "round 14" as residue (it names the runtime).
+        comment 2026-11-09T16:33:12Z
+            **Repair of check-spec ISSUES (gap → fix), @spec.Conformance.** Spec only; no suite code changed.
+
+            1. No Requirement judging the core Specs → R12 (P3's wording "every Invariant has its oracle or case", scope WriteLanes, Turn, Actors, WriteAhead, Restore, Reads; an unjudgeable Invariant is listed with why and counts as uncovered); I37, I38; T27; model `CaseOnlyInvariant`.
+            2. Case-only kills uncheckable → R9 names a case's own expectation by label and cited rule; R6 catches a case check only as that named expectation; I13, I32; T10.
+            3. Granularity (Q5) → a check is an (oracle, Spec Invariant) pair, caught only by a violation naming that Invariant; agent Decision in R6 (user's read pending); per-rule isolation stays an audit item. I13 added to I28 and R10's coverage (R10 now counts both check kinds). Q5 now records falsify's code gap.
+            4. R8 vs R9 → the time bound is the one wall-clock read; an overrun is a defect (R8, R9), I34, I19 scoped to runs within the bound; R9's `Defect` Decision extended to overruns, dead children and unknown ids; T25.
+            5. R2's limit unbounded → R2 bullets: prototype-only, names cases, checks and retiring behaviour, only skips an unmade report, never accepts a contradicting value or moves an expectation off its rule; I35 (production adapter has none), I36; T26. Violations recorded: Q8 (`three-channels` `onNone: () => true`), Q9 (idle row vs Reads R14); "None for the idle row" removed from Q3's accepted limits.
+            6. Mutant containment → R13 and I33 (nothing outside the copy changes, links included); I17 moved to R13; Q11 records `falsify.ts`'s `symlinkSync` link; T14 extended.
+            7. Seed/step naming → I32 (each failing seed, its step and checks), I21 reworded; R6/I16 judge every failing seed; T13, T18.
+            8. R1 JSON vs `Boot` → data values are JSON or Schema-encoded JSON; the world's hosts and report sink are the only functions; I31; T24.
+            9. WriteLanes I9 consistency-only → Q10, a known violation of R4/I8.
+            10. T15 → rewritten so it fails on any defect or pass; today's null line stated as not evidence for I18.
+            11. I25 now in R7's coverage; R11's "fixed before ported" → I39, T23.
+
+            **Writing.** `basis` logs to `workflow/specs/spec-log.md`; `derives_from` kept with a note that @plan.Runtime's verification target waits on a user-approved Plan edit. Purpose wording: R8 "at least two fixed world seeds that change load order and session seeds"; I21 "each failing seed"; R11/I29 "the old suite's runtime"; R10 refers to R6's verdicts. Mutant verdict names unified (caught, red by another check, survived, not applied, no verdict). "29 of 61" kept once (Q2); run results and round residue removed from T9, T13, T16, T23, Q7.
+
+            **Pending agent decisions:** R4 (consistency-only never alone), R6 (per-pair accounting, new), R7 (defect is not a null failure), R9 (`Defect`, now with overruns).
+
+            Gates: `workflow format --write` on the Spec, `workflow check` valid, `workflow refs --dangling` none. Next: a fresh independent skill:check-spec.
     T5
         title       Suite renamed to Spec areas and behaviour names
         status      open
