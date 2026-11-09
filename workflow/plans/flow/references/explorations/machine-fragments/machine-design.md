@@ -333,7 +333,14 @@ Rules:
   no default. At
   restore, a field the record lacks (a release added it) takes that default, or runs its computed initial over the
   restored fields; an optional key stays absent; an input field with no default refuses the record
-  (`RestoreMissingInput`), which then quarantines it.
+  (`RestoreMissingInput`), which then quarantines it. *Amended by OD54 (1), (3), (10), (17), the user and the runner:*
+  a field the record has and this release does not declare is dropped with the issue `FieldDropped` (proposed), said
+  once the record is known to restore, and the record is rewritten without it at that boot, so a later release that
+  declares the field again starts it from its default. A field both releases declare under another Schema version,
+  for fragments and machines alike, is an incompatible saved shape: the record is reset at the boot, not decoded
+  (2.7.17). A compatible change migrates by the field's Schema alone (decode the old encoding into the new shape); an
+  impure transformation is red in S11's replay but cannot be refused at construction. A renamed field is a drop plus
+  an add, and a changed default is not in the version (stated limits).
 - **Creation is pure and happens once per incarnation:** check a present input by the derived `Input`
   schema's type side, with no transforming decode (decided, U9, OD48; D219: the creator hands an in-process value,
   not its JSON, so a `NumberFromString` field given `"3"` is refused), copy the input fields, apply constant initials, then computed initials. No clock, no
@@ -1120,7 +1127,7 @@ decision (E1–E18). Rules 13–25 and N1–N3 still apply.
     gone is kept the same way, listed and reported, until `forget` removes it (agent, OD48). *Superseded in part by
     OD50 (Q1 A): `forget` drops no hold, so its parked endings become evidence and its hold stays; a lane whose
     operation is gone has no member to cancel it, an open gap (OD50).* *Closed by OD51 (amendment 9, the runner): at `forget`, a
-    hold on a lane whose operation no longer exists is dropped, with evidence `HoldForgotten` (proposed name).* Restore is per record
+    hold on a lane whose operation no longer exists is dropped, with evidence `HoldForgotten` (proposed name).* *Amended by OD54 (6), (12), (4), the runner:* every lane record carries Flow's record format (rule 74); a lane whose operation name this release lacks is the lane of the one write operation over its contract and moves to it (`OpRenamed` evidence, proposed), never to a read or to an operation of its name over another contract, which leaves it quarantined; a move onto a lane record already on disk, or onto another move of the same boot, is refused with the issue `LaneRekeyCollision` (proposed), the mover quarantined with its hold and nothing overwritten; each boot reports a head whose identity's record does not read, or was reset (OD54 (1)), as `HoldWithoutRecord` (proposed). Restore is per record
     (U7). A lane record names no instance path; it carries the subject path (strings) and the releasing mark (a
     flag), both decoding without the machine. A recorded path the placement cannot produce is quarantined the same
     way; key-equality adoption is cut (decided, U4, OD48; D20) (rule 51; 2.9.4). `orphaned` (P19) is not in v1; its
@@ -1394,6 +1401,19 @@ decisions (F1–F10).
       symmetric, so a type-side change made in the release that upgrades the format is still a new version. Format 0
       (bare names, before any tag) compares names only: a stated limit. A format newer than the running Flow's (a
       downgrade) reads as an old version (as built, phase 1). Production tags its versions from its first release.
+      *Amended by OD54 (6), (7), the runner:* that is for a version entry; a whole record of a newer, `null` or
+      non-integer Flow record format is quarantined, never misread (rule 46). Every lane is stamped at mint with its
+      machine's identity version, so a lane is (identity with its version, contract id, key): an old-version identity's
+      lane is re-keyed at the boot to `key#identityTag`, never adopted, its endings heard by no live actor, listed
+      `UnboundLane` at each boot; it names the same server thing by the same key, so 2.7.15's "never renamed or matched
+      against a new key" holds. The new identity of the same name text gets the key's own lane, which neither declines
+      against nor queues behind the old hold; a release that makes the old identity current again hands the key's lane
+      back unless it is taken. Stated limit: the old identity's unknown hold has no user exit and ends only by its own
+      ending (2.7.13). *As built, not ruled (OD54 (c), open):* an ensure of the new identity of the same name text
+      writes its record over the old-version record (one record key), so `forget` is not its only removal, and a
+      revert meets the new record. *Amended by OD54 (1), the user:* rule 74's structural versions also judge a
+      definition's saved shape; an incompatible change resets its saved records at the boot (2.7.17), checked after
+      this identity check.
     - **Persistence is the machine's** (decided, U15 B, OD48). It is spelled on the definition (decided, U19 A,
       2026-11-08): `definition({ id, persist: true, … })`, beside `id`,
       which names the machine in every saved record; refs carry no `persist`, so every ref of an identity agrees by
@@ -2577,7 +2597,10 @@ back. An unbound lane record left by `disposeActor` ends when an ensure of the i
 it; until then Inspection lists it as unbound under the identity, and each boot reports it, as `OldVersionLane` does
 for an old-version hold. **Unbound** (agent, round 15 as built; OD50): a lane is unbound while its identity has no
 decoded actor record (live or retired) and no incarnation. An undecodable record's lanes are not unbound (a fresh
-incarnation adopts them, below); an old-version record's lanes are (rule 74).
+incarnation adopts them, below); an old-version record's lanes are (rule 74). *Amended by OD54 (1), (4), (7), the
+runner:* "its identity" includes its identity version, so an old identity's lane is unbound beside a live new identity
+of the same name text (rule 74); a record reset for an incompatible saved shape is removed at the boot, so its lanes
+are unbound until an ensure adopts them, and a held one is also reported `HoldWithoutRecord`.
 **What `forget` does to a lane** (decided, Q1 A, OD50). `forget` removes the identity's record and makes each of its
 parked endings evidence: no one hears them, and the evidence names each (the 2.9.3 "evidence only" shape). It drops
 no hold: a `Held` lane, with its queued commits, stays an unbound lane, listed and reported, until its owner's
@@ -2590,7 +2613,9 @@ its input; its parked and boot-queued endings become evidence; it drops the reco
 silently, as `disposeActor` does (D6). A held lane stays an unbound lane, with no mark, listed and reported at each
 boot, until its owner's `cancel` or an adopting ensure, which hears the hold's `unknown { Restored }`. *Named by OD53 (18), the runner (proposed names):* that report is `UnboundLane` (the lane, its identity, operation and key); a rekey (D78) is `LaneRekeyed` (the lane, its old and new key). A hold on a lane
 whose operation no longer exists is dropped, with evidence **`HoldForgotten`** (proposed name, the runner's), since no
-member can ever cancel it; holds of live operations stay (Q1 A). `forget` of a live actor disposes it first. A local
+member can ever cancel it; holds of live operations stay (Q1 A). *Amended by OD54 (7), the runner (stated limit):* an
+old identity's hold has neither exit: no `cancel` reaches another identity version's lane and no ensure can adopt it,
+and `forget` keeps it while its operation exists, so it ends only by its own ending (revisit.md). `forget` of a live actor disposes it first. A local
 actor's lanes are never persisted (Persistence O2). When an actor record no longer decodes but its lane records do
 (they decode by the contract's `input` pick, independent of the machine), the fresh incarnation adopts them in its
 initial leaf. Amends Persistence O2 ("pending writes follow their actor's identity"), O3 (a capture's contents) and O6
@@ -2955,7 +2980,8 @@ Rule 46 is normative. Per kind (OD3):
   again (OD5), so a reload cannot send a newer write ahead of it; the flags are derived, not stored. The table's
   restore row is the whole rule: an Attempt acknowledged once is delivered as `unknown { Restored }`; a `Held` lane's
   hold is delivered **exactly once**, as `unknown { Restored }`, from its saved leaf, in delivery order (2.7.13; OD20 F3;
-  R10 L3).
+  R10 L3). *Amended by OD54 (1), (18), the runner:* for a record reset at the boot, or one that no longer decodes, the
+  adopting ensure's fresh incarnation hears it in its initial leaf.
   Revision 9's "not delivered again" (R5 L6) is removed: a reload is a new incarnation, whose handlers have not seen
   the hold. 8.2's first `SaveUnsure` branch therefore re-sends once after a reload, within its budget, which
   `retryCount` keeps. A persisted waiting commit was never sent, so restore does not replay it; it ends
@@ -2982,9 +3008,17 @@ Rule 46 is normative. Per kind (OD3):
   typed members `O.x.previous[i].retry(k)` and `O.x.previous[i].cancel(k)` naming the old lanes by their own keys
   (Q2 A). The decline is `OldVersion`, never `Rejected` (the prototype's `Rejected` was a runtime bug, fixed in phase 1,
   M2; OD51). *Owed to phase 1's record migration (OD51):* `OldVersionLane` as an issue (it is evidence in the
-  prototype) and `previous: [{ key }]` (round 13's M3) are not built. A key change is a migration: a release that changes a key ships handlers for its old holds.
+  prototype) and `previous: [{ key }]` (round 13's M3) are not built. *Closed by OD54 (2), (5), (11), (15), the
+  runner:* both are built: `OldVersionLane` is an issue at each boot; `O.x.previous[i].retryable(k, { times })` exists
+  beside `retry` and `cancel`, naming only `previous[i]`'s lanes; a current keyed member never names an old-version
+  lane, even by the same key text; a `previous` key equal to the current key's version is refused
+  (`PreviousIsCurrent`, proposed); on a fragment operation rule 51's `Rejected` comes before this check; "that actor"
+  is one identity version, so an old identity's lane declines nothing (rule 74). A key change is a migration: a release that changes a key ships handlers for its old holds.
 - So renaming an operation (`pay` to `charge`) changes nothing persisted: R1's double charge cannot occur, with no
-  alias. Revision 2's `.was`, the rebind ladder and `Rebound` are removed.
+  alias. Revision 2's `.was`, the rebind ladder and `Rebound` are removed. *Amended by OD54 (12), (6), the runner:*
+  from Flow record format 3 the lane record carries its contract id, so the lane moves to the one write operation
+  over that contract (rule 46: `OpRenamed`, `LaneRekeyCollision`); a lane written before format 3 is found by its
+  name (stated limit).
 
 #### 2.7.16 Views, `check()`, Stories, `flow check`, `flow explain`
 
@@ -3012,7 +3046,14 @@ Rule 46 is normative. Per kind (OD3):
 - `flow explain`: `Toggle  READY → READY; commits like (Issues.setLike, latest, one lane per Issue key)`;
   `SearchDue  READY → READY; looks up results (Search.query, one lane)`; `READY subscribes issues (Issues.list)`; `LIVE subscribes messages (Chat.messages, every, one session per room, fills messages, idle 45s, reconnects by predicate, catches up)`;
   `docs  SaveDue → commits save (docs/save, reject, one lane per docId, subject = copy key)`. Inspection lists every
-  lane with its operation path and subject path, and whether it is unplaced or releasing.
+  lane with its operation path and subject path, and whether it is unplaced or releasing. *Amended by OD54 (1), (14),
+  the user and the runner:* `flow explain <release> --since <release>` (proposed spelling) compares two compiled
+  releases and says per definition: its saved state resets, records saved in a removed state reset, it restores, or
+  its identity fields changed (rule 74's old-version records, kept and never reset); writes in flight are always
+  kept. It needs the deployed release's compiled data, and it compares two releases, not the chain a record went
+  through (revisit.md). The boot reports `RecordShapeChanged`, `HoldWithoutRecord`, `FieldDropped`, `OldVersionLane`
+  and `LaneRekeyCollision` as issues, and `UnboundLane`, `LaneRekeyed`, `OpRenamed` and `OldVersionActor` as evidence
+  (proposed names, OD54).
 
 **Typing.**
 
@@ -3159,7 +3200,12 @@ resume after a reload without each screen being opened. A reload's context basel
 A hydrated actor activates at its `Hydrate` commit under `Hydrate`'s hold. `ready` creates nothing: a parked ending
 whose identity has no actor record (after `disposeActor`, R14 D6) stays on its lane record until an ensure; a record
 kept at `ready` whose lane is `Held` is not woken, and evidence and Inspection name it, so the hold is visible before
-its next use (agent, OD46).
+its next use (agent, OD46). *Amended by OD54 (1), (13), (18), the runner:* a record whose saved shape this release
+changed incompatibly (a kept field under another Schema version, or a saved leaf, kid or history target gone) is
+never a record at `ready`: the boot removes it, retired or not, with its waiting deadlines and stopped reads, and
+reports one `RecordShapeChanged` per definition; its identity is then as after `disposeActor`: its lanes and parked
+endings wait, unbound, for an ensure, which starts fresh from input and hears them. Rule 74's identity check comes
+first; a record with no shape stamp is never reset.
 
 Reads. A handle follows the identity, not the incarnation, so its reads and its sends agree after an end.
 `getSnapshot` reads the live incarnation; with none, a persisted identity's record from the Runtime's copy (decoded
@@ -3260,7 +3306,7 @@ States:
 | Ending (terminal snapshot; activities stopping; sends queued for a persisted identity) | cleanup done; a cleanup failure quarantines (Runtime O6) |
 | Ended, persisted (the Runtime's copy, the stored record, lane records, parked endings) | an ensure, subscription or send (Return); `disposeActor` (record removed, lanes kept unbound, rule 46); `forget`; Runtime disposal |
 | Ended, not persisted (its non-`Idle` lanes, unbound, with parked endings) | the lanes resolve, a new incarnation adopts them, or Runtime disposal |
-| Record at `ready` | as ended, persisted; restored live at once if its lanes owe it an ending |
+| Record at `ready` | as ended, persisted; restored live at once if its lanes owe it an ending (*amended by OD54 (1):* a record reset at the boot for an incompatible saved shape is not one; its identity has no record) |
 | Quarantined (the ref's failure and Cause) | Runtime disposal |
 | Undecodable record (reads lifecycle `"quarantined"` with its issue, R14 D7) | an ensure (starts fresh, `RecordUndecodable`); `forget`; Runtime disposal |
 
@@ -3399,7 +3445,9 @@ host adapter's contract (Persistence O3, O6, O7), proved by the prototype's edge
 - **A frozen page runs nothing** (agent). No task, deadline, backoff or capture runs until a thaw; a discard is a kill
   with no `pagehide`.
 - **Ids never repeat across boots** (agent). A record names the boot that wrote it, and restore's id floor is the
-  largest it reads, so an id on disk is never minted again.
+  largest it reads, so an id on disk is never minted again. *Amended by OD54 (10), the runner:* besides captures, the
+  boot rewrites one kind of record: a restored record whose dropped field it removes, which then names that boot (a
+  bounded exception to D111's untouched records, which keep the boot that wrote them).
 - **Safari's four requirements** (FOR-ARPIT section 6). A batch says "landed" only if every request succeeded, since
   Safari fires `oncomplete` after an `InvalidStateError`; no batch is left open into the back-forward cache, since one
   blocked the next owner's reads in 12 of 12 runs; the lock is lost while the page is cached, so a return must
@@ -8705,6 +8753,13 @@ The streams merge ([merged/streams/proposal-v3.md](merged/streams/proposal-v3.md
 | C207 | EntityDomains O1 | The forced repair asks at most 3 times per doubt in total, then `RepairOverdue`, and nothing asks again for that doubt; a reload's boot repair is a new doubt; U10's later success is by landing order after the give-up (rules 30, 32, 2.8.6; OD53 (8), (9)) | Amends C190 and C192 |
 | C208 | EntityDomains O1 | A quiet removal doubt over a present row reads `unconfirmed` on every non-key field; a gap marks the version field; a read's `.one` answer is a whole row; a collection-wide version has no spelling (rule 32, 2.8.14; OD53 (15)-(17), (19)) | Amends C192, C197, C198 |
 | C209 | CommandLine O5, Inspection, Operations O1 | Proposed names: `GoneWithoutKey` (`.gone` without `.byKey`), `UnboundLane`, `LaneRekeyed`; `Abandoned` joins rule 13's reserved reasons (rules 13, 37, 2.7.13; OD53 (18), (20), (21)) | Amends C196 and C177 |
+| C210 | Persistence O3, O5 | Every actor and lane record carries Flow's record format (1-4); each older format reaches the current one by a pure step at the boot, before the release's checks, replayed by S11; a newer, `null` or non-integer record format is quarantined, its lane still holding by its id; format 3 adds a lane's contract id and identity stamp, format 4 an actor record's saved shape (rules 46, 74; OD54 (6)) | Amends C181's "a newer format reads as an old version" (version entries only) |
+| C211 | Persistence O5, Machines O1, Inspection | Automatic reset per definition, no manual or app-wide version: a record whose saved shape (state ids, memory fields with their Schema versions, fragments' under their id) differs incompatibly (a kept field under another version; a saved leaf, kid or history target gone) is removed at the boot, retired or not, with its deadlines and stopped reads; one `RecordShapeChanged` (proposed) per definition with its count, decided per record; rule 74's identity check first; a record with no shape stamp never resets (2.2.2, 2.7.17; Q1 A, OD54 (1), (8), (9), (13), (18)) | Adds |
+| C212 | Persistence O3, O6, Operations O3, Inspection | A reset keeps writes in flight: lanes, holds and parked endings stay unbound until an adopting ensure, whose fresh incarnation hears them in its initial leaf; a head whose identity's record is reset or unreadable is `HoldWithoutRecord` (proposed) at each boot; an old-version record's lanes are `UnboundLane` (rule 46, 2.7.13, 2.7.15; OD54 (1), (4), (18)) | Adds |
+| C213 | Persistence O5, Machines O1 | A field this release no longer declares is dropped with `FieldDropped` (proposed) once the record is known to restore, and the record is rewritten without it at that boot, D111's bounded exception (2.2.2, 2.7.20; OD54 (3), (10)) | Adds to 2.2.2's restore |
+| C214 | Operations O1, O3, Persistence O5 | A lane is (identity with its version, contract id, key): an old identity's lane is re-keyed at the boot to `key#identityTag`, kept, blocking nothing, `UnboundLane` at each boot; a revert hands the key's lane back unless it is taken; a lane whose operation name is gone moves to the one write operation over its contract (`OpRenamed`, proposed); a move onto a taken id is refused with `LaneRekeyCollision` (proposed), nothing overwritten (rules 46, 74, 2.7.15; OD54 (7), (12)) | Amends C135; adds to C209 |
+| C215 | Operations O1, CommandLine O5 | `O.x.previous[i].retry(k)`, `.cancel(k)` and `.retryable(k, { times })` name only `previous[i]`'s lanes; a current keyed member never names an old-version lane; `PreviousIsCurrent` (proposed) refuses an earlier key equal to the current one; `OldVersionLane` is an issue at each boot; on a fragment operation rule 51's `Rejected` comes before `OldVersion` (2.7.15; OD54 (2), (5), (11), (15)) | Amends C135 |
+| C216 | CommandLine O5 | `flow explain <release> --since <release>` (proposed) says per definition: resets, resets records saved in a removed state, restores, or identity changed (rule 74's old-version records, never reset); writes in flight are always kept (2.7.16; Q1 A, OD54 (1), (14)) | Adds |
 
 ### For tooling
 
@@ -9653,7 +9708,7 @@ operations-in-fragments, the lane model and the reviews cite them.
   *ruled, OD52 (20)*).
   **Open, owed (not decided):** (11) a later `latest` commit can overwrite a pending cancel (`then: "cancel"` to
   `"replace"`), losing the cancel (rule 24; *closed by OD52 (21)*); (12) owed to phase 1's record migration: `OldVersionLane` as an issue and
-  `previous: [{ key }]` (round 13's M3) are not built (2.7.15). H2 (key versions by names) was already true by U17 B and
+  `previous: [{ key }]` (round 13's M3) are not built (2.7.15; *closed by OD54 (2), (11), (15)*). H2 (key versions by names) was already true by U17 B and
   the format tag; no text. Plan rows C178-C184. (2026-11-08)
 - **OD52** Phase 1's entities area, **settled** (2026-11-09), from its three build rounds, the audit gap batches and
   audit 3b (`packages/flow-state-v3/prototypes/round-14/STATUS.md`, "Phase 1: entities" rounds 1-3, "Q1 `guarded`",
@@ -9791,6 +9846,94 @@ operations-in-fragments, the lane model and the reviews cite them.
   reload. **Not design:** T3's bound across two operations and rule 70's wait per operation under a key change,
   carried to the phase 3 conformance rewrite (STATUS, that section); the harness's oracles, fakes and gate settings.
   Plan rows C201-C209. (2026-11-09)
+- **OD54** Phase 1's record-migration area, **settled** (2026-11-09), from its three build rounds, the Q1 build, audits
+  M1 and M2 and the closing batch (`packages/flow-state-v3/prototypes/round-14/STATUS.md`, "Phase 1: record migration"
+  rounds 1-3, "Q1 answered", "closing batch, audit M2"; `round-14/MIGRATION-QUESTIONS.md`; `round-14/AUDIT-GAPS-M2.md`;
+  `round-14/mutants-audit-m1.ts`; `workflow/roadmaps/v3-production/progress.md`, 2026-11-09 "migration round 1" to the
+  closing batch; commits fe343c92..5ccc6944). It closes OD51 (12). Every name below is the runner's, **proposed**,
+  unless the user confirmed it. **Decided by the user** (2026-11-09, MIGRATION-QUESTIONS Q1, "A without optional
+  manual version"): (1) Q1 A, automatic per definition: when a definition's saved memory or state shape changes
+  incompatibly, judged by Flow's own structural versions (rule 74, U17 B), its saved memory and state are discarded at
+  the boot and its actors start fresh, with an issue naming the definition (`RecordShapeChanged`, proposed); other
+  definitions are untouched; writes in flight are always kept (lanes, holds and parked endings stay unbound until an
+  ensure adopts them); `flow explain` lists the definitions a release resets; no manual `version` on a definition and
+  no app-wide version. Option B (`previous` on the definition), option C (a version number with a migrate function)
+  and the user's two withdrawn variants (a manual per-definition version, then one app-wide buster) go to revisit.md.
+  As built, the runner's spellings: the compiler emits each definition's `shapeVersion` (every state id, every memory
+  field with its Schema's U17 version, a fragment's under its id) and every actor record carries it (Flow record
+  format 4); incompatible means a field both releases keep under another version, or a saved leaf, kid or history
+  target this release lacks; a field added or dropped, or a state added, is compatible and restores field by field
+  (2.2.2, 2.7.17, rule 74). **The runner's rulings** (progress, 2026-11-09, under the user's delegation, on round 1's
+  findings): (2) `O.x.previous[i].retryable(k, { times })` exists, a token guard naming only `previous[i]`'s lanes
+  (2.7.15); (3) a field the restore drops is said, `FieldDropped` (issue), only once the record is known to restore,
+  fragment fields included (2.2.2); (4) at the boot, a lane with a head (held, or acknowledged and in flight at the
+  reload) whose identity's record could not be read, or was reset under (1), is said, `HoldWithoutRecord` (issue); an
+  old-version record's lanes are `UnboundLane` instead (rule 46, 2.7.13); (5) on a fragment operation, rule 51's
+  `Rejected` comes before the old-version check (2.7.15); (6) Flow's own record format: every actor and lane record
+  carries `format` (1, untagged; 2 tags every record and keeps a lane's id once, as its key; 3 adds a lane's contract
+  id and identity stamp; 4 an actor record's saved shape); each older format reaches the current one by a pure step at
+  the boot, before this release's checks and inside the core, so S11 replays it; a newer, `null` or non-integer format
+  is quarantined, never misread, and a quarantined lane still holds by its id; an untouched older lane is not rewritten
+  (rules 46, 74). **The runner's rulings on audit M2** (progress, 2026-11-09, under the user's delegation, for the
+  user's read): (7) Q17: a lane is (identity, contract, key), the identity with its version: a lane minted under
+  another identity version is re-keyed at the boot to `key#identityTag`, kept (it may have landed), blocking nothing,
+  reported `UnboundLane` at each boot, never adopted, its endings heard by no live actor; the new identity of the same
+  name text gets the key's own lane, so its commit neither declines against nor queues behind the old hold and its
+  endings reach it; an identity current again (a reverted release) takes the key's lane back unless it is taken
+  (rule 74, 2.7.13); (8) Q18: a reset is **decided per record and reported per definition**, one `RecordShapeChanged`
+  per definition per boot carrying `actors: n`: a reshaped field resets every record (each holds it), a removed state
+  only the records saved in it. **For the user's read:** the user's words were "that definition's saved memory and
+  state are discarded"; the runner's reading keeps a record whose saved state still exists, since discarding it loses
+  data for no correctness gain; (9) Q19: the upfront rule stays: any structural version change of a kept field resets
+  (a check moved from `minLength(1)` to `minLength(2)`, or a widening, though the data still decodes), and a fragment's
+  change resets every record placing it; computed fields were ruled out of the shape, but as built they are stored and
+  stamped (stated limit); (10) Q20: a drop applies at its boot: the restored record is rewritten without the dropped
+  field, a bounded exception to D111's untouched records, so a release that declares the field again starts it from
+  its default and never resurrects the old value (2.2.2, 2.7.20). **Decided by the runner under the user's delegation
+  (amendment 9, small API; audits M1 and M2's breaks, as built):** (11) a current keyed member (`retry(k)`,
+  `cancel(k)`, keyed `idle`/`retryable`) never names an old-version lane, even by the same key text; a `previous[i]`
+  member names only lanes of its own version; a `previous` key equal to the current key's version is refused,
+  `PreviousIsCurrent`; two equal `previous` entries are not refused (2.7.15); (12) renaming an operation changes nothing
+  persisted: a lane whose operation name this release lacks moves to the one **write** operation over its contract,
+  never to a read or to an operation of its name over another contract (that lane is quarantined), with evidence
+  `OpRenamed`; a move onto a lane record already on disk, or onto another move of the same boot, is refused with the
+  issue `LaneRekeyCollision`, the mover quarantined with its hold, nothing overwritten (rule 46, 2.7.15); (13) a
+  history target the release removed is a saved state gone: the record resets, not quarantines (2.7.17); (14) `flow
+  explain <release> --since <release>` compares two compiled releases and says per definition: resets always, resets
+  records saved in a removed state, restores, or (audit M2's break 4) an identity field change, rule 74's old-version
+  records, kept and never reset (2.7.16). **Shown by the prototype** (already true, no change of rule): (15)
+  `OldVersionLane` is an issue at each boot and `O.x.previous[i].retry(k)`/`.cancel(k)` are typed with no cast,
+  closing OD51 (12) (2.7.15); (16) no migration: a record that does not read is quarantined, a fresh ensure starts from
+  input (`RecordUndecodable`), adopts its lanes and hears the hold, and the fresh actor is saved over the quarantined
+  bytes (rule 46, 2.7.17); (17) a compatible change migrates by Effect Schema alone: a field's Schema decodes the old
+  encoding into the new shape, a computed initial runs over the restored fields; an impure transformation turns S11's
+  replay red at the boot, and Flow cannot refuse one at construction, since a decode is a closure (stated limit, as
+  `ImpureDefault`'s custom getter) (2.2.2); (18) a reset as built: rule 74's identity check comes first; retired
+  records reset too; the record goes with its waiting deadlines (none fires into the fresh actor) and its stopped
+  reads, which are reads, not writes in flight; parked write endings stay on their lanes and are heard at the adopting
+  ensure; a stream's bookmark lives in the slice's record (rule 71) and goes with it (by construction, no case).
+  **Text, needing no decision** (written in): rule 74's "a newer format reads as an old version" is for a version
+  entry, and a whole record's newer format is quarantined (round 2's finding 1); "unbound" counts the identity
+  version; 2.7.17's "a restored record stays a record until an ensure" (the audit cited it as 2.7.13) never applies to
+  a reset record, which is gone before `ready`; 2.7.15's "from its saved leaf" reads the fresh incarnation's initial
+  leaf for a reset or unreadable record; the boot's issues and `--since` in 2.7.16. **Stated limits** (revisit.md): an
+  old identity's unknown hold has no user exit: `cancel` reaches only the current identity's lanes, no ensure can adopt
+  it, and `forget` keeps every hold whose operation exists, so it ends only by its own ending; a memory field rename is
+  a drop plus an add, compatible, its old value lost but for `FieldDropped`; a changed default is not in the version;
+  records with no shape stamp (before format 4) are never reset and decode field by field; computed initial values are
+  stored and stamped in the prototype, so a Schema change to one resets; lanes written before format 3 carry no
+  contract or identity stamp, are found by name and bound to any identity of their name. **Open, owed (not decided;
+  revisit.md):** (a) `--since` across a release chain: a record carries the shape of the release that last wrote it,
+  so r1, r2, then r3 reverting r2 prints "restores" where the boot resets; (b) shape stamps are compared raw across a
+  Flow version-format bump (R7's by-format reading covers identity and key stamps only; latent, one format); (c) a
+  revert meets what the reverted-away release wrote: as built, release 2's ensure of the new identity overwrote release
+  1's old-version record (one record key), so release 3 sees one unsure lane, not two, and rule 74's "removed by
+  `forget`" is not the only removal; (d) a re-key (Q17's tag, a rename) is persisted only when the lane is next written
+  (its ending admitted or the actor saved); (e) a crash between the batch that writes a moved lane and the one that
+  deletes the old leaves both on disk (round 3's finding 4; after (12) the old one collides and is quarantined, not
+  re-checked by a case). **Not design:** the harness's (j) excuse from what the suite saw (`writtenBy`, `laneOpNow`),
+  `quarantined(actor)` excusing per actor (low), and lifetime-falsify at 282 s of its 290 s bound. Plan rows
+  C210-C216. (2026-11-09)
 - **OD24** Process, delegated by the owner (2026-10-30): the main session approves the merge change lists for merges 4
   and 5 and for operations-in-definition, and treats operations as accepted for merging, unless a conflict needs an
   owner decision; only then is the owner asked. The streams direction review remains the owner's. (2026-10-30) *Process,
