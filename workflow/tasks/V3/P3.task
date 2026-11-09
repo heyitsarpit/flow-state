@@ -267,6 +267,27 @@ tasks
             Whole-Spec re-read done after the edits; the static-case scope was the one change that touched R6, R7, R8, R13 and their Invariants, fixed above. Pending agent decisions unchanged (R4, R6, R7, R9).
 
             Gates: `workflow format --write` on the Spec, `workflow check` valid, `workflow refs --dangling` none, no line over 120 columns. Next: a fresh independent skill:check-spec.
+        comment 2026-11-09T16:48:14Z
+            **skill:check-spec third check, independent (Opus lead, 4 Haiku sidecars), at `5b627068`.** Contract: **ISSUES**. Design: **NOT APPLICABLE**. Acceptance not met; T4 stays in review. `workflow check` valid; no line over 120 columns.
+
+            **Second-check gaps.** All five closed in the text: R12 names the ten core Specs (matches P3.task and README:303); R3 calls substitutes failures and Q3 agrees; R8/I20/I34 bind every case in every mode, with Q12 recording the in-process and per-slice code gaps (verified main.ts:78-86, :116-118, run.ts:66-72); Q11 and Q13 restated correctly (run.ts:58, falsify.ts:45-49, :61; no `scenarios/` file cites Reads); R6/I12 null excepted, I28 adds I17/I33, T26 split by phase. The repair added no Invariant restating current code.
+
+            **Remaining contract gaps, with fixes:**
+
+            1. The static-case scoping stops short of R9, I32 and R10. A static case boots no world, so it has no seed and no step, yet R9 (Spec:159-160) and I32 (:401-402) require every stated failure to name, per failing seed, the seed and the step: a failing static case cannot meet them. R10 (:187) and T15 (:510-513) say the null line fails on any pass, but a static case passes on null by construction (R7 :129-130), so falsify fails on any suite with a static case. Fix: R9/I32 name seed and step for a case that boots a world, and the check and its reason for a static case; R10 and T15 judge null over cases that boot a runtime only.
+            2. I37 does not hold today and no open item says so. The README map has rows for the six runtime Specs (all their Invariants are listed) but only prose for Compile, Diagnostics, Codec and StaticCli (README:303-308): their 45 Invariants have no rows, and no static case module exists. Q13 covers Reads and pending oracle rows only. Fix: extend Q13 (or a new Q) to the missing static rows and cases, outcome @task.V3.T13; add it to R12 open_by.
+            3. R5 has no Invariant for its main clause. "An expected result is derived from the cited rule" (:91-92): I9 and I10 check citations resolve, I11 only forbids copying a runtime output, I36 covers stated limits. A hand-written expectation that contradicts its cited rule passes every Invariant. T8 tests this property but is tagged I11 only. Fix: an Invariant "every expected value in a case or fixture reference is the value its cited rule gives for the fixture", enforcing R5, tagged by T8; Q9 then cites it.
+            4. Smaller: @R6 open_by lacks Q11, though Q11 names I32 (enforces R6).
+
+            **Not gaps.** Pending agent decisions (R4, R6, R7, R9) stay labelled; open items resting on them are fine for proposed status (rejected before, no new evidence).
+
+            **Sidecar log.**
+            (a) closure: accepted gaps 1-5 closed and the code citations of Q11-Q13. Changed: the `falsify.ts:45` link targets `prototypes/conformance` (the old suite), not the new suite; Q11 says "the original suite folder", which is correct, no gap.
+            (b) consistency: accepted the null-line scope (gap 1), static seeds/steps (gap 1), Q9/R5 (gap 3), @R6 open_by (gap 4). Rejected: R10 vs I28 (both state necessary conditions, consistent); runner not under I2 (the runner must pick an adapter by name); I6 vs R4 (the timeline holds observations, and I6 names it); Q4 vs R1 (R1 allows a Port addition that reports by meaning); Q1 absent from R7/R11/R13 (each has its own open item); test tags T1/T17/T22 and term/id collisions (polish).
+            (c) testability: accepted the static null line and T27 seeing no static rows (gap 2, which I verified in the README map and core Invariant counts). Rejected as recorded already: in-process bound and slice overrun (Q12), case-only kills and first seed (Q5, Q11), containment (Q11), static surface absent from `port.ts` (falls under gap 2), pair accounting (Q5). Rejected: extra verdicts for unrequested ids (no requested verdict changes; polish).
+            (d) restating and shape: rejected the `VERDICTS` format, session-seed derivation, cleanup wording, folder names and bundled Invariants (kept in earlier checks, core shape). Rejected the R2 quote (`workflow check` valid). Noted as writing only: broken wraps at :149-150, :503-506, :510-512, :522-523, :536-537 (stray line breaks from the formatter after trailing spaces).
+
+            Next: repair gaps 1-4, then a fresh independent skill:check-spec.
     T5
         title       Suite renamed to Spec areas and behaviour names
         status      open
