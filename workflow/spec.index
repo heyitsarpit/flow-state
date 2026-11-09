@@ -4,6 +4,7 @@ specs/core/Compile.spec
 specs/core/Diagnostics.spec
 specs/core/Reads.spec
 specs/core/Restore.spec
+specs/core/StaticCli.spec
 specs/core/Turn.spec
 specs/core/WriteAhead.spec
 specs/core/WriteLanes.spec
