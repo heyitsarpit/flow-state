@@ -1,8 +1,7 @@
 import { Option } from "effect";
 import { operationNamed, type Reference } from "../fixtures/reference.ts";
-import { Observation } from "../port.ts";
+import { Observation, sameJson } from "../port.ts";
 import type { Request } from "../world/network.ts";
-import { sameData } from "./equality.ts";
 import { Fact, type Facts, type Oracle, reported, steps } from "./oracle.ts";
 
 const isWrite = (reference: Reference, operation: string) =>
@@ -65,7 +64,7 @@ const oneInputPerKey = (requests: ReadonlyArray<Request>, reference: Reference) 
 
     if (before === undefined) first.set(id, request);
 
-    return before === undefined || sameData(before.input, request.input)
+    return before === undefined || sameJson(before.input, request.input)
       ? []
       : [`WriteLanes I6: ${id} was sent with two inputs`];
   });

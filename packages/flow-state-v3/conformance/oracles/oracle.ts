@@ -1,6 +1,6 @@
 import { Data } from "effect";
 import type { Reference } from "../fixtures/reference.ts";
-import type { ActorRef, Observation } from "../port.ts";
+import type { ActorRef, Observation, Use } from "../port.ts";
 import type { Answer, Request } from "../world/network.ts";
 
 /**
@@ -17,6 +17,7 @@ import type { Answer, Request } from "../world/network.ts";
  * - `Reloaded`: the suite killed the page and booted a new one.
  * - `Disposed`: the suite disposed this actor.
  * - `Ensured`: the suite attached a use of this actor, creating it if needed.
+ * - `Released`: the suite ended one use of this actor.
  * - `DisposingRuntime`: the suite started the Runtime's disposal; it holds until the next reload.
  * - `Drove`: the suite sent this event to this actor.
  * - `Unstoppable`: from now on, calls of this operation cannot be interrupted.
@@ -29,6 +30,7 @@ export type Fact = Data.TaggedEnum<{
   Reloaded: {};
   Disposed: { actor: ActorRef };
   Ensured: { actor: ActorRef };
+  Released: { actor: ActorRef; use: Use };
   DisposingRuntime: {};
   Drove: { actor: ActorRef; event: string };
   Unstoppable: { operation: string };

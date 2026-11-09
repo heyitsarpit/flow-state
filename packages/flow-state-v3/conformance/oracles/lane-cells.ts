@@ -1,7 +1,6 @@
 import { Option } from "effect";
 import type { OperationReference, Reference } from "../fixtures/reference.ts";
-import { type ActorRef, Observation } from "../port.ts";
-import { sameData } from "./equality.ts";
+import { type ActorRef, Observation, sameActor, sameJson } from "../port.ts";
 import { Fact, type Facts, type Oracle, steps } from "./oracle.ts";
 
 type Phase = "queued" | "waiting" | "wire" | "held" | "replaced";
@@ -279,7 +278,7 @@ const queueEnded = (lane: Lane, window: ReadonlyArray<Observation>) => {
       `WriteLanes I21: cancelAll left ${lane.operation} ${missing.join(", ")} queued or ended it otherwise; every queued commit ends NotSent Cancelled`,
     ];
 
-  return sameData(ended, queued)
+  return sameJson(ended, queued)
     ? []
     : [
         `WriteLanes I21: cancelAll ended ${lane.operation}'s queue as ${ended.join(", ")}; mint order is ${queued.join(", ")}`,
@@ -415,7 +414,7 @@ const judgeStep = (model: Model, facts: Facts, step: ReadonlyArray<Fact>) => {
   const drove: Array<{ readonly actor: ActorRef; readonly event: string }> = [];
 
   const atTurn = (turn: Extract<Observation, { readonly _tag: "Turn" }>) => {
-    const at = drove.findIndex((d) => d.event === turn.event && sameData(d.actor, turn.actor));
+    const at = drove.findIndex((d) => d.event === turn.event && sameActor(d.actor, turn.actor));
 
     if (at >= 0) {
       drove.splice(at, 1);

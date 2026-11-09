@@ -1,7 +1,6 @@
 import { Option } from "effect";
 import { operationNamed, type Reference } from "../fixtures/reference.ts";
-import { type ActorRef, Observation } from "../port.ts";
-import { sameData } from "./equality.ts";
+import { type ActorRef, Observation, sameActor } from "../port.ts";
 import { Fact, type Facts, type Oracle, steps } from "./oracle.ts";
 
 const DECLINE = "(decline)";
@@ -49,7 +48,7 @@ const ownerOf = (ledger: Ledger, operation: string, attempt: Option.Option<strin
     : Option.flatten(Option.fromUndefinedOr(ledger.declineOwners.get(operation)?.[0]));
 
 const disposedOwner = (ledger: Ledger, owner: Option.Option<ActorRef>) =>
-  Option.exists(owner, (o) => ledger.disposed.some((d) => sameData(d, o)));
+  Option.exists(owner, (o) => ledger.disposed.some((d) => sameActor(d, o)));
 
 const recordedWithCause = (
   ledger: Ledger,
@@ -173,7 +172,7 @@ const ran = (observed: Observation, pending: Array<Pending>) => {
     return (
       Observation.$is("Turn")(observed) &&
       p.event === observed.event &&
-      Option.match(p.owner, { onNone: () => true, onSome: (o) => sameData(o, observed.actor) })
+      Option.match(p.owner, { onNone: () => true, onSome: (o) => sameActor(o, observed.actor) })
     );
   });
 
@@ -215,7 +214,7 @@ const ledgerOf = (facts: Facts) => {
       if (Fact.$is("Disposed")(fact)) ledger.disposed.push(fact.actor);
 
       if (Fact.$is("Ensured")(fact)) {
-        const at = ledger.disposed.findIndex((d) => sameData(d, fact.actor));
+        const at = ledger.disposed.findIndex((d) => sameActor(d, fact.actor));
 
         if (at >= 0) ledger.disposed.splice(at, 1);
       }

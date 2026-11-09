@@ -1,47 +1,54 @@
-import { Option } from "effect";
-import type { Case, Scenario } from "../dsl/case.ts";
+import { Effect, Option } from "effect";
+import type { Actor } from "../dsl/actor.ts";
+import { Case, type Scenario } from "../dsl/case.ts";
+import { Cells } from "../fixtures/pay.ts";
+import { Cancel, Latest, Serialize } from "../fixtures/lab.ts";
 import { Observation } from "../port.ts";
 import { Answer } from "../world/network.ts";
 
-const SERIAL = { machine: "Lab/P1All", id: "a" };
-const LATEST = { machine: "Lab/P1Latest", id: "a" };
-const SWITCH = { machine: "Lab/R15Switch", id: "a" };
-const SHOPPER = { machine: "Checkout/Pay", id: "shopper-1" };
+const KEY = { intentId: "pi1" };
 const CART = { cartId: "c1", intentId: "pi1" };
 const OK = Answer.Ok({ value: {} });
 
-const go = (c: Case, n: number) => c.send("Go", { n });
+type Searcher = Pick<Actor<typeof Latest>, "send">;
 
-const search = (c: Case, q: string) => c.send("Go", { q });
+type Ids = ReadonlyArray<string | undefined>;
 
-const endedAs = (c: Case, operation: string) =>
-  c.endings(operation).map((e) => [e.channel, e.reason]);
+const serial = Case.useSync((c) => ({ c, lane: c.actor(Serialize, "a") }));
+const latest = Case.useSync((c) => ({ c, lane: c.actor(Latest, "a") }));
+const cancel = Case.useSync((c) => ({ c, lane: c.actor(Cancel, "a") }));
+const cells = Case.useSync((c) => ({ c, shopper: c.actor(Cells, "shopper-1") }));
 
-const attemptsOf = (c: Case, operation: string) =>
-  c.world.network
-    .requests()
-    .filter((r) => r.operation === operation)
-    .flatMap((r) => Option.toArray(r.key));
+const go = (a: Actor<typeof Serialize>, n: number) => a.send("Go", { n });
 
-const delivered = (c: Case, operation: string) =>
-  c
-    .reports()
-    .flatMap((o) =>
+const search = (a: Searcher, q: string) => a.send("Go", { q });
+
+const endedAs = (c: typeof Case.Service, operation: string) =>
+  Effect.map(c.endings(operation), (endings) => endings.map((e) => [e.channel, e.reason]));
+
+const attemptsOf = (c: typeof Case.Service, operation: string) =>
+  Effect.map(c.requests(operation), (requests) => requests.flatMap((r) => Option.toArray(r.key)));
+
+const delivered = (c: typeof Case.Service, operation: string) =>
+  Effect.map(c.reports, (reports) =>
+    reports.flatMap((o) =>
       Observation.$is("Delivered")(o) && o.operation === operation
         ? [[o.event, Option.getOrElse(o.attempt, () => "")]]
         : [],
-    );
+    ),
+  );
 
-const minted = (c: Case, operation: string) =>
-  c
-    .reports()
-    .flatMap((o) => (Observation.$is("Minted")(o) && o.operation === operation ? [o.attempt] : []));
+const minted = (c: typeof Case.Service, operation: string) =>
+  Effect.map(c.reports, (reports) =>
+    reports.flatMap((o) =>
+      Observation.$is("Minted")(o) && o.operation === operation ? [o.attempt] : [],
+    ),
+  );
 
-const serialize = (id: string, cites: ReadonlyArray<string>, run: (c: Case) => void) => ({
+const serialize = (id: string, cites: ReadonlyArray<string>, run: Scenario["run"]) => ({
   id,
   cites,
-  fixtures: ["serialize"],
-  actor: SERIAL,
+  fixtures: [Serialize],
   run,
 });
 
@@ -57,163 +64,215 @@ const serialize = (id: string, cites: ReadonlyArray<string>, run: (c: Case) => v
  * and `LANE-09` cancel Pay's keyed write by its history, checked by their own expectations only.
  */
 export const laneScenarios: ReadonlyArray<Scenario> = [
-  serialize("LANE-01", ["WriteLanes R7", "WriteLanes R8"], (c) => {
-    c.ensure();
-    go(c, 1);
-    c.ack();
-    go(c, 2);
-    go(c, 3);
-    c.eq("one send: the queue waits behind the head", attemptsOf(c, "put").length, 1);
-    c.answer("put", OK);
-    c.ack();
-    c.eq("the first queued is promoted and sent", attemptsOf(c, "put").length, 2);
-    c.answer("put", OK);
-    c.ack();
-    c.answer("put", OK);
-    c.eq("sent in mint order", attemptsOf(c, "put"), minted(c, "put"));
-    c.eq("three successes", endedAs(c, "put"), [
-      ["success", "success"],
-      ["success", "success"],
-      ["success", "success"],
-    ]);
-  }),
-  serialize("LANE-02", ["WriteLanes R6", "WriteLanes R7"], (c) => {
-    c.ensure();
-    go(c, 0);
-    c.ack();
-    c.sendMany(Array.from({ length: 65 }, (_, n) => [SERIAL, "Go", { n: n + 1 }] as const));
-    c.eq("64 queued behind the head", minted(c, "put").length, 65);
-    c.eq("the 65th declines", endedAs(c, "put"), [["failure", "Overloaded"]]);
-    c.eq("one send", attemptsOf(c, "put").length, 1);
-  }),
-  serialize("LANE-03", ["WriteLanes R8", "WriteLanes R15"], (c) => {
-    c.ensure();
-    go(c, 1);
-    c.ack();
-    c.answer("put", Answer.Lost());
-    go(c, 2);
-    c.ack();
-    c.eq("an unknown holds the lane and promotes nothing", attemptsOf(c, "put").length, 1);
-    c.send("All", {});
-    c.eq("the queued commit ends Cancelled", endedAs(c, "put"), [
-      ["unknown", "NoResponse"],
-      ["failure", "Cancelled"],
-    ]);
-    c.eq("the hold is released", c.evidence("Released"), 1);
-    go(c, 3);
-    c.ack();
-    c.eq("Idle again: a new commit is sent", attemptsOf(c, "put").length, 2);
-  }),
-  serialize("LANE-04", ["WriteLanes R15", "WriteLanes R14"], (c) => {
-    c.ensure();
-    go(c, 1);
-    c.ack();
-    go(c, 2);
-    go(c, 3);
-    c.send("All", {});
-    const [head, first, second] = minted(c, "put");
-    c.eq("the queue in mint order, then the head", delivered(c, "put"), [
-      ["No", first],
-      ["No", second],
-      ["Unsure", head],
-    ]);
-    c.eq("one send", attemptsOf(c, "put").length, 1);
-  }),
-  serialize("LANE-05", ["WriteLanes R15", "WriteLanes R14"], (c) => {
-    c.ensure();
-    c.send("All", {});
-    c.state("A");
-    c.eq("nothing ends", c.endings("put").length, 0);
-    c.eq("nothing released", c.evidence("Released"), 0);
-    go(c, 1);
-    c.ack();
-    c.eq("the lane still takes a commit", attemptsOf(c, "put").length, 1);
-  }),
-  serialize("LANE-10", ["WriteLanes R14", "WriteLanes R15"], (c) => {
-    c.ensure();
-    go(c, 1);
-    go(c, 2);
-    c.send("All", {});
-    c.eq("the queued commit ends first", endedAs(c, "put"), [["failure", "Cancelled"]]);
-    c.ack();
-    c.eq("never sent", attemptsOf(c, "put").length, 0);
-    c.eq("the head ends Cancelled once its acknowledgement is stored", endedAs(c, "put"), [
-      ["failure", "Cancelled"],
-      ["failure", "Cancelled"],
-    ]);
-    go(c, 3);
-    c.ack();
-    c.eq("Idle again: a new commit is sent", attemptsOf(c, "put").length, 1);
-  }),
+  serialize(
+    "LANE-01",
+    ["WriteLanes R7", "WriteLanes R8"],
+    Effect.gen(function* () {
+      const { c, lane: a } = yield* serial;
+      yield* a.ensure;
+      yield* go(a, 1);
+      yield* c.ack;
+      yield* go(a, 2);
+      yield* go(a, 3);
+      yield* c.eq(
+        "one send: the queue waits behind the head",
+        (yield* attemptsOf(c, "put")).length,
+        1,
+      );
+      yield* c.answer("put", OK);
+      yield* c.ack;
+      yield* c.eq("the first queued is promoted and sent", (yield* attemptsOf(c, "put")).length, 2);
+      yield* c.answer("put", OK);
+      yield* c.ack;
+      yield* c.answer("put", OK);
+      yield* c.eq("sent in mint order", yield* attemptsOf(c, "put"), yield* minted(c, "put"));
+      yield* c.eq("three successes", yield* endedAs(c, "put"), [
+        ["success", "success"],
+        ["success", "success"],
+        ["success", "success"],
+      ]);
+    }),
+  ),
+  serialize(
+    "LANE-02",
+    ["WriteLanes R6", "WriteLanes R7"],
+    Effect.gen(function* () {
+      const { c, lane: a } = yield* serial;
+      yield* a.ensure;
+      yield* go(a, 0);
+      yield* c.ack;
+      yield* c.send(Array.from({ length: 65 }, (_, n) => a.event("Go", { n: n + 1 })));
+      yield* c.eq("64 queued behind the head", (yield* minted(c, "put")).length, 65);
+      yield* c.eq("the 65th declines", yield* endedAs(c, "put"), [["failure", "Overloaded"]]);
+      yield* c.eq("one send", (yield* attemptsOf(c, "put")).length, 1);
+    }),
+  ),
+  serialize(
+    "LANE-03",
+    ["WriteLanes R8", "WriteLanes R15"],
+    Effect.gen(function* () {
+      const { c, lane: a } = yield* serial;
+      yield* a.ensure;
+      yield* go(a, 1);
+      yield* c.ack;
+      yield* c.answer("put", Answer.Lost());
+      yield* go(a, 2);
+      yield* c.ack;
+      yield* c.eq(
+        "an unknown holds the lane and promotes nothing",
+        (yield* attemptsOf(c, "put")).length,
+        1,
+      );
+      yield* a.send("All", {});
+      yield* c.eq("the queued commit ends Cancelled", yield* endedAs(c, "put"), [
+        ["unknown", "NoResponse"],
+        ["failure", "Cancelled"],
+      ]);
+      yield* c.eq("the hold is released", yield* c.evidence("Released"), 1);
+      yield* go(a, 3);
+      yield* c.ack;
+      yield* c.eq("Idle again: a new commit is sent", (yield* attemptsOf(c, "put")).length, 2);
+    }),
+  ),
+  serialize(
+    "LANE-04",
+    ["WriteLanes R15", "WriteLanes R14"],
+    Effect.gen(function* () {
+      const { c, lane: a } = yield* serial;
+      yield* a.ensure;
+      yield* go(a, 1);
+      yield* c.ack;
+      yield* go(a, 2);
+      yield* go(a, 3);
+      yield* a.send("All", {});
+      const [head, first, second] = yield* minted(c, "put");
+      yield* c.eq<ReadonlyArray<Ids>>(
+        "the queue in mint order, then the head",
+        yield* delivered(c, "put"),
+        [
+          ["No", first],
+          ["No", second],
+          ["Unsure", head],
+        ],
+      );
+      yield* c.eq("one send", (yield* attemptsOf(c, "put")).length, 1);
+    }),
+  ),
+  serialize(
+    "LANE-05",
+    ["WriteLanes R15", "WriteLanes R14"],
+    Effect.gen(function* () {
+      const { c, lane: a } = yield* serial;
+      yield* a.ensure;
+      yield* a.send("All", {});
+      yield* a.state("A");
+      yield* c.eq("nothing ends", (yield* c.endings("put")).length, 0);
+      yield* c.eq("nothing released", yield* c.evidence("Released"), 0);
+      yield* go(a, 1);
+      yield* c.ack;
+      yield* c.eq("the lane still takes a commit", (yield* attemptsOf(c, "put")).length, 1);
+    }),
+  ),
+  serialize(
+    "LANE-10",
+    ["WriteLanes R14", "WriteLanes R15"],
+    Effect.gen(function* () {
+      const { c, lane: a } = yield* serial;
+      yield* a.ensure;
+      yield* go(a, 1);
+      yield* go(a, 2);
+      yield* a.send("All", {});
+      yield* c.eq("the queued commit ends first", yield* endedAs(c, "put"), [
+        ["failure", "Cancelled"],
+      ]);
+      yield* c.ack;
+      yield* c.eq("never sent", (yield* attemptsOf(c, "put")).length, 0);
+      yield* c.eq(
+        "the head ends Cancelled once its acknowledgement is stored",
+        yield* endedAs(c, "put"),
+        [
+          ["failure", "Cancelled"],
+          ["failure", "Cancelled"],
+        ],
+      );
+      yield* go(a, 3);
+      yield* c.ack;
+      yield* c.eq("Idle again: a new commit is sent", (yield* attemptsOf(c, "put")).length, 1);
+    }),
+  ),
   {
     id: "LANE-06",
     cites: ["WriteLanes R7", "WriteLanes R8"],
-    fixtures: ["latest"],
-    actor: LATEST,
-    run: (c) => {
-      c.ensure();
-      search(c, "a");
-      c.ack();
-      search(c, "ab");
-      search(c, "abc");
-      c.eq("the replaced queued commit is superseded", c.evidence("Superseded"), 1);
-      c.answer("search", OK);
-      c.ack();
-      const [head, , last] = minted(c, "search");
-      c.eq("the head, then the newest", attemptsOf(c, "search"), [head, last]);
-      c.answer("search", OK);
-      c.eq("two endings, both successes", c.endings("search").length, 2);
-    },
+    fixtures: [Latest],
+    run: Effect.gen(function* () {
+      const { c, lane: a } = yield* latest;
+      yield* a.ensure;
+      yield* search(a, "a");
+      yield* c.ack;
+      yield* search(a, "ab");
+      yield* search(a, "abc");
+      yield* c.eq("the replaced queued commit is superseded", yield* c.evidence("Superseded"), 1);
+      yield* c.answer("search", OK);
+      yield* c.ack;
+      const [head, , last] = yield* minted(c, "search");
+      yield* c.eq<Ids>("the head, then the newest", yield* attemptsOf(c, "search"), [head, last]);
+      yield* c.answer("search", OK);
+      yield* c.eq("two endings, both successes", (yield* c.endings("search")).length, 2);
+    }),
   },
   {
     id: "LANE-07",
     cites: ["WriteLanes R7", "WriteLanes R10"],
-    fixtures: ["cancel"],
-    actor: SWITCH,
-    run: (c) => {
-      c.ensure();
-      search(c, "a");
-      c.ack();
-      search(c, "ab");
-      c.ack();
-      const [first, second] = minted(c, "search");
-      c.eq("both reached the wire", attemptsOf(c, "search"), [first, second]);
-      c.answer("search", OK);
-      c.answer("search", OK);
-      c.eq("only the newer one is heard", delivered(c, "search"), [["Ok", second]]);
-      c.state("A");
-    },
+    fixtures: [Cancel],
+    run: Effect.gen(function* () {
+      const { c, lane: a } = yield* cancel;
+      yield* a.ensure;
+      yield* search(a, "a");
+      yield* c.ack;
+      yield* search(a, "ab");
+      yield* c.ack;
+      const [first, second] = yield* minted(c, "search");
+      yield* c.eq<Ids>("both reached the wire", yield* attemptsOf(c, "search"), [first, second]);
+      yield* c.answer("search", OK);
+      yield* c.answer("search", OK);
+      yield* c.eq<ReadonlyArray<Ids>>(
+        "only the newer one is heard",
+        yield* delivered(c, "search"),
+        [["Ok", second]],
+      );
+      yield* a.state("A");
+    }),
   },
   {
     id: "LANE-08",
     cites: ["WriteLanes R14"],
-    fixtures: ["cells"],
-    actor: SHOPPER,
-    run: (c) => {
-      c.ensure();
-      c.send("Start", CART);
-      c.send("PayRequested", { paymentMethodId: "visa" });
-      c.send("AbortPay", {});
-      c.ack();
-      c.eq("never sent", attemptsOf(c, "pay").length, 0);
-      c.eq("ends NotSent Cancelled", endedAs(c, "pay"), [["failure", "Cancelled"]]);
-    },
+    fixtures: [Cells],
+    run: Effect.gen(function* () {
+      const { c, shopper: s } = yield* cells;
+      yield* s.ensure;
+      yield* s.send("Start", CART);
+      yield* s.send("PayRequested", { paymentMethodId: "visa" });
+      yield* s.send("AbortPay", {});
+      yield* c.ack;
+      yield* c.eq("never sent", (yield* attemptsOf(c, "pay")).length, 0);
+      yield* c.eq("ends NotSent Cancelled", yield* endedAs(c, "pay"), [["failure", "Cancelled"]]);
+    }),
   },
   {
     id: "LANE-09",
     cites: ["WriteLanes R14", "WriteLanes R8"],
-    fixtures: ["cells"],
-    actor: SHOPPER,
-    run: (c) => {
-      c.ensure();
-      c.send("Start", CART);
-      c.send("PayRequested", { paymentMethodId: "visa" });
-      c.ack();
-      c.answer("pay", Answer.Lost());
-      c.state("UNSURE");
-      c.send("AbortPay", {});
-      c.eq("the hold is released", c.evidence("Released"), 1);
-      c.eq("the lane is Idle", Option.isNone(c.row("pay", { intentId: "pi1" })), true);
-    },
+    fixtures: [Cells],
+    run: Effect.gen(function* () {
+      const { c, shopper: s } = yield* cells;
+      yield* s.ensure;
+      yield* s.send("Start", CART);
+      yield* s.send("PayRequested", { paymentMethodId: "visa" });
+      yield* c.ack;
+      yield* c.answer("pay", Answer.Lost());
+      yield* s.state("UNSURE");
+      yield* s.send("AbortPay", {});
+      yield* c.eq("the hold is released", yield* c.evidence("Released"), 1);
+      yield* c.eq("the lane is Idle", Option.isNone(yield* s.row("pay", KEY)), true);
+    }),
   },
 ];

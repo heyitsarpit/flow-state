@@ -1,19 +1,33 @@
-import { Data, Option, Predicate } from "effect";
-import type { Reference } from "../fixtures/reference.ts";
-import { sameData } from "../oracles/equality.ts";
-import { Fact, type Oracle } from "../oracles/oracle.ts";
-import { type ActorRef, Observation, type Port, type Row, Snapshot, type Use } from "../port.ts";
-import { type Answer, NoHeldRequest, type Request } from "../world/network.ts";
-import type { StorageAnswer } from "../world/storage.ts";
-import { advance, kill, makeWorld, settle, type World } from "../world/world.ts";
+import { Context, Data, Effect, Equal, Exit, Layer, Option, type Schema, Scope } from "effect";
+import { type Fixture, referenceFor } from "../fixtures/fixture.ts";
+import { Fact, type Oracle, reported } from "../oracles/oracle.ts";
+import {
+  type ActorRef,
+  Boot,
+  type EvidenceKind,
+  type Json,
+  Observation,
+  PageKilled,
+  type Row,
+  Runtime,
+  sameActor,
+  type Snapshot,
+  type Use,
+} from "../port.ts";
+import { Page } from "../world/lifecycle.ts";
+import { type Answer, Network, NoHeldRequest, type Request } from "../world/network.ts";
+import { Storage, type StorageAnswer } from "../world/storage.ts";
+import { type Hosts, World } from "../world/world.ts";
+import { type Actor, actorView } from "./actor.ts";
+import { Timeline } from "./timeline.ts";
 
 /**
- * A case's own expectation did not hold.
+ * A case's own expectation did not hold. `expected` and `actual` are the values as JSON text.
  */
 export class Mismatch extends Data.TaggedError("Mismatch")<{
   readonly label: string;
-  readonly expected: unknown;
-  readonly actual: unknown;
+  readonly expected: string;
+  readonly actual: string;
 }> {}
 
 /**
@@ -26,20 +40,435 @@ export class Violated extends Data.TaggedError("Violated")<{
 }> {}
 
 /**
- * One case: a machine set, the actor it is about, and what it drives and expects.
+ * One event the suite sends to one actor, its payload encoded: build one with an actor's
+ * `event`.
+ */
+export type Drive = { readonly actor: ActorRef; readonly event: string; readonly payload: Json };
+
+/**
+ * A step: it settles the world and runs every oracle, failing with `Violated`.
+ */
+export type Step = Effect.Effect<void, Violated>;
+
+const shown = <A>(value: A) => String(JSON.stringify(value));
+
+/**
+ * The scenario DSL one case runs through, fixture-agnostic: steps that settle the world and run
+ * every oracle, and reads of public results. `actor` gives a typed view of one actor.
+ *
+ * **When to use**
+ *
+ * A scenario's `run` is an `Effect.gen` that takes this with `yield* Case`, makes its actors with
+ * `actor(fixture, id)` and drives them.
+ *
+ * **Details**
+ *
+ * - Every step records itself on the timeline, runs, settles the world, notes the requests it
+ *   made, then runs every oracle; any violation fails the step with `Violated`, naming every
+ *   oracle that found one in that step.
+ * - `eq` fails with `Mismatch` unless the two values are equal by Effect's structural equality.
+ * - A reload kills the page, closes the boot's scope with `PageKilled` (a dead page runs nothing)
+ *   and builds the runtime's Layer again over the same world, then re-attaches every use the case
+ *   holds: those its `Ensured`, `Released` and `Disposed` facts leave.
+ * - `send` makes several sends in one step, with no settling between them.
+ * - `disposeRuntime` starts the Runtime's disposal; `runtimeDisposals` counts the reports that it
+ *   ended.
+ * - `landed` counts the distinct Attempts the server applied; `landedKeys` lists the key of every
+ *   applied request, repeats included.
+ * - World faults: `answerLate` (the server's answer arrives after all), `landLate` (a lost
+ *   request lands unheard), `uninterruptible` and `answerAtOnce` (from now on, for an operation).
+ * - `answer` takes the oldest open request of the operation, or with `where` the oldest whose
+ *   input has those fields.
+ *
+ * **Gotchas**
+ *
+ * - A step that names a request the server does not hold dies with `NoHeldRequest`: a scenario
+ *   bug, never a verdict.
+ */
+export class Case extends Context.Service<
+  Case,
+  {
+    readonly actor: <F extends Fixture>(fixture: F, id: string) => Actor<F>;
+    readonly ensure: (actor: ActorRef, input: Option.Option<Json>) => Step;
+    readonly release: (actor: ActorRef, use: Use) => Step;
+    readonly dispose: (actor: ActorRef) => Step;
+    readonly disposeRuntime: Step;
+    readonly send: (drives: ReadonlyArray<Drive>) => Step;
+    readonly ack: Step;
+    readonly answerStorage: (how: StorageAnswer, match: Option.Option<string>) => Step;
+    readonly answer: (operation: string, answer: Answer) => Step;
+    readonly answerWhere: (operation: string, answer: Answer, where: Schema.JsonObject) => Step;
+    readonly answerLate: (operation: string, answer: Answer) => Step;
+    readonly landLate: (operation: string) => Step;
+    readonly uninterruptible: (operation: string) => Step;
+    readonly answerAtOnce: (operation: string, answer: Answer) => Step;
+    readonly hide: Step;
+    readonly advance: (ms: number) => Step;
+    readonly reload: Step;
+    readonly eq: <A>(
+      label: string,
+      actual: A,
+      expected: NoInfer<A>,
+    ) => Effect.Effect<void, Mismatch>;
+    readonly snapshot: (actor: ActorRef) => Effect.Effect<Snapshot>;
+    readonly row: (
+      actor: ActorRef,
+      operation: string,
+      key: Json,
+    ) => Effect.Effect<Option.Option<Row>>;
+    readonly requests: (operation: string) => Effect.Effect<ReadonlyArray<Request>>;
+    readonly keys: (operation: string) => Effect.Effect<ReadonlyArray<string>>;
+    readonly landed: (operation: string) => Effect.Effect<number>;
+    readonly landedKeys: (operation: string) => Effect.Effect<ReadonlyArray<string>>;
+    readonly endings: (
+      operation: string,
+    ) => Effect.Effect<ReadonlyArray<Extract<Observation, { readonly _tag: "Ended" }>>>;
+    readonly evidence: (kind: EvidenceKind) => Effect.Effect<number>;
+    readonly issues: Effect.Effect<ReadonlyArray<string>>;
+    readonly denials: Effect.Effect<ReadonlyArray<ReadonlyArray<string>>>;
+    readonly runtimeDisposals: Effect.Effect<number>;
+    readonly reports: Effect.Effect<ReadonlyArray<Observation>>;
+  }
+>()("flow-state-v3/conformance/dsl/Case") {
+  /**
+   * The driver of one case: it boots `runtime` over the world for `fixtures` and runs `oracles`
+   * after every step.
+   *
+   * **Details**
+   *
+   * Each boot builds `runtime` in its own scope under the case's, with a `Boot` from the page's
+   * session seed; the case's end closes it, which disposes the Runtime.
+   */
+  static readonly layer = (options: {
+    readonly fixtures: ReadonlyArray<Fixture>;
+    readonly runtime: Layer.Layer<Runtime, never, Boot | Hosts>;
+    readonly oracles: ReadonlyArray<Oracle>;
+  }) =>
+    Layer.effect(
+      Case,
+      Effect.gen(function* () {
+        const world = yield* World;
+        const network = yield* Network;
+        const storage = yield* Storage;
+        const page = yield* Page;
+        const timeline = yield* Timeline;
+        const hosts = yield* Effect.context<Hosts>();
+        const scope = yield* Effect.scope;
+        const reference = referenceFor(options.fixtures);
+        const fixtures = options.fixtures.map((f) => f.name);
+
+        const boot = Effect.gen(function* () {
+          const own = yield* Scope.fork(scope);
+
+          const built = yield* Layer.buildWithScope(
+            options.runtime.pipe(
+              Layer.provide(
+                Layer.succeed(Boot)({
+                  fixtures,
+                  captureMs: 0,
+                  sessionSeed: page.sessionSeed(),
+                  observe: (observation) => timeline.record(Fact.Reported({ observation })),
+                }),
+              ),
+              Layer.provide(Layer.succeedContext(hosts)),
+            ),
+            own,
+          );
+
+          return { scope: own, runtime: Context.get(built, Runtime) };
+        });
+
+        let booted = yield* boot;
+
+        const count = (tag: "Stepped" | "Requested") =>
+          timeline.facts().filter((fact) => fact._tag === tag).length;
+
+        const noteRequests = () => {
+          for (const request of network.requests().slice(count("Requested")))
+            timeline.record(Fact.Requested({ request }));
+        };
+
+        const uses = () =>
+          timeline.facts().reduce<ReadonlyArray<readonly [ActorRef, Use]>>(
+            (held, fact) =>
+              Fact.$match(fact, {
+                Ensured: ({ actor }) => [...held, [actor, "story"] as const],
+                Released: ({ actor, use }) => {
+                  const at = held.findIndex(([a, u]) => sameActor(a, actor) && u === use);
+
+                  return at < 0 ? held : held.toSpliced(at, 1);
+                },
+                Disposed: ({ actor }) => held.filter(([a]) => !sameActor(a, actor)),
+                Stepped: () => held,
+                Requested: () => held,
+                Answered: () => held,
+                Reported: () => held,
+                Reloaded: () => held,
+                DisposingRuntime: () => held,
+                Drove: () => held,
+                Unstoppable: () => held,
+              }),
+            [],
+          );
+
+        const judge = (what: string) =>
+          Effect.suspend(() => {
+            const facts = { timeline: timeline.facts(), requests: network.requests(), reference };
+
+            const found = options.oracles.flatMap((oracle) => {
+              const [violation] = oracle.check(facts);
+
+              return violation === undefined ? [] : [{ oracle: oracle.name, violation }];
+            });
+
+            return found.length === 0
+              ? Effect.void
+              : Effect.fail(
+                  new Violated({
+                    oracles: found.map((f) => f.oracle),
+                    violation: found.map((f) => `${f.oracle}: ${f.violation}`).join(" | "),
+                    step: what,
+                  }),
+                );
+          });
+
+        const act = (what: string, run: Effect.Effect<void>) =>
+          Effect.gen(function* () {
+            timeline.record(Fact.Stepped({ step: count("Stepped") + 1, what }));
+            yield* run;
+            world.settle(() => booted.runtime.pending());
+            noteRequests();
+            yield* judge(what);
+          });
+
+        const held = (operation: string, request: Option.Option<Request>) =>
+          Option.match(request, {
+            onNone: () => Effect.die(new NoHeldRequest({ operation })),
+            onSome: Effect.succeed,
+          });
+
+        const answer = (
+          operation: string,
+          given: Answer,
+          where: Option.Option<Schema.JsonObject>,
+        ) =>
+          act(
+            `answer ${operation} ${given._tag}`,
+            Effect.gen(function* () {
+              const request = yield* held(operation, network.oldestOpen(operation, where));
+              timeline.record(Fact.Answered({ request, answer: given }));
+              network.answer(request, given);
+            }),
+          );
+
+        const answerStorage = (how: StorageAnswer, match: Option.Option<string>) =>
+          act(
+            how,
+            Effect.sync(() => void storage.answer(how, match)),
+          );
+
+        const send = (drives: ReadonlyArray<Drive>) =>
+          act(
+            `send ${drives.map((d) => d.event).join(", ")}`,
+            Effect.sync(() => {
+              for (const { actor, event, payload } of drives) {
+                timeline.record(Fact.Drove({ actor, event }));
+                booted.runtime.send(actor, event, payload);
+              }
+            }),
+          );
+
+        const ensure = (actor: ActorRef, input: Option.Option<Json>) =>
+          act(
+            `ensure ${actor.id}`,
+            Effect.sync(() => {
+              timeline.record(Fact.Ensured({ actor }));
+              booted.runtime.ensure(actor, input, "story");
+            }),
+          );
+
+        const release = (actor: ActorRef, use: Use) =>
+          act(
+            `release ${actor.id}`,
+            Effect.sync(() => {
+              timeline.record(Fact.Released({ actor, use }));
+              booted.runtime.release(actor, use);
+            }),
+          );
+
+        const dispose = (actor: ActorRef) =>
+          act(
+            `dispose ${actor.id}`,
+            Effect.sync(() => {
+              timeline.record(Fact.Disposed({ actor }));
+              booted.runtime.dispose(actor);
+            }),
+          );
+
+        const eq = <A>(label: string, actual: A, expected: NoInfer<A>) =>
+          Equal.equals(actual, expected)
+            ? Effect.void
+            : Effect.fail(
+                new Mismatch({ label, expected: shown(expected), actual: shown(actual) }),
+              );
+
+        const snapshot = (actor: ActorRef) => Effect.sync(() => booted.runtime.snapshot(actor));
+
+        const row = (actor: ActorRef, operation: string, key: Json) =>
+          Effect.sync(() => booted.runtime.row(actor, operation, key));
+
+        const requests = (operation: string) =>
+          Effect.sync(() => network.requests().filter((r) => r.operation === operation));
+
+        const landedKeys = (operation: string) =>
+          Effect.sync(() =>
+            network
+              .landed()
+              .filter((r) => r.operation === operation)
+              .flatMap((r) => Option.toArray(r.key)),
+          );
+
+        const observed = Effect.sync(() => reported(timeline.facts()));
+
+        const driver = {
+          ensure,
+          release,
+          dispose,
+          send,
+          eq,
+          snapshot,
+          row,
+        };
+
+        return Case.of({
+          actor: (fixture, id) => actorView(driver, fixture, id),
+          ensure,
+          release,
+          dispose,
+          disposeRuntime: act(
+            "dispose the runtime",
+            Effect.sync(() => {
+              timeline.record(Fact.DisposingRuntime());
+              booted.runtime.disposeRuntime();
+            }),
+          ),
+          send,
+          ack: answerStorage("ack", Option.none()),
+          answerStorage,
+          answer: (operation, given) => answer(operation, given, Option.none()),
+          answerWhere: (operation, given, where) => answer(operation, given, Option.some(where)),
+          answerLate: (operation, given) =>
+            act(
+              `late answer ${operation} ${given._tag}`,
+              Effect.gen(function* () {
+                const request = yield* held(operation, network.oldestUndecided(operation));
+                timeline.record(Fact.Answered({ request, answer: given }));
+                network.answerLate(request, given);
+              }),
+            ),
+          landLate: (operation) =>
+            act(
+              `land late ${operation}`,
+              Effect.gen(function* () {
+                network.landLate(yield* held(operation, network.oldestLost(operation)));
+              }),
+            ),
+          uninterruptible: (operation) =>
+            act(
+              `uninterruptible ${operation}`,
+              Effect.sync(() => {
+                timeline.record(Fact.Unstoppable({ operation }));
+                network.uninterruptible(operation);
+              }),
+            ),
+          answerAtOnce: (operation, given) =>
+            act(
+              `answer at once ${operation} ${given._tag}`,
+              Effect.sync(() => network.answerAtOnce(operation, given)),
+            ),
+          hide: act(
+            "hide",
+            Effect.sync(() => {
+              page.hide();
+              page.show();
+            }),
+          ),
+          advance: (ms) =>
+            act(
+              `advance ${ms}`,
+              Effect.sync(() => world.advance(ms, () => booted.runtime.pending())),
+            ),
+          reload: act(
+            "reload",
+            Effect.gen(function* () {
+              const dying = page.page();
+              world.kill();
+              timeline.record(Fact.Reloaded());
+              yield* Scope.close(booted.scope, Exit.fail(new PageKilled({ page: dying })));
+              booted = yield* boot;
+
+              for (const [actor, use] of uses()) booted.runtime.ensureExisting(actor, use);
+            }),
+          ),
+          eq,
+          snapshot,
+          row,
+          requests,
+          keys: (operation) =>
+            Effect.map(requests(operation), (all) => [
+              ...new Set(all.flatMap((r) => Option.toArray(r.key))),
+            ]),
+          landed: (operation) => Effect.map(landedKeys(operation), (keys) => new Set(keys).size),
+          landedKeys,
+          endings: (operation) =>
+            Effect.map(observed, (all) =>
+              all.flatMap((o) =>
+                Observation.$is("Ended")(o) && o.operation === operation ? [o] : [],
+              ),
+            ),
+          evidence: (kind) =>
+            Effect.map(
+              observed,
+              (all) => all.filter((o) => Observation.$is("Evidence")(o) && o.kind === kind).length,
+            ),
+          issues: Effect.map(observed, (all) =>
+            all.flatMap((o) => (Observation.$is("Issue")(o) ? [o.code] : [])),
+          ),
+          denials: Effect.map(observed, (all) =>
+            all.flatMap((o) => (Observation.$is("Denied")(o) ? [o.reasons] : [])),
+          ),
+          runtimeDisposals: Effect.map(
+            observed,
+            (all) => all.filter(Observation.$is("RuntimeDisposed")).length,
+          ),
+          reports: observed,
+        });
+      }),
+    );
+}
+
+/**
+ * The steps and reads an actor view is made of: the Case's own.
+ */
+export type Driver = Pick<
+  typeof Case.Service,
+  "ensure" | "release" | "dispose" | "send" | "eq" | "snapshot" | "row"
+>;
+
+/**
+ * One case: the machines it boots and what it drives and expects.
  *
  * **Details**
  *
  * - `cites`: the Spec Requirements and Invariants the case's expectations come from.
- * - `fixtures`: catalog names, booted together.
- * - `run`: the case, through a {@link Case}; it never reaches a runtime's internals.
+ * - `fixtures`: booted together.
+ * - `run`: the case, through {@link Case}; it never reaches a runtime's internals.
  */
 export type Scenario = {
   readonly id: string;
   readonly cites: ReadonlyArray<string>;
-  readonly fixtures: ReadonlyArray<string>;
-  readonly actor: ActorRef;
-  readonly run: (c: Case) => void;
+  readonly fixtures: ReadonlyArray<Fixture>;
+  readonly run: Effect.Effect<void, Violated | Mismatch, Case>;
 };
 
 /**
@@ -47,293 +476,9 @@ export type Scenario = {
  *
  * **When to use**
  *
- * Variants that share fixtures, actor and citations but drive different paths.
+ * Variants that share fixtures and citations but drive different paths.
  */
 export const variants = (
   base: Omit<Scenario, "run">,
-  runs: Readonly<Record<string, (c: Case) => void>>,
+  runs: Readonly<Record<string, Scenario["run"]>>,
 ) => Object.entries(runs).map(([name, run]) => ({ ...base, id: `${base.id}/${name}`, run }));
-
-/**
- * The driver one case runs through: steps that settle the world and run every oracle, and reads
- * of public results.
- *
- * **Details**
- *
- * - Every step records itself on the timeline, runs, settles the world, notes the requests it
- *   made, then runs every oracle; any violation throws `Violated`, naming every oracle that found
- *   one in that step.
- * - `eq` and `state` throw `Mismatch`.
- * - A reload kills the page and boots the port again over the same world, then re-attaches every
- *   use the case holds.
- * - `sendMany` makes several sends in one step, with no settling between them.
- * - `disposeRuntime` starts the Runtime's disposal; `runtimeDisposals` counts the reports that it
- *   ended.
- * - World faults: `answerLate` (the server's answer arrives after all), `landLate` (a lost
- *   request lands unheard), `uninterruptible` and `answerAtOnce` (from now on, for an operation).
- * - The short forms act on the scenario's own actor; the `...Of` and `...Where` forms name what
- *   they act on.
- */
-export type Case = {
-  readonly actor: ActorRef;
-  readonly world: World;
-  readonly ensure: () => void;
-  readonly ensureOf: (actor: ActorRef, input: Option.Option<unknown>) => void;
-  readonly release: (actor: ActorRef, use: Use) => void;
-  readonly dispose: (actor: ActorRef) => void;
-  readonly disposeRuntime: () => void;
-  readonly send: (event: string, payload: unknown) => void;
-  readonly to: (actor: ActorRef, event: string, payload: unknown) => void;
-  readonly sendMany: (sends: ReadonlyArray<readonly [ActorRef, string, unknown]>) => void;
-  readonly ack: () => void;
-  readonly answerStorage: (how: StorageAnswer, match: Option.Option<string>) => void;
-  readonly answer: (operation: string, answer: Answer) => void;
-  readonly answerWhere: (
-    operation: string,
-    answer: Answer,
-    where: Readonly<Record<string, unknown>>,
-  ) => void;
-  readonly answerLate: (operation: string, answer: Answer) => void;
-  readonly landLate: (operation: string) => void;
-  readonly uninterruptible: (operation: string) => void;
-  readonly answerAtOnce: (operation: string, answer: Answer) => void;
-  readonly hide: () => void;
-  readonly advance: (ms: number) => void;
-  readonly reload: () => void;
-  readonly eq: (label: string, actual: unknown, expected: unknown) => void;
-  readonly state: (expected: string) => void;
-  readonly stateOf: (actor: ActorRef, expected: string) => void;
-  readonly memory: () => Readonly<Record<string, unknown>>;
-  readonly memoryOf: (actor: ActorRef) => Readonly<Record<string, unknown>>;
-  readonly row: (operation: string, key: unknown) => Option.Option<Row>;
-  readonly rowOf: (actor: ActorRef, operation: string, key: unknown) => Option.Option<Row>;
-  readonly requests: (operation: string) => ReadonlyArray<Request>;
-  readonly keys: (operation: string) => ReadonlyArray<string>;
-  readonly landed: (operation: string) => number;
-  readonly endings: (
-    operation: string,
-  ) => ReadonlyArray<Extract<Observation, { readonly _tag: "Ended" }>>;
-  readonly evidence: (kind: Extract<Observation, { readonly _tag: "Evidence" }>["kind"]) => number;
-  readonly issues: () => ReadonlyArray<string>;
-  readonly denials: () => ReadonlyArray<ReadonlyArray<string>>;
-  readonly runtimeDisposals: () => number;
-  readonly reports: () => ReadonlyArray<Observation>;
-};
-
-const record = (value: unknown) =>
-  Object.fromEntries(Predicate.isObject(value) ? Object.entries(value) : []);
-
-/**
- * Builds the driver for one scenario over a port, with the oracles it runs after every step.
- *
- * **Details**
- *
- * `seed` fixes the world: the store's load order and the session seeds the runtime mints from.
- * The runner runs every case under more than one seed.
- */
-// RETURN_TYPE: the exported Case contract scenarios are written against.
-export const openCase = (
-  port: Port,
-  scenario: Scenario,
-  reference: Reference,
-  oracles: ReadonlyArray<Oracle>,
-  seed: number,
-): Case => {
-  const world = makeWorld(seed);
-  const timeline: Array<Fact> = [];
-  const uses: Array<readonly [ActorRef, Use]> = [];
-  let step = 0;
-  let seenRequests = 0;
-
-  const boot = () =>
-    port.boot({
-      fixtures: scenario.fixtures,
-      captureMs: 0,
-      sessionSeed: world.lifecycle.sessionSeed(),
-      world,
-      observe: (observation) => {
-        timeline.push(Fact.Reported({ observation }));
-      },
-    });
-
-  let runtime = boot();
-  const pending = () => runtime.pending();
-
-  const noteRequests = () => {
-    const all = world.network.requests();
-
-    for (const request of all.slice(seenRequests)) timeline.push(Fact.Requested({ request }));
-    seenRequests = all.length;
-  };
-
-  const judge = (what: string) => {
-    const facts = { timeline, requests: world.network.requests(), reference };
-
-    const found = oracles.flatMap((oracle) => {
-      const [violation] = oracle.check(facts);
-
-      return violation === undefined ? [] : [{ oracle: oracle.name, violation }];
-    });
-
-    if (found.length > 0)
-      throw new Violated({
-        oracles: found.map((f) => f.oracle),
-        violation: found.map((f) => `${f.oracle}: ${f.violation}`).join(" | "),
-        step: what,
-      });
-  };
-
-  const act = (what: string, run: () => void) => {
-    step += 1;
-    timeline.push(Fact.Stepped({ step, what }));
-    run();
-    settle(world, pending);
-    noteRequests();
-    judge(what);
-  };
-
-  const answer = (
-    operation: string,
-    given: Answer,
-    where: Option.Option<Readonly<Record<string, unknown>>>,
-  ) =>
-    act(`answer ${operation} ${given._tag}`, () => {
-      const held = world.network.oldestOpen(operation, where);
-
-      if (Option.isNone(held)) throw new NoHeldRequest({ operation });
-      timeline.push(Fact.Answered({ request: held.value, answer: given }));
-      world.network.answer(held.value, given);
-    });
-
-  const stateOf = (actor: ActorRef, expected: string) =>
-    c.eq(
-      "state",
-      Snapshot.$match(runtime.snapshot(actor), {
-        Live: ({ state }) => state,
-        Absent: () => "(absent)",
-      }),
-      expected,
-    );
-
-  const memoryOf = (actor: ActorRef) =>
-    Snapshot.$match(runtime.snapshot(actor), {
-      Live: ({ memory }) => record(memory),
-      Absent: () => ({}),
-    });
-
-  const reported = () =>
-    timeline.flatMap((fact) => (Fact.$is("Reported")(fact) ? [fact.observation] : []));
-
-  const c: Case = {
-    actor: scenario.actor,
-    world,
-    ensure: () => c.ensureOf(scenario.actor, Option.none()),
-    ensureOf: (actor, input) =>
-      act(`ensure ${actor.id}`, () => {
-        timeline.push(Fact.Ensured({ actor }));
-        uses.push([actor, "story"]);
-        runtime.ensure(actor, input, "story");
-      }),
-    release: (actor, use) =>
-      act(`release ${actor.id}`, () => {
-        const at = uses.findIndex(([a, u]) => sameData(a, actor) && u === use);
-
-        if (at >= 0) uses.splice(at, 1);
-        runtime.release(actor, use);
-      }),
-    dispose: (actor) =>
-      act(`dispose ${actor.id}`, () => {
-        timeline.push(Fact.Disposed({ actor }));
-
-        for (let at = uses.length - 1; at >= 0; at -= 1)
-          if (sameData(uses[at]?.[0], actor)) uses.splice(at, 1);
-        runtime.dispose(actor);
-      }),
-    disposeRuntime: () =>
-      act("dispose the runtime", () => {
-        timeline.push(Fact.DisposingRuntime());
-        runtime.disposeRuntime();
-      }),
-    send: (event, payload) => c.to(scenario.actor, event, payload),
-    to: (actor, event, payload) => c.sendMany([[actor, event, payload]]),
-    sendMany: (sends) =>
-      act(`send ${sends.map(([, event]) => event).join(", ")}`, () => {
-        for (const [actor, event, payload] of sends) {
-          timeline.push(Fact.Drove({ actor, event }));
-          runtime.send(actor, event, payload);
-        }
-      }),
-    ack: () => c.answerStorage("ack", Option.none()),
-    answerStorage: (how, match) => act(how, () => void world.storage.answer(how, match)),
-    answer: (operation, given) => answer(operation, given, Option.none()),
-    answerWhere: (operation, given, where) => answer(operation, given, Option.some(where)),
-    answerLate: (operation, given) =>
-      act(`late answer ${operation} ${given._tag}`, () => {
-        const held = world.network.oldestUndecided(operation);
-
-        if (Option.isNone(held)) throw new NoHeldRequest({ operation });
-        timeline.push(Fact.Answered({ request: held.value, answer: given }));
-        world.network.answerLate(held.value, given);
-      }),
-    landLate: (operation) =>
-      act(`land late ${operation}`, () => {
-        const lost = world.network.oldestLost(operation);
-
-        if (Option.isNone(lost)) throw new NoHeldRequest({ operation });
-        world.network.landLate(lost.value);
-      }),
-    uninterruptible: (operation) =>
-      act(`uninterruptible ${operation}`, () => {
-        timeline.push(Fact.Unstoppable({ operation }));
-        world.network.uninterruptible(operation);
-      }),
-    answerAtOnce: (operation, given) =>
-      act(`answer at once ${operation} ${given._tag}`, () =>
-        world.network.answerAtOnce(operation, given),
-      ),
-    hide: () =>
-      act("hide", () => {
-        world.lifecycle.hide();
-        world.lifecycle.show();
-      }),
-    advance: (ms) => act(`advance ${ms}`, () => advance(world, ms, pending)),
-    reload: () =>
-      act("reload", () => {
-        kill(world);
-        timeline.push(Fact.Reloaded());
-        runtime = boot();
-
-        for (const [actor, use] of uses) runtime.ensureExisting(actor, use);
-      }),
-    eq: (label, actual, expected) => {
-      if (!sameData(actual, expected)) throw new Mismatch({ label, expected, actual });
-    },
-    state: (expected) => stateOf(scenario.actor, expected),
-    stateOf,
-    memory: () => memoryOf(scenario.actor),
-    memoryOf,
-    row: (operation, key) => runtime.row(scenario.actor, operation, key),
-    rowOf: (actor, operation, key) => runtime.row(actor, operation, key),
-    requests: (operation) => world.network.requests().filter((r) => r.operation === operation),
-    keys: (operation) => [...new Set(c.requests(operation).flatMap((r) => Option.toArray(r.key)))],
-    landed: (operation) =>
-      new Set(
-        world.network
-          .landed()
-          .filter((r) => r.operation === operation)
-          .flatMap((r) => Option.toArray(r.key)),
-      ).size,
-    endings: (operation) =>
-      reported().flatMap((o) =>
-        Observation.$is("Ended")(o) && o.operation === operation ? [o] : [],
-      ),
-    evidence: (kind) =>
-      reported().filter((o) => Observation.$is("Evidence")(o) && o.kind === kind).length,
-    issues: () => reported().flatMap((o) => (Observation.$is("Issue")(o) ? [o.code] : [])),
-    denials: () => reported().flatMap((o) => (Observation.$is("Denied")(o) ? [o.reasons] : [])),
-    runtimeDisposals: () => reported().filter(Observation.$is("RuntimeDisposed")).length,
-    reports: reported,
-  };
-
-  return c;
-};

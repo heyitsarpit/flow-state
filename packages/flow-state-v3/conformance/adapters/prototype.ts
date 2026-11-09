@@ -1,50 +1,63 @@
 /// <reference types="node" />
-import { Context, Data, Effect, Option, Predicate, Result, Schema } from "effect";
+import {
+  Context,
+  Data,
+  Effect,
+  Exit,
+  Layer,
+  Option,
+  Predicate,
+  type Scheduler,
+  Schema,
+} from "effect";
 import { join } from "node:path";
 import {
   type ActorRef,
-  type Boot,
-  Channel,
-  EvidenceKind,
+  Boot,
+  type Json,
   Observation,
-  type Port,
-  type RecordedWhy,
-  type Runtime,
+  PageKilled,
+  Row,
+  Runtime,
   Snapshot,
 } from "../port.ts";
-import type { World } from "../world/world.ts";
+import { WorldClock } from "../world/clock.ts";
+import { Page } from "../world/lifecycle.ts";
+import { Network } from "../world/network.ts";
+import { type Purpose, Storage, Write } from "../world/storage.ts";
+import { observationsOf } from "./prototype-reports.ts";
 
-const PrototypeRow = Schema.Struct({
-  pending: Schema.Boolean,
-  uncertain: Schema.Boolean,
-  waiting: Schema.Boolean,
-  retryCount: Schema.Number,
-});
+declare const CompiledBrand: unique symbol;
 
-const decodeRow = Schema.decodeUnknownOption(PrototypeRow);
+/**
+ * A prototype fixture's compiled machine: data the adapter passes from the fixture to the
+ * runtime's boot and never reads.
+ */
+type Compiled = { readonly [CompiledBrand]: "Compiled" };
 
 type PrototypeInstance = {
   readonly attach: (
     actor: string,
     machine: string,
-    input: unknown,
+    // oxlint-disable-next-line lint-bomb/no-nullish-function-contracts -- round-14's attach takes undefined for "no input"; the Runtime's Option is unwrapped here, at its boundary
+    input: Json | undefined,
     owner: string,
     existing: boolean,
   ) => void;
   readonly detach: (actor: string, owner: string) => void;
-  readonly send: (
-    actor: string,
-    event: { readonly tag: string; readonly payload: unknown },
-  ) => void;
+  readonly send: (actor: string, event: { readonly tag: string; readonly payload: Json }) => void;
   readonly dispose: (actor: string) => void;
   readonly disposeRuntime: () => void;
   readonly state: (actor: string) => unknown;
   readonly memory: (actor: string) => unknown;
-  readonly row: (actor: string, op: string, key: unknown) => unknown;
+  readonly row: (actor: string, op: string, key: Json) => unknown;
   readonly pending: () => boolean;
 };
 
-type Report = Readonly<Record<string, unknown>>;
+const PrototypeWrite = Schema.Struct({
+  key: Schema.String,
+  value: Schema.UndefinedOr(Schema.String),
+});
 
 type PrototypeHost = {
   readonly now: () => number;
@@ -52,57 +65,33 @@ type PrototypeHost = {
   readonly setTimer: (at: number, fire: () => void) => () => void;
   readonly later: (task: () => void) => void;
   readonly workClock: () => number;
-  readonly scheduler: World["lifecycle"]["scheduler"];
+  readonly scheduler: Scheduler.Scheduler;
   readonly onHidden: (listener: () => void) => void;
   readonly isHidden: () => boolean;
   readonly storage: {
     readonly load: () => ReadonlyMap<string, string>;
-    readonly write: World["storage"]["write"];
+    readonly write: (
+      writes: ReadonlyArray<typeof PrototypeWrite.Type>,
+      purpose: Purpose,
+      answer: (ok: boolean) => void,
+    ) => void;
   };
 };
 
 type PrototypePort = {
   readonly boot: (args: {
     readonly host: PrototypeHost;
-    readonly compiled: ReadonlyArray<unknown>;
+    readonly compiled: ReadonlyArray<Compiled>;
     readonly bounds: { readonly captureMs: number };
     readonly faults: {
       readonly moduleThrows: Map<string, number>;
       readonly moduleThrowsAfter: Map<string, number>;
       readonly coreThrows: number;
     };
-    readonly services?: Context.Context<never>;
-    readonly onEvidence: (reports: ReadonlyArray<Report>) => void;
+    readonly services: Context.Context<never>;
+    readonly onEvidence: (batch: Parameters<typeof observationsOf>[0]) => void;
     readonly onIssue: (issues: ReadonlyArray<{ readonly code: string }>) => void;
   }) => PrototypeInstance;
-};
-
-type PrototypeApi = {
-  readonly call: (
-    op: string,
-    input: unknown,
-    ...options: ReadonlyArray<{ readonly idempotencyKey: string }>
-  ) => Effect.Effect<unknown, unknown>;
-  readonly confirm: (
-    input: unknown,
-    options: { readonly idempotencyKey: string },
-  ) => Effect.Effect<unknown, unknown>;
-  readonly placeOrder: (
-    input: unknown,
-    options: { readonly idempotencyKey: string },
-  ) => Effect.Effect<unknown, unknown>;
-  readonly voidAuthorization: (
-    input: unknown,
-    options: { readonly idempotencyKey: string },
-  ) => Effect.Effect<unknown, unknown>;
-  readonly intent: (input: unknown) => Effect.Effect<unknown, unknown>;
-  readonly orderFor: (input: unknown) => Effect.Effect<unknown, unknown>;
-  readonly page: () => number;
-};
-
-type PrototypeFixture = {
-  readonly make: (api: PrototypeApi) => unknown;
-  readonly services?: (api: PrototypeApi) => Context.Context<never>;
 };
 
 /**
@@ -110,16 +99,7 @@ type PrototypeFixture = {
  */
 export class PrototypeLoadFailed extends Data.TaggedError("PrototypeLoadFailed")<{
   readonly path: string;
-  readonly cause: unknown;
-}> {}
-
-/**
- * A report the prototype gave in a shape the adapter cannot read: the runtime broke its own
- * evidence contract, so the case stops.
- */
-export class PrototypeReportUnreadable extends Data.TaggedError("PrototypeReportUnreadable")<{
-  readonly kind: string;
-  readonly issue: string;
+  readonly why: string;
 }> {}
 
 /**
@@ -138,285 +118,153 @@ const FIXTURES = [
 const actorKey = (actor: ActorRef) =>
   `${actor.machine}/${actor.id.replaceAll("%", "%25").replaceAll("/", "%2F").replaceAll("|", "%7C")}`;
 
-const actorRef = (key: string) => {
-  const at = key.lastIndexOf("/");
-
-  return { machine: key.slice(0, at), id: decodeURIComponent(key.slice(at + 1)) };
-};
-
-const attemptOf = (attempt: Option.Option<string>) => Option.filter(attempt, (id) => id !== "");
-
-const OptionalText = Schema.OptionFromOptionalNullOr(Schema.String);
-
-const reports = {
-  turn: Schema.Struct({
-    actor: Schema.String,
-    event: Schema.String,
-    from: Schema.String,
-    to: Schema.String,
-  }),
-  mint: Schema.Struct({ op: Schema.String, attempt: Schema.String }),
-  invoked: Schema.Struct({ op: Schema.String, attempt: Schema.String }),
-  ending: Schema.Struct({
-    op: Schema.String,
-    attempt: OptionalText,
-    channel: Channel,
-    reason: Schema.String,
-  }),
-  delivered: Schema.Struct({ op: Schema.String, attempt: OptionalText, event: OptionalText }),
-  evidence: Schema.Struct({ kind: EvidenceKind, op: Schema.String, attempt: OptionalText }),
-  onLane: Schema.Struct({ op: Schema.String, attempt: OptionalText }),
-  unhandled: Schema.Struct({ event: Schema.String }),
-  denied: Schema.Struct({ event: Schema.String, reasons: Schema.Array(Schema.String) }),
-};
-
-const RECORDED = new Map<string, RecordedWhy>([
-  ["ignored", "ignored"],
-  ["evidenceOnly", "evidence"],
-  ["KeptLetGo", "letGo"],
-  ["ParkedLetGo", "letGo"],
-]);
-
-const read = <A>(schema: Schema.Decoder<A>, report: Report, kind: string) =>
-  Result.getOrThrowWith(
-    Schema.decodeUnknownResult(schema)(report),
-    (issue) => new PrototypeReportUnreadable({ kind, issue: String(issue) }),
-  );
-
-// RETURN_TYPE: each branch builds one variant; inference keeps a union of Options, not one Option.
-const observationOf = (report: Report): Option.Option<Observation> => {
-  const kind = report["kind"];
-
-  if (kind === "turn") {
-    const r = read(reports.turn, report, kind);
-
-    return Option.some(
-      Observation.Turn({ actor: actorRef(r.actor), event: r.event, from: r.from, to: r.to }),
-    );
-  }
-
-  if (kind === "mint") {
-    const r = read(reports.mint, report, kind);
-
-    return Option.some(
-      Observation.Minted({ operation: r.op, attempt: r.attempt, actor: Option.none() }),
-    );
-  }
-
-  if (kind === "invoked") {
-    const r = read(reports.invoked, report, kind);
-
-    return Option.some(Observation.Sent({ operation: r.op, attempt: r.attempt }));
-  }
-
-  if (kind === "ending") {
-    const r = read(reports.ending, report, kind);
-
-    return Option.some(
-      Observation.Ended({
-        operation: r.op,
-        attempt: attemptOf(r.attempt),
-        channel: r.channel,
-        reason: r.reason,
-        actor: Option.none(),
-        failure: Option.none(),
-      }),
-    );
-  }
-
-  if (kind === "delivered") {
-    const r = read(reports.delivered, report, kind);
-    const event = Option.getOrElse(r.event, () => "(unmapped)");
-
-    return Option.some(
-      Observation.Delivered({
-        operation: r.op,
-        attempt: attemptOf(r.attempt),
-        event,
-        actor: Option.none(),
-      }),
-    );
-  }
-
-  return laneReport(report);
-};
-
-// RETURN_TYPE: each branch builds one variant; inference keeps a union of Options, not one Option.
-const laneReport = (report: Report): Option.Option<Observation> => {
-  const kind = report["kind"];
-
-  if (kind === "Disposed") return Option.some(Observation.RuntimeDisposed());
-
-  if (kind === "Unhandled") {
-    const r = read(reports.unhandled, report, kind);
-
-    return Option.some(Observation.Unhandled({ event: r.event }));
-  }
-
-  if (kind === "Denied") {
-    const r = read(reports.denied, report, kind);
-
-    return Option.some(Observation.Denied({ event: r.event, reasons: r.reasons }));
-  }
-
-  if (kind === "parked" || kind === "unparked") {
-    const r = read(reports.onLane, report, kind);
-    const at = { operation: r.op, attempt: attemptOf(r.attempt) };
-
-    return Option.some(kind === "parked" ? Observation.Parked(at) : Observation.Unparked(at));
-  }
-
-  const why = Option.fromUndefinedOr(Predicate.isString(kind) ? RECORDED.get(kind) : undefined);
-
-  if (Option.isSome(why)) {
-    const r = read(reports.onLane, report, String(kind));
-
-    return Option.some(
-      Observation.Recorded({ operation: r.op, attempt: attemptOf(r.attempt), why: why.value }),
-    );
-  }
-
-  if (!Schema.is(EvidenceKind)(kind)) return Option.none();
-  const r = read(reports.evidence, report, kind);
-
-  return Option.some(
-    Observation.Evidence({ kind: r.kind, operation: r.op, attempt: attemptOf(r.attempt) }),
-  );
-};
-
-// RETURN_TYPE: a spread of one variant stays that variant; the caller needs the union.
-const owned = (observed: Observation, actor: Option.Option<ActorRef>): Observation => {
-  if (Observation.$is("Minted")(observed) || Observation.$is("Delivered")(observed))
-    return { ...observed, actor };
-
-  if (Observation.$is("Ended")(observed) && Option.isNone(observed.attempt))
-    return { ...observed, actor };
-
-  return observed;
-};
-
-const attributed = (batch: ReadonlyArray<Observation>) => {
-  const out: Array<Observation> = [];
-  let next = Option.none<ActorRef>();
-
-  for (const observed of [...batch].toReversed()) {
-    if (Observation.$is("Turn")(observed)) next = Option.some(observed.actor);
-    out.push(owned(observed, next));
-  }
-
-  return out.toReversed();
-};
-
-// RETURN_TYPE: the prototype's Host contract, which its boot takes.
-const hostOf = (world: World, seed: number): PrototypeHost => {
-  let minted = 0;
-
-  return {
-    now: world.clock.now,
-    id: () => {
-      minted += 1;
-
-      return `att-${seed}-${minted}`;
-    },
-    setTimer: world.clock.arm,
-    later: world.lifecycle.later,
-    workClock: world.clock.work,
-    scheduler: world.lifecycle.scheduler,
-    onHidden: world.lifecycle.onHidden,
-    isHidden: world.lifecycle.hidden,
-    storage: { load: world.storage.load, write: world.storage.write },
-  };
-};
-
-// RETURN_TYPE: the prototype fixtures' Api contract, which their services take.
-const apiOf = (world: World): PrototypeApi => {
+const apiOf = (network: typeof Network.Service, page: typeof Page.Service) => {
   const write = (op: string) => (input: unknown, options: { readonly idempotencyKey: string }) =>
-    world.network.request(op, input, Option.some(options.idempotencyKey));
+    Effect.flatMap(Effect.orDie(Schema.decodeUnknownEffect(Schema.Json)(input)), (json) =>
+      network.request(op, json, Option.some(options.idempotencyKey)),
+    );
 
-  const read = (op: string) => (input: unknown) => world.network.request(op, input, Option.none());
+  const lookup = (op: string) => (input: unknown) =>
+    Effect.flatMap(Effect.orDie(Schema.decodeUnknownEffect(Schema.Json)(input)), (json) =>
+      network.request(op, json, Option.none()),
+    );
 
   return {
-    call: (op, input, ...options) =>
-      world.network.request(
-        op,
-        input,
-        Option.map(Option.fromUndefinedOr(options[0]), (o) => o.idempotencyKey),
+    call: (
+      op: string,
+      input: unknown,
+      ...options: ReadonlyArray<{ readonly idempotencyKey: string }>
+    ) =>
+      Effect.flatMap(Effect.orDie(Schema.decodeUnknownEffect(Schema.Json)(input)), (json) =>
+        network.request(
+          op,
+          json,
+          Option.map(Option.fromUndefinedOr(options[0]), (o) => o.idempotencyKey),
+        ),
       ),
     confirm: write("pay"),
     placeOrder: write("place"),
     voidAuthorization: write("void"),
-    intent: read("intent"),
-    orderFor: read("order"),
-    page: world.lifecycle.page,
+    intent: lookup("intent"),
+    orderFor: lookup("order"),
+    page: page.page,
   };
 };
 
-// RETURN_TYPE: the Port's Runtime contract.
-const runtimeOf = (instance: PrototypeInstance): Runtime => ({
-  ensure: (actor, input, use) =>
-    instance.attach(actorKey(actor), actor.machine, Option.getOrUndefined(input), use, false),
-  ensureExisting: (actor, use) =>
-    instance.attach(actorKey(actor), actor.machine, undefined, use, true),
-  release: (actor, use) => instance.detach(actorKey(actor), use),
-  send: (actor, event, payload) => instance.send(actorKey(actor), { tag: event, payload }),
-  dispose: (actor) => instance.dispose(actorKey(actor)),
-  disposeRuntime: instance.disposeRuntime,
-  snapshot: (actor) => {
-    const key = actorKey(actor);
-    const state = instance.state(key);
+/**
+ * The API the prototype fixtures' services take: the suite's server under the fixtures' names.
+ */
+type PrototypeApi = ReturnType<typeof apiOf>;
 
-    return Predicate.isString(state)
-      ? Snapshot.Live({ state, memory: instance.memory(key) })
-      : Snapshot.Absent();
-  },
-  row: (actor, operation, key) => decodeRow(instance.row(actorKey(actor), operation, key)),
-  pending: instance.pending,
-});
+/**
+ * A prototype fixture as the adapter uses it: its compiled machine over the suite's API, and the
+ * services its commits ask for, when it has any.
+ */
+type PrototypeFixture = {
+  readonly make: (api: PrototypeApi) => Compiled;
+  readonly services: Option.Option<(api: PrototypeApi) => Context.Context<never>>;
+};
+
+const decodeState = Schema.decodeUnknownOption(Schema.String);
+const decodeMemory = Schema.decodeUnknownSync(Schema.Json);
+const decodeRow = Schema.decodeUnknownOption(Row);
+
+const runtimeOf = (instance: PrototypeInstance) =>
+  Runtime.of({
+    ensure: (actor, input, use) =>
+      instance.attach(actorKey(actor), actor.machine, Option.getOrUndefined(input), use, false),
+    ensureExisting: (actor, use) =>
+      instance.attach(actorKey(actor), actor.machine, undefined, use, true),
+    release: (actor, use) => instance.detach(actorKey(actor), use),
+    send: (actor, event, payload) => instance.send(actorKey(actor), { tag: event, payload }),
+    dispose: (actor) => instance.dispose(actorKey(actor)),
+    disposeRuntime: instance.disposeRuntime,
+    snapshot: (actor) => {
+      const key = actorKey(actor);
+
+      return Option.match(decodeState(instance.state(key)), {
+        onNone: () => Snapshot.Absent(),
+        onSome: (state) => Snapshot.Live({ state, memory: decodeMemory(instance.memory(key)) }),
+      });
+    },
+    row: (actor, operation, key) => decodeRow(instance.row(actorKey(actor), operation, key)),
+    pending: instance.pending,
+  });
+
+const killed = <A, E>(exit: Exit.Exit<A, E>) =>
+  Option.exists(Exit.findErrorOption(exit), (error) => error instanceof PageKilled);
+
+/**
+ * A dynamic import's namespace: each export is read by name and narrowed where it is used.
+ */
+// oxlint-disable-next-line lint-bomb/no-unsafe-dictionary-type, lint-bomb/no-object-type -- a module namespace has no static type; `exported` narrows each export it reads
+type Namespace = Readonly<Record<string, object>>;
+
+/**
+ * A loaded prototype: its runtime's boot and its fixtures, by catalog name.
+ */
+export type LoadedPrototype = {
+  readonly dir: string;
+  readonly port: PrototypePort;
+  readonly fixtures: ReadonlyMap<string, PrototypeFixture>;
+};
 
 const load = (path: string) =>
   // FLOW_STATE_ALLOW_EFFECT_TRY_PROMISE: the prototype is TypeScript loaded by path at run time (an edited copy under falsify); a dynamic import is the only way in.
   Effect.tryPromise({
     // RETURN_TYPE: a module namespace; each export is read by name below.
-    try: (): Promise<Readonly<Record<string, unknown>>> => import(path),
-    catch: (cause) => new PrototypeLoadFailed({ path, cause }),
+    try: (): Promise<Namespace> => import(path),
+    catch: (cause) => new PrototypeLoadFailed({ path, why: String(cause) }),
   });
 
-const exported = <A>(module: Readonly<Record<string, unknown>>, name: string, path: string) =>
+const exported = <A>(module: Namespace, name: string, path: string) =>
   Predicate.hasProperty(module, name) && Predicate.isObject(module[name])
     ? // SAFETY: trusted prototype code; its export shapes are pinned by prototypes/conformance/harness.ts.
       // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- a dynamic import has no static type to narrow from
       Effect.succeed(module[name] as A)
-    : Effect.fail(new PrototypeLoadFailed({ path, cause: `no export ${name}` }));
+    : Effect.fail(new PrototypeLoadFailed({ path, why: `no export ${name}` }));
 
-const made = (module: Readonly<Record<string, unknown>>, name: string, path: string) => {
+/**
+ * A prototype fixture export: its `make`, and `services` unless it is a hand fixture.
+ */
+type FixtureExport = { readonly make: PrototypeFixture["make"] };
+
+type Services = (api: PrototypeApi) => Context.Context<never>;
+
+const fixtureOf = (raw: FixtureExport) => ({
+  make: raw.make,
+  services:
+    Predicate.hasProperty(raw, "services") && Predicate.isFunction(raw.services)
+      ? // SAFETY: trusted prototype code; a typed fixture's `services` takes the API (prototypes/conformance/harness.ts).
+        // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- a dynamic import has no static type to narrow from
+        Option.some(raw.services as Services)
+      : Option.none<Services>(),
+});
+
+const made = (module: Namespace, name: string, path: string) => {
   const factory = module[name];
 
   return Predicate.isFunction(factory)
-    ? exported<PrototypeFixture>({ [name]: factory() }, name, path)
-    : Effect.fail(new PrototypeLoadFailed({ path, cause: `no fixture factory ${name}` }));
+    ? exported<FixtureExport>({ [name]: factory() }, name, path)
+    : Effect.fail(new PrototypeLoadFailed({ path, why: `no fixture factory ${name}` }));
 };
 
 /**
- * Loads the prototype runtime in `runtimeDir` and returns a `Port` over it.
+ * Loads the prototype runtime in `runtimeDir` and its fixtures.
  *
  * **When to use**
  *
- * The runner calls this once per process with `--runtime`; falsify passes an edited copy.
+ * The runner calls this once per process with `--runtime`; falsify passes an edited copy. Each
+ * case then builds {@link PrototypeRuntime}'s Layer over it.
  *
  * **Details**
  *
- * - The runtime is `<runtimeDir>/adapter.ts`; the fixtures are the prototype's typed fixtures in
- *   `<runtimeDir>/../conformance/typed/`, wired to the suite's fake network.
- * - The prototype's evidence is translated into the Port's observations; its other reports are
- *   dropped.
- *
- * **Gotchas**
- *
- * - The prototype mints Attempt ids from the host: `att-<sessionSeed>-<n>`, unique per page.
+ * The runtime is `<runtimeDir>/adapter.ts`; the fixtures are the prototype's typed fixtures in
+ * `<runtimeDir>/../conformance/typed/`, loaded by path so an edited copy runs its own.
  */
 export const loadPrototype = Effect.fn("loadPrototype")(function* (runtimeDir: string) {
   const adapterPath = join(runtimeDir, "adapter.ts");
-  const runtime = yield* exported<PrototypePort>(yield* load(adapterPath), "port", adapterPath);
+  const port = yield* exported<PrototypePort>(yield* load(adapterPath), "port", adapterPath);
 
   const fixtures = yield* Effect.forEach(
     FIXTURES,
@@ -427,50 +275,108 @@ export const loadPrototype = Effect.fn("loadPrototype")(function* (runtimeDir: s
         Effect.flatMap((module) =>
           where.made === "call"
             ? made(module, where.exported, path)
-            : exported<PrototypeFixture>(module, where.exported, path),
+            : exported<FixtureExport>(module, where.exported, path),
         ),
-        Effect.map((fixture) => [where.name, fixture] as const),
+        Effect.map((fixture) => [where.name, fixtureOf(fixture)] as const),
       );
     },
     { concurrency: 1 },
   );
 
-  const byName = new Map<string, PrototypeFixture>(fixtures);
-
-  const port: Port = {
-    name: `prototype ${runtimeDir}`,
-    boot: (boot: Boot) => {
-      const api = apiOf(boot.world);
-
-      const chosen = boot.fixtures.map((name) => {
-        const fixture = byName.get(name);
-
-        if (fixture === undefined) throw new UnknownFixture({ name });
-
-        return fixture;
-      });
-
-      const contexts = chosen.flatMap((f) => (f.services === undefined ? [] : [f.services(api)]));
-      const services = contexts.reduce((a, b) => Context.merge(a, b), Context.empty());
-
-      const instance = runtime.boot({
-        host: hostOf(boot.world, boot.sessionSeed),
-        compiled: chosen.map((f) => f.make(api)),
-        bounds: { captureMs: boot.captureMs },
-        faults: { moduleThrows: new Map(), moduleThrowsAfter: new Map(), coreThrows: 0 },
-        services,
-        onEvidence: (given) => {
-          for (const observed of attributed(given.flatMap((r) => Option.toArray(observationOf(r)))))
-            boot.observe(observed);
-        },
-        onIssue: (issues) => {
-          for (const issue of issues) boot.observe(Observation.Issue({ code: issue.code }));
-        },
-      });
-
-      return runtimeOf(instance);
-    },
-  };
-
-  return port;
+  return { dir: runtimeDir, port, fixtures: new Map(fixtures) } satisfies LoadedPrototype;
 });
+
+/**
+ * The Runtime over the prototype runtime round-14 (or an edited copy of it).
+ *
+ * **Details**
+ *
+ * - Building the Layer boots the prototype over the world's hosts with the case's fixtures, wired
+ *   to the suite's server; closing its scope disposes the Runtime, unless the page was killed.
+ * - The prototype's evidence is translated into the Port's observations; its other reports are
+ *   dropped.
+ *
+ * **Gotchas**
+ *
+ * - The prototype mints Attempt ids from the host: `att-<sessionSeed>-<n>`, unique per page.
+ * - A boot that names a fixture the prototype has no machine for dies with `UnknownFixture`.
+ */
+export const PrototypeRuntime = {
+  layer: (loaded: LoadedPrototype) =>
+    Layer.effect(
+      Runtime,
+      Effect.gen(function* () {
+        const boot = yield* Boot;
+        const clock = yield* WorldClock;
+        const page = yield* Page;
+        const storage = yield* Storage;
+        const network = yield* Network;
+        const api = apiOf(network, page);
+
+        const chosen = yield* Effect.forEach(
+          boot.fixtures,
+          (name) =>
+            Option.match(Option.fromUndefinedOr(loaded.fixtures.get(name)), {
+              onNone: () => Effect.die(new UnknownFixture({ name })),
+              onSome: Effect.succeed,
+            }),
+          { concurrency: 1 },
+        );
+
+        const services = chosen
+          .flatMap((f) => Option.toArray(Option.map(f.services, (of) => of(api))))
+          .reduce((a, b) => Context.merge(a, b), Context.empty());
+
+        let minted = 0;
+
+        const host: PrototypeHost = {
+          now: clock.now,
+          id: () => {
+            minted += 1;
+
+            return `att-${boot.sessionSeed}-${minted}`;
+          },
+          setTimer: clock.arm,
+          later: page.later,
+          workClock: clock.work,
+          scheduler: page.scheduler,
+          onHidden: page.onHidden,
+          isHidden: page.hidden,
+          storage: {
+            load: storage.load,
+            write: (writes, purpose, answer) =>
+              storage.write(
+                writes.map((w) =>
+                  w.value === undefined
+                    ? Write.Remove({ key: w.key })
+                    : Write.Put({ key: w.key, value: w.value }),
+                ),
+                purpose,
+                answer,
+              ),
+          },
+        };
+
+        const instance = yield* Effect.acquireRelease(
+          Effect.sync(() =>
+            loaded.port.boot({
+              host,
+              compiled: chosen.map((f) => f.make(api)),
+              bounds: { captureMs: boot.captureMs },
+              faults: { moduleThrows: new Map(), moduleThrowsAfter: new Map(), coreThrows: 0 },
+              services,
+              onEvidence: (batch) => {
+                for (const o of observationsOf(batch)) boot.observe(o);
+              },
+              onIssue: (issues) => {
+                for (const issue of issues) boot.observe(Observation.Issue({ code: issue.code }));
+              },
+            }),
+          ),
+          (booted, exit) => (killed(exit) ? Effect.void : Effect.sync(booted.disposeRuntime)),
+        );
+
+        return runtimeOf(instance);
+      }),
+    ),
+};

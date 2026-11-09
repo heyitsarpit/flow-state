@@ -1,4 +1,4 @@
-import { Data, Option } from "effect";
+import { Option, type Schema } from "effect";
 import type { Channel } from "../port.ts";
 import { Answer } from "../world/network.ts";
 
@@ -38,16 +38,14 @@ const LOST = ["NoResponse", "ServerError"];
 
 const CHANNEL = { success: "success", failure: "failure", unknown: "unknown" } as const;
 
-const classifyWith =
-  (
-    succeeds: (
-      tag: string,
-      fields: Readonly<Record<string, unknown>>,
-      mayHaveApplied: boolean,
-    ) => boolean,
-  ) =>
+/**
+ * The `classify` of a write whose commit turns lost answers into unknowns and the tags `succeeds`
+ * accepts into successes; every other tag is a failure.
+ */
+export const classifyWith =
+  (succeeds: (tag: string, fields: Schema.JsonObject, mayHaveApplied: boolean) => boolean) =>
   (answer: Answer, mayHaveApplied: boolean) => {
-    const tagged = (tag: string, fields: Readonly<Record<string, unknown>>) => {
+    const tagged = (tag: string, fields: Schema.JsonObject) => {
       if (LOST.includes(tag)) return CHANNEL.unknown;
 
       return succeeds(tag, fields, mayHaveApplied) ? CHANNEL.success : CHANNEL.failure;
@@ -63,106 +61,6 @@ const classifyWith =
       Die: () => CHANNEL.unknown,
     });
   };
-
-const capturable = (fields: Readonly<Record<string, unknown>>) =>
-  fields["status"] === "requires_capture" || fields["status"] === "succeeded";
-
-const pay = {
-  pay: {
-    attempts: true,
-    concurrency: "reject",
-    success: "Confirmed",
-    failure: {
-      CardDeclined: "Declined",
-      Busy: "Busy",
-      IntentBusy: "PayRefused",
-      NotSent: "PayNotSent",
-    },
-    unknown: "PayUnsure",
-    classify: classifyWith(
-      (tag, fields, mayHaveApplied) => tag === "IntentBusy" && mayHaveApplied && capturable(fields),
-    ),
-    keyFields: ["intentId"],
-    cancels: {},
-  },
-  place: {
-    attempts: true,
-    concurrency: "reject",
-    success: "Placed",
-    failure: { NotSent: "PlaceRefused" },
-    unknown: "PlaceUnsure",
-    classify: classifyWith((tag) => tag === "OrderExists"),
-    keyFields: ["cartId"],
-    cancels: {},
-  },
-  void: {
-    attempts: true,
-    concurrency: "reject",
-    success: "Voided",
-    failure: { AlreadyCaptured: "VoidRefused", NotSent: "Voided" },
-    unknown: "VoidUnsure",
-    classify: classifyWith(() => false),
-    keyFields: ["intentId"],
-    cancels: {},
-  },
-} satisfies Readonly<Record<string, OperationReference>>;
-
-const labWrite = (
-  concurrency: OperationReference["concurrency"],
-  cancels: OperationReference["cancels"],
-) =>
-  ({
-    attempts: true,
-    concurrency,
-    success: "Ok",
-    failure: { NotSent: "No" },
-    unknown: "Unsure",
-    classify: classifyWith(() => false),
-    keyFields: [],
-    cancels,
-  }) satisfies OperationReference;
-
-const catalog = new Map<string, Reference>([
-  ["pay", { "Checkout/Pay": pay }],
-  ["cells", { "Checkout/Pay": { ...pay, pay: { ...pay.pay, cancels: { AbortPay: "cancel" } } } }],
-  ["serialize", { "Lab/P1All": { put: labWrite("serialize", { All: "cancelAll" }) } }],
-  ["latest", { "Lab/P1Latest": { search: labWrite("latest", {}) } }],
-  ["cancel", { "Lab/R15Switch": { search: labWrite("cancel", {}) } }],
-]);
-
-/**
- * A case named a fixture with no reference: a suite defect.
- */
-export class NoReference extends Data.TaggedError("NoReference")<{ readonly fixture: string }> {}
-
-/**
- * The reference of a case: the references of the fixtures it boots, by their catalog names.
- *
- * **Details**
- *
- * `pay` is the typed Pay fixture (`prototypes/conformance/typed/pay.ts`), machine `Checkout/Pay`.
- * Only its writes are referenced; its reads (`intent`, `order`) have no Attempts. `cells` is the
- * same machine with one more root event, `AbortPay`, which cancels `pay`
- * (`prototypes/conformance/typed/cells.ts`). Three one-lane lab machines, one per queueing policy,
- * each with one unkeyed write mapped to `Ok`, `No` and `Unsure` and no failure tags of its own:
- * `serialize` (`Lab/P1All`, `put`, whose `All` runs `cancelAll`), `latest` (`Lab/P1Latest`,
- * `search`) and `cancel` (`Lab/R15Switch`, `search`, whose `Unsure` re-sends while `Retrying` was
- * sent), from `prototypes/conformance/typed/phase1h.ts` and `round15.ts`.
- *
- * **Gotchas**
- *
- * - Throws `NoReference` for a name the catalog lacks, so a misspelt fixture fails its case.
- */
-export const referenceFor = (fixtures: ReadonlyArray<string>) =>
-  Object.fromEntries(
-    fixtures.flatMap((name) => {
-      const found = catalog.get(name);
-
-      if (found === undefined) throw new NoReference({ fixture: name });
-
-      return Object.entries(found);
-    }),
-  ) satisfies Reference;
 
 const FLOW_DECLINES = [
   "Cancelled",

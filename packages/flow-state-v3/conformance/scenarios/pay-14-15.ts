@@ -1,43 +1,54 @@
-import { Option } from "effect";
-import { type Case, type Scenario, variants } from "../dsl/case.ts";
+import { Effect, Option } from "effect";
+import type { Actor } from "../dsl/actor.ts";
+import { Case, type Scenario, variants } from "../dsl/case.ts";
+import { Cells, Pay } from "../fixtures/pay.ts";
 import { Answer } from "../world/network.ts";
 
-const SHOPPER = { machine: "Checkout/Pay", id: "shopper-1" };
 const KEY = { intentId: "pi1" };
 const CART = { cartId: "c1", intentId: "pi1" };
 const CAPTURABLE = Answer.Ok({ value: { status: "requires_capture", clientSecret: "" } });
 
-const pay = (c: Case) => c.send("PayRequested", { paymentMethodId: "visa" });
-const start = (c: Case) => c.send("Start", CART);
+type Shopper = Actor<typeof Pay>;
 
-const onWire = (c: Case) => {
-  c.ensure();
-  start(c);
-  pay(c);
-  c.ack();
-};
+const shopper = Case.useSync((c) => ({ c, shopper: c.actor(Pay, "shopper-1") }));
+const cellsShopper = Case.useSync((c) => ({ c, shopper: c.actor(Cells, "shopper-1") }));
 
-const row = (c: Case) => Option.getOrUndefined(c.row("pay", KEY));
+const pay = (s: Shopper) => s.send("PayRequested", { paymentMethodId: "visa" });
 
-const lastReason = (c: Case, operation: string) => c.endings(operation).at(-1)?.reason;
+const onWire = Effect.gen(function* () {
+  const { c, shopper: s } = yield* shopper;
+  yield* s.ensure;
+  yield* s.send("Start", CART);
+  yield* pay(s);
+  yield* c.ack;
+});
 
-const reloadOnWire = (c: Case) => {
-  onWire(c);
-  c.reload();
-  c.state("UNSURE");
-  c.eq("uncertain", row(c)?.uncertain, true);
-  c.eq("reason", lastReason(c, "pay"), "Restored");
-  c.eq("requests", c.requests("pay").length, 1);
-  c.answerLate("pay", CAPTURABLE);
-  c.advance(3000);
-  c.answer("order", Answer.Ok({ value: null }));
-  c.answer("intent", Answer.Ok({ value: { status: "requires_capture" } }));
-  c.state("PLACING");
-  c.ack();
-  c.answer("place", Answer.Ok({ value: { orderId: "o1" } }));
-  c.state("PAID");
-  c.eq("charges", c.landed("pay"), 1);
-};
+const row = (s: Shopper) => Effect.map(s.row("pay", KEY), Option.getOrUndefined);
+
+const lastReason = (c: typeof Case.Service, operation: string) =>
+  Effect.map(c.endings(operation), (endings) => endings.at(-1)?.reason);
+
+const sent = (c: typeof Case.Service, operation: string) =>
+  Effect.map(c.requests(operation), (requests) => requests.length);
+
+const reloadOnWire = Effect.gen(function* () {
+  const { c, shopper: s } = yield* shopper;
+  yield* onWire;
+  yield* c.reload;
+  yield* s.state("UNSURE");
+  yield* c.eq("uncertain", (yield* row(s))?.uncertain, true);
+  yield* c.eq("reason", yield* lastReason(c, "pay"), "Restored");
+  yield* c.eq("requests", yield* sent(c, "pay"), 1);
+  yield* c.answerLate("pay", CAPTURABLE);
+  yield* c.advance(3000);
+  yield* c.answer("order", Answer.Ok({ value: null }));
+  yield* c.answer("intent", Answer.Ok({ value: { status: "requires_capture" } }));
+  yield* s.state("PLACING");
+  yield* c.ack;
+  yield* c.answer("place", Answer.Ok({ value: { orderId: "o1" } }));
+  yield* s.state("PAID");
+  yield* c.eq("charges", yield* c.landed("pay"), 1);
+});
 
 /**
  * The Pay cases `PAY-14` and `PAY-15`, ported from the prototype suite with the same steps and
@@ -54,97 +65,116 @@ export const pay1415Scenarios: ReadonlyArray<Scenario> = [
   {
     id: "PAY-14",
     cites: ["Restore R3", "WriteLanes R10"],
-    fixtures: ["pay"],
-    actor: SHOPPER,
-    run: (c) => reloadOnWire(c),
+    fixtures: [Pay],
+    run: reloadOnWire,
   },
   ...variants(
     {
       id: "PAY-15",
       cites: ["WriteLanes R2", "WriteLanes R5", "WriteLanes R7", "WriteLanes R8", "Restore R3"],
-      fixtures: ["pay"],
-      actor: SHOPPER,
+      fixtures: [Pay],
     },
     {
-      "press-pay-while-held"(c) {
-        onWire(c);
-        c.answer("pay", Answer.Lost());
-        pay(c);
-        c.state("PAYING");
-        c.eq("declined", lastReason(c, "pay"), "Rejected");
-        c.eq("still held", row(c)?.uncertain, true);
-        c.eq("nothing sent", c.requests("pay").length, 1);
-      },
-      "busy-then-new-write"(c) {
-        onWire(c);
-        c.answer("pay", Answer.Fail({ tag: "Busy", fields: { retryAfterMs: 500 } }));
-        c.state("WAITING");
-        c.eq("resolved", row(c), undefined);
-        c.advance(500);
-        c.state("PAYING");
-        c.ack();
-        c.eq("rule 19: a new id after a definite failure", c.keys("pay").length, 2);
-      },
-      "reload-holds-exactly-once"(c) {
-        onWire(c);
-        c.answer("pay", Answer.Lost());
-        c.reload();
-        c.state("UNSURE");
-        c.eq("uncertain", row(c)?.uncertain, true);
-        c.eq("delivered once", c.endings("pay").filter((e) => e.reason === "Restored").length, 1);
-      },
-      "dead-activation-timer"(c) {
-        onWire(c);
-        c.advance(1000);
-        c.answer("pay", Answer.Lost());
-        c.state("UNSURE");
-        c.advance(7500);
-        c.eq("two ticks by 8500", c.requests("intent").length, 2);
-      },
-      "retry-budget"(c) {
-        onWire(c);
-        c.answer("pay", Answer.Lost());
+      "press-pay-while-held": Effect.gen(function* () {
+        const { c, shopper: s } = yield* shopper;
+        yield* onWire;
+        yield* c.answer("pay", Answer.Lost());
+        yield* pay(s);
+        yield* s.state("PAYING");
+        yield* c.eq("declined", yield* lastReason(c, "pay"), "Rejected");
+        yield* c.eq("still held", (yield* row(s))?.uncertain, true);
+        yield* c.eq("nothing sent", yield* sent(c, "pay"), 1);
+      }),
+      "busy-then-new-write": Effect.gen(function* () {
+        const { c, shopper: s } = yield* shopper;
+        yield* onWire;
+        yield* c.answer("pay", Answer.Fail({ tag: "Busy", fields: { retryAfterMs: 500 } }));
+        yield* s.state("WAITING");
+        yield* c.eq("resolved", yield* row(s), undefined);
+        yield* c.advance(500);
+        yield* s.state("PAYING");
+        yield* c.ack;
+        yield* c.eq("rule 19: a new id after a definite failure", (yield* c.keys("pay")).length, 2);
+      }),
+      "reload-holds-exactly-once": Effect.gen(function* () {
+        const { c, shopper: s } = yield* shopper;
+        yield* onWire;
+        yield* c.answer("pay", Answer.Lost());
+        yield* c.reload;
+        yield* s.state("UNSURE");
+        yield* c.eq("uncertain", (yield* row(s))?.uncertain, true);
+        yield* c.eq(
+          "delivered once",
+          (yield* c.endings("pay")).filter((e) => e.reason === "Restored").length,
+          1,
+        );
+      }),
+      "dead-activation-timer": Effect.gen(function* () {
+        const { c, shopper: s } = yield* shopper;
+        yield* onWire;
+        yield* c.advance(1000);
+        yield* c.answer("pay", Answer.Lost());
+        yield* s.state("UNSURE");
+        yield* c.advance(7500);
+        yield* c.eq("two ticks by 8500", yield* sent(c, "intent"), 2);
+      }),
+      "retry-budget": Effect.gen(function* () {
+        const { c, shopper: s } = yield* shopper;
+        yield* onWire;
+        yield* c.answer("pay", Answer.Lost());
 
         for (let i = 1; i <= 3; i++) {
-          c.advance(3000);
-          c.answer("order", Answer.Ok({ value: null }));
-          c.answer("intent", Answer.Ok({ value: { status: "requires_payment_method" } }));
-          c.state("PAYING");
-          c.ack();
-          c.eq("retryCount", row(c)?.retryCount, i);
-          c.answer("pay", Answer.Lost());
-          c.state("UNSURE");
+          yield* c.advance(3000);
+          yield* c.answer("order", Answer.Ok({ value: null }));
+          yield* c.answer("intent", Answer.Ok({ value: { status: "requires_payment_method" } }));
+          yield* s.state("PAYING");
+          yield* c.ack;
+          yield* c.eq("retryCount", (yield* row(s))?.retryCount, i);
+          yield* c.answer("pay", Answer.Lost());
+          yield* s.state("UNSURE");
         }
 
-        c.advance(3000);
-        c.answer("order", Answer.Ok({ value: null }));
-        c.answer("intent", Answer.Ok({ value: { status: "requires_payment_method" } }));
-        c.state("UNSURE");
-        c.eq("four sends, one id", [c.requests("pay").length, c.keys("pay").length], [4, 1]);
-      },
+        yield* c.advance(3000);
+        yield* c.answer("order", Answer.Ok({ value: null }));
+        yield* c.answer("intent", Answer.Ok({ value: { status: "requires_payment_method" } }));
+        yield* s.state("UNSURE");
+        yield* c.eq(
+          "four sends, one id",
+          [yield* sent(c, "pay"), (yield* c.keys("pay")).length],
+          [4, 1],
+        );
+      }),
     },
   ),
   ...variants(
     {
       id: "PAY-15",
       cites: ["WriteLanes R14"],
-      fixtures: ["cells"],
-      actor: SHOPPER,
+      fixtures: [Cells],
     },
     {
-      "cancel-idle"(c) {
-        c.ensure();
-        start(c);
-        c.send("AbortPay", {});
-        c.state("CARD");
-        c.eq("nothing", c.evidence("Released"), 0);
-        c.eq("no evidence either: the cell is nothing", c.evidence("NothingToResend"), 0);
-      },
-      "cancel-on-wire"(c) {
-        onWire(c);
-        c.send("AbortPay", {});
-        c.state("UNSURE");
-      },
+      "cancel-idle": Effect.gen(function* () {
+        const { c, shopper: s } = yield* cellsShopper;
+        yield* s.ensure;
+        yield* s.send("Start", CART);
+        yield* s.send("AbortPay", {});
+        yield* s.state("CARD");
+        yield* c.eq("nothing", yield* c.evidence("Released"), 0);
+        yield* c.eq(
+          "no evidence either: the cell is nothing",
+          yield* c.evidence("NothingToResend"),
+          0,
+        );
+      }),
+      "cancel-on-wire": Effect.gen(function* () {
+        const { c, shopper: s } = yield* cellsShopper;
+        yield* s.ensure;
+        yield* s.send("Start", CART);
+        yield* s.send("PayRequested", { paymentMethodId: "visa" });
+        yield* c.ack;
+        yield* s.send("AbortPay", {});
+        yield* s.state("UNSURE");
+      }),
     },
   ),
 ];

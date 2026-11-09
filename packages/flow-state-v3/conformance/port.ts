@@ -1,18 +1,45 @@
-import { Data, type Option, Schema } from "effect";
-import type { World } from "./world/world.ts";
+import { Context, Data, type Option, Schema } from "effect";
 
 /**
  * An actor as the suite names it: the machine's id and the identity's id.
  *
  * **When to use**
  *
- * Every step and read that targets one actor takes an `ActorRef`.
+ * Every step and read that targets one actor takes an `ActorRef`; compare two with
+ * {@link sameActor}.
  *
  * **Gotchas**
  *
  * - An adapter spells the runtime's own actor key from this; the suite never sees that spelling.
  */
-export type ActorRef = { readonly machine: string; readonly id: string };
+export const ActorRef = Schema.Struct({ machine: Schema.String, id: Schema.String });
+
+/**
+ * The decoded {@link ActorRef}.
+ */
+export type ActorRef = typeof ActorRef.Type;
+
+/**
+ * Whether two {@link ActorRef}s name the same actor.
+ */
+export const sameActor = Schema.toEquivalence(ActorRef);
+
+/**
+ * A value as it crosses the Port: an event payload, an input, a key or a memory, in its encoded
+ * JSON form.
+ *
+ * **Details**
+ *
+ * The Port is the same for every fixture, so its values are JSON. A case encodes and decodes them
+ * with the fixture's own Schemas (`dsl/actor.ts`); an adapter decodes what its runtime returns
+ * untyped once, into this.
+ */
+export type Json = Schema.Json;
+
+/**
+ * Whether two {@link Json} values are the same value.
+ */
+export const sameJson = Schema.toEquivalence(Schema.Json);
 
 /**
  * The channel an ending was decided on: success, failure (this send did not do it) or unknown
@@ -37,18 +64,23 @@ export type Use = "story" | "host" | "component";
  *
  * The shape is the public API's, so it keeps the public booleans.
  */
-export type Row = {
-  readonly pending: boolean;
-  readonly uncertain: boolean;
-  readonly waiting: boolean;
-  readonly retryCount: number;
-};
+export const Row = Schema.Struct({
+  pending: Schema.Boolean,
+  uncertain: Schema.Boolean,
+  waiting: Schema.Boolean,
+  retryCount: Schema.Number,
+});
+
+/**
+ * The decoded {@link Row}.
+ */
+export type Row = typeof Row.Type;
 
 /**
  * What a handle shows for an identity: its leaf state and its memory, or nothing live.
  */
 export type Snapshot = Data.TaggedEnum<{
-  Live: { state: string; memory: unknown };
+  Live: { state: string; memory: Json };
   Absent: {};
 }>;
 
@@ -98,7 +130,8 @@ export type RecordedWhy = typeof RecordedWhy.Type;
  * **Details**
  *
  * - `Turn`: an actor ran an event, from one leaf to another.
- * - `Minted`: a commit of `actor` was admitted and its Attempt got an id.
+ * - `Minted`: a commit of `actor` was admitted and its Attempt got an id; `key` is the Attempt's
+ *   key (its lane), `None` when the runtime does not report it.
  * - `Sent`: an Attempt's commit was invoked (its first send or a re-send).
  * - `Ended`: an Attempt, or a decline with none, was decided on a channel with a reason. `actor`
  *   names a decline's actor; `failure` is the definite failure inside `unknown StillUnknown`.
@@ -120,7 +153,12 @@ export type RecordedWhy = typeof RecordedWhy.Type;
  */
 export type Observation = Data.TaggedEnum<{
   Turn: { actor: ActorRef; event: string; from: string; to: string };
-  Minted: { operation: string; attempt: string; actor: Option.Option<ActorRef> };
+  Minted: {
+    operation: string;
+    attempt: string;
+    actor: Option.Option<ActorRef>;
+    key: Option.Option<Json>;
+  };
   Sent: { operation: string; attempt: string };
   Ended: {
     operation: string;
@@ -152,7 +190,8 @@ export type Observation = Data.TaggedEnum<{
 export const Observation = Data.taggedEnum<Observation>();
 
 /**
- * What the suite gives a runtime when it boots one process.
+ * What the suite gives a runtime when it boots one page: the boot's own parameters. The world's
+ * hosts come from their own services.
  *
  * **Details**
  *
@@ -160,70 +199,63 @@ export const Observation = Data.taggedEnum<Observation>();
  * - `captureMs`: the persistence capture interval; the cases so far run with 0.
  * - `sessionSeed`: the host's entropy for this boot, distinct per page; the runtime mints its
  *   Attempt ids from it.
- * - `world`: the fake world's hosts: clock, network, storage and the page's lifecycle.
  * - `observe`: called with each public report as it happens.
  */
-export type Boot = {
-  readonly fixtures: ReadonlyArray<string>;
-  readonly captureMs: number;
-  readonly sessionSeed: number;
-  readonly world: World;
-  readonly observe: (observation: Observation) => void;
-};
+export class Boot extends Context.Service<
+  Boot,
+  {
+    readonly fixtures: ReadonlyArray<string>;
+    readonly captureMs: number;
+    readonly sessionSeed: number;
+    readonly observe: (observation: Observation) => void;
+  }
+>()("flow-state-v3/conformance/port/Boot") {}
 
 /**
- * One booted runtime process, driven only through public operations.
+ * One booted runtime: the whole contract between the suite and a runtime under test.
  *
  * **When to use**
  *
- * A case's steps call these; the suite settles the world after each.
+ * Write one implementation per runtime, each a scoped Layer that needs {@link Boot} and the
+ * world's hosts (`world/`): `PrototypeRuntime.layer`, `NullRuntime.layer`, and in phase 4
+ * `ProductionRuntime.layer`. Scenarios and oracles never see which one runs.
  *
  * **Details**
  *
+ * - Building the Layer boots the runtime; closing its scope disposes the Runtime, unless the scope
+ *   closes with {@link PageKilled}: a dead page runs nothing.
+ * - A reload is a new build of the same Layer over the same world, after the suite killed the page.
  * - `ensure` attaches one use of the identity, creating it if needed.
  * - `ensureExisting` attaches a use to an identity that is live or restorable, never creating one;
  *   the suite calls it for each use it holds after a reload.
  * - `release` ends one use; the runtime's grace decides the identity's life.
  * - `disposeRuntime` starts the Runtime's disposal: admission closes, nothing new is invoked, and
  *   calls on the wire may settle within the bound. It reports `RuntimeDisposed` when it ends.
+ * - The operations are synchronous: the world is a synchronous simulator and the suite settles it
+ *   after each call. The Case is the Effect boundary.
  *
  * **Gotchas**
  *
  * - `pending` says the runtime has work that no host task shows yet. Settling needs it; nothing
  *   else may read it.
  */
-export type Runtime = {
-  readonly ensure: (actor: ActorRef, input: Option.Option<unknown>, use: Use) => void;
-  readonly ensureExisting: (actor: ActorRef, use: Use) => void;
-  readonly release: (actor: ActorRef, use: Use) => void;
-  readonly send: (actor: ActorRef, event: string, payload: unknown) => void;
-  readonly dispose: (actor: ActorRef) => void;
-  readonly disposeRuntime: () => void;
-  readonly snapshot: (actor: ActorRef) => Snapshot;
-  readonly row: (actor: ActorRef, operation: string, key: unknown) => Option.Option<Row>;
-  readonly pending: () => boolean;
-};
+export class Runtime extends Context.Service<
+  Runtime,
+  {
+    readonly ensure: (actor: ActorRef, input: Option.Option<Json>, use: Use) => void;
+    readonly ensureExisting: (actor: ActorRef, use: Use) => void;
+    readonly release: (actor: ActorRef, use: Use) => void;
+    readonly send: (actor: ActorRef, event: string, payload: Json) => void;
+    readonly dispose: (actor: ActorRef) => void;
+    readonly disposeRuntime: () => void;
+    readonly snapshot: (actor: ActorRef) => Snapshot;
+    readonly row: (actor: ActorRef, operation: string, key: Json) => Option.Option<Row>;
+    readonly pending: () => boolean;
+  }
+>()("flow-state-v3/conformance/port/Runtime") {}
 
 /**
- * The whole contract between the suite and a runtime.
- *
- * **When to use**
- *
- * Write one adapter per runtime. Scenarios and oracles see only this.
- *
- * **Details**
- *
- * A reload is a new `boot` over the same world after the suite killed the page.
- *
- * @example
- * ```ts
- * import { Effect } from "effect"
- * import { loadPrototype } from "./adapters/prototype.ts"
- *
- * const port = Effect.runPromise(loadPrototype("packages/flow-state-v3/prototypes/round-14"))
- * ```
+ * The exit a reload closes a boot's scope with: the page died, so the Runtime's release does not
+ * dispose it.
  */
-export type Port = {
-  readonly name: string;
-  readonly boot: (boot: Boot) => Runtime;
-};
+export class PageKilled extends Data.TaggedError("PageKilled")<{ readonly page: number }> {}

@@ -1,25 +1,38 @@
-import { Option } from "effect";
-import { type Case, type Scenario, variants } from "../dsl/case.ts";
+import { Effect, Option } from "effect";
+import type { Actor } from "../dsl/actor.ts";
+import { Case, type Scenario, variants } from "../dsl/case.ts";
+import { Cells, Pay } from "../fixtures/pay.ts";
 import { Answer } from "../world/network.ts";
 
-const SHOPPER = { machine: "Checkout/Pay", id: "shopper-1" };
 const KEY = { intentId: "pi1" };
 const CART = { cartId: "c1", intentId: "pi1" };
 const CAPTURABLE = Answer.Ok({ value: { status: "requires_capture", clientSecret: "" } });
 
-const pay = (c: Case) => c.send("PayRequested", { paymentMethodId: "visa" });
-const start = (c: Case) => c.send("Start", CART);
+type Shopper = Actor<typeof Pay>;
 
-const onWire = (c: Case) => {
-  c.ensure();
-  start(c);
-  pay(c);
-  c.ack();
-};
+const shopper = Case.useSync((c) => ({ c, shopper: c.actor(Pay, "shopper-1") }));
 
-const row = (c: Case) => Option.getOrUndefined(c.row("pay", KEY));
+const cellsShopper = Case.useSync((c) => ({ c, shopper: c.actor(Cells, "shopper-1") }));
 
-const lastReason = (c: Case, operation: string) => c.endings(operation).at(-1)?.reason;
+const pay = (s: Shopper) => s.send("PayRequested", { paymentMethodId: "visa" });
+
+const start = (s: Shopper) => s.send("Start", CART);
+
+const onWire = Effect.gen(function* () {
+  const { c, shopper: s } = yield* shopper;
+  yield* s.ensure;
+  yield* start(s);
+  yield* pay(s);
+  yield* c.ack;
+});
+
+const row = (s: Shopper) => Effect.map(s.row("pay", KEY), Option.getOrUndefined);
+
+const lastReason = (c: typeof Case.Service, operation: string) =>
+  Effect.map(c.endings(operation), (endings) => endings.at(-1)?.reason);
+
+const sent = (c: typeof Case.Service, operation: string) =>
+  Effect.map(c.requests(operation), (requests) => requests.length);
 
 /**
  * The Pay cases that dispose the Runtime: `PAY-13`, `PAY-15/dispose-held` and the disposal
@@ -40,131 +53,143 @@ export const disposalScenarios: ReadonlyArray<Scenario> = [
     {
       id: "PAY-13",
       cites: ["Actors R22", "Actors R23", "Actors I29", "Actors I30", "WriteAhead R14"],
-      fixtures: ["pay"],
-      actor: SHOPPER,
+      fixtures: [Pay],
     },
     {
-      "hung-commit"(c) {
-        c.ensure();
-        c.uninterruptible("pay");
-        start(c);
-        pay(c);
-        c.ack();
-        c.disposeRuntime();
-        c.eq("not yet", c.runtimeDisposals(), 0);
-        c.advance(5000);
-        c.eq("disposed", c.runtimeDisposals(), 1);
-        c.reload();
-        c.state("UNSURE");
-        c.eq("reason", lastReason(c, "pay"), "Disposed");
-      },
-      "waiting-flushed"(c) {
-        c.ensure();
-        start(c);
-        pay(c);
-        c.disposeRuntime();
-        c.ack();
-        c.eq("disposed once the last write is answered", c.runtimeDisposals(), 1);
-        c.eq("requests", c.requests("pay").length, 0);
-        c.reload();
-        c.state("CARD");
-        c.eq("reason", lastReason(c, "pay"), "Disposed");
-        c.eq("no send after boot", c.requests("pay").length, 0);
-      },
-      "waiting-flush-lost"(c) {
-        c.ensure();
-        start(c);
-        pay(c);
-        c.disposeRuntime();
-        c.reload();
-        c.state("CARD");
-        c.eq("nothing on disk, so no Restored after it", lastReason(c, "pay"), "Disposed");
-        c.eq("no send after boot", c.requests("pay").length, 0);
-      },
+      "hung-commit": Effect.gen(function* () {
+        const { c, shopper: s } = yield* shopper;
+        yield* s.ensure;
+        yield* c.uninterruptible("pay");
+        yield* start(s);
+        yield* pay(s);
+        yield* c.ack;
+        yield* c.disposeRuntime;
+        yield* c.eq("not yet", yield* c.runtimeDisposals, 0);
+        yield* c.advance(5000);
+        yield* c.eq("disposed", yield* c.runtimeDisposals, 1);
+        yield* c.reload;
+        yield* s.state("UNSURE");
+        yield* c.eq("reason", yield* lastReason(c, "pay"), "Disposed");
+      }),
+      "waiting-flushed": Effect.gen(function* () {
+        const { c, shopper: s } = yield* shopper;
+        yield* s.ensure;
+        yield* start(s);
+        yield* pay(s);
+        yield* c.disposeRuntime;
+        yield* c.ack;
+        yield* c.eq("disposed once the last write is answered", yield* c.runtimeDisposals, 1);
+        yield* c.eq("requests", yield* sent(c, "pay"), 0);
+        yield* c.reload;
+        yield* s.state("CARD");
+        yield* c.eq("reason", yield* lastReason(c, "pay"), "Disposed");
+        yield* c.eq("no send after boot", yield* sent(c, "pay"), 0);
+      }),
+      "waiting-flush-lost": Effect.gen(function* () {
+        const { c, shopper: s } = yield* shopper;
+        yield* s.ensure;
+        yield* start(s);
+        yield* pay(s);
+        yield* c.disposeRuntime;
+        yield* c.reload;
+        yield* s.state("CARD");
+        yield* c.eq(
+          "nothing on disk, so no Restored after it",
+          yield* lastReason(c, "pay"),
+          "Disposed",
+        );
+        yield* c.eq("no send after boot", yield* sent(c, "pay"), 0);
+      }),
     },
   ),
   {
     id: "PAY-15/dispose-held",
     cites: ["Actors R22", "Actors I29"],
-    fixtures: ["cells"],
-    actor: SHOPPER,
-    run(c) {
-      onWire(c);
-      c.answer("pay", Answer.Lost());
-      c.disposeRuntime();
-      c.eq("disposed", c.runtimeDisposals(), 1);
-      c.reload();
-      c.state("UNSURE");
-      c.eq("uncertain", row(c)?.uncertain, true);
-    },
+    fixtures: [Cells],
+    run: Effect.gen(function* () {
+      const { c, shopper: s } = yield* cellsShopper;
+      yield* s.ensure;
+      yield* start(s);
+      yield* pay(s);
+      yield* c.ack;
+      yield* c.answer("pay", Answer.Lost());
+      yield* c.disposeRuntime;
+      yield* c.eq("disposed", yield* c.runtimeDisposals, 1);
+      yield* c.reload;
+      yield* s.state("UNSURE");
+      yield* c.eq("uncertain", (yield* row(s))?.uncertain, true);
+    }),
   },
   ...variants(
     {
       id: "PAY-16",
       cites: ["Actors R22", "Actors I29", "Actors I30", "Actors I31", "WriteAhead R14"],
-      fixtures: ["pay"],
-      actor: SHOPPER,
+      fixtures: [Pay],
     },
     {
-      "settled-during-disposal-parked"(c) {
-        onWire(c);
-        c.disposeRuntime();
-        c.eq("not yet: the commit may settle", c.runtimeDisposals(), 0);
-        c.answer("pay", CAPTURABLE);
-        c.eq("disposed once the wire is empty", c.runtimeDisposals(), 1);
-        c.eq("its own ending", c.endings("pay").at(-1)?.channel, "success");
-        c.reload();
-        c.state("PLACING");
-        c.eq(
+      "settled-during-disposal-parked": Effect.gen(function* () {
+        const { c, shopper: s } = yield* shopper;
+        yield* onWire;
+        yield* c.disposeRuntime;
+        yield* c.eq("not yet: the commit may settle", yield* c.runtimeDisposals, 0);
+        yield* c.answer("pay", CAPTURABLE);
+        yield* c.eq("disposed once the wire is empty", yield* c.runtimeDisposals, 1);
+        yield* c.eq("its own ending", (yield* c.endings("pay")).at(-1)?.channel, "success");
+        yield* c.reload;
+        yield* s.state("PLACING");
+        yield* c.eq(
           "no Restored: the parked ending is delivered",
-          c.endings("pay").some((e) => e.reason === "Restored"),
+          (yield* c.endings("pay")).some((e) => e.reason === "Restored"),
           false,
         );
-      },
-      "on-the-wire-at-the-bound-ends-unknown-disposed"(c) {
-        onWire(c);
-        c.disposeRuntime();
-        c.advance(4_999);
-        c.eq("within the bound", c.runtimeDisposals(), 0);
-        c.advance(1);
-        c.eq("the bound ends it", c.runtimeDisposals(), 1);
-        c.eq(
+      }),
+      "on-the-wire-at-the-bound-ends-unknown-disposed": Effect.gen(function* () {
+        const { c, shopper: s } = yield* shopper;
+        yield* onWire;
+        yield* c.disposeRuntime;
+        yield* c.advance(4_999);
+        yield* c.eq("within the bound", yield* c.runtimeDisposals, 0);
+        yield* c.advance(1);
+        yield* c.eq("the bound ends it", yield* c.runtimeDisposals, 1);
+        yield* c.eq(
           "unknown { Disposed }",
-          [c.endings("pay").at(-1)?.channel, lastReason(c, "pay")],
+          [(yield* c.endings("pay")).at(-1)?.channel, yield* lastReason(c, "pay")],
           ["unknown", "Disposed"],
         );
-        c.reload();
-        c.state("UNSURE");
-        c.eq(
+        yield* c.reload;
+        yield* s.state("UNSURE");
+        yield* c.eq(
           "no Restored: the parked ending is delivered",
-          c.endings("pay").some((e) => e.reason === "Restored"),
+          (yield* c.endings("pay")).some((e) => e.reason === "Restored"),
           false,
         );
-      },
-      "dispose-waiting-resend"(c) {
-        onWire(c);
-        c.answer("pay", Answer.Lost());
-        c.advance(3000);
-        c.answer("order", Answer.Ok({ value: null }));
-        c.answer("intent", Answer.Ok({ value: { status: "requires_payment_method" } }));
-        c.disposeRuntime();
-        c.eq(
+      }),
+      "dispose-waiting-resend": Effect.gen(function* () {
+        const { c } = yield* shopper;
+        yield* onWire;
+        yield* c.answer("pay", Answer.Lost());
+        yield* c.advance(3000);
+        yield* c.answer("order", Answer.Ok({ value: null }));
+        yield* c.answer("intent", Answer.Ok({ value: { status: "requires_payment_method" } }));
+        yield* c.disposeRuntime;
+        yield* c.eq(
           "no Disposed ending",
-          c.endings("pay").some((e) => e.reason === "Disposed"),
+          (yield* c.endings("pay")).some((e) => e.reason === "Disposed"),
           false,
         );
-      },
-      "disposal-ends-with-the-last-fiber"(c) {
-        c.ensure();
-        c.uninterruptible("pay");
-        start(c);
-        pay(c);
-        c.ack();
-        c.disposeRuntime();
-        c.eq("not yet", c.runtimeDisposals(), 0);
-        c.answerLate("pay", CAPTURABLE);
-        c.eq("finished when it ended", c.runtimeDisposals(), 1);
-      },
+      }),
+      "disposal-ends-with-the-last-fiber": Effect.gen(function* () {
+        const { c, shopper: s } = yield* shopper;
+        yield* s.ensure;
+        yield* c.uninterruptible("pay");
+        yield* start(s);
+        yield* pay(s);
+        yield* c.ack;
+        yield* c.disposeRuntime;
+        yield* c.eq("not yet", yield* c.runtimeDisposals, 0);
+        yield* c.answerLate("pay", CAPTURABLE);
+        yield* c.eq("finished when it ended", yield* c.runtimeDisposals, 1);
+      }),
     },
   ),
 ];

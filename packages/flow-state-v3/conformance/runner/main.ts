@@ -3,8 +3,8 @@ import { Console, Data, Effect, Option, Schema } from "effect";
 import { tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { nullPort } from "../adapters/null.ts";
-import { loadPrototype } from "../adapters/prototype.ts";
+import { NullRuntime } from "../adapters/null.ts";
+import { loadPrototype, PrototypeRuntime } from "../adapters/prototype.ts";
 import { guarantees, oracles, scenarios } from "../suite.ts";
 import { falsifyOne, LieVerdict, suiteIn } from "./falsify.ts";
 import { runCases } from "./run.ts";
@@ -34,9 +34,9 @@ const runtimeChoice = (args: ReadonlyArray<string>) => {
 
 const runtimeArg = RuntimeChoice.$match({ Null: () => NULL_RUNTIME, Prototype: ({ dir }) => dir });
 
-const portOf = RuntimeChoice.$match({
-  Null: () => Effect.succeed(nullPort),
-  Prototype: ({ dir }) => loadPrototype(dir),
+const runtimeLayer = RuntimeChoice.$match({
+  Null: () => Effect.succeed(NullRuntime.layer),
+  Prototype: ({ dir }) => Effect.map(loadPrototype(dir), PrototypeRuntime.layer),
 });
 
 const list = (value: Option.Option<string>) =>
@@ -113,9 +113,9 @@ const suite = (args: ReadonlyArray<string>) =>
       return yield* report([...runs.flat(), ...missing], json);
     }
 
-    const port = yield* portOf(runtime);
+    const layer = yield* runtimeLayer(runtime);
 
-    return yield* report([...(yield* runCases(port, chosen, oracles)), ...missing], json);
+    return yield* report([...(yield* runCases(layer, chosen, oracles)), ...missing], json);
   });
 
 const falsify = (args: ReadonlyArray<string>) =>

@@ -32,18 +32,19 @@ non-zero exit code on a failure.
 
 ## Layout
 
-| Path                    | What it is                                                                                                                                                                                                                |
-| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `port.ts`               | The `Port`: the whole contract between the suite and a runtime.                                                                                                                                                           |
-| `adapters/prototype.ts` | The Port over round-14: loads its `adapter.ts` and typed fixtures by path.                                                                                                                                                |
-| `adapters/null.ts`      | A runtime that does nothing; falsify requires every case to fail on it.                                                                                                                                                   |
-| `world/`                | The fake world, one module per host: `clock.ts`, `network.ts`, `storage.ts`, `lifecycle.ts` (the page: generation, task queue, Effect scheduler, visibility); `world.ts` composes them and owns settle, advance and kill. |
-| `dsl/case.ts`           | The scenario DSL: `Scenario` and the `Case` driver. Steps settle the world and run every oracle.                                                                                                                          |
-| `oracles/`              | One module per guarantee (`<name>.ts`) with its lies beside it (`<name>.lies.ts`); `oracle.ts` holds the timeline (`Fact`), `Oracle`, `Lie` and `Guarantee` (an oracle with its lies).                                    |
-| `fixtures/reference.ts` | The suite's own expectations of each fixture, written by hand from the fixture's source: per operation its policy, key fields, mapping, answer classification and the events that cancel it.                              |
-| `scenarios/`            | Cases, one file per area.                                                                                                                                                                                                 |
-| `suite.ts`              | The registry: every guarantee (oracle and its lies) and every case.                                                                                                                                                       |
-| `runner/`               | `main.ts` (CLI), `run.ts` (cases in process), `falsify.ts` (lies on copies), `child.ts` (bounded child processes), `verdict.ts` (the verdict line children print).                                                        |
+| Path                              | What it is                                                                                                                                                                                                                      |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `port.ts`                         | The contract between the suite and a runtime: the `Runtime` service, the `Boot` service, `Observation`, `Snapshot`, `Row`, `ActorRef`, `Json`, `PageKilled`.                                                                    |
+| `adapters/prototype.ts`           | `PrototypeRuntime.layer` over round-14, and `loadPrototype` (its `adapter.ts` and typed fixtures, by path). `prototype-reports.ts` decodes its evidence into observations.                                                      |
+| `adapters/null.ts`                | `NullRuntime.layer`: a runtime that does nothing; falsify requires every case to fail on it.                                                                                                                                    |
+| `world/`                          | The fake world, one service per host with its Layer: `WorldClock` (and Effect's `Clock` over it), `Page` (generation, task queue, Effect `Scheduler`, visibility), `Storage`, `Network`; `World` owns settle, advance and kill. |
+| `dsl/case.ts`                     | The scenario DSL: `Scenario` and the `Case` service, built per case. Steps settle the world and run every oracle.                                                                                                               |
+| `dsl/actor.ts`, `dsl/timeline.ts` | The typed actor view `Case.actor(fixture, id)` gives; the `Timeline` service (the case's facts).                                                                                                                                |
+| `oracles/`                        | One module per guarantee (`<name>.ts`) with its lies beside it (`<name>.lies.ts`); `oracle.ts` holds the timeline (`Fact`), `Oracle`, `Lie` and `Guarantee` (an oracle with its lies).                                          |
+| `fixtures/`                       | The suite's fixtures: `fixture.ts` (the `Fixture` type: Schemas of events, memory, input and write keys), `pay.ts`, `lab.ts`; `reference.ts`, the expectations of each write written by hand from the fixture's source.         |
+| `scenarios/`                      | Cases, one file per area.                                                                                                                                                                                                       |
+| `suite.ts`                        | The registry: every guarantee (oracle and its lies) and every case.                                                                                                                                                             |
+| `runner/`                         | `main.ts` (CLI), `run.ts` (cases in process), `falsify.ts` (lies on copies), `child.ts` (bounded child processes), `verdict.ts` (the verdict line children print).                                                              |
 
 ## Decisions
 
@@ -70,12 +71,30 @@ Round 1's, the runner's (recorded as such; the user may overrule):
    catch it (round 2: one registry entry per oracle, so an oracle with no lie fails falsify).
    Falsify judges "caught" when that oracle is among those that failed a case in the failing step;
    red for another reason only is `BAD`.
-6. **The runner is an edge and uses Effect**: bounded concurrency for `--parallel`, scoped
-   copies, killable child processes with time bounds, Schema for the verdict line. The fake world
-   is a synchronous simulator driven step by step, so it is plain owned state with one transition
-   per operation, not services. `@effect/platform-node`'s runner is pinned to another Effect
-   version and fails at run time, so `main.ts` calls `Effect.runFork` itself (suppressed with that
-   reason).
+6. **The suite is an edge and uses Effect services** (round 4, replacing round 1's "not
+   services"; lint-bomb STYLE.md §1 and §3). Each capability with alternative implementations is
+   one `Context.Service` contract, each implementation a Layer; state and lifetimes belong to
+   services; pure transformations stay plain:
+   - `Runtime` is a service; `PrototypeRuntime.layer(loaded)`, `NullRuntime.layer` and, in phase
+     4, `ProductionRuntime.layer` implement it. Each Layer needs `Boot` (the boot's parameters) and
+     the world's hosts, and is scoped: building it boots, closing its scope disposes the Runtime.
+     A reload kills the page, closes the boot's scope with `PageKilled` (a dead page runs
+     nothing, so the release does not dispose) and builds the Layer again over the same world.
+   - The world's hosts are services with Layers from the world seed: `WorldClock`, `Page`,
+     `Storage`, `Network`; `World` composes them and owns settle, advance and kill. Their
+     operations are the host's synchronous primitives (as a page's `setTimeout` and IndexedDB
+     callbacks are), so a runtime calls them from inside its own fibers; the Case is the Effect
+     boundary. A production host built on Effect's own `Clock` and `Scheduler` takes
+     `WorldClock.effect` and `Page.effect`, Layers of those references over the same world: no
+     shim.
+   - `Case` is a service built per case (`Case.layer`) from the Runtime Layer, the World and the
+     `Timeline` service. Scenarios are `Effect.gen` values that `yield* Case`; steps fail with
+     `Violated`, expectations with `Mismatch`, and scenario bugs die.
+   - Oracles stay pure functions over the timeline.
+   - The runner keeps bounded concurrency for `--parallel`, scoped copies, killable child
+     processes with time bounds and Schema for the verdict line. `@effect/platform-node`'s
+     runner is pinned to another Effect version and fails at run time, so `main.ts` calls
+     `Effect.runFork` itself (suppressed with that reason).
 7. **Runs use bun**: the prototype runtime is TypeScript that bun runs directly. Revisit when the
    prototype adapter retires.
 8. **Determinism and ids** (round 2): the suite gives each boot a session seed as data
@@ -90,6 +109,21 @@ Round 1's, the runner's (recorded as such; the user may overrule):
 10. **Attribution** (round 2): round-14 reports no actor on a mint, a decline or a delivery; the
     prototype adapter attributes each to the turn that follows it in the same report batch
     (prototype limit; production reports the actor itself).
+11. **Typed fixtures, JSON Port** (round 4): the `Runtime` service is the same for every fixture,
+    so its values (event payloads, inputs, keys, memory) are `Schema.Json`. A fixture
+    (`fixtures/fixture.ts`) carries the Schemas of its events, memory, input and write keys;
+    `Case.actor(Pay, "shopper-1")` gives a view typed by them, which encodes values with
+    `Schema.toCodecJson` on the way in and decodes memory on the way out, so a wrong event name,
+    payload, memory field or row key is a type error. The fixtures are imported statically by
+    the scenarios; the Schemas are written by hand from the prototype fixture's source, because
+    round-14's typed fixtures do not export their definitions' Schemas and its `Fixture` type
+    erases them; the prototype adapter still loads the fixture code by path, so an edited copy
+    under falsify runs its own. Phase 4's fixtures are written in the public API and give these
+    Schemas directly. `unknown` stays only where round-14 returns untyped values (state,
+    memory, rows, evidence, a client's request body): each is decoded once at the adapter, with
+    a `FLOW_STATE_ALLOW_UNKNOWN:` reason where the lint cannot see the decode. Values compare
+    with `Schema.toEquivalence` (`sameActor`, `sameJson`); a case's `eq` uses Effect's structural
+    `Equal.equals`.
 
 ## The Port
 
