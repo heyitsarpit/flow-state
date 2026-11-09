@@ -11,6 +11,11 @@
 - `apps/docs/`, `apps/features/` — docs. Generated files are produced by commands; don't hand-edit them.
 - `codebases/effect-v4/` — Effect reference. Installed packages are what's authoritative.
 
+## Workflow records
+- Every prose section of a `.plan`, `.task` or `.spec` is valid Markdown plus the workflow links (`@id`,
+  `code:path#symbol`, `skill:name#heading`): use headings, lists, tables and fenced code where they help; lines at
+  most 120 characters (`workflow format --write` wraps them).
+
 ## Commands
 Use the pinned `nub` toolchain. See `package.json` for scripts.
 ```sh
