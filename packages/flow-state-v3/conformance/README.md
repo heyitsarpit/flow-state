@@ -322,8 +322,9 @@ work item is one case module each (`scenarios/compile.ts`, `diagnostics.ts`, `co
 4. The verdict compare: each ported area's verdicts against the old suite's on the same cases.
 5. The four-angle audit and re-audit; the fast gates in `nub run verify`.
 6. The round-14 carry list: the table below.
-7. **The suite's own Spec** (the user, 2026-11-09): `packages/flow-state-v3/conformance/Conformance.spec`, written
-   with to-spec, next to the module. It holds the suite's guarantees: the Port exposes no runtime internals and
+7. **The suite's own Spec** (the user, 2026-11-09): `workflow/specs/conformance/Conformance.spec`, written
+   with to-spec, in the workflow folder with the other Specs (the user: "it should just be in the workflow repo",
+   2026-11-09). It holds the suite's guarantees: the Port exposes no runtime internals and
    any runtime implementing it gets the same verdicts; expected results come from a cited Spec rule, never from
    running the runtime; every check has a mutant it kills (falsify fails otherwise); the null runtime fails every
    case; runs are deterministic from a seed; the verdict format and the old-suite comparison. This README keeps

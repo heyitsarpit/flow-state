@@ -1,3 +1,4 @@
+workflow/specs/conformance/Conformance.spec
 workflow/specs/core/Actors.spec
 workflow/specs/core/Codec.spec
 workflow/specs/core/Compile.spec

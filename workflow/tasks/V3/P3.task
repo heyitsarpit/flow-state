@@ -84,7 +84,7 @@ comment 2026-11-09T13:30:00Z
 tasks
     T4
         title       The suite's own Spec, Conformance.spec
-        status      open
+        status      review
         priority    high
         labels      [not-readily-verifiable, verification-suite]
         description
@@ -112,6 +112,52 @@ tasks
         acceptance
             The Spec exists, `workflow check` passes, and an independent skill:check-spec finds
             no gap in its contract.
+        comment     2026-11-09T16:20:54Z
+            Written: @spec.Conformance (`workflow/specs/conformance/Conformance.spec`), status proposed, with 
+            skill:to-spec.
+            11 Requirements, 30 Invariants, 23 tests, 7 open questions.
+
+            **Location changed.** The description says next to the suite; the user has since ruled that Specs live in 
+            the
+            workflow folder ("it should just be in the workflow repo", 2026-11-09). README work list item 7 now points
+            there.
+
+            **What it guarantees** (derived from the suite's purpose and the README's decisions, not from today's code):
+
+            - R1 to R3: the Port carries public behaviour only (one settling exception, `pending`); verdicts never 
+              depend
+              on which runtime runs; adapters translate and never fill reports in from suite facts, outside stated 
+              limits.
+            - R4, R5: oracles anchor reports to suite facts; every case and oracle cites core Spec rules that resolve;
+              no expected value comes from running a runtime.
+            - R6, R7, R10: every check (an oracle, or a case expectation that alone checks an Invariant) has a mutant
+              killed by that check; null fails every case by a stated failure; falsify's pass conditions.
+            - R8: verdicts are a function of code, case and world seed; order and process split change nothing.
+            - R9: one verdict per requested case, machine and human forms, exit codes.
+            - R11: the old-suite comparison: the new suite kills every mutant the old one kills on ported cases; every
+              difference has a reading.
+
+            **Agent decisions for the user's read** (pending): a consistency-only check is never an Invariant's only
+            check (R4); a thrown defect does not count as failing on null (R7); a separate `Defect` verdict kind,
+            proposed name (R9).
+
+            **Finding.** R7 does not hold today: `suite --runtime null` gives 0/61, but 29 of those failures are a
+            thrown `NoHeldRequest`, which `dsl/case.ts` calls a scenario bug, never a verdict (Q2). The P3 evidence
+            "null 0/61" overstates what null proves.
+
+            **Tests:** 9 name existing checks (falsify's oracle-has-a-mutant, control, judge, exactly-once and null
+            lines; `runCase`'s seeds; `report`; `sliceVerdicts`; the Oracle type); the rest say "phase 3 writes this"
+            or "phase 4 writes this".
+
+            **For skill:check-spec:** whether any Invariant restates current behaviour rather than purpose (the
+            Task's false pass); whether R6's definition of a check (oracles plus case-only Invariants) is the right
+            granularity, given Q5 (per-rule mutants); whether R2's "stated limit" escape hatch is bounded enough;
+            whether `derives_from [@task.V3.T4]` is the right provenance, since no Plan outcome covers the suite.
+
+            **Sidecars:** none started. The check and mutant inventory was read directly (4 oracles, 25 mutants in
+            `oracles/*.lies.ts`) and the null run done by the lead, so no sidecar result to log.
+
+            Gates: `workflow index`, `workflow format --write`, `workflow check` valid, `workflow refs --dangling` none.
     T5
         title       Suite renamed to Spec areas and behaviour names
         status      open
