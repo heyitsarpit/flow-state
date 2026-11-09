@@ -2,7 +2,7 @@
 
 Status: approved by the user on 2026-11-07, in the Claude Code session ("the roadmap is approved"), handing
 its execution to Claude as the agent runner.
-Version: 12, approved 2026-11-07, after amendment 11.
+Version: 13, approved 2026-11-07, after amendment 12.
 Shape confirmed: 2026-11-04, in the Claude Code session. The user gave points 1-10: plans first,
 conformance rewritten, the core, features, Next.js hardening, examples and docs.
 Goal: production code for Flow State v3 at high quality, with good error messages and the
@@ -284,8 +284,8 @@ Done when:
 Blocking: the label round, then each round of user-judged decisions. Reviews: agent-judged
 rulings, and a page listing what changed, at the end.
 Criteria (drafted by the runner before the first merge, approved by the user): the plans say what
-machine-design.md says and nothing it doesn't; every superseded sentence is marked with its
-replacement; a reader of one plan needs no other document to know its contract.
+machine-design.md says and nothing it doesn't; every superseded sentence is moved out of the plans into
+`workflow/plans/flow/references/superseded.md` with its replacement (amendment 12); a reader of one plan needs no other document to know its contract.
 Decisions: each conflict found while merging (`FOR-ARPIT.md`'s Q1-Q8 and 20 calls are accepted and
 recorded in phase 0). The
 first round labels every one (the recommended answer and why, the judge, how reversible it is),
@@ -663,6 +663,10 @@ Numbered, oldest first (runner rule 4).
    recorded for the user's read; the plan merge is applied without waiting for the user's yes. The prototype stays the
    main source of truth where plans and prototype disagree. Large public API changes and the roadmap's other hard stops
    still block. Version 12. Phases worked out again: 2.
+12. 2026-11-09, judge the user ("everything that is superseded should be extracted out into a separate superseded items
+   file"): superseded plan text leaves the plans for `workflow/plans/flow/references/superseded.md`, grouped by plan and
+   outcome, each quote with its replacement; the plans carry the current contract only. machine-design.md keeps its
+   inline markers (it is the decision record). Version 13. Phases worked out again: 2 (its criteria).
 
 ## Runner rules
 
