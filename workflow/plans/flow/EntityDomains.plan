@@ -153,9 +153,10 @@ outcomes
         until the next accepted read carrying it. If no active answer carries the field, the
         prediction ends and the field is dropped so the next reader fetches. A definite failure
         removes predictions without repair. Every NotSent (Rejected, Overloaded, Cancelled,
-        Restored, StorageRefused, Disposed, NoPersistence, OldVersion, Unencodable, ModuleDisabled)
-        and the evidence Superseded remove or never apply them, without repair. Unknown (the
-        author's, Cancelled, Restored, Interrupted, Defect, StillUnknown) keeps live predictions
+        Restored, StorageRefused, Disposed, NoPersistence, OldVersion, Unencodable,
+        ModuleDisabled, a proposed name) and the evidence Superseded remove or never apply them,
+        without repair. Unknown (the author's, Cancelled, Restored, Interrupted, Defect,
+        StillUnknown) keeps live predictions
         until a forced repair lands, holds the record queue until that repair settles, and marks
         the record uncertain for that Attempt. A write restored as uncertain keeps its predicted
         keys with its Attempt, so restore marks them and forces the repair; the store hears the
