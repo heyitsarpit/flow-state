@@ -5,7 +5,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { nullPort } from "../adapters/null.ts";
 import { loadPrototype } from "../adapters/prototype.ts";
-import { lies, oracles, scenarios } from "../suite.ts";
+import { guarantees, oracles, scenarios } from "../suite.ts";
 import { falsifyOne, LieVerdict, suiteIn } from "./falsify.ts";
 import { runCases } from "./run.ts";
 import { type CaseVerdict, VERDICTS_LINE, VerdictsJson } from "./verdict.ts";
@@ -48,13 +48,22 @@ const list = (value: Option.Option<string>) =>
 const parallelOf = (args: ReadonlyArray<string>) =>
   Math.min(8, Math.max(1, Number(Option.getOrElse(flag(args, "--parallel"), () => "1")) || 1));
 
+const caughtBy = (oracles: ReadonlyArray<string>) =>
+  oracles.length > 0 ? oracles.join(",") : "case";
+
 const lineOf = (v: CaseVerdict) =>
-  v._tag === "Pass"
-    ? `pass ${v.id}`
-    : `FAIL ${v.id}  ${Option.getOrElse(v.oracle, () => "case")}: ${v.why}`;
+  v._tag === "Pass" ? `pass ${v.id}` : `FAIL ${v.id}  ${caughtBy(v.oracles)}: ${v.why}`;
+
+const failed = (id: string, why: string) =>
+  ({ _tag: "Fail", id, oracles: [], why }) satisfies CaseVerdict;
 
 const report = (verdicts: ReadonlyArray<CaseVerdict>, json: boolean) =>
   Effect.gen(function* () {
+    const passed = verdicts.filter((v) => v._tag === "Pass").length;
+    const ok = passed === verdicts.length && verdicts.length > 0;
+
+    if (!ok) process.exitCode = 1;
+
     if (json) {
       yield* Console.log(`${VERDICTS_LINE}${Schema.encodeSync(VerdictsJson)(verdicts)}`);
 
@@ -62,22 +71,18 @@ const report = (verdicts: ReadonlyArray<CaseVerdict>, json: boolean) =>
     }
 
     for (const v of verdicts) yield* Console.log(lineOf(v));
-    const passed = verdicts.filter((v) => v._tag === "Pass").length;
-    const ok = passed === verdicts.length && verdicts.length > 0;
     yield* Console.log(`VERDICT ${ok ? "pass" : "fail"} ${passed}/${verdicts.length}`);
-
-    if (!ok) process.exitCode = 1;
   });
 
 const sliceVerdicts = (runtime: RuntimeChoice, ids: ReadonlyArray<string>) =>
   suiteIn(MAIN, runtimeArg(runtime), ids, 240).pipe(
-    Effect.catchTag("NoVerdicts", (e) =>
-      Effect.succeed(
-        ids.map(
-          (id) => ({ _tag: "Fail", id, oracle: Option.none(), why: e.why }) satisfies CaseVerdict,
-        ),
+    Effect.map((verdicts) => [
+      ...verdicts,
+      ...ids.flatMap((id) =>
+        verdicts.some((v) => v.id === id) ? [] : [failed(id, "its child stated no verdict for it")],
       ),
-    ),
+    ]),
+    Effect.catchTag("NoVerdicts", (e) => Effect.succeed(ids.map((id) => failed(id, e.why)))),
   );
 
 const suite = (args: ReadonlyArray<string>) =>
@@ -90,9 +95,7 @@ const suite = (args: ReadonlyArray<string>) =>
     );
 
     const missing = Option.getOrElse(only, () => []).flatMap((id) =>
-      scenarios.some((s) => s.id === id)
-        ? []
-        : [{ _tag: "Fail", id, oracle: Option.none(), why: "no such case" } satisfies CaseVerdict],
+      scenarios.some((s) => s.id === id) ? [] : [failed(id, "no such case")],
     );
 
     const json = args.includes("--json");
@@ -121,8 +124,23 @@ const falsify = (args: ReadonlyArray<string>) =>
     const scratch = resolve(Option.getOrElse(flag(args, "--scratch"), () => tmpdir()));
     const only = list(flag(args, "--lie"));
 
-    const chosen = lies.filter((l) =>
-      Option.match(only, { onNone: () => true, onSome: (names) => names.includes(l.name) }),
+    const runnable = guarantees.map((g) => ({
+      oracle: g.oracle.name,
+      lies: g.lies.filter((l) => l.runtime === "prototype"),
+    }));
+
+    const unfalsified = runnable.filter((g) => g.lies.length === 0).map((g) => g.oracle);
+
+    yield* Console.log(
+      `${unfalsified.length === 0 ? "ok  " : "BAD "} every oracle has a lie${unfalsified.length === 0 ? "" : `; none for: ${unfalsified.join(" ")}`}`,
+    );
+
+    const chosen = runnable.flatMap((g) =>
+      g.lies
+        .filter((l) =>
+          Option.match(only, { onNone: () => true, onSome: (names) => names.includes(l.name) }),
+        )
+        .map((lie) => ({ oracle: g.oracle, lie })),
     );
 
     const stated = (run: string, ids: ReadonlyArray<string>) =>
@@ -145,7 +163,7 @@ const falsify = (args: ReadonlyArray<string>) =>
 
     yield* Console.log(`${nullRed ? "ok  " : "BAD "} null runtime: every case states a failure`);
 
-    const control = yield* stated(runtime, [...new Set(chosen.flatMap((l) => l.cases))]);
+    const control = yield* stated(runtime, [...new Set(chosen.flatMap(({ lie }) => lie.cases))]);
 
     const controlGreen = Option.match(control, {
       onNone: () => false,
@@ -158,7 +176,7 @@ const falsify = (args: ReadonlyArray<string>) =>
 
     const verdicts = yield* Effect.forEach(
       chosen,
-      (lie) => falsifyOne(MAIN, runtime, scratch, lie),
+      ({ oracle, lie }) => falsifyOne(MAIN, runtime, scratch, oracle, lie),
       { concurrency: parallelOf(args) },
     );
 
@@ -173,7 +191,14 @@ const falsify = (args: ReadonlyArray<string>) =>
         }),
       );
     const caught = verdicts.filter(LieVerdict.$is("Caught")).length;
-    const ok = nullRed && controlGreen && caught === verdicts.length && verdicts.length > 0;
+
+    const ok =
+      unfalsified.length === 0 &&
+      nullRed &&
+      controlGreen &&
+      caught === verdicts.length &&
+      verdicts.length > 0;
+
     yield* Console.log(`VERDICT ${ok ? "pass" : "fail"} ${caught}/${verdicts.length} lies caught`);
 
     if (!ok) process.exitCode = 1;

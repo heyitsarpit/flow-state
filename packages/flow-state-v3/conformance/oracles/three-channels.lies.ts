@@ -5,13 +5,26 @@ import type { Lie } from "./oracle.ts";
  *
  * **Details**
  *
+ * - `lie.ending-without-id`: a send's ending names no Attempt, so the answered send has none.
  * - `k.failure-as-success`: a failure ending runs the success event.
  * - `lie.still-unknown-dropped`: a definite failure after an unknown send stays a failure.
  */
 export const threeChannelsLies: ReadonlyArray<Lie> = [
   {
+    name: "lie.ending-without-id",
+    says: "a send's ending is reported with no Attempt id",
+    runtime: "prototype",
+    cases: ["PAY-01"],
+    edits: [
+      {
+        file: "lane.ts",
+        find: "noteEnding(tx, { op: lane.op, attempt: h.id, send }, final);",
+        replace: "noteEnding(tx, { op: lane.op, send }, final);",
+      },
+    ],
+  },
+  {
     name: "k.failure-as-success",
-    oracle: "three-channels",
     says: "a failure ending runs the operation's success event",
     runtime: "prototype",
     cases: ["PAY-02"],
@@ -26,7 +39,6 @@ export const threeChannelsLies: ReadonlyArray<Lie> = [
   },
   {
     name: "lie.still-unknown-dropped",
-    oracle: "three-channels",
     says: "a definite failure after an unknown send is delivered as a failure, not unknown StillUnknown",
     runtime: "prototype",
     cases: ["PAY-05"],

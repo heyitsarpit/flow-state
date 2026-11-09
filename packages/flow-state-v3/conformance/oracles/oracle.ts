@@ -1,6 +1,6 @@
 import { Data } from "effect";
 import type { Reference } from "../fixtures/reference.ts";
-import type { Observation } from "../port.ts";
+import type { ActorRef, Observation } from "../port.ts";
 import type { Answer, Request } from "../world/network.ts";
 
 /**
@@ -15,6 +15,7 @@ import type { Answer, Request } from "../world/network.ts";
  * - `Answered`: the suite's server answered this request.
  * - `Reported`: the runtime reported this observation.
  * - `Reloaded`: the suite killed the page and booted a new one.
+ * - `Disposed`: the suite disposed this actor.
  */
 export type Fact = Data.TaggedEnum<{
   Stepped: { readonly step: number; readonly what: string };
@@ -22,6 +23,7 @@ export type Fact = Data.TaggedEnum<{
   Answered: { readonly request: Request; readonly answer: Answer };
   Reported: { readonly observation: Observation };
   Reloaded: {};
+  Disposed: { readonly actor: ActorRef };
 }>;
 
 /**
@@ -63,8 +65,8 @@ export type Oracle = {
 };
 
 /**
- * A wrong runtime an oracle must catch: edits to a runtime's source, the cases it is run on, and
- * the oracle that must turn at least one of them red.
+ * A wrong runtime an oracle must catch: edits to a runtime's source and the cases it is run on.
+ * The {@link Guarantee} that holds it names the oracle that must turn one of them red.
  *
  * **When to use**
  *
@@ -80,9 +82,8 @@ export type Oracle = {
  */
 export type Lie = {
   readonly name: string;
-  readonly oracle: string;
   readonly says: string;
-  readonly runtime: "prototype";
+  readonly runtime: "prototype" | "production";
   readonly cases: ReadonlyArray<string>;
   readonly edits: ReadonlyArray<{
     readonly file: string;
@@ -90,6 +91,16 @@ export type Lie = {
     readonly replace: string;
   }>;
 };
+
+/**
+ * One guarantee as the suite runs it: its oracle and the lies that oracle must catch.
+ *
+ * **Gotchas**
+ *
+ * - Falsify fails a guarantee with no lie for the runtime it runs on: an oracle nothing can turn
+ *   red proves nothing.
+ */
+export type Guarantee = { readonly oracle: Oracle; readonly lies: ReadonlyArray<Lie> };
 
 /**
  * The observations of a timeline, in order.

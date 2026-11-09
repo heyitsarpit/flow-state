@@ -8,6 +8,7 @@ import {
   EvidenceKind,
   Observation,
   type Port,
+  type RecordedWhy,
   type Runtime,
   Snapshot,
 } from "../port.ts";
@@ -30,6 +31,7 @@ type PrototypeInstance = {
     owner: string,
     existing: boolean,
   ) => void;
+  readonly detach: (actor: string, owner: string) => void;
   readonly send: (
     actor: string,
     event: { readonly tag: string; readonly payload: unknown },
@@ -151,7 +153,16 @@ const reports = {
   }),
   delivered: Schema.Struct({ op: Schema.String, attempt: OptionalText, event: OptionalText }),
   evidence: Schema.Struct({ kind: EvidenceKind, op: Schema.String, attempt: OptionalText }),
+  onLane: Schema.Struct({ op: Schema.String, attempt: OptionalText }),
+  unhandled: Schema.Struct({ event: Schema.String }),
 };
+
+const RECORDED = new Map<string, RecordedWhy>([
+  ["ignored", "ignored"],
+  ["evidenceOnly", "evidence"],
+  ["KeptLetGo", "letGo"],
+  ["ParkedLetGo", "letGo"],
+]);
 
 const read = <A>(schema: Schema.Decoder<A>, report: Report, kind: string) =>
   Result.getOrThrowWith(
@@ -174,7 +185,9 @@ const observationOf = (report: Report): Option.Option<Observation> => {
   if (kind === "mint") {
     const r = read(reports.mint, report, kind);
 
-    return Option.some(Observation.Minted({ operation: r.op, attempt: r.attempt }));
+    return Option.some(
+      Observation.Minted({ operation: r.op, attempt: r.attempt, actor: Option.none() }),
+    );
   }
 
   if (kind === "invoked") {
@@ -192,6 +205,8 @@ const observationOf = (report: Report): Option.Option<Observation> => {
         attempt: attemptOf(r.attempt),
         channel: r.channel,
         reason: r.reason,
+        actor: Option.none(),
+        failure: Option.none(),
       }),
     );
   }
@@ -201,7 +216,42 @@ const observationOf = (report: Report): Option.Option<Observation> => {
     const event = Option.getOrElse(r.event, () => "(unmapped)");
 
     return Option.some(
-      Observation.Delivered({ operation: r.op, attempt: attemptOf(r.attempt), event }),
+      Observation.Delivered({
+        operation: r.op,
+        attempt: attemptOf(r.attempt),
+        event,
+        actor: Option.none(),
+      }),
+    );
+  }
+
+  return laneReport(report);
+};
+
+// RETURN_TYPE: each branch builds one variant; inference keeps a union of Options, not one Option.
+const laneReport = (report: Report): Option.Option<Observation> => {
+  const kind = report["kind"];
+
+  if (kind === "Unhandled") {
+    const r = read(reports.unhandled, report, kind);
+
+    return Option.some(Observation.Unhandled({ event: r.event }));
+  }
+
+  if (kind === "parked" || kind === "unparked") {
+    const r = read(reports.onLane, report, kind);
+    const at = { operation: r.op, attempt: attemptOf(r.attempt) };
+
+    return Option.some(kind === "parked" ? Observation.Parked(at) : Observation.Unparked(at));
+  }
+
+  const why = Option.fromUndefinedOr(Predicate.isString(kind) ? RECORDED.get(kind) : undefined);
+
+  if (Option.isSome(why)) {
+    const r = read(reports.onLane, report, String(kind));
+
+    return Option.some(
+      Observation.Recorded({ operation: r.op, attempt: attemptOf(r.attempt), why: why.value }),
     );
   }
 
@@ -213,9 +263,31 @@ const observationOf = (report: Report): Option.Option<Observation> => {
   );
 };
 
+// RETURN_TYPE: a spread of one variant stays that variant; the caller needs the union.
+const owned = (observed: Observation, actor: Option.Option<ActorRef>): Observation => {
+  if (Observation.$is("Minted")(observed) || Observation.$is("Delivered")(observed))
+    return { ...observed, actor };
+
+  if (Observation.$is("Ended")(observed) && Option.isNone(observed.attempt))
+    return { ...observed, actor };
+
+  return observed;
+};
+
+const attributed = (batch: ReadonlyArray<Observation>) => {
+  const out: Array<Observation> = [];
+  let next = Option.none<ActorRef>();
+
+  for (const observed of [...batch].toReversed()) {
+    if (Observation.$is("Turn")(observed)) next = Option.some(observed.actor);
+    out.push(owned(observed, next));
+  }
+
+  return out.toReversed();
+};
+
 // RETURN_TYPE: the prototype's Host contract, which its boot takes.
-const hostOf = (world: World): PrototypeHost => {
-  const seed = world.lifecycle.sessionSeed();
+const hostOf = (world: World, seed: number): PrototypeHost => {
   let minted = 0;
 
   return {
@@ -254,10 +326,11 @@ const apiOf = (world: World): PrototypeApi => {
 
 // RETURN_TYPE: the Port's Runtime contract.
 const runtimeOf = (instance: PrototypeInstance): Runtime => ({
-  ensure: (actor, input) =>
-    instance.attach(actorKey(actor), actor.machine, Option.getOrUndefined(input), "story", false),
-  ensureExisting: (actor) =>
-    instance.attach(actorKey(actor), actor.machine, undefined, "story", true),
+  ensure: (actor, input, use) =>
+    instance.attach(actorKey(actor), actor.machine, Option.getOrUndefined(input), use, false),
+  ensureExisting: (actor, use) =>
+    instance.attach(actorKey(actor), actor.machine, undefined, use, true),
+  release: (actor, use) => instance.detach(actorKey(actor), use),
   send: (actor, event, payload) => instance.send(actorKey(actor), { tag: event, payload }),
   dispose: (actor) => instance.dispose(actorKey(actor)),
   snapshot: (actor) => {
@@ -341,17 +414,14 @@ export const loadPrototype = Effect.fn("loadPrototype")(function* (runtimeDir: s
       const services = contexts.reduce((a, b) => Context.merge(a, b), Context.empty());
 
       const instance = runtime.boot({
-        host: hostOf(boot.world),
+        host: hostOf(boot.world, boot.sessionSeed),
         compiled: chosen.map((f) => f.make(api)),
         bounds: { captureMs: boot.captureMs },
         faults: { moduleThrows: new Map(), moduleThrowsAfter: new Map(), coreThrows: 0 },
         services,
         onEvidence: (given) => {
-          for (const report of given) {
-            const observed = observationOf(report);
-
-            if (Option.isSome(observed)) boot.observe(observed.value);
-          }
+          for (const observed of attributed(given.flatMap((r) => Option.toArray(observationOf(r)))))
+            boot.observe(observed);
         },
         onIssue: (issues) => {
           for (const issue of issues) boot.observe(Observation.Issue({ code: issue.code }));

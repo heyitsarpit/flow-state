@@ -26,11 +26,16 @@ export const Channel = Schema.Literals(["success", "failure", "unknown"]);
 export type Channel = typeof Channel.Type;
 
 /**
+ * Who holds a use of an identity: a Story, a host subscription, or a mounted component.
+ */
+export type Use = "story" | "host" | "component";
+
+/**
  * What the published row of a write lane shows, as the public `O.x.get` returns it.
  *
  * **Details**
  *
- * The shape is the public API's (Reads R14), so it keeps the public booleans.
+ * The shape is the public API's, so it keeps the public booleans.
  */
 export type Row = {
   readonly pending: boolean;
@@ -53,7 +58,7 @@ export type Snapshot = Data.TaggedEnum<{
 export const Snapshot = Data.taggedEnum<Snapshot>();
 
 /**
- * Evidence a runtime records without delivering it (WriteLanes R3, R10).
+ * Evidence a runtime records about a lane without it being an ending's disposition.
  */
 export const EvidenceKind = Schema.Literals([
   "Superseded",
@@ -68,6 +73,17 @@ export const EvidenceKind = Schema.Literals([
 export type EvidenceKind = typeof EvidenceKind.Type;
 
 /**
+ * Why an ending was recorded and not delivered: its mapping says ignore, it is evidence by
+ * declaration, or the life it was owed to was let go.
+ */
+export const RecordedWhy = Schema.Literals(["ignored", "evidence", "letGo"]);
+
+/**
+ * The decoded {@link RecordedWhy}.
+ */
+export type RecordedWhy = typeof RecordedWhy.Type;
+
+/**
  * One public report from a runtime, in the order it happened.
  *
  * **When to use**
@@ -78,17 +94,22 @@ export type EvidenceKind = typeof EvidenceKind.Type;
  * **Details**
  *
  * - `Turn`: an actor ran an event, from one leaf to another.
- * - `Minted`: a commit was admitted and its Attempt got an id.
+ * - `Minted`: a commit of `actor` was admitted and its Attempt got an id.
  * - `Sent`: an Attempt's commit was invoked (its first send or a re-send).
- * - `Ended`: an Attempt, or a decline with none, was decided on a channel with a reason.
- * - `Delivered`: an ending was admitted to its actor as the named event.
- * - `Evidence`: an ending or member recorded as evidence only.
+ * - `Ended`: an Attempt, or a decline with none, was decided on a channel with a reason. `actor`
+ *   names a decline's actor; `failure` is the definite failure inside `unknown StillUnknown`.
+ * - `Delivered`: an ending was admitted to `actor` as the named event.
+ * - `Parked`, `Unparked`: an ending waits for an incarnation, and stops waiting.
+ * - `Recorded`: an ending was recorded and not delivered, and why.
+ * - `Unhandled`: an admitted event had no handler.
+ * - `Evidence`: a lane fact that is not an ending's disposition.
  * - `Issue`: an issue the runtime reported, by code.
  *
  * **Gotchas**
  *
  * - Every observation is the runtime's own claim. An oracle that reads one alone checks only
  *   consistency; each must be anchored to a suite fact.
+ * - `actor` is `None` when the runtime could not say whose it was.
  */
 export type Observation = Data.TaggedEnum<{
   Turn: {
@@ -97,19 +118,34 @@ export type Observation = Data.TaggedEnum<{
     readonly from: string;
     readonly to: string;
   };
-  Minted: { readonly operation: string; readonly attempt: string };
+  Minted: {
+    readonly operation: string;
+    readonly attempt: string;
+    readonly actor: Option.Option<ActorRef>;
+  };
   Sent: { readonly operation: string; readonly attempt: string };
   Ended: {
     readonly operation: string;
     readonly attempt: Option.Option<string>;
     readonly channel: Channel;
     readonly reason: string;
+    readonly actor: Option.Option<ActorRef>;
+    readonly failure: Option.Option<string>;
   };
   Delivered: {
     readonly operation: string;
     readonly attempt: Option.Option<string>;
     readonly event: string;
+    readonly actor: Option.Option<ActorRef>;
   };
+  Parked: { readonly operation: string; readonly attempt: Option.Option<string> };
+  Unparked: { readonly operation: string; readonly attempt: Option.Option<string> };
+  Recorded: {
+    readonly operation: string;
+    readonly attempt: Option.Option<string>;
+    readonly why: RecordedWhy;
+  };
+  Unhandled: { readonly event: string };
   Evidence: {
     readonly kind: EvidenceKind;
     readonly operation: string;
@@ -129,13 +165,16 @@ export const Observation = Data.taggedEnum<Observation>();
  * **Details**
  *
  * - `fixtures`: the machines to run, by their catalog names.
- * - `captureMs`: the persistence capture interval; the slice's cases run with 0.
+ * - `captureMs`: the persistence capture interval; the cases so far run with 0.
+ * - `sessionSeed`: the host's entropy for this boot, distinct per page; the runtime mints its
+ *   Attempt ids from it.
  * - `world`: the fake world's hosts: clock, network, storage and the page's lifecycle.
  * - `observe`: called with each public report as it happens.
  */
 export type Boot = {
   readonly fixtures: ReadonlyArray<string>;
   readonly captureMs: number;
+  readonly sessionSeed: number;
   readonly world: World;
   readonly observe: (observation: Observation) => void;
 };
@@ -149,9 +188,10 @@ export type Boot = {
  *
  * **Details**
  *
- * - `ensure` attaches one use of the identity, as a mounted screen does, creating it if needed.
+ * - `ensure` attaches one use of the identity, creating it if needed.
  * - `ensureExisting` attaches a use to an identity that is live or restorable, never creating one;
  *   the suite calls it for each use it holds after a reload.
+ * - `release` ends one use; the runtime's grace decides the identity's life.
  *
  * **Gotchas**
  *
@@ -159,8 +199,9 @@ export type Boot = {
  *   else may read it.
  */
 export type Runtime = {
-  readonly ensure: (actor: ActorRef, input: Option.Option<unknown>) => void;
-  readonly ensureExisting: (actor: ActorRef) => void;
+  readonly ensure: (actor: ActorRef, input: Option.Option<unknown>, use: Use) => void;
+  readonly ensureExisting: (actor: ActorRef, use: Use) => void;
+  readonly release: (actor: ActorRef, use: Use) => void;
   readonly send: (actor: ActorRef, event: string, payload: unknown) => void;
   readonly dispose: (actor: ActorRef) => void;
   readonly snapshot: (actor: ActorRef) => Snapshot;

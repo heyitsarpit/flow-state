@@ -1,14 +1,14 @@
 import { Schema } from "effect";
 
 /**
- * One case's verdict: it passed, or it failed with the oracle that caught it (none for a case's
- * own expectation or a thrown defect) and why.
+ * One case's verdict: it passed, or it failed with every oracle that caught it in the failing
+ * step (none for a case's own expectation or a thrown defect) and why.
  */
 export const CaseVerdict = Schema.Union([
   Schema.TaggedStruct("Pass", { id: Schema.String }),
   Schema.TaggedStruct("Fail", {
     id: Schema.String,
-    oracle: Schema.OptionFromOptionalNullOr(Schema.String),
+    oracles: Schema.Array(Schema.String),
     why: Schema.String,
   }),
 ]);

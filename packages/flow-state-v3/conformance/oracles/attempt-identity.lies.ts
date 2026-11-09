@@ -12,7 +12,6 @@ const SEND = "      input: h.input,\n      ctx: { id: h.id, mayHaveApplied: h.ma
 export const attemptIdentityLies: ReadonlyArray<Lie> = [
   {
     name: "lie.resend-new-id",
-    oracle: "attempt-identity",
     says: "a re-send gives its commit a new id while reporting the Attempt's own",
     runtime: "prototype",
     cases: ["PAY-04"],
@@ -27,7 +26,6 @@ export const attemptIdentityLies: ReadonlyArray<Lie> = [
   },
   {
     name: "lie.resend-new-input",
-    oracle: "attempt-identity",
     says: "a re-send carries another input under the same id",
     runtime: "prototype",
     cases: ["PAY-04"],

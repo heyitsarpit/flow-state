@@ -126,8 +126,7 @@ const keysMintedAndOpen = (timeline: ReadonlyArray<Fact>, reference: Reference) 
 };
 
 /**
- * WriteLanes I6: all sends of one Attempt carry the same id and the same input, and no two writes
- * share an id.
+ * All sends of one Attempt carry the same id and the same input, and no two writes share an id.
  *
  * **Details**
  *

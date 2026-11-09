@@ -8,6 +8,7 @@ import { Answer } from "../world/network.ts";
  * **Details**
  *
  * - `attempts`: a write, whose sends are Attempts with ids on the wire.
+ * - `concurrency`: the operation's declared policy.
  * - `success`, `failure` (by tag, `NotSent` for Flow's declines) and `unknown`: the event each
  *   ending maps to.
  * - `classify`: the channel the operation's commit gives the server's answer, given whether an
@@ -16,6 +17,7 @@ import { Answer } from "../world/network.ts";
  */
 export type OperationReference = {
   readonly attempts: boolean;
+  readonly concurrency: "reject" | "latest" | "serialize" | "cancel";
   readonly success: string;
   readonly failure: Readonly<Record<string, string>>;
   readonly unknown: string;
@@ -59,6 +61,7 @@ const capturable = (fields: Readonly<Record<string, unknown>>) =>
 const pay = {
   pay: {
     attempts: true,
+    concurrency: "reject",
     success: "Confirmed",
     failure: {
       CardDeclined: "Declined",
@@ -73,6 +76,7 @@ const pay = {
   },
   place: {
     attempts: true,
+    concurrency: "reject",
     success: "Placed",
     failure: { NotSent: "PlaceRefused" },
     unknown: "PlaceUnsure",
@@ -80,6 +84,7 @@ const pay = {
   },
   void: {
     attempts: true,
+    concurrency: "reject",
     success: "Voided",
     failure: { AlreadyCaptured: "VoidRefused", NotSent: "Voided" },
     unknown: "VoidUnsure",
@@ -154,8 +159,8 @@ export const operationNamed = (reference: Reference, name: string) => {
  *
  * **Details**
  *
- * A failure's reason is its tag, or the `why` of a Flow decline (`NotSent { why }`, the closed
- * list of WriteLanes R3), which maps through `NotSent`. Any other reason has no mapping.
+ * A failure's reason is its tag, or the `why` of a Flow decline (`NotSent { why }`, Flow's closed
+ * list of reasons), which maps through `NotSent`. Any other reason has no mapping.
  */
 export const mappedEvent = (operation: OperationReference, channel: Channel, reason: string) => {
   if (channel === "success") return Option.some(operation.success);

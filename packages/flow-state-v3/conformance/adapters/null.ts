@@ -13,6 +13,7 @@ export const nullPort: Port = {
   boot: () => ({
     ensure: () => undefined,
     ensureExisting: () => undefined,
+    release: () => undefined,
     send: () => undefined,
     dispose: () => undefined,
     snapshot: () => Snapshot.Absent(),

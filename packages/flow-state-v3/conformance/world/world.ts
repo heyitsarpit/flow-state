@@ -70,12 +70,17 @@ export const settle = (world: World, pending: () => boolean) => {
 /**
  * Moves time forward by `ms`, firing each due timer in time order and settling after each,
  * including timers armed along the way that fall due by the end.
+ *
+ * **Gotchas**
+ *
+ * - Throws `Unsettled` past 100,000 firings in one advance: a timer that re-arms itself at no
+ *   delay.
  */
 export const advance = (world: World, ms: number, pending: () => boolean) => {
   const end = world.clock.now() + ms;
   settle(world, pending);
 
-  for (;;) {
+  for (let fired = 0; fired <= STEPS_PER_SETTLE; fired += 1) {
     const due = world.clock.nextDue(end);
 
     if (Option.isSome(due)) world.clock.fire(due.value);
@@ -84,6 +89,8 @@ export const advance = (world: World, ms: number, pending: () => boolean) => {
 
     settle(world, pending);
   }
+
+  throw new Unsettled({ steps: STEPS_PER_SETTLE });
 };
 
 /**

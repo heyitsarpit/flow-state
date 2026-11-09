@@ -113,7 +113,19 @@ const expectedEnding = (answer: Answer, mayHaveApplied: boolean, operation: Oper
   return { channel, reason: Option.none<string>() };
 };
 
-type Asked = { readonly answer: Answer; readonly mayHaveApplied: boolean };
+type Asked = {
+  readonly answer: Answer;
+  readonly mayHaveApplied: boolean;
+  readonly live: boolean;
+};
+
+const failureKept = (asked: Asked, ended: Ended) => {
+  const answer = asked.answer;
+
+  if (ended.reason !== "StillUnknown" || !Answer.$is("Fail")(answer)) return true;
+
+  return Option.match(ended.failure, { onNone: () => true, onSome: (tag) => tag === answer.tag });
+};
 
 const judgeAnswered = (id: string, asked: Asked, ended: Ended, operation: OperationReference) => {
   const expected = expectedEnding(asked.answer, asked.mayHaveApplied, operation);
@@ -123,7 +135,7 @@ const judgeAnswered = (id: string, asked: Asked, ended: Ended, operation: Operat
     onSome: (reason) => reason === ended.reason,
   });
 
-  if (expected.channel === ended.channel && reasonRight) return [];
+  if (expected.channel === ended.channel && reasonRight && failureKept(asked, ended)) return [];
 
   const said = Option.match(expected.reason, { onNone: () => "", onSome: (r) => ` ${r}` });
 
@@ -155,21 +167,43 @@ const earlierUnsure = (
       !heard(r, operation),
   );
 
+const learnLive = (fact: Fact, live: Set<string>) => {
+  if (Fact.$is("Reloaded")(fact)) live.clear();
+
+  if (!Fact.$is("Reported")(fact)) return;
+  const observed = fact.observation;
+
+  if (Observation.$is("Sent")(observed)) live.add(idOf(observed.operation, observed.attempt));
+
+  if (Observation.$is("Ended")(observed) && Option.isSome(observed.attempt))
+    live.delete(idOf(observed.operation, observed.attempt.value));
+};
+
+const unended = (asked: ReadonlyMap<string, Asked>) =>
+  [...asked].flatMap(([id, a]) =>
+    a.live
+      ? [
+          `WriteLanes I3: the server answered ${id} ${a.answer._tag} on a live send, and no ending names it`,
+        ]
+      : [],
+  );
+
 const endedAsAnswered = (facts: Facts) => {
+  const live = new Set<string>();
+
   const inStep = (step: ReadonlyArray<Fact>) => {
     const asked = new Map<string, Asked>();
 
     const ask = (fact: Fact) => {
       if (!Fact.$is("Answered")(fact) || Option.isNone(fact.request.key)) return;
+
+      if (Answer.$is("Never")(fact.answer)) return;
       const id = idOf(fact.request.operation, fact.request.key.value);
       const operation = writeNamed(facts.reference, fact.request.operation);
 
-      const mayHaveApplied = Option.match(operation, {
-        onNone: () => false,
-        onSome: (o) => earlierUnsure(fact.request, facts.requests, o),
-      });
-
-      asked.set(id, { answer: fact.answer, mayHaveApplied });
+      if (Option.isNone(operation)) return;
+      const mayHaveApplied = earlierUnsure(fact.request, facts.requests, operation.value);
+      asked.set(id, { answer: fact.answer, mayHaveApplied, live: live.has(id) });
     };
 
     const end = (ended: Ended) => {
@@ -184,27 +218,33 @@ const endedAsAnswered = (facts: Facts) => {
       return judgeAnswered(id, answered.value, ended, operation.value);
     };
 
-    return step.flatMap((fact) => {
+    const found = step.flatMap((fact) => {
       ask(fact);
+      const judged = Option.toArray(endedOf(fact)).flatMap(end);
+      learnLive(fact, live);
 
-      return Option.toArray(endedOf(fact)).flatMap(end);
+      return judged;
     });
+
+    return [...found, ...unended(asked)];
   };
 
   return steps(facts.timeline).flatMap(inStep);
 };
 
 /**
- * WriteLanes I3: every delivered ending is exactly one of success, failure and unknown, and an
- * Attempt that ever ended unknown never delivers a definite failure.
+ * Every delivered ending is exactly one of success, failure and unknown, and an Attempt that ever
+ * ended unknown never delivers a definite failure.
  *
  * **Details**
  *
  * Three checks:
- * - an ending decided in the step the suite's server answered its Attempt is on the channel the
- *   fixture's commit gives that answer (the fixture's reference); it is `unknown Defect` for a
- *   died call, and `unknown StillUnknown` for a definite failure when an earlier send of that
- *   Attempt was never definitely answered by the server. Anchored to the server's log.
+ * - an answer the suite's server gives to a live send (the runtime reported the send and no
+ *   ending since) ends that Attempt in the same step, under its id, on the channel the fixture's
+ *   commit gives that answer (the fixture's reference); it is `unknown Defect` for a died call,
+ *   and `unknown StillUnknown`, carrying the failure's tag when the runtime reports it, for a
+ *   definite failure when an earlier send of that Attempt was never definitely answered by the
+ *   server. Anchored to the server's log.
  * - a delivered ending runs the event the fixture's reference maps the ending's channel and reason
  *   to. The mapping is the suite's; the channel and reason are the runtime's own report, so for an
  *   ending the server did not decide (a decline, a restore, a cancel) this is consistency only.
@@ -213,7 +253,7 @@ const endedAsAnswered = (facts: Facts) => {
  * **Gotchas**
  *
  * - Only operations the case's references name, once, are checked by mapping.
- * - An ending decided in a later step than its answer is not judged against that answer.
+ * - An ending must come in the step its answer came; one in a later step is reported missing.
  * - Declines carry no Attempt id and are paired with deliveries in order per operation.
  */
 export const threeChannels: Oracle = {

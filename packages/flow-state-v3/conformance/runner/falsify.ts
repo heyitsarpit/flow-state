@@ -98,9 +98,9 @@ const verdictsOf = (stdout: string, stderr: string, code: number) =>
   );
 
 // RETURN_TYPE: each branch builds one variant; the union keeps them one LieVerdict.
-const judge = (lie: Lie, verdicts: ReadonlyArray<CaseVerdict>): LieVerdict => {
+const judge = (lie: Lie, oracle: string, verdicts: ReadonlyArray<CaseVerdict>): LieVerdict => {
   const red = verdicts.flatMap((v) => (v._tag === "Fail" ? [v] : []));
-  const caught = red.find((v) => Option.contains(v.oracle, lie.oracle));
+  const caught = red.find((v) => v.oracles.includes(oracle));
 
   if (caught !== undefined)
     return LieVerdict.Caught({ lie: lie.name, why: `${caught.id}: ${caught.why}` });
@@ -136,19 +136,27 @@ export const suiteIn = (
   );
 
 /**
- * Applies one lie to a fresh copy of the runtime, runs its cases there and judges the result.
+ * Applies one lie to a fresh copy of the runtime, runs its cases there and judges the result:
+ * caught only when `oracle`, the oracle of the guarantee that holds the lie, is among those that
+ * failed a case.
  *
  * **Details**
  *
  * The copy lives in `scratch` and is removed when the run ends, whatever its outcome.
  */
-export const falsifyOne = (main: string, runtimeDir: string, scratch: string, lie: Lie) =>
+export const falsifyOne = (
+  main: string,
+  runtimeDir: string,
+  scratch: string,
+  oracle: string,
+  lie: Lie,
+) =>
   Effect.scoped(
     Effect.gen(function* () {
       const copy = yield* copyRuntime(runtimeDir, scratch);
       yield* applyEdits(copy.runtime, lie);
 
-      return judge(lie, yield* suiteIn(main, copy.runtime, lie.cases, 120));
+      return judge(lie, oracle, yield* suiteIn(main, copy.runtime, lie.cases, 120));
     }),
   ).pipe(
     Effect.catchTags({

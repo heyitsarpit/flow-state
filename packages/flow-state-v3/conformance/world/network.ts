@@ -76,10 +76,16 @@ export type Request = {
  * - A read (no key) aborted by its caller ends at the server. A write has no signal: it stays
  *   open, and a later answer changes only what the server did.
  * - A failure reaches the caller as its tagged error: `{ _tag, ...fields }`.
+ * - `answerLate`: the server finally answers a request that was open, hanging or orphaned; only a
+ *   caller still alive hears it.
+ * - `landLate`: a request answered `Lost` reaches the server after all; nobody hears it.
+ * - `uninterruptible`: from now on, calls of that operation cannot be interrupted.
+ * - `answerAtOnce`: from now on, calls of that operation are answered as they are made.
  *
  * **Gotchas**
  *
- * - `answer` throws `RequestNotOpen` for a request that is not open.
+ * - `answer` throws `RequestNotOpen` for a request that is not open; `answerLate` for one that is
+ *   already decided.
  */
 export type Network = {
   readonly request: (
@@ -92,6 +98,12 @@ export type Network = {
     where: Option.Option<Readonly<Record<string, unknown>>>,
   ) => Option.Option<Request>;
   readonly answer: (request: Request, answer: Answer) => void;
+  readonly oldestUndecided: (operation: string) => Option.Option<Request>;
+  readonly answerLate: (request: Request, answer: Answer) => void;
+  readonly oldestLost: (operation: string) => Option.Option<Request>;
+  readonly landLate: (request: Request) => void;
+  readonly uninterruptible: (operation: string) => void;
+  readonly answerAtOnce: (operation: string, answer: Answer) => void;
   readonly requests: () => ReadonlyArray<Request>;
   readonly landed: () => ReadonlyArray<Request>;
   readonly kill: () => void;
@@ -148,6 +160,14 @@ const within = (input: unknown, where: Readonly<Record<string, unknown>>) =>
 export const makeNetwork = (now: () => number, page: () => number): Network => {
   let log: ReadonlyArray<Request> = [];
   let resumes: ReadonlyMap<number, (effect: Effect.Effect<unknown, unknown>) => void> = new Map();
+  let steadfast: ReadonlySet<string> = new Set();
+  let atOnce: ReadonlyMap<string, Answer> = new Map();
+
+  const phaseOf = (request: Request) => log[request.seq]?.phase ?? request.phase;
+
+  const refuse = (request: Request) => () => {
+    throw new RequestNotOpen({ seq: request.seq, phase: phaseOf(request)._tag });
+  };
 
   const setPhase = (seq: number, phase: RequestPhase) => {
     log = log.map((r) => (r.seq === seq ? { ...r, phase } : r));
@@ -181,41 +201,77 @@ export const makeNetwork = (now: () => number, page: () => number): Network => {
     if (resume !== undefined) resume(outcome(answer));
   };
 
-  return {
-    request: (operation, input, key) =>
-      Effect.suspend(() => {
-        const seq = log.length;
-        log = [
-          ...log,
-          { seq, operation, input, key, page: page(), at: now(), phase: RequestPhase.Open() },
-        ];
+  const call = (operation: string, input: unknown, key: Option.Option<string>) =>
+    Effect.suspend(() => {
+      const seq = log.length;
+      const given = atOnce.get(operation);
 
-        return Effect.callback<unknown, unknown>((resume) => {
-          resumes = new Map([...resumes, [seq, resume]]);
+      const phase =
+        given === undefined ? RequestPhase.Open() : RequestPhase.Answered({ answer: given });
 
-          return Option.isNone(key)
-            ? Effect.sync(() => {
-                forget(seq);
-                setPhase(seq, RequestPhase.Aborted());
-              })
-            : undefined;
-        });
-      }),
-    oldestOpen: (operation, where) => Option.fromUndefinedOr(oldest(operation, where)),
-    answer: (held, answer) => {
-      const now = log[held.seq]?.phase ?? held.phase;
+      log = [...log, { seq, operation, input, key, page: page(), at: now(), phase }];
 
-      const refuse = () => {
-        throw new RequestNotOpen({ seq: held.seq, phase: now._tag });
-      };
+      if (given !== undefined) return outcome(given);
 
-      RequestPhase.$match(now, {
-        Open: () => reply(held, answer),
-        Hanging: refuse,
-        Aborted: refuse,
-        Orphaned: refuse,
-        Answered: refuse,
+      return Effect.callback<unknown, unknown>((resume) => {
+        resumes = new Map([...resumes, [seq, resume]]);
+
+        return Option.isNone(key)
+          ? Effect.sync(() => {
+              forget(seq);
+              setPhase(seq, RequestPhase.Aborted());
+            })
+          : undefined;
       });
+    });
+
+  const undecided = (r: Request) =>
+    RequestPhase.$is("Open")(r.phase) ||
+    RequestPhase.$is("Hanging")(r.phase) ||
+    RequestPhase.$is("Orphaned")(r.phase);
+
+  const lost = (r: Request) =>
+    RequestPhase.$is("Answered")(r.phase) && Answer.$is("Lost")(r.phase.answer);
+
+  return {
+    request: (operation, input, key) => {
+      const sent = call(operation, input, key);
+
+      return steadfast.has(operation) ? Effect.uninterruptible(sent) : sent;
+    },
+    oldestOpen: (operation, where) => Option.fromUndefinedOr(oldest(operation, where)),
+    answer: (request, answer) =>
+      RequestPhase.$match(phaseOf(request), {
+        Open: () => reply(request, answer),
+        Hanging: refuse(request),
+        Aborted: refuse(request),
+        Orphaned: refuse(request),
+        Answered: refuse(request),
+      }),
+    oldestUndecided: (operation) =>
+      Option.fromUndefinedOr(log.find((r) => r.operation === operation && undecided(r))),
+    answerLate: (request, answer) =>
+      RequestPhase.$match(phaseOf(request), {
+        Open: () => reply(request, answer),
+        Hanging: () => reply(request, answer),
+        Orphaned: () => reply(request, answer),
+        Aborted: refuse(request),
+        Answered: refuse(request),
+      }),
+    oldestLost: (operation) =>
+      Option.fromUndefinedOr(log.find((r) => r.operation === operation && lost(r))),
+    landLate: (request) => {
+      if (!lost(log[request.seq] ?? request)) refuse(request)();
+      setPhase(
+        request.seq,
+        RequestPhase.Answered({ answer: Answer.LostButLanded({ value: null }) }),
+      );
+    },
+    uninterruptible: (operation) => {
+      steadfast = new Set([...steadfast, operation]);
+    },
+    answerAtOnce: (operation, answer) => {
+      atOnce = new Map([...atOnce, [operation, answer]]);
     },
     requests: () => log,
     landed: () =>
