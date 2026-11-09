@@ -600,20 +600,24 @@ coverage
 tests
     T1  Boundaries. Exists: `nub run check` type-checks `port.ts`, whose types name no adapter. Phase 3 writes this: an 
         import-boundary lint over `scenarios/`, `oracles/`, `dsl/`, `fixtures/` and `world/`, seen rejecting a
-            planted import of `adapters/prototype.ts` and a planted static case importing a compiler module. [@I1, @I2, 
-                @I42]
+            planted import of `adapters/prototype.ts` and a planted static case importing a compiler module; and a
+            check that every Port operation, result and Observation tag names a public operation, result or report in
+            `workflow/specs/core/`, seen rejecting a planted tag no core Spec names. [@I1, @I2, @I42]
     T2  Settling only. Phase 3 writes this: a static check that only the settle step calls `pending`, seen rejecting a 
         planted read in an oracle. [@I3]
     T3  Cross-adapter parity. Phase 4 writes this: every case, of both kinds, on the prototype and on production; each 
         verdict difference is a stated limit naming that case, or a bug. [@I4]
     T4  Adapter testimony. Phase 3 writes this: the audit reads each adapter against its implementation's report and 
         result types and lists every value not backed by one; each is a stated limit or a bug. [@I5, @I42]
-    T5  Oracle purity. Exists: the `Oracle` type (`check: (facts: Facts) => ...`) under `nub run check`. [@I6]
+    T5  Oracle purity. Exists: the `Oracle` type (`check: (facts: Facts) => ...`) under `nub run check`. Phase 3 writes 
+        this: a lint over `oracles/` forbidding clock, randomness and host APIs, seen rejecting a planted
+            oracle that reads `Date.now()`. [@I6]
     T6  Anchors. Phase 3 writes this: the audit marks every oracle rule as anchored or consistency-only and checks the 
         guarantee map for an Invariant with consistency-only rules alone. [@I7, @I8]
     T7  Citations resolve. Phase 3 writes this: a check that resolves every case's and every expectation's cited rules 
         and every oracle's `guarantee` against `workflow/specs/core/`, seen rejecting a planted
-            "WriteLanes R99" and a planted expectation with no citation. [@I9, @I10, @I40]
+            "WriteLanes R99", a planted expectation with no citation and a planted violation citing an Invariant its
+            oracle does not name. [@I9, @I10, @I40]
     T8  Expectation provenance. Phase 3 writes this: the audit re-derives each expectation and fixture reference from 
         its cited rules and the fixture's source, lists every value that differs from the rule or that only a run
             could give, and writes its own mutants from the Specs. [@I11, @I41]
@@ -648,16 +652,19 @@ tests
             decoded verdict; and a planted generated-input static case that fails one input seed, seen with that seed
             named. [@I21, @I43]
     T19  Session seeds. Phase 4 writes this: WriteLanes T18's seed cases with a seed-ignoring mint as the mutant
-            (README decision 8). [@I23]
+            (README decision 8); and a page-ignoring mint (the session seed without its page) as a second mutant, seen
+            failing on a two-page case. [@I23]
     T20  One verdict per id. Exists: `--only NOPE` gives a non-pass "no such case"; a child with no verdicts gives a
             non-pass per id (`sliceVerdicts`). Phase 3 writes this: a runner self-test with a killed child and an
-            unknown id, each seen giving a defect. [@I24]
+            unknown id, each seen giving a defect, and a planted child that reports two verdicts for one id, seen
+            giving a defect. [@I24]
     T21  Exit codes and forms. Exists: `report` in `runner/main.ts`. Phase 3 writes this: runner self-tests for one
             failing case of each kind (exit 1), an empty run (exit 1), a decoded `VERDICTS` line whose failure fields
             name the run, the judge, the rule and, for the runtime case, the step, and one final `VERDICT` line.
             [@I26, @I27, @I32, @I43]
     T22  Falsify verdict. Phase 3 writes this: a runner self-test with a planted surviving mutant, a planted null pass
-            and a planted case-only Invariant with no mutant, each seen giving `VERDICT fail` and exit 1. [@I28]
+            and a planted case-only Invariant with no mutant, a planted red control, a run with no mutants and a
+            planted edit that does not apply, each seen giving `VERDICT fail` and exit 1. [@I28]
     T23  Old-suite comparison. Exists by hand: STATUS.md compares the ported payment cases and each mutant against the
             old suite. Phase 3 writes this: the verdict-compare mode (README work list item 4), run per ported area,
             and the area's ported mark refused while a new-suite bug is open. [@I29, @I30, @I39]
