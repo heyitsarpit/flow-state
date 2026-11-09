@@ -1,6 +1,9 @@
 spec Runtime
 status        proposed
-basis         Current Workflow owner Plans under workflow/plans/rewrite (proposed; not approved 
+basis         Superseded as a whole by the core Specs in specs/core/ (see
+              workflow/plans/flow/references/proposals/spec-split.md); kept as prior art.
+              Status stays proposed only because the format allows open coverage only then.
+              Current Workflow owner Plans under workflow/plans/rewrite (proposed; not approved 
               as a set), plus the individually approved chat decisions cited by 
               affected Requirements; fresh preparation.
 location      specs/runtime
