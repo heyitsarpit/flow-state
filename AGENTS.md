@@ -11,10 +11,26 @@
 - `apps/docs/` — docs. Generated files are produced by commands; don't hand-edit them.
 - `codebases/effect-v4/` — Effect reference. Installed packages are what's authoritative.
 
-## Workflow records
-- Every prose section of a `.plan`, `.task` or `.spec` is valid Markdown plus the workflow links (`@id`,
-  `code:path#symbol`, `skill:name#heading`): use headings, lists, tables and fenced code where they help; lines at
-  most 120 characters (`workflow format --write` wraps them).
+## Workflow
+
+`workflow/` is this project's local wiki: the record of what we're building, why, and how. Read it before you plan
+or change code, and keep it current as you work.
+
+- **Plans** (`workflow/plans/`): what we're building and why. Goals, outcomes, and decisions with their reasons.
+- **Tasks** (`workflow/tasks/`): how we execute. Epics split into phases and Tasks, each with acceptance, gates and
+  evidence. An Epic carries its own loop: how to run it, how often to review, when to stop.
+- **Specs** (`workflow/specs/`): the code's skeleton. Requirements, Invariants and tests that code is built from and
+  checked against.
+
+How to use it:
+- Start with `workflow status` and `workflow next`. `workflow show @id` reads any record.
+- Treat the records as the source of truth over chat history: when they disagree, follow the record and say so.
+- Write down what you decide as you go: a decision or result goes in a note or comment on its record
+  (`workflow edit @id --now --text "comment=…"`), with why and how to reverse it.
+- Change a record's scope only with the user's approval. Mark everything not yet approved as proposed.
+- Cite records rather than restating them: `@id`, `code:path#symbol`, `skill:name#heading`.
+- Every prose section is valid Markdown plus those links; lines are at most 120 characters. Run
+  `workflow format --write`, then `workflow check`, before you finish.
 
 ## Commands
 Use the pinned `nub` toolchain. See `package.json` for scripts.
